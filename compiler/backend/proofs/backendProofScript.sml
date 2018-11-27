@@ -21,8 +21,36 @@ val _ = new_theory"backendProof";
 val _ = Parse.hide "all"; (* TODO: replace these with set_grammar_ancestry *)
 val _ = Parse.hide "cf";
 
-fun Abbrev_intro th =
-  EQ_MP (SYM(SPEC(concl th)markerTheory.Abbrev_def)) th
+val WORD_LS_IMP = Q.store_thm("WORD_LS_IMP",
+  `a <=+ b ==>
+    ?k. Abbrev (b = a + n2w k) /\
+        w2n (b - a) = k /\
+        (!w. a <=+ w /\ w <+ b <=> ?i. w = a + n2w i /\ i < k)`,
+  Cases_on `a` \\ Cases_on `b` \\ fs [WORD_LS]
+  \\ fs [markerTheory.Abbrev_def]
+  \\ full_simp_tac std_ss [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ fs [] \\ rw [] THEN1
+   (rewrite_tac [GSYM word_sub_def]
+    \\ once_rewrite_tac [WORD_ADD_COMM]
+    \\ rewrite_tac [WORD_ADD_SUB])
+  \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
+
+val MOD_SUB_LEMMA = Q.store_thm("MOD_SUB_LEMMA",
+  `n MOD k = 0 /\ m MOD k = 0 /\ 0 < k ==> (n - m) MOD k = 0`,
+  Cases_on `m <= n` \\ fs []
+  \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
+  \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
+  \\ drule MOD_PLUS
+  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []);
+
+val LESS_MULT_LEMMA = Q.store_thm("LESS_MULT_LEMMA",
+  `n1 < n2 /\ d < k ==> k * n1 + d < k * n2:num`,
+  Cases_on `n2` \\ fs [MULT_CLAUSES] \\ rw []
+  \\ fs [DECIDE ``n1 < SUC k <=> n1 <= k``]
+  \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
+  \\ fs []);
 
 val EVERY_sec_label_ok = store_thm("EVERY_sec_label_ok",
   ``EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels l) (*∧
@@ -30,23 +58,6 @@ val EVERY_sec_label_ok = store_thm("EVERY_sec_label_ok",
     EVERY (sec_label_ok n) l``,
   Induct_on`l`>>simp[labPropsTheory.extract_labels_def]>>
   Cases>>simp[labPropsTheory.extract_labels_def]);
-
-val EVERY_FST_SND = Q.store_thm("EVERY_FST_SND",
-  `EVERY (λ(a,b). P a ∧ Q b) ls ⇔ EVERY P (MAP FST ls) ∧ EVERY Q (MAP SND ls)`,
-  rw[EVERY_MEM,MEM_MAP,UNCURRY,EXISTS_PROD,FORALL_PROD,PULL_EXISTS]
-  \\ metis_tac[]);
-
-val BIJ_FLOOKUP_MAPKEYS = Q.store_thm("BIJ_FLOOKUP_MAPKEYS",
-  `BIJ bij UNIV UNIV ==>
-    FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)`,
-  fs [FLOOKUP_DEF,MAP_KEYS_def,BIJ_DEF] \\ strip_tac
-  \\ match_mp_tac (METIS_PROVE []
-      ``x=x'/\(x /\ x' ==> y=y') ==> (if x then y else z) = (if x' then y' else z)``)
-  \\ fs [] \\ rw []
-  THEN1 (eq_tac \\ rw [] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF])
-  \\ `BIJ (LINV bij UNIV) UNIV UNIV` by metis_tac [BIJ_LINV_BIJ,BIJ_DEF]
-  \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
-  \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
 
 val word_list_exists_imp = Q.store_thm("word_list_exists_imp",
   `dm = addresses a n /\
@@ -73,51 +84,6 @@ val byte_aligned_mult = Q.store_thm("byte_aligned_mult",
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
   \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]);
-
-val IMP_MULT_DIV_LESS = Q.store_thm("IMP_MULT_DIV_LESS",
-  `m <> 0 /\ d < k ==> m * (d DIV m) < k`,
-  strip_tac \\ `0 < m` by decide_tac
-  \\ drule DIVISION
-  \\ disch_then (qspec_then `d` assume_tac)
-  \\ decide_tac);
-
-val WORD_LS_IMP = Q.store_thm("WORD_LS_IMP",
-  `a <=+ b ==>
-    ?k. Abbrev (b = a + n2w k) /\
-        w2n (b - a) = k /\
-        (!w. a <=+ w /\ w <+ b <=> ?i. w = a + n2w i /\ i < k)`,
-  Cases_on `a` \\ Cases_on `b` \\ fs [WORD_LS]
-  \\ fs [markerTheory.Abbrev_def]
-  \\ full_simp_tac std_ss [GSYM word_sub_def,addressTheory.word_arith_lemma2]
-  \\ fs [] \\ rw [] THEN1
-   (rewrite_tac [GSYM word_sub_def]
-    \\ once_rewrite_tac [WORD_ADD_COMM]
-    \\ rewrite_tac [WORD_ADD_SUB])
-  \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
-
-val DIV_LESS_DIV = Q.store_thm("DIV_LESS_DIV",
-  `n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k`,
-  strip_tac
-  \\ drule DIVISION \\ disch_then (qspec_then `n` (strip_assume_tac o GSYM))
-  \\ drule DIVISION \\ disch_then (qspec_then `m` (strip_assume_tac o GSYM))
-  \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]);
-
-val MOD_SUB_LEMMA = Q.store_thm("MOD_SUB_LEMMA",
-  `n MOD k = 0 /\ m MOD k = 0 /\ 0 < k ==> (n - m) MOD k = 0`,
-  Cases_on `m <= n` \\ fs []
-  \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
-  \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
-  \\ drule MOD_PLUS
-  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []);
-
-val LESS_MULT_LEMMA = Q.store_thm("LESS_MULT_LEMMA",
-  `n1 < n2 /\ d < k ==> k * n1 + d < k * n2:num`,
-  Cases_on `n2` \\ fs [MULT_CLAUSES] \\ rw []
-  \\ fs [DECIDE ``n1 < SUC k <=> n1 <= k``]
-  \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
-  \\ fs []);
 
 val nsLookup_Bind_v_some = Q.store_thm("nsLookup_Bind_v_some",
   `nsLookup (Bind v []) k = SOME x ⇔
@@ -238,10 +204,6 @@ val fun2set_disjoint_union = Q.store_thm("fun2set_disjoint_union",
   \\ simp[EXTENSION]
   \\ conj_tac >- metis_tac[]
   \\ fs[IN_DISJOINT,FORALL_PROD]);
-
-val DISJOINT_INTER = Q.store_thm("DISJOINT_INTER",
-  `DISJOINT b c ⇒ DISJOINT (a ∩ b) (a ∩ c)`,
-  rw[IN_DISJOINT] \\ metis_tac[]);
 
 (* -- *)
 

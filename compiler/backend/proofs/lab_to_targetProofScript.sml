@@ -4858,12 +4858,6 @@ val find_ffi_names_append = Q.prove(`
   fs[MEM_FILTER,FILTER_APPEND]>>
   fs[]);
 
-val MOD_IMP_aligned = store_thm("MOD_IMP_aligned", (* TODO: move *)
-  ``!n p. n MOD 2 ** p = 0 ==> aligned p (n2w n)``,
-  fs [alignmentTheory.aligned_bitwise_and]
-  \\ once_rewrite_tac [WORD_AND_COMM]
-  \\ fs [WORD_AND_EXP_SUB1]);
-
 val all_enc_ok_aligned_pos_val = Q.store_thm("all_enc_ok_aligned_pos_val",
  `!(mc_conf : ('a, 'b, 'c) machine_config) labs code2 pc.
    all_enc_ok mc_conf.target.config labs mc_conf.ffi_names 0 code2 /\
@@ -6385,19 +6379,6 @@ val find_ffi_names_ALL_DISTINCT = Q.store_thm("find_ffi_names_ALL_DISTINCT",`
   TOP_CASE_TAC>>fs[find_ffi_names_def]>>
   fs[list_add_if_fresh_thm]>>
   IF_CASES_TAC>>fs[ALL_DISTINCT_APPEND]);
-
-val list_subset_LENGTH = Q.store_thm("list_subset_LENGTH",`
-  !l1 l2.ALL_DISTINCT l1 ∧
-  list_subset l1 l2 ⇒
-  LENGTH l1 ≤ LENGTH l2`,
-  fs[list_subset_def,EVERY_MEM]>>
-  Induct>>rw[]>>
-  first_x_assum(qspec_then`FILTER ($~ o $= h) l2` assume_tac)>>
-  rfs[MEM_FILTER]>>
-  `LENGTH (FILTER ($~ o $= h) l2) < LENGTH l2` by
-    (match_mp_tac LENGTH_FILTER_LESS>>
-    fs[EXISTS_MEM])>>
-  fs[]);
 (* -- *)
 
 val semantics_compile_lemma = Q.prove(

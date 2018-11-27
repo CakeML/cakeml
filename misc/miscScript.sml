@@ -391,6 +391,8 @@ val alist_insert_def = Define `
   (alist_insert vs [] t = t) /\
   (alist_insert (v::vs) (x::xs) t = insert v x (alist_insert vs xs t))`
 
+val alist_insert_ind = theorem "alist_insert_ind";
+
 val lookup_alist_insert = Q.store_thm("lookup_alist_insert",
   `!x y t z. LENGTH x = LENGTH y ==>
     (lookup z (alist_insert x y t) =
@@ -407,6 +409,14 @@ val domain_alist_insert = Q.store_thm("domain_alist_insert",
     domain (alist_insert a b locs) = domain locs UNION set a`,
   Induct_on`a`>>Cases_on`b`>>full_simp_tac(srw_ss())[alist_insert_def]>>srw_tac[][]>>
   metis_tac[INSERT_UNION_EQ,UNION_COMM])
+
+val alist_insert_append = Q.store_thm("alist_insert_append",
+  `∀a1 a2 s b1 b2.
+   LENGTH a1 = LENGTH a2 ⇒
+   alist_insert (a1++b1) (a2++b2) s =
+   alist_insert a1 a2 (alist_insert b1 b2 s)`,
+  ho_match_mp_tac alist_insert_ind
+  \\ simp[alist_insert_def,LENGTH_NIL_SYM]);
 
 val fromList2_def = Define `
   fromList2 l = SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (0,LN) l)`
@@ -497,6 +507,18 @@ val LEAST_LESS_EQ = Q.store_thm("LEAST_LESS_EQ",
   numLib.LEAST_ELIM_TAC \\ rw[]
   >- (qexists_tac`y` \\ simp[])
   \\ fs[LESS_OR_EQ] \\ res_tac \\ fs[]);
+
+val BIJ_FLOOKUP_MAP_KEYS = Q.store_thm("BIJ_FLOOKUP_MAP_KEYS",
+  `BIJ bij UNIV UNIV ==>
+    FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)`,
+  fs [FLOOKUP_DEF,MAP_KEYS_def,BIJ_DEF] \\ strip_tac
+  \\ match_mp_tac (METIS_PROVE []
+      ``x=x'/\(x /\ x' ==> y=y') ==> (if x then y else z) = (if x' then y' else z)``)
+  \\ fs [] \\ rw []
+  THEN1 (eq_tac \\ rw [] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF])
+  \\ `BIJ (LINV bij UNIV) UNIV UNIV` by metis_tac [BIJ_LINV_BIJ,BIJ_DEF]
+  \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
+  \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
 
 val list_to_num_set_def = Define `
   (list_to_num_set [] = LN) /\
@@ -624,6 +646,11 @@ val ZIP_MAP_FST_SND_EQ = Q.store_thm("ZIP_MAP_FST_SND_EQ",
 val MAP_FST_I_PAIR_MAP = store_thm("MAP_FST_I_PAIR_MAP[simp]",
   ``!xs. MAP FST (MAP (I ## f) xs) = MAP FST xs``,
   Induct \\ fs [FORALL_PROD]);
+
+val EVERY_FST_SND = Q.store_thm("EVERY_FST_SND",
+  `EVERY (λ(a,b). P a ∧ Q b) ls ⇔ EVERY P (MAP FST ls) ∧ EVERY Q (MAP SND ls)`,
+  rw[EVERY_MEM,MEM_MAP,UNCURRY,EXISTS_PROD,FORALL_PROD,PULL_EXISTS]
+  \\ metis_tac[]);
 
 val LENGTH_ZIP_MIN = store_thm("LENGTH_ZIP_MIN",
   ``!xs ys. LENGTH (ZIP (xs,ys)) = MIN (LENGTH xs) (LENGTH ys)``,
@@ -2649,6 +2676,10 @@ val DISJOINT_set_simp = Q.store_thm("DISJOINT_set_simp",
     (DISJOINT (set (x::xs)) s <=> ~(x IN s) /\ DISJOINT (set xs) s)`,
   fs [DISJOINT_DEF,EXTENSION] \\ metis_tac []);
 
+val DISJOINT_INTER = Q.store_thm("DISJOINT_INTER",
+  `DISJOINT b c ⇒ DISJOINT (a ∩ b) (a ∩ c)`,
+  rw[IN_DISJOINT] \\ metis_tac[]);
+
 val ALOOKUP_EXISTS_IFF = Q.store_thm(
   "ALOOKUP_EXISTS_IFF",
   `(∃v. ALOOKUP alist k = SOME v) ⇔ (∃v. MEM (k,v) alist)`,
@@ -3196,6 +3227,13 @@ val OPTION_MAP_INJ = Q.store_thm("OPTION_MAP_INJ",
      OPTION_MAP f o1 = OPTION_MAP f o2 ⇒ o1 = o2`,
   strip_tac \\ Cases \\ Cases \\ simp[]);
 
+val the_OPTION_MAP = Q.store_thm("the_OPTION_MAP",
+    `!f d opt.
+    f d = d ==>
+    the d (OPTION_MAP f opt) = f (the d opt)`,
+    rw [] >> Cases_on `opt` >> rw [the_def]
+);
+
 val TAKE_FLAT_REPLICATE_LEQ = Q.store_thm("TAKE_FLAT_REPLICATE_LEQ",
   `∀j k ls len.
     len = LENGTH ls ∧ k ≤ j ⇒
@@ -3223,6 +3261,19 @@ list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
 
 val list_set_eq = Define `
 list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
+
+val list_subset_LENGTH = Q.store_thm("list_subset_LENGTH",`
+  !l1 l2.ALL_DISTINCT l1 ∧
+  list_subset l1 l2 ⇒
+  LENGTH l1 ≤ LENGTH l2`,
+  fs[list_subset_def,EVERY_MEM]>>
+  Induct>>rw[]>>
+  first_x_assum(qspec_then`FILTER ($~ o $= h) l2` assume_tac)>>
+  rfs[MEM_FILTER]>>
+  `LENGTH (FILTER ($~ o $= h) l2) < LENGTH l2` by
+    (match_mp_tac LENGTH_FILTER_LESS>>
+    fs[EXISTS_MEM])>>
+  fs[]);
 
 val BIJ_UPDATE = store_thm("BIJ_UPDATE",
   ``!f s t x y. BIJ f s t /\ ~(x IN s) /\ ~(y IN t) ==>
@@ -4039,6 +4090,46 @@ val align_add_aligned_gen = Q.store_thm("align_add_aligned_gen",
   \\ impl_tac >- fs[aligned_w2n]
   \\ simp[]);
 
+val MOD_IMP_aligned = store_thm("MOD_IMP_aligned",
+  ``!n p. n MOD 2 ** p = 0 ==> aligned p (n2w n)``,
+  fs [alignmentTheory.aligned_bitwise_and]
+  \\ once_rewrite_tac [WORD_AND_COMM]
+  \\ fs [WORD_AND_EXP_SUB1]);
+
+val aligned_lsl_leq = store_thm("aligned_lsl_leq",
+  ``k <= l ==> aligned k (w << l)``,
+  fs [alignmentTheory.aligned_def,alignmentTheory.align_def]
+  \\ fs [fcpTheory.CART_EQ,word_lsl_def,word_slice_def,fcpTheory.FCP_BETA]
+  \\ rw [] \\ eq_tac \\ fs []);
+
+val aligned_lsl = store_thm("aligned_lsl[simp]",
+  ``aligned k (w << k)``,
+  match_mp_tac aligned_lsl_leq \\ fs []);
+
+val align_align_MAX = store_thm("align_align_MAX",
+  ``!k l w. align k (align l w) = align (MAX k l) w``,
+  fs [alignmentTheory.align_def,fcpTheory.CART_EQ,word_slice_def,
+      fcpTheory.FCP_BETA] \\ rw [] \\ eq_tac \\ fs []);
+
+val MULT_DIV_MULT_LEMMA = store_thm("MULT_DIV_MULT_LEMMA",
+  ``!m l k. 0 < m /\ 0 < l ==> (m * k) DIV (l * m) = k DIV l``,
+  rw [] \\ qsuff_tac `k * m DIV (m * l) = k DIV l` THEN1 fs []
+  \\ simp [GSYM DIV_DIV_DIV_MULT] \\ simp [MULT_DIV]);
+
+val IMP_MULT_DIV_LESS = Q.store_thm("IMP_MULT_DIV_LESS",
+  `m <> 0 /\ d < k ==> m * (d DIV m) < k`,
+  strip_tac \\ `0 < m` by decide_tac
+  \\ drule DIVISION
+  \\ disch_then (qspec_then `d` assume_tac)
+  \\ decide_tac);
+
+val DIV_LESS_DIV = Q.store_thm("DIV_LESS_DIV",
+  `n MOD k = 0 /\ m MOD k = 0 /\ n < m /\ 0 < k ==> n DIV k < m DIV k`,
+  strip_tac
+  \\ drule DIVISION \\ disch_then (qspec_then `n` (strip_assume_tac o GSYM))
+  \\ drule DIVISION \\ disch_then (qspec_then `m` (strip_assume_tac o GSYM))
+  \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]);
+
 open pathTheory
 
 val toPath_fromList = Q.store_thm("toPath_fromList",
@@ -4482,5 +4573,486 @@ val domain_mapi = store_thm("domain_mapi[simp]",
   fs [domain_lookup,EXTENSION,sptreeTheory.lookup_mapi]);
 
 (* / TODO *)
+
+(* BEGIN TODO: move to sptreeTheory *)
+
+val mk_BN_thm = prove(
+  ``!t1 t2. mk_BN t1 t2 =
+            if isEmpty t1 /\ isEmpty t2 then LN else BN t1 t2``,
+  REPEAT Cases >> EVAL_TAC);
+
+val mk_BS_thm = prove(
+  ``!t1 t2. mk_BS t1 x t2 =
+            if isEmpty t1 /\ isEmpty t2 then LS x else BS t1 x t2``,
+  REPEAT Cases >> EVAL_TAC);
+
+val oddevenlemma = prove(
+  ``2n * y + 1 <> 2 * x + 2``,
+  disch_then (mp_tac o AP_TERM ``EVEN``) >>
+  simp[EVEN_ADD, EVEN_MULT]);
+
+val size_domain = Q.store_thm("size_domain",
+    `∀ t . size t = CARD (domain t)`,
+    Induct_on `t`
+    >- rw[size_def, domain_def]
+    >- rw[size_def, domain_def]
+    >> rw[pred_setTheory.CARD_UNION_EQN, pred_setTheory.CARD_INJ_IMAGE]
+    >| [
+    `IMAGE (λn. 2 * n + 2) (domain t) ∩ IMAGE (λn. 2 * n + 1) (domain t') = {}`
+        by (rw[GSYM pred_setTheory.DISJOINT_DEF, pred_setTheory.IN_DISJOINT]
+        >> Cases_on `ODD x`
+        >> fs[ODD_EXISTS, ADD1, oddevenlemma]
+           )
+        >> simp[] ,
+    `(({0} ∩ IMAGE (λn. 2 * n + 2) (domain t)) = {}) /\
+     (({0} UNION (IMAGE (\n. 2 * n + 2) (domain t)))
+          INTER (IMAGE (\n. 2 * n + 1) (domain t')) = {})`
+    by (rw[GSYM pred_setTheory.DISJOINT_DEF, pred_setTheory.IN_DISJOINT]
+        >> Cases_on `ODD x`
+        >> fs[ODD_EXISTS, ADD1, oddevenlemma]
+           )
+        >> simp[]
+    ]
+);
+
+val num_set_domain_eq = Q.store_thm("num_set_domain_eq",
+    `∀ t1 t2:num_set . wf t1 ∧ wf t2 ⇒
+        (domain t1 = domain t2 ⇔ t1 = t2)`,
+    rw[] >> EQ_TAC >> rw[spt_eq_thm] >> fs[EXTENSION, domain_lookup] >>
+    pop_assum (qspec_then `n` mp_tac) >> strip_tac >>
+    Cases_on `lookup n t1` >> fs[] >> Cases_on `lookup n t2` >> fs[]
+);
+
+val union_num_set_sym = Q.store_thm ("union_num_set_sym",
+    `∀ t1:num_set t2 . union t1 t2 = union t2 t1`,
+    Induct >> fs[union_def] >> rw[] >> CASE_TAC >> fs[union_def]
+);
+
+val mk_wf_union = Q.store_thm("mk_wf_union",
+    `∀ t1 t2 . mk_wf (union t1 t2) = union (mk_wf t1) (mk_wf t2)`,
+    rw[] >> `wf(union (mk_wf t1) (mk_wf t2)) ∧ wf(mk_wf (union t1 t2))` by
+        metis_tac[wf_mk_wf, wf_union] >>
+    rw[spt_eq_thm] >> fs[lookup_union, lookup_mk_wf]
+);
+
+val domain_difference = Q.store_thm("domain_difference",
+    `∀ t1 t2 . domain (difference t1 t2) = (domain t1) DIFF (domain t2)`,
+    simp[pred_setTheory.EXTENSION, domain_lookup, lookup_difference] >>
+    rw [] >> Cases_on `lookup x t1`
+    >- fs[]
+    >> fs[] >> Cases_on `lookup x t2`
+        >- rw[] >- rw[]
+);
+
+val difference_sub = Q.store_thm("difference_sub",
+    `(difference a b = LN) ⇒ (domain a ⊆ domain b)`,
+    rw[] >>
+    `(domain (difference a b) = {})` by rw[domain_def] >>
+    fs[EXTENSION, domain_difference, SUBSET_DEF] >>
+    metis_tac[]
+);
+
+val wf_difference = Q.store_thm("wf_difference",
+    `∀ t1 t2 . (wf t1 ∧ wf t2) ⇒ wf (difference t1 t2)`,
+    Induct >> rw[difference_def, wf_def] >> CASE_TAC >> fs[wf_def]
+    >> rw[wf_def, wf_mk_BN, wf_mk_BS]
+);
+
+val delete_fail = Q.store_thm ("delete_fail",
+    `∀ n t . (wf t) ⇒ (n ∉  domain t ⇔ (delete n t = t))`,
+    simp[domain_lookup] >>
+    recInduct lookup_ind >>
+    rw[lookup_def, wf_def, delete_def, mk_BN_thm, mk_BS_thm]
+);
+
+val size_delete = Q.store_thm ( "size_delete",
+    `∀ n t . (size (delete n t) =
+        if (lookup n t = NONE) then (size t) else (size t - 1))`,
+    rw[size_def] >>
+    fs[lookup_NONE_domain] >>
+    TRY (qpat_assum `n NOTIN d` (qspecl_then [] mp_tac)) >>
+    rfs[delete_fail, size_def] >>
+    fs[lookup_NONE_domain] >>
+    fs[size_domain] >>
+    fs[lookup_NONE_domain] >>
+    fs[size_domain]
+);
+
+val lookup_zero = Q.store_thm ( "lookup_zero",
+  `∀ n t x. (lookup n t = SOME x) ==> (size t <> 0)`,
+   recInduct lookup_ind
+   \\ rw[lookup_def]
+);
+
+val empty_sub = Q.store_thm("empty_sub",
+    `isEmpty(difference a b) ∧ (subspt b a) ==> (domain a = domain b)`,
+    fs[subspt_def] >>
+    rw[] >>
+    imp_res_tac difference_sub >>
+    metis_tac[GSYM SUBSET_DEF, SUBSET_ANTISYM]
+);
+
+val subspt_delete = Q.store_thm("subspt_delete",
+    `∀ a b x . subspt a b ⇒ subspt (delete x a) b`,
+    rw[subspt_def, lookup_delete]
+);
+
+val inter_union_empty = Q.store_thm("inter_union_empty",
+    `∀ a b c . isEmpty (inter (union a b) c)
+  ⇔ isEmpty (inter a c) ∧ isEmpty (inter b c)`,
+    rw[] >> EQ_TAC >> rw[] >>
+    `wf (inter (union a b) c) ∧ wf (inter a c)` by metis_tac[wf_inter] >>
+    fs[domain_empty] >> fs[EXTENSION] >> rw[] >>
+    pop_assum (qspec_then `x` mp_tac) >> fs[domain_lookup] >>
+    rw[] >> fs[lookup_inter, lookup_union] >>
+    TRY(first_x_assum (qspec_then `x` mp_tac)) >> rw[] >>
+    fs[lookup_inter, lookup_union] >> BasicProvers.EVERY_CASE_TAC >> fs[]
+);
+
+val inter_insert_empty = Q.store_thm("inter_insert_empty",
+    `∀ n t1 t2 . isEmpty (inter (insert n () t1) t2)
+  ⇒ n ∉ domain t2 ∧ isEmpty(inter t1 t2)`,
+    rw[] >>
+    `∀ k . lookup k (inter (insert n () t1) t2) = NONE` by fs[lookup_def]
+    >- (fs[domain_lookup] >> rw[] >> fs[lookup_inter] >>
+        pop_assum (qspec_then `n` mp_tac) >>
+        rw[] >> fs[] >> BasicProvers.EVERY_CASE_TAC >> fs[])
+    >- (`wf (inter t1 t2)` by metis_tac[wf_inter] >> fs[domain_empty] >>
+        fs[EXTENSION] >> rw[] >>
+        pop_assum (qspec_then `x` mp_tac) >> rw[] >>
+        first_x_assum (qspec_then `x` mp_tac) >> rw[] >>
+        fs[domain_lookup, lookup_inter, lookup_insert] >>
+        Cases_on `x = n` >> fs[] >>
+        Cases_on `lookup n t2` >> fs[] >> CASE_TAC)
+);
+
+val fromList2_value = Q.store_thm("fromList2_value",
+    `∀ e l t n . MEM e l ⇔  ∃ n . lookup n (fromList2 l) = SOME e`,
+    rw[lookup_fromList2] >> rw[lookup_fromList] >> fs[MEM_EL] >>
+    EQ_TAC >> rw[]
+    >- (qexists_tac `n * 2` >> fs[] >> once_rewrite_tac [MULT_COMM] >>
+        rw[EVEN_DOUBLE, MULT_DIV])
+    >- (qexists_tac `n DIV 2` >> fs[])
+);
+
+val wf_spt_fold_tree = Q.store_thm("wf_spt_fold_tree",
+    `∀ tree : num_set num_map y : num_set.
+        wf tree ∧ (∀ n x . (lookup n tree = SOME x) ⇒ wf x) ∧ wf y
+      ⇒ wf(spt_fold union y tree)`,
+    Induct >> rw[] >> fs[spt_fold_def]
+    >- (fs[wf_def] >> metis_tac[lookup_def, wf_union])
+    >> `wf(spt_fold union y tree)` by (
+            last_x_assum match_mp_tac >>
+            fs[] >> rw[]
+            >- fs[wf_def]
+            >> last_x_assum match_mp_tac >>
+               qexists_tac `2 * n + 2` >>
+               fs[lookup_def] >> fs[EVEN_DOUBLE, EVEN_ADD] >>
+               once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
+    >> (last_x_assum match_mp_tac >> fs[] >> rw[]
+        >-  fs[wf_def]
+        >- (last_x_assum match_mp_tac >>
+            qexists_tac `2 * n + 1` >> fs[lookup_def, EVEN_DOUBLE, EVEN_ADD] >>
+            once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV])
+        >>  `wf a` by (last_x_assum match_mp_tac >>
+                qexists_tac `0` >> fs[lookup_def]) >>
+            fs[wf_union])
+);
+
+val lookup_spt_fold_union = Q.store_thm("lookup_spt_fold_union",
+    `∀ tree : num_set num_map y : num_set n : num .
+        lookup n (spt_fold union y tree) = SOME ()
+      ⇒ lookup n y = SOME () ∨
+        ∃ n1 s . lookup n1 tree = SOME s ∧ lookup n s = SOME ()`,
+    Induct >> rw[]
+    >-  fs[spt_fold_def]
+    >-  (fs[spt_fold_def, lookup_union] >> BasicProvers.EVERY_CASE_TAC >>
+        fs[] >>
+        DISJ2_TAC >>
+        qexists_tac `0` >> qexists_tac `a` >> fs[lookup_def])
+    >- (
+        fs[spt_fold_def] >>
+        res_tac
+        >- (
+            res_tac >> fs[]
+            >- (
+               DISJ2_TAC >>
+               fs[lookup_def] >>
+               qexists_tac `n1 * 2 + 2` >> qexists_tac `s` >>
+               fs[EVEN_DOUBLE, EVEN_ADD] >>
+               once_rewrite_tac[MULT_COMM] >>
+               fs[DIV_MULT]
+               )
+            >- (
+               DISJ2_TAC >>
+               fs[lookup_def] >>
+               qexists_tac `n1' * 2 + 2` >> qexists_tac `s'` >>
+               fs[EVEN_DOUBLE, EVEN_ADD] >>
+               once_rewrite_tac[MULT_COMM] >>
+               fs[DIV_MULT]
+               )
+            )
+        >- (
+            res_tac >> fs[] >>
+            DISJ2_TAC >>
+            fs[lookup_def] >>
+            qexists_tac `2 * n1 + 1` >> qexists_tac `s` >>
+            fs[EVEN_DOUBLE, EVEN_ADD] >>
+            once_rewrite_tac[MULT_COMM] >>
+            fs[MULT_DIV]
+            )
+        )
+    >- (
+        fs[spt_fold_def] >>
+        res_tac
+        >- (
+            fs[lookup_union] >>
+            BasicProvers.EVERY_CASE_TAC
+            >- (
+                res_tac >> fs[]
+                >- (
+                   DISJ2_TAC >>
+                   fs[lookup_def] >>
+                   qexists_tac `n1 * 2 + 2` >> qexists_tac `s` >>
+                   fs[EVEN_DOUBLE, EVEN_ADD] >>
+                   once_rewrite_tac[MULT_COMM] >>
+                   fs[DIV_MULT]
+                   )
+                >- (
+                   DISJ2_TAC >>
+                   fs[lookup_def] >>
+                   qexists_tac `n1' * 2 + 2` >> qexists_tac `s'` >>
+                   fs[EVEN_DOUBLE, EVEN_ADD] >>
+                   once_rewrite_tac[MULT_COMM] >>
+                   fs[DIV_MULT]
+                   )
+                )
+            >- (
+                DISJ2_TAC >>
+                qexists_tac `0` >> qexists_tac `a` >>
+                fs[lookup_def]
+                )
+            )
+        >- (
+            DISJ2_TAC >>
+            fs[lookup_def] >>
+            qexists_tac `2 * n1 + 1` >> qexists_tac `s` >>
+            fs[EVEN_DOUBLE, EVEN_ADD] >>
+            once_rewrite_tac[MULT_COMM] >>
+            fs[MULT_DIV]
+            )
+    )
+);
+
+val lookup_spt_fold_union_STRONG = Q.store_thm("lookup_spt_fold_union_STRONG",
+    `∀ tree : num_set num_map y : num_set n : num .
+        lookup n (spt_fold union y tree) = SOME ()
+      <=> lookup n y = SOME () ∨
+        ∃ n1 s . lookup n1 tree = SOME s ∧ lookup n s = SOME ()`,
+    Induct >> rw[] >> EQ_TAC >> fs[lookup_spt_fold_union] >> rw[] >>
+    fs[spt_fold_def, lookup_def, lookup_union]
+    >- (BasicProvers.EVERY_CASE_TAC >> fs[])
+    >- (BasicProvers.EVERY_CASE_TAC >> fs[]
+        >- (DISJ1_TAC >> DISJ2_TAC >>
+            qexists_tac `(n1 - 1) DIV 2` >> qexists_tac `s` >> fs[])
+        >- (DISJ2_TAC >>
+            qexists_tac `(n1 - 1) DIV 2` >> qexists_tac `s` >> fs[])
+        )
+    >- (BasicProvers.EVERY_CASE_TAC >> fs[])
+    >- (BasicProvers.EVERY_CASE_TAC >> fs[]
+        >- (rw[] >> fs[NOT_NONE_SOME])
+        >- (DISJ1_TAC >> DISJ2_TAC >>
+            qexists_tac `(n1 - 1) DIV 2` >> qexists_tac `s` >> fs[])
+        >- (DISJ2_TAC >>
+            qexists_tac `(n1 - 1) DIV 2` >> qexists_tac `s` >> fs[])
+        )
+);
+
+val subspt_domain_spt_fold_union = Q.store_thm("subspt_domain_spt_fold_union",
+    `∀ t1 : num_set num_map t2 y : num_set .
+        subspt t1 t2
+      ⇒ domain (spt_fold union y t1) ⊆ domain (spt_fold union y t2)`,
+    rw[SUBSET_DEF] >> fs[domain_lookup] >>
+    qspecl_then [`t1`, `y`] mp_tac lookup_spt_fold_union_STRONG >>
+    qspecl_then [`t2`, `y`] mp_tac lookup_spt_fold_union_STRONG >>
+    ntac 2 strip_tac >> res_tac
+    >- metis_tac[]
+    >> ntac 2 (first_x_assum kall_tac) >>
+       `lookup n1 t2 = SOME s` by fs[subspt_def, domain_lookup] >>
+       metis_tac[]
+);
+
+val domain_spt_fold_union = Q.store_thm("domain_spt_fold_union",
+    `∀ tree : num_set num_map y : num_set .
+        (∀ k v . lookup k tree = SOME v ⇒ domain v ⊆ domain tree)
+      ⇒ domain (spt_fold union y tree) ⊆ domain y ∪ domain tree`,
+    rw[] >> qspec_then `tree` mp_tac lookup_spt_fold_union >>
+    rw[] >> fs[SUBSET_DEF, domain_lookup] >> rw[] >> res_tac >> fs[] >>
+    metis_tac[]
+);
+
+val domain_spt_fold_union_LN = Q.store_thm("domain_spt_fold_union_LN",
+    `∀ tree : num_set num_map  .
+        (∀ k v . lookup k tree = SOME v ⇒ domain v ⊆ domain tree)
+      ⇔ domain (spt_fold union LN tree) ⊆ domain tree`,
+    rw[] >> EQ_TAC >> rw[]
+    >- (drule domain_spt_fold_union >>
+        strip_tac >> first_x_assum (qspec_then `LN` mp_tac) >> fs[])
+    >- (qspec_then `tree` mp_tac lookup_spt_fold_union_STRONG >>
+        rw[] >> fs[SUBSET_DEF, domain_lookup, lookup_def] >> rw[] >>
+        metis_tac[])
+);
+
+(* END TODO *)
+
+val TWOxDIV2 = Q.store_thm("TWOxDIV2",
+  `2 * x DIV 2 = x`,
+  ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]);
+
+val wf_LN = Q.store_thm("wf_LN[simp]",
+  `wf LN`, rw[sptreeTheory.wf_def]);
+
+(*This property is frequently used in other sptree proofs*)
+val splem1 = Q.prove(`
+  a ≠ 0 ⇒
+  (a-1) DIV 2 < a`,
+  simp[DIV_LT_X]);
+
+val splem2 = Q.prove(`
+  ∀a c.
+  a ≠ 0 ∧
+  a < c ∧
+  2 ≤ c-a ⇒
+  (a - 1) DIV 2 < (c-1) DIV 2`,
+  intLib.ARITH_TAC);
+
+val EVEN_ODD_diff = Q.prove(`
+  ∀a c.
+  a < c ∧
+  (EVEN a ∧ EVEN c ∨ ODD a ∧ ODD c) ⇒
+  2 ≤ c-a`,
+  intLib.ARITH_TAC);
+
+val splem3 = Q.prove(`
+  (EVEN c ∧ EVEN a ∨ ODD a ∧ ODD c) ∧
+  a ≠ c ∧ a ≠ 0 ∧ c ≠ 0 ⇒
+  (a-1) DIV 2 ≠ (c-1) DIV 2`,
+  intLib.ARITH_TAC);
+
+val insert_swap = Q.store_thm("insert_swap",`
+  ∀t a b c d.
+  a ≠ c ⇒
+  insert a b (insert c d t) = insert c d (insert a b t)`,
+  completeInduct_on`a`>>
+  completeInduct_on`c`>>
+  Induct>>
+  rw[]>>
+  simp[Once insert_def,SimpRHS]>>
+  simp[Once insert_def]>>
+  ntac 2 IF_CASES_TAC>>
+  fs[]>>
+  rw[]>>
+  simp[Once insert_def,SimpRHS]>>
+  simp[Once insert_def]>>
+  imp_res_tac splem1>>
+  imp_res_tac splem3>>
+  metis_tac[EVEN_ODD])
+
+val alist_insert_pull_insert = Q.store_thm("alist_insert_pull_insert",
+  `∀xs ys z. ¬MEM x xs ⇒
+   alist_insert xs ys (insert x y z) =
+   insert x y (alist_insert xs ys z)`,
+  ho_match_mp_tac alist_insert_ind
+  \\ simp[alist_insert_def] \\ rw[] \\ fs[]
+  \\ metis_tac[insert_swap]);
+
+val alist_insert_REVERSE = Q.store_thm("alist_insert_REVERSE",
+  `∀xs ys s.
+   ALL_DISTINCT xs ∧ LENGTH xs = LENGTH ys ⇒
+   alist_insert (REVERSE xs) (REVERSE ys) s = alist_insert xs ys s`,
+  Induct \\ simp[alist_insert_def]
+  \\ gen_tac \\ Cases \\ simp[alist_insert_def]
+  \\ simp[alist_insert_append,alist_insert_def]
+  \\ rw[] \\ simp[alist_insert_pull_insert]);
+
+val insert_unchanged = Q.store_thm("insert_unchanged",`
+  ∀t x.
+  lookup x t = SOME y ⇒
+  insert x y t = t`,
+  completeInduct_on`x`>>
+  Induct>>
+  fs[lookup_def]>>rw[]>>
+  simp[Once insert_def,SimpRHS]>>
+  simp[Once insert_def]>>
+  imp_res_tac splem1>>
+  metis_tac[])
+
+val alist_insert_ALL_DISTINCT = Q.store_thm("alist_insert_ALL_DISTINCT",`
+  ∀xs ys t ls.
+  ALL_DISTINCT xs ∧
+  LENGTH xs = LENGTH ys ∧
+  PERM (ZIP (xs,ys)) ls ⇒
+  alist_insert xs ys t = alist_insert (MAP FST ls) (MAP SND ls) t`,
+  ho_match_mp_tac alist_insert_ind>>rw[]>>
+  fs[LENGTH_NIL_SYM]>>rveq>>fs[ZIP]>>
+  simp[alist_insert_def]>>
+  fs[PERM_CONS_EQ_APPEND]>>
+  simp[alist_insert_append,alist_insert_def]>>
+  `¬MEM xs (MAP FST M)` by
+    (CCONTR_TAC>>fs[]>>
+    imp_res_tac PERM_MEM_EQ>>
+    fs[FORALL_PROD,MEM_MAP,EXISTS_PROD]>>
+    res_tac>>
+    imp_res_tac MEM_ZIP>>
+    fs[EL_MEM])>>
+  simp[alist_insert_pull_insert]>>
+  simp[GSYM alist_insert_append]>>
+  metis_tac[MAP_APPEND])
+
+val n2w_lt = Q.store_thm("n2w_lt",
+  `(0w:'a word) < n2w a ∧ (0w:'a word) < n2w b ∧
+   a < dimword (:'a) ∧ b < dimword (:'a)
+   ⇒
+   ((n2w a:'a word) < (n2w b:'a word) ⇔ a < b)`,
+  simp[word_lt_n2w]);
+
+val n2w_le = Q.store_thm("n2w_le",
+  `(0w:'a word) < n2w a ∧ (0w:'a word) < n2w b ∧
+   a < dimword (:'a) ∧ b < dimword (:'a)
+   ⇒
+   ((n2w a:'a word) ≤ (n2w b:'a word) ⇔ a ≤ b)`,
+  srw_tac[][WORD_LESS_OR_EQ,LESS_OR_EQ]
+  \\ metis_tac[n2w_lt]);
+
+val word_lt_0w = Q.store_thm("word_lt_0w",
+  `2 * n < dimword (:'a) ⇒ ((0w:'a word) < n2w n ⇔ 0 < n)`,
+  simp[WORD_LT]
+  \\ Cases_on`0 < n` \\ simp[]
+  \\ simp[word_msb_n2w_numeric]
+  \\ simp[NOT_LESS_EQUAL]
+  \\ simp[INT_MIN_def]
+  \\ simp[dimword_def]
+  \\ Cases_on`dimindex(:'a)`\\simp[]
+  \\ simp[EXP]);
+
+val word_sub_lt = Q.store_thm("word_sub_lt",
+  `0w < n ∧ 0w < m ∧ n ≤ m ⇒ m - n < m`,
+  rpt strip_tac
+  \\ Cases_on`m`>>Cases_on`n`
+  \\ qpat_x_assum`_ ≤ _`mp_tac
+  \\ asm_simp_tac std_ss [n2w_le]
+  \\ simp_tac std_ss [GSYM n2w_sub]
+  \\ strip_tac
+  \\ qmatch_assum_rename_tac`a:num ≤ b`
+  \\ Cases_on`a=b`>-full_simp_tac(srw_ss())[]
+  \\ `a < b` by simp[]
+  \\ `0 < a` by (Cases_on`a`\\full_simp_tac(srw_ss())[]\\metis_tac[WORD_LESS_REFL])
+  \\ `b - a < b` by simp[]
+  \\ Cases_on`0w < n2w (b - a)`
+  >- (
+    dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_lt]
+    \\ simp[])
+  \\ full_simp_tac(srw_ss())[word_lt_n2w,LET_THM]);
 
 val _ = export_theory()

@@ -58,51 +58,6 @@ val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
   srw_tac[][ffiTheory.call_FFI_def]
   \\ every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
-val n2w_lt = Q.store_thm("n2w_lt",
-  `(0w:'a word) < n2w a ∧ (0w:'a word) < n2w b ∧
-   a < dimword (:'a) ∧ b < dimword (:'a)
-   ⇒
-   ((n2w a:'a word) < (n2w b:'a word) ⇔ a < b)`,
-  simp[word_lt_n2w]);
-
-val n2w_le = Q.store_thm("n2w_le",
-  `(0w:'a word) < n2w a ∧ (0w:'a word) < n2w b ∧
-   a < dimword (:'a) ∧ b < dimword (:'a)
-   ⇒
-   ((n2w a:'a word) ≤ (n2w b:'a word) ⇔ a ≤ b)`,
-  srw_tac[][WORD_LESS_OR_EQ,LESS_OR_EQ]
-  \\ metis_tac[n2w_lt]);
-
-val word_lt_0w = Q.store_thm("word_lt_0w",
-  `2 * n < dimword (:'a) ⇒ ((0w:'a word) < n2w n ⇔ 0 < n)`,
-  simp[WORD_LT]
-  \\ Cases_on`0 < n` \\ simp[]
-  \\ simp[word_msb_n2w_numeric]
-  \\ simp[NOT_LESS_EQUAL]
-  \\ simp[INT_MIN_def]
-  \\ simp[dimword_def]
-  \\ Cases_on`dimindex(:'a)`\\simp[]
-  \\ simp[EXP]);
-
-val word_sub_lt = Q.store_thm("word_sub_lt",
-  `0w < n ∧ 0w < m ∧ n ≤ m ⇒ m - n < m`,
-  rpt strip_tac
-  \\ Cases_on`m`>>Cases_on`n`
-  \\ qpat_x_assum`_ ≤ _`mp_tac
-  \\ asm_simp_tac std_ss [n2w_le]
-  \\ simp_tac std_ss [GSYM n2w_sub]
-  \\ strip_tac
-  \\ qmatch_assum_rename_tac`a:num ≤ b`
-  \\ Cases_on`a=b`>-full_simp_tac(srw_ss())[]
-  \\ `a < b` by simp[]
-  \\ `0 < a` by (Cases_on`a`\\full_simp_tac(srw_ss())[]\\metis_tac[WORD_LESS_REFL])
-  \\ `b - a < b` by simp[]
-  \\ Cases_on`0w < n2w (b - a)`
-  >- (
-    dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_lt]
-    \\ simp[])
-  \\ full_simp_tac(srw_ss())[word_lt_n2w,LET_THM]);
-
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
   `x with clock := x.clock = x`,
   srw_tac[][state_component_equality]);
@@ -2495,26 +2450,6 @@ val fmap_simp_lemma1 = prove(
   ``g |+ (0n,x) |+ (5,y) |+ (0,z) = g |+ (0,z) |+ (5,y)``,
   fs [fmap_EXT] \\ rw [] \\ fs [EXTENSION,FAPPLY_FUPDATE_THM]
   \\ rw [] \\ fs [] \\ metis_tac []);
-
-val aligned_lsl_leq = store_thm("aligned_lsl_leq", (* TODO: move *)
-  ``k <= l ==> aligned k (w << l)``,
-  fs [alignmentTheory.aligned_def,alignmentTheory.align_def]
-  \\ fs [fcpTheory.CART_EQ,word_lsl_def,word_slice_def,fcpTheory.FCP_BETA]
-  \\ rw [] \\ eq_tac \\ fs []);
-
-val aligned_lsl = store_thm("aligned_lsl[simp]", (* TODO: move *)
-  ``aligned k (w << k)``,
-  match_mp_tac aligned_lsl_leq \\ fs []);
-
-val align_align_MAX = store_thm("align_align_MAX", (* TODO: move *)
-  ``!k l w. align k (align l w) = align (MAX k l) w``,
-  fs [alignmentTheory.align_def,fcpTheory.CART_EQ,word_slice_def,
-      fcpTheory.FCP_BETA] \\ rw [] \\ eq_tac \\ fs []);
-
-val MULT_DIV_MULT_LEMMA = store_thm("MULT_DIV_MULT_LEMMA",
-  ``!m l k. 0 < m /\ 0 < l ==> (m * k) DIV (l * m) = k DIV l``,
-  rw [] \\ qsuff_tac `k * m DIV (m * l) = k DIV l` THEN1 fs []
-  \\ simp [GSYM DIV_DIV_DIV_MULT] \\ simp [MULT_DIV]);
 
 val init_code_thm = Q.store_thm("init_code_thm",
   `init_code_pre k bitmaps data_sp s /\ code_rel jump off k code s.code /\

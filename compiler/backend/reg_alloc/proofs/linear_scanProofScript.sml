@@ -15,14 +15,6 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = hide "state";
 
-(* TODO: move *)
-val the_OPTION_MAP = Q.store_thm("the_OPTION_MAP",
-    `!f d opt.
-    f d = d ==>
-    the d (OPTION_MAP f opt) = f (the d opt)`,
-    rw [] >> Cases_on `opt` >> rw [the_def]
-);
-(* -- *)
 (* TODO: clean up this file: e.g., move things upstream *)
 
 val numset_list_insert_FOLDL = Q.store_thm("numset_list_insert_FOLDL",

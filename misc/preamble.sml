@@ -243,6 +243,9 @@ fun intro_abbrev [] tm = raise UNCHANGED
   | intro_abbrev (ab::abbs) tm =
       FORK_CONV(REWR_CONV(SYM ab),intro_abbrev abbs) tm
 
+fun Abbrev_intro th =
+  EQ_MP (SYM(SPEC(concl th)markerTheory.Abbrev_def)) th
+
 val preamble_ERR = mk_HOL_ERR"preamble"
 
 fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)

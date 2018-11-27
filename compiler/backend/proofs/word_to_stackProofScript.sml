@@ -15,86 +15,6 @@ val _ = set_grammar_ancestry [
 
 val _ = Parse.hide "B"
 
-val TWOxDIV2 = Q.store_thm("TWOxDIV2",
-  `2 * x DIV 2 = x`,
-  ONCE_REWRITE_TAC[MULT_COMM]
-  \\ simp[MULT_DIV]);
-
-val wf_LN = Q.store_thm("wf_LN[simp]",
-  `wf LN`, rw[sptreeTheory.wf_def]);
-
-(*TODO: Simplify and move to HOL or miscLib*)
-(*This property is frequently used in other sptree proofs*)
-val splem1 = Q.prove(`
-  a ≠ 0 ⇒
-  (a-1) DIV 2 < a`,
-  simp[DIV_LT_X]);
-
-val splem2 = Q.prove(`
-  ∀a c.
-  a ≠ 0 ∧
-  a < c ∧
-  2 ≤ c-a ⇒
-  (a - 1) DIV 2 < (c-1) DIV 2`,
-  intLib.ARITH_TAC);
-
-val EVEN_ODD_diff = Q.prove(`
-  ∀a c.
-  a < c ∧
-  (EVEN a ∧ EVEN c ∨ ODD a ∧ ODD c) ⇒
-  2 ≤ c-a`,
-  intLib.ARITH_TAC);
-
-val splem3 = Q.prove(`
-  (EVEN c ∧ EVEN a ∨ ODD a ∧ ODD c) ∧
-  a ≠ c ∧ a ≠ 0 ∧ c ≠ 0 ⇒
-  (a-1) DIV 2 ≠ (c-1) DIV 2`,
-  intLib.ARITH_TAC);
-
-val insert_swap = Q.store_thm("insert_swap",` (* TODO: move *)
-  ∀t a b c d.
-  a ≠ c ⇒
-  insert a b (insert c d t) = insert c d (insert a b t)`,
-  completeInduct_on`a`>>
-  completeInduct_on`c`>>
-  Induct>>
-  rw[]>>
-  simp[Once insert_def,SimpRHS]>>
-  simp[Once insert_def]>>
-  ntac 2 IF_CASES_TAC>>
-  fs[]>>
-  rw[]>>
-  simp[Once insert_def,SimpRHS]>>
-  simp[Once insert_def]>>
-  imp_res_tac splem1>>
-  imp_res_tac splem3>>
-  metis_tac[EVEN_ODD])
-
-val alist_insert_pull_insert = Q.store_thm("alist_insert_pull_insert",
-  `∀xs ys z. ¬MEM x xs ⇒
-   alist_insert xs ys (insert x y z) =
-   insert x y (alist_insert xs ys z)`,
-  ho_match_mp_tac alist_insert_ind
-  \\ simp[alist_insert_def] \\ rw[] \\ fs[]
-  \\ metis_tac[insert_swap]);
-
-val alist_insert_append = Q.store_thm("alist_insert_append",
-  `∀a1 a2 s b1 b2.
-   LENGTH a1 = LENGTH a2 ⇒
-   alist_insert (a1++b1) (a2++b2) s =
-   alist_insert a1 a2 (alist_insert b1 b2 s)`,
-  ho_match_mp_tac alist_insert_ind
-  \\ simp[alist_insert_def,LENGTH_NIL_SYM]);
-
-val alist_insert_REVERSE = Q.store_thm("alist_insert_REVERSE",
-  `∀xs ys s.
-   ALL_DISTINCT xs ∧ LENGTH xs = LENGTH ys ⇒
-   alist_insert (REVERSE xs) (REVERSE ys) s = alist_insert xs ys s`,
-  Induct \\ simp[alist_insert_def]
-  \\ gen_tac \\ Cases \\ simp[alist_insert_def]
-  \\ simp[alist_insert_append,alist_insert_def]
-  \\ rw[] \\ simp[alist_insert_pull_insert]);
-
 (* TODO: many things in this file need moving *)
 
 val index_list_def = Define `
@@ -2920,41 +2840,6 @@ val ALOOKUP_ID_TABULATE = Q.store_thm("ALOOKUP_ID_TABULATE",
   `ALOOKUP (MAP (λx. (x,x)) ls) x =
    if MEM x ls then SOME x else NONE`,
   Induct_on`ls`\\simp[]\\rw[]\\fs[]);
-
-(*These two might be used to remove wf assumption if needed*)
-val insert_unchanged = Q.prove(`
-  ∀t x.
-  lookup x t = SOME y ⇒
-  insert x y t = t`,
-  completeInduct_on`x`>>
-  Induct>>
-  fs[lookup_def]>>rw[]>>
-  simp[Once insert_def,SimpRHS]>>
-  simp[Once insert_def]>>
-  imp_res_tac splem1>>
-  metis_tac[])
-
-val alist_insert_ALL_DISTINCT = Q.prove(`
-  ∀xs ys t ls.
-  ALL_DISTINCT xs ∧
-  LENGTH xs = LENGTH ys ∧
-  PERM (ZIP (xs,ys)) ls ⇒
-  alist_insert xs ys t = alist_insert (MAP FST ls) (MAP SND ls) t`,
-  ho_match_mp_tac alist_insert_ind>>rw[]>>
-  fs[LENGTH_NIL_SYM]>>rveq>>fs[ZIP]>>
-  simp[alist_insert_def]>>
-  fs[PERM_CONS_EQ_APPEND]>>
-  simp[alist_insert_append,alist_insert_def]>>
-  `¬MEM xs (MAP FST M)` by
-    (CCONTR_TAC>>fs[]>>
-    imp_res_tac PERM_MEM_EQ>>
-    fs[FORALL_PROD,MEM_MAP,EXISTS_PROD]>>
-    res_tac>>
-    imp_res_tac MEM_ZIP>>
-    fs[EL_MEM])>>
-  simp[alist_insert_pull_insert]>>
-  simp[GSYM alist_insert_append]>>
-  metis_tac[MAP_APPEND])
 
 val alist_insert_get_vars = Q.store_thm("alist_insert_get_vars",
   `∀moves s x ls.

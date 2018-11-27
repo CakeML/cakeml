@@ -15,18 +15,6 @@ val get_labels_def = stackSemTheory.get_labels_def;
 
 (* TODO: move *)
 
-val BIJ_FLOOKUP_MAPKEYS = Q.store_thm("BIJ_FLOOKUP_MAPKEYS",
-  `BIJ bij UNIV UNIV ==>
-    FLOOKUP (MAP_KEYS (LINV bij UNIV) f) n = FLOOKUP f (bij n)`,
-  fs [FLOOKUP_DEF,MAP_KEYS_def,BIJ_DEF] \\ strip_tac
-  \\ match_mp_tac (METIS_PROVE []
-      ``x=x'/\(x /\ x' ==> y=y') ==> (if x then y else z) = (if x' then y' else z)``)
-  \\ fs [] \\ rw []
-  THEN1 (eq_tac \\ rw [] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF])
-  \\ `BIJ (LINV bij UNIV) UNIV UNIV` by metis_tac [BIJ_LINV_BIJ,BIJ_DEF]
-  \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
-  \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
-
 val word_sh_word_shift = Q.store_thm("word_sh_word_shift",
   `word_sh a b c = SOME z ⇒ z = word_shift a b c`,
   EVAL_TAC >> srw_tac[][] >> every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -2912,7 +2900,7 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
   `propagate_these s2 bitmaps data_sp` by (
     fs[propagate_these_def,Abbr`s2`,Abbr`s3`,
         stack_namesProofTheory.make_init_def,
-        make_init_def,BIJ_FLOOKUP_MAPKEYS,
+        make_init_def,BIJ_FLOOKUP_MAP_KEYS,
         flookup_fupdate_list]
     \\ fs[memory_assumption_def]) \\
   `t.ffi = s2.ffi` by
