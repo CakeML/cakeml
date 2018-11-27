@@ -1,3 +1,10 @@
+(*
+  Defines a unification algorithm for use in the type inferencer.
+  Based on the triangular unification algorithm in
+  HOL/examples/unification/triangular/first-order.  We encode our
+  CakeML types into the term structure used there and them bring over
+  those definitions and theorems.
+*)
 open preamble;
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
