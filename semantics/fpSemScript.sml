@@ -8,6 +8,9 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "fpSem"
 
+(*
+  Definitions of the floating point operations used in CakeML.
+*)
 (*open import Pervasives*)
 (*open import Lib*)
 
