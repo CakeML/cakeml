@@ -1,12 +1,13 @@
-open preamble
-     arm6ProgTheory compilerTheory
+open preamble;
+local open ag32ProgTheory in end;
+open compilerTheory
      exportTheory
-     ml_translatorLib ml_translatorTheory
-open cfLib basis
+     ml_translatorLib ml_translatorTheory;
+open cfLib basis;
 
 val _ = new_theory"compiler32Prog";
 
-val _ = translation_extends "arm6Prog";
+val _ = translation_extends "ag32Prog";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler32Prog");
 
@@ -132,6 +133,11 @@ val res = translate inferTheory.init_config_def;
 *)
 val res = translate error_to_str_def;
 
+val compiler_error_to_str_side_thm = prove(
+  ``compiler_error_to_str_side x = T``,
+  fs [fetch "-" "compiler_error_to_str_side_def"])
+  |> update_precondition;
+
 val res = translate parse_bool_def;
 val res = translate parse_num_def;
 
@@ -161,6 +167,13 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_
 (* Translations for each 32-bit target
   Note: ffi_asm is translated multiple times...
 *)
+
+(* ag32 *)
+val res = translate ag32_configTheory.ag32_names_def;
+val res = translate export_ag32Theory.ag32_export_def;
+val res = translate
+  (ag32_configTheory.ag32_backend_config_def
+   |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
 
 (* arm6 *)
 val res = translate arm6_configTheory.arm6_names_def;
@@ -253,7 +266,7 @@ val main_spec = Q.store_thm("main_spec",
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
-  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin])
+  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin, STD_streams_get_mode])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_32_def]

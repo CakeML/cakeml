@@ -3,6 +3,8 @@ open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
 
 val _ = new_theory"labProps";
 
+val _ = Parse.hide"mem";
+
 val extract_labels_def = Define`
   (extract_labels [] = []) ∧
   (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧

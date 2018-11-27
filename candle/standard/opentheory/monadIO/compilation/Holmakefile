@@ -1,0 +1,11 @@
+INCLUDES = .. ../../../../../compiler ../../../../../misc
+CLINE_OPTIONS = --qof
+TARGETS = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+
+all: $(TARGETS)
+.PHONY: all
+
+readerIO: readerIO.S ../../../../../basis/basis_ffi.c
+	$(CC) -DDEBUG_FFI $< ../../../../../basis/basis_ffi.c $(GCCFLAGS) -o $@
+
+EXTRA_CLEANS=readerIO readerIO.S

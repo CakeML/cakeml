@@ -160,6 +160,8 @@ local
   val cons_name_state = ref ([] : (string  *       (* %%thy%%type%%ctor *)
                                   (term *         (* constructor name  *)
                                    string option) (* module name       *)) list);
+  val type_mod_state = ref ([] : (string * (* type name *)
+                                  string   (* module name *)) list);
 in
   fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string option) = nm
   fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string option) = tm
@@ -319,6 +321,19 @@ in
     in
       pack_list pack_ns (!cons_name_state)
     end
+  fun pack_type_mods () =
+    let
+      val pack_ns = pack_pair pack_string pack_string
+    in
+      pack_list pack_ns (!type_mod_state)
+    end
+  fun unpack_type_mods th =
+    let
+      val unpack_ns = unpack_pair unpack_string unpack_string
+      val tyms = unpack_list unpack_ns th
+    in
+      type_mod_state := tyms
+    end
   fun unpack_cons_names th =
     let
       val unpack_ns =
@@ -330,6 +345,22 @@ in
     end
   fun get_names() = map (#2) (!v_thms)
   fun get_v_thms_ref() = v_thms (* for the monadic translator *)
+  fun get_type_mods () = !type_mod_state
+  fun lookup_type_mod tyname =
+    SOME (Lib.assoc tyname (!type_mod_state))
+    handle HOL_ERR _ => NONE
+  (* TODO not sure we'll ever encounter duplicate type names - they should
+   *      be entered with their full name. *)
+  fun enter_type_mod tyname =
+    let
+      val mname = get_curr_module_name ()
+      val _ = lookup_type_mod tyname = NONE orelse
+              failwith ("duplicate type: " ^ tyname)
+    in
+      case mname of
+        NONE => ()
+      | SOME mname => type_mod_state := (tyname,mname)::(!type_mod_state)
+    end
   fun get_cons_names () = !cons_name_state
   fun mk_cons_name tm =
     let
@@ -357,12 +388,20 @@ in
     end
 end
 
+(*
+ * Returns the 'full' identifier for the type. What this is depends on where the
+ * type was registered. For types that are not in scope (i.e. outside of the
+ * current module) we give a Long name, otherwise the name is short.
+ *)
 fun full_id n =
-  case get_curr_module_name () of
-    (* Single-level module *)
-    SOME mn => astSyntax.mk_Long(stringSyntax.fromMLstring mn,astSyntax.mk_Short n)
-  | NONE => astSyntax.mk_Short n
-
+  case lookup_type_mod (stringSyntax.fromHOLstring n) of
+    NONE => astSyntax.mk_Short n
+  | SOME type_mod =>
+      if SOME type_mod = get_curr_module_name () then
+        astSyntax.mk_Short n
+      else
+          astSyntax.mk_Long (stringSyntax.fromMLstring type_mod,
+                             astSyntax.mk_Short n);
 
 (* code for managing type information *)
 
@@ -403,19 +442,6 @@ fun full_name_of_type ty =
     val thy_name = if mem thy_name basic_theories then "" else thy_name ^ "_"
     in thy_name ^ name_of_type ty end
   else name_of_type ty;
-
-(* ty must be a word type and dim ≤ 64 *)
-fun word_ty_ok ty =
-  if wordsSyntax.is_word_type ty then
-    let val fcp_dim = wordsSyntax.dest_word_type ty in
-      if fcpSyntax.is_numeric_type fcp_dim then
-        let val dim = fcpSyntax.dest_int_numeric_type fcp_dim in
-          dim <= 64
-        end
-      else
-        false
-    end
-  else false;
 
 val mlstring_ty = mlstringTheory.implode_def |> concl |> rand
   |> type_of |> dest_type |> snd |> last;
@@ -471,10 +497,10 @@ in
   val one_ast_t = mk_Attup(listSyntax.mk_list([],ast_t_ty))
   fun type2t ty =
     if ty = bool then bool_ast_t else
-    if word_ty_ok ty then
-      (*dim ≤ 64 guaranteeed*)
-      let val dim = (fcpSyntax.dest_int_numeric_type o wordsSyntax.dest_word_type) ty in
-        if dim <= 8 then word8_ast_t else word64_ast_t
+    if wordsSyntax.is_word_type ty then
+      let val dim = (fcpSyntax.dest_int_numeric_type o
+                     wordsSyntax.dest_word_type) ty in
+        if dim <= 8 then word8_ast_t else word64_ast_t (* TODO: fix *)
       end else
     if ty = intSyntax.int_ty then int_ast_t else
     if ty = numSyntax.num then int_ast_t else
@@ -520,7 +546,7 @@ in
       in mk_Arrow(get_type_inv t1,get_type_inv t2)
       end else
     if ty = bool then BOOL else
-    if wordsSyntax.is_word_type ty andalso word_ty_ok ty then
+    if wordsSyntax.is_word_type ty then
       let val dim = wordsSyntax.dest_word_type ty in
         inst [alpha|->dim] WORD
       end else
@@ -747,17 +773,19 @@ local
     val p1 = pack_types()
     val p2 = pack_v_thms()
     val p3 = pack_cons_names()
-    val p = pack_triple I I I (p1,p2,p3)
+    val p4 = pack_type_mods()
+    val p = pack_4tuple I I I I (p1,p2,p3,p4)
     val th = PURE_ONCE_REWRITE_RULE [tag_lemma] p
     val _ = check_uptodate_term (concl th)
     in save_thm(name,th) end
   fun unpack_state name = let
     val th = fetch name (name ^ suffix)
     val th = PURE_ONCE_REWRITE_RULE [TAG_def] th
-    val (p1,p2,p3) = unpack_triple I I I th
+    val (p1,p2,p3,p4) = unpack_4tuple I I I I th
     val _ = unpack_types p1
     val _ = unpack_v_thms p2
     val _ = unpack_cons_names p3
+    val _ = unpack_type_mods p4
     in () end;
   val finalised = ref false
 in
@@ -1628,6 +1656,14 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
     in
       listSyntax.mk_list(decs,dec_ty)
     end
+
+  (* register type to belong to current module if all went well *)
+  val name = ty |> full_name_of_type
+  val _ = case get_curr_module_name () of
+            NONE => ()
+          | SOME m =>
+              print ("Adding " ^ type_to_string ty ^ " to module " ^ m ^ ".\n")
+  val _ = enter_type_mod name
   in (rws1,rws2,res,dprog) end;
 
 local
@@ -2919,6 +2955,8 @@ val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
 val tm = ``case l of
        (x,y)::l1 => if y = a then x else x+y:num | _ => d``
 
+val tm = ``5w:word32``
+
 *)
 
 fun hol2deep tm =
@@ -2935,12 +2973,11 @@ fun hol2deep tm =
   if tm ~~ oneSyntax.one_tm then Eval_Val_UNIT else
   if numSyntax.is_numeral tm then SPEC tm Eval_Val_NUM else
   if intSyntax.is_int_literal tm then SPEC tm Eval_Val_INT else
-  if is_word_literal tm andalso word_ty_ok (type_of tm) then let
+  if is_word_literal tm then let
     val dim = wordsSyntax.dim_of tm
     val result = SPEC tm (INST_TYPE [alpha|->dim] Eval_Val_WORD)
-                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
-                 |> (fn th => MP th TRUTH)
-                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val ll = result |> concl |> rator |> rand |> rand |> rand |> EVAL
+    val result = result |> REWRITE_RULE [ll]
     in check_inv "word_literal" tm result end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
@@ -3098,21 +3135,21 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_Num th1 |> UNDISCH_ALL
     in check_inv "num" tm result end else
   (* n2w 'a word for known 'a *)
-  if wordsSyntax.is_n2w tm andalso word_ty_ok (type_of tm) then let
+  if wordsSyntax.is_n2w tm then let
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_n2w
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "n2w" tm result end else
   (* i2w 'a word for known 'a *)
-  if integer_wordSyntax.is_i2w tm andalso word_ty_ok (type_of tm) then let
+  if integer_wordSyntax.is_i2w tm then let
     val dim = wordsSyntax.dim_of tm
     val th1 = hol2deep (rand tm)
     val result = MATCH_MP (INST_TYPE [alpha|->dim] Eval_i2w
                            |> CONV_RULE wordsLib.WORD_CONV) th1
     in check_inv "i2w" tm result end else
   (* w2n 'a word for known 'a *)
-  if wordsSyntax.is_w2n tm andalso word_ty_ok (type_of (rand tm)) then let
+  if wordsSyntax.is_w2n tm then let
     val x1 = tm |> rand
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
@@ -3120,7 +3157,7 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_w2n th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2n" tm result end else
   (* w2i 'a word for known 'a *)
-  if integer_wordSyntax.is_w2i tm andalso word_ty_ok (type_of (rand tm)) then let
+  if integer_wordSyntax.is_w2i tm then let
     val x1 = tm |> rand
     val dim = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
@@ -3128,32 +3165,25 @@ fun hol2deep tm =
     val result = MATCH_MP Eval_w2i th1 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "w2i" tm result end else
   (* w2w 'a word for known 'a *)
-  if wordsSyntax.is_w2w tm andalso word_ty_ok (type_of (rand tm))
-                           andalso word_ty_ok (type_of tm) then let
+  if wordsSyntax.is_w2w tm then let
     val x1 = tm |> rand
     val dim1 = wordsSyntax.dim_of tm
     val dim2 = wordsSyntax.dim_of x1
     val th1 = hol2deep x1
     val lemma = INST_TYPE [alpha|->dim1,beta|->dim2]Eval_w2w
-    val h = lemma |> concl |> dest_imp |> fst
-    val h_thm = EVAL h
-    val lemma = REWRITE_RULE [h_thm] lemma
-    val _ = (rand (concl h_thm) = T) orelse failwith "false pre for w2w"
-    val result =
-        MATCH_MP (lemma |> SIMP_RULE std_ss [LET_THM]
-                        |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV)))
-          (hol2deep x1)
+                |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV))
+    val result = MATCH_MP lemma th1
     in check_inv "w2w" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
-  if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
+  if can dest_word_binop tm then let
     val lemma = dest_word_binop tm
     val th1 = hol2deep (tm |> rator |> rand)
     val th2 = hol2deep (tm |> rand)
     val result = MATCH_MP lemma (CONJ th1 th2)
-                |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_binop" tm result end else
   (* word_lsl, _lsr, _asr *)
-  if can dest_word_shift tm andalso word_ty_ok (type_of tm) then let
+  if can dest_word_shift tm then let
     val n = tm |> rand
     val _ = numSyntax.is_numeral n orelse
             failwith "2nd arg to word shifts must be numeral constant"

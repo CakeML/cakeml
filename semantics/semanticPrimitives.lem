@@ -479,8 +479,8 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           Just ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
         Just ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
-    | (Opw op, [Litv (Word w1); Litv (Word w2)]) ->
-        if (length w1 = length w2) then
+    | (Opw (WordSize n) op, [Litv (Word w1); Litv (Word w2)]) ->
+        if (n = length w1) && (length w1 = length w2) then
           Just ((s,t), Rval (Litv (Word (opw_lookup op w1 w2))))
         else
           Nothing
@@ -504,8 +504,11 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           Just ((s,t),Rval (Boolv (fp_cmp cmp (word64FromBitstring w1) (word64FromBitstring w2))))
         else
           Nothing
-    | (Shift op n, [Litv (Word w)]) ->
-        Just ((s,t), Rval (Litv (Word (shift_lookup op w n))))
+    | (Shift (WordSize n1) op n, [Litv (Word w)]) ->
+        if length w = n1 then
+          Just ((s,t), Rval (Litv (Word (shift_lookup op w n))))
+        else
+          Nothing
     | (Equality, [v1; v2]) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
@@ -576,9 +579,16 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           Nothing
     | (WordFromInt (WordSize n), [Litv (IntLit i)]) ->
         Just ((s,t), Rval (Litv (Word (bitstringFromInteger i n))))
-    | (WordToInt, [Litv (Word w)]) ->
-        Just ((s,t), Rval (Litv (IntLit (integerFromBitstring w))))
-
+    | (WordToInt (WordSize n), [Litv (Word w)]) ->
+        if length w = n then
+          Just ((s,t), Rval (Litv (IntLit (integerFromBitstring w))))
+        else
+          Nothing
+    | (WordToWord (WordSize n1) (WordSize n2), [Litv (Word w)]) ->
+        if length w = n1 then
+          Just ((s,t), Rval (Litv (Word (fixwidth n2 w))))
+        else
+          Nothing
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) ->
         Just ((s,t),
         match copy_array (toCharList str,off) len Nothing with

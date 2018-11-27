@@ -68,9 +68,9 @@ val _ = Hol_datatype `
     Opn of opn
   | Opb of opb
   (* Operations on words *)
-  | Opw of opw
   | Opwb of opwb
-  | Shift of shift => num
+  | Opw of word_size => opw
+  | Shift of word_size => shift => num
   | Equality
   (* FP operations *)
   | FP_cmp of fp_cmp
@@ -89,7 +89,9 @@ val _ = Hol_datatype `
   | Aw8update
   (* Word/integer conversions *)
   | WordFromInt of word_size
-  | WordToInt
+  | WordToInt of word_size
+  (* Word/word conversion, source size, dest size *)
+  | WordToWord of word_size => word_size
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8

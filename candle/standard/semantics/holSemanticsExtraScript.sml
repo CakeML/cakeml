@@ -2,6 +2,8 @@ open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanti
 
 val _ = new_theory"holSemanticsExtra"
 
+val _ = Parse.hide "mem";
+
 val mem = ``mem:'U->'U->bool``
 
 val is_std_interpretation_is_type = Q.store_thm("is_std_interpretation_is_type",

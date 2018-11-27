@@ -6,7 +6,8 @@ INCLUDES = ../../../misc ../../../translator ../../../translator/monadic ../../.
 					 ../../encoders/arm6  ../../backend/arm6 $(HOLDIR)/examples/l3-machine-code/arm/model \
            ../../encoders/riscv ../../backend/riscv $(HOLDIR)/examples/l3-machine-code/riscv/model \
            ../../encoders/mips  ../../backend/mips $(HOLDIR)/examples/l3-machine-code/mips/model \
-           ../../encoders/arm8  ../../backend/arm8 $(HOLDIR)/examples/l3-machine-code/arm8/model
+           ../../encoders/arm8  ../../backend/arm8 $(HOLDIR)/examples/l3-machine-code/arm8/model \
+					 ../../encoders/ag32  ../../backend/ag32
 
 OPTIONS = QUIT_ON_FAILURE
 

@@ -42,9 +42,9 @@ type op =
   | Opn of opn
   | Opb of opb
   (* Operations on words *)
-  | Opw of opw
   | Opwb of opwb
-  | Shift of shift * nat
+  | Opw of word_size * opw
+  | Shift of word_size * shift * nat
   | Equality
   (* FP operations *)
   | FP_cmp of fp_cmp
@@ -63,7 +63,9 @@ type op =
   | Aw8update
   (* Word/integer conversions *)
   | WordFromInt of word_size
-  | WordToInt
+  | WordToInt of word_size
+  (* Word/word conversion, source size, dest size *)
+  | WordToWord of word_size * word_size
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
