@@ -124,6 +124,7 @@ structure astSyntax = struct
   val (Pcon_tm,mk_Pcon,dest_Pcon,is_Pcon) = s "Pcon";
   val (Ptannot_tm,mk_Ptannot,dest_Ptannot,is_Ptannot) = s "Ptannot";
   val (Tannot_tm,mk_Tannot,dest_Tannot,is_Tannot) = s "Tannot";
+  val (WordToWord_tm,mk_WordToWord,dest_WordToWord,is_WordToWord) = s "WordToWord";
   end
   local val s = HolKernel.syntax_fns3 "ast" in
   (* three-argument functions *)
