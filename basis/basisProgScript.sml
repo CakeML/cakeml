@@ -31,12 +31,12 @@ val print_app_list = process_topdecs
 val () = append_prog print_app_list;
 
 val print_app_list_spec = Q.store_thm("print_app_list_spec",
-  `∀ls lv out. MISC_APP_LIST_TYPE STRING_TYPE ls lv ⇒
+  `∀ls lv out. APP_LIST_TYPE STRING_TYPE ls lv ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "print_app_list" (get_ml_prog_state())) [lv]
      (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append ls))))`,
   reverse(Cases_on`STD_streams fs`) >- (rw[STDIO_def] \\ xpull) \\
   pop_assum mp_tac \\ simp[PULL_FORALL] \\ qid_spec_tac`fs` \\
-  reverse (Induct_on`ls`) \\ rw[MISC_APP_LIST_TYPE_def]
+  reverse (Induct_on`ls`) \\ rw[APP_LIST_TYPE_def]
   >- (
     xcf "print_app_list" (get_ml_prog_state())
     \\ xmatch \\ xcon
