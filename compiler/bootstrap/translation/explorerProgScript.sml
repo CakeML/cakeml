@@ -51,8 +51,6 @@ val ind_lemma = Q.prove(
   \\ fs [])
   |> update_precondition;
 
-(*
-
 val res = translate presLangTheory.num_to_hex_digit_def;
 
 val num_to_hex_digit_side = prove(
@@ -63,33 +61,16 @@ val num_to_hex_digit_side = prove(
 val res = translate presLangTheory.num_to_hex_def;
 
 val res = translate
-  (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:8``]);
+  (presLangTheory.display_word_to_hex_string_def |> INST_TYPE [``:'a``|->``:8``]);
 val res = translate
-  (presLangTheory.word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
-
-*)
+  (presLangTheory.display_word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
 
 val res = translate displayLangTheory.num_to_json_def;
 val res = translate displayLangTheory.trace_to_json_def;
 val res = translate displayLangTheory.display_to_json_def;
 
-(*
-
-val res = translate presLangTheory.op_to_display_def;
-
-val op_to_display_side = Q.prove(
-  `∀x. op_to_display_side x = T`,
-  recInduct presLangTheory.op_to_display_ind \\ rw[] \\
-  rw[Once (theorem"op_to_display_side_def")] \\
-  EVAL_TAC) |> update_precondition;
-
-val res = translate presLangTheory.pres_to_display_def;
-val res = translate presLangTheory.lang_to_json_def;
-
-val res1 = translate presLangTheory.mod_to_json_def;
-val res2 = translate presLangTheory.con_to_json_def;
-val res3 = translate presLangTheory.dec_to_json_def;
-val res4 = translate presLangTheory.exh_to_json_def;
+val res = translate presLangTheory.flat_op_to_display_def;
+val res = translate presLangTheory.tap_flat_def;
 
 val res = translate presLangTheory.num_to_varn_def;
 val num_to_varn_side = Q.prove(`
@@ -98,11 +79,17 @@ val num_to_varn_side = Q.prove(`
   rw[Once (theorem"num_to_varn_side_def")] \\
   `n MOD 26 < 26` by simp[] \\ decide_tac) |> update_precondition;
 
-val res5 = translate presLangTheory.pat_to_json_def;
-val res6 = translate presLangTheory.clos_to_json_def;
-val res7 = translate presLangTheory.clos_to_json_table_def;
+val res = translate presLangTheory.tap_flat_def;
+val res = translate presLangTheory.tap_pat_def;
+val res = translate presLangTheory.tap_clos_def;
 
-*)
+(* we can't translate the tap_word bits yet, because that's 32/64 specific.
+   that's done in the to_word* scripts. *)
+
+(* more parts of the external interface *)
+val res = translate presLangTheory.default_tap_config_def;
+val res = translate presLangTheory.mk_tap_config_def;
+val res = translate presLangTheory.tap_data_strings_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

@@ -69,8 +69,7 @@ val byte_aligned_mult = Q.store_thm("byte_aligned_mult",
   fs [alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
-  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``),
-        data_to_word_memoryProofTheory.aligned_add_pow]);
+  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]);
 
 val IMP_MULT_DIV_LESS = Q.store_thm("IMP_MULT_DIV_LESS",
   `m <> 0 /\ d < k ==> m * (d DIV m) < k`,
@@ -256,6 +255,11 @@ val installed_def = Define`
       (*let bitmaps_dm = { w | bitmap_ptr <=+ w ∧ w <+ bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)} in*)
       let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
       good_init_state mc_conf ms ffi bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
+      byte_aligned (t.regs r1) /\
+      byte_aligned (t.regs r2) /\
+      byte_aligned bitmap_ptr /\
+      t.regs r1 ≤₊ t.regs r2 /\
+      1024w * bytes_in_word ≤₊ t.regs r2 - t.regs r1 /\
       DISJOINT heap_stack_dm bitmaps_dm ∧
       m (t.regs r1) = Word bitmap_ptr ∧
       m (t.regs r1 + bytes_in_word) =
@@ -277,7 +281,7 @@ val byte_aligned_MOD = Q.store_thm("byte_aligned_MOD",`
   ∀x:'a word.x ∈ byte_aligned ⇒
   w2n x MOD (dimindex (:'a) DIV 8) = 0`,
   rw[IN_DEF]>>
-  fs [stack_removeProofTheory.aligned_w2n, alignmentTheory.byte_aligned_def]>>
+  fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
   rfs[labPropsTheory.good_dimindex_def] \\ rfs []);
 
 val prim_config = prim_config_eq |> concl |> lhs
@@ -296,6 +300,7 @@ val backend_config_ok_def = Define`
     (c.data_conf.has_div ⇒
       c.lab_conf.asm_conf.ISA = ARMv8 ∨ c.lab_conf.asm_conf.ISA = MIPS ∨
       c.lab_conf.asm_conf.ISA = RISC_V) ∧
+    max_stack_alloc ≤ 2 * max_heap_limit (:'a) c.data_conf − 1 ∧
     addr_offset_ok c.lab_conf.asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.lab_conf.asm_conf w) ∧
     c.lab_conf.asm_conf.valid_imm (INL Add) 8w ∧
@@ -369,7 +374,8 @@ val backend_config_ok_call_empty_ffi = store_thm("backend_config_ok_call_empty_f
       data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
     backend_config_ok cc``,
   fs [backend_config_ok_def,data_to_wordTheory.conf_ok_def,
-      data_to_wordTheory.shift_length_def]);
+      data_to_wordTheory.shift_length_def,
+      data_to_wordTheory.max_heap_limit_def]);
 
 (* TODO: ?? where to put these ?? *)
 val mc_init_ok_def = Define`
@@ -3988,7 +3994,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ simp[flat_exh_matchTheory.compile_def]
         \\ irule flat_reorder_matchProofTheory.compile_decs_distinct_globals
         \\ irule flat_uncheck_ctorsProofTheory.compile_decs_distinct_globals
-        \\ irule flat_elimProofTheory.removeFlatProg_distinct_globals
+        \\ irule flat_elimProofTheory.remove_flat_prog_distinct_globals
         \\ irule flat_exh_matchProofTheory.compile_exps_distinct_globals
         \\ fs[source_to_flatTheory.compile_prog_def]
         \\ pairarg_tac \\ fs[] \\ rveq
@@ -4991,16 +4997,16 @@ val compile_correct = Q.store_thm("compile_correct",
       (simp[Abbr`c4_data_conf`] \\ EVAL_TAC) \\
     conj_tac>- fs[Abbr`p7`] \\
     conj_tac>- simp[ETA_AX] \\
+    `max_stack_alloc ≤ 2 * max_heap_limit (:α) c4_data_conf − 1` by
+       fs [] \\ fs [] \\
     conj_tac >- (
-      rfs[memory_assumption_def,Abbr`dm`]
-      \\ qmatch_goalsub_abbrev_tac`a <=+ b` >>
+      rfs[memory_assumption_def,Abbr`dm`] \\
       `(w2n:'a word -> num) bytes_in_word = dimindex (:α) DIV 8` by
        rfs [labPropsTheory.good_dimindex_def,bytes_in_word_def,dimword_def]>>
       fs [attach_bitmaps_def] \\
       once_rewrite_tac[INTER_COMM] \\
       rewrite_tac[UNION_OVER_INTER] \\
       once_rewrite_tac[UNION_COMM] \\
-      strip_tac \\
       match_mp_tac fun2set_disjoint_union \\
       conj_tac >- (
         match_mp_tac DISJOINT_INTER
@@ -5016,7 +5022,9 @@ val compile_correct = Q.store_thm("compile_correct",
         reverse conj_tac >-
          (fs [] \\ match_mp_tac IMP_MULT_DIV_LESS \\ fs [w2n_lt]
           \\ rfs [labPropsTheory.good_dimindex_def])
-        \\ `a <=+ b` by metis_tac[WORD_LOWER_IMP_LOWER_OR_EQ]
+        \\ qabbrev_tac `a = tar_st.regs mc.len_reg`
+        \\ qabbrev_tac `b = tar_st.regs mc.len2_reg`
+        \\ qpat_x_assum `a <=+ b` assume_tac
         \\ drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
         \\ fs [IN_DEF,PULL_EXISTS,bytes_in_word_def,word_mul_n2w]
         \\ rw [] \\ reverse eq_tac THEN1
@@ -5031,7 +5039,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ qexists_tac `i DIV (dimindex (:α) DIV 8)`
         \\ rfs [alignmentTheory.byte_aligned_def,
              ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
-        \\ fs [stack_removeProofTheory.aligned_w2n]
+        \\ fs [aligned_w2n]
         \\ drule DIVISION
         \\ disch_then (qspec_then `i` (strip_assume_tac o GSYM))
         \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by

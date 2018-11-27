@@ -338,7 +338,7 @@ val empty_config_def = Define`
 val compile_flat_def = Define `
   compile_flat = flat_reorder_match$compile_decs
                o flat_uncheck_ctors$compile_decs
-               o flat_elim$removeFlatProg
+               o flat_elim$remove_flat_prog
                o SND o flat_exh_match$compile`;
 
 val glob_alloc_def = Define `

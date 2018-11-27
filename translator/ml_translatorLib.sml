@@ -160,6 +160,8 @@ local
   val cons_name_state = ref ([] : (string  *       (* %%thy%%type%%ctor *)
                                   (term *         (* constructor name  *)
                                    string option) (* module name       *)) list);
+  val type_mod_state = ref ([] : (string * (* type name *)
+                                  string   (* module name *)) list);
 in
   fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string option) = nm
   fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string option) = tm
@@ -319,6 +321,19 @@ in
     in
       pack_list pack_ns (!cons_name_state)
     end
+  fun pack_type_mods () =
+    let
+      val pack_ns = pack_pair pack_string pack_string
+    in
+      pack_list pack_ns (!type_mod_state)
+    end
+  fun unpack_type_mods th =
+    let
+      val unpack_ns = unpack_pair unpack_string unpack_string
+      val tyms = unpack_list unpack_ns th
+    in
+      type_mod_state := tyms
+    end
   fun unpack_cons_names th =
     let
       val unpack_ns =
@@ -330,6 +345,22 @@ in
     end
   fun get_names() = map (#2) (!v_thms)
   fun get_v_thms_ref() = v_thms (* for the monadic translator *)
+  fun get_type_mods () = !type_mod_state
+  fun lookup_type_mod tyname =
+    SOME (Lib.assoc tyname (!type_mod_state))
+    handle HOL_ERR _ => NONE
+  (* TODO not sure we'll ever encounter duplicate type names - they should
+   *      be entered with their full name. *)
+  fun enter_type_mod tyname =
+    let
+      val mname = get_curr_module_name ()
+      val _ = lookup_type_mod tyname = NONE orelse
+              failwith ("duplicate type: " ^ tyname)
+    in
+      case mname of
+        NONE => ()
+      | SOME mname => type_mod_state := (tyname,mname)::(!type_mod_state)
+    end
   fun get_cons_names () = !cons_name_state
   fun mk_cons_name tm =
     let
@@ -357,12 +388,20 @@ in
     end
 end
 
+(*
+ * Returns the 'full' identifier for the type. What this is depends on where the
+ * type was registered. For types that are not in scope (i.e. outside of the
+ * current module) we give a Long name, otherwise the name is short.
+ *)
 fun full_id n =
-  case get_curr_module_name () of
-    (* Single-level module *)
-    SOME mn => astSyntax.mk_Long(stringSyntax.fromMLstring mn,astSyntax.mk_Short n)
-  | NONE => astSyntax.mk_Short n
-
+  case lookup_type_mod (stringSyntax.fromHOLstring n) of
+    NONE => astSyntax.mk_Short n
+  | SOME type_mod =>
+      if SOME type_mod = get_curr_module_name () then
+        astSyntax.mk_Short n
+      else
+          astSyntax.mk_Long (stringSyntax.fromMLstring type_mod,
+                             astSyntax.mk_Short n);
 
 (* code for managing type information *)
 
@@ -747,17 +786,19 @@ local
     val p1 = pack_types()
     val p2 = pack_v_thms()
     val p3 = pack_cons_names()
-    val p = pack_triple I I I (p1,p2,p3)
+    val p4 = pack_type_mods()
+    val p = pack_4tuple I I I I (p1,p2,p3,p4)
     val th = PURE_ONCE_REWRITE_RULE [tag_lemma] p
     val _ = check_uptodate_term (concl th)
     in save_thm(name,th) end
   fun unpack_state name = let
     val th = fetch name (name ^ suffix)
     val th = PURE_ONCE_REWRITE_RULE [TAG_def] th
-    val (p1,p2,p3) = unpack_triple I I I th
+    val (p1,p2,p3,p4) = unpack_4tuple I I I I th
     val _ = unpack_types p1
     val _ = unpack_v_thms p2
     val _ = unpack_cons_names p3
+    val _ = unpack_type_mods p4
     in () end;
   val finalised = ref false
 in
@@ -1628,6 +1669,14 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
     in
       listSyntax.mk_list(decs,dec_ty)
     end
+
+  (* register type to belong to current module if all went well *)
+  val name = ty |> full_name_of_type
+  val _ = case get_curr_module_name () of
+            NONE => ()
+          | SOME m =>
+              print ("Adding " ^ type_to_string ty ^ " to module " ^ m ^ ".\n")
+  val _ = enter_type_mod name
   in (rws1,rws2,res,dprog) end;
 
 local
@@ -2031,7 +2080,8 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ TRY tac3
     \\ fsrw_tac[][GSYM FORALL_PROD,(*lookup_var_id_def,*)lookup_cons_def,LIST_TYPE_IF_ELIM]
     \\ TRY tac2 \\ TRY (fs[CONTAINER_def] >> NO_TAC)
-    \\ EVAL_TAC \\ metis_tac [CONTAINER_def])
+    \\ TRY (EVAL_TAC >> NO_TAC)
+    \\ metis_tac [CONTAINER_def])
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
    failwith "prove_EvalPatBind failed");
@@ -2752,14 +2802,14 @@ val th = D res
 *)
 
 fun clean_assumptions th = let
+  val start = start_timing "clean assumptions"
   val lhs1 = get_term "nsLookup_pat"
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
   val lhs2 = lookup_cons_def (*lookup_cons_thm*) |> SPEC_ALL |> concl |> dest_eq |> fst
   val pattern2 = mk_eq(lhs2,mk_var("_",type_of lhs2))
   val lookup_assums = find_terms (fn tm => can (match_term pattern1) tm
                                     orelse can (match_term pattern2) tm) (concl th)
-  val lemmas = map EVAL lookup_assums
-
+  val lemmas = map (EVAL THENC nsLookup_conv THENC EVAL) lookup_assums
                |> filter (fn th => th |> concl |> rand |> is_const)
   val th = REWRITE_RULE lemmas th
   (* lift EqualityType assumptions out *)
@@ -2778,6 +2828,7 @@ fun clean_assumptions th = let
   val th1 = th |> REWRITE_RULE [GSYM PreImpEval_def]
   val th2 = CONV_RULE (QCONV (LAND_CONV (ONCE_DEPTH_CONV move_Eval_conv))) th1
   val th = REWRITE_RULE [PreImpEval_def] th2
+  val _ = end_timing start
   in th end;
 
 fun get_pre_var lhs fname = let
@@ -4105,10 +4156,7 @@ fun prove_Eval_assumptions th =
     fun prove_Eval_assum tm =
       let
         val th1 =
-          (ONCE_DEPTH_CONV(
-            REWR_CONV Eval_Var THENC
-            PURE_REWRITE_CONV[(*lookup_var_eq_lookup_var_id*)] THENC
-            QUANT_CONV(LAND_CONV EVAL) THENC REWR_CONV UNWIND_THM1)) tm
+          (ONCE_DEPTH_CONV(REWR_CONV Eval_Var_nsLookup THENC nsLookup_conv)) tm
         val const =
           th1 |> concl |> rand |> strip_forall |> #2 |> repeat (#2 o dest_imp) |> rator |> rand
         val cert = get_cert (get_bare_v_thm const)

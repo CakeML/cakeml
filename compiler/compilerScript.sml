@@ -17,6 +17,7 @@ open arm8_configTheory export_arm8Theory
 open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm6_configTheory export_arm6Theory
+open ag32_configTheory export_ag32Theory
 
 val _ = new_theory"compiler";
 
@@ -90,7 +91,7 @@ val compile_def = Define`
       then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexpdec)
       else parse_prog (lexer_fun input)
     of
-    | NONE => Failure ParseError
+    | NONE => (Failure ParseError, [])
     | SOME prog =>
        let _ = empty_ffi (strlit "finished: lexing and parsing") in
        let full_prog = if c.exclude_prelude then prog else prelude ++ prog in
@@ -100,32 +101,13 @@ val compile_def = Define`
          else infertype_prog c.inferencer_config full_prog
        of
        | Failure (locs, msg) =>
-           Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
+           (Failure (TypeError (concat [msg; implode " at ";
+               locs_to_string locs])), [])
        | Success ic =>
           let _ = empty_ffi (strlit "finished: type inference") in
-          case backend$compile c.backend_config (prelude ++ prog) of
-          | NONE => Failure CompileError
-          | SOME (bytes,c) => Success (bytes,c)`;
-
-(*
-val compile_explorer_def = Define`
-  compile_explorer c prelude input =
-    case
-      if c.input_is_sexp
-      then OPTION_BIND (parse_sexp (add_locs input)) (sexplist sexpdec)
-      else parse_prog (lexer_fun input)
-    of
-    | NONE => Failure ParseError
-    | SOME prog =>
-       let full_prog = if c.exclude_prelude then prog else prelude ++ prog in
-       case
-         if c.skip_type_inference
-         then Success c.inferencer_config
-         else infertype_prog c.inferencer_config full_prog
-       of
-       | Failure (locs, msg) => Failure (TypeError (concat [msg; implode " at "; locs_to_string locs]))
-       | Success ic => Success (backend$compile_explorer c.backend_config (prelude ++ prog))`
-*)
+          case backend$compile_tap c.backend_config (prelude ++ prog) of
+          | (NONE, td) => (Failure CompileError, td)
+          | (SOME (bytes,c), td) => (Success (bytes,c), td)`;
 
 (* The top-level compiler *)
 val error_to_str_def = Define`
@@ -159,6 +141,16 @@ val find_str_def = Define`
       SOME (extract x (strlen flag) NONE)
     else
       find_str flag xs)`
+
+(* Finds all occurences of the flag as a prefix, returning
+   the remainder in each occurence. *)
+val find_strs_def = Define`
+  (find_strs flag [] = []) /\
+  (find_strs flag (x::xs) =
+    if isPrefix flag x then
+      (extract x (strlen flag) NONE) :: find_strs flag xs
+    else
+      find_strs flag xs)`
 
 (* If flag is not present then F, else if it is present then
    we should not get any config string afterwards *)
@@ -345,6 +337,16 @@ val parse_stack_conf_def = Define`
     INL j => INL (stack with jump:=j)
   | INR s => INR s`
 
+(* tap *)
+val parse_tap_conf_def = Define`
+  parse_tap_conf ls stack =
+  let tap_all = find_str (strlit"--explore") ls in
+  let tap_all_star = (case tap_all of NONE => []
+    | SOME _ => [strlit"*"]) in
+  let taps = find_strs (strlit"--tap=") ls in
+  let fname = find_str (strlit"--tapfname=") ls in
+  INL (mk_tap_config fname (tap_all_star ++ taps))`
+
 val extend_conf_def = Define`
   extend_conf ls conf =
   let clos = parse_clos_conf ls conf.clos_conf in
@@ -352,20 +354,23 @@ val extend_conf_def = Define`
   let wtw = parse_wtw_conf ls conf.word_to_word_conf in
   let data = parse_data_conf ls conf.data_conf in
   let stack = parse_stack_conf ls conf.stack_conf in
-  case (clos,bvl,wtw,data,stack) of
-    (INL clos,INL bvl,INL wtw,INL data,INL stack) =>
+  let tap = parse_tap_conf ls conf.tap_conf in
+  case (clos,bvl,wtw,data,stack,tap) of
+    (INL clos,INL bvl,INL wtw,INL data,INL stack,INL tap) =>
       INL (conf with
         <|clos_conf         := clos;
           bvl_conf          := bvl;
           word_to_word_conf := wtw;
           data_conf         := data;
-          stack_conf        := stack|>)
+          stack_conf        := stack;
+          tap_conf          := tap|>)
     | _ =>
       INR (concat [get_err_str clos;
                get_err_str bvl;
                get_err_str wtw;
                get_err_str data;
-               get_err_str stack]) `
+               get_err_str stack;
+               get_err_str tap]) `
 
 (* Defaults to x64 if no target given *)
 val parse_target_64_def = Define`
@@ -379,13 +384,14 @@ val parse_target_64_def = Define`
     else if rest = strlit"riscv" then INL (riscv_backend_config,riscv_export)
     else INR (concat [strlit"Unrecognized 64-bit target option: ";rest])`
 
-(* Defaults to arm6, currently no other 32-bit architecture*)
+(* Defaults to arm6 if no target given *)
 val parse_target_32_def = Define`
   parse_target_32 ls =
   case find_str (strlit"--target=") ls of
     NONE => INL (arm6_backend_config,arm6_export)
   | SOME rest =>
     if rest = strlit"arm6" then INL (arm6_backend_config,arm6_export)
+    else if rest = strlit"ag32" then INL (ag32_backend_config,ag32_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 
 (* Default stack and heap limits. Unit of measure is mebibytes, i.e. 1024^2B. *)
@@ -424,6 +430,17 @@ val format_compiler_result_def = Define`
     (Success ((bytes:word8 list),(data:'a word list),(c:'a lab_to_target$config))) =
     (bytes_export (the [] c.ffi_names) heap stack bytes data, implode "")`;
 
+(* FIXME TODO: this is an awful workaround to avoid implementing a file writer
+   right now. *)
+val add_tap_output_def = Define`
+  add_tap_output td out = if NULL td then out
+    else Append (List (strlit "compiler output with tap data\n\n"
+      :: FLAT (MAP (\td. let (nm, data) = tap_data_strings td in
+        [strlit "-- "; nm; strlit " --\n\n"; data;
+          strlit "\n\n"]) td)
+      ++ [strlit "-- compiled data --\n\n"]))
+      out`;
+
 (* The top-level compiler with everything instantiated except it doesn't do exporting *)
 
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
@@ -443,20 +460,21 @@ val compile_64_def = Define`
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer |> in
         (case compiler$compile compiler_conf basis input of
-          Success (bytes,data,c) =>
-            (export (the [] c.ffi_names) heap stack bytes data, implode "")
-        | Failure err => (List [],error_to_str err))
+          (Success (bytes,data,c), td) =>
+            (add_tap_output td (export (the [] c.ffi_names) heap stack bytes data),
+              implode "")
+        | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
-    (List[],error_to_str (ConfigError (get_err_str ext_conf))))
+    (List[], error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
-    (List[],error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
+    (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
 
 val full_compile_64_def = Define `
   full_compile_64 cl inp fs =
     if has_version_flag cl then
       add_stdout fs current_build_info_str
     else
-      let (out,err) = compile_64 cl inp in
+      let (out, err) = compile_64 cl inp in
       add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
 
 val compile_32_def = Define`
@@ -475,20 +493,21 @@ val compile_32_def = Define`
              exclude_prelude     := prelude;
              skip_type_inference := typeinfer |> in
         (case compiler$compile compiler_conf basis input of
-          Success (bytes,data,c) =>
-            (export (the [] c.ffi_names) heap stack bytes data, implode "")
-        | Failure err => (List [],error_to_str err))
+          (Success (bytes,data,c), td) =>
+            (add_tap_output td (export (the [] c.ffi_names) heap stack bytes data),
+              implode "")
+        | (Failure err, td) => (List [], error_to_str err))
     | INR err =>
-    (List[],error_to_str (ConfigError (get_err_str ext_conf))))
+    (List[], error_to_str (ConfigError (get_err_str ext_conf))))
   | _ =>
-    (List[],error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
+    (List[], error_to_str (ConfigError (concat [get_err_str confexp;get_err_str topconf])))`
 
 val full_compile_32_def = Define `
   full_compile_32 cl inp fs =
     if has_version_flag cl then
       add_stdout fs current_build_info_str
     else
-      let (out,err) = compile_32 cl inp in
+      let (out, err) = compile_32 cl inp in
       add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err`
 
 val _ = export_theory();

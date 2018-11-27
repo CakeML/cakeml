@@ -2207,6 +2207,15 @@ val good_linear_scan_state_def = Define`
     )
 `;
 
+val good_linear_scan_state_def' = let
+  val inj_rwt = Q.prove(‘(f x = f y ==> x = y) ⇔ (f x = f y ⇔ x = y)’,
+                        metis_tac[])
+in
+  good_linear_scan_state_def
+    |> SIMP_RULE bool_ss [GSYM AND_IMP_INTRO, inj_rwt]
+    |> SIMP_RULE bool_ss [AND_IMP_INTRO]
+end
+
 val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_intervals_invariants",
     `!beg st int_beg int_end sth l pos forced mincol.
     good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
@@ -2222,7 +2231,7 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
     Cases_on `st.active`
 
     THEN1 (
-        rfs [good_linear_scan_state_def] >>
+        rfs [good_linear_scan_state_def'] >>
         fs [EVERY_MEM] >> rw []
         THEN1 (
           res_tac >>
@@ -2241,13 +2250,13 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
 
     THEN1 (
         rfs [] >>
-        `r < LENGTH sth.colors` by fs [EVERY_MEM, FORALL_PROD, good_linear_scan_state_def] >>
+        `r < LENGTH sth.colors` by fs [EVERY_MEM, FORALL_PROD, good_linear_scan_state_def'] >>
         rfs [] >>
         first_x_assum (qspecl_then [`EL r sth.colors`, `int_beg`, `int_end`, `sth`, `l`, `e+1`, `forced`, `mincol`] assume_tac) >>
         `e+1 <= beg` by intLib.COOPER_TAC >>
         sg `good_linear_scan_state int_beg int_end (st with <| active := activetail; colorpool updated_by (\l. (EL r sth.colors)::l) |>) sth l (e+1) forced mincol` THEN1 (
             qpat_x_assum `good_linear_scan_state _ _ _ _ _ _ _ _ /\ _ ==> _` kall_tac >>
-            fs [good_linear_scan_state_def] >>
+            fs [good_linear_scan_state_def'] >>
             `pos <= 1+e` by (fs [EVERY_MEM] >> metis_tac []) >>
             sg `!(h:num) l1 l2. PERM (l1 ++ h::l2) ((h::l1) ++ l2)` THEN1 (
               rw [] >>
@@ -2257,7 +2266,7 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
               `l1 ++ h::l2 = (l1 ++ [h]) ++ l2` by simp [] >>
               simp []
             ) >>
-            `ALL_DISTINCT ((EL r sth.colors :: st.colorpool) ++ MAP (\(e,r). EL r sth.colors) activetail)` by metis_tac [ALL_DISTINCT_PERM] >>
+            `ALL_DISTINCT ((EL r sth.colors :: st.colorpool) ++ MAP (λ(e,r). EL r sth.colors) activetail)` by metis_tac [ALL_DISTINCT_PERM] >>
             rfs [] >>
             fs [EVERY_MEM] >> rw []
             THEN1 (
@@ -2292,13 +2301,13 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
           assume_tac transitive_less_FST >>
           rw []
           THEN1 rw [] >>
-          fs [good_linear_scan_state_def] >>
+          fs [good_linear_scan_state_def'] >>
           `less_FST (e,r) (e',r')` by imp_res_tac SORTED_EQ >>
           fs [less_FST_def] >>
           intLib.COOPER_TAC
         ) >>
         qpat_x_assum `st.active = _` kall_tac >>
-        fs [good_linear_scan_state_def] >>
+        fs [good_linear_scan_state_def'] >>
         fs [EVERY_MEM] >> rw []
         THEN1 (
           res_tac >>
@@ -2390,7 +2399,7 @@ val find_color_in_colornum_invariants = Q.store_thm("find_color_in_colornum_inva
 
     rw [find_color_in_colornum_def] >> rw []
     THEN1 (
-      fs [good_linear_scan_state_def] >>
+      fs [good_linear_scan_state_def'] >>
       rveq >>
       fs [EVERY_MEM, FORALL_PROD] >> rw []
       THEN1 (
@@ -2405,7 +2414,7 @@ val find_color_in_colornum_invariants = Q.store_thm("find_color_in_colornum_inva
       res_tac >> intLib.COOPER_TAC
     )
     THEN1 (
-      CCONTR_TAC >> fs [good_linear_scan_state_def] >>
+      CCONTR_TAC >> fs [good_linear_scan_state_def'] >>
       `st.colornum IN {EL r sth.colors | r | MEM r l}` by fs [SUBSET_DEF] >>
       fs [EVERY_MEM] >>
       rpt (first_x_assum (qspec_then `r` assume_tac)) >>
@@ -2441,12 +2450,12 @@ val find_color_invariants = Q.store_thm("find_color_invariants",
         `PERM (l1 ++ [col] ++ l2) (col::l1 ++ l2)` by simp [PERM_APPEND_IFF] >>
         FULL_SIMP_TAC pure_ss [GSYM APPEND_ASSOC, APPEND]
       ) >>
-      sg `ALL_DISTINCT (col::(l1++l2) ++ MAP (\(e,r). EL r sth.colors) st.active)` THEN1 (
-        FULL_SIMP_TAC pure_ss [good_linear_scan_state_def] >>
+      sg `ALL_DISTINCT (col::(l1++l2) ++ MAP (λ(e,r). EL r sth.colors) st.active)` THEN1 (
+        FULL_SIMP_TAC pure_ss [good_linear_scan_state_def'] >>
         metis_tac [ALL_DISTINCT_PERM, PERM_APPEND_IFF]
       ) >>
       simp [linear_scan_state_component_equality] >>
-      fs [good_linear_scan_state_def, EVERY_MEM] >>
+      fs [good_linear_scan_state_def', EVERY_MEM] >>
       metis_tac []
     )
 );
@@ -2461,25 +2470,24 @@ val update_color_active_colors_same = Q.store_thm("update_color_active_colors_sa
     fs []
 );
 
-(* TODO: this proof is terribly slow because the simplifier messes up, even if with the "lower lever" tactics *)
-val forced_update_stack_color_lemma = Q.store_thm("forced_update_stack_color_lemma",
-    `!(colors : num list) (stacknum : num) l r2 r1.
-    EVERY (\r. EL r colors < stacknum) l /\
-    MEM r2 l /\
-    r1 < LENGTH colors /\
-    EL r1 (LUPDATE stacknum r1 colors) = EL r2 (LUPDATE stacknum r1 colors) ==>
-    r1 = r2`,
+val forced_update_stack_color_lemma = Q.store_thm(
+  "forced_update_stack_color_lemma",
+  `!(colors : num list) (stacknum : num) l r2 r1.
+      EVERY (\r. EL r colors < stacknum) l /\
+      MEM r2 l /\
+      r1 < LENGTH colors /\
+      EL r1 (LUPDATE stacknum r1 colors) =
+       EL r2 (LUPDATE stacknum r1 colors) ==>
+      r1 = r2`,
 
-    Induct_on `l` >>
-    rw []
-    THEN1 (
-        FULL_SIMP_TAC bool_ss [EL_LUPDATE] >>
-        REV_FULL_SIMP_TAC pure_ss [] >>
-        FULL_SIMP_TAC bool_ss [] >>
-        Cases_on `h = r1` >> FULL_SIMP_TAC bool_ss [] >>
-        FULL_SIMP_TAC arith_ss []
-    )
-    THEN1 metis_tac []
+    (* recast injectivity to make simplifier (much!) faster *)
+    ‘∀(colors:num list) stacknum l r2 r1.
+      EVERY (λr. EL r colors < stacknum) l ∧ MEM r2 l ∧ r1 < LENGTH colors ⇒
+      (EL r1 (LUPDATE stacknum r1 colors) = EL r2 (LUPDATE stacknum r1 colors) ⇔
+       r1 = r2)’ suffices_by metis_tac[] >>
+    Induct_on `l` >> rw []
+    >- fs[EL_LUPDATE]
+    >- metis_tac []
 );
 
 (* TODO: this should be part of the standard library, but I couldn't find it *)
@@ -2566,20 +2574,20 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
     st.colormax <= EL reg sthout.colors`,
 
     rw [spill_register_def] >> rw msimps >>
-    fs [good_linear_scan_state_def] >>
+    fs [good_linear_scan_state_def'] >>
     rpt strip_tac
-    THEN1 (
+    THEN1 ((* 24 *)
         rw [update_color_active_colors_same] >>
         metis_tac [FILTER_IS_SPARSE_SUBLIST, MAP_IS_SPARSE_SUBLIST, IS_SPARSE_SUBLIST_APPEND_LEFT, ALL_DISTINCT_IS_SPARSE_SUBLIST]
     )
-    THEN1 rw [EL_LUPDATE]
-    THEN1 (
+    THEN1 (* 23 *) rw [EL_LUPDATE]
+    THEN1 ((* 22 *)
         fs [EVERY_MEM, FORALL_PROD] >>
         rw [EL_LUPDATE] >>
         `EL r sth.colors < st.stacknum` by rw [] >>
         rw []
     )
-    THEN1 (
+    THEN1 ((* 21 *)
         rw [EXTENSION] >>
         eq_tac >>
         rw [] >>
@@ -2587,7 +2595,7 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
         rw [EL_LUPDATE] >>
         fs [EL_LUPDATE, id_def]
     )
-    THEN1 (
+    THEN1 ((* 20 *)
         `!r. MEM r l ==> EL r sth.colors < st.stacknum` by fs [EVERY_MEM] >>
         rpt (qpat_x_assum `EVERY _ _` kall_tac) >>
         rpt (qpat_x_assum `!x x. _` kall_tac) >>
@@ -2609,20 +2617,20 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
         `EL h sth.colors < st.stacknum` by rw [] >>
         rw []
     )
-    THEN1 (
+    THEN1 ((* 19 *)
         fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER] >>
         metis_tac []
     )
-    THEN1 fs [EL_LUPDATE]
-    THEN1 fs [EL_LUPDATE, EVERY_MEM]
-    THEN1 fs [MEM_FILTER]
-    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-    THEN1 rw []
-    THEN1 metis_tac [forced_update_stack_color_lemma]
-    THEN1 metis_tac [forced_update_stack_color_lemma]
-    THEN1 (
+    THEN1 (* 18 *) fs [EL_LUPDATE]
+    THEN1 (* 17 *) fs [EL_LUPDATE, EVERY_MEM]
+    THEN1 (* 16 *) fs [EL_LUPDATE]
+    THEN1 (* 15 *) fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 (* 14 *) fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 (* 13 *) fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 (* 12 *) rw []
+    THEN1 (* 11 *) metis_tac [forced_update_stack_color_lemma]
+    THEN1 (* 10 *) metis_tac [forced_update_stack_color_lemma]
+    THEN1 ((* 9 *)
         fs [EL_LUPDATE] >>
         Cases_on `r1 = reg /\ reg < LENGTH sth.colors` >>
         Cases_on `r2 = reg /\ reg < LENGTH sth.colors` >>
@@ -2631,13 +2639,13 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
         TRY (`EL r1 sth.colors < st.stacknum` by rw []) >>
         rw []
     )
-    THEN1 metis_tac [transitive_less_FST, SORTED_FILTER]
-    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-    THEN1 (
+    THEN1 (* 8 *) metis_tac [transitive_less_FST, SORTED_FILTER]
+    THEN1 (* 7 *) fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 ((* 6 *)
         fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER] >>
         metis_tac []
     )
-    THEN1 (
+    THEN1 ((* 5 *)
         fs [EVERY_MEM, FORALL_PROD] >>
         RW_TAC bool_ss [EL_LUPDATE] >>
         rename1 `MEM (r1, r2) forced`
@@ -2652,14 +2660,14 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
             rw []
         )
     )
-    THEN1 simp [EL_LUPDATE]
-    THEN1 (
+    THEN1 (* 4 *) simp [EL_LUPDATE]
+    THEN1 ((* 3 *)
         `mincol <= st.stacknum` by simp [] >>
         fs [EVERY_MEM, EL_LUPDATE, MEM_MAP] >>
         metis_tac []
     )
-    THEN1 simp [EL_LUPDATE]
-    THEN1 simp [EL_LUPDATE]
+    THEN1 (* 2 *) simp [EL_LUPDATE]
+    THEN1 (* 1 *) simp [EL_LUPDATE]
 );
 
 val spill_register_FILTER_invariants =
@@ -2821,8 +2829,8 @@ val state_invariants_remove_head = Q.store_thm("state_invariants_remove_head",
 
     rw [] >>
     `!r. r = reg \/ MEM r l <=> MEM r l` by metis_tac [] >>
-    rw [good_linear_scan_state_def] >>
-    fs [good_linear_scan_state_def] >>
+    rw [good_linear_scan_state_def'] >>
+    fs [good_linear_scan_state_def'] >>
     every_case_tac >> fs []
 );
 
@@ -2877,7 +2885,7 @@ val good_linear_scan_state_active_length_colors = Q.store_thm("good_linear_scan_
     good_linear_scan_state int_beg int_end st sth l pos forced mincol ==>
     EVERY (\e,r. r < LENGTH sth.colors) st.active`,
 
-    rw [good_linear_scan_state_def, EVERY_MEM] >>
+    rw [good_linear_scan_state_def', EVERY_MEM] >>
     res_tac >>
     rpt (pairarg_tac >> fs [])
 );
@@ -2921,7 +2929,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
     stout.colormax = st.colormax`,
 
     rpt strip_tac >> simp [color_register_eq] >> simp msimps >>
-    fs [good_linear_scan_state_def] >>
+    fs [good_linear_scan_state_def'] >>
     rpt strip_tac
     THEN1 (
       sg `!e. ~MEM (e,reg) st.active` THEN1 (
@@ -3074,7 +3082,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
     THEN1 (
         fs [EVERY_MEM, FORALL_PROD, forbidden_is_from_map_color_forced_def] >>
         rw [] >>
-        rename1 `MEM (reg1, reg2) forced`
+        rename1 `MEM (reg1, reg2) forced` >> eq_tac >> simp[] >> strip_tac
         THEN1 (
           REV_FULL_SIMP_TAC bool_ss [EL_LUPDATE] >>
           Cases_on `reg1 = reg2` >> fs [] >>
@@ -3089,7 +3097,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
         THEN1 (
           REV_FULL_SIMP_TAC bool_ss [EL_LUPDATE] >>
           Cases_on `reg1 = reg` >> FULL_SIMP_TAC bool_ss [] >>
-          Cases_on `reg2 = reg` >> FULL_SIMP_TAC bool_ss []
+          Cases_on `reg2 = reg` >> FULL_SIMP_TAC bool_ss [] >> metis_tac[]
         )
     )
     THEN1 simp [EL_LUPDATE]
@@ -3116,7 +3124,7 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
     stout.colormax = st.colormax`,
 
     rw [find_spill_def] >> simp msimps >>
-    `!e. ~(MEM (e,reg) st.active)` by (CCONTR_TAC >> fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]) >>
+    `!e. ~(MEM (e,reg) st.active)` by (CCONTR_TAC >> fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD]) >>
     imp_res_tac good_linear_scan_state_active_length_colors >>
     `?optsteal. find_last_stealable st.active forbidden sth = (Success optsteal, sth)` by metis_tac [find_last_stealable_success] >>
     simp [] >>
@@ -3139,13 +3147,13 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
     imp_res_tac find_last_stealable_output >>
     `stealreg < LENGTH sth.colors` by fs [EVERY_MEM, FORALL_PROD] >>
     `MEM (stealend, stealreg) st.active` by rw [] >>
-    `MEM stealreg l` by fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+    `MEM stealreg l` by fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
     rw [] >>
     FULL_SIMP_TAC pure_ss [SND] >>
     `(EL stealreg sth.colors) NOTIN domain forbidden` by fs [lookup_NONE_domain] >>
-    `EL stealreg sth.colors < st.colornum` by fs [good_linear_scan_state_def] >>
+    `EL stealreg sth.colors < st.colornum` by fs [good_linear_scan_state_def'] >>
     sg `ALL_DISTINCT ([EL stealreg sth.colors] ++ st.colorpool ++ (MAP (\e,r. EL r sth.colors) l1) ++ (MAP (\e,r. EL r sth.colors) l2))` THEN1 (
-        `ALL_DISTINCT (st.colorpool ++ MAP (\e,r. EL r sth.colors) st.active)` by rfs [good_linear_scan_state_def] >>
+        `ALL_DISTINCT (st.colorpool ++ MAP (\e,r. EL r sth.colors) st.active)` by rfs [good_linear_scan_state_def'] >>
         REV_FULL_SIMP_TAC std_ss [MAP, MAP_APPEND] >>
         sg `!ll ll1 (x:num) ll2. PERM (ll ++ (ll1 ++ x::ll2)) ([x] ++ ll ++ ll1 ++ ll2)` THEN1 (
             rw [] >>
@@ -3157,7 +3165,7 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
         metis_tac [ALL_DISTINCT_PERM]
     ) >>
     sg `(!e. ~MEM (e, stealreg) l1) /\ (!e. ~MEM (e, stealreg) l2)` THEN1 (
-        `ALL_DISTINCT (MAP (\e,r. EL r sth.colors) st.active)` by rfs [good_linear_scan_state_def, ALL_DISTINCT_APPEND] >>
+        `ALL_DISTINCT (MAP (\e,r. EL r sth.colors) st.active)` by rfs [good_linear_scan_state_def', ALL_DISTINCT_APPEND] >>
         `ALL_DISTINCT st.active` by metis_tac [ALL_DISTINCT_MAP] >>
         rfs [] >>
         sg `!(x:int#num) ll1 ll2. PERM (ll1 ++ [x] ++ ll2) ([x] ++ ll1 ++ ll2)` THEN1 (
@@ -3169,9 +3177,9 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
         fs [] >>
         `ALL_DISTINCT ((stealend, stealreg)::(l1 ++ l2))` by metis_tac [ALL_DISTINCT_PERM] >>
         fs [] >>
-        `EVERY (\e,r. e = the 0 (lookup r int_end)) (l1++l2)` by fs [good_linear_scan_state_def, EVERY_APPEND] >>
+        `EVERY (\e,r. e = the 0 (lookup r int_end)) (l1++l2)` by fs [good_linear_scan_state_def', EVERY_APPEND] >>
         fs [EVERY_APPEND] >>
-        `stealend = the 0 (lookup stealreg int_end)` by fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+        `stealend = the 0 (lookup stealreg int_end)` by fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
         fs [] >>
         rw [] >>
         CCONTR_TAC >> fs [] >>
@@ -3183,8 +3191,8 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
         imp_res_tac FILTER_MEM_active >>
         simp [FILTER_APPEND]
     ) >>
-    `mincol <= EL stealreg sth.colors` by (fs [good_linear_scan_state_def, EVERY_MEM, MEM_MAP] >> metis_tac []) >>
-    `the 0 (lookup stealreg int_beg) <= the 0 (lookup reg int_beg)` by fs [good_linear_scan_state_def, EVERY_MEM] >>
+    `mincol <= EL stealreg sth.colors` by (fs [good_linear_scan_state_def', EVERY_MEM, MEM_MAP] >> metis_tac []) >>
+    `the 0 (lookup stealreg int_beg) <= the 0 (lookup reg int_beg)` by fs [good_linear_scan_state_def', EVERY_MEM] >>
     qspecl_then [`int_beg`, `int_end`, `st`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `stealreg`, `mincol`] assume_tac (GSYM spill_register_FILTER_invariants) >>
     rfs [] >>
     imp_res_tac state_invariants_remove_head >>
@@ -3248,9 +3256,9 @@ val linear_reg_alloc_step_aux_invariants = Q.store_thm("linear_reg_alloc_step_au
         rename1 `_ = (stout, SOME col)` >>
         qspecl_then [`st`, `forbidden`, `stout`, `col`, `int_beg`, `int_end`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `mincol`] assume_tac find_color_invariants >>
         rfs [linear_scan_state_component_equality] >>
-        `~MEM col (stout.colorpool ++ MAP (\(e,r). EL r sth.colors) stout.active)` by fs [good_linear_scan_state_def] >>
-        `mincol <= col` by fs [good_linear_scan_state_def] >>
-        `good_linear_scan_state int_beg int_end stout sth l (the 0 (lookup reg int_beg)) forced mincol` by fs [good_linear_scan_state_def] >>
+        `~MEM col (stout.colorpool ++ MAP (\(e,r). EL r sth.colors) stout.active)` by fs [good_linear_scan_state_def'] >>
+        `mincol <= col` by fs [good_linear_scan_state_def'] >>
+        `good_linear_scan_state int_beg int_end stout sth l (the 0 (lookup reg int_beg)) forced mincol` by fs [good_linear_scan_state_def'] >>
         metis_tac [color_register_invariants]
       )
     )
@@ -3261,16 +3269,16 @@ val linear_reg_alloc_step_aux_invariants = Q.store_thm("linear_reg_alloc_step_au
       imp_res_tac find_color_in_list_output >>
       fs [MEM_FILTER] >>
       sg `good_linear_scan_state int_beg int_end (st with colorpool updated_by FILTER (\y. col <> y)) sth l (the 0 (lookup reg int_beg)) forced mincol` THEN1 (
-        fs [good_linear_scan_state_def] >>
+        fs [good_linear_scan_state_def'] >>
         simp [EVERY_FILTER_IMP] >>
         metis_tac [FILTER_IS_SPARSE_SUBLIST, IS_SPARSE_SUBLIST_APPEND_RIGHT, ALL_DISTINCT_IS_SPARSE_SUBLIST]
       ) >>
       sg `~MEM col ((FILTER (\y. col <> y) st.colorpool) ++ MAP (\e,r. EL r sth.colors) st.active)` THEN1 (
         rw [MEM_FILTER] >>
-        fs [good_linear_scan_state_def, ALL_DISTINCT_APPEND]
+        fs [good_linear_scan_state_def', ALL_DISTINCT_APPEND]
       ) >>
-      `col < st.colornum` by fs [good_linear_scan_state_def, EVERY_MEM] >>
-      `mincol <= col` by fs [good_linear_scan_state_def, EVERY_MEM, MEM_MAP] >>
+      `col < st.colornum` by fs [good_linear_scan_state_def', EVERY_MEM] >>
+      `mincol <= col` by fs [good_linear_scan_state_def', EVERY_MEM, MEM_MAP] >>
       qspecl_then [`int_beg`, `int_end`, `st with colorpool updated_by FILTER (\y. col <> y)`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `reg`, `col`, `forbidden`, `mincol`] assume_tac color_register_invariants >>
       rfs [] >>
       metis_tac []
@@ -3316,7 +3324,7 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
     Cases_on `is_stack_var reg` >>
     simp []
     THEN1 (
-        `!e. ~MEM (e,reg) stout.active` by (CCONTR_TAC >> fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]) >>
+        `!e. ~MEM (e,reg) stout.active` by (CCONTR_TAC >> fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD]) >>
         `!(x:int). x <= x` by rw [] >>
         simp [phystack_on_stack_def] >>
         `~is_phy_var reg` by metis_tac [convention_partitions] >>
@@ -3343,7 +3351,7 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
       Cases_on `reg < 2*stout.colormax` >> simp []
       THEN1 (
         `domain stout.phyregs SUBSET domain (union stout.phyregs forbidden)` by simp [domain_union] >>
-        `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def, SUBSET_DEF] >> metis_tac []) >>
+        `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def', SUBSET_DEF] >> metis_tac []) >>
         `forbidden_is_from_map_color_forced forced l sth.colors reg (union stout.phyregs forbidden)` by (fs [forbidden_is_from_map_color_forced_def, domain_union] >> metis_tac []) >>
         qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `[]`, `union stout.phyregs forbidden`, `forced`, `reg`, `T`] assume_tac linear_reg_alloc_step_aux_invariants >>
         rfs [] >>
@@ -3352,7 +3360,7 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
         metis_tac []
       )
       THEN1 (
-        `!e. ~MEM (e,reg) stout.active` by (CCONTR_TAC >> fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]) >>
+        `!e. ~MEM (e,reg) stout.active` by (CCONTR_TAC >> fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD]) >>
         `!(x:int). x <= x` by rw [] >>
         `2*st.colormax <= reg` by rw [] >>
         simp [phystack_on_stack_def] >>
@@ -3408,7 +3416,7 @@ val linear_reg_alloc_step_pass2_invariants = Q.store_thm("linear_reg_alloc_step_
 
     THEN1 (
       `domain stout.phyregs SUBSET domain (union stout.phyregs forbidden)` by simp [domain_union] >>
-      `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def, SUBSET_DEF] >> metis_tac []) >>
+      `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def', SUBSET_DEF] >> metis_tac []) >>
       `forbidden_is_from_map_color_forced forced l sth.colors reg (union stout.phyregs forbidden)` by (fs [forbidden_is_from_map_color_forced_def, domain_union] >> metis_tac []) >>
       qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `[]`, `union stout.phyregs forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
       rfs [] >>
@@ -3563,7 +3571,7 @@ val linear_reg_alloc_pass1_initial_state_invariants = Q.store_thm("linear_reg_al
     good_linear_scan_state int_beg int_end (linear_reg_alloc_pass1_initial_state k) sth [] pos forced 0 /\
     EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist`,
 
-    rw [good_linear_scan_state_def, linear_reg_alloc_pass1_initial_state_def] >> rw [] >>
+    rw [good_linear_scan_state_def', linear_reg_alloc_pass1_initial_state_def] >> rw [] >>
     qspecl_then [`\r. the 0 (lookup r int_beg)`, `reglist`] assume_tac list_minimum >>
     fs [] >>
     qexists_tac `x` >> rw [] >>
@@ -3577,7 +3585,7 @@ val linear_reg_alloc_pass2_initial_state_invariants = Q.store_thm("linear_reg_al
     good_linear_scan_state int_beg int_end (linear_reg_alloc_pass2_initial_state k nreg) sth [] pos forced k /\
     EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist`,
 
-    rw [good_linear_scan_state_def, linear_reg_alloc_pass2_initial_state_def] >> rw [] >>
+    rw [good_linear_scan_state_def', linear_reg_alloc_pass2_initial_state_def] >> rw [] >>
     qspecl_then [`\r. the 0 (lookup r int_beg)`, `reglist`] assume_tac list_minimum >>
     fs [] >>
     qexists_tac `x` >> rw [] >>
@@ -3633,7 +3641,7 @@ val good_linear_scan_state_REVERSE = Q.store_thm("good_linear_scan_state_REVERSE
     `!int_beg int_end st sth l pos forced mincol.
     good_linear_scan_state int_beg int_end st sth (REVERSE l) pos forced mincol <=>
     good_linear_scan_state int_beg int_end st sth l pos forced mincol`,
-    rw [good_linear_scan_state_def] >>
+    rw [good_linear_scan_state_def'] >>
     eq_tac >>
     rw [EVERY_REVERSE, FILTER_REVERSE, MAP_REVERSE, ALL_DISTINCT_REVERSE]
 );
@@ -3730,7 +3738,7 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
 
-    `ALL_DISTINCT (MAP (\r. EL r sth1.colors) phyregs)` by (fs [good_linear_scan_state_REVERSE, good_linear_scan_state_def] >> rw []) >>
+    `ALL_DISTINCT (MAP (\r. EL r sth1.colors) phyregs)` by (fs [good_linear_scan_state_REVERSE, good_linear_scan_state_def'] >> rw []) >>
     qspecl_then [`phyphyregs`, `sth1`, `k`] mp_tac apply_reg_exchange_correct >>
     impl_tac THEN1 (
         strip_tac THEN1 (
@@ -3814,9 +3822,9 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     rpt (qpat_x_assum `good_linear_scan_state _ _ (_ _) _ _ _ _ _` kall_tac) >>
     fs [linear_reg_alloc_pass1_initial_state_def] >>
 
-    `EVERY (\r. k <= EL r sth3.colors) stacklist` by (FULL_SIMP_TAC pure_ss [good_linear_scan_state_def, EVERY_MEM, MEM_APPEND, MEM_MAP] >> metis_tac []) >>
+    `EVERY (\r. k <= EL r sth3.colors) stacklist` by (FULL_SIMP_TAC pure_ss [good_linear_scan_state_def', EVERY_MEM, MEM_APPEND, MEM_MAP] >> metis_tac []) >>
     sg `ALL_DISTINCT (MAP (\r. EL r sth3.colors) phyregs)` THEN1 (
-        `ALL_DISTINCT (MAP (\r. EL r sth3.colors) (FILTER is_phy_var stacklist))` by fs [good_linear_scan_state_def] >>
+        `ALL_DISTINCT (MAP (\r. EL r sth3.colors) (FILTER is_phy_var stacklist))` by fs [good_linear_scan_state_def'] >>
         sg `ALL_DISTINCT (MAP (\r. EL r sth3.colors) (FILTER (\r. MEM r stacklist) phyregs))` THEN1 (
             rveq >>
             fs [FILTER_FILTER, MEM_FILTER] >>
@@ -3941,7 +3949,7 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
         Cases_on `MEM r2 stacklist`
         THEN1 (
             qpat_x_assum `good_linear_scan_state _ _ st1 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]
+            FULL_SIMP_TAC std_ss [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >> metis_tac[]
         )
         THEN1 (
             fs [EVERY_MEM] >> res_tac >> fs []
@@ -3951,7 +3959,7 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
         )
         THEN1 (
             qpat_x_assum `good_linear_scan_state _ _ st3 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+            FULL_SIMP_TAC std_ss [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
             metis_tac []
         )
     )
@@ -3998,7 +4006,8 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
         THEN1 (
             `MEM (r1, r2) forced'` by (rveq >> fs [MEM_FILTER]) >>
             qpat_x_assum `good_linear_scan_state _ _ st1 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]
+            FULL_SIMP_TAC std_ss [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
+            metis_tac[]
         )
         THEN1 (
             fs [EVERY_MEM] >> res_tac >> fs []
@@ -4008,7 +4017,7 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
         )
         THEN1 (
             qpat_x_assum `good_linear_scan_state _ _ st3 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+            FULL_SIMP_TAC std_ss [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
             metis_tac []
         )
     )

@@ -1205,8 +1205,8 @@ val dest_closure_v_rel_lookup = Q.store_thm("dest_closure_v_rel_lookup",
   \\ imp_res_tac LIST_REL_LENGTH \\ fs[]
   \\ fs[DROP_LENGTH_NIL_rwt,revtakerev]
   >- (
-    qpat_abbrev_tac`el = (_,_)`
-    \\ qexists_tac`[el]` \\ simp[Abbr`el`]
+    qpat_abbrev_tac`ele = (_,_)`
+    \\ qexists_tac`[ele]` \\ simp[Abbr`ele`]
     \\ last_assum(part_match_exists_tac(el 2 o strip_conj) o concl)
     \\ qexists_tac`0` \\ simp[]
     \\ imp_res_tac calls_length \\ fs[]
