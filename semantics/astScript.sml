@@ -68,7 +68,7 @@ val _ = Hol_datatype `
     Opn of opn
   | Opb of opb
   (* Operations on words *)
-  | Opwb of opwb
+  | Opwb of word_size => opwb
   | Opw of word_size => opw
   | Shift of word_size => shift => num
   | Equality

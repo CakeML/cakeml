@@ -599,8 +599,8 @@ val _ = Define `
           SOME ((s,t), Rval (Litv (Word (opw_lookup op w1 w2))))
         else
           NONE
-    | (Opwb op, [Litv (Word w1); Litv (Word w2)]) =>
-        if (LENGTH w1 = LENGTH w2) then
+    | (Opwb (WordSize n) op, [Litv (Word w1); Litv (Word w2)]) =>
+        if (n = LENGTH w1) /\ (LENGTH w1 = LENGTH w2) then
           SOME ((s,t), Rval (Boolv (opwb_lookup op w1 w2))) 
         else
           NONE
