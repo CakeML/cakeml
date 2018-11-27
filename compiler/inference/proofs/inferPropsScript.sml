@@ -1,3 +1,7 @@
+(*
+  Various lemmas that are handy in the soundness and completeness
+  proofs of the type inferencer.
+*)
 open preamble;
 open libTheory namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;

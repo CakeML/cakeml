@@ -1,3 +1,8 @@
+(*
+  Proves completeness of the type inferencer, i.e. if there is a type
+  for the program, then the type inferencer will find a type (the most
+  general type).
+*)
 open preamble
 open typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory
      astPropsTheory typeSysPropsTheory inferPropsTheory namespacePropsTheory envRelTheory
