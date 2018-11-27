@@ -1,8 +1,11 @@
+(*
+  The wordLang intermediate language consists of structured programs
+  that overate over machine words, a list-like stack and a flat memory.
+  This is the language where register allocation is performed.
+*)
 open preamble asmTheory stackLangTheory;
 
 val _ = new_theory "wordLang";
-
-(* word lang = structured program with words, stack and memory *)
 
 val _ = Parse.type_abbrev("shift",``:ast$shift``);
 

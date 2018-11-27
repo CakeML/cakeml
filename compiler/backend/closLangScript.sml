@@ -1,3 +1,8 @@
+(*
+  The closLang intermediate language. This language is the last
+  intermediate language that has closure values. This language is
+  designed for optimisation of function calls.
+*)
 open preamble backend_commonTheory;
 
 val _ = new_theory "closLang";

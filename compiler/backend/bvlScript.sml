@@ -1,3 +1,7 @@
+(*
+  The BVL intermediate language. This language is a simple first-order
+  functional language without closures.
+*)
 open preamble closLangTheory backend_commonTheory
 
 val _ = new_theory "bvl";
