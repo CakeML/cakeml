@@ -245,6 +245,8 @@ let type_op op ts t =
     | (Opb _, [t1; t2]) -> t1 = Tint && t2 = Tint && t = Tbool
     | (Opw (WordSize 8) _, [t1; t2]) -> t1 = Tword8 && t2 = Tword8 && t = Tword8
     | (Opw (WordSize 64) _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
+    | (Opwb (WordSize 8) _, [t1; t2]) -> t1 = Tword8 && t2 = Tword8 && t = Tbool
+    | (Opwb (WordSize 64) _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tbool
     | (FP_bop _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
     | (FP_uop _, [t1]) ->  t1 = Tword64 && t = Tword64
     | (FP_cmp _, [t1; t2]) ->  t1 = Tword64 && t2 = Tword64 && t = Tbool

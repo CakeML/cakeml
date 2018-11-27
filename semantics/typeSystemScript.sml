@@ -351,33 +351,49 @@ val _ = Define `
                                          (t2 = Tint) /\ (t = Tbool)
                    | (_,_) => F
                  )
-     | Opwb _ => F
-     | Opw w o3 => (case w of
-                       WordSize n1 =>
-                   if(n1 = ( 8 : num)) then
-                     ((case(o3,ts) of
-                          ( _, [t1; t2]) => (t1 = Tword8) /\
-                                              (t2 = Tword8) /\ (t = Tword8)
-                        | (_,_) => F
-                      )) else
-                     (
-                     if(n1 = ( 64 : num)) then
-                       ((case(o3,ts) of
-                            ( _, [t1; t2]) => (t1 = Tword64) /\
-                                                (t2 = Tword64) /\
-                                                  (t = Tword64)
-                          | (_,_) => F
-                        )) else F)
-                   )
-     | Shift w0 s n0 => (case w0 of
-                            WordSize n2 =>
-                        if(n2 = ( 8 : num)) then
+     | Opwb w o2 => (case w of
+                        WordSize n1 =>
+                    if(n1 = ( 8 : num)) then
+                      ((case(o2,ts) of
+                           ( _, [t1; t2]) => (t1 = Tword8) /\
+                                               (t2 = Tword8) /\ (t = Tbool)
+                         | (_,_) => F
+                       )) else
+                      (
+                      if(n1 = ( 64 : num)) then
+                        ((case(o2,ts) of
+                             ( _, [t1; t2]) => (t1 = Tword64) /\
+                                                 (t2 = Tword64) /\
+                                                   (t = Tbool)
+                           | (_,_) => F
+                         )) else F)
+                    )
+     | Opw w0 o3 => (case w0 of
+                        WordSize n2 =>
+                    if(n2 = ( 8 : num)) then
+                      ((case(o3,ts) of
+                           ( _, [t1; t2]) => (t1 = Tword8) /\
+                                               (t2 = Tword8) /\ (t = Tword8)
+                         | (_,_) => F
+                       )) else
+                      (
+                      if(n2 = ( 64 : num)) then
+                        ((case(o3,ts) of
+                             ( _, [t1; t2]) => (t1 = Tword64) /\
+                                                 (t2 = Tword64) /\
+                                                   (t = Tword64)
+                           | (_,_) => F
+                         )) else F)
+                    )
+     | Shift w1 s n0 => (case w1 of
+                            WordSize n3 =>
+                        if(n3 = ( 8 : num)) then
                           ((case(s,n0,ts) of
                                ( _, _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
                              | (_,_,_) => F
                            )) else
                           (
-                          if(n2 = ( 64 : num)) then
+                          if(n3 = ( 64 : num)) then
                             ((case(s,n0,ts) of
                                  ( _, _, [t1]) => (t1 = Tword64) /\
                                                     (t = Tword64)
@@ -429,63 +445,63 @@ val _ = Define `
                                             (t3 = Tword8) /\ (t = Ttup [])
                       | _ => F
                     )
-     | WordFromInt w1 => (case w1 of
-                             WordSize n3 =>
-                         if(n3 = ( 8 : num)) then
+     | WordFromInt w2 => (case w2 of
+                             WordSize n4 =>
+                         if(n4 = ( 8 : num)) then
                            ((case ts of
                                 [t1] => (t1 = Tint) /\ (t = Tword8)
                               | _ => F
                             )) else
                            (
-                           if(n3 = ( 64 : num)) then
+                           if(n4 = ( 64 : num)) then
                              ((case ts of
                                   [t1] => (t1 = Tint) /\ (t = Tword64)
                                 | _ => F
                               )) else F)
                          )
-     | WordToInt w2 => (case w2 of
-                           WordSize n4 =>
-                       if(n4 = ( 8 : num)) then
+     | WordToInt w3 => (case w3 of
+                           WordSize n5 =>
+                       if(n5 = ( 8 : num)) then
                          ((case ts of
                               [t1] => (t1 = Tword8) /\ (t = Tint)
                             | _ => F
                           )) else
                          (
-                         if(n4 = ( 64 : num)) then
+                         if(n5 = ( 64 : num)) then
                            ((case ts of
                                 [t1] => (t1 = Tword64) /\ (t = Tint)
                               | _ => F
                             )) else F)
                        )
-     | WordToWord w3 w4 => (case w3 of
-                               WordSize n5 =>
-                           if(n5 = ( 8 : num)) then
-                             ((case w4 of
-                                  WordSize n6 =>
-                              if(n6 = ( 8 : num)) then
+     | WordToWord w4 w5 => (case w4 of
+                               WordSize n6 =>
+                           if(n6 = ( 8 : num)) then
+                             ((case w5 of
+                                  WordSize n7 =>
+                              if(n7 = ( 8 : num)) then
                                 ((case ts of
                                      [t1] => (t1 = Tword8) /\ (t = Tword8)
                                    | _ => F
                                  )) else
                                 (
-                                if(n6 = ( 64 : num)) then
+                                if(n7 = ( 64 : num)) then
                                   ((case ts of
                                        [t1] => (t1 = Tword8) /\ (t = Tword64)
                                      | _ => F
                                    )) else F)
                               )) else
                              (
-                             if(n5 = ( 64 : num)) then
-                               ((case w4 of
-                                    WordSize n7 =>
-                                if(n7 = ( 64 : num)) then
+                             if(n6 = ( 64 : num)) then
+                               ((case w5 of
+                                    WordSize n8 =>
+                                if(n8 = ( 64 : num)) then
                                   ((case ts of
                                        [t1] => (t1 = Tword64) /\
                                                  (t = Tword64)
                                      | _ => F
                                    )) else
                                   (
-                                  if(n7 = ( 8 : num)) then
+                                  if(n8 = ( 8 : num)) then
                                     ((case ts of
                                          [t1] => (t1 = Tword64) /\
                                                    (t = Tword8)
