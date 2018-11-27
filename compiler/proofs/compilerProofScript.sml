@@ -1,3 +1,7 @@
+(*
+  Prove top-level correctness theorem for complete compiler, i.e. the
+  combination of parsing, type inference, compiler backend.
+*)
 open preamble
      compilerTheory
      semanticsTheory targetSemTheory
