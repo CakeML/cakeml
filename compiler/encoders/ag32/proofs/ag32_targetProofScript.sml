@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for ag32, i.e. Silver ISA
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib ag32_targetTheory;
 

@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for ARMv6
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib arm6_targetTheory arm_stepLib;
 
