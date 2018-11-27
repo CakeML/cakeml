@@ -1,3 +1,16 @@
+(*
+  This is the compiler phase that translates the CakeML source
+  language into flatLang.
+
+  The translator to flatLang keeps two mappings, one mapping module
+  paths to indices into the genv, and the other mapping module paths
+  to constructor ids.  All variable references are replaced with
+  global references to the genv index if they are in the
+  mappings. This includes top-level letrec names which are all put
+  into the mapping before translating any of the let rec functions.
+  This enables the semantics of let rec to just create Closures rather
+  than Recclosures.
+*)
 open preamble astTheory terminationTheory flatLangTheory;
 open flat_elimTheory flat_exh_matchTheory flat_uncheck_ctorsTheory
      flat_reorder_matchTheory
@@ -5,16 +18,6 @@ open flat_elimTheory flat_exh_matchTheory flat_uncheck_ctorsTheory
 val _ = numLib.prefer_num();
 
 val _ = new_theory"source_to_flat";
-
-(*
- * The translator to flatLang keeps two mappings, one mapping module paths to
- * indices into the genv, and the other mapping module paths to constructor ids.
- * All variable references are replaced with global references to the genv index
- * if they are in the mappings. This includes top-level letrec names which are
- * all put into the mapping before translating any of the let rec functions.
- * This enables the semantics of let rec to just create Closures rather than
- * Recclosures.
- *)
 
 val _ = Datatype `
   environment =

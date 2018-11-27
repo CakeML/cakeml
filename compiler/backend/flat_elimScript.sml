@@ -1,5 +1,5 @@
 (*
-  Implementation for flatLang dead code elimination.
+  Implementation for flatLang dead-code elimination.
 
   Analyses code to give a next-step function as a num_set num_map.
   Closes this next-step function to give a set of reachable globals.

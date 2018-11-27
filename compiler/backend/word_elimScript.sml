@@ -1,5 +1,5 @@
 (*
-  Implementation for wordLang dead code elimination.
+  Implementation for wordLang dead-code elimination.
 
   Analyses code to give a next-step function as a num_set num_map.
   Uses flat_elim functions to close the next-step function and give a set of

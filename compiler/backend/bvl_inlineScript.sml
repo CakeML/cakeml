@@ -1,3 +1,8 @@
+(*
+  A simple function-inlining optimisation within the BVL language.
+  There is a more advanced inlining optimisation as part of
+  clos_known.
+*)
 open preamble bvlTheory bvl_handleTheory;
 
 val _ = new_theory "bvl_inline";

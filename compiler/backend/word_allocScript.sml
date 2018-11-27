@@ -1,3 +1,11 @@
+(*
+  This is the compiler's regsiter allocator. It supports different modes:
+      - simple allocator, no spill heuristics
+      - simple allocator + spill heuristics
+      - IRC allocator, no spill heuristics (default)
+      - IRC allocator + spill heuristics
+      - linear scan register allocator
+*)
 open preamble wordLangTheory;
 open linear_scanTheory;
 open reg_allocTheory;
@@ -10,13 +18,6 @@ val _ = set_grammar_ancestry [
   "wordLang"
 ]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
-(*Defines the algorithms related to the register allocator, currently:
-0) Syntactic forms before and after allocation
-1) SSA form
-2) Colouring and Liveness Analysis
-3) Combined passes
-*)
 
 (*SSA form*)
 val apply_nummap_key_def = Define`

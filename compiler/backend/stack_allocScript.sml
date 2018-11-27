@@ -1,9 +1,15 @@
+(*
+  This compiler phase introduces the implementation of the memory
+  allocator and its garbage collector. It traverses the given code and
+  replaces all calls to Alloc by calls to code that it inserts into
+  the compiled program. the inserted code is a stackLang
+  implementation of the garbage collector.
+*)
 open preamble stackLangTheory data_to_wordTheory;
 
 val _ = new_theory "stack_alloc";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-(* implementation of alloc and the GC *)
 
 val memcpy_code_def = Define `
   memcpy_code =

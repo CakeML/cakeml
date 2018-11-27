@@ -1,9 +1,14 @@
+(*
+  This dataLang phase lumps together MakeSpace operations. Each
+  MakeSpace operations corresponds to a memory allocation in the later
+  wordLang code. By lumping together MakeSpace operations we turn
+  several calls to the memory allocator into a single efficient call.
+*)
 open preamble dataLangTheory;
 
 val _ = new_theory "data_space";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-(* dataLang optimisation that lumps together MakeSpace operations. *)
 
 val op_space_req_def = Define `
   (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
