@@ -1,3 +1,6 @@
+(*
+  Correctness proof for clos_known
+*)
 open preamble local open bagLib in end
 open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
      closLangTheory db_varsTheory backendPropsTheory

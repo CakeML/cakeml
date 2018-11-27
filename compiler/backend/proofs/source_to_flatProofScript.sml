@@ -1,3 +1,6 @@
+(*
+  Correctness proof for source_to_flat
+*)
 open preamble;
 open semanticsTheory namespacePropsTheory semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory;

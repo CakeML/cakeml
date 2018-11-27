@@ -1,3 +1,6 @@
+(*
+  Correctness proof for flat_to_pat
+*)
 open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flat_to_patTheory backendPropsTheory
@@ -3336,4 +3339,3 @@ val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
   HINT_EXISTS_TAC>>fs[set_globals_eq])
 
 val _ = export_theory()
-

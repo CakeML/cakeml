@@ -1,3 +1,6 @@
+(*
+  Correctness proof for bvi_inline
+*)
 open preamble backendPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_inlineTheory

@@ -1,3 +1,6 @@
+(*
+  Correctness proof for stack_remove
+*)
 open preamble
      stack_removeTheory
      stackLangTheory

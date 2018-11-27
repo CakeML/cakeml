@@ -1,3 +1,6 @@
+(*
+  Correctness proof for data_simp
+*)
 open preamble data_simpTheory dataSemTheory;
 
 val _ = new_theory"data_simpProof";

@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_to_stack
+*)
 open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      word_to_stackTheory wordPropsTheory stackPropsTheory
      parmoveTheory;

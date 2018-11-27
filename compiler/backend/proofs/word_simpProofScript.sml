@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_simp
+*)
 open alistTheory preamble wordLangTheory wordSemTheory wordPropsTheory word_simpTheory;
 
 val _ = new_theory "word_simpProof";

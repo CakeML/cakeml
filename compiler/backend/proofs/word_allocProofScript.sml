@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_alloc
+*)
 open preamble
      reg_allocTheory reg_allocProofTheory linear_scanTheory linear_scanProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory;

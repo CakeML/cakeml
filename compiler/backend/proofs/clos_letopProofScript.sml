@@ -1,3 +1,6 @@
+(*
+  Correctness proof for clos_letop
+*)
 open preamble closPropsTheory clos_letopTheory closSemTheory;
 open closLangTheory;
 open backendPropsTheory;
