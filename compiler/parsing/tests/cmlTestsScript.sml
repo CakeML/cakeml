@@ -1,3 +1,6 @@
+(*
+  Some tests for the compiler's parser.
+*)
 open HolKernel Parse boolLib bossLib
 
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
