@@ -1,3 +1,6 @@
+(*
+  A linear-scan register allocator.
+*)
 open preamble sptreeTheory reg_allocTheory libTheory
 open mergesortTheory sortingTheory
 open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory

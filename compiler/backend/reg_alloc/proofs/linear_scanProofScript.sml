@@ -1,3 +1,6 @@
+(*
+  Proves correctness of the linear-scan register allocator.
+*)
 open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory libTheory
 open ml_monadBaseTheory ml_monadBaseLib;
 

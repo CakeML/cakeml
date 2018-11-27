@@ -1,6 +1,6 @@
 (*
- * A monadic graph coloring register allocator
- *)
+  A monadic graph-coloring register allocator
+*)
 
 open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory

@@ -1,3 +1,6 @@
+(*
+  The major collection of the generational copying garbage collector.
+*)
 open preamble wordsTheory wordsLib integer_wordTheory gc_sharedTheory;
 
 val _ = new_theory "gen_gc";
