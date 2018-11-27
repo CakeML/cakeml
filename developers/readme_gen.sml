@@ -189,11 +189,20 @@ fun read_comment_from_raw filename = let
 
 (* Read first paragraph of header from directory *)
 
+fun file_exists filename =
+  let
+    val f = TextIO.openIn(filename)
+    val _ = TextIO.closeIn f
+  in true end handle e => false;
+
 fun read_comment_from_dir path = let
   val _ = (OS.FileSys.isDir path handle OS.SysErr _ => false)
           orelse fail "this is not a directory"
   val path = if String.isSuffix "/" path then path else path ^ "/"
-  in read_comment_from_raw (path ^ PREFIX_FILENAME) end
+  in if file_exists (path ^ "Holmakefile") then
+       read_comment_from_raw (path ^ PREFIX_FILENAME)
+     else
+       read_comment_from_raw (path ^ OUTPUT_FILENAME) end
 
 (* Read full header file from directory *)
 
@@ -373,10 +382,12 @@ fun mem x [] = false
   | mem x (y::ys) = if x = y then true else mem x ys;
 
 fun main () = let
+  val args = (List.tl [""])
   val args = CommandLine.arguments ()
   val path = OS.FileSys.getDir()
   val dirs = all_nondot_subdirs path
+  val filenames_and_paths = args @ dirs
   val _ = if mem CHECK_OPT args
           then run_full_check ()
-          else create_summary (args @ dirs)
+          else create_summary filenames_and_paths
   in () end;

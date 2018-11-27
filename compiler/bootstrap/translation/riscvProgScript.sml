@@ -1,3 +1,6 @@
+(*
+  Translate the RISC-V instruction encoder and RISC-V-specific config.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;

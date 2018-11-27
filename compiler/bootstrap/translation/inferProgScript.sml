@@ -1,3 +1,6 @@
+(*
+  Translate the compiler's type inferencer.
+*)
 open preamble parserProgTheory
      reg_allocProgTheory inferTheory
      ml_translatorLib ml_translatorTheory

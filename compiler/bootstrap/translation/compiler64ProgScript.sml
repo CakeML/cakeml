@@ -1,3 +1,6 @@
+(*
+  Finish translation of the 64-bit version of the compiler.
+*)
 open preamble
      mipsProgTheory compilerTheory
      exportTheory

@@ -1,3 +1,6 @@
+(*
+  Translate the ARMv6 instruction encoder and ARMv6-specific config.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;

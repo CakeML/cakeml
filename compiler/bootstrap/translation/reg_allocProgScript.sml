@@ -1,3 +1,6 @@
+(*
+  Translate the compiler's register allocator.
+*)
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;

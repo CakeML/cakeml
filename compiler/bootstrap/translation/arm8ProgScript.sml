@@ -1,3 +1,6 @@
+(*
+  Translate the ARMv8 instruction encoder and ARMv8-specific config.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;

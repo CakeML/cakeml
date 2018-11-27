@@ -1,3 +1,6 @@
+(*
+  Translate the compiler's parser.
+*)
 open preamble
      cmlParseTheory cmlPEGTheory lexerProgTheory
      ml_translatorLib ml_translatorTheory

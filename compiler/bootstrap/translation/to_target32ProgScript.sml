@@ -1,3 +1,6 @@
+(*
+  Translate the final part of the compiler backend for 32-bit targets.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;

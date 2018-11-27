@@ -1,3 +1,6 @@
+(*
+  Translate the x64 instruction encoder and x64-specific config.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
