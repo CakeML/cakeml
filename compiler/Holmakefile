@@ -1,11 +1,11 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = ../developers ../misc ../semantics parsing inference backend\
-
-all: $(DEFAULT_TARGETS) README.md
            backend/reg_alloc encoders/asm ../basis ../characteristic\
            backend/arm6 backend/arm8 backend/mips backend/riscv\
            backend/ag32 backend/x64\
            $(HOLDIR)/examples/formal-languages/context-free
+
+all: $(DEFAULT_TARGETS) README.md
 
 all: compilerTheory.uo compilationLib.uo README.md
 .PHONY: all
