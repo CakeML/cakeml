@@ -70,6 +70,7 @@ val astOp_to_flatOp_def = Define `
   | Aw8update => flatLang$Aw8update
   | WordFromInt word_size => flatLang$WordFromInt word_size
   | WordToInt word_size => flatLang$WordToInt word_size
+  | WordToWord source_word_size dest_word_size => flatLang$WordToWord source_word_size dest_word_size
   | CopyStrStr => flatLang$CopyStrStr
   | CopyStrAw8 => flatLang$CopyStrAw8
   | CopyAw8Str => flatLang$CopyAw8Str

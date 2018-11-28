@@ -49,6 +49,8 @@ val _ = Datatype `
   (* Word/integer conversions *)
   | WordFromInt word_size
   | WordToInt word_size
+  (* Word/word conversions *)
+  | WordToWord word_size word_size
   (* string/bytearray conversions *)
   | CopyStrStr
   | CopyStrAw8
