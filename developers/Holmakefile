@@ -1,3 +1,5 @@
+all: $(DEFAULT_TARGETS) README.md
+
 README_SOURCES = $(wildcard *.sml) $(wildcard *.sh) build-sequence
 
 DIRS = $(wildcard */)

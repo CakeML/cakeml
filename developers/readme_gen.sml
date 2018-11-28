@@ -13,8 +13,8 @@
        - there must not be any Script.sml files
     - in dirs with a Holmakefile
        - there must be a readmePrefix file
-TODO:  - the first target in the Holmakefile must be "all"
-TODO:  - there must be a README.md target and this must be required by "all"
+       - the first target in the Holmakefile must have the following
+         as a prefix "all: $(DEFAULT_TARGETS) README.md"
        - create_summary must work in the dir (doesn't writing output)
 *)
 
@@ -26,10 +26,10 @@ val PREFIX_FILENAME = "readmePrefix"
 val OUTPUT_FILENAME = "README.md"
 val CHECK_OPT = "--check"
 val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Lib.sml",".lem",".c"]
+val FIRST_TARGET_PREFIX = "all: $(DEFAULT_TARGETS) README.md"
 
 val HOLMAKEFILE_SUGGESTION =
- concat ["all: README.md\n",
-         "README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
+ concat ["README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
          "$(wildcard *Syntax.sml)\n",
          "DIRS = $(wildcard */)\n",
          "README.md: $(CAKEMLDIR)/developers/readme_gen",
@@ -65,6 +65,9 @@ val is_blank_line = every_char Char.isSpace;
 fun take_while p [] = []
   | take_while p (x::xs) = if p x then x :: take_while p xs else [];
 
+fun drop_while p [] = []
+  | drop_while p (x::xs) = if p x then drop_while p xs else x::xs;
+
 fun drop_chars n str = Substring.string (Substring.triml n (Substring.full str));
 
 fun check_length all_lines = let
@@ -83,6 +86,12 @@ fun check_length_and_width all_lines =
 fun open_textfile filename =
   TextIO.openIn(filename)
   handle IO.Io _ => fail ("unable to open file: " ^ filename);
+
+fun write_file filename content = let
+  val f = TextIO.openOut(filename)
+  val _ = TextIO.output(f,content)
+  val _ = TextIO.closeOut f
+  in content end
 
 fun sort P = (* copied from HOL *)
    let
@@ -288,6 +297,35 @@ fun auto_include_filenames path = let
   val names = List.filter (has_suffix AUTO_INCLUDE_SUFFIXES) names
   in names @ dirs end
 
+(*
+val SOME lines = read_all_lines filename
+*)
+
+fun check_Holmakefile filename =
+  case read_all_lines filename of
+    NONE => err ("Unable to read: " ^ filename)
+  | SOME lines => let
+      val _ = List.exists (fn s => String.isPrefix (OUTPUT_FILENAME ^ ":") s) lines
+              orelse (err (concat
+                ["ERROR! Every Holmakefile must include a ", OUTPUT_FILENAME,
+                 " target. Consider adding:\n\n",HOLMAKEFILE_SUGGESTION,
+                 "\nto ",filename,"\n"]))
+      fun is_target_line line = length (String.tokens (fn c => c = #":") line) > 1
+      val xs = take_while (not o is_target_line) lines
+      val ys = drop_while (not o is_target_line) lines
+      val first_target = List.nth(ys,0)
+      val _ = String.isPrefix FIRST_TARGET_PREFIX first_target
+              orelse err (concat
+                ["ERROR! The first target line must have\n\n",
+                 FIRST_TARGET_PREFIX,"\n\nas a prefix in ", filename, "\n"]) (*let
+                val lines = List.filter (fn s => s <> "all: README.md\n") lines
+                val xs = take_while (String.isSubstring "=") lines
+                val ys = drop_while (String.isSubstring "=") lines
+                val all_lines = xs @ ["\nall: $(DEFAULT_TARGETS) README.md\n"] @ ys
+                val _ = write_file filename (concat all_lines)
+                in true end*)
+      in true end
+
 (* Main functions: processing a list of files / paths *)
 
 datatype res = TitleAndContent of string * (string list)
@@ -297,6 +335,7 @@ datatype res = TitleAndContent of string * (string list)
 fun isError (Error _) = true | isError _ = false;
 
 fun create_summary write_output path extra_files = let
+  val _ = check_Holmakefile (path ^ "/Holmakefile")
   val filenames = all_nondot_subdirs path @
                   auto_include_filenames path @ extra_files
   val filenames = sort (fn s1 => fn s2 => s1 <= s2) filenames
@@ -374,11 +413,6 @@ fun run_full_check path = let
     fun common (x::xs) (y::ys) = if x = y then x::(common xs ys) else []
       | common _ _ = []
     in implode (common (explode s) (explode t)) end
-  fun write_file filename content = let
-    val f = TextIO.openOut(filename)
-    val _ = TextIO.output(f,content)
-    val _ = TextIO.closeOut f
-    in content end
   fun inject_readme_target p [] = ["\n",HOLMAKEFILE_SUGGESTION]
     | inject_readme_target p (l::ls) =
         if String.isPrefix "ifdef" l orelse String.isPrefix "ifndef" l then
@@ -409,18 +443,16 @@ fun run_full_check path = let
         in () end
     | SOME lines => (* case: Holmake file exists *)
         let
+          val _ = print ("Checking: " ^ p ^ "\n")
           (* prefix file must exist *)
           val _ = assert_for_lines_of (p ^ "/" ^ PREFIX_FILENAME)
                     Option.isSome (fn s => "Missing file: " ^ s)
-          val _ = List.exists (fn s => String.isPrefix (OUTPUT_FILENAME ^ ":") s) lines
-                  orelse (write_file (p ^ "/Holmakefile")
-                           (concat (inject_readme_target p lines)) ^ "\n\n";
-                          print ("Inserted " ^ OUTPUT_FILENAME ^
-                                 " target to " ^ p ^ "/Holmakefile");
-                          true)
+          (* attempt to build readme without writing the file, because the
+             Holmakefile might be set up to include extra_files via
+             command-line arguments to readme_gen *)
           val extra_files = ([]:string list)
-          val _ = print ("Checking: " ^ p ^ "\n")
-          val _ = create_summary false p extra_files
+          val write_output = false
+          val _ = create_summary write_output p extra_files
         in () end
   val _ = apply_in_all_dirs check_dir path
   in () end;

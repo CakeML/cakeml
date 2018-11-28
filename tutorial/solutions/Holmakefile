@@ -8,7 +8,7 @@ THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
 TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
 
-all: $(TARGETS) exercises
+all: $(DEFAULT_TARGETS) README.md $(TARGETS) exercises
 
 .PHONY: all
 
