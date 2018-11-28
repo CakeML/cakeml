@@ -1,5 +1,7 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = $(HOLDIR)/examples/l3-machine-code/common \
+
+all: $(DEFAULT_TARGETS) README.md
            $(HOLDIR)/examples/l3-machine-code/arm8/model \
            $(HOLDIR)/examples/l3-machine-code/arm8/step \
            ../asm
@@ -8,7 +10,6 @@ README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
-all: README.md
 
 ifdef POLY
 HOLHEAP = $(HOLDIR)/examples/l3-machine-code/arm8/step/arm8-heap

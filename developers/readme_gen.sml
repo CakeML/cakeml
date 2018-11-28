@@ -317,13 +317,14 @@ fun check_Holmakefile filename =
       val _ = String.isPrefix FIRST_TARGET_PREFIX first_target
               orelse err (concat
                 ["ERROR! The first target line must have\n\n",
-                 FIRST_TARGET_PREFIX,"\n\nas a prefix in ", filename, "\n"]) (*let
+                 FIRST_TARGET_PREFIX,"\n\nas a prefix in ", filename, "\n"])
+           (* let
                 val lines = List.filter (fn s => s <> "all: README.md\n") lines
                 val xs = take_while (String.isSubstring "=") lines
                 val ys = drop_while (String.isSubstring "=") lines
                 val all_lines = xs @ ["\nall: $(DEFAULT_TARGETS) README.md\n"] @ ys
                 val _ = write_file filename (concat all_lines)
-                in true end*)
+              in true end *)
       in true end
 
 (* Main functions: processing a list of files / paths *)

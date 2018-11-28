@@ -1,4 +1,6 @@
 INCLUDES = .. ../arm6 ../arm8 ../x64 ../mips ../riscv \
+
+all: $(DEFAULT_TARGETS) README.md
     ../arm6/proofs ../arm8/proofs ../x64/proofs ../mips/proofs ../riscv/proofs \
     $(HOLDIR)/examples/l3-machine-code/arm/model \
     $(HOLDIR)/examples/l3-machine-code/arm8/model \
@@ -10,4 +12,3 @@ README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
-all: README.md
