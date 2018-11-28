@@ -210,20 +210,24 @@ val _ = Datatype `a_b_type = ABT_Nil
 val _ = Datatype.Hol_datatype `a_c_type = ACT_Nil
   | ACT_One of 'a | ACT_Two of 'b | ACT_Rec of (a_c_type # num) list`;
 val _ = Datatype `simple_type = STA | STB | STC | STX | STY | STZ`;
+val _ = Datatype `simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z`;
 
 val r = register_type ``:a_type``;
 val r = register_type ``:a_b_type``;
 val r = register_type ``:('a, 'b) a_c_type``;
 val r = register_type ``:simple_type``;
+val r = register_exn_type ``:simple_type2``;
 
 val a_inv = get_type_inv ``:a_type``;
 val a_b_inv = get_type_inv ``:a_b_type``;
 val a_c_inv_num = get_type_inv ``:(num, num) a_c_type``;
 val st_inv = get_type_inv ``:simple_type``;
+val st2_inv = get_type_inv ``:simple_type2``;
 
 val EqTyp_test_lemmas = Q.store_thm ("EqTyp_test_lemmas",
   `EqualityType (^a_inv) /\ EqualityType (^a_b_inv)
-    /\ EqualityType (^a_c_inv_num) /\ EqualityType (^st_inv)`,
+    /\ EqualityType (^a_c_inv_num) /\ EqualityType (^st_inv)
+    /\ EqualityType (^st2_inv)`,
   fs (eq_lemmas ()));
 
 val _ = export_theory();

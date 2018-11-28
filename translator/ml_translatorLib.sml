@@ -1083,6 +1083,10 @@ val str_all_distinct_conv = let open permLib comparisonTheory
     (fn x => fn y => list_compare Int.compare (str_dest x, str_dest y) = LESS)
     EVAL
   end
+val num_all_distinct_conv = let open permLib comparisonTheory numSyntax
+  in ALL_DISTINCT_CONV (MATCH_MP good_cmp_Less_irrefl_trans num_cmp_good)
+    (fn x => fn y => int_of_term x < int_of_term y) EVAL
+  end
 
 fun get_type_n2typ_onto_thm typ = let
     val n2typ = TypeBase.simpls_of typ |> #rewrs
@@ -1092,24 +1096,28 @@ fun get_type_n2typ_onto_thm typ = let
     val details = dest_thy_const n2typ
   in DB.fetch (#Thy details) (#Name details ^ "_ONTO") end
 
-fun EqualityType_via_n2typ typ = let
+fun EqualityType_via_n2typ is_exn_type typ = let
     val TY = get_type_inv typ
     val ONTO_thm = get_type_n2typ_onto_thm typ
     val _ = print "Doing EqualityType proof via ONTO thm:"
     val _ = print_thm ONTO_thm
     val _ = print "\n"
-    val thm = MATCH_MP EqualityType_from_ONTO ONTO_thm
-      |> ISPEC TY |> CONV_RULE (PATH_CONV "bblrlr" EVAL)
-    val stamps = concl thm |> strip_forall |> snd
-      |> dest_imp |> fst |> dest_eq |> fst
+    val eq_thm = if is_exn_type then EqualityType_from_ONTO_Exn
+        else EqualityType_from_ONTO
+    val thm = MATCH_MP eq_thm ONTO_thm |> ISPEC TY
+    val genlist_tm = find_term listSyntax.is_genlist (concl thm)
+    val genlist_eq = EVAL genlist_tm
+    val stamps = concl genlist_eq |> rhs
       |> listSyntax.dest_list |> fst
       |> map (snd o dest_eq o snd o dest_abs)
-      |> map (optionSyntax.dest_some o rand o rator)
-    val stn = hd stamps |> rand
-    val stamp_list = map (rand o rator) stamps
+      |> map (optionSyntax.dest_some o hd o snd o strip_comb)
+    val stamp_list = map (hd o snd o strip_comb) stamps
       |> (fn xs => listSyntax.mk_list (xs, type_of (hd xs)))
-    val thm2 = SPECL [stamp_list, stn] thm
+    val thm2 = SPEC stamp_list thm
+        |> (if is_exn_type then I else SPEC (rand (hd stamps)))
+        |> CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV genlist_eq))
         |> CONV_RULE (DEPTH_CONV str_all_distinct_conv)
+        |> CONV_RULE (DEPTH_CONV num_all_distinct_conv)
   in SIMP_RULE list_ss [FUN_EQ_THM] thm2 end
 
 fun mk_EqualityType_proof_via_measure typ = let
@@ -1136,10 +1144,10 @@ fun mk_EqualityType_proof_via_measure typ = let
         TAC_PROOF ((assums, goal), prove_EqualityType_tac simps defs)])
   end
 
-fun mk_EqualityType_proof typ = let
+fun mk_EqualityType_proof is_exn_type typ = let
     val final_goal = ml_translatorSyntax.mk_EqualityType (get_type_inv typ)
     val (assums, get_thms) = if can get_type_n2typ_onto_thm typ
-      then ([], fn () => [EqualityType_via_n2typ typ])
+      then ([], fn () => [EqualityType_via_n2typ is_exn_type typ])
       else mk_EqualityType_proof_via_measure typ
   in (list_mk_imp (assums, final_goal),
     ASSUM_LIST (fn _ => let
@@ -1313,7 +1321,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
   (* equality type *)
-  val eq_lemmas = map (fn ty => mk_EqualityType_proof ty
+  val eq_lemmas = map (fn ty => mk_EqualityType_proof is_exn_type ty
         handle HOL_ERR _ => (T, simp_tac bool_ss [])) tys
     |> map prove
   val res = map (fn ((th,inv_def),eq_lemma) => (th,inv_def,eq_lemma))

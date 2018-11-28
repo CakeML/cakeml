@@ -346,9 +346,9 @@ val EqualityType_def_rearranged = Q.store_thm (
   fs [EqualityType_def, trivial4_def] \\ metis_tac []);
 
 val EqualityType_from_ONTO = Q.store_thm("EqualityType_from_ONTO",
-  `(!a. ?r. a = num2a r ∧ r < (N : num))
-    ==> (!TY stamps stn. GENLIST (\n v. TY (num2a n) v) N
-                = MAP (\st v. v = Conv (SOME (TypeStamp st stn)) []) stamps
+  `(!a. ?r. (a = num2a r) ∧ r < (N : num))
+    ==> (!TY stamps stn. (GENLIST (\n v. TY (num2a n) v) N
+                = MAP (\st v. v = Conv (SOME (TypeStamp st stn)) []) stamps)
         ==> ALL_DISTINCT stamps
         ==> EqualityType TY)`,
   rpt strip_tac
@@ -364,6 +364,24 @@ val EqualityType_from_ONTO = Q.store_thm("EqualityType_from_ONTO",
         same_type_def]
   \\ metis_tac (map TypeBase.one_one_of [``:stamp``, ``:'a option``, ``: v``]));
 
+val EqualityType_from_ONTO_Exn = Q.store_thm("EqualityType_from_ONTO_Exn",
+  `(!a. ?r. (a = num2a r) ∧ r < (N : num))
+    ==> (!TY stamps. (GENLIST (\n v. TY (num2a n) v) N
+                = MAP (\st v. v = Conv (SOME (ExnStamp st)) []) stamps)
+        ==> ALL_DISTINCT stamps
+        ==> EqualityType TY)`,
+  rpt strip_tac
+  \\ fs [EqualityType_def_rearranged]
+  \\ rpt GEN_TAC
+  \\ FIRST_X_ASSUM (fn a => ((dest_exists o snd o dest_forall o concl) a;
+        ASSUME_TAC (CONJ (Q.SPEC `x` a) (Q.SPEC `y` a))))
+  \\ fs []
+  \\ FIRST_X_ASSUM (fn a => MP_TAC (LIST_CONJ [Q.AP_TERM `LENGTH` a,
+        Q.AP_TERM `EL r` a, Q.AP_TERM `EL r'` a]))
+  \\ fs [EL_MAP, satTheory.AND_IMP, FUN_EQ_THM, no_closures_def,
+        types_match_def, ctor_same_type_def, listTheory.EL_ALL_DISTINCT_EL_EQ,
+        same_type_def]
+  \\ metis_tac (map TypeBase.one_one_of [``:stamp``, ``:'a option``, ``: v``]));
 
 val types_match_list_length = Q.store_thm("types_match_list_length",
   `!vs1 vs2. types_match_list vs1 vs2 ==> LENGTH vs1 = LENGTH vs2`,
