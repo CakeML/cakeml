@@ -1,10 +1,8 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. ../../semantics ../../semantics/proofs ../parsing/proofs \
-
-all: $(DEFAULT_TARGETS) README.md
            ../inference/proofs ../backend/semantics ../backend/proofs
 
-all: compilerProofTheory.uo
+all: $(DEFAULT_TARGETS) README.md compilerProofTheory.uo
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)

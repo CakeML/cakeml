@@ -1,12 +1,12 @@
 INCLUDES = ../../../misc ../monadic \
-
-all: $(DEFAULT_TARGETS) README.md
 	   ../ml_kernel \
 	   ../../../basis \
 	   ../../../translator/monadic \
 	   ../../../characteristic \
 	   ../../../semantics \
 	   ../semantics
+
+all: $(DEFAULT_TARGETS) README.md
 
 OPTIONS = QUIT_ON_FAILURE
 

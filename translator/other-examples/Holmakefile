@@ -1,6 +1,4 @@
 INCLUDES= ..\
-
-all: $(DEFAULT_TARGETS) README.md
 ../../basis\
 auxiliary\
 $(HOLDIR)/examples/Crypto/AES\
@@ -8,6 +6,8 @@ $(HOLDIR)/examples/Crypto/RC6\
 $(HOLDIR)/examples/Crypto/TEA\
 $(HOLDIR)/examples/miller/miller
 OPTIONS = QUIT_ON_FAILURE
+
+all: $(DEFAULT_TARGETS) README.md
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)

@@ -1,12 +1,11 @@
 INCLUDES = .. ../../misc \
-
-all: $(DEFAULT_TARGETS) README.md
 	   ../../semantics \
 	   ../../characteristic \
 	   ../../semantics/proofs \
 	   monad_base
 OPTIONS = QUIT_ON_FAILURE
 
+all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)

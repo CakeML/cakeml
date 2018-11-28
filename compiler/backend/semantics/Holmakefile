@@ -1,9 +1,9 @@
 INCLUDES = .. ../../../misc ../../../semantics ../../../semantics/proofs \
-
-all: $(DEFAULT_TARGETS) README.md
            ../../encoders/asm ../reg_alloc
 
 OPTIONS = QUIT_ON_FAILURE
+
+all: $(DEFAULT_TARGETS) README.md
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))

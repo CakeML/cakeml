@@ -1,6 +1,4 @@
 INCLUDES = ../../../misc ../../../translator ../../../translator/monadic ../../../characteristic \
-
-all: $(DEFAULT_TARGETS) README.md
            ../../inference ../../inference/proofs ../../parsing ../../backend \
            ../.. ../../backend/reg_alloc ../../backend/reg_alloc/proofs \
            ../../../basis $(HOLDIR)/examples/formal-languages/context-free \
@@ -12,6 +10,8 @@ all: $(DEFAULT_TARGETS) README.md
 					 ../../encoders/ag32  ../../backend/ag32
 
 OPTIONS = QUIT_ON_FAILURE
+
+all: $(DEFAULT_TARGETS) README.md
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)

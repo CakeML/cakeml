@@ -1,6 +1,4 @@
 INCLUDES = ../../../../../../semantics/proofs \
-
-all: $(DEFAULT_TARGETS) README.md
 	   ../../../../../../misc \
 	   .. \
 	   ../../.. \
@@ -10,6 +8,9 @@ all: $(DEFAULT_TARGETS) README.md
 	   ../../../../../../compiler/backend/ag32 \
 	   ../../../../../../compiler/backend/ag32/proofs
 CLINE_OPTIONS = --qof
+
+all: $(DEFAULT_TARGETS) README.md
+
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)

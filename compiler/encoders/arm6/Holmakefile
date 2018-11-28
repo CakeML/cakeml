@@ -1,10 +1,10 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = $(HOLDIR)/examples/l3-machine-code/common \
-
-all: $(DEFAULT_TARGETS) README.md
            $(HOLDIR)/examples/l3-machine-code/arm/model \
            $(HOLDIR)/examples/l3-machine-code/arm/step \
            ../asm
+
+all: $(DEFAULT_TARGETS) README.md
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)

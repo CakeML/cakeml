@@ -1,12 +1,12 @@
 INCLUDES = .. ../arm6 ../arm8 ../x64 ../mips ../riscv \
-
-all: $(DEFAULT_TARGETS) README.md
     ../arm6/proofs ../arm8/proofs ../x64/proofs ../mips/proofs ../riscv/proofs \
     $(HOLDIR)/examples/l3-machine-code/arm/model \
     $(HOLDIR)/examples/l3-machine-code/arm8/model \
     $(HOLDIR)/examples/l3-machine-code/x64/model \
     $(HOLDIR)/examples/l3-machine-code/mips/model \
     $(HOLDIR)/examples/l3-machine-code/riscv/model
+
+all: $(DEFAULT_TARGETS) README.md
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)
