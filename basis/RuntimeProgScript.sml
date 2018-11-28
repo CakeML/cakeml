@@ -11,8 +11,6 @@ val _ = translation_extends"std_prelude"
 
 val () = generate_sigs := true;
 
-val _ = concretise_all () (* TODO: better to leave more abstract longer... *)
-
 val _ = ml_prog_update (open_module "Runtime");
 
 val fullGC_def = Define `

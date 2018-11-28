@@ -13,7 +13,9 @@ val _ = (
   new_theory "PrettyPrinterProg";
   translation_extends "TextIOProg";
   generate_sigs := true;
+  use_full_type_names := false;
   register_type ``:'a app_list``;
+  use_full_type_names := true;
   ml_prog_update (open_module "PrettyPrinter")
 )
 

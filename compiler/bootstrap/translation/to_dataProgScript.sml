@@ -69,8 +69,12 @@ val list_el_side = Q.prove(
   |> update_precondition;
 (* -- *)
 
+val res = translate listTheory.REV_DEF;
 val res = translate listTheory.TAKE_def;
 val res = translate listTheory.DROP_def;
+
+val res = translate sumTheory.ISL;
+val res = translate sumTheory.ISR;
 
 val res = translate source_to_flatTheory.compile_prog_def;
 

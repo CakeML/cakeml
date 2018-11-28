@@ -497,7 +497,19 @@ val _ = fetch "-" "apply_subst_side_def" |> update_precondition;
 val _ = translate (infer_def ``apply_subst_list``);
 val _ = fetch "-" "apply_subst_list_side_def" |> update_precondition;
 
+val _ = translate infer_tTheory.get_tyname_def;
+val _ = translate infer_tTheory.ty_var_name_def;
+
+val ty_var_name_side =
+  ``ty_var_name_side x``
+  |> SIMP_CONV arith_ss [fetch "-" "ty_var_name_side_def"]
+  |> update_precondition;
+
+val _ = translate infer_tTheory.commas_def;
+val _ = translate infer_tTheory.add_parens_def;
 val _ = translate infer_tTheory.inf_type_to_string_def;
+val _ = translate ns_to_alist_def;
+val _ = translate inf_env_to_types_string_def;
 
 val _ = translate (infer_def ``add_constraint``);
 

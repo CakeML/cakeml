@@ -10,6 +10,9 @@ val _ = translation_extends "Word64Prog";
 
 (* Word8 module -- translated *)
 
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "byte" (Atapp [] (Short "word8"))`` I);
+
 val _ = ml_prog_update (open_module "Word8");
 
 val () = generate_sigs := true;

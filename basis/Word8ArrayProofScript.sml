@@ -80,7 +80,7 @@ val w8array_copyVec_spec = Q.store_thm ("w8array_copyVec_spec",
        (W8ARRAY dstv dst)
        (POSTv v. &(UNIT_TYPE () v) *
                  W8ARRAY dstv (TAKE dstoff dst ⧺
-                               MAP (n2w o ORD) (explode (substring src srcoff len)) ⧺
+                               MAP (n2w o ORD) (explode (mlstring$substring src srcoff len)) ⧺
                                DROP (dstoff + len) dst) )`,
   prove_array_spec "Word8Array.copyVec");
 

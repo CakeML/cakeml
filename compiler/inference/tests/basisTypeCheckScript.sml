@@ -22,10 +22,29 @@ val () = computeLib.extend_compset
     ] cmp
 val inf_eval = computeLib.CBV_CONV cmp
 
-val test = inf_eval ``infertype_prog init_config basis``
+(*
 
-val infertype_prog_succeeds = Q.store_thm("infertype_prog_succeeds",
-  `∃s. infertype_prog init_config basis = Success s`,
-  simp [test]);
+  EVAL ``EL 72 basis`` |> concl |> rhs |> rator
+
+*)
+
+local
+  val test = inf_eval ``infertype_prog init_config (TAKE 7300 basis)``
+in
+  val print_types = let
+    val x = test |> concl |> rhs
+    val _ = if can (match_term ``infer$Success _``) x then () else
+            if can (match_term ``infer$Failure _``) x then let
+              val msg = x |> rand |> rand |> rand |> stringSyntax.fromHOLstring
+              in failwith ("Type inference failed for basis with message: " ^ msg) end
+            else failwith "Failed to fully evaluate type inferencer applied to basis."
+    val _ = print "\nTypes of all basis functions:\n\n"
+    val x = x |> rand
+    val strs = EVAL ``inf_env_to_types_string ^x``
+                 |> concl |> rand |> listSyntax.dest_list |> fst
+                 |> map (stringSyntax.fromHOLstring o rand) |> map print
+    val _ = print "\n"
+    in () end
+end
 
 val _ = export_theory ();

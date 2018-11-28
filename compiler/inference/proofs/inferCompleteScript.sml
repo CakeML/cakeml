@@ -582,7 +582,7 @@ val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
     pop_assum (qspec_then`tvs` assume_tac)>>
     drule (GEN_ALL infer_pe_complete) >>
     rpt (disch_then drule) >>
-    disch_then (qspecl_then [`st1`,`SOME l`] mp_tac) >>
+    disch_then (qspecl_then [`st1`,`<| loc := SOME l; err := ienv.inf_t |>`] mp_tac) >>
     rw [] >>
     simp [init_state_def, success_eqns] >>
     pairarg_tac >>
@@ -891,7 +891,7 @@ val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
     disch_then (qspec_then`0` mp_tac)>>
     fs[bind_tvar_def]>>
     rpt (disch_then drule) >>
-    disch_then (qspecl_then [`st1`,`SOME l`] mp_tac) >>
+    disch_then (qspecl_then [`st1`,`<| loc := SOME l; err := ienv.inf_t |>`] mp_tac) >>
     rw [] >>
     simp[success_eqns]>>
     pairarg_tac >> fs[success_eqns]>>
@@ -937,7 +937,7 @@ val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
     rw[infer_d_def,success_eqns,init_state_def]>>
     `ienv_ok {} ienv` by fs[env_rel_def]>>
     drule (GEN_ALL infer_funs_complete)>>
-    disch_then (qspecl_then [`tvs`, `tenv`, `st1`, `SOME locs`, `funs`, `bindings`] mp_tac) >>
+    disch_then (qspecl_then [`tvs`, `tenv`, `st1`, `<| loc := SOME locs; err := ienv.inf_t |>`, `funs`, `bindings`] mp_tac) >>
     fs[]>>
     impl_tac>-
       fs[env_rel_def]>>

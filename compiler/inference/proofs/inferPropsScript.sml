@@ -3656,7 +3656,7 @@ val infer_e_inf_set_tids = Q.store_thm("infer_e_inf_set_tids",`
     \\ first_x_assum match_mp_tac
     \\ fs[inf_set_tids_ienv_def]
     \\ match_mp_tac nsAll_nsBind
-    \\ fs[inf_set_tids_subset_def, inf_set_tids_def] ))
+    \\ fs[inf_set_tids_subset_def, inf_set_tids_def] ));
 
 val generalise_inf_set_tids = Q.store_thm("generalise_inf_set_tids",
   `(∀d a b c e f g. generalise a b c d = (e,f,g) ⇒
@@ -3675,7 +3675,7 @@ val generalise_inf_set_tids = Q.store_thm("generalise_inf_set_tids",
   \\ metis_tac[]);
 
 val start_type_id_prim_tids_count = Q.store_thm("start_type_id_prim_tids_count",
-  `start_type_id ≤ n ⇒ prim_tids T(count n)`,
+  `start_type_id ≤ n ⇒ prim_tids T (count n)`,
   rw[prim_tids_def,prim_type_nums_def,start_type_id_def]
   \\ EVAL_TAC \\ fs[]);
 

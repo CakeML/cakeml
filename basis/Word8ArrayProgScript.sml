@@ -8,6 +8,9 @@ val _ = new_theory "Word8ArrayProg";
 
 val _ = translation_extends "Word8Prog";
 
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "byte_array" (Atapp [] (Short "word8array"))`` I);
+
 val _ = ml_prog_update (open_module "Word8Array");
 
 val _ = append_decs

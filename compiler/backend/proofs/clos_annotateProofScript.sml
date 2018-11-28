@@ -1367,24 +1367,6 @@ val annotate_no_Labels = store_thm("annotate_no_Labels",
   \\ match_mp_tac shift_no_Labels
   \\ match_mp_tac alt_free_no_Labels \\ fs []);
 
-val pure_code_locs = Q.store_thm("pure_code_locs",
-  `!xs. pure xs ==> code_locs [xs] = []`,
-  recInduct closLangTheory.pure_ind
-  \\ rw[closLangTheory.pure_def, closPropsTheory.code_locs_def]
-  \\ fsrw_tac[ETA_ss][EVERY_MEM]
-  \\ Q.ISPEC_THEN`es`mp_tac code_locs_map
-  \\ disch_then(qspec_then`I`mp_tac)
-  \\ simp[FLAT_EQ_NIL, EVERY_MAP, EVERY_MEM]);
-
-val EVERY_pure_code_locs = store_thm("EVERY_pure_code_locs",
-  ``!xs. EVERY pure xs ==> code_locs xs = []``,
-  rw[]
-  \\ Q.ISPEC_THEN`xs`mp_tac code_locs_map
-  \\ disch_then(qspec_then`I`mp_tac)
-  \\ rw[FLAT_EQ_NIL, EVERY_MAP]
-  \\ fs[EVERY_MEM]
-  \\ metis_tac[pure_code_locs]);
-
 val code_locs_REP_const_0 = store_thm("code_locs_REP_const_0",
   ``code_locs (REPLICATE n (const_0 t)) = []``,
   `n = LENGTH (GENLIST ARB n)` by simp[]
@@ -1393,7 +1375,7 @@ val code_locs_REP_const_0 = store_thm("code_locs_REP_const_0",
   \\ rw[code_locs_map, FLAT_EQ_NIL, EVERY_MAP]);
 
 val code_locs_alt_free = store_thm("code_locs_alt_free",
-  ``!xs r1 r2. alt_free xs = (r1,r2) ==> code_locs r1 = code_locs xs``,
+  ``!xs r1 r2. alt_free xs = (r1,r2) ==> set (code_locs r1) ⊆ set (code_locs xs)``,
   ho_match_mp_tac clos_annotateTheory.alt_free_ind
   \\ fs [clos_annotateTheory.alt_free_def]
   \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ fs []
@@ -1404,15 +1386,16 @@ val code_locs_alt_free = store_thm("code_locs_alt_free",
   \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
   \\ fs [closPropsTheory.code_locs_def]
   \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
-  \\ fs [closPropsTheory.code_locs_def,EVERY_pure_code_locs,
-         code_locs_REP_const_0]
+  \\ fs [closPropsTheory.code_locs_def,
+         code_locs_REP_const_0, SUBSET_DEF]
   \\ rw[code_locs_map]
-  \\ AP_TERM_TAC
-  \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD] \\ rw[]
+  >- ( fs[Once code_locs_cons] )
+  \\ fs[MEM_FLAT, MEM_MAP, PULL_EXISTS, EXISTS_PROD]
   \\ first_x_assum drule
   \\ pairarg_tac \\ fs[]
   \\ imp_res_tac alt_free_SING
-  \\ rw[]);
+  \\ rw[] \\ fs[]
+  \\ metis_tac[]);
 
 val code_locs_shift = store_thm("code_locs_shift",
   ``!xs k1 k2 k3. code_locs (shift xs k1 k2 k3) = code_locs xs``,
@@ -1424,7 +1407,7 @@ val code_locs_shift = store_thm("code_locs_shift",
   \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD] \\ rw[]);
 
 val code_locs_annotate = store_thm("code_locs_annotate",
-  ``!n xs. code_locs (annotate n xs) = code_locs xs``,
+  ``!n xs. set (code_locs (annotate n xs)) ⊆ set (code_locs xs)``,
   rw [clos_annotateTheory.annotate_def]
   \\ Cases_on `alt_free xs` \\ fs []
   \\ drule code_locs_alt_free
