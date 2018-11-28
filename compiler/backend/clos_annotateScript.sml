@@ -1,3 +1,9 @@
+(*
+  A compiler phase that annotates code that creates closures with
+  (minimal) live variable annotations. Such live variable annotations
+  are required for closure conversion, which is implemented in
+  the clos_to_bvl phase of the compiler.
+*)
 open preamble closLangTheory db_varsTheory;
 
 val _ = new_theory "clos_annotate";

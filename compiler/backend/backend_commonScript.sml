@@ -1,3 +1,6 @@
+(*
+  Definitions that are common for many parts of the compiler backend.
+*)
 open HolKernel Parse boolLib bossLib;
 open preamble fpSemTheory;
 

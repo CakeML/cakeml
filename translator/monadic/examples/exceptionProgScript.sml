@@ -1,8 +1,7 @@
 (*
- * An example showing how to use the monadic translator to translate monadic functions
- * using exceptions (no references, no arrays).
- *)
-
+  An example showing how to use the monadic translator to translate
+  monadic functions using exceptions (no references, no arrays).
+*)
 open preamble ml_monadBaseLib
 open ml_monad_translatorTheory ml_monad_translatorLib
 

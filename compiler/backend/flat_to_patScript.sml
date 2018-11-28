@@ -1,3 +1,6 @@
+(*
+  This phase performs pattern-match compilation.
+*)
 open preamble flatLangTheory patLangTheory
 open backend_commonTheory
 

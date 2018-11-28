@@ -1,3 +1,6 @@
+(*
+  Correctness proof for lab_to_target
+*)
 open preamble ffiTheory BasicProvers
      wordSemTheory labSemTheory labPropsTheory
      lab_to_targetTheory

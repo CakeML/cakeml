@@ -1,3 +1,7 @@
+(*
+  This compiler phase implements instruction selection. It uses the
+  Maximal Munch strategy.
+*)
 open preamble wordLangTheory stackLangTheory sortingTheory;
 
 val _ = new_theory "word_inst";

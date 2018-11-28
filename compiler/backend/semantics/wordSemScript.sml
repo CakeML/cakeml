@@ -1,3 +1,6 @@
+(*
+  The formal semantics of wordLang
+*)
 open preamble wordLangTheory;
 local open alignmentTheory in end;
 

@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_remove
+*)
 open preamble word_removeTheory wordSemTheory wordPropsTheory;
 
 val _ = new_theory "word_removeProof";

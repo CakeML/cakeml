@@ -1,3 +1,6 @@
+(*
+  Shallow embedding of garbage collector implementation
+*)
 open preamble
 
 open wordSemTheory data_to_wordTheory gc_sharedTheory

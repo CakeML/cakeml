@@ -1,3 +1,6 @@
+(*
+  Composes the correctness theorems for all of the compiler phases.
+*)
 open preamble primSemEnvTheory semanticsPropsTheory
      backendTheory
      source_to_flatProofTheory

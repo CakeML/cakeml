@@ -1,11 +1,13 @@
+(*
+  BVL transformation that introduces a Let into each Handle
+  body. This is preparation for BVL --> BVI compilation.  This phase
+  also removes Handles in case the body cannot raise an exception.
+*)
 open preamble bvlTheory db_varsTheory bvl_constTheory;
 
 val _ = new_theory "bvl_handle";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-(* BVL transformation that introduces a Let into each Handle
-   body. This is preparation for BVL --> BVI compilation.  This phase
-   also removes Handles in case the body cannot raise an exception. *)
 
 val SmartLet_def = Define `
   SmartLet xs x = if NULL xs then x else Let xs x`

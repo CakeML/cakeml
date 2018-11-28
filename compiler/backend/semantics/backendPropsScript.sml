@@ -1,3 +1,7 @@
+(*
+  General definitions and theorems that are useful within the proofs
+  about the compiler backend.
+*)
 open preamble
 
 val _ = new_theory"backendProps";

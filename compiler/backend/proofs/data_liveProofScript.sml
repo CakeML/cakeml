@@ -1,3 +1,6 @@
+(*
+  Correctness proof for data_live
+*)
 open preamble data_liveTheory dataSemTheory dataPropsTheory;
 
 val _ = new_theory"data_liveProof";

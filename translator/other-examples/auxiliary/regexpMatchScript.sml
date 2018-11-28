@@ -1,7 +1,7 @@
-(*===========================================================================*)
-(* Regular expression matcher                                                *)
-(* Author: Scott Owens                                                       *)
-(*===========================================================================*)
+(*
+  Regular expression matcher
+  Author: Scott Owens
+*)
 
 (*---------------------------------------------------------------------------*)
 (* SML code                                                                  *)
@@ -844,4 +844,3 @@ val match_is_correct = Q.store_thm ("match_is_correct",
 val _ = export_theory ();
 
 val _ = Count.report (Count.read thm_counter);
-

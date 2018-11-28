@@ -1,3 +1,6 @@
+(*
+  Correctness proof for stack_alloc
+*)
 open preamble
      stack_allocTheory
      stackLangTheory

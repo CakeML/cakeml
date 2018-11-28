@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_bignum
+*)
 open preamble astTheory wordLangTheory wordSemTheory tailrecTheory;
 open mc_multiwordTheory set_sepTheory helperLib word_bignumTheory;
 

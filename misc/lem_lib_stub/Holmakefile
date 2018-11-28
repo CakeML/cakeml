@@ -6,7 +6,7 @@ GENS = $(patsubst %,%Script.sml,$(LEMSRC))
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
 TARGETS = $(GENS) $(TARGETS0)
-all: $(TARGETS)
+all: $(DEFAULT_TARGETS) README.md $(TARGETS)
 .PHONY: all
 
 $(GENS): $(LEMS)

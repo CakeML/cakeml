@@ -1,3 +1,6 @@
+(*
+  The formal semantics of labLang
+*)
 open preamble labLangTheory wordSemTheory;
 local open alignmentTheory targetSemTheory in end;
 

@@ -1,5 +1,7 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. ../../semantics ../../semantics/proofs ../parsing/proofs \
+
+all: $(DEFAULT_TARGETS) README.md
            ../inference/proofs ../backend/semantics ../backend/proofs
 
 all: compilerProofTheory.uo
@@ -9,7 +11,6 @@ README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
-all: README.md
 
 ifdef POLY
 HOLHEAP = heap

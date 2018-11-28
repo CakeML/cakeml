@@ -1,3 +1,7 @@
+(*
+  This compiler phase reorders patterns in pattern matches to improve
+  code quality.
+*)
 open preamble flatLangTheory
 
 val _ = new_theory"flat_reorder_match";

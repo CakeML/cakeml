@@ -1,7 +1,3 @@
-open preamble bviTheory;
-
-val _ = new_theory "bvi_let";
-
 (*
 
    This is a BVI transformation that propagates variable lookups that
@@ -42,6 +38,9 @@ val _ = new_theory "bvi_let";
    Let [compile p1; compile p2] (Var 1).
 
 *)
+open preamble bviTheory;
+
+val _ = new_theory "bvi_let";
 
 val extract_def = Define `
   (extract ((Var n):bvi$exp) ys = n + LENGTH ys + 1) /\

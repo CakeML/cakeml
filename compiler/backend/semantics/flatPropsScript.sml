@@ -1,3 +1,6 @@
+(*
+  Properties about flatLang and its semantics
+*)
 open preamble flatSemTheory
 local
   open astTheory semanticPrimitivesPropsTheory terminationTheory
@@ -1055,4 +1058,3 @@ val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
 val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
 val _ = export_theory()
-

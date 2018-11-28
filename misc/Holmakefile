@@ -2,10 +2,8 @@ INCLUDES = ../developers lem_lib_stub $(HOLDIR)/examples/machine-code/hoare-trip
 
 CLINE_OPTIONS = --qof
 
-all: README.md preamble.uo miscTheory.uo basicComputeLib.uo alist_treeTheory.uo alist_treeLib.uo packLib.uo
+all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
-
-README_SOURCES = preamble.sml miscScript.sml basicComputeLib.sml packLib.sml
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)

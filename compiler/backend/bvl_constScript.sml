@@ -1,10 +1,4 @@
-open preamble bvlTheory
-
-val _ = new_theory "bvl_const";
-
-val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 (*
-
    This is a BVL transformation that propagates simple and
    cheap-to-compute context-free expression from Let bindings. It also
    performs some simple constant folding with SmartOp (below).
@@ -16,8 +10,12 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
    original variable.
 
    bvi_let is a simpler version of this optimisation.
-
 *)
+open preamble bvlTheory
+
+val _ = new_theory "bvl_const";
+
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val dest_simple_def = Define `
   (dest_simple (bvl$Op (Const i) xs) = if NULL xs then SOME i else NONE) /\

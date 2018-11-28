@@ -1,3 +1,7 @@
+(*
+  The OpenTheory article reader defined using an IO monad for the
+  basis library.
+*)
 open preamble ml_hol_kernelProgTheory
      mlintTheory StringProgTheory
      readerTheory reader_initTheory
@@ -114,4 +118,3 @@ val readMain_def = Define `
     od`;
 
 val _ = export_theory()
-

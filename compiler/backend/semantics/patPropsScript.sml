@@ -1,3 +1,6 @@
+(*
+  Properties about patLang and its semantics
+*)
 open preamble patSemTheory
 
 val _ = new_theory"patProps"

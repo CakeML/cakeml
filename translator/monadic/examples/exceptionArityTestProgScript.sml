@@ -1,6 +1,6 @@
 (*
- * A test file for the support of exceptions
- *)
+  A test file for the support of exceptions
+*)
 
 open preamble ml_monadBaseLib
 open ml_monad_translatorTheory ml_monad_translatorLib

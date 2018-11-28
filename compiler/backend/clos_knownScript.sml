@@ -1,3 +1,12 @@
+(*
+  This complicated compiler phase tracks where closure values flow
+  in a program. It attempts to annotate function applications with the
+  (numeric) names of the called closures (annotations lead to better
+  code in clos_to_bvl). If the code for the applied closure is
+  statically known and small enough, then this compiler phase can
+  inline the body of the called closure. The function inlining is
+  recurisve and controlled using configurable parameters.
+*)
 open preamble closLangTheory;
 open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory;
 

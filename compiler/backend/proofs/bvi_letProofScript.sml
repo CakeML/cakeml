@@ -1,3 +1,6 @@
+(*
+  Correctness proof for bvi_let
+*)
 open preamble bvi_letTheory bviSemTheory bviPropsTheory;
 
 val _ = new_theory"bvi_letProof";

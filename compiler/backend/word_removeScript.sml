@@ -1,3 +1,8 @@
+(*
+  This simple compiler phase removes `MustTerminate`, which is a
+  semantic-device used to help keep the logical clocks in sync in the
+  data_to_word correctness proofs.
+*)
 open preamble wordLangTheory
 
 val _ = new_theory "word_remove";

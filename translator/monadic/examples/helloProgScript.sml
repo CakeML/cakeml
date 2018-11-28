@@ -1,7 +1,7 @@
 (*
- * An example showing how to use the monadic translator to translate monadic functions
- * using references (no arrays, no exceptions).
- *)
+  An example showing how to use the monadic translator to translate
+  monadic functions using IO primitives from the basis library.
+*)
 
 (* Load the CakeML basic stuff *)
 open preamble basisProgTheory

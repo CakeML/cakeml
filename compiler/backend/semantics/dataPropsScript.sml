@@ -1,3 +1,6 @@
+(*
+  Properties about dataLang and its semantics
+*)
 open preamble dataLangTheory dataSemTheory semanticsPropsTheory;
 local open bviPropsTheory in end;
 

@@ -1,3 +1,8 @@
+(*
+  This compiler phase maps stackLang programs, which has structure
+  such as If, While, Return etc, to labLang programs that are a soup
+  of goto-like jumps.
+*)
 open preamble stackLangTheory labLangTheory;
 local open stack_allocTheory stack_removeTheory stack_namesTheory
            word_to_stackTheory bvl_to_bviTheory in end

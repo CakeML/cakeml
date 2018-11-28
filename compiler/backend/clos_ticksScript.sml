@@ -1,3 +1,10 @@
+(*
+  This simple compiler phase removes all Tick operations. Tick
+  operations appear as a side effect of function inlining, and can be
+  removed because they have no observable behaviour. It is good idea
+  to remove them because they get in the way of pattern matching done
+  by several optimisations.
+*)
 open preamble closLangTheory;
 
 val _ = new_theory "clos_ticks";
@@ -45,4 +52,3 @@ val LENGTH_remove_ticks = store_thm("LENGTH_remove_ticks",
   recInduct remove_ticks_ind \\ fs [remove_ticks_def]);
 
 val _ = export_theory();
-

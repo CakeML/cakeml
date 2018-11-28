@@ -1,3 +1,6 @@
+(*
+  Correctness proof for bvl_const
+*)
 open preamble bvl_constTheory bvlSemTheory bvlPropsTheory;
 
 val _ = new_theory"bvl_constProof";

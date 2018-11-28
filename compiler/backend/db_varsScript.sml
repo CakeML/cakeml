@@ -1,3 +1,7 @@
+(*
+  Defines a datatype that is handy when keeping track of which dB vars
+  are live when traversing a language using dB vars.
+*)
 open preamble;
 
 val _ = new_theory "db_vars";

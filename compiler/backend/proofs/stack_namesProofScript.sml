@@ -1,3 +1,6 @@
+(*
+  Correctness proof for stack_names
+*)
 open preamble
      stack_namesTheory
      stackSemTheory stackPropsTheory

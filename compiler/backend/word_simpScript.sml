@@ -1,3 +1,8 @@
+(*
+  This compiler phase performs lightweight optimisations on wordLang
+  programs. It is in particular designed to clean up some awkward
+  patterns that can be produced by the data_to_word compiler.
+*)
 open preamble wordLangTheory asmTheory sptreeTheory;
 
 val _ = new_theory "word_simp";

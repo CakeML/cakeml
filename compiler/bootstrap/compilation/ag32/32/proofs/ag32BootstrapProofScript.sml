@@ -1,3 +1,6 @@
+(*
+  Proves an end-to-end correctness theorem for the bootstrapped compiler.
+*)
 open preamble
      semanticsPropsTheory backendProofTheory
      ag32_configProofTheory ag32_machine_configTheory

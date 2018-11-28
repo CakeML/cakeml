@@ -1,12 +1,13 @@
+(*
+  Functions for converting various intermediate languages
+  into displayLang representations.
+*)
 open preamble astTheory mlnumTheory mlintTheory
 open flatLangTheory patLangTheory closLangTheory
      displayLangTheory source_to_flatTheory
      wordLangTheory;
 
 val _ = new_theory"presLang";
-
-(* Functions for converting various intermediate languages
-   into displayLang representations. *)
 
 (* basics *)
 

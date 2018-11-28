@@ -1,5 +1,7 @@
 INCLUDES = ../../../misc ..
 
+all: $(DEFAULT_TARGETS) README.md
+
 OPTIONS = QUIT_ON_FAILURE
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
@@ -13,7 +15,6 @@ README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
-all: README.md
 
 ifdef POLY
 HOLHEAP = heap

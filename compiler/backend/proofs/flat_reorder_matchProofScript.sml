@@ -1,3 +1,6 @@
+(*
+  Correctness proof for flat_reorder_match
+*)
 open preamble flat_reorder_matchTheory flatSemTheory flatPropsTheory
 
 val _ = new_theory "flat_reorder_matchProof";
