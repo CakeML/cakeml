@@ -1,9 +1,7 @@
 (*
- * An example showing how to use the monadic translator to translate monadic functions
- * using references (no arrays, no exceptions).
- *)
-
-(* Load the CakeML basic stuff *)
+  An example showing how to use the monadic translator to translate
+  monadic functions using references (no arrays, no exceptions).
+*)
 open preamble
 
 (* The ml_monadBaseLib is necessary to define the references and arrays manipulation functions

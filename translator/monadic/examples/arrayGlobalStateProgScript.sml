@@ -1,7 +1,7 @@
 (*
- * An example showing how to use the monadic translator with references, arrays and exceptions.
- *)
-
+  An example showing how to use the monadic translator with
+  references, arrays and exceptions.
+*)
 open preamble ml_monadBaseLib
 open ml_monad_translatorTheory ml_monad_translatorLib
 

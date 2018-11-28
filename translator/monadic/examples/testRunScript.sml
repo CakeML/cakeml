@@ -1,6 +1,6 @@
 (*
- * An example showing how to use of m_transle_run
- *)
+  An example showing how to use of m_transle_run
+*)
 
 open preamble ml_monadBaseLib
 open ml_monad_translatorTheory ml_monad_translatorLib

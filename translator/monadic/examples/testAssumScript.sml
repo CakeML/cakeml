@@ -1,3 +1,6 @@
+(*
+  Test the monadic translator's handling of assumptions
+*)
 open preamble ml_translatorLib ml_translatorTheory
 open ml_monadBaseLib ml_monadBaseTheory
 open ml_monad_translatorLib ml_monad_translatorTheory

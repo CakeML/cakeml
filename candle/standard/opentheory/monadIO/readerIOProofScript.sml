@@ -1,3 +1,7 @@
+(*
+  Verification of the OpenTheory article checker expressed using an IO
+  monad for the basis.
+*)
 open preamble
      readerTheory readerProofTheory
      readerIOTheory
@@ -244,4 +248,3 @@ val readMain_COMMANDLINE_pres  = Q.store_thm("readMain_COMMANDLINE_pres",
   \\ drule readLines_COMMANDLINE_pres \\ fs []);
 
 val _ = export_theory ();
-

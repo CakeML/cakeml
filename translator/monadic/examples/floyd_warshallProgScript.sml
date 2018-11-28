@@ -1,6 +1,6 @@
 (*
- * Trying out the monadic translator
- *)
+  Trying out the monadic translator
+*)
 
 open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory
