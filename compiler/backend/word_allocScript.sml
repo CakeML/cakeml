@@ -1,10 +1,10 @@
 (*
   This is the compiler's regsiter allocator. It supports different modes:
-      - simple allocator, no spill heuristics
-      - simple allocator + spill heuristics
-      - IRC allocator, no spill heuristics (default)
-      - IRC allocator + spill heuristics
-      - linear scan register allocator
+      0) simple allocator, no spill heuristics;
+      1) simple allocator + spill heuristics;
+      2) IRC allocator, no spill heuristics (default);
+      3) IRC allocator + spill heuristics;
+      4) linear scan register allocator.
 *)
 open preamble wordLangTheory;
 open linear_scanTheory;

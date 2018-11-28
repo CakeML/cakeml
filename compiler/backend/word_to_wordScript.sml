@@ -1,11 +1,11 @@
 (*
   This compiler phase composes the phases internal to wordLang:
-      1. Inst select (with a few optimizations)
-      2. SSA
-      3. Dead code elim (not written yet)
-      4. 3-to-2 regs for certain configs
-      5. reg_alloc
-      6. word_to_stack
+      1) Inst select (with a few optimizations);
+      2) SSA;
+      3) Dead code elim (not written yet);
+      4) 3-to-2 regs for certain configs;
+      5) reg_alloc;
+      6) word_to_stack.
 *)
 open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory word_simpTheory
 local open word_instTheory in (* word-to-word transformations *) end

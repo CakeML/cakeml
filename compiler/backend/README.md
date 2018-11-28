@@ -297,11 +297,11 @@ ML functions for dealing with the syntax of wordLang programs.
 
 [word_allocScript.sml](word_allocScript.sml):
 This is the compiler's regsiter allocator. It supports different modes:
-    - simple allocator, no spill heuristics
-    - simple allocator + spill heuristics
-    - IRC allocator, no spill heuristics (default)
-    - IRC allocator + spill heuristics
-    - linear scan register allocator
+    0) simple allocator, no spill heuristics;
+    1) simple allocator + spill heuristics;
+    2) IRC allocator, no spill heuristics (default);
+    3) IRC allocator + spill heuristics;
+    4) linear scan register allocator.
 
 [word_bignumScript.sml](word_bignumScript.sml):
 The bignum library used by the CakeML compiler. Note that the
@@ -335,12 +335,12 @@ stack frame.
 
 [word_to_wordScript.sml](word_to_wordScript.sml):
 This compiler phase composes the phases internal to wordLang:
-    1. Inst select (with a few optimizations)
-    2. SSA
-    3. Dead code elim (not written yet)
-    4. 3-to-2 regs for certain configs
-    5. reg_alloc
-    6. word_to_stack
+    1) Inst select (with a few optimizations);
+    2) SSA;
+    3) Dead code elim (not written yet);
+    4) 3-to-2 regs for certain configs;
+    5) reg_alloc;
+    6) word_to_stack.
 
 [x64](x64):
 This directory contains the x64-specific part of the compiler backend.
