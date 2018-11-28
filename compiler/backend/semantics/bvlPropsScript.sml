@@ -1,3 +1,6 @@
+(*
+  Properties about BVL and its semantics
+*)
 open preamble bvlTheory bvlSemTheory bvl_constTheory;
 open closPropsTheory backend_commonTheory;
 

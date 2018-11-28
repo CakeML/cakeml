@@ -1,3 +1,6 @@
+(*
+  Properties about wordLang and its semantics
+*)
 open preamble BasicProvers
      wordLangTheory wordSemTheory
      asmTheory reg_allocTheory;

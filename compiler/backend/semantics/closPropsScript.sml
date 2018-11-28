@@ -1,3 +1,6 @@
+(*
+  Properties about closLang and its semantics
+*)
 open preamble closLangTheory closSemTheory backendPropsTheory
 
 val _ = new_theory"closProps"

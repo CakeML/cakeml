@@ -1,3 +1,6 @@
+(*
+  Properties about BVI and its semantics
+*)
 open preamble bviSemTheory;
 local open bvlPropsTheory in end;
 

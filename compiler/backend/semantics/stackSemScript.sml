@@ -1,3 +1,6 @@
+(*
+  The formal semantics of stackLang
+*)
 open preamble stackLangTheory wordSemTheory labSemTheory;
 
 val _ = new_theory"stackSem";

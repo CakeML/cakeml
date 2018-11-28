@@ -1,3 +1,6 @@
+(*
+  The formal semantics of patLang
+*)
 open preamble backend_commonTheory patLangTheory;
 open semanticPrimitivesPropsTheory; (* for do_shift and others *)
 
