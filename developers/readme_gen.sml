@@ -325,8 +325,6 @@ fun check_Holmakefile filename =
                 val all_lines = xs @ ["\nall: $(DEFAULT_TARGETS) README.md\n"] @ ys
                 val _ = write_file filename (concat all_lines)
               in true end *)
-      val _ = if String.isSubstring "\\\n\n" (concat lines) then
-                err ("Bad break: " ^ filename) else true
       in true end
 
 (* Main functions: processing a list of files / paths *)
