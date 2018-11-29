@@ -1124,7 +1124,7 @@ local
                 ps <- ptree_PbaseList1 pats_pt;
                 p1 <- oHD ps;
                 body0 <- ptree_Expr nE body_pt;
-                SOME(fname,dePat p1 (FOLDR mkFun body0 (misc$safeTL ps)))
+                SOME(fname,dePat p1 (FOLDR mkFun body0 (TL ps)))
               od
             | _ => NONE
         else NONE) ∧
