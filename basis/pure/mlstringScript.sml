@@ -493,7 +493,7 @@ val isSubstring_def = Define`
 
 (* proof that isSubstring has the right sort of properties *)
 Theorem isStringThere_SEG
-  `‘∀i1 i2.
+  ‘∀i1 i2.
      i1 + n ≤ LENGTH s1 ∧ i2 + n ≤ LENGTH s2 ⇒
      (isStringThere_aux (strlit s1) (strlit s2) i1 i2 n <=>
        (SEG n i1 s1 = SEG n i2 s2))’,
@@ -502,7 +502,7 @@ Theorem isStringThere_SEG
   >- simp[isStringThere_aux_def, SEG_SUC_EL]);
 
 Theorem isSubstring_aux_lemma
-  `‘∀i len.
+  ‘∀i len.
      i + len ≤ strlen s2 ==>
      (isSubstring_aux s1 s2 lens1 i len ⇔
       ∃n. n < len ∧ isStringThere_aux s1 s2 0 (n+i) lens1)’,
@@ -515,7 +515,7 @@ Theorem isSubstring_aux_lemma
   Cases_on ‘n’ >> fs[] >> metis_tac[ADD1]);
 
 Theorem isSubstring_SEG
-  `‘isSubstring (strlit s1) (strlit s2) <=>
+  ‘isSubstring (strlit s1) (strlit s2) <=>
    ∃i. i + LENGTH s1 ≤ LENGTH s2 ∧ SEG (LENGTH s1) i s2 = s1’,
   rw[isSubstring_def] >> Cases_on ` (s1` >> simp[]
   >- (fs[isSubstring_aux_def, isStringThere_aux_def, GSYM ADD1] >>
@@ -533,7 +533,7 @@ Theorem strlit_STRCAT
   (fs[strcat_def, concat_def]);
 
 Theorem isSubString_spec
-  `‘isSubstring s1 s2 ⇔ ∃p s. s2 = p ^ s1 ^ s’,
+  ‘isSubstring s1 s2 ⇔ ∃p s. s2 = p ^ s1 ^ s’,
   map_every Cases_on [` (s1`,`s2`] >> rw[isSubstring_SEG, EQ_IMP_THM]
   >- (rename [‘SEG (STRLEN s1) i s2 = s1’] >>
       map_every qexists_tac [

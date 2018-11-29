@@ -54,7 +54,7 @@ val lqueue_def = Define‘
                        r = LENGTH s ∧ f = r + LENGTH mj))’;
 
 Theorem lqueue_empty
-  `‘i < LENGTH xs ⇒ lqueue xs i i []’,
+  ‘i < LENGTH xs ⇒ lqueue xs i i []’,
   simp[lqueue_def] >> strip_tac >>
   map_every qexists_tac [‘TAKE i xs’, ‘DROP i xs’] >> simp[])
 
@@ -79,7 +79,7 @@ val lqueue_enqueue = Q.store_thm(
   simp[LUPDATE_APPEND2, LUPDATE_APPEND1])
 
 Theorem lqueue_dequeue
-  `‘lqueue aels f r (v::vs) ⇒ lqueue aels ((f + 1) MOD LENGTH aels) r vs’,
+  ‘lqueue aels f r (v::vs) ⇒ lqueue aels ((f + 1) MOD LENGTH aels) r vs’,
   rw[lqueue_def] >> fs[]
   >- (disj1_tac >> map_every qexists_tac [‘pj ++ [v]’, ‘rj’] >> simp[]) >>
   Cases_on ‘LENGTH p = 1’ >> simp[]
@@ -177,7 +177,7 @@ Theorem enqueue_spec
     simp[lqueue_enqueue]);
 
 Theorem LIST_REL_REL_lqueue_HD
-  `‘LIST_REL A qels qelvs ∧ lqueue qels f r (h::t) ⇒ A h (EL f qelvs)’,
+  ‘LIST_REL A qels qelvs ∧ lqueue qels f r (h::t) ⇒ A h (EL f qelvs)’,
   simp[lqueue_def] >> rw[]
   >- (fs[LIST_REL_SPLIT1] >> rw[] >>
       imp_res_tac LIST_REL_LENGTH >>
@@ -206,7 +206,7 @@ val dequeue_spec_noexn = Q.prove(
     metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]);
 
 Theorem dequeue_spec
-  `‘∀p qv xv vs x A mx.
+  ‘∀p qv xv vs x A mx.
       app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv)
        (POST (λv. &(vs ≠ [] ∧ A (HD vs) v) * QUEUE A mx (TL vs) qv)

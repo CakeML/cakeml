@@ -126,7 +126,7 @@ val pegsym_to_sym_def = Define`
 `
 
 Theorem valid_ptree_mkNd[simp]
-  `‘valid_ptree G (mkNd N subs) ⇔
+  ‘valid_ptree G (mkNd N subs) ⇔
      N ∈ FDOM G.rules ∧ MAP ptree_head subs ∈ G.rules ' N ∧
      ∀pt. MEM pt subs ⇒ valid_ptree G pt’,
   simp[mkNd_def]);
@@ -185,7 +185,7 @@ val ptree_head_NT_mkNd = Q.store_thm(
   simp[MAP_EQ_CONS, mkNd_def, ptree_list_loc_def]);
 
 Theorem mkNd_11[simp]
-  `‘mkNd n1 sub1 = mkNd n2 sub2 ⇔ n1 = n2 ∧ sub1 = sub2’,
+  ‘mkNd n1 sub1 = mkNd n2 sub2 ⇔ n1 = n2 ∧ sub1 = sub2’,
   csimp[mkNd_def]);
 
 val peg_linfix_correct_lemma = Q.store_thm(
@@ -342,7 +342,7 @@ val _ = augment_srw_ss [rewrites [bindNT0_lemma]]
 (* left recursive rules in the grammar turn into calls to rpt in the PEG,
    and this in turn requires inductions *)
 Theorem ptPapply_lemma
-  `‘∀limit.
+  ‘∀limit.
      (∀i0 i pts.
        LENGTH i0 < limit ⇒
        peg_eval cmlPEG (i0, nt (mkNT nPbase) I) (SOME (i, pts)) ⇒

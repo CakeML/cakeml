@@ -124,7 +124,7 @@ val inv_div = Q.prove(
        realTheory.REAL_INV_INV, realTheory.REAL_MUL_COMM]);
 
 Theorem real_of_int_eq_num[simp]
-  `‘((real_of_int i = &n) <=> (i = &n)) /\
+  ‘((real_of_int i = &n) <=> (i = &n)) /\
    ((&n = real_of_int i) <=> (i = &n))’,
   simp[EQ_IMP_THM] >> simp[intrealTheory.real_of_int_def] >>
   Cases_on ‘i’ >> simp[realTheory.eq_ints]);
@@ -389,7 +389,7 @@ val gcd_LESS_EQ = prove(
   \\ rw [] \\ fs []);
 
 Theorem DIV_EQ_0
-  `‘0 < n ==> ((m DIV n = 0) <=> m < n)’,
+  ‘0 < n ==> ((m DIV n = 0) <=> m < n)’,
   strip_tac >> IMP_RES_THEN mp_tac DIVISION >>
   rpt (disch_then (qspec_then ` (m` assume_tac)) >>
   qabbrev_tac `q = m DIV n` >> qabbrev_tac `r = m MOD n` >>
@@ -397,7 +397,7 @@ Theorem DIV_EQ_0
   Cases_on ‘q’ >> simp[MULT_CLAUSES]);
 
 Theorem DIV_GCD_NONZERO
-  `‘(0 < m ==> 0 < m DIV gcd m n) /\ (0 < n ==> 0 < n DIV gcd m n)’,
+  ‘(0 < m ==> 0 < m DIV gcd m n) /\ (0 < n ==> 0 < n DIV gcd m n)’,
   rw[] >> ‘gcd m n <> 0’ by simp[GCD_EQ_0]
   >- (‘~(m < gcd m n)’
         by metis_tac[dividesTheory.NOT_LT_DIVIDES,

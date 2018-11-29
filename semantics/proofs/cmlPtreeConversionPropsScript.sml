@@ -32,7 +32,7 @@ val tyname_to_AST_def = Define‘
 ’;
 
 Theorem tyname_inverted
-  `‘∀id. user_expressible_tyname id ⇒
+  ‘∀id. user_expressible_tyname id ⇒
         ptree_Tyop (tyname_to_AST id) = SOME id’,
   Cases >>
   simp[ptree_Tyop_def, tyname_to_AST_def, ptree_UQTyop_def] >>
@@ -364,7 +364,7 @@ val MAP_TK11 = Q.prove(
 val _ = augment_srw_ss [rewrites [MAP_TK11]]
 
 Theorem OpID_OK
-  `‘ptree_head pt = NN nOpID ∧ MAP TK toks = ptree_fringe pt ∧
+  ‘ptree_head pt = NN nOpID ∧ MAP TK toks = ptree_fringe pt ∧
     valid_ptree cmlG pt ⇒
     ∃astv. ptree_OpID pt = SOME astv ∧
            ((∃cnm. astv = Con cnm []) ∨
@@ -540,7 +540,7 @@ val AndFDecls_OK = save_thm(
   okify (last o #1 o front_last o CONJUNCTS) `v` E_OK0);
 
 Theorem PTbase_OK
-  `‘valid_ptree cmlG pt ∧ ptree_head pt = NN nPTbase ∧
+  ‘valid_ptree cmlG pt ∧ ptree_head pt = NN nPTbase ∧
    MAP TK toks = ptree_fringe pt ⇒
    ∃ty. ptree_PTbase pt = SOME ty’,
   start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >> rveq >>

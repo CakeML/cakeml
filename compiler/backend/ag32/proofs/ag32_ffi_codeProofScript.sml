@@ -451,7 +451,7 @@ fun gmwtac i =
 val gmw = gmw0 gmwtac
 
 Theorem v2w_EQ0
-  `‘v2w [b] = (0w : word32) ⇔ ~b’,
+  ‘v2w [b] = (0w : word32) ⇔ ~b’,
   Cases_on ‘b’ >> simp[]);
 
 fun r3_unchanged i =
@@ -2246,7 +2246,7 @@ Theorem ag32_ffi_write_code_thm
   \\ metis_tac[]);
 
 Theorem ag32_ffi_read_set_id_code_thm
-  `‘(∀k. k < LENGTH ag32_ffi_read_set_id_code ⇒
+  ‘(∀k. k < LENGTH ag32_ffi_read_set_id_code ⇒
          get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_read_set_id_code)) ∧ byte_aligned s.PC
      ⇒
@@ -2317,7 +2317,7 @@ val asm_write_bytearray_avoiding = Q.prove(
 fun glAbbrs i = EVERY (List.tabulate(i, fn j => glAbbr (i - j)))
 
 Theorem w22n_bound
-  `‘∀b1 b2. w22n [b1; b2] < 65536’,
+  ‘∀b1 b2. w22n [b1; b2] < 65536’,
   rw[MarshallingTheory.w22n_def] >>
   map_every (fn q => Q.ISPEC_THEN q mp_tac w2n_lt) [‘b1’, ‘b2’] >> simp[]);
 
@@ -2859,7 +2859,7 @@ val gmw = gmw0 (fn i =>
 val combined = combined0 instn gmw
 
 Theorem ag32_ffi_get_arg_length_setup_code_thm
-  `‘w2w (n2w (ffi_code_start_offset − 1) : 23 word) ∉
+  ‘w2w (n2w (ffi_code_start_offset − 1) : 23 word) ∉
      { s.PC + n2w k | k |
        k DIV 4 < LENGTH ag32_ffi_get_arg_length_setup_code } ∧
    (∀k. k < LENGTH ag32_ffi_get_arg_length_setup_code ⇒
@@ -2889,7 +2889,7 @@ val instn = instn0
 val combined = combined0 instn gmw
 
 Theorem ag32_ffi_get_arg_length_loop1_code_thm
-  `‘s.MEM (s.R 5w + n2w zoff) = 0w ∧
+  ‘s.MEM (s.R 5w + n2w zoff) = 0w ∧
    (∀k. k < LENGTH ag32_ffi_get_arg_length_loop1_code ⇒
         get_mem_word s.MEM (s.PC + n2w (4 * k)) =
         Encode (EL k ag32_ffi_get_arg_length_loop1_code)) ∧
@@ -2939,7 +2939,7 @@ val has_n_args_def = Define‘
 ’;
 
 Theorem ag32_ffi_get_arg_length_loop_code_thm
-  `‘has_n_args s.MEM (s.R 5w) argc ∧ w2n (s.R 6w) ≤ argc ∧
+  ‘has_n_args s.MEM (s.R 5w) argc ∧ w2n (s.R 6w) ≤ argc ∧
    (∀k. k < LENGTH ag32_ffi_get_arg_length_loop_code ⇒
         get_mem_word s.MEM (s.PC + n2w (4 * k)) =
         Encode (EL k ag32_ffi_get_arg_length_loop_code)) ∧
@@ -3422,7 +3422,7 @@ Theorem ag32_ffi_get_arg_store_decomp_thm
   \\ simp[]);
 
 Theorem ag32_ffi_get_arg_find_decomp1_pre'
-  `‘∀off s.
+  ‘∀off s.
      s.MEM (s.R 5w + n2w off) = 0w ⇒ ag32_ffi_get_arg_find_decomp1_pre s’,
   Induct >> simp[Once ag32_ffi_get_arg_find_decomp_def] >>
   simp[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ri2word_def,
@@ -3521,7 +3521,7 @@ val ag32_ffi_get_arg_setup_decomp_pre' =
     end
 
 Theorem ag32_ffi_get_arg_store_decomp_pre'
-  `‘∀n md s.
+  ‘∀n md s.
      (s.MEM (s.R 5w + n2w n) = 0w) ∧
      (∀i. i ≤ n ⇒ s.R 3w ≠ s.R 5w + n2w i) ∧
      (∀i. i ≤ n ⇒ s.R 3w + n2w i ∈ md)

@@ -123,7 +123,7 @@ Theorem firstSet_nTyOp[simp]
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
 Theorem firstSet_nPTbase[simp]
-  `‘firstSet cmlG (NN nPTbase :: rest) =
+  ‘firstSet cmlG (NN nPTbase :: rest) =
      firstSet cmlG [NN nTyOp] ∪ {LparT} ∪ {TyvarT s | T}’,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM, SimpLHS] >>
   simp[nullable_PTbase] >> dsimp[Once EXTENSION] >> metis_tac[]);
@@ -250,7 +250,7 @@ Theorem firstSet_nFQV
   dsimp[Once EXTENSION]);
 
 Theorem firstSet_nUQConstructorName
-  `‘firstSet cmlG (NN nUQConstructorName :: rest) =
+  ‘firstSet cmlG (NN nUQConstructorName :: rest) =
       { AlphaT s | s ≠ "" ∧ isUpper (HD s) } ∪
       { AlphaT s | s ∈ {"true"; "false"; "nil"}}’,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
@@ -300,7 +300,7 @@ Theorem firstSet_nEliteral[simp]
   dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[]);
 
 Theorem firstSetML_nEliteral[simp]
-  `‘mkNT nEliteral ∉ sn ⇒
+  ‘mkNT nEliteral ∉ sn ⇒
      firstSetML cmlG sn (NT (mkNT nEliteral)::rest) =
      firstSet cmlG [NT (mkNT nEliteral)]’,
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
@@ -595,7 +595,7 @@ Theorem firstSetML_nPbase[simp]
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
 Theorem firstSet_nPConApp[simp]
-  `‘firstSet cmlG (NN nPConApp :: rest) =
+  ‘firstSet cmlG (NN nPConApp :: rest) =
      firstSet cmlG [NN nConstructorName] ∪ {RefT}’,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
@@ -787,7 +787,7 @@ val FLAT_EQ_CONS = Q.prove(
   full_simp_tac bool_ss [EVERY_DEF] >> rw[] >> fs[])
 
 Theorem rfirstSet_nonempty_fringe
-  `‘∀pt t l rest.
+  ‘∀pt t l rest.
      real_fringe pt = (TOK t, l) :: rest ∧ valid_lptree G pt ⇒
      t ∈ firstSet G [ptree_head pt]’,
   rw[] >>
@@ -863,7 +863,7 @@ Theorem left_insert1_FOLDL
 val _ = export_rewrites ["grammar.ptree_loc_def"]
 
 Theorem ptree_loc_mkNd[simp]
-  `‘ptree_loc (mkNd n subs) = ptree_list_loc subs’,
+  ‘ptree_loc (mkNd n subs) = ptree_list_loc subs’,
   simp[mkNd_def]);
 
 val merge_list_locs_HDLAST = Q.store_thm(
@@ -889,7 +889,7 @@ val rightLoc_def = Define`rightLoc (Locs _ l2) = l2`;
 val _ = export_rewrites ["leftLoc_def", "rightLoc_def"]
 
 Theorem merge_locs_LR
-  `‘merge_locs l1 l2 = Locs (leftLoc l1) (rightLoc l2)’,
+  ‘merge_locs l1 l2 = Locs (leftLoc l1) (rightLoc l2)’,
   map_every Cases_on [‘l1’, ‘l2’] >> simp[locationTheory.merge_locs_def]);
 
 val leftLoc_merge_locs = Q.store_thm(
@@ -985,7 +985,7 @@ val left_insert2_ind = theorem "left_insert2_ind"
 val _ = export_rewrites ["left_insert2_def"]
 
 Theorem ptree_loc_left_insert2
-  `‘∀bpt dpt.
+  ‘∀bpt dpt.
      valid_locs dpt ⇒
        ptree_loc (left_insert2 bpt dpt) =
        merge_locs (ptree_loc bpt) (ptree_loc dpt)’,
@@ -1112,7 +1112,7 @@ val list_case_eq = Q.prove(
 
 
 Theorem ptree_loc_left_insert
-  `‘∀bpt n sep c.
+  ‘∀bpt n sep c.
      valid_locs bpt ⇒
        ptree_loc (left_insert bpt n sep c) =
        merge_locs (ptree_loc c) (ptree_loc bpt)’,
@@ -1509,7 +1509,7 @@ val normlist = REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND]
 
 
 Theorem left_insert1_mkNd
-  `‘left_insert1 pt1 (mkNd (mkNT nEapp) [pt2]) =
+  ‘left_insert1 pt1 (mkNd (mkNT nEapp) [pt2]) =
    mkNd (mkNT nEapp) [mkNd (mkNT nEapp) [pt1]; pt2]’,
   simp[mkNd_def, left_insert1_def]);
 
@@ -1593,7 +1593,7 @@ val eapp_complete = Q.store_thm(
   rveq >> simp[]);
 
 Theorem peg_respects_firstSets'
-  `‘peg_eval cmlPEG ((t,l) :: rest, nt N I) (SOME(sfx, res)) ∧
+  ‘peg_eval cmlPEG ((t,l) :: rest, nt N I) (SOME(sfx, res)) ∧
    nt N I ∈ Gexprs cmlPEG ∧ ¬peg0 cmlPEG (nt N I) ⇒
    t ∈ firstSet cmlG [NT N]’,
   strip_tac >>
@@ -1603,7 +1603,7 @@ Theorem peg_respects_firstSets'
   metis_tac[peg_deterministic, NOT_NONE_SOME])
 
 Theorem nUQConstructorName_input_monotone
-  `‘peg_eval cmlPEG (i0, nt (mkNT nUQConstructorName) I) (SOME (i,r)) ⇒
+  ‘peg_eval cmlPEG (i0, nt (mkNT nUQConstructorName) I) (SOME (i,r)) ⇒
    peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nUQConstructorName) I)
      (SOME (i ++ sfx,r))’,
   simp[peg_eval_NT_SOME] >>
@@ -1627,7 +1627,7 @@ val peg_eval_NT_NONE = save_thm(
      |> SIMP_CONV (srw_ss()) [Once peg_eval_cases])
 
 Theorem nConstructorName_NONE_input_monotone
-  `‘peg_eval cmlPEG ((tk,l) :: i, nt (mkNT nConstructorName) I) NONE ⇒
+  ‘peg_eval cmlPEG ((tk,l) :: i, nt (mkNT nConstructorName) I) NONE ⇒
    peg_eval cmlPEG ((tk,l) :: (i ++ sfx), nt (mkNT nConstructorName) I) NONE’,
   simp[peg_eval_NT_NONE] >>
   simp[cmlpeg_rules_applied, FDOM_cmlPEG, EXISTS_PROD, peg_eval_seq_NONE,
@@ -1669,7 +1669,7 @@ val nTyOp_input_monotone = Q.store_thm(
   rename [‘isLongidT tk’] >> Cases_on `tk` >> fs[]);
 
 Theorem nTyOplist_input_monotone
-  `‘∀result i0 i sfx.
+  ‘∀result i0 i sfx.
      peg_eval_list cmlPEG (i0, nt (mkNT nTyOp) I) (i, result) ∧
      (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers nDType) ⇒
      peg_eval_list cmlPEG (i0 ++ sfx, nt (mkNT nTyOp) I) (i ++ sfx, result)’,
@@ -1696,7 +1696,7 @@ val peg_eval_TyOp_LparT = Q.prove(
 val _ = augment_srw_ss [rewrites [peg_eval_TyOp_LparT]]
 
 Theorem Type_input_monotone
-  `‘∀N i0 i r sfx.
+  ‘∀N i0 i r sfx.
      N ∈ {nTypeList2; nTypeList1; nType; nPType; nDType; nTbase} ∧
      (i ≠ [] ⇒ FST (HD i) ∈ stoppers N) ∧
      (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers N) ∧
@@ -2159,7 +2159,7 @@ val Pattern_input_monotone = save_thm(
   SIMP_RULE bool_ss [FORALL_AND_THM] Pattern_input_monotone0)
 
 Theorem extend_Pbase_list
-  `‘∀results pfx sfx sfx' result.
+  ‘∀results pfx sfx sfx' result.
      peg_eval_list cmlPEG (pfx, nt (mkNT nPbase) I) ([], results) ∧
      peg_eval cmlPEG (sfx, nt (mkNT nPbase) I) (SOME(sfx', result)) ∧
      (sfx' ≠ [] ⇒ FST (HD sfx') ∉ firstSet cmlG [NN nPbase]) ⇒
@@ -2180,7 +2180,7 @@ Theorem extend_Pbase_list
   disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >> simp[])
 
 Theorem papp_complete
-  `‘(∀pt' pfx' N sfx'.
+  ‘(∀pt' pfx' N sfx'.
      LENGTH pfx' < LENGTH master ∧ valid_lptree cmlG pt' ∧
      mkNT N ∈ FDOM cmlPEG.rules ∧ ptree_head pt' = NN N ∧
      real_fringe pt' = MAP (TK ## I) pfx' ∧
@@ -2275,7 +2275,7 @@ Theorem papp_complete
 
 
 Theorem leftmost_mkNd_DType[simp]
-  `‘leftmost (mkNd (mkNT nDType) (c::cs)) = leftmost c’,
+  ‘leftmost (mkNd (mkNT nDType) (c::cs)) = leftmost c’,
   simp[leftmost_def, mkNd_def]);
 
 val leftmost_mkNd_Tbase = Q.store_thm(
@@ -2290,7 +2290,7 @@ val leftmost_FOLDL = Q.store_thm(
   qid_spec_tac `acc` >> Induct_on `args` >> simp[]);
 
 Theorem left_insert2_mkNd[simp]
-  `‘left_insert2 bpt (mkNd (mkNT nDType) [mkNd n [sub]]) =
+  ‘left_insert2 bpt (mkNd (mkNT nDType) [mkNd n [sub]]) =
    mkNd (mkNT nDType) [mkNd (mkNT nDType) [bpt]; sub]’,
   simp[left_insert2_def, mkNd_def, ptree_list_loc_def]);
 
@@ -2558,7 +2558,7 @@ val pmap_cases =
        (rename [`(_ ## _) pair = (_,_)`] >> Cases_on `pair` >> fs[] >> rveq))
 
 Theorem ptPapply0_FOLDL
-  `‘∀l a pt.
+  ‘∀l a pt.
      ptPapply0 a (l ++ [pt]) =
      [bindNT0 nPapp [FOLDL (λpcpt bpt. bindNT0 nPConApp [pcpt; bpt]) a l;
                      pt]]’,
@@ -2566,7 +2566,7 @@ Theorem ptPapply0_FOLDL
   fs[]);
 
 Theorem completeness
-  `‘∀pt N pfx sfx.
+  ‘∀pt N pfx sfx.
       valid_lptree cmlG pt ∧ ptree_head pt = NT (mkNT N) ∧
       mkNT N ∈ FDOM cmlPEG.rules ∧
       (sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers N) ∧

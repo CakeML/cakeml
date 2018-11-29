@@ -125,8 +125,8 @@ val read_FFIcall_def = Define‘
 ’
 
 Theorem read_FFIcall_reduces_input
-  `‘∀s0 a l0 t l s.
-     read_FFIcall s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1’,
+  `∀s0 a l0 t l s.
+     read_FFIcall s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1`,
   Induct >> dsimp[read_FFIcall_def, bool_case_eq] >> rw[] >>
   qpat_x_assum ` (_ = _` (assume_tac o SYM) >> res_tac >> simp[]);
 
