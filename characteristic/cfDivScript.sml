@@ -8,43 +8,9 @@ open cfTacticsBaseLib cfTacticsLib cfTheory
 val _ = new_theory "cfDiv";
 
 val POSTd_eq = store_thm("POSTd_eq",
-  ``POSTd Q r h <=> ?io1. r = Div io1 /\ Q io1 /\ emp h``,
+  ``$POSTd Q r h <=> ?io1. r = Div io1 /\ Q io1 /\ emp h``,
   Cases_on `r` \\ fs [POSTd_def,POST_def,cond_def,emp_def]
   \\ eq_tac \\ rw []);
-
-val app_POSTd = store_thm("app_POSTd",
-  ``!p f xvs H Q.
-      (?io events (Hs: num -> hprop).
-        Q io /\
-        H ==>> Hs 0 /\
-        (!i. ?P. Hs i = P * one (FFI_full (events i))) /\
-        (!i. LENGTH (events i) < LENGTH (events (i+1))) /\
-        (!i. app p f xvs (Hs (SUC i)) (POSTd Q) ==>
-             app p f xvs (Hs i) (POSTd Q)) /\
-        (!i. LPREFIX (fromList (events i)) io)) /\
-      LENGTH xvs = 1 /\
-      IS_SOME (do_opapp [f; HD xvs])
-      ==>
-      app p f xvs H (POSTd Q)``,
-  rw []
-  \\ `?v. xvs = [v]` by (Cases_on `xvs` \\ fs []) \\ rveq
-  \\ simp [app_def,app_basic_def,POSTd_eq,PULL_EXISTS]
-  \\ rw [emp_def]
-  \\ fs [IS_SOME_EXISTS]
-  \\ rename [`SOME ee`] \\ PairCases_on `ee` \\ fs []
-  \\ qexists_tac `UNIV DIFF h_k`
-  \\ qexists_tac `UNIV`
-  \\ qexists_tac `io` \\ fs []
-  \\ conj_tac THEN1 fs [SPLIT3_def,IN_DISJOINT,EXTENSION]
-  \\ fs [evaluate_to_heap_def]
-  \\ qsuff_tac `!ck. ?st1. evaluate_ck ck st ee0 [ee1] =
-                             (st1,Rerr (Rabort Rtimeout_error))`
-  THEN1 cheat
-  \\ rw []
-  \\ cheat);
-
-
-(* new attempt *)
 
 fun append_prog tm = let
   val tm = QCONV EVAL tm |> concl |> rand
@@ -56,20 +22,6 @@ val _ = (append_prog o cfTacticsLib.process_topdecs)
 val st = ml_translatorLib.get_ml_prog_state ();
 
 val repeat_v = fetch "-" "repeat_v_def"
-
-val env = repeat_v |> concl |> rand |> rator |> rator |> rand
-
-val repeat_POSTd = store_thm("repeat_POSTd",
-  ``!p fv xv H Q.
-      (?step P.
-         !v events v1 io_events1.
-           step v = (v1,io_events1) ==>
-           (app p fv [v] (P * one (FFI_full events))
-                         (POSTv v'. &(v' = v1) * P *
-                                    one (FFI_full (events ++ io_events1)))))
-      ==>
-      app p repeat_v [fv; xv] H (POSTd Q)``,
-  cheat);
 
 val POSTv_eq = store_thm("POSTv_eq",
   ``$POSTv Q r h <=> ?v. r = Val v /\ Q v h``,
@@ -136,7 +88,7 @@ val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
          lprefix_lub (IMAGE (fromList o events) UNIV) io /\
          Q io)
       ==>
-      app p repeat_v [fv; xv] H (POSTd Q)``,
+      app p repeat_v [fv; xv] H ($POSTd Q)``,
   rpt strip_tac
   \\ rw [app_def, app_basic_def]
   \\ fs [repeat_v,do_opapp_def,Once find_recfun_def]
@@ -298,7 +250,7 @@ val st = ml_translatorLib.get_ml_prog_state ();
 val loop_spec = store_thm("loop_spec",
   ``!xv.
       app (p:'ffi ffi_proj) ^(fetch_v "loop" st) [xv]
-        (one (FFI_full [])) (POSTd (\io. io = [||]))``,
+        (one (FFI_full [])) (POSTd io. io = [||])``,
   xcf "loop" st
   \\ xfun_spec `f`
     `!xv.
