@@ -439,7 +439,7 @@ val compose_m_seq_thm = Q.prove
              (?r. h = Repeat r)` by METIS_TAC [regexp_cases]
        THEN NTAC 2 (RW_TAC list_ss [] THEN
                     FULL_SIMP_TAC list_ss [LET_THM, m_def, match_seq_def,
-		                           compose_m_seq_def])]);
+                                           compose_m_seq_def])]);
 
 (*---------------------------------------------------------------------------*)
 (* Match sequence suffixes can be swapped out.                               *)
@@ -626,7 +626,7 @@ val match_seq_find_lemma = Q.prove
     THEN ASSUME_TAC (Q.SPECL
              [`\x. ?r l w. x = (Repeat r::l,w,SOME (Repeat r::l))`,
               `ms`, `[]`, `l3`, `(Repeat r::l,w,SOME (Repeat r::l))`, `z`,
-	      `[h]`]
+              `[h]`]
      (INST_TYPE [alpha |-> Type`:'a regexp list#'a list#'a regexp list option`]
                    split_thm3))
    THEN FULL_SIMP_TAC list_ss []

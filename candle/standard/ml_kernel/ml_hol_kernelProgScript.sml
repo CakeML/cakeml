@@ -162,13 +162,13 @@ val exn_ri_def = HOL_EXN_TYPE_def
 
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      exn_ri_def
-					      exn_functions
-					      []
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              exn_ri_def
+                                              exn_functions
+                                              []
                                               NONE
                                               NONE;
 

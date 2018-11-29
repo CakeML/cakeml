@@ -28,7 +28,7 @@ val spec = spec1
 *)
 fun mk_app_of_ArrowP spec = let
     val spec = PURE_REWRITE_RULE[ArrowM_def] spec
-				|> UNDISCH_ALL
+                                |> UNDISCH_ALL
     val arrow_RI = concl spec |> rator |> rator
     val f_const = concl spec |> rator |> rand
     val fv_const = concl spec |> rand
@@ -41,16 +41,16 @@ fun mk_app_of_ArrowP spec = let
     (* Create variables for the HOL and CakeML parameters,
        retrieve the refinement invariants *)
     fun get_params arrow_RI n = let
-	val (comb_tm, params) = strip_comb arrow_RI
-	val ri = rator arrow_RI |> rand
-	val arrow_RI' = rand arrow_RI
-	val comb_tm = rator arrow_RI'
-	val x = mk_var("x"^(Int.toString n), type_of ri |> dest_type |> snd |> List.hd)
-	val xv = mk_var("xv"^(Int.toString n), v_ty)
-	val x_triple = (x, xv, ri)
+        val (comb_tm, params) = strip_comb arrow_RI
+        val ri = rator arrow_RI |> rand
+        val arrow_RI' = rand arrow_RI
+        val comb_tm = rator arrow_RI'
+        val x = mk_var("x"^(Int.toString n), type_of ri |> dest_type |> snd |> List.hd)
+        val xv = mk_var("xv"^(Int.toString n), v_ty)
+        val x_triple = (x, xv, ri)
     in if same_const PURE_tm comb_tm then let
-	   val arrow_RI' = rand arrow_RI'
-	   val (params_v, ret_invs) = get_params arrow_RI' (n+1)
+           val arrow_RI' = rand arrow_RI'
+           val (params_v, ret_invs) = get_params arrow_RI' (n+1)
        in (x_triple::params_v, ret_invs) end
        else ([x_triple], (rator arrow_RI' |> rand, rand arrow_RI'))
     end
@@ -60,24 +60,24 @@ fun mk_app_of_ArrowP spec = let
     fun clean_inv x inv var_subst =
       if can (match_term Eq_pat) (rand inv)
       then let
-	  val inv = rand inv
-	  val x' = rand inv
-	  val s = (x' |-> x)
-	  val inv = subst [s] inv
+          val inv = rand inv
+          val x' = rand inv
+          val s = (x' |-> x)
+          val inv = subst [s] inv
       in (inv,s::var_subst) end
       else (rand inv,var_subst)
     fun clean_params ((x,xv,inv)::params_info) = let
-	val (params_info,var_subst,has_EqSt) = clean_params params_info
+        val (params_info,var_subst,has_EqSt) = clean_params params_info
     in
-	if can (match_term EqSt_pat) inv then let
-	    val st = rand inv
-	    val inv = rator inv |> rand
-	    val var_subst = (st |-> state_var)::var_subst
-	    val (inv,var_subst) = clean_inv x inv var_subst
-	in ((x,xv,inv)::params_info,var_subst,true) end
-	else let
-	    val (inv,var_subst) = clean_inv x inv var_subst
-	in ((x,xv,inv)::params_info,var_subst,has_EqSt) end
+        if can (match_term EqSt_pat) inv then let
+            val st = rand inv
+            val inv = rator inv |> rand
+            val var_subst = (st |-> state_var)::var_subst
+            val (inv,var_subst) = clean_inv x inv var_subst
+        in ((x,xv,inv)::params_info,var_subst,true) end
+        else let
+            val (inv,var_subst) = clean_inv x inv var_subst
+        in ((x,xv,inv)::params_info,var_subst,has_EqSt) end
     end
       | clean_params [] = ([],[],false)
     val (params_info,var_subst,has_EqSt) = clean_params params_info
@@ -97,26 +97,26 @@ fun mk_app_of_ArrowP spec = let
     val gv_var = mk_var("gv", v_ty)
 
     val lemma = if has_EqSt then ArrowP_MONAD_EqSt_to_app
-		else ArrowP_MONAD_to_app
+                else ArrowP_MONAD_to_app
     val th = ISPECL[last_ri,ret_inv,exn_inv,current_f,gv_var,H,last_x,
-		    last_xv,ro,state_var,p_var] lemma |> UNDISCH
+                    last_xv,ro,state_var,p_var] lemma |> UNDISCH
     val Q = concl th |> rand |> rand
     val Q_abs = mk_abs(state_var, Q)
 
     (* Perform the recursion *)
     (* val (x, xv, ri) = List.hd params_info *)
     fun mk_app_rec th ((x, xv, ri)::x_info) = let
-	val A = ri
-	val B = concl th |> dest_imp |> fst |> rator |> rator
-	val (xv2, xvl) = concl th |> dest_imp |> snd |> rator |> rator |> rand |> dest_comb
-	val xv2 = rand xv2
-	val f_tm = concl th |> dest_imp |> fst |> rator |> rand |> rator
+        val A = ri
+        val B = concl th |> dest_imp |> fst |> rator |> rator
+        val (xv2, xvl) = concl th |> dest_imp |> snd |> rator |> rator |> rand |> dest_comb
+        val xv2 = rand xv2
+        val f_tm = concl th |> dest_imp |> fst |> rator |> rand |> rator
 
-	val assum = GEN gv_var th
-	val imp_th = ISPECL[A,B,f_tm,fv_var,x,xv,xv2,xvl,H,
-			    Q_abs,ro,state_var,p_var] ArrowP_PURE_to_app
-			|> UNDISCH |> BETA_RULE
-	val th = MATCH_MP imp_th assum |> SPEC_ALL |> Thm.INST [fv_var |-> gv_var]
+        val assum = GEN gv_var th
+        val imp_th = ISPECL[A,B,f_tm,fv_var,x,xv,xv2,xvl,H,
+                            Q_abs,ro,state_var,p_var] ArrowP_PURE_to_app
+                        |> UNDISCH |> BETA_RULE
+        val th = MATCH_MP imp_th assum |> SPEC_ALL |> Thm.INST [fv_var |-> gv_var]
     in mk_app_rec th x_info end
       | mk_app_rec th [] = th
     val th = mk_app_rec th params_info
@@ -130,7 +130,7 @@ fun mk_app_of_ArrowP spec = let
 
     (* Perform some cleanup *)
     val th = SIMP_RULE bool_ss[ml_translatorTheory.PRECONDITION_def,
-			       ml_translatorTheory.Eq_def] th
+                               ml_translatorTheory.Eq_def] th
 
     (* Generalize the variables *)
     val th = GENL[state_var] th |> GENL xvl |> GENL xl
@@ -140,7 +140,7 @@ in th end
 
 val _ = Hol_datatype `
   state_refs = <| the_num : num ;
-	          the_num_array : num list ;
+                  the_num_array : num list ;
                   the_int_array : int list |>`;
 
 val ptr1_def = Define `ptr1 = Loc 1`;

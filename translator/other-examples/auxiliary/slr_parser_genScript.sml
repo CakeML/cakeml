@@ -166,8 +166,8 @@ val parser = Define `
     in
       case out of NONE => NONE
                 | (SOME (SOME (slo,[(st1,pt)],cs))) => SOME (SOME pt)
-	        | SOME (NONE) => SOME (NONE)
-	        | SOME _ => SOME NONE`
+                | SOME (NONE) => SOME (NONE)
+                | SOME _ => SOME NONE`
 
 
 val _ = export_theory ();

@@ -11,8 +11,7 @@ all: $(TARGETS)
 
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
-DIRS = $(wildcard */)
-README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
 
 ifdef POLY

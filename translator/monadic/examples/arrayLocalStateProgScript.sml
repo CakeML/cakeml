@@ -23,13 +23,13 @@ val _ = (use_full_type_names := false);
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `
   state_refs = <|
-		   ref1 : num ;
+                   ref1 : num ;
                    ref2 : int;
-		   rarray1 : num list ;
-		   rarray2 : int list;
+                   rarray1 : num list ;
+                   rarray2 : int list;
                    farray1 : num list;
-		   farray2 : int list;
-		   |>`;
+                   farray2 : int list;
+                   |>`;
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
@@ -73,13 +73,13 @@ val store_pinv_def_opt = NONE : thm option;
 (* Initialize the translation *)
 val (monad_parameters, exn_specs) =
     start_dynamic_init_fixed_store_translation refs_manip_list
-					      rarrays_manip_list
-					      farrays_manip_list
-					      store_hprop_name
-					      state_type
-					      exn_ri_def
-					      exn_functions
-					      []
+                                              rarrays_manip_list
+                                              farrays_manip_list
+                                              store_hprop_name
+                                              state_type
+                                              exn_ri_def
+                                              exn_functions
+                                              []
                                               store_pinv_def_opt;
 
 (* Monadic translations *)
@@ -118,7 +118,7 @@ val test6_v_thm = test6_def |> m_translate;
 (* test 1 *)
 val run_init_state_def = define_run ``:state_refs``
                                     ["farray1", "farray2"]
-				    "init_state"
+                                    "init_state"
 
 val run_test1_def = Define `run_test1 x state = run_init_state (test1 x) state`;
 val run_test1_v_thm = m_translate_run run_test1_def;

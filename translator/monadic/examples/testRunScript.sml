@@ -24,7 +24,7 @@ val _ = (use_full_type_names := false);
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `
   state_refs = <| the_num : num ;
-	          the_num_array : num list ;
+                  the_num_array : num list ;
                   the_int_array : int list |>`;
 
 (* Data type for the exceptions *)
@@ -67,13 +67,13 @@ val add_type_theories = [] : string list;
 (* Initialize the translation *)
 val (monad_parameters, exn_specs) =
     start_dynamic_init_fixed_store_translation refs_manip_list
-					       rarrays_manip_list
-					       farrays_manip_list
-					       store_hprop_name
-					       state_type
-					       exn_ri_def
-					       exn_functions
-					       []
+                                               rarrays_manip_list
+                                               farrays_manip_list
+                                               store_hprop_name
+                                               state_type
+                                               exn_ri_def
+                                               exn_functions
+                                               []
                                                store_pinv_def_opt;
 
 val hd_v_thm = translate HD;
@@ -117,11 +117,11 @@ val f10_v_thm = m_translate f10_def;
 
 val f11_def = Define `
 f11 x = case x of [] => return (0 : num)
-		| x::xs => (do l <- f11 xs; return (1 + l) od)`;
+                | x::xs => (do l <- f11 xs; return (1 + l) od)`;
 val f11_v_thm = m_translate f11_def;
 val f11_side_def = fetch "testRun" "f11_side_def"
 val f11_side_true = Q.prove(`!xs st. f11_side st xs`,
-			    Induct \\ rw[Once f11_side_def]);
+                            Induct \\ rw[Once f11_side_def]);
 
 val f12_def = Define`
 f12 x = ((return (1:num)) otherwise (return 0))`;

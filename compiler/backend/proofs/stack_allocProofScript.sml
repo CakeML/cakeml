@@ -418,7 +418,7 @@ val word_gc_fun_thm = Q.prove(
               Word
                 (theWord (s ' OtherHeap) +
                  theWord (s ' HeapLength)));
-	     (Globals,w1)]
+             (Globals,w1)]
       in
         if word_gc_fun_assum conf s /\ c2 then SOME (ws2,m1,s1) else NONE`,
   full_simp_tac(srw_ss())[word_gc_fun_lemma,LET_THM]

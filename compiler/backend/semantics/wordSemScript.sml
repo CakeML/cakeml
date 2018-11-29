@@ -772,46 +772,46 @@ val evaluate_def = tDefine "evaluate" `
     if bad_dest_args dest args then (SOME Error,s)
     else
     case find_code dest (add_ret_loc ret xs) s.code of
-	  | NONE => (SOME Error,s)
-	  | SOME (args1,prog) =>
-	  case ret of
-	  | NONE (* tail call *) =>
+          | NONE => (SOME Error,s)
+          | SOME (args1,prog) =>
+          case ret of
+          | NONE (* tail call *) =>
       if handler = NONE then
         if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
         else (case evaluate (prog, call_env args1 (dec_clock s)) of
          | (NONE,s) => (SOME Error,s)
          | (SOME res,s) => (SOME res,s))
       else (SOME Error,s)
-	  | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
+          | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
     if domain names = {} then (SOME Error,s)
     else
-	  (case cut_env names s.locals of
-		| NONE => (SOME Error,s)
-		| SOME env =>
-	       if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-	       (case fix_clock (call_env args1 (push_env env handler (dec_clock s)))
+          (case cut_env names s.locals of
+                | NONE => (SOME Error,s)
+                | SOME env =>
+               if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
+               (case fix_clock (call_env args1 (push_env env handler (dec_clock s)))
                        (evaluate (prog, call_env args1
-		               (push_env env handler (dec_clock s)))) of
-		| (SOME (Result x y),s2) =>
+                               (push_env env handler (dec_clock s)))) of
+                | (SOME (Result x y),s2) =>
       if x ≠ Loc l1 l2 then (SOME Error,s2)
       else
-		   (case pop_env s2 of
-		    | NONE => (SOME Error,s2)
-		    | SOME s1 =>
-			(if domain s1.locals = domain env
-			 then evaluate(ret_handler,set_var n y s1)
-			 else (SOME Error,s1)))
-		| (SOME (Exception x y),s2) =>
-		   (case handler of (* if handler is present, then handle exc *)
-		    | NONE => (SOME (Exception x y),s2)
-		    | SOME (n,h,l1,l2) =>
+                   (case pop_env s2 of
+                    | NONE => (SOME Error,s2)
+                    | SOME s1 =>
+                        (if domain s1.locals = domain env
+                         then evaluate(ret_handler,set_var n y s1)
+                         else (SOME Error,s1)))
+                | (SOME (Exception x y),s2) =>
+                   (case handler of (* if handler is present, then handle exc *)
+                    | NONE => (SOME (Exception x y),s2)
+                    | SOME (n,h,l1,l2) =>
         if x ≠ Loc l1 l2 then (SOME Error,s2)
         else
           (if domain s2.locals = domain env
            then evaluate (h, set_var n y s2)
            else (SOME Error,s2)))
         | (NONE,s) => (SOME Error,s)
-		| res => res)))`
+                | res => res)))`
   (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
                   (\(xs,^s). (s.termdep,s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)

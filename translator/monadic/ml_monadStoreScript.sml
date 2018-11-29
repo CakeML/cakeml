@@ -136,7 +136,7 @@ val eliminate_inherited_references_thm = Q.store_thm(
   \\ instantiate
   \\ qexists_tac `store2heap_aux 0 a`
   \\ fs[SPEC_ALL store2heap_aux_SPLIT |> Thm.INST [``n:num`` |-> ``0:num``]
-		 |> SIMP_RULE arith_ss [], SAT_GC]);
+                 |> SIMP_RULE arith_ss [], SAT_GC]);
 
 val eliminate_substore_thm = Q.store_thm("eliminate_substore_thm",
  `(H1 * GC * H2) (store2heap_aux (n + LENGTH a) b) ==>

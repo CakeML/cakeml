@@ -241,8 +241,8 @@ val const_fp_exp_def = tDefine "const_fp_exp" `
      let const_fp_args = MAP (\a. const_fp_exp a cs) args in
        dtcase strip_const const_fp_args of
          | SOME ws => (dtcase word_op op ws of
-			| SOME w => Const w
-		        | _ => Op op (MAP Const ws))
+                        | SOME w => Const w
+                        | _ => Op op (MAP Const ws))
          | _ => Op op const_fp_args) /\
   (const_fp_exp (Shift sh e n) cs =
      let const_fp_exp_e = const_fp_exp e cs in

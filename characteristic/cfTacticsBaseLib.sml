@@ -199,7 +199,7 @@ infixr 3 ORELSE_DCC
 
 fun CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir thm t =
 let
-   val thm_term	= concl	thm;
+   val thm_term = concl thm;
 in
    if (aconv thm_term t) then
       CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir (EQT_INTRO thm) t

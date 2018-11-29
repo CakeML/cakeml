@@ -70,7 +70,7 @@ val simple_fun_def = Define `simple_fun x = return x`;
 
 (* A recursive monadic function *)
 val rec_fun_def = Define `rec_fun l = dtcase l of [] => return (0 : num)
-					      | x::l' => do x <- rec_fun l'; return (1+x) od`;
+                                              | x::l' => do x <- rec_fun l'; return (1+x) od`;
 
 (* A monadic function calling other monadic functions *)
 val calling_fun_def = Define `calling_fun l = do x <- rec_fun l; simple_fun x od`;
@@ -113,13 +113,13 @@ val extra_hprop = NONE : term option;
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      exn_ri_def
-					      exn_functions
-					      type_theories
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              exn_ri_def
+                                              exn_functions
+                                              type_theories
                                               store_pinv_opt
                                               extra_hprop;
 
