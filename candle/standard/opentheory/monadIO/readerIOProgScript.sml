@@ -55,8 +55,8 @@ val (monad_parameters, store_translation, exn_specs) =
 (* Prove some theorems about the monadic functions                           *)
 (* ------------------------------------------------------------------------- *)
 
-val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
-  ``(STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
+Theorem IMP_STAR_GC `(* TODO: move *)
+  ` ((STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
   fs [set_sepTheory.STAR_def]
   \\ rw[] \\ asm_exists_tac \\ fs []
   \\ EVAL_TAC
@@ -193,13 +193,13 @@ val EvalM_commandline_arguments = prove(
       (STATE_STORE,p:'ffi ffi_proj)``,
   metis_tac [commandline_INTRO,EvalM_arguments]);
 
-val EvalM_init_reader_wrap = Q.store_thm("EvalM_init_reader_wrap",
+Theorem EvalM_init_reader_wrap
   `Eval env exp (UNIT_TYPE u) /\
     (nsLookup env.v (Short "init_reader_wrap") = SOME init_reader_wrap_v) ==>
     EvalM F env st (App Opapp [Var (Short "init_reader_wrap"); exp])
       (MONAD (SUM_TYPE STRING_TYPE UNIT_TYPE) exc_ty (init_reader_wrap u))
-      (HOL_STORE,p:'ffi ffi_proj)`,
-  ho_match_mp_tac EvalM_from_app \\ rw []
+      (HOL_STORE,p:'ffi ffi_proj)`
+  (ho_match_mp_tac EvalM_from_app \\ rw []
   >-
    (fs [init_reader_wrap_def, st_ex_bind_def, holKernelTheory.handle_Fail_def,
         st_ex_return_def]
@@ -209,15 +209,15 @@ val EvalM_init_reader_wrap = Q.store_thm("EvalM_init_reader_wrap",
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `s` \\ xsimpl);
 
-val EvalM_holrefs_init_reader_wrap = Q.store_thm("EvalM_holrefs_init_reader_wrap",
+Theorem EvalM_holrefs_init_reader_wrap
   `Eval env exp (UNIT_TYPE u) /\
    nsLookup env.v (Short "init_reader_wrap") = SOME init_reader_wrap_v
    ==>
    EvalM F env st
      (App Opapp [Var (Short "init_reader_wrap"); exp])
      (MONAD (SUM_TYPE STRING_TYPE UNIT_TYPE) HOL_EXN_TYPE
-       (holrefs (init_reader_wrap u))) (STATE_STORE, p:'ffi ffi_proj)`,
-  metis_tac [holrefs_INTRO, EvalM_init_reader_wrap]);
+       (holrefs (init_reader_wrap u))) (STATE_STORE, p:'ffi ffi_proj)`
+  (metis_tac [holrefs_INTRO, EvalM_init_reader_wrap]);
 
 val EvalM_readline_wrap = Q.prove (
  `Eval env xv (PAIR_TYPE STRING_TYPE READER_STATE_TYPE x) /\
@@ -250,14 +250,14 @@ val EvalM_holrefs_readline_wrap = Q.prove (
        (holrefs (readLine_wrap x))) (STATE_STORE, p:'ffi ffi_proj)`,
   metis_tac [holrefs_INTRO, EvalM_readline_wrap]);
 
-val EvalM_context = Q.store_thm("EvalM_context",
+Theorem EvalM_context
   `Eval env uv (UNIT_TYPE u) /\
    nsLookup env.v (Long "Kernel" (Short "context")) = SOME context_v
    ==>
    EvalM F env st (App Opapp [Var (Long "Kernel" (Short "context")); uv])
      (MONAD (LIST_TYPE UPDATE_TYPE) HOL_EXN_TYPE (context u))
-     (HOL_STORE, p:'ffi ffi_proj)`,
-  ho_match_mp_tac EvalM_from_app
+     (HOL_STORE, p:'ffi ffi_proj)`
+  (ho_match_mp_tac EvalM_from_app
   \\ rw []
   >- (EVAL_TAC \\ fs [])
   \\ xapp_spec context_spec
@@ -266,14 +266,14 @@ val EvalM_context = Q.store_thm("EvalM_context",
   \\ qexists_tac `s`
   \\ xsimpl);
 
-val EvalM_holrefs_context = Q.store_thm("EvalM_holrefs_context",
+Theorem EvalM_holrefs_context
   `Eval env uv (UNIT_TYPE u) /\
    nsLookup env.v (Long "Kernel" (Short "context")) = SOME context_v
    ==>
    EvalM F env st (App Opapp [Var (Long "Kernel" (Short "context")); uv])
      (MONAD (LIST_TYPE UPDATE_TYPE) HOL_EXN_TYPE (holrefs (context u)))
-     (STATE_STORE, p:'ffi ffi_proj)`,
-  metis_tac [holrefs_INTRO, EvalM_context]);
+     (STATE_STORE, p:'ffi ffi_proj)`
+  (metis_tac [holrefs_INTRO, EvalM_context]);
 
 (* ------------------------------------------------------------------------- *)
 (* Add access patterns                                                       *)
@@ -299,9 +299,9 @@ val r = m_translate readLines_def
 val r = m_translate readFile_def
 val r = m_translate readMain_def
 
-val EVERY_TL = Q.store_thm("EVERY_TL",
-  `!xs. EVERY P xs /\ xs <> [] ==> EVERY P (TL xs)`,
-  Induct \\ rw []);
+Theorem EVERY_TL
+  `!xs. EVERY P xs /\ xs <> [] ==> EVERY P (TL xs)`
+  (Induct \\ rw []);
 
 val readMain_side = Q.prove (
   `wfcl st.cl ==> readmain_side st v`, (* wfcl on st.cl *)
@@ -313,15 +313,15 @@ val readMain_side = Q.prove (
 val readMain_spec = save_thm ("readMain_spec",
   cfMonadLib.mk_app_of_ArrowP (theorem "readmain_v_thm"));
 
-val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
+Theorem readMain_spec_wp
   `wfcl st.cl /\
    st.holrefs = init_refs ==>
    app (p:'ffi ffi_proj) readmain_v [Conv NONE []]
      (HOL_STORE st.holrefs * COMMANDLINE st.cl * MONAD_IO st.stdio)
      (POSTv uv.
        &UNIT_TYPE () uv *
-       STDIO (FST (SND (reader_main st.stdio st.holrefs (TL st.cl)))))`,
-  rw [] \\ xapp \\ xsimpl
+       STDIO (FST (SND (reader_main st.stdio st.holrefs (TL st.cl)))))`
+  (rw [] \\ xapp \\ xsimpl
   \\ simp [definition"STATE_STORE_def"]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `st` \\ xsimpl
@@ -346,14 +346,14 @@ val readMain_spec_wp = Q.store_thm("readMain_spec_wp",
 (* whole_prog_spec                                                           *)
 (* ------------------------------------------------------------------------- *)
 
-val monadreader_wps = Q.store_thm("monadreader_wps",
+Theorem monadreader_wps
   `hasFreeFD fs /\
    wfcl cl
    ==>
    whole_prog_spec ^(fetch_v "readmain" (get_ml_prog_state()))
      cl fs (SOME (HOL_STORE init_refs))
-     ((=) (FST (SND (reader_main fs init_refs (TL cl)))))`,
-  rw [whole_prog_spec_def]
+     ((=) (FST (SND (reader_main fs init_refs (TL cl)))))`
+  (rw [whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac `fs1 = _ with numchars := _`
   \\ qexists_tac `fs1` \\ fs [Abbr`fs1`]
   \\ reverse conj_tac

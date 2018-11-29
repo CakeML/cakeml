@@ -8,51 +8,51 @@ val ALPHAVARS_def = Define`
     (tmp = tp) ∨
     (FST tp ≠ FST tmp) ∧ (SND tp ≠ SND tmp) ∧ ALPHAVARS oenv tmp)`
 
-val ALPHAVARS_REFL = Q.store_thm("ALPHAVARS_REFL",
-  `∀env t. EVERY (UNCURRY $=) env ==> ALPHAVARS env (t,t)`,
-  Induct >> simp[ALPHAVARS_def,FORALL_PROD])
+Theorem ALPHAVARS_REFL
+  `∀env t. EVERY (UNCURRY $=) env ==> ALPHAVARS env (t,t)`
+  (Induct >> simp[ALPHAVARS_def,FORALL_PROD])
 
-val ALPHAVARS_MEM = Q.store_thm("ALPHAVARS_MEM",
-  `∀env tp. ALPHAVARS env tp ⇒ MEM tp env ∨ (FST tp = SND tp)`,
-   Induct >> simp[ALPHAVARS_def] >> rw[] >> res_tac >> simp[])
+Theorem ALPHAVARS_MEM
+  `∀env tp. ALPHAVARS env tp ⇒ MEM tp env ∨ (FST tp = SND tp)`
+   (Induct >> simp[ALPHAVARS_def] >> rw[] >> res_tac >> simp[])
 
 val REV_ASSOCD_def = Define`
   (REV_ASSOCD a [] d = d) ∧
   (REV_ASSOCD a (p::t) d = if SND p = a then FST p else REV_ASSOCD a t d)`
 
-val REV_ASSOCD = Q.store_thm("REV_ASSOCD",
+Theorem REV_ASSOCD
   `(∀a d. REV_ASSOCD a [] d = d) ∧
     (∀a x y t d. REV_ASSOCD a ((x,y)::t) d =
-                 if y = a then x else REV_ASSOCD a t d)`,
-  rw[REV_ASSOCD_def])
+                 if y = a then x else REV_ASSOCD a t d)`
+  (rw[REV_ASSOCD_def])
 
-val REV_ASSOCD_ALOOKUP = Q.store_thm("REV_ASSOCD_ALOOKUP",
-  `∀ls x d. REV_ASSOCD x ls d = case ALOOKUP (MAP (λ(x,y). (y,x)) ls) x of NONE => d | SOME y => y`,
-  Induct >> simp[REV_ASSOCD] >>
+Theorem REV_ASSOCD_ALOOKUP
+  `∀ls x d. REV_ASSOCD x ls d = case ALOOKUP (MAP (λ(x,y). (y,x)) ls) x of NONE => d | SOME y => y`
+  (Induct >> simp[REV_ASSOCD] >>
   Cases >> simp[REV_ASSOCD] >> rw[])
 
-val PRIMED_INFINITE = Q.store_thm("PRIMED_INFINITE",
-  `INFINITE (IMAGE (λn. APPEND x (GENLIST (K #"'") n)) UNIV)`,
-  match_mp_tac (MP_CANON IMAGE_11_INFINITE) >>
+Theorem PRIMED_INFINITE
+  `INFINITE (IMAGE (λn. APPEND x (GENLIST (K #"'") n)) UNIV)`
+  (match_mp_tac (MP_CANON IMAGE_11_INFINITE) >>
   simp[] >> Induct >- metis_tac[NULL_EQ,NULL_GENLIST] >>
   simp[GENLIST_CONS] >> qx_gen_tac`y` >>
   Cases_on`GENLIST (K #"'") y`>>simp[]>>rw[]>>
   Cases_on`y`>>fs[GENLIST_CONS])
 
-val REV_ASSOCD_FILTER = Q.store_thm("REV_ASSOCD_FILTER",
+Theorem REV_ASSOCD_FILTER
   `∀l a b d.
       REV_ASSOCD a (FILTER (λ(y,x). P x) l) b =
-        if P a then REV_ASSOCD a l b else b`,
-  Induct >> simp[REV_ASSOCD,FORALL_PROD] >>
+        if P a then REV_ASSOCD a l b else b`
+  (Induct >> simp[REV_ASSOCD,FORALL_PROD] >>
   rw[] >> fs[FORALL_PROD,REV_ASSOCD] >> rw[] >> fs[])
 
-val REV_ASSOCD_MEM = Q.store_thm("REV_ASSOCD_MEM",
-  `∀l x d. MEM (REV_ASSOCD x l d,x) l ∨ (REV_ASSOCD x l d = d)`,
-  Induct >> simp[REV_ASSOCD,FORALL_PROD] >>rw[]>>fs[])
+Theorem REV_ASSOCD_MEM
+  `∀l x d. MEM (REV_ASSOCD x l d,x) l ∨ (REV_ASSOCD x l d = d)`
+  (Induct >> simp[REV_ASSOCD,FORALL_PROD] >>rw[]>>fs[])
 
-val tyvar_inst_exists = Q.store_thm("tyvar_inst_exists",
-  `∃i. ty = REV_ASSOCD tyvar i b`,
-  qexists_tac`[(ty,tyvar)]` >> rw[REV_ASSOCD])
+Theorem tyvar_inst_exists
+  `∃i. ty = REV_ASSOCD tyvar i b`
+  (qexists_tac`[(ty,tyvar)]` >> rw[REV_ASSOCD])
 
 val _ = Hol_datatype`result = Clash of 'a | Result of 'a`
 
@@ -72,80 +72,80 @@ val CLASH_def = Define`
 
 val _ = export_rewrites["IS_RESULT_def","IS_CLASH_def","RESULT_def","CLASH_def"]
 
-val NOT_IS_CLASH_IS_RESULT = Q.store_thm("NOT_IS_CLASH_IS_RESULT",
-  `∀x. IS_CLASH x ⇔ ¬IS_RESULT x`,
-  Cases >> simp[])
+Theorem NOT_IS_CLASH_IS_RESULT
+  `∀x. IS_CLASH x ⇔ ¬IS_RESULT x`
+  (Cases >> simp[])
 
-val RESULT_eq_suff = Q.store_thm("RESULT_eq_suff",
-  `x = Result y ⇒ RESULT x = y`,
-  Cases_on`x`>>simp[])
+Theorem RESULT_eq_suff
+  `x = Result y ⇒ RESULT x = y`
+  (Cases_on`x`>>simp[])
 
-val IS_CLASH_IMP = Q.store_thm("IS_CLASH_IMP",
-  `!x. IS_CLASH x ==> !tm. ~(x = Result tm)`,
-  Cases \\ simp[])
+Theorem IS_CLASH_IMP
+  `!x. IS_CLASH x ==> !tm. ~(x = Result tm)`
+  (Cases \\ simp[])
 
-val NOT_IS_CLASH_IMP = Q.store_thm("NOT_IS_CLASH_IMP",
-  `!x. ~IS_CLASH x ==> !tm. ~(x = Clash tm)`,
-  Cases \\ simp[])
+Theorem NOT_IS_CLASH_IMP
+  `!x. ~IS_CLASH x ==> !tm. ~(x = Clash tm)`
+  (Cases \\ simp[])
 
-val IS_RESULT_IMP = Q.store_thm("IS_RESULT_IMP",
-  `!x. IS_RESULT x ==> (!tm. ~(x = Clash tm))`,
-  Cases \\ simp[])
+Theorem IS_RESULT_IMP
+  `!x. IS_RESULT x ==> (!tm. ~(x = Clash tm))`
+  (Cases \\ simp[])
 
-val NOT_IS_RESULT_IMP_Clash = Q.store_thm("NOT_IS_RESULT_IMP_Clash",
-  `!x. ~IS_RESULT x ==> ?var. x = Clash var`,
-  Cases \\ simp[])
+Theorem NOT_IS_RESULT_IMP_Clash
+  `!x. ~IS_RESULT x ==> ?var. x = Clash var`
+  (Cases \\ simp[])
 
-val IS_RESULT_IMP_Result = Q.store_thm("IS_RESULT_IMP_Result",
-  `!x. IS_RESULT x ==> ?res. x = Result res`,
-  Cases \\ simp[])
+Theorem IS_RESULT_IMP_Result
+  `!x. IS_RESULT x ==> ?res. x = Result res`
+  (Cases \\ simp[])
 
-val NOT_IS_CLASH_IMP_Result = Q.store_thm("NOT_IS_CLASH_IMP_Result",
-  `!x. ~IS_CLASH x ==> ?res. x = Result res`,
-  Cases \\ simp[])
+Theorem NOT_IS_CLASH_IMP_Result
+  `!x. ~IS_CLASH x ==> ?res. x = Result res`
+  (Cases \\ simp[])
 
 val LIST_INSERT_def = Define`
   LIST_INSERT x xs = if MEM x xs then xs else x::xs`
 
-val MEM_LIST_INSERT = Q.store_thm("MEM_LIST_INSERT",
-  `∀l x. set (LIST_INSERT x l) = x INSERT set l`,
-  Induct >> simp[LIST_INSERT_def] >> rw[] >>
+Theorem MEM_LIST_INSERT
+  `∀l x. set (LIST_INSERT x l) = x INSERT set l`
+  (Induct >> simp[LIST_INSERT_def] >> rw[] >>
   rw[EXTENSION] >> metis_tac[])
 
 val LIST_UNION_def = Define`
   LIST_UNION xs ys = FOLDR LIST_INSERT ys xs`
 
-val MEM_LIST_UNION = Q.store_thm("MEM_LIST_UNION",
-  `∀l1 l2. set (LIST_UNION l1 l2) = set l1 ∪ set l2`,
-  Induct >> fs[LIST_UNION_def,MEM_LIST_INSERT] >>
+Theorem MEM_LIST_UNION
+  `∀l1 l2. set (LIST_UNION l1 l2) = set l1 ∪ set l2`
+  (Induct >> fs[LIST_UNION_def,MEM_LIST_INSERT] >>
   rw[EXTENSION] >> metis_tac[])
 
-val MEM_FOLDR_LIST_UNION = Q.store_thm("MEM_FOLDR_LIST_UNION",
-  `∀ls x f b. MEM x (FOLDR (λx y. LIST_UNION (f x) y) b ls) ⇔ MEM x b ∨ ∃y. MEM y ls ∧ MEM x (f y)`,
-  Induct >> simp[MEM_LIST_UNION] >> metis_tac[])
+Theorem MEM_FOLDR_LIST_UNION
+  `∀ls x f b. MEM x (FOLDR (λx y. LIST_UNION (f x) y) b ls) ⇔ MEM x b ∨ ∃y. MEM y ls ∧ MEM x (f y)`
+  (Induct >> simp[MEM_LIST_UNION] >> metis_tac[])
 
-val ALL_DISTINCT_LIST_UNION = Q.store_thm("ALL_DISTINCT_LIST_UNION",
-  `∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)`,
-  Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[])
+Theorem ALL_DISTINCT_LIST_UNION
+  `∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)`
+  (Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[])
 
-val LIST_UNION_NIL = Q.store_thm("LIST_UNION_NIL",
-  `∀l2. (LIST_UNION [] l2 = l2)`,
-  simp[LIST_UNION_def] )
+Theorem LIST_UNION_NIL
+  `∀l2. (LIST_UNION [] l2 = l2)`
+  (simp[LIST_UNION_def] )
 val _ = export_rewrites["LIST_UNION_NIL"]
 
-val set_LIST_UNION = Q.store_thm("set_LIST_UNION",
-  `∀l1 l2. set (LIST_UNION l1 l2) = set l1 ∪ set l2`,
-  rw[EXTENSION,MEM_LIST_UNION])
+Theorem set_LIST_UNION
+  `∀l1 l2. set (LIST_UNION l1 l2) = set l1 ∪ set l2`
+  (rw[EXTENSION,MEM_LIST_UNION])
 val _ = export_rewrites["set_LIST_UNION"]
 
-val LIST_UNION_NIL_2 = Q.store_thm("LIST_UNION_NIL_2",
-  `∀ls. ALL_DISTINCT ls ⇒ LIST_UNION ls [] = ls`,
-  Induct >> simp[LIST_UNION_def,LIST_INSERT_def] >>
+Theorem LIST_UNION_NIL_2
+  `∀ls. ALL_DISTINCT ls ⇒ LIST_UNION ls [] = ls`
+  (Induct >> simp[LIST_UNION_def,LIST_INSERT_def] >>
   rw[] >> fs[] >> rfs[LIST_UNION_def])
 
-val LIST_UNION_same = Q.store_thm("LIST_UNION_same",
-  `∀l1 l2. set l1 ⊆ set l2 ⇒ LIST_UNION l1 l2 = l2`,
-  Induct >> simp[LIST_UNION_def] >>
+Theorem LIST_UNION_same
+  `∀l1 l2. set l1 ⊆ set l2 ⇒ LIST_UNION l1 l2 = l2`
+  (Induct >> simp[LIST_UNION_def] >>
   fs[pred_setTheory.SUBSET_DEF] >>
   fs[LIST_UNION_def,LIST_INSERT_def])
 
@@ -180,18 +180,18 @@ val ALL_DISTINCT_FOLDR_INORDER_INSERT = Q.prove(
   Induct \\ SIMP_TAC std_ss [ALL_DISTINCT,FOLDR] \\ REPEAT STRIP_TAC
   \\ MATCH_MP_TAC ALL_DISTINCT_INORDER_INSERT \\ FULL_SIMP_TAC std_ss []);
 
-val MEM_FOLDR_INORDER_INSERT = Q.store_thm("MEM_FOLDR_INORDER_INSERT",
-  `!xs x. MEM x (FOLDR INORDER_INSERT [] xs) = MEM x xs`,
-  Induct \\ FULL_SIMP_TAC std_ss [FOLDR,INORDER_INSERT_def,MEM,MEM_APPEND,
+Theorem MEM_FOLDR_INORDER_INSERT
+  `!xs x. MEM x (FOLDR INORDER_INSERT [] xs) = MEM x xs`
+  (Induct \\ FULL_SIMP_TAC std_ss [FOLDR,INORDER_INSERT_def,MEM,MEM_APPEND,
     MEM_FILTER] \\ METIS_TAC [stringTheory.string_lt_cases]);
 val _ = export_rewrites["MEM_FOLDR_INORDER_INSERT"]
 
 val STRING_SORT_def = Define`
   STRING_SORT xs = FOLDR INORDER_INSERT [] xs`
 
-val PERM_STRING_SORT = Q.store_thm("PERM_STRING_SORT",
-  `∀ls. ALL_DISTINCT ls ⇒ PERM ls (STRING_SORT ls)`,
-  Induct >>
+Theorem PERM_STRING_SORT
+  `∀ls. ALL_DISTINCT ls ⇒ PERM ls (STRING_SORT ls)`
+  (Induct >>
   simp[STRING_SORT_def] >>
   simp[INORDER_INSERT_def] >>
   fs[STRING_SORT_def] >>
@@ -205,21 +205,21 @@ val PERM_STRING_SORT = Q.store_thm("PERM_STRING_SORT",
   simp[Abbr`A`,Abbr`B`,MEM_FILTER] >>
   metis_tac[FILTER_ALL_DISTINCT,ALL_DISTINCT_PERM,string_lt_antisym,string_lt_cases,MEM_PERM] )
 
-val LENGTH_STRING_SORT = Q.store_thm("LENGTH_STRING_SORT",
-  `∀ls. ALL_DISTINCT ls ⇒ (LENGTH (STRING_SORT ls) = LENGTH ls)`,
-  metis_tac[PERM_STRING_SORT,PERM_LENGTH])
+Theorem LENGTH_STRING_SORT
+  `∀ls. ALL_DISTINCT ls ⇒ (LENGTH (STRING_SORT ls) = LENGTH ls)`
+  (metis_tac[PERM_STRING_SORT,PERM_LENGTH])
 val _ = export_rewrites["LENGTH_STRING_SORT"]
 
-val MEM_STRING_SORT = Q.store_thm("MEM_STRING_SORT",
-  `∀ls. set (STRING_SORT ls) = set ls`,
-  Induct >>
+Theorem MEM_STRING_SORT
+  `∀ls. set (STRING_SORT ls) = set ls`
+  (Induct >>
   simp[STRING_SORT_def,INORDER_INSERT_def,EXTENSION,MEM_FILTER] >>
   rw[] >> metis_tac[string_lt_cases])
 val _ = export_rewrites["MEM_STRING_SORT"]
 
-val ALL_DISTINCT_STRING_SORT = Q.store_thm("ALL_DISTINCT_STRING_SORT",
-  `!xs. ALL_DISTINCT (STRING_SORT xs)`,
-  Induct
+Theorem ALL_DISTINCT_STRING_SORT
+  `!xs. ALL_DISTINCT (STRING_SORT xs)`
+  (Induct
   >> FULL_SIMP_TAC std_ss [STRING_SORT_def,FOLDR,ALL_DISTINCT,INORDER_INSERT_def]
   >> FULL_SIMP_TAC std_ss [ALL_DISTINCT_APPEND,MEM_FILTER,MEM,MEM_APPEND,
        ALL_DISTINCT,stringTheory.string_lt_nonrefl]
@@ -230,9 +230,9 @@ val ALL_DISTINCT_STRING_SORT = Q.store_thm("ALL_DISTINCT_STRING_SORT",
         stringTheory.string_lt_cases]);
 val _ = export_rewrites["ALL_DISTINCT_STRING_SORT"]
 
-val STRING_SORT_SORTED = Q.store_thm("STRING_SORT_SORTED",
-  `∀ls. SORTED $< (STRING_SORT ls)`,
-  Induct >> simp[STRING_SORT_def,INORDER_INSERT_def] >>
+Theorem STRING_SORT_SORTED
+  `∀ls. SORTED $< (STRING_SORT ls)`
+  (Induct >> simp[STRING_SORT_def,INORDER_INSERT_def] >>
   rw[] >> match_mp_tac SORTED_APPEND >>
   conj_asm1_tac >- METIS_TAC [string_lt_trans,relationTheory.transitive_def] >>
   simp[MEM_FILTER] >> fs[GSYM STRING_SORT_def] >>
@@ -243,10 +243,10 @@ val STRING_SORT_SORTED = Q.store_thm("STRING_SORT_SORTED",
   rw[] >> fs[relationTheory.transitive_def] >>
   METIS_TAC[])
 
-val STRING_SORT_EQ = Q.store_thm("STRING_SORT_EQ",
+Theorem STRING_SORT_EQ
   `∀l1 l2. ALL_DISTINCT l1 ∧ ALL_DISTINCT l2 ⇒
-      (STRING_SORT l1 = STRING_SORT l2 ⇔ PERM l1 l2)`,
-  rw[] >>
+      (STRING_SORT l1 = STRING_SORT l2 ⇔ PERM l1 l2)`
+  (rw[] >>
   imp_res_tac PERM_STRING_SORT >>
   `transitive string_lt ∧ antisymmetric string_lt` by (
     simp[relationTheory.transitive_def,relationTheory.antisymmetric_def] >>
@@ -255,21 +255,21 @@ val STRING_SORT_EQ = Q.store_thm("STRING_SORT_EQ",
     by METIS_TAC[STRING_SORT_SORTED] >>
   METIS_TAC[SORTED_PERM_EQ,PERM_REFL,PERM_SYM,PERM_TRANS])
 
-val ALL_DISTINCT_LIST_UNION = Q.store_thm("ALL_DISTINCT_LIST_UNION",
-  `∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)`,
-  Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[])
+Theorem ALL_DISTINCT_LIST_UNION
+  `∀l1 l2. ALL_DISTINCT l2 ⇒ ALL_DISTINCT (LIST_UNION l1 l2)`
+  (Induct >> fs[LIST_UNION_def,LIST_INSERT_def] >> rw[])
 
-val set_MAP_implode_STRING_SORT_MAP_explode = Q.store_thm("set_MAP_implode_STRING_SORT_MAP_explode",
-  `set (MAP implode (STRING_SORT (MAP explode ls))) = set ls`,
-  rw[EXTENSION,MEM_MAP,PULL_EXISTS,mlstringTheory.implode_explode])
+Theorem set_MAP_implode_STRING_SORT_MAP_explode
+  `set (MAP implode (STRING_SORT (MAP explode ls))) = set ls`
+  (rw[EXTENSION,MEM_MAP,PULL_EXISTS,mlstringTheory.implode_explode])
 
 val mlstring_sort_def = Define`
   mlstring_sort ls = MAP implode (STRING_SORT (MAP explode ls))`
 
-val mlstring_sort_eq = Q.store_thm("mlstring_sort_eq",
+Theorem mlstring_sort_eq
   `∀l1 l2. ALL_DISTINCT l1 ∧ ALL_DISTINCT l2 ⇒
-    ((mlstring_sort l1 = mlstring_sort l2) ⇔ PERM l1 l2)`,
-  rw[mlstring_sort_def] >>
+    ((mlstring_sort l1 = mlstring_sort l2) ⇔ PERM l1 l2)`
+  (rw[mlstring_sort_def] >>
   qspecl_then[`l1`,`l2`]mp_tac(MATCH_MP PERM_MAP_BIJ mlstringTheory.explode_BIJ) >>
   disch_then SUBST1_TAC >>
   imp_res_tac ALL_DISTINCT_MAP_explode >>

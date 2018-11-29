@@ -6,7 +6,7 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U-> bool``;
 
-val reader_sound = Q.store_thm("reader_sound",
+Theorem reader_sound
   `(* assumption about a strong enough set theory (see candle proofs) *)
    is_set_theory ^mem ==>
    (* if the reader completes a successful run (executes all commands *)
@@ -23,8 +23,8 @@ val reader_sound = Q.store_thm("reader_sound",
    (* the output consists of a message displaying the context and    *)
    (* the contents of the theorem stack.                             *)
    let fs' = case cl of [] => fastForwardFD fs 0 | _ => fs in
-   outp = add_stdout fs' (msg_success s refs.the_context)`,
-  rpt strip_tac
+   outp = add_stdout fs' (msg_success s refs.the_context)`
+  (rpt strip_tac
   \\ drule (GEN_ALL reader_proves) \\ rw []
   \\ rw []
   \\ irule proves_sound \\ fs []);

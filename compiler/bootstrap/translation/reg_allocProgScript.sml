@@ -367,9 +367,9 @@ val map_colors_sub_def = Define `
   (map_colors_sub (x::xs) =
      do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)`
 
-val map_colors_sub_eq = store_thm("map_colors_sub_eq",
-  ``map_colors_sub = st_ex_MAP colors_sub``,
-  once_rewrite_tac [FUN_EQ_THM]
+Theorem map_colors_sub_eq
+  `map_colors_sub = st_ex_MAP colors_sub`
+  (once_rewrite_tac [FUN_EQ_THM]
   \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]);
 
 val res = m_translate spill_register_def;

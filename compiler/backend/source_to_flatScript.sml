@@ -177,30 +177,30 @@ val compile_exp_def = tDefine"compile_exp"`
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-val compile_exps_append = Q.store_thm("compile_exps_append",
+Theorem compile_exps_append
   `!env es es'.
     compile_exps t env (es ++ es') =
-    compile_exps t env es ++ compile_exps t env es'`,
-  Induct_on `es` >>
+    compile_exps t env es ++ compile_exps t env es'`
+  (Induct_on `es` >>
   fs [compile_exp_def]);
 
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-val compile_exps_reverse = Q.store_thm("compile_exps_reverse",
+Theorem compile_exps_reverse
   `!env es.
-    compile_exps t env (REVERSE es) = REVERSE (compile_exps t env es)`,
-  Induct_on `es` >>
+    compile_exps t env (REVERSE es) = REVERSE (compile_exps t env es)`
+  (Induct_on `es` >>
   rw [compile_exp_def, compile_exps_append]);
 
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-val compile_funs_map = Q.store_thm("compile_funs_map",
+Theorem compile_funs_map
   `!env funs.
     compile_funs t env funs =
-      MAP (\(f,x,e). (f,x,compile_exp t (env with v := nsBind x (Var_local t x) env.v) e)) funs`,
-  induct_on `funs` >>
+      MAP (\(f,x,e). (f,x,compile_exp t (env with v := nsBind x (Var_local t x) env.v) e)) funs`
+  (induct_on `funs` >>
   rw [compile_exp_def] >>
   PairCases_on `h` >>
   rw [compile_exp_def]);
@@ -208,12 +208,12 @@ val compile_funs_map = Q.store_thm("compile_funs_map",
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-val compile_funs_dom = Q.store_thm("compile_funs_dom",
+Theorem compile_funs_dom
   `!funs.
     (MAP (λ(x,y,z). x) funs)
     =
-    (MAP (λ(x,y,z). x) (compile_funs t env funs))`,
-   induct_on `funs` >>
+    (MAP (λ(x,y,z). x) (compile_funs t env funs))`
+   (induct_on `funs` >>
    rw [compile_exp_def] >>
    PairCases_on `h` >>
    rw [compile_exp_def]);
@@ -227,14 +227,14 @@ val alloc_defs_def = Define `
   (alloc_defs n next (x::xs) =
     (x, App (Cons om_tra n) (GlobalVarLookup next) []) :: alloc_defs (n + 1) (next + 1) xs)`;
 
-val fst_alloc_defs = Q.store_thm("fst_alloc_defs",
-  `!n next l. MAP FST (alloc_defs n next l) = l`,
-  induct_on `l` >>
+Theorem fst_alloc_defs
+  `!n next l. MAP FST (alloc_defs n next l) = l`
+  (induct_on `l` >>
   rw [alloc_defs_def]);
 
-val alloc_defs_append = Q.store_thm("alloc_defs_append",
-  `!m n l1 l2. alloc_defs m n (l1++l2) = alloc_defs m n l1 ++ alloc_defs (m + LENGTH l1) (n + LENGTH l1) l2`,
-  induct_on `l1` >>
+Theorem alloc_defs_append
+  `!m n l1 l2. alloc_defs m n (l1++l2) = alloc_defs m n l1 ++ alloc_defs (m + LENGTH l1) (n + LENGTH l1) l2`
+  (induct_on `l1` >>
   srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]);
 
 val make_varls_def = Define`

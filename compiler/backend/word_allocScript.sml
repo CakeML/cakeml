@@ -734,7 +734,7 @@ val get_writes_def = Define`
   (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
   (get_writes prog = LN)`
 
-val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
+Theorem get_writes_pmatch `!inst.
   get_writes inst =
     case inst of
     | Move pri ls => numset_list_insert (MAP FST ls) LN
@@ -743,8 +743,8 @@ val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
     | Install r1 _ _ _ _ => insert r1 () LN
-    | prog => LN`,
-  rpt strip_tac
+    | prog => LN`
+  (rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac >> fs[get_writes_def])
 
@@ -893,7 +893,7 @@ val get_prefs_def = Define`
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
   (get_prefs prog acc = acc)`
 
-val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
+Theorem get_prefs_pmatch `!s acc.
   get_prefs s acc =
     case s of
     | (Move pri ls) => (MAP (λx,y. (pri,x,y)) ls) ++ acc
@@ -907,8 +907,8 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
     get_prefs ret_handler acc
     | (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args (SOME (_,prog,_,_))) =>
     get_prefs prog (get_prefs ret_handler acc)
-    | prog => acc`,
-  rpt strip_tac
+    | prog => acc`
+  (rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> every_case_tac
@@ -1151,7 +1151,7 @@ val get_forced_def = Define`
     | SOME (v,prog,l1,l2) => get_forced c prog (get_forced c ret_handler acc)) ∧
   (get_forced c prog acc = acc)`
 
-val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
+Theorem get_forced_pmatch `!c prog acc.
   (get_forced (c:'a asm_config) prog acc =
     case prog of
       Inst(Arith (AddCarry r1 r2 r3 r4)) =>
@@ -1193,8 +1193,8 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
       get_forced c ret_handler acc
     | Call (SOME (v,cutset,ret_handler,l1,l2)) dest args (SOME (_,prog,_,_)) =>
       get_forced c prog (get_forced c ret_handler acc)
-    | _ => acc)`,
-  rpt strip_tac
+    | _ => acc)`
+  (rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> every_case_tac

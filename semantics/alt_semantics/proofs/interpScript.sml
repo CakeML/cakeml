@@ -40,26 +40,26 @@ val run_eval_spec_lem = Q.prove (
 val run_eval_spec =
  new_specification ("run_eval", ["run_eval", "run_eval_list", "run_eval_match"], run_eval_spec_lem);
 
-val evaluate_run_eval = Q.store_thm ("evaluate_run_eval",
+Theorem evaluate_run_eval
 `!env e r st.
   evaluate T env st e r
   =
-  (run_eval env e st = r)`,
-metis_tac [big_exp_determ, run_eval_spec]);
+  (run_eval env e st = r)`
+(metis_tac [big_exp_determ, run_eval_spec]);
 
-val evaluate_run_eval_list = Q.store_thm ("evaluate_run_eval_list",
+Theorem evaluate_run_eval_list
 `!env es r st.
   evaluate_list T env st es r
   =
-  (run_eval_list env es st = r)`,
-metis_tac [big_exp_determ, run_eval_spec]);
+  (run_eval_list env es st = r)`
+(metis_tac [big_exp_determ, run_eval_spec]);
 
-val evaluate_run_eval_match = Q.store_thm ("evaluate_run_eval_match",
+Theorem evaluate_run_eval_match
 `!env v pes r err_v st.
   evaluate_match T env st v pes err_v r
   =
-  (run_eval_match env v pes err_v st = r)`,
-metis_tac [big_exp_determ, run_eval_spec]);
+  (run_eval_match env v pes err_v st = r)`
+(metis_tac [big_exp_determ, run_eval_spec]);
 
 val _ = type_abbrev("M", ``:'ffi state -> 'ffi state # ('a, v) result``);
 
@@ -106,7 +106,7 @@ rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 fs []);
 
-val run_eval_def = Q.store_thm ("run_eval_def",
+Theorem run_eval_def
 `(!^st env l.
   run_eval env (Lit l)
   =
@@ -243,8 +243,8 @@ val run_eval_def = Q.store_thm ("run_eval_def",
            | Match env' => run_eval (env with v := nsAppend (alist_to_ns env') env.v) e
       else
         raise (Rabort Rtype_error)
-   od)`,
- rw [GSYM evaluate_run_eval, FUN_EQ_THM, result_raise_def, result_return_def,
+   od)`
+ (rw [GSYM evaluate_run_eval, FUN_EQ_THM, result_raise_def, result_return_def,
      result_bind_def, get_store_def, set_store_def] >>
  rw [Once evaluate_cases]
  >- (every_case_tac >>
@@ -390,14 +390,14 @@ run_eval_whole_prog env st prog =
     (st,Rerr (Rabort Rtype_error))`;
     *)
 
-val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",
+Theorem run_eval_decs_spec
 `(!d (st:'a state) env st' r.
   (run_eval_dec env st d = (st', r)) ⇒
   evaluate_dec T env st d (st', r)) ∧
  (!ds env (st:'a state) st'  r.
   (run_eval_decs env st ds = (st',r)) ⇒
-  evaluate_decs T env st ds (st',r))`,
- ho_match_mp_tac astTheory.dec_induction >>
+  evaluate_decs T env st ds (st',r))`
+ (ho_match_mp_tac astTheory.dec_induction >>
  rw [] >>
  simp [Once evaluate_dec_cases] >>
  fs [run_eval_dec_def] >>
@@ -407,11 +407,11 @@ val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",
  metis_tac []);
 
  (*
-val run_eval_top_spec = Q.store_thm ("run_eval_top_spec",
+Theorem run_eval_top_spec
 `!st env top st' r.
   (run_eval_top env st top = (st', r)) ⇒
-  evaluate_top T env st top (st',  r)`,
- cases_on `top` >>
+  evaluate_top T env st top (st',  r)`
+ (cases_on `top` >>
  rw [evaluate_top_cases, run_eval_top_def]  >>
  every_case_tac >>
  rw [] >>
@@ -421,11 +421,11 @@ val run_eval_top_spec = Q.store_thm ("run_eval_top_spec",
  rw [] >>
  metis_tac []);
 
-val run_eval_prog_spec = Q.store_thm ("run_eval_prog_spec",
+Theorem run_eval_prog_spec
 `!env st prog st' r.
   run_eval_prog env st prog = (st', r) ⇒
-  evaluate_prog T env st prog (st', r)`,
- induct_on `prog` >>
+  evaluate_prog T env st prog (st', r)`
+ (induct_on `prog` >>
  rw [run_eval_prog_def, Once evaluate_prog_cases] >>
  every_case_tac >>
  rw [] >>
@@ -437,11 +437,11 @@ val run_eval_prog_spec = Q.store_thm ("run_eval_prog_spec",
      MAP_EVERY qexists_tac [`q`, `a`, `r'`] >>
      rw [combine_dec_result_def]));
 
-val run_eval_whole_prog_spec = Q.store_thm ("run_eval_whole_prog_spec",
+Theorem run_eval_whole_prog_spec
 `!env st prog st' r.
   run_eval_whole_prog env st prog = (st',r) ⇒
-  evaluate_whole_prog T env st prog (st',r)`,
- rw [run_eval_whole_prog_def, evaluate_whole_prog_def] >>
+  evaluate_whole_prog T env st prog (st',r)`
+ (rw [run_eval_whole_prog_def, evaluate_whole_prog_def] >>
  metis_tac [run_eval_prog_spec]);
  *)
 

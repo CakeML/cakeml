@@ -50,35 +50,35 @@ val insert_def = mlDefine `
 
 (* Correctness proof *)
 
-val member_correct = Q.store_thm ("member_correct",
+Theorem member_correct
 `!lt t x.
   StrongLinearOrder lt ∧ is_bst lt t
   ⇒
-  (member lt x t <=> x ∈ tree_to_set t)`,
-strip_tac >> induct_on `t` >>
+  (member lt x t <=> x ∈ tree_to_set t)`
+(strip_tac >> induct_on `t` >>
 rw [member_def, is_bst_def, tree_to_set_def] >> fs [] >>
 fs [StrongLinearOrder, StrongOrder, irreflexive_def, transitive_def,
     trichotomous] >>
 metis_tac []);
 
-val insert_set = Q.store_thm ("insert_set",
+Theorem insert_set
 `∀lt x t.
   StrongLinearOrder lt
   ⇒
-  (tree_to_set (insert lt x t) = {x} ∪ tree_to_set t)`,
-induct_on `t` >>
+  (tree_to_set (insert lt x t) = {x} ∪ tree_to_set t)`
+(induct_on `t` >>
 srw_tac [PRED_SET_AC_ss] [insert_def, tree_to_set_def] >>
 `x = a` by (fs [StrongLinearOrder, StrongOrder, irreflexive_def,
                 transitive_def, trichotomous] >>
             metis_tac []) >>
 rw []);
 
-val insert_is_bst = Q.store_thm ("insert_is_bst",
+Theorem insert_is_bst
 `!lt x t.
   StrongLinearOrder lt ∧ is_bst lt t
   ⇒
-  is_bst lt (insert lt x t)`,
-induct_on `t` >>
+  is_bst lt (insert lt x t)`
+(induct_on `t` >>
 rw [is_bst_def, insert_def, tree_to_set_def, insert_set] >>
 metis_tac []);
 

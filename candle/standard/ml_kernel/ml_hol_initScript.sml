@@ -7,11 +7,11 @@ val _ = new_theory"ml_hol_init"
 
 val EVAL_STATE_CONV = ((STRIP_QUANT_CONV o RAND_CONV o RAND_CONV o RAND_CONV) EVAL) THENC (SIMP_CONV (srw_ss()) []);
 
-val kernel_init_thm = Q.store_thm("kernel_init_thm",
+Theorem kernel_init_thm
   `∃refs. !p.
       (HOL_STORE refs * GC) (st2heap (p : 'ffi ffi_proj) (candle_init_state ffi)) ∧
-      STATE init_ctxt refs`,
-  `?refs.
+      STATE init_ctxt refs`
+  (`?refs.
     refs.the_type_constants = init_type_constants ∧
     refs.the_term_constants = init_term_constants ∧
     refs.the_axioms = init_axioms ∧

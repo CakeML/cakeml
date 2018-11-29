@@ -165,7 +165,7 @@ val enc_ok_not_empty = Q.prove(
   `enc_ok c /\ asm_ok w c ==> (c.encode w <> [])`,
   METIS_TAC [listTheory.LENGTH_NIL,enc_ok_def]);
 
-val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
+Theorem asm_step_IMP_evaluate_step
   `!c s1 ms1 io i s2.
       encoder_correct c.target /\
       (c.prog_addresses = s1.mem_domain) /\
@@ -175,8 +175,8 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
       target_state_rel c.target (s1:'a asm_state) (ms1:'state) ==>
       ?l ms2. !k. (evaluate c io (k + l) ms1 =
                    evaluate (shift_interfer l c) io k ms2) /\
-                  target_state_rel c.target s2 ms2 /\ l <> 0`,
-  full_simp_tac(srw_ss()) [encoder_correct_def, target_ok_def, LET_DEF]
+                  target_state_rel c.target s2 ms2 /\ l <> 0`
+  (full_simp_tac(srw_ss()) [encoder_correct_def, target_ok_def, LET_DEF]
   \\ rw[]
   \\ first_x_assum drule
   \\ disch_then drule
@@ -239,11 +239,11 @@ val asm_step_IMP_evaluate_step = Q.store_thm("asm_step_IMP_evaluate_step",
 
 (* basic properties *)
 
-val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
+Theorem evaluate_add_clock
   `∀mc_conf ffi k ms k1 r ms1 st1.
     evaluate mc_conf ffi k ms = (r,ms1,st1) /\ r <> TimeOut ==>
-    evaluate mc_conf ffi (k + k1) ms = (r,ms1,st1)`,
-  ho_match_mp_tac evaluate_ind >> srw_tac[][] >>
+    evaluate mc_conf ffi (k + k1) ms = (r,ms1,st1)`
+  (ho_match_mp_tac evaluate_ind >> srw_tac[][] >>
   qhdtm_x_assum`evaluate` mp_tac >>
   simp[Once evaluate_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
@@ -260,10 +260,10 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]);
 
-val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
+Theorem evaluate_io_events_mono
   `∀mc_conf ffi k ms.
-     ffi.io_events ≼ (SND(SND(evaluate mc_conf ffi k ms))).io_events`,
-  ho_match_mp_tac evaluate_ind >>
+     ffi.io_events ≼ (SND(SND(evaluate mc_conf ffi k ms))).io_events`
+  (ho_match_mp_tac evaluate_ind >>
   rpt gen_tac >> strip_tac >>
   simp[Once evaluate_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
@@ -280,12 +280,12 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND]);
 
-val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
+Theorem evaluate_add_clock_io_events_mono
   `∀mc_conf ffi k ms k'.
    k ≤ k' ⇒
    (SND(SND(evaluate mc_conf ffi k ms))).io_events ≼
-   (SND(SND(evaluate mc_conf ffi k' ms))).io_events`,
-  ho_match_mp_tac evaluate_ind >>
+   (SND(SND(evaluate mc_conf ffi k' ms))).io_events`
+  (ho_match_mp_tac evaluate_ind >>
   rpt gen_tac >> strip_tac >>
   rpt gen_tac >> strip_tac >>
   simp_tac(srw_ss())[Once evaluate_def] >>
@@ -306,9 +306,9 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   \\ BasicProvers.TOP_CASE_TAC >> fs []
   \\ METIS_TAC[evaluate_io_events_mono]);
 
-val machine_sem_total = Q.store_thm("machine_sem_total",
-  `∃b. machine_sem mc st ms b`,
-  Cases_on`∃k t. FST (evaluate mc st k ms) = Halt t`
+Theorem machine_sem_total
+  `∃b. machine_sem mc st ms b`
+  (Cases_on`∃k t. FST (evaluate mc st k ms) = Halt t`
   >- (
     fs[]
     \\ qexists_tac`Terminate t (SND(SND(evaluate mc st k ms))).io_events`
@@ -333,12 +333,11 @@ val machine_sem_total = Q.store_thm("machine_sem_total",
   \\ qx_genl_tac[`k1`,`k2`]
   \\ metis_tac[LESS_EQ_CASES,evaluate_add_clock_io_events_mono]);
 
-val read_ffi_bytearray_IMP_SUBSET_prog_addresses = store_thm(
-   "read_ffi_bytearray_IMP_SUBSET_prog_addresses",
-  ``(read_ffi_bytearray mc a l ms = SOME bytes) ==>
+Theorem read_ffi_bytearray_IMP_SUBSET_prog_addresses
+  `(read_ffi_bytearray mc a l ms = SOME bytes) ==>
     all_words (mc.target.get_reg ms a) (LENGTH bytes) SUBSET
-      mc.prog_addresses``,
-  fs [targetSemTheory.read_ffi_bytearray_def]
+      mc.prog_addresses`
+  (fs [targetSemTheory.read_ffi_bytearray_def]
   \\ qspec_tac (`mc.target.get_reg ms a`,`x`)
   \\ qspec_tac (`(w2n (mc.target.get_reg ms l))`,`n`)
   \\ qspec_tac (`bytes`,`res`)
@@ -346,7 +345,7 @@ val read_ffi_bytearray_IMP_SUBSET_prog_addresses = store_thm(
   \\ rw [] \\ fs[option_case_eq] \\ rveq \\ fs []
   \\ fs [all_words_def]);
 
-val encoder_correct_asm_step_target_state_rel = Q.store_thm("encoder_correct_asm_step_target_state_rel",
+Theorem encoder_correct_asm_step_target_state_rel
   `encoder_correct t ∧
    target_state_rel t s1 ms ∧
    asm_step t.config s1 i s2
@@ -359,8 +358,8 @@ val encoder_correct_asm_step_target_state_rel = Q.store_thm("encoder_correct_asm
      (t.get_pc (FUNPOW t.next j ms) ∈
        all_pcs (LENGTH (t.config.encode i)) s1.pc t.config.code_alignment) ∧
      (t.state_ok (FUNPOW t.next j ms))) ∧
-   (∀j x. j ≤ n ∧ x ∉ s1.mem_domain ⇒ (t.get_byte (FUNPOW t.next j ms) x = t.get_byte ms x))`,
-  rw[asmPropsTheory.encoder_correct_def]
+   (∀j x. j ≤ n ∧ x ∉ s1.mem_domain ⇒ (t.get_byte (FUNPOW t.next j ms) x = t.get_byte ms x))`
+  (rw[asmPropsTheory.encoder_correct_def]
   \\ first_x_assum drule
   \\ disch_then drule
   \\ strip_tac
@@ -396,13 +395,13 @@ val encoder_correct_asm_step_target_state_rel = Q.store_thm("encoder_correct_asm
   \\ fs[ADD1,Abbr`P`]
   \\ simp[reflexive_def,transitive_def]);
 
-val encoder_correct_RTC_asm_step_target_state_rel = Q.store_thm("encoder_correct_RTC_asm_step_target_state_rel",
+Theorem encoder_correct_RTC_asm_step_target_state_rel
   `encoder_correct t ∧
    target_state_rel t s1 ms ∧
    RTC (λs1 s2. ∃i. asm_step t.config s1 i s2) s1 s2
    ⇒
-   ∃n. target_state_rel t s2 (FUNPOW t.next n ms)`,
-  strip_tac
+   ∃n. target_state_rel t s2 (FUNPOW t.next n ms)`
+  (strip_tac
   \\ first_assum(mp_then (Pat`RTC`) mp_tac (GEN_ALL RTC_lifts_invariants))
   \\ disch_then ho_match_mp_tac
   \\ reverse conj_tac

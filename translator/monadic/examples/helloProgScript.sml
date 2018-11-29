@@ -148,8 +148,8 @@ val if_fun_v_thm = if_fun_def |> m_translate;
 
 val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
 
-val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
-  ``(STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
+Theorem IMP_STAR_GC `(* TODO: move *)
+  ` ((STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
   fs [set_sepTheory.STAR_def]
   \\ rw[] \\ asm_exists_tac \\ fs []
   \\ EVAL_TAC

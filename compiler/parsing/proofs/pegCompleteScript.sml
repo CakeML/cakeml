@@ -110,23 +110,20 @@ val ptree_head_eq_tok = save_thm(
 val _ = export_rewrites ["ptree_head_eq_tok"]
 
 open NTpropertiesTheory
-val firstSet_nUQTyOp = Q.store_thm(
-  "firstSet_nUQTyOp[simp]",
+Theorem firstSet_nUQTyOp[simp]
   `firstSet cmlG (NN nUQTyOp::rest) =
-     {AlphaT s | T} ∪ {SymbolT s | T} ∪ {RefT}`,
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
+     {AlphaT s | T} ∪ {SymbolT s | T} ∪ {RefT}`
+  (simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nTyOp = Q.store_thm(
-  "firstSet_nTyOp[simp]",
+Theorem firstSet_nTyOp[simp]
   `firstSet cmlG (NN nTyOp :: rest) =
-      {AlphaT s | T} ∪ {SymbolT s | T} ∪ {LongidT s1 s2 | T} ∪ {RefT}`,
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
+      {AlphaT s | T} ∪ {SymbolT s | T} ∪ {LongidT s1 s2 | T} ∪ {RefT}`
+  (simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nPTbase = Q.store_thm(
-  "firstSet_nPTbase[simp]",
-  ‘firstSet cmlG (NN nPTbase :: rest) =
+Theorem firstSet_nPTbase[simp]
+  `‘firstSet cmlG (NN nPTbase :: rest) =
      firstSet cmlG [NN nTyOp] ∪ {LparT} ∪ {TyvarT s | T}’,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM, SimpLHS] >>
   simp[nullable_PTbase] >> dsimp[Once EXTENSION] >> metis_tac[]);
@@ -140,7 +137,7 @@ val firstSet_nTbaseList = Q.store_thm(
 
 val firstSet_nTyVarList = Q.store_thm(
   "firstSet_nTyVarList[simp]",
-  `firstSet cmlG [NT (mkNT nTyVarList)] = { TyvarT s | T }`,
+  ` (firstSet cmlG [NT (mkNT nTyVarList)] = { TyvarT s | T }`,
   simp[firstSetML_eqn] >> simp[firstSetML_def] >>
   simp[cmlG_applied, cmlG_FDOM] >> simp[firstSetML_def] >>
   simp[cmlG_applied, cmlG_FDOM] >>
@@ -150,128 +147,110 @@ val _ =
     firstSetML_def |> CONJUNCTS |> (fn l => List.take(l,2)) |> rewrites
                    |> (fn ss => augment_srw_ss [ss])
 
-val firstSet_nLetDec = Q.store_thm(
-  "firstSet_nLetDec[simp]",
-  `firstSet cmlG [NT (mkNT nLetDec)] = {ValT; FunT}`,
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
+Theorem firstSet_nLetDec[simp]
+  `firstSet cmlG [NT (mkNT nLetDec)] = {ValT; FunT}`
+  (simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
        cmlG_applied, INSERT_UNION_EQ]);
 
-val firstSet_nLetDecs = Q.store_thm(
-  "firstSet_nLetDecs[simp]",
-  `firstSet cmlG [NT (mkNT nLetDecs)] = {ValT; FunT; SemicolonT}`,
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
+Theorem firstSet_nLetDecs[simp]
+  `firstSet cmlG [NT (mkNT nLetDecs)] = {ValT; FunT; SemicolonT}`
+  (simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
        cmlG_applied] >>
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ]);
 
-val firstSet_nTypeDec = Q.store_thm(
-  "firstSet_nTypeDec[simp]",
-  `firstSet cmlG [NT (mkNT nTypeDec)] = {DatatypeT}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
+Theorem firstSet_nTypeDec[simp]
+  `firstSet cmlG [NT (mkNT nTypeDec)] = {DatatypeT}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
 
-val firstSet_nTypeAbbrevDec = Q.store_thm(
-  "firstSet_nTypeAbbrevDec[simp]",
-  `firstSet cmlG [NT (mkNT nTypeAbbrevDec)] = {TypeT}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied])
+Theorem firstSet_nTypeAbbrevDec[simp]
+  `firstSet cmlG [NT (mkNT nTypeAbbrevDec)] = {TypeT}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied])
 
-val firstSet_nDecl = Q.store_thm(
-  "firstSet_nDecl[simp]",
+Theorem firstSet_nDecl[simp]
   `firstSet cmlG [NT (mkNT nDecl)] =
-      {ValT; FunT; DatatypeT;ExceptionT;TypeT}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
+      {ValT; FunT; DatatypeT;ExceptionT;TypeT}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ]);
 
-val firstSet_nDecls = Q.store_thm(
-  "firstSet_nDecls[simp]",
+Theorem firstSet_nDecls[simp]
   `firstSet cmlG [NN nDecls] =
-      {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT}`,
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
+      {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT}`
+  (simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   ONCE_REWRITE_TAC [firstSetML_def] >>
   simp[cmlG_applied, cmlG_FDOM, INSERT_UNION_EQ, INSERT_COMM]);
 
-val firstSet_nMultOps = Q.store_thm(
-  "firstSet_nMultOps[simp]",
+Theorem firstSet_nMultOps[simp]
   `firstSet cmlG (NT (mkNT nMultOps)::rest) =
-      {AlphaT "div"; AlphaT"mod"; StarT; SymbolT "/"}`,
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
+      {AlphaT "div"; AlphaT"mod"; StarT; SymbolT "/"}`
+  (simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ]);
 
-val firstSet_nRelOps = Q.store_thm(
-  "firstSet_nRelOps[simp]",
+Theorem firstSet_nRelOps[simp]
   `firstSet cmlG (NT (mkNT nRelOps)::rest) =
       {SymbolT "<"; SymbolT ">"; SymbolT "<="; SymbolT ">="; SymbolT "<>";
-       EqualsT}`,
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
+       EqualsT}`
+  (simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nAddOps = Q.store_thm(
-  "firstSet_nAddOps[simp]",
+Theorem firstSet_nAddOps[simp]
   `firstSet cmlG (NT (mkNT nAddOps)::rest) =
-     {SymbolT "+"; SymbolT "-"; SymbolT "\094"}`,
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM,
+     {SymbolT "+"; SymbolT "-"; SymbolT "\094"}`
+  (simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM,
        INSERT_UNION_EQ]);
 
-val firstSet_nCompOps = Q.store_thm(
-  "firstSet_nCompOps[simp]",
-  `firstSet cmlG (NT (mkNT nCompOps)::rest) = {AlphaT "o"; SymbolT ":="}`,
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
+Theorem firstSet_nCompOps[simp]
+  `firstSet cmlG (NT (mkNT nCompOps)::rest) = {AlphaT "o"; SymbolT ":="}`
+  (simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ])
 
-val firstSet_nListOps = Q.store_thm(
-  "firstSet_nListOps[simp]",
-  `firstSet cmlG (NT (mkNT nListOps)::rest) = {SymbolT "::"; SymbolT "@"}`,
-  simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
+Theorem firstSet_nListOps[simp]
+  `firstSet cmlG (NT (mkNT nListOps)::rest) = {SymbolT "::"; SymbolT "@"}`
+  (simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ, INSERT_COMM])
 
-val firstSet_nStructure = Q.store_thm(
-  "firstSet_nStructure[simp]",
-  `firstSet cmlG [NT (mkNT nStructure)] = {StructureT}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
+Theorem firstSet_nStructure[simp]
+  `firstSet cmlG [NT (mkNT nStructure)] = {StructureT}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
 
 
-val firstSet_nTopLevelDec = Q.store_thm(
-  "firstSet_nTopLevelDec[simp]",
+Theorem firstSet_nTopLevelDec[simp]
   `firstSet cmlG [NT (mkNT nTopLevelDec)] =
-    {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
+    {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
 
-val firstSet_nSpecLine = Q.store_thm(
-  "firstSet_nSpecLine[simp]",
-  `firstSet cmlG [NT (mkNT nSpecLine)] = {ValT; DatatypeT; TypeT; ExceptionT}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
+Theorem firstSet_nSpecLine[simp]
+  `firstSet cmlG [NT (mkNT nSpecLine)] = {ValT; DatatypeT; TypeT; ExceptionT}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
 
-val firstSet_nSpecLineList = Q.store_thm(
-  "firstSet_nSpecLineList[simp]",
+Theorem firstSet_nSpecLineList[simp]
   `firstSet cmlG [NT (mkNT nSpecLineList)] =
-      {ValT; DatatypeT; TypeT; SemicolonT; ExceptionT}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
+      {ValT; DatatypeT; TypeT; SemicolonT; ExceptionT}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ, INSERT_COMM]);
 
-val firstSet_nV = Q.store_thm(
-  "firstSet_nV",
+Theorem firstSet_nV
   `firstSet cmlG (NN nV:: rest) =
       { AlphaT s | s ≠ "" ∧ ¬isUpper (HD s) ∧ s ≠ "before" ∧ s ≠ "div" ∧
                    s ≠ "mod" ∧ s ≠ "o" ∧ s ≠ "true" ∧ s ≠ "false" ∧
                    s ≠ "nil"} ∪
       { SymbolT s | s ≠ "+" ∧ s ≠ "*" ∧ s ≠ "-" ∧ s ≠ "/" ∧ s ≠ "<" ∧ s ≠ ">" ∧
                     s ≠ "<=" ∧ s ≠ ">=" ∧ s ≠ "<>" ∧ s ≠ ":=" ∧ s ≠ "::" ∧
-                    s ≠ "@" ∧ s ≠ "\094"}`,
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
+                    s ≠ "@" ∧ s ≠ "\094"}`
+  (simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nFQV = Q.store_thm(
-  "firstSet_nFQV",
+Theorem firstSet_nFQV
   `firstSet cmlG [NT (mkNT nFQV)] =
       firstSet cmlG [NT (mkNT nV)] ∪
       { LongidT m i | (m,i) | i ≠ "" ∧ (isAlpha (HD i) ⇒ ¬isUpper (HD i)) ∧
-                              i ∉ {"true"; "false"; "nil"}}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
+                              i ∉ {"true"; "false"; "nil"}}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION]);
 
-val firstSet_nUQConstructorName = Q.store_thm(
-  "firstSet_nUQConstructorName",
-  ‘firstSet cmlG (NN nUQConstructorName :: rest) =
+Theorem firstSet_nUQConstructorName
+  `‘firstSet cmlG (NN nUQConstructorName :: rest) =
       { AlphaT s | s ≠ "" ∧ isUpper (HD s) } ∪
       { AlphaT s | s ∈ {"true"; "false"; "nil"}}’,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
@@ -279,7 +258,7 @@ val firstSet_nUQConstructorName = Q.store_thm(
 
 val firstSet_nConstructorName = Q.store_thm(
   "firstSet_nConstructorName",
-  `firstSet cmlG (NN nConstructorName :: rest) =
+  ` (firstSet cmlG (NN nConstructorName :: rest) =
       { LongidT str s | (str,s) | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
                                   s ∈ {"true"; "false"; "nil"}} ∪
       { AlphaT s | s ≠ "" ∧ isUpper (HD s) } ∪
@@ -287,47 +266,41 @@ val firstSet_nConstructorName = Q.store_thm(
   ntac 2 (simp [Once firstSet_NT, cmlG_applied, cmlG_FDOM]) >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSetML_nConstructorName = Q.store_thm(
-  "firstSetML_nConstructorName[simp]",
+Theorem firstSetML_nConstructorName[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ⇒
     (firstSetML cmlG sn (NN nConstructorName::rest) =
-     firstSet cmlG [NN nConstructorName])`,
-  simp[firstSetML_eqn] >>
+     firstSet cmlG [NN nConstructorName])`
+  (simp[firstSetML_eqn] >>
   ntac 2 (simp[firstSetML_def] >> simp[cmlG_applied, cmlG_FDOM]) >>
   strip_tac >> simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[firstSetML_def]);
 
-val firstSetML_nV = Q.store_thm(
-  "firstSetML_nV[simp]",
+Theorem firstSetML_nV[simp]
   `mkNT nV ∉ sn ⇒
-    (firstSetML cmlG sn (NN nV::rest) = firstSet cmlG [NN nV])`,
-  simp[firstSetML_eqn] >> simp[firstSetML_def] >>
+    (firstSetML cmlG sn (NN nV::rest) = firstSet cmlG [NN nV])`
+  (simp[firstSetML_eqn] >> simp[firstSetML_def] >>
   simp[cmlG_FDOM, cmlG_applied] >> strip_tac >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSetML_nFQV = Q.store_thm(
-  "firstSetML_nFQV[simp]",
+Theorem firstSetML_nFQV[simp]
   `mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ⇒
-    (firstSetML cmlG sn (NN nFQV::rest) = firstSet cmlG [NN nFQV])`,
-  simp[firstSetML_eqn] >>
+    (firstSetML cmlG sn (NN nFQV::rest) = firstSet cmlG [NN nFQV])`
+  (simp[firstSetML_eqn] >>
   ntac 2 (simp[firstSetML_def] >> simp[cmlG_FDOM, cmlG_applied]) >>
   strip_tac >> simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nEtuple = Q.store_thm(
-  "firstSet_nEtuple[simp]",
-  `firstSet cmlG [NT (mkNT nEtuple)] = {LparT}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
+Theorem firstSet_nEtuple[simp]
+  `firstSet cmlG [NT (mkNT nEtuple)] = {LparT}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
 
-val firstSet_nEliteral = Q.store_thm(
-  "firstSet_nEliteral[simp]",
+Theorem firstSet_nEliteral[simp]
   `firstSet cmlG [NT (mkNT nEliteral)] =
      {IntT i | T} ∪ {StringT s | T} ∪ {CharT c | T} ∪ {WordT w | T} ∪
-     {FFIT s | T}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
+     {FFIT s | T}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[]);
 
-val firstSetML_nEliteral = Q.store_thm(
-  "firstSetML_nEliteral[simp]",
-  ‘mkNT nEliteral ∉ sn ⇒
+Theorem firstSetML_nEliteral[simp]
+  `‘mkNT nEliteral ∉ sn ⇒
      firstSetML cmlG sn (NT (mkNT nEliteral)::rest) =
      firstSet cmlG [NT (mkNT nEliteral)]’,
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
@@ -335,163 +308,144 @@ val firstSetML_nEliteral = Q.store_thm(
 
 val firstSet_nEbase = Q.store_thm(
   "firstSet_nEbase[simp]",
-  `firstSet cmlG [NT (mkNT nEbase)] =
+  ` (firstSet cmlG [NT (mkNT nEbase)] =
       {LetT; LparT; LbrackT; OpT; RefT} ∪ firstSet cmlG [NT (mkNT nFQV)] ∪
       firstSet cmlG [NT (mkNT nEliteral)] ∪
       firstSet cmlG [NT (mkNT nConstructorName)]`,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]);
 
-val firstSetML_nEbase = Q.store_thm(
-  "firstSetML_nEbase[simp]",
+Theorem firstSetML_nEbase[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEliteral ∉ sn ⇒
     firstSetML cmlG sn (NT (mkNT nEbase)::rest) =
-    firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >> strip_tac >>
+    firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >> strip_tac >>
   Cases_on `mkNT nEtuple ∈ sn` >>
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nEapp = Q.store_thm(
-  "firstSet_nEapp[simp]",
-  `firstSet cmlG [NT (mkNT nEapp)] = firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[Once firstSetML_eqn, SimpLHS] >>
+Theorem firstSet_nEapp[simp]
+  `firstSet cmlG [NT (mkNT nEapp)] = firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[Once firstSetML_eqn, SimpLHS] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSetML_nEapp = Q.store_thm(
-  "firstSetML_nEapp[simp]",
+Theorem firstSetML_nEapp[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEliteral ∉ sn
    ⇒
     firstSetML cmlG sn (NT (mkNT nEapp) :: rest) =
-    firstSet cmlG [NT(mkNT nEbase)]`,
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
+    firstSet cmlG [NT(mkNT nEbase)]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nEmult = Q.store_thm(
-  "firstSet_nEmult[simp]",
-  `firstSet cmlG [NT (mkNT nEmult)] = firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
+Theorem firstSet_nEmult[simp]
+  `firstSet cmlG [NT (mkNT nEmult)] = firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nEmult = Q.store_thm(
-  "firstSetML_nEmult[simp]",
+Theorem firstSetML_nEmult[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEliteral ∉ sn
   ⇒
     firstSetML cmlG sn (NT (mkNT nEmult) :: rest) =
-    firstSet cmlG [NT (mkNT nEbase)]`,
+    firstSet cmlG [NT (mkNT nEbase)]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+Theorem firstSet_nEadd[simp]
+  `firstSet cmlG [NT (mkNT nEadd)] = firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEadd = Q.store_thm(
-  "firstSet_nEadd[simp]",
-  `firstSet cmlG [NT (mkNT nEadd)] = firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
-
-val firstSetML_nEadd = Q.store_thm(
-  "firstSetML_nEadd[simp]",
+Theorem firstSetML_nEadd[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nEliteral ∉ sn⇒
     firstSetML cmlG sn (NT (mkNT nEadd) :: rest) =
-    firstSet cmlG [NT(mkNT nEbase)]`,
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+    firstSet cmlG [NT(mkNT nEbase)]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nElistop = Q.store_thm(
-  "firstSet_nElistop[simp]",
+Theorem firstSet_nElistop[simp]
   `firstSet cmlG (NT (mkNT nElistop)::rest) =
-       firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
+       firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nElistop = Q.store_thm(
-  "firstSetML_nElistop[simp]",
+Theorem firstSetML_nElistop[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nElistop ∉ sn ∧
     mkNT nEliteral ∉ sn
    ⇒
     firstSetML cmlG sn (NT (mkNT nElistop) :: rest) =
-    firstSet cmlG [NT(mkNT nEbase)]`,
+    firstSet cmlG [NT(mkNT nEbase)]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+Theorem firstSet_nErel[simp]
+  `firstSet cmlG (NT(mkNT nErel)::rest) = firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nErel = Q.store_thm(
-  "firstSet_nErel[simp]",
-  `firstSet cmlG (NT(mkNT nErel)::rest) = firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
-
-val firstSetML_nErel = Q.store_thm(
-  "firstSetML_nErel[simp]",
+Theorem firstSetML_nErel[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nElistop ∉ sn ∧
     mkNT nEliteral ∉ sn
    ⇒
-    firstSetML cmlG sn (NT (mkNT nErel) :: rest) = firstSet cmlG [NN nEbase]`,
+    firstSetML cmlG sn (NT (mkNT nErel) :: rest) = firstSet cmlG [NN nEbase]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+Theorem firstSet_nEcomp[simp]
+  `firstSet cmlG (NT(mkNT nEcomp)::rest) = firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEcomp = Q.store_thm(
-  "firstSet_nEcomp[simp]",
-  `firstSet cmlG (NT(mkNT nEcomp)::rest) = firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
-
-val firstSetML_nEcomp = Q.store_thm(
-  "firstSetML_nEcomp[simp]",
+Theorem firstSetML_nEcomp[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
     mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn ⇒
-    firstSetML cmlG sn (NT (mkNT nEcomp) :: rest) = firstSet cmlG [NN nEbase]`,
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+    firstSetML cmlG sn (NT (mkNT nEcomp) :: rest) = firstSet cmlG [NN nEbase]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEbefore = Q.store_thm(
-  "firstSet_nEbefore[simp]",
+Theorem firstSet_nEbefore[simp]
   `firstSet cmlG (NT(mkNT nEbefore)::rest) =
-      firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
+      firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nEbefore = Q.store_thm(
-  "firstSetML_nEbefore[simp]",
+Theorem firstSetML_nEbefore[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
     mkNT nEbefore ∉ sn ∧ mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn ⇒
-    firstSetML cmlG sn (NT (mkNT nEbefore)::rest) = firstSet cmlG [NN nEbase]`,
+    firstSetML cmlG sn (NT (mkNT nEbefore)::rest) = firstSet cmlG [NN nEbase]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+Theorem firstSet_nEtyped[simp]
+  `firstSet cmlG (NT(mkNT nEtyped)::rest) = firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEtyped = Q.store_thm(
-  "firstSet_nEtyped[simp]",
-  `firstSet cmlG (NT(mkNT nEtyped)::rest) = firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
-
-val firstSetML_nEtyped = Q.store_thm(
-  "firstSetML_nEtyped[simp]",
+Theorem firstSetML_nEtyped[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
     mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElistop ∉ sn ∧
     mkNT nEliteral ∉ sn
    ⇒
-    firstSetML cmlG sn (NT (mkNT nEtyped)::rest) = firstSet cmlG [NN nEbase]`,
+    firstSetML cmlG sn (NT (mkNT nEtyped)::rest) = firstSet cmlG [NN nEbase]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+Theorem firstSet_nElogicAND[simp]
+  `firstSet cmlG (NT(mkNT nElogicAND)::rest) = firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nElogicAND = Q.store_thm(
-  "firstSet_nElogicAND[simp]",
-  `firstSet cmlG (NT(mkNT nElogicAND)::rest) = firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
-
-val firstSetML_nElogicAND = Q.store_thm(
-  "firstSetML_nElogicAND[simp]",
+Theorem firstSetML_nElogicAND[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -499,17 +453,15 @@ val firstSetML_nElogicAND = Q.store_thm(
     mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn
    ⇒
     firstSetML cmlG sn (NT (mkNT nElogicAND)::rest) =
-      firstSet cmlG [NN nEbase]`,
+      firstSet cmlG [NN nEbase]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+Theorem firstSet_nElogicOR[simp]
+  `firstSet cmlG (NT(mkNT nElogicOR)::rest) = firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nElogicOR = Q.store_thm(
-  "firstSet_nElogicOR[simp]",
-  `firstSet cmlG (NT(mkNT nElogicOR)::rest) = firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
-
-val firstSetML_nElogicOR = Q.store_thm(
-  "firstSetML_nElogicOR[simp]",
+Theorem firstSetML_nElogicOR[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -517,17 +469,15 @@ val firstSetML_nElogicOR = Q.store_thm(
     mkNT nElogicOR ∉ sn ∧ mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn
   ⇒
     firstSetML cmlG sn (NT (mkNT nElogicOR)::rest) =
-      firstSet cmlG [NN nEbase]`,
+      firstSet cmlG [NN nEbase]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+
+Theorem firstSet_nEhandle[simp]
+  `firstSet cmlG (NT(mkNT nEhandle)::rest) = firstSet cmlG [NT (mkNT nEbase)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEhandle = Q.store_thm(
-  "firstSet_nEhandle[simp]",
-  `firstSet cmlG (NT(mkNT nEhandle)::rest) = firstSet cmlG [NT (mkNT nEbase)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
-
-val firstSetML_nEhandle = Q.store_thm(
-  "firstSetML_nEhandle[simp]",
+Theorem firstSetML_nEhandle[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -536,43 +486,38 @@ val firstSetML_nEhandle = Q.store_thm(
     mkNT nEliteral ∉ sn
    ⇒
     firstSetML cmlG sn (NT (mkNT nEhandle)::rest) =
-      firstSet cmlG [NN nEbase]`,
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
+      firstSet cmlG [NN nEbase]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nE = Q.store_thm(
-  "firstSet_nE",
+Theorem firstSet_nE
   `firstSet cmlG (NT(mkNT nE)::rest) =
-      firstSet cmlG [NT (mkNT nEbase)] ∪ {IfT; CaseT; FnT; RaiseT}`,
-  simp[SimpLHS, firstSetML_eqn] >>
+      firstSet cmlG [NT (mkNT nEbase)] ∪ {IfT; CaseT; FnT; RaiseT}`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nTopLevelDecs = Q.store_thm(
-  "firstSet_nTopLevelDecs[simp]",
+Theorem firstSet_nTopLevelDecs[simp]
   `firstSet cmlG [NN nTopLevelDecs] =
       {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT} ∪
-      firstSet cmlG [NT (mkNT nE)]`,
-  simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
+      firstSet cmlG [NT (mkNT nE)]`
+  (simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   ONCE_REWRITE_TAC [firstSet_NT] >> simp[cmlG_applied, cmlG_FDOM] >>
   simp[INSERT_UNION_EQ, INSERT_COMM] >>
   simp[EXTENSION, EQ_IMP_THM] >> rpt strip_tac >> rveq >> simp[]);
 
-val firstSet_nNonETopLevelDecs = Q.store_thm(
-  "firstSet_nNonETopLevelDecs[simp]",
+Theorem firstSet_nNonETopLevelDecs[simp]
   `firstSet cmlG [NN nNonETopLevelDecs] =
-      {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT}`,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
+      {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT}`
+  (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[INSERT_COMM, INSERT_UNION_EQ]);
 
-val firstSet_nEseq = Q.store_thm(
-  "firstSet_nEseq[simp]",
-  `firstSet cmlG (NN nEseq :: rest) = firstSet cmlG [NN nE]`,
-  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
+Theorem firstSet_nEseq[simp]
+  `firstSet cmlG (NN nEseq :: rest) = firstSet cmlG [NN nE]`
+  (simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[firstSet_nE]);
 
-val NOTIN_firstSet_nE = Q.store_thm(
-  "NOTIN_firstSet_nE[simp]",
+Theorem NOTIN_firstSet_nE[simp]
   `ValT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     StructureT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     FunT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
@@ -581,32 +526,29 @@ val NOTIN_firstSet_nE = Q.store_thm(
     SemicolonT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     RparT ∉ firstSet cmlG (NN nE :: rest) ∧
     RbrackT ∉ firstSet cmlG (NN nE :: rest) ∧
-    TypeT ∉ firstSet cmlG (NN nE :: rest)`,
-  simp[firstSet_nE, firstSet_nFQV] >>
+    TypeT ∉ firstSet cmlG (NN nE :: rest)`
+  (simp[firstSet_nE, firstSet_nFQV] >>
   rpt (dsimp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, disjImpI]))
 
-val firstSetML_nE = Q.store_thm(
-  "firstSetML_nE[simp]",
+Theorem firstSetML_nE[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
     mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
     mkNT nElogicOR ∉ sn ∧ mkNT nEhandle ∉ sn ∧ mkNT nE ∉ sn ∧
     mkNT nElistop ∉ sn ∧ mkNT nEliteral ∉ sn ⇒
-    firstSetML cmlG sn (NT (mkNT nE)::rest) = firstSet cmlG [NN nE]`,
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE]) >>
+    firstSetML cmlG sn (NT (mkNT nE)::rest) = firstSet cmlG [NN nE]`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nE' = Q.store_thm(
-  "firstSet_nE'",
+Theorem firstSet_nE'
   `firstSet cmlG (NT(mkNT nE')::rest) =
-      firstSet cmlG [NT (mkNT nEbase)] ∪ {IfT; RaiseT}`,
-  simp[SimpLHS, firstSetML_eqn] >>
+      firstSet cmlG [NT (mkNT nEbase)] ∪ {IfT; RaiseT}`
+  (simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSetML_nE' = Q.store_thm(
-  "firstSetML_nE'[simp]",
+Theorem firstSetML_nE'[simp]
   `mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -614,53 +556,46 @@ val firstSetML_nE' = Q.store_thm(
     mkNT nElogicOR ∉ sn ∧ mkNT nE' ∉ sn ∧ mkNT nElistop ∉ sn ∧
     mkNT nEliteral ∉ sn
    ⇒
-    firstSetML cmlG sn (NT (mkNT nE')::rest) = firstSet cmlG [NN nE']`,
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE']) >>
+    firstSetML cmlG sn (NT (mkNT nE')::rest) = firstSet cmlG [NN nE']`
+  (ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE']) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nElist1 = Q.store_thm(
-  "firstSet_nElist1[simp]",
-  `firstSet cmlG (NT (mkNT nElist1)::rest) = firstSet cmlG [NT (mkNT nE)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
+Theorem firstSet_nElist1[simp]
+  `firstSet cmlG (NT (mkNT nElist1)::rest) = firstSet cmlG [NT (mkNT nE)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]);
 
-val firstSet_nElist2 = Q.store_thm(
-  "firstSet_nElist2[simp]",
-  `firstSet cmlG (NT (mkNT nElist2)::rest) = firstSet cmlG [NT (mkNT nE)]`,
-  simp[SimpLHS, firstSetML_eqn] >>
+Theorem firstSet_nElist2[simp]
+  `firstSet cmlG (NT (mkNT nElist2)::rest) = firstSet cmlG [NT (mkNT nE)]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]);
 
-val firstSetML_nPtuple = Q.store_thm(
-  "firstSetML_nPtuple[simp]",
-  `mkNT nPtuple ∉ sn ⇒ (firstSetML cmlG sn (NN nPtuple :: rest) = {LparT})`,
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]);
+Theorem firstSetML_nPtuple[simp]
+  `mkNT nPtuple ∉ sn ⇒ (firstSetML cmlG sn (NN nPtuple :: rest) = {LparT})`
+  (simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]);
 
-val firstSet_nPtuple = Q.store_thm(
-  "firstSet_nPtuple[simp]",
-  `firstSet cmlG (NN nPtuple :: rest) = {LparT}`,
-  simp[firstSetML_eqn, firstSetML_nPtuple]);
+Theorem firstSet_nPtuple[simp]
+  `firstSet cmlG (NN nPtuple :: rest) = {LparT}`
+  (simp[firstSetML_eqn, firstSetML_nPtuple]);
 
-val firstSet_nPbase = Q.store_thm(
-  "firstSet_nPbase[simp]",
+Theorem firstSet_nPbase[simp]
   `firstSet cmlG (NN nPbase :: rest) =
       {LparT; UnderbarT; LbrackT; OpT} ∪ {IntT i | T } ∪ {StringT s | T } ∪
       {CharT c | T } ∪
-      firstSet cmlG [NN nConstructorName] ∪ firstSet cmlG [NN nV]`,
-  simp[SimpLHS, firstSetML_eqn] >>
+      firstSet cmlG [NN nConstructorName] ∪ firstSet cmlG [NN nV]`
+  (simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSetML_nPbase = Q.store_thm(
-  "firstSetML_nPbase[simp]",
+Theorem firstSetML_nPbase[simp]
   `mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
     mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ⇒
-    firstSetML cmlG sn (NN nPbase :: rest) = firstSet cmlG [NN nPbase]`,
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
+    firstSetML cmlG sn (NN nPbase :: rest) = firstSet cmlG [NN nPbase]`
+  (simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nPConApp = Q.store_thm(
-  "firstSet_nPConApp[simp]",
-  ‘firstSet cmlG (NN nPConApp :: rest) =
+Theorem firstSet_nPConApp[simp]
+  `‘firstSet cmlG (NN nPConApp :: rest) =
      firstSet cmlG [NN nConstructorName] ∪ {RefT}’,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
@@ -677,58 +612,51 @@ val firstSetML_nPConApp = Q.store_thm(
 
 val firstSet_nPapp = Q.store_thm(
   "firstSet_nPapp[simp]",
-  `firstSet cmlG (NN nPapp :: rest) =
+  ` (firstSet cmlG (NN nPapp :: rest) =
      {RefT} ∪ firstSet cmlG [NN nPbase]`,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSetML_nPapp = Q.store_thm(
-  "firstSetML_nPapp[simp]",
+Theorem firstSetML_nPapp[simp]
   `mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
    mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ∧
    mkNT nPConApp ∉ sn ⇒
     firstSetML cmlG sn (NN nPapp :: rest) =
-      firstSet cmlG [NN nPbase] ∪ {RefT}`,
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
+      firstSet cmlG [NN nPbase] ∪ {RefT}`
+  (simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nPcons = Q.store_thm(
-  "firstSet_nPcons[simp]",
+Theorem firstSet_nPcons[simp]
   `firstSet cmlG (NN nPcons :: rest) =
-    firstSet cmlG [NN nPbase] ∪ {RefT}`,
-  simp[SimpLHS, firstSetML_eqn] >>
+    firstSet cmlG [NN nPbase] ∪ {RefT}`
+  (simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM])
 
-val firstSetML_nPcons = Q.store_thm(
-  "firstSetML_nPcons[simp]",
+Theorem firstSetML_nPcons[simp]
   `mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
    mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ∧
    mkNT nPcons ∉ sn ∧ mkNT nPConApp ∉ sn ⇒
     firstSetML cmlG sn (NN nPcons :: rest) =
-      firstSet cmlG [NN nPbase] ∪ {RefT}`,
-  simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]);
+      firstSet cmlG [NN nPbase] ∪ {RefT}`
+  (simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]);
 
-val firstSet_nPattern = Q.store_thm(
-  "firstSet_nPattern[simp]",
+Theorem firstSet_nPattern[simp]
   `firstSet cmlG (NN nPattern :: rest) =
-     firstSet cmlG [NN nPbase] ∪ {RefT}`,
-  simp[SimpLHS, firstSetML_eqn] >>
+     firstSet cmlG [NN nPbase] ∪ {RefT}`
+  (simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nPatternList = Q.store_thm(
-  "firstSet_nPatternList[simp]",
-  `firstSet cmlG (NN nPatternList :: rest) = firstSet cmlG [NN nPattern]`,
-  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]);
+Theorem firstSet_nPatternList[simp]
+  `firstSet cmlG (NN nPatternList :: rest) = firstSet cmlG [NN nPattern]`
+  (simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]);
 
-val firstSet_nPbaseList1 = Q.store_thm(
-  "firstSet_nPbaseList1[simp]",
-  `firstSet cmlG (NN nPbaseList1 :: rest) = firstSet cmlG [NN nPbase]`,
-  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]);
+Theorem firstSet_nPbaseList1[simp]
+  `firstSet cmlG (NN nPbaseList1 :: rest) = firstSet cmlG [NN nPbase]`
+  (simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]);
 
-val NOTIN_firstSet_nV = Q.store_thm(
-  "NOTIN_firstSet_nV[simp]",
+Theorem NOTIN_firstSet_nV[simp]
   `CommaT ∉ firstSet cmlG [NN nV] ∧ LparT ∉ firstSet cmlG [NN nV] ∧
     RparT ∉ firstSet cmlG [NN nV] ∧ UnderbarT ∉ firstSet cmlG [NN nV] ∧
     BarT ∉ firstSet cmlG [NN nV] ∧ OpT ∉ firstSet cmlG [NN nV] ∧
@@ -756,11 +684,10 @@ val NOTIN_firstSet_nV = Q.store_thm(
     TypeT ∉ firstSet cmlG [NN nV] ∧
     SemicolonT ∉ firstSet cmlG [NN nV] ∧ ColonT ∉ firstSet cmlG [NN nV] ∧
     StructureT ∉ firstSet cmlG [NN nV] ∧ WordT w ∉ firstSet cmlG [NN nV] ∧
-    SymbolT "::" ∉ firstSet cmlG [NN nV]`,
-  simp[firstSet_nV]);
+    SymbolT "::" ∉ firstSet cmlG [NN nV]`
+  (simp[firstSet_nV]);
 
-val NOTIN_firstSet_nFQV = Q.store_thm(
-  "NOTIN_firstSet_nFQV[simp]",
+Theorem NOTIN_firstSet_nFQV[simp]
   `AndT ∉ firstSet cmlG [NN nFQV] ∧
     BarT ∉ firstSet cmlG [NN nFQV] ∧
     CaseT ∉ firstSet cmlG [NN nFQV] ∧
@@ -794,11 +721,10 @@ val NOTIN_firstSet_nFQV = Q.store_thm(
     TypeT ∉ firstSet cmlG [NN nFQV] ∧
     UnderbarT ∉ firstSet cmlG [NN nFQV] ∧
     ValT ∉ firstSet cmlG [NN nFQV] ∧
-    WordT w ∉ firstSet cmlG [NN nFQV]`,
-  simp[firstSet_nFQV]);
+    WordT w ∉ firstSet cmlG [NN nFQV]`
+  (simp[firstSet_nFQV]);
 
-val NOTIN_firstSet_nConstructorName = Q.store_thm(
-  "NOTIN_firstSet_nConstructorName[simp]",
+Theorem NOTIN_firstSet_nConstructorName[simp]
   `AndT ∉ firstSet cmlG [NN nConstructorName] ∧
     BarT ∉ firstSet cmlG [NN nConstructorName] ∧
     ColonT ∉ firstSet cmlG [NN nConstructorName] ∧
@@ -834,8 +760,8 @@ val NOTIN_firstSet_nConstructorName = Q.store_thm(
     TypeT ∉ firstSet cmlG [NN nConstructorName] ∧
     UnderbarT ∉ firstSet cmlG [NN nConstructorName] ∧
     ValT ∉ firstSet cmlG [NN nConstructorName] ∧
-    WordT w ∉ firstSet cmlG [NN nConstructorName]`,
-  simp[firstSet_nConstructorName]);
+    WordT w ∉ firstSet cmlG [NN nConstructorName]`
+  (simp[firstSet_nConstructorName]);
 
 val cmlPEG_total =
     peg_eval_total |> Q.GEN `G` |> Q.ISPEC `cmlPEG`
@@ -860,9 +786,8 @@ val FLAT_EQ_CONS = Q.prove(
   rename [`EVERY ((=) []) pfx`] >> Cases_on `pfx` >- fs[] >>
   full_simp_tac bool_ss [EVERY_DEF] >> rw[] >> fs[])
 
-val rfirstSet_nonempty_fringe = Q.store_thm(
-  "rfirstSet_nonempty_fringe",
-  ‘∀pt t l rest.
+Theorem rfirstSet_nonempty_fringe
+  `‘∀pt t l rest.
      real_fringe pt = (TOK t, l) :: rest ∧ valid_lptree G pt ⇒
      t ∈ firstSet G [ptree_head pt]’,
   rw[] >>
@@ -871,7 +796,7 @@ val rfirstSet_nonempty_fringe = Q.store_thm(
 
 val peg_respects_firstSets = Q.store_thm(
   "peg_respects_firstSets",
-  `∀N i0 t l.
+  ` (∀N i0 t l.
       t ∉ firstSet cmlG [NT N] ∧ ¬peg0 cmlPEG (nt N I) ∧
       nt N I ∈ Gexprs cmlPEG ⇒
       peg_eval cmlPEG ((t,l)::i0, nt N I) NONE`,
@@ -902,11 +827,10 @@ val sym2peg_def = Define`
   sym2peg (NT N) = nt N I
 `;
 
-val not_peg0_peg_eval_NIL_NONE = Q.store_thm(
-  "not_peg0_peg_eval_NIL_NONE",
+Theorem not_peg0_peg_eval_NIL_NONE
   `¬peg0 G sym ∧ sym ∈ Gexprs G ∧ wfG G ⇒
-    peg_eval G ([], sym) NONE`,
-  strip_tac >>
+    peg_eval G ([], sym) NONE`
+  (strip_tac >>
   `∃r. peg_eval G ([], sym) r`
     by metis_tac [peg_eval_total] >>
   Cases_on `r` >> simp[] >> Cases_on `x` >>
@@ -930,18 +854,16 @@ val left_insert1_ind = theorem "left_insert1_ind"
 
 open grammarTheory
 
-val left_insert1_FOLDL = Q.store_thm(
-  "left_insert1_FOLDL",
+Theorem left_insert1_FOLDL
   `left_insert1 pt (FOLDL (λa b. mkNd (mkNT P) [a; b]) acc arg) =
-    FOLDL (λa b. mkNd (mkNT P) [a; b]) (left_insert1 pt acc) arg`,
-  qid_spec_tac `acc` >> Induct_on `arg` >>
+    FOLDL (λa b. mkNd (mkNT P) [a; b]) (left_insert1 pt acc) arg`
+  (qid_spec_tac `acc` >> Induct_on `arg` >>
   fs[left_insert1_def,mkNd_def,ptree_list_loc_def]);
 
 val _ = export_rewrites ["grammar.ptree_loc_def"]
 
-val ptree_loc_mkNd = Q.store_thm(
-  "ptree_loc_mkNd[simp]",
-  ‘ptree_loc (mkNd n subs) = ptree_list_loc subs’,
+Theorem ptree_loc_mkNd[simp]
+  `‘ptree_loc (mkNd n subs) = ptree_list_loc subs’,
   simp[mkNd_def]);
 
 val merge_list_locs_HDLAST = Q.store_thm(
@@ -951,7 +873,7 @@ val merge_list_locs_HDLAST = Q.store_thm(
 
 val ptree_loc_left_insert1 = Q.store_thm(
   "ptree_loc_left_insert1",
-  `∀subpt pt.
+  ` (∀subpt pt.
       valid_locs pt ⇒
         ptree_loc (left_insert1 subpt pt) =
         merge_locs (ptree_loc subpt) (ptree_loc pt)`,
@@ -966,9 +888,8 @@ val leftLoc_def = Define`leftLoc (Locs l1 _) = l1`;
 val rightLoc_def = Define`rightLoc (Locs _ l2) = l2`;
 val _ = export_rewrites ["leftLoc_def", "rightLoc_def"]
 
-val merge_locs_LR = Q.store_thm(
-  "merge_locs_LR",
-  ‘merge_locs l1 l2 = Locs (leftLoc l1) (rightLoc l2)’,
+Theorem merge_locs_LR
+  `‘merge_locs l1 l2 = Locs (leftLoc l1) (rightLoc l2)’,
   map_every Cases_on [‘l1’, ‘l2’] >> simp[locationTheory.merge_locs_def]);
 
 val leftLoc_merge_locs = Q.store_thm(
@@ -1007,7 +928,7 @@ val rightLoc_merge_locs = Q.store_thm(
 
 val eapp_reassociated = Q.store_thm(
   "eapp_reassociated",
-  `∀pt bpt pf bf.
+  ` (∀pt bpt pf bf.
       valid_lptree cmlG pt ∧ ptree_head pt = NN nEapp ∧
       real_fringe pt = MAP (TK ## I) pf ∧
       valid_lptree cmlG bpt ∧ ptree_head bpt = NN nEbase ∧
@@ -1063,14 +984,13 @@ val left_insert2_def = Define`
 val left_insert2_ind = theorem "left_insert2_ind"
 val _ = export_rewrites ["left_insert2_def"]
 
-val ptree_loc_left_insert2 = Q.store_thm(
-  "ptree_loc_left_insert2",
-  ‘∀bpt dpt.
+Theorem ptree_loc_left_insert2
+  `‘∀bpt dpt.
      valid_locs dpt ⇒
        ptree_loc (left_insert2 bpt dpt) =
        merge_locs (ptree_loc bpt) (ptree_loc dpt)’,
   ho_match_mp_tac left_insert2_ind >> rw[] >>
-  rename [`MAP ptree_loc subs`] >> Cases_on `subs` >> fs[] >>
+  rename [` (MAP ptree_loc subs`] >> Cases_on `subs` >> fs[] >>
   rename [`list_CASE t`] >> reverse (Cases_on `t`) >> fs[]
   >- (simp[ptree_list_loc_def, merge_list_locs_HDLAST] >>
       rename [`MAP ptree_loc t2`] >> Cases_on `t2` >> simp[]) >>
@@ -1079,11 +999,10 @@ val ptree_loc_left_insert2 = Q.store_thm(
   rename [`list_CASE ptl'`] >> Cases_on `ptl'` >> fs[ptree_list_loc_def] >>
   rename [`Nd nl _`] >> Cases_on `nl` >> fs[]);
 
-val left_insert2_FOLDL = Q.store_thm(
-  "left_insert2_FOLDL",
+Theorem left_insert2_FOLDL
   `left_insert2 pt (FOLDL (λa b. mkNd (mkNT P) [a; b]) acc arg) =
-    FOLDL (λa b. mkNd (mkNT P) [a; b]) (left_insert2 pt acc) arg`,
-  qid_spec_tac `acc` >> Induct_on `arg` >> simp[] >> simp[mkNd_def]);
+    FOLDL (λa b. mkNd (mkNT P) [a; b]) (left_insert2 pt acc) arg`
+  (qid_spec_tac `acc` >> Induct_on `arg` >> simp[] >> simp[mkNd_def]);
 
 (* the situation with DType is similar to that with Eapp and Ebase.
 
@@ -1114,8 +1033,7 @@ val left_insert2_FOLDL = Q.store_thm(
            `- TyOp -- "option"
 *)
 
-val dtype_reassociated = Q.store_thm(
-  "dtype_reassociated",
+Theorem dtype_reassociated
   `∀pt bpt pf bf.
       valid_lptree cmlG pt ∧ ptree_head pt = NN nDType ∧
       real_fringe pt = MAP (TK ## I) pf ∧
@@ -1129,8 +1047,8 @@ val dtype_reassociated = Q.store_thm(
         real_fringe bpt' ++ real_fringe pt' = MAP (TK ## I) (pf ++ bf) ∧
         leftLoc (ptree_loc bpt') = leftLoc (ptree_loc pt) ∧
         rightLoc (ptree_loc pt') = rightLoc (ptree_loc bpt) ∧
-        mkNd (mkNT nDType) [pt; bpt] = left_insert2 bpt' pt'`,
-  ho_match_mp_tac grammarTheory.ptree_ind >> conj_tac
+        mkNd (mkNT nDType) [pt; bpt] = left_insert2 bpt' pt'`
+  (ho_match_mp_tac grammarTheory.ptree_ind >> conj_tac
   >- dsimp[FORALL_PROD] >>
   simp[Once FORALL_PROD, MAP_EQ_CONS, cmlG_applied, cmlG_FDOM,
        valid_lptree_def] >>
@@ -1181,12 +1099,11 @@ val left_insert_def = Define`
 `;
 
 
-val left_insert_mkNd = Q.store_thm(
-  "left_insert_mkNd[simp]",
+Theorem left_insert_mkNd[simp]
   `(left_insert (mkNd n [c0]) n sep c = mkNd n [mkNd n [c]; sep; c0]) ∧
    (left_insert (mkNd n [p'; s'; c']) n sep c =
-      mkNd n [left_insert p' n sep c; s'; c'])`,
-  simp[left_insert_def, mkNd_def, ptree_list_loc_def])
+      mkNd n [left_insert p' n sep c; s'; c'])`
+  (simp[left_insert_def, mkNd_def, ptree_list_loc_def])
 
 val list_case_eq = Q.prove(
   ‘(list_CASE l n c = v) ⇔
@@ -1194,19 +1111,17 @@ val list_case_eq = Q.prove(
   Cases_on `l` >> simp[] >> metis_tac[]);
 
 
-val ptree_loc_left_insert = Q.store_thm(
-  "ptree_loc_left_insert",
-  ‘∀bpt n sep c.
+Theorem ptree_loc_left_insert
+  `‘∀bpt n sep c.
      valid_locs bpt ⇒
        ptree_loc (left_insert bpt n sep c) =
        merge_locs (ptree_loc c) (ptree_loc bpt)’,
   ho_match_mp_tac (theorem "left_insert_ind") >> simp[left_insert_def] >>
   simp[FORALL_PROD] >> rw[] >>
-  rpt (rename [`list_CASE subtl`] >>
+  rpt (rename [` (list_CASE subtl`] >>
        Cases_on `subtl` >> simp[ptree_list_loc_def]))
 
-val lassoc_reassociated = Q.store_thm(
-  "lassoc_reassociated",
+Theorem lassoc_reassociated
   `∀G P SEP C ppt spt cpt pf sf cf.
       G.rules ' P = {[NT P; SEP; C]; [C]} ⇒
       valid_lptree G ppt ∧ ptree_head ppt = NT P ∧
@@ -1223,8 +1138,8 @@ val lassoc_reassociated = Q.store_thm(
           MAP (TOK ## I) (pf ++ sf ++ cf) ∧
         leftLoc (ptree_loc cpt') = leftLoc (ptree_loc ppt) ∧
         rightLoc (ptree_loc ppt') = rightLoc (ptree_loc cpt) ∧
-        mkNd P [ppt; spt; cpt] = left_insert ppt' P spt' cpt'`,
-  rpt gen_tac >> strip_tac >>
+        mkNd P [ppt; spt; cpt] = left_insert ppt' P spt' cpt'`
+  (rpt gen_tac >> strip_tac >>
   map_every qid_spec_tac [`cf`, `sf`, `pf`, `cpt`, `spt`, `ppt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_SING, valid_lptree_def] >>
@@ -1256,11 +1171,10 @@ val lassoc_reassociated = Q.store_thm(
   fs[mkNd_def, ptree_list_loc_def, ptree_loc_left_insert] >>
   simp[merge_locs_LR])
 
-val left_insert_mk_linfix = Q.store_thm(
-  "left_insert_mk_linfix",
+Theorem left_insert_mk_linfix
   `left_insert (mk_linfix N acc arg) N s c =
-    mk_linfix N (left_insert acc N s c) arg`,
-  qid_spec_tac `acc` >> completeInduct_on `LENGTH arg` >> rw[] >>
+    mk_linfix N (left_insert acc N s c) arg`
+  (qid_spec_tac `acc` >> completeInduct_on `LENGTH arg` >> rw[] >>
   full_simp_tac (srw_ss() ++ DNF_ss)[] >>
   `arg = [] ∨ ∃h1 t. arg = h1::t` by (Cases_on `arg` >> simp[])
   >- simp[mk_linfix_def] >>
@@ -1268,10 +1182,9 @@ val left_insert_mk_linfix = Q.store_thm(
   >- simp[mk_linfix_def] >>
   rw[] >> simp[mk_linfix_def, left_insert_def]);
 
-val firstSets_nV_nConstructorName = Q.store_thm(
-  "firstSets_nV_nConstructorName",
-  `¬(t ∈ firstSet cmlG [NN nConstructorName] ∧ t ∈ firstSet cmlG [NN nV])`,
-  Cases_on `t ∈ firstSet cmlG [NN nV]` >> simp[] >>
+Theorem firstSets_nV_nConstructorName
+  `¬(t ∈ firstSet cmlG [NN nConstructorName] ∧ t ∈ firstSet cmlG [NN nV])`
+  (Cases_on `t ∈ firstSet cmlG [NN nV]` >> simp[] >>
   fs[firstSet_nV, firstSet_nConstructorName]);
 
 val elim_disjineq = Q.prove( `p \/ x ≠ y ⇔ (x = y ⇒ p)`, DECIDE_TAC)
@@ -1279,33 +1192,30 @@ val elim_det = Q.prove(`(!x. P x ⇔ (x = y)) ==> P y`, METIS_TAC[])
 
 val peg_det = CONJUNCT1 peg_deterministic
 
-val peg_seql_NONE_det = Q.store_thm(
-  "peg_seql_NONE_det",
+Theorem peg_seql_NONE_det
   `peg_eval G (i0, seql syms f) NONE ⇒
-    ∀f' r. peg_eval G (i0, seql syms f') r ⇔ r = NONE`,
-  Induct_on `syms` >> simp[] >> rpt strip_tac >>
+    ∀f' r. peg_eval G (i0, seql syms f') r ⇔ r = NONE`
+  (Induct_on `syms` >> simp[] >> rpt strip_tac >>
   rpt (first_x_assum (assume_tac o MATCH_MP peg_det)) >> simp[]);
 
-val peg_seql_NONE_append = Q.store_thm(
-  "peg_seql_NONE_append",
+Theorem peg_seql_NONE_append
   `∀i0 f. peg_eval G (i0, seql (l1 ++ l2) f) NONE ⇔
            peg_eval G (i0, seql l1 I) NONE ∨
            ∃i' r. peg_eval G (i0, seql l1 I) (SOME(i',r)) ∧
-                  peg_eval G (i', seql l2 I) NONE`,
-  Induct_on `l1` >> simp[] >- metis_tac [peg_seql_NONE_det] >>
+                  peg_eval G (i', seql l2 I) NONE`
+  (Induct_on `l1` >> simp[] >- metis_tac [peg_seql_NONE_det] >>
   map_every qx_gen_tac [`h`, `i0`] >>
   Cases_on `peg_eval G (i0,h) NONE` >> simp[] >>
   dsimp[] >> metis_tac[]);
 
-val peg_seql_SOME_append = Q.store_thm(
-  "peg_seql_SOME_append",
+Theorem peg_seql_SOME_append
   `∀i0 l2 f i r.
       peg_eval G (i0, seql (l1 ++ l2) f) (SOME(i,r)) ⇔
       ∃i' r1 r2.
           peg_eval G (i0, seql l1 I) (SOME(i',r1)) ∧
           peg_eval G (i', seql l2 I) (SOME(i,r2)) ∧
-          (r = f (r1 ++ r2))`,
-  Induct_on `l1` >> simp[]
+          (r = f (r1 ++ r2))`
+  (Induct_on `l1` >> simp[]
   >- (Induct_on `l2` >- simp[] >>
       ONCE_REWRITE_TAC [peg_eval_seql_CONS] >>
       simp_tac (srw_ss() ++ DNF_ss) []) >>
@@ -1313,26 +1223,24 @@ val peg_seql_SOME_append = Q.store_thm(
 
 fun has_const c = assert (Lib.can (find_term (same_const c)) o concl)
 
-val eOR_wrongtok = Q.store_thm(
-  "eOR_wrongtok",
+Theorem eOR_wrongtok
   `¬peg_eval cmlPEG ((RaiseT,loc)::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
     ¬peg_eval cmlPEG ((FnT,loc)::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
     ¬peg_eval cmlPEG ((CaseT,loc)::i0, nt (mkNT nElogicOR) I) (SOME(i,r)) ∧
-    ¬peg_eval cmlPEG ((IfT,loc)::i0, nt (mkNT nElogicOR) I) (SOME(i,r))`,
-  rpt conj_tac >>
+    ¬peg_eval cmlPEG ((IfT,loc)::i0, nt (mkNT nElogicOR) I) (SOME(i,r))`
+  (rpt conj_tac >>
   qmatch_abbrev_tac `¬peg_eval cmlPEG (ttk::i0, nt (mkNT nElogicOR) I) (SOME(i,r))` >>
   strip_tac >>
   `peg_eval cmlPEG (ttk::i0, nt (mkNT nElogicOR) I) NONE`
     suffices_by (first_assum (assume_tac o MATCH_MP peg_det) >> simp[]) >>
   simp[Abbr`ttk`, peg_respects_firstSets]);
 
-val nE'_nE = Q.store_thm(
-  "nE'_nE",
+Theorem nE'_nE
   `∀i0 i r.
       peg_eval cmlPEG (i0, nt (mkNT nE') I) (SOME(i,r)) ∧
       (i ≠ [] ⇒ FST (HD i) ≠ HandleT) ⇒
-      ∃r'. peg_eval cmlPEG (i0, nt (mkNT nE) I) (SOME(i,r'))`,
-  gen_tac >> completeInduct_on `LENGTH i0` >> gen_tac >> strip_tac >>
+      ∃r'. peg_eval cmlPEG (i0, nt (mkNT nE) I) (SOME(i,r'))`
+  (gen_tac >> completeInduct_on `LENGTH i0` >> gen_tac >> strip_tac >>
   full_simp_tac (srw_ss() ++ DNF_ss) [AND_IMP_INTRO] >>
   simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied] >>
   rpt strip_tac >> rveq >> simp[peg_eval_tok_NONE] >> fs[]
@@ -1356,14 +1264,13 @@ val nE'_nE = Q.store_thm(
   >- (rename [`FST tkl = RaiseT`] >> Cases_on `tkl` >> fs[] >> rveq >>
       fs[eOR_wrongtok]))
 
-val nE'_bar_nE = Q.store_thm(
-  "nE'_bar_nE",
+Theorem nE'_bar_nE
   `∀i0 i i' r r'.
         peg_eval cmlPEG (i0, nt (mkNT nE) I) (SOME(i,r)) ∧
         (i ≠ [] ⇒ FST (HD i) ≠ BarT ∧ FST (HD i) ≠ HandleT) ∧ i' ≠ [] ∧
         peg_eval cmlPEG (i0, nt (mkNT nE') I) (SOME(i',r')) ⇒
-        FST (HD i') ≠ BarT`,
-  gen_tac >> completeInduct_on `LENGTH i0` >> rpt strip_tac >>
+        FST (HD i') ≠ BarT`
+  (gen_tac >> completeInduct_on `LENGTH i0` >> rpt strip_tac >>
   full_simp_tac (srw_ss() ++ DNF_ss) [AND_IMP_INTRO] >> rw[] >>
   rpt (qpat_x_assum `peg_eval X Y Z` mp_tac) >>
   simp[peg_eval_NT_SOME] >>
@@ -1601,15 +1508,14 @@ end g
 val normlist = REWRITE_TAC [GSYM APPEND_ASSOC, listTheory.APPEND]
 
 
-val left_insert1_mkNd = Q.store_thm(
-  "left_insert1_mkNd",
-  ‘left_insert1 pt1 (mkNd (mkNT nEapp) [pt2]) =
+Theorem left_insert1_mkNd
+  `‘left_insert1 pt1 (mkNd (mkNT nEapp) [pt2]) =
    mkNd (mkNT nEapp) [mkNd (mkNT nEapp) [pt1]; pt2]’,
   simp[mkNd_def, left_insert1_def]);
 
 val eapp_complete = Q.store_thm(
   "eapp_complete",
-  `(∀pt' pfx' sfx' N.
+  ` ((∀pt' pfx' sfx' N.
        LENGTH pfx' < LENGTH master ∧ valid_lptree cmlG pt' ∧
        mkNT N ∈ FDOM cmlPEG.rules ∧
        ptree_head pt' = NN N ∧ real_fringe pt' = MAP (TK ## I) pfx' ∧
@@ -1686,20 +1592,18 @@ val eapp_complete = Q.store_thm(
                  REVERSE_11, listTheory.LENGTH_REVERSE] >>
   rveq >> simp[]);
 
-val peg_respects_firstSets' = Q.store_thm(
-  "peg_respects_firstSets'",
-  ‘peg_eval cmlPEG ((t,l) :: rest, nt N I) (SOME(sfx, res)) ∧
+Theorem peg_respects_firstSets'
+  `‘peg_eval cmlPEG ((t,l) :: rest, nt N I) (SOME(sfx, res)) ∧
    nt N I ∈ Gexprs cmlPEG ∧ ¬peg0 cmlPEG (nt N I) ⇒
    t ∈ firstSet cmlG [NT N]’,
   strip_tac >>
   mp_tac (CONV_RULE (STRIP_QUANT_CONV CONTRAPOS_CONV) peg_respects_firstSets) >>
-  disch_then (qspecl_then [`N`, `rest`, `t`, `l`] mp_tac) >> simp[] >>
+  disch_then (qspecl_then [` (N`, `rest`, `t`, `l`] mp_tac) >> simp[] >>
   disch_then irule >> strip_tac >>
   metis_tac[peg_deterministic, NOT_NONE_SOME])
 
-val nUQConstructorName_input_monotone = Q.store_thm(
-  "nUQConstructorName_input_monotone",
-  ‘peg_eval cmlPEG (i0, nt (mkNT nUQConstructorName) I) (SOME (i,r)) ⇒
+Theorem nUQConstructorName_input_monotone
+  `‘peg_eval cmlPEG (i0, nt (mkNT nUQConstructorName) I) (SOME (i,r)) ⇒
    peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nUQConstructorName) I)
      (SOME (i ++ sfx,r))’,
   simp[peg_eval_NT_SOME] >>
@@ -1714,7 +1618,7 @@ val nConstructorName_input_monotone = Q.store_thm(
   simp[]
   >- dsimp[EXISTS_PROD, nUQConstructorName_input_monotone] >>
   fs[peg_eval_seq_NONE] >>
-  rename [‘FST tkl = LongidT str s’] >> Cases_on `tkl` >> fs[] >> rveq >>
+  rename [‘FST tkl = LongidT str s’] >> Cases_on ` (tkl` >> fs[] >> rveq >>
   simp[peg_respects_firstSets, firstSet_nUQConstructorName]);
 
 val peg_eval_NT_NONE = save_thm(
@@ -1722,9 +1626,8 @@ val peg_eval_NT_NONE = save_thm(
   ``peg_eval cmlPEG (i0, nt (mkNT n) I) NONE``
      |> SIMP_CONV (srw_ss()) [Once peg_eval_cases])
 
-val nConstructorName_NONE_input_monotone = Q.store_thm(
-  "nConstructorName_NONE_input_monotone",
-  ‘peg_eval cmlPEG ((tk,l) :: i, nt (mkNT nConstructorName) I) NONE ⇒
+Theorem nConstructorName_NONE_input_monotone
+  `‘peg_eval cmlPEG ((tk,l) :: i, nt (mkNT nConstructorName) I) NONE ⇒
    peg_eval cmlPEG ((tk,l) :: (i ++ sfx), nt (mkNT nConstructorName) I) NONE’,
   simp[peg_eval_NT_NONE] >>
   simp[cmlpeg_rules_applied, FDOM_cmlPEG, EXISTS_PROD, peg_eval_seq_NONE,
@@ -1760,20 +1663,19 @@ val nTyOp_input_monotone = Q.store_thm(
    peg_eval cmlPEG (i0 ++ sfx, nt (mkNT nTyOp) I) (SOME(i++sfx,r))’,
   simp[peg_eval_NT_SOME] >> simp[cmlpeg_rules_applied, peg_eval_seq_NONE] >>
   strip_tac >> rveq >> simp[peg_eval_tok_NONE, nUQTyOp_input_monotone] >>
-  rename [‘isLongidT (FST tkl)’] >> Cases_on `tkl` >> fs[] >>
+  rename [‘isLongidT (FST tkl)’] >> Cases_on ` (tkl` >> fs[] >>
   simp[peg_eval_NT_NONE] >>
   simp[cmlpeg_rules_applied, peg_eval_tok_NONE, peg_eval_seq_NONE] >>
   rename [‘isLongidT tk’] >> Cases_on `tk` >> fs[]);
 
-val nTyOplist_input_monotone = Q.store_thm(
-  "nTyOplist_input_monotone",
-  ‘∀result i0 i sfx.
+Theorem nTyOplist_input_monotone
+  `‘∀result i0 i sfx.
      peg_eval_list cmlPEG (i0, nt (mkNT nTyOp) I) (i, result) ∧
      (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers nDType) ⇒
      peg_eval_list cmlPEG (i0 ++ sfx, nt (mkNT nTyOp) I) (i ++ sfx, result)’,
   Induct
   >- (ONCE_REWRITE_TAC [peg_eval_list] >> simp[] >> rpt strip_tac >>
-      Cases_on `i0` >> simp[]
+      Cases_on ` (i0` >> simp[]
       >- (Cases_on `sfx` >- simp[not_peg0_peg_eval_NIL_NONE] >> fs[] >>
           rename [‘FST tkl = _’] >> Cases_on `tkl` >>
           fs[peg_respects_firstSets]) >>
@@ -1793,15 +1695,14 @@ val peg_eval_TyOp_LparT = Q.prove(
   pop_assum (mp_then (Pos hd) mp_tac peg_respects_firstSets') >> simp[]);
 val _ = augment_srw_ss [rewrites [peg_eval_TyOp_LparT]]
 
-val Type_input_monotone = Q.store_thm(
-  "Type_input_monotone",
-  ‘∀N i0 i r sfx.
+Theorem Type_input_monotone
+  `‘∀N i0 i r sfx.
      N ∈ {nTypeList2; nTypeList1; nType; nPType; nDType; nTbase} ∧
      (i ≠ [] ⇒ FST (HD i) ∈ stoppers N) ∧
      (i = [] ∧ sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers N) ∧
      peg_eval cmlPEG (i0, nt (mkNT N) I) (SOME (i, r)) ⇒
      peg_eval cmlPEG (i0 ++ sfx, nt (mkNT N) I) (SOME (i ++ sfx, r))’,
-  ntac 2 gen_tac >> `?iN. iN = (i0,N)` by simp[] >> pop_assum mp_tac >>
+  ntac 2 gen_tac >> ` (?iN. iN = (i0,N)` by simp[] >> pop_assum mp_tac >>
   map_every qid_spec_tac [`i0`, `N`, `iN`] >>
   qispl_then [`measure (LENGTH:(token # locs) list->num) LEX
                measure (NT_rank o mkNT)`]
@@ -2257,9 +2158,8 @@ val Pattern_input_monotone = save_thm(
   "Pattern_input_monotone",
   SIMP_RULE bool_ss [FORALL_AND_THM] Pattern_input_monotone0)
 
-val extend_Pbase_list = Q.store_thm(
-  "extend_Pbase_list",
-  ‘∀results pfx sfx sfx' result.
+Theorem extend_Pbase_list
+  `‘∀results pfx sfx sfx' result.
      peg_eval_list cmlPEG (pfx, nt (mkNT nPbase) I) ([], results) ∧
      peg_eval cmlPEG (sfx, nt (mkNT nPbase) I) (SOME(sfx', result)) ∧
      (sfx' ≠ [] ⇒ FST (HD sfx') ∉ firstSet cmlG [NN nPbase]) ⇒
@@ -2267,7 +2167,7 @@ val extend_Pbase_list = Q.store_thm(
        (sfx', results ++ [result])’,
   Induct >> dsimp[Once peg_eval_list]
   >- (simp[Once peg_eval_list] >> simp[Once peg_eval_list] >>
-      rpt strip_tac >> Cases_on `sfx'` >>
+      rpt strip_tac >> Cases_on ` (sfx'` >>
       simp[not_peg0_peg_eval_NIL_NONE, peg0_nPbase] >> fs[] >>
       rename [`FST h ∉ _`] >> Cases_on `h` >> fs[peg_respects_firstSets]) >>
   rpt strip_tac >> fs[] >>
@@ -2279,9 +2179,8 @@ val extend_Pbase_list = Q.store_thm(
   simp[] >>
   disch_then (assume_tac o MATCH_MP (CONJUNCT1 peg_deterministic)) >> simp[])
 
-val papp_complete = Q.store_thm(
-  "papp_complete",
-  ‘(∀pt' pfx' N sfx'.
+Theorem papp_complete
+  `‘(∀pt' pfx' N sfx'.
      LENGTH pfx' < LENGTH master ∧ valid_lptree cmlG pt' ∧
      mkNT N ∈ FDOM cmlPEG.rules ∧ ptree_head pt' = NN N ∧
      real_fringe pt' = MAP (TK ## I) pfx' ∧
@@ -2313,7 +2212,7 @@ val papp_complete = Q.store_thm(
                      (FLAT bpts))’,
   strip_tac >> gen_tac >> completeInduct_on ‘LENGTH pfx’ >> rpt strip_tac >>
   rveq >>
-  `∃subs. accpt = mkNd (mkNT nPConApp) subs`
+  ` (∃subs. accpt = mkNd (mkNT nPConApp) subs`
     by metis_tac[ptree_head_NT_mkNd] >>
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, cmlG_FDOM, cmlG_applied, valid_lptree_thm] >>
   rw[] >>
@@ -2375,9 +2274,8 @@ val papp_complete = Q.store_thm(
   simp[FOLDL_APPEND])
 
 
-val leftmost_mkNd_DType = Q.store_thm(
-  "leftmost_mkNd_DType[simp]",
-  ‘leftmost (mkNd (mkNT nDType) (c::cs)) = leftmost c’,
+Theorem leftmost_mkNd_DType[simp]
+  `‘leftmost (mkNd (mkNT nDType) (c::cs)) = leftmost c’,
   simp[leftmost_def, mkNd_def]);
 
 val leftmost_mkNd_Tbase = Q.store_thm(
@@ -2387,19 +2285,18 @@ val leftmost_mkNd_Tbase = Q.store_thm(
 
 val leftmost_FOLDL = Q.store_thm(
   "leftmost_FOLDL",
-  `leftmost (FOLDL (λa b. mkNd (mkNT nDType) [a;b]) acc args) =
+  ` (leftmost (FOLDL (λa b. mkNd (mkNT nDType) [a;b]) acc args) =
     leftmost acc`,
   qid_spec_tac `acc` >> Induct_on `args` >> simp[]);
 
-val left_insert2_mkNd = Q.store_thm(
-  "left_insert2_mkNd[simp]",
-  ‘left_insert2 bpt (mkNd (mkNT nDType) [mkNd n [sub]]) =
+Theorem left_insert2_mkNd[simp]
+  `‘left_insert2 bpt (mkNd (mkNT nDType) [mkNd n [sub]]) =
    mkNd (mkNT nDType) [mkNd (mkNT nDType) [bpt]; sub]’,
   simp[left_insert2_def, mkNd_def, ptree_list_loc_def]);
 
 val dtype_complete = Q.store_thm(
   "dtype_complete",
-  `(∀pt' pfx' sfx' N.
+  ` ((∀pt' pfx' sfx' N.
        LENGTH pfx' < LENGTH master ∧ valid_lptree cmlG pt' ∧
        mkNT N ∈ FDOM cmlPEG.rules ∧
        ptree_head pt' = NN N ∧ real_fringe pt' = MAP (TK ## I) pfx' ∧
@@ -2507,8 +2404,7 @@ val dtype_complete = Q.store_thm(
      (sfx ≠ [] ∧ nullable cmlG [SEP] ⇒ HD sfx ∉ firstSet cmlG [C])
    and I can't be bothered with that right now. *)
 
-val peg_linfix_complete = Q.store_thm(
-  "peg_linfix_complete",
+Theorem peg_linfix_complete
   `(∀n. SEP = NT n ⇒
          ∃nn. n = mkNT nn ∧ nt (mkNT nn) I ∈ Gexprs cmlPEG ∧
               stoppers nn = UNIV) ∧
@@ -2542,8 +2438,8 @@ val peg_linfix_complete = Q.store_thm(
   ⇒
       peg_eval cmlPEG (pfx ++ sfx,
                        peg_linfix (mkNT P) (sym2peg C) (sym2peg SEP))
-                      (SOME(sfx,[pt]))`,
-  strip_tac >>
+                      (SOME(sfx,[pt]))`
+  (strip_tac >>
   simp[peg_linfix_def, list_case_lemma, peg_eval_rpt] >> dsimp[] >>
   gen_tac >>
   completeInduct_on `LENGTH pfx` >> rpt strip_tac >>
@@ -2661,25 +2557,23 @@ val pmap_cases =
          ORELSE
        (rename [`(_ ## _) pair = (_,_)`] >> Cases_on `pair` >> fs[] >> rveq))
 
-val ptPapply0_FOLDL = Q.store_thm(
-  "ptPapply0_FOLDL",
-  ‘∀l a pt.
+Theorem ptPapply0_FOLDL
+  `‘∀l a pt.
      ptPapply0 a (l ++ [pt]) =
      [bindNT0 nPapp [FOLDL (λpcpt bpt. bindNT0 nPConApp [pcpt; bpt]) a l;
                      pt]]’,
-  Induct >> simp[ptPapply0_def] >> Cases_on `l` >> simp[ptPapply0_def] >>
+  Induct >> simp[ptPapply0_def] >> Cases_on ` (l` >> simp[ptPapply0_def] >>
   fs[]);
 
-val completeness = Q.store_thm(
-  "completeness",
-  ‘∀pt N pfx sfx.
+Theorem completeness
+  `‘∀pt N pfx sfx.
       valid_lptree cmlG pt ∧ ptree_head pt = NT (mkNT N) ∧
       mkNT N ∈ FDOM cmlPEG.rules ∧
       (sfx ≠ [] ⇒ FST (HD sfx) ∈ stoppers N) ∧
       real_fringe pt = MAP (TOK ## I) pfx
      ⇒
       peg_eval cmlPEG (pfx ++ sfx, nt (mkNT N) I) (SOME(sfx, [pt]))’,
-  ho_match_mp_tac parsing_ind >> qx_gen_tac `pt` >>
+  ho_match_mp_tac parsing_ind >> qx_gen_tac ` (pt` >>
   disch_then (strip_assume_tac o SIMP_RULE (srw_ss() ++ DNF_ss) []) >>
   RULE_ASSUM_TAC (SIMP_RULE (srw_ss() ++ CONJ_ss) [AND_IMP_INTRO]) >>
   map_every qx_gen_tac [`N`, `pfx`, `sfx`] >> strip_tac >> fs[] >>
@@ -4056,15 +3950,14 @@ val completeness = Q.store_thm(
   fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM,
      peg_eval_tok_NONE, mkNd_def] >> pmap_cases);
 
-val cmlG_unambiguous = Q.store_thm(
-  "cmlG_unambiguous",
+Theorem cmlG_unambiguous
   `valid_lptree cmlG pt1 ∧ ptree_head pt1 = NT (mkNT N) ∧
    valid_lptree cmlG pt2 ∧ ptree_head pt2 = NT (mkNT N) ∧
    mkNT N ∈ FDOM cmlPEG.rules ∧ (* e.g., nTopLevelDecs *)
    real_fringe pt2 = real_fringe pt1 ∧
    (∀s. s ∈ set (ptree_fringe pt1) ⇒ ∃t. s = TOK t) ⇒
-     pt1 = pt2`,
-  rpt strip_tac >>
+     pt1 = pt2`
+  (rpt strip_tac >>
   `∃pfx. real_fringe pt1 = MAP (TK ## I) pfx`
     by (Q.UNDISCH_THEN `real_fringe pt2 = real_fringe pt1` kall_tac >>
         fs[ptree_fringe_real_fringe, MEM_MAP, GSYM LEFT_FORALL_IMP_THM] >>

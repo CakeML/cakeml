@@ -33,12 +33,12 @@ val collect_args_more = Q.prove (
   res_tac >>
   decide_tac);
 
-val collect_args_zero = Q.store_thm("collect_args_zero",
+Theorem collect_args_zero
   `!max_app num_args e e'.
     collect_args max_app num_args e = (0, e')
     ⇒
-    num_args = 0`,
-  ho_match_mp_tac collect_args_ind >>
+    num_args = 0`
+  (ho_match_mp_tac collect_args_ind >>
   srw_tac[][collect_args_def] >>
   srw_tac[][collect_args_def] >>
   full_simp_tac(srw_ss())[]);
@@ -137,18 +137,18 @@ val intro_multi_def = tDefine "intro_multi" `
 
 val intro_multi_ind = theorem "intro_multi_ind";
 
-val intro_multi_length = Q.store_thm("intro_multi_length",
-  `!max_app es. LENGTH (intro_multi max_app es) = LENGTH es`,
-  recInduct intro_multi_ind >>
+Theorem intro_multi_length
+  `!max_app es. LENGTH (intro_multi max_app es) = LENGTH es`
+  (recInduct intro_multi_ind >>
   srw_tac[][intro_multi_def] >>
   Cases_on `intro_multi max_app [e1]` >>
   full_simp_tac(srw_ss())[] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[]);
 
-val intro_multi_sing = Q.store_thm ("intro_multi_sing",
-  `!e max_app. ?e'. intro_multi max_app [e] = [e']`,
-  Induct_on `e` >>
+Theorem intro_multi_sing
+  `!e max_app. ?e'. intro_multi max_app [e] = [e']`
+  (Induct_on `e` >>
   srw_tac[][intro_multi_def] >>
   TRY (rename1 `App _ loc e es` >> Cases_on `loc`) >>
   TRY (rename1 `Fn _ loc vars num_args e` >> Cases_on `loc` >> Cases_on `vars`) >>
@@ -159,13 +159,12 @@ val intro_multi_sing = Q.store_thm ("intro_multi_sing",
   TRY (Cases_on `collect_apps max_app es e`) >>
   full_simp_tac(srw_ss())[]);
 
-val collect_args_idem = Q.store_thm (
-  "collect_args_idem",
+Theorem collect_args_idem
   `!max_app num_args e num_args' e'.
     collect_args max_app num_args e = (num_args', e')
     ⇒
-    collect_args max_app num_args' (HD (intro_multi max_app [e'])) = (num_args', (HD (intro_multi max_app [e'])))`,
-  ho_match_mp_tac collect_args_ind >>
+    collect_args max_app num_args' (HD (intro_multi max_app [e'])) = (num_args', (HD (intro_multi max_app [e'])))`
+  (ho_match_mp_tac collect_args_ind >>
   srw_tac[][collect_args_def, intro_multi_def] >>
   srw_tac[][collect_args_def, intro_multi_def] >>
   full_simp_tac(srw_ss())[NOT_LESS_EQUAL]
@@ -181,13 +180,12 @@ val collect_args_idem = Q.store_thm (
      Cases_on `locopt` >> Cases_on `fvsopt` >>
      rw[intro_multi_def, collect_args_def]));
 
-val collect_apps_idem = Q.store_thm (
-  "collect_apps_idem",
+Theorem collect_apps_idem
   `!max_app args e args' e'.
     collect_apps max_app args e = (args', e')
     ⇒
-    collect_apps max_app (intro_multi max_app args') (HD (intro_multi max_app [e'])) = (intro_multi max_app args', (HD (intro_multi max_app [e'])))`,
-  ho_match_mp_tac collect_apps_ind >>
+    collect_apps max_app (intro_multi max_app args') (HD (intro_multi max_app [e'])) = (intro_multi max_app args', (HD (intro_multi max_app [e'])))`
+  (ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def, intro_multi_def] >>
   srw_tac[][collect_apps_def, intro_multi_def] >>
   full_simp_tac(srw_ss())[NOT_LESS_EQUAL]
@@ -208,9 +206,9 @@ val collect_apps_idem = Q.store_thm (
    simp[collect_apps_def, intro_multi_def]
  ]);
 
-val intro_multi_idem = Q.store_thm("intro_multi_idem",
-  `!max_app e. intro_multi max_app (intro_multi max_app e) = intro_multi max_app e`,
-  ho_match_mp_tac intro_multi_ind >>
+Theorem intro_multi_idem
+  `!max_app e. intro_multi max_app (intro_multi max_app e) = intro_multi max_app e`
+  (ho_match_mp_tac intro_multi_ind >>
   srw_tac[][intro_multi_def] >>
   srw_tac[][intro_multi_def]
   >- metis_tac [intro_multi_sing, HD]
@@ -245,7 +243,7 @@ val compile_def = Define`
   compile F max_app exps = exps /\
   compile T max_app exps = intro_multi max_app exps`
 
-val compile_nil = Q.store_thm("compile_nil[simp]",
-  `compile do_mti max_app [] = []`, Cases_on`do_mti` \\ EVAL_TAC);
+Theorem compile_nil[simp]
+  `compile do_mti max_app [] = []` (Cases_on`do_mti` \\ EVAL_TAC);
 
 val _ = export_theory()

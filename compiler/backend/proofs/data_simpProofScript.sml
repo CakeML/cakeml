@@ -30,8 +30,8 @@ val evaluate_simp = Q.prove(
   \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
   \\ every_case_tac >> fs[evaluate_def]);
 
-val simp_correct = Q.store_thm("simp_correct",
-  `!c s. evaluate (simp c Skip,s) = evaluate (c,s)`,
-  SIMP_TAC std_ss [evaluate_simp,evaluate_Seq_Skip]);
+Theorem simp_correct
+  `!c s. evaluate (simp c Skip,s) = evaluate (c,s)`
+  (SIMP_TAC std_ss [evaluate_simp,evaluate_Seq_Skip]);
 
 val _ = export_theory();

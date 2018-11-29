@@ -31,15 +31,15 @@ val LENGTH_data =
 val _ = overload_on("reader_machine_config",
     ``ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)``);
 
-val target_state_rel_reader_start_asm_state = Q.store_thm("target_state_rel_reader_start_asm_state",
+Theorem target_state_rel_reader_start_asm_state
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms ⇒
    ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
-         ((FUNPOW Next n ms).MEM x = ms.MEM x))`,
-  strip_tac
+         ((FUNPOW Next n ms).MEM x = ms.MEM x))`
+  (strip_tac
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
@@ -71,14 +71,14 @@ val compile_correct_applied =
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
 
-val reader_installed = Q.store_thm("reader_installed",
+Theorem reader_installed
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.ffi_names (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (reader_machine_config) (FUNPOW Next (reader_startup_clock ms0 inp cl) ms0)`,
-  rewrite_tac[ffi_names, THE_DEF]
+     (reader_machine_config) (FUNPOW Next (reader_startup_clock ms0 inp cl) ms0)`
+  (rewrite_tac[ffi_names, THE_DEF]
   \\ strip_tac
   \\ irule ag32_installed
   \\ drule reader_startup_clock_def
@@ -110,7 +110,7 @@ val all_lines_stdin_fs = Q.prove (
    lines_of (implode inp)`,
   EVAL_TAC);
 
-val reader_extract_writes = Q.store_thm("reader_extract_writes",
+Theorem reader_extract_writes
   `wfcl cl /\
    (LENGTH cl = 1)
    ==>
@@ -128,8 +128,8 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
               (thyof refs.the_context, asl) |= c)) /\
          refs.the_context extends init_ctxt /\
          (out = explode (msg_success s refs.the_context)) /\ (err = "")
-     | _ => F`,
-  strip_tac \\ fs []
+     | _ => F`
+  (strip_tac \\ fs []
   \\ mp_tac (GEN_ALL (DISCH_ALL reader_output))
   \\ disch_then (qspecl_then [`stdin_fs inp`, `cl`] mp_tac)
   \\ fs [wfFS_stdin_fs, STD_streams_stdin_fs, LENGTH_EQ_NUM_compute]
@@ -207,7 +207,7 @@ val reader_extract_writes = Q.store_thm("reader_extract_writes",
   \\ rw [OPTREL_def]
   \\ CCONTR_TAC \\ fs [] \\ rw []);
 
-val reader_ag32_next = Q.store_thm("reader_ag32_next",
+Theorem reader_ag32_next
   `SUM (MAP strlen cl) + LENGTH cl <= cline_size /\
    LENGTH inp <= stdin_size /\
    wfcl cl /\
@@ -221,8 +221,8 @@ val reader_ag32_next = Q.store_thm("reader_ag32_next",
        (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) /\
        outs ≼ MAP get_output_io_event (reader_io_events cl (stdin_fs inp)) /\
        ((ms.R (n2w (reader_machine_config).ptr_reg) = 0w) ==>
-        (outs = MAP get_output_io_event (reader_io_events cl (stdin_fs inp))))`,
-  strip_tac
+        (outs = MAP get_output_io_event (reader_io_events cl (stdin_fs inp))))`
+  (strip_tac
   \\ mp_tac (GEN_ALL reader_machine_sem)
   \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
   \\ disch_then (qspec_then `cl` mp_tac)

@@ -439,9 +439,9 @@ val riscv_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-val riscv_encoder_correct = Q.store_thm ("riscv_encoder_correct",
-   `encoder_correct riscv_target`,
-   simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
+Theorem riscv_encoder_correct
+   `encoder_correct riscv_target`
+   (simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel riscv_target`
    \\ rw [riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

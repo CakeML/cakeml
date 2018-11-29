@@ -25,23 +25,23 @@ val state_co_def = Define `
          in
            (cfg,progs)))`;
 
-val FST_state_co = Q.store_thm("FST_state_co",
-  `FST (state_co f co n) = SND(FST(co n))`,
-  rw[state_co_def,UNCURRY]);
+Theorem FST_state_co
+  `FST (state_co f co n) = SND(FST(co n))`
+  (rw[state_co_def,UNCURRY]);
 
-val SND_state_co = Q.store_thm("SND_state_co",
-  `SND (state_co f co n) = SND (f (FST(FST(co n))) (SND(co n)))`,
-  EVAL_TAC \\ pairarg_tac \\ fs[] \\ rw[UNCURRY]);
+Theorem SND_state_co
+  `SND (state_co f co n) = SND (f (FST(FST(co n))) (SND(co n)))`
+  (EVAL_TAC \\ pairarg_tac \\ fs[] \\ rw[UNCURRY]);
 
 val pure_co_def = Define `
   pure_co f = I ## f`;
 
-val SND_pure_co = Q.store_thm("SND_pure_co[simp]",
-  `SND (pure_co co x) = co (SND x)`,
-  Cases_on`x` \\ EVAL_TAC);
+Theorem SND_pure_co[simp]
+  `SND (pure_co co x) = co (SND x)`
+  (Cases_on`x` \\ EVAL_TAC);
 
-val FST_pure_co = Q.store_thm("FST_pure_co[simp]",
-  `FST (pure_co co x) = FST x`,
-  Cases_on`x` \\ EVAL_TAC);
+Theorem FST_pure_co[simp]
+  `FST (pure_co co x) = FST x`
+  (Cases_on`x` \\ EVAL_TAC);
 
 val _ = export_theory();

@@ -11,7 +11,7 @@ val _ = new_theory "readerIOProof"
 (* Wrappers are ok                                                           *)
 (* ------------------------------------------------------------------------- *)
 
-val readLine_wrap_thm = Q.store_thm("readLine_wrap_thm",
+Theorem readLine_wrap_thm
   `READER_STATE defs s /\
    STATE defs refs /\
    readLine_wrap (l, s) refs = (res, refs')
@@ -19,19 +19,19 @@ val readLine_wrap_thm = Q.store_thm("readLine_wrap_thm",
    ?ds x.
      res = Success x /\
      STATE (ds ++ defs) refs' /\
-     !s. x = INR s ==> READER_STATE (ds ++ defs) s`,
-  rw [readLine_wrap_def, handle_Fail_def, st_ex_bind_def,
+     !s. x = INR s ==> READER_STATE (ds ++ defs) s`
+  (rw [readLine_wrap_def, handle_Fail_def, st_ex_bind_def,
       st_ex_return_def, case_eq_thms]
   \\ fs []
   \\ metis_tac [readLine_thm, APPEND_NIL]);
 
-val init_reader_wrap_thm = Q.store_thm("init_reader_wrap_thm",
+Theorem init_reader_wrap_thm
   `init_reader_wrap () init_refs = (res, refs')
    ==>
    ?defs x.
      res = Success x /\
-     STATE defs refs'`,
-  rw [init_reader_wrap_def, handle_Fail_def, st_ex_bind_def, st_ex_return_def,
+     STATE defs refs'`
+  (rw [init_reader_wrap_def, handle_Fail_def, st_ex_bind_def, st_ex_return_def,
       case_eq_thms] \\ fs []
   \\ metis_tac [init_reader_ok]);
 
@@ -39,11 +39,11 @@ val init_reader_wrap_thm = Q.store_thm("init_reader_wrap_thm",
 (* Monadic I/O reader preserves invariants                                   *)
 (* ------------------------------------------------------------------------- *)
 
-val ffi_msg_simp = Q.store_thm("ffi_msg_simp[simp]",
-  `ffi_msg msg s = (Success (), s)`,
-  rw [ffi_msg_def, st_ex_return_def]);
+Theorem ffi_msg_simp[simp]
+  `ffi_msg msg s = (Success (), s)`
+  (rw [ffi_msg_def, st_ex_return_def]);
 
-val readLines_thm = Q.store_thm("readLines_thm",
+Theorem readLines_thm
   `!s lines res st st1 defs.
      STATE defs st.holrefs /\
      READER_STATE defs s /\
@@ -51,8 +51,8 @@ val readLines_thm = Q.store_thm("readLines_thm",
      ==>
      ?ds x.
        res = Success () /\
-       STATE (ds ++ defs) st1.holrefs`,
-  recInduct readLines_ind \\ rw []
+       STATE (ds ++ defs) st1.holrefs`
+  (recInduct readLines_ind \\ rw []
   \\ pop_assum mp_tac
   \\ simp [Once readLines_def]
   \\ fs [st_ex_return_def, st_ex_bind_def, liftM_def]
@@ -83,12 +83,12 @@ val readLines_thm = Q.store_thm("readLines_thm",
   \\ rpt (disch_then drule) \\ rw []
   \\ metis_tac []);
 
-val readMain_thm = Q.store_thm("readMain_thm",
+Theorem readMain_thm
   `readMain () (c with holrefs := init_refs) = (res, c')
    ==>
    res = Success () /\
-   ?ds. STATE ds c'.holrefs`,
-  rw [readMain_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
+   ?ds. STATE ds c'.holrefs`
+  (rw [readMain_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
       arguments_def, inputLinesFrom_def, print_err_def, print_def, bool_case_eq,
       COND_RATOR, liftM_def, readFile_def]
   \\ pop_assum mp_tac
@@ -123,18 +123,18 @@ val readMain_thm = Q.store_thm("readMain_thm",
 (* Monadic I/O reader satisfies I/O specification                            *)
 (* ------------------------------------------------------------------------- *)
 
-val readLine_wrap_correct = Q.store_thm("readLine_wrap_correct",
+Theorem readLine_wrap_correct
   `readLine_wrap (line, s) refs = (res, refs_out) /\
    process_line s refs line = res_p
    ==>
    case res of
      Success (INL s) (* Error *) => res_p = (INR s, refs_out)
    | Success (INR s) (* Ok *)    => res_p = (INL s, refs_out)
-   | _ => F (* Does not happen *)`,
-  rw [readLine_wrap_def, handle_Fail_def, st_ex_bind_def, st_ex_return_def,
+   | _ => F (* Does not happen *)`
+  (rw [readLine_wrap_def, handle_Fail_def, st_ex_bind_def, st_ex_return_def,
       process_line_def, case_eq_thms] \\ fs []);
 
-val readLine_EQ = Q.store_thm("readLine_EQ",
+Theorem readLine_EQ
   `readLine_wrap (line, s) refs = (res1, t1) /\
    ~invalid_line line /\
    readLine (unescape_ml (fix_fun_typ (str_prefix line))) s refs = (res2, t2)
@@ -143,15 +143,15 @@ val readLine_EQ = Q.store_thm("readLine_EQ",
    case res1 of
      Success (INL e) => res2 = Failure (Fail e)
    | Success (INR s) => res2 = Success s
-   | _ => F`,
-  rw [readLine_wrap_def, st_ex_bind_def, st_ex_return_def, handle_Fail_def,
+   | _ => F`
+  (rw [readLine_wrap_def, st_ex_bind_def, st_ex_return_def, handle_Fail_def,
       case_eq_thms] \\ fs []);
 
-val readLine_wrap_invalid_line = Q.store_thm("readLine_wrap_invalid_line",
-  `invalid_line h ==> readLine_wrap (h, s) c = (Success (INR s), c)`,
-  rw [readLine_wrap_def, st_ex_return_def]);
+Theorem readLine_wrap_invalid_line
+  `invalid_line h ==> readLine_wrap (h, s) c = (Success (INR s), c)`
+  (rw [readLine_wrap_def, st_ex_return_def]);
 
-val readLines_EQ = Q.store_thm("readLines_EQ",
+Theorem readLines_EQ
   `!s line c res1 c_out res2 refs.
      readLines s line c = (res1, c_out) /\
      readLines line s c.holrefs = (res2, refs)
@@ -162,8 +162,8 @@ val readLines_EQ = Q.store_thm("readLines_EQ",
        Success (s,_) =>
          c_out.stdio = add_stdout c.stdio (msg_success s refs.the_context)
      | Failure (Fail e) => c_out.stdio = add_stderr c.stdio e
-     | _ => F`,
-  recInduct readLines_ind \\ rw []
+     | _ => F`
+  (recInduct readLines_ind \\ rw []
   \\ pop_assum mp_tac \\ simp [Once readerTheory.readLines_def]
   \\ pop_assum mp_tac \\ simp [Once readLines_def]
   \\ `!x. x with holrefs := x.holrefs = x`
@@ -182,23 +182,23 @@ val readLines_EQ = Q.store_thm("readLines_EQ",
   \\ imp_res_tac readLine_EQ \\ fs [] \\ rw []
   \\ first_x_assum drule \\ simp []);
 
-val readFile_correct = Q.store_thm("readFile_correct",
+Theorem readFile_correct
   `readFile fname c = (res, c_out) /\
    read_file c.stdio c.holrefs fname = (succ, fs, refs, fstate)
    ==>
-   res = Success () /\ fs = c_out.stdio /\ refs = c_out.holrefs`,
-  rw [readFile_def, read_file_def, st_ex_bind_def, st_ex_return_def,
+   res = Success () /\ fs = c_out.stdio /\ refs = c_out.holrefs`
+  (rw [readFile_def, read_file_def, st_ex_bind_def, st_ex_return_def,
       case_eq_thms]
   \\ TRY (Cases_on `lines` \\ fs [])
   \\ fs [liftM_def, print_err_def, print_def, inputLinesFrom_def] \\ rw []
   \\ imp_res_tac readLines_EQ \\ fs [] \\ rfs []);
 
-val readMain_correct = Q.store_thm ("readMain_correct",
+Theorem readMain_correct
   `readMain () c = (res, c_out) /\
    reader_main c.stdio c.holrefs (TL c.cl) = (succ, fs, refs, fstate)
    ==>
-   res = Success () /\ fs = c_out.stdio`,
-  simp [readMain_def, st_ex_bind_def, case_eq_thms, arguments_def, liftM_def,
+   res = Success () /\ fs = c_out.stdio`
+  (simp [readMain_def, st_ex_bind_def, case_eq_thms, arguments_def, liftM_def,
         print_err_def, init_reader_wrap_def, handle_Fail_def, st_ex_return_def,
         st_ex_bind_def]
   \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
@@ -217,12 +217,12 @@ val readMain_correct = Q.store_thm ("readMain_correct",
 (* Preserving the commandline is crucial                                     *)
 (* ------------------------------------------------------------------------- *)
 
-val readLines_COMMANDLINE_pres = Q.store_thm("readLines_COMMANDLINE_pres",
+Theorem readLines_COMMANDLINE_pres
   `!s line sr res tr.
      readLines s line sr = (res, tr)
      ==>
-     tr.cl = sr.cl`,
-  recInduct readLines_ind
+     tr.cl = sr.cl`
+  (recInduct readLines_ind
   \\ gen_tac \\ Cases \\ strip_tac
   \\ rw [Once readLines_def, print_def, liftM_def, st_ex_bind_def,
          st_ex_return_def]
@@ -233,11 +233,11 @@ val readLines_COMMANDLINE_pres = Q.store_thm("readLines_COMMANDLINE_pres",
   \\ rw [UNCURRY] \\ fs []
   \\ first_x_assum drule \\ fs []);
 
-val readMain_COMMANDLINE_pres  = Q.store_thm("readMain_COMMANDLINE_pres",
+Theorem readMain_COMMANDLINE_pres
   `readMain () c = (res, d)
    ==>
-   c.cl = d.cl`,
-  simp [readMain_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
+   c.cl = d.cl`
+  (simp [readMain_def, st_ex_bind_def, st_ex_return_def, case_eq_thms,
         readFile_def, liftM_def, arguments_def, print_err_def]
   \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
   \\ fs [ELIM_UNCURRY] \\ rw [] \\ fs []

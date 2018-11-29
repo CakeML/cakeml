@@ -58,9 +58,9 @@ val st = ml_progLib.add_prog bytearray_fromlist ml_progLib.pick_name basis_st
    from the exported theorems of the current theories.
    As we want to use length in fromList, we store its specification.
 *)
-val list_length_spec = store_thm ("list_length_spec",
+Theorem list_length_spec
 
-(* Toplevel specifications are of the form:
+`(* Toplevel specifications are of the form:
    !x1..xn argv1.. argvm.
      facts_about_xi_argvj x1 .. xn .. argv1 .. argvm ==>
      app (p:'ffi ffi_proj) ^(fetch_v "name" st) [argv1, argv2,...]
@@ -111,7 +111,7 @@ val list_length_spec = store_thm ("list_length_spec",
        [Qe] (also of type [v -> hprop]) is the post-condition for when
        the function raises an exception.
 *)
-  ``!a l lv.
+  ` (!a l lv.
      LIST_TYPE a l lv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "length" st) [lv]
        emp (POSTv v. & NUM (LENGTH l) v)``,

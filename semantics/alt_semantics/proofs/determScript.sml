@@ -8,7 +8,7 @@ val _ = new_theory "determ";
 
 val s = ``s:'ffi state``;
 
-val big_exp_determ = Q.store_thm ("big_exp_determ",
+Theorem big_exp_determ
   `(∀ck env ^s e r1.
      evaluate ck env s e r1 ⇒
      ∀r2. evaluate ck env s e r2 ⇒
@@ -20,8 +20,8 @@ val big_exp_determ = Q.store_thm ("big_exp_determ",
    (∀ck env ^s v pes err_v r1.
      evaluate_match ck env s v pes err_v r1 ⇒
      ∀r2. evaluate_match ck env s v pes err_v r2 ⇒
-     (r1 = r2))`,
-HO_MATCH_MP_TAC evaluate_ind >>
+     (r1 = r2))`
+(HO_MATCH_MP_TAC evaluate_ind >>
 rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_cases]) >>
 fs [] >>
@@ -35,7 +35,7 @@ fs [] >>
 rw [] >>
 metis_tac []);
 
-val decs_determ = Q.store_thm ("decs_determ",
+Theorem decs_determ
 `(!ck env (s:'a state) d r1.
   evaluate_dec ck env s d r1 ⇒
   !r2.
@@ -47,8 +47,8 @@ val decs_determ = Q.store_thm ("decs_determ",
   !r2.
     evaluate_decs ck env s ds r2
     ⇒
-    (r1 = r2))`,
-HO_MATCH_MP_TAC evaluate_dec_ind >>
+    (r1 = r2))`
+(HO_MATCH_MP_TAC evaluate_dec_ind >>
 rw [] >>
 pop_assum mp_tac >>
 simp [Once evaluate_dec_cases] >>
@@ -58,26 +58,26 @@ metis_tac [big_exp_determ, result_11, result_distinct,PAIR_EQ,NOT_EXISTS,
            NOT_EVERY, match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
            (*
-val top_determ = Q.store_thm ("top_determ",
+Theorem top_determ
 `!ck env s top r1.
   evaluate_top ck env s top r1 ⇒
   !r2.
     evaluate_top ck env s top r2
     ⇒
-    (r1 = r2)`,
-rw [evaluate_top_cases] >>
+    (r1 = r2)`
+(rw [evaluate_top_cases] >>
 metis_tac [dec_determ, result_11, result_distinct,PAIR_EQ,
            match_result_11, match_result_distinct, optionTheory.SOME_11,
            decs_determ]);
 
-val prog_determ = Q.store_thm ("prog_determ",
+Theorem prog_determ
 `!ck env s ds r1.
   evaluate_prog ck env s ds r1 ⇒
   !r2.
     evaluate_prog ck env s ds r2
     ⇒
-    (r1 = r2)`,
-HO_MATCH_MP_TAC evaluate_prog_ind >>
+    (r1 = r2)`
+(HO_MATCH_MP_TAC evaluate_prog_ind >>
 rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_prog_cases]) >>
 fs [] >>
@@ -85,14 +85,14 @@ rw [] >>
 metis_tac [top_determ, result_11, result_distinct,PAIR_EQ,
            match_result_11, match_result_distinct, optionTheory.SOME_11]);
 
-val whole_prog_determ = Q.store_thm ("whole_prog_determ",
+Theorem whole_prog_determ
 `!ck env s ds r1.
   evaluate_whole_prog ck env s ds r1 ⇒
   !r2.
     evaluate_whole_prog ck env s ds r2
     ⇒
-    (r1 = r2)`,
- rw [] >>
+    (r1 = r2)`
+ (rw [] >>
  PairCases_on `r1` >>
  PairCases_on `r2` >>
  fs [evaluate_whole_prog_def] >>

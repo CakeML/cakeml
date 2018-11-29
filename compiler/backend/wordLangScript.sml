@@ -14,9 +14,9 @@ val _ = Datatype `
       | Op binop (exp list)
       | Shift shift exp num`
 
-val MEM_IMP_exp_size = Q.store_thm("MEM_IMP_exp_size",
-  `!xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)`,
-  Induct \\ FULL_SIMP_TAC (srw_ss()) []
+Theorem MEM_IMP_exp_size
+  `!xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)`
+  (Induct \\ FULL_SIMP_TAC (srw_ss()) []
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
   \\ RES_TAC \\ DECIDE_TAC);
 

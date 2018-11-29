@@ -1690,13 +1690,13 @@ val evaluate_change_state = Q.prove(
    evaluate a b c' d (e',f)`,
    srw_tac[][] >> srw_tac[][]) |> GEN_ALL;
 
-val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
+Theorem small_big_exp_equiv
 `!env s e s' r.
   (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧
    s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧ s.next_exn_stamp= s'.next_exn_stamp)
   ⇔
-  evaluate F env s e (s',r)`,
- srw_tac[][] >>
+  evaluate F env s e (s',r)`
+ (srw_tac[][] >>
  eq_tac
  >- (srw_tac[][] >>
      cases_on `r` >|
@@ -1734,12 +1734,12 @@ val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
 
 (* ---------------------- Small step determinacy ------------------------- *)
 
-val small_exp_determ = Q.store_thm ("small_exp_determ",
+Theorem small_exp_determ
 `!env s e r1 r2.
   small_eval env s e [] r1 ∧ small_eval env s e [] r2
   ⇒
-  (r1 = r2)`,
- srw_tac[][] >>
+  (r1 = r2)`
+ (srw_tac[][] >>
  assume_tac small_big_exp_equiv >>
  full_simp_tac(srw_ss())[to_small_st_def] >>
  PairCases_on `r1` >>

@@ -629,9 +629,9 @@ val sort_moves_rev_def = Define`
   sort_moves_rev ls =
     QSORT (\p:num,x p',x'. p<p') ls`
 
-val edges_to_adjlist_impl_thm = store_thm("edges_to_adjlist_impl_thm",
-  ``edges_to_adjlist = edges_to_adjlist_impl``,
-  fs [FUN_EQ_THM] \\ Induct
+Theorem edges_to_adjlist_impl_thm
+  `edges_to_adjlist = edges_to_adjlist_impl`
+  (fs [FUN_EQ_THM] \\ Induct
   \\ once_rewrite_tac [edges_to_adjlist_impl_def]
   \\ simp [FORALL_PROD,edges_to_adjlist_def,pairTheory.LEX_DEF]);
 
@@ -872,9 +872,9 @@ val map_colors_sub_def = Define `
   (map_colors_sub (x::xs) =
      do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)`
 
-val map_colors_sub_eq = store_thm("map_colors_sub_eq",
-  ``map_colors_sub = st_ex_MAP colors_sub``,
-  once_rewrite_tac [FUN_EQ_THM]
+Theorem map_colors_sub_eq
+  `map_colors_sub = st_ex_MAP colors_sub`
+  (once_rewrite_tac [FUN_EQ_THM]
   \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]);
 
 val res = m_translate spill_register_def;

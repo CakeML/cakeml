@@ -146,8 +146,8 @@ val fibm_def = Define`
             stdio (print_err (strlit"usage: " ^ name ^ strlit" <n>\n"))
           od`
 
-val IMP_STAR_GC = store_thm("IMP_STAR_GC", (* TODO: move *)
-  ``(STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
+Theorem IMP_STAR_GC `(* TODO: move *)
+  ` ((STAR a x) s /\ (y = GC) ==> (STAR a y) s``,
   fs [set_sepTheory.STAR_def]
   \\ rw[] \\ asm_exists_tac \\ fs []
   \\ EVAL_TAC

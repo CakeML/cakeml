@@ -353,12 +353,12 @@ val detuplify_def = Define`
   detuplify ty = [ty]
 `
 
-val detuplify_pmatch = Q.store_thm("detuplify_pmatch",`!ty.
+Theorem detuplify_pmatch `!ty.
   detuplify ty =
   case ty of
     Attup args => args
-  | ty => [ty]`,
-  ho_match_mp_tac (theorem "detuplify_ind")
+  | ty => [ty]`
+  (ho_match_mp_tac (theorem "detuplify_ind")
   >> fs[detuplify_def]);
 
 val ptree_PTbase_def = Define‘
@@ -1233,8 +1233,8 @@ in
 
 val ptree_Expr_def = Define ptree_Expr_quotation
 (*
-val ptree_Expr_pmatch = Q.store_thm("ptree_decl_pmatch",
-  (ptree_Expr_quotation |>
+Theorem ptree_decl_pmatch
+  `(ptree_Expr_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
   rpt strip_tac
@@ -1246,8 +1246,7 @@ val ptree_Expr_pmatch = Q.store_thm("ptree_decl_pmatch",
 *)
 end
 
-val ptree_Decl_def = Define`
-  ptree_Decl pt : dec option =
+val ptree_Decl_def = Define` (ptree_Decl pt : dec option =
     dtcase pt of
        Lf _ => NONE
      | Nd (nt,locs) args =>

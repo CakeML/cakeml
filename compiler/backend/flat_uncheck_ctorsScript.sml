@@ -54,34 +54,34 @@ val compile_def = tDefine "compile" `
 
 val compile_ind = theorem"compile_ind";
 
-val compile_length = Q.store_thm ("compile_length[simp]",
-  `! es. LENGTH (compile es) = LENGTH es`,
-  ho_match_mp_tac compile_ind
+Theorem compile_length[simp]
+  `! es. LENGTH (compile es) = LENGTH es`
+  (ho_match_mp_tac compile_ind
   \\ rw [compile_def]);
 
-val compile_sing = Q.store_thm ("compile_sing",
-  `! e. ?e2. compile [e] = [e2]`,
-  rw []
+Theorem compile_sing
+  `! e. ?e2. compile [e] = [e2]`
+  (rw []
   \\ qspec_then `[e]` mp_tac compile_length
   \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]);
 
 val compile_nil = save_thm ("compile_nil[simp]", EVAL ``compile []``);
 
-val compile_not_nil = Q.store_thm("compile_not_nil[simp]",
-  `compile [x] <> []`,
-  strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+Theorem compile_not_nil[simp]
+  `compile [x] <> []`
+  (strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
   \\ fs [compile_length]);
 
-val compile_cons = Q.store_thm ("compile_cons",
-  `! e es. compile (e::es) = HD (compile [e]) :: (compile es)`,
-  rw []
+Theorem compile_cons
+  `! e es. compile (e::es) = HD (compile [e]) :: (compile es)`
+  (rw []
   \\ Cases_on `es`
   \\ rw [compile_def]
   \\ METIS_TAC [compile_sing, HD]);
 
-val compile_append = Q.store_thm("compile_append",
-  `!es es2. compile (es:flatLang$exp list ++ es2) = compile es ++ compile es2`,
-  Induct >>
+Theorem compile_append
+  `!es es2. compile (es:flatLang$exp list ++ es2) = compile es ++ compile es2`
+  (Induct >>
   rw [compile_def] >>
   Cases_on `es` >>
   rw [compile_def] >>
@@ -91,14 +91,14 @@ val compile_append = Q.store_thm("compile_append",
   Cases_on `h` >>
   rw [compile_def]);
 
-val compile_reverse = Q.store_thm("compile_reverse",
-  `!es. compile (REVERSE es) = REVERSE (compile es:flatLang$exp list)`,
-  ho_match_mp_tac compile_ind >>
+Theorem compile_reverse
+  `!es. compile (REVERSE es) = REVERSE (compile es:flatLang$exp list)`
+  (ho_match_mp_tac compile_ind >>
   rw [compile_def, compile_append]);
 
-val compile_HD_sing = Q.store_thm("compile_HD_sing",
-  `[HD (compile [e])] = compile [e:flatLang$exp]`,
-  qspec_then`e`strip_assume_tac compile_sing
+Theorem compile_HD_sing
+  `[HD (compile [e])] = compile [e:flatLang$exp]`
+  (qspec_then`e`strip_assume_tac compile_sing
   \\ fs[]);
 
 val compile_decs = Define `

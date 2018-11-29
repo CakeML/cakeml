@@ -470,9 +470,9 @@ val clos_known_known_op_side = Q.prove(`
 
 val r = translate clos_knownTheory.free_def
 
-val clos_known_free_side = Q.store_thm("clos_known_free_side",
-  `!x. clos_known_free_side x`,
-  ho_match_mp_tac clos_knownTheory.free_ind \\ rw []
+Theorem clos_known_free_side
+  `!x. clos_known_free_side x`
+  (ho_match_mp_tac clos_knownTheory.free_ind \\ rw []
   \\ `!xs ys l. free xs = (ys, l) ==> LENGTH xs = LENGTH ys` by
    (ho_match_mp_tac clos_knownTheory.free_ind
     \\ rw [] \\ fs [clos_knownTheory.free_def]
@@ -1184,17 +1184,17 @@ val r = translate bvi_tailrecTheory.op_ty_PMATCH
 
 val r = translate bvi_tailrecTheory.scan_expr_def
 
-val bvi_tailrec_scan_expr_side = Q.store_thm("bvi_tailrec_scan_expr_side",
-  `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2`,
-  recInduct bvi_tailrecTheory.scan_expr_ind \\ rw []
+Theorem bvi_tailrec_scan_expr_side
+  `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2`
+  (recInduct bvi_tailrecTheory.scan_expr_ind \\ rw []
   \\ once_rewrite_tac [fetch "-" "bvi_tailrec_scan_expr_side_def"] \\ fs []
   \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
 
 val r = translate bvi_tailrecTheory.rewrite_PMATCH
 
-val bvi_tailrec_rewrite_side = Q.store_thm("bvi_tailrec_rewrite_side",
-  `!v58 v59 v60 v56 v61 v57. bvi_tailrec_rewrite_side v58 v59 v60 v56 v61 v57`,
-  recInduct bvi_tailrecTheory.rewrite_ind \\ rw []
+Theorem bvi_tailrec_rewrite_side
+  `!v58 v59 v60 v56 v61 v57. bvi_tailrec_rewrite_side v58 v59 v60 v56 v61 v57`
+  (recInduct bvi_tailrecTheory.rewrite_ind \\ rw []
   \\ once_rewrite_tac [fetch "-" "bvi_tailrec_rewrite_side_def"] \\ fs []
   \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
 
@@ -1261,9 +1261,9 @@ val _ = translate(bvl_to_bviTheory.compile_prog_def);
 
 val _ = translate(bvl_inlineTheory.let_op_def);
 
-val let_op_SING_NOT_NIL = store_thm("let_op_SING_NOT_NIL[simp]",
-  ``let_op [x] <> []``,
-  Cases_on `x` \\ fs [bvl_inlineTheory.let_op_def]
+Theorem let_op_SING_NOT_NIL[simp]
+  `let_op [x] <> []`
+  (Cases_on `x` \\ fs [bvl_inlineTheory.let_op_def]
   \\ CASE_TAC \\ fs []);
 
 val bvl_inline_let_op_side = Q.prove(`
@@ -1282,9 +1282,9 @@ val bvl_handle_compile_exp_side = Q.prove(`
 
 val r = translate(bvl_inlineTheory.remove_ticks_def)
 
-val bvl_inline_remove_ticks_side = Q.store_thm("bvl_inline_remove_ticks_side",
-  `!a. bvl_inline_remove_ticks_side a`,
-  ho_match_mp_tac bvl_inlineTheory.remove_ticks_ind
+Theorem bvl_inline_remove_ticks_side
+  `!a. bvl_inline_remove_ticks_side a`
+  (ho_match_mp_tac bvl_inlineTheory.remove_ticks_ind
   \\ sg `!x. remove_ticks [x] <> []`
   >-
    (CCONTR_TAC \\ fs []
@@ -1295,9 +1295,9 @@ val bvl_inline_remove_ticks_side = Q.store_thm("bvl_inline_remove_ticks_side",
 
 val _ = translate(bvl_inlineTheory.compile_prog_def);
 
-val bvl_inline_compile_prog_side = Q.store_thm("bvl_inline_compile_prog_side",
-  `!a b c d. bvl_inline_compile_prog_side a b c d`,
-  rw [Once (fetch "-" "bvl_inline_compile_prog_side_def"),
+Theorem bvl_inline_compile_prog_side
+  `!a b c d. bvl_inline_compile_prog_side a b c d`
+  (rw [Once (fetch "-" "bvl_inline_compile_prog_side_def"),
       Once (fetch "-" "bvl_inline_compile_inc_side_def"),
       Once (fetch "-" "bvl_inline_optimise_side_def")]
   \\ strip_tac

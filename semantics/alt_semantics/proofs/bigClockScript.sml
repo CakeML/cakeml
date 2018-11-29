@@ -81,7 +81,7 @@ val with_clock_with_clock = Q.prove (
 `(s with clock := a) with clock := b = (s with clock := b)`,
  rw [state_component_equality]);
 
-val big_unclocked = Q.store_thm ("big_unclocked",
+Theorem big_unclocked
 `!s env e s' r count1 count2.
   (evaluate F env ^s e (s', r)
    ⇒
@@ -89,11 +89,11 @@ val big_unclocked = Q.store_thm ("big_unclocked",
    s.clock = s'.clock) ∧
   (evaluate F env (^s with clock := count1) e (s' with clock := count1, r)
    ⇒
-   evaluate F env (^s with clock := count2) e (s' with clock := count2, r))`,
- rw [] >>
+   evaluate F env (^s with clock := count2) e (s' with clock := count2, r))`
+ (rw [] >>
  metis_tac [big_unclocked_ignore, big_unclocked_unchanged, FST, SND, with_clock_with_clock]);
 
-val add_to_counter = Q.store_thm ("add_to_counter",
+Theorem add_to_counter
   `(∀ck env ^s e r1.
      evaluate ck env s e r1 ⇒
      !s' r' extra.
@@ -114,8 +114,8 @@ val add_to_counter = Q.store_thm ("add_to_counter",
      (r1 = (s',r')) ∧
      (r' ≠ Rerr (Rabort Rtimeout_error)) ∧
      (ck = T) ⇒
-     evaluate_match T env (s with clock := s.clock+extra) v pes err_v ((s' with clock := s'.clock+extra),r'))`,
-  ho_match_mp_tac evaluate_ind >>
+     evaluate_match T env (s with clock := s.clock+extra) v pes err_v ((s' with clock := s'.clock+extra),r'))`
+  (ho_match_mp_tac evaluate_ind >>
   rw [] >> rw [Once evaluate_cases] >>
   fs[] >> rfs[] >>
   TRY (metis_tac[]) >>
@@ -194,13 +194,13 @@ val clock_monotone = Q.prove (
 val with_same_clock = Q.prove(
   `(s with clock := s.clock) = s`,rw[state_component_equality])
 
-val big_clocked_unclocked_equiv = Q.store_thm ("big_clocked_unclocked_equiv",
+Theorem big_clocked_unclocked_equiv
   `!s env e s' r1.
     evaluate F env s e (s', r1) =
     ?c. evaluate T env (s with clock := c) e (s' with clock := 0,r1) ∧
           (r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
-          (s.clock = s'.clock)`,
-  metis_tac [with_clock_clock, with_same_clock, add_clock,
+          (s.clock = s'.clock)`
+  (metis_tac [with_clock_clock, with_same_clock, add_clock,
              big_unclocked_ignore, big_unclocked]);
 
 val wf_lem = Q.prove (
@@ -445,12 +445,12 @@ val big_clocked_total_lem = Q.prove (
   >- ((* Lannot *)
      rw [exp_size_def]));
 
-val big_clocked_total = Q.store_thm ("big_clocked_total",
+Theorem big_clocked_total
   `!s env e.
-    ∃s' r. evaluate T env s e (s', r)`,
-  metis_tac [big_clocked_total_lem, FST, SND, with_same_clock]);
+    ∃s' r. evaluate T env s e (s', r)`
+  (metis_tac [big_clocked_total_lem, FST, SND, with_same_clock]);
 
-val big_clocked_timeout_0 = Q.store_thm ("big_clocked_timeout_0",
+Theorem big_clocked_timeout_0
   `(∀ck env ^s e r1.
      evaluate ck env s e r1 ⇒
      !s'.
@@ -471,19 +471,19 @@ val big_clocked_timeout_0 = Q.store_thm ("big_clocked_timeout_0",
      (r1 = (s',Rerr (Rabort Rtimeout_error))) ∧
      (ck = T)
      ⇒
-     (s'.clock = 0))`,
-  ho_match_mp_tac evaluate_ind >>
+     (s'.clock = 0))`
+  (ho_match_mp_tac evaluate_ind >>
   rw [] >>
   fs[do_app_cases] >>
   rw [] >>
   fs [] >>
   every_case_tac >> fs[] >> rveq >> fs[]);
 
-val big_clocked_unclocked_equiv_timeout = Q.store_thm ("big_clocked_unclocked_equiv_timeout",
+Theorem big_clocked_unclocked_equiv_timeout
   `!s env e.
     (!r. ¬evaluate F env s e r) =
-    (∀c. ?s'. evaluate T env (s with clock := c) e (s',Rerr (Rabort Rtimeout_error)) ∧ s'.clock = 0)`,
-  rw [] >>
+    (∀c. ?s'. evaluate T env (s with clock := c) e (s',Rerr (Rabort Rtimeout_error)) ∧ s'.clock = 0)`
+  (rw [] >>
   eq_tac >>
   rw [] >|
   [`?s1 r1. evaluate T env (s with clock := c) e (s1,r1)`
@@ -492,7 +492,7 @@ val big_clocked_unclocked_equiv_timeout = Q.store_thm ("big_clocked_unclocked_eq
                   result_distinct,result_11, error_result_distinct,result_nchotomy, error_result_nchotomy],
    metis_tac [big_exp_determ, pair_CASES, PAIR_EQ, big_unclocked, add_clock]]);
 
-val sub_from_counter = Q.store_thm ("sub_from_counter",
+Theorem sub_from_counter
 `(∀ck env ^s e r1.
    evaluate ck env s e r1 ⇒
    !count count' s' r'.
@@ -516,8 +516,8 @@ val sub_from_counter = Q.store_thm ("sub_from_counter",
    (r1 = (s',r')) ∧
    s'.clock = count' + extra ∧
    (ck = T) ⇒
-   evaluate_match T env (s with clock := count) v pes err_v (s' with clock := count',r'))`,
- ho_match_mp_tac evaluate_strongind >>
+   evaluate_match T env (s with clock := count) v pes err_v (s' with clock := count',r'))`
+ (ho_match_mp_tac evaluate_strongind >>
  rw [] >>
  rw [Once evaluate_cases] >>
  full_simp_tac (srw_ss()++ARITH_ss) [state_component_equality]
@@ -545,24 +545,24 @@ val sub_from_counter = Q.store_thm ("sub_from_counter",
      rw []) >>
  metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]);
 
-val clocked_min_counter = Q.store_thm ("clocked_min_counter",
+Theorem clocked_min_counter
 `!s env e s' r'.
 evaluate T env s e (s',r')
 ⇒
-evaluate T env (s with clock := s.clock - s'.clock) e (s' with clock := 0, r')`,
- rw [] >>
+evaluate T env (s with clock := s.clock - s'.clock) e (s' with clock := 0, r')`
+ (rw [] >>
  `s'.clock ≤ s.clock` by metis_tac [clock_monotone, PAIR_EQ, FST, SND, pair_CASES] >>
  `s'.clock = 0 + s'.clock ∧ s.clock = (s.clock - s'.clock) + s'.clock:num` by decide_tac >>
  metis_tac [sub_from_counter]);
 
  (*
-val dec_evaluate_not_timeout = Q.store_thm ("dec_evaluate_not_timeout",
+Theorem dec_evaluate_not_timeout
 `!mn s env d s' r.
-  evaluate_dec F mn env s d (s', r) ⇒ r ≠ Rerr (Rabort Rtimeout_error)`,
-rw [evaluate_dec_cases] >>
+  evaluate_dec F mn env s d (s', r) ⇒ r ≠ Rerr (Rabort Rtimeout_error)`
+(rw [evaluate_dec_cases] >>
 metis_tac [big_unclocked]);
 
-val dec_unclocked = Q.store_thm ("dec_unclocked",
+Theorem dec_unclocked
 `!mn count s env d count' s' r.
   (evaluate_dec F mn env s d (s', r)
    ⇒
@@ -570,17 +570,17 @@ val dec_unclocked = Q.store_thm ("dec_unclocked",
    s.clock = s'.clock) ∧
   (evaluate_dec F mn env (s with clock := count) d (s' with clock := count, r)
    =
-   evaluate_dec F mn env (s with clock := count') d (s' with clock := count', r))`,
- rw [evaluate_dec_cases] >>
+   evaluate_dec F mn env (s with clock := count') d (s' with clock := count', r))`
+ (rw [evaluate_dec_cases] >>
  rw [] >>
  fs [state_component_equality] >>
  metis_tac [big_unclocked]);
 
-val not_evaluate_dec_timeout = Q.store_thm("not_evaluate_dec_timeout",
+Theorem not_evaluate_dec_timeout
 `∀mn env s d.
       (∀r. ¬evaluate_dec F mn env s d r) ⇒
-      ∃r. evaluate_dec T mn env s d r ∧ (SND r = Rerr (Rabort Rtimeout_error))`,
-  rpt gen_tac >>
+      ∃r. evaluate_dec T mn env s d r ∧ (SND r = Rerr (Rabort Rtimeout_error))`
+  (rpt gen_tac >>
   reverse(Cases_on`d`)>> simp[Once evaluate_dec_cases]
   >- metis_tac[]
   >- metis_tac[]
@@ -596,89 +596,89 @@ val not_evaluate_dec_timeout = Q.store_thm("not_evaluate_dec_timeout",
   fs [big_clocked_unclocked_equiv_timeout] >>
   metis_tac[with_same_clock]);
 
-val dec_clocked_total = Q.store_thm("dec_clocked_total",
-`∀mn env s d. ∃res. evaluate_dec T mn env s d res`,
-  rpt gen_tac >>
+Theorem dec_clocked_total
+`∀mn env s d. ∃res. evaluate_dec T mn env s d res`
+  (rpt gen_tac >>
   reverse(Cases_on`d`)>>simp[Once evaluate_dec_cases] >>
   srw_tac[DNF_ss][] >- metis_tac[] >>
   qspecl_then[`s`,`env`,`e`]strip_assume_tac big_clocked_total >>
   Cases_on`r`>>metis_tac[match_result_nchotomy, pair_CASES]);
 
-val dec_clocked_min_counter = Q.store_thm("dec_clocked_min_counter",
+Theorem dec_clocked_min_counter
 `∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
-    ck ⇒ evaluate_dec ck mn env (s with clock := s.clock - (FST res).clock) d ((FST res) with clock := 0, SND res)`,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+    ck ⇒ evaluate_dec ck mn env (s with clock := s.clock - (FST res).clock) d ((FST res) with clock := 0, SND res)`
+  (ho_match_mp_tac evaluate_dec_ind >> rw[] >>
   rw[Once evaluate_dec_cases] >>
   imp_res_tac clocked_min_counter >> rw[] >>
   srw_tac[DNF_ss][] >>
   TRY disj1_tac >>
   metis_tac []);
 
-val dec_clocked_unclocked_equiv = Q.store_thm("dec_clocked_unclocked_equiv",
+Theorem dec_clocked_unclocked_equiv
 `∀mn env s1 s2 d r.
    evaluate_dec F mn env s1 d (s2,r) ⇔
    ∃c. evaluate_dec T mn env (s1 with clock := c) d (s2 with clock := 0,r) ∧
-       r ≠ Rerr (Rabort Rtimeout_error) ∧ s1.clock = s2.clock`,
-  Cases_on`d`>>simp[evaluate_dec_cases]>>rw[]>>
+       r ≠ Rerr (Rabort Rtimeout_error) ∧ s1.clock = s2.clock`
+  (Cases_on`d`>>simp[evaluate_dec_cases]>>rw[]>>
   fs[big_clocked_unclocked_equiv]>>
   srw_tac[DNF_ss][EQ_IMP_THM]>>
   simp [state_component_equality] >>
   fs [state_component_equality] >>
   metis_tac[]);
 
-val dec_sub_from_counter = Q.store_thm("dec_sub_from_counter",
+Theorem dec_sub_from_counter
   `∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
       ∀extra count count' s' r.
          s.clock = count + extra ∧
          s'.clock = count' + extra ∧
          res = (s',r) ∧ ck ⇒
-        evaluate_dec ck mn env (s with clock := count) d (s' with clock := count',r)`,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+        evaluate_dec ck mn env (s with clock := count) d (s' with clock := count',r)`
+  (ho_match_mp_tac evaluate_dec_ind >> rw[] >>
   rw[evaluate_dec_cases] >>
   imp_res_tac sub_from_counter >> fs[] >>
   metis_tac[]);
 
-val dec_clock_monotone = Q.store_thm("dec_clock_monotone",
-`∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒ ck ⇒ (FST res).clock ≤ s.clock`,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+Theorem dec_clock_monotone
+`∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒ ck ⇒ (FST res).clock ≤ s.clock`
+  (ho_match_mp_tac evaluate_dec_ind >> rw[] >>
   imp_res_tac clock_monotone >> fs[]);
 
-val dec_add_clock = Q.store_thm("dec_add_clock",
+Theorem dec_add_clock
   `∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
       ∀s' r.
         res = (s',r) ∧ ¬ck ⇒
-          ∃c. evaluate_dec T mn env (s with clock := c) d (s' with clock := 0, r)`,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+          ∃c. evaluate_dec T mn env (s with clock := c) d (s' with clock := 0, r)`
+  (ho_match_mp_tac evaluate_dec_ind >> rw[] >>
   rw[Once evaluate_dec_cases] >>
   imp_res_tac add_clock >> fs[] >>
   metis_tac[]);
 
-val dec_add_to_counter = Q.store_thm("dec_add_to_counter",
+Theorem dec_add_to_counter
   `∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
       ∀r2 r3 extra.
          res = (r2,r3) ∧ ck ∧ r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
-          evaluate_dec T mn env (s with clock := s.clock + extra) d (r2 with clock := r2.clock + extra,r3)`,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+          evaluate_dec T mn env (s with clock := s.clock + extra) d (r2 with clock := r2.clock + extra,r3)`
+  (ho_match_mp_tac evaluate_dec_ind >> rw[] >>
   rw[Once evaluate_dec_cases] >>
   imp_res_tac add_to_counter >> fs[] >>
   metis_tac[]);
 
-val dec_unclocked_ignore = Q.store_thm("dec_unclocked_ignore",
+Theorem dec_unclocked_ignore
   `∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
      ∀r2 r3 count.
        res = (r2,r3) ∧ r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
-         evaluate_dec F mn env (s with clock := count) d (r2 with clock := count,r3)`,
-  ho_match_mp_tac evaluate_dec_ind >> rw[] >>
+         evaluate_dec F mn env (s with clock := count) d (r2 with clock := count,r3)`
+  (ho_match_mp_tac evaluate_dec_ind >> rw[] >>
   rw[Once evaluate_dec_cases] >>
   imp_res_tac big_unclocked_ignore >> fs[] >>
   metis_tac[]);
 
-val decs_add_clock = Q.store_thm("decs_add_clock",
+Theorem decs_add_clock
   `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
      ∀r2 r3.
        res = (r2,r3) ∧ ¬ck ⇒
-         ∃c. evaluate_decs T mn env (s with clock := c) d (r2 with clock := 0,r3)`,
-  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
+         ∃c. evaluate_decs T mn env (s with clock := c) d (r2 with clock := 0,r3)`
+  (ho_match_mp_tac evaluate_decs_ind >> rw[] >>
   rw[Once evaluate_decs_cases] >>
   imp_res_tac dec_add_clock >> fs[] >-
   metis_tac[] >>
@@ -689,11 +689,11 @@ val decs_add_clock = Q.store_thm("decs_add_clock",
   imp_res_tac dec_add_to_counter >> fs[] >>
   metis_tac[]);
 
-val decs_evaluate_not_timeout = Q.store_thm ("decs_evaluate_not_timeout",
+Theorem decs_evaluate_not_timeout
   `!ck mn env ^s ds r.
     evaluate_decs ck mn env s ds r ⇒
-      !s' r'. ck = F ∧ r = (s', r') ⇒ r' ≠ Rerr (Rabort Rtimeout_error)`,
-  ho_match_mp_tac evaluate_decs_ind >>
+      !s' r'. ck = F ∧ r = (s', r') ⇒ r' ≠ Rerr (Rabort Rtimeout_error)`
+  (ho_match_mp_tac evaluate_decs_ind >>
   rw [] >>
   rw []
   >- (CCONTR_TAC >>
@@ -703,7 +703,7 @@ val decs_evaluate_not_timeout = Q.store_thm ("decs_evaluate_not_timeout",
   cases_on `r` >>
   rw [combine_dec_result_def]);
 
-val decs_unclocked = Q.store_thm ("decs_unclocked",
+Theorem decs_unclocked
   `!mn c s env ds c' s' r.
     (evaluate_decs F mn env s ds (s',r)
      ⇒
@@ -711,8 +711,8 @@ val decs_unclocked = Q.store_thm ("decs_unclocked",
      (s.clock = s'.clock)) ∧
     (evaluate_decs F mn env (s with clock := c)  ds (s' with clock := c,r)
      =
-     evaluate_decs F mn env (s with clock := c') ds (s' with clock := c',r))`,
-  induct_on `ds` >>
+     evaluate_decs F mn env (s with clock := c') ds (s' with clock := c',r))`
+  (induct_on `ds` >>
   rpt gen_tac >>
   ONCE_REWRITE_TAC [evaluate_decs_cases] >>
   rw[]
@@ -727,11 +727,11 @@ val decs_unclocked = Q.store_thm ("decs_unclocked",
       rw [] >>
       metis_tac[dec_unclocked,with_clock_with_clock,with_clock_clock,with_same_clock]));
 
-val not_evaluate_decs_timeout = Q.store_thm("not_evaluate_decs_timeout",
+Theorem not_evaluate_decs_timeout
   `∀mn env s ds.
     (∀r. ¬evaluate_decs F mn env s ds r) ⇒
-    ∃r. evaluate_decs T mn env s ds r ∧ (SND r = Rerr (Rabort Rtimeout_error))`,
-  Induct_on`ds` >- ( simp[Once evaluate_decs_cases] ) >>
+    ∃r. evaluate_decs T mn env s ds r ∧ (SND r = Rerr (Rabort Rtimeout_error))`
+  (Induct_on`ds` >- ( simp[Once evaluate_decs_cases] ) >>
   rpt gen_tac >>
   simp[Once evaluate_decs_cases] >>
   srw_tac[DNF_ss][] >>
@@ -764,9 +764,9 @@ val not_evaluate_decs_timeout = Q.store_thm("not_evaluate_decs_timeout",
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[combine_dec_result_def]);
 
-val decs_clocked_total = Q.store_thm("decs_clocked_total",
-  `∀mn env s ds. ∃res. evaluate_decs T mn env s ds res`,
-  Induct_on`ds`>>simp[Once evaluate_decs_cases] >>
+Theorem decs_clocked_total
+  `∀mn env s ds. ∃res. evaluate_decs T mn env s ds res`
+  (Induct_on`ds`>>simp[Once evaluate_decs_cases] >>
   qx_gen_tac`d` >>
   srw_tac[DNF_ss][] >>
   qspecl_then[`mn`,`env`,`s`,`d`]strip_assume_tac dec_clocked_total >>
@@ -777,19 +777,19 @@ val decs_clocked_total = Q.store_thm("decs_clocked_total",
   first_assum(match_exists_tac o concl) >> simp[] >>
   fs[EXISTS_PROD]);
 
-val decs_clock_monotone = Q.store_thm("decs_clock_monotone",
+Theorem decs_clock_monotone
   `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
-      ck ⇒ (FST res).clock ≤ s.clock`,
-  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
+      ck ⇒ (FST res).clock ≤ s.clock`
+  (ho_match_mp_tac evaluate_decs_ind >> rw[] >>
   imp_res_tac dec_clock_monotone >> fsrw_tac[ARITH_ss][]);
 
-val decs_sub_from_counter = Q.store_thm("decs_sub_from_counter",
+Theorem decs_sub_from_counter
   `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
      ∀extra count count' s0 r0.
         s.clock = count + extra ∧ s0.clock = count' + extra ∧
         res = (s0,r0) ∧ ck ⇒
-       evaluate_decs ck mn env (s with clock := count) d (s0 with clock := count',r0)`,
-  ho_match_mp_tac evaluate_decs_strongind >> rw[] >>
+       evaluate_decs ck mn env (s with clock := count) d (s0 with clock := count',r0)`
+  (ho_match_mp_tac evaluate_decs_strongind >> rw[] >>
   rw[Once evaluate_decs_cases] >>
   imp_res_tac dec_sub_from_counter >> fs[] >>
   imp_res_tac dec_clock_monotone >>
@@ -797,33 +797,33 @@ val decs_sub_from_counter = Q.store_thm("decs_sub_from_counter",
   fs[] >> rw[] >>
   metis_tac [DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``])
 
-val decs_clocked_min_counter = Q.store_thm("decs_clocked_min_counter",
+Theorem decs_clocked_min_counter
   `∀ck mn env ^s ds res. evaluate_decs ck mn env s ds res ⇒
     ck ⇒ evaluate_decs ck mn env (s with clock := s.clock - (FST res).clock) ds
-                ((FST res) with clock := 0, SND res)`,
-  rw[] >>
+                ((FST res) with clock := 0, SND res)`
+  (rw[] >>
   imp_res_tac decs_clock_monotone >>
   PairCases_on`res`>>fs[]>>
   `res0.clock = 0 + res0.clock ∧ s.clock = (s.clock - res0.clock) + res0.clock` by decide_tac >>
   metis_tac[decs_sub_from_counter]);
 
-val decs_unclocked_ignore = Q.store_thm("decs_unclocked_ignore",
+Theorem decs_unclocked_ignore
   `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
       ∀r2 r3 count.
         res = (r2,r3) ∧ r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
-          evaluate_decs F mn env (s with clock := count) d (r2 with clock := count,r3)`,
-  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
+          evaluate_decs F mn env (s with clock := count) d (r2 with clock := count,r3)`
+  (ho_match_mp_tac evaluate_decs_ind >> rw[] >>
   rw[Once evaluate_decs_cases] >>
   imp_res_tac dec_unclocked_ignore >> fs[] >>
   Cases_on`r=Rerr (Rabort Rtimeout_error)`>-fs[combine_dec_result_def]>>fs[]>>
   metis_tac[]);
 
-val decs_add_to_counter = Q.store_thm("decs_add_to_counter",
+Theorem decs_add_to_counter
   `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
       ∀r2 r3 extra.
         res = (r2,r3) ∧ ck ∧ r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
-          evaluate_decs T mn env (s with clock := s.clock + extra) d (r2 with clock := r2.clock + extra,r3)`,
-  ho_match_mp_tac evaluate_decs_ind >> rw[] >>
+          evaluate_decs T mn env (s with clock := s.clock + extra) d (r2 with clock := r2.clock + extra,r3)`
+  (ho_match_mp_tac evaluate_decs_ind >> rw[] >>
   rw [Once evaluate_decs_cases] >>
   imp_res_tac dec_add_to_counter >>
   fs [] >>
@@ -835,13 +835,13 @@ val decs_add_to_counter = Q.store_thm("decs_add_to_counter",
   fs [] >>
   metis_tac []);
 
-val top_evaluate_not_timeout = Q.store_thm ("top_evaluate_not_timeout",
+Theorem top_evaluate_not_timeout
 `!env s top s' r.
-  evaluate_top F env s top (s', r) ⇒ r ≠ Rerr (Rabort Rtimeout_error)`,
-rw [evaluate_top_cases] >>
+  evaluate_top F env s top (s', r) ⇒ r ≠ Rerr (Rabort Rtimeout_error)`
+(rw [evaluate_top_cases] >>
 metis_tac [dec_evaluate_not_timeout, decs_evaluate_not_timeout]);
 
-val top_unclocked = Q.store_thm ("top_unclocked",
+Theorem top_unclocked
   `!s env top s' r count count'.
     (evaluate_top F env s top (s',r)
      ⇒
@@ -849,26 +849,26 @@ val top_unclocked = Q.store_thm ("top_unclocked",
      (s.clock = s'.clock)) ∧
     (evaluate_top F env (s with clock := count) top (s' with clock := count,r)
      =
-     evaluate_top F env (s with clock := count') top (s' with clock := count',r))`,
-  reverse (rw [evaluate_top_cases]) >>
+     evaluate_top F env (s with clock := count') top (s' with clock := count',r))`
+  (reverse (rw [evaluate_top_cases]) >>
   simp [state_component_equality] >>
   simp_tac((srw_ss())++QUANT_INST_ss[record_default_qp])[] >>
   simp[EXISTS_PROD,FORALL_PROD] >>
   metis_tac [dec_unclocked, decs_unclocked]);
 
-val not_evaluate_top_timeout = Q.store_thm("not_evaluate_top_timeout",
+Theorem not_evaluate_top_timeout
   `∀env stm top. (∀res. ¬evaluate_top F env stm top res) ⇒
-    ∃r. evaluate_top T env stm top r ∧ SND r = Rerr (Rabort Rtimeout_error)`,
-  Cases_on`top`>>simp[Once evaluate_top_cases]>> srw_tac[DNF_ss][] >>
+    ∃r. evaluate_top T env stm top r ∧ SND r = Rerr (Rabort Rtimeout_error)`
+  (Cases_on`top`>>simp[Once evaluate_top_cases]>> srw_tac[DNF_ss][] >>
   simp[Once evaluate_top_cases] >> srw_tac[DNF_ss][] >>
   fs[] >- (
     Cases_on`no_dup_types l`>>fs[] >>
     metis_tac[not_evaluate_decs_timeout,SND,result_nchotomy,pair_CASES]) >>
   metis_tac[not_evaluate_dec_timeout,SND,result_nchotomy,pair_CASES]);
 
-val top_clocked_total = Q.store_thm("top_clocked_total",
-  `∀env s t. ∃res. evaluate_top T env s t res`,
-  rpt gen_tac >>
+Theorem top_clocked_total
+  `∀env s t. ∃res. evaluate_top T env s t res`
+  (rpt gen_tac >>
   reverse(Cases_on`t`)>>simp[Once evaluate_top_cases] >>
   srw_tac[DNF_ss][] >- (
     qspecl_then[`[]`,`env`,`s`,`d`]strip_assume_tac dec_clocked_total >>
@@ -877,12 +877,12 @@ val top_clocked_total = Q.store_thm("top_clocked_total",
   PairCases_on`res`>>fs[]>>
   Cases_on`res1`>>metis_tac[]);
 
-val top_clocked_min_counter = Q.store_thm("top_clocked_min_counter",
+Theorem top_clocked_min_counter
   `∀ck env ^s top res. evaluate_top ck env s top res ⇒
       ck ⇒
         evaluate_top ck env (s with clock := s.clock - (FST res).clock) top
-          (FST res with clock := 0,SND res)`,
-  ho_match_mp_tac evaluate_top_ind >> rw[] >>
+          (FST res with clock := 0,SND res)`
+  (ho_match_mp_tac evaluate_top_ind >> rw[] >>
   rw[Once evaluate_top_cases] >>
   imp_res_tac dec_clocked_min_counter >> fs[] >>
   imp_res_tac decs_clocked_min_counter >> fs[FMEQ_SINGLE_SIMPLE_DISJ_ELIM] >>
@@ -891,12 +891,12 @@ val top_clocked_min_counter = Q.store_thm("top_clocked_min_counter",
   rw []
   >> metis_tac []);
 
-val top_add_clock = Q.store_thm("top_add_clock",
+Theorem top_add_clock
 `∀ck env s top s' r.
   evaluate_top ck env s top (s',r) ∧ ¬ck
   ⇒
-  ∃c. evaluate_top T env (s with clock := c) top (s' with clock := 0,r)`,
- rw[evaluate_top_cases] >>
+  ∃c. evaluate_top T env (s with clock := c) top (s' with clock := 0,r)`
+ (rw[evaluate_top_cases] >>
  imp_res_tac dec_add_clock >>
  imp_res_tac decs_add_clock >>
  fs []
@@ -913,26 +913,26 @@ val top_add_clock = Q.store_thm("top_add_clock",
      rw []) >>
  metis_tac []);
 
-val top_unclocked_ignore = Q.store_thm("top_unclocked_ignore",
+Theorem top_unclocked_ignore
 `∀ck env s top s' r c.
   evaluate_top ck env s top (s',r) ∧
   r ≠ Rerr (Rabort Rtimeout_error)
   ⇒
-  evaluate_top F env (s with clock := c) top (s' with clock := c, r)`,
- rw[evaluate_top_cases] >>
+  evaluate_top F env (s with clock := c) top (s' with clock := c, r)`
+ (rw[evaluate_top_cases] >>
  imp_res_tac dec_unclocked_ignore >>
  imp_res_tac decs_unclocked_ignore >> fs[FMEQ_SINGLE_SIMPLE_DISJ_ELIM] >>
  qexists_tac `s2 with clock := c` >>
  rw []
  >> metis_tac []);
 
-val top_clocked_unclocked_equiv = Q.store_thm("top_clocked_unclocked_equiv",
+Theorem top_clocked_unclocked_equiv
 `∀env s1 s2 t r.
   evaluate_top F env s1 t (s2,r) ⇔
   ∃c. evaluate_top T env (s1 with clock := c) t (s2 with clock := 0,r) ∧
       r ≠ Rerr (Rabort Rtimeout_error) ∧
-      s1.clock = s2.clock`,
- simp[FORALL_PROD] >> rw[EQ_IMP_THM] >>
+      s1.clock = s2.clock`
+ (simp[FORALL_PROD] >> rw[EQ_IMP_THM] >>
  imp_res_tac top_unclocked >>
  imp_res_tac top_clocked_min_counter >>
  imp_res_tac top_add_clock >>
@@ -940,47 +940,47 @@ val top_clocked_unclocked_equiv = Q.store_thm("top_clocked_unclocked_equiv",
  rfs [] >>
  metis_tac[with_same_clock]);
 
-val top_clock_monotone = Q.store_thm("top_clock_monotone",
-`∀ck env s d s' r. evaluate_top ck env s d (s',r) ∧ ck ⇒ s'.clock ≤ s.clock`,
-  rw [evaluate_top_cases] >>
+Theorem top_clock_monotone
+`∀ck env s d s' r. evaluate_top ck env s d (s',r) ∧ ck ⇒ s'.clock ≤ s.clock`
+  (rw [evaluate_top_cases] >>
   imp_res_tac dec_clock_monotone >> fs[] >>
   imp_res_tac decs_clock_monotone >> fs[]);
 
-val top_sub_from_counter = Q.store_thm("top_sub_from_counter",
+Theorem top_sub_from_counter
 `∀ck env s d s' r extra c c'.
   evaluate_top ck env s d (s',r) ∧
   ck ∧
   s.clock = c + extra ∧
   s'.clock = c' + extra
   ⇒
-  evaluate_top ck env (s with clock := c) d (s' with clock := c',r)`,
- rw[evaluate_top_cases] >>
+  evaluate_top ck env (s with clock := c) d (s' with clock := c',r)`
+ (rw[evaluate_top_cases] >>
  imp_res_tac dec_sub_from_counter >> fs[] >>
  imp_res_tac decs_sub_from_counter >> fs[] >>
  qexists_tac `s2 with clock := c'` >>
  rw []
  >> metis_tac []);
 
-val top_add_to_counter = Q.store_thm("top_add_to_counter",
+Theorem top_add_to_counter
 `∀env s d s' r extra.
   evaluate_top T env s d (s',r) ∧
   r ≠ Rerr (Rabort Rtimeout_error)
   ⇒
-  evaluate_top T env (s with clock := s.clock + extra) d (s' with clock := s'.clock + extra, r)`,
- rw[evaluate_top_cases] >>
+  evaluate_top T env (s with clock := s.clock + extra) d (s' with clock := s'.clock + extra, r)`
+ (rw[evaluate_top_cases] >>
  imp_res_tac dec_add_to_counter >> fs[] >>
  imp_res_tac decs_add_to_counter >> fs[] >>
  qexists_tac `s2 with clock := s2.clock + extra` >>
  rw [] >>
  metis_tac []);
 
-val prog_clock_monotone = Q.store_thm("prog_clock_monotone",
+Theorem prog_clock_monotone
   `∀ck env ^s d res. evaluate_prog ck env s d res ⇒
-      ck ⇒ (FST res).clock ≤ s.clock`,
-  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+      ck ⇒ (FST res).clock ≤ s.clock`
+  (ho_match_mp_tac evaluate_prog_ind >> rw[] >>
   imp_res_tac top_clock_monotone >> fsrw_tac[ARITH_ss][]);
 
-val prog_unclocked = Q.store_thm ("prog_unclocked",
+Theorem prog_unclocked
   `!count s env ds count' s' r.
     (evaluate_prog F env s ds (s',r)
      ⇒
@@ -988,8 +988,8 @@ val prog_unclocked = Q.store_thm ("prog_unclocked",
      s.clock = s'.clock) ∧
     (evaluate_prog F env (s with clock := count) ds (s' with clock := count,r)
      =
-     evaluate_prog F env (s with clock := count') ds (s' with clock := count',r))`,
-  induct_on `ds` >>
+     evaluate_prog F env (s with clock := count') ds (s' with clock := count',r))`
+  (induct_on `ds` >>
   rpt gen_tac >>
   ONCE_REWRITE_TAC [evaluate_prog_cases] >>
   rw []
@@ -1004,10 +1004,10 @@ val prog_unclocked = Q.store_thm ("prog_unclocked",
   eq_tac >> rw [] >>
   metis_tac[top_unclocked,with_clock_with_clock,with_clock_clock,with_same_clock]);
 
-val not_evaluate_prog_timeout = Q.store_thm("not_evaluate_prog_timeout",
+Theorem not_evaluate_prog_timeout
   `∀env s prog. (∀res. ¬evaluate_prog F env s prog res) ⇒
-    ∃r. evaluate_prog T env s prog r ∧ SND r = Rerr (Rabort Rtimeout_error)`,
-  Induct_on`prog` >- simp[Once evaluate_prog_cases] >>
+    ∃r. evaluate_prog T env s prog r ∧ SND r = Rerr (Rabort Rtimeout_error)`
+  (Induct_on`prog` >- simp[Once evaluate_prog_cases] >>
   rpt gen_tac >>
   simp[Once evaluate_prog_cases] >>
   srw_tac[DNF_ss][] >>
@@ -1039,62 +1039,62 @@ val not_evaluate_prog_timeout = Q.store_thm("not_evaluate_prog_timeout",
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[combine_dec_result_def]);
 
-val not_evaluate_whole_prog_timeout = Q.store_thm("not_evaluate_whole_prog_timeout",
+Theorem not_evaluate_whole_prog_timeout
   `∀env stm prog.
       (∀res. ¬evaluate_whole_prog F env stm prog res) ⇒
       ∃r. evaluate_whole_prog T env stm prog r ∧
-          SND r = Rerr (Rabort Rtimeout_error)`,
-  rw[FORALL_PROD,EXISTS_PROD,evaluate_whole_prog_def] >>
+          SND r = Rerr (Rabort Rtimeout_error)`
+  (rw[FORALL_PROD,EXISTS_PROD,evaluate_whole_prog_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[GSYM EXISTS_PROD,GSYM FORALL_PROD] >>
   metis_tac[not_evaluate_prog_timeout,SND,pair_CASES]);
 
-val prog_add_to_counter = Q.store_thm("prog_add_to_counter",
+Theorem prog_add_to_counter
   `∀ck env st prog res.
       evaluate_prog ck env st prog res ⇒
      ∀r2 r3 extra.
        res = (r2,r3) ∧ ck ∧ r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
-         evaluate_prog T env (st with clock := st.clock + extra) prog (r2 with clock := r2.clock + extra,r3)`,
-  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+         evaluate_prog T env (st with clock := st.clock + extra) prog (r2 with clock := r2.clock + extra,r3)`
+  (ho_match_mp_tac evaluate_prog_ind >> rw[] >>
   rw[Once evaluate_prog_cases] >>
   imp_res_tac top_add_to_counter >>
   fs[] >> rw[] >> fs[] >>
   `r ≠ Rerr (Rabort Rtimeout_error)`
     by (Cases_on`r` >> fs[combine_dec_result_def]) >>
   fs[] >> metis_tac[])
-val prog_clock_monotone = Q.store_thm("prog_clock_monotone",
-`∀ck env ^s d res. evaluate_prog ck env s d res ⇒ ck ⇒ (FST res).clock ≤ s.clock`,
- ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+Theorem prog_clock_monotone
+`∀ck env ^s d res. evaluate_prog ck env s d res ⇒ ck ⇒ (FST res).clock ≤ s.clock`
+ (ho_match_mp_tac evaluate_prog_ind >> rw[] >>
  imp_res_tac top_clock_monotone >> fsrw_tac[ARITH_ss][]);
 
-val prog_sub_from_counter = Q.store_thm("prog_sub_from_counter",
+Theorem prog_sub_from_counter
   `∀ck env ^s d res. evaluate_prog ck env s d res ⇒
        ∀extra c c' s' r.
           s.clock = c + extra ∧ s'.clock = c' + extra ∧
           res = (s',r) ∧ ck ⇒
-         evaluate_prog ck env (s with clock := c) d (s' with clock := c',r)`,
-  ho_match_mp_tac evaluate_prog_strongind >> rw[] >>
+         evaluate_prog ck env (s with clock := c) d (s' with clock := c',r)`
+  (ho_match_mp_tac evaluate_prog_strongind >> rw[] >>
   rw[Once evaluate_prog_cases] >> fs[] >>
   metis_tac[top_sub_from_counter,top_clock_monotone,prog_clock_monotone,FST,
             DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]);
 
-val prog_clocked_min_counter = Q.store_thm("prog_clocked_min_counter",
+Theorem prog_clocked_min_counter
 `∀ck env ^s p res.
   evaluate_prog T env s p res
   ⇒
   evaluate_prog T env (s with clock := s.clock - (FST res).clock) p
-                (FST res with clock := 0,SND res)`,
-  rw[] >>
+                (FST res with clock := 0,SND res)`
+  (rw[] >>
   imp_res_tac prog_clock_monotone >>
   PairCases_on`res`>>fs[]>>
   `res0.clock = 0 + res0.clock ∧ s.clock = (s.clock - res0.clock) + res0.clock` by decide_tac >>
   metis_tac[prog_sub_from_counter]);
 
-val prog_add_clock = Q.store_thm("prog_add_clock",
+Theorem prog_add_clock
   `∀ck env ^s d res. evaluate_prog ck env s d res ⇒
         ¬ck ⇒
-          ∃c. evaluate_prog T env (s with clock := c) d (FST res with clock := 0, SND res)`,
-  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+          ∃c. evaluate_prog T env (s with clock := c) d (FST res with clock := 0, SND res)`
+  (ho_match_mp_tac evaluate_prog_ind >> rw[] >>
   rw[Once evaluate_prog_cases] >>
   imp_res_tac top_add_clock >> fs[state_component_equality]
   >- (fs [] >>
@@ -1104,24 +1104,24 @@ val prog_add_clock = Q.store_thm("prog_add_clock",
       metis_tac [])
   >- metis_tac[]);
 
-val prog_unclocked_ignore = Q.store_thm("prog_unclocked_ignore",
+Theorem prog_unclocked_ignore
 `∀ck env ^s d res. evaluate_prog ck env s d res ⇒
     ∀c s' r.
         res = (s',r) ∧ r ≠ Rerr (Rabort Rtimeout_error) ⇒
-        evaluate_prog F env (s with clock := c) d (s' with clock := c,r)`,
- ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+        evaluate_prog F env (s with clock := c) d (s' with clock := c,r)`
+ (ho_match_mp_tac evaluate_prog_ind >> rw[] >>
  rw[Once evaluate_prog_cases] >>
  imp_res_tac top_unclocked_ignore >> fs[] >>
  Cases_on`r=Rerr (Rabort Rtimeout_error)`>-fs[combine_dec_result_def]>>fs[]>>
  metis_tac[]);
 
-val prog_clocked_unclocked_equiv = Q.store_thm("prog_clocked_unclocked_equiv",
+Theorem prog_clocked_unclocked_equiv
 `∀env s p s' r.
   evaluate_prog F env s p (s',r) ⇔
   ∃c. evaluate_prog T env (s with clock:= c) p (s' with clock := 0, r) ∧
       r ≠ Rerr (Rabort Rtimeout_error) ∧
-      s.clock = s'.clock`,
- simp[FORALL_PROD] >> rw[EQ_IMP_THM] >>
+      s.clock = s'.clock`
+ (simp[FORALL_PROD] >> rw[EQ_IMP_THM] >>
  imp_res_tac prog_unclocked >>
  imp_res_tac prog_clocked_min_counter >>
  imp_res_tac prog_add_clock >>

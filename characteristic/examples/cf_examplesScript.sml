@@ -295,12 +295,12 @@ val bytearray_fromlist = process_topdecs
 
 val st = ml_progLib.add_prog bytearray_fromlist pick_name basis_st
 
-val list_length_spec = Q.store_thm ("list_length_spec",
+Theorem list_length_spec
   `!a l lv.
      LIST_TYPE a l lv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "length" st) [lv]
-       emp (POSTv v. & NUM (LENGTH l) v)`,
-  Induct_on `l`
+       emp (POSTv v. & NUM (LENGTH l) v)`
+  (Induct_on `l`
   THEN1 (
     xcf "length" st \\ fs [LIST_TYPE_def] \\
     xmatch \\ xret \\ xsimpl

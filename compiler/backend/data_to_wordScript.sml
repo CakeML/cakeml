@@ -993,17 +993,17 @@ val arg3_def = Define `
 val arg4_def = Define `
   arg4 vs f x = dtcase vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x`;
 
-val arg2_pmatch = store_thm("arg2_pmatch",
-  ``arg2 vs f x = case vs of | [v1;v2] => f v1 v2 | _ => x``,
-  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg2_def]);
+Theorem arg2_pmatch
+  `arg2 vs f x = case vs of | [v1;v2] => f v1 v2 | _ => x`
+  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg2_def]);
 
-val arg3_pmatch = store_thm("arg3_pmatch",
-  ``arg3 vs f x = case vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x``,
-  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg3_def]);
+Theorem arg3_pmatch
+  `arg3 vs f x = case vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x`
+  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg3_def]);
 
-val arg4_pmatch = store_thm("arg4_pmatch",
-  ``arg4 vs f x = case vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x``,
-  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg4_def]);
+Theorem arg4_pmatch
+  `arg4 vs f x = case vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x`
+  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg4_def]);
 
 val assign_defs = ref ([]:thm list);
 fun assign_Define q = let
@@ -2133,13 +2133,13 @@ val stubs_def = Define`
     (Dummy_location,0,Skip)
   ] ++ generated_bignum_stubs Bignum_location`;
 
-val check_stubs_length = Q.store_thm("check_stubs_length",
-  `word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs`,
-  EVAL_TAC);
+Theorem check_stubs_length
+  `word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs`
+  (EVAL_TAC);
 
-val check_LongDiv_location = Q.store_thm("check_LongDiv_location",
-  `LongDiv_location = word_bignum$div_location`,
-  EVAL_TAC);
+Theorem check_LongDiv_location
+  `LongDiv_location = word_bignum$div_location`
+  (EVAL_TAC);
 
 val compile_def = Define `
   compile data_conf word_conf asm_conf prog =

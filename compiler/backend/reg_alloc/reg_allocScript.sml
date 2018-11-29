@@ -1027,11 +1027,11 @@ val is_phy_var_def = Define`
 val is_alloc_var_def = Define`
   is_alloc_var (n:num) = (n MOD 4 = 1)`;
 
-val convention_partitions = Q.store_thm("convention_partitions",`
+Theorem convention_partitions `
   ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
       (is_phy_var n ⇔ (¬is_stack_var n) ∧ ¬(is_alloc_var n)) ∧
-      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))`,
-  rw[is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
+      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))`
+  (rw[is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
   \\ `n MOD 2 = (n MOD 4) MOD 2` by
    (ONCE_REWRITE_TAC [GSYM (EVAL ``2*2:num``)]
     \\ fs [arithmeticTheory.MOD_MULT_MOD])
