@@ -10,6 +10,7 @@ open preamble
 val _ = new_theory"stack_to_labProof";
 
 val get_labels_def = stackSemTheory.get_labels_def;
+val get_reg_value_def = targetSemTheory.get_reg_value_def;
 
 (* val _ = set_prover (fn (tm,_) => mk_thm([],tm)); remove *)
 

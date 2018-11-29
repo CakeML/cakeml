@@ -2,6 +2,8 @@ open preamble word_removeTheory wordSemTheory wordPropsTheory;
 
 val _ = new_theory "word_removeProof";
 
+val _ = set_grammar_ancestry["word_remove","wordSem","wordProps"];
+
 val compile_state_def = Define`
   compile_state clk c s =
     s with <|

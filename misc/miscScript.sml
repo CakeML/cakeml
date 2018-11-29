@@ -2,7 +2,7 @@
    Miscellaneous definitions and minor lemmas used throughout the
    development.
 *)
-open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
+open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory mp_then
 open bitstringTheory bagTheory optionTheory combinTheory dep_rewrite listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
 local open bagLib alignmentTheory addressTheory blastLib in end
 
@@ -5203,5 +5203,80 @@ val word_sub_lt = Q.store_thm("word_sub_lt",
     dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_lt]
     \\ simp[])
   \\ full_simp_tac(srw_ss())[word_lt_n2w,LET_THM]);
+
+(* see #521 *)
+
+val bytes_in_memory_def = Define `
+  (bytes_in_memory a [] m dm <=> T) /\
+  (bytes_in_memory a ((x:word8)::xs) m dm <=>
+     (m a = x) /\ a IN dm /\ bytes_in_memory (a + 1w) xs m dm)`
+
+val bytes_in_memory_APPEND = Q.store_thm("bytes_in_memory_APPEND",
+  `!l1 l2 pc mem mem_domain.
+      bytes_in_memory pc (l1 ++ l2) mem mem_domain <=>
+      bytes_in_memory pc l1 mem mem_domain /\
+      bytes_in_memory (pc + n2w (LENGTH l1)) l2 mem mem_domain`,
+  Induct
+  THEN ASM_SIMP_TAC list_ss
+         [bytes_in_memory_def, wordsTheory.WORD_ADD_0, wordsTheory.word_add_n2w,
+          GSYM wordsTheory.WORD_ADD_ASSOC, arithmeticTheory.ADD1]
+  THEN DECIDE_TAC
+  )
+
+val bytes_in_memory_change_domain = Q.store_thm("bytes_in_memory_change_domain",
+  `∀a bs m md1 md2.
+    bytes_in_memory a bs m md1 ∧
+   (∀n. n < LENGTH bs ∧ a + n2w n ∈ md1 ⇒ a + n2w n ∈ md2)
+  ⇒ bytes_in_memory a bs m md2`,
+  Induct_on`bs`
+  \\ rw[bytes_in_memory_def]
+  >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
+  \\ first_x_assum irule
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ strip_tac
+  \\ first_x_assum(qspec_then`SUC n`mp_tac)
+  \\ simp[ADD1,GSYM word_add_n2w]);
+
+val bytes_in_memory_change_mem = Q.store_thm("bytes_in_memory_change_mem",
+  `∀a bs m1 m2 md.
+    bytes_in_memory a bs m1 md ∧
+   (∀n. n < LENGTH bs ⇒ (m1 (a + n2w n) = m2 (a + n2w n)))
+  ⇒ bytes_in_memory a bs m2 md`,
+  Induct_on`bs`
+  \\ rw[bytes_in_memory_def]
+  >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
+  \\ first_x_assum irule
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ strip_tac
+  \\ first_x_assum(qspec_then`SUC n`mp_tac)
+  \\ simp[ADD1,GSYM word_add_n2w]);
+
+val bytes_in_memory_EL = Q.store_thm("bytes_in_memory_EL",
+  `∀a bs m md k. bytes_in_memory a bs m md ∧ k < LENGTH bs ⇒ (m (a + n2w k) = EL k bs)`,
+  Induct_on`bs`
+  \\ rw[bytes_in_memory_def]
+  \\ Cases_on`k` \\ fs[]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp[ADD1, GSYM word_add_n2w]);
+
+val bytes_in_memory_in_domain = Q.store_thm("bytes_in_memory_in_domain",
+  `∀a bs m md k. bytes_in_memory a bs m md ∧ k < LENGTH bs ⇒ ((a + n2w k) ∈ md)`,
+  Induct_on`bs`
+  \\ rw[bytes_in_memory_def]
+  \\ Cases_on`k` \\ fs[]
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ simp[ADD1, GSYM word_add_n2w]);
+
+val bytes_in_mem_def = Define `
+  (bytes_in_mem a [] m md k <=> T) /\
+  (bytes_in_mem a (b::bs) m md k <=>
+     a IN md /\ ~(a IN k) /\ (m a = b) /\
+     bytes_in_mem (a+1w) bs m md k)`
+
+val bytes_in_mem_IMP = Q.store_thm("bytes_in_mem_IMP",
+  `!xs p. bytes_in_mem p xs m dm dm1 ==> bytes_in_memory p xs m dm`,
+  Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def,bytes_in_memory_def]);
 
 val _ = export_theory()

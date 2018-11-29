@@ -4,7 +4,8 @@ open preamble
 
 val _ = new_theory "word_instProof";
 
-val _ = Parse.hide "B";
+val _ = set_grammar_ancestry ["wordLang", "wordProps", "word_inst", "wordSem"];
+
 (* TODO: Move, but some of these are specific instantiations *)
 val PERM_SWAP_SIMP = Q.prove(`
   PERM (A ++ (B::C)) (B::(A++C))`,

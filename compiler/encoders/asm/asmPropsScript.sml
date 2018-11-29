@@ -113,18 +113,6 @@ val encoder_correct_def = Define `
 
 (* lemma for proofs *)
 
-val bytes_in_memory_APPEND = Q.store_thm("bytes_in_memory_APPEND",
-  `!l1 l2 pc mem mem_domain.
-      bytes_in_memory pc (l1 ++ l2) mem mem_domain <=>
-      bytes_in_memory pc l1 mem mem_domain /\
-      bytes_in_memory (pc + n2w (LENGTH l1)) l2 mem mem_domain`,
-  Induct
-  THEN ASM_SIMP_TAC list_ss
-         [bytes_in_memory_def, wordsTheory.WORD_ADD_0, wordsTheory.word_add_n2w,
-          GSYM wordsTheory.WORD_ADD_ASSOC, arithmeticTheory.ADD1]
-  THEN DECIDE_TAC
-  )
-
 val bytes_in_memory_all_pcs = Q.store_thm("bytes_in_memory_all_pcs",
   `!xs pc. bytes_in_memory pc xs m d ==> all_pcs (LENGTH xs) pc k SUBSET d`,
   gen_tac
@@ -152,52 +140,6 @@ val bytes_in_memory_all_pcs = Q.store_thm("bytes_in_memory_all_pcs",
     \\ `i = 1` by fs[] \\ fs[] )
   \\ Cases_on`i` \\ fs[ADD1, RIGHT_ADD_DISTRIB]);
 
-val bytes_in_memory_change_domain = Q.store_thm("bytes_in_memory_change_domain",
-  `∀a bs m md1 md2.
-    bytes_in_memory a bs m md1 ∧
-   (∀n. n < LENGTH bs ∧ a + n2w n ∈ md1 ⇒ a + n2w n ∈ md2)
-  ⇒ bytes_in_memory a bs m md2`,
-  Induct_on`bs`
-  \\ rw[bytes_in_memory_def]
-  >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
-  \\ first_x_assum irule
-  \\ goal_assum(first_assum o mp_then Any mp_tac)
-  \\ strip_tac
-  \\ first_x_assum(qspec_then`SUC n`mp_tac)
-  \\ simp[ADD1,GSYM word_add_n2w]);
-
-val bytes_in_memory_change_mem = Q.store_thm("bytes_in_memory_change_mem",
-  `∀a bs m1 m2 md.
-    bytes_in_memory a bs m1 md ∧
-   (∀n. n < LENGTH bs ⇒ (m1 (a + n2w n) = m2 (a + n2w n)))
-  ⇒ bytes_in_memory a bs m2 md`,
-  Induct_on`bs`
-  \\ rw[bytes_in_memory_def]
-  >- ( first_x_assum(qspec_then`0`mp_tac) \\ rw[] )
-  \\ first_x_assum irule
-  \\ goal_assum(first_assum o mp_then Any mp_tac)
-  \\ strip_tac
-  \\ first_x_assum(qspec_then`SUC n`mp_tac)
-  \\ simp[ADD1,GSYM word_add_n2w]);
-
-val bytes_in_memory_EL = Q.store_thm("bytes_in_memory_EL",
-  `∀a bs m md k. bytes_in_memory a bs m md ∧ k < LENGTH bs ⇒ (m (a + n2w k) = EL k bs)`,
-  Induct_on`bs`
-  \\ rw[asmSemTheory.bytes_in_memory_def]
-  \\ Cases_on`k` \\ fs[]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ simp[ADD1, GSYM word_add_n2w]);
-
-val bytes_in_memory_in_domain = Q.store_thm("bytes_in_memory_in_domain",
-  `∀a bs m md k. bytes_in_memory a bs m md ∧ k < LENGTH bs ⇒ ((a + n2w k) ∈ md)`,
-  Induct_on`bs`
-  \\ rw[asmSemTheory.bytes_in_memory_def]
-  \\ Cases_on`k` \\ fs[]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ simp[ADD1, GSYM word_add_n2w]);
-
 val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_in_memory",
   `∀p n m ba m' md.
    (n = LENGTH ba) ∧
@@ -205,7 +147,7 @@ val read_bytearray_IMP_bytes_in_memory = Q.store_thm("read_bytearray_IMP_bytes_i
    (read_bytearray (p:'a word) n m = SOME ba) ⇒
    bytes_in_memory p ba m' md`,
   Induct_on`ba` \\ rw[] >- EVAL_TAC
-  \\ simp[asmSemTheory.bytes_in_memory_def]
+  \\ simp[bytes_in_memory_def]
   \\ fs[read_bytearray_def, CaseEq"option"]
   \\ first_assum(qspec_then`p`mp_tac)
   \\ impl_tac >- simp[all_words_def]

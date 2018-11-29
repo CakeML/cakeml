@@ -378,7 +378,7 @@ val encoder_correct_asm_step_target_state_rel = Q.store_thm("encoder_correct_asm
     fs[asmSemTheory.asm_step_def, asmPropsTheory.target_state_rel_def]
     \\ `t.config.encode i <> []`
     by ( fs[asmPropsTheory.target_ok_def, asmPropsTheory.enc_ok_def] )
-    \\ Cases_on`t.config.encode i` \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ Cases_on`t.config.encode i` \\ fs[bytes_in_memory_def]
     \\ fs[asmPropsTheory.all_pcs_thm]
     \\ qexists_tac`0` \\ fs[])
   \\ conj_tac

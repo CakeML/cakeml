@@ -5,16 +5,16 @@
   and proves semantic preservation for word_elim.
 *)
 
-open preamble backendComputeLib sptreeTheory wordLangTheory
+open preamble backendComputeLib wordLangTheory
      word_elimTheory wordSemTheory wordPropsTheory
      flat_elimProofTheory
 
-val m = Hol_pp.print_apropos;
-val f = print_find;
-
 val _ = new_theory "word_elimProof";
-
+val _ = set_grammar_ancestry
+  ["wordLang", "word_elim", "wordSem", "wordProps",
+   "flat_elimProof"];
 val _ = Parse.hide"mem";
+val _ = Parse.bring_to_front_overload"domain"{Thy="sptree",Name="domain"};
 
 (**************************** ANALYSIS LEMMAS *****************************)
 
@@ -326,10 +326,10 @@ val get_stack_def = Define ` (* stack : ('a stack_frame) list *)
 val get_stack_ind = theorem "get_stack_ind";
 
 val get_stack_hd_thm = Q.store_thm ("get_stack_hd_thm",
-    `∀ stack reachable l opt t . domain (get_stack stack) ⊆ domain reachable ∧
+    `∀ stack dr l opt t . domain (get_stack stack) ⊆ dr ∧
         stack = StackFrame l opt::t
-        ⇒ domain (get_locals (fromAList l)) ⊆ domain reachable ∧
-          domain (get_stack t) ⊆ domain (reachable)`,
+        ⇒ domain (get_locals (fromAList l)) ⊆ dr ∧
+          domain (get_stack t) ⊆ dr`,
             recInduct get_stack_ind >> rw[]
             >- (Cases_on `e` >>
                 fs[get_stack_def, domain_union,
@@ -340,10 +340,10 @@ val get_stack_hd_thm = Q.store_thm ("get_stack_hd_thm",
 );
 
 val get_stack_LASTN = Q.store_thm("get_stack_LASTN",
-    `∀ stack reachable n . domain (get_stack stack) ⊆ domain reachable
-    ⇒ domain(get_stack (LASTN n stack)) ⊆ domain reachable`,
+    `∀ stack n . domain (get_stack (LASTN n stack)) ⊆ domain (get_stack stack)`,
     recInduct get_stack_ind >> rw[get_stack_def, LASTN_ALT] >>
     Cases_on `SUC (LENGTH xs) ≤ n` >> fs[get_stack_def, domain_union]
+    \\ fs[SUBSET_DEF] \\ metis_tac[]
 );
 
 val get_stack_CONS = Q.store_thm("get_stack_CONS",
@@ -601,12 +601,12 @@ val get_memory_write_bytearray_lemma = Q.store_thm(
 );
 
 val stack_list_rearrange_lemma = Q.store_thm("stack_list_rearrange_lemma",
-    `∀ s reachable locs opt .
-        domain (get_locals s.locals) ⊆ domain reachable ∧
-        domain (get_stack s.stack) ⊆ domain reachable
+    `∀ s dr locs opt .
+        domain (get_locals s.locals) ⊆ dr ∧
+        domain (get_stack s.stack) ⊆ dr
     ⇒ domain (get_stack (StackFrame (list_rearrange (s.permute 0)
     (QSORT key_val_compare (toAList (inter s.locals locs)))) opt::s.stack))
-        ⊆ domain reachable`,
+        ⊆ dr`,
     rw[] >> fs[get_stack_def, domain_union] >> rw[SUBSET_DEF] >>
     imp_res_tac get_num_wordloc_alist_thm >>
     fs[MEM_MAP] >> fs[mem_list_rearrange, QSORT_MEM] >>
@@ -642,8 +642,8 @@ val word_state_rel_word_exp = Q.store_thm("word_state_rel_word_exp",
         ⇒ word_exp s1 exp = word_exp s2 exp`,
     recInduct word_exp_ind >> rw[word_exp_def]
     >- (fs[word_state_rel_def]) >- (fs[word_state_rel_def])
-    >- (first_x_assum drule >> rw[] >> Cases_on `word_exp s2 addr'` >> rw[] >>
-        Cases_on `x` >> fs[] >> fs[mem_load_def, word_state_rel_def])
+    >- (first_x_assum drule >> rw[] >> PURE_TOP_CASE_TAC >> rw[] >>
+        PURE_TOP_CASE_TAC >> fs[] >> fs[mem_load_def, word_state_rel_def])
     >- (`MAP (λ a . word_exp s a) wexps = MAP (λ a . word_exp s2 a) wexps` by
             (fs[MAP_EQ_f] >> metis_tac[]) >> fs[])
     >- (first_x_assum drule >> rw[])
@@ -871,7 +871,7 @@ val word_state_rel_jump_exc = Q.store_thm("word_state_rel_jump_exc",
     EVERY_CASE_TAC >> fs[] >> rw[] >> fs[word_state_rel_def] >> rw[] >>
     fs[domain_find_loc_state] >>
     `domain (get_stack (StackFrame l (SOME (q,l1,l2))::t')) ⊆
-        domain reachable` by metis_tac[get_stack_LASTN] >>
+        domain reachable` by metis_tac[get_stack_LASTN,SUBSET_TRANS] >>
     drule get_stack_hd_thm >> rw[]
 );
 

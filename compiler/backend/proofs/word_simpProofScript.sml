@@ -4,6 +4,8 @@ val _ = new_theory "word_simpProof";
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
 
+val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_simp"];
+
 (** common **)
 
 val labels_rel_def = Define `

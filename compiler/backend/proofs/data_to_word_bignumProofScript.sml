@@ -1,7 +1,7 @@
 open preamble bvlSemTheory dataSemTheory dataPropsTheory
-     copying_gcTheory int_bitwiseTheory finite_mapTheory
+     copying_gcTheory int_bitwiseTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
-     data_to_wordTheory wordPropsTheory labPropsTheory whileTheory
+     data_to_wordTheory wordPropsTheory labPropsTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory blastLib word_bignumTheory
      wordLangTheory word_bignumProofTheory gen_gc_partialTheory
@@ -9,6 +9,14 @@ open preamble bvlSemTheory dataSemTheory dataPropsTheory
 local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_bignumProof";
+
+val _ = set_grammar_ancestry
+  ["dataSem", "wordSem", "data_to_word",
+   "data_to_word_memoryProof", "data_to_word_gcProof", "word_bignumProof",
+   "labProps" (* good_dimindex *)
+  ];
+
+val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="wordSem"};
 
 val _ = hide "next";
 

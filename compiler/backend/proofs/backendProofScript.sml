@@ -85,6 +85,14 @@ val byte_aligned_mult = Q.store_thm("byte_aligned_mult",
   \\ once_rewrite_tac [MULT_COMM]
   \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]);
 
+val byte_aligned_MOD = Q.store_thm("byte_aligned_MOD",`
+  good_dimindex (:'a) ⇒
+  ∀x:'a word.x ∈ byte_aligned ⇒
+  w2n x MOD (dimindex (:'a) DIV 8) = 0`,
+  rw[IN_DEF]>>
+  fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
+  rfs[labPropsTheory.good_dimindex_def] \\ rfs []);
+
 val nsLookup_Bind_v_some = Q.store_thm("nsLookup_Bind_v_some",
   `nsLookup (Bind v []) k = SOME x ⇔
    ∃y. k = Short y ∧ ALOOKUP v y = SOME x`,
@@ -206,48 +214,6 @@ val fun2set_disjoint_union = Q.store_thm("fun2set_disjoint_union",
   \\ fs[IN_DISJOINT,FORALL_PROD]);
 
 (* -- *)
-
-(* TODO: should be defined in targetSem *)
-(* CakeML code, bytes, and code buffer space, cspace, and FFI functions, ffi,
-   are installed into the machine, mc_conf + ms
-   r1 and r2 are the names of registers containing
-   the first address of the CakeML heap and the first address past the CakeML stack
-   i.e., the range of the data memory
-*)
-val installed_def = Define`
-  installed bytes cbspace bitmaps data_sp ffi_names ffi (r1,r2) mc_conf ms ⇔
-    ∃t m io_regs cc_regs bitmap_ptr bitmaps_dm.
-      (*let bitmaps_dm = { w | bitmap_ptr <=+ w ∧ w <+ bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)} in*)
-      let heap_stack_dm = { w | t.regs r1 <=+ w ∧ w <+ t.regs r2 } in
-      good_init_state mc_conf ms ffi bytes cbspace t m (heap_stack_dm ∪ bitmaps_dm) io_regs cc_regs ∧
-      byte_aligned (t.regs r1) /\
-      byte_aligned (t.regs r2) /\
-      byte_aligned bitmap_ptr /\
-      t.regs r1 ≤₊ t.regs r2 /\
-      1024w * bytes_in_word ≤₊ t.regs r2 - t.regs r1 /\
-      DISJOINT heap_stack_dm bitmaps_dm ∧
-      m (t.regs r1) = Word bitmap_ptr ∧
-      m (t.regs r1 + bytes_in_word) =
-        Word (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) ∧
-      m (t.regs r1 + 2w * bytes_in_word) =
-        Word (bitmap_ptr + bytes_in_word * n2w data_sp +
-              bytes_in_word * n2w (LENGTH bitmaps)) ∧
-      m (t.regs r1 + 3w * bytes_in_word) =
-        Word (mc_conf.target.get_pc ms + n2w (LENGTH bytes)) ∧
-      m (t.regs r1 + 4w * bytes_in_word) =
-        Word (mc_conf.target.get_pc ms + n2w cbspace + n2w (LENGTH bytes)) ∧
-      (word_list bitmap_ptr (MAP Word bitmaps) *
-        word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp)
-       (fun2set (m,byte_aligned ∩ bitmaps_dm)) ∧
-      ffi_names = SOME mc_conf.ffi_names`;
-
-val byte_aligned_MOD = Q.store_thm("byte_aligned_MOD",`
-  good_dimindex (:'a) ⇒
-  ∀x:'a word.x ∈ byte_aligned ⇒
-  w2n x MOD (dimindex (:'a) DIV 8) = 0`,
-  rw[IN_DEF]>>
-  fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
-  rfs[labPropsTheory.good_dimindex_def] \\ rfs []);
 
 val prim_config = prim_config_eq |> concl |> lhs
 

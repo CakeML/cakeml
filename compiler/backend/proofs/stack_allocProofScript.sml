@@ -12,7 +12,7 @@ val _ = (max_print_depth := 18);
 
 val word_shift_def = backend_commonTheory.word_shift_def
 
-val _ = bring_to_front_overload"compile"{Name="compile",Thy="stack_alloc"};
+val _ = temp_bring_to_front_overload"compile"{Name="compile",Thy="stack_alloc"};
 
 (* TODO: move and join with stack_remove *)
 

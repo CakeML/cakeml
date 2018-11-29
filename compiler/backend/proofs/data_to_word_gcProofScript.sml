@@ -1,6 +1,6 @@
 open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
-     int_bitwiseTheory data_to_word_memoryProofTheory finite_mapTheory
-     data_to_wordTheory wordPropsTheory labPropsTheory whileTheory
+     int_bitwiseTheory data_to_word_memoryProofTheory
+     data_to_wordTheory wordPropsTheory labPropsTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
      word_bignumProofTheory gen_gc_partialTheory gc_sharedTheory
@@ -11,7 +11,7 @@ val _ = new_theory "data_to_word_gcProof";
 
 val _ = set_grammar_ancestry
   ["dataSem", "wordSem", "data_to_word",
-   "data_to_word_memoryProof"
+   "data_to_word_memoryProof", "labProps" (* good_dimindex *)
   ];
 
 val shift_def = backend_commonTheory.word_shift_def

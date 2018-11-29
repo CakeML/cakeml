@@ -356,10 +356,6 @@ val get_lab_after_pos_def = Define `
 val get_ret_Loc_def = Define `
   get_ret_Loc s = get_lab_after s.pc s.code`;
 
-val get_reg_value_def = Define `
-  (get_reg_value NONE w f = w) /\
-  (get_reg_value (SOME v) _ f = f v)`
-
 val evaluate_def = tDefine "evaluate" `
   evaluate (s:('a,'c,'ffi) labSem$state) =
     if s.clock = 0 then (TimeOut,s) else

@@ -4,9 +4,10 @@ open preamble
 
 val _ = new_theory "word_allocProof";
 
-val _ = bring_to_front_overload"get_vars"{Name="get_vars",Thy="wordSem"};
-val _ = bring_to_front_overload"prog_size"{Name="prog_size",Thy="wordLang"};
-val _ = bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
+val _ = set_grammar_ancestry
+  ["wordLang", "wordSem", "wordProps", "word_alloc",
+   "reg_alloc", "reg_allocProof", "linear_scan", "linear_scanProof"];
+val _ = Parse.bring_to_front_overload"numset_list_insert"{Thy="word_alloc",Name="numset_list_insert"};
 val _ = Parse.hide"mem";
 
 (*TODO: Move?*)
