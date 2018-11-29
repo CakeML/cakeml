@@ -2308,7 +2308,8 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     >>
       PairCases_on`x'`>>full_simp_tac(srw_ss())[]>>
       IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-      Cases_on`cut_env x'1' st.locals`>>full_simp_tac(srw_ss())[]>>
+      rename [‘add_ret_loc (SOME (x0',x1',x2',x3',x4')) x’] >>
+      Cases_on`cut_env x1' st.locals`>>full_simp_tac(srw_ss())[]>>
       imp_res_tac locals_rel_cut_env>>full_simp_tac(srw_ss())[]>>
       IF_CASES_TAC>-
         (full_simp_tac(srw_ss())[call_env_def,state_component_equality,locals_rel_def]>>
