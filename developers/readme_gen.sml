@@ -121,9 +121,31 @@ fun read_all_lines filename =
   in SOME all_lines end
   handle e => NONE;
 
+fun every_line_in_file filename p =
+  let
+    val f = TextIO.openIn(filename)
+    fun every_line () =
+      case TextIO.inputLine(f) of
+        NONE => []
+      | SOME line => (p line; every_line ())
+    val _ = every_line ()
+    val _ = TextIO.closeIn f
+  in () end;
+
 (* Reading a block comment (from an SML or C file) *)
 
 fun read_block_comment start_comment end_comment filename = let
+  fun assert_no_trailing_whitespace line =
+    if String.isSuffix " \n" line orelse String.isSuffix " " line
+    then fail "trailing white-space is not allowed (adjust your editor setting)"
+    else ()
+  fun assert_no_tabs_in_line line =
+    if String.isSubstring "\t" line
+    then fail "tab characters (#\"\\t\") are not allowed"
+    else ()
+  val _ = every_line_in_file filename
+            (fn line => ( assert_no_trailing_whitespace line ;
+                          assert_no_tabs_in_line line ))
   val f = open_textfile filename
   in let
     (* check that first line is comment *)
