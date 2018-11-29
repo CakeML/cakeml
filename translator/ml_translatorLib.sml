@@ -13,7 +13,7 @@ open ml_translatorTheory ml_translatorSyntax intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
 open mlstringLib mlstringSyntax mlvectorSyntax packLib ml_progTheory ml_progLib
-local open integer_wordSyntax in end
+local open integer_wordSyntax permLib comparisonTheory in end
 
 val ERR = mk_HOL_ERR "ml_translatorLib";
 
@@ -999,6 +999,150 @@ fun tys_is_order_type tys =
 val unit_tyname = stringSyntax.fromMLstring "unit"
 val order_tyname = stringSyntax.fromMLstring "order"
 
+fun inspect_goal tac (asms, goal) = tac goal (asms, goal)
+
+val n = mk_var ("n", numSyntax.num)
+val induct_on_n = Induct_on `^n`
+
+fun mk_EqType_size_prop size_op = let
+    val (typ, _) = dom_rng (type_of size_op)
+    val type_op = get_type_inv typ
+    val x = mk_var ("x", typ)
+    val abs = mk_abs (x, numSyntax.mk_less (mk_comb (size_op, x), n))
+  in ml_translatorSyntax.mk_EqualityType
+    (ml_translatorSyntax.mk_And (type_op, abs)) end
+
+fun get_size_rec_Type_insts size_def = let
+    val eqs = concl size_def |> strip_conj
+        |> map (dest_eq o snd o strip_forall)
+    val lhs_szs = map (rator o fst) eqs |> mk_set
+    val lhs_sz_typs = map (fst o dom_rng o type_of) lhs_szs
+    val lhs_var_typs = map (snd o strip_comb o rand o fst) eqs
+        |> List.concat |> map type_of |> mk_set
+    val indep_var_typs = subtract lhs_var_typs lhs_sz_typs
+    fun add_ty_inv sz = (sz, get_type_inv (fst (dom_rng (type_of sz))))
+  in (zip lhs_szs (map get_type_inv lhs_sz_typs),
+    map get_type_inv indep_var_typs) end
+
+fun mk_tl_nth 0 xs = listSyntax.mk_hd xs
+  | mk_tl_nth n xs = mk_tl_nth (n - 1) (listSyntax.mk_tl xs)
+
+fun prove_EqualityType_tac simps defs =
+  let
+    val ss = list_ss && simps ++ stringSimps.STRING_ss
+    fun inst_Eqs_triv EqType_assms (x, y, vx, vy) = let
+        val (f_x, xs) = strip_comb x
+        val (f_y, ys) = strip_comb y
+        val _ = (same_const f_x f_y andalso length xs = length ys)
+            orelse raise UNCHANGED
+        val assms = map (REWRITE_RULE [EqualityType_def_rearranged])
+            (map BODY_CONJUNCTS EqType_assms |> List.concat)
+        fun a i x = mk_tl_nth i (mk_Conv_args x)
+        val n_assms = map (fn ((x, y), i) =>
+                List.mapPartial (total (SPECL [x, y, a i vx, a i vy])) assms)
+            (zip (zip xs ys) (upto 0 (length xs - 1))) |> List.concat
+      in EVERY (map MP_TAC n_assms) end handle UNCHANGED => ALL_TAC
+  in
+  induct_on_n
+  \\ simp_tac (bool_ss ++ ARITH_ss) [EqualityType_def_rearranged, And_def]
+  \\ full_simp_tac ss []
+  \\ POP_ASSUM_LIST (fn assms =>
+     rpt conj_tac \\ Cases \\ rpt GEN_TAC
+      \\ inspect_goal (fn g => let
+             val (_, y, _, _) = dest_trivial4 (fst (dest_imp g))
+           in Cases_on `^y` end)
+      \\ strip_tac (* trivial4 *)
+      \\ strip_tac (* ty_inv assumptions *)
+      \\ full_simp_tac ss (defs @ [no_closures_def, types_match_def,
+                semanticPrimitivesTheory.ctor_same_type_def,
+                semanticPrimitivesTheory.same_type_def])
+      \\ FIRST_X_ASSUM (inst_Eqs_triv assms o dest_trivial4 o concl))
+  \\ full_simp_tac ss [And_def, trivial4_def, Conv_args_def]
+  end
+
+fun guess_const_def tm = let
+    val stuff = dest_thy_const tm
+  in DB.fetch (#Thy stuff) (#Name stuff ^ "_def") end
+
+fun str_dest tm = stringSyntax.fromHOLstring tm |> explode |> map ord
+val str_all_distinct_conv = let open permLib comparisonTheory
+  in ALL_DISTINCT_CONV (MATCH_MP good_cmp_Less_irrefl_trans string_cmp_good)
+    (fn x => fn y => list_compare Int.compare (str_dest x, str_dest y) = LESS)
+    EVAL
+  end
+val num_all_distinct_conv = let open permLib comparisonTheory numSyntax
+  in ALL_DISTINCT_CONV (MATCH_MP good_cmp_Less_irrefl_trans num_cmp_good)
+    (fn x => fn y => int_of_term x < int_of_term y) EVAL
+  end
+
+fun get_type_n2typ_onto_thm typ = let
+    val n2typ = TypeBase.simpls_of typ |> #rewrs
+        |> List.mapPartial (total (fst o dest_eq o hd o strip_conj o concl))
+        |> map (fst o strip_comb) |> filter is_const
+        |> filter (String.isPrefix "num2" o fst o dest_const) |> hd
+    val details = dest_thy_const n2typ
+  in DB.fetch (#Thy details) (#Name details ^ "_ONTO") end
+
+fun EqualityType_via_n2typ is_exn_type typ = let
+    val TY = get_type_inv typ
+    val ONTO_thm = get_type_n2typ_onto_thm typ
+    val _ = print "Doing EqualityType proof via ONTO thm:"
+    val _ = print_thm ONTO_thm
+    val _ = print "\n"
+    val eq_thm = if is_exn_type then EqualityType_from_ONTO_Exn
+        else EqualityType_from_ONTO
+    val thm = MATCH_MP eq_thm ONTO_thm |> ISPEC TY
+    val genlist_tm = find_term listSyntax.is_genlist (concl thm)
+    val genlist_eq = EVAL genlist_tm
+    val stamps = concl genlist_eq |> rhs
+      |> listSyntax.dest_list |> fst
+      |> map (snd o dest_eq o snd o dest_abs)
+      |> map (optionSyntax.dest_some o hd o snd o strip_comb)
+    val stamp_list = map (hd o snd o strip_comb) stamps
+      |> (fn xs => listSyntax.mk_list (xs, type_of (hd xs)))
+    val thm2 = SPEC stamp_list thm
+        |> (if is_exn_type then I else SPEC (rand (hd stamps)))
+        |> CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV genlist_eq))
+        |> CONV_RULE (DEPTH_CONV str_all_distinct_conv)
+        |> CONV_RULE (DEPTH_CONV num_all_distinct_conv)
+  in SIMP_RULE list_ss [FUN_EQ_THM] thm2 end
+
+fun mk_EqualityType_proof_via_measure typ = let
+    val (size_op1, size_def1) = TypeBase.size_of typ
+    val t1 = type_of size_op1 |> wfrecUtils.strip_fun_type |> fst |> List.last
+    val size_op = size_op1 |> inst (match_type t1 typ)
+    val size_def2 = size_def1 |> INST_TYPE (match_type t1 typ)
+    val size_def = if can pairSyntax.dest_prod typ
+        then SIMP_RULE bool_ss [FUN_EQ_THM, pairTheory.FORALL_PROD,
+            pairTheory.UNCURRY_DEF] size_def2
+        else size_def2
+    val (mrec, other_tyinvs) = get_size_rec_Type_insts size_def
+    val goal = map (mk_EqType_size_prop o fst) mrec |> list_mk_conj
+    val assum_eqtys = map ml_translatorSyntax.mk_EqualityType
+        (mk_set other_tyinvs)
+    val assums = if null assum_eqtys then [] else [list_mk_conj assum_eqtys]
+    val defs = size_def :: map (guess_const_def o fst o strip_comb o snd) mrec
+    val datatypes = map (fst o dom_rng o type_of o fst) mrec
+        @ [semanticPrimitivesSyntax.v_ty, semanticPrimitivesSyntax.stamp_ty,
+            optionSyntax.mk_option alpha, pairSyntax.mk_prod (alpha, alpha)]
+    val simps = map (#rewrs o TypeBase.simpls_of) datatypes |> List.concat
+  in (assums, fn () =>
+    [ISPEC (fst (hd mrec)) EqualityType_measure,
+        TAC_PROOF ((assums, goal), prove_EqualityType_tac simps defs)])
+  end
+
+fun mk_EqualityType_proof is_exn_type typ = let
+    val final_goal = ml_translatorSyntax.mk_EqualityType (get_type_inv typ)
+    val (assums, get_thms) = if can get_type_n2typ_onto_thm typ
+      then ([], fn () => [EqualityType_via_n2typ is_exn_type typ])
+      else mk_EqualityType_proof_via_measure typ
+  in (list_mk_imp (assums, final_goal),
+    ASSUM_LIST (fn _ => let
+        val _ = print "Doing proof of: "
+        val _ = print_term final_goal
+      in simp_tac bool_ss (get_thms ()) end))
+  end
+
 fun define_ref_inv is_exn_type tys = let
   val is_pair_type = tys_is_pair_type tys
   val is_list_type = tys_is_list_type tys
@@ -1164,71 +1308,9 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
   (* equality type *)
-  val eq_lemmas = let
-    val tms = inv_defs |> map (rator o rator o fst o dest_eq o concl o SPEC_ALL o hd o CONJUNCTS o snd)
-    val xss = inv_def |> RW [GSYM CONJ_ASSOC] |> SPEC_ALL |> CONJUNCTS
-              |> map (snd o dest_eq o concl o SPEC_ALL)
-              |> map (last o list_dest dest_exists)
-              |> map (tl o list_dest dest_conj) |> Lib.flatten
-              |> map (rator o rator) |> filter (fn t => not (tmem t tms))
-              |> op_mk_set aconv
-    val yss = map mk_EqualityType xss
-    val tm1s = (map mk_EqualityType tms)
-    val yss = filter (fn y => not (tmem y (T::tm1s))) yss
-    val tm2s = if List.null yss then T else list_mk_conj yss
-    val goal = mk_imp(tm2s,list_mk_conj tm1s)
-    val reps = length tm1s
-    fun N_conj_conv p N =
-      markerLib.move_conj_right p
-      THENC
-      quantHeuristicsLibBase.BOUNDED_REPEATC (N-1)
-      (markerLib.move_conj_right p
-      THENC
-      (REWR_CONV (GSYM CONJ_ASSOC)))
-    val no_closure_pat = get_term "no_closure_pat"
-    val types_match_pat = get_term "types_match_pat"
-    val pull_no_closures = N_conj_conv (can (match_term no_closure_pat)) reps
-    val pull_types_match = N_conj_conv (can (match_term types_match_pat)) reps
-    val x2 = mk_var("x2",alpha)
-    val ty_case_eq = LIST_CONJ
-      (List.concat (List.map (#rewrs o TypeBase.simpls_of) tys))
-    (* set_goal ([], goal) *)
-    val eq_lemma = auto_prove "EqualityType" (goal,
-      strip_tac
-      \\ fs [EqualityType_def]
-      \\ CONV_TAC pull_no_closures
-      \\ reverse conj_tac
-      >-
-       ((Induct ORELSE Cases)
-        \\ simp [inv_def, no_closures_def, PULL_EXISTS]
-        \\ rpt strip_tac
-        \\ res_tac)
-      \\ CONV_TAC pull_types_match
-      \\ CONJ_TAC
-      >-
-       ((Induct ORELSE Cases)
-        \\ simp [inv_def, no_closures_def, PULL_EXISTS]
-        \\ primCases_on x2
-        \\ simp [inv_def, no_closures_def, PULL_EXISTS]
-        \\ simp [ty_case_eq]
-        \\ rpt strip_tac
-        \\ fs [NUM_def, BOOL_def] \\ rw []
-        \\ simp_tac std_ss [EQ_IMP_THM]
-        \\ rpt strip_tac
-        \\ res_tac)
-      \\ (Induct ORELSE Cases)
-      \\ simp [inv_def, no_closures_def, PULL_EXISTS]
-      \\ TRY (primCases_on x2)
-      \\ simp [inv_def, no_closures_def, PULL_EXISTS,
-               types_match_def, ctor_same_type_def, same_type_def]
-      \\ simp [ty_case_eq]
-      \\ rpt strip_tac
-      \\ res_tac)
-    (* check that the result does not mention itself *)
-    val (tm1,tm2) = dest_imp goal
-    val _ = not (can (find_term (aconv (rand tm2))) tm1) orelse fail()
-    val eq_lemmas = eq_lemma |> SIMP_RULE std_ss [IMP_CONJ_THM] |> CONJUNCTS
-    in eq_lemmas end handle HOL_ERR _ => map (K TRUTH) tys
+  val eq_lemmas = map (fn ty => mk_EqualityType_proof is_exn_type ty
+        handle HOL_ERR _ => (T, simp_tac bool_ss [])) tys
+    |> map prove
   val res = map (fn ((th,inv_def),eq_lemma) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
   in (name,res) end;
