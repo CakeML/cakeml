@@ -849,14 +849,22 @@ val Eval_word_or = Q.store_thm("Eval_word_or",
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw (dimindex (:'a)) Orw) [x1;x2])
       (WORD (word_or w1 w2))`,
-  cheat);
+  tac
+  \\ fs [bitstringTheory.word_or_v2w,bitstringTheory.bor_def]
+  \\ fs [bitwise_w2v_w2v] \\ AP_TERM_TAC
+  \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def]
+);
 
 val Eval_word_xor = Q.store_thm("Eval_word_xor",
    `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw (dimindex (:'a)) Xor) [x1;x2])
       (WORD (word_xor w1 w2))`,
-  cheat);
+  tac
+  \\ fs [bitstringTheory.word_or_v2w,bitstringTheory.bxor_def]
+  \\ fs [bitwise_w2v_w2v] \\ AP_TERM_TAC
+  \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_xor_def]
+);
 
 val DISTRIB_ANY = Q.prove(
   `(p * m + p * n = p * (m + n)) /\
