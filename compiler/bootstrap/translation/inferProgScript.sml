@@ -666,7 +666,11 @@ val EqualityType_AST_LIT_TYPE = find_equality_type_thm``AST_LIT_TYPE``
                        EqualityType_INT,EqualityType_BOOL,EqualityType_WORD]
 
 (* (string,string) id*)
-val EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR = find_equality_type_thm``NAMESPACE_ID_TYPE m n`` |> Q.GEN`m` |> Q.ISPEC`LIST_TYPE CHAR` |> Q.GEN`n` |> Q.ISPEC`LIST_TYPE CHAR` |> SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR]
+
+val EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR =
+  find_equality_type_thm``NAMESPACE_ID_TYPE m n`` |> Q.GEN`m` |>
+  Q.ISPEC`LIST_TYPE CHAR` |> Q.GEN`n` |> Q.ISPEC`LIST_TYPE CHAR` |>
+  SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR]
 
 val EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR = find_equality_type_thm``OPTION_TYPE a``
   |> Q.GEN`a` |> Q.ISPEC`NAMESPACE_ID_TYPE (LIST_TYPE CHAR) (LIST_TYPE CHAR)`

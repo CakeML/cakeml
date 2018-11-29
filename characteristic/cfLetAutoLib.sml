@@ -231,7 +231,10 @@ val {mk,dest,export} = ThmSetData.new_exporter "refinement_invariants"
 
 fun export_refinement_invariants slist = List.app export slist;
 
-(* Don't put UNIT_TYPE in here and use UNIT_TYPE_EXPAND and UNIT_TYPE_RETRACT instead - because of the nature of the unit type, the automatically generated retract rule for UNIT_TYPE introduces a new variable: !u v. v = Conv NONE [] <=> UNIT_TYPE u v *)
+(* Don't put UNIT_TYPE in here and use UNIT_TYPE_EXPAND and
+   UNIT_TYPE_RETRACT instead - because of the nature of the unit type,
+   the automatically generated retract rule for UNIT_TYPE introduces a
+   new variable: !u v. v = Conv NONE [] <=> UNIT_TYPE u v *)
 val _ = add_refinement_invariants [NUM_def, INT_def, BOOL_def, STRING_TYPE_def];
 
 fun add_match_thms thms =

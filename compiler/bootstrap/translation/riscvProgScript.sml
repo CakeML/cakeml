@@ -55,7 +55,10 @@ val v2w_rw = Q.prove(`
   v2w [P] = if P then 1w else 0w`,
   rw[]>>EVAL_TAC);
 
-val defaults = [riscv_ast_def,riscv_encode_def,Encode_def,Itype_def,opc_def,riscv_const32_def,Utype_def,Rtype_def,riscv_bop_r_def,riscv_bop_i_def,riscv_encode_fail_def,riscv_memop_def,Stype_def,UJtype_def,SBtype_def]
+val defaults = [riscv_ast_def, riscv_encode_def, Encode_def,
+  Itype_def, opc_def, riscv_const32_def, Utype_def, Rtype_def,
+  riscv_bop_r_def, riscv_bop_i_def, riscv_encode_fail_def,
+  riscv_memop_def, Stype_def, UJtype_def, SBtype_def]
 
 val riscv_enc_thms =
   riscv_enc_def
@@ -75,27 +78,40 @@ val riscv_enc1s =
   |> CONJUNCTS
 
 val riscv_enc1_1 = el 1 riscv_enc1s |> wc_simp |> we_simp |> econv
+
 val riscv_enc1_2 = el 2 riscv_enc1s
-  |> SIMP_RULE (srw_ss()++LET_ss) ([Q.ISPEC `LIST_BIND` COND_RAND,COND_RATOR,LIST_BIND_APPEND,spec_word_bit1,spec_word_bit2]@defaults)
+  |> SIMP_RULE (srw_ss()++LET_ss) ([Q.ISPEC `LIST_BIND` COND_RAND,COND_RATOR,
+        LIST_BIND_APPEND,spec_word_bit1,spec_word_bit2]@defaults)
   |> wc_simp |> we_simp |> gconv  |> SIMP_RULE std_ss [SHIFT_ZERO]
   |> csethm 10
 
-val (binop::shift::rest) = el 3 riscv_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
+val (binop::shift::rest) = el 3 riscv_enc1s |> SIMP_RULE (srw_ss() ++
+  DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
 
-val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``]) [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) [])
+val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++
+  DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
+  [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss
+  ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) [])
 
-val binopreg = binopreg_aux |> CONJUNCTS |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) (defaults) |> wc_simp |> we_simp |> gconv |>SIMP_RULE std_ss [SHIFT_ZERO])
+val binopreg = binopreg_aux |> CONJUNCTS |> map(fn th => th |>
+  SIMP_RULE (srw_ss()++LET_ss) (defaults) |> wc_simp |> we_simp |>
+  gconv |>SIMP_RULE std_ss [SHIFT_ZERO])
 
-val binopregth = reconstruct_case ``riscv_enc (Inst (Arith (Binop b n n0 (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) (map (csethm 2) binopreg)
+val binopregth = reconstruct_case
+  ``riscv_enc (Inst (Arith (Binop b n n0 (Reg n'))))``
+  (rand o rator o rator o rator o rand o rand o rand) (map (csethm 2) binopreg)
 
 val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th
   |> SIMP_RULE (srw_ss()++LET_ss)
                (Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR :: word_mul_def :: defaults)
   |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO])
 
-val binopimmth = reconstruct_case ``riscv_enc (Inst (Arith (Binop b n n0 (Imm c))))`` (rand o rator o rator o rator o rand o rand o rand) binopimm
+val binopimmth = reconstruct_case
+  ``riscv_enc (Inst (Arith (Binop b n n0 (Imm c))))``
+  (rand o rator o rator o rator o rand o rand o rand) binopimm
 
-val binopth = reconstruct_case ``riscv_enc(Inst (Arith (Binop b n n0 r)))`` (rand o rand o rand o rand) [binopregth,binopimmth]
+val binopth = reconstruct_case ``riscv_enc(Inst (Arith (Binop b n n0 r)))``
+  (rand o rand o rand o rand) [binopregth,binopimmth]
 
 val shiftths =
   shift
@@ -111,13 +127,22 @@ val shiftths =
 val shiftth = reconstruct_case ``riscv_enc(Inst (Arith (Shift s n n0 n1)))``
   (rand o funpow 3 rator o funpow 3 rand) shiftths
 
-val riscv_enc1_3_aux = binopth :: shiftth :: map (fn th => th |> SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]) rest
+val riscv_enc1_3_aux = binopth :: shiftth :: map (fn th => th |>
+  SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |>
+  SIMP_RULE std_ss [SHIFT_ZERO]) rest
 
-val riscv_enc1_3 = reconstruct_case ``riscv_enc (Inst (Arith a))`` (rand o rand o rand) riscv_enc1_3_aux
+val riscv_enc1_3 = reconstruct_case ``riscv_enc (Inst (Arith a))``
+  (rand o rand o rand) riscv_enc1_3_aux
 
-val riscv_enc1_4_aux = el 4 riscv_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``]) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO] |> CONJUNCTS
+val riscv_enc1_4_aux = el 4 riscv_enc1s |> SIMP_RULE (srw_ss() ++
+  DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``])
+  defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss
+  [SHIFT_ZERO] |> CONJUNCTS
 
-val riscv_enc1_4 = reconstruct_case ``riscv_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``riscv_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) riscv_enc1_4_aux]
+val riscv_enc1_4 = reconstruct_case ``riscv_enc (Inst (Mem m n a))``
+  (rand o rand o rand) [reconstruct_case ``riscv_enc (Inst (Mem m n
+  (Addr n' c)))`` (rand o rator o rator o rand o rand)
+  riscv_enc1_4_aux]
 
 val notw2w = Q.prove(`
   !a. ~w2w a = (-1w ?? (w2w a))`,
@@ -125,7 +150,10 @@ val notw2w = Q.prove(`
 
 val riscv_enc1_5 = el 5 riscv_enc1s
 
-val riscv_simp1 = reconstruct_case ``riscv_enc (Inst i)`` (rand o rand) [riscv_enc1_1,riscv_enc1_2,riscv_enc1_3,riscv_enc1_4,riscv_enc1_5] |> SIMP_RULE std_ss[notw2w,word_2comp_def,dimword_32,dimword_20] |> gconv
+val riscv_simp1 = reconstruct_case ``riscv_enc (Inst i)`` (rand o
+  rand) [riscv_enc1_1, riscv_enc1_2, riscv_enc1_3, riscv_enc1_4,
+  riscv_enc1_5] |> SIMP_RULE std_ss[notw2w, word_2comp_def,
+  dimword_32, dimword_20] |> gconv
 
 val if_eq1w = Q.prove(`
   ((if w2w (c ⋙ m && 1w:word64) = 1w:word20 then 1w:word1 else 0w) && 1w)
@@ -134,7 +162,10 @@ val if_eq1w = Q.prove(`
   rw[]>>fs[]>>
   blastLib.FULL_BBLAST_TAC)
 
-val riscv_simp2 = riscv_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once COND_RAND::COND_RATOR::defaults) |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw,if_eq1w,word_mul_def] |> gconv
+val riscv_simp2 = riscv_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once
+  COND_RAND::COND_RATOR::defaults) |> wc_simp |> we_simp |> gconv |>
+  SIMP_RULE std_ss [SHIFT_ZERO, v2w_rw, if_eq1w, word_mul_def] |>
+  gconv
 
 val riscv_enc3_aux = riscv_enc3
   |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss[``:64 reg_imm``])[FORALL_AND_THM]
@@ -161,19 +192,26 @@ val riscv_simp3 =
   reconstruct_case ``riscv_enc (JumpCmp c n r c0)`` (rand o rator o rand)
     [riscv_enc3_1_th,riscv_enc3_2_th]
 
-val riscv_simp4 = riscv_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once COND_RAND::COND_RATOR::defaults)|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw,if_eq1w,word_mul_def] |> gconv
+val riscv_simp4 = riscv_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) (Once
+  COND_RAND::COND_RATOR::defaults)|> wc_simp |> we_simp |> gconv |>
+  SIMP_RULE std_ss [SHIFT_ZERO, v2w_rw, if_eq1w, word_mul_def] |>
+  gconv
 
-val riscv_simp5 = riscv_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+val riscv_simp5 = riscv_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss)
+defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss
+[SHIFT_ZERO]
 
 val riscv_simp6 = riscv_enc6
   |> SIMP_RULE (srw_ss() ++ LET_ss) (Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR ::word_mul_def :: defaults)
   |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
-val riscv_enc_thm = reconstruct_case ``riscv_enc i`` rand [riscv_simp1,riscv_simp2,riscv_simp3,riscv_simp4,riscv_simp5,riscv_simp6]
+val riscv_enc_thm = reconstruct_case ``riscv_enc i`` rand
+  [riscv_simp1, riscv_simp2, riscv_simp3, riscv_simp4, riscv_simp5,
+  riscv_simp6]
 
 val res = translate riscv_enc_thm
 
-val res = translate (riscv_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
+val res = translate (riscv_config_def |> SIMP_RULE bool_ss [IN_INSERT, NOT_IN_EMPTY]|> econv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

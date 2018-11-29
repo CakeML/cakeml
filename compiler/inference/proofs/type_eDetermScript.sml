@@ -449,7 +449,8 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
   ⇒
   ∃funs_ts st st' constr s.
   infer_funs loc
-    (ienv with inf_v:= nsAppend (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs))))) ienv.inf_v) funs ((init_infer_state ss) with next_uvar:= (init_infer_state ss).next_uvar + LENGTH funs) =
+    (ienv with inf_v:= nsAppend (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar n)
+       (COUNT_LIST (LENGTH funs))))) ienv.inf_v) funs ((init_infer_state ss) with next_uvar:= (init_infer_state ss).next_uvar + LENGTH funs) =
     (Success funs_ts,st) ∧
   st.next_uvar = st'.next_uvar ∧
   st.next_id = st'.next_id ∧

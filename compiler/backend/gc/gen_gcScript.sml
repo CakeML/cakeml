@@ -472,7 +472,8 @@ val gc_move_thm = store_thm("gc_move_thm",
        \\ fs [] \\ strip_tac
        \\ fs []
        \\ `heap_lookup j (lheap ++ heap_expand state.n ++ state.r4 ++ state.r3 ++ state.r2 ++ state.r1)
-         = heap_lookup j (lheap ++ heap_expand (state.n − (l + 1)) ++ DataElement ys l d::state.r4 ++ state.r3 ++ state.r2 ++ state.r1)` by (Cases_on `j = heap_length (lheap ++ heap_expand (state.n − (l + 1)))`
+         = heap_lookup j (lheap ++ heap_expand (state.n − (l + 1)) ++ DataElement ys l d::state.r4 ++ state.r3 ++ state.r2 ++ state.r1)` by
+                (Cases_on `j = heap_length (lheap ++ heap_expand (state.n − (l + 1)))`
           >- (sg `F` \\ fs []
              \\ qpat_x_assum `heap_lookup _ _ = SOME _` mp_tac
              \\ simp_tac std_ss [GSYM APPEND_ASSOC]

@@ -238,8 +238,11 @@ val () = (append_prog o process_topdecs)`
 
 (*
 
-Version of inputLine that reads chunks at a time, but has to return the unused
-part of the last chunk. I expect this will not end up being used, because something like the above simpler version becomes efficient if we switch to buffered streams.  I.e., the buffering shouldn't be inputLine-specific.
+Version of inputLine that reads chunks at a time, but has to return
+the unused part of the last chunk. I expect this will not end up being
+used, because something like the above simpler version becomes
+efficient if we switch to buffered streams.  I.e., the buffering
+shouldn't be inputLine-specific.
 
 (* generalisable to splitl *)
 val _ = process_topdecs`
