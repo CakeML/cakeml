@@ -291,22 +291,20 @@ val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
 (* example: a simple pure non-terminating loop *)
 
 val _ = (append_prog o cfTacticsLib.process_topdecs) `
-  fun const x = x
-  fun loop  x = repeat const x`
+  fun loop x = repeat (fn y => y) x`
 
 val st = ml_translatorLib.get_ml_prog_state ();
-
-val const_spec = store_thm("const_spec",
-  ``!xv.
-      app (p:'ffi ffi_proj) ^(fetch_v "const" st) [xv]
-        (one (FFI_full [])) (POSTv v. cond (v = xv) * one (FFI_full []))``,
-  xcf "const" st \\ xvar \\ xsimpl);
 
 val loop_spec = store_thm("loop_spec",
   ``!xv.
       app (p:'ffi ffi_proj) ^(fetch_v "loop" st) [xv]
         (one (FFI_full [])) (POSTd (\io. io = [||]))``,
   xcf "loop" st
+  \\ xfun_spec `f`
+    `!xv.
+       app p f [xv]
+         (one (FFI_full [])) (POSTv v. cond (v = xv) * one (FFI_full []))`
+  THEN1 (strip_tac \\ xapp \\ xvar \\ xsimpl)
   \\ xapp
   \\ qexists_tac `\n. one (FFI_full [])`
   \\ qexists_tac `\n. []`
@@ -314,7 +312,6 @@ val loop_spec = store_thm("loop_spec",
   \\ qexists_tac `[||]`
   \\ rpt strip_tac \\ xsimpl
   THEN1 (qexists_tac `emp` \\ rw [SEP_CLAUSES])
-  THEN1 (simp [const_spec])
   \\ rw [lprefix_lub_def]);
 
 (* example: the yes program *)
