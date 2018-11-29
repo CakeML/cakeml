@@ -22,6 +22,7 @@
 
 val MAX_CHAR_COUNT_PER_LINE = 80
 val MAX_LINE_COUNT = 10
+val MAX_CODE_LINE_LENGTH = 200
 val PREFIX_FILENAME = "readmePrefix"
 val OUTPUT_FILENAME = "README.md"
 val CHECK_OPT = "--check"
@@ -124,28 +125,34 @@ fun read_all_lines filename =
 fun every_line_in_file filename p =
   let
     val f = TextIO.openIn(filename)
-    fun every_line () =
+    fun every_line n =
       case TextIO.inputLine(f) of
         NONE => []
-      | SOME line => (p line; every_line ())
-    val _ = every_line ()
+      | SOME line => (p n line; every_line (n+1))
+    val _ = every_line 1
     val _ = TextIO.closeIn f
   in () end;
 
 (* Reading a block comment (from an SML or C file) *)
 
 fun read_block_comment start_comment end_comment filename = let
-  fun assert_no_trailing_whitespace line =
+  fun assert_no_trailing_whitespace n line =
     if String.isSuffix " \n" line orelse String.isSuffix " " line
     then fail "trailing white-space is not allowed (adjust your editor setting)"
     else ()
-  fun assert_no_tabs_in_line line =
+  fun assert_no_tabs_in_line n line =
     if String.isSubstring "\t" line
     then fail "tab characters (#\"\\t\") are not allowed"
     else ()
+  fun assert_line_length_OK n line =
+    if MAX_CODE_LINE_LENGTH < size line
+    then fail ("line " ^ Int.toString n ^ " is longer than " ^
+               Int.toString MAX_CODE_LINE_LENGTH)
+    else ()
   val _ = every_line_in_file filename
-            (fn line => ( assert_no_trailing_whitespace line ;
-                          assert_no_tabs_in_line line ))
+            (fn n => fn line => ( assert_no_trailing_whitespace n line ;
+                                  assert_no_tabs_in_line n line ;
+                                  assert_line_length_OK n line ))
   val f = open_textfile filename
   in let
     (* check that first line is comment *)
