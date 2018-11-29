@@ -12,6 +12,9 @@ sig
   val is_EqualityType   : term -> bool
   val EqualityType      : term
 
+  val dest_trivial4 : term -> (term * term * term * term)
+  val mk_Conv_args  : term -> term
+
   val mk_CONTAINER   : term -> term
   val dest_CONTAINER : term -> term
   val is_CONTAINER   : term -> bool
@@ -35,6 +38,8 @@ sig
   val mk_lookup_cons   : term * term -> term
   val dest_lookup_cons : term -> term * term
   val is_lookup_cons   : term -> bool
+
+  val mk_And  : term * term -> term
 
   val TRUE  : term
   val FALSE : term
