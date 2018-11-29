@@ -135,6 +135,11 @@ val res = translate inferTheory.init_config_def;
 *)
 val res = translate error_to_str_def;
 
+val compiler_error_to_str_side_thm = prove(
+  ``compiler_error_to_str_side x = T``,
+  fs [fetch "-" "compiler_error_to_str_side_def"])
+  |> update_precondition;
+
 val res = translate parse_bool_def;
 val res = translate parse_num_def;
 
@@ -280,7 +285,7 @@ val main_spec = Q.store_thm("main_spec",
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
-  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin])
+  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin, STD_streams_get_mode])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]

@@ -1,0 +1,13 @@
+INCLUDES = ../../../../../../semantics/proofs \
+	   ../../../../../../misc \
+	   .. \
+	   ../../.. \
+	   ../../../../semantics \
+	   ../../../../../../compiler/backend/proofs \
+	   ../../../../../../compiler/encoders/ag32/proofs \
+	   ../../../../../../compiler/backend/ag32 \
+	   ../../../../../../compiler/backend/ag32/proofs
+CLINE_OPTIONS = --qof
+ifdef POLY
+HOLHEAP=../heap
+endif

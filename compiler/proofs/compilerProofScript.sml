@@ -16,7 +16,9 @@ val config_ok_def = Define`
     ¬cc.input_is_sexp ∧
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
-    backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    ¬cc.only_print_types ∧
+    backend_config_ok cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
@@ -33,7 +35,9 @@ val initial_condition_def = Define`
     ¬cc.input_is_sexp ∧
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
-    backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    ¬cc.only_print_types ∧
+    backend_config_ok cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val parse_prog_correct = Q.store_thm("parse_prog_correct",
   `parse_prog = parse`,
@@ -142,8 +146,9 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   rpt strip_tac
   \\ simp[compilerTheory.compile_def]
   \\ simp[parse_prog_correct]
+  \\ qpat_abbrev_tac `tt = if _ then _ else _`
   \\ BasicProvers.CASE_TAC
-  \\ fs[initial_condition_def]
+  \\ fs[initial_condition_def,Abbr`tt`]
   \\ BasicProvers.CASE_TAC
   \\ fs[initial_condition_def]
   \\ simp[semantics_def]
@@ -151,7 +156,8 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ simp[]
   \\ disch_then(qspec_then`prelude++x`mp_tac)
   \\ qhdtm_assum`type_sound_invariant`
-       (strip_assume_tac o SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariant_def])
+       (strip_assume_tac o
+        SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariant_def])
   \\ rfs[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
@@ -230,7 +236,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ fs[])
   \\ match_mp_tac primSemEnvTheory.prim_type_sound_invariants
   \\ simp[])
-|> check_thm;
+  |> check_thm;
 
 val type_config_ok = Q.store_thm ("type_config_ok",
   `env_rel prim_tenv infer$init_config ∧

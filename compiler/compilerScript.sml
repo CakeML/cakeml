@@ -17,6 +17,7 @@ open arm8_configTheory export_arm8Theory
 open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm6_configTheory export_arm6Theory
+open ag32_configTheory export_ag32Theory
 
 val _ = new_theory"compiler";
 
@@ -59,6 +60,7 @@ val _ = Datatype`
      ; input_is_sexp       : bool
      ; exclude_prelude     : bool
      ; skip_type_inference : bool
+     ; only_print_types    : bool
      |>`;
 
 val _ = Datatype`compile_error = ParseError | TypeError mlstring | CompileError | ConfigError mlstring`;
@@ -104,6 +106,11 @@ val compile_def = Define`
                locs_to_string locs])), [])
        | Success ic =>
           let _ = empty_ffi (strlit "finished: type inference") in
+          if c.only_print_types then
+            (Failure (TypeError (concat ([strlit "\n"] ++
+                                         inf_env_to_types_string ic ++
+                                         [strlit "\n"]))), [])
+          else
           case backend$compile_tap c.backend_config (prelude ++ prog) of
           | (NONE, td) => (Failure CompileError, td)
           | (SOME (bytes,c), td) => (Success (bytes,c), td)`;
@@ -111,7 +118,12 @@ val compile_def = Define`
 (* The top-level compiler *)
 val error_to_str_def = Define`
   (error_to_str ParseError = strlit "### ERROR: parse error\n") /\
-  (error_to_str (TypeError s) = concat [strlit "### ERROR: type error\n"; s; strlit "\n"]) /\
+  (error_to_str (TypeError s) =
+     (* if the first char in the message is a newline char then it isn't an error *)
+     if (if strlen s = 0 then T else
+         if strsub s 0 = #"\n" then F else T) then
+       concat [strlit "### ERROR: type error\n"; s; strlit "\n"]
+     else s) /\
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
   (error_to_str CompileError = strlit "### ERROR: compile error\n")`;
 
@@ -383,13 +395,14 @@ val parse_target_64_def = Define`
     else if rest = strlit"riscv" then INL (riscv_backend_config,riscv_export)
     else INR (concat [strlit"Unrecognized 64-bit target option: ";rest])`
 
-(* Defaults to arm6, currently no other 32-bit architecture*)
+(* Defaults to arm6 if no target given *)
 val parse_target_32_def = Define`
   parse_target_32 ls =
   case find_str (strlit"--target=") ls of
     NONE => INL (arm6_backend_config,arm6_export)
   | SOME rest =>
     if rest = strlit"arm6" then INL (arm6_backend_config,arm6_export)
+    else if rest = strlit"ag32" then INL (ag32_backend_config,ag32_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 
 (* Default stack and heap limits. Unit of measure is mebibytes, i.e. 1024^2B. *)
@@ -406,9 +419,10 @@ val parse_top_config_def = Define`
   let sexp = find_bool (strlit"--sexp=") ls F in
   let prelude = find_bool (strlit"--exclude_prelude=") ls F in
   let typeinference = find_bool (strlit"--skip_type_inference=") ls F in
+  let onlyprinttypes = MEMBER (strlit"--types") ls in
   case (heap,stack,sexp,prelude,typeinference) of
     (INL heap,INL stack,INL sexp,INL prelude,INL typeinference) =>
-      INL (heap,stack,sexp,prelude,typeinference)
+      INL (heap,stack,sexp,prelude,typeinference,onlyprinttypes)
   | _ => INR (concat [get_err_str heap;
                get_err_str stack;
                get_err_str sexp;
@@ -447,7 +461,7 @@ val compile_64_def = Define`
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer)) =>
+    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -456,7 +470,8 @@ val compile_64_def = Define`
              backend_config      := ext_conf;
              input_is_sexp       := sexp;
              exclude_prelude     := prelude;
-             skip_type_inference := typeinfer |> in
+             skip_type_inference := typeinfer;
+             only_print_types    := onlyprinttypes |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.ffi_names) heap stack bytes data),
@@ -480,7 +495,7 @@ val compile_32_def = Define`
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
-    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer)) =>
+    (INL (conf,export), INL(heap,stack,sexp,prelude,typeinfer,onlyprinttypes)) =>
     (let ext_conf = extend_conf cl conf in
     case ext_conf of
       INL ext_conf =>
@@ -489,7 +504,8 @@ val compile_32_def = Define`
              backend_config      := ext_conf;
              input_is_sexp       := sexp;
              exclude_prelude     := prelude;
-             skip_type_inference := typeinfer |> in
+             skip_type_inference := typeinfer;
+             only_print_types    := onlyprinttypes |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export (the [] c.ffi_names) heap stack bytes data),

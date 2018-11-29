@@ -420,7 +420,7 @@ val _ = append_prog print_matching_lines;
 val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
   `(STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
    FD fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
-   IS_SOME (get_file_content fs fd) ⇒
+   IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ⇒
    app (p:'ffi ffi_proj)
      ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
      (STDIO fs)
@@ -565,14 +565,22 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   \\ imp_res_tac nextFD_ltX
   \\ imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[]
   \\ imp_res_tac STD_streams_nextFD
-  \\ rpt(first_x_assum(qspec_then`0`strip_assume_tac))
-  \\ xlet_auto >- xsimpl
+  \\ rpt(first_x_assum(qspecl_then[`0`,`ReadMode`]strip_assume_tac))
+  \\ xlet_auto >- (
+    xsimpl
+    \\ simp[get_mode_def]
+    \\ DEP_REWRITE_TAC[ALOOKUP_inFS_fname_openFileFS_nextFD]
+    \\ simp[] )
   \\ xapp_spec close_STDIO_spec
   \\ instantiate
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'' ==>> _`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs''`
   \\ xsimpl
-  \\ rw[Abbr`fs''`,Abbr`fs'`,Abbr`out`]
+  \\ reverse(rw[Abbr`fs''`,Abbr`fs'`,Abbr`out`])
+  >- (
+    simp[validFileFD_def]
+    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
+    \\ rfs[] )
   \\ simp[o_DEF,mlstringTheory.concat_thm,mlstringTheory.strcat_thm]
   \\ fs[linesFD_openFileFS_nextFD]
   \\ srw_tac[ETA_ss][FILTER_MAP,o_DEF]
@@ -691,6 +699,10 @@ val grep_sem_ind = theorem"grep_sem_ind";
 
 val grep_sem_file_MAP_FST_infds = Q.store_thm("grep_sem_file_MAP_FST_infds[simp]",
   `MAP FST (grep_sem_file L ls nm fs).infds = MAP FST fs.infds`,
+  rw[grep_sem_file_def] \\ CASE_TAC \\ simp[]);
+
+val grep_sem_file_maxFD = Q.store_thm("grep_sem_file_maxFD[simp]",
+  `(grep_sem_file L ls nm fs).maxFD = fs.maxFD`,
   rw[grep_sem_file_def] \\ CASE_TAC \\ simp[]);
 
 val STD_streams_grep_sem_file = Q.store_thm("STD_streams_grep_sem_file",

@@ -19,6 +19,7 @@ fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
 val _ = hide "next";
+val _ = hide "el";
 val shift_def = backend_commonTheory.word_shift_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def

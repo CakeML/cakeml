@@ -57,10 +57,6 @@ algorithms in "Purely Functional Data Structures" by Chris Okasaki (1996).
 [other-examples](other-examples):
 A few other examples of HOL functions that can be translated into CakeML.
 
-[packLib.sml](packLib.sml):
-A library for packing theorems, terms, and types as theorems (which can
-thereby be saved in theories).
-
 [std_preludeScript.sml](std_preludeScript.sml):
 Translations of various useful HOL functions and datatypes, to serve as a
 starting point for further translations.

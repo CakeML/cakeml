@@ -2,6 +2,8 @@ open HolKernel boolLib boolSimps bossLib lcsymtacs holSyntaxTheory holSyntaxExtr
 
 val _ = new_theory"holSemantics"
 
+val _ = Parse.hide "mem";
+
 val mem = ``mem:'U->'U->bool``
 
 fun type_rec_tac proj =

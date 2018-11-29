@@ -1923,8 +1923,8 @@ val abs_stack_prefix_drop = Q.prove(`
       imp_res_tac abs_stack_to_stack_LENGTH>>
       qpat_x_assum`A=SOME(LASTN h x')` sym_sub_tac>>
       AP_THM_TAC>>AP_TERM_TAC>>
-      qpat_abbrev_tac`length = handler_val A`>>
-      Q.ISPECL_THEN [`length`,`DROP(LENGTH x)stack`] assume_tac LASTN_LENGTH_BOUNDS>>
+      qpat_abbrev_tac`lengt = handler_val A`>>
+      Q.ISPECL_THEN [`lengt`,`DROP(LENGTH x)stack`] assume_tac LASTN_LENGTH_BOUNDS>>
       fs[LET_THM]>>
       simp[LASTN_DROP2,DROP_DROP]>>
       AP_THM_TAC>>
@@ -1956,8 +1956,8 @@ val abs_stack_prefix_drop = Q.prove(`
       imp_res_tac abs_stack_to_stack_LENGTH>>
       qpat_x_assum`A=SOME(LASTN h x')` sym_sub_tac>>
       AP_THM_TAC>> AP_TERM_TAC>>
-      qpat_abbrev_tac`length = handler_val A`>>
-      Q.ISPECL_THEN [`length`,`DROP(LENGTH x)t`] assume_tac LASTN_LENGTH_BOUNDS>>
+      qpat_abbrev_tac`lengt = handler_val A`>>
+      Q.ISPECL_THEN [`lengt`,`DROP(LENGTH x)t`] assume_tac LASTN_LENGTH_BOUNDS>>
       fs[LET_THM]>>
       simp[LASTN_DROP2,DROP_DROP]>>
       AP_THM_TAC>>
