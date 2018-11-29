@@ -266,6 +266,22 @@ val loop_spec = store_thm("loop_spec",
   THEN1 (qexists_tac `emp` \\ rw [SEP_CLAUSES])
   \\ rw [lprefix_lub_def]);
 
+(* example: conditional terminating *)
+
+val _ = (append_prog o cfTacticsLib.process_topdecs) `
+  exception Terminate
+  fun condLoop n = repeat (if n = 0 then raise Terminate else n - 1) n`
+
+val st = ml_translatorLib.get_ml_prog_state ();
+
+val condLoop_spec = store_thm("condLoop_spec",
+  ``!n nv.
+      INT n nv ==>
+      app (p:'ffi ffi_proj) ^(fetch_v "condLoop" st) [nv]
+        (one (FFI_full []))
+        (POSTed (\e. cond (0 <= n)) (\io. io = [||] /\ n < 0))``,
+  cheat);
+
 (* example: the yes program *)
 
 val _ = (append_prog o cfTacticsLib.process_topdecs)
