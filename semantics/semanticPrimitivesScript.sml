@@ -594,13 +594,13 @@ val _ = Define `
           SOME ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         SOME ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
-    | (Opw (WordSize n) op, [Litv (Word w1); Litv (Word w2)]) =>
-        if (n = LENGTH w1) /\ (LENGTH w1 = LENGTH w2) then
+    | (Opw word_size op, [Litv (Word w1); Litv (Word w2)]) =>
+        if (word_size = LENGTH w1) /\ (LENGTH w1 = LENGTH w2) then
           SOME ((s,t), Rval (Litv (Word (opw_lookup op w1 w2))))
         else
           NONE
-    | (Opwb (WordSize n) op, [Litv (Word w1); Litv (Word w2)]) =>
-        if (n = LENGTH w1) /\ (LENGTH w1 = LENGTH w2) then
+    | (Opwb word_size op, [Litv (Word w1); Litv (Word w2)]) =>
+        if (word_size = LENGTH w1) /\ (LENGTH w1 = LENGTH w2) then
           SOME ((s,t), Rval (Boolv (opwb_lookup op w1 w2))) 
         else
           NONE
@@ -619,8 +619,8 @@ val _ = Define `
           SOME ((s,t),Rval (Boolv (fp_cmp cmp (v2w w1) (v2w w2))))
         else
           NONE
-    | (Shift (WordSize n1) op n, [Litv (Word w)]) =>
-        if LENGTH w = n1 then
+    | (Shift sz op n, [Litv (Word w)]) =>
+        if LENGTH w = sz then
           SOME ((s,t), Rval (Litv (Word (shift_lookup op w n))))
         else
           NONE
@@ -692,16 +692,16 @@ val _ = Define `
           )
         else
           NONE
-    | (WordFromInt (WordSize n), [Litv (IntLit i)]) =>
-        SOME ((s,t), Rval (Litv (Word (i2vN i n))))
-    | (WordToInt (WordSize n), [Litv (Word w)]) =>
-        if LENGTH w = n then
+    | (WordFromInt word_size, [Litv (IntLit i)]) =>
+        SOME ((s,t), Rval (Litv (Word (i2vN i word_size))))
+    | (WordToInt word_size, [Litv (Word w)]) =>
+        if word_size = LENGTH w then
           SOME ((s,t), Rval (Litv (IntLit (v2i w))))
         else
           NONE
-    | (WordToWord (WordSize n1) (WordSize n2), [Litv (Word w)]) =>
-        if LENGTH w = n1 then
-          SOME ((s,t), Rval (Litv (Word (fixwidth n2 w))))
+    | (WordToWord srcSz destSz, [Litv (Word w)]) =>
+        if LENGTH w = srcSz then
+          SOME ((s,t), Rval (Litv (Word (fixwidth destSz w))))
         else
           NONE
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>

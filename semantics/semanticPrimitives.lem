@@ -479,13 +479,13 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           Just ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
         Just ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
-    | (Opw (WordSize n) op, [Litv (Word w1); Litv (Word w2)]) ->
-        if (n = length w1) && (length w1 = length w2) then
+    | (Opw word_size op, [Litv (Word w1); Litv (Word w2)]) ->
+        if (word_size = length w1) && (length w1 = length w2) then
           Just ((s,t), Rval (Litv (Word (opw_lookup op w1 w2))))
         else
           Nothing
-    | (Opwb (WordSize n) op, [Litv (Word w1); Litv (Word w2)]) ->
-        if (n = length w1) && (length w1 = length w2) then
+    | (Opwb word_size op, [Litv (Word w1); Litv (Word w2)]) ->
+        if (word_size = length w1) && (length w1 = length w2) then
           Just ((s,t), Rval (Boolv (opwb_lookup op w1 w2))) 
         else
           Nothing
@@ -504,8 +504,8 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           Just ((s,t),Rval (Boolv (fp_cmp cmp (word64FromBitstring w1) (word64FromBitstring w2))))
         else
           Nothing
-    | (Shift (WordSize n1) op n, [Litv (Word w)]) ->
-        if length w = n1 then
+    | (Shift sz op n, [Litv (Word w)]) ->
+        if length w = sz then
           Just ((s,t), Rval (Litv (Word (shift_lookup op w n))))
         else
           Nothing
@@ -577,16 +577,16 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           end
         else
           Nothing
-    | (WordFromInt (WordSize n), [Litv (IntLit i)]) ->
-        Just ((s,t), Rval (Litv (Word (bitstringFromInteger i n))))
-    | (WordToInt (WordSize n), [Litv (Word w)]) ->
-        if length w = n then
+    | (WordFromInt word_size, [Litv (IntLit i)]) ->
+        Just ((s,t), Rval (Litv (Word (bitstringFromInteger i word_size))))
+    | (WordToInt word_size, [Litv (Word w)]) ->
+        if word_size = length w then
           Just ((s,t), Rval (Litv (IntLit (integerFromBitstring w))))
         else
           Nothing
-    | (WordToWord (WordSize n1) (WordSize n2), [Litv (Word w)]) ->
-        if length w = n1 then
-          Just ((s,t), Rval (Litv (Word (fixwidth n2 w))))
+    | (WordToWord srcSz destSz, [Litv (Word w)]) ->
+        if length w = srcSz then
+          Just ((s,t), Rval (Litv (Word (fixwidth destSz w))))
         else
           Nothing
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) ->

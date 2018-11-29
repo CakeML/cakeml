@@ -15,7 +15,6 @@ structure astSyntax = struct
   val opb_ty = mk_thy_type{Thy="ast",Tyop="opb",Args=[]};
   val opw_ty = mk_thy_type{Thy="ast",Tyop="opw",Args=[]};
   val shift_ty = mk_thy_type{Thy="ast",Tyop="shift",Args=[]};
-  val word_size_ty = mk_thy_type{Thy="ast",Tyop="word_size",Args=[]};
   val op_ty = mk_thy_type{Thy="ast",Tyop="op",Args=[]};
   val lop = mk_thy_type{Thy="ast",Tyop="lop",Args=[]};
   val ast_t_ty = mk_thy_type{Thy="ast",Tyop="ast_t",Args=[]};
@@ -72,7 +71,6 @@ structure astSyntax = struct
   val VfromList = prim_mk_const{Thy="ast",Name="VfromList"};
   val Vlength = prim_mk_const{Thy="ast",Name="Vlength"};
   val Vsub = prim_mk_const{Thy="ast",Name="Vsub"};
-  val WordSize = prim_mk_const{Thy="ast" ,Name="WordSize"};
   val Xor = prim_mk_const{Thy="ast",Name="Xor"};
   local
     val s1 = HolKernel.syntax_fns1 "namespace"

@@ -66,28 +66,31 @@ val shift_lookup_def = Define`shift_lookup=semanticPrimitives$shift_lookup`;
 val _ = export_rewrites["shift_lookup_def"];
 
 val do_word_op_def = Define`
-  (do_word_op op (WordSize n) (Word w1) (Word w2) =
-     if (LENGTH w1 = LENGTH w2) ∧ (n = LENGTH w1) then
+  (do_word_op op word_size (Word w1) (Word w2) =
+     if (word_size = LENGTH w2) ∧ (word_size = LENGTH w1) then
        SOME (Word (opw_lookup op w1 w2))
      else NONE) ∧
   (do_word_op op _ _ _ = NONE)`;
 val _ = export_rewrites["do_word_op_def"];
 
 val do_shift_def = Define`
-  (do_shift sh n (WordSize ws) (Word w) = SOME (Word (shift_lookup sh w n))) ∧
+  (do_shift sh n word_size (Word w) =
+    if (word_size = LENGTH w) then
+       SOME (Word (shift_lookup sh w n))
+    else NONE) ∧
   (do_shift _ _ _ _ = NONE)`;
 val _ = export_rewrites["do_shift_def"];
 
 val do_word_to_int_def = Define`
-  (do_word_to_int (WordSize n) (Word w) = 
-     if LENGTH w = n then
+  (do_word_to_int word_size (Word w) =
+     if word_size = LENGTH w then
        SOME(v2i w)
      else NONE) ∧
   (do_word_to_int _ _ = NONE)`;
 val _ = export_rewrites["do_word_to_int_def"];
 
 val do_word_from_int_def = Define`
-  do_word_from_int (WordSize n) i = Word (i2vN i n)`;
+  do_word_from_int n i = Word (i2vN i n)`;
 val _ = export_rewrites["do_word_from_int_def"];
 
 val lit_same_type_refl = Q.store_thm("lit_same_type_refl",
@@ -180,9 +183,9 @@ val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
 val store_v_thms = { nchotomy = store_v_nchotomy, case_def = store_v_case_def}
 val lit_thms = { nchotomy = lit_nchotomy, case_def = lit_case_def}
 val eq_v_thms = { nchotomy = eq_result_nchotomy, case_def = eq_result_case_def}
-val wz_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def}
+(* val wz_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def} *)
 val eqs = LIST_CONJ (map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms, wz_thms])
+  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms (* , wz_thms *)])
 
 val pair_case_eq = Q.prove (
 `pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
