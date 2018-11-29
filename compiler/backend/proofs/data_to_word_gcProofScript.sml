@@ -4159,6 +4159,33 @@ val get_var_T_OR_F = Q.store_thm("get_var_T_OR_F",
   \\ full_simp_tac(srw_ss())[abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ pop_assum (fn th => full_simp_tac(srw_ss())[GSYM th])
   \\ full_simp_tac(srw_ss())[Boolv_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[v_inv_def] \\ full_simp_tac(srw_ss())[word_addr_def]
+  \\ full_simp_tac(srw_ss())[word_addr_def]
+  \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]);
+
+val get_var_isT_OR_isF = Q.store_thm("get_var_isT_OR_isF",
+  `state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) [] locs /\
+    get_var n s.locals = SOME x /\
+    get_var (adjust_var n) t = SOME w ==>
+    18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
+    ((isBool T x) ==> (w = Word 18w)) /\
+    ((isBool F x) ==> (w = Word 2w))`,
+  full_simp_tac(srw_ss())[state_rel_def,get_var_def,wordSemTheory.get_var_def]
+  \\ strip_tac \\ strip_tac
+  THEN1 (full_simp_tac(srw_ss())[good_dimindex_def]
+        \\ full_simp_tac(srw_ss())[dimword_def])
+  \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
+  \\ imp_res_tac (word_ml_inv_lookup |> Q.INST [`ys`|->`[]`]
+                    |> SIMP_RULE std_ss [APPEND])
+  \\ pop_assum mp_tac
+  \\ simp [word_ml_inv_def,toAList_def,foldi_def,word_ml_inv_def,PULL_EXISTS]
+  \\ strip_tac \\ strip_tac
+  \\ full_simp_tac(srw_ss())[abs_ml_inv_def,bc_stack_ref_inv_def]
+  \\ pop_assum (fn th => full_simp_tac(srw_ss())[GSYM th])
+  \\ full_simp_tac(srw_ss())[isBool_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[v_inv_def]
+  \\ full_simp_tac(srw_ss())[word_addr_def]
+  \\ Cases_on `x` \\ fs [isBool_def]
+  \\ Cases_on `l` \\ fs [isBool_def,v_inv_def,word_addr_def]
+  \\ rveq
   \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]);
 
 val mk_loc_def = Define `
@@ -4639,6 +4666,10 @@ val find_code_thm_handler = Q.store_thm("find_code_thm_handler",
   \\ full_simp_tac(srw_ss())[] \\ metis_tac []) |> SPEC_ALL;
 val _ = save_thm("find_code_thm_handler",find_code_thm_handler);
 
+val data_find_code = Q.store_thm("data_find_code",
+  `dataSem$find_code dest xs code = SOME(ys,prog) ⇒ ¬bad_dest_args dest xs`,
+  Cases_on`dest`>>
+  full_simp_tac(srw_ss())[dataSemTheory.find_code_def,wordSemTheory.bad_dest_args_def])
 
 val s_key_eq_LENGTH = Q.store_thm("s_key_eq_LENGTH",
   `!xs ys. s_key_eq xs ys ==> (LENGTH xs = LENGTH ys)`,

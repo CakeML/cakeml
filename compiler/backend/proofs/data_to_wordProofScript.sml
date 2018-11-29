@@ -1,4 +1,4 @@
-open preamble bvlSemTheory dataSemTheory dataPropsTheory
+open preamble dataSemTheory dataPropsTheory
      copying_gcTheory int_bitwiseTheory finite_mapTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_word_bignumProofTheory data_to_word_assignProofTheory
@@ -120,6 +120,8 @@ val assign_def =
                    data_to_wordTheory.arg3_def,
                    data_to_wordTheory.arg4_def,
                    data_to_wordTheory.all_assign_defs];
+
+val s = ``(s:('c,'ffi) dataSem$state)``
 
 val data_compile_correct = Q.store_thm("data_compile_correct",
   `!prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
@@ -314,14 +316,14 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ full_simp_tac(srw_ss())[] \\ imp_res_tac state_rel_get_var_IMP
     \\ full_simp_tac(srw_ss())[wordSemTheory.get_var_imm_def,
           asmTheory.word_cmp_def]
-    \\ imp_res_tac get_var_T_OR_F
+    \\ imp_res_tac get_var_isT_OR_isF
     \\ fs[GSYM AND_IMP_INTRO]
-    \\ Cases_on `x = Boolv T` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[] THEN1
      (qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n4`,`l`] mp_tac)
       \\ rpt strip_tac \\ rev_full_simp_tac(srw_ss())[])
-    \\ Cases_on `x = Boolv F` \\ full_simp_tac(srw_ss())[] THEN1
+    \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[] THEN1
      (qpat_x_assum `state_rel c l1 l2 s t [] locs` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n4`,`l4`] mp_tac)
@@ -365,15 +367,15 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ imp_res_tac state_rel_get_vars_IMP \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[wordSemTheory.add_ret_loc_def]
     THEN1 (* no handler *)
-     (Cases_on `bvlSem$find_code dest x s.code` \\ fs[]
+     (Cases_on `find_code dest x s.code` \\ fs[]
       \\ rename1 `_ = SOME x9` \\ Cases_on `x9` \\ full_simp_tac(srw_ss())[]
       \\ rename1 `_ = SOME (actual_args,called_prog)`
-      \\ imp_res_tac bvl_find_code
+      \\ imp_res_tac data_find_code
       \\ `¬bad_dest_args dest (MAP adjust_var args)` by
         (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
         imp_res_tac get_vars_IMP_LENGTH>>
         metis_tac[LENGTH_NIL])
-      \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
+      \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code = SOME (ys,prog)`
       \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def]
@@ -418,13 +420,13 @@ val data_compile_correct = Q.store_thm("data_compile_correct",
     \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
     \\ `?prog1 h1. comp c n (l + 2) x1 = (prog1,h1)` by METIS_TAC [PAIR]
     \\ fs[wordSemTheory.evaluate_def,wordSemTheory.add_ret_loc_def]
-    \\ Cases_on `bvlSem$find_code dest x' s.code` \\ fs[] \\ Cases_on `x` \\ fs[]
-    \\ imp_res_tac bvl_find_code
+    \\ Cases_on `find_code dest x' s.code` \\ fs[] \\ Cases_on `x` \\ fs[]
+    \\ imp_res_tac data_find_code
     \\ `¬bad_dest_args dest (MAP adjust_var args)` by
         (full_simp_tac(srw_ss())[wordSemTheory.bad_dest_args_def]>>
         imp_res_tac get_vars_IMP_LENGTH>>
         metis_tac[LENGTH_NIL])
-    \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
+    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code = SOME (ys,prog)`
     \\ Cases_on `dataSem$cut_env r s.locals` \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac cut_env_IMP_cut_env \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ rpt_drule find_code_thm_handler \\ fs []
