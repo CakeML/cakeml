@@ -107,18 +107,18 @@ fun dest_post c =
       val (ptm, postv_abs) = dest_comb c''
   in
       if same_const ptm post_tm then
-	  let
-	      val (postv_v, postv_pred) = dest_abs postv_abs
-	      val (poste_v, poste_pred) = dest_abs poste_abs
+          let
+              val (postv_v, postv_pred) = dest_abs postv_abs
+              val (poste_v, poste_pred) = dest_abs poste_abs
               val (postf_name, postf_abs') = dest_abs postf_abs
               val (postf_conf, postf_abs'') = dest_abs postf_abs'
               val (postf_bytes, postf_pred) = dest_abs postf_abs''
-	  in
-	     (postv_v, postv_pred, poste_v, poste_pred,
+          in
+             (postv_v, postv_pred, poste_v, poste_pred,
               [postf_name,postf_conf,postf_bytes],postf_pred)
-	  end
+          end
       else
-	  raise (ERR "" "")
+          raise (ERR "" "")
   end
   handle HOL_ERR _ => raise (ERR "dest_post" "Not a POST abstraction");
 fun is_post c =

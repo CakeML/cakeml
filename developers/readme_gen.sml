@@ -26,7 +26,7 @@ val MAX_CODE_LINE_LENGTH = 200
 val PREFIX_FILENAME = "readmePrefix"
 val OUTPUT_FILENAME = "README.md"
 val CHECK_OPT = "--check"
-val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Lib.sml",".lem",".c"]
+val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Syntax.sml","Lib.sml",".lem",".c"]
 val FIRST_TARGET_PREFIX = "all: $(DEFAULT_TARGETS) README.md"
 
 val HOLMAKEFILE_SUGGESTION =
