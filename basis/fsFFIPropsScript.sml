@@ -204,7 +204,7 @@ Theorem wfFS_eof_EQ_SOME
   rpt strip_tac >> res_tac >> metis_tac[ALOOKUP_EXISTS_IFF]);
 
 (*
-Theorem eof_read
+Theorem read_eof
  `!fd fs n. wfFS fs ⇒
             0 < n ⇒ (eof fd fs = SOME T) ⇒
             read fd fs n = SOME ([], fs with numchars := THE(LTL fs.numchars))`

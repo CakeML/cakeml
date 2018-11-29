@@ -2928,7 +2928,7 @@ Theorem gc_move_ref_list_inv
   \\ strip_tac \\ res_tac \\ fs []
   \\ imp_res_tac simple_rel_trans);
 
-Theorem gc_move_list_inv
+Theorem gc_move_data_inv
    `!c s1 s2.
        (gen_gc_partial$gc_move_data c s1 = s2) /\ s2.ok ==>
        simple_rel c s1 s2`

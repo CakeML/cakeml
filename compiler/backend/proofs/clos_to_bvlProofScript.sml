@@ -2768,7 +2768,7 @@ Theorem code_installed_fromAList
   \\ imp_res_tac MEM_ALOOKUP \\ fs []
   \\ metis_tac[pair_CASES,option_CASES]);
 
-Theorem chain_exp_cons
+Theorem chain_exps_cons
   `?k1 k2 other. chain_exps n real_es = (k1,0,k2)::other`
   (Cases_on `real_es` \\ fs [chain_exps_def]
   \\ rename [`h1::t1`] \\ Cases_on `t1` \\ fs [chain_exps_def]);

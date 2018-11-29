@@ -817,7 +817,7 @@ Theorem is_reachable_wf_set_tree_num_set_tree_union
 
 (************************** DEFINITIONS ***************************)
 
-Theorem exp_size_map_snd
+Theorem v_size_map_snd
     `∀ vvs . v3_size (MAP SND vvs) ≤ v1_size vvs`
     (Induct >> rw[v_size_def] >>
     Cases_on `v3_size (MAP SND vvs) = v1_size vvs` >>

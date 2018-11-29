@@ -377,7 +377,7 @@ val iobuff_loc_num =
   TextIOProgTheory.iobuff_loc_def
   |> concl |> rhs |> rand;
 
-Theorem STDIO_precond
+Theorem IOFS_precond
   `wfFS fs ⇒ LENGTH v >= 2052 ⇒
    IOFS fs
     ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}

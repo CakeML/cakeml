@@ -2622,7 +2622,7 @@ Theorem gc_partial_move_with_NIL_LEMMA
   \\ fs [gc_sharedTheory.gc_state_component_equality]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []);
 
-Theorem gc_move_list_with_NIL_LEMMA
+Theorem gc_partial_move_list_with_NIL_LEMMA
   `!x s y t h2 r4 y1 t1.
       gen_gc_partial$gc_move_list gen_conf s x = (y1,t1) /\ t1.ok ==>
       ?x1 x2.
@@ -2652,7 +2652,7 @@ Theorem gc_partial_move_list_with_NIL
   (rw [] \\ drule gc_partial_move_list_with_NIL_LEMMA \\ fs []
   \\ strip_tac \\ fs [] \\ fs [gc_sharedTheory.gc_state_component_equality]);
 
-Theorem gc_move_ref_list_with_NIL_LEMMA
+Theorem gc_partial_move_ref_list_with_NIL_LEMMA
   `!x s y t h2 r4 y1 t1.
       gen_gc_partial$gc_move_ref_list gen_conf s x = (y1,t1) /\ t1.ok ==>
       ?x1 x2.

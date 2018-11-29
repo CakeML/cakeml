@@ -465,7 +465,7 @@ val do_if_def = Define `
     if v = Boolv T then SOME e1 else
     if v = Boolv F then SOME e2 else NONE`;
 
-Theorem do_if_is_ether_or
+Theorem do_if_either_or
   `do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2`
   (simp [do_if_def]
   THEN1 (Cases_on `v = Boolv T`

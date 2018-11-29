@@ -189,7 +189,7 @@ Theorem is_subsequence_cons' `
      >> fs[is_subsequence_cons] >> rfs[]
      >> metis_tac [cons_is_subsequence]));
 
-Theorem is_subsequence_snoc' `
+Theorem is_subsequence_snoc'' `
   !s l f. is_subsequence s (l ++ [f])
   ==> ((((s = []) \/ f ≠ LAST s) /\ is_subsequence s l)
        \/ (((s ≠ []) /\ (f = LAST s)) /\ is_subsequence (FRONT s) l))`
@@ -207,7 +207,7 @@ Theorem common_subsequence_append
   `common_subsequence a b c /\ common_subsequence a' b' c' ==> common_subsequence(a++a') (b++b') (c++c')`
   (fs[common_subsequence_def,is_subsequence_append])
 
-Theorem common_subsequence_sym
+Theorem common_subsequence_refl
   `common_subsequence u u u`
   (fs[common_subsequence_def,is_subsequence_refl])
 
@@ -314,7 +314,7 @@ Theorem snoc_lcs_optimal_substructure_left
   >> fs[is_subsequence_cons]
   >> FULL_STRUCT_CASES_TAC (Q.SPEC `s'` SNOC_CASES)
   >> fs[is_subsequence_snoc',SNOC_APPEND]
-  >> `LENGTH(l''''++[x]) ≤ LENGTH l'''` by(first_assum match_mp_tac >> fs[is_subsequence_snoc'])
+  >> `LENGTH(l''''++[x]) ≤ LENGTH l'''` by(first_assum match_mp_tac >> fs[is_subsequence_snoc''])
   >> fs[]);
 
 Theorem cons_lcs_optimal_substructure_right `
@@ -335,7 +335,7 @@ Theorem lcs_length_left `
   (lcs xl yl zl /\ lcs xl' (yl ++ [y]) zl)
   ==> SUC(LENGTH xl) >= LENGTH xl'`
   (fs[lcs_def,common_subsequence_def] >> rpt strip_tac
-  >> first_assum(assume_tac o MATCH_MP is_subsequence_snoc'')
+  >> first_assum(assume_tac o MATCH_MP is_subsequence_snoc''')
   >> fs[]
    >- (`LENGTH xl' <= LENGTH xl` by metis_tac[] >> fs[])
    >> FULL_STRUCT_CASES_TAC (Q.SPEC `xl'` SNOC_CASES)
@@ -354,14 +354,6 @@ Theorem lcs_length
   >> metis_tac[EQ_LESS_EQ]);
 
 Theorem is_subsequence_rev `
-  !l r. is_subsequence (REVERSE l) (REVERSE r) = is_subsequence l r`
-  (ho_match_mp_tac (theorem "is_subsequence_ind")
-  >> rpt strip_tac
-  >> fs[is_subsequence_nil]
-  >> Cases_on `r`
-  >> fs[is_subsequence_nil,is_subsequence_snoc',is_subsequence_cons]);
-
-Theorem is_subsequence_rev `
   !l r. is_subsequence l (REVERSE r) = is_subsequence (REVERSE l) r`
   (ho_match_mp_tac SNOC_INDUCT
   >> strip_tac
@@ -371,17 +363,8 @@ Theorem is_subsequence_rev `
    >> fs[is_subsequence_nil,is_subsequence_cons,is_subsequence_snoc',SNOC_APPEND,REVERSE_APPEND]);
 
 Theorem common_subsequence_rev
-  `!l r s. common_subsequence (REVERSE l) (REVERSE r) (REVERSE s) = common_subsequence l r s`
-  (rw[common_subsequence_def,is_subsequence_rev]);
-
-Theorem common_subsequence_rev
   `!l r s. common_subsequence l (REVERSE r) (REVERSE s) = common_subsequence (REVERSE l) r s`
   (rw[common_subsequence_def,is_subsequence_rev']);
-
-Theorem lcs_rev
-  `!l r s. lcs (REVERSE l) (REVERSE r) (REVERSE s) = lcs l r s`
-  (rw[common_subsequence_rev',lcs_def,EQ_IMP_THM]
-  >> metis_tac[LENGTH_REVERSE,REVERSE_REVERSE]);
 
 Theorem lcs_rev
   `!l r s. lcs l (REVERSE r) (REVERSE s) = lcs (REVERSE l) r s`
@@ -1083,7 +1066,7 @@ Theorem optimised_lcs_correct
   (fs[optimised_lcs_def,longest_prefix_correct]
   >> PURE_ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
   >> fs[longest_prefix_correct,longest_common_prefix_reverse,
-        longest_suffix_correct,lcs_rev',dynamic_lcs_no_rev_correct]);
+        longest_suffix_correct,lcs_rev,dynamic_lcs_no_rev_correct]);
 
 (* More properties of optimised LCS algorithm *)
 

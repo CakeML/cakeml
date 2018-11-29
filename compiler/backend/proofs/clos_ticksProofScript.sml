@@ -42,7 +42,7 @@ Theorem code_rel_CONS_CONS
   \\ rpt strip_tac
   \\ `?t1. remove_ticks [x1] = [t1]` by metis_tac [remove_ticks_SING]
   \\ `?t2. remove_ticks [x2] = [t2]` by metis_tac [remove_ticks_SING]
-  \\ rw [remove_ticks_CONS]);
+  \\ rw [remove_ticks_cons]);
 
 (* value relation *)
 
@@ -351,7 +351,7 @@ Theorem evaluate_remove_ticks
   THEN1 (* Var *)
    (fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [code_rel_def]
-    \\ imp_res_tac remove_ticks_Var_IMP_mk_Ticks \\ rveq
+    \\ imp_res_tac remove_ticks_IMP_mk_Ticks \\ rveq
     \\ fs [remove_ticks_mk_Ticks, remove_ticks_def]
     \\ simp [evaluate_mk_Ticks, dec_clock_def]
     \\ fs [evaluate_def]

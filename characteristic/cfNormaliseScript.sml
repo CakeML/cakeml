@@ -85,7 +85,7 @@ Theorem exp2v_list_REVERSE
     evaluate st env (REVERSE l) = (st, Rval (REVERSE lv))`
   (Induct \\ rpt gen_tac \\ disch_then (assume_tac o GSYM) \\
   fs [exp2v_list_def, terminationTheory.evaluate_def] \\
-  every_case_tac \\ fs [] \\ rw [] \\ irule evaluate_list_rcons \\
+  every_case_tac \\ fs [] \\ rw [] \\ irule evaluate_rcons \\
   metis_tac [exp2v_evaluate]
 );
 

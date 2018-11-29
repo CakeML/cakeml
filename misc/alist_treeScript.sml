@@ -25,7 +25,7 @@ Theorem HD_APPEND
   `HD (xs ++ ys) = (if xs = [] then HD ys else HD xs)`
   (Induct_on `xs` \\ fs []);
 
-Theorem HD_APPEND
+Theorem LAST_APPEND
   `LAST (xs ++ ys) = (if ys = [] then LAST xs else LAST ys)`
   (Cases_on `ys` \\ fs []);
 

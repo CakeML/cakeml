@@ -21,7 +21,7 @@ Theorem id_to_mods_mk_id[simp]
  (Induct_on `mn`
  >> rw [id_to_mods_def, mk_id_def]);
 
-Theorem id_to_namemods_mk_id[simp]
+Theorem id_to_name_mk_id[simp]
   `!mn x. id_to_n (mk_id mn x) = x`
  (Induct_on `mn`
  >> rw [id_to_n_def, mk_id_def]);
@@ -487,7 +487,7 @@ Theorem nsDom_nsAppend_alist[simp]
 
 (* -------------- nsAll ---------------- *)
 
-Theorem eALL_T[simp]
+Theorem nsAll_T[simp]
   `!e. nsAll (\n x. T) e`
  (rw [nsAll_def]);
 

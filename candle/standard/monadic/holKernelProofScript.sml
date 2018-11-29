@@ -669,8 +669,8 @@ val TERM_Const_type_subst = Q.prove(
   `EVERY (\(x,y). TYPE defs x /\ TYPE defs y) theta /\
     TERM defs (Const name a) ==> TERM defs (Const name (type_subst theta a))`,
   REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
-  \\ IMP_RES_TAC type_subst_thm
-  \\ FULL_SIMP_TAC std_ss [type_subst_thm,TERM_def,TYPE_def] >>
+  \\ IMP_RES_TAC type_subst
+  \\ FULL_SIMP_TAC std_ss [type_subst,TERM_def,TYPE_def] >>
   fs[term_ok_def] >>
   conj_tac >- (
     match_mp_tac type_ok_TYPE_SUBST >>
@@ -1167,11 +1167,11 @@ Theorem inst_aux_thm
     `(if type_subst theta t = t then Var m t
       else Var m (type_subst theta t)) = Var m (type_subst theta t)` by METIS_TAC [] >>
     simp[] >> POP_ASSUM (K ALL_TAC)
-    \\ FULL_SIMP_TAC (srw_ss()) [GSYM type_subst_thm,st_ex_return_def] >>
+    \\ FULL_SIMP_TAC (srw_ss()) [GSYM type_subst,st_ex_return_def] >>
     rw[] >> rw[] >> fs[st_ex_bind_def,raise_Fail_def,raise_Clash_def] >> rw[] >>
     fs[STATE_def]
     \\ MATCH_MP_TAC (TERM_Var |> GEN_ALL)
-    \\ FULL_SIMP_TAC std_ss [TYPE_def,type_subst_thm]
+    \\ FULL_SIMP_TAC std_ss [TYPE_def,type_subst]
     \\ MATCH_MP_TAC type_ok_TYPE_SUBST \\ IMP_RES_TAC TERM
     \\ FULL_SIMP_TAC std_ss [TYPE_def]
     \\ FULL_SIMP_TAC std_ss [TYPE_def,
@@ -1182,7 +1182,7 @@ Theorem inst_aux_thm
     \\ sg `(res = Success (Const m (type_subst theta t))) /\ (s = s')`
     THEN1 (Cases_on `type_subst theta t = t` \\ FULL_SIMP_TAC std_ss [])
     \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ SIMP_TAC std_ss [INST_CORE_def,type_subst_thm])
+    \\ SIMP_TAC std_ss [INST_CORE_def,type_subst])
   THEN1
    (ONCE_REWRITE_TAC [inst_aux_def]
     \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,st_ex_return_def,st_ex_bind_def]
@@ -1232,7 +1232,7 @@ Theorem inst_aux_thm
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
    (IMP_RES_TAC TERM \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [EVERY_DEF]
     \\ MATCH_MP_TAC TERM_Var \\ FULL_SIMP_TAC std_ss []
-    \\ FULL_SIMP_TAC std_ss [TYPE_def,type_subst_thm]
+    \\ FULL_SIMP_TAC std_ss [TYPE_def,type_subst]
     \\ MATCH_MP_TAC type_ok_TYPE_SUBST
     \\ FULL_SIMP_TAC std_ss [MEM_MAP,EXISTS_PROD,PULL_EXISTS,FORALL_PROD,
          EVERY_MEM] \\ METIS_TAC [])
@@ -1240,12 +1240,12 @@ Theorem inst_aux_thm
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
    (Q.SPEC_TAC (`res`,`res`) \\ FULL_SIMP_TAC (srw_ss()) []
     \\ SIMP_TAC std_ss [INST_CORE_def,LET_THM]
-    \\ FULL_SIMP_TAC std_ss [type_subst_thm,IS_RESULT_def,RESULT_def]
+    \\ FULL_SIMP_TAC std_ss [type_subst,IS_RESULT_def,RESULT_def]
     \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [] >> simp[])
   \\ FULL_SIMP_TAC (srw_ss()) [raise_Fail_def]
   \\ sg `(Var v (type_subst theta ty)) =
       (Var v (TYPE_SUBST theta ty))` THEN1
-   (SIMP_TAC std_ss [GSYM type_subst_thm])
+   (SIMP_TAC std_ss [GSYM type_subst])
   \\ FULL_SIMP_TAC (srw_ss()) [] >>
   BasicProvers.CASE_TAC >> fs[] >>
   BasicProvers.CASE_TAC >> fs[] >- (
@@ -1270,7 +1270,7 @@ Theorem inst_aux_thm
   \\ Q.MATCH_ASSUM_RENAME_TAC `inst_aux [] theta h0 r = (Success a,r1)`
   \\ sg `(variant (frees a) (Var v (type_subst theta ty))) =
       Var fresh_name (type_subst theta ty)` THEN1
-   (FULL_SIMP_TAC std_ss [GSYM type_subst_thm,RESULT_def]
+   (FULL_SIMP_TAC std_ss [GSYM type_subst,RESULT_def]
     \\ Q.UNABBREV_TAC `fresh_name`
     \\ MATCH_MP_TAC variant_inst_thm \\ FULL_SIMP_TAC std_ss []
     \\ METIS_TAC[INST_def,RESULT_def,INST_WELLTYPED,TERM_def,term_ok_welltyped])
@@ -1289,7 +1289,7 @@ Theorem inst_aux_thm
    (FULL_SIMP_TAC std_ss [EVERY_DEF] \\ REPEAT STRIP_TAC
     \\ TRY (MATCH_MP_TAC TERM_Var) \\ IMP_RES_TAC TERM
     \\ FULL_SIMP_TAC std_ss [] THEN1
-     (FULL_SIMP_TAC std_ss [TYPE_def,type_subst_thm]
+     (FULL_SIMP_TAC std_ss [TYPE_def,type_subst]
       \\ MATCH_MP_TAC type_ok_TYPE_SUBST
       \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss [TYPE_def,
              EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS] \\ METIS_TAC [])
@@ -1303,10 +1303,10 @@ Theorem inst_aux_thm
     \\ TRY (MATCH_MP_TAC TERM_Var) \\ IMP_RES_TAC TERM
     \\ FULL_SIMP_TAC std_ss [])
   \\ STRIP_TAC
-  \\ FULL_SIMP_TAC std_ss [type_subst_thm]
+  \\ FULL_SIMP_TAC std_ss [type_subst]
   \\ SIMP_TAC std_ss [INST_CORE_def,LET_THM]
-  \\ FULL_SIMP_TAC std_ss [type_subst_thm,IS_RESULT_def,CLASH_def]
-  \\ FULL_SIMP_TAC std_ss [GSYM type_subst_thm]
+  \\ FULL_SIMP_TAC std_ss [type_subst,IS_RESULT_def,CLASH_def]
+  \\ FULL_SIMP_TAC std_ss [GSYM type_subst]
   \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Q.SPEC_TAC (`res`,`res`) \\ FULL_SIMP_TAC (srw_ss()) []
   \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []

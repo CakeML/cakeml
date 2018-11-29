@@ -52,7 +52,7 @@ Theorem w82n_n2w8
   fs[DIV_LE_X]);
 
 
-Theorem nw8_nw8
+Theorem nw8_w8n
   `!b. LENGTH b = 8 ==> n2w8 (w82n b) = b`
   (Cases_on`b` >> fs[] >>
   NTAC 4 (Cases_on`t` >> fs[] >> Cases_on`t'` >> fs[]) >>

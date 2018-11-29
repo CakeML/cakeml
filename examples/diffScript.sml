@@ -108,7 +108,7 @@ Theorem diff_alg_refl
   `diff_alg l l = []`
   (rw[diff_alg_def,lcs_refl',diff_with_lcs_refl,optimised_lcs_refl]);
 
-Theorem diff_alg_refl
+Theorem diff_alg2_refl
   `diff_alg2 l l = []`
   (rw[diff_alg2_thm,lcs_refl',diff_with_lcs_refl,dynamic_lcs_refl,
      longest_common_prefix_refl]);
@@ -240,7 +240,7 @@ Theorem tokens_append_strlit
    P x ⇒ tokens P (s1 ^ strlit [x] ^ s2) = tokens P s1 ++ tokens P s2`
   (rpt strip_tac >> drule0 tokens_append >> fs[str_def,implode_def]);
 
-Theorem tokens_append_right_strlit
+Theorem tokens_append_right
   `∀P s x.
    P x ⇒ tokens P (s ^ strlit [x]) = tokens P s`
   (rpt strip_tac >> drule0 tokens_append_strlit
@@ -1080,7 +1080,7 @@ Theorem longest_common_sandwich'
   >> qpat_abbrev_tac `a2 = longest_common_suffix _ _ `
   >> fs[TAKE_APPEND]);
 
-Theorem LENGTH_suffix_prefix
+Theorem LENGTH_suffix_prefix'
   `!l r. LENGTH r >= LENGTH (longest_common_prefix l r)
         + LENGTH
            (longest_common_suffix

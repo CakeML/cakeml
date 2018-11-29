@@ -2406,7 +2406,7 @@ val tscheme_inst2_lemma = Q.prove (
  >> PairCases_on `x'`
  >> rw [tscheme_inst2_def]);
 
-Theorem tops_type_sound_no_no_extra_checks
+Theorem tops_type_sound_no_extra_checks
  `∀(st:'ffi semanticPrimitives$state) env tops st' env' r tdecs1 ctMap tenvS tenv tdecs1' tenv'.
    evaluate_tops st env tops = (st',r) ∧
    type_prog F tdecs1 tenv tops tdecs1' tenv' ∧

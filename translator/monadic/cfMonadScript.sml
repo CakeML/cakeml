@@ -284,7 +284,7 @@ Theorem EvalM_from_app
   \\ qmatch_assum_abbrev_tac `evaluate s6  env' [exp] = _`
   \\ rename1 `SPLIT (st2heap p s) (u1,v1)`
   \\ `?he. SPLIT (st2heap p s6) (u1,v1 UNION he)` by
-   (qspecl_then [`s`,`refs'`,`p`] strip_assume_tac st2heap_append_UNION
+   (qspecl_then [`s`,`refs'`,`p`] strip_assume_tac st2heap_new_refs_UNION
     \\ rfs [] \\ qexists_tac `x'` \\ fs [Abbr `s6`]
     \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF,set_sepTheory.SPLIT_def]
     \\ metis_tac [])
