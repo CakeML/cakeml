@@ -1230,6 +1230,10 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   simp[code_rel_def,wf_fromAList,domain_fromAList,lookup_fromAList] >>
   simp[compile_prog_def,ALOOKUP_MAP,compile_part_thm]);
 
+val FST_compile_part = Q.store_thm("FST_compile_part[simp]",
+  `FST (compile_part a) = (FST a)`,
+  PairCases_on`a` \\ EVAL_TAC);
+
 (* observational semantics *)
 
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",

@@ -61,6 +61,10 @@ val prog_comp_lemma = Q.prove(
   `prog_comp = \(n,p). (n,FST (comp n (next_lab p 1) p))`,
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]);
 
+val FST_prog_comp = Q.store_thm("FST_prog_comp[simp]",
+  `FST (prog_comp pp) = FST pp`,
+  Cases_on`pp` \\ EVAL_TAC);
+
 val lookup_IMP_lookup_compile = Q.prove(
   `lookup dest s.code = SOME x /\ dest ≠ gc_stub_location ==>
     ?m1 n1. lookup dest (fromAList (compile c (toAList s.code))) =

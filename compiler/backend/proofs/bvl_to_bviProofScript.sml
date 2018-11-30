@@ -4032,4 +4032,38 @@ val compile_distinct_names = Q.store_thm("compile_distinct_names",
   \\ pop_assum mp_tac
   \\ EVAL_TAC \\ rw[]);
 
+val ALL_DISTINCT_MAP_FST_SND_full_co = Q.store_thm("ALL_DISTINCT_MAP_FST_SND_full_co",
+  `ALL_DISTINCT (MAP FST (SND (co n))) ∧
+   (FST (SND (SND (FST (co n)))) MOD bvl_to_bvi_namespaces = 2)
+  ⇒
+   ALL_DISTINCT (MAP FST (SND (full_co c co n)))`,
+  rw[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co]
+  \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m xs`
+  \\ Cases_on`bvi_tailrec$compile_prog m xs`
+  \\ drule bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
+  \\ impl_tac
+  >- (
+    simp[Abbr`xs`]
+    \\ simp[backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
+    \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc v p`
+    \\ Cases_on`bvl_to_bvi$compile_inc v p`
+    \\ drule compile_inc_DISTINCT
+    \\ impl_tac
+    >- (
+      simp[Abbr`p`]
+      \\ simp[bvl_inlineTheory.compile_inc_def, UNCURRY]
+      \\ simp[bvl_inlineTheory.tick_compile_prog_def]
+      \\ simp[bvl_inlineProofTheory.MAP_FST_tick_inline_all] )
+    \\ rw[]
+    \\ drule (GEN_ALL compile_inc_next_range)
+    \\ simp[MEM_MAP, PULL_EXISTS, EVERY_o, EVERY_MEM, EXISTS_PROD]
+    \\ rpt strip_tac
+    \\ first_x_assum drule
+    \\ simp[bvi_tailrecProofTheory.free_names_def]
+    \\ rw[] \\ strip_tac \\ rw[]
+    \\ qpat_x_assum`_ MOD _ = _`mp_tac
+    \\ qpat_x_assum`_ MOD _ = _`mp_tac
+    \\ EVAL_TAC \\ simp[] )
+  \\ simp[]);
+
 val _ = export_theory();

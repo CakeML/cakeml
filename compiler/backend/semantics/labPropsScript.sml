@@ -36,6 +36,10 @@ val sec_get_labels_def = Define`
 val get_labels_def = Define`
   get_labels code = BIGUNION (IMAGE sec_get_labels (set code))`;
 
+val get_labels_cons = Q.store_thm("get_labels_cons",
+  `get_labels (x::xs) = sec_get_labels x ∪ get_labels xs`,
+  rw[get_labels_def]);
+
 val line_get_code_labels_def = Define`
   line_get_code_labels (Label _ l _) = {l} ∧
   line_get_code_labels _ = {}`;
@@ -705,6 +709,13 @@ val sec_label_ok_extract_labels = Q.store_thm("sec_label_ok_extract_labels",
    n1' = n1 ∧ n2 ≠ 0`,
   Induct_on`lines` \\ simp[]
   \\ Cases \\ rw[] \\ fs[]);
+
+val EVERY_sec_label_ok = store_thm("EVERY_sec_label_ok",
+  ``EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels l) (*∧
+    ALL_DISTINCT (extract_labels l) *)⇔
+    EVERY (sec_label_ok n) l``,
+  Induct_on`l`>>simp[extract_labels_def]>>
+  Cases>>simp[extract_labels_def]);
 
 val line_get_code_labels_extract_labels = Q.store_thm("line_get_code_labels_extract_labels",
   `∀l.

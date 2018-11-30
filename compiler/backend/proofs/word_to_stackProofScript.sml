@@ -7179,6 +7179,30 @@ val word_to_stack_compile_lab_pres = Q.store_thm("word_to_stack_compile_lab_pres
   pairarg_tac>>rw[]>>EVAL_TAC>>
   metis_tac[FST,word_to_stack_lab_pres])
 
+val compile_word_to_stack_lab_pres = Q.store_thm("compile_word_to_stack_lab_pres",
+  `∀p b q r.
+   compile_word_to_stack k p b = (q,r) ∧
+   EVERY (λ(l,m,e).
+     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0)) (extract_labels e) ∧
+     ALL_DISTINCT (extract_labels e)) p
+   ⇒
+   EVERY (λ(l,e).
+     EVERY (λ(l1,l2). (l1 = l) ∧ (l2 ≠ 0)) (extract_labels e) ∧
+     ALL_DISTINCT (extract_labels e)) q`,
+  Induct
+  \\ simp[word_to_stackTheory.compile_word_to_stack_def]
+  \\ simp[FORALL_PROD]
+  \\ rw[word_to_stackTheory.compile_word_to_stack_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ rveq \\ simp[]
+  \\ first_x_assum drule
+  \\ simp[] \\ strip_tac
+  \\ fs[Once word_to_stackTheory.compile_prog_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ EVAL_TAC \\ pop_assum mp_tac
+  \\ specl_args_of_then``word_to_stack$comp``word_to_stack_lab_pres mp_tac
+  \\ ntac 2 strip_tac \\ fs[]);
+
 val EVEN_DIV_2_props = Q.prove(`
   a MOD 2 = 0 ∧ b MOD 2 = 0 ⇒
   (a ≠ b ⇒ a DIV 2 ≠ b DIV 2) ∧ (a ≠ 0 ⇒ a DIV 2 ≠ 0)`,
@@ -7648,5 +7672,39 @@ val word_to_stack_stack_convs = Q.store_thm("word_to_stack_stack_convs",`
     fs[AND_IMP_INTRO]>>
     first_x_assum match_mp_tac>>
     metis_tac[]);
+
+val compile_word_to_stack_convs = Q.store_thm("compile_word_to_stack_convs",
+  `∀p bm q bm'.
+   compile_word_to_stack k p bm = (q,bm') ∧
+   EVERY (λ(n,m,p).
+     full_inst_ok_less c p ∧
+     (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
+     post_alloc_conventions k p) p ∧ 4 < k ∧ k + 1 < c.reg_count - LENGTH c.avoid_regs
+   ⇒
+   EVERY (λ(x,y).
+     stack_asm_name c y ∧
+     stack_asm_remove c y ∧
+     alloc_arg y ∧
+     reg_bound y (k+2) ∧
+     call_args y 1 2 3 4 0) q`,
+  Induct>>fs[FORALL_PROD,compile_word_to_stack_def]>>
+  rpt strip_tac>>
+  FULL_SIMP_TAC (srw_ss())[compile_prog_def]>>
+  rpt(pairarg_tac \\ fs[]) \\ rveq
+  \\ qmatch_asmsub_abbrev_tac`comp p_2 bm (k,f)`
+  \\ Q.ISPECL_THEN[`p_2`,`bm`,`(k,f)`,`c`]mp_tac
+        word_to_stack_stack_asm_name_lem
+  \\ impl_tac >- fs[] \\ strip_tac
+  \\ Q.ISPECL_THEN[`p_2`,`bm`,`(k,f)`,`c`]mp_tac
+        word_to_stack_stack_asm_remove_lem
+  \\ impl_tac >- fs[] \\ strip_tac
+  \\ simp_tac(srw_ss())[]
+  \\ simp_tac(srw_ss())[GSYM CONJ_ASSOC]
+  \\ conj_tac >- (EVAL_TAC \\ rfs[] )
+  \\ conj_tac >- (EVAL_TAC \\ rfs[] )
+  \\ conj_tac >- (EVAL_TAC \\ metis_tac[word_to_stack_alloc_arg,FST])
+  \\ conj_tac >- (EVAL_TAC \\ metis_tac[word_to_stack_reg_bound,FST,LESS_OR_EQ])
+  \\ conj_tac >- (EVAL_TAC \\ metis_tac[word_to_stack_call_args,FST])
+  \\ metis_tac[]);
 
 val _ = export_theory();

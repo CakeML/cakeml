@@ -130,6 +130,11 @@ val nsBind_nsEmpty = Q.store_thm ("nsBind_nsEmpty[simp]",
   Cases_on `env` >>
   rw [nsBind_def, nsEmpty_def]);
 
+val nsLookup_Bind_v_some = Q.store_thm("nsLookup_Bind_v_some",
+  `nsLookup (Bind v []) k = SOME x ⇔
+   ∃y. k = Short y ∧ ALOOKUP v y = SOME x`,
+  Cases_on`k` \\ EVAL_TAC \\ simp[]);
+
 (* ------------- Other simple automatic theorems --------- *)
 
 val alist_to_ns_cons = Q.store_thm ("alist_to_ns_cons[simp]",

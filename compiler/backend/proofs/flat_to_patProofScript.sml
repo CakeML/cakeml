@@ -3335,5 +3335,14 @@ val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
   match_mp_tac BAG_ALL_DISTINCT_SUB_BAG >>
   HINT_EXISTS_TAC>>fs[set_globals_eq])
 
+val elist_globals_compile = Q.store_thm("elist_globals_compile",
+  `∀ls.
+      elist_globals (flat_to_pat$compile ls) ≤ elist_globals (MAP dest_Dlet (FILTER is_Dlet ls))`,
+  recInduct flat_to_patTheory.compile_ind
+  \\ rw[flat_to_patTheory.compile_def]
+  \\ irule (List.nth(CONJUNCTS SUB_BAG_UNION, 6))
+  \\ rw[]
+  \\ rw[set_globals_eq]);
+
 val _ = export_theory()
 

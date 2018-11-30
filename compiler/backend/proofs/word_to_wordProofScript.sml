@@ -17,6 +17,10 @@ val is_phy_var_tac =
 
 val rmd_thms = (remove_dead_conventions |>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
 
+val FST_compile_single = Q.store_thm("FST_compile_single[simp]",
+  `FST (compile_single a b c d e) = FST (FST e)`,
+  PairCases_on`e` \\ EVAL_TAC);
+
 (*Chains up compile_single theorems*)
 val compile_single_lem = Q.store_thm("compile_single_lem",`
   ∀prog n st.

@@ -162,6 +162,9 @@ val prim_config_def = Define`
   prim_config =
     FST (to_flat <| source_conf := empty_config |> (prim_types_program))`;
 
+val prim_config_eq = save_thm("prim_config_eq",
+  EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]);
+
 val from_lab_def = Define`
   from_lab c p =
     attach_bitmaps c.word_conf.bitmaps

@@ -4428,6 +4428,11 @@ val known_co_def = Define `
                             : 'b clos_co)) : 'b clos_co))
      | NONE      => (state_co (CURRY I) co) : 'b clos_co)`;
 
+val FST_known_co = Q.store_thm("FST_known_co",
+  `FST (known_co kc co n) = SND (FST (co n))`,
+  rw[known_co_def] \\ CASE_TAC
+  \\ simp[backendPropsTheory.FST_state_co]);
+
 val semantics_compile = Q.store_thm("semantics_compile",
   `closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    (cc1 = known_cc known_conf cc) ∧

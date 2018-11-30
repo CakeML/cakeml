@@ -2221,6 +2221,10 @@ val IN_addresses = Q.prove(
   \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ metis_tac []);
 
+val addresses_thm = Q.store_thm("addresses_thm",
+  `!n a. addresses a n = { a + n2w i * bytes_in_word | i < n }`,
+  rw[EXTENSION, IN_addresses] \\ metis_tac[]);
+
 val memory_addresses = Q.prove(
   `!n (a:'a word) (m:'a word -> 'a word_loc).
       n * (dimindex (:'a) DIV 8) < dimword (:'a) /\ good_dimindex (:'a) ==>
@@ -3288,6 +3292,10 @@ val make_init_any_data_buffer = Q.store_thm("make_init_any_data_buffer",
 *)
 
 (* Syntactic *)
+
+val FST_prog_comp = Q.store_thm("FST_prog_comp[simp]",
+  `FST (prog_comp jump off k pp) = FST pp`,
+  Cases_on`pp` \\ EVAL_TAC);
 
 val stack_remove_lab_pres = Q.store_thm("stack_remove_lab_pres",`
   ∀jump off k p.

@@ -1126,4 +1126,8 @@ val max_heap_limit_has_fp_ops = store_thm("max_heap_limit_has_fp_ops[simp]",
     max_heap_limit (:α) conf``,
   EVAL_TAC);
 
+val FST_compile_part = Q.store_thm("FST_compile_part[simp]",
+  `FST (compile_part a b) = (FST b)`,
+  PairCases_on`b` \\ EVAL_TAC);
+
 val _ = export_theory();
