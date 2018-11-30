@@ -11,6 +11,10 @@ local open gen_gcTheory in end
 
 val _ = new_theory "data_to_wordProof";
 
+
+val _ = set_grammar_ancestry
+  ["backend","dataLang","dataSem","data_to_word_gcProof","word_to_wordProof",
+   "wordProps","data_to_word","wordLang", "wordSem"]
 val _ = hide "next";
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
