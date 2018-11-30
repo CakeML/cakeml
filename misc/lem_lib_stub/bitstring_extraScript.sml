@@ -73,11 +73,11 @@ val fixshiftl_def = Define`
 
 val fixshiftr_word_lsr = Q.store_thm("fixshiftr_word_lsr",
   `!a n w. (w2v w = a)
-     ==> ((w2v (word_lsr w n)) = (fixshitr a n))`,cheat);
+     ==> ((w2v (word_lsr w n)) = (fixshiftr a n))`,cheat);
 
 val fixshiftl_word_lsl = Q.store_thm("fixshiftl_word_lsl",
   `!a n w. (w2v w = a)
-     ==> ((w2v (word_lsl w n)) = (fixshitl a n))`,cheat);
+     ==> ((w2v (word_lsl w n)) = (fixshiftl a n))`,cheat);
 
 val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
   `!a n w. (w2v w = a)
