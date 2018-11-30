@@ -1,3 +1,7 @@
+(*
+  An example universe satisfying is_set_theory and (assuming the
+  existence of an infinite set) is_model.
+*)
 open preamble bitTheory setSpecTheory
 
 val _ = new_theory"setModel"

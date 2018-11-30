@@ -1,3 +1,8 @@
+(*
+  Correctness proofs about the OpenTheory article checker's CakeML
+  implementation. In particular, anything the article checker proves
+  follows by logical inference in Candle's version of the HOL logic.
+*)
 open preamble ml_monadBaseTheory
      holKernelTheory holKernelProofTheory
      holSyntaxTheory holSyntaxExtraTheory
@@ -1788,4 +1793,3 @@ val reader_proves = Q.store_thm("reader_proves",
   \\ fs [EQ_SYM_EQ]);
 
 val _ = export_theory();
-

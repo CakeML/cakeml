@@ -1,3 +1,6 @@
+(*
+  Define the target compiler configuration for MIPS.
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib mips_stepTheory;
 

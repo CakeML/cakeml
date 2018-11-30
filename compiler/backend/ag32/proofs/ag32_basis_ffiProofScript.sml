@@ -2,7 +2,6 @@
   Verify that the ag32 implementation of the FFI primitives satisfies
   interference_implemented.
 *)
-
 open preamble
   ag32_memoryTheory
   ag32_machine_configTheory

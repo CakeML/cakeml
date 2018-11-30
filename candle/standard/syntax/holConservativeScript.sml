@@ -1,3 +1,6 @@
+(*
+  Functions and proofs about expanding constant definitions.
+*)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory "holConservative";

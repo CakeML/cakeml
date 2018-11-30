@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for ARMv6
+*)
 open preamble backendTheory arm6_targetTheory arm6_targetLib
 
 val _ = new_theory"arm6_config";

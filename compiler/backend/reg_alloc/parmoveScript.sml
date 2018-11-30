@@ -1,11 +1,13 @@
+(*
+  Compiling parallel moves.
+  This is a formalisation of a JAR'08 paper by Rideau, Serpette, Leroy:
+    Tilting at windmills with Coq: formal verification of a compilation
+    algorithm for parallel moves
+  http://gallium.inria.fr/~xleroy/publi/parallel-move.pdf
+*)
 open preamble;
 
 val _ = new_theory "parmove";
-
-(* This is a formalisation of a JAR'08 paper by Rideau, Serpette, Leroy:
-     Tilting at windmills with Coq: formal verification of a compilation
-     algorithm for parallel moves
-   http://gallium.inria.fr/~xleroy/publi/parallel-move.pdf *)
 
 (* Non-deterministic algorithm *)
 

@@ -1,3 +1,6 @@
+(*
+  Correctness proof for lab_filter
+*)
 open preamble labSemTheory labPropsTheory lab_filterTheory;
 
 val _ = new_theory "lab_filterProof";

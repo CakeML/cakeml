@@ -1,3 +1,6 @@
+(*
+  Define the format of the compiler-generated .S file for x64
+*)
 open preamble exportTheory
 
 val () = new_theory "export_x64";

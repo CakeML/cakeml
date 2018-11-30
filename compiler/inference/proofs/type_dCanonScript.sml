@@ -1,3 +1,7 @@
+(*
+  For any type_d, prove that the canonical type identifier strategy
+  succeeds.
+*)
 open preamble astTheory namespaceTheory typeSystemTheory;
 open terminationTheory namespacePropsTheory;
 open typeSysPropsTheory typeSoundInvariantsTheory inferPropsTheory

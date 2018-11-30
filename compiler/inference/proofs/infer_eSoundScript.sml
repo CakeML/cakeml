@@ -1,3 +1,6 @@
+(*
+  Prove soundness of the type inferencer for the expression-level.
+*)
 open preamble;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory;
 open astPropsTheory;

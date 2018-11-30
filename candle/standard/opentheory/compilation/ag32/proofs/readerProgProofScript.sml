@@ -1,3 +1,8 @@
+(*
+  End-to-end correctness theorem for the OpenTheory article
+  checker. The theorem reaches the next-state function of the
+  verified hardware platform called Silver.
+*)
 open preamble
      semanticsPropsTheory backendProofTheory ag32_configProofTheory
      ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory

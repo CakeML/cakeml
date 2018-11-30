@@ -1,3 +1,6 @@
+(*
+  Correctness proof for lab_to_target
+*)
 open preamble ffiTheory BasicProvers
      wordSemTheory labSemTheory labPropsTheory
      lab_to_targetTheory
@@ -588,7 +591,7 @@ val state_rel_def = Define `
        ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.halt_pc) /\
        ~(p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset) = mc_conf.ccache_pc) /\
        (find_index (p - n2w ((3 + get_ffi_index mc_conf.ffi_names name) * ffi_offset))
-		   mc_conf.ffi_entry_pcs 0 = SOME (get_ffi_index mc_conf.ffi_names name))) /\
+                   mc_conf.ffi_entry_pcs 0 = SOME (get_ffi_index mc_conf.ffi_names name))) /\
     (* Halt/ClearCache are at the right positions *)
     (p - n2w ffi_offset = mc_conf.halt_pc) /\
     (p - n2w (2*ffi_offset) = mc_conf.ccache_pc) /\
@@ -1466,7 +1469,9 @@ val Inst_lemma = Q.prove(
     (`good_dimindex(:'a)` by fs[state_rel_def]>>
     fs[good_dimindex_def]>>
     Cases_on`a`>>last_x_assum mp_tac>>
-    fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def,labSemTheory.mem_load_def]>>
+    fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,assert_def,
+       read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,
+       labSemTheory.addr_def,addr_def,read_reg_def,labSemTheory.mem_load_def]>>
     TOP_CASE_TAC>>fs[]>>
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
     ntac 2 strip_tac>>fs[state_rel_def]>>
@@ -1539,7 +1544,8 @@ val Inst_lemma = Q.prove(
           metis_tac[]))
   >- (*Load8*)
     (Cases_on`a`>>last_x_assum mp_tac>>
-    fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,state_rel_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def]>>
+    fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,state_rel_def,assert_def,
+       read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def]>>
     ntac 2 (TOP_CASE_TAC>>fs[])>>
     ntac 2 (pop_assum mp_tac)>>
     ntac 2 (TOP_CASE_TAC>>fs[])>>
@@ -1565,7 +1571,9 @@ val Inst_lemma = Q.prove(
     (`good_dimindex(:'a)` by fs[state_rel_def]>>
     fs[good_dimindex_def]>>
     Cases_on`a`>>last_x_assum mp_tac>>
-    fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def,labSemTheory.mem_store_def,read_reg_def,labSemTheory.upd_mem_def]>>
+    fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,
+       addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def,
+       labSemTheory.mem_store_def,read_reg_def,labSemTheory.upd_mem_def]>>
     TOP_CASE_TAC>>fs[]>>
     pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
     ntac 2 strip_tac>>fs[state_rel_def]>>
@@ -1665,7 +1673,8 @@ val Inst_lemma = Q.prove(
        )))
   >-
     (Cases_on`a`>>last_x_assum mp_tac>>
-    fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def]>>
+    fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,
+       addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def]>>
     ntac 3 (TOP_CASE_TAC>>fs[])>>
     ntac 3 (pop_assum mp_tac)>>
     ntac 2 (TOP_CASE_TAC>>fs[])>>

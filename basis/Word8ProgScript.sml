@@ -1,3 +1,6 @@
+(*
+  Module about the built-in word8 type.
+*)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
      Word64ProgTheory
 

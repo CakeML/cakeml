@@ -1,3 +1,6 @@
+(*
+  Correctness proof for flat_exh_match
+*)
 open semanticPrimitivesTheory
 open semanticPrimitivesPropsTheory
 open preamble flatPropsTheory flatSemTheory flat_exh_matchTheory
@@ -1380,4 +1383,3 @@ val compile_exps_distinct_globals = Q.store_thm (
   metis_tac [compile_decs_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
 
 val _ = export_theory();
-

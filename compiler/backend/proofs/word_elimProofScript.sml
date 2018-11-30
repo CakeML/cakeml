@@ -1,10 +1,6 @@
 (*
-  Definitions and proofs of correctness for wordLang dead code elimination.
-
-  Uses flat_elimProof definitions of reachability in a num_set num_map,
-  and proves semantic preservation for word_elim.
+  Correctness proof for word_elim
 *)
-
 open preamble backendComputeLib sptreeTheory wordLangTheory
      word_elimTheory wordSemTheory wordPropsTheory
      flat_elimProofTheory

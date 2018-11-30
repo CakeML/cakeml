@@ -3,7 +3,13 @@
    development.
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory
-open bitstringTheory bagTheory optionTheory combinTheory dep_rewrite listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory totoTheory comparisonTheory bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
+open bitstringTheory bagTheory optionTheory combinTheory dep_rewrite
+     listTheory pred_setTheory finite_mapTheory alistTheory
+     rich_listTheory llistTheory arithmeticTheory pairTheory
+     sortingTheory relationTheory totoTheory comparisonTheory
+     bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory
+     indexedListsTheory stringTheory ASCIInumbersLib
+     machine_ieeeTheory
 local open bagLib alignmentTheory addressTheory blastLib in end
 
 (* Misc. lemmas (without any compiler constants) *)

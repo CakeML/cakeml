@@ -1,4 +1,7 @@
-(** CF Mini HOWTO *)
+(*
+  A small tutorial on how to do proofs in CF using the tools provided
+  by CakeML's support for CF reasoning.
+*)
 
 (* Perform the same opens as in cf_examplesScript.sml
 

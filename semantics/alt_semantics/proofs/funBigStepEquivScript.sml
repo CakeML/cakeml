@@ -1,3 +1,7 @@
+(*
+  Relate functional big-step semantics with relational big-step
+  semantics.
+*)
 open preamble evaluateTheory interpTheory semanticPrimitivesTheory
 open terminationTheory
 

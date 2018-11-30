@@ -1,3 +1,6 @@
+(*
+  Proofs about the module about the list tyoe.
+*)
 open preamble ml_translatorTheory ml_translatorLib cfLib ListProgTheory
 
 val _ = new_theory "ListProof";

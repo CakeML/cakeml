@@ -1,3 +1,6 @@
+(*
+  This compiler phase replaces tuples with constructors (with tag 0).
+*)
 open preamble astTheory terminationTheory flatLangTheory;
 
 val _ = numLib.prefer_num();

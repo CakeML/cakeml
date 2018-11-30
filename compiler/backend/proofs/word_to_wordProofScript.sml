@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_to_word
+*)
 open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
      wordPropsTheory word_allocProofTheory word_instProofTheory
      word_removeProofTheory;

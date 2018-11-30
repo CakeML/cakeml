@@ -1,3 +1,7 @@
+(*
+  This module contains CakeML code implementing a functional map type
+  using a self-balancing binary tree.
+*)
 open preamble
   ml_translatorLib ml_translatorTheory ml_progLib
   balanced_mapTheory CompareProgTheory basisFunctionsLib

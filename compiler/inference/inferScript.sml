@@ -1,3 +1,6 @@
+(*
+  Definition of CakeML's type inferencer.
+*)
 open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
 open namespacePropsTheory;
 open infer_tTheory unifyTheory;

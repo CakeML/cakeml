@@ -111,7 +111,7 @@ val compile_def = Define`
                                          inf_env_to_types_string ic ++
                                          [strlit "\n"]))), [])
           else
-          case backend$compile_tap c.backend_config (prelude ++ prog) of
+          case backend$compile_tap c.backend_config full_prog of
           | (NONE, td) => (Failure CompileError, td)
           | (SOME (bytes,c), td) => (Success (bytes,c), td)`;
 

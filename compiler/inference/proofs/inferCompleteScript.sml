@@ -1,3 +1,8 @@
+(*
+  Proves completeness of the type inferencer, i.e. if there is a type
+  for the program, then the type inferencer will find a type (the most
+  general type).
+*)
 open preamble
 open typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory
      astPropsTheory typeSysPropsTheory inferPropsTheory namespacePropsTheory envRelTheory
@@ -1430,7 +1435,8 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
       simp_tac std_ss [GSYM nsAppend_assoc, nsAppend_nsSing]))
  >- (
     qho_match_abbrev_tac
-      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ _ ∧ check_specs _ _ eid' <| inf_v := _ ; inf_c := nsAppend new_ctors _; inf_t := nsAppend new_t _ |> _ _ = (Success (_ idecls new_ienv), st2)` >>
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ _ ∧ check_specs _ _ eid'
+         <| inf_v := _ ; inf_c := nsAppend new_ctors _; inf_t := nsAppend new_t _ |> _ _ = (Success (_ idecls new_ienv), st2)` >>
     simp [] >>
     `tenv_abbrev_ok new_t`
       by (
@@ -1441,7 +1447,8 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
         REWRITE_TAC [ELIM_UNCURRY]) >>
     `tenv_abbrev_ok (nsAppend new_t tenvT)` by metis_tac [tenv_abbrev_ok_merge] >>
     fs [] >>
-    first_x_assum (qspecl_then [`st1`, `eid'`, `<|inf_v := extra_ienv.inf_v; inf_c := nsAppend new_ctors extra_ienv.inf_c; inf_t := nsAppend new_t extra_ienv.inf_t|>`] mp_tac) >>
+    first_x_assum (qspecl_then [`st1`, `eid'`,
+       `<|inf_v := extra_ienv.inf_v; inf_c := nsAppend new_ctors extra_ienv.inf_c; inf_t := nsAppend new_t extra_ienv.inf_t|>`] mp_tac) >>
     rw [] >>
     rw [] >>
     qexists_tac `append_decls idecls <| inf_defined_types := MAP (λ(tvs,tn,ctors). mk_id mn tn) td;

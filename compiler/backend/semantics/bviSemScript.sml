@@ -1,3 +1,6 @@
+(*
+  The formal semantics of BVI
+*)
 open preamble bviTheory;
 local open backend_commonTheory bvlSemTheory in end;
 

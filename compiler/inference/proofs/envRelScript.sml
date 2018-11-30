@@ -1,3 +1,6 @@
+(*
+  Relating inference and type system environments.
+*)
 open preamble;
 open libTheory namespacePropsTheory typeSystemTheory astTheory
 semanticPrimitivesTheory terminationTheory inferTheory unifyTheory inferPropsTheory;

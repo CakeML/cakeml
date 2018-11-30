@@ -1,3 +1,8 @@
+(*
+  The formal semantics of the target machine language. This semantics
+  is parametrised by the target configuration, which includes the next
+  state function of the target architecture.
+*)
 open preamble ffiTheory asmPropsTheory;
 
 val _ = new_theory "targetSem";

@@ -1,11 +1,10 @@
+(*
+  A pretty printer producing strings.
+  Based on the pretty printer from "ML from the working programmer".
+*)
 open preamble holSyntaxTheory mlstringTheory
 
 val _ = new_theory "pretty";
-
-(* ------------------------------------------------------------------------- *)
-(* A pretty printer producing strings.                                       *)
-(* Based on the pretty printer from "ML from the working programmer".        *)
-(* ------------------------------------------------------------------------- *)
 
 val _ = Datatype `
   t = Block (t list) num num
@@ -488,4 +487,3 @@ val dest_binder_PMATCH = Q.store_thm("dest_binder_PMATCH",
   \\ simp [Once dest_binder_def]);
 
 val _ = export_theory ();
-

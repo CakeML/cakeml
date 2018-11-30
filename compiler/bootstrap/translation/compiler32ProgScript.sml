@@ -1,3 +1,6 @@
+(*
+  Finish translation of the 32-bit version of the compiler.
+*)
 open preamble;
 local open ag32ProgTheory in end;
 open compilerTheory

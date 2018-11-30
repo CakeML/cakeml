@@ -1,10 +1,11 @@
+(*
+  This compiler phase minimises the live-var annotations that are
+  attached to MakeSpace, Assign and Call in dataLang programs. This
+  phase also locally deletes code that has no observable effect.
+*)
 open preamble dataLangTheory;
 
 val _ = new_theory "data_live";
-
-(* This script defines an optimisation that minimises the live var
-   annotations that are attached to MakeSpace, Assign and Call in
-   dataLang programs. It also deletes dead code. *)
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 

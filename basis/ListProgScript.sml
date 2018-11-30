@@ -1,3 +1,6 @@
+(*
+  Module about the built-in list tyoe.
+*)
 open preamble ml_translatorLib ml_progLib cfLib std_preludeTheory
 open mllistTheory ml_translatorTheory OptionProgTheory
 open basisFunctionsLib

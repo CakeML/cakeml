@@ -1,3 +1,7 @@
+(*
+  A HOL4 port of Model/modelset.ml from the HOL Light distribution.
+  Now unused, but was once the set theory behind our semantics.
+*)
 open preamble cardinalTheory
 
 val _ = numLib.prefer_num()

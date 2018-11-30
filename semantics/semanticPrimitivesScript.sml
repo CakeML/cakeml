@@ -8,6 +8,10 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "semanticPrimitives"
 
+(*
+  Definitions of semantic primitives (e.g., values, and functions for doing
+  primitive operations) used in the semantics.
+*)
 (*open import Pervasives*)
 (*open import Lib*)
 (*import List_extra*)

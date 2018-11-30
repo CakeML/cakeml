@@ -1,3 +1,7 @@
+(*
+  Deeply embedded CakeML program that implements an OpenTheory article
+  checker.
+*)
 open preamble basis
      ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
@@ -638,4 +642,3 @@ val reader_semantics =
   |> curry save_thm "reader_semantics";
 
 val _ = export_theory ();
-

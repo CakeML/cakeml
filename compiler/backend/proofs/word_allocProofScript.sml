@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_alloc
+*)
 open preamble
      reg_allocTheory reg_allocProofTheory linear_scanTheory linear_scanProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory;
@@ -1429,7 +1432,10 @@ val colouring_ok_alt_thm = Q.store_thm("colouring_ok_alt_thm",
     Cases_on`get_clash_sets prog live`>>
     full_simp_tac(srw_ss())[UNCURRY]);
 
-val fs1 = full_simp_tac(srw_ss())[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def,every_name_def,toAList_domain];
+val fs1 = full_simp_tac(srw_ss())[LET_THM, get_clash_sets_def,
+  every_var_def, get_live_def, domain_numset_list_insert,
+  domain_union, EVERY_MEM, get_writes_def, every_var_inst_def,
+  get_live_inst_def, every_name_def, toAList_domain];
 
 val every_var_exp_get_live_exp = Q.prove(
 `∀exp.

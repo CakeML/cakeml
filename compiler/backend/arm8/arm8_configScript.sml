@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for ARMv8
+*)
 open preamble backendTheory arm8_targetTheory arm8_targetLib
 
 val _ = new_theory"arm8_config";

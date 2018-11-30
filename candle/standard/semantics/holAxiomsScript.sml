@@ -1,3 +1,7 @@
+(*
+  Prove consistency of each of the axioms. (For the axiom of infinity, this
+  requires an additional assumption on the set theory.)
+*)
 open preamble holBoolTheory holBoolSyntaxTheory
      holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
      setSpecTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory

@@ -1,3 +1,6 @@
+(*
+  Proves correctness of the linear-scan register allocator.
+*)
 open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory libTheory
 open ml_monadBaseTheory ml_monadBaseLib;
 
@@ -456,12 +459,24 @@ val get_live_tree_correct_lemma = Q.store_thm("get_live_tree_correct_lemma",
         rw []
         THEN1 (
             imp_res_tac check_live_tree_success >> rfs [] >>
-            `INJ f (set (MAP FST (toAList (difference livein2' livein1'))) UNION domain livein1') UNIV` by metis_tac [check_partial_col_success_INJ] >>
-            `set (MAP FST (toAList (difference livein2 livein1))) UNION domain livein1 SUBSET set (MAP FST (toAList (difference livein2' livein1'))) UNION domain livein1'` by (REWRITE_TAC [branch_domain] >> fs [SUBSET_DEF]) >>
-            `INJ f (set (MAP FST (toAList (difference livein2 livein1))) UNION domain livein1) UNIV` by metis_tac [INJ_SUBSET, UNIV_SUBSET] >>
+            `INJ f (set (MAP FST (toAList (difference livein2' livein1')))
+             UNION domain livein1') UNIV` by
+                metis_tac [check_partial_col_success_INJ] >>
+            `set (MAP FST (toAList (difference livein2 livein1)))
+             UNION domain livein1 SUBSET set
+               (MAP FST (toAList (difference livein2' livein1')))
+             UNION domain livein1'` by
+               (REWRITE_TAC [branch_domain] >> fs [SUBSET_DEF]) >>
+            `INJ f (set (MAP FST (toAList (difference livein2 livein1)))
+             UNION domain livein1) UNIV` by
+               metis_tac [INJ_SUBSET, UNIV_SUBSET] >>
             `INJ f (domain live) UNIV` by metis_tac [INJ_SUBSET, UNIV_SUBSET] >>
-            `domain flivein1 = IMAGE f (domain livein1)` by metis_tac [check_clash_tree_output] >>
-            `?livein flivein. check_partial_col f (MAP FST (toAList (difference livein2 livein1))) livein1 flivein1 = SOME (livein, flivein)` by metis_tac [check_partial_col_success] >>
+            `domain flivein1 = IMAGE f (domain livein1)` by
+               metis_tac [check_clash_tree_output] >>
+            `?livein flivein. check_partial_col f
+               (MAP FST (toAList (difference livein2 livein1)))
+                 livein1 flivein1 = SOME (livein, flivein)` by
+                    metis_tac [check_partial_col_success] >>
             rw [] >>
             `domain livein = set (MAP FST (toAList (difference livein2 livein1))) UNION domain livein1` by metis_tac [check_partial_col_domain, FST] >>
             `domain livein' = set (MAP FST (toAList (difference livein2' livein1'))) UNION domain livein1'` by metis_tac [check_partial_col_domain, FST] >>
@@ -854,13 +869,18 @@ val get_intervals_live_less_end = Q.store_thm("get_intervals_live_less_end",
     `n2 = n_in - (size_of_live_tree lt') /\ n_out = n2 - (size_of_live_tree lt)` by metis_tac [get_intervals_nout] >>
     `check_number_property (\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v) lt' n_in live_in` by metis_tac [] >>
     `check_number_property (\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v) lt' n_in live_in` by (
-        sg `!n' (live' : num_set). (\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v) n' live' ==> (\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v) n' live'` THEN1 (
+        sg `!n' (live' : num_set). (\n live. !r. r IN domain live ==>
+            ?v. lookup r int_end2 = SOME v /\ n+1 <= v) n' live' ==>
+            (\n live. !r. r IN domain live ==>
+            ?v. lookup r end_out = SOME v /\ n+1 <= v) n' live'` THEN1 (
             rw [] >>
             `?v. lookup r int_end2 = SOME v /\ n'+1 <= v` by rw [] >>
             `?v'. lookup r end_out = SOME v' /\ v <= v'` by metis_tac [get_intervals_intend_augment] >>
             rw [] >> intLib.COOPER_TAC
         ) >>
-        qspecl_then [`\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v`, `\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_monotone_weak >>
+        qspecl_then [`\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v`,
+          `\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v`, `lt'`, `n_in`, `live_in`]
+          assume_tac check_number_property_monotone_weak >>
         rw []
     ) >>
     `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
@@ -918,7 +938,11 @@ val get_intervals_withlive_intbeg_reduce = Q.store_thm("get_intervals_withlive_i
       rpt (pairarg_tac >> fs []) >>
       `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by (res_tac >> metis_tac []) >>
       `!r v. lookup r (difference int_beg2 live) = SOME v ==> n2 <= v` by (rw [lookup_difference] >> res_tac) >>
-      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <= option_CASE (lookup r (difference int_beg2 live)) n2 (\x.x)) /\ (!r v. lookup r (difference int_beg2 live) = SOME v ==> n2 <= v) /\ (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by (res_tac >> metis_tac []) >>
+      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <=
+            option_CASE (lookup r (difference int_beg2 live)) n2 (\x.x)) /\
+       (!r v. lookup r (difference int_beg2 live) = SOME v ==> n2 <= v) /\
+       (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by
+         (res_tac >> metis_tac []) >>
       fs [lookup_difference] >>
       `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
       `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
@@ -938,8 +962,16 @@ val get_intervals_withlive_intbeg_reduce = Q.store_thm("get_intervals_withlive_i
     (* Seq*)
     THEN1 (
       rpt (pairarg_tac >> fs []) >>
-      `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\ (!r v. lookup r beg_in = SOME v ==> n_in <= v) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by (res_tac >> metis_tac []) >>
-      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <= option_CASE (lookup r int_beg2) n2 (\x.x)) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v) /\ (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by (res_tac >> metis_tac []) >>
+      `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <=
+            option_CASE (lookup r beg_in) n_in (\x.x)) /\
+       (!r v. lookup r beg_in = SOME v ==> n_in <= v) /\
+       (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by
+           (res_tac >> metis_tac []) >>
+      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <=
+            option_CASE (lookup r int_beg2) n2 (\x.x)) /\
+       (!r v. lookup r int_beg2 = SOME v ==> n2 <= v) /\
+       (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by
+         (res_tac >> metis_tac []) >>
       simp [lookup_numset_list_delete] >>
       `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
       `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
@@ -1061,22 +1093,32 @@ val get_intervals_withlive_beg_less_live = Q.store_thm("get_intervals_withlive_b
         qabbrev_tac `set_union = union (get_live_backward lt live_in) (get_live_backward lt' live_in)` >>
         rpt strip_tac
         THEN1 (
-          sg `!n (live : num_set). (n_in - size_of_live_tree lt') - size_of_live_tree lt <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') - size_of_live_tree lt <= n /\
+              (!r. r IN domain live ==> option_CASE (lookup r int_beg1)
+                (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n) ==>
+              (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
             rw [lookup_difference] >>
             rpt CASE_TAC >>
             first_x_assum (qspec_then `r` assume_tac) >>
             rfs [] >> intLib.COOPER_TAC
           ) >>
-          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt`, `n_in - size_of_live_tree lt'`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          qspecl_then [`\n live. !r. r IN domain live ==>
+              option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`,
+            `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union))
+                 (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt`, `n_in - size_of_live_tree lt'`, `live_in`]
+              assume_tac check_number_property_strong_monotone >>
           metis_tac []
         )
         THEN1 (
-          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==>
+                 option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==>
+               (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
             rw [lookup_difference] >>
             rpt CASE_TAC
             THEN1 intLib.COOPER_TAC
             THEN1 (
-              `!r. option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= option_CASE (lookup r (difference int_beg2 live_in)) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
+              `!r. option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <=
+                   option_CASE (lookup r (difference int_beg2 live_in)) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
               rpt (last_x_assum (qspec_then `r` assume_tac)) >>
               rfs [lookup_difference] >>
               Cases_on `lookup r live_in` >> fs []
@@ -1086,7 +1128,9 @@ val get_intervals_withlive_beg_less_live = Q.store_thm("get_intervals_withlive_b
             )
             THEN1 intLib.COOPER_TAC
           ) >>
-          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`,
+                       `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union))
+            (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
           metis_tac []
         )
         THEN1 (
@@ -1120,16 +1164,24 @@ val get_intervals_withlive_beg_less_live = Q.store_thm("get_intervals_withlive_b
         THEN1 metis_tac []
         THEN1 (
           fs [] >>
-          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==>
+                 option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==>
+               (!r. r IN domain live ==> option_CASE (lookup r int_beg1)
+                   (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
               rw [] >>
-              `!r. option_CASE (lookup r beg_out) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
+              `!r. option_CASE (lookup r beg_out) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <=
+                   option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
               rpt (last_x_assum (qspec_then `r` assume_tac)) >> rfs [] >>
               Cases_on `lookup r beg_out` >> fs []
               THEN1 intLib.COOPER_TAC >>
               Cases_on `lookup r int_beg2` >> rfs [] >>
               intLib.COOPER_TAC
           ) >>
-          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2)
+                             (n_in - size_of_live_tree lt') (\x.x) <= n`,
+                       `\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1)
+                             (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`,
+                       `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
           metis_tac []
         )
     )
@@ -1578,7 +1630,8 @@ val get_intervals_beg_less_live = Q.store_thm("get_intervals_beg_less_live",
     imp_res_tac get_intervals_withlive_beg_eq_get_intervals_beg >>
     `n_out = n_out'` by metis_tac [get_intervals_withlive_n_eq_get_intervals_n] >>
     rveq >>
-    `(\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n) = (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out') n_out (\x.x) <= n)` by rw [EXTENSION] >>
+    `(\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n) =
+        (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out') n_out (\x.x) <= n)` by rw [EXTENSION] >>
     qabbrev_tac `P = \n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n` >>
     qabbrev_tac `Q = \n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out') n_out (\x.x) <= n` >>
     rw []
@@ -1821,7 +1874,8 @@ val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_l
         `domain flive1 = IMAGE f (domain live1)` by metis_tac [check_live_tree_success] >>
         rveq >>
         fs [get_live_backward_def, domain_numset_list_insert, branch_domain, size_of_live_tree_def] >>
-        sg `!r. r IN domain (get_live_backward lt live) \/ r IN domain (get_live_backward lt' live) ==> point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` THEN1 (
+        sg `!r. r IN domain (get_live_backward lt live) \/ r IN domain (get_live_backward lt' live) ==>
+                point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` THEN1 (
             imp_res_tac check_number_property_intend >>
             rw [] >>
             res_tac >>
@@ -2197,7 +2251,9 @@ val good_linear_scan_state_def = Define`
         EVERY (\r. the 0 (lookup r int_beg) <= pos) l /\
         EVERY (\r. ((pos <= the 0 (lookup r int_end) /\ EL r sth.colors < st.colormax) ==> (MEM (the 0 (lookup r int_end), r) st.active))) l /\
         EVERY (\r. ((MEM (the 0 (lookup r int_end), r) st.active) ==> (pos <= 1 + the 0 (lookup r int_end)))) l /\
-        (!r1 r2. MEM r1 l /\ MEM r2 l /\ interval_intersect (the 0 (lookup r1 int_beg), the 0 (lookup r1 int_end)) (the 0 (lookup r2 int_beg), the 0 (lookup r2 int_end)) /\ EL r1 sth.colors = EL r2 sth.colors ==> r1 = r2) /\
+        (!r1 r2. MEM r1 l /\ MEM r2 l /\
+            interval_intersect (the 0 (lookup r1 int_beg), the 0 (lookup r1 int_end))
+              (the 0 (lookup r2 int_beg), the 0 (lookup r2 int_end)) /\ EL r1 sth.colors = EL r2 sth.colors ==> r1 = r2) /\
         SORTED less_FST st.active /\
         EVERY (\e,r. e = the 0 (lookup r int_end)) st.active /\
         EVERY (\e,r. MEM r l) st.active /\
@@ -2725,12 +2781,14 @@ val edges_to_adjlist_FOLDL = Q.store_thm("edges_to_adjlist_FOLDL",
 
 val forbidden_is_from_forced_def = Define`
     forbidden_is_from_forced forced int_beg reg forbidden =
-        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\ ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> MEM reg2 forbidden
+        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\
+      ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> MEM reg2 forbidden
 `;
 
 val forbidden_is_from_forced_sublist_def = Define`
     forbidden_is_from_forced_sublist l forced int_beg reg forbidden =
-        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\ ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> (MEM reg2 forbidden /\ MEM reg l)
+        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\
+      ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> (MEM reg2 forbidden /\ MEM reg l)
 `;
 
 val forbidden_is_from_forced_list_def = Define`
@@ -3279,7 +3337,8 @@ val linear_reg_alloc_step_aux_invariants = Q.store_thm("linear_reg_alloc_step_au
       ) >>
       `col < st.colornum` by fs [good_linear_scan_state_def', EVERY_MEM] >>
       `mincol <= col` by fs [good_linear_scan_state_def', EVERY_MEM, MEM_MAP] >>
-      qspecl_then [`int_beg`, `int_end`, `st with colorpool updated_by FILTER (\y. col <> y)`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `reg`, `col`, `forbidden`, `mincol`] assume_tac color_register_invariants >>
+      qspecl_then [`int_beg`, `int_end`, `st with colorpool updated_by FILTER (\y. col <> y)`, `sth`, `l`,
+                   `the 0 (lookup reg int_beg)`, `forced`, `reg`, `col`, `forbidden`, `mincol`] assume_tac color_register_invariants >>
       rfs [] >>
       metis_tac []
     )
@@ -3368,7 +3427,8 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
       )
     )
     THEN1 (
-        qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`, `forbidden`, `forced`, `reg`, `F`, `mincol`] assume_tac linear_reg_alloc_step_aux_invariants >>
+        qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`,
+                     `forbidden`, `forced`, `reg`, `F`, `mincol`] assume_tac linear_reg_alloc_step_aux_invariants >>
         rfs [] >>
         simp [phystack_on_stack_def] >>
         metis_tac []
@@ -3423,7 +3483,8 @@ val linear_reg_alloc_step_pass2_invariants = Q.store_thm("linear_reg_alloc_step_
       metis_tac []
     )
     THEN1 (
-      qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`, `forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
+      qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`,
+                   `forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
       rfs [] >>
       metis_tac []
     )
@@ -3475,7 +3536,11 @@ val st_ex_FOLDL_linear_reg_alloc_step_passn_invariants_lemma = Q.store_thm("st_e
     ) >>
     rpt gen_tac >> strip_tac >>
     SIMP_TAC std_ss (st_ex_FOLDL_def::msimps) >>
-    sg `?stmid sthmid. (if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) int_beg int_end forced_adj moves st h sth = (Success stmid, sthmid) /\ good_linear_scan_state int_beg int_end stmid sthmid (h::l) (the 0 (lookup h int_beg)) forced mincol /\ LENGTH sthmid.colors = LENGTH sth.colors /\ (!r. ~MEM r (h::l) ==> EL r sthmid.colors = EL r sth.colors) /\ (b ==> (phystack_on_stack l st sth ==> phystack_on_stack (h::l) stmid sthmid)) /\ stmid.colormax = st.colormax` THEN1 (
+    sg `?stmid sthmid. (if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) int_beg int_end forced_adj moves st h sth = (Success stmid, sthmid) /\
+           good_linear_scan_state int_beg int_end stmid sthmid (h::l) (the 0 (lookup h int_beg)) forced mincol /\
+           LENGTH sthmid.colors = LENGTH sth.colors /\
+           (!r. ~MEM r (h::l) ==> EL r sthmid.colors = EL r sth.colors) /\
+           (b ==> (phystack_on_stack l st sth ==> phystack_on_stack (h::l) stmid sthmid)) /\ stmid.colormax = st.colormax` THEN1 (
         `~MEM h l` by (fs [EVERY_MEM] >> metis_tac []) >>
         sg `EVERY (\r. MEM r l) (the [] (lookup h forced_adj))` THEN1 (
           rw [EVERY_MEM] >>
@@ -3703,7 +3768,8 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     `?stackphyregs. FILTER (\r. 2*k <= r) phyregs = stackphyregs` by simp [] >>
     simp [] >>
 
-      `?pos. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass1_initial_state k) sth [] pos forced 0 /\ EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist` by simp [linear_reg_alloc_pass1_initial_state_invariants] >>
+      `?pos. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass1_initial_state k) sth [] pos forced 0 /\
+             EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist` by simp [linear_reg_alloc_pass1_initial_state_invariants] >>
 
     `PERM reglist_unsorted reglist` by metis_tac [QSORT_PERM] >>
     `!r. MEM r reglist_unsorted <=> MEM r reglist` by simp [PERM_MEM_EQ] >>
@@ -3732,7 +3798,8 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
       metis_tac []
     ) >>
     `EVERY (\r. the 0 (lookup r int_beg) <= the 0 (lookup r int_end)) reglist` by fs [EVERY_MEM] >>
-    qspecl_then [`reglist`, `linear_reg_alloc_pass1_initial_state k`, `sth`, `pos`, `T`, `int_beg`, `int_end`, `moves_adjlist`, `forced_adjlist`, `forced`, `0`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
+    qspecl_then [`reglist`, `linear_reg_alloc_pass1_initial_state k`, `sth`, `pos`, `T`, `int_beg`, `int_end`,
+                 `moves_adjlist`, `forced_adjlist`, `forced`, `0`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
     simp [] >> strip_tac >>
     rename1 `(Success st1, sth1) = _` >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
@@ -3768,9 +3835,11 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     `?forced'. FILTER (\r1,r2. MEM r1 stacklist /\ MEM r2 stacklist) forced = forced'` by simp [] >>
     simp [] >>
 
-    `?pos2. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)) sth2 [] pos2 forced' k /\ EVERY (\r. pos2 <= the 0 (lookup r int_beg)) stacklist` by simp [linear_reg_alloc_pass2_initial_state_invariants] >>
+    `?pos2. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)) sth2 [] pos2 forced' k /\
+            EVERY (\r. pos2 <= the 0 (lookup r int_beg)) stacklist` by simp [linear_reg_alloc_pass2_initial_state_invariants] >>
 
-    qspecl_then [`stacklist`, `linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)`, `sth2`, `pos2`, `F`, `int_beg`, `int_end`, `moves_adjlist'`, `forced_adjlist'`, `forced'`, `k`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
+    qspecl_then [`stacklist`, `linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)`, `sth2`, `pos2`, `F`, `int_beg`,
+                 `int_end`, `moves_adjlist'`, `forced_adjlist'`, `forced'`, `k`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
     impl_tac THEN1 (
       simp [] >>
       strip_tac THEN1 (

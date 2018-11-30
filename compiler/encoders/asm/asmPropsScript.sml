@@ -1,3 +1,6 @@
+(*
+  Proofs of general properties of the asm language
+*)
 open preamble asmSemTheory
 
 val () = new_theory "asmProps"

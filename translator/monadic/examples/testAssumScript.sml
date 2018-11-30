@@ -1,3 +1,6 @@
+(*
+  Test the monadic translator's handling of assumptions
+*)
 open preamble ml_translatorLib ml_translatorTheory
 open ml_monadBaseLib ml_monadBaseTheory
 open ml_monad_translatorLib ml_monad_translatorTheory
@@ -43,7 +46,7 @@ val [(the_num_name, get_the_num_def, set_the_num_def),
 val init_num_def = Define `init_num = (0 : num)`;
 val init_string_def = Define `init_string = ""`;
 val refs_init_list = [(the_num_name, init_num_def, get_the_num_def, set_the_num_def),
-		      (the_string_name, init_string_def, get_the_string_def, set_the_string_def)];
+                      (the_string_name, init_string_def, get_the_string_def, set_the_string_def)];
 
 val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
 val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
@@ -68,13 +71,13 @@ val extra_hprop = NONE : term option;
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      exn_ri_def
-					      exn_functions
-					      add_type_theories
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              exn_ri_def
+                                              exn_functions
+                                              add_type_theories
                                               store_pinv_opt
                                               extra_hprop;
 

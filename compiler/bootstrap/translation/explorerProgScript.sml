@@ -1,3 +1,6 @@
+(*
+  Translate the compiler explorer parts of the compiler.
+*)
 open preamble
      ml_translatorLib
      inferProgTheory

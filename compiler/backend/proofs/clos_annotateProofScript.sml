@@ -1,3 +1,6 @@
+(*
+  Correctness proof for clos_annotate
+*)
 open preamble
      db_varsTheory
      closSemTheory closPropsTheory

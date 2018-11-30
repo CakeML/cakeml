@@ -1,3 +1,7 @@
+(*
+  Assertions about references and arrays are defined. Lemmas for these
+  are proved, including reasoning in separation logic.
+*)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory semanticPrimitivesTheory evaluateTheory
 open terminationTheory ml_progLib ml_progTheory

@@ -1,5 +1,8 @@
-(* A proof of the clos_mti compiler pass. The theorem is proved using
-   a backwards simulation, i.e. against the direction of compilation. *)
+(*
+  Correctness proof for the clos_mti compiler pass. The theorem is
+  proved using a backwards simulation, i.e. against the direction of
+  compilation.
+*)
 open preamble backendPropsTheory closPropsTheory
 clos_mtiTheory closSemTheory helperLib;
 

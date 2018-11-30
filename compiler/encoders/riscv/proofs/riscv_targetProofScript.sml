@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for RISC-V
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib riscv_stepLib riscv_targetTheory;
 

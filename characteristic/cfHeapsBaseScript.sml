@@ -1,3 +1,7 @@
+(*
+  Defines the heap type that the separation logic used by CF uses.
+  Also defines POSTv etc.
+*)
 open preamble set_sepTheory
 open cfTacticsBaseLib cfFFITypeTheory
 
@@ -146,7 +150,7 @@ val POSTe_def = new_binder_definition("POSTe_def",
   ``($POSTe) (Qe: v -> hprop) =
       \r. case r of
             | Val v => cond F
-            | FFIDiv name conf bytes => cond F                            
+            | FFIDiv name conf bytes => cond F
             | Exn e => Qe e``)
 
 val POSTf_def = new_binder_definition("POSTf_def",
@@ -155,7 +159,7 @@ val POSTf_def = new_binder_definition("POSTf_def",
             | Val v => cond F
             | FFIDiv name conf bytes => Qf name conf bytes
             | Exn e => cond F``)
-                                     
+
 val POST_def = Define `
   POST (Qv: v -> hprop) (Qe: v -> hprop) (Qf: string -> word8 list -> word8 list -> hprop) = \r.
     case r of
@@ -224,7 +228,7 @@ val _ = add_infix ("==e>", 470, HOLgrammars.RIGHT)
 
 val _ = overload_on ("==f>", Term `SEP_IMPPOSTffi`)
 val _ = add_infix ("==f>", 470, HOLgrammars.RIGHT)
-                  
+
 (* val _ = add_rule {fixity = Closefix, term_name = "cond", *)
 (*                   block_style = (AroundEachPhrase, (PP.CONSISTENT,2)), *)
 (*                   paren_style = OnlyIfNecessary, *)

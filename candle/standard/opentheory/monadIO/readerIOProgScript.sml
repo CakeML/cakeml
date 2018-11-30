@@ -1,3 +1,7 @@
+(*
+  Applying the monadic translator to OpenTheory article reader
+  expressed using a basis-compatible IO monad.
+*)
 open preamble basis
      ml_monadBaseLib ml_monadStoreLib
      TextIOProofTheory CommandLineProofTheory
@@ -392,4 +396,3 @@ val semantics_readerIO_prog =
   |> curry save_thm "semantics_readerIO_prog";
 
 val _ = export_theory ();
-

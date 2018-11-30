@@ -704,8 +704,11 @@ val patch_diff_cancel = Q.store_thm("patch_diff_cancel",
 
 val headers_within_def = Define `
   headers_within n m l =
-  EVERY (OPTION_ALL (λ(n':num,m':num option,c,_,_). (n <= n' /\ n' <= m /\ (IS_NONE m' /\ (c = #"d" \/ c = #"c") ==> n'+1 <= m) /\ (IS_SOME m' ==> (n <= THE m' /\ THE m' <= m))))) (MAP parse_patch_header l)
-`
+    EVERY (OPTION_ALL (λ(n':num,m':num option,c,_,_).
+      (n <= n' /\ n' <= m /\ (IS_NONE m' /\ (c = #"d" \/ c = #"c") ==>
+       n'+1 <= m) /\
+      (IS_SOME m' ==> (n <= THE m' /\ THE m' <= m)))))
+         (MAP parse_patch_header l)`
 
 val headers_within_IMP = Q.store_thm("headers_within_IMP",
   `headers_within n m (h::t) /\ parse_patch_header h = SOME(q,NONE,c,tup)

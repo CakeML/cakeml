@@ -1,8 +1,8 @@
 (*
-  Prove some properties about the ag32 memory layout including correctness of
-  the startup code and length and lookup theorems for other parts of memory.
+  Prove some properties about the ag32 memory layout including
+  correctness of the startup code and length and lookup theorems for
+  other parts of memory.
 *)
-
 open preamble ag32_memoryTheory
 local
   open wordsLib blastLib asmLib combinLib ag32_targetLib

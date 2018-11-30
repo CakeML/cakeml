@@ -1,3 +1,6 @@
+(*
+  Defines the HOL inference system.
+*)
 open preamble holSyntaxLibTheory mlstringTheory totoTheory
 
 val _ = new_theory "holSyntax"

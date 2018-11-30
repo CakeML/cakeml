@@ -1,3 +1,6 @@
+(*
+  This compiler phase ensures that all pattern matches are exhaustive.
+*)
 open preamble flatLangTheory backend_commonTheory
 
 val _ = numLib.prefer_num()
@@ -168,4 +171,3 @@ val compile_def = Define`
   compile = compile_decs init_ctors`;
 
 val _ = export_theory()
-

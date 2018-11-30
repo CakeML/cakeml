@@ -1,3 +1,6 @@
+(*
+  Various tactics for reasoning about CF-based goals in HOL.
+*)
 structure cfTacticsLib (*:> cfTacticsLib*) =
 struct
 
@@ -62,7 +65,7 @@ local
 
   fun stateful f ssfl thm =
     let
-      val	ss = List.foldl	(simpLib.++ o Lib.swap)	(srw_ss()) ssfl
+      val       ss = List.foldl (simpLib.++ o Lib.swap) (srw_ss()) ssfl
     in
       f ss thm
     end

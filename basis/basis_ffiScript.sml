@@ -1,3 +1,6 @@
+(*
+  Instantiate the CakeML FFI oracle for the oracle of the basis library.
+*)
 open preamble ml_translatorTheory ml_translatorLib ml_progLib
      cfLib basisFunctionsLib set_sepTheory
      fsFFITheory fsFFIPropsTheory
@@ -61,7 +64,7 @@ val basis_ffi_def = Define `
 val basis_proj1_def = Define `
   basis_proj1 = (λ(cls, fs).
     FEMPTY |++ ((mk_proj1 cl_ffi_part cls)
-		++ (mk_proj1 fs_ffi_part fs)
+                ++ (mk_proj1 fs_ffi_part fs)
                 ++ (mk_proj1 runtime_ffi_part ()
                 )))`;
 

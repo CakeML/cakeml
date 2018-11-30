@@ -1,3 +1,6 @@
+(*
+  A few properties about the relational big-step semantics.
+*)
 open preamble;
 open semanticPrimitivesTheory;
 open bigStepTheory;

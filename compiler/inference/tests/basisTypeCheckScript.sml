@@ -1,3 +1,8 @@
+(*
+  This file checks that the CakeML standard basis library passes the
+  type inferencer. This file also acts as a test of the type
+  inferencer's compset.
+*)
 open preamble basicComputeLib inferenceComputeLib basisProgTheory
 
 val _ = new_theory "basisTypeCheck"

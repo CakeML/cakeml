@@ -1,3 +1,7 @@
+(*
+  For x64, prove that the compiler configuration is well formed, and
+  instantiate the compiler correctness theorem.
+*)
 open preamble backendProofTheory
 open x64_configTheory x64_targetProofTheory
 open blastLib;

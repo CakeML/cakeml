@@ -1,3 +1,7 @@
+(*
+  Prove correctness of the monadic functions, i.e. prove that they are
+  faithful to the inference rules of the Candle logic.
+*)
 open preamble mlstringTheory ml_monadBaseTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory "holKernelProof";

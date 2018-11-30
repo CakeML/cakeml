@@ -1,3 +1,10 @@
+(*
+  Defines a unification algorithm for use in the type inferencer.
+  Based on the triangular unification algorithm in
+  HOL/examples/unification/triangular/first-order.  We encode our
+  CakeML types into the term structure used there and them bring over
+  those definitions and theorems.
+*)
 open preamble;
 open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
 open substTheory;
@@ -1095,8 +1102,8 @@ val eqs_t_unify = Q.store_thm( "eqs_t_unify",
 
 val encode_walkstar_reverse = encode_walkstar |>
                               REWRITE_RULE [t_walkstar_def] |>
-			      SPEC_ALL|>UNDISCH|>SYM |>
-			      DISCH_ALL |> GEN_ALL;
+                              SPEC_ALL|>UNDISCH|>SYM |>
+                              DISCH_ALL |> GEN_ALL;
 
 val t_unify_mgu = Q.store_thm ("t_unify_mgu",
 `!s t1 t2 sx s2.
@@ -1115,7 +1122,7 @@ val t_unify_mgu = Q.store_thm ("t_unify_mgu",
   CONJ_TAC>-
   (Q.ISPECL_THEN [`encode_infer_t o_f s`,`encode_infer_t t1`,
                  `encode_infer_t t2`,`s`,`t1`,`t2`]
-		 mp_tac encode_unify>>
+                 mp_tac encode_unify>>
   impl_tac>>fs[])>>
   conj_asm1_tac>- fs[t_wfs_def]>>
   qpat_x_assum `decode_infer_t A = B` mp_tac>>

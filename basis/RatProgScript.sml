@@ -1,3 +1,6 @@
+(*
+  Module for computing over the rational numbers.
+*)
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
      mlvectorTheory NumProgTheory basisFunctionsLib
      ratLib gcdTheory ratTheory

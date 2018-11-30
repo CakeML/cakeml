@@ -1,3 +1,6 @@
+(*
+  Provides a compset for the ag32-specific parts of the backend
+*)
 structure ag32_compileLib =
 struct
 

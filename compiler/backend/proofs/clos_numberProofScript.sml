@@ -1,3 +1,6 @@
+(*
+  Correctness proof for clos_number
+*)
 open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory closPropsTheory;
 
 val _ = new_theory"clos_numberProof";

@@ -1,3 +1,7 @@
+(*
+  Proves a connection between the monadic translator's ArrowP
+  judgement and CF's app judgement.
+*)
 open ml_monad_translatorBaseTheory ml_monad_translatorTheory cfHeapsBaseTheory set_sepTheory pred_setTheory cfStoreTheory Satisfy
 open semanticPrimitivesTheory cfTacticsLib evaluateTheory ml_translatorTheory
 open terminationTheory

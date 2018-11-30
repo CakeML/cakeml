@@ -1,3 +1,6 @@
+(*
+  Module containing functios for arithmetic over the natural numbers.
+*)
 open preamble ml_translatorLib ml_progLib ml_translatorTheory
      IntProgTheory mlnumTheory basisFunctionsLib
 

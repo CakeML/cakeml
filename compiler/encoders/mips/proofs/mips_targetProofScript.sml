@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for MIPS
+*)
 open HolKernel Parse boolLib bossLib
 open realLib asmLib mips_stepLib mips_targetTheory;
 
