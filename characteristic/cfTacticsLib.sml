@@ -225,8 +225,7 @@ fun xlet_core cont0 cont1 cont2 =
   cont0 \\
   rpt CONJ_TAC THENL [
     all_tac,
-    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left),
-    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTf_POSTv_left),
+    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left),
     cont1 \\ cont2
   ]
 
