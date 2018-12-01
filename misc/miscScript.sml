@@ -293,12 +293,6 @@ val hd_drop = Q.store_thm ("hd_drop",
   `n - 1 = PRE n` by decide_tac >>
   srw_tac[][]);
 
-(* TODO - candidate for move to HOL *)
-val INJ_EXTEND = Q.store_thm("INJ_EXTEND",
-  `INJ b s t /\ ~(x IN s) /\ ~(y IN t) ==>
-    INJ ((x =+ y) b) (x INSERT s) (y INSERT t)`,
-  full_simp_tac(srw_ss())[INJ_DEF,combinTheory.APPLY_UPDATE_THM] \\ METIS_TAC []);
-
 (* TODO - candidate for move to HOL; probably better as LIST_REL (=) = (=) *)
 val LIST_REL_eq = store_thm("LIST_REL_eq",
   ``!xs ys. LIST_REL (=) xs ys <=> (xs = ys)``,
@@ -1276,43 +1270,6 @@ val IS_SUFFIX_CONS = Q.store_thm("IS_SUFFIX_CONS",
 val IS_SUFFIX_TRANS = Q.store_thm("IS_SUFFIX_TRANS",
   `∀l1 l2 l3. IS_SUFFIX l1 l2 ∧ IS_SUFFIX l2 l3 ⇒ IS_SUFFIX l1 l3`,
   rw[IS_SUFFIX_APPEND] \\ metis_tac[APPEND_ASSOC]);
-
-(* TODO - candidate for move to HOL *)
-val INFINITE_INJ_NOT_SURJ = Q.store_thm("INFINITE_INJ_NOT_SURJ",
-  `∀s. INFINITE s ⇔ (s ≠ ∅) ∧ (∃f. INJ f s s ∧ ¬SURJ f s s)`,
-  srw_tac[][EQ_IMP_THM] >- (
-    PROVE_TAC[INFINITE_INHAB,MEMBER_NOT_EMPTY] )
-  >- (
-    full_simp_tac(srw_ss())[infinite_num_inj] >>
-    qexists_tac`λx. if ∃n. x = f n then f (SUC (LEAST n. x = f n)) else x` >>
-    conj_asm1_tac >- (
-      full_simp_tac(srw_ss())[INJ_IFF] >>
-      conj_asm1_tac >- srw_tac[][] >>
-      srw_tac[][] >- (
-        numLib.LEAST_ELIM_TAC >>
-        conj_tac >- PROVE_TAC[] >>
-        srw_tac[][] ) >>
-      numLib.LEAST_ELIM_TAC >>
-      srw_tac[][] >>
-      metis_tac[] ) >>
-    full_simp_tac(srw_ss())[SURJ_DEF,INJ_IFF] >>
-    qexists_tac`f 0` >>
-    simp[] >>
-    srw_tac[][] >>
-    metis_tac[]) >>
-  full_simp_tac(srw_ss())[SURJ_DEF] >- (full_simp_tac(srw_ss())[INJ_IFF] >> metis_tac[]) >>
-  simp[infinite_num_inj] >>
-  qexists_tac`λn. FUNPOW f n x` >>
-  simp[INJ_IFF] >>
-  conj_asm1_tac >- (
-    Induct >>
-    simp[arithmeticTheory.FUNPOW_SUC] >>
-    full_simp_tac(srw_ss())[INJ_IFF] ) >>
-  Induct >> simp[] >- (
-    Cases >> simp[arithmeticTheory.FUNPOW_SUC] >>
-    metis_tac[] ) >>
-  Cases >> simp[arithmeticTheory.FUNPOW_SUC] >> full_simp_tac(srw_ss())[INJ_IFF] >>
-  metis_tac[] )
 
 (* should be using indexedLists$findi, or INDEX_OF *)
 val find_index_def = Define`
