@@ -4,8 +4,11 @@ open ml_translatorTheory semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
 open cfNormaliseTheory cfAppTheory
 open cfTacticsBaseLib cfTacticsLib cfTheory
+open std_preludeTheory;
 
 val _ = new_theory "cfDiv";
+
+val _ = ml_translatorLib.translation_extends "std_prelude";
 
 val POSTd_eq = store_thm("POSTd_eq",
   ``$POSTd Q r h <=> ?io1. r = Div io1 /\ Q io1 /\ emp h``,
@@ -240,6 +243,8 @@ val repeat_POSTd = store_thm("repeat_POSTd", (* productive version *)
   \\ imp_res_tac evaluate_IMP_io_events_mono
   \\ fs [evaluatePropsTheory.io_events_mono_def]);
 
+(*
+
 (* example: a simple pure non-terminating loop *)
 
 val _ = (append_prog o cfTacticsLib.process_topdecs) `
@@ -285,15 +290,17 @@ val condLoop_spec = store_thm("condLoop_spec",
 (* example: the yes program *)
 
 val _ = (append_prog o cfTacticsLib.process_topdecs)
-  `fun yes c = (putChar c; repeat yes c);`
+  `fun yes c = repeat (fn c => (putChar c; c)) c;`
 
 val st = ml_translatorLib.get_ml_prog_state ();
 
 val yes_spec = store_thm("yes_spec",
   ``!xv.
       app (p:'ffi ffi_proj) ^(fetch_v "yes" st) [xv]
-        emp (POSTd (\io. T))``,
+        emp (POSTd io. T)``,
   xcf "yes" st
   \\ cheat);
+
+*)
 
 val _ = export_theory();

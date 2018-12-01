@@ -3,7 +3,7 @@ open preamble ml_translatorLib ml_progLib std_preludeTheory
 
 val _ = new_theory"RuntimeProg"
 
-val _ = translation_extends"std_prelude"
+val _ = translation_extends "cfDiv"
 
 val () = generate_sigs := true;
 
@@ -36,7 +36,7 @@ val _ = append_prog exit
 val abort = process_topdecs `fun abort u = exit 1`
 
 val _ = append_prog abort
-                    
+
 val sigs = module_signatures ["fullGC", "debugMsg","exit","abort"];
 
 val _ = ml_prog_update (close_module (SOME sigs));
