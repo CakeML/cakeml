@@ -1,9 +1,11 @@
+(*
+  Logical model of the commandline state: simply a list of mlstrings
+*)
 open preamble
      cfHeapsBaseTheory
 
 val _ = new_theory"clFFI";
 
-(* Logical model of the commandline state: simply a list of mlstrings *)
 
 (* a valid argument has a length that fits 16 bits and no null bytes *)
 

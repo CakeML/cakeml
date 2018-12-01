@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for RISC-V
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib riscv_stepLib riscv_targetTheory;
 
@@ -185,8 +188,7 @@ local
       end
    val ms = ``ms: riscv_state``
    fun new_state_var l =
-     Lib.with_flag (Globals.priming, SOME "_")
-       (Term.variant (List.concat (List.map Term.free_vars l))) ms
+     Term.variant (List.concat (List.map Term.free_vars l)) ms
    fun env (t, tm) =
      let
        (*
@@ -256,6 +258,13 @@ local
     utilsLib.mk_cond_rand_thms
        (utilsLib.accessor_fns ``: riscv_state`` @
         utilsLib.accessor_fns ``: 64 asm_state``)
+  fun drop_var_asms_tac var =
+    let
+      val var = mk_var (var, ``:riscv_state``)
+    in
+      rpt (WEAKEN_TAC (fn tm => not (markerSyntax.is_abbrev tm) andalso
+                                free_in var tm))
+    end
 in
   fun state_tac asm (gs as (asl, _)) =
     let
@@ -265,7 +274,7 @@ in
       (
        NO_STRIP_FULL_SIMP_TAC (srw_ss())
          [riscv_ok_def, asmPropsTheory.sym_target_state_rel, riscv_target_def,
-          riscv_config, asmPropsTheory.all_pcs, lem2, cond_rand_thms,
+          riscv_config, lem2, cond_rand_thms,
           alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq]
        \\ (if not (List.null l) andalso
               (asmLib.isJump asm orelse asmLib.isCall asm) then
@@ -287,16 +296,17 @@ in
            else
               all_tac)
        \\ MAP_EVERY (fn s =>
-            qunabbrev_tac [QUOTE s]
+            drop_var_asms_tac s
+            \\ qunabbrev_tac [QUOTE s]
             \\ asm_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
-                  alignmentTheory.aligned_numeric]
-            \\ NTAC 10 (POP_ASSUM kall_tac)
+                                        alignmentTheory.aligned_numeric]
             ) l
+       \\ drop_var_asms_tac x
        \\ qunabbrev_tac [QUOTE x]
        \\ asm_simp_tac (srw_ss())
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
        \\ CONV_TAC (Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV)
-       \\ asm_simp_tac (srw_ss()) []
+       \\ asm_simp_tac (srw_ss()) [asmPropsTheory.all_pcs]
        \\ (if asmLib.isAddCarry asm then
              qabbrev_tac `r2 = ms.c_gpr ms.procID (n2w n0)`
              \\ qabbrev_tac `r3 = ms.c_gpr ms.procID (n2w n1)`
@@ -325,6 +335,15 @@ in
     end
 end
 
+val bytes_in_memory_IMP_all_pcs_MEM8 = Q.prove(
+ `!env a xs m dm.
+   bytes_in_memory a xs m dm /\
+   (!(i:num) ms'. (∀a. a ∈ dm ⇒ (env i ms').MEM8 a = ms'.MEM8 a)) ==>
+   (!i ms'. (∀pc. pc ∈ all_pcs (LENGTH xs) a 0 ==> (env i ms').MEM8 pc = ms'.MEM8 pc))`,
+ Induct_on `xs`
+ \\ rw [asmPropsTheory.all_pcs_def, asmSemTheory.bytes_in_memory_def]
+ \\ metis_tac []);
+
 local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
@@ -332,9 +351,14 @@ local
        | NONE => raise mk_HOL_ERR "riscv_targetProofTheory" "number_of_instructions" ""
    fun gen_next_tac (j, i) =
      exists_tac (numLib.term_of_int (j - 1))
-     \\ simp [asmPropsTheory.asserts_eval, set_sepTheory.fun2set_eq,
+     \\ simp [asmPropsTheory.asserts_eval,
+              asmPropsTheory.asserts2_eval, set_sepTheory.fun2set_eq,
               asmPropsTheory.interference_ok_def, riscv_proj_def]
      \\ NTAC 2 strip_tac
+     \\ drule bytes_in_memory_IMP_all_pcs_MEM8
+     \\ disch_then (qspec_then `env` mp_tac)
+     \\ simp []
+     \\ strip_tac
      \\ NTAC i (split_bytes_in_memory_tac 4)
      \\ NTAC j next_state_tac
    fun next_tac_by_instructions gs =
@@ -413,14 +437,14 @@ val riscv_target_ok = Q.prove (
    )
 
 (* -------------------------------------------------------------------------
-   riscv backend_correct
+   riscv encoder_correct
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
 
-val riscv_backend_correct = Q.store_thm ("riscv_backend_correct",
-   `backend_correct riscv_target`,
-   simp [asmPropsTheory.backend_correct_def, riscv_target_ok]
+val riscv_encoder_correct = Q.store_thm ("riscv_encoder_correct",
+   `encoder_correct riscv_target`,
+   simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel riscv_target`
    \\ rw [riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

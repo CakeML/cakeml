@@ -1,3 +1,6 @@
+(*
+  Part of the correctness proof for data_to_word
+*)
 open preamble bvlSemTheory dataSemTheory dataPropsTheory
      copying_gcTheory int_bitwiseTheory finite_mapTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
@@ -53,10 +56,11 @@ val word_exp_set_var_ShiftVar_lemma = store_thm("word_exp_set_var_ShiftVar_lemma
   ``word_exp t (ShiftVar sow v n) =
     case lookup v t.locals of
     | SOME (Word w) =>
-        lift Word (case sow of Lsl => SOME (w << n)
-                             | Lsr => SOME (w >>> n)
-                             | Asr => SOME (w >> n)
-                             | Ror => SOME (word_ror w n))
+        OPTION_MAP Word
+          (case sow of Lsl => SOME (w << n)
+                     | Lsr => SOME (w >>> n)
+                     | Asr => SOME (w >> n)
+                     | Ror => SOME (word_ror w n))
     | _ => FAIL (word_exp t (ShiftVar sow v n)) "lookup failed"``,
   Cases_on `lookup v t.locals` \\ fs [] \\ rw [FAIL_DEF]
   \\ fs [ShiftVar_def]
@@ -471,7 +475,7 @@ val AnyHeader_thm = store_thm("AnyHeader_thm",
        \\ imp_res_tac memory_rel_Number_IMP \\ fs []
        \\ fs [Smallnum_def]
        \\ rewrite_tac [GSYM w2n_11,w2n_lsr]
-       \\ fs [] \\ rfs [good_dimindex_def,small_int_def,dimword_def]
+       \\ fs [] \\ rfs [good_dimindex_def,small_int_def,dimword_def] \\ rfs[]
        \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV])
     \\ fs [] \\ fs [eq_eval,list_Seq_def,wordSemTheory.set_store_def]
     \\ Cases_on `a` \\ fs [FLOOKUP_UPDATE,heap_in_memory_store_def,memory_rel_def]

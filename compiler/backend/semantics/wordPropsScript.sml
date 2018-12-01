@@ -1,3 +1,6 @@
+(*
+  Properties about wordLang and its semantics
+*)
 open preamble BasicProvers
      wordLangTheory wordSemTheory
      asmTheory reg_allocTheory;
@@ -2308,7 +2311,8 @@ val locals_rel_evaluate_thm = Q.store_thm("locals_rel_evaluate_thm",`
     >>
       PairCases_on`x'`>>full_simp_tac(srw_ss())[]>>
       IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-      Cases_on`cut_env x'1' st.locals`>>full_simp_tac(srw_ss())[]>>
+      rename [‘add_ret_loc (SOME (x0',x1',x2',x3',x4')) x’] >>
+      Cases_on`cut_env x1' st.locals`>>full_simp_tac(srw_ss())[]>>
       imp_res_tac locals_rel_cut_env>>full_simp_tac(srw_ss())[]>>
       IF_CASES_TAC>-
         (full_simp_tac(srw_ss())[call_env_def,state_component_equality,locals_rel_def]>>
@@ -2448,7 +2452,7 @@ val inst_ok_less_def = Define`
     (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
   (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔
     ((c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
-    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ∨ c.ISA = Tiny ⇒ r1 ≠ r3 ∧ r1 ≠ r4))) ∧
+    (c.ISA = ARMv8 ∨ c.ISA = RISC_V ∨ c.ISA = Ag32 ⇒ r1 ≠ r3 ∧ r1 ≠ r4))) ∧
   (inst_ok_less c (Arith (LongDiv r1 r2 r3 r4 r5)) =
     (c.ISA = x86_64)) ∧
   (inst_ok_less c (Arith (AddCarry r1 r2 r3 r4)) ⇔

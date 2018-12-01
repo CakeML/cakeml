@@ -1,3 +1,6 @@
+(*
+  The semantics of the asm instruction description.
+*)
 open HolKernel Parse boolLib bossLib
 open asmTheory machine_ieeeTheory
 

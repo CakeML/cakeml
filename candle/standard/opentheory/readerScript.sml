@@ -1,3 +1,7 @@
+(*
+  Shallowly embedded (monadic) functions that implement the OpenTheory
+  article checker.
+*)
 open preamble ml_hol_kernelProgTheory
      mlnumTheory
      mlintTheory StringProgTheory
@@ -775,4 +779,3 @@ val unescape_PMATCH = Q.store_thm("unescape_PMATCH",
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [Once unescape_def]);
 
 val _ = export_theory()
-

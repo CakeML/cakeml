@@ -1,73 +1,14 @@
-open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
-open astPropsTheory;
-open typeSysPropsTheory;
-open inferPropsTheory;
-
-open infer_eSoundTheory;
-open infer_eCompleteTheory;
-open type_eDetermTheory envRelTheory namespacePropsTheory;
-
-open type_dCanonTheory;
+(*
+  Proves completeness of the type inferencer, i.e. if there is a type
+  for the program, then the type inferencer will find a type (the most
+  general type).
+*)
+open preamble
+open typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory
+     astPropsTheory typeSysPropsTheory inferPropsTheory namespacePropsTheory envRelTheory
+     infer_eSoundTheory infer_eCompleteTheory type_eDetermTheory type_dCanonTheory
 
 val _ = new_theory "inferComplete";
-
-(* TODO: move *)
-val I_PERMUTES = Q.store_thm("I_PERMUTES[simp]",
-  `I PERMUTES s`, rw[BIJ_DEF, INJ_DEF, SURJ_DEF]);
-
-val ts_tid_rename_I = Q.store_thm("ts_tid_rename_I[simp]",
-  `ts_tid_rename I = I`,
-  simp[FUN_EQ_THM]
-  \\ ho_match_mp_tac t_ind
-  \\ rw[ts_tid_rename_def, MAP_EQ_ID, EVERY_MEM]);
-
-val remap_tenv_I = Q.store_thm("remap_tenv_I[simp]",
-  `remap_tenv I = I`,
-  rw[FUN_EQ_THM, remap_tenv_def, type_env_component_equality]
-  \\ qmatch_goalsub_abbrev_tac`nsMap I'`
-  \\ `I' = I` by simp[Abbr`I'`, UNCURRY, FUN_EQ_THM]
-  \\ rw[]);
-(* -- *)
-
-(* TODO move. n.b. something like this is defined elsewhere (Abbrev_intro)
-fun Abbrev_wrap eqth =
-    EQ_MP (SYM (Thm.SPEC (concl eqth) markerTheory.Abbrev_def)) eqth
-
-fun ABB l r =
- CHOOSE_THEN (fn th => SUBST_ALL_TAC th THEN ASSUME_TAC (Abbrev_wrap(SYM th)))
-             (Thm.EXISTS(mk_exists(l, mk_eq(r, l)), r) (Thm.REFL r));
-
-fun ABBREV_TAC eq = let val (l,r) = dest_eq eq in ABB l r end;
-
-local
-   val match_var_or_const = ref true
-in
-   val () = Feedback.register_btrace
-               ("pat_abbrev_tac2: match var/const", match_var_or_const)
-
-   fun pat_abbrev_tac2 fv_set eq (g as (asl, w)) =
-      let
-         val (l, r) = dest_eq eq
-         val l' = variant (HOLset.listItems (FVL [r] fv_set)) l
-         fun finder (_,tm) = can (match_term r) tm
-         fun k tm = (match_term r tm,tm)
-         val result = bvk_find_term finder k w
-      in
-         case result of
-            NONE => raise ERR "pat_abbrev_tac2" "No matching term found"
-          | SOME ((_,tys),t) => ABB (inst tys l') t g
-      end
-end
-
-fun qpat_abbrev_tac2 q (gl as (asl,w)) =
- let val fv_set = FVL (w::asl) empty_tmset
-     val ctxt = HOLset.listItems fv_set
-     val eq = Parse.parse_in_context ctxt q
- in
-   pat_abbrev_tac2 fv_set eq
- end gl;
- *)
 
 val generalise_no_uvars = Q.prove (
 `(!t m n s dbvars.
@@ -352,20 +293,9 @@ val env_rel_complete_bind = Q.prove(`
   res_tac>>fs[]>> TRY(metis_tac[])>>
   match_mp_tac tscheme_approx_weakening>>asm_exists_tac>>fs[t_wfs_def]);
 
- (* TODO: move *)
 val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
 `!loc ienv p e st st' t t' new_bindings s.
   ALL_DISTINCT (MAP FST new_bindings) ∧
-  (*
-  check_menv ienv.inf_m ∧
-  menv_alpha ienv.inf_m tenv.m ∧
-  tenv_ctor_ok tenv.c ∧
-  ienv.inf_c = tenv.c ∧
-  ienv.inf_t = tenv.t ∧
-  tenv_tabbrev_ok tenv.t ∧
-  check_env {} ienv.inf_v ∧
-  num_tvs tenv.v = 0 ∧
-  tenv_inv FEMPTY ienv.inf_v tenv.v ∧*)
   env_rel_sound FEMPTY ienv tenv Empty ∧
   ienv_ok {} ienv ∧
   start_type_id ≤ ss.next_id ∧
@@ -652,7 +582,7 @@ val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
     pop_assum (qspec_then`tvs` assume_tac)>>
     drule (GEN_ALL infer_pe_complete) >>
     rpt (disch_then drule) >>
-    disch_then (qspecl_then [`st1`,`SOME l`] mp_tac) >>
+    disch_then (qspecl_then [`st1`,`<| loc := SOME l; err := ienv.inf_t |>`] mp_tac) >>
     rw [] >>
     simp [init_state_def, success_eqns] >>
     pairarg_tac >>
@@ -961,7 +891,7 @@ val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
     disch_then (qspec_then`0` mp_tac)>>
     fs[bind_tvar_def]>>
     rpt (disch_then drule) >>
-    disch_then (qspecl_then [`st1`,`SOME l`] mp_tac) >>
+    disch_then (qspecl_then [`st1`,`<| loc := SOME l; err := ienv.inf_t |>`] mp_tac) >>
     rw [] >>
     simp[success_eqns]>>
     pairarg_tac >> fs[success_eqns]>>
@@ -1007,7 +937,7 @@ val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
     rw[infer_d_def,success_eqns,init_state_def]>>
     `ienv_ok {} ienv` by fs[env_rel_def]>>
     drule (GEN_ALL infer_funs_complete)>>
-    disch_then (qspecl_then [`tvs`, `tenv`, `st1`, `SOME locs`, `funs`, `bindings`] mp_tac) >>
+    disch_then (qspecl_then [`tvs`, `tenv`, `st1`, `<| loc := SOME locs; err := ienv.inf_t |>`, `funs`, `bindings`] mp_tac) >>
     fs[]>>
     impl_tac>-
       fs[env_rel_def]>>
@@ -1505,7 +1435,8 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
       simp_tac std_ss [GSYM nsAppend_assoc, nsAppend_nsSing]))
  >- (
     qho_match_abbrev_tac
-      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ _ ∧ check_specs _ _ eid' <| inf_v := _ ; inf_c := nsAppend new_ctors _; inf_t := nsAppend new_t _ |> _ _ = (Success (_ idecls new_ienv), st2)` >>
+      `?st2 idecls new_ienv. _ idecls ∧ _ new_ienv ∧ _ ∧ check_specs _ _ eid'
+         <| inf_v := _ ; inf_c := nsAppend new_ctors _; inf_t := nsAppend new_t _ |> _ _ = (Success (_ idecls new_ienv), st2)` >>
     simp [] >>
     `tenv_abbrev_ok new_t`
       by (
@@ -1516,7 +1447,8 @@ val check_specs_complete = Q.store_thm ("check_specs_complete",
         REWRITE_TAC [ELIM_UNCURRY]) >>
     `tenv_abbrev_ok (nsAppend new_t tenvT)` by metis_tac [tenv_abbrev_ok_merge] >>
     fs [] >>
-    first_x_assum (qspecl_then [`st1`, `eid'`, `<|inf_v := extra_ienv.inf_v; inf_c := nsAppend new_ctors extra_ienv.inf_c; inf_t := nsAppend new_t extra_ienv.inf_t|>`] mp_tac) >>
+    first_x_assum (qspecl_then [`st1`, `eid'`,
+       `<|inf_v := extra_ienv.inf_v; inf_c := nsAppend new_ctors extra_ienv.inf_c; inf_t := nsAppend new_t extra_ienv.inf_t|>`] mp_tac) >>
     rw [] >>
     rw [] >>
     qexists_tac `append_decls idecls <| inf_defined_types := MAP (λ(tvs,tn,ctors). mk_id mn tn) td;

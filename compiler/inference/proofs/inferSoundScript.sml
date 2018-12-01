@@ -1,13 +1,11 @@
-open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory;
-open astPropsTheory;
-open inferPropsTheory;
-open typeSysPropsTheory;
-open infer_eSoundTheory;
-open envRelTheory;
-open type_eDetermTheory;
-open infer_eCompleteTheory;
-open namespacePropsTheory;
+(*
+  Proves soundness of the type inferencer: any type assignment
+  produced by the type inferencer is a valid type for the program.
+*)
+open preamble
+open typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory
+     astPropsTheory inferPropsTheory typeSysPropsTheory infer_eSoundTheory envRelTheory type_eDetermTheory
+     infer_eCompleteTheory namespacePropsTheory
 
 val _ = new_theory "inferSound";
 
@@ -220,7 +218,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
             simp[convert_env_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD])>>
           fs[])>>
         rpt (disch_then drule) >>
-        disch_then (qspecl_then [`st1`,`SOME l`] mp_tac) >>
+        disch_then (qspecl_then [`st1`,`<| loc := SOME l; err := ienv.inf_t |>`] mp_tac) >>
         strip_tac >>
         rfs [] >>
         fs[] >>
@@ -334,7 +332,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
      >-
        (match_mp_tac (GEN_ALL infer_e_type_pe_determ)>>
        qexists_tac`st1` >>
-       qexists_tac `SOME l` >>
+       qexists_tac `<| loc := SOME l; err := ienv.inf_t |>` >>
        HINT_EXISTS_TAC>>fs[]>>
        imp_res_tac(CONJUNCT2 generalise_none)>>
        pop_assum(qspec_then`count st1'.next_uvar` mp_tac)>>
@@ -354,7 +352,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
   >- (
    rw[infer_d_def] >>
    fs[success_eqns] >>
-   rename1 `infer_funs (SOME loc) _ _ _ = _` >>
+   rename1 `infer_funs <| loc := SOME loc; err := ienv.inf_t |> _ _ _ = _` >>
    fs[init_state_def]>>
    pairarg_tac>>fs[success_eqns]>>rw[]>>
    `t_wfs (init_infer_state st1).subst` by rw [init_infer_state_def, t_wfs_def] >>
@@ -471,7 +469,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
      imp_res_tac type_funs_Tfn>>
      fs[env_rel_def] >>
      drule (GEN_ALL infer_funs_complete)>>fs[]>>
-     disch_then (qspecl_then [`tvs'`,`tenv`,`st1`,`SOME loc`,`l`,`bindings'`] assume_tac)>>rfs[]>>
+     disch_then (qspecl_then [`tvs'`,`tenv`,`st1`,`<| loc := SOME loc; err := ienv.inf_t |>`,`l`,`bindings'`] assume_tac)>>rfs[]>>
      `st'.subst = st'''''.subst` by
        metis_tac[pure_add_constraints_functional]>>
      simp[LIST_REL_EL_EQN]>>
@@ -503,7 +501,8 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
        metis_tac[pure_add_constraints_success])>>
      rw[]>>
      (* This produces the appropriate substitution mentioned above *)
-     pop_assum (qspecl_then[`MAP (t_walkstar st'''''.subst) (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs_ts)))`,`[]`,`FEMPTY`,`num_tvs tenv_v''`,`s`,`MAP (t_walkstar last_sub) funs_ts`] mp_tac)>>
+     pop_assum (qspecl_then[`MAP (t_walkstar st'''''.subst) (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs_ts)))`,
+                            `[]`,`FEMPTY`,`num_tvs tenv_v''`,`s`,`MAP (t_walkstar last_sub) funs_ts`] mp_tac)>>
      fs[]>>
      impl_keep_tac
      >-

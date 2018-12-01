@@ -1,3 +1,6 @@
+(*
+  Relating inference and type system environments.
+*)
 open preamble;
 open libTheory namespacePropsTheory typeSystemTheory astTheory
 semanticPrimitivesTheory terminationTheory inferTheory unifyTheory inferPropsTheory;
@@ -294,14 +297,6 @@ val tscheme_approx_trans = Q.store_thm ("tscheme_approx_trans",
   irule (GSYM (CONJUNCT2 infer_deBruijn_subst_twice)) >>
   qexists_tac `FDOM s` >>
   metis_tac [check_t_more2, ADD_COMM, ADD_ASSOC]);
-
-val t_ind = t_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`;
 
 val unconvert_db_subst = Q.store_thm ("unconvert_db_subst",
   `!t subst fvs l.

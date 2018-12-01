@@ -1,3 +1,7 @@
+(*
+  Evaluate the 32-bit version of the compiler down to a LabLang
+  program (an assembly program).
+*)
 open preamble
      backendTheory
      to_dataBootstrapTheory
@@ -45,7 +49,7 @@ val to_data_thm = to_data_thm1
 *)
 
 val stack_to_lab_thm = save_thm("stack_to_lab_thm",
-  compilationLib.compile_to_lab x64_backend_config_def data_prog_x64_def to_data_thm1 "lab_prog");
+  compilationLib.compile_to_lab data_prog_x64_def to_data_thm1 "lab_prog");
 
 val () = ml_translatorLib.reset_translation();
 

@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Binary Random
+  Access Lists algorithm from Chris Okasaki's book.
+*)
 open preamble
 open okasaki_miscTheory ml_translatorLib ListProgTheory;
 

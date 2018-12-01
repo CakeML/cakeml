@@ -1,3 +1,6 @@
+(*
+  Translate backend phases up to and including dataLang.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
@@ -5,6 +8,8 @@ open basisProgTheory;
 
 val _ = new_theory "to_dataProg"
 val _ = translation_extends "basisProg";
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_dataProg");
 
 (* This is the compiler "preamble" that translates the compile functions down to dataLang *)
 
@@ -64,8 +69,12 @@ val list_el_side = Q.prove(
   |> update_precondition;
 (* -- *)
 
+val res = translate listTheory.REV_DEF;
 val res = translate listTheory.TAKE_def;
 val res = translate listTheory.DROP_def;
+
+val res = translate sumTheory.ISL;
+val res = translate sumTheory.ISR;
 
 val res = translate source_to_flatTheory.compile_prog_def;
 
@@ -142,7 +151,7 @@ val res = translate flat_exh_matchTheory.compile_decs_def;
 
 (* flat_elim *)
 
-val res = translate flat_elimTheory.removeFlatProg_def;
+val res = translate flat_elimTheory.remove_flat_prog_def;
 
 (* source_to_flat *)
 
@@ -208,9 +217,17 @@ val EqualityType_FPSEM_FP_CMP_TYPE = find_equality_type_thm ``FPSEM_FP_CMP_TYPE`
 val EqualityType_BACKEND_COMMON_TRA_TYPE = find_equality_type_thm``BACKEND_COMMON_TRA_TYPE``
   |> SIMP_RULE std_ss [EqualityType_NUM]
 
-val EqualityType_FLATLANG_OP_TYPE = find_equality_type_thm``FLATLANG_OP_TYPE`` |> SIMP_RULE std_ss [EqualityType_NUM, EqualityType_AST_OPN_TYPE, EqualityType_AST_OPB_TYPE, EqualityType_AST_OPW_TYPE, EqualityType_LIST_TYPE_CHAR, EqualityType_FPSEM_FP_BOP_TYPE, EqualityType_FPSEM_FP_UOP_TYPE, EqualityType_FPSEM_FP_CMP_TYPE, EqualityType_AST_SHIFT_TYPE, EqualityType_AST_WORD_SIZE_TYPE]
+val EqualityType_FLATLANG_OP_TYPE =
+  find_equality_type_thm``FLATLANG_OP_TYPE`` |> SIMP_RULE std_ss
+  [EqualityType_NUM, EqualityType_AST_OPN_TYPE,
+  EqualityType_AST_OPB_TYPE, EqualityType_AST_OPW_TYPE,
+  EqualityType_LIST_TYPE_CHAR, EqualityType_FPSEM_FP_BOP_TYPE,
+  EqualityType_FPSEM_FP_UOP_TYPE, EqualityType_FPSEM_FP_CMP_TYPE,
+  EqualityType_AST_SHIFT_TYPE, EqualityType_AST_WORD_SIZE_TYPE]
 
-val EqualityType_PATLANG_OP_TYPE = find_equality_type_thm``PATLANG_OP_TYPE`` |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_FLATLANG_OP_TYPE]
+val EqualityType_PATLANG_OP_TYPE =
+  find_equality_type_thm``PATLANG_OP_TYPE`` |> SIMP_RULE std_ss
+  [EqualityType_NUM,EqualityType_FLATLANG_OP_TYPE]
 
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def
 
@@ -487,7 +504,73 @@ val clos_known_known_side = Q.prove(`
   \\ rw [] \\ simp [Once (fetch "-" "clos_known_known_side_def")]
   \\ metis_tac [FST,PAIR]) |> update_precondition;
 
+val r = translate (clos_ticksTheory.remove_ticks_def);
+
+val clos_ticks_remove_ticks_side = Q.prove(`
+  ∀a. clos_ticks_remove_ticks_side a ⇔ T`,
+  `∀z. clos_ticks$remove_ticks [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_ticks$remove_ticks [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_ticksTheory.LENGTH_remove_ticks] \\ fs [])
+  \\ ho_match_mp_tac clos_ticksTheory.remove_ticks_ind \\ fs []
+  \\ rw [] \\ simp [Once (fetch "-" "clos_ticks_remove_ticks_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
+
+val r = translate (clos_letopTheory.let_op_def);
+
+val clos_letop_let_op_side = Q.prove(`
+  ∀a. clos_letop_let_op_side a ⇔ T`,
+  `∀z. clos_letop$let_op [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_letop$let_op [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_letopTheory.LENGTH_let_op] \\ fs [])
+  \\ ho_match_mp_tac clos_letopTheory.let_op_ind \\ fs []
+  \\ rw [] \\ simp [Once (fetch "-" "clos_letop_let_op_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
+
+val r = translate (clos_fvsTheory.remove_fvs_def);
+
+val clos_fvs_remove_fvs_side = Q.prove(`
+  ∀a b. clos_fvs_remove_fvs_side a b ⇔ T`,
+  `∀a z. clos_fvs$remove_fvs a [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_fvs$remove_fvs a [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_fvsTheory.LENGTH_remove_fvs] \\ fs [])
+  \\ ho_match_mp_tac clos_fvsTheory.remove_fvs_ind \\ fs []
+  \\ rw [] \\ simp [Once (fetch "-" "clos_fvs_remove_fvs_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
+
 val r = translate clos_knownTheory.compile_def
+
+(* labels *)
+
+val r = translate (clos_labelsTheory.remove_dests_def);
+
+val clos_labels_remove_dests_side = Q.prove(`
+  ∀a b. clos_labels_remove_dests_side a b ⇔ T`,
+  `∀a z. clos_labels$remove_dests a [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_labels$remove_dests a [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_labelsTheory.LENGTH_remove_dests] \\ fs [])
+  \\ ho_match_mp_tac clos_labelsTheory.remove_dests_ind \\ fs []
+  \\ rw [] \\ simp [Once (fetch "-" "clos_labels_remove_dests_side_def")]
+  \\ metis_tac [FST,PAIR]) |> update_precondition;
+
+val r = translate clos_labelsTheory.compile_def;
+
+val clos_labels_compile_side = Q.prove(`
+  ∀a. clos_labels_compile_side a ⇔ T`,
+  `∀a z. clos_labels$remove_dests a [z] ≠ []` by
+   (CCONTR_TAC \\ fs[]
+    \\ `LENGTH (clos_labels$remove_dests a [z]) = 0` by metis_tac [LENGTH]
+    \\ pop_assum mp_tac
+    \\ rewrite_tac [clos_labelsTheory.LENGTH_remove_dests] \\ fs [])
+  \\ rw [] \\ simp [Once (fetch "-" "clos_labels_compile_side_def")])
+ |> update_precondition;
 
 (* call *)
 
@@ -547,7 +630,8 @@ val clos_annotate_compile_side = Q.prove(
   METIS_TAC[clos_annotateTheory.shift_SING,clos_annotateTheory.alt_free_SING,
             FST,PAIR,list_distinct]) |> update_precondition;
 
-val r = translate clos_to_bvlTheory.compile_def
+val r = translate clos_to_bvlTheory.compile_common_def;
+val r = translate clos_to_bvlTheory.compile_def;
 
 val BVL_EXP_TYPE_def = theorem"BVL_EXP_TYPE_def";
 val BVL_EXP_TYPE_ind = theorem"BVL_EXP_TYPE_ind";
@@ -1405,6 +1489,8 @@ val bvi_to_data_compile_prog_side = Q.prove(`∀prog. bvi_to_data_compile_prog_s
      data_space_space_side]) |> update_precondition; *)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

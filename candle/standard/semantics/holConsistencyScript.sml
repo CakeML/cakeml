@@ -1,8 +1,17 @@
+(*
+  Proves consistency of the inference system: starting from any context with a
+  model, any context reached by non-axiomatic extensions has both provable and
+  unprovable sequents. And the base case: the HOL contexts (initial context
+  with no axioms, with all but infinity axiom, with all three axioms) have
+  models (under suitable assumptions).
+*)
 open preamble
      setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holAxiomsSyntaxTheory
      holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holExtensionTheory holBoolTheory holAxiomsTheory
 
 val _ = new_theory"holConsistency"
+
+val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 

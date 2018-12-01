@@ -1,3 +1,6 @@
+(*
+  Translate the compiler's type inferencer.
+*)
 open preamble parserProgTheory
      reg_allocProgTheory inferTheory
      ml_translatorLib ml_translatorTheory
@@ -6,6 +9,8 @@ open preamble parserProgTheory
 val _ = new_theory "inferProg"
 
 val _ = translation_extends "reg_allocProg";
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "inferProg");
 
 (* translator setup *)
 
@@ -492,7 +497,19 @@ val _ = fetch "-" "apply_subst_side_def" |> update_precondition;
 val _ = translate (infer_def ``apply_subst_list``);
 val _ = fetch "-" "apply_subst_list_side_def" |> update_precondition;
 
+val _ = translate infer_tTheory.get_tyname_def;
+val _ = translate infer_tTheory.ty_var_name_def;
+
+val ty_var_name_side =
+  ``ty_var_name_side x``
+  |> SIMP_CONV arith_ss [fetch "-" "ty_var_name_side_def"]
+  |> update_precondition;
+
+val _ = translate infer_tTheory.commas_def;
+val _ = translate infer_tTheory.add_parens_def;
 val _ = translate infer_tTheory.inf_type_to_string_def;
+val _ = translate ns_to_alist_def;
+val _ = translate inf_env_to_types_string_def;
 
 val _ = translate (infer_def ``add_constraint``);
 
@@ -649,7 +666,11 @@ val EqualityType_AST_LIT_TYPE = find_equality_type_thm``AST_LIT_TYPE``
                        EqualityType_INT,EqualityType_BOOL,EqualityType_WORD]
 
 (* (string,string) id*)
-val EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR = find_equality_type_thm``NAMESPACE_ID_TYPE m n`` |> Q.GEN`m` |> Q.ISPEC`LIST_TYPE CHAR` |> Q.GEN`n` |> Q.ISPEC`LIST_TYPE CHAR` |> SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR]
+
+val EqualityType_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR =
+  find_equality_type_thm``NAMESPACE_ID_TYPE m n`` |> Q.GEN`m` |>
+  Q.ISPEC`LIST_TYPE CHAR` |> Q.GEN`n` |> Q.ISPEC`LIST_TYPE CHAR` |>
+  SIMP_RULE std_ss [EqualityType_LIST_TYPE_CHAR]
 
 val EqualityType_OPTION_TYPE_NAMESPACE_ID_TYPE_LIST_TYPE_CHAR_LIST_TYPE_CHAR = find_equality_type_thm``OPTION_TYPE a``
   |> Q.GEN`a` |> Q.ISPEC`NAMESPACE_ID_TYPE (LIST_TYPE CHAR) (LIST_TYPE CHAR)`
@@ -1141,6 +1162,8 @@ val infertype_prog_side_thm = store_thm("infertype_prog_side_thm",
   |> update_precondition;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

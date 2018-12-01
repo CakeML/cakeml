@@ -1,3 +1,6 @@
+(*
+  Lemmas used in Okasaki examples.
+*)
 open preamble
 open relationTheory bagLib bagTheory;
 

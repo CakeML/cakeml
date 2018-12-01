@@ -1,3 +1,7 @@
+(*
+  Defines the characteristic formula (CF) function cf_def and proves
+  that it is sound w.r.t. the evaluate semantics of CakeML.
+*)
 open preamble
 open set_sepTheory helperLib ml_translatorTheory ConseqConv
 open ml_translatorTheory semanticPrimitivesTheory
@@ -6,6 +10,11 @@ open cfNormaliseTheory cfAppTheory
 open cfTacticsBaseLib
 
 val _ = new_theory "cf"
+
+val _ = set_grammar_ancestry
+  ["cfHeapsBase","cfHeaps","cfStore","cfNormalise","cfApp",
+   "ml_translator", "ffi"];
+
 val _ = monadsyntax.temp_disable_monadsyntax()
 
 (*------------------------------------------------------------------*)
@@ -1954,10 +1963,10 @@ val cf_letrec_sound_aux = Q.prove (
     cf_strip_sound_full_tac \\
     qpat_x_assum `fun_rec_aux _ _ _ _ _ _ _ _ _ _` mp_tac \\
     (* Rewrite (DROP _ _) to a (_::DROP _ _) *)
-    qpat_abbrev_tac `tail = DROP _ _` \\
-    `tail = (naryRecclosure env (letrec_pull_params funs) f) ::
+    qpat_abbrev_tac `til = DROP _ _` \\
+    `til = (naryRecclosure env (letrec_pull_params funs) f) ::
             DROP (LENGTH (letrec_pull_params rest) + 1) fvs` by (
-      qunabbrev_tac `tail` \\ rewrite_tac [GSYM ADD1] \\
+      qunabbrev_tac `til` \\ rewrite_tac [GSYM ADD1] \\
       fs [letrec_pull_params_LENGTH] \\
       mp_tac (Q.ISPECL [`fvs: v list`,
                         `LENGTH (rest: (tvarN, tvarN # exp) alist)`]

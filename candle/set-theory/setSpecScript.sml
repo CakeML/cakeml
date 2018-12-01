@@ -1,3 +1,9 @@
+(*
+  Specification of (roughly) Zermelo's set theory.
+  Two main definitions:
+    is_set_theory (mem : 'U -> 'U -> bool), and
+    is_model (mem, indset, ch)
+*)
 open preamble cardinalTheory
 
 val _ = new_theory"setSpec"
@@ -6,6 +12,8 @@ val _ = Parse.remove_type_abbrev "reln";
 val _ = Parse.remove_type_abbrev "inf";
 
 (* http://www.lemma-one.com/ProofPower/specs/spc002.pdf *)
+
+val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 

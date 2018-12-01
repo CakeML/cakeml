@@ -1,3 +1,7 @@
+(*
+  A compiler phase that turns programs of the functional language BVI
+  into the first imperative language of the CakeML compiler: dataLang.
+*)
 open preamble bviTheory dataLangTheory
      data_simpTheory data_liveTheory data_spaceTheory;
 
@@ -94,6 +98,8 @@ val iAssign_def = Define `
         if k = 0 then Assign n1 op vs NONE
           else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
                    (Assign n1 op vs NONE)`;
+
+val _ = Parse.hide"tail";
 
 val compile_def = tDefine "compile" `
   (compile (n:num) (env:num list) tail live [] =

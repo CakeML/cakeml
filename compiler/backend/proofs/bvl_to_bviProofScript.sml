@@ -1,4 +1,7 @@
-open preamble mp_then backendPropsTheory
+(*
+  Correctness proof for bvl_to_bvi
+*)
+open preamble backendPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_to_bviTheory
      bviSemTheory bviPropsTheory;
@@ -17,17 +20,7 @@ val _ = set_grammar_ancestry
 
 val _ = Parse.hide"str";
 
-(* TODO: move *)
-
-val EVERY_o = store_thm("EVERY_o",
-  ``!xs P f. EVERY (P o f) xs = EVERY P (MAP f xs)``,
-  Induct \\ fs []);
-
-(* -- *)
-
 val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
-
-val subspt_alt = bvl_inlineProofTheory.subspt_alt;
 
 (* value relation *)
 val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)

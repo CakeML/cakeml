@@ -1,3 +1,8 @@
+(*
+  Properties of the CakeML CFG, including automatically derived
+  nullability results for various non-terminals, and results about
+  the grammar’s rules finite map.
+*)
 open HolKernel Parse boolLib bossLib
 
 open lcsymtacs boolSimps

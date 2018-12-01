@@ -1,6 +1,6 @@
-OCaml to CakeML translator
-==========================
-Possibly translates type-correct OCaml files to equivalent CakeML files. Multi-file programs should be supported eventually, but aren't now.
+This is the OCaml to CakeML translator. It attempts to translate
+type-correct OCaml files to equivalent CakeML files. Multi-file
+programs should be supported eventually, but aren't now.
 
 Installation
 ------------

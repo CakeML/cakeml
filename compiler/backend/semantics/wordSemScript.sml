@@ -1,3 +1,6 @@
+(*
+  The formal semantics of wordLang
+*)
 open preamble wordLangTheory;
 local open alignmentTheory in end;
 
@@ -45,25 +48,6 @@ val isWord_def = Define `
 val isWord_exists = Q.store_thm("isWord_exists",
   `isWord x ⇔ ∃w. x = Word w`,
   Cases_on`x` \\ rw[isWord_def]);
-
-val byte_index_def = Define `
-  byte_index (a:'a word) is_bigendian =
-    let d = dimindex (:'a) DIV 8 in
-      if is_bigendian then 8 * ((d - 1) - w2n a MOD d) else 8 * (w2n a MOD d)`
-
-val get_byte_def = Define `
-  get_byte (a:'a word) (w:'a word) is_bigendian =
-    (w2w (w >>> byte_index a is_bigendian)):word8`
-
-val word_slice_alt_def = Define `
-  (word_slice_alt h l (w:'a word) :'a word) = FCP i. l <= i /\ i < h /\ w ' i`
-
-val set_byte_def = Define `
-  set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
-    let i = byte_index a is_bigendian in
-      (word_slice_alt (dimindex (:'a)) (i + 8) w
-       || w2w b << i
-       || word_slice_alt i 0 w)`;
 
 val mem_load_byte_aux_def = Define `
   mem_load_byte_aux m dm be w =
@@ -788,46 +772,46 @@ val evaluate_def = tDefine "evaluate" `
     if bad_dest_args dest args then (SOME Error,s)
     else
     case find_code dest (add_ret_loc ret xs) s.code of
-	  | NONE => (SOME Error,s)
-	  | SOME (args1,prog) =>
-	  case ret of
-	  | NONE (* tail call *) =>
+          | NONE => (SOME Error,s)
+          | SOME (args1,prog) =>
+          case ret of
+          | NONE (* tail call *) =>
       if handler = NONE then
         if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
         else (case evaluate (prog, call_env args1 (dec_clock s)) of
          | (NONE,s) => (SOME Error,s)
          | (SOME res,s) => (SOME res,s))
       else (SOME Error,s)
-	  | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
+          | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
     if domain names = {} then (SOME Error,s)
     else
-	  (case cut_env names s.locals of
-		| NONE => (SOME Error,s)
-		| SOME env =>
-	       if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-	       (case fix_clock (call_env args1 (push_env env handler (dec_clock s)))
+          (case cut_env names s.locals of
+                | NONE => (SOME Error,s)
+                | SOME env =>
+               if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
+               (case fix_clock (call_env args1 (push_env env handler (dec_clock s)))
                        (evaluate (prog, call_env args1
-		               (push_env env handler (dec_clock s)))) of
-		| (SOME (Result x y),s2) =>
+                               (push_env env handler (dec_clock s)))) of
+                | (SOME (Result x y),s2) =>
       if x ≠ Loc l1 l2 then (SOME Error,s2)
       else
-		   (case pop_env s2 of
-		    | NONE => (SOME Error,s2)
-		    | SOME s1 =>
-			(if domain s1.locals = domain env
-			 then evaluate(ret_handler,set_var n y s1)
-			 else (SOME Error,s1)))
-		| (SOME (Exception x y),s2) =>
-		   (case handler of (* if handler is present, then handle exc *)
-		    | NONE => (SOME (Exception x y),s2)
-		    | SOME (n,h,l1,l2) =>
+                   (case pop_env s2 of
+                    | NONE => (SOME Error,s2)
+                    | SOME s1 =>
+                        (if domain s1.locals = domain env
+                         then evaluate(ret_handler,set_var n y s1)
+                         else (SOME Error,s1)))
+                | (SOME (Exception x y),s2) =>
+                   (case handler of (* if handler is present, then handle exc *)
+                    | NONE => (SOME (Exception x y),s2)
+                    | SOME (n,h,l1,l2) =>
         if x ≠ Loc l1 l2 then (SOME Error,s2)
         else
           (if domain s2.locals = domain env
            then evaluate (h, set_var n y s2)
            else (SOME Error,s2)))
         | (NONE,s) => (SOME Error,s)
-		| res => res)))`
+                | res => res)))`
   (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
                   (\(xs,^s). (s.termdep,s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)

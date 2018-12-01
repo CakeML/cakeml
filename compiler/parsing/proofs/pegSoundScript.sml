@@ -1,3 +1,7 @@
+(*
+  Soundness proof for the parser. If the parser returns a parse tree,
+  then it is valid w.r.t. the specification grammar.
+*)
 open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
      grammarTheory
 

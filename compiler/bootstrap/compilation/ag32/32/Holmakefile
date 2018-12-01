@@ -1,0 +1,39 @@
+ARCH = ag32
+WORD_SIZE = 32
+INCLUDES = ../../../translation ../../../../../semantics ../../../.. ../../../../backend/$(ARCH) ../../../../encoders/asm ../../../../encoders/$(ARCH) ../../../../../basis
+CLINE_OPTIONS = --qof
+
+all: $(DEFAULT_TARGETS) README.md
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../../../translation/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP) cake-$(ARCH)-$(WORD_SIZE).tar.gz
+.PHONY: all
+
+BARE_THYS = ../../../translation/compiler$(WORD_SIZE)ProgTheory \
+						../../../../../semantics/semanticsComputeLib\
+						../../../../compilationLib\
+						../../../../backend/$(ARCH)/$(ARCH)_configTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif
+
+cake.S: *$(ARCH)BootstrapScript.sml
+
+cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile
+
+EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz

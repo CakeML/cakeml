@@ -1,3 +1,42 @@
+(*
+  This compiler phase performs closure conversion.  This phase puts
+  all of the code into a table of first-order, closed, multi-argument
+  functions.
+
+  The table is indexed by natural numbers, and each entry
+  is a pair of a number (the function's arity) and a BVL expression
+  (the function's body). The table has the following layout.
+
+  Entry i in the range 0 to max_app - 1 (inclusive):
+    generic application of a closure to i+1 arguments. Takes i+2 arguments
+    (the arguments and the closure). The closure might expect more or less
+    than i+1 arguments, and this code would then allocate a partial application
+    closure, or make repeated applications.
+
+  Entries in the range max_app to max_app + (max_app * (max_app - 1) DIV 2) - 1 (inclusive) :
+    code to fully apply a partially applied closure wrapper.
+    For a closure expecting tot number of arguments, which has already been
+    given prev number of arguments, the wrapper is in location
+    max_app + tot * (tot - 1) DIV 2 + prev
+    and takes tot - prev + 1 arguments
+
+  The next entry initialises a global variable that contains a jump table used
+  by the generic application stubs (0 argument).
+
+  The num_stubs function gives the total number of these functions.
+
+  Starting at index num_stubs, there are 0 argument functions that evaluate
+  each expression that should be evaluated, and then call the next function.
+
+  Following these functions, at even numbers there are the bodies of
+  functions in the program, with one extra argument for the closure value to be
+  passed in to them. The odd entries are the bodies of the functions that have
+  no free variables, and so they don't have any extra arguments. Their
+  correcponding odd entries just indirect to the even ones. (clos_call)
+  One entry might be skipped in between the expressions and the source-level
+  function bodies to get the alignment right.
+
+*)
 open preamble closLangTheory bvlTheory bvl_jumpTheory;
 open backend_commonTheory
 local open
@@ -6,6 +45,7 @@ local open
   clos_knownTheory
   clos_numberTheory
   clos_annotateTheory
+  clos_labelsTheory
 in (* clos-to-clos transformations *) end;
 
 val _ = new_theory "clos_to_bvl";
@@ -15,46 +55,6 @@ val _ = set_grammar_ancestry [
   "clos_annotate",
   "bvl_jump"
 ]
-
-
-(* This pass puts all of the code into a table of first-order, closed,
- * multi-argument functions. The table is indexed by natural numbers, and each
- * entry is a pair of a number (the function's arity) and a BVL expression
- * (the function's body).
- *
- * The table has the following layout.
- *
- * Entry i in the range 0 to max_app - 1 (inclusive):
- *   generic application of a closure to i+1 arguments. Takes i+2 arguments
- *   (the arguments and the closure). The closure might expect more or less
- *   than i+1 arguments, and this code would then allocate a partial application
- *   closure, or make repeated applications.
- *
- * Entries in the range max_app to max_app + (max_app * (max_app - 1) DIV 2) - 1 (inclusive) :
- *   code to fully apply a partially applied closure wrapper.
- *   For a closure expecting tot number of arguments, which has already been
- *   given prev number of arguments, the wrapper is in location
- *   max_app + tot * (tot - 1) DIV 2 + prev
- *   and takes tot - prev + 1 arguments
- *
- * The next entry initialises a global variable that contains a jump table used
- * by the generic application stubs (0 argument).
- *
- * The num_stubs function gives the total number of these functions.
- *
- * Starting at index num_stubs, there are 0 argument functions that evaluate
- * each expression that should be evaluated, and then call the next function.
- *
- * Following these functions, at even numbers there are the bodies of
- * functions in the program, with one extra argument for the closure value to be
- * passed in to them. The odd entries are the bodies of the functions that have
- * no free variables, and so they don't have any extra arguments. Their
- * correcponding odd entries just indirect to the even ones. (clos_call)
- * One entry might be skipped in between the expressions and the source-level
- * function bodies to get the alignment right.
- *
- * *)
-
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -474,6 +474,7 @@ val _ = Datatype`
             ; do_mti : bool
             ; known_conf : clos_known$config option
             ; do_call : bool
+            ; call_state : num_set # (num, num # closLang$exp) alist
             ; max_app : num
             |>`;
 
@@ -484,6 +485,7 @@ val default_config_def = Define`
     do_mti := T;
     known_conf := SOME (clos_known$default_config 10);
     do_call := T;
+    call_state := (LN,[]);
     max_app := 10 |>`;
 
 val code_split_def = Define `
@@ -543,10 +545,12 @@ val compile_common_def = Define `
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = renumber_code_locs_list loc es in
     let (kc, es) = clos_known$compile c.known_conf es in
-    let (es,aux) = clos_call$compile c.do_call es in
+    let (es,g,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
-      (c with <| start := c.next_loc; next_loc := n; known_conf := kc |>,
+    let prog = clos_labels$compile prog in
+      (c with <| start := c.next_loc; next_loc := n; known_conf := kc;
+                 call_state := (g,aux) |>,
        prog)`;
 
 val compile_def = Define `

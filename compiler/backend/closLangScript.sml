@@ -1,3 +1,8 @@
+(*
+  The closLang intermediate language. This language is the last
+  intermediate language that has closure values. This language is
+  designed for optimisation of function calls.
+*)
 open preamble backend_commonTheory;
 
 val _ = new_theory "closLang";
@@ -114,7 +119,7 @@ val pure_def = tDefine "pure" `
     ∧
   (pure (Raise _ _) ⇔ F)
     ∧
-  (pure (Handle _ e1 _) ⇔ pure e1)
+  (pure (Handle _ e1 e2) ⇔ pure e1)
     ∧
   (pure (Tick _ _) ⇔ F)
     ∧

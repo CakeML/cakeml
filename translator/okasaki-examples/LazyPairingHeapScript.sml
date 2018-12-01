@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Lazy Pairing
+  Heap algorithm from Chris Okasaki's book.
+*)
 open preamble
 open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory
 

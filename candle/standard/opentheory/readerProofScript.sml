@@ -1,3 +1,8 @@
+(*
+  Correctness proofs about the OpenTheory article checker's CakeML
+  implementation. In particular, anything the article checker proves
+  follows by logical inference in Candle's version of the HOL logic.
+*)
 open preamble ml_monadBaseTheory
      holKernelTheory holKernelProofTheory
      holSyntaxTheory holSyntaxExtraTheory
@@ -1588,11 +1593,17 @@ val mk_infinity_ax_thm = Q.store_thm("mk_infinity_ax_thm",
   \\ rpt (disch_then drule) \\ rw []
   \\ metis_tac [mk_exists_thm]);
 
+val init_reader_success = Q.store_thm("init_reader_success",
+  `init_reader () init_refs = (res, refs) ==> res = Success ()`,
+  EVAL_TAC \\ fs []);
+
 val init_reader_ok = Q.store_thm("init_reader_ok",
   `init_reader () init_refs = (res, refs)
    ==>
+   res = Success () /\
    ?defs. STATE defs refs`,
-  sg `STATE init_refs.the_context init_refs`
+  simp [init_reader_success]
+  \\ sg `STATE init_refs.the_context init_refs`
   >- (EVAL_TAC \\ rw [])
   \\ qmatch_asmsub_abbrev_tac `STATE defs`
   \\ rw [init_reader_def, st_ex_bind_def, ind_type_def, select_sym_def]
@@ -1660,8 +1671,8 @@ val init_reader_ok = Q.store_thm("init_reader_ok",
   \\ disch_then drule \\ rw []
   >- (asm_exists_tac \\ fs [])
   \\ drule (GEN_ALL new_axiom_thm)
-  \\ disch_then drule \\ fs []
-  \\ CASE_TAC \\ fs [] \\ rw []
+  \\ disch_then drule \\ fs [] \\ rw []
+  \\ fs [st_ex_return_def] \\ rw []
   \\ asm_exists_tac \\ fs []);
 
 val readLines_init_state_thm = Q.store_thm("readLines_init_state_thm",
@@ -1700,25 +1711,41 @@ val process_lines_def = Define`
        STDIO (add_stderr (lineForwardFD fs fd) (line_Fail st e)) *
        HOL_STORE refs)`;
 
+val process_list_def = Define `
+  (process_list fs s refs [] =
+     STDIO (add_stdout fs (msg_success s refs.the_context)) *
+     HOL_STORE refs) /\
+  (process_list fs s refs (l::ls) =
+     case process_line s refs l of
+       (INL s, refs) => process_list fs (next_line s) refs ls
+     | (INR e, refs) => STDIO (add_stderr fs (line_Fail s e)) *
+                        HOL_STORE refs)`;
+
+val read_stdin_def = Define `
+  read_stdin fs refs =
+    let fs' = fastForwardFD fs 0 in
+      case readLines (all_lines fs (IOStream (strlit"stdin"))) init_state refs of
+        (Success (s, _), refs) =>
+          (add_stdout fs' (msg_success s refs.the_context), refs, SOME s)
+      | (Failure (Fail e), refs) => (add_stderr fs' e, refs, NONE)`;
+
 val read_file_def = Define`
   read_file fs refs fnm =
     (if inFS_fname fs (File fnm) then
        (case readLines (all_lines fs (File fnm)) init_state refs of
         | (Success (s,_), refs) =>
-            (T, add_stdout fs (msg_success s refs.the_context), refs)
-        | (Failure (Fail e), refs) => (F, add_stderr fs e, refs))
+            (add_stdout fs (msg_success s refs.the_context), refs, SOME s)
+        | (Failure (Fail e), refs) => (add_stderr fs e, refs, NONE))
      else
-       (F, add_stderr fs (msg_bad_name fnm), refs))`;
+       (add_stderr fs (msg_bad_name fnm), refs, NONE))`;
 
 val reader_main_def = Define `
    reader_main fs refs cl =
+     let refs = SND (init_reader () refs) in
        case cl of
-         [fnm] =>
-          (case init_reader () refs of
-            (Success _, refs) => read_file fs refs fnm
-          | (Failure (Fail e), refs) => (F, add_stderr fs (msg_axioms e), refs)
-          | (_, refs) => (F, fs, refs))
-       | _ => (F, add_stderr fs msg_usage, refs)`;
+         [] => read_stdin fs refs
+       | [fnm] => read_file fs refs fnm
+       | _ => (add_stderr fs msg_usage, refs, NONE)`;
 
 (* ------------------------------------------------------------------------- *)
 (* Specs imply that invariants are preserved.                                *)
@@ -1743,14 +1770,19 @@ val process_line_inv = Q.store_thm("process_line_inv",
    \\ rpt (disch_then drule) \\ rw []);
 
 val reader_proves = Q.store_thm("reader_proves",
-  `reader_main fs init_refs cl = (T,outp,refs)
+  `reader_main fs init_refs cl = (outp,refs,SOME s)
    ==>
-   ?s ctxt.
-     (!asl c. MEM (Sequent asl c) s.thms ==> (thyof ctxt, asl) |- c) /\
-     outp = add_stdout fs (msg_success s ctxt) /\
-     ctxt extends init_ctxt`,
-  rw [reader_main_def, case_eq_thms, read_file_def, bool_case_eq, PULL_EXISTS]
-  \\ imp_res_tac init_reader_ok
+   (!asl c.
+      MEM (Sequent asl c) s.thms
+      ==>
+      (thyof refs.the_context, asl) |- c) /\
+   let fs' = case cl of [] => fastForwardFD fs 0 | _ => fs in
+   outp = add_stdout fs' (msg_success s refs.the_context) /\
+   refs.the_context extends init_ctxt`,
+  rw [reader_main_def, case_eq_thms, read_file_def, read_stdin_def,
+      bool_case_eq, PULL_EXISTS]
+  \\ Cases_on `init_reader () init_refs` \\ fs []
+  \\ imp_res_tac init_reader_ok \\ rw []
   \\ `READER_STATE defs init_state` by fs [READER_STATE_init_state]
   \\ drule readLines_thm
   \\ rpt (disch_then drule) \\ rw []
@@ -1758,9 +1790,6 @@ val reader_proves = Q.store_thm("reader_proves",
   \\ first_x_assum (assume_tac o REWRITE_RULE [THM_def] o
                     Q.GENL [`a`,`b`] o Q.SPEC `Sequent a b`)
   \\ fs [STATE_def, CONTEXT_def] \\ rveq
-  \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `ds ++ refs'.the_context` \\ fs []
-  \\ metis_tac []);
+  \\ fs [EQ_SYM_EQ]);
 
 val _ = export_theory();
-

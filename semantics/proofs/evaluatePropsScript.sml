@@ -1,3 +1,6 @@
+(*
+  Properties of the operational semantics.
+*)
 open preamble evaluateTheory;
 open namespaceTheory namespacePropsTheory;
 open terminationTheory
@@ -13,6 +16,23 @@ val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
 
 val call_FFI_rel_def = Define `
   call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = FFI_return s2 t`;
+
+val call_FFI_rel_consts = Q.store_thm("call_FFI_rel_consts",
+  `call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)`,
+  rw[call_FFI_rel_def]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ fs[CaseEq"bool",CaseEq"oracle_result"]
+  \\ rw[]);
+
+val RTC_call_FFI_rel_consts = Q.store_thm("RTC_call_FFI_rel_consts",
+  `∀s1 s2. RTC call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)`,
+  once_rewrite_tac[EQ_SYM_EQ]
+  \\ match_mp_tac RTC_lifts_equalities
+  \\ rw[call_FFI_rel_consts]);
+
+val dest_IO_event_def = Define`
+  dest_IO_event (IO_event s c b) = (s,c,b)`;
+val _ = export_rewrites["dest_IO_event_def"];
 
 val io_events_mono_def = Define`
   io_events_mono s1 s2 ⇔

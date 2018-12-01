@@ -1,3 +1,6 @@
+(*
+  Translate the final part of the compiler backend for 32-bit targets.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
@@ -6,6 +9,8 @@ open to_word32ProgTheory std_preludeTheory;
 val _ = new_theory "to_target32Prog"
 
 val _ = translation_extends "to_word32Prog";
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target32Prog");
 
 val RW = REWRITE_RULE
 
@@ -327,7 +332,10 @@ val _ = translate (compile_def |> INST_TYPE [beta |-> ``:32``])
 
 open stack_to_labTheory
 
-val _ = matches := [``foo:'a labLang$prog``,``foo:'a labLang$sec``,``foo:'a labLang$line``,``foo:'a labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a inst``,``foo:'a asm_config``] @ (!matches)
+val _ = matches := [``foo:'a labLang$prog``,``foo:'a
+  labLang$sec``,``foo:'a labLang$line``,``foo:'a
+  labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a
+  inst``,``foo:'a asm_config``] @ (!matches)
 
 val _ = translate (flatten_def |> spec32)
 
@@ -358,6 +366,8 @@ val _ = translate (spec32 asmTheory.asm_ok_def)
 val _ = translate (spec32 compile_def)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

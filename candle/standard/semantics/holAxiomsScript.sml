@@ -1,3 +1,7 @@
+(*
+  Prove consistency of each of the axioms. (For the axiom of infinity, this
+  requires an additional assumption on the set theory.)
+*)
 open preamble holBoolTheory holBoolSyntaxTheory
      holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
      setSpecTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory
@@ -16,6 +20,8 @@ val _ = Parse.temp_overload_on("x2",``Var (strlit "x2") A``)
 val _ = Parse.temp_overload_on("FAx2",``Forall (strlit "x2") A``)
 val _ = Parse.temp_overload_on("y",``Var (strlit "y") B``)
 val _ = Parse.temp_overload_on("FAy",``Forall (strlit "y") B``)
+
+val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 

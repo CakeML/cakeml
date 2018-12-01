@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for ARMv8
+*)
 open preamble backendTheory arm8_targetTheory arm8_targetLib
 
 val _ = new_theory"arm8_config";
@@ -41,7 +44,8 @@ val arm8_backend_config_def = Define`
                word_to_word_conf:=^(word_to_word_conf);
                word_conf:=^(arm8_word_conf);
                stack_conf:=^(arm8_stack_conf);
-               lab_conf:=^(arm8_lab_conf)
+               lab_conf:=^(arm8_lab_conf);
+               tap_conf:=default_tap_config
                |>`;
 
 val _ = export_theory();

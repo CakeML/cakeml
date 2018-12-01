@@ -1,3 +1,7 @@
+(*
+  Evaluate the final part of the 64-bit version of the compiler
+  into machine code for x64.
+*)
 open preamble to_lab_x64BootstrapTheory compilationLib
 
 val _ = new_theory "x64Bootstrap";
@@ -18,7 +22,6 @@ val filename = "cake.S"
 
 val bootstrap_thm =
   compilationLib.cbv_to_bytes_x64
-    x64_backend_config_def
     stack_to_lab_thm lab_prog_def
     heap_mb stack_mb "cake_code" "cake_data" "cake_config" filename;
 

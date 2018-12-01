@@ -1,10 +1,12 @@
+(*
+  This compiler phase renames the registers to fit with the target
+  architecture.
+*)
 open preamble stackLangTheory;
 
 val _ = new_theory "stack_names";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
-(* Rename the registers to fit with the target architecture *)
 
 val _ = overload_on("find_name",``tlookup``);
 

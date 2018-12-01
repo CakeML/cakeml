@@ -1,3 +1,8 @@
+(*
+  Bind various built-in functions to function names that the parser
+  expects, e.g. the parser generates a call to a function called "+"
+  when it parses 1+2.
+*)
 open preamble
      semanticPrimitivesTheory ml_translatorTheory
      ml_translatorLib ml_progLib cfLib basisFunctionsLib
@@ -49,8 +54,6 @@ val _ = trans "=" `\x1 x2. x1 = x2:'a`
 val _ = trans "not" `\x. ~x:bool`
 val _ = trans "<>" `\x1 x2. x1 <> (x2:'a)`
 val _ = trans "^" `mlstring$strcat`
-
-val _ = remove_ovl_mapping "strcat" {Name = "strcat", Thy = "mlbasicsProg"}
 
 val _ = append_prog
   ``[mk_binop ":=" Opassign;

@@ -1,3 +1,6 @@
+(*
+  Correctness proof for stack_to_lab
+*)
 open preamble
      stackSemTheory stackPropsTheory
      stack_allocTheory stack_to_labTheory
@@ -548,7 +551,7 @@ val state_rel_def = Define`
     t.link_reg ≠ t.len_reg ∧ t.link_reg ≠ t.ptr_reg ∧
     t.link_reg ≠ t.len2_reg ∧ t.link_reg ≠ t.ptr2_reg ∧
     ~(t.link_reg ∈ s.ffi_save_regs) /\
-    (!k n. k ∈ s.ffi_save_regs ==> t.io_regs n k = NONE) /\
+    (!k i n. k ∈ s.ffi_save_regs ==> t.io_regs n i k = NONE) /\
     (* might need to be cc_save_regs *)
     (!k n. k ∈ s.ffi_save_regs ==> t.cc_regs n k = NONE) /\
     (∀x. x ∈ s.mdomain ⇒ w2n x MOD (dimindex (:'a) DIV 8) = 0) ∧
@@ -2143,7 +2146,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     rpt strip_tac >>
     qmatch_assum_rename_tac `FLOOKUP s.regs k = SOME v` >>
     res_tac >>
-    Cases_on `t1.io_regs 0 k` >> full_simp_tac(srw_ss())[get_reg_value_def] >>
+    Cases_on `t1.io_regs 0 ffi_index k` >> full_simp_tac(srw_ss())[get_reg_value_def] >>
     srw_tac[][] >> full_simp_tac(srw_ss())[]) >>
   conj_tac >-
    (srw_tac[][stackSemTheory.evaluate_def]
@@ -2499,12 +2502,14 @@ val memory_assumption_def = Define`
       t.mem (ptr2 + 4w * bytes_in_word) =
           Word (t.code_buffer.position + n2w t.code_buffer.space_left) ∧
       t.code_buffer.buffer = [] /\
-      (ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 ∧ byte_aligned ptr4 ⇒
-       (word_list bitmap_ptr (MAP Word bitmaps) *
-        word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
-        word_list_exists ptr2
-          (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
-         (fun2set (t.mem,t.mem_domain)))`;
+      ptr2 ≤₊ ptr4 ∧ byte_aligned ptr2 /\
+      byte_aligned ptr4 /\ byte_aligned bitmap_ptr /\
+      1024w * bytes_in_word ≤₊ ptr4 - ptr2 /\
+     (word_list bitmap_ptr (MAP Word bitmaps) *
+      word_list_exists (bitmap_ptr + bytes_in_word * n2w (LENGTH bitmaps)) data_sp *
+      word_list_exists ptr2
+        (w2n (-1w * ptr2 + ptr4) DIV w2n (bytes_in_word:'a word)))
+       (fun2set (t.mem,t.mem_domain))`;
 
 val halt_assum_lemma = Q.prove(
   `halt_assum (:'ffi#'c)
@@ -2561,7 +2566,7 @@ val state_rel_make_init = Q.store_thm("state_rel_make_init",
     s.link_reg ∉ save_regs ∧
     domain code = set (MAP Section_num s.code) ∧
     EVERY sec_labels_ok s.code ∧
-    (∀k n. k ∈ save_regs ⇒ s.io_regs n k = NONE) ∧
+    (∀k i n. k ∈ save_regs ⇒ s.io_regs n i k = NONE) ∧
     (∀k n. k ∈ save_regs ⇒ s.cc_regs n k = NONE) ∧
     (∀x. x ∈ s.mem_domain ⇒ w2n x MOD (dimindex (:α) DIV 8) = 0)`,
   fs [state_rel_def,make_init_def,FLOOKUP_regs]
@@ -2721,8 +2726,9 @@ val full_make_init_semantics = Q.store_thm("full_make_init_semantics",
        (c,compile_no_stubs stack_conf.reg_names stack_conf.jump offset sp p)) ∧
    ¬t.failed ∧
    memory_assumption stack_conf.reg_names bitmaps data_sp t ∧
+   max_stack_alloc ≤ max_heap ∧
    t.link_reg ∉ save_regs ∧ t.pc = 0 ∧
-   (∀k n. k ∈ save_regs ⇒ t.io_regs n k = NONE) ∧
+   (∀k i n. k ∈ save_regs ⇒ t.io_regs n i k = NONE) ∧
    (∀k n. k ∈ save_regs ⇒ t.cc_regs n k = NONE) ∧
    (∀x. x ∈ t.mem_domain ⇒ w2n x MOD (dimindex(:'a) DIV 8) = 0) ∧
    good_code sp code ∧
@@ -2989,10 +2995,10 @@ val flatten_line_ok_pre = Q.prove(`
     pop_assum mp_tac>>EVAL_TAC>>
     fs[]);
 
-val compile_all_enc_ok_pre = Q.prove(`
-  byte_offset_ok c 0w ∧
-  EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
-  all_enc_ok_pre c (MAP prog_to_section prog)`,
+val compile_all_enc_ok_pre = Q.store_thm("compile_all_enc_ok_pre",
+   `byte_offset_ok c 0w ∧
+    EVERY (λ(n,p).stack_asm_ok c p) prog ⇒
+    all_enc_ok_pre c (MAP prog_to_section prog)`,
   fs[EVERY_MEM,MEM_MAP,FORALL_PROD,EXISTS_PROD]>>rw[]>>
   fs[prog_to_section_def]>>pairarg_tac>>rw[]
   >- metis_tac[flatten_line_ok_pre]
@@ -3082,7 +3088,7 @@ val get_code_labels_def = Define `
   (get_code_labels (JumpLower n m l) = {(l,0)}) /\
   (get_code_labels _ = {})`
 
-val flatten_labels = Q.prove(`
+val flatten_labels = Q.store_thm("flatten_labels",`
   ∀p n m.
   let pp = set(append (FST (flatten p n m))) in
   BIGUNION (IMAGE line_get_labels pp)
@@ -3126,7 +3132,7 @@ val flatten_labels = Q.prove(`
     rw[]>>
     metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]));
 
-val prog_to_section_labels = Q.prove(`
+val prog_to_section_labels = Q.store_thm("prog_to_section_labels",`
   prog_to_section (n,p) = pp ⇒
   sec_get_labels pp
   ⊆

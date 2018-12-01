@@ -1,3 +1,6 @@
+(*
+  Proof about the command-line module of the CakeML standard basis library.
+*)
 open preamble ml_translatorTheory ml_progLib ml_translatorLib cfLib
      CommandLineProgTheory clFFITheory Word8ArrayProofTheory cfMonadTheory
 

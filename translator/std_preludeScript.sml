@@ -1,3 +1,7 @@
+(*
+  Translations of various useful HOL functions and datatypes, to serve as a
+  starting point for further translations.
+*)
 open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
 open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
@@ -8,10 +12,12 @@ val translate = abs_translate;
 
 (* type registration *)
 
+val _ = (use_full_type_names := false)
 val _ = register_type ``:ordering``;
-val _ = register_type ``:'a list``;
 val _ = register_type ``:'a option``;
+val _ = register_type ``:'a list``;
 val _ = register_type ``:'a # 'b``;
+val _ = register_type ``:'a + 'b``;
 
 (* pair *)
 
@@ -24,32 +30,17 @@ val res = translate UNCURRY;
 
 val _ = next_ml_names := ["o"];
 val res = translate o_DEF;
+val _ = next_ml_names := ["I"];
 val res = translate I_THM;
+val _ = next_ml_names := ["C"];
 val res = translate C_DEF;
+val _ = next_ml_names := ["K"];
 val res = translate K_DEF;
+val _ = next_ml_names := ["S"];
 val res = translate S_DEF;
-val res = translate UPDATE_def;
+val _ = next_ml_names := ["W"];
 val res = translate W_DEF;
-
-(* sum *)
-
-val res = translate ISL;
-val res = translate ISR;
-val res = translate OUTL;
-val res = translate OUTR;
-val res = translate SUM_MAP_def;
-
-val outl_side_def = Q.prove(
-  `outl_side = ISL`,
-  FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
-  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outl_side_def"])
-  |> update_precondition;
-
-val outr_side_def = Q.prove(
-  `outr_side = ISR`,
-  FULL_SIMP_TAC std_ss [FUN_EQ_THM] THEN Cases
-  THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "outr_side_def"])
-  |> update_precondition;
+val res = translate UPDATE_def;
 
 (* arithmetic *)
 
@@ -63,7 +54,9 @@ val EXP_AUX_THM = Q.prove(
   THEN FULL_SIMP_TAC std_ss [ADD1,AC ADD_COMM ADD_ASSOC])
   |> Q.SPECL [`n`,`0`] |> SIMP_RULE std_ss [EXP] |> GSYM;
 
+val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_def;
+val _ = next_ml_names := ["exp"];
 val res = translate EXP_AUX_THM; (* tailrec version of EXP *)
 val res = translate MIN_DEF;
 val res = translate MAX_DEF;
@@ -127,6 +120,8 @@ val least_side_thm = Q.prove(
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;
 *)
+
+val _ = concretise_all () (* needs to be done before module below *)
 
 val _ = (print_asts := true);
 

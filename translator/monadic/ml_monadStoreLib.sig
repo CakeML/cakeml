@@ -1,3 +1,6 @@
+(*
+  The signature for ml_monadStoreLib
+*)
 signature ml_monadStoreLib =
 sig
     include ml_translatorLib

@@ -1,6 +1,10 @@
+all: $(DEFAULT_TARGETS) README.md
+
 README_SOURCES = $(wildcard *.sml) $(wildcard *.sh) build-sequence
 
-README.md: $(README_SOURCES) readmePrefix readme_gen
+DIRS = $(wildcard */)
+README.md: $(README_SOURCES) readmePrefix readme_gen $(patsubst %,%readmePrefix,$(DIRS))
+	./readme_gen --check $(CAKEMLDIR)
 	./readme_gen $(README_SOURCES)
 
 readme_gen: readme_gen.sml

@@ -1,3 +1,7 @@
+(*
+  Module that contains a few special functions, e.g. a function for
+  forcing a full GC to run, a function for producing debug output.
+*)
 open preamble ml_translatorLib ml_progLib std_preludeTheory
      mloptionTheory basisFunctionsLib
 
@@ -6,8 +10,6 @@ val _ = new_theory"RuntimeProg"
 val _ = translation_extends "cfDiv"
 
 val () = generate_sigs := true;
-
-val _ = concretise_all () (* TODO: better to leave more abstract longer... *)
 
 val _ = ml_prog_update (open_module "Runtime");
 

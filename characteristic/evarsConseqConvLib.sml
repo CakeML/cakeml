@@ -1,3 +1,6 @@
+(*
+  Some experimental code for emulating evars support in HOL.
+*)
 structure evarsConseqConvLib :> evarsConseqConvLib =
 struct
 

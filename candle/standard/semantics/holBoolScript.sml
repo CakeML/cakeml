@@ -1,7 +1,13 @@
+(*
+  Define semantics for the Boolean operations and show the definitions are
+  correct.
+*)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory
      holSemanticsTheory holSemanticsExtraTheory setSpecTheory
 
 val _ = new_theory"holBool"
+
+val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 

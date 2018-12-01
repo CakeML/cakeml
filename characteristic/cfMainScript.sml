@@ -1,3 +1,12 @@
+(*
+  The following section culminates in call_main_thm2 which takes a
+  spec and some aspects of the current state, and proves a
+  Semantics_prog statement.
+
+  It also proves call_FFI_rel^* between the initial state, and the
+  state after creating the prog and then calling the main function -
+  this is useful for theorizing about the output of the program.
+*)
 open preamble
      semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib
@@ -5,15 +14,6 @@ open preamble
      semanticsLib evaluatePropsTheory
 
 val _ = new_theory "cfMain";
-
-(*
-   The following section culminates in call_main_thm2 which takes a
-   spec and some aspects of the current state, and proves a
-   Semantics_prog statement. It also proves call_FFI_rel^* between the
-   initial state, and the state after creating the prog and then
-   calling the main function - this is useful for theorizing about the
-   output of the program
-*)
 
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)
@@ -37,8 +37,7 @@ val call_main_thm1 = Q.store_thm("call_main_thm1",
   \\ fs [terminationTheory.evaluate_def,PULL_EXISTS,pair_case_eq,
          result_case_eq,do_con_check_def,build_conv_def,bool_case_eq,
          ml_progTheory.lookup_var_def,option_case_eq,match_result_case_eq,
-         EVAL ``nsLookup (merge_env env2 env1).v (Short fname)``,app_def,
-         app_basic_def]
+         ml_progTheory.nsLookup_merge_env,app_def,app_basic_def]
   \\ first_x_assum drule \\ fs [] \\ strip_tac \\ fs []
   \\ fs [cfHeapsBaseTheory.POSTv_def]
   \\ Cases_on `r` \\ fs [cond_STAR] \\ fs [cond_def]

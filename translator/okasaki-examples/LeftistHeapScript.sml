@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Leftist
+  Heap algorithm from Chris Okasaki's book.
+*)
 open preamble
 open bagTheory bagLib okasaki_miscTheory;
 open ml_translatorLib ListProgTheory;

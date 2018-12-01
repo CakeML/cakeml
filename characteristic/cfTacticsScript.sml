@@ -1,3 +1,6 @@
+(*
+  Lemmas that aid the tactics for reasoning about CF-based goals in HOL.
+*)
 open preamble
 open set_sepTheory helperLib ConseqConv ml_translatorTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory

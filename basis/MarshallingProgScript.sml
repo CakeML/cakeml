@@ -1,3 +1,7 @@
+(*
+  Module with functions that aid converting to and from the byte
+  arrays that CakeML foreign-function interface (FFI) uses.
+*)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
      CommandLineProgTheory MarshallingTheory Word8ArrayProofTheory
 

@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_alloc
+*)
 open preamble
      reg_allocTheory reg_allocProofTheory linear_scanTheory linear_scanProofTheory
      wordLangTheory wordSemTheory wordPropsTheory word_allocTheory;
@@ -7,6 +10,7 @@ val _ = new_theory "word_allocProof";
 val _ = bring_to_front_overload"get_vars"{Name="get_vars",Thy="wordSem"};
 val _ = bring_to_front_overload"prog_size"{Name="prog_size",Thy="wordLang"};
 val _ = bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
+val _ = Parse.hide"mem";
 
 (*TODO: Move?*)
 val SUBSET_OF_INSERT = Q.store_thm("SUBSET_OF_INSERT",
@@ -1428,7 +1432,10 @@ val colouring_ok_alt_thm = Q.store_thm("colouring_ok_alt_thm",
     Cases_on`get_clash_sets prog live`>>
     full_simp_tac(srw_ss())[UNCURRY]);
 
-val fs1 = full_simp_tac(srw_ss())[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def,every_name_def,toAList_domain];
+val fs1 = full_simp_tac(srw_ss())[LET_THM, get_clash_sets_def,
+  every_var_def, get_live_def, domain_numset_list_insert,
+  domain_union, EVERY_MEM, get_writes_def, every_var_inst_def,
+  get_live_inst_def, every_name_def, toAList_domain];
 
 val every_var_exp_get_live_exp = Q.prove(
 `∀exp.
@@ -3989,30 +3996,31 @@ val ssa_cc_trans_props = Q.prove(`
     (* Install *)
     (rpt gen_tac>> strip_tac>>
     simp[Once (GSYM markerTheory.Abbrev_def)]>>
-    qpat_x_assum`_= (_,_,_)` mp_tac>>LET_ELIM_TAC>>
-    fs[next_var_rename_def]>>rw[]>>
-    imp_res_tac list_next_var_rename_move_props_2>>
-    rw[]>>fs[]>>
-    rfs[]>>
-    qabbrev_tac`na2 = na''+2`>>
-    `is_alloc_var na2` by fs[Abbr`na2`,is_stack_var_flip]>>
-    rw[]>>
-    qmatch_asmsub_abbrev_tac`list_next_var_rename_move sss _ _ = _`>>
-    Q.ISPECL_THEN[`ls`,`sss`,`na''+6`] mp_tac list_next_var_rename_move_props>>
-    simp[]>>
-    `is_alloc_var (na2+4)` by metis_tac[is_alloc_var_add]>>
-    `na''+6 = na2+4` by fs[Abbr`na2`]>>
-    impl_tac>-
-      (simp[Abbr`sss`,Abbr`ssa_cut`]>>
-      match_mp_tac ssa_map_ok_extend>>
-      CONJ_TAC>-
-       (match_mp_tac ssa_map_ok_inter>>
-       fs[Abbr`na2`]>>
-       match_mp_tac (GEN_ALL ssa_map_ok_more)>>
-       asm_exists_tac>>fs[])>>
-      metis_tac[convention_partitions])>>
-    strip_tac>>
-    fs[Abbr`na2`,markerTheory.Abbrev_def])>>
+    qpat_x_assum`_= (_,_,_)` mp_tac>>LET_ELIM_TAC >>
+    ( (* multiple goals *)
+      fs[next_var_rename_def]>>rw[]>>
+      imp_res_tac list_next_var_rename_move_props_2>>
+      rw[]>>fs[]>>
+      rfs[]>>
+      qabbrev_tac`na2 = na''+2`>>
+      `is_alloc_var na2` by fs[Abbr`na2`,is_stack_var_flip]>>
+      rw[]>>
+      qmatch_asmsub_abbrev_tac`list_next_var_rename_move sss _ _ = _`>>
+      Q.ISPECL_THEN[`ls`,`sss`,`na''+6`] mp_tac list_next_var_rename_move_props>>
+      simp[]>>
+      `is_alloc_var (na2+4)` by metis_tac[is_alloc_var_add]>>
+      `na''+6 = na2+4` by fs[Abbr`na2`]>>
+      impl_tac>-
+        (simp[Abbr`sss`,Abbr`ssa_cut`]>>
+        match_mp_tac ssa_map_ok_extend>>
+        CONJ_TAC>-
+         (match_mp_tac ssa_map_ok_inter>>
+         fs[Abbr`na2`]>>
+         match_mp_tac (GEN_ALL ssa_map_ok_more)>>
+         asm_exists_tac>>fs[])>>
+        metis_tac[convention_partitions])>>
+      strip_tac>>
+      fs[Abbr`na2`,markerTheory.Abbrev_def]))>>
   strip_tac>-
     (* CBW *)
     (rw[]>>fs[])>>

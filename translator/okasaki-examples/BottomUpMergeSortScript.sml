@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Bottom Up Merge
+  Sort algorithm from Chris Okasaki's book.
+*)
 open preamble
 open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib ListProgTheory;
 val _ = numLib.prefer_num()
@@ -51,6 +55,7 @@ val empty_def = mlDefine `
 empty = (0, [])`;
 
 val sptree_size = Parse.hide"size"
+val _ = Parse.hide"seg"
 
 val add_seg_def = tDefine "add_seg" `
 add_seg leq seg segs size =

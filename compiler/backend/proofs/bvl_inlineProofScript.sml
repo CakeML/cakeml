@@ -1,3 +1,6 @@
+(*
+  Correctness proof for bvi_inline
+*)
 open preamble backendPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_inlineTheory
@@ -8,36 +11,6 @@ val _ = new_theory"bvl_inlineProof";
 val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
 val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
 val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
-
-(* TODO: move *)
-
-val subspt_alt = store_thm("subspt_alt",
-  ``subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v``,
-  fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
-  \\ res_tac \\ fs []);
-
-val not_in_domain = store_thm("not_in_domain",
-  ``!k t. k ∉ domain t <=> lookup k t = NONE``,
-  fs [domain_lookup] \\ rw [] \\ Cases_on `lookup k t` \\ fs []);
-
-val subspt_domain = store_thm("subspt_domain",
-  ``subspt t1 t2 ==> domain t1 SUBSET domain t2``,
-  fs [subspt_def,SUBSET_DEF]);
-
-val domain_eq = store_thm("domain_eq",
-  ``!t1 t2. domain t1 = domain t2 <=>
-            !k. lookup k t1 = NONE <=> lookup k t2 = NONE``,
-  rw [domain_lookup,EXTENSION] \\ eq_tac \\ rw []
-  THEN1
-   (pop_assum (qspec_then `k` mp_tac)
-    \\ Cases_on `lookup k t1` \\ fs []
-    \\ Cases_on `lookup k t2` \\ fs [])
-  THEN1
-   (pop_assum (qspec_then `x` mp_tac)
-    \\ Cases_on `lookup x t1` \\ fs []
-    \\ Cases_on `lookup x t2` \\ fs []));
-
-(* -- *)
 
 (* removal of ticks *)
 
@@ -730,7 +703,7 @@ val tick_compile_prog_res_range = store_thm("tick_compile_prog_res_range",
    (sg `F` \\ fs []
     \\ imp_res_tac tick_inline_all_domain
     \\ fs [SUBSET_DEF] \\ res_tac
-    \\ imp_res_tac subspt_domain
+    \\ imp_res_tac subspt_domain_SUBSET
     \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
   \\ fs [subspt_alt]
   \\ fs [lookup_union,fromAList_def,lookup_insert]

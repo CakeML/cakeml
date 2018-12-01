@@ -1,3 +1,6 @@
+(*
+  Part of the correctness proof for data_to_word
+*)
 open preamble int_bitwiseTheory bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_word_bignumProofTheory data_to_wordTheory wordPropsTheory
@@ -19,12 +22,17 @@ fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
 val _ = hide "next";
+val _ = hide "el";
 val shift_def = backend_commonTheory.word_shift_def
 val isWord_def = wordSemTheory.isWord_def
 val theWord_def = wordSemTheory.theWord_def
 
 val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
 val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
+
+val assign_def =
+  data_to_wordTheory.assign_def
+  |> REWRITE_RULE [arg1_def, arg2_def, arg3_def, arg4_def, all_assign_defs];
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule0 th = drule0 (th |> GEN_ALL) \\ rpt (disch_then drule0 \\ fs [])
@@ -2017,8 +2025,8 @@ val memory_rel_ignore_buffers = prove(
   fs [memory_rel_def,heap_in_memory_store_def,FLOOKUP_UPDATE]);
 
 val compile_part_loc_IMP = prove(
-  ``compile_part c (arg1,arg2) = (n,x) ==> n = arg1``,
-  PairCases_on `arg2` \\ fs [compile_part_def]);
+  ``compile_part c (a1,a2) = (n,x) ==> n = a1``,
+  PairCases_on `a2` \\ fs [compile_part_def]);
 
 val th = Q.store_thm("assign_Install",
   `(op = Install) ==> ^assign_thm_goal`,
@@ -2207,8 +2215,8 @@ val th = Q.store_thm("assign_Install",
   \\ fs [lookup_insert,wordSemTheory.get_var_def,wordSemTheory.cut_env_def,
          wordSemTheory.buffer_flush_def,bytes_in_word_def]
   \\ PairCases_on `z` \\ fs []
-  \\ qmatch_goalsub_rename_tac `compile_part c (arg1,arg2)`
-  \\ Cases_on `compile_part c (arg1,arg2)` \\ fs [w2w_upper_upper_w2w]
+  \\ qmatch_goalsub_rename_tac `compile_part c (ar1,ar2)`
+  \\ Cases_on `compile_part c (ar1,ar2)` \\ fs [w2w_upper_upper_w2w]
   \\ rveq \\ fs []
   \\ reverse IF_CASES_TAC
   THEN1 (sg `F` \\ fs [] \\ fs [shift_seq_def])
@@ -4416,6 +4424,7 @@ val th = Q.store_thm("assign_FromList",
   \\ clean_tac
   \\ imp_res_tac state_rel_get_vars_IMP
   \\ fs [LENGTH_EQ_2] \\ clean_tac
+  \\ IF_CASES_TAC \\ fs []
   \\ clean_tac
   \\ drule0 lookup_RefByte_location \\ fs [get_names_def]
   \\ fs [wordSemTheory.evaluate_def,list_Seq_def,word_exp_rw,
@@ -6885,7 +6894,7 @@ val cut_env_IMP_domain = store_thm("cut_env_IMP_domain",
 
 val word_exp_set_var_ShiftVar = store_thm("word_exp_set_var_ShiftVar",
   ``word_exp (set_var v (Word w) t) (ShiftVar sow v n) =
-    lift Word (case sow of Lsl => SOME (w << n)
+    OPTION_MAP Word (case sow of Lsl => SOME (w << n)
                          | Lsr => SOME (w >>> n)
                          | Asr => SOME (w >> n)
                          | Ror => SOME (word_ror w n))``,
@@ -9710,11 +9719,11 @@ val th = Q.store_thm("assign_ConsExtend",
   \\ rfs [] \\ fs []
   \\ fs []
   \\ qmatch_goalsub_abbrev_tac
-    `insert 8 arg8 (insert 6 (Word arg6)
-                   (insert 4 (Word arg4) (insert 2 _ (insert 0 arg0 _))))`
+    `insert 8 ar8 (insert 6 (Word ar6)
+                   (insert 4 (Word ar4) (insert 2 _ (insert 0 ar0 _))))`
   \\ qmatch_goalsub_abbrev_tac `(MemCopy_code,s88)`
   \\ sg `?m2 ws2.
-              memcopy len arg4 arg6 m1 s1.mdomain = SOME m2 /\
+              memcopy len ar4 ar6 m1 s1.mdomain = SOME m2 /\
               (word_list nfree (Word full_header::(ws1 ++ ws2)) * SEP_T)
                 (fun2set (m2,s1.mdomain)) /\ LENGTH ws2 = len /\
               memory_rel c s1.be x.refs (len + (LENGTH ys3 + 1)) s1.store m2
@@ -9725,7 +9734,7 @@ val th = Q.store_thm("assign_ConsExtend",
                    [(the_global x.global,s1.store ' Globals)] ++
                    flat x.stack s1.stack))`
   THEN1
-   (simp [Abbr`arg4`,Abbr`arg6`]
+   (simp [Abbr`ar4`,Abbr`ar6`]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac IMP_memcopy \\ fs []
     \\ qexists_tac `w_ptr`
@@ -9739,7 +9748,7 @@ val th = Q.store_thm("assign_ConsExtend",
     \\ fs [real_addr_def] \\ rw []
     \\ fs [eq_eval,FLOOKUP_UPDATE])
   \\ rpt_drule0 MemCopy_thm
-  \\ disch_then (qspecl_then [`arg8`,`n`,`l`,`s88`] mp_tac)
+  \\ disch_then (qspecl_then [`ar8`,`n`,`l`,`s88`] mp_tac)
   \\ impl_tac THEN1
    (unabbrev_all_tac \\ fs [wordSemTheory.get_var_def,lookup_insert]
     \\ match_mp_tac LESS_EQ_TRANS

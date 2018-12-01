@@ -1,4 +1,6 @@
-(* Determinism for the big-step semantics *)
+(*
+  Determinism for the big-step semantics
+*)
 
 open preamble semanticPrimitivesTheory bigStepTheory;
 

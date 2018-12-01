@@ -1,3 +1,6 @@
+(*
+  Translate the compiler's lexer.
+*)
 open preamble
      lexer_funTheory lexer_implTheory to_dataProgTheory
      ml_translatorLib ml_translatorTheory
@@ -5,6 +8,8 @@ open preamble
 val _ = new_theory "lexerProg"
 
 val _ = translation_extends "to_dataProg";
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "lexerProg");
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
@@ -107,6 +112,8 @@ val lexer_fun_side = Q.prove(`
   EVAL_TAC>>fs[lexer_fun_aux_side]) |> update_precondition
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

@@ -1,3 +1,6 @@
+(*
+  Implements CF tactics for CF-style separation logic
+*)
 structure cfHeapsBaseLib :> cfHeapsBaseLib =
 struct
 

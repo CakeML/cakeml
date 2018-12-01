@@ -1,3 +1,6 @@
+(*
+  The formal semantics of labLang
+*)
 open preamble labLangTheory wordSemTheory;
 local open alignmentTheory targetSemTheory in end;
 
@@ -16,7 +19,8 @@ val _ = Datatype `
      ; pc         : num
      ; be         : bool
      ; ffi        : 'ffi ffi_state  (* oracle *)
-     ; io_regs    : num -> num -> 'a word option  (* oracle: sequence of havoc on registers at each FFI call *)
+                  (* oracle: sequence of havoc on registers at each FFI call *)
+     ; io_regs    : num (* seq number *) -> string (* ffi name *) -> num (* register *) -> 'a word option
      ; cc_regs    : num -> num -> 'a word option (* same as io_regs but for calling clear cache *)
      ; code       : 'a labLang$prog
      ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
@@ -460,7 +464,7 @@ val evaluate_def = tDefine "evaluate" `
                                    mem := new_m ;
                                    ffi := new_ffi ;
                                    io_regs := new_io_regs ;
-                                   regs := (\a. get_reg_value (s.io_regs 0 a)
+                                   regs := (\a. get_reg_value (s.io_regs 0 ffi_index a)
                                                   (s.regs a) Word);
                                    pc := new_pc ;
                                    clock := s.clock - 1 |>))

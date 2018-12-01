@@ -1,3 +1,7 @@
+(*
+  Defines the heap type that the separation logic used by CF uses.
+  Also defines POSTv etc.
+*)
 open preamble set_sepTheory
 open cfTacticsBaseLib cfFFITypeTheory
 

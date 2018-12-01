@@ -1,3 +1,6 @@
+(*
+  The major collection of the generational copying garbage collector.
+*)
 open preamble wordsTheory wordsLib integer_wordTheory gc_sharedTheory;
 
 val _ = new_theory "gen_gc";
@@ -469,7 +472,8 @@ val gc_move_thm = store_thm("gc_move_thm",
        \\ fs [] \\ strip_tac
        \\ fs []
        \\ `heap_lookup j (lheap ++ heap_expand state.n ++ state.r4 ++ state.r3 ++ state.r2 ++ state.r1)
-         = heap_lookup j (lheap ++ heap_expand (state.n − (l + 1)) ++ DataElement ys l d::state.r4 ++ state.r3 ++ state.r2 ++ state.r1)` by (Cases_on `j = heap_length (lheap ++ heap_expand (state.n − (l + 1)))`
+         = heap_lookup j (lheap ++ heap_expand (state.n − (l + 1)) ++ DataElement ys l d::state.r4 ++ state.r3 ++ state.r2 ++ state.r1)` by
+                (Cases_on `j = heap_length (lheap ++ heap_expand (state.n − (l + 1)))`
           >- (sg `F` \\ fs []
              \\ qpat_x_assum `heap_lookup _ _ = SOME _` mp_tac
              \\ simp_tac std_ss [GSYM APPEND_ASSOC]
@@ -1579,8 +1583,8 @@ val FILTER_isForward_heap_expand_lemma = prove(
   \\ fs [isForwardPointer_def]);
 
 val heap_lookup_CONS_IMP = prove(
-  ``(heap_lookup j ys = SOME el) ==>
-    (heap_lookup (j + heap_length [x]) (x::ys) = SOME el)``,
+  ``(heap_lookup j ys = SOME z) ==>
+    (heap_lookup (j + heap_length [x]) (x::ys) = SOME z)``,
   fs [heap_lookup_def]
   \\ strip_tac
   \\ IF_CASES_TAC
@@ -1589,9 +1593,9 @@ val heap_lookup_CONS_IMP = prove(
   \\ fs [heap_length_def,el_length_def]);
 
 val heap_lookup_PREPEND_EXTEND = prove(
-  ``!xs j ys el.
-    (heap_lookup j ys = SOME el) ==>
-    (heap_lookup (heap_length xs + j) (xs ++ ys) = SOME el)``,
+  ``!xs j ys z.
+    (heap_lookup j ys = SOME z) ==>
+    (heap_lookup (heap_length xs + j) (xs ++ ys) = SOME z)``,
   ho_match_mp_tac SNOC_INDUCT \\ strip_tac
   >- fs [heap_length_def]
   \\ fs [SNOC_APPEND]
@@ -1601,7 +1605,7 @@ val heap_lookup_PREPEND_EXTEND = prove(
   \\ fs []
   \\ pop_assum (qspecl_then [`j + heap_length [x]`,`[x]++ys`] assume_tac)
   \\ strip_tac
-  \\ qsuff_tac `heap_lookup (j + heap_length [x]) ([x] ++ ys) = SOME el`
+  \\ qsuff_tac `heap_lookup (j + heap_length [x]) ([x] ++ ys) = SOME z`
   >- fs []
   \\ fs [APPEND]
   \\ fs [heap_lookup_CONS_IMP]);

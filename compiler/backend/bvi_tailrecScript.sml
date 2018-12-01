@@ -1,3 +1,7 @@
+(*
+  A compiler phase that turns some non-tail-recursive functions into
+  tail-recursive functions.
+*)
 open preamble bviTheory backend_commonTheory;
 
 val _ = new_theory "bvi_tailrec";
@@ -705,4 +709,3 @@ val rev_compile_exp = Q.store_thm("rev_compile_exp",
   `compile_exp 444 445 1 ^rev_tm = SOME (^aux_tm, ^opt_tm)`, EVAL_TAC);
 
 val _ = export_theory();
-

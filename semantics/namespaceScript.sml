@@ -9,6 +9,9 @@ val _ = numLib.prefer_num();
 val _ = new_theory "namespace"
 val _ = set_grammar_ancestry ["integer", "words", "string", "alist"];
 
+(*
+  TODO: document
+*)
 (*open import Pervasives*)
 (*open import Set_extra*)
 

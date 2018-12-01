@@ -1,3 +1,6 @@
+(*
+  Proves correctness of the linear-scan register allocator.
+*)
 open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory libTheory
 open ml_monadBaseTheory ml_monadBaseLib;
 
@@ -456,12 +459,24 @@ val get_live_tree_correct_lemma = Q.store_thm("get_live_tree_correct_lemma",
         rw []
         THEN1 (
             imp_res_tac check_live_tree_success >> rfs [] >>
-            `INJ f (set (MAP FST (toAList (difference livein2' livein1'))) UNION domain livein1') UNIV` by metis_tac [check_partial_col_success_INJ] >>
-            `set (MAP FST (toAList (difference livein2 livein1))) UNION domain livein1 SUBSET set (MAP FST (toAList (difference livein2' livein1'))) UNION domain livein1'` by (REWRITE_TAC [branch_domain] >> fs [SUBSET_DEF]) >>
-            `INJ f (set (MAP FST (toAList (difference livein2 livein1))) UNION domain livein1) UNIV` by metis_tac [INJ_SUBSET, UNIV_SUBSET] >>
+            `INJ f (set (MAP FST (toAList (difference livein2' livein1')))
+             UNION domain livein1') UNIV` by
+                metis_tac [check_partial_col_success_INJ] >>
+            `set (MAP FST (toAList (difference livein2 livein1)))
+             UNION domain livein1 SUBSET set
+               (MAP FST (toAList (difference livein2' livein1')))
+             UNION domain livein1'` by
+               (REWRITE_TAC [branch_domain] >> fs [SUBSET_DEF]) >>
+            `INJ f (set (MAP FST (toAList (difference livein2 livein1)))
+             UNION domain livein1) UNIV` by
+               metis_tac [INJ_SUBSET, UNIV_SUBSET] >>
             `INJ f (domain live) UNIV` by metis_tac [INJ_SUBSET, UNIV_SUBSET] >>
-            `domain flivein1 = IMAGE f (domain livein1)` by metis_tac [check_clash_tree_output] >>
-            `?livein flivein. check_partial_col f (MAP FST (toAList (difference livein2 livein1))) livein1 flivein1 = SOME (livein, flivein)` by metis_tac [check_partial_col_success] >>
+            `domain flivein1 = IMAGE f (domain livein1)` by
+               metis_tac [check_clash_tree_output] >>
+            `?livein flivein. check_partial_col f
+               (MAP FST (toAList (difference livein2 livein1)))
+                 livein1 flivein1 = SOME (livein, flivein)` by
+                    metis_tac [check_partial_col_success] >>
             rw [] >>
             `domain livein = set (MAP FST (toAList (difference livein2 livein1))) UNION domain livein1` by metis_tac [check_partial_col_domain, FST] >>
             `domain livein' = set (MAP FST (toAList (difference livein2' livein1'))) UNION domain livein1'` by metis_tac [check_partial_col_domain, FST] >>
@@ -854,13 +869,18 @@ val get_intervals_live_less_end = Q.store_thm("get_intervals_live_less_end",
     `n2 = n_in - (size_of_live_tree lt') /\ n_out = n2 - (size_of_live_tree lt)` by metis_tac [get_intervals_nout] >>
     `check_number_property (\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v) lt' n_in live_in` by metis_tac [] >>
     `check_number_property (\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v) lt' n_in live_in` by (
-        sg `!n' (live' : num_set). (\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v) n' live' ==> (\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v) n' live'` THEN1 (
+        sg `!n' (live' : num_set). (\n live. !r. r IN domain live ==>
+            ?v. lookup r int_end2 = SOME v /\ n+1 <= v) n' live' ==>
+            (\n live. !r. r IN domain live ==>
+            ?v. lookup r end_out = SOME v /\ n+1 <= v) n' live'` THEN1 (
             rw [] >>
             `?v. lookup r int_end2 = SOME v /\ n'+1 <= v` by rw [] >>
             `?v'. lookup r end_out = SOME v' /\ v <= v'` by metis_tac [get_intervals_intend_augment] >>
             rw [] >> intLib.COOPER_TAC
         ) >>
-        qspecl_then [`\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v`, `\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_monotone_weak >>
+        qspecl_then [`\n live. !r. r IN domain live ==> ?v. lookup r int_end2 = SOME v /\ n+1 <= v`,
+          `\n live. !r. r IN domain live ==> ?v. lookup r end_out = SOME v /\ n+1 <= v`, `lt'`, `n_in`, `live_in`]
+          assume_tac check_number_property_monotone_weak >>
         rw []
     ) >>
     `0 <= size_of_live_tree lt /\ 0 <= size_of_live_tree lt'` by rw [size_of_live_tree_positive] >>
@@ -918,7 +938,11 @@ val get_intervals_withlive_intbeg_reduce = Q.store_thm("get_intervals_withlive_i
       rpt (pairarg_tac >> fs []) >>
       `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by (res_tac >> metis_tac []) >>
       `!r v. lookup r (difference int_beg2 live) = SOME v ==> n2 <= v` by (rw [lookup_difference] >> res_tac) >>
-      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <= option_CASE (lookup r (difference int_beg2 live)) n2 (\x.x)) /\ (!r v. lookup r (difference int_beg2 live) = SOME v ==> n2 <= v) /\ (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by (res_tac >> metis_tac []) >>
+      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <=
+            option_CASE (lookup r (difference int_beg2 live)) n2 (\x.x)) /\
+       (!r v. lookup r (difference int_beg2 live) = SOME v ==> n2 <= v) /\
+       (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by
+         (res_tac >> metis_tac []) >>
       fs [lookup_difference] >>
       `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
       `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
@@ -938,8 +962,16 @@ val get_intervals_withlive_intbeg_reduce = Q.store_thm("get_intervals_withlive_i
     (* Seq*)
     THEN1 (
       rpt (pairarg_tac >> fs []) >>
-      `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <= option_CASE (lookup r beg_in) n_in (\x.x)) /\ (!r v. lookup r beg_in = SOME v ==> n_in <= v) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by (res_tac >> metis_tac []) >>
-      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <= option_CASE (lookup r int_beg2) n2 (\x.x)) /\ (!r v. lookup r int_beg2 = SOME v ==> n2 <= v) /\ (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by (res_tac >> metis_tac []) >>
+      `(!r. option_CASE (lookup r int_beg2) n2 (\x.x) <=
+            option_CASE (lookup r beg_in) n_in (\x.x)) /\
+       (!r v. lookup r beg_in = SOME v ==> n_in <= v) /\
+       (!r v. lookup r int_beg2 = SOME v ==> n2 <= v)` by
+           (res_tac >> metis_tac []) >>
+      `(!r. option_CASE (lookup r int_beg1) n1 (\x.x) <=
+            option_CASE (lookup r int_beg2) n2 (\x.x)) /\
+       (!r v. lookup r int_beg2 = SOME v ==> n2 <= v) /\
+       (!r v. lookup r int_beg1 = SOME v ==> n1 <= v)` by
+         (res_tac >> metis_tac []) >>
       simp [lookup_numset_list_delete] >>
       `n2 = n_in - size_of_live_tree lt'` by metis_tac [get_intervals_withlive_nout] >>
       `n1 = n2 - size_of_live_tree lt` by metis_tac [get_intervals_withlive_nout] >>
@@ -1061,22 +1093,32 @@ val get_intervals_withlive_beg_less_live = Q.store_thm("get_intervals_withlive_b
         qabbrev_tac `set_union = union (get_live_backward lt live_in) (get_live_backward lt' live_in)` >>
         rpt strip_tac
         THEN1 (
-          sg `!n (live : num_set). (n_in - size_of_live_tree lt') - size_of_live_tree lt <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') - size_of_live_tree lt <= n /\
+              (!r. r IN domain live ==> option_CASE (lookup r int_beg1)
+                (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n) ==>
+              (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
             rw [lookup_difference] >>
             rpt CASE_TAC >>
             first_x_assum (qspec_then `r` assume_tac) >>
             rfs [] >> intLib.COOPER_TAC
           ) >>
-          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt`, `n_in - size_of_live_tree lt'`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          qspecl_then [`\n live. !r. r IN domain live ==>
+              option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`,
+            `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union))
+                 (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt`, `n_in - size_of_live_tree lt'`, `live_in`]
+              assume_tac check_number_property_strong_monotone >>
           metis_tac []
         )
         THEN1 (
-          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==>
+                 option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==>
+               (!r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
             rw [lookup_difference] >>
             rpt CASE_TAC
             THEN1 intLib.COOPER_TAC
             THEN1 (
-              `!r. option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= option_CASE (lookup r (difference int_beg2 live_in)) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
+              `!r. option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <=
+                   option_CASE (lookup r (difference int_beg2 live_in)) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
               rpt (last_x_assum (qspec_then `r` assume_tac)) >>
               rfs [lookup_difference] >>
               Cases_on `lookup r live_in` >> fs []
@@ -1086,7 +1128,9 @@ val get_intervals_withlive_beg_less_live = Q.store_thm("get_intervals_withlive_b
             )
             THEN1 intLib.COOPER_TAC
           ) >>
-          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union)) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`,
+                       `\n live. !r. r IN domain live ==> option_CASE (lookup r (difference int_beg1 set_union))
+            (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
           metis_tac []
         )
         THEN1 (
@@ -1120,16 +1164,24 @@ val get_intervals_withlive_beg_less_live = Q.store_thm("get_intervals_withlive_b
         THEN1 metis_tac []
         THEN1 (
           fs [] >>
-          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==> (!r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
+          sg `!n (live : num_set). (n_in - size_of_live_tree lt') <= n /\ (!r. r IN domain live ==>
+                 option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n) ==>
+               (!r. r IN domain live ==> option_CASE (lookup r int_beg1)
+                   (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n)` THEN1 (
               rw [] >>
-              `!r. option_CASE (lookup r beg_out) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
+              `!r. option_CASE (lookup r beg_out) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <=
+                   option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x)` by metis_tac [get_intervals_withlive_intbeg_reduce] >>
               rpt (last_x_assum (qspec_then `r` assume_tac)) >> rfs [] >>
               Cases_on `lookup r beg_out` >> fs []
               THEN1 intLib.COOPER_TAC >>
               Cases_on `lookup r int_beg2` >> rfs [] >>
               intLib.COOPER_TAC
           ) >>
-          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2) (n_in - size_of_live_tree lt') (\x.x) <= n`, `\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1) (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`, `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
+          qspecl_then [`\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg2)
+                             (n_in - size_of_live_tree lt') (\x.x) <= n`,
+                       `\n live. !r. r IN domain live ==> option_CASE (lookup r int_beg1)
+                             (n_in - size_of_live_tree lt' - size_of_live_tree lt) (\x.x) <= n`,
+                       `lt'`, `n_in`, `live_in`] assume_tac check_number_property_strong_monotone >>
           metis_tac []
         )
     )
@@ -1578,7 +1630,8 @@ val get_intervals_beg_less_live = Q.store_thm("get_intervals_beg_less_live",
     imp_res_tac get_intervals_withlive_beg_eq_get_intervals_beg >>
     `n_out = n_out'` by metis_tac [get_intervals_withlive_n_eq_get_intervals_n] >>
     rveq >>
-    `(\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n) = (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out') n_out (\x.x) <= n)` by rw [EXTENSION] >>
+    `(\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n) =
+        (\n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out') n_out (\x.x) <= n)` by rw [EXTENSION] >>
     qabbrev_tac `P = \n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out) n_out (\x.x) <= n` >>
     qabbrev_tac `Q = \n (live : num_set). !r. r IN domain live ==> option_CASE (lookup r beg_out') n_out (\x.x) <= n` >>
     rw []
@@ -1821,7 +1874,8 @@ val check_intervals_check_live_tree_lemma = Q.store_thm("check_intervals_check_l
         `domain flive1 = IMAGE f (domain live1)` by metis_tac [check_live_tree_success] >>
         rveq >>
         fs [get_live_backward_def, domain_numset_list_insert, branch_domain, size_of_live_tree_def] >>
-        sg `!r. r IN domain (get_live_backward lt live) \/ r IN domain (get_live_backward lt' live) ==> point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` THEN1 (
+        sg `!r. r IN domain (get_live_backward lt live) \/ r IN domain (get_live_backward lt' live) ==>
+                point_inside_interval (THE (lookup r beg_out), THE (lookup r end_out)) (n_in - (size_of_live_tree lt + size_of_live_tree lt'))` THEN1 (
             imp_res_tac check_number_property_intend >>
             rw [] >>
             res_tac >>
@@ -2197,7 +2251,9 @@ val good_linear_scan_state_def = Define`
         EVERY (\r. the 0 (lookup r int_beg) <= pos) l /\
         EVERY (\r. ((pos <= the 0 (lookup r int_end) /\ EL r sth.colors < st.colormax) ==> (MEM (the 0 (lookup r int_end), r) st.active))) l /\
         EVERY (\r. ((MEM (the 0 (lookup r int_end), r) st.active) ==> (pos <= 1 + the 0 (lookup r int_end)))) l /\
-        (!r1 r2. MEM r1 l /\ MEM r2 l /\ interval_intersect (the 0 (lookup r1 int_beg), the 0 (lookup r1 int_end)) (the 0 (lookup r2 int_beg), the 0 (lookup r2 int_end)) /\ EL r1 sth.colors = EL r2 sth.colors ==> r1 = r2) /\
+        (!r1 r2. MEM r1 l /\ MEM r2 l /\
+            interval_intersect (the 0 (lookup r1 int_beg), the 0 (lookup r1 int_end))
+              (the 0 (lookup r2 int_beg), the 0 (lookup r2 int_end)) /\ EL r1 sth.colors = EL r2 sth.colors ==> r1 = r2) /\
         SORTED less_FST st.active /\
         EVERY (\e,r. e = the 0 (lookup r int_end)) st.active /\
         EVERY (\e,r. MEM r l) st.active /\
@@ -2206,6 +2262,15 @@ val good_linear_scan_state_def = Define`
         EVERY (\c. mincol <= c) (st.colorpool ++ MAP (\r. EL r sth.colors) l)
     )
 `;
+
+val good_linear_scan_state_def' = let
+  val inj_rwt = Q.prove(‘(f x = f y ==> x = y) ⇔ (f x = f y ⇔ x = y)’,
+                        metis_tac[])
+in
+  good_linear_scan_state_def
+    |> SIMP_RULE bool_ss [GSYM AND_IMP_INTRO, inj_rwt]
+    |> SIMP_RULE bool_ss [AND_IMP_INTRO]
+end
 
 val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_intervals_invariants",
     `!beg st int_beg int_end sth l pos forced mincol.
@@ -2222,7 +2287,7 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
     Cases_on `st.active`
 
     THEN1 (
-        rfs [good_linear_scan_state_def] >>
+        rfs [good_linear_scan_state_def'] >>
         fs [EVERY_MEM] >> rw []
         THEN1 (
           res_tac >>
@@ -2241,13 +2306,13 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
 
     THEN1 (
         rfs [] >>
-        `r < LENGTH sth.colors` by fs [EVERY_MEM, FORALL_PROD, good_linear_scan_state_def] >>
+        `r < LENGTH sth.colors` by fs [EVERY_MEM, FORALL_PROD, good_linear_scan_state_def'] >>
         rfs [] >>
         first_x_assum (qspecl_then [`EL r sth.colors`, `int_beg`, `int_end`, `sth`, `l`, `e+1`, `forced`, `mincol`] assume_tac) >>
         `e+1 <= beg` by intLib.COOPER_TAC >>
         sg `good_linear_scan_state int_beg int_end (st with <| active := activetail; colorpool updated_by (\l. (EL r sth.colors)::l) |>) sth l (e+1) forced mincol` THEN1 (
             qpat_x_assum `good_linear_scan_state _ _ _ _ _ _ _ _ /\ _ ==> _` kall_tac >>
-            fs [good_linear_scan_state_def] >>
+            fs [good_linear_scan_state_def'] >>
             `pos <= 1+e` by (fs [EVERY_MEM] >> metis_tac []) >>
             sg `!(h:num) l1 l2. PERM (l1 ++ h::l2) ((h::l1) ++ l2)` THEN1 (
               rw [] >>
@@ -2257,7 +2322,7 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
               `l1 ++ h::l2 = (l1 ++ [h]) ++ l2` by simp [] >>
               simp []
             ) >>
-            `ALL_DISTINCT ((EL r sth.colors :: st.colorpool) ++ MAP (\(e,r). EL r sth.colors) activetail)` by metis_tac [ALL_DISTINCT_PERM] >>
+            `ALL_DISTINCT ((EL r sth.colors :: st.colorpool) ++ MAP (λ(e,r). EL r sth.colors) activetail)` by metis_tac [ALL_DISTINCT_PERM] >>
             rfs [] >>
             fs [EVERY_MEM] >> rw []
             THEN1 (
@@ -2292,13 +2357,13 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
           assume_tac transitive_less_FST >>
           rw []
           THEN1 rw [] >>
-          fs [good_linear_scan_state_def] >>
+          fs [good_linear_scan_state_def'] >>
           `less_FST (e,r) (e',r')` by imp_res_tac SORTED_EQ >>
           fs [less_FST_def] >>
           intLib.COOPER_TAC
         ) >>
         qpat_x_assum `st.active = _` kall_tac >>
-        fs [good_linear_scan_state_def] >>
+        fs [good_linear_scan_state_def'] >>
         fs [EVERY_MEM] >> rw []
         THEN1 (
           res_tac >>
@@ -2390,7 +2455,7 @@ val find_color_in_colornum_invariants = Q.store_thm("find_color_in_colornum_inva
 
     rw [find_color_in_colornum_def] >> rw []
     THEN1 (
-      fs [good_linear_scan_state_def] >>
+      fs [good_linear_scan_state_def'] >>
       rveq >>
       fs [EVERY_MEM, FORALL_PROD] >> rw []
       THEN1 (
@@ -2405,7 +2470,7 @@ val find_color_in_colornum_invariants = Q.store_thm("find_color_in_colornum_inva
       res_tac >> intLib.COOPER_TAC
     )
     THEN1 (
-      CCONTR_TAC >> fs [good_linear_scan_state_def] >>
+      CCONTR_TAC >> fs [good_linear_scan_state_def'] >>
       `st.colornum IN {EL r sth.colors | r | MEM r l}` by fs [SUBSET_DEF] >>
       fs [EVERY_MEM] >>
       rpt (first_x_assum (qspec_then `r` assume_tac)) >>
@@ -2441,12 +2506,12 @@ val find_color_invariants = Q.store_thm("find_color_invariants",
         `PERM (l1 ++ [col] ++ l2) (col::l1 ++ l2)` by simp [PERM_APPEND_IFF] >>
         FULL_SIMP_TAC pure_ss [GSYM APPEND_ASSOC, APPEND]
       ) >>
-      sg `ALL_DISTINCT (col::(l1++l2) ++ MAP (\(e,r). EL r sth.colors) st.active)` THEN1 (
-        FULL_SIMP_TAC pure_ss [good_linear_scan_state_def] >>
+      sg `ALL_DISTINCT (col::(l1++l2) ++ MAP (λ(e,r). EL r sth.colors) st.active)` THEN1 (
+        FULL_SIMP_TAC pure_ss [good_linear_scan_state_def'] >>
         metis_tac [ALL_DISTINCT_PERM, PERM_APPEND_IFF]
       ) >>
       simp [linear_scan_state_component_equality] >>
-      fs [good_linear_scan_state_def, EVERY_MEM] >>
+      fs [good_linear_scan_state_def', EVERY_MEM] >>
       metis_tac []
     )
 );
@@ -2461,25 +2526,24 @@ val update_color_active_colors_same = Q.store_thm("update_color_active_colors_sa
     fs []
 );
 
-(* TODO: this proof is terribly slow because the simplifier messes up, even if with the "lower lever" tactics *)
-val forced_update_stack_color_lemma = Q.store_thm("forced_update_stack_color_lemma",
-    `!(colors : num list) (stacknum : num) l r2 r1.
-    EVERY (\r. EL r colors < stacknum) l /\
-    MEM r2 l /\
-    r1 < LENGTH colors /\
-    EL r1 (LUPDATE stacknum r1 colors) = EL r2 (LUPDATE stacknum r1 colors) ==>
-    r1 = r2`,
+val forced_update_stack_color_lemma = Q.store_thm(
+  "forced_update_stack_color_lemma",
+  `!(colors : num list) (stacknum : num) l r2 r1.
+      EVERY (\r. EL r colors < stacknum) l /\
+      MEM r2 l /\
+      r1 < LENGTH colors /\
+      EL r1 (LUPDATE stacknum r1 colors) =
+       EL r2 (LUPDATE stacknum r1 colors) ==>
+      r1 = r2`,
 
-    Induct_on `l` >>
-    rw []
-    THEN1 (
-        FULL_SIMP_TAC bool_ss [EL_LUPDATE] >>
-        REV_FULL_SIMP_TAC pure_ss [] >>
-        FULL_SIMP_TAC bool_ss [] >>
-        Cases_on `h = r1` >> FULL_SIMP_TAC bool_ss [] >>
-        FULL_SIMP_TAC arith_ss []
-    )
-    THEN1 metis_tac []
+    (* recast injectivity to make simplifier (much!) faster *)
+    ‘∀(colors:num list) stacknum l r2 r1.
+      EVERY (λr. EL r colors < stacknum) l ∧ MEM r2 l ∧ r1 < LENGTH colors ⇒
+      (EL r1 (LUPDATE stacknum r1 colors) = EL r2 (LUPDATE stacknum r1 colors) ⇔
+       r1 = r2)’ suffices_by metis_tac[] >>
+    Induct_on `l` >> rw []
+    >- fs[EL_LUPDATE]
+    >- metis_tac []
 );
 
 (* TODO: this should be part of the standard library, but I couldn't find it *)
@@ -2566,20 +2630,20 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
     st.colormax <= EL reg sthout.colors`,
 
     rw [spill_register_def] >> rw msimps >>
-    fs [good_linear_scan_state_def] >>
+    fs [good_linear_scan_state_def'] >>
     rpt strip_tac
-    THEN1 (
+    THEN1 ((* 24 *)
         rw [update_color_active_colors_same] >>
         metis_tac [FILTER_IS_SPARSE_SUBLIST, MAP_IS_SPARSE_SUBLIST, IS_SPARSE_SUBLIST_APPEND_LEFT, ALL_DISTINCT_IS_SPARSE_SUBLIST]
     )
-    THEN1 rw [EL_LUPDATE]
-    THEN1 (
+    THEN1 (* 23 *) rw [EL_LUPDATE]
+    THEN1 ((* 22 *)
         fs [EVERY_MEM, FORALL_PROD] >>
         rw [EL_LUPDATE] >>
         `EL r sth.colors < st.stacknum` by rw [] >>
         rw []
     )
-    THEN1 (
+    THEN1 ((* 21 *)
         rw [EXTENSION] >>
         eq_tac >>
         rw [] >>
@@ -2587,7 +2651,7 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
         rw [EL_LUPDATE] >>
         fs [EL_LUPDATE, id_def]
     )
-    THEN1 (
+    THEN1 ((* 20 *)
         `!r. MEM r l ==> EL r sth.colors < st.stacknum` by fs [EVERY_MEM] >>
         rpt (qpat_x_assum `EVERY _ _` kall_tac) >>
         rpt (qpat_x_assum `!x x. _` kall_tac) >>
@@ -2609,20 +2673,20 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
         `EL h sth.colors < st.stacknum` by rw [] >>
         rw []
     )
-    THEN1 (
+    THEN1 ((* 19 *)
         fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER] >>
         metis_tac []
     )
-    THEN1 fs [EL_LUPDATE]
-    THEN1 fs [EL_LUPDATE, EVERY_MEM]
-    THEN1 fs [MEM_FILTER]
-    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-    THEN1 rw []
-    THEN1 metis_tac [forced_update_stack_color_lemma]
-    THEN1 metis_tac [forced_update_stack_color_lemma]
-    THEN1 (
+    THEN1 (* 18 *) fs [EL_LUPDATE]
+    THEN1 (* 17 *) fs [EL_LUPDATE, EVERY_MEM]
+    THEN1 (* 16 *) fs [EL_LUPDATE]
+    THEN1 (* 15 *) fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 (* 14 *) fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 (* 13 *) fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 (* 12 *) rw []
+    THEN1 (* 11 *) metis_tac [forced_update_stack_color_lemma]
+    THEN1 (* 10 *) metis_tac [forced_update_stack_color_lemma]
+    THEN1 ((* 9 *)
         fs [EL_LUPDATE] >>
         Cases_on `r1 = reg /\ reg < LENGTH sth.colors` >>
         Cases_on `r2 = reg /\ reg < LENGTH sth.colors` >>
@@ -2631,13 +2695,13 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
         TRY (`EL r1 sth.colors < st.stacknum` by rw []) >>
         rw []
     )
-    THEN1 metis_tac [transitive_less_FST, SORTED_FILTER]
-    THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
-    THEN1 (
+    THEN1 (* 8 *) metis_tac [transitive_less_FST, SORTED_FILTER]
+    THEN1 (* 7 *) fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
+    THEN1 ((* 6 *)
         fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER] >>
         metis_tac []
     )
-    THEN1 (
+    THEN1 ((* 5 *)
         fs [EVERY_MEM, FORALL_PROD] >>
         RW_TAC bool_ss [EL_LUPDATE] >>
         rename1 `MEM (r1, r2) forced`
@@ -2652,14 +2716,14 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
             rw []
         )
     )
-    THEN1 simp [EL_LUPDATE]
-    THEN1 (
+    THEN1 (* 4 *) simp [EL_LUPDATE]
+    THEN1 ((* 3 *)
         `mincol <= st.stacknum` by simp [] >>
         fs [EVERY_MEM, EL_LUPDATE, MEM_MAP] >>
         metis_tac []
     )
-    THEN1 simp [EL_LUPDATE]
-    THEN1 simp [EL_LUPDATE]
+    THEN1 (* 2 *) simp [EL_LUPDATE]
+    THEN1 (* 1 *) simp [EL_LUPDATE]
 );
 
 val spill_register_FILTER_invariants =
@@ -2717,12 +2781,14 @@ val edges_to_adjlist_FOLDL = Q.store_thm("edges_to_adjlist_FOLDL",
 
 val forbidden_is_from_forced_def = Define`
     forbidden_is_from_forced forced int_beg reg forbidden =
-        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\ ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> MEM reg2 forbidden
+        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\
+      ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> MEM reg2 forbidden
 `;
 
 val forbidden_is_from_forced_sublist_def = Define`
     forbidden_is_from_forced_sublist l forced int_beg reg forbidden =
-        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\ ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> (MEM reg2 forbidden /\ MEM reg l)
+        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\
+      ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> (MEM reg2 forbidden /\ MEM reg l)
 `;
 
 val forbidden_is_from_forced_list_def = Define`
@@ -2821,8 +2887,8 @@ val state_invariants_remove_head = Q.store_thm("state_invariants_remove_head",
 
     rw [] >>
     `!r. r = reg \/ MEM r l <=> MEM r l` by metis_tac [] >>
-    rw [good_linear_scan_state_def] >>
-    fs [good_linear_scan_state_def] >>
+    rw [good_linear_scan_state_def'] >>
+    fs [good_linear_scan_state_def'] >>
     every_case_tac >> fs []
 );
 
@@ -2877,7 +2943,7 @@ val good_linear_scan_state_active_length_colors = Q.store_thm("good_linear_scan_
     good_linear_scan_state int_beg int_end st sth l pos forced mincol ==>
     EVERY (\e,r. r < LENGTH sth.colors) st.active`,
 
-    rw [good_linear_scan_state_def, EVERY_MEM] >>
+    rw [good_linear_scan_state_def', EVERY_MEM] >>
     res_tac >>
     rpt (pairarg_tac >> fs [])
 );
@@ -2921,7 +2987,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
     stout.colormax = st.colormax`,
 
     rpt strip_tac >> simp [color_register_eq] >> simp msimps >>
-    fs [good_linear_scan_state_def] >>
+    fs [good_linear_scan_state_def'] >>
     rpt strip_tac
     THEN1 (
       sg `!e. ~MEM (e,reg) st.active` THEN1 (
@@ -3074,7 +3140,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
     THEN1 (
         fs [EVERY_MEM, FORALL_PROD, forbidden_is_from_map_color_forced_def] >>
         rw [] >>
-        rename1 `MEM (reg1, reg2) forced`
+        rename1 `MEM (reg1, reg2) forced` >> eq_tac >> simp[] >> strip_tac
         THEN1 (
           REV_FULL_SIMP_TAC bool_ss [EL_LUPDATE] >>
           Cases_on `reg1 = reg2` >> fs [] >>
@@ -3089,7 +3155,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
         THEN1 (
           REV_FULL_SIMP_TAC bool_ss [EL_LUPDATE] >>
           Cases_on `reg1 = reg` >> FULL_SIMP_TAC bool_ss [] >>
-          Cases_on `reg2 = reg` >> FULL_SIMP_TAC bool_ss []
+          Cases_on `reg2 = reg` >> FULL_SIMP_TAC bool_ss [] >> metis_tac[]
         )
     )
     THEN1 simp [EL_LUPDATE]
@@ -3116,7 +3182,7 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
     stout.colormax = st.colormax`,
 
     rw [find_spill_def] >> simp msimps >>
-    `!e. ~(MEM (e,reg) st.active)` by (CCONTR_TAC >> fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]) >>
+    `!e. ~(MEM (e,reg) st.active)` by (CCONTR_TAC >> fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD]) >>
     imp_res_tac good_linear_scan_state_active_length_colors >>
     `?optsteal. find_last_stealable st.active forbidden sth = (Success optsteal, sth)` by metis_tac [find_last_stealable_success] >>
     simp [] >>
@@ -3139,13 +3205,13 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
     imp_res_tac find_last_stealable_output >>
     `stealreg < LENGTH sth.colors` by fs [EVERY_MEM, FORALL_PROD] >>
     `MEM (stealend, stealreg) st.active` by rw [] >>
-    `MEM stealreg l` by fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+    `MEM stealreg l` by fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
     rw [] >>
     FULL_SIMP_TAC pure_ss [SND] >>
     `(EL stealreg sth.colors) NOTIN domain forbidden` by fs [lookup_NONE_domain] >>
-    `EL stealreg sth.colors < st.colornum` by fs [good_linear_scan_state_def] >>
+    `EL stealreg sth.colors < st.colornum` by fs [good_linear_scan_state_def'] >>
     sg `ALL_DISTINCT ([EL stealreg sth.colors] ++ st.colorpool ++ (MAP (\e,r. EL r sth.colors) l1) ++ (MAP (\e,r. EL r sth.colors) l2))` THEN1 (
-        `ALL_DISTINCT (st.colorpool ++ MAP (\e,r. EL r sth.colors) st.active)` by rfs [good_linear_scan_state_def] >>
+        `ALL_DISTINCT (st.colorpool ++ MAP (\e,r. EL r sth.colors) st.active)` by rfs [good_linear_scan_state_def'] >>
         REV_FULL_SIMP_TAC std_ss [MAP, MAP_APPEND] >>
         sg `!ll ll1 (x:num) ll2. PERM (ll ++ (ll1 ++ x::ll2)) ([x] ++ ll ++ ll1 ++ ll2)` THEN1 (
             rw [] >>
@@ -3157,7 +3223,7 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
         metis_tac [ALL_DISTINCT_PERM]
     ) >>
     sg `(!e. ~MEM (e, stealreg) l1) /\ (!e. ~MEM (e, stealreg) l2)` THEN1 (
-        `ALL_DISTINCT (MAP (\e,r. EL r sth.colors) st.active)` by rfs [good_linear_scan_state_def, ALL_DISTINCT_APPEND] >>
+        `ALL_DISTINCT (MAP (\e,r. EL r sth.colors) st.active)` by rfs [good_linear_scan_state_def', ALL_DISTINCT_APPEND] >>
         `ALL_DISTINCT st.active` by metis_tac [ALL_DISTINCT_MAP] >>
         rfs [] >>
         sg `!(x:int#num) ll1 ll2. PERM (ll1 ++ [x] ++ ll2) ([x] ++ ll1 ++ ll2)` THEN1 (
@@ -3169,9 +3235,9 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
         fs [] >>
         `ALL_DISTINCT ((stealend, stealreg)::(l1 ++ l2))` by metis_tac [ALL_DISTINCT_PERM] >>
         fs [] >>
-        `EVERY (\e,r. e = the 0 (lookup r int_end)) (l1++l2)` by fs [good_linear_scan_state_def, EVERY_APPEND] >>
+        `EVERY (\e,r. e = the 0 (lookup r int_end)) (l1++l2)` by fs [good_linear_scan_state_def', EVERY_APPEND] >>
         fs [EVERY_APPEND] >>
-        `stealend = the 0 (lookup stealreg int_end)` by fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+        `stealend = the 0 (lookup stealreg int_end)` by fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
         fs [] >>
         rw [] >>
         CCONTR_TAC >> fs [] >>
@@ -3183,8 +3249,8 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
         imp_res_tac FILTER_MEM_active >>
         simp [FILTER_APPEND]
     ) >>
-    `mincol <= EL stealreg sth.colors` by (fs [good_linear_scan_state_def, EVERY_MEM, MEM_MAP] >> metis_tac []) >>
-    `the 0 (lookup stealreg int_beg) <= the 0 (lookup reg int_beg)` by fs [good_linear_scan_state_def, EVERY_MEM] >>
+    `mincol <= EL stealreg sth.colors` by (fs [good_linear_scan_state_def', EVERY_MEM, MEM_MAP] >> metis_tac []) >>
+    `the 0 (lookup stealreg int_beg) <= the 0 (lookup reg int_beg)` by fs [good_linear_scan_state_def', EVERY_MEM] >>
     qspecl_then [`int_beg`, `int_end`, `st`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `stealreg`, `mincol`] assume_tac (GSYM spill_register_FILTER_invariants) >>
     rfs [] >>
     imp_res_tac state_invariants_remove_head >>
@@ -3248,9 +3314,9 @@ val linear_reg_alloc_step_aux_invariants = Q.store_thm("linear_reg_alloc_step_au
         rename1 `_ = (stout, SOME col)` >>
         qspecl_then [`st`, `forbidden`, `stout`, `col`, `int_beg`, `int_end`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `mincol`] assume_tac find_color_invariants >>
         rfs [linear_scan_state_component_equality] >>
-        `~MEM col (stout.colorpool ++ MAP (\(e,r). EL r sth.colors) stout.active)` by fs [good_linear_scan_state_def] >>
-        `mincol <= col` by fs [good_linear_scan_state_def] >>
-        `good_linear_scan_state int_beg int_end stout sth l (the 0 (lookup reg int_beg)) forced mincol` by fs [good_linear_scan_state_def] >>
+        `~MEM col (stout.colorpool ++ MAP (\(e,r). EL r sth.colors) stout.active)` by fs [good_linear_scan_state_def'] >>
+        `mincol <= col` by fs [good_linear_scan_state_def'] >>
+        `good_linear_scan_state int_beg int_end stout sth l (the 0 (lookup reg int_beg)) forced mincol` by fs [good_linear_scan_state_def'] >>
         metis_tac [color_register_invariants]
       )
     )
@@ -3261,17 +3327,18 @@ val linear_reg_alloc_step_aux_invariants = Q.store_thm("linear_reg_alloc_step_au
       imp_res_tac find_color_in_list_output >>
       fs [MEM_FILTER] >>
       sg `good_linear_scan_state int_beg int_end (st with colorpool updated_by FILTER (\y. col <> y)) sth l (the 0 (lookup reg int_beg)) forced mincol` THEN1 (
-        fs [good_linear_scan_state_def] >>
+        fs [good_linear_scan_state_def'] >>
         simp [EVERY_FILTER_IMP] >>
         metis_tac [FILTER_IS_SPARSE_SUBLIST, IS_SPARSE_SUBLIST_APPEND_RIGHT, ALL_DISTINCT_IS_SPARSE_SUBLIST]
       ) >>
       sg `~MEM col ((FILTER (\y. col <> y) st.colorpool) ++ MAP (\e,r. EL r sth.colors) st.active)` THEN1 (
         rw [MEM_FILTER] >>
-        fs [good_linear_scan_state_def, ALL_DISTINCT_APPEND]
+        fs [good_linear_scan_state_def', ALL_DISTINCT_APPEND]
       ) >>
-      `col < st.colornum` by fs [good_linear_scan_state_def, EVERY_MEM] >>
-      `mincol <= col` by fs [good_linear_scan_state_def, EVERY_MEM, MEM_MAP] >>
-      qspecl_then [`int_beg`, `int_end`, `st with colorpool updated_by FILTER (\y. col <> y)`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `reg`, `col`, `forbidden`, `mincol`] assume_tac color_register_invariants >>
+      `col < st.colornum` by fs [good_linear_scan_state_def', EVERY_MEM] >>
+      `mincol <= col` by fs [good_linear_scan_state_def', EVERY_MEM, MEM_MAP] >>
+      qspecl_then [`int_beg`, `int_end`, `st with colorpool updated_by FILTER (\y. col <> y)`, `sth`, `l`,
+                   `the 0 (lookup reg int_beg)`, `forced`, `reg`, `col`, `forbidden`, `mincol`] assume_tac color_register_invariants >>
       rfs [] >>
       metis_tac []
     )
@@ -3316,7 +3383,7 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
     Cases_on `is_stack_var reg` >>
     simp []
     THEN1 (
-        `!e. ~MEM (e,reg) stout.active` by (CCONTR_TAC >> fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]) >>
+        `!e. ~MEM (e,reg) stout.active` by (CCONTR_TAC >> fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD]) >>
         `!(x:int). x <= x` by rw [] >>
         simp [phystack_on_stack_def] >>
         `~is_phy_var reg` by metis_tac [convention_partitions] >>
@@ -3343,7 +3410,7 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
       Cases_on `reg < 2*stout.colormax` >> simp []
       THEN1 (
         `domain stout.phyregs SUBSET domain (union stout.phyregs forbidden)` by simp [domain_union] >>
-        `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def, SUBSET_DEF] >> metis_tac []) >>
+        `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def', SUBSET_DEF] >> metis_tac []) >>
         `forbidden_is_from_map_color_forced forced l sth.colors reg (union stout.phyregs forbidden)` by (fs [forbidden_is_from_map_color_forced_def, domain_union] >> metis_tac []) >>
         qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `[]`, `union stout.phyregs forbidden`, `forced`, `reg`, `T`] assume_tac linear_reg_alloc_step_aux_invariants >>
         rfs [] >>
@@ -3352,7 +3419,7 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
         metis_tac []
       )
       THEN1 (
-        `!e. ~MEM (e,reg) stout.active` by (CCONTR_TAC >> fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]) >>
+        `!e. ~MEM (e,reg) stout.active` by (CCONTR_TAC >> fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD]) >>
         `!(x:int). x <= x` by rw [] >>
         `2*st.colormax <= reg` by rw [] >>
         simp [phystack_on_stack_def] >>
@@ -3360,7 +3427,8 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
       )
     )
     THEN1 (
-        qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`, `forbidden`, `forced`, `reg`, `F`, `mincol`] assume_tac linear_reg_alloc_step_aux_invariants >>
+        qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`,
+                     `forbidden`, `forced`, `reg`, `F`, `mincol`] assume_tac linear_reg_alloc_step_aux_invariants >>
         rfs [] >>
         simp [phystack_on_stack_def] >>
         metis_tac []
@@ -3408,14 +3476,15 @@ val linear_reg_alloc_step_pass2_invariants = Q.store_thm("linear_reg_alloc_step_
 
     THEN1 (
       `domain stout.phyregs SUBSET domain (union stout.phyregs forbidden)` by simp [domain_union] >>
-      `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def, SUBSET_DEF] >> metis_tac []) >>
+      `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def', SUBSET_DEF] >> metis_tac []) >>
       `forbidden_is_from_map_color_forced forced l sth.colors reg (union stout.phyregs forbidden)` by (fs [forbidden_is_from_map_color_forced_def, domain_union] >> metis_tac []) >>
       qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `[]`, `union stout.phyregs forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
       rfs [] >>
       metis_tac []
     )
     THEN1 (
-      qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`, `forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
+      qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`,
+                   `forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
       rfs [] >>
       metis_tac []
     )
@@ -3467,7 +3536,11 @@ val st_ex_FOLDL_linear_reg_alloc_step_passn_invariants_lemma = Q.store_thm("st_e
     ) >>
     rpt gen_tac >> strip_tac >>
     SIMP_TAC std_ss (st_ex_FOLDL_def::msimps) >>
-    sg `?stmid sthmid. (if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) int_beg int_end forced_adj moves st h sth = (Success stmid, sthmid) /\ good_linear_scan_state int_beg int_end stmid sthmid (h::l) (the 0 (lookup h int_beg)) forced mincol /\ LENGTH sthmid.colors = LENGTH sth.colors /\ (!r. ~MEM r (h::l) ==> EL r sthmid.colors = EL r sth.colors) /\ (b ==> (phystack_on_stack l st sth ==> phystack_on_stack (h::l) stmid sthmid)) /\ stmid.colormax = st.colormax` THEN1 (
+    sg `?stmid sthmid. (if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) int_beg int_end forced_adj moves st h sth = (Success stmid, sthmid) /\
+           good_linear_scan_state int_beg int_end stmid sthmid (h::l) (the 0 (lookup h int_beg)) forced mincol /\
+           LENGTH sthmid.colors = LENGTH sth.colors /\
+           (!r. ~MEM r (h::l) ==> EL r sthmid.colors = EL r sth.colors) /\
+           (b ==> (phystack_on_stack l st sth ==> phystack_on_stack (h::l) stmid sthmid)) /\ stmid.colormax = st.colormax` THEN1 (
         `~MEM h l` by (fs [EVERY_MEM] >> metis_tac []) >>
         sg `EVERY (\r. MEM r l) (the [] (lookup h forced_adj))` THEN1 (
           rw [EVERY_MEM] >>
@@ -3563,7 +3636,7 @@ val linear_reg_alloc_pass1_initial_state_invariants = Q.store_thm("linear_reg_al
     good_linear_scan_state int_beg int_end (linear_reg_alloc_pass1_initial_state k) sth [] pos forced 0 /\
     EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist`,
 
-    rw [good_linear_scan_state_def, linear_reg_alloc_pass1_initial_state_def] >> rw [] >>
+    rw [good_linear_scan_state_def', linear_reg_alloc_pass1_initial_state_def] >> rw [] >>
     qspecl_then [`\r. the 0 (lookup r int_beg)`, `reglist`] assume_tac list_minimum >>
     fs [] >>
     qexists_tac `x` >> rw [] >>
@@ -3577,7 +3650,7 @@ val linear_reg_alloc_pass2_initial_state_invariants = Q.store_thm("linear_reg_al
     good_linear_scan_state int_beg int_end (linear_reg_alloc_pass2_initial_state k nreg) sth [] pos forced k /\
     EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist`,
 
-    rw [good_linear_scan_state_def, linear_reg_alloc_pass2_initial_state_def] >> rw [] >>
+    rw [good_linear_scan_state_def', linear_reg_alloc_pass2_initial_state_def] >> rw [] >>
     qspecl_then [`\r. the 0 (lookup r int_beg)`, `reglist`] assume_tac list_minimum >>
     fs [] >>
     qexists_tac `x` >> rw [] >>
@@ -3633,7 +3706,7 @@ val good_linear_scan_state_REVERSE = Q.store_thm("good_linear_scan_state_REVERSE
     `!int_beg int_end st sth l pos forced mincol.
     good_linear_scan_state int_beg int_end st sth (REVERSE l) pos forced mincol <=>
     good_linear_scan_state int_beg int_end st sth l pos forced mincol`,
-    rw [good_linear_scan_state_def] >>
+    rw [good_linear_scan_state_def'] >>
     eq_tac >>
     rw [EVERY_REVERSE, FILTER_REVERSE, MAP_REVERSE, ALL_DISTINCT_REVERSE]
 );
@@ -3695,7 +3768,8 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     `?stackphyregs. FILTER (\r. 2*k <= r) phyregs = stackphyregs` by simp [] >>
     simp [] >>
 
-      `?pos. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass1_initial_state k) sth [] pos forced 0 /\ EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist` by simp [linear_reg_alloc_pass1_initial_state_invariants] >>
+      `?pos. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass1_initial_state k) sth [] pos forced 0 /\
+             EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist` by simp [linear_reg_alloc_pass1_initial_state_invariants] >>
 
     `PERM reglist_unsorted reglist` by metis_tac [QSORT_PERM] >>
     `!r. MEM r reglist_unsorted <=> MEM r reglist` by simp [PERM_MEM_EQ] >>
@@ -3724,13 +3798,14 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
       metis_tac []
     ) >>
     `EVERY (\r. the 0 (lookup r int_beg) <= the 0 (lookup r int_end)) reglist` by fs [EVERY_MEM] >>
-    qspecl_then [`reglist`, `linear_reg_alloc_pass1_initial_state k`, `sth`, `pos`, `T`, `int_beg`, `int_end`, `moves_adjlist`, `forced_adjlist`, `forced`, `0`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
+    qspecl_then [`reglist`, `linear_reg_alloc_pass1_initial_state k`, `sth`, `pos`, `T`, `int_beg`, `int_end`,
+                 `moves_adjlist`, `forced_adjlist`, `forced`, `0`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
     simp [] >> strip_tac >>
     rename1 `(Success st1, sth1) = _` >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
 
-    `ALL_DISTINCT (MAP (\r. EL r sth1.colors) phyregs)` by (fs [good_linear_scan_state_REVERSE, good_linear_scan_state_def] >> rw []) >>
+    `ALL_DISTINCT (MAP (\r. EL r sth1.colors) phyregs)` by (fs [good_linear_scan_state_REVERSE, good_linear_scan_state_def'] >> rw []) >>
     qspecl_then [`phyphyregs`, `sth1`, `k`] mp_tac apply_reg_exchange_correct >>
     impl_tac THEN1 (
         strip_tac THEN1 (
@@ -3760,9 +3835,11 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     `?forced'. FILTER (\r1,r2. MEM r1 stacklist /\ MEM r2 stacklist) forced = forced'` by simp [] >>
     simp [] >>
 
-    `?pos2. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)) sth2 [] pos2 forced' k /\ EVERY (\r. pos2 <= the 0 (lookup r int_beg)) stacklist` by simp [linear_reg_alloc_pass2_initial_state_invariants] >>
+    `?pos2. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)) sth2 [] pos2 forced' k /\
+            EVERY (\r. pos2 <= the 0 (lookup r int_beg)) stacklist` by simp [linear_reg_alloc_pass2_initial_state_invariants] >>
 
-    qspecl_then [`stacklist`, `linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)`, `sth2`, `pos2`, `F`, `int_beg`, `int_end`, `moves_adjlist'`, `forced_adjlist'`, `forced'`, `k`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
+    qspecl_then [`stacklist`, `linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)`, `sth2`, `pos2`, `F`, `int_beg`,
+                 `int_end`, `moves_adjlist'`, `forced_adjlist'`, `forced'`, `k`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
     impl_tac THEN1 (
       simp [] >>
       strip_tac THEN1 (
@@ -3814,9 +3891,9 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     rpt (qpat_x_assum `good_linear_scan_state _ _ (_ _) _ _ _ _ _` kall_tac) >>
     fs [linear_reg_alloc_pass1_initial_state_def] >>
 
-    `EVERY (\r. k <= EL r sth3.colors) stacklist` by (FULL_SIMP_TAC pure_ss [good_linear_scan_state_def, EVERY_MEM, MEM_APPEND, MEM_MAP] >> metis_tac []) >>
+    `EVERY (\r. k <= EL r sth3.colors) stacklist` by (FULL_SIMP_TAC pure_ss [good_linear_scan_state_def', EVERY_MEM, MEM_APPEND, MEM_MAP] >> metis_tac []) >>
     sg `ALL_DISTINCT (MAP (\r. EL r sth3.colors) phyregs)` THEN1 (
-        `ALL_DISTINCT (MAP (\r. EL r sth3.colors) (FILTER is_phy_var stacklist))` by fs [good_linear_scan_state_def] >>
+        `ALL_DISTINCT (MAP (\r. EL r sth3.colors) (FILTER is_phy_var stacklist))` by fs [good_linear_scan_state_def'] >>
         sg `ALL_DISTINCT (MAP (\r. EL r sth3.colors) (FILTER (\r. MEM r stacklist) phyregs))` THEN1 (
             rveq >>
             fs [FILTER_FILTER, MEM_FILTER] >>
@@ -3941,7 +4018,7 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
         Cases_on `MEM r2 stacklist`
         THEN1 (
             qpat_x_assum `good_linear_scan_state _ _ st1 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]
+            FULL_SIMP_TAC std_ss [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >> metis_tac[]
         )
         THEN1 (
             fs [EVERY_MEM] >> res_tac >> fs []
@@ -3951,7 +4028,7 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
         )
         THEN1 (
             qpat_x_assum `good_linear_scan_state _ _ st3 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+            FULL_SIMP_TAC std_ss [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
             metis_tac []
         )
     )
@@ -3998,7 +4075,8 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
         THEN1 (
             `MEM (r1, r2) forced'` by (rveq >> fs [MEM_FILTER]) >>
             qpat_x_assum `good_linear_scan_state _ _ st1 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]
+            FULL_SIMP_TAC std_ss [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
+            metis_tac[]
         )
         THEN1 (
             fs [EVERY_MEM] >> res_tac >> fs []
@@ -4008,7 +4086,7 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
         )
         THEN1 (
             qpat_x_assum `good_linear_scan_state _ _ st3 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+            FULL_SIMP_TAC std_ss [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD] >>
             metis_tac []
         )
     )

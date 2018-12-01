@@ -1,3 +1,6 @@
+(*
+  A functional big-step semantics.
+*)
 open preamble;
 open semanticPrimitivesTheory bigStepTheory;
 open terminationTheory;

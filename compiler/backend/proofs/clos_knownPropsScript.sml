@@ -1,3 +1,6 @@
+(*
+  Lemmas used in proof of clos_known
+*)
 open HolKernel Parse boolLib bossLib;
 
 open preamble

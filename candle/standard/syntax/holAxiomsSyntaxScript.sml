@@ -1,5 +1,10 @@
+(*
+  Context extensions for asserting the mathematical axioms.
+*)
 open preamble holBoolSyntaxTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val _ = new_theory"holAxiomsSyntax"
+
+val _ = Parse.hide "mem"
 
 val mem = ``mem:'U->'U->bool``
 

@@ -1,7 +1,6 @@
-(* --------------------------------------------------------------------------
-   Pre-evaluate encoder (to help speed up EVAL)
-   -------------------------------------------------------------------------- *)
-
+(*
+  Pre-evaluate encoder (to help speed up EVAL)
+*)
 open HolKernel Parse boolLib bossLib
 open x64Theory x64_targetTheory
 

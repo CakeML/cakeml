@@ -1,3 +1,6 @@
+(*
+  Correctness proof for pat_to_clos
+*)
 open preamble intLib integerTheory backendPropsTheory
      semanticPrimitivesTheory
      patSemTheory patPropsTheory pat_to_closTheory
@@ -38,7 +41,7 @@ val compile_state_def = Define`
        clock := s.clock;
        code := FEMPTY;
        compile := cc;
-       compile_oracle := pure_co (λe. (compile e,[])) o s.compile_oracle;
+       compile_oracle := pure_co (λes. (MAP compile es,[])) o s.compile_oracle;
        max_app := max_app
     |>`;
 
@@ -47,7 +50,7 @@ val compile_state_const = Q.store_thm("compile_state_const[simp]",
    (compile_state max_app cc s).ffi = s.ffi ∧
    (compile_state max_app cc s).compile = cc ∧
    (compile_state max_app cc s).max_app = max_app ∧
-   (compile_state max_app cc s).compile_oracle = pure_co (λe. (compile e,[])) o s.compile_oracle`,
+   (compile_state max_app cc s).compile_oracle = pure_co (λe. (MAP compile e,[])) o s.compile_oracle`,
   EVAL_TAC);
 
 val compile_state_dec_clock = Q.store_thm("compile_state_dec_clock[simp]",
@@ -164,11 +167,11 @@ val v_to_words = Q.store_thm("v_to_words",
 
 val do_install = Q.store_thm("do_install",
   `patSem$do_install vs s = SOME (v1,v2) ∧
-   s.compile = pure_cc (λe. (compile e,[])) cc
+   s.compile = pure_cc (λe. (MAP compile e,[])) cc
    ==>
    closSem$do_install (MAP compile_v vs) (compile_state max_app cc s) =
      if s.clock = 0 then (Rerr (Rabort Rtimeout_error),compile_state max_app cc v2)
-     else (Rval (compile v1),dec_clock 1(compile_state max_app cc v2))`,
+     else (Rval (MAP compile v1),dec_clock 1(compile_state max_app cc v2))`,
   simp[do_install_def,patSemTheory.do_install_def,case_eq_thms]
   \\ simp[] \\ strip_tac \\ rveq \\ fs[]
   \\ imp_res_tac v_to_bytes \\ imp_res_tac v_to_words
@@ -244,7 +247,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   `0 < max_app ⇒
    (∀env ^s es s' r.
       evaluate env s es = (s',r) ∧
-      s.compile = pure_cc (λe. (pat_to_clos$compile e,[])) cc ∧
+      s.compile = pure_cc (λe. (MAP pat_to_clos$compile e,[])) cc ∧
       r ≠ Rerr (Rabort Rtype_error) ⇒
       evaluate (MAP compile es,MAP compile_v env,compile_state max_app cc s) =
         (map_result (MAP compile_v) compile_v r, compile_state max_app cc s'))`,
@@ -338,7 +341,14 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       drule do_install \\
       imp_res_tac patPropsTheory.evaluate_const \\ fs[MAP_REVERSE] \\
       imp_res_tac patPropsTheory.do_install_const \\
-      IF_CASES_TAC \\ fs[] \\ fs[patSemTheory.dec_clock_def]) \\
+      IF_CASES_TAC \\ fs[] \\ fs[patSemTheory.dec_clock_def]
+      \\ fs[CaseEq"prod"] \\ fs[]
+      \\ fs[CaseEq"semanticPrimitives$result"] \\ rveq \\ fs[]
+      \\ rw[]
+      \\ irule LAST_MAP
+      \\ imp_res_tac evaluate_IMP_LENGTH
+      \\ strip_tac \\ fs[do_install_def,CaseEq"prod",CaseEq"option",CaseEq"bool",CaseEq"list"]
+      \\ pairarg_tac \\ fs[CaseEq"bool",CaseEq"prod",CaseEq"option"]) \\
     reverse(fs[case_eq_thms,pair_case_eq]) \\ rw[] \\ fs[] >- (
       reverse(Cases_on`op`)>>fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
         rw[] >> fs[LENGTH_eq,evaluate_def,do_app_def] >>
@@ -576,9 +586,9 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     fsrw_tac[ETA_ss][] ));
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `0 < max_app ∧ st.compile = pure_cc (λe. (compile e,[])) cc ∧ st.globals = [] ∧ st.refs = [] ⇒
+  `0 < max_app ∧ st.compile = pure_cc (λe. (MAP compile e,[])) cc ∧ st.globals = [] ∧ st.refs = [] ⇒
    semantics [] (st:('c,'ffi)patSem$state) es ≠ Fail ⇒
-   semantics st.ffi max_app FEMPTY (pure_co (λe. (compile e,[])) o st.compile_oracle) cc (MAP compile es) =
+   semantics st.ffi max_app FEMPTY (pure_co (λe. (MAP compile e,[])) o st.compile_oracle) cc (MAP compile es) =
    semantics [] st es`,
   strip_tac >>
   simp[patSemTheory.semantics_def] >>
@@ -735,5 +745,15 @@ val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
   `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
        BAG_ALL_DISTINCT (set_globals (compile e))`,
   fs[set_globals_eq]);
+
+val compile_no_Labels = store_thm("compile_no_Labels",
+  ``!e. no_Labels (compile e)``,
+  ho_match_mp_tac compile_ind \\ rw [compile_def]
+  \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
+  \\ TRY (fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ NO_TAC)
+  \\ every_case_tac \\ fs []
+  \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  \\ EVAL_TAC \\ fs []);
 
 val _ = export_theory()

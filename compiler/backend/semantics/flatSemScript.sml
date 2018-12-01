@@ -1,3 +1,6 @@
+(*
+  The formal semantics of flatLang
+*)
 open preamble flatLangTheory;
 open semanticPrimitivesPropsTheory;
 

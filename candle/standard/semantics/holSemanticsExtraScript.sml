@@ -1,6 +1,11 @@
+(*
+  Some lemmas about the semantics.
+*)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
 
 val _ = new_theory"holSemanticsExtra"
+
+val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 

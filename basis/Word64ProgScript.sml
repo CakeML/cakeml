@@ -1,3 +1,6 @@
+(*
+  Module about the built-in word64 type.
+*)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
      CharProgTheory
 

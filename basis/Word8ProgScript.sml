@@ -1,3 +1,6 @@
+(*
+  Module about the built-in word8 type.
+*)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
      Word64ProgTheory
 
@@ -6,6 +9,9 @@ val _ = new_theory "Word8Prog";
 val _ = translation_extends "Word64Prog";
 
 (* Word8 module -- translated *)
+
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "byte" (Atapp [] (Short "word8"))`` I);
 
 val _ = ml_prog_update (open_module "Word8");
 

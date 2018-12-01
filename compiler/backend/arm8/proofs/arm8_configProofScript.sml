@@ -1,3 +1,7 @@
+(*
+  For ARMv8, prove that the compiler configuration is well formed, and
+  instantiate the compiler correctness theorem.
+*)
 open preamble backendProofTheory
      arm8_configTheory arm8_targetProofTheory
 open blastLib;
@@ -48,13 +52,13 @@ val arm8_machine_config_ok = Q.store_thm("arm8_machine_config_ok",
   `is_arm8_machine_config mc ⇒ mc_conf_ok mc`,
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_arm8_machine_config_def]
   >- EVAL_TAC
-  >- simp[arm8_targetProofTheory.arm8_backend_correct]
+  >- simp[arm8_targetProofTheory.arm8_encoder_correct]
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
-  >- metis_tac[asmPropsTheory.backend_correct_def,asmPropsTheory.target_ok_def,arm8_backend_correct]);
+  >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,arm8_encoder_correct]);
 
 val arm8_init_ok = Q.store_thm("arm8_init_ok",
   `is_arm8_machine_config mc ⇒

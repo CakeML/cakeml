@@ -1,3 +1,7 @@
+(*
+  Defines the normalise_prog function which puts an arbitrary program
+  in A-normal form.
+*)
 open preamble
 open set_sepTheory helperLib ml_translatorTheory ConseqConv
 open semanticPrimitivesTheory cfHeapsTheory

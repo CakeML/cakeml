@@ -1,7 +1,12 @@
+(*
+  Properties about labLang and its semantics
+*)
 open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
      semanticsPropsTheory;
 
 val _ = new_theory"labProps";
+
+val _ = Parse.hide"mem";
 
 val extract_labels_def = Define`
   (extract_labels [] = []) ∧

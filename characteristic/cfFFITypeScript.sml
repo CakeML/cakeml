@@ -1,3 +1,7 @@
+(*
+  Defines a type that can be used for embedding different FFI models
+  for parts of the FFI state.
+*)
 open preamble;
 
 val _ = new_theory "cfFFIType"

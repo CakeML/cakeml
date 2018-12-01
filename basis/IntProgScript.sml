@@ -1,3 +1,7 @@
+(*
+  Module about the built-in integer tyoe. Note that CakeML uses
+  arbitrary precision integers (the mathematical intergers).
+*)
 open preamble
      ml_translatorLib ml_progLib mlintTheory
      mlbasicsProgTheory basisFunctionsLib gcdTheory

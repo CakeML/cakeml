@@ -1,13 +1,14 @@
+(*
+  This module contains a datatype for representing JSON objects, and
+  related functions. A JSON object can be an array of objects, a
+  string, an int, a bool or null, or it can be an object enclosed
+  in {}, in which case it can be viewed as a key-value store of names
+  (strings) and JSON objects.
+*)
 open preamble mlintTheory
 
 val _ = new_theory"jsonLang";
 
-(*
-* This module contains a data type for representing JSON objects, and related
-* functions. A JSON object can be an array of objects, a string, an int, a bool
-* or null, or it can be an object enclosed in {}, in which case it can be viewed
-* as a key-value store of names (strings) and JSON objects.
-*)
 val _ = Datatype`
   obj =
      Object (( string # obj ) list)

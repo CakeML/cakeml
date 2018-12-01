@@ -1,3 +1,6 @@
+(*
+  ML functions for manipulating HOL terms and types involving vectors.
+*)
 structure mlvectorSyntax :> mlvectorSyntax =
 struct
 

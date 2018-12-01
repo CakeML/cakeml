@@ -1,5 +1,9 @@
+(*
+  HOL functions that aid converting to and from the byte arrays that
+  CakeML foreign-function interface (FFI) uses.
+*)
 open preamble
-     
+
 val _ = new_theory "Marshalling";
 
 (* encode/decode nums as 2 or 8 bytes *)

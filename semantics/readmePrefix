@@ -1,5 +1,5 @@
 The definition of the CakeML language. The definition is (mostly)
-expressed in Lem (http://www.cs.kent.ac.uk/~sao/lem), but the
+expressed in [Lem](http://www.cs.kent.ac.uk/~sao/lem), but the
 generated HOL is also included. The directory includes definitions of:
  - the concrete syntax
  - the abstract syntax
