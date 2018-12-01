@@ -347,6 +347,11 @@ val run_eval_dec_def = Define `
       (st',  Rval <| v := nsLift mn env'.v; c := nsLift mn env'.c |>)
   | (st', Rerr err) =>
        (st', Rerr err)) ∧
+(run_eval_dec env st (Dlocal lds ds) =
+  case run_eval_decs env st lds of
+    (st', Rval env') =>
+      (run_eval_decs (extend_dec_env env' env) st' ds)
+  | (st', Rerr err) => (st', Rerr err)) ∧
 (run_eval_decs env st [] = (st,  Rval <| v := nsEmpty; c := nsEmpty |>)) ∧
 (run_eval_decs env st (d::ds) =
   case run_eval_dec env st d of
@@ -404,7 +409,10 @@ val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",
  every_case_tac >>
  rw [] >>
  fs [GSYM evaluate_run_eval, fst_lem] >>
- metis_tac []);
+ metis_tac []
+);
+
+
 
  (*
 val run_eval_top_spec = Q.store_thm ("run_eval_top_spec",
