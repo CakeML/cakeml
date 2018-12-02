@@ -11,6 +11,8 @@ open preamble bviSemTheory bviPropsTheory bvi_tailrecTheory
 
 val _ = new_theory "bvi_tailrecProof";
 
+val _ = set_grammar_ancestry ["bvi_tailrec","bviProps","bviSem"];
+
 val find_code_def = bvlSemTheory.find_code_def;
 val s = mk_var("s",
   type_of ``bviSem$evaluate`` |> strip_fun |> snd |> dest_prod |> snd
@@ -123,12 +125,13 @@ val term_ok_int_SING = Q.store_thm("term_ok_int_SING",
    (rename1 `is_const op` \\ Cases_on `op` \\ fs []
     \\ fs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
            do_app_aux_def, bvlSemTheory.do_app_def, small_int_def,
-           small_enough_int_def]
+           backend_commonTheory.small_enough_int_def]
     \\ rw [] \\ fs [])
   \\ rename1 `is_arith op` \\ Cases_on `op` \\ fs [is_arith_def]
   \\ fs [evaluate_def, pair_case_eq, bool_case_eq, do_app_def,
          do_app_aux_def, bvlSemTheory.do_app_def, small_int_def,
-         small_enough_int_def, case_elim_thms, case_eq_thms]
+         backend_commonTheory.small_enough_int_def,
+         case_elim_thms, case_eq_thms]
   \\ rw [] \\ fs []
   \\ imp_res_tac evaluate_SING_IMP \\ fs [] \\ rw []
   \\ res_tac \\ rw [] \\ fs []
@@ -156,7 +159,7 @@ val term_ok_any_SING = Q.store_thm("term_ok_any_SING",
    (rename1 `is_const op` \\ Cases_on `op`
     \\ fs [evaluate_def, do_app_def, do_app_aux_def, bvlSemTheory.do_app_def,
            case_eq_thms, case_elim_thms, pair_case_eq]
-    \\ fs [small_enough_int_def, small_int_def])
+    \\ fs [backend_commonTheory.small_enough_int_def, small_int_def])
   \\ fs [is_op_thms]
   \\ TRY
    (rename1 `Op (Cons 0) []`
@@ -2053,7 +2056,7 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
    (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
    (∀k. MEM k (MAP FST prog2) ∧ in_ns_2 k ⇒ k < FST(FST (co 0))) ∧
    SND (compile_prog n prog) = prog2 ∧
-   semantics ffi (fromAList prog) co (mk_cc cc) start ≠ Fail ⇒
+   semantics ffi (fromAList prog) co (mk_cc cc) start ≠ ffi$Fail ⇒
    semantics ffi (fromAList prog) co (mk_cc cc) start =
    semantics ffi (fromAList prog2) (mk_co co) cc start`,
    simp [GSYM AND_IMP_INTRO]
@@ -2146,8 +2149,10 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
     \\ qmatch_assum_rename_tac `state_rel rr _`
     \\ fs[] \\ rveq \\ metis_tac[])
   \\ strip_tac
-  \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
-  \\ `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+  \\ qmatch_abbrev_tac `lprefix_lub$build_lprefix_lub l1 = lprefix_lub$build_lprefix_lub l2`
+  \\ `(lprefix_lub$lprefix_chain l1 ∧
+       lprefix_lub$lprefix_chain l2) ∧
+       lprefix_lub$equiv_lprefix_chain l1 l2`
      suffices_by metis_tac [build_lprefix_lub_thm,
                             lprefix_lub_new_chain,
                             unique_lprefix_lub]

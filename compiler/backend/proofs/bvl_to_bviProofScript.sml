@@ -498,7 +498,7 @@ val evaluate_CopyGlobals_code = Q.prove(
                inc_clock c s) =
      (Rval [Unit], s with refs := s.refs |+ (p1, ValueArray (TAKE (SUC n) ls ++ DROP (SUC n) l1)))`,
   Induct >> srw_tac[][] >> srw_tac[][CopyGlobals_code_def] >>
-  srw_tac[][iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id,small_enough_int_def,bvl_to_bvi_with_refs] >- (
+  srw_tac[][iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id,backend_commonTheory.small_enough_int_def,bvl_to_bvi_with_refs] >- (
     qexists_tac`0`>>simp[inc_clock_ZERO,state_component_equality] >>
     rpt AP_TERM_TAC >>
     simp[LIST_EQ_REWRITE,EL_LUPDATE] >>
@@ -547,7 +547,7 @@ val evaluate_AllocGlobal_code = Q.prove(
                               if n < LENGTH ls then ls
                               else ls ++ (REPLICATE (SUC(LENGTH ls)) (Number 0))))|>)`,
   strip_tac >>
-  simp[AllocGlobal_code_def,iEval_def,iEvalOp_def,do_app_aux_def,small_enough_int_def,
+  simp[AllocGlobal_code_def,iEval_def,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,
        Once inc_clock_def,bEvalOp_def,bvl_to_bvi_id,bvl_to_bvi_with_refs,FLOOKUP_UPDATE,
        find_code_def] >>
   IF_CASES_TAC >> simp[] >- (
@@ -638,12 +638,12 @@ val evaluate_FromListByte_code = Q.store_thm("evaluate_FromListByte_code",
     \\ simp[fmap_eq_flookup,FLOOKUP_UPDATE] \\ rw[] \\ fs[] )
   \\ Cases_on`v_to_list lv` \\ fs[] \\ Cases_on`vs` \\ fs[]
   \\ Cases_on`bs` \\ fs[]
-  \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,small_enough_int_def,
+  \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,backend_commonTheory.small_enough_int_def,
           bvl_to_bvi_with_refs,bvl_to_bvi_id]
   \\ rveq \\ fs [] (* fix *)
   \\ reverse CASE_TAC \\ fs[]
   >- ( first_x_assum(qspec_then`n2w h'`mp_tac) \\ fs[] )
-  \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,small_enough_int_def,
+  \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,backend_commonTheory.small_enough_int_def,
           bvl_to_bvi_with_refs,bvl_to_bvi_id]
   \\ simp[find_code_def]
   \\ qmatch_goalsub_abbrev_tac`inc_clock _ _ with refs := refs`
@@ -683,7 +683,7 @@ val evaluate_SumListLength_code = Q.store_thm("evaluate_SumListLength_code",
   \\ Cases_on`ps` \\ fs[]
   \\ Cases_on`wss` \\ fs[]
   \\ rw[evaluate_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,
-        small_enough_int_def,bvl_to_bvi_id]
+        backend_commonTheory.small_enough_int_def,bvl_to_bvi_id]
   \\ fs[GSYM SumListLength_code_def]
   \\ rw[find_code_def]
   \\ CASE_TAC
@@ -724,7 +724,7 @@ val evaluate_ConcatByte_code = Q.store_thm("evaluate_ConcatByte_code",
   \\ every_case_tac \\ fs[]
   \\ Cases_on`ps` \\ fs[]
   \\ Cases_on`wss` \\ fs[]
-  \\ rw[evaluate_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id,small_enough_int_def,
+  \\ rw[evaluate_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id,backend_commonTheory.small_enough_int_def,
         semanticPrimitivesTheory.copy_array_def]
   \\ TRY intLib.COOPER_TAC
   \\ rw[find_code_def,inc_clock_ZERO,bvl_to_bvi_with_refs,bvl_to_bvi_id]
@@ -772,14 +772,14 @@ val compile_int_thm = Q.prove(
   \\ (ONCE_REWRITE_TAC [compile_int_def] \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ SRW_TAC [] [] THEN1
      (`n <= 268435457` by DECIDE_TAC
-      \\ full_simp_tac(srw_ss())[evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def])
+      \\ full_simp_tac(srw_ss())[evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`&(n DIV 268435457)`,`env`,`s`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     THEN1 (full_simp_tac(srw_ss())[integerTheory.INT_ABS_NUM,DIV_LT_X] \\ intLib.COOPER_TAC)
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ `n MOD 268435457 < 268435457` by full_simp_tac(srw_ss())[MOD_LESS]
     \\ `n MOD 268435457 <= 268435457` by DECIDE_TAC
-    \\ full_simp_tac(srw_ss())[evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def,bvlSemTheory.do_app_def]
+    \\ full_simp_tac(srw_ss())[evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,bvlSemTheory.do_app_def]
     \\ full_simp_tac(srw_ss())[bvl_to_bvi_id]
     \\ STRIP_ASSUME_TAC
          (MATCH_MP DIVISION (DECIDE ``0 < 268435457:num``) |> Q.SPEC `n`)
@@ -795,7 +795,7 @@ val compile_string_thm = Q.prove(
   >- (rw[state_component_equality]
       \\ match_mp_tac (GSYM FUPDATE_ELIM) \\ fs[FLOOKUP_DEF])
   \\ rw[Once evaluate_CONS]
-  \\ reverse(rw[evaluate_def,do_app_def,do_app_aux_def,small_enough_int_def])
+  \\ reverse(rw[evaluate_def,do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def])
   >- ( qspec_then`h`strip_assume_tac ORD_BOUND \\ fs[] )
   \\ reverse(rw[bvlSemTheory.do_app_def,compile_int_thm,EL_LENGTH_APPEND])
   >- (
@@ -915,7 +915,7 @@ val iEval_bVarBound = Q.prove(
       \\ simp[compile_int_thm]
       \\ first_x_assum(qspecl_then[`n`,`vs`]mp_tac) \\ fs[]
       \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[]
-      \\ simp[do_app_def,do_app_aux_def,small_enough_int_def,bvlSemTheory.do_app_def]
+      \\ simp[do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,bvlSemTheory.do_app_def]
       \\ IF_CASES_TAC \\ fs[] \\ pop_assum(SUBST_ALL_TAC o SYM)
       \\ qmatch_goalsub_abbrev_tac`r.refs |+ (ptr,ByteArray T ls)`
       \\ qpat_abbrev_tac`rr = r with refs := _`
@@ -940,7 +940,7 @@ val iEval_bVarBound = Q.prove(
         \\ rw[evaluate_APPEND,REPLICATE_compute]
         \\ CASE_TAC \\  simp[]
         \\ Cases_on`q` \\ simp[]
-        \\ rw[bviSemTheory.evaluate_def,REPLICATE_compute,iEvalOp_def,do_app_aux_def,small_enough_int_def,HD_APPEND3]
+        \\ rw[bviSemTheory.evaluate_def,REPLICATE_compute,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,HD_APPEND3]
         \\ CASE_TAC \\ simp[]
         \\ imp_res_tac evaluate_IMP_LENGTH
         \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM EL]
@@ -957,7 +957,7 @@ val iEval_bVarBound = Q.prove(
       \\ Cases_on`t` \\ fs[]
       \\ rename1`SUC (LENGTH t)`
       \\ Cases_on`t` \\ fs[]
-      \\ rw[bviSemTheory.evaluate_def,iEvalOp_def,do_app_aux_def,small_enough_int_def]
+      \\ rw[bviSemTheory.evaluate_def,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
       \\ CASE_TAC \\ simp[]
       \\ CASE_TAC \\ simp[]
       \\ CASE_TAC \\ simp[]
@@ -2746,7 +2746,7 @@ val compile_exps_correct = Q.prove(
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2'`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
       \\ simp[adjust_bv_def,Abbr`b2'`,APPLY_UPDATE_THM]
-      \\ simp[iEvalOp_def,do_app_aux_def,bEvalOp_def,small_enough_int_def]
+      \\ simp[iEvalOp_def,do_app_aux_def,bEvalOp_def,backend_commonTheory.small_enough_int_def]
       \\ reverse IF_CASES_TAC \\ fs[]
       >- (first_x_assum(qspec_then`0w`mp_tac) \\ simp[])
       \\ qmatch_goalsub_abbrev_tac`RefPtr ptr'::MAP _ env,ss`
@@ -2851,18 +2851,18 @@ val compile_exps_correct = Q.prove(
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
-      \\ simp[iEvalOp_def,do_app_aux_def,small_enough_int_def]
+      \\ simp[iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
-      \\ simp[Once iEvalOp_def,do_app_aux_def,small_enough_int_def]
+      \\ simp[Once iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
       \\ simp[Once iEval_def]
-      \\ simp[Once iEvalOp_def,do_app_aux_def,small_enough_int_def]
+      \\ simp[Once iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
       \\ simp[find_code_def]
       \\ simp[inc_clock_def,dec_clock_def]
       \\ qspecl_then[`[SND ListLength_code]`]drule evaluate_add_clock
@@ -3005,7 +3005,7 @@ val compile_exps_correct = Q.prove(
         \\ rw[APPLY_UPDATE_THM]
         \\ METIS_TAC[LEAST_NOTIN_FDOM] )
       \\ pop_assum (assume_tac o SYM)
-      \\ rw[iEval_def,find_code_def,iEvalOp_def,do_app_aux_def,small_enough_int_def]
+      \\ rw[iEval_def,find_code_def,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
       \\ fs[inc_clock_def,dec_clock_def]
       \\ reverse IF_CASES_TAC
       >- ( `F` by METIS_TAC[EVAL``w2n (0w:word8)``] )
@@ -3081,7 +3081,7 @@ val compile_exps_correct = Q.prove(
           \\ rw[APPLY_UPDATE_THM]
           \\ METIS_TAC[LEAST_NOTIN_FDOM] )
         \\ qhdtm_x_assum`bviSem$evaluate`mp_tac
-        \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,adjust_bv_def,small_enough_int_def]
+        \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,adjust_bv_def,backend_commonTheory.small_enough_int_def]
         \\ fsrw_tac[intLib.INT_ARITH_ss][]
         \\ reverse IF_CASES_TAC
         >- (fs[] \\ first_x_assum(qspec_then`0w`mp_tac) \\ simp[])
@@ -3334,9 +3334,9 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
   TRY (pop_assum(assume_tac o CONV_RULE EVAL)>>full_simp_tac(srw_ss())[]>>NO_TAC) >>
   simp[InitGlobals_code_def] >>
   simp[bviSemTheory.evaluate_def,
-       bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,small_enough_int_def] >>
+       bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,backend_commonTheory.small_enough_int_def] >>
   once_rewrite_tac [evaluate_SNOC |> REWRITE_RULE [SNOC_APPEND]] >>
-  simp[bviSemTheory.evaluate_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,small_enough_int_def,evaluate_REPLICATE_0] >>
+  simp[bviSemTheory.evaluate_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,backend_commonTheory.small_enough_int_def,evaluate_REPLICATE_0] >>
   simp[bvlSemTheory.do_app_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
   fs [EVAL ``InitGlobals_max ≤ 268435457``,FAPPLY_FUPDATE_THM,
       EVAL ``(bvl_to_bvi _ _).refs``,FLOOKUP_DEF] >>
