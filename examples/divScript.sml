@@ -38,10 +38,33 @@ val loop_spec = store_thm("loop_spec",
 
 val _ = process_topdecs `
   exception Terminate;
-  fun condLoop n = repeat (if n = 0 then raise Terminate else n - 1) n;
+  fun condBody n = if n = 0 then raise Terminate else n - 1;
+  fun condLoop n = repeat condBody n;
   ` |> append_prog
 
 val st = get_ml_prog_state ();
+
+val condBody_spec = store_thm("condBody_spec",
+  ``!n nv.
+      INT n nv ==>
+      app (p:'ffi ffi_proj) ^(fetch_v "condBody" st) [nv]
+        (one (FFI_full []))
+        (POSTve
+          (\v. &(INT (n - 1) v /\ n <> 0) * one (FFI_full []))
+          (\e. &(n = 0) * one (FFI_full [])))``,
+  xcf "condBody" st
+  \\ Cases_on `n = 0`
+  THEN1 (
+    xlet_auto THEN1 (qexists_tac `one (FFI_full [])` \\ xsimpl)
+    \\ xif \\ qexists_tac `T` \\ rw []
+    \\ xlet_auto THEN1 (xcon \\ xsimpl)
+    \\ xraise \\ xsimpl)
+  \\ xlet_auto THEN1 (qexists_tac `one (FFI_full [])` \\ xsimpl)
+  \\ xif \\ qexists_tac `F` \\ rw [] \\ xapp
+  \\ qexists_tac `one (FFI_full [])`
+  \\ qexists_tac `1`
+  \\ qexists_tac `n`
+  \\ rw [INT_def] \\ xsimpl);
 
 val condLoop_spec = store_thm("condLoop_spec",
   ``!n nv.
@@ -49,7 +72,26 @@ val condLoop_spec = store_thm("condLoop_spec",
       app (p:'ffi ffi_proj) ^(fetch_v "condLoop" st) [nv]
         (one (FFI_full []))
         (POSTed (\e. cond (0 <= n)) (\io. io = [||] /\ n < 0))``,
-  cheat);
+  xcf "condLoop" st
+  \\ Cases_on `0 <= n`
+  THEN1 cheat
+  \\ rw [POSTed_def, GSYM POSTd_def]
+  \\ xapp
+  \\ qexists_tac `\i. one (FFI_full [])`
+  \\ qexists_tac `\i. []`
+  \\ qexists_tac `\i. Litv (IntLit (n - &i))`
+  \\ qexists_tac `[||]`
+  \\ rpt strip_tac \\ xsimpl
+  THEN1 fs [INT_def]
+  THEN1 (qexists_tac `emp` \\ rw [SEP_CLAUSES])
+  THEN1 (
+    xapp
+    \\ qexists_tac `emp`
+    \\ qexists_tac `n - &i`
+    \\ fs [INT_def] \\ xsimpl
+    \\ intLib.COOPER_TAC)
+  THEN1 rw [lprefix_lub_def]
+  \\ intLib.COOPER_TAC);
 
 (* Non-terminating loop with output *)
 
