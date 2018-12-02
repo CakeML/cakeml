@@ -2,12 +2,12 @@
   Module that contains a few special functions, e.g. a function for
   forcing a full GC to run, a function for producing debug output.
 *)
-open preamble ml_translatorLib ml_progLib std_preludeTheory
+open preamble ml_translatorLib ml_progLib cfDivTheory
      mloptionTheory basisFunctionsLib
 
-val _ = new_theory"RuntimeProg"
+val _ = new_theory "RuntimeProg";
 
-val _ = translation_extends "cfDiv"
+val _ = translation_extends "cfDiv";
 
 val () = generate_sigs := true;
 
