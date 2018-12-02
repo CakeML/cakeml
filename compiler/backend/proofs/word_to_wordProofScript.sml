@@ -402,8 +402,9 @@ val compile_single_correct = Q.prove(`
         rw[]>>fs[word_state_eq_rel_def,state_component_equality]>>
         metis_tac[])
       >>
-      PairCases_on`x''`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`w ≠ Loc x''2' x''3'`
+      qmatch_goalsub_rename_tac`push_env _ (SOME p)` >>
+      PairCases_on`p`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`w ≠ Loc p2 p3`
       >-
         (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
         full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])>>
@@ -418,7 +419,7 @@ val compile_single_correct = Q.prove(`
       qpat_x_assum`(λ(x,y). _) _`mp_tac >>
       pairarg_tac>>full_simp_tac(srw_ss())[]>>
       strip_tac >>
-      last_x_assum(qspecl_then[`(set_var x''0' w0 rst) with permute:=rcst.permute`,`x''1'`,`rst1.code`,`cc`]mp_tac)>>
+      last_x_assum(qspecl_then[`(set_var p0 w0 rst) with permute:=rcst.permute`,`p1`,`rst1.code`,`cc`]mp_tac)>>
       impl_tac>-
         (simp[set_var_def]>>
         imp_res_tac evaluate_clock>>
@@ -434,7 +435,7 @@ val compile_single_correct = Q.prove(`
         fs[word_state_eq_rel_def]>>
         metis_tac[])>>
       rw[]>>
-      Q.ISPECL_THEN[`r`,`call_env q(push_env x' (SOME (x''0',x''1',x''2',x''3')) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
+      Q.ISPECL_THEN[`r`,`call_env q(push_env x' (SOME (p0,p1,p2,p3)) (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
       rfs[]>>
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
       fs[call_env_def,push_env_def,dec_clock_def,env_to_list_def,ETA_AX,pop_env_perm,set_var_perm]>>
