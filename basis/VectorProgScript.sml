@@ -7,6 +7,7 @@ open mlvectorTheory;
 
 val _ = new_theory"VectorProg"
 
+val _ = set_grammar_ancestry ["ast", "regexp_compiler", "ml_translator"]
 val _ = translation_extends "ListProg";
 
 val _ = ml_prog_update (open_module "Vector");
@@ -17,8 +18,8 @@ val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc ["'a"] "vector" (Atapp [Atvar "'a"] (Short "vector"))`` I);
 
 val _ = trans "fromList" `Vector`
-val _ = trans "length" `regexp_compiler$length`
-val _ = trans "sub" `regexp_compiler$sub`
+val _ = trans "length" `length`
+val _ = trans "sub" `sub`
 
 
 val _ = next_ml_names := ["tabulate"];
