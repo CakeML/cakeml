@@ -352,7 +352,7 @@ val hsimpl_conseq_conv =
     [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_unfold))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_def))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_def))),
-     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTf_def))),     
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTf_def))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTd_def))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_inv_def))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_inv_def))),

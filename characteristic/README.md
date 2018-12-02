@@ -16,6 +16,10 @@ Helper functions that construct/destruct syntax from cfAppTheory.
 [cfComputeLib.sml](cfComputeLib.sml):
 Auxiliary definitions used in cfs
 
+[cfDivScript.sml](cfDivScript.sml):
+Defines the repeat function and the corresponding lemma used to prove
+non-termination of programs in cf.
+
 [cfFFITypeScript.sml](cfFFITypeScript.sml):
 Defines a type that can be used for embedding different FFI models
 for parts of the FFI state.

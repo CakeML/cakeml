@@ -1,3 +1,7 @@
+(*
+  Defines the repeat function and the corresponding lemma used to prove
+  non-termination of programs in cf.
+*)
 open preamble
 open set_sepTheory helperLib ml_translatorTheory
 open ml_translatorTheory semanticPrimitivesTheory
