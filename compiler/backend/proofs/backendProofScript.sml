@@ -1188,6 +1188,12 @@ val syntax_ok_MAP_pat_to_clos = store_thm("syntax_ok_MAP_pat_to_clos",
   \\ once_rewrite_tac [clos_mtiProofTheory.syntax_ok_cons]
   \\ fs [syntax_ok_pat_to_clos]);
 
+(* TODO: delete these overloads when the theorems are moved *)
+val _ = temp_overload_on("dest_Dlet",``flatProps$dest_Dlet``);
+val _ = temp_overload_on("is_Dlet",``flatProps$is_Dlet``);
+val _ = temp_overload_on("esgc_free",``patProps$esgc_free``);
+val _ = temp_overload_on("elist_globals",``flatProps$elist_globals``);
+val _ = temp_overload_on("set_globals",``flatProps$set_globals``);
 (* TODO: move to flat_to_patProof, and rename the other one to compile_exp... *)
 val compile_esgc_free = Q.store_thm("compile_esgc_free",
   `∀p. EVERY (esgc_free o dest_Dlet) (FILTER is_Dlet p) ⇒
@@ -1763,7 +1769,7 @@ val SmartOp2_code_labels = Q.store_thm("SmartOp2_code_labels[simp]",
   rw[bvl_constTheory.SmartOp2_def, assign_get_code_label_def]
   \\ rpt(PURE_CASE_TAC \\ simp[assign_get_code_label_def])
   \\ imp_res_tac dest_simple_SOME_code_labels \\ fs[]
-  \\ fs[bvl_constTheory.case_op_const_def, CaseEq"option", CaseEq"op", CaseEq"bvl$exp", CaseEq"list", NULL_EQ]
+  \\ fs[bvl_constTheory.case_op_const_def, CaseEq"option", CaseEq"closLang$op", CaseEq"bvl$exp", CaseEq"list", NULL_EQ]
   \\ rveq \\ fs[assign_get_code_label_def,bvlTheory.Bool_def]
   \\ simp[EXTENSION] \\ metis_tac[]);
 
