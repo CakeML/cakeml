@@ -2194,4 +2194,31 @@ val compile_prog_semantics = Q.store_thm ("compile_prog_semantics",
   \\ conj_tac \\ rw []
   \\ qexists_tac `k` \\ fs []);
 
+val compile_prog_labels = Q.store_thm("compile_prog_labels",
+  `!next1 code1 next2 code2.
+     compile_prog next1 code1 = (next2, code2)
+     ==>
+     set (MAP FST code1) UNION { next1 + k * bvl_to_bvi_namespaces | k
+                               | next1 + k * bvl_to_bvi_namespaces < next2 } =
+     set (MAP FST code2) /\
+     next1 <= next2`,
+   recInduct bvi_tailrecTheory.compile_prog_ind
+   \\ rw [bvi_tailrecTheory.compile_prog_def] \\ fs []
+   \\ pop_assum mp_tac
+   \\ fs [CaseEq"prod", CaseEq"option"]
+   \\ rpt (pairarg_tac \\ fs []) \\ rw [] \\ fs []
+   \\ fs [INSERT_UNION_EQ]
+   \\ last_x_assum (SUBST1_TAC o GSYM)
+   \\ rw [EXTENSION]
+   \\ eq_tac \\ rw []
+   \\ simp [METIS_PROVE [] ``a \/ b <=> ~a ==> b``]
+   \\ rw []
+   >- (Cases_on `k` \\ fs [ADD1, LEFT_ADD_DISTRIB])
+   >-
+    (qexists_tac `0` \\ fs []
+     \\ `0n < bvl_to_bvi_namespaces` by fs [backend_commonTheory.bvl_to_bvi_namespaces_def]
+     \\ match_mp_tac (GEN_ALL (DECIDE ``0n < z /\ x + z <= y ==> x < y``))
+     \\ asm_exists_tac \\ fs [])
+   \\ qexists_tac `k + 1` \\ fs [LEFT_ADD_DISTRIB]);
+
 val _ = export_theory();

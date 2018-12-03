@@ -3292,7 +3292,7 @@ val compile_row_esgc_free = Q.prove(`
   rw[sLet_def] \\ CASE_TAC \\ fs[op_gbag_def] \\
   CASE_TAC \\ fs[op_gbag_def]);
 
-val compile_esgc_free = Q.store_thm("compile_esgc_free",
+val compile_exp_esgc_free = Q.store_thm("compile_exp_esgc_free",
   `(!bvs exp.
       esgc_free exp
       ==>
@@ -3327,6 +3327,14 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
   >- metis_tac [compile_row_esgc_free]
   \\ match_mp_tac esgc_free_sIf_sub \\ fs []
   \\ metis_tac [compile_row_esgc_free, compile_pat_esgc_free]);
+
+val compile_esgc_free = Q.store_thm("compile_esgc_free",
+  `∀p. EVERY (esgc_free o dest_Dlet) (FILTER is_Dlet p) ⇒
+    EVERY esgc_free (flat_to_pat$compile p)`,
+  recInduct flat_to_patTheory.compile_ind
+  \\ rw[flat_to_patTheory.compile_def]
+  \\ irule (CONJUNCT1 compile_exp_esgc_free)
+  \\ rw[]);
 
 val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
   `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒

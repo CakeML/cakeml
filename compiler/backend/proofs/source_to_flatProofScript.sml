@@ -10,6 +10,8 @@ val grammar_ancestry =
    "backend_common","misc"];
 val _ = set_grammar_ancestry grammar_ancestry;
 
+(* TODO: move *)
+
 val compile_exps_length = Q.prove (
   `LENGTH (compile_exps t m es) = LENGTH es`,
   induct_on `es` >>
@@ -38,6 +40,26 @@ val flookup_funion_submap = Q.prove (
    FLOOKUP z k = SOME v`,
   rw [SUBMAP_DEF, FLOOKUP_DEF] >>
   metis_tac []);
+
+val FILTER_MAPi_ID = Q.store_thm("FILTER_MAPi_ID",
+  `∀ls f. FILTER P (MAPi f ls) = MAPi f ls ⇔
+   (∀n. n < LENGTH ls ⇒ P (f n (EL n ls)))`,
+  Induct \\ reverse(rw[])
+  >- (
+    qmatch_goalsub_abbrev_tac`a ⇔ b`
+    \\ `¬a`
+    by (
+      simp[Abbr`a`]
+      \\ disch_then(mp_tac o Q.AP_TERM`LENGTH`)
+      \\ rw[]
+      \\ specl_args_of_then``FILTER``LENGTH_FILTER_LEQ mp_tac
+      \\ simp[] )
+    \\ simp[Abbr`b`]
+    \\ qexists_tac`0`
+    \\ simp[] )
+  \\ simp[Once FORALL_NUM, SimpRHS]);
+
+(* -- *)
 
 (* value relation *)
 
@@ -3906,6 +3928,19 @@ val compile_exp_esgc_free = Q.store_thm("compile_exp_esgc_free",
 
 (* - esgc_free theorems for compile_decs ----------------------------------- *)
 
+val set_globals_make_varls = Q.store_thm("set_globals_make_varls",
+  `∀a b c d. flatProps$set_globals (make_varls a b c d) =
+             bag_of_list (MAP ((+)c) (COUNT_LIST (LENGTH d)))`,
+  recInduct source_to_flatTheory.make_varls_ind
+  \\ rw[source_to_flatTheory.make_varls_def]
+  >- EVAL_TAC
+  >- ( EVAL_TAC \\ rw[] \\ rw[EL_BAG] )
+  \\ simp[COUNT_LIST_def, MAP_MAP_o, ADD1, o_DEF, bag_of_list_thm]
+  \\ EVAL_TAC
+  \\ AP_THM_TAC
+  \\ simp[FUN_EQ_THM]
+  \\ simp[BAG_INSERT_UNION]);
+
 val make_varls_esgc_free = Q.store_thm("make_varls_esgc_free",
   `!n t idx xs.
      esgc_free (make_varls n t idx xs)`,
@@ -4016,5 +4051,147 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
   rw [compile_def]
   \\ pairarg_tac \\ fs [] \\ rveq
   \\ metis_tac [compile_prog_esgc_free, compile_flat_esgc_free]);
+
+val num_bindings_def = tDefine"num_bindings"
+  `(num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
+   (num_bindings (Dletrec _ f) = LENGTH f) ∧
+   (num_bindings (Dmod _ ds) = SUM (MAP num_bindings ds)) ∧
+   (num_bindings _ = 0)`
+(wf_rel_tac`measure dec_size`
+ \\ gen_tac \\ Induct
+ \\ simp [astTheory.dec_size_def]
+ \\ rw[] \\ simp[]
+ \\ res_tac \\ simp[]);
+val _ = export_rewrites["num_bindings_def"];
+
+val compile_decs_num_bindings = Q.store_thm("compile_decs_num_bindings",
+  `∀n next env ds e f g p. compile_decs n next env ds = (e,f,g,p) ⇒
+   next.vidx ≤ f.vidx ∧
+   SUM (MAP num_bindings ds) = f.vidx - next.vidx`,
+  recInduct source_to_flatTheory.compile_decs_ind
+  \\ rw[source_to_flatTheory.compile_decs_def]
+  \\ rw[]
+  \\ pairarg_tac \\ fsrw_tac[ETA_ss][]
+  \\ pairarg_tac \\ fs[] \\ rw[]);
+
+val compile_decs_elist_globals = Q.store_thm("compile_decs_elist_globals",
+  `∀n next env ds e f g p.
+   compile_decs n next env ds = (e,f,g,p) ∧
+   nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) env.v ⇒
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet p)) =
+     bag_of_list (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings ds))))`,
+  recInduct source_to_flatTheory.compile_decs_ind
+  \\ rw[source_to_flatTheory.compile_decs_def]
+  \\ rw[set_globals_make_varls]
+  \\ rw[compile_exp_esgc_free]
+  >- ( EVAL_TAC \\ rw[EL_BAG] )
+  >- EVAL_TAC
+  >- (
+    qmatch_goalsub_abbrev_tac`FILTER P (MAPi f ls)`
+    \\ qmatch_asmsub_abbrev_tac`compile_funs _ _ ll`
+    \\ Q.ISPECL_THEN[`P`,`ls`,`f`]mp_tac(Q.GEN`P` FILTER_MAPi_ID)
+    \\ simp[Abbr`P`, Abbr`f`, UNCURRY]
+    \\ disch_then kall_tac
+    \\ simp[o_DEF, UNCURRY]
+    \\ qmatch_goalsub_abbrev_tac`COUNT_LIST l`
+    \\ `l = LENGTH ls` by simp[Abbr`ls`, Abbr`l`,source_to_flatTheory.compile_funs_map,Abbr`ll`]
+    \\ qmatch_goalsub_abbrev_tac`MAPi f ls`
+    \\ `∀n. n < LENGTH ls ⇒ set_globals (EL n (MAPi f ls)) = {|next.vidx + n|}`
+    by (
+      simp[Abbr`f`, EL_MAPi]
+      \\ EVAL_TAC
+      \\ qx_gen_tac`m`
+      \\ strip_tac
+      \\ `set_globals (SND(SND(EL m ls))) = {||}` suffices_by simp[]
+      \\ fs[Abbr`ls`, source_to_flatTheory.compile_funs_map]
+      \\ simp[EL_MAP]
+      \\ simp[UNCURRY]
+      \\ qmatch_goalsub_abbrev_tac`compile_exp tra venv exp`
+      \\ qspecl_then[`tra`,`venv`,`exp`]mp_tac (CONJUNCT1 compile_exp_esgc_free)
+      \\ impl_tac
+      >- (
+        rw[Abbr`venv`]
+        \\ irule namespacePropsTheory.nsAll_nsBind
+        \\ rw[source_to_flatTheory.extend_env_def]
+        \\ irule namespacePropsTheory.nsAll_nsAppend
+        \\ rw[]
+        \\ irule namespacePropsTheory.nsAll_alist_to_ns
+        \\ simp[UNCURRY]
+        \\ qmatch_goalsub_abbrev_tac`alloc_defs n v l`
+        \\ Q.ISPECL_THEN[`l`,`n`,`v`] mp_tac alloc_defs_set_globals
+        \\ simp[flatPropsTheory.elist_globals_eq_empty]
+        \\ simp[EVERY_MEM, UNCURRY]
+        \\ simp[MEM_MAP, PULL_EXISTS]
+        \\ Q.ISPECL_THEN[`l`,`n`,`v`] mp_tac alloc_defs_esgc_free
+        \\ simp[EVERY_MEM, UNCURRY]
+        \\ simp[MEM_MAP, PULL_EXISTS] )
+      \\ rw[] )
+    \\ qhdtm_x_assum`Abbrev`kall_tac
+    \\ qhdtm_x_assum`Abbrev`kall_tac
+    \\ rw[]
+    \\ pop_assum mp_tac
+    \\ `LENGTH (MAPi f ls) = LENGTH ls` by simp[]
+    \\ pop_assum mp_tac
+    \\ rpt (pop_assum kall_tac)
+    \\ qspec_tac(`next.vidx`,`b`)
+    \\ qspec_tac(`MAPi f ls`,`l1`)
+    \\ Induct_on`ls` \\ simp[]
+    >- (EVAL_TAC \\ rw[])
+    \\ simp[o_DEF] \\ rw[ADD1]
+    \\ Cases_on`l1` \\ fs[]
+    \\ last_x_assum(qspecl_then[`t`,`b+1`]mp_tac)
+    \\ impl_tac >- ( fs[ADD1] )
+    \\ impl_tac >- (
+      rw[]
+      \\ first_x_assum(qspec_then`SUC n`mp_tac)
+      \\ rw[] )
+    \\ rw[]
+    \\ once_rewrite_tac[ADD_SYM]
+    \\ rw[COUNT_LIST_ADD]
+    \\ simp[MAP_MAP_o, o_DEF]
+    \\ rw[bag_of_list_append]
+    \\ simp[EVAL``COUNT_LIST 1``]
+    \\ rw[bag_of_list_thm]
+    \\ first_x_assum(qspec_then`0`mp_tac)
+    \\ rw[]
+    \\ AP_TERM_TAC
+    \\ simp[MAP_EQ_f])
+  >- (
+    simp[MAPi_enumerate_MAP, FILTER_MAP, o_DEF, UNCURRY]
+    \\ EVAL_TAC )
+  >- EVAL_TAC
+  >- EVAL_TAC
+  >- (
+    pairarg_tac \\ fs[] \\ rveq
+    \\ srw_tac[ETA_ss][] )
+  >- EVAL_TAC
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq
+  \\ simp[flatPropsTheory.elist_globals_append, FILTER_APPEND]
+  \\ drule compile_decs_esgc_free
+  \\ disch_then drule
+  \\ strip_tac
+  \\ qpat_x_assum`_ ⇒ _`mp_tac
+  \\ impl_tac
+  >- (
+    simp[source_to_flatTheory.extend_env_def]
+    \\ irule namespacePropsTheory.nsAll_nsAppend
+    \\ simp[] )
+  \\ rw[]
+  \\ drule compile_decs_num_bindings
+  \\ rw[]
+  \\ pop_assum (assume_tac o SYM) \\ rw[]
+  \\ qmatch_goalsub_abbrev_tac`a + (b + c)`
+  \\ `a + (b + c) = b + (a + c)` by simp[]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ simp[Once COUNT_LIST_ADD,SimpRHS]
+  \\ simp[bag_of_list_append]
+  \\ simp[MAP_MAP_o, o_DEF]
+  \\ qpat_x_assum`compile_decs _ _ _ [d] = _`assume_tac
+  \\ drule compile_decs_num_bindings
+  \\ rw[]
+  \\ AP_TERM_TAC
+  \\ simp[MAP_EQ_f]);
 
 val _ = export_theory ();

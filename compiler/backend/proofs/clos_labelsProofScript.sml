@@ -927,6 +927,38 @@ val MAP_FST_compile = Q.store_thm("MAP_FST_compile",
   \\ rw[clos_labelsTheory.compile_def, MAP_MAP_o, o_DEF, UNCURRY]
   \\ srw_tac[ETA_ss][]);
 
+val no_Labels_labs = store_thm("no_Labels_labs",
+  ``!xs.
+      EVERY no_Labels (MAP (SND o SND) xs) ==>
+      EVERY no_Labels (MAP (SND ∘ SND) (clos_labels$compile xs))``,
+  fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_labelsTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`,`remove_dests ds`] \\ fs []
+  \\ qspecl_then [`ds`,`[x3]`] mp_tac remove_dests_no_Labels
+  \\ fs [EVERY_remove_dests_sing]);
+
+val obeys_max_app_labs = store_thm("obeys_max_app_labs",
+  ``!xs.
+      EVERY (obeys_max_app k) (MAP (SND o SND) xs) ==>
+      EVERY (obeys_max_app k) (MAP (SND ∘ SND) (clos_labels$compile xs))``,
+  fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_labelsTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`,`remove_dests ds`] \\ fs []
+  \\ qspecl_then [`ds`,`[x3]`] mp_tac remove_dests_obeys_max_app
+  \\ fs [EVERY_remove_dests_sing]);
+
+val every_Fn_SOME_labs = store_thm("every_Fn_SOME_labs",
+  ``!xs.
+      every_Fn_SOME (MAP (SND o SND) xs) ==>
+      every_Fn_SOME (MAP (SND ∘ SND) (clos_labels$compile xs))``,
+  fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_labelsTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs [] \\ fs [MAP_MAP_o,o_DEF,UNCURRY]
+  \\ rename [`remove_dests ds`] \\ fs []
+  \\ Induct_on `xs` \\ fs []
+  \\ once_rewrite_tac [closPropsTheory.every_Fn_SOME_APPEND
+      |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
+  \\ fs [] \\ rw []);
+
 (*
 
 val remove_fvs_set_globals = Q.store_thm("remove_fvs_set_globals[simp]",
