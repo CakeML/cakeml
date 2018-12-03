@@ -8,6 +8,7 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "ml_translator_test";
 
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
+open ml_progLib;
 
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
@@ -180,16 +181,23 @@ val _ = translate_no_ind test_def;
 
 (* registering types inside modules *)
 
-open ml_progLib
-
 val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
 val my_fun_def = Define `(my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
                          (my_fun my_case3 = 2n)`;
+
+val r = register_type ``:'a option``;
 
 val _ = ml_prog_update (open_module "My_module");
 val r = register_type ``:my_type``;
 val _ = ml_prog_update (close_module NONE);
 val r = translate my_fun_def;
+
+val _ = Datatype `my_type3 = SomE num num | NonE`;
+
+val _ = ml_prog_update (open_module "My_other_module");
+val r = register_type ``:my_type3``;
+val res3 = translate optionTheory.THE_DEF
+val _ = ml_prog_update (close_module NONE);
 
 (* test the abstract translator is working *)
 
