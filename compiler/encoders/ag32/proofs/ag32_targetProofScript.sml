@@ -24,7 +24,7 @@ val bytes_in_memory_thm = Q.prove(
       state.PC + 1w IN s.mem_domain /\
       state.PC IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, ag32_target_def, ag32_config_def,
-       ag32_ok_def, asmSemTheory.bytes_in_memory_def,
+       ag32_ok_def, miscTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq,
        wordsTheory.WORD_LS_word_T]
    \\ fs []
@@ -43,7 +43,7 @@ val bytes_in_memory_thm2 = Q.prove(
       state.PC + w + 1w IN s.mem_domain /\
       state.PC + w IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, ag32_target_def, ag32_config_def,
-       ag32_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
+       ag32_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    )
 
 val add_carry_lem = Q.prove(
@@ -307,7 +307,7 @@ val bytes_in_memory_IMP_all_pcs_MEM = Q.prove(
    (!(i:num) ms'. fun2set ((env i ms').MEM, dm) = fun2set (ms'.MEM, dm)) ==>
    (!i ms'. (∀pc. pc ∈ all_pcs (LENGTH xs) a 0 ==> (env i ms').MEM pc = ms'.MEM pc))`,
  simp [set_sepTheory.fun2set_eq] \\ Induct_on `xs`
- \\ rw [asmPropsTheory.all_pcs_def, asmSemTheory.bytes_in_memory_def]
+ \\ rw [asmPropsTheory.all_pcs_def, miscTheory.bytes_in_memory_def]
  \\ metis_tac []);
 
 local

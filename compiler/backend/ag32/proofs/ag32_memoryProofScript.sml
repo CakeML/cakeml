@@ -234,7 +234,7 @@ val bytes_in_memory_get_byte_words = Q.store_thm("bytes_in_memory_get_byte_words
       \\ DEP_REWRITE_TAC[LESS_MOD]
       \\ fs[NOT_LESS_EQUAL]
       \\ conj_asm2_tac >- fs[]
-      \\ irule backendProofTheory.IMP_MULT_DIV_LESS
+      \\ irule IMP_MULT_DIV_LESS
       \\ fs[] )
   \\ DEP_REWRITE_TAC[ADD_DIV_RWT]
   \\ qspecl_then[`4`,`LENGTH ll`]mp_tac MULT_DIV
@@ -400,7 +400,7 @@ val init_memory_startup = Q.store_thm("init_memory_startup",
   \\ fs[]
   \\ conj_tac
   >- (
-    irule backendProofTheory.IMP_MULT_DIV_LESS
+    irule IMP_MULT_DIV_LESS
     \\ fs[] )
   >>
     match_mp_tac lem>>
@@ -1064,7 +1064,7 @@ val init_asm_state_asm_step = Q.store_thm("init_asm_state_asm_step",
   \\ conj_tac >- (
     simp[EVAL``heap_start_offset``]>>
     CONV_TAC(ONCE_DEPTH_CONV ag32_enc_conv)>>
-    simp[asmSemTheory.bytes_in_memory_def,EVAL``ag32_startup_addresses``]>>
+    simp[bytes_in_memory_def,EVAL``ag32_startup_addresses``]>>
     DEP_REWRITE_TAC[init_memory_startup]>>
     simp[startup_code_eq])
   \\ conj_tac >- simp[Abbr`s2`]

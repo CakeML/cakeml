@@ -629,7 +629,7 @@ val bytes_in_memory_thm = Q.prove(
       state.REG RName_PC + 1w IN s.mem_domain /\
       state.REG RName_PC IN s.mem_domain`,
    rw [asmPropsTheory.sym_target_state_rel, arm6_ok_def, arm6_target_def,
-       arm6_config_def, asmSemTheory.bytes_in_memory_def]
+       arm6_config_def, miscTheory.bytes_in_memory_def]
    \\ rfs [alignmentTheory.aligned_extract]
    )
 
@@ -646,7 +646,7 @@ val bytes_in_memory_thm2 = Q.prove(
       state.REG RName_PC + w + 1w IN s.mem_domain /\
       state.REG RName_PC + w IN s.mem_domain`,
    rw [asmPropsTheory.sym_target_state_rel, arm6_ok_def, arm6_target_def,
-       arm6_config_def, asmSemTheory.bytes_in_memory_def]
+       arm6_config_def, miscTheory.bytes_in_memory_def]
    \\ rfs []
    )
 

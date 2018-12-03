@@ -1579,7 +1579,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   \\ impl_tac
   >- (
     simp[Abbr`s1`,APPLY_UPDATE_THM]
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ irule bytes_in_memory_change_mem
     \\ goal_assum(last_assum o mp_then Any mp_tac)
     \\ simp[APPLY_UPDATE_THM] \\ rw[]
     \\ drule_then drule
@@ -1626,7 +1626,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   >- (
     simp[Abbr`s2`,APPLY_UPDATE_THM]
     \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ irule bytes_in_memory_change_mem
     \\ goal_assum(last_assum o mp_then Any mp_tac)
     \\ simp[APPLY_UPDATE_THM] \\ rw[]
     \\ drule_then (drule o SIMP_RULE(srw_ss())[])
@@ -1717,7 +1717,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
       \\ fs[word_add_n2w]
       \\ qpat_x_assum`j < _`mp_tac \\ EVAL_TAC \\ strip_tac
       \\ simp[]
-      \\ fs[asmSemTheory.bytes_in_memory_def]
+      \\ fs[bytes_in_memory_def]
       \\ qhdtm_x_assum`DISJOINT`mp_tac
       \\ qhdtm_x_assum`DISJOINT`mp_tac
       \\ simp[IN_DISJOINT]
@@ -1791,7 +1791,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
       \\ simp[Abbr`s1mem`]
       \\ simp[get_mem_word_def, APPLY_UPDATE_THM]
       \\ CONV_TAC(PATH_CONV"rrr"EVAL)
-      \\ fs[asmSemTheory.bytes_in_memory_def]
+      \\ fs[bytes_in_memory_def]
       \\ qpat_x_assum`s.R 3w ∈ md`mp_tac
       \\ qhdtm_x_assum`DISJOINT`mp_tac
       \\ qhdtm_x_assum`DISJOINT`mp_tac
@@ -1853,7 +1853,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ simp[MarshallingTheory.w22n_def]
     \\ Cases_on`n0` \\ Cases_on`n1` \\ fs[]
     \\ Cases_on`off0` \\ Cases_on`off1` \\ fs[]
-    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[bytes_in_memory_def]
     \\ Cases_on`s1.R 4w` \\ fs[]
     \\ fs[Abbr`s1`, APPLY_UPDATE_THM]
     \\ simp[word_add_n2w] )
@@ -1907,7 +1907,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ simp[Abbr`s3`, APPLY_UPDATE_THM]
     \\ simp[Abbr`s2`, APPLY_UPDATE_THM]
     \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
-    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[bytes_in_memory_def]
     \\ qpat_x_assum`s.R 3w ∈ _`mp_tac
     \\ qhdtm_x_assum`DISJOINT`mp_tac
     \\ simp[IN_DISJOINT, DISJ_EQ_IMP]
@@ -1936,7 +1936,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ fs[ word_add_n2w]
     \\ qpat_x_assum`j < _`mp_tac \\ EVAL_TAC \\ strip_tac
     \\ simp[]
-    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[bytes_in_memory_def]
     \\ qhdtm_x_assum`DISJOINT`mp_tac
     \\ qhdtm_x_assum`DISJOINT`mp_tac
     \\ simp[IN_DISJOINT]
@@ -1988,7 +1988,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ qx_gen_tac`j` \\ strip_tac
     \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
     \\ fs[DIV_LT_X]
-    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[bytes_in_memory_def]
     \\ qpat_x_assum`n2w _ ∈ md`mp_tac
     \\ qhdtm_x_assum`DISJOINT`mp_tac
     \\ qhdtm_x_assum`DISJOINT`mp_tac
@@ -2003,7 +2003,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   by ( simp[Abbr`s5`, Abbr`s4`, Abbr`s3`, Abbr`s2`, Abbr`s1`, APPLY_UPDATE_THM] )
   \\ qspec_then`s5`mp_tac(CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi_write_num_written_thm))
   \\ simp[]
-  \\ fs[asmSemTheory.bytes_in_memory_def]
+  \\ fs[bytes_in_memory_def]
   \\ `s4.R 3w = s.R 3w` by simp[Abbr`s4`, Abbr`s3`, Abbr`s2`, Abbr`s1`,APPLY_UPDATE_THM]
   \\ `s5.R 1w = n2w n`by simp[Abbr`s5`, Abbr`s4`, Abbr`s3`, APPLY_UPDATE_THM]
   \\ simp[]
@@ -2016,7 +2016,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     >- (
       simp[Abbr`n`,MarshallingTheory.w22n_def]
       \\ Cases_on`n0` \\Cases_on`n1` \\ fs[] )
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ irule bytes_in_memory_change_mem
     \\ qexists_tac`s.MEM` \\ simp[]
     \\ simp[APPLY_UPDATE_THM]
     \\ Cases_on`s.R 3w` \\ simp[word_add_n2w] \\ fs[]
@@ -2175,15 +2175,15 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ `tll = TAKE off tll ++ DROP off tll` by metis_tac[TAKE_DROP]
     \\ qhdtm_x_assum`bytes_in_memory`mp_tac
     \\ pop_assum(fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
-    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL asmPropsTheory.bytes_in_memory_APPEND))))
+    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL bytes_in_memory_APPEND))))
     \\ simp[] \\ strip_tac
     \\ qmatch_goalsub_abbrev_tac`TAKE kk ll`
     \\ `ll = TAKE kk ll ++ DROP kk ll` by metis_tac[TAKE_DROP]
     \\ qhdtm_x_assum`bytes_in_memory`mp_tac
     \\ pop_assum(fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
-    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL asmPropsTheory.bytes_in_memory_APPEND))))
+    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL bytes_in_memory_APPEND))))
     \\ strip_tac
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ irule bytes_in_memory_change_mem
     \\ goal_assum(first_assum o mp_then Any mp_tac)
     \\ simp[Abbr`s6`]
     \\ gen_tac \\ strip_tac
@@ -2297,13 +2297,13 @@ val codedefs = [ag32_ffi_read_code_def, ag32_ffi_read_set_id_code_def,
 val bytes_in_memory_update = Q.prove(
   ‘∀bs a. k ∉ md ∧ bytes_in_memory a bs mf md ⇒
           bytes_in_memory a bs ((k =+ v) mf) md’,
-  Induct >> simp[asmSemTheory.bytes_in_memory_def] >>
+  Induct >> simp[bytes_in_memory_def] >>
   metis_tac[combinTheory.UPDATE_APPLY]);
 
 val bytes_in_memory_prefix = Q.prove(
   ‘∀bs sfx a. bytes_in_memory a (bs ++ sfx) mf md ⇒
               bytes_in_memory a bs mf md’,
-  Induct >> simp[asmSemTheory.bytes_in_memory_def] >> metis_tac[]);
+  Induct >> simp[bytes_in_memory_def] >> metis_tac[]);
 
 val asm_write_bytearray_avoiding = Q.prove(
   ‘∀a bs.
@@ -2340,7 +2340,7 @@ val bytes_in_memory_GENLIST = Q.store_thm(
   ‘∀sz base f.
       bytes_in_memory base (GENLIST (m o word_add base o n2w) sz) m md ⇔
       ∀a. a < sz ⇒ base + n2w a ∈ md’,
-  Induct >> simp[asmSemTheory.bytes_in_memory_def, GENLIST_CONS] >>
+  Induct >> simp[bytes_in_memory_def, GENLIST_CONS] >>
   simp[ltSUC, PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM, ADD1,
        GSYM word_add_n2w, CONJ_ASSOC, n2w_o_SUC, word_add_o]);
 
@@ -2399,8 +2399,7 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
   simp0[ag32_ffi_read_def] >> strip_tac >>
   ‘s.R 3w ∈ md’
     by (qpat_assum ‘bytes_in_memory (s.R 3w) _ _ _’
-          (mp_then (Pos hd) mp_tac
-                   asmPropsTheory.bytes_in_memory_in_domain) >>
+          (mp_then (Pos hd) mp_tac bytes_in_memory_in_domain) >>
         disch_then (qspec_then ‘0’ mp_tac) >> simp[]) >>
   ‘∃k1. FUNPOW Next k1 s = ag32_ffi_read_set_id s’
     by (print_tac "read_code_thm: 1. read_set_id" >>
@@ -3181,7 +3180,7 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
     \\ simp[GSYM FORALL_AND_THM, GSYM IMP_CONJ_THM]
     \\ qx_gen_tac`j` \\ strip_tac
     \\ qmatch_goalsub_abbrev_tac`s.R 3w = r3`
-    \\ `s.R 3w ∈ md` by fs[asmSemTheory.bytes_in_memory_def]
+    \\ `s.R 3w ∈ md` by fs[bytes_in_memory_def]
     \\ fs[word_add_n2w]
     \\ fs(map EVAL [``LENGTH ag32_ffi_get_arg_length_loop_code``,``LENGTH ag32_ffi_get_arg_length_setup_code``])
     \\ fs(map EVAL [``ag32_ffi_get_arg_length_entrypoint``,``ffi_code_start_offset``])
@@ -3257,7 +3256,7 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
     \\ qmatch_asmsub_abbrev_tac`n2w (_ + y) ∉ md`
     \\ first_x_assum(qspec_then`4 * j + z - y`mp_tac)
     \\ simp[Abbr`z`, Abbr`y`]
-    \\ fs[asmSemTheory.bytes_in_memory_def])
+    \\ fs[bytes_in_memory_def])
   \\ strip_tac
   \\ pop_assum(SUBST1_TAC o SYM)
   \\ qpat_x_assum`_ = s3`(SUBST1_TAC o SYM)

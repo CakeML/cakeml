@@ -636,7 +636,7 @@ val bytes_in_memory_thm = Q.prove(
       state.PC + 1w IN s.mem_domain /\
       state.PC IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def,
-       arm8_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
+       arm8_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    \\ rfs []
    )
 
@@ -653,7 +653,7 @@ val bytes_in_memory_thm2 = Q.prove(
       state.PC + w + 1w IN s.mem_domain /\
       state.PC + w IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def,
-       arm8_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
+       arm8_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    \\ rfs []
    )
 
