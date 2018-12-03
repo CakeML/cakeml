@@ -67,42 +67,6 @@ val condBody_spec = store_thm("condBody_spec",
   \\ qexists_tac `n`
   \\ rw [INT_def] \\ xsimpl);
 
-val repeat_POSTe = store_thm("repeat_POSTe",
-  ``!p fv xv H Q.
-      (?Hs vs j.
-         vs 0 = xv /\ H ==>> Hs 0 /\
-         (!i. i < j ==>
-            app p fv [vs i] (Hs i)
-                            (POSTv v. &(v = vs (SUC i)) * Hs (SUC i))) /\
-         app p fv [vs j] (Hs j) ($POSTe Q))
-      ==>
-      app p ^(fetch_v "repeat" st) [fv; xv] H ($POSTe Q)``,
-  rpt strip_tac
-  \\ `!i. i <= j ==> app p ^(fetch_v "repeat" st) [fv; vs i] (Hs i) ($POSTe Q)` by (
-    rpt strip_tac
-    \\ Induct_on `j - i`
-    THEN1 (
-      xcf "repeat" st
-      \\ `i = j` by decide_tac \\ rveq
-      \\ xlet `$POSTe Q` THEN1 xapp
-      \\ xsimpl)
-    \\ xcf "repeat" st
-    \\ `i < j` by decide_tac
-    \\ xlet `POSTv v. &(v = vs (SUC i)) * Hs (SUC i)`
-    THEN1 (
-      `app p fv [vs i] (Hs i) (POSTv v. &(v = vs (SUC i)) * Hs (SUC i))`
-        by (first_assum irule \\ rw [])
-      \\ xapp)
-    \\ rveq
-    \\ `app p repeat_v [fv; vs (SUC i)] (Hs (SUC i)) ($POSTe Q)`
-         by (first_assum irule \\ qexists_tac `j` \\ rw [])
-    \\ xapp)
-  \\ `app p repeat_v [fv; vs 0] (Hs 0) ($POSTe Q)`
-       by (first_assum irule \\ rw [])
-  \\ rveq \\ xapp
-  \\ qexists_tac `emp`
-  \\ xsimpl);
-
 val condLoop_spec = store_thm("condLoop_spec",
   ``!n nv.
       INT n nv ==>
