@@ -312,6 +312,11 @@ val compile_decs_def = tDefine "compile_decs" `
   (compile_decs n next env [Dmod mn ds] =
      let (n', next', new_env, ds') = compile_decs n next env ds in
        (n', next', (lift_env mn new_env), ds')) ∧
+  (compile_decs n next env [Dlocal lds ds] =
+     let (n', next1, new_env1, lds') = compile_decs n next env lds in
+     let (n'', next2, new_env2, ds') = compile_decs n' next1
+        (extend_env new_env1 env) ds
+     in (n'', next2, new_env2, lds'++ds')) ∧
   (compile_decs n next env [] =
     (n, next, empty_env, [])) ∧
   (compile_decs n next env (d::ds) =
@@ -320,10 +325,8 @@ val compile_decs_def = tDefine "compile_decs" `
        compile_decs n' next1 (extend_env new_env1 env) ds
      in
        (n'', next2, extend_env new_env2 new_env1, d'++ds'))`
- (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND)` >>
-  rw [] >>
-  Induct_on `ds` >>
-  rw [astTheory.dec_size_def, list_size_def]);
+ (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND)`
+  >> rw [dec1_size_eq]);
 
 val _ = Datatype`
   config = <| next : next_indices

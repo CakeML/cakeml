@@ -3496,7 +3496,51 @@ val compile_decs_correct' = Q.prove (
       CASE_TAC >>
       rw [] >>
       fs [])
-    >- rw []));
+    >- rw [])
+  >- ( (* local *)
+    pairarg_tac >>
+    fs [] >>
+    pairarg_tac >>
+    fs [] >>
+    rveq >>
+    imp_res_tac compile_decs_num_bindings >>
+    split_pair_case_tac >>
+    rename [`evaluate_decs _ _ _ = (s1, r1)`] >>
+    fs [] >>
+    Cases_on `r1 = Rerr (Rabort Rtype_error)` >> rw [] >> fs [] >>
+    first_x_assum drule >>
+    disch_then drule >>
+    disch_then drule >>
+    rw [] >>
+    reverse (Cases_on `r1`)
+    >- ( (* err case *)
+      fs [] >>
+      rveq >>
+      drule evaluate_decs_append_err >>
+      rw [] >>
+      rpt (CHANGED_TAC asm_exists_tac) >>
+      fs [] >>
+      fs [invariant_def]
+    ) >>
+    (* result case *)
+    fs [] >>
+    first_x_assum drule >>
+    `global_env_inv genv' (extend_env new_env1 comp_map) {} (extend_dec_env a env)`
+    by metis_tac [global_env_inv_append, global_env_inv_weak] >>
+    disch_then drule >>
+    disch_then drule >>
+    fs [] >>
+    (impl_tac >- fs [subglobals_def]) >>
+    rw [] >>
+    imp_res_tac evaluate_decs_append >>
+    fs [] >>
+    first_x_assum drule >>
+    fs [] >>
+    rw [] >>
+    qexists_tac `genv''` >>
+    fs [UNION_ASSOC] >>
+    metis_tac [SUBMAP_TRANS, subglobals_trans]
+  ));
 
 val compile_decs_correct = Q.store_thm ("compile_decs_correct",
   `!s env ds s' r comp_map s_i1 idx ds_i1 next' genv.
@@ -3758,8 +3802,6 @@ val _ = set_grammar_ancestry
     "flat_exh_matchProof", "flat_reorder_matchProof"]
    @ grammar_ancestry);
 
-(* source_to_flat$compile_decs always generates fresh type identifiers,
-   so they must be unique. *)
 val compile_decs_tidx_thm = Q.store_thm("compile_decs_tidx_thm",
   `!n1 next1 env1 ds1 n2 next2 env2 ds2.
    compile_decs n1 next1 env1 ds1 = (n2, next2, env2, ds2)
@@ -3789,11 +3831,11 @@ val compile_decs_tidx_thm = Q.store_thm("compile_decs_tidx_thm",
   \\ imp_res_tac get_tdecs_MEM \\ fs []
   \\ res_tac \\ fs []
   \\ imp_res_tac compile_decs_num_bindings \\ fs []
-  >-
+  \\ TRY (eq_tac \\ rw [] \\ fs [])
+  \\
    (strip_tac
     \\ imp_res_tac get_tdecs_MEM \\ fs []
-    \\ res_tac \\ fs [])
-  \\ eq_tac \\ rw [] \\ fs []);
+    \\ res_tac \\ fs []));
 
 val compile_flat_correct = Q.store_thm("compile_flat_correct",
   `EVERY (is_new_type init_ctors) prog /\
