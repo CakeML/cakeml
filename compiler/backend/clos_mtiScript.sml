@@ -1,3 +1,9 @@
+(*
+  This compiler phase introduces multi-argument function applications
+  and function closures. This phase enables subsequent compiler phases
+  to make use of closLang's support for true multi-argument
+  functions. This phase is vital for good performance.
+*)
 open preamble closLangTheory;
 
 val _ = new_theory "clos_mti";

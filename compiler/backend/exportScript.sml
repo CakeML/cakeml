@@ -1,6 +1,9 @@
+(*
+  Some common helper functions for writing the final byte list ->
+  string exporter.
+*)
 open preamble mlstringTheory mlvectorTheory mlnumTheory mlintTheory;
 
-(* Some common helper functions for writing the final byte list -> string exporter *)
 val _ = new_theory "export";
 
 val split16_def = tDefine "split16" `

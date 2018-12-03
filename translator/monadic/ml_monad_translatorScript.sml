@@ -1,3 +1,7 @@
+(*
+  Defines EvalM and other judgements that are central to the monadic
+  translator.
+*)
 open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
 open terminationTheory ml_progLib ml_progTheory
@@ -2751,10 +2755,10 @@ val evaluate_Success_CONS_err = Q.prove(
 val EXC_TYPE_aux_def = Define `
        (EXC_TYPE_aux stamp a b (Failure x_2) v ⇔
         ∃v2_1. v = Conv (SOME (TypeStamp "Failure" stamp)) [v2_1]
-			∧ b x_2 v2_1) ∧
+                        ∧ b x_2 v2_1) ∧
        (EXC_TYPE_aux stamp a b (Success x_1) v ⇔
         ∃v1_1. v = Conv (SOME (TypeStamp "Success" stamp)) [v1_1]
-			∧ a x_1 v1_1)`;
+                        ∧ a x_1 v1_1)`;
 
 val EvalM_to_EvalSt = Q.store_thm("EvalM_to_EvalSt",`
   ∀exc_stamp TYPE EXN_TYPE x exp H init_state env.

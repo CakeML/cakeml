@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_inst
+*)
 open preamble
      wordLangTheory wordPropsTheory word_instTheory wordSemTheory
      asmTheory

@@ -1,3 +1,9 @@
+(*
+  Apply the monadic translator to the Candle kernel to generate the
+  deeply embedded CakeML code for the kernel. As a side effect, the
+  monadic translator proves certificate theorems that state a formal
+  connection between the generated code and the input HOL functions.
+*)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory evaluateTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory terminationTheory
@@ -156,13 +162,13 @@ val exn_ri_def = HOL_EXN_TYPE_def
 
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      exn_ri_def
-					      exn_functions
-					      []
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              exn_ri_def
+                                              exn_functions
+                                              []
                                               NONE
                                               NONE;
 

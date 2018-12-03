@@ -1,4 +1,6 @@
-(* Stuff used for manual inlining of encoders *)
+(*
+  Stuff used for manual inlining of encoders
+*)
 
 structure inliningLib =
 struct

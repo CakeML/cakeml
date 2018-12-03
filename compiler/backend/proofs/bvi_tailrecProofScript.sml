@@ -1,3 +1,6 @@
+(*
+  Correctness proof for bvi_tailrec
+*)
 open preamble bviSemTheory bviPropsTheory bvi_tailrecTheory
 
 (* TODO

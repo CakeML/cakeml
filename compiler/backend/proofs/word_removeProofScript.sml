@@ -1,3 +1,6 @@
+(*
+  Correctness proof for word_remove
+*)
 open preamble word_removeTheory wordSemTheory wordPropsTheory;
 
 val _ = new_theory "word_removeProof";
@@ -281,7 +284,10 @@ val word_remove_correct = Q.store_thm("word_remove_correct",
   \\ metis_tac[]);
 
 (* syntactic preservation all in one go *)
-val convs = [flat_exp_conventions_def,full_inst_ok_less_def,every_inst_def,post_alloc_conventions_def,call_arg_convention_def,wordLangTheory.every_stack_var_def,wordLangTheory.every_var_def,extract_labels_def]
+val convs = [flat_exp_conventions_def, full_inst_ok_less_def,
+  every_inst_def, post_alloc_conventions_def, call_arg_convention_def,
+  wordLangTheory.every_stack_var_def, wordLangTheory.every_var_def,
+  extract_labels_def]
 
 val remove_must_terminate_conventions = Q.store_thm("remove_must_terminate_conventions",`
   ∀p c k.

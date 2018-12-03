@@ -75,12 +75,15 @@ fun check_in_repr_set tms = let
         |> List.mapPartial (total get_pfun_thm)
     val (chain, set) = mk_chain consts [] (! pfun_eqs_in_repr)
     val _ = if null chain then raise Empty else ()
-    val msg = if length chain > 3
-        then "Adding repr thms for " ^ Int.toString (length chain) ^ " consts."
-        else "Adding repr thms for ["
-            ^ concat (commafy (map (fst o dest_const o fst) chain)) ^ "]."
+    val chain_names = map (fst o dest_const o fst) chain
+    val msg_names = if length chain > 3
+        then List.take (chain_names, 2) @ ["..."] @ [List.last chain_names]
+        else chain_names
+    val msg = "Adding nsLookup representation thms for "
+        ^ (if length chain > 3 then Int.toString (length chain) ^ " consts ["
+            else "[") ^ concat (commafy msg_names) ^ "]\n"
   in
-    print (msg ^ "\n"); List.app (add o snd) (rev chain);
+    print msg; List.app (add o snd) (rev chain);
         pfun_eqs_in_repr := set
   end handle Empty => ()
 

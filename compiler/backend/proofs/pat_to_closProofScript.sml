@@ -1,3 +1,6 @@
+(*
+  Correctness proof for pat_to_clos
+*)
 open preamble intLib integerTheory backendPropsTheory
      semanticPrimitivesTheory
      patSemTheory patPropsTheory pat_to_closTheory

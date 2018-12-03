@@ -1,3 +1,6 @@
+(*
+  Various ML tools for dealing with the asm language.
+*)
 structure asmLib :> asmLib =
 struct
 

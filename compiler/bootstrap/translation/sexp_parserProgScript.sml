@@ -1,3 +1,6 @@
+(*
+  Translate the alternative s-expression parser.
+*)
 open preamble explorerProgTheory
      ml_translatorLib ml_translatorTheory
      pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory

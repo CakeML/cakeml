@@ -1,3 +1,6 @@
+(*
+  Big step/small step equivalence
+*)
 open preamble;
 open libTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
 open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;

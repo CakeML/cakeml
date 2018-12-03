@@ -1,3 +1,7 @@
+(*
+  A compiler phase that turns programs of the functional language BVI
+  into the first imperative language of the CakeML compiler: dataLang.
+*)
 open preamble bviTheory dataLangTheory
      data_simpTheory data_liveTheory data_spaceTheory;
 

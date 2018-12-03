@@ -1,3 +1,7 @@
+(*
+  Definitions and theorems that support automation (the Lib file) for
+  fast insertion and lookup into association lists (alists).
+*)
 open HolKernel bossLib boolLib boolSimps libTheory rich_listTheory
 
 val _ = new_theory "alist_tree";
@@ -128,7 +132,7 @@ val is_insert_centre_rule = Q.store_thm ("is_insert_centre_rule",
   \\ rpt (CASE_TAC \\ fs [])
   \\ FIRST_ASSUM (MP_TAC o MATCH_MP alistTheory.ALOOKUP_MEM)
   \\ fs [listTheory.MEM_MAP, pairTheory.EXISTS_PROD]
-  \\ metis_tac [relationTheory.irreflexive_def]); 
+  \\ metis_tac [relationTheory.irreflexive_def]);
 
 val is_insert_centre = save_thm ("is_insert_centre",
   is_insert_centre_rule |> Q.GENL [`fl`, `fr`, `R`, `n`, `k`, `x`]
@@ -312,4 +316,3 @@ val is_lookup_empty = Q.store_thm ("is_lookup_empty",
   fs [is_lookup_def]);
 
 val _ = export_theory ();
-

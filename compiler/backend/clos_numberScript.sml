@@ -1,3 +1,7 @@
+(*
+  This simple compiler phase walks the program and gives each closure
+  a unique numeric name.
+*)
 open preamble closLangTheory;
 
 val _ = new_theory"clos_number";

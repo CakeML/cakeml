@@ -1,3 +1,6 @@
+(*
+  The infer_t datatype and various to_string functions.
+*)
 open preamble;
 open mlstringTheory mlintTheory;
 open astTheory semanticPrimitivesTheory typeSystemTheory;

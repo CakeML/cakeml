@@ -1,8 +1,7 @@
 (*
-  Verify the deep embeddings of the ag32 implementation of the CakeML basis FFI
-  primitives.
+  Verify the deep embeddings of the ag32 implementation of the CakeML
+  basis FFI primitives.
 *)
-
 open preamble ag32_memoryTheory ag32_decompilerLib
 local open blastLib ag32_targetProofTheory in end
 

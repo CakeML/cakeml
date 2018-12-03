@@ -1,3 +1,10 @@
+(*
+  This compiler phase removes the functional-programming-style data
+  abstraction of dataLang and lands in wordLang where all values are
+  machine words and memory is a flat finite mapping from machine
+  addresses to machine words. This phase introduces the garbage
+  collector and bignum library, among other things.
+*)
 open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory
      word_bignumTheory;
 local open bvl_to_bviTheory backend_commonTheory in end

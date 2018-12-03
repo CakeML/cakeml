@@ -1,3 +1,6 @@
+(*
+  Lemmas about the file system model used by the proof about TextIO.
+*)
 open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory MarshallingTheory
 
 val _ = new_theory"fsFFIProps"

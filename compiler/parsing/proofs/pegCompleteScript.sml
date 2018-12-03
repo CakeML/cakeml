@@ -1,3 +1,7 @@
+(*
+  Completeness proof for the parser. If a successful parse exists,
+  then the parser will find one.
+*)
 open preamble
      pegTheory grammarTheory pegSoundTheory
      gramTheory gramPropsTheory cmlPEGTheory

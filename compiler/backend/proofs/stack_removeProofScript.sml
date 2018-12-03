@@ -1,3 +1,6 @@
+(*
+  Correctness proof for stack_remove
+*)
 open preamble
      stack_removeTheory
      stackLangTheory
@@ -3452,7 +3455,8 @@ val stack_remove_call_args = Q.store_thm("stack_remove_call_args",
     (BasicProvers.EVERY_CASE_TAC>>fs[])
   >>
   TRY (* stack_alloc and stack_free *)
-    (completeInduct_on`n`>>simp[Once stack_removeTheory.stack_alloc_def,stack_removeTheory.single_stack_alloc_def,Once stack_removeTheory.stack_free_def,stack_removeTheory.single_stack_free_def,stack_removeTheory.halt_inst_def]>>
+    (completeInduct_on`n`>>simp[Once stack_removeTheory.stack_alloc_def,stack_removeTheory.single_stack_alloc_def,
+       Once stack_removeTheory.stack_free_def,stack_removeTheory.single_stack_free_def,stack_removeTheory.halt_inst_def]>>
     rpt (IF_CASES_TAC>>fs[call_args_def])>>
     first_assum match_mp_tac>>
     EVAL_TAC>>fs[]>>NO_TAC)>>

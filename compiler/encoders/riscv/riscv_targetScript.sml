@@ -1,3 +1,6 @@
+(*
+  Define the target compiler configuration for RISC-V.
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib riscv_stepTheory;
 

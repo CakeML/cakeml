@@ -1,3 +1,7 @@
+(*
+  A collection of small examples that show (and test) what can be done
+  in CF proofs.
+*)
 open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
 local open ml_progLib basisProgTheory in end
@@ -398,5 +402,5 @@ val example_ffidiv_spec = Q.prove (
       >- (xcon >- xsimpl)
       >> xapp >> xsimpl >> rw[] >> qexists_tac `x` >> xsimpl)
   >> xcon >> xsimpl);
-                             
+
 val _ = export_theory();

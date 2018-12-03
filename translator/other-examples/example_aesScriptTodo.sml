@@ -1,3 +1,6 @@
+(*
+  This is a simple example of applying the translator to AES.
+*)
 open HolKernel bossLib Theory Parse Tactic boolLib Lib;
 
 val _ = new_theory "example_aes";

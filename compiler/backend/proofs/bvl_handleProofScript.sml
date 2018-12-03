@@ -1,3 +1,6 @@
+(*
+  Correctness proof for bvl_handle
+*)
 open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
 
 val _ = new_theory"bvl_handleProof";

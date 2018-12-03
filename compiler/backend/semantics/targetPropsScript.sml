@@ -1,3 +1,6 @@
+(*
+  Properties about the target semantics
+*)
 open preamble
      ffiTheory
      asmTheory asmSemTheory asmPropsTheory

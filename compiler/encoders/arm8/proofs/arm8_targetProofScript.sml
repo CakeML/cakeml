@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for ARMv8
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib arm8_stepLib arm8_targetTheory;
 

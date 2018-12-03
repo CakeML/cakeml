@@ -1,3 +1,6 @@
+(*
+  Correctness proof for stack_to_lab
+*)
 open preamble
      stackSemTheory stackPropsTheory
      stack_allocTheory stack_to_labTheory

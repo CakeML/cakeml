@@ -1,3 +1,9 @@
+(*
+  This simple compiler phase tidies up after function inlining, in
+  particular it turns `Let [x0; x1; ...] (Op op [Var 0; Var 1; ...])`
+  into `Op op [x0; x1; ...]`, which enables further optimisation
+  later, e.g. in bvi_tailrec.
+*)
 open preamble closLangTheory;
 
 val _ = new_theory "clos_letop";

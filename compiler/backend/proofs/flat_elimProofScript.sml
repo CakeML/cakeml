@@ -1,10 +1,6 @@
 (*
-  Definitions and proofs of correctness for flatLang dead code elimination.
-
-  General sptree lemmas, definitions of reachability in a num_set num_map,
-  and proofs of semantic preservation for flat_elim.
+  Correctness proof for flatLang dead code elimination
 *)
-
 open preamble sptreeTheory flatLangTheory flat_elimTheory
      flatSemTheory flatPropsTheory
 

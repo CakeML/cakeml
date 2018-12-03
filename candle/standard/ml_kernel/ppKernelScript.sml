@@ -1,3 +1,7 @@
+(*
+  Pretty prints the CakeML code of the Candle kernel.
+  The output is produced in a file called kernel_ml.txt.
+*)
 open HolKernel boolLib bossLib
 open ml_translatorLib ml_monad_translatorTheory ml_hol_kernelProgTheory astPP
 

@@ -1,3 +1,8 @@
+(*
+  Composes all of the compiler phases within the compiler backend into
+  a single compile function which is connected (in ../compilerScript.sml)
+  to the front-end, i.e. parsing and type inference.
+*)
 open preamble
      source_to_flatTheory
      flat_to_patTheory

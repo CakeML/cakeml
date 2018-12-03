@@ -1,6 +1,6 @@
 (*
- * Trying out the monadic translator
- *)
+  Trying out the monadic translator
+*)
 
 open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory
@@ -87,13 +87,13 @@ val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm
 
 val (init_trans, store_translation, exn_thms) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      STATE_EXN_TYPE_def
-					      exn_functions
-					      [] NONE NONE;
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              STATE_EXN_TYPE_def
+                                              exn_functions
+                                              [] NONE NONE;
 
 (* Interacting with the graph component of the state monad *)
 

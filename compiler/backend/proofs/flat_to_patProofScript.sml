@@ -1,3 +1,6 @@
+(*
+  Correctness proof for flat_to_pat
+*)
 open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flat_to_patTheory backendPropsTheory
@@ -3353,4 +3356,3 @@ val elist_globals_compile = Q.store_thm("elist_globals_compile",
   \\ rw[set_globals_eq]);
 
 val _ = export_theory()
-

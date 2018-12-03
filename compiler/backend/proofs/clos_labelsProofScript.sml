@@ -1,3 +1,6 @@
+(*
+  Correctness proof for clos_labels
+*)
 open preamble closLangTheory clos_labelsTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "clos_labelsProof";

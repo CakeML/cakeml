@@ -1,3 +1,6 @@
+(*
+  Some lemmas about the syntactic functions.
+*)
 open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
      holSyntaxLibTheory holSyntaxTheory
 

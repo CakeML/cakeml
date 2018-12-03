@@ -1,7 +1,8 @@
-(* Code to recall that some partial functions (of type 'a -> 'b option)
-can be represented as sorted alists, and derive a fast conversion on
-applications of those functions. *)
-
+(*
+  Code to recall that some partial functions (of type 'a -> 'b option)
+  can be represented as sorted alists, and derive a fast conversion on
+  applications of those functions.
+*)
 structure alist_treeLib : alist_treeLib = struct
 
 open preamble alist_treeTheory comparisonTheory
@@ -343,4 +344,3 @@ fun extract_test_1000 rs = let
   in res2 end
 
 end
-

@@ -1,3 +1,7 @@
+(*
+  Define semantics for the Boolean operations and show the definitions are
+  correct.
+*)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory
      holSemanticsTheory holSemanticsExtraTheory setSpecTheory
 

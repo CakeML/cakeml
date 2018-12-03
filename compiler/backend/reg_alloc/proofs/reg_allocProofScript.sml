@@ -1,3 +1,6 @@
+(*
+  Proves correctness of the graph-colouring register allocator.
+*)
 open preamble state_transformerTheory reg_allocTheory
 open sortingTheory;
 open ml_monadBaseTheory ml_monadBaseLib;

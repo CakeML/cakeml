@@ -1,3 +1,12 @@
+(*
+  The following section culminates in call_main_thm2 which takes a
+  spec and some aspects of the current state, and proves a
+  Semantics_prog statement.
+
+  It also proves call_FFI_rel^* between the initial state, and the
+  state after creating the prog and then calling the main function -
+  this is useful for theorizing about the output of the program.
+*)
 open preamble
      semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib
@@ -5,15 +14,6 @@ open preamble
      evaluatePropsTheory
 
 val _ = new_theory "cfMain";
-
-(*
-   The following section culminates in call_main_thm2 which takes a
-   spec and some aspects of the current state, and proves a
-   Semantics_prog statement. It also proves call_FFI_rel^* between the
-   initial state, and the state after creating the prog and then
-   calling the main function - this is useful for theorizing about the
-   output of the program
-*)
 
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)

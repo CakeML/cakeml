@@ -1,6 +1,7 @@
 (*
- * An example showing how to use the monadic translator with references, arrays and exceptions.
- *)
+  An example showing how to use the monadic translator with
+  references, arrays and exceptions.
+*)
 
 open preamble ml_monadBaseLib
 open ml_monad_translatorTheory ml_monad_translatorLib
@@ -24,7 +25,7 @@ val _ = (use_full_type_names := false);
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `
   state_refs = <| the_num : num ;
-	          the_num_array : num list ;
+                  the_num_array : num list ;
                   the_int_array : int list |>`;
 
 (* Data type for the exceptions *)
@@ -71,13 +72,13 @@ val extra_hprop = NONE : term option;
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      exn_ri_def
-					      exn_functions
-					      []
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              exn_ri_def
+                                              exn_functions
+                                              []
                                               store_pinv_opt
                                               extra_hprop;
 
@@ -122,11 +123,11 @@ val f10_v_thm = m_translate f10_def;
 
 val f11_def = Define `
 f11 x = case x of [] => return (0 : num)
-		| x::xs => (do l <- f11 xs; return (1 + l) od)`;
+                | x::xs => (do l <- f11 xs; return (1 + l) od)`;
 val f11_v_thm = m_translate f11_def;
 val f11_side_def = fetch "testPrecondProg" "f11_side_def"
 val f11_side_true = Q.prove(`!xs st. f11_side st xs`,
-			    Induct \\ rw[Once f11_side_def]);
+                            Induct \\ rw[Once f11_side_def]);
 
 val f12_def = Define`
 f12 x = ((return (1:num)) otherwise (return 0))`;

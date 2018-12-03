@@ -1,3 +1,6 @@
+(*
+  Correctness proof for data_space
+*)
 open preamble data_spaceTheory dataSemTheory dataPropsTheory;
 
 val _ = new_theory"data_spaceProof";

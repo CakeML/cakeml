@@ -1,3 +1,8 @@
+(*
+  This compiler phase moves code from closures into a separate code
+  table and tries to change calls to known closures into fast C-style
+  function calls.
+*)
 open preamble closLangTheory db_varsTheory;
 
 val _ = new_theory "clos_call";

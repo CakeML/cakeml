@@ -1,9 +1,11 @@
+(*
+  An oracle says how to perform an ffi call based on its internal
+  state, represented by the type variable 'ffi.
+*)
 open import Pervasives
 open import Pervasives_extra
 open import Lib
 
-(* An oracle says how to perform an ffi call based on its internal state,
-* represented by the type variable 'ffi. *)
 
 type ffi_outcome = FFI_failed | FFI_diverged
 

@@ -1,3 +1,6 @@
+(*
+  Part of the correctness proof for data_to_word
+*)
 open preamble int_bitwiseTheory bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_word_bignumProofTheory data_to_wordTheory wordPropsTheory

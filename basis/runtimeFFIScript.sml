@@ -1,3 +1,6 @@
+(*
+  Logical model of the Runtime module's exit function calls.
+*)
 open preamble
      cfHeapsBaseTheory
 

@@ -1,3 +1,6 @@
+(*
+  Properties about labLang and its semantics
+*)
 open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
      semanticsPropsTheory;
 

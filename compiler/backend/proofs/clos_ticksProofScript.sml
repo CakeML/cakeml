@@ -1,3 +1,6 @@
+(*
+  Correctness proof for clos_ticks
+*)
 open preamble closPropsTheory clos_ticksTheory closSemTheory;
 open closLangTheory;
 open backendPropsTheory;

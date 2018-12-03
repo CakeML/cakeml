@@ -1,3 +1,6 @@
+(*
+  Translate the data_to_word part of the 32-bit compiler.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;

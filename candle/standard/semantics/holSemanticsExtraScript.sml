@@ -1,3 +1,6 @@
+(*
+  Some lemmas about the semantics.
+*)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
 
 val _ = new_theory"holSemanticsExtra"

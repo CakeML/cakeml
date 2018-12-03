@@ -1,3 +1,6 @@
+(*
+  Proofs about the Array module.
+*)
 open preamble ml_translatorTheory ml_translatorLib cfLib
      mlbasicsProgTheory ArrayProgTheory
 

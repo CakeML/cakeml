@@ -1,3 +1,6 @@
+(*
+  Translate the compiler's lexer.
+*)
 open preamble
      lexer_funTheory lexer_implTheory to_dataProgTheory
      ml_translatorLib ml_translatorTheory

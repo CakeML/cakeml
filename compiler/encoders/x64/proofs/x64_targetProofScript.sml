@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for x64
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib x64_stepLib x64_targetTheory;
 

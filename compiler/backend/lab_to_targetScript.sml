@@ -1,3 +1,10 @@
+(*
+  This compiler phase generates concrete (ARM, x64, ag32, RISC-V,
+  MIPS) machine code from labLang assmebly programs. This phase is the
+  CakeML compiler's assmebler: it computes label offsets and encodes
+  all instructions according to the instruction encoder stored in the
+  compiler configuration.
+*)
 open preamble labLangTheory lab_filterTheory;
 
 val _ = new_theory"lab_to_target";

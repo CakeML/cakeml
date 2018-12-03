@@ -1,3 +1,6 @@
+(*
+  Definitions for manipulating (deeply embedded) HOL syntax.
+*)
 open preamble mlstringTheory
 
 val _ = new_theory"holSyntaxLib"

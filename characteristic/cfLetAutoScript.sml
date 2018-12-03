@@ -1,3 +1,7 @@
+(*
+  Definitions and lemmas that support the implementation of the
+  xlet_auto tactic.
+*)
 open preamble ml_translatorTheory cfTacticsLib set_sepTheory cfHeapsBaseTheory cfStoreTheory Satisfy
 
 val _ = new_theory "cfLetAuto";
@@ -99,7 +103,7 @@ rw[] >>
 last_x_assum (fn x => rw[GSYM x]));
 
 fun prove_hprop_inj_tac thm = rw[HPROP_INJ_def, SEP_CLAUSES, GSYM STAR_ASSOC, HCOND_EXTRACT] >>
-				metis_tac[thm];
+                                metis_tac[thm];
 
 val PTR_HPROP_INJ = Q.store_thm("PTR_HPROP_INJ",
 `!l xv xv'. HPROP_INJ (l ~~>> xv) (l ~~>> xv') (xv' = xv)`,
@@ -155,19 +159,19 @@ Cases_on `parts_ok st.ffi (proj, parts)`
     >-(
        `MEM ns1 (MAP FST parts)` by
        (
-	   `?n. n < LENGTH parts /\ (ns1, u1) = EL n parts` by (IMP_RES_TAC MEM_EL >> SATISFY_TAC) >>
-	   `FST (EL n parts) = ns1` by FIRST_ASSUM (fn x => fs[GSYM x, FST]) >>
-	   `n < LENGTH (MAP FST parts)` by fs[LENGTH_MAP] >>
-	   `EL n (MAP FST parts) = FST (EL n parts)` by fs[EL_MAP] >>
-	   metis_tac[GSYM MEM_EL]
+           `?n. n < LENGTH parts /\ (ns1, u1) = EL n parts` by (IMP_RES_TAC MEM_EL >> SATISFY_TAC) >>
+           `FST (EL n parts) = ns1` by FIRST_ASSUM (fn x => fs[GSYM x, FST]) >>
+           `n < LENGTH (MAP FST parts)` by fs[LENGTH_MAP] >>
+           `EL n (MAP FST parts) = FST (EL n parts)` by fs[EL_MAP] >>
+           metis_tac[GSYM MEM_EL]
        ) >>
        `MEM ns2 (MAP FST parts)` by
        (
-	   `?n. n < LENGTH parts /\ (ns2, u2) = EL n parts` by (IMP_RES_TAC MEM_EL >> SATISFY_TAC) >>
-	   `FST (EL n parts) = ns2` by FIRST_ASSUM (fn x => fs[GSYM x, FST]) >>
-	   `n < LENGTH (MAP FST parts)` by fs[LENGTH_MAP] >>
-	   `EL n (MAP FST parts) = FST (EL n parts)` by fs[EL_MAP] >>
-	   metis_tac[GSYM MEM_EL]
+           `?n. n < LENGTH parts /\ (ns2, u2) = EL n parts` by (IMP_RES_TAC MEM_EL >> SATISFY_TAC) >>
+           `FST (EL n parts) = ns2` by FIRST_ASSUM (fn x => fs[GSYM x, FST]) >>
+           `n < LENGTH (MAP FST parts)` by fs[LENGTH_MAP] >>
+           `EL n (MAP FST parts) = FST (EL n parts)` by fs[EL_MAP] >>
+           metis_tac[GSYM MEM_EL]
        ) >>
        metis_tac[cfTheory.ALL_DISTINCT_FLAT_MEM_IMP]
     ) >>

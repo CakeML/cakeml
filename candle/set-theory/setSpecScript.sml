@@ -1,3 +1,9 @@
+(*
+  Specification of (roughly) Zermelo's set theory.
+  Two main definitions:
+    is_set_theory (mem : 'U -> 'U -> bool), and
+    is_model (mem, indset, ch)
+*)
 open preamble cardinalTheory
 
 val _ = new_theory"setSpec"

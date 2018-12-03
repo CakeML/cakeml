@@ -1,3 +1,7 @@
+(*
+  Proves soundness of the OpenTheory article checker. The soundness
+  theorem makes the connection to the semantics of HOL explicit.
+*)
 open preamble readerProofTheory holSoundnessTheory
 
 val _ = new_theory "readerSoundness";

@@ -1,3 +1,6 @@
+(*
+  Conversion from semantic stores to heaps.
+*)
 open preamble
 open set_sepTheory helperLib ConseqConv
 open semanticPrimitivesTheory ml_translatorTheory
@@ -5,8 +8,6 @@ open cfHeapsTheory cfHeapsBaseLib
 
 val _ = new_theory "cfStore"
 
-(*------------------------------------------------------------------*)
-(** Conversion from semantic stores to heaps *)
 
 (* Definitions *)
 

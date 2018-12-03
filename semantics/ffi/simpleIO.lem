@@ -1,3 +1,6 @@
+(*
+  A simple instantiation of the ffi type.
+*)
 open import Pervasives
 open import Pervasives_extra
 open import Lib

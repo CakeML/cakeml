@@ -1,3 +1,7 @@
+(*
+  For MIPS, prove that the compiler configuration is well formed, and
+  instantiate the compiler correctness theorem.
+*)
 open preamble backendProofTheory
      mips_configTheory mips_targetProofTheory
 open blastLib;

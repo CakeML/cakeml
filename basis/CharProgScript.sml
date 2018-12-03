@@ -1,3 +1,6 @@
+(*
+  A module about the char type for the CakeML standard basis library.
+*)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
      RatProgTheory
 

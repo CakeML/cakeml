@@ -1,3 +1,6 @@
+(*
+  Proves soundness of the inference system: any provable sequent is valid.
+*)
 open preamble setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
      holSemanticsTheory holSemanticsExtraTheory
 

@@ -1,3 +1,7 @@
+(*
+  Module that contains a few special functions, e.g. a function for
+  forcing a full GC to run, a function for producing debug output.
+*)
 open preamble ml_translatorLib ml_progLib std_preludeTheory
      mloptionTheory basisFunctionsLib
 

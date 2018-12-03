@@ -1,3 +1,8 @@
+(*
+  Compose the hello semantics theorem and the compiler correctness
+  theorem with the compiler evaluation theorem to produce end-to-end
+  correctness theorem that reaches final machine code.
+*)
 open preamble
      semanticsPropsTheory backendProofTheory ag32_configProofTheory
      ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory

@@ -1,3 +1,6 @@
+(*
+  Properties about stackLang and its semantics
+*)
 open preamble stackSemTheory stack_namesTheory
 
 val _ = new_theory"stackProps";

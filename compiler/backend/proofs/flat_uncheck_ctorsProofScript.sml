@@ -1,3 +1,6 @@
+(*
+  Correctness proof for uncheck_ctors
+*)
 open preamble;
 open flatLangTheory flatSemTheory flatPropsTheory flat_uncheck_ctorsTheory;
 
@@ -952,4 +955,3 @@ val compile_decs_distinct_globals = Q.store_thm("compile_decs_distinct_globals",
   metis_tac [compile_decs_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
 
 val _ = export_theory ();
-
