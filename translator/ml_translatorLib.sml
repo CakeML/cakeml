@@ -2893,6 +2893,11 @@ fun clean_assumptions th = let
                                     orelse can (match_term pattern2) tm) (concl th)
   val lemmas = map (EVAL THENC nsLookup_conv THENC EVAL) lookup_assums
                |> filter (fn th => th |> concl |> rand |> is_const)
+  val _ = case List.find (fn l => (l |> concl |> rand) = F) lemmas of
+      NONE => ()
+    | SOME t => (print "clean_assumptions: false assumption\n\n";
+        print_thm t; print "\n\n"; failwith ("clean_assumptions: false"
+          ^ Parse.thm_to_string t))
   val th = REWRITE_RULE lemmas th
   (* lift EqualityType assumptions out *)
   val pattern = get_term "eq type"
