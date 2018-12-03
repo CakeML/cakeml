@@ -259,7 +259,7 @@ Theorem remove_colours_frame `
   rw[]>>fs[]>>
   metis_tac[]);
 
-Theorem remove_colorus_success `
+Theorem remove_colours_success `
   ∀adjs ks s ls s'.
   remove_colours adjs ks s = (Success ls,s') ⇒
   Abbrev(set ls ⊆ set ks ∧

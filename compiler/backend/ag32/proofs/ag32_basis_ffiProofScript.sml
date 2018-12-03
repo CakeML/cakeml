@@ -94,7 +94,7 @@ Theorem asm_write_bytearray_UPDATE `
   match_mp_tac mem_eq_imp_asm_write_bytearray_eq >>
   fs[APPLY_UPDATE_THM]);
 
-Theorem get_mem_word_asm_write_bytearray_UNCHANGED_LT `
+Theorem set_mem_word_asm_write_bytearray_commute_LT `
   (pc <+ a) ∧
   (pc+1w <+ a) ∧
   (pc+2w <+ a) ∧

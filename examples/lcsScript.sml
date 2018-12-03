@@ -361,7 +361,7 @@ Theorem is_subsequence_rev `
   >> Cases_on `r`
   >> fs[is_subsequence_nil,is_subsequence_snoc',is_subsequence_cons]);
 
-Theorem is_subsequence_rev `
+Theorem is_subsequence_rev' `
   !l r. is_subsequence l (REVERSE r) = is_subsequence (REVERSE l) r`
   (ho_match_mp_tac SNOC_INDUCT
   >> strip_tac
@@ -374,7 +374,7 @@ Theorem common_subsequence_rev
   `!l r s. common_subsequence (REVERSE l) (REVERSE r) (REVERSE s) = common_subsequence l r s`
   (rw[common_subsequence_def,is_subsequence_rev]);
 
-Theorem common_subsequence_rev
+Theorem common_subsequence_rev'
   `!l r s. common_subsequence l (REVERSE r) (REVERSE s) = common_subsequence (REVERSE l) r s`
   (rw[common_subsequence_def,is_subsequence_rev']);
 
@@ -383,7 +383,7 @@ Theorem lcs_rev
   (rw[common_subsequence_rev',lcs_def,EQ_IMP_THM]
   >> metis_tac[LENGTH_REVERSE,REVERSE_REVERSE]);
 
-Theorem lcs_rev
+Theorem lcs_rev'
   `!l r s. lcs l (REVERSE r) (REVERSE s) = lcs (REVERSE l) r s`
   (rw[common_subsequence_rev',lcs_def,EQ_IMP_THM]
   >> metis_tac[LENGTH_REVERSE,REVERSE_REVERSE]);

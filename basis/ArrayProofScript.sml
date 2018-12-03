@@ -584,7 +584,7 @@ Theorem array_foldl_spec
 );
 
 
-Theorem array_foldri_spec
+Theorem array_foldri_aux_spec
     `!n f fv init initv a vs av nv (A:'a->v->bool) (B:'b->v->bool).
       (NUM-->B-->A-->A) f fv /\ LIST_REL B a vs /\ A init initv /\
       NUM n nv /\ n <= LENGTH a
@@ -630,7 +630,7 @@ Theorem array_foldri_spec
 
 *)
 
-Theorem array_foldr_spec
+Theorem array_foldr_aux_spec
     `!n f fv init initv a vs av nv (A:'a->v->bool) (B:'b->v->bool).
       (B-->A-->A) f fv /\ LIST_REL B a vs /\ A init initv /\
       NUM n nv /\ n <= LENGTH a

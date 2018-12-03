@@ -707,7 +707,7 @@ Theorem nsLookupMod_FOLDR_nsLift_none
  >> Cases_on `p2`
  >> rw [nsLookupMod_def, mk_id_def]);
 
-Theorem envSub_compute_thm_general
+Theorem nsSub_compute_thm_general
   `!p R e1 e2.
     nsSub R (FOLDR nsLift e1 (REVERSE p)) (FOLDR nsLift e2 (REVERSE p)) ⇔
     nsSub_compute p R e1 e2`

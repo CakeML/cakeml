@@ -1204,7 +1204,7 @@ Theorem word_gc_move_bitmaps_LENGTH
   \\ imp_res_tac map_bitmap_IMP_LENGTH \\ fs []
   \\ imp_res_tac filter_bitmap_IMP_LENGTH \\ fs []);
 
-Theorem word_gc_move_bitmap_code_thm
+Theorem word_gc_move_bitmaps_code_thm
   `!w bitmaps z stack (s:('a,'c,'b)stackSem$state) i pa curr m dm new
          stack1 a1 i1 pa1 m1 old.
       word_gc_move_bitmaps conf (Word w,stack,bitmaps,i,pa,curr,m,dm) =
@@ -2976,7 +2976,7 @@ Theorem word_gen_gc_partial_move_bitmaps_LENGTH
   \\ imp_res_tac map_bitmap_IMP_LENGTH \\ fs []
   \\ imp_res_tac filter_bitmap_IMP_LENGTH \\ fs []);
 
-Theorem word_gen_gc_move_bitmap_code_thm
+Theorem word_gen_gc_move_bitmaps_code_thm
   `!w bitmaps z stack (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new
          stack1 a1 i1 pa1 ib1 pb1 m1 old.
       word_gen_gc_move_bitmaps conf (Word w,stack,bitmaps,i,pa,ib,pb,curr,m,dm) =
@@ -3107,7 +3107,7 @@ Theorem word_gen_gc_move_bitmap_code_thm
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
   \\ eq_tac \\ rw[] \\ fs []);
 
-Theorem word_gen_gc_partial_move_bitmap_code_thm
+Theorem word_gen_gc_partial_move_bitmaps_code_thm
   `!w bitmaps z stack (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new
          stack1 a1 i1 pa1 ib1 pb1 m1 old.
       word_gen_gc_partial_move_bitmaps conf

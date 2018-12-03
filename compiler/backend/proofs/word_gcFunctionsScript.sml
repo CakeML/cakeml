@@ -553,7 +553,7 @@ Theorem word_gen_gc_move_has_fp_ops[simp]
   \\ simp_tac std_ss [FORALL_PROD,word_gen_gc_move_def]
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-Theorem word_gen_gc_move_has_fp_ops[simp]
+Theorem word_gen_gc_partial_move_has_fp_ops[simp]
   `!x. word_gen_gc_partial_move (conf with has_fp_ops := b) x =
         word_gen_gc_partial_move conf x`
   (simp_tac std_ss [FORALL_PROD] \\ Cases

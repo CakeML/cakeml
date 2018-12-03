@@ -37,7 +37,7 @@ Theorem n2w2_UNICITY_R[xlet_auto_match]
  first_assum (assume_tac o Q.SPEC`n1`) >> fs[] >>
  first_x_assum (assume_tac o Q.SPEC`n2`) >> fs[]);
 
-Theorem WORD_n2w2_UNICITY[xlet_auto_match]
+Theorem WORD_n2w2_UNICITY_L[xlet_auto_match]
  `!n1 n2 f. n1 < 256**2 /\ LIST_TYPE WORD (n2w2 n1) f ==>
    (LIST_TYPE WORD (n2w2 n2) f /\ n2 < 256**2 <=> n1 = n2)`
  (rw[] >> eq_tac >> rw[] >> fs[n2w2_def,LIST_TYPE_def] >> rw[] >>
@@ -68,7 +68,7 @@ Theorem n2w8_UNICITY_R[xlet_auto_match]
   unabbrev_all_tac >> fs[DIV_DIV_DIV_MULT] >> rw[] >>
   fs[LESS_DIV_EQ_ZERO]);
 
-Theorem WORD_n2w8_UNICITY[xlet_auto_match]
+Theorem WORD_n2w8_UNICITY_L[xlet_auto_match]
  `!n1 n2 f. n1 < 256**8 /\ LIST_TYPE WORD (n2w8 n1) f ==>
    (LIST_TYPE WORD (n2w8 n2) f /\ n2 < 256**8 <=> n1 = n2)`
  (rw[] >> eq_tac >> rw[] >> fs[n2w8_def,LIST_TYPE_def] >> rw[] >>

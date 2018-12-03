@@ -34,7 +34,7 @@ Theorem code_rel_IMP_LENGTH
   `!xs ys. code_rel xs ys ==> LENGTH xs = LENGTH ys`
   (fs [code_rel_def, LENGTH_remove_ticks]);
 
-Theorem remove_ticks_cons
+Theorem remove_ticks_CONS
   `!es e. remove_ticks (e::es) = HD (remove_ticks [e])::remove_ticks es`
   (Induct_on `es` \\ Induct_on `e` \\ fs [remove_ticks_def]);
 
@@ -124,7 +124,7 @@ Theorem remove_ticks_Tick
   `!x t e. ~([Tick t e] = remove_ticks [x])`
   (Induct \\ fs [remove_ticks_def]);
 
-Theorem remove_ticks_IMP_mk_Ticks
+Theorem remove_ticks_Var_IMP_mk_Ticks
   `(!x tr n. [Var tr n] = remove_ticks [x] ==> ?ts. x = mk_Ticks ts (Var tr n))`
   (Induct \\ fs [remove_ticks_def] \\ metis_tac [mk_Ticks_def]);
 

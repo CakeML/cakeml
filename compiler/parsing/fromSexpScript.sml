@@ -28,7 +28,7 @@ Theorem OPTION_APPLY_MAP3
   (Cases_on`x`\\simp[] \\ rw[EQ_IMP_THM] \\ rw[]
   \\ Cases_on`y`\\fs[]);
 
-Theorem OPTION_APPLY_MAP3
+Theorem OPTION_APPLY_MAP4
   `OPTION_APPLY (OPTION_APPLY (OPTION_APPLY (OPTION_MAP f x) y) z ) t= SOME r ⇔
    ∃a b c d. x = SOME a ∧ y = SOME b ∧ z = SOME c ∧ t = SOME d /\ f a b c d= r`
   (Cases_on`x`\\simp[] \\ rw[EQ_IMP_THM] \\ rw[]

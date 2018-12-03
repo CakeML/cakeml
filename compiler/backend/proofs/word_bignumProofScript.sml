@@ -1376,7 +1376,7 @@ Theorem clock_write_simp[simp]
     (clock_write n s).clock = n`
   (fs [clock_write_def]);
 
-Theorem dec_clock_simp[simp]
+Theorem dec_clock_write_simp[simp]
   `(dec_clock s).regs = s.regs /\
     (dec_clock s).arrays = s.arrays /\
     (dec_clock s).clock = s.clock - 1`

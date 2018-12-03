@@ -221,7 +221,7 @@ Theorem Mdref_eq
       by (last_x_assum(fn x => ALL_TAC) \\ rw[Once Mdref_def])
   \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
   \\ rw[]
-  \\ rw[dref_const_state_eq]);
+  \\ rw[dref_cons_state]);
 
 Theorem Mref_assign_aux_eq
   `!state e n x.

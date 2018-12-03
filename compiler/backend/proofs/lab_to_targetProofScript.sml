@@ -4661,7 +4661,7 @@ Theorem line_ok_line_byte_length `
   LENGTH (line_bytes l) = line_length l`
   (Cases_on`l`>>EVAL_TAC>>rw[]);
 
-Theorem line_ok_line_byte_length `
+Theorem lines_ok_MAP_line_byte_length `
   ∀ls c labs ffi n.
   lines_ok c labs ffi n ls ⇒
   MAP LENGTH (MAP line_bytes ls) = MAP line_length ls`

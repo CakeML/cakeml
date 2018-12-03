@@ -134,7 +134,7 @@ Theorem is_Pcon_thm
 
 Theorem is_const_con_is_Pcon
   `is_const_con x ==> isPcon x`
-  (rw[is_const_con_thm,isPcon_thm]);
+  (rw[is_const_con_thm,is_Pcon_thm]);
 
 Theorem same_con_is_const_con
   `same_con x y ⇒ is_const_con x ∧ is_const_con y`
@@ -214,7 +214,7 @@ Theorem pmatch_match_match
   `¬env.check_ctor ∧
    is_const_con x /\ isPcon y /\ pmatch env refs x v [] = Match_type_error ==>
    pmatch env refs y v [] = Match_type_error`
-  (rw[is_const_con_thm,isPcon_thm]
+  (rw[is_const_con_thm,is_Pcon_thm]
   \\ Cases_on`v` \\ fs[pmatch_def]
   \\ rename1`Conv tt _` \\ Cases_on`tt`
   \\ fs[pmatch_def,semanticPrimitivesTheory.same_ctor_def]

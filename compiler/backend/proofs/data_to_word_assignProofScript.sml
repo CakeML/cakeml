@@ -1040,7 +1040,7 @@ Theorem RefByte_thm
   \\ fs[FAPPLY_FUPDATE_THM]
   \\ rw [] \\ fs []);
 
-Theorem Replicate_code_thm
+Theorem FromList1_code_thm
   `!k a b r x m1 a1 a2 a3 a4 a5 a6.
       lookup FromList1_location r.code = SOME (6,FromList1_code c) /\
       copy_list c r.store k (a,x,b,(r:('a,'c,'ffi) wordSem$state).memory,

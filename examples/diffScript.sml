@@ -108,7 +108,7 @@ Theorem diff_alg_refl
   `diff_alg l l = []`
   (rw[diff_alg_def,lcs_refl',diff_with_lcs_refl,optimised_lcs_refl]);
 
-Theorem diff_alg_refl
+Theorem diff_alg2_refl
   `diff_alg2 l l = []`
   (rw[diff_alg2_thm,lcs_refl',diff_with_lcs_refl,dynamic_lcs_refl,
      longest_common_prefix_refl]);
@@ -363,7 +363,7 @@ val tokens_strcat = Q.prove(
                                     strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
  = [toString n; toString m])`,
   Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
-  fs[tokens_append_strlit,strcat_assoc,tokens_append_right,tokens_toString]);
+  fs[tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]);
 
 val tokens_strcat' = Q.prove(
 `r ≠ [] ==>
@@ -372,7 +372,7 @@ val tokens_strcat' = Q.prove(
                                     strlit (STRING (acd l r) "") ^ toString (m:num) ^ strlit "\n")
  = [toString n; toString m])`,
   Cases_on `l` >> Cases_on `r` >> fs[acd_def] >>
-  fs[tokens_append_strlit,strcat_assoc,tokens_append_right,tokens_toString]);
+  fs[tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]);
 
 val strsub_strcat =
     Q.prove(`!s s'. strsub(s ^ s') n = if n < strlen s then strsub s n else strsub s' (n - strlen s)`,
@@ -520,7 +520,7 @@ Theorem parse_header_cancel
        n',if LENGTH l' <= 1 then NONE else SOME(n'+LENGTH l')))`
   (rw[diff_single_header_def,parse_patch_header_def,
      option_case_eq,list_case_eq,PULL_EXISTS,
-     strsub_strcat,tokens_append_right,GSYM str_def,
+     strsub_strcat,tokens_append_right_strlit,GSYM str_def,
      tokens_append,acd_simps,acd_more_simps,tokens_comma_lemma,
      tokens_comma_lemma]
   \\ rw[line_numbers_def,tokens_toString_comma,
@@ -1083,7 +1083,7 @@ Theorem longest_common_sandwich'
   >> qpat_abbrev_tac `a2 = longest_common_suffix _ _ `
   >> fs[TAKE_APPEND]);
 
-Theorem LENGTH_suffix_prefix
+Theorem LENGTH_suffix_prefix'
   `!l r. LENGTH r >= LENGTH (longest_common_prefix l r)
         + LENGTH
            (longest_common_suffix

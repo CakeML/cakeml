@@ -124,7 +124,7 @@ Theorem n2w_UNICITY[xlet_auto_match]
  `!n1 n2.n1 <= 255 ==> ((n2w n1 :word8 = n2w n2 /\ n2 <= 255) <=> n1 = n2)`
  (rw[] >> eq_tac >> fs[])
 
-Theorem WORD_n2w_UNICITY[xlet_auto_match]
+Theorem WORD_n2w_UNICITY_L[xlet_auto_match]
  `!n1 n2 f. n1 <= 255 /\ WORD (n2w n1 :word8) f ==>
    (WORD (n2w n2 :word8) f /\ n2 <= 255 <=> n1 = n2)`
  (rw[] >> eq_tac >> rw[] >> imp_res_tac WORD_UNICITY_L >>
