@@ -308,7 +308,7 @@ val loc_to_pc_def = Define `
              | NONE => NONE
              | SOME pos => SOME (pos + 1:num))`;
 
-val asm_inst_consts = Q.store_thm("asm_inst_consts",
+Theorem asm_inst_consts
   `((asm_inst i s).pc = s.pc) /\
    ((asm_inst i s).code = s.code) /\
    ((asm_inst i s).clock = s.clock) /\
@@ -317,8 +317,8 @@ val asm_inst_consts = Q.store_thm("asm_inst_consts",
    ((asm_inst i s).len_reg = s.len_reg) ∧
    ((asm_inst i s).ptr2_reg = s.ptr2_reg) ∧
    ((asm_inst i s).len2_reg = s.len2_reg) ∧
-   ((asm_inst i s).link_reg = s.link_reg)`,
-  Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
+   ((asm_inst i s).link_reg = s.link_reg)`
+  (Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   >-
     (Cases_on `a`
     \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]

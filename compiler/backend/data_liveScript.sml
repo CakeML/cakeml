@@ -43,7 +43,7 @@ val is_pure_def = Define `
   (is_pure ConfigGC = F) /\
   (is_pure _ = T)`
 
-val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
+Theorem is_pure_pmatch `!op.
   is_pure op =
     case op of
       SetGlobalsPtr => F
@@ -77,8 +77,8 @@ val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
     | FP_uop _ => F
     | FP_bop _ => F
     | ConfigGC => F
-    | _ => T`,
-  rpt strip_tac
+    | _ => T`
+  (rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac >> fs[is_pure_def]);
 

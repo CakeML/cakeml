@@ -611,7 +611,7 @@ constrain_op l op ts =
 
 val constrain_op_def = Define constrain_op_quotation;
 
-val constrain_op_pmatch = Q.store_thm("constrain_op_pmatch",`∀op ts.` @
+Theorem constrain_op_pmatch `∀op ts.` (@
   (constrain_op_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
@@ -619,13 +619,13 @@ val constrain_op_pmatch = Q.store_thm("constrain_op_pmatch",`∀op ts.` @
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[constrain_op_def]);
 
-val constrain_op_error_msg_sanity = Q.store_thm ("constrain_op_error_msg_sanity",
+Theorem constrain_op_error_msg_sanity
 `!l op args s l' s' msg.
   LENGTH args = SND (op_to_string op) ∧
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
-  IS_PREFIX (explode msg) "Type mismatch"`,
- rpt strip_tac >>
+  IS_PREFIX (explode msg) "Type mismatch"`
+ (rpt strip_tac >>
  qmatch_abbrev_tac `IS_PREFIX _ m` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_def] >>

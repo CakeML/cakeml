@@ -32,9 +32,9 @@ val _ = Datatype`
 
 val IO_fs_component_equality = theorem"IO_fs_component_equality";
 
-val with_same_numchars = Q.store_thm("with_same_numchars",
-  `fs with numchars := fs.numchars = fs`,
-  rw[IO_fs_component_equality]);
+Theorem with_same_numchars
+  `fs with numchars := fs.numchars = fs`
+  (rw[IO_fs_component_equality]);
 
 val get_file_content_def = Define`
     get_file_content fs fd =
@@ -299,29 +299,29 @@ val encode_def = zDefine`
                  (Stream fs.numchars))
                 (Num fs.maxFD)`
 
-val encode_inode_11 = store_thm("encode_inode_11[simp]",
-  ``!x y. encode_inode x = encode_inode y <=> x = y``,
-  Cases \\ Cases_on `y` \\ fs [encode_inode_def,explode_11]);
+Theorem encode_inode_11[simp]
+  `!x y. encode_inode x = encode_inode y <=> x = y`
+  (Cases \\ Cases_on `y` \\ fs [encode_inode_def,explode_11]);
 
-val encode_files_11 = store_thm("encode_files_11[simp]",
-  ``!xs ys. encode_files xs = encode_files ys <=> xs = ys``,
-  rw [] \\ eq_tac \\ rw [encode_files_def]
+Theorem encode_files_11[simp]
+  `!xs ys. encode_files xs = encode_files ys <=> xs = ys`
+  (rw [] \\ eq_tac \\ rw [encode_files_def]
   \\ drule encode_list_11
   \\ fs [encode_pair_def,FORALL_PROD,encode_inode_def]);
 
-val encode_mode_11 = Q.store_thm("encode_mode_11[simp]",
-  `∀x y. encode_mode x = encode_mode y ⇔ x = y`,
-  Cases \\ Cases \\ rw[encode_mode_def]);
+Theorem encode_mode_11[simp]
+  `∀x y. encode_mode x = encode_mode y ⇔ x = y`
+  (Cases \\ Cases \\ rw[encode_mode_def]);
 
-val encode_fds_11 = store_thm("encode_fds_11[simp]",
-  ``!xs ys. encode_fds xs = encode_fds ys <=> xs = ys``,
-  rw [] \\ eq_tac \\ rw [encode_fds_def]
+Theorem encode_fds_11[simp]
+  `!xs ys. encode_fds xs = encode_fds ys <=> xs = ys`
+  (rw [] \\ eq_tac \\ rw [encode_fds_def]
   \\ drule encode_list_11
   \\ fs [encode_pair_def,FORALL_PROD,encode_inode_def]);
 
-val encode_11 = store_thm("encode_11[simp]",
-  ``!x y. encode x = encode y <=> x = y``,
-  fs [encode_def] \\ rw [] \\ eq_tac \\ rw []
+Theorem encode_11[simp]
+  `!x y. encode x = encode y <=> x = y`
+  (fs [encode_def] \\ rw [] \\ eq_tac \\ rw []
   \\ fs [IO_fs_component_equality]);
 
 val decode_encode = new_specification("decode_encode",["decode"],

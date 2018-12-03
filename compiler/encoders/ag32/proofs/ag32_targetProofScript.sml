@@ -183,9 +183,9 @@ val aligned_pc = Q.prove(
   \\ blastLib.BBLAST_TAC
   )
 
-val concat_bytes = Q.store_thm("concat_bytes",
- `!w: word32. (31 >< 24) w @@ (23 >< 16) w @@ (15 >< 8) w @@ (7 >< 0) w = w`,
-  blastLib.BBLAST_TAC);
+Theorem concat_bytes
+ `!w: word32. (31 >< 24) w @@ (23 >< 16) w @@ (15 >< 8) w @@ (7 >< 0) w = w`
+  (blastLib.BBLAST_TAC);
 
 val funcT_thm = Q.prove(
   `!func.
@@ -207,9 +207,9 @@ val shiftT_thm = Q.prove(
 fun tac q l = qmatch_goalsub_rename_tac q \\ MAP_EVERY Cases_on l
 
 (* The encoder and decoder are well-behaved *)
-val Decode_Encode = Q.store_thm("Decode_Encode",
-  `!i. Decode (Encode i) = i`,
-  Cases
+Theorem Decode_Encode
+  `!i. Decode (Encode i) = i`
+  (Cases
   \\ TRY (pairLib.PairCases_on `p`)
   >| [
     tac `Accelerator (w, a)` [`a`],
@@ -353,9 +353,9 @@ end
 
 val print_tac = asmLib.print_tac "correct"
 
-val ag32_encoder_correct = Q.store_thm ("ag32_encoder_correct",
-   `encoder_correct ag32_target`,
-   simp [asmPropsTheory.encoder_correct_def, ag32_target_ok]
+Theorem ag32_encoder_correct
+   `encoder_correct ag32_target`
+   (simp [asmPropsTheory.encoder_correct_def, ag32_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel ag32_target`
    \\ rw [ag32_target_def, ag32_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

@@ -94,7 +94,7 @@ local val flatten_quotation = `
 in
 val flatten_def = Define flatten_quotation
 
-val flatten_pmatch = Q.store_thm("flatten_pmatch",`∀p n m.` @
+Theorem flatten_pmatch `∀p n m.` (@
   (flatten_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),

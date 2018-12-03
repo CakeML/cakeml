@@ -610,7 +610,7 @@ val next_lab_quotation = `
 in
 val next_lab_def = Define next_lab_quotation
 
-val next_lab_pmatch = Q.store_thm("next_lab_pmatch",`∀p aux.` @
+Theorem next_lab_pmatch `∀p aux.` (@
   (next_lab_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),
@@ -649,7 +649,7 @@ val comp_quotation = `
 in
 val comp_def = Define comp_quotation
 
-val comp_pmatch = Q.store_thm("comp_pmatch",`∀n m p.` @
+Theorem comp_pmatch `∀n m p.` (@
   (comp_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),

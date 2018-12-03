@@ -71,10 +71,10 @@ val lookup_var_empty = Q.prove(`
   EVERY_CASE_TAC>>fs[tveLookup_def]);
 
 (* TODO: This should be generalized eventually *)
-val env_rel_complete_bind = Q.store_thm("env_rel_complete_bind",`
+Theorem env_rel_complete_bind `
   env_rel_complete FEMPTY ienv tenv Empty ⇒
-  env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)`,
-  rw[env_rel_complete_def,lookup_var_empty]>>res_tac>>fs[]
+  env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)`
+  (rw[env_rel_complete_def,lookup_var_empty]>>res_tac>>fs[]
   >-
     metis_tac[]
   >>
@@ -97,11 +97,11 @@ val set_ids_eq = Q.prove(`
   rw[EQ_IMP_THM]>>
   qexists_tac`x-n1`>>fs[]);
 
-val set_ids_same = Q.store_thm("set_ids_same[simp]",
-  `set_ids x x = {}`,
-  rw[set_ids_eq]);
+Theorem set_ids_same[simp]
+  `set_ids x x = {}`
+  (rw[set_ids_eq]);
 
-val infer_d_sound = Q.store_thm ("infer_d_sound",
+Theorem infer_d_sound
   `(!d tenv ienv st1 st2 ienv'.
     infer_d ienv d st1 = (Success ienv', st2) ∧
     env_rel tenv ienv ∧
@@ -113,8 +113,8 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
     env_rel tenv ienv ∧
     start_type_id ≤ st1.next_id
     ⇒
-    type_ds T tenv ds (set_ids st1.next_id st2.next_id) (ienv_to_tenv ienv'))`,
-  Induct
+    type_ds T tenv ds (set_ids st1.next_id st2.next_id) (ienv_to_tenv ienv'))`
+  (Induct
   >- (
     (* Dlet *)
     rw[infer_d_def,success_eqns]>>
@@ -666,7 +666,7 @@ val infer_d_sound = Q.store_thm ("infer_d_sound",
     >>
       fs[set_ids_def,EXTENSION,DISJOINT_DEF]));
 
-val db_subst_infer_subst_swap2 = Q.store_thm ("db_subst_infer_subst_swap2",
+Theorem db_subst_infer_subst_swap2
 `(!t s tvs uvar n.
   t_wfs s ∧
   check_t tvs {} t
@@ -689,21 +689,21 @@ val db_subst_infer_subst_swap2 = Q.store_thm ("db_subst_infer_subst_swap2",
       ts =
    MAP (deBruijn_subst 0 (MAP (convert_t o t_walkstar s) (MAP (λn. Infer_Tuvar n) (COUNT_LIST tvs))) o
        convert_t)
-      ts))`,
-ho_match_mp_tac infer_t_induction >>
+      ts))`
+(ho_match_mp_tac infer_t_induction >>
 rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
     infer_deBruijn_subst_def, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
     LENGTH_COUNT_LIST]);
 
 (*
-val check_tscheme_inst_sound = Q.store_thm ("check_tscheme_inst_sound",
+Theorem check_tscheme_inst_sound
   `!tvs_impl t_impl tvs_spec t_spec.
     check_t tvs_impl {} t_impl ∧
     check_t tvs_spec {} t_spec ∧
     check_tscheme_inst x (tvs_spec,t_spec) (tvs_impl,t_impl)
     ⇒
-    tscheme_inst (tvs_spec, convert_t t_spec) (tvs_impl, convert_t t_impl)`,
-  rw [check_tscheme_inst_def, tscheme_inst_def] >>
+    tscheme_inst (tvs_spec, convert_t t_spec) (tvs_impl, convert_t t_impl)`
+  (rw [check_tscheme_inst_def, tscheme_inst_def] >>
   every_case_tac >>
   fs [success_eqns] >>
   rw [] >>
@@ -796,11 +796,11 @@ val check_tscheme_inst_sound = Q.store_thm ("check_tscheme_inst_sound",
       fs [EXTENSION, SUBSET_DEF, COUNT_LIST_GENLIST, MAP_GENLIST] >>
       metis_tac [])));
 
-val weak_tenv_ienv_to_tenv = Q.store_thm ("weak_tenv_ienv_to_tenv",
+Theorem weak_tenv_ienv_to_tenv
   `!ienv1 ienv2.
     ienv_ok {} ienv1 ∧ ienv_ok {} ienv2 ∧
-    check_weak_ienv ienv1 ienv2 ⇒ weak_tenv (ienv_to_tenv ienv1) (ienv_to_tenv ienv2)`,
-  rw [check_weak_ienv_def, weak_tenv_def, ienv_to_tenv_def, GSYM nsSub_compute_thm] >>
+    check_weak_ienv ienv1 ienv2 ⇒ weak_tenv (ienv_to_tenv ienv1) (ienv_to_tenv ienv2)`
+  (rw [check_weak_ienv_def, weak_tenv_def, ienv_to_tenv_def, GSYM nsSub_compute_thm] >>
   simp [nsSub_nsMap] >>
   fs [tscheme_inst2_def] >>
   irule nsSub_mono2 >>
@@ -822,10 +822,10 @@ val weak_tenv_ienv_to_tenv = Q.store_thm ("weak_tenv_ienv_to_tenv",
   rw [] >>
   metis_tac [check_tscheme_inst_sound]);
 
-val weak_decls_ienv_to_tenv = Q.store_thm ("weak_decls_ienv_to_tenv",
+Theorem weak_decls_ienv_to_tenv
   `!idecls1 idecls2.
-    check_weak_decls idecls1 idecls2 ⇒ weak_decls (convert_decls idecls1) (convert_decls idecls2)`,
-  rw [check_weak_decls_def, weak_decls_def, convert_decls_def, SUBSET_DEF,
+    check_weak_decls idecls1 idecls2 ⇒ weak_decls (convert_decls idecls1) (convert_decls idecls2)`
+  (rw [check_weak_decls_def, weak_decls_def, convert_decls_def, SUBSET_DEF,
       EVERY_MEM, list_subset_def, list_set_eq_def, EXTENSION] >>
   metis_tac []);
 
@@ -965,13 +965,13 @@ val check_specs_sound = Q.prove (
           union_decls_def, convert_decls_def] >>
     metis_tac [GSYM nsAppend_assoc, nsAppend_nsSing, INSERT_SING_UNION, UNION_ASSOC]));
 
-val infer_top_sound = Q.store_thm ("infer_top_sound",
+Theorem infer_top_sound
   `!idecls ienv top st1 idecls' ienv' st2 tenv.
     infer_top idecls ienv top st1 = (Success (idecls',ienv'), st2) ∧
     env_rel tenv ienv
     ⇒
-    type_top T (convert_decls idecls) tenv top (convert_decls idecls') (ienv_to_tenv ienv')`,
-  rw [] >>
+    type_top T (convert_decls idecls) tenv top (convert_decls idecls') (ienv_to_tenv ienv')`
+  (rw [] >>
   Cases_on `top` >>
   fs [infer_top_def, success_eqns, type_top_cases] >>
   pairarg_tac >>
@@ -1033,13 +1033,13 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
     fs [success_eqns] >>
     metis_tac []));
 
-val infer_prog_sound = Q.store_thm ("infer_prog_sound",
+Theorem infer_prog_sound
   `!idecls ienv prog st1 idecls' ienv' st2 tenv.
     infer_prog idecls ienv prog st1 = (Success (idecls',ienv'), st2) ∧
     env_rel tenv ienv
     ⇒
-    type_prog T (convert_decls idecls) tenv prog (convert_decls idecls') (ienv_to_tenv ienv')`,
-  induct_on `prog` >>
+    type_prog T (convert_decls idecls) tenv prog (convert_decls idecls') (ienv_to_tenv ienv')`
+  (induct_on `prog` >>
   rw [infer_prog_def, success_eqns]
   >- rw [empty_decls_def,convert_decls_def, empty_inf_decls_def]
   >- rw [ienv_to_tenv_def] >>

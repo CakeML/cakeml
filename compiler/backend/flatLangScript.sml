@@ -115,18 +115,18 @@ val _ = Datatype`
 
 val exp_size_def = definition"exp_size_def";
 
-val exp6_size_APPEND = Q.store_thm("exp6_size_APPEND[simp]",
-  `flatLang$exp6_size (e ++ e2) = exp6_size e + exp6_size e2`,
-  Induct_on`e`>>simp[exp_size_def])
+Theorem exp6_size_APPEND[simp]
+  `flatLang$exp6_size (e ++ e2) = exp6_size e + exp6_size e2`
+  (Induct_on`e`>>simp[exp_size_def])
 
-val exp6_size_REVERSE = Q.store_thm("exp6_size_REVERSE[simp]",
-  `flatLang$exp6_size (REVERSE es) = exp6_size es`,
-  Induct_on`es`>>simp[exp_size_def])
+Theorem exp6_size_REVERSE[simp]
+  `flatLang$exp6_size (REVERSE es) = exp6_size es`
+  (Induct_on`es`>>simp[exp_size_def])
 
-val exp_size_MAP = Q.store_thm("exp_size_MAP",
+Theorem exp_size_MAP
   `(!xs. exp6_size (MAP SND xs) < exp3_size xs + 1) /\
-   (!xs. exp6_size (MAP (SND o SND) xs) < exp1_size xs + 1)`,
-  conj_tac
+   (!xs. exp6_size (MAP (SND o SND) xs) < exp1_size xs + 1)`
+  (conj_tac
   >-
    (Induct
     \\ rw [exp_size_def]
@@ -135,11 +135,11 @@ val exp_size_MAP = Q.store_thm("exp_size_MAP",
   \\ rw [exp_size_def]
   \\ PairCases_on `h` \\ fs [exp_size_def])
 
-val exp_size_MEM = Q.store_thm("exp_size_MEM",
+Theorem exp_size_MEM
   `(!xs x. MEM x xs ==> exp_size x < exp6_size xs) /\
    (!xs x. MEM x xs ==> exp_size (SND (SND x)) < exp1_size xs) /\
-   (!xs x. MEM x xs ==> exp_size (SND x) < exp3_size xs)`,
-  conj_tac
+   (!xs x. MEM x xs ==> exp_size (SND x) < exp3_size xs)`
+  (conj_tac
   >-
    (Induct
     \\ rw [exp_size_def]

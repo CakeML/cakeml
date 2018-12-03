@@ -353,12 +353,12 @@ val detuplify_def = Define`
   detuplify ty = [ty]
 `
 
-val detuplify_pmatch = Q.store_thm("detuplify_pmatch",`!ty.
+Theorem detuplify_pmatch `!ty.
   detuplify ty =
   case ty of
     Attup args => args
-  | ty => [ty]`,
-  ho_match_mp_tac (theorem "detuplify_ind")
+  | ty => [ty]`
+  (ho_match_mp_tac (theorem "detuplify_ind")
   >> fs[detuplify_def]);
 
 val ptree_PTbase_def = Define‘

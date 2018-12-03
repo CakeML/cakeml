@@ -60,18 +60,18 @@ val small_exp_safety2 = Q.prove (
      rw [small_eval_def] >>
      metis_tac []));
 
-val untyped_safety_exp = Q.store_thm ("untyped_safety_exp",
-`!s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e`,
-metis_tac [small_exp_safety2, small_exp_safety1]);
+Theorem untyped_safety_exp
+`!s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e`
+(metis_tac [small_exp_safety2, small_exp_safety1]);
 
 val to_small_st_surj = Q.prove(
   `∀s. ∃y. s = to_small_st y`,
   srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][to_small_st_def]);
 
-val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
+Theorem untyped_safety_decs
   `(!d (s:'a state) env. (∃r. evaluate_dec F env s d r) = ~dec_diverges env s d) ∧
-   (!ds (s:'a state) env. (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)`,
- ho_match_mp_tac dec_induction >>
+   (!ds (s:'a state) env. (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)`
+ (ho_match_mp_tac dec_induction >>
  rw [] >>
  rw [Once evaluate_dec_cases, Once dec_diverges_cases] >>
  rw [GSYM untyped_safety_exp]
@@ -120,9 +120,9 @@ val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
 
      (*
 
-val untyped_safety_top = Q.store_thm ("untyped_safety_top",
-`!s env top. (?r. evaluate_top F env s top r) = ~top_diverges env s top`,
-rw [evaluate_top_cases, top_diverges_cases] >>
+Theorem untyped_safety_top
+`!s env top. (?r. evaluate_top F env s top r) = ~top_diverges env s top`
+(rw [evaluate_top_cases, top_diverges_cases] >>
 eq_tac >>
 rw [] >>
 rw [] >>
@@ -131,9 +131,9 @@ fs [] >>
 rw [] >>
 metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
 
-val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
-`!s env tops. (?r. evaluate_prog F env s tops r) = ~prog_diverges env s tops`,
- induct_on `tops` >>
+Theorem untyped_safety_prog
+`!s env tops. (?r. evaluate_prog F env s tops r) = ~prog_diverges env s tops`
+ (induct_on `tops` >>
  rw [] >-
  rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
  rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>

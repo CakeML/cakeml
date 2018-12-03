@@ -232,12 +232,12 @@ rw [is_bst_def] >>
 imp_res_tac ins_set >>
 fs [StrongLinearOrder, StrongOrder]);
 
-val insert_set = Q.store_thm ("insert_set",
+Theorem insert_set
 `∀lt x t.
   StrongLinearOrder lt
   ⇒
-  (tree_to_set (insert lt x t) = {x} ∪ tree_to_set t)`,
-rw [insert_def] >>
+  (tree_to_set (insert lt x t) = {x} ∪ tree_to_set t)`
+(rw [insert_def] >>
 `?c t1 y t2. ins lt x t = Tree c t1 y t2` by metis_tac [ins_tree] >>
 rw [tree_to_set_def] >>
 `tree_to_set (ins lt x t) = tree_to_set (Tree c t1 y t2)`
@@ -246,24 +246,24 @@ fs [] >>
 imp_res_tac ins_set >>
 fs [tree_to_set_def]);
 
-val insert_bst = Q.store_thm ("insert_bst",
+Theorem insert_bst
 `!lt x t.
   StrongLinearOrder lt ∧ is_bst lt t
   ⇒
-  is_bst lt (insert lt x t)`,
-rw [insert_def] >>
+  is_bst lt (insert lt x t)`
+(rw [insert_def] >>
 `?c t1 y t2. ins lt x t = Tree c t1 y t2` by metis_tac [ins_tree] >>
 rw [] >>
 `is_bst lt (Tree c t1 y t2)` by metis_tac [ins_bst] >>
 fs [is_bst_def]);
 
-val member_correct = Q.store_thm ("member_correct",
+Theorem member_correct
 `!lt t x.
   StrongLinearOrder lt ∧
   is_bst lt t
   ⇒
-  (member lt x t <=> x ∈ tree_to_set t)`,
-strip_tac >> induct_on `t` >>
+  (member lt x t <=> x ∈ tree_to_set t)`
+(strip_tac >> induct_on `t` >>
 rw [member_def, is_bst_def, tree_to_set_def] >>
 fs [StrongLinearOrder, StrongOrder, irreflexive_def, transitive_def,
     trichotomous] >>
@@ -308,13 +308,13 @@ rw [] >|
  metis_tac [balance_inv2_black, balance'_correct],
  rw [balance'_def, red_black_invariant2_def, case_opt_lem]]);
 
-val insert_invariant2 = Q.store_thm ("insert_invariant2",
+Theorem insert_invariant2
 `!leq x t n.
   (red_black_invariant2 t = SOME n)
   ⇒
   (red_black_invariant2 (insert leq x t) = SOME n) ∨
-  (red_black_invariant2 (insert leq x t) = SOME (n + 1))`,
-rw [insert_def] >>
+  (red_black_invariant2 (insert leq x t) = SOME (n + 1))`
+(rw [insert_def] >>
 cases_on `ins leq x t` >>
 rw [] >-
 metis_tac [ins_tree, tree_distinct] >>
@@ -363,9 +363,9 @@ fs [red_black_invariant1_def, not_red_def] >|
  metis_tac [balance_inv1_black, balance'_correct, inv1_lemma],
  rw [balance'_def, rbinv1_root_def]]);
 
-val insert_invariant1 = Q.store_thm ("insert_invariant1",
-`!leq x t. red_black_invariant1 t ⇒ red_black_invariant1 (insert leq x t)`,
-rw [insert_def] >>
+Theorem insert_invariant1
+`!leq x t. red_black_invariant1 t ⇒ red_black_invariant1 (insert leq x t)`
+(rw [insert_def] >>
 cases_on `ins leq x t` >>
 rw [] >-
 metis_tac [ins_tree, tree_distinct] >>

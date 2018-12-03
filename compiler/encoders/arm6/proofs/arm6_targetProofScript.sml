@@ -981,9 +981,9 @@ val arm6_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-val arm6_encoder_correct = Q.store_thm ("arm6_encoder_correct",
-   `encoder_correct arm6_target`,
-   simp [asmPropsTheory.encoder_correct_def, arm6_target_ok]
+Theorem arm6_encoder_correct
+   `encoder_correct arm6_target`
+   (simp [asmPropsTheory.encoder_correct_def, arm6_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm6_target`
    \\ rw [arm6_target_def, arm6_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

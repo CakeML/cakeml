@@ -78,7 +78,7 @@ local val comp_quotation = `
 in
 val comp_def = Define comp_quotation
 
-val comp_pmatch = Q.store_thm("comp_pmatch",`∀f p.` @
+Theorem comp_pmatch `∀f p.` (@
   (comp_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
        | aq => aq)),

@@ -29,12 +29,12 @@ val evaluate_JumpList = Q.prove(
   \\ fs[] \\ fs[NOT_LESS]
   \\ IMP_RES_TAC EL_APPEND2 \\ fs [EL_APPEND2]);
 
-val evaluate_Jump = Q.store_thm("evaluate_Jump",
+Theorem evaluate_Jump
   `(evaluate ([x],env,s) = (Rval [Number (&n)],t)) /\
     n < LENGTH xs ==>
     (evaluate ([Jump x xs],env,s) =
-     evaluate ([EL n xs],Number (&n) :: env,t))`,
-  fs[evaluate_def,Jump_def] \\ REPEAT STRIP_TAC
+     evaluate ([EL n xs],Number (&n) :: env,t))`
+  (fs[evaluate_def,Jump_def] \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC evaluate_JumpList
   \\ POP_ASSUM (ASSUME_TAC o Q.SPECL [`t`,`0`]) \\ fs[]);
 

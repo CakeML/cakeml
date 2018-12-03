@@ -444,9 +444,9 @@ val eqs = LIST_CONJ (map prove_case_eq_thm
 
 val case_eq_thms = save_thm("case_eq_thms",eqs);
 
-val do_install_clock = Q.store_thm("do_install_clock",
-  `do_install vs s = SOME (e,s') ⇒ s'.clock = s.clock`,
-  rw[do_install_def,UNCURRY,eqs,pair_case_eq] \\ rw[]);
+Theorem do_install_clock
+  `do_install vs s = SOME (e,s') ⇒ s'.clock = s.clock`
+  (rw[do_install_def,UNCURRY,eqs,pair_case_eq] \\ rw[]);
 
 val do_app_cases = save_thm("do_app_cases",
   ``patSem$do_app s op vs = SOME x`` |>
@@ -468,9 +468,9 @@ val do_if_def = Define `
     if v = Boolv T then SOME e1 else
     if v = Boolv F then SOME e2 else NONE`;
 
-val do_if_either_or = Q.store_thm("do_if_is_ether_or",
-  `do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2`,
-  simp [do_if_def]
+Theorem do_if_is_ether_or
+  `do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2`
+  (simp [do_if_def]
   THEN1 (Cases_on `v = Boolv T`
   THENL [simp [],
     Cases_on `v = Boolv F` THEN simp []]))
@@ -565,15 +565,15 @@ val evaluate_def = tDefine "evaluate"`
 
 val evaluate_ind = theorem"evaluate_ind"
 
-val do_app_clock = Q.store_thm("do_app_clock",
-  `patSem$do_app s op vs = SOME(s',r) ==> s.clock = s'.clock`,
-  rpt strip_tac THEN fs[do_app_cases] >> rw[] \\
+Theorem do_app_clock
+  `patSem$do_app s op vs = SOME(s',r) ==> s.clock = s'.clock`
+  (rpt strip_tac THEN fs[do_app_cases] >> rw[] \\
   fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
   \\ rw[] \\ rfs[]);
 
-val evaluate_clock = Q.store_thm("evaluate_clock",
-  `(∀env s1 e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def,eqs,pair_case_eq,bool_case_eq] >>
+Theorem evaluate_clock
+  `(∀env s1 e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)`
+  (ho_match_mp_tac evaluate_ind >> rw[evaluate_def,eqs,pair_case_eq,bool_case_eq] >>
   fs[dec_clock_def] >> rw[] >> rfs[] >>
   imp_res_tac fix_clock_IMP >>
   imp_res_tac do_app_clock >>
@@ -581,9 +581,9 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
   fs[EQ_SYM_EQ] >> res_tac >> rfs[]
 );
 
-val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
-  `fix_clock s (evaluate env s e) = evaluate env s e`,
-  Cases_on `evaluate env s e` \\ fs [fix_clock_def]
+Theorem fix_clock_evaluate
+  `fix_clock s (evaluate env s e) = evaluate env s e`
+  (Cases_on `evaluate env s e` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,theorem "state_component_equality"]);
 

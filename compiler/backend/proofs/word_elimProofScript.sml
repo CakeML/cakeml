@@ -15,9 +15,9 @@ val _ = Parse.bring_to_front_overload"domain"{Thy="sptree",Name="domain"};
 
 (**************************** ANALYSIS LEMMAS *****************************)
 
-val wf_find_word_ref = Q.store_thm("wf_find_word_ref",
-    `∀ prog tree . find_word_ref prog = tree ⇒ wf tree`,
-    recInduct find_word_ref_ind >>
+Theorem wf_find_word_ref
+    `∀ prog tree . find_word_ref prog = tree ⇒ wf tree`
+    (recInduct find_word_ref_ind >>
     rw[find_word_ref_def, wf_union, wf_def, wf_insert] >>
     TRY(CASE_TAC) >> rw[wf_def, wf_insert]
     >- (Cases_on `ret` >> Cases_on `handler` >> fs[wf_union, wf_def] >>
@@ -30,32 +30,32 @@ val wf_find_word_ref = Q.store_thm("wf_find_word_ref",
         fs[wf_insert, wf_union, wf_def])
 );
 
-val wf_analyse_word_code = Q.store_thm("wf_analyse_word_code",
-    `∀ l t . analyse_word_code l = t ⇒ wf t`,
-    Induct >- (rw[analyse_word_code_def] >> rw[wf_def])
+Theorem wf_analyse_word_code
+    `∀ l t . analyse_word_code l = t ⇒ wf t`
+    (Induct >- (rw[analyse_word_code_def] >> rw[wf_def])
     >> Cases_on `h` >> Cases_on `r` >> rw[analyse_word_code_def] >>
         rw[wf_insert]
 );
 
-val lookup_analyse_word_code = Q.store_thm ("lookup_analyse_word_code",
+Theorem lookup_analyse_word_code
     `∀ code n arity prog. ALOOKUP code n = SOME (arity, prog)
-    ⇒ lookup n (analyse_word_code code) = SOME (find_word_ref prog)`,
-    Induct >> fs[FORALL_PROD] >> fs[analyse_word_code_def] >>
+    ⇒ lookup n (analyse_word_code code) = SOME (find_word_ref prog)`
+    (Induct >> fs[FORALL_PROD] >> fs[analyse_word_code_def] >>
     fs[lookup_insert] >> rw[]
 );
 
-val remove_word_code_thm = Q.store_thm("remove_word_code_thm",
+Theorem remove_word_code_thm
     `∀ n reachable v l . n ∈ domain reachable ∧ MEM (n, v) l
-    ⇒ MEM (n, v) (remove_word_code reachable l)`,
-    Induct_on `l` >> rw[] >> fs[remove_word_code_def] >> fs[domain_lookup] >>
+    ⇒ MEM (n, v) (remove_word_code reachable l)`
+    (Induct_on `l` >> rw[] >> fs[remove_word_code_def] >> fs[domain_lookup] >>
     Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[]
 );
 
-val remove_word_code_thm = Q.store_thm("remove_word_code_thm",
+Theorem remove_word_code_thm
     `∀ n reachable:num_set l . ALL_DISTINCT (MAP FST l)
     ⇒ ∀ v . (n ∈ domain reachable ∧ MEM (n, v) l ⇔
-        MEM (n, v) (remove_word_code reachable l))`,
-    rw[] >> EQ_TAC >> rw[]
+        MEM (n, v) (remove_word_code reachable l))`
+    (rw[] >> EQ_TAC >> rw[]
     >- (Induct_on `l` >> rw[] >> fs[remove_word_code_def] >>
         fs[domain_lookup] >>
         Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[])
@@ -64,14 +64,13 @@ val remove_word_code_thm = Q.store_thm("remove_word_code_thm",
     >- (fs[MEM_MAP, MEM_FILTER] >> qexists_tac `y` >> rw[])
 );
 
-val analyse_word_code_reachable_thm = Q.store_thm(
-    "analyse_word_code_reachable_thm",
+Theorem analyse_word_code_reachable_thm
     `∀ (code : (num, num # α prog) alist) t start n tree.
     analyse_word_code code = t ∧  start = insert n () (LN:num_set) ∧
         domain start ⊆ domain tree ∧ tree = mk_wf_set_tree t
     ⇒ domain (closure_spt start tree) =
-        {a | ∃ n . is_reachable tree n a ∧ n ∈ domain start}`,
-    rw[] >> fs[domain_insert] >>
+        {a | ∃ n . is_reachable tree n a ∧ n ∈ domain start}`
+    (rw[] >> fs[domain_insert] >>
     qspecl_then
         [`mk_wf_set_tree (analyse_word_code code)`, `insert n () LN`]
         mp_tac closure_spt_thm >>
@@ -111,20 +110,19 @@ val no_install_code_def = Define `
         ∀ k n p . lookup k code = SOME (n, p) ⇒ no_install p
 `
 
-val no_install_find_code = Q.store_thm("no_install_find_code",
+Theorem no_install_find_code
     `∀ code dest args args1 expr .
     no_install_code code ∧ find_code dest args code = SOME (args1, expr)
-    ⇒ no_install expr`,
-    rw[no_install_code_def] >> Cases_on `dest` >> fs[find_code_def] >>
+    ⇒ no_install expr`
+    (rw[no_install_code_def] >> Cases_on `dest` >> fs[find_code_def] >>
     EVERY_CASE_TAC >> metis_tac[]
 );
 
-val no_install_evaluate_const_code = Q.store_thm(
-    "no_install_evaluate_const_code",
+Theorem no_install_evaluate_const_code
     `∀ prog s result s1 . evaluate (prog, s) = (result, s1) ∧
         no_install prog ∧ no_install_code s.code
-    ⇒ s.code = s1.code`,
-    recInduct evaluate_ind >> rw[] >> qpat_x_assum `evaluate _ = _` mp_tac >>
+    ⇒ s.code = s1.code`
+    (recInduct evaluate_ind >> rw[] >> qpat_x_assum `evaluate _ = _` mp_tac >>
     fs[evaluate_def]
     >- (EVERY_CASE_TAC >> fs[] >> rw[] >> imp_res_tac alloc_const >> fs[])
     >- (fs[get_vars_def, set_vars_def] >> EVERY_CASE_TAC >>
@@ -164,9 +162,9 @@ val dest_word_loc_def = Define `
     (dest_word_loc (_:'a word_loc) = NONE)
 `
 
-val dest_word_loc_thm = Q.store_thm("dest_word_loc_thm",
-    `∀ wl n1 . dest_word_loc wl = SOME n1 ⇒ ∃ n0 . wl = Loc n1 n0`,
-    Cases_on `wl` >> fs[dest_word_loc_def]
+Theorem dest_word_loc_thm
+    `∀ wl n1 . dest_word_loc wl = SOME n1 ⇒ ∃ n0 . wl = Loc n1 n0`
+    (Cases_on `wl` >> fs[dest_word_loc_def]
 );
 
 val dest_result_loc_def = Define `
@@ -190,11 +188,11 @@ val get_locals_def = Define ` (* locals : ('a word_loc) num_map *)
                 | NONE => t)
 `
 
-val get_locals_thm = Q.store_thm("get_locals_thm",
+Theorem get_locals_thm
     `∀ t n1 n0 locs .
         (∃ n . lookup n (t:('a word_loc) num_map) = SOME (Loc n1 n0)) ∧
-        locs = get_locals t ⇒ n1 ∈ domain locs`,
-    Induct >> rw[lookup_def, get_locals_def, dest_word_loc_def, domain_union]
+        locs = get_locals t ⇒ n1 ∈ domain locs`
+    (Induct >> rw[lookup_def, get_locals_def, dest_word_loc_def, domain_union]
     >- (fs[lookup_def] >> Cases_on `EVEN n` >> fs[] >> metis_tac[])
     >- (Cases_on `dest_word_loc a` >> fs[] >> rw[domain_union] >>
         fs[lookup_def] >>
@@ -203,9 +201,9 @@ val get_locals_thm = Q.store_thm("get_locals_thm",
         metis_tac[])
 );
 
-val domain_get_locals_lookup = Q.store_thm ("domain_get_locals_lookup",
-    `∀ n t . n ∈ domain (get_locals t) ⇔ ∃ k n1 . lookup k t = SOME (Loc n n1)`,
-    rw[] >> reverse (EQ_TAC) >> rw[]
+Theorem domain_get_locals_lookup
+    `∀ n t . n ∈ domain (get_locals t) ⇔ ∃ k n1 . lookup k t = SOME (Loc n n1)`
+    (rw[] >> reverse (EQ_TAC) >> rw[]
     >- (match_mp_tac get_locals_thm >> fs[PULL_EXISTS] >> qexists_tac `t` >>
         qexists_tac `n1` >> qexists_tac `k` >> fs[])
     >> Induct_on `t`
@@ -233,21 +231,21 @@ val domain_get_locals_lookup = Q.store_thm ("domain_get_locals_lookup",
                     once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV])))
 );
 
-val get_locals_insert_Loc = Q.store_thm("get_locals_insert_Loc",
+Theorem get_locals_insert_Loc
     `∀ k n1 n0 (locals : ('a word_loc) num_map).
         domain (get_locals (insert k (Loc n1 n0) locals)) ⊆
-            domain (get_locals locals) ∪ {n1}`,
-        rw[] >> fs[SUBSET_DEF] >>  rw[domain_get_locals_lookup] >>
+            domain (get_locals locals) ∪ {n1}`
+        (rw[] >> fs[SUBSET_DEF] >>  rw[domain_get_locals_lookup] >>
         fs[lookup_insert] >> rw[] >>
         Cases_on `k' = k` >> fs[] >> disj1_tac >> qexists_tac `k'` >>
         qexists_tac `n1'` >> fs[]
 );
 
-val get_locals_insert = Q.store_thm("get_locals_insert",
+Theorem get_locals_insert
     `∀ k v (locals : ('a word_loc) num_map).
         domain (get_locals (insert k v locals)) ⊆ domain (get_locals locals)
-        ∪ (case dest_word_loc v of | NONE => {} | SOME n => {n})`,
-        reverse(Cases_on `v`) >> fs[dest_word_loc_def]
+        ∪ (case dest_word_loc v of | NONE => {} | SOME n => {n})`
+        (reverse(Cases_on `v`) >> fs[dest_word_loc_def]
         >- fs[get_locals_insert_Loc]
         >- (rw[] >> fs[SUBSET_DEF] >>  rw[domain_get_locals_lookup] >>
             fs[lookup_insert] >> rw[] >>
@@ -262,21 +260,21 @@ val get_store_def = Define ` (* store : store_name |-> 'a word_loc *)
         FOLDL (λ acc loc . insert loc () acc) LN locList
 `
 
-val domain_get_store = Q.store_thm("domain_get_store",
+Theorem domain_get_store
     `∀ n store . n ∈ domain (get_store store) ⇔
-        (∃ k n1 . FLOOKUP store k = SOME (Loc n n1))`,
-    fs[get_store_def] >> fs[MEM_MAP, MEM_FILTER] >>
+        (∃ k n1 . FLOOKUP store k = SOME (Loc n n1))`
+    (fs[get_store_def] >> fs[MEM_MAP, MEM_FILTER] >>
     rw[IN_FRANGE_FLOOKUP, PULL_EXISTS] >>
     EQ_TAC >> rw[]
     >- (Cases_on `y'` >> fs[dest_word_loc_def] >> metis_tac[])
     >- (qexists_tac `Loc n n1` >> qexists_tac `k` >> fs[dest_word_loc_def])
 );
 
-val get_store_update = Q.store_thm("get_store_update",
+Theorem get_store_update
     `∀ store k v .
         domain (get_store (store |+ (k,v))) ⊆ domain (get_store store)
-            ∪ (case dest_word_loc v of | NONE => {} | SOME n => {n})`,
-    Cases_on `v` >> fs[dest_word_loc_def] >> rw[] >> fs[SUBSET_DEF] >>
+            ∪ (case dest_word_loc v of | NONE => {} | SOME n => {n})`
+    (Cases_on `v` >> fs[dest_word_loc_def] >> rw[] >> fs[SUBSET_DEF] >>
     rw[domain_get_store] >>
     fs[lookup_insert] >> rw[] >> fs[FLOOKUP_UPDATE] >> Cases_on `k = k'` >> fs[]
     >| [ALL_TAC, disj1_tac] >> qexists_tac `k'` >> qexists_tac `n1` >> fs[]
@@ -288,10 +286,10 @@ val get_num_wordloc_alist_def = Define `
         FOLDL (λ acc loc . insert loc () acc) LN locs
 `
 
-val get_num_wordloc_alist_thm = Q.store_thm ("get_num_wordloc_alist_thm",
+Theorem get_num_wordloc_alist_thm
     `∀ n e l . (∃ n0 . MEM (Loc n n0) (MAP SND l)) ⇔
-        n ∈ domain (get_num_wordloc_alist l)`,
-    fs[get_num_wordloc_alist_def] >> fs[MEM_MAP, MEM_FILTER] >>
+        n ∈ domain (get_num_wordloc_alist l)`
+    (fs[get_num_wordloc_alist_def] >> fs[MEM_MAP, MEM_FILTER] >>
     rw[] >> EQ_TAC >> rw[]
     >- (qexists_tac `dest_word_loc (Loc n n0)` >> fs[dest_word_loc_def] >>
         qexists_tac `y` >> metis_tac[dest_word_loc_def])
@@ -299,11 +297,10 @@ val get_num_wordloc_alist_thm = Q.store_thm ("get_num_wordloc_alist_thm",
         qexists_tac `n0` >> qexists_tac `y'` >> fs[])
 );
 
-val get_num_wordloc_alist_get_locals = Q.store_thm (
-    "get_num_wordloc_alist_get_locals",
+Theorem get_num_wordloc_alist_get_locals
     `∀ e .
-        domain (get_locals (fromAList e)) ⊆ domain (get_num_wordloc_alist e)`,
-    Induct >> rw[] >>
+        domain (get_locals (fromAList e)) ⊆ domain (get_num_wordloc_alist e)`
+    (Induct >> rw[] >>
     fs[fromAList_def, get_num_wordloc_alist_def, domain_def, get_locals_def] >>
     Cases_on `h` >> Cases_on `r` >> fs[dest_word_loc_def, fromAList_def]
     >- (qspecl_then [`q`, `Word c`, `(fromAList e)`] mp_tac get_locals_insert >>
@@ -322,12 +319,12 @@ val get_stack_def = Define ` (* stack : ('a stack_frame) list *)
 
 val get_stack_ind = theorem "get_stack_ind";
 
-val get_stack_hd_thm = Q.store_thm ("get_stack_hd_thm",
+Theorem get_stack_hd_thm
     `∀ stack dr l opt t . domain (get_stack stack) ⊆ dr ∧
         stack = StackFrame l opt::t
         ⇒ domain (get_locals (fromAList l)) ⊆ dr ∧
-          domain (get_stack t) ⊆ dr`,
-            recInduct get_stack_ind >> rw[]
+          domain (get_stack t) ⊆ dr`
+            (recInduct get_stack_ind >> rw[]
             >- (Cases_on `e` >>
                 fs[get_stack_def, domain_union,
                     fromAList_def, get_locals_def] >>
@@ -336,25 +333,25 @@ val get_stack_hd_thm = Q.store_thm ("get_stack_hd_thm",
             >-  fs[get_stack_def, domain_union]
 );
 
-val get_stack_LASTN = Q.store_thm("get_stack_LASTN",
-    `∀ stack n . domain (get_stack (LASTN n stack)) ⊆ domain (get_stack stack)`,
-    recInduct get_stack_ind >> rw[get_stack_def, LASTN_ALT] >>
+Theorem get_stack_LASTN
+    `∀ stack n . domain (get_stack (LASTN n stack)) ⊆ domain (get_stack stack)`
+    (recInduct get_stack_ind >> rw[get_stack_def, LASTN_ALT] >>
     Cases_on `SUC (LENGTH xs) ≤ n` >> fs[get_stack_def, domain_union]
     \\ fs[SUBSET_DEF] \\ metis_tac[]
 );
 
-val get_stack_CONS = Q.store_thm("get_stack_CONS",
+Theorem get_stack_CONS
     `∀ h t . domain (get_stack [h]) ⊆ domain (get_stack (h::t)) ∧
-        domain (get_stack t) ⊆ domain (get_stack (h::t))`,
-    Cases_on `h` >> fs[get_stack_def, domain_union]
+        domain (get_stack t) ⊆ domain (get_stack (h::t))`
+    (Cases_on `h` >> fs[get_stack_def, domain_union]
 );
 
-val get_stack_enc_stack = Q.store_thm("get_stack_enc_stack",
+Theorem get_stack_enc_stack
     `∀ stack reachable . domain (get_stack stack) ⊆ domain reachable
     ⇒ ∀ e . MEM e (enc_stack stack)
     ⇒ (case dest_word_loc e of | NONE => {} | SOME n => {n}) ⊆
-        domain reachable`,
-    recInduct get_stack_ind >> rw[enc_stack_def, get_stack_def, domain_union]
+        domain reachable`
+    (recInduct get_stack_ind >> rw[enc_stack_def, get_stack_def, domain_union]
     >- (last_x_assum kall_tac >>
         Cases_on `e'` >> fs[dest_word_loc_def] >>
         qsuff_tac `n ∈ domain (get_num_wordloc_alist e)` >> fs[SUBSET_DEF] >>
@@ -362,13 +359,13 @@ val get_stack_enc_stack = Q.store_thm("get_stack_enc_stack",
     >- res_tac
 );
 
-val get_stack_dec_stack = Q.store_thm("get_stack_dec_stack",
+Theorem get_stack_dec_stack
     `∀ locs stack reachable new_stack .
     (∀ n n0 . MEM (Loc n n0) locs ⇒ n ∈ domain reachable) ∧
     domain (get_stack stack) ⊆ domain reachable ∧
     dec_stack locs stack = SOME new_stack
-    ⇒ domain (get_stack new_stack) ⊆ domain reachable`,
-    ho_match_mp_tac dec_stack_ind >> rw[]
+    ⇒ domain (get_stack new_stack) ⊆ domain reachable`
+    (ho_match_mp_tac dec_stack_ind >> rw[]
     >- (fs[dec_stack_def] >> rveq >> fs[get_stack_def])
     >- (`∀ n n0 . MEM (Loc n n0) (DROP (LENGTH l) locs)
             ⇒ n ∈ domain reachable` by metis_tac[MEM_DROP_IMP] >>
@@ -388,10 +385,10 @@ val get_stack_dec_stack = Q.store_thm("get_stack_dec_stack",
     >- fs[dec_stack_def]
 );
 
-val s_val_eq_get_stack = Q.store_thm("s_val_eq_get_stack",
+Theorem s_val_eq_get_stack
     `∀ stack1 stack2 . s_val_eq stack1 stack2
-    ⇒ get_stack stack1 = get_stack stack2`,
-        recInduct get_stack_ind >> rw[] >> Cases_on `stack2` >>
+    ⇒ get_stack stack1 = get_stack stack2`
+        (recInduct get_stack_ind >> rw[] >> Cases_on `stack2` >>
         fs[s_val_eq_def] >>
         Cases_on `h` >> fs[s_frame_val_eq_def, get_stack_def] >>
         first_x_assum drule >> rw[] >> Cases_on `v0` >> Cases_on `o'` >>
@@ -408,19 +405,19 @@ val get_memory_def = Define ` (* 'a word -> 'a word_loc *)
         FOLDL (λ acc loc . insert loc () acc) LN locList
 `
 
-val FINITE_mdom_mem = Q.store_thm("FINITE_mdom_mem",
-    `∀ mdom . FINITE mdom ⇒ FINITE {mem x | x ∈ mdom}`,
-    ho_match_mp_tac FINITE_INDUCT >>
+Theorem FINITE_mdom_mem
+    `∀ mdom . FINITE mdom ⇒ FINITE {mem x | x ∈ mdom}`
+    (ho_match_mp_tac FINITE_INDUCT >>
     rw[] >>
     qsuff_tac `{mem x | x = e ∨ x ∈ mdom} = mem e INSERT {mem x | x ∈ mdom}`
     >- rw[] >>
     fs[EXTENSION] >> metis_tac[]
 );
 
-val domain_get_memory = Q.store_thm ("domain_get_memory",
+Theorem domain_get_memory
     `∀ mem (mdom : 'a word set) n . (n ∈ domain (get_memory mem mdom)
-    ⇔ (∃ k n1 . k ∈ mdom ∧ mem k = Loc n n1))`,
-    fs[get_memory_def, IMAGE_DEF] >> fs[FILTER_MAP, MAP_MAP_o] >> rw[] >>
+    ⇔ (∃ k n1 . k ∈ mdom ∧ mem k = Loc n n1))`
+    (fs[get_memory_def, IMAGE_DEF] >> fs[FILTER_MAP, MAP_MAP_o] >> rw[] >>
     `FINITE mdom` by metis_tac[WORD_FINITE] >>
     fs[MEM_MAP, MEM_FILTER] >> `FINITE {mem x | x ∈ mdom}` by
         metis_tac[FINITE_mdom_mem] >>
@@ -430,12 +427,12 @@ val domain_get_memory = Q.store_thm ("domain_get_memory",
     >- (qexists_tac `Loc n n1` >> fs[dest_word_loc_def] >> metis_tac[])
 );
 
-val get_memory_update = Q.store_thm("get_memory_update",
+Theorem get_memory_update
     `∀ k v (memory : 'a word -> 'a word_loc) (mdomain : 'a word set) .
         (domain (get_memory ((k =+ v) memory) mdomain)) ⊆
             (domain (get_memory memory mdomain))
-        ∪ (case (dest_word_loc v) of | NONE => {} | SOME n => {n})`,
-        Cases_on `v` >> fs[dest_word_loc_def] >> rw[] >> fs[SUBSET_DEF] >>
+        ∪ (case (dest_word_loc v) of | NONE => {} | SOME n => {n})`
+        (Cases_on `v` >> fs[dest_word_loc_def] >> rw[] >> fs[SUBSET_DEF] >>
         rw[domain_get_memory] >>
         fs[lookup_insert] >> rw[] >> fs[APPLY_UPDATE_THM] >>
         Cases_on `k' = k` >> fs[]
@@ -451,11 +448,11 @@ val find_loc_state_def = Define`
         union (union loc sto) (union sta mem)
 `
 
-val domain_find_loc_state = Q.store_thm("domain_find_loc_state",
+Theorem domain_find_loc_state
     `∀ s . domain (find_loc_state s) =
         domain (get_locals s.locals) ∪ domain (get_store s.store) ∪
-        domain (get_stack s.stack) ∪ domain (get_memory s.memory s.mdomain)`,
-    rw[find_loc_state_def, domain_union, UNION_ASSOC]
+        domain (get_stack s.stack) ∪ domain (get_memory s.memory s.mdomain)`
+    (rw[find_loc_state_def, domain_union, UNION_ASSOC]
 );
 
 val code_rel_def = Define`
@@ -507,24 +504,24 @@ val word_state_rel_def = Define `
 
 (**************************** OTHER LEMMAS *****************************)
 
-val EL_APPEND = Q.store_thm("EL_APPEND",
-    `∀ n x e x1 . EL n x = e ∧ n < LENGTH x ⇒ EL n (x ⧺ [x1]) = e`,
-    Induct_on `x` >> rw[Once EL] >> Cases_on `n` >> rw[]
+Theorem EL_APPEND
+    `∀ n x e x1 . EL n x = e ∧ n < LENGTH x ⇒ EL n (x ⧺ [x1]) = e`
+    (Induct_on `x` >> rw[Once EL] >> Cases_on `n` >> rw[]
 );
 
-val ALOOKUP_ZIP_SUCCESS = Q.store_thm ("ALOOKUP_ZIP_SUCCESS",
+Theorem ALOOKUP_ZIP_SUCCESS
     `∀ x y k v . LENGTH x = LENGTH y
-    ⇒ ALOOKUP (ZIP (x, y)) k = SOME v ⇒ MEM v y`,
-    rw[] >> imp_res_tac ALOOKUP_MEM >> fs[MEM_EL] >> drule EL_ZIP >> rw[] >>
+    ⇒ ALOOKUP (ZIP (x, y)) k = SOME v ⇒ MEM v y`
+    (rw[] >> imp_res_tac ALOOKUP_MEM >> fs[MEM_EL] >> drule EL_ZIP >> rw[] >>
     pop_assum (qspec_then `n` mp_tac) >> rw[] >>
     imp_res_tac LENGTH_ZIP >> rfs[] >>
     fs[] >> qexists_tac `n` >> fs[]
 );
 
-val get_vars_locals = Q.store_thm("get_vars_locals",
+Theorem get_vars_locals
     `∀ args s x y. get_vars args s = SOME x ∧ MEM y x
-    ⇒ ∃ n . lookup n s.locals = SOME y`,
-    Induct >- (rw[get_vars_def] >> fs[MEM]) >>
+    ⇒ ∃ n . lookup n s.locals = SOME y`
+    (Induct >- (rw[get_vars_def] >> fs[MEM]) >>
     strip_tac >> strip_tac >> strip_tac >> strip_tac >>
     simp[get_vars_def] >>  Cases_on `get_var h s` >> simp[] >>
     Cases_on `get_vars args s` >> simp[] >> fs[get_var_def] >>
@@ -533,29 +530,28 @@ val get_vars_locals = Q.store_thm("get_vars_locals",
     qexists_tac `h` >> fs[]
 );
 
-val get_vars_get_locals = Q.store_thm("get_vars_get_locals",
+Theorem get_vars_get_locals
     `∀ args s x n n1. get_vars args s = SOME x ∧ MEM (Loc n n1) x
-    ⇒ n ∈ domain (get_locals s.locals)`,
-    ASSUME_TAC get_vars_locals >>
+    ⇒ n ∈ domain (get_locals s.locals)`
+    (ASSUME_TAC get_vars_locals >>
     strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
     first_x_assum (qspecl_then [`args`, `s`, `x`, `Loc n n1`] mp_tac) >>
     rw[] >> fs[] >> imp_res_tac get_locals_thm >> metis_tac[]
 );
 
-val get_locals_fromList2 = Q.store_thm("get_locals_fromList2",
+Theorem get_locals_fromList2
     `∀ args s x t . get_vars args s = SOME x ∧ x ≠ [] ∧ t = fromList2 x
-    ⇒ domain (get_locals t) ⊆ domain (get_locals s.locals)`,
-    rw[] >> rw[SUBSET_DEF] >>
+    ⇒ domain (get_locals t) ⊆ domain (get_locals s.locals)`
+    (rw[] >> rw[SUBSET_DEF] >>
     qspecl_then [`x'`, `fromList2 x`] mp_tac domain_get_locals_lookup >> rw[] >>
     `MEM (Loc x' n1) x` by (fs[fromList2_value] >> qexists_tac `k` >> fs[]) >>
     metis_tac[get_vars_get_locals]
 );
 
-val get_locals_fromList2_extension = Q.store_thm(
-    "get_locals_fromList2_extension",
+Theorem get_locals_fromList2_extension
     `∀  x y ys. x ∈ domain (get_locals (fromList2 ys))
-    ⇒ x ∈ domain (get_locals (fromList2 (ys ⧺ [y])))`,
-        rw[] >> fs[domain_get_locals_lookup] >> qexists_tac `k` >>
+    ⇒ x ∈ domain (get_locals (fromList2 (ys ⧺ [y])))`
+        (rw[] >> fs[domain_get_locals_lookup] >> qexists_tac `k` >>
         qexists_tac `n1` >>
         Induct_on `ys` >> rw[] >- (fs[fromList2_def, lookup_def]) >>
         fs[lookup_fromList2, lookup_fromList] >>
@@ -567,11 +563,11 @@ val get_locals_fromList2_extension = Q.store_thm(
             (Induct_on `ys` >> rw[]) >> fs[]
 );
 
-val get_locals_fromList2_FRONT = Q.store_thm("get_locals_fromList2_FRONT",
+Theorem get_locals_fromList2_FRONT
     `∀ args s x xf t . get_vars args s = SOME x ∧
         x ≠ [] ∧ xf = FRONT x ∧ t = fromList2 xf
-    ⇒ domain (get_locals t) ⊆ domain (get_locals s.locals)`,
-    rw[] >> match_mp_tac SUBSET_TRANS >>
+    ⇒ domain (get_locals t) ⊆ domain (get_locals s.locals)`
+    (rw[] >> match_mp_tac SUBSET_TRANS >>
     qexists_tac `domain (get_locals (fromList2 x))` >>
     reverse(CONJ_TAC) >- metis_tac[get_locals_fromList2]
         >- (`∃ y ys . x = SNOC y ys` by metis_tac[SNOC_CASES] >>
@@ -580,13 +576,12 @@ val get_locals_fromList2_FRONT = Q.store_thm("get_locals_fromList2_FRONT",
             imp_res_tac get_locals_fromList2_extension >> fs[])
 );
 
-val get_memory_write_bytearray_lemma = Q.store_thm(
-    "get_memory_write_bytearray_lemma",
+Theorem get_memory_write_bytearray_lemma
     `∀ mem mdom reachable c r be .
         domain(get_memory mem mdom) ⊆ domain reachable
     ⇒ domain (get_memory (write_bytearray c r mem mdom be) mdom) ⊆
-        domain reachable`,
-    Induct_on `r` >> fs[write_bytearray_def] >> rw[] >>
+        domain reachable`
+    (Induct_on `r` >> fs[write_bytearray_def] >> rw[] >>
     fs[mem_store_byte_aux_def] >>
     Cases_on `write_bytearray (c + 1w) r mem mdom be (byte_align c)` >> fs[] >>
     Cases_on `byte_align c ∈ mdom` >> fs[] >> first_x_assum drule >> rw[] >>
@@ -597,14 +592,14 @@ val get_memory_write_bytearray_lemma = Q.store_thm(
         metis_tac[SUBSET_TRANS]
 );
 
-val stack_list_rearrange_lemma = Q.store_thm("stack_list_rearrange_lemma",
+Theorem stack_list_rearrange_lemma
     `∀ s dr locs opt .
         domain (get_locals s.locals) ⊆ dr ∧
         domain (get_stack s.stack) ⊆ dr
     ⇒ domain (get_stack (StackFrame (list_rearrange (s.permute 0)
     (QSORT key_val_compare (toAList (inter s.locals locs)))) opt::s.stack))
-        ⊆ dr`,
-    rw[] >> fs[get_stack_def, domain_union] >> rw[SUBSET_DEF] >>
+        ⊆ dr`
+    (rw[] >> fs[get_stack_def, domain_union] >> rw[SUBSET_DEF] >>
     imp_res_tac get_num_wordloc_alist_thm >>
     fs[MEM_MAP] >> fs[mem_list_rearrange, QSORT_MEM] >>
     Cases_on `y` >> fs[MEM_toAList] >> fs[lookup_inter] >>
@@ -613,11 +608,11 @@ val stack_list_rearrange_lemma = Q.store_thm("stack_list_rearrange_lemma",
     fs[SUBSET_DEF, domain_get_locals_lookup] >> metis_tac[]
 );
 
-val remove_word_code_thm_FST = Q.store_thm("remove_word_code_thm_FST",
+Theorem remove_word_code_thm_FST
     `∀ n reachable:num_set l . ALL_DISTINCT (MAP FST l)
     ⇒ (n ∈ domain reachable ∧ MEM n (MAP FST l) ⇔
-    MEM n (MAP FST (remove_word_code reachable l)))`,
-    rw[] >> EQ_TAC >> rw[]
+    MEM n (MAP FST (remove_word_code reachable l)))`
+    (rw[] >> EQ_TAC >> rw[]
     >- (Induct_on `l` >> rw[] >> fs[remove_word_code_def] >>
         fs[domain_lookup] >>
     Cases_on `IS_SOME (lookup (FST h) reachable)` >> fs[])
@@ -626,18 +621,17 @@ val remove_word_code_thm_FST = Q.store_thm("remove_word_code_thm_FST",
     >- (fs[MEM_MAP, MEM_FILTER] >> qexists_tac `y` >> rw[])
 );
 
-val remove_word_code_MAP_FST_lemma = Q.store_thm(
-    "remove_word_code_MAP_FST_lemma",
+Theorem remove_word_code_MAP_FST_lemma
     `∀ reachable:num_set (l: (ctor_id, ctor_id # α prog) alist) .
         MAP FST (FILTER (λx. IS_SOME (lookup (FST x) reachable)) l) =
-            FILTER (λx. IS_SOME (lookup x reachable)) (MAP FST l)`,
-    Induct_on `l` >> rw[]
+            FILTER (λx. IS_SOME (lookup x reachable)) (MAP FST l)`
+    (Induct_on `l` >> rw[]
 );
 
-val word_state_rel_word_exp = Q.store_thm("word_state_rel_word_exp",
+Theorem word_state_rel_word_exp
     `∀ s1 exp s2 reachable . word_state_rel reachable s1 s2
-        ⇒ word_exp s1 exp = word_exp s2 exp`,
-    recInduct word_exp_ind >> rw[word_exp_def]
+        ⇒ word_exp s1 exp = word_exp s2 exp`
+    (recInduct word_exp_ind >> rw[word_exp_def]
     >- (fs[word_state_rel_def]) >- (fs[word_state_rel_def])
     >- (first_x_assum drule >> rw[] >> PURE_TOP_CASE_TAC >> rw[] >>
         PURE_TOP_CASE_TAC >> fs[] >> fs[mem_load_def, word_state_rel_def])
@@ -646,10 +640,10 @@ val word_state_rel_word_exp = Q.store_thm("word_state_rel_word_exp",
     >- (first_x_assum drule >> rw[])
 );
 
-val word_state_rel_inst_NONE = Q.store_thm("word_state_rel_inst_NONE",
+Theorem word_state_rel_inst_NONE
     `∀ reachable s t i . word_state_rel reachable s t
-    ⇒ (inst i s = NONE ⇔ inst i t = NONE)`,
-    rw[] >> fs[word_state_rel_def] >> Cases_on `i` >> fs[inst_def]
+    ⇒ (inst i s = NONE ⇔ inst i t = NONE)`
+    (rw[] >> fs[word_state_rel_def] >> Cases_on `i` >> fs[inst_def]
     >- (fs[assign_def] >>
         `word_exp s (Const c) = word_exp t (Const c)`
             by metis_tac[word_state_rel_word_exp, word_state_rel_def] >>
@@ -678,10 +672,10 @@ val word_state_rel_inst_NONE = Q.store_thm("word_state_rel_inst_NONE",
         EVERY_CASE_TAC >> fs[])
 );
 
-val word_state_rel_inst_SOME = Q.store_thm ("word_state_rel_inst_SOME",
+Theorem word_state_rel_inst_SOME
     `∀ reachable s t i s1 t1 . word_state_rel reachable s t ⇒
-    (inst i s = SOME s1 ∧ inst i t = SOME t1 ⇒ word_state_rel reachable s1 t1)`,
-    fs[inst_def] >> Cases_on `i` >> fs[]
+    (inst i s = SOME s1 ∧ inst i t = SOME t1 ⇒ word_state_rel reachable s1 t1)`
+    (fs[inst_def] >> Cases_on `i` >> fs[]
     >- (fs[assign_def] >> fs[word_exp_def] >> fs[set_var_def] >>
         fs[word_state_rel_def] >> rw[] >> fs[domain_find_loc_state] >>
         qspecl_then [`n`, `Word c`, `s.locals`] mp_tac get_locals_insert >>
@@ -857,11 +851,11 @@ val word_state_rel_inst_SOME = Q.store_thm ("word_state_rel_inst_SOME",
         rw[dest_word_loc_def] >> imp_res_tac SUBSET_TRANS)
 );
 
-val word_state_rel_jump_exc = Q.store_thm("word_state_rel_jump_exc",
+Theorem word_state_rel_jump_exc
     `∀ reachable s t s1 l1 l2 . word_state_rel reachable s t
     ==> jump_exc s = SOME (s1, l1, l2)
-    ⇒ ∃ t1 . jump_exc t = SOME (t1, l1, l2) ∧ word_state_rel reachable s1 t1`,
-    strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
+    ⇒ ∃ t1 . jump_exc t = SOME (t1, l1, l2) ∧ word_state_rel reachable s1 t1`
+    (strip_tac >> strip_tac >> strip_tac >> strip_tac >> strip_tac >>
     strip_tac >> strip_tac >>
     fs[jump_exc_def] >> `s.handler = t.handler ∧ s.stack = t.stack` by
         fs[word_state_rel_def] >> fs[] >>
@@ -872,11 +866,11 @@ val word_state_rel_jump_exc = Q.store_thm("word_state_rel_jump_exc",
     drule get_stack_hd_thm >> rw[]
 );
 
-val word_state_rel_gc = Q.store_thm("word_state_rel_gc",
+Theorem word_state_rel_gc
     `∀ reachable s t s1 .
     word_state_rel reachable s t ∧ gc_no_new_locs s.gc_fun ⇒
-    gc s = SOME s1 ⇒ ∃ t1 . gc t = SOME t1 ∧ word_state_rel reachable s1 t1`,
-    rw[] >> qpat_assum `word_state_rel _ _ _` mp_tac >>
+    gc s = SOME s1 ⇒ ∃ t1 . gc t = SOME t1 ∧ word_state_rel reachable s1 t1`
+    (rw[] >> qpat_assum `word_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once word_state_rel_def] >> strip_tac >>
     qpat_x_assum `gc _ = _` mp_tac >>
     full_simp_tac (srw_ss())[gc_def] >> fs[] >>
@@ -887,13 +881,13 @@ val word_state_rel_gc = Q.store_thm("word_state_rel_gc",
     first_x_assum drule >> disch_then drule >> rw[] >> imp_res_tac SUBSET_TRANS
 );
 
-val word_state_rel_alloc = Q.store_thm("word_state_rel_alloc",
+Theorem word_state_rel_alloc
     `∀ reachable s t res c n s1 . word_state_rel reachable s t ∧
     res ≠ SOME Error ∧ gc_no_new_locs s.gc_fun
     ⇒ alloc c n s = (res, s1) ⇒
         ∃ t1 . alloc c n t = (res, t1) ∧ word_state_rel reachable s1 t1 ∧
-      dest_result_loc res ⊆ domain reachable`,
-    rw[] >> qpat_assum `word_state_rel _ _ _` mp_tac >>
+      dest_result_loc res ⊆ domain reachable`
+    (rw[] >> qpat_assum `word_state_rel _ _ _` mp_tac >>
     SIMP_TAC std_ss [Once word_state_rel_def] >>
     strip_tac >> qpat_x_assum `alloc _ _ _ = _` mp_tac >>
     fs[alloc_def] >> fs[cut_env_def, domain_find_loc_state] >>
@@ -938,7 +932,7 @@ val word_state_rel_alloc = Q.store_thm("word_state_rel_alloc",
 
 (**************************** MAIN LEMMAS *****************************)
 
-val word_removal_lemma = Q.store_thm ("word_removal_lemma",
+Theorem word_removal_lemma
     `∀ program state result new_state reachable removed_state .
         wordSem$evaluate (program, state) = (result, new_state) ∧
         result ≠ SOME Error ∧ word_state_rel reachable state removed_state ∧
@@ -951,8 +945,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
             wordSem$evaluate (program, removed_state) = (result, s) ∧
             word_state_rel reachable new_state s ∧
             (dest_result_loc result) ⊆ domain (reachable)`
-    ,
-        recInduct wordSemTheory.evaluate_ind >> reverse(rw[]) >>
+        (recInduct wordSemTheory.evaluate_ind >> reverse(rw[]) >>
         qpat_x_assum `evaluate _ = _` mp_tac >>
         qpat_assum `word_state_rel _ _ _` mp_tac >>
         SIMP_TAC std_ss [Once word_state_rel_def] >> strip_tac >>
@@ -1618,7 +1611,7 @@ val word_removal_lemma = Q.store_thm ("word_removal_lemma",
 
 (**************************** WORD_REMOVAL_THM *****************************)
 
-val word_removal_thm = Q.store_thm("word_removal_thm",
+Theorem word_removal_thm
     `∀ start state result new_state r reachable code1.
         wordSem$evaluate (Call NONE (SOME start) [0] NONE, state) =
             (result, new_state) ∧
@@ -1632,8 +1625,7 @@ val word_removal_thm = Q.store_thm("word_removal_thm",
             wordSem$evaluate (Call NONE (SOME start) [0] NONE,
                 state with code :=
                     fromAList (remove_word_code reachable code1)) = (result, s)`
-  ,
-    rpt strip_tac >>
+    (rpt strip_tac >>
     drule word_removal_lemma >> disch_then drule >>
     strip_tac >>
     pop_assum (qspecl_then [`reachable`,

@@ -26,9 +26,9 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.store_thm("NOT_NIL_AND_LEMMA",
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Theorem NOT_NIL_AND_LEMMA
+  `(b <> [] /\ x) = if b = [] then F else x`
+  (Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
