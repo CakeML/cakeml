@@ -3318,7 +3318,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ simp[compile_no_stubs_def]
         \\ gen_tac
         \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ppg`
-        \\ `labels_ok (MAP prog_to_section ppg)`
+        \\ `stack_to_labProof$labels_ok (MAP prog_to_section ppg)`
         by (
           irule prog_to_section_labels_ok
           \\ simp[Abbr`ppg`,MAP_MAP_o, o_DEF]
@@ -3439,7 +3439,7 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ simp[Abbr`ppg`]
           \\ irule stack_namesProofTheory.stack_names_stack_asm_ok
           \\ reverse conj_tac
-          >- ( qhdtm_x_assum`mc_conf_ok`mp_tac \\ simp[mc_conf_ok_def] )
+          >- ( qhdtm_x_assum`lab_to_targetProof$mc_conf_ok`mp_tac \\ simp[mc_conf_ok_def] )
           \\ simp[Once EVERY_MAP]
           \\ simp[LAMBDA_PROD]
           \\ simp[stack_removeTheory.prog_comp_def]
@@ -3573,7 +3573,7 @@ val compile_correct = Q.store_thm("compile_correct",
       rveq \\ fs[]
       \\ fs[backendPropsTheory.pure_co_def]
       \\ rveq \\ fs[]
-      \\ qhdtm_assum`known_co`(mp_tac o Q.AP_TERM`FST`)
+      \\ qhdtm_assum`clos_knownProof$known_co`(mp_tac o Q.AP_TERM`FST`)
       \\ simp[clos_knownProofTheory.FST_known_co]
       \\ qmatch_goalsub_rename_tac`SND ppp = _`
       \\ Cases_on`ppp` \\ strip_tac \\ fs[] \\ rveq
@@ -3796,7 +3796,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ match_mp_tac SUBSET_TRANS
     \\ asm_exists_tac \\ simp[]
     \\ reverse conj_tac >- simp[SUBSET_DEF]
-    \\ qmatch_goalsub_abbrev_tac`compile_prog _ (compile ls)`
+    \\ qmatch_goalsub_abbrev_tac`compile_prog _ (clos_labels$compile ls)`
     \\ simp[clos_to_bvlProofTheory.MAP_FST_compile_prog]
     \\ qunabbrev_tac`ff`
     \\ qmatch_goalsub_abbrev_tac`IMAGE ff AA ⊆ BB ∪ CC ∪ {mm}`
@@ -4055,21 +4055,21 @@ val compile_correct = Q.store_thm("compile_correct",
     match_mp_tac (GEN_ALL(MP_CANON implements_intro_ext)) \\
     simp[]
     \\ fs[full_make_init_compile]
-    \\ fs[EVAL``(make_init a b c d e f g h i j k l m).compile``]
+    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
     \\ fs[Abbr`stoff`]
     \\ fs[EVAL``(word_to_stackProof$make_init a b c d).compile``]
     \\ fs[Abbr`kkk`,Abbr`stk`,Abbr`stack_st`] \\ rfs[]
-    \\ qmatch_goalsub_abbrev_tac`semantics _ _ _ foo1`
-    \\ qmatch_asmsub_abbrev_tac`semantics _ _ _ foo2`
+    \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo1`
+    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
     \\ `foo1 = foo2` suffices_by fs[]
     \\ simp[Abbr`foo1`,Abbr`foo2`]
     \\ simp[FUN_EQ_THM]
     \\ rpt gen_tac \\ AP_TERM_TAC
-    \\ qhdtm_assum`full_make_init`(mp_tac o Q.AP_TERM`FST`)
+    \\ qhdtm_assum`stack_to_labProof$full_make_init`(mp_tac o Q.AP_TERM`FST`)
     \\ simp_tac std_ss []
     \\ disch_then(SUBST1_TAC o SYM)
     \\ simp[full_make_init_compile, Abbr`lab_st`]
-    \\ fs[EVAL``(make_init a b c d e f g h i j k l m).compile``] ) \\
+    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``] ) \\
   simp[Abbr`z`] \\
   (word_to_stackProofTheory.compile_semantics
    |> Q.GENL[`t`,`code`,`asm_conf`,`start`]
@@ -4175,19 +4175,19 @@ val compile_correct = Q.store_thm("compile_correct",
       metis_tac[] ) \\
     fs[extend_with_resource_limit_def]
     \\ qpat_x_assum`_ ≠ Fail`assume_tac
-    \\ qmatch_asmsub_abbrev_tac`semantics _ _ _ foo1 _ ≠ Fail`
-    \\ qmatch_goalsub_abbrev_tac`semantics _ _ _ foo2`
+    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo1 _ ≠ Fail`
+    \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
     \\ `foo1 = foo2` suffices_by metis_tac[]
     \\ simp[Abbr`foo1`,Abbr`foo2`,FUN_EQ_THM]
     \\ rpt gen_tac \\ AP_TERM_TAC
     \\ AP_THM_TAC
     \\ simp[EVAL``(word_to_stackProof$make_init a b c e).compile``]
     \\ rfs[Abbr`stack_st`]
-    \\ qhdtm_assum`full_make_init`(mp_tac o Q.AP_TERM`FST`)
+    \\ qhdtm_assum`stack_to_labProof$full_make_init`(mp_tac o Q.AP_TERM`FST`)
     \\ simp_tac std_ss []
     \\ disch_then(SUBST_ALL_TAC o SYM)
     \\ fs[full_make_init_compile, Abbr`lab_st`]
-    \\ fs[EVAL``(make_init a b c d e f g h i j k l m).compile``]) \\
+    \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]) \\
   strip_tac \\
   match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
   qmatch_assum_abbrev_tac`z ∈ _ {_}` \\
@@ -4207,18 +4207,18 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ CONV_TAC(RAND_CONV SYM_CONV)
   \\ match_mp_tac (GEN_ALL extend_with_resource_limit_not_fail)
   \\ asm_exists_tac \\ simp[]
-  \\ qmatch_asmsub_abbrev_tac`semantics _ _ _ foo1 _ ≠ Fail`
-  \\ qmatch_goalsub_abbrev_tac`semantics _ _ _ foo2`
+  \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo1 _ ≠ Fail`
+  \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
   \\ `foo1 = foo2` suffices_by metis_tac[]
   \\ simp[Abbr`foo1`,Abbr`foo2`,FUN_EQ_THM]
   \\ rpt gen_tac \\ AP_TERM_TAC
   \\ rfs[Abbr`kkk`,Abbr`stk`]
   \\ AP_THM_TAC
   \\ simp[EVAL``(word_to_stackProof$make_init a b c e).compile``]
-  \\ qhdtm_assum`full_make_init`(mp_tac o Q.AP_TERM`FST`)
+  \\ qhdtm_assum`stack_to_labProof$full_make_init`(mp_tac o Q.AP_TERM`FST`)
   \\ simp_tac std_ss []
   \\ disch_then(SUBST_ALL_TAC o SYM)
   \\ fs[full_make_init_compile, Abbr`lab_st`]
-  \\ fs[EVAL``(make_init a b c d e f g h i j k l m).compile``]);
+  \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]);
 
 val _ = export_theory();
