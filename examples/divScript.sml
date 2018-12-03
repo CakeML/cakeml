@@ -2,7 +2,7 @@
   Examples of non-termination.
 *)
 open preamble basis
-open integerTheory
+open integerTheory cfDivTheory
 
 val _ = new_theory "div";
 
@@ -69,16 +69,39 @@ val condBody_spec = store_thm("condBody_spec",
 
 val repeat_POSTe = store_thm("repeat_POSTe",
   ``!p fv xv H Q.
-      (?Hs events vs j.
+      (?Hs vs j.
          vs 0 = xv /\ H ==>> Hs 0 /\
-         (!i. i < j ==> ?P. Hs i = P * one (FFI_full (events i))) /\
          (!i. i < j ==>
-            (app p fv [vs i] (Hs i)
-                             (POSTv v'. &(v' = vs (SUC i)) * Hs (SUC i)))) /\
-         (app p fv [vs j] (Hs j) ($POSTe Q)))
+            app p fv [vs i] (Hs i)
+                            (POSTv v. &(v = vs (SUC i)) * Hs (SUC i))) /\
+         app p fv [vs j] (Hs j) ($POSTe Q))
       ==>
       app p ^(fetch_v "repeat" st) [fv; xv] H ($POSTe Q)``,
-  cheat);
+  rpt strip_tac
+  \\ `!i. i <= j ==> app p ^(fetch_v "repeat" st) [fv; vs i] (Hs i) ($POSTe Q)` by (
+    rpt strip_tac
+    \\ Induct_on `j - i`
+    THEN1 (
+      xcf "repeat" st
+      \\ `i = j` by decide_tac \\ rveq
+      \\ xlet `$POSTe Q` THEN1 xapp
+      \\ xsimpl)
+    \\ xcf "repeat" st
+    \\ `i < j` by decide_tac
+    \\ xlet `POSTv v. &(v = vs (SUC i)) * Hs (SUC i)`
+    THEN1 (
+      `app p fv [vs i] (Hs i) (POSTv v. &(v = vs (SUC i)) * Hs (SUC i))`
+        by (first_assum irule \\ rw [])
+      \\ xapp)
+    \\ rveq
+    \\ `app p repeat_v [fv; vs (SUC i)] (Hs (SUC i)) ($POSTe Q)`
+         by (first_assum irule \\ qexists_tac `j` \\ rw [])
+    \\ xapp)
+  \\ `app p repeat_v [fv; vs 0] (Hs 0) ($POSTe Q)`
+       by (first_assum irule \\ rw [])
+  \\ rveq \\ xapp
+  \\ qexists_tac `emp`
+  \\ xsimpl);
 
 val condLoop_spec = store_thm("condLoop_spec",
   ``!n nv.
@@ -93,13 +116,11 @@ val condLoop_spec = store_thm("condLoop_spec",
     \\ rw [POSTed_def, GSYM POSTe_def]
     \\ xapp_spec repeat_POSTe
     \\ qexists_tac `\i. one (FFI_full [])`
-    \\ qexists_tac `\i. []`
     \\ qexists_tac `\i. Litv (IntLit (n - &i))`
     \\ `?m. n = &m` by (irule NUM_POSINT_EXISTS \\ rw [])
     \\ qexists_tac `m`
     \\ rpt strip_tac \\ xsimpl
     THEN1 fs [INT_def]
-    THEN1 (qexists_tac `emp` \\ rw [SEP_CLAUSES])
     THEN1 (
       xapp
       \\ qexists_tac `emp`
