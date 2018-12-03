@@ -130,9 +130,9 @@ val CARD_IMAGE_EQ_BIJ = Q.store_thm("CARD_IMAGE_EQ_BIJ",
   \\ rw[IMAGE_SURJ]);
 
 (* used only in clos_callProof -
-   HOL to pick up
-     (!x y. f x = f y <=> x = y) ==>
-     (DISJOINT (IMAGE f x) (IMAGE f y) <=> DISJOINT x y
+   HOL has DISJOINT_IMAGE:
+     |- (!x y. f x = f y <=> x = y) ==>
+        (DISJOINT (IMAGE f x) (IMAGE f y) <=> DISJOINT x y
 *)
 val DISJOINT_IMAGE_SUC = Q.store_thm("DISJOINT_IMAGE_SUC",
   `DISJOINT (IMAGE SUC x) (IMAGE SUC y) <=> DISJOINT x y`,
@@ -151,33 +151,6 @@ val ALOOKUP_MAP_gen = Q.store_thm("ALOOKUP_MAP_gen",
     OPTION_MAP (f x) (ALOOKUP al x)`,
   gen_tac >> Induct >> simp[] >>
   Cases >> simp[] >> srw_tac[][]);
-
-(* TODO: move to HOL candidate *)
-val map_fromAList = Q.store_thm("map_fromAList",
-  `map f (fromAList ls) = fromAList (MAP (λ(k,v). (k, f v)) ls)`,
-  Induct_on`ls` >> simp[fromAList_def] >>
-  Cases >> simp[fromAList_def] >>
-  simp[wf_fromAList,map_insert])
-
-(* TODO: move to HOL candidate *)
-val union_insert_LN = Q.store_thm("union_insert_LN",
-  `∀x y t2. union (insert x y LN) t2 = insert x y t2`,
-  recInduct insert_ind
-  \\ rw[]
-  \\ rw[Once insert_def]
-  \\ rw[Once insert_def,SimpRHS]
-  \\ rw[union_def]);
-
-(* TODO: move to HOL candidate *)
-val fromAList_append = Q.store_thm("fromAList_append",
-  `∀l1 l2. fromAList (l1 ++ l2) = union (fromAList l1) (fromAList l2)`,
-  recInduct fromAList_ind
-  \\ rw[fromAList_def]
-  \\ rw[Once insert_union]
-  \\ rw[union_assoc]
-  \\ AP_THM_TAC
-  \\ AP_TERM_TAC
-  \\ rw[union_insert_LN]);
 
 val _ = overload_on ("LLOOKUP", “λl n. oEL n l”)
 val LLOOKUP_def      = save_thm("LLOOKUP_def", listTheory.oEL_def);
@@ -371,26 +344,6 @@ val lemmas = Q.prove(
     (2 * m + 1 <> 2 * n' + 2)`,
   intLib.ARITH_TAC);
 
-val IN_domain = Q.store_thm("IN_domain",
-  `!n x t1 t2.
-      (n IN domain LN <=> F) /\
-      (n IN domain (LS x) <=> (n = 0)) /\
-      (n IN domain (BN t1 t2) <=>
-         n <> 0 /\ (if EVEN n then ((n-1) DIV 2) IN domain t1
-                              else ((n-1) DIV 2) IN domain t2)) /\
-      (n IN domain (BS t1 x t2) <=>
-         n = 0 \/ (if EVEN n then ((n-1) DIV 2) IN domain t1
-                             else ((n-1) DIV 2) IN domain t2))`,
-  full_simp_tac(srw_ss())[domain_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on `n = 0` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `EVEN n` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[GSYM ODD_EVEN]
-  \\ IMP_RES_TAC EVEN_ODD_EXISTS
-  \\ full_simp_tac(srw_ss())[ADD1] \\ full_simp_tac(srw_ss())[lemmas]
-  \\ Cases_on `m` \\ full_simp_tac(srw_ss())[MULT_CLAUSES]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-  \\ full_simp_tac(srw_ss())[lemmas])
-
 (* should be map (K a) (map f t) = map (K a) t *)
 val map_map_K = Q.store_thm("map_map_K",
   `!t. map (K a) (map (K a) t) = map (K a) t`,
@@ -554,46 +507,6 @@ val BIJ_FLOOKUP_MAP_KEYS = Q.store_thm("BIJ_FLOOKUP_MAP_KEYS",
   \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
   \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
 
-(* TODO - candidate for move to HOL *)
-val list_to_num_set_def = Define `
-  (list_to_num_set [] = LN) /\
-  (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
-
-(* TODO - candidate for move to HOL *)
-val list_insert_def = Define `
-  (list_insert [] t = t) /\
-  (list_insert (n::ns) t = list_insert ns (insert n () t))`;
-
-(* TODO - candidate for move to HOL *)
-val domain_list_to_num_set = Q.store_thm("domain_list_to_num_set",
-  `!xs. x IN domain (list_to_num_set xs) <=> MEM x xs`,
-  Induct \\ full_simp_tac(srw_ss())[list_to_num_set_def]);
-
-(* TODO - candidate for move to HOL *)
-val domain_list_insert = Q.store_thm("domain_list_insert",
-  `!xs x t.
-      x IN domain (list_insert xs t) <=> MEM x xs \/ x IN domain t`,
-  Induct \\ full_simp_tac(srw_ss())[list_insert_def] \\ METIS_TAC []);
-
-(* TODO - candidate for move to HOL *)
-val domain_FOLDR_delete = Q.store_thm("domain_FOLDR_delete",
-  `∀ls live. domain (FOLDR delete live ls) = (domain live) DIFF (set ls)`,
-  Induct>>
-  full_simp_tac(srw_ss())[DIFF_INSERT,EXTENSION]>>
-  metis_tac[])
-
-(* TODO - candidate for move to HOL *)
-val lookup_list_to_num_set = Q.store_thm("lookup_list_to_num_set",
-  `!xs. lookup x (list_to_num_set xs) = if MEM x xs then SOME () else NONE`,
-  Induct \\ srw_tac [] [list_to_num_set_def,lookup_def,lookup_insert] \\ full_simp_tac(srw_ss())[]);
-
-(* TODO - candidate for move to HOL *)
-val list_to_num_set_append = Q.store_thm("list_to_num_set_append",
-  `∀l1 l2. list_to_num_set (l1 ++ l2) = union (list_to_num_set l1) (list_to_num_set l2)`,
-  Induct \\ rw[list_to_num_set_def]
-  \\ rw[Once insert_union]
-  \\ rw[Once insert_union,SimpRHS]
-  \\ rw[union_assoc])
 
 (* TODO - candidate for move to HOL *)
 val OPTION_BIND_SOME = Q.store_thm("OPTION_BIND_SOME",
