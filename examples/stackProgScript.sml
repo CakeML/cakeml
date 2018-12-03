@@ -167,9 +167,8 @@ val pop_spec = Q.store_thm("pop_spec",
    EqualityType A ==>
    app (p:'ffi ffi_proj) ^(fetch_v "pop" st) [qv]
    (STACK A vs qv)
-   (POST (\v. &(not(NULL vs) /\ A (LAST vs) v) * STACK A (FRONT vs) qv)
-         (\e. &(NULL vs /\ EmptyStack_exn e) * STACK A vs qv)
-         (\n c b. &F))`,
+   (POSTve (\v. &(not(NULL vs) /\ A (LAST vs) v) * STACK A (FRONT vs) qv)
+           (\e. &(NULL vs /\ EmptyStack_exn e) * STACK A vs qv))`,
    xcf "pop" st >>
    simp[STACK_def] >>
    xpull >>
