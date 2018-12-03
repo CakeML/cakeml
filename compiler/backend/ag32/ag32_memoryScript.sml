@@ -422,7 +422,7 @@ val ag32_ffi_copy_thm = Q.store_thm("ag32_ffi_copy_thm",
   Induct_on`w2n (s.R 1w)` \\ rw[]
   >- (
     qpat_x_assum`0 = _`(assume_tac o SYM)
-    \\ fs[read_bytearray_def, asmSemTheory.bytes_in_memory_def] \\ rw[]
+    \\ fs[read_bytearray_def, bytes_in_memory_def] \\ rw[]
     \\ rw[asm_write_bytearray_def]
     \\ rw[Once ag32_ffi_copy_def, ag32Theory.dfn'LoadConstant_def,
           ag32Theory.incPC_def, APPLY_UPDATE_THM]
@@ -434,7 +434,7 @@ val ag32_ffi_copy_thm = Q.store_thm("ag32_ffi_copy_thm",
   \\ fs[]
   \\ qpat_x_assum`SUC _ = _`(assume_tac o SYM)
   \\ Cases_on`written`
-  \\ fs[read_bytearray_def, asmSemTheory.bytes_in_memory_def]
+  \\ fs[read_bytearray_def, bytes_in_memory_def]
   \\ rw[] \\ fs[CaseEq"option"] \\ rw[]
   \\ rw[Once ag32_ffi_copy_def, ag32Theory.dfn'LoadConstant_def,
         ag32Theory.incPC_def, APPLY_UPDATE_THM] \\ fs[]
@@ -477,7 +477,7 @@ val ag32_ffi_copy_thm = Q.store_thm("ag32_ffi_copy_thm",
       \\ fs[word_add_n2w, word_ls_n2w]
       \\ Cases_on`n + 1 = dimword(:32)` \\ fs[]
       \\ `n + 1 < dimword(:32)` by fs[] \\ fs[])
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ irule bytes_in_memory_change_mem
     \\ goal_assum(first_assum o mp_then Any mp_tac)
     \\ simp[APPLY_UPDATE_THM]
     \\ rw[]
@@ -736,7 +736,7 @@ val ag32_ffi_get_arg_length_setup_thm = Q.store_thm("ag32_ffi_get_arg_length_set
         ag32Theory.dfn'Shift_def, ag32Theory.shift_def,
         ag32Theory.dfn'LoadConstant_def,
         ag32Theory.dfn'StoreMEMByte_def, APPLY_UPDATE_THM]
-  \\ fs[asmSemTheory.bytes_in_memory_def, w2w_n2w, EVAL``ffi_code_start_offset``]
+  \\ fs[bytes_in_memory_def, w2w_n2w, EVAL``ffi_code_start_offset``]
   \\ IF_CASES_TAC \\ fs[]
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[ag32Theory.ag32_state_component_equality]
@@ -1133,7 +1133,7 @@ val ag32_ffi_get_arg_setup_thm = Q.store_thm("ag32_ffi_get_arg_setup_thm",
         ag32Theory.dfn'Shift_def, ag32Theory.shift_def,
         ag32Theory.dfn'LoadConstant_def,
         ag32Theory.dfn'StoreMEMByte_def, APPLY_UPDATE_THM]
-  \\ fs[asmSemTheory.bytes_in_memory_def, w2w_n2w, EVAL``ffi_code_start_offset``]
+  \\ fs[bytes_in_memory_def, w2w_n2w, EVAL``ffi_code_start_offset``]
   \\ IF_CASES_TAC \\ fs[]
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[ag32Theory.ag32_state_component_equality]
@@ -1776,7 +1776,7 @@ val ag32_ffi_read_check_conf_thm = Q.store_thm("ag32_ffi_read_check_conf_thm",
   >- ( Cases_on`s.R 2w` \\ fs[] \\ rw[] \\ fs[] )
   \\ fs[LENGTH_EQ_NUM_compute]
   \\ rveq
-  \\ fs[asmSemTheory.bytes_in_memory_def] \\ rveq
+  \\ fs[bytes_in_memory_def] \\ rveq
   \\ simp[MarshallingTheory.w82n_def, LEFT_ADD_DISTRIB]
   \\ Cases_on`s.R 2w` \\ fs[] \\ rveq
   \\ Cases \\ fs[]
@@ -1936,7 +1936,7 @@ val ag32_ffi_read_load_lengths_thm = Q.store_thm("ag32_ffi_read_load_lengths_thm
   \\ simp[get_mem_word_def, Abbr`r8`]
   \\ EVAL_TAC \\ rw[word_add_n2w, word_mul_n2w]
   \\ fs[EVAL``stdin_size``]
-  \\ rw[] \\ fs[asmSemTheory.bytes_in_memory_def]
+  \\ rw[] \\ fs[bytes_in_memory_def]
   >- (
     qmatch_goalsub_abbrev_tac`(len + p) MOD n = _`
     \\ `(len + p) MOD n = ((n+1) * len + p) MOD n`
@@ -2512,7 +2512,7 @@ val ag32_ffi_write_check_conf_thm = Q.store_thm("ag32_ffi_write_check_conf_thm",
   >- ( Cases_on`s.R 2w` \\ fs[] \\ rw[] \\ fs[] )
   \\ fs[LENGTH_EQ_NUM_compute]
   \\ rveq
-  \\ fs[asmSemTheory.bytes_in_memory_def] \\ rveq
+  \\ fs[bytes_in_memory_def] \\ rveq
   \\ simp[MarshallingTheory.w82n_def, LEFT_ADD_DISTRIB]
   \\ Cases_on`s.R 2w` \\ fs[] \\ rveq
   \\ Cases \\ fs[]
@@ -2696,7 +2696,7 @@ val ag32_ffi_write_load_noff_thm = Q.store_thm("ag32_ffi_write_load_noff_thm",
   \\ rw[MarshallingTheory.w22n_def,Abbr`r8`] \\ fs[]
   >- (
     Cases_on`off0` \\ Cases_on`off1` \\ fs[]
-    \\ fs[asmSemTheory.bytes_in_memory_def] \\ rw[]
+    \\ fs[bytes_in_memory_def] \\ rw[]
     \\ simp[w2w_n2w]
     \\ simp[bitTheory.BITS_ZERO3]
     \\ rw[GSYM word_add_n2w, GSYM word_mul_n2w]
@@ -2705,7 +2705,7 @@ val ag32_ffi_write_load_noff_thm = Q.store_thm("ag32_ffi_write_load_noff_thm",
     \\ match_mp_tac (blastLib.BBLAST_PROVE
         ``w1 <+ 256w ==> (0w = (w1 && 256w * w2:word32))``)
     \\ fs [WORD_LO] )
-  \\ fs[asmSemTheory.bytes_in_memory_def]
+  \\ fs[bytes_in_memory_def]
   \\ rw[]
   \\ Cases_on`s.MEM (s.R 1w)` \\ fs[]
   \\ Cases_on`s.MEM (s.R 3w)` \\ fs[]
@@ -3191,7 +3191,7 @@ val ag32_ffi_write_num_written_thm = Q.store_thm("ag32_ffi_write_num_written_thm
     fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO] \\ fs[]
   \\ `MIN n 2048 = if cnd then 2048 else n` by rw[Abbr`cnd`,MIN_DEF]
   \\ fs[] \\ rveq
-  \\ fs[asmSemTheory.bytes_in_memory_def]
+  \\ fs[bytes_in_memory_def]
   \\ fs[CaseEq"option"] \\ rveq
   \\ Cases_on`s.R 3w`
   \\ Cases_on`cnd` \\ fs[markerTheory.Abbrev_def]
