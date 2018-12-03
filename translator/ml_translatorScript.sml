@@ -11,6 +11,9 @@ open integer_wordSyntax
 open terminationTheory
 local open integer_wordSyntax in end;
 open preamble;
+open bitstringTheory;
+open bitstring_extraTheory;
+open bitstringLib;
 
 val _ = new_theory "ml_translator";
 
@@ -899,7 +902,7 @@ val Eval_word_and = Q.store_thm("Eval_word_and",
     Eval env (App (Opw (dimindex (:'a)) Andw) [x1;x2])
       (WORD (word_and w1 w2))`,
   tac
-  \\ fs [bitstringTheory.word_and_v2w,bitstringTheory.band_def]
+  \\ fs [(* bitstringTheory.word_and_v2w, *) bitstringTheory.band_def]
   \\ fs [bitwise_w2v_w2v] \\ AP_TERM_TAC
   \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_and_def]);
 
@@ -909,7 +912,7 @@ val Eval_word_or = Q.store_thm("Eval_word_or",
     Eval env (App (Opw (dimindex (:'a)) Orw) [x1;x2])
       (WORD (word_or w1 w2))`,
   tac
-  \\ fs [bitstringTheory.word_or_v2w,bitstringTheory.bor_def]
+  \\ fs [(* bitstringTheory.word_or_v2w, *) bitstringTheory.bor_def]
   \\ fs [bitwise_w2v_w2v] \\ AP_TERM_TAC
   \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def]
 );
@@ -920,7 +923,7 @@ val Eval_word_xor = Q.store_thm("Eval_word_xor",
     Eval env (App (Opw (dimindex (:'a)) Xor) [x1;x2])
       (WORD (word_xor w1 w2))`,
   tac
-  \\ fs [bitstringTheory.word_or_v2w,bitstringTheory.bxor_def]
+  \\ fs [bitstringTheory.bxor_def]
   \\ fs [bitwise_w2v_w2v] \\ AP_TERM_TAC
   \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_xor_def]
 );
@@ -955,8 +958,9 @@ val Eval_word_add = Q.store_thm("Eval_word_add",
    `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw (dimindex (:'a)) Add) [x1;x2])
-      (WORD (word_add w1 w2))`,cheat
-  (* tac
+      (WORD (word_add w1 w2))`,
+  tac
+  \\ simp[fixadd_word_add](*
   \\ Cases_on `w1` \\ Cases_on `w2`
   \\ fs [word_add_n2w,w2w_def,WORD_MUL_LSL,word_mul_n2w,GSYM RIGHT_ADD_DISTRIB]
   \\ imp_res_tac Eval_word_add_lemma \\ fs []*));
@@ -978,7 +982,9 @@ val Eval_word_sub = Q.store_thm("Eval_word_sub",
    `Eval env x1 (WORD (w1:'a word)) /\
     Eval env x2 (WORD (w2:'a word)) ==>
     Eval env (App (Opw (dimindex (:'a)) Sub) [x1;x2])
-      (WORD (word_sub w1 w2))`,cheat
+      (WORD (word_sub w1 w2))`,
+  tac
+  \\ simp[fixsub_word_sub]
   (* tac
   \\ Cases_on `w1` \\ Cases_on `w2`
   \\ fs [word_add_n2w,w2w_def,WORD_MUL_LSL,word_mul_n2w,GSYM RIGHT_ADD_DISTRIB]
@@ -1009,15 +1015,17 @@ val w2n_w2w_64 = Q.prove(
   \\ fs [] \\ full_simp_tac bool_ss [GSYM (EVAL ``2n ** 64``),EXP_ADD]
   \\ fs [MOD_COMMON_FACTOR_ANY,MULT_DIV]);
 
+open integer_wordTheory;
+
 val Eval_w2n = Q.store_thm("Eval_w2n",
    `Eval env x1 (WORD (w:'a word)) ==>
-    Eval env (App (WordToInt (dimindex (:'a))) [x1]) (NUM (w2n w))`,cheat
-  (*rw[Eval_rw,WORD_def] \\ fs []
+    Eval env (App (WordToInt (dimindex (:'a))) [x1]) (NUM (w2n w))`,
+  rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ qexists_tac `ck1`
   \\ fs [do_app_def,state_component_equality,NUM_def,INT_def]
-  \\ TRY (fs [w2w_def] \\ assume_tac w2n_lt \\ rfs [dimword_def] \\ NO_TAC)
-  \\ EVAL_TAC \\ fs [w2n_w2w_64,w2n_w2w_8]*));
+  \\ simp[v2i_w2v]
+);
 
 local
   val lemma = Q.prove(
@@ -1049,10 +1057,21 @@ in
   val Eval_w2i = save_thm("Eval_w2i",th4)
 end;
 
+open integer_wordTheory
+
+
 val Eval_i2w = Q.store_thm("Eval_i2w",
    `Eval env x1 (INT n) ==>
     Eval env (App (WordFromInt (dimindex (:'a))) [x1])
-      (WORD ((i2w n):'a word))`, cheat (*
+      (WORD ((i2w n):'a word))`,
+    rw[Eval_rw,WORD_def]
+    \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+    \\ qexists_tac `ck1`
+    \\ fs [do_app_def,INT_def]
+    \\ fs [state_component_equality]
+    \\ simp[w2v_i2w]
+
+ (*
   rw[Eval_rw,WORD_def] \\ fs [] \\ rfs []
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ qexists_tac `ck1` \\ fs [do_app_def,INT_def]
@@ -1081,80 +1100,41 @@ val Eval_n2w = Q.store_thm("Eval_n2w",
   qsuff_tac `n2w n = i2w (& n)` THEN1 fs [Eval_i2w,NUM_def]
   \\ fs [integer_wordTheory.i2w_def]);
 
+(* TODO upstream, this is taken from hardware/translator/verilogScript.sml *)
+val w2v_w2w = Q.store_thm("w2v_w2w",
+  `!w:'b word. fixwidth (dimindex (:'a)) (w2v w) = w2v (w2w w : 'a word)`,
+      rw [w2w_def] \\ bitstringLib.Cases_on_v2w `w` \\
+      rw [w2n_v2w, n2w_v2n, w2v_v2w, v2n_lt,bitTheory.MOD_2EXP_def, arithmeticTheory.LESS_MOD]
+);
+
 val Eval_w2w = Q.store_thm("Eval_w2w",
    `Eval env x1 (WORD (w:'b word)) ==>
     Eval env
     (App (WordToWord (dimindex (:'b)) (dimindex (:'a))) [x1])
-    (WORD ((w2w w):'a word))`,cheat)
+    (WORD ((w2w w):'a word))`,
+      rw[Eval_rw,WORD_def] \\ fs [] \\ rw []
+       \\ fs [empty_state_def]
+       \\ fs [do_app_def]
+       \\ pop_assum (qspec_then `refs` mp_tac)
+       \\ strip_tac
+       \\ qexists_tac `ck1`
+       \\ fs [empty_state_def]
+       \\ simp [w2v_w2w]);
 
-(*
-val Eval_w2w = Q.store_thm("Eval_w2w",
-   `dimindex (:'a) <= 64 /\ dimindex (:'b) <= 64 ==>
-    Eval env x1 (WORD (w:'b word)) ==>
-    Eval env
-      (if (dimindex (:'a) <= 8 <=> dimindex (:'b) <= 8) then
-           if dimindex (:'b) <= dimindex (:'a) then
-             App (Shift Lsr (dimindex (:'a) - dimindex (:'b))) [x1]
-           else
-             App (Shift Lsl (dimindex (:'b) - dimindex (:'a))) [x1]
-       else if dimindex (:'b) <= 8 then
-         App (Shift Lsl (64 - dimindex (:'a)))
-           [App (Shift Lsr (8 - dimindex (:'b)))
-              [App (WordFromInt W64) [App (WordToInt W8) [x1]]]]
-       else
-         App (Shift W8 Lsl (8 - dimindex (:'a)))
-           [App (WordFromInt W8) [App (WordToInt W64)
-              [App (Shift W64 Lsr (64 - dimindex (:'b))) [x1]]]])
-      (WORD ((w2w w):'a word))`,
-  IF_CASES_TAC THEN1
-   (Cases_on `dimindex (:'a) ≤ 8` \\ fs []
-    \\ IF_CASES_TAC
-    \\ fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
-    \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac
-    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-    \\ qexists_tac `ck1` \\ fs []
-    \\ fs [empty_state_def]
-    \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
-    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
-    \\ rw []
-    \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 8` \\ fs []
-    \\ Cases_on `i + dimindex (:'a) < dimindex (:'b) + 64` \\ fs []
-    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def])
-  \\ IF_CASES_TAC \\ fs [] \\ rw []
-  THEN1
-   (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
-    \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac \\ rfs []
-    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-    \\ qexists_tac `ck1` \\ fs []
-    \\ simp [do_app_def,empty_state_def]
-    \\ fs [shift64_lookup_def,shift8_lookup_def]
-    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]
-    \\ rpt strip_tac
-    \\ eq_tac \\ strip_tac \\ fs []
-    \\ rfs [fcpTheory.FCP_BETA,w2w]
-    \\ fs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``]
-    \\ rfs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``]
-    \\ Cases_on `i + dimindex (:α) − 64 < 8`
-    \\ fs [fcpTheory.FCP_BETA,w2w,EVAL ``dimindex (:8)``])
-  THEN1
-   (fs [GSYM NOT_LESS] \\ fs [NOT_LESS]
-    \\ fs [Eval_rw,WORD_def] \\ rpt strip_tac \\ rfs []
-    \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-    \\ qexists_tac `ck1` \\ fs []
-    \\ simp [do_app_def,empty_state_def]
-    \\ fs [shift64_lookup_def,shift8_lookup_def]
-    \\ fs [fcpTheory.CART_EQ,w2w,fcpTheory.FCP_BETA,word_lsl_def,word_lsr_def]));*)
+val tac = rw[Eval_rw,WORD_def]
+  \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ fs [LESS_EQ_EXISTS]
+  \\ fs [do_app_def,shift_lookup_def]
+  \\ fs [semanticPrimitivesTheory.shift_lookup_def]
 
 val Eval_word_lsl = Q.store_thm("Eval_word_lsl",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
       Eval env (App (Shift (dimindex (:'a)) Lsl n) [x1])
-        (WORD (word_lsl w1 n))`,cheat
-  (*rw[Eval_rw,WORD_def]
-  \\ pop_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
-  \\ fs [LESS_EQ_EXISTS]
-  \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
+        (WORD (word_lsl w1 n))`,
+  tac \\ simp[fixshiftl_word_lsl]
+  (*
   \\ fs [fcpTheory.CART_EQ,word_lsl_def,fcpTheory.FCP_BETA,w2w] \\ rw []
   \\ Cases_on `w1 ' (i − (n + p))` \\ fs []*));
 
@@ -1162,9 +1142,9 @@ val Eval_word_lsr = Q.store_thm("Eval_word_lsr",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
       Eval env (App (Shift (dimindex (:'a)) Lsr n) [x1])
-        (WORD (word_lsr w1 n))`,cheat
-  (* rw[Eval_rw,WORD_def]
-  \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+        (WORD (word_lsr w1 n))`,
+  tac \\ simp[fixshiftr_word_lsr]
+  (* \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
   \\ TRY
    (fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
@@ -1183,7 +1163,8 @@ val Eval_word_asr = Q.store_thm("Eval_word_asr",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
       Eval env (App (Shift (dimindex (:'a)) Asr n) [x1])
-        (WORD (word_asr w1 n))`,cheat
+        (WORD (word_asr w1 n))`,
+  tac \\ simp[fixasr_word_asr]
   (* rw[Eval_rw,WORD_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
@@ -1203,7 +1184,7 @@ val Eval_word_ror = Q.store_thm("Eval_word_ror",
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
       Eval env (App (Shift (dimindex (:'a)) Ror n) [x1])
-        (WORD (word_ror w1 n))`,cheat
+        (WORD (word_ror w1 n))`, tac \\ simp[rotate_word_ror_lemma]
   (* Cases_on `dimindex (:'a) = 8` \\ fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ fs []
   \\ rw[Eval_rw,WORD_def]
@@ -1512,8 +1493,8 @@ val Eval_force_gc_to_run = Q.store_thm("Eval_force_gc_to_run",
 
 val Eval_empty_ffi = Q.store_thm("Eval_empty_ffi",
   `Eval env x (STRING_TYPE s) ==>
-   Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
-     (UNIT_TYPE (empty_ffi s))`,cheat (*
+   Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word (fixwidth 8 []))]])
+     (UNIT_TYPE (empty_ffi s))`,
   rw[Eval_rw,WORD_def] \\ fs [store_alloc_def,do_app_def]
   \\ first_x_assum (qspec_then `refs ++ [W8array []]` mp_tac) \\ strip_tac
   \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
@@ -1525,7 +1506,7 @@ val Eval_empty_ffi = Q.store_thm("Eval_empty_ffi",
   \\ fs [store_assign_def]
   \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
   \\ fs [EL_LENGTH_APPEND]
-  \\ EVAL_TAC \\ fs []*));
+  \\ EVAL_TAC \\ fs []);
 
 (* a few misc. lemmas that help the automation *)
 
