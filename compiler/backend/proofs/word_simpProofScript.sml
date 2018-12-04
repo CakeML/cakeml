@@ -677,7 +677,7 @@ Theorem evaluate_sf_gc_consts
         >-
         (irule EVERY2_trans_LASTN_sf_gc_consts \\ conj_tac >- rw [] \\ rfs [] \\ asm_exists_tac \\ rw [])
         >-
-        rw [sf_gc_consts_get_above_handler_thm]))
+        rw [sf_gc_consts_get_above_handler]))
 
     >- (* Exception from fun call *)
     (TOP_CASE_TAC
@@ -713,7 +713,7 @@ Theorem evaluate_sf_gc_consts
         `r.handler < LENGTH r.stack` by (metis_tac [LIST_REL_LENGTH]) \\
         fs [] \\ conj_tac
           >- (irule EVERY2_trans_LASTN_sf_gc_consts \\ conj_tac >- rw [] \\ asm_exists_tac \\ rw [])
-          >- metis_tac [sf_gc_consts_get_above_handler_thm, get_above_handler_def])))
+          >- metis_tac [sf_gc_consts_get_above_handler, get_above_handler_def])))
 
     \\ (* Other cases *)
     (rw [] \\ rw []))
@@ -743,7 +743,7 @@ Theorem evaluate_sf_gc_consts
   >- ACCEPT_TAC sf_gc_consts_trans >- (asm_exists_tac \\ rw [])) \\
   DISCH_TAC \\ imp_res_tac LIST_REL_LENGTH \\ fs [] \\ conj_tac
     >- (irule EVERY2_trans_LASTN_sf_gc_consts \\ rw [] \\ asm_exists_tac \\ rw [])
-    >- rw [sf_gc_consts_get_above_handler_thm])
+    >- rw [sf_gc_consts_get_above_handler])
 
   >- (** MustTerminate **)
   (rw [evaluate_def] \\ pairarg_tac \\ fs [] \\ every_case_tac \\ rw [] \\ rw [get_above_handler_def])
