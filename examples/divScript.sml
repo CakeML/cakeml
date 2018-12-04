@@ -24,13 +24,12 @@ val loop_spec = store_thm("loop_spec",
   \\ xfun_spec `f`
     `!xv.
        app p f [xv]
-         (one (FFI_full [])) (POSTv v. cond (v = xv) * one (FFI_full []))`
+         (one (FFI_full [])) (POSTv v. &(v = xv) * one (FFI_full []))`
   THEN1 (strip_tac \\ xapp \\ xvar \\ xsimpl)
-  \\ xapp
+  \\ xapp \\ xsimpl
   \\ qexists_tac `\n. one (FFI_full [])`
   \\ qexists_tac `\n. []`
   \\ qexists_tac `\n. xv`
-  \\ qexists_tac `[||]`
   \\ rpt strip_tac \\ xsimpl
   THEN1 (qexists_tac `emp` \\ rw [SEP_CLAUSES])
   \\ rw [lprefix_lub_def]);
@@ -56,23 +55,21 @@ val condBody_spec = store_thm("condBody_spec",
   xcf "condBody" st
   \\ Cases_on `n = 0`
   THEN1 (
-    xlet_auto THEN1 (qexists_tac `one (FFI_full [])` \\ xsimpl)
+    xlet_auto THEN1 xsimpl
     \\ xif \\ qexists_tac `T` \\ rw []
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xraise \\ xsimpl)
-  \\ xlet_auto THEN1 (qexists_tac `one (FFI_full [])` \\ xsimpl)
-  \\ xif \\ qexists_tac `F` \\ rw [] \\ xapp
-  \\ qexists_tac `one (FFI_full [])`
-  \\ qexists_tac `1`
-  \\ qexists_tac `n`
-  \\ rw [INT_def] \\ xsimpl);
+  \\ xlet_auto THEN1 xsimpl
+  \\ xif \\ qexists_tac `F` \\ rw []
+  \\ xapp \\ xsimpl
+  \\ qexists_tac `n` \\ xsimpl);
 
 val condLoop_spec = store_thm("condLoop_spec",
   ``!n nv.
       INT n nv ==>
       app (p:'ffi ffi_proj) ^(fetch_v "condLoop" st) [nv]
         (one (FFI_full []))
-        (POSTed (\e. cond (0 <= n)) (\io. io = [||] /\ n < 0))``,
+        (POSTed (\e. &(0 <= n)) (\io. io = [||] /\ n < 0))``,
   xcf "condLoop" st
   \\ Cases_on `0 <= n`
   THEN1 (
@@ -85,28 +82,17 @@ val condLoop_spec = store_thm("condLoop_spec",
     \\ qexists_tac `m`
     \\ rpt strip_tac \\ xsimpl
     THEN1 fs [INT_def]
-    THEN1 (
-      xapp
-      \\ qexists_tac `emp`
-      \\ qexists_tac `&m - &i`
-      \\ fs [INT_def] \\ xsimpl
-      \\ intLib.COOPER_TAC)
+    THEN1 (xapp \\ xsimpl \\ fs [INT_def] \\ intLib.COOPER_TAC)
     \\ xapp \\ xsimpl)
   \\ rw [POSTed_def, GSYM POSTd_def]
-  \\ xapp
+  \\ xapp \\ xsimpl
   \\ qexists_tac `\i. one (FFI_full [])`
   \\ qexists_tac `\i. []`
   \\ qexists_tac `\i. Litv (IntLit (n - &i))`
-  \\ qexists_tac `[||]`
   \\ rpt strip_tac \\ xsimpl
   THEN1 fs [INT_def]
   THEN1 (qexists_tac `emp` \\ rw [SEP_CLAUSES])
-  THEN1 (
-    xapp
-    \\ qexists_tac `emp`
-    \\ qexists_tac `n - &i`
-    \\ fs [INT_def] \\ xsimpl
-    \\ intLib.COOPER_TAC)
+  THEN1 (xapp \\ xsimpl \\ fs [INT_def] \\ intLib.COOPER_TAC)
   THEN1 rw [lprefix_lub_def]
   \\ intLib.COOPER_TAC);
 
