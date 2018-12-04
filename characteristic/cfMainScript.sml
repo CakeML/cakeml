@@ -29,7 +29,6 @@ val call_main_thm1 = Q.store_thm("call_main_thm1",
     ∃st3.
       Decls env1 st1 (SNOC ^main_call prog) env2 st3 /\
       (?h3 h4. SPLIT3 (st2heap p st3) (h3,h2,h4) /\ Q h3)`,
-  cheat (*
   rw[ml_progTheory.ML_code_def,SNOC_APPEND,ml_progTheory.Decls_APPEND,PULL_EXISTS]
   \\ simp[ml_progTheory.Decls_def]
   \\ fs [terminationTheory.evaluate_decs_def,PULL_EXISTS,
@@ -39,10 +38,10 @@ val call_main_thm1 = Q.store_thm("call_main_thm1",
          ml_progTheory.lookup_var_def,option_case_eq,match_result_case_eq,
          ml_progTheory.nsLookup_merge_env,app_def,app_basic_def]
   \\ first_x_assum drule \\ fs [] \\ strip_tac \\ fs []
-  \\ fs [cfHeapsBaseTheory.POSTv_def]
+  \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ Cases_on `r` \\ fs [cond_STAR] \\ fs [cond_def]
   \\ fs [UNIT_TYPE_def] \\ rveq \\ fs []
-  \\ fs [ml_progTheory.Decls_def,evaluate_ck_def]
+  \\ fs [ml_progTheory.Decls_def,evaluate_to_heap_def, evaluate_ck_def]
   \\ drule evaluate_add_to_clock
   \\ disch_then (qspec_then `ck2` mp_tac) \\ simp []
   \\ qpat_x_assum `_ env1 prog = _` assume_tac
@@ -62,7 +61,7 @@ val call_main_thm1 = Q.store_thm("call_main_thm1",
   \\ asm_exists_tac \\ fs [terminationTheory.pmatch_def]
   \\ fs [ml_progTheory.merge_env_def]
   \\ fs [cfStoreTheory.st2heap_clock]
-  \\ asm_exists_tac \\ fs [] *));
+  \\ asm_exists_tac \\ fs []);
 
 val prog_to_semantics_prog = Q.prove(
   `!init_env inp prog st c r env2 s2.

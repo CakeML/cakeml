@@ -1927,8 +1927,6 @@ val cf_letrec_sound_aux = Q.prove (
               (DROP (LENGTH naryrest) fvs)
               (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) naryfns)
               (cf (p:'ffi ffi_proj) e) env H Q)`,
-  cheat (*
-
   rpt gen_tac \\ rpt (CONV_TAC let_CONV) \\ rpt DISCH_TAC \\ Induct
   THEN1 (
     rpt strip_tac \\ fs [letrec_pull_params_def, DROP_LENGTH_TOO_LONG] \\
@@ -1938,7 +1936,8 @@ val cf_letrec_sound_aux = Q.prove (
     fs [extend_env_rec_def] \\
     fs [letrec_pull_params_names, extend_env_rec_build_rec_env] \\
     rewrite_tac [sound_def, htriple_valid_def] \\ disch_then progress \\
-    fs [evaluate_ck_def] \\ instantiate
+    fs [evaluate_to_heap_def, evaluate_ck_def] \\ instantiate \\
+    fs [terminationTheory.evaluate_def]
   )
   THEN1 (
     qx_gen_tac `ftuple` \\ PairCases_on `ftuple` \\ rename1 `(f, n, body)` \\
@@ -2018,12 +2017,9 @@ val cf_letrec_sound_aux = Q.prove (
     qpat_x_assum `sound _ (Letrec _ _) _`
       (mp_tac o REWRITE_RULE [sound_def, htriple_valid_def]) \\
     fs [] \\ disch_then (qspecl_then [`env`, `H`, `Q`] mp_tac) \\
-    fs [evaluate_ck_def] \\
-    disch_then progress \\ instantiate \\
-    fs [terminationTheory.evaluate_def] \\
-    Cases_on `ALL_DISTINCT (MAP (\ (f,_,_). f) funs)` \\ fs [] \\ instantiate
-  )
-*));
+    fs [evaluate_to_heap_def, evaluate_ck_def] \\
+    disch_then progress \\ instantiate
+  ));
 
 val cf_letrec_sound = Q.prove (
   `!funs e.
