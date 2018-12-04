@@ -403,7 +403,6 @@ Theorem mk_wf_set_tree_num_set_tree_union
     >- (qsuff_tac `n ∈ domain (superdomain (num_set_tree_union t1 t2))`
         >- rw[domain_lookup]
         >> imp_res_tac domain_lookup >> metis_tac[])
-    >-  metis_tac[mk_wf_union]
 );
 
 
