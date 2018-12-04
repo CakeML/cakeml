@@ -1,12 +1,14 @@
 (*
   A functional specification of lexing from strings to token lists.
 *)
-open HolKernel Parse boolLib bossLib;
+open preamble
+open tokensTheory locationTheory
 
 val _ = new_theory "lexer_fun";
 
-open preamble locationTheory;
-open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
+val _ = set_grammar_ancestry ["tokens", "location", "ASCIInumbers"]
+
+val _ = ParseExtras.tight_equality()
 
 (* This script defines the functional spec for the assembly
    implementation of the lexer. This lexer specification consists of
@@ -88,8 +90,6 @@ val read_string_thm = Q.store_thm("read_string_thm",
 
 val loc_row_def = Define`
   loc_row n = <| row := n ; col := 1; offset := 0|>`
-
-val _ = computeLib.add_persistent_funs(["loc_row_def"]);
 
 val skip_comment_def = Define `
   (skip_comment "" d _ = NONE) /\

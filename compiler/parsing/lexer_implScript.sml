@@ -9,7 +9,7 @@
 open preamble tokensTheory lexer_funTheory
 
 val _ = new_theory "lexer_impl";
-val _ = set_grammar_ancestry ["misc", "tokens", "lexer_fun", "ASCIInumbers", "location"]
+val _ = set_grammar_ancestry ["tokens", "lexer_fun", "ASCIInumbers", "location"]
 
 val tac =
  full_simp_tac (srw_ss()) [char_le_def, char_lt_def] >>
