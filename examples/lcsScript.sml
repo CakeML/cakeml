@@ -189,7 +189,7 @@ Theorem is_subsequence_cons' `
      >> fs[is_subsequence_cons] >> rfs[]
      >> metis_tac [cons_is_subsequence]));
 
-Theorem is_subsequence_snoc' `
+Theorem is_subsequence_snoc'' `
   !s l f. is_subsequence s (l ++ [f])
   ==> ((((s = []) \/ f ≠ LAST s) /\ is_subsequence s l)
        \/ (((s ≠ []) /\ (f = LAST s)) /\ is_subsequence (FRONT s) l))`
