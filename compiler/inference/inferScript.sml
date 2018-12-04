@@ -611,11 +611,11 @@ constrain_op l op ts =
 
 val constrain_op_def = Define constrain_op_quotation;
 
-Theorem constrain_op_pmatch `∀op ts.` (@
+Theorem constrain_op_pmatch (`∀op ts.` @
   (constrain_op_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
+       | aq => aq)))
+ (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[constrain_op_def]);
 
