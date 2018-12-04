@@ -121,7 +121,7 @@ Theorem strlen_extract_le
 Theorem strsub_substring_0_thm
   `∀m n l. m < n ⇒ strsub (substring l 0 n) m = strsub l m`
   (Cases_on`l` \\ rw[strsub_def,substring_def]
-  \\ rw[SEG_TAKE_BUTFISTN,EL_TAKE]);
+  \\ rw[SEG_TAKE_DROP,EL_TAKE]);
 
 Theorem substring_full[simp]
   `substring s 0 (strlen s) = s`
@@ -461,7 +461,7 @@ val isStringThere_thm = Q.prove (
   (strlen s1 <= strlen s2) /\ (s1i <= s2i) /\ (isStringThere_aux s1 s2 0 s2i (strlen s1)) ==>
   (SEG len s2i (explode s2) = TAKE len (explode s1))`
   Cases_on `s1` \\ Cases_on `s2` \\
-  rw [strlen_def, explode_thm, SEG, SEG_TAKE_BUTFISTN] \\
+  rw [strlen_def, explode_thm, SEG, SEG_TAKE_DROP] \\
   Cases_on `len` \\ rw [SEG] \\ `s2i < STRLEN s'` by DECIDE_TAC \\
 );
 *)

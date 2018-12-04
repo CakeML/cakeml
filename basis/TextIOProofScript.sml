@@ -1076,7 +1076,7 @@ Theorem output_spec
   IF_CASES_TAC \\
   fs[TAKE_LENGTH_ID_rwt,LENGTH_explode,strlen_substring,
      DROP_DROP_T,TAKE_LENGTH_TOO_LONG,DROP_LENGTH_TOO_LONG]
-  \\ Cases_on`s` \\ fs[substring_def,SEG_TAKE_BUTFISTN,TAKE_LENGTH_ID_rwt]);
+  \\ Cases_on`s` \\ fs[substring_def,SEG_TAKE_DROP,TAKE_LENGTH_ID_rwt]);
 
 Theorem output_STDIO_spec
   `!fd fdv fs content pos s.

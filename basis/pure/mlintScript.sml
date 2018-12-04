@@ -305,7 +305,7 @@ Theorem fromString_unsafe_thm
   (rw [fromString_unsafe_def
      , fromChars_range_unsafe_eq
      , fromChars_range_unsafe_thm
-     , substring_def, SEG_TAKE_BUTFISTN
+     , substring_def, SEG_TAKE_DROP
      , TAKE_LENGTH_ID_rwt
      , fromChars_range_unsafe_thm
        |> ISPEC ``DROP 1 str' : string``
@@ -326,7 +326,7 @@ Theorem fromString_thm
      , fromChars_eq_unsafe
      , fromChars_range_unsafe_eq
      , fromChars_range_unsafe_thm
-     , substring_def, SEG_TAKE_BUTFISTN
+     , substring_def, SEG_TAKE_DROP
      , TAKE_LENGTH_ID_rwt
      , fromChars_range_unsafe_thm
        |> ISPEC ``DROP 1 str' : string``

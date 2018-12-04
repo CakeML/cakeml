@@ -25,7 +25,7 @@ fun prove_array_spec op_name =
   TRY (
     qmatch_assum_rename_tac`STRING_TYPE s sv`
     \\ Cases_on`s` \\ fs[STRING_TYPE_def]
-    \\ fs[mlstringTheory.substring_def, SEG_TAKE_BUTFISTN] )
+    \\ fs[mlstringTheory.substring_def, SEG_TAKE_DROP] )
 
 Theorem w8array_alloc_spec
   `!n nv w wv.

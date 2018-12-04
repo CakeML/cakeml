@@ -1407,7 +1407,7 @@ Theorem Eval_substring
   \\ Cases_on`st` \\ fs[STRING_TYPE_def,empty_state_def]
   \\ fs[NUM_def,INT_def,IMPLODE_EXPLODE_I]
   \\ rw[copy_array_def,INT_ABS_NUM,INT_ADD,
-        substring_def,SEG_TAKE_BUTFISTN,STRING_TYPE_def]);
+        substring_def,SEG_TAKE_DROP,STRING_TYPE_def]);
 
 (* vectors *)
 
