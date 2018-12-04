@@ -100,7 +100,6 @@ val ArrowP_PURE_to_app = Q.store_thm("ArrowP_PURE_to_app",
      app (p : 'ffi ffi_proj) gv (xv2::xvl) (H state) (Q state)) ==>
      ArrowP ro (H,p) (PURE A) (PURE B) f fv ==>
      app p fv (xv1::xv2::xvl) (H state) (Q state)`,
-  cheat (*
   rw [app_def, app_basic_def, ArrowP_def, PURE_def]
   \\ drule REFS_PRED_from_SPLIT
   \\ disch_then drule \\ rw[] \\ fs [PULL_EXISTS]
@@ -119,8 +118,10 @@ val ArrowP_PURE_to_app = Q.store_thm("ArrowP_PURE_to_app",
   \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
   \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   \\ asm_exists_tac \\ fs []
-  \\ fs [evaluate_ck_def,with_same_refs]
-  \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs [] *));
+  \\ fs [evaluate_to_heap_def,evaluate_ck_def,with_same_refs]
+  \\ drule evaluatePropsTheory.evaluate_set_clock \\ rw []
+  \\ first_x_assum (qspec_then `0` mp_tac) \\ strip_tac
+  \\ instantiate);
 
 val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
   `!A B C f fv H x xv ro refs p.
@@ -132,7 +133,6 @@ val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
               &(f x refs = (Success r, refs')) * &(B r rv))
         (\ev. SEP_EXISTS refs' e. H refs' *
               &(f x refs = (Failure e, refs')) * &(C e ev)))`,
-  cheat (*
   rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum drule
@@ -142,7 +142,7 @@ val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
   \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
   \\ fs [REFS_PRED_FRAME_def]
   \\ fs [with_same_refs]
-  \\ fs [evaluate_ck_def]
+  \\ fs [evaluate_to_heap_def, evaluate_ck_def]
   \\ `(H refs * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
   \\ first_x_assum drule \\ rw []
   \\ drule HPROP_SPLIT3_clock0 \\ rw []
@@ -153,11 +153,13 @@ val ArrowP_MONAD_to_app = Q.store_thm("ArrowP_MONAD_to_app",
   \\ TRY (rename1 `Rval [a]` \\ qexists_tac `Val a`)
   \\ TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
   \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
-  \\ disch_then (qspec_then `0` strip_assume_tac)
-  \\ rw[] \\ qexists_tac `ck1`
-  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
-  \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ simp[] *));
+  \\ disch_then (qspec_then `0` strip_assume_tac) \\ rw [SEP_EXISTS_THM]
+  \\ TRY
+   (rename1 `&(b = _ /\ r = _)`
+    \\ qexists_tac `r` \\ qexists_tac `b`
+    \\ rw [SEP_CLAUSES])
+  \\ qexists_tac `ck1`
+  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]);
 
 val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
   `!A B C f fv H x xv ro refs p.
@@ -169,7 +171,6 @@ val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
                 &(f x refs = (Success r, refs')) * &(B r rv))
           (\ev. SEP_EXISTS refs' e. H refs' *
                 &(f x refs = (Failure e, refs')) * &(C e ev)))`,
-  cheat (*
   rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum drule
@@ -179,7 +180,7 @@ val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
   \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
   \\ fs [REFS_PRED_FRAME_def]
   \\ fs [with_same_refs]
-  \\ fs [evaluate_ck_def]
+  \\ fs [evaluate_to_heap_def, evaluate_ck_def]
   \\ `(H refs * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
   \\ first_x_assum drule \\ rw []
   \\ drule HPROP_SPLIT3_clock0 \\ rw []
@@ -191,11 +192,13 @@ val ArrowP_MONAD_EqSt_to_app = Q.store_thm("ArrowP_MONAD_EqSt_to_app",
   \\ TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
   \\ rw[]
   \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
-  \\ disch_then (qspec_then `0` strip_assume_tac)
+  \\ disch_then (qspec_then `0` strip_assume_tac) \\ rw [SEP_EXISTS_THM]
+  \\ TRY
+   (rename1 `&(b = _ /\ r = _)`
+    \\ qexists_tac `r` \\ qexists_tac `b`
+    \\ rw [SEP_CLAUSES])
   \\ qexists_tac `ck1`
-  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
-  \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ simp[] *));
+  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]);
 
 val st2heap_with_clock = store_thm("st2heap_with_clock[simp]", (* TODO: move *)
   ``st2heap p (s with clock := c) = st2heap p s``,
