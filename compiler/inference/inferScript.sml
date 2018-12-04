@@ -876,6 +876,10 @@ val infer_d_def = Define `
   do ienv' <- infer_ds ienv ds;
      return (lift_ienv mn ienv')
   od) ∧
+(infer_d ienv (Dlocal lds ds) =
+  do ienv' <- infer_ds ienv lds;
+    infer_ds (extend_dec_ienv ienv' ienv) ds
+  od) ∧
 (infer_ds ienv [] =
   return <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>) ∧
 (infer_ds ienv (d::ds) =

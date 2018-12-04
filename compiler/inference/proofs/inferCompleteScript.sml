@@ -543,6 +543,44 @@ val type_pe_determ_canon_infer_e = Q.store_thm ("type_pe_determ_canon_infer_e",
   fs[]>>rfs[]>>
   metis_tac[check_t_empty_unconvert_convert_id]);
 
+
+
+
+fun str_assums strs = ConseqConv.DISCH_ASM_CONSEQ_CONV_TAC
+        (ConseqConv.CONSEQ_REWRITE_CONV ([], strs, []));
+
+val ap_thm = Q.store_thm ("ap_thm", `!f. x = y ==> f x = f y`, fs []);
+
+val inf_set_tids_extend_dec_ienv = Q.store_thm ("inf_set_tids_extend_dec_ienv",
+  `inf_set_tids_ienv (count n) ienv2
+    /\ inf_set_tids_ienv (count m) ienv
+    /\ m <= n
+    ==> inf_set_tids_ienv (count n) (extend_dec_ienv ienv2 ienv)`,
+  fs [inf_set_tids_ienv_def]
+  \\ rpt disch_tac
+  \\ fs[extend_dec_ienv_def]
+  \\ conj_tac
+  >- (
+    match_mp_tac nsAll_nsAppend \\ fs[]
+    \\ fs[inf_set_tids_unconvert,inf_set_tids_subset_def]
+    \\ irule nsAll_mono
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ rw[SUBSET_DEF, UNCURRY]
+    \\ res_tac \\ rw[])
+  \\ conj_tac
+  >- (
+    match_mp_tac nsAll_nsAppend \\ fs[]
+    \\ irule nsAll_mono
+    \\ goal_assum(first_assum o mp_then Any mp_tac)
+    \\ rw[SUBSET_DEF, UNCURRY, inf_set_tids_subset_def]
+    \\ fs[EVERY_MEM]
+    \\ rw[] \\ res_tac \\ fs[] )
+  \\ match_mp_tac nsAll_nsAppend \\ fs[]
+  \\ irule nsAll_mono
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ rw[SUBSET_DEF, UNCURRY, inf_set_tids_subset_def]
+  \\ rw[] \\ res_tac \\ fs[]);
+
 val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
   `(!d n tenv ids tenv' ienv st1.
     type_d_canon n tenv d ids tenv' ∧
@@ -1272,6 +1310,19 @@ val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
     disch_then (qspec_then`st1` assume_tac)>>rfs[]>>
     match_mp_tac env_rel_lift>>
     fs[])
+  >- ( (* Dlocal *)
+    rw[infer_d_def,success_eqns]>>
+    rpt (first_x_assum drule >> rw [])>>
+    str_assums [ISPEC ``infer_st_next_id`` ap_thm]>>
+    fs[]>>
+    first_x_assum match_mp_tac>>
+    fs[env_rel_extend]>>
+    irule inf_set_tids_extend_dec_ienv>>
+    imp_res_tac (CONJUNCT2 infer_d_inf_set_tids)>>
+    rfs[]>>
+    goal_assum(first_assum o mp_then Any mp_tac)>>
+    fs[]
+  )
   >-
     rw[infer_d_def,success_eqns]
   >>
@@ -1288,30 +1339,10 @@ val infer_d_complete_canon = Q.store_thm ("infer_d_complete_canon",
       drule(CONJUNCT1 infer_d_inf_set_tids)
       \\ fs[]
       \\ strip_tac
-      \\ fs[inf_set_tids_ienv_def]
-      \\ fs[extend_dec_ienv_def]
-      \\ qpat_x_assum`_ =  st2.next_id`(assume_tac o SYM)
-      \\ conj_tac
-      >- (
-        match_mp_tac nsAll_nsAppend \\ fs[]
-        \\ fs[inf_set_tids_unconvert,inf_set_tids_subset_def]
-        \\ irule nsAll_mono
-        \\ goal_assum(first_assum o mp_then Any mp_tac)
-        \\ rw[SUBSET_DEF, UNCURRY]
-        \\ res_tac \\ rw[] )
-      \\ conj_tac
-      >- (
-        match_mp_tac nsAll_nsAppend \\ fs[]
-        \\ irule nsAll_mono
-        \\ goal_assum(first_assum o mp_then Any mp_tac)
-        \\ rw[SUBSET_DEF, UNCURRY, inf_set_tids_subset_def]
-        \\ fs[EVERY_MEM]
-        \\ rw[] \\ res_tac \\ fs[] )
-      \\ match_mp_tac nsAll_nsAppend \\ fs[]
-      \\ irule nsAll_mono
+      \\ irule inf_set_tids_extend_dec_ienv
+      \\ fs[]
       \\ goal_assum(first_assum o mp_then Any mp_tac)
-      \\ rw[SUBSET_DEF, UNCURRY, inf_set_tids_subset_def]
-      \\ rw[] \\ res_tac \\ fs[] )
+      \\ fs[])
     \\ rw[] >>
     fs[]>>
     metis_tac[env_rel_extend]);
