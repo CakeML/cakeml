@@ -8,6 +8,9 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "typeSystem"
 
+(*
+  Specification of CakeML's type system.
+*)
 (*open import Pervasives_extra*)
 (*open import Lib*)
 (*open import Ast*)

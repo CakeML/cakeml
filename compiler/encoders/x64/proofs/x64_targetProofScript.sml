@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for x64
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib x64_stepLib x64_targetTheory;
 
@@ -582,7 +585,7 @@ local
                 state.MXCSR.IM /\ ~state.MXCSR.DAZ /\ (state.MXCSR.RC = 0w) /\
                ^r`,
             rw [asmPropsTheory.target_state_rel_def, x64_target_def, x64_ok_def,
-                x64_config_def, asmSemTheory.bytes_in_memory_def]
+                x64_config_def, miscTheory.bytes_in_memory_def]
             \\ rfs []
          ) |> Thm.GENL b
       end
@@ -712,7 +715,7 @@ in
       \\ (if not (exists (fn i => i < 0) l) then all_tac else
           `s1.pc = ms.RIP` by
              (fs [asmPropsTheory.target_state_rel_def,x64_target_def])
-          \\ full_simp_tac std_ss [asmSemTheory.bytes_in_memory_def,
+          \\ full_simp_tac std_ss [miscTheory.bytes_in_memory_def,
                addressTheory.word_arith_lemma1])
       \\ fs [x64Theory.RexReg_def, asmPropsTheory.all_pcs, overflow_lem,
              asmPropsTheory.sym_target_state_rel, x64_target_def, sub_overflow,
@@ -877,9 +880,9 @@ val x64_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "";
 
-val x64_encoder_correct = Q.store_thm("x64_encoder_correct",
-   `encoder_correct x64_target`,
-   simp [asmPropsTheory.encoder_correct_def, x64_target_ok]
+Theorem x64_encoder_correct
+   `encoder_correct x64_target`
+   (simp [asmPropsTheory.encoder_correct_def, x64_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel x64_target`
    \\ rw [x64_target_def, x64_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

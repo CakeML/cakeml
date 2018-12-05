@@ -1,3 +1,6 @@
+(*
+  Translate the ag32 instruction encoder and ag32-specific config.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;

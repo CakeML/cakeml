@@ -1,3 +1,6 @@
+(*
+  A compset for evaluating the compiler backend inside the logic of HOL.
+*)
 structure backendComputeLib :> backendComputeLib =
 struct
 

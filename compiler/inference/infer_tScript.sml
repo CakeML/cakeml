@@ -1,3 +1,6 @@
+(*
+  The infer_t datatype and various to_string functions.
+*)
 open preamble;
 open mlstringTheory mlintTheory;
 open astTheory semanticPrimitivesTheory typeSystemTheory;
@@ -143,7 +146,7 @@ val t = mk_sum t t
 *)
 
 (*
-val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",
+Theorem inf_type_to_string_pmatch
  `(∀t. inf_type_to_string t =
     case t of
       Infer_Tuvar n =>
@@ -164,8 +167,8 @@ val inf_type_to_string_pmatch = Q.store_thm("inf_type_to_string_pmatch",
     case ts of
       [] => implode ""
     | [t] => inf_type_to_string t
-    | t::ts => concat [inf_type_to_string t; implode ", "; inf_types_to_string ts])`,
-  rpt strip_tac
+    | t::ts => concat [inf_type_to_string t; implode ", "; inf_types_to_string ts])`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[inf_type_to_string_def]);
   *)

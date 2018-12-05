@@ -1,9 +1,14 @@
+(*
+  This dataLang phase lumps together MakeSpace operations. Each
+  MakeSpace operations corresponds to a memory allocation in the later
+  wordLang code. By lumping together MakeSpace operations we turn
+  several calls to the memory allocator into a single efficient call.
+*)
 open preamble dataLangTheory;
 
 val _ = new_theory "data_space";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-(* dataLang optimisation that lumps together MakeSpace operations. *)
 
 val op_space_req_def = Define `
   (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
@@ -18,7 +23,7 @@ val op_space_req_def = Define `
   (op_space_req _ _ = 0)`;
 
 (*
-val op_space_req_pmatch = Q.store_thm("op_space_req_pmatch",`!op l.
+Theorem op_space_req_pmatch `!op l.
   op_space_req op l =
     case op of
       Cons _ => if l = 0n then 0 else l+1
@@ -30,8 +35,8 @@ val op_space_req_pmatch = Q.store_thm("op_space_req_pmatch",`!op l.
     | WordFromWord b => (if b then 0 else 3)
     | FP_uop _ => 3
     | FP_bop _ => 3
-    | _ => 0`,
-  rpt strip_tac
+    | _ => 0`
+  (rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac >> fs[op_space_req_def]);
 *)
@@ -67,7 +72,7 @@ val space_def = Define `
      INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))) /\
   (space c = INL c)`;
 
-val space_pmatch = Q.store_thm("space_pmatch",`∀c.
+Theorem space_pmatch `∀c.
   space c =
     case c of
     | MakeSpace k names => INR (k,names,Skip)
@@ -94,8 +99,8 @@ val space_pmatch = Q.store_thm("space_pmatch",`∀c.
            | _ => INL (Seq d1 (pMakeSpace x2))))
     | If n c2 c3 =>
       INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))
-    | c => INL c`,
-  rpt strip_tac
+    | c => INL c`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac >> TRY(PURE_REWRITE_TAC [LET_DEF] >> BETA_TAC))
   >> fs[space_def]);

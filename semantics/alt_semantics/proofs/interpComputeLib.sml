@@ -1,3 +1,6 @@
+(*
+  Compset for evaluating the functional big-step semantics.
+*)
 structure interpComputeLib = struct
 open HolKernel boolLib bossLib
 open semanticPrimitivesTheory bigStepTheory interpTheory

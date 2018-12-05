@@ -1,3 +1,6 @@
+(*
+  Compiles the grep example by evaluation inside the logic of HOL
+*)
 open preamble compilationLib grepProgTheory
 
 val _ = new_theory "grepCompile"

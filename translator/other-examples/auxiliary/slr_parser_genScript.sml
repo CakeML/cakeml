@@ -1,19 +1,12 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "slr_parser_gen";
-
-open arithmeticTheory listTheory combinTheory stringTheory;
-
 (*
-
   The following definitions are from HOL4 sources found on Aditi
-  Barthwal's webpage:
-
-     http://users.cecs.anu.edu.au/~aditi/
-
+  Barthwal's webpage: http://users.cecs.anu.edu.au/~aditi/
   Her definitions are reproduced below so that we can try our
   hol2miniml translator on them.
-
 *)
-
+open HolKernel Parse boolLib bossLib;
+val _ = new_theory "slr_parser_gen";
+open arithmeticTheory listTheory combinTheory stringTheory;
 
 val push_def = Define `push l e = e::l`;
 
@@ -173,8 +166,8 @@ val parser = Define `
     in
       case out of NONE => NONE
                 | (SOME (SOME (slo,[(st1,pt)],cs))) => SOME (SOME pt)
-	        | SOME (NONE) => SOME (NONE)
-	        | SOME _ => SOME NONE`
+                | SOME (NONE) => SOME (NONE)
+                | SOME _ => SOME NONE`
 
 
 val _ = export_theory ();

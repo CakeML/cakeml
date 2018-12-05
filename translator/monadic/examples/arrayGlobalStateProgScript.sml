@@ -1,7 +1,7 @@
 (*
- * An example showing how to use the monadic translator with references, arrays and exceptions.
- *)
-
+  An example showing how to use the monadic translator with
+  references, arrays and exceptions.
+*)
 open preamble ml_monadBaseLib
 open ml_monad_translatorTheory ml_monad_translatorLib
 
@@ -22,13 +22,13 @@ val _ = (use_full_type_names := false);
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `
   state_refs = <|
-		   ref1 : num ;
+                   ref1 : num ;
                    ref2 : int;
-		   rarray1 : num list ;
-		   rarray2 : int list;
+                   rarray1 : num list ;
+                   rarray2 : int list;
                    farray1 : num list;
-		   farray2 : int list;
-		   |>`;
+                   farray2 : int list;
+                   |>`;
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
@@ -88,13 +88,13 @@ val extra_hprop = NONE : term option;
 (* Initialize the translation *)
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      exn_ri_def
-					      exn_functions
-					      []
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              exn_ri_def
+                                              exn_functions
+                                              []
                                               store_pinv_opt extra_hprop;
 
 (* Monadic translations *)

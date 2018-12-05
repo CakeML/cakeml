@@ -1,3 +1,9 @@
+(*
+  The BVI intermediate language. This language is very similar to BVL.
+  One of the more notable differences is that exception handling is
+  now bundled together with function calls: exceptions can only be
+  caught at the point of function calls.
+*)
 open preamble closLangTheory;
 
 val _ = new_theory "bvi";

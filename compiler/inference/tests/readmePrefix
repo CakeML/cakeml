@@ -1,0 +1,2 @@
+This directory contains tests that evaluate the type inferencer inside
+the logic of HOL.

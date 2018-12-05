@@ -1,3 +1,7 @@
+(*
+  Defines app_of_Arrow_rule function that converts the translator's
+  Arrow to CF's app judgement.
+*)
 structure cfAppLib :> cfAppLib = struct
 
 open preamble

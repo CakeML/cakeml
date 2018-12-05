@@ -1,3 +1,11 @@
+(*
+  This compiler phase maps wordLang programs into stackLang
+  programs. The most complicated part is the handling of spilled
+  variables in conjunction with function calls. This compiler phase
+  also introduces the so called bitmaps that the garbage collector
+  uses to known which variables it should treat as roots in a given
+  stack frame.
+*)
 open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
      word_allocTheory
 

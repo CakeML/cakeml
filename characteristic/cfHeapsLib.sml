@@ -1,3 +1,6 @@
+(*
+  Conversions etc. over hprops
+*)
 structure cfHeapsLib :> cfHeapsLib =
 struct
 

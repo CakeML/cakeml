@@ -1,4 +1,7 @@
-
+(*
+  This is a simple example of applying the translator to
+  a balanced binary tree from HOL.
+*)
 open HolKernel Parse boolLib bossLib; val _ = new_theory "example_balanced_bst";
 
 open comparisonTheory balanced_mapTheory;
@@ -38,5 +41,3 @@ get_current_prog();
 *)
 
 val _ = export_theory();
-
-

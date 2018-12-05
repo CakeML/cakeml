@@ -1,3 +1,6 @@
+(*
+  Shallow embedding of garbage collector implementation
+*)
 open preamble
 
 open wordSemTheory data_to_wordTheory gc_sharedTheory
@@ -7,22 +10,22 @@ val _ = new_theory "word_gcFunctions"
 val shift_def = backend_commonTheory.word_shift_def;
 
 (* move candidates *)
-val bytes_in_word_mul_eq_shift = Q.store_thm("bytes_in_word_mul_eq_shift",
+Theorem bytes_in_word_mul_eq_shift
   `good_dimindex (:'a) ==>
-   (bytes_in_word * w = (w << shift (:'a)):'a word)`,
-  fs [bytes_in_word_def,shift_def,WORD_MUL_LSL,word_mul_n2w]
+   (bytes_in_word * w = (w << shift (:'a)):'a word)`
+  (fs [bytes_in_word_def,shift_def,WORD_MUL_LSL,word_mul_n2w]
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [] \\ rfs []);
 
-val word_or_eq_0 = store_thm("word_or_eq_0",
-  ``(w || v) = 0w <=> w = 0w /\ v = 0w``,
-  fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def,word_index]
+Theorem word_or_eq_0
+  `(w || v) = 0w <=> w = 0w /\ v = 0w`
+  (fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def,word_index]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
 
 val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
 
-val shift_length_has_fp_ops = store_thm("shift_length_has_fp_ops[simp]",
-  ``shift_length (conf with has_fp_ops := b) = shift_length conf``,
-  EVAL_TAC);
+Theorem shift_length_has_fp_ops[simp]
+  `shift_length (conf with has_fp_ops := b) = shift_length conf`
+  (EVAL_TAC);
 
 (* -------------------------------------------------------
     definition and verification of GC functions
@@ -119,29 +122,29 @@ val word_gen_gc_partial_move_list_def = Define `
      let (a2,i2,pa2,m2,c2) = word_gen_gc_partial_move_list conf (a+bytes_in_word,l-1w,i1,pa1,old,m1,dm,gs,rs) in
        (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)`
 
-val word_gen_gc_partial_move_list_zero = Q.store_thm("word_gen_gc_partial_move_list_zero",`
-  word_gen_gc_partial_move_list conf (a,0w,i,pa,old,m,dm,gs,rs) = (a,i,pa,m,T)`,
-  fs[Once word_gen_gc_partial_move_list_def]);
+Theorem word_gen_gc_partial_move_list_zero `
+  word_gen_gc_partial_move_list conf (a,0w,i,pa,old,m,dm,gs,rs) = (a,i,pa,m,T)`
+  (fs[Once word_gen_gc_partial_move_list_def]);
 
-val word_gen_gc_partial_move_list_suc = Q.store_thm("word_gen_gc_partial_move_list_suc",`
+Theorem word_gen_gc_partial_move_list_suc `
   word_gen_gc_partial_move_list conf (a,(n2w(SUC l):'a word),i,pa,old,m,dm,gs,rs) =
    if n2w(SUC l) = (0w:'a word) then (a,i,pa,m,T) else
      let w = m a in
      let (w1,i1,pa1,m1,c1) = word_gen_gc_partial_move conf (w,i,pa,old,m,dm,gs,rs) in
      let m1 = (a =+ w1) m1 in
      let (a2,i2,pa2,m2,c2) = word_gen_gc_partial_move_list conf (a+bytes_in_word,n2w l,i1,pa1,old,m1,dm,gs,rs) in
-       (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV[word_gen_gc_partial_move_list_def])))
+       (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)`
+  (CONV_TAC(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV[word_gen_gc_partial_move_list_def])))
   >> fs[n2w_SUC]);
 
-val word_gen_gc_partial_move_list_append = Q.store_thm("word_gen_gc_partial_move_list_append",`
+Theorem word_gen_gc_partial_move_list_append `
   !a l l' i pa old m dm gs rs conf.
   (l+l' < dimword (:'a)) ==> (
   word_gen_gc_partial_move_list conf (a,(n2w(l+l'):'a word),i,pa,old,m,dm,gs,rs) =
     let (a2,i2,pa2,m2,c2) = word_gen_gc_partial_move_list conf (a,n2w l,i,pa,old,m,dm,gs,rs) in
     let (a3,i3,pa3,m3,c3) = word_gen_gc_partial_move_list conf (a2,n2w l',i2,pa2,old,m2,dm,gs,rs) in
-      (a3,i3,pa3,m3,(c2 /\ c3)))`,
-  Induct_on `l`
+      (a3,i3,pa3,m3,(c2 /\ c3)))`
+  (Induct_on `l`
   >> rpt strip_tac
   >> fs[]
   >> ntac 2 (pairarg_tac >> fs[])
@@ -445,12 +448,12 @@ val word_gc_fun_def = Define `
                            (Temp 6w, Word 0w)] in
              if c2 then SOME (TL roots1,m1,s1) else NONE)`
 
-val word_gc_move_roots_IMP_EVERY2 = Q.store_thm("word_gc_move_roots_IMP_EVERY2",
+Theorem word_gc_move_roots_IMP_EVERY2
   `!xs ys pa m i c1 m1 pa1 i1 old dm c.
       word_gc_move_roots c (xs,i,pa,old,m,dm) = (ys,i1,pa1,m1,c1) ==>
       EVERY2 (\x y. (isWord x <=> isWord y) /\
-                    (is_gc_word_const x ==> x = y)) xs ys`,
-  Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def]
+                    (is_gc_word_const x ==> x = y)) xs ys`
+  (Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def]
   \\ full_simp_tac(srw_ss())[IMP_EQ_DISJ,word_gc_fun_def] \\ srw_tac[][]
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ res_tac
   \\ full_simp_tac(srw_ss())[GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ srw_tac[][] \\ res_tac
@@ -462,13 +465,13 @@ val word_gc_move_roots_IMP_EVERY2 = Q.store_thm("word_gc_move_roots_IMP_EVERY2",
   \\ fs[isWord_def,word_simpProofTheory.is_gc_word_const_def,
         word_simpTheory.is_gc_const_def]);
 
-val word_gen_gc_move_roots_IMP_EVERY2 = Q.store_thm("word_gen_gc_move_roots_IMP_EVERY2",
+Theorem word_gen_gc_move_roots_IMP_EVERY2
   `!xs ys pa m i ib pb c1 m1 pa1 i1 ib1 pb1 old dm c.
       word_gen_gc_move_roots c (xs,i,pa,ib,pb,old,m,dm) =
          (ys,i1,pa1,ib1,pb1,m1,c1) ==>
       EVERY2 (\x y. (isWord x <=> isWord y) /\
-                    (is_gc_word_const x ==> x = y)) xs ys`,
-  Induct \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def]
+                    (is_gc_word_const x ==> x = y)) xs ys`
+  (Induct \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def]
   \\ full_simp_tac(srw_ss())[IMP_EQ_DISJ] \\ srw_tac[][]
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ res_tac
   \\ full_simp_tac(srw_ss())[GSYM IMP_EQ_DISJ] \\ srw_tac[][] \\ res_tac
@@ -482,13 +485,13 @@ val word_gen_gc_move_roots_IMP_EVERY2 = Q.store_thm("word_gen_gc_move_roots_IMP_
   \\ fs[isWord_def,word_simpProofTheory.is_gc_word_const_def,
         word_simpTheory.is_gc_const_def]);
 
-val word_gen_gc_partial_move_roots_IMP_EVERY2 = Q.store_thm("word_gen_gc_partial_move_roots_IMP_EVERY2",
+Theorem word_gen_gc_partial_move_roots_IMP_EVERY2
   `!xs ys pa m i gs rs c1 m1 pa1 i1 old dm c.
       word_gen_gc_partial_move_roots c (xs,i,pa,old,m,dm,gs,rs) =
          (ys,i1,pa1,m1,c1) ==>
       EVERY2 (\x y. (isWord x <=> isWord y) /\
-                    (is_gc_word_const x ==> x = y)) xs ys`,
-  Induct \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_roots_def]
+                    (is_gc_word_const x ==> x = y)) xs ys`
+  (Induct \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_roots_def]
   \\ full_simp_tac(srw_ss())[IMP_EQ_DISJ] \\ srw_tac[][]
   \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ res_tac
   \\ full_simp_tac(srw_ss())[GSYM IMP_EQ_DISJ] \\ srw_tac[][] \\ res_tac
@@ -503,10 +506,10 @@ val word_gen_gc_partial_move_roots_IMP_EVERY2 = Q.store_thm("word_gen_gc_partial
   \\ fs[isWord_def,word_simpProofTheory.is_gc_word_const_def,
         word_simpTheory.is_gc_const_def]);
 
-val word_gc_IMP_EVERY2 = Q.store_thm("word_gc_IMP_EVERY2",
+Theorem word_gc_IMP_EVERY2
   `word_gc_fun c (xs,m,dm,st) = SOME (ys,m1,s1) ==>
-    EVERY2 (\x y. (isWord x <=> isWord y) /\ (is_gc_word_const x ==> x = y)) xs ys`,
-  full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,
+    EVERY2 (\x y. (isWord x <=> isWord y) /\ (is_gc_word_const x ==> x = y)) xs ys`
+  (full_simp_tac(srw_ss())[word_gc_fun_def,LET_THM,word_gc_fun_def,
          word_full_gc_def,word_gen_gc_def,word_gen_gc_partial_def,
          word_gen_gc_partial_full_def]
   \\ TOP_CASE_TAC \\ fs []
@@ -524,158 +527,158 @@ val word_gc_IMP_EVERY2 = Q.store_thm("word_gc_IMP_EVERY2",
   \\ imp_res_tac word_gen_gc_partial_move_roots_IMP_EVERY2
   \\ Cases_on `roots` \\ fs []);
 
-val word_gc_fun_LENGTH = Q.store_thm("word_gc_fun_LENGTH",
-  `word_gc_fun c (xs,m,dm,s) = SOME (zs,m1,s1) ==> LENGTH xs = LENGTH zs`,
-  srw_tac[][] \\ drule word_gc_IMP_EVERY2
+Theorem word_gc_fun_LENGTH
+  `word_gc_fun c (xs,m,dm,s) = SOME (zs,m1,s1) ==> LENGTH xs = LENGTH zs`
+  (srw_tac[][] \\ drule word_gc_IMP_EVERY2
   \\ srw_tac[][] \\ imp_res_tac EVERY2_LENGTH);
 
 (* lemmas about has_fp_ops *)
 
-val word_gc_fun_assum_has_fp_ops = store_thm("word_gc_fun_assum_has_fp_ops[simp]",
-  ``word_gc_fun_assum (conf with has_fp_ops := b) s =
-    word_gc_fun_assum conf s``,
-  EVAL_TAC \\ fs []);
+Theorem word_gc_fun_assum_has_fp_ops[simp]
+  `word_gc_fun_assum (conf with has_fp_ops := b) s =
+    word_gc_fun_assum conf s`
+  (EVAL_TAC \\ fs []);
 
-val word_gc_move_has_fp_ops = store_thm("word_gc_move_has_fp_ops[simp]",
-  ``!x. word_gc_move (conf with has_fp_ops := b) x =
-        word_gc_move conf x``,
-  simp_tac std_ss [FORALL_PROD] \\ Cases
+Theorem word_gc_move_has_fp_ops[simp]
+  `!x. word_gc_move (conf with has_fp_ops := b) x =
+        word_gc_move conf x`
+  (simp_tac std_ss [FORALL_PROD] \\ Cases
   \\ simp_tac std_ss [FORALL_PROD,word_gc_move_def]
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-val word_gen_gc_move_has_fp_ops = store_thm("word_gen_gc_move_has_fp_ops[simp]",
-  ``!x. word_gen_gc_move (conf with has_fp_ops := b) x =
-        word_gen_gc_move conf x``,
-  simp_tac std_ss [FORALL_PROD] \\ Cases
+Theorem word_gen_gc_move_has_fp_ops[simp]
+  `!x. word_gen_gc_move (conf with has_fp_ops := b) x =
+        word_gen_gc_move conf x`
+  (simp_tac std_ss [FORALL_PROD] \\ Cases
   \\ simp_tac std_ss [FORALL_PROD,word_gen_gc_move_def]
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-val word_gen_gc_partial_move_has_fp_ops = store_thm("word_gen_gc_move_has_fp_ops[simp]",
-  ``!x. word_gen_gc_partial_move (conf with has_fp_ops := b) x =
-        word_gen_gc_partial_move conf x``,
-  simp_tac std_ss [FORALL_PROD] \\ Cases
+Theorem word_gen_gc_partial_move_has_fp_ops[simp]
+  `!x. word_gen_gc_partial_move (conf with has_fp_ops := b) x =
+        word_gen_gc_partial_move conf x`
+  (simp_tac std_ss [FORALL_PROD] \\ Cases
   \\ simp_tac std_ss [FORALL_PROD,word_gen_gc_partial_move_def]
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-val word_gc_move_list_has_fp_ops = store_thm("word_gc_move_list_has_fp_ops[simp]",
-  ``!conf x. word_gc_move_list (conf with has_fp_ops := b) x =
-             word_gc_move_list conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gc_move_list_has_fp_ops[simp]
+  `!conf x. word_gc_move_list (conf with has_fp_ops := b) x =
+             word_gc_move_list conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ recInduct (fetch "-" "word_gc_move_list_ind")
   \\ rw [] \\ once_rewrite_tac [word_gc_move_list_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []));
 
-val word_gen_gc_move_list_has_fp_ops = store_thm("word_gen_gc_move_list_has_fp_ops[simp]",
-  ``!conf x. word_gen_gc_move_list (conf with has_fp_ops := b) x =
-             word_gen_gc_move_list conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_move_list_has_fp_ops[simp]
+  `!conf x. word_gen_gc_move_list (conf with has_fp_ops := b) x =
+             word_gen_gc_move_list conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ recInduct (fetch "-" "word_gen_gc_move_list_ind")
   \\ rw [] \\ once_rewrite_tac [word_gen_gc_move_list_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []));
 
-val word_gen_gc_partial_move_list_has_fp_ops = store_thm("word_gen_gc_partial_move_list_has_fp_ops[simp]",
-  ``!conf x. word_gen_gc_partial_move_list (conf with has_fp_ops := b) x =
-             word_gen_gc_partial_move_list conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_partial_move_list_has_fp_ops[simp]
+  `!conf x. word_gen_gc_partial_move_list (conf with has_fp_ops := b) x =
+             word_gen_gc_partial_move_list conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ recInduct (fetch "-" "word_gen_gc_partial_move_list_ind")
   \\ rw [] \\ once_rewrite_tac [word_gen_gc_partial_move_list_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []));
 
-val word_gc_move_roots_has_fp_ops = store_thm("word_gc_move_roots_has_fp_ops[simp]",
-  ``!conf x. word_gc_move_roots (conf with has_fp_ops := b) x =
-             word_gc_move_roots conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gc_move_roots_has_fp_ops[simp]
+  `!conf x. word_gc_move_roots (conf with has_fp_ops := b) x =
+             word_gc_move_roots conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ recInduct (fetch "-" "word_gc_move_roots_ind")
   \\ rw [] \\ once_rewrite_tac [word_gc_move_roots_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []));
 
-val word_gen_gc_move_roots_has_fp_ops = store_thm("word_gen_gc_move_roots_has_fp_ops[simp]",
-  ``!conf x. word_gen_gc_move_roots (conf with has_fp_ops := b) x =
-             word_gen_gc_move_roots conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_move_roots_has_fp_ops[simp]
+  `!conf x. word_gen_gc_move_roots (conf with has_fp_ops := b) x =
+             word_gen_gc_move_roots conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ recInduct (fetch "-" "word_gen_gc_move_roots_ind")
   \\ rw [] \\ once_rewrite_tac [word_gen_gc_move_roots_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []));
 
-val word_gen_gc_partial_move_roots_has_fp_ops = store_thm("word_gen_gc_partial_move_roots_has_fp_ops[simp]",
-  ``!conf x. word_gen_gc_partial_move_roots (conf with has_fp_ops := b) x =
-             word_gen_gc_partial_move_roots conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_partial_move_roots_has_fp_ops[simp]
+  `!conf x. word_gen_gc_partial_move_roots (conf with has_fp_ops := b) x =
+             word_gen_gc_partial_move_roots conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ recInduct (fetch "-" "word_gen_gc_partial_move_roots_ind")
   \\ rw [] \\ once_rewrite_tac [word_gen_gc_partial_move_roots_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []));
 
-val word_gc_move_loop_has_fp_ops = store_thm("word_gc_move_loop_has_fp_ops[simp]",
-  ``!n conf x. word_gc_move_loop n (conf with has_fp_ops := b) x =
-               word_gc_move_loop n conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gc_move_loop_has_fp_ops[simp]
+  `!n conf x. word_gc_move_loop n (conf with has_fp_ops := b) x =
+               word_gc_move_loop n conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ Induct \\ rw []
   \\ once_rewrite_tac [word_gc_move_loop_def] \\ fs []
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-val word_gen_gc_partial_move_data_has_fp_ops = store_thm("word_gen_gc_partial_move_data_has_fp_ops[simp]",
-  ``!n conf x. word_gen_gc_partial_move_data (conf with has_fp_ops := b) n x =
-               word_gen_gc_partial_move_data conf n x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_partial_move_data_has_fp_ops[simp]
+  `!n conf x. word_gen_gc_partial_move_data (conf with has_fp_ops := b) n x =
+               word_gen_gc_partial_move_data conf n x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ Induct \\ rw []
   \\ once_rewrite_tac [word_gen_gc_partial_move_data_def] \\ fs []
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-val word_gen_gc_move_data_has_fp_ops = store_thm("word_gen_gc_move_data_has_fp_ops[simp]",
-  ``!n conf x. word_gen_gc_move_data (conf with has_fp_ops := b) n x =
-               word_gen_gc_move_data conf n x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_move_data_has_fp_ops[simp]
+  `!n conf x. word_gen_gc_move_data (conf with has_fp_ops := b) n x =
+               word_gen_gc_move_data conf n x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ Induct \\ rw []
   \\ once_rewrite_tac [word_gen_gc_move_data_def] \\ fs []
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-val word_gen_gc_move_refs_has_fp_ops = store_thm("word_gen_gc_move_refs_has_fp_ops[simp]",
-  ``!n conf x. word_gen_gc_move_refs (conf with has_fp_ops := b) n x =
-               word_gen_gc_move_refs conf n x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_move_refs_has_fp_ops[simp]
+  `!n conf x. word_gen_gc_move_refs (conf with has_fp_ops := b) n x =
+               word_gen_gc_move_refs conf n x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ Induct \\ rw []
   \\ once_rewrite_tac [word_gen_gc_move_refs_def] \\ fs []
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-val word_gen_gc_partial_move_ref_list_has_fp_ops = store_thm("word_gen_gc_partial_move_ref_list_has_fp_ops[simp]",
-  ``!n conf x. word_gen_gc_partial_move_ref_list n (conf with has_fp_ops := b) x =
-               word_gen_gc_partial_move_ref_list n conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_partial_move_ref_list_has_fp_ops[simp]
+  `!n conf x. word_gen_gc_partial_move_ref_list n (conf with has_fp_ops := b) x =
+               word_gen_gc_partial_move_ref_list n conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ Induct \\ rw []
   \\ once_rewrite_tac [word_gen_gc_partial_move_ref_list_def] \\ fs []
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-val word_gen_gc_move_loop_has_fp_ops = store_thm("word_gen_gc_move_loop_has_fp_ops[simp]",
-  ``!n conf x. word_gen_gc_move_loop (conf with has_fp_ops := b) n x =
-               word_gen_gc_move_loop conf n x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_move_loop_has_fp_ops[simp]
+  `!n conf x. word_gen_gc_move_loop (conf with has_fp_ops := b) n x =
+               word_gen_gc_move_loop conf n x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ Induct \\ rw []
   \\ once_rewrite_tac [word_gen_gc_move_loop_def] \\ fs []
   \\ fs [ptr_to_addr_def,update_addr_def,small_shift_length_def,decode_length_def]);
 
-val word_full_gc_has_fp_ops = store_thm("word_full_gc_has_fp_ops[simp]",
-  ``!x. word_full_gc (conf with has_fp_ops := b) x =
-        word_full_gc conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_full_gc_has_fp_ops[simp]
+  `!x. word_full_gc (conf with has_fp_ops := b) x =
+        word_full_gc conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ rewrite_tac [word_full_gc_def] \\ fs []);
 
-val word_gen_gc_partial_full_has_fp_ops = store_thm("word_gen_gc_partial_full_has_fp_ops[simp]",
-  ``!x. word_gen_gc_partial_full (conf with has_fp_ops := b) x =
-        word_gen_gc_partial_full conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_partial_full_has_fp_ops[simp]
+  `!x. word_gen_gc_partial_full (conf with has_fp_ops := b) x =
+        word_gen_gc_partial_full conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ rewrite_tac [word_gen_gc_partial_full_def]
   \\ fs [word_gen_gc_partial_def]);
 
-val word_gen_gc_has_fp_ops = store_thm("word_gen_gc_has_fp_ops[simp]",
-  ``!x. word_gen_gc (conf with has_fp_ops := b) x =
-        word_gen_gc conf x``,
-  simp_tac std_ss [FORALL_PROD]
+Theorem word_gen_gc_has_fp_ops[simp]
+  `!x. word_gen_gc (conf with has_fp_ops := b) x =
+        word_gen_gc conf x`
+  (simp_tac std_ss [FORALL_PROD]
   \\ rewrite_tac [word_gen_gc_def]
   \\ fs [word_gen_gc_partial_def]);
 
-val word_gc_fun_has_fp_ops = store_thm("word_gc_fun_has_fp_ops[simp]",
-  ``word_gc_fun (conf with has_fp_ops := b) = word_gc_fun conf``,
-  fs [word_gc_fun_def,FUN_EQ_THM,FORALL_PROD]
+Theorem word_gc_fun_has_fp_ops[simp]
+  `word_gc_fun (conf with has_fp_ops := b) = word_gc_fun conf`
+  (fs [word_gc_fun_def,FUN_EQ_THM,FORALL_PROD]
   \\ Cases_on `conf.gc_kind` \\ fs []);
 
 val _ = export_theory();

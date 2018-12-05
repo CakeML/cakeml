@@ -6,7 +6,7 @@ structure basis_ffiLib :> basis_ffiLib =
 struct
 
 open preamble
-open ml_progLib basis_ffiTheory semanticsLib set_sepTheory cfHeapsBaseTheory
+open ml_progLib basis_ffiTheory set_sepTheory cfHeapsBaseTheory
      CommandLineProofTheory TextIOProofTheory
 
 fun ERR f s = mk_HOL_ERR"basis_ffiLib" f s;

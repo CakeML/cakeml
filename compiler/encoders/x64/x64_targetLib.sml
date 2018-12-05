@@ -1,3 +1,6 @@
+(*
+  A compset for evaluating the x64 instruction encoder and config.
+*)
 structure x64_targetLib :> x64_targetLib =
 struct
 

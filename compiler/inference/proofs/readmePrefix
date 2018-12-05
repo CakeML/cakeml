@@ -1,0 +1,2 @@
+This directory contains the correctness proofs for the type
+inferencer: both soundness and completeness proofs.

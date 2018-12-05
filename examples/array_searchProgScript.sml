@@ -30,12 +30,12 @@ fun linear_search array value =
 `;
 val _ = append_prog linear_search;
 
-val EL_HD_DROP = Q.store_thm("EL_HD_DROP",
-    `∀ n l . n < LENGTH l ⇒ EL n l = HD (DROP n l)`,
-    Induct >> rw[] >> Cases_on `l` >> fs[]
+Theorem EL_HD_DROP
+    `∀ n l . n < LENGTH l ⇒ EL n l = HD (DROP n l)`
+    (Induct >> rw[] >> Cases_on `l` >> fs[]
 );
 
-val linear_search_spec = Q.store_thm("linear_search_spec",
+Theorem linear_search_spec
    `∀ a ffi_p value value_v elems elem_vs arr_v .
         EqualityType a ∧
         (a) value value_v ∧
@@ -55,8 +55,8 @@ val linear_search_spec = Q.store_thm("linear_search_spec",
                 (* if value present, it is found *)
                 (¬MEM value elems ⇒ ret = NONE) (* if value not present, NONE *)
               )
-        )`,
-    xcf "linear_search" (basis_st()) >>
+        )`
+    (xcf "linear_search" (basis_st()) >>
     reverse (xfun_spec `search_aux`
         `∀ sublist sublist_vs offset offset_v .
             sublist = DROP offset elems ∧
@@ -195,26 +195,26 @@ fun binary_search cmp array value =
 
 val _ = append_prog binary_search;
 
-val drop_take_partition = Q.store_thm("drop_take_partition",
+Theorem drop_take_partition
     `∀ l n m . n ≤ m ∧ m ≤ LENGTH l ⇒
-        TAKE n l ++ DROP n (TAKE m l) ++ DROP m l = l`,
-    Induct_on `l` >> rw[] >> fs[TAKE_def] >> Cases_on `n = 0` >> fs[] >>
+        TAKE n l ++ DROP n (TAKE m l) ++ DROP m l = l`
+    (Induct_on `l` >> rw[] >> fs[TAKE_def] >> Cases_on `n = 0` >> fs[] >>
     fs[DROP_def] >> Cases_on `m = 0` >> fs[]
 );
 
-val drop_take = Q.store_thm("drop_take",
+Theorem drop_take
     `∀ l n m . n ≤ m ∧ m ≤ LENGTH l ⇒
-        DROP n (TAKE m l) = TAKE (m - n) (DROP n l)`,
-    Induct_on `l` >> rw[] >> fs[TAKE_def] >>
+        DROP n (TAKE m l) = TAKE (m - n) (DROP n l)`
+    (Induct_on `l` >> rw[] >> fs[TAKE_def] >>
     Cases_on `m = 0` >> fs[] >> fs[DROP_def] >> Cases_on `n = 0` >> fs[]
 );
 
-val strict_weak_order_NOT_MEM = Q.store_thm("strict_weak_order_NOT_MEM",
+Theorem strict_weak_order_NOT_MEM
     `∀ h t cmp e . strict_weak_order cmp ∧
                SORTED (λ x y . cmp x y) (h::t) ∧
                cmp e h
-    ⇒ ¬ MEM e (h::t)`,
-    Induct_on `t` >> rw[]
+    ⇒ ¬ MEM e (h::t)`
+    (Induct_on `t` >> rw[]
     >- (fs[strict_weak_order_def] >> metis_tac[])
     >- (fs[strict_weak_order_def] >> metis_tac[])
     >- (fs[SORTED_DEF] >>
@@ -228,13 +228,13 @@ val strict_weak_order_NOT_MEM = Q.store_thm("strict_weak_order_NOT_MEM",
         fs[strict_weak_order_def] >> metis_tac[transitive_def])
 );
 
-val strict_weak_order_cmp_TAKE = Q.store_thm("strict_weak_order_cmp_TAKE",
+Theorem strict_weak_order_cmp_TAKE
     `∀ cmp e l mid .
         strict_weak_order cmp ∧
         MEM e l ∧ cmp e (EL mid l) ∧
         SORTED (λ x y . cmp x y) l
-      ⇒ MEM e (TAKE mid l)`,
-    Induct_on `l` >> rw[] >> fs[TAKE_def] >>
+      ⇒ MEM e (TAKE mid l)`
+    (Induct_on `l` >> rw[] >> fs[TAKE_def] >>
     Cases_on `mid = 0` >> fs[]
     >- (fs[strict_weak_order_def] >> metis_tac[])
     >- (drule strict_weak_order_NOT_MEM >> rpt(disch_then drule) >> fs[])
@@ -243,12 +243,12 @@ val strict_weak_order_cmp_TAKE = Q.store_thm("strict_weak_order_cmp_TAKE",
         metis_tac[SORTED_TL])
 );
 
-val strict_weak_order_cmp_EL = Q.store_thm("strict_weak_order_cmp_EL",
+Theorem strict_weak_order_cmp_EL
     `∀ l e n cmp .
         n < LENGTH (e::l) ∧ strict_weak_order cmp ∧
         ¬cmp e (EL n (e::l)) ∧ SORTED (λ x y . cmp x y) (e::l)
-      ⇒ n = 0`,
-    Induct_on `l` >> rw[] >> `cmp e h` by fs[SORTED_DEF] >>
+      ⇒ n = 0`
+    (Induct_on `l` >> rw[] >> `cmp e h` by fs[SORTED_DEF] >>
     Cases_on `n` >> fs[] >>
     first_x_assum (qspecl_then [`e`, `n'`, `cmp`] mp_tac) >>
     fs[] >> Cases_on `n' = 0` >> fs[] >> Cases_on `n'` >> fs[] >>
@@ -256,13 +256,13 @@ val strict_weak_order_cmp_EL = Q.store_thm("strict_weak_order_cmp_EL",
     metis_tac[transitive_def]
 );
 
-val strict_weak_order_cmp_DROP = Q.store_thm("strict_weak_order_cmp_DROP",
+Theorem strict_weak_order_cmp_DROP
     `∀ cmp e l mid .
         strict_weak_order cmp ∧ mid < LENGTH l ∧
         MEM e l ∧ ¬cmp e (EL mid l) ∧ EL mid l ≠ e ∧
         SORTED (λ x y . cmp x y) l
-      ⇒ MEM e (DROP (mid + 1) l)`,
-    Induct_on `l` >> rw[] >> fs[DROP_def] >>
+      ⇒ MEM e (DROP (mid + 1) l)`
+    (Induct_on `l` >> rw[] >> fs[DROP_def] >>
     Cases_on `mid = 0` >> fs[]
     >- (imp_res_tac strict_weak_order_cmp_EL >> fs[])
     >- (Cases_on `mid` >> fs[ADD1] >>
@@ -270,33 +270,33 @@ val strict_weak_order_cmp_DROP = Q.store_thm("strict_weak_order_cmp_DROP",
         metis_tac[SORTED_TL])
 );
 
-val sorted_drop = Q.store_thm("sorted_drop",
-    `∀ l n f . SORTED f l ⇒ SORTED f (DROP n l)`,
-    Induct >> rw[] >> fs[DROP_def] >> Cases_on `n = 0` >> fs[] >>
+Theorem sorted_drop
+    `∀ l n f . SORTED f l ⇒ SORTED f (DROP n l)`
+    (Induct >> rw[] >> fs[DROP_def] >> Cases_on `n = 0` >> fs[] >>
     first_x_assum match_mp_tac >> metis_tac[SORTED_TL]
 );
 
-val sorted_take = Q.store_thm("sorted_take",
-    `∀ l n f . SORTED f l ⇒ SORTED f (TAKE n l)`,
-    Induct >> rw[] >> fs[TAKE_def] >> Cases_on `n` >> fs[] >>
+Theorem sorted_take
+    `∀ l n f . SORTED f l ⇒ SORTED f (TAKE n l)`
+    (Induct >> rw[] >> fs[TAKE_def] >> Cases_on `n` >> fs[] >>
     Cases_on `l` >> fs[TAKE, SORTED_DEF] >> Cases_on `n'` >> fs[] >>
     fs[SORTED_DEF] >> first_x_assum (qspecl_then [`n + 1`, `f`] mp_tac) >> rw[]
 );
 
-val mem_take_impl = Q.store_thm("mem_take_impl",
+Theorem mem_take_impl
     `∀ l n m v . n ≤ m ⇒
-        MEM v (TAKE n l) ⇒ MEM v (TAKE m l)`,
-    Induct >> rw[] >> fs[TAKE_def] >>
+        MEM v (TAKE n l) ⇒ MEM v (TAKE m l)`
+    (Induct >> rw[] >> fs[TAKE_def] >>
     Cases_on `m = 0` >> fs[] >> rfs[] >>
     Cases_on `n = 0` >> fs[] >>
     Cases_on `v = h` >> fs[] >>
     first_x_assum (qspecl_then [`n - 1`, `m - 1`, `v`] mp_tac) >> fs[]
 );
 
-val mem_drop_impl = Q.store_thm("mem_drop_impl",
+Theorem mem_drop_impl
     `∀ l n m v . n ≤ m
-    ⇒ MEM v (DROP m l) ⇒ MEM v (DROP n l)`,
-    Induct >> rw[] >> fs[DROP_def] >>
+    ⇒ MEM v (DROP m l) ⇒ MEM v (DROP n l)`
+    (Induct >> rw[] >> fs[DROP_def] >>
     Cases_on `m = 0` >> fs[] >>
     Cases_on `n = 0` >> fs[]
     >- (
@@ -305,7 +305,7 @@ val mem_drop_impl = Q.store_thm("mem_drop_impl",
     >- (first_x_assum (qspecl_then [`n - 1`, `m - 1`, `v`] mp_tac) >> fs[])
 );
 
-val binary_search_spec = Q.store_thm("binary_search_spec",
+Theorem binary_search_spec
    `∀ a ffi_p cmp cmp_v value value_v elems elem_vs arr_v .
         strict_weak_order cmp ∧
         EqualityType a ∧
@@ -328,8 +328,8 @@ val binary_search_spec = Q.store_thm("binary_search_spec",
                 (* if value present, it is found *)
                 (¬MEM value elems ⇒ u = NONE) (* if value not present, NONE *)
              )
-        )`,
-    xcf "binary_search" (basis_st()) >>
+        )`
+    (xcf "binary_search" (basis_st()) >>
     reverse (xfun_spec `search_aux`
         `∀ sublist sublist_vs start finish start_v finish_v .
             sublist = DROP start (TAKE finish elems) ∧
