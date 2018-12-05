@@ -1044,36 +1044,33 @@ val generalise_list_length = Q.prove (
 
 val gen_d_ind_def = tDefine "gen_d_ind" `
   (gen_d_ind (Dmod n ds) = gen_ds_ind ds) /\
+  (gen_d_ind (Dlocal lds ds) = (gen_ds_ind lds /\ gen_ds_ind ds)) /\
   (gen_d_ind _ = T) /\
   (gen_ds_ind [] = T) /\
   (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))`
   (WF_REL_TAC `measure (\x. case x of INL d => dec_size d
                                     | INR ds => dec1_size ds)`)
 
+val infer_p_wfs_dest = infer_p_wfs |> BODY_CONJUNCTS
+    |> map (CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV CONJ_COMM)))
+val unify_t_wfs_dest = unifyTheory.t_unify_wfs
+    |> CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV CONJ_COMM))
+
 val infer_d_side_thm = Q.store_thm ("infer_d_side_thm",
   `(!d ienv s. t_wfs s.subst ==> infer_d_side ienv d s) /\
    (!ds ienv s. t_wfs s.subst ==> infer_ds_side ienv ds s)`,
   ho_match_mp_tac (fetch "-" "gen_d_ind_ind")
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac >>
-  once_rewrite_tac [infer_d_side_def] >> rw [] >>
+  once_rewrite_tac [infer_d_side_def] >> rw [FORALL_PROD] >>
   fs [init_state_def, success_eqns] >>
   rw [apply_subst_list_side_def] >>
-  TRY (irule add_constraint_side_thm) >>
-  `t_wfs (init_infer_state s).subst`
-            by rw [init_infer_state_def, unifyTheory.t_wfs_def] >>
-  imp_res_tac infer_e_side_thm >>
-  imp_res_tac infer_p_side_thm >>
-  imp_res_tac infer_p_wfs >>
-  imp_res_tac infer_e_wfs >>
-  TRY (fs [] \\ NO_TAC) >>
-  fs [bool_case_eq] \\ rveq
-  THEN1 (imp_res_tac infer_p_side_thm \\ fs [])
-  THEN1 metis_tac [infer_p_wfs,PAIR,infer_p_wfs,infer_e_wfs,unifyTheory.t_unify_wfs]
-  THEN1 metis_tac [infer_p_wfs,PAIR,infer_p_wfs,infer_e_wfs,unifyTheory.t_unify_wfs]
-  THEN1 (irule (infer_e_side_thm |> CONJUNCTS |> last) \\ fs [])
-  THEN1 (match_mp_tac add_constraints_side_thm \\ fs [])
-  THEN1 (match_mp_tac pure_add_constraints_wfs \\ asm_exists_tac \\ fs [])
-  \\ first_x_assum match_mp_tac \\ metis_tac [infer_d_wfs]);
+  EVERY (map (TRY o irule) (List.concat (map BODY_CONJUNCTS
+    [infer_e_side_thm, infer_p_side_thm, add_constraint_side_thm,
+        add_constraints_side_thm]))) >>
+  EVERY (map (TRY o drule) (infer_p_wfs_dest @ BODY_CONJUNCTS infer_e_wfs
+    @ BODY_CONJUNCTS infer_d_wfs
+    @ [unify_t_wfs_dest, pure_add_constraints_wfs])) >>
+  fs []);
 
 val MEM_anub = prove(``
   ∀e1M ls k v1.
