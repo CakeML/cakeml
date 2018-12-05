@@ -579,7 +579,6 @@ val openIn_spec = Q.store_thm(
                   inFS_fname fs (File s)) *
                 IOFS (openFileFS s fs ReadMode 0))
           (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs))`,
-  cheat (*
   xcf "TextIO.openIn" (basis_st()) >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
@@ -596,7 +595,7 @@ val openIn_spec = Q.store_thm(
             W8ARRAY iobuff_loc fnm0 *
             catfs fs'`
     >- (simp[Abbr`catfs`,Abbr`fs'`] >>
-        xffi >> simp[] >>
+        xffi >> xsimpl >>
         qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
         fs[strcat_thm,implode_def] >>
         simp[fsFFITheory.fs_ffi_part_def,IOx_def] >>
@@ -628,7 +627,7 @@ val openIn_spec = Q.store_thm(
   xlet `POSTv u2.
             &UNIT_TYPE () u2 * catfs fs * W8ARRAY iobuff_loc fnm0 *
             W8ARRAY loc (LUPDATE 1w 0 fd0)`
-  >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> simp[] >>
+  >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> xsimpl >>
       simp[fsFFITheory.fs_ffi_part_def,IOx_def] >>
       qmatch_goalsub_abbrev_tac`IO st f ns` >>
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
@@ -648,7 +647,7 @@ val openIn_spec = Q.store_thm(
   >-(xapp >> xsimpl >>
      rfs[Abbr`fd0`,EL_LUPDATE,HD_LUPDATE])>>
   xlet_auto >-(xcon >> xsimpl) >> xraise >> xsimpl >>
-  simp[BadFileName_exn_def,Abbr`fd0`,LENGTH_explode] *));
+  simp[BadFileName_exn_def,Abbr`fd0`,LENGTH_explode]);
 
 (* STDIO version *)
 val openIn_STDIO_spec = Q.store_thm(
