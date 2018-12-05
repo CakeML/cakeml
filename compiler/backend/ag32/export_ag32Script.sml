@@ -1,3 +1,6 @@
+(*
+  Define the format of the compiler-generated output file for ag32
+*)
 open preamble exportTheory
 
 val () = new_theory "export_ag32";

@@ -1,3 +1,6 @@
+(*
+  Proves an end-to-end correctness theorem for the bootstrapped compiler.
+*)
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      compiler64ProgTheory x64BootstrapTheory

@@ -1,3 +1,6 @@
+(*
+  Translate the final part of the compiler backend for 32-bit targets.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
@@ -329,7 +332,10 @@ val _ = translate (compile_def |> INST_TYPE [beta |-> ``:32``])
 
 open stack_to_labTheory
 
-val _ = matches := [``foo:'a labLang$prog``,``foo:'a labLang$sec``,``foo:'a labLang$line``,``foo:'a labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a inst``,``foo:'a asm_config``] @ (!matches)
+val _ = matches := [``foo:'a labLang$prog``,``foo:'a
+  labLang$sec``,``foo:'a labLang$line``,``foo:'a
+  labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a
+  inst``,``foo:'a asm_config``] @ (!matches)
 
 val _ = translate (flatten_def |> spec32)
 

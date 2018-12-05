@@ -1,3 +1,8 @@
+(*
+  This compiler phase maps stackLang programs, which has structure
+  such as If, While, Return etc, to labLang programs that are a soup
+  of goto-like jumps.
+*)
 open preamble stackLangTheory labLangTheory;
 local open stack_allocTheory stack_removeTheory stack_namesTheory
            word_to_stackTheory bvl_to_bviTheory in end
@@ -89,11 +94,11 @@ local val flatten_quotation = `
 in
 val flatten_def = Define flatten_quotation
 
-val flatten_pmatch = Q.store_thm("flatten_pmatch",`∀p n m.` @
+Theorem flatten_pmatch (`∀p n m.` @
   (flatten_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
+       | aq => aq)))
+  (rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);

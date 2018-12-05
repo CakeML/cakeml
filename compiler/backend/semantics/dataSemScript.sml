@@ -1,3 +1,6 @@
+(*
+  The formal semantics of dataLang
+*)
 open preamble data_simpTheory data_liveTheory data_spaceTheory dataLangTheory closSemTheory;
 
 
@@ -604,9 +607,9 @@ val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_e
    ffi_result_thms]))
   |> curry save_thm"case_eq_thms";
 
-val do_app_clock = Q.store_thm("do_app_clock",
-  `(dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock`,
-  rw[ do_app_def
+Theorem do_app_clock
+  `(dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock`
+  (rw[ do_app_def
     , do_app_aux_def
     , do_space_def
     , consume_space_def
@@ -615,11 +618,11 @@ val do_app_clock = Q.store_thm("do_app_clock",
     , PULL_EXISTS
     , with_fresh_ts_def
     ,UNCURRY]
- \\ rw[]);
+  \\ rw[]);
 
-val evaluate_clock = Q.store_thm("evaluate_clock",
-`!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
-  recInduct evaluate_ind >> rw[evaluate_def] >>
+Theorem evaluate_clock
+`!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock`
+  (recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[set_var_def,cut_state_opt_def,cut_state_def,call_env_def,dec_clock_def,add_space_def,jump_exc_def,push_env_clock] >> rw[] >> rfs[] >>
   imp_res_tac fix_clock_IMP >> fs[] >>
@@ -631,16 +634,16 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
   \\ imp_res_tac fix_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[] >> rfs[]);
 
-val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
-  `fix_clock s (evaluate (xs,s)) = evaluate (xs,s)`,
-  Cases_on `evaluate (xs,s)` \\ fs [fix_clock_def]
+Theorem fix_clock_evaluate
+  `fix_clock s (evaluate (xs,s)) = evaluate (xs,s)`
+  (Cases_on `evaluate (xs,s)` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,theorem "state_component_equality"]);
 
-val fix_clock_evaluate_call = Q.store_thm("fix_clock_evaluate_call",
+Theorem fix_clock_evaluate_call
   `fix_clock s (evaluate (prog,call_env args1 (push_env env h (dec_clock s)))) =
-   (evaluate (prog,call_env args1 (push_env env h (dec_clock s))))`,
-  Cases_on `(evaluate (prog,call_env args1 (push_env env h (dec_clock s))))`
+   (evaluate (prog,call_env args1 (push_env env h (dec_clock s))))`
+  (Cases_on `(evaluate (prog,call_env args1 (push_env env h (dec_clock s))))`
   >> fs [fix_clock_def]
   >> imp_res_tac evaluate_clock
   >> fs[MIN_DEF,theorem "state_component_equality",call_env_def,dec_clock_def,push_env_clock]

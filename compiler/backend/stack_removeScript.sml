@@ -1,3 +1,7 @@
+(*
+  This compiler phase implements all stack operations as normal memory
+  load/store operations.
+*)
 open preamble stackLangTheory;
 
 val _ = new_theory "stack_remove";
@@ -264,10 +268,10 @@ val init_stubs_def = Define `
      (1n,halt_inst 0w);
      (2n,halt_inst 2w)]`
 
-val check_init_stubs_length = Q.store_thm("check_init_stubs_length",
+Theorem check_init_stubs_length
   `LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =
-   stack_num_stubs`,
-  EVAL_TAC);
+   stack_num_stubs`
+  (EVAL_TAC);
 
 (* -- full compiler -- *)
 

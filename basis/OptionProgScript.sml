@@ -1,3 +1,6 @@
+(*
+  Module about the option tyoe.
+*)
 open preamble ml_translatorLib ml_progLib RuntimeProgTheory
      mloptionTheory
 

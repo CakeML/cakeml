@@ -1,3 +1,6 @@
+(*
+  Compiles the sort example by evaluation inside the logic of HOL
+*)
 open preamble compilationLib sortProgTheory
 
 val _ = new_theory "sortCompile"

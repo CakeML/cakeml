@@ -1,3 +1,9 @@
+(*
+  Apply the monadic translator to the Candle kernel to generate the
+  deeply embedded CakeML code for the kernel. As a side effect, the
+  monadic translator proves certificate theorems that state a formal
+  connection between the generated code and the input HOL functions.
+*)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
 open astTheory libTheory evaluateTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory terminationTheory
@@ -28,10 +34,10 @@ val MEM_type_size = Q.prove(
   Induct \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC);
 
-val type_ind = Q.store_thm("type_ind",
+Theorem type_ind
   `(!s ts. (!t. MEM t ts ==> P t) ==> P (Tyapp s ts)) /\
-    (!v. P (Tyvar v)) ==> !x. P x`,
-  REPEAT STRIP_TAC \\ completeInduct_on `type_size x`
+    (!v. P (Tyvar v)) ==> !x. P x`
+  (REPEAT STRIP_TAC \\ completeInduct_on `type_size x`
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
   \\ Cases_on `x` \\ FULL_SIMP_TAC std_ss []
   \\ Q.PAT_X_ASSUM `!x1 x2. bb` MATCH_MP_TAC
@@ -156,13 +162,13 @@ val exn_ri_def = HOL_EXN_TYPE_def
 
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      exn_ri_def
-					      exn_functions
-					      []
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              exn_ri_def
+                                              exn_functions
+                                              []
                                               NONE
                                               NONE;
 
@@ -202,9 +208,9 @@ val res = translate holKernelTheory.type_subst_def;
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
 
-val raconv_side = Q.store_thm("raconv_side",
-  `!x y z. raconv_side x y z`,
-  ho_match_mp_tac holKernelTheory.raconv_ind
+Theorem raconv_side
+  `!x y z. raconv_side x y z`
+  (ho_match_mp_tac holKernelTheory.raconv_ind
   \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
   |> update_precondition;
 

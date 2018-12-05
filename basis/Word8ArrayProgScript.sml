@@ -1,3 +1,6 @@
+(*
+  Module about the built-in byte-array type.
+*)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
      Word8ProgTheory
 

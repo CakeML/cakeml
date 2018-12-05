@@ -1,3 +1,6 @@
+(*
+  Translate the ARMv6 instruction encoder and ARMv6-specific config.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
@@ -148,57 +151,77 @@ val arm6_enc9 = replace_at 9 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word
 val arm6_enc10 = replace_at 10 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 val arm6_enc11 = replace_at 11 (fn th => th |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
-val arm6_enc12 = replace_at 12 (fn th => th |> SIMP_RULE (srw_ss()) [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR] |> SIMP_RULE std_ss[Once COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm6_enc12 = replace_at 12 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
+   MachineCode_case_def,COND_RATOR] |> SIMP_RULE std_ss[Once COND_RAND]
+  |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
-val arm6_enc13 =
-replace_at 13 (fn th => th |> SIMP_RULE (srw_ss()) [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR,LET_THM]
- |> SIMP_RULE std_ss[Once COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm6_enc13 = replace_at 13 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
+  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
-val arm6_enc14 =
-replace_at 14 (fn th => th |> SIMP_RULE (srw_ss()) [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR,LET_THM]
- |> SIMP_RULE std_ss[Once COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm6_enc14 = replace_at 14 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
+  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
-val arm6_enc15 =
-replace_at 15 (fn th => th |> SIMP_RULE (srw_ss()) [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR,LET_THM]
- |> SIMP_RULE std_ss[Once COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm6_enc15 = replace_at 15 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
+  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
 (* FP *)
 val fp_defaults = [arm6_vfp_cmp_def,e_vfp_def,EncodeVFPReg_def]@defaults
 
-val arm6_enc16_to_30 = map (fn i => replace_at i (fn th => th |> (SIMP_RULE (srw_ss()) fp_defaults) |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])) [16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
+val arm6_enc16_to_30 = map (fn i => replace_at i (fn th => th |>
+  (SIMP_RULE (srw_ss()) fp_defaults) |> finish |> SIMP_RULE
+  (srw_ss())[word_2comp_def]))
+  [16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]
 
-val arm6_enc31 =
-replace_at 31 (fn th => th |> SIMP_RULE (srw_ss()) [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR,LET_THM]
-|> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm6_enc31 = replace_at 31 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> finish |> SIMP_RULE
+  (srw_ss())[word_2comp_def])
 
-val arm6_enc32 =
-replace_at 32 (fn th => th |>
-Q.GEN`cmp` |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``]) [arm6_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR,LET_THM]
-|> finish |> CONJUNCTS |> map (SIMP_RULE (srw_ss())[word_2comp_def] )
-|> reconstruct_case ``arm6_enc (JumpCmp cmp r1 (Reg r2) a)``
-     (rand o funpow 3 rator o rand)
-)
+val arm6_enc32 = replace_at 32 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
+  (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``])
+  [arm6_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> finish |> CONJUNCTS |>
+  map (SIMP_RULE (srw_ss())[word_2comp_def] ) |> reconstruct_case
+  ``arm6_enc (JumpCmp cmp r1 (Reg r2) a)`` (rand o funpow 3 rator o
+  rand) )
 
-val arm6_enc33 =
-replace_at 33 (fn th => th |>
-Q.GEN`cmp` |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``]) [arm6_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR,LET_THM]
-|> finish |> CONJUNCTS |> map (SIMP_RULE (srw_ss())[word_2comp_def])
-|> reconstruct_case ``arm6_enc (JumpCmp cmp r (Imm i) a)``
-     (rand o funpow 3 rator o rand)
-)
+val arm6_enc33 = replace_at 33 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
+  (srw_ss() ++ LET_ss ++
+  DatatypeSimps.expand_type_quants_ss[``:cmp``])
+  [arm6_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> finish |> CONJUNCTS |>
+  map (SIMP_RULE (srw_ss())[word_2comp_def]) |> reconstruct_case
+  ``arm6_enc (JumpCmp cmp r (Imm i) a)`` (rand o funpow 3 rator o
+  rand) )
 
-val arm6_enc34 = replace_at 34 (fn th => th |> SIMP_RULE (srw_ss()) [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR]
-|> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm6_enc34 = replace_at 34 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def, COND_RATOR] |> finish |> SIMP_RULE
+  (srw_ss())[word_2comp_def])
 
-val arm6_enc35 = replace_at 35 (fn th => th |> SIMP_RULE (srw_ss()) [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR]
-|> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm6_enc35 = replace_at 35 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def, COND_RATOR] |> finish |> SIMP_RULE
+  (srw_ss())[word_2comp_def])
 
-val arm6_enc36 = replace_at 36 (fn th => th |> SIMP_RULE (srw_ss()) [WORD_LO,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,MachineCode_case_def,COND_RATOR] |> SIMP_RULE std_ss[Once COND_RAND]
-|> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+val arm6_enc36 = replace_at 36 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LO, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def, COND_RATOR] |> SIMP_RULE std_ss[Once
+  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
-val arm6_enc_thm = List.tabulate (36, fn i => Array.sub(arm6_enc_thms,i)) |> LIST_CONJ
+val arm6_enc_thm =
+  List.tabulate (36, fn i => Array.sub(arm6_enc_thms,i)) |> LIST_CONJ
 
-val _ = translate (EncodeARMImmediate_def |> SIMP_RULE (srw_ss()) [Ntimes EncodeARMImmediate_aux_def 16] |> finish |> SIMP_RULE (srw_ss()) [word_2comp_def])
+val _ = translate (EncodeARMImmediate_def |> SIMP_RULE (srw_ss())
+  [Ntimes EncodeARMImmediate_aux_def 16] |> finish |> SIMP_RULE
+  (srw_ss()) [word_2comp_def])
 
 val res = translate arm6_enc_thm
 

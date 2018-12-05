@@ -1,3 +1,6 @@
+(*
+  Contains the code for the entire CakeML basis library in basis_def.
+*)
 open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
      CommandLineProofTheory TextIOProofTheory RuntimeProofTheory PrettyPrinterProgTheory
 
@@ -30,11 +33,11 @@ val print_app_list = process_topdecs
     | Append l1 l2 => (print_app_list l1; print_app_list l2))`;
 val () = append_prog print_app_list;
 
-val print_app_list_spec = Q.store_thm("print_app_list_spec",
+Theorem print_app_list_spec
   `∀ls lv out. APP_LIST_TYPE STRING_TYPE ls lv ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "print_app_list" (get_ml_prog_state())) [lv]
-     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append ls))))`,
-  reverse(Cases_on`STD_streams fs`) >- (rw[STDIO_def] \\ xpull) \\
+     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat (append ls))))`
+  (reverse(Cases_on`STD_streams fs`) >- (rw[STDIO_def] \\ xpull) \\
   pop_assum mp_tac \\ simp[PULL_FORALL] \\ qid_spec_tac`fs` \\
   reverse (Induct_on`ls`) \\ rw[APP_LIST_TYPE_def]
   >- (
@@ -62,11 +65,11 @@ val print_app_list_spec = Q.store_thm("print_app_list_spec",
 val _ = (append_prog o process_topdecs)
   `fun print_int i = TextIO.print (Int.toString i)`;
 
-val print_int_spec = Q.store_thm("print_int_spec",
+Theorem print_int_spec
   `INT i iv ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "print_int" (get_ml_prog_state())) [iv]
-     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (toString i)))`,
-  xcf"print_int"(get_ml_prog_state())
+     (STDIO fs) (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (toString i)))`
+  (xcf"print_int"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ xapp \\ xsimpl);
 

@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for RISC-V
+*)
 open preamble backendTheory riscv_targetTheory riscv_targetLib
 
 val _ = new_theory"riscv_config";

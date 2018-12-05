@@ -1,3 +1,6 @@
+(*
+  A compset for evaluating the ARMv6 instruction encoder and config.
+*)
 structure arm6_targetLib :> arm6_targetLib =
 struct
 

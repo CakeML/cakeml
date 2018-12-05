@@ -1,3 +1,8 @@
+(*
+  Constructs the end-to-end correctness theorem for wordcount example
+  by composing the application-specific correctness theorem, the
+  compiler evaluation theorem and the compiler correctness theorem.
+*)
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      wordcountProgTheory wordcountCompileTheory

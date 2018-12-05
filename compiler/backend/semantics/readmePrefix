@@ -1,0 +1,4 @@
+This directory contains the definition of the semantics for each
+intermediate language that is used in the compiler backend. This
+directory also contains generic properties about the semantics of each
+intermediate language.

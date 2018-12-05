@@ -1,3 +1,6 @@
+(*
+  A function for generating efficient switch-like jumps in BVL.
+*)
 open preamble bvlTheory;
 
 val _ = new_theory "bvl_jump";

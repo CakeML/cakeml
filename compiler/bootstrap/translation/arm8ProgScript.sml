@@ -1,3 +1,6 @@
+(*
+  Translate the ARMv8 instruction encoder and ARMv8-specific config.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
@@ -83,12 +86,18 @@ val notw = Q.prove(`
   !a. ~a = (-1w ?? a)`,
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]);
 
-val defaults = [arm8_ast_def,arm8_encode_def,Encode_def,NoOperation_def,arm8_enc_mov_imm_def,e_data_def,EncodeLogicalOp_def,bop_enc_def,e_sf_def,v2w_rw,arm8_encode_fail_def,e_load_store_def,arm8_load_store_ast_def,e_LoadStoreImmediate_def,e_branch_def,asmSemTheory.is_test_def,cmp_cond_def,dfn'Hint_def];
+val defaults = [arm8_ast_def, arm8_encode_def, Encode_def,
+  NoOperation_def, arm8_enc_mov_imm_def, e_data_def,
+  EncodeLogicalOp_def, bop_enc_def, e_sf_def, v2w_rw,
+  arm8_encode_fail_def, e_load_store_def, arm8_load_store_ast_def,
+  e_LoadStoreImmediate_def, e_branch_def, asmSemTheory.is_test_def,
+  cmp_cond_def, dfn'Hint_def];
 
 val arm8_enc_thms =
   arm8_enc_def
   |> SIMP_RULE std_ss [FUN_EQ_THM]
-  |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:64 asm``])[]
+  |> SIMP_RULE (srw_ss() ++ LET_ss ++
+                DatatypeSimps.expand_type_quants_ss[``:64 asm``])[]
   |> CONJUNCTS
 val arm8_enc1 = el 1 arm8_enc_thms
 val arm8_enc2 = el 2 arm8_enc_thms
@@ -103,19 +112,33 @@ val arm8_enc1s =
   |> CONJUNCTS
 
 val arm8_enc1_1 = el 1 arm8_enc1s |> wc_simp |> we_simp |> gconv
-val arm8_enc1_2 = el 2 arm8_enc1s
-  |> SIMP_RULE (srw_ss()++LET_ss) ([Q.ISPEC `LIST_BIND` COND_RAND,Ntimes (Q.ISPEC`option_CASE`COND_RAND) 8,Q.ISPEC`MachineCode_CASE`COND_RAND,COND_RATOR,LIST_BIND_APPEND,IS_SOME_rw]@defaults)
-  |> SIMP_RULE (srw_ss()) ([option_case_compute,Q.ISPEC`LIST_BIND`COND_RAND,COND_RATOR]@defaults)
-  |> SIMP_RULE (srw_ss()) ((GSYM option_case_compute)::exh_machine_code::defaults)
-  |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,notw] |> gconv
 
-val (binop::shift::rest) = el 3 arm8_enc1s |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
+val arm8_enc1_2 = el 2 arm8_enc1s |> SIMP_RULE (srw_ss()++LET_ss)
+  ([Q.ISPEC `LIST_BIND` COND_RAND, Ntimes
+  (Q.ISPEC`option_CASE`COND_RAND) 8,
+  Q.ISPEC`MachineCode_CASE`COND_RAND, COND_RATOR, LIST_BIND_APPEND,
+  IS_SOME_rw]@defaults) |> SIMP_RULE (srw_ss()) ([option_case_compute,
+  Q.ISPEC`LIST_BIND`COND_RAND, COND_RATOR]@defaults) |> SIMP_RULE
+  (srw_ss()) ((GSYM option_case_compute)::exh_machine_code::defaults)
+  |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,
+  notw] |> gconv
 
-val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``]) [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) [])
+val (binop::shift::rest) = el 3 arm8_enc1s |> SIMP_RULE (srw_ss() ++
+  DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
 
-val binopreg = binopreg_aux |> CONJUNCTS |> map(fn th => th |> SIMP_RULE (srw_ss()++LET_ss) (defaults) |> wc_simp |> we_simp |> gconv |>SIMP_RULE std_ss [SHIFT_ZERO])
+val (binopreg_aux::binopimm_aux::_) = binop |> SIMP_RULE (srw_ss() ++
+  DatatypeSimps.expand_type_quants_ss [``:64 reg_imm``])
+  [FORALL_AND_THM] |> CONJUNCTS |> map (SIMP_RULE (srw_ss() ++ LET_ss
+  ++ DatatypeSimps.expand_type_quants_ss [``:binop``]) [])
 
-val binopregth = reconstruct_case ``arm8_enc (Inst (Arith (Binop b n n0 (Reg n'))))`` (rand o rator o rator o rator o rand o rand o rand) (map (csethm 2) binopreg)
+val binopreg = binopreg_aux |> CONJUNCTS |> map(fn th => th |>
+  SIMP_RULE (srw_ss()++LET_ss) (defaults) |> wc_simp |> we_simp |>
+  gconv |>SIMP_RULE std_ss [SHIFT_ZERO])
+
+val binopregth = reconstruct_case
+  ``arm8_enc (Inst (Arith (Binop b n n0 (Reg n'))))``
+  (rand o rator o rator o rator o rand o rand o rand)
+  (map (csethm 2) binopreg)
 
 val binopimm = binopimm_aux |> CONJUNCTS |> map(fn th => th
   |> SIMP_RULE (srw_ss()++LET_ss)
@@ -141,20 +164,32 @@ val shiftths =
 val shiftth = reconstruct_case ``arm8_enc(Inst (Arith (Shift s n n0 n1)))``
   (rand o funpow 3 rator o funpow 3 rand) shiftths
 
-val arm8_enc1_3_aux = binopth :: shiftth :: map (fn th => th |> SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]) rest
+val arm8_enc1_3_aux = binopth :: shiftth :: map (fn th => th |>
+SIMP_RULE (srw_ss()) defaults |> wc_simp |> we_simp |> gconv |>
+SIMP_RULE std_ss [SHIFT_ZERO]) rest
 
-val arm8_enc1_3 = reconstruct_case ``arm8_enc (Inst (Arith a))`` (rand o rand o rand) arm8_enc1_3_aux
+val arm8_enc1_3 = reconstruct_case ``arm8_enc (Inst (Arith a))`` (rand
+o rand o rand) arm8_enc1_3_aux
 
-val arm8_enc1_4_aux = el 4 arm8_enc1s |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``]) ((Q.ISPEC`LIST_BIND` COND_RAND)::(Q.ISPEC`(λ(f,n). P f n)` COND_RAND)::COND_RATOR::defaults)
-|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,word_mul_def] |> CONJUNCTS
+val arm8_enc1_4_aux = el 4 arm8_enc1s |> SIMP_RULE (srw_ss() ++ LET_ss
+  ++ DatatypeSimps.expand_type_quants_ss [``:64 addr``,``:memop``])
+  ((Q.ISPEC`LIST_BIND` COND_RAND)::(Q.ISPEC`(λ(f,n). P f n)`
+  COND_RAND)::COND_RATOR::defaults) |> wc_simp |> we_simp |> gconv |>
+  SIMP_RULE std_ss [SHIFT_ZERO,word_mul_def] |> CONJUNCTS
 
-val arm8_enc1_4 = reconstruct_case ``arm8_enc (Inst (Mem m n a))`` (rand o rand o rand) [reconstruct_case ``arm8_enc (Inst (Mem m n (Addr n' c)))`` (rand o rator o rator o rand o rand) arm8_enc1_4_aux]
+val arm8_enc1_4 = reconstruct_case
+  ``arm8_enc (Inst (Mem m n a))``
+  (rand o rand o rand) [reconstruct_case
+  ``arm8_enc (Inst (Mem m n (Addr n' c)))``
+  (rand o rator o rator o rand o rand) arm8_enc1_4_aux]
 
 val arm8_enc1_5 = el 5 arm8_enc1s
 
-val arm8_simp1 = reconstruct_case ``arm8_enc (Inst i)`` (rand o rand) [arm8_enc1_1,arm8_enc1_2,arm8_enc1_3,arm8_enc1_4,arm8_enc1_5]
+val arm8_simp1 = reconstruct_case ``arm8_enc (Inst i)``
+  (rand o rand) [arm8_enc1_1,arm8_enc1_2,arm8_enc1_3,arm8_enc1_4,arm8_enc1_5]
 
-val arm8_simp2 = arm8_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv
+val arm8_simp2 = arm8_enc2 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults
+  |> wc_simp |> we_simp |> gconv
 
 val arm8_enc3_aux = arm8_enc3
   |> SIMP_RULE (srw_ss() ++ DatatypeSimps.expand_type_quants_ss[``:64 reg_imm``])[FORALL_AND_THM]
@@ -181,15 +216,18 @@ val arm8_simp3 =
   reconstruct_case ``arm8_enc (JumpCmp c n r c0)`` (rand o rator o rand)
     [arm8_enc3_1_th,arm8_enc3_2_th]
 
-val arm8_simp4 = arm8_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw]
+val arm8_simp4 = arm8_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults
+|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO,v2w_rw]
 
-val arm8_simp5 = arm8_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+val arm8_simp5 = arm8_enc5 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults
+|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
-val arm8_simp6 = arm8_enc6
-  |> SIMP_RULE (srw_ss() ++ LET_ss) (Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR ::word_mul_def :: defaults)
-  |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
+val arm8_simp6 = arm8_enc6 |> SIMP_RULE (srw_ss() ++ LET_ss)
+(Q.ISPEC`LIST_BIND`COND_RAND :: COND_RATOR ::word_mul_def :: defaults)
+|> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
-val arm8_enc_thm = reconstruct_case ``arm8_enc i`` rand [arm8_simp1,arm8_simp2,arm8_simp3,arm8_simp4,arm8_simp5,arm8_simp6]
+val arm8_enc_thm = reconstruct_case ``arm8_enc i`` rand
+[arm8_simp1,arm8_simp2,arm8_simp3,arm8_simp4,arm8_simp5,arm8_simp6]
 
 val ct_curr_def = tDefine "ct_curr" `
   ct_curr b (w:word64) =
@@ -222,7 +260,8 @@ val res = translate ct_curr_def
 
 (* the encoder uses two special functions that need to be hand translated *)
 fun specv64 v = INST_TYPE [v|->``:64``]
-val _ = translate (specv64 ``:'N`` EncodeBitMaskAux_def |> gconv |> SIMP_RULE std_ss [CountTrailing_eq, word_ror_eq_any_word64_ror])
+val _ = translate (specv64 ``:'N`` EncodeBitMaskAux_def |> gconv |>
+SIMP_RULE std_ss [CountTrailing_eq, word_ror_eq_any_word64_ror])
 
 val log2_def = Define`
   log2 n =
@@ -289,22 +328,29 @@ val Num_rw = Q.prove(`
   `0 ≤ len` by intLib.COOPER_TAC>>
   metis_tac[integerTheory.INT_ABS_EQ_ID])
 
-val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE (srw_ss()++ARITH_ss) [hsb_compute,v2w_Ones,Replicate_def,bitstringTheory.length_pad_left,Ones_def,GSYM bitstringTheory.n2w_v2n,Num_rw]
-|> CONV_RULE (wordsLib.WORD_CONV) o SIMP_RULE std_ss [word_concat_def,word_join_def,w2w_w2w]
-|> SIMP_RULE std_ss [word_extract_w2w_mask,w2w_id,SHIFT_ZERO,notw,word_mul_def] |> gconv)
+val res = translate (specv64 ``:'M`` DecodeBitMasks_def |> SIMP_RULE
+  (srw_ss()++ARITH_ss) [hsb_compute, v2w_Ones, Replicate_def,
+  bitstringTheory.length_pad_left, Ones_def, GSYM
+  bitstringTheory.n2w_v2n, Num_rw] |> CONV_RULE (wordsLib.WORD_CONV) o
+  SIMP_RULE std_ss [word_concat_def, word_join_def, w2w_w2w] |>
+  SIMP_RULE std_ss [word_extract_w2w_mask, w2w_id, SHIFT_ZERO, notw,
+  word_mul_def] |> gconv)
 
 val decodebitmasks_side = Q.prove(`
   decodebitmasks_side x ⇔ T`,
   PairCases_on`x`>>EVAL_TAC>>fs[] >>
   simp_tac std_ss [GSYM LENGTH_NIL,LENGTH_GENLIST]) |> update_precondition
 
-val res = translate (INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def |> SIMP_RULE std_ss [notw] |> gconv)
+val res = translate (INST_TYPE [``:'N``|->``:64``] EncodeBitMask_def
+ |> SIMP_RULE std_ss [notw] |> gconv)
 
 val res = translate arm8_enc_thm
 
-val _ = translate (valid_immediate_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
+val _ = translate (valid_immediate_def |> SIMP_RULE bool_ss
+[IN_INSERT,NOT_IN_EMPTY]|> econv)
 
-val res = translate (arm8_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
+val res = translate (arm8_config_def |> SIMP_RULE bool_ss
+[IN_INSERT,NOT_IN_EMPTY]|> econv)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

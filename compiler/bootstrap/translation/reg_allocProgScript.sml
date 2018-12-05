@@ -1,3 +1,6 @@
+(*
+  Translate the compiler's register allocator.
+*)
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
@@ -66,15 +69,15 @@ val store_pinv_def_opt = NONE : thm option;
 (* Initialization *)
 
 val _ = start_dynamic_init_fixed_store_translation
-	    refs_manip_list
-	    rarrays_manip_list
-	    farrays_manip_list
-	    store_hprop_name
-	    state_type
-	    exn_ri_def
-	    exn_functions
-	    add_type_theories
-	    store_pinv_def_opt
+            refs_manip_list
+            rarrays_manip_list
+            farrays_manip_list
+            store_hprop_name
+            state_type
+            exn_ri_def
+            exn_functions
+            add_type_theories
+            store_pinv_def_opt
 
 (*
  * Translate the register allocator
@@ -342,15 +345,15 @@ val store_pinv_def_opt = NONE : thm option;
 (* Initialization *)
 
 val _ = start_dynamic_init_fixed_store_translation
-	    refs_manip_list
-	    rarrays_manip_list
-	    farrays_manip_list
-	    store_hprop_name
-	    state_type
-	    exn_ri_def
-	    [] (* exn_functions *)
-	    add_type_theories
-	    store_pinv_def_opt
+            refs_manip_list
+            rarrays_manip_list
+            farrays_manip_list
+            store_hprop_name
+            state_type
+            exn_ri_def
+            [] (* exn_functions *)
+            add_type_theories
+            store_pinv_def_opt
 
 (* Translate basics *)
 
@@ -367,9 +370,9 @@ val map_colors_sub_def = Define `
   (map_colors_sub (x::xs) =
      do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)`
 
-val map_colors_sub_eq = store_thm("map_colors_sub_eq",
-  ``map_colors_sub = st_ex_MAP colors_sub``,
-  once_rewrite_tac [FUN_EQ_THM]
+Theorem map_colors_sub_eq
+  `map_colors_sub = st_ex_MAP colors_sub`
+  (once_rewrite_tac [FUN_EQ_THM]
   \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]);
 
 val res = m_translate spill_register_def;
