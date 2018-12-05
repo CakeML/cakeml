@@ -1,3 +1,7 @@
+(*
+  Evaluate the final part of the 32-bit version of the compiler
+  into machine code for ag32, i.e. the Silver ISA.
+*)
 open preamble to_lab_ag32BootstrapTheory compilationLib
 
 val _ = new_theory "ag32Bootstrap";

@@ -1,3 +1,6 @@
+(*
+  Definition of CakeML's type inferencer.
+*)
 open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
 open namespacePropsTheory;
 open infer_tTheory unifyTheory;
@@ -16,6 +19,12 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val _ = Datatype `
   exc = Success 'a | Failure 'b`;
+
+val _ = temp_type_abbrev("err_var",type_of ``primTypes$prim_tenv.t``);
+
+val _ = Datatype `
+  loc_err_info = <| loc : locs option ;
+                    err : err_var |>`
 
 val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
 
@@ -36,7 +45,8 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val failwith_def = Define `
-(failwith : locs option -> α -> (β, γ, (locs option # α)) M) l msg = (\s. (Failure (l, msg), s))`;
+(failwith : loc_err_info -> α -> (β, γ, (locs option # α)) M) l msg =
+    (\s. (Failure (l.loc, msg), s))`;
 
 val guard_def = Define `
 guard P l msg = if P then return () else failwith l msg`;
@@ -52,7 +62,7 @@ val write_def = Define `
 val lookup_st_ex_def = Define `
   lookup_st_ex l err id ienv st =
     dtcase nsLookup ienv id of
-    | NONE => (Failure (l, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
+    | NONE => (Failure (l.loc, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
     | SOME v => (Success v, st)`;
 
 val _ = Hol_datatype `
@@ -90,14 +100,16 @@ init_state =
     (Success (), init_infer_state st)`;
 
 val add_constraint_def = Define `
-add_constraint (l : locs option) t1 t2 =
+add_constraint (l : loc_err_info) t1 t2 =
   \st.
     dtcase t_unify st.subst t1 t2 of
       | NONE =>
-          (Failure (l, concat [implode "Type mismatch between ";
-                               inf_type_to_string (t_walkstar st.subst t1);
-                               implode " and ";
-                               inf_type_to_string (t_walkstar st.subst t2)]), st)
+          (Failure (l.loc, concat [implode "Type mismatch between ";
+                                   FST (inf_type_to_string l.err
+                                         (t_walkstar st.subst t1));
+                                   implode " and ";
+                                   FST (inf_type_to_string l.err
+                                         (t_walkstar st.subst t2))]), st)
       | SOME s =>
           (Success (), st with <| subst := s |>)`;
 
@@ -599,21 +611,21 @@ constrain_op l op ts =
 
 val constrain_op_def = Define constrain_op_quotation;
 
-val constrain_op_pmatch = Q.store_thm("constrain_op_pmatch",`∀op ts.` @
+Theorem constrain_op_pmatch (`∀op ts.` @
   (constrain_op_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
+       | aq => aq)))
+ (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[constrain_op_def]);
 
-val constrain_op_error_msg_sanity = Q.store_thm ("constrain_op_error_msg_sanity",
+Theorem constrain_op_error_msg_sanity
 `!l op args s l' s' msg.
   LENGTH args = SND (op_to_string op) ∧
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
-  IS_PREFIX (explode msg) "Type mismatch"`,
- rpt strip_tac >>
+  IS_PREFIX (explode msg) "Type mismatch"`
+ (rpt strip_tac >>
  qmatch_abbrev_tac `IS_PREFIX _ m` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_def] >>
@@ -647,7 +659,7 @@ val infer_e_def = tDefine "infer_e" `
   return (Infer_Tapp [] Tstring_num)) ∧
 (infer_e l ienv (Lit (Word8 w)) =
   return (Infer_Tapp [] Tword8_num)) ∧
-(infer_e l ienv (Lit (Word64 w)) =
+(infer_e l ienv (Lit (Word64 _)) =
   return (Infer_Tapp [] Tword64_num)) ∧
 (infer_e l ienv (Var id) =
   do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
@@ -749,7 +761,7 @@ val infer_e_def = tDefine "infer_e" `
      return t
   od) ∧
 (infer_e l ienv (Tannot e t) =
-  do t' <- infer_e l ienv e;
+  do t' <- infer_e l ienv e ;
      t'' <- type_name_check_subst l
             (\tv. concat [implode "Type variable "; implode tv; implode " found in type annotation. ";
                           implode "Type variables are not supported in type annotations."])
@@ -757,8 +769,8 @@ val infer_e_def = tDefine "infer_e" `
      () <- add_constraint l t' (infer_type_subst [] t'');
      return t'
    od) ∧
-(infer_e _ ienv (Lannot e l) =
-  infer_e (SOME l) ienv e) ∧
+(infer_e l ienv (Lannot e new_l) =
+  infer_e (l with loc := SOME new_l) ienv e) ∧
 (infer_es l ienv [] =
   return []) ∧
 (infer_es l ienv (e::es) =
@@ -773,7 +785,7 @@ val infer_e_def = tDefine "infer_e" `
     check_dups l (\n. concat [implode "Duplicate variable "; implode n;
                               implode " in pattern"])
               (MAP FST env');
-     () <- add_constraint l t1 t1';
+     () <- add_constraint l t1 t1' ;
      t2' <- infer_e l (ienv with inf_v := nsAppend (alist_to_ns (MAP (\(n,t). (n,(0,t))) env')) ienv.inf_v) e;
      () <- add_constraint l t2 t2';
      () <- infer_pes l ienv pes t1 t2;
@@ -804,34 +816,40 @@ val lift_ienv_def = Define `
        inf_c := nsLift mn ienv.inf_c;
        inf_t := nsLift mn ienv.inf_t |>`;
 
+
+
 val infer_d_def = Define `
 (infer_d ienv (Dlet locs p e) =
   do () <- init_state;
      n <- get_next_uvar;
-     t1 <- infer_e (SOME locs) ienv e;
-     (t2,env') <- infer_p (SOME locs) ienv p;
-     check_dups (SOME locs) (\n. concat [implode "Duplicate variable "; implode n;
-                                  implode " in the left-hand side of a definition"])
+     t1 <- infer_e <| loc := SOME locs; err := ienv.inf_t |> ienv e;
+     (t2,env') <- infer_p <| loc := SOME locs; err := ienv.inf_t |> ienv p;
+     check_dups <| loc := SOME locs; err := ienv.inf_t |>
+                   (\n. concat [implode "Duplicate variable "; implode n;
+                                implode " in the left-hand side of a definition"])
                 (MAP FST env');
-     () <- add_constraint (SOME locs) t1 t2;
+     () <- add_constraint <| loc := SOME locs; err := ienv.inf_t |> t1 t2;
      ts <- apply_subst_list (MAP SND env');
      (num_tvs, s, ts') <- return (generalise_list n 0 FEMPTY ts);
-     () <- guard (num_tvs = 0 ∨ is_value e) (SOME locs) (implode "Value restriction violated");
+     () <- guard (num_tvs = 0 ∨ is_value e) <| loc := SOME locs; err := ienv.inf_t |>
+                 (implode "Value restriction violated");
      return <| inf_v := alist_to_ns (ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'));
                inf_c := nsEmpty;
                inf_t := nsEmpty |>
   od) ∧
 (infer_d ienv (Dletrec locs funs) =
   do
-    check_dups (SOME locs) (\n. concat [implode "Duplicate function name "; implode n;
-                                        implode " a mutually recursive function definition"])
+    check_dups <| loc := SOME locs; err := ienv.inf_t |>
+       (\n. concat [implode "Duplicate function name "; implode n;
+            implode " a mutually recursive function definition"])
                (MAP FST funs);
      () <- init_state;
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (LENGTH funs);
      env' <- return (nsAppend (alist_to_ns (list$MAP2 (\(f,x,e) uvar. (f,(0,uvar))) funs uvars)) ienv.inf_v);
-     funs_ts <- infer_funs (SOME locs) (ienv with inf_v:= env') funs;
-     () <- add_constraints (SOME locs) uvars funs_ts;
+     funs_ts <- infer_funs <| loc := SOME locs; err := ienv.inf_t |>
+                           (ienv with inf_v:= env') funs;
+     () <- add_constraints <| loc := SOME locs; err := ienv.inf_t |> uvars funs_ts;
      ts <- apply_subst_list uvars;
      (num_gen,s,ts') <- return (generalise_list next 0 FEMPTY ts);
      return <| inf_v := alist_to_ns (list$MAP2 (\(f,x,e) t. (f,(num_gen,t))) funs ts');
@@ -843,18 +861,19 @@ val infer_d_def = Define `
      tids <- n_fresh_id (LENGTH tdefs);
      ienvT1 <- return (alist_to_ns (MAP2 (\ (tvs,tn,ctors) i . (tn, (tvs, Tapp (MAP Tvar tvs) i))) tdefs tids));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
-     check_type_definition (SOME locs) ienvT2 tdefs;
+     check_type_definition <| loc := SOME locs; err := ienv.inf_t |> ienvT2 tdefs;
      return <| inf_v := nsEmpty;
                inf_c := build_ctor_tenv ienvT2 tdefs tids;
                inf_t := ienvT1 |>
   od) ∧
 (infer_d ienv (Dtabbrev locs tvs tn t) =
   do
-    check_dups (SOME locs) (\n. concat [implode "Duplicate type variable bindings for ";
-                                        implode n; implode " in type abbreviation ";
-                                        implode tn])
+    check_dups <| loc := SOME locs; err := ienv.inf_t |>
+       (\n. concat [implode "Duplicate type variable bindings for ";
+                    implode n; implode " in type abbreviation ";
+                    implode tn])
               tvs;
-     t' <- type_name_check_subst (SOME locs)
+     t' <- type_name_check_subst <| loc := SOME locs; err := ienv.inf_t |>
             (\tv. concat [implode "Unbound type variable "; implode tv; implode " in type abbreviation ";
                           implode tn])
             ienv.inf_t tvs t;
@@ -864,7 +883,7 @@ val infer_d_def = Define `
   od) ∧
 (infer_d ienv (Dexn locs cn ts) =
   do
-    ts' <- type_name_check_subst_list (SOME locs)
+    ts' <- type_name_check_subst_list <| loc := SOME locs; err := ienv.inf_t |>
             (\tv. concat [implode "Type variable "; implode tv; implode " found in declaration of exception "; implode cn;
                           implode ". Type variables are not allowed in exception declarations."])
             ienv.inf_t [] ts;
@@ -1121,5 +1140,35 @@ sub_completion tvs next_uvar s1 extra_constraints s2 =
   (pure_add_constraints s1 extra_constraints s2 ∧
    (count next_uvar SUBSET FDOM s2) ∧
    (!uv. uv ∈ FDOM s2 ⇒ check_t tvs {} (t_walkstar s2 (Infer_Tuvar uv))))`;
+
+(* printing of types *)
+
+val alist_nub_def = tDefine "alist_nub" `
+  alist_nub [] = [] /\
+  alist_nub ((x,y)::xs) = (x,y) :: alist_nub (FILTER (\t. x <> FST t) xs)`
+  (WF_REL_TAC `measure LENGTH` \\ fs [LESS_EQ,LENGTH_FILTER_LEQ]);
+
+val ns_nub_def = tDefine "ns_nub" `
+  ns_nub (Bind xs ys) = Bind (alist_nub xs)
+                             (alist_nub (MAP (\(x,y). (x, ns_nub y)) ys))`
+ (WF_REL_TAC `measure (namespace_size (K 0) (K 0) (K 0))` \\ fs []
+  \\ Induct_on `ys` \\ fs [FORALL_PROD] \\ rw []
+  \\ fs [namespace_size_def] \\ res_tac \\ fs []
+  \\ pop_assum (assume_tac o SPEC_ALL) \\ fs []);
+
+val ns_to_alist = Define `
+  (ns_to_alist (Bind [] []) = []) /\
+  (ns_to_alist (Bind [] ((n,x)::ms)) =
+    MAP (\(x,y). (n++"."++x,y)) (ns_to_alist x) ++
+    ns_to_alist (Bind [] ms)) /\
+  (ns_to_alist (Bind ((s,x)::xs) m) = (s,x) :: ns_to_alist (Bind xs m))`
+
+val inf_env_to_types_string_def = Define `
+  inf_env_to_types_string s =
+    let l = ns_to_alist (ns_nub s.inf_v) in
+    let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
+                                    FST (inf_type_to_string s.inf_t t);
+                                    strlit "\n";]) l in
+      (* QSORT mlstring_le *) REVERSE xs`
 
 val _ = export_theory ();

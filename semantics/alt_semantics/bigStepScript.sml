@@ -8,6 +8,10 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "bigStep"
 
+(*
+  A clocked relational big-step semantics for CakeML. This semantics
+  is no longer used in the CakeML development.
+*)
 (*open import Pervasives_extra*)
 (*open import Lib*)
 (*open import Namespace*)
@@ -488,4 +492,3 @@ prog_diverges (extend_dec_env new_env env) s2 tops
 prog_diverges env s1 (top::tops)
 *)
 val _ = export_theory()
-

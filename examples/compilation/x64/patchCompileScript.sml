@@ -1,3 +1,6 @@
+(*
+  Compiles the patch example by evaluation inside the logic of HOL
+*)
 open preamble compilationLib patchProgTheory
 
 val _ = new_theory "patchCompile"

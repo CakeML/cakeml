@@ -1,3 +1,7 @@
+(*
+  A compset for evaluating the register allocators and parallel move
+  compiler.
+*)
 structure reg_allocComputeLib =
 struct
 

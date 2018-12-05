@@ -1,3 +1,6 @@
+(*
+  Some tests for the compiler's parser.
+*)
 open HolKernel Parse boolLib bossLib
 
 open cmlPEGTheory gramTheory cmlPtreeConversionTheory
@@ -34,13 +37,13 @@ val _ = temp_add_user_printer
 
 fun strip_Lannot t =
   if is_comb t then
-	let val (tl, tr) = dest_comb t in
-	  if is_comb tl then
-		let val (t1, t2) = dest_comb tl in
-		  if t1 = ``Lannot`` then strip_Lannot t2
-		  else mk_comb(mk_comb(strip_Lannot t1, strip_Lannot t2), strip_Lannot tr)
-		end
-	  else mk_comb(tl, strip_Lannot tr)
+        let val (tl, tr) = dest_comb t in
+          if is_comb tl then
+                let val (t1, t2) = dest_comb tl in
+                  if t1 = ``Lannot`` then strip_Lannot t2
+                  else mk_comb(mk_comb(strip_Lannot t1, strip_Lannot t2), strip_Lannot tr)
+                end
+          else mk_comb(tl, strip_Lannot tr)
     end
   else t
 

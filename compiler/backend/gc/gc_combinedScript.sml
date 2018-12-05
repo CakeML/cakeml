@@ -1,3 +1,6 @@
+(*
+  One function that can run any of the GC algorithms.
+*)
 open preamble gc_sharedTheory copying_gcTheory gen_gcTheory gen_gc_partialTheory;
 open data_to_wordTheory;
 

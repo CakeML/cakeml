@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for RISC-V
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib riscv_stepLib riscv_targetTheory;
 
@@ -25,7 +28,7 @@ val bytes_in_memory_thm = Q.prove(
       state.c_PC state.procID + 1w IN s.mem_domain /\
       state.c_PC state.procID IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def,
-       riscv_ok_def, asmSemTheory.bytes_in_memory_def,
+       riscv_ok_def, miscTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
    \\ fs []
    )
@@ -43,7 +46,7 @@ val bytes_in_memory_thm2 = Q.prove(
       state.c_PC state.procID + w + 1w IN s.mem_domain /\
       state.c_PC state.procID + w IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, riscv_target_def, riscv_config_def,
-       riscv_ok_def, asmSemTheory.bytes_in_memory_def,
+       riscv_ok_def, miscTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
    \\ fs []
    )
@@ -338,7 +341,7 @@ val bytes_in_memory_IMP_all_pcs_MEM8 = Q.prove(
    (!(i:num) ms'. (∀a. a ∈ dm ⇒ (env i ms').MEM8 a = ms'.MEM8 a)) ==>
    (!i ms'. (∀pc. pc ∈ all_pcs (LENGTH xs) a 0 ==> (env i ms').MEM8 pc = ms'.MEM8 pc))`,
  Induct_on `xs`
- \\ rw [asmPropsTheory.all_pcs_def, asmSemTheory.bytes_in_memory_def]
+ \\ rw [asmPropsTheory.all_pcs_def, miscTheory.bytes_in_memory_def]
  \\ metis_tac []);
 
 local
@@ -439,9 +442,9 @@ val riscv_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-val riscv_encoder_correct = Q.store_thm ("riscv_encoder_correct",
-   `encoder_correct riscv_target`,
-   simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
+Theorem riscv_encoder_correct
+   `encoder_correct riscv_target`
+   (simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel riscv_target`
    \\ rw [riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

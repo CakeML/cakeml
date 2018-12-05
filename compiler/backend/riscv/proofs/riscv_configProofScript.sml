@@ -1,3 +1,7 @@
+(*
+  For RISC-V, prove that the compiler configuration is well formed,
+  and instantiate the compiler correctness theorem.
+*)
 open preamble backendProofTheory
      riscv_configTheory riscv_targetProofTheory
 open blastLib;
@@ -18,9 +22,9 @@ val names_tac =
   \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
-val riscv_backend_config_ok = Q.store_thm("riscv_backend_config_ok",`
-  backend_config_ok riscv_backend_config`,
-  simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+Theorem riscv_backend_config_ok `
+  backend_config_ok riscv_backend_config`
+  (simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[riscv_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
   >- names_tac
@@ -36,9 +40,9 @@ val riscv_backend_config_ok = Q.store_thm("riscv_backend_config_ok",`
   \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
   \\ fs[])
 
-val riscv_machine_config_ok = Q.store_thm("riscv_machine_config_ok",
-  `is_riscv_machine_config mc ⇒ mc_conf_ok mc`,
-  rw[lab_to_targetProofTheory.mc_conf_ok_def,is_riscv_machine_config_def]
+Theorem riscv_machine_config_ok
+  `is_riscv_machine_config mc ⇒ mc_conf_ok mc`
+  (rw[lab_to_targetProofTheory.mc_conf_ok_def,is_riscv_machine_config_def]
   >- EVAL_TAC
   >- simp[riscv_targetProofTheory.riscv_encoder_correct]
   >- EVAL_TAC
@@ -48,10 +52,10 @@ val riscv_machine_config_ok = Q.store_thm("riscv_machine_config_ok",
   >- EVAL_TAC
   >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,riscv_encoder_correct]);
 
-val riscv_init_ok = Q.store_thm("riscv_init_ok",
+Theorem riscv_init_ok
   `is_riscv_machine_config mc ⇒
-    mc_init_ok riscv_backend_config mc`,
-  rw[mc_init_ok_def] \\
+    mc_init_ok riscv_backend_config mc`
+  (rw[mc_init_ok_def] \\
   fs[is_riscv_machine_config_def] \\
   EVAL_TAC);
 

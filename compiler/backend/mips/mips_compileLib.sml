@@ -1,3 +1,6 @@
+(*
+  Provides a compset for the MIPS-specific parts of the backend
+*)
 structure mips_compileLib =
 struct
 

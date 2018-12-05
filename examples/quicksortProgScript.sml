@@ -22,14 +22,14 @@ val list_rel_perm_help = Q.prove (
   ho_match_mp_tac PERM_IND >>
   rw []);
 
-val list_rel_perm = Q.store_thm ("list_rel_perm",
+Theorem list_rel_perm
   `!r l1 l2 l3 l4.
     LENGTH l3 = LENGTH l4 ∧
     LIST_REL r l1 l2 ∧
     PERM (ZIP (l1,l2)) (ZIP (l3,l4))
     ⇒
-    LIST_REL r l3 l4`,
-  rw [] >>
+    LIST_REL r l3 l4`
+  (rw [] >>
   drule list_rel_perm_help >>
   imp_res_tac LIST_REL_LENGTH >>
   rw [MAP_ZIP]);
@@ -81,22 +81,22 @@ val perm_swap_help = Q.prove (
   fs [] >>
   rw [FILTER_APPEND]);
 
-val perm_swap = Q.store_thm ("perm_swap",
+Theorem perm_swap
   `!l x y.
     x < LENGTH l ∧ y < LENGTH l
     ⇒
-    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))`,
-  rw [] >>
+    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))`
+  (rw [] >>
   `x < y ∨ y < x ∨ x = y` by decide_tac >>
   rw [] >>
   metis_tac [perm_swap_help, LUPDATE_commutes , PERM_REFL, LUPDATE_SAME]);
 
-val lupdate_zip = Q.store_thm ("lupdate_zip",
+Theorem lupdate_zip
   `!l1 l2 x y n.
     LENGTH l1 = LENGTH l2 ∧ n < LENGTH l1 ⇒
     LUPDATE (x,y) n (ZIP (l1,l2)) =
-    ZIP (LUPDATE x n l1, LUPDATE y n l2)`,
-  induct_on `n` >>
+    ZIP (LUPDATE x n l1, LUPDATE y n l2)`
+  (induct_on `n` >>
   rw [] >>
   Cases_on `l1` >>
   Cases_on `l2` >>
@@ -109,11 +109,11 @@ val el_append_length1 = Q.prove (
   `PRE (n + SUC (LENGTH l1)) = n + LENGTH l1` by decide_tac >>
   metis_tac []);
 
-val front_zip = Q.store_thm ("front_zip",
+Theorem front_zip
   `!l1 l2.
     l1 ≠ [] ∧ LENGTH l1 = LENGTH l2 ⇒
-    FRONT (ZIP (l1,l2)) = ZIP (FRONT l1, FRONT l2)`,
-  Induct_on `l1` >>
+    FRONT (ZIP (l1,l2)) = ZIP (FRONT l1, FRONT l2)`
+  (Induct_on `l1` >>
   rw [] >>
   Cases_on `l2` >>
   fs [] >>
@@ -129,21 +129,21 @@ val strict_weak_order_def = Define `
     (!x y. r x y ⇒ ~r y x) ∧
     transitive (\x y. ~r x y ∧ ¬r y x)`;
 
-val strict_weak_order_alt = Q.store_thm ("strict_weak_order_alt",
+Theorem strict_weak_order_alt
   `strict_weak_order r ⇔
     (!x y. r x y ⇒ ~r y x) ∧
-    transitive (\x y. ~r y x)`,
-  rw [strict_weak_order_def, transitive_def] >>
+    transitive (\x y. ~r y x)`
+  (rw [strict_weak_order_def, transitive_def] >>
   metis_tac []);
 
-val sing_length1 = Q.store_thm ("sing_length1",
-  `!l. LENGTH l = 1 ⇔ ?x. l = [x]`,
-  Cases >>
+Theorem sing_length1
+  `!l. LENGTH l = 1 ⇔ ?x. l = [x]`
+  (Cases >>
   rw [LENGTH_NIL]);
 
-val length_gt1 = Q.store_thm ("length_gt1",
-  `!l. LENGTH l > 1 ⇒ ?x y z. l = x::y::z`,
-  Cases >>
+Theorem length_gt1
+  `!l. LENGTH l > 1 ⇒ ?x y z. l = x::y::z`
+  (Cases >>
   rw [] >>
   Cases_on `t` >>
   fs []);
@@ -219,7 +219,7 @@ val perm_helper = Q.prove(
   `!a b c. PERM b c ∧ PERM a b ⇒ PERM a c`,
   metis_tac [PERM_SYM, PERM_TRANS]);
 
-val partition_spec = Q.store_thm ("partition_spec",
+Theorem partition_spec
   `!a ffi_p cmp cmp_v arr_v pivot pivot_v lower_v upper_v elem_vs1 elem_vs2 elem_vs3 elems2.
     strict_weak_order cmp ∧
     (a --> a --> BOOL) cmp cmp_v ∧
@@ -245,8 +245,8 @@ val partition_spec = Q.store_thm ("partition_spec",
       (POSTv p_v. SEP_EXISTS part1 part2.
         (* The array is still in the heap, with the middle part partitioned. *)
         ARRAY arr_v (elem_vs1 ++ part1 ++ part2 ++ elem_vs3) *
-        &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))`,
-  xcf "partition" (basis_st()) >>
+        &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))`
+  (xcf "partition" (basis_st()) >>
   qmatch_assum_abbrev_tac `INT (&lower) lower_v` >>
   qmatch_assum_abbrev_tac `INT (&upper) upper_v` >>
   `a pivot pivot_v`
@@ -992,7 +992,7 @@ val eq_int_v_thm =
     (DISCH_ALL mlbasicsProgTheory.eq_v_thm)
     (ml_translatorTheory.EqualityType_NUM_BOOL |> CONJUNCT2 |> CONJUNCT1)
 
-val quicksort_spec = Q.store_thm ("quicksort_spec",
+Theorem quicksort_spec
   `!ffi_p cmp cmp_v arr_v elem_vs elems.
     strict_weak_order cmp ∧
     (a --> a --> BOOL) cmp cmp_v ∧
@@ -1015,8 +1015,8 @@ val quicksort_spec = Q.store_thm ("quicksort_spec",
               LIST_REL a elems' elem_vs' ∧
               PERM (ZIP (elems',elem_vs')) (ZIP (elems,elem_vs)) ∧
               (* We use "not greater than" as equivalent to "less or equal" *)
-              SORTED (\x y. ¬(cmp y x)) elems'))`,
-  xcf "quicksort" (basis_st()) >>
+              SORTED (\x y. ¬(cmp y x)) elems'))`
+  (xcf "quicksort" (basis_st()) >>
   (* The loop invariant for the main loop. Note that we have to quantify over
    * what's in the array because it changes on the recursive calls. *)
   xfun_spec `quicksort_help`

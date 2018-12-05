@@ -8,6 +8,7 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "ml_translator_test";
 
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
+open ml_progLib;
 
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
@@ -180,16 +181,23 @@ val _ = translate_no_ind test_def;
 
 (* registering types inside modules *)
 
-open ml_progLib
-
 val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
 val my_fun_def = Define `(my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
                          (my_fun my_case3 = 2n)`;
+
+val r = register_type ``:'a option``;
 
 val _ = ml_prog_update (open_module "My_module");
 val r = register_type ``:my_type``;
 val _ = ml_prog_update (close_module NONE);
 val r = translate my_fun_def;
+
+val _ = Datatype `my_type3 = SomE num num | NonE`;
+
+val _ = ml_prog_update (open_module "My_other_module");
+val r = register_type ``:my_type3``;
+val res3 = translate optionTheory.THE_DEF
+val _ = ml_prog_update (close_module NONE);
 
 (* test the abstract translator is working *)
 
@@ -198,10 +206,36 @@ val map_again_def = Define `map_again f [] = []
 
 val inc_list_def = Define `inc_list xs = map_again (\x. x + SUC 0) xs`;
 
-val _ = reset_translation ();
-
 val r = abs_translate map_again_def;
 val r = abs_translate inc_list_def;
 val r = concretise [``map_again``, ``inc_list``];
+
+(* check EqualityType proves for some modestly complex datatypes *)
+
+val _ = Datatype `a_type = AT_Nil | AT_Rec (a_type list) ((a_type # num) list)`;
+val _ = Datatype `a_b_type = ABT_Nil
+  | ABT_Rec (bool list) ((a_b_type # num) list)`;
+val _ = Datatype.Hol_datatype `a_c_type = ACT_Nil
+  | ACT_One of 'a | ACT_Two of 'b | ACT_Rec of (a_c_type # num) list`;
+val _ = Datatype `simple_type = STA | STB | STC | STX | STY | STZ`;
+val _ = Datatype `simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z`;
+
+val r = register_type ``:a_type``;
+val r = register_type ``:a_b_type``;
+val r = register_type ``:('a, 'b) a_c_type``;
+val r = register_type ``:simple_type``;
+val r = register_exn_type ``:simple_type2``;
+
+val a_inv = get_type_inv ``:a_type``;
+val a_b_inv = get_type_inv ``:a_b_type``;
+val a_c_inv_num = get_type_inv ``:(num, num) a_c_type``;
+val st_inv = get_type_inv ``:simple_type``;
+val st2_inv = get_type_inv ``:simple_type2``;
+
+Theorem EqTyp_test_lemmas
+  `EqualityType (^a_inv) /\ EqualityType (^a_b_inv)
+    /\ EqualityType (^a_c_inv_num) /\ EqualityType (^st_inv)
+    /\ EqualityType (^st2_inv)`
+  (fs (eq_lemmas ()));
 
 val _ = export_theory();

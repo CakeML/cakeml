@@ -1,22 +1,23 @@
+(*
+  This simple compiler phase cleans up dataLang programs.  The simp
+  optimisation removes Skips and deletes some dead code created by
+  Raise and Return.
+
+  Example:
+
+    Seq (Seq Skip (Raise n)) anything_here
+
+  translates into
+
+    Raise n
+
+  It also right-associates Seq, e.g.
+
+    Seq (Seq x1 x2) x3 --> Seq x1 (Seq x2 x3)
+*)
 open preamble dataLangTheory;
 
 val _ = new_theory "data_simp";
-
-(* Simple clean up of dataLang:
-
-   The simp optimisation removes Skips and deletes some dead code
-   created by Raise and Return, e.g.
-
-     Seq (Seq Skip (Raise n)) anything_here
-
-   translates into
-
-     Raise n
-
-   It also right-associates Seq, e.g.
-
-     Seq (Seq x1 x2) x3 --> Seq x1 (Seq x2 x3)
-*)
 
 val pSeq_def = Define `
   pSeq c1 c2 =

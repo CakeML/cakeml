@@ -1,19 +1,19 @@
+(*
+  The following section culminates in call_main_thm2 which takes a
+  spec and some aspects of the current state, and proves a
+  Semantics_prog statement.
+
+  It also proves call_FFI_rel^* between the initial state, and the
+  state after creating the prog and then calling the main function -
+  this is useful for theorizing about the output of the program.
+*)
 open preamble
      semanticPrimitivesTheory
      ml_translatorTheory ml_translatorLib ml_progLib
      cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
-     semanticsLib evaluatePropsTheory
+     evaluatePropsTheory
 
 val _ = new_theory "cfMain";
-
-(*
-   The following section culminates in call_main_thm2 which takes a
-   spec and some aspects of the current state, and proves a
-   Semantics_prog statement. It also proves call_FFI_rel^* between the
-   initial state, and the state after creating the prog and then
-   calling the main function - this is useful for theorizing about the
-   output of the program
-*)
 
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)
@@ -21,15 +21,15 @@ fun mk_main_call s =
 val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
 
-val call_main_thm1 = Q.store_thm("call_main_thm1",
+Theorem call_main_thm1
 `ML_code env1 st1 prog NONE env2 st2 ==> (* get this from the current ML prog state *)
  lookup_var fname env2 = SOME fv ==> (* get this by EVAL *)
   app p fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * Q) ==> (* this should be the CF spec you prove for the "main" function *)
     SPLIT (st2heap p st2) (h1,h2) /\ P h1 ==>  (* this might need simplification, but some of it may need to stay on the final theorem *)
     ∃st3.
       Decls env1 st1 (SNOC ^main_call prog) env2 st3 /\
-      (?h3 h4. SPLIT3 (st2heap p st3) (h3,h2,h4) /\ Q h3)`,
-  rw[ml_progTheory.ML_code_def,SNOC_APPEND,ml_progTheory.Decls_APPEND,PULL_EXISTS]
+      (?h3 h4. SPLIT3 (st2heap p st3) (h3,h2,h4) /\ Q h3)`
+  (rw[ml_progTheory.ML_code_def,SNOC_APPEND,ml_progTheory.Decls_APPEND,PULL_EXISTS]
   \\ simp[ml_progTheory.Decls_def]
   \\ fs [terminationTheory.evaluate_decs_def,PULL_EXISTS,
          EVAL ``(pat_bindings (Pcon NONE []) [])``,pair_case_eq,result_case_eq]
@@ -132,17 +132,17 @@ val FFI_part_hprop_def = Define`
   FFI_part_hprop Q =
    (!h. Q h ==> (?s u ns us. FFI_part s u ns us IN h))`;
 
-val FFI_part_hprop_STAR = Q.store_thm("FFI_part_hprop_STAR",
-  `FFI_part_hprop P \/ FFI_part_hprop Q ==> FFI_part_hprop (P * Q)`,
-  rw[FFI_part_hprop_def]
+Theorem FFI_part_hprop_STAR
+  `FFI_part_hprop P \/ FFI_part_hprop Q ==> FFI_part_hprop (P * Q)`
+  (rw[FFI_part_hprop_def]
   \\ fs[set_sepTheory.STAR_def,SPLIT_def] \\ rw[]
   \\ metis_tac[]);
 
-val FFI_part_hprop_SEP_EXISTS = Q.store_thm("FFI_part_hprop_SEP_EXISTS",
-  `(∀x. FFI_part_hprop (P x)) ⇒ FFI_part_hprop (SEP_EXISTS x. P x)`,
-  rw[FFI_part_hprop_def,SEP_EXISTS_THM] \\ res_tac);
+Theorem FFI_part_hprop_SEP_EXISTS
+  `(∀x. FFI_part_hprop (P x)) ⇒ FFI_part_hprop (SEP_EXISTS x. P x)`
+  (rw[FFI_part_hprop_def,SEP_EXISTS_THM] \\ res_tac);
 
-val call_main_thm2 = Q.store_thm("call_main_thm2",
+Theorem call_main_thm2
   `ML_code env1 st1 prog NONE env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
   app (proj1, proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * Q) ==>
@@ -152,8 +152,8 @@ val call_main_thm2 = Q.store_thm("call_main_thm2",
     ∃st3.
     semantics_prog st1 env1  (SNOC ^main_call prog) (Terminate Success st3.ffi.io_events) /\
     (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ Q h3) /\
-    call_FFI_rel^* st1.ffi st3.ffi`,
-  rw[]
+    call_FFI_rel^* st1.ffi st3.ffi`
+  (rw[]
   \\ qho_match_abbrev_tac`?st3. A st3 /\ B st3 /\ C st1 st3`
   \\ `?st3. Decls env1 st1 (SNOC ^main_call prog) env2 st3
             /\ B st3 /\ C st1 st3`
@@ -168,7 +168,7 @@ val call_main_thm2 = Q.store_thm("call_main_thm2",
   \\ simp[] \\ strip_tac
   \\ asm_exists_tac \\ simp[]);
 
-val call_main_thm2_ffidiv = Q.store_thm("call_main_thm2_ffidiv",
+Theorem call_main_thm2_ffidiv
   `ML_code env1 st1 prog NONE env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
   app (proj1, proj2) fv [Conv NONE []] P (POSTf n. λ c b. Q n c b) ==>
@@ -178,8 +178,8 @@ val call_main_thm2_ffidiv = Q.store_thm("call_main_thm2_ffidiv",
     semantics_prog st1 env1  (SNOC ^main_call prog)
                    (Terminate (FFI_outcome(Final_event n c b FFI_diverged)) st3.ffi.io_events) /\
     (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ Q n c b h3) /\
-    call_FFI_rel^* st1.ffi st3.ffi`,
-  rw[]
+    call_FFI_rel^* st1.ffi st3.ffi`
+  (rw[]
   \\ qho_match_abbrev_tac`?st3 n c b. A st3 n c b /\ B st3 n c b /\ C st1 st3`
   \\ `?st3 st4 n c b.  Decls env1 st1 prog env2 st3
                        /\ semantics_prog st3 (merge_env env2 env1) [(^main_call)]

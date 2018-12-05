@@ -1,3 +1,6 @@
+(*
+  Finish translation of the 64-bit version of the compiler.
+*)
 open preamble
      mipsProgTheory compilerTheory
      exportTheory
@@ -28,9 +31,9 @@ val max_heap_limit_64_def = Define`
 
 val res = translate max_heap_limit_64_def
 
-val max_heap_limit_64_thm = Q.store_thm("max_heap_limit_64_thm",
-  `max_heap_limit (:64) = max_heap_limit_64`,
-  rw[FUN_EQ_THM] \\ EVAL_TAC);
+Theorem max_heap_limit_64_thm
+  `max_heap_limit (:64) = max_heap_limit_64`
+  (rw[FUN_EQ_THM] \\ EVAL_TAC);
 
 (*
 
@@ -135,6 +138,11 @@ val res = translate inferTheory.init_config_def;
 *)
 val res = translate error_to_str_def;
 
+val compiler_error_to_str_side_thm = prove(
+  ``compiler_error_to_str_side x = T``,
+  fs [fetch "-" "compiler_error_to_str_side_def"])
+  |> update_precondition;
+
 val res = translate parse_bool_def;
 val res = translate parse_num_def;
 
@@ -234,14 +242,14 @@ val res = append_prog main;
 
 val st = get_ml_prog_state()
 
-val main_spec = Q.store_thm("main_spec",
+Theorem main_spec
   `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
        &UNIT_TYPE () uv
        * STDIO (full_compile_64 (TL cl) (get_stdin fs) fs)
-       * COMMANDLINE cl)`,
-  xcf "main" st
+       * COMMANDLINE cl)`
+  (xcf "main" st
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (
@@ -296,10 +304,10 @@ val main_spec = Q.store_thm("main_spec",
   \\ instantiate
   \\ xsimpl);
 
-val main_whole_prog_spec = Q.store_thm("main_whole_prog_spec",
+Theorem main_whole_prog_spec
   `whole_prog_spec ^(fetch_v "main" st) cl fs NONE
-    ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))`,
-  simp[whole_prog_spec_def,UNCURRY]
+    ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))`
+  (simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-

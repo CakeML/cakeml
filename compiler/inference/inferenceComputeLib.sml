@@ -1,3 +1,7 @@
+(*
+  A compset for the type inferencer. This is to make it easy to
+  evaluate the type inferencers inside the logic. See tests.
+*)
 structure inferenceComputeLib = struct
   open HolKernel boolLib bossLib lcsymtacs
   open infer_tTheory inferTheory
@@ -73,8 +77,15 @@ structure inferenceComputeLib = struct
     ,typeSystemTheory.Tlist_def
     ,primTypesTheory.prim_tenv_def
     ,inferTheory.lift_ienv_def
+    ,infer_tTheory.ty_var_name_def
+    ,infer_tTheory.get_tyname_def
+    ,infer_tTheory.commas_def
+    ,infer_tTheory.add_parens_def
     ,infer_tTheory.type_ident_to_string_def
-    ,mlnumTheory.toString_def
+    ,mlintTheory.toString_def
+    ,mlintTheory.toChar_def
+    ,mlintTheory.maxSmall_DEC_def
+    ,mlstringTheory.str_def
     ,inferTheory.word_tc_def
     ],
    computeLib.Tys

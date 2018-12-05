@@ -1,3 +1,6 @@
+(*
+  Define the target compiler configuration for ag32.
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib ag32Theory;
 

@@ -1,3 +1,9 @@
+(*
+  This file proves alternative definitions of those HOL kernel
+  functions that have complex pattern matching. The new definitions
+  use PMATCH-based case expressions instead of HOL's standard
+  per-datatype case constants.
+*)
 open preamble
 open patternMatchesLib patternMatchesSyntax patternMatchesTheory
 open ml_monadBaseTheory holKernelTheory
@@ -5,9 +11,6 @@ open ml_monadBaseTheory holKernelTheory
 val _ = new_theory"holKernelPmatch"
 val _ = monadsyntax.temp_add_monadsyntax()
 
-(* This file proves alternative definitions of those HOL kernel functions that
-have complex pattern matching. The new definitions use PMATCH-based case
-expressions instead of HOL's standard per-datatype case constants *)
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);

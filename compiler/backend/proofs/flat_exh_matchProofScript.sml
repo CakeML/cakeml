@@ -1,3 +1,6 @@
+(*
+  Correctness proof for flat_exh_match
+*)
 open semanticPrimitivesTheory
 open semanticPrimitivesPropsTheory
 open preamble flatPropsTheory flatSemTheory flat_exh_matchTheory
@@ -10,53 +13,53 @@ val _ = new_theory "flat_exh_matchProof"
 
 val _ = set_grammar_ancestry["flat_exh_match","flatSem","flatProps","ffi","misc"];
 
-val compile_exps_SING_HD = Q.store_thm("compile_exps_SING_HD[simp]",
-  `[HD (compile_exps exh [x])] = compile_exps exh [x]`,
-  Cases_on `compile_exps exh [x]`
+Theorem compile_exps_SING_HD[simp]
+  `[HD (compile_exps exh [x])] = compile_exps exh [x]`
+  (Cases_on `compile_exps exh [x]`
   \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`) \\ fs [compile_exps_LENGTH]);
 
-val compile_exps_CONS = Q.store_thm("compile_exps_CONS",
-  `compile_exps exh (x::xs) = compile_exps exh [x] ++ compile_exps exh xs`,
-  qid_spec_tac `x` \\ Induct_on `xs` \\ rw [compile_exps_def]);
+Theorem compile_exps_CONS
+  `compile_exps exh (x::xs) = compile_exps exh [x] ++ compile_exps exh xs`
+  (qid_spec_tac `x` \\ Induct_on `xs` \\ rw [compile_exps_def]);
 
-val compile_exps_APPEND = Q.store_thm("compile_exps_APPEND",
-  `compile_exps exh (xs ++ ys) = compile_exps exh xs ++ compile_exps exh ys`,
-  map_every qid_spec_tac [`ys`,`xs`] \\ Induct \\ rw [compile_exps_def]
+Theorem compile_exps_APPEND
+  `compile_exps exh (xs ++ ys) = compile_exps exh xs ++ compile_exps exh ys`
+  (map_every qid_spec_tac [`ys`,`xs`] \\ Induct \\ rw [compile_exps_def]
   \\ rw [Once compile_exps_CONS]
   \\ rw [Once (GSYM compile_exps_CONS)]);
 
-val compile_exps_REVERSE = Q.store_thm("compile_exps_REVERSE[simp]",
-  `REVERSE (compile_exps exh xs) = compile_exps exh (REVERSE xs)`,
-  Induct_on `xs` \\ rw [compile_exps_def]
+Theorem compile_exps_REVERSE[simp]
+  `REVERSE (compile_exps exh xs) = compile_exps exh (REVERSE xs)`
+  (Induct_on `xs` \\ rw [compile_exps_def]
   \\ rw [Once compile_exps_CONS, Once compile_exps_APPEND]
   \\ `LENGTH (compile_exps exh [h]) = LENGTH [h]`
     by fs [compile_exps_LENGTH]
   \\ fs [LENGTH_EQ_NUM_compute]);
 
-val compile_exps_MAP_FST = Q.store_thm("compile_exps_MAP_FST",
+Theorem compile_exps_MAP_FST
   `MAP FST funs =
-   MAP FST (MAP (\(a,b,c). (a,b,HD (compile_exps ctors [c]))) funs)`,
-  Induct_on `funs` \\ rw []
+   MAP FST (MAP (\(a,b,c). (a,b,HD (compile_exps ctors [c]))) funs)`
+  (Induct_on `funs` \\ rw []
   \\ PairCases_on `h` \\ fs []);
 
-val compile_exps_find_recfun = Q.store_thm("compile_exps_find_recfun",
+Theorem compile_exps_find_recfun
   `!ls f exh.
      find_recfun f (MAP (\(a,b,c). (a, b, HD (compile_exps exh [c]))) ls) =
-     OPTION_MAP (\(x,y). (x, HD (compile_exps exh [y]))) (find_recfun f ls)`,
-  Induct \\ rw []
+     OPTION_MAP (\(x,y). (x, HD (compile_exps exh [y]))) (find_recfun f ls)`
+  (Induct \\ rw []
   >- fs [semanticPrimitivesTheory.find_recfun_def]
   \\ simp [Once semanticPrimitivesTheory.find_recfun_def]
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ simp [Once semanticPrimitivesTheory.find_recfun_def]
   \\ every_case_tac \\ fs [])
 
-val exhaustive_SUBMAP = Q.store_thm("exhaustive_SUBMAP",
+Theorem exhaustive_SUBMAP
   `!ps ctors ctors_pre.
      exhaustive_match ctors_pre ps /\
      ctors_pre SUBMAP ctors
      ==>
-     exhaustive_match ctors ps`,
-  Induct \\ rw [exhaustive_match_def] \\ fs []
+     exhaustive_match ctors ps`
+  (Induct \\ rw [exhaustive_match_def] \\ fs []
   \\ every_case_tac \\ fs [is_unconditional_def]
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [] \\ rw []);
 
@@ -108,7 +111,7 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      ==>
      nv_rel ctors ((n,v1)::vs1) ((n,v2)::vs2))`
 
-val v_rel_thms = Q.store_thm("v_rel_thms[simp]",
+Theorem v_rel_thms[simp]
   `(v_rel ctors (Litv l) v <=> v = Litv l) /\
    (v_rel ctors v (Litv l) <=> v = Litv l) /\
    (v_rel ctors (Loc n) v  <=> v = Loc n) /\
@@ -122,29 +125,29 @@ val v_rel_thms = Q.store_thm("v_rel_thms[simp]",
    (v_rel ctors (Vectorv x) v <=>
      ?y. v = Vectorv y /\ LIST_REL (v_rel ctors) x y) /\
    (v_rel ctors v (Vectorv x) <=>
-     ?y. v = Vectorv y /\ LIST_REL (v_rel ctors) y x)`,
-   rw [] \\ Cases_on `v` \\ rw [Once v_rel_cases, EQ_SYM_EQ, ok_ctor_def]
+     ?y. v = Vectorv y /\ LIST_REL (v_rel ctors) y x)`
+   (rw [] \\ Cases_on `v` \\ rw [Once v_rel_cases, EQ_SYM_EQ, ok_ctor_def]
    \\ Cases_on `t` \\ Cases_on `o'` \\ fs []
    \\ every_case_tac \\ fs []
    \\ metis_tac [SUBMAP_REFL, LIST_REL_EL_EQN, FLOOKUP_SUBMAP]);
 
-val v_rel_Boolv = Q.store_thm("v_rel_Boolv",
+Theorem v_rel_Boolv
   `init_ctors SUBMAP ctors ==>
-   v_rel ctors (Boolv x) (Boolv x)`,
-  Cases_on `x` \\ fs [Once v_rel_cases, Boolv_def] \\ rw []
+   v_rel ctors (Boolv x) (Boolv x)`
+  (Cases_on `x` \\ fs [Once v_rel_cases, Boolv_def] \\ rw []
   \\ asm_exists_tac \\ fs [ok_ctor_def]
   \\ EVAL_TAC \\ rw [lookup_def]);
 
-val nv_rel_LIST_REL = Q.store_thm("nv_rel_LIST_REL",
+Theorem nv_rel_LIST_REL
   `!xs ys ctors.
      nv_rel ctors xs ys <=>
-     LIST_REL (\(n1, v1) (n2, v2). n1 = n2 /\ v_rel ctors v1 v2) xs ys`,
-  Induct \\ rw [Once (CONJUNCT2 v_rel_cases)]
+     LIST_REL (\(n1, v1) (n2, v2). n1 = n2 /\ v_rel ctors v1 v2) xs ys`
+  (Induct \\ rw [Once (CONJUNCT2 v_rel_cases)]
   \\ PairCases_on `h` \\ Cases_on `ys` \\ fs []
   \\ PairCases_on `h` \\ fs [] \\ metis_tac []);
 
-val nv_rel_NIL = Q.store_thm("nv_rel_NIL[simp]",
-  `nv_rel ctors [] []`, rw [Once v_rel_cases]);
+Theorem nv_rel_NIL[simp]
+  `nv_rel ctors [] []` (rw [Once v_rel_cases]);
 
 val ctor_rel_def = Define `
   ctor_rel ctors (c : ((ctor_id # type_id) # num) set) <=>
@@ -186,7 +189,7 @@ val result_rel_def = Define `
     e1 = e2) /\
   (result_rel R ctors res1 res2 <=> F)`
 
-val result_rel_thms = Q.store_thm("result_rel_thms[simp]",
+Theorem result_rel_thms[simp]
   `(!ctors v1 r.
      result_rel R ctors (Rval v1) r <=>
      ?v2. r = Rval v2 /\ R ctors v1 v2) /\
@@ -204,8 +207,8 @@ val result_rel_thms = Q.store_thm("result_rel_thms[simp]",
        (?v1 v2.
          err = Rraise v2 /\ r = Rerr (Rraise v1) /\
          v_rel ctors v1 v2) \/
-       (?a.  err = Rabort a /\ r = Rerr (Rabort a)))`,
-  rpt conj_tac \\ ntac 2 gen_tac \\ Cases \\ rw [result_rel_def]
+       (?a.  err = Rabort a /\ r = Rerr (Rabort a)))`
+  (rpt conj_tac \\ ntac 2 gen_tac \\ Cases \\ rw [result_rel_def]
   \\ Cases_on `e` \\ rw [result_rel_def]
   \\ Cases_on `err` \\ fs [result_rel_def, EQ_SYM_EQ]);
 
@@ -215,80 +218,80 @@ val match_rel_def = Define `
   (match_rel ctors Match_type_error Match_type_error <=> T) /\
   (match_rel ctors _ _ <=> F)`
 
-val match_rel_thms = Q.store_thm("match_rel_thms[simp]",
+Theorem match_rel_thms[simp]
   `(match_rel ctors Match_type_error e <=> e = Match_type_error) /\
    (match_rel ctors e Match_type_error <=> e = Match_type_error) /\
    (match_rel ctors No_match e <=> e = No_match) /\
-   (match_rel ctors e No_match <=> e = No_match)`,
-  Cases_on `e` \\ rw [match_rel_def]);
+   (match_rel ctors e No_match <=> e = No_match)`
+  (Cases_on `e` \\ rw [match_rel_def]);
 
-val v_rel_v_to_char_list = Q.store_thm("v_rel_v_to_char_list",
+Theorem v_rel_v_to_char_list
   `!v1 v2 xs ctors.
      v_to_char_list v1 = SOME xs /\
      v_rel ctors v1 v2
      ==>
-     v_to_char_list v2 = SOME xs`,
-  ho_match_mp_tac v_to_char_list_ind \\ rw []
+     v_to_char_list v2 = SOME xs`
+  (ho_match_mp_tac v_to_char_list_ind \\ rw []
   \\ fs [v_to_char_list_def, case_eq_thms]
   \\ rw [] \\ metis_tac []);
 
-val v_rel_v_to_list = Q.store_thm("v_rel_v_to_list",
+Theorem v_rel_v_to_list
   `!v1 v2 xs ctors.
      v_to_list v1 = SOME xs /\
      v_rel ctors v1 v2
      ==>
      ?ys. v_to_list v2 = SOME ys /\
-          LIST_REL (v_rel ctors) xs ys`,
-  ho_match_mp_tac v_to_list_ind \\ rw []
+          LIST_REL (v_rel ctors) xs ys`
+  (ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def, case_eq_thms] \\ rw []
   \\ metis_tac []);
 
-val v_rel_vs_to_string = Q.store_thm("v_rel_vs_to_string",
+Theorem v_rel_vs_to_string
   `!v1 v2 xs ctors.
      vs_to_string v1 = SOME xs /\
      LIST_REL (v_rel ctors) v1 v2
      ==>
-     vs_to_string v2 = SOME xs`,
-  ho_match_mp_tac vs_to_string_ind \\ rw []
+     vs_to_string v2 = SOME xs`
+  (ho_match_mp_tac vs_to_string_ind \\ rw []
   \\ fs [vs_to_string_def, case_eq_thms] \\ rw []
   \\ metis_tac []);
 
-val v_rel_list_to_v_APPEND = Q.store_thm("v_rel_list_to_v_APPEND",
+Theorem v_rel_list_to_v_APPEND
   `!xs1 xs2 ctors ys1 ys2.
      v_rel ctors (list_to_v xs1) (list_to_v xs2) /\
      v_rel ctors (list_to_v ys1) (list_to_v ys2)
      ==>
-     v_rel ctors (list_to_v (xs1 ++ ys1)) (list_to_v (xs2 ++ ys2))`,
-  Induct \\ rw [] \\ fs [list_to_v_def]
+     v_rel ctors (list_to_v (xs1 ++ ys1)) (list_to_v (xs2 ++ ys2))`
+  (Induct \\ rw [] \\ fs [list_to_v_def]
   \\ Cases_on `xs2` \\ fs [list_to_v_def, ok_ctor_def]);
 
-val v_rel_list_to_v = Q.store_thm("v_rel_list_to_v",
+Theorem v_rel_list_to_v
   `!v1 v2 xs ys ctors.
    v_to_list v1 = SOME xs /\
    v_to_list v2 = SOME ys /\
    v_rel ctors v1 v2
    ==>
-   v_rel ctors (list_to_v xs) (list_to_v ys)`,
-  ho_match_mp_tac v_to_list_ind \\ rw []
+   v_rel ctors (list_to_v xs) (list_to_v ys)`
+  (ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def, case_eq_thms] \\ rw []
   \\ fs [list_to_v_def, ok_ctor_def]
   \\ metis_tac []);
 
-val v_rel_Unitv = Q.store_thm("v_rel_Unitv[simp]",
-  `v_rel ctors (Unitv cc) (Unitv cc)`,
-  EVAL_TAC
+Theorem v_rel_Unitv[simp]
+  `v_rel ctors (Unitv cc) (Unitv cc)`
+  (EVAL_TAC
   \\ rw[v_rel_cases]
   \\ EVAL_TAC
   \\ rw[]);
 
-val nv_rel_ALOOKUP_v_rel = Q.store_thm("nv_rel_ALOOKUP_v_rel",
+Theorem nv_rel_ALOOKUP_v_rel
   `!xs ys ctors n x.
      nv_rel ctors xs ys /\
      ALOOKUP xs n = SOME x
      ==>
      ?y.
-     ALOOKUP ys n = SOME y /\ v_rel ctors x y`,
-  Induct \\ rw []
+     ALOOKUP ys n = SOME y /\ v_rel ctors x y`
+  (Induct \\ rw []
   \\ qhdtm_x_assum `nv_rel` mp_tac
   \\ rw [Once (CONJUNCT2 v_rel_cases)]
   \\ fs [ALOOKUP_def, bool_case_eq]);
@@ -297,7 +300,7 @@ val nv_rel_ALOOKUP_v_rel = Q.store_thm("nv_rel_ALOOKUP_v_rel",
 (* Various semantics preservation theorems                                   *)
 (* ------------------------------------------------------------------------- *)
 
-val do_eq_thm = Q.store_thm("do_eq_thm",
+Theorem do_eq_thm
   `(!v1 v2 r ctors v1' v2'.
      do_eq v1 v2 = r /\
      r <> Eq_type_error /\
@@ -311,15 +314,15 @@ val do_eq_thm = Q.store_thm("do_eq_thm",
      LIST_REL (v_rel ctors) vs1 vs1' /\
      LIST_REL (v_rel ctors) vs2 vs2'
      ==>
-     do_eq_list vs1' vs2' = r)`,
-  ho_match_mp_tac do_eq_ind \\ rw [do_eq_def] \\ fs [] \\ rw [do_eq_def]
+     do_eq_list vs1' vs2' = r)`
+  (ho_match_mp_tac do_eq_ind \\ rw [do_eq_def] \\ fs [] \\ rw [do_eq_def]
   \\ TRY (metis_tac [LIST_REL_LENGTH])
   \\ TRY
    (rpt (qhdtm_x_assum `v_rel` mp_tac \\ rw [Once v_rel_cases])
     \\ rw [do_eq_def] \\ NO_TAC)
   \\ every_case_tac \\ fs [] \\ res_tac \\ fs []);
 
-val pmatch_thm = Q.store_thm("pmatch_thm",
+Theorem pmatch_thm
   `(!env refs p v vs r ctors refs1 v1 env1 vs1.
      pmatch env refs p v vs = r /\
      r <> Match_type_error /\
@@ -341,8 +344,8 @@ val pmatch_thm = Q.store_thm("pmatch_thm",
      ==>
      ?r1.
        pmatch_list env1 refs1 ps v1 vs1 = r1 /\
-       match_rel ctors r r1)`,
-  ho_match_mp_tac pmatch_ind \\ rw [pmatch_def]
+       match_rel ctors r r1)`
+  (ho_match_mp_tac pmatch_ind \\ rw [pmatch_def]
   \\ rw [match_rel_def, Once v_rel_cases]
   \\ fsrw_tac [DNF_ss] [] \\ rfs [] \\ rw [pmatch_def]
   \\ rfs [] \\ fs []
@@ -356,15 +359,15 @@ val pmatch_thm = Q.store_thm("pmatch_thm",
   \\ last_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs []
   \\ metis_tac [match_rel_def]);
 
-val do_opapp_thm = Q.store_thm("do_opapp_thm",
+Theorem do_opapp_thm
   `do_opapp vs1 = SOME (nvs1, e) /\
    LIST_REL (v_rel ctors) vs1 vs2
    ==>
    ?ctors_pre nvs2.
      nv_rel ctors nvs1 nvs2 /\
      ctors_pre SUBMAP ctors /\
-     do_opapp vs2 = SOME (nvs2, HD (compile_exps ctors_pre [e]))`,
-  simp [do_opapp_def, pair_case_eq, case_eq_thms, PULL_EXISTS]
+     do_opapp vs2 = SOME (nvs2, HD (compile_exps ctors_pre [e]))`
+  (simp [do_opapp_def, pair_case_eq, case_eq_thms, PULL_EXISTS]
   \\ rw [] \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
   \\ fs [Once v_rel_cases] \\ rw [] \\ fs [PULL_EXISTS]
   \\ TRY
@@ -405,7 +408,7 @@ val store_v_same_type_cases = Q.prove (
    (!v r. store_v_same_type r (W8array v) <=> ?v1. r = W8array v1)`,
   rpt conj_tac \\ gen_tac \\ Cases \\ rw [store_v_same_type_def]);
 
-val do_app_thm = Q.store_thm("do_app_thm",
+Theorem do_app_thm
   `do_app cc s1 op vs1 = SOME (t1, r1) /\
    init_ctors SUBMAP ctors /\
    state_rel ctors s1 s2 /\
@@ -414,8 +417,8 @@ val do_app_thm = Q.store_thm("do_app_thm",
    ?t2 r2.
      result_rel v_rel ctors r1 r2 /\
      state_rel ctors t1 t2 /\
-     do_app cc s2 op vs2 = SOME (t2, r2)`,
-  rpt strip_tac \\ qhdtm_x_assum `do_app` mp_tac
+     do_app cc s2 op vs2 = SOME (t2, r2)`
+  (rpt strip_tac \\ qhdtm_x_assum `do_app` mp_tac
   \\ Cases_on `op = Opb Lt \/ op = Opb Gt \/ op = Opb Leq \/ op = Opb Geq \/
                op = Opn Plus \/ op = Opn Minus \/ op = Opn Times \/
                op = Opn Divide \/ op = Opn Modulo`
@@ -612,12 +615,12 @@ val do_app_thm = Q.store_thm("do_app_thm",
 (* Compile expressions                                                       *)
 (* ------------------------------------------------------------------------- *)
 
-val is_unconditional_thm = Q.store_thm("is_unconditional_thm",
+Theorem is_unconditional_thm
   `!p env refs v vs.
      is_unconditional p
      ==>
-     pmatch env refs p v vs <> No_match`,
-  ho_match_mp_tac is_unconditional_ind \\ rw []
+     pmatch env refs p v vs <> No_match`
+  (ho_match_mp_tac is_unconditional_ind \\ rw []
   \\ pop_assum mp_tac
   \\ once_rewrite_tac [is_unconditional_def]
   \\ CASE_TAC \\ fs [pmatch_def]
@@ -634,12 +637,12 @@ val is_unconditional_thm = Q.store_thm("is_unconditional_thm",
   \\ CASE_TAC \\ fs []
   \\ res_tac \\ fs []);
 
-val is_unconditional_list_thm = Q.store_thm("is_unconditional_list_thm",
+Theorem is_unconditional_list_thm
   `!vs1 vs2 a b c.
    EVERY is_unconditional vs1
    ==>
-   pmatch_list a b vs1 vs2 c <> No_match`,
-  Induct >- (Cases \\ rw [pmatch_def])
+   pmatch_list a b vs1 vs2 c <> No_match`
+  (Induct >- (Cases \\ rw [pmatch_def])
   \\ gen_tac \\ Cases \\ rw [pmatch_def]
   \\ every_case_tac \\ fs []
   \\ metis_tac [is_unconditional_thm])
@@ -648,7 +651,7 @@ val exists_match_def = Define `
   exists_match env refs ps v <=>
     !vs. ?p. MEM p ps /\ pmatch env refs p v vs <> No_match`
 
-val get_dty_tags_thm = Q.store_thm("get_dty_tags_thm",
+Theorem get_dty_tags_thm
   `!pats tags res.
      get_dty_tags pats tags = SOME res
      ==>
@@ -670,8 +673,8 @@ val get_dty_tags_thm = Q.store_thm("get_dty_tags_thm",
                  ?ps' tyid'.
                    MEM (Pcon (SOME (tag, SOME tyid')) ps') pats /\
                    EVERY is_unconditional ps' /\
-                   LENGTH ps' = arity))`,
-  Induct \\ simp [get_dty_tags_def]
+                   LENGTH ps' = arity))`
+  (Induct \\ simp [get_dty_tags_def]
   \\ Cases \\ fs []
   \\ ntac 3 (PURE_TOP_CASE_TAC \\ fs [])
   \\ rpt gen_tac
@@ -701,14 +704,14 @@ val pmatch_Pcon_No_match = Q.prove(
   \\ rw [ctor_same_type_def, same_ctor_def] \\ fs []
   \\ metis_tac [is_unconditional_list_thm]);
 
-val exhaustive_exists_match = Q.store_thm("exhaustive_exists_match",
+Theorem exhaustive_exists_match
   `!ctors ps env.
      exhaustive_match ctors ps /\
      env.check_ctor /\
      ctor_rel ctors env.c
      ==>
-     !refs v. ok_ctor ctors v ==> exists_match env refs ps v`,
-  rw [exhaustive_match_def, exists_match_def]
+     !refs v. ok_ctor ctors v ==> exists_match env refs ps v`
+  (rw [exhaustive_match_def, exists_match_def]
   >- (fs [EXISTS_MEM] \\ metis_tac [is_unconditional_thm])
   \\ every_case_tac \\ fs [get_dty_tags_def, case_eq_thms]
   \\ rfs [lookup_map] \\ rveq
@@ -734,18 +737,18 @@ val exhaustive_exists_match = Q.store_thm("exhaustive_exists_match",
   \\ rw [pmatch_def, same_ctor_def, ctor_same_type_def]
   \\ metis_tac [EVERY_MEM, is_unconditional_list_thm]);
 
-val v_rel_ok_ctor = Q.store_thm("v_rel_ok_ctor",
+Theorem v_rel_ok_ctor
   `v_rel ctors v1 v2
    ==>
-   ok_ctor ctors v1 /\ ok_ctor ctors v2`,
-  Cases_on `v1` \\ Cases_on `v2` \\ rw [ok_ctor_def]
+   ok_ctor ctors v1 /\ ok_ctor ctors v2`
+  (Cases_on `v1` \\ Cases_on `v2` \\ rw [ok_ctor_def]
   \\ metis_tac [LIST_REL_LENGTH]);
 
 val s1 = mk_var ("s1",
   ``flatSem$evaluate`` |> type_of |> strip_fun |> snd
   |> dest_prod |> fst)
 
-val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
+Theorem compile_exps_evaluate
   `(!env1 ^s1 xs t1 r1.
      evaluate env1 s1 xs = (t1, r1) /\
      r1 <> Rerr (Rabort Rtype_error)
@@ -780,8 +783,8 @@ val compile_exps_evaluate = Q.store_thm("compile_exps_evaluate",
          state_rel ctors t1 t2 /\
          evaluate_match env2 s2 v2
            (MAP (\(p,e). (p, HD (compile_exps ctors_pre [e]))) ps2)
-           err_v2 = (t2, r2))`,
-  ho_match_mp_tac evaluate_ind
+           err_v2 = (t2, r2))`
+  (ho_match_mp_tac evaluate_ind
   \\ rw [compile_exps_def, evaluate_def] \\ fs [result_rel_def]
   >-
    (simp [Once evaluate_cons]
@@ -994,7 +997,7 @@ val dec_res_rel_def = Define `
      result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2)) /\
   (dec_res_rel _ _ _ <=> F)`;
 
-val dec_res_rel_thms = Q.store_thm("dec_res_rel_thms[simp]",
+Theorem dec_res_rel_thms[simp]
   `(!ctors r. dec_res_rel ctors NONE r <=> r = NONE) /\
    (!ctors r. dec_res_rel ctors r NONE <=> r = NONE) /\
    (!ctors e r. dec_res_rel ctors (SOME e) r <=>
@@ -1002,8 +1005,8 @@ val dec_res_rel_thms = Q.store_thm("dec_res_rel_thms[simp]",
            result_rel (LIST_REL o v_rel) ctors (Rerr e) (Rerr e1)) /\
    (!ctors e r. dec_res_rel ctors r (SOME e) <=>
       ?e1. r = SOME e1 /\
-           result_rel (LIST_REL o v_rel) ctors (Rerr e1) (Rerr e))`,
-  rw [] \\ Cases_on `r` \\ rw [dec_res_rel_def]);
+           result_rel (LIST_REL o v_rel) ctors (Rerr e1) (Rerr e))`
+  (rw [] \\ Cases_on `r` \\ rw [dec_res_rel_def]);
 
 val compile_exps_lemma =
   CONJUNCT1 compile_exps_evaluate
@@ -1020,13 +1023,13 @@ val get_tdecs_def = Define `
     MAP (\d. case d of Dtype t s => t)
       (FILTER (\d. ?t s. d = Dtype t s) xs)`;
 
-val get_tdecs_APPEND = Q.store_thm("get_tdecs_APPEND",
-  `get_tdecs (xs ++ ys) = get_tdecs xs ++ get_tdecs ys`,
-  rw [get_tdecs_def, FILTER_APPEND]);
+Theorem get_tdecs_APPEND
+  `get_tdecs (xs ++ ys) = get_tdecs xs ++ get_tdecs ys`
+  (rw [get_tdecs_def, FILTER_APPEND]);
 
-val get_tdecs_MEM = Q.store_thm("get_tdecs_MEM",
-  `MEM t (get_tdecs xs) <=> ?s. MEM (Dtype t s) xs`,
-  rw [get_tdecs_def, MEM_MAP, MEM_FILTER, PULL_EXISTS]);
+Theorem get_tdecs_MEM
+  `MEM t (get_tdecs xs) <=> ?s. MEM (Dtype t s) xs`
+  (rw [get_tdecs_def, MEM_MAP, MEM_FILTER, PULL_EXISTS]);
 
 val is_new_type_def = Define `
   is_new_type ctors decl <=>
@@ -1054,7 +1057,7 @@ val compile_decs_SUBMAP = Q.prove (
         \\ metis_tac [])
   \\ metis_tac [SUBMAP_TRANS]);
 
-val compile_dec_ctor_rel = Q.store_thm("compile_dec_ctor_rel",
+Theorem compile_dec_ctor_rel
   `evaluate_dec env s d1 = (t, c1, r) /\
    r <> SOME (Rabort Rtype_error) /\
    env.check_ctor /\
@@ -1063,8 +1066,8 @@ val compile_dec_ctor_rel = Q.store_thm("compile_dec_ctor_rel",
    is_new_type ctors_pre d1
    ==>
    ctors_pre SUBMAP ctors /\
-   ctor_rel ctors (env.c UNION c1)`,
-  Cases_on `d1` \\ simp [evaluate_dec_def]
+   ctor_rel ctors (env.c UNION c1)`
+  (Cases_on `d1` \\ simp [evaluate_dec_def]
   >- (fs [compile_dec_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
   >-
    (rw [compile_dec_def, is_fresh_type_def, FORALL_PROD, is_new_type_def]
@@ -1081,7 +1084,7 @@ val env_updated_by_UNION = Q.prove (
    env with c := env.c UNION c1 UNION c2`,
   fs [environment_component_equality, AC UNION_COMM UNION_ASSOC]);
 
-val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
+Theorem compile_dec_evaluate
   `!d1 env1 s1 t1 c1 r1.
      evaluate_dec env1 s1 d1 = (t1, c1, r1) /\
      r1 <> SOME (Rabort Rtype_error)
@@ -1099,8 +1102,8 @@ val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
          state_rel ctors_post t1 t2 /\
          dec_res_rel ctors_post r1 r2 /\
          evaluate_dec env2 s2 d2 = (t2, c2, r2) /\
-         c1 = c2`,
-  Cases \\ rw []
+         c1 = c2`
+  (Cases \\ rw []
   >- (* Dlet *)
    (`env_rel ctors (env1 with v := []) (env2 with v := [])`
       by (fs [env_rel_def] \\ metis_tac [])
@@ -1132,7 +1135,7 @@ val compile_dec_evaluate = Q.store_thm("compile_dec_evaluate",
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs [ctor_rel_def, FORALL_PROD]
   \\ metis_tac [SUBSET_DEF, SUBSET_UNION]);
 
-val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
+Theorem compile_decs_evaluate
   `!ds1 env1 s1 t1 c1 r1.
      evaluate_decs env1 s1 ds1 = (t1, c1, r1) /\
      r1 <> SOME (Rabort Rtype_error)
@@ -1152,8 +1155,8 @@ val compile_decs_evaluate = Q.store_thm("compile_decs_evaluate",
          state_rel ctors_post t1 t2 /\
          dec_res_rel ctors_post r1 r2 /\
          evaluate_decs env2 s2 ds2 = (t2, c2, r2) /\
-         c1 = c2`,
-  Induct \\ rw []
+         c1 = c2`
+  (Induct \\ rw []
   >-
    (fs [evaluate_decs_def, compile_decs_def, env_rel_def, get_tdecs_def,
         environment_component_equality] \\ rw []
@@ -1187,15 +1190,15 @@ val ctor_rel_initial_ctor = Q.prove (
   rw [ctor_rel_def, init_ctors_def, initial_env_def, flookup_fupdate_list] \\ rw []
   \\ fs [lookup_insert] \\ every_case_tac \\ fs [lookup_def] \\ EVAL_TAC \\ rw []);
 
-val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
+Theorem compile_decs_eval_sim
   `EVERY (is_new_type init_ctors) ds1 /\
    ALL_DISTINCT (get_tdecs ds1)
    ==>
    eval_sim
      (ffi:'ffi ffi_state) F T ds1 T T
      (SND (compile ds1))
-     (\p1 p2. p2 = SND (compile p1)) F`,
-  rw [eval_sim_def] \\ qexists_tac `0` \\ fs []
+     (\p1 p2. p2 = SND (compile p1)) F`
+  (rw [eval_sim_def] \\ qexists_tac `0` \\ fs []
   \\ Cases_on `compile ds1` \\ fs [compile_def]
   \\ `env_rel init_ctors (initial_env F T) (initial_env T T)`
     by (rw [env_rel_def, ctor_rel_initial_ctor]
@@ -1223,13 +1226,12 @@ val compile_exps_sing = Q.prove (
   \\ qspecl_then [`ctors`,`[e]`] mp_tac compile_exps_LENGTH
   \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]);
 
-val compile_exps_elist_globals_eq_empty = Q.store_thm (
-  "compile_exps_elist_globals_eq_empty",
+Theorem compile_exps_elist_globals_eq_empty
   `!ctors es.
      elist_globals es = {||}
      ==>
-     elist_globals (compile_exps ctors es) = {||}`,
-  ho_match_mp_tac compile_exps_ind
+     elist_globals (compile_exps ctors es) = {||}`
+  (ho_match_mp_tac compile_exps_ind
   \\ rw [compile_exps_def]
   \\ TRY
     (rename1 `HD (compile_exps ctors [e])`
@@ -1259,18 +1261,17 @@ val compile_exps_elist_globals_eq_empty = Q.store_thm (
   \\ rename1 `compile_exps ctors [e]`
   \\ Cases_on `compile_exps ctors [e]` \\ fs []);
 
-val compile_exps_set_globals_eq_empty = Q.store_thm (
-  "compile_exps_set_globals_eq_empty",
-  `set_globals e = {||} ==> set_globals (HD (compile_exps ctors [e])) = {||}`,
-  qspecl_then [`ctors`,`[e]`] mp_tac compile_exps_elist_globals_eq_empty
+Theorem compile_exps_set_globals_eq_empty
+  `set_globals e = {||} ==> set_globals (HD (compile_exps ctors [e])) = {||}`
+  (qspecl_then [`ctors`,`[e]`] mp_tac compile_exps_elist_globals_eq_empty
   \\ rw[] \\ fs[] \\ Cases_on `compile_exps ctors [e]` \\ fs []);
 
-val compile_exps_esgc_free = Q.store_thm ("compile_exps_esgc_free",
+Theorem compile_exps_esgc_free
   `!ctors es.
      EVERY esgc_free es
      ==>
-     EVERY esgc_free (compile_exps ctors es)`,
-  ho_match_mp_tac compile_exps_ind
+     EVERY esgc_free (compile_exps ctors es)`
+  (ho_match_mp_tac compile_exps_ind
   \\ rw [compile_exps_def]
   \\ fs [compile_exps_set_globals_eq_empty]
   \\ TRY
@@ -1288,9 +1289,9 @@ val compile_exps_esgc_free = Q.store_thm ("compile_exps_esgc_free",
   \\ qspec_then `p` assume_tac compile_exps_sing \\ fs []
   \\ res_tac \\ fs []);
 
-val compile_exps_sub_bag = Q.store_thm ("compile_exps_sub_bag",
-  `!ctors es. elist_globals (compile_exps ctors es) ≤ elist_globals es`,
-  ho_match_mp_tac compile_exps_ind
+Theorem compile_exps_sub_bag
+  `!ctors es. elist_globals (compile_exps ctors es) ≤ elist_globals es`
+  (ho_match_mp_tac compile_exps_ind
   \\ rw [compile_exps_def]
   \\ TRY
    (rename1 `HD (compile_exps ctors [x])`
@@ -1320,48 +1321,46 @@ val compile_exps_sub_bag = Q.store_thm ("compile_exps_sub_bag",
   \\ qspec_then `p` assume_tac compile_exps_sing \\ fs [SUB_BAG_UNION]
   \\ fsrw_tac [DNF_ss] [SUB_BAG_UNION] \\ rw []);
 
-val compile_exps_distinct_globals = Q.store_thm (
-  "compile_exps_distinct_globals",
+Theorem compile_exps_distinct_globals
   `BAG_ALL_DISTINCT (elist_globals es)
    ==>
-   BAG_ALL_DISTINCT (elist_globals (compile_exps ctors es))`,
-  metis_tac [compile_exps_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
+   BAG_ALL_DISTINCT (elist_globals (compile_exps ctors es))`
+  (metis_tac [compile_exps_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
 
 (* ------------------------------------------------------------------------- *)
 (* Syntactic results for declarations                                        *)
 (* ------------------------------------------------------------------------- *)
 
-val compile_decs_elist_globals_eq_empty = Q.store_thm (
-  "compile_decs_elist_globals_eq_empty",
+Theorem compile_decs_elist_globals_eq_empty
   `!ds ctors.
      elist_globals
        (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
      ==>
      elist_globals
-       (MAP dest_Dlet (FILTER is_Dlet (SND (compile_decs ctors ds)))) = {||}`,
-  Induct \\ rw [compile_decs_def]
+       (MAP dest_Dlet (FILTER is_Dlet (SND (compile_decs ctors ds)))) = {||}`
+  (Induct \\ rw [compile_decs_def]
   \\ fs [UNCURRY] \\ rw []
   \\ Cases_on `h` \\ fs [compile_dec_def] \\ rw [compile_exp_def]
   \\ metis_tac [compile_exps_set_globals_eq_empty]);
 
-val compile_decs_esgc_free = Q.store_thm ("compile_decs_esgc_free",
+Theorem compile_decs_esgc_free
   `!ds ctors.
      EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
      ==>
      EVERY esgc_free (MAP dest_Dlet
-       (FILTER is_Dlet (SND (compile_decs ctors ds))))`,
-  Induct \\ rw [compile_decs_def]
+       (FILTER is_Dlet (SND (compile_decs ctors ds))))`
+  (Induct \\ rw [compile_decs_def]
   \\ fs [UNCURRY] \\ rw []
   \\ Cases_on `h` \\ fs [compile_dec_def, compile_exp_def]
   \\ qspec_then `e` assume_tac compile_exps_sing \\ fs []
   \\ metis_tac [compile_exps_esgc_free, EVERY_DEF]);
 
-val compile_decs_sub_bag = Q.store_thm ("compile_decs_sub_bag",
+Theorem compile_decs_sub_bag
   `!ds ctors.
     elist_globals (MAP dest_Dlet
       (FILTER is_Dlet (SND (compile_decs ctors ds)))) ≤
-    elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))`,
-  Induct \\ rw [compile_decs_def]
+    elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))`
+  (Induct \\ rw [compile_decs_def]
   \\ fs [UNCURRY] \\ rw []
   \\ Cases_on `h` \\ fs [compile_dec_def, compile_exp_def]
   \\ qspec_then `e` assume_tac compile_exps_sing \\ fs []
@@ -1370,14 +1369,12 @@ val compile_decs_sub_bag = Q.store_thm ("compile_decs_sub_bag",
     by metis_tac [compile_exps_sub_bag]
   \\ fs [SUB_BAG_UNION]);
 
-val compile_exps_distinct_globals = Q.store_thm (
-  "compile_exps_distinct_globals",
+Theorem compile_exps_distinct_globals
   `BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)))
    ==>
    BAG_ALL_DISTINCT
      (elist_globals
-       (MAP dest_Dlet (FILTER is_Dlet (SND (compile_decs ctors ds)))))`,
-  metis_tac [compile_decs_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
+       (MAP dest_Dlet (FILTER is_Dlet (SND (compile_decs ctors ds)))))`
+  (metis_tac [compile_decs_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
 
 val _ = export_theory();
-

@@ -1,3 +1,6 @@
+(*
+  Functions that aid building the CakeML code for the basis library.
+*)
 signature basisFunctionsLib =
 sig
 

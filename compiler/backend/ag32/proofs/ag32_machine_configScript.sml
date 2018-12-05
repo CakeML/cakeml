@@ -107,20 +107,20 @@ val ag32_machine_config_def = Define`
     ffi_interfer := K (ag32_ffi_interfer ffi_names md)
   |>`
 
-val is_ag32_machine_config_ag32_machine_config = Q.store_thm("is_ag32_machine_config_ag32_machine_config",
-  `is_ag32_machine_config (ag32_machine_config a b c)`, EVAL_TAC);
+Theorem is_ag32_machine_config_ag32_machine_config
+  `is_ag32_machine_config (ag32_machine_config a b c)` (EVAL_TAC);
 
 val ag32_ffi_mem_domain_def = Define`
   ag32_ffi_mem_domain =
     { w | n2w startup_code_size <=+ (w:word32) ∧
           w <+ n2w ffi_code_start_offset }`;
 
-val ag32_ffi_mem_domain_DISJOINT_prog_addresses = Q.store_thm("ag32_ffi_mem_domain_DISJOINT_prog_addresses",
+Theorem ag32_ffi_mem_domain_DISJOINT_prog_addresses
   `num_ffis ≤ LENGTH FFI_codes ∧
    code_start_offset num_ffis + lc + ld ≤ memory_size
    ⇒
-   DISJOINT (ag32_ffi_mem_domain) (ag32_prog_addresses num_ffis lc ld)`,
-  EVAL_TAC
+   DISJOINT (ag32_ffi_mem_domain) (ag32_prog_addresses num_ffis lc ld)`
+  (EVAL_TAC
   \\ strip_tac
   \\ simp[IN_DISJOINT, PULL_FORALL]
   \\ rpt Cases
