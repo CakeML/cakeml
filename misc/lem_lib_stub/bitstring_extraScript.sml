@@ -24,7 +24,17 @@ val fixsub_def = Define`
      let fa = fixwidth m a in
      let fb = fixwidth m b
       in
-        fixadd (fixadd fa (bnot fb)) (n2v 1))`
+        fixadd (fixadd fa (bnot fb)) (fixwidth m (n2v 1)))`
+(*
+val fixadd_def2 = Define`
+   (fixadd2 [] [] = []) /\
+   (fixadd2 a b =
+     let m = LENGTH a in
+     let fa = fixwidth m a in
+     let fb = fixwidth m b in
+        fixwidth m (n2v (v2n a + v2n b)))`
+*)
+(* makes the proofs simpler *)
 (* TODO prove properties of fixadd and fixsub *)
 
 val fixadd_comm = Q.store_thm("fixadd_comm",
@@ -39,7 +49,7 @@ val fixadd_length = Q.store_thm("fixadd_length",
 
 val fixadd_assoc = Q.store_thm("fixadd_assoc",
   `!x y z. fixadd (fixadd x y) z = fixadd x (fixadd y z)`,
-  REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> simp[fixadd_length] >> cheat);
+  (REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> simp[fixadd_length]) >> cheat);
 
 
 val fixadd_word_add2 = Q.store_thm("fixadd_word_add2",
@@ -70,7 +80,7 @@ val fixadd_word_add = Q.store_thm("fixadd_word_add",
 val fixsub_lemma1 = Q.store_thm("fixsub_lemma1",
   `!x y. ((v2w x:'a word) - (v2w y:'a word) = ((v2w x:'a word) + ~(v2w y:'a word) + (1w:'a word)))`,
         REPEAT STRIP_TAC >> REWRITE_TAC [word_sub_def] >> REWRITE_TAC [WORD_NEG] >> METIS_TAC [WORD_ADD_ASSOC]);
- 
+
 val fixsub_word_sub2 = Q.store_thm("fixsub_word_sub2",
   `!x y. (dimindex (:'a) = MAX (LENGTH x) (LENGTH y)) 
      ==> (v2n (fixsub x y) = w2n ((v2w x:'a word) - (v2w y:'a word)))`,
@@ -82,27 +92,57 @@ val fixsub_lemma = Q.store_thm("fixsub_lemma",
    >> REWRITE_TAC [word_sub_def,WORD_NEG]
    >> simp[WORD_ADD_ASSOC]);
 
-val word_sub_lemma_index0 = Q.store_thm("word_sub_lemma_index0",
-  `!x:('a word). ([] = w2v x) ==> (dimindex (:'a) = 0)`,
-   rpt STRIP_TAC >> cheat
+val fixwidth_length_l = Q.store_thm("fixwidth_length_l", 
+  `!h t. (fixwidth (SUC (LENGTH t)) (h::t)) = (h::t)`,
+   rpt STRIP_TAC >> Cases_on `(LENGTH (h::t)) < (SUC (LENGTH t))` >> rw[fixwidth_def]
+);
+
+
+val fixsub_length = Q.store_thm("fixsub_length", `!x y. (LENGTH (fixsub x y)) = MAX (LENGTH x) (LENGTH y)`,
+            rpt STRIP_TAC >> Cases_on `x` >> Cases_on `y` >> fs[fixsub_def] >> fs[fixsub_def] >> fs[fixadd_length] >> FULL_SIMP_TAC arith_ss [bnot_def] >> REWRITE_TAC[LENGTH_MAP]
+            >> simp[length_fixwidth]
+);
+
+
+val SUC_LENGTH = Q.store_thm("SUC_LENGTH",`!(w:'a word) h t. (w2v w = (h::t)) ==> (LENGTH t = (dimindex(:'a) - 1))`,
+cheat
+);
+
+val fixsub_word_sub_length_lemma = Q.store_thm("fixsub_word_sub_lemma",
+    `!(x:'a word) (y:'a word) h t h' t'. ((w2v x = (h::t)) /\ (w2v y = (h'::t'))) ==> (MAX (SUC (LENGTH t)) (SUC (LENGTH t')) = SUC (LENGTH t))`,
+    rpt STRIP_TAC >> IMP_RES_TAC SUC_LENGTH >> ASM_SIMP_TAC arith_ss []
 )
 
-val word_sub_lemma2 = Q.store_thm("word_sub_lemma2",
-  `!x:('a word). (dimindex (:'a) = 0) ==> (w2v x = [])`,cheat)
+val fixsub_word_sub_length_lemma2 = Q.store_thm("fixsub_word_sub_lemma2",
+    `!(x:'a word) (y:'a word) h t h' t'. ((w2v x = (h::t)) /\ (w2v y = (h'::t'))) ==> (MAX (SUC (LENGTH t)) (SUC (LENGTH t')) = SUC (LENGTH t'))`,
+    rpt STRIP_TAC >> IMP_RES_TAC SUC_LENGTH >> ASM_SIMP_TAC arith_ss []
+)
 
-val fixsub_ind = theorem"fixsub_ind";
+val word_not_bnot = Q.store_thm("word_not_bnot",
+  `!x. w2v (~x) = bnot (w2v x)`,
+  rpt STRIP_TAC 
+   >> simp[w2v_def,bnot_def,word_1comp_def] 
+   >> simp[MAP_GENLIST,FCP_BETA] 
+   >> rw[o_ABS_R]
+);
 
 val fixsub_word_sub = Q.store_thm("fixsub_word_sub",
   `!x:('a word) y. fixsub (w2v x) (w2v y) = w2v (x - y)`,
-   rpt STRIP_TAC >> Induct_on `w2v x`
-     >- (rpt STRIP_TAC
-          >> IMP_RES_TAC word_sub_lemma_index0
-          >> IMP_RES_TAC word_sub_lemma2
-         >> fs []
-          >> EVAL_TAC)
-    >> STRIP_TAC
-      >> cheat
-    
+  (rpt STRIP_TAC) THEN (Cases_on `w2v x`)
+        THENL [cheat,Cases_on `w2v y`]
+        THENL [cheat,fs [fixsub_lemma]]
+        THENL [simp [fixsub_def]]
+        THENL [REWRITE_TAC[GSYM fixadd_word_add]] 
+        THENL [MK_COMB_TAC]
+        THENL [MK_COMB_TAC,cheat]
+        THENL [simp [],MK_COMB_TAC]
+        THENL [MK_COMB_TAC,simp[word_not_bnot]]
+        THENL [simp [],IMP_RES_TAC fixsub_word_sub_length_lemma,MK_COMB_TAC]
+        THENL [ASM_SIMP_TAC arith_ss [],simp[],ASM_SIMP_TAC arith_ss[]]
+        THENL [simp [fixwidth_length_l],simp[fixsub_word_sub_length_lemma]]
+        THENL [IMP_RES_TAC fixsub_word_sub_length_lemma2]
+        THENL [ASM_SIMP_TAC arith_ss []]
+        THENL [simp [fixwidth_length_l]]
 );
 
 val fixshiftr_def = Define`
@@ -119,8 +159,12 @@ val fixshiftl_def = Define`
      let m = LENGTH a in
         fixwidth m (shiftl a n)`
 
-val rotate_word_ror_lemma = Q.store_thm("rotate_word_ror_lemma",
-`!w n. rotate (w2v w) n = w2v (word_ror w n)`,cheat)
+val rotate_w2v = Q.store_thm("rotate_word_ror_lemma",
+`!w:('a word) n. rotate (w2v w) n = w2v (word_ror w n)`,
+   rpt STRIP_TAC >> simp [rotate_def,word_ror]  
+        >> Cases_on `(dimindex (:'a) = 0)`
+         (* dimindex (:'a) = 0 never happens*) >> cheat >> cheat
+)
 
 (* TODO prove properties of fixed size shifts *)
 (* COPIED from miscTheory, as it builds after this directory *)
@@ -209,10 +253,9 @@ val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
 val i2vN_def = Define`
     i2vN (i : int) (n : num) : bitstring = if i < 0 then fixsub (fixwidth n [F]) (fixwidth n (n2v (Num (-i)))) else fixwidth n (n2v (Num i))`
 
-val fixsub_length = Q.store_thm("fixsub_length", `!a b. (LENGTH (fixsub x y)) = MAX (LENGTH x) (LENGTH y)`,cheat);
-
 val i2vN_length = Q.store_thm("i2vN_length", `!i n. (LENGTH (i2vN i n)) = n`,
-    rpt STRIP_TAC >> REWRITE_TAC[i2vN_def] >> cheat
+    rpt STRIP_TAC >> REWRITE_TAC[i2vN_def] >> Cases_on `i < 0` >> 
+    simp[length_fixwidth,fixsub_length] 
 );
 val v2w_i2vN = Q.store_thm("v2w_i2vN",`!i n. ((i2w i):'a word) = ((v2w (i2vN i (dimindex (:'a)))):'a word)`,cheat);
 
