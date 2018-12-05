@@ -45,9 +45,9 @@ val theWord_def = Define `
 val isWord_def = Define `
   (isWord (Word w) = T) /\ (isWord _ = F)`;
 
-val isWord_exists = Q.store_thm("isWord_exists",
-  `isWord x ⇔ ∃w. x = Word w`,
-  Cases_on`x` \\ rw[isWord_def]);
+Theorem isWord_exists
+  `isWord x ⇔ ∃w. x = Word w`
+  (Cases_on`x` \\ rw[isWord_def]);
 
 val mem_load_byte_aux_def = Define `
   mem_load_byte_aux m dm be w =
@@ -827,16 +827,16 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases and that termdep is constant. *)
 
-val gc_clock = Q.store_thm("gc_clock",
-  `!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
-  full_simp_tac(srw_ss())[gc_def,LET_DEF] \\ SRW_TAC [] []
+Theorem gc_clock
+  `!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep`
+  (full_simp_tac(srw_ss())[gc_def,LET_DEF] \\ SRW_TAC [] []
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
-val alloc_clock = Q.store_thm("alloc_clock",
+Theorem alloc_clock
   `!xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==>
-                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
-  SIMP_TAC std_ss [alloc_def] \\ rpt gen_tac
+                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep`
+  (SIMP_TAC std_ss [alloc_def] \\ rpt gen_tac
   \\ rpt (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac gc_clock
   \\ rpt (disch_then strip_assume_tac)
@@ -854,10 +854,10 @@ val inst_clock = Q.prove(
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []
   \\ EVAL_TAC \\ fs[]);
 
-val evaluate_clock = Q.store_thm("evaluate_clock",
+Theorem evaluate_clock
   `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==>
-                 s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
-  recInduct evaluate_ind \\ REPEAT STRIP_TAC
+                 s2.clock <= s1.clock /\ s2.termdep = s1.termdep`
+  (recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ rpt (disch_then strip_assume_tac)
   \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]

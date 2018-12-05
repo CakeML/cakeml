@@ -462,11 +462,11 @@ val evaluate_compile = Q.prove(
   \\ Cases_on `h` \\ fs []
   \\ SRW_TAC [] [] \\ fs []);
 
-val compile_correct = Q.store_thm("compile_correct",
+Theorem compile_correct
   `!c s. FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) /\
          FST (evaluate (c,s)) <> NONE ==>
-         (evaluate (FST (compile c LN),s) = evaluate (c,s))`,
-  REPEAT STRIP_TAC
+         (evaluate (FST (compile c LN),s) = evaluate (c,s))`
+  (REPEAT STRIP_TAC
   \\ (evaluate_compile |> ONCE_REWRITE_RULE [SPLIT_PAIR]
        |> SIMP_RULE std_ss [] |> Q.SPECL [`c`,`s`,`LN`,`s`]
        |> SIMP_RULE std_ss [state_rel_ID] |> MP_TAC)

@@ -17,9 +17,9 @@ val _ = Parse.temp_overload_on("g",``Var (strlit "f") (Fun A B)``)
 val mk_eta_ctxt_def = Define`
   mk_eta_ctxt ctxt = NewAxiom ((Abs x (Comb g x)) === g)::ctxt`
 
-val eta_extends = Q.store_thm("eta_extends",
-  `∀ctxt. is_std_sig (sigof ctxt) ⇒ mk_eta_ctxt ctxt extends ctxt`,
-  rw[extends_def] >>
+Theorem eta_extends
+  `∀ctxt. is_std_sig (sigof ctxt) ⇒ mk_eta_ctxt ctxt extends ctxt`
+  (rw[extends_def] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   rw[Once RTC_CASES1] >> rw[mk_eta_ctxt_def] >>
   rw[updates_cases,EQUATION_HAS_TYPE_BOOL,term_ok_equation] >>
@@ -35,12 +35,12 @@ val mk_select_ctxt_def = Define`
     NewConst (strlit "@") (Fun (Fun A Bool) A) ::
     ctxt`
 
-val select_extends = Q.store_thm("select_extends",
+Theorem select_extends
   `∀ctxt. is_std_sig (sigof ctxt) ∧
            (strlit "@") ∉ FDOM (tmsof ctxt) ∧
            (FLOOKUP (tmsof ctxt) (strlit "==>") = SOME (Fun Bool (Fun Bool Bool)))
-    ⇒ mk_select_ctxt ctxt extends ctxt`,
-  rw[extends_def] >>
+    ⇒ mk_select_ctxt ctxt extends ctxt`
+  (rw[extends_def] >>
   rw[Once RTC_CASES1] >> disj2_tac >>
   rw[Once RTC_CASES1] >> reverse(rw[mk_select_ctxt_def]) >- (
     rw[updates_cases,type_ok_def] >> fs[is_std_sig_def] ) >>
@@ -78,7 +78,7 @@ val tyvar_inst_exists = Q.prove(
   qexists_tac`[(ty,Tyvar a)]` >>
   rw[REV_ASSOCD])
 
-val infinity_extends = Q.store_thm("infinity_extends",
+Theorem infinity_extends
   `∀ctxt. theory_ok (thyof ctxt) ∧
            DISJOINT (FDOM (tmsof ctxt)) (IMAGE strlit {"ONE_ONE";"ONTO"}) ∧
            (strlit "ind") ∉ FDOM (tysof ctxt) ∧
@@ -87,8 +87,8 @@ val infinity_extends = Q.store_thm("infinity_extends",
            (FLOOKUP (tmsof ctxt) (strlit "!") = SOME (Fun (Fun A Bool) Bool)) ∧
            (FLOOKUP (tmsof ctxt) (strlit "?") = SOME (Fun (Fun A Bool) Bool)) ∧
            (FLOOKUP (tmsof ctxt) (strlit "~") = SOME (Fun Bool Bool))
-       ⇒ mk_infinity_ctxt ctxt extends ctxt`,
-  rw[extends_def] >>
+       ⇒ mk_infinity_ctxt ctxt extends ctxt`
+  (rw[extends_def] >>
   imp_res_tac theory_ok_sig >>
   `ALOOKUP (type_list ctxt) (strlit "fun") = SOME 2` by fs[is_std_sig_def] >>
   `ALOOKUP (type_list ctxt) (strlit "bool") = SOME 0` by fs[is_std_sig_def] >>

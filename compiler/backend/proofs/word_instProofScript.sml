@@ -7,7 +7,8 @@ open preamble
 
 val _ = new_theory "word_instProof";
 
-val _ = Parse.hide "B";
+val _ = set_grammar_ancestry ["wordLang", "wordProps", "word_inst", "wordSem"];
+
 (* TODO: Move, but some of these are specific instantiations *)
 val PERM_SWAP_SIMP = Q.prove(`
   PERM (A ++ (B::C)) (B::(A++C))`,
@@ -573,7 +574,7 @@ val locals_rm = Q.prove(`
     The inst-selected program gives same result but
     with possibly more locals used
 *)
-val inst_select_thm = Q.store_thm("inst_select_thm",`
+Theorem inst_select_thm `
   ∀c temp prog st res rst loc.
   evaluate (prog,st) = (res,rst) ∧
   every_var (λx. x < temp) prog ∧
@@ -583,8 +584,8 @@ val inst_select_thm = Q.store_thm("inst_select_thm",`
   evaluate (inst_select c temp prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
   case res of
     NONE => locals_rel temp rst.locals loc'
-  | SOME _ => rst.locals = loc'`,
-  ho_match_mp_tac inst_select_ind>>srw_tac[][]>>
+  | SOME _ => rst.locals = loc'`
+  (ho_match_mp_tac inst_select_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[inst_select_def,locals_rel_evaluate_thm]
   >-
     (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>FULL_CASE_TAC>>srw_tac[][]>>
@@ -807,10 +808,10 @@ val inst_select_exp_flat_exp_conventions = Q.prove(`
   ho_match_mp_tac inst_select_exp_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[inst_select_exp_def,flat_exp_conventions_def,LET_THM]>>
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_exp_def,LET_THM]);
 
-val inst_select_flat_exp_conventions = Q.store_thm("inst_select_flat_exp_conventions",`
+Theorem inst_select_flat_exp_conventions `
   ∀c temp prog.
-  flat_exp_conventions (inst_select c temp prog)`,
-  ho_match_mp_tac inst_select_ind >>srw_tac[][]>>
+  flat_exp_conventions (inst_select c temp prog)`
+  (ho_match_mp_tac inst_select_ind >>srw_tac[][]>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def,inst_select_def,LET_THM]>>
   EVERY_CASE_TAC>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def]>>
@@ -826,13 +827,13 @@ val inst_select_exp_full_inst_ok_less = Q.prove(`
   every_case_tac>>fs[full_inst_ok_less_def,inst_ok_less_def,inst_select_exp_def,LET_THM]
   );
 
-val inst_select_full_inst_ok_less = Q.store_thm("inst_select_full_inst_ok_less",`
+Theorem inst_select_full_inst_ok_less `
   ∀c temp prog.
   addr_offset_ok c 0w ∧
   every_inst (inst_ok_less c) prog
   ⇒
-  full_inst_ok_less c (inst_select c temp prog)`,
-  ho_match_mp_tac inst_select_ind>>
+  full_inst_ok_less c (inst_select c temp prog)`
+  (ho_match_mp_tac inst_select_ind>>
   rw[inst_select_def,full_inst_ok_less_def,every_inst_def]>>
   EVERY_CASE_TAC>>
   fs[inst_select_def,full_inst_ok_less_def,inst_ok_less_def,every_inst_def]>>
@@ -841,13 +842,13 @@ val inst_select_full_inst_ok_less = Q.store_thm("inst_select_full_inst_ok_less",
 (* three_to_two_reg semantics *)
 
 (*Semantics preservation*)
-val three_to_two_reg_correct = Q.store_thm("three_to_two_reg_correct",`
+Theorem three_to_two_reg_correct `
   ∀prog s res s'.
   every_inst distinct_tar_reg prog ∧
   evaluate (prog,s) = (res,s') ∧ res ≠ SOME Error
   ⇒
-  evaluate(three_to_two_reg prog,s) = (res,s')`,
-  ho_match_mp_tac three_to_two_reg_ind>>
+  evaluate(three_to_two_reg prog,s) = (res,s')`
+  (ho_match_mp_tac three_to_two_reg_ind>>
   srw_tac[][]>>full_simp_tac(srw_ss())[three_to_two_reg_def,evaluate_def,state_component_equality]>>
   TRY
     (ntac 2 (pop_assum mp_tac)>>full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,get_vars_def,get_var_def,set_vars_def,alist_insert_def,the_words_def]>>
@@ -885,33 +886,33 @@ val three_to_two_reg_correct = Q.store_thm("three_to_two_reg_correct",`
       rev_full_simp_tac(srw_ss())[]);
 
 (* Syntactic three_to_two_reg *)
-val three_to_two_reg_two_reg_inst = Q.store_thm("three_to_two_reg_two_reg_inst",`
-  ∀prog. every_inst two_reg_inst (three_to_two_reg prog)`,
-  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]);
+Theorem three_to_two_reg_two_reg_inst `
+  ∀prog. every_inst two_reg_inst (three_to_two_reg prog)`
+  (ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]);
 
-val three_to_two_reg_wf_cutsets = Q.store_thm("three_to_two_reg_wf_cutsets",
-  `∀prog. wf_cutsets prog ⇒ wf_cutsets (three_to_two_reg prog)`,
-  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+Theorem three_to_two_reg_wf_cutsets
+  `∀prog. wf_cutsets prog ⇒ wf_cutsets (three_to_two_reg prog)`
+  (ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[wf_cutsets_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]);
 
-val three_to_two_reg_pre_alloc_conventions = Q.store_thm("three_to_two_reg_pre_alloc_conventions",
-  `∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)`,
-  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+Theorem three_to_two_reg_pre_alloc_conventions
+  `∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)`
+  (ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,three_to_two_reg_def,LET_THM,call_arg_convention_def,inst_arg_convention_def]>>
   FULL_CASE_TAC>>fs[]>>
   PairCases_on`x`>>fs[]>>
   FULL_CASE_TAC>>fs[]>>
   PairCases_on`x`>>fs[]);
 
-val three_to_two_reg_flat_exp_conventions = Q.store_thm("three_to_two_reg_flat_exp_conventions",
-  `∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)`,
-  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+Theorem three_to_two_reg_flat_exp_conventions
+  `∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)`
+  (ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]);
 
-val three_to_two_reg_full_inst_ok_less = Q.store_thm("three_to_two_reg_full_inst_ok_less",
+Theorem three_to_two_reg_full_inst_ok_less
   `∀prog. full_inst_ok_less c prog ⇒
-  full_inst_ok_less c (three_to_two_reg prog)`,
-  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+  full_inst_ok_less c (three_to_two_reg prog)`
+  (ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[full_inst_ok_less_def]
   >-
     (Cases_on`bop`>>Cases_on`ri`>>fs[full_inst_ok_less_def,inst_ok_less_def,every_inst_def])
@@ -927,17 +928,17 @@ val inst_select_exp_no_lab = Q.prove(`
   ho_match_mp_tac inst_select_exp_ind>>rw[inst_select_exp_def]>>fs[extract_labels_def]>>
   rpt(TOP_CASE_TAC>>fs[extract_labels_def,inst_select_exp_def]))
 
-val inst_select_lab_pres = Q.store_thm("inst_select_lab_pres",`
+Theorem inst_select_lab_pres `
   ∀c temp prog.
-  extract_labels prog = extract_labels (inst_select c temp prog)`,
-  ho_match_mp_tac inst_select_ind>>rw[inst_select_def,extract_labels_def]>>
+  extract_labels prog = extract_labels (inst_select c temp prog)`
+  (ho_match_mp_tac inst_select_ind>>rw[inst_select_def,extract_labels_def]>>
   TRY(metis_tac[inst_select_exp_no_lab])>>
   EVERY_CASE_TAC>>fs[extract_labels_def]>>
   TRY(metis_tac[inst_select_exp_no_lab]));
 
-val three_to_two_reg_lab_pres = Q.store_thm ("three_to_two_reg_lab_pres",`
+Theorem three_to_two_reg_lab_pres `
   ∀prog.
-  extract_labels prog = extract_labels (three_to_two_reg prog)`,
-  ho_match_mp_tac three_to_two_reg_ind>>rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[]);
+  extract_labels prog = extract_labels (three_to_two_reg prog)`
+  (ho_match_mp_tac three_to_two_reg_ind>>rw[three_to_two_reg_def,extract_labels_def]>>EVERY_CASE_TAC>>fs[]);
 
 val _ = export_theory ();

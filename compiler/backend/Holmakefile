@@ -1,4 +1,4 @@
-INCLUDES = ../../misc ../../semantics ../../basis/pure ../encoders/asm reg_alloc $(HOLDIR)/examples/machine-code/multiword
+INCLUDES = ../../misc ../../semantics ../../semantics/proofs ../../basis/pure ../encoders/asm reg_alloc $(HOLDIR)/examples/machine-code/multiword
 
 all: $(DEFAULT_TARGETS) README.md
 

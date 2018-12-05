@@ -17,16 +17,16 @@ val _ = Parse.overload_on("Bool",``Tyapp (strlit "bool") []``)
 val domain_raw = Define `
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty`;
 
-val domain_def = Q.store_thm("domain_def",
-  `!t s. domain (Fun s t) = s`,
-  REPEAT STRIP_TAC \\ EVAL_TAC);
+Theorem domain_def
+  `!t s. domain (Fun s t) = s`
+  (REPEAT STRIP_TAC \\ EVAL_TAC);
 
 val codomain_raw = Define `
   codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty`;
 
-val codomain_def = Q.store_thm("codomain_def",
-  `!t s. codomain (Fun s t) = t`,
-  REPEAT STRIP_TAC \\ EVAL_TAC);
+Theorem codomain_def
+  `!t s. codomain (Fun s t) = t`
+  (REPEAT STRIP_TAC \\ EVAL_TAC);
 
 val _ = save_thm("domain_raw",domain_raw);
 val _ = save_thm("codomain_raw",codomain_raw);
@@ -206,9 +206,9 @@ val CLOSED_def = Define`
 (* Producing a variant of a variable, guaranteed
    to not be free in a given term. *)
 
-val VFREE_IN_FINITE = Q.store_thm("VFREE_IN_FINITE",
-  `∀t. FINITE {x | VFREE_IN x t}`,
-  Induct >> simp[VFREE_IN_def] >- (
+Theorem VFREE_IN_FINITE
+  `∀t. FINITE {x | VFREE_IN x t}`
+  (Induct >> simp[VFREE_IN_def] >- (
     qmatch_abbrev_tac`FINITE z` >>
     qmatch_assum_abbrev_tac`FINITE x` >>
     qpat_x_assum`FINITE x`mp_tac >>
@@ -222,17 +222,17 @@ val VFREE_IN_FINITE = Q.store_thm("VFREE_IN_FINITE",
   simp[Abbr`z`,Abbr`x`,EXTENSION] >>
   metis_tac[IN_SING])
 
-val VFREE_IN_FINITE_ALT = Q.store_thm("VFREE_IN_FINITE_ALT",
-  `∀t ty. FINITE {x | VFREE_IN (Var (implode x) ty) t}`,
-  rw[] >> match_mp_tac (MP_CANON SUBSET_FINITE) >>
+Theorem VFREE_IN_FINITE_ALT
+  `∀t ty. FINITE {x | VFREE_IN (Var (implode x) ty) t}`
+  (rw[] >> match_mp_tac (MP_CANON SUBSET_FINITE) >>
   qexists_tac`IMAGE (λt. case t of Var x y => explode x) {x | VFREE_IN x t}` >>
   simp[VFREE_IN_FINITE,IMAGE_FINITE] >>
   simp[SUBSET_DEF] >> rw[] >>
   HINT_EXISTS_TAC >> simp[explode_implode])
 
-val PRIMED_NAME_EXISTS = Q.store_thm("PRIMED_NAME_EXISTS",
-  `∃n. ¬(VFREE_IN (Var (implode (APPEND x (GENLIST (K #"'") n))) ty) t)`,
-  qspecl_then[`t`,`ty`]mp_tac VFREE_IN_FINITE_ALT >>
+Theorem PRIMED_NAME_EXISTS
+  `∃n. ¬(VFREE_IN (Var (implode (APPEND x (GENLIST (K #"'") n))) ty) t)`
+  (qspecl_then[`t`,`ty`]mp_tac VFREE_IN_FINITE_ALT >>
   disch_then(mp_tac o CONJ PRIMED_INFINITE) >>
   disch_then(mp_tac o MATCH_MP INFINITE_DIFF_FINITE) >>
   simp[GSYM MEMBER_NOT_EMPTY] >> rw[] >> metis_tac[])
@@ -252,9 +252,9 @@ val VARIANT_PRIMES_def = new_specification
 val VARIANT_def = Define`
   VARIANT t x ty = implode (APPEND x (GENLIST (K #"'") (VARIANT_PRIMES t x ty)))`
 
-val VARIANT_THM = Q.store_thm("VARIANT_THM",
-  `∀t x ty. ¬VFREE_IN (Var (VARIANT t x ty) ty) t`,
-  metis_tac[VARIANT_def,VARIANT_PRIMES_def])
+Theorem VARIANT_THM
+  `∀t x ty. ¬VFREE_IN (Var (VARIANT t x ty) ty) t`
+  (metis_tac[VARIANT_def,VARIANT_PRIMES_def])
 
 (* Substitution for type variables in a type. *)
 
@@ -292,10 +292,10 @@ val sizeof_def = Define`
   sizeof (Abs v t) = 2 + sizeof t`
 val _ = export_rewrites["sizeof_def"]
 
-val SIZEOF_VSUBST = Q.store_thm("SIZEOF_VSUBST",
+Theorem SIZEOF_VSUBST
   `∀t ilist. (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s' = Var x ty)
-              ⇒ sizeof (VSUBST ilist t) = sizeof t`,
-  Induct >> simp[VSUBST_def] >> rw[VSUBST_def] >> simp[] >- (
+              ⇒ sizeof (VSUBST ilist t) = sizeof t`
+  (Induct >> simp[VSUBST_def] >> rw[VSUBST_def] >> simp[] >- (
     Q.ISPECL_THEN[`ilist`,`Var m t`,`Var m t`]mp_tac REV_ASSOCD_MEM >>
     rw[] >> res_tac >> pop_assum SUBST1_TAC >> simp[] )
   >- metis_tac[] >>
@@ -304,9 +304,9 @@ val SIZEOF_VSUBST = Q.store_thm("SIZEOF_VSUBST",
   simp[MEM_FILTER] >>
   rw[] >> res_tac >> fs[] )
 
-val sizeof_positive = Q.store_thm("sizeof_positive",
-  `∀t. 0 < sizeof t`,
-  Induct >> simp[])
+Theorem sizeof_positive
+  `∀t. 0 < sizeof t`
+  (Induct >> simp[])
 
 (* Instantiation of type variables in terms *)
 

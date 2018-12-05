@@ -25,13 +25,13 @@ val sub_completion_unify = Q.prove (
 rw [sub_completion_def, pure_add_constraints_def] >>
 full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF, count_add1]);
 
-val sub_completion_unify2 = Q.store_thm ("sub_completion_unify2",
+Theorem sub_completion_unify2
 `!t1 t2 s1 ts s2 n s3 next_uvar.
   (t_unify s1 t1 t2 = SOME s2) ∧
   sub_completion n next_uvar s2 ts s3
   ⇒
-  sub_completion n next_uvar s1 ((t1,t2)::ts) s3`,
-rw [sub_completion_def, pure_add_constraints_def]);
+  sub_completion n next_uvar s1 ((t1,t2)::ts) s3`
+(rw [sub_completion_def, pure_add_constraints_def]);
 
 val sub_completion_infer = Q.prove (
 `!l ienv e st1 t st2 n ts2 s.
@@ -48,13 +48,13 @@ rw [] >|
      rw [],
  full_simp_tac (srw_ss()++ARITH_ss) [SUBSET_DEF]]);
 
-val sub_completion_add_constraints = Q.store_thm ("sub_completion_add_constraints",
+Theorem sub_completion_add_constraints
 `!s1 ts1 s2 n next_uvar s3 ts2.
   pure_add_constraints s1 ts1 s2 ∧
   sub_completion n next_uvar s2 ts2 s3
   ⇒
-  sub_completion n next_uvar s1 (ts1++ts2) s3`,
-induct_on `ts1` >>
+  sub_completion n next_uvar s1 (ts1++ts2) s3`
+(induct_on `ts1` >>
 rw [pure_add_constraints_def] >>
 Cases_on `h` >>
 fs [pure_add_constraints_def] >>
@@ -84,7 +84,7 @@ res_tac >>
 imp_res_tac sub_completion_infer >>
 metis_tac [APPEND_ASSOC]);
 
-val sub_completion_infer_p = Q.store_thm ("sub_completion_infer_p",
+Theorem sub_completion_infer_p
 `(!l cenv p st t env st' tvs extra_constraints s.
     infer_p l cenv p st = (Success (t,env), st') ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
@@ -94,8 +94,8 @@ val sub_completion_infer_p = Q.store_thm ("sub_completion_infer_p",
     infer_ps l cenv ps st = (Success (ts,env), st') ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
-    ?ts. sub_completion tvs st.next_uvar st.subst (ts++extra_constraints) s)`,
-ho_match_mp_tac infer_p_ind >>
+    ?ts. sub_completion tvs st.next_uvar st.subst (ts++extra_constraints) s)`
+(ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem] >>
 fs []
 >- metis_tac [APPEND, sub_completion_more_vars]
@@ -166,14 +166,14 @@ imp_res_tac sub_completion_infer >>
 fs [] >>
 metis_tac [sub_completion_more_vars, APPEND_ASSOC]);
 
-val sub_completion_apply = Q.store_thm ("sub_completion_apply",
+Theorem sub_completion_apply
 `!n uvars s1 ts s2 t1 t2.
   t_wfs s1 ∧
   (t_walkstar s1 t1 = t_walkstar s1 t2) ∧
   sub_completion n uvars s1 ts s2
   ⇒
-  (t_walkstar s2 t1 = t_walkstar s2 t2)`,
-rw [sub_completion_def] >>
+  (t_walkstar s2 t1 = t_walkstar s2 t2)`
+(rw [sub_completion_def] >>
 pop_assum (fn _ => all_tac) >>
 pop_assum (fn _ => all_tac) >>
 pop_assum mp_tac >>
@@ -222,7 +222,7 @@ fs [sub_completion_def] >|
 
 (* ---------- Soundness ---------- *)
 
-val infer_p_sound = Q.store_thm ("infer_p_sound",
+Theorem infer_p_sound
 `(!l ienv p st t tenv env st' tvs extra_constraints s.
     infer_p l ienv p st = (Success (t,env), st') ∧
     t_wfs st.subst ∧
@@ -242,8 +242,8 @@ val infer_p_sound = Q.store_thm ("infer_p_sound",
     tenv_abbrev_ok tenv.t ∧
     sub_completion tvs st'.next_uvar st'.subst extra_constraints s
     ⇒
-    type_ps tvs tenv ps (MAP (convert_t o t_walkstar s) ts) (convert_env s env))`,
-ho_match_mp_tac infer_p_ind >>
+    type_ps tvs tenv ps (MAP (convert_t o t_walkstar s) ts) (convert_env s env))`
+(ho_match_mp_tac infer_p_ind >>
 rw [infer_p_def, success_eqns, remove_pair_lem] >>
 rw [Once type_p_cases, convert_env_def] >>
 imp_res_tac sub_completion_wfs >>
@@ -390,10 +390,10 @@ fs [] >>
 PairCases_on `h` >>
 rw []);
 
-val word_tc_cases = Q.store_thm("word_tc_cases",`
+Theorem word_tc_cases `
   (word_tc wz = Tword8_num ⇔ wz = W8) ∧
-  (word_tc wz = Tword64_num ⇔ wz = W64)`,
-  Cases_on`wz`>>rw[word_tc_def,Tword8_num_def,Tword64_num_def]);
+  (word_tc wz = Tword64_num ⇔ wz = W64)`
+  (Cases_on`wz`>>rw[word_tc_def,Tword8_num_def,Tword64_num_def]);
 
 val binop_tac =
  imp_res_tac infer_e_wfs >>
@@ -440,13 +440,13 @@ val constrain_op_sound = Q.prove (
  fs [success_eqns] >>
  binop_tac);
 
-val infer_deBruijn_subst_walkstar = Q.store_thm ("infer_deBruijn_subst_walkstar",
+Theorem infer_deBruijn_subst_walkstar
   `!ts t s.
     t_wfs s ⇒
     t_walkstar s (infer_deBruijn_subst (MAP (t_walkstar s) ts) t)
     =
-    t_walkstar s (infer_deBruijn_subst ts t)`,
- ho_match_mp_tac infer_deBruijn_subst_ind
+    t_walkstar s (infer_deBruijn_subst ts t)`
+ (ho_match_mp_tac infer_deBruijn_subst_ind
  >> rw [infer_deBruijn_subst_def, EL_MAP]
  >- metis_tac [SUBMAP_REFL, t_walkstar_idempotent]
  >> rw [t_walkstar_eqn1, MAP_EQ_EVERY2, LIST_REL_EL_EQN]
@@ -455,7 +455,7 @@ val infer_deBruijn_subst_walkstar = Q.store_thm ("infer_deBruijn_subst_walkstar"
  >> disch_then drule
  >> simp [EL_MAP]);
 
-val infer_e_sound = Q.store_thm ("infer_e_sound",
+Theorem infer_e_sound
 `(!l ienv e st st' tenv tenvE t extra_constraints s.
     infer_e l ienv e st = (Success t, st') ∧
     ienv_ok (count st.next_uvar) ienv ∧
@@ -488,8 +488,8 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     sub_completion (num_tvs tenvE) st'.next_uvar st'.subst extra_constraints s ∧
     ALL_DISTINCT (MAP FST funs)
     ⇒
-    type_funs tenv tenvE funs (MAP2 (\(x,y,z) t. (x, (convert_t o t_walkstar s) t)) funs ts))`,
-  ho_match_mp_tac infer_e_ind >>
+    type_funs tenv tenvE funs (MAP2 (\(x,y,z) t. (x, (convert_t o t_walkstar s) t)) funs ts))`
+  (ho_match_mp_tac infer_e_ind >>
   rw [infer_e_def, success_eqns, remove_pair_lem] >>
   rw [check_t_def] >>
   fs [check_t_def] >>

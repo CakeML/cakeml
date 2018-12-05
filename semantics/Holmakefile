@@ -40,7 +40,7 @@ namespaceScript.sml: namespace.lem $(LEMLIB) ffi/ffi.lem addancs
           $(LEM_CMD) $< && ./addancs $@ integer words string alist; \
         else touch namespaceScript.sml ; fi
 
-OTHER_SCRIPTS = cmlPtreeConversion gram lexer_fun namespaceProps semantics termination tokenUtils
+OTHER_SCRIPTS = cmlPtreeConversion gram lexer_fun semantics termination tokenUtils
 
 README_SOURCES = grammar.txt addancs.sml astPP.sml\
 	$(patsubst %,%Script.sml,$(OTHER_SCRIPTS))\

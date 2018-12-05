@@ -18,20 +18,19 @@ val mk_Union_def = Define `
     if t2 = Empty then t1 else
       Union t1 t2`;
 
-val mk_Union_Empty = Q.store_thm("mk_Union_Empty[simp]",
-  `mk_Union Empty A = A ∧ mk_Union A Empty = A`,
-  rw[mk_Union_def]);
+Theorem mk_Union_Empty[simp]
+  `mk_Union Empty A = A ∧ mk_Union A Empty = A`
+  (rw[mk_Union_def]);
 
 val list_mk_Union_def = Define `
   (list_mk_Union [] = Empty) /\
   (list_mk_Union (x::xs) = mk_Union x (list_mk_Union xs))`;
 
-val FOLDR_mk_Union_UNZIP = Q.store_thm(
-  "FOLDR_mk_Union_UNZIP",
+Theorem FOLDR_mk_Union_UNZIP
   `FOLDR (λ(x,l) (ts,frees). (x::ts, mk_Union l frees)) ([], A) l =
    let (ts, fvs) = UNZIP l in
-     (ts, list_mk_Union (fvs ++ [A]))`,
-  Induct_on `l` >> simp[list_mk_Union_def] >>
+     (ts, list_mk_Union (fvs ++ [A]))`
+  (Induct_on `l` >> simp[list_mk_Union_def] >>
   rename1 `UNZIP ll` >> Cases_on `UNZIP ll` >> full_simp_tac(srw_ss())[FORALL_PROD]);
 
 val db_to_set_acc_def = Define `
@@ -42,16 +41,16 @@ val db_to_set_acc_def = Define `
   (db_to_set_acc n (Union v1 v2) s =
      db_to_set_acc n v1 (db_to_set_acc n v2 s))`;
 
-val wf_db_to_set_acc = Q.store_thm("wf_db_to_set_acc",
-  `∀s n a. wf a ⇒ wf (db_to_set_acc n s a)`,
-  Induct \\ EVAL_TAC \\ rw[wf_insert]);
+Theorem wf_db_to_set_acc
+  `∀s n a. wf a ⇒ wf (db_to_set_acc n s a)`
+  (Induct \\ EVAL_TAC \\ rw[wf_insert]);
 
 val db_to_set_def = Define `
   db_to_set db = db_to_set_acc 0 db LN`;
 
-val wf_db_to_set = Q.store_thm("wf_db_to_set",
-  `∀db. wf (db_to_set db)`,
-  rw[db_to_set_def,wf_db_to_set_acc,wf_def]);
+Theorem wf_db_to_set
+  `∀db. wf (db_to_set db)`
+  (rw[db_to_set_def,wf_db_to_set_acc,wf_def]);
 
 val vars_to_list_def = Define `
   vars_to_list db = MAP FST (toAList (db_to_set db))`
@@ -69,34 +68,34 @@ val has_var_def = Define `
   (has_var n (Union d1 d2) <=> has_var n d1 \/ has_var n d2)`;
 val _ = export_rewrites["has_var_def"];
 
-val has_var_mk_Union = Q.store_thm("has_var_mk_Union[simp]",
-  `has_var n (mk_Union l1 l2) <=> has_var n l1 \/ has_var n l2`,
-  SRW_TAC [] [mk_Union_def,has_var_def]);
+Theorem has_var_mk_Union[simp]
+  `has_var n (mk_Union l1 l2) <=> has_var n l1 \/ has_var n l2`
+  (SRW_TAC [] [mk_Union_def,has_var_def]);
 
-val has_var_list_mk_Union = Q.store_thm("has_var_list_mk_Union[simp]",
-  `!ls. has_var n (list_mk_Union ls) <=> EXISTS (has_var n) ls`,
-  Induct \\ fs [list_mk_Union_def,has_var_mk_Union,has_var_def]);
+Theorem has_var_list_mk_Union[simp]
+  `!ls. has_var n (list_mk_Union ls) <=> EXISTS (has_var n) ls`
+  (Induct \\ fs [list_mk_Union_def,has_var_mk_Union,has_var_def]);
 
-val lookup_db_to_set_acc = Q.store_thm("lookup_db_to_set_acc",
+Theorem lookup_db_to_set_acc
   `!d n k s.
      lookup n (db_to_set_acc k d s) =
-       if has_var (n + k) d then SOME () else lookup n s`,
-  Induct \\ fs [has_var_def,db_to_set_acc_def,AC ADD_COMM ADD_ASSOC]
+       if has_var (n + k) d then SOME () else lookup n s`
+  (Induct \\ fs [has_var_def,db_to_set_acc_def,AC ADD_COMM ADD_ASSOC]
   \\ SRW_TAC [] [] \\ fs [lookup_insert]
   \\ SRW_TAC [] [] \\ `F` by DECIDE_TAC)
 
-val lookup_db_to_set = Q.store_thm("lookup_db_to_set",
-  `has_var n d = (lookup n (db_to_set d) = SOME ())`,
-  fs [lookup_db_to_set_acc,db_to_set_def,lookup_def]);
+Theorem lookup_db_to_set
+  `has_var n d = (lookup n (db_to_set d) = SOME ())`
+  (fs [lookup_db_to_set_acc,db_to_set_def,lookup_def]);
 
-val lookup_db_to_set_Shift = Q.store_thm("lookup_db_to_set_Shift",
-  `lookup n (db_to_set (Shift k s)) = lookup (n+k) (db_to_set s)`,
-  rw[db_to_set_def,db_to_set_acc_def]
+Theorem lookup_db_to_set_Shift
+  `lookup n (db_to_set (Shift k s)) = lookup (n+k) (db_to_set s)`
+  (rw[db_to_set_def,db_to_set_acc_def]
   \\ rw[lookup_db_to_set_acc,lookup_def]);
 
-val MEM_vars_to_list = Q.store_thm("MEM_vars_to_list",
-  `MEM n (vars_to_list d) = has_var n d`,
-  fs [vars_to_list_def,MEM_MAP,EXISTS_PROD,MEM_toAList]
+Theorem MEM_vars_to_list
+  `MEM n (vars_to_list d) = has_var n d`
+  (fs [vars_to_list_def,MEM_MAP,EXISTS_PROD,MEM_toAList]
   \\ fs [lookup_db_to_set]);
 
 val has_var_FOLDL_Union = Q.prove(
@@ -104,16 +103,16 @@ val has_var_FOLDL_Union = Q.prove(
              MEM n vs \/ has_var n s`,
   Induct \\ fs [] \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
 
-val MEM_vars_from_list = Q.store_thm("MEM_vars_from_list",
-  `!vs n. has_var n (vars_from_list vs) <=> MEM n vs`,
-  fs [vars_from_list_def,has_var_FOLDL_Union]);
+Theorem MEM_vars_from_list
+  `!vs n. has_var n (vars_from_list vs) <=> MEM n vs`
+  (fs [vars_from_list_def,has_var_FOLDL_Union]);
 
-val has_var_vars_flatten = Q.store_thm("has_var_vars_flatten[simp]",
-  `has_var n (vars_flatten d) = has_var n d`,
-  fs [vars_flatten_def,MEM_vars_from_list,MEM_vars_to_list]);
+Theorem has_var_vars_flatten[simp]
+  `has_var n (vars_flatten d) = has_var n d`
+  (fs [vars_flatten_def,MEM_vars_from_list,MEM_vars_to_list]);
 
-val ALL_DISTINCT_vars_to_list = Q.store_thm("ALL_DISTINCT_vars_to_list",
-  `ALL_DISTINCT (vars_to_list d)`,
-  fs [vars_to_list_def,ALL_DISTINCT_MAP_FST_toAList]);
+Theorem ALL_DISTINCT_vars_to_list
+  `ALL_DISTINCT (vars_to_list d)`
+  (fs [vars_to_list_def,ALL_DISTINCT_MAP_FST_toAList]);
 
 val _ = export_theory();

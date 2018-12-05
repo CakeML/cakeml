@@ -9,10 +9,10 @@ val _ = new_theory"ag32_ffi_codeProof";
 
 (* TODO: move *)
 
-val byte_aligned_imp = Q.store_thm("byte_aligned_imp",
+Theorem byte_aligned_imp
   `byte_aligned (x:word32) ⇒
-   (((((31 >< 2) x):word30) @@ (0w:word2)) = x)`,
-  rw[alignmentTheory.byte_aligned_def, alignmentTheory.aligned_def, alignmentTheory.align_def]
+   (((((31 >< 2) x):word30) @@ (0w:word2)) = x)`
+  (rw[alignmentTheory.byte_aligned_def, alignmentTheory.aligned_def, alignmentTheory.align_def]
   \\ blastLib.FULL_BBLAST_TAC);
 
 (* -- *)
@@ -96,13 +96,13 @@ fun next_tac n =
     \\ simp[ag32Theory.Run_def]
   end
 
-val ag32_ffi_return_code_thm = Q.store_thm("ag32_ffi_return_code_thm",
+Theorem ag32_ffi_return_code_thm
   `(∀k. k < LENGTH ag32_ffi_return_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_return_code))) ∧ byte_aligned s.PC
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_return s)`,
-  rw[ag32_ffi_return_def]
+   ∃k. (FUNPOW Next k s = ag32_ffi_return s)`
+  (rw[ag32_ffi_return_def]
   \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
   \\ rw[ag32Theory.Next_def]
   \\ qmatch_goalsub_abbrev_tac`pc + 2w`
@@ -142,7 +142,7 @@ val ag32_ffi_return_code_thm = Q.store_thm("ag32_ffi_return_code_thm",
   \\ simp[ag32Theory.Run_def]
   \\ simp[Once EXISTS_NUM]);
 
-val ag32_ffi_copy_code_thm = Q.store_thm("ag32_ffi_copy_code_thm",
+Theorem ag32_ffi_copy_code_thm
   `∀s.
    (∀k. k < LENGTH ag32_ffi_copy_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
@@ -153,8 +153,8 @@ val ag32_ffi_copy_code_thm = Q.store_thm("ag32_ffi_copy_code_thm",
    ∧ DISJOINT { s.R 5w + n2w k | k | k < w2n (s.R 1w) }
               { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_copy_code }
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_copy s)`,
-  Induct_on`w2n(s.R 1w)` \\ rw[]
+   ∃k. (FUNPOW Next k s = ag32_ffi_copy s)`
+  (Induct_on`w2n(s.R 1w)` \\ rw[]
   >- (
     simp[Once ag32_ffi_copy_def]
     \\ Cases_on`s.R 1w` \\ fs[] \\ rw[]
@@ -449,10 +449,9 @@ fun gmwtac i =
      else ALL_TAC)
 val gmw = gmw0 gmwtac
 
-val v2w_EQ0 = Q.store_thm(
-  "v2w_EQ0",
-  ‘v2w [b] = (0w : word32) ⇔ ~b’,
-  Cases_on ‘b’ >> simp[]);
+Theorem v2w_EQ0
+  `v2w [b] = (0w : word32) ⇔ ~b`
+  (Cases_on ‘b’ >> simp[]);
 
 fun r3_unchanged i =
     let
@@ -485,9 +484,8 @@ val combined = combined0 instn gmw
 val _ = temp_overload_on ("align4",
   “λw:word32. (((31 >< 2) w) : 30 word @@ (0w : 2 word)) : word32”);
 
-val ag32_ffi_read_num_written_code_thm = Q.store_thm(
-  "ag32_ffi_read_num_written_code_thm",
-  ‘s.R 3w ∉
+Theorem ag32_ffi_read_num_written_code_thm
+  `s.R 3w ∉
      { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_read_num_written_code } ∧
    align4 (w2w (n2w stdin_offset : 23 word)) ∉
         { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_read_num_written_code } ∧
@@ -496,9 +494,9 @@ val ag32_ffi_read_num_written_code_thm = Q.store_thm(
           Encode (EL k ag32_ffi_read_num_written_code)) ∧
    byte_aligned s.PC
      ⇒
-   ∃k. FUNPOW Next k s = ag32_ffi_read_num_written s’,
+   ∃k. FUNPOW Next k s = ag32_ffi_read_num_written s`
 
-  strip_tac >>
+  (strip_tac >>
   assume_tac (EVAL “LENGTH ag32_ffi_read_num_written_code”) >> fs[] >>
   instn 0 >>
   drule_then assume_tac byte_aligned_imp >>
@@ -556,14 +554,14 @@ val ag32_ffi_read_num_written_code_thm = Q.store_thm(
   EVERY (List.tabulate(10, fn i => combined (i + 8))) >>
   qexists_tac `0` >> simp[]);
 
-val ag32_ffi_write_set_id_code_thm = Q.store_thm("ag32_ffi_write_set_id_code_thm",
+Theorem ag32_ffi_write_set_id_code_thm
   `(∀k. k < LENGTH ag32_ffi_write_set_id_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_write_set_id_code))) ∧
    byte_aligned s.PC
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_write_set_id s)`,
-  rw[ag32_ffi_write_set_id_def]
+   ∃k. (FUNPOW Next k s = ag32_ffi_write_set_id s)`
+  (rw[ag32_ffi_write_set_id_def]
   \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
   \\ rw[ag32Theory.Next_def]
   \\ drule byte_aligned_imp \\ rw[]
@@ -655,37 +653,37 @@ val ag32_ffi_write_set_id_code_thm = Q.store_thm("ag32_ffi_write_set_id_code_thm
   \\ simp[ag32Theory.Run_def]
   \\ rw[Once EXISTS_NUM]);
 
-val ag32_ffi_write_check_conf_code_thm = Q.store_thm("ag32_ffi_write_check_conf_code_thm",
+Theorem ag32_ffi_write_check_conf_code_thm
   `(∀k. k < LENGTH ag32_ffi_write_check_conf_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_write_check_conf_code))) ∧ byte_aligned s.PC
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_write_check_conf s)`,
-  first_tac
+   ∃k. (FUNPOW Next k s = ag32_ffi_write_check_conf s)`
+  (first_tac
   \\ EVERY (List.tabulate(34, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
-val ag32_ffi_write_load_noff_code_thm = Q.store_thm("ag32_ffi_write_load_noff_code_thm",
+Theorem ag32_ffi_write_load_noff_code_thm
   `(∀k. k < LENGTH ag32_ffi_write_load_noff_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_write_load_noff_code))) ∧ byte_aligned s.PC
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_write_load_noff s)`,
-  first_tac
+   ∃k. (FUNPOW Next k s = ag32_ffi_write_load_noff s)`
+  (first_tac
   \\ EVERY (List.tabulate(11, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
-val ag32_ffi_write_check_lengths_code_thm = Q.store_thm("ag32_ffi_write_check_lengths_code_thm",
+Theorem ag32_ffi_write_check_lengths_code_thm
   `(∀k. k < LENGTH ag32_ffi_write_check_lengths_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_write_check_lengths_code))) ∧ byte_aligned s.PC
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_write_check_lengths s)`,
-  first_tac
+   ∃k. (FUNPOW Next k s = ag32_ffi_write_check_lengths s)`
+  (first_tac
   \\ EVERY (List.tabulate(9, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
-val ag32_ffi_write_write_header_code_thm = Q.store_thm("ag32_ffi_write_write_header_code_thm",
+Theorem ag32_ffi_write_write_header_code_thm
   `(∀k. k < LENGTH ag32_ffi_write_write_header_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_write_write_header_code)))
@@ -697,8 +695,8 @@ val ag32_ffi_write_write_header_code_thm = Q.store_thm("ag32_ffi_write_write_hea
             + 4 * (LENGTH ag32_ffi_write_check_lengths_code)))
    ∧ (s.R 5w = n2w output_offset)
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_write_write_header s)`,
-  rw[ag32_ffi_write_write_header_def]
+   ∃k. (FUNPOW Next k s = ag32_ffi_write_write_header s)`
+  (rw[ag32_ffi_write_write_header_def]
   \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
   \\ rw[ag32Theory.Next_def]
   \\ qmatch_goalsub_abbrev_tac`pc + 2w`
@@ -1259,7 +1257,7 @@ val ag32_ffi_write_write_header_code_thm = Q.store_thm("ag32_ffi_write_write_hea
   \\ simp[ag32Theory.Run_def]
   \\ simp[Once EXISTS_NUM]);
 
-val ag32_ffi_write_num_written_code_thm = Q.store_thm("ag32_ffi_write_num_written_code_thm",
+Theorem ag32_ffi_write_num_written_code_thm
   `(∀k. k < LENGTH ag32_ffi_write_num_written_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_write_num_written_code)))
@@ -1268,8 +1266,8 @@ val ag32_ffi_write_num_written_code_thm = Q.store_thm("ag32_ffi_write_num_writte
    ∧ (∀k. k DIV 4 < LENGTH ag32_ffi_write_num_written_code ⇒ s.R 3w + 1w ≠ s.PC + n2w k)
    ∧ (∀k. k DIV 4 < LENGTH ag32_ffi_write_num_written_code ⇒ s.R 3w + 2w ≠ s.PC + n2w k)
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_write_num_written s)`,
-  strip_tac
+   ∃k. (FUNPOW Next k s = ag32_ffi_write_num_written s)`
+  (strip_tac
   \\ simp[ag32_ffi_write_num_written_def]
   \\ qmatch_goalsub_abbrev_tac`COND (t1.PC = t0.PC + 4w)`
   \\ simp[Once EXISTS_NUM] \\ disj2_tac \\ simp[FUNPOW]
@@ -1516,7 +1514,7 @@ val ag32_ffi_write_num_written_code_thm = Q.store_thm("ag32_ffi_write_num_writte
   \\ simp[ag32Theory.Run_def]
   \\ simp[Once EXISTS_NUM]);
 
-val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
+Theorem ag32_ffi_write_code_thm
   `(∀k. k < LENGTH ag32_ffi_write_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_write_code))) ∧
@@ -1530,8 +1528,8 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
    DISJOINT md { w | n2w startup_code_size <=+ w ∧ w <+ n2w heap_start_offset }
    (* ∧ md ⊆ { w | w | r0 <+ w ∧ r0 + w <=+ r0 + n2w memory_size }*)
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_write s)`,
-  rw[]
+   ∃k. (FUNPOW Next k s = ag32_ffi_write s)`
+  (rw[]
   \\ simp[ag32_ffi_write_def]
   \\ mp_tac ag32_ffi_write_set_id_code_thm
   \\ impl_tac
@@ -1579,7 +1577,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   \\ impl_tac
   >- (
     simp[Abbr`s1`,APPLY_UPDATE_THM]
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ irule bytes_in_memory_change_mem
     \\ goal_assum(last_assum o mp_then Any mp_tac)
     \\ simp[APPLY_UPDATE_THM] \\ rw[]
     \\ drule_then drule
@@ -1626,7 +1624,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   >- (
     simp[Abbr`s2`,APPLY_UPDATE_THM]
     \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ irule bytes_in_memory_change_mem
     \\ goal_assum(last_assum o mp_then Any mp_tac)
     \\ simp[APPLY_UPDATE_THM] \\ rw[]
     \\ drule_then (drule o SIMP_RULE(srw_ss())[])
@@ -1717,7 +1715,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
       \\ fs[word_add_n2w]
       \\ qpat_x_assum`j < _`mp_tac \\ EVAL_TAC \\ strip_tac
       \\ simp[]
-      \\ fs[asmSemTheory.bytes_in_memory_def]
+      \\ fs[bytes_in_memory_def]
       \\ qhdtm_x_assum`DISJOINT`mp_tac
       \\ qhdtm_x_assum`DISJOINT`mp_tac
       \\ simp[IN_DISJOINT]
@@ -1791,7 +1789,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
       \\ simp[Abbr`s1mem`]
       \\ simp[get_mem_word_def, APPLY_UPDATE_THM]
       \\ CONV_TAC(PATH_CONV"rrr"EVAL)
-      \\ fs[asmSemTheory.bytes_in_memory_def]
+      \\ fs[bytes_in_memory_def]
       \\ qpat_x_assum`s.R 3w ∈ md`mp_tac
       \\ qhdtm_x_assum`DISJOINT`mp_tac
       \\ qhdtm_x_assum`DISJOINT`mp_tac
@@ -1853,7 +1851,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ simp[MarshallingTheory.w22n_def]
     \\ Cases_on`n0` \\ Cases_on`n1` \\ fs[]
     \\ Cases_on`off0` \\ Cases_on`off1` \\ fs[]
-    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[bytes_in_memory_def]
     \\ Cases_on`s1.R 4w` \\ fs[]
     \\ fs[Abbr`s1`, APPLY_UPDATE_THM]
     \\ simp[word_add_n2w] )
@@ -1907,7 +1905,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ simp[Abbr`s3`, APPLY_UPDATE_THM]
     \\ simp[Abbr`s2`, APPLY_UPDATE_THM]
     \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
-    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[bytes_in_memory_def]
     \\ qpat_x_assum`s.R 3w ∈ _`mp_tac
     \\ qhdtm_x_assum`DISJOINT`mp_tac
     \\ simp[IN_DISJOINT, DISJ_EQ_IMP]
@@ -1936,7 +1934,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ fs[ word_add_n2w]
     \\ qpat_x_assum`j < _`mp_tac \\ EVAL_TAC \\ strip_tac
     \\ simp[]
-    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[bytes_in_memory_def]
     \\ qhdtm_x_assum`DISJOINT`mp_tac
     \\ qhdtm_x_assum`DISJOINT`mp_tac
     \\ simp[IN_DISJOINT]
@@ -1988,7 +1986,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ qx_gen_tac`j` \\ strip_tac
     \\ Cases_on`s.R 3w` \\ fs[word_add_n2w]
     \\ fs[DIV_LT_X]
-    \\ fs[asmSemTheory.bytes_in_memory_def]
+    \\ fs[bytes_in_memory_def]
     \\ qpat_x_assum`n2w _ ∈ md`mp_tac
     \\ qhdtm_x_assum`DISJOINT`mp_tac
     \\ qhdtm_x_assum`DISJOINT`mp_tac
@@ -2003,7 +2001,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   by ( simp[Abbr`s5`, Abbr`s4`, Abbr`s3`, Abbr`s2`, Abbr`s1`, APPLY_UPDATE_THM] )
   \\ qspec_then`s5`mp_tac(CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))(GEN_ALL ag32_ffi_write_num_written_thm))
   \\ simp[]
-  \\ fs[asmSemTheory.bytes_in_memory_def]
+  \\ fs[bytes_in_memory_def]
   \\ `s4.R 3w = s.R 3w` by simp[Abbr`s4`, Abbr`s3`, Abbr`s2`, Abbr`s1`,APPLY_UPDATE_THM]
   \\ `s5.R 1w = n2w n`by simp[Abbr`s5`, Abbr`s4`, Abbr`s3`, APPLY_UPDATE_THM]
   \\ simp[]
@@ -2016,7 +2014,7 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     >- (
       simp[Abbr`n`,MarshallingTheory.w22n_def]
       \\ Cases_on`n0` \\Cases_on`n1` \\ fs[] )
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ irule bytes_in_memory_change_mem
     \\ qexists_tac`s.MEM` \\ simp[]
     \\ simp[APPLY_UPDATE_THM]
     \\ Cases_on`s.R 3w` \\ simp[word_add_n2w] \\ fs[]
@@ -2175,15 +2173,15 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
     \\ `tll = TAKE off tll ++ DROP off tll` by metis_tac[TAKE_DROP]
     \\ qhdtm_x_assum`bytes_in_memory`mp_tac
     \\ pop_assum(fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
-    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL asmPropsTheory.bytes_in_memory_APPEND))))
+    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL bytes_in_memory_APPEND))))
     \\ simp[] \\ strip_tac
     \\ qmatch_goalsub_abbrev_tac`TAKE kk ll`
     \\ `ll = TAKE kk ll ++ DROP kk ll` by metis_tac[TAKE_DROP]
     \\ qhdtm_x_assum`bytes_in_memory`mp_tac
     \\ pop_assum(fn th => CONV_TAC(LAND_CONV(ONCE_REWRITE_CONV[th])))
-    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL asmPropsTheory.bytes_in_memory_APPEND))))
+    \\ disch_then(mp_then Any mp_tac (#1(EQ_IMP_RULE (SPEC_ALL bytes_in_memory_APPEND))))
     \\ strip_tac
-    \\ irule asmPropsTheory.bytes_in_memory_change_mem
+    \\ irule bytes_in_memory_change_mem
     \\ goal_assum(first_assum o mp_then Any mp_tac)
     \\ simp[Abbr`s6`]
     \\ gen_tac \\ strip_tac
@@ -2245,43 +2243,43 @@ val ag32_ffi_write_code_thm = Q.store_thm("ag32_ffi_write_code_thm",
   \\ simp[GSYM FUNPOW_ADD]
   \\ metis_tac[]);
 
-val ag32_ffi_read_set_id_code_thm = Q.store_thm("ag32_ffi_read_set_id_code_thm",
-  ‘(∀k. k < LENGTH ag32_ffi_read_set_id_code ⇒
+Theorem ag32_ffi_read_set_id_code_thm
+  `(∀k. k < LENGTH ag32_ffi_read_set_id_code ⇒
          get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_read_set_id_code)) ∧ byte_aligned s.PC
      ⇒
-   ∃k. FUNPOW Next k s = ag32_ffi_read_set_id s’,
-  first_tac
+   ∃k. FUNPOW Next k s = ag32_ffi_read_set_id s`
+  (first_tac
   \\ EVERY (List.tabulate(1, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
-val ag32_ffi_read_check_conf_code_thm = Q.store_thm("ag32_ffi_read_check_conf_code_thm",
+Theorem ag32_ffi_read_check_conf_code_thm
   `(∀k. k < LENGTH ag32_ffi_read_check_conf_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_read_check_conf_code))) ∧ byte_aligned s.PC
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_read_check_conf s)`,
-  first_tac
+   ∃k. (FUNPOW Next k s = ag32_ffi_read_check_conf s)`
+  (first_tac
   \\ EVERY (List.tabulate(32, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
-val ag32_ffi_read_load_lengths_code_thm = Q.store_thm("ag32_ffi_read_load_lengths_code_thm",
+Theorem ag32_ffi_read_load_lengths_code_thm
   `(∀k. k < LENGTH ag32_ffi_read_load_lengths_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_read_load_lengths_code))) ∧ byte_aligned s.PC
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_read_load_lengths s)`,
-  first_tac
+   ∃k. (FUNPOW Next k s = ag32_ffi_read_load_lengths s)`
+  (first_tac
   \\ EVERY (List.tabulate(10, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
-val ag32_ffi_read_check_length_code_thm = Q.store_thm("ag32_ffi_read_check_length_code_thm",
+Theorem ag32_ffi_read_check_length_code_thm
   `(∀k. k < LENGTH ag32_ffi_read_check_length_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_read_check_length_code))) ∧ byte_aligned s.PC
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_read_check_length s)`,
-  first_tac
+   ∃k. (FUNPOW Next k s = ag32_ffi_read_check_length s)`
+  (first_tac
   \\ EVERY (List.tabulate(4, next_tac o (curry(op +)1)))
   \\ rw[Once EXISTS_NUM]);
 
@@ -2297,13 +2295,13 @@ val codedefs = [ag32_ffi_read_code_def, ag32_ffi_read_set_id_code_def,
 val bytes_in_memory_update = Q.prove(
   ‘∀bs a. k ∉ md ∧ bytes_in_memory a bs mf md ⇒
           bytes_in_memory a bs ((k =+ v) mf) md’,
-  Induct >> simp[asmSemTheory.bytes_in_memory_def] >>
+  Induct >> simp[bytes_in_memory_def] >>
   metis_tac[combinTheory.UPDATE_APPLY]);
 
 val bytes_in_memory_prefix = Q.prove(
   ‘∀bs sfx a. bytes_in_memory a (bs ++ sfx) mf md ⇒
               bytes_in_memory a bs mf md’,
-  Induct >> simp[asmSemTheory.bytes_in_memory_def] >> metis_tac[]);
+  Induct >> simp[bytes_in_memory_def] >> metis_tac[]);
 
 val asm_write_bytearray_avoiding = Q.prove(
   ‘∀a bs.
@@ -2316,9 +2314,9 @@ val asm_write_bytearray_avoiding = Q.prove(
 
 fun glAbbrs i = EVERY (List.tabulate(i, fn j => glAbbr (i - j)))
 
-val w22n_bound = Q.store_thm("w22n_bound",
-  ‘∀b1 b2. w22n [b1; b2] < 65536’,
-  rw[MarshallingTheory.w22n_def] >>
+Theorem w22n_bound
+  `∀b1 b2. w22n [b1; b2] < 65536`
+  (rw[MarshallingTheory.w22n_def] >>
   map_every (fn q => Q.ISPEC_THEN q mp_tac w2n_lt) [‘b1’, ‘b2’] >> simp[]);
 
 val ltSUC = Q.prove(
@@ -2335,12 +2333,11 @@ val word_add_o = Q.prove(
 
 
 
-val bytes_in_memory_GENLIST = Q.store_thm(
-  "bytes_in_memory_GENLIST",
-  ‘∀sz base f.
+Theorem bytes_in_memory_GENLIST
+  `∀sz base f.
       bytes_in_memory base (GENLIST (m o word_add base o n2w) sz) m md ⇔
-      ∀a. a < sz ⇒ base + n2w a ∈ md’,
-  Induct >> simp[asmSemTheory.bytes_in_memory_def, GENLIST_CONS] >>
+      ∀a. a < sz ⇒ base + n2w a ∈ md`
+  (Induct >> simp[bytes_in_memory_def, GENLIST_CONS] >>
   simp[ltSUC, PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM, ADD1,
        GSYM word_add_n2w, CONJ_ASSOC, n2w_o_SUC, word_add_o]);
 
@@ -2376,7 +2373,7 @@ fun simpem [] = raise Fail ""
   | simpem (th::ths) = simpem (map (SIMP_RULE (srw_ss()) [th]) ths)
 val stupid = DISCH_ALL (simpem w2ns)
 
-val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
+Theorem ag32_ffi_read_code_thm
   `(∀k. k < LENGTH ag32_ffi_read_code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi_read_code))) ∧
@@ -2394,13 +2391,12 @@ val ag32_ffi_read_code_thm = Q.store_thm("ag32_ffi_read_code_thm",
    DISJOINT md { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_read_code } ∧
    DISJOINT md { w | n2w startup_code_size <=+ w ∧ w <+ n2w heap_start_offset }
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_read s)`,
+   ∃k. (FUNPOW Next k s = ag32_ffi_read s)`
 
-  simp0[ag32_ffi_read_def] >> strip_tac >>
+  (simp0[ag32_ffi_read_def] >> strip_tac >>
   ‘s.R 3w ∈ md’
     by (qpat_assum ‘bytes_in_memory (s.R 3w) _ _ _’
-          (mp_then (Pos hd) mp_tac
-                   asmPropsTheory.bytes_in_memory_in_domain) >>
+          (mp_then (Pos hd) mp_tac bytes_in_memory_in_domain) >>
         disch_then (qspec_then ‘0’ mp_tac) >> simp[]) >>
   ‘∃k1. FUNPOW Next k1 s = ag32_ffi_read_set_id s’
     by (print_tac "read_code_thm: 1. read_set_id" >>
@@ -2799,7 +2795,7 @@ val gmw = gmw0 (fn i =>
                    insthyp last_x_assum 4 (fn j => 4 * i + j))
 val combined = combined0 instn gmw
 
-val ag32_ffi_get_arg_count_code_thm = Q.store_thm("ag32_ffi_get_arg_count_code_thm",
+Theorem ag32_ffi_get_arg_count_code_thm
   `s.R 3w ∉
      { s.PC + n2w k | k | k DIV 4 < LENGTH ag32_ffi_get_arg_count_code } ∧
    (∀k. k < LENGTH ag32_ffi_get_arg_count_code ⇒
@@ -2808,8 +2804,8 @@ val ag32_ffi_get_arg_count_code_thm = Q.store_thm("ag32_ffi_get_arg_count_code_t
    byte_aligned s.PC ∧
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_get_arg_count_entrypoint))
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_count s)`,
-  rw[ffi_code_start_offset_thm, ag32_ffi_get_arg_count_entrypoint_thm] >>
+   ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_count s)`
+  (rw[ffi_code_start_offset_thm, ag32_ffi_get_arg_count_entrypoint_thm] >>
   assume_tac (EVAL “LENGTH ag32_ffi_get_arg_count_code”) >> fs[] >>
   instn 0 >>
   simp0 [ag32_ffi_get_arg_count_def, ag32_ffi_get_arg_count_main_def] >>
@@ -2858,17 +2854,16 @@ val gmw = gmw0 (fn i =>
                    insthyp last_x_assum 4 (fn j => 4 * i + j))
 val combined = combined0 instn gmw
 
-val ag32_ffi_get_arg_length_setup_code_thm = Q.store_thm(
-  "ag32_ffi_get_arg_length_setup_code_thm",
-  ‘w2w (n2w (ffi_code_start_offset − 1) : 23 word) ∉
+Theorem ag32_ffi_get_arg_length_setup_code_thm
+  `w2w (n2w (ffi_code_start_offset − 1) : 23 word) ∉
      { s.PC + n2w k | k |
        k DIV 4 < LENGTH ag32_ffi_get_arg_length_setup_code } ∧
    (∀k. k < LENGTH ag32_ffi_get_arg_length_setup_code ⇒
         get_mem_word s.MEM (s.PC + n2w (4 * k)) =
         Encode (EL k ag32_ffi_get_arg_length_setup_code)) ∧
    byte_aligned s.PC ⇒
-   ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_setup s’,
-  rw[ffi_code_start_offset_thm] >>
+   ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_setup s`
+  (rw[ffi_code_start_offset_thm] >>
   assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_setup_code”) >> fs[] >>
   instn 0 >>
   simp0[ag32_ffi_get_arg_length_setup_def] >>
@@ -2889,16 +2884,15 @@ val instn = instn0
                          ag32_ffi_get_arg_length_loop1_code_def)
 val combined = combined0 instn gmw
 
-val ag32_ffi_get_arg_length_loop1_code_thm = Q.store_thm(
-  "ag32_ffi_get_arg_length_loop1_code_thm",
-  ‘s.MEM (s.R 5w + n2w zoff) = 0w ∧
+Theorem ag32_ffi_get_arg_length_loop1_code_thm
+  `s.MEM (s.R 5w + n2w zoff) = 0w ∧
    (∀k. k < LENGTH ag32_ffi_get_arg_length_loop1_code ⇒
         get_mem_word s.MEM (s.PC + n2w (4 * k)) =
         Encode (EL k ag32_ffi_get_arg_length_loop1_code)) ∧
    byte_aligned s.PC ⇒
-   ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_loop1 s’,
+   ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_loop1 s`
 
-  assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_loop1_code”) >>
+  (assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_loop1_code”) >>
   map_every qid_spec_tac [‘s’, ‘zoff’] >> Induct >> simp[] >>
   rw[] >> instn 0 >> simp0[Once ag32_ffi_get_arg_length_loop1_def] >>
   drule_then assume_tac byte_aligned_imp >>
@@ -2940,16 +2934,15 @@ val has_n_args_def = Define‘
            has_n_args mem (a + n2w off + 1w) n)
 ’;
 
-val ag32_ffi_get_arg_length_loop_code_thm = Q.store_thm(
-  "ag32_ffi_get_arg_length_loop_code_thm",
-  ‘has_n_args s.MEM (s.R 5w) argc ∧ w2n (s.R 6w) ≤ argc ∧
+Theorem ag32_ffi_get_arg_length_loop_code_thm
+  `has_n_args s.MEM (s.R 5w) argc ∧ w2n (s.R 6w) ≤ argc ∧
    (∀k. k < LENGTH ag32_ffi_get_arg_length_loop_code ⇒
         get_mem_word s.MEM (s.PC + n2w (4 * k)) =
         Encode (EL k ag32_ffi_get_arg_length_loop_code)) ∧
    byte_aligned s.PC ⇒
-   ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_loop s’,
+   ∃k. FUNPOW Next k s = ag32_ffi_get_arg_length_loop s`
 
-  ‘∃cnt. w2n (s.R 6w) = cnt’ by simp[] >>
+  (‘∃cnt. w2n (s.R 6w) = cnt’ by simp[] >>
   pop_assum mp_tac >> map_every qid_spec_tac [‘argc’, ‘s’, ‘cnt’] >> Induct >>
   rw[] >>
   assume_tac (EVAL “LENGTH ag32_ffi_get_arg_length_loop_code”) >> fs[] >>
@@ -3009,9 +3002,9 @@ val (ag32_ffi_get_arg_length_store_SPEC,
      ag32_ffi_get_arg_length_store_decomp_def) = ag32_decompile
      ag32_ffi_get_arg_length_store_code_def
 
-val ag32_ffi_get_arg_length_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_length_store_decomp_thm",
-  `FST(ag32_ffi_get_arg_length_store_decomp (s,md)) = ag32_ffi_get_arg_length_store s`,
-  rw[ag32_ffi_get_arg_length_store_decomp_def]
+Theorem ag32_ffi_get_arg_length_store_decomp_thm
+  `FST(ag32_ffi_get_arg_length_store_decomp (s,md)) = ag32_ffi_get_arg_length_store s`
+  (rw[ag32_ffi_get_arg_length_store_decomp_def]
   \\ rw[ag32_ffi_get_arg_length_store_def]);
 
 val ag32_ffi_get_arg_length_store_FUNPOW_Next = let
@@ -3035,14 +3028,14 @@ val ag32_ffi_get_arg_length_FUNPOW_Next = let
                                       ag32_ffi_return_code_def,APPEND]
   in FUNPOW_Next_from_SPEC code_def th end;
 
-val ag32_ffi_get_arg_length_setup_decomp_thm = Q.store_thm("ag32_ffi_get_arg_length_setup_decomp_thm",
-  `FST(ag32_ffi_get_arg_length_setup_decomp (s,md)) = ag32_ffi_get_arg_length_setup s`,
-  rw[ag32_ffi_get_arg_length_setup_decomp_def]
+Theorem ag32_ffi_get_arg_length_setup_decomp_thm
+  `FST(ag32_ffi_get_arg_length_setup_decomp (s,md)) = ag32_ffi_get_arg_length_setup s`
+  (rw[ag32_ffi_get_arg_length_setup_decomp_def]
   \\ rw[ag32_ffi_get_arg_length_setup_def]);
 
-val ag32_ffi_get_arg_length_loop_decomp_thm = Q.store_thm("ag32_ffi_get_arg_length_loop_decomp_thm",
-  `∀s. FST(ag32_ffi_get_arg_length_loop_decomp (s,md)) = ag32_ffi_get_arg_length_loop s`,
-  recInduct ag32_ffi_get_arg_length_loop_ind
+Theorem ag32_ffi_get_arg_length_loop_decomp_thm
+  `∀s. FST(ag32_ffi_get_arg_length_loop_decomp (s,md)) = ag32_ffi_get_arg_length_loop s`
+  (recInduct ag32_ffi_get_arg_length_loop_ind
   \\ rw[]
   \\ rw[Once ag32_ffi_get_arg_length_loop_decomp_def]
   \\ rw[Once ag32_ffi_get_arg_length_loop_decomp_def]
@@ -3060,7 +3053,7 @@ val ag32_ffi_get_arg_length_loop_decomp_thm = Q.store_thm("ag32_ffi_get_arg_leng
     \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
 *)
 
-val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code_thm",
+Theorem ag32_ffi_get_arg_length_code_thm
   `(∀k. k < LENGTH ag32_ffi_get_arg_length_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
        Encode (EL k ag32_ffi_get_arg_length_code))) ∧
@@ -3077,8 +3070,8 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
    has_n_args ((n2w(ffi_code_start_offset - 1) =+ n2w(THE(ALOOKUP FFI_codes "get_arg_length"))) s.MEM)
      (n2w (startup_code_size + 4)) (w2n l0 + (256 * w2n l1) + 1)
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_length s)`,
-  rw[ag32_ffi_get_arg_length_def]
+   ∃k. (FUNPOW Next k s = ag32_ffi_get_arg_length s)`
+  (rw[ag32_ffi_get_arg_length_def]
   \\ mp_tac ag32_ffi_get_arg_length_setup_code_thm
   \\ impl_tac
   >- (
@@ -3181,7 +3174,7 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
     \\ simp[GSYM FORALL_AND_THM, GSYM IMP_CONJ_THM]
     \\ qx_gen_tac`j` \\ strip_tac
     \\ qmatch_goalsub_abbrev_tac`s.R 3w = r3`
-    \\ `s.R 3w ∈ md` by fs[asmSemTheory.bytes_in_memory_def]
+    \\ `s.R 3w ∈ md` by fs[bytes_in_memory_def]
     \\ fs[word_add_n2w]
     \\ fs(map EVAL [``LENGTH ag32_ffi_get_arg_length_loop_code``,``LENGTH ag32_ffi_get_arg_length_setup_code``])
     \\ fs(map EVAL [``ag32_ffi_get_arg_length_entrypoint``,``ffi_code_start_offset``])
@@ -3257,7 +3250,7 @@ val ag32_ffi_get_arg_length_code_thm = Q.store_thm("ag32_ffi_get_arg_length_code
     \\ qmatch_asmsub_abbrev_tac`n2w (_ + y) ∉ md`
     \\ first_x_assum(qspec_then`4 * j + z - y`mp_tac)
     \\ simp[Abbr`z`, Abbr`y`]
-    \\ fs[asmSemTheory.bytes_in_memory_def])
+    \\ fs[bytes_in_memory_def])
   \\ strip_tac
   \\ pop_assum(SUBST1_TAC o SYM)
   \\ qpat_x_assum`_ = s3`(SUBST1_TAC o SYM)
@@ -3296,16 +3289,16 @@ val ag32_ffi_get_arg_FUNPOW_Next = let
                                       ag32_ffi_return_code_def,APPEND]
   in FUNPOW_Next_from_SPEC code_def th end;
 
-val ag32_ffi_get_arg_setup_decomp_thm = Q.store_thm("ag32_ffi_get_arg_setup_decomp_thm",
-  `FST(ag32_ffi_get_arg_setup_decomp (s,md)) = ag32_ffi_get_arg_setup s`,
-  rw[ag32_ffi_get_arg_setup_decomp_def]
+Theorem ag32_ffi_get_arg_setup_decomp_thm
+  `FST(ag32_ffi_get_arg_setup_decomp (s,md)) = ag32_ffi_get_arg_setup s`
+  (rw[ag32_ffi_get_arg_setup_decomp_def]
   \\ rw[ag32_ffi_get_arg_setup_def]);
 
-val ag32_ffi_get_arg_find_decomp1_thm = Q.store_thm("ag32_ffi_get_arg_find_decomp1_thm",
+Theorem ag32_ffi_get_arg_find_decomp1_thm
   `∀s.
     (∃n. s.MEM (s.R 5w + n2w n) = 0w) ⇒
-    (ag32_ffi_get_arg_find_decomp1 s = ag32_ffi_get_arg_find1 s)`,
-  recInduct ag32_ffi_get_arg_find1_ind
+    (ag32_ffi_get_arg_find_decomp1 s = ag32_ffi_get_arg_find1 s)`
+  (recInduct ag32_ffi_get_arg_find1_ind
   \\ rw[]
   \\ rw[Once ag32_ffi_get_arg_find_decomp_def] \\ fs[]
   >- (
@@ -3343,9 +3336,9 @@ val ag32_ffi_get_arg_find_decomp1_thm = Q.store_thm("ag32_ffi_get_arg_find_decom
   \\ AP_TERM_TAC
   \\ simp[]);
 
-val ag32_ffi_get_arg_find_decomp_thm = Q.store_thm("ag32_ffi_get_arg_find_decomp_thm",
-  `∀s. (∃n. s.MEM (s.R 5w + n2w n) = 0w) ⇒ (FST(ag32_ffi_get_arg_find_decomp (s,md)) = ag32_ffi_get_arg_find s)`,
-  recInduct ag32_ffi_get_arg_find_ind
+Theorem ag32_ffi_get_arg_find_decomp_thm
+  `∀s. (∃n. s.MEM (s.R 5w + n2w n) = 0w) ⇒ (FST(ag32_ffi_get_arg_find_decomp (s,md)) = ag32_ffi_get_arg_find s)`
+  (recInduct ag32_ffi_get_arg_find_ind
   \\ rw[]
   \\ rw[Once ag32_ffi_get_arg_find_decomp_def]
   >- rw[Once ag32_ffi_get_arg_find_def]
@@ -3380,12 +3373,12 @@ val ag32_ffi_get_arg_find_decomp_thm = Q.store_thm("ag32_ffi_get_arg_find_decomp
   \\ simp[ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
   \\ metis_tac[]);
 
-val ag32_ffi_get_arg_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_store_decomp_thm",
+Theorem ag32_ffi_get_arg_store_decomp_thm
   `∀s.
     (∃n. s.MEM (s.R 5w + n2w n) = 0w ∧
          ∀i. i ≤ n ⇒ s.R 3w ≠ s.R 5w + n2w i) ⇒
-    FST(ag32_ffi_get_arg_store_decomp (s,md)) = ag32_ffi_get_arg_store s`,
-  recInduct ag32_ffi_get_arg_store_ind
+    FST(ag32_ffi_get_arg_store_decomp (s,md)) = ag32_ffi_get_arg_store s`
+  (recInduct ag32_ffi_get_arg_store_ind
   \\ rw[]
   \\ rw[Once ag32_ffi_get_arg_store_decomp_def]
   >- (
@@ -3424,11 +3417,10 @@ val ag32_ffi_get_arg_store_decomp_thm = Q.store_thm("ag32_ffi_get_arg_store_deco
   \\ first_x_assum drule
   \\ simp[]);
 
-val ag32_ffi_get_arg_find_decomp1_pre' = Q.store_thm(
-  "ag32_ffi_get_arg_find_decomp1_pre'",
-  ‘∀off s.
-     s.MEM (s.R 5w + n2w off) = 0w ⇒ ag32_ffi_get_arg_find_decomp1_pre s’,
-  Induct >> simp[Once ag32_ffi_get_arg_find_decomp_def] >>
+Theorem ag32_ffi_get_arg_find_decomp1_pre'
+  `∀off s.
+     s.MEM (s.R 5w + n2w off) = 0w ⇒ ag32_ffi_get_arg_find_decomp1_pre s`
+  (Induct >> simp[Once ag32_ffi_get_arg_find_decomp_def] >>
   simp[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ri2word_def,
        ag32Theory.ALU_def, ag32Theory.dfn'Normal_def, ag32Theory.norm_def,
        ag32Theory.incPC_def, ag32Theory.dfn'LoadMEMByte_def, ag32Theory.dfn'JumpIfNotZero_def,
@@ -3437,12 +3429,11 @@ val ag32_ffi_get_arg_find_decomp1_pre' = Q.store_thm(
   Cases_on ‘w2w (s.MEM (s.R 5w)) = (0w : word32)’ >> simp[] >>
   first_x_assum irule >> simp[] >> fs[ADD1, GSYM word_add_n2w]);
 
-val ag32_ffi_get_arg_find_decomp_pre' = Q.store_thm(
-  "ag32_ffi_get_arg_find_decomp_pre'",
-  ‘∀c md s.
+Theorem ag32_ffi_get_arg_find_decomp_pre'
+  `∀c md s.
      has_n_args s.MEM (s.R 5w) c ∧ w2n (s.R 6w) ≤ c ⇒
-     ag32_ffi_get_arg_find_decomp_pre (s,md)’,
-  Induct >> simp[Once ag32_ffi_get_arg_find_decomp_def] >>
+     ag32_ffi_get_arg_find_decomp_pre (s,md)`
+  (Induct >> simp[Once ag32_ffi_get_arg_find_decomp_def] >>
   simp[has_n_args_def, PULL_EXISTS] >> rpt strip_tac >>
   Cases_on ‘s.R 6w = 0w’ >> simp[] >>
   simp[ag32Theory.dfn'JumpIfZero_def, ag32Theory.ri2word_def,
@@ -3466,9 +3457,9 @@ val ag32_ffi_get_arg_find_decomp_pre' = Q.store_thm(
    Q.ISPEC_THEN ‘s.R 6w’ mp_tac ranged_word_nchotomy >> rw[] >> fs[] >>
    simp[WORD_LITERAL_ADD]);
 
-val SND_ag32_ffi_get_arg_find_decomp = Q.store_thm("SND_ag32_ffi_get_arg_find_decomp",
-  `∀p. (∃n. (FST p).MEM ((FST p).R 5w + n2w n) = 0w) ⇒ SND (ag32_ffi_get_arg_find_decomp p) = SND p`,
-  simp[FORALL_PROD]
+Theorem SND_ag32_ffi_get_arg_find_decomp
+  `∀p. (∃n. (FST p).MEM ((FST p).R 5w + n2w n) = 0w) ⇒ SND (ag32_ffi_get_arg_find_decomp p) = SND p`
+  (simp[FORALL_PROD]
   \\ recInduct ag32_ffi_get_arg_find_ind
   \\ rw[]
   \\ rw[Once ag32_ffi_get_arg_find_decomp_def]
@@ -3524,15 +3515,14 @@ val ag32_ffi_get_arg_setup_decomp_pre' =
         “ag32_ffi_get_arg_setup_decomp_pre(s,md)” |> EQT_ELIM |> DISCH_ALL
     end
 
-val ag32_ffi_get_arg_store_decomp_pre' = Q.store_thm(
-   "ag32_ffi_get_arg_store_decomp_pre'",
-  ‘∀n md s.
+Theorem ag32_ffi_get_arg_store_decomp_pre'
+  `∀n md s.
      (s.MEM (s.R 5w + n2w n) = 0w) ∧
      (∀i. i ≤ n ⇒ s.R 3w ≠ s.R 5w + n2w i) ∧
      (∀i. i ≤ n ⇒ s.R 3w + n2w i ∈ md)
      ⇒
-     ag32_ffi_get_arg_store_decomp_pre (s,md)’,
-  Induct >> simp[Once ag32_ffi_get_arg_store_decomp_def]
+     ag32_ffi_get_arg_store_decomp_pre (s,md)`
+  (Induct >> simp[Once ag32_ffi_get_arg_store_decomp_def]
   >- (
     rw[ag32Theory.dfn'LoadMEMByte_def, ag32Theory.incPC_def,
        APPLY_UPDATE_THM, ag32Theory.ri2word_def] )
@@ -3565,7 +3555,7 @@ val ag32_ffi_get_arg_store_decomp_pre' = Q.store_thm(
   \\ last_x_assum(qspec_then`n+1`mp_tac)
   \\ simp[GSYM word_add_n2w]);
 
-val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
+Theorem ag32_ffi_get_arg_code_thm
   `(∀k. k < LENGTH ag32_ffi_get_arg_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
        Encode (EL k ag32_ffi_get_arg_code))) ∧
@@ -3583,8 +3573,8 @@ val ag32_ffi_get_arg_code_thm = Q.store_thm("ag32_ffi_get_arg_code_thm",
         (∀i. i ≤ n ⇒ s.R 3w ≠ start + n2w i) ∧
         (∀i. i ≤ n ⇒ s.R 3w + n2w i ∉ {s.PC + n2w k | k | k < 4 * LENGTH ag32_ffi_get_arg_code }))
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_get_arg s)`,
-  simp[ag32_ffi_get_arg_def]
+   ∃k. (FUNPOW Next k s = ag32_ffi_get_arg s)`
+  (simp[ag32_ffi_get_arg_def]
   \\ strip_tac
   \\ qabbrev_tac`fmd = COMPL {s.PC + n2w k | k | k < 4 * LENGTH ag32_ffi_get_arg_code }`
   \\ qspec_then`fmd`mp_tac(GSYM (Q.GEN`md`ag32_ffi_get_arg_setup_decomp_thm))
@@ -3710,7 +3700,7 @@ val ag32_ffi_open_in_FUNPOW_Next = let
 
 val ag32_ffi_open_in_entrypoint_thm = EVAL “ag32_ffi_open_in_entrypoint”
 
-val ag32_ffi_open_in_code_thm = Q.store_thm("ag32_ffi_open_in_code_thm",
+Theorem ag32_ffi_open_in_code_thm
   `(∀k. k < LENGTH ag32_ffi_open_in_code ⇒
           get_mem_word s.MEM (s.PC + n2w (4 * k)) =
           Encode (EL k ag32_ffi_open_in_code)) ∧
@@ -3718,8 +3708,8 @@ val ag32_ffi_open_in_code_thm = Q.store_thm("ag32_ffi_open_in_code_thm",
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_open_in_entrypoint)) ∧
    s.R 3w ∉ { s.PC + n2w n | n < 4 * LENGTH ag32_ffi_open_in_code}
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_open_in s)`,
-  strip_tac >>
+   ∃k. (FUNPOW Next k s = ag32_ffi_open_in s)`
+  (strip_tac >>
   irule ag32_ffi_open_in_FUNPOW_Next \\ fs [] >>
   assume_tac (EVAL “LENGTH ag32_ffi_open_in_code”) >>
   simp[] >>
@@ -3763,7 +3753,7 @@ val ag32_ffi_open_out_fail_FUNPOW_Next = let
   in REWRITE_RULE [ag32_ffi_open_out_intro] th  end;
 
 val ag32_ffi_open_out_entrypoint_thm = EVAL “ag32_ffi_open_out_entrypoint”
-val ag32_ffi_open_out_code_thm = Q.store_thm("ag32_ffi_open_out_code_thm",
+Theorem ag32_ffi_open_out_code_thm
   `(∀k. k < LENGTH ag32_ffi_open_out_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
        Encode (EL k ag32_ffi_open_out_code))) ∧
@@ -3771,8 +3761,8 @@ val ag32_ffi_open_out_code_thm = Q.store_thm("ag32_ffi_open_out_code_thm",
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_open_out_entrypoint)) ∧
    s.R 3w ∉ {s.PC + n2w n | n < 4 * LENGTH ag32_ffi_open_out_code}
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_open_out s)`,
-  strip_tac >>
+   ∃k. (FUNPOW Next k s = ag32_ffi_open_out s)`
+  (strip_tac >>
   irule ag32_ffi_open_out_fail_FUNPOW_Next >>
   assume_tac (EVAL “LENGTH ag32_ffi_open_out_code”) >>
   fs [ag32_ffi_open_out_entrypoint_thm, ffi_code_start_offset_thm] >>
@@ -3814,7 +3804,7 @@ val ag32_ffi_close_fail_FUNPOW_Next = let
         ag32_ffi_return_def,ag32_ffi_fail_def])
   in REWRITE_RULE [ag32_ffi_close_intro] th end
 
-val ag32_ffi_close_code_thm = Q.store_thm("ag32_ffi_close_code_thm",
+Theorem ag32_ffi_close_code_thm
   `(∀k. k < LENGTH ag32_ffi_close_code ⇒
       (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
        Encode (EL k ag32_ffi_close_code))) ∧
@@ -3822,8 +3812,8 @@ val ag32_ffi_close_code_thm = Q.store_thm("ag32_ffi_close_code_thm",
    (s.PC = n2w (ffi_code_start_offset + ag32_ffi_close_entrypoint)) ∧
    s.R 3w ∉ { s.PC + n2w n | n < 4 * LENGTH ag32_ffi_close_code}
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_close s)`,
-  strip_tac
+   ∃k. (FUNPOW Next k s = ag32_ffi_close s)`
+  (strip_tac
   \\ irule ag32_ffi_close_fail_FUNPOW_Next
   \\ simp [EVAL ``LENGTH ag32_ffi_close_code``]
   \\ fs [theorem "ag32_ffi_close_fail_decomp_pre_def",
@@ -3846,13 +3836,13 @@ val ag32_ffi_close_code_thm = Q.store_thm("ag32_ffi_close_code_thm",
 (* ag32_ffi_ *)
 
 
-val ag32_ffi__code_thm = Q.store_thm("ag32_ffi__code_thm",
+Theorem ag32_ffi__code_thm
   `(∀k. k < LENGTH ag32_ffi__code ⇒
         (get_mem_word s.MEM (s.PC + n2w (4 * k)) =
          Encode (EL k ag32_ffi__code))) ∧ byte_aligned s.PC
    ⇒
-   ∃k. (FUNPOW Next k s = ag32_ffi_ s)`,
-  rw[ag32_ffi__def]
+   ∃k. (FUNPOW Next k s = ag32_ffi_ s)`
+  (rw[ag32_ffi__def]
   \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ rw[FUNPOW]
   \\ rw[ag32Theory.Next_def]
   \\ qmatch_goalsub_abbrev_tac`pc + 2w`
@@ -3873,7 +3863,7 @@ val ag32_ffi__entrypoint_thm = EVAL “ag32_ffi__entrypoint”
 
 (* mk_jump_ag32 *)
 
-val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
+Theorem mk_jump_ag32_code_thm
   `(s.PC = n2w (ffi_jumps_offset + ffi_offset * (LENGTH ffi_names - (index + 1)))) ∧
    (INDEX_OF nm ffi_names = SOME index) ∧
    (ALOOKUP ffi_entrypoints nm = SOME epc) ∧
@@ -3886,8 +3876,8 @@ val mk_jump_ag32_code_thm = Q.store_thm("mk_jump_ag32_code_thm",
       s with <| PC := n2w (ffi_code_start_offset + epc)
               ; R := ((5w =+ r5) s.R)
               ; CarryFlag := cf
-              ; OverflowFlag := ov |>)`,
-  rw[]
+              ; OverflowFlag := ov |>)`
+  (rw[]
   \\ rw[Once EXISTS_NUM] \\ disj2_tac \\ simp[FUNPOW]
   \\ simp[ag32Theory.Next_def]
   \\ qmatch_goalsub_abbrev_tac`pc + 2w`

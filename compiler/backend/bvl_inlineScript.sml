@@ -112,14 +112,14 @@ val tick_inline_all_def = Define `
 val tick_compile_prog_def = Define `
   tick_compile_prog limit cs prog = tick_inline_all limit cs prog []`
 
-val LENGTH_tick_inline = Q.store_thm("LENGTH_tick_inline",
-  `!cs xs. LENGTH (tick_inline cs xs) = LENGTH xs`,
-  recInduct tick_inline_ind \\ REPEAT STRIP_TAC
+Theorem LENGTH_tick_inline
+  `!cs xs. LENGTH (tick_inline cs xs) = LENGTH xs`
+  (recInduct tick_inline_ind \\ REPEAT STRIP_TAC
   \\ fs [Once tick_inline_def,LET_DEF] \\ rw [] \\ every_case_tac \\ fs []);
 
-val HD_tick_inline = Q.store_thm("HD_tick_inline[simp]",
-  `[HD (tick_inline cs [x])] = tick_inline cs [x]`,
-  `LENGTH (tick_inline cs [x]) = LENGTH [x]` by SRW_TAC [] [LENGTH_tick_inline]
+Theorem HD_tick_inline[simp]
+  `[HD (tick_inline cs [x])] = tick_inline cs [x]`
+  (`LENGTH (tick_inline cs [x]) = LENGTH [x]` by SRW_TAC [] [LENGTH_tick_inline]
   \\ Cases_on `tick_inline cs [x]` \\ FULL_SIMP_TAC std_ss [LENGTH]
   \\ Cases_on `t` \\ FULL_SIMP_TAC std_ss [LENGTH,HD] \\ `F` by DECIDE_TAC);
 
@@ -148,13 +148,13 @@ val remove_ticks_def = tDefine "remove_ticks" `
      [Call 0 dest (remove_ticks xs)])`
   (WF_REL_TAC `measure exp1_size`);
 
-val LENGTH_remove_ticks = store_thm("LENGTH_remove_ticks[simp]",
-  ``!xs. LENGTH (remove_ticks xs) = LENGTH xs``,
-  recInduct (theorem "remove_ticks_ind") \\ fs [remove_ticks_def]);
+Theorem LENGTH_remove_ticks[simp]
+  `!xs. LENGTH (remove_ticks xs) = LENGTH xs`
+  (recInduct (theorem "remove_ticks_ind") \\ fs [remove_ticks_def]);
 
-val remove_ticks_SING = store_thm("remove_ticks_SING[simp]",
-  ``[HD (remove_ticks [r])] = remove_ticks [r]``,
-  qsuff_tac `?a. remove_ticks [r] = [a]` \\ rw[] \\ fs []
+Theorem remove_ticks_SING[simp]
+  `[HD (remove_ticks [r])] = remove_ticks [r]`
+  (qsuff_tac `?a. remove_ticks [r] = [a]` \\ rw[] \\ fs []
   \\ `LENGTH (remove_ticks [r]) = LENGTH [r]` by fs [LENGTH_remove_ticks]
   \\ Cases_on `remove_ticks [r]` \\ fs []);
 

@@ -43,20 +43,20 @@ val ffi_get_arg_def = Define `
 
 (* lengths *)
 
-val ffi_get_arg_count_length = store_thm("ffi_get_arg_count_length",
-  ``ffi_get_arg_count conf bytes args = SOME (FFIreturn bytes' args') ==>
-    LENGTH bytes' = LENGTH bytes``,
-  fs [ffi_get_arg_count_def] \\ rw [] \\ fs []);
+Theorem ffi_get_arg_count_length
+  `ffi_get_arg_count conf bytes args = SOME (FFIreturn bytes' args') ==>
+    LENGTH bytes' = LENGTH bytes`
+  (fs [ffi_get_arg_count_def] \\ rw [] \\ fs []);
 
-val ffi_get_arg_length_length = store_thm("ffi_get_arg_length_length",
-  ``ffi_get_arg_length conf bytes args = SOME (FFIreturn bytes' args') ==>
-    LENGTH bytes' = LENGTH bytes``,
-  fs [ffi_get_arg_length_def] \\ rw [] \\ fs []);
+Theorem ffi_get_arg_length_length
+  `ffi_get_arg_length conf bytes args = SOME (FFIreturn bytes' args') ==>
+    LENGTH bytes' = LENGTH bytes`
+  (fs [ffi_get_arg_length_def] \\ rw [] \\ fs []);
 
-val ffi_get_arg_length = store_thm("ffi_get_arg_length",
-  ``ffi_get_arg conf bytes args = SOME (FFIreturn bytes' args') ==>
-    LENGTH bytes' = LENGTH bytes``,
-  fs [ffi_get_arg_def] \\ rw [] \\ fs [mlstringTheory.LENGTH_explode]);
+Theorem ffi_get_arg_length
+  `ffi_get_arg conf bytes args = SOME (FFIreturn bytes' args') ==>
+    LENGTH bytes' = LENGTH bytes`
+  (fs [ffi_get_arg_def] \\ rw [] \\ fs [mlstringTheory.LENGTH_explode]);
 
 (* FFI part for the commandline *)
 

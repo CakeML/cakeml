@@ -209,11 +209,6 @@ val asm_def = Define `
      let a = read_reg r s in upd_pc a (assert (aligned s.align a) s)) /\
   (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s))`
 
-val bytes_in_memory_def = Define `
-  (bytes_in_memory a [] m dm <=> T) /\
-  (bytes_in_memory a ((x:word8)::xs) m dm <=>
-     (m a = x) /\ a IN dm /\ bytes_in_memory (a + 1w) xs m dm)`
-
 val asm_step_def = Define `
   asm_step c s1 i s2 <=>
     bytes_in_memory s1.pc (c.encode i) s1.mem s1.mem_domain /\
