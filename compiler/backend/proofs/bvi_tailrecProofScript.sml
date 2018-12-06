@@ -883,7 +883,7 @@ Theorem compile_prog_ALL_DISTINCT
   \\ metis_tac [compile_prog_intro, more_free_names]);
 
 val namespace_rel_def = Define`
-  namespace_rel c1 c2 ⇔
+  namespace_rel (c1:'a spt) (c2:'a spt) ⇔
     (∀n. n ∈ domain c2 ∧ bvl_num_stubs ≤ n ⇒ if in_ns_2 n then n ∉ domain c1 else n ∈ domain c1) ∧
     (∀n. n ∈ domain c1 ∧ bvl_num_stubs ≤ n ⇒ ¬(in_ns_2 n)) ∧
     (∀n. n ∈ domain c2 ∧ n < bvl_num_stubs ⇒ n ∈ domain c1)`;
@@ -909,7 +909,7 @@ val input_condition_def = Define`
    bvl_num_stubs ≤ next ∧ in_ns_2 next`;
 
 val state_rel_def = Define`
-  state_rel s t ⇔
+  state_rel s (t:('a,'ffi) bviSem$state) ⇔
     t.refs = s.refs ∧
     t.clock = s.clock ∧
     t.global = s.global ∧
