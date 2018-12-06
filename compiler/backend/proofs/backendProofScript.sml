@@ -1185,37 +1185,6 @@ Theorem syntax_ok_MAP_pat_to_clos
   \\ fs [syntax_ok_pat_to_clos]);
 
 Theorem destLet_code_labels
-val mem_size_lemma = Q.store_thm ("mem_size_lemma",
-  `list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)`,
-  Induct_on `xs` \\ rw [list_size_def] \\ fs []);
-
-   (num_bindings (Dlocal lds ds) = SUM (MAP num_bindings lds)
-        + SUM (MAP num_bindings ds)) ∧
-val COUNT_LIST_ADD_SYM = COUNT_LIST_ADD
-  |> CONV_RULE (SIMP_CONV bool_ss [Once ADD_SYM]);
-
-    pairarg_tac \\ fs[]
-    \\ rveq
-    \\ simp [flatPropsTheory.elist_globals_append, FILTER_APPEND]
-    \\ drule source_to_flatProofTheory.compile_decs_esgc_free
-    \\ disch_then drule
-    \\ strip_tac
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac
-    >- (
-      simp[source_to_flatTheory.extend_env_def]
-      \\ irule namespacePropsTheory.nsAll_nsAppend
-      \\ simp[] )
-    \\ rw []
-    \\ imp_res_tac compile_decs_num_bindings
-    \\ rw [COUNT_LIST_ADD_SYM]
-    \\ srw_tac [ETA_ss] [bag_of_list_append, MAP_MAP_o, o_DEF]
-    \\ AP_TERM_TAC
-    \\ simp [MAP_EQ_f]
-  )
-  >- (
-    pairarg_tac \\ fs[]
-  ));
   `destLet x = (y,z) ⇒
     BIGUNION (set (MAP bvl_get_code_labels y)) ∪ bvl_get_code_labels z ⊆ bvl_get_code_labels x`
  (Cases_on`x`

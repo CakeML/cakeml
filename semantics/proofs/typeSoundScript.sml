@@ -1885,14 +1885,12 @@ val check_ctor_tenv_dups = Q.prove (
   ho_match_mp_tac check_ctor_tenv_ind >>
   rw [check_ctor_tenv_def]);
 
-val MP_THM = Q.store_thm ("MP_THM", `!P. P /\ (P ==> Q) ==> Q`, metis_tac []);
-
-val type_all_env_extend = Q.store_thm ("type_all_env_extend",
+Theorem type_all_env_extend
   `type_all_env ctMap tenvS env1 tenv1
     /\ type_all_env ctMap tenvS env2 tenv2
     ==> type_all_env ctMap tenvS (extend_dec_env env1 env2)
-        (extend_dec_tenv tenv1 tenv2)`,
-  fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def]
+        (extend_dec_tenv tenv1 tenv2)`
+  (fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def]
   \\ metis_tac [nsAll2_nsAppend]);
 
 Theorem decs_type_sound_no_check

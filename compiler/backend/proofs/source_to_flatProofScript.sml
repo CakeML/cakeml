@@ -4097,16 +4097,21 @@ Theorem compile_esgc_free
   \\ pairarg_tac \\ fs [] \\ rveq
   \\ metis_tac [compile_prog_esgc_free, compile_flat_esgc_free]);
 
+val mem_size_lemma = Q.prove ( `list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)`,
+  Induct_on `xs` \\ rw [list_size_def] \\ fs []);
+
 val num_bindings_def = tDefine"num_bindings"
   `(num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
    (num_bindings (Dletrec _ f) = LENGTH f) ∧
    (num_bindings (Dmod _ ds) = SUM (MAP num_bindings ds)) ∧
+   (num_bindings (Dlocal lds ds) = SUM (MAP num_bindings lds)
+        + SUM (MAP num_bindings ds)) ∧
    (num_bindings _ = 0)`
 (wf_rel_tac`measure dec_size`
- \\ gen_tac \\ Induct
- \\ simp [astTheory.dec_size_def]
- \\ rw[] \\ simp[]
- \\ res_tac \\ simp[]);
+  \\ fs [terminationTheory.dec1_size_eq]
+  \\ rpt (match_mp_tac mem_size_lemma ORELSE strip_tac)
+  \\ fs []);
+
 val _ = export_rewrites["num_bindings_def"];
 
 Theorem compile_decs_num_bindings
@@ -4119,6 +4124,9 @@ Theorem compile_decs_num_bindings
   \\ pairarg_tac \\ fsrw_tac[ETA_ss][]
   \\ pairarg_tac \\ fs[] \\ rw[]);
 
+val COUNT_LIST_ADD_SYM = COUNT_LIST_ADD
+  |> CONV_RULE (SIMP_CONV bool_ss [Once ADD_SYM]);
+
 Theorem compile_decs_elist_globals
   `∀n next env ds e f g p.
    compile_decs n next env ds = (e,f,g,p) ∧
@@ -4129,8 +4137,7 @@ Theorem compile_decs_elist_globals
   \\ rw[source_to_flatTheory.compile_decs_def]
   \\ rw[set_globals_make_varls]
   \\ rw[compile_exp_esgc_free]
-  >- ( EVAL_TAC \\ rw[EL_BAG] )
-  >- EVAL_TAC
+  \\ TRY ( EVAL_TAC \\ rw [EL_BAG] \\ NO_TAC )
   >- (
     qmatch_goalsub_abbrev_tac`FILTER P (MAPi f ls)`
     \\ qmatch_asmsub_abbrev_tac`compile_funs _ _ ll`
@@ -4190,9 +4197,7 @@ Theorem compile_decs_elist_globals
       rw[]
       \\ first_x_assum(qspec_then`SUC n`mp_tac)
       \\ rw[] )
-    \\ rw[]
-    \\ once_rewrite_tac[ADD_SYM]
-    \\ rw[COUNT_LIST_ADD]
+    \\ rw[COUNT_LIST_ADD_SYM]
     \\ simp[MAP_MAP_o, o_DEF]
     \\ rw[bag_of_list_append]
     \\ simp[EVAL``COUNT_LIST 1``]
@@ -4204,39 +4209,56 @@ Theorem compile_decs_elist_globals
   >- (
     simp[MAPi_enumerate_MAP, FILTER_MAP, o_DEF, UNCURRY]
     \\ EVAL_TAC )
-  >- EVAL_TAC
-  >- EVAL_TAC
   >- (
     pairarg_tac \\ fs[] \\ rveq
     \\ srw_tac[ETA_ss][] )
-  >- EVAL_TAC
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ rveq
-  \\ simp[flatPropsTheory.elist_globals_append, FILTER_APPEND]
-  \\ drule compile_decs_esgc_free
-  \\ disch_then drule
-  \\ strip_tac
-  \\ qpat_x_assum`_ ⇒ _`mp_tac
-  \\ impl_tac
   >- (
-    simp[source_to_flatTheory.extend_env_def]
-    \\ irule namespacePropsTheory.nsAll_nsAppend
-    \\ simp[] )
-  \\ rw[]
-  \\ drule compile_decs_num_bindings
-  \\ rw[]
-  \\ pop_assum (assume_tac o SYM) \\ rw[]
-  \\ qmatch_goalsub_abbrev_tac`a + (b + c)`
-  \\ `a + (b + c) = b + (a + c)` by simp[]
-  \\ pop_assum SUBST_ALL_TAC
-  \\ simp[Once COUNT_LIST_ADD,SimpRHS]
-  \\ simp[bag_of_list_append]
-  \\ simp[MAP_MAP_o, o_DEF]
-  \\ qpat_x_assum`compile_decs _ _ _ [d] = _`assume_tac
-  \\ drule compile_decs_num_bindings
-  \\ rw[]
-  \\ AP_TERM_TAC
-  \\ simp[MAP_EQ_f]);
+    pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ rveq
+    \\ simp [flatPropsTheory.elist_globals_append, FILTER_APPEND]
+    \\ drule compile_decs_esgc_free
+    \\ disch_then drule
+    \\ strip_tac
+    \\ qpat_x_assum`_ ⇒ _`mp_tac
+    \\ impl_tac
+    >- (
+      simp[extend_env_def]
+      \\ irule namespacePropsTheory.nsAll_nsAppend
+      \\ simp[] )
+    \\ rw []
+    \\ imp_res_tac compile_decs_num_bindings
+    \\ rw [COUNT_LIST_ADD_SYM]
+    \\ srw_tac [ETA_ss] [bag_of_list_append, MAP_MAP_o, o_DEF]
+    \\ AP_TERM_TAC
+    \\ simp [MAP_EQ_f]
+  )
+  >- (
+    pairarg_tac \\ fs[]
+    \\ pairarg_tac \\ fs[]
+    \\ rveq
+    \\ simp[flatPropsTheory.elist_globals_append, FILTER_APPEND]
+    \\ drule compile_decs_esgc_free
+    \\ disch_then drule
+    \\ strip_tac
+    \\ qpat_x_assum`_ ⇒ _`mp_tac
+    \\ impl_tac
+    >- (
+      simp[extend_env_def]
+      \\ irule namespacePropsTheory.nsAll_nsAppend
+      \\ simp[] )
+    \\ rw[]
+    \\ imp_res_tac compile_decs_num_bindings
+    \\ rw[]
+    \\ qmatch_goalsub_abbrev_tac`a + (b + c)`
+    \\ `a + (b + c) = b + (a + c)` by simp[]
+    \\ pop_assum SUBST_ALL_TAC
+    \\ simp[Once COUNT_LIST_ADD,SimpRHS]
+    \\ simp[bag_of_list_append]
+    \\ simp[MAP_MAP_o, o_DEF]
+    \\ rw[]
+    \\ AP_TERM_TAC
+    \\ fs[MAP_EQ_f]
+  ));
 
 val _ = export_theory ();

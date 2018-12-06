@@ -7,7 +7,7 @@ open terminationTheory
 open semanticPrimitivesTheory;
 open semanticPrimitivesPropsTheory;
 
-val _ = new_theory"evaluateProps"
+val _ = new_theory"evaluateProps";
 
 Theorem call_FFI_LENGTH
   `(call_FFI st index conf x = FFI_return new_st new_bytes) ==>
@@ -193,25 +193,25 @@ val is_clock_io_mono_def = Define
             /\ (clk <= s.clock ==> io_events_mono s''.ffi s'.ffi)
         ))`;
 
-val is_clock_io_mono_return = Q.store_thm ("is_clock_io_mono_return",
-  `is_clock_io_mono (\s. (s,Rval r)) s`,
-  fs [is_clock_io_mono_def])
+Theorem is_clock_io_mono_return
+  `is_clock_io_mono (\s. (s,Rval r)) s`
+  (fs [is_clock_io_mono_def])
 
-val is_clock_io_mono_err = Q.store_thm ("is_clock_io_mono_err",
-  `is_clock_io_mono (\s. (s,Rerr r)) s`,
-  fs [is_clock_io_mono_def])
+Theorem is_clock_io_mono_err
+  `is_clock_io_mono (\s. (s,Rerr r)) s`
+  (fs [is_clock_io_mono_def])
 
-val pair_CASE_eq_forall = Q.store_thm ("pair_CASE_eq_forall",
-  `(case x of (a, b) => P a b) = (!a b. x = (a, b) ==> P a b)`,
-  Cases_on `x` \\ fs []);
+Theorem pair_CASE_eq_forall
+  `(case x of (a, b) => P a b) = (!a b. x = (a, b) ==> P a b)`
+  (Cases_on `x` \\ fs []);
 
-val is_clock_io_mono_bind = Q.store_thm ("is_clock_io_mono_bind",
+Theorem is_clock_io_mono_bind
   `is_clock_io_mono f s /\ (!s' r. f s = (s', r)
         ==> is_clock_io_mono (g r) s')
     /\ (!s'. g (Rerr (Rabort Rtimeout_error)) s'
         = (s', Rerr (Rabort Rtimeout_error)))
-    ==> is_clock_io_mono (\s. case f s of (s', r) => g r s') s`,
-  fs [is_clock_io_mono_def]
+    ==> is_clock_io_mono (\s. case f s of (s', r) => g r s') s`
+  (fs [is_clock_io_mono_def]
   \\ rpt (FIRST [DISCH_TAC, GEN_TAC, CASE_TAC])
   \\ fs []
   \\ conj_tac \\ (TRY (irule io_events_mono_trans \\ metis_tac []))
@@ -220,7 +220,7 @@ val is_clock_io_mono_bind = Q.store_thm ("is_clock_io_mono_bind",
   \\ FIRST_X_ASSUM drule
   \\ rpt DISCH_TAC
   \\ fs []
-  (* many cases *) 
+  (* many cases *)
   \\ Cases_on (`SND (f s) = Rerr (Rabort Rtimeout_error)`)
   \\ Cases_on (`SND (f (s with clock := clk)) = Rerr (Rabort Rtimeout_error)`)
   \\ rpt (FIRST (map CHANGED_TAC [DISCH_TAC, fs [], rfs [], rveq]))
@@ -231,36 +231,36 @@ val is_clock_io_mono_bind = Q.store_thm ("is_clock_io_mono_bind",
         fs [EQ_IMP_THM]]))
   );
 
-val is_clock_io_mono_check = Q.store_thm ("is_clock_io_mono_check",
+Theorem is_clock_io_mono_check
   `(~ (s.clock = 0) ==> is_clock_io_mono f (dec_clock s))
     ==> is_clock_io_mono (\s. if s.clock = 0
-        then (s,Rerr (Rabort Rtimeout_error)) else f (dec_clock s)) s`,
-  fs [is_clock_io_mono_def, dec_clock_def]
+        then (s,Rerr (Rabort Rtimeout_error)) else f (dec_clock s)) s`
+  (fs [is_clock_io_mono_def, dec_clock_def]
   \\ rpt (CASE_TAC ORELSE DISCH_TAC ORELSE GEN_TAC ORELSE CHANGED_TAC (fs []))
   \\ fs [pair_CASE_eq_forall]
   \\ FIRST_X_ASSUM drule
   \\ rpt (CASE_TAC ORELSE DISCH_TAC ORELSE GEN_TAC ORELSE CHANGED_TAC (fs []))
   \\ Cases_on `r' = Rerr (Rabort Rtimeout_error)` \\ fs []);
 
-val is_clock_io_mono_refs_lemma = Q.store_thm("is_clock_io_mono_refs_lemma",
+Theorem is_clock_io_mono_refs_lemma
   `is_clock_io_mono (\s'. f (s.refs) s') s
-    ==> is_clock_io_mono (\s'. f (s'.refs) s') s`,
-  fs [is_clock_io_mono_def]);
+    ==> is_clock_io_mono (\s'. f (s'.refs) s') s`
+  (fs [is_clock_io_mono_def]);
 
-val is_clock_io_mono_do_app = Q.store_thm("is_clock_io_mono_do_app",
+Theorem is_clock_io_mono_do_app
   `is_clock_io_mono (\st'. case do_app (st.refs, st'.ffi) op xs of
       NONE => (st', Rerr (Rabort Rtype_error))
     | SOME ((refs,ffi),r) => (st' with <|refs := refs; ffi := ffi|>,
-        list_result r)) st`,
-  fs [is_clock_io_mono_def]
+        list_result r)) st`
+  (fs [is_clock_io_mono_def]
   \\ rpt (CASE_TAC ORELSE CHANGED_TAC (fs []) ORELSE strip_tac)
   \\ metis_tac [do_app_io_events_mono]);
 
-val is_clock_io_mono_evaluate = Q.store_thm("is_clock_io_mono_evaluate",
+Theorem is_clock_io_mono_evaluate
   `(!(s : 'ffi state) env es. is_clock_io_mono (\s. evaluate s env es) s) /\
    (!(s : 'ffi state) env v pes err_v.
-        is_clock_io_mono (\s. evaluate_match s env v pes err_v) s)`,
-  ho_match_mp_tac evaluate_ind
+        is_clock_io_mono (\s. evaluate_match s env v pes err_v) s)`
+  (ho_match_mp_tac evaluate_ind
   \\ rpt strip_tac \\ fs [evaluate_def]
   \\ rpt (FIRST ([strip_tac] @ map ho_match_mp_tac [is_clock_io_mono_bind,
         is_clock_io_mono_check]
@@ -269,12 +269,12 @@ val is_clock_io_mono_evaluate = Q.store_thm("is_clock_io_mono_evaluate",
         CASE_TAC,
         CHANGED_TAC (ho_match_mp_tac is_clock_io_mono_refs_lemma)])));
 
-val is_clock_io_mono_extra = Q.store_thm ("is_clock_io_mono_extra",
+Theorem is_clock_io_mono_extra
   `(!s. is_clock_io_mono f s)
     ==> f s = (s', r) /\ ~ (r = Rerr (Rabort Rtimeout_error))
     ==> f (s with clock := s.clock + extra)
-        = (s' with clock := s'.clock + extra,r)`,
-  DISCH_TAC
+        = (s' with clock := s'.clock + extra,r)`
+  (DISCH_TAC
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s with clock := s.clock + extra`)
   \\ fs [is_clock_io_mono_def]
   \\ CASE_TAC
@@ -285,11 +285,11 @@ val is_clock_io_mono_extra = Q.store_thm ("is_clock_io_mono_extra",
   \\ rpt DISCH_TAC
   \\ rpt (CHANGED_TAC (fs [semanticPrimitivesPropsTheory.with_same_clock])));
 
-val is_clock_io_mono_extra_mono = Q.store_thm ("is_clock_io_mono_extra_mono",
+Theorem is_clock_io_mono_extra_mono
   `(!s. is_clock_io_mono f s)
     ==> io_events_mono (FST(f s)).ffi
-     (FST(f (s with clock := s.clock + extra))).ffi`,
-  DISCH_TAC
+     (FST(f (s with clock := s.clock + extra))).ffi`
+  (DISCH_TAC
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s with clock := s.clock + extra`)
   \\ fs [is_clock_io_mono_def]
   \\ CASE_TAC
@@ -305,21 +305,21 @@ fun mk_extra_lemmas mp_rule monad_rule
 fun prove_extra mp_rule monad_rule
   = simp_tac bool_ss (mk_extra_lemmas mp_rule monad_rule)
 
-val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
+Theorem evaluate_add_to_clock
   `!(s:'ffi state) env es s' r extra.
     evaluate s env es = (s',r) ∧
     r ≠ Rerr (Rabort Rtimeout_error) ⇒
     evaluate (s with clock := s.clock + extra) env es =
-    (s' with clock := s'.clock + extra,r)`,
-  prove_extra is_clock_io_mono_extra is_clock_io_mono_evaluate);
+    (s' with clock := s'.clock + extra,r)`
+  (prove_extra is_clock_io_mono_extra is_clock_io_mono_evaluate);
 
-val evaluate_match_add_to_clock = Q.store_thm("evaluate_match_add_to_clock",
+Theorem evaluate_match_add_to_clock
   `!(s:'ffi state) env v pes err_v s' r extra.
     evaluate_match s env v pes err_v = (s', r) ∧
     r ≠ Rerr (Rabort Rtimeout_error) ⇒
     evaluate_match (s with clock := s.clock + extra) env v pes err_v =
-      (s' with clock := s'.clock + extra,r)`,
-  prove_extra is_clock_io_mono_extra is_clock_io_mono_evaluate);
+      (s' with clock := s'.clock + extra,r)`
+  (prove_extra is_clock_io_mono_extra is_clock_io_mono_evaluate);
 
 Theorem list_result_eq_Rval[simp]
   `list_result r = Rval r' ⇔ ∃v. r' = [v] ∧ r = Rval v`
@@ -436,10 +436,9 @@ Theorem evaluate_match_list_result
     Cases_on`a` >> full_simp_tac(srw_ss())[LENGTH_NIL],all_tac] >>
   metis_tac[list_result_def]);
 
-val is_clock_io_mono_evaluate_decs = Q.store_thm (
-  "is_clock_io_mono_evaluate_decs",
-  `!s e p. is_clock_io_mono (\s. evaluate_decs s e p) s`,
-  ho_match_mp_tac evaluate_decs_ind
+Theorem is_clock_io_mono_evaluate_decs
+  `!s e p. is_clock_io_mono (\s. evaluate_decs s e p) s`
+  (ho_match_mp_tac evaluate_decs_ind
   \\ fs [evaluate_decs_def, combine_dec_result_def]
   \\ rpt (strip_tac ORELSE TOP_CASE_TAC
     ORELSE (CHANGED_TAC (fs [is_clock_io_mono_return,
@@ -458,7 +457,7 @@ Theorem evaluate_decs_add_to_clock
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
    evaluate_decs (s with clock := s.clock + extra) e p =
    (s' with clock := s'.clock + extra,r)`
-  simp_tac bool_ss evaluate_decs_lemmas);
+  (simp_tac bool_ss evaluate_decs_lemmas);
 
     (*
 Theorem evaluate_tops_add_to_clock
@@ -505,12 +504,8 @@ val add_lemma = Q.prove (
  `!(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra`,
  intLib.ARITH_TAC);
 
-val with_clock_with_clock = Q.prove (
-`((s with clock := x) with clock := y) = s with clock := y`,
- rw []);
-
 val with_clock_ffi = Q.prove(
-  `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
+  `(s with clock := k).ffi = s.ffi`,EVAL_TAC);
 
 Theorem evaluate_decs_clock_determ
 `!s e p s1 r1 s2 r2 k1 k2.
@@ -559,8 +554,6 @@ Theorem evaluate_decs_clock_determ
    fs [] >>
    rw []))
 
-val lemma = DECIDE``x ≠ 0n ⇒ x - 1 + y = x + y - 1``
-
 Theorem evaluate_add_to_clock_io_events_mono
   `(∀(s:'ffi state) e d extra.
      io_events_mono (FST(evaluate s e d)).ffi
@@ -568,14 +561,14 @@ Theorem evaluate_add_to_clock_io_events_mono
    (∀(s:'ffi state) e v d er extra.
      io_events_mono (FST(evaluate_match s e v d er)).ffi
      (FST(evaluate_match (s with clock := s.clock + extra) e v d er)).ffi)`
-  prove_extra is_clock_io_mono_extra_mono is_clock_io_mono_evaluate);
+  (prove_extra is_clock_io_mono_extra_mono is_clock_io_mono_evaluate);
 
 Theorem evaluate_decs_add_to_clock_io_events_mono
   `∀s e d.
     io_events_mono
     (FST(evaluate_decs s e d)).ffi
     (FST(evaluate_decs (s with clock := s.clock + extra) e d)).ffi`
-  prove_extra is_clock_io_mono_extra_mono is_clock_io_mono_evaluate_decs);
+  (prove_extra is_clock_io_mono_extra_mono is_clock_io_mono_evaluate_decs);
 
   (*
 Theorem evaluate_tops_add_to_clock_io_events_mono
@@ -593,21 +586,13 @@ Theorem evaluate_tops_add_to_clock_io_events_mono
   metis_tac[evaluate_decs_add_to_clock_io_events_mono,FST])
   *)
 
-val with_clock_clock = Q.prove(
-  `(s with clock := k).clock = k`,
-  EVAL_TAC);
-
-val with_clock_with_clock = Q.prove(
-  `((s with clock := k1) with clock := k2) = s with clock := k2`,
-  EVAL_TAC)
-
 Theorem evaluate_decs_ffi_mono_clock
   `∀k1 k2 s e p.
     k1 ≤ k2 ⇒
     io_events_mono
     (FST (evaluate_decs (s with clock := k1) e p)).ffi
     (FST (evaluate_decs (s with clock := k2) e p)).ffi`
-  metis_tac [is_clock_io_mono_evaluate_decs
+  (metis_tac [is_clock_io_mono_evaluate_decs
     |> Q.SPEC `s with clock := k1`
     |> SIMP_RULE (srw_ss ()) [is_clock_io_mono_def, pair_CASE_def]]);
 
@@ -879,15 +864,11 @@ Theorem evaluate_ffi_intro `
     \\ TOP_CASE_TAC \\ fs[]
     \\ rw[state_component_equality] ));
 
-val num_sub_sub_eq = Q.store_thm ("num_sub_sub_eq",
-  `~ (a <= b) ==> a - (a - (b : num)) = b`,
-  fs []);
-
-val is_clock_io_mono_set_clock = Q.store_thm ("is_clock_io_mono_set_clock",
+Theorem is_clock_io_mono_set_clock
   `is_clock_io_mono f s
     ==> f s = (s', r) /\ ~ (r = Rerr (Rabort Rtimeout_error))
-    ==> ?ck0. f (s with clock := ck0) = (s' with clock := ck1, r)`,
-  fs [is_clock_io_mono_def]
+    ==> ?ck0. f (s with clock := ck0) = (s' with clock := ck1, r)`
+  (fs [is_clock_io_mono_def]
   \\ rpt (FIRST (map CHANGED_TAC [fs [], strip_tac]))
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `ck1 + (s.clock − (HD [s';s]).clock)`)
   \\ CASE_TAC
@@ -903,14 +884,14 @@ Theorem evaluate_set_clock
       res <> Rerr (Rabort Rtimeout_error) ==>
       !ck. ?ck1. evaluate (s with clock := ck1) env exps =
                    (s1 with clock := ck,res)`
-  metis_tac evaluate_set_clock_lemmas);
+  (metis_tac evaluate_set_clock_lemmas);
 
-val is_clock_io_mono_minimal = Q.store_thm("is_clock_io_mono_minimal",
+Theorem is_clock_io_mono_minimal
   `is_clock_io_mono f s
     ==> f s = (s', r) /\ s'.clock = 0 /\ r <> Rerr (Rabort Rtimeout_error)
         /\ s.clock > k
-    ==> (?s''. f (s with clock := k) = (s'', Rerr (Rabort Rtimeout_error)))`,
-  fs [is_clock_io_mono_def]
+    ==> (?s''. f (s with clock := k) = (s'', Rerr (Rabort Rtimeout_error)))`
+  (fs [is_clock_io_mono_def]
   \\ rpt (FIRST (map CHANGED_TAC [fs [], strip_tac]))
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k`)
   \\ CASE_TAC \\ fs []);
@@ -918,22 +899,22 @@ val is_clock_io_mono_minimal = Q.store_thm("is_clock_io_mono_minimal",
 val evaluate_minimal_lemmas = BODY_CONJUNCTS is_clock_io_mono_evaluate
   |> map (BETA_RULE o MATCH_MP is_clock_io_mono_minimal);
 
-val evaluate_minimal_clock = Q.store_thm("evaluate_minimal_clock",
+Theorem evaluate_minimal_clock
 `(!(s:'ffi state) env es s' r k. evaluate s env es = (s',r) ∧
   s'.clock = 0 ∧
   r ≠ Rerr (Rabort Rtimeout_error) ∧
   s.clock > k
   ==>
-  ?s''. evaluate (s with clock := k) env es = (s'',Rerr (Rabort Rtimeout_error)))`,
-  metis_tac evaluate_minimal_lemmas);
+  ?s''. evaluate (s with clock := k) env es = (s'',Rerr (Rabort Rtimeout_error)))`
+  (metis_tac evaluate_minimal_lemmas);
 
-val evaluate_match_minimal_clock = Q.store_thm("evaluate_match_minimal_clock",
+Theorem evaluate_match_minimal_clock
 `(!(s:'ffi state) env v pes err_v s' r k. evaluate_match s env v pes err_v = (s',r) ∧
   s'.clock = 0 ∧
   r ≠ Rerr (Rabort Rtimeout_error) ∧
   s.clock > k
   ==>
-  ?s''. evaluate_match (s with clock := k) env v pes err_v = (s'',Rerr (Rabort Rtimeout_error)))`,
-  metis_tac evaluate_minimal_lemmas);
+  ?s''. evaluate_match (s with clock := k) env v pes err_v = (s'',Rerr (Rabort Rtimeout_error)))`
+  (metis_tac evaluate_minimal_lemmas);
 
 val _ = export_theory();

@@ -1280,13 +1280,13 @@ Theorem type_defsexp_11[simp]
   \\ Q.ISPEC_THEN`typesexp`match_mp_tac INJ_MAP_EQ
   \\ simp[INJ_DEF]);
 
-val dec1_size_eq = Q.store_thm ("dec1_size_eq",
-  `dec1_size xs = list_size dec_size xs`,
-  Induct_on `xs` \\ fs [dec_size_def, list_size_def]);
+Theorem dec1_size_eq
+  `dec1_size xs = list_size dec_size xs`
+  (Induct_on `xs` \\ fs [dec_size_def, list_size_def]);
 
-val mem_size_lemma = Q.store_thm ("mem_size_lemma",
-  `list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)`,
-  Induct_on `xs` \\ rw [list_size_def] \\ fs []);
+Theorem mem_size_lemma
+  `list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)`
+  (Induct_on `xs` \\ rw [list_size_def] \\ fs []);
 
 val decsexp_def = tDefine "decsexp"`
   (decsexp (Dlet locs p e) = listsexp [SX_SYM "Dlet"; locnsexp locs; patsexp p; expsexp e]) ∧

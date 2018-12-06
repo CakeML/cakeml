@@ -244,7 +244,7 @@ val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
-val (evaluate_def, evaluate_ind) = 
+val (evaluate_def, evaluate_ind) =
   tprove_no_defn ((evaluateTheory.evaluate_def,evaluateTheory.evaluate_ind),
   wf_rel_tac`inv_image ($< LEX $<)
     (λx. case x of
@@ -280,9 +280,9 @@ val _ = register "evaluate" evaluate_def evaluate_ind
 
 val _ = export_rewrites["evaluate.list_result_def"];
 
-val dec1_size_eq = Q.store_thm("dec1_size_eq",
-  `dec1_size xs = list_size dec_size xs`,
-  Induct_on `xs` \\ fs [dec_size_def, list_size_def]);
+Theorem dec1_size_eq
+  `dec1_size xs = list_size dec_size xs`
+  (Induct_on `xs` \\ fs [dec_size_def, list_size_def]);
 
 val (evaluate_decs_def,evaluate_decs_ind) =
   tprove_no_defn ((evaluate_decs_def,evaluate_decs_ind),

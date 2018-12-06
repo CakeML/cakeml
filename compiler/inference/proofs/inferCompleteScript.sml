@@ -554,14 +554,14 @@ Theorem type_pe_determ_canon_infer_e
 fun str_assums strs = ConseqConv.DISCH_ASM_CONSEQ_CONV_TAC
         (ConseqConv.CONSEQ_REWRITE_CONV ([], strs, []));
 
-val ap_thm = Q.store_thm ("ap_thm", `!f. x = y ==> f x = f y`, fs []);
+val ap_lemma = Q.prove (`!f. x = y ==> f x = f y`, fs []);
 
-val inf_set_tids_extend_dec_ienv = Q.store_thm ("inf_set_tids_extend_dec_ienv",
+Theorem inf_set_tids_extend_dec_ienv
   `inf_set_tids_ienv (count n) ienv2
     /\ inf_set_tids_ienv (count m) ienv
     /\ m <= n
-    ==> inf_set_tids_ienv (count n) (extend_dec_ienv ienv2 ienv)`,
-  fs [inf_set_tids_ienv_def]
+    ==> inf_set_tids_ienv (count n) (extend_dec_ienv ienv2 ienv)`
+  (fs [inf_set_tids_ienv_def]
   \\ rpt disch_tac
   \\ fs[extend_dec_ienv_def]
   \\ conj_tac
@@ -1318,7 +1318,7 @@ Theorem infer_d_complete_canon
   >- ( (* Dlocal *)
     rw[infer_d_def,success_eqns]>>
     rpt (first_x_assum drule >> rw [])>>
-    str_assums [ISPEC ``infer_st_next_id`` ap_thm]>>
+    str_assums [ISPEC ``infer_st_next_id`` ap_lemma]>>
     fs[]>>
     first_x_assum match_mp_tac>>
     fs[env_rel_extend]>>

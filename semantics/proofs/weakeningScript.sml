@@ -582,10 +582,10 @@ Theorem weak_tenv_extend_dec_tenv
  >> irule nsSub_nsAppend2
  >> simp []);
 
-val weak_extend_dec_tenv = Q.store_thm ("weak_extend_dec_tenv",
+Theorem weak_extend_dec_tenv
   `tenv_ok tenv1 /\ weak tenv2 tenv3
-    ==> weak (extend_dec_tenv tenv1 tenv2) (extend_dec_tenv tenv1 tenv3)`,
-  fs [weak_def, tenv_ok_def, weak_tenv_extend_dec_tenv]
+    ==> weak (extend_dec_tenv tenv1 tenv2) (extend_dec_tenv tenv1 tenv3)`
+  (fs [weak_def, tenv_ok_def, weak_tenv_extend_dec_tenv]
   \\ fs [extend_dec_tenv_def]);
 
 Theorem type_d_weakening

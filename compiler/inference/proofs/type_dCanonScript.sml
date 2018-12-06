@@ -1055,10 +1055,10 @@ Theorem type_d_canon_tenv_equiv
   type_d_canon_rules
 *)
 
-val DISJOINT_CARD_UNION = Q.store_thm("DISJOINT_CARD_UNION",
+Theorem DISJOINT_CARD_UNION
   `FINITE s /\ FINITE t /\ DISJOINT s t
-    ==> CARD (s UNION t) = CARD s + CARD t`,
-  metis_tac [CARD_UNION, DISJOINT_DEF, CARD_DEF, ADD, ADD_SYM]);
+    ==> CARD (s UNION t) = CARD s + CARD t`
+  (metis_tac [CARD_UNION, DISJOINT_DEF, CARD_DEF, ADD, ADD_SYM]);
 
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.

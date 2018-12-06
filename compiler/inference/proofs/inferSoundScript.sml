@@ -101,14 +101,14 @@ Theorem set_ids_same[simp]
   `set_ids x x = {}`
   (rw[set_ids_eq]);
 
-val set_ids_eq_union = Q.store_thm("set_ids_eq_union",
-  `x <= y /\ y <= z ==> set_ids x z = set_ids x y UNION set_ids y z`,
-  fs [set_ids_def, EXTENSION]);
+Theorem set_ids_eq_union
+  `x <= y /\ y <= z ==> set_ids x z = set_ids x y UNION set_ids y z`
+  (fs [set_ids_def, EXTENSION]);
 
-val set_ids_eq_union_eq = Q.store_thm("set_ids_eq_union_eq",
+Theorem set_ids_eq_union_eq
   `x <= y /\ y <= z /\ s = set_ids y z
-    ==> set_ids x z = set_ids x y UNION s`,
-  fs [set_ids_eq_union]);
+    ==> set_ids x z = set_ids x y UNION s`
+  (fs [set_ids_eq_union]);
 
 fun str_tac strs = ConseqConv.CONSEQ_CONV_TAC
   (ConseqConv.CONSEQ_REWRITE_CONV ([], strs, []));
