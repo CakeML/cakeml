@@ -35,7 +35,6 @@ val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
             STDIO (fsupdate (fsupdate fs fd1 0 (pos1 + nr) c1)
                             fd2 0 (LENGTH c2 +nr)
                             (c2 ++ TAKE nr (DROP pos1 c1))))`,
-  cheat (*
   xcf "pipe_2048" (st()) >> fs[STDIO_def,IOFS_def,IOFS_iobuff_def] >> xpull >>
   rename [`W8ARRAY _ bdef`] >>
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1::t` >>
@@ -46,8 +45,7 @@ val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
   (* xlet_auto picks the wrong fd here *)
   xlet_auto_spec (SOME (Q.SPECL[`fs with numchars := ll`,`fd1`, `fd1v`, `2048`] read_spec))
   >-(rw[get_file_content_def] >> xsimpl >> rw[]  >> instantiate  >> xsimpl)
-  >-(rw[get_file_content_def,get_mode_def] >> xsimpl)
-  >-(rw[get_file_content_def] >> xsimpl) >>
+  >-(rw[get_file_content_def,get_mode_def] >> xsimpl) >>
   xlet_auto >- xsimpl >>
   `get_file_content fs fd1 = SOME(c1,pos1)`
     by (fs[get_file_content_def] >> pairarg_tac >> fs[] >> rfs[]) >>
@@ -95,8 +93,7 @@ val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
      bumpFD_def,ALIST_FUPDKEY_unchanged] >> rw[IO_fs_component_equality]
   >- rfs[get_file_content_def]
   >-(qmatch_abbrev_tac`f xx = f yy` >>
-     `xx = yy` suffices_by fs[] >> unabbrev_all_tac >> fs[ALIST_FUPDKEY_eq])
-     *));
+     `xx = yy` suffices_by fs[] >> unabbrev_all_tac >> fs[ALIST_FUPDKEY_eq]));
 
 (* implementation of cat using low-level IO functions *)
 val _ = process_topdecs `
@@ -175,7 +172,6 @@ val cat_spec0 = Q.prove(
        (POSTv u.
           &UNIT_TYPE () u *
           STDIO (add_stdout fs (catfiles_string fs fns)))`,
-  cheat (*
   Induct >> rpt strip_tac >> xcf "cat" (get_ml_prog_state()) >>
   fs[LIST_TYPE_def] >>
   (cases_on `¬ STD_streams fs` >- (fs[STDIO_def] >> xpull) >> fs[])
@@ -205,8 +201,7 @@ val cat_spec0 = Q.prove(
   >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdo_def] >>
       simp[validFileFD_def]
       \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
-      \\ simp[])
-  >- xsimpl >>
+      \\ simp[]) >>
   xapp >> xsimpl >> simp[Abbr`fs'`] >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
   map_every qexists_tac [`GC`,`fs'`] >>
@@ -249,7 +244,7 @@ val cat_spec0 = Q.prove(
   \\ `∃out. stdout fs out` by metis_tac[STD_streams_stdout]
   \\ imp_res_tac add_stdo_o
   \\ simp[concat_cons]
-  \\ xsimpl *));
+  \\ xsimpl);
 
 val cat_spec = save_thm(
   "cat_spec",

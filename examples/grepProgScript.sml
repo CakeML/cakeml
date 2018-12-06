@@ -531,7 +531,6 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
                           (MAP (strcat f o strcat (strlit":"))
                             (FILTER m (all_lines fs (File f)))))
                    else add_stderr fs (notfound_string f)))`,
-  cheat (*
   xcf"print_matching_lines_in_file"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ qmatch_goalsub_abbrev_tac`_ * STDIO fs'`
@@ -548,7 +547,6 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
     \\ xsimpl)
   >- ( xsimpl )
   \\ xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
-  >- ( xsimpl )
   >- ( xsimpl )
   >- ( xsimpl )
   \\ xlet_auto
@@ -587,7 +585,7 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
   \\ simp[MAP_MAP_o,o_DEF]
   \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM CONS_APPEND]
   \\ simp[GSYM add_stdo_A_DELKEY,openFileFS_A_DELKEY_nextFD]
-  \\ xsimpl *));
+  \\ xsimpl);
 
 val usage_string_def = Define`
   usage_string = strlit"Usage: grep <regex> <file> <file>...\n"`;

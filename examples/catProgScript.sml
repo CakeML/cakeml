@@ -52,11 +52,9 @@ val do_onefile_spec = Q.store_thm(
          (\e. &BadFileName_exn e *
               &(~inFS_fname fs (File fnm)) *
               STDIO fs))`,
-  cheat (*
   rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
   xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
-  >- xsimpl
   >- xsimpl
   >- xsimpl
   \\ imp_res_tac nextFD_ltX
@@ -145,7 +143,7 @@ val do_onefile_spec = Q.store_thm(
   simp[Abbr`fs0`,UNIT_TYPE_def,add_stdout_fastForwardFD,STD_streams_openFileFS] \\
   simp[GSYM add_stdo_A_DELKEY,Abbr`fd`,openFileFS_A_DELKEY_nextFD] \\
   xsimpl \\
-  simp[validFileFD_def] *));
+  simp[validFileFD_def]);
 
 val file_contents_def = Define `
   file_contents fnm fs = implode (THE (ALOOKUP fs.files (File fnm)))`
@@ -175,7 +173,6 @@ val cat_spec0 = Q.prove(
        (POSTv u.
           &UNIT_TYPE () u *
           STDIO (add_stdout fs (catfiles_string fs fns)))`,
-  cheat (*
   Induct >>
   rpt strip_tac >> xcf "cat" (get_ml_prog_state()) >>
   fs[LIST_TYPE_def] >>
@@ -186,7 +183,6 @@ val cat_spec0 = Q.prove(
   xmatch >>
   progress inFS_fname_ALOOKUP_EXISTS >>
   xlet_auto_spec(SOME (SPEC_ALL do_onefile_spec))
-  >- xsimpl
   >- xsimpl
   >- xsimpl >>
   xapp \\
@@ -199,7 +195,7 @@ val cat_spec0 = Q.prove(
   imp_res_tac add_stdo_o \\
   simp[Abbr`fs0`] \\
   simp[Once file_contents_def,SimpR``(==>>)``,concat_cons] \\
-  simp[file_contents_add_stdout] \\ xsimpl *));
+  simp[file_contents_add_stdout] \\ xsimpl);
 
 val cat_spec = save_thm(
   "cat_spec",

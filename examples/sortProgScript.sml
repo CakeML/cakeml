@@ -180,7 +180,6 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
           STDIO fs *
           &(BadFileName_exn e ∧
           ¬EVERY (inFS_fname fs o File) fnames)))`,
-  cheat (*
   Induct_on `fnames` >>
   rw [] >>
   xcf "get_files_contents" (get_ml_prog_state ()) >>
@@ -193,7 +192,6 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   qmatch_assum_rename_tac `FILENAME fname fname_v` >>
   reverse(Cases_on`STD_streams fs`)>-(fs[STDIO_def] \\ xpull) \\
   xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
-  >- xsimpl
   >- xsimpl
   >- xsimpl >>
   qmatch_assum_abbrev_tac `validFD fd fs'` >>
@@ -213,14 +211,13 @@ val get_files_contents_spec = Q.store_thm ("get_files_contents_spec",
   >- (xsimpl  \\
     simp[Abbr`fs'`, validFileFD_def]
     \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
-    \\ rfs[] )
-  >- xsimpl >>
+    \\ rfs[] ) >>
   xapp >>
   xsimpl >>
   simp[Abbr`fs'`,Abbr`fd`,openFileFS_A_DELKEY_nextFD] >>
   full_simp_tac std_ss [GSYM MAP_APPEND] >>
   instantiate >> xsimpl >>
-  simp[REVERSE_APPEND,MAP_REVERSE,linesFD_openFileFS_nextFD,MAP_MAP_o,o_DEF] *));
+  simp[REVERSE_APPEND,MAP_REVERSE,linesFD_openFileFS_nextFD,MAP_MAP_o,o_DEF]);
 (* -- *)
 
 val _ = (append_prog o process_topdecs) `
