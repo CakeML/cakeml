@@ -21,18 +21,12 @@ val loop_spec = store_thm("loop_spec",
       app (p:'ffi ffi_proj) ^(fetch_v "loop" st) [xv]
         (one (FFI_full [])) (POSTd io. io = [||])``,
   xcf "loop" st
-  \\ xfun_spec `f`
-    `!xv.
-       app p f [xv]
-         (one (FFI_full [])) (POSTv v. &(v = xv) * one (FFI_full []))`
-  THEN1 (strip_tac \\ xapp \\ xvar \\ xsimpl)
+  \\ xfun `f`
   \\ xapp \\ xsimpl
-  \\ qexists_tac `\n. one (FFI_full [])`
-  \\ qexists_tac `\n. []`
-  \\ qexists_tac `\n. xv`
-  \\ rpt strip_tac \\ xsimpl
-  THEN1 (qexists_tac `emp` \\ rw [SEP_CLAUSES])
-  \\ rw [lprefix_lub_def]);
+  \\ MAP_EVERY qexists_tac [`\i. one (FFI_full [])`, `\i. []`, `\i. xv`]
+  \\ xsimpl \\ qexists_tac `emp`
+  \\ rw [SEP_CLAUSES, lprefix_lub_def]
+  \\ xapp \\ xvar \\ xsimpl);
 
 (* Conditional termination *)
 
@@ -53,14 +47,11 @@ val condBody_spec = store_thm("condBody_spec",
           (\v. &(INT (n - 1) v /\ n <> 0) * one (FFI_full []))
           (\e. &(n = 0) * one (FFI_full [])))``,
   xcf "condBody" st
-  \\ Cases_on `n = 0`
-  THEN1 (
-    xlet_auto THEN1 xsimpl
-    \\ xif \\ qexists_tac `T` \\ rw []
-    \\ xlet_auto THEN1 (xcon \\ xsimpl)
-    \\ xraise \\ xsimpl)
   \\ xlet_auto THEN1 xsimpl
-  \\ xif \\ qexists_tac `F` \\ rw []
+  \\ xif
+  THEN1 (
+    xlet_auto THEN1 (xcon \\ xsimpl)
+    \\ xraise \\ xsimpl)
   \\ xapp \\ xsimpl
   \\ qexists_tac `n` \\ xsimpl);
 
@@ -76,25 +67,20 @@ val condLoop_spec = store_thm("condLoop_spec",
     `~(n < 0)` by intLib.COOPER_TAC
     \\ rw [POSTed_def, GSYM POSTe_def]
     \\ xapp_spec repeat_POSTe
-    \\ qexists_tac `\i. one (FFI_full [])`
-    \\ qexists_tac `\i. Litv (IntLit (n - &i))`
     \\ `?m. n = &m` by (irule NUM_POSINT_EXISTS \\ rw [])
-    \\ qexists_tac `m`
-    \\ rpt strip_tac \\ xsimpl
-    THEN1 fs [INT_def]
-    THEN1 (xapp \\ xsimpl \\ fs [INT_def] \\ intLib.COOPER_TAC)
-    \\ xapp \\ xsimpl)
+    \\ MAP_EVERY qexists_tac
+         [`\i. one (FFI_full [])`, `\i. Litv (IntLit (n - &i))`, `m`]
+    \\ rpt strip_tac \\ fs [INT_def] \\ xsimpl
+    \\ xapp \\ xsimpl \\ fs [INT_def]
+    \\ intLib.COOPER_TAC)
   \\ rw [POSTed_def, GSYM POSTd_def]
   \\ xapp \\ xsimpl
-  \\ qexists_tac `\i. one (FFI_full [])`
-  \\ qexists_tac `\i. []`
-  \\ qexists_tac `\i. Litv (IntLit (n - &i))`
-  \\ rpt strip_tac \\ xsimpl
-  THEN1 fs [INT_def]
-  THEN1 (qexists_tac `emp` \\ rw [SEP_CLAUSES])
-  THEN1 (xapp \\ xsimpl \\ fs [INT_def] \\ intLib.COOPER_TAC)
-  THEN1 rw [lprefix_lub_def]
-  \\ intLib.COOPER_TAC);
+  \\ MAP_EVERY qexists_tac
+       [`\i. one (FFI_full [])`, `\i. []`, `\i. Litv (IntLit (n - &i))`]
+  \\ xsimpl \\ qexists_tac `emp`
+  \\ rw [SEP_CLAUSES, lprefix_lub_def]
+  \\ TRY (xapp \\ xsimpl)
+  \\ fs [INT_def] \\ intLib.COOPER_TAC);
 
 (* Non-terminating loop with output *)
 
