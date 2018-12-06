@@ -877,7 +877,6 @@ val write_spec = Q.store_thm("write_spec",
       IOFS(fsupdate fs fd k (pos + n)
                     (insert_atI (TAKE n (MAP (CHR o w2n) (DROP i rest))) pos
                                      content)))`,
-  cheat (*
   strip_tac >> `?N. n <= N` by (qexists_tac`n` >> fs[]) >>
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`n` >>
   Induct_on`N` >>
@@ -914,7 +913,7 @@ val write_spec = Q.store_thm("write_spec",
   qmatch_abbrev_tac`_ (_ _ _ _ _ (_ c1 _ _)) ==>> _ (_ _ _ _ _ (_ c2 _ _)) * _` >>
   `c1 = c2` suffices_by xsimpl >> fs[Abbr`c1`,Abbr`c2`] >>
   PURE_REWRITE_TAC[Once (Q.SPECL [`i`,`nw`] ADD_COMM)] >>
-  fs[Once ADD_COMM,GSYM DROP_DROP_T,take_drop_partition,MAP_DROP] *));
+  fs[Once ADD_COMM,GSYM DROP_DROP_T,take_drop_partition,MAP_DROP]);
 
 val output1_spec = Q.store_thm("output1_spec",
   `!fd fdv c cv bc content pos.
@@ -1288,7 +1287,6 @@ val read_byte_spec = Q.store_thm("read_byte_spec",
             IOFS (bumpFD fd fs 1))
       (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
             IOFS(bumpFD fd fs 0)))`,
-  cheat (*
   xcf "TextIO.read_byte" (basis_st()) >>
   fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ bdef`] >>
@@ -1297,14 +1295,13 @@ val read_byte_spec = Q.store_thm("read_byte_spec",
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
   xlet_auto >-(fs[] >> xsimpl >> rw[] >> instantiate >> xsimpl)
-  >- xsimpl
   >- xsimpl >>
   xlet_auto >- xsimpl >>
   xif >-(xlet_auto >- (xcon >> xsimpl) >> xraise >>
          fs[EndOfFile_exn_def,eof_def,get_file_content_def,liveFS_bumpFD] >> xsimpl) >>
   xapp >> xsimpl >>
   `nr = 1` by fs[] >> fs[] >> xsimpl >>
-  fs[take1_drop,eof_def,get_file_content_def] >> pairarg_tac >> fs[liveFS_bumpFD] *));
+  fs[take1_drop,eof_def,get_file_content_def] >> pairarg_tac >> fs[liveFS_bumpFD]);
 
 val read_byte_STDIO_spec = Q.store_thm("read_byte_STDIO_spec",
   ` FD fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
@@ -1342,7 +1339,6 @@ val input1_spec = Q.store_thm("input1_spec",
         &OPTION_TYPE CHAR NONE v *
         STDIO (bumpFD fd fs 0)
       | _ => &F)`,
-  cheat (*
   xcf"TextIO.input1"(get_ml_prog_state())
   \\ xhandle`POSTve (λv. &OPTION_TYPE CHAR (SOME (EL pos content)) v *
                          STDIO (forwardFD fs fd 1) * &(eof fd fs = SOME F))
@@ -1361,7 +1357,7 @@ val input1_spec = Q.store_thm("input1_spec",
   \\ reverse conj_tac >- (EVAL_TAC \\ fs[])
   \\ xcon
   \\ xsimpl
-  \\ fs[std_preludeTheory.OPTION_TYPE_def] *));
+  \\ fs[std_preludeTheory.OPTION_TYPE_def]);
 
 val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
   `!fd fdv fs content pos off offv.
@@ -1375,7 +1371,6 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
        W8ARRAY bufv (insert_atI (TAKE len (DROP pos (MAP (n2w o ORD) content)))
                                  off buf) *
        SEP_EXISTS k. IOFS (fsupdate fs fd k (MIN (len + pos) (MAX pos (LENGTH content))) content))`,
-  cheat (*
   xcf "TextIO.input" (basis_st()) >>
   reverse(Cases_on`pos ≤ LENGTH content`) >- (
     imp_res_tac get_file_content_eof \\ rfs[] \\
@@ -1398,7 +1393,6 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
       Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
       Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
       xlet_auto \\ simp[]
-      >- xsimpl
       >- xsimpl
       >- xsimpl
       \\ xlet_auto >- xsimpl
@@ -1447,7 +1441,7 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
-     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >- xsimpl >>
+     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >>
      xlet_auto >-xsimpl >>
      xif >> instantiate >> xlit >> xsimpl >>
      qexists_tac `1` >>
@@ -1470,7 +1464,7 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
      Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
-     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >- xsimpl >>
+     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >>
      xlet_auto >- xsimpl >> xif >> instantiate >> xlit >> xsimpl >>
      qexists_tac `1` >>
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
@@ -1490,7 +1484,6 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
   xlet_auto
   >-(fs[] >> xsimpl >> rw[] >> TRY instantiate >> xsimpl)
-  >- xsimpl
   >- xsimpl >>
   xlet_auto >- xsimpl >>
   `MEM fd (MAP FST fs'.infds)` by
@@ -1538,7 +1531,7 @@ val input_IOFS_spec = Q.store_thm("input_IOFS_spec",
   fs[IO_fs_component_equality,ALIST_FUPDKEY_unchanged,fsupdate_def,LDROP_1] >>
   fs[ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq] >>
   simp[ALIST_FUPDKEY_unchanged])
-  \\ xapp \\ instantiate \\ xsimpl *));
+  \\ xapp \\ instantiate \\ xsimpl);
 
 val input_spec = Q.store_thm("input_spec",
   `!fd fdv fs content pos off offv len lenv buf bufv.
@@ -1962,7 +1955,6 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
     xsimpl
     \\ rw[inFS_fname_numchars]
     \\ qexists_tac`ll` \\ xsimpl )
-  >- xsimpl
   \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
   \\ imp_res_tac nextFD_ltX
   \\ disch_then(qspec_then`0`mp_tac) \\ rw[]
