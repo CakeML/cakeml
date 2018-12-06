@@ -59,6 +59,7 @@ val add_backend_compset = computeLib.extend_compset
     ,backend_commonTheory.data_num_stubs_def
     ,backend_commonTheory.bvl_num_stubs_def
     ,backend_commonTheory.bvl_to_bvi_namespaces_def
+    ,backend_commonTheory.small_enough_int_def
     ]
   ,computeLib.Tys
     [``:backend_common$tra``
