@@ -119,6 +119,13 @@ Theorem code_locs_map
   (Induct \\ full_simp_tac(srw_ss())[code_locs_def]
   \\ ONCE_REWRITE_TAC [code_locs_cons] \\ full_simp_tac(srw_ss())[code_locs_def]);
 
+Theorem BIGUNION_MAP_code_locs_SND_SND
+  `BIGUNION (set (MAP (set ∘ code_locs ∘ (λx. [SND (SND x)])) xs)) =
+    set (code_locs (MAP (SND o SND) xs))`
+  (Induct_on `xs` \\ fs [code_locs_def]
+  \\ once_rewrite_tac [code_locs_cons]
+  \\ fs [code_locs_def]);
+
 val contains_App_SOME_def = tDefine "contains_App_SOME" `
   (contains_App_SOME max_app [] ⇔ F) /\
   (contains_App_SOME max_app (x::y::xs) ⇔

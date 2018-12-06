@@ -12,6 +12,10 @@ Theorem with_same_code[simp]
   `^s with code := s.code = s`
   (srw_tac[][bvlSemTheory.state_component_equality])
 
+Theorem with_same_clock[simp]
+  `(st:('a,'b) bvlSem$state) with clock := st.clock = st`
+  (rw[bvlSemTheory.state_component_equality]);
+
 Theorem dec_clock_with_code[simp]
   `bvlSem$dec_clock n (s with code := c) = dec_clock n s with code := c`
   (EVAL_TAC );
@@ -319,9 +323,6 @@ Theorem evaluate_mk_tick
   full_simp_tac(srw_ss())[mk_tick_def, evaluate_def, dec_clock_def] >>
   srw_tac[][] >>
   full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def, ADD1]
-  >- (`s with clock := s.clock = s`
-             by srw_tac[][state_component_equality] >>
-      srw_tac[][])
   >- (`s.clock = n` by decide_tac >>
       full_simp_tac(srw_ss())[]));
 

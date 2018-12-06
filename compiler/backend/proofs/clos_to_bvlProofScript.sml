@@ -295,10 +295,6 @@ Theorem list_CASE_same
   `list_CASE ls (P []) (λx y. P (x::y)) = P ls`
   (Cases_on`ls` \\ simp[]);
 
-Theorem with_same_clock[simp]
-  `(st:('a,'b) bvlSem$state) with clock := st.clock = st`
-  (rw[bvlSemTheory.state_component_equality]);
-
 (* -- *)
 
 (* correctness of partial/over application *)
@@ -4979,6 +4975,15 @@ val build_aux_thm = Q.prove(
   srw_tac[][GENLIST,REVERSE_APPEND,REVERSE_GENLIST,PRE_SUB1] >>
   simp[LIST_EQ_REWRITE])
 
+Theorem MEM_build_aux_imp_SND_MEM
+  `∀n ls acc m aux x.
+    build_aux n ls acc = (m,aux) ∧ MEM x aux ⇒
+     MEM (SND x) ls ∨ MEM x acc`
+  (Induct_on`ls`
+  \\ rw[clos_to_bvlTheory.build_aux_def]
+  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum drule \\ rw[] \\ fs[]);
+
 val lemma = Q.prove(`
   compile_exps max_app xs aux = (c,aux1) ⇒
   LENGTH c = LENGTH xs ∧ ∃ys. aux1 = ys ++ aux`,
@@ -5037,7 +5042,7 @@ Theorem init_code_ok
       simp[EL_APPEND2] >>
       rw [triangle_el_no_suff]));
 
- Theorem domain_init_code_lt_num_stubs
+Theorem domain_init_code_lt_num_stubs
   `∀max_app x. x ∈ domain (init_code max_app) ⇒ x < (num_stubs max_app)`
   (simp[init_code_def,num_stubs_def,domain_fromList,LENGTH_FLAT,MAP_GENLIST,o_DEF]
   \\ simp[GSYM(SIMP_RULE(srw_ss())[K_DEF]REPLICATE_GENLIST),SUM_REPLICATE]

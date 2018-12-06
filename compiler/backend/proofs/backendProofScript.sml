@@ -25,44 +25,7 @@ val _ = Parse.set_grammar_ancestry
     "labProps" (* for good_dimindex *)
   ];
 
-(* TODO: move *)
-
-Theorem WORD_LS_IMP
-  `a <=+ b ==>
-    ?k. Abbrev (b = a + n2w k) /\
-        w2n (b - a) = k /\
-        (!w. a <=+ w /\ w <+ b <=> ?i. w = a + n2w i /\ i < k)`
-  (Cases_on `a` \\ Cases_on `b` \\ fs [WORD_LS]
-  \\ fs [markerTheory.Abbrev_def]
-  \\ full_simp_tac std_ss [GSYM word_sub_def,addressTheory.word_arith_lemma2]
-  \\ fs [] \\ rw [] THEN1
-   (rewrite_tac [GSYM word_sub_def]
-    \\ once_rewrite_tac [WORD_ADD_COMM]
-    \\ rewrite_tac [WORD_ADD_SUB])
-  \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
-
-Theorem MOD_SUB_LEMMA
-  `n MOD k = 0 /\ m MOD k = 0 /\ 0 < k ==> (n - m) MOD k = 0`
-  (Cases_on `m <= n` \\ fs []
-  \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
-  \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
-  \\ drule MOD_PLUS
-  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []);
-
-Theorem LESS_MULT_LEMMA
-  `n1 < n2 /\ d < k ==> k * n1 + d < k * n2:num`
-  (Cases_on `n2` \\ fs [MULT_CLAUSES] \\ rw []
-  \\ fs [DECIDE ``n1 < SUC k <=> n1 <= k``]
-  \\ match_mp_tac (DECIDE ``n < n' /\ m <= m' ==> n + m < n' + m':num``)
-  \\ fs []);
-
-Theorem word_list_exists_imp
-  `dm = stack_removeProof$addresses a n /\
-    dimindex (:'a) DIV 8 * n < dimword (:'a) ∧ good_dimindex (:'a) ⇒
-    word_list_exists a n (fun2set (m1,dm:'a word set))`
-  (metis_tac [stack_removeProofTheory.word_list_exists_addresses]);
+(* TODO: move/rephrase *)
 
 Theorem byte_aligned_mult
   `good_dimindex (:'a) ==>
@@ -79,23 +42,6 @@ Theorem byte_aligned_MOD `
   (rw[IN_DEF]>>
   fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
   rfs[labPropsTheory.good_dimindex_def] \\ rfs []);
-
-Theorem extend_with_resource_limit_not_fail
-  `x ∈ extend_with_resource_limit y ∧ Fail ∉ y ⇒ x ≠ Fail`
-  (rw[extend_with_resource_limit_def] \\ metis_tac[])
-
-Theorem fun2set_disjoint_union
-  `
-   DISJOINT d1 d2 ∧
-  p (fun2set (m,d1)) ∧
-   q (fun2set (m,d2))
-   ⇒ (p * q) (fun2set (m,d1 ∪ d2))`
-  (rw[set_sepTheory.fun2set_def,set_sepTheory.STAR_def,set_sepTheory.SPLIT_def]
-  \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ simp[]
-  \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ simp[]
-  \\ simp[EXTENSION]
-  \\ conj_tac >- metis_tac[]
-  \\ fs[IN_DISJOINT,FORALL_PROD]);
 
 (* -- *)
 
@@ -1622,16 +1568,6 @@ Theorem remove_ticks_code_labels
   \\ rw[bvl_inlineTheory.remove_ticks_def]
   \\ FULL_SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[]);
 
-(* TODO move *)
-Theorem dest_Seq_SOME
-  `!e. dest_Seq e = SOME (x, y) <=> e = Let [x; y] (Var 1)`
-  (Cases \\ fs [bvl_handleTheory.dest_Seq_def]
-  \\ rename1 `Let xs e` \\ Cases_on `xs` \\ fs [bvl_handleTheory.dest_Seq_def]
-  \\ rename1 `_::xs` \\ Cases_on `xs` \\ fs [bvl_handleTheory.dest_Seq_def]
-  \\ rename1 `_::_::xs` \\ Cases_on `xs` \\ fs [bvl_handleTheory.dest_Seq_def]
-  \\ Cases_on `e` \\ fs [bvl_handleTheory.dest_Seq_def]
-  \\ metis_tac []);
-
 Theorem compile_seqs_code_labels
   `!cut e acc.
      bvl_get_code_labels (compile_seqs cut e acc) SUBSET
@@ -1640,7 +1576,7 @@ Theorem compile_seqs_code_labels
   (ho_match_mp_tac bvl_handleTheory.compile_seqs_ind \\ rw []
   \\ rw [Once bvl_handleTheory.compile_seqs_def]
   \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rw []
-  \\ fs [dest_Seq_SOME] \\ rw []
+  \\ fs [bvl_handleProofTheory.dest_Seq_thm] \\ rw []
   \\ metis_tac [compile_exp_code_labels_TODO_move, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]);
 
 Theorem optimise_get_code_labels
@@ -1804,29 +1740,6 @@ val clos_get_code_labels_def =
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
   |> curry save_thm "clos_get_code_labels_def[simp]"
 
-Theorem SUM_SET_count_2
-  `∀n. 2 * SUM_SET (count (SUC n)) = n * (n + 1)`
-  (Induct \\ rw[Once COUNT_SUC, SUM_SET_THM, LEFT_ADD_DISTRIB, SUM_SET_DELETE]
-  \\ rewrite_tac[EXP, ONE, TWO, MULT, ADD, LEFT_ADD_DISTRIB, RIGHT_ADD_DISTRIB]
-  \\ rw[]);
-
-Theorem SUM_SET_count
-  `∀n. n ≠ 0 ⇒ SUM_SET (count n) = n * (n - 1) DIV 2`
-  (Cases \\ simp[]
-  \\ qmatch_goalsub_abbrev_tac`a = b`
-  \\ qspecl_then[`2`,`a`,`b`]mp_tac EQ_MULT_LCANCEL
-  \\ disch_then(mp_tac o #1 o EQ_IMP_RULE)
-  \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
-  \\ disch_then irule
-  \\ unabbrev_all_tac
-  \\ rewrite_tac[SUM_SET_count_2]
-  \\ simp[ADD1, LEFT_ADD_DISTRIB, bitTheory.DIV_MULT_THM2]
-  \\ qmatch_goalsub_abbrev_tac`a = a - a MOD 2`
-  \\ `a MOD 2 = 0` suffices_by simp[]
-  \\ simp[Abbr`a`,GSYM EVEN_MOD2]
-  \\ simp[EVEN_ADD]
-  \\ rw[EVEN_EXP_IFF]);
-
 Theorem domain_init_code
   `0 < max_app ⇒ domain (init_code max_app) = count (max_app + max_app * (max_app - 1) DIV 2)`
   (rw[clos_to_bvlTheory.init_code_def, domain_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF,
@@ -1834,15 +1747,6 @@ Theorem domain_init_code
   \\ qmatch_goalsub_abbrev_tac`SUM_IMAGE f`
   \\ `f = I` by simp[Abbr`f`,FUN_EQ_THM]
   \\ rw[GSYM SUM_SET_DEF, SUM_SET_count]);
-
-Theorem MEM_build_aux_imp_SND_MEM
-  `∀n ls acc m aux x.
-    build_aux n ls acc = (m,aux) ∧ MEM x aux ⇒
-     MEM (SND x) ls ∨ MEM x acc`
-  (Induct_on`ls`
-  \\ rw[clos_to_bvlTheory.build_aux_def]
-  \\ first_x_assum drule \\ rw[]
-  \\ first_x_assum drule \\ rw[] \\ fs[]);
 
 Theorem recc_Lets_code_labels
   `∀n nargs k rest. bvl_get_code_labels (recc_Lets n nargs k rest) =
@@ -1938,7 +1842,7 @@ Theorem compile_exps_code_labels
     \\ last_x_assum drule \\ rw[]
     >- metis_tac[]
     >- (
-      drule MEM_build_aux_imp_SND_MEM
+      drule clos_to_bvlProofTheory.MEM_build_aux_imp_SND_MEM
       \\ disch_then drule
       \\ reverse strip_tac
       >- (
@@ -2514,10 +2418,6 @@ Theorem renumber_code_locs_clos_get_code_labels
       \\ qexists_tac`k-p`
       \\ simp[] )));
 
-Theorem EVEN_make_even[simp]
-  `EVEN (make_even x)`
-  (rw[make_even_def, EVEN_ADD]);
-
 Theorem call_dests_chain_exps
   `!xs n. any_dests (MAP (SND ∘ SND) (chain_exps n xs)) =
            any_dests xs UNION set (MAP ($+ (n + 1)) (COUNT_LIST (LENGTH xs - 1)))`
@@ -2547,13 +2447,6 @@ Theorem renumber_code_locs_any_dests
   \\ `LENGTH fns = LENGTH fns'` by
        metis_tac [clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]
   \\ fs [MAP_ZIP]);
-
-Theorem BIGUNION_MAP_code_locs_SND_SND
-  `BIGUNION (set (MAP (set ∘ code_locs ∘ (λx. [SND (SND x)])) xs)) =
-    set (code_locs (MAP (SND o SND) xs))`
-  (Induct_on `xs` \\ fs [closPropsTheory.code_locs_def]
-  \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
-  \\ fs [closPropsTheory.code_locs_def]);
 
 Theorem compile_common_code_locs
   `!c es c1 xs.
@@ -2585,12 +2478,18 @@ Theorem compile_common_code_locs
         simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT,
              MEM_MAP, PULL_EXISTS] \\ metis_tac[] )
   \\ rename [`clos_labels$compile input`]
-  \\ fs [BIGUNION_MAP_code_locs_SND_SND]
+  \\ fs [closPropsTheory.BIGUNION_MAP_code_locs_SND_SND]
   \\ metis_tac [clos_labelsProofTheory.compile_any_dests_SUBSET_code_locs]);
 
 val _ = temp_overload_on("esgc_free",``patProps$esgc_free``);
 val _ = temp_overload_on("elist_globals",``flatProps$elist_globals``);
 val _ = temp_overload_on("set_globals",``flatProps$set_globals``);
+
+Theorem word_list_exists_imp
+  `dm = stack_removeProof$addresses a n /\
+    dimindex (:'a) DIV 8 * n < dimword (:'a) ∧ good_dimindex (:'a) ⇒
+    word_list_exists a n (fun2set (m1,dm:'a word set))`
+  (metis_tac [stack_removeProofTheory.word_list_exists_addresses]);
 
 Theorem compile_correct
   `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
