@@ -1,3 +1,6 @@
+(*
+  Properties about patLang and its semantics
+*)
 open preamble patSemTheory
 
 val _ = new_theory"patProps"
@@ -5,7 +8,7 @@ val _ = new_theory"patProps"
 val evaluate_lit = save_thm("evaluate_lit[simp]",
       EVAL``patSem$evaluate env s [Lit tra l]``)
 
-val Boolv_11 = Q.store_thm("Boolv_11[simp]",`patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>srw_tac[][]);
+Theorem Boolv_11[simp] `patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2` (EVAL_TAC>>srw_tac[][]);
 
 val Boolv_disjoint = save_thm("Boolv_disjoint",EVAL``patSem$Boolv T = Boolv F``);
 
@@ -25,58 +28,58 @@ val no_closures_def = tDefine"no_closures"`
  simp[v_size_def]>>srw_tac[][]>>res_tac>>simp[])
 val _ = export_rewrites["no_closures_def"];
 
-val no_closures_Boolv = Q.store_thm("no_closures_Boolv[simp]",
-  `no_closures (Boolv b)`,
-  EVAL_TAC);
+Theorem no_closures_Boolv[simp]
+  `no_closures (Boolv b)`
+  (EVAL_TAC);
 
-val evaluate_raise_rval = Q.store_thm("evaluate_raise_rval",
-  `∀env s e s' v. patSem$evaluate env s [Raise tra e] ≠ (s', Rval v)`,
-  EVAL_TAC >> srw_tac[][] >> every_case_tac >> simp[])
+Theorem evaluate_raise_rval
+  `∀env s e s' v. patSem$evaluate env s [Raise tra e] ≠ (s', Rval v)`
+  (EVAL_TAC >> srw_tac[][] >> every_case_tac >> simp[])
 val _ = export_rewrites["evaluate_raise_rval"]
 
-val evaluate_length = Q.store_thm("evaluate_length",
+Theorem evaluate_length
   `∀env s ls s' vs.
-      evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def]
+      evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls`
+  (ho_match_mp_tac evaluate_ind >> rw[evaluate_def]
   \\ fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ rw[] \\ fs[]
   \\ TRY(qpat_x_assum`(_,_) = _`(assume_tac o SYM)) \\ fs[]
   \\ rename1`list_result lr`
   \\ Cases_on`lr` \\ fs[] \\ rw[]);
 
-val evaluate_cons = Q.store_thm("evaluate_cons",
+Theorem evaluate_cons
   `evaluate env s (e::es) =
    (case evaluate env s [e] of
     | (s,Rval v) =>
       (case evaluate env s es of
        | (s,Rval vs) => (s,Rval (v++vs))
        | r => r)
-    | r => r)`,
-  Cases_on`es`>>srw_tac[][evaluate_def] >>
+    | r => r)`
+  (Cases_on`es`>>srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[evaluate_def] >>
   imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[SING_HD]);
 
-val evaluate_sing = Q.store_thm("evaluate_sing",
-  `evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]`,
-  srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
+Theorem evaluate_sing
+  `evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]`
+  (srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
 
-val evaluate_append_Rval = Q.store_thm("evaluate_append_Rval",
+Theorem evaluate_append_Rval
   `∀l1 env s l2 s' vs.
     evaluate env s (l1 ++ l2) = (s',Rval vs) ⇒
     ∃s1 v1 v2. evaluate env s l1 = (s1,Rval v1) ∧
                evaluate env s1 l2 = (s',Rval v2) ∧
-               vs = v1++v2`,
-  Induct >> simp[evaluate_def,Once evaluate_cons] >>
+               vs = v1++v2`
+  (Induct >> simp[evaluate_def,Once evaluate_cons] >>
   srw_tac[][] >> simp[Once evaluate_cons] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> res_tac >>
   srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
-val evaluate_append_Rval_iff = Q.store_thm("evaluate_append_Rval_iff",
+Theorem evaluate_append_Rval_iff
   `∀l1 env s l2 s' vs.
     evaluate env s (l1 ++ l2) = (s',Rval vs) ⇔
     ∃s1 v1 v2. evaluate env s l1 = (s1,Rval v1) ∧
                evaluate env s1 l2 = (s',Rval v2) ∧
-               vs = v1++v2`,
-  srw_tac[][] >> EQ_TAC >- MATCH_ACCEPT_TAC evaluate_append_Rval >>
+               vs = v1++v2`
+  (srw_tac[][] >> EQ_TAC >- MATCH_ACCEPT_TAC evaluate_append_Rval >>
   map_every qid_spec_tac[`vs`,`s`] >>
   Induct_on`l1`>>srw_tac[][evaluate_def,Once evaluate_cons] >> srw_tac[][] >>
   srw_tac[][Once evaluate_cons] >>
@@ -84,14 +87,14 @@ val evaluate_append_Rval_iff = Q.store_thm("evaluate_append_Rval_iff",
   full_simp_tac(srw_ss())[PULL_EXISTS] >>
   res_tac >> full_simp_tac(srw_ss())[]);
 
-val evaluate_append_Rerr = Q.store_thm("evaluate_append_Rerr",
+Theorem evaluate_append_Rerr
   `∀l1 env s l2 s' e.
     evaluate env s (l1 ++ l2) = (s',Rerr e) ⇔
     (evaluate env s l1 = (s', Rerr e) ∨
        ∃s1 v1.
          evaluate env s l1 = (s1, Rval v1) ∧
-         evaluate env s1 l2 = (s', Rerr e))`,
-  Induct >> srw_tac[][evaluate_def] >>
+         evaluate env s1 l2 = (s', Rerr e))`
+  (Induct >> srw_tac[][evaluate_def] >>
   srw_tac[][Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
   srw_tac[][Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
   every_case_tac >> simp[] >>
@@ -102,15 +105,15 @@ val evaluate_append_Rerr = Q.store_thm("evaluate_append_Rerr",
   first_x_assum(qspecl_then[`env`,`q`,`l2`]mp_tac) >>
   simp[] >> metis_tac[]);
 
-val evaluate_append = Q.store_thm("evaluate_append",
+Theorem evaluate_append
   `evaluate env s (l1 ++ l2) =
    case evaluate env s l1 of
    | (s,Rval v1) =>
      (case evaluate env s l2 of
       | (s,Rval v2) => (s,Rval(v1++v2))
       | r => r)
-   | r => r`,
-  map_every qid_spec_tac[`l2`,`s`] >> Induct_on`l1` >>
+   | r => r`
+  (map_every qid_spec_tac[`l2`,`s`] >> Induct_on`l1` >>
   srw_tac[][evaluate_def] >- (
     every_case_tac >> full_simp_tac(srw_ss())[] ) >>
   srw_tac[][Once evaluate_cons] >>
@@ -120,14 +123,14 @@ val evaluate_append = Q.store_thm("evaluate_append",
   Cases_on`r`>>full_simp_tac(srw_ss())[] >>
   every_case_tac  >> full_simp_tac(srw_ss())[]);
 
-val dec_clock_with_clock = Q.store_thm("dec_clock_with_clock[simp]",
-  `dec_clock s with clock := y = s with clock := y`,
-  EVAL_TAC);
+Theorem dec_clock_with_clock[simp]
+  `dec_clock s with clock := y = s with clock := y`
+  (EVAL_TAC);
 
-val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
+Theorem do_app_add_to_clock
   `(do_app (s with clock := s.clock + extra) op vs =
-    OPTION_MAP (λ(s',r). (s' with clock := s'.clock + extra,r)) (do_app s op vs))`,
-  Cases_on`do_app s op vs`
+    OPTION_MAP (λ(s',r). (s' with clock := s'.clock + extra,r)) (do_app s op vs))`
+  (Cases_on`do_app s op vs`
   \\ ((pop_assum(strip_assume_tac o CONV_RULE(REWR_CONV do_app_cases_none)))
      ORELSE(pop_assum(strip_assume_tac o CONV_RULE(REWR_CONV do_app_cases))))
   \\ rw[do_app_def] >>
@@ -137,26 +140,26 @@ val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   >> srw_tac[][]
   >> every_case_tac \\ fs[] \\ rw[] \\ rfs[]);
 
-val do_app_const = Q.store_thm("do_app_const",
-  `do_app s op vs = SOME (s',r) ⇒ s'.compile = s.compile`,
-  rw[do_app_def,case_eq_thms,bool_case_eq,UNCURRY,pair_case_eq] \\ rw[]);
+Theorem do_app_const
+  `do_app s op vs = SOME (s',r) ⇒ s'.compile = s.compile`
+  (rw[do_app_def,case_eq_thms,bool_case_eq,UNCURRY,pair_case_eq] \\ rw[]);
 
-val do_install_with_clock = Q.store_thm("do_install_with_clock",
+Theorem do_install_with_clock
   `do_install vs (s with clock := k) =
-   OPTION_MAP (λ(e,s'). (e, s' with clock := k)) (do_install vs s)`,
-  rw[do_install_def] \\ rpt(PURE_TOP_CASE_TAC \\ fs[UNCURRY]));
+   OPTION_MAP (λ(e,s'). (e, s' with clock := k)) (do_install vs s)`
+  (rw[do_install_def] \\ rpt(PURE_TOP_CASE_TAC \\ fs[UNCURRY]));
 
-val do_install_const = Q.store_thm("do_install_const",
-  `do_install vs s = SOME (e,s') ⇒ s'.ffi = s.ffi ∧ s'.clock = s.clock ∧ s'.compile = s.compile`,
-  rw[do_install_def,case_eq_thms,UNCURRY,pair_case_eq] \\ rw[]);
+Theorem do_install_const
+  `do_install vs s = SOME (e,s') ⇒ s'.ffi = s.ffi ∧ s'.clock = s.clock ∧ s'.compile = s.compile`
+  (rw[do_install_def,case_eq_thms,UNCURRY,pair_case_eq] \\ rw[]);
 
-val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
+Theorem evaluate_add_to_clock
   `∀env s es s' r.
       evaluate env s es = (s',r) ∧
       r ≠ Rerr (Rabort Rtimeout_error) ⇒
       evaluate env (s with clock := s.clock + extra) es =
-        (s' with clock := s'.clock + extra,r)`,
-  ho_match_mp_tac evaluate_ind >>
+        (s' with clock := s'.clock + extra,r)`
+  (ho_match_mp_tac evaluate_ind >>
   srw_tac[][evaluate_def,case_eq_thms,pair_case_eq] >>
   full_simp_tac(srw_ss())[do_app_add_to_clock,do_install_with_clock,case_eq_thms,pair_case_eq,bool_case_eq] >>
   srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
@@ -177,9 +180,9 @@ val do_app_io_events_mono = Q.prove(
   full_simp_tac(srw_ss())[ffiTheory.call_FFI_def,IS_SOME_EXISTS] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
-val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
-  `∀env s es. s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events`,
-  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
+Theorem evaluate_io_events_mono
+  `∀env s es. s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events`
+  (ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono,do_install_const]);
 
@@ -192,11 +195,11 @@ val with_clock_ffi = Q.prove(
   `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
 val lemma = DECIDE``x ≠ 0n ⇒ x - 1 + y = x + y - 1``
 
-val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
+Theorem evaluate_add_to_clock_io_events_mono
   `∀env s es.
     (FST(evaluate env s es)).ffi.io_events ≼
-    (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events`,
-  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
+    (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events`
+  (ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> fsrw_tac[][] >>
   imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> fsrw_tac[][] >> srw_tac[][] >>
   imp_res_tac evaluate_io_events_mono_imp >> fsrw_tac[][] >> srw_tac[][] >>
@@ -209,10 +212,10 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   TRY(rfs[] \\ fs[] \\ NO_TAC) \\
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,IS_PREFIX_TRANS,lemma])
 
-val evaluate_const = Q.store_thm("evaluate_const",
+Theorem evaluate_const
   `∀env s xs res s'.
-    evaluate env s xs = (s',res) ⇒ s'.compile = s.compile`,
-  ho_match_mp_tac evaluate_ind
+    evaluate env s xs = (s',res) ⇒ s'.compile = s.compile`
+  (ho_match_mp_tac evaluate_ind
   \\ rw[evaluate_def,case_eq_thms,pair_case_eq,bool_case_eq]
   \\ fs[] \\ rfs[patSemTheory.dec_clock_def]
   \\ imp_res_tac do_install_const \\ fs[]
@@ -220,14 +223,14 @@ val evaluate_const = Q.store_thm("evaluate_const",
   \\ metis_tac[]);
 
 (*
-val not_evaluate_list_append = Q.store_thm("not_evaluate_list_append",
+Theorem not_evaluate_list_append
   `∀l1 ck env s l2 res.
     (∀res. ¬evaluate_list ck env s (l1 ++ l2) res) ⇔
     ((∀res. ¬evaluate_list ck env s l1 res) ∨
        ∃s1 v1.
          evaluate_list ck env s l1 (s1, Rval v1) ∧
-         (∀res. ¬evaluate_list ck env s1 l2 res))`,
-  Induct >- (
+         (∀res. ¬evaluate_list ck env s1 l2 res))`
+  (Induct >- (
     srw_tac[][EQ_IMP_THM] >- (
       full_simp_tac(srw_ss())[Once(CONJUNCT2(evaluate_cases))] >>
       simp[Once(CONJUNCT2(evaluate_cases))] >>
@@ -291,24 +294,22 @@ val set_globals_def = tDefine "set_globals"`
   rw[]);
 val _ = export_rewrites ["set_globals_def"]
 
-val elist_globals_append = Q.store_thm("elist_globals_append",
+Theorem elist_globals_append
   `∀a b. elist_globals (a++b) =
-  elist_globals a ⊎ elist_globals b`,
-  Induct>>fs[set_globals_def,ASSOC_BAG_UNION])
+  elist_globals a ⊎ elist_globals b`
+  (Induct>>fs[set_globals_def,ASSOC_BAG_UNION])
 
-val elist_globals_reverse = Q.store_thm("elist_globals_reverse",
-  `∀ls. elist_globals (REVERSE ls) = elist_globals ls`,
-  Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
+Theorem elist_globals_reverse
+  `∀ls. elist_globals (REVERSE ls) = elist_globals ls`
+  (Induct>>fs[set_globals_def,elist_globals_append,COMM_BAG_UNION])
 
-val elist_globals_FOLDR = Q.store_thm(
-  "elist_globals_FOLDR",
-  `elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)`,
-  Induct_on `es` >> simp[]);
+Theorem elist_globals_FOLDR
+  `elist_globals es = FOLDR BAG_UNION {||} (MAP set_globals es)`
+  (Induct_on `es` >> simp[]);
 
-val exp_size_MEM = Q.store_thm(
-  "exp_size_MEM",
-  `(∀elist e. MEM e elist ⇒ exp_size e < patLang$exp1_size elist)`,
-  Induct>>rw[]>>fs[patLangTheory.exp_size_def]>>rw[]>>
+Theorem exp_size_MEM
+  `(∀elist e. MEM e elist ⇒ exp_size e < patLang$exp1_size elist)`
+  (Induct>>rw[]>>fs[patLangTheory.exp_size_def]>>rw[]>>
   res_tac>>fs[])
 
 val esgc_free_def = tDefine "esgc_free" `

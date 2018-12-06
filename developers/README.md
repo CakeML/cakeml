@@ -22,7 +22,7 @@ The regression test runs through this list of directories.
 This SML program generates a `README.md` summary for the files
 given as command-line arguments to this script. The contents of the
 summaries are read from a specific style of comment that needs to
-appear at the top of each given file.
+appear at the top of each file.
 
 [wc.sh](wc.sh):
 A script that counts non-blank lines.

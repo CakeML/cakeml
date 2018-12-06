@@ -1,3 +1,7 @@
+(*
+  A collection of small examples that show (and test) what can be done
+  in CF proofs.
+*)
 open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
 local open ml_progLib basisProgTheory in end
@@ -295,12 +299,12 @@ val bytearray_fromlist = process_topdecs
 
 val st = ml_progLib.add_prog bytearray_fromlist pick_name basis_st
 
-val list_length_spec = Q.store_thm ("list_length_spec",
+Theorem list_length_spec
   `!a l lv.
      LIST_TYPE a l lv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "length" st) [lv]
-       emp (POSTv v. & NUM (LENGTH l) v)`,
-  Induct_on `l`
+       emp (POSTv v. & NUM (LENGTH l) v)`
+  (Induct_on `l`
   THEN1 (
     xcf "length" st \\ fs [LIST_TYPE_def] \\
     xmatch \\ xret \\ xsimpl
@@ -398,5 +402,5 @@ val example_ffidiv_spec = Q.prove (
       >- (xcon >- xsimpl)
       >> xapp >> xsimpl >> rw[] >> qexists_tac `x` >> xsimpl)
   >> xcon >> xsimpl);
-                             
+
 val _ = export_theory();

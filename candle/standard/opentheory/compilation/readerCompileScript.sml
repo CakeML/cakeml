@@ -1,3 +1,6 @@
+(*
+  Compiles the OpenTheory article checker in the logic.
+*)
 open preamble compilationLib readerProgTheory
 open x64_configTheory
 
@@ -7,4 +10,3 @@ val reader_compiled = save_thm("reader_compiled",
   compile_x64 1000 1000 "reader" reader_prog_def);
 
 val _ = export_theory ();
-

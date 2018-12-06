@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for x64
+*)
 open preamble backendTheory x64_targetTheory x64_targetLib
 
 val _ = new_theory"x64_config";

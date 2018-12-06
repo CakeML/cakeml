@@ -1,0 +1,2 @@
+This directory contains a version of the OpenTheory article checker
+where the I/O part is built using the monadic translator.

@@ -1,3 +1,6 @@
+(*
+  Correctness proof for bvl_const
+*)
 open preamble bvl_constTheory bvlSemTheory bvlPropsTheory;
 
 val _ = new_theory"bvl_constProof";
@@ -17,9 +20,9 @@ val env_rel_def = Define `
      v_rel (:'c) (:'ffi) a x y (x::e1) (y::e2) /\ env_rel (:'c) (:'ffi) rest e1 e2) /\
   (env_rel _ _ _ _ _ = F)`
 
-val env_rel_length = Q.store_thm("env_rel_length",
-  `!ax env env2. env_rel (:'c) (:'ffi) ax env env2 ==> LENGTH env2 = LENGTH env`,
-  Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
+Theorem env_rel_length
+  `!ax env env2. env_rel (:'c) (:'ffi) ax env env2 ==> LENGTH env2 = LENGTH env`
+  (Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ Cases \\ fs [env_rel_def]);
 
 val env_rel_LLOOKUP_NONE = Q.prove(
@@ -42,12 +45,12 @@ val env_rel_LOOKUP_SOME = Q.prove(
   \\ first_x_assum match_mp_tac
   \\ Cases_on `h'` \\ fs [env_rel_def]);
 
-val evaluate_delete_var_Rerr_SING = Q.store_thm("evaluate_delete_var_Rerr_SING",
+Theorem evaluate_delete_var_Rerr_SING
   `!x s r e env2.
       evaluate ([x],env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
-      evaluate ([bvl_const$delete_var x],env2,s) = (Rerr e,r)`,
-  Cases \\ fs [delete_var_def]
+      evaluate ([bvl_const$delete_var x],env2,s) = (Rerr e,r)`
+  (Cases \\ fs [delete_var_def]
   \\ fs [evaluate_def,do_app_def] \\ rw []
   \\ CCONTR_TAC \\ fs [] \\ rw []);
 
@@ -96,9 +99,9 @@ val evaluate_delete_var_Rval = Q.prove(
   \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def]
   \\ every_case_tac \\ fs []);
 
-val evaluate_EQ_NIL = Q.store_thm("evaluate_EQ_NIL",
-  `bvlSem$evaluate (xs,env,s) = (Rval [],t) <=> xs = [] /\ s = t`,
-  mp_tac (Q.SPECL [`xs`,`env`,`s`] evaluate_LENGTH)
+Theorem evaluate_EQ_NIL
+  `bvlSem$evaluate (xs,env,s) = (Rval [],t) <=> xs = [] /\ s = t`
+  (mp_tac (Q.SPECL [`xs`,`env`,`s`] evaluate_LENGTH)
   \\ every_case_tac \\ fs []
   \\ rw [] \\ TRY eq_tac \\ fs [] \\ rw [] \\ fs [LENGTH_NIL]
   \\ CCONTR_TAC \\ fs [] \\ fs [evaluate_def]);
@@ -177,12 +180,12 @@ val SmartOp2_thm = prove(
   \\ eq_tac \\ fs []);
 
 
-val SmartOp_thm = Q.store_thm("SmartOp_thm",
+Theorem SmartOp_thm
   `evaluate ([Op op xs],env,s) = (res,s2) /\
     res ≠ Rerr (Rabort Rtype_error) ==>
-    evaluate ([SmartOp op xs],env,s) = (res,s2)`,
+    evaluate ([SmartOp op xs],env,s) = (res,s2)`
 
-  simp [SmartOp_def] \\
+  (simp [SmartOp_def] \\
   every_case_tac \\
   rename1 `Op op [x1; x2]` \\
   Cases_on `SmartOp_flip op x1 x2` \\
@@ -192,13 +195,13 @@ val SmartOp_thm = Q.store_thm("SmartOp_thm",
 )
 
 
-val evaluate_env_rel = Q.store_thm("evaluate_env_rel",
+Theorem evaluate_env_rel
   `!xs env1 (s1:('c,'ffi) bvlSem$state) ax env2 res s2 ys.
       (evaluate (xs,env1,s1) = (res,s2)) /\
       env_rel (:'c) (:'ffi) ax env1 env2 /\
       res <> Rerr (Rabort Rtype_error) ==>
-      (evaluate (compile ax xs,env2,s1) = (res,s2))`,
-  recInduct evaluate_ind \\ REPEAT STRIP_TAC
+      (evaluate (compile ax xs,env2,s1) = (res,s2))`
+  (recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [compile_def,evaluate_def,compile_HD_SING]
   THEN1
    (`?y0. compile ax [x] = [y0]` by
@@ -260,11 +263,11 @@ val compile_thm = save_thm("compile_thm",
   |> Q.SPECL [`xs`,`env`,`s1`,`[]`,`env`] |> GEN_ALL
   |> SIMP_RULE std_ss [env_rel_def])
 
-val evaluate_compile_exp = Q.store_thm("evaluate_compile_exp",
+Theorem evaluate_compile_exp
   `evaluate ([d],env,s) = (r,t) /\
     r <> Rerr (Rabort Rtype_error) ==>
-    evaluate ([bvl_const$compile_exp d],env,s) = (r,t)`,
-  fs [compile_exp_def]
+    evaluate ([bvl_const$compile_exp d],env,s) = (r,t)`
+  (fs [compile_exp_def]
   \\ `LENGTH (compile [] [d]) = LENGTH [d]` by fs [compile_length]
   \\ Cases_on `compile [] [d]` \\ fs [LENGTH_NIL] \\ rw []
   \\ imp_res_tac compile_thm \\ rfs []);

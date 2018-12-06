@@ -51,37 +51,37 @@ val list_rel_perm_help = Q.prove (
   ho_match_mp_tac PERM_IND >>
   rw []);
 
-val list_rel_perm = Q.store_thm ("list_rel_perm",
+Theorem list_rel_perm
   `!r l1 l2 l3 l4.
     LENGTH l3 = LENGTH l4 ∧
     LIST_REL r l1 l2 ∧
     PERM (ZIP (l1,l2)) (ZIP (l3,l4))
     ⇒
-    LIST_REL r l3 l4`,
-  rw [] >>
+    LIST_REL r l3 l4`
+  (rw [] >>
   drule list_rel_perm_help >>
   imp_res_tac LIST_REL_LENGTH >>
   rw [MAP_ZIP]);
 
-val list_rel_front = Q.store_thm ("list_rel_front",
+Theorem list_rel_front
   `!r l1 l2.
     l1 ≠ [] ∧ l2 ≠ [] ⇒
     (LIST_REL r l1 l2
      ⇔
-     LIST_REL r (FRONT l1) (FRONT l2) ∧ r (LAST l1) (LAST l2))`,
-  Induct_on `l1` >>
+     LIST_REL r (FRONT l1) (FRONT l2) ∧ r (LAST l1) (LAST l2))`
+  (Induct_on `l1` >>
   rw [] >>
   Cases_on `l2` >>
   fs [FRONT_DEF, LAST_DEF] >>
   rw [] >>
   metis_tac []);
 
-val zip_append_sing = Q.store_thm ("zip_append_sing",
+Theorem zip_append_sing
   `!l1 l2 x y.
     LENGTH l1 = LENGTH l2
     ⇒
-    ZIP (l1,l2) ++ [(x, y)] = ZIP (l1++[x], l2++[y])`,
-  rw [] >>
+    ZIP (l1,l2) ++ [(x, y)] = ZIP (l1++[x], l2++[y])`
+  (rw [] >>
   `[(x,y)] = ZIP ([x], [y])` by rw [] >>
   metis_tac [ZIP_APPEND, LENGTH]);
 
@@ -94,7 +94,7 @@ val eq_num_v_thm =
     (DISCH_ALL mlbasicsProgTheory.eq_v_thm)
     (ml_translatorTheory.EqualityType_NUM_BOOL |> CONJUNCT1)
 
-val insertsort_spec = Q.store_thm ("insertsort_spec",
+Theorem insertsort_spec
   `!ffi_p cmp cmp_v arr_v elem_vs elems.
     LIST_REL a elems elem_vs ∧
     (a --> a --> BOOL) cmp cmp_v ∧
@@ -108,8 +108,8 @@ val insertsort_spec = Q.store_thm ("insertsort_spec",
           ARRAY arr_v elem_vs' *
           &(?elems'.
               PERM (ZIP (elems', elem_vs')) (ZIP (elems, elem_vs)) ∧
-              SORTED (\x y. ¬(cmp y x)) elems'))`,
-  xcf "insertsort" insertsort_st >>
+              SORTED (\x y. ¬(cmp y x)) elems'))`
+  (xcf "insertsort" insertsort_st >>
   xfun_spec `outer_loop`
     `!elem_vs2 elems1 elems2 elem_vs1 prefix_v.
       elem_vs1 ≠ [] ∧

@@ -1,6 +1,8 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. ../ffi ../../developers ../../misc ../../misc/lem_lib_stub $(HOLDIR)/examples/formal-languages/context-free
 
+all: $(DEFAULT_TARGETS) README.md
+
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
 TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
@@ -8,17 +10,17 @@ TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
 all: $(TARGETS)
 .PHONY: all
 
-README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml)
-README.md: ../../developers/readme_gen readmePrefix $(README_SOURCES)
-	../../developers/readme_gen $(README_SOURCES)
-all: README.md
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
 
 ifdef POLY
 HOLHEAP = heap
 PARENTHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../misc/lem_lib_stub/libTheory ../evaluateTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../terminationTheory ../semanticsComputeLib $(HOLDIR)/examples/formal-languages/context-free/NTpropertiesTheory
+BARE_THYS = ../../misc/lem_lib_stub/libTheory ../evaluateTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../terminationTheory $(HOLDIR)/examples/formal-languages/context-free/NTpropertiesTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 all: $(HOLHEAP)

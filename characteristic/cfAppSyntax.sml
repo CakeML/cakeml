@@ -1,3 +1,6 @@
+(*
+  Helper functions that construct/destruct syntax from cfAppTheory.
+*)
 structure cfAppSyntax :> cfAppSyntax = struct
 open Abbrev
 

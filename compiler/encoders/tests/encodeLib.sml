@@ -1,3 +1,7 @@
+(*
+  Automation that shows how asm instructions are encoded for the
+  different archs. See examples at the end of the file.
+*)
 structure encodeLib :> encodeLib =
 struct
 

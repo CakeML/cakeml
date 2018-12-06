@@ -1,0 +1,2 @@
+This directory defines a target-neutral assmebly language that the
+intermediate languages of the lower half of the compiler makes use of.

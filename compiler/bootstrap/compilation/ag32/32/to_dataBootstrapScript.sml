@@ -1,3 +1,7 @@
+(*
+  Evaluate the 32-bit version of the compiler down to a DataLang
+  program.
+*)
 open preamble compiler32ProgTheory
 
 val _ = new_theory"to_dataBootstrap";

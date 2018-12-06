@@ -1,3 +1,6 @@
+(*
+  Helper functions for syntax from cfTheory.
+*)
 structure cfSyntax :> cfSyntax = struct
 open Abbrev
 

@@ -601,7 +601,7 @@ val _ = Define `
           NONE
     | (Opwb word_size op, [Litv (Word w1); Litv (Word w2)]) =>
         if (word_size = LENGTH w1) /\ (LENGTH w1 = LENGTH w2) then
-          SOME ((s,t), Rval (Boolv (opwb_lookup op w1 w2))) 
+          SOME ((s,t), Rval (Boolv (opwb_lookup op w1 w2)))
         else
           NONE
     | (FP_bop bop, [Litv (Word w1); Litv (Word w2)]) =>
@@ -653,7 +653,7 @@ val _ = Define `
             in
               SOME ((s',t), Rval (Loc lnum))
         else
-          NONE 
+          NONE
     | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
             SOME (W8array ws) =>

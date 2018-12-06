@@ -1,9 +1,15 @@
+(*
+  This compiler phase introduces the implementation of the memory
+  allocator and its garbage collector. It traverses the given code and
+  replaces all calls to Alloc by calls to code that it inserts into
+  the compiled program. the inserted code is a stackLang
+  implementation of the garbage collector.
+*)
 open preamble stackLangTheory data_to_wordTheory;
 
 val _ = new_theory "stack_alloc";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-(* implementation of alloc and the GC *)
 
 val memcpy_code_def = Define `
   memcpy_code =
@@ -604,11 +610,11 @@ val next_lab_quotation = `
 in
 val next_lab_def = Define next_lab_quotation
 
-val next_lab_pmatch = Q.store_thm("next_lab_pmatch",`∀p aux.` @
+Theorem next_lab_pmatch (`∀p aux.` @
   (next_lab_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
+       | aq => aq)))
+  (rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> rw[Once next_lab_def]
@@ -643,11 +649,11 @@ val comp_quotation = `
 in
 val comp_def = Define comp_quotation
 
-val comp_pmatch = Q.store_thm("comp_pmatch",`∀n m p.` @
+Theorem comp_pmatch (`∀n m p.` @
   (comp_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
+       | aq => aq)))
+  (rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);

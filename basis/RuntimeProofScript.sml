@@ -1,3 +1,6 @@
+(*
+  Proof about the exit function in the Runtime module.
+*)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
      mlstringTheory runtimeFFITheory RuntimeProgTheory
@@ -13,9 +16,9 @@ val RUNTIME_def = Define `
   RUNTIME =
     IOx runtime_ffi_part ()`
 
-val RUNTIME_FFI_part_hprop = Q.store_thm("RUNTIME_FFI_part_hprop",
-`FFI_part_hprop RUNTIME`,
-  rw [RUNTIME_def,cfHeapsBaseTheory.IO_def,cfMainTheory.FFI_part_hprop_def,
+Theorem RUNTIME_FFI_part_hprop
+`FFI_part_hprop RUNTIME`
+  (rw [RUNTIME_def,cfHeapsBaseTheory.IO_def,cfMainTheory.FFI_part_hprop_def,
       cfHeapsBaseTheory.IOx_def, runtime_ffi_part_def,
       set_sepTheory.SEP_CLAUSES,set_sepTheory.SEP_EXISTS_THM,
       set_sepTheory.cond_STAR ]
@@ -23,12 +26,12 @@ val RUNTIME_FFI_part_hprop = Q.store_thm("RUNTIME_FFI_part_hprop",
 
 val st = get_ml_prog_state();
 
-val Runtime_exit_spec = Q.store_thm("Runtime_exit_spec",
+Theorem Runtime_exit_spec
   `INT i iv ==>
    app (p:'ffi ffi_proj) ^(fetch_v "Runtime.exit" st) [iv]
      (RUNTIME)
-     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [i2w i]))`,
-  strip_tac \\ xcf "Runtime.exit" st
+     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [i2w i]))`
+  (strip_tac \\ xcf "Runtime.exit" st
   \\ xlet `POSTv wv. &WORD ((i2w i):word8) wv * RUNTIME`
   THEN1
    (simp[cf_wordFromInt_W8_def,cfTheory.app_wordFromInt_W8_def]
@@ -60,17 +63,17 @@ val Runtime_exit_spec = Q.store_thm("Runtime_exit_spec",
       \\ xsimpl \\ metis_tac[SEP_IMP_def])
   \\ xsimpl);
 
-val Runtime_abort_spec = Q.store_thm("Runtime_abort_spec",
+Theorem Runtime_abort_spec
   `app (p:'ffi ffi_proj) ^(fetch_v "Runtime.abort" st) [uv]
      (RUNTIME)
-     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [1w]))`,
-  xcf "Runtime.abort" st
+     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [1w]))`
+  (xcf "Runtime.abort" st
   \\ xapp
   \\ xsimpl \\ EVAL_TAC);
 
-val RUNTIME_HPROP_INJ = Q.store_thm("RUNTIME_HPROP_INJ[hprop_inj]",
-  `!cl1 cl2. HPROP_INJ (RUNTIME) (RUNTIME) (T)`,
-  rw[HPROP_INJ_def,STAR_def,EQ_IMP_THM]
+Theorem RUNTIME_HPROP_INJ[hprop_inj]
+  `!cl1 cl2. HPROP_INJ (RUNTIME) (RUNTIME) (T)`
+  (rw[HPROP_INJ_def,STAR_def,EQ_IMP_THM]
   THEN1 (asm_exists_tac \\ rw[] \\ rw[SPLIT_emp1,cond_def])
   \\ fs[SPLIT_emp1,cond_def] \\ metis_tac[]);
 

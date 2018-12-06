@@ -1,3 +1,8 @@
+(*
+  This simple compiler phase removes `MustTerminate`, which is a
+  semantic-device used to help keep the logical clocks in sync in the
+  data_to_word correctness proofs.
+*)
 open preamble wordLangTheory
 
 val _ = new_theory "word_remove";
@@ -20,7 +25,7 @@ val remove_must_terminate_def = Define`
       Call ret dest args h) ∧
   (remove_must_terminate prog = prog)`
 
-val remove_must_terminate_pmatch = Q.store_thm("remove_must_terminate_pmatch",`!prog.
+Theorem remove_must_terminate_pmatch `!prog.
   remove_must_terminate prog =
   case prog of
   | (Seq p0 p1) => Seq (remove_must_terminate p0) (remove_must_terminate p1)
@@ -34,8 +39,8 @@ val remove_must_terminate_pmatch = Q.store_thm("remove_must_terminate_pmatch",`!
     let h = case h of NONE => NONE
                     | SOME (v,prog,l1,l2) => SOME (v,remove_must_terminate prog,l1,l2) in
       Call ret dest args h)
-  | prog => prog`,
-  rpt(
+  | prog => prog`
+  (rpt(
     rpt strip_tac
     >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)

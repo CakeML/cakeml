@@ -90,9 +90,9 @@ val REVERSE_BOTTOM_UP_OPT_LIST = prove(
   ``!xs. REVERSE (BOTTOM_UP_OPT_LIST f xs) = BOTTOM_UP_OPT_LIST f (REVERSE xs)``,
   Induct \\ fs [BOTTOM_UP_OPT_def,BOTTOM_UP_OPT_LIST_APPEND]);
 
-val dec_clock_with_clock = store_thm("dec_clock_with_clock[simp]",
-  ``(dec_clock st1 with clock := c) = st1 with clock := c``,
-  fs [state_component_equality,evaluateTheory.dec_clock_def]);
+Theorem dec_clock_with_clock[simp]
+  `(dec_clock st1 with clock := c) = st1 with clock := c`
+  (fs [state_component_equality,evaluateTheory.dec_clock_def]);
 
 val s = ``s:'ffi semanticPrimitives$state``
 
@@ -392,9 +392,9 @@ val OPTIMISE_def = Define `
   OPTIMISE =
     BOTTOM_UP_OPT (opt_sub_add o let_id) o BOTTOM_UP_OPT abs2let`;
 
-val Eval_OPTIMISE = Q.store_thm("Eval_OPTIMISE",
-  `Eval env exp P ==> Eval env (OPTIMISE exp) P`,
-  simp [Eval_def] \\ rpt strip_tac
+Theorem Eval_OPTIMISE
+  `Eval env exp P ==> Eval env (OPTIMISE exp) P`
+  (simp [Eval_def] \\ rpt strip_tac
   \\ first_x_assum(qspec_then`refs`strip_assume_tac)
   \\ qexists_tac `res` \\ fs [OPTIMISE_def]
   \\ qexists_tac`refs'`

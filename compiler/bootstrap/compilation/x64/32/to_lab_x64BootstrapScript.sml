@@ -1,3 +1,7 @@
+(*
+  Evaluate the 32-bit version of the compiler down to a LabLang
+  program (an assembly program).
+*)
 open preamble
      backendTheory
      to_dataBootstrapTheory

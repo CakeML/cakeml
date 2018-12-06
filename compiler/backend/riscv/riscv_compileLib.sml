@@ -1,3 +1,6 @@
+(*
+  Provides an eval for the RISC-V-specific parts of the backend
+*)
 structure riscv_compileLib =
 struct
 

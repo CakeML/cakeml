@@ -865,10 +865,35 @@ val const_name = (repeat rator x |> dest_const |> fst)
 
 *)
 
+(*
+  input: ``lookup_cons specific_name env_const = NONE``
+  output: |- lookup_cons specific_name env_const = NONE <=> T
+      or: |- lookup_cons specific_name env_const = NONE <=> F
+  input: ``lookup_cons specific_name env_const = SOME stamp``
+  output: |- lookup_cons specific_name env_const = SOME stamp <=> T
+      or: |- lookup_cons specific_name env_const = SOME stamp <=> F
+*)
+val prove_lookup_cons_eq_fail = ref T;
+(*
+  val tm = !prove_lookup_cons_eq_fail
+*)
+fun prove_lookup_cons_eq tm =
+  let
+    val res = (* TODO: remove the SIMP_CONV and tidy up *)
+      tm |> (EVAL THENC nsLookup_conv THENC EVAL
+             THENC SIMP_CONV (srw_ss())
+               [optionTheory.OPTION_CHOICE_EQ_NONE,empty_env_def]
+             THENC EVAL THENC nsLookup_conv THENC EVAL)
+    val c = res |> concl |> rand
+    val _ = not (null (free_vars tm)) orelse aconv c T orelse aconv c F orelse
+              failwith "prove_lookup_cons_eq failed to reduce to F or T"
+  in res end
+  handle e => (prove_lookup_cons_eq_fail := tm; raise e);
+
 fun tag_name type_name const_name =
   if (type_name = "LIST_TYPE") andalso (const_name = "NIL") then "nil" else
   if (type_name = "LIST_TYPE") andalso (const_name = "CONS") then "::" else
-let
+  let
     val x = clean_lowercase type_name
     val y = clean_lowercase const_name
     fun upper_case_hd s =
@@ -877,11 +902,15 @@ let
     val write_cons_pat =
       write_cons_def |> SPEC_ALL |> concl |> dest_eq |> fst |> rator
     fun is_taken_name name =
-      (lookup_cons_def
-        |> SPEC (mk_Short (stringSyntax.fromMLstring name))
-        |> SPEC (get_curr_env ()) |> concl |> dest_eq |> fst
-        |> EVAL |> concl |> rand
-        |> optionSyntax.is_some)
+      let
+        val x =
+          lookup_cons_def
+          |> SPEC (mk_Short (stringSyntax.fromMLstring name))
+          |> SPEC (get_curr_env ()) |> concl |> dest_eq |> fst
+        val n = optionSyntax.mk_none(type_of x |> dest_type |> snd |> hd)
+        val tm = mk_eq(x,n)
+        val lemma = prove_lookup_cons_eq tm
+      in aconv (lemma |> concl |> rand) F end
     fun find_unique name n =
       if not (is_taken_name name) then name else let
         val new_name = name ^ "_" ^ int_to_string n
@@ -2878,8 +2907,13 @@ fun clean_assumptions th = let
   val pattern2 = mk_eq(lhs2,mk_var("_",type_of lhs2))
   val lookup_assums = find_terms (fn tm => can (match_term pattern1) tm
                                     orelse can (match_term pattern2) tm) (concl th)
-  val lemmas = map (EVAL THENC nsLookup_conv THENC EVAL) lookup_assums
+  val lemmas = map prove_lookup_cons_eq lookup_assums
                |> filter (fn th => th |> concl |> rand |> is_const)
+  val _ = case List.find (fn l => (l |> concl |> rand) = F) lemmas of
+      NONE => ()
+    | SOME t => (print "clean_assumptions: false assumption\n\n";
+        print_thm t; print "\n\n"; failwith ("clean_assumptions: false"
+          ^ Parse.thm_to_string t))
   val th = REWRITE_RULE lemmas th
   (* lift EqualityType assumptions out *)
   val pattern = get_term "eq type"
