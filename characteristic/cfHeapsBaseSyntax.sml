@@ -98,13 +98,117 @@ val dest_postf = dest_binder postf_tm (ERR "dest_postf" "Not a POSTf abstraction
 val is_postf = can dest_postf;
 (* TODO fun mk_postf (postf_v, c) = mk_binder postf_tm "mk_postf" (postf_v, c);*)
 
+val postd_tm = prim_mk_const{Name="POSTd",Thy="cfHeapsBase"};
+val dest_postd = dest_binder postd_tm (ERR "dest_postd" "Not a POSTd abstraction");
+val is_postd = can dest_postd;
+fun mk_postd (postd_io, c) = mk_binder postd_tm "mk_postd" (postd_io, c);
+
+val postve_tm = prim_mk_const{Name="POSTve",Thy="cfHeapsBase"};
+fun dest_postve c =
+  let
+      val (c', poste_abs) = dest_comb c
+      val (ptm, postv_abs) = dest_comb c'
+  in
+      if same_const ptm postve_tm then
+          let
+              val (postv_v, postv_pred) = dest_abs postv_abs
+              val (poste_v, poste_pred) = dest_abs poste_abs
+          in
+             (postv_v, postv_pred, poste_v, poste_pred)
+          end
+      else
+          raise (ERR "" "")
+  end
+  handle HOL_ERR _ => raise (ERR "dest_postve" "Not a POSTve abstraction");
+fun is_postve c =
+  let
+      val (c', poste_abs) = dest_comb c
+      val (ptm, postv_abs) = dest_comb c'
+  in
+      same_const ptm postve_tm
+  end
+  handle HOL_ERR _ => false;
+fun mk_postve (postv_v, postv_abs, poste_v, poste_abs) =
+  let
+      val postv_pred = mk_abs (postv_v, postv_abs)
+      val poste_pred = mk_abs (poste_v, poste_abs)
+  in
+      foldl (mk_comb o swap) postve_tm [postv_pred, poste_pred]
+  end;
+
+val postvd_tm = prim_mk_const{Name="POSTvd",Thy="cfHeapsBase"};
+fun dest_postvd c =
+  let
+      val (c', postd_abs) = dest_comb c
+      val (ptm, postv_abs) = dest_comb c'
+  in
+      if same_const ptm postvd_tm then
+          let
+              val (postv_v, postv_pred) = dest_abs postv_abs
+              val (postd_io, postd_pred) = dest_abs postd_abs
+          in
+             (postv_v, postv_pred, postd_io, postd_pred)
+          end
+      else
+          raise (ERR "" "")
+  end
+  handle HOL_ERR _ => raise (ERR "destvd_post" "Not a POSTvd abstraction");
+fun is_postvd c =
+  let
+      val (c', postd_abs) = dest_comb c
+      val (ptm, postv_abs) = dest_comb c'
+  in
+      same_const ptm postvd_tm
+  end
+  handle HOL_ERR _ => false;
+fun mk_postvd (postv_v, postv_abs, postd_io, postd_abs) =
+  let
+      val postv_pred = mk_abs (postv_v, postv_abs)
+      val postd_pred = mk_abs (postd_io, postd_abs)
+  in
+      foldl (mk_comb o swap) postvd_tm [postv_pred, postd_pred]
+  end;
+
+val posted_tm = prim_mk_const{Name="POSTed",Thy="cfHeapsBase"};
+fun dest_posted c =
+  let
+      val (c', postd_abs) = dest_comb c
+      val (ptm, poste_abs) = dest_comb c'
+  in
+      if same_const ptm posted_tm then
+          let
+              val (poste_v, poste_pred) = dest_abs poste_abs
+              val (postd_io, postd_pred) = dest_abs postd_abs
+          in
+             (poste_v, poste_pred, postd_io, postd_pred)
+          end
+      else
+          raise (ERR "" "")
+  end
+  handle HOL_ERR _ => raise (ERR "dested_post" "Not a POSTed abstraction");
+fun is_posted c =
+  let
+      val (c', postd_abs) = dest_comb c
+      val (ptm, poste_abs) = dest_comb c'
+  in
+      same_const ptm posted_tm
+  end
+  handle HOL_ERR _ => false;
+fun mk_posted (poste_v, poste_abs, postd_io, postd_abs) =
+  let
+      val poste_pred = mk_abs (poste_v, poste_abs)
+      val postd_pred = mk_abs (postd_io, postd_abs)
+  in
+      foldl (mk_comb o swap) posted_tm [poste_pred, postd_pred]
+  end;
 
 val post_tm = prim_mk_const{Name="POST",Thy="cfHeapsBase"};
 fun dest_post c =
   let
-      val (c', postf_abs) = dest_comb c
-      val (c'', poste_abs) = dest_comb c'
-      val (ptm, postv_abs) = dest_comb c''
+      val (c', postd_abs) = dest_comb c
+      val (c'', postf_abs) = dest_comb c'
+      val (c''', poste_abs) = dest_comb c''
+      val (ptm, postv_abs) = dest_comb c'''
   in
       if same_const ptm post_tm then
           let
@@ -113,9 +217,11 @@ fun dest_post c =
               val (postf_name, postf_abs') = dest_abs postf_abs
               val (postf_conf, postf_abs'') = dest_abs postf_abs'
               val (postf_bytes, postf_pred) = dest_abs postf_abs''
+              val (postd_io, postd_pred) = dest_abs postd_abs
           in
              (postv_v, postv_pred, poste_v, poste_pred,
-              [postf_name,postf_conf,postf_bytes],postf_pred)
+              [postf_name, postf_conf, postf_bytes], postf_pred,
+              postd_io, postd_pred)
           end
       else
           raise (ERR "" "")
@@ -123,20 +229,22 @@ fun dest_post c =
   handle HOL_ERR _ => raise (ERR "dest_post" "Not a POST abstraction");
 fun is_post c =
   let
-      val (c', postf_abs) = dest_comb c
-      val (c'', poste_abs) = dest_comb c'
-      val (ptm, postv_abs) = dest_comb c''
+      val (c', postd_abs) = dest_comb c
+      val (c'', postf_abs) = dest_comb c'
+      val (c''', poste_abs) = dest_comb c''
+      val (ptm, postv_abs) = dest_comb c'''
   in
       same_const ptm post_tm
   end
   handle HOL_ERR _ => false;
-fun mk_post (postv_v, postv_abs, poste_v, poste_abs,postf_vl,postf_abs) =
+fun mk_post (postv_v, postv_abs, poste_v, poste_abs, postf_vl, postf_abs, postd_io, postd_abs) =
   let
       val postv_pred = mk_abs (postv_v, postv_abs)
       val poste_pred = mk_abs (poste_v, poste_abs)
       val postf_pred = foldr mk_abs postf_abs postf_vl
+      val postd_pred = mk_abs (postd_io, postd_abs)
   in
-      foldl (mk_comb o swap) post_tm [postv_pred,poste_pred,postf_pred]
+      foldl (mk_comb o swap) post_tm [postv_pred, poste_pred, postf_pred, postd_pred]
   end;
 
 
