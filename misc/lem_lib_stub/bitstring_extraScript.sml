@@ -118,10 +118,27 @@ val fixsub_length = Q.store_thm("fixsub_length", `!x y. (LENGTH (fixsub x y))
             >> simp[length_fixwidth]
 );
 
+val length_empty = Q.prove(`!l. (l = []) ==> (LENGTH l = 0)`, STRIP_TAC >> simp[LENGTH]);
+
+val length_dimindex = Q.prove(`!w:('a word) x. (LENGTH (w2v w) = x) ==> (dimindex (:'a) = x)`,
+   rpt STRIP_TAC >> fs[length_w2v]);
+
+val SUC_LENGTH_2 = Q.store_thm("SUC_LENGTH_2",
+`!f n h t. (GENLIST f (SUC n) = (h::t)) ==> (LENGTH t = n)`,
+    rpt STRIP_TAC >> POP_ASSUM (ASSUME_TAC o (AP_TERM ``LENGTH``)) >> fs[LENGTH_GENLIST]
+);
+
+val SUC_LENGTH_1 = Q.store_thm("SUC_LENGTH_1",
+`!(w:'a word) h t n. ((w2v w = (h::t)) /\ (dimindex(:'a) = (SUC n))) ==> (LENGTH t = n)`,
+   rpt STRIP_TAC >> FULL_SIMP_TAC arith_ss [w2v_def] >> IMP_RES_TAC SUC_LENGTH_2
+);
 
 val SUC_LENGTH = Q.store_thm("SUC_LENGTH",
 `!(w:'a word) h t. (w2v w = (h::t)) ==> (LENGTH t = (dimindex(:'a) - 1))`,
-cheat
+  rpt STRIP_TAC >> ASSUME_TAC (SPEC ``w:'a word`` length_w2v)
+    >> Cases_on `dimindex(:'a)`
+      >- (simp[] >> ASSUME_TAC DIMINDEX_GT_0 >> FULL_SIMP_TAC arith_ss [])
+      >> simp[] >> IMP_RES_TAC SUC_LENGTH_1
 );
 
 val fixsub_word_sub_length_lemma = Q.store_thm("fixsub_word_sub_lemma",
@@ -146,38 +163,69 @@ val word_not_bnot = Q.store_thm("word_not_bnot",
    >> rw[o_ABS_R]
 );
 
+val w2v_nonempty = Q.store_thm("w2v_nonempty",
+  `!w. ~(w2v w = [])`,
+  STRIP_TAC >> CCONTR_TAC
+    >> fs []
+    >> IMP_RES_TAC length_empty
+    >> IMP_RES_TAC length_dimindex
+    >> ASSUME_TAC DIMINDEX_GT_0
+    >> simp[]
+);
+
+val another_lemma = Q.store_thm("another_lemma",
+ `!w:('a word) h t. (w2v w = (h::t)) ==> (SUC (LENGTH t) = dimindex(:'a))`,
+   rpt STRIP_TAC >> POP_ASSUM (ASSUME_TAC o Q.AP_TERM `LENGTH`) >> fs[]
+);
+
+val word_1_lemma1 = Q.store_thm("word_1_lemma1",
+ `!w:('a word). 1w = (n2w (w2n (1w:'a word))):('a word)`,
+ STRIP_TAC >> simp[n2w_w2n]
+);
+
+val word_1_lemma = Q.store_thm("word_1_lemma",
+ `!w:('a word). (w2v (1w:'a word)) = fixwidth (dimindex (:'a)) (n2v 1)`,
+  STRIP_TAC >> ONCE_REWRITE_TAC[word_1_lemma1] >> simp[w2v_n2w]
+);
+
 val fixsub_word_sub = Q.store_thm("fixsub_word_sub",
   `!x:('a word) y. fixsub (w2v x) (w2v y) = w2v (x - y)`,
   rpt STRIP_TAC >> Cases_on `w2v x`
-        (* the following 2 cheats require a proof of !x. w2v x /= [] *)
-        >- cheat >> (Cases_on `w2v y`
-          >- cheat >> (fs [fixsub_lemma]
-          >> simp [fixsub_def]
-          >> REWRITE_TAC[GSYM fixadd_word_add]
-          >> MK_COMB_TAC
-            >- (MK_COMB_TAC
-                  >- simp []
-                  >> (MK_COMB_TAC
-                          >- (MK_COMB_TAC
-                                 >- simp []
-                                 >> (ASM_SIMP_TAC arith_ss []
-                                     >> IMP_RES_TAC fixsub_word_sub_length_lemma
-                                     >> ASM_SIMP_TAC arith_ss []
-                                     >> simp[fixwidth_length_l]
-                                    )
-                             )
-                          >> (simp[word_not_bnot]
-                                >> MK_COMB_TAC
-                                      >- simp []
-                                      >> (ASM_SIMP_TAC arith_ss[]
-                                         >> simp[fixsub_word_sub_length_lemma]
-                                         >> IMP_RES_TAC fixsub_word_sub_length_lemma2
-                                         >> ASM_SIMP_TAC arith_ss []
-                                         >> simp[fixwidth_length_l])
-                             )
+        >- (CCONTR_TAC >> ASSUME_TAC w2v_nonempty >> RES_TAC) >> (Cases_on `w2v y`
+          >- (CCONTR_TAC >> ASSUME_TAC w2v_nonempty >> RES_TAC) >> (fs [fixsub_lemma]
+  >> simp [fixsub_def]
+  >> REWRITE_TAC[GSYM fixadd_word_add]
+  >> MK_COMB_TAC
+    >- (MK_COMB_TAC
+          >- simp []
+          >> (MK_COMB_TAC
+                  >- (MK_COMB_TAC
+                         >- simp []
+                         >> (ASM_SIMP_TAC arith_ss []
+                             >> IMP_RES_TAC fixsub_word_sub_length_lemma
+                             >> ASM_SIMP_TAC arith_ss []
+                             >> simp[fixwidth_length_l]
+                            )
                      )
-               )
-            >> cheat))
+                  >> (simp[word_not_bnot]
+                        >> MK_COMB_TAC
+                              >- simp []
+                              >> (ASM_SIMP_TAC arith_ss[]
+                                 >> simp[fixsub_word_sub_length_lemma]
+                                 >> IMP_RES_TAC fixsub_word_sub_length_lemma2
+                                 >> ASM_SIMP_TAC arith_ss []
+                                 >> simp[fixwidth_length_l])
+                     )
+             )
+       )
+    >> (
+      IMP_RES_TAC fixsub_word_sub_length_lemma
+        >> ASM_SIMP_TAC arith_ss []
+        >> IMP_RES_TAC another_lemma
+        >> fs[]
+        >> ASM_SIMP_TAC arith_ss []
+        >> REWRITE_TAC[ISPEC ``1w:('a word)`` word_1_lemma]
+ )))
 );
 
 val fixshiftr_def = Define`
@@ -225,7 +273,6 @@ val SUB_LEMMA2 = Q.store_thm("SUB_LEMMA2",
     >> simp []
 )
 
-
 val fixshift_add_rwt = Q.store_thm("fixshift_add_rwt",
           `!b a. a = a - (a - b) + (a - b)`,FULL_SIMP_TAC arith_ss []);
 
@@ -235,7 +282,6 @@ val GENLIST_APPEND_REVERSE = Q.store_thm("GENLIST_APPEND_REVERSE",
     CONV_TAC (PATH_CONV "lrr" (REWR_CONV ADD_COMM))
     >> simp [GENLIST_APPEND]
 )
-
 
 val fixshiftr_lemma1 = Q.store_thm("fixshiftr_lemma1",
   `!n (w : 'a word) i.
