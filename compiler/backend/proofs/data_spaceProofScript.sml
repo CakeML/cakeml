@@ -386,4 +386,29 @@ Theorem compile_correct
   \\ full_simp_tac(srw_ss())[locals_ok_refl]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[with_same_locals]);
 
+Theorem get_code_labels_space
+  `∀x y y0 y1 y2.
+   (space x = INL y ⇒ get_code_labels y = get_code_labels x) ∧
+   (space x = INR (y0,y1,y2) ⇒ get_code_labels y2 = get_code_labels x)`
+  (recInduct data_spaceTheory.space_ind
+  \\ rw[data_spaceTheory.space_def] \\ simp[]
+  \\ fs[CaseEq"sum",CaseEq"dataLang$prog"] \\ rveq \\ fs[data_spaceTheory.space_def]
+  \\ fs[data_spaceTheory.pMakeSpace_def]
+  \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+  \\ rveq \\ fs[]
+  \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+  \\ Cases_on`space c2` \\ Cases_on`space c3` \\ fs[] \\ TRY(PairCases_on`y`)
+  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+  \\ PairCases_on`y'`
+  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]);
+
+Theorem get_code_labels_compile[simp]
+  `∀x. get_code_labels (data_space$compile x) = get_code_labels x`
+  (rw[data_spaceTheory.compile_def]
+  \\ Cases_on`space x`
+  \\ simp[data_spaceTheory.pMakeSpace_def]
+  \\ TRY (PairCases_on`y`)
+  \\ simp[data_spaceTheory.pMakeSpace_def]
+  \\ imp_res_tac get_code_labels_space);
+
 val _ = export_theory();

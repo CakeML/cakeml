@@ -152,16 +152,11 @@ val _ = temp_overload_on("data_good_code_labels",``dataProps$good_code_labels``)
 val _ = temp_overload_on("word_get_code_labels",``wordProps$get_code_labels``);
 val _ = temp_overload_on("word_good_handlers",``wordProps$good_handlers``);
 val _ = temp_overload_on("word_good_code_labels",``wordProps$good_code_labels``);
+val _ = temp_overload_on("bvi_get_code_labels",``bviProps$get_code_labels``);
+val _ = temp_overload_on("bvi_good_code_labels",``bviProps$good_code_labels``);
 val _ = temp_overload_on("get_code_labels",``stackProps$get_code_labels``);
 
 (* TODO: move things that need moving *)
-
-Theorem compile_prog_keeps_names
-  `∀next xs next' ys. compile_prog next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒ MEM x (MAP FST ys)`
-  (recInduct bvi_tailrecTheory.compile_prog_ind
-  \\ rw[bvi_tailrecTheory.compile_prog_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]);
 
 val bvl_get_code_labels_def = tDefine"bvl_get_code_labels"
   `(bvl_get_code_labels (bvl$Var _) = {}) ∧
@@ -180,109 +175,13 @@ val bvl_get_code_labels_def = tDefine"bvl_get_code_labels"
    \\ simp[] \\ res_tac \\ simp[]);
 val bvl_get_code_labels_def = bvl_get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "bvl_get_code_labels_def[simp]"
 
-val bvl_good_code_labels_def = Define`
-  bvl_good_code_labels p ⇔
-    BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) p)) ⊆ set (MAP FST p)`;
-
-val bvi_get_code_labels_def = tDefine"bvi_get_code_labels"
-  `(bvi_get_code_labels (Var _) = {}) ∧
-   (bvi_get_code_labels (If e1 e2 e3) = bvi_get_code_labels e1 ∪ bvi_get_code_labels e2 ∪ bvi_get_code_labels e3) ∧
-   (bvi_get_code_labels (Let es e) = BIGUNION (set (MAP bvi_get_code_labels es)) ∪ bvi_get_code_labels e) ∧
-   (bvi_get_code_labels (Raise e) = bvi_get_code_labels e) ∧
-   (bvi_get_code_labels (Tick e) = bvi_get_code_labels e) ∧
-   (bvi_get_code_labels (Call _ d es h) =
-     (case d of NONE => {} | SOME n => {n}) ∪
-     (case h of NONE => {} | SOME e => bvi_get_code_labels e) ∪
-     BIGUNION (set (MAP bvi_get_code_labels es))) ∧
-   (bvi_get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP bvi_get_code_labels es)))`
-  (wf_rel_tac`measure exp_size`
-   \\ simp[bviTheory.exp_size_def]
-   \\ rpt conj_tac \\ rpt gen_tac
-   \\ Induct_on`es`
-   \\ rw[bviTheory.exp_size_def]
-   \\ simp[] \\ res_tac \\ simp[]);
-val bvi_get_code_labels_def = bvi_get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "bvi_get_code_labels_def[simp]"
-
-val bvi_good_code_labels_def = Define`
-  bvi_good_code_labels p ⇔
-    BIGUNION (set (MAP (bvi_get_code_labels o SND o SND) p)) ⊆ set (MAP FST p)`;
-
-Theorem data_get_code_labels_space
-  `∀x y y0 y1 y2.
-   (space x = INL y ⇒ data_get_code_labels y = data_get_code_labels x) ∧
-   (space x = INR (y0,y1,y2) ⇒ data_get_code_labels y2 = data_get_code_labels x)`
-  (recInduct data_spaceTheory.space_ind
-  \\ rw[data_spaceTheory.space_def] \\ simp[]
-  \\ fs[CaseEq"sum",CaseEq"dataLang$prog"] \\ rveq \\ fs[data_spaceTheory.space_def]
-  \\ fs[data_spaceTheory.pMakeSpace_def]
-  \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
-  \\ rveq \\ fs[]
-  \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
-  \\ Cases_on`space c2` \\ Cases_on`space c3` \\ fs[] \\ TRY(PairCases_on`y`)
-  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
-  \\ PairCases_on`y'`
-  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]);
-
-Theorem data_get_code_labels_compile[simp]
-  `∀x. data_get_code_labels (data_space$compile x) = data_get_code_labels x`
-  (rw[data_spaceTheory.compile_def]
-  \\ Cases_on`space x`
-  \\ simp[data_spaceTheory.pMakeSpace_def]
-  \\ TRY (PairCases_on`y`)
-  \\ simp[data_spaceTheory.pMakeSpace_def]
-  \\ imp_res_tac data_get_code_labels_space);
-
-Theorem data_get_code_labels_simp
-  `∀x y. data_get_code_labels (simp x y) ⊆ data_get_code_labels x ∪ data_get_code_labels y`
-  (recInduct data_simpTheory.simp_ind
-  \\ rw[data_simpTheory.simp_def]
-  \\ fs[SUBSET_DEF, data_simpTheory.pSeq_def] \\ rw[]
-  \\ metis_tac[]);
-
-Theorem data_get_code_labels_compile_TODO_move
-  `∀x y. data_get_code_labels (FST (compile x y)) ⊆ data_get_code_labels x`
-  (recInduct data_liveTheory.compile_ind
-  \\ rw[data_liveTheory.compile_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ fs[SUBSET_DEF]);
-
-Theorem data_get_code_labels_mk_ticks
-  `∀n m. data_get_code_labels (mk_ticks n m) ⊆ data_get_code_labels m`
-   (Induct
-   \\ rw[dataLangTheory.mk_ticks_def] \\ rw[FUNPOW]
-   \\ fs[dataLangTheory.mk_ticks_def]
-   \\ first_x_assum (qspec_then`Seq Tick m`mp_tac)
-   \\ rw[]);
-
-Theorem data_get_code_labels_iAssign[simp]
-  `∀a b c d e. data_get_code_labels (iAssign a b c d e) = closLang$assign_get_code_label b`
-  (rw[bvi_to_dataTheory.iAssign_def]
-  \\ EVAL_TAC);
-
-Theorem data_get_code_labels_compile_TODO_move2
-  `∀a b c d e. data_get_code_labels (FST (compile a b c d e)) ⊆
-    BIGUNION (set (MAP bvi_get_code_labels e)) `
-  (recInduct bvi_to_dataTheory.compile_ind
-  \\ rw[bvi_to_dataTheory.compile_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ fs[SUBSET_DEF]
-  \\ rw[] \\ fs[]
-  \\ qmatch_asmsub_abbrev_tac`mk_ticks a b`
-  \\ qspecl_then[`a`,`b`]mp_tac data_get_code_labels_mk_ticks
-  \\ simp[SUBSET_DEF]
-  \\ disch_then drule \\ rw[Abbr`b`,Abbr`a`]
-  \\ qmatch_asmsub_abbrev_tac`mk_ticks a b`
-  \\ qspecl_then[`a`,`b`]mp_tac data_get_code_labels_mk_ticks
-  \\ simp[SUBSET_DEF]
-  \\ disch_then drule \\ rw[Abbr`b`,Abbr`a`]);
-
 Theorem compile_prog_good_code_labels
   `∀p. bvi_good_code_labels p ⇒ data_good_code_labels (bvi_to_data$compile_prog p)`
   (simp[bvi_to_dataTheory.compile_prog_def]
   \\ simp[dataPropsTheory.good_code_labels_def, MAP_MAP_o, o_DEF, LAMBDA_PROD]
   \\ simp[bvi_to_dataTheory.compile_part_def]
   \\ simp[FST_triple]
-  \\ simp[bvi_good_code_labels_def]
+  \\ simp[bviPropsTheory.good_code_labels_def]
   \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP, FORALL_PROD, EXISTS_PROD]
   \\ rw[]
   \\ first_x_assum irule
@@ -290,17 +189,17 @@ Theorem compile_prog_good_code_labels
   \\ fs[bvi_to_dataTheory.compile_exp_def]
   \\ fs[bvi_to_dataTheory.optimise_def]
   \\ qmatch_asmsub_abbrev_tac`data_get_code_labels (simp a b)`
-  \\ qspecl_then[`a`,`b`]mp_tac data_get_code_labels_simp
+  \\ qspecl_then[`a`,`b`]mp_tac data_simpProofTheory.get_code_labels_simp
   \\ simp_tac std_ss [SUBSET_DEF]
   \\ disch_then drule
   \\ rw[Abbr`a`,Abbr`b`]
   \\ qmatch_asmsub_abbrev_tac`FST (compile a b)`
-  \\ qspecl_then[`a`,`b`]mp_tac data_get_code_labels_compile_TODO_move
+  \\ qspecl_then[`a`,`b`]mp_tac data_liveProofTheory.get_code_labels_compile
   \\ simp[SUBSET_DEF]
   \\ disch_then drule
   \\ rw[Abbr`a`, Abbr`b`]
   \\ qmatch_asmsub_abbrev_tac`FST (compile a b c d e)`
-  \\ qspecl_then[`a`,`b`,`c`,`d`,`e`]mp_tac data_get_code_labels_compile_TODO_move2
+  \\ qspecl_then[`a`,`b`,`c`,`d`,`e`]mp_tac bvi_to_dataProofTheory.get_code_labels_compile
   \\ simp[SUBSET_DEF,Abbr`c`]
   \\ disch_then drule
   \\ simp[Abbr`e`]);
@@ -361,9 +260,9 @@ Theorem TODO_MOVE_1_compile_prog_good_code_labels
   \\ rpt gen_tac \\ strip_tac
   \\ rpt gen_tac \\ strip_tac
   \\ rpt(pairarg_tac \\ fs[])
-  \\ drule (GEN_ALL compile_prog_keeps_names) \\ strip_tac
+  \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_keeps_names) \\ strip_tac
   \\ qpat_x_assum`_ next xs = _`assume_tac
-  \\ drule (GEN_ALL compile_prog_keeps_names) \\ strip_tac
+  \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_keeps_names) \\ strip_tac
   \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
   \\ drule bvi_get_code_labels_compile_exp
   \\ fs[SUBSET_DEF,PULL_EXISTS]
@@ -2809,7 +2708,7 @@ Theorem compile_correct
     disch_then match_mp_tac>>
     CONJ_TAC>- (
       EVAL_TAC
-      \\ drule (GEN_ALL compile_prog_keeps_names)
+      \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_keeps_names)
       \\ disch_then irule
       \\ fs[bvl_to_bviTheory.compile_prog_def]
       \\ pairarg_tac \\ fs[] \\ rveq
@@ -2831,7 +2730,7 @@ Theorem compile_correct
     \\ qpat_x_assum`_ = (_,code,_)`assume_tac
     \\ qpat_x_assum`_ = (_,prog')`assume_tac
     \\ qpat_x_assum`_ = (_,p''')`assume_tac
-    \\ simp[bvi_good_code_labels_def]
+    \\ simp[bviPropsTheory.good_code_labels_def]
     \\ drule
       (TODO_MOVE_1_compile_prog_good_code_labels
        |> INST_TYPE [alpha|->``:num#bvi$exp``]

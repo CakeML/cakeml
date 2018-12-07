@@ -2224,4 +2224,11 @@ Theorem compile_prog_labels
      \\ asm_exists_tac \\ fs [])
    \\ qexists_tac `k + 1` \\ fs [LEFT_ADD_DISTRIB]);
 
+Theorem compile_prog_keeps_names
+  `∀next xs next' ys. compile_prog next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒ MEM x (MAP FST ys)`
+  (recInduct bvi_tailrecTheory.compile_prog_ind
+  \\ rw[bvi_tailrecTheory.compile_prog_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]);
+
 val _ = export_theory();

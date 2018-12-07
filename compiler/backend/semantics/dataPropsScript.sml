@@ -933,4 +933,12 @@ val good_code_labels_def = Define`
     (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
     (set (MAP FST p))`
 
+Theorem get_code_labels_mk_ticks
+  `∀n m. get_code_labels (mk_ticks n m) ⊆ get_code_labels m`
+   (Induct
+   \\ rw[dataLangTheory.mk_ticks_def] \\ rw[FUNPOW]
+   \\ fs[dataLangTheory.mk_ticks_def]
+   \\ first_x_assum (qspec_then`Seq Tick m`mp_tac)
+   \\ rw[]);
+
 val _ = export_theory();

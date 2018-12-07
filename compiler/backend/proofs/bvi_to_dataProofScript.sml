@@ -1331,4 +1331,26 @@ Theorem compile_prog_semantics
   strip_tac >> simp[] >>
   full_simp_tac(srw_ss())[state_rel_def]);
 
+Theorem get_code_labels_iAssign[simp]
+  `∀a b c d e. get_code_labels (iAssign a b c d e) = closLang$assign_get_code_label b`
+  (rw[bvi_to_dataTheory.iAssign_def]
+  \\ EVAL_TAC);
+
+Theorem get_code_labels_compile
+  `∀a b c d e. get_code_labels (FST (compile a b c d e)) ⊆
+    BIGUNION (set (MAP get_code_labels e)) `
+  (recInduct bvi_to_dataTheory.compile_ind
+  \\ rw[bvi_to_dataTheory.compile_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[SUBSET_DEF]
+  \\ rw[] \\ fs[]
+  \\ qmatch_asmsub_abbrev_tac`mk_ticks a b`
+  \\ qspecl_then[`a`,`b`]mp_tac dataPropsTheory.get_code_labels_mk_ticks
+  \\ simp[SUBSET_DEF]
+  \\ disch_then drule \\ rw[Abbr`b`,Abbr`a`]
+  \\ qmatch_asmsub_abbrev_tac`mk_ticks a b`
+  \\ qspecl_then[`a`,`b`]mp_tac dataPropsTheory.get_code_labels_mk_ticks
+  \\ simp[SUBSET_DEF]
+  \\ disch_then drule \\ rw[Abbr`b`,Abbr`a`]);
+
 val _ = export_theory();
