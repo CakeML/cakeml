@@ -148,21 +148,35 @@ val word_not_bnot = Q.store_thm("word_not_bnot",
 
 val fixsub_word_sub = Q.store_thm("fixsub_word_sub",
   `!x:('a word) y. fixsub (w2v x) (w2v y) = w2v (x - y)`,
-  (rpt STRIP_TAC) THEN (Cases_on `w2v x`)
-        THENL [cheat,Cases_on `w2v y`]
-        THENL [cheat,fs [fixsub_lemma]]
-        THENL [simp [fixsub_def]]
-        THENL [REWRITE_TAC[GSYM fixadd_word_add]]
-        THENL [MK_COMB_TAC]
-        THENL [MK_COMB_TAC,cheat]
-        THENL [simp [],MK_COMB_TAC]
-        THENL [MK_COMB_TAC,simp[word_not_bnot]]
-        THENL [simp [],IMP_RES_TAC fixsub_word_sub_length_lemma,MK_COMB_TAC]
-        THENL [ASM_SIMP_TAC arith_ss [],simp[],ASM_SIMP_TAC arith_ss[]]
-        THENL [simp [fixwidth_length_l],simp[fixsub_word_sub_length_lemma]]
-        THENL [IMP_RES_TAC fixsub_word_sub_length_lemma2]
-        THENL [ASM_SIMP_TAC arith_ss []]
-        THENL [simp [fixwidth_length_l]]
+  rpt STRIP_TAC >> Cases_on `w2v x`
+        >- cheat >> (Cases_on `w2v y`
+          >- cheat >> (fs [fixsub_lemma]
+          >> simp [fixsub_def]
+          >> REWRITE_TAC[GSYM fixadd_word_add]
+          >> MK_COMB_TAC
+            >- (MK_COMB_TAC
+                  >- simp []
+                  >> (MK_COMB_TAC
+                          >- (MK_COMB_TAC
+                                 >- simp []
+                                 >> (ASM_SIMP_TAC arith_ss []
+                                     >> IMP_RES_TAC fixsub_word_sub_length_lemma
+                                     >> ASM_SIMP_TAC arith_ss []
+                                     >> simp[fixwidth_length_l]
+                                    )
+                             )
+                          >> (simp[word_not_bnot]
+                                >> MK_COMB_TAC
+                                      >- simp []
+                                      >> (ASM_SIMP_TAC arith_ss[]
+                                         >> simp[fixsub_word_sub_length_lemma]
+                                         >> IMP_RES_TAC fixsub_word_sub_length_lemma2
+                                         >> ASM_SIMP_TAC arith_ss []
+                                         >> simp[fixwidth_length_l])
+                             )
+                     )
+               )
+            >> cheat))
 );
 
 val fixshiftr_def = Define`
@@ -184,7 +198,7 @@ val rotate_w2v = Q.store_thm("rotate_word_ror_lemma",
 `!w:('a word) n. rotate (w2v w) n = w2v (word_ror w n)`,
    rpt STRIP_TAC >> simp [rotate_def,word_ror]
         >> Cases_on `(dimindex (:'a) = 0)`
-         (* dimindex (:'a) = 0 never happens*) >> cheat >> cheat
+         (* dimindex (:'a) = 0 never happens*) >- cheat >> cheat
 )
 
 (* TODO prove properties of fixed size shifts *)
@@ -254,11 +268,11 @@ val fixshiftr_word_lsr = Q.store_thm("fixshiftr_word_lsr",
   `!n w. ((w2v (word_lsr w n)) = (fixshiftr (w2v w) n))`,
    rpt strip_tac >> Cases_on `n`
       (* ZERO *)
-      >> simp[fixshiftr_def,word_lsr_def,shiftr_def,w2v_def,TAKE_GENLIST]
-      >> FULL_SIMP_TAC arith_ss [MIN_SUB]
-      >> simp [FCP,FCP_BETA,CART_EQ]
+      >- (simp[fixshiftr_def,word_lsr_def,shiftr_def,w2v_def,TAKE_GENLIST]
+       >> FULL_SIMP_TAC arith_ss [MIN_SUB]
+       >> simp [FCP,FCP_BETA,CART_EQ])
       (* SUCCESSOR *)
-      >> cheat
+      >> simp[fixshiftr_word_lsr_SUC]
 )
 (*  simp [fixshiftr_def,w2v_def,word_lsr_def,shiftr_def,fixwidth_def,
           zero_extend_def,PAD_LEFT]
