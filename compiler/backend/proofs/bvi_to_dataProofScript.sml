@@ -1353,4 +1353,33 @@ Theorem get_code_labels_compile
   \\ simp[SUBSET_DEF]
   \\ disch_then drule \\ rw[Abbr`b`,Abbr`a`]);
 
+Theorem compile_prog_good_code_labels
+  `∀p. good_code_labels p ⇒ good_code_labels (bvi_to_data$compile_prog p)`
+  (simp[bvi_to_dataTheory.compile_prog_def]
+  \\ simp[dataPropsTheory.good_code_labels_def, MAP_MAP_o, o_DEF, LAMBDA_PROD]
+  \\ simp[bvi_to_dataTheory.compile_part_def]
+  \\ simp[FST_triple]
+  \\ simp[bviPropsTheory.good_code_labels_def]
+  \\ simp[SUBSET_DEF, PULL_EXISTS, MEM_MAP, FORALL_PROD, EXISTS_PROD]
+  \\ rw[]
+  \\ first_x_assum irule
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ fs[bvi_to_dataTheory.compile_exp_def]
+  \\ fs[bvi_to_dataTheory.optimise_def]
+  \\ qmatch_asmsub_abbrev_tac`get_code_labels (simp a b)`
+  \\ qspecl_then[`a`,`b`]mp_tac data_simpProofTheory.get_code_labels_simp
+  \\ simp_tac std_ss [SUBSET_DEF]
+  \\ disch_then drule
+  \\ rw[Abbr`a`,Abbr`b`]
+  \\ qmatch_asmsub_abbrev_tac`FST (compile a b)`
+  \\ qspecl_then[`a`,`b`]mp_tac data_liveProofTheory.get_code_labels_compile
+  \\ simp[SUBSET_DEF]
+  \\ disch_then drule
+  \\ rw[Abbr`a`, Abbr`b`]
+  \\ qmatch_asmsub_abbrev_tac`FST (compile a b c d e)`
+  \\ qspecl_then[`a`,`b`,`c`,`d`,`e`]mp_tac get_code_labels_compile
+  \\ simp[SUBSET_DEF,Abbr`c`]
+  \\ disch_then drule
+  \\ simp[Abbr`e`]);
+
 val _ = export_theory();
