@@ -36,6 +36,11 @@ val heap_clean_conv =
   SIMP_CONV bool_ss [SEP_CLAUSES] THENC
   DEPTH_CONV (REWR_CONV SEP_F_to_cond)
 
+val SEP_IMPPOST_VARIANTS = LIST_CONJ
+  [SEP_IMPPOST_def, SEP_IMPPOSTv_def, SEP_IMPPOSTe_def,
+   SEP_IMPPOSTf_def, SEP_IMPPOSTd_def, SEP_IMPPOSTv_inv_def,
+   SEP_IMPPOSTe_inv_def]
+
 (*------------------------------------------------------------------*)
 (** Auxiliary functions *)
 

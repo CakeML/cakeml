@@ -1866,9 +1866,9 @@ val cf_local = Q.store_thm ("cf_local",
 );
 
 val cf_base_case_tac =
-  HO_MATCH_MP_TAC sound_local \\ rewrite_tac [sound_def, htriple_valid_def] \\
-  rpt strip_tac \\ fs [] \\ res_tac \\
-  Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\
+  HO_MATCH_MP_TAC sound_local \\ rewrite_tac [sound_def, htriple_valid_def, evaluate_to_heap_def] \\
+  rpt strip_tac \\ Q.REFINE_EXISTS_TAC `Val v` \\
+  simp [PULL_EXISTS] \\ fs [] \\ res_tac \\
   rename1 `SPLIT (st2heap _ st) (h_i, h_k)` \\
   progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
   simp [evaluate_ck_def, terminationTheory.evaluate_def, with_clock_self_eq] \\
@@ -1879,7 +1879,7 @@ val cf_strip_sound_tac =
   rpt strip_tac \\ fs []
 
 val cf_evaluate_step_tac =
-  simp [evaluate_ck_def, terminationTheory.evaluate_def] \\
+  simp [evaluate_to_heap_def, evaluate_ck_def, terminationTheory.evaluate_def] \\
   fs [libTheory.opt_bind_def, PULL_EXISTS]
 
 val cf_strip_sound_full_tac = cf_strip_sound_tac \\ cf_evaluate_step_tac
@@ -1936,8 +1936,7 @@ val cf_letrec_sound_aux = Q.prove (
     fs [extend_env_rec_def] \\
     fs [letrec_pull_params_names, extend_env_rec_build_rec_env] \\
     rewrite_tac [sound_def, htriple_valid_def] \\ disch_then progress \\
-    fs [evaluate_to_heap_def, evaluate_ck_def] \\ instantiate \\
-    fs [terminationTheory.evaluate_def]
+    fs [evaluate_to_heap_def, evaluate_ck_def] \\ instantiate
   )
   THEN1 (
     qx_gen_tac `ftuple` \\ PairCases_on `ftuple` \\ rename1 `(f, n, body)` \\
@@ -2018,7 +2017,8 @@ val cf_letrec_sound_aux = Q.prove (
       (mp_tac o REWRITE_RULE [sound_def, htriple_valid_def]) \\
     fs [] \\ disch_then (qspecl_then [`env`, `H`, `Q`] mp_tac) \\
     fs [evaluate_to_heap_def, evaluate_ck_def] \\
-    disch_then progress \\ instantiate
+    disch_then progress \\ instantiate \\
+    rfs [terminationTheory.evaluate_def]
   ));
 
 val cf_letrec_sound = Q.prove (
@@ -2049,21 +2049,28 @@ val cf_cases_evaluate_match = Q.prove (
     EVERY (\b. sound p (SND b) (cf p (SND b))) rows ==>
     cf_cases v nomatch_exn (MAP (\r. (FST r, cf p (SND r))) rows) env H Q ==>
     SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
-    ?r st' h_f h_g ck.
-      SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
+    ?r h_f h_g heap.
+      SPLIT3 heap (h_f, h_k, h_g) /\
       Q r h_f /\
       case r of
-        | Val v' =>
+        | Val v' => ?ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
-          (st', Rval [v'])
-        | Exn v' =>
+          (st', Rval [v']) /\
+          st2heap p st' = heap
+        | Exn e => ?ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
-          (st', Rerr (Rraise v'))
-        | FFIDiv name conf bytes =>
+          (st', Rerr (Rraise e)) /\
+          st2heap p st' = heap
+        | FFIDiv name conf bytes => ∃ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
-          (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged))))`,
-  cheat (*
-
+          (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+          st2heap p st' = heap
+        | Div io => ?sts (cks : num -> num).
+          heap = UNIV /\
+          (∀i. cks i < cks (i+1)) /\
+          (∀i. evaluate_match (st with clock := cks i) env v rows nomatch_exn =
+              (sts i, Rerr (Rabort Rtimeout_error))) /\
+          lprefix_lub$lprefix_lub (IMAGE (\i. fromList (sts i).ffi.io_events) UNIV) io`,
   Induct_on `rows` \\ rpt strip_tac \\ fs [cf_cases_def]
   THEN1 (
     fs [local_def] \\ first_x_assum progress \\
@@ -2117,14 +2124,13 @@ val cf_cases_evaluate_match = Q.prove (
       (assume_tac o REWRITE_RULE [sound_def, htriple_valid_def]) \\
     pop_assum progress \\
     progress v_of_pat_norest_insts_length \\
-    fs [extend_env_def, extend_env_v_zip, evaluate_ck_def] \\ instantiate \\
+    fs [extend_env_def, extend_env_v_zip, evaluate_to_heap_def, evaluate_ck_def] \\ instantiate \\
     first_assum (qspecl_then [`r`, `h_f UNION h2`] mp_tac) \\
     impl_tac THEN1 (instantiate \\ SPLIT_TAC) \\ strip_tac \\
     instantiate \\ fs [GC_def, SEP_EXISTS] \\
     rename1 `SPLIT (h_f UNION h2) (h_f', h_g')` \\
     qexists_tac `h_g UNION h_g'` \\ SPLIT_TAC
-  ) *)
-);
+  ));
 
 (* TODO: move to misc? *)
 val n2w_ORD_CHR_w2n' = Q.prove(`!w. n2w(ORD(CHR(w2n w))) = (w:word8)`,
@@ -2135,20 +2141,20 @@ val cf_ffi_sound = Q.prove (
      ?cv rv. exp2v env r = SOME rv /\
           exp2v env c = SOME cv /\
           app_ffi ffi_index cv rv H Q))`,
-   cheat (*
    cf_strip_sound_tac \\
    fs[app_ffi_def] \\
    Cases_on `u ffi_index conf ws s`
    >- fs[] \\
    qmatch_asmsub_abbrev_tac `u ffi_index conf ws s = SOME a1` \\
-   pop_assum kall_tac \\ Cases_on `a1` \\
-   TRY(
+   pop_assum kall_tac \\ reverse (Cases_on `a1`)
+   THEN1 (
      qpat_assum `u ffi_index conf ws s = SOME FFIdiverge` kall_tac \\
-     qexists_tac `FFIDiv ffi_index conf ws` \\ simp[] \\
-     MAP_EVERY qexists_tac [`st`,`h_i`,`{}`,`st.clock`] \\ fs[] \\
+     qexists_tac `FFIDiv ffi_index conf ws` \\
+     MAP_EVERY qexists_tac [`h_i`, `{}`, `st2heap p st`] \\
      conj_tac >- fs[SPLIT3_def,SPLIT_def] \\
      conj_tac >- fs[SEP_IMP_def] \\
      cf_evaluate_step_tac \\
+     MAP_EVERY qexists_tac [`st.clock`, `st`] \\
      fs [do_app_def,app_ffi_def,W8ARRAY_def] \\
      cf_exp2v_evaluate_tac `st with clock := st.clock` \\
      fs [do_app_def,app_ffi_def,SEP_IMP_def,W8ARRAY_def,SEP_EXISTS] \\
@@ -2188,7 +2194,7 @@ val cf_ffi_sound = Q.prove (
      fs[IMPLODE_EXPLODE_I,MAP_MAP_o,o_DEF,n2w_ORD_CHR_w2n',state_component_equality]
       ) \\
    rename1 `_ = SOME (FFIreturn vs s')` \\
-   Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\
+   Q.REFINE_EXISTS_TAC `Val v` \\
    cf_evaluate_step_tac \\
    GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
    cf_exp2v_evaluate_tac `st` \\
@@ -2345,7 +2351,7 @@ val cf_ffi_sound = Q.prove (
    \\ `x IN u2 ∪ h_k ∪ {FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns events1}
          UNION {Mem y (W8array ws)}` by SPLIT_TAC
    \\ pop_assum mp_tac
-   \\ fs [] \\ fs [ffi2heap_def] \\ rfs[] *));
+   \\ fs [] \\ fs [ffi2heap_def] \\ rfs[]);
 
 val evaluate_add_to_clock_lemma = Q.prove (
   `!extra p (s: 'ffi semanticPrimitives$state) s' r e.
@@ -2377,18 +2383,16 @@ fun add_to_clock qtm th g =
 
 val cf_sound = Q.store_thm ("cf_sound",
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`,
-  cheat (*
-
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
   THEN1 (* Lit *) cf_base_case_tac
   THEN1 (
     (* Con *)
-    cf_base_case_tac \\ fs [PULL_EXISTS, st2heap_def] \\
-    progress exp2v_list_REVERSE \\ rw [] \\ fs [with_clock_self_eq]
+    cf_base_case_tac \\ progress exp2v_list_REVERSE \\
+    fs [with_clock_self_eq]
   )
   THEN1 (* Var *) cf_base_case_tac
-  THEN1 (
+  THEN1 cheat (* (
     (* Let *)
     Cases_on `is_bound_Fun opt e1` \\ fs []
     THEN1 (
@@ -2457,12 +2461,13 @@ val cf_sound = Q.store_thm ("cf_sound",
       THEN1 (
         (* e1 ~> FFI diverge *)
         rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged))))` \\
-        fs [SEP_IMPPOSTffi_def, SEP_IMP_def] \\ first_assum progress \\
+        fs [SEP_IMPPOSTf_def, SEP_IMP_def] \\ first_assum progress \\
         qexists_tac `FFIDiv name conf bytes` \\
         instantiate \\ qexists_tac `ck` \\ rw []
       )
     )
   )
+  *)
   THEN1 (
     (* Letrec; the bulk of the proof is done in [cf_letrec_sound] *)
     HO_MATCH_MP_TAC sound_local \\ simp [MAP_MAP_o, o_DEF, LAMBDA_PROD] \\
@@ -2475,7 +2480,7 @@ val cf_sound = Q.store_thm ("cf_sound",
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
 
-  THEN1 (
+  THEN1 cheat (* (
     (* App *)
     Cases_on `?ffi_index. op = FFI ffi_index` THEN1 (
       (* FFI *)
@@ -2855,8 +2860,9 @@ val cf_sound = Q.store_thm ("cf_sound",
       SPLIT_TAC
     )
   )
+  *)
 
-  THEN1 (
+  THEN1 cheat (* (
     (* Log *)
     cf_strip_sound_full_tac \\
     fs [sound_def, htriple_valid_def, evaluate_ck_def] \\
@@ -2872,7 +2878,8 @@ val cf_sound = Q.store_thm ("cf_sound",
       cf_exp2v_evaluate_tac `st` \\ fs [do_log_def,Boolv_def]
     )
   )
-  THEN1 (
+  *)
+  THEN1 cheat (* (
     (* If *)
     cf_strip_sound_full_tac \\ fs [do_if_def] \\
     Cases_on `b` \\ fs [sound_def, htriple_valid_def] \\
@@ -2880,7 +2887,8 @@ val cf_sound = Q.store_thm ("cf_sound",
     GEN_EXISTS_TAC "ck'" `ck` \\ cf_exp2v_evaluate_tac `st with clock := ck` \\
     instantiate
   )
-  THEN1 (
+  *)
+  THEN1 cheat (* (
     (* Mat: the bulk of the proof is done in [cf_cases_evaluate_match] *)
     cf_strip_sound_full_tac \\
     `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
@@ -2889,6 +2897,7 @@ val cf_sound = Q.store_thm ("cf_sound",
     instantiate \\ qexists_tac `ck` \\
     cf_exp2v_evaluate_tac `st with clock := ck`
   )
+  *)
   THEN1 (
     (* Raise *)
     cf_strip_sound_full_tac \\ qexists_tac `Exn v` \\ fs [] \\
@@ -2902,15 +2911,15 @@ val cf_sound = Q.store_thm ("cf_sound",
     cf_strip_sound_full_tac \\
     qpat_x_assum `sound _ e _`
       (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
-    Cases_on `r` \\ fs []
+    Cases_on `r` \\ fs [evaluate_to_heap_def]
     THEN1 (
       (* e ~> Rval v *)
       rename1 `evaluate_ck _ _ _ [e] = (_, Rval [v])` \\
-      fs [SEP_IMPPOSTv_def, SEP_IMP_def] \\ first_assum progress \\
+      fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress \\
       qexists_tac `Val v` \\ fs [] \\ instantiate \\
       fs [evaluate_ck_def] \\ qexists_tac `ck` \\ fs []
     )
-    THEN1 (
+    THEN1 cheat (* (
       (* e ~> Rerr (Rraise v) *)
       rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rraise v))` \\
       first_x_assum (qspec_then `v` assume_tac) \\
@@ -2918,8 +2927,8 @@ val cf_sound = Q.store_thm ("cf_sound",
         (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC) \\
       progress SPLIT_of_SPLIT3_2u3 \\
       progress cf_cases_evaluate_match \\
-      qexists_tac `r` \\ Cases_on `r` \\ fs []
-      THEN (
+      qexists_tac `r` \\ Cases_on `r` \\ fs [] \\
+      TRY (
         rename1 `SPLIT3 (st2heap _ st'') (h_f', h_k UNION h_g, h_g')` \\
         qexists_tac `st'' with clock := st''.clock + st'.clock` \\
         Q.LIST_EXISTS_TAC [`h_f'`, `h_g UNION h_g'`, `ck + ck'`] \\ rw []
@@ -2928,27 +2937,35 @@ val cf_sound = Q.store_thm ("cf_sound",
         qpat_assum `evaluate _ _ [e] = _` (add_to_clock `ck'`) \\
         qpat_assum `evaluate_match _ _ _ branches _ = _` (add_to_clock `st'.clock`) \\
         fs [with_clock_with_clock]
-      ))
+      )) *)
     THEN1 (
       (* e ~> FFI diverge *)
       rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rabort (Rffi_error (Final_event s conf bytes _))))` \\
-      asm_exists_tac \\ simp[] \\
-      MAP_EVERY qexists_tac [`FFIDiv s conf bytes`,`ck`] \\
-      fs[evaluate_ck_def,SEP_IMPPOSTffi_def,SEP_IMP_def]
+      asm_exists_tac \\
+      qexists_tac `FFIDiv s conf bytes` \\
+      fs[evaluate_ck_def,SEP_IMPPOST_VARIANTS,SEP_IMP_def] \\
+      qexists_tac `ck` \\ fs []
+    )
+    THEN1 (
+      (* e -> Rtimeout_error *)
+      rename1 `lprefix_lub$lprefix_lub _ io` \\
+      asm_exists_tac \\ qexists_tac `Div io` \\
+      fs [evaluate_ck_def, SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\
+      instantiate
     )
   )
   THEN1 (
     (* Lannot *)
     cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
-    first_assum progress \\ fs [evaluate_ck_def] \\
+    first_assum progress \\ fs [evaluate_to_heap_def, evaluate_ck_def] \\
     metis_tac[]
   )
   THEN1 (
     (* Tannot *)
     cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
-    first_assum progress \\ fs [evaluate_ck_def] \\
+    first_assum progress \\ fs [evaluate_to_heap_def, evaluate_ck_def] \\
     metis_tac[]
-  ) *)
+  )
 );
 
 val cf_sound' = Q.store_thm ("cf_sound'",
