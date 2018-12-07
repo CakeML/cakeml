@@ -147,580 +147,14 @@ val _ = temp_overload_on("stack_remove_prog_comp",``stack_remove$prog_comp``);
 val _ = temp_overload_on("stack_alloc_prog_comp",``stack_alloc$prog_comp``);
 val _ = temp_overload_on("stack_names_prog_comp",``stack_names$prog_comp``);
 
-(* TODO: move things that need moving *)
-
+val _ = temp_overload_on("data_get_code_labels",``dataProps$get_code_labels``);
+val _ = temp_overload_on("data_good_code_labels",``dataProps$good_code_labels``);
 val _ = temp_overload_on("word_get_code_labels",``wordProps$get_code_labels``);
 val _ = temp_overload_on("word_good_handlers",``wordProps$good_handlers``);
 val _ = temp_overload_on("word_good_code_labels",``wordProps$good_code_labels``);
 val _ = temp_overload_on("get_code_labels",``stackProps$get_code_labels``);
 
-(* word_to_word never introduces any labels, so the statements are easy *)
-local
-  open word_removeTheory word_allocTheory word_instTheory word_simpTheory word_to_wordTheory
-  open data_to_wordTheory
-in
-
-(* remove_must_terminate*)
-val word_get_code_labels_remove_must_terminate = Q.prove(`
-  ∀ps.
-  word_get_code_labels (remove_must_terminate ps) =
-  word_get_code_labels ps`,
-  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
-  fs[remove_must_terminate_def]>>
-  every_case_tac>>fs[]);
-
-val word_good_handlers_remove_must_terminate = Q.prove(`
-  ∀ps.
-  word_good_handlers n (remove_must_terminate ps) ⇔
-  word_good_handlers n ps`,
-  ho_match_mp_tac remove_must_terminate_ind>>rw[]>>
-  fs[remove_must_terminate_def]>>
-  every_case_tac>>fs[]);
-
-(* word_alloc *)
-
-val word_get_code_labels_apply_colour = Q.prove(`
-  ∀col ps.
-  word_get_code_labels (apply_colour col ps) =
-  word_get_code_labels ps`,
-  ho_match_mp_tac apply_colour_ind>>rw[]>>
-  fs[apply_colour_def]>>
-  every_case_tac>>fs[]);
-
-val word_good_handlers_apply_colour = Q.prove(`
-  ∀col ps.
-  word_good_handlers n (apply_colour col ps) ⇔
-  word_good_handlers n ps`,
-  ho_match_mp_tac apply_colour_ind>>rw[]>>
-  fs[apply_colour_def]>>
-  every_case_tac>>fs[]);
-
-val word_get_code_labels_word_alloc = Q.prove(`
-  word_get_code_labels (word_alloc fc c alg k prog col_opt) =
-  word_get_code_labels prog`,
-  fs[word_alloc_def,oracle_colour_ok_def]>>
-  EVERY_CASE_TAC>>fs[]>>
-  TRY(pairarg_tac)>>fs[]>>
-  EVERY_CASE_TAC>>fs[]>>
-  metis_tac[word_get_code_labels_apply_colour])
-
-val word_good_handlers_word_alloc = Q.prove(`
-  word_good_handlers n (word_alloc fc c alg k prog col_opt) ⇔
-  word_good_handlers n prog`,
-  fs[word_alloc_def,oracle_colour_ok_def]>>
-  EVERY_CASE_TAC>>fs[]>>
-  TRY(pairarg_tac)>>fs[]>>
-  EVERY_CASE_TAC>>fs[]>>
-  metis_tac[word_good_handlers_apply_colour]);
-
-(* three to two *)
-val word_get_code_labels_three_to_two_reg = Q.prove(`
-  ∀ps.
-  word_get_code_labels (three_to_two_reg ps) =
-  word_get_code_labels ps`,
-  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
-  fs[three_to_two_reg_def]>>
-  every_case_tac>>fs[]);
-
-val word_good_handlers_three_to_two_reg = Q.prove(`
-  ∀ps.
-  word_good_handlers n (three_to_two_reg ps) ⇔
-  word_good_handlers n ps`,
-  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>
-  fs[three_to_two_reg_def]>>
-  every_case_tac>>fs[]);
-
-(* remove_dead *)
-val word_get_code_labels_remove_dead = Q.prove(`
-  ∀ps live.
-  word_get_code_labels (FST (remove_dead ps live)) ⊆
-  word_get_code_labels ps`,
-  ho_match_mp_tac remove_dead_ind>>rw[]>>
-  fs[remove_dead_def]>>
-  every_case_tac>>fs[]>>
-  rpt(pairarg_tac>>fs[])>>rw[]>>
-  fs[SUBSET_DEF]);
-
-val word_good_handlers_remove_dead = Q.prove(`
-  ∀ps live.
-  word_good_handlers n ps ⇒
-  word_good_handlers n (FST (remove_dead ps live))`,
-  ho_match_mp_tac remove_dead_ind>>rw[]>>
-  fs[remove_dead_def]>>
-  every_case_tac>>fs[]>>
-  rpt(pairarg_tac>>fs[])>>rw[]);
-
-(* ssa *)
-
-Theorem word_get_code_labels_fake_moves
-  `∀a b c d e f g h i.
-   fake_moves a b c d = (e,f,g,h,i) ⇒
-   word_get_code_labels e = {} ∧
-   word_get_code_labels f = {}`
-  (Induct \\ rw[fake_moves_def] \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum drule \\ rw[]
-  \\ rw[fake_move_def]);
-
-Theorem word_get_code_labels_ssa_cc_trans
-  `∀x y z a b c.
-   ssa_cc_trans x y z = (a,b,c) ⇒
-   word_get_code_labels a = word_get_code_labels x`
-  (recInduct ssa_cc_trans_ind
-  \\ rw[ssa_cc_trans_def] \\ fs[]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-  >- (
-    Cases_on`i` \\ fs[ssa_cc_trans_inst_def]
-    \\ rveq \\ fs[]
-    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-    \\ TRY(rename1`Arith arith` \\ Cases_on`arith`)
-    \\ TRY(rename1`Mem memop _ dst` \\ Cases_on`memop` \\ Cases_on`dst`)
-    \\ TRY(rename1`FP flop` \\ Cases_on`flop`)
-    \\ fs[ssa_cc_trans_inst_def,CaseEq"reg_imm",CaseEq"bool"]
-    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] )
-  >- (
-    fs[fix_inconsistencies_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ imp_res_tac word_get_code_labels_fake_moves
-    \\ rw[])
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[CaseEq"option"] \\ rveq \\ fs[]
-    \\ fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ fs[CaseEq"prod", fix_inconsistencies_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ imp_res_tac word_get_code_labels_fake_moves
-    \\ fs[]));
-
-val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
-  ∀m p.
-  word_get_code_labels (full_ssa_cc_trans m p) =
-  word_get_code_labels p`,
-  simp[full_ssa_cc_trans_def]
-  \\ rpt gen_tac
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[setup_ssa_def]
-  \\ pairarg_tac \\ fs[]
-  \\ rveq \\ fs[]
-  \\ drule word_get_code_labels_ssa_cc_trans
-  \\ rw[]);
-
-Theorem word_good_handlers_fake_moves
-  `∀a b c d e f g h i.
-   fake_moves a b c d = (e,f,g,h,i) ⇒
-   word_good_handlers n e ∧
-   word_good_handlers n f`
-  (Induct \\ rw[fake_moves_def] \\ rw[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum drule \\ rw[]
-  \\ rw[fake_move_def]);
-
-Theorem word_good_handlers_ssa_cc_trans
-  `∀x y z a b c.
-   ssa_cc_trans x y z = (a,b,c) ⇒
-   word_good_handlers n a = word_good_handlers n x`
-  (recInduct ssa_cc_trans_ind
-  \\ rw[ssa_cc_trans_def] \\ fs[]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-  >- (
-    Cases_on`i` \\ fs[ssa_cc_trans_inst_def]
-    \\ rveq \\ fs[]
-    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-    \\ TRY(rename1`Arith arith` \\ Cases_on`arith`)
-    \\ TRY(rename1`Mem memop _ dst` \\ Cases_on`memop` \\ Cases_on`dst`)
-    \\ TRY(rename1`FP flop` \\ Cases_on`flop`)
-    \\ fs[ssa_cc_trans_inst_def,CaseEq"reg_imm",CaseEq"bool"]
-    \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[] )
-  >- (
-    fs[fix_inconsistencies_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ imp_res_tac word_good_handlers_fake_moves
-    \\ rw[])
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[] )
-  >- (
-    fs[CaseEq"option"] \\ rveq \\ fs[]
-    \\ fs[list_next_var_rename_move_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ fs[CaseEq"prod", fix_inconsistencies_def]
-    \\ rpt(pairarg_tac \\ fs[])
-    \\ rveq \\ fs[]
-    \\ imp_res_tac word_good_handlers_fake_moves
-    \\ fs[]));
-
-val word_good_handlers_full_ssa_cc_trans = Q.prove(`
-  ∀m p.
-  word_good_handlers n (full_ssa_cc_trans m p) ⇔
-  word_good_handlers n p`,
-  simp[full_ssa_cc_trans_def]
-  \\ rpt gen_tac
-  \\ pairarg_tac \\ fs[]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[setup_ssa_def]
-  \\ pairarg_tac \\ fs[]
-  \\ rveq \\ fs[]
-  \\ drule word_good_handlers_ssa_cc_trans
-  \\ rw[]);
-
-(* inst *)
-val word_get_code_labels_inst_select_exp = Q.prove(`
-  ∀a b c exp.
-  word_get_code_labels (inst_select_exp a b c exp) = {}`,
-  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
-  fs[inst_select_exp_def]>>
-  every_case_tac>>fs[inst_select_exp_def]);
-
-val word_get_code_labels_inst_select = Q.prove(`
-  ∀ac v ps.
-  word_get_code_labels (inst_select ac v ps) =
-  word_get_code_labels ps`,
-  ho_match_mp_tac inst_select_ind>>rw[]>>
-  fs[inst_select_def]>>
-  every_case_tac>>fs[word_get_code_labels_inst_select_exp]);
-
-val word_good_handlers_inst_select_exp = Q.prove(`
-  ∀a b c exp.
-  word_good_handlers n (inst_select_exp a b c exp)`,
-  ho_match_mp_tac inst_select_exp_ind>>rw[]>>
-  fs[inst_select_exp_def]>>
-  every_case_tac>>fs[inst_select_exp_def]);
-
-val word_good_handlers_inst_select = Q.prove(`
-  ∀ac v ps.
-  word_good_handlers n (inst_select ac v ps) ⇔
-  word_good_handlers n ps`,
-  ho_match_mp_tac inst_select_ind>>rw[]>>
-  fs[inst_select_def]>>
-  every_case_tac>>fs[word_good_handlers_inst_select_exp]);
-
-(* simp *)
-val word_get_code_labels_const_fp_loop = Q.prove(`
-  ∀p l.
-  word_get_code_labels (FST (const_fp_loop p l)) ⊆ word_get_code_labels p`,
-  ho_match_mp_tac const_fp_loop_ind \\ rw []
-  \\ fs [const_fp_loop_def]
-  \\ every_case_tac\\ fs[]
-  \\ rpt (pairarg_tac \\ fs[])
-  \\ fs[SUBSET_DEF] \\ metis_tac[]);
-
-val word_good_handlers_const_fp_loop = Q.prove(`
-  ∀p l.
-  word_good_handlers n p ⇒
-  word_good_handlers n (FST (const_fp_loop p l))`,
-  ho_match_mp_tac const_fp_loop_ind \\ rw []
-  \\ fs [const_fp_loop_def]
-  \\ every_case_tac\\ fs[]
-  \\ rpt (pairarg_tac \\ fs[]));
-
-Theorem word_get_code_labels_apply_if_opt
-  `∀x y z. apply_if_opt x y = SOME z ⇒ word_get_code_labels z = word_get_code_labels x ∪ word_get_code_labels y`
-  (rw[apply_if_opt_def]
-  \\ fs[CaseEq"option",CaseEq"prod"]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[CaseEq"option",CaseEq"prod"]
-  \\ rveq
-  \\ fs[CaseEq"bool"] \\ rveq
-  \\ rw[SmartSeq_def]
-  \\ rename1`dest_If iff`
-  \\ Cases_on`iff` \\ fs[dest_If_def]
-  \\ rveq \\ fs[]
-  \\ fs[dest_If_Eq_Imm_def,CaseEq"option",CaseEq"prod",CaseEq"cmp",CaseEq"reg_imm"]
-  \\ Cases_on`y` \\ fs[dest_If_def] \\ rveq
-  \\ Cases_on`x` \\ fs[dest_Seq_def] \\ rveq \\ fs[]
-  \\ rw[EXTENSION, EQ_IMP_THM] \\ rw[]);
-
-Theorem word_get_code_labels_simp_if[simp]
-   `∀p.  word_get_code_labels (simp_if p) = word_get_code_labels p`
-  (recInduct simp_if_ind
-  \\ rw[simp_if_def]
-  \\ CASE_TAC \\ simp[]
-  >- ( drule word_get_code_labels_apply_if_opt \\ rw[] )
-  \\ every_case_tac \\ fs[]);
-
-Theorem word_good_handlers_apply_if_opt
-  `∀x y z. apply_if_opt x y = SOME z ∧
-           word_good_handlers n x ∧ word_good_handlers n y
-           ⇒
-           word_good_handlers n z `
-  (rw[apply_if_opt_def]
-  \\ fs[CaseEq"option",CaseEq"prod"]
-  \\ pairarg_tac \\ fs[]
-  \\ fs[CaseEq"option",CaseEq"prod"]
-  \\ rveq
-  \\ fs[CaseEq"bool"] \\ rveq
-  \\ rw[SmartSeq_def]
-  \\ rename1`dest_If iff`
-  \\ Cases_on`iff` \\ fs[dest_If_def]
-  \\ rveq \\ fs[]
-  \\ fs[dest_If_Eq_Imm_def,CaseEq"option",CaseEq"prod",CaseEq"cmp",CaseEq"reg_imm"]
-  \\ Cases_on`y` \\ fs[dest_If_def] \\ rveq
-  \\ Cases_on`x` \\ fs[dest_Seq_def] \\ rveq \\ fs[]);
-
-val word_good_handlers_simp_if = Q.prove(`
-  ∀p.
-  word_good_handlers n p ⇒
-  word_good_handlers n (simp_if p)`,
-  recInduct simp_if_ind
-  \\ rw[simp_if_def]
-  \\ CASE_TAC \\ simp[]
-  >- ( drule word_good_handlers_apply_if_opt \\ rw[] )
-  \\ every_case_tac \\ fs[]);
-
-val word_get_code_labels_Seq_assoc = Q.prove(`
-  ∀p1 p2.
-  word_get_code_labels (Seq_assoc p1 p2) = word_get_code_labels p1 ∪ word_get_code_labels p2`,
-  ho_match_mp_tac Seq_assoc_ind>>rw[]>>
-  fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
-  fs[UNION_ASSOC]>>
-  every_case_tac>>fs[]);
-
-val word_good_handlers_Seq_assoc = Q.prove(`
-  ∀p1 p2.
-  word_good_handlers n (Seq_assoc p1 p2) ⇔
-  word_good_handlers n p1 ∧ word_good_handlers n p2`,
-  ho_match_mp_tac Seq_assoc_ind>>rw[]>>
-  fs[Seq_assoc_def,SmartSeq_def]>>rw[]>>
-  every_case_tac>>fs[]>>metis_tac[]);
-
-val word_get_code_labels_word_simp = Q.prove(`
-  ∀ps.
-  word_get_code_labels (word_simp$compile_exp ps) ⊆
-  word_get_code_labels ps`,
-  PURE_REWRITE_TAC [compile_exp_def]>>
-  LET_ELIM_TAC>>
-  match_mp_tac SUBSET_TRANS >>
-  qexists_tac`word_get_code_labels e'`>>rw[]
-  >- (
-    unabbrev_all_tac>>EVAL_TAC>>
-    metis_tac[word_get_code_labels_const_fp_loop])>>
-  match_mp_tac SUBSET_TRANS >>
-  qexists_tac`word_get_code_labels e`>>rw[]
-  >- (
-    unabbrev_all_tac>>EVAL_TAC>>
-    metis_tac[word_get_code_labels_simp_if, SUBSET_REFL])>>
-  unabbrev_all_tac>>
-  fs[word_get_code_labels_Seq_assoc]);
-
-val word_good_handlers_word_simp = Q.prove(`
-  ∀ps.
-  word_good_handlers n ps ⇒
-  word_good_handlers n (word_simp$compile_exp ps)`,
-  rw[compile_exp_def]>>
-  EVAL_TAC>>match_mp_tac word_good_handlers_const_fp_loop>>
-  match_mp_tac word_good_handlers_simp_if>>
-  fs[word_good_handlers_Seq_assoc]);
-
-val word_get_code_labels_word_to_word = Q.prove(`
-  word_good_code_labels progs ⇒
-  word_good_code_labels (SND (compile wc ac progs))`,
-  fs[word_to_wordTheory.compile_def]>>
-  rpt(pairarg_tac>>fs[])>>
-  fs[wordPropsTheory.good_code_labels_def,next_n_oracle_def]>>
-  rw[]
-  >- (
-    rfs[EVERY_MAP,LENGTH_GENLIST,EVERY_MEM,MEM_ZIP,PULL_EXISTS]>>
-    rw[full_compile_single_def]>>
-    Cases_on`EL n progs`>>Cases_on`r`>>fs[compile_single_def]>>
-    fs[word_good_handlers_remove_must_terminate,word_good_handlers_word_alloc]>>
-    simp[COND_RAND]>>
-    fs[word_good_handlers_three_to_two_reg]>>
-    match_mp_tac word_good_handlers_remove_dead>>
-    simp[word_good_handlers_full_ssa_cc_trans,word_good_handlers_inst_select]>>
-    match_mp_tac word_good_handlers_word_simp>>
-    fs[FORALL_PROD]>>
-    metis_tac[EL_MEM])
-  >>
-    fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_ZIP]>>
-    rw[full_compile_single_def]>>
-    Cases_on`EL n progs`>>Cases_on`r`>>fs[compile_single_def]>>
-    fs[word_get_code_labels_remove_must_terminate,word_get_code_labels_word_alloc]>>
-    fs[COND_RAND]>>
-    fs[word_get_code_labels_three_to_two_reg]>>
-    drule (word_get_code_labels_remove_dead|>SIMP_RULE std_ss [SUBSET_DEF])>>
-    simp[word_get_code_labels_full_ssa_cc_trans,word_get_code_labels_inst_select]>>
-    strip_tac>>
-    drule (word_get_code_labels_word_simp|>SIMP_RULE std_ss [SUBSET_DEF])>>
-    rw[]>>fs[FORALL_PROD,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]>>
-    first_x_assum drule>>
-    disch_then(qspecl_then [`q`,`q'`] mp_tac)>>
-    impl_tac >-
-        metis_tac[EL_MEM]>>
-    rw[]>>
-    fs[MEM_EL]>>
-    qexists_tac`n'`>>simp[]>>
-    Cases_on`EL n' progs`>>Cases_on`r`>>fs[compile_single_def]);
-
-val assign_get_code_label_def = Define`
-  (assign_get_code_label (closLang$Label x) = {x}) ∧
-  (assign_get_code_label x = {})`
-
-val data_get_code_labels_def = Define`
-  (data_get_code_labels (Call r d a h) =
-    (case d of SOME x => {x} | _ => {}) ∪
-    (case h of SOME (n,p) => data_get_code_labels p | _ => {})) ∧
-  (data_get_code_labels (Seq p1 p2) = data_get_code_labels p1 ∪ data_get_code_labels p2) ∧
-  (data_get_code_labels (If _ p1 p2) = data_get_code_labels p1 ∪ data_get_code_labels p2) ∧
-  (data_get_code_labels (Assign _ op _ _) = assign_get_code_label op) ∧
-  (data_get_code_labels _ = {})`;
-val _ = export_rewrites["data_get_code_labels_def"];
-
-val word_get_code_labels_StoreEach = Q.prove(`
-  ∀ls off.
-  word_get_code_labels (StoreEach v ls off) = {}`,
-  Induct>>fs[StoreEach_def]);
-
-val word_get_code_labels_MemEqList = Q.prove(`
-  ∀x b.
-  word_get_code_labels (MemEqList b x) = {}`,
-  Induct>>fs[MemEqList_def]);
-
-(* slow... *)
-val word_get_code_labels_assign = Q.prove(`
-  ∀x.
-  word_get_code_labels (FST (assign c secn v w x y z)) SUBSET
-  assign_get_code_label x ∪ (set(MAP FST (stubs (:α) c)))`,
-  ho_match_mp_tac (fetch "-" "assign_get_code_label_ind")>>
-  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def,
-     assign_get_code_label_def]>>
-  fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
-  rpt(every_case_tac>>fs[]>>
-  fs[list_Seq_def,word_get_code_labels_StoreEach,word_get_code_labels_MemEqList]>>
-  EVAL_TAC));
-
-val data_to_word_comp_code_labels = Q.prove(`
-  ∀c secn l p.
-  word_get_code_labels ((FST (comp c secn l p)):'a wordLang$prog) SUBSET
-  data_get_code_labels p ∪ set(MAP FST (stubs (:α) c))`,
-  ho_match_mp_tac comp_ind>>
-  rw[]>>Cases_on`p`>>fs[]>>
-  simp[Once comp_def]>>
-  rpt(pairarg_tac>>fs[])
-  >- (
-    every_case_tac>>fs[]>>
-    rpt(pairarg_tac>>fs[])>>
-    fs[SUBSET_DEF]>>fs[]>>
-    metis_tac[])
-  >-
-    fs[word_get_code_labels_assign]
-  >-
-    (fs[SUBSET_DEF]>>metis_tac[])
-  >-
-    (fs[SUBSET_DEF]>>metis_tac[])
-  >>
-    EVAL_TAC>>rw[]>>fs[]);
-
-val word_good_handlers_StoreEach = Q.prove(`
-  ∀ls off.
-  word_good_handlers secn (StoreEach v ls off)`,
-  Induct>>fs[StoreEach_def]);
-
-val word_good_handlers_MemEqList = Q.prove(`
-  ∀x b.
-  word_good_handlers secn (MemEqList b x)`,
-  Induct>>fs[MemEqList_def]);
-
-(* slow... *)
-val word_good_handlers_assign = Q.prove(`
-  ∀x.
-  word_good_handlers secn (FST (assign c secn v w x y z))`,
-  ho_match_mp_tac (fetch "-" "assign_get_code_label_ind")>>
-  rw[assign_def,all_assign_defs,arg1_def,arg2_def,arg3_def,arg4_def]>>
-  rpt(
-  every_case_tac>>fs[list_Seq_def,word_good_handlers_StoreEach,word_good_handlers_MemEqList]>>
-  rw[]>>EVAL_TAC
-  ));
-
-val data_to_word_comp_good_handlers = Q.prove(`
-  ∀c secn l p.
-  word_good_handlers secn ((FST (comp c secn l p)):'a wordLang$prog)`,
-  ho_match_mp_tac comp_ind>>
-  rw[]>>Cases_on`p`>>fs[]>>
-  simp[Once comp_def]>>
-  rpt(pairarg_tac>>fs[])
-  >- (
-    every_case_tac>>fs[]>>
-    rpt(pairarg_tac>>fs[])>>
-    fs[SUBSET_DEF]>>fs[]>>
-    metis_tac[])
-  >-
-    fs[word_good_handlers_assign]
-  >>
-    EVAL_TAC>>rw[]>>fs[]);
-
-val data_good_code_labels_def = Define`
-  data_good_code_labels p ⇔
-  (BIGUNION (set (MAP (λ(n,m,pp). (data_get_code_labels pp)) p))) ⊆
-  (set (MAP FST p))`
-
-val stubs_labels = Q.prove(`
-  BIGUNION (set (MAP (λ(n,m,pp). word_get_code_labels pp)  (stubs (:'a) data_conf)))
-  ⊆ set (MAP FST (stubs (:'a) data_conf))`,
-  rpt(EVAL_TAC>>
-  IF_CASES_TAC>>
-  simp[]));
-
-Theorem data_to_word_good_code_labels `
-  (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ∧
-  data_good_code_labels prog ⇒
-  word_good_code_labels prog'`
-  (fs[data_to_wordTheory.compile_def]>>rw[]>>
-  qmatch_asmsub_abbrev_tac`LHS = _`>>
-  `prog' = SND LHS` by (unabbrev_all_tac>>fs[])>>
-  pop_assum SUBST_ALL_TAC>>
-  fs[Abbr`LHS`]>>
-  match_mp_tac word_get_code_labels_word_to_word>>
-  fs[wordPropsTheory.good_code_labels_def,data_good_code_labels_def]>>rw[]
-  >-
-    (EVAL_TAC>>rw[])
-  >-
-    (simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
-    fs[EVERY_MEM,FORALL_PROD])
-  >-
-    (assume_tac stubs_labels>>
-    match_mp_tac SUBSET_TRANS>>asm_exists_tac>>fs[])
-  >>
-    fs[MAP_MAP_o,o_DEF,LAMBDA_PROD,compile_part_def]>>
-    fs[SUBSET_DEF,PULL_EXISTS,Once MEM_MAP,FORALL_PROD]>>
-    rw[]>>
-    drule (data_to_word_comp_code_labels |> SIMP_RULE std_ss [SUBSET_DEF])>>
-    rw[]
-    >-
-      (first_x_assum drule>>
-      disch_then drule>>fs[MEM_MAP,EXISTS_PROD])
-    >>
-      fs[MEM_MAP]>>metis_tac[]);
-
-end
+(* TODO: move things that need moving *)
 
 Theorem compile_prog_keeps_names
   `∀next xs next' ys. compile_prog next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒ MEM x (MAP FST ys)`
@@ -730,14 +164,14 @@ Theorem compile_prog_keeps_names
   \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]);
 
 val bvl_get_code_labels_def = tDefine"bvl_get_code_labels"
-  `(bvl_get_code_labels (Var _) = {}) ∧
+  `(bvl_get_code_labels (bvl$Var _) = {}) ∧
    (bvl_get_code_labels (If e1 e2 e3) = bvl_get_code_labels e1 ∪ bvl_get_code_labels e2 ∪ bvl_get_code_labels e3) ∧
    (bvl_get_code_labels (Let es e) = BIGUNION (set (MAP bvl_get_code_labels es)) ∪ bvl_get_code_labels e) ∧
    (bvl_get_code_labels (Raise e) = bvl_get_code_labels e) ∧
    (bvl_get_code_labels (Handle e1 e2) = bvl_get_code_labels e1 ∪ bvl_get_code_labels e2) ∧
    (bvl_get_code_labels (Tick e) = bvl_get_code_labels e) ∧
    (bvl_get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP bvl_get_code_labels es))) ∧
-   (bvl_get_code_labels (Op op es) = assign_get_code_label op ∪ BIGUNION (set (MAP bvl_get_code_labels es)))`
+   (bvl_get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP bvl_get_code_labels es)))`
   (wf_rel_tac`measure exp_size`
    \\ simp[bvlTheory.exp_size_def]
    \\ rpt conj_tac \\ rpt gen_tac
@@ -760,7 +194,7 @@ val bvi_get_code_labels_def = tDefine"bvi_get_code_labels"
      (case d of NONE => {} | SOME n => {n}) ∪
      (case h of NONE => {} | SOME e => bvi_get_code_labels e) ∪
      BIGUNION (set (MAP bvi_get_code_labels es))) ∧
-   (bvi_get_code_labels (Op op es) = assign_get_code_label op ∪ BIGUNION (set (MAP bvi_get_code_labels es)))`
+   (bvi_get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP bvi_get_code_labels es)))`
   (wf_rel_tac`measure exp_size`
    \\ simp[bviTheory.exp_size_def]
    \\ rpt conj_tac \\ rpt gen_tac
@@ -821,7 +255,7 @@ Theorem data_get_code_labels_mk_ticks
    \\ rw[]);
 
 Theorem data_get_code_labels_iAssign[simp]
-  `∀a b c d e. data_get_code_labels (iAssign a b c d e) = assign_get_code_label b`
+  `∀a b c d e. data_get_code_labels (iAssign a b c d e) = closLang$assign_get_code_label b`
   (rw[bvi_to_dataTheory.iAssign_def]
   \\ EVAL_TAC);
 
@@ -845,7 +279,7 @@ Theorem data_get_code_labels_compile_TODO_move2
 Theorem compile_prog_good_code_labels
   `∀p. bvi_good_code_labels p ⇒ data_good_code_labels (bvi_to_data$compile_prog p)`
   (simp[bvi_to_dataTheory.compile_prog_def]
-  \\ simp[data_good_code_labels_def, MAP_MAP_o, o_DEF, LAMBDA_PROD]
+  \\ simp[dataPropsTheory.good_code_labels_def, MAP_MAP_o, o_DEF, LAMBDA_PROD]
   \\ simp[bvi_to_dataTheory.compile_part_def]
   \\ simp[FST_triple]
   \\ simp[bvi_good_code_labels_def]
@@ -881,7 +315,7 @@ Theorem bvi_get_code_labels_rewrite
   \\ fs[CaseEq"option"] \\ rveq
   \\ fs[bvi_tailrecTheory.check_op_def,CaseEq"option",CaseEq"prod",CaseEq"bool"] \\ rveq \\ fs[]
   \\ rveq \\ fs[bvi_tailrecTheory.apply_op_def] \\ rw[] \\ fs[SUBSET_DEF]
-  \\ Cases_on`opr` \\ fs[bvi_tailrecTheory.to_op_def, assign_get_code_label_def]
+  \\ Cases_on`opr` \\ fs[bvi_tailrecTheory.to_op_def, closLangTheory.assign_get_code_label_def]
   \\ fs[bvi_tailrecTheory.opbinargs_def, bvi_tailrecTheory.get_bin_args_def]
   \\ imp_res_tac bvi_tailrecProofTheory.is_rec_term_ok \\ fs[]
   \\ TRY(metis_tac[])
@@ -889,11 +323,11 @@ Theorem bvi_get_code_labels_rewrite
   \\ rename1`Call _ opt _ _`
   \\ Cases_on`opt` \\ fs[bvi_tailrecTheory.is_rec_def]
   \\ fs[bvi_tailrecTheory.args_from_def,bvi_tailrecTheory.push_call_def]
-  \\ fs[bvi_tailrecTheory.apply_op_def, bvi_tailrecTheory.to_op_def, assign_get_code_label_def]
+  \\ fs[bvi_tailrecTheory.apply_op_def, bvi_tailrecTheory.to_op_def, closLangTheory.assign_get_code_label_def]
   \\ fs[bvi_tailrecTheory.try_swap_def, bvi_tailrecTheory.opbinargs_def]
   \\ fs[CaseEq"bool",CaseEq"option"] \\ rveq
   \\ fs[CaseEq"option",bvi_tailrecTheory.get_bin_args_def,CaseEq"bool",bvi_tailrecTheory.apply_op_def] \\ rveq \\ fs[]
-  \\ fs[PULL_EXISTS, assign_get_code_label_def]
+  \\ fs[PULL_EXISTS, closLangTheory.assign_get_code_label_def]
   \\ TRY(EVAL_TAC \\ rw[] \\ NO_TAC)
   \\ fsrw_tac[DNF_ss][PULL_EXISTS]
   \\ metis_tac[]);
@@ -913,7 +347,7 @@ Theorem bvi_get_code_labels_compile_exp
   \\ pairarg_tac \\ fs[] \\ rveq
   \\ drule bvi_get_code_labels_rewrite
   \\ simp[] \\ strip_tac
-  \\ Cases_on`op` \\ simp[bvi_tailrecTheory.id_from_op_def, assign_get_code_label_def]
+  \\ Cases_on`op` \\ simp[bvi_tailrecTheory.id_from_op_def, closLangTheory.assign_get_code_label_def]
   \\ EVAL_TAC);
 
 Theorem TODO_MOVE_1_compile_prog_good_code_labels
@@ -985,15 +419,15 @@ Theorem compile_int_code_labels[simp]
   (recInduct bvl_to_bviTheory.compile_int_ind
   \\ rw[]
   \\ rw[Once bvl_to_bviTheory.compile_int_def]
-  \\ rw[assign_get_code_label_def]);
+  \\ rw[closLangTheory.assign_get_code_label_def]);
 
 Theorem compile_op_code_labels
   `bvi_get_code_labels (compile_op op c) ⊆
     BIGUNION (set (MAP bvi_get_code_labels c)) ∪
-    IMAGE (λn. bvl_num_stubs + n * bvl_to_bvi_namespaces) (assign_get_code_label op) ∪
+    IMAGE (λn. bvl_num_stubs + n * bvl_to_bvi_namespaces) (closLang$assign_get_code_label op) ∪
     set (MAP FST (bvl_to_bvi$stubs x y))`
   (simp[bvl_to_bviTheory.compile_op_def, bvl_to_bviTheory.stubs_def, SUBSET_DEF]
-  \\ every_case_tac \\ fs[assign_get_code_label_def, REPLICATE_GENLIST, PULL_EXISTS, MAPi_GENLIST, MEM_GENLIST]
+  \\ every_case_tac \\ fs[closLangTheory.assign_get_code_label_def, REPLICATE_GENLIST, PULL_EXISTS, MAPi_GENLIST, MEM_GENLIST]
   \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS] \\ metis_tac[]);
 
 Theorem dest_var_code_labels[simp]
@@ -1298,16 +732,16 @@ Theorem dest_simple_SOME_code_labels
 
 Theorem SmartOp2_code_labels[simp]
   `bvl_get_code_labels (SmartOp2 (op,x1,x2)) =
-    assign_get_code_label op ∪ bvl_get_code_labels x1 ∪ bvl_get_code_labels x2`
-  (rw[bvl_constTheory.SmartOp2_def, assign_get_code_label_def]
-  \\ rpt(PURE_CASE_TAC \\ simp[assign_get_code_label_def])
+    closLang$assign_get_code_label op ∪ bvl_get_code_labels x1 ∪ bvl_get_code_labels x2`
+  (rw[bvl_constTheory.SmartOp2_def, closLangTheory.assign_get_code_label_def]
+  \\ rpt(PURE_CASE_TAC \\ simp[closLangTheory.assign_get_code_label_def])
   \\ imp_res_tac dest_simple_SOME_code_labels \\ fs[]
   \\ fs[bvl_constTheory.case_op_const_def, CaseEq"option", CaseEq"closLang$op", CaseEq"bvl$exp", CaseEq"list", NULL_EQ]
-  \\ rveq \\ fs[assign_get_code_label_def,bvlTheory.Bool_def]
+  \\ rveq \\ fs[closLangTheory.assign_get_code_label_def,bvlTheory.Bool_def]
   \\ simp[EXTENSION] \\ metis_tac[]);
 
 Theorem SmartOp_code_labels[simp]
-  `bvl_get_code_labels (SmartOp op xs) = assign_get_code_label op ∪ BIGUNION (set (MAP bvl_get_code_labels xs))`
+  `bvl_get_code_labels (SmartOp op xs) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP bvl_get_code_labels xs))`
   (rw[bvl_constTheory.SmartOp_def]
   \\ PURE_CASE_TAC \\ simp[]
   \\ PURE_CASE_TAC \\ simp[]
@@ -1316,7 +750,7 @@ Theorem SmartOp_code_labels[simp]
   \\ PURE_TOP_CASE_TAC \\ fs[]
   >- ( rw[EXTENSION] \\ metis_tac[] )
   \\ imp_res_tac dest_simple_SOME_code_labels
-  \\ rw[assign_get_code_label_def]);
+  \\ rw[closLangTheory.assign_get_code_label_def]);
 
 Theorem MEM_extract_list_code_labels
   `∀xs x. MEM (SOME x) (extract_list xs) ⇒ bvl_get_code_labels x = {}`
@@ -1472,7 +906,7 @@ Theorem tick_inline_code_labels
     \\ fs [bvl_inlineTheory.LENGTH_tick_inline] \\ rw []
     \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac [])
   \\ TRY
-   (rename1 `assign_get_code_label op`
+   (rename1 `closLang$assign_get_code_label op`
     \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac [])
   \\ TRY (* what... *)
    (rename1 `option_CASE dest`
@@ -1537,8 +971,8 @@ Theorem set_MAP_code_sort
   \\ imp_res_tac MEM_PERM \\ fs[]);
 
 Theorem assign_get_code_label_compile_op
-  `assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`
-  (Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, assign_get_code_label_def]);
+  `closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`
+  (Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, closLangTheory.assign_get_code_label_def]);
 
 val clos_get_code_labels_def = tDefine"bvl_get_code_labels" `
   (clos_get_code_labels (Var _ _) = {}) ∧
@@ -1570,7 +1004,7 @@ val clos_get_code_labels_def = tDefine"bvl_get_code_labels" `
     BIGUNION (set (MAP clos_get_code_labels (MAP SND es)))) ∧
   (clos_get_code_labels (Op _ op es) =
     BIGUNION (set (MAP clos_get_code_labels es)) ∪
-    assign_get_code_label op)`
+    closLang$assign_get_code_label op)`
   (wf_rel_tac `measure exp_size`
    \\ simp [closLangTheory.exp_size_def]
    \\ rpt conj_tac \\ rpt gen_tac
@@ -1596,7 +1030,7 @@ Theorem recc_Lets_code_labels
    IMAGE (λj. n + 2 * j) (count k) ∪ bvl_get_code_labels rest`
   (recInduct clos_to_bvlTheory.recc_Lets_ind \\ rw[]
   \\ rw[Once clos_to_bvlTheory.recc_Lets_def] \\ fs[]
-  \\ fs[clos_to_bvlTheory.recc_Let_def, assign_get_code_label_def]
+  \\ fs[clos_to_bvlTheory.recc_Let_def, closLangTheory.assign_get_code_label_def]
   \\ rw[Once EXTENSION]
   \\ Cases_on`k` \\ fs[]
   \\ fsrw_tac[DNF_ss][EQ_IMP_THM, PULL_EXISTS,ADD1] \\ rw[ADD1]
@@ -1626,12 +1060,12 @@ Theorem compile_exps_code_labels
   \\ rw [clos_to_bvlTheory.compile_exps_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ imp_res_tac clos_to_bvlTheory.compile_exps_SING \\ rveq \\ fs []
-  \\ fs[assign_get_code_label_def]
+  \\ fs[closLangTheory.assign_get_code_label_def]
   \\ fs[MAP_GENLIST, o_DEF]
   \\ TRY (
     CHANGED_TAC(rw[assign_get_code_label_compile_op])
     \\ CASE_TAC \\ fs[]
-    \\ Cases_on`op` \\ fs[assign_get_code_label_def]
+    \\ Cases_on`op` \\ fs[closLangTheory.assign_get_code_label_def]
     \\ fsrw_tac[DNF_ss][]
     \\ NO_TAC )
   \\ TRY (
@@ -1640,7 +1074,7 @@ Theorem compile_exps_code_labels
     \\ metis_tac[] )
   \\ TRY (
     reverse PURE_CASE_TAC
-    \\ fs[clos_to_bvlTheory.mk_cl_call_def, assign_get_code_label_def, MAP_GENLIST, o_DEF]
+    \\ fs[clos_to_bvlTheory.mk_cl_call_def, closLangTheory.assign_get_code_label_def, MAP_GENLIST, o_DEF]
     \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST, clos_to_bvlTheory.generic_app_fn_location_def]
     \\ rw[]
     >- (
@@ -1656,29 +1090,29 @@ Theorem compile_exps_code_labels
     \\ fs[] \\ NO_TAC)
   \\ TRY (
     reverse PURE_CASE_TAC
-    \\ fs[clos_to_bvlTheory.mk_cl_call_def, assign_get_code_label_def, MAP_GENLIST, o_DEF, IS_SOME_EXISTS]
+    \\ fs[clos_to_bvlTheory.mk_cl_call_def, closLangTheory.assign_get_code_label_def, MAP_GENLIST, o_DEF, IS_SOME_EXISTS]
     \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST, clos_to_bvlTheory.generic_app_fn_location_def]
     \\ rw[]
     \\ simp[domain_init_code, clos_to_bvlTheory.num_stubs_def]
-    \\ fs[MEM_MAP, clos_to_bvlTheory.free_let_def, MEM_GENLIST] \\ rveq \\ fs[assign_get_code_label_def]
+    \\ fs[MEM_MAP, clos_to_bvlTheory.free_let_def, MEM_GENLIST] \\ rveq \\ fs[closLangTheory.assign_get_code_label_def]
     \\ NO_TAC)
   \\ TRY (
     fs[IS_SOME_EXISTS] \\ rveq \\ fs[]
     \\ CHANGED_TAC(fs[CaseEq"list"]) \\ rveq \\ fs[]
     \\ TRY (
-      CHANGED_TAC(fs[CaseEq"prod"]) \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[assign_get_code_label_def]
+      CHANGED_TAC(fs[CaseEq"prod"]) \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[closLangTheory.assign_get_code_label_def]
       \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
       \\ imp_res_tac clos_to_bvlTheory.compile_exps_SING \\ rveq \\ fs[] \\ rveq \\ rw[]
       \\ fs[clos_to_bvlTheory.build_aux_def, clos_to_bvlTheory.build_recc_lets_def]
       \\ rveq \\ fs[MEM_GENLIST, clos_to_bvlTheory.free_let_def,MEM_MAP, clos_to_bvlTheory.recc_Let0_def]
-      \\ fsrw_tac[DNF_ss][assign_get_code_label_def]
+      \\ fsrw_tac[DNF_ss][closLangTheory.assign_get_code_label_def]
       \\ metis_tac[] )
     \\ pairarg_tac \\ fs[]
     \\ pairarg_tac \\ fs[]
     \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS]
-    \\ simp[clos_to_bvlTheory.build_recc_lets_def, assign_get_code_label_def]
-    \\ fsrw_tac[DNF_ss][MEM_MAP, PULL_EXISTS, assign_get_code_label_def]
-    \\ simp[clos_to_bvlTheory.recc_Let0_def, assign_get_code_label_def]
+    \\ simp[clos_to_bvlTheory.build_recc_lets_def, closLangTheory.assign_get_code_label_def]
+    \\ fsrw_tac[DNF_ss][MEM_MAP, PULL_EXISTS, closLangTheory.assign_get_code_label_def]
+    \\ simp[clos_to_bvlTheory.recc_Let0_def, closLangTheory.assign_get_code_label_def]
     \\ rw[]
     \\ TRY ( rpt disj1_tac \\ qexists_tac`SUC (LENGTH v7)` \\ simp[] \\ NO_TAC )
     \\ fs[recc_Lets_code_labels]
@@ -1694,7 +1128,7 @@ Theorem compile_exps_code_labels
       \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH
       \\ fs[MAP2_MAP, MEM_MAP, UNCURRY]
       \\ fs[clos_to_bvlTheory.code_for_recc_case_def, SND_EQ_EQUIV]
-      \\ rveq \\ fs[assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[assign_get_code_label_def]
+      \\ rveq \\ fs[closLangTheory.assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[closLangTheory.assign_get_code_label_def]
       \\ fs[MEM_ZIP] \\ rveq \\ fs[]
       \\ fs[clos_to_bvlTheory.compile_exps_def] \\ rveq \\ fs[]
       \\ `MEM (EL n (c1 ++ c2)) (c1 ++ c2)` by (
@@ -1731,7 +1165,7 @@ Theorem bvl_get_code_labels_JumpList
   `∀n xs. bvl_get_code_labels (JumpList n xs) = BIGUNION (set (MAP bvl_get_code_labels xs))`
   (recInduct bvl_jumpTheory.JumpList_ind
   \\ rw[]
-  \\ rw[Once  bvl_jumpTheory.JumpList_def, assign_get_code_label_def]
+  \\ rw[Once  bvl_jumpTheory.JumpList_def, closLangTheory.assign_get_code_label_def]
   \\ fs[LENGTH_EQ_NUM_compute]
   \\ Q.ISPECL_THEN[`LENGTH xs DIV 2`,`xs`]
        ((fn th => CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[th]))) o SYM)TAKE_DROP
@@ -1762,7 +1196,7 @@ Theorem clos_get_code_labels_alt_free
   (recInduct clos_annotateTheory.alt_free_ind
   \\ rw[clos_annotateTheory.alt_free_def]
   \\ rpt(pairarg_tac \\ fs[])
-  \\ rw[] \\ fs[map_replicate, clos_annotateTheory.const_0_def, assign_get_code_label_def]
+  \\ rw[] \\ fs[map_replicate, clos_annotateTheory.const_0_def, closLangTheory.assign_get_code_label_def]
   \\ fs[SUBSET_DEF, PULL_EXISTS]
   \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[MEM_REPLICATE_EQ]
   \\ fs[MEM_MAP, PULL_EXISTS, FORALL_PROD, UNCURRY, clos_annotateTheory.HD_FST_alt_free]
@@ -1806,7 +1240,7 @@ Theorem clos_get_code_labels_chain_exps
    BIGUNION (set (MAP (clos_get_code_labels) es)) ∪
    IMAGE ((+) n) (count (LENGTH es) DELETE 0)`
   (recInduct clos_to_bvlTheory.chain_exps_ind
-  \\ rw[clos_to_bvlTheory.chain_exps_def, assign_get_code_label_def]
+  \\ rw[clos_to_bvlTheory.chain_exps_def, closLangTheory.assign_get_code_label_def]
   >- ( EVAL_TAC \\ simp[] )
   \\ simp[Once EXTENSION, PULL_EXISTS, MEM_MAP, ADD1]
   \\ rw[EQ_IMP_THM] \\ fs[]
@@ -1826,7 +1260,7 @@ Theorem clos_get_code_labels_code_locs
   >- ( rw[EXTENSION] \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] )
-  >- ( Cases_on`op` \\ fs[assign_get_code_label_def] )
+  >- ( Cases_on`op` \\ fs[closLangTheory.assign_get_code_label_def] )
   >- (
     rw[EXTENSION]
     \\ PURE_TOP_CASE_TAC \\ fs[]
@@ -2060,7 +1494,7 @@ Theorem clos_get_code_labels_mk_Ticks[simp]
 Theorem clos_get_code_labels_remove_fvs[simp]
   `∀n es. MAP clos_get_code_labels (remove_fvs n es) = MAP clos_get_code_labels es`
   (recInduct clos_fvsTheory.remove_fvs_ind
-  \\ rw[clos_fvsTheory.remove_fvs_def] \\ fs[assign_get_code_label_def]
+  \\ rw[clos_fvsTheory.remove_fvs_def] \\ fs[closLangTheory.assign_get_code_label_def]
   \\ AP_TERM_TAC
   \\ AP_TERM_TAC
   \\ AP_TERM_TAC
@@ -3470,9 +2904,9 @@ Theorem compile_correct
     \\ conj_tac >- (
       reverse conj_tac
       >- (
-        simp[clos_to_bvlTheory.init_globals_def, assign_get_code_label_def]
+        simp[clos_to_bvlTheory.init_globals_def, closLangTheory.assign_get_code_label_def]
         \\ simp[clos_to_bvlTheory.partial_app_fn_location_def]
-        \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_FLAT, MEM_GENLIST, assign_get_code_label_def, domain_init_code]
+        \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_FLAT, MEM_GENLIST, closLangTheory.assign_get_code_label_def, domain_init_code]
         \\ conj_tac
         >- (
           rw[]
@@ -3510,11 +2944,11 @@ Theorem compile_correct
       >- (
         pop_assum mp_tac
         \\ simp[clos_to_bvlTheory.generate_generic_app_def]
-        \\ simp[assign_get_code_label_def, bvl_get_code_labels_def,
+        \\ simp[closLangTheory.assign_get_code_label_def, bvl_get_code_labels_def,
                 bvl_jumpTheory.Jump_def,
                 clos_to_bvlTheory.partial_app_fn_location_code_def]
         \\ simp[MEM_MAP, MEM_GENLIST, PULL_EXISTS, bvl_get_code_labels_JumpList]
-        \\ simp[assign_get_code_label_def, clos_to_bvlTheory.mk_cl_call_def]
+        \\ simp[closLangTheory.assign_get_code_label_def, clos_to_bvlTheory.mk_cl_call_def]
         \\ simp[MEM_MAP, PULL_EXISTS, MEM_GENLIST]
         \\ simp[clos_to_bvlTheory.generic_app_fn_location_def] )
       \\ qmatch_asmsub_abbrev_tac`EL _ ls = z`
@@ -3527,7 +2961,7 @@ Theorem compile_correct
       \\ simp[MEM_FLAT, Abbr`ls`, MEM_GENLIST, PULL_EXISTS,Abbr`z`]
       \\ simp[clos_to_bvlTheory.generate_partial_app_closure_fn_def]
       \\ rw[]
-      \\ fs[assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[assign_get_code_label_def] )
+      \\ fs[closLangTheory.assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[closLangTheory.assign_get_code_label_def] )
     \\ fs[clos_to_bvlTheory.compile_common_def]
     \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
     \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`] compile_prog_code_labels)mp_tac
