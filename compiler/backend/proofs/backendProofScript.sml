@@ -1,6 +1,7 @@
 (*
   Composes the correctness theorems for all of the compiler phases.
 *)
+
 open preamble primSemEnvTheory semanticsPropsTheory
      backendTheory
      source_to_flatProofTheory
@@ -147,9 +148,11 @@ val _ = temp_overload_on("stack_remove_prog_comp",``stack_remove$prog_comp``);
 val _ = temp_overload_on("stack_alloc_prog_comp",``stack_alloc$prog_comp``);
 val _ = temp_overload_on("stack_names_prog_comp",``stack_names$prog_comp``);
 
-val _ = temp_overload_on("bvl_get_code_labels",``bvlProps$get_code_labels``);
-
-(* TODO: move things that need moving *)
+(* TODO: remove when theorems are moved *)
+val _ = temp_overload_on("obeys_max_app",``closProps$obeys_max_app``);
+val _ = temp_overload_on("no_Labels",``closProps$no_Labels``);
+val _ = temp_overload_on("every_Fn_SOME",``closProps$every_Fn_SOME``);
+val _ = temp_overload_on("code_locs",``closProps$code_locs``);
 
 (* TODO re-define syntax_ok on terms of things in closPropsTheory
  * (invent new properties), and prove elsewhere
@@ -176,301 +179,6 @@ Theorem syntax_ok_MAP_pat_to_clos
   \\ once_rewrite_tac [clos_mtiProofTheory.syntax_ok_cons]
   \\ fs [syntax_ok_pat_to_clos]);
 
-val clos_get_code_labels_def = tDefine"bvl_get_code_labels" `
-  (clos_get_code_labels (Var _ _) = {}) ∧
-  (clos_get_code_labels (If _ e1 e2 e3) =
-    clos_get_code_labels e1 ∪
-    clos_get_code_labels e2 ∪
-    clos_get_code_labels e3) ∧
-  (clos_get_code_labels (Let _ es e) =
-    BIGUNION (set (MAP clos_get_code_labels es)) ∪
-    clos_get_code_labels e) ∧
-  (clos_get_code_labels (Raise _ e) = clos_get_code_labels e) ∧
-  (clos_get_code_labels (Handle _ e1 e2) =
-    clos_get_code_labels e1 ∪
-    clos_get_code_labels e2) ∧
-  (clos_get_code_labels (Tick _ e) = clos_get_code_labels e) ∧
-  (clos_get_code_labels (Call _ _ l es) =
-    {l} ∪ BIGUNION (set (MAP clos_get_code_labels es))) ∧
-  (clos_get_code_labels (App _ l e es) =
-    (case l of NONE => {} | SOME n => {n}) ∪
-    clos_get_code_labels e ∪
-    BIGUNION (set (MAP clos_get_code_labels es))) ∧
-  (clos_get_code_labels (Fn _ l _ _ e) =
-   (case l of NONE => {} | SOME n => {n}) ∪
-   clos_get_code_labels e) ∧
-  (clos_get_code_labels (Letrec _ l _ es e) =
-   (case l of NONE => {} | SOME n =>
-     IMAGE (λk. n + 2 * k) (count (LENGTH es))) ∪
-    clos_get_code_labels e ∪
-    BIGUNION (set (MAP clos_get_code_labels (MAP SND es)))) ∧
-  (clos_get_code_labels (Op _ op es) =
-    BIGUNION (set (MAP clos_get_code_labels es)) ∪
-    closLang$assign_get_code_label op)`
-  (wf_rel_tac `measure exp_size`
-   \\ simp [closLangTheory.exp_size_def]
-   \\ rpt conj_tac \\ rpt gen_tac
-   \\ Induct_on`es`
-   \\ rw [closLangTheory.exp_size_def]
-   \\ simp [] \\ res_tac \\ simp []);
-
-val clos_get_code_labels_def =
-  clos_get_code_labels_def
-  |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "clos_get_code_labels_def[simp]"
-
-(* TODO: remove when theorems are moved *)
-val _ = temp_overload_on("obeys_max_app",``closProps$obeys_max_app``);
-val _ = temp_overload_on("no_Labels",``closProps$no_Labels``);
-val _ = temp_overload_on("every_Fn_SOME",``closProps$every_Fn_SOME``);
-val _ = temp_overload_on("app_call_dests",``closProps$app_call_dests``);
-val _ = temp_overload_on("code_locs",``closProps$code_locs``);
-val _ = temp_overload_on("any_dests",``closProps$app_call_dests NONE``);
-
-Theorem compile_exps_code_labels
-  `!app es1 aux1 es2 aux2.
-     compile_exps app es1 aux1 = (es2, aux2) ∧
-     EVERY no_Labels es1 ∧ 0 < app ∧ EVERY (obeys_max_app app) es1 ∧ every_Fn_SOME es1
-     ==>
-     BIGUNION (set (MAP bvl_get_code_labels es2)) ∪
-     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) aux2))
-     ⊆
-     IMAGE (((+) (num_stubs app))) (BIGUNION (set (MAP clos_get_code_labels es1))) ∪
-     BIGUNION (set (MAP (bvl_get_code_labels o SND o SND) aux1)) ∪
-     domain (init_code app)`
-  (recInduct clos_to_bvlTheory.compile_exps_ind
-  \\ rw [clos_to_bvlTheory.compile_exps_def] \\ rw []
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ imp_res_tac clos_to_bvlTheory.compile_exps_SING \\ rveq \\ fs []
-  \\ fs[closLangTheory.assign_get_code_label_def]
-  \\ fs[MAP_GENLIST, o_DEF]
-  \\ TRY (
-    CHANGED_TAC(rw[clos_to_bvlProofTheory.assign_get_code_label_compile_op])
-    \\ CASE_TAC \\ fs[]
-    \\ Cases_on`op` \\ fs[closLangTheory.assign_get_code_label_def]
-    \\ fsrw_tac[DNF_ss][]
-    \\ NO_TAC )
-  \\ TRY (
-    fs[SUBSET_DEF, PULL_EXISTS] \\ rw[]
-    \\ last_x_assum (fn th => drule th \\ disch_then drule) \\ rw[]
-    \\ metis_tac[] )
-  \\ TRY (
-    reverse PURE_CASE_TAC
-    \\ fs[clos_to_bvlTheory.mk_cl_call_def, closLangTheory.assign_get_code_label_def, MAP_GENLIST, o_DEF]
-    \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST, clos_to_bvlTheory.generic_app_fn_location_def]
-    \\ rw[]
-    >- (
-      last_x_assum (fn th => drule th \\ disch_then drule) \\ rw[]
-      \\ metis_tac[] )
-    >- metis_tac[]
-    >- (
-      last_x_assum (fn th => drule th \\ disch_then drule) \\ rw[]
-      \\ metis_tac[] )
-    >- metis_tac[]
-    \\ simp[clos_to_bvlProofTheory.domain_init_code]
-    \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH
-    \\ fs[] \\ NO_TAC)
-  \\ TRY (
-    reverse PURE_CASE_TAC
-    \\ fs[clos_to_bvlTheory.mk_cl_call_def, closLangTheory.assign_get_code_label_def, MAP_GENLIST, o_DEF, IS_SOME_EXISTS]
-    \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST, clos_to_bvlTheory.generic_app_fn_location_def]
-    \\ rw[]
-    \\ simp[clos_to_bvlProofTheory.domain_init_code, clos_to_bvlTheory.num_stubs_def]
-    \\ fs[MEM_MAP, clos_to_bvlTheory.free_let_def, MEM_GENLIST] \\ rveq \\ fs[closLangTheory.assign_get_code_label_def]
-    \\ NO_TAC)
-  \\ TRY (
-    fs[IS_SOME_EXISTS] \\ rveq \\ fs[]
-    \\ CHANGED_TAC(fs[CaseEq"list"]) \\ rveq \\ fs[]
-    \\ TRY (
-      CHANGED_TAC(fs[CaseEq"prod"]) \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[closLangTheory.assign_get_code_label_def]
-      \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
-      \\ imp_res_tac clos_to_bvlTheory.compile_exps_SING \\ rveq \\ fs[] \\ rveq \\ rw[]
-      \\ fs[clos_to_bvlTheory.build_aux_def, clos_to_bvlTheory.build_recc_lets_def]
-      \\ rveq \\ fs[MEM_GENLIST, clos_to_bvlTheory.free_let_def,MEM_MAP, clos_to_bvlTheory.recc_Let0_def]
-      \\ fsrw_tac[DNF_ss][closLangTheory.assign_get_code_label_def]
-      \\ metis_tac[] )
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS]
-    \\ simp[clos_to_bvlTheory.build_recc_lets_def, closLangTheory.assign_get_code_label_def]
-    \\ fsrw_tac[DNF_ss][MEM_MAP, PULL_EXISTS, closLangTheory.assign_get_code_label_def]
-    \\ simp[clos_to_bvlTheory.recc_Let0_def, closLangTheory.assign_get_code_label_def]
-    \\ rw[]
-    \\ TRY ( rpt disj1_tac \\ qexists_tac`SUC (LENGTH v7)` \\ simp[] \\ NO_TAC )
-    \\ fs[clos_to_bvlProofTheory.recc_Lets_code_labels]
-    \\ last_x_assum drule \\ rw[]
-    >- metis_tac[]
-    >- (
-      drule clos_to_bvlProofTheory.MEM_build_aux_imp_SND_MEM
-      \\ disch_then drule
-      \\ reverse strip_tac
-      >- (
-        fs[clos_to_bvlTheory.compile_exps_def]
-        \\ rveq \\ metis_tac[] )
-      \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH
-      \\ fs[MAP2_MAP, MEM_MAP, UNCURRY]
-      \\ fs[clos_to_bvlTheory.code_for_recc_case_def, SND_EQ_EQUIV]
-      \\ rveq \\ fs[closLangTheory.assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[closLangTheory.assign_get_code_label_def]
-      \\ fs[MEM_ZIP] \\ rveq \\ fs[]
-      \\ fs[clos_to_bvlTheory.compile_exps_def] \\ rveq \\ fs[]
-      \\ `MEM (EL n (c1 ++ c2)) (c1 ++ c2)` by (
-        simp[MEM_EL, EL_APPEND_EQN] \\ rw[]
-        \\ Cases_on`n` \\ fs[LENGTH_EQ_NUM_compute]
-        \\ rveq \\ fs[ADD1] \\ disj2_tac
-        \\ qexists_tac`n'` \\ simp[] )
-      \\ fs[]
-      \\ metis_tac[] )
-    >- metis_tac[])
-  \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST] \\ rw[] \\ metis_tac[]);
-
-Theorem compile_prog_code_labels
-  `0 < max_app ∧
-   EVERY no_Labels (MAP (SND o SND) prog) ∧
-   EVERY (obeys_max_app max_app) (MAP (SND o SND) prog) ∧
-   every_Fn_SOME (MAP (SND o SND) prog)
-   ⇒
-   BIGUNION (set (MAP (bvl_get_code_labels o SND o SND)
-                   (compile_prog max_app prog))) SUBSET
-   IMAGE (((+) (clos_to_bvl$num_stubs max_app))) (BIGUNION (set (MAP clos_get_code_labels (MAP (SND o SND) prog)))) ∪
-   domain (init_code max_app)`
-  (rw[clos_to_bvlTheory.compile_prog_def]
-  \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH \\ fs[]
-  \\ simp[MAP2_MAP]
-  \\ fs[MAP_MAP_o, o_DEF, UNCURRY]
-  \\ simp[GSYM o_DEF, GSYM MAP_MAP_o, MAP_ZIP]
-  \\ fs[MAP_MAP_o, o_DEF]
-  \\ drule compile_exps_code_labels
-  \\ simp[MAP_MAP_o, o_DEF]);
-
-Theorem clos_get_code_labels_shift
-  `∀a b c d. MAP clos_get_code_labels (shift a b c d) = MAP clos_get_code_labels a`
-  (recInduct clos_annotateTheory.shift_ind
-  \\ rw[clos_annotateTheory.shift_def] \\ fs[]
-  \\ simp[Once EXTENSION, MEM_MAP, PULL_EXISTS, UNCURRY, FORALL_PROD, EXISTS_PROD]
-  \\ rw[EQ_IMP_THM] \\ fs[]
-  \\ first_x_assum drule \\ rw[] \\ fs[]
-  \\ metis_tac[HD]);
-
-Theorem call_dests_shift[simp]
-  `∀a b c d. app_call_dests opt (shift a b c d) = app_call_dests opt a`
-  (recInduct clos_annotateTheory.shift_ind
-  \\ rw[clos_annotateTheory.shift_def, closPropsTheory.app_call_dests_def,
-        closPropsTheory.app_call_dests_append]
-  \\ fs[] \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ rw[closPropsTheory.app_call_dests_map]
-  \\ AP_TERM_TAC \\ AP_TERM_TAC
-  \\ rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]);
-
-Theorem clos_get_code_labels_alt_free
-  `∀xs. BIGUNION (set (MAP clos_get_code_labels (FST (alt_free xs)))) ⊆
-        BIGUNION (set (MAP clos_get_code_labels xs))`
-  (recInduct clos_annotateTheory.alt_free_ind
-  \\ rw[clos_annotateTheory.alt_free_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ rw[] \\ fs[map_replicate, clos_annotateTheory.const_0_def, closLangTheory.assign_get_code_label_def]
-  \\ fs[SUBSET_DEF, PULL_EXISTS]
-  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[MEM_REPLICATE_EQ]
-  \\ fs[MEM_MAP, PULL_EXISTS, FORALL_PROD, UNCURRY, clos_annotateTheory.HD_FST_alt_free]
-  \\ rw[Once(GSYM clos_annotateTheory.HD_FST_alt_free)]
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ impl_tac >- metis_tac[clos_annotateTheory.HD_FST_alt_free, MEM]
-  \\ metis_tac[SND]);
-
-Theorem clos_get_code_labels_code_locs
-  `∀xs. EVERY no_Labels xs ∧ every_Fn_SOME xs ⇒
-        BIGUNION (set (MAP clos_get_code_labels xs)) =
-        set (code_locs xs) ∪ any_dests xs`
-  (recInduct closPropsTheory.code_locs_ind
-  \\ rw[closPropsTheory.code_locs_def, closPropsTheory.app_call_dests_def] \\ fs[]
-  >- ( rw[EXTENSION] \\ metis_tac[] )
-  >- ( rw[EXTENSION] \\ metis_tac[] )
-  >- ( rw[EXTENSION] \\ metis_tac[] )
-  >- ( Cases_on`op` \\ fs[closLangTheory.assign_get_code_label_def] )
-  >- (
-    rw[EXTENSION]
-    \\ PURE_TOP_CASE_TAC \\ fs[]
-    \\ metis_tac[] )
-  >- (
-    fs[IS_SOME_EXISTS]
-    \\ rw[EXTENSION]
-    \\ metis_tac[] )
-  >- (
-    fs[IS_SOME_EXISTS]
-    \\ fs[MAP_MAP_o]
-    \\ rw[EXTENSION, MEM_GENLIST, MEM_MAP, PULL_EXISTS, closPropsTheory.code_locs_map, MEM_FLAT]
-    \\ metis_tac[] )
-  >- ( rw[EXTENSION] \\ metis_tac[] )
-  >- ( rw[EXTENSION] \\ metis_tac[] ));
-
-Theorem no_Labels_ann
-  `!xs.
-      EVERY no_Labels (MAP (SND o SND) xs) ==>
-      EVERY no_Labels (MAP (SND ∘ SND) (clos_annotate$compile xs))`
-  (fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
-  \\ rw [] \\ res_tac \\ fs []
-  \\ rename [`(x1,x2,x3)`]
-  \\ `?t. annotate x2 [x3] = [t]` by
-    (fs [clos_annotateTheory.annotate_def]
-     \\ Cases_on `alt_free [x3]` \\ fs []
-     \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs [] \\ rveq
-     \\ metis_tac [clos_annotateTheory.shift_SING])
-  \\ fs []
-  \\ qspecl_then [`x2`,`[x3]`] mp_tac clos_annotateProofTheory.annotate_no_Labels
-  \\ fs []);
-
-Theorem obeys_max_app_ann
-  `!xs.
-      EVERY (obeys_max_app m) (MAP (SND o SND) xs) ==>
-      EVERY (obeys_max_app m) (MAP (SND ∘ SND) (clos_annotate$compile xs))`
-  (fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
-  \\ rw [] \\ res_tac \\ fs []
-  \\ rename [`(x1,x2,x3)`]
-  \\ `?t. annotate x2 [x3] = [t]` by
-    (fs [clos_annotateTheory.annotate_def]
-     \\ Cases_on `alt_free [x3]` \\ fs []
-     \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs [] \\ rveq
-     \\ metis_tac [clos_annotateTheory.shift_SING])
-  \\ fs []
-  \\ qspecl_then [`x2`,`[x3]`] mp_tac clos_annotateProofTheory.annotate_obeys_max_app
-  \\ fs []);
-
-Theorem every_Fn_SOME_ann
-  `!xs.
-      every_Fn_SOME (MAP (SND o SND) xs) ==>
-      every_Fn_SOME (MAP (SND ∘ SND) (clos_annotate$compile xs))`
-  (fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
-  \\ rw [] \\ res_tac \\ fs [] \\ fs [MAP_MAP_o,o_DEF,UNCURRY]
-  \\ Induct_on `xs` \\ fs []
-  \\ once_rewrite_tac [closPropsTheory.every_Fn_SOME_APPEND
-      |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
-  \\ fs [] \\ rw []
-  \\ fs [clos_to_bvlProofTheory.HD_annotate_SING]
-  \\ match_mp_tac clos_annotateProofTheory.every_Fn_SOME_annotate \\ fs []);
-
-Theorem chain_exps_no_Labels
-  `!es l. EVERY no_Labels es ==>
-           EVERY no_Labels (MAP (SND ∘ SND) (chain_exps l es))`
-  (Induct_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
-  \\ Cases_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]);
-
-Theorem chain_exps_obeys_max_app
-  `!es l. EVERY (obeys_max_app k) es ==>
-           EVERY (obeys_max_app k) (MAP (SND ∘ SND) (chain_exps l es))`
-  (Induct_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
-  \\ Cases_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]);
-
-Theorem chain_exps_every_Fn_SOME
-  `!es l. every_Fn_SOME es ==>
-           every_Fn_SOME (MAP (SND ∘ SND) (chain_exps l es))`
-  (Induct_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
-  \\ Cases_on `es` \\ fs [clos_to_bvlTheory.chain_exps_def]
-  \\ rw [] \\ res_tac \\ fs []
-  \\ once_rewrite_tac [closPropsTheory.every_Fn_SOME_APPEND
-      |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
-  \\ fs []);
-
 Theorem syntax_ok_IMP_obeys_max_app
   `!e3. 0 < m /\ clos_mtiProof$syntax_ok e3 ==> EVERY (obeys_max_app m) e3`
   (ho_match_mp_tac clos_mtiProofTheory.syntax_ok_ind \\ rpt strip_tac \\ fs []
@@ -478,6 +186,7 @@ Theorem syntax_ok_IMP_obeys_max_app
   \\ fs [] \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
   \\ rw [] \\ res_tac);
 
+(* TODO: move these *)
 Theorem compile_common_syntax
   `!cf e3 cf1 e4.
       clos_to_bvl$compile_common cf e3 = (cf1,e4) ==>
@@ -504,9 +213,9 @@ Theorem compile_common_syntax
     \\ TRY (drule clos_callProofTheory.calls_no_Labels
             \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
     \\ match_mp_tac clos_labelsProofTheory.no_Labels_labs
-    \\ match_mp_tac no_Labels_ann
+    \\ match_mp_tac clos_annotateProofTheory.no_Labels_ann
     \\ fs [clos_callProofTheory.state_syntax_def]
-    \\ rw [] \\ TRY (match_mp_tac chain_exps_no_Labels \\ fs [])
+    \\ rw [] \\ TRY (match_mp_tac clos_to_bvlProofTheory.chain_exps_no_Labels \\ fs [])
     \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
     \\ rw [] \\ res_tac \\ fs [])
   THEN1 (* obeys_max_app *)
@@ -529,9 +238,9 @@ Theorem compile_common_syntax
             \\ disch_then (qspec_then `cf.max_app` mp_tac)
             \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
     \\ match_mp_tac clos_labelsProofTheory.obeys_max_app_labs
-    \\ match_mp_tac obeys_max_app_ann
+    \\ match_mp_tac clos_annotateProofTheory.obeys_max_app_ann
     \\ fs [clos_callProofTheory.state_syntax_def]
-    \\ rw [] \\ TRY (match_mp_tac chain_exps_obeys_max_app \\ fs [])
+    \\ rw [] \\ TRY (match_mp_tac clos_to_bvlProofTheory.chain_exps_obeys_max_app \\ fs [])
     \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
     \\ rw [] \\ res_tac \\ fs [])
   \\ rename [`renumber_code_locs_list r1 r2`]
@@ -555,299 +264,14 @@ Theorem compile_common_syntax
   \\ TRY (drule clos_callProofTheory.calls_preserves_every_Fn_SOME
           \\ impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ strip_tac \\ fs [])
   \\ match_mp_tac clos_labelsProofTheory.every_Fn_SOME_labs
-  \\ match_mp_tac every_Fn_SOME_ann
+  \\ match_mp_tac clos_annotateProofTheory.every_Fn_SOME_ann
   \\ fs [closPropsTheory.every_Fn_SOME_APPEND]
-  \\ match_mp_tac chain_exps_every_Fn_SOME \\ fs []);
-
-Theorem var_list_code_labels_imp_TODO_move
-  `∀n x y. var_list n x y ⇒ BIGUNION (set (MAP clos_get_code_labels x)) = {}`
-  (recInduct clos_letopTheory.var_list_ind
-  \\ rw[clos_letopTheory.var_list_def] \\ fs[]);
-
-Theorem let_op_get_code_labels[simp]
-  `∀es. MAP clos_get_code_labels (let_op es) = MAP clos_get_code_labels es`
-  (recInduct clos_letopTheory.let_op_ind
-  \\ rw[clos_letopTheory.let_op_def] \\ fs[]
-  >- (
-    PURE_TOP_CASE_TAC \\ fs[]
-    \\ qmatch_assum_rename_tac`dest_op op _ = _`
-    \\ Cases_on`op` \\ fs[clos_letopTheory.dest_op_def] \\ rveq
-    \\ imp_res_tac var_list_code_labels_imp_TODO_move \\ fs[])
-  \\ fs[MAP_MAP_o, UNCURRY, o_DEF]
-  \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
-  \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
-  \\ res_tac \\ fs[]);
-
-Theorem remove_ticks_code_labels[simp]
-  `∀es. MAP clos_get_code_labels (remove_ticks es) = MAP clos_get_code_labels es`
-  (recInduct clos_ticksTheory.remove_ticks_ind
-  \\ rw[clos_ticksTheory.remove_ticks_def] \\ fs[]
-  \\ fs[MAP_MAP_o, UNCURRY, o_DEF]
-  \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
-  \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
-  \\ res_tac \\ fs[]);
-
-val val_approx_labels_def = tDefine"val_approx_labels"`
-  val_approx_labels (ClosNoInline loc _) = {loc} ∧
-  val_approx_labels (Clos loc _ body _) = loc INSERT (clos_get_code_labels body) ∧
-  val_approx_labels (Tuple _ ls) = BIGUNION (set (MAP val_approx_labels ls)) ∧
-  val_approx_labels _ = {}`
- (wf_rel_tac`measure val_approx_size`
-  \\ gen_tac \\ Induct \\ rw[clos_knownTheory.val_approx_size_def]
-  \\ res_tac \\ rw[]);
-
-Theorem val_approx_labels_merge
-  `∀x y. val_approx_labels (merge x y) ⊆ val_approx_labels x ∪ val_approx_labels y`
-  (recInduct clos_knownTheory.merge_ind
-  \\ rw[clos_knownTheory.merge_def, val_approx_labels_def]
-  \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP, MAP2_MAP, FORALL_PROD, MEM_ZIP]
-  \\ rw[] \\ fs[MEM_EL, PULL_EXISTS]
-  \\ metis_tac[]);
-
-Theorem clos_get_code_labels_mk_Ticks[simp]
-  `∀a b c d. clos_get_code_labels (mk_Ticks a b c d) = clos_get_code_labels d`
-  (recInduct clos_knownTheory.mk_Ticks_ind
-  \\ rw[]
-  \\ rw[Once clos_knownTheory.mk_Ticks_def]);
-
-Theorem clos_get_code_labels_remove_fvs[simp]
-  `∀n es. MAP clos_get_code_labels (remove_fvs n es) = MAP clos_get_code_labels es`
-  (recInduct clos_fvsTheory.remove_fvs_ind
-  \\ rw[clos_fvsTheory.remove_fvs_def] \\ fs[closLangTheory.assign_get_code_label_def]
-  \\ AP_TERM_TAC
-  \\ AP_TERM_TAC
-  \\ AP_TERM_TAC
-  \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]
-  \\ rw[]
-  \\ first_x_assum drule
-  \\ rw[] \\ fs[]);
-
-Theorem renumber_code_locs_imp_EVEN
-  `(renumber_code_locs_list n es = (n',es') ∧ EVEN n ⇒ EVEN n') ∧
-   (renumber_code_locs n e = (n',e') ∧ EVEN n ⇒ EVEN n')`
-  (rw[]
-  \\ strip_assume_tac(SPEC_ALL (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_EVEN)) \\ rfs[]
-  \\ strip_assume_tac(SPEC_ALL (CONJUNCT2 clos_numberProofTheory.renumber_code_locs_EVEN)) \\ rfs[]);
-
-Theorem renumber_code_locs_clos_get_code_labels
-  `(∀n es n' es'. renumber_code_locs_list n es = (n',es') ∧ EVERY ((=){}) (MAP clos_get_code_labels es) ∧ EVEN n ⇒
-      BIGUNION (set (MAP clos_get_code_labels es')) = { n + 2 * k | k | n + 2 * k < n' }) ∧
-   (∀n e n' e'. renumber_code_locs n e = (n',e') ∧ clos_get_code_labels e = {} ∧ EVEN n ⇒
-     clos_get_code_labels e' = { n + 2 * k | k | n + 2 * k < n' })`
-  (ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind
-  \\ rw[clos_numberTheory.renumber_code_locs_def]
-  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-  \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_imp_inc
-  \\ imp_res_tac renumber_code_locs_imp_EVEN \\ fs[]
-  >- (
-    rw[EXTENSION, EQ_IMP_THM]
-    >- ( qexists_tac`k` \\ simp[] )
-    >- (
-      `EVEN (n''-n)` by simp[EVEN_SUB]
-      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
-      \\ qexists_tac`k + m`
-      \\ simp[] )
-    >- (
-      Cases_on`2 * k + n < n''` \\ fs[]
-      \\ qpat_x_assum`EVEN _`mp_tac
-      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[]
-      \\ qpat_x_assum`EVEN n`mp_tac
-      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[]
-      \\ fs[LESS_EQ_EXISTS] \\ rveq
-      \\ qexists_tac`k-p`
-      \\ simp[] ))
-  >- (
-    rw[EXTENSION, EQ_IMP_THM]
-    >- ( qexists_tac`k` \\ simp[] )
-    >- (
-      `EVEN (n''-n)` by simp[EVEN_SUB]
-      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
-      \\ qexists_tac`k + m`
-      \\ simp[] )
-    >- (
-      `EVEN (n'''-n)` by simp[EVEN_SUB]
-      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
-      \\ qexists_tac`k + m`
-      \\ simp[] )
-    >- (
-      Cases_on`2 * k + n < n''` \\ fs[]
-      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
-      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[] \\ rw[] \\ fs[]
-      \\ fs[LESS_EQ_EXISTS] \\ rveq
-      \\ Cases_on`p' + p'' ≤ k` \\ fs[]
-      >- ( qexists_tac`k - p' - p''` \\ simp[] )
-      \\ qexists_tac`k - p''`
-      \\ simp[] ) )
-  >- (
-    rw[EXTENSION, EQ_IMP_THM]
-    >- ( qexists_tac`k` \\ simp[] )
-    >- (
-      `EVEN (n''-n)` by simp[EVEN_SUB]
-      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
-      \\ qexists_tac`k + m`
-      \\ simp[] )
-    >- (
-      Cases_on`2 * k + n < n''` \\ fs[]
-      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
-      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rw[] \\ fs[]
-      \\ fs[LESS_EQ_EXISTS] \\ rveq
-      \\ qexists_tac`k-p`
-      \\ simp[] ) )
-  >- (
-    qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac >- fs[EVERY_MEM]
-    \\ rw[]
-    \\ rw[EXTENSION, EQ_IMP_THM]
-    >- ( qexists_tac`k` \\ simp[] )
-    >- (
-      `EVEN (n''-n)` by simp[EVEN_SUB]
-      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
-      \\ qexists_tac`k + m`
-      \\ simp[] )
-    >- (
-      Cases_on`2 * k + n < n''` \\ fs[]
-      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
-      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rw[] \\ fs[]
-      \\ fs[LESS_EQ_EXISTS] \\ rveq
-      \\ qexists_tac`k-p`
-      \\ simp[] ) )
-  >- (
-    qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac >- fs[EVERY_MEM]
-    \\ rw[] )
-  >- fs[clos_numberTheory.renumber_code_locs_def]
-  >- (
-    qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac >- fs[EVERY_MEM]
-    \\ rw[]
-    \\ rw[EXTENSION, EQ_IMP_THM]
-    >- ( qexists_tac`k` \\ simp[] )
-    >- (
-      `EVEN (n''-n)` by simp[EVEN_SUB]
-      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
-      \\ qexists_tac`k + m`
-      \\ simp[] )
-    >- (
-      Cases_on`2 * k + n < n''` \\ fs[]
-      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
-      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rw[] \\ fs[]
-      \\ fs[LESS_EQ_EXISTS] \\ rveq
-      \\ qexists_tac`k-p`
-      \\ simp[] ) )
-  >- (
-    reverse(rw[EXTENSION, EQ_IMP_THM])
-    >- (
-      Cases_on`2 * k + n = n''` \\ fs[]
-      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
-      \\ rw[EVEN_EXISTS] \\ fs[]
-      \\ fs[GSYM LEFT_ADD_DISTRIB] )
-    >- ( qexists_tac`k` \\ fs[] )
-    >- (
-      rpt(qpat_x_assum`EVEN _`mp_tac)
-      \\ rw[EVEN_EXISTS] \\ fs[]
-      \\ fs[GSYM LEFT_ADD_DISTRIB]
-      \\ qexists_tac`m'-m`
-      \\ simp[] ) )
-  >- (
-    imp_res_tac clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
-    \\ fs[] \\ rveq \\ rfs[]
-    \\ qpat_x_assum`{} = _`(assume_tac o SYM) \\ fs[]
-    \\ rpt(qpat_x_assum`EVEN _`mp_tac)
-    \\ rw[EVEN_EXISTS] \\ fs[]
-    \\ rw[EXTENSION, EQ_IMP_THM]
-    >- ( qexists_tac`k + m'' - m'` \\ simp[] )
-    \\ fs[EXTENSION]
-    \\ fs[LESS_EQ_EXISTS] \\ rveq
-    \\ qexists_tac`k-p`
-    \\ simp[LEFT_ADD_DISTRIB]
-    \\ fs[LEFT_ADD_DISTRIB]
-    \\ fs[clos_numberTheory.renumber_code_locs_def] )
-  >- (
-    qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac >- (
-      fs[EVERY_MEM]
-      \\ fs[EVEN_ADD]
-      \\ fs[EVEN_EXISTS] )
-    \\ rw[]
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac >- (
-      fs[EVERY_MEM]
-      \\ fs[EXTENSION, MEM_MAP, PULL_EXISTS] )
-    \\ rw[]
-    \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH \\ fs[]
-    \\ simp[MAP_ZIP]
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac >- (
-      fs[EVERY_MEM]
-      \\ fs[EVEN_ADD]
-      \\ fs[EVEN_EXISTS] )
-    \\ rw[]
-    \\ rpt(qpat_x_assum`EVEN _`mp_tac)
-    \\ rw[EVEN_EXISTS] \\ fs[]
-    \\ fs[LESS_EQ_EXISTS] \\ rveq
-    \\ rw[EXTENSION, EQ_IMP_THM]
-    >- ( qexists_tac`k+p` \\ simp[LEFT_ADD_DISTRIB, LEFT_SUB_DISTRIB] )
-    >- ( qexists_tac`k + LENGTH fns + p` \\ simp[LEFT_ADD_DISTRIB, LEFT_SUB_DISTRIB] )
-    >- ( qexists_tac`k` \\ simp[LEFT_ADD_DISTRIB, LEFT_SUB_DISTRIB] )
-    \\ fs[]
-    \\ Cases_on`k < p` \\ fs[]
-    \\ fs[LEFT_ADD_DISTRIB]
-    \\ Cases_on`k - p < LENGTH fns` \\ fs[]
-    >- ( qexists_tac`k-p` \\ simp[] )
-    >- ( qexists_tac`k - p - LENGTH fns` \\ fs[] )
-    >- ( qexists_tac`k - p` \\ fs[] ) )
-  >- (
-    rw[EQ_IMP_THM, EXTENSION]
-    >- ( qexists_tac`k` \\ fs[] )
-    >- (
-      `EVEN (n''-n)` by simp[EVEN_SUB]
-      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
-      \\ qexists_tac`k + m`
-      \\ simp[] )
-    >- (
-      Cases_on`2 * k + n < n''` \\ fs[]
-      \\ qpat_x_assum`EVEN _`mp_tac
-      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[]
-      \\ qpat_x_assum`EVEN n`mp_tac
-      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[]
-      \\ fs[LESS_EQ_EXISTS] \\ rveq
-      \\ qexists_tac`k-p`
-      \\ simp[] )));
-
-Theorem call_dests_chain_exps
-  `!xs n. any_dests (MAP (SND ∘ SND) (chain_exps n xs)) =
-           any_dests xs UNION set (MAP ($+ (n + 1)) (COUNT_LIST (LENGTH xs - 1)))`
-  (Induct \\ fs [clos_to_bvlTheory.chain_exps_def]
-  THEN1 EVAL_TAC
-  \\ Cases_on `xs` \\ fs [clos_to_bvlTheory.chain_exps_def]
-  \\ once_rewrite_tac [closPropsTheory.app_call_dests_cons]
-  \\ simp []
-  \\ once_rewrite_tac [closPropsTheory.app_call_dests_cons]
-  \\ simp [] \\ rw[]
-  \\ qsuff_tac `MAP ($+ (n + 1)) (COUNT_LIST (SUC (LENGTH t))) =
-      n+1 :: MAP ($+ (n + 2)) (COUNT_LIST (LENGTH t))`
-  THEN1
-   (fs [AC UNION_COMM UNION_ASSOC]
-    \\ fs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ fs [])
-  \\ pop_assum kall_tac
-  \\ fs [COUNT_LIST_def]
-  \\ fs [MAP_MAP_o,o_DEF,ADD1,MAP_EQ_f]);
-
-Theorem renumber_code_locs_any_dests
-  `(!k xs n ys. renumber_code_locs_list k xs = (n,ys) ==> any_dests ys = ∅) /\
-    (!k x n y. renumber_code_locs k x = (n,y) ==> any_dests [y] = ∅)`
-  (ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind \\ rpt strip_tac
-  \\ fs [clos_numberTheory.renumber_code_locs_def] \\ rveq \\ fs []
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
-  \\ once_rewrite_tac [closPropsTheory.app_call_dests_cons] \\ fs []
-  \\ `LENGTH fns = LENGTH fns'` by
-       metis_tac [clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]
-  \\ fs [MAP_ZIP]);
+  \\ match_mp_tac clos_to_bvlProofTheory.chain_exps_every_Fn_SOME \\ fs []);
 
 Theorem compile_common_code_locs
   `!c es c1 xs.
       clos_to_bvl$compile_common c (MAP pat_to_clos_compile es) = (c1,xs) ==>
-      BIGUNION (set (MAP clos_get_code_labels (MAP (SND ∘ SND) xs))) ⊆
+      BIGUNION (set (MAP closProps$get_code_labels (MAP (SND ∘ SND) xs))) ⊆
       set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))`
   (rpt strip_tac
   \\ drule compile_common_syntax
@@ -865,7 +289,7 @@ Theorem compile_common_code_locs
   \\ fs[clos_annotateTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF]
   \\ simp[GSYM o_DEF]
   \\ simp[Once(GSYM MAP_MAP_o)]
-  \\ DEP_REWRITE_TAC[clos_get_code_labels_code_locs]
+  \\ DEP_REWRITE_TAC[closPropsTheory.get_code_labels_code_locs]
   \\ conj_tac THEN1
    (fs [o_DEF] \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ rw[] \\ res_tac \\ fs [])
@@ -876,6 +300,7 @@ Theorem compile_common_code_locs
   \\ rename [`clos_labels$compile input`]
   \\ fs [closPropsTheory.BIGUNION_MAP_code_locs_SND_SND]
   \\ metis_tac [clos_labelsProofTheory.compile_any_dests_SUBSET_code_locs]);
+(* -- *)
 
 val _ = temp_overload_on("esgc_free",``patProps$esgc_free``);
 val _ = temp_overload_on("elist_globals",``flatProps$elist_globals``);
@@ -2085,7 +1510,8 @@ Theorem compile_correct
       \\ fs[closLangTheory.assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[closLangTheory.assign_get_code_label_def] )
     \\ fs[clos_to_bvlTheory.compile_common_def]
     \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
-    \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`] compile_prog_code_labels)mp_tac
+    \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`]
+        clos_to_bvlProofTheory.compile_prog_code_labels)mp_tac
     \\ impl_tac >- (
         simp[]
         \\ `EVERY no_Labels e3 /\ clos_mtiProof$syntax_ok e3` by

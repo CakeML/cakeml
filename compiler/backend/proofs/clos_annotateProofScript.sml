@@ -1463,4 +1463,67 @@ Theorem semantics_annotate
   \\ Cases_on `res1` \\ fs []
   \\ Cases_on `e` \\ fs []);
 
+(* more syntactic properties *)
+
+Theorem call_dests_shift[simp]
+  `∀a b c d. app_call_dests opt (shift a b c d) = app_call_dests opt a`
+  (recInduct clos_annotateTheory.shift_ind
+  \\ rw[clos_annotateTheory.shift_def, closPropsTheory.app_call_dests_def,
+        closPropsTheory.app_call_dests_append]
+  \\ fs[] \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[closPropsTheory.app_call_dests_map]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]);
+
+Theorem no_Labels_ann
+  `!xs.
+      EVERY no_Labels (MAP (SND o SND) xs) ==>
+      EVERY no_Labels (MAP (SND ∘ SND) (clos_annotate$compile xs))`
+  (fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`]
+  \\ `?t. annotate x2 [x3] = [t]` by
+    (fs [clos_annotateTheory.annotate_def]
+     \\ Cases_on `alt_free [x3]` \\ fs []
+     \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs [] \\ rveq
+     \\ metis_tac [clos_annotateTheory.shift_SING])
+  \\ fs []
+  \\ qspecl_then [`x2`,`[x3]`] mp_tac annotate_no_Labels
+  \\ fs []);
+
+Theorem obeys_max_app_ann
+  `!xs.
+      EVERY (obeys_max_app m) (MAP (SND o SND) xs) ==>
+      EVERY (obeys_max_app m) (MAP (SND ∘ SND) (clos_annotate$compile xs))`
+  (fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`]
+  \\ `?t. annotate x2 [x3] = [t]` by
+    (fs [clos_annotateTheory.annotate_def]
+     \\ Cases_on `alt_free [x3]` \\ fs []
+     \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs [] \\ rveq
+     \\ metis_tac [clos_annotateTheory.shift_SING])
+  \\ fs []
+  \\ qspecl_then [`x2`,`[x3]`] mp_tac annotate_obeys_max_app
+  \\ fs []);
+
+Theorem HD_annotate_SING
+  `[HD (annotate x [y])] = annotate x [y]`
+  (rw[clos_annotateTheory.annotate_def]
+  \\ once_rewrite_tac[GSYM clos_annotateTheory.HD_FST_alt_free]
+  \\ rw[clos_annotateTheory.HD_shift]);
+
+Theorem every_Fn_SOME_ann
+  `!xs.
+      every_Fn_SOME (MAP (SND o SND) xs) ==>
+      every_Fn_SOME (MAP (SND ∘ SND) (clos_annotate$compile xs))`
+  (fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs [] \\ fs [MAP_MAP_o,o_DEF,UNCURRY]
+  \\ Induct_on `xs` \\ fs []
+  \\ once_rewrite_tac [closPropsTheory.every_Fn_SOME_APPEND
+      |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
+  \\ fs [] \\ rw []
+  \\ fs [HD_annotate_SING]
+  \\ match_mp_tac every_Fn_SOME_annotate \\ fs []);
+
 val _ = export_theory()

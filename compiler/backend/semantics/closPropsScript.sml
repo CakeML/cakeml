@@ -2954,4 +2954,75 @@ Theorem any_dests_call_dests_app_dests
   \\ Cases_on `opt = SOME F` \\ fs []
   \\ fs [EXTENSION] \\ rw[] \\ eq_tac \\ rw [] \\ fs []);
 
+val get_code_labels_def = tDefine"get_code_labels" `
+  (get_code_labels (Var _ _) = {}) ∧
+  (get_code_labels (If _ e1 e2 e3) =
+    get_code_labels e1 ∪
+    get_code_labels e2 ∪
+    get_code_labels e3) ∧
+  (get_code_labels (Let _ es e) =
+    BIGUNION (set (MAP get_code_labels es)) ∪
+    get_code_labels e) ∧
+  (get_code_labels (Raise _ e) = get_code_labels e) ∧
+  (get_code_labels (Handle _ e1 e2) =
+    get_code_labels e1 ∪
+    get_code_labels e2) ∧
+  (get_code_labels (Tick _ e) = get_code_labels e) ∧
+  (get_code_labels (Call _ _ l es) =
+    {l} ∪ BIGUNION (set (MAP get_code_labels es))) ∧
+  (get_code_labels (App _ l e es) =
+    (case l of NONE => {} | SOME n => {n}) ∪
+    get_code_labels e ∪
+    BIGUNION (set (MAP get_code_labels es))) ∧
+  (get_code_labels (Fn _ l _ _ e) =
+   (case l of NONE => {} | SOME n => {n}) ∪
+   get_code_labels e) ∧
+  (get_code_labels (Letrec _ l _ es e) =
+   (case l of NONE => {} | SOME n =>
+     IMAGE (λk. n + 2 * k) (count (LENGTH es))) ∪
+    get_code_labels e ∪
+    BIGUNION (set (MAP get_code_labels (MAP SND es)))) ∧
+  (get_code_labels (Op _ op es) =
+    BIGUNION (set (MAP get_code_labels es)) ∪
+    closLang$assign_get_code_label op)`
+  (wf_rel_tac `measure exp_size`
+   \\ simp [closLangTheory.exp_size_def]
+   \\ rpt conj_tac \\ rpt gen_tac
+   \\ Induct_on`es`
+   \\ rw [closLangTheory.exp_size_def]
+   \\ simp [] \\ res_tac \\ simp []);
+
+val get_code_labels_def =
+  get_code_labels_def
+  |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
+  |> curry save_thm "get_code_labels_def[simp]"
+
+val code_locs_ind = theorem"code_locs_ind";
+
+Theorem get_code_labels_code_locs
+  `∀xs. EVERY no_Labels xs ∧ every_Fn_SOME xs ⇒
+        BIGUNION (set (MAP get_code_labels xs)) =
+        set (code_locs xs) ∪ any_dests xs`
+  (recInduct code_locs_ind
+  \\ rw[code_locs_def, app_call_dests_def] \\ fs[]
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  >- ( Cases_on`op` \\ fs[closLangTheory.assign_get_code_label_def] )
+  >- (
+    rw[EXTENSION]
+    \\ PURE_TOP_CASE_TAC \\ fs[]
+    \\ metis_tac[] )
+  >- (
+    fs[IS_SOME_EXISTS]
+    \\ rw[EXTENSION]
+    \\ metis_tac[] )
+  >- (
+    fs[IS_SOME_EXISTS]
+    \\ fs[MAP_MAP_o]
+    \\ rw[EXTENSION, MEM_GENLIST, MEM_MAP, PULL_EXISTS, code_locs_map, MEM_FLAT]
+    \\ metis_tac[] )
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  >- ( rw[EXTENSION] \\ metis_tac[] ));
+
 val _ = export_theory();
