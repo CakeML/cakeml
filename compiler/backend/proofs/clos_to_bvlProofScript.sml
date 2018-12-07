@@ -5048,6 +5048,14 @@ Theorem domain_init_code_lt_num_stubs
   \\ simp[GSYM(SIMP_RULE(srw_ss())[K_DEF]REPLICATE_GENLIST),SUM_REPLICATE]
   \\ simp [sum_genlist_triangle]);
 
+Theorem domain_init_code
+  `0 < max_app ⇒ domain (init_code max_app) = count (max_app + max_app * (max_app - 1) DIV 2)`
+  (rw[clos_to_bvlTheory.init_code_def, domain_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF,
+     GSYM SUM_IMAGE_count_SUM_GENLIST]
+  \\ qmatch_goalsub_abbrev_tac`SUM_IMAGE f`
+  \\ `f = I` by simp[Abbr`f`,FUN_EQ_THM]
+  \\ rw[GSYM SUM_SET_DEF, SUM_SET_count]);
+
 Theorem compile_prog_code_locs
   `∀ls.
   MAP FST (compile_prog max_app ls) =
@@ -5103,6 +5111,12 @@ Theorem PERM_code_sort
   \\ match_mp_tac PERM_TRANS
   \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
   \\ match_mp_tac sortingTheory.PERM_CONG \\ fs []);
+
+Theorem set_MAP_code_sort
+  `LIST_TO_SET (MAP f (code_sort x)) = set (MAP f x)`
+  (Q.ISPEC_THEN`x`mp_tac PERM_code_sort
+  \\ rw[EXTENSION, MEM_MAP]
+  \\ imp_res_tac MEM_PERM \\ fs[]);
 
 Theorem ALL_DISTINCT_code_sort
   `ALL_DISTINCT (MAP FST (code_sort xs)) <=> ALL_DISTINCT (MAP FST xs)`
@@ -7732,6 +7746,22 @@ Theorem compile_semantics
     \\ strip_tac
     \\ cheat )
   \\ cheat (* many syntactic properties of oracle *)*));
+
+Theorem assign_get_code_label_compile_op
+  `closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`
+  (Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, closLangTheory.assign_get_code_label_def]);
+
+Theorem recc_Lets_code_labels
+  `∀n nargs k rest. get_code_labels (recc_Lets n nargs k rest) =
+   IMAGE (λj. n + 2 * j) (count k) ∪ get_code_labels rest`
+  (recInduct clos_to_bvlTheory.recc_Lets_ind \\ rw[]
+  \\ rw[Once clos_to_bvlTheory.recc_Lets_def] \\ fs[]
+  \\ fs[clos_to_bvlTheory.recc_Let_def, closLangTheory.assign_get_code_label_def]
+  \\ rw[Once EXTENSION]
+  \\ Cases_on`k` \\ fs[]
+  \\ fsrw_tac[DNF_ss][EQ_IMP_THM, PULL_EXISTS,ADD1] \\ rw[ADD1]
+  >- ( disj1_tac \\ qexists_tac`n'` \\ simp[] )
+  \\ Cases_on`j < n'` \\ fs[]);
 
 (*
 val () = temp_overload_on("acompile",``clos_annotate$compile``);

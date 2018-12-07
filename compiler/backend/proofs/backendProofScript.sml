@@ -148,7 +148,6 @@ val _ = temp_overload_on("stack_alloc_prog_comp",``stack_alloc$prog_comp``);
 val _ = temp_overload_on("stack_names_prog_comp",``stack_names$prog_comp``);
 
 val _ = temp_overload_on("bvl_get_code_labels",``bvlProps$get_code_labels``);
-val _ = temp_overload_on("get_code_labels",``stackProps$get_code_labels``);
 
 (* TODO: move things that need moving *)
 
@@ -176,16 +175,6 @@ Theorem syntax_ok_MAP_pat_to_clos
   (Induct \\ fs [clos_mtiProofTheory.syntax_ok_def]
   \\ once_rewrite_tac [clos_mtiProofTheory.syntax_ok_cons]
   \\ fs [syntax_ok_pat_to_clos]);
-
-Theorem set_MAP_code_sort
-  `LIST_TO_SET (MAP f (code_sort x)) = set (MAP f x)`
-  (Q.ISPEC_THEN`x`mp_tac clos_to_bvlProofTheory.PERM_code_sort
-  \\ rw[EXTENSION, MEM_MAP]
-  \\ imp_res_tac MEM_PERM \\ fs[]);
-
-Theorem assign_get_code_label_compile_op
-  `closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`
-  (Cases_on`op` \\ rw[clos_to_bvlTheory.compile_op_def, closLangTheory.assign_get_code_label_def]);
 
 val clos_get_code_labels_def = tDefine"bvl_get_code_labels" `
   (clos_get_code_labels (Var _ _) = {}) ∧
@@ -230,26 +219,6 @@ val clos_get_code_labels_def =
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
   |> curry save_thm "clos_get_code_labels_def[simp]"
 
-Theorem domain_init_code
-  `0 < max_app ⇒ domain (init_code max_app) = count (max_app + max_app * (max_app - 1) DIV 2)`
-  (rw[clos_to_bvlTheory.init_code_def, domain_fromList, LENGTH_FLAT, MAP_GENLIST, o_DEF,
-     GSYM SUM_IMAGE_count_SUM_GENLIST]
-  \\ qmatch_goalsub_abbrev_tac`SUM_IMAGE f`
-  \\ `f = I` by simp[Abbr`f`,FUN_EQ_THM]
-  \\ rw[GSYM SUM_SET_DEF, SUM_SET_count]);
-
-Theorem recc_Lets_code_labels
-  `∀n nargs k rest. bvl_get_code_labels (recc_Lets n nargs k rest) =
-   IMAGE (λj. n + 2 * j) (count k) ∪ bvl_get_code_labels rest`
-  (recInduct clos_to_bvlTheory.recc_Lets_ind \\ rw[]
-  \\ rw[Once clos_to_bvlTheory.recc_Lets_def] \\ fs[]
-  \\ fs[clos_to_bvlTheory.recc_Let_def, closLangTheory.assign_get_code_label_def]
-  \\ rw[Once EXTENSION]
-  \\ Cases_on`k` \\ fs[]
-  \\ fsrw_tac[DNF_ss][EQ_IMP_THM, PULL_EXISTS,ADD1] \\ rw[ADD1]
-  >- ( disj1_tac \\ qexists_tac`n'` \\ simp[] )
-  \\ Cases_on`j < n'` \\ fs[]);
-
 (* TODO: remove when theorems are moved *)
 val _ = temp_overload_on("obeys_max_app",``closProps$obeys_max_app``);
 val _ = temp_overload_on("no_Labels",``closProps$no_Labels``);
@@ -276,7 +245,7 @@ Theorem compile_exps_code_labels
   \\ fs[closLangTheory.assign_get_code_label_def]
   \\ fs[MAP_GENLIST, o_DEF]
   \\ TRY (
-    CHANGED_TAC(rw[assign_get_code_label_compile_op])
+    CHANGED_TAC(rw[clos_to_bvlProofTheory.assign_get_code_label_compile_op])
     \\ CASE_TAC \\ fs[]
     \\ Cases_on`op` \\ fs[closLangTheory.assign_get_code_label_def]
     \\ fsrw_tac[DNF_ss][]
@@ -298,7 +267,7 @@ Theorem compile_exps_code_labels
       last_x_assum (fn th => drule th \\ disch_then drule) \\ rw[]
       \\ metis_tac[] )
     >- metis_tac[]
-    \\ simp[domain_init_code]
+    \\ simp[clos_to_bvlProofTheory.domain_init_code]
     \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH
     \\ fs[] \\ NO_TAC)
   \\ TRY (
@@ -306,7 +275,7 @@ Theorem compile_exps_code_labels
     \\ fs[clos_to_bvlTheory.mk_cl_call_def, closLangTheory.assign_get_code_label_def, MAP_GENLIST, o_DEF, IS_SOME_EXISTS]
     \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_GENLIST, clos_to_bvlTheory.generic_app_fn_location_def]
     \\ rw[]
-    \\ simp[domain_init_code, clos_to_bvlTheory.num_stubs_def]
+    \\ simp[clos_to_bvlProofTheory.domain_init_code, clos_to_bvlTheory.num_stubs_def]
     \\ fs[MEM_MAP, clos_to_bvlTheory.free_let_def, MEM_GENLIST] \\ rveq \\ fs[closLangTheory.assign_get_code_label_def]
     \\ NO_TAC)
   \\ TRY (
@@ -328,7 +297,7 @@ Theorem compile_exps_code_labels
     \\ simp[clos_to_bvlTheory.recc_Let0_def, closLangTheory.assign_get_code_label_def]
     \\ rw[]
     \\ TRY ( rpt disj1_tac \\ qexists_tac`SUC (LENGTH v7)` \\ simp[] \\ NO_TAC )
-    \\ fs[recc_Lets_code_labels]
+    \\ fs[clos_to_bvlProofTheory.recc_Lets_code_labels]
     \\ last_x_assum drule \\ rw[]
     >- metis_tac[]
     >- (
@@ -374,16 +343,6 @@ Theorem compile_prog_code_labels
   \\ drule compile_exps_code_labels
   \\ simp[MAP_MAP_o, o_DEF]);
 
-Theorem bvl_get_code_labels_JumpList
-  `∀n xs. bvl_get_code_labels (JumpList n xs) = BIGUNION (set (MAP bvl_get_code_labels xs))`
-  (recInduct bvl_jumpTheory.JumpList_ind
-  \\ rw[]
-  \\ rw[Once  bvl_jumpTheory.JumpList_def, closLangTheory.assign_get_code_label_def]
-  \\ fs[LENGTH_EQ_NUM_compute]
-  \\ Q.ISPECL_THEN[`LENGTH xs DIV 2`,`xs`]
-       ((fn th => CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[th]))) o SYM)TAKE_DROP
-  \\ simp[]);
-
 Theorem clos_get_code_labels_shift
   `∀a b c d. MAP clos_get_code_labels (shift a b c d) = MAP clos_get_code_labels a`
   (recInduct clos_annotateTheory.shift_ind
@@ -419,51 +378,6 @@ Theorem clos_get_code_labels_alt_free
   \\ impl_tac >- metis_tac[clos_annotateTheory.HD_FST_alt_free, MEM]
   \\ metis_tac[SND]);
 
-Theorem app_call_dests_alt_free
-  `∀xs. (app_call_dests opt (FST (alt_free xs))) ⊆
-        (app_call_dests opt xs)`
-  (recInduct clos_annotateTheory.alt_free_ind
-  \\ rw[clos_annotateTheory.alt_free_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ rw[closPropsTheory.app_call_dests_def]
-  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[]
-  \\ fs[SUBSET_DEF, PULL_EXISTS, GSYM MAP_K_REPLICATE]
-  >- ( rw[Once closPropsTheory.app_call_dests_cons] \\ fs[] )
-  \\ rw[closPropsTheory.app_call_dests_map, clos_annotateTheory.const_0_def,
-        closPropsTheory.app_call_dests_def, MEM_MAP, FORALL_PROD, EXISTS_PROD] \\ fs[]
-  \\ first_x_assum drule
-  \\ rw[] \\ pairarg_tac \\ fs[] \\ rw[]
-  \\ rw[PULL_EXISTS]
-  \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs[]
-  \\ rw[] \\ fs[]
-  \\ metis_tac[]);
-
-Theorem app_call_dests_annotate
-  `app_call_dests opt (annotate n xs) ⊆ app_call_dests opt xs`
-  (rw[clos_annotateTheory.annotate_def, app_call_dests_alt_free]);
-
-Theorem clos_get_code_labels_annotate
-  `BIGUNION (set (MAP clos_get_code_labels (annotate n xs))) ⊆
-   BIGUNION (set (MAP clos_get_code_labels xs))`
-  (rw[clos_annotateTheory.annotate_def, clos_get_code_labels_shift, clos_get_code_labels_alt_free]);
-
-Theorem clos_get_code_labels_chain_exps
-  `∀n es.
-   BIGUNION (set (MAP (clos_get_code_labels o SND o SND) (chain_exps n es))) =
-   BIGUNION (set (MAP (clos_get_code_labels) es)) ∪
-   IMAGE ((+) n) (count (LENGTH es) DELETE 0)`
-  (recInduct clos_to_bvlTheory.chain_exps_ind
-  \\ rw[clos_to_bvlTheory.chain_exps_def, closLangTheory.assign_get_code_label_def]
-  >- ( EVAL_TAC \\ simp[] )
-  \\ simp[Once EXTENSION, PULL_EXISTS, MEM_MAP, ADD1]
-  \\ rw[EQ_IMP_THM] \\ fs[]
-  \\ TRY (
-    qmatch_assum_rename_tac`z ≠ 0`
-    \\ Cases_on`z` \\ fs[ADD1]
-    \\ Cases_on`n` \\ fs[]
-    \\ NO_TAC)
-  \\ metis_tac[]);
-
 Theorem clos_get_code_labels_code_locs
   `∀xs. EVERY no_Labels xs ∧ every_Fn_SOME xs ⇒
         BIGUNION (set (MAP clos_get_code_labels xs)) =
@@ -489,13 +403,6 @@ Theorem clos_get_code_labels_code_locs
     \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] ));
-
-Theorem BIGUNION_clos_get_code_labels_GENLIST_Var
-  `!t n a. BIGUNION (set (MAP clos_get_code_labels (GENLIST_Var t n a))) = EMPTY`
-  (Induct_on `a`
-  \\ once_rewrite_tac [clos_callTheory.GENLIST_Var_def]
-  \\ asm_simp_tac std_ss [ADD1,MAP_APPEND,LIST_TO_SET_APPEND,BIGUNION_UNION]
-  \\ fs []);
 
 Theorem no_Labels_ann
   `!xs.
@@ -653,8 +560,7 @@ Theorem compile_common_syntax
   \\ match_mp_tac chain_exps_every_Fn_SOME \\ fs []);
 
 Theorem var_list_code_labels_imp_TODO_move
-  `∀n x y. var_list n x y ⇒ BIGUNION (set (MAP clos_get_code_labels x)) = {} (*∧
-                            BIGUNION (set (MAP bvl_get_code_labels y)) = {}*)`
+  `∀n x y. var_list n x y ⇒ BIGUNION (set (MAP clos_get_code_labels x)) = {}`
   (recInduct clos_letopTheory.var_list_ind
   \\ rw[clos_letopTheory.var_list_def] \\ fs[]);
 
@@ -2065,7 +1971,7 @@ Theorem compile_correct
     \\ strip_tac
     \\ fs[clos_to_bvlTheory.compile_def]
     \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
-    \\ fs[set_MAP_code_sort]
+    \\ fs[clos_to_bvlProofTheory.set_MAP_code_sort]
     \\ qmatch_goalsub_abbrev_tac`star INSERT fcc ∪ pp`
     \\ `star ∈ fcc ∧ pp ⊆ fcc` suffices_by ( simp[SUBSET_DEF] \\ metis_tac[] )
     \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_prog_code_labels_domain) \\ simp[]
@@ -2085,10 +1991,10 @@ Theorem compile_correct
       \\ qspecl_then[`limit`,`ts`,`qrog`]mp_tac bvl_inlineProofTheory.MAP_FST_tick_inline_all
       \\ simp[]
       \\ rw[Abbr`qrog`]
-      \\ simp[set_MAP_code_sort] )
+      \\ simp[clos_to_bvlProofTheory.set_MAP_code_sort] )
     \\ simp[Abbr`pp`]
     \\ drule bvl_inlineProofTheory.compile_prog_names
-    \\ rw[set_MAP_code_sort]
+    \\ rw[clos_to_bvlProofTheory.set_MAP_code_sort]
     \\ qmatch_goalsub_abbrev_tac`IMAGE ff _`
     \\ qmatch_asmsub_abbrev_tac`star = _ + _ * mm`
     \\ `star = ff mm` by simp[Abbr`ff`,Abbr`star`]
@@ -2119,7 +2025,9 @@ Theorem compile_correct
       >- (
         simp[clos_to_bvlTheory.init_globals_def, closLangTheory.assign_get_code_label_def]
         \\ simp[clos_to_bvlTheory.partial_app_fn_location_def]
-        \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_FLAT, MEM_GENLIST, closLangTheory.assign_get_code_label_def, domain_init_code]
+        \\ simp[SUBSET_DEF, MEM_MAP, PULL_EXISTS, MEM_FLAT, MEM_GENLIST,
+                closLangTheory.assign_get_code_label_def,
+                clos_to_bvlProofTheory.domain_init_code]
         \\ conj_tac
         >- (
           rw[]
@@ -2160,7 +2068,7 @@ Theorem compile_correct
         \\ simp[closLangTheory.assign_get_code_label_def, bvlPropsTheory.get_code_labels_def,
                 bvl_jumpTheory.Jump_def,
                 clos_to_bvlTheory.partial_app_fn_location_code_def]
-        \\ simp[MEM_MAP, MEM_GENLIST, PULL_EXISTS, bvl_get_code_labels_JumpList]
+        \\ simp[MEM_MAP, MEM_GENLIST, PULL_EXISTS, bvl_jumpProofTheory.bvl_get_code_labels_JumpList]
         \\ simp[closLangTheory.assign_get_code_label_def, clos_to_bvlTheory.mk_cl_call_def]
         \\ simp[MEM_MAP, PULL_EXISTS, MEM_GENLIST]
         \\ simp[clos_to_bvlTheory.generic_app_fn_location_def] )
@@ -2200,7 +2108,8 @@ Theorem compile_correct
       simp[Abbr`ff`, Abbr`mm`,clos_to_bvlTheory.num_stubs_def] )
     \\ `DISJOINT (IMAGE ff AA) BB`
     by(
-      simp[Abbr`ff`,Abbr`BB`,IN_DISJOINT,domain_init_code,clos_to_bvlTheory.num_stubs_def]
+      simp[Abbr`ff`,Abbr`BB`,IN_DISJOINT,
+           clos_to_bvlProofTheory.domain_init_code,clos_to_bvlTheory.num_stubs_def]
       \\ CCONTR_TAC \\ fs[] )
     \\ `IMAGE ff AA ⊆ CC` suffices_by simp[SUBSET_DEF]
     \\ simp[Abbr`CC`]
