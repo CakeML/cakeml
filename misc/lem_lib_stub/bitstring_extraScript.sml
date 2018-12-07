@@ -140,7 +140,7 @@ val fixsub_word_sub_length_lemma2 = Q.store_thm("fixsub_word_sub_lemma2",
 
 val word_not_bnot = Q.store_thm("word_not_bnot",
   `!x. w2v (~x) = bnot (w2v x)`,
-  rpt STRIP_TAC
+   STRIP_TAC
    >> simp[w2v_def,bnot_def,word_1comp_def]
    >> simp[MAP_GENLIST,FCP_BETA]
    >> rw[o_ABS_R]
@@ -149,6 +149,7 @@ val word_not_bnot = Q.store_thm("word_not_bnot",
 val fixsub_word_sub = Q.store_thm("fixsub_word_sub",
   `!x:('a word) y. fixsub (w2v x) (w2v y) = w2v (x - y)`,
   rpt STRIP_TAC >> Cases_on `w2v x`
+        (* the following 2 cheats require a proof of !x. w2v x /= [] *)
         >- cheat >> (Cases_on `w2v y`
           >- cheat >> (fs [fixsub_lemma]
           >> simp [fixsub_def]
@@ -208,9 +209,8 @@ val TAKE_GENLIST = Q.store_thm("TAKE_GENLIST",
 
 val MIN_SUB = Q.store_thm("MIN_SUB",
 `!x y. MIN (x-y) x = x-y`,
-   rpt strip_tac >> REWRITE_TAC [MIN_DEF]
+  rpt strip_tac >> REWRITE_TAC [MIN_DEF]
    >> Cases_on `x-y < x`
-    >> simp []
     >> simp []
 )
 
@@ -222,7 +222,6 @@ val SUB_LT = Q.store_thm("SUB_LT",
 val SUB_LEMMA2 = Q.store_thm("SUB_LEMMA2",
 `!x y. ~(x-SUC y > x) ==> (x-SUC y <= x)`,
   Cases_on `x-SUC y > x`
-    >> simp []
     >> simp []
 )
 
@@ -274,13 +273,6 @@ val fixshiftr_word_lsr = Q.store_thm("fixshiftr_word_lsr",
       (* SUCCESSOR *)
       >> simp[fixshiftr_word_lsr_SUC]
 )
-(*  simp [fixshiftr_def,w2v_def,word_lsr_def,shiftr_def,fixwidth_def,
-          zero_extend_def,PAD_LEFT]
-       >> Cases_on `dimindex(:'a)-SUC n' > dimindex(:'a)`
-        >> CCONTR_TAC
-         >> simp []
-        >> FULL_SIMP_TAC arith_ss [SUB_LEMMA2] *)
-        (* >> UNDISCH_TAC ``T`` >> EVAL_TAC *)
 
 val fixshiftl_word_lsl = Q.store_thm("fixshiftl_word_lsl",
   `!a n w. (w2v w = a)
