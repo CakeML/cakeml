@@ -16,18 +16,3 @@ README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
-
-ifdef POLY
-HOLHEAP = heap
-PARENTHEAP = $(SEMANTICS)/heap
-EXTRA_CLEANS = heap
-
-all: $(HOLHEAP)
-
-BARE_THYS = $(SEMANTICS)/tokenUtilsTheory $(SEMANTICS)/gramTheory $(SEMANTICS)/cmlPtreeConversionTheory $(HOLDIR)/examples/formal-languages/context-free/pegexecTheory
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $@ $(BARE_THYS)
-
-endif

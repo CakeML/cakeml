@@ -16,15 +16,3 @@ DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
 
-ifdef POLY
-HOLHEAP = heap
-PARENT_HOLHEAP = ../../semantics/heap
-EXTRA_CLEANS = $(HOLHEAP)
-all: $(HOLHEAP)
-
-BARE_THYS = ../../semantics/terminationTheory ../encoders/asm/asmTheory
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
-endif

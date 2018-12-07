@@ -5,6 +5,8 @@
 
 open preamble tokensTheory
 
+local open grammarTheory in end
+
 val _ = new_theory "tokenUtils"
 val _ = set_grammar_ancestry ["tokens", "grammar"]
 

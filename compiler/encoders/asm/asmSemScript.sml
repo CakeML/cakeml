@@ -3,6 +3,7 @@
 *)
 open HolKernel Parse boolLib bossLib
 open asmTheory machine_ieeeTheory
+open miscTheory (* for bytes_in_memory *)
 
 val () = new_theory "asmSem"
 

@@ -37,7 +37,7 @@ tokensScript.sml: tokens.lem $(LEMLIB) ffi/ffi.lem addancs
 
 namespaceScript.sml: namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) $< && ./addancs $@ integer words string alist; \
+          $(LEM_CMD) $< && ./addancs $@ integer string ; \
         else touch namespaceScript.sml ; fi
 
 OTHER_SCRIPTS = cmlPtreeConversion gram lexer_fun semantics termination tokenUtils
@@ -50,8 +50,7 @@ README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DI
 	../developers/readme_gen $(README_SOURCES)
 
 ifdef POLY
-HOLHEAP = heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o addancs
+EXTRA_CLEANS = addancs
 
 GRAMMAR_DEPS0 = peg pegexec
 GRAMMAR_DEPS = $(patsubst %,$(HOLDIR)/examples/formal-languages/context-free/%Theory,$(GRAMMAR_DEPS0))
@@ -65,13 +64,9 @@ else
 RELOC_FIXUP = :
 endif
 
-all: $(HOLHEAP)
-
 addancs: addancs.sml
 	$(POLYC) -o $@ $< && $(RELOC_FIXUP)
 
 
 
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS) ASCIInumbersTheory
 endif
