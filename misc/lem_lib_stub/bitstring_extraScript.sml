@@ -173,7 +173,7 @@ val w2v_nonempty = Q.store_thm("w2v_nonempty",
     >> simp[]
 );
 
-val another_lemma = Q.store_thm("another_lemma",
+val fixsub_word_sub_length_dimindex_lemma = Q.store_thm("fixsub_word_sub_length_dimindex_lemma",
  `!w:('a word) h t. (w2v w = (h::t)) ==> (SUC (LENGTH t) = dimindex(:'a))`,
    rpt STRIP_TAC >> POP_ASSUM (ASSUME_TAC o Q.AP_TERM `LENGTH`) >> fs[]
 );
@@ -221,7 +221,7 @@ val fixsub_word_sub = Q.store_thm("fixsub_word_sub",
     >> (
       IMP_RES_TAC fixsub_word_sub_length_lemma
         >> ASM_SIMP_TAC arith_ss []
-        >> IMP_RES_TAC another_lemma
+        >> IMP_RES_TAC fixsub_word_sub_length_dimindex_lemma
         >> fs[]
         >> ASM_SIMP_TAC arith_ss []
         >> REWRITE_TAC[ISPEC ``1w:('a word)`` word_1_lemma]
