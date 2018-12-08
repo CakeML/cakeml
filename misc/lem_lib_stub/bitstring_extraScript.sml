@@ -10,6 +10,7 @@ open fcpTheory;
 open listTheory;
 open combinTheory;
 open bitstringLib;
+open rich_listTheory;
 
 val _ = numLib.prefer_num();
 
@@ -251,9 +252,15 @@ val rotate_w2v = Q.store_thm("rotate_word_ror_lemma",
 )
 
 (* TODO prove properties of fixed size shifts *)
-(* COPIED from miscTheory, as it builds after this directory *)
+(* The following 2 lemmas are COPIED from miscTheory, as it builds after this directory *)
 val TAKE_GENLIST = Q.store_thm("TAKE_GENLIST",
-`TAKE n (GENLIST f m) = GENLIST f (MIN n m)`,cheat)
+`TAKE n (GENLIST f m) = GENLIST f (MIN n m)`,
+ rw[LIST_EQ_REWRITE,LENGTH_TAKE_EQ,MIN_DEF,EL_TAKE]
+)
+
+Theorem DROP_GENLIST
+  `DROP n (GENLIST f m) = GENLIST (f o ((+)n)) (m-n)`
+(rw[LIST_EQ_REWRITE,EL_DROP]);
 
 val MIN_SUB = Q.store_thm("MIN_SUB",
 `!x y. MIN (x-y) x = x-y`,
@@ -280,17 +287,19 @@ val GENLIST_APPEND_REVERSE = Q.store_thm("GENLIST_APPEND_REVERSE",
  `!f a b. GENLIST f (a + b) = (GENLIST f a) ++ (GENLIST (\t. f (t + a)) b)`,
     rpt STRIP_TAC >>
     CONV_TAC (PATH_CONV "lrr" (REWR_CONV ADD_COMM))
-    >> simp [GENLIST_APPEND]
+    >> simp[GENLIST_APPEND]
 )
 
 val fixshiftr_word_lsr_SUC = Q.store_thm("fixshiftr_word_lsr_SUC",
-  `!n w. ((w2v (word_lsr w (SUC n)) = fixshiftr (w2v w) (SUC n)))`,
-   rpt strip_tac >> REWRITE_TAC[w2v_def]
-     >> simp[fixshiftr_def,fixwidth_def,shiftr_def,zero_extend_def,TAKE_GENLIST]
+  `!n w. (w2v (word_lsr w (SUC n)) = fixshiftr (w2v w) (SUC n))`,
+   rpt strip_tac
+     >> simp[word_lsr_def,fixshiftr_def]
+     >> simp[shiftr_def]
+     >> REWRITE_TAC[w2v_def]
+     >> simp[fixwidth_def,zero_extend_def,TAKE_GENLIST]
+     >> simp[PAD_LEFT]
      >> simp[MIN_SUB]
-     >> simp[word_lsr_def]
-     >> simp [FCP,FCP_BETA,CART_EQ]
-     >> simp [PAD_LEFT]
+     >> simp[FCP,FCP_BETA,CART_EQ]
      (* rewrite rightmost occurence of `dimindex(:'a)`
         on LHS using fixshift_add_rwt and *)
      >> CONV_TAC (PATH_CONV "lrr" (REWR_CONV (SPEC ``SUC n`` fixshift_add_rwt)))
@@ -299,30 +308,88 @@ val fixshiftr_word_lsr_SUC = Q.store_thm("fixshiftr_word_lsr_SUC",
      >> REWRITE_TAC[GENLIST_APPEND_REVERSE]
      >> MK_COMB_TAC
         >- ( MK_COMB_TAC
-           >- simp []
+           >- simp[]
            >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
         )
-        >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
-)
+        >> srw_tac[ARITH_ss][GENLIST_FUN_EQ])
+
 
 val fixshiftr_word_lsr = Q.store_thm("fixshiftr_word_lsr",
-  `!n w. ((w2v (word_lsr w n)) = (fixshiftr (w2v w) n))`,
+  `!n w. (w2v (word_lsr w n)) = (fixshiftr (w2v w) n)`,
    rpt strip_tac >> Cases_on `n`
       (* ZERO *)
-      >- (simp[fixshiftr_def,word_lsr_def,shiftr_def,w2v_def,TAKE_GENLIST]
-       >> FULL_SIMP_TAC arith_ss [MIN_SUB]
-       >> simp [FCP,FCP_BETA,CART_EQ])
+      >- (simp[fixshiftr_def,word_lsr_def,w2v_def] >> simp[shiftr_def] >> simp[TAKE_GENLIST])
       (* SUCCESSOR *)
       >> simp[fixshiftr_word_lsr_SUC]
 )
 
+val drop_sub_lemma = Q.store_thm("drop_sub_lemma",
+  `!n x. (n < x) ==> (n - x = 0)`,
+   rpt STRIP_TAC >> DECIDE_TAC
+);
+
+val fixshiftl_word_lsl_lemma1 = Q.store_thm("fixshiftl_word_lsl_lemma1",
+  `!f g n x. (n < x) ==> ((DROP n (GENLIST f x ++ GENLIST g n)) = ((DROP n (GENLIST f x)) ++ GENLIST g n))`,
+  rpt STRIP_TAC >> simp[DROP_APPEND] >> ASM_SIMP_TAC arith_ss [drop_sub_lemma] >> simp [DROP_0]
+);
+
+val fixshiftl_word_lsl_lemma2 = Q.store_thm("fixshiftl_word_lsl_lemma2",
+  `!f g n x. ~(n < x) ==> ((DROP n (GENLIST f x ++ GENLIST g n)) = (DROP (n-x) (GENLIST g n)))`,
+  rpt STRIP_TAC >> simp[DROP_APPEND] >> ASM_SIMP_TAC arith_ss [DROP_NIL,LENGTH_GENLIST]
+);
+
+val fixshiftl_add_rwt = Q.store_thm("fixshiftl_add_rwt", `!b a. (b<a) ==> (a = (a - b) + b)`,FULL_SIMP_TAC arith_ss [])
+
+val fixshiftl_word_lsl_SUC = Q.store_thm("fixshiftl_word_lsl_SUC",
+  `!n w:('a word). (w2v (word_lsl w (SUC n)) = fixshiftl (w2v w) (SUC n))`,
+   rpt strip_tac
+     >> simp[word_lsl_def,fixshiftl_def]
+     >> simp[shiftl_def]
+     >> REWRITE_TAC[w2v_def]
+     >> simp[fixwidth_def]
+     >> simp[FCP,FCP_BETA,CART_EQ]
+     >> simp[PAD_RIGHT]
+     >> Cases_on `SUC n < dimindex(:'a)`
+        >- ( ASSUME_TAC (SPEC
+                      ``dimindex(:'a)``
+                      (SPEC ``SUC n``
+                            (ISPEC ``(K F):(num->bool)``
+                                (ISPEC ``\i. (w : 'a word) ' (dimindex(:'a) - (i + 1))`` fixshiftl_word_lsl_lemma1))))
+          >> RES_TAC
+          >> fs[]
+          >> simp[DROP_GENLIST]
+          >> IMP_RES_TAC (SPEC ``dimindex(:'a)`` (SPEC ``SUC n`` fixshiftl_add_rwt))
+          >> ONCE_ASM_REWRITE_TAC []
+          >> ONCE_REWRITE_TAC [GENLIST_APPEND_REVERSE]
+          >> fs[]
+          >> MK_COMB_TAC
+             >- (MK_COMB_TAC
+                 >> simp []
+                 >> srw_tac[ARITH_ss][GENLIST_FUN_EQ])
+          >> simp[K_DEF]
+          )
+     >> ASSUME_TAC (SPEC
+                      ``dimindex(:'a)``
+                      (SPEC ``SUC n``
+                            (ISPEC ``(K F):(num->bool)``
+                                (ISPEC ``\i. (w : 'a word) ' (dimindex(:'a) - (i + 1))`` fixshiftl_word_lsl_lemma2))))
+    >> RES_TAC
+    >> fs[]
+    >> simp[DROP_GENLIST]
+    >> simp[K_DEF]
+)
+
 val fixshiftl_word_lsl = Q.store_thm("fixshiftl_word_lsl",
-  `!a n w. (w2v w = a)
-     ==> ((w2v (word_lsl w n)) = (fixshiftl a n))`,cheat);
+  `!n w. (w2v (word_lsl w n)) = (fixshiftl (w2v w) n)`,
+   rpt strip_tac >> Cases_on `n`
+      (* ZERO *)
+      >- (simp[fixshiftl_def,word_lsl_def,w2v_def] >> simp[shiftl_def] >> simp[PAD_RIGHT])
+      (* SUCCESSOR *)
+      >> simp[fixshiftl_word_lsl_SUC]
+)
 
 val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
-  `!a n w. (w2v w = a)
-     ==> ((w2v (word_asr w n)) = (fixasr a n))`,cheat);
+  `!a n w. (w2v (word_asr w n)) = (fixasr (w2v w) n)`,cheat);
 
 (* TODO prove that `i2vN x N` represents the same value as `(i2w x): N word` *)
 val i2vN_def = Define`
