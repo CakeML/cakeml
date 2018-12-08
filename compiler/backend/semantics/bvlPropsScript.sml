@@ -12,6 +12,10 @@ Theorem with_same_code[simp]
   `^s with code := s.code = s`
   (srw_tac[][bvlSemTheory.state_component_equality])
 
+Theorem with_same_clock[simp]
+  `(st:('a,'b) bvlSem$state) with clock := st.clock = st`
+  (rw[bvlSemTheory.state_component_equality]);
+
 Theorem dec_clock_with_code[simp]
   `bvlSem$dec_clock n (s with code := c) = dec_clock n s with code := c`
   (EVAL_TAC );
@@ -319,9 +323,6 @@ Theorem evaluate_mk_tick
   full_simp_tac(srw_ss())[mk_tick_def, evaluate_def, dec_clock_def] >>
   srw_tac[][] >>
   full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def, ADD1]
-  >- (`s with clock := s.clock = s`
-             by srw_tac[][state_component_equality] >>
-      srw_tac[][])
   >- (`s.clock = n` by decide_tac >>
       full_simp_tac(srw_ss())[]));
 
@@ -713,5 +714,26 @@ Theorem bEvery_EVERY
   `∀ls. bEvery P ls ⇔ EVERY (λe. bEvery P [e]) ls`
   (Induct >> simp[] >> Cases >> simp[] >>
   Cases_on`ls`>>simp[]);
+
+val get_code_labels_def = tDefine"get_code_labels"
+  `(get_code_labels (bvl$Var _) = {}) ∧
+   (get_code_labels (If e1 e2 e3) = get_code_labels e1 ∪ get_code_labels e2 ∪ get_code_labels e3) ∧
+   (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
+   (get_code_labels (Raise e) = get_code_labels e) ∧
+   (get_code_labels (Handle e1 e2) = get_code_labels e1 ∪ get_code_labels e2) ∧
+   (get_code_labels (Tick e) = get_code_labels e) ∧
+   (get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP get_code_labels es))) ∧
+   (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))`
+  (wf_rel_tac`measure exp_size`
+   \\ simp[bvlTheory.exp_size_def]
+   \\ rpt conj_tac \\ rpt gen_tac
+   \\ Induct_on`es`
+   \\ rw[bvlTheory.exp_size_def]
+   \\ simp[] \\ res_tac \\ simp[]);
+val get_code_labels_def = get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp]"
+
+Theorem mk_tick_code_labels[simp]
+  `!n x. get_code_labels (mk_tick n x) = get_code_labels x`
+  (Induct \\ rw [] \\ fs [bvlTheory.mk_tick_def, FUNPOW_SUC]);
 
 val _ = export_theory();

@@ -38,4 +38,14 @@ Theorem evaluate_Jump
   \\ IMP_RES_TAC evaluate_JumpList
   \\ POP_ASSUM (ASSUME_TAC o Q.SPECL [`t`,`0`]) \\ fs[]);
 
+Theorem bvl_get_code_labels_JumpList
+  `∀n xs. get_code_labels (JumpList n xs) = BIGUNION (set (MAP get_code_labels xs))`
+  (recInduct bvl_jumpTheory.JumpList_ind
+  \\ rw[]
+  \\ rw[Once  bvl_jumpTheory.JumpList_def, closLangTheory.assign_get_code_label_def]
+  \\ fs[LENGTH_EQ_NUM_compute]
+  \\ Q.ISPECL_THEN[`LENGTH xs DIV 2`,`xs`]
+       ((fn th => CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[th]))) o SYM)TAKE_DROP
+  \\ simp[]);
+
 val _ = export_theory();

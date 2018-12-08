@@ -633,4 +633,27 @@ Theorem evaluate_genlist_vars
             decide_tac) >>
   metis_tac [take_drop_lem]);
 
+val get_code_labels_def = tDefine"get_code_labels"
+  `(get_code_labels (Var _) = {}) ∧
+   (get_code_labels (If e1 e2 e3) = get_code_labels e1 ∪ get_code_labels e2 ∪ get_code_labels e3) ∧
+   (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
+   (get_code_labels (Raise e) = get_code_labels e) ∧
+   (get_code_labels (Tick e) = get_code_labels e) ∧
+   (get_code_labels (Call _ d es h) =
+     (case d of NONE => {} | SOME n => {n}) ∪
+     (case h of NONE => {} | SOME e => get_code_labels e) ∪
+     BIGUNION (set (MAP get_code_labels es))) ∧
+   (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))`
+  (wf_rel_tac`measure exp_size`
+   \\ simp[bviTheory.exp_size_def]
+   \\ rpt conj_tac \\ rpt gen_tac
+   \\ Induct_on`es`
+   \\ rw[bviTheory.exp_size_def]
+   \\ simp[] \\ res_tac \\ simp[]);
+val get_code_labels_def = get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp]"
+
+val good_code_labels_def = Define`
+  good_code_labels p ⇔
+    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p)`;
+
 val _ = export_theory();
