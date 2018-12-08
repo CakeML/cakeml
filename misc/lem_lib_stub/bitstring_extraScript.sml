@@ -54,7 +54,7 @@ val fixadd_length = Q.store_thm("fixadd_length",
 
 val fixadd_assoc = Q.store_thm("fixadd_assoc",
   `!x y z. fixadd (fixadd x y) z = fixadd x (fixadd y z)`,
-  (REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> simp[fixadd_length]) >> cheat);
+  REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> simp[fixadd_length] >> cheat);
 
 
 val fixadd_word_add2 = Q.store_thm("fixadd_word_add2",
@@ -179,8 +179,8 @@ val fixsub_word_sub_length_dimindex_lemma = Q.store_thm("fixsub_word_sub_length_
 );
 
 val word_1_lemma1 = Q.store_thm("word_1_lemma1",
- `!w:('a word). 1w = (n2w (w2n (1w:'a word))):('a word)`,
- STRIP_TAC >> simp[n2w_w2n]
+ `1w = (n2w (w2n (1w:'a word))):('a word)`,
+ simp[n2w_w2n]
 );
 
 val word_1_lemma = Q.store_thm("word_1_lemma",
