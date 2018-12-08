@@ -389,7 +389,7 @@ val fixshiftl_word_lsl = Q.store_thm("fixshiftl_word_lsl",
 )
 
 val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
-  `!a n w. (w2v (word_asr w n)) = (fixasr (w2v w) n)`,cheat);
+  `!n w. (w2v (word_asr w n)) = (fixasr (w2v w) n)`,cheat);
 
 (* TODO prove that `i2vN x N` represents the same value as `(i2w x): N word` *)
 val i2vN_def = Define`
