@@ -4069,4 +4069,267 @@ Theorem ALL_DISTINCT_MAP_FST_SND_full_co
     \\ EVAL_TAC \\ simp[] )
   \\ simp[]);
 
+Theorem destLet_code_labels
+  `destLet x = (y,z) ⇒
+    BIGUNION (set (MAP get_code_labels y)) ∪ get_code_labels z ⊆ get_code_labels x`
+ (Cases_on`x`
+ \\ rw[bvl_to_bviTheory.destLet_def]
+ \\ fs[bvl_to_bviTheory.destLet_def]);
+
+Theorem compile_int_code_labels[simp]
+  `∀i. get_code_labels (compile_int i) = {}`
+  (recInduct bvl_to_bviTheory.compile_int_ind
+  \\ rw[]
+  \\ rw[Once bvl_to_bviTheory.compile_int_def]
+  \\ rw[closLangTheory.assign_get_code_label_def]);
+
+Theorem compile_op_code_labels
+  `get_code_labels (compile_op op c) ⊆
+    BIGUNION (set (MAP get_code_labels c)) ∪
+    IMAGE (λn. bvl_num_stubs + n * bvl_to_bvi_namespaces) (closLang$assign_get_code_label op) ∪
+    set (MAP FST (bvl_to_bvi$stubs x y))`
+  (simp[bvl_to_bviTheory.compile_op_def, bvl_to_bviTheory.stubs_def, SUBSET_DEF]
+  \\ every_case_tac \\ fs[closLangTheory.assign_get_code_label_def, REPLICATE_GENLIST, PULL_EXISTS, MAPi_GENLIST, MEM_GENLIST]
+  \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS] \\ metis_tac[]);
+
+Theorem compile_exps_get_code_labels
+  `∀n xs ys aux m.
+    bvl_to_bvi$compile_exps n xs = (ys,aux,m) ⇒
+     BIGUNION (set (MAP get_code_labels ys)) ∪
+     BIGUNION (set (MAP (get_code_labels o SND o SND) (append aux)))
+     ⊆
+     IMAGE (λk. bvl_num_stubs + (k * bvl_to_bvi_namespaces)) (BIGUNION (set (MAP get_code_labels xs))) ∪
+     { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < m } ∪
+     set (MAP FST (bvl_to_bvi$stubs x y))`
+  (recInduct bvl_to_bviTheory.compile_exps_ind
+  \\ rw[bvl_to_bviTheory.compile_exps_def]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ imp_res_tac destLet_code_labels \\ fs[NULL_EQ]
+  \\ fsrw_tac[DNF_ss][SUBSET_DEF, PULL_EXISTS]
+  \\ imp_res_tac compile_exps_aux_sorted \\ fs[]
+  \\ imp_res_tac bvl_to_bviTheory.compile_exps_SING \\ rveq \\ fs[bvl_to_bviTheory.compile_aux_def]
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (disj1_tac \\ rpt disj2_tac
+      \\ rw[] \\ res_tac \\ fs[]
+      \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ qspecl_then[`op`,`c1`]mp_tac(Q.GENL[`op`,`c`]compile_op_code_labels)
+    \\ simp[SUBSET_DEF, PULL_EXISTS]
+    \\ disch_then drule
+    \\ strip_tac
+    \\ TRY(last_x_assum drule \\ simp[] \\ strip_tac \\
+            ((ntac 2 disj1_tac \\ disj2_tac \\ rpt(asm_exists_tac \\ simp[]) \\ NO_TAC) ORELSE
+             (disj1_tac \\ rpt disj2_tac \\ asm_exists_tac \\ simp[] \\ NO_TAC) ORELSE
+             (rpt disj2_tac \\ fs[] \\ NO_TAC)))
+    \\ rpt disj1_tac
+    \\ rveq \\ simp[]
+    \\ metis_tac[])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    disj1_tac
+    \\ disj2_tac
+    \\ disj2_tac
+    \\ rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    Cases_on`dest` \\ fs[] \\ rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+  >- (
+    Cases_on`dest` \\ fs[] \\ rw[] \\ res_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``]));
+
+Theorem compile_exps_aux_contains
+  `∀n es c aux n1. compile_exps n es = (c,aux,n1) ⇒
+    { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < n1 } ⊆ set (MAP FST (append aux))`
+  (ho_match_mp_tac bvl_to_bviTheory.compile_exps_ind
+  \\ rw[bvl_to_bviTheory.compile_exps_def]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ fs[SUBSET_DEF, PULL_EXISTS] \\ rw[]
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS] )
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ Cases_on`k < n2` >- metis_tac[]
+    \\ fs[NOT_LESS]  )
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ Cases_on`k < n2` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ `k = n2` by decide_tac \\ rveq \\ fs[]
+    \\ fs[bvl_to_bviTheory.compile_aux_def] )
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS]  )
+  >- (
+    rename1`_ = (c1,aux1,m1)`
+    \\ Cases_on`k < m1` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ Cases_on`k < n2` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ Cases_on`k < n3` >- metis_tac[]
+    \\ fs[NOT_LESS]
+    \\ `k = n3` by decide_tac \\ rveq \\ fs[]
+    \\ fs[bvl_to_bviTheory.compile_aux_def] ));
+
+Theorem compile_single_get_code_labels
+  `∀n p code m. compile_single n p = (code, m) ⇒
+      BIGUNION (set (MAP (get_code_labels o SND o SND) (append code))) ⊆
+      IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces) (get_code_labels (SND(SND p))) ∪
+      set (MAP FST (append code)) ∪
+      set (MAP FST (bvl_to_bvi$stubs x y))`
+  (rw[]
+  \\ PairCases_on`p`
+  \\ fs[bvl_to_bviTheory.compile_single_def]
+  \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
+  \\ imp_res_tac compile_exps_get_code_labels
+  \\ imp_res_tac bvl_to_bviTheory.compile_exps_SING
+  \\ rveq \\ fs[]
+  \\ fs[bvl_to_bviTheory.compile_exps_def]
+  \\ first_x_assum(qspecl_then[`y`,`x`]mp_tac)
+  \\ fs[SUBSET_DEF, PULL_EXISTS] \\ strip_tac
+  \\ drule compile_exps_aux_contains
+  \\ fsrw_tac[DNF_ss][SUBSET_DEF] \\ rw[]
+  \\ metis_tac[]);
+
+Theorem compile_list_get_code_labels
+    `∀n p code m. compile_list n p = (code,m) ⇒
+     n ≤ m ∧
+     BIGUNION (set (MAP (get_code_labels o SND o SND) (append code))) ⊆
+     set (MAP FST (append code)) ∪
+     IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces)
+       (BIGUNION (set (MAP (get_code_labels o SND o SND) p))) ∪
+     set (MAP FST (bvl_to_bvi$stubs x y))`
+  (Induct_on`p`
+  \\ rw[bvl_to_bviTheory.compile_list_def]
+  >- (EVAL_TAC \\ rw[])
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ first_x_assum drule \\ rw[]
+  >- (
+    PairCases_on`h`
+    \\ fs[bvl_to_bviTheory.compile_single_def]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac compile_exps_aux_sorted
+    \\ fs[] )
+  >- (
+    drule compile_single_get_code_labels
+    \\ rw[]
+    \\ fs[SUBSET_DEF, PULL_EXISTS]
+    \\ fsrw_tac[DNF_ss][] \\ rw[]
+    \\ first_x_assum drule
+    \\ simp[]
+    \\ strip_tac \\ fs[]
+    \\ metis_tac[LESS_LESS_EQ_TRANS,LESS_EQ_LESS_TRANS,LESS_TRANS] )
+  >- (
+    fs[SUBSET_DEF, PULL_EXISTS] \\ rw[]
+    \\ fsrw_tac[DNF_ss][]
+    \\ first_x_assum drule \\ rw[]
+    \\ PairCases_on`h`
+    \\ fs[bvl_to_bviTheory.compile_single_def]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac compile_exps_aux_sorted
+    \\ metis_tac[LESS_LESS_EQ_TRANS,LESS_EQ_LESS_TRANS,LESS_TRANS,LESS_EQ_TRANS] ));
+
+Theorem compile_prog_get_code_labels
+  `∀s n p t q m.
+   bvl_to_bvi$compile_prog s n p = (t,q,m) ⇒
+   BIGUNION (set (MAP (get_code_labels o SND o SND) q)) ⊆
+     bvl_num_stubs + s * bvl_to_bvi_namespaces INSERT
+     set (MAP FST q) ∪
+     IMAGE (λk. bvl_num_stubs + (k * bvl_to_bvi_namespaces)) (BIGUNION (set (MAP (get_code_labels o SND o SND) p))) `
+  (rw[bvl_to_bviTheory.compile_prog_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ simp[]
+  \\ drule (GEN_ALL compile_list_get_code_labels)
+  \\ strip_tac
+  \\ reverse conj_tac
+  >- (
+    qmatch_goalsub_abbrev_tac`stubs x y`
+    \\ first_x_assum(qspecl_then[`y`,`x`]strip_assume_tac)
+    \\ fs[SUBSET_DEF, PULL_EXISTS] \\ metis_tac[] )
+  \\ simp[bvl_to_bviTheory.stubs_def]
+  \\ rpt conj_tac
+  \\ CONV_TAC(LAND_CONV EVAL) \\ simp[] \\ EVAL_TAC
+  \\ simp[]);
+
+Theorem compile_list_code_labels_domain
+  `∀n p code m. compile_list n p = (code,m) ⇒
+     n ≤ m ∧
+     set (MAP FST (append code)) =
+     IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces) (set (MAP FST p)) ∪
+     { bvl_num_stubs + k * bvl_to_bvi_namespaces + 1 | k | n ≤ k ∧ k < m }`
+  (Induct_on`p`
+  \\ rw[bvl_to_bviTheory.compile_list_def]
+  >- (EVAL_TAC \\ rw[])
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ first_x_assum drule \\ rw[]
+  >- (
+    PairCases_on`h`
+    \\ fs[bvl_to_bviTheory.compile_single_def]
+    \\ pairarg_tac \\ fs[]
+    \\ imp_res_tac compile_exps_aux_sorted
+    \\ fs[] )
+  \\ PairCases_on`h`
+  \\ fs[bvl_to_bviTheory.compile_single_def]
+  \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac compile_exps_aux_sorted
+  \\ fs[] \\ rveq \\ fs[]
+  \\ imp_res_tac compile_exps_aux_contains
+  \\ fs[EVERY_MEM, SUBSET_DEF, PULL_EXISTS]
+  \\ simp[Once EXTENSION]
+  \\ rw[EQ_IMP_THM] \\ fs[between_def]
+  \\ res_tac \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def] \\ rveq
+  \\ fs[EVAL``bvl_num_stubs``] \\ rw[]
+  \\ Cases_on`n1 ≤ k` \\ fs[]);
+
+Theorem compile_prog_code_labels_domain
+  `∀s n p t q m.
+   bvl_to_bvi$compile_prog s n p = (t,q,m) ⇒
+   set (MAP FST q) =
+     IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces) (set (MAP FST p)) ∪
+     { bvl_num_stubs + k * bvl_to_bvi_namespaces + 1 | k | n ≤ k ∧ k < m } ∪
+     set (MAP FST (bvl_to_bvi$stubs x y))`
+  (rw[bvl_to_bviTheory.compile_prog_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ simp[]
+  \\ drule compile_list_code_labels_domain \\ rw[]
+  \\ rw[bvl_to_bviTheory.stubs_def]
+  \\ metis_tac[UNION_ASSOC, UNION_COMM]);
+
 val _ = export_theory();

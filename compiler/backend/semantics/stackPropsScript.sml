@@ -852,4 +852,38 @@ val call_args_def = Define `
      ptr' = ptr /\ len' = len /\ ret' = ret) /\
   (call_args _ ptr len ptr2 len2 ret <=> T)`
 
+(* TODO: remove "stack_" prefix from these functions *)
+
+val stack_get_handler_labels_def = Define`
+  (stack_get_handler_labels n (Call r d h) =
+    (case r of SOME (x,_,_) => stack_get_handler_labels n x  ∪
+      (case h of SOME (x,l1,l2) => (if l1 = n then {(l1,l2)} else {}) ∪ (stack_get_handler_labels n x) | _ => {})
+    | _ => {})
+  ) ∧
+  (stack_get_handler_labels n (Seq p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
+  (stack_get_handler_labels n (If _ _ _ p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
+  (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
+  (stack_get_handler_labels n _ = {})`;
+val _ = export_rewrites["stack_get_handler_labels_def"];
+
+val get_code_labels_def = Define`
+  (get_code_labels (Call r d h) =
+    (case d of INL x => {(x,0n)} | _ => {}) ∪
+    (case r of SOME (x,_,_) => get_code_labels x | _ => {}) ∪
+    (case h of SOME (x,_,_) => get_code_labels x | _ => {})) ∧
+  (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
+  (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
+  (get_code_labels (While _ _ _ p) = get_code_labels p) ∧
+  (get_code_labels (JumpLower _ _ t) = {(t,0)}) ∧
+  (get_code_labels (LocValue _ l1 l2) = {(l1,l2)}) ∧
+  (get_code_labels _ = {})`;
+val _ = export_rewrites["get_code_labels_def"];
+
+val stack_good_code_labels_def = Define`
+  stack_good_code_labels p ⇔
+  BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
+  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
+  IMAGE (λn. n,0) (set (MAP FST p))
+`
+
 val _ = export_theory();

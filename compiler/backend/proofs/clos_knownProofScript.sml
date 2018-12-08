@@ -5023,6 +5023,12 @@ Theorem compile_obeys_max_app
 
 (* names *)
 
+Theorem get_code_labels_mk_Ticks[simp]
+  `∀a b c d. get_code_labels (mk_Ticks a b c d) = get_code_labels d`
+  (recInduct clos_knownTheory.mk_Ticks_ind
+  \\ rw[]
+  \\ rw[Once clos_knownTheory.mk_Ticks_def]);
+
 (*
 val val_approx_bodies_def = tDefine"val_approx_bodies_def"`
   val_approx_bodies [] = [] ∧
