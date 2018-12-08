@@ -280,7 +280,7 @@ val SUB_LEMMA2 = Q.store_thm("SUB_LEMMA2",
     >> simp []
 )
 
-val fixshift_add_rwt = Q.store_thm("fixshift_add_rwt",
+val fixshiftr_add_rwt = Q.store_thm("fixshiftr_add_rwt",
           `!b a. a = a - (a - b) + (a - b)`,FULL_SIMP_TAC arith_ss []);
 
 val GENLIST_APPEND_REVERSE = Q.store_thm("GENLIST_APPEND_REVERSE",
@@ -301,8 +301,8 @@ val fixshiftr_word_lsr_SUC = Q.store_thm("fixshiftr_word_lsr_SUC",
      >> simp[MIN_SUB]
      >> simp[FCP,FCP_BETA,CART_EQ]
      (* rewrite rightmost occurence of `dimindex(:'a)`
-        on LHS using fixshift_add_rwt and *)
-     >> CONV_TAC (PATH_CONV "lrr" (REWR_CONV (SPEC ``SUC n`` fixshift_add_rwt)))
+        on LHS using fixshiftr_add_rwt *)
+     >> CONV_TAC (PATH_CONV "lrr" (REWR_CONV (SPEC ``SUC n`` fixshiftr_add_rwt)))
      (* GENLIST_APPEND splits the addition in reverse
         thus we use our REVERSE theorem *)
      >> REWRITE_TAC[GENLIST_APPEND_REVERSE]
