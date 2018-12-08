@@ -283,15 +283,6 @@ val GENLIST_APPEND_REVERSE = Q.store_thm("GENLIST_APPEND_REVERSE",
     >> simp [GENLIST_APPEND]
 )
 
-val fixshiftr_lemma1 = Q.store_thm("fixshiftr_lemma1",
-  `!n (w : 'a word) i.
-     (i < (dimindex (:'a) − (dimindex (:'a) − SUC n)))
-        ==>
-      (dimindex (:'a) − (i + 1) + SUC n < dimindex (:'a)
-       ∧ w ' (dimindex (:'a) − (i + 1) + SUC n) = F)`,
-   cheat)
-
-
 val fixshiftr_word_lsr_SUC = Q.store_thm("fixshiftr_word_lsr_SUC",
   `!n w. ((w2v (word_lsr w (SUC n)) = fixshiftr (w2v w) (SUC n)))`,
    rpt strip_tac >> REWRITE_TAC[w2v_def]
@@ -306,7 +297,12 @@ val fixshiftr_word_lsr_SUC = Q.store_thm("fixshiftr_word_lsr_SUC",
      (* GENLIST_APPEND splits the addition in reverse
         thus we use our REVERSE theorem *)
      >> REWRITE_TAC[GENLIST_APPEND_REVERSE]
-     >> cheat
+     >> MK_COMB_TAC
+        >- ( MK_COMB_TAC
+           >- simp []
+           >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
+        )
+        >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
 )
 
 val fixshiftr_word_lsr = Q.store_thm("fixshiftr_word_lsr",
