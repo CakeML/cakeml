@@ -233,18 +233,23 @@ val fixshiftr_def = Define`
    fixshiftr a n =
      let m = LENGTH a in
         fixwidth m (shiftr a n)`
-
+(*
 val fixasr_def = Define`
    (fixasr a 0 = a) /\
    (fixasr a (SUC n) = fixasr
         (sign_extend (LENGTH a) (TAKE (LENGTH a - 1) a)) n)`
-
+*)
 val fixshiftl_def = Define`
    fixshiftl a n =
      let m = LENGTH a in
         fixwidth m (shiftl a n)`
 
-val rotate_w2v = Q.store_thm("rotate_word_ror_lemma",
+
+(* NOTE there is a lemma `word_ror_v2w` stating
+   `!n v. word_ror (v2w v) n = v2w (rotate (fixwidth (dimindex(:'a)) v) n)`
+   can it be used to prove the following?
+ *)
+val rotate_w2v = Q.store_thm("rotate_w2v",
 `!w:('a word) n. rotate (w2v w) n = w2v (word_ror w n)`,
    rpt STRIP_TAC >> simp [rotate_def,word_ror]
         >> Cases_on `(dimindex (:'a) = 0)`
@@ -388,8 +393,38 @@ val fixshiftl_word_lsl = Q.store_thm("fixshiftl_word_lsl",
       >> simp[fixshiftl_word_lsl_SUC]
 )
 
+val fixasr_def = Define `fixasr a n = sign_extend (LENGTH a) (TAKE (LENGTH a - n) a)`
+
 val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
-  `!n w. (w2v (word_asr w n)) = (fixasr (w2v w) n)`,cheat);
+ `!(n:num) (w:'a word). (w2v (word_asr w n)) = (fixasr (w2v w) n)`,
+   rpt strip_tac >> simp[word_asr_def,w2v_def,fixasr_def]
+   >> simp[sign_extend_def] >> simp[PAD_LEFT] >> simp[TAKE_GENLIST] >> simp[MIN_SUB] >>
+   CONV_TAC (PATH_CONV "lrr" (REWR_CONV (ISPEC ``dimindex(:'a):num`` (ISPEC ``n:num`` fixshiftr_add_rwt))))
+    >> REWRITE_TAC[GENLIST_APPEND_REVERSE] >>
+       MK_COMB_TAC
+          >- (MK_COMB_TAC
+                 >- simp[]
+                 >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
+                    >> simp[FCP_BETA,CART_EQ,FCP]
+                    >> Cases_on `dimindex(:'a)-n`
+                    >- cheat
+                    >> simp[word_msb_def] >> simp[HD_GENLIST]
+             ) >> simp[FCP_BETA,CART_EQ,FCP]
+        >> rw[GENLIST_FUN_EQ]
+)
+
+
+(*
+val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
+  `!n w. (w2v (word_asr w n)) = (fixasr (w2v w) n)`,
+   rpt strip_tac >> Induct_on `n`
+   >- simp[fixasr_def,word_asr_def,w2v_def]
+   >> simp[word_asr_def,w2v_def]
+   >> simp[FCP,FCP_BETA,CART_EQ]
+   >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
+   >> cheat
+)
+*)
 
 (* TODO prove that `i2vN x N` represents the same value as `(i2w x): N word` *)
 val i2vN_def = Define`
