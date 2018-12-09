@@ -1570,7 +1570,7 @@ Theorem idsexp_sexpid_odestSEXSTR
   \\ every_case_tac \\ fs[]);
 
 Theorem strip_sxcons_NIL[simp]
-  `strip_sxcons ⦇ ⦈ = SOME []`
+  `strip_sxcons ⟪ ⟫ = SOME []`
   (simp[Once strip_sxcons_def]);
 
 Theorem strip_sxcons_SXCONS[simp]
@@ -1654,7 +1654,7 @@ Theorem locnsexp_sexplocn
   \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
   \\ fs[Once strip_sxcons_def]
   \\ simp[listsexp_def]
-  \\ rename [`⦇h1; h2; h3; h4; h5; h6⦈`]
+  \\ rename [`⟪h1; h2; h3; h4; h5; h6⟫`]
   \\ map_every (fn q => Cases_on q >> fs[odestSXNUM_def])
        [`h1`, `h2`, `h3`, `h4`, `h5`, `h6`]);
 
