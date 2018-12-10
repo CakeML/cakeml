@@ -7,7 +7,7 @@ open terminationTheory
 open semanticPrimitivesTheory;
 open semanticPrimitivesPropsTheory;
 
-val _ = new_theory"evaluateProps"
+val _ = new_theory"evaluateProps";
 
 Theorem call_FFI_LENGTH
   `(call_FFI st index conf x = FFI_return new_st new_bytes) ==>
@@ -175,111 +175,151 @@ Theorem evaluate_tops_io_events_mono_imp
   (metis_tac[PAIR,FST,evaluate_tops_io_events_mono])
   *)
 
-val evaluate_add_to_clock_lemma = Q.prove(
-  `(!(s:'ffi state) env es s' r extra.
+val is_clock_io_mono_def = Define
+  `is_clock_io_mono f s = (case f s of (s', r) =>
+        io_events_mono s.ffi s'.ffi
+        /\ s'.clock <= s.clock
+        /\ (!clk. case f (s with clock := clk) of (s'', r') =>
+            (~ (r' = Rerr (Rabort Rtimeout_error))
+                ==> ~ (r = Rerr (Rabort Rtimeout_error))
+                ==> r' = r
+                    /\ s'' = (s' with clock := clk - (s.clock - s'.clock)))
+            /\ (~ (r = Rerr (Rabort Rtimeout_error))
+                ==> (clk >= s.clock - s'.clock
+                    <=> ~ (r' = Rerr (Rabort Rtimeout_error))))
+            /\ (~ (r' = Rerr (Rabort Rtimeout_error))
+                ==> clk <= s.clock
+                ==> ~ (r = Rerr (Rabort Rtimeout_error)))
+            /\ (clk <= s.clock ==> io_events_mono s''.ffi s'.ffi)
+        ))`;
+
+Theorem is_clock_io_mono_return
+  `is_clock_io_mono (\s. (s,Rval r)) s`
+  (fs [is_clock_io_mono_def])
+
+Theorem is_clock_io_mono_err
+  `is_clock_io_mono (\s. (s,Rerr r)) s`
+  (fs [is_clock_io_mono_def])
+
+Theorem pair_CASE_eq_forall
+  `(case x of (a, b) => P a b) = (!a b. x = (a, b) ==> P a b)`
+  (Cases_on `x` \\ fs []);
+
+Theorem is_clock_io_mono_bind
+  `is_clock_io_mono f s /\ (!s' r. f s = (s', r)
+        ==> is_clock_io_mono (g r) s')
+    /\ (!s'. g (Rerr (Rabort Rtimeout_error)) s'
+        = (s', Rerr (Rabort Rtimeout_error)))
+    ==> is_clock_io_mono (\s. case f s of (s', r) => g r s') s`
+  (fs [is_clock_io_mono_def]
+  \\ rpt (FIRST [DISCH_TAC, GEN_TAC, CASE_TAC])
+  \\ fs []
+  \\ conj_tac \\ (TRY (irule io_events_mono_trans \\ metis_tac []))
+  \\ rpt (FIRST [DISCH_TAC, GEN_TAC, CASE_TAC])
+  \\ fs [pair_CASE_eq_forall]
+  \\ FIRST_X_ASSUM drule
+  \\ rpt DISCH_TAC
+  \\ fs []
+  (* many cases *)
+  \\ Cases_on (`SND (f s) = Rerr (Rabort Rtimeout_error)`)
+  \\ Cases_on (`SND (f (s with clock := clk)) = Rerr (Rabort Rtimeout_error)`)
+  \\ rpt (FIRST (map CHANGED_TAC [DISCH_TAC, fs [], rfs [], rveq]))
+  \\ TRY (irule io_events_mono_trans \\ metis_tac [])
+  (* back to one case *)
+  \\ FIRST_X_ASSUM drule
+  \\ rpt (FIRST (map CHANGED_TAC [DISCH_TAC, fs [], rfs [], rveq,
+        fs [EQ_IMP_THM]]))
+  );
+
+Theorem is_clock_io_mono_check
+  `(~ (s.clock = 0) ==> is_clock_io_mono f (dec_clock s))
+    ==> is_clock_io_mono (\s. if s.clock = 0
+        then (s,Rerr (Rabort Rtimeout_error)) else f (dec_clock s)) s`
+  (fs [is_clock_io_mono_def, dec_clock_def]
+  \\ rpt (CASE_TAC ORELSE DISCH_TAC ORELSE GEN_TAC ORELSE CHANGED_TAC (fs []))
+  \\ fs [pair_CASE_eq_forall]
+  \\ FIRST_X_ASSUM drule
+  \\ rpt (CASE_TAC ORELSE DISCH_TAC ORELSE GEN_TAC ORELSE CHANGED_TAC (fs []))
+  \\ Cases_on `r' = Rerr (Rabort Rtimeout_error)` \\ fs []);
+
+Theorem is_clock_io_mono_refs_lemma
+  `is_clock_io_mono (\s'. f (s.refs) s') s
+    ==> is_clock_io_mono (\s'. f (s'.refs) s') s`
+  (fs [is_clock_io_mono_def]);
+
+Theorem is_clock_io_mono_do_app
+  `is_clock_io_mono (\st'. case do_app (st.refs, st'.ffi) op xs of
+      NONE => (st', Rerr (Rabort Rtype_error))
+    | SOME ((refs,ffi),r) => (st' with <|refs := refs; ffi := ffi|>,
+        list_result r)) st`
+  (fs [is_clock_io_mono_def]
+  \\ rpt (CASE_TAC ORELSE CHANGED_TAC (fs []) ORELSE strip_tac)
+  \\ metis_tac [do_app_io_events_mono]);
+
+Theorem is_clock_io_mono_evaluate
+  `(!(s : 'ffi state) env es. is_clock_io_mono (\s. evaluate s env es) s) /\
+   (!(s : 'ffi state) env v pes err_v.
+        is_clock_io_mono (\s. evaluate_match s env v pes err_v) s)`
+  (ho_match_mp_tac evaluate_ind
+  \\ rpt strip_tac \\ fs [evaluate_def]
+  \\ rpt (FIRST ([strip_tac] @ map ho_match_mp_tac [is_clock_io_mono_bind,
+        is_clock_io_mono_check]
+    @ [CHANGED_TAC (fs [is_clock_io_mono_return, is_clock_io_mono_err,
+            is_clock_io_mono_do_app]),
+        CASE_TAC,
+        CHANGED_TAC (ho_match_mp_tac is_clock_io_mono_refs_lemma)])));
+
+Theorem is_clock_io_mono_extra
+  `(!s. is_clock_io_mono f s)
+    ==> f s = (s', r) /\ ~ (r = Rerr (Rabort Rtimeout_error))
+    ==> f (s with clock := s.clock + extra)
+        = (s' with clock := s'.clock + extra,r)`
+  (DISCH_TAC
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s with clock := s.clock + extra`)
+  \\ fs [is_clock_io_mono_def]
+  \\ CASE_TAC
+  \\ rpt (DISCH_TAC ORELSE GEN_TAC)
+  \\ fs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s.clock`)
+  \\ fs [semanticPrimitivesPropsTheory.with_same_clock]
+  \\ rpt DISCH_TAC
+  \\ rpt (CHANGED_TAC (fs [semanticPrimitivesPropsTheory.with_same_clock])));
+
+Theorem is_clock_io_mono_extra_mono
+  `(!s. is_clock_io_mono f s)
+    ==> io_events_mono (FST(f s)).ffi
+     (FST(f (s with clock := s.clock + extra))).ffi`
+  (DISCH_TAC
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s with clock := s.clock + extra`)
+  \\ fs [is_clock_io_mono_def]
+  \\ CASE_TAC
+  \\ rpt (DISCH_TAC ORELSE GEN_TAC)
+  \\ fs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s.clock`)
+  \\ fs [semanticPrimitivesPropsTheory.with_same_clock]
+  \\ CASE_TAC);
+
+fun mk_extra_lemmas mp_rule monad_rule
+  = BODY_CONJUNCTS monad_rule
+    |> map (BETA_RULE o MATCH_MP mp_rule o Q.GEN `s`)
+fun prove_extra mp_rule monad_rule
+  = simp_tac bool_ss (mk_extra_lemmas mp_rule monad_rule)
+
+Theorem evaluate_add_to_clock
+  `!(s:'ffi state) env es s' r extra.
     evaluate s env es = (s',r) ∧
     r ≠ Rerr (Rabort Rtimeout_error) ⇒
     evaluate (s with clock := s.clock + extra) env es =
-    (s' with clock := s'.clock + extra,r)) ∧
-   (!(s:'ffi state) env v pes err_v s' r extra.
+    (s' with clock := s'.clock + extra,r)`
+  (prove_extra is_clock_io_mono_extra is_clock_io_mono_evaluate);
+
+Theorem evaluate_match_add_to_clock
+  `!(s:'ffi state) env v pes err_v s' r extra.
     evaluate_match s env v pes err_v = (s', r) ∧
     r ≠ Rerr (Rabort Rtimeout_error) ⇒
     evaluate_match (s with clock := s.clock + extra) env v pes err_v =
-      (s' with clock := s'.clock + extra,r))`,
- (* The proof is fragile about generated names, but I don't see how to make it
-  * robust without significant effort *)
- ho_match_mp_tac evaluate_ind
- >> rw [evaluate_def]
- >- (
-   Cases_on `evaluate s env [e1]`
-   >> Cases_on `r'`
-   >> fs []
-   >> Cases_on `evaluate q env (e2::es)`
-   >> Cases_on `r'`
-   >> fs []
-   >> rw [])
- >- (
-   Cases_on `evaluate s env [e]`
-   >> Cases_on `r'`
-   >> fs []
-   >> rw [])
- >- (
-   Cases_on `evaluate s env [e]`
-   >> Cases_on `r'`
-   >> fs []
-   >> rw []
-   >> Cases_on `e'`
-   >> fs []
-   >> rw []
-   >> fs [])
- >- (
-   Cases_on `evaluate s env (REVERSE es)`
-   >> Cases_on `r'`
-   >> fs []
-   >> rw []
-   >> CASE_TAC
-   >> fs [])
- >- (
-   CASE_TAC
-   >> fs [])
- >- (
-   Cases_on `evaluate s env (REVERSE es)`
-   >> Cases_on `r'`
-   >> fs []
-   >> rw []
-   >- (
-     every_case_tac
-     >> fs []
-     >> rfs [dec_clock_def]
-     >> first_x_assum (qspec_then `extra` mp_tac)
-     >> simp [])
-   >- (
-     fs []
-     >> CASE_TAC
-     >> fs []
-     >> every_case_tac
-     >> fs []
-     >> rw []))
- >- (
-   Cases_on `evaluate s env [e1]`
-   >> fs []
-   >> Cases_on `r'`
-   >> fs []
-   >> rw []
-   >> rw []
-   >> CASE_TAC
-   >> fs []
-   >> every_case_tac
-   >> fs [])
- >- (
-   Cases_on `evaluate s env [e1]`
-   >> Cases_on `r'`
-   >> fs []
-   >> rw []
-   >> every_case_tac
-   >> fs []
-   >> rw [])
- >- (
-   Cases_on `evaluate s env [e]`
-   >> Cases_on `r'`
-   >> fs []
-   >> rw [])
- >- (
-   Cases_on `evaluate s env [e1]`
-   >> Cases_on `r'`
-   >> fs []
-   >> rw []
-   >> every_case_tac
-   >> fs []
-   >> rw [])
- >- (
-   CASE_TAC
-   >> fs []));
-
-val evaluate_add_to_clock = save_thm("evaluate_add_to_clock",
-  CONJUNCT1 evaluate_add_to_clock_lemma);
-val evaluate_match_add_to_clock = save_thm("evaluate_match_add_to_clock",
-  CONJUNCT2 evaluate_add_to_clock_lemma);
+      (s' with clock := s'.clock + extra,r)`
+  (prove_extra is_clock_io_mono_extra is_clock_io_mono_evaluate);
 
 Theorem list_result_eq_Rval[simp]
   `list_result r = Rval r' ⇔ ∃v. r' = [v] ∧ r = Rval v`
@@ -396,47 +436,28 @@ Theorem evaluate_match_list_result
     Cases_on`a` >> full_simp_tac(srw_ss())[LENGTH_NIL],all_tac] >>
   metis_tac[list_result_def]);
 
+Theorem is_clock_io_mono_evaluate_decs
+  `!s e p. is_clock_io_mono (\s. evaluate_decs s e p) s`
+  (ho_match_mp_tac evaluate_decs_ind
+  \\ fs [evaluate_decs_def, combine_dec_result_def]
+  \\ rpt (strip_tac ORELSE TOP_CASE_TAC
+    ORELSE (CHANGED_TAC (fs [is_clock_io_mono_return,
+        is_clock_io_mono_err, is_clock_io_mono_evaluate]))
+    ORELSE ho_match_mp_tac is_clock_io_mono_bind
+  )
+  \\ fs [is_clock_io_mono_def]);
+
+val evaluate_decs_lemmas
+  = BODY_CONJUNCTS is_clock_io_mono_evaluate_decs
+    |> map (BETA_RULE o MATCH_MP is_clock_io_mono_extra o Q.GEN `s`)
+
 Theorem evaluate_decs_add_to_clock
   `!s e p s' r extra.
    evaluate_decs s e p = (s',r) ∧
    r ≠ Rerr (Rabort Rtimeout_error) ⇒
    evaluate_decs (s with clock := s.clock + extra) e p =
    (s' with clock := s'.clock + extra,r)`
-  (ho_match_mp_tac evaluate_decs_ind
-  >> rw [evaluate_decs_def] >>
-  rw []
-  >- (
-    pop_assum mp_tac
-    >> pop_assum mp_tac
-    >> CASE_TAC
-    >> CASE_TAC
-    >> fs []
-    >> rw []
-    >> fs []
-    >> pop_assum mp_tac
-    >> pop_assum mp_tac
-    >> split_pair_case_tac
-    >> rw []
-    >> fs []
-    >> Cases_on `r'`
-    >> fs []
-    >> Cases_on `e'`
-    >> fs [combine_dec_result_def])
-  >- (
-    every_case_tac
-    >> fs []
-    >> rw []
-    >> imp_res_tac evaluate_add_to_clock
-    >> fs []
-    >> rw []
-    >> fs []
-    >> rw [])
-  >- (
-    every_case_tac >>
-    rw [] >>
-    fs [] >>
-    res_tac >>
-    fs []));
+  (simp_tac bool_ss evaluate_decs_lemmas);
 
     (*
 Theorem evaluate_tops_add_to_clock
@@ -483,12 +504,8 @@ val add_lemma = Q.prove (
  `!(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra`,
  intLib.ARITH_TAC);
 
-val with_clock_with_clock = Q.prove (
-`((s with clock := x) with clock := y) = s with clock := y`,
- rw []);
-
 val with_clock_ffi = Q.prove(
-  `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
+  `(s with clock := k).ffi = s.ffi`,EVAL_TAC);
 
 Theorem evaluate_decs_clock_determ
 `!s e p s1 r1 s2 r2 k1 k2.
@@ -537,8 +554,6 @@ Theorem evaluate_decs_clock_determ
    fs [] >>
    rw []))
 
-val lemma = DECIDE``x ≠ 0n ⇒ x - 1 + y = x + y - 1``
-
 Theorem evaluate_add_to_clock_io_events_mono
   `(∀(s:'ffi state) e d extra.
      io_events_mono (FST(evaluate s e d)).ffi
@@ -546,35 +561,14 @@ Theorem evaluate_add_to_clock_io_events_mono
    (∀(s:'ffi state) e v d er extra.
      io_events_mono (FST(evaluate_match s e v d er)).ffi
      (FST(evaluate_match (s with clock := s.clock + extra) e v d er)).ffi)`
-  (ho_match_mp_tac evaluate_ind >>
-  srw_tac[][evaluate_def,LET_THM] >>
-  TRY (
-    rename1`op = Opapp` >>
-    every_case_tac >> full_simp_tac(srw_ss())[dec_clock_def] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-    TRY(first_x_assum(qspec_then`extra`strip_assume_tac)>>rev_full_simp_tac(srw_ss())[]>>NO_TAC)>>
-    imp_res_tac evaluate_add_to_clock >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac do_app_io_events_mono >>
-    metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,io_events_mono_trans,lemma] ) >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac evaluate_add_to_clock >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac evaluate_match_add_to_clock >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac evaluate_io_events_mono_imp >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  metis_tac[io_events_mono_trans,FST,PAIR,evaluate_io_events_mono])
+  (prove_extra is_clock_io_mono_extra_mono is_clock_io_mono_evaluate);
 
 Theorem evaluate_decs_add_to_clock_io_events_mono
   `∀s e d.
     io_events_mono
     (FST(evaluate_decs s e d)).ffi
     (FST(evaluate_decs (s with clock := s.clock + extra) e d)).ffi`
-  (ho_match_mp_tac evaluate_decs_ind >>
-  srw_tac[][evaluate_decs_def,LET_THM] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac evaluate_decs_add_to_clock >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac evaluate_decs_io_events_mono_imp >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  TRY(
-    last_x_assum(qspec_then`extra`mp_tac) >> simp[] >>
-    metis_tac[io_events_mono_trans]) >>
-  metis_tac[evaluate_add_to_clock_io_events_mono,FST])
+  (prove_extra is_clock_io_mono_extra_mono is_clock_io_mono_evaluate_decs);
 
   (*
 Theorem evaluate_tops_add_to_clock_io_events_mono
@@ -592,25 +586,15 @@ Theorem evaluate_tops_add_to_clock_io_events_mono
   metis_tac[evaluate_decs_add_to_clock_io_events_mono,FST])
   *)
 
-val with_clock_clock = Q.prove(
-  `(s with clock := k).clock = k`,
-  EVAL_TAC);
-
-val with_clock_with_clock = Q.prove(
-  `((s with clock := k1) with clock := k2) = s with clock := k2`,
-  EVAL_TAC)
-
 Theorem evaluate_decs_ffi_mono_clock
   `∀k1 k2 s e p.
     k1 ≤ k2 ⇒
     io_events_mono
     (FST (evaluate_decs (s with clock := k1) e p)).ffi
     (FST (evaluate_decs (s with clock := k2) e p)).ffi`
-  (rw [] >>
-  qabbrev_tac`ss = s with clock := k1` >>
-  `∃s1 r. evaluate_decs ss e p = (s1,r)` by metis_tac[PAIR] >>
-  full_simp_tac(srw_ss())[LESS_EQ_EXISTS,Abbr`ss`] >>
-  metis_tac[evaluate_decs_add_to_clock_io_events_mono,FST,with_clock_clock,with_clock_with_clock]);
+  (metis_tac [is_clock_io_mono_evaluate_decs
+    |> Q.SPEC `s with clock := k1`
+    |> SIMP_RULE (srw_ss ()) [is_clock_io_mono_def, pair_CASE_def]]);
 
 Theorem evaluate_state_unchanged
  `(!(st:'ffi state) env es st' r.
@@ -880,35 +864,19 @@ Theorem evaluate_ffi_intro `
     \\ TOP_CASE_TAC \\ fs[]
     \\ rw[state_component_equality] ));
 
-val evaluate_set_clock_lemma = Q.prove(
-  `(!(s:'ffi state) env es ck1 s' r extra.
-    evaluate s env es = (s',r) ∧
-    r ≠ Rerr (Rabort Rtimeout_error) ⇒
-    ?ck0. evaluate (s with clock := ck0) env es = (s' with clock := ck1,r)) ∧
-   (!(s:'ffi state) env v pes err_v ck1 s' r extra.
-    evaluate_match s env v pes err_v = (s', r) ∧
-    r ≠ Rerr (Rabort Rtimeout_error) ⇒
-    ?ck0. evaluate_match (s with clock := ck0) env v pes err_v =
-            (s' with clock := ck1,r))`,
-  ho_match_mp_tac evaluate_ind \\ rw [evaluate_def]
-  \\ TRY (fs [state_component_equality] \\ NO_TAC)
-  \\ fs [pair_case_eq,result_case_eq,error_result_case_eq,
-         option_case_eq,bool_case_eq,exp_or_val_case_eq,match_result_case_eq]
-  \\ rveq \\ fs []
-  \\ TRY (fs [state_component_equality] \\ NO_TAC)
-  \\ simp [PULL_EXISTS]
-  \\ TRY (
-    last_x_assum (qspec_then `ck1` strip_assume_tac)
-    \\ last_x_assum (qspec_then `ck0` strip_assume_tac)
-    \\ asm_exists_tac \\ fs [] \\ NO_TAC)
-  \\ TRY (
-    last_x_assum (qspec_then `ck1` strip_assume_tac)
-    \\ asm_exists_tac \\ fs [] \\ NO_TAC)
-  THEN1
-   (qpat_x_assum `_ = evaluate _ _ _` (assume_tac o GSYM) \\ fs []
-    \\ last_x_assum (qspec_then `ck1` strip_assume_tac)
-    \\ last_x_assum (qspec_then `ck0+1` strip_assume_tac)
-    \\ fs [] \\ rfs [] \\ asm_exists_tac \\ fs [dec_clock_def]));
+Theorem is_clock_io_mono_set_clock
+  `is_clock_io_mono f s
+    ==> f s = (s', r) /\ ~ (r = Rerr (Rabort Rtimeout_error))
+    ==> ?ck0. f (s with clock := ck0) = (s' with clock := ck1, r)`
+  (fs [is_clock_io_mono_def]
+  \\ rpt (FIRST (map CHANGED_TAC [fs [], strip_tac]))
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `ck1 + (s.clock − (HD [s';s]).clock)`)
+  \\ CASE_TAC
+  \\ rpt (FIRST (map CHANGED_TAC [fs [], strip_tac]))
+  \\ metis_tac []);
+
+val evaluate_set_clock_lemmas = BODY_CONJUNCTS is_clock_io_mono_evaluate
+  |> map (BETA_RULE o MATCH_MP is_clock_io_mono_set_clock);
 
 Theorem evaluate_set_clock
   `!(s:'ffi state) env exps s1 res.
@@ -916,99 +884,37 @@ Theorem evaluate_set_clock
       res <> Rerr (Rabort Rtimeout_error) ==>
       !ck. ?ck1. evaluate (s with clock := ck1) env exps =
                    (s1 with clock := ck,res)`
-  (metis_tac [evaluate_set_clock_lemma]);
+  (metis_tac evaluate_set_clock_lemmas);
 
-fun clock_tac q =
-  drule evaluate_add_to_clock
-  >> disch_then(qspec_then q mp_tac)
-  >> impl_tac >- fs[]
-  >> strip_tac >> rfs[with_same_clock]
-  >> fs[] >> rveq >> fs[]
+Theorem is_clock_io_mono_minimal
+  `is_clock_io_mono f s
+    ==> f s = (s', r) /\ s'.clock = 0 /\ r <> Rerr (Rabort Rtimeout_error)
+        /\ s.clock > k
+    ==> (?s''. f (s with clock := k) = (s'', Rerr (Rabort Rtimeout_error)))`
+  (fs [is_clock_io_mono_def]
+  \\ rpt (FIRST (map CHANGED_TAC [fs [], strip_tac]))
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k`)
+  \\ CASE_TAC \\ fs []);
 
-val evaluate_minimal_clock_lemma = Q.prove(
+val evaluate_minimal_lemmas = BODY_CONJUNCTS is_clock_io_mono_evaluate
+  |> map (BETA_RULE o MATCH_MP is_clock_io_mono_minimal);
+
+Theorem evaluate_minimal_clock
 `(!(s:'ffi state) env es s' r k. evaluate s env es = (s',r) ∧
   s'.clock = 0 ∧
   r ≠ Rerr (Rabort Rtimeout_error) ∧
   s.clock > k
   ==>
-  ?s''. evaluate (s with clock := k) env es = (s'',Rerr (Rabort Rtimeout_error))) ∧
- (!(s:'ffi state) env v pes err_v s' r k. evaluate_match s env v pes err_v = (s',r) ∧
+  ?s''. evaluate (s with clock := k) env es = (s'',Rerr (Rabort Rtimeout_error)))`
+  (metis_tac evaluate_minimal_lemmas);
+
+Theorem evaluate_match_minimal_clock
+`(!(s:'ffi state) env v pes err_v s' r k. evaluate_match s env v pes err_v = (s',r) ∧
   s'.clock = 0 ∧
   r ≠ Rerr (Rabort Rtimeout_error) ∧
   s.clock > k
   ==>
-  ?s''. evaluate_match (s with clock := k) env v pes err_v = (s'',Rerr (Rabort Rtimeout_error)))`,
-  ho_match_mp_tac evaluate_ind
-  >> rpt strip_tac
-  >> fs[evaluate_def] >> rveq >> fs[]
-  >- (CASE_TAC >> reverse TOP_CASE_TAC
-      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-      >> clock_tac `s.clock - k`
-      >> TOP_CASE_TAC >> reverse TOP_CASE_TAC
-      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-      >> clock_tac `s.clock - k`)
-  >- (CASE_TAC >> reverse TOP_CASE_TAC
-      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-      >> clock_tac `s.clock - k`)
-  >- (CASE_TAC >> reverse TOP_CASE_TAC
-      >- (reverse TOP_CASE_TAC
-          >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-          >> clock_tac `s.clock - k`
-          >> rename1 `evaluate_match a1`
-          >> first_x_assum (qspec_then `a1.clock` assume_tac)
-          >> rfs[with_same_clock])
-      >> clock_tac `s.clock - k`)
-  >- (reverse TOP_CASE_TAC
-      >- rfs[]
-      >> CASE_TAC >> reverse TOP_CASE_TAC
-      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-      >> clock_tac `s.clock - k`
-      >> PURE_TOP_CASE_TAC >> fs[] >> rveq >> fs[])
-  >- (TOP_CASE_TAC >> fs[])
-  >- (TOP_CASE_TAC >> reverse TOP_CASE_TAC
-      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-      >> clock_tac `s.clock - k`
-      >> TOP_CASE_TAC >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
-      >> TOP_CASE_TAC >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
-      >> clock_tac `s.clock - k`
-      >> fs[dec_clock_def])
-  >- (CASE_TAC >> reverse TOP_CASE_TAC
-      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-      >> clock_tac `s.clock - k`
-      >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
-      >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
-      >> clock_tac `s.clock - k`
-      >> rename1 `evaluate a1`
-      >> first_x_assum (qspec_then `a1.clock` assume_tac)
-      >> rfs[with_same_clock])
-  >- (CASE_TAC >> reverse TOP_CASE_TAC
-      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-      >> clock_tac `s.clock - k`
-      >> TOP_CASE_TAC >> fs[] >> rveq >> fs[]
-      >> rfs[]
-      >> rename1 `evaluate a1`
-      >> first_x_assum (qspec_then `a1.clock` assume_tac)
-      >> rfs[with_same_clock]
-     )
-  >- (CASE_TAC >> reverse TOP_CASE_TAC
-      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-      >> clock_tac `s.clock - k`
-      >> rename1 `evaluate_match a1`
-      >> first_x_assum (qspec_then `a1.clock` assume_tac)
-      >> rfs[with_same_clock]
-     )
-  >- (CASE_TAC >> reverse TOP_CASE_TAC
-      >- (CCONTR_TAC >> clock_tac `s.clock - k`)
-      >> clock_tac `s.clock - k`
-      >> rename1 `evaluate a1`
-      >> first_x_assum (qspec_then `a1.clock` assume_tac)
-      >> rfs[with_same_clock])
-  >> IF_CASES_TAC >> fs[] >> rveq >> fs[]
-  >> rpt(PURE_TOP_CASE_TAC >> fs[] >> rveq >> fs[]));
-
-val evaluate_minimal_clock = save_thm("evaluate_minimal_clock",
-  CONJUNCT1 evaluate_minimal_clock_lemma);
-val evaluate_match_minimal_clock = save_thm("evaluate_match_minimal_clock",
-  CONJUNCT2 evaluate_minimal_clock_lemma);
+  ?s''. evaluate_match (s with clock := k) env v pes err_v = (s'',Rerr (Rabort Rtimeout_error)))`
+  (metis_tac evaluate_minimal_lemmas);
 
 val _ = export_theory();

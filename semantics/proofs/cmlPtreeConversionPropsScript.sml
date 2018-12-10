@@ -623,40 +623,33 @@ Theorem TypeAbbrevDec_OK
             Type_OK]);
 
 Theorem Decl_OK
-  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDecl ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃d. ptree_Decl pt = SOME d`
-  (start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> fs[MAP_EQ_CONS] >>
-  simp[ptree_Decl_def, tokcheckl_def, tokcheck_def]
-  >- (map_every (erule strip_assume_tac o n) [Pattern_OK, E_OK] >>
-      simp[])
-  >- (erule strip_assume_tac (n AndFDecls_OK) >> simp[])
-  >- (erule strip_assume_tac (n TypeDec_OK) >> simp[])
-  >- (erule strip_assume_tac (n Dconstructor_OK) >> simp[] >>
-      asm_match `ptree_Dconstructor pt' = SOME dc` >>
-      Cases_on `dc` >> simp[])
-  >- (erule strip_assume_tac (n TypeAbbrevDec_OK) >> simp[] >>
-      qmatch_abbrev_tac `∃d. foo ++ SOME x = SOME d` >>
-      Cases_on `foo` >> simp[]));
-
-Theorem Decls_OK
-  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDecls ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃ds. ptree_Decls pt = SOME ds`
-  (map_every qid_spec_tac [`toks`, `pt`] >>
-  ho_match_mp_tac grammarTheory.ptree_ind >>
-  conj_tac >> simp[Once FORALL_PROD] >>
-  simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
-  rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
-  full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
-  simp[ptree_Decls_def, tokcheck_def] >>
-  asm_match `ptree_head pt' = NN nDecl` >>
-  `destLf pt' = NONE`
-    by (Cases_on `pt'`
-        >- (rename[`Lf p`] >> Cases_on `p` >> fs[]) >>
-        rename[`Nd p`] >> Cases_on `p` >> fs[]) >>
-  erule strip_assume_tac (n Decl_OK) >> simp[])
+  ‘valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+     (ptree_head pt = NN nDecl ⇒ ∃d. ptree_Decl pt = SOME d) ∧
+     (ptree_head pt = NN nDecls ⇒ ∃d. ptree_Decls pt = SOME d)’
+  (map_every qid_spec_tac [‘toks’, ‘pt’] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >> rw[]
+  >- (rename [‘Lf p’] >> Cases_on ‘p’ >> fs[])
+  >- (rename [‘Lf p’] >> Cases_on ‘p’ >> fs[])
+  >- (rename [‘ptree_Decl (Nd pt loc) = SOME _’] >>
+      Cases_on ‘pt’ >> fs[] >> rveq >>
+      fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
+      rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
+      simp[ptree_Decl_def, tokcheckl_def, tokcheck_def] >> dsimp[]
+      >- metis_tac[Pattern_OK, E_OK]
+      >- metis_tac[AndFDecls_OK]
+      >- (drule TypeDec_OK >> dsimp[])
+      >- (fs[DISJ_IMP_THM, FORALL_AND_THM] >>
+          drule (GEN_ALL Dconstructor_OK) >> dsimp[FORALL_PROD])
+      >- (drule TypeAbbrevDec_OK >> dsimp[] >> rw[] >>
+          qmatch_abbrev_tac `∃d. foo ++ SOME x = SOME d` >>
+          Cases_on `foo` >> simp[])
+      >- fs[DISJ_IMP_THM, FORALL_AND_THM])
+  >- (rename [‘ptree_Decls (Nd pt loc) = SOME _’] >>
+      Cases_on ‘pt’ >> fs[] >> rveq >>
+      fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
+      rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
+      simp[Once ptree_Decl_def, tokcheckl_def, tokcheck_def] >> dsimp[] >>
+      rw[] >> metis_tac[]));
 
 Theorem OptTypEqn_OK
   `valid_ptree cmlG pt ∧ ptree_head pt = NN nOptTypEqn ∧
@@ -713,7 +706,7 @@ Theorem Structure_OK
   (start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_Structure_def] >>
   rpt (Q.PAT_X_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
-  map_every (erule strip_assume_tac o n) [Decls_OK, StructName_OK] >>
+  map_every (erule strip_assume_tac o n) [Decl_OK, StructName_OK] >>
   simp[tokcheck_def, tokcheckl_def] >>
   asm_match `ptree_head pt' = NN nOptionalSignatureAscription` >>
   Cases_on `pt'` >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq
