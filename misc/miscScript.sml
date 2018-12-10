@@ -2215,6 +2215,14 @@ Theorem SUM_MOD `
   (Induct_on`ls`>>rw[]>>
   DEP_ONCE_REWRITE_TAC[GSYM MOD_PLUS]>>fs[]);
 
+Theorem MOD_SUB_LEMMA
+  `n MOD k = 0 /\ m MOD k = 0 /\ 0 < k ==> (n - m) MOD k = 0`
+  (Cases_on `m <= n` \\ fs []
+  \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
+  \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
+  \\ drule MOD_PLUS
+  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []);
+
 Theorem FLAT_REPLICATE_NIL
   `!n. FLAT (REPLICATE n []) = []`
   (Induct \\ fs [REPLICATE]);
@@ -3862,6 +3870,10 @@ Theorem MAP2_APPEND
 val make_even_def = Define`
   make_even n = if EVEN n then n else n+1`;
 
+Theorem EVEN_make_even[simp]
+  `EVEN (make_even x)`
+  (rw[make_even_def, EVEN_ADD]);
+
 Theorem ALOOKUP_MAP_FST_INJ_SOME
   `∀ls x y.
     ALOOKUP ls x = SOME y ∧ (∀x'. IS_SOME (ALOOKUP ls x') ∧ f x' = f x ⇒ x = x') ⇒
@@ -5116,5 +5128,57 @@ val bytes_in_mem_def = Define `
 Theorem bytes_in_mem_IMP
   `!xs p. bytes_in_mem p xs m dm dm1 ==> bytes_in_memory p xs m dm`
   (Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def,bytes_in_memory_def]);
+
+Theorem fun2set_disjoint_union
+  `
+   DISJOINT d1 d2 ∧
+  p (fun2set (m,d1)) ∧
+   q (fun2set (m,d2))
+   ⇒ (p * q) (fun2set (m,d1 ∪ d2))`
+  (rw[set_sepTheory.fun2set_def,set_sepTheory.STAR_def,set_sepTheory.SPLIT_def]
+  \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ simp[]
+  \\ first_assum(part_match_exists_tac (last o strip_conj) o concl) \\ simp[]
+  \\ simp[EXTENSION]
+  \\ conj_tac >- metis_tac[]
+  \\ fs[IN_DISJOINT,FORALL_PROD]);
+
+Theorem WORD_LS_IMP
+  `a <=+ b ==>
+    ?k. Abbrev (b = a + n2w k) /\
+        w2n (b - a) = k /\
+        (!w. a <=+ w /\ w <+ b <=> ?i. w = a + n2w i /\ i < k)`
+  (Cases_on `a` \\ Cases_on `b` \\ fs [WORD_LS]
+  \\ fs [markerTheory.Abbrev_def]
+  \\ full_simp_tac std_ss [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+  \\ fs [] \\ rw [] THEN1
+   (rewrite_tac [GSYM word_sub_def]
+    \\ once_rewrite_tac [WORD_ADD_COMM]
+    \\ rewrite_tac [WORD_ADD_SUB])
+  \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
+
+Theorem SUM_SET_count_2
+  `∀n. 2 * SUM_SET (count (SUC n)) = n * (n + 1)`
+  (Induct \\ rw[Once COUNT_SUC, SUM_SET_THM, LEFT_ADD_DISTRIB, SUM_SET_DELETE]
+  \\ rewrite_tac[EXP, ONE, TWO, MULT, ADD, LEFT_ADD_DISTRIB, RIGHT_ADD_DISTRIB]
+  \\ rw[]);
+
+Theorem SUM_SET_count
+  `∀n. n ≠ 0 ⇒ SUM_SET (count n) = n * (n - 1) DIV 2`
+  (Cases \\ simp[]
+  \\ qmatch_goalsub_abbrev_tac`a = b`
+  \\ qspecl_then[`2`,`a`,`b`]mp_tac EQ_MULT_LCANCEL
+  \\ disch_then(mp_tac o #1 o EQ_IMP_RULE)
+  \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
+  \\ disch_then irule
+  \\ unabbrev_all_tac
+  \\ rewrite_tac[SUM_SET_count_2]
+  \\ simp[ADD1, LEFT_ADD_DISTRIB, bitTheory.DIV_MULT_THM2]
+  \\ qmatch_goalsub_abbrev_tac`a = a - a MOD 2`
+  \\ `a MOD 2 = 0` suffices_by simp[]
+  \\ simp[Abbr`a`,GSYM EVEN_MOD2]
+  \\ simp[EVEN_ADD]
+  \\ rw[EVEN_EXP_IFF]);
 
 val _ = export_theory()

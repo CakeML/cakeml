@@ -503,4 +503,11 @@ Theorem compile_correct
   \\ Cases_on`e`>>fs[] \\ Cases_on`a`>>fs[]
   \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []);
 
+Theorem get_code_labels_compile
+  `∀x y. get_code_labels (FST (compile x y)) ⊆ get_code_labels x`
+  (recInduct data_liveTheory.compile_ind
+  \\ rw[data_liveTheory.compile_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[SUBSET_DEF]);
+
 val _ = export_theory();

@@ -2229,4 +2229,88 @@ Theorem compile_prog_labels
      \\ asm_exists_tac \\ fs [])
    \\ qexists_tac `k + 1` \\ fs [LEFT_ADD_DISTRIB]);
 
+Theorem compile_prog_keeps_names
+  `∀next xs next' ys. compile_prog next xs = (next',ys) ∧ MEM x (MAP FST xs) ⇒ MEM x (MAP FST ys)`
+  (recInduct bvi_tailrecTheory.compile_prog_ind
+  \\ rw[bvi_tailrecTheory.compile_prog_def]
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]);
+
+Theorem get_code_labels_rewrite
+  `∀loc next op arity foo exp bar exp_opt.
+    rewrite loc next op arity foo exp = (bar, exp_opt) ⇒
+    get_code_labels exp_opt ⊆ next INSERT get_code_labels exp`
+  (recInduct bvi_tailrecTheory.rewrite_ind
+  \\ rw[bvi_tailrecTheory.rewrite_def] \\ simp[]
+  \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ fs[CaseEq"option"] \\ rveq
+  \\ fs[bvi_tailrecTheory.check_op_def,CaseEq"option",CaseEq"prod",CaseEq"bool"] \\ rveq \\ fs[]
+  \\ rveq \\ fs[bvi_tailrecTheory.apply_op_def] \\ rw[] \\ fs[SUBSET_DEF]
+  \\ Cases_on`opr` \\ fs[bvi_tailrecTheory.to_op_def, closLangTheory.assign_get_code_label_def]
+  \\ fs[bvi_tailrecTheory.opbinargs_def, bvi_tailrecTheory.get_bin_args_def]
+  \\ imp_res_tac is_rec_term_ok \\ fs[]
+  \\ TRY(metis_tac[])
+  \\ Cases_on`f` \\ fs[bvi_tailrecTheory.is_rec_def]
+  \\ rename1`Call _ opt _ _`
+  \\ Cases_on`opt` \\ fs[bvi_tailrecTheory.is_rec_def]
+  \\ fs[bvi_tailrecTheory.args_from_def,bvi_tailrecTheory.push_call_def]
+  \\ fs[bvi_tailrecTheory.apply_op_def, bvi_tailrecTheory.to_op_def, closLangTheory.assign_get_code_label_def]
+  \\ fs[bvi_tailrecTheory.try_swap_def, bvi_tailrecTheory.opbinargs_def]
+  \\ fs[CaseEq"bool",CaseEq"option"] \\ rveq
+  \\ fs[CaseEq"option",bvi_tailrecTheory.get_bin_args_def,CaseEq"bool",bvi_tailrecTheory.apply_op_def] \\ rveq \\ fs[]
+  \\ fs[PULL_EXISTS, closLangTheory.assign_get_code_label_def]
+  \\ TRY(EVAL_TAC \\ rw[] \\ NO_TAC)
+  \\ fsrw_tac[DNF_ss][PULL_EXISTS]
+  \\ metis_tac[]);
+
+Theorem get_code_labels_let_wrap[simp]
+  `∀a b c. get_code_labels (let_wrap a b c) = get_code_labels b ∪ get_code_labels c`
+  (rw[bvi_tailrecTheory.let_wrap_def, MAP_GENLIST, o_DEF]
+  \\ rw[EXTENSION, MEM_GENLIST]
+  \\ rw[EQ_IMP_THM] \\ rw[] \\ fs[]);
+
+Theorem get_code_labels_compile_exp
+  `∀loc next arity exp exp_aux exp_opt.
+   compile_exp loc next arity exp = SOME (exp_aux, exp_opt) ⇒
+   get_code_labels exp_aux ∪ get_code_labels exp_opt ⊆ next INSERT get_code_labels exp`
+  (simp[bvi_tailrecTheory.compile_exp_def,CaseEq"option"]
+  \\ rpt gen_tac \\ strip_tac
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ drule get_code_labels_rewrite
+  \\ simp[] \\ strip_tac
+  \\ Cases_on`op` \\ simp[bvi_tailrecTheory.id_from_op_def, closLangTheory.assign_get_code_label_def]
+  \\ EVAL_TAC);
+
+Theorem compile_prog_good_code_labels
+  `∀n c n2 c2.
+   bvi_tailrec$compile_prog n c = (n2,c2) ∧
+   BIGUNION (set (MAP (get_code_labels o SND o SND) c)) ⊆ all ∧ set (MAP FST p) ⊆ all ∧
+   { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
+   BIGUNION (set (MAP (get_code_labels o SND o SND) c2)) ⊆ all`
+  (recInduct bvi_tailrecTheory.compile_prog_ind
+  \\ simp[bvi_tailrecTheory.compile_prog_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt gen_tac \\ strip_tac
+  \\ rpt(pairarg_tac \\ fs[])
+  \\ drule (GEN_ALL compile_prog_keeps_names) \\ strip_tac
+  \\ qpat_x_assum`_ next xs = _`assume_tac
+  \\ drule (GEN_ALL compile_prog_keeps_names) \\ strip_tac
+  \\ fs[CaseEq"option",CaseEq"prod"] \\ rveq \\ fs[]
+  \\ drule get_code_labels_compile_exp
+  \\ fs[SUBSET_DEF,PULL_EXISTS]
+  \\ rw[]
+  \\ first_x_assum drule \\ rw[]
+  \\ TRY (metis_tac[])
+  \\ TRY (
+    first_x_assum(qspecl_then[`0`](fn th => mp_tac th \\ simp[] \\ disch_then irule))
+    \\ qpat_x_assum`_ (next + _) xs = _`assume_tac
+    \\ drule compile_prog_next_mono
+    \\ rw[] \\ simp[]
+    \\ EVAL_TAC \\ simp[])
+  \\ last_x_assum irule
+  \\ reverse conj_tac >- metis_tac[]
+  \\ gen_tac
+  \\ rpt(first_x_assum(qspec_then`SUC k`mp_tac))
+  \\ simp[ADD1,LEFT_ADD_DISTRIB]);
+
 val _ = export_theory();

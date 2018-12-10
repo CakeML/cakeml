@@ -937,4 +937,27 @@ Theorem Resource_limit_hit_implements_semantics
   \\ imp_res_tac semantics_Div_IMP_LPREFIX \\ fs []
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []);
 
+val get_code_labels_def = Define`
+  (get_code_labels (Call r d a h) =
+    (case d of SOME x => {x} | _ => {}) ∪
+    (case h of SOME (n,p) => get_code_labels p | _ => {})) ∧
+  (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
+  (get_code_labels (If _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
+  (get_code_labels (Assign _ op _ _) = closLang$assign_get_code_label op) ∧
+  (get_code_labels _ = {})`;
+val _ = export_rewrites["get_code_labels_def"];
+
+val good_code_labels_def = Define`
+  good_code_labels p ⇔
+    (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
+    (set (MAP FST p))`
+
+Theorem get_code_labels_mk_ticks
+  `∀n m. get_code_labels (mk_ticks n m) ⊆ get_code_labels m`
+   (Induct
+   \\ rw[dataLangTheory.mk_ticks_def] \\ rw[FUNPOW]
+   \\ fs[dataLangTheory.mk_ticks_def]
+   \\ first_x_assum (qspec_then`Seq Tick m`mp_tac)
+   \\ rw[]);
+
 val _ = export_theory();
