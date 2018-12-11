@@ -2065,12 +2065,11 @@ val cf_cases_evaluate_match = Q.prove (
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
           st2heap p st' = heap
-        | Div io => ?sts (cks : num -> num).
+        | Div io =>
           heap = UNIV /\
-          (∀i. cks i < cks (i+1)) /\
-          (∀i. evaluate_match (st with clock := cks i) env v rows nomatch_exn =
-              (sts i, Rerr (Rabort Rtimeout_error))) /\
-          lprefix_lub$lprefix_lub (IMAGE (\i. fromList (sts i).ffi.io_events) UNIV) io`,
+          (∀ck. ?st'. evaluate_match (st with clock := ck) env v rows nomatch_exn =
+              (st', Rerr (Rabort Rtimeout_error))) /\
+          lprefix_lub$lprefix_lub (IMAGE (\ck. fromList (FST(evaluate_match (st with clock := ck) env v rows nomatch_exn)).ffi.io_events) UNIV) io`,
   Induct_on `rows` \\ rpt strip_tac \\ fs [cf_cases_def]
   THEN1 (
     fs [local_def] \\ first_x_assum progress \\
@@ -2951,7 +2950,12 @@ val cf_sound = Q.store_thm ("cf_sound",
       rename1 `lprefix_lub$lprefix_lub _ io` \\
       asm_exists_tac \\ qexists_tac `Div io` \\
       fs [evaluate_ck_def, SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\
-      instantiate
+      fs[SKOLEM_THM] >>
+      conj_tac >- metis_tac[] >>
+      rename1 `evaluate _ _ _ = (f _,_)` >>
+      `f = \i. FST(evaluate (st with clock := i) env [e])`
+        by simp[ETA_THM] >>
+      rveq >> simp[]
     )
   )
   THEN1 (
