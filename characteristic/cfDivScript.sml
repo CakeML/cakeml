@@ -244,7 +244,7 @@ val mk_tailrec_closure_def = Define
      gbody <- mk_single_app (SOME fname) T fbody;
      SOME(Closure (env with <| v :=
             (let benv = build_rec_env [(fname,farg,fbody)] env env.v
-             in nsBind fname (Closure (env with v := benv) farg gbody) env.v) |>) farg  
+             in nsBind fname (Closure (env with v := benv) farg gbody) env.v) |>) farg
           (App Opapp
                [App Opapp
                   [Letrec ^tailrec_clos (Var(Short "tailrec"));
@@ -273,7 +273,7 @@ val dest_opapp_eq_single_IMP = Q.store_thm("dest_opapp_eq_single_IMP",
   rveq >> rename1 `dest_opapp exp` >>
   Cases_on `exp` >> fs[cfNormaliseTheory.dest_opapp_def] >>
   rename1 `App op exps` >>
-  Cases_on `op` >> Cases_on `exps` >>  
+  Cases_on `op` >> Cases_on `exps` >>
   fs[cfNormaliseTheory.dest_opapp_def] >>
   every_case_tac >> fs[]);
 
@@ -438,7 +438,7 @@ val mk_single_app_NONE_evaluate = Q.prove(
       every_case_tac >> fs[] >> rveq >> fs[mk_inr_res_def])
   (* Handle *)
   >- (fs[mk_single_app_def] >> rveq >> fs[Once terminationTheory.evaluate_def] >>
-      imp_res_tac mk_single_app_F_unchanged >> rveq >>            
+      imp_res_tac mk_single_app_F_unchanged >> rveq >>
       every_case_tac >> fs[] >> rveq >>
       rfs[evaluate_inr] >> fs[mk_inr_res_def] >>
       rveq >> fs[])
@@ -611,7 +611,7 @@ partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
           case do_opapp [fv;v] of
               SOME(env',e3) =>
                 if st'.clock = 0 then (st'' = st' /\ res = Rerr(Rabort(Rtimeout_error)))
-                else              
+                else
                    evaluate (dec_clock st') env' [e3] = (st'',res)
             | NONE => res = Rerr (Rabort Rtype_error))
    | (st',rerr) => evaluate_match st env mv pr2 err_v = (st',rerr)
@@ -668,7 +668,7 @@ val mk_single_app_evaluate = Q.prove(
       fs[Once terminationTheory.evaluate_def] >>
       fs[evaluate_inr] >>
       every_case_tac >> fs[PULL_EXISTS] >> rveq >>
-      fs[mk_inr_res_def] >> rveq >> 
+      fs[mk_inr_res_def] >> rveq >>
       imp_res_tac evaluatePropsTheory.evaluate_length >>
       fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
       fs[dest_inr_v_def] >>
@@ -731,13 +731,13 @@ val mk_single_app_evaluate = Q.prove(
               imp_res_tac mk_single_app_F_unchanged >> rveq >>
               fs[partially_evaluates_to_def,evaluate_inr,evaluate_inl] >>
               rpt(PURE_FULL_CASE_TAC >> rveq >> fs[]) >>
-              imp_res_tac evaluatePropsTheory.evaluate_length >>          
+              imp_res_tac evaluatePropsTheory.evaluate_length >>
               fs[quantHeuristicsTheory.LIST_LENGTH_1] >> rveq >>
               fs[mk_inr_res_def] >> rveq >> fs[dest_inr_v_def]) >>
           TRY(qmatch_goalsub_abbrev_tac `mk_inr` >>
               fs[partially_evaluates_to_def,evaluate_inr,evaluate_inl] >>
               rpt(PURE_FULL_CASE_TAC >> rveq >> fs[]) >>
-              imp_res_tac evaluatePropsTheory.evaluate_length >>          
+              imp_res_tac evaluatePropsTheory.evaluate_length >>
               fs[quantHeuristicsTheory.LIST_LENGTH_1] >> rveq >>
               fs[mk_inr_res_def] >> rveq >> fs[dest_inr_v_def] >>
               imp_res_tac dest_opapp_eq_nil_IMP) >>
@@ -745,13 +745,13 @@ val mk_single_app_evaluate = Q.prove(
           fs[partially_evaluates_to_def,evaluate_inl] >>
           fs[terminationTheory.evaluate_def] >>
           rpt(PURE_FULL_CASE_TAC >> rveq >> fs[]) >>
-          imp_res_tac evaluatePropsTheory.evaluate_length >>          
+          imp_res_tac evaluatePropsTheory.evaluate_length >>
           fs[quantHeuristicsTheory.LIST_LENGTH_1] >> rveq >>
           fs[mk_inl_res_def] >> rveq >>
           fs[dest_inl_v_def,dest_inr_v_def] >>
           qmatch_goalsub_abbrev_tac `a1 = _` >>
           MAP_EVERY qexists_tac [`FST a1`,`SND a1`] >>
-          simp[] >> PURE_TOP_CASE_TAC >> simp[]) >>      
+          simp[] >> PURE_TOP_CASE_TAC >> simp[]) >>
       fs[cfNormaliseTheory.dest_opapp_def] >>
       rveq >>
       imp_res_tac mk_single_app_F_unchanged >> rveq >>
@@ -785,7 +785,7 @@ val mk_single_app_evaluate = Q.prove(
       imp_res_tac mk_single_app_F_unchanged >> rveq >>
       simp[partially_evaluates_to_def] >>
       Cases_on `evaluate st env [e]` >> rename1 `(_,result)` >>
-      reverse(Cases_on `result`) >- fs[terminationTheory.evaluate_def] >>            
+      reverse(Cases_on `result`) >- fs[terminationTheory.evaluate_def] >>
       fs[terminationTheory.evaluate_def,partially_evaluates_to_match_def,PULL_EXISTS] >>
       rpt(first_x_assum drule >> rpt(disch_then drule) >> rpt strip_tac) >>
       rpt(TOP_CASE_TAC >> fs[] >> rveq))
@@ -802,7 +802,7 @@ val mk_single_app_evaluate = Q.prove(
       rpt(first_x_assum drule >> rpt(disch_then drule) >> rpt strip_tac) >>
       Cases_on `x = fname` >> fs[] >> rveq >> fs[ml_progTheory.nsLookup_nsBind_compute] >>
       rpt(first_x_assum drule >> rpt(disch_then drule) >> rpt strip_tac) >>
-      fs[] >>      
+      fs[] >>
       drule mk_single_app_NONE_evaluate_single >>
       qmatch_goalsub_abbrev_tac `evaluate a1 a2` >>
       disch_then(qspecl_then [`a1`,`a2`] mp_tac) >>
@@ -846,7 +846,7 @@ val mk_single_app_evaluate = Q.prove(
       simp[partially_evaluates_to_match_def,terminationTheory.evaluate_def])
   (* Pmatch cons *)
   >- (fs[mk_single_app_def] >> rveq >>
-      PURE_FULL_CASE_TAC >> FULL_SIMP_TAC std_ss [] >>        
+      PURE_FULL_CASE_TAC >> FULL_SIMP_TAC std_ss [] >>
       fs[partially_evaluates_to_match_def,terminationTheory.evaluate_def] >>
       rw[] >>
       fs[PULL_EXISTS] >>
@@ -864,7 +864,7 @@ val mk_single_app_evaluate = Q.prove(
       qmatch_goalsub_abbrev_tac `evaluate a1 a2` >>
       disch_then(qspecl_then [`a1`,`a2`] mp_tac) >>
       unabbrev_all_tac >>
-      simp[] >> disch_then kall_tac >>      
+      simp[] >> disch_then kall_tac >>
       every_case_tac >> fs[mk_inr_res_def] >>
       rveq >>
       imp_res_tac evaluatePropsTheory.evaluate_length >>
@@ -939,7 +939,7 @@ val evaluate_tailrec_ind_lemma = Q.prove(
        Once semanticPrimitivesTheory.find_recfun_def] >>
   rw[] >> pop_assum mp_tac >>
   simp[Once terminationTheory.evaluate_def] >>
-  simp[evaluateTheory.dec_clock_def] >>  
+  simp[evaluateTheory.dec_clock_def] >>
   rw[] >> pop_assum mp_tac >>
   drule mk_single_app_evaluate_single >>
   qmatch_goalsub_abbrev_tac `evaluate ast aenv` >>
@@ -1011,7 +1011,7 @@ val evaluate_tailrec_ind_lemma = Q.prove(
       simp[evaluateTheory.dec_clock_def] >>
       rw[] >> pop_assum mp_tac >>
       fs[semanticPrimitivesTheory.do_opapp_def,Once semanticPrimitivesTheory.find_recfun_def] >>
-      unabbrev_all_tac >>      
+      unabbrev_all_tac >>
       qmatch_goalsub_abbrev_tac
         `evaluate
            (ast with clock := _)
@@ -1081,7 +1081,7 @@ val evaluate_tailrec_lemma = Q.prove(
        Once semanticPrimitivesTheory.find_recfun_def] >>
   rw[] >> pop_assum mp_tac >>
   simp[Once terminationTheory.evaluate_def] >>
-  simp[evaluateTheory.dec_clock_def] >>  
+  simp[evaluateTheory.dec_clock_def] >>
   rw[] >> pop_assum mp_tac >>
   strip_tac >>
   drule evaluate_tailrec_ind_lemma >>
@@ -1112,7 +1112,7 @@ val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic
   asm_exists_tac >> fs[semanticPrimitivesTheory.do_opapp_def] >>
   simp[semanticPrimitivesTheory.find_recfun_def] >>
   asm_exists_tac >>
-  simp[] >> rveq >> Cases_on `r` >> 
+  simp[] >> rveq >> Cases_on `r` >>
   fs[evaluate_to_heap_def] >>
   TRY(
     rename1 `lprefix_lub` >>
