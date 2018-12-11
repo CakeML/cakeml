@@ -2951,11 +2951,13 @@ val cf_sound = Q.store_thm ("cf_sound",
       asm_exists_tac \\ qexists_tac `Div io` \\
       fs [evaluate_ck_def, SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\
       fs[SKOLEM_THM] >>
-      conj_tac >- metis_tac[] >>
-      rename1 `evaluate _ _ _ = (f _,_)` >>
-      `f = \i. FST(evaluate (st with clock := i) env [e])`
-        by simp[ETA_THM] >>
-      rveq >> simp[]
+      reverse conj_tac >-
+        (rename1 `evaluate _ _ _ = (f _,_)` >>
+         `f = \i. FST(evaluate (st with clock := i) env [e])`
+           by simp[ETA_THM] >>
+         pop_assum(fn thm => REWRITE_TAC [thm]) >>
+         metis_tac[]) >>
+      metis_tac[]
     )
   )
   THEN1 (
