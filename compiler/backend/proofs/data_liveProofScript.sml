@@ -19,6 +19,8 @@ val state_rel_def = Define `
     s1.handler = t1.handler /\ (LENGTH s1.stack = LENGTH t1.stack) /\
     s1.compile = t1.compile /\ s1.compile_oracle = t1.compile_oracle /\
     s1.tstamps = t1.tstamps /\
+    s1.heap_limit = t1.heap_limit /\
+    s1.safe_for_space = t1.safe_for_space /\
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
 
 val state_rel_ID = Q.prove(

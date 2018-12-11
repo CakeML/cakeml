@@ -1592,7 +1592,7 @@ Theorem compile_prog_evaluate
    r ≠ Rerr (Rabort Rtype_error) ∧ (∀x. r ≠ Rerr (Rraise x))
    ⇒  ∃r2 s2.
        evaluate (Call NONE (SOME start) [] NONE,
-         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc k) = (SOME r2,s2) ∧
+         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc ts hl k) = (SOME r2,s2) ∧
          state_rel s s2 ∧ res_list (data_to_bvi_result r2) = r`
   (srw_tac[][]
   \\ match_mp_tac (GEN_ALL compile_part_evaluate)
@@ -1609,7 +1609,7 @@ Theorem FST_compile_part[simp]
 
 Theorem compile_prog_semantics
   `semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start ≠ Fail ⇒
-   semantics ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc start =
+   semantics ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc ts hl start =
    semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start`
   (simp[bviSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]

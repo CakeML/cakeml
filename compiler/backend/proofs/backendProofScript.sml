@@ -855,7 +855,7 @@ Theorem compile_correct
     EVAL_TAC>>rw[])>>
   disch_then(qspecl_then[`fromAList t_code`,`InitGlobals_location`,`p4`,`c4_data_conf`]mp_tac) \\
   (* TODO: make this auto *)
-  disch_then(qspecl_then[`mc.target.config.two_reg_arith`,`kkk`,`c4.lab_conf.asm_conf`,`aa`]mp_tac) \\
+  disch_then(qspecl_then[`mc.target.config.two_reg_arith`,`ts`,`kkk`,`hl`,`c4.lab_conf.asm_conf`,`aa`]mp_tac) \\
   `∀n. EVERY ($<= data_num_stubs) (MAP FST (SND (bvl_to_bviProof$full_co c.bvl_conf co n)))` by (
     simp[Abbr`co`,full_co_def, Abbr`co3`,bvi_tailrecProofTheory.mk_co_def] \\
     simp[UNCURRY, backendPropsTheory.FST_state_co, clos_knownProofTheory.FST_known_co]
@@ -919,7 +919,7 @@ Theorem compile_correct
       AP_TERM_TAC>>
       simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,LAMBDA_PROD])>>
     qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ TODO_cc'`
-    \\ qpat_x_assum`dataSem$semantics _ _ data_oracle _ _ ≠ Fail`mp_tac
+    \\ qpat_x_assum`dataSem$semantics _ _ data_oracle _ _ _ _ ≠ Fail`mp_tac
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ TODO_cc`
     \\ `TODO_cc' = TODO_cc` suffices_by simp[]
     \\ simp[Abbr`TODO_cc`,Abbr`TODO_cc'`, FUN_EQ_THM]
@@ -1412,8 +1412,8 @@ Theorem compile_correct
       \\ pairarg_tac \\ fs[] \\ rveq
       \\ simp[bvl_inlineProofTheory.MAP_FST_MAP_optimise]
       \\ fs[bvl_inlineTheory.tick_compile_prog_def]
-      \\ qmatch_asmsub_abbrev_tac`tick_inline_all limit ts qrog []`
-      \\ qspecl_then[`limit`,`ts`,`qrog`]mp_tac bvl_inlineProofTheory.MAP_FST_tick_inline_all
+      \\ qmatch_asmsub_abbrev_tac`tick_inline_all limit ts' qrog []`
+      \\ qspecl_then[`limit`,`ts'`,`qrog`]mp_tac bvl_inlineProofTheory.MAP_FST_tick_inline_all
       \\ simp[]
       \\ rw[Abbr`qrog`]
       \\ simp[clos_to_bvlProofTheory.set_MAP_code_sort] )
@@ -1906,7 +1906,7 @@ Theorem compile_correct
       metis_tac[] ) \\
     fs[extend_with_resource_limit_def]
     \\ qpat_x_assum`_ ≠ Fail`assume_tac
-    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo1 _ ≠ Fail`
+    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo1 _ _ _ ≠ Fail`
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
     \\ `foo1 = foo2` suffices_by metis_tac[]
     \\ simp[Abbr`foo1`,Abbr`foo2`,FUN_EQ_THM]
@@ -1938,7 +1938,7 @@ Theorem compile_correct
   \\ CONV_TAC(RAND_CONV SYM_CONV)
   \\ match_mp_tac (GEN_ALL extend_with_resource_limit_not_fail)
   \\ asm_exists_tac \\ simp[]
-  \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo1 _ ≠ Fail`
+  \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo1 _ _ _≠ Fail`
   \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
   \\ `foo1 = foo2` suffices_by metis_tac[]
   \\ simp[Abbr`foo1`,Abbr`foo2`,FUN_EQ_THM]

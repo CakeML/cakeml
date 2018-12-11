@@ -31,12 +31,14 @@ val _ = Datatype `
      ; handler : num
      ; refs    : num |-> v ref
      ; compile : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
-     ; compile_oracle : num -> 'c # (num # num # dataLang$prog) list
      ; clock   : num
      ; code    : (num # dataLang$prog) num_map
      ; ffi     : 'ffi ffi_state
      ; space   : num
-     ; tstamps : num option |> `
+     ; tstamps : num option
+     ; heap_limit     : num
+     ; safe_for_space : bool
+     ; compile_oracle : num -> 'c # (num # num # dataLang$prog) list |> `
 
 val s = ``(s:('c,'ffi) dataSem$state)``
 
@@ -660,7 +662,7 @@ val evaluate_ind = save_thm("evaluate_ind",
 (* observational semantics *)
 
 val initial_state_def = Define`
-  initial_state ffi code coracle cc k = <|
+  initial_state ffi code coracle cc stamps heap_lim k = <|
     locals := LN
   ; stack := []
   ; global := NONE
@@ -672,12 +674,15 @@ val initial_state_def = Define`
   ; compile_oracle := coracle
   ; ffi := ffi
   ; space := 0
+  ; tstamps := if stamps then SOME 0 else NONE
+  ; safe_for_space := if stamps then T else F
+  ; heap_limit := heap_lim
   |>`;
 
 val semantics_def = Define`
-  semantics init_ffi code coracle cc start =
+  semantics init_ffi code coracle cc stamps heap_lim start  =
   let p = Call NONE (SOME start) [] NONE in
-  let init = initial_state init_ffi code coracle cc in
+  let init = initial_state init_ffi code coracle cc stamps heap_lim in
     if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
