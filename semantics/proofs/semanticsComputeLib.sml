@@ -162,7 +162,6 @@ val add_lexparse_compset = computeLib.extend_compset
       ,ptree_SpeclineList_def
       ,ptree_SpecLine_def
       *)
-      ,ptree_Decls_def
       ,ptree_Decl_def
       ,ptree_Expr_def
       ,mkAst_App_def

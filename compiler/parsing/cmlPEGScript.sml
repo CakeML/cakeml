@@ -456,6 +456,8 @@ val cmlPEG_def = zDefine`
                       (bindNT nDecl);
                  seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
                  seql [tokeq ExceptionT; pnt nDconstructor] (bindNT nDecl);
+                 seql [tokeq LocalT; pnt nDecls; tokeq InT; pnt nDecls;
+                       tokeq EndT] (bindNT nDecl);
                  seql [pnt nTypeDec] (bindNT nDecl);
                  seql [pnt nTypeAbbrevDec] (bindNT nDecl)
                ]);

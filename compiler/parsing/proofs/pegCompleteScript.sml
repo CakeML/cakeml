@@ -170,13 +170,13 @@ Theorem firstSet_nTypeAbbrevDec[simp]
 
 Theorem firstSet_nDecl[simp]
   `firstSet cmlG [NT (mkNT nDecl)] =
-      {ValT; FunT; DatatypeT;ExceptionT;TypeT}`
+      {ValT; FunT; DatatypeT;ExceptionT;TypeT;LocalT}`
   (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ]);
 
 Theorem firstSet_nDecls[simp]
   `firstSet cmlG [NN nDecls] =
-      {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT}`
+      {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT; LocalT}`
   (simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   ONCE_REWRITE_TAC [firstSetML_def] >>
@@ -218,11 +218,12 @@ Theorem firstSet_nStructure[simp]
 
 Theorem firstSet_nTopLevelDec[simp]
   `firstSet cmlG [NT (mkNT nTopLevelDec)] =
-    {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT}`
+    {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT; LocalT}`
   (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
 
 Theorem firstSet_nSpecLine[simp]
-  `firstSet cmlG [NT (mkNT nSpecLine)] = {ValT; DatatypeT; TypeT; ExceptionT}`
+  `firstSet cmlG [NT (mkNT nSpecLine)] =
+    {ValT; DatatypeT; TypeT; ExceptionT}`
   (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
 
 Theorem firstSet_nSpecLineList[simp]
@@ -498,7 +499,8 @@ Theorem firstSet_nE
 
 Theorem firstSet_nTopLevelDecs[simp]
   `firstSet cmlG [NN nTopLevelDecs] =
-      {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT} ∪
+      {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT;
+       LocalT} ∪
       firstSet cmlG [NT (mkNT nE)]`
   (simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   ONCE_REWRITE_TAC [firstSet_NT] >> simp[cmlG_applied, cmlG_FDOM] >>
@@ -507,7 +509,8 @@ Theorem firstSet_nTopLevelDecs[simp]
 
 Theorem firstSet_nNonETopLevelDecs[simp]
   `firstSet cmlG [NN nNonETopLevelDecs] =
-      {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT}`
+      {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT;
+       LocalT}`
   (simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[INSERT_COMM, INSERT_UNION_EQ]);
@@ -667,6 +670,7 @@ Theorem NOTIN_firstSet_nV[simp]
     FFIT s ∉ firstSet cmlG [NN nV] ∧
     FunT ∉ firstSet cmlG [NN nV] ∧
     LbrackT ∉ firstSet cmlG [NN nV] ∧
+    LocalT ∉ firstSet cmlG [NN nV] ∧
     RbrackT ∉ firstSet cmlG [NN nV] ∧
     InT ∉ firstSet cmlG [NN nV] ∧
     IntT i ∉ firstSet cmlG [NN nV] ∧
@@ -706,6 +710,7 @@ Theorem NOTIN_firstSet_nFQV[simp]
     IntT i ∉ firstSet cmlG [NN nFQV] ∧
     LbrackT ∉ firstSet cmlG [NN nFQV] ∧
     LetT ∉ firstSet cmlG [NN nFQV] ∧
+    LocalT ∉ firstSet cmlG [NN nFQV] ∧
     LparT ∉ firstSet cmlG [NN nFQV] ∧
     OfT ∉ firstSet cmlG [NN nFQV] ∧
     OpT ∉ firstSet cmlG [NN nFQV] ∧
@@ -743,6 +748,7 @@ Theorem NOTIN_firstSet_nConstructorName[simp]
     IntT i ∉ firstSet cmlG [NN nConstructorName] ∧
     LbrackT ∉ firstSet cmlG [NN nConstructorName] ∧
     LetT ∉ firstSet cmlG [NN nConstructorName] ∧
+    LocalT ∉ firstSet cmlG [NN nConstructorName] ∧
     LparT ∉ firstSet cmlG [NN nConstructorName] ∧
     OfT ∉ firstSet cmlG [NN nConstructorName] ∧
     OpT ∉ firstSet cmlG [NN nConstructorName] ∧
@@ -1355,7 +1361,7 @@ val stoppers_def = Define`
   (stoppers nDecls =
      nestoppers DIFF
      ({BarT; StarT; AndT; SemicolonT; FunT; ValT; DatatypeT; OfT; ExceptionT;
-       TypeT} ∪ {TyvarT s | T})) ∧
+       TypeT; LocalT} ∪ {TyvarT s | T})) ∧
   (stoppers nDType = UNIV DIFF firstSet cmlG [NN nTyOp]) ∧
   (stoppers nDtypeCons =
      UNIV DIFF ({ArrowT; BarT; StarT; OfT; LparT} ∪ firstSet cmlG [NN nTyOp] ∪
@@ -3859,7 +3865,14 @@ Theorem completeness
           rpt strip_tac >> disj2_tac >>
           rename [`FST tl = TypeT`] >> Cases_on `tl` >> fs[] >>
           simp[peg_respects_firstSets] >> rw[] >>
-          first_x_assum match_mp_tac >> simp[NT_rank_def]))
+          first_x_assum match_mp_tac >> simp[NT_rank_def])
+      >- (DISJ1_TAC >> normlist >>
+          rename [‘peg_eval _ (in1 ++ (InT,_)::(in2 ++ (EndT,_)::sfx),
+                               nt (mkNT nDecls) I)’,
+                  ‘real_fringe decls_pt1 = MAP _ in1’] >>
+          first_assum (unify_firstconj kall_tac o has_length) >>
+          qexists_tac ‘decls_pt1’ >> simp[] >> dsimp[EXISTS_PROD] >>
+          normlist >> first_x_assum irule >> simp[]))
   >- (print_tac "nDconstructor" >> stdstart >> pmap_cases
       >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
       rename [‘ptree_head upt = NN nUQConstructorName’,

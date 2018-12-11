@@ -205,7 +205,10 @@ val _ = Hol_datatype `
   | Dtabbrev of locs => tvarN list => typeN => ast_t
   (* New exceptions *)
   | Dexn of locs => conN => ast_t list
-  | Dmod of modN => dec list`;
+  (* Module *)
+  | Dmod of modN => dec list
+  (* Local: local part, visible part *)
+  | Dlocal of dec list => dec list`;
 
 
 (*

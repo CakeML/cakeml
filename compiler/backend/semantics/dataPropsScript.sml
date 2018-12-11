@@ -2,15 +2,10 @@
   Properties about dataLang and its semantics
 *)
 open preamble dataLangTheory dataSemTheory semanticsPropsTheory;
-local open bviPropsTheory in end;
 
 val _ = new_theory"dataProps";
 
 val s = ``s:('c,'ffi) dataSem$state``
-
-Theorem bvi_to_data_id[simp]
-  `bvi_to_data (data_to_bvi x) x = x`
-  (EVAL_TAC \\ rw[state_component_equality]);
 
 Theorem initial_state_simp[simp]
   `(initial_state f c co cc k).clock = k ∧
@@ -27,6 +22,10 @@ Theorem initial_state_with_simp[simp]
    (initial_state f c co cc k with stack := [] = initial_state f c co cc k) ∧
    (initial_state f c co cc k with locals := LN = initial_state f c co cc k)`
   (srw_tac[][initial_state_def]);
+
+Theorem Boolv_11[simp]
+  `dataSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`
+  (EVAL_TAC>>srw_tac[][]);
 
 Theorem with_same_locals
   `(s with locals := s.locals) = s`
@@ -85,63 +84,111 @@ val consume_space_with_locals = Q.prove(
   `consume_space x (y with locals := z) = OPTION_MAP (λs. s with locals := z) (consume_space x y)`,
   EVAL_TAC >> srw_tac[][])
 
-val do_app_with_stack = Q.prove(
-  `do_app op vs (s with stack := z) = map_result (λ(x,y). (x,y with stack := z)) I (do_app op vs s)`,
-  srw_tac[][do_app_def,do_space_def,bvi_to_data_def,data_to_bvi_def,do_install_def] >>
-  rpt (every_case_tac >>
-       full_simp_tac(srw_ss())[consume_space_with_stack] >>
-       srw_tac[][] >> full_simp_tac(srw_ss())[]));
+val do_app_with_stack = time Q.prove(
+  `do_app op vs (s with stack := z) =
+   map_result (λ(x,y). (x,y with stack := z)) I (do_app op vs s)`,
+  Cases_on `do_app op vs (s with stack := z)`
+  \\ Cases_on `op`
+  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+          TRY (pairarg_tac \\ fs []) >>
+          rveq >> fs []));
 
-val do_app_with_locals = Q.prove(
+val do_app_aux_with_space = time Q.store_thm("do_app_aux_with_space",
+  `do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)`,
+  Cases_on `do_app_aux op vs (s with space := z)`
+  \\ Cases_on `op`
+  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+          TRY (pairarg_tac \\ fs []) >>
+          rveq >> fs []));
+
+val do_app_aux_with_locals = time Q.store_thm("do_app_aux_with_locals",
+  `do_app_aux op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app_aux op vs s)`,
+  Cases_on `do_app_aux op vs (s with locals := z)`
+  \\ Cases_on `op`
+  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+          TRY (pairarg_tac \\ fs []) >>
+          rveq >> fs []));
+
+val do_app_with_locals = time Q.prove(
   `do_app op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app op vs s)`,
-  srw_tac[][do_app_def,do_space_def,bvi_to_data_def,data_to_bvi_def,do_install_def] >>
-  rpt (every_case_tac >> full_simp_tac(srw_ss())[consume_space_with_locals] >> srw_tac[][] >> full_simp_tac(srw_ss())[]));
+  Cases_on `do_app op vs (s with locals := z)`
+  \\ Cases_on `op`
+  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+          TRY (pairarg_tac \\ fs []) >>
+          rveq >> fs []));
+
+val do_app_aux_err = Q.store_thm("do_app_aux_err",
+  `do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
+                             \/
+                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `,
+  rw [ do_app_aux_def,case_eq_thms
+     , do_install_def,do_space_def,with_fresh_ts_def
+     , PULL_EXISTS, UNCURRY,consume_space_def]
+  \\ fs []);
+
+val do_app_aux_const = Q.store_thm("do_app_aux_const",
+  `do_app_aux op vs x = Rval (y,z) ⇒
+    z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧
+    z.clock = x.clock ∧ z.compile = x.compile`,
+  rw [ do_app_aux_def,case_eq_thms
+     , do_install_def,do_space_def,with_fresh_ts_def
+     , PULL_EXISTS, UNCURRY,consume_space_def]
+  \\ fs []);
 
 Theorem do_app_err
   `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
                              \/
                              (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `
-  (srw_tac[][do_app_def,do_install_def]
-  THEN1 (rpt (every_case_tac \\ fs [] \\ pairarg_tac \\ fs [])) >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac bviPropsTheory.do_app_err >> full_simp_tac(srw_ss())[]);
+  (rw [ do_app_def,case_eq_thms
+     , do_install_def,do_space_def,with_fresh_ts_def
+     , PULL_EXISTS, UNCURRY,consume_space_def]
+  \\ fs []
+  \\ METIS_TAC [do_app_aux_err]);
 
 Theorem do_app_const
   `do_app op vs x = Rval (y,z) ⇒
     z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧
     z.clock = x.clock ∧ z.compile = x.compile`
-  (simp[do_app_def,do_space_def,do_install_def] >>
-  IF_CASES_TAC THEN1
-    (every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
-     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
-  every_case_tac >> simp[bvi_to_data_def] >> strip_tac >>
-  rpt var_eq_tac >> simp[] >>
-  full_simp_tac(srw_ss())[bviSemTheory.do_app_def] >> rfs [] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-  full_simp_tac(srw_ss())[bviSemTheory.bvl_to_bvi_def,data_to_bvi_def,bviSemTheory.bvi_to_bvl_def] >>
-  imp_res_tac bvlSemTheory.do_app_const >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac bviPropsTheory.do_app_aux_const >> full_simp_tac(srw_ss())[] >>
-  fs [data_to_bvi_def] >>
-  full_simp_tac(srw_ss())[consume_space_def] >> TRY var_eq_tac >> simp[]);
+  (rw [ do_app_def,do_app_aux_def,case_eq_thms
+     , do_install_def,do_space_def,with_fresh_ts_def
+     , PULL_EXISTS, UNCURRY,consume_space_def]
+  \\ fs []);
 
 Theorem do_app_locals
   `(do_app op x s = Rval (q,r)) ==>
-    (do_app op x (s with locals := extra) =
-       Rval (q,r with locals := extra))`
-  (full_simp_tac(srw_ss())[do_app_def,do_space_def,consume_space_def,data_to_bvi_def]
-  \\ IF_CASES_TAC THEN1
-    (fs [do_install_def]
-     \\ every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
-     \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
-  \\ every_case_tac >> full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-  \\ full_simp_tac(srw_ss())[bvi_to_data_def,state_component_equality]);
+   (do_app op x (s with locals := extra) =
+         Rval (q,r with locals := extra))`
+   (rw [ do_app_def,do_app_aux_def,case_eq_thms
+      , do_install_def,do_space_def,with_fresh_ts_def
+      , PULL_EXISTS, UNCURRY,consume_space_def]
+   \\ fs []);
 
 Theorem do_space_alt
   `do_space op l s =
       if op_space_reset op then SOME (s with space := 0)
       else consume_space (op_space_req op l) s`
   (full_simp_tac(srw_ss())[do_space_def] \\ SRW_TAC [] [consume_space_def]
-  \\ full_simp_tac(srw_ss())[state_component_equality] \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC);
+  \\ full_simp_tac(srw_ss())[state_component_equality] \\ fs[] \\ DECIDE_TAC);
 
 Theorem Seq_Skip
   `evaluate (Seq c Skip,s) = evaluate (c,s)`
@@ -218,8 +265,8 @@ Theorem evaluate_stack_swap
     \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ Cases_on `evaluate (c2,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x = Boolv T` \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ Cases_on `x = Boolv F` \\ full_simp_tac(srw_ss())[get_var_def])
+    \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[get_var_def]
+    \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[get_var_def])
   THEN1 (* Call *)
    (full_simp_tac(srw_ss())[evaluate_def]
     \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
@@ -471,41 +518,6 @@ Theorem locals_ok_get_vars
   \\ Cases_on `get_vars x s` \\ full_simp_tac(srw_ss())[]
   \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]);
 
-Theorem data_to_bvi_ignore
-  `(data_to_bvi (s with space := t) = data_to_bvi ^s) ∧
-   (data_to_bvi (s with locals := l) = data_to_bvi s) ∧
-   (data_to_bvi (s with <| locals := l; space := t |>) = data_to_bvi s)`
-  (EVAL_TAC);
-
-Theorem data_to_bvi_refs
-  `data_to_bvi (s with refs := r) = data_to_bvi s with refs := r ∧
-   (data_to_bvi s).refs = s.refs`
-  (EVAL_TAC);
-
-Theorem data_to_bvi_ffi
-  `(data_to_bvi s).ffi = s.ffi`
-  (EVAL_TAC);
-
-Theorem bvi_to_data_refs
-  `((bvi_to_data s t with refs := z) = bvi_to_data (s with refs := z) t) /\
-   ((bvi_to_data s t).refs = s.refs)`
-  (EVAL_TAC);
-
-Theorem data_to_bvi_to_data_with_ffi
-  `bvi_to_data (data_to_bvi s with ffi := f) s = s with ffi := f`
-  (EVAL_TAC \\ rw[state_component_equality]);
-
-Theorem data_to_bvi_to_data_with_refs
-  `bvi_to_data (data_to_bvi s with refs := f) s = s with refs := f`
-  (EVAL_TAC \\ rw[state_component_equality]);
-
-Theorem bvi_to_data_space_locals
-  `((bvi_to_data s t with locals := x) = bvi_to_data s (t with locals := x)) /\
-   ((bvi_to_data s t).locals = t.locals) /\
-   ((bvi_to_data s t with space := y) = bvi_to_data s (t with space := y)) /\
-   ((bvi_to_data s t).space = t.space)`
-  (EVAL_TAC);
-
 Theorem evaluate_locals
   `!c s res s2 vars l.
       res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
@@ -527,22 +539,14 @@ Theorem evaluate_locals
     \\ Cases_on `op_requires_names op` \\ full_simp_tac(srw_ss())[cut_state_opt_def] THEN1
      (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
-      \\ reverse(Cases_on `do_app op x s`) \\ full_simp_tac(srw_ss())[] >- (
-           imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
-           fs [do_app_def,do_space_def,bvi_to_dataTheory.op_space_reset_def] >>
-           full_simp_tac(srw_ss())[do_app_def,do_space_def,data_to_bvi_ignore,
-              bvi_to_data_space_locals,
-              data_spaceTheory.op_space_req_def,
-              bvi_to_dataTheory.op_space_reset_def] >>
-           BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]
-           \\ TRY (Cases_on `a`) \\ fs [call_env_def]
-           \\ qexists_tac `s2.locals` \\ fs [locals_ok_def]
-           \\ rw [] \\ fs [state_component_equality])
-      \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-      \\ IMP_RES_TAC do_app_locals \\ full_simp_tac(srw_ss())[set_var_def]
-      \\ Q.EXISTS_TAC `insert dest q l`
-      \\ full_simp_tac(srw_ss())[set_var_def,locals_ok_def,lookup_insert]
-      \\ METIS_TAC [do_app_const])
+      \\ fs [do_app_with_locals]
+      \\ fs [case_eq_thms,semanticPrimitivesTheory.result_case_eq]
+      \\ fs [call_env_def,set_var_def,state_component_equality]
+      \\ fs [locals_ok_def,lookup_insert] \\ rw []
+      \\ rpt (qpat_x_assum `insert _ _ _ = _` (assume_tac o GSYM))
+      \\ rpt (qpat_x_assum `fromList [] = _` (assume_tac o GSYM))
+      \\ fs [lookup_insert] \\ rfs []
+      \\ imp_res_tac do_app_const \\ fs [fromList_def,lookup_def])
     \\ full_simp_tac(srw_ss())[cut_state_def]
     \\ Cases_on `cut_env x s.locals` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
@@ -579,8 +583,8 @@ Theorem evaluate_locals
   THEN1 (* If *)
    (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x = Boolv T` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x = Boolv F` \\ full_simp_tac(srw_ss())[])
+    \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[])
   THEN1 (* Call *)
    (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
@@ -665,11 +669,26 @@ Theorem do_app_Rerr
   `dataSem$do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
                              \/
                              (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `
-  (rw[dataSemTheory.do_app_def,dataSemTheory.do_install_def]
-  \\ every_case_tac \\ fs[]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ every_case_tac \\ fs[]
-  \\ imp_res_tac bviPropsTheory.do_app_err \\ fs []);
+  (strip_tac \\ imp_res_tac do_app_err \\ fs []);
+
+Theorem do_app_with_clock
+  `do_app op vs (s with clock := z) =
+   map_result (λ(x,y). (x,y with clock := z)) I (do_app op vs s)`
+  (Cases_on `op = Install` THEN1
+   (fs [do_app_def,do_install_def]
+    \\ every_case_tac \\ fs []
+    \\ pairarg_tac \\ fs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
+  Cases_on `do_app op vs s` >>
+  fs[do_app_def,do_space_def] >>
+  Cases_on `op` >>
+  ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+          rveq >> fs []));
 
 Theorem do_app_change_clock
   `(do_app op args s1 = Rval (res,s2)) ==>
@@ -679,14 +698,15 @@ Theorem do_app_change_clock
     \\ every_case_tac \\ fs []
     \\ pairarg_tac \\ fs []
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
-  srw_tac[][do_app_def,do_space_def,do_install_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac bviPropsTheory.do_app_change_clock >>
-  full_simp_tac(srw_ss())[data_to_bvi_def,bvi_to_data_def,state_component_equality] >>
-  rpt var_eq_tac >> simp[] >>
-  full_simp_tac(srw_ss())[consume_space_def] >>
-  rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
-  rpt var_eq_tac >> full_simp_tac(srw_ss())[] );
+  srw_tac[][do_app_def,do_space_def] >>
+  Cases_on `op` >>
+  ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+          rveq >> fs []));
 
 Theorem do_app_change_clock_err
   `(do_app op args s1 = Rerr e) ==>
@@ -697,13 +717,14 @@ Theorem do_app_change_clock_err
     \\ pairarg_tac \\ fs []
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   srw_tac[][do_app_def,do_space_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac bviPropsTheory.do_app_change_clock_err >>
-  full_simp_tac(srw_ss())[data_to_bvi_def,bvi_to_data_def,state_component_equality] >>
-  rpt var_eq_tac >> simp[] >>
-  full_simp_tac(srw_ss())[consume_space_def] >>
-  rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
-  rpt var_eq_tac >> full_simp_tac(srw_ss())[] );
+  Cases_on `op` >>
+  ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+          rveq >> fs []));
 
 Theorem cut_state_eq_some
   `cut_state names s = SOME y ⇔ ∃z. cut_env names s.locals = SOME z ∧ y = s with locals := z`
@@ -727,26 +748,17 @@ Theorem evaluate_add_clock
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[get_var_def,set_var_def] >> srw_tac[][] >> full_simp_tac(srw_ss())[] )
   >- (
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[cut_state_opt_def,cut_state_eq_some,cut_state_eq_none] >>
-    every_case_tac >> full_simp_tac(srw_ss())[cut_state_eq_some,cut_state_eq_none] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[set_var_def] >> srw_tac[][] >>
-    imp_res_tac do_app_change_clock >> full_simp_tac(srw_ss())[] >>
-    rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
-    rpt var_eq_tac >> full_simp_tac(srw_ss())[state_component_equality] >>
-    imp_res_tac do_app_const >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac do_app_Rerr >> full_simp_tac(srw_ss())[] >>
-    TRY (first_x_assum(qspec_then`s.clock`mp_tac)) >> simp[] >>
-    fs [do_app_def,option_case_eq,bviPropsTheory.case_eq_thms,call_env_def,
-        dataSemTheory.do_space_def,bvi_to_dataTheory.op_requires_names_def] >>
-    imp_res_tac do_app_Rerr \\ fs [] \\ rveq \\ fs [] >>
-    fs [do_app_def,option_case_eq,bviPropsTheory.case_eq_thms,call_env_def,
-        dataSemTheory.do_space_def,bvi_to_dataTheory.op_requires_names_def,
-        data_to_bvi_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,
-        bviSemTheory.bvi_to_bvl_def,bvlSemTheory.do_app_def,
-        data_spaceTheory.op_space_req_def]
-    \\ fs [] \\ rveq \\ fs []
-    \\ fs [] \\ rveq \\ fs [])
+    fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,cut_state_opt_def,cut_state_def,
+              bool_case_eq,ffiTheory.call_FFI_def,semanticPrimitivesTheory.result_case_eq,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+    rveq \\ fs [call_env_def,do_app_with_clock,do_app_with_locals]
+    \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality]
+    \\ PairCases_on `y` \\ fs []
+    \\ qpat_x_assum `v4 = _` (fn th => once_rewrite_tac [th]) \\ fs []
+    \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality])
   >- ( EVAL_TAC >> simp[state_component_equality] )
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> EVAL_TAC )
   >- (
@@ -795,10 +807,14 @@ Theorem do_app_io_events_mono
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   srw_tac[][do_app_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  srw_tac[][bvi_to_data_def] >>
-  imp_res_tac bviPropsTheory.do_app_io_events_mono >>
-  full_simp_tac(srw_ss())[data_to_bvi_def] >>
-  full_simp_tac(srw_ss())[consume_space_def] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
+  Cases_on `x` >>
+  ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+              bool_case_eq,ffiTheory.call_FFI_def,
+              with_fresh_ts_def,closSemTheory.ref_case_eq,
+              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+              pair_case_eq,consume_space_def] >>
+  rveq >> fs []));
 
 Theorem call_env_const[simp]
   `(call_env x y).ffi = y.ffi ∧
@@ -867,16 +883,19 @@ Theorem evaluate_add_clock_io_events_mono
     fsrw_tac[ARITH_ss][call_env_with_const] >>
     rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[set_var_with_const] >>
-    metis_tac[evaluate_io_events_mono,SND,PAIR,IS_PREFIX_TRANS,set_var_const,set_var_with_const,with_clock_ffi]) >>
+    metis_tac[evaluate_io_events_mono,SND,PAIR,IS_PREFIX_TRANS,
+              set_var_const,set_var_with_const,with_clock_ffi]) >>
   rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
   every_case_tac >> full_simp_tac(srw_ss())[cut_state_opt_with_const] >> rev_full_simp_tac(srw_ss())[] >>
   rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac do_app_change_clock >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac do_app_change_clock_err >> full_simp_tac(srw_ss())[] >>
+  fs [do_app_with_clock] >>
+  TRY (PairCases_on `y`) >> fs [] >>
   imp_res_tac jump_exc_IMP >> full_simp_tac(srw_ss())[jump_exc_NONE] >>
   rveq >> full_simp_tac(srw_ss())[state_component_equality] >>
-  imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
+  rveq >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
+  fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
 Theorem semantics_Div_IMP_LPREFIX
