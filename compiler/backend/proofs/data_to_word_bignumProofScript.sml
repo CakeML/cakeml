@@ -1,8 +1,8 @@
 (*
   Part of the correctness proof for data_to_word
 *)
-open preamble bvlSemTheory dataSemTheory dataPropsTheory
-     copying_gcTheory int_bitwiseTheory
+open preamble dataSemTheory dataPropsTheory
+     copying_gcTheory int_bitwiseTheory finite_mapTheory
      data_to_word_memoryProofTheory data_to_word_gcProofTheory
      data_to_wordTheory wordPropsTheory labPropsTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
@@ -33,11 +33,10 @@ val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
 
 val eval_tac = fs [wordSemTheory.evaluate_def,
-  wordSemTheory.word_exp_def, wordSemTheory.set_var_def, set_var_def,
-  bvi_to_data_def, wordSemTheory.the_words_def,
-  bviSemTheory.bvl_to_bvi_def, data_to_bvi_def,
-  bviSemTheory.bvi_to_bvl_def,wordSemTheory.mem_load_def,
-  wordLangTheory.word_op_def, wordLangTheory.word_sh_def]
+  wordSemTheory.word_exp_def, wordSemTheory.set_var_def,
+  set_var_def, wordSemTheory.the_words_def,
+  wordSemTheory.mem_load_def,wordLangTheory.word_op_def,
+  wordLangTheory.word_sh_def]
 
 val eq_eval = save_thm("eq_eval",
   LIST_CONJ [wordSemTheory.evaluate_def,wordSemTheory.get_var_def,
@@ -1754,9 +1753,8 @@ Theorem eval_Call_Arith
         (q ≠ SOME NotEnoughSpace ⇒
          state_rel c l1 l2
            (x with
-            <|locals := insert dest (Number r) x.locals;
-              global := x.global; refs := x.refs; clock := x.clock;
-              ffi := s.ffi; space := 0|>) r' [] locs ∧ q = NONE)`
+            <|locals := insert dest (Number r) x.locals; space := 0|>)
+           r' [] locs ∧ q = NONE)`
   (rpt strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP
   \\ Cases_on `names_opt` \\ fs []
@@ -1786,7 +1784,7 @@ Theorem eval_Call_Arith
   \\ `?y. cut_env (adjust_set x') t.locals = SOME y` by
        (match_mp_tac (GEN_ALL cut_env_IMP_cut_env) \\ fs []
         \\ metis_tac []) \\ fs []
-  \\ fs [wordSemTheory.dec_clock_def,EVAL ``(data_to_bvi s).refs``]
+  \\ fs [wordSemTheory.dec_clock_def]
   \\ fs [Arith_code_def]
   \\ drule lookup_RefByte_location \\ fs [get_names_def]
   \\ fs [wordSemTheory.evaluate_def,list_Seq_def,word_exp_rw,push_env_code,
@@ -1824,7 +1822,7 @@ Theorem eval_Call_Arith
   \\ rpt_drule AnyArith_thm
   \\ simp [Once call_env_def,wordSemTheory.dec_clock_def,do_app_def,
            get_vars_def,get_var_def,lookup_insert,fromList_def,push_env_termdep,
-           do_space_def,bvi_to_dataTheory.op_space_reset_def,fromList2_def,
+           do_space_def,dataLangTheory.op_space_reset_def,fromList2_def,
            bviSemTheory.do_app_def,(*do_app,*)call_env_def,wordSemTheory.call_env_def]
   \\ disch_then (qspecl_then [`l2`,`l1`] strip_assume_tac)
   \\ qmatch_assum_abbrev_tac `evaluate (AnyArith_code c,t5) = _`
@@ -1834,8 +1832,7 @@ Theorem eval_Call_Arith
     \\ pairarg_tac \\ fs [] \\ NO_TAC)
   \\ fs [] \\ Cases_on `q = SOME NotEnoughSpace` THEN1 fs [] \\ fs []
   \\ rpt_drule state_rel_pop_env_IMP
-  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def,
-       Once dataSemTheory.bvi_to_data_def]
+  \\ simp [push_env_def,call_env_def,pop_env_def,dataSemTheory.dec_clock_def]
   \\ strip_tac \\ fs [] \\ clean_tac
   \\ `domain t2.locals = domain y` by
    (qspecl_then [`AnyArith_code c`,`t4`] mp_tac
@@ -1856,11 +1853,7 @@ Theorem eval_Call_Arith
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ simp [state_rel_def]
-  \\ fs [bviSemTheory.bvl_to_bvi_def,
-         bviSemTheory.bvi_to_bvl_def,
-         dataSemTheory.bvi_to_data_def,
-         dataSemTheory.call_env_def,alist_insert_def,
-         dataSemTheory.data_to_bvi_def,push_env_def,
+  \\ fs [dataSemTheory.call_env_def,alist_insert_def,push_env_def,
          dataSemTheory.set_var_def,wordSemTheory.set_vars_def]
   \\ fs [wordSemTheory.pop_env_def]
   \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs []
