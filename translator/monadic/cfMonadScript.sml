@@ -246,10 +246,9 @@ val EvalM_from_app = Q.store_thm("EvalM_from_app",
    EvalM F env st (App Opapp [Var fun_name; fun_exp])
     (MONAD RET_TYPE EXC_TYPE (f x))
     (H, p)`,
-  cheat (*
   rw [EvalM_def] \\ fs [Eval_def]
   \\ first_x_assum (qspec_then `s.refs` strip_assume_tac)
-  \\ fs [cfAppTheory.app_def, cfAppTheory.app_basic_def]
+  \\ fs [cfAppTheory.app_def, cfAppTheory.app_basic_def, evaluate_to_heap_def]
   \\ simp [MONAD_def]
   \\ first_x_assum (qspecl_then [`x`,`st`] strip_assume_tac) \\ fs []
   \\ first_assum drule
@@ -262,11 +261,11 @@ val EvalM_from_app = Q.store_thm("EvalM_from_app",
          cfStoreTheory.st2heap_def, SUBSET_DEF]
   \\ fs [Abbr`rss`]
   \\ rpt (disch_then drule) \\ rw []
-  \\ fs [cfHeapsBaseTheory.POSTv_def]
+  \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
   \\ rw [evaluate_def, PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ rename1 `Rval [val]`
+  \\ rename1 `RET_TYPE r val`
   \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS]
   \\ fs [UNIT_TYPE_def]
   \\ rw [MONAD_def, PULL_EXISTS]
@@ -322,7 +321,7 @@ val EvalM_from_app = Q.store_thm("EvalM_from_app",
   \\ qpat_x_assum `_ = (_,Rval [val])` assume_tac
   \\ drule evaluatePropsTheory.evaluate_add_to_clock
   \\ disch_then (qspec_then `ck'` mp_tac) \\ fs []
-  \\ simp [state_component_equality] *));
+  \\ simp [state_component_equality]);
 
 val parsed_terms = save_thm("parsed_terms",
   packLib.pack_list
