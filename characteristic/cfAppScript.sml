@@ -32,15 +32,14 @@ val evaluate_to_heap_def = Define `
       evaluate_ck ck st env [exp]
       = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
       st2heap p st' = heap)
-    | Div io => ∃(sts: num->'ffi semanticPrimitives$state) (cks: num->num).
-                  heap = UNIV /\
-                  (* clocks increase *)
-                  (∀i. cks i < cks (i+1)) /\
-                  (* all clocks in the sequence produce timeout and a state in sts *)
-                  (∀i. evaluate_ck (cks i) st env [exp] =
-                         (sts i, Rerr (Rabort Rtimeout_error))) /\
-                  (* io is the limit of the io_events of all states sts *)
-                  lprefix_lub (IMAGE (\i. fromList (sts i).ffi.io_events) UNIV) io`
+    | Div io => heap = UNIV /\
+                (* all clocks produce timeout *)
+                (∀ck. ∃st'. evaluate_ck ck st env [exp] =
+                      (st', Rerr (Rabort Rtimeout_error))) /\
+                (* io is the limit of the io_events of all states *)
+                lprefix_lub (IMAGE (λck. fromList (FST(evaluate_ck ck st env [exp])).ffi.io_events)
+                                   UNIV)
+                              io`
 
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
