@@ -1584,7 +1584,6 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
      (POSTv sov.
        &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (lineFD fs fd)) sov *
        STDIO (lineForwardFD fs fd))`,
-  cheat (*
   strip_tac
   \\ xcf "TextIO.inputLine" (get_ml_prog_state()) >>
   xlet_auto >- xsimpl \\
@@ -1623,6 +1622,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
           \\ qexists_tac`THE(LTL ll)`
           \\ xsimpl )
         \\ xsimpl )
+      \\ xsimpl
       \\ xcases
       \\ fs[EndOfFile_exn_def]
       \\ reverse conj_tac >- (EVAL_TAC \\ fs[])
@@ -1747,7 +1747,6 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
       \\ qexists_tac`THE(LTL ll)`
       \\ xsimpl )
     >- xsimpl
-    >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xif
@@ -1846,7 +1845,7 @@ val inputLine_spec = Q.store_thm("inputLine_spec",
   \\ qexists_tac`pos` \\ simp[]
   \\ instantiate
   \\ xsimpl
-  \\ EVAL_TAC *));
+  \\ EVAL_TAC);
 
 val inputLines_spec = Q.store_thm("inputLines_spec",
   `!fd fdv fs. FD fd fdv ∧
@@ -1930,7 +1929,6 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
                SOME(all_lines fs (File f))
              else NONE) sv
              * STDIO fs)`,
-  cheat (*
   xcf"TextIO.inputLinesFrom"(get_ml_prog_state())
   \\ reverse(xhandle`POSTve
        (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
@@ -1967,6 +1965,7 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   by ( simp[Abbr`fso`, openFileFS_def, get_mode_def] )
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fsob`
+  \\ rename1 `FD fd fdv`
   \\ qspecl_then[`fd`,`fsob`,`fdv`]mp_tac close_STDIO_spec
   \\ impl_tac >- (
     fs[STD_streams_def, Abbr`fsob`, Abbr`fso`]
@@ -1989,7 +1988,6 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
     \\ imp_res_tac STD_streams_nextFD
     \\ rfs[])
   >- xsimpl
-  >- xsimpl
   \\ reverse xcon \\ xsimpl
   \\ fs[]
   \\ fs[all_lines_def,lines_of_def]
@@ -2003,7 +2001,7 @@ val inputLinesFrom_spec = Q.store_thm("inputLinesFrom_spec",
   \\ unabbrev_all_tac
   \\ simp[fastForwardFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
           libTheory.the_def, openFileFS_numchars,
-          IO_fs_component_equality,openFileFS_files] *));
+          IO_fs_component_equality,openFileFS_files]);
 
 val inputLinesFrom_def = Define `
   inputLinesFrom f =
