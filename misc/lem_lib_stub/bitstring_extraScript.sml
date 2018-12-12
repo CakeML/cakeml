@@ -393,38 +393,99 @@ val fixshiftl_word_lsl = Q.store_thm("fixshiftl_word_lsl",
       >> simp[fixshiftl_word_lsl_SUC]
 )
 
-val fixasr_def = Define `fixasr a n = sign_extend (LENGTH a) (TAKE (LENGTH a - n) a)`
+(* edge case: if n>=LENGTH a then it's just the sign *)
+val fixasr_def = Define `(fixasr [] n = []) /\
+                         (fixasr a n = if n>=LENGTH a
+                                        then GENLIST (K (HD a)) (LENGTH a)
+                                        else
+                                          sign_extend (LENGTH a) (TAKE (LENGTH a - n) a))`
+
+
+
+val fixasr_word_asr_lemma1 = Q.prove(
+ `!(n:num) (w:'a word). ((n<dimindex(:'a)) /\ (w2v w = (h::t)))
+                                     ==> ~(n>=(SUC (LENGTH t)))`,
+   rpt strip_tac >> IMP_RES_TAC SUC_LENGTH >> fs[]
+)
+
+val fixasr_word_asr_lemma2 = Q.prove(
+ `!(n:num) (w:'a word). (~(n<dimindex(:'a)) /\ (w2v w = (h::t)))
+                                      ==> (n>=(SUC (LENGTH t)))`,
+   rpt strip_tac >> IMP_RES_TAC fixsub_word_sub_length_dimindex_lemma >> FULL_SIMP_TAC arith_ss [])
+
+val fixasr_word_asr_lemma3 = Q.prove(`!(w:'a word) h t. (w2v w = (h::t)) ==> (h = word_msb w)`,
+  simp[w2v_def,word_msb_def] >> simp[FCP,FCP_BETA,CART_EQ] >> rpt STRIP_TAC
+  >> POP_ASSUM (ASSUME_TAC o (Q.AP_TERM `HD`)) >> fs[]
+  >> Cases_on `dimindex(:'a)` >> fs[] >- (CCONTR_TAC >> ASSUME_TAC DIMINDEX_GT_0 >> simp[])
+  >> srw_tac[ARITH_ss][HD_GENLIST]
+)
+
+val fixasr_word_asr_lemma4 = Q.prove(`!(w:'a word) h t. (w2v w = (h::t)) ==> (SUC (LENGTH t) = dimindex(:'a))`,
+   rpt strip_tac >> POP_ASSUM (ASSUME_TAC o (Q.AP_TERM `LENGTH`)) >> fs[]
+)
+
+val fixasr_word_asr_lemma5 = Q.prove(`!n t. (n+(LENGTH t+1)-(SUC (LENGTH t))) = n`,FULL_SIMP_TAC arith_ss [])
+
+val fixasr_word_asr_lemma6 = Q.prove(`!h n. (GENLIST (K h) n) ++ [h] = GENLIST (K h) (SUC n)`,simp[GENLIST])
+
+val fixasr_word_asr_lemma7 = Q.prove(`!x y. (SUC x - (y+1)) = x - y`,FULL_SIMP_TAC arith_ss [])
+
+val suc_dimindex_sub1 = Q.prove(`SUC(dimindex(:'a)-1) = dimindex(:'a)`,
+  Cases_on `dimindex(:'a)-1` >> fs[DIMINDEX_GT_0]
+)
+
+val lem9 = Q.prove(`!f n h t. (GENLIST f n = h::t) ==> (t = GENLIST (f o SUC) (n-1))`,
+  rpt STRIP_TAC >> Cases_on `n` >> fs[] >> POP_ASSUM (ASSUME_TAC o (AP_TERM ``TL``)) >> fs[TL_GENLIST]
+)
+
+val lem10 = Q.prove(`!x y. MIN (x - (y + 1)) (x - 1) = x-(y+1)`,rpt STRIP_TAC >> simp[MIN_DEF])
+
+val fixasr_word_asr_lemma8 = Q.prove(`!(w:'a word) (n:num) t h. (w2v w = (h::t))
+                                      ==>
+                                      (GENLIST (\x. w ' (dimindex(:'a) - (n+(x+2)) + n)) (dimindex(:'a) - (n + 1))
+                                      =
+                                      TAKE (dimindex(:'a) - (n+1)) t)`,
+rpt STRIP_TAC >> fs[w2v_def] >> IMP_RES_TAC lem9 >> fs[TAKE_GENLIST,lem10] >> srw_tac[ARITH_ss][GENLIST_FUN_EQ] >> MK_COMB_TAC
+  >> simp[]
+)
 
 val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
  `!(n:num) (w:'a word). (w2v (word_asr w n)) = (fixasr (w2v w) n)`,
-   rpt strip_tac >> simp[word_asr_def,w2v_def,fixasr_def]
-   >> simp[sign_extend_def] >> simp[PAD_LEFT] >> simp[TAKE_GENLIST] >> simp[MIN_SUB] >>
-   CONV_TAC (PATH_CONV "lrr" (REWR_CONV (ISPEC ``dimindex(:'a):num`` (ISPEC ``n:num`` fixshiftr_add_rwt))))
-    >> REWRITE_TAC[GENLIST_APPEND_REVERSE] >>
-       MK_COMB_TAC
-          >- (MK_COMB_TAC
-                 >- simp[]
-                 >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
-                    >> simp[FCP_BETA,CART_EQ,FCP]
-                    >> Cases_on `dimindex(:'a)-n`
-                    >- cheat
-                    >> simp[word_msb_def] >> simp[HD_GENLIST]
-             ) >> simp[FCP_BETA,CART_EQ,FCP]
-        >> rw[GENLIST_FUN_EQ]
+   rpt strip_tac
+   >> simp[word_asr_def]
+   >> Cases_on `w2v w`
+      >- (CCONTR_TAC >> ASSUME_TAC w2v_nonempty >> RES_TAC)
+      >> simp[fixasr_def]
+      >> simp[sign_extend_def,PAD_LEFT,w2v_def]
+      >> Cases_on `n<dimindex(:'a)`
+      >> fs[FCP,FCP_BETA,CART_EQ]
+         >-(IMP_RES_TAC (ISPEC ``n:num`` fixasr_word_asr_lemma1)
+         >> ASM_SIMP_TAC arith_ss [fixasr_word_asr_lemma5,fixasr_word_asr_lemma6,fixasr_word_asr_lemma7]
+         >> IMP_RES_TAC SUC_LENGTH >> ASM_SIMP_TAC arith_ss []
+         >> CONV_TAC (PATH_CONV "lrr" (REWR_CONV (SPEC ``SUC n`` fixshiftr_add_rwt)))
+         >> REWRITE_TAC[GENLIST_APPEND_REVERSE]
+         >> MK_COMB_TAC
+            >- (MK_COMB_TAC
+                >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
+                >> BasicProvers.TOP_CASE_TAC
+                >- fs[fixasr_word_asr_lemma3]
+                >> FULL_SIMP_TAC arith_ss [suc_dimindex_sub1]
+                >> IMP_RES_TAC fixasr_word_asr_lemma3
+                >> ASM_SIMP_TAC arith_ss [word_msb_def]
+                >> MK_COMB_TAC >> simp[]
+               )
+            >> fs[]
+            >> srw_tac[ARITH_ss][GENLIST_FUN_EQ,ADD1]
+            >> FULL_SIMP_TAC arith_ss [suc_dimindex_sub1]
+            >> IMP_RES_TAC (ISPEC ``n:num`` (ISPEC ``w:'a word`` fixasr_word_asr_lemma8))
+            >> fs[]
+        )
+        >> IMP_RES_TAC (ISPEC ``n:num`` fixasr_word_asr_lemma2)
+        >> ASM_SIMP_TAC arith_ss []
+        >> IMP_RES_TAC fixasr_word_asr_lemma3
+        >> IMP_RES_TAC fixasr_word_asr_lemma4
+        >> ASM_SIMP_TAC arith_ss [K_DEF]
 )
-
-
-(*
-val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
-  `!n w. (w2v (word_asr w n)) = (fixasr (w2v w) n)`,
-   rpt strip_tac >> Induct_on `n`
-   >- simp[fixasr_def,word_asr_def,w2v_def]
-   >> simp[word_asr_def,w2v_def]
-   >> simp[FCP,FCP_BETA,CART_EQ]
-   >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
-   >> cheat
-)
-*)
 
 (* TODO prove that `i2vN x N` represents the same value as `(i2w x): N word` *)
 val i2vN_def = Define`
