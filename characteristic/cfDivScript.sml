@@ -1336,7 +1336,7 @@ val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic
        simp[GSYM LEFT_EXISTS_IMP_THM] >>
        Q.REFINE_EXISTS_TAC `ck1 + 2` >>
        simp[LEFT_EXISTS_IMP_THM] >>
-       simp[evaluate_ck_def] >>       
+       simp[evaluate_ck_def] >>
        ntac 8 (simp[Once terminationTheory.evaluate_def]) >>
        simp[build_rec_env_def,ml_progTheory.nsLookup_nsBind_compute,do_opapp_def,
             Once find_recfun_def] >>
