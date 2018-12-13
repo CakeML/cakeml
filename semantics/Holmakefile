@@ -1,24 +1,21 @@
-OPTIONS = QUIT_ON_FAILURE
 INCLUDES = ../developers ../misc $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub ffi
 
-all: $(DEFAULT_TARGETS) README.md
+CLINE_OPTIONS = --qof
 
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-all: $(TARGETS) addancs
+all: $(DEFAULT_TARGETS) README.md addancs
 .PHONY: all
 
 #LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
-LEM_OPT = -wl_unused_vars ign
+LEM_OPT = -wl_unused_vars ign -suppress_renaming -auxiliary_level none
 
 SRC = fpSem semanticPrimitives evaluate typeSystem primTypes
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
+all: $(GENS)
 
 LEMLIB = ../misc/lem_lib_stub/lib.lem
 
-LEM_CMD = lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i $(LEMLIB) -i ffi/ffi.lem -hol
+LEM_CMD = lem $(LEM_OPT) -i $(LEMLIB) -i ffi/ffi.lem -hol
 
 $(GENS): $(LEMS) $(LEMLIB) ffi/ffi.lem
 	if type lem;\
@@ -29,16 +26,19 @@ astScript.sml: ast.lem namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
           $(LEM_CMD) $< && ./addancs $@ integer words string namespace location; \
         else touch astScript.sml ; fi
+all: astScript.sml
 
 tokensScript.sml: tokens.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
           $(LEM_CMD) $< && ./addancs $@ integer string ; \
         else touch $@ ; fi
+all: tokensScript.sml
 
 namespaceScript.sml: namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
           $(LEM_CMD) $< && ./addancs $@ integer string ; \
         else touch namespaceScript.sml ; fi
+all: namespaceScript.sml
 
 OTHER_SCRIPTS = cmlPtreeConversion gram lexer_fun semantics termination tokenUtils
 
@@ -50,13 +50,8 @@ README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DI
 	../developers/readme_gen $(README_SOURCES)
 
 ifdef POLY
+
 EXTRA_CLEANS = addancs
-
-GRAMMAR_DEPS0 = peg pegexec
-GRAMMAR_DEPS = $(patsubst %,$(HOLDIR)/examples/formal-languages/context-free/%Theory,$(GRAMMAR_DEPS0))
-
-BARE_THYS = ../misc/preamble $(GRAMMAR_DEPS) ../misc/basicComputeLib ffi/ffiTheory
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 ifdef RELOCBUILD
 RELOC_FIXUP = $(protect $(HOLDIR)/tools/set_mtime/set_mtime.exe) addancs addancs.sml
@@ -66,7 +61,5 @@ endif
 
 addancs: addancs.sml
 	$(POLYC) -o $@ $< && $(RELOC_FIXUP)
-
-
 
 endif

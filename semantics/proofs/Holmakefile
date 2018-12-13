@@ -1,13 +1,8 @@
-OPTIONS = QUIT_ON_FAILURE
 INCLUDES = .. ../ffi ../../developers ../../misc ../../misc/lem_lib_stub $(HOLDIR)/examples/formal-languages/context-free
 
+CLINE_OPTIONS = --qof
+
 all: $(DEFAULT_TARGETS) README.md
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
-all: $(TARGETS)
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
