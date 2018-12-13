@@ -2384,14 +2384,18 @@ val cf_sound = Q.store_thm ("cf_sound",
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`,
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
+
   THEN1 (* Lit *) cf_base_case_tac
+
   THEN1 (
     (* Con *)
     cf_base_case_tac \\ progress exp2v_list_REVERSE \\
     fs [with_clock_self_eq]
   )
+
   THEN1 (* Var *) cf_base_case_tac
-  THEN1 cheat (* (
+
+  THEN1 (
     (* Let *)
     Cases_on `is_bound_Fun opt e1` \\ fs []
     THEN1 (
@@ -2417,14 +2421,14 @@ val cf_sound = Q.store_thm ("cf_sound",
         (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
       qexists_tac `r` \\ Cases_on `r` \\ fs [] \\
       cf_evaluate_step_tac \\ Cases_on `opt` \\
-      fs [is_bound_Fun_def, THE_DEF, Fun_params_def] \\ instantiate \\
+      fs [is_bound_Fun_def, THE_DEF, Fun_params_def, evaluate_to_heap_def] \\ instantiate \\
       every_case_tac \\ fs[] \\ qpat_x_assum `_ = inner_body` (assume_tac o GSYM) \\
       fs [naryClosure_def, naryFun_def, Fun_params_Fun_body_NONE] \\
       fs [Fun_params_Fun_body_repack, evaluate_ck_def, terminationTheory.evaluate_def] \\
       fs [namespaceTheory.nsOptBind_def] \\
       instantiate
     )
-    THEN1 (
+    THEN1 cheat (* (
       (* other cases of let-binding *)
       cf_strip_sound_full_tac \\
       qpat_x_assum `sound _ e1 _`
@@ -2464,9 +2468,9 @@ val cf_sound = Q.store_thm ("cf_sound",
         qexists_tac `FFIDiv name conf bytes` \\
         instantiate \\ qexists_tac `ck` \\ rw []
       )
-    )
+    ) *)
   )
-  *)
+
   THEN1 (
     (* Letrec; the bulk of the proof is done in [cf_letrec_sound] *)
     HO_MATCH_MP_TAC sound_local \\ simp [MAP_MAP_o, o_DEF, LAMBDA_PROD] \\
@@ -2479,7 +2483,7 @@ val cf_sound = Q.store_thm ("cf_sound",
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
 
-  THEN1 cheat (* (
+  THEN1 (
     (* App *)
     Cases_on `?ffi_index. op = FFI ffi_index` THEN1 (
       (* FFI *)
@@ -2510,7 +2514,7 @@ val cf_sound = Q.store_thm ("cf_sound",
       fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
       qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
     )
-    THEN1 (
+    THEN1 cheat (* (
       (* Opapp *)
       rename1 `dest_opapp _ = SOME (f, xs)` \\
       schneiderUtils.UNDISCH_ALL_TAC \\ SPEC_ALL_TAC \\
@@ -2580,7 +2584,7 @@ val cf_sound = Q.store_thm ("cf_sound",
           fs [with_clock_with_clock]
         )
       )
-    )
+    ) *)
     THEN1 (
       (* Opassign *)
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
@@ -2859,7 +2863,6 @@ val cf_sound = Q.store_thm ("cf_sound",
       SPLIT_TAC
     )
   )
-  *)
 
   THEN1 cheat (* (
     (* Log *)
@@ -2876,8 +2879,8 @@ val cf_sound = Q.store_thm ("cf_sound",
       progress SPLIT3_of_SPLIT_emp3 \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\ fs [do_log_def,Boolv_def]
     )
-  )
-  *)
+  ) *)
+
   THEN1 cheat (* (
     (* If *)
     cf_strip_sound_full_tac \\ fs [do_if_def] \\
@@ -2885,8 +2888,8 @@ val cf_sound = Q.store_thm ("cf_sound",
     first_assum progress \\ fs [evaluate_ck_def, Boolv_def, BOOL_def] \\
     GEN_EXISTS_TAC "ck'" `ck` \\ cf_exp2v_evaluate_tac `st with clock := ck` \\
     instantiate
-  )
-  *)
+  ) *)
+
   THEN1 cheat (* (
     (* Mat: the bulk of the proof is done in [cf_cases_evaluate_match] *)
     cf_strip_sound_full_tac \\
@@ -2895,8 +2898,8 @@ val cf_sound = Q.store_thm ("cf_sound",
     progress cf_cases_evaluate_match \\
     instantiate \\ qexists_tac `ck` \\
     cf_exp2v_evaluate_tac `st with clock := ck`
-  )
-  *)
+  ) *)
+
   THEN1 (
     (* Raise *)
     cf_strip_sound_full_tac \\ qexists_tac `Exn v` \\ fs [] \\
@@ -2905,6 +2908,7 @@ val cf_sound = Q.store_thm ("cf_sound",
     qexists_tac `st.clock` \\
     cf_exp2v_evaluate_tac `st with clock := st.clock` \\ fs [with_clock_self]
   )
+
   THEN1 (
     (* Handle *)
     cf_strip_sound_full_tac \\
@@ -2936,7 +2940,8 @@ val cf_sound = Q.store_thm ("cf_sound",
         qpat_assum `evaluate _ _ [e] = _` (add_to_clock `ck'`) \\
         qpat_assum `evaluate_match _ _ _ branches _ = _` (add_to_clock `st'.clock`) \\
         fs [with_clock_with_clock]
-      )) *)
+      )
+    ) *)
     THEN1 (
       (* e ~> FFI diverge *)
       rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rabort (Rffi_error (Final_event s conf bytes _))))` \\
@@ -2960,12 +2965,14 @@ val cf_sound = Q.store_thm ("cf_sound",
       metis_tac[]
     )
   )
+
   THEN1 (
     (* Lannot *)
     cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
     first_assum progress \\ fs [evaluate_to_heap_def, evaluate_ck_def] \\
     metis_tac[]
   )
+
   THEN1 (
     (* Tannot *)
     cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
