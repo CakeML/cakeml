@@ -818,6 +818,14 @@ type_d extra_checks tenv (Dexn locs cn ts)
 ==>
 type_d extra_checks tenv (Dmod mn ds) decls (tenvLift mn tenv'))
 
+/\ (! extra_checks tenv lds ds tenv1 tenv2 decls1 decls2.
+(type_ds extra_checks tenv lds decls1 tenv1 /\
+type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 /\
+DISJOINT decls1 decls2)
+==>
+type_d extra_checks tenv (Dlocal lds ds) (decls1 UNION decls2) tenv2)
+
+
 /\ (! extra_checks tenv.
 T
 ==>

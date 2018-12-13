@@ -138,4 +138,9 @@ val pure_def = tDefine "pure" `
    (Induct_on `es` ORELSE Induct_on `fns`) >> dsimp[exp_size_def] >>
    rpt strip_tac >> res_tac >> simp[])
 
+(* used in proofs about closLang, BVL, BVI and dataLang *)
+val assign_get_code_label_def = Define`
+  (assign_get_code_label (closLang$Label x) = {x}) ∧
+  (assign_get_code_label x = {})`
+
 val _ = export_theory()

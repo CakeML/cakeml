@@ -37,4 +37,11 @@ Theorem simp_correct
   `!c s. evaluate (simp c Skip,s) = evaluate (c,s)`
   (SIMP_TAC std_ss [evaluate_simp,evaluate_Seq_Skip]);
 
+Theorem get_code_labels_simp
+  `∀x y. get_code_labels (simp x y) ⊆ get_code_labels x ∪ get_code_labels y`
+  (recInduct data_simpTheory.simp_ind
+  \\ rw[data_simpTheory.simp_def]
+  \\ fs[SUBSET_DEF, data_simpTheory.pSeq_def] \\ rw[]
+  \\ metis_tac[]);
+
 val _ = export_theory();

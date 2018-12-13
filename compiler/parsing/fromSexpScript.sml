@@ -936,7 +936,10 @@ val sexpdec_def = tDefine"sexpdec"`
                        (sexplist sexptype (EL 2 args))) ++
       guard (nm = "Dmod" ∧ LENGTH args = 2)
             (lift2 Dmod (odestSEXSTR (EL 0 args))
-                        (sexplist sexpdec (EL 1 args)))
+                        (sexplist sexpdec (EL 1 args))) ++
+      guard (nm = "Dlocal" ∧ LENGTH args = 2)
+            (lift2 Dlocal (sexplist sexpdec (EL 0 args))
+                (sexplist sexpdec (EL 1 args)))
     od`
   (wf_rel_tac`measure sexp_size`
    \\ rw[LENGTH_EQ_NUM_compute] \\ fs[]
@@ -968,6 +971,9 @@ val sexpdec_alt_def = tDefine"sexpdec_alt"`
                        (sexptype_list (EL 2 args))) else
       if nm = "Dmod" ∧ LENGTH args = 2 then
             (lift2 Dmod (odestSEXSTR (EL 0 args))
+                        (sexpdec_list (EL 1 args))) else
+      if nm = "Dlocal" ∧ LENGTH args = 2  then
+            (lift2 Dlocal (sexpdec_list (EL 0 args))
                         (sexpdec_list (EL 1 args))) else NONE) ∧
    (sexpdec_list s =
       case s of
@@ -1274,7 +1280,15 @@ Theorem type_defsexp_11[simp]
   \\ Q.ISPEC_THEN`typesexp`match_mp_tac INJ_MAP_EQ
   \\ simp[INJ_DEF]);
 
-val decsexp_def = tDefine"decsexp"`
+Theorem dec1_size_eq
+  `dec1_size xs = list_size dec_size xs`
+  (Induct_on `xs` \\ fs [dec_size_def, list_size_def]);
+
+Theorem mem_size_lemma
+  `list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)`
+  (Induct_on `xs` \\ rw [list_size_def] \\ fs []);
+
+val decsexp_def = tDefine "decsexp"`
   (decsexp (Dlet locs p e) = listsexp [SX_SYM "Dlet"; locnsexp locs; patsexp p; expsexp e]) ∧
   (decsexp (Dletrec locs funs) =
      listsexp [SX_SYM "Dletrec"; locnsexp locs;
@@ -1282,10 +1296,13 @@ val decsexp_def = tDefine"decsexp"`
   (decsexp (Dtype locs td) = listsexp [SX_SYM "Dtype"; locnsexp locs; type_defsexp td]) ∧
   (decsexp (Dtabbrev locs ns x t) = listsexp [SX_SYM "Dtabbrev"; locnsexp locs; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t]) ∧
   (decsexp (Dexn locs x ts) = listsexp [SX_SYM "Dexn"; locnsexp locs; SEXSTR x; listsexp (MAP typesexp ts)]) ∧
-  (decsexp (Dmod name decs) = listsexp [SX_SYM "Dmod"; SEXSTR name; listsexp (MAP decsexp decs)])`
-  (wf_rel_tac`measure dec_size` \\ gen_tac
-   \\ Induct_on`decs` \\ rw[dec_size_def]
-   \\ res_tac \\ rw[]);
+  (decsexp (Dmod name decs) = listsexp [SX_SYM "Dmod"; SEXSTR name; listsexp (MAP decsexp decs)]) ∧
+  decsexp (Dlocal ldecs decs) = listsexp [SX_SYM "Dlocal";
+        listsexp (MAP decsexp ldecs); listsexp (MAP decsexp decs)]`
+  ((wf_rel_tac`measure dec_size` \\ strip_tac)
+   \\ fs [dec1_size_eq]
+   \\ rpt (conj_tac ORELSE gen_tac ORELSE match_mp_tac mem_size_lemma)
+   \\ fs []);
 
 Theorem decsexp_11[simp]
   `∀d1 d2. decsexp d1 = decsexp d2 ⇔ d1 = d2`
@@ -1570,7 +1587,7 @@ Theorem idsexp_sexpid_odestSEXSTR
   \\ every_case_tac \\ fs[]);
 
 Theorem strip_sxcons_NIL[simp]
-  `strip_sxcons ⦇ ⦈ = SOME []`
+  `strip_sxcons ⟪ ⟫ = SOME []`
   (simp[Once strip_sxcons_def]);
 
 Theorem strip_sxcons_SXCONS[simp]
@@ -1654,7 +1671,7 @@ Theorem locnsexp_sexplocn
   \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
   \\ fs[Once strip_sxcons_def]
   \\ simp[listsexp_def]
-  \\ rename [`⦇h1; h2; h3; h4; h5; h6⦈`]
+  \\ rename [`⟪h1; h2; h3; h4; h5; h6⟫`]
   \\ map_every (fn q => Cases_on q >> fs[odestSXNUM_def])
        [`h1`, `h2`, `h3`, `h4`, `h5`, `h6`]);
 
@@ -1783,8 +1800,7 @@ Theorem decsexp_sexpdec
     \\ imp_res_tac sexppair_SOME
     \\ fs[] \\ rveq \\ fs[]
     \\ imp_res_tac expsexp_sexpexp)
-  \\ first_x_assum (match_mp_tac o MP_CANON)
-  \\ simp[sxMEM_def,listsexp_def]
+  \\ fs [sxMEM_def,listsexp_def]
   \\ metis_tac[MEM_EL]);
 
 (* valid sexps *)

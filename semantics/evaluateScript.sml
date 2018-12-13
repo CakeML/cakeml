@@ -229,8 +229,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
          Rval env' => Rval <| v := (nsLift mn env'.v); c := (nsLift mn env'.c) |>
        | Rerr err => Rerr err
        ))
+  )))
+/\
+(evaluate_decs st env [Dlocal lds ds]=  
+ ((case evaluate_decs st env lds of
+    (st1, Rval env1) =>
+    evaluate_decs st1 (extend_dec_env env1 env) ds
+  | res => res
   )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_decs_defn;
+
 val _ = export_theory()
 

@@ -362,7 +362,7 @@ Theorem ptPapply_lemma
           ‘peg_eval_list _ (i1, _) (i, ptlist)’] >>
   first_x_assum (qspecl_then [‘pt1’, ‘mkNd (mkNT nPConApp) [acc; pt0]’, ‘i1’]
                              mp_tac) >> simp[] >>
-  disch_then irule >> dsimp[cmlG_applied, cmlG_FDOM])
+  disch_then irule >> dsimp[cmlG_applied, cmlG_FDOM]);
 
 Theorem peg_sound
   `∀N i0 i pts.
@@ -566,6 +566,16 @@ Theorem peg_sound
           metis_tac[DECIDE ``x<SUC x``])
       >- (dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> csimp[PAIR_MAP] >>
           metis_tac[DECIDE``x<SUC x``])
+      >- (dsimp[cmlG_FDOM, cmlG_applied, APPEND_EQ_CONS] >> csimp[PAIR_MAP] >>
+          rename[‘MAP (TK ## I) in0’, ‘peg_eval _ (in0, nt (mkNT nDecls) I)’] >>
+          ‘LENGTH in0 < SUC (LENGTH in0)’ by simp[] >>
+          first_assum (pop_assum o mp_then (Pos hd) drule) >>
+          disch_then (qx_choose_then ‘decls1_pt’ strip_assume_tac) >> simp[] >>
+          fs[MAP_EQ_APPEND] >> rveq >> dsimp[PAIR_MAP] >>
+          rename [‘real_fringe decls1_pt = MAP _ in00’,
+                  ‘peg_eval _ (in00 ++ [Int] ++ in01, nt (mkNT nDecls) I)’] >>
+          first_x_assum (qpat_assum ‘peg_eval _ (in01, _) _’ o
+                         mp_then (Pos (el 2)) mp_tac) >> dsimp[])
       >- (`NT_rank (mkNT nTypeDec) < NT_rank (mkNT nDecl)`
             by simp[NT_rank_def] >>
           first_x_assum (erule strip_assume_tac) >>
