@@ -7,7 +7,7 @@
 *)
 open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory
      word_bignumTheory;
-local open bvl_to_bviTheory backend_commonTheory in end
+local open backend_commonTheory in end
 
 val _ = new_theory "data_to_word";
 

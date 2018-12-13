@@ -1887,6 +1887,14 @@ val check_ctor_tenv_dups = Q.prove (
   ho_match_mp_tac check_ctor_tenv_ind >>
   rw [check_ctor_tenv_def]);
 
+Theorem type_all_env_extend
+  `type_all_env ctMap tenvS env1 tenv1
+    /\ type_all_env ctMap tenvS env2 tenv2
+    ==> type_all_env ctMap tenvS (extend_dec_env env1 env2)
+        (extend_dec_tenv tenv1 tenv2)`
+  (fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def]
+  \\ metis_tac [nsAll2_nsAppend]);
+
 Theorem decs_type_sound_no_check
  `∀(st:'ffi semanticPrimitives$state) env ds st' r ctMap tenvS tenv tids tenv'.
    evaluate_decs st env ds = (st',r) ∧
@@ -2353,7 +2361,60 @@ Theorem decs_type_sound_no_check
    >- (
      first_x_assum drule >>
      disch_then drule >>
-     rw [])));
+     rw []))
+ >- ( (* case local *)
+   qpat_x_assum `type_d _ _ (Dlocal _ _) _ _` mp_tac
+   >> rw [Once type_d_cases]
+   >> Cases_on `evaluate_decs st env ds`
+   >> fs []
+   >> rename1 `evaluate_decs st _ _ = (st1, r1)`
+   >> first_x_assum drule
+   >> first_assum (assume_tac o MATCH_MP type_sound_invariant_union)
+   >> disch_then drule
+   >> Cases_on `r1` >> fs []
+   >- (
+     rw []
+     >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ = (st2, r2)`
+     >> first_x_assum drule
+     >> disch_then (mp_tac o Q.SPECL [`ctMap'`, `tenvS'`])
+     >> impl_keep_tac
+     >- (
+       fs [type_sound_invariant_def, consistent_ctMap_def,
+         boolTheory.FORALL_AND_THM, DISJOINT_DEF, SUBSET_DEF, EXTENSION]
+       >> metis_tac []
+     )
+     >> rpt (ho_match_mp_tac boolTheory.MONO_EXISTS \\ GEN_TAC)
+     >> rw []
+     >- metis_tac [weakCT_trans]
+     >- (
+       fs [SUBSET_DEF, EXTENSION]
+       >- metis_tac [])
+     >- metis_tac [store_type_extension_trans]
+     >- (
+       CASE_TAC \\ fs []
+       >- (
+         fs [type_sound_invariant_def]
+         \\ fs (BODY_CONJUNCTS type_d_tenv_ok_helper @ [extend_dec_tenv_ok])
+         \\ conj_tac
+         >- metis_tac [type_d_tenv_ok_helper, extend_dec_tenv_ok]
+         >> match_mp_tac type_all_env_extend
+         >> fs []
+         >> metis_tac [type_all_env_weakening, weakCT_trans, store_type_extension_weakS]
+       )
+       >> CASE_TAC >> fs []
+       >> fs [type_sound_invariant_def]
+       >> metis_tac [type_all_env_weakening, weakCT_trans, store_type_extension_weakS]
+     )
+   )
+   >- (
+     rveq
+     >> fs []
+     >> rpt (ho_match_mp_tac boolTheory.MONO_EXISTS \\ GEN_TAC)
+     >> rw []
+     >> metis_tac [SUBSET_TRANS, SUBSET_UNION]
+   )
+ )
+);
 
 Theorem decs_type_sound
  `∀(st:'ffi semanticPrimitives$state) env ds extra_checks st' r ctMap tenvS tenv tids tenv'.

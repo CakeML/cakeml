@@ -634,4 +634,16 @@ Theorem remove_fvs_obeys_max_app
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,LENGTH_remove_fvs]
   \\ rw [] \\ eq_tac \\ rw [] \\ res_tac);
 
+Theorem get_code_labels_remove_fvs[simp]
+  `∀n es. MAP get_code_labels (remove_fvs n es) = MAP get_code_labels es`
+  (recInduct clos_fvsTheory.remove_fvs_ind
+  \\ rw[clos_fvsTheory.remove_fvs_def] \\ fs[closLangTheory.assign_get_code_label_def]
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ rw[] \\ fs[]);
+
 val _ = export_theory();

@@ -582,6 +582,12 @@ Theorem weak_tenv_extend_dec_tenv
  >> irule nsSub_nsAppend2
  >> simp []);
 
+Theorem weak_extend_dec_tenv
+  `tenv_ok tenv1 /\ weak tenv2 tenv3
+    ==> weak (extend_dec_tenv tenv1 tenv2) (extend_dec_tenv tenv1 tenv3)`
+  (fs [weak_def, tenv_ok_def, weak_tenv_extend_dec_tenv]
+  \\ fs [extend_dec_tenv_def]);
+
 Theorem type_d_weakening
 `(!check tenv d decls tenv'.
   type_d check tenv d decls tenv' ⇒
@@ -627,22 +633,16 @@ Theorem type_d_weakening
    fs [weak_def, DISJOINT_DEF, (*weak_decls_other_mods_def,*) EXTENSION]
    >> metis_tac [])
  >- (
-  qexists_tac `tenv'`
-  >> qexists_tac `tenv''`
-  >> qexists_tac `decls`
-  >> qexists_tac `decls'`
-  >> rw []
-  >> first_x_assum irule
-  >> simp []
-  >> conj_tac >- metis_tac [extend_dec_tenv_ok, type_d_tenv_ok] >>
-  fs [weak_def]
-  >> rw []
-  >- rw [extend_dec_tenv_def]
-  >> irule weak_tenv_extend_dec_tenv
-  >> simp [] >>
-  res_tac >>
-  drule (CONJUNCT1 type_d_tenv_ok_helper) >>
-  rw [tenv_ok_def]));
+  `tenv_ok tenv'`
+      suffices_by (metis_tac [extend_dec_tenv_ok, weak_extend_dec_tenv])
+    \\ metis_tac [type_d_tenv_ok_helper]
+  )
+ >- (
+  `tenv_ok tenv'`
+      suffices_by (metis_tac [extend_dec_tenv_ok, weak_extend_dec_tenv])
+    \\ metis_tac [type_d_tenv_ok_helper]
+  )
+);
 
    (*
 Theorem weak_decls_union

@@ -223,6 +223,11 @@ val (type_d_canon_rules, type_d_canon_ind, type_d_canon_cases) = Hol_reln `
   (type_ds_canon n tenv ds decls tenv')
   ==>
   type_d_canon n tenv (Dmod mn ds) decls (tenvLift mn tenv')) ∧
+(!n tenv lds ds decls1 decls2 tenv1 tenv2.
+  (type_ds_canon n tenv lds decls1 tenv1) ∧
+  (type_ds_canon (n+decls1) (extend_dec_tenv tenv1 tenv) ds decls2 tenv2)
+  ==>
+  type_d_canon n tenv (Dlocal lds ds) (decls1 + decls2) tenv2) ∧
 (!n tenv.
   T
   ==>
@@ -1050,6 +1055,11 @@ Theorem type_d_canon_tenv_equiv
   type_d_canon_rules
 *)
 
+Theorem DISJOINT_CARD_UNION
+  `FINITE s /\ FINITE t /\ DISJOINT s t
+    ==> CARD (s UNION t) = CARD s + CARD t`
+  (metis_tac [CARD_UNION, DISJOINT_DEF, CARD_DEF, ADD, ADD_SYM]);
+
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
   f,g are maps from the identifiers used in type_d into the ones
@@ -1608,6 +1618,46 @@ Theorem type_d_type_d_canon `
     drule (GEN_ALL tenv_equiv_tenvLift)
     \\ disch_then(qspec_then`mn`mp_tac)
     \\ fs[remap_tenv_def,tenvLift_def,nsLift_nsMap])
+  >- ( (* Dlocal *)
+    last_x_assum drule>> fs[]>>
+    disch_then drule>> simp[] >>
+    disch_then drule>> rw[] >>
+    simp[Once type_d_canon_cases]>>
+    first_x_assum (qspecl_then
+      [`tids ∪ ids`,`extend_bij f g ids n`,`CARD ids + n`] mp_tac)>>
+    simp[GSYM AND_IMP_INTRO, RIGHT_FORALL_IMP_THM]
+    \\ simp[AND_IMP_INTRO]
+    \\ impl_tac >- (
+      fs[good_remap_extend_bij,prim_tids_def,prim_type_nums_def]>>
+      rfs[DISJOINT_SYM]>>
+      CONJ_TAC>-(
+        match_mp_tac set_tids_tenv_extend_dec_tenv>>fs[]>>
+        match_mp_tac (GEN_ALL set_tids_tenv_mono)>>
+        asm_exists_tac>>fs[])>>
+      match_mp_tac BIJ_extend_bij>>fs[DISJOINT_SYM])>>
+    simp[PULL_EXISTS] >>
+    disch_then(qspec_then`extend_dec_tenv mapped_tenv' mapped_tenv`mp_tac)
+    \\ impl_tac >- (
+      fs[tenv_equiv_def,remap_tenv_extend_dec_tenv]
+      \\ fs[extend_dec_tenv_def]
+      \\ DEP_REWRITE_TAC[nsAll2_nsAppend]
+      \\ fs[]
+      \\ fs[nsAll2_def,remap_tenv_def,nsSub_def,nsLookup_nsMap,nsLookupMod_nsMap,
+            PULL_EXISTS, FORALL_PROD, EXISTS_PROD]
+      \\ fs[set_tids_tenv_def, set_tids_subset_def, nsAll_def, FORALL_PROD]
+      \\ rw[] \\ res_tac \\ rw[]
+      \\ fs[ts_tid_rename_eq_f, extend_bij_def, SUBSET_DEF, IN_DISJOINT,
+            MAP_EQ_f, EVERY_MEM]
+      \\ metis_tac[] )
+    \\ rw[]>>
+    qexists_tac `(extend_bij g g' (*ids*) ids' (CARD ids))`>>
+    rw[] >>
+    goal_assum(first_assum o mp_then Any mp_tac) >>
+    fs[UNION_ASSOC, DISJOINT_CARD_UNION] \\
+    goal_assum(first_assum o mp_then Any mp_tac) >>
+    fs [BIJ_extend_bij, prim_tids_def,prim_type_nums_def,
+        remap_tenv_extend_dec_tenv, extend_bij_compose]
+  )
   >- simp[set_tids_tenv_def,Once type_d_canon_cases,remap_tenv_def, prim_tids_def]
   >> (*type_ds *)
   last_x_assum drule>> fs[]>>
@@ -1644,23 +1694,16 @@ Theorem type_d_type_d_canon `
   qexists_tac `extend_bij g g' (*ids*) ids' (CARD ids)`>>
   rw[] >>
   goal_assum(first_assum o mp_then Any mp_tac) >>
-  fs[] \\
+  fs[UNION_ASSOC, DISJOINT_CARD_UNION] \\
   goal_assum(first_assum o mp_then Any mp_tac) >>
   rw[]
   >- (
     match_mp_tac set_tids_tenv_extend_dec_tenv>>fs[]>>
-    simp[UNION_ASSOC]>>
     match_mp_tac (GEN_ALL set_tids_tenv_mono)>>
     qpat_x_assum`_ _ tenv` assume_tac>>
     asm_exists_tac>>fs[SUBSET_DEF])
   >- fs[prim_tids_def,prim_type_nums_def]
-  >-
-    (`CARD (ids ∪ ids') = CARD ids' + CARD ids` by
-      (imp_res_tac CARD_UNION>>rfs[DISJOINT_DEF])>>
-    simp[]>>
-    match_mp_tac BIJ_extend_bij>>
-    fs[])
-  >- (imp_res_tac CARD_UNION>>rfs[DISJOINT_DEF])
+  >- (match_mp_tac BIJ_extend_bij>> fs[])
   >>
   simp[remap_tenv_extend_dec_tenv]
   \\ fs[extend_bij_compose]
@@ -1760,6 +1803,7 @@ Theorem type_d_canon_tenv_ok
    >> irule check_freevars_type_name_subst
    >> simp [tenv_abbrev_ok_def])
  >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
+ >- metis_tac [extend_dec_tenv_ok]
  >- metis_tac [extend_dec_tenv_ok]);
 
 val _ = export_theory();

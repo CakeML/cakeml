@@ -110,6 +110,11 @@ Theorem untyped_safety_decs
     rw [] >>
     metis_tac [pair_CASES, result_nchotomy])
   >- (
+    fs [EXISTS_PROD, FORALL_PROD]
+    >> metis_tac [result_nchotomy, decs_determ, PAIR_EQ,
+        result_11, result_distinct]
+  )
+  >- (
     pop_assum (mp_tac o GSYM) >>
     pop_assum (mp_tac o GSYM) >>
     rw [] >>

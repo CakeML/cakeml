@@ -1020,6 +1020,209 @@ Theorem renumber_code_locs_no_Labels
   \\ fs [] \\ rw [] \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
   \\ fs [MEM_ZIP] \\ fs [PULL_EXISTS,MEM_EL]);
 
+Theorem renumber_code_locs_imp_EVEN
+  `(renumber_code_locs_list n es = (n',es') ∧ EVEN n ⇒ EVEN n') ∧
+   (renumber_code_locs n e = (n',e') ∧ EVEN n ⇒ EVEN n')`
+  (rw[]
+  \\ strip_assume_tac(SPEC_ALL (CONJUNCT1 renumber_code_locs_EVEN)) \\ rfs[]
+  \\ strip_assume_tac(SPEC_ALL (CONJUNCT2 renumber_code_locs_EVEN)) \\ rfs[]);
+
+Theorem renumber_code_locs_get_code_labels
+  `(∀n es n' es'. renumber_code_locs_list n es = (n',es') ∧ EVERY ((=){}) (MAP get_code_labels es) ∧ EVEN n ⇒
+      BIGUNION (set (MAP get_code_labels es')) = { n + 2 * k | k | n + 2 * k < n' }) ∧
+   (∀n e n' e'. renumber_code_locs n e = (n',e') ∧ get_code_labels e = {} ∧ EVEN n ⇒
+     get_code_labels e' = { n + 2 * k | k | n + 2 * k < n' })`
+  (ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind
+  \\ rw[clos_numberTheory.renumber_code_locs_def]
+  \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
+  \\ imp_res_tac renumber_code_locs_imp_inc
+  \\ imp_res_tac renumber_code_locs_imp_EVEN \\ fs[]
+  >- (
+    rw[EXTENSION, EQ_IMP_THM]
+    >- ( qexists_tac`k` \\ simp[] )
+    >- (
+      `EVEN (n''-n)` by simp[EVEN_SUB]
+      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
+      \\ qexists_tac`k + m`
+      \\ simp[] )
+    >- (
+      Cases_on`2 * k + n < n''` \\ fs[]
+      \\ qpat_x_assum`EVEN _`mp_tac
+      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[]
+      \\ qpat_x_assum`EVEN n`mp_tac
+      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[]
+      \\ fs[LESS_EQ_EXISTS] \\ rveq
+      \\ qexists_tac`k-p`
+      \\ simp[] ))
+  >- (
+    rw[EXTENSION, EQ_IMP_THM]
+    >- ( qexists_tac`k` \\ simp[] )
+    >- (
+      `EVEN (n''-n)` by simp[EVEN_SUB]
+      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
+      \\ qexists_tac`k + m`
+      \\ simp[] )
+    >- (
+      `EVEN (n'''-n)` by simp[EVEN_SUB]
+      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
+      \\ qexists_tac`k + m`
+      \\ simp[] )
+    >- (
+      Cases_on`2 * k + n < n''` \\ fs[]
+      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
+      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[] \\ rw[] \\ fs[]
+      \\ fs[LESS_EQ_EXISTS] \\ rveq
+      \\ Cases_on`p' + p'' ≤ k` \\ fs[]
+      >- ( qexists_tac`k - p' - p''` \\ simp[] )
+      \\ qexists_tac`k - p''`
+      \\ simp[] ) )
+  >- (
+    rw[EXTENSION, EQ_IMP_THM]
+    >- ( qexists_tac`k` \\ simp[] )
+    >- (
+      `EVEN (n''-n)` by simp[EVEN_SUB]
+      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
+      \\ qexists_tac`k + m`
+      \\ simp[] )
+    >- (
+      Cases_on`2 * k + n < n''` \\ fs[]
+      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
+      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rw[] \\ fs[]
+      \\ fs[LESS_EQ_EXISTS] \\ rveq
+      \\ qexists_tac`k-p`
+      \\ simp[] ) )
+  >- (
+    qpat_x_assum`_ ⇒ _`mp_tac
+    \\ impl_tac >- fs[EVERY_MEM]
+    \\ rw[]
+    \\ rw[EXTENSION, EQ_IMP_THM]
+    >- ( qexists_tac`k` \\ simp[] )
+    >- (
+      `EVEN (n''-n)` by simp[EVEN_SUB]
+      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
+      \\ qexists_tac`k + m`
+      \\ simp[] )
+    >- (
+      Cases_on`2 * k + n < n''` \\ fs[]
+      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
+      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rw[] \\ fs[]
+      \\ fs[LESS_EQ_EXISTS] \\ rveq
+      \\ qexists_tac`k-p`
+      \\ simp[] ) )
+  >- (
+    qpat_x_assum`_ ⇒ _`mp_tac
+    \\ impl_tac >- fs[EVERY_MEM]
+    \\ rw[] )
+  >- fs[clos_numberTheory.renumber_code_locs_def]
+  >- (
+    qpat_x_assum`_ ⇒ _`mp_tac
+    \\ impl_tac >- fs[EVERY_MEM]
+    \\ rw[]
+    \\ rw[EXTENSION, EQ_IMP_THM]
+    >- ( qexists_tac`k` \\ simp[] )
+    >- (
+      `EVEN (n''-n)` by simp[EVEN_SUB]
+      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
+      \\ qexists_tac`k + m`
+      \\ simp[] )
+    >- (
+      Cases_on`2 * k + n < n''` \\ fs[]
+      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
+      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rw[] \\ fs[]
+      \\ fs[LESS_EQ_EXISTS] \\ rveq
+      \\ qexists_tac`k-p`
+      \\ simp[] ) )
+  >- (
+    reverse(rw[EXTENSION, EQ_IMP_THM])
+    >- (
+      Cases_on`2 * k + n = n''` \\ fs[]
+      \\ rpt(qpat_x_assum`EVEN _`mp_tac)
+      \\ rw[EVEN_EXISTS] \\ fs[]
+      \\ fs[GSYM LEFT_ADD_DISTRIB] )
+    >- ( qexists_tac`k` \\ fs[] )
+    >- (
+      rpt(qpat_x_assum`EVEN _`mp_tac)
+      \\ rw[EVEN_EXISTS] \\ fs[]
+      \\ fs[GSYM LEFT_ADD_DISTRIB]
+      \\ qexists_tac`m'-m`
+      \\ simp[] ) )
+  >- (
+    imp_res_tac renumber_code_locs_list_IMP_LENGTH
+    \\ fs[] \\ rveq \\ rfs[]
+    \\ qpat_x_assum`{} = _`(assume_tac o SYM) \\ fs[]
+    \\ rpt(qpat_x_assum`EVEN _`mp_tac)
+    \\ rw[EVEN_EXISTS] \\ fs[]
+    \\ rw[EXTENSION, EQ_IMP_THM]
+    >- ( qexists_tac`k + m'' - m'` \\ simp[] )
+    \\ fs[EXTENSION]
+    \\ fs[LESS_EQ_EXISTS] \\ rveq
+    \\ qexists_tac`k-p`
+    \\ simp[LEFT_ADD_DISTRIB]
+    \\ fs[LEFT_ADD_DISTRIB]
+    \\ fs[clos_numberTheory.renumber_code_locs_def] )
+  >- (
+    qpat_x_assum`_ ⇒ _`mp_tac
+    \\ impl_tac >- (
+      fs[EVERY_MEM]
+      \\ fs[EVEN_ADD]
+      \\ fs[EVEN_EXISTS] )
+    \\ rw[]
+    \\ qpat_x_assum`_ ⇒ _`mp_tac
+    \\ impl_tac >- (
+      fs[EVERY_MEM]
+      \\ fs[EXTENSION, MEM_MAP, PULL_EXISTS] )
+    \\ rw[]
+    \\ imp_res_tac renumber_code_locs_list_IMP_LENGTH \\ fs[]
+    \\ simp[MAP_ZIP]
+    \\ qpat_x_assum`_ ⇒ _`mp_tac
+    \\ impl_tac >- (
+      fs[EVERY_MEM]
+      \\ fs[EVEN_ADD]
+      \\ fs[EVEN_EXISTS] )
+    \\ rw[]
+    \\ rpt(qpat_x_assum`EVEN _`mp_tac)
+    \\ rw[EVEN_EXISTS] \\ fs[]
+    \\ fs[LESS_EQ_EXISTS] \\ rveq
+    \\ rw[EXTENSION, EQ_IMP_THM]
+    >- ( qexists_tac`k+p` \\ simp[LEFT_ADD_DISTRIB, LEFT_SUB_DISTRIB] )
+    >- ( qexists_tac`k + LENGTH fns + p` \\ simp[LEFT_ADD_DISTRIB, LEFT_SUB_DISTRIB] )
+    >- ( qexists_tac`k` \\ simp[LEFT_ADD_DISTRIB, LEFT_SUB_DISTRIB] )
+    \\ fs[]
+    \\ Cases_on`k < p` \\ fs[]
+    \\ fs[LEFT_ADD_DISTRIB]
+    \\ Cases_on`k - p < LENGTH fns` \\ fs[]
+    >- ( qexists_tac`k-p` \\ simp[] )
+    >- ( qexists_tac`k - p - LENGTH fns` \\ fs[] )
+    >- ( qexists_tac`k - p` \\ fs[] ) )
+  >- (
+    rw[EQ_IMP_THM, EXTENSION]
+    >- ( qexists_tac`k` \\ fs[] )
+    >- (
+      `EVEN (n''-n)` by simp[EVEN_SUB]
+      \\ pop_assum mp_tac \\ simp[EVEN_EXISTS] \\ strip_tac
+      \\ qexists_tac`k + m`
+      \\ simp[] )
+    >- (
+      Cases_on`2 * k + n < n''` \\ fs[]
+      \\ qpat_x_assum`EVEN _`mp_tac
+      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[]
+      \\ qpat_x_assum`EVEN n`mp_tac
+      \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[]
+      \\ fs[LESS_EQ_EXISTS] \\ rveq
+      \\ qexists_tac`k-p`
+      \\ simp[] )));
+
+Theorem renumber_code_locs_any_dests
+  `(!k xs n ys. renumber_code_locs_list k xs = (n,ys) ==> any_dests ys = ∅) /\
+    (!k x n y. renumber_code_locs k x = (n,y) ==> any_dests [y] = ∅)`
+  (ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind \\ rpt strip_tac
+  \\ fs [clos_numberTheory.renumber_code_locs_def] \\ rveq \\ fs []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+  \\ once_rewrite_tac [closPropsTheory.app_call_dests_cons] \\ fs []
+  \\ `LENGTH fns = LENGTH fns'` by
+       metis_tac [clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]
+  \\ fs [MAP_ZIP]);
+
 (* preservation of observable semantics *)
 
 Theorem semantics_number

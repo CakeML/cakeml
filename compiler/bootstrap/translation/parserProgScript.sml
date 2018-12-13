@@ -109,6 +109,8 @@ val _ = (extra_preprocessing :=
 
 val _ = translate (def_of_const ``ptree_Expr``);
 
+val _ = translate (def_of_const ``ptree_Decl``);
+
 val _ = translate (def_of_const ``ptree_TopLevelDecs``);
 
 (* parsing: top-level parser *)

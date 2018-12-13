@@ -1957,4 +1957,143 @@ Theorem compile_prog_names
   \\ imp_res_tac tick_inline_all_names \\ rw []
   \\ rw[] \\ fs[]);
 
+Theorem var_list_code_labels_imp
+  `∀n x y. var_list n x y ⇒ BIGUNION (set (MAP get_code_labels x)) = {}`
+  (recInduct bvl_inlineTheory.var_list_ind
+  \\ rw[bvl_inlineTheory.var_list_def] \\ fs[]);
+
+Theorem let_op_code_labels
+  `∀x. BIGUNION (set (MAP get_code_labels (let_op x))) = BIGUNION (set (MAP get_code_labels x))`
+  (recInduct bvl_inlineTheory.let_op_ind
+  \\ rw[bvl_inlineTheory.let_op_def]
+  \\ full_simp_tac std_ss [Once(GSYM HD_let_op)] \\ fs[]
+  \\ PURE_CASE_TAC \\ fs[]
+  \\ Cases_on`HD (let_op [x2])` \\ fs[bvl_inlineTheory.dest_op_def]
+  \\ rveq
+  \\ imp_res_tac var_list_code_labels_imp
+  \\ fs[] \\ rveq \\ fs[]
+  \\ simp[EXTENSION]
+  \\ metis_tac[]);
+
+Theorem let_op_sing_code_labels[simp]
+  `get_code_labels (let_op_sing x) = get_code_labels x`
+  (rw[bvl_inlineTheory.let_op_sing_def]
+  \\ simp_tac std_ss [Once(GSYM HD_let_op)]
+  \\ simp[]
+  \\ specl_args_of_then``bvl_inline$let_op``let_op_code_labels mp_tac
+  \\ simp_tac std_ss [Once(GSYM HD_let_op)]
+  \\ rw[]);
+
+Theorem remove_ticks_code_labels
+  `∀x.
+     BIGUNION (set (MAP get_code_labels (remove_ticks x))) =
+     BIGUNION (set (MAP get_code_labels x))`
+  (recInduct bvl_inlineTheory.remove_ticks_ind
+  \\ rw[bvl_inlineTheory.remove_ticks_def]
+  \\ FULL_SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[]);
+
+Theorem optimise_get_code_labels
+  `∀x y z.
+     get_code_labels (SND (SND (optimise x y z))) ⊆
+     get_code_labels (SND (SND z))`
+  (rpt gen_tac \\ PairCases_on`z`
+  \\ reverse(rw[bvl_inlineTheory.optimise_def, bvl_handleTheory.compile_any_def, bvl_handleTheory.compile_exp_def])
+  >- (
+    specl_args_of_then``bvl_handle$compile``bvl_handleProofTheory.compile_code_labels mp_tac
+    \\ rw[]
+    \\ qmatch_goalsub_abbrev_tac`bvl_handle$compile a b c`
+    \\ Cases_on`bvl_handle$compile a b c`
+    \\ PairCases_on`r`
+    \\ unabbrev_all_tac
+    \\ imp_res_tac bvl_handleTheory.compile_sing
+    \\ rveq
+    \\ qpat_x_assum`_ ⊆ _`mp_tac
+    \\ simp[]
+    \\ strip_tac
+    \\ match_mp_tac SUBSET_TRANS
+    \\ asm_exists_tac \\ simp[]
+    \\ match_mp_tac SUBSET_TRANS
+    \\ specl_args_of_then``bvl_const$compile_exp`` bvl_constProofTheory.compile_exp_code_labels mp_tac
+    \\ strip_tac \\ asm_exists_tac \\ simp[]
+    \\ specl_args_of_then``bvl_inline$remove_ticks`` remove_ticks_code_labels mp_tac
+    \\ SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[] )
+  \\ Cases_on `remove_ticks [z2]` \\ fs []
+  \\ first_assum (assume_tac o Q.AP_TERM `LENGTH`) \\ fs [] \\ rw []
+  \\ qspec_then `[z2]` assume_tac remove_ticks_code_labels \\ fs [] \\ rfs []
+  \\ pop_assum (SUBST1_TAC o GSYM)
+  \\ qspecl_then [`y`,`let_op_sing h`,`NONE`]
+       assume_tac bvl_handleProofTheory.compile_seqs_code_labels \\ fs []);
+
+Theorem tick_inline_code_labels
+  `!cs xs.
+     BIGUNION (set (MAP get_code_labels (tick_inline cs xs))) SUBSET
+     BIGUNION (set (MAP get_code_labels xs)) UNION
+     BIGUNION (set (MAP (get_code_labels o SND) (toList cs)))`
+  (ho_match_mp_tac bvl_inlineTheory.tick_inline_ind
+  \\ rw [bvl_inlineTheory.tick_inline_def]
+  \\ TRY
+   (qmatch_goalsub_rename_tac `_ (HD (tick_inline cs [x])) SUBSET _`
+    \\ Cases_on `tick_inline cs [x]`
+    \\ pop_assum (assume_tac o Q.AP_TERM `LENGTH`)
+    \\ fs [bvl_inlineTheory.LENGTH_tick_inline] \\ rw []
+    \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac [])
+  \\ TRY
+   (rename1 `closLang$assign_get_code_label op`
+    \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac [])
+  \\ TRY (* what... *)
+   (rename1 `option_CASE dest`
+    \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw []
+    \\ fs [SUBSET_DEF] \\ rw []
+    \\ fs [MEM_MAP, MEM_toList]
+    \\ metis_tac [FST, SND, PAIR])
+  \\ Cases_on `tick_inline cs [x1]` \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ Cases_on `tick_inline cs [x2]` \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ Cases_on `tick_inline cs [x3]` \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ rw [bvl_inlineTheory.LENGTH_tick_inline]
+  \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac []);
+
+Theorem tick_inline_all_code_labels
+  `!limit cs xs aux cs1 xs1.
+     tick_inline_all limit cs xs aux = (cs1, xs1)
+     ==>
+     BIGUNION (set (MAP (get_code_labels o SND o SND) xs1)) SUBSET
+     BIGUNION (set (MAP (get_code_labels o SND o SND) xs)) UNION
+     BIGUNION (set (MAP (get_code_labels o SND o SND) aux)) UNION
+     BIGUNION (set (MAP (get_code_labels o SND) (toList cs)))`
+  (ho_match_mp_tac bvl_inlineTheory.tick_inline_all_ind
+  \\ rw [bvl_inlineTheory.tick_inline_all_def]
+  \\ fs [MAP_REVERSE]
+  \\ Cases_on `tick_inline cs [e1]`
+  \\ first_assum (assume_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [bvl_inlineTheory.LENGTH_tick_inline] \\ rw []
+  \\ qispl_then [`cs`,`[e1]`] assume_tac tick_inline_code_labels \\ fs [] \\ rfs []
+  \\ fs [AC UNION_COMM UNION_ASSOC]
+  \\ qmatch_goalsub_abbrev_tac `s1 SUBSET s2 UNION (s3 UNION (s4 UNION s5))`
+  \\ fs [SUBSET_DEF] \\ rw []
+  \\ rpt (first_x_assum drule \\ rw []) \\ fs []
+  \\ fs [MEM_MAP, MEM_toList, lookup_insert]
+  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ res_tac \\ fs []
+  \\ fs [Abbr `s3`, MEM_MAP, MEM_toList, PULL_EXISTS]
+  \\ metis_tac [PAIR, FST, SND]);
+
+Theorem compile_prog_get_code_labels
+  `bvl_inline$compile_prog x y z p = (inlines,q) ⇒
+   BIGUNION (set (MAP (get_code_labels o SND o SND) q)) ⊆
+   BIGUNION (set (MAP (get_code_labels o SND o SND) p))`
+  (rw[bvl_inlineTheory.compile_prog_def, bvl_inlineTheory.compile_inc_def, bvl_inlineTheory.tick_compile_prog_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ simp[MAP_MAP_o, o_DEF]
+  \\ match_mp_tac SUBSET_TRANS
+  \\ qexists_tac`BIGUNION (set (MAP (get_code_labels o SND o SND) prog1))`
+  \\ conj_tac
+  >- (
+    rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+    \\ rpt(pop_assum mp_tac)
+    \\ specl_args_of_then``bvl_inline$optimise``optimise_get_code_labels mp_tac
+    \\ rw[SUBSET_DEF]
+    \\ metis_tac[])
+  \\ imp_res_tac tick_inline_all_code_labels
+  \\ fs [o_DEF, toList_def, toListA_def]);
+
 val _ = export_theory();
