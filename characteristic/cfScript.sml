@@ -2977,44 +2977,62 @@ val cf_sound = Q.store_thm ("cf_sound",
 val cf_sound' = Q.store_thm ("cf_sound'",
   `!e env H Q st.
      cf (p:'ffi ffi_proj) e env H Q ==> H (st2heap (p:'ffi ffi_proj) st) ==>
-     ?st' h_f h_g r ck.
-       (case r of
-          | Val v => evaluate (st with clock := ck) env [e] = (st', Rval [v])
-          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))
-          | FFIDiv n c b => evaluate (st with clock := ck) env [e] =
-                            (st', Rerr (Rabort (Rffi_error(Final_event n c b FFI_diverged))))) /\
-       SPLIT (st2heap (p:'ffi ffi_proj) st') (h_f, h_g) /\
-       Q r h_f`,
-  cheat (*
+     ?r h_f h_g heap.
+       SPLIT heap (h_f, h_g) /\
+       Q r h_f /\
+       case r of
+          | Val v => ?ck st'.
+            evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
+            st2heap p st' = heap
+          | Exn v => ?ck st'.
+            evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
+            st2heap p st' = heap
+          | FFIDiv name conf bytes => ∃ck st'.
+            evaluate (st with clock := ck) env [e] =
+            (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+            st2heap p st' = heap
+          | Div io =>
+            heap = UNIV /\
+            (∀ck. ?st'. evaluate (st with clock := ck) env [e] =
+            (st', Rerr (Rabort Rtimeout_error))) /\
+            lprefix_lub$lprefix_lub (IMAGE (\ck. fromList (FST(evaluate (st with clock := ck) env [e])).ffi.io_events) UNIV) io`,
   rpt strip_tac \\ qspecl_then [`(p:'ffi ffi_proj)`, `e`] assume_tac cf_sound \\
-  fs [sound_def, evaluate_ck_def, htriple_valid_def] \\
+  fs [sound_def, evaluate_to_heap_def, evaluate_ck_def, htriple_valid_def] \\
   `SPLIT (st2heap p st) (st2heap p st, {})` by SPLIT_TAC \\
-  res_tac \\ rename1 `SPLIT3 (st2heap p st') (h_f, {}, h_g)` \\
-  `SPLIT (st2heap p st') (h_f, h_g)` by SPLIT_TAC \\ instantiate *)
-);
+  res_tac \\ rename1 `SPLIT3 heap (h_f, {}, h_g)` \\
+  `SPLIT heap (h_f, h_g)` by SPLIT_TAC \\ instantiate);
 
 val cf_sound_local = Q.store_thm ("cf_sound_local",
   `!e env H Q h i st.
      cf (p:'ffi ffi_proj) e env H Q ==>
      SPLIT (st2heap (p:'ffi ffi_proj) st) (h, i) ==>
      H h ==>
-     ?st' h' g r ck.
-       (case r of
-          | Val v => evaluate (st with clock := ck) env [e] = (st', Rval [v])
-          | Exn v => evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v))
-          | FFIDiv n c b => evaluate (st with clock := ck) env [e] =
-                            (st', Rerr (Rabort (Rffi_error(Final_event n c b FFI_diverged))))) /\
-       SPLIT3 (st2heap (p:'ffi ffi_proj) st') (h', g, i) /\
-       Q r h'`,
-  cheat (*
+     ?r h' g heap.
+       SPLIT3 heap (h', g, i) /\
+       Q r h' /\
+       case r of
+          | Val v => ?ck st'.
+            evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
+            st2heap p st' = heap
+          | Exn v => ?ck st'.
+            evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
+            st2heap p st' = heap
+          | FFIDiv name conf bytes => ∃ck st'.
+            evaluate (st with clock := ck) env [e] =
+            (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+            st2heap p st' = heap
+          | Div io =>
+            heap = UNIV /\
+            (∀ck. ?st'. evaluate (st with clock := ck) env [e] =
+            (st', Rerr (Rabort Rtimeout_error))) /\
+            lprefix_lub$lprefix_lub (IMAGE (\ck. fromList (FST(evaluate (st with clock := ck) env [e])).ffi.io_events) UNIV) io`,
   rpt strip_tac \\
   `sound (p:'ffi ffi_proj) e (\env. (local (cf (p:'ffi ffi_proj) e env)))` by
     (match_mp_tac sound_local \\ fs [cf_sound]) \\
-  fs [sound_def, evaluate_ck_def, htriple_valid_def, st2heap_def] \\
+  fs [sound_def, evaluate_to_heap_def, evaluate_ck_def, htriple_valid_def, st2heap_def] \\
   `local (cf (p:'ffi ffi_proj) e env) H Q` by
     (fs [REWRITE_RULE [is_local_def] cf_local |> GSYM]) \\
-  res_tac \\ progress SPLIT3_swap23 \\ instantiate *)
-);
+  res_tac \\ progress SPLIT3_swap23 \\ instantiate);
 
 val app_basic_of_cf = Q.store_thm ("app_basic_of_cf",
   `!clos body x env env' v H Q.
