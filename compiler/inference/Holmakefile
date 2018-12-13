@@ -1,38 +1,13 @@
-INCLUDES = ../../misc ../../semantics ../../semantics/proofs $(HOLDIR)/examples/unification/triangular/first-order ../../basis/pure
-OPTIONS = QUIT_ON_FAILURE
+INCLUDES = $(HOLDIR)/examples/unification/triangular/first-order\
+					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
+					 $(CAKEMLDIR)/basis/pure
+
+CLINE_OPTIONS = --qof
 
 all: $(DEFAULT_TARGETS) README.md
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
-all: $(TARGETS)
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
-
-ifdef POLY
-HOLHEAP = heap
-PARENTHEAP=../../semantics/heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-
-SEM_BARE_THYS = terminationTheory
-
-UNIF_BARE_THYS = collapseTheory \
-		redUnifTheory \
-		unifDefTheory \
-		unifPropsTheory
-
-BARE_THYS = $(patsubst %,../../semantics/%,$(SEM_BARE_THYS)) $(patsubst %,$(HOLDIR)/examples/unification/triangular/first-order/%,$(UNIF_BARE_THYS))
-
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
-
-all: $(HOLHEAP)
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $(HOLHEAP) $(BARE_THYS)
-endif
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
