@@ -562,8 +562,12 @@ val rotate_w2v_lemma6 = Q.prove(`!i x y. ((i<x) /\ (y = x)) ==> (i<y)`,
 
 val rotate_w2v_mod_lemma = Q.prove(`!x y m. (0 < m /\ (x<y MOD m)) ==> ((y-(x+1)) MOD m = (y MOD m)-((x+1) MOD m))`,cheat)
 
-val rotate_w2v_mod_lemma2 = Q.prove(`!x y m. (0 < m /\ (x < y MOD m)) ==> (x MOD m = x)`,cheat)
-
+val rotate_w2v_mod_lemma2 = Q.prove(`!(x:num) (y:num) m. (0 < m /\ (x < y MOD m)) ==> (x MOD m = x)`,
+   rpt STRIP_TAC
+   >> IMP_RES_TAC MOD_LESS
+   >> POP_ASSUM (ASSUME_TAC o (ISPEC ``y:num``))
+   >> fs[]
+)
 val rotate_w2v_mod_lemma3 = Q.prove(`!b x. (b < x /\ ~(b+1 < x)) ==> (b = x-1)`,rpt STRIP_TAC >> fs[])
 
 
