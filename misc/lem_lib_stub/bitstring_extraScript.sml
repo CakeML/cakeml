@@ -560,7 +560,40 @@ val rotate_w2v_lemma5 = Q.prove(`!n i (w:'a word).
 val rotate_w2v_lemma6 = Q.prove(`!i x y. ((i<x) /\ (y = x)) ==> (i<y)`,
    rpt STRIP_TAC >> fs[])
 
-val rotate_w2v_lemma7 = Q.prove(`!n b a m. (0 < m /\ b < SUC a /\ (n MOD m = SUC a)) ==> ((a-b) = ((n-(b+1)) MOD m))`,cheat)
+val rotate_w2v_mod_lemma = Q.prove(`!x y m. (0 < m /\ (x<y MOD m)) ==> ((y-(x+1)) MOD m = (y MOD m)-((x+1) MOD m))`,cheat)
+
+val rotate_w2v_mod_lemma2 = Q.prove(`!x y m. (0 < m /\ (x < y MOD m)) ==> (x MOD m = x)`,cheat)
+
+val rotate_w2v_mod_lemma3 = Q.prove(`!b x. (b < x /\ ~(b+1 < x)) ==> (b = x-1)`,rpt STRIP_TAC >> fs[])
+
+
+val rotate_w2v_lemma7 = Q.prove(`!n b a m. (0 < m /\ b < SUC a /\ (n MOD m=SUC a)) ==> ((a-b) = ((n-(b+1)) MOD m))`,
+   rpt STRIP_TAC
+   >> POP_ASSUM (ASSUME_TAC o GSYM)
+   >> fs[] >> IMP_RES_TAC rotate_w2v_mod_lemma
+   >> POP_ASSUM (ASSUME_TAC o AP_TERM ``\x. x-1``) >> fs[]
+   >> Cases_on `(n-(b+1)) MOD m` >- cheat
+   >> ASM_SIMP_TAC arith_ss []
+   >> POP_ASSUM (ASSUME_TAC o GSYM)
+   >> ASM_SIMP_TAC arith_ss []
+   >> IMP_RES_TAC rotate_w2v_mod_lemma
+   >> ASM_SIMP_TAC arith_ss []
+   >> POP_ASSUM (fn t => ALL_TAC)
+   >> POP_ASSUM (fn t => ALL_TAC)
+   >> POP_ASSUM (fn t => ALL_TAC)
+   >> POP_ASSUM (ASSUME_TAC o GSYM)
+   >> ASM_SIMP_TAC arith_ss []
+   >> Cases_on `b+1 < n MOD m`
+   >- (IMP_RES_TAC rotate_w2v_mod_lemma2 >> ASM_SIMP_TAC arith_ss []
+        >> IMP_RES_TAC rotate_w2v_mod_lemma3)
+   >> IMP_RES_TAC rotate_w2v_mod_lemma3
+   >> ASM_SIMP_TAC arith_ss []
+   >> rw[GSYM ADD1]
+   >> POP_ASSUM (fn t => ALL_TAC)
+   >> POP_ASSUM (fn t => ALL_TAC)
+   >> POP_ASSUM (ASSUME_TAC o GSYM)
+   >> ASM_SIMP_TAC arith_ss []
+)
 
 val rotate_w2v_lemma8 = Q.prove(`!x y n t. (((n MOD x) = y) /\ (t<x-y)) ==>  (x-(t+1) = ((n+x-(t+(n MOD x)+1)) MOD x))`,cheat)
 
