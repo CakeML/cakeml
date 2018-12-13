@@ -29,7 +29,7 @@ val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
 
 (* New list-append translation *)
-val append_v_thm = trans "@" `(++): 'a list -> 'a list -> 'a list`
+val append_v_thm = trans "@" listSyntax.append_tm;
 val _ = save_thm("append_v_thm",append_v_thm);
 
 (* Old list-append translation *)

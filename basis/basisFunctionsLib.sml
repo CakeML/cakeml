@@ -17,8 +17,7 @@ fun get_module_prefix () = let
        stringSyntax.fromHOLstring (mod_tm |> rand |> rator |> rand) ^ "_"
   end
 
-fun trans ml_name q = let
-  val rhs = Term q
+fun trans ml_name rhs = let
   val prefix = get_module_prefix ()
   val hol_name = prefix ^ pick_name ml_name
   val hol_name_clashes = (fst (dest_const rhs) = hol_name)

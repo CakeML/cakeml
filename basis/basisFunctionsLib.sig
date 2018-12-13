@@ -7,7 +7,7 @@ sig
   include Abbrev
 
     val get_module_prefix : unit -> string
-    val trans             : string -> term quotation -> thm
+    val trans             : string -> term -> thm
     val append_dec        : term -> unit
     val append_decs       : term -> unit
     val append_prog       : term -> unit
