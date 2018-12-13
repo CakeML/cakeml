@@ -1,5 +1,6 @@
 INCLUDES = developers compiler/bootstrap/compilation/x64/64/proofs
-OPTIONS = QUIT_ON_FAILURE
+
+CLINE_OPTIONS = --qof
 
 all: $(DEFAULT_TARGETS) README.md cake-x64-64.tar.gz
 .PHONY: all
