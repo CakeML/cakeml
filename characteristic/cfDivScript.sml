@@ -1308,6 +1308,206 @@ val evaluate_tailrec_diverge_lemma = Q.prove(
     )
   );
 
+val evaluate_tailrec_div_ind_lemma = Q.prove(
+  `!ck fbody gbody env env' ^st farg x v fname st' res.
+   mk_single_app (SOME fname) T fbody = SOME gbody /\
+   do_con_check env.c (SOME (Short "Inr")) 1 /\
+   (∀v.
+        build_conv env.c (SOME (Short "Inr")) [v] =
+        SOME (Conv (SOME (TypeStamp "Inr" 4)) [v])) /\
+   do_con_check env.c (SOME (Short "Inl")) 1 /\
+   (∀v.
+        build_conv env.c (SOME (Short "Inl")) [v] =
+        SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) /\
+   fname <> farg /\
+   ck > 0 /\
+   evaluate_ck ck ^st
+     (env with
+      v :=
+        nsBind "x" v
+          (nsBind "f"
+             (Closure
+                (env with
+                 v :=
+                   nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                     env.v) farg gbody)
+             (build_rec_env
+                ^tailrec_clos
+                (env with
+                 v :=
+                   nsBind farg x
+                     (nsBind fname
+                        (Closure
+                           (env with
+                            v :=
+                              nsBind fname
+                                (Recclosure env [(fname,farg,fbody)] fname)
+                                env.v) farg gbody) env.v))
+                env')))
+     [^tailrec_body] = (st',Rerr(Rabort(Rtimeout_error))) ==>
+   ∃ck'.
+       evaluate_ck ck' ^st
+         (env with
+          v := nsBind farg v (build_rec_env [(fname,farg,fbody)] env env.v))
+         [fbody] = (st',Rerr(Rabort(Rtimeout_error)))`,
+  ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
+  pop_assum mp_tac >>
+  ntac 5 (simp[Once terminationTheory.evaluate_def]) >>
+  simp[semanticPrimitivesTheory.build_rec_env_def,semanticPrimitivesTheory.do_opapp_def,
+       Once semanticPrimitivesTheory.find_recfun_def] >>
+  simp[evaluateTheory.dec_clock_def] >>
+  drule mk_single_app_evaluate_single >>
+  qmatch_goalsub_abbrev_tac `evaluate ast aenv` >>
+  disch_then(qspecl_then [`ast`,`aenv`] mp_tac) >>
+  unabbrev_all_tac >> simp[ml_progTheory.nsLookup_nsBind_compute] >>
+  simp[semanticPrimitivesTheory.build_rec_env_def,partially_evaluates_to_def] >>
+  qmatch_goalsub_abbrev_tac `evaluate ast aenv` >>
+  Cases_on `evaluate ast aenv [gbody]` >>
+  rename1 `(_,result)` >>
+  reverse(Cases_on `result`) >-
+    ((* Rerror *)
+     fs[] >> rpt strip_tac >> rveq >>
+     qexists_tac `ast.clock` >>
+     simp[Abbr`ast`]) >>
+  simp[] >>
+  strip_tac >-
+    ((* Rval([Inr v]) *)
+      imp_res_tac evaluatePropsTheory.evaluate_length >>
+      fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+      rveq >>
+      imp_res_tac dest_inr_v_IMP >>
+      fs[] >> rveq >>
+      ntac 2 (simp[Once terminationTheory.evaluate_def]) >>
+      simp[namespaceTheory.nsOptBind_def] >>
+      simp[Once terminationTheory.evaluate_def] >>
+      simp[astTheory.pat_bindings_def] >>
+      simp[terminationTheory.pmatch_def] >>
+      imp_res_tac build_conv_check_IMP_nsLookup >>
+      simp[semanticPrimitivesTheory.same_type_def,semanticPrimitivesTheory.same_ctor_def] >>
+      simp[Once terminationTheory.evaluate_def] >>
+      simp[astTheory.pat_bindings_def] >>
+      simp[terminationTheory.pmatch_def] >>
+      simp[Once terminationTheory.evaluate_def]
+    ) >-
+    ((* Rval([Inl v]) *)
+      imp_res_tac evaluatePropsTheory.evaluate_length >>
+      fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+      rveq >>
+      imp_res_tac dest_inl_v_IMP >>
+      fs[] >> rveq >>
+      ntac 2(simp[Once terminationTheory.evaluate_def]) >>
+      simp[namespaceTheory.nsOptBind_def] >>
+      simp[Once terminationTheory.evaluate_def] >>
+      simp[astTheory.pat_bindings_def] >>
+      simp[terminationTheory.pmatch_def] >>
+      imp_res_tac build_conv_check_IMP_nsLookup >>
+      simp[semanticPrimitivesTheory.same_type_def,semanticPrimitivesTheory.same_ctor_def] >>
+      simp[Once terminationTheory.evaluate_def] >>
+      simp[astTheory.pat_bindings_def] >>
+      simp[terminationTheory.pmatch_def] >>
+      simp[terminationTheory.evaluate_def] >>
+      simp[semanticPrimitivesTheory.do_opapp_def,Once semanticPrimitivesTheory.find_recfun_def] >>
+      IF_CASES_TAC >-
+        (strip_tac >> fs[Abbr `ast`,do_opapp_def,Once find_recfun_def] >>
+         asm_exists_tac >> simp[]) >>
+      simp[Once terminationTheory.evaluate_def] >>
+      qpat_x_assum `evaluate _ _ [gbody] = _` assume_tac >>
+      drule evaluatePropsTheory.evaluate_set_clock >>
+      simp[] >>
+      disch_then(qspec_then `0` strip_assume_tac) >>
+      drule mk_single_app_evaluate_single >>
+      disch_then(qspecl_then [`ast with clock := ck1`,`aenv`] mp_tac) >>
+      unabbrev_all_tac >> simp[] >>
+      simp[semanticPrimitivesTheory.build_rec_env_def,partially_evaluates_to_def] >>
+      fs[dest_inr_v_def] >>
+      simp[do_opapp_def,Once find_recfun_def] >> strip_tac >>
+      IF_CASES_TAC >-
+        (fs[evaluateTheory.dec_clock_def] >>
+         strip_tac >> rveq >>
+         qexists_tac `ck1` >>
+         simp[semanticPrimitivesTheory.state_component_equality]) >>
+      simp[evaluateTheory.dec_clock_def] >>
+      qmatch_goalsub_abbrev_tac `_ with clock := ack` >>
+      Cases_on `ack = 0` >-
+        (rveq >> simp[terminationTheory.evaluate_def,do_opapp_def] >>
+         strip_tac >> rveq >> qexists_tac `ck1` >>
+         simp[semanticPrimitivesTheory.state_component_equality]) >>
+      `ack < ck`
+        by(imp_res_tac terminationTheory.evaluate_clock >> fs[Abbr `ack`]) >>
+      strip_tac >>
+      drule mk_single_app_unroll_lemma >> simp[mk_inl_res_def] >>
+      disch_then drule >>
+      simp[] >>
+      strip_tac >>
+      Q.REFINE_EXISTS_TAC `ck1 + (more_clock + 1)` >>
+      simp[] >> pop_assum kall_tac >>
+      first_x_assum drule >>
+      disch_then drule >>
+      simp[build_rec_env_def] >>
+      disch_then match_mp_tac >>
+      simp[] >>
+      asm_exists_tac >> first_x_assum ACCEPT_TAC)
+  );
+
+val lprefix_mono_lprefix = Q.prove(
+ `!f i k.
+ (!i. LPREFIX (f i) (f(i + 1)))
+ ==> LPREFIX (f i) (f(i + (k:num)))
+ `,
+ rw[] >> Induct_on `k` >> fs[] >>
+ first_x_assum(qspec_then `i + k` assume_tac) >>
+ fs[ADD1] >>
+ metis_tac[LPREFIX_TRANS]);
+
+val gify = Q.prove(
+ `!g n.
+ (!i. g i < g (i +1))
+ ==> ?k (i:num). g i = (n:num) + k
+ `,
+ rpt strip_tac >>
+ `n <= g n`
+   by(Induct_on `n` >> simp[] >>
+      qpat_x_assum `!i. _ < _` (qspec_then `n` mp_tac) >>
+      simp[] >> strip_tac >>
+      fs[LESS_EQ,LESS_EQ_EXISTS,ADD1] >>
+      metis_tac[ADD_ASSOC]) >>
+ fs[LESS_EQ_EXISTS] >>
+ metis_tac[ADD_SYM]);
+
+val lprefix_lub_skip = Q.store_thm("lprefix_lub_skip",
+ `(!i. LPREFIX (f i) (f(i + 1))) /\
+  (!i. g i < g(i+1)) /\
+  lprefix_lub (IMAGE (\i. f (g i)) 𝕌(:num)) l
+  ==>
+  lprefix_lub (IMAGE (\i. f i) 𝕌(:num)) l
+ `,
+ rw[lprefix_lubTheory.lprefix_lub_def]
+ >- (drule gify >>
+     disch_then(qspec_then `i` strip_assume_tac) >>
+     drule lprefix_mono_lprefix >>
+     disch_then(qspecl_then [`i`,`k`] assume_tac) >>
+     match_mp_tac(GEN_ALL LPREFIX_TRANS) >> asm_exists_tac >> simp[] >>
+     metis_tac[]) >>
+ last_x_assum match_mp_tac >>
+ rpt strip_tac >>
+ first_x_assum match_mp_tac >> metis_tac[]);
+
+val lprefix_lub_unskip = Q.store_thm("lprefix_lub_unskip",
+ `(!i. LPREFIX (f i) (f(i + 1))) /\
+  (!i. g i < g(i+1)) /\
+  lprefix_lub (IMAGE (\i. f i) 𝕌(:num)) l
+  ==>
+  lprefix_lub (IMAGE (\i. f (g i)) 𝕌(:num)) l
+ `,
+ rw[lprefix_lubTheory.lprefix_lub_def] >- metis_tac[] >>
+ last_x_assum match_mp_tac >> rpt strip_tac >> rveq >>
+ drule gify >>
+ disch_then(qspec_then `i` strip_assume_tac) >>
+ drule lprefix_mono_lprefix >>
+ disch_then(qspecl_then [`i`,`k`] assume_tac) >>
+ match_mp_tac(GEN_ALL LPREFIX_TRANS) >> asm_exists_tac >> simp[] >>
+ metis_tac[]);
+
 val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic",
   `!fv env . mk_tailrec_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
    /\ do_con_check env.c (SOME (Short "Inr")) 1
@@ -1317,7 +1517,7 @@ val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic
    /\ (!v. build_conv env.c (SOME (Short "Inl")) [v] =
           SOME(Conv (SOME (TypeStamp "Inl" 4)) [v]))
    /\ fname <> farg
-   /\ app_basic p fv x H Q
+   /\ app_basic (p:'ffi ffi_proj) fv x H Q
    ==> app_basic p (Recclosure env [(fname,farg,fbody)] fname) x H Q`,
   rw[mk_tailrec_closure_def,app_basic_def] >>
   first_x_assum drule >>
@@ -1330,7 +1530,7 @@ val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic
   fs[evaluate_to_heap_def] >>
   TRY(
     rename1 `lprefix_lub` >>
-    conj_tac >-
+    conj_asm1_tac >-
       (strip_tac >>
        qpat_x_assum `!ck. ?st. _` mp_tac >>
        simp[GSYM LEFT_EXISTS_IMP_THM] >>
@@ -1350,9 +1550,50 @@ val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic
                        evaluate_tailrec_diverge_lemma) >>
        asm_exists_tac >> simp[] >>
        asm_exists_tac >> simp[]) >-
-      (cheat
+      (qmatch_asmsub_abbrev_tac `lprefix_lub (IMAGE f _)` >>
+       `!i. LPREFIX(f i) (f (i + 1))`
+         by(rw[Abbr`f`,LPREFIX_fromList,from_toList] >>
+            simp[evaluate_ck_def] >>
+            `st with clock := i + 1 = (st with clock := i) with clock := (st with clock := i).clock + 1`
+              by(simp[semanticPrimitivesTheory.state_component_equality]) >>
+            metis_tac[evaluatePropsTheory.io_events_mono_def,
+                      evaluatePropsTheory.evaluate_add_to_clock_io_events_mono]) >>
+       drule(GEN_ALL lprefix_lub_unskip) >>
+       disch_then(qspecl_then [`l`,`\ck. ck + 3`] mp_tac) >>
+       simp[] >>
+       impl_tac >- simp[ETA_THM] >>
+       qhdtm_x_assum `lprefix_lub` kall_tac >> strip_tac >>
+       qunabbrev_tac `f` >>
+       fs[lprefix_lub_def] >>
+       conj_tac >-
+         (cheat) >-
+         (rpt strip_tac >> last_x_assum match_mp_tac >>
+          rpt strip_tac >> first_x_assum match_mp_tac >>
+          rveq >>
+          qmatch_goalsub_abbrev_tac `evaluate_ck (ck + 3) ast aenv aexp` >>
+          Cases_on `evaluate_ck (ck + 3) ast aenv aexp` >>
+          qpat_assum `!ck. ?st'. evaluate_ck ck ast aenv aexp = _`
+            (qspec_then `ck + 3` strip_assume_tac) >>
+          fs[] >> rveq >>
+          pop_assum mp_tac >> unabbrev_all_tac >>
+          simp[evaluate_ck_def] >>
+          ntac 8 (simp[Once terminationTheory.evaluate_def]) >>
+          simp[semanticPrimitivesTheory.build_rec_env_def,
+               do_opapp_def, Once find_recfun_def,evaluateTheory.dec_clock_def] >>
+          simp[Once terminationTheory.evaluate_def] >>
+          strip_tac >>
+          drule evaluate_tailrec_div_ind_lemma >>
+          rpt(disch_then drule) >>
+          disch_then(qspec_then `i + 1` mp_tac) >> simp[] >>
+          simp[build_rec_env_def] >>
+          simp[evaluate_ck_def] >>
+          disch_then drule >>
+          strip_tac >>
+          rename1 `evaluate (_ with clock := newclock)` >>
+          qexists_tac `newclock` >>
+          simp[])
       )
-  ) >>
+    ) >>
   qexists_tac `ck` >>
   Q.REFINE_EXISTS_TAC `st' with clock := _` >>
   fs[cfStoreTheory.st2heap_def] >>
