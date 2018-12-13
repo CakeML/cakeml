@@ -1,4 +1,4 @@
-INCLUDES = ../../misc/lem_lib_stub
+INCLUDES = $(CAKEMLDIR)/misc/lem_lib_stub
 
 CLINE_OPTIONS = --qof
 
@@ -8,7 +8,7 @@ all: $(DEFAULT_TARGETS) README.md
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml) $(wildcard *.lem)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 LEM_OPT = -wl_unused_vars ign
 

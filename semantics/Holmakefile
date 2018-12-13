@@ -1,4 +1,7 @@
-INCLUDES = ../developers ../misc $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub ffi
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
+					 $(HOLDIR)/examples/fun-op-sem/lprefix_lub\
+					 $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
+					 ffi
 
 CLINE_OPTIONS = --qof
 
@@ -13,7 +16,7 @@ LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 all: $(GENS)
 
-LEMLIB = ../misc/lem_lib_stub/lib.lem
+LEMLIB = $(CAKEMLDIR)/misc/lem_lib_stub/lib.lem
 
 LEM_CMD = lem $(LEM_OPT) -i $(LEMLIB) -i ffi/ffi.lem -hol
 
@@ -46,8 +49,8 @@ README_SOURCES = grammar.txt addancs.sml astPP.sml\
 	$(patsubst %,%Script.sml,$(OTHER_SCRIPTS))\
 	$(wildcard *Syntax.sml) $(wildcard *Lib.sml) $(wildcard *.lem)
 DIRS = $(wildcard */)
-README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	../developers/readme_gen $(README_SOURCES)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 ifdef POLY
 

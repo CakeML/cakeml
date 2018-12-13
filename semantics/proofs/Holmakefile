@@ -1,4 +1,6 @@
-INCLUDES = .. ../ffi ../../developers ../../misc ../../misc/lem_lib_stub $(HOLDIR)/examples/formal-languages/context-free
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
+					 $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc $(CAKEMLDIR)/misc/lem_lib_stub\
+					 .. ../ffi
 
 CLINE_OPTIONS = --qof
 
