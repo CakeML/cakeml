@@ -1110,7 +1110,7 @@ Theorem Eval_word_ror
   `!n.
       Eval env x1 (WORD (w1:'a word)) ==>
       Eval env (App (Shift (dimindex (:'a)) Ror n) [x1])
-        (WORD (word_ror w1 n))` (tac \\ simp[rotate_word_ror_lemma]);
+        (WORD (word_ror w1 n))` (tac \\ simp[rotate_w2v]);
 
 (* list definition *)
 

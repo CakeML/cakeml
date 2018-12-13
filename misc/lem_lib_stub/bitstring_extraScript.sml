@@ -244,18 +244,6 @@ val fixshiftl_def = Define`
      let m = LENGTH a in
         fixwidth m (shiftl a n)`
 
-
-(* NOTE there is a lemma `word_ror_v2w` stating
-   `!n v. word_ror (v2w v) n = v2w (rotate (fixwidth (dimindex(:'a)) v) n)`
-   can it be used to prove the following?
- *)
-val rotate_w2v = Q.store_thm("rotate_w2v",
-`!w:('a word) n. rotate (w2v w) n = w2v (word_ror w n)`,
-   rpt STRIP_TAC >> simp [rotate_def,word_ror]
-        >> Cases_on `(dimindex (:'a) = 0)`
-         (* dimindex (:'a) = 0 never happens*) >- cheat >> cheat
-)
-
 (* TODO prove properties of fixed size shifts *)
 (* The following 2 lemmas are COPIED from miscTheory, as it builds after this directory *)
 val TAKE_GENLIST = Q.store_thm("TAKE_GENLIST",
@@ -487,6 +475,150 @@ val fixasr_word_asr = Q.store_thm("fixasr_word_asr",
         >> ASM_SIMP_TAC arith_ss [K_DEF]
 )
 
+val MOD_elim = Q.prove(`!i m n. ((0<m) /\ (n MOD m = 0)) ==> ((i+n) MOD m = (i MOD m))`,
+rpt STRIP_TAC >> IMP_RES_TAC ADD_MOD
+>> POP_ASSUM (ASSUME_TAC o SPEC ``0``)
+>> POP_ASSUM (ASSUME_TAC o ISPEC ``n:num``)
+>> IMP_RES_TAC ZERO_MOD
+>> FULL_SIMP_TAC arith_ss []
+>> RES_TAC
+>> POP_ASSUM (ASSUME_TAC o ISPEC ``i:num``)
+>> ONCE_REWRITE_TAC [ADD_COMM]
+>> fs[]
+)
+
+val WORD_ss = rewrites [word_extract_def, word_slice_def,word_bits_def,
+  word_bit_def,word_lsl_def,word_lsr_def,word_and_def,word_or_def,word_xor_def,
+  word_reverse_def,word_modify_def,n2w_def,w2w,sw2sw,word_msb_def];
+val fcp_ss = std_ss ++ fcpLib.FCP_ss;
+
+val FIELD_WORD_TAC = RW_TAC (fcp_ss++WORD_ss++ARITH_ss) [];
+val wrw = srw_tac[boolSimps.LET_ss, fcpLib.FCP_ss, ARITH_ss];
+
+val rotate_w2v_lemma = Q.prove(`!x. ~(x = 0) ==> (SUC (x - 1) = x)`,
+rpt STRIP_TAC >> simp[])
+
+val rotate_w2v_lemma2 = Q.prove(`!x y. ~(y = 0) ==> ((x MOD y) - y = 0)`,
+rpt STRIP_TAC
+>> FULL_SIMP_TAC arith_ss []
+>> IMP_RES_TAC NOT_ZERO_LT_ZERO
+>> IMP_RES_TAC MOD_LESS
+>> POP_ASSUM (ASSUME_TAC o (ISPEC ``x:num``))
+>> DECIDE_TAC
+)
+
+val rotate_w2v_lemma3 = Q.prove(`!a b. ~(a<b) ==> (a = b+(a-b))`,
+FULL_SIMP_TAC arith_ss []
+)
+
+val rotate_w2v_contr = Q.prove(`!x:num n:num. (0<x) ==> ~(x < n MOD x)`,
+NTAC 3 STRIP_TAC >> FULL_SIMP_TAC arith_ss []
+ >> CCONTR_TAC >> fs[] >> FULL_SIMP_TAC arith_ss []
+ >> ASSUME_TAC MOD_LESS
+ >> RES_TAC
+ >> POP_ASSUM (ASSUME_TAC o (ISPEC ``n:num``))
+ >> fs[]
+)
+
+val rotate_w2v_lemma4 = Q.prove(`!n i. SUC n - (i+1) = n-i`,
+   rpt STRIP_TAC >> ASM_SIMP_TAC arith_ss []
+)
+
+val add_suc = Q.prove(`SUC x + y = SUC (x+y)`,DECIDE_TAC)
+
+val lt_add_sub = Q.prove(`!x y z. (z<=x) ==> ((x+y)-z = (x-z)+y)`,rpt STRIP_TAC >> ASM_SIMP_TAC arith_ss [])
+
+val lem1 = Q.prove(`!i m n. (i < (SUC n) MOD m /\ 0 < m) ==> i <= n`,
+   rpt STRIP_TAC
+>> ASSUME_TAC MOD_LESS
+>> POP_ASSUM (ASSUME_TAC o (ISPEC ``m:num`` o SPEC ``SUC n``))
+>> RES_TAC
+>> ASM_SIMP_TAC arith_ss []
+>> Cases_on `SUC n < m`
+>> FULL_SIMP_TAC arith_ss []
+)
+val rotate_w2v_lemma5 = Q.prove(`!n i (w:'a word).
+(i<(n MOD dimindex(:'a)))
+              ==>
+((((n+dimindex(:'a))-(i+1)) MOD (dimindex(:'a))) = ((n-(i+1)) MOD (dimindex(:'a))))`,
+  rpt STRIP_TAC
+  >> Cases_on `n`
+  >> fs[]
+  >> rename1 `i<SUC n' MOD dimindex(:'a)`
+  >> REWRITE_TAC [rotate_w2v_lemma4]
+  >> REWRITE_TAC [add_suc]
+  >> REWRITE_TAC [rotate_w2v_lemma4]
+  >> ASSUME_TAC DIMINDEX_GT_0
+  >> IMP_RES_TAC lem1
+  >> IMP_RES_TAC lt_add_sub
+  >> POP_ASSUM (ASSUME_TAC o (SPEC ``dimindex(:'a)``))
+  >> ONCE_ASM_REWRITE_TAC []
+  >> IMP_RES_TAC ADD_MODULUS_LEFT
+  >> POP_ASSUM (ASSUME_TAC o (SPEC ``n'-i``))
+  >> ASM_SIMP_TAC arith_ss []
+)
+val rotate_w2v_lemma6 = Q.prove(`!i x y. ((i<x) /\ (y = x)) ==> (i<y)`,
+   rpt STRIP_TAC >> fs[])
+
+val rotate_w2v_lemma7 = Q.prove(`!n b a m. (0 < m /\ b < SUC a /\ (n MOD m = SUC a)) ==> ((a-b) = ((n-(b+1)) MOD m))`,cheat)
+
+val rotate_w2v_lemma8 = Q.prove(`!x y n t. (((n MOD x) = y) /\ (t<x-y)) ==>  (x-(t+1) = ((n+x-(t+(n MOD x)+1)) MOD x))`,cheat)
+
+val rotate_w2v = Q.store_thm("rotate_w2v",
+`!w:('a word) (n:num). rotate (w2v w) n = w2v (word_ror w n)`,
+   rpt STRIP_TAC >> simp [rotate_def] >> rw[word_ror_def]
+         (* dimindex (:'a) = 0 never happens*)
+         >- (CCONTR_TAC >> FULL_SIMP_TAC arith_ss [DIMINDEX_GT_0])
+         >- (MK_COMB_TAC >> simp[] >> FIELD_WORD_TAC >> MK_COMB_TAC >> simp[] >> ASM_SIMP_TAC arith_ss [MOD_elim])
+         >> rw[field_def,shiftr_def,fixwidth_def,w2v_def]
+            >-( simp[TAKE_GENLIST]
+              >> REWRITE_TAC[DROP_GENLIST]
+              >> REWRITE_TAC[MIN_SUB]
+              >> simp[]
+              >> simp[zero_extend_def]
+              >> simp[PAD_LEFT]
+              >> simp[FCP,FCP_BETA,CART_EQ]
+              >> fs[]
+              >> ASM_SIMP_TAC arith_ss [suc_dimindex_sub1]
+              >> IMP_RES_TAC rotate_w2v_lemma
+              >> ASM_SIMP_TAC arith_ss []
+              >> IMP_RES_TAC rotate_w2v_lemma2
+              >> ASM_SIMP_TAC arith_ss []
+              >> simp[]
+              >> CCONTR_TAC
+              >> fs[rotate_w2v_contr]
+            )
+        >> simp[TAKE_GENLIST]
+        >> REWRITE_TAC[DROP_GENLIST]
+        >> simp[suc_dimindex_sub1,MIN_SUB]
+        >> fs[]
+        >> Cases_on `n MOD dimindex(:'a)`
+        >> fs[]
+        >> simp[FCP,FCP_BETA,CART_EQ]
+        >> IMP_RES_TAC rotate_w2v_lemma3
+        >> POP_ASSUM (CONV_TAC o (PATH_CONV "rr" o REWR_CONV))
+        >> REWRITE_TAC[GENLIST_APPEND_REVERSE]
+        >> MK_COMB_TAC
+             >- ( MK_COMB_TAC
+                >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
+                >> MK_COMB_TAC
+                >> simp []
+                >> ASM_SIMP_TAC arith_ss [rotate_w2v_lemma4]
+                >> ASSUME_TAC DIMINDEX_GT_0
+                >> IMP_RES_TAC rotate_w2v_lemma6
+                >> IMP_RES_TAC rotate_w2v_lemma5
+                >> IMP_RES_TAC rotate_w2v_lemma4
+                >> rename1 `a-b`
+                >> ASM_SIMP_TAC arith_ss []
+                >> fs[]
+                >> ASSUME_TAC DIMINDEX_GT_0
+                >> IMP_RES_TAC rotate_w2v_lemma7
+                )
+        >> srw_tac[ARITH_ss][GENLIST_FUN_EQ]
+        >> MK_COMB_TAC >> simp[] >> IMP_RES_TAC rotate_w2v_lemma8 >> fs[]
+)
+
+
 (* TODO prove that `i2vN x N` represents the same value as `(i2w x): N word` *)
 val i2vN_def = Define`
     i2vN (i : int) (n : num) : bitstring = if i < 0
@@ -497,8 +629,12 @@ val i2vN_length = Q.store_thm("i2vN_length", `!i n. (LENGTH (i2vN i n)) = n`,
     rpt STRIP_TAC >> REWRITE_TAC[i2vN_def] >> Cases_on `i < 0` >>
     simp[length_fixwidth,fixsub_length]
 );
+
 val v2w_i2vN = Q.store_thm("v2w_i2vN",`!i n. ((i2w i):'a word)
-                           = ((v2w (i2vN i (dimindex (:'a)))):'a word)`,cheat);
+                           = ((v2w (i2vN i (dimindex (:'a)))):'a word)`,
+ rpt STRIP_TAC >> simp[i2vN_def] >> Cases_on `i < 0` >> fs[]
+   >- cheat >> cheat
+);
 
 val w2v_i2w = Q.store_thm("w2v_i2w",`!i. w2v ((i2w i):'a word)
                           = i2vN i (dimindex (:'a))`,cheat);
