@@ -44,6 +44,9 @@ sig
     val case_of             : hol_type -> thm
     val eq_lemmas           : unit -> thm list
 
+    (* prove an EqualityType, assuming some for parameters types if needed *)
+    val EqualityType_rule   : hol_type list -> hol_type -> thm
+
     (* CakeML signature generation and extraction *)
     (* Get the CakeML signature of a named CakeML function which was created by translation *)
     (* Returns ``:spec`` *)

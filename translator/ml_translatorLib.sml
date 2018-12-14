@@ -1185,6 +1185,22 @@ fun mk_EqualityType_proof is_exn_type typ = let
       in simp_tac bool_ss (get_thms ()) end))
   end
 
+local open ConseqConv in
+
+fun EqualityType_cc dir tm = let
+    val cc = CONSEQ_REWRITE_CONV (eq_lemmas (), [], [])
+  in cc dir tm end
+
+fun EqualityType_rule prems ty = let
+    val mk = ml_translatorSyntax.mk_EqualityType o get_type_inv
+    val goal = if null prems then mk ty
+        else mk_imp (list_mk_conj (map mk prems), mk ty)
+  in prove (goal,
+    CONSEQ_CONV_TAC EqualityType_cc \\ full_simp_tac bool_ss [])
+  end
+
+end
+
 fun define_ref_inv is_exn_type tys = let
   val is_pair_type = tys_is_pair_type tys
   val is_list_type = tys_is_list_type tys
