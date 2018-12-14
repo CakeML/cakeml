@@ -2,8 +2,6 @@ INCLUDES = $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
 					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
 					 $(CAKEMLDIR)/basis/pure
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

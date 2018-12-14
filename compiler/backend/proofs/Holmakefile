@@ -4,8 +4,6 @@ INCLUDES = $(HOLDIR)/examples/machine-code/multiword\
 					 ..  ../semantics ../../encoders/asm ../gc\
 					 ../reg_alloc ../reg_alloc/proofs
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

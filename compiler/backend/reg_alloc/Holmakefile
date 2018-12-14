@@ -1,7 +1,5 @@
 INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/unverified/reg_alloc $(CAKEMLDIR)/translator/monadic/monad_base
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

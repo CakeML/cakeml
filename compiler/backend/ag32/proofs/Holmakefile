@@ -6,8 +6,6 @@ INCLUDES = $(HOLDIR)/examples/l3-machine-code/common\
 					 ../../../encoders/ag32 ../../../encoders/ag32/proofs\
 					 ../../semantics ../../proofs
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

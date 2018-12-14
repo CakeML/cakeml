@@ -5,8 +5,6 @@ INCLUDES = $(HOLDIR)/examples/machine-code/hoare-triple\
 					 $(CAKEMLDIR)/translator\
 					 $(CAKEMLDIR)/compiler/parsing
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

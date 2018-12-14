@@ -5,8 +5,6 @@ INCLUDES= $(HOLDIR)/examples/Crypto/AES\
 					$(CAKEMLDIR)/basis\
 					..  auxiliary
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

@@ -1,7 +1,5 @@
 INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure .. ../../encoders/mips
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

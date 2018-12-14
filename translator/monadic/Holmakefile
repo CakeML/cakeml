@@ -3,8 +3,6 @@ INCLUDES = $(CAKEMLDIR)/misc\
 					 $(CAKEMLDIR)/characteristic\
 					 ..  monad_base
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

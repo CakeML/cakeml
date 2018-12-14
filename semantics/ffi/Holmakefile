@@ -1,7 +1,5 @@
 INCLUDES = $(CAKEMLDIR)/misc/lem_lib_stub
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 

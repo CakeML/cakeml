@@ -3,8 +3,6 @@ INCLUDES = $(HOLDIR)/examples/l3-machine-code/common\
            $(HOLDIR)/examples/l3-machine-code/riscv/step\
            ../asm
 
-CLINE_OPTIONS = --qof
-
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
