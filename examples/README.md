@@ -10,8 +10,7 @@ An example based on searching an array.
 cat program example: concatenate and print lines from files.
 
 [compilation](compilation):
-Compilation of the CakeML examples to different architectures (see
-subdirectories).
+Compilation of the CakeML examples to different architectures.
 
 [diffProgScript.sml](diffProgScript.sml):
 diff example: find a patch representing the difference between two files.
