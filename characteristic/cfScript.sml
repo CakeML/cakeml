@@ -2428,13 +2428,13 @@ val cf_sound = Q.store_thm ("cf_sound",
       fs [namespaceTheory.nsOptBind_def] \\
       instantiate
     )
-    THEN1 cheat (* (
+    THEN1 (
       (* other cases of let-binding *)
       cf_strip_sound_full_tac \\
       qpat_x_assum `sound _ e1 _`
         (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
-      Cases_on `r` \\ fs [evaluate_ck_def]
-      THEN1 (
+      Cases_on `r` \\ fs [evaluate_to_heap_def, evaluate_ck_def]
+      THEN1 cheat (* (
         (* e1 ~> Rval v *)
         rename1 `evaluate _ _ [e1] = (_, Rval [v])` \\
         first_x_assum (qspec_then `v` assume_tac) \\
@@ -2454,21 +2454,43 @@ val cf_sound = Q.store_thm ("cf_sound",
           qpat_assum `evaluate _ _ [e2] = _` (add_to_clock `st'.clock`) \\
           fs [with_clock_with_clock]
         )
-      )
+      ) *)
       THEN1 (
         (* e1 ~> Rerr (Rraise v) *)
         rename1 `evaluate _ _ [e1] = (_, Rerr (Rraise v))` \\
-        fs [SEP_IMPPOSTe_def, SEP_IMP_def] \\ first_assum progress \\
+        fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress \\
         qexists_tac `Exn v` \\ instantiate \\ qexists_tac `ck` \\ rw []
       )
       THEN1 (
         (* e1 ~> FFI diverge *)
         rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged))))` \\
-        fs [SEP_IMPPOSTf_def, SEP_IMP_def] \\ first_assum progress \\
+        fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress \\
         qexists_tac `FFIDiv name conf bytes` \\
         instantiate \\ qexists_tac `ck` \\ rw []
       )
-    ) *)
+      THEN1 (
+        (* e1 ~> timeout *)
+        rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort Rtimeout_error))`
+        \\ fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress
+        \\ rename1 `Q (Div io) h_f` \\ qexists_tac `Div io`
+        \\ instantiate \\ rpt strip_tac
+        THEN1 (
+          first_assum (qspec_then `ck` mp_tac) \\ strip_tac
+          \\ qexists_tac `st'` \\ rw [])
+        \\ fs [lprefix_lubTheory.lprefix_lub_def] \\ rpt strip_tac
+        THEN1 (
+          qpat_assum `!ll. _ => LPREFIX ll io` (qspec_then `ll` irule)
+          \\ qexists_tac `ck`
+          \\ qpat_assum `!ck. ?st'. _` (qspec_then `ck` mp_tac)
+          \\ strip_tac \\ rw [])
+        \\ qpat_assum `!ub. _ => LPREFIX io ub` (qspec_then `ub` irule)
+        \\ rpt strip_tac
+        \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+        \\ qexists_tac `ck`
+        \\ qpat_assum `!ck. ?st'. _` (qspec_then `ck` mp_tac)
+        \\ strip_tac \\ rw []
+      )
+    )
   )
 
   THEN1 (
