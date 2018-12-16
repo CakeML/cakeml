@@ -1,6 +1,7 @@
 (*
   Program to sort the lines in a file, built on top of the quick sort example.
 *)
+
 open preamble basis quicksortProgTheory
 
 val _ = new_theory "sortProg";
@@ -209,7 +210,7 @@ Theorem get_files_contents_spec
   (* TODO: Update xlet_auto so that it can try different specs -
      xlet_auto works with close_STDIO_spec but not close_spec *)
   xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] close_STDIO_spec))
-  >- xsimpl
+  >- (xsimpl \\ simp[Abbr`fs'`])
   >- (xsimpl  \\
     simp[Abbr`fs'`, validFileFD_def]
     \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
