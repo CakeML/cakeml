@@ -1,10 +1,9 @@
 (*
   Translate backend phases up to and including dataLang.
 *)
-open preamble;
-open terminationTheory
-open ml_translatorLib ml_translatorTheory;
-open basisProgTheory;
+
+open preamble ml_translatorLib ml_translatorTheory basisProgTheory
+local open backendTheory in end
 
 val _ = new_theory "to_dataProg"
 val _ = translation_extends "basisProg";
