@@ -2903,24 +2903,65 @@ val cf_sound = Q.store_thm ("cf_sound",
     )
   ) *)
 
-  THEN1 cheat (* (
+  THEN1 (
     (* If *)
-    cf_strip_sound_full_tac \\ fs [do_if_def] \\
-    Cases_on `b` \\ fs [sound_def, htriple_valid_def] \\
-    first_assum progress \\ fs [evaluate_ck_def, Boolv_def, BOOL_def] \\
-    GEN_EXISTS_TAC "ck'" `ck` \\ cf_exp2v_evaluate_tac `st with clock := ck` \\
-    instantiate
-  ) *)
+    cf_strip_sound_full_tac \\ fs [do_if_def]
+    \\ Cases_on `b` \\ fs [sound_def, htriple_valid_def]
+    \\ first_assum progress
+    \\ fs [evaluate_to_heap_def, evaluate_ck_def, Boolv_def, BOOL_def]
+    \\ instantiate
+    THEN (
+      reverse (Cases_on `r`) \\ fs []
+      THEN1 (
+        rpt strip_tac
+        THEN1 cf_exp2v_evaluate_tac `st with clock := ck`
+        \\ fs [lprefix_lubTheory.lprefix_lub_def]
+        \\ rpt strip_tac
+        THEN1 (
+          qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
+          \\ qexists_tac `ck`
+          \\ cf_exp2v_evaluate_tac `st with clock := ck`
+        )
+        \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
+        \\ rpt strip_tac
+        \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+        \\ qexists_tac `ck`
+        \\ cf_exp2v_evaluate_tac `st with clock := ck`
+      )
+      \\ qexists_tac `ck`
+      \\ cf_exp2v_evaluate_tac `st with clock := ck`
+    )
+  )
 
-  THEN1 cheat (* (
+  THEN1 (
     (* Mat: the bulk of the proof is done in [cf_cases_evaluate_match] *)
-    cf_strip_sound_full_tac \\
-    `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
-      (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC) \\
-    progress cf_cases_evaluate_match \\
-    instantiate \\ qexists_tac `ck` \\
-    cf_exp2v_evaluate_tac `st with clock := ck`
-  ) *)
+    cf_strip_sound_full_tac
+    \\ `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
+         (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC)
+    \\ progress cf_cases_evaluate_match
+    \\ instantiate
+    THEN (
+      reverse (Cases_on `r`) \\ fs []
+      THEN1 (
+        rpt strip_tac
+        THEN1 cf_exp2v_evaluate_tac `st with clock := ck`
+        \\ fs [lprefix_lubTheory.lprefix_lub_def]
+        \\ rpt strip_tac
+        THEN1 (
+          qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
+          \\ qexists_tac `ck`
+          \\ cf_exp2v_evaluate_tac `st with clock := ck`
+        )
+        \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
+        \\ rpt strip_tac
+        \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+        \\ qexists_tac `ck`
+        \\ cf_exp2v_evaluate_tac `st with clock := ck`
+      )
+      \\ qexists_tac `ck`
+      \\ cf_exp2v_evaluate_tac `st with clock := ck`
+    )
+  )
 
   THEN1 (
     (* Raise *)
