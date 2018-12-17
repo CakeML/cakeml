@@ -12,22 +12,31 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 ifndef CC
 CC=gcc
 endif
+cat.S: *catCompileScript.sml
 cake_cat: cat.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+grep.S: *grepCompileScript.sml
 cake_grep: grep.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+patch.S: *patchCompileScript.sml
 cake_patch: patch.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+diff.S: *diffCompileScript.sml
 cake_diff: diff.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+hello.S: *helloCompileScript.sml
 cake_hello: hello.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+sort.S: *sortCompileScript.sml
 cake_sort: sort.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+echo.S: *echoCompileScript.sml
 cake_echo: echo.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+helloErr.S: *helloErrCompileScript.sml
 cake_helloErr: helloErr.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+iocat.S: *iocatCompileScript.sml
 cake_iocat: iocat.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
 
