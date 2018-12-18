@@ -2039,7 +2039,7 @@ val app_opapp_intro = Q.store_thm("app_opapp_intro",
   (!st:'ffi semanticPrimitives$state.
     evaluate st (env with v := nsBind x arg1v env.v) [arg1] = (st,Rval [arg1v'])) /\
   (!st:'ffi semanticPrimitives$state.
-    evaluate st (env with v := nsBind x arg1v env.v) [arg2] = (st,Rval [arg2v])) /\    
+    evaluate st (env with v := nsBind x arg1v env.v) [arg2] = (st,Rval [arg2v])) /\
   app p fv [arg1v';arg2v] H P
   ==>
   app (p:'ffi ffi_proj)
@@ -2048,7 +2048,7 @@ val app_opapp_intro = Q.store_thm("app_opapp_intro",
   fs[cfAppTheory.app_def,cfAppTheory.app_basic_def] >>
   rw[] >> rename1 `SPLIT(st2heap p st) (h_i,h_k)` >>
   first_x_assum drule >> disch_then drule >> strip_tac >>
-  simp[do_opapp_def] >>  
+  simp[do_opapp_def] >>
   fs[POSTv_def,POST_def] >>
   every_case_tac >> fs[SEP_CLAUSES,set_sepTheory.SEP_F_def] >>
   fs[SEP_EXISTS_THM,cond_STAR] >>
@@ -2097,7 +2097,7 @@ val app_opapp_intro = Q.store_thm("app_opapp_intro",
     conj_tac >- simp[] >>
     fs[terminationTheory.evaluate_def,evaluateTheory.dec_clock_def] >>
     drule evaluatePropsTheory.evaluate_add_to_clock >>
-    fs[]) >>  
+    fs[]) >>
   rename1 `SPLIT3 heap (h1,h2 ∪ h3,h4)` >>
   `SPLIT3 heap (h1,h2,h3 ∪ h4)`
     by(fs[SPLIT3_def] >> rveq >> fs[] >> metis_tac[DISJOINT_SYM,UNION_COMM,UNION_ASSOC]) >>
@@ -2112,7 +2112,7 @@ val app_opapp_intro = Q.store_thm("app_opapp_intro",
   drule evaluatePropsTheory.evaluate_set_clock >>
   disch_then(qspec_then `0` mp_tac) >> simp[] >>
   strip_tac >>
-  rename1 `evaluate (_ with clock := ck2) _ [exp] = _` >>  
+  rename1 `evaluate (_ with clock := ck2) _ [exp] = _` >>
   drule evaluatePropsTheory.evaluate_add_to_clock >>
   simp[] >> strip_tac >>
   Q.REFINE_EXISTS_TAC `ck2 + extra` >>
