@@ -2032,6 +2032,16 @@ val tailrec_POSTd = store_thm("tailrec_POSTd",
   \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
   \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []);
 
+val app_opapp_intro = Q.store_thm("app_opapp_intro",
+  `!body f args env x arg1v fv argsv H P.
+  dest_opapp body = SOME(f,args) /\
+  (!st:'ffi semanticPrimitives$state. evaluate st (env with v := nsBind x arg1v env.v) (f::args) = (st,Rval (fv::argsv))) /\
+  app p fv argsv H P
+  ==>
+  app (p:'ffi ffi_proj)
+      (Closure env x body) [arg1v] H P`,
+  cheat);
+
 val _ = (append_prog o cfTacticsLib.process_topdecs)
   `fun repeat f x = repeat f (f x);`
 
