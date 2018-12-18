@@ -1,10 +1,10 @@
 (*
   Translate the data_to_word part of the 64-bit compiler.
 *)
-open preamble;
-open terminationTheory
-open ml_translatorLib ml_translatorTheory;
-open sexp_parserProgTheory std_preludeTheory;
+
+open preamble ml_translatorLib ml_translatorTheory
+     sexp_parserProgTheory std_preludeTheory
+local open backendTheory in end
 
 val _ = new_theory "to_word64Prog"
 
