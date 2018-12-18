@@ -238,13 +238,20 @@ val mk_single_app_def = tDefine "mk_single_app"
 
 val mk_single_app_ind = fetch "-" "mk_single_app_ind"
 
+val mk_stepfun_closure_def = Define
+  `(mk_stepfun_closure env fname farg fbody =
+    do
+     gbody <- mk_single_app (SOME fname) T fbody;
+     SOME(let benv = build_rec_env [(fname,farg,fbody)] env env.v
+          in Closure (env with v := benv) farg gbody)
+    od) /\ mk_stepfun_closure _ _ _ _ = NONE`
+                              
 val mk_tailrec_closure_def = Define
   `(mk_tailrec_closure (Recclosure env [(fname,farg,fbody)] name2) =
     do
-     gbody <- mk_single_app (SOME fname) T fbody;
+     gclosure <- mk_stepfun_closure  env fname farg fbody;
      SOME(Closure (env with <| v :=
-            (let benv = build_rec_env [(fname,farg,fbody)] env env.v
-             in nsBind fname (Closure (env with v := benv) farg gbody) env.v) |>) farg
+            (nsBind fname gclosure env.v) |>) farg
           (App Opapp
                [App Opapp
                   [Letrec ^tailrec_clos (Var(Short "tailrec"));
@@ -1627,7 +1634,7 @@ val mk_tailrec_closure_sound_basic = Q.store_thm("mk_tailrec_closure_sound_basic
    /\ fname <> farg
    /\ app_basic (p:'ffi ffi_proj) fv x H Q
    ==> app_basic p (Recclosure env [(fname,farg,fbody)] fname) x H Q`,
-  rw[mk_tailrec_closure_def,app_basic_def] >>
+  rw[mk_tailrec_closure_def,mk_stepfun_closure_def,app_basic_def] >>
   first_x_assum drule >>
   disch_then drule >>
   strip_tac >>
