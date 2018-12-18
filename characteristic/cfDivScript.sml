@@ -245,7 +245,7 @@ val mk_stepfun_closure_def = Define
      SOME(let benv = build_rec_env [(fname,farg,fbody)] env env.v
           in Closure (env with v := benv) farg gbody)
     od) /\ mk_stepfun_closure _ _ _ _ = NONE`
-                              
+
 val mk_tailrec_closure_def = Define
   `(mk_tailrec_closure (Recclosure env [(fname,farg,fbody)] name2) =
     do
