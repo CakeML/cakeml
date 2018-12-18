@@ -1592,9 +1592,9 @@ val gify = Q.prove(
 val lprefix_lub_skip = Q.store_thm("lprefix_lub_skip",
  `(!i. LPREFIX (f i) (f(i + 1))) /\
   (!i. g i < g(i+1)) /\
-  lprefix_lub (IMAGE (\i. f (g i)) 𝕌(:num)) l
+  lprefix_lub (IMAGE (\i. f (g i)) (UNIV:num set)) l
   ==>
-  lprefix_lub (IMAGE (\i. f i) 𝕌(:num)) l
+  lprefix_lub (IMAGE (\i. f i) (UNIV:num set)) l
  `,
  rw[lprefix_lubTheory.lprefix_lub_def]
  >- (drule gify >>
@@ -1610,9 +1610,9 @@ val lprefix_lub_skip = Q.store_thm("lprefix_lub_skip",
 val lprefix_lub_unskip = Q.store_thm("lprefix_lub_unskip",
  `(!i. LPREFIX (f i) (f(i + 1))) /\
   (!i. g i < g(i+1)) /\
-  lprefix_lub (IMAGE (\i. f i) 𝕌(:num)) l
+  lprefix_lub (IMAGE (\i. f i) (UNIV:num set)) l
   ==>
-  lprefix_lub (IMAGE (\i. f (g i)) 𝕌(:num)) l
+  lprefix_lub (IMAGE (\i. f (g i)) (UNIV:num set)) l
  `,
  rw[lprefix_lubTheory.lprefix_lub_def] >- metis_tac[] >>
  last_x_assum match_mp_tac >> rpt strip_tac >> rveq >>
@@ -2041,6 +2041,41 @@ val app_opapp_intro = Q.store_thm("app_opapp_intro",
   app (p:'ffi ffi_proj)
       (Closure env x body) [arg1v] H P`,
   cheat);
+
+val IMP_app_POSTd = store_thm("IMP_app_POSTd",
+  ``mk_stepfun_closure env fname farg fbody = SOME stepv /\
+    nsLookup env.c (Short "Inl") = SOME (1,TypeStamp "Inl" 4) /\
+    do_con_check env.c (SOME (Short "Inr")) 1 ∧
+    (∀v. build_conv env.c (SOME (Short "Inr")) [v] =
+         SOME (Conv (SOME (TypeStamp "Inr" 4)) [v])) ∧
+    do_con_check env.c (SOME (Short "Inl")) 1 ∧
+    (∀v. build_conv env.c (SOME (Short "Inl")) [v] =
+         SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) ∧ fname ≠ farg ∧
+    (∃Hs events vs io.
+         vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_full (events 0)) ∧
+         (∀i.
+              app p stepv [vs i] (Hs i * one (FFI_full (events i)))
+                (POSTv v'.
+                     &(v' = Conv (SOME (TypeStamp "Inl" 4))
+                              [vs (SUC i)]) *
+                   Hs (SUC i) * one (FFI_full (events (SUC i))))) ∧
+         lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
+    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
+  strip_tac
+  \\ match_mp_tac mk_tailrec_closure_sound \\ fs []
+  \\ fs [mk_tailrec_closure_def]
+  \\ rveq \\ fs [] \\ rveq \\ fs []
+  \\ match_mp_tac app_opapp_intro
+  \\ fs [dest_opapp_def,terminationTheory.evaluate_def,build_rec_env_def]
+  \\ fs [GSYM some_tailrec_clos_def]
+  \\ match_mp_tac (GEN_ALL tailrec_POSTd) \\ fs []
+  \\ qexists_tac `\i. Hs i * one (FFI_full (events i))`
+  \\ qexists_tac `events`
+  \\ qexists_tac `vs`
+  \\ qexists_tac `io`
+  \\ fs [] \\ conj_tac
+  THEN1 (rw [] \\ qexists_tac `Hs i` \\ fs [])
+  \\ rw [] \\ fs [STAR_ASSOC]);
 
 val _ = (append_prog o cfTacticsLib.process_topdecs)
   `fun repeat f x = repeat f (f x);`
