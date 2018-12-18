@@ -2886,22 +2886,46 @@ val cf_sound = Q.store_thm ("cf_sound",
     )
   )
 
-  THEN1 cheat (* (
+  THEN1 (
     (* Log *)
     cf_strip_sound_full_tac \\
-    fs [sound_def, htriple_valid_def, evaluate_ck_def] \\
+    fs [sound_def, htriple_valid_def, evaluate_to_heap_def, evaluate_ck_def] \\
     Cases_on `lop` \\ Cases_on `b` \\ fs [BOOL_def, Boolv_def] \\ rw [] \\
     fs [SEP_IMP_def] \\ first_x_assum progress \\ instantiate \\
     try_finally (
-      qexists_tac `ck` \\ cf_exp2v_evaluate_tac `st with clock := ck` \\
-      fs [do_log_def] \\ Cases_on `r` \\ fs [Boolv_def]
+      reverse (Cases_on `r`) \\ fs []
+      THEN1 (
+        rpt strip_tac
+        THEN1 (
+          cf_exp2v_evaluate_tac `st with clock := ck`
+          \\ fs [do_log_def, Boolv_def]
+        )
+        \\ fs [lprefix_lubTheory.lprefix_lub_def]
+        \\ rpt strip_tac
+        THEN1 (
+          qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
+          \\ qexists_tac `ck`
+          \\ cf_exp2v_evaluate_tac `st with clock := ck`
+          \\ fs [do_log_def, Boolv_def]
+        )
+        \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
+        \\ rpt strip_tac
+        \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+        \\ qexists_tac `ck`
+        \\ cf_exp2v_evaluate_tac `st with clock := ck`
+        \\ fs [do_log_def, Boolv_def]
+      )
+      \\ qexists_tac `ck`
+      \\ cf_exp2v_evaluate_tac `st with clock := ck`
+      \\ fs [do_log_def, Boolv_def]
     ) \\
     try_finally (
-      Q.LIST_EXISTS_TAC [`st`, `{}`, `st.clock`] \\
-      progress SPLIT3_of_SPLIT_emp3 \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\ fs [do_log_def,Boolv_def]
+      Q.LIST_EXISTS_TAC [`{}`, `st2heap p st`]
+      \\ progress SPLIT3_of_SPLIT_emp3 \\ rw []
+      \\ Q.LIST_EXISTS_TAC [`st.clock`, `st`] \\ fs [with_clock_self]
+      \\ cf_exp2v_evaluate_tac `st` \\ fs [do_log_def, Boolv_def]
     )
-  ) *)
+  )
 
   THEN1 (
     (* If *)
