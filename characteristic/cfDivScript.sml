@@ -2033,14 +2033,93 @@ val tailrec_POSTd = store_thm("tailrec_POSTd",
   \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []);
 
 val app_opapp_intro = Q.store_thm("app_opapp_intro",
-  `!body f args env x arg1v fv argsv H P.
-  dest_opapp body = SOME(f,args) /\
-  (!st:'ffi semanticPrimitives$state. evaluate st (env with v := nsBind x arg1v env.v) (f::args) = (st,Rval (fv::argsv))) /\
-  app p fv argsv H P
+  `!body f args env x arg1v fv argsv arg1 arg2 arg1v' arg2v H P.
+  (!st:'ffi semanticPrimitives$state.
+    evaluate st (env with v := nsBind x arg1v env.v) [f] = (st,Rval [fv])) /\
+  (!st:'ffi semanticPrimitives$state.
+    evaluate st (env with v := nsBind x arg1v env.v) [arg1] = (st,Rval [arg1v'])) /\
+  (!st:'ffi semanticPrimitives$state.
+    evaluate st (env with v := nsBind x arg1v env.v) [arg2] = (st,Rval [arg2v])) /\    
+  app p fv [arg1v';arg2v] H P
   ==>
   app (p:'ffi ffi_proj)
-      (Closure env x body) [arg1v] H P`,
-  cheat);
+      (Closure env x (App Opapp [App Opapp [f; arg1]; arg2])) [arg1v] H P`,
+  rpt strip_tac >>
+  fs[cfAppTheory.app_def,cfAppTheory.app_basic_def] >>
+  rw[] >> rename1 `SPLIT(st2heap p st) (h_i,h_k)` >>
+  first_x_assum drule >> disch_then drule >> strip_tac >>
+  simp[do_opapp_def] >>  
+  fs[POSTv_def,POST_def] >>
+  every_case_tac >> fs[SEP_CLAUSES,set_sepTheory.SEP_F_def] >>
+  fs[SEP_EXISTS_THM,cond_STAR] >>
+  fs[evaluate_to_heap_def] >> rveq >>
+  imp_res_tac SPLIT_of_SPLIT3_2u3 >>
+  first_x_assum drule >>
+  disch_then drule >> strip_tac >>
+  every_case_tac >> fs[] >>
+  TRY(
+    rename1 `lprefix_lub` >>
+    rename1 `SPLIT3 𝕌(:heap_part) (h1,h2 ∪ h3,h4)` >>
+    `SPLIT3 𝕌(:heap_part) (h1,h2,h3 ∪ h4)`
+      by(fs[SPLIT3_def] >> rveq >> fs[] >> metis_tac[DISJOINT_SYM,UNION_COMM,UNION_ASSOC]) >>
+    asm_exists_tac >> fs[] >>
+    asm_exists_tac >> fs[] >>
+    conj_tac >-
+      (fs[evaluate_ck_def,terminationTheory.evaluate_def] >>
+       rw[evaluateTheory.dec_clock_def] >>
+       drule evaluatePropsTheory.evaluate_set_clock >>
+       disch_then(qspec_then `0` mp_tac) >>
+       simp[] >> strip_tac >>
+       rename1 `evaluate (_ with clock := ck2)` >>
+       Cases_on `ck2 < ck1` >-
+         (drule evaluatePropsTheory.evaluate_minimal_clock >>
+          disch_then(qspec_then `ck2` mp_tac) >>
+          simp[] >> strip_tac >> simp[]) >>
+       fs[LESS_EQ] >> fs[LESS_EQ_EXISTS] >>
+       drule evaluatePropsTheory.evaluate_add_to_clock >> simp[] >>
+       disch_then kall_tac >> rw[]) >>
+    ho_match_mp_tac(GEN_ALL lprefix_lub_skip) >>
+    fs[evaluate_ck_def] >>
+    drule evaluatePropsTheory.evaluate_set_clock >>
+    disch_then(qspec_then `0` mp_tac) >>
+    simp[] >>
+    strip_tac >>
+    rename1 `evaluate (_ with clock := ack1)` >>
+    qexists_tac `$+ (ack1 + 2)` >>
+    conj_tac >-
+      (rw[evaluate_ck_def,LPREFIX_fromList,from_toList] >>
+       qmatch_goalsub_abbrev_tac `evaluate a1 a2 a3` >>
+       Q.ISPECL_THEN
+         [`a1`,`a2`,`a3`]
+         assume_tac
+         (CONJUNCT1 evaluatePropsTheory.evaluate_add_to_clock_io_events_mono) >>
+       fs[evaluatePropsTheory.io_events_mono_def,Abbr `a1`]) >>
+    conj_tac >- simp[] >>
+    fs[terminationTheory.evaluate_def,evaluateTheory.dec_clock_def] >>
+    drule evaluatePropsTheory.evaluate_add_to_clock >>
+    fs[]) >>  
+  rename1 `SPLIT3 heap (h1,h2 ∪ h3,h4)` >>
+  `SPLIT3 heap (h1,h2,h3 ∪ h4)`
+    by(fs[SPLIT3_def] >> rveq >> fs[] >> metis_tac[DISJOINT_SYM,UNION_COMM,UNION_ASSOC]) >>
+  asm_exists_tac >> fs[] >>
+  asm_exists_tac >> fs[] >>
+  simp[evaluate_ck_def,terminationTheory.evaluate_def] >>
+  Q.REFINE_EXISTS_TAC `SUC _` >>
+  simp[evaluateTheory.dec_clock_def] >>
+  rename1 `evaluate_ck ck1 _ _ [exp] = _` >>
+  fs[evaluate_ck_def] >>
+  qpat_x_assum `evaluate (_ with clock := ck1) _ [exp] = _` assume_tac >>
+  drule evaluatePropsTheory.evaluate_set_clock >>
+  disch_then(qspec_then `0` mp_tac) >> simp[] >>
+  strip_tac >>
+  rename1 `evaluate (_ with clock := ck2) _ [exp] = _` >>  
+  drule evaluatePropsTheory.evaluate_add_to_clock >>
+  simp[] >> strip_tac >>
+  Q.REFINE_EXISTS_TAC `ck2 + extra` >>
+  simp[] >>
+  Q.REFINE_EXISTS_TAC `SUC _` >>
+  simp[] >>
+  metis_tac[]);
 
 val IMP_app_POSTd = store_thm("IMP_app_POSTd",
   ``mk_stepfun_closure env fname farg fbody = SOME stepv /\
@@ -2066,7 +2145,7 @@ val IMP_app_POSTd = store_thm("IMP_app_POSTd",
   \\ fs [mk_tailrec_closure_def]
   \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ match_mp_tac app_opapp_intro
-  \\ fs [dest_opapp_def,terminationTheory.evaluate_def,build_rec_env_def]
+  \\ fs [terminationTheory.evaluate_def,build_rec_env_def]
   \\ fs [GSYM some_tailrec_clos_def]
   \\ match_mp_tac (GEN_ALL tailrec_POSTd) \\ fs []
   \\ qexists_tac `\i. Hs i * one (FFI_full (events i))`
