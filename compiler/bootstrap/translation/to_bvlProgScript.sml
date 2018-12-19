@@ -193,39 +193,6 @@ val bvl_inline_tick_inline_all_side = Q.prove (
   \\ fs [])
   |> update_precondition;
 
-(* ------------------------------------------------------------------------- *)
-(* bvl_const                                                                 *)
-(* ------------------------------------------------------------------------- *)
-
-val r = translate bvl_constTheory.dest_simple_pmatch;
-val r = translate bvl_constTheory.case_op_const_pmatch;
-val r = translate bvl_constTheory.SmartOp_flip_pmatch;
-(* val r = translate bvl_constTheory.SmartOp2_pmatch *) (* prove_EvalPatBind *)
-val r = translate bvl_constTheory.SmartOp2_def;
-val r = translate bvl_constTheory.SmartOp_pmatch;
-val r = translate bvl_constTheory.extract_pmatch;
-val r = translate bvl_constTheory.extract_list_def;
-val r = translate bvl_constTheory.delete_var_pmatch;
-
-val r = translate bvl_constTheory.compile_def;
-
-val bvl_const_compile_side = Q.prove(`
-  ∀x y. bvl_const_compile_side x y ⇔ T`,
-  ho_match_mp_tac bvl_constTheory.compile_ind>>
-  `∀a b. bvl_const$compile a [b] ≠ []` by
-    (CCONTR_TAC>>fs[]>>
-    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
-    simp[bvl_constTheory.compile_length])>>
-  rw[]>>
-  simp[Once (fetch "-" "bvl_const_compile_side_def")])
-  |> update_precondition;
-
-val r = translate bvl_constTheory.compile_exp_def;
-
-(* ------------------------------------------------------------------------- *)
-(* bvl_inline                                                                *)
-(* ------------------------------------------------------------------------- *)
-
 val r = translate bvl_inlineTheory.let_op_def;
 
 Theorem let_op_SING_NOT_NIL[simp]
@@ -271,6 +238,35 @@ Theorem bvl_inline_compile_prog_side
   \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
   \\ fs [bvl_inlineTheory.LENGTH_remove_ticks])
   |> update_precondition;
+
+(* ------------------------------------------------------------------------- *)
+(* bvl_const                                                                 *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate bvl_constTheory.dest_simple_pmatch;
+val r = translate bvl_constTheory.case_op_const_pmatch;
+val r = translate bvl_constTheory.SmartOp_flip_pmatch;
+(* val r = translate bvl_constTheory.SmartOp2_pmatch *) (* prove_EvalPatBind *)
+val r = translate bvl_constTheory.SmartOp2_def;
+val r = translate bvl_constTheory.SmartOp_pmatch;
+val r = translate bvl_constTheory.extract_pmatch;
+val r = translate bvl_constTheory.extract_list_def;
+val r = translate bvl_constTheory.delete_var_pmatch;
+
+val r = translate bvl_constTheory.compile_def;
+
+val bvl_const_compile_side = Q.prove(`
+  ∀x y. bvl_const_compile_side x y ⇔ T`,
+  ho_match_mp_tac bvl_constTheory.compile_ind>>
+  `∀a b. bvl_const$compile a [b] ≠ []` by
+    (CCONTR_TAC>>fs[]>>
+    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+    simp[bvl_constTheory.compile_length])>>
+  rw[]>>
+  simp[Once (fetch "-" "bvl_const_compile_side_def")])
+  |> update_precondition;
+
+val r = translate bvl_constTheory.compile_exp_def;
 
 (* ------------------------------------------------------------------------- *)
 
