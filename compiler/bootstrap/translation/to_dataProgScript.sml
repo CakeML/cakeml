@@ -1,10 +1,7 @@
 (*
   Translate the backend phase from BVI to dataLang.
 *)
-open preamble;
-open terminationTheory
-open ml_translatorLib ml_translatorTheory;
-open to_bviProgTheory;
+open preamble ml_translatorLib ml_translatorTheory to_bviProgTheory
 
 val _ = new_theory "to_dataProg"
 val _ = translation_extends "to_bviProg";

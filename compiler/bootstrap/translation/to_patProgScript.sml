@@ -1,10 +1,7 @@
 (*
   Translate the backend phase from flatLang to patLang.
 *)
-open preamble;
-open terminationTheory;
-open ml_translatorLib ml_translatorTheory;
-open to_flatProgTheory;
+open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory
 
 val _ = new_theory "to_patProg";
 val _ = translation_extends "to_flatProg";

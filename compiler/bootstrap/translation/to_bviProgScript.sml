@@ -1,10 +1,7 @@
 (*
   Translate the backend phase from BVL to BVI.
 *)
-open preamble;
-open terminationTheory
-open ml_translatorLib ml_translatorTheory;
-open to_bvlProgTheory;
+open preamble ml_translatorLib ml_translatorTheory to_bvlProgTheory
 
 val _ = new_theory "to_bviProg";
 val _ = translation_extends "to_bvlProg";
