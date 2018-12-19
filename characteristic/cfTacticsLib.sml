@@ -188,15 +188,15 @@ fun naryFun_repack_conv tm =
 val naryClosure_repack_conv =
   (RAND_CONV naryFun_repack_conv) THENC (REWR_CONV (GSYM naryClosure_def))
 
-val Closure_tac =
-  CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
-  irule app_of_cf THEN
-  CONJ_TAC THEN1 eval_tac THEN
-  CONJ_TAC THEN1 eval_tac THEN simp [cf_def]
-
 fun xcf name st =
   let
     val f_def = fetch_def name st
+    val Closure_tac =
+      CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
+      irule app_of_cf THEN
+      CONJ_TAC THEN1 eval_tac THEN
+      CONJ_TAC THEN1 eval_tac THEN simp [cf_def]
+
     val Recclosure_tac =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THEN
