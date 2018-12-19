@@ -137,6 +137,35 @@ val clos_to_bvl_compile_side = Q.prove(`
   |> update_precondition;
 
 (* ------------------------------------------------------------------------- *)
+(* bvl_const                                                                 *)
+(* ------------------------------------------------------------------------- *)
+
+val r = translate bvl_constTheory.dest_simple_pmatch;
+val r = translate bvl_constTheory.case_op_const_pmatch;
+val r = translate bvl_constTheory.SmartOp_flip_pmatch;
+(* val r = translate bvl_constTheory.SmartOp2_pmatch *) (* prove_EvalPatBind *)
+val r = translate bvl_constTheory.SmartOp2_def;
+val r = translate bvl_constTheory.SmartOp_pmatch;
+val r = translate bvl_constTheory.extract_pmatch;
+val r = translate bvl_constTheory.extract_list_def;
+val r = translate bvl_constTheory.delete_var_pmatch;
+
+val r = translate bvl_constTheory.compile_def;
+
+val bvl_const_compile_side = Q.prove(`
+  ∀x y. bvl_const_compile_side x y ⇔ T`,
+  ho_match_mp_tac bvl_constTheory.compile_ind>>
+  `∀a b. bvl_const$compile a [b] ≠ []` by
+    (CCONTR_TAC>>fs[]>>
+    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
+    simp[bvl_constTheory.compile_length])>>
+  rw[]>>
+  simp[Once (fetch "-" "bvl_const_compile_side_def")])
+  |> update_precondition;
+
+val r = translate bvl_constTheory.compile_exp_def;
+
+(* ------------------------------------------------------------------------- *)
 (* bvl_handle                                                                *)
 (* ------------------------------------------------------------------------- *)
 
@@ -157,6 +186,14 @@ val bvl_handle_compile_side = Q.prove(`
   TRY (metis_tac[])>>
   rw[]>>fs[]>>
   metis_tac[]) |> update_precondition;
+
+val r = translate bvl_handleTheory.compile_exp_def;
+
+val bvl_handle_compile_exp_side = Q.prove(`
+  ∀x y z. bvl_handle_compile_exp_side x y z ⇔ T`,
+  EVAL_TAC \\ rpt strip_tac
+  \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
+  \\ rw[]) |> update_precondition;
 
 (* ------------------------------------------------------------------------- *)
 (* bvl_inline                                                                *)
@@ -206,14 +243,6 @@ val bvl_inline_let_op_side = Q.prove(`
   \\ once_rewrite_tac [fetch "-" "bvl_inline_let_op_side_def"] \\ fs [])
   |> update_precondition;
 
-val r = translate bvl_handleTheory.compile_exp_def;
-
-val bvl_handle_compile_exp_side = Q.prove(`
-  ∀x y z. bvl_handle_compile_exp_side x y z ⇔ T`,
-  EVAL_TAC \\ rpt strip_tac
-  \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
-  \\ rw[]) |> update_precondition;
-
 val r = translate bvl_inlineTheory.remove_ticks_def;
 
 Theorem bvl_inline_remove_ticks_side
@@ -238,35 +267,6 @@ Theorem bvl_inline_compile_prog_side
   \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
   \\ fs [bvl_inlineTheory.LENGTH_remove_ticks])
   |> update_precondition;
-
-(* ------------------------------------------------------------------------- *)
-(* bvl_const                                                                 *)
-(* ------------------------------------------------------------------------- *)
-
-val r = translate bvl_constTheory.dest_simple_pmatch;
-val r = translate bvl_constTheory.case_op_const_pmatch;
-val r = translate bvl_constTheory.SmartOp_flip_pmatch;
-(* val r = translate bvl_constTheory.SmartOp2_pmatch *) (* prove_EvalPatBind *)
-val r = translate bvl_constTheory.SmartOp2_def;
-val r = translate bvl_constTheory.SmartOp_pmatch;
-val r = translate bvl_constTheory.extract_pmatch;
-val r = translate bvl_constTheory.extract_list_def;
-val r = translate bvl_constTheory.delete_var_pmatch;
-
-val r = translate bvl_constTheory.compile_def;
-
-val bvl_const_compile_side = Q.prove(`
-  ∀x y. bvl_const_compile_side x y ⇔ T`,
-  ho_match_mp_tac bvl_constTheory.compile_ind>>
-  `∀a b. bvl_const$compile a [b] ≠ []` by
-    (CCONTR_TAC>>fs[]>>
-    pop_assum (mp_tac o Q.AP_TERM`LENGTH`)>>
-    simp[bvl_constTheory.compile_length])>>
-  rw[]>>
-  simp[Once (fetch "-" "bvl_const_compile_side_def")])
-  |> update_precondition;
-
-val r = translate bvl_constTheory.compile_exp_def;
 
 (* ------------------------------------------------------------------------- *)
 
