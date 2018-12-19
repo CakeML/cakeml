@@ -2536,7 +2536,7 @@ val cf_sound = Q.store_thm ("cf_sound",
       fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
       qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
     )
-    THEN1 cheat (* (
+    THEN1 (
       (* Opapp *)
       rename1 `dest_opapp _ = SOME (f, xs)` \\
       schneiderUtils.UNDISCH_ALL_TAC \\ SPEC_ALL_TAC \\
@@ -2552,14 +2552,32 @@ val cf_sound = Q.store_thm ("cf_sound",
         qpat_x_assum `_ = argsv` (assume_tac o GSYM) \\ rename1 `argsv = [xv]` \\
         cf_evaluate_step_tac \\
         fs [app_def, app_basic_def] \\ first_assum progress \\
-        fs [evaluate_ck_def] \\
-        rename1 `SPLIT3 (st2heap _ st') (h_f, h_k, h_g)` \\
+        fs [evaluate_to_heap_def, evaluate_ck_def] \\
+        rename1 `SPLIT3 heap (h_f, h_k, h_g)` \\
         progress SPLIT3_swap23 \\ instantiate \\
-        qexists_tac `ck + 1` \\ cf_exp2v_evaluate_tac `st with clock := ck + 1` \\
-        fs [evaluateTheory.dec_clock_def]
+        reverse (Cases_on `r`) \\ fs []
+        THEN1 (
+          rpt strip_tac
+          THEN1 (
+            cf_exp2v_evaluate_tac `st with clock := ck`
+            \\ fs [evaluateTheory.dec_clock_def]
+          )
+          \\ fs [lprefix_lubTheory.lprefix_lub_def]
+          \\ rpt strip_tac
+          THEN1 cheat
+          \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
+          \\ rpt strip_tac
+          \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+          \\ qexists_tac `ck + 1`
+          \\ cf_exp2v_evaluate_tac `st with clock := ck + 1`
+          \\ fs [evaluateTheory.dec_clock_def]
+        )
+        \\ qexists_tac `ck + 1`
+        \\ cf_exp2v_evaluate_tac `st with clock := ck + 1`
+        \\ fs [evaluateTheory.dec_clock_def]
       )
       (* 2+ arguments *)
-      THEN1 (
+      THEN1 cheat (* (
         rename1 `dest_opapp papp_ = SOME (f, pxs)` \\
         rename1 `xs = pxs ++ [x]` \\ fs [LENGTH] \\
         progress exp2v_list_rcons \\ fs [] \\ rw [] \\
@@ -2605,8 +2623,8 @@ val cf_sound = Q.store_thm ("cf_sound",
           qpat_assum `evaluate (st1 with clock := _) _ _ = _` (add_to_clock `st1.clock`) \\
           fs [with_clock_with_clock]
         )
-      )
-    ) *)
+      ) *)
+    )
     THEN1 (
       (* Opassign *)
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
