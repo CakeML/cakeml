@@ -16,6 +16,9 @@ Helper functions that construct/destruct syntax from cfAppTheory.
 [cfComputeLib.sml](cfComputeLib.sml):
 Auxiliary definitions used in cfs
 
+[cfDivLib.sml](cfDivLib.sml):
+Tactics for reasoning about divergent programs
+
 [cfDivScript.sml](cfDivScript.sml):
 Defines the repeat function and the corresponding lemma used to prove
 non-termination of programs in cf.
