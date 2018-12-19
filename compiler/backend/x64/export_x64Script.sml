@@ -15,10 +15,17 @@ val startup =
        "     .globl  cdecl(argc)";
        "     .globl  cdecl(argv)";
        "cdecl(main):";
+       "#if defined(__WIN32)";
+       "     movabs  $cdecl(argc), %rdi";
+       "     movabs  $cdecl(argv), %rsi";
+       "     movq    %rcx, 0(%rdi)  # %rcx stores argc";
+       "     movq    %rdx, 0(%rsi)  # %rdx stores argv";
+       "#else";
        "     movabs  $cdecl(argc), %rdx";
        "     movabs  $cdecl(argv), %rcx";
        "     movq    %rdi, 0(%rdx)  # %rdi stores argc";
        "     movq    %rsi, 0(%rcx)  # %rsi stores argv";
+       "#endif";
        "     pushq   %rbp        # push base pointer";
        "     movq    %rsp, %rbp  # save stack pointer";
        "     movabs  $cake_main, %rdi        # arg1: entry address";
