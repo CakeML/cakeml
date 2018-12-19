@@ -702,7 +702,7 @@ val arm8_export_defs = [
 val x64_export_defs = [
   export_x64Theory.x64_export_def,
   export_x64Theory.ffi_asm_def,
-  export_x64Theory.windows_ffi_asm_def,
+  export_x64Theory.windows_ffi_asm_def
   ];
 
 val mips_export_defs = [
