@@ -36,7 +36,7 @@ val ffi_asm_def = Define `
       SmartAppend (List [
        strlit"cake_ffi"; implode ffi; strlit":\n";
        strlit"     pushq   %rax\n";
-       strlit"     jmp     cdecl(ffi"; implode ffi; strlit")\n";
+       strlit"     jmp     wcdecl(ffi"; implode ffi; strlit")\n";
        strlit"     .p2align 4\n";
        strlit"\n"]) (ffi_asm ffis))`
 
@@ -51,11 +51,11 @@ val ffi_code =
      (ffi_asm (REVERSE ffi_names))
      (List (MAP (\n. strlit(n ++ "\n"))
       ["cake_clear:";
-       "     callq   cdecl(cml_exit)";
+       "     callq   wcdecl(cml_exit)";
        "     .p2align 4";
        "";
        "cake_exit:";
-       "     callq   cdecl(cml_exit)";
+       "     callq   wcdecl(cml_exit)";
        "     .p2align 4";
        "";
        "cake_main:";
@@ -63,14 +63,45 @@ val ffi_code =
        "/* Generated machine code follows */";
        ""])))`` |> EVAL |> concl |> rand
 
+val windows_ffi_asm_def = Define `
+  (windows_ffi_asm [] = Nil) /\
+  (windows_ffi_asm (ffi::ffis) =
+      SmartAppend (List [
+       strlit"windows_ffi"; implode ffi; strlit":\n";
+       strlit"     movq    %rcx, %r9\n";
+       strlit"     movq    %rdx, %r8\n";
+       strlit"     movq    %rsi, %rdx\n";
+       strlit"     movq    %rdi, %rcx\n";
+       strlit"     jmp     cdecl(ffi"; implode ffi; strlit")\n";
+       strlit"\n"]) (windows_ffi_asm ffis))`
+
+val windows_ffi_code =
+  ``SmartAppend
+    (
+     List [strlit "\n/* Windows Compatibility for CakeML FFI interface */\n\n"]
+    )
+    (
+    SmartAppend
+     (windows_ffi_asm (REVERSE ffi_names))
+     (List (MAP (\n. strlit(n ++ "\n"))
+      ["windows_cml_exit:";
+       "     movq    %rcx, %r9";
+       "     movq    %rdx, %r8";
+       "     movq    %rsi, %rdx";
+       "     movq    %rdi, %rcx";
+       "     callq   cdecl(cml_exit)";
+       ""])))`` |> EVAL |> concl |> rand
+
 val x64_export_def = Define `
   x64_export ffi_names heap_space stack_space bytes (data:word64 list) =
     SmartAppend
+      (SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".quad" heap_space stack_space))
       (SmartAppend (split16 (words_line (strlit"\t.quad ") word_to_string) data)
       (SmartAppend (List ((strlit"\n")::^startup)) ^ffi_code))))
-      (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes)`;
+      (split16 (words_line (strlit"\t.byte ") byte_to_string) bytes))
+      (^windows_ffi_code)`;
 
 (*
   EVAL``append(split16 (words_line (strlit"\t.quad ") word_to_string) [100w:word64;393w;392w])``
