@@ -2,11 +2,69 @@
   Examples of non-termination.
 *)
 open preamble basis
-open integerTheory cfDivTheory
+open integerTheory cfDivTheory cfDivLib
 
 val _ = new_theory "div";
 
 val _ = translation_extends "basisProg";
+
+(* A simple pure non-terminating loop without repeat *)
+
+val _ = process_topdecs `
+  fun pureloop x = pureloop x;
+  ` |> append_prog
+
+val st = ml_translatorLib.get_ml_prog_state();
+
+val pureloop_spec = store_thm("pureloop_spec",
+  ``!xv.
+      app (p:'ffi ffi_proj) ^(fetch_v "pureloop" st) [xv]
+        (one (FFI_full [])) (POSTd io. io = [||])``,
+  xcf_div "pureloop" st
+  \\ MAP_EVERY qexists_tac [`K(&T)`,`K []`,`K xv`]
+  \\ simp[lprefix_lub_def]
+  \\ conj_tac >- xsimpl
+  \\ fs[SEP_CLAUSES]
+  \\ xlet `POSTv uv. &(uv = xv) * one (FFI_full [])`
+  >- (xvar \\ xsimpl)
+  \\ xcon \\ xsimpl);
+
+(* A conditionally terminating loop *)
+val _ = process_topdecs `
+  fun oddloop x = if x = 0 then () else oddloop(x-2);
+  ` |> append_prog
+
+val st = ml_translatorLib.get_ml_prog_state();
+
+val eq_v_INT_thm = Q.prove(`(INT --> INT --> BOOL) $= eq_v`,
+ metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]);
+
+val oddloop_spec = store_thm("oddloop_spec",
+  ``!i iv.
+      INT i iv /\ ¬(2 int_divides i) ==>
+      app (p:'ffi ffi_proj) ^(fetch_v "oddloop" st) [iv]
+        (one (FFI_full [])) (POSTd io. io = [||])``,
+  xcf_div "oddloop" st
+  \\ MAP_EVERY qexists_tac [`K emp`,`K []`,`(\n. Litv(IntLit(i - 2 * &n)))`]
+  \\ simp[lprefix_lub_def]
+  \\ conj_tac >- (fs[ml_translatorTheory.INT_def])
+  \\ conj_tac >- xsimpl
+  \\ fs[SEP_CLAUSES]
+  \\ strip_tac
+  \\ rename1 `2 * SUC j`
+  \\ xlet `POSTv bv. &BOOL F bv * one(FFI_full [])`
+  >- (xapp_spec eq_v_INT_thm \\ xsimpl
+      \\ fs[ml_translatorTheory.BOOL_def,semanticPrimitivesTheory.Boolv_def]
+      \\ rw[] \\ intLib.COOPER_TAC)
+  \\ xif
+  \\ asm_exists_tac \\ simp[]
+  \\ xlet `POSTv iv2. &INT (i − &(2 * SUC j)) iv2 * one(FFI_full [])`
+  >- (xapp \\ xsimpl \\ fs[ml_translatorTheory.INT_def]
+      \\ intLib.COOPER_TAC)
+  \\ xlet `POSTv iv2. &INT (i − &(2 * SUC j)) iv2 * one(FFI_full [])`
+  >- (xvar \\ xsimpl)
+  \\ xcon >- (xsimpl \\ fs[ml_translatorTheory.INT_def])
+  \\ xsimpl);
 
 (* A simple pure non-terminating loop *)
 
