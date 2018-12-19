@@ -168,17 +168,17 @@ val ctMap_has_exns_def = Define `
 (* The global constructor type environment has the list primitives in it *)
 val ctMap_has_lists_def = Define `
   ctMap_has_lists ctMap ⇔
-    FLOOKUP ctMap (TypeStamp "nil" list_type_num) = SOME (["'a"],[],Tlist_num) ∧
+    FLOOKUP ctMap (TypeStamp "Nil" list_type_num) = SOME (["'a"],[],Tlist_num) ∧
     FLOOKUP ctMap (TypeStamp "::" list_type_num) =
       SOME (["'a"],[Tvar "'a"; Tlist (Tvar "'a")],Tlist_num) ∧
-    (!cn. cn ≠ "::" ∧ cn ≠ "nil" ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)`;
+    (!cn. cn ≠ "::" ∧ cn ≠ "Nil" ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)`;
 
 (* The global constructor type environment has the bool primitives in it *)
 val ctMap_has_bools_def = Define `
   ctMap_has_bools ctMap ⇔
-    FLOOKUP ctMap (TypeStamp "true" bool_type_num) = SOME ([],[],Tbool_num) ∧
-    FLOOKUP ctMap (TypeStamp "false" bool_type_num) = SOME ([],[],Tbool_num) ∧
-    (!cn. cn ≠ "true" ∧ cn ≠ "false" ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num) = NONE)`;
+    FLOOKUP ctMap (TypeStamp "True" bool_type_num) = SOME ([],[],Tbool_num) ∧
+    FLOOKUP ctMap (TypeStamp "False" bool_type_num) = SOME ([],[],Tbool_num) ∧
+    (!cn. cn ≠ "True" ∧ cn ≠ "False" ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num) = NONE)`;
 
 val good_ctMap_def = Define `
   good_ctMap ctMap ⇔

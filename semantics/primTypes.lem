@@ -18,8 +18,8 @@ let prim_types_program =
    Dexn unknown_loc "Chr" [];
    Dexn unknown_loc "Div" [];
    Dexn unknown_loc "Subscript" [];
-   Dtype unknown_loc [([], "bool", [("false", []); ("true", [])])];
-   Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]);])];]
+   Dtype unknown_loc [([], "bool", [("False", []); ("True", [])])];
+   Dtype unknown_loc [(["'a"], "list", [("Nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]);])];]
 
 val add_to_sem_env :
   forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> list dec -> maybe (state 'ffi * sem_env v)
@@ -44,9 +44,9 @@ let prim_tenv =
            ("Chr", ([],[],Texn_num));
            ("Div", ([],[],Texn_num));
            ("Subscript", ([],[],Texn_num));
-           ("false", ([],[], Tbool_num));
-           ("true", ([],[], Tbool_num));
-           ("nil", (["'a"],[],Tlist_num));
+           ("False", ([],[], Tbool_num));
+           ("True", ([],[], Tbool_num));
+           ("Nil", (["'a"],[],Tlist_num));
            ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]);
        v = nsEmpty;
        t = alist_to_ns (List.reverse

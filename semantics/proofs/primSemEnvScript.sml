@@ -42,10 +42,10 @@ Theorem prim_type_sound_invariants
       (div_stamp, ([],[],Texn_num));
       (chr_stamp, ([],[],Texn_num));
       (subscript_stamp, ([],[],Texn_num));
-      (TypeStamp "nil" list_type_num, (["'a"],[],Tlist_num));
+      (TypeStamp "Nil" list_type_num, (["'a"],[],Tlist_num));
       (TypeStamp "::" list_type_num, (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num));
-      (TypeStamp "true" bool_type_num, ([],[], Tbool_num));
-      (TypeStamp "false" bool_type_num, ([],[], Tbool_num))]` >>
+      (TypeStamp "True" bool_type_num, ([],[], Tbool_num));
+      (TypeStamp "False" bool_type_num, ([],[], Tbool_num))]` >>
   rw []
   >- (
     simp [tenv_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]>>
