@@ -560,15 +560,75 @@ val rotate_w2v_lemma5 = Q.prove(`!n i (w:'a word).
 val rotate_w2v_lemma6 = Q.prove(`!i x y. ((i<x) /\ (y = x)) ==> (i<y)`,
    rpt STRIP_TAC >> fs[])
 
-val rotate_w2v_mod_lemma = Q.prove(`!x y m. (0 < m /\ (x<y MOD m)) ==> ((y-(x+1)) MOD m = (y MOD m)-((x+1) MOD m))`,cheat)
-
 val rotate_w2v_mod_lemma2 = Q.prove(`!(x:num) (y:num) m. (0 < m /\ (x < y MOD m)) ==> (x MOD m = x)`,
    rpt STRIP_TAC
    >> IMP_RES_TAC MOD_LESS
    >> POP_ASSUM (ASSUME_TAC o (ISPEC ``y:num``))
    >> fs[]
 )
+
+
+val rotate_w2v_mod_lemma4 = Q.prove(`!(x:num) (y:num) m. (0 < m /\ (x < y MOD m)) ==> ((x+1) MOD m <= y MOD m)`,
+   rpt STRIP_TAC
+   >> IMP_RES_TAC MOD_LESS
+   >> POP_ASSUM (ASSUME_TAC o (ISPEC ``y:num``))
+   >> fs[]
+)
+
+
 val rotate_w2v_mod_lemma3 = Q.prove(`!b x. (b < x /\ ~(b+1 < x)) ==> (b = x-1)`,rpt STRIP_TAC >> fs[])
+
+val rotate_w2v_mod_lemma5 = Q.prove(`!x n. SUC n - (x+1) = n-x`,rpt STRIP_TAC >> FULL_SIMP_TAC arith_ss [])
+
+val MOD_LESS2 =  Q.prove(`!(a:num) m b. 0<m ==> ((a MOD m) < b+m)`,
+  rpt STRIP_TAC
+  >> ASM_SIMP_TAC arith_ss []
+  >> IMP_RES_TAC MOD_LESS
+  >> POP_ASSUM (ASSUME_TAC o (ISPEC ``a:num``))
+  >> ASM_SIMP_TAC arith_ss []
+)
+
+val MOD_DIV_ADD = Q.prove(`!(a:num) (m:num) b. 0<m ==> (a=m*(a DIV m)+(a MOD m))`,
+   rpt STRIP_TAC >> IMP_RES_TAC DIVISION >> POP_ASSUM (fn x => ALL_TAC)
+   >> POP_ASSUM (ASSUME_TAC o (ISPEC ``a:num``))
+   >> ASM_SIMP_TAC arith_ss []
+)
+
+val rotate_w2v_mod_lemma_sub_lt = Q.prove(`!(b:num) (a:num) (m:num). (0 < m /\ b<a MOD m) ==> ((a-b) MOD m = a MOD m - b)`,
+  rpt STRIP_TAC
+  >> MATCH_MP_TAC MOD_UNIQUE
+  >> Q.EXISTS_TAC `a DIV m`
+  >> simp[SUB_LESS]
+  >> simp[MOD_LESS2]
+  >> MK_COMB_TAC >-(
+     MK_COMB_TAC >- simp[] >> ASM_SIMP_TAC arith_ss [MOD_DIV_ADD]
+  ) >> simp[]
+)
+
+
+val lesstrans2 = Q.prove(`!a b c. (a<b /\ b<c) ==> (a+1)<c`,rpt STRIP_TAC >> ASM_SIMP_TAC arith_ss [])
+
+val modlemma1 = Q.prove(`!x y m. (0 < m /\ x < y MOD m) ==> (((x+1) MOD m = x+1) /\ ((x+1) DIV m = 0))`,
+   rpt STRIP_TAC
+   >> IMP_RES_TAC MOD_LESS
+   >> POP_ASSUM (ASSUME_TAC o (ISPEC ``y:num``))
+   >> ASM_SIMP_TAC arith_ss[LESS_DIV_EQ_ZERO,lesstrans2]
+)
+
+val rotate_w2v_mod_lemma = Q.prove(`!(x:num) (y:num) (m:num). (0 < m /\ (x<y MOD m)) ==> ((y-(x+1)) MOD m = (y MOD m)-((x+1) MOD m))`,
+   rpt STRIP_TAC
+   >> MATCH_MP_TAC MOD_UNIQUE
+   >> simp[]
+   >> Q.EXISTS_TAC `(y DIV m)-((x+1) DIV m)`
+   >> CONJ_TAC
+   >- (REWRITE_TAC [LEFT_SUB_DISTRIB] >> IMP_RES_TAC modlemma1 >> ASM_SIMP_TAC arith_ss [] >> metis_tac[DIVISION,MULT_COMM,ADD_COMM])
+   >> IMP_RES_TAC MOD_LESS
+   >> POP_ASSUM (ASSUME_TAC o (ISPEC ``y:num``))
+   >> ASM_SIMP_TAC arith_ss []
+)
+
+
+val lemma7_simp = Q.prove(`!x y. (SUC x <= y+1) = (x <= y)`, FULL_SIMP_TAC arith_ss [])
 
 
 val rotate_w2v_lemma7 = Q.prove(`!n b a m. (0 < m /\ b < SUC a /\ (n MOD m=SUC a)) ==> ((a-b) = ((n-(b+1)) MOD m))`,
@@ -576,7 +636,10 @@ val rotate_w2v_lemma7 = Q.prove(`!n b a m. (0 < m /\ b < SUC a /\ (n MOD m=SUC a
    >> POP_ASSUM (ASSUME_TAC o GSYM)
    >> fs[] >> IMP_RES_TAC rotate_w2v_mod_lemma
    >> POP_ASSUM (ASSUME_TAC o AP_TERM ``\x. x-1``) >> fs[]
-   >> Cases_on `(n-(b+1)) MOD m` >- cheat
+   >> Cases_on `(n-(b+1)) MOD m`
+      >- (FULL_SIMP_TAC arith_ss [] >> Cases_on `n MOD m` >> FULL_SIMP_TAC arith_ss [lemma7_simp] >>
+          Cases_on `n<m` >- FULL_SIMP_TAC arith_ss [MOD_LESS] >> Cases_on `n=m` >- (ASM_SIMP_TAC arith_ss [DIVMOD_ID] >> cheat) >> CCONTR_TAC >> fs[] >> cheat
+          )
    >> ASM_SIMP_TAC arith_ss []
    >> POP_ASSUM (ASSUME_TAC o GSYM)
    >> ASM_SIMP_TAC arith_ss []
@@ -599,7 +662,27 @@ val rotate_w2v_lemma7 = Q.prove(`!n b a m. (0 < m /\ b < SUC a /\ (n MOD m=SUC a
    >> ASM_SIMP_TAC arith_ss []
 )
 
-val rotate_w2v_lemma8 = Q.prove(`!x y n t. (((n MOD x) = y) /\ (t<x-y)) ==>  (x-(t+1) = ((n+x-(t+(n MOD x)+1)) MOD x))`,cheat)
+val DIV_TIMES = Q.prove(`!x y. (0 < y) ==> (y*(x DIV y) = x - (x MOD y))`,
+  rpt STRIP_TAC
+  >> IMP_RES_TAC DIVISION
+  >> POP_ASSUM (fn modassum => POP_ASSUM (fn divassum => ASSUME_TAC (AP_TERM ``\l. l - x MOD y`` (ISPEC ``x:num`` divassum))))
+  >> fs[]
+)
+
+val rotate_w2v_lemma8 = Q.prove(`!x y n t. ((0 < x) /\ ((n MOD x) = y) /\ (t<x-y)) ==>  (x-(t+1) = ((n+x-(t+(n MOD x)+1)) MOD x))`,
+   rpt STRIP_TAC
+   >> MATCH_MP_TAC (GSYM MOD_UNIQUE)
+   >> Q.EXISTS_TAC `n DIV x`
+   >> CONJ_TAC
+   >- (POP_ASSUM (fn assum1 => POP_ASSUM (fn assum2 => ASSUME_TAC assum1 >> ASSUME_TAC (GSYM assum2)))
+       >> simp[DIV_TIMES]
+       >> `n MOD x <= n` by simp[MOD_LESS_EQ]
+       >> `n − n MOD x + (x − (t + 1)) = n + (x − (t + 1)) - n MOD x` by FULL_SIMP_TAC arith_ss []
+       >> simp[]
+   )
+
+   >> simp[]
+)
 
 val rotate_w2v = Q.store_thm("rotate_w2v",
 `!w:('a word) (n:num). rotate (w2v w) n = w2v (word_ror w n)`,
