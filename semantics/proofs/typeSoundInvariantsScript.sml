@@ -168,10 +168,10 @@ val ctMap_has_exns_def = Define `
 (* The global constructor type environment has the list primitives in it *)
 val ctMap_has_lists_def = Define `
   ctMap_has_lists ctMap ⇔
-    FLOOKUP ctMap (TypeStamp "Nil" list_type_num) = SOME (["'a"],[],Tlist_num) ∧
+    FLOOKUP ctMap (TypeStamp "[]" list_type_num) = SOME (["'a"],[],Tlist_num) ∧
     FLOOKUP ctMap (TypeStamp "::" list_type_num) =
       SOME (["'a"],[Tvar "'a"; Tlist (Tvar "'a")],Tlist_num) ∧
-    (!cn. cn ≠ "::" ∧ cn ≠ "Nil" ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)`;
+    (!cn. cn ≠ "::" ∧ cn ≠ "[]" ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)`;
 
 (* The global constructor type environment has the bool primitives in it *)
 val ctMap_has_bools_def = Define `

@@ -30,7 +30,7 @@ val _ = Define `
    Dexn unknown_loc "Div" [];
    Dexn unknown_loc "Subscript" [];
    Dtype unknown_loc [([], "bool", [("False", []); ("True", [])])];
-   Dtype unknown_loc [(["'a"], "list", [("Nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]) ])] ]))`;
+   Dtype unknown_loc [(["'a"], "list", [("[]", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]) ])] ]))`;
 
 
 (*val add_to_sem_env :
@@ -63,7 +63,7 @@ val _ = Define `
            ("Subscript", ([],[],Texn_num));
            ("False", ([],[], Tbool_num));
            ("True", ([],[], Tbool_num));
-           ("Nil", (["'a"],[],Tlist_num));
+           ("[]", (["'a"],[],Tlist_num));
            ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]));
        v := nsEmpty;
        t := (alist_to_ns (REVERSE

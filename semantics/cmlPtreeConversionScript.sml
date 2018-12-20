@@ -631,7 +631,7 @@ val ptree_Pattern_def = Define`
           do assert(tokcheck vic UnderbarT) ; return Pany od
         | [lb; rb] =>
           if tokcheckl args [LbrackT; RbrackT] then
-            SOME(Pcon (SOME (Short "Nil")) [])
+            SOME(Pcon (SOME (Short "[]")) [])
           else if tokcheckl [lb] [OpT] then
             do e <- ptree_OpID rb ; EtoPat e od
           else NONE
@@ -640,7 +640,7 @@ val ptree_Pattern_def = Define`
             assert (tokcheckl [lb;rb] [LbrackT; RbrackT]);
             plist <- ptree_Plist plistpt;
             SOME (FOLDR (λp a. Pcon (SOME (Short "::")) [p; a])
-                        (Pcon (SOME (Short "Nil")) [])
+                        (Pcon (SOME (Short "[]")) [])
                         plist)
           od
         | _ => NONE
@@ -853,7 +853,7 @@ local
               assert(tokcheckl [lpart;rpart][LbrackT; RbrackT]);
               elist <- ptree_Exprlist nElist1 pt;
               SOME(FOLDR (λe acc. Con (SOME (Short "::")) [e; acc])
-                         (Con (SOME (Short "Nil")) [])
+                         (Con (SOME (Short "[]")) [])
                          elist)
             od
           | [single] =>
@@ -869,7 +869,7 @@ local
           | [lp;rp] => if tokcheckl [lp;rp][LparT;RparT] then
                          SOME (Con NONE [])
                        else if tokcheckl [lp;rp] [LbrackT; RbrackT] then
-                         SOME (Con (SOME (Short "Nil")) [])
+                         SOME (Con (SOME (Short "[]")) [])
                        else if tokcheck lp OpT then
                          ptree_OpID rp
                        else
