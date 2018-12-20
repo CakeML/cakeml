@@ -110,8 +110,7 @@ val pnt_def = Define`pnt ntsym = nt (mkNT ntsym) I`
 val peg_UQConstructorName_def = Define`
   peg_UQConstructorName =
     tok (λt. do s <- destAlphaT t ;
-                assert (s ≠ "" ∧ isUpper (HD s) ∨
-                        s ∈ {"true"; "false"; "nil"})
+                assert (s ≠ "" ∧ isUpper (HD s))
              od = SOME ())
         (bindNT nUQConstructorName o mktokLf)
 `;
@@ -129,8 +128,7 @@ val peg_V_def = Define`
   peg_V =
    choicel [tok (λt.
                   do s <- destAlphaT t;
-                     assert(s ∉ {"before"; "div"; "mod"; "o";
-                                 "true"; "false";"nil"} ∧
+                     assert(s ∉ {"before"; "div"; "mod"; "o"} ∧
                             s ≠ "" ∧ ¬isUpper (HD s))
                   od = SOME ())
                 (bindNT nV o mktokLf);
@@ -145,8 +143,7 @@ val peg_V_def = Define`
 val peg_longV_def = Define`
   peg_longV = tok (λt. do
                         (str,s) <- destLongidT t;
-                        assert(s <> "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
-                               s ∉ {"true"; "false"; "nil"})
+                        assert(s <> "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)))
                        od = SOME ())
                   (bindNT nFQV o mktokLf)
 `
@@ -399,9 +396,7 @@ val cmlPEG_def = zDefine`
                  pegf (pnt nUQConstructorName) (bindNT nConstructorName);
                  tok (λt. do
                             (str,s) <- destLongidT t;
-                            assert(s <> "" ∧ isAlpha (HD s) ∧
-                                   isUpper (HD s) ∨
-                                   s ∈ {"true"; "false"; "nil"})
+                            assert(s <> "" ∧ isAlpha (HD s) ∧ isUpper (HD s))
                           od = SOME ())
                      (bindNT nConstructorName o mktokLf)]);
               (mkNT nPbase,
