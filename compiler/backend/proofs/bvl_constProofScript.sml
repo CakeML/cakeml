@@ -194,7 +194,6 @@ Theorem SmartOp_thm
   metis_tac [SmartOp_flip_thm, SmartOp2_thm]
 )
 
-
 Theorem evaluate_env_rel
   `!xs env1 (s1:('c,'ffi) bvlSem$state) ax env2 res s2 ys.
       (evaluate (xs,env1,s1) = (res,s2)) /\
@@ -271,5 +270,84 @@ Theorem evaluate_compile_exp
   \\ `LENGTH (compile [] [d]) = LENGTH [d]` by fs [compile_length]
   \\ Cases_on `compile [] [d]` \\ fs [LENGTH_NIL] \\ rw []
   \\ imp_res_tac compile_thm \\ rfs []);
+
+Theorem delete_var_code_labels[simp]
+  `∀x. get_code_labels (bvl_const$delete_var x) = get_code_labels x`
+  (recInduct bvl_constTheory.delete_var_ind
+  \\ rw[bvl_constTheory.delete_var_def]
+  \\ EVAL_TAC);
+
+Theorem dest_simple_SOME_code_labels
+  `∀x y. dest_simple x = SOME y ⇒ get_code_labels x = {}`
+  (recInduct bvl_constTheory.dest_simple_ind
+  \\ rw[NULL_EQ] \\ EVAL_TAC);
+
+Theorem SmartOp2_code_labels[simp]
+  `get_code_labels (SmartOp2 (op,x1,x2)) =
+    closLang$assign_get_code_label op ∪ get_code_labels x1 ∪ get_code_labels x2`
+  (rw[bvl_constTheory.SmartOp2_def, closLangTheory.assign_get_code_label_def]
+  \\ rpt(PURE_CASE_TAC \\ simp[closLangTheory.assign_get_code_label_def])
+  \\ imp_res_tac dest_simple_SOME_code_labels \\ fs[]
+  \\ fs[bvl_constTheory.case_op_const_def, CaseEq"option", CaseEq"closLang$op", CaseEq"bvl$exp", CaseEq"list", NULL_EQ]
+  \\ rveq \\ fs[closLangTheory.assign_get_code_label_def,bvlTheory.Bool_def]
+  \\ simp[EXTENSION] \\ metis_tac[]);
+
+Theorem SmartOp_code_labels[simp]
+  `get_code_labels (SmartOp op xs) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels xs))`
+  (rw[bvl_constTheory.SmartOp_def]
+  \\ PURE_CASE_TAC \\ simp[]
+  \\ PURE_CASE_TAC \\ simp[]
+  \\ PURE_CASE_TAC \\ simp[]
+  \\ simp[bvl_constTheory.SmartOp_flip_def]
+  \\ PURE_TOP_CASE_TAC \\ fs[]
+  >- ( rw[EXTENSION] \\ metis_tac[] )
+  \\ imp_res_tac dest_simple_SOME_code_labels
+  \\ rw[closLangTheory.assign_get_code_label_def]);
+
+Theorem MEM_extract_list_code_labels
+  `∀xs x. MEM (SOME x) (extract_list xs) ⇒ get_code_labels x = {}`
+  (Induct
+  \\ rw[bvl_constTheory.extract_list_def]
+  \\ res_tac \\ fs[]
+  \\ Cases_on`h` \\ fs[bvl_constTheory.extract_def]
+  \\ rename1`Op op l`
+  \\ Cases_on`op` \\ fs[bvl_constTheory.extract_def] \\ rw[]
+  \\ EVAL_TAC);
+
+Theorem compile_code_labels
+  `∀x y. BIGUNION (set (MAP get_code_labels (bvl_const$compile x y))) ⊆
+         BIGUNION (set (MAP get_code_labels y)) ∪
+         BIGUNION (set (MAP (get_code_labels o THE) (FILTER IS_SOME x)))`
+  (recInduct bvl_constTheory.compile_ind
+  \\ rw[bvl_constTheory.compile_def]
+  \\ fsrw_tac[DNF_ss][SUBSET_DEF]
+  \\ fs[Once(GSYM bvl_constTheory.compile_HD_SING)]
+  \\ fsrw_tac[ETA_ss][MAP_MAP_o, o_DEF]
+  \\ TRY(metis_tac[])
+  >- (
+    PURE_CASE_TAC \\ fs[]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ rw[]
+    \\ asm_exists_tac \\ fs[]
+    \\ fs[LLOOKUP_THM]
+    \\ fs[MEM_MAP, MEM_FILTER, IS_SOME_EXISTS, PULL_EXISTS]
+    \\ simp[MEM_EL, PULL_EXISTS]
+    \\ goal_assum(first_assum o mp_then Any mp_tac) \\ simp[]
+    \\ PURE_FULL_CASE_TAC \\ fs[] )
+  >- (
+    rw[]
+    \\ last_x_assum drule
+    \\ rw[] >- metis_tac[]
+    \\ reverse(fs[MEM_MAP, PULL_EXISTS, MEM_FILTER, IS_SOME_EXISTS])
+    >- metis_tac[]
+    \\ imp_res_tac MEM_extract_list_code_labels
+    \\ fs[]));
+
+Theorem compile_exp_code_labels
+  `∀e. get_code_labels (bvl_const$compile_exp e) ⊆ get_code_labels e`
+  (rw[bvl_constTheory.compile_exp_def]
+  \\ rw[Once(GSYM bvl_constTheory.compile_HD_SING)]
+  \\ specl_args_of_then``bvl_const$compile``compile_code_labels mp_tac
+  \\ rw[] \\ fs[Once(GSYM bvl_constTheory.compile_HD_SING)]);
 
 val _ = export_theory();

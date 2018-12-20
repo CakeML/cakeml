@@ -1,9 +1,9 @@
 (*
   Correctness proof for clos_letop
 *)
-open preamble closPropsTheory clos_letopTheory closSemTheory;
-open closLangTheory;
-open backendPropsTheory;
+
+open preamble closPropsTheory clos_letopTheory closSemTheory
+     closLangTheory backendPropsTheory
 
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
@@ -816,5 +816,24 @@ Theorem let_op_app_call_dests[simp]
   \\ AP_TERM_TAC \\ AP_TERM_TAC
   \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
   \\ first_x_assum drule \\ rw[]);
+
+Theorem var_list_code_labels_imp
+  `∀n x y. var_list n x y ⇒ BIGUNION (set (MAP get_code_labels x)) = {}`
+  (recInduct clos_letopTheory.var_list_ind
+  \\ rw[clos_letopTheory.var_list_def] \\ fs[]);
+
+Theorem let_op_get_code_labels[simp]
+  `∀es. MAP get_code_labels (clos_letop$let_op es) = MAP get_code_labels es`
+  (recInduct clos_letopTheory.let_op_ind
+  \\ rw[clos_letopTheory.let_op_def] \\ fs[]
+  >- (
+    PURE_TOP_CASE_TAC \\ fs[]
+    \\ qmatch_assum_rename_tac`dest_op op _ = _`
+    \\ Cases_on`op` \\ fs[clos_letopTheory.dest_op_def] \\ rveq
+    \\ imp_res_tac var_list_code_labels_imp \\ fs[])
+  \\ fs[MAP_MAP_o, UNCURRY, o_DEF]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
+  \\ res_tac \\ fs[]);
 
 val _ = export_theory();

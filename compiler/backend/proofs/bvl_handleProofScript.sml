@@ -542,4 +542,48 @@ Theorem handle_ok_EVERY
   `!xs. handle_ok xs <=> EVERY (\x. handle_ok [x]) xs`
   (Induct \\ fs [handle_ok_def] \\ simp [Once handle_ok_CONS] \\ fs []);
 
+Theorem LetLet_code_labels[simp]
+  `get_code_labels (LetLet x y z) = get_code_labels z`
+  (rw[bvl_handleTheory.LetLet_def]
+  \\ rw[bvl_handleTheory.SmartLet_def, MAP_MAP_o, o_DEF, MAP_GENLIST]
+  \\ rw[Once EXTENSION, MEM_FILTER, MEM_MAP, MEM_GENLIST, PULL_EXISTS, PULL_FORALL]
+  \\ rw[EQ_IMP_THM]
+  \\ rpt(pop_assum mp_tac)
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ EVAL_TAC);
+
+Theorem compile_code_labels
+  `∀a b c. BIGUNION (set (MAP get_code_labels (FST (bvl_handle$compile a b c)))) ⊆
+           BIGUNION (set (MAP get_code_labels c))`
+  (recInduct bvl_handleTheory.compile_ind
+  \\ rw[bvl_handleTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs[])
+  \\ imp_res_tac bvl_handleTheory.compile_sing
+  \\ rveq \\ fs[NULL_EQ] \\ rw[bvl_handleTheory.OptionalLetLet_def]
+  \\ fs[]
+  \\ fsrw_tac[DNF_ss][SUBSET_DEF]
+  \\ EVAL_TAC);
+
+Theorem compile_exp_code_labels
+  `∀a b c. get_code_labels (compile_exp a b c) ⊆ get_code_labels c `
+  (rw[bvl_handleTheory.compile_exp_def]
+  \\ Cases_on`bvl_handle$compile a b [compile_exp c]`
+  \\ PairCases_on`r`
+  \\ imp_res_tac bvl_handleTheory.compile_sing \\ rveq \\ fs[]
+  \\ pop_assum mp_tac
+  \\ specl_args_of_then``bvl_handle$compile``compile_code_labels mp_tac
+  \\ rw[] \\ fs[]
+  \\ metis_tac[bvl_constProofTheory.compile_exp_code_labels, SUBSET_TRANS]);
+
+Theorem compile_seqs_code_labels
+  `!cut e acc.
+     get_code_labels (compile_seqs cut e acc) SUBSET
+     get_code_labels e UNION
+     (case acc of NONE => {} | SOME r => get_code_labels r)`
+  (ho_match_mp_tac bvl_handleTheory.compile_seqs_ind \\ rw []
+  \\ rw [Once bvl_handleTheory.compile_seqs_def]
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rw []
+  \\ fs [dest_Seq_thm] \\ rw []
+  \\ metis_tac [compile_exp_code_labels, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]);
+
 val _ = export_theory();

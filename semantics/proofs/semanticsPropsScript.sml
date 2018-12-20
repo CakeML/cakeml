@@ -182,6 +182,10 @@ val extend_with_resource_limit_def = Define`
   { Terminate Resource_limit_hit io_list
     | io_list | ∃ll. Diverge ll ∈ behaviours ∧ LPREFIX (fromList io_list) ll }`;
 
+Theorem extend_with_resource_limit_not_fail
+  `x ∈ extend_with_resource_limit y ∧ Fail ∉ y ⇒ x ≠ Fail`
+  (rw[extend_with_resource_limit_def] \\ metis_tac[])
+
 val implements_def = Define `
   implements x y <=>
     (~(Fail IN y) ==> x SUBSET extend_with_resource_limit y)`;

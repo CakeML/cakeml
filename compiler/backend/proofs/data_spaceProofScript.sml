@@ -235,46 +235,46 @@ val evaluate_compile = Q.prove(
         \\ qpat_abbrev_tac`ll = insert n _ (inter _ _)`
         \\ disch_then(qspec_then`ll`mp_tac)
         \\ impl_tac THEN1
-          (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[bvi_to_data_space_locals]
-           \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,bvi_to_data_space_locals]
+          (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[]
+           \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
            \\ SRW_TAC [] []
            \\ full_simp_tac(srw_ss())[locals_ok_def,lookup_insert,lookup_inter_alt]
            \\ full_simp_tac(srw_ss())[domain_delete,domain_list_insert])
         \\ strip_tac \\ simp[]
         \\ qexists_tac`w` \\ fs[]
         \\ Cases_on`res` \\ fs[]
-        \\ fs[locals_ok_def] )
+        \\ fs[locals_ok_def])
       \\ IF_CASES_TAC THEN1 fs []
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ full_simp_tac(srw_ss())[consume_space_def]
-      \\ `¬op_space_reset o'` by fs[bvi_to_dataTheory.op_requires_names_def] \\ fs[]
+      \\ `¬op_space_reset o'` by fs[dataLangTheory.op_requires_names_def] \\ fs[]
       \\ Cases_on `s.space < op_space_req o' (LENGTH l')`
       \\ full_simp_tac(srw_ss())[]
-      \\ `(data_to_bvi (s with space := s.space - op_space_req o' (LENGTH l'))) =
-           data_to_bvi s` by (full_simp_tac(srw_ss())[data_to_bvi_def] \\ NO_TAC)
+      (* \\ `s with space := s.space - op_space_req o' (LENGTH x) = s` *)
+      (*    by (full_simp_tac(srw_ss())[] \\ NO_TAC) *)
       \\ full_simp_tac(srw_ss())[]
       \\ `~(op_space_req o' (LENGTH l') + y0 < op_space_req o' (LENGTH l'))`
             by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
-      \\ full_simp_tac(srw_ss())[data_to_bvi_ignore]
-      \\ Cases_on `do_app o' x (data_to_bvi s)` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-      \\ full_simp_tac(srw_ss())[bvi_to_data_space_locals]
+      \\ full_simp_tac(srw_ss())[]
+      \\ fs [do_app_aux_with_locals,do_app_aux_with_space]
+      \\ PairCases_on `y`
+      \\ fs [] \\ rveq
+      \\ fs [state_component_equality]
+      \\ rveq \\ fs []
       \\ first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]evaluate_locals))
       \\ disch_then drule
-      \\ simp[bvi_to_data_def]
-      \\ qpat_abbrev_tac`l2 = insert _ _ _`
+      \\ fs []
+      \\ qpat_abbrev_tac`l2 = insert n _ (inter _ _)`
       \\ disch_then(qspec_then`l2`mp_tac)
-      \\ impl_tac >-
-          (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[bvi_to_data_space_locals]
-           \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality,bvi_to_data_space_locals]
-           \\ SRW_TAC [] []
+      \\ impl_tac  >-
+          (UNABBREV_ALL_TAC
            \\ full_simp_tac(srw_ss())[locals_ok_def,lookup_insert,lookup_inter_alt]
            \\ full_simp_tac(srw_ss())[domain_delete,domain_list_insert])
       \\ strip_tac
       \\ simp[]
       \\ Cases_on `res` \\ full_simp_tac(srw_ss())[]
-      \\ Q.EXISTS_TAC `w''` \\ full_simp_tac(srw_ss())[]
+      \\ fs [state_component_equality]
       \\ METIS_TAC [locals_ok_def])
     THEN1 (* Move *)
      (full_simp_tac(srw_ss())[pMakeSpace_def,space_def]
@@ -337,8 +337,7 @@ val evaluate_compile = Q.prove(
       \\ POP_ASSUM (ASSUME_TAC o REWRITE_RULE [evaluate_def])
       \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ POP_ASSUM (K ALL_TAC)
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
-      \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
-      \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ NO_TAC))
+      \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]))
   THEN1 (* If *)
    (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
@@ -385,5 +384,30 @@ Theorem compile_correct
   \\ POP_ASSUM (MP_TAC o Q.SPECL [`s.locals`])
   \\ full_simp_tac(srw_ss())[locals_ok_refl]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[with_same_locals]);
+
+Theorem get_code_labels_space
+  `∀x y y0 y1 y2.
+   (space x = INL y ⇒ get_code_labels y = get_code_labels x) ∧
+   (space x = INR (y0,y1,y2) ⇒ get_code_labels y2 = get_code_labels x)`
+  (recInduct data_spaceTheory.space_ind
+  \\ rw[data_spaceTheory.space_def] \\ simp[]
+  \\ fs[CaseEq"sum",CaseEq"dataLang$prog"] \\ rveq \\ fs[data_spaceTheory.space_def]
+  \\ fs[data_spaceTheory.pMakeSpace_def]
+  \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+  \\ rveq \\ fs[]
+  \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+  \\ Cases_on`space c2` \\ Cases_on`space c3` \\ fs[] \\ TRY(PairCases_on`y`)
+  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+  \\ PairCases_on`y'`
+  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]);
+
+Theorem get_code_labels_compile[simp]
+  `∀x. get_code_labels (data_space$compile x) = get_code_labels x`
+  (rw[data_spaceTheory.compile_def]
+  \\ Cases_on`space x`
+  \\ simp[data_spaceTheory.pMakeSpace_def]
+  \\ TRY (PairCases_on`y`)
+  \\ simp[data_spaceTheory.pMakeSpace_def]
+  \\ imp_res_tac get_code_labels_space);
 
 val _ = export_theory();

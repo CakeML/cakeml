@@ -1241,7 +1241,7 @@ val ptree_Expr_pmatch = Q.store_thm("ptree_decl_pmatch",
 end
 
 val ptree_Decl_def = Define`
-  ptree_Decl pt : dec option =
+  (ptree_Decl pt : dec option =
     dtcase pt of
        Lf _ => NONE
      | Nd (nt,locs) args =>
@@ -1271,10 +1271,14 @@ val ptree_Decl_def = Define`
                e <- ptree_Expr nE ept;
                SOME (Dlet (locs) pat e)
              od
-           | _ => NONE
-`
-
-val ptree_Decls_def = Define`
+           | [localtok; decls1_pt; intok; decls2_pt; endtok] =>
+             do
+               assert (tokcheckl [localtok; intok; endtok] [LocalT; InT; EndT]);
+               decls1 <- ptree_Decls decls1_pt;
+               decls2 <- ptree_Decls decls2_pt;
+               return (Dlocal decls1 decls2)
+             od
+           | _ => NONE) /\
   ptree_Decls (Lf _) = NONE ∧
   ptree_Decls (Nd (nt,_) args) =
     if nt <> mkNT nDecls then NONE

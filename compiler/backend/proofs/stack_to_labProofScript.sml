@@ -3192,19 +3192,6 @@ Theorem complex_flatten_labels `
     rw[]>>
     metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]));
 
-val get_code_labels_def = Define`
-  (get_code_labels (Call r d h) =
-    (case d of INL x => {(x,0n)} | _ => {}) ∪
-    (case r of SOME (x,_,_) => get_code_labels x | _ => {}) ∪
-    (case h of SOME (x,_,_) => get_code_labels x | _ => {})) ∧
-  (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
-  (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
-  (get_code_labels (While _ _ _ p) = get_code_labels p) ∧
-  (get_code_labels (JumpLower _ _ t) = {(t,0)}) ∧
-  (get_code_labels (LocValue _ l1 l2) = {(l1,l2)}) ∧
-  (get_code_labels _ = {})`;
-val _ = export_rewrites["get_code_labels_def"];
-
 Theorem flatten_labels
   `∀m n p l x y.
      flatten m n p = (l,x,y) ∧
@@ -3294,18 +3281,6 @@ Theorem prog_to_section_labels `
   match_mp_tac SUBSET_TRANS>> asm_exists_tac>>fs[]>>
   metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]);
 
-val stack_get_handler_labels_def = Define`
-  (stack_get_handler_labels n (Call r d h) =
-    (case r of SOME (x,_,_) => stack_get_handler_labels n x  ∪
-      (case h of SOME (x,l1,l2) => (if l1 = n then {(l1,l2)} else {}) ∪ (stack_get_handler_labels n x) | _ => {})
-    | _ => {})
-  ) ∧
-  (stack_get_handler_labels n (Seq p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
-  (stack_get_handler_labels n (If _ _ _ p1 p2) = stack_get_handler_labels n p1 ∪ stack_get_handler_labels n p2) ∧
-  (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
-  (stack_get_handler_labels n _ = {})`;
-val _ = export_rewrites["stack_get_handler_labels_def"];
-
 Theorem flatten_preserves_handler_labels
   `∀m n p l x y.
    flatten m n p = (l,x,y)
@@ -3361,13 +3336,6 @@ Theorem MAP_prog_to_section_preserves_handler_labels
   \\ first_x_assum drule
   \\ rw[labPropsTheory.sec_get_code_labels_def]
   \\ metis_tac[]);
-
-val stack_good_code_labels_def = Define`
-  stack_good_code_labels p ⇔
-  BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
-  BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
-  IMAGE (λn. n,0) (set (MAP FST p))
-`
 
 Theorem get_labels_MAP_prog_to_section_SUBSET_code_labels
 `∀p. EVERY sec_labels_ok (MAP prog_to_section p) ∧
@@ -3462,7 +3430,7 @@ val get_code_labels_comp = Q.prove(
 
 (* stack_names *)
 val get_code_labels_comp = Q.prove(
-  `!f p. stack_to_labProof$get_code_labels (comp f p) = stack_to_labProof$get_code_labels p`,
+  `!f p. get_code_labels (comp f p) = get_code_labels p`,
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs [get_code_labels_def]
   \\ every_case_tac \\ fs [] \\

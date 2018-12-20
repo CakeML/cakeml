@@ -59,6 +59,7 @@ val add_backend_compset = computeLib.extend_compset
     ,backend_commonTheory.data_num_stubs_def
     ,backend_commonTheory.bvl_num_stubs_def
     ,backend_commonTheory.bvl_to_bvi_namespaces_def
+    ,backend_commonTheory.small_enough_int_def
     ]
   ,computeLib.Tys
     [``:backend_common$tra``
@@ -365,8 +366,8 @@ val add_backend_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [dataLangTheory.mk_ticks_def
+    ,dataLangTheory.op_space_reset_def
       (* ---- bvi_to_data ---- *)
-    ,bvi_to_dataTheory.op_space_reset_def
     ,bvi_to_dataTheory.op_requires_names_eqn
     ,bvi_to_dataTheory.optimise_def
     ,bvi_to_dataTheory.compile_prog_def

@@ -18,6 +18,8 @@ Main lemmas:
 
 val _ = new_theory "wordProps";
 
+(* TODO: move *)
+
 Theorem mem_list_rearrange `
   ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls`
   (full_simp_tac(srw_ss())[MEM_EL]>>srw_tac[][wordSemTheory.list_rearrange_def]>>
@@ -43,6 +45,24 @@ Theorem PERM_list_rearrange
   \\ full_simp_tac(srw_ss())[ALL_DISTINCT_GENLIST] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[BIJ_DEF,INJ_DEF,SURJ_DEF]
   \\ full_simp_tac(srw_ss())[ALL_DISTINCT_EL]);
+
+Theorem PERM_ALL_DISTINCT_MAP
+  `!xs ys. PERM xs ys ==>
+            ALL_DISTINCT (MAP f xs) ==>
+            ALL_DISTINCT (MAP f ys) /\ !x. MEM x ys <=> MEM x xs`
+  (full_simp_tac(srw_ss())[MEM_PERM] \\ srw_tac[][]
+  \\ `PERM (MAP f xs) (MAP f ys)` by full_simp_tac(srw_ss())[PERM_MAP]
+  \\ metis_tac [ALL_DISTINCT_PERM])
+
+Theorem ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME
+  `!xs x y. ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==> ALOOKUP xs x = SOME y`
+  (Induct \\ full_simp_tac(srw_ss())[]
+  \\ Cases \\ full_simp_tac(srw_ss())[ALOOKUP_def] \\ srw_tac[][]
+  \\ res_tac \\ full_simp_tac(srw_ss())[MEM_MAP,FORALL_PROD]
+  \\ rev_full_simp_tac(srw_ss())[]) |> SPEC_ALL
+  |> curry save_thm "ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME";
+
+(* -- *)
 
 (* Clock lemmas *)
 
@@ -2665,22 +2685,6 @@ val extract_labels_def = Define`
     (extract_labels e2 ++ extract_labels e3)) ∧
   (extract_labels _ = [])`
 
-Theorem PERM_ALL_DISTINCT_MAP
-  `!xs ys. PERM xs ys ==>
-            ALL_DISTINCT (MAP f xs) ==>
-            ALL_DISTINCT (MAP f ys) /\ !x. MEM x ys <=> MEM x xs`
-  (full_simp_tac(srw_ss())[MEM_PERM] \\ srw_tac[][]
-  \\ `PERM (MAP f xs) (MAP f ys)` by full_simp_tac(srw_ss())[PERM_MAP]
-  \\ metis_tac [ALL_DISTINCT_PERM])
-
-Theorem ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME
-  `!xs x y. ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==> ALOOKUP xs x = SOME y`
-  (Induct \\ full_simp_tac(srw_ss())[]
-  \\ Cases \\ full_simp_tac(srw_ss())[ALOOKUP_def] \\ srw_tac[][]
-  \\ res_tac \\ full_simp_tac(srw_ss())[MEM_MAP,FORALL_PROD]
-  \\ rev_full_simp_tac(srw_ss())[]) |> SPEC_ALL
-  |> curry save_thm "ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME";
-
 Theorem env_to_list_lookup_equiv
   `env_to_list y f = (q,r) ==>
     (!n. ALOOKUP q n = lookup n y) /\
@@ -2735,5 +2739,38 @@ Theorem max_var_intro `
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>srw_tac[][]>>
     match_mp_tac list_max_intro>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def])
   >> (unabbrev_all_tac>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_imm_def]));
+
+val get_code_labels_def = Define`
+  (get_code_labels (Call r d a h) =
+    (case d of SOME x => {x} | _ => {}) ∪
+    (case r of SOME (_,_,x,_,_) => get_code_labels x | _ => {}) ∪
+    (case h of SOME (_,x,l1,l2) => get_code_labels x | _ => {})) ∧
+  (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
+  (get_code_labels (If _ _ _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
+  (get_code_labels (MustTerminate p) = get_code_labels p) ∧
+  (get_code_labels (LocValue _ l1) = {l1}) ∧
+  (get_code_labels _ = {})`;
+val _ = export_rewrites["get_code_labels_def"];
+
+(* TODO: This seems like it must have been established before
+  handler labels point only within the current table entry
+*)
+val good_handlers_def = Define`
+  (good_handlers n (Call r d a h) <=>
+    case r of
+      NONE => T
+    | SOME (_,_,x,_,_) => good_handlers n x ∧
+    (case h of SOME (_,x,l1,_) => l1 = n ∧ good_handlers n x | _ => T)) ∧
+  (good_handlers n (Seq p1 p2) <=> good_handlers n p1 ∧ good_handlers n p2) ∧
+  (good_handlers n (If _ _ _ p1 p2) <=> good_handlers n p1 ∧ good_handlers n p2) ∧
+  (good_handlers n (MustTerminate p) <=> good_handlers n p) ∧
+  (good_handlers n _ <=> T)`;
+val _ = export_rewrites["good_handlers_def"];
+
+val good_code_labels_def = Define`
+  good_code_labels p ⇔
+  EVERY (λ(n,m,pp). good_handlers n pp) p ∧
+  (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
+  (set (MAP FST p))`;
 
 val _ = export_theory();

@@ -21,7 +21,6 @@ all: $(TARGETS) $(HOLHEAP) cake-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
 
 BARE_THYS = ../../../translation/compiler$(WORD_SIZE)ProgTheory \
-						../../../../../semantics/semanticsComputeLib\
 						../../../../compilationLib\
 						../../../../backend/$(ARCH)/$(ARCH)_configTheory
 

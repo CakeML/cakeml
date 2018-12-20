@@ -288,4 +288,31 @@ Theorem evaluate_compile_exp
   \\ Cases_on `compile [] 0 [d]` \\ fs [LENGTH_NIL] \\ rw []
   \\ imp_res_tac compile_thm \\ rfs []);
 
+Theorem dest_var_code_labels[simp]
+  `∀x. get_code_labels (delete_var x) = get_code_labels x`
+  (recInduct bvi_letTheory.delete_var_ind
+  \\ rw[bvi_letTheory.delete_var_def]
+  \\ EVAL_TAC);
+
+Theorem compile_code_labels
+  `∀x y z. BIGUNION (set (MAP get_code_labels (bvi_let$compile x y z))) =
+           BIGUNION (set (MAP get_code_labels z)) `
+  (recInduct bvi_letTheory.compile_ind
+  \\ rw[bvi_letTheory.compile_def]
+  \\ TRY PURE_CASE_TAC \\ fs[]
+  \\ TRY PURE_CASE_TAC \\ fs[]
+  \\ fs[Once(GSYM bvi_letTheory.compile_HD_SING)]
+  \\ fsrw_tac[ETA_ss][MAP_MAP_o, o_DEF]
+  \\ drule APPEND_FRONT_LAST
+  \\ disch_then(fn th => CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM th])))
+  \\ simp[]);
+
+Theorem compile_exp_code_labels[simp]
+  `∀x. get_code_labels (bvi_let$compile_exp x) = get_code_labels x`
+  (rw[bvi_letTheory.compile_exp_def]
+  \\ simp[Once(GSYM bvi_letTheory.compile_HD_SING)]
+  \\ specl_args_of_then``bvi_let$compile``compile_code_labels mp_tac
+  \\ simp[]
+  \\ simp[Once(GSYM bvi_letTheory.compile_HD_SING)]);
+
 val _ = export_theory();
