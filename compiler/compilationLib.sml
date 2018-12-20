@@ -701,7 +701,9 @@ val arm8_export_defs = [
 
 val x64_export_defs = [
   export_x64Theory.x64_export_def,
-  export_x64Theory.ffi_asm_def];
+  export_x64Theory.ffi_asm_def,
+  export_x64Theory.windows_ffi_asm_def
+  ];
 
 val mips_export_defs = [
   export_mipsTheory.mips_export_def,
@@ -842,8 +844,7 @@ fun cbv_to_bytes
     val eval = computeLib.CBV_CONV cs;
 
     val bootstrap_thm =
-      stack_to_lab_thm
-      |> CONV_RULE(RAND_CONV(eval))
+      timez "lab_to_target" (CONV_RULE(RAND_CONV(eval))) stack_to_lab_thm
 
     val result = extract_compilation_result bootstrap_thm
     val code_def = mk_abbrev code_name (#code result)
@@ -855,6 +856,7 @@ fun cbv_to_bytes
 
     val out = TextIO.openOut filename
 
+    val () = Lib.say(pad_to 30 (" export: "))
     val () = time (
       eval_export word_directive target_export_defs heap_size stack_size code_def data_def ffi_names_tm) out
 

@@ -176,6 +176,7 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_
 (* x64 *)
 val res = translate x64_configTheory.x64_names_def;
 val res = translate export_x64Theory.ffi_asm_def;
+val res = translate export_x64Theory.windows_ffi_asm_def;
 val res = translate export_x64Theory.x64_export_def;
 val res = translate
   (x64_configTheory.x64_backend_config_def
