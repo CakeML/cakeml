@@ -622,7 +622,7 @@ val mod_defined_def = zDefine `
       p1 ≠ [] ∧ id_to_mods n = p1 ++ p2 ∧
       nsLookupMod env p1 = SOME e3`;
 
-Theorem mod_defined_nsLookup_Mod1
+Theorem mod_defined_nsLookup_Mod1[compute]
   `mod_defined env id = (case id of Short _ => F
         | Long mn _ => (case nsLookup_Mod1 env mn of NONE => F | _ => T))`
   (PURE_CASE_TAC \\ fs [id_to_mods_def, mod_defined_def]
@@ -647,7 +647,7 @@ Theorem nsLookup_write
    (nsLookup (write n v env).c a = nsLookup env.c a) /\
    (mod_defined (write n v env).v x = mod_defined env.v x) /\
    (mod_defined (write n v env).c x = mod_defined env.c x)`
-  (fs [write_def] \\ EVAL_TAC \\ rw []
+  (fs [write_def] \\ rw []
   \\ metis_tac[nsLookupMod_nsBind,mod_defined_def]);
 
 Theorem nsLookup_write_cons
@@ -658,7 +658,7 @@ Theorem nsLookup_write_cons
    (mod_defined (write_cons n d env).c x = mod_defined env.c x) /\
    (nsLookup (write_cons n d env).c (Long mn lname) =
     nsLookup env.c (Long mn lname))`
-  (fs [write_cons_def] \\ EVAL_TAC \\ rw [] \\
+  (fs [write_cons_def] \\ rw [] \\
   metis_tac[nsLookupMod_nsBind,mod_defined_def]);
 
 Theorem nsLookup_empty
@@ -724,7 +724,7 @@ Theorem nsLookup_write_mod
     Cases_on`p1'`>>fs[]>>
     metis_tac[]));
 
-Theorem nsLookup_merge_env[compute]
+Theorem nsLookup_merge_env
   `(nsLookup (merge_env e1 e2).v (Short n) =
       case nsLookup e1.v (Short n) of
       | NONE => nsLookup e2.v (Short n)

@@ -893,7 +893,8 @@ val prove_lookup_cons_eq_fail = ref T;
 fun prove_lookup_cons_eq tm =
   let
     val res = (* TODO: remove the SIMP_CONV and tidy up *)
-      tm |> (EVAL THENC nsLookup_conv THENC EVAL
+      tm |> (REWRITE_CONV [lookup_cons_def]
+             THENC TOP_DEPTH_CONV nsLookup_conv THENC EVAL
              THENC SIMP_CONV (srw_ss())
                [optionTheory.OPTION_CHOICE_EQ_NONE,empty_env_def]
              THENC EVAL THENC nsLookup_conv THENC EVAL)
