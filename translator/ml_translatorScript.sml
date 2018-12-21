@@ -2110,9 +2110,11 @@ Theorem Eval_Con_NONE
 
 (* terms used by the Lib file *)
 
+
+
 val translator_terms = save_thm("translator_terms",
   pack_list (pack_pair pack_string pack_term)
-    [("find_recfun",``find_recfun name (funs:('a,'b # 'c) alist)``),
+    [("find_recfun",``find_recfun name funs : ('a # 'b) option``),
      ("eq type",``EqualityType (a:'a->v->bool)``),
      ("lookup_cons",``lookup_cons s e = SOME x``),
      ("nsLookup",``nsLookup e s = SOME (x:v)``), (*TODO: Should this be e or e.v?*)
