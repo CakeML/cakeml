@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/src/pred_set/src/more_theories $(CAKEMLDIR)/misc
+INCLUDES = $(CAKEMLDIR)/misc
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
