@@ -1,7 +1,12 @@
+(*
+  Properties about labLang and its semantics
+*)
 open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
      semanticsPropsTheory;
 
 val _ = new_theory"labProps";
+
+val _ = Parse.hide"mem";
 
 val extract_labels_def = Define`
   (extract_labels [] = []) ∧
@@ -11,10 +16,10 @@ val _ = export_rewrites["extract_labels_def"];
 
 val extract_labels_ind = theorem"extract_labels_ind";
 
-val extract_labels_append = Q.store_thm("extract_labels_append",`
+Theorem extract_labels_append `
   ∀A B.
-  extract_labels (A++B) = extract_labels A ++ extract_labels B`,
-  Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]);
+  extract_labels (A++B) = extract_labels A ++ extract_labels B`
+  (Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]);
 
 val labs_of_def = Define`
   labs_of (LocValue _ (Lab n1 n2)) = {(n1,n2)} ∧
@@ -34,6 +39,10 @@ val sec_get_labels_def = Define`
 val get_labels_def = Define`
   get_labels code = BIGUNION (IMAGE sec_get_labels (set code))`;
 
+Theorem get_labels_cons
+  `get_labels (x::xs) = sec_get_labels x ∪ get_labels xs`
+  (rw[get_labels_def]);
+
 val line_get_code_labels_def = Define`
   line_get_code_labels (Label _ l _) = {l} ∧
   line_get_code_labels _ = {}`;
@@ -47,24 +56,24 @@ val sec_get_code_labels_def = Define`
 val get_code_labels_def = Define`
   get_code_labels code = BIGUNION (IMAGE sec_get_code_labels (set code))`;
 
-val get_code_labels_nil = Q.store_thm("get_code_labels_nil[simp]",
-  `get_code_labels [] = {}`, EVAL_TAC \\ rw[]);
+Theorem get_code_labels_nil[simp]
+  `get_code_labels [] = {}` (EVAL_TAC \\ rw[]);
 
-val get_code_labels_cons = Q.store_thm("get_code_labels_cons",
-  `get_code_labels (s::secs) = sec_get_code_labels s ∪ get_code_labels secs`,
-  rw[get_code_labels_def]);
+Theorem get_code_labels_cons
+  `get_code_labels (s::secs) = sec_get_code_labels s ∪ get_code_labels secs`
+  (rw[get_code_labels_def]);
 
 val sec_ends_with_label_def = Define`
   sec_ends_with_label (Section _ ls) ⇔
     ¬NULL ls ∧ is_Label (LAST ls)`;
 
-val reg_imm_with_clock = Q.store_thm("reg_imm_with_clock[simp]",
-  `reg_imm r (s with clock := z) = reg_imm r s`,
-  Cases_on`r`>>EVAL_TAC);
+Theorem reg_imm_with_clock[simp]
+  `reg_imm r (s with clock := z) = reg_imm r s`
+  (Cases_on`r`>>EVAL_TAC);
 
-val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
-  `asm_inst i (s with clock := z) = asm_inst i s with clock := z`,
-  Cases_on`i`>>EVAL_TAC
+Theorem asm_inst_with_clock[simp]
+  `asm_inst i (s with clock := z) = asm_inst i s with clock := z`
+  (Cases_on`i`>>EVAL_TAC
   >-
     (Cases_on`a`>>EVAL_TAC >>
     every_case_tac >> fs[] >>
@@ -80,19 +89,19 @@ val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
     every_case_tac>>fs[]>>
     EVAL_TAC>>fs[]);
 
-val read_reg_inc_pc = Q.store_thm("read_reg_inc_pc[simp]",
-  `read_reg r (inc_pc s) = read_reg r s`,
-  EVAL_TAC);
+Theorem read_reg_inc_pc[simp]
+  `read_reg r (inc_pc s) = read_reg r s`
+  (EVAL_TAC);
 
-val with_same_clock = Q.store_thm("with_same_clock[simp]",
-  `(s with clock := s.clock) = s`,
-  rw[state_component_equality]);
+Theorem with_same_clock[simp]
+  `(s with clock := s.clock) = s`
+  (rw[state_component_equality]);
 
-val inc_pc_dec_clock = Q.store_thm("inc_pc_dec_clock",
-  `inc_pc (dec_clock x) = dec_clock (inc_pc x)`,
-  EVAL_TAC);
+Theorem inc_pc_dec_clock
+  `inc_pc (dec_clock x) = dec_clock (inc_pc x)`
+  (EVAL_TAC);
 
-val update_simps = Q.store_thm("update_simps[simp]",
+Theorem update_simps[simp]
   `((labSem$upd_pc x s).ffi = s.ffi) /\
     ((labSem$dec_clock s).ffi = s.ffi) /\
     ((labSem$upd_pc x s).pc = x) /\
@@ -138,10 +147,10 @@ val update_simps = Q.store_thm("update_simps[simp]",
     ((labSem$inc_pc s).regs = s.regs) ∧
     ((labSem$inc_pc s).fp_regs = s.fp_regs) ∧
     ((labSem$inc_pc s).pc = s.pc + 1) ∧
-    ((labSem$inc_pc s).ffi = s.ffi)`,
-  EVAL_TAC);
+    ((labSem$inc_pc s).ffi = s.ffi)`
+  (EVAL_TAC);
 
-val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
+Theorem binop_upd_consts[simp]
   `(labSem$binop_upd a b c d x).mem_domain = x.mem_domain ∧
    (labSem$binop_upd a b c d x).ptr_reg = x.ptr_reg ∧
    (labSem$binop_upd a b c d x).ptr2_reg = x.ptr2_reg ∧
@@ -157,10 +166,10 @@ val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
    (labSem$binop_upd a b c d x).compile_oracle = x.compile_oracle ∧
    (labSem$binop_upd a b c d x).code_buffer = x.code_buffer ∧
    (labSem$binop_upd a b c d x).pc = x.pc ∧
-   (labSem$binop_upd a b c d x).ffi = x.ffi`,
-  Cases_on`b`>>EVAL_TAC);
+   (labSem$binop_upd a b c d x).ffi = x.ffi`
+  (Cases_on`b`>>EVAL_TAC);
 
-val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
+Theorem arith_upd_consts[simp]
   `(labSem$arith_upd a x).mem_domain = x.mem_domain ∧
    (labSem$arith_upd a x).ptr_reg = x.ptr_reg ∧
    (labSem$arith_upd a x).ptr2_reg = x.ptr2_reg ∧
@@ -176,11 +185,11 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
    (labSem$arith_upd a x).compile_oracle = x.compile_oracle ∧
    (labSem$arith_upd a x).code_buffer = x.code_buffer ∧
    (labSem$arith_upd a x).pc = x.pc ∧
-   (labSem$arith_upd a x).ffi = x.ffi`,
-  Cases_on`a` >> EVAL_TAC >>
+   (labSem$arith_upd a x).ffi = x.ffi`
+  (Cases_on`a` >> EVAL_TAC >>
   every_case_tac >> EVAL_TAC >> rw[]);
 
-val fp_upd_consts = Q.store_thm("fp_upd_consts[simp]",
+Theorem fp_upd_consts[simp]
   `(labSem$fp_upd f x).mem_domain = x.mem_domain ∧
    (labSem$fp_upd f x).ptr_reg = x.ptr_reg ∧
    (labSem$fp_upd f x).len_reg = x.len_reg ∧
@@ -196,8 +205,8 @@ val fp_upd_consts = Q.store_thm("fp_upd_consts[simp]",
    (labSem$fp_upd f x).mem = x.mem ∧
    (labSem$fp_upd f x).io_regs = x.io_regs ∧
    (labSem$fp_upd f x).pc = x.pc ∧
-   (labSem$fp_upd f x).ffi = x.ffi`,
-  Cases_on`f` >> EVAL_TAC >>
+   (labSem$fp_upd f x).ffi = x.ffi`
+  (Cases_on`f` >> EVAL_TAC >>
   every_case_tac >> EVAL_TAC >> rw[]);
 
 val line_length_def = Define `
@@ -205,17 +214,17 @@ val line_length_def = Define `
   (line_length (Asm b bytes l) = LENGTH bytes) /\
   (line_length (LabAsm a w bytes l) = LENGTH bytes)`
 
-val LENGTH_line_bytes = Q.store_thm("LENGTH_line_bytes[simp]",
-  `!x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)`,
-  Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []);
+Theorem LENGTH_line_bytes[simp]
+  `!x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)`
+  (Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []);
 
 val good_dimindex_def = Define `
   good_dimindex (:'a) <=> dimindex (:'a) = 32 \/ dimindex (:'a) = 64`;
 
-val get_byte_set_byte = Q.store_thm("get_byte_set_byte",
+Theorem get_byte_set_byte
   `good_dimindex (:'a) ==>
-    (get_byte a (set_byte (a:'a word) b w be) be = b)`,
-  fs [get_byte_def,set_byte_def,LET_DEF]
+    (get_byte a (set_byte (a:'a word) b w be) be = b)`
+  (fs [get_byte_def,set_byte_def,LET_DEF]
   \\ fs [fcpTheory.CART_EQ,w2w,good_dimindex_def] \\ rpt strip_tac
   \\ `i < dimindex (:'a)` by decide_tac
   \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsr_def,word_lsl_def]
@@ -260,10 +269,10 @@ val DIV_EQ_DIV_IMP = Q.prove(
   \\ rpt strip_tac \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ fs []);
 
-val get_byte_set_byte_diff = Q.store_thm("get_byte_set_byte_diff",
+Theorem get_byte_set_byte_diff
   `good_dimindex (:'a) /\ a <> a' /\ (byte_align a = byte_align a') ==>
-    (get_byte a (set_byte (a':'a word) b w be) be = get_byte a w be)`,
-  fs [get_byte_def,set_byte_def,LET_DEF] \\ rpt strip_tac
+    (get_byte a (set_byte (a':'a word) b w be) be = get_byte a w be)`
+  (fs [get_byte_def,set_byte_def,LET_DEF] \\ rpt strip_tac
   \\ `byte_index a be <> byte_index a' be` by
    (fs [good_dimindex_def]
     THENL
@@ -312,9 +321,9 @@ val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms
   [``:'a line``,``:'a option``,``:'a asm_with_lab``,``:'a asm_or_cbw``,``:'a asm``,
    ``:'a word_loc``,``:'a list``,``:'a sec``,``:'a ffi_result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
 
-val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
-  `∀s1 r s2. evaluate s1 = (r,s2) ⇒ s1.ffi.io_events ≼ s2.ffi.io_events`,
-  ho_match_mp_tac evaluate_ind >> rw[] >>
+Theorem evaluate_io_events_mono
+  `∀s1 r s2. evaluate s1 = (r,s2) ⇒ s1.ffi.io_events ≼ s2.ffi.io_events`
+  (ho_match_mp_tac evaluate_ind >> rw[] >>
   Cases_on`s1.clock=0`>-fs[Once evaluate_def]>>fs[]>>
   qhdtm_x_assum`evaluate`mp_tac >>
   simp[Once evaluate_def] >>
@@ -334,11 +343,11 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   \\ first_x_assum match_mp_tac
   \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs []);
 
-val evaluate_ADD_clock = Q.store_thm("evaluate_ADD_clock",
+Theorem evaluate_ADD_clock
   `!s res r k.
       evaluate s = (res,r) /\ res <> TimeOut ==>
-      evaluate (s with clock := s.clock + k) = (res,r with clock := r.clock + k)`,
-  ho_match_mp_tac evaluate_ind >> rw[] >>
+      evaluate (s with clock := s.clock + k) = (res,r with clock := r.clock + k)`
+  (ho_match_mp_tac evaluate_ind >> rw[] >>
   qhdtm_x_assum`evaluate`mp_tac >>
   simp[Once evaluate_def] >>
   IF_CASES_TAC >> fs[] >> strip_tac >>
@@ -349,11 +358,11 @@ val evaluate_ADD_clock = Q.store_thm("evaluate_ADD_clock",
   TRY pairarg_tac >> fs[case_eq_thms] >> rw[]>>
   first_x_assum(qspec_then`k`mp_tac)>>simp[]);
 
-val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
+Theorem evaluate_add_clock_io_events_mono
   `∀s.
    (SND(evaluate s)).ffi.io_events ≼
-   (SND(evaluate (s with clock := s.clock + extra))).ffi.io_events`,
-  ho_match_mp_tac evaluate_ind >>
+   (SND(evaluate (s with clock := s.clock + extra))).ffi.io_events`
+  (ho_match_mp_tac evaluate_ind >>
   rpt gen_tac >> strip_tac >>
   CONV_TAC(DEPTH_CONV(REWR_CONV evaluate_def)) >>
   simp[] >>
@@ -393,7 +402,7 @@ val align_dm_def = Define `
   align_dm (s:('a,'c,'ffi) labSem$state) =
     (s with mem_domain := s.mem_domain INTER byte_aligned)`
 
-val align_dm_const = Q.store_thm("align_dm_const[simp]",
+Theorem align_dm_const[simp]
   `(align_dm s).clock = s.clock ∧
    (align_dm s).pc = s.pc ∧
    (align_dm s).code = s.code ∧
@@ -409,59 +418,59 @@ val align_dm_const = Q.store_thm("align_dm_const[simp]",
    (align_dm s).compile = s.compile ∧
    (align_dm s).compile_oracle = s.compile_oracle ∧
    (align_dm s).ffi = s.ffi ∧
-   (align_dm s).failed = s.failed`,
-  EVAL_TAC);
+   (align_dm s).failed = s.failed`
+  (EVAL_TAC);
 
-val align_dm_with_clock = Q.store_thm("align_dm_with_clock",
-  `align_dm (s with clock := k) = align_dm s with clock := k`,
-  EVAL_TAC);
+Theorem align_dm_with_clock
+  `align_dm (s with clock := k) = align_dm s with clock := k`
+  (EVAL_TAC);
 
-val asm_fetch_align_dm = Q.store_thm("asm_fetch_align_dm[simp]",
-  `asm_fetch (align_dm s) = asm_fetch s`,
-  rw[asm_fetch_def]);
+Theorem asm_fetch_align_dm[simp]
+  `asm_fetch (align_dm s) = asm_fetch s`
+  (rw[asm_fetch_def]);
 
-val read_reg_align_dm = Q.store_thm("read_reg_align_dm[simp]",
-  `read_reg n (align_dm s) = read_reg n s`,
-  EVAL_TAC);
+Theorem read_reg_align_dm[simp]
+  `read_reg n (align_dm s) = read_reg n s`
+  (EVAL_TAC);
 
-val upd_reg_align_dm = Q.store_thm("upd_reg_align_dm[simp]",
-  `upd_reg x y (align_dm s) = align_dm (upd_reg x y s)`,
-  EVAL_TAC);
+Theorem upd_reg_align_dm[simp]
+  `upd_reg x y (align_dm s) = align_dm (upd_reg x y s)`
+  (EVAL_TAC);
 
-val upd_mem_align_dm = Q.store_thm("upd_mem_align_dm[simp]",
-  `upd_mem x y (align_dm s) = align_dm (upd_mem x y s)`,
-  EVAL_TAC);
+Theorem upd_mem_align_dm[simp]
+  `upd_mem x y (align_dm s) = align_dm (upd_mem x y s)`
+  (EVAL_TAC);
 
-val binop_upd_align_dm = Q.store_thm("binop_upd_align_dm[simp]",
-  `binop_upd x y z w (align_dm s) = align_dm (binop_upd x y z w s)`,
-  Cases_on`y` \\ simp[binop_upd_def]);
+Theorem binop_upd_align_dm[simp]
+  `binop_upd x y z w (align_dm s) = align_dm (binop_upd x y z w s)`
+  (Cases_on`y` \\ simp[binop_upd_def]);
 
-val reg_imm_align_dm = Q.store_thm("reg_imm_align_dm[simp]",
-  `reg_imm r (align_dm s) = reg_imm r s`,
-  Cases_on`r` \\ EVAL_TAC);
+Theorem reg_imm_align_dm[simp]
+  `reg_imm r (align_dm s) = reg_imm r s`
+  (Cases_on`r` \\ EVAL_TAC);
 
-val assert_align_dm = Q.store_thm("assert_align_dm[simp]",
-  `assert b (align_dm s) = align_dm (assert b s)`,
-  EVAL_TAC);
+Theorem assert_align_dm[simp]
+  `assert b (align_dm s) = align_dm (assert b s)`
+  (EVAL_TAC);
 
-val arith_upd_align_dm = Q.store_thm("arith_upd_align_dm[simp]",
-  `arith_upd x (align_dm s) = align_dm (arith_upd x s)`,
-  Cases_on`x` \\ rw[arith_upd_def]
+Theorem arith_upd_align_dm[simp]
+  `arith_upd x (align_dm s) = align_dm (arith_upd x s)`
+  (Cases_on`x` \\ rw[arith_upd_def]
   \\ every_case_tac \\ fs[]);
 
-val fp_upd_align_dm = Q.store_thm("fp_upd_align_dm[simp]",
-  `fp_upd f (align_dm s) = align_dm (fp_upd f s)`,
-  Cases_on`f` \\ EVAL_TAC
+Theorem fp_upd_align_dm[simp]
+  `fp_upd f (align_dm s) = align_dm (fp_upd f s)`
+  (Cases_on`f` \\ EVAL_TAC
   \\ every_case_tac \\ fs[] \\ EVAL_TAC \\fs[]);
 
-val addr_align_dm = Q.store_thm("addr_align_dm[simp]",
-  `addr a (align_dm s) = addr a s`,
-  Cases_on`a` \\ EVAL_TAC);
+Theorem addr_align_dm[simp]
+  `addr a (align_dm s) = addr a s`
+  (Cases_on`a` \\ EVAL_TAC);
 
-val mem_load_align_dm = Q.store_thm("mem_load_align_dm",
+Theorem mem_load_align_dm
   `good_dimindex (:α) ⇒
-   mem_load n (a:α addr) (align_dm s) = align_dm (mem_load n a s)`,
-  strip_tac
+   mem_load n (a:α addr) (align_dm s) = align_dm (mem_load n a s)`
+  (strip_tac
   \\ simp[mem_load_def]
   \\ every_case_tac \\ fs[]
   \\ AP_TERM_TAC
@@ -491,20 +500,20 @@ val mem_load_align_dm = Q.store_thm("mem_load_align_dm",
     \\ match_mp_tac LESS_MOD
     \\ metis_tac[Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0]));
 
-val mem_load_byte_aux_align_dm = Q.store_thm("mem_load_byte_aux_align_dm",
+Theorem mem_load_byte_aux_align_dm
   `mem_load_byte_aux s.mem s.mem_domain be x = SOME y ⇒
-   mem_load_byte_aux s.mem (align_dm s).mem_domain be x = SOME y`,
-  rw[mem_load_byte_aux_def]
+   mem_load_byte_aux s.mem (align_dm s).mem_domain be x = SOME y`
+  (rw[mem_load_byte_aux_def]
   \\ every_case_tac \\ fs[]
   \\ fs[align_dm_def]
   \\ last_x_assum mp_tac \\ simp[]
   \\ fs[IN_DEF,alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
   \\ fs[alignmentTheory.aligned_align]);
 
-val mem_load_byte_align_dm = Q.store_thm("mem_load_byte_align_dm",
+Theorem mem_load_byte_align_dm
   `good_dimindex (:α) ⇒
-   mem_load_byte n (a:α addr) (align_dm s) = align_dm (mem_load_byte n a s)`,
-  strip_tac
+   mem_load_byte n (a:α addr) (align_dm s) = align_dm (mem_load_byte n a s)`
+  (strip_tac
   \\ simp[mem_load_byte_def]
   \\ every_case_tac \\ fs[]
   \\ imp_res_tac mem_load_byte_aux_align_dm
@@ -513,10 +522,10 @@ val mem_load_byte_align_dm = Q.store_thm("mem_load_byte_align_dm",
   \\ fs[align_dm_def]
   \\ every_case_tac \\ fs[]);
 
-val mem_store_align_dm = Q.store_thm("mem_store_align_dm",
+Theorem mem_store_align_dm
   `good_dimindex (:α) ⇒
-   mem_store n (a:α addr) (align_dm s) = align_dm (mem_store n a s)`,
-  strip_tac
+   mem_store n (a:α addr) (align_dm s) = align_dm (mem_store n a s)`
+  (strip_tac
   \\ simp[mem_store_def]
   \\ every_case_tac \\ fs[]
   \\ AP_TERM_TAC
@@ -546,20 +555,20 @@ val mem_store_align_dm = Q.store_thm("mem_store_align_dm",
     \\ match_mp_tac LESS_MOD
     \\ metis_tac[Q.SPECL[`8`,`n`](MP_CANON DIVISION) |> SIMP_RULE(srw_ss())[],ADD_0]));
 
-val mem_store_byte_aux_align_dm = Q.store_thm("mem_store_byte_aux_align_dm",
+Theorem mem_store_byte_aux_align_dm
   `mem_store_byte_aux mem s.mem_domain be x c = SOME y ⇒
-   mem_store_byte_aux mem (align_dm s).mem_domain be x c = SOME y`,
-  rw[mem_store_byte_aux_def]
+   mem_store_byte_aux mem (align_dm s).mem_domain be x c = SOME y`
+  (rw[mem_store_byte_aux_def]
   \\ every_case_tac \\ fs[]
   \\ fs[align_dm_def]
   \\ last_x_assum mp_tac \\ simp[]
   \\ fs[IN_DEF,alignmentTheory.byte_aligned_def,alignmentTheory.byte_align_def]
   \\ fs[alignmentTheory.aligned_align]);
 
-val mem_store_byte_align_dm = Q.store_thm("mem_store_byte_align_dm",
+Theorem mem_store_byte_align_dm
   `good_dimindex (:α) ⇒
-   mem_store_byte n (a:α addr) (align_dm s) = align_dm (mem_store_byte n a s)`,
-  strip_tac
+   mem_store_byte n (a:α addr) (align_dm s) = align_dm (mem_store_byte n a s)`
+  (strip_tac
   \\ simp[mem_store_byte_def]
   \\ every_case_tac \\ fs[]
   \\ imp_res_tac mem_store_byte_aux_align_dm
@@ -568,44 +577,44 @@ val mem_store_byte_align_dm = Q.store_thm("mem_store_byte_align_dm",
   \\ fs[align_dm_def]
   \\ every_case_tac \\ fs[]);
 
-val mem_op_align_dm = Q.store_thm("mem_op_align_dm",
+Theorem mem_op_align_dm
   `good_dimindex (:α) ⇒
-   mem_op m n (a:α addr) (align_dm s) = align_dm (mem_op m n a s)`,
-  Cases_on`m`
+   mem_op m n (a:α addr) (align_dm s) = align_dm (mem_op m n a s)`
+  (Cases_on`m`
   \\ simp[mem_op_def,
           mem_load_align_dm,mem_load_byte_align_dm,
           mem_store_align_dm,mem_store_byte_align_dm]);
 
-val asm_inst_align_dm = Q.store_thm("asm_inst_align_dm",
+Theorem asm_inst_align_dm
   `good_dimindex (:α) ⇒
-   asm_inst (i:α inst) (align_dm s) = align_dm (asm_inst i s)`,
-  Cases_on`i` \\ simp[asm_inst_def,mem_op_align_dm]);
+   asm_inst (i:α inst) (align_dm s) = align_dm (asm_inst i s)`
+  (Cases_on`i` \\ simp[asm_inst_def,mem_op_align_dm]);
 
-val dec_clock_align_dm = Q.store_thm("dec_clock_align_dm[simp]",
-  `dec_clock (align_dm s) = align_dm (dec_clock s)`,
-  EVAL_TAC);
+Theorem dec_clock_align_dm[simp]
+  `dec_clock (align_dm s) = align_dm (dec_clock s)`
+  (EVAL_TAC);
 
-val inc_pc_align_dm = Q.store_thm("inc_pc_align_dm[simp]",
-  `inc_pc (align_dm s) = align_dm (inc_pc s)`,
-  EVAL_TAC);
+Theorem inc_pc_align_dm[simp]
+  `inc_pc (align_dm s) = align_dm (inc_pc s)`
+  (EVAL_TAC);
 
-val upd_pc_align_dm = Q.store_thm("upd_pc_align_dm[simp]",
-  `upd_pc p (align_dm s) = align_dm (upd_pc p s)`,
-  EVAL_TAC);
+Theorem upd_pc_align_dm[simp]
+  `upd_pc p (align_dm s) = align_dm (upd_pc p s)`
+  (EVAL_TAC);
 
-val get_pc_value_align_dm = Q.store_thm("get_pc_value_align_dm[simp]",
-  `get_pc_value x (align_dm s) = get_pc_value x s`,
-  EVAL_TAC \\ every_case_tac);
+Theorem get_pc_value_align_dm[simp]
+  `get_pc_value x (align_dm s) = get_pc_value x s`
+  (EVAL_TAC \\ every_case_tac);
 
-val get_ret_Loc_align_dm = Q.store_thm("get_ret_Loc_align_dm[simp]",
-  `get_ret_Loc (align_dm s) = get_ret_Loc s`,
-  EVAL_TAC);
+Theorem get_ret_Loc_align_dm[simp]
+  `get_ret_Loc (align_dm s) = get_ret_Loc s`
+  (EVAL_TAC);
 
-val read_bytearray_mem_load_byte_aux_align_dm = Q.store_thm("read_bytearray_mem_load_byte_aux_align_dm[simp]",
+Theorem read_bytearray_mem_load_byte_aux_align_dm[simp]
   `∀y x.
     read_bytearray x y (mem_load_byte_aux s.mem (align_dm s).mem_domain s.be) =
-   read_bytearray x y (mem_load_byte_aux s.mem s.mem_domain s.be)`,
-  Induct \\ rw[read_bytearray_def]
+   read_bytearray x y (mem_load_byte_aux s.mem s.mem_domain s.be)`
+  (Induct \\ rw[read_bytearray_def]
   \\ match_mp_tac EQ_SYM
   \\ BasicProvers.TOP_CASE_TAC
   >- (
@@ -615,10 +624,10 @@ val read_bytearray_mem_load_byte_aux_align_dm = Q.store_thm("read_bytearray_mem_
   \\ imp_res_tac mem_load_byte_aux_align_dm
   \\ simp[]);
 
-val write_bytearray_align_dm = Q.store_thm("write_bytearray_align_dm[simp]",
+Theorem write_bytearray_align_dm[simp]
   `∀y x. write_bytearray x y s.mem (align_dm s).mem_domain s.be =
-   write_bytearray x y s.mem s.mem_domain s.be`,
-  Induct \\ rw[write_bytearray_def]
+   write_bytearray x y s.mem s.mem_domain s.be`
+  (Induct \\ rw[write_bytearray_def]
   \\ match_mp_tac EQ_SYM
   \\ BasicProvers.TOP_CASE_TAC
   >- (
@@ -629,12 +638,12 @@ val write_bytearray_align_dm = Q.store_thm("write_bytearray_align_dm[simp]",
     \\ simp[align_dm_def] )
   \\ imp_res_tac mem_store_byte_aux_align_dm \\ fs[]);
 
-val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
+Theorem evaluate_align_dm
   `good_dimindex(:α) ⇒
    ∀(s:(α,'c,'ffi) labSem$state).
       evaluate (align_dm s) =
-      let (r,s') = evaluate s in (r, align_dm s')`,
-  strip_tac
+      let (r,s') = evaluate s in (r, align_dm s')`
+  (strip_tac
   \\ ho_match_mp_tac evaluate_ind
   \\ rpt strip_tac
   \\ simp[Once evaluate_def]
@@ -658,10 +667,10 @@ val evaluate_align_dm = Q.store_thm("evaluate_align_dm",
   \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def,case_eq_thms]
   \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[]);
 
-val implements_align_dm = Q.store_thm("implements_align_dm",
+Theorem implements_align_dm
   `good_dimindex(:α) ⇒
-   implements {semantics (s:(α,'c,'ffi) labSem$state)} {semantics (align_dm s)}`,
-  strip_tac
+   implements {semantics (s:(α,'c,'ffi) labSem$state)} {semantics (align_dm s)}`
+  (strip_tac
   \\ irule implements_intro
   \\ qexists_tac`T` \\ simp[]
   \\ simp[semantics_def,GSYM align_dm_with_clock]
@@ -697,28 +706,35 @@ val sec_labels_ok_def = Define`
   sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls`;
 val _ = export_rewrites["sec_labels_ok_def"];
 
-val sec_label_ok_extract_labels = Q.store_thm("sec_label_ok_extract_labels",
+Theorem sec_label_ok_extract_labels
   `EVERY (sec_label_ok n1) lines ∧
    MEM (n1',n2) (extract_labels lines) ⇒
-   n1' = n1 ∧ n2 ≠ 0`,
-  Induct_on`lines` \\ simp[]
+   n1' = n1 ∧ n2 ≠ 0`
+  (Induct_on`lines` \\ simp[]
   \\ Cases \\ rw[] \\ fs[]);
 
-val line_get_code_labels_extract_labels = Q.store_thm("line_get_code_labels_extract_labels",
+Theorem EVERY_sec_label_ok
+  `EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels l) (*∧
+    ALL_DISTINCT (extract_labels l) *)⇔
+    EVERY (sec_label_ok n) l`
+  (Induct_on`l`>>simp[extract_labels_def]>>
+  Cases>>simp[extract_labels_def]);
+
+Theorem line_get_code_labels_extract_labels
   `∀l.
    BIGUNION (IMAGE line_get_code_labels (set l)) =
-   IMAGE SND (set (extract_labels l))`,
-  recInduct extract_labels_ind
+   IMAGE SND (set (extract_labels l))`
+  (recInduct extract_labels_ind
   \\ rw[extract_labels_def]
   \\ rw[EXTENSION]);
 
-val get_code_labels_extract_labels = Q.store_thm("get_code_labels_extract_labels",
+Theorem get_code_labels_extract_labels
   `∀code.
    EVERY sec_labels_ok code ⇒
    get_code_labels code =
    IMAGE (λs. (Section_num s, 0)) (set code) ∪
-   set (FLAT (MAP (extract_labels o Section_lines) code))`,
-  Induct \\ simp[get_code_labels_cons] \\ Cases
+   set (FLAT (MAP (extract_labels o Section_lines) code))`
+  (Induct \\ simp[get_code_labels_cons] \\ Cases
   \\ rw[sec_get_code_labels_def, LIST_TO_SET_FLAT]
   \\ rw[line_get_code_labels_extract_labels]
   \\ rw[UNION_ASSOC]

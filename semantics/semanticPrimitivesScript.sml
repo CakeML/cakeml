@@ -8,6 +8,10 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "semanticPrimitives"
 
+(*
+  Definitions of semantic primitives (e.g., values, and functions for doing
+  primitive operations) used in the semantics.
+*)
 (*open import Pervasives*)
 (*open import Lib*)
 (*import List_extra*)
@@ -280,7 +284,10 @@ val _ = Define `
       SOME (l,stamp) =>
         if same_type stamp stamp' /\ (LENGTH ps = l) then
           if same_ctor stamp stamp' then
-            pmatch_list envC s ps vs env
+            if LENGTH vs = l then
+              pmatch_list envC s ps vs env
+            else
+              Match_type_error
           else
             No_match
         else

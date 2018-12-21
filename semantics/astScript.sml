@@ -9,6 +9,9 @@ val _ = numLib.prefer_num();
 val _ = new_theory "ast"
 val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
 
+(*
+  Definition of CakeML abstract syntax (AST).
+*)
 (*open import Pervasives*)
 (*open import Lib*)
 (*open import Namespace*)
@@ -202,7 +205,10 @@ val _ = Hol_datatype `
   | Dtabbrev of locs => tvarN list => typeN => ast_t
   (* New exceptions *)
   | Dexn of locs => conN => ast_t list
-  | Dmod of modN => dec list`;
+  (* Module *)
+  | Dmod of modN => dec list
+  (* Local: local part, visible part *)
+  | Dlocal of dec list => dec list`;
 
 
 (*

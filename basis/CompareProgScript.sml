@@ -1,3 +1,6 @@
+(*
+  Module with various comparison functions.
+*)
 open preamble
   ml_translatorLib ml_translatorTheory ml_progLib
   ArrayProgTheory basisFunctionsLib comparisonTheory;

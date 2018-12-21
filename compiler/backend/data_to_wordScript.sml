@@ -1,6 +1,13 @@
+(*
+  This compiler phase removes the functional-programming-style data
+  abstraction of dataLang and lands in wordLang where all values are
+  machine words and memory is a flat finite mapping from machine
+  addresses to machine words. This phase introduces the garbage
+  collector and bignum library, among other things.
+*)
 open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory
      word_bignumTheory;
-local open bvl_to_bviTheory backend_commonTheory in end
+local open backend_commonTheory in end
 
 val _ = new_theory "data_to_word";
 
@@ -981,63 +988,96 @@ val fp_uop_inst_def = Define `
   fp_uop_inst FP_Abs = FPAbs 1 0 /\
   fp_uop_inst FP_Sqrt = FPSqrt 1 0`
 
-local val assign_quotation = `
-  assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
-    (args:num list) (names:num_set option) =
-    dtcase op of
-    | Const i =>
+val arg1_def = Define `
+  arg1 vs f x = dtcase vs of | [v1] => f v1 | _ => x`;
+
+val arg2_def = Define `
+  arg2 vs f x = dtcase vs of | [v1;v2] => f v1 v2 | _ => x`;
+
+val arg3_def = Define `
+  arg3 vs f x = dtcase vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x`;
+
+val arg4_def = Define `
+  arg4 vs f x = dtcase vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x`;
+
+Theorem arg2_pmatch
+  `arg2 vs f x = case vs of | [v1;v2] => f v1 v2 | _ => x`
+  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg2_def]);
+
+Theorem arg3_pmatch
+  `arg3 vs f x = case vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x`
+  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg3_def]);
+
+Theorem arg4_pmatch
+  `arg4 vs f x = case vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x`
+  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg4_def]);
+
+val assign_defs = ref ([]:thm list);
+fun assign_Define q = let
+  val thm = Define q
+  val _ = (assign_defs := thm :: (!assign_defs))
+  in thm end;
+
+val def = assign_Define `
+  assign_Const i (l:num) (dest:num) =
         (* bvl_to_bvi compilation ensures that all literal
            constants fit into a machine word *)
         if i < 0
         then (Assign (adjust_var dest) (Const (0w - n2w (Num (4 * (0 - i))))),l)
         else (Assign (adjust_var dest) (Const (n2w (Num (4 * i)))),l)
-    | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
-    | SetGlobalsPtr =>
-      if args = []
-      then (Skip,l)
-      else (Seq (Set Globals (Var (adjust_var (HD args))))
-                            (Assign (adjust_var dest) Unit),l)
-    | Global _ => (Skip,l)
-    | SetGlobal _ => (Skip,l)
-    | AllocGlobal => (Skip,l)
-    | El => (dtcase args of
-             | [v1;v2] => (Assign (adjust_var dest)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_SetGlobalsPtr (l:num) (dest:num) v1 =
+      (Seq (Set Globals (Var (adjust_var v1)))
+           (Assign (adjust_var dest) Unit),l)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_El (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
+                         (Assign (adjust_var dest)
                             (Load (Op Add [real_addr c (adjust_var v1);
                                            real_offset c (adjust_var v2)])),l)
-             | _ => (Skip,l))
-    | Deref => (dtcase args of
-             | [v1;v2] => (Assign (adjust_var dest)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Deref (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
+                         (Assign (adjust_var dest)
                             (Load (Op Add [real_addr c (adjust_var v1);
                                            real_offset c (adjust_var v2)])),l)
-             | _ => (Skip,l))
-    | DerefByte =>
-      (dtcase args of
-       | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_DerefByte (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
          (list_Seq [
             Assign 1 (Op Add [real_addr c (adjust_var v1);
                               real_byte_offset (adjust_var v2)]);
             Inst (Mem Load8 3 (Addr 1 0w));
             Assign (adjust_var dest) (Shift Lsl (Var 3) 2)
           ], l)
-       | _ => (Skip,l))
-    | Update => (dtcase args of
-             | [v1;v2;v3] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Update (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
                  (Seq (Store (Op Add [real_addr c (adjust_var v1);
                                       real_offset c (adjust_var v2)])
                              (adjust_var v3))
                       (Assign (adjust_var dest) Unit),l)
-             | _ => (Skip,l))
-    | UpdateByte => (dtcase args of
-      | [v1;v2;v3] => (list_Seq [
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_UpdateByte (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
+      (list_Seq [
           Assign 1 (Op Add [real_addr c (adjust_var v1);
                             real_byte_offset (adjust_var v2)]);
           Assign 3 (Shift Lsr (Var (adjust_var v3)) 2);
           Inst (Mem Store8 3 (Addr 1 0w));
           Assign (adjust_var dest) Unit], l)
-      | _ => (Skip,l))
-    | ListAppend =>
-      (dtcase args of
-       | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_ListAppend (c:data_to_word$config)
+            (secn:num) (l:num) (dest:num) (names:num_set option) v1 v2 =
          (dtcase encode_header c 0 2 of
           | NONE => (GiveUp,l)
           | SOME (header:'a word) =>
@@ -1045,8 +1085,11 @@ local val assign_quotation = `
              (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                 (SOME Append_location)
                    [adjust_var v2; adjust_var v1] NONE) :'a wordLang$prog,l+1))
-       | _ => (Skip,l))
-    | Cons tag => if LENGTH args = 0 then
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Cons (c:data_to_word$config) (l:num) (dest:num) tag args =
+                  if LENGTH args = 0 then
                     if tag < dimword (:'a) DIV 16 then
                       (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)
                     else (GiveUp,l) (* tag is too big to be represented *)
@@ -1065,16 +1108,21 @@ local val assign_quotation = `
                                               (ptr_bits c tag (LENGTH args)))]);
                          Set NextFree (Op Add [Var 1;
                            Const (bytes_in_word * n2w (LENGTH args + 1))])],l))
-    | ConfigGC =>
-        (dtcase args of
-         | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_ConfigGC (c:data_to_word$config)
+            (secn:num) (l:num) (dest:num) (names:num_set option) v1 v2 =
              (list_Seq [SilentFFI c 3 (adjust_set (get_names names));
                         Assign 1 (Const 0w);
                         Alloc 1 (adjust_set (get_names names)); (* runs GC *)
                         SilentFFI c 3 (adjust_set (get_names names));
                         Assign (adjust_var dest) (Const 2w)],l)
-         | _ => (Skip,l))
-    | ConsExtend tag =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_ConsExtend (c:data_to_word$config)
+            (secn:num) (l:num) (dest:num) (names:num_set option) tag args =
         (dtcase args of
          | (old::start::len::tot::rest) =>
           (dtcase encode_header c (4 * tag) 0 of
@@ -1107,7 +1155,12 @@ local val assign_quotation = `
                              Skip,secn,l))
                           (SOME MemCopy_location) [15;11;13;3] NONE)])]),l+1)
          | _ => (Skip,l))
-    | Ref => (dtcase encode_header c 2 (LENGTH args) of
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Ref (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) args =
+          (dtcase encode_header c 2 (LENGTH args) of
               | NONE => (GiveUp,l)
               | SOME (header:'a word) => (list_Seq
                  [Set TriggerGC (Op Sub [Lookup TriggerGC;
@@ -1121,17 +1174,22 @@ local val assign_quotation = `
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (shift_length c − shift (:'a));
                             Const 1w])],l))
-    | RefByte immutable =>
-      (dtcase args of
-       | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_RefByte (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) immutable v1 v2 =
          (Seq
            (Assign 1 (Const (if immutable then 0w else 16w))) (* n.b. this would have been better done with Set Temp *)
            (MustTerminate
              (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                 (SOME RefByte_location)
                    [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog),l+1)
-       | _ => (Skip,l))
-    | CopyByte alloc_new =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_CopyByte (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) args =
       (dtcase args of
        | [v1;v2;v3;v4;v5] (* alloc_new is F *) =>
            (MustTerminate
@@ -1146,34 +1204,39 @@ local val assign_quotation = `
                    [adjust_var v1; adjust_var v2;
                     adjust_var v3] NONE) :'a wordLang$prog,l+1)
        | _ => (Skip,l))
-    | RefArray =>
-      (dtcase args of
-       | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_RefArray (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
          (MustTerminate
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME RefArray_location)
                   [adjust_var v1; adjust_var v2] NONE) :'a wordLang$prog,l+1)
-       | _ => (Skip,l))
-    | FromList tag =>
-      (if encode_header c (4 * tag) 0 = (NONE:'a word option) then (GiveUp,l) else
-       dtcase args of
-       | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_FromList (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) tag v1 v2 =
+       if encode_header c (4 * tag) 0 = (NONE:'a word option) then (GiveUp,l) else
          (MustTerminate (list_Seq [
             Assign 1 (Const (n2w (16 * tag)));
             (Call (SOME (adjust_var dest,adjust_set (get_names names),Skip,secn,l))
                (SOME FromList_location)
                   [adjust_var v1; adjust_var v2; 1] NONE) :'a wordLang$prog]),l+1)
-       | _ => (Skip,l))
-    | Label n => (LocValue (adjust_var dest) n,l)
-    | LessConstSmall i =>
-       (dtcase args of
-        | [v1] => (If Less (adjust_var v1) (Imm (n2w (4 * i)))
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_LessConstSmall (l:num) (dest:num) i v1 =
+                 (If Less (adjust_var v1) (Imm (n2w (4 * i)))
                     (Assign (adjust_var dest) TRUE_CONST)
                     (Assign (adjust_var dest) FALSE_CONST),l)
-        | _ => (Skip,l))
-    | BoundsCheckByte leq =>
-     (dtcase args of
-      | [v1;v2] => (list_Seq [Assign 1
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_BoundsCheckByte (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) leq v1 v2 =
+                   (list_Seq [Assign 1
                                (let addr = real_addr c (adjust_var v1) in
                                 let header = Load addr in
                                 let extra = (if dimindex (:'a) = 32 then 2 else 3) in
@@ -1185,10 +1248,12 @@ local val assign_quotation = `
                                            If Lower 3 (Reg 1))
                                  (Assign (adjust_var dest) TRUE_CONST)
                                  (Assign (adjust_var dest) FALSE_CONST)],l)
-      | _ => (Skip,l))
-    | BoundsCheckArray =>
-      (dtcase args of
-      | [v1;v2] => (list_Seq [Assign 1
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_BoundsCheckArray (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+                   (list_Seq [Assign 1
                                (let addr = real_addr c (adjust_var v1) in
                                 let header = Load addr in
                                 let k = dimindex (:'a) - c.len_size in
@@ -1197,10 +1262,12 @@ local val assign_quotation = `
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
-      | _ => (Skip,l))
-    | BoundsCheckBlock =>
-      (dtcase args of
-      | [v1;v2] => (list_Seq [If Test (adjust_var v1) (Imm 1w)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_BoundsCheckBlock (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+                   (list_Seq [If Test (adjust_var v1) (Imm 1w)
                                (Assign 1 (Const 0w))
                                (Assign 1
                                  (let addr = real_addr c (adjust_var v1) in
@@ -1211,10 +1278,12 @@ local val assign_quotation = `
                               If Lower 3 (Reg 1)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST)],l)
-      | _ => (Skip,l))
-    | Equal => (dtcase args of
-               | [v1;v2] => (list_Seq [
-                   Assign 1 (Var (adjust_var v1));
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Equal (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq [Assign 1 (Var (adjust_var v1));
                    Assign 3 (Var (adjust_var v2));
                    Assign 5 (Op And [Var 1; Var 3]);
                    If Test 5 (Imm 1w) Skip
@@ -1226,10 +1295,12 @@ local val assign_quotation = `
                    (If Equal 1 (Reg 3)
                       (Assign (adjust_var dest) TRUE_CONST)
                       (Assign (adjust_var dest) FALSE_CONST))],l+1)
-               | _ => (Skip,l))
-    | Less => (dtcase args of
-               | [v1;v2] => (list_Seq [
-                   Assign 1 (Var (adjust_var v1));
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Less (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq [Assign 1 (Var (adjust_var v1));
                    Assign 3 (Var (adjust_var v2));
                    Assign 5 (Op Or [Var 1; Var 3]);
                    If Test 5 (Imm 1w) Skip
@@ -1240,10 +1311,12 @@ local val assign_quotation = `
                    (If Less 1 (Reg 3)
                       (Assign (adjust_var dest) TRUE_CONST)
                       (Assign (adjust_var dest) FALSE_CONST))],l+1)
-               | _ => (Skip,l))
-    | LessEq => (dtcase args of
-               | [v1;v2] => (list_Seq [
-                   Assign 1 (Var (adjust_var v1));
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_LessEq (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq [Assign 1 (Var (adjust_var v1));
                    Assign 3 (Var (adjust_var v2));
                    Assign 5 (Op Or [Var 1; Var 3]);
                    If Test 5 (Imm 1w) Skip
@@ -1254,9 +1327,12 @@ local val assign_quotation = `
                    (If NotLess 3 (Reg 1)
                       (Assign (adjust_var dest) TRUE_CONST)
                       (Assign (adjust_var dest) FALSE_CONST))],l+1)
-               | _ => (Skip,l))
-    | LengthBlock => (dtcase args of
-               | [v1] => (If Test (adjust_var v1) (Imm 1w)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_LengthBlock (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 =
+                        (If Test (adjust_var v1) (Imm 1w)
                            (Assign (adjust_var dest) (Const 0w))
                            (Assign (adjust_var dest)
                               (let addr = real_addr c (adjust_var v1) in
@@ -1264,18 +1340,22 @@ local val assign_quotation = `
                                let k = dimindex (:'a) - c.len_size in
                                let len = Shift Lsr header k in
                                  (Shift Lsl len 2))),l)
-               | _ => (Skip,l))
-    | Length => (dtcase args of
-               | [v1] => (Assign (adjust_var dest)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Length (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 =
+                          (Assign (adjust_var dest)
                               (let addr = real_addr c (adjust_var v1) in
                                let header = Load addr in
                                let k = dimindex (:'a) - c.len_size in
                                let len = Shift Lsr header k in
                                  (Shift Lsl len 2)),l)
-               | _ => (Skip,l))
-    | LengthByte => (
-        dtcase args of
-          | [v1] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_LengthByte (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 =
             (Assign (adjust_var dest)
                (let addr = real_addr c (adjust_var v1) in
                 let header = Load addr in
@@ -1283,9 +1363,12 @@ local val assign_quotation = `
                 let fakelen = Shift Lsr header k in
                 let len = Op Sub [fakelen; Const (bytes_in_word-1w)] in
                   (Shift Lsl len 2)),l)
-          | _ => (Skip,l))
-    | TagLenEq tag len => (dtcase args of
-               | [v1] => (if len = 0 then
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_TagLenEq (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) tag len v1 =
+                        (if len = 0 then
                            if tag < dimword (:'a) DIV 16 then
                              (If Equal (adjust_var v1) (Imm (n2w (16 * tag + 2)))
                                 (Assign (adjust_var dest) TRUE_CONST)
@@ -1302,10 +1385,13 @@ local val assign_quotation = `
                                 If Equal 1 (Imm h)
                                   (Assign (adjust_var dest) TRUE_CONST)
                                   (Assign (adjust_var dest) FALSE_CONST)],l))
-               | _ => (Skip,l))
-    | TagEq tag => (if tag < dimword (:'a) DIV 16 then
-               dtcase args of
-               | [v1] => (list_Seq
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_TagEq (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) tag v1 =
+               (if tag < dimword (:'a) DIV 16 then
+                 (list_Seq
                    [Assign 1 (Var (adjust_var v1));
                     If Test (adjust_var v1) (Imm 1w) Skip
                       (Assign 1 (let v = adjust_var v1 in
@@ -1314,11 +1400,13 @@ local val assign_quotation = `
                     If Equal 1 (Imm (n2w (16 * tag + 2)))
                       (Assign (adjust_var dest) TRUE_CONST)
                       (Assign (adjust_var dest) FALSE_CONST)],l)
-               | _ => (Skip,l)
-                    else (Assign (adjust_var dest) FALSE_CONST,l))
-    | Add => (dtcase args of
-              | [v1;v2] => (list_Seq
-                  [(* perform addition *)
+                else (Assign (adjust_var dest) FALSE_CONST,l))
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Add (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq [(* perform addition *)
                    Inst (Arith (AddOverflow 1 (adjust_var v1)
                                               (adjust_var v2) 3));
                    (* or together bits of overflow flag, and the two inputs *)
@@ -1329,10 +1417,12 @@ local val assign_quotation = `
                       (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
                         (SOME Add_location) [adjust_var v1; adjust_var v2] NONE));
                    Move 2 [(adjust_var dest,1)]],l+1)
-              | _ => (Skip,l))
-    | Sub => (dtcase args of
-              | [v1;v2] => (list_Seq
-                  [(* perform subtraction *)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Sub (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq [(* perform subtraction *)
                    Inst (Arith (SubOverflow 1 (adjust_var v1)
                                               (adjust_var v2) 3));
                    (* or together bits of overflow flag, and the two inputs *)
@@ -1343,10 +1433,12 @@ local val assign_quotation = `
                       (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
                         (SOME Sub_location) [adjust_var v1; adjust_var v2] NONE));
                    Move 2 [(adjust_var dest,1)]],l+1)
-              | _ => (Skip,l))
-    | Mult => (dtcase args of
-              | [v1;v2] => (list_Seq
-                  [Assign 1 (ShiftVar Lsr (adjust_var v1) 1);
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Mult (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq [Assign 1 (ShiftVar Lsr (adjust_var v1) 1);
                    Inst (Arith (LongMul 3 1 1 (adjust_var v2)));
                    Assign 3 (Op Or [Var 3;
                                Op And [Const 1w;
@@ -1357,9 +1449,12 @@ local val assign_quotation = `
                        (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
                         (SOME Mul_location) [adjust_var v1; adjust_var v2] NONE));
                    Move 2 [(adjust_var dest,1)]],l+1)
-              | _ => (Skip,l))
-    | Div => (dtcase args of
-              | [v1;v2] => (list_Seq [
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Div (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq [
            Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
            Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
            If Test 1 (Imm (1w:'a word))
@@ -1383,9 +1478,12 @@ local val assign_quotation = `
                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
                       (SOME Div_location) [adjust_var v1; adjust_var v2] NONE);
                  Move 2 [(adjust_var dest,1)]])],l + 2)
-                  | _ => (Skip,l))
-    | Mod => (dtcase args of
-              | [v1;v2] => (list_Seq [
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Mod (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (list_Seq [
            Assign 1 (Op Or [Var (adjust_var v1); Var (adjust_var v2)]);
            Assign 1 (Op Or [Var 1; ShiftVar Lsr 1 (dimindex (:'a)-1)]);
            If Test 1 (Imm (1w:'a word))
@@ -1411,20 +1509,22 @@ local val assign_quotation = `
                    (Call (SOME (1,adjust_set (get_names names),Skip,secn,l))
                       (SOME Mod_location) [adjust_var v1; adjust_var v2] NONE);
                  Move 2 [(adjust_var dest,1)]])],l + 2)
-                  | _ => (Skip,l))
-    | WordOp W8 opw =>
-      (dtcase args of
-        | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_WordOpW8 opw (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
            (Assign (adjust_var dest)
             (dtcase lookup_word_op opw of
              | Bitwise op => Op op [Var (adjust_var v1); Var (adjust_var v2)]
              | Carried op => let k = dimindex(:'a)-10 in
                Shift Lsr (Shift Lsl
                  (Op op [Var (adjust_var v1); Var (adjust_var v2)]) k) k), l)
-        | _ => (Skip,l))
-    | WordOp W64 opw =>
-      (dtcase args of
-       | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_WordOpW64 opw (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
        (if dimindex(:'a) = 64 then
          (dtcase encode_header c 3 1 of
           | NONE => (GiveUp,l)
@@ -1458,9 +1558,11 @@ local val assign_quotation = `
                Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
                WordOp64_on_32 opw;
                WriteWord64_on_32 c header dest 33 31],l)))
-       | _ => (Skip,l))
-    | WordShift W8 sh n => (dtcase args of
-      | [v1] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_WordShiftW8 sh n (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 =
         (Assign (adjust_var dest)
            (dtcase sh of
             | Lsl =>
@@ -1483,9 +1585,11 @@ local val assign_quotation = `
                   [Shift Lsl (ShiftVar Lsr (adjust_var v1) (n + 2)) 2;
                    Shift Lsr (ShiftVar Lsl (adjust_var v1)
                      ((dimindex (:'a) - 2) - n)) (dimindex (:'a) - 10)])),l)
-      | _ => (Skip,l))
-    | WordShift W64 sh n => (dtcase args of
-       | [v1] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_WordShiftW64 sh n (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 =
          let len = if dimindex(:'a) < 64 then 2 else 1 in
          (dtcase encode_header c 3 len of
           | NONE => (GiveUp,l)
@@ -1502,9 +1606,11 @@ local val assign_quotation = `
                  Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
                  WordShift64_on_32 sh n;
                  WriteWord64_on_32 c header dest 33 31],l))
-       | _ => (Skip,l))
-    | WordFromWord b => (dtcase args of
-      | [v1] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_WordFromWord b (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 =
           if b then
             (list_Seq [Assign 1 (real_addr c (adjust_var v1));
                        Assign 1 (Load (Op Add [Var 1;
@@ -1526,9 +1632,11 @@ local val assign_quotation = `
                    (list_Seq [Assign 5 (Shift Lsr (Var (adjust_var v1)) 2);
                               Assign 3 (Const 0w);
                               WriteWord64_on_32 c header dest 5 3],l)))
-      | _ => (Skip, l))
-    | WordFromInt => (dtcase args of
-      | [v1] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_WordFromInt (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 =
         let len = if dimindex(:'a) < 64 then 2 else 1 in
         (dtcase encode_header c 3 len of
          | NONE => (GiveUp,l)
@@ -1583,10 +1691,11 @@ local val assign_quotation = `
                        Inst (Arith (AddCarry 15 11 5 13));
                        Inst (Arith (AddCarry 19 11 9 13));
                        WriteWord64_on_32 c header dest 15 19]))])), l)
-      | _ => (Skip, l))
-   | WordToInt =>
-     (dtcase args of
-      | [v] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_WordToInt (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v =
         let len = if dimindex(:'a) < 64 then 2 else 1 in
         (dtcase encode_header c 3 len of
            | NONE => (GiveUp,l)
@@ -1612,11 +1721,12 @@ local val assign_quotation = `
                       If Equal 1 (Imm 0w)
                         (Assign (adjust_var dest) (Shift Lsl (Var 11) 2))
                         (WriteWord32_on_32 c header1 dest 11)])],l)))
-      | _ => (Skip, l))
-    | FFI ffi_index =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_FFI ffi_index (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
       if ¬c.call_empty_ffi ∧ ffi_index = "" then (Assign (adjust_var dest) Unit,l) else
-      (dtcase args of
-       | [v1; v2] =>
         let addr1 = real_addr c (adjust_var v1) in
         let header1 = Load addr1 in
         let k = dimindex(:'a) - shift(:'a) - c.len_size in
@@ -1632,9 +1742,11 @@ local val assign_quotation = `
           FFI ffi_index 1 3 5 7 (adjust_set (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
-       | _ => (Skip,l))
-    | EqualInt i => (dtcase args of
-       | [v] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_EqualInt i (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v =
            (if -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)
             then (If Equal (adjust_var v) (Imm (Smallnum i))
                     (Assign (adjust_var dest) TRUE_CONST)
@@ -1649,11 +1761,12 @@ local val assign_quotation = `
                            Assign 3 (real_addr c (adjust_var v));
                            MemEqList 0w words;
                            Assign (adjust_var dest) (Var 1)]),l))
-       | _ => (Skip,l))
-    | Install =>
-      (dtcase args of
-       | [v1;v2;v3;v4] => (list_Seq
-                  [BignumHalt (adjust_var v3); (* length must be smallint *)
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_Install (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 v3 v4 =
+        (list_Seq [BignumHalt (adjust_var v3); (* length must be smallint *)
                    BignumHalt (adjust_var v4); (* length must be smallint *)
                    Assign 1 (Lookup BitmapBuffer);
                    Assign 3 (Op Sub [Lookup BitmapBufferEnd; Var 1]);
@@ -1669,9 +1782,11 @@ local val assign_quotation = `
                        adjust_set (get_names names),Skip,secn,l))
                     (SOME InstallCode_location)
                       [adjust_var v1; adjust_var v2; 1] NONE)],l+1)
-       | _ => (Skip,l))
-    | FP_cmp fpc => (dtcase args of
-       | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_FP_cmp fpc (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
        (if ~c.has_fp_ops then (GiveUp,l) else
         if dimindex(:'a) = 64 then
            ((list_Seq [
@@ -1695,9 +1810,11 @@ local val assign_quotation = `
                Inst (FP (FPMovFromReg 1 23 21));
                Inst (FP (fp_cmp_inst fpc));
                Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
-       | _ => (Skip,l))
-    | FP_bop fpb => (dtcase args of
-       | [v1;v2] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_FP_bop fpb (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 =
        (if ~c.has_fp_ops then (GiveUp,l) else
         if dimindex(:'a) = 64 then
          (dtcase encode_header c 3 1 of
@@ -1729,9 +1846,11 @@ local val assign_quotation = `
                Inst (FP (fp_bop_inst fpb));
                Inst (FP (FPMovToReg 5 3 0));
                WriteWord64_on_32 c header dest 5 3],l)))
-       | _ => (Skip,l))
-    | FP_uop fpu => (dtcase args of
-       | [v1] =>
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_FP_uop fpu (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 =
        (if ~c.has_fp_ops then (GiveUp,l) else
         if dimindex(:'a) = 64 then
          (dtcase encode_header c 3 1 of
@@ -1756,135 +1875,67 @@ local val assign_quotation = `
                Inst (FP (fp_uop_inst fpu));
                Inst (FP (FPMovToReg 5 3 1));
                WriteWord64_on_32 c header dest 5 3],l)))
-       | _ => (Skip,l))
-    | _ => (Skip:'a wordLang$prog,l)`;
+      : 'a wordLang$prog # num`;
 
-val assign_pmatch_lemmas = [
-  Q.prove(`
-   (case args of
-       [v1;v2] => y v1 v2
-     | _ => z) = (dtcase args of
-       [v1;v2] => y v1 v2
-     | _ => z)`,
-   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-   >> fs[]),
-  Q.prove(`
-   (case args of
-       (old::start::len::tot::rest) => y old start len tot rest
-     | _ => z) = (dtcase args of
-       (old::start::len::tot::rest) => y old start len tot rest
-     | _ => z)`,
-   CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-   >> fs[]),
-  Q.prove(`
-   (case args of
-      [v1;v2;v3] => y v1 v2 v3
-    | _ => z) = (dtcase args of
-      [v1;v2;v3] => y v1 v2 v3
-    | _ => z)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[]),
-  Q.prove(`
-   (case args of
-    | [v1;v2;v3;v4;v5] => y1 v1 v2 v3 v4 v5
-    | [v1;v2;v3] => y2 v1 v2 v3
-    | _ => z) = (dtcase args of
-    | [v1;v2;v3;v4;v5] => y1 v1 v2 v3 v4 v5
-    | [v1;v2;v3] => y2 v1 v2 v3
-    | _ => z)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[]),
-  Q.prove(`
-   (case args of
-    | [v1;v2;v3;v4] => y1 v1 v2 v3 v4
-    | _ => z) = (dtcase args of
-    | [v1;v2;v3;v4] => y1 v1 v2 v3 v4
-    | _ => z)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[]),
-  Q.prove(`
-   (case opt of
-      NONE => y
-    | SOME x => z x) = (dtcase opt of
-      NONE => y
-    | SOME x => z x)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[]),
-  Q.prove(`
-   (case args of
-      [v1] => y v1
-    | _ => z) = (dtcase args of
-      [v1] => y v1
-    | _ => z)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[]),
-  Q.prove(`
-   (case op of
-      Bitwise op => y op
-    | Carried op => z op) = (dtcase op of
-      Bitwise op => y op
-    | Carried op => z op)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[]),
-  Q.prove(`
-   (case op of
-      Bitwise op => y op
-    | Carried Add => z
-    | Carried Sub => x) = (dtcase op of
-      Bitwise op => y op
-    | Carried Add => z
-    | Carried Sub => x)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[]),
-  Q.prove(`
-   (case a of
-      Lsl => x
-    | Lsr => y
-    | Asr => z) = (dtcase a of
-      Lsl => x
-    | Lsr => y
-    | Asr => z)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[]),
-  Q.prove(`
-   (case opw of
-      Andw => And
-    | Orw => Or
-    | Xor => Xor
-    | Add => Add
-    | Sub => Sub) = (dtcase opw of
-      Andw => And
-    | Orw => Or
-    | Xor => Xor
-    | Add => Add
-    | Sub => Sub)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[]),
-  Q.prove(`
-   (case opt of
-        SOME x => y x
-      | NONE => z) = (dtcase opt of
-        SOME x => y x
-      | NONE => z)`,
-  CONV_TAC(RATOR_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV))
-  >> fs[])]
+val all_assign_defs = save_thm("all_assign_defs",LIST_CONJ (!assign_defs));
 
-in
-val assign_def = Define assign_quotation
-
-val assign_pmatch = Q.store_thm("assign_pmatch", `∀c secn l dest op args names.` @
-  (assign_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
-  >> Ho_Rewrite.PURE_REWRITE_TAC assign_pmatch_lemmas
-  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
-  >> ASSUME_TAC(Q.SPEC `op` (fetch "closLang" "op_nchotomy") )
-  >> Cases_on `op` >> fs []
-  >> fs[assign_def]
-  >> TRY(Cases_on `w`) >> fs[]
-  >> every_case_tac >> fs []);
-end
+val assign_def = Define `
+  assign (c:data_to_word$config) (secn:num) (l:num) (dest:num) (op:closLang$op)
+    (args:num list) (names:num_set option) =
+    dtcase op of
+    | Const i => assign_Const i l dest
+    | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
+    | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr l dest) (Skip,l)
+    | El => arg2 args (assign_El c l dest) (Skip,l)
+    | Deref => arg2 args (assign_Deref c l dest) (Skip,l)
+    | DerefByte => arg2 args (assign_DerefByte c l dest) (Skip,l)
+    | Update => arg3 args (assign_Update c l dest) (Skip,l)
+    | UpdateByte => arg3 args (assign_UpdateByte c l dest) (Skip,l)
+    | ListAppend => arg2 args (assign_ListAppend c secn l dest names) (Skip,l)
+    | Cons tag => assign_Cons c l dest tag args
+    | ConfigGC => arg2 args (assign_ConfigGC c secn l dest names) (Skip,l)
+    | ConsExtend tag => assign_ConsExtend c secn l dest names tag args
+    | Ref => assign_Ref c secn l dest names args
+    | RefByte imm => arg2 args (assign_RefByte c secn l dest names imm) (Skip,l)
+    | Label n => (LocValue (adjust_var dest) n,l)
+    | CopyByte alloc_new => assign_CopyByte c secn l dest names args
+    | RefArray => arg2 args (assign_RefArray c secn l dest names) (Skip,l)
+    | FromList tag => arg2 args (assign_FromList c secn l dest names tag) (Skip,l)
+    | LessConstSmall i => arg1 args (assign_LessConstSmall l dest i) (Skip,l)
+    | BoundsCheckByte leq =>
+        arg2 args (assign_BoundsCheckByte c secn l dest names leq) (Skip,l)
+    | BoundsCheckArray =>
+        arg2 args (assign_BoundsCheckArray c secn l dest names) (Skip,l)
+    | BoundsCheckBlock =>
+        arg2 args (assign_BoundsCheckBlock c secn l dest names) (Skip,l)
+    | Equal => arg2 args (assign_Equal c secn l dest names) (Skip,l)
+    | Less => arg2 args (assign_Less c secn l dest names) (Skip,l)
+    | LessEq => arg2 args (assign_LessEq c secn l dest names) (Skip,l)
+    | LengthBlock => arg1 args (assign_LengthBlock c secn l dest names) (Skip,l)
+    | Length => arg1 args (assign_Length c secn l dest names) (Skip,l)
+    | LengthByte => arg1 args (assign_LengthByte c secn l dest names) (Skip,l)
+    | TagLenEq tag len =>
+        arg1 args (assign_TagLenEq c secn l dest names tag len) (Skip,l)
+    | TagEq tag => arg1 args (assign_TagEq c secn l dest names tag) (Skip,l)
+    | Add => arg2 args (assign_Add c secn l dest names) (Skip,l)
+    | Sub => arg2 args (assign_Sub c secn l dest names) (Skip,l)
+    | Mult => arg2 args (assign_Mult c secn l dest names) (Skip,l)
+    | Div => arg2 args (assign_Div c secn l dest names) (Skip,l)
+    | Mod => arg2 args (assign_Mod c secn l dest names) (Skip,l)
+    | WordOp W8 opw => arg2 args (assign_WordOpW8 opw c secn l dest names) (Skip,l)
+    | WordOp W64 opw => arg2 args (assign_WordOpW64 opw c secn l dest names) (Skip,l)
+    | WordShift W8 sh n => arg1 args (assign_WordShiftW8 sh n c secn l dest names) (Skip,l)
+    | WordShift W64 sh n => arg1 args (assign_WordShiftW64 sh n c secn l dest names) (Skip,l)
+    | WordFromWord b => arg1 args (assign_WordFromWord b c secn l dest names) (Skip,l)
+    | WordFromInt => arg1 args (assign_WordFromInt c secn l dest names) (Skip,l)
+    | WordToInt => arg1 args (assign_WordToInt c secn l dest names) (Skip,l)
+    | FFI ffi_index => arg2 args (assign_FFI ffi_index c secn l dest names) (Skip,l)
+    | EqualInt i => arg1 args (assign_EqualInt i c secn l dest names) (Skip,l)
+    | Install => arg4 args (assign_Install c secn l dest names) (Skip,l)
+    | FP_cmp fpc => arg2 args (assign_FP_cmp fpc c secn l dest names) (Skip,l)
+    | FP_bop fpb => arg2 args (assign_FP_bop fpb c secn l dest names) (Skip,l)
+    | FP_uop fpu => arg1 args (assign_FP_uop fpu c secn l dest names) (Skip,l)
+    | _ => (Skip,l)`;
 
 val comp_def = Define `
   comp c (secn:num) (l:num) (p:dataLang$prog) =
@@ -2089,13 +2140,13 @@ val stubs_def = Define`
     (Dummy_location,0,Skip)
   ] ++ generated_bignum_stubs Bignum_location`;
 
-val check_stubs_length = Q.store_thm("check_stubs_length",
-  `word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs`,
-  EVAL_TAC);
+Theorem check_stubs_length
+  `word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs`
+  (EVAL_TAC);
 
-val check_LongDiv_location = Q.store_thm("check_LongDiv_location",
-  `LongDiv_location = word_bignum$div_location`,
-  EVAL_TAC);
+Theorem check_LongDiv_location
+  `LongDiv_location = word_bignum$div_location`
+  (EVAL_TAC);
 
 val compile_def = Define `
   compile data_conf word_conf asm_conf prog =

@@ -1,3 +1,6 @@
+(*
+  Module about the built-in word8 type.
+*)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
      Word64ProgTheory
 
@@ -6,6 +9,9 @@ val _ = new_theory "Word8Prog";
 val _ = translation_extends "Word64Prog";
 
 (* Word8 module -- translated *)
+
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "byte" (Atapp [] (Short "word8"))`` I);
 
 val _ = ml_prog_update (open_module "Word8");
 
@@ -47,9 +53,9 @@ val var_word_lsl_def = Define `
     else if n < 7 then w << 6
     else w << 7 else 0w`
 
-val var_word_lsl_thm = store_thm("var_word_lsl_thm[simp]",
-  ``var_word_lsl w n = word_lsl w n``,
-  ntac 32 (
+Theorem var_word_lsl_thm[simp]
+  `var_word_lsl w n = word_lsl w n`
+  (ntac 32 (
     Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD])
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs []));
@@ -65,9 +71,9 @@ val var_word_lsr_def = Define `
     else if n < 7 then w >>> 6
     else w >>> 7 else 0w`
 
-val var_word_lsr_thm = store_thm("var_word_lsr_thm[simp]",
-  ``var_word_lsr w n = word_lsr w n``,
-  ntac 32 (
+Theorem var_word_lsr_thm[simp]
+  `var_word_lsr w n = word_lsr w n`
+  (ntac 32 (
     Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD])
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs []));
@@ -83,9 +89,9 @@ val var_word_asr_def = Define `
     else if n < 7 then w >> 6
     else w >> 7 else w >> 8`
 
-val var_word_asr_thm = store_thm("var_word_asr_thm[simp]",
-  ``var_word_asr w n = word_asr w n``,
-  ntac 32 (
+Theorem var_word_asr_thm[simp]
+  `var_word_asr w n = word_asr w n`
+  (ntac 32 (
     Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD])
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs []));
@@ -108,20 +114,20 @@ val _ = ml_prog_update (close_module (SOME sigs));
 
 open ml_translatorTheory
 
-val WORD_UNICITY_R = Q.store_thm("WORD_UNICITY_R[xlet_auto_match]",
-`!f fv fv'. WORD (f :word8) fv ==> (WORD f fv' <=> fv' = fv)`, fs[WORD_def]);
+Theorem WORD_UNICITY_R[xlet_auto_match]
+`!f fv fv'. WORD (f :word8) fv ==> (WORD f fv' <=> fv' = fv)` (fs[WORD_def]);
 
-val WORD_UNICITY_L = Q.store_thm("WORD_UNICITY_L[xlet_auto_match]",
-`!f f' fv. WORD (f :word8) fv ==> (WORD f' fv <=> f = f')`, fs[WORD_def]);
+Theorem WORD_UNICITY_L[xlet_auto_match]
+`!f f' fv. WORD (f :word8) fv ==> (WORD f' fv <=> f = f')` (fs[WORD_def]);
 
-val n2w_UNICITY = Q.store_thm("n2w_UNICITY[xlet_auto_match]",
- `!n1 n2.n1 <= 255 ==> ((n2w n1 :word8 = n2w n2 /\ n2 <= 255) <=> n1 = n2)`,
- rw[] >> eq_tac >> fs[])
+Theorem n2w_UNICITY[xlet_auto_match]
+ `!n1 n2.n1 <= 255 ==> ((n2w n1 :word8 = n2w n2 /\ n2 <= 255) <=> n1 = n2)`
+ (rw[] >> eq_tac >> fs[])
 
-val WORD_n2w_UNICITY_L = Q.store_thm("WORD_n2w_UNICITY[xlet_auto_match]",
+Theorem WORD_n2w_UNICITY_L[xlet_auto_match]
  `!n1 n2 f. n1 <= 255 /\ WORD (n2w n1 :word8) f ==>
-   (WORD (n2w n2 :word8) f /\ n2 <= 255 <=> n1 = n2)`,
- rw[] >> eq_tac >> rw[] >> imp_res_tac WORD_UNICITY_L >>
+   (WORD (n2w n2 :word8) f /\ n2 <= 255 <=> n1 = n2)`
+ (rw[] >> eq_tac >> rw[] >> imp_res_tac WORD_UNICITY_L >>
 `n1 MOD 256 = n1` by fs[] >> `n2 MOD 256 = n2` by fs[] >> fs[])
 
 val _ = overload_on("WORD8",``WORD:word8 -> v -> bool``);

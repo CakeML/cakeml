@@ -1,3 +1,11 @@
+(*
+  Definition of the lexer: code for consuming tokens until a top-level
+  semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks,
+  structures, signatures, and between parentheses).
+
+  TODO: update this description if it is incorrect.
+*)
+
 open preamble tokensTheory lexer_funTheory
 
 val _ = new_theory "lexer_impl";
@@ -9,7 +17,7 @@ val tac =
  rw [get_token_def, processIdent_def, isAlphaNum_def, isAlpha_def, isDigit_def,
      isLower_def, isUpper_def];
 
-val get_token_eqn = Q.store_thm ("get_token_eqn",
+Theorem get_token_eqn
 `!s.
   get_token s =
     case s of
@@ -129,8 +137,8 @@ val get_token_eqn = Q.store_thm ("get_token_eqn",
                    if s = "withtype" then WithtypeT else
                    AlphaT s
            else
-             SymbolT s`,
- strip_tac >>
+             SymbolT s`
+ (strip_tac >>
  Cases_on `s` >>
  simp_tac (srw_ss()) []
  >- srw_tac [] [processIdent_def, get_token_def] >>
@@ -305,9 +313,9 @@ val read_while_P = Q.prove(`
   rw[]>>ho_match_mp_tac read_while_P_lem>>
   MAP_EVERY qexists_tac [`ls`,`""`,`y`]>>fs[])
 
-val next_sym_eq = Q.store_thm("next_sym_eq",
-  `∀x l. next_sym x l = next_sym_alt x l`,
-  ho_match_mp_tac next_sym_ind>>fs[next_sym_def,next_sym_alt_def]>>rw[]>>
+Theorem next_sym_eq
+  `∀x l. next_sym x l = next_sym_alt x l`
+  (ho_match_mp_tac next_sym_ind>>fs[next_sym_def,next_sym_alt_def]>>rw[]>>
   TRY(BasicProvers.TOP_CASE_TAC>>fs[]>>NO_TAC)>>
   TRY(rpt(pop_assum mp_tac)>> EVAL_TAC>> simp[]>>NO_TAC)>>
   TRY(pairarg_tac) >>fs[]>>
@@ -365,11 +373,10 @@ val lex_aux_LESS = Q.prove(
   THEN IMP_RES_TAC (DECIDE ``n < m ==> n <= m:num``)
   THEN DECIDE_TAC);
 
-val lex_until_toplevel_semicolon_LESS = Q.store_thm(
-  "lex_until_toplevel_semicolon_LESS",
+Theorem lex_until_toplevel_semicolon_LESS
   `(lex_until_toplevel_semicolon input l = SOME (ts, l', rest)) ==>
-    LENGTH rest < LENGTH input`,
-  SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
+    LENGTH rest < LENGTH input`
+  (SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC lex_aux_LESS
   THEN FULL_SIMP_TAC std_ss []);
 
@@ -418,11 +425,10 @@ val lex_aux_alt_LESS = Q.prove(
   THEN IMP_RES_TAC (DECIDE ``n < m ==> n <= m:num``)
   THEN DECIDE_TAC);
 
-val lex_until_top_semicolon_alt_LESS = Q.store_thm(
-  "lex_until_top_semicolon_alt_LESS",
+Theorem lex_until_top_semicolon_alt_LESS
   `(lex_until_top_semicolon_alt input l = SOME (ts, l', rest)) ==>
-    LENGTH rest < LENGTH input`,
-  SIMP_TAC std_ss [lex_until_top_semicolon_alt_def]
+    LENGTH rest < LENGTH input`
+  (SIMP_TAC std_ss [lex_until_top_semicolon_alt_def]
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC lex_aux_alt_LESS
   THEN FULL_SIMP_TAC std_ss []);
 
@@ -461,13 +467,12 @@ val lex_aux_alt_thm = Q.prove(
   THEN FULL_SIMP_TAC (srw_ss()) [token_of_sym_loc_def,token_of_sym_def,get_token_def])
   |> Q.SPECL [`[]`,`0`] |> SIMP_RULE std_ss [MAP] ;
 
-val lex_until_top_semicolon_alt_thm = Q.store_thm(
-  "lex_until_top_semicolon_alt_thm",
+Theorem lex_until_top_semicolon_alt_thm
   `case lex_until_top_semicolon_alt input l of
     | NONE => (lex_until_toplevel_semicolon input l = NONE)
     | SOME (ts,rest) =>
-        (lex_until_toplevel_semicolon input l = SOME (MAP token_of_sym_loc ts,rest))`,
-  SIMP_TAC std_ss [lex_until_top_semicolon_alt_def,
+        (lex_until_toplevel_semicolon input l = SOME (MAP token_of_sym_loc ts,rest))`
+  (SIMP_TAC std_ss [lex_until_top_semicolon_alt_def,
     lex_until_toplevel_semicolon_def,lex_aux_alt_thm]);
 
 (* lex_impl_all *)
@@ -601,8 +606,8 @@ val split_top_level_semi_thm = Q.prove(
   >> STRIP_TAC >> RES_TAC >> POP_ASSUM MP_TAC
   >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]);
 
-val lexer_correct = Q.store_thm("lexer_correct",
-  `!input. split_top_level_semi (lexer_fun_aux input l) = lex_impl_all input l`,
-  SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]);
+Theorem lexer_correct
+  `!input. split_top_level_semi (lexer_fun_aux input l) = lex_impl_all input l`
+  (SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]);
 
 val _ = export_theory();

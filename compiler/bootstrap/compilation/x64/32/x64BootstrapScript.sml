@@ -1,3 +1,7 @@
+(*
+  Evaluate the final part of the 32-bit version of the compiler
+  into machine code for x64.
+*)
 open preamble to_lab_x64BootstrapTheory compilationLib
 
 val _ = new_theory "x64Bootstrap";

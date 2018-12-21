@@ -1,3 +1,7 @@
+(*
+  This is a simple example of applying the translator to a
+  parser generator.
+*)
 open HolKernel Parse boolLib bossLib; val _ = new_theory "example_parser_gen";
 
 open slr_parser_genTheory optionTheory;
@@ -29,4 +33,3 @@ val res = translate parse_def;
 val res = translate (parser_def |> SIMP_RULE std_ss [mwhile_def]);
 
 val _ = export_theory();
-

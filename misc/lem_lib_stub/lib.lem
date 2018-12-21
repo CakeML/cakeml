@@ -13,7 +13,7 @@ declare isabelle target_rep function rtc = `rtranclp`
 
 val disjoint : forall 'a. set 'a -> set 'a -> bool
 declare hol    target_rep function disjoint = `DISJOINT`
-declare isabelle target_rep function disjoint = `(% M N. M \<inter> N = {})`
+declare isabelle target_rep function disjoint = `disjnt`
 
 val all2 : forall 'a 'b. ('a -> 'b -> bool) -> list 'a -> list 'b -> bool
 val map2 : forall 'a 'b 'c. ('a -> 'b -> 'c) -> list 'a -> list 'b -> list 'c

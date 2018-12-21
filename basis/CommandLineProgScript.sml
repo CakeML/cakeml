@@ -1,3 +1,7 @@
+(*
+  A module about command-line arguments for the CakeML standard basis
+  library.
+*)
 open preamble
      ml_translatorLib ml_progLib ml_translatorTheory
      MapProgTheory basisFunctionsLib

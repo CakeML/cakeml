@@ -1,7 +1,13 @@
+(*
+  Automation that normalises a CakeML program. In particular, this
+  means turning it into A-normal form.
+*)
 structure cfNormaliseLib :> cfNormaliseLib = struct
 
 open preamble
 open astSyntax
+
+val ERR = mk_HOL_ERR "cfNormaliseLib";
 
 (* Normalisation pass.
 

@@ -44,6 +44,9 @@ sig
     val case_of             : hol_type -> thm
     val eq_lemmas           : unit -> thm list
 
+    (* prove an EqualityType, assuming some for parameters types if needed *)
+    val EqualityType_rule   : hol_type list -> hol_type -> thm
+
     (* CakeML signature generation and extraction *)
     (* Get the CakeML signature of a named CakeML function which was created by translation *)
     (* Returns ``:spec`` *)
@@ -120,6 +123,13 @@ sig
     val get_v_thms_ref : unit -> (string * string * term * thm * thm * string option) list ref
     val remove_Eq_from_v_thm : thm -> thm
 
+    (* Internal - handling type constructor names *)
+    val mk_cons_name : term -> string
+    val enter_cons_name : term * term -> string
+    val lookup_cons_name : string -> term * string option
+    val instantiate_cons_name : thm -> thm
+    val get_cons_names : unit -> (string * (term * string option)) list
+
     (* Internal - for preprocess_monadic_def *)
     val force_eqns                   : thm -> thm
     val is_rec_def                   : thm -> bool
@@ -140,6 +150,8 @@ sig
 
     val prove_EvalPatRel_fail : term ref
     val get_term :string -> term
+
+    val trace_timing_to : string option ref
 
     (* returns the induction theorem for the latest rec translation *)
     val latest_ind : unit -> thm

@@ -1,6 +1,6 @@
 (*
- * Trying out the monadic translator
- *)
+  Trying out the monadic translator
+*)
 
 open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory
@@ -87,13 +87,13 @@ val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm
 
 val (init_trans, store_translation, exn_thms) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      STATE_EXN_TYPE_def
-					      exn_functions
-					      [] NONE NONE;
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              STATE_EXN_TYPE_def
+                                              exn_functions
+                                              [] NONE NONE;
 
 (* Interacting with the graph component of the state monad *)
 
@@ -226,28 +226,28 @@ val msimps = [st_ex_bind_def,st_ex_FOR_def]
 
 val _ = temp_tight_equality();
 
-val mk_graph_SUCCESS = Q.store_thm("mk_graph_SUCCESS",`
+Theorem mk_graph_SUCCESS `
   ∃res.
     (mk_graph d s = (Success ():(unit,state_exn) exc,res)) ∧
-    d*d = LENGTH res.adj_mat ∧ res.dim = d`,
-  fs[mk_graph_def]>>
+    d*d = LENGTH res.adj_mat ∧ res.dim = d`
+  (fs[mk_graph_def]>>
   fs(msimps)>>
   fs [alloc_adj_mat_def,set_dim_def,Marray_alloc_def,LENGTH_REPLICATE]);
 
-val set_weight_SUCCESS = Q.store_thm("set_weight_SUCCESS",
+Theorem set_weight_SUCCESS
   `j + i * s.dim < LENGTH s.adj_mat ⇒
    ∃r. set_weight i j k s = (Success (), r) ∧
        LENGTH r.adj_mat = LENGTH s.adj_mat ∧
-       r.dim = s.dim`,
-  rw[set_weight_def, reind_def, get_dim_def, st_ex_return_def]
+       r.dim = s.dim`
+  (rw[set_weight_def, reind_def, get_dim_def, st_ex_return_def]
   \\ rw msimps
   \\ rw[fetch"-""update_adj_mat_def"]
   \\ rw[ml_monadBaseTheory.Marray_update_def]
   \\ rw[ml_monadBaseTheory.Mupdate_eq]);
 
-val lemma = Q.store_thm("lemma",
-  `∀i j d l. i < d ∧ j < d ∧ d * d ≤ l ⇒ (j:num) + i * d < l`,
-  rw[]
+Theorem lemma
+  `∀i j d l. i < d ∧ j < d ∧ d * d ≤ l ⇒ (j:num) + i * d < l`
+  (rw[]
   \\ qpat_x_assum`i < d` assume_tac
   \\ `∃m. 0 < m ∧ i + m = d` by (
         IMP_RES_THEN (STRIP_THM_THEN SUBST1_TAC) LESS_ADD_1
@@ -264,12 +264,12 @@ val lemma = Q.store_thm("lemma",
   \\ pop_assum mp_tac
   \\ simp[]);
 
-val init_diag_SUCCESS = Q.store_thm("init_diag_SUCCESS",
+Theorem init_diag_SUCCESS
   `∀d s. d ≤ s.dim ∧ s.dim * s.dim ≤ LENGTH s.adj_mat ⇒
    ∃r. init_diag d s = (Success (), r) ∧
        LENGTH r.adj_mat = LENGTH s.adj_mat ∧
-       r.dim = s.dim`,
-  simp[init_diag_def]
+       r.dim = s.dim`
+  (simp[init_diag_def]
   \\ qmatch_goalsub_abbrev_tac`st_ex_FOR _ _ f`
   \\ Q.SPEC_TAC(`0n`,`n`)
   \\ qunabbrev_tac`f`
@@ -293,12 +293,12 @@ val init_diag_SUCCESS = Q.store_thm("init_diag_SUCCESS",
 
 val adj_mat_sub_def = fetch "-" "adj_mat_sub_def"
 
-val Msub_eqn = Q.store_thm("Msub_eqn[simp]",`
+Theorem Msub_eqn[simp] `
   ∀e n ls v.
   Msub e n ls =
   if n < LENGTH ls then Success (EL n ls)
-                   else Failure e`,
-  ho_match_mp_tac Msub_ind>>rw[]>>
+                   else Failure e`
+  (ho_match_mp_tac Msub_ind>>rw[]>>
   simp[Once Msub_def]>>
   Cases_on`ls`>>fs[]>>
   IF_CASES_TAC>>fs[]>>
@@ -315,14 +315,14 @@ val adj_mat_sub_SUCCESS = Q.prove(`
 
 val update_adj_mat_def = fetch "-" "update_adj_mat_def"
 
-val Mupdate_eqn = Q.store_thm("Mupdate_eqn[simp]",`
+Theorem Mupdate_eqn[simp] `
   ∀e x n ls.
   Mupdate e x n ls =
   if n < LENGTH ls then
     Success (LUPDATE x n ls)
   else
-    Failure e`,
-  ho_match_mp_tac Mupdate_ind>>rw[]>>
+    Failure e`
+  (ho_match_mp_tac Mupdate_ind>>rw[]>>
   simp[Once Mupdate_def]>>
   Cases_on`ls`>>fs[]>>
   IF_CASES_TAC>>fs[LUPDATE_def]>>
@@ -411,11 +411,11 @@ val floyd_warshall_SUCCESS_k = Q.prove(`
     first_x_assum(qspecl_then[`res`,`k+1`] assume_tac)>>rfs[]);
 
 (* Prove that the algorithm is always successful (?) *)
-val do_floyd_SUCCESS = Q.store_thm("do_floyd_SUCCESS",`
+Theorem do_floyd_SUCCESS `
   EVERY (λ (i,j,w). i < d ∧ j < d) ls ⇒
     ∃res.
-    do_floyd d ls init_g = (Success (),res)`,
-  rw[]>>
+    do_floyd d ls init_g = (Success (),res)`
+  (rw[]>>
   simp[do_floyd_def,init_g_def]>>
   simp msimps>>
   TOP_CASE_TAC >>

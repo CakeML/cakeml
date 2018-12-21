@@ -1,3 +1,6 @@
+(*
+  Functions that aid in dealing with syntax of CF-style separation logic.
+*)
 structure cfHeapsBaseSyntax = struct
 
 open preamble
@@ -90,39 +93,50 @@ val dest_poste = dest_binder poste_tm (ERR "dest_poste" "Not a POSTe abstraction
 val is_poste = can dest_poste;
 fun mk_poste (poste_v, c) = mk_binder poste_tm "mk_poste" (poste_v, c);
 
+val postf_tm = prim_mk_const{Name="POSTf",Thy="cfHeapsBase"};
+val dest_postf = dest_binder postf_tm (ERR "dest_postf" "Not a POSTf abstraction");
+val is_postf = can dest_postf;
+(* TODO fun mk_postf (postf_v, c) = mk_binder postf_tm "mk_postf" (postf_v, c);*)
+
+
 val post_tm = prim_mk_const{Name="POST",Thy="cfHeapsBase"};
 fun dest_post c =
   let
-      val (c', poste_abs) = dest_comb c
-      val (ptm, postv_abs) = dest_comb c'
+      val (c', postf_abs) = dest_comb c
+      val (c'', poste_abs) = dest_comb c'
+      val (ptm, postv_abs) = dest_comb c''
   in
       if same_const ptm post_tm then
-	  let
-	      val (postv_v, postv_pred) = dest_abs postv_abs
-	      val (poste_v, poste_pred) = dest_abs poste_abs
-	  in
-	      (postv_v, postv_pred, poste_v, poste_pred)
-	  end
+          let
+              val (postv_v, postv_pred) = dest_abs postv_abs
+              val (poste_v, poste_pred) = dest_abs poste_abs
+              val (postf_name, postf_abs') = dest_abs postf_abs
+              val (postf_conf, postf_abs'') = dest_abs postf_abs'
+              val (postf_bytes, postf_pred) = dest_abs postf_abs''
+          in
+             (postv_v, postv_pred, poste_v, poste_pred,
+              [postf_name,postf_conf,postf_bytes],postf_pred)
+          end
       else
-	  raise (ERR "" "")
+          raise (ERR "" "")
   end
   handle HOL_ERR _ => raise (ERR "dest_post" "Not a POST abstraction");
 fun is_post c =
   let
-      val (c', poste_abs) = dest_comb c
-      val (ptm, postv_abs) = dest_comb c'
+      val (c', postf_abs) = dest_comb c
+      val (c'', poste_abs) = dest_comb c'
+      val (ptm, postv_abs) = dest_comb c''
   in
       same_const ptm post_tm
   end
   handle HOL_ERR _ => false;
-fun mk_post (postv_v, postv_abs, poste_v, poste_abs) =
+fun mk_post (postv_v, postv_abs, poste_v, poste_abs,postf_vl,postf_abs) =
   let
       val postv_pred = mk_abs (postv_v, postv_abs)
       val poste_pred = mk_abs (poste_v, poste_abs)
-      val post_cond_pre = mk_comb (post_tm, postv_pred)
-      val post_cond = mk_comb (post_cond_pre, poste_pred)
+      val postf_pred = foldr mk_abs postf_abs postf_vl
   in
-      post_cond
+      foldl (mk_comb o swap) post_tm [postv_pred,poste_pred,postf_pred]
   end;
 
 

@@ -1,9 +1,14 @@
+(*
+  Prove `encoder_correct` for MIPS
+*)
 open HolKernel Parse boolLib bossLib
 open realLib asmLib mips_stepLib mips_targetTheory;
 
 val () = new_theory "mips_targetProof"
 
 val () = wordsLib.guess_lengths()
+
+val ERR = mk_HOL_ERR "mips_targetProofTheory";
 
 (* some lemmas ---------------------------------------------------------- *)
 
@@ -32,7 +37,7 @@ val bytes_in_memory_thm = Q.prove(
       state.PC + 1w IN s.mem_domain /\
       state.PC IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
-       mips_ok_def, asmSemTheory.bytes_in_memory_def,
+       mips_ok_def, miscTheory.bytes_in_memory_def,
        alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
    \\ blastLib.FULL_BBLAST_TAC
    )
@@ -50,7 +55,7 @@ val bytes_in_memory_thm2 = Q.prove(
       state.PC + w + 1w IN s.mem_domain /\
       state.PC + w IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, mips_target_def, mips_config_def,
-       mips_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
+       mips_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    )
 
 val lem1 = asmLib.v2w_BIT_n2w 5
@@ -352,9 +357,13 @@ fun state_tac asm =
                [bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``,
                 bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``]
        else
-         rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2, ror,
-             GSYM wordsTheory.word_mul_def, mips_overflow, mips_sub_overflow,
-             DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
+         rpt strip_tac
+         \\ NO_STRIP_REV_FULL_SIMP_TAC std_ss []
+         \\ REPEAT (qpat_x_assum `ms.MEM qq = bn` kall_tac)
+         \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> qqq` kall_tac)
+         \\ rw [combinTheory.APPLY_UPDATE_THM, mul_long1, mul_long2, ror,
+                GSYM wordsTheory.word_mul_def, mips_overflow, mips_sub_overflow,
+                DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
          \\ (if asmLib.isMem asm then
               rw [boolTheory.FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM]
               \\ full_simp_tac
@@ -389,13 +398,13 @@ local
       in
          exists_tac n
          \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss)
-              [asmPropsTheory.asserts_eval, asmPropsTheory.interference_ok_def,
+              [asmPropsTheory.asserts_eval,
+               asmPropsTheory.asserts2_eval,
+               asmPropsTheory.interference_ok_def,
                mips_proj_def]
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
          \\ NTAC j next_state_tac
-         \\ REPEAT (qpat_x_assum `ms.MEM qq = bn` kall_tac)
-         \\ REPEAT (qpat_x_assum `!a. a IN s1.mem_domain ==> qqq` kall_tac)
       end gs
    val (_, _, dest_mips_enc, is_mips_enc) =
       HolKernel.syntax_fns1 "mips_target" "mips_enc"
@@ -463,14 +472,14 @@ val mips_target_ok = Q.prove (
    )
 
 (* -------------------------------------------------------------------------
-   mips backend_correct
+   mips encoder_correct
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
 
-val mips_backend_correct = Q.store_thm ("mips_backend_correct",
-   `backend_correct mips_target`,
-   simp [asmPropsTheory.backend_correct_def, mips_target_ok]
+Theorem mips_encoder_correct
+   `encoder_correct mips_target`
+   (simp [asmPropsTheory.encoder_correct_def, mips_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel mips_target`
    \\ rw [mips_target_def, mips_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`

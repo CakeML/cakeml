@@ -2,19 +2,30 @@ SEMANTICS = ../../semantics
 INCLUDES = $(HOLDIR)/examples/formal-languages/context-free ../../misc $(SEMANTICS)
 OPTIONS = QUIT_ON_FAILURE
 
+all: $(DEFAULT_TARGETS) README.md
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
+TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
+
+all: README.md $(TARGETS)
+.PHONY: all
+
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
+
 ifdef POLY
 HOLHEAP = heap
 PARENTHEAP = $(SEMANTICS)/heap
 EXTRA_CLEANS = heap
 
+all: $(HOLHEAP)
+
 BARE_THYS = $(SEMANTICS)/tokenUtilsTheory $(SEMANTICS)/gramTheory $(SEMANTICS)/cmlPtreeConversionTheory $(HOLDIR)/examples/formal-languages/context-free/pegexecTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-all: $(TARGETS) $(HOLHEAP)
-.PHONY: all
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENTHEAP) -o $@ $(BARE_THYS)

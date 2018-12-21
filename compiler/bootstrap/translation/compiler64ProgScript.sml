@@ -1,3 +1,6 @@
+(*
+  Finish translation of the 64-bit version of the compiler.
+*)
 open preamble
      mipsProgTheory compilerTheory
      exportTheory
@@ -7,6 +10,11 @@ open cfLib basis
 val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "mipsProg";
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
+
+val _ = (ml_translatorLib.trace_timing_to
+    := SOME "compiler64Prog_translate_timing.txt")
 
 val () = Globals.max_print_depth := 15;
 
@@ -23,9 +31,9 @@ val max_heap_limit_64_def = Define`
 
 val res = translate max_heap_limit_64_def
 
-val max_heap_limit_64_thm = Q.store_thm("max_heap_limit_64_thm",
-  `max_heap_limit (:64) = max_heap_limit_64`,
-  rw[FUN_EQ_THM] \\ EVAL_TAC);
+Theorem max_heap_limit_64_thm
+  `max_heap_limit (:64) = max_heap_limit_64`
+  (rw[FUN_EQ_THM] \\ EVAL_TAC);
 
 (*
 
@@ -55,8 +63,12 @@ val def = spec64
 
 val res = translate def
 
-val def = spec64 backendTheory.compile_def
+val def = spec64 backendTheory.compile_tap_def
   |> REWRITE_RULE[max_heap_limit_64_thm]
+
+val res = translate def
+
+val def = spec64 backendTheory.compile_def
 
 val res = translate def
 
@@ -126,10 +138,16 @@ val res = translate inferTheory.init_config_def;
 *)
 val res = translate error_to_str_def;
 
+val compiler_error_to_str_side_thm = prove(
+  ``compiler_error_to_str_side x = T``,
+  fs [fetch "-" "compiler_error_to_str_side_def"])
+  |> update_precondition;
+
 val res = translate parse_bool_def;
 val res = translate parse_num_def;
 
 val res = translate find_str_def;
+val res = translate find_strs_def;
 val res = translate find_bool_def;
 val res = translate find_num_def;
 val res = translate get_err_str_def;
@@ -147,6 +165,7 @@ val res = translate parse_wtw_conf_def;
 val res = translate parse_gc_def;
 val res = translate parse_data_conf_def;
 val res = translate parse_stack_conf_def;
+val res = translate parse_tap_conf_def;
 
 val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_sz_def,default_stack_sz_def]);
 
@@ -157,6 +176,7 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_
 (* x64 *)
 val res = translate x64_configTheory.x64_names_def;
 val res = translate export_x64Theory.ffi_asm_def;
+val res = translate export_x64Theory.windows_ffi_asm_def;
 val res = translate export_x64Theory.x64_export_def;
 val res = translate
   (x64_configTheory.x64_backend_config_def
@@ -186,9 +206,14 @@ val res = translate
   (arm8_configTheory.arm8_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
 
+(* Leave the module now, so that key things are available in the toplevel
+   namespace for main. *)
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
+
 (* Rest of the translation *)
 val res = translate (extend_conf_def |> spec64 |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]);
 val res = translate parse_target_64_def;
+val res = translate add_tap_output_def;
 
 val res = format_compiler_result_def
         |> Q.GENL[`bytes`,`heap`,`stack`,`c`]
@@ -218,14 +243,14 @@ val res = append_prog main;
 
 val st = get_ml_prog_state()
 
-val main_spec = Q.store_thm("main_spec",
+Theorem main_spec
   `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
        &UNIT_TYPE () uv
        * STDIO (full_compile_64 (TL cl) (get_stdin fs) fs)
-       * COMMANDLINE cl)`,
-  xcf "main" st
+       * COMMANDLINE cl)`
+  (xcf "main" st
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (
@@ -264,7 +289,7 @@ val main_spec = Q.store_thm("main_spec",
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
-  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin])
+  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin, STD_streams_get_mode])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]
@@ -280,16 +305,17 @@ val main_spec = Q.store_thm("main_spec",
   \\ instantiate
   \\ xsimpl);
 
-val main_whole_prog_spec = Q.store_thm("main_whole_prog_spec",
-  `whole_prog_spec ^(fetch_v "main" st) cl fs
-    ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))`,
-  simp[whole_prog_spec_def,UNCURRY]
+Theorem main_whole_prog_spec
+  `whole_prog_spec ^(fetch_v "main" st) cl fs NONE
+    ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))`
+  (simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
     rw[Abbr`fs1`,full_compile_64_def,UNCURRY,
        GSYM fastForwardFD_with_numchars,
        GSYM add_stdo_with_numchars, with_same_numchars]
+  \\ simp [SEP_CLAUSES]
   \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
   \\ xsimpl);
 

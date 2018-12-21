@@ -1,8 +1,13 @@
+(*
+  Some experimental code for emulating evars support in HOL.
+*)
 structure evarsConseqConvLib :> evarsConseqConvLib =
 struct
 
 open preamble
 open ConseqConv ConseqConvTheory quantHeuristicsTools
+
+val ERR = mk_HOL_ERR "evarsConseqConvLib";
 
 type evars = term list
 type term_with_evars = {term: term, evars: evars}

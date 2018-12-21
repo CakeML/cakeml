@@ -1,3 +1,7 @@
+(*
+  A collection of small examples that show (and test) what can be done
+  in CF proofs.
+*)
 open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
 local open ml_progLib basisProgTheory in end
@@ -243,7 +247,8 @@ val example_handle2_spec = Q.prove (
      app (p:'ffi ffi_proj) ^(fetch_v "example_handle2" st) [xv]
        emp (POSTv v. & INT (if x > 0 then 1 else (-1)) v)`,
   xcf "example_handle2" st \\
-  xhandle `POST (\v. & (x > 0 /\ INT 1 v)) (\e. & (x <= 0 /\ Foo_exn (-1) e))`
+  xhandle `POST (\v. & (x > 0 /\ INT 1 v)) (\e. & (x <= 0 /\ Foo_exn (-1) e))
+                (\n c b. &F)`
   THEN1 (
     xlet `POSTv bv. & (BOOL (x > 0) bv)`
     THEN1 (xapp \\ fs []) \\
@@ -294,12 +299,12 @@ val bytearray_fromlist = process_topdecs
 
 val st = ml_progLib.add_prog bytearray_fromlist pick_name basis_st
 
-val list_length_spec = Q.store_thm ("list_length_spec",
+Theorem list_length_spec
   `!a l lv.
      LIST_TYPE a l lv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "length" st) [lv]
-       emp (POSTv v. & NUM (LENGTH l) v)`,
-  Induct_on `l`
+       emp (POSTv v. & NUM (LENGTH l) v)`
+  (Induct_on `l`
   THEN1 (
     xcf "length" st \\ fs [LIST_TYPE_def] \\
     xmatch \\ xret \\ xsimpl
@@ -375,5 +380,27 @@ val strcat_foo_spec = Q.prove (
   xlet `POSTv sv'. &(STRING_TYPE (s ^ implode "foo") sv') * rv ~~> sv`
   >- (xapp >> xsimpl >> simp[mlstringTheory.implode_def] >> metis_tac[]) >>
   rveq >> xapp >> xsimpl);
+
+val example_ffidiv = process_topdecs `
+   fun example_ffidiv b = if b then Runtime.abort () else ()`
+
+val st = ml_progLib.add_prog example_ffidiv pick_name basis_st
+
+val example_ffidiv_spec = Q.prove (
+  `!b bv.
+     BOOL b bv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_ffidiv" st) [bv]
+       (RUNTIME)
+       (POST
+          (λuv. &(UNIT_TYPE () uv) * &(¬b) * RUNTIME)
+          (λev. &F)
+          (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [1w])
+                   * RUNTIME))`,
+  xcf "example_ffidiv" st
+  >> xif
+  >- (xlet_auto
+      >- (xcon >- xsimpl)
+      >> xapp >> xsimpl >> rw[] >> qexists_tac `x` >> xsimpl)
+  >> xcon >> xsimpl);
 
 val _ = export_theory();

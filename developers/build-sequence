@@ -1,6 +1,7 @@
 ## The regression test runs through this list of directories.
 
 # download the latest cake binary
+developers
 developers/bin
 
 # semantics and metatheory
@@ -33,11 +34,13 @@ compiler/encoders/arm6
 compiler/encoders/arm8
 compiler/encoders/mips
 compiler/encoders/riscv
+compiler/encoders/ag32
 compiler/backend/x64
 compiler/backend/arm6
 compiler/backend/arm8
 compiler/backend/mips
 compiler/backend/riscv
+compiler/backend/ag32
 
 # compiler verification
 compiler/parsing/proofs
@@ -50,11 +53,13 @@ compiler/encoders/arm6/proofs
 compiler/encoders/arm8/proofs
 compiler/encoders/mips/proofs
 compiler/encoders/riscv/proofs
+compiler/encoders/ag32/proofs
 compiler/backend/x64/proofs
 compiler/backend/arm6/proofs
 compiler/backend/arm8/proofs
 compiler/backend/mips/proofs
 compiler/backend/riscv/proofs
+compiler/backend/ag32/proofs
 compiler/proofs
 
 # candle
@@ -65,6 +70,8 @@ candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/opentheory
+candle/standard/opentheory/compilation
+candle/standard/opentheory/compilation/proofs
 
 # examples and tests
 characteristic/examples
@@ -72,8 +79,10 @@ tutorial/solutions
 translator/monadic/examples
 
 examples
-examples/compilation
-examples/compilation/proofs
+examples/compilation/x64
+examples/compilation/x64/proofs
+examples/compilation/ag32
+examples/compilation/ag32/proofs
 
 compiler/benchmarks
 

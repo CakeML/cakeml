@@ -2,3 +2,4 @@ compiler/bootstrap/compilation/x64/64/cake-x64-64.tar.gz
 compiler/bootstrap/compilation/x64/32/cake-x64-32.tar.gz
 unverified/sexpr-bootstrap/x64/64/cake-unverified-x64-64.tar.gz
 unverified/sexpr-bootstrap/x64/32/cake-unverified-x64-32.tar.gz
+compiler/bootstrap/translation/compiler64Prog_translate_timing.txt

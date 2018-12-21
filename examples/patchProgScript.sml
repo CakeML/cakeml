@@ -1,3 +1,6 @@
+(*
+  patch example: apply a patch to a file.
+*)
 open preamble basis
      charsetTheory diffTheory
 
@@ -56,8 +59,8 @@ val tokens_two_less = Q.prove(`!s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < 
   >> qspecl_then [`s`,`f`] assume_tac tokens_not_nil
   >> Induct >> Cases >> Induct >> Cases >> rpt strip_tac >> fs[]);
 
-val hexDigit_IMP_digit = Q.store_thm("hexDigit_IMP_digit",`!c. isDigit c ==> isHexDigit c`,
-  rw[isHexDigit_def,isDigit_def]);
+Theorem hexDigit_IMP_digit `!c. isDigit c ==> isHexDigit c`
+  (rw[isHexDigit_def,isDigit_def]);
 
 val parse_patch_header_side = Q.prove(`!s. parse_patch_header_side s = T`,
   rw[fetch "-" "parse_patch_header_side_def"]
@@ -106,7 +109,7 @@ val _ = (append_prog o process_topdecs) `
                 None => TextIO.output TextIO.stdErr (rejected_patch_string)
               | Some s => TextIO.print_list s`
 
-val patch'_spec = Q.store_thm("patch'_spec",
+Theorem patch'_spec
   `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"patch'"(get_ml_prog_state()))
@@ -120,8 +123,8 @@ val patch'_spec = Q.store_thm("patch'_spec",
         | NONE => add_stderr fs rejected_patch_string
         | SOME s => add_stdout fs (concat s)
         else add_stderr fs (notfound_string f2)
-        else add_stderr fs (notfound_string f1)))`,
-  xcf"patch'"(get_ml_prog_state())
+        else add_stderr fs (notfound_string f1)))`
+  (xcf"patch'"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
   \\ fs[OPTION_TYPE_def]
@@ -166,15 +169,15 @@ val patch_sem_def = Define`
     else add_stderr fs (notfound_string (EL 1 cl))
     else add_stderr fs usage_string`;
 
-val patch_spec = Q.store_thm("patch_spec",
+Theorem patch_spec
   `hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"patch"(get_ml_prog_state()))
      [Conv NONE []]
      (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv *
-                STDIO (patch_sem cl fs) * COMMANDLINE cl)`,
-  once_rewrite_tac[patch_sem_def]
+                STDIO (patch_sem cl fs) * COMMANDLINE cl)`
+  (once_rewrite_tac[patch_sem_def]
   \\ strip_tac \\ xcf "patch" (get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
@@ -204,16 +207,16 @@ val patch_spec = Q.store_thm("patch_spec",
 
 val st = get_ml_prog_state();
 
-val patch_whole_prog_spec = Q.store_thm("patch_whole_prog_spec",
+Theorem patch_whole_prog_spec
   `hasFreeFD fs ⇒
-   whole_prog_spec ^(fetch_v"patch"st) cl fs ((=) (patch_sem cl fs))`,
-  strip_tac
-  \\ rw[whole_prog_spec_def]
+   whole_prog_spec ^(fetch_v"patch"st) cl fs NONE ((=) (patch_sem cl fs))`
+  (rw[whole_prog_spec_def]
   \\ qexists_tac`patch_sem cl fs`
   \\ reverse conj_tac
   >- ( rw[patch_sem_def,GSYM add_stdo_with_numchars,with_same_numchars]
        \\ CASE_TAC \\ rw[GSYM add_stdo_with_numchars,with_same_numchars])
-  \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH patch_spec)))
+  \\ simp [SEP_CLAUSES]
+  \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH patch_spec))))
   \\ xsimpl);
 
 val name = "patch"

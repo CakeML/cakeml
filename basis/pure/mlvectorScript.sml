@@ -1,3 +1,6 @@
+(*
+  Pure functions for the Vector module.
+*)
 open preamble
       mllistTheory miscTheory regexp_compilerTheory
 
@@ -38,34 +41,32 @@ val toList_aux_thm = Q.prove (
   fs [sub_def, length_def, DROP_EL_CONS]
 );
 
-val toList_thm = Q.store_thm (
-  "toList_thm",
-  `!ls. toList (Vector ls) = ls`,
-  rw [toList_def, toList_aux_thm]
+Theorem toList_thm
+  `!ls. toList (Vector ls) = ls`
+  (rw [toList_def, toList_aux_thm]
 );
 
-val length_toList = Q.store_thm("length_toList",
-  `LENGTH (toList vec) = length vec`,
-  Induct_on `vec` >> rw[length_def, toList_thm]);
+Theorem length_toList
+  `LENGTH (toList vec) = length vec`
+  (Induct_on `vec` >> rw[length_def, toList_thm]);
 
-val toList_11 = Q.store_thm("toList_11[simp]",`(toList l = toList l') = (l = l')`,
-  Induct_on `l` >> Induct_on `l'` >> fs[toList_thm]);
+Theorem toList_11[simp] `(toList l = toList l') = (l = l')`
+  (Induct_on `l` >> Induct_on `l'` >> fs[toList_thm]);
 
 val EL_toList= Q.store_thm("EL_toList",`EL n (toList l) = sub l n`,
   Induct_on `l` >> fs[sub_def,toList_thm]);
 
-val toList_fromList = Q.store_thm("toList_fromList[simp]",
-  `(toList(fromList l) = l) /\ (fromList(toList v) = v)`,
-  Cases_on `v` >> fs[toList_thm,fromList_def]);
+Theorem toList_fromList[simp]
+  `(toList(fromList l) = l) /\ (fromList(toList v) = v)`
+  (Cases_on `v` >> fs[toList_thm,fromList_def]);
 
 val update_def = Define`
   update vec i x = Vector (LUPDATE x i (toList(vec)))`;
 
-val update_thm = Q.store_thm (
-  "update_thm",
+Theorem update_thm
   `!vec i x. sub (update vec i x) i = if i < length vec then x
-    else sub vec i`,
-  Cases \\
+    else sub vec i`
+  (Cases \\
   rw [update_def, toList_thm, EL_LUPDATE, length_def, sub_def]
 );
 
@@ -78,7 +79,7 @@ val map_def = Define`
   map vec f = Vector (MAP f (toList vec))`;
 
 val mapi_def = Define`
-  mapi vec f = Vector (mllist$mapi f 0 (toList vec))`;
+  mapi vec f = Vector (MAPi f (toList vec))`;
 
 
 val less_than_length_thm = Q.prove (
@@ -109,10 +110,9 @@ val foldli_aux_thm = Q.prove (
   \\ rw [DROP_EL_CONS, mllistTheory.foldli_aux_def, ADD1]
 );
 
-val foldli_thm = Q.store_thm (
-  "foldli_thm",
-  `!f e vec. foldli f e vec = mllist$foldli f e (toList vec)`,
-  rw [foldli_def, mllistTheory.foldli_def, foldli_aux_thm]
+Theorem foldli_thm
+  `!f e vec. foldli f e vec = mllist$foldli f e (toList vec)`
+  (rw [foldli_def, mllistTheory.foldli_def, foldli_aux_thm]
 );
 
 val foldl_aux_def = Define`
@@ -137,10 +137,9 @@ val foldl_aux_thm = Q.prove (
         FOLDL,  DROP_LENGTH_APPEND]
 );
 
-val foldl_thm = Q.store_thm (
-  "foldl_thm",
-  `!f e vec. foldl f e vec = FOLDL f e (toList vec)`,
-  rw [foldl_aux_thm, foldl_def]
+Theorem foldl_thm
+  `!f e vec. foldl f e vec = FOLDL f e (toList vec)`
+  (rw [foldl_aux_thm, foldl_def]
 );
 
 
@@ -161,10 +160,9 @@ val foldri_aux_thm = Q.prove (
   rw [ADD1, TAKE_SUM, take1_drop, FOLDRi_APPEND]
 );
 
-val foldri_thm = Q.store_thm (
-  "foldri_thm",
-  `!f e vec. foldri f e vec = FOLDRi f e (toList vec)`,
-  Cases_on `vec` \\
+Theorem foldri_thm
+  `!f e vec. foldri f e vec = FOLDRi f e (toList vec)`
+  (Cases_on `vec` \\
   rw [foldri_aux_thm, foldri_def, toList_thm, length_def]
 );
 
@@ -185,10 +183,9 @@ val foldr_aux_thm = Q.prove (
   rw [ADD1, TAKE_SUM, take1_drop, FOLDR_APPEND]
 );
 
-val foldr_thm = Q.store_thm (
-  "foldr_thm",
-  `!f e vec. foldr f e vec = FOLDR f e (toList vec)`,
-  Cases_on `vec` \\
+Theorem foldr_thm
+  `!f e vec. foldr f e vec = FOLDR f e (toList vec)`
+  (Cases_on `vec` \\
   rw[foldr_def, foldr_aux_thm, length_def, toList_thm]
 );
 
@@ -224,10 +221,9 @@ val find_aux_thm = Q.prove (
   rw [DROP_EL_CONS, INDEX_FIND_def, index_find_thm]
 );
 
-val find_thm = Q.store_thm (
-  "find_thm",
-  `!f vec. find f vec = FIND f (toList vec)`,
-  rw [find_aux_thm, find_def]
+Theorem find_thm
+  `!f vec. find f vec = FIND f (toList vec)`
+  (rw [find_aux_thm, find_def]
 );
 
 
@@ -250,10 +246,9 @@ val exists_aux_thm = Q.prove(
   rw [DROP_EL_CONS]
 );
 
-val exists_thm = Q.store_thm (
-  "exists_thm",
-  `!f vec. exists f vec = EXISTS f (toList vec)`,
-  Cases_on `vec` \\
+Theorem exists_thm
+  `!f vec. exists f vec = EXISTS f (toList vec)`
+  (Cases_on `vec` \\
   rw [exists_def, exists_aux_thm]
 );
 
@@ -276,10 +271,9 @@ val all_aux_thm = Q.prove (
   rw [DROP_EL_CONS]
 );
 
-val all_thm = Q.store_thm (
-  "all_thm",
-  `!f vec. all f vec = EVERY f (toList vec)`,
-  Cases_on `vec` \\ rw[all_def, all_aux_thm]
+Theorem all_thm
+  `!f vec. all f vec = EVERY f (toList vec)`
+  (Cases_on `vec` \\ rw[all_def, all_aux_thm]
 );
 
 
@@ -326,10 +320,9 @@ val collate_aux_greater_thm = Q.prove (
   >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
 );
 
-val collate_thm = Q.store_thm (
-  "collate_thm",
-  `!f vec1 vec2. collate f vec1 vec2 = mllist$collate f (toList vec1) (toList vec2)`,
-  rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
+Theorem collate_thm
+  `!f vec1 vec2. collate f vec1 vec2 = mllist$collate f (toList vec1) (toList vec2)`
+  (rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
 );
 
 val _ = export_theory()

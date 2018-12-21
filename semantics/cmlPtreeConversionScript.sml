@@ -1,10 +1,10 @@
+(*
+  Specification of how to convert parse trees to abstract syntax.
+*)
+
 open preamble gramTheory tokenUtilsTheory astTheory
 
 val _ = new_theory "cmlPtreeConversion"
-
-(* ----------------------------------------------------------------------
-    Parse trees to abstract syntax
-   ---------------------------------------------------------------------- *)
 
 val _ = set_grammar_ancestry ["gram", "tokenUtils", "ast", "namespace"]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
@@ -89,18 +89,7 @@ val mpop_namedscope_def = Define`
    ---------------------------------------------------------------------- *)
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
-
-(* TODO: these should either be temp or moved elsewhere *)
-val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
-                                        "option.OPTION_IGNORE_BIND_def",
-                                        "option.OPTION_GUARD_def",
-                                        "option.OPTION_MAP_DEF",
-                                        "option.OPTION_MAP2_DEF",
-                                        "option.OPTION_CHOICE_def"]
-
-val _ = overload_on ("++", ``option$OPTION_CHOICE``)
-val _ = overload_on ("lift", ``option$OPTION_MAP``)
-(* -- *)
+val _ = temp_overload_on ("lift", ``option$OPTION_MAP``)
 
 val ifM_def = Define`
   ifM bM tM eM =
@@ -364,12 +353,12 @@ val detuplify_def = Define`
   detuplify ty = [ty]
 `
 
-val detuplify_pmatch = Q.store_thm("detuplify_pmatch",`!ty.
+Theorem detuplify_pmatch `!ty.
   detuplify ty =
   case ty of
     Attup args => args
-  | ty => [ty]`,
-  ho_match_mp_tac (theorem "detuplify_ind")
+  | ty => [ty]`
+  (ho_match_mp_tac (theorem "detuplify_ind")
   >> fs[detuplify_def]);
 
 val ptree_PTbase_def = Define‘
@@ -1135,7 +1124,7 @@ local
                 ps <- ptree_PbaseList1 pats_pt;
                 p1 <- oHD ps;
                 body0 <- ptree_Expr nE body_pt;
-                SOME(fname,dePat p1 (FOLDR mkFun body0 (misc$safeTL ps)))
+                SOME(fname,dePat p1 (FOLDR mkFun body0 (TL ps)))
               od
             | _ => NONE
         else NONE) ∧
@@ -1258,7 +1247,7 @@ val ptree_Expr_pmatch = Q.store_thm("ptree_decl_pmatch",
 end
 
 val ptree_Decl_def = Define`
-  ptree_Decl pt : dec option =
+  (ptree_Decl pt : dec option =
     dtcase pt of
        Lf _ => NONE
      | Nd (nt,locs) args =>
@@ -1288,10 +1277,14 @@ val ptree_Decl_def = Define`
                e <- ptree_Expr nE ept;
                SOME (Dlet (locs) pat e)
              od
-           | _ => NONE
-`
-
-val ptree_Decls_def = Define`
+           | [localtok; decls1_pt; intok; decls2_pt; endtok] =>
+             do
+               assert (tokcheckl [localtok; intok; endtok] [LocalT; InT; EndT]);
+               decls1 <- ptree_Decls decls1_pt;
+               decls2 <- ptree_Decls decls2_pt;
+               return (Dlocal decls1 decls2)
+             od
+           | _ => NONE) /\
   ptree_Decls (Lf _) = NONE ∧
   ptree_Decls (Nd (nt,_) args) =
     if nt <> mkNT nDecls then NONE

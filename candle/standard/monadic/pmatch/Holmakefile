@@ -1,1 +1,0 @@
-INCLUDES = .. ../../ml_kernel ../../../../translator $(HOLDIR)/examples/pattern_matches

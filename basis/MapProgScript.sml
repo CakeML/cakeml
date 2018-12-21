@@ -1,3 +1,7 @@
+(*
+  This module contains CakeML code implementing a functional map type
+  using a self-balancing binary tree.
+*)
 open preamble
   ml_translatorLib ml_translatorTheory ml_progLib
   balanced_mapTheory CompareProgTheory basisFunctionsLib
@@ -6,8 +10,6 @@ val _ = new_theory "MapProg"
 
 val _ = translation_extends "CompareProg";
 
-(* TODO: move this definition below open_module once the translater
-         has better support for defining datatypes inside modules. *)
 val _ = (use_full_type_names := false);
 val _ = register_type ``:('a,'b) balanced_map$balanced_map``;
 val _ = (use_full_type_names := true);

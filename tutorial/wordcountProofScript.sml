@@ -1,13 +1,18 @@
+(*
+  Constructs the end-to-end correctness theorem for wordcount example
+  by composing the application-specific correctness theorem, the
+  compiler evaluation theorem and the compiler correctness theorem.
+*)
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      wordcountProgTheory wordcountCompileTheory
 
 val _ = new_theory"wordcountProof";
 
-val _ = temp_clear_overloads_on"STRCAT";
+val _ = temp_clear_overloads_on"STRCAT"; (* " *)
 
 val wordcount_io_events_def = new_specification("wordcount_io_events_def",["wordcount_io_events"],
-  wordcount_semantics |> Q.GENL[`pname`,`fname`,`fs`,`cl`,`contents`]
+  wordcount_semantics |> Q.GENL[`cl`,`fs`,`contents`,`fs'`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (wordcount_sem,wordcount_output) = wordcount_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
@@ -27,6 +32,7 @@ val compile_correct_applied =
 val wordcount_compiled_thm =
   CONJ compile_correct_applied wordcount_output
   |> DISCH_ALL
+  |> check_thm
   |> curry save_thm "wordcount_compiled_thm";
 
 val _ = export_theory();

@@ -1,3 +1,7 @@
+/*
+  Implements the foreign function interface (FFI) used in the CakeML basis
+  library, as a thin wrapper around the relevant system calls.
+*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -77,7 +81,12 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
+  #ifdef __WIN32
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
+  #else
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+  #endif
+
   if (0 <= fd){
     a[0] = 0;
     int_to_byte8(fd, &a[1]);
@@ -134,6 +143,14 @@ void cml_exit(int arg) {
   #endif
   exit(arg);
 }
+
+void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
+  if(alen > 0) {
+    cml_exit((int)a[0]);
+  }
+  cml_exit(EXIT_FAILURE);
+}
+
 
 /* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
 void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
