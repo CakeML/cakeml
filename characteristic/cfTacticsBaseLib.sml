@@ -136,42 +136,16 @@ fun rewr_head_conv thm tm =
           else (funpow extra_args_nb RATOR_CONV) (REWR_CONV thm)
   in conv tm end
 
-open cmlPEGTheory gramTheory cmlPtreeConversionTheory
-     grammarTheory lexer_funTheory lexer_implTheory
-
-val parse_t =
-  Lib.with_flag (Feedback.MESG_outstream, (fn s => ()))
-   Parse.Term
-     `\inputnt sem s.
-        case
-          peg_exec cmlPEG (nt (mkNT inputnt) I) (lexer_fun s) [] done failed
-        of
-          Result (SOME([],[x])) => sem x : 'a
-        | Result (SOME (toks, _)) =>
-            ARB (ARB "Parse failed with remaining tokens" toks)
-        | _ => ARB "Parse failed"`
-
-fun string_of_q [] = ""
-  | string_of_q (QUOTE s :: qs) = s ^ (string_of_q qs)
-  | string_of_q (ANTIQUOTE s :: qs) = s ^ (string_of_q qs)
-
-fun parse nt sem q =
-  let
-    val (_,r) = dom_rng (type_of sem)
-  in
-    EVAL (list_mk_comb(inst [alpha |-> r] parse_t,
-                       [nt, sem, stringSyntax.fromMLstring (string_of_q q)]))
-         |> concl |> rhs |> rand
-  end
-
-val parse_exp = parse ``nE`` ``ptree_Expr nE``
-val parse_decl = parse ``nDecl`` ``ptree_Decl``
-val parse_topdecs = parse ``nTopLevelDecs`` ``ptree_TopLevelDecs``
 
 (* for debugging
 val st = (basis_st())
 val name = "Word8Array.array"
 *)
+
+val parse = parsingComputeLib.parse
+val parse_exp = parsingComputeLib.parse_exp
+val parse_decl = parsingComputeLib.parse_decl
+val parse_topdecs = parsingComputeLib.parse_topdecs
 
 val nEbase_t = ``nEbase``
 val ptree_t = ``ptree_Expr nEbase``
