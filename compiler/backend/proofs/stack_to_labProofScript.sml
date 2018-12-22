@@ -1,6 +1,7 @@
 (*
   Correctness proof for stack_to_lab
 *)
+
 open preamble
      stackSemTheory stackPropsTheory
      stack_allocTheory stack_to_labTheory
@@ -2813,7 +2814,7 @@ Theorem full_make_init_semantics
           \\ first_assum(part_match_exists_tac (fst o dest_conj) o (rconc o SYM_CONV o rand o concl))
           \\ simp[Abbr`code1`]
           \\ drule (GEN_ALL stack_allocProofTheory.stack_alloc_call_args)
-          \\ disch_then(qspec_then`<|data_conf:=data_conf|>`mp_tac) \\ simp[] )
+          \\ disch_then(qspec_then`data_conf`mp_tac) \\ simp[] )
         \\ ntac 3 strip_tac
         \\ conj_tac
         >- (
@@ -2901,7 +2902,7 @@ Theorem full_make_init_semantics
     >- (
       imp_res_tac stack_alloc_reg_bound \\
       rfs[EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,Abbr`code1`] \\
-      first_x_assum(qspec_then`<|data_conf := data_conf|>`mp_tac) \\ simp[] \\
+      first_x_assum(qspec_then`data_conf`mp_tac) \\ simp[] \\
       ntac 4 strip_tac \\
       conj_tac >- metis_tac[] \\
       fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def]
@@ -2917,7 +2918,7 @@ Theorem full_make_init_semantics
       fs[Abbr`coracle1`]>>
       drule (GEN_ALL stack_alloc_reg_bound)>>
       disch_then drule>>
-      disch_then(qspec_then `<|data_conf:=ARB|>` assume_tac)>>
+      disch_then(qspec_then `ARB` assume_tac)>>
       fs[stack_allocTheory.compile_def]>>
       fs[Once EVERY_MAP,LAMBDA_PROD,EVERY_MEM,FORALL_PROD]>>
       conj_tac>-

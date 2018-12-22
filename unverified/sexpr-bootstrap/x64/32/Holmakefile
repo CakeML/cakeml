@@ -2,36 +2,16 @@ ARCH = x64
 WORD_SIZE = 32
 STACK_MB = 1000
 HEAP_MB = 1000
-CAKE_BIN = ../../../../developers/bin/cake
-INCLUDES = ../../../../compiler/bootstrap/translation ../../../sexpr-bootstrap ../../../../developers/bin/
-CLINE_OPTIONS = --qof
+CAKE_BIN = $(CAKEMLDIR)/developers/bin/cake
+INCLUDES = $(CAKEMLDIR)/compiler/bootstrap/translation $(CAKEMLDIR)/developers/bin ../..
 
 all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
-
-ifdef POLY
-HOLHEAP = heap
-PARENT_HOLHEAP = ../../../../compiler/bootstrap/translation/heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
-all: $(TARGETS) $(HOLHEAP) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz
-.PHONY: all
-
-BARE_THYS = ../../../../compiler/bootstrap/translation/compiler$(WORD_SIZE)ProgTheory 
-
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
-endif
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 cake-sexpr-$(ARCH)-$(WORD_SIZE): *$(ARCH)SexprScript.sml
 

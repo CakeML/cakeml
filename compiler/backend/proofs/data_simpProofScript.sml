@@ -1,11 +1,11 @@
 (*
   Correctness proof for data_simp
 *)
-open preamble data_simpTheory dataSemTheory;
+open preamble data_simpTheory dataSemTheory dataPropsTheory;
 
 val _ = new_theory"data_simpProof";
 
-val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="dataSem"};
+val _ = set_grammar_ancestry ["data_simp", "dataSem", "dataProps"];
 
 val evaluate_Seq_Skip = Q.prove(
   `!c s. evaluate (Seq c Skip,s) = evaluate (c,s)`,

@@ -10,7 +10,7 @@ open preamble dataSemTheory dataPropsTheory
      helperLib alignmentTheory blastLib word_bignumTheory
      wordLangTheory word_bignumProofTheory gen_gc_partialTheory
      gc_sharedTheory;
-local open gen_gcTheory in end
+local open backendTheory gen_gcTheory in end
 
 val _ = new_theory "data_to_wordProof";
 

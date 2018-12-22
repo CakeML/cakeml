@@ -4,10 +4,10 @@ open lem_pervasivesTheory lem_set_extraTheory;
 
 val _ = numLib.prefer_num();
 
-
+local open alistTheory in end
 
 val _ = new_theory "namespace"
-val _ = set_grammar_ancestry ["integer", "words", "string", "alist"];
+val _ = set_grammar_ancestry ["alist"];
 
 (*
   TODO: document
@@ -50,7 +50,7 @@ val _ = Hol_datatype `
 (*val nsLookup : forall 'v 'm 'n. Eq 'n, Eq 'm => namespace 'm 'n 'v -> id 'm 'n -> maybe 'v*)
  val _ = Define `
  (nsLookup (Bind v m) (Short n)=  (ALOOKUP v n))
-    /\ (nsLookup (Bind v m) (Long mn id)=      
+    /\ (nsLookup (Bind v m) (Long mn id)=
  ((case ALOOKUP m mn of
         NONE => NONE
       | SOME env => nsLookup env id
@@ -60,7 +60,7 @@ val _ = Hol_datatype `
 (*val nsLookupMod : forall 'm 'n 'v. Eq 'n, Eq 'm => namespace 'm 'n 'v -> list 'm -> maybe (namespace 'm 'n 'v)*)
  val _ = Define `
  (nsLookupMod e []=  (SOME e))
-    /\ (nsLookupMod (Bind v m) (mn::path)=      
+    /\ (nsLookupMod (Bind v m) (mn::path)=
  ((case ALOOKUP m mn of
         NONE => NONE
       | SOME env => nsLookupMod env path
@@ -99,7 +99,7 @@ val _ = Define `
 
 (*val nsOptBind : forall 'v 'm 'n. maybe 'n -> 'v -> namespace 'm 'n 'v -> namespace 'm 'n 'v*)
 val _ = Define `
- (nsOptBind n x env=  
+ (nsOptBind n x env=
  ((case n of
     NONE => env
   | SOME n' => nsBind n' x env
@@ -114,20 +114,20 @@ val _ = Define `
 (*val nsSub : forall 'v1 'v2 'm 'n. Eq 'm, Eq 'n, Eq 'v1, Eq 'v2 =>
   (id 'm 'n -> 'v1 -> 'v2 -> bool) -> namespace 'm 'n 'v1 -> namespace 'm 'n 'v2 -> bool*)
 val _ = Define `
- (nsSub r env1 env2=  
- ((! id v1.    
+ (nsSub r env1 env2=
+ ((! id v1.
 (nsLookup env1 id = SOME v1)
-    ==>    
+    ==>
 (? v2. (nsLookup env2 id = SOME v2) /\ r id v1 v2))
   /\
-  (! path.    
+  (! path.
 (nsLookupMod env2 path = NONE) ==> (nsLookupMod env1 path = NONE))))`;
 
 
 (*val nsAll : forall 'v 'm 'n. Eq 'm, Eq 'n, Eq 'v => (id 'm 'n -> 'v -> bool) -> namespace 'm 'n 'v -> bool*)
  val _ = Define `
- (nsAll f env= 
-  (! id v.     
+ (nsAll f env=
+  (! id v.
 (nsLookup env id = SOME v)
      ==>
      f id v))`;
@@ -136,29 +136,28 @@ val _ = Define `
 (*val eAll2 : forall 'v1 'v2 'm 'n. Eq 'm, Eq 'n, Eq 'v1, Eq 'v2 =>
    (id 'm 'n -> 'v1 -> 'v2 -> bool) -> namespace 'm 'n 'v1 -> namespace 'm 'n 'v2 -> bool*)
 val _ = Define `
- (nsAll2 r env1 env2=  
+ (nsAll2 r env1 env2=
  (nsSub r env1 env2 /\
   nsSub (\ x y z .  r x z y) env2 env1))`;
 
 
 (*val nsDom : forall 'v 'm 'n. Eq 'm, Eq 'n, Eq 'v, SetType 'v => namespace 'm 'n 'v -> set (id 'm 'n)*)
 val _ = Define `
- (nsDom env= 
+ (nsDom env=
   ({ n | v,n | (v IN UNIV) /\ (n IN UNIV) /\ (nsLookup env n = SOME v) }))`;
 
 
 (*val nsDomMod : forall 'v 'm 'n. SetType 'm, Eq 'm, Eq 'n, Eq 'v => namespace 'm 'n 'v -> set (list 'm)*)
 val _ = Define `
- (nsDomMod env= 
+ (nsDomMod env=
   ({ n | v,n | (v IN UNIV) /\ (n IN UNIV) /\ (nsLookupMod env n = SOME v) }))`;
 
 
 (*val nsMap : forall 'v 'w 'm 'n. ('v -> 'w) -> namespace 'm 'n 'v -> namespace 'm 'n 'w*)
  val nsMap_defn = Hol_defn "nsMap" `
- (nsMap f (Bind v m)=  
+ (nsMap f (Bind v m)=
  (Bind (MAP (\ (n,x) .  (n, f x)) v)
        (MAP (\ (mn,e) .  (mn, nsMap f e)) m)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn nsMap_defn;
 val _ = export_theory()
-
