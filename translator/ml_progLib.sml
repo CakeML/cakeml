@@ -136,20 +136,22 @@ val reduce_conv =
   EVAL THENC REWRITE_CONV [DISJOINT_set_simp] THENC
   EVAL THENC SIMP_CONV (srw_ss()) [] THENC EVAL;
 
-fun prove_assum_by_eval th = let
+fun prove_assum_by_conv conv th = let
   val (x,y) = dest_imp (concl th)
-  val lemma = reduce_conv x
+  val lemma = conv x
   val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV lemma)) th
   in MP lemma TRUTH
      handle HOL_ERR e => let
-       val _ = print "Failed to reduce:\n\n"
+       val _ = print "Failed to convert:\n\n"
        val _ = print_term x
        val _ = print "\n\nto T. It only reduced to:\n\n"
        val _ = print_term (lemma |> concl |> dest_eq |> snd)
        val _ = print "\n\n"
-       in failwith "prove_assum_by_eval: unable to reduce term to T"
+       in failwith "prove_assum_by_conv: unable to reduce term to T"
      end
   end;
+
+val prove_assum_by_eval = prove_assum_by_conv reduce_conv
 
 fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
 
@@ -187,57 +189,101 @@ fun define_abbrev for_eval name tm = let
 
 val ML_code_tm = prim_mk_const {Name = "ML_code", Thy = "ml_prog"}
 
-fun no_prog_conv conv tm = let
-    (* avoid conv operating on the 3rd argument of ML_code, the program *)
+fun dest_ML_code_block tm = let
+    (* mn might or might not be a syntactic tuple,
+        so make sure the list length is fixed. *)
+    val (mn, elts) = pairSyntax.dest_pair tm
+  in mn :: pairSyntax.strip_pair elts end
+
+fun ML_code_blocks tm = let
     val (f, xs) = strip_comb tm
-  in if not (same_const f ML_code_tm) orelse null xs
-    then conv tm
-    else if length xs = 3 then RATOR_CONV (no_prog_conv conv) tm
-    else (RATOR_CONV (no_prog_conv conv) THENC RAND_CONV conv) tm
+    val _ = (same_const f ML_code_tm andalso length xs = 2)
+        orelse failwith "ML_code_blocks: not ML_code"
+    val (block_tms, _) = listSyntax.dest_list (hd xs)
+  in map dest_ML_code_block block_tms end
+
+val ML_code_open_env = List.last o hd o ML_code_blocks
+
+val let_conv = REWR_CONV LET_THM THENC (TRY_CONV BETA_CONV)
+
+fun cond_let_abbrev cond name conv th = let
+    val _ = is_let (concl th) orelse (print "cond_let_abbrev: not let:\n\n";
+        print_term (concl th);
+        failwith ("cond_let_abbrev: " ^ name ^ ": not let"))
+    val th = CONV_RULE (RAND_CONV conv) th
+    val (_, tm) = dest_let (concl th)
+    val (f, xs) = strip_comb tm
+  in if cond andalso is_const f andalso all is_var xs
+     then (CONV_RULE let_conv th, [])
+     else let
+       val def = define_abbrev true (find_name name) tm |> SPEC_ALL
+       in (CONV_RULE (RAND_CONV (REWR_CONV (GSYM def))
+           THENC let_conv) th, [def])
+       end
   end
 
-fun cond_abbrev dest conv eval name th = let
-  val tm = dest th
-  val (x,vs) = strip_comb tm handle HOL_ERR _ => (tm,[])
-  in if is_const x andalso all is_var vs then (th,[])
-     else let
-       val th = CONV_RULE (conv eval) th
-       val tm = dest th
-       val def = define_abbrev true (find_name name) tm |> SPEC_ALL
-       val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
-       in (th,[def]) end end
+fun auto_name sfx = current_theory () ^ "_" ^ sfx
 
-fun cond_env_abbrev dest conv name th = let
-  val tm = dest th
-  val (x,vs) = strip_comb tm handle HOL_ERR _ => (tm,[])
-  in if is_const x andalso all is_var vs then (th,[])
-     else let
-       val def = define_abbrev false (find_name name) tm |> SPEC_ALL
-       val th = CONV_RULE (conv (REWR_CONV (GSYM def))) th
-       val env_const = def |> concl |> dest_eq |> fst
-       (* derive nsLookup thms *)
-       val xs = nsLookup_eq_format |> SPEC env_const |> concl
-                   |> find_terms is_eq |> map (fst o dest_eq)
-       val rewrs = [def, nsLookup_write_eqs, nsLookup_write_cons_eqs,
-                         nsLookup_merge_env_eqs, nsLookup_write_mod_eqs,
-                         nsLookup_empty_eqs]
-       val pfun_eqs = LIST_CONJ (map (REWRITE_CONV rewrs) xs)
-       val thm_name = "nsLookup_" ^ fst (dest_const env_const) ^ "_pfun_eqs"
-       val _ = save_thm(thm_name, pfun_eqs)
-       in (th,[def]) end end
+fun let_st_abbrev conv (th, ML_code (ss, envs, vs, ml_th)) = let
+    val (th, abbrev_defs) = cond_let_abbrev true (auto_name "st") conv th
+  in (th, ML_code (abbrev_defs @ ss, envs, vs, ml_th)) end
+
+fun derive_nsLookup_thms def = let
+    val env_const = def |> concl |> dest_eq |> fst
+    (* derive nsLookup thms *)
+    val xs = nsLookup_eq_format |> SPEC env_const |> concl
+                |> find_terms is_eq |> map (fst o dest_eq)
+    val rewrs = [def, nsLookup_write_eqs, nsLookup_write_cons_eqs,
+                      nsLookup_merge_env_eqs, nsLookup_write_mod_eqs,
+                      nsLookup_empty_eqs]
+    val pfun_eqs = LIST_CONJ (map (REWRITE_CONV rewrs) xs)
+    val thm_name = "nsLookup_" ^ fst (dest_const env_const) ^ "_pfun_eqs"
+  in save_thm (thm_name, pfun_eqs) end
+
+fun let_env_abbrev conv (th, ML_code (ss, envs, vs, ml_th)) = let
+    val (th, abbrev_defs) = cond_let_abbrev true (auto_name "env") conv th
+    val _ = map derive_nsLookup_thms abbrev_defs
+  in (th, ML_code (ss, abbrev_defs @ envs, vs, ml_th)) end
+
+fun let_v_abbrev nm conv (th, ML_code (ss, envs, vs, ml_th)) = let
+    val (th, abbrev_defs) = cond_let_abbrev false nm conv th
+  in (th, ML_code (ss, envs, abbrev_defs @ vs, ml_th)) end
+
+fun solve_ml_imp f (th, ML_code code) = let
+    val _ = is_imp (concl th) orelse (print "solve_ml_imp: not imp:\n\n";
+        print_term (concl th);
+        failwith ("solve_ml_imp: not imp"))
+  in (f th, ML_code code) end
+fun solve_ml_imp_mp lemma = solve_ml_imp (fn th => MATCH_MP th lemma)
+fun solve_ml_imp_conv conv = solve_ml_imp (prove_assum_by_conv conv)
 
 (*
 val (ML_code (ss,envs,vs,th)) = (ML_code (ss,envs,v_def :: vs,th))
 *)
 
-fun clean (ML_code (ss,envs,vs,th)) = let
-  val (th,new_ss) = cond_abbrev (rand o concl)
-                      RAND_CONV reduce_conv "auto_state" th
-  val dest = (rand o rator o concl)
-  val conv = (RATOR_CONV o RAND_CONV)
-  val name = "auto_env"
-  val (th,new_envs) = cond_env_abbrev dest conv name th
-  in ML_code (new_ss @ ss, new_envs @ envs, vs,  th) end
+fun ML_code_upd nm mp_thm adjs (ML_code code) = let
+    (* when updating an ML_code thm by forward resolution, first
+       abstract any snoc-lists to variables, do all processing on
+       that theorem, then resolve with the original in one MATCH_MP,
+       which avoids traversing the snoc-list at any point. *)
+    fun remove_snocs i tm = if listSyntax.is_snoc tm
+        then (i + 1, mk_var ("snoc_var_" ^ Int.toString i, type_of tm))
+        else if is_comb tm then let
+          val (f, x) = dest_comb tm
+          val (j, f) = remove_snocs i f
+          val (j, x) = remove_snocs j x
+        in if j = i then (i, tm) else (j, mk_comb (f, x)) end
+        else (i, tm)
+    val orig_th = #4 code
+    val (_, no_snoc_tm) = remove_snocs 1 (concl orig_th)
+    val preproc_th = MATCH_MP mp_thm (ASSUME no_snoc_tm)
+    val (proc_th, ML_code (ss, envs, vs, _))
+        = foldl (fn (adj, x) => adj x) (preproc_th, ML_code code) adjs
+    val _ = same_const ML_code_tm (fst (strip_comb (concl proc_th)))
+        orelse failwith ("ML_code_upd: " ^ nm ^ ": unfinished: "
+            ^ Parse.thm_to_string proc_th)
+    val th = MATCH_MP (DISCH no_snoc_tm proc_th) orig_th
+  in ML_code (ss, envs, vs, th) end
 
 (* --- *)
 
@@ -247,37 +293,27 @@ val loc = unknown_loc;
 val init_state =
   ML_code ([SPEC_ALL init_state_def],[init_env_def],[],ML_code_NIL);
 
-fun open_module mn_str (ML_code (ss,envs,vs,th)) =
-  ML_code
-    (ss,envs,vs,
-     MATCH_MP ML_code_new_module th
-     |> SPEC (stringSyntax.fromMLstring mn_str))
-  handle HOL_ERR _ => failwith("open_module failed for " ^ thm_to_string th)
+fun open_module mn_str = ML_code_upd "open_module"
+    (SPEC (stringSyntax.fromMLstring mn_str) ML_code_new_module)
+    [let_env_abbrev reduce_conv]
 
-fun close_module sig_opt (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_close_module th
-(*val v = th |> concl |> dest_forall |> fst
-  val sig_tm = (case sig_opt of
-                  NONE => mk_const("NONE",type_of v)
-                | SOME tm => optionSyntax.mk_some(tm))
-  val th = SPEC sig_tm th *)
-  in clean (ML_code (ss,envs,vs,th)) end
+fun close_module sig_opt = ML_code_upd "close_module"
+    ML_code_close_module [let_env_abbrev reduce_conv]
 
 (*
 val tds_tm = ``[]:type_def``
 *)
 
-fun add_Dtype loc tds_tm (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_Dtype th
-  val th = SPECL [tds_tm,loc] th |> prove_assum_by_eval
-  val tm = th |> concl |> rator |> rand |> rator |> rator |> rand
-  val th = th |> CONV_RULE ((* (RATOR_CONV o RAND_CONV) *)
-            (REWRITE_CONV [EVAL tm] THENC
-             SIMP_CONV std_ss [write_tdefs_def,MAP,FLAT,FOLDR,REVERSE_DEF,
-                               write_conses_def,ML_code_env_def,LENGTH,
-                               semanticPrimitivesTheory.build_constrs_def,
-                               APPEND,namespaceTheory.mk_id_def]))
-  in clean (ML_code (ss,envs,vs,th)) end
+fun add_Dtype loc tds_tm = ML_code_upd "add_Dtype"
+    (SPECL [tds_tm, loc] ML_code_Dtype)
+    [solve_ml_imp_conv EVAL, solve_ml_imp_conv EVAL,
+        let_st_abbrev reduce_conv,
+        let_env_abbrev (SIMP_CONV std_ss
+            [write_tdefs_def,MAP,FLAT,FOLDR,REVERSE_DEF,
+                write_conses_def,LENGTH,
+                semanticPrimitivesTheory.build_constrs_def,
+                APPEND,namespaceTheory.mk_id_def]
+            THENC reduce_conv)]
 
 (*
 val loc = unknown_loc
@@ -285,73 +321,65 @@ val n_tm = ``"bar"``
 val l_tm = ``[]:ast_t list``
 *)
 
-fun add_Dexn loc n_tm l_tm (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_Dexn th
-  val th = SPECL [n_tm,l_tm,loc] th
-  val tm = th |> concl |> rand |> rator |> rand |> rand |> rator |> rand
-  val th = th |> CONV_RULE ((* (RATOR_CONV o RAND_CONV) *)
-            (REWRITE_CONV [EVAL tm] THENC
-             SIMP_CONV std_ss [MAP,ML_code_env_def,
+fun add_Dexn loc n_tm l_tm = ML_code_upd "add_Dexn"
+    (SPECL [n_tm, l_tm, loc] ML_code_Dexn)
+    [solve_ml_imp_conv EVAL, let_st_abbrev reduce_conv,
+        let_env_abbrev (SIMP_CONV std_ss [MAP,
                                FLAT,FOLDR,REVERSE_DEF,
-                               APPEND,namespaceTheory.mk_id_def]))
-  in clean (ML_code (ss,envs,vs,th)) end
+                               APPEND,namespaceTheory.mk_id_def]
+            THENC reduce_conv)]
 
-fun add_Dtabbrev loc l1_tm l2_tm l3_tm (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_Dtabbrev th
-  val th = SPECL [l1_tm,l2_tm,l3_tm,loc] th
-  in clean (ML_code (ss,envs,vs,th)) end
+fun add_Dtabbrev loc l1_tm l2_tm l3_tm = ML_code_upd "add_Dtabbrev"
+    (SPECL [l1_tm,l2_tm,l3_tm,loc] ML_code_Dtabbrev) []
 
-fun add_Dlet eval_thm var_str v_thms (ML_code (ss,envs,vs,th)) = let
-  val th = MATCH_MP ML_code_Dlet_var th
-           |> CONV_RULE (no_prog_conv (REWRITE_CONV [ML_code_env_def]))
-  val th = MATCH_MP th eval_thm
-           handle HOL_ERR _ => failwith "add_Dlet eval_thm does not match"
-  val th = th |> SPECL [stringSyntax.fromMLstring var_str,unknown_loc]
-  in clean (ML_code (ss,envs,v_thms @ vs,th)) end
+fun add_Dlet eval_thm var_str v_thms = let
+    val (_, eval_thm_xs) = strip_comb (concl eval_thm)
+    val e_s3_x = rev (List.take (rev eval_thm_xs, 3))
+    val mp_thm = ML_code_Dlet_var |> SPECL (e_s3_x
+        @ [stringSyntax.fromMLstring var_str,unknown_loc])
+  in ML_code_upd "add_Dlet" mp_thm
+    [solve_ml_imp_mp eval_thm, let_env_abbrev reduce_conv]
+  end
 
 (*
 val (ML_code (ss,envs,vs,th)) = s
 val (n,v,exp) = (v_tm,w,body)
 *)
 
-fun add_Dlet_Fun loc n v exp v_name (ML_code (ss,envs,vs,th)) = let
-  val let_th = ML_code_Dlet_Fun |> UNDISCH_ALL
-    |> SPECL [n,v,exp,loc] |> DISCH_ALL
-  val th = MATCH_MP let_th th
-    |> CONV_RULE (no_prog_conv (REWRITE_CONV [ML_code_env_def]))
-  val tm = th |> concl |> rator |> rand |> rator |> rand
-  val v_def = define_abbrev false v_name tm
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV)
-                   (REWR_CONV (GSYM v_def)))
-  in clean (ML_code (ss,envs,v_def :: vs,th)) end
+fun add_Dlet_Fun loc n v exp v_name = ML_code_upd "add_Dlet_Fun"
+    (SPECL [n, v, exp, loc] ML_code_Dlet_Fun)
+    [let_v_abbrev v_name ALL_CONV, let_env_abbrev reduce_conv]
 
 val Recclosure_pat =
   semanticPrimitivesTheory.v_nchotomy
-  |> SPEC_ALL |> concl |> rand |> rand |> rand |> rator |> rand
-  |> dest_exists |> snd
-  |> dest_exists |> snd
-  |> dest_exists |> snd |> rand
+  |> concl |> find_term (fn tm => total (fst o dest_const o fst o strip_comb
+        o snd o dest_eq) tm = SOME "Recclosure")
+  |> dest_eq |> snd
 
-fun add_Dletrec loc funs v_names (ML_code (ss,envs,vs,th)) = let
-  val let_th = ML_code_Dletrec |> UNDISCH_ALL
-    |> SPECL [funs,loc] |> DISCH_ALL
-  val th = MATCH_MP let_th th
-    |> CONV_RULE (no_prog_conv (REWRITE_CONV [ML_code_env_def]))
-    |> prove_assum_by_eval
-  val th = th |> CONV_RULE ((RATOR_CONV o RAND_CONV)
-                  (SIMP_CONV std_ss [write_rec_def,FOLDR,
-                    semanticPrimitivesTheory.build_rec_env_def]))
-  val tms = rev (find_terms (can (match_term Recclosure_pat)) (concl th))
-  val xs = zip v_names tms
-  val v_defs = map (fn (x,y) => define_abbrev false x y) xs
-  val th = CONV_RULE (no_prog_conv (REWRITE_CONV (map GSYM v_defs))) th
-  in clean (ML_code (ss,envs,v_defs @ vs,th)) end
-
-fun get_mod_prefix (ML_code (ss,envs,vs,th)) = let
-  val tm = th |> concl |> rator |> rator |> rand
-  in if optionSyntax.is_none tm then "" else
-       (tm |> rand |> rator |> rand |> stringSyntax.fromHOLstring) ^ "_"
+fun add_Dletrec loc funs v_names = let
+    fun proc (th, (ML_code (ss,envs,vs,mlth))) = let
+        val th = CONV_RULE (RAND_CONV (SIMP_CONV std_ss [write_rec_def,FOLDR,
+            semanticPrimitivesTheory.build_rec_env_def])) th
+        val (_, tm) = dest_let (concl th)
+        val tms = rev (find_terms (can (match_term Recclosure_pat)) tm)
+        val xs = zip v_names tms
+        val v_defs = map (fn (x,y) => define_abbrev false x y) xs
+        val th = CONV_RULE (RAND_CONV (REWRITE_CONV (map GSYM v_defs))) th
+      in let_env_abbrev reduce_conv
+        (th, ML_code (ss,envs,v_defs @ vs,mlth)) end
+  in ML_code_upd "add_Dletrec"
+    (SPECL [funs, loc] ML_code_Dletrec) [proc]
   end
+
+fun open_modules (ML_code (ss,envs,vs,th))
+  = List.mapPartial (total (apfst stringSyntax.fromHOLstring
+        o pairSyntax.dest_pair o hd)) (ML_code_blocks (concl th))
+    |> filter (fn ("Module", _) => true | _ => false)
+    |> map (stringSyntax.fromHOLstring o snd)
+    |> rev
+
+fun get_mod_prefix code = case open_modules code of [] => ""
+  | (m :: _) => m ^ "_"
 
 (*
 val dec_tm = dec1_tm
@@ -414,16 +442,14 @@ fun remove_snocs (ML_code (ss,envs,vs,th)) = let
 fun get_thm (ML_code (ss,envs,vs,th)) = th
 fun get_v_defs (ML_code (ss,envs,vs,th)) = vs
 
-val ML_code_env_tm = prim_mk_const {Name = "ML_code_env", Thy = "ml_prog"}
+val merge_env_tm = prim_mk_const {Name = "merge_env", Thy = "ml_prog"}
 
 fun get_env s = let
   val th = get_thm s
-  val code_env = case strip_comb (concl th) of
-      (f, [env1, _, _, mn, env2, _])
-        => list_mk_icomb (ML_code_env_tm, [env1, mn, env2])
-    | _ => failwith("thm concl unexpected: " ^ term_to_string (concl th))
-  val rewr_thm = QCONV (REWRITE_CONV [ML_code_env_def]) code_env
-  in rhs (concl rewr_thm) end
+  val (env1, env2) = case hd (ML_code_blocks (concl th)) of
+    [_, env1, _, _, env2] => (env1, env2)
+    | _ => failwith("thm concl unexpected: " ^ Parse.thm_to_string th)
+  in list_mk_icomb (merge_env_tm, [env2, env1]) end
 
 fun get_state s = get_thm s |> concl |> rand
 

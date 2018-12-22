@@ -1437,6 +1437,7 @@ fun avoid_v_subst ty = let
   end
 
 fun derive_thms_for_type is_exn_type ty = let
+  val start = start_timing "derive_thms_for_type"
   val tsubst = avoid_v_subst ty;
   val ty = type_subst tsubst ty;
   val is_word_type = wordsSyntax.is_word_type ty
@@ -1554,6 +1555,8 @@ val th = inv_defs |> map #2 |> hd
 *)
   (* prove lemma for case_of *)
   fun prove_case_of_lemma (ty,case_th,inv_lhs,inv_def) = let
+    val start = start_timing ("prove_case_of_lemma for "
+        ^ Parse.type_to_string ty)
     val cases_th = TypeBase.case_def_of ty |> INST_TYPE tsubst
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
@@ -1699,6 +1702,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 1 ts
       \\ first_x_assum match_mp_tac \\ fs [])
     val case_lemma = case_lemma |> PURE_REWRITE_RULE [TAG_def,Mat_cases_def,MAP]
                        |> CONV_RULE (DEPTH_CONV (PairRules.PBETA_CONV))
+    val _ = end_timing start
     in (case_lemma,ts) end;
 (*
 val (n,f,fxs,pxs,tm,exp,xs) = hd ts
@@ -1805,6 +1809,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
           | SOME m =>
               print ("Adding " ^ type_to_string ty ^ " to module " ^ m ^ ".\n")
   val _ = enter_type_mod name
+  val _ = end_timing start
   in (rws1,rws2,res,dprog) end;
 
 local
@@ -1814,6 +1819,7 @@ local
     (* if abstract_mode then add_deferred_dprog dprog else *)
     ml_prog_update (add_prog dprog I)
   fun add_type abstract_mode ty = let
+    val start = start_timing ("adding type " ^ Parse.type_to_string ty)
     val fcps = ((filter fcpSyntax.is_numeric_type) o snd o dest_type) ty
     val (rws1,rws2,res,dprog) = derive_thms_for_type false ty
     val (rws1,rws2) =
@@ -1825,6 +1831,7 @@ local
     val _ = store_dprog abstract_mode dprog
     val _ = add_type_thms (rws1,rws2,res)
     val _ = map do_translate rws1
+    val _ = end_timing start
     in res end
   fun lookup_add_type abstract_mode ty =
     lookup_type_thms ty handle HOL_ERR _ => (add_type abstract_mode ty; lookup_type_thms ty)
