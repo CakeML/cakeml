@@ -1502,6 +1502,20 @@ Theorem Eval_force_gc_to_run
     Eval env (App ConfigGC [x1; x2]) (UNIT_TYPE (force_gc_to_run i1 i2))`
   (tac2 \\ fs [do_app_def,INT_def,UNIT_TYPE_def]);
 
+val force_out_of_memory_error_def = Define `
+  force_out_of_memory_error (x:'a) = x`;
+
+val two_pow_64 = EVAL ``2i**64`` |> concl |> rand
+
+Theorem Eval_force_out_of_memory_error
+   `Eval env x (a i) ==>
+    Eval env (Let (SOME "a") x
+             (Let (SOME "n") (Lit (IntLit ^two_pow_64))
+             (Let NONE (App Aalloc [Var (Short "n"); Var (Short "n")])
+               (Var (Short "a"))))) (a (force_out_of_memory_error i))`
+  (tac1 \\ fs [namespaceTheory.nsOptBind_def,store_alloc_def,
+               force_out_of_memory_error_def]);
+
 Theorem Eval_empty_ffi
   `Eval env x (STRING_TYPE s) ==>
    Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
