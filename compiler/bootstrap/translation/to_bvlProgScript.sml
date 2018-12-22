@@ -2,6 +2,7 @@
   Translate the backend phase from closLang to BVL.
 *)
 open preamble ml_translatorLib ml_translatorTheory to_closProgTheory
+local open backendTheory in end
 
 val _ = new_theory "to_bvlProg";
 val _ = translation_extends "to_closProg";
