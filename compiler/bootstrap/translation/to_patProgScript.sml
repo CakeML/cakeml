@@ -1,14 +1,12 @@
 (*
-  Translate the backend phase from BVI to dataLang.
+  Translate the backend phase from flatLang to patLang.
 *)
+open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory
 
-open preamble ml_translatorLib ml_translatorTheory to_bviProgTheory
-local open backendTheory in end
+val _ = new_theory "to_patProg";
+val _ = translation_extends "to_flatProg";
 
-val _ = new_theory "to_dataProg"
-val _ = translation_extends "to_bviProg";
-
-val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_dataProg");
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_patProg");
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
@@ -60,39 +58,10 @@ val _ = (find_def_for_const := def_of_const);
 val _ = use_long_names:=true;
 
 (* ------------------------------------------------------------------------- *)
-(* bvi_to_data                                                               *)
+(* flat_to_pat                                                               *)
 (* ------------------------------------------------------------------------- *)
 
-val r = translate bvi_to_dataTheory.op_requires_names_pmatch;
-val r = translate COUNT_LIST_compute;
-
-(* TODO:
- *   - For some reason, the following def on sptrees fails to translate in a
- *     standalone manner (when the rest of this file's translation isn't
- *     loaded). Needs investigation.
- *)
-val r = translate list_to_num_set_def;
-
-val r = translate bvi_to_dataTheory.compile_def;
-
-val bvi_to_data_compile_side = Q.prove(`
-  ∀a b c d e. bvi_to_data_compile_side a b c d e ⇔ T`,
-  ho_match_mp_tac bvi_to_dataTheory.compile_ind>>
-  `∀a b c d e f g. bvi_to_data$compile a b c d [e] ≠ (f,[],g)` by
-    (CCONTR_TAC>>fs[]>>
-    imp_res_tac bvi_to_dataTheory.compile_SING_IMP>>
-    fs[])>>
-  rw[]>>
-  simp[Once (fetch "-" "bvi_to_data_compile_side_def")]>>
-  fs[FALSE_def]>>
-  metis_tac[]) |> update_precondition;
-
-(* TODO:
- *   - pmatch for bvl_space is broken
- *)
-val r = translate data_spaceTheory.space_def;
-
-val r = translate bvi_to_dataTheory.compile_prog_def;
+val res = translate flat_to_patTheory.compile_def;
 
 (* ------------------------------------------------------------------------- *)
 

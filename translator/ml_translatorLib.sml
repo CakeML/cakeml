@@ -1692,7 +1692,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 1 ts
       \\ Cases_on `^input_var` \\ rewrite_tac [inv_def]
       \\ simp_tac std_ss [v_11,MEM,stamp_11,CONS_11,ZIP,write_list_def,
            stringTheory.CHR_11,LENGTH,NOT_NIL_CONS,NOT_CONS_NIL,PULL_EXISTS]
-      \\ simp_tac (srw_ss()) []
+      \\ simp_tac (srw_ss()) [cases_th]
       \\ rpt (pop_assum mp_tac) \\ rewrite_tac [TAG_def,CONTAINER_def]
       \\ rpt strip_tac
       \\ first_x_assum match_mp_tac \\ fs [])
