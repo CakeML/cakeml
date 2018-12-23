@@ -11,7 +11,8 @@ val _ = new_theory "namespace"
 val _ = set_grammar_ancestry ["alist"];
 
 (*
-  TODO: document
+  Defines a datatype for nested namespaces where names can be either
+  short (e.g. foo) or long (e.g. ModuleA.InnerB.bar).
 *)
 (*open import Pervasives*)
 (*open import Set_extra*)
