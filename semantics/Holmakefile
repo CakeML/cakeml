@@ -37,7 +37,7 @@ all: tokensScript.sml
 
 namespaceScript.sml: namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) $< && ./addancs $@ integer string ; \
+          $(LEM_CMD) $< && ./addancs $@ alist ; \
         else touch namespaceScript.sml ; fi
 all: namespaceScript.sml
 
