@@ -177,12 +177,9 @@ in
   fun get_curr_env () = get_env (!prog_state);
   fun get_curr_state () = get_state (!prog_state);
   fun get_curr_v_defs () = get_v_defs (!prog_state);
-  fun get_curr_module_name () = let
-    val th = get_thm (!prog_state)
-    val tm = th |> concl |> rator |> rator |> rand
-    in if optionSyntax.is_none tm then NONE else
-         SOME (tm |> rand |> rator |> rand |> stringSyntax.fromHOLstring)
-    end
+  fun get_curr_module_name () = case (get_open_modules (!prog_state)) of
+      [] => NONE
+    | (m :: _) => SOME m
   fun add_v_thms (name,ml_name,th,pre_def) = let
     val thc = th |> concl
     val (tm,th) =
@@ -250,9 +247,6 @@ in
   fun lookup_eval_thm const = let
     val (name,c,th) = (first (fn c => can (match_term (#2 c)) const) (!eval_thms))
     in th |> SPEC_ALL |> UNDISCH_ALL end
-  fun get_current_prog () =
-    get_thm (!prog_state)
-    |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) EVAL);
   fun update_precondition new_pre = let
     fun update_aux (name,ml_name,tm,th,pre,module) = let
       val th1 = D th
@@ -1437,6 +1431,7 @@ fun avoid_v_subst ty = let
   end
 
 fun derive_thms_for_type is_exn_type ty = let
+
   val start = start_timing "derive_thms_for_type"
   val tsubst = avoid_v_subst ty;
   val ty = type_subst tsubst ty;
@@ -1540,11 +1535,11 @@ val th = inv_defs |> map #2 |> hd
       val cv = mk_var (enter_cons_name (ctor, rand n), str_id_ty)
       in mk_eq(mk_lookup_cons(cv, env_tm),
                optionSyntax.mk_some(mk_pair(l,mk_ExnStamp (rand (rator n))))) end
-  val type_assum =
-      inv_defs |> map (fn (_,x,_) => CONJUNCTS x) |> Lib.flatten
+
+  val type_assum = if name = "PAIR_TYPE" orelse name = "UNIT_TYPE" then T
+      else inv_defs |> map (fn (_,x,_) => CONJUNCTS x) |> Lib.flatten
                |> map (concl o SPEC_ALL)
                |> map mk_assum |> list_mk_conj
-      handle HOL_ERR _ => T
 (*
   val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)
   val inv_lhs = inv_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
@@ -1587,6 +1582,7 @@ val th = inv_defs |> map #2 |> hd
     fun str_tl s = implode (tl (explode s))
     fun list_app x [] = x
       | list_app x (y::ys) = list_app (mk_comb(x,y)) ys
+    val start_mk_vars = start_timing "mk_vars"
     fun mk_vars ((f,tm),n) = let
       val xs = rev (free_vars tm)
       val fxs = list_app f xs
@@ -1597,6 +1593,7 @@ val th = inv_defs |> map #2 |> hd
       val exp = mk_var("exp" ^ int_to_string n, astSyntax.exp_ty)
       in (n,f,fxs,pxs,tm,exp,xs) end
     val ts = map mk_vars ys
+    val _ = end_timing start_mk_vars
     (* patterns *)
 (*
 val (n,f,fxs,pxs,tm,exp,xs) = el 1 ts
@@ -1786,6 +1783,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
     val (case_lemma,ts) = prove_case_of_lemma (ty,case_th,inv_lhs,inv_def)
     val conses = print_time "conses" (map (derive_cons ty inv_lhs inv_def)) ts
     in (ty,eq_lemma,inv_def,conses,case_lemma,ts) end
+
   val res = map make_calls (zip case_thms inv_defs)
 (*
   val dexn = hd dexn_list
@@ -1810,6 +1808,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
               print ("Adding " ^ type_to_string ty ^ " to module " ^ m ^ ".\n")
   val _ = enter_type_mod name
   val _ = end_timing start
+
   in (rws1,rws2,res,dprog) end;
 
 local

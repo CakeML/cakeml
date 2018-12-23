@@ -57,6 +57,10 @@ sig
   val get_state    : ml_prog_state -> term (* state in ML_code thm *)
   val get_v_defs   : ml_prog_state -> thm list (* v abbrev defs *)
 
+  (* the list of (nested) module blocks that have been opened but not yet
+     closed, outermost first. *)
+  val get_open_modules : ml_prog_state -> string list
+
   val get_next_exn_stamp  : ml_prog_state -> int
   val get_next_type_stamp : ml_prog_state -> int
 
