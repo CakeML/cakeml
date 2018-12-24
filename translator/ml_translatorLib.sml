@@ -2710,6 +2710,7 @@ val builtin_monops =
    Eval_int_of_num,
    Eval_num_of_int,
    Eval_empty_ffi,
+   Eval_force_out_of_memory_error,
    Eval_Chr,
    Eval_Ord]
   |> map SPEC_ALL

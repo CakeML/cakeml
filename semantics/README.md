@@ -50,7 +50,8 @@ V ::= "op" ID | ID
 A functional specification of lexing from strings to token lists.
 
 [namespace.lem](namespace.lem):
-TODO: document
+Defines a datatype for nested namespaces where names can be either
+short (e.g. foo) or long (e.g. ModuleA.InnerB.bar).
 
 [primTypes.lem](primTypes.lem):
 Definition of the primitive types that are in scope before any CakeML program
