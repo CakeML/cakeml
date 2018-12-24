@@ -896,7 +896,7 @@ fun prove_lookup_cons_eq tm =
     val _ = not (null (free_vars tm)) orelse aconv c T orelse aconv c F orelse
               failwith "prove_lookup_cons_eq failed to reduce to F or T"
   in res end
-  handle e => (prove_lookup_cons_eq_fail := tm; raise e);
+  handle e => (prove_lookup_cons_eq_fail := tm; print_term tm; raise e);
 
 fun tag_name type_name const_name =
   if (type_name = "LIST_TYPE") andalso (const_name = "NIL") then "nil" else
@@ -1860,10 +1860,12 @@ in
     in (case_lemma) end
   fun store_eq_thm th = (add_eq_lemma th; th)
   fun register_exn_type_main abstract_mode ty = let
+    val start = start_timing ("adding exn type " ^ Parse.type_to_string ty)
     val (rws1,rws2,res,dprog) = derive_thms_for_type true ty
     val _ = store_dprog abstract_mode dprog
-    val _ = add_type_thms (rws1,rws2,res)
-    val _ = map do_translate rws1
+    val _ = do_timing "add_type_thms" add_type_thms (rws1,rws2,res)
+    val _ = do_timing "map do_translate rws1" (map do_translate) rws1
+    val _ = end_timing start
     in () end
   val register_exn_type = register_exn_type_main false
   val abs_register_exn_type = register_exn_type_main true

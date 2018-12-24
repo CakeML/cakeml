@@ -213,7 +213,7 @@ fun let_conv_ML_upd conv nm (th, code) = let
     val th = CONV_RULE (RAND_CONV conv THENC let_conv) th
   in (th, code) end
 
-fun cond_let_abbrev cond name conv op_nm th = let
+fun cond_let_abbrev cond for_eval name conv op_nm th = let
     val msg = "cond_let_abbrev: " ^ op_nm ^ ": not let"
     val _ = is_let (concl th) orelse (print (msg ^ ":\n\n");
         print_thm th; failwith msg)
@@ -223,7 +223,7 @@ fun cond_let_abbrev cond name conv op_nm th = let
   in if cond andalso is_const f andalso all is_var xs
      then (CONV_RULE let_conv th, [])
      else let
-       val def = define_abbrev true (find_name name) tm |> SPEC_ALL
+       val def = define_abbrev for_eval (find_name name) tm |> SPEC_ALL
        in (CONV_RULE (RAND_CONV (REWR_CONV (GSYM def))
            THENC let_conv) th, [def])
        end
@@ -232,7 +232,8 @@ fun cond_let_abbrev cond name conv op_nm th = let
 fun auto_name sfx = current_theory () ^ "_" ^ sfx
 
 fun let_st_abbrev conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
-    val (th, abbrev_defs) = cond_let_abbrev true (auto_name "st") conv op_nm th
+    val (th, abbrev_defs) = cond_let_abbrev true true
+        (auto_name "st") conv op_nm th
   in (th, ML_code (abbrev_defs @ ss, envs, vs, ml_th)) end
 
 fun derive_nsLookup_thms def = let
@@ -248,12 +249,13 @@ fun derive_nsLookup_thms def = let
   in save_thm (thm_name, pfun_eqs) end
 
 fun let_env_abbrev conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
-    val (th, abbrev_defs) = cond_let_abbrev true (auto_name "env") conv op_nm th
+    val (th, abbrev_defs) = cond_let_abbrev true false
+        (auto_name "env") conv op_nm th
     val _ = map derive_nsLookup_thms abbrev_defs
   in (th, ML_code (ss, abbrev_defs @ envs, vs, ml_th)) end
 
 fun let_v_abbrev nm conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
-    val (th, abbrev_defs) = cond_let_abbrev false nm conv op_nm th
+    val (th, abbrev_defs) = cond_let_abbrev false true nm conv op_nm th
   in (th, ML_code (ss, envs, abbrev_defs @ vs, ml_th)) end
 
 fun solve_ml_imp f nm (th, ML_code code) = let
@@ -273,16 +275,16 @@ fun ML_code_upd nm mp_thm adjs (ML_code code) = let
        abstract any snoc-lists to variables, do all processing on
        that theorem, then resolve with the original in one MATCH_MP,
        which avoids traversing the snoc-list at any point. *)
-    fun remove_snocs i tm = if listSyntax.is_snoc tm
+    fun abs_snocs i tm = if listSyntax.is_snoc tm
         then (i + 1, mk_var ("snoc_var_" ^ Int.toString i, type_of tm))
         else if is_comb tm then let
           val (f, x) = dest_comb tm
-          val (j, f) = remove_snocs i f
-          val (j, x) = remove_snocs j x
+          val (j, f) = abs_snocs i f
+          val (j, x) = abs_snocs j x
         in if j = i then (i, tm) else (j, mk_comb (f, x)) end
         else (i, tm)
     val orig_th = #4 code
-    val (_, no_snoc_tm) = remove_snocs 1 (concl orig_th)
+    val (_, no_snoc_tm) = abs_snocs 1 (concl orig_th)
     val preproc_th = MATCH_MP mp_thm (ASSUME no_snoc_tm)
     val (proc_th, ML_code (ss, envs, vs, _))
         = foldl (fn (adj, x) => adj nm x) (preproc_th, ML_code code) adjs
@@ -345,7 +347,8 @@ fun add_Dlet eval_thm var_str v_thms = let
     val mp_thm = ML_code_Dlet_var |> SPECL (e_s3_x
         @ [stringSyntax.fromMLstring var_str,unknown_loc])
   in ML_code_upd "add_Dlet" mp_thm
-    [solve_ml_imp_mp eval_thm, let_env_abbrev reduce_conv]
+    [solve_ml_imp_mp eval_thm, let_env_abbrev reduce_conv,
+        let_st_abbrev reduce_conv]
   end
 
 (*

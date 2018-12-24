@@ -546,8 +546,7 @@ Theorem ML_code_Dtype
 (* appending a Dexn *)
 
 Theorem ML_code_Dexn
-  `ML_code ((comm, env1, s1, prog, env2) :: bls) s2 ==>
-   !n l locs.
+  `!n l locs. ML_code ((comm, env1, s1, prog, env2) :: bls) s2 ==>
      let nes = s2.next_exn_stamp in
      let s3 = s2 with next_exn_stamp := nes + 1 in
      let env3 = write_cons n (LENGTH l,ExnStamp nes) env2 in
@@ -588,9 +587,9 @@ Theorem ML_code_Dletrec
 Theorem ML_code_Dlet_var
   `!e s3 x n locs. ML_code ((comm, env1, s1, prog, env2) :: bls) s2 ==>
     eval_rel s2 (merge_env env2 env1) e s3 x ==>
-    let env3 = write n x env2 in
+    let env3 = write n x env2 in let s3_abbrev = s3 in
     ML_code ((comm, env1, s1, SNOC (Dlet locs (Pvar n) e) prog, env3)
-        :: bls) s3`
+        :: bls) s3_abbrev`
   (fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet]
   \\ rw [] \\ asm_exists_tac \\ fs [PULL_EXISTS]
   \\ fs [write_def,merge_env_def,empty_env_def,sem_env_component_equality]);
