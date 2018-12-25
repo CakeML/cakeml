@@ -4,7 +4,7 @@ INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis ../../../..\
 					 ../../../../encoders/asm ../../../../encoders/$(ARCH)\
 					 ../../../../backend/$(ARCH) ../../../translation
 
-all: $(DEFAULT_TARGETS) README.md
+all: $(DEFAULT_TARGETS) README.md cake-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
