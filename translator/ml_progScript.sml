@@ -462,13 +462,15 @@ Theorem Decls_SNOC
    local objects can also be built up one statement at a time.
 *)
 
-val ML_code_def = Define `(ML_code [] res_st <=> T)
-    /\ (ML_code
-        (((comment : string # string), env, st, decls, res_env) :: bls)
-        res_st <=> (ML_code bls st
-            /\ Decls env st decls res_env res_st
-            /\ (case bls of [] => T
-                | ((_, e1, _, _, e2) :: _) => env = merge_env e2 e1)))`;
+val ML_code_env_def = Define `(ML_code_env env [] = env)
+    /\ (ML_code_env env ((comm, st, decls, res_env) :: bls)
+        = merge_env res_env (ML_code_env env bls))`;
+
+val ML_code_def = Define `(ML_code env [] res_st <=> T)
+    /\ (ML_code env
+        (((comment : string # string), st, decls, res_env) :: bls)
+        res_st <=> (ML_code env bls st
+            /\ Decls (ML_code_env env bls) st decls res_env res_st))`;
 
 (* an empty program *)
 local open primSemEnvTheory in
@@ -506,26 +508,26 @@ val nsLookup_init_env_pfun_eqs = save_thm("nsLookup_init_env_pfun_eqs",
 end
 
 Theorem ML_code_NIL
-  `ML_code [(("Toplevel", ""), init_env, init_state ffi, [], empty_env)]
+  `ML_code init_env [(("Toplevel", ""), init_state ffi, [], empty_env)]
     (init_state ffi)`
   (fs [ML_code_def,Decls_NIL]);
 
 (* opening and closing of modules *)
 
 Theorem ML_code_new_module
-  `!mn. ML_code ((comm, inp_env, st, decls, env) :: bls) st2 ==>
-    let env2 = merge_env env inp_env in
-    ML_code ((("Module", mn), env2, st2, [], empty_env)
-        :: (comm, inp_env, st, decls, env) :: bls) st2`
+  `!mn. ML_code inp_env ((comm, st, decls, env) :: bls) st2 ==>
+    let env2 = ML_code_env inp_env ((comm, st, decls, env) :: bls) in
+    ML_code inp_env ((("Module", mn), st2, [], empty_env)
+        :: (comm, st, decls, env) :: bls) st2`
   (fs [ML_code_def] \\ rw [Decls_NIL] \\ EVAL_TAC);
 
 Theorem ML_code_close_module
-  `ML_code ((("Module", mn), m_i_env, m_i_st, m_decls, m_env)
-        :: (comm, inp_env, st, decls, env) :: bls) st2
+  `ML_code inp_env ((("Module", mn), m_i_st, m_decls, m_env)
+        :: (comm, st, decls, env) :: bls) st2
     ==> let env2 = write_mod mn m_env env
-        in ML_code ((comm, inp_env, st, SNOC (Dmod mn m_decls) decls,
+        in ML_code inp_env ((comm, st, SNOC (Dmod mn m_decls) decls,
             env2) :: bls) st2`
-  (rw [ML_code_def]
+  (rw [ML_code_def, ML_code_env_def]
   \\ fs [SNOC_APPEND,Decls_APPEND]
   \\ asm_exists_tac \\ fs [Decls_Dmod,PULL_EXISTS]
   \\ asm_exists_tac
@@ -534,12 +536,12 @@ Theorem ML_code_close_module
 (* appending a Dtype *)
 
 Theorem ML_code_Dtype
-  `!tds locs. ML_code ((comm, env1, s1, prog, env2) :: bls) s2 ==>
+  `!tds locs. ML_code inp_env ((comm, s1, prog, env2) :: bls) s2 ==>
      EVERY check_dup_ctors tds ==>
      let nts = s2.next_type_stamp in
      let s3 = (s2 with next_type_stamp := nts + LENGTH tds) in
      let env3 = write_tdefs nts tds env2 in
-     ML_code ((comm, env1, s1, SNOC (Dtype locs tds) prog, env3) :: bls) s3`
+     ML_code inp_env ((comm, s1, SNOC (Dtype locs tds) prog, env3) :: bls) s3`
   (fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dtype,merge_env_empty_env]
   \\ rw [] \\ rpt (asm_exists_tac \\ fs [])
   \\ fs [merge_env_write_tdefs] \\ AP_TERM_TAC
@@ -548,11 +550,11 @@ Theorem ML_code_Dtype
 (* appending a Dexn *)
 
 Theorem ML_code_Dexn
-  `!n l locs. ML_code ((comm, env1, s1, prog, env2) :: bls) s2 ==>
+  `!n l locs. ML_code inp_env ((comm, s1, prog, env2) :: bls) s2 ==>
      let nes = s2.next_exn_stamp in
      let s3 = s2 with next_exn_stamp := nes + 1 in
      let env3 = write_cons n (LENGTH l,ExnStamp nes) env2 in
-     ML_code ((comm, env1, s1, SNOC (Dexn locs n l) prog, env3) :: bls) s3`
+     ML_code inp_env ((comm, s1, SNOC (Dexn locs n l) prog, env3) :: bls) s3`
   (fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dexn,merge_env_empty_env]
   \\ rw [] \\ rpt (asm_exists_tac \\ fs [])
   \\ fs [write_cons_def,merge_env_def,empty_env_def,sem_env_component_equality]);
@@ -560,8 +562,8 @@ Theorem ML_code_Dexn
 (* appending a Dtabbrev *)
 
 Theorem ML_code_Dtabbrev
-  `!x y z locs. ML_code ((comm, env1, s1, prog, env2) :: bls) s2 ==>
-     ML_code ((comm, env1, s1, SNOC (Dtabbrev locs x y z) prog, env2) :: bls)
+  `!x y z locs. ML_code inp_env ((comm, s1, prog, env2) :: bls) s2 ==>
+     ML_code inp_env ((comm, s1, SNOC (Dtabbrev locs x y z) prog, env2) :: bls)
        s2`
   (fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dtabbrev,merge_env_empty_env]);
 
@@ -575,11 +577,12 @@ val build_rec_env_APPEND = Q.prove(
   \\ Induct_on `funs` \\ fs [FORALL_PROD]);
 
 Theorem ML_code_Dletrec
-  `!fns locs. ML_code ((comm, env1, s1, prog, env2) :: bls) s2 ==>
+  `!fns locs. ML_code env0 ((comm, s1, prog, env2) :: bls) s2 ==>
       ALL_DISTINCT (MAP (λ(x,y,z). x) fns) ==>
-      let env3 = write_rec fns (merge_env env2 env1) env2 in
-      ML_code ((comm, env1, s1, SNOC (Dletrec locs fns) prog, env3) :: bls) s2`
-  (fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec]
+      let code_env = ML_code_env env0 ((comm, s1, prog, env2) :: bls) in
+      let env3 = write_rec fns code_env env2 in
+      ML_code env0 ((comm, s1, SNOC (Dletrec locs fns) prog, env3) :: bls) s2`
+  (fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dletrec,ML_code_env_def]
   \\ rw [] \\ asm_exists_tac
   \\ fs [merge_env_def,write_rec_thm,empty_env_def,sem_env_component_equality]
   \\ fs [build_rec_env_APPEND]);
@@ -587,21 +590,23 @@ Theorem ML_code_Dletrec
 (* appending a Let *)
 
 Theorem ML_code_Dlet_var
-  `!e s3 x n locs. ML_code ((comm, env1, s1, prog, env2) :: bls) s2 ==>
-    eval_rel s2 (merge_env env2 env1) e s3 x ==>
-    let env3 = write n x env2 in let s3_abbrev = s3 in
-    ML_code ((comm, env1, s1, SNOC (Dlet locs (Pvar n) e) prog, env3)
+  `!cenv e s3 x n locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+    eval_rel s2 cenv e s3 x ==>
+    cenv = ML_code_env env0 ((comm, s1, prog, env1) :: bls) ==>
+    let env2 = write n x env1 in let s3_abbrev = s3 in
+    ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) e) prog, env2)
         :: bls) s3_abbrev`
-  (fs [ML_code_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet]
+  (fs [ML_code_def,ML_code_env_def,SNOC_APPEND,Decls_APPEND,Decls_Dlet]
   \\ rw [] \\ asm_exists_tac \\ fs [PULL_EXISTS]
   \\ fs [write_def,merge_env_def,empty_env_def,sem_env_component_equality]);
 
 Theorem ML_code_Dlet_Fun
-  `!n v e locs. ML_code ((comm, env1, s1, prog, env2) :: bls) s2 ==>
-    let v_abbrev = Closure (merge_env env2 env1) v e in
-    let env3 = write n v_abbrev env2 in
-    ML_code ((comm, env1, s1, SNOC (Dlet locs (Pvar n) (Fun v e)) prog,
-        env3) :: bls) s2`
+  `!n v e locs. ML_code env0 ((comm, s1, prog, env1) :: bls) s2 ==>
+    let code_env = ML_code_env env0 ((comm, s1, prog, env1) :: bls) in
+    let v_abbrev = Closure code_env v e in
+    let env2 = write n v_abbrev env1 in
+    ML_code env0 ((comm, s1, SNOC (Dlet locs (Pvar n) (Fun v e)) prog,
+        env2) :: bls) s2`
   (rw [] \\ imp_res_tac ML_code_Dlet_var
   \\ fs [evaluate_def,state_component_equality,eval_rel_def]);
 

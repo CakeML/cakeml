@@ -198,9 +198,9 @@ fun dest_ML_code_block tm = let
 
 fun ML_code_blocks tm = let
     val (f, xs) = strip_comb tm
-    val _ = (same_const f ML_code_tm andalso length xs = 2)
-        orelse failwith "ML_code_blocks: not ML_code"
-    val (block_tms, _) = listSyntax.dest_list (hd xs)
+    val _ = (same_const f ML_code_tm andalso length xs = 3)
+        orelse (print_term tm; failwith "ML_code_blocks: not ML_code")
+    val (block_tms, _) = listSyntax.dest_list (hd (tl xs))
   in map dest_ML_code_block block_tms end
 
 val ML_code_open_env = List.last o hd o ML_code_blocks
@@ -271,6 +271,8 @@ fun solve_ml_imp_conv conv = solve_ml_imp (prove_assum_by_conv conv)
 val (ML_code (ss,envs,vs,th)) = (ML_code (ss,envs,v_def :: vs,th))
 *)
 
+fun list_upd i x xs = mapi (fn j => fn y => if j = i then x else y) xs
+
 fun ML_code_upd nm mp_thm adjs (ML_code code) = let
     (* when updating an ML_code thm by forward reasoning, first
        abstract over all the program components (which can be large
@@ -280,11 +282,12 @@ fun ML_code_upd nm mp_thm adjs (ML_code code) = let
     val orig_th = #4 code
     val blocks = ML_code_blocks (concl orig_th)
     val (f, xs) = strip_comb (concl orig_th)
-    val abs_blocks = map (fn (i, xs) => pairSyntax.list_mk_pair
-        (List.take (xs, 3) @ [mk_var ("prog_var_" ^ Int.toString i, decs_ty),
-            List.last xs])) (zip (upto 1 (length blocks)) blocks)
-    val abs_concl = list_mk_comb (f, [listSyntax.mk_list
-        (abs_blocks, type_of (hd (abs_blocks))), List.last xs])
+    val abs_blocks = mapi (fn i => pairSyntax.list_mk_pair o
+        (mapi (fn j => if j = 2 then (fn _ =>
+            mk_var ("prog_var_" ^ Int.toString i, decs_ty)) else I))) blocks
+    val abs_blocks_tm = listSyntax.mk_list (abs_blocks, type_of (hd abs_blocks))
+    val abs_concl = list_mk_comb (f,
+        mapi (fn i => if i = 1 then K abs_blocks_tm else I) xs)
     val preproc_th = MATCH_MP mp_thm (ASSUME abs_concl)
     val (proc_th, ML_code (ss, envs, vs, _))
         = foldl (fn (adj, x) => adj nm x) (preproc_th, ML_code code) adjs
@@ -304,7 +307,7 @@ val init_state =
 
 fun open_module mn_str = ML_code_upd "open_module"
     (SPEC (stringSyntax.fromMLstring mn_str) ML_code_new_module)
-    [let_env_abbrev reduce_conv]
+    [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def])]
 
 fun close_module sig_opt = ML_code_upd "close_module"
     ML_code_close_module [let_env_abbrev reduce_conv]
@@ -343,12 +346,13 @@ fun add_Dtabbrev loc l1_tm l2_tm l3_tm = ML_code_upd "add_Dtabbrev"
 
 fun add_Dlet eval_thm var_str v_thms = let
     val (_, eval_thm_xs) = strip_comb (concl eval_thm)
-    val e_s3_x = rev (List.take (rev eval_thm_xs, 3))
-    val mp_thm = ML_code_Dlet_var |> SPECL (e_s3_x
+    val mp_thm = ML_code_Dlet_var |> SPECL (tl eval_thm_xs
         @ [stringSyntax.fromMLstring var_str,unknown_loc])
   in ML_code_upd "add_Dlet" mp_thm
-    [solve_ml_imp_mp eval_thm, let_env_abbrev reduce_conv,
-        let_st_abbrev reduce_conv]
+    [solve_ml_imp_mp eval_thm,
+        solve_ml_imp_conv (SIMP_CONV bool_ss []
+            THENC SIMP_CONV bool_ss [ML_code_env_def]),
+        let_env_abbrev reduce_conv, let_st_abbrev reduce_conv]
   end
 
 (*
@@ -358,7 +362,8 @@ val (n,v,exp) = (v_tm,w,body)
 
 fun add_Dlet_Fun loc n v exp v_name = ML_code_upd "add_Dlet_Fun"
     (SPECL [n, v, exp, loc] ML_code_Dlet_Fun)
-    [let_v_abbrev v_name ALL_CONV, let_env_abbrev reduce_conv]
+    [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+        let_v_abbrev v_name ALL_CONV, let_env_abbrev reduce_conv]
 
 val Recclosure_pat =
   semanticPrimitivesTheory.v_nchotomy
@@ -379,7 +384,9 @@ fun add_Dletrec loc funs v_names = let
       in let_env_abbrev reduce_conv nm
         (th, ML_code (ss,envs,v_defs @ vs,mlth)) end
   in ML_code_upd "add_Dletrec"
-    (SPECL [funs, loc] ML_code_Dletrec) [solve_ml_imp_conv EVAL, proc]
+    (SPECL [funs, loc] ML_code_Dletrec)
+    [solve_ml_imp_conv EVAL, let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+        proc]
   end
 
 fun get_open_modules (ML_code (ss,envs,vs,th))
@@ -454,13 +461,14 @@ fun get_thm (ML_code (ss,envs,vs,th)) = th
 fun get_v_defs (ML_code (ss,envs,vs,th)) = vs
 
 val merge_env_tm = prim_mk_const {Name = "merge_env", Thy = "ml_prog"}
+val ML_code_env_tm = prim_mk_const {Name = "ML_code_env", Thy = "ml_prog"}
 
 fun get_env s = let
-  val th = get_thm s
-  val (env1, env2) = case hd (ML_code_blocks (concl th)) of
-    [_, env1, _, _, env2] => (env1, env2)
-    | _ => failwith("thm concl unexpected: " ^ Parse.thm_to_string th)
-  in list_mk_icomb (merge_env_tm, [env2, env1]) end
+    val th = get_thm s
+    val bls = ML_code_blocks (concl th)
+    fun mk [] = hd (snd (strip_comb (concl th)))
+      | mk (bl :: bls) = list_mk_icomb (merge_env_tm, [List.last bl, mk bls])
+  in mk bls end
 
 fun get_state s = get_thm s |> concl |> rand
 
