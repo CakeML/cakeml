@@ -1,0 +1,8 @@
+INCLUDES = ..
+
+all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Synta.sml)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)

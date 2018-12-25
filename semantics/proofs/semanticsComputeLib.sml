@@ -106,7 +106,7 @@ val add_ast_compset = computeLib.extend_compset
     ,``:ast$ast_t``
     ]]
 
-val add_lexparse_compset = computeLib.extend_compset
+val add_lex_fun_compset = computeLib.extend_compset
   [computeLib.Defs
     let open lexer_funTheory in
       [next_token_def
@@ -121,7 +121,9 @@ val add_lexparse_compset = computeLib.extend_compset
       ,processIdent_def
       ,mkCharS_def
       ,lexer_fun_def
+      ,lexer_fun_aux_def
       ,init_loc_def
+      ,get_token_def
       ]
     end,
    computeLib.Defs
@@ -147,10 +149,15 @@ val add_lexparse_compset = computeLib.extend_compset
       ]
     end,
    computeLib.Tys
-    [``:symbol``
-    ,``:token``
-    ],
-   computeLib.Defs
+    [“:symbol”
+    ,“:token”
+    ,“:locs”
+    ,“:locn”
+    ]
+  ]
+
+val add_ptreeconversion_compset = computeLib.extend_compset
+  [computeLib.Defs
     let open cmlPtreeConversionTheory in
       [tuplify_def
       ,ptree_TopLevelDecs_def
@@ -193,7 +200,11 @@ val add_lexparse_compset = computeLib.extend_compset
     end
     ]
 
-val add_semantics_compset = computeLib.extend_compset
-  [computeLib.Extenders [add_ast_compset, add_lexparse_compset,add_namespace_compset]]
+val add_semantics_compset = computeLib.extend_compset [
+      computeLib.Extenders [
+        add_ast_compset, add_lex_fun_compset,
+        add_namespace_compset
+      ]
+    ]
 
 end

@@ -8,6 +8,7 @@ developers/bin
 semantics/ffi
 semantics
 semantics/proofs
+semantics/proofs/tests
 
 # translator
 basis/pure
