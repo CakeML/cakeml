@@ -483,7 +483,9 @@ local
     |> (SIMP_CONV std_ss [primSemEnvTheory.prim_sem_env_eq] THENC EVAL)
     |> concl |> rand
 in
-  val init_env_def = Define `
+  (* init_env_def should not be unpacked by EVAL. Queries will be handled
+     by the nsLookup_conv apparatus, which will use the pfun_eqs thm below. *)
+  val init_env_def = zDefine `
     init_env = ^init_env_tm`;
   val init_state_def = Define `
     init_state ffi = ^init_state_tm`;
@@ -491,9 +493,9 @@ end
 
 Theorem init_state_env_thm
   `THE (prim_sem_env ffi) = (init_state ffi,init_env)`
-  (CONV_TAC(RAND_CONV EVAL) \\ rewrite_tac[prim_sem_env_eq,THE_DEF]);
+  (rewrite_tac[prim_sem_env_eq,THE_DEF,init_state_def,init_env_def]);
 
-val nsLookup_init_state_pfun_eqs = save_thm("nsLookup_init_state_pfun_eqs",
+val nsLookup_init_env_pfun_eqs = save_thm("nsLookup_init_env_pfun_eqs",
   [``nsLookup_Short init_env.c``, ``nsLookup_Short init_env.v``,
     ``nsLookup_Mod1 init_env.c``, ``nsLookup_Mod1 init_env.v``]
   |> map (SIMP_CONV bool_ss

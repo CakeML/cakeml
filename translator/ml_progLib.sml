@@ -115,7 +115,8 @@ val nsLookup_rewrs = List.concat (map BODY_CONJUNCTS
         boolTheory.AND_CLAUSES, boolTheory.OR_CLAUSES,
         boolTheory.REFL_CLAUSE,
         nsLookup_pf_nsBind, nsLookup_Short_nsAppend, nsLookup_Mod1_nsAppend,
-        nsLookup_Short_Bind, nsLookup_Mod1_Bind, nsLookup_merge_env_eqs])
+        nsLookup_Short_Bind, nsLookup_Mod1_Bind, nsLookup_merge_env_eqs,
+        nsLookup_empty_eqs])
 
 fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
   (map REWR_CONV nsLookup_rewrs
@@ -271,27 +272,26 @@ val (ML_code (ss,envs,vs,th)) = (ML_code (ss,envs,v_def :: vs,th))
 *)
 
 fun ML_code_upd nm mp_thm adjs (ML_code code) = let
-    (* when updating an ML_code thm by forward resolution, first
-       abstract any snoc-lists to variables, do all processing on
-       that theorem, then resolve with the original in one MATCH_MP,
-       which avoids traversing the snoc-list at any point. *)
-    fun abs_snocs i tm = if listSyntax.is_snoc tm
-        then (i + 1, mk_var ("snoc_var_" ^ Int.toString i, type_of tm))
-        else if is_comb tm then let
-          val (f, x) = dest_comb tm
-          val (j, f) = abs_snocs i f
-          val (j, x) = abs_snocs j x
-        in if j = i then (i, tm) else (j, mk_comb (f, x)) end
-        else (i, tm)
+    (* when updating an ML_code thm by forward reasoning, first
+       abstract over all the program components (which can be large
+       snoc-lists or cons-lists) and process on the smaller abstracted
+       theorem, connecting to the original ML_code thm with a single
+       final MATCH_MP step. *)
     val orig_th = #4 code
-    val (_, no_snoc_tm) = abs_snocs 1 (concl orig_th)
-    val preproc_th = MATCH_MP mp_thm (ASSUME no_snoc_tm)
+    val blocks = ML_code_blocks (concl orig_th)
+    val (f, xs) = strip_comb (concl orig_th)
+    val abs_blocks = map (fn (i, xs) => pairSyntax.list_mk_pair
+        (List.take (xs, 3) @ [mk_var ("prog_var_" ^ Int.toString i, decs_ty),
+            List.last xs])) (zip (upto 1 (length blocks)) blocks)
+    val abs_concl = list_mk_comb (f, [listSyntax.mk_list
+        (abs_blocks, type_of (hd (abs_blocks))), List.last xs])
+    val preproc_th = MATCH_MP mp_thm (ASSUME abs_concl)
     val (proc_th, ML_code (ss, envs, vs, _))
         = foldl (fn (adj, x) => adj nm x) (preproc_th, ML_code code) adjs
     val _ = same_const ML_code_tm (fst (strip_comb (concl proc_th)))
         orelse failwith ("ML_code_upd: " ^ nm ^ ": unfinished: "
             ^ Parse.thm_to_string proc_th)
-    val th = MATCH_MP (DISCH no_snoc_tm proc_th) orig_th
+    val th = MATCH_MP (DISCH abs_concl proc_th) orig_th
   in ML_code (ss, envs, vs, th) end
 
 (* --- *)
