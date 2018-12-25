@@ -1,3 +1,6 @@
+(*
+  Utility funcitons for manipulating AST values
+*)
 open preamble astTheory
 
 val _ = new_theory "astUtils"
