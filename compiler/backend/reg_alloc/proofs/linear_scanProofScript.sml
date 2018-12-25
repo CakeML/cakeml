@@ -4,6 +4,7 @@ open ml_monadBaseTheory ml_monadBaseLib;
 val _ = new_theory "linear_scanProof"
 
 val _ = disable_tyabbrev_printing "type_ident"
+val _ = disable_tyabbrev_printing "alist"
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -14,7 +15,7 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = hide "state";
-(*
+
 (* TODO: move *)
 val the_OPTION_MAP = Q.store_thm("the_OPTION_MAP",
     `!f d opt.
@@ -1896,7 +1897,6 @@ val get_intervals_ct_aux_live = Q.store_thm("get_intervals_ct_aux_live",
 
     Induct_on `ct` >>
     rw [get_live_backward_def, get_intervals_ct_aux_def, get_live_tree_def]
-
     THEN1 rw [domain_numset_list_insert, domain_numset_list_delete]
     THEN1 (
         rw [domain_numset_list_insert, branch_domain, domain_union] >>
@@ -1914,7 +1914,7 @@ val get_intervals_ct_aux_live = Q.store_thm("get_intervals_ct_aux_live",
         rpt (pairarg_tac >> fs []) >>
         metis_tac []
     )
-)
+);
 
 val get_intervals_ct_aux_int = Q.store_thm("get_intervals_ct_aux_int",
     `!ct n_in beg_in end_in live_in n_out beg_out end_out live_out.
@@ -1938,12 +1938,29 @@ val get_intervals_ct_aux_int = Q.store_thm("get_intervals_ct_aux_int",
         fs [] >> rveq >>
         metis_tac []
     )
-)
+);
+
+val set_MAP_FST_toAList_eq_domain = Q.store_thm("set_MAP_FST_toAList_eq[simp]",
+    `!s. set (MAP FST (toAList s)) = domain s`,
+    rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
+);
 
 val get_intervals_ct_eq = Q.store_thm("get_intervals_ct_eq",
-    `!ct. get_intervals_ct ct = get_intervals (fix_domination (get_live_tree ct)) 0 LN LN`
-    cheat (*TODO*)
-)
+    `!ct int_beg1 int_beg2 int_end1 int_end2 n1 n2.
+    (n1, int_beg1, int_end1) = get_intervals_ct ct /\
+    (n2, int_beg2, int_end2) = get_intervals (fix_domination (get_live_tree ct)) 0 LN LN ==>
+    (!r. lookup r int_beg1 = lookup r int_beg2) /\
+    (!r. lookup r int_end1 = lookup r int_end2)`,
+
+    simp [get_intervals_def, fix_domination_def, get_intervals_ct_def] >>
+    rpt gen_tac >> strip_tac >>
+    rpt (pairarg_tac >> fs []) >>
+    `get_intervals (get_live_tree ct) 0 LN LN = (n, int_beg, int_end)` by metis_tac [get_intervals_ct_aux_int] >>
+    `domain live = domain (get_live_backward (get_live_tree ct) LN)` by metis_tac [get_intervals_ct_aux_live] >>
+    Cases_on `get_live_backward (get_live_tree ct) LN = LN` >> fs [] >>
+    fs [get_intervals_def] >>
+    simp [lookup_numset_list_add_if_lt, lookup_numset_list_add_if_gt]
+);
 
 val colors_sub_eqn = Q.store_thm("colors_sub_eqn[simp]",`
   colors_sub n s =
@@ -1961,6 +1978,78 @@ val update_colors_eqn = Q.store_thm("update_colors_eqn[simp]",`
   else
      (Failure (Subscript),s)`,
   rw[update_colors_def]>>
+  fs[Marray_update_def]);
+
+val int_beg_sub_eqn = Q.store_thm("int_beg_sub_eqn[simp]",`
+  int_beg_sub n s =
+  if n < LENGTH s.int_beg then
+    (Success (EL n s.int_beg),s)
+  else
+    (Failure (Subscript),s)`,
+  rw[int_beg_sub_def]>>
+  fs[Marray_sub_def]);
+
+val update_int_beg_eqn = Q.store_thm("update_int_beg_eqn[simp]",`
+  update_int_beg n t s =
+  if n < LENGTH s.int_beg then
+     (Success (),s with int_beg := LUPDATE t n s.int_beg)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_int_beg_def]>>
+  fs[Marray_update_def]);
+
+val int_end_sub_eqn = Q.store_thm("int_end_sub_eqn[simp]",`
+  int_end_sub n s =
+  if n < LENGTH s.int_end then
+    (Success (EL n s.int_end),s)
+  else
+    (Failure (Subscript),s)`,
+  rw[int_end_sub_def]>>
+  fs[Marray_sub_def]);
+
+val update_int_end_eqn = Q.store_thm("update_int_end_eqn[simp]",`
+  update_int_end n t s =
+  if n < LENGTH s.int_end then
+     (Success (),s with int_end := LUPDATE t n s.int_end)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_int_end_def]>>
+  fs[Marray_update_def]);
+
+val sorted_regs_sub_eqn = Q.store_thm("sorted_regs_sub_eqn[simp]",`
+  sorted_regs_sub n s =
+  if n < LENGTH s.sorted_regs then
+    (Success (EL n s.sorted_regs),s)
+  else
+    (Failure (Subscript),s)`,
+  rw[sorted_regs_sub_def]>>
+  fs[Marray_sub_def]);
+
+val update_sorted_regs_eqn = Q.store_thm("update_sorted_regs_eqn[simp]",`
+  update_sorted_regs n t s =
+  if n < LENGTH s.sorted_regs then
+     (Success (),s with sorted_regs := LUPDATE t n s.sorted_regs)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_sorted_regs_def]>>
+  fs[Marray_update_def]);
+
+val sorted_moves_sub_eqn = Q.store_thm("sorted_moves_sub_eqn[simp]",`
+  sorted_moves_sub n s =
+  if n < LENGTH s.sorted_moves then
+    (Success (EL n s.sorted_moves),s)
+  else
+    (Failure (Subscript),s)`,
+  rw[sorted_moves_sub_def]>>
+  fs[Marray_sub_def]);
+
+val update_sorted_moves_eqn = Q.store_thm("update_sorted_moves_eqn[simp]",`
+  update_sorted_moves n t s =
+  if n < LENGTH s.sorted_moves then
+     (Success (),s with sorted_moves := LUPDATE t n s.sorted_moves)
+  else
+     (Failure (Subscript),s)`,
+  rw[update_sorted_moves_def]>>
   fs[Marray_update_def]);
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
@@ -2147,12 +2236,13 @@ val MAP_colors_eq_lemma = Q.store_thm("MAP_colors_eq_lemma",
     n <= LENGTH sth.colors ==>
     ?sthout. (Success (), sthout) = MAP_colors f n sth /\
     LENGTH sth.colors = LENGTH sthout.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!n'. n' < n ==> EL n' sthout.colors = f (EL n' sth.colors)) /\
     (!n'. n <= n' ==> EL n' sthout.colors = EL n' sth.colors)`,
 
     Induct_on `n` >>
     rw [MAP_colors_def] >> rw msimps >>
-    `?sth'. sth' = <| colors := LUPDATE (f (EL n sth.colors)) n sth.colors |>` by rw [] >>
+    `?sth'. sth' = sth with colors := LUPDATE (f (EL n sth.colors)) n sth.colors` by rw [] >>
     `n <= LENGTH sth'.colors` by rw [] >>
     `LENGTH sth'.colors = LENGTH sth.colors` by rw [] >>
     res_tac >>
@@ -2184,7 +2274,8 @@ val MAP_colors_eq = Q.store_thm("MAP_colors_eq",
     `!sth f.
     ?sthout. (Success (), sthout) = MAP_colors f (LENGTH sth.colors) sth /\
     (!n. n < LENGTH sth.colors ==> EL n sthout.colors = f (EL n sth.colors)) /\
-    LENGTH sth.colors = LENGTH sthout.colors`,
+    LENGTH sth.colors = LENGTH sthout.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end`,
     rw [] >>
     `LENGTH sth.colors <= LENGTH sth.colors` by rw [] >>
     metis_tac [MAP_colors_eq_lemma]
@@ -2197,6 +2288,7 @@ val apply_reg_exchange_correct = Q.store_thm("apply_reg_exchange_correct",
     (!r. MEM r l ==> r < LENGTH sth.colors) ==>
     ?sthout. (Success (), sthout) = apply_reg_exchange l sth /\
     LENGTH sthout.colors = LENGTH sth.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r1 r2. r1 < LENGTH sth.colors /\ r2 < LENGTH sth.colors ==> EL r1 sthout.colors = EL r2 sthout.colors ==> EL r1 sth.colors = EL r2 sth.colors) /\
     (!r. MEM r l ==> EL r sthout.colors = r DIV 2) /\
     ((!r. MEM r l ==> (k <= EL r sth.colors <=> k <= r DIV 2)) ==>
@@ -2240,7 +2332,8 @@ val transitive_less_FST = Q.store_thm("transitive_less_FST",
 );
 
 val good_linear_scan_state_def = Define`
-    good_linear_scan_state int_beg int_end st sth l (pos:int) forced mincol = (
+    good_linear_scan_state st sth l (pos:int) forced mincol = (
+        LENGTH sth.int_beg = LENGTH sth.colors /\ LENGTH sth.int_end = LENGTH sth.colors /\
         ALL_DISTINCT (st.colorpool ++ MAP (\(e,r). EL r sth.colors) st.active) /\
         EVERY (\r. r < LENGTH sth.colors) l /\
         EVERY (\r. EL r sth.colors < st.stacknum) l /\
@@ -2251,12 +2344,12 @@ val good_linear_scan_state_def = Define`
         st.colornum <= st.colormax /\
         st.colormax <= st.stacknum /\
         EVERY (\r. EL r sth.colors < st.colormax ==> EL r sth.colors < st.colornum) l /\
-        EVERY (\r. the 0 (lookup r int_beg) <= pos) l /\
-        EVERY (\r. ((pos <= the 0 (lookup r int_end) /\ EL r sth.colors < st.colormax) ==> (MEM (the 0 (lookup r int_end), r) st.active))) l /\
-        EVERY (\r. ((MEM (the 0 (lookup r int_end), r) st.active) ==> (pos <= 1 + the 0 (lookup r int_end)))) l /\
-        (!r1 r2. MEM r1 l /\ MEM r2 l /\ interval_intersect (the 0 (lookup r1 int_beg), the 0 (lookup r1 int_end)) (the 0 (lookup r2 int_beg), the 0 (lookup r2 int_end)) /\ EL r1 sth.colors = EL r2 sth.colors ==> r1 = r2) /\
+        EVERY (\r. EL r sth.int_beg <= pos) l /\
+        EVERY (\r. ((pos <= EL r sth.int_end /\ EL r sth.colors < st.colormax) ==> (MEM (EL r sth.int_end, r) st.active))) l /\
+        EVERY (\r. ((MEM (EL r sth.int_end, r) st.active) ==> (pos <= 1 + EL r sth.int_end))) l /\
+        (!r1 r2. MEM r1 l /\ MEM r2 l /\ interval_intersect (EL r1 sth.int_beg, EL r1 sth.int_end) (EL r2 sth.int_beg, EL r2 sth.int_end) /\ EL r1 sth.colors = EL r2 sth.colors ==> r1 = r2) /\
         SORTED less_FST st.active /\
-        EVERY (\e,r. e = the 0 (lookup r int_end)) st.active /\
+        EVERY (\e,r. e = EL r sth.int_end) st.active /\
         EVERY (\e,r. MEM r l) st.active /\
         EVERY (\r1,r2. MEM r1 l /\ MEM r2 l /\ EL r1 sth.colors = EL r2 sth.colors ==> r1 = r2) forced /\
         mincol <= st.colornum /\
@@ -2265,11 +2358,11 @@ val good_linear_scan_state_def = Define`
 `;
 
 val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_intervals_invariants",
-    `!beg st int_beg int_end sth l pos forced mincol.
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
+    `!beg st sth l pos forced mincol.
+    good_linear_scan_state st sth l pos forced mincol /\
     pos <= beg ==>
     ?stout. (Success stout, sth) = remove_inactive_intervals beg st sth /\
-    good_linear_scan_state int_beg int_end stout sth l beg forced mincol /\
+    good_linear_scan_state stout sth l beg forced mincol /\
     stout.colormax = st.colormax`,
 
     recInduct remove_inactive_intervals_ind >>
@@ -2287,7 +2380,7 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
         )
         THEN1 (
           CCONTR_TAC >> fs [] >>
-          `pos <= the 0 (lookup r int_end)` by intLib.COOPER_TAC >>
+          `pos <= EL r sth.int_end` by intLib.COOPER_TAC >>
           res_tac
         )
     ) >>
@@ -2300,10 +2393,10 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
         rfs [] >>
         `r < LENGTH sth.colors` by fs [EVERY_MEM, FORALL_PROD, good_linear_scan_state_def] >>
         rfs [] >>
-        first_x_assum (qspecl_then [`EL r sth.colors`, `int_beg`, `int_end`, `sth`, `l`, `e+1`, `forced`, `mincol`] assume_tac) >>
+        first_x_assum (qspecl_then [`EL r sth.colors`, `sth`, `l`, `e+1`, `forced`, `mincol`] assume_tac) >>
         `e+1 <= beg` by intLib.COOPER_TAC >>
-        sg `good_linear_scan_state int_beg int_end (st with <| active := activetail; colorpool updated_by (\l. (EL r sth.colors)::l) |>) sth l (e+1) forced mincol` THEN1 (
-            qpat_x_assum `good_linear_scan_state _ _ _ _ _ _ _ _ /\ _ ==> _` kall_tac >>
+        sg `good_linear_scan_state (st with <| active := activetail; colorpool updated_by (\l. (EL r sth.colors)::l) |>) sth l (e+1) forced mincol` THEN1 (
+            qpat_x_assum `good_linear_scan_state _ _ _ _ _ _ /\ _ ==> _` kall_tac >>
             fs [good_linear_scan_state_def] >>
             `pos <= 1+e` by (fs [EVERY_MEM] >> metis_tac []) >>
             sg `!(h:num) l1 l2. PERM (l1 ++ h::l2) ((h::l1) ++ l2)` THEN1 (
@@ -2322,7 +2415,7 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
               intLib.COOPER_TAC
             )
             THEN1 (
-              `pos <= the 0 (lookup r' int_end)` by intLib.COOPER_TAC >>
+              `pos <= EL r' sth.int_end` by intLib.COOPER_TAC >>
               res_tac >>
               CCONTR_TAC >>
               intLib.COOPER_TAC
@@ -2362,7 +2455,7 @@ val remove_inactive_intervals_invariants = Q.store_thm("remove_inactive_interval
           intLib.COOPER_TAC
         )
         THEN1 (
-          `pos <= the 0 (lookup r int_end)` by intLib.COOPER_TAC >>
+          `pos <= EL r sth.int_end` by intLib.COOPER_TAC >>
           metis_tac []
         )
         THEN1 (
@@ -2435,11 +2528,11 @@ val find_color_in_list_output = Q.store_thm("find_color_in_list_output",
 );
 
 val find_color_in_colornum_invariants = Q.store_thm("find_color_in_colornum_invariants",
-    `!st forbidden int_beg int_end sth l pos forced mincol.
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
+    `!st forbidden sth l pos forced mincol.
+    good_linear_scan_state st sth l pos forced mincol /\
     domain forbidden SUBSET {EL r sth.colors | r | MEM r l} /\
     find_color_in_colornum st forbidden = (stout, SOME col) ==>
-    good_linear_scan_state int_beg int_end (stout with colorpool updated_by (\l. col::l)) sth l pos forced mincol /\
+    good_linear_scan_state (stout with colorpool updated_by (\l. col::l)) sth l pos forced mincol /\
     st.colornum <= col /\ col < stout.colornum /\
     st.colornum <= stout.colornum /\
     col NOTIN domain forbidden /\
@@ -2472,11 +2565,11 @@ val find_color_in_colornum_invariants = Q.store_thm("find_color_in_colornum_inva
 );
 
 val find_color_invariants = Q.store_thm("find_color_invariants",
-    `!st forbidden stout col int_beg int_end sth l pos forced mincol.
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
+    `!st forbidden stout col sth l pos forced mincol.
+    good_linear_scan_state st sth l pos forced mincol /\
     domain forbidden SUBSET {EL r sth.colors | r | MEM r l} /\
     find_color st forbidden = (stout, SOME col) ==>
-    good_linear_scan_state int_beg int_end (stout with colorpool updated_by (\l. col::l)) sth l pos forced mincol /\
+    good_linear_scan_state (stout with colorpool updated_by (\l. col::l)) sth l pos forced mincol /\
     col < stout.colornum /\
     col NOTIN domain forbidden /\
     st = stout with <| colorpool := st.colorpool; colornum := st.colornum |>`,
@@ -2518,7 +2611,7 @@ val update_color_active_colors_same = Q.store_thm("update_color_active_colors_sa
     fs []
 );
 
-(* TODO: this proof is terribly slow because the simplifier messes up, even if with the "lower lever" tactics *)
+(* TODO: this proof is terribly slow because the simplifier messes up, even if with the "lower level" tactics *)
 val forced_update_stack_color_lemma = Q.store_thm("forced_update_stack_color_lemma",
     `!(colors : num list) (stacknum : num) l r2 r1.
     EVERY (\r. EL r colors < stacknum) l /\
@@ -2610,16 +2703,17 @@ val ALL_DISTINCT_IS_SPARSE_SUBLIST = Q.store_thm("ALL_DISTINCT_IS_SPARSE_SUBLIST
 );
 
 val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER_invariants_hidden",
-    `!int_beg int_end st sth l pos forced reg mincol.
+    `!st sth l pos forced reg mincol.
     id (~(is_phy_var reg) \/ ~(MEM reg l)) /\
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
+    good_linear_scan_state st sth l pos forced mincol /\
     reg < LENGTH sth.colors /\
-    the 0 (lookup reg int_beg) <= pos ==>
+    EL reg sth.int_beg <= pos ==>
     ?stout sthout. (Success stout, sthout) = spill_register (st with active := FILTER (\e,r. r <> reg) st.active) reg sth /\
-    good_linear_scan_state int_beg int_end stout sthout (reg::l) pos forced mincol /\
+    good_linear_scan_state stout sthout (reg::l) pos forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     (!r. r <> reg ==> EL r sth.colors = EL r sthout.colors) /\
     stout.colormax = st.colormax /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     st.colormax <= EL reg sthout.colors`,
 
     rw [spill_register_def] >> rw msimps >>
@@ -2672,7 +2766,7 @@ val spill_register_FILTER_invariants_hidden = Q.store_thm("spill_register_FILTER
     )
     THEN1 fs [EL_LUPDATE]
     THEN1 fs [EL_LUPDATE, EVERY_MEM]
-    THEN1 fs [MEM_FILTER]
+    THEN1 fs [EL_LUPDATE]
     THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
     THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
     THEN1 fs [EVERY_MEM, FORALL_PROD, EL_LUPDATE, MEM_FILTER]
@@ -2732,15 +2826,16 @@ val FILTER_MEM_active = Q.store_thm("FILTER_MEM_active",
 );
 
 val spill_register_invariants = Q.store_thm("spill_register_invariants",
-    `!int_beg int_end st sth l pos forced reg mincol.
+    `!st sth l pos forced reg mincol.
     (!e. ~(MEM (e,reg) st.active)) /\
     (~(is_phy_var reg) \/ ~(MEM reg l)) /\
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
+    good_linear_scan_state st sth l pos forced mincol /\
     reg < LENGTH sth.colors /\
-    the 0 (lookup reg int_beg) <= pos ==>
+    EL reg sth.int_beg <= pos ==>
     ?stout sthout. (Success stout, sthout) = spill_register st reg sth /\
-    good_linear_scan_state int_beg int_end stout sthout (reg::l) pos forced mincol /\
+    good_linear_scan_state stout sthout (reg::l) pos forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r. r <> reg ==> EL r sth.colors = EL r sthout.colors) /\
     stout.colormax = st.colormax /\
     st.colormax <= EL reg sthout.colors`,
@@ -2752,34 +2847,37 @@ val spill_register_invariants = Q.store_thm("spill_register_invariants",
 );
 
 val edges_to_adjlist_step_def = Define`
-    edges_to_adjlist_step int_beg (a,b) acc =
+    edges_to_adjlist_step sth (a,b) acc =
       if a = b then
         acc
-      else if ($< LEX $<=) (the 0i (lookup a int_beg), a) (the 0i (lookup b int_beg), b) then
+      else if ($< LEX $<=) (EL a sth.int_beg, a) (EL b sth.int_beg, b) then
         insert b (a::(the [] (lookup b acc))) acc
       else
         insert a (b::(the [] (lookup a acc))) acc
 `;
 
 val edges_to_adjlist_FOLDL = Q.store_thm("edges_to_adjlist_FOLDL",
-    `!forced int_beg acc.
-    edges_to_adjlist forced int_beg acc = FOLDL (\acc pair. edges_to_adjlist_step int_beg pair acc) acc forced`,
+    `!forced sth acc.
+    EVERY (\r1,r2. r1 < LENGTH sth.int_beg /\ r2 < LENGTH sth.int_beg) forced ==>
+    edges_to_adjlist forced acc sth = (Success (FOLDL (\acc pair. edges_to_adjlist_step sth pair acc) acc forced), sth)`,
     Induct_on `forced`
-    THEN1 rw [edges_to_adjlist_def] >>
+    THEN1 rw (edges_to_adjlist_def::msimps) >>
     rw [] >>
-    PairCases_on `h` >>
+    PairCases_on `h` >> fs [] >>
     rw [edges_to_adjlist_def, edges_to_adjlist_step_def] >>
+    fs [LEX_DEF] >>
+    rw msimps >>
     every_case_tac
 );
 
 val forbidden_is_from_forced_def = Define`
-    forbidden_is_from_forced forced int_beg reg forbidden =
-        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\ ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> MEM reg2 forbidden
+    forbidden_is_from_forced forced (int_beg : int list) reg forbidden =
+        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\ ($< LEX $<=) (EL reg2 int_beg, reg2) (EL reg int_beg, reg)) <=> MEM reg2 forbidden
 `;
 
 val forbidden_is_from_forced_sublist_def = Define`
-    forbidden_is_from_forced_sublist l forced int_beg reg forbidden =
-        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\ ($< LEX $<=) (the 0i (lookup reg2 int_beg), reg2) (the 0i (lookup reg int_beg), reg)) <=> (MEM reg2 forbidden /\ MEM reg l)
+    forbidden_is_from_forced_sublist l forced (int_beg : int list) reg forbidden =
+        !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\ ($< LEX $<=) (EL reg2 int_beg, reg2) (EL reg int_beg, reg)) <=> (MEM reg2 forbidden /\ MEM reg l)
 `;
 
 val forbidden_is_from_forced_list_def = Define`
@@ -2797,16 +2895,16 @@ val forbidden_is_from_map_color_forced_def = Define`
 `;
 
 val edges_to_adjlist_FOLDR_output = Q.store_thm("edges_to_adjlist_FOLDR_output",
-    `!forced int_beg.
-    !reg. forbidden_is_from_forced forced int_beg reg (the [] (lookup reg (FOLDR (\pair acc. edges_to_adjlist_step int_beg pair acc) LN forced)))`,
+    `!forced sth.
+    !reg. forbidden_is_from_forced forced sth.int_beg reg (the [] (lookup reg (FOLDR (\pair acc. edges_to_adjlist_step sth pair acc) LN forced)))`,
 
     simp [forbidden_is_from_forced_def] >>
     Induct_on `forced`
     THEN1 rw [forbidden_is_from_forced_def, lookup_def, the_def] >>
     simp [] >>
     rpt gen_tac >>
-    first_x_assum (qspec_then `int_beg` assume_tac) >>
-    qabbrev_tac `adjlist = FOLDR (\pair acc. edges_to_adjlist_step int_beg pair acc) LN forced` >>
+    first_x_assum (qspec_then `sth` assume_tac) >>
+    qabbrev_tac `adjlist = FOLDR (\pair acc. edges_to_adjlist_step sth pair acc) LN forced` >>
     qpat_x_assum `Abbrev _` kall_tac >>
     PairCases_on `h` >>
     eq_tac
@@ -2850,7 +2948,7 @@ val edges_to_adjlist_FOLDR_output = Q.store_thm("edges_to_adjlist_FOLDR_output",
       simp [edges_to_adjlist_step_def] >>
       rpt strip_tac >>
       every_case_tac >>
-      TRY (`($< LEX $<=) (the 0 (lookup h1 int_beg), h1) (the 0 (lookup h0 int_beg), h0)` by (fs [LEX_DEF] >> intLib.COOPER_TAC)) >>
+      TRY (`($< LEX $<=) (EL h1 sth.int_beg, h1) (EL h0 sth.int_beg, h0)` by (fs [LEX_DEF] >> intLib.COOPER_TAC)) >>
       Cases_on `reg = h1` >>
       Cases_on `reg2 = h0` >>
       Cases_on `reg = h0` >>
@@ -2861,20 +2959,21 @@ val edges_to_adjlist_FOLDR_output = Q.store_thm("edges_to_adjlist_FOLDR_output",
 );
 
 val edges_to_adjlist_output = Q.store_thm("edges_to_adjlist_output",
-    `!forced int_beg.
-    !reg. forbidden_is_from_forced forced int_beg reg (the [] (lookup reg (edges_to_adjlist forced int_beg LN)))`,
+    `!forced sth.
+    EVERY (\r1,r2. r1 < LENGTH sth.int_beg /\ r2 < LENGTH sth.int_beg) forced ==>
+    ?adjlist. edges_to_adjlist forced LN sth = (Success adjlist, sth) /\
+    !reg. forbidden_is_from_forced forced sth.int_beg reg (the [] (lookup reg adjlist))`,
 
     rw [edges_to_adjlist_FOLDL, GSYM FOLDR_REVERSE] >>
-    qspecl_then [`REVERSE forced`, `int_beg`, `reg`] assume_tac edges_to_adjlist_FOLDR_output >>
-    fs [forbidden_is_from_forced_def] >>
-    metis_tac []
+    qspecl_then [`REVERSE forced`, `sth`, `reg`] assume_tac edges_to_adjlist_FOLDR_output >>
+    fs [forbidden_is_from_forced_def]
 );
 
 val state_invariants_remove_head = Q.store_thm("state_invariants_remove_head",
-    `!int_beg int_end st sth reg l pos forced mincol.
+    `!st sth reg l pos forced mincol.
     MEM reg l /\
-    good_linear_scan_state int_beg int_end st sth (reg::l) pos forced mincol ==>
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol`,
+    good_linear_scan_state st sth (reg::l) pos forced mincol ==>
+    good_linear_scan_state st sth l pos forced mincol`,
 
     rw [] >>
     `!r. r = reg \/ MEM r l <=> MEM r l` by metis_tac [] >>
@@ -2930,8 +3029,8 @@ val find_last_stealable_output = Q.store_thm("find_last_stealable_output",
 );
 
 val good_linear_scan_state_active_length_colors = Q.store_thm("good_linear_scan_state_active_length_colors",
-    `!int_beg int_end st sth l pos forced mincol.
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol ==>
+    `!st sth l pos forced mincol.
+    good_linear_scan_state st sth l pos forced mincol ==>
     EVERY (\e,r. r < LENGTH sth.colors) st.active`,
 
     rw [good_linear_scan_state_def, EVERY_MEM] >>
@@ -2958,22 +3057,23 @@ val color_register_eq = Q.store_thm("color_register_eq",
 );
 
 val color_register_invariants = Q.store_thm("color_register_invariants",
-    `!int_beg int_end st sth l pos forced reg col forbidden mincol.
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
+    `!st sth l pos forced reg col forbidden mincol.
+    good_linear_scan_state st sth l pos forced mincol /\
     forbidden_is_from_map_color_forced forced l sth.colors reg forbidden /\
     col NOTIN domain forbidden /\
     (is_phy_var reg ==> domain st.phyregs SUBSET domain forbidden) /\
     ~MEM col (st.colorpool ++ MAP (\(e,r). EL r sth.colors) st.active) /\
-    the 0 (lookup reg int_beg) = pos /\
-    the 0 (lookup reg int_beg) <= the 0 (lookup reg int_end) /\
+    EL reg sth.int_beg = pos /\
+    EL reg sth.int_beg <= EL reg sth.int_end /\
     col < st.colornum /\
     mincol <= col /\
     reg < LENGTH sth.colors /\
     ~MEM reg l
     ==>
-    ?stout sthout. (Success stout, sthout) = color_register st reg col (the 0 (lookup reg int_end)) sth /\
-    good_linear_scan_state int_beg int_end stout sthout (reg::l) pos forced mincol /\
+    ?stout sthout. (Success stout, sthout) = color_register st reg col (EL reg sth.int_end) sth /\
+    good_linear_scan_state stout sthout (reg::l) pos forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r. r <> reg ==> EL r sth.colors = EL r sthout.colors) /\
     stout.colormax = st.colormax`,
 
@@ -2987,7 +3087,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
         res_tac
       ) >>
       imp_res_tac add_active_interval_output >> fs [] >>
-      rpt (first_x_assum (qspecl_then [`reg`, `the 0 (lookup reg int_end)`] assume_tac)) >> fs [] >>
+      rpt (first_x_assum (qspecl_then [`reg`, `EL reg sth.int_end`] assume_tac)) >> fs [] >>
       sg `MAP (\e,r. EL r (LUPDATE col reg sth.colors)) l1 = MAP (\e,r. EL r sth.colors) l1 /\ MAP (\e,r. EL r (LUPDATE col reg sth.colors)) l2 = MAP (\e,r. EL r sth.colors) l2` THEN1 (
         strip_tac >>
         rw [MAP_EQ_f] >>
@@ -3057,7 +3157,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
     )
     THEN1 (
       imp_res_tac add_active_interval_output >> fs [] >>
-      rpt (first_x_assum (qspecl_then [`reg`, `the 0 (lookup reg int_end)`] assume_tac)) >> fs [] >>
+      rpt (first_x_assum (qspecl_then [`reg`, `EL reg sth.int_end`] assume_tac)) >> fs [] >>
       rw [EL_LUPDATE] >>
       fs [EVERY_MEM, FORALL_PROD] >>
       metis_tac []
@@ -3069,11 +3169,11 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
     )
     THEN1 (
       imp_res_tac add_active_interval_output >> fs [] >>
-      rpt (first_x_assum (qspecl_then [`reg`, `the 0 (lookup reg int_end)`] assume_tac)) >> fs []
+      rpt (first_x_assum (qspecl_then [`reg`, `EL reg sth.int_end`] assume_tac)) >> fs []
     )
     THEN1 (
       imp_res_tac add_active_interval_output >> fs [] >>
-      rpt (first_x_assum (qspecl_then [`reg`, `the 0 (lookup reg int_end)`] assume_tac)) >> fs [] >>
+      rpt (first_x_assum (qspecl_then [`reg`, `EL reg sth.int_end`] assume_tac)) >> fs [] >>
       fs [EVERY_MEM] >>
       rw [EL_LUPDATE]
     )
@@ -3082,7 +3182,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
     )
     THEN1 (
         imp_res_tac add_active_interval_output >> fs [] >>
-        rpt (first_x_assum (qspecl_then [`reg`, `the 0 (lookup reg int_end)`] assume_tac)) >> fs [] >>
+        rpt (first_x_assum (qspecl_then [`reg`, `EL reg sth.int_end`] assume_tac)) >> fs [] >>
         fs [EVERY_MEM] >>
         rw []
         THEN1 fs []
@@ -3096,7 +3196,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
         rfs [EL_LUPDATE] >>
         fs [interval_intersect_def, EVERY_MEM] >>
         `EL r2 sth.colors < st.colormax` by rw [] >>
-        `MEM (the 0 (lookup r2 int_end), r2) st.active` by rw [] >>
+        `MEM (EL r2 sth.int_end, r2) st.active` by rw [] >>
         fs [MEM_MAP, FORALL_PROD] >>
         metis_tac []
     )
@@ -3106,7 +3206,7 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
         rfs [EL_LUPDATE] >>
         fs [interval_intersect_def, EVERY_MEM] >>
         `EL r1 sth.colors < st.colormax` by rw [] >>
-        `MEM (the 0 (lookup r1 int_end), r1) st.active` by rw [] >>
+        `MEM (EL r1 sth.int_end, r1) st.active` by rw [] >>
         fs [MEM_MAP, FORALL_PROD] >>
         metis_tac []
     )
@@ -3119,12 +3219,12 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
     )
     THEN1 (
         imp_res_tac add_active_interval_output >> fs [] >>
-        rpt (first_x_assum (qspecl_then [`reg`, `the 0 (lookup reg int_end)`] assume_tac)) >> fs [] >>
+        rpt (first_x_assum (qspecl_then [`reg`, `EL reg sth.int_end`] assume_tac)) >> fs [] >>
         fs [EVERY_MEM, FORALL_PROD]
     )
     THEN1 (
         imp_res_tac add_active_interval_output >> fs [] >>
-        rpt (first_x_assum (qspecl_then [`reg`, `the 0 (lookup reg int_end)`] assume_tac)) >> fs [] >>
+        rpt (first_x_assum (qspecl_then [`reg`, `EL reg sth.int_end`] assume_tac)) >> fs [] >>
         fs [EVERY_MEM, FORALL_PROD] >>
         metis_tac []
     )
@@ -3158,16 +3258,17 @@ val color_register_invariants = Q.store_thm("color_register_invariants",
 );
 
 val find_spill_invariants = Q.store_thm("find_spill_invariants",
-    `!int_beg int_end st sth l forbidden forced reg force mincol.
+    `!st sth l forbidden forced reg force mincol.
     ~MEM reg l /\
-    good_linear_scan_state int_beg int_end st sth l (the 0 (lookup reg int_beg)) forced mincol /\
+    good_linear_scan_state st sth l (EL reg sth.int_beg) forced mincol /\
     reg < LENGTH sth.colors /\
     forbidden_is_from_map_color_forced forced l sth.colors reg forbidden /\
     (is_phy_var reg ==> domain st.phyregs SUBSET domain forbidden) /\
-    the 0 (lookup reg int_beg) <= the 0 (lookup reg int_end) ==>
-    ?stout sthout. (Success stout, sthout) = find_spill st forbidden reg (the 0 (lookup reg int_end)) force sth /\
-    good_linear_scan_state int_beg int_end stout sthout (reg::l) (the 0 (lookup reg int_beg)) forced mincol /\
+    EL reg sth.int_beg <= EL reg sth.int_end ==>
+    ?stout sthout. (Success stout, sthout) = find_spill st forbidden reg (EL reg sth.int_end) force sth /\
+    good_linear_scan_state stout sthout (reg::l) (EL reg sth.int_beg) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r. ~MEM r (reg::l)  ==> EL r sthout.colors = EL r sth.colors) /\
     (!r. MEM r l /\ is_phy_var r ==> EL r sthout.colors = EL r sth.colors) /\
     stout.colormax = st.colormax`,
@@ -3179,7 +3280,7 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
     simp [] >>
     CASE_TAC
     THEN1 (
-      qspecl_then [`int_beg`, `int_end`, `st`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `reg`, `mincol`] assume_tac spill_register_invariants >>
+      qspecl_then [`st`, `sth`, `l`, `EL reg sth.int_beg`, `forced`, `reg`, `mincol`] assume_tac spill_register_invariants >>
       rfs [] >>
       metis_tac [spill_register_invariants]
     ) >>
@@ -3188,7 +3289,7 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
     simp [] >>
     reverse CASE_TAC
     THEN1 (
-      qspecl_then [`int_beg`, `int_end`, `st`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `reg`, `mincol`] assume_tac spill_register_invariants >>
+      qspecl_then [`st`, `sth`, `l`, `EL reg sth.int_beg`, `forced`, `reg`, `mincol`] assume_tac spill_register_invariants >>
       rfs [] >>
       metis_tac [spill_register_invariants]
     ) >>
@@ -3226,9 +3327,9 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
         fs [] >>
         `ALL_DISTINCT ((stealend, stealreg)::(l1 ++ l2))` by metis_tac [ALL_DISTINCT_PERM] >>
         fs [] >>
-        `EVERY (\e,r. e = the 0 (lookup r int_end)) (l1++l2)` by fs [good_linear_scan_state_def, EVERY_APPEND] >>
+        `EVERY (\e,r. e = EL r sth.int_end) (l1++l2)` by fs [good_linear_scan_state_def, EVERY_APPEND] >>
         fs [EVERY_APPEND] >>
-        `stealend = the 0 (lookup stealreg int_end)` by fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+        `stealend = EL stealreg sth.int_end` by fs [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
         fs [] >>
         rw [] >>
         CCONTR_TAC >> fs [] >>
@@ -3241,11 +3342,11 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
         simp [FILTER_APPEND]
     ) >>
     `mincol <= EL stealreg sth.colors` by (fs [good_linear_scan_state_def, EVERY_MEM, MEM_MAP] >> metis_tac []) >>
-    `the 0 (lookup stealreg int_beg) <= the 0 (lookup reg int_beg)` by fs [good_linear_scan_state_def, EVERY_MEM] >>
-    qspecl_then [`int_beg`, `int_end`, `st`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `stealreg`, `mincol`] assume_tac (GSYM spill_register_FILTER_invariants) >>
+    `EL stealreg sth.int_beg <= EL reg sth.int_beg` by fs [good_linear_scan_state_def, EVERY_MEM] >>
+    qspecl_then [`st`, `sth`, `l`, `EL reg sth.int_beg`, `forced`, `stealreg`, `mincol`] assume_tac (GSYM spill_register_FILTER_invariants) >>
     rfs [] >>
     imp_res_tac state_invariants_remove_head >>
-    qspecl_then [`int_beg`, `int_end`, `stout`, `sthout`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `reg`, `EL stealreg sth.colors`, `forbidden`, `mincol`] assume_tac color_register_invariants >>
+    qspecl_then [`stout`, `sthout`, `l`, `EL reg sth.int_beg`, `forced`, `reg`, `EL stealreg sth.colors`, `forbidden`, `mincol`] assume_tac color_register_invariants >>
     rfs [] >>
     fs (spill_register_def::msimps) >> Cases_on `stealreg < LENGTH sth.colors` >> fs [] >>
     rveq >>
@@ -3273,17 +3374,18 @@ val find_spill_invariants = Q.store_thm("find_spill_invariants",
 );
 
 val linear_reg_alloc_step_aux_invariants = Q.store_thm("linear_reg_alloc_step_aux_invariants",
-    `!int_beg int_end st sth l preferred (forbidden:num_set) forced reg force mincol.
+    `!st sth l preferred (forbidden:num_set) forced reg force mincol.
     ~MEM reg l /\
-    good_linear_scan_state int_beg int_end st sth l (the 0 (lookup reg int_beg)) forced mincol /\
+    good_linear_scan_state st sth l (EL reg sth.int_beg) forced mincol /\
     reg < LENGTH sth.colors /\
     forbidden_is_from_map_color_forced forced l sth.colors reg forbidden /\
     (is_phy_var reg ==> domain st.phyregs SUBSET domain forbidden) /\
     domain forbidden SUBSET {EL r sth.colors | r | MEM r l} /\
-    the 0 (lookup reg int_beg) <= the 0 (lookup reg int_end) ==>
-    ?stout sthout. (Success stout, sthout) = linear_reg_alloc_step_aux st forbidden preferred reg (the 0 (lookup reg int_end)) force sth /\
-    good_linear_scan_state int_beg int_end stout sthout (reg::l) (the 0 (lookup reg int_beg)) forced mincol /\
+    EL reg sth.int_beg <= EL reg sth.int_end ==>
+    ?stout sthout. (Success stout, sthout) = linear_reg_alloc_step_aux st forbidden preferred reg (EL reg sth.int_end) force sth /\
+    good_linear_scan_state stout sthout (reg::l) (EL reg sth.int_beg) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r. ~MEM r (reg::l)  ==> EL r sthout.colors = EL r sth.colors) /\
     (!r. MEM r l /\ is_phy_var r ==> EL r sthout.colors = EL r sth.colors) /\
     stout.colormax = st.colormax`,
@@ -3297,17 +3399,17 @@ val linear_reg_alloc_step_aux_invariants = Q.store_thm("linear_reg_alloc_step_au
       THEN1 (
         fs [find_color_def, find_color_in_colornum_def, case_eq_thms] >>
         Cases_on `st.colormax <= st.colornum` >> fs [] >>
-        qspecl_then [`int_beg`, `int_end`, `st`, `sth`, `l`, `forbidden`, `forced`, `reg`, `force`, `mincol`] assume_tac find_spill_invariants >>
+        qspecl_then [`st`, `sth`, `l`, `forbidden`, `forced`, `reg`, `force`, `mincol`] assume_tac find_spill_invariants >>
         rfs [] >>
         metis_tac []
       )
       THEN1 (
         rename1 `_ = (stout, SOME col)` >>
-        qspecl_then [`st`, `forbidden`, `stout`, `col`, `int_beg`, `int_end`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `mincol`] assume_tac find_color_invariants >>
+        qspecl_then [`st`, `forbidden`, `stout`, `col`, `sth`, `l`, `EL reg sth.int_beg`, `forced`, `mincol`] assume_tac find_color_invariants >>
         rfs [linear_scan_state_component_equality] >>
         `~MEM col (stout.colorpool ++ MAP (\(e,r). EL r sth.colors) stout.active)` by fs [good_linear_scan_state_def] >>
         `mincol <= col` by fs [good_linear_scan_state_def] >>
-        `good_linear_scan_state int_beg int_end stout sth l (the 0 (lookup reg int_beg)) forced mincol` by fs [good_linear_scan_state_def] >>
+        `good_linear_scan_state stout sth l (EL reg sth.int_beg) forced mincol` by fs [good_linear_scan_state_def] >>
         metis_tac [color_register_invariants]
       )
     )
@@ -3317,7 +3419,7 @@ val linear_reg_alloc_step_aux_invariants = Q.store_thm("linear_reg_alloc_step_au
       simp [] >>
       imp_res_tac find_color_in_list_output >>
       fs [MEM_FILTER] >>
-      sg `good_linear_scan_state int_beg int_end (st with colorpool updated_by FILTER (\y. col <> y)) sth l (the 0 (lookup reg int_beg)) forced mincol` THEN1 (
+      sg `good_linear_scan_state (st with colorpool updated_by FILTER (\y. col <> y)) sth l (EL reg sth.int_beg) forced mincol` THEN1 (
         fs [good_linear_scan_state_def] >>
         simp [EVERY_FILTER_IMP] >>
         metis_tac [FILTER_IS_SPARSE_SUBLIST, IS_SPARSE_SUBLIST_APPEND_RIGHT, ALL_DISTINCT_IS_SPARSE_SUBLIST]
@@ -3328,7 +3430,7 @@ val linear_reg_alloc_step_aux_invariants = Q.store_thm("linear_reg_alloc_step_au
       ) >>
       `col < st.colornum` by fs [good_linear_scan_state_def, EVERY_MEM] >>
       `mincol <= col` by fs [good_linear_scan_state_def, EVERY_MEM, MEM_MAP] >>
-      qspecl_then [`int_beg`, `int_end`, `st with colorpool updated_by FILTER (\y. col <> y)`, `sth`, `l`, `the 0 (lookup reg int_beg)`, `forced`, `reg`, `col`, `forbidden`, `mincol`] assume_tac color_register_invariants >>
+      qspecl_then [`st with colorpool updated_by FILTER (\y. col <> y)`, `sth`, `l`, `EL reg sth.int_beg`, `forced`, `reg`, `col`, `forbidden`, `mincol`] assume_tac color_register_invariants >>
       rfs [] >>
       metis_tac []
     )
@@ -3347,19 +3449,20 @@ val phystack_on_stack_def = Define`
 `;
 
 val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_pass1_invariants",
-    `!int_beg int_end st sth l moves forced_adj forced reg pos mincol.
+    `!st sth l moves forced_adj forced reg pos mincol.
     ~MEM reg l /\
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
-    pos <= (the 0 (lookup reg int_beg)) /\
+    good_linear_scan_state st sth l pos forced mincol /\
+    pos <= (EL reg sth.int_beg) /\
     reg < LENGTH sth.colors /\
     forbidden_is_from_forced_list forced l reg (the [] (lookup reg forced_adj)) /\
     EVERY (\r. MEM r l) (the [] (lookup reg forced_adj)) /\
     EVERY (\r. r < LENGTH sth.colors) (the [] (lookup reg forced_adj)) /\
     EVERY (\r. r < LENGTH sth.colors) (the [] (lookup reg moves)) /\
-    the 0 (lookup reg int_beg) <= the 0 (lookup reg int_end) ==>
-    ?stout sthout. (Success stout, sthout) = linear_reg_alloc_step_pass1 int_beg int_end forced_adj moves st reg sth /\
-    good_linear_scan_state int_beg int_end stout sthout (reg::l) (the 0 (lookup reg int_beg)) forced mincol /\
+    EL reg sth.int_beg <= EL reg sth.int_end ==>
+    ?stout sthout. (Success stout, sthout) = linear_reg_alloc_step_pass1 forced_adj moves st reg sth /\
+    good_linear_scan_state stout sthout (reg::l) (EL reg sth.int_beg) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r. ~MEM r (reg::l)  ==> EL r sthout.colors = EL r sth.colors) /\
     (!r. MEM r l /\ is_phy_var r ==> EL r sthout.colors = EL r sth.colors) /\
     (phystack_on_stack l st sth ==> phystack_on_stack (reg::l) stout sthout) /\
@@ -3367,9 +3470,10 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
 
     rw [linear_reg_alloc_step_pass1_def] >>
     simp msimps >>
-    qspecl_then [`the 0 (lookup reg int_beg)`, `st`, `int_beg`, `int_end`, `sth`, `l`, `pos`, `forced`, `mincol`] assume_tac remove_inactive_intervals_invariants >> rfs [] >>
+    qspecl_then [`EL reg sth.int_beg`, `st`, `sth`, `l`, `pos`, `forced`, `mincol`] assume_tac remove_inactive_intervals_invariants >> rfs [] >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
+    `reg < LENGTH sth.int_beg /\ reg < LENGTH sth.int_end` by fs [good_linear_scan_state_def] >>
     Cases_on `is_stack_var reg` >>
     simp []
     THEN1 (
@@ -3402,7 +3506,7 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
         `domain stout.phyregs SUBSET domain (union stout.phyregs forbidden)` by simp [domain_union] >>
         `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def, SUBSET_DEF] >> metis_tac []) >>
         `forbidden_is_from_map_color_forced forced l sth.colors reg (union stout.phyregs forbidden)` by (fs [forbidden_is_from_map_color_forced_def, domain_union] >> metis_tac []) >>
-        qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `[]`, `union stout.phyregs forbidden`, `forced`, `reg`, `T`] assume_tac linear_reg_alloc_step_aux_invariants >>
+        qspecl_then [`stout`, `sth`, `l`, `[]`, `union stout.phyregs forbidden`, `forced`, `reg`, `T`] assume_tac linear_reg_alloc_step_aux_invariants >>
         rfs [] >>
         simp [phystack_on_stack_def] >>
         `~(2*st.colormax <= reg)` by rw [] >>
@@ -3417,7 +3521,7 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
       )
     )
     THEN1 (
-        qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`, `forbidden`, `forced`, `reg`, `F`, `mincol`] assume_tac linear_reg_alloc_step_aux_invariants >>
+        qspecl_then [`stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`, `forbidden`, `forced`, `reg`, `F`, `mincol`] assume_tac linear_reg_alloc_step_aux_invariants >>
         rfs [] >>
         simp [phystack_on_stack_def] >>
         metis_tac []
@@ -3425,28 +3529,30 @@ val linear_reg_alloc_step_pass1_invariants = Q.store_thm("linear_reg_alloc_step_
 );
 
 val linear_reg_alloc_step_pass2_invariants = Q.store_thm("linear_reg_alloc_step_pass2_invariants",
-    `!int_beg int_end st sth l moves forced_adj forced reg pos mincol.
+    `!st sth l moves forced_adj forced reg pos mincol.
     ~MEM reg l /\
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
-    pos <= (the 0 (lookup reg int_beg)) /\
+    good_linear_scan_state st sth l pos forced mincol /\
+    pos <= (EL reg sth.int_beg) /\
     reg < LENGTH sth.colors /\
     forbidden_is_from_forced_list forced l reg (the [] (lookup reg forced_adj)) /\
     EVERY (\r. MEM r l) (the [] (lookup reg forced_adj)) /\
     EVERY (\r. r < LENGTH sth.colors) (the [] (lookup reg forced_adj)) /\
     EVERY (\r. r < LENGTH sth.colors) (the [] (lookup reg moves)) /\
-    the 0 (lookup reg int_beg) <= the 0 (lookup reg int_end) ==>
-    ?stout sthout. (Success stout, sthout) = linear_reg_alloc_step_pass2 int_beg int_end forced_adj moves st reg sth /\
-    good_linear_scan_state int_beg int_end stout sthout (reg::l) (the 0 (lookup reg int_beg)) forced mincol /\
+    EL reg sth.int_beg <= EL reg sth.int_end ==>
+    ?stout sthout. (Success stout, sthout) = linear_reg_alloc_step_pass2 forced_adj moves st reg sth /\
+    good_linear_scan_state stout sthout (reg::l) (EL reg sth.int_beg) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r. ~MEM r (reg::l) ==> EL r sthout.colors = EL r sth.colors) /\
     (!r. MEM r l /\ is_phy_var r ==> EL r sthout.colors = EL r sth.colors) /\
     stout.colormax = st.colormax`,
 
     rw [linear_reg_alloc_step_pass2_def] >>
     simp msimps >>
-    qspecl_then [`the 0 (lookup reg int_beg)`, `st`, `int_beg`, `int_end`, `sth`, `l`, `pos`, `forced`, `mincol`] assume_tac remove_inactive_intervals_invariants >> rfs [] >>
+    qspecl_then [`EL reg sth.int_beg`, `st`, `sth`, `l`, `pos`, `forced`, `mincol`] assume_tac remove_inactive_intervals_invariants >> rfs [] >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
+    `reg < LENGTH sth.int_beg /\ reg < LENGTH sth.int_end` by fs [good_linear_scan_state_def] >>
     imp_res_tac st_ex_MAP_colors_sub >>
     `?forbidden. fromAList (MAP (\c. (c,())) (MAP (\r. EL r sth.colors) (the [] (lookup reg forced_adj)))) = forbidden` by simp [] >>
     sg `forbidden_is_from_map_color_forced forced l sth.colors reg forbidden` THEN1 (
@@ -3467,20 +3573,18 @@ val linear_reg_alloc_step_pass2_invariants = Q.store_thm("linear_reg_alloc_step_
       `domain stout.phyregs SUBSET domain (union stout.phyregs forbidden)` by simp [domain_union] >>
       `domain (union stout.phyregs forbidden) SUBSET {EL r sth.colors | r | MEM r l}` by (fs [domain_union, good_linear_scan_state_def, SUBSET_DEF] >> metis_tac []) >>
       `forbidden_is_from_map_color_forced forced l sth.colors reg (union stout.phyregs forbidden)` by (fs [forbidden_is_from_map_color_forced_def, domain_union] >> metis_tac []) >>
-      qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `[]`, `union stout.phyregs forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
-      rfs [] >>
-      metis_tac []
+      qspecl_then [`stout`, `sth`, `l`, `[]`, `union stout.phyregs forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
+      rfs []
     )
     THEN1 (
-      qspecl_then [`int_beg`, `int_end`, `stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`, `forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
-      rfs [] >>
-      metis_tac []
+      qspecl_then [`stout`, `sth`, `l`, `MAP (\r. EL r sth.colors) (the [] (lookup reg moves))`, `forbidden`, `forced`, `reg`, `F`] assume_tac linear_reg_alloc_step_aux_invariants >>
+      rfs []
     )
 );
 
 (* TODO: move *)
 val intbeg_less_def = Define`
-    intbeg_less (int_beg:int num_map) r1 r2 = ($< LEX $<=) (the 0 (lookup r1 int_beg), r1) (the 0 (lookup r2 int_beg), r2)
+    intbeg_less (int_beg : int list) r1 r2 = ($< LEX $<=) (EL r1 int_beg, r1) (EL r2 int_beg, r2)
 `;
 
 val intbeg_less_transitive = Q.store_thm("intbeg_less_transitive",
@@ -3496,22 +3600,23 @@ val intbeg_less_total = Q.store_thm("intbeg_less_total",
 );
 
 val st_ex_FOLDL_linear_reg_alloc_step_passn_invariants_lemma = Q.store_thm("st_ex_FOLDL_linear_reg_alloc_step_passn_invariants_lemma",
-    `!regl st sth l pos b int_beg int_end moves forced_adj forced mincol.
-    SORTED (intbeg_less int_beg) regl /\
-    (!r1 r2. MEM r1 l /\ MEM r2 regl ==> intbeg_less int_beg r1 r2) /\
+    `!regl st sth l pos b moves forced_adj forced mincol.
+    SORTED (intbeg_less sth.int_beg) regl /\
+    (!r1 r2. MEM r1 l /\ MEM r2 regl ==> intbeg_less sth.int_beg r1 r2) /\
     ALL_DISTINCT regl /\
     EVERY (\r. ~MEM r regl) l /\
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol /\
-    EVERY (\r. pos <= (the 0 (lookup r int_beg))) regl /\
+    good_linear_scan_state st sth l pos forced mincol /\
+    EVERY (\r. pos <= (EL r sth.int_beg)) regl /\
     EVERY (\r. r < LENGTH sth.colors) regl /\
-    (!r. forbidden_is_from_forced_sublist (l++regl) forced int_beg r (the [] (lookup r forced_adj))) /\
+    (!r. forbidden_is_from_forced_sublist (l++regl) forced sth.int_beg r (the [] (lookup r forced_adj))) /\
     EVERY (\r1,r2. MEM r1 (l ++ regl) /\ MEM r2 (l ++ regl)) forced /\
     (!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 forced_adj))) /\
     (!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 moves))) /\
-    EVERY (\r. the 0 (lookup r int_beg) <= the 0 (lookup r int_end)) regl ==>
-    ?stout sthout posout. (Success stout, sthout) = st_ex_FOLDL ((if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) int_beg int_end forced_adj moves) st regl sth /\
-    good_linear_scan_state int_beg int_end stout sthout ((REVERSE regl) ++ l) (posout) forced mincol /\
+    EVERY (\r. EL r sth.int_beg <= EL r sth.int_end) regl ==>
+    ?stout sthout posout. (Success stout, sthout) = st_ex_FOLDL ((if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) forced_adj moves) st regl sth /\
+    good_linear_scan_state stout sthout ((REVERSE regl) ++ l) (posout) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r. ~MEM r (l++regl) ==> EL r sthout.colors = EL r sth.colors) /\
     (b ==> (phystack_on_stack l st sth ==> phystack_on_stack ((REVERSE regl) ++ l) stout sthout)) /\
     stout.colormax = st.colormax`,
@@ -3524,16 +3629,16 @@ val st_ex_FOLDL_linear_reg_alloc_step_passn_invariants_lemma = Q.store_thm("st_e
     ) >>
     rpt gen_tac >> strip_tac >>
     SIMP_TAC std_ss (st_ex_FOLDL_def::msimps) >>
-    sg `?stmid sthmid. (if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) int_beg int_end forced_adj moves st h sth = (Success stmid, sthmid) /\ good_linear_scan_state int_beg int_end stmid sthmid (h::l) (the 0 (lookup h int_beg)) forced mincol /\ LENGTH sthmid.colors = LENGTH sth.colors /\ (!r. ~MEM r (h::l) ==> EL r sthmid.colors = EL r sth.colors) /\ (b ==> (phystack_on_stack l st sth ==> phystack_on_stack (h::l) stmid sthmid)) /\ stmid.colormax = st.colormax` THEN1 (
+    sg `?stmid sthmid. (if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) forced_adj moves st h sth = (Success stmid, sthmid) /\ good_linear_scan_state stmid sthmid (h::l) (EL h sth.int_beg) forced mincol /\ LENGTH sthmid.colors = LENGTH sth.colors /\ sthmid.int_beg = sth.int_beg /\ sthmid.int_end = sth.int_end /\ (!r. ~MEM r (h::l) ==> EL r sthmid.colors = EL r sth.colors) /\ (b ==> (phystack_on_stack l st sth ==> phystack_on_stack (h::l) stmid sthmid)) /\ stmid.colormax = st.colormax` THEN1 (
         `~MEM h l` by (fs [EVERY_MEM] >> metis_tac []) >>
         sg `EVERY (\r. MEM r l) (the [] (lookup h forced_adj))` THEN1 (
           rw [EVERY_MEM] >>
           fs [forbidden_is_from_forced_sublist_def, GSYM intbeg_less_def] >>
-          `r <> h /\ (MEM (r,h) forced \/ MEM (h,r) forced) /\ intbeg_less int_beg r h` by metis_tac [] >>
+          `r <> h /\ (MEM (r,h) forced \/ MEM (h,r) forced) /\ intbeg_less sth.int_beg r h` by metis_tac [] >>
           `MEM r (l++h::regl)` by (fs [EVERY_MEM, FORALL_PROD] >> metis_tac []) >>
-          `transitive (intbeg_less int_beg)` by simp [intbeg_less_transitive] >>
+          `transitive (intbeg_less sth.int_beg)` by simp [intbeg_less_transitive] >>
           fs [SORTED_EQ] >>
-          `intbeg_less int_beg h r` by fs [] >>
+          `intbeg_less sth.int_beg h r` by fs [] >>
           CCONTR_TAC >>
           fs [intbeg_less_def, LEX_DEF] >>
           intLib.COOPER_TAC
@@ -3546,47 +3651,51 @@ val st_ex_FOLDL_linear_reg_alloc_step_passn_invariants_lemma = Q.store_thm("st_e
         ) >>
         rfs [] >>
         foldl (fn (th, acc) =>
-          acc >> (qspecl_then [`int_beg`, `int_end`, `st`, `sth`, `l`, `moves`, `forced_adj`, `forced`, `h`, `pos`, `mincol`] assume_tac th)
+          acc >> (qspecl_then [`st`, `sth`, `l`, `moves`, `forced_adj`, `forced`, `h`, `pos`, `mincol`] assume_tac th)
         ) all_tac [linear_reg_alloc_step_pass1_invariants,linear_reg_alloc_step_pass2_invariants] >>
         rfs [] >>
         metis_tac []
     ) >>
     simp [] >>
     SIMP_TAC pure_ss [GSYM APPEND_ASSOC, APPEND] >>
-    `transitive (intbeg_less int_beg)` by simp [intbeg_less_transitive] >>
-    `SORTED (intbeg_less int_beg) regl` by fs [SORTED_EQ] >>
-    sg `!r1 r2. MEM r1 (h::l) /\ MEM r2 regl ==> intbeg_less int_beg r1 r2` THEN1 (
+    `transitive (intbeg_less sth.int_beg)` by simp [intbeg_less_transitive] >>
+    `SORTED (intbeg_less sth.int_beg) regl` by fs [SORTED_EQ] >>
+    `intbeg_less sthmid.int_beg = intbeg_less sth.int_beg` by simp [FUN_EQ_THM, intbeg_less_def] >>
+    `!l forced r adj. forbidden_is_from_forced_sublist l forced sthmid.int_beg r adj = forbidden_is_from_forced_sublist l forced sth.int_beg r adj` by simp [forbidden_is_from_forced_sublist_def] >>
+    sg `!r1 r2. MEM r1 (h::l) /\ MEM r2 regl ==> intbeg_less sth.int_beg r1 r2` THEN1 (
         rw []
         THEN1 fs [SORTED_EQ]
         THEN1 (fs [] >> metis_tac [])
     ) >>
     `EVERY (\r. ~MEM r regl) l` by fs [EVERY_MEM] >>
-    sg `EVERY (\r. the 0 (lookup h int_beg) <= the 0 (lookup r int_beg)) regl` THEN1 (
+    sg `EVERY (\r. EL h sth.int_beg <= EL r sth.int_beg) regl` THEN1 (
       fs [EVERY_MEM, intbeg_less_def, LEX_DEF] >>
       metis_tac [integerTheory.INT_LE_LT]
     ) >>
     `EVERY (\r1,r2. MEM r1 (h::l ++ regl) /\ MEM r2 (h::l ++ regl)) forced` by (fs [EVERY_MEM, FORALL_PROD] >> metis_tac []) >>
-    `!r. forbidden_is_from_forced_sublist (h::(l ++ regl)) forced int_beg r (the [] (lookup r forced_adj))` by (fs [forbidden_is_from_forced_sublist_def] >> metis_tac []) >>
-    first_x_assum (qspecl_then [`stmid`, `sthmid`, `h::l`, `the 0 (lookup h int_beg)`, `b`, `int_beg`, `int_end`, `moves`, `forced_adj`, `forced`, `mincol`] assume_tac) >>
-    rfs [] >>
+    `!r. forbidden_is_from_forced_sublist (h::(l ++ regl)) forced sth.int_beg r (the [] (lookup r forced_adj))` by (fs [forbidden_is_from_forced_sublist_def] >> metis_tac []) >>
+    qabbrev_tac `toto = !r1 r2. (r1 = h \/ MEM r1 l) /\ MEM r2 regl ==> intbeg_less sth.int_beg r1 r2` >>
+    first_x_assum (qspecl_then [`stmid`, `sthmid`, `h::l`, `EL h sth.int_beg`, `b`, `moves`, `forced_adj`, `forced`, `mincol`] assume_tac) >>
+    rfs [] >> fs [] >> rfs [] >>
     metis_tac []
 );
 
 val st_ex_FOLDL_linear_reg_alloc_step_passn_invariants = Q.store_thm("st_ex_FOLDL_linear_reg_alloc_step_passn_invariants",
-    `!regl st sth pos b int_beg int_end moves forced_adj forced mincol.
-    SORTED (intbeg_less int_beg) regl /\
+    `!regl st sth pos b moves forced_adj forced mincol.
+    SORTED (intbeg_less sth.int_beg) regl /\
     ALL_DISTINCT regl /\
-    good_linear_scan_state int_beg int_end st sth [] pos forced mincol /\
-    EVERY (\r. pos <= (the 0 (lookup r int_beg))) regl /\
+    good_linear_scan_state st sth [] pos forced mincol /\
+    EVERY (\r. pos <= (EL r sth.int_beg)) regl /\
     EVERY (\r. r < LENGTH sth.colors) regl /\
-    (!r. forbidden_is_from_forced_sublist regl forced int_beg r (the [] (lookup r forced_adj))) /\
+    (!r. forbidden_is_from_forced_sublist regl forced sth.int_beg r (the [] (lookup r forced_adj))) /\
     EVERY (\r1,r2. MEM r1 regl /\ MEM r2 regl) forced /\
     (!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 forced_adj))) /\
     (!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 moves))) /\
-    EVERY (\r. the 0 (lookup r int_beg) <= the 0 (lookup r int_end)) regl ==>
-    ?stout sthout posout. (Success stout, sthout) = st_ex_FOLDL ((if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) int_beg int_end forced_adj moves) st regl sth /\
-    good_linear_scan_state int_beg int_end stout sthout (REVERSE regl) (posout) forced mincol /\
+    EVERY (\r. EL r sth.int_beg <= EL r sth.int_end) regl ==>
+    ?stout sthout posout. (Success stout, sthout) = st_ex_FOLDL ((if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) forced_adj moves) st regl sth /\
+    good_linear_scan_state stout sthout (REVERSE regl) (posout) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
+    sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r. ~MEM r regl ==> EL r sthout.colors = EL r sth.colors) /\
     (b ==> phystack_on_stack (REVERSE regl) stout sthout) /\
     stout.colormax = st.colormax`,
@@ -3596,6 +3705,515 @@ val st_ex_FOLDL_linear_reg_alloc_step_passn_invariants = Q.store_thm("st_ex_FOLD
     `phystack_on_stack [] st sth` by simp [phystack_on_stack_def] >>
     fs []
 );
+
+val swap_regs_eq = Q.store_thm("swap_regs_eq",
+    `!sth i1 i2.
+    i1 < LENGTH sth.sorted_regs /\ i2 < LENGTH sth.sorted_regs ==>
+    ?sthout. swap_regs i1 i2 sth = (Success (), sthout) /\
+    sthout = sth with sorted_regs := LUPDATE (EL i1 sth.sorted_regs) i2 (LUPDATE (EL i2 sth.sorted_regs) i1 sth.sorted_regs)`,
+    rw (swap_regs_def::msimps)
+);
+
+val if_thm = Q.store_thm("if_thm",
+    `!b x y z. (if b then x else y) = z <=> ((b /\ x = z) \/ (~b /\ y=z))`,
+    rw []
+);
+
+val split_at_indice_sing = Q.store_thm("split_at_indice_sing",
+    `!l i.
+    i < LENGTH l ==>
+    ?l1 x l2. l = l1 ++ [x] ++ l2 /\ LENGTH l1 = i`,
+    Induct_on `l` >>
+    rw [] >>
+    Cases_on `i` THEN1 (
+        qexists_tac `[]` >>
+        qexists_tac `h` >>
+        qexists_tac `l` >>
+        rw []
+    ) >>
+    fs [] >>
+    first_x_assum (qspec_then `n` assume_tac) >>
+    rfs [] >>
+    qexists_tac `h::l1` >>
+    qexists_tac `x` >>
+    qexists_tac `l2` >>
+    rw []
+);
+
+val split_at_indice= Q.store_thm("split_at_indice",
+    `!l i.
+    i <= LENGTH l ==>
+    ?l1 l2. l = l1 ++ l2 /\ LENGTH l1 = i`,
+    Induct_on `l` >>
+    rw [] >>
+    Cases_on `i` THEN1 (
+        qexists_tac `[]` >>
+        qexists_tac `h::l` >>
+        rw []
+    ) >>
+    fs [] >>
+    first_x_assum (qspec_then `n` assume_tac) >>
+    rfs [] >>
+    qexists_tac `h::l1` >>
+    qexists_tac `l2` >>
+    rw []
+);
+
+val swap_perm_lemma = Q.store_thm("swap_perm_lemma",
+    `!l i1 i2.
+    i1 < LENGTH l /\
+    i2 < LENGTH l ==>
+    PERM l (LUPDATE (EL i1 l) i2 (LUPDATE (EL i2 l) i1 l))`,
+    rw [] >>
+    Cases_on `i1 = i2`
+    THEN1 fs [LUPDATE_SAME] >>
+    rpt (first_x_assum mp_tac) >> simp [] >>
+    wlog_tac `i1 < i2` []
+    THEN1 (
+        rw [] >>
+        `i2 < i1` by rw [] >>
+        `i2 < LENGTH l` by rw [] >>
+        metis_tac [LUPDATE_commutes]
+    ) >>
+    rw [] >>
+    `?l1 y l2. l = l1 ++ [y] ++ l2 /\ LENGTH l1 = i2` by rw [split_at_indice_sing] >>
+    `?l11 x l12. l1 = l11 ++ [x] ++ l12 /\ LENGTH l11 = i1` by rw [split_at_indice_sing] >>
+    rveq >>
+    rfs [] >>
+    REWRITE_TAC [GSYM APPEND_ASSOC] >>
+    REWRITE_TAC [el_append3 |> REWRITE_RULE [GSYM APPEND_ASSOC]] >>
+    REWRITE_TAC [lupdate_append2 |> REWRITE_RULE [GSYM APPEND_ASSOC]] >>
+    REWRITE_TAC [APPEND_ASSOC] >>
+    `LENGTH l11 + (LENGTH l12 + 1) = LENGTH (l11 ++ [x] ++ l12)` by rw [] >>
+    ASM_REWRITE_TAC [] >>
+    REWRITE_TAC [el_append3] >>
+    `LENGTH (l11 ++ [x] ++ l12) = LENGTH (l11 ++ [y] ++ l12)` by REWRITE_TAC [LENGTH_APPEND, LENGTH] >>
+    ASM_REWRITE_TAC [] >>
+    REWRITE_TAC [lupdate_append2] >>
+    metis_tac [PERM_APPEND, PERM_APPEND_IFF, APPEND_ASSOC]
+);
+
+val LUPDATE_TAKE = Q.store_thm("LUPDATE_TAKE",
+    `!n x y l. x < n /\ n <= LENGTH l ==> TAKE n (LUPDATE y x l) = LUPDATE y x (TAKE n l)`,
+    Induct_on `l` >>
+    rw [] >>
+    simp [LIST_EQ_REWRITE] >>
+    Cases >>
+    rw [EL_TAKE, EL_LUPDATE]
+);
+
+val swap_regs_perm = Q.store_thm("swap_regs_perm",
+    `!sth i1 i2 sthout.
+    swap_regs i1 i2 sth = (Success (), sthout) ==>
+    (!n. i1 < n /\ i2 < n /\ n <= LENGTH sth.sorted_regs ==> PERM (TAKE n sth.sorted_regs) (TAKE n sthout.sorted_regs))`,
+    rw (swap_regs_def::msimps) >>
+    fs [case_eq_thms] >> fs [if_thm] >>
+    fs [linear_scan_hidden_state_component_equality] >>
+    qpat_x_assum `_ = sthout.sorted_regs` (fn th => assume_tac (GSYM th)) >>
+    `let l = TAKE n sth.sorted_regs in PERM l (LUPDATE (EL i1 l) i2 (LUPDATE (EL i2 l) i1 l))` by simp [swap_perm_lemma] >>
+    rfs [EL_TAKE, LUPDATE_TAKE]
+);
+
+val partition_regs_correct = Q.store_thm("partition_regs_correct",
+    `!l rpiv begrpiv r sth.
+    (!i. l <= i /\ i < r ==> EL i sth.sorted_regs < LENGTH sth.int_beg) /\
+    l <= LENGTH sth.sorted_regs /\
+    r <= LENGTH sth.sorted_regs ==>
+    ?mid sthout. partition_regs l rpiv begrpiv r sth = (Success mid, sthout) /\
+    sthout = sth with sorted_regs := sthout.sorted_regs /\
+    LENGTH sthout.sorted_regs = LENGTH sth.sorted_regs /\
+    (l <= r ==> l <= mid /\ mid <= r) /\
+    (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_regs ==> PERM (TAKE n sth.sorted_regs) (TAKE n sthout.sorted_regs)) /\
+    (!ind. ind < l \/ r <= ind ==> EL ind sthout.sorted_regs = EL ind sth.sorted_regs) /\
+    (!ind. l <= ind /\ ind < mid ==>
+        let reg = EL ind sthout.sorted_regs in
+        ($< LEX $<=) (EL reg sth.int_beg, reg) (begrpiv, rpiv)) /\
+    (!ind. mid <= ind /\ ind < r ==>
+        let reg = EL ind sthout.sorted_regs in
+        ($< LEX $<=) (begrpiv, rpiv) (EL reg sth.int_beg, reg))`,
+
+    recInduct partition_regs_ind >>
+    rpt strip_tac >>
+    once_rewrite_tac [partition_regs_def] >>
+    rw msimps
+    THEN1 rw [linear_scan_hidden_state_component_equality] >>
+    CASE_TAC
+    THEN1 (
+      fs [] >> (
+        rpt (first_x_assum (qspecl_then [`EL (EL l sth.sorted_regs) sth.int_beg`, `EL l sth.sorted_regs`] assume_tac)) >>
+        rfs [] >>
+        first_x_assum (qspec_then `sth` assume_tac) >>
+        rfs [] >>
+        fs [linear_scan_hidden_state_component_equality] >>
+        strip_tac >> gen_tac >>
+        rpt (first_x_assum (qspec_then `ind` assume_tac))
+        THEN1 rw []
+        THEN1 (
+          rpt strip_tac >>
+          fs [LEX_DEF] >>
+          Cases_on `l = ind` >>
+          fs []
+        )
+      )
+    )
+
+    THEN1 (
+      fs [] >> (
+        rpt (first_x_assum (qspecl_then [`EL (EL l sth.sorted_regs) sth.int_beg`, `EL l sth.sorted_regs`] assume_tac)) >>
+        rfs [] >>
+        qspecl_then [`sth`, `l`, `r-1`] assume_tac swap_regs_eq >>
+        rfs [] >>
+        first_x_assum (qspec_then `sth with sorted_regs := LUPDATE (EL l sth.sorted_regs) (r-1) (LUPDATE (EL (r-1) sth.sorted_regs) l sth.sorted_regs)` mp_tac) >>
+        impl_tac THEN1 rw [EL_LUPDATE] >>
+        rw [] >>
+        asm_exists_tac >> simp [] >>
+        fs [linear_scan_hidden_state_component_equality] >>
+        strip_tac THEN1 (
+            rw [] >>
+            imp_res_tac swap_regs_perm >>
+            rpt (first_x_assum (qspec_then `n` assume_tac)) >>
+            rfs [] >>
+            metis_tac [PERM_TRANS]
+        ) >>
+        strip_tac >> gen_tac >>
+        rpt (first_x_assum (qspec_then `ind` assume_tac))
+        THEN1 fs [EL_LUPDATE]
+        THEN1 (
+          rpt strip_tac >>
+          fs [LEX_DEF] >>
+          reverse (Cases_on `ind = r-1`)
+          THEN1 fs [] >>
+          fs [EL_LUPDATE] >>
+          rfs [] >>
+          simp [] >>
+          qabbrev_tac `a = EL (EL l sth.sorted_regs) sth.int_beg` >>
+          intLib.COOPER_TAC
+        )
+      )
+    )
+);
+
+val PERM_EVERY_EQ = Q.store_thm("PERM_EVERY_EQ",
+    `!P l1 l2.
+    PERM l1 l2 ==>
+    (EVERY P l1 <=> EVERY P l2)`,
+
+    rw [EVERY_MEM] >>
+    eq_tac >> rw [] >>
+    imp_res_tac PERM_MEM_EQ >>
+    rw []
+);
+
+val qsort_regs_prop_lemma = Q.store_thm("qsort_regs_prop_lemma",
+    `!(P : num -> bool) l1 l2 l r.
+    l <= LENGTH l1 /\
+    r <= LENGTH l1 /\
+    (!ind. ind < l \/ r <= ind ==> EL ind l2 = EL ind l1) /\
+    (!ind. l <= ind /\ ind < r ==> P (EL ind l1)) /\
+    PERM l1 l2 ==>
+    (!ind. l <= ind /\ ind < r ==> P (EL ind l2))`,
+
+    rpt gen_tac >> strip_tac >>
+    imp_res_tac PERM_LENGTH >>
+    reverse (Cases_on `l <= r`) THEN1 fs [] >>
+    `?l1_12 l1_3. l1 = l1_12 ++ l1_3 /\ LENGTH l1_12 = r` by metis_tac [split_at_indice] >>
+    `?l1_1 l1_2. l1_12 = l1_1 ++ l1_2 /\ LENGTH l1_1 = l` by metis_tac [split_at_indice] >>
+    `?l2_12 l2_3. l2 = l2_12 ++ l2_3 /\ LENGTH l2_12 = r` by metis_tac [split_at_indice] >>
+    `?l2_1 l2_2. l2_12 = l2_1 ++ l2_2 /\ LENGTH l2_1 = l` by metis_tac [split_at_indice] >>
+    rveq >>
+    fs [] >>
+    sg `l1_1 = l2_1` THEN1 (
+        rw [LIST_EQ_REWRITE] >>
+        fs [EL_APPEND_EQN] >>
+        rpt (first_x_assum (qspec_then `x` assume_tac)) >>
+        rfs []
+    ) >>
+    sg `l1_3 = l2_3` THEN1 (
+        rw [LIST_EQ_REWRITE] >>
+        fs [EL_APPEND_EQN] >>
+        rpt (first_x_assum (qspec_then `x + LENGTH l1_1 + LENGTH l2_2` assume_tac)) >>
+        fs []
+    ) >>
+    rveq >> fs [] >>
+    `PERM l1_2 l2_2` by metis_tac [PERM_APPEND_IFF] >>
+    sg `EVERY P l1_2` THEN1 (
+        rw [EVERY_EL] >>
+        fs [EL_APPEND_EQN] >>
+        first_x_assum (qspec_then `n + LENGTH l1_1` assume_tac) >>
+        rfs []
+    ) >>
+    `EVERY P l2_2` by metis_tac [PERM_EVERY_EQ] >>
+    fs [EVERY_EL] >>
+    rw [] >>
+    fs [EL_APPEND_EQN]
+);
+
+val qsort_regs_correct = Q.store_thm("qsort_regs_correct",
+    `!l r sth.
+    (!i. l <= i /\ i < r ==> EL i sth.sorted_regs < LENGTH sth.int_beg) /\
+    l <= LENGTH sth.sorted_regs /\
+    r <= LENGTH sth.sorted_regs ==>
+    ?sthout. qsort_regs l r sth = (Success (), sthout) /\
+    sthout = sth with sorted_regs := sthout.sorted_regs /\
+    LENGTH sthout.sorted_regs = LENGTH sth.sorted_regs /\
+    (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_regs ==> PERM (TAKE n sth.sorted_regs) (TAKE n sthout.sorted_regs)) /\
+    (!ind. ind < l \/ r <= ind ==> EL ind sthout.sorted_regs = EL ind sth.sorted_regs) /\
+    (!i1 i2. l <= i1 /\ i1 <= i2 /\ i2 < r ==>
+      let reg1 = EL i1 sthout.sorted_regs in
+      let reg2 = EL i2 sthout.sorted_regs in
+        ($< LEX $<=) (EL reg1 sth.int_beg, reg1) (EL reg2 sth.int_beg, reg2)
+    )`,
+
+    recInduct qsort_regs_ind >>
+    rpt strip_tac >>
+    once_rewrite_tac [qsort_regs_def] >>
+    rw msimps
+    THEN1 rw [linear_scan_hidden_state_component_equality]
+    THEN1 (
+      `i1 = i2` by rw [] >>
+      simp [LEX_DEF]
+    ) >>
+    imp_res_tac EVERY_EL >> fs [] >>
+    qspecl_then [`l+1`, `EL l sth.sorted_regs`, `EL (EL l sth.sorted_regs) sth.int_beg`, `r`, `sth`] assume_tac partition_regs_correct >>
+    rfs [] >>
+    rename1 `partition_regs _ _ _ _ _ = (_, sthpart)` >>
+    qspecl_then [`sthpart`, `l`, `mid-1`] assume_tac swap_regs_eq >>
+    rfs [] >>
+
+    `PERM sth.sorted_regs sthpart.sorted_regs` by (
+        first_x_assum (qspec_then `LENGTH sth.sorted_regs` assume_tac) >>
+        rfs [] >>
+        metis_tac [TAKE_LENGTH_ID]
+    ) >>
+    sg `!i. l <= i /\ i < r ==> EL i sthpart.sorted_regs < LENGTH sth.int_beg` THEN1 (
+      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sth.sorted_regs`, `sthpart.sorted_regs`, `l`, `r`] mp_tac qsort_regs_prop_lemma >>
+      impl_tac >> rw [] >> rw []
+    ) >>
+
+    simp [] >>
+    `?sthswap. sthpart with sorted_regs := LUPDATE (EL l sth.sorted_regs) (mid - 1) (LUPDATE (EL (mid - 1) sthpart.sorted_regs) l sthpart.sorted_regs) = sthswap` by simp [] >>
+    simp [] >> fs [linear_scan_hidden_state_component_equality] >>
+    `LENGTH sthswap.sorted_regs = LENGTH sthpart.sorted_regs` by metis_tac[LENGTH_LUPDATE] >>
+
+    NTAC 2 (last_x_assum (qspec_then `mid` assume_tac)) >>
+    rfs [] >>
+
+    sg `!i. l <= i /\ i < r ==> EL i sthswap.sorted_regs < LENGTH sth.int_beg` THEN1 (
+        qpat_x_assum `_ = sthswap.sorted_regs` (fn th => assume_tac (GSYM th)) >>
+        rw [EL_LUPDATE]
+    ) >>
+    imp_res_tac swap_regs_perm >> fs [] >>
+    `PERM sthpart.sorted_regs sthswap.sorted_regs` by (
+        first_x_assum (qspec_then `LENGTH sth.sorted_regs` assume_tac) >>
+        rfs [] >>
+        metis_tac [TAKE_LENGTH_ID]
+    ) >>
+    `PERM sth.sorted_regs sthswap.sorted_regs` by metis_tac [PERM_TRANS] >>
+    last_x_assum (qspec_then `sthswap` assume_tac) >>
+    rfs [] >>
+    rename1 `qsort_regs _ _ _ = (_, sthqsort)` >>
+    `PERM sthswap.sorted_regs sthqsort.sorted_regs` by (
+        first_x_assum (qspec_then `LENGTH sth.sorted_regs` assume_tac) >>
+        rfs [] >>
+        metis_tac [TAKE_LENGTH_ID]
+    ) >>
+
+    sg `!i. l <= i /\ i < r ==> EL i sthqsort.sorted_regs < LENGTH sth.int_beg` THEN1 (
+      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `r`] mp_tac qsort_regs_prop_lemma >>
+      impl_tac >> rw [] >> rw []
+    ) >>
+    `LENGTH sthqsort.sorted_regs = LENGTH sthswap.sorted_regs` by simp [PERM_LENGTH] >>
+    last_x_assum (qspec_then `sthqsort` assume_tac) >>
+    rfs [] >>
+
+    `!ind. ind < l ==> ind < mid` by simp [] >>
+    `!ind. r <= ind ==> mid <= ind+1` by simp [] >>
+    `!ind. ind < l ==> ind < l+1` by simp [] >>
+    sg `!ind. ind < l \/ r <= ind ==> EL ind sthpart.sorted_regs = EL ind sthswap.sorted_regs` THEN1 (
+        qpat_x_assum `LUPDATE _ _ _ = sthswap.sorted_regs` (fn th => assume_tac (GSYM th)) >>
+        rw [EL_LUPDATE]
+    ) >>
+    strip_tac
+    THEN1 (
+        rw [] >>
+        rpt (first_x_assum (qspec_then `n` assume_tac)) >>
+        rfs [] >>
+        metis_tac [PERM_TRANS]
+    ) >>
+    strip_tac
+    THEN1 metis_tac [] >>
+
+    sg `
+    let rpiv = EL (mid-1) sthswap.sorted_regs in
+    let begrpiv = EL rpiv sthswap.int_beg in
+    !ind.
+    (l <= ind /\ ind < mid-1 ==>
+        let reg = EL ind sthswap.sorted_regs in
+        ($< LEX $<=) (EL reg sthswap.int_beg, reg) (begrpiv, rpiv)) /\
+    (mid <= ind /\ ind < r ==>
+        let reg = EL ind sthswap.sorted_regs in
+        ($< LEX $<=) (begrpiv, rpiv) (EL reg sthswap.int_beg, reg))`
+    THEN1 (
+        simp [] >> gen_tac >>
+        qpat_x_assum `LUPDATE _ _ _ = sthswap.sorted_regs` (fn th => assume_tac (GSYM th)) >>
+        rw [EL_LUPDATE]
+    ) >>
+    fs [] >>
+    `PERM sthqsort.sorted_regs sthout.sorted_regs` by (
+        rpt (first_x_assum (qspec_then `LENGTH sth.sorted_regs` assume_tac)) >>
+        rfs [] >>
+        metis_tac [TAKE_LENGTH_ID]
+    ) >>
+    `LENGTH sthout.sorted_regs = LENGTH sthqsort.sorted_regs` by simp [PERM_LENGTH] >>
+
+    sg `!ind. mid <= ind /\ ind < r ==>
+        let reg1 = EL (mid-1) sthout.sorted_regs in
+        let reg2 = EL ind sthout.sorted_regs in
+          ($< LEX $<=) (EL reg1 sth.int_beg, reg1) (EL reg2 sth.int_beg, reg2)`
+    THEN1 (
+      rw [] >>
+      sg `
+        let reg1 = EL (mid-1) sthqsort.sorted_regs in
+        let reg2 = EL ind sthqsort.sorted_regs in
+          ($< LEX $<=) (EL reg1 sth.int_beg, reg1) (EL reg2 sth.int_beg, reg2)`
+      THEN1 (
+        rw [] >>
+        `mid <= (mid-1)+1` by simp [] >>
+        metis_tac []
+      ) >>
+      qspecl_then [`\reg. ($< LEX $<=) (EL (EL (mid-1) sthswap.sorted_regs) sthswap.int_beg, EL (mid-1) sthswap.sorted_regs) (EL reg sthswap.int_beg, reg)`,`sthqsort.sorted_regs`, `sthout.sorted_regs`, `mid`, `r`] mp_tac qsort_regs_prop_lemma >>
+      impl_tac THEN1 ( rw [] >> metis_tac [] ) >>
+      rw []
+    ) >>
+
+    sg `!ind. l <= ind /\ ind < mid-1 ==>
+        let reg1 = EL ind sthout.sorted_regs in
+        let reg2 = EL (mid-1) sthout.sorted_regs in
+          ($< LEX $<=) (EL reg1 sth.int_beg, reg1) (EL reg2 sth.int_beg, reg2)`
+    THEN1 (
+      rw [] >>
+      qspecl_then [`\reg. ($< LEX $<=) (EL reg sthswap.int_beg, reg) (EL (EL (mid-1) sthswap.sorted_regs) sthswap.int_beg, EL (mid-1) sthswap.sorted_regs)`,`sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `mid-1`] mp_tac qsort_regs_prop_lemma >>
+      impl_tac THEN1 ( rw [] >> metis_tac [] ) >>
+      rw []
+    ) >>
+
+    rw [] >>
+    Cases_on `i1 <= mid-1` >>
+    Cases_on `i1 = mid-1` >>
+    Cases_on `i2 <= mid-1` >>
+    Cases_on `i2 = mid-1` >>
+    fs []
+    THEN1 simp [LEX_DEF]
+    THEN1 rfs []
+    THEN1 rfs []
+    THEN1 (
+      `i1 < mid-1` by simp [] >>
+      `mid <= i2` by simp [] >>
+      ` let reg1 = EL i1 sthqsort.sorted_regs in
+        let reg2 = EL (mid-1) sthout.sorted_regs in
+          ($< LEX $<=) (EL reg1 sth.int_beg, reg1) (EL reg2 sth.int_beg, reg2)` by rfs [] >>
+      ` let reg1 = EL (mid-1) sthout.sorted_regs in
+        let reg2 = EL i2 sthout.sorted_regs in
+          ($< LEX $<=) (EL reg1 sth.int_beg, reg1) (EL reg2 sth.int_beg, reg2)` by metis_tac [] >>
+      fs [] >>
+      qabbrev_tac `a = EL i1 sthqsort.sorted_regs` >>
+      qabbrev_tac `b = EL (mid-1) sthout.sorted_regs` >>
+      qabbrev_tac `c = EL i2 sthout.sorted_regs` >>
+      rpt (qpat_x_assum `($< LEX $<=) _ _` mp_tac) >>
+      rpt (first_x_assum kall_tac) >>
+      rw [LEX_DEF] >>
+      intLib.COOPER_TAC
+    )
+);
+
+val swap_moves_eq = Q.store_thm("swap_moves_eq",
+    `!sth i1 i2.
+    i1 < LENGTH sth.sorted_moves /\ i2 < LENGTH sth.sorted_moves ==>
+    ?sthout. swap_moves i1 i2 sth = (Success (), sthout) /\
+    sthout = sth with sorted_moves := LUPDATE (EL i1 sth.sorted_moves) i2 (LUPDATE (EL i2 sth.sorted_moves) i1 sth.sorted_moves)`,
+    rw (swap_moves_def::msimps)
+);
+
+val swap_moves_correct = Q.store_thm("swap_moves_perm",
+    `!sth i1 i2.
+    i1 < LENGTH sth.sorted_moves /\ i2 < LENGTH sth.sorted_moves ==>
+    ?sthout. swap_moves i1 i2 sth = (Success (), sthout) /\
+    sthout = sth with sorted_moves := sthout.sorted_moves /\
+    LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
+    (!n. i1 < n /\ i2 < n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))`,
+    rw (swap_moves_def::msimps) >>
+    fs [case_eq_thms] >> fs [if_thm] >>
+    `let l = TAKE n sth.sorted_moves in PERM l (LUPDATE (EL i1 l) i2 (LUPDATE (EL i2 l) i1 l))` by simp [swap_perm_lemma] >>
+    rfs [EL_TAKE, LUPDATE_TAKE]
+);
+
+val partition_moves_correct = Q.store_thm("partition_moves_correct",
+    `!l ppiv r sth.
+    l <= LENGTH sth.sorted_moves /\
+    r <= LENGTH sth.sorted_moves ==>
+    ?mid sthout. partition_moves l ppiv r sth = (Success mid, sthout) /\
+    (l <= r ==> l <= mid /\ mid <= r) /\
+    sthout = sth with sorted_moves := sthout.sorted_moves /\
+    LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
+    (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))`,
+
+    recInduct partition_moves_ind >>
+    rw [] >>
+    once_rewrite_tac [partition_moves_def] >>
+    rw msimps
+    THEN1 rw [linear_scan_hidden_state_component_equality] >>
+    rpt (first_x_assum (qspec_then `EL l sth.sorted_moves` assume_tac)) >>
+    rfs [] >>
+    CASE_TAC >> fs []
+    THEN1 (
+      first_x_assum (qspec_then `sth` assume_tac) >>
+      rfs []
+    ) >>
+    qspecl_then [`sth`, `l`, `r-1`] assume_tac swap_moves_correct >>
+    rfs [] >>
+    first_x_assum (qspec_then `sthout` assume_tac) >>
+    rfs [] >>
+    fs [linear_scan_hidden_state_component_equality] >>
+    rw [] >>
+    rpt (first_x_assum (qspec_then `n` assume_tac)) >>
+    rfs [] >>
+    metis_tac [PERM_TRANS]
+);
+
+val qsort_moves_correct = Q.store_thm("qsort_moves_correct",
+    `!l r sth.
+    l <= LENGTH sth.sorted_moves /\
+    r <= LENGTH sth.sorted_moves ==>
+    ?sthout. qsort_moves l r sth = (Success (), sthout) /\
+    sthout = sth with sorted_moves := sthout.sorted_moves /\
+    LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
+    (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))`,
+
+    recInduct qsort_moves_ind >>
+    rw [] >>
+    once_rewrite_tac [qsort_moves_def] >>
+    rw msimps
+    THEN1 rw [linear_scan_hidden_state_component_equality] >>
+    qspecl_then [`l+1`, `FST (EL l sth.sorted_moves)`, `r`, `sth`] assume_tac partition_moves_correct >>
+    rfs [] >>
+    rename1 `partition_moves _ _ _ _ = (_, sthpart)` >>
+    qspecl_then [`sthpart`, `l`, `mid-1`] assume_tac swap_moves_correct >>
+    rfs [] >>
+    rename1 `swap_moves _ _ _ = (_, sthswap)` >>
+    rpt (qpat_x_assum `!m. _ /\ _ /\ _ ==> !sth. _` (qspec_then `mid` assume_tac)) >>
+    rfs [] >>
+    first_x_assum (qspec_then `sthswap` assume_tac) >>
+    rfs [] >>
+    rename1 `qsort_moves _ _ _ = (_, sthqsort)` >>
+    first_x_assum (qspec_then `sthqsort` assume_tac) >>
+    rfs [] >>
+    fs [linear_scan_hidden_state_component_equality] >>
+    rw [] >>
+    rpt (first_x_assum (qspec_then `n` assume_tac)) >>
+    rfs [] >>
+    metis_tac [PERM_TRANS]
+);
+
 
 val list_minimum = Q.prove(
     `!f (l:num list). ?(x:int). EVERY (\y. x <= f y) l`,
@@ -3615,13 +4233,14 @@ val list_minimum = Q.prove(
 );
 
 val linear_reg_alloc_pass1_initial_state_invariants = Q.store_thm("linear_reg_alloc_pass1_initial_state_invariants",
-    `!int_beg int_end sth reglist forced k st.
+    `!sth reglist forced k st.
+    LENGTH sth.int_beg = LENGTH sth.colors /\ LENGTH sth.int_end = LENGTH sth.colors ==>
     ?pos.
-    good_linear_scan_state int_beg int_end (linear_reg_alloc_pass1_initial_state k) sth [] pos forced 0 /\
-    EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist`,
+    good_linear_scan_state (linear_reg_alloc_pass1_initial_state k) sth [] pos forced 0 /\
+    EVERY (\r. pos <= EL r sth.int_beg) reglist`,
 
     rw [good_linear_scan_state_def, linear_reg_alloc_pass1_initial_state_def] >> rw [] >>
-    qspecl_then [`\r. the 0 (lookup r int_beg)`, `reglist`] assume_tac list_minimum >>
+    qspecl_then [`\r. EL r sth.int_beg`, `reglist`] assume_tac list_minimum >>
     fs [] >>
     qexists_tac `x` >> rw [] >>
     Induct_on `forced` >> rw [] >>
@@ -3629,13 +4248,14 @@ val linear_reg_alloc_pass1_initial_state_invariants = Q.store_thm("linear_reg_al
 );
 
 val linear_reg_alloc_pass2_initial_state_invariants = Q.store_thm("linear_reg_alloc_pass2_initial_state_invariants",
-    `!int_beg int_end sth reglist forced k nreg st.
+    `!sth reglist forced k nreg st.
+    LENGTH sth.int_beg = LENGTH sth.colors /\ LENGTH sth.int_end = LENGTH sth.colors ==>
     ?pos.
-    good_linear_scan_state int_beg int_end (linear_reg_alloc_pass2_initial_state k nreg) sth [] pos forced k /\
-    EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist`,
+    good_linear_scan_state (linear_reg_alloc_pass2_initial_state k nreg) sth [] pos forced k /\
+    EVERY (\r. pos <= EL r sth.int_beg) reglist`,
 
     rw [good_linear_scan_state_def, linear_reg_alloc_pass2_initial_state_def] >> rw [] >>
-    qspecl_then [`\r. the 0 (lookup r int_beg)`, `reglist`] assume_tac list_minimum >>
+    qspecl_then [`\r. EL r sth.int_beg`, `reglist`] assume_tac list_minimum >>
     fs [] >>
     qexists_tac `x` >> rw [] >>
     Induct_on `forced` >> rw [] >>
@@ -3687,9 +4307,9 @@ val forbidden_is_from_forced_take_sublist = Q.store_thm("forbidden_is_from_force
 );
 
 val good_linear_scan_state_REVERSE = Q.store_thm("good_linear_scan_state_REVERSE",
-    `!int_beg int_end st sth l pos forced mincol.
-    good_linear_scan_state int_beg int_end st sth (REVERSE l) pos forced mincol <=>
-    good_linear_scan_state int_beg int_end st sth l pos forced mincol`,
+    `!st sth l pos forced mincol.
+    good_linear_scan_state st sth (REVERSE l) pos forced mincol <=>
+    good_linear_scan_state st sth l pos forced mincol`,
     rw [good_linear_scan_state_def] >>
     eq_tac >>
     rw [EVERY_REVERSE, FILTER_REVERSE, MAP_REVERSE, ALL_DISTINCT_REVERSE]
@@ -3718,17 +4338,134 @@ val lt_div_2 = Q.prove(
     intLib.COOPER_TAC
 );
 
+val list_to_sorted_regs_correct = Q.store_thm("list_to_sorted_regs_correct",
+    `!l n sth.
+    n + LENGTH l <= LENGTH sth.sorted_regs ==>
+    ?sthout. (Success (), sthout) = list_to_sorted_regs l n sth /\
+    LENGTH sthout.sorted_regs = LENGTH sth.sorted_regs /\
+    sthout = sth with sorted_regs := sthout.sorted_regs /\
+    TAKE n sthout.sorted_regs = TAKE n sth.sorted_regs /\
+    TAKE (LENGTH l) (DROP n sthout.sorted_regs) = l`,
+
+    Induct_on `l` >>
+    rw (linear_scan_hidden_state_component_equality::list_to_sorted_regs_def::msimps)
+    THEN1 (
+      qexists_tac `sth` >>
+      rw []
+    ) >>
+    first_x_assum (qspecl_then [`n+1`, `sth with sorted_regs := LUPDATE h n sth.sorted_regs`] assume_tac) >>
+    rfs [] >>
+    asm_exists_tac >> simp [] >>
+    strip_tac
+    THEN1 fs [linear_scan_hidden_state_component_equality] >>
+    strip_tac
+    THEN1 (
+      fs [LIST_EQ_REWRITE] >> rw [] >>
+      rfs [EL_TAKE, EL_LUPDATE]
+    )
+    THEN1 (
+      fs [LIST_EQ_REWRITE] >>
+      rw [] >>
+      Cases_on `x`
+      THEN1 (
+        rfs [EL_TAKE, EL_DROP, EL_LUPDATE]
+      ) >>
+      rename1 `SUC x < SUC (LENGTH l)` >>
+      rpt (first_x_assum (qspec_then `x` assume_tac)) >>
+      rfs [EL_TAKE, EL_DROP, ADD1]
+    )
+);
+
+val sorted_regs_to_list_correct = Q.store_thm("sorted_regs_to_list_correct",
+    `!n last sth.
+    last <= LENGTH sth.sorted_regs ==>
+    sorted_regs_to_list n last sth = (Success (TAKE (last-n) (DROP n sth.sorted_regs)), sth)`,
+
+    recInduct sorted_regs_to_list_ind >>
+    rw [] >>
+    once_rewrite_tac [sorted_regs_to_list_def] >>
+    rw msimps >>
+    fs [] >>
+    first_x_assum (qspec_then `sth` assume_tac) >>
+    rfs [] >>
+    simp [LIST_EQ_REWRITE] >>
+    Cases >>
+    rw [EL_TAKE, EL_DROP, ADD1]
+);
+
+val list_to_sorted_moves_correct = Q.store_thm("list_to_sorted_moves_correct",
+    `!l n sth.
+    n + LENGTH l <= LENGTH sth.sorted_moves ==>
+    ?sthout. (Success (), sthout) = list_to_sorted_moves l n sth /\
+    LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
+    sthout = sth with sorted_moves := sthout.sorted_moves /\
+    TAKE n sthout.sorted_moves = TAKE n sth.sorted_moves /\
+    TAKE (LENGTH l) (DROP n sthout.sorted_moves) = l`,
+
+    Induct_on `l` >>
+    rw (linear_scan_hidden_state_component_equality::list_to_sorted_moves_def::msimps)
+    THEN1 (
+      qexists_tac `sth` >>
+      rw []
+    ) >>
+    first_x_assum (qspecl_then [`n+1`, `sth with sorted_moves := LUPDATE h n sth.sorted_moves`] assume_tac) >>
+    rfs [] >>
+    asm_exists_tac >> simp [] >>
+    strip_tac
+    THEN1 fs [linear_scan_hidden_state_component_equality] >>
+    strip_tac
+    THEN1 (
+      fs [LIST_EQ_REWRITE] >> rw [] >>
+      rfs [EL_TAKE, EL_LUPDATE]
+    )
+    THEN1 (
+      fs [LIST_EQ_REWRITE] >>
+      rw [] >>
+      Cases_on `x`
+      THEN1 (
+        rfs [EL_TAKE, EL_DROP, EL_LUPDATE]
+      ) >>
+      rename1 `SUC x < SUC (LENGTH l)` >>
+      rpt (first_x_assum (qspec_then `x` assume_tac)) >>
+      rfs [EL_TAKE, EL_DROP, ADD1]
+    )
+);
+
+val sorted_moves_to_list_correct = Q.store_thm("sorted_moves_to_list_correct",
+    `!n last sth.
+    last <= LENGTH sth.sorted_moves ==>
+    sorted_moves_to_list n last sth = (Success (TAKE (last-n) (DROP n sth.sorted_moves)), sth)`,
+
+    recInduct sorted_moves_to_list_ind >>
+    rw [] >>
+    once_rewrite_tac [sorted_moves_to_list_def] >>
+    rw msimps >>
+    fs [] >>
+    first_x_assum (qspec_then `sth` assume_tac) >>
+    rfs [] >>
+    simp [LIST_EQ_REWRITE] >>
+    Cases >>
+    rw [EL_TAKE, EL_DROP, ADD1]
+);
 
 val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals_correct",
-    `!int_beg int_end k forced moves reglist_unsorted sth.
+    `!k forced moves reglist_unsorted sth.
     EVERY (\r1,r2. MEM r1 reglist_unsorted /\ MEM r2 reglist_unsorted) forced /\
     EVERY (\r1,r2. r1 < LENGTH sth.colors /\ r2 < LENGTH sth.colors) (MAP SND moves) /\
     EVERY (\r. r < LENGTH sth.colors) reglist_unsorted /\
-    EVERY (\r. the 0 (lookup r int_beg) <= the 0 (lookup r int_end)) reglist_unsorted /\
+    EVERY (\r. EL r sth.int_beg <= EL r sth.int_end) reglist_unsorted /\
     ALL_DISTINCT reglist_unsorted /\
-    set reglist_unsorted = domain int_beg /\ domain int_beg = domain int_end ==>
-    ?sthout. (Success (), sthout) = linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted sth /\
-    check_intervals (\r. EL r sthout.colors) int_beg int_end /\
+    EVERY (\r. r < LENGTH sth.int_beg) reglist_unsorted /\
+    LENGTH sth.colors = LENGTH sth.int_beg /\
+    LENGTH sth.int_end = LENGTH sth.int_beg /\
+    LENGTH reglist_unsorted <= LENGTH sth.sorted_regs ==>
+    LENGTH moves <= LENGTH sth.sorted_moves ==>
+    ?sthout. (Success (), sthout) = linear_reg_alloc_intervals k forced moves reglist_unsorted sth /\
+    (!r1 r2. MEM r1 reglist_unsorted /\ MEM r2 reglist_unsorted /\
+        interval_intersect (EL r1 sth.int_beg, EL r1 sth.int_end) (EL r2 sth.int_beg, EL r2 sth.int_end) /\
+        EL r1 sthout.colors = EL r2 sthout.colors ==>
+        r1 = r2
+    ) /\
     EVERY (\r.
       if is_phy_var r then
         EL r sthout.colors = r DIV 2
@@ -3741,29 +4478,87 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     LENGTH sthout.colors = LENGTH sth.colors`,
 
     rw (linear_reg_alloc_intervals_def::msimps) >>
-    simp [GSYM intbeg_less_def] >>
-    `(\r1 r2. intbeg_less int_beg r1 r2) = intbeg_less int_beg` by rw [FUN_EQ_THM] >>
+
+    qspecl_then [`reglist_unsorted`, `0`, `sth`] assume_tac list_to_sorted_regs_correct >>
+    rfs [linear_scan_hidden_state_component_equality] >>
+    rename1 `(Success (), sthm3) = _` >>
+    qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
-    `?reglist. QSORT (intbeg_less int_beg) reglist_unsorted = reglist` by simp [] >>
-    `?moves_adjlist. edges_to_adjlist (MAP SND (sort_moves_rev moves)) int_beg LN = moves_adjlist` by simp [] >>
-    `?forced_adjlist. edges_to_adjlist forced int_beg LN  = forced_adjlist` by simp [] >>
+
+    qspecl_then [`0`, `LENGTH reglist_unsorted`, `sthm3`] mp_tac qsort_regs_correct >>
+    impl_tac THEN1 (
+        rw [] >>
+        `EL i sthm3.sorted_regs = EL i (TAKE (LENGTH reglist_unsorted) sthm3.sorted_regs)` by simp [EL_TAKE] >>
+        fs [EVERY_EL]
+    ) >>
+    strip_tac >>
+    rename1 `qsort_regs _ _ _ = (Success (), sthm2)` >>
+    qpat_x_assum `!n. _ ==> PERM _ _` (qspec_then `LENGTH reglist_unsorted` assume_tac) >>
+    fs [] >>
+
+    qspecl_then [`0`, `LENGTH reglist_unsorted`, `sthm2`] assume_tac sorted_regs_to_list_correct >>
+    rfs [linear_scan_hidden_state_component_equality] >>
+    `?reglist. TAKE (LENGTH reglist_unsorted) sthm2.sorted_regs = reglist` by simp [] >>
+    fs [] >>
+
+    qspecl_then [`moves`, `0`, `sthm2`] assume_tac list_to_sorted_moves_correct >>
+    rfs [linear_scan_hidden_state_component_equality] >>
+    rename1 `(Success (), sthm1) = _` >>
+    qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
+    simp [] >>
+
+    qspecl_then [`0`, `LENGTH moves`, `sthm1`] mp_tac qsort_moves_correct >>
+    impl_tac THEN1 rw [] >>
+    strip_tac >>
+    rename1 `qsort_moves _ _ _ = (Success (), sth0)` >>
+    qpat_x_assum `!n. _ ==> PERM _ _` (qspec_then `LENGTH moves` assume_tac) >>
+    fs [] >>
+
+    qspecl_then [`0`, `LENGTH moves`, `sth0`] assume_tac sorted_moves_to_list_correct >>
+    rfs [linear_scan_hidden_state_component_equality] >>
+    `?sorted_moves. TAKE (LENGTH moves) sth0.sorted_moves = sorted_moves` by simp [] >>
+    fs [] >>
+
+    qspecl_then [`(MAP SND sorted_moves)`, `sth0`] mp_tac edges_to_adjlist_output >>
+    impl_tac THEN1 metis_tac [PERM_MAP, PERM_EVERY_EQ] >>
+    strip_tac >>
+    rename1 `edges_to_adjlist _ _ _ = (Success moves_adjlist, _)` >>
+    simp [] >>
+
+    qspecl_then [`forced`, `sth0`] mp_tac edges_to_adjlist_output >>
+    impl_tac THEN1 (
+      fs [EVERY_MEM] >> rw [] >>
+      rpt (first_x_assum (qspec_then `e` assume_tac)) >>
+      PairCases_on `e` >> rfs []
+    ) >>
+    strip_tac >>
+    rename1 `edges_to_adjlist _ _ _ = (Success forced_adjlist, _)` >>
+    rfs [] >>
+
     `?phyregs. FILTER is_phy_var reglist = phyregs` by simp [] >>
     `?phyphyregs. FILTER (\r. r < 2*k) phyregs = phyphyregs` by simp [] >>
     `?stackphyregs. FILTER (\r. 2*k <= r) phyregs = stackphyregs` by simp [] >>
     simp [] >>
 
-      `?pos. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass1_initial_state k) sth [] pos forced 0 /\ EVERY (\r. pos <= the 0 (lookup r int_beg)) reglist` by simp [linear_reg_alloc_pass1_initial_state_invariants] >>
+    `?pos. good_linear_scan_state (linear_reg_alloc_pass1_initial_state k) sth0 [] pos forced 0 /\ EVERY (\r. pos <= EL r sth0.int_beg) reglist` by simp [linear_reg_alloc_pass1_initial_state_invariants] >>
+    rfs [] >>
 
-    `PERM reglist_unsorted reglist` by metis_tac [QSORT_PERM] >>
     `!r. MEM r reglist_unsorted <=> MEM r reglist` by simp [PERM_MEM_EQ] >>
     `EVERY (\r. r < LENGTH sth.colors) reglist` by fs [EVERY_MEM] >>
     `EVERY (\r1,r2. MEM r1 reglist /\ MEM r2 reglist) forced` by (fs [EVERY_MEM, FORALL_PROD] >> metis_tac []) >>
-    `total (intbeg_less int_beg)` by simp [intbeg_less_total] >>
-    `transitive (intbeg_less int_beg)` by simp [intbeg_less_transitive] >>
-    `SORTED (intbeg_less int_beg) reglist` by metis_tac [QSORT_SORTED] >>
+
+    sg `SORTED (intbeg_less sth.int_beg) reglist` THEN1 (
+        fs [GSYM intbeg_less_def] >>
+        `transitive (intbeg_less sth.int_beg)` by simp [intbeg_less_transitive] >>
+        simp [SORTED_EL_LESS] >>
+        qpat_x_assum `_ = reglist` (fn th => assume_tac (GSYM th)) >>
+        rw [EL_TAKE]
+    ) >>
+    (*`total (intbeg_less int_beg)` by simp [intbeg_less_total] >>*)
+    `transitive (intbeg_less sth.int_beg)` by simp [intbeg_less_transitive] >>
      `ALL_DISTINCT reglist` by metis_tac [ALL_DISTINCT_PERM] >>
-    `!r. forbidden_is_from_forced forced int_beg r (the [] (lookup r forced_adjlist))` by rw [edges_to_adjlist_output] >>
-    `!r. forbidden_is_from_forced_sublist reglist forced int_beg r (the [] (lookup r forced_adjlist))` by rw [forbidden_is_from_forced_take_sublist] >>
+    (*`!r. forbidden_is_from_forced forced sth r (the [] (lookup r forced_adjlist))` by rw [edges_to_adjlist_output] >>*)
+    `!r. forbidden_is_from_forced_sublist reglist forced sth.int_beg r (the [] (lookup r forced_adjlist))` by rw [forbidden_is_from_forced_take_sublist] >>
     sg `!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 forced_adjlist))` THEN1 (
       simp [EVERY_MEM] >> rpt strip_tac >>
       `MEM (r1,r2) forced \/ MEM (r2,r1) forced` by metis_tac [forbidden_is_from_forced_def] >>
@@ -3771,18 +4566,17 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
       fs [EVERY_MEM]
     ) >>
     sg `!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 moves_adjlist))` THEN1 (
-      `!r. forbidden_is_from_forced (MAP SND (sort_moves_rev moves)) int_beg r (the [] (lookup r moves_adjlist))` by rw [edges_to_adjlist_output] >>
-      `PERM moves (sort_moves_rev moves)` by simp [sort_moves_rev_def, QSORT_PERM] >>
-      `!r. MEM r (MAP SND (sort_moves_rev moves)) <=> MEM r (MAP SND moves)` by (simp [MEM_MAP] >> metis_tac [PERM_MEM_EQ]) >>
+      `!r. MEM r (MAP SND sorted_moves) <=> MEM r (MAP SND moves)` by (simp [MEM_MAP] >> metis_tac [PERM_MEM_EQ]) >>
       simp [EVERY_MEM] >> rpt strip_tac >>
-      `MEM (r1,r2) (MAP SND (sort_moves_rev moves)) \/ MEM (r2,r1) (MAP SND (sort_moves_rev moves))` by metis_tac [forbidden_is_from_forced_def] >>
+      `MEM (r1,r2) (MAP SND sorted_moves) \/ MEM (r2,r1) (MAP SND sorted_moves)` by metis_tac [forbidden_is_from_forced_def] >>
       rfs [] >>
       fs [EVERY_MEM, FORALL_PROD] >>
       metis_tac []
     ) >>
-    `EVERY (\r. the 0 (lookup r int_beg) <= the 0 (lookup r int_end)) reglist` by fs [EVERY_MEM] >>
-    qspecl_then [`reglist`, `linear_reg_alloc_pass1_initial_state k`, `sth`, `pos`, `T`, `int_beg`, `int_end`, `moves_adjlist`, `forced_adjlist`, `forced`, `0`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
-    simp [] >> strip_tac >>
+    `EVERY (\r. EL r sth.int_beg <= EL r sth.int_end) reglist` by fs [EVERY_MEM] >>
+
+    qspecl_then [`reglist`, `linear_reg_alloc_pass1_initial_state k`, `sth0`, `pos`, `T`, `moves_adjlist`, `forced_adjlist`, `forced`, `0`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
+    simp [] >> strip_tac >> rfs [] >>
     rename1 `(Success st1, sth1) = _` >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
@@ -3817,9 +4611,9 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     `?forced'. FILTER (\r1,r2. MEM r1 stacklist /\ MEM r2 stacklist) forced = forced'` by simp [] >>
     simp [] >>
 
-    `?pos2. good_linear_scan_state int_beg int_end (linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)) sth2 [] pos2 forced' k /\ EVERY (\r. pos2 <= the 0 (lookup r int_beg)) stacklist` by simp [linear_reg_alloc_pass2_initial_state_invariants] >>
+    `?pos2. good_linear_scan_state (linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)) sth2 [] pos2 forced' k /\ EVERY (\r. pos2 <= EL r sth2.int_beg) stacklist` by simp [linear_reg_alloc_pass2_initial_state_invariants] >>
 
-    qspecl_then [`stacklist`, `linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)`, `sth2`, `pos2`, `F`, `int_beg`, `int_end`, `moves_adjlist'`, `forced_adjlist'`, `forced'`, `k`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
+    qspecl_then [`stacklist`, `linear_reg_alloc_pass2_initial_state k (LENGTH stacklist)`, `sth2`, `pos2`, `F`, `moves_adjlist'`, `forced_adjlist'`, `forced'`, `k`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
     impl_tac THEN1 (
       simp [] >>
       strip_tac THEN1 (
@@ -3952,7 +4746,7 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
             `MEM r phyregs` by (rveq >> fs [MEM_FILTER]) >>
             `!r. MEM r phyphyregs ==> r DIV 2 < k` by (rveq >> rw [MEM_FILTER, lt_div_2]) >>
             fs [le_div_2] >>
-            `k <= EL r sth1.colors` by fs [phystack_on_stack_def] >>
+            `k <= EL r sth1.colors` by rfs [phystack_on_stack_def] >>
             `r < LENGTH sth.colors` by fs [EVERY_MEM] >>
             sg `!r'. MEM r' phyphyregs ==> EL r sth1.colors <> EL r' sth1.colors` THEN1 (
                 `~MEM r phyphyregs` by (rveq >> simp [MEM_FILTER]) >>
@@ -3981,24 +4775,14 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
 
     rpt strip_tac
     THEN1 (
-        simp [check_intervals_def] >>
-        rpt strip_tac >>
-        rename1 `EL r1 sth4.colors = EL r2 sth4.colors` >>
         `r1 < LENGTH sth.colors /\ r2 < LENGTH sth.colors` by fs [EVERY_MEM] >>
         `EL r1 sth3.colors = EL r2 sth3.colors` by fs [] >>
-        `r1 IN domain int_beg /\ r2 IN domain int_beg` by fs [] >>
-        `r1 IN domain int_end /\ r2 IN domain int_end` by fs [] >>
-        fs [domain_lookup] >>
-        `THE (lookup r1 int_beg) = the 0 (lookup r1 int_beg)` by fs [domain_lookup, the_def] >>
-        `THE (lookup r2 int_beg) = the 0 (lookup r2 int_beg)` by fs [domain_lookup, the_def] >>
-        `THE (lookup r1 int_end) = the 0 (lookup r1 int_end)` by fs [domain_lookup, the_def] >>
-        `THE (lookup r2 int_end) = the 0 (lookup r2 int_end)` by fs [domain_lookup, the_def] >>
-        fs [] >>
         Cases_on `MEM r1 stacklist` >>
         Cases_on `MEM r2 stacklist`
         THEN1 (
-            qpat_x_assum `good_linear_scan_state _ _ st1 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]
+            qpat_x_assum `good_linear_scan_state st3 _ _ _ _ _` mp_tac >>
+            simp [good_linear_scan_state_def] >> rpt strip_tac >>
+            metis_tac []
         )
         THEN1 (
             fs [EVERY_MEM] >> res_tac >> fs []
@@ -4007,8 +4791,8 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
             fs [EVERY_MEM] >> res_tac >> fs []
         )
         THEN1 (
-            qpat_x_assum `good_linear_scan_state _ _ st3 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
+            qpat_x_assum `good_linear_scan_state st1 _ _ _ _ _` mp_tac >>
+            simp [good_linear_scan_state_def] >> rpt strip_tac >>
             metis_tac []
         )
     )
@@ -4054,8 +4838,13 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
         Cases_on `MEM r2 stacklist`
         THEN1 (
             `MEM (r1, r2) forced'` by (rveq >> fs [MEM_FILTER]) >>
-            qpat_x_assum `good_linear_scan_state _ _ st1 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD]
+            qpat_x_assum `good_linear_scan_state st3 _ _ _ _ _` mp_tac >>
+            simp [good_linear_scan_state_def] >> rpt strip_tac >>
+            qpat_x_assum `EVERY _ forced'` mp_tac >>
+            rpt (qpat_x_assum `MEM _ _` mp_tac) >>
+            qpat_x_assum `EL _ _ = EL _ _` mp_tac >>
+            rpt (first_x_assum kall_tac) >>
+            rw [EVERY_MEM, FORALL_PROD]
         )
         THEN1 (
             fs [EVERY_MEM] >> res_tac >> fs []
@@ -4064,9 +4853,14 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
             fs [EVERY_MEM] >> res_tac >> fs []
         )
         THEN1 (
-            qpat_x_assum `good_linear_scan_state _ _ st3 _ _ _ _ _` kall_tac >>
-            FULL_SIMP_TAC std_ss [good_linear_scan_state_def, EVERY_MEM, FORALL_PROD] >>
-            metis_tac []
+            qpat_x_assum `good_linear_scan_state st1 _ _ _ _ _` mp_tac >>
+            simp [good_linear_scan_state_def] >> rpt strip_tac >>
+            `EL r1 sth1.colors = EL r2 sth1.colors` by metis_tac [] >>
+            qpat_x_assum `EVERY _ forced` mp_tac >>
+            rpt (qpat_x_assum `MEM _ _` mp_tac) >>
+            qpat_x_assum `EL _ _ = EL _ _` mp_tac >>
+            rpt (first_x_assum kall_tac) >>
+            rw [EVERY_MEM, FORALL_PROD]
         )
     )
 );
@@ -4101,12 +4895,18 @@ val convention_partitions_or = Q.prove(
 
 val find_bijection_invariants = Q.store_thm("find_bijection_invariants",
     `!st r regset.
-    r NOTIN regset /\
     good_bijection_state st regset ==>
     good_bijection_state (find_bijection_step st r) (r INSERT regset)`,
 
     simp [find_bijection_step_def] >>
     rpt strip_tac >>
+    Cases_on `lookup r st.bij <> NONE` THEN1 (
+      `r IN domain st.bij` by metis_tac [option_nchotomy, domain_lookup] >>
+      fs [good_bijection_state_def] >>
+      rw [INSERT_DEF, EXTENSION] >>
+      metis_tac []
+    ) >>
+    fs [lookup_NONE_domain] >>
     fs [good_bijection_state_def] >>
     strip_tac THEN1 (
       qspec_then `r` assume_tac convention_partitions_or >> fs []
@@ -4394,7 +5194,7 @@ val get_intervals_beg_less_end = Q.store_thm("get_intervals_beg_less_end",
     `!r. r IN domain int_beg2 ==> the 0 (lookup r int_beg2) <= the 0 (lookup r int_end2)` by metis_tac [] >>
     metis_tac []
 );
-*)
+
 val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
     `!k moves ct forced.
     EVERY (\r1,r2. in_clash_tree ct r1 /\ in_clash_tree ct r2) forced ==>
@@ -4412,7 +5212,7 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
     ) /\
     (!r. r IN domain col ==> in_clash_tree ct r) /\
     EVERY (\r1,r2. (sp_default col) r1 = (sp_default col) r2 ==> r1 = r2) forced`,
-cheat); (*
+
     rpt strip_tac >>
     simp [linear_scan_reg_alloc_def, run_linear_reg_alloc_intervals_def, run_i_linear_scan_hidden_state_def, run_def, linear_reg_alloc_intervals_and_extract_coloration_def] >>
     simp msimps >>
@@ -4676,5 +5476,5 @@ cheat); (*
         fs []
     )
 );
-*)
+
 val _ = export_theory ();

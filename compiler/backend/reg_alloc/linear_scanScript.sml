@@ -839,17 +839,17 @@ val list_to_sorted_regs_def = Define`
   )`
 
 val sorted_regs_to_list_def = tDefine "sorted_regs_to_list" `
-    sorted_regs_to_list n len =
-      if len <= n then
+    sorted_regs_to_list n last =
+      if last <= n then
         return []
       else
         do
           r <- sorted_regs_sub n;
-          l <- sorted_regs_to_list (n+1) len;
+          l <- sorted_regs_to_list (n+1) last;
           return (r::l);
         od
 ` (
-  WF_REL_TAC `measure (\n,len. len-n)`
+  WF_REL_TAC `measure (\n,last. last-n)`
 );
 
 val swap_moves_def = Define`
