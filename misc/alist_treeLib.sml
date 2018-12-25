@@ -210,7 +210,10 @@ fun mk_repr_step rs tm = let
       in MATCH_MP alist_repr_choice_trans_left (CONJ l_repr_thm next_repr) end
     else if not (null merge_lhs) orelse is_alookup
     then CHANGED_CONV (SIMP_CONV bool_ss [alookup_to_option_choice,
-                option_choice_f_assoc, alookup_empty_option_choice_f]) tm
+                option_choice_f_assoc, alookup_empty_option_choice_f,
+                count_append_def, alookup_append_option_choice_f]) tm
+        handle HOL_ERR _ => raise err "mk_repr_step" ("failed to SIMP_CONV: "
+            ^ Parse.term_to_string tm)
     else raise err "mk_repr_step" ("no step for: " ^ Parse.term_to_string f)
   end
 and mk_repr_known_step (AList_Reprs inn_rs) tm =
