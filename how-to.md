@@ -19,9 +19,9 @@ The bootstrapped CakeML compiler can be downloaded from the CakeML
 website: https://cakeml.org/download.html. Download the `tar.gz` file
 which contains among other things:
 
-- cake.S — the machine code for the bootstrapped CakeML compiler
-- basis_ffi.c — C code connecting the CakeML basis library to the OS
-- Makefile — for convenience of building binaries
+- `cake.S` — the machine code for the bootstrapped CakeML compiler
+- `basis_ffi.c` — C code connecting the CakeML basis library to the OS
+- `Makefile` — for convenience of building binaries
 
 Now let’s run the compiler. Let’s suppose you have a file called
 `hello.cml` which contains:
@@ -269,7 +269,7 @@ Note how the pattern treats `ref` as a constructor.
 
 CakeML has a strict call-by-value semantics. However, one can
 implement lazy lists in CakeML. Here is a datatype that can be used
-for lazy lists and a similar take function:
+for lazy lists and a similar `take` function:
 
     datatype 'a llist = Nil | Cons 'a (unit -> 'a llist);
 
