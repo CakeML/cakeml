@@ -39,4 +39,4 @@ fun get_code_lines lines =
         get_code_lines (dropUntil normal_text_line lines)
       else get_code_lines rest;
 
-print (String.concat (get_code_lines lines));
+List.map print (get_code_lines lines);
