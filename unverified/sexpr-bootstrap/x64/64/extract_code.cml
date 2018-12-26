@@ -1,0 +1,42 @@
+
+val lines =
+  let
+    val arg = List.hd (CommandLine.arguments())
+  in
+    Option.valOf (TextIO.inputLinesFrom arg)
+  end
+  handle _ =>
+    (TextIO.print_err ("usage: " ^ CommandLine.name() ^ " <filename>\n");
+     raise Bind);
+
+fun takeUntil p xs =
+  case xs of
+    [] => []
+  | (x::xs) => if p x then [] else x :: takeUntil p xs;
+
+fun dropUntil p xs =
+  case xs of
+    [] => []
+  | (x::xs) => if p x then x::xs else dropUntil p xs;
+
+fun normal_text_line line =
+  not (String.isPrefix " " line) andalso
+  not (String.isPrefix "\n" line);
+
+fun remove_indent line =
+  if String.isPrefix "    " line then
+    String.substring line 4 (String.size line - 4)
+  else line;
+
+fun get_code_lines lines =
+  case lines of
+    [] => []
+  | (line::rest) =>
+      if String.isPrefix "    $" line then
+        get_code_lines (dropUntil normal_text_line lines)
+      else if String.isPrefix "    " line then
+        List.map remove_indent (takeUntil normal_text_line lines) @
+        get_code_lines (dropUntil normal_text_line lines)
+      else get_code_lines rest;
+
+print (String.concat (get_code_lines lines));
