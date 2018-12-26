@@ -7,17 +7,29 @@
 # To set the stack and heap directives available to your own
 # CakeML programs, use the --stack_size and --heap_size
 # command-line arguments to the CakeML compiler. The unit of
-# measure for both arguments is mebibytes, i.e. 1024^2 bytes.
+# measure for both arguments is mebibytes (1024 * 1024 bytes).
 
-# Build the CakeML compiler.
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Darwin)
+  EXTRA_FLAGS = -Wl,-no_pie
+else
+  EXTRA_FLAGS =
+endif
+
+# Build the CakeML compiler
+
 cake: cake.o basis_ffi.o
+	$(CC) $(CPPFLAGS) $(EXTRA_FLAGS) $< basis_ffi.o -o $@
 
-# A simple example showing how to build your program (input.cml)
-# using CakeML.
-result.S: input.cml cake
-	./cake <$< >$@
+# General rules for applying the CakeML compiler
+# The options "-Wl,-no_pie" are to avoid linker warnings on Mac
 
-result: result.o basis_ffi.o
+%.cake.S : %.cml cake
+	./cake $(CAKEFLAGS) <$< >$@
+
+%.cake : %.cake.S
+	$(CC) $(CPPFLAGS) $(EXTRA_FLAGS) $< basis_ffi.o -o $@
 
 # Build the sexpr printed compiler.
 # This may fail if heap/stack isn't set sufficiently high.

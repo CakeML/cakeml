@@ -30,13 +30,3 @@ cake: cake.o basis_ffi.o
 
 %.cake : %.cake.S
 	$(CC) $(CPPFLAGS) $(EXTRA_FLAGS) $< basis_ffi.o -o $@
-
-# Build the sexpr printed compiler.
-# This may fail if heap/stack isn't set sufficiently high.
-bootstrap.S: cake-sexpr-x64-64 cake
-	./cake --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true <$< >$@
-
-bootstrap: bootstrap.o basis_ffi.o
-
-clean:
-	rm -f cake basis_ffi.o result.o cake.o result result.S bootstrap.S bootstrap.o bootstrap
