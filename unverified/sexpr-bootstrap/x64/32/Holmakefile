@@ -18,7 +18,9 @@ cake-sexpr-$(ARCH)-$(WORD_SIZE): *$(ARCH)SexprScript.sml
 cake.S: cake-sexpr-$(ARCH)-$(WORD_SIZE)
 	$(CAKE_BIN) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --heap_size=$(HEAP_MB) --stack_size=$(STACK_MB) --reg_alg=0 <$< >$@
 
-cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE)
-	tar -chzf $@ --transform='s|^|cake-unverified-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) $(CAKEMLDIR)/how-to.md
+cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.output
+	cp $(CAKEMLDIR)/how-to.md how-to.md
+	tar -chzf $@ --transform='s|^|cake-unverified-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md
+	rm -f how-to.md
 
 EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz
