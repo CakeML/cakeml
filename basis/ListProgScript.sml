@@ -59,7 +59,7 @@ val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
 val result = next_ml_names := ["concat"];
 val result = translate FLAT;
 
-(* The let is introduced so that f y is evaluated before MAP f ys *)
+(* the let is introduced to produce slight better code (smaller stack frames) *)
 val MAP_let = prove(
   ``MAP f xs =
     case xs of
