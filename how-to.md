@@ -36,11 +36,11 @@ The simplest way to compile and run this CakeML program is to input
 
 The last line will print `Hello world!` on stdout.
 
-By looking at what the Makefile does, you'll see that on the first run
+By looking at what the `make` does, you'll see that on the first run
 it builds the CakeML compiler `cake`, then it runs the CakeML compiler
 on the input program. The CakeML compiler produces `.S` files that
 consist mostly of hex for machine code but also some wrapper code. We
-use the systems' C compiler to build basis_ffi.c and to connect the
+use the system's C compiler to build `basis_ffi.c` and to connect the
 CakeML generated machine code with the C code that is accessed through
 CakeML’s foreign function interface (FFI).
 
@@ -84,14 +84,14 @@ How CakeML differs from SML and OCaml
 
 The CakeML language is heavily based on Standard ML (SML), but CakeML
 differs in some aspects and takes inspiration from OCaml and
-Haskell. Below is a list of difference between CakeML and SML.
+Haskell. Below is a list of differences between CakeML and SML.
 
 ### Syntactic differences
 
 - CakeML has curried Haskell-style constructor syntax (see below)
 - constructors in CakeML must begin with an uppercase letter
 - constructors must be fully applied
-- alphanumeric variable and function names begin with a lowercase letter
+- alpha-numeric variable and function names begin with a lowercase letter
 - CakeML lacks SMLs records, functors, open and (at present) signatures
 
 ### Semantic differences
@@ -209,9 +209,9 @@ CakeML differs from SML in its use of Haskell-inspired datatype and
 constructor syntax.
 
 CakeML requires that all constructor names and module names start with
-a capital letter. All alpha-numeric variable names and function names
-must start with a lower-case letter. This rule makes it easy to see
-which names are variables and which are constructors in patterns.
+a uppercase letter. All alpha-numeric variable names and function
+names must start with a lowercase letter. This rule makes it easy to
+see which names are variables and which are constructors in patterns.
 
 Below is an example with a mutually recursive datatype and a function
 definition illustrating the `fun ... and ...` syntax for mutually
@@ -235,8 +235,8 @@ Note that CakeML requires that constructors are fully applied. This
 means that `List.map Some xs` is not allowed, instead one has to write
 `List.map (fn x => Some x) xs`.
 
-Exceptions are are defined in a similar style and can be used as
-normal constructors in patterns:
+Exceptions are defined in a similar style and can be used as normal
+constructors in patterns:
 
     exception ErrorMsgWithLoc string int int;
 
@@ -269,7 +269,7 @@ Note how the pattern treats `ref` as a constructor.
 
 CakeML has a strict call-by-value semantics. However, one can
 implement lazy lists in CakeML. Here is a datatype that can be used
-for lazy lists and a similar `take` function:
+for lazy lists and a `take` function:
 
     datatype 'a llist = Nil | Cons 'a (unit -> 'a llist);
 
@@ -291,7 +291,7 @@ at each content expression.
 
 The example above prints `321`.
 
-We recommend that users use let expressions to force their own
+We recommend that users use `let`-expressions to force their own
 evaluation order. The following prints `123`.
 
     let
@@ -342,14 +342,14 @@ Semantics of equality
 ---------------------
 
 Like SML and OCaml, CakeML includes a polymorphic equality test.
-However, the semantics of CakeML polymorphic equality test is differs
+However, the semantics of CakeML polymorphic equality test differs
 from SML and OCaml. SML uses equality types to ensure that one cannot
-test between function closures. In contrast, OCaml raises an exception
-in case closures are part of the compared values.
+test equality of function closures. In contrast, OCaml raises an
+exception in case closures are part of the compared values.
 
 In CakeML, we did not want to have equality types, and we do not want
 to search for closures in pointer-equal values. For this reason,
-CakeML allows comparison of closure values: any closures are equal
+CakeML allows comparison of closure values: all closures are equal
 under the polymorphic equality test in CakeML.
 
     fun plus2 n = n + 2;
@@ -358,16 +358,16 @@ under the polymorphic equality test in CakeML.
     (* the following succeeds and prints True *)
     if plus2 = plus3 then print "True\n" else print "False\n";
 
-Arguably, it does not make sense to compare functions like this. Thus
-we took the freedom to pick a semantics that is both well defined and
-leads to a good implementation for the common case, i.e. no closures.
+Arguably, it does not make sense to compare functions. Thus we took
+the freedom to pick a semantics that is both well defined and leads to
+a good implementation for the common case, i.e. no closures.
 
 Lack of let-polymorphism
 ------------------------
 
 CakeML does not support let-polymorphism. The following is an example
-of a program that type checks in SML, but not in CakeML. It doesn't
-type check in CakeML because the let-bound `x` must at its uses be
+of a program that type checks in SML, but not in CakeML. It fails to
+type check in CakeML because the let-bound `x` must, at its uses, be
 instantiated to `int list` and `string list`.
 
 ```
