@@ -1,6 +1,6 @@
 (*
   A CakeML program that extracts the indented code snippets from a
-  markdown file. This is used for checking the code how-to.md file.
+  markdown file. This is used for checking the code in how-to.md.
 *)
 
 val lines =
