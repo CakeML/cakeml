@@ -56,8 +56,8 @@ generating README.md files.
 Examples of verified programs built using CakeML infrastructure.
 
 [how-to.md](how-to.md):
-This text introduces how to use the CakeML compiler, in particular
-this document provides:
+This document introduces how to use the CakeML compiler, in particular
+this text provides:
 
 - a description of how to invoke the CakeML compiler
 - a list of how CakeML differs from SML and OCaml
