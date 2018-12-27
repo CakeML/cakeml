@@ -5,6 +5,10 @@ the 64-bit compiler.
 Implements the foreign function interface (FFI) used in the CakeML basis
 library, as a thin wrapper around the relevant system calls.
 
+[extract_code.cml](extract_code.cml):
+A CakeML program that extracts the indented code snippets from a
+markdown file. This is used for checking the code how-to.md file.
+
 [x64SexprScript.sml](x64SexprScript.sml):
 Produces an sexp print-out of the bootstrap translated compiler
 definition for the 64-bit version of the compiler.
