@@ -14,7 +14,7 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 
 cake.S: *$(ARCH)BootstrapScript.sml
 
-cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile
+cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c ../Makefile
 	cp $(CAKEMLDIR)/how-to.md how-to.md
 	cp ../Makefile Makefile
 	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile how-to.md

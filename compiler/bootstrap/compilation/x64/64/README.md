@@ -6,6 +6,10 @@ inside the logic to produce the verified machine code version of the
 Implements the foreign function interface (FFI) used in the CakeML basis
 library, as a thin wrapper around the relevant system calls.
 
+[input.cml](input.cml):
+A hello world program used for testing that the bootstrapped
+compiler was built succesfully.
+
 [proofs](proofs):
 This directory contains the end-to-end correctness theorem for the
 64-bit version of the CakeML compiler.
