@@ -1,1 +1,5 @@
 *.tar.gz
+x64/64/cake
+x64/64/result
+x64/64/output
+x64/64/expected_output
