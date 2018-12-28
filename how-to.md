@@ -14,8 +14,8 @@ Working Programmer" by L. C. Paulson, University of Cambridge.
 
 This document is about using the verified CakeML compiler outside of
 the logic of a theorem prover. Readers interested in using CakeML to
-construct verified programs should develop their programs inside the
-logic of a theorem prover, see https://cakeml.org/itp18-short.pdf.
+construct verified programs should [develop their programs inside the
+logic of a theorem prover](https://cakeml.org/itp18-short.pdf).
 
 Running the CakeML compiler
 ---------------------------
