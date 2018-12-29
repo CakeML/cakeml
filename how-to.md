@@ -98,7 +98,7 @@ Haskell. Below is a list of differences between CakeML and SML.
 - constructors in CakeML must begin with an uppercase letter
 - constructors must be fully applied
 - alpha-numeric variable and function names begin with a lowercase letter
-- CakeML lacks SMLs records, functors, open and (at present) signatures
+- CakeML lacks SML's records, functors, open and (at present) signatures
 
 ### Semantic differences
 
