@@ -33,8 +33,9 @@ Now let’s run the compiler. Let’s suppose you have a file called
 
     print "Hello world!\n";
 
-The simplest way to compile and run this CakeML program is to input
-`make hello.cake` and then `./hello.cake` on the command line.
+The simplest way to compile and run this CakeML program, on Linux and
+Mac, is to type `make hello.cake` and then `./hello.cake` on the
+command line as follows. On Windows, one types `make hello.cake.exe`.
 
     $ make hello.cake
     $ ./hello.cake
