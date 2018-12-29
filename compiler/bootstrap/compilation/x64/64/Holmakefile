@@ -16,11 +16,9 @@ cake.S: *$(ARCH)BootstrapScript.sml
 
 cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile how-to.md
 	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile how-to.md
-	make cake   # the following lines are a basic test
-	./cake <input.cml >result.S
-	cc -o result basis_ffi.c result.S
-	./result >output
+	make input.cake   # the following lines are a basic test
+	./input.cake >output
 	echo 'Hello!'>expected_output
 	diff output expected_output   # returns non-zero if files differ
 
-EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz cake result.S result output expected_output
+EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz cake input.cake output expected_output
