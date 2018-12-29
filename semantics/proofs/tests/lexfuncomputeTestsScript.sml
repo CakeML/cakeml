@@ -28,7 +28,10 @@ in
   optionLib.OPTION_rws cs;
   combinLib.add_combin_compset cs;
   computeLib.add_thms[pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY] cs;
+  numposrepLib.add_numposrep_compset cs;
+  bitLib.add_bit_compset cs;
   ASCIInumbersLib.add_ASCIInumbers_compset cs;
+  intReduce.add_int_compset cs;
   add_lex_fun_compset cs;
   cs
 end
@@ -42,7 +45,15 @@ fun test (t_in,t_expected) =
 val _ = app (ignore o test) [
       (“tlex "y = \"foo\" andalso z < 6;"”,
        “[AlphaT "y"; EqualsT; StringT "foo"; AndalsoT; AlphaT "z"; SymbolT "<";
-        IntT 6; SemicolonT]”)
+        IntT 6; SemicolonT]”),
+      (* (“tlex "val value = 0x10"”,
+       “[ValT; IdentT "value"; EqualsT; IntT 16]”) *)
+      (“tlex "val value = 0 *y - ~1"”,
+       “[ValT; AlphaT "value"; EqualsT; IntT 0; StarT; AlphaT "y"; SymbolT "-";
+         IntT (-1)]”),
+      (“tlex "val value = 0 *y - ~a"”,
+       “[ValT; AlphaT "value"; EqualsT; IntT 0; StarT; AlphaT "y"; SymbolT "-";
+         SymbolT "~"; AlphaT "a"]”)
     ]
 
 val _ = export_theory()
