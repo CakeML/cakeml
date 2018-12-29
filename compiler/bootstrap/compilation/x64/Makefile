@@ -48,7 +48,7 @@ cake$(SUFF): cake.o basis_ffi.o
 %.cake.S : %.cml cake$(SUFF)
 	$(PREF)cake$(SUFF) $(CAKEFLAGS) <$< >$@
 
-%.cake$(SUFF) : %.cake.o basis_ffi.o
+%.cake$(SUFF) : %.cake.S basis_ffi.o
 	$(CC) $(LDFLAGS) $< basis_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
 
 clean:
