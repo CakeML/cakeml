@@ -26,15 +26,15 @@ else
 	SUFF =
 endif
 
-ifeq($(OS),Darwin)
-# These options avoid linker warnings on macOS
-  CFLAGS += -Wl,-no_pie
+ifeq ($(OS),Darwin)
+	# These options avoid linker warnings on macOS
+	LDFLAGS += -Wl,-no_pie
 endif
 
 # Linking the CakeML compiler
 
 cake$(SUFF): cake.o basis_ffi.o
-	$(CC) $(CFLAGS) $< basis_ffi.o -o $@
+	$(CC) $(LDFLAGS) $< basis_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
 
 # Using the CakeML compiler
 
@@ -48,8 +48,8 @@ cake$(SUFF): cake.o basis_ffi.o
 %.cake.S : %.cml cake$(SUFF)
 	$(PREF)cake$(SUFF) $(CAKEFLAGS) <$< >$@
 
-%.cake$(SUFF) : %.cake.S basis_ffi.o
-	$(CC) $(CFLAGS) $< basis_ffi.o -o $@
+%.cake$(SUFF) : %.cake.o basis_ffi.o
+	$(CC) $(LDFLAGS) $< basis_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
 
 clean:
-	$(RM) basis_ffi.o cake.o cake$(SUFF) *.cake.S *.cake$(SUFF)
+	$(RM) basis_ffi.o cake.o cake$(SUFF) *.cake.o *.cake.S *.cake$(SUFF)
