@@ -1,32 +1,55 @@
-# To support large stack+heap, use -mcmodel=medium.
-# CFLAGS += -mcmodel=medium
+# This Makefile produces the CakeML compiler executable by linking the
+# bootstrapped CakeML compiler with the implementation of the FFI primitives.
+# It also includes rules for compiling CakeML programs with the CakeML compiler
+# then similarly linking the resulting machine code with the FFI primitives to
+# produce executables. It is designed to work on GNU/Linux, macOS, and Windows.
 
-# To set the stack and heap available to the CakeML compiler,
-# also edit the .space directives in cake.S.
-
-# To set the stack and heap directives available to your own
-# CakeML programs, use the --stack_size and --heap_size
-# command-line arguments to the CakeML compiler. The unit of
+# To set the stack and heap sizes for CakeML programs, use the
+# --stack_size and --heap_size arguments to the CakeML compiler
+# (provided on the command line or in the CAKEFLAGS variable). The unit of
 # measure for both arguments is mebibytes (1024 * 1024 bytes).
 
-UNAME_S := $(shell uname -s)
+# To set the stack and heap sizes for the CakeML compiler itself, edit the
+# .space directives in cake.S.
 
-ifeq ($(UNAME_S),Darwin)
-  EXTRA_FLAGS = -Wl,-no_pie
+# To support large stack and heap sizes, use -mcmodel=medium or -mcmodel=large.
+# For example:
+# CFLAGS += -mcmodel=medium
+
+OS ?= $(shell uname)
+
+ifeq ($(OS),Windows_NT)
+	PREF =
+	SUFF = .exe
 else
-  EXTRA_FLAGS =
+	PREF = ./
+	SUFF =
 endif
 
-# Build the CakeML compiler
+ifeq($(OS),Darwin)
+# These options avoid linker warnings on macOS
+  CFLAGS += -Wl,-no_pie
+endif
 
-cake: cake.o basis_ffi.o
-	$(CC) $(CPPFLAGS) $(EXTRA_FLAGS) $< basis_ffi.o -o $@
+# Linking the CakeML compiler
 
-# General rules for applying the CakeML compiler
-# The options "-Wl,-no_pie" are to avoid linker warnings on Mac
+cake$(SUFF): cake.o basis_ffi.o
+	$(CC) $(CFLAGS) $< basis_ffi.o -o $@
 
-%.cake.S : %.cml cake
-	./cake $(CAKEFLAGS) <$< >$@
+# Using the CakeML compiler
 
-%.cake : %.cake.S
-	$(CC) $(CPPFLAGS) $(EXTRA_FLAGS) $< basis_ffi.o -o $@
+# The conventions used here for extensions, namely,
+# *.cml          # CakeML source program
+# *.cake.S       # CakeML-generated machine-code
+# *.cake$(SUFF)  # CakeML-generated executable
+# are not required in general when using CakeML.
+# (They are not used here for the compiler itself.)
+
+%.cake.S : %.cml cake$(SUFF)
+	$(PREF)cake$(SUFF) $(CAKEFLAGS) <$< >$@
+
+%.cake$(SUFF) : %.cake.S basis_ffi.o
+	$(CC) $(CFLAGS) $< basis_ffi.o -o $@
+
+clean:
+	$(RM) basis_ffi.o cake.o cake$(SUFF) *.cake.S *.cake$(SUFF)
