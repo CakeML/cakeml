@@ -463,7 +463,7 @@ val get_intervals_ct_monad_aux_def = Define`
       get_intervals_ct_monad_aux (reg_alloc$Seq ct1 ct2) (n : int) live =
         do
           (n2, live2) <- get_intervals_ct_monad_aux ct2 n live;
-          get_intervals_ct_monad_aux ct1 n2 live;
+          get_intervals_ct_monad_aux ct1 n2 live2;
         od
     )
 `
@@ -1082,9 +1082,9 @@ val run_linear_reg_alloc_intervals_def = Define`
           (linear_reg_alloc_and_extract_coloration ct k forced moves reglist_unsorted invbij nmax)
           <| colors := (nmax+1, 0)
            ; int_beg := (nmax+1, 1)
-           ; int_end := (nmax+1, szct)
+           ; int_end := (nmax+1, 1)
            ; sorted_regs := (nmax+1, 0)
-           ; sorted_moves := (nmax+1, (0,(0,0)))
+           ; sorted_moves := (LENGTH moves, (0,(0,0)))
            |>
 `
 

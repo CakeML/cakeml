@@ -23,6 +23,12 @@ val the_OPTION_MAP = Q.store_thm("the_OPTION_MAP",
     the d (OPTION_MAP f opt) = f (the d opt)`,
     rw [] >> Cases_on `opt` >> rw [the_def]
 );
+
+val set_MAP_FST_toAList = Q.store_thm("set_MAP_FST_toAList",
+    `!s. set (MAP FST (toAList s)) = domain s`,
+    rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
+);
+
 (* -- *)
 (* TODO: clean up this file: e.g., move things upstream *)
 
@@ -4458,9 +4464,9 @@ val linear_reg_alloc_intervals_correct = Q.store_thm("linear_reg_alloc_intervals
     EVERY (\r. r < LENGTH sth.int_beg) reglist_unsorted /\
     LENGTH sth.colors = LENGTH sth.int_beg /\
     LENGTH sth.int_end = LENGTH sth.int_beg /\
-    LENGTH reglist_unsorted <= LENGTH sth.sorted_regs ==>
+    LENGTH reglist_unsorted <= LENGTH sth.sorted_regs /\
     LENGTH moves <= LENGTH sth.sorted_moves ==>
-    ?sthout. (Success (), sthout) = linear_reg_alloc_intervals k forced moves reglist_unsorted sth /\
+    ?sthout. linear_reg_alloc_intervals k forced moves reglist_unsorted sth = (Success (), sthout) /\
     (!r1 r2. MEM r1 reglist_unsorted /\ MEM r2 reglist_unsorted /\
         interval_intersect (EL r1 sth.int_beg, EL r1 sth.int_end) (EL r2 sth.int_beg, EL r2 sth.int_end) /\
         EL r1 sthout.colors = EL r2 sthout.colors ==>
@@ -4997,8 +5003,6 @@ val find_bijection_invariants = Q.store_thm("find_bijection_invariants",
 
 val FOLDL_find_bijection_invariants = Q.store_thm("FOLDL_find_bijection_invariants",
     `!st l regset.
-    ALL_DISTINCT l /\
-    (!r. MEM r l ==> r NOTIN regset) /\
     good_bijection_state st regset ==>
     good_bijection_state (FOLDL find_bijection_step st l) (set l UNION regset)`,
 
@@ -5011,9 +5015,743 @@ val FOLDL_find_bijection_invariants = Q.store_thm("FOLDL_find_bijection_invarian
     simp []
 );
 
+val foldi_find_bijection_invariants = Q.store_thm("foldi_find_bijection_invariants",
+    `!st s regset.
+    good_bijection_state st regset ==>
+    good_bijection_state (foldi (\r v acc. find_bijection_step acc r) 0 st s) (domain s UNION regset)`,
+    rw [foldi_FOLDR_toAList] >>
+    `FOLDR (\(r,v) acc. find_bijection_step acc r) st (toAList s) = FOLDR (\r acc. find_bijection_step acc r) st (MAP FST (toAList s))` by simp [FOLDR_MAP, LAMBDA_PROD] >>
+    `(\a b. find_bijection_step a b) = find_bijection_step` by rw [FUN_EQ_THM] >>
+    fs [FOLDR_FOLDL_REVERSE] >>
+    once_rewrite_tac [GSYM set_MAP_FST_toAList] >>
+    once_rewrite_tac [GSYM LIST_TO_SET_REVERSE] >>
+    simp [FOLDL_find_bijection_invariants]
+);
+
+val in_clash_tree_set_eq = Q.store_thm("in_clash_tree_set_eq",
+    `(!w r. in_clash_tree (Delta w r) = set w UNION set r) /\
+    (!names. in_clash_tree (Set names) = domain names) /\
+    (!name_opt t1 t2.
+      in_clash_tree (Branch name_opt t1 t2) =
+      case name_opt of
+          | SOME names => domain names UNION in_clash_tree t1 UNION in_clash_tree t2
+          | NONE => in_clash_tree t1 UNION in_clash_tree t2
+    ) /\
+    (!t1 t2. in_clash_tree (Seq t1 t2) = in_clash_tree t1 UNION in_clash_tree t2)`,
+    rw [in_clash_tree_def, EXTENSION, IN_DEF] >>
+    CASE_TAC >>
+    rw [UNION_DEF, IN_DEF] >>
+    metis_tac []
+);
+
+val find_bijection_clash_tree_invariants = Q.store_thm("find_bijection_clash_tree_invariants",
+    `!st ct regset.
+    good_bijection_state st regset ==>
+    good_bijection_state (find_bijection_clash_tree st ct) (in_clash_tree ct UNION regset)`,
+
+    Induct_on `ct` >>
+    rw [find_bijection_clash_tree_def]
+    THEN1 (
+        simp [in_clash_tree_set_eq, GSYM UNION_ASSOC] >>
+        simp [FOLDL_find_bijection_invariants]
+    )
+    THEN1 (
+        simp [in_clash_tree_set_eq] >>
+        simp [foldi_find_bijection_invariants]
+    )
+    THEN1 (
+        `good_bijection_state (find_bijection_clash_tree (find_bijection_clash_tree st ct) ct') (in_clash_tree ct UNION in_clash_tree ct' UNION regset)` by metis_tac [UNION_COMM, UNION_ASSOC] >>
+        simp [in_clash_tree_set_eq] >>
+        CASE_TAC >> fs [GSYM UNION_ASSOC] >>
+        simp [foldi_find_bijection_invariants]
+    )
+    THEN1 (
+        simp [in_clash_tree_set_eq] >>
+        metis_tac [UNION_COMM, UNION_ASSOC]
+    )
+);
+
 val find_bijection_init_invariants = Q.store_thm("find_bijection_init_invariants",
     `good_bijection_state find_bijection_init EMPTY`,
     simp [good_bijection_state_def, find_bijection_init_def, sp_inverts_def, lookup_def, is_stack_var_def, is_alloc_var_def, the_def]
+);
+
+val sptree_eq_list_def = Define`
+    sptree_eq_list (s : int num_map) l = !i.
+      i < LENGTH l ==>
+      (0 < EL i l <=> lookup i s = NONE) /\
+      (EL i l <= 0 <=> lookup i s = SOME (EL i l))
+`
+
+val numset_list_add_if_lt_monad_correct = Q.store_thm("numset_list_add_if_lt_monad_correct",
+    `!int_beg sth l v.
+    v <= 0 /\
+    sptree_eq_list int_beg sth.int_beg /\
+    EVERY (\r. r < LENGTH sth.int_beg) l ==>
+    ?sthout. numset_list_add_if_lt_monad l v sth = (Success (), sthout) /\
+    sptree_eq_list (numset_list_add_if_lt l v int_beg) sthout.int_beg /\
+    sthout = sth with int_beg := sthout.int_beg /\
+    LENGTH sthout.int_beg = LENGTH sth.int_beg`,
+
+    Induct_on `l` >>
+    rw ([numset_list_add_if_lt_def, numset_list_add_if_def, numset_list_add_if_lt_monad_def] @ msimps) >>
+    fs [GSYM numset_list_add_if_lt_def] >>
+    `!(n : int). ~(0 < n) <=> n <= 0` by intLib.COOPER_TAC >>
+    fs [sptree_eq_list_def, linear_scan_hidden_state_component_equality] >> (
+      first_x_assum (qspecl_then [`insert h v int_beg`, `sth with int_beg := LUPDATE v h sth.int_beg`, `v`] mp_tac) >>
+      impl_tac THEN1 rw [EL_LUPDATE, lookup_insert] >>
+      rw []
+    )
+);
+
+val numset_list_add_if_gt_monad_correct = Q.store_thm("numset_list_add_if_gt_monad_correct",
+    `!int_end sth l v.
+    v <= 0 /\
+    sptree_eq_list int_end sth.int_end /\
+    EVERY (\r. r < LENGTH sth.int_end) l ==>
+    ?sthout. numset_list_add_if_gt_monad l v sth = (Success (), sthout) /\
+    sptree_eq_list (numset_list_add_if_gt l v int_end) sthout.int_end /\
+    sthout = sth with int_end := sthout.int_end /\
+    LENGTH sthout.int_end = LENGTH sth.int_end`,
+
+    Induct_on `l` >>
+    rw ([numset_list_add_if_gt_def, numset_list_add_if_def, numset_list_add_if_gt_monad_def] @ msimps) >>
+    fs [GSYM numset_list_add_if_gt_def] >>
+    `!(n : int). ~(0 < n) <=> n <= 0` by intLib.COOPER_TAC >>
+    fs [sptree_eq_list_def, linear_scan_hidden_state_component_equality] >> (
+      first_x_assum (qspecl_then [`insert h v int_end`, `sth with int_end := LUPDATE v h sth.int_end`, `v`] mp_tac) >>
+      impl_tac THEN1 rw [EL_LUPDATE, lookup_insert] >>
+      rw []
+    )
+);
+
+val get_intervals_ct_monad_aux_correct = Q.store_thm("get_intervals_ct_monad_aux_correct",
+    `!ct sth live n int_beg int_end nout int_begout int_endout liveout.
+    n <= 0 /\
+    sptree_eq_list int_beg sth.int_beg /\
+    sptree_eq_list int_end sth.int_end /\
+    get_intervals_ct_aux ct n int_beg int_end live = (nout, int_begout, int_endout, liveout) /\
+    LENGTH sth.int_end = LENGTH sth.int_beg /\
+    (!r. in_clash_tree ct r ==> r < LENGTH sth.int_beg) /\
+    (!r. r IN domain live ==> r < LENGTH sth.int_beg) ==>
+    ?sthout. get_intervals_ct_monad_aux ct n live sth = (Success (nout, liveout), sthout) /\
+    sptree_eq_list int_begout sthout.int_beg /\
+    sptree_eq_list int_endout sthout.int_end /\
+    LENGTH sthout.int_beg = LENGTH sth.int_beg /\
+    LENGTH sthout.int_end = LENGTH sth.int_end /\
+    (!r. r IN domain liveout ==> r < LENGTH sth.int_beg) /\
+    sthout = sth with <| int_beg := sthout.int_beg ; int_end := sthout.int_end |> /\
+    nout <= 0`,
+
+    Induct_on `ct` >>
+    rw ([get_intervals_ct_monad_aux_def, get_intervals_ct_aux_def] @ msimps)
+
+    THEN1 (
+        qspecl_then [`int_beg`, `sth`, `l`, `n`] mp_tac numset_list_add_if_lt_monad_correct >>
+        impl_tac THEN1 fs [in_clash_tree_def, EVERY_MEM] >>
+        strip_tac >> rw [] >>
+        rename1 `_ = (Success (), sth1)` >>
+        `?int_beg1. numset_list_add_if_lt l n int_beg = int_beg1` by simp [] >>
+        fs [linear_scan_hidden_state_component_equality] >>
+
+        qspecl_then [`int_end`, `sth1`, `l`, `n`] mp_tac numset_list_add_if_gt_monad_correct >>
+        impl_tac THEN1 fs [in_clash_tree_def, EVERY_MEM] >>
+        strip_tac >> rw [] >>
+        rename1 `_ = (Success (), sth2)` >>
+        `?int_end2. numset_list_add_if_gt l n int_end = int_end2` by simp [] >>
+        fs [linear_scan_hidden_state_component_equality] >>
+
+        qspecl_then [`int_end2`, `sth2`, `l0`, `n-1`] mp_tac numset_list_add_if_gt_monad_correct >>
+        impl_tac THEN1 (
+          fs [in_clash_tree_def, EVERY_MEM] >>
+          intLib.COOPER_TAC
+        ) >>
+        strip_tac >> rw [] >>
+        rename1 `_ = (Success (), sth3)` >>
+        fs [linear_scan_hidden_state_component_equality, domain_numset_list_insert, domain_numset_list_delete, in_clash_tree_def] >>
+        intLib.COOPER_TAC
+    )
+
+    THEN1 (
+        qspecl_then [`int_end`, `sth`, `MAP FST (toAList s)`, `n`] mp_tac numset_list_add_if_gt_monad_correct >>
+        impl_tac THEN1
+        fs [in_clash_tree_def, EVERY_MEM] >>
+        strip_tac >> rw [] >>
+        fs [linear_scan_hidden_state_component_equality, domain_union, in_clash_tree_def] >>
+        intLib.COOPER_TAC
+    )
+
+    THEN1 (
+        rename1 `Branch optcutset ct1 ct2` >>
+        rpt (pairarg_tac >> fs []) >>
+        Cases_on `optcutset` >> fs [] >> (
+          first_x_assum (qspecl_then [`sth`, `live`, `n`, `int_beg`, `int_end`, `n2`, `int_beg2`, `int_end2`, `live2`] mp_tac) >>
+          impl_tac THEN1 fs [in_clash_tree_def] >>
+          strip_tac >> rw [] >>
+          rename1 `_ = (Success _, sth2)` >>
+
+          first_x_assum (qspecl_then [`sth2`, `live`, `n2`, `int_beg2`, `int_end2`, `n1`, `int_beg1`, `int_end1`, `live1`] mp_tac) >>
+          impl_tac THEN1 fs [in_clash_tree_def] >>
+          strip_tac >> rw [] >>
+          rename1 `_ = (Success _, sth1)` >>
+          rfs [linear_scan_hidden_state_component_equality, domain_union, in_clash_tree_def] >> (
+            qspecl_then [`int_end1`, `sth1`, `MAP FST (toAList x)`, `n1`] mp_tac numset_list_add_if_gt_monad_correct >>
+            impl_tac THEN1 fs [EVERY_MEM, in_clash_tree_def, domain_union] >>
+            strip_tac >> rw [] >>
+            fs [linear_scan_hidden_state_component_equality] >>
+            intLib.COOPER_TAC
+          )
+        )
+    )
+
+    THEN1 (
+        rename1 `Seq ct1 ct2` >>
+        rpt (pairarg_tac >> fs []) >>
+        first_x_assum (qspecl_then [`sth`, `live`, `n`, `int_beg`, `int_end`, `n2`, `int_beg2`, `int_end2`, `live2`] mp_tac) >>
+        impl_tac THEN1 fs [in_clash_tree_def] >>
+        strip_tac >> rw [] >>
+        rename1 `_ = (Success _, sth2)` >>
+
+        first_x_assum (qspecl_then [`sth2`, `live2`, `n2`, `int_beg2`, `int_end2`, `nout`, `int_begout`, `int_endout`, `liveout`] mp_tac) >>
+        impl_tac THEN1 fs [in_clash_tree_def] >>
+        strip_tac >> rw [] >>
+        rfs [linear_scan_hidden_state_component_equality]
+    )
+);
+
+val get_intervals_ct_monad_correct = Q.store_thm("get_intervals_ct_monad_correct",
+    `!ct sth n int_beg int_end.
+    (!i. i < LENGTH sth.int_beg ==> 0 < EL i sth.int_beg) /\
+    (!i. i < LENGTH sth.int_end ==> 0 < EL i sth.int_end) /\
+    get_intervals_ct ct = (n, int_beg, int_end) /\
+    LENGTH sth.int_end = LENGTH sth.int_beg /\
+    (!r. in_clash_tree ct r ==> r < LENGTH sth.int_beg) ==>
+    ?sthout. get_intervals_ct_monad ct sth = (Success n, sthout) /\
+    sptree_eq_list int_beg sthout.int_beg /\
+    sptree_eq_list int_end sthout.int_end /\
+    LENGTH sthout.int_beg = LENGTH sth.int_beg /\
+    LENGTH sthout.int_end = LENGTH sth.int_end /\
+    sthout = sth with <| int_beg := sthout.int_beg ; int_end := sthout.int_end |>`,
+
+    `!(n : int). ~(n <= 0) <=> 0 < n` by intLib.COOPER_TAC >>
+    rw (get_intervals_ct_monad_def :: get_intervals_ct_def :: msimps) >>
+    rpt (pairarg_tac >> fs []) >>
+    rename1 `get_intervals_ct_aux _ _ _ _ _ = (n1, int_beg1, int_end1, live)` >>
+
+    qspecl_then [`ct`, `sth`, `LN`, `0`, `LN`, `LN`, `n1`, `int_beg1`, `int_end1`, `live`] mp_tac get_intervals_ct_monad_aux_correct >>
+    impl_tac THEN1 rw [sptree_eq_list_def, lookup_def] >>
+    strip_tac >> rw [] >>
+    rename1 `_ = (Success _, sth1)` >>
+
+    qspecl_then [`int_beg1`, `sth1`, `MAP FST (toAList live)`, `n1`] mp_tac numset_list_add_if_lt_monad_correct >>
+    impl_tac THEN1 rw [EVERY_MEM, set_MAP_FST_toAList] >>
+    strip_tac >> rw [] >>
+    rename1 `_ = (Success _, sth2)` >>
+    fs [linear_scan_hidden_state_component_equality] >>
+
+    qspecl_then [`int_end1`, `sth2`, `MAP FST (toAList live)`, `n1`] mp_tac numset_list_add_if_gt_monad_correct >>
+    impl_tac THEN1 rw [EVERY_MEM, set_MAP_FST_toAList] >>
+    strip_tac >> simp [] >>
+    rename1 `_ = (Success _, sth2)` >>
+    fs [linear_scan_hidden_state_component_equality]
+);
+
+val in_clash_tree_eq_live_tree_registers = Q.store_thm("in_clash_tree_eq_live_tree_registers",
+    `!ct r. in_clash_tree ct r <=> r IN (live_tree_registers (get_live_tree ct))`,
+
+    Induct_on `ct` >>
+    rw [in_clash_tree_def, live_tree_registers_def, get_live_tree_def]
+    THEN1 metis_tac []
+    THEN1 (
+        Cases_on `o'` >>
+        simp[live_tree_registers_def] >>
+        simp [MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup] >>
+        metis_tac []
+    )
+);
+
+val get_live_backward_in_live_tree_registers = Q.store_thm("get_live_backward_in_live_tree_registers",
+    `!lt live. domain (get_live_backward lt live) SUBSET domain live UNION live_tree_registers lt`,
+    Induct_on `lt` >>
+    simp [get_live_backward_def, live_tree_registers_def, domain_numset_list_delete, domain_numset_list_insert, branch_domain] >>
+    fs [SUBSET_DEF] >>
+    metis_tac []
+);
+
+val fix_domination_live_tree_registers = Q.store_thm("fix_domination_live_tree_registers",
+    `!lt. live_tree_registers (fix_domination lt) = live_tree_registers lt`,
+    rw [fix_domination_def, live_tree_registers_def] >>
+    `set (MAP FST (toAList (get_live_backward lt LN))) = domain (get_live_backward lt LN)` by rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup] >>
+    qspecl_then [`lt`, `LN`] assume_tac get_live_backward_in_live_tree_registers >>
+    fs [SUBSET_DEF, EXTENSION] >>
+    metis_tac []
+);
+
+val get_intervals_beg_less_end = Q.store_thm("get_intervals_beg_less_end",
+    `!lt n_in beg_in end_in n_out beg_out end_out.
+    (!r. r IN domain beg_in ==> the 0 (lookup r beg_in) <= the 0 (lookup r end_in)) /\
+    domain beg_in SUBSET domain end_in /\
+    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in ==>
+    (!r. r IN domain beg_out ==> the 0 (lookup r beg_out) <= the 0 (lookup r end_out)) /\
+    domain beg_out SUBSET domain end_out`,
+
+    Induct_on `lt` >>
+    simp [get_intervals_def] >>
+    rpt gen_tac >> strip_tac
+    THEN1 (
+        strip_tac
+        THEN1 (
+            rw [lookup_numset_list_add_if_lt, lookup_numset_list_add_if_gt]
+            THEN1 (
+                every_case_tac >>
+                simp [the_def] >>
+                intLib.COOPER_TAC
+            )
+            THEN1 rfs [domain_numset_list_add_if_lt]
+        )
+        THEN1 (
+            fs [domain_numset_list_add_if_lt, domain_numset_list_add_if_gt, SUBSET_DEF] >>
+            metis_tac []
+        )
+    )
+    THEN1 (
+        strip_tac
+        THEN1 (
+            rw [lookup_numset_list_add_if_gt] >>
+            res_tac >>
+            every_case_tac
+            THEN1 (
+                `r NOTIN domain end_in` by fs [lookup_NONE_domain] >>
+                rfs [SUBSET_DEF]
+            )
+            THEN1 (
+                fs [the_def] >>
+                intLib.COOPER_TAC
+            )
+        )
+        THEN1 (
+            simp [domain_numset_list_add_if_gt] >>
+            fs [SUBSET_DEF]
+        )
+    ) >>
+    rpt (pairarg_tac >> fs []) >>
+    `!r. r IN domain int_beg2 ==> the 0 (lookup r int_beg2) <= the 0 (lookup r int_end2)` by metis_tac [] >>
+    metis_tac []
+);
+
+val linear_reg_alloc_without_renaming_correct = Q.store_thm("linear_reg_alloc_without_renaming_correct",
+    `!k moves ct forced.
+    (!i. i < LENGTH sth.int_beg ==> 0 < EL i sth.int_beg) /\
+    (!i. i < LENGTH sth.int_end ==> 0 < EL i sth.int_end) /\
+    LENGTH sth.int_end = LENGTH sth.int_beg /\
+    (!r. MEM r reglist_unsorted <=> in_clash_tree ct r) /\
+    (!r. in_clash_tree ct r ==> r < LENGTH sth.int_beg) /\
+    EVERY (\r1,r2. in_clash_tree ct r1 /\ in_clash_tree ct r2) forced /\
+    EVERY (\r1,r2. r1 < LENGTH sth.colors /\ r2 < LENGTH sth.colors) (MAP SND moves) /\
+    LENGTH reglist_unsorted <= LENGTH sth.sorted_regs /\
+    LENGTH moves <= LENGTH sth.sorted_moves /\
+    LENGTH sth.colors = LENGTH sth.int_beg /\
+    LENGTH sth.int_end = LENGTH sth.int_beg /\
+    ALL_DISTINCT reglist_unsorted
+    ==>
+    ?sthout livein flivein.
+    do
+      get_intervals_ct_monad ct;
+      linear_reg_alloc_intervals k forced moves reglist_unsorted;
+    od sth = (Success (), sthout) /\
+    check_clash_tree (\r. EL r sthout.colors) ct LN LN = SOME (livein, flivein) /\
+    (!r. in_clash_tree ct r ==>
+      if is_phy_var r then
+        EL r sthout.colors = r DIV 2
+      else if is_stack_var r then
+        k <= EL r sthout.colors
+      else
+        T
+    ) /\
+    EVERY (\r1,r2. EL r1 sthout.colors = EL r2 sthout.colors ==> r1 = r2) forced /\
+    LENGTH sthout.colors = LENGTH sth.colors`,
+
+    rw msimps >>
+    `?n int_beg int_end. get_intervals_ct ct = (n, int_beg, int_end)` by simp [GSYM EXISTS_PROD] >>
+    qspecl_then [`ct`, `sth`, `n`, `int_beg`, `int_end`] mp_tac get_intervals_ct_monad_correct >>
+    impl_tac THEN1 rw [] >>
+    strip_tac >> simp [] >>
+    rename1 `_ = (Success _, sthint)` >>
+    fs [linear_scan_hidden_state_component_equality] >>
+
+    `?n' int_beg' int_end'. get_intervals (fix_domination (get_live_tree ct)) 0 LN LN = (n', int_beg', int_end')` by simp [GSYM EXISTS_PROD] >>
+    qspecl_then [`ct`, `int_beg`, `int_beg'`, `int_end`, `int_end'`, `n`, `n'`] assume_tac get_intervals_ct_eq >>
+    rfs [] >>
+
+    qspecl_then [`fix_domination (get_live_tree ct)`, `0`, `LN`, `LN`, `n'`, `int_beg'`, `int_end'`] assume_tac get_intervals_beg_less_end >>
+    rfs [] >>
+
+    qspecl_then [`get_live_tree ct`, `n'`, `int_beg'`, `int_end'`] assume_tac get_intervals_domain_eq_live_tree_registers >>
+    rfs [] >>
+
+    `live_tree_registers (get_live_tree ct) = in_clash_tree ct` by simp [GSYM in_clash_tree_eq_live_tree_registers, EXTENSION, IN_DEF] >>
+    rfs [fix_domination_live_tree_registers] >> fs [] >>
+
+    sg `!r. in_clash_tree ct r ==> lookup r int_beg' = SOME (EL r sthint.int_beg) /\ lookup r int_end' = SOME (EL r sthint.int_end)` THEN1 (
+        gen_tac >> strip_tac >> fs [sptree_eq_list_def] >>
+        rpt (first_x_assum (qspec_then `r` assume_tac)) >>
+        `lookup r int_end' <> NONE /\ lookup r int_beg' <> NONE` by (CCONTR_TAC >> rfs [lookup_NONE_domain, IN_DEF]) >>
+        `~(0 < EL r sthint.int_end) /\ ~(0 < EL r sthint.int_beg)` by fs [] >>
+        fs [intLib.COOPER_PROVE ``!(n : int). ~(0 < n) <=> n <= 0``]
+    ) >>
+
+    qspecl_then [`k`, `forced`, `moves`, `reglist_unsorted`, `sthint`] mp_tac linear_reg_alloc_intervals_correct >>
+    impl_tac THEN1 (
+        rw [] >> fs [EVERY_MEM, FORALL_PROD] >>
+        rw [] >> fs [IN_DEF] >>
+        rpt (first_x_assum (qspec_then `r` assume_tac)) >>
+        rfs [the_def]
+    ) >>
+    strip_tac >> simp [] >>
+
+    sg `check_intervals (\r. EL r sthout.colors) int_beg' int_end'` THEN1 (
+        rw [check_intervals_def] >>
+        rename1 `r1 = r2` >>
+        first_x_assum (qspecl_then [`r1`, `r2`] mp_tac) >>
+        reverse impl_tac THEN1 simp [] >>
+        fs [sptree_eq_list_def, IN_DEF] >>
+        qpat_assum `!r. _ ==> lookup _ _ = SOME _ /\ lookup _ _ = SOME _`(qspec_then `r2` assume_tac) >>
+        rfs []
+    ) >>
+
+    qspecl_then [`get_live_tree ct`, `n'`, `int_beg'`, `int_end'`, `\r. EL r sthout.colors`] mp_tac check_intervals_check_live_tree >>
+    impl_tac THEN1 rw [] >>
+    strip_tac >>
+
+    qspecl_then [`\r. EL r sthout.colors`, `get_live_tree ct`, `liveout`, `fliveout`] mp_tac fix_domination_check_live_tree >>
+    impl_tac THEN1 rw [] >>
+    strip_tac >>
+
+    qspecl_then [`\r. EL r sthout.colors`, `ct`, `liveout'`, `fliveout'`] mp_tac get_live_tree_correct_LN >>
+    impl_tac THEN1 rw [] >>
+    strip_tac >> rw [] >>
+    fs [EVERY_MEM]
+);
+
+val check_col_apply_bijection = Q.store_thm("check_col_apply_bijection",
+    `!(cutset:num_set) livein flivein f.
+    (!r. r IN bijdom ==> (appbij r) IN bijcodom /\ appinvbij (appbij r) = r) /\
+    (!r. r IN bijcodom ==> (appinvbij r) IN bijdom /\ appbij (appinvbij r) = r) /\
+    domain cutset SUBSET bijdom /\
+    check_col f (foldi (\r _ acc. insert (appbij r) () acc) 0 LN cutset) = SOME (livein, flivein) ==>
+    ?livein' flivein'. check_col (\r. f (appbij r)) cutset = SOME (livein', flivein') /\
+    domain livein' = IMAGE appinvbij (domain livein)`,
+
+    simp [check_col_def] >>
+    rpt gen_tac >> strip_tac >>
+    fs [MAP_o, foldi_FOLDR_toAList] >>
+    `FOLDR (\(r,_) acc. insert (appbij r) () acc) LN (toAList cutset) = FOLDR (\r acc. insert (appbij r) () acc) LN (MAP FST (toAList cutset))` by rw [FOLDR_MAP, LAMBDA_PROD] >>
+    fs [] >> first_x_assum kall_tac >>
+    imp_res_tac ALL_DISTINCT_INJ_MAP >> fs [] >>
+    qpat_x_assum `ALL_DISTINCT _` kall_tac >>
+    `ALL_DISTINCT (MAP FST (toAList cutset))` by simp [ALL_DISTINCT_MAP_FST_toAList] >>
+    `domain cutset = set (MAP FST (toAList cutset))` by simp [] >>
+    qabbrev_tac `l = MAP FST (toAList cutset)` >> qpat_x_assum `Abbrev _` kall_tac >>
+    `domain (FOLDR (\r acc. insert (appbij r) () acc) LN l) = IMAGE appbij (set l)` by (rpt (first_x_assum kall_tac) >> Induct_on `l` >> rw []) >>
+    fs [] >> first_x_assum kall_tac >>
+    strip_tac
+    THEN1 (
+        qpat_x_assum `domain cutset = set l` kall_tac >>
+        Induct_on `l` >>
+        rw [] >> fs [INJ_INSERT] >>
+        rw [MEM_MAP] >>
+        Cases_on `MEM r l` >> simp [] >>
+        metis_tac [SUBSET_DEF]
+    )
+    THEN1 (
+        rw [EXTENSION] >>
+        metis_tac [SUBSET_DEF]
+    )
+);
+
+
+val check_partial_col_apply_bijection = Q.store_thm("check_partial_col_apply_bijection",
+    `!l live flive live' flive' livein flivein.
+    (!r. r IN bijdom ==> (appbij r) IN bijcodom /\ appinvbij (appbij r) = r) /\
+    (!r. r IN bijcodom ==> (appinvbij r) IN bijdom /\ appbij (appinvbij r) = r) /\
+    (set l) SUBSET bijdom /\
+    (domain live) SUBSET bijcodom /\
+    domain flive = IMAGE f (domain live) /\
+    domain flive' = IMAGE (f o appbij) (domain live') /\
+    domain live' = IMAGE appinvbij (domain live) /\
+    INJ f (domain live) UNIV /\
+    check_partial_col f (MAP appbij l) live flive = SOME (livein, flivein) ==>
+    ?livein' flivein'. check_partial_col (\r. f (appbij r)) l live' flive' = SOME (livein', flivein') /\
+    domain livein' = IMAGE appinvbij (domain livein)`,
+
+    Induct_on `l` >>
+    rw [check_partial_col_def] >>
+    `domain flive' = domain flive` by (rw [EXTENSION] >> fs [] >> metis_tac [SUBSET_DEF]) >>
+    fs [case_eq_thms]
+    THEN1 (
+        first_x_assum (qspecl_then [`insert (appbij h) () live`, `insert (f (appbij h)) () flive`, `insert h () live'`, `insert (f (appbij h))() flive'`, `livein`, `flivein`] mp_tac) >>
+        impl_tac THEN1 (
+            rw [INJ_INSERT] >>
+            `(f y) IN domain flive` by fs [] >>
+            fs [domain_lookup]
+        ) >>
+        rw [] >>
+        qexists_tac `livein'` >> qexists_tac `flivein'` >>
+        rw [] >> disj1_tac >>
+        FULL_SIMP_TAC pure_ss [lookup_NONE_domain] >>
+        strip_tac
+        THEN1 (fs [] >> metis_tac [SUBSET_DEF])
+        THEN1 metis_tac []
+    )
+    THEN1 (
+        first_x_assum (qspecl_then [`live`, `flive`, `live'`, `flive'`, `livein`, `flivein`] mp_tac) >>
+        impl_tac THEN1 rw [] >>
+        rw [] >>
+        qexists_tac `livein'` >> qexists_tac `flivein'` >>
+        rw [] >> disj2_tac >> rw [] >>
+        `appbij h IN domain live` by simp [domain_lookup] >>
+        `appinvbij (appbij h) IN domain live'` by (fs [] >> metis_tac []) >>
+        rfs [domain_lookup]
+    )
+);
+
+val check_clash_tree_output_subset = Q.store_thm("check_clash_tree_output_subset",
+    `!ct live flive livein flivein.
+    check_clash_tree f ct live flive = SOME (livein, flivein) ==>
+    domain livein SUBSET domain live UNION in_clash_tree ct`,
+    Induct_on `ct` >>
+    rw [check_clash_tree_def, in_clash_tree_set_eq] >>
+    fs [case_eq_thms]
+    THEN1 (
+        imp_res_tac check_partial_col_domain >>
+        fs [SUBSET_DEF, domain_numset_list_delete] >>
+        metis_tac []
+    )
+    THEN1 fs [check_col_def]
+    THEN1 (
+        imp_res_tac check_partial_col_domain >>
+        fs [branch_domain] >>
+        fs [SUBSET_DEF] >>
+        metis_tac []
+    )
+    THEN1 (
+        fs [check_col_def, SUBSET_DEF]
+    )
+    THEN1 (
+        fs [SUBSET_DEF] >>
+        metis_tac []
+    )
+);
+
+val domain_apply_bij_set = Q.store_thm("domain_apply_bij_set",
+    `!s bij. domain (foldi (λr _ acc. insert (the 0 (lookup r bij)) () acc) 0 LN s) = IMAGE (\r. the 0n (lookup r bij)) (domain s)`,
+
+    rw [foldi_FOLDR_toAList] >>
+    `FOLDR (\(r,_) acc. insert (the 0 (lookup r bij)) () acc) LN (toAList s) = FOLDR (\r acc. insert (the 0 (lookup r bij)) () acc) LN (MAP FST (toAList s))` by rw [FOLDR_MAP, LAMBDA_PROD] >>
+    simp [] >>
+    `domain s = set (MAP FST (toAList s))` by simp [] >>
+    qabbrev_tac `l = MAP FST (toAList s)` >>
+    qpat_x_assum `Abbrev _` kall_tac >>
+    qpat_x_assum `FOLDR _ _ _ = FOLDR _ _ _` kall_tac >>
+    simp [] >>
+    qpat_x_assum `domain _ = set _` kall_tac >>
+    Induct_on `l` >>
+    rw []
+);
+
+val in_clash_tree_apply_bij = Q.store_thm("in_clash_tree_apply_bij",
+    `!bij ct.
+    in_clash_tree ct SUBSET domain bij ==>
+    in_clash_tree (apply_bij_on_clash_tree ct bij) = IMAGE (\r. the 0n (lookup r bij)) (in_clash_tree ct)`,
+
+    Induct_on `ct` >>
+    rw [apply_bij_on_clash_tree_def, in_clash_tree_set_eq, LIST_TO_SET_MAP]
+    THEN1 (
+        simp [domain_apply_bij_set]
+    )
+    THEN1 (
+        CASE_TAC >>
+        fs [OPTION_MAP_DEF] >>
+        simp [domain_apply_bij_set] >>
+        fs []
+    )
+);
+
+val check_clash_tree_apply_bijection = Q.store_thm("check_clash_tree_apply_bijection",
+    `!bij invbij f ct live flive live' flive' livein flivein.
+    sp_inverts bij invbij /\
+    sp_inverts invbij bij /\
+    in_clash_tree ct SUBSET domain bij /\
+    domain live SUBSET domain invbij /\
+    domain flive = IMAGE f (domain live) /\
+    domain flive' = IMAGE (\r. f (the 0n (lookup r bij))) (domain live') /\
+    domain live' = IMAGE (\r. the 0n (lookup r invbij)) (domain live) /\
+    INJ f (domain live) UNIV /\
+    check_clash_tree f (apply_bij_on_clash_tree ct bij) live flive = SOME (livein, flivein) ==>
+    ?livein' flivein'. check_clash_tree (\r. f (the 0n (lookup r bij))) ct live' flive' = SOME (livein', flivein') /\
+    domain livein' = IMAGE (\r. the 0n (lookup r invbij)) (domain livein)`,
+
+    NTAC 3 gen_tac >>
+    Induct_on `ct` >>
+    rw [apply_bij_on_clash_tree_def, check_clash_tree_def] >> (
+        TRY (rename1 `Branch optcutset ct1 ct2`) >>
+        TRY (rename1 `Seq ct1 ct2`) >>
+        sg `(!r. r IN domain bij ==> (the 0n (lookup r bij)) IN domain invbij /\ the 0n (lookup (the 0n (lookup r bij)) invbij) = r) /\ (!r. r IN domain invbij ==> (the 0n (lookup r invbij)) IN domain bij /\ the 0n (lookup (the 0n (lookup r invbij)) bij) = r)` THEN1 (
+            rw [] >> fs [domain_lookup, sp_inverts_def] >>
+            res_tac >> simp [the_def]
+        ) >>
+        qspec_then `bij` assume_tac in_clash_tree_apply_bij >>
+        qspec_then `invbij` assume_tac in_clash_tree_apply_bij >>
+        qabbrev_tac `appbij = \r. the 0 (lookup r bij)` >>
+        qabbrev_tac `appinvbij = \r. the 0 (lookup r invbij)` >>
+        qabbrev_tac `bijdom = domain bij` >>
+        qabbrev_tac `bijcodom = domain invbij` >>
+        `!r. the 0 (lookup r bij) = appbij r` by simp [] >>
+        `!r. the 0 (lookup r invbij) = appinvbij r` by simp [] >>
+        fs [] >>
+        rpt (qpat_x_assum `!r. the 0 (lookup r _) = _ r` kall_tac) >>
+        rpt (qpat_x_assum `Abbrev _` kall_tac) >>
+        fs [in_clash_tree_set_eq]
+    )
+
+    THEN1 (
+        fs [case_eq_thms] >>
+        PairCases_on `v` >>
+        qspecl_then [`l`, `live`, `flive`, `live'`, `flive'`, `v0`, `v1`] mp_tac check_partial_col_apply_bijection >>
+        impl_tac THEN1 rw [o_DEF] >>
+        strip_tac >>
+        qspecl_then [`l0`, `numset_list_delete (MAP appbij l) live`, `numset_list_delete (MAP f (MAP appbij l)) flive`, `numset_list_delete l live'`, `numset_list_delete (MAP (\r. f (appbij r)) l) flive'`, `livein`, `flivein`] mp_tac check_partial_col_apply_bijection >>
+        impl_tac
+        THEN1 (
+            rw [domain_numset_list_delete]
+            THEN1 fs [SUBSET_DEF]
+
+            (* TODO: 3 copy-paste *)
+            THEN1 (
+                `INJ f (set (MAP appbij l) UNION domain live) UNIV` by imp_res_tac check_partial_col_success_INJ_lemma >>
+                qpat_x_assum `INJ f (domain live) UNIV` kall_tac >>
+                simp [EXTENSION] >>
+                FULL_SIMP_TAC bool_ss [INJ_DEF, SUBSET_DEF, MEM_MAP] >>
+                rfs [] >> (* TODO: slow as hell and only used to translate `x IN set l <=> MEM x l`... *)
+                metis_tac [MEM_MAP]
+            )
+
+            THEN1 (
+                `INJ f (set (MAP appbij l) UNION domain live) UNIV` by imp_res_tac check_partial_col_success_INJ_lemma >>
+                qpat_x_assum `INJ f (domain live) UNIV` kall_tac >>
+                simp [EXTENSION] >>
+                FULL_SIMP_TAC bool_ss [INJ_DEF, SUBSET_DEF, MEM_MAP] >>
+                rfs [] >> (* TODO: slow as hell and only used to translate `x IN set l <=> MEM x l`... *)
+                metis_tac [MEM_MAP]
+            )
+
+            THEN1 (
+                `INJ f (set (MAP appbij l) UNION domain live) UNIV` by imp_res_tac check_partial_col_success_INJ_lemma >>
+                qpat_x_assum `INJ f (domain live) UNIV` kall_tac >>
+                simp [EXTENSION] >>
+                FULL_SIMP_TAC bool_ss [INJ_DEF, SUBSET_DEF, MEM_MAP] >>
+                rfs [] >> (* TODO: slow as hell and only used to translate `x IN set l <=> MEM x l`... *)
+                metis_tac [MEM_MAP]
+            )
+
+            THEN1 metis_tac [DIFF_SUBSET, INJ_SUBSET, UNIV_SUBSET]
+        ) >>
+        rw []
+    )
+
+    THEN1 (
+        qspecl_then [`s`, `livein`, `flivein`, `f`] mp_tac check_col_apply_bijection >>
+        impl_tac THEN1 rw [] >>
+        strip_tac >> asm_exists_tac >> rw []
+    )
+
+    THEN1 (
+        fs [case_eq_thms] >> fs [] >>
+        last_x_assum (qspecl_then [`live`, `flive`, `live'`, `flive'`, `t1_out`, `ft1_out`] assume_tac) >>
+        rfs [] >>
+        rename1 `check_clash_tree _ _ _ _ = SOME (livein1, flivein1)` >>
+        last_x_assum (qspecl_then [`live`, `flive`, `live'`, `flive'`, `t2_out`, `ft2_out`] assume_tac) >>
+        rfs [] >>
+        rename1 `check_clash_tree _ _ _ _ = SOME (livein2, flivein2)`
+        THEN1 (
+            `INJ (\r. f (appbij r)) (domain live') UNIV` by (fs [INJ_DEF, EXTENSION, SUBSET_DEF] >> metis_tac []) >>
+            `domain ft1_out = IMAGE f (domain t1_out)` by metis_tac [check_clash_tree_output] >>
+            `domain flivein1 = IMAGE (\r. f (appbij r)) (domain livein1)` by metis_tac [check_clash_tree_output] >>
+            imp_res_tac check_clash_tree_output_subset >> rfs [] >>
+
+            sg `set (MAP appbij (MAP FST (toAList (difference livein2 livein1)))) UNION domain t1_out = domain t1_out UNION domain t2_out` THEN1 (
+                rw [LIST_TO_SET_MAP, domain_difference] >>
+                `IMAGE appinvbij (domain t2_out) DIFF IMAGE appinvbij (domain t1_out) = IMAGE appinvbij (domain t2_out DIFF domain t1_out)` by (rfs [EXTENSION, SUBSET_DEF] >> metis_tac []) >>
+                `domain t2_out SUBSET bijcodom` by (fs [SUBSET_DEF] >> metis_tac []) >>
+                `IMAGE appbij (IMAGE appinvbij (domain t2_out DIFF domain t1_out)) = domain t2_out DIFF domain t1_out` by (rfs [EXTENSION, SUBSET_DEF] >> metis_tac []) >>
+                `domain t2_out DIFF domain t1_out UNION domain t1_out = domain t1_out UNION domain t2_out` by (rw [EXTENSION] >> metis_tac []) >>
+                simp []
+            ) >>
+
+            sg `?brlivein fbrlivein. check_partial_col f (MAP appbij (MAP FST (toAList (difference livein2 livein1)))) t1_out ft1_out = SOME (brlivein,fbrlivein)` THEN1 (
+                qspecl_then [`MAP appbij (MAP FST (toAList (difference livein2 livein1)))`, `t1_out`, `ft1_out`, `f`] mp_tac check_partial_col_success >>
+                impl_tac THEN1 (
+                    simp [] >>
+                    `INJ f (domain t1_out) UNIV` by imp_res_tac check_clash_tree_output >>
+                    imp_res_tac check_partial_col_success_INJ_lemma >>
+                    fs [branch_domain]
+                ) >>
+                strip_tac >> asm_exists_tac >> rw []
+            ) >>
+            sg `domain brlivein = domain livein` THEN1 (
+                imp_res_tac check_partial_col_domain >>
+                rfs [] >>
+                simp [domain_difference, EXTENSION] >>
+                metis_tac []
+            ) >>
+            qspecl_then [`MAP FST (toAList (difference livein2 livein1))`, `t1_out`, `ft1_out`, `livein1`, `flivein1`, `brlivein`, `fbrlivein`] mp_tac check_partial_col_apply_bijection >>
+            impl_tac >>
+            rw []
+            THEN1 (
+                rfs [SUBSET_DEF, domain_difference] >>
+                metis_tac []
+            )
+            THEN1 (
+                fs [SUBSET_DEF, EXTENSION] >>
+                metis_tac []
+            )
+            THEN1 (
+                fs [EXTENSION] >> metis_tac []
+            )
+            THEN1 (
+                imp_res_tac check_clash_tree_output
+            )
+        )
+        THEN1 (
+            qspecl_then [`z`, `livein`, `flivein`, `f`] assume_tac check_col_apply_bijection >>
+            rfs []
+        )
+    )
+    THEN1 (
+        fs [case_eq_thms] >>
+        first_x_assum (qspecl_then [`live`, `flive`, `live'`, `flive'`, `t2_out`, `ft2_out`] assume_tac) >>
+        rfs [] >> fs [] >>
+        imp_res_tac check_clash_tree_output_subset >> rfs [] >>
+        first_x_assum (qspecl_then [`t2_out`, `ft2_out`, `livein''`, `flivein''`, `livein`, `flivein`] mp_tac) >>
+        impl_tac THEN1 (
+            rw []
+            THEN1 (
+                fs [SUBSET_DEF] >> metis_tac []
+            )
+            THEN1 (
+                imp_res_tac check_clash_tree_output
+            )
+            THEN1 (
+                `INJ (\r. f (appbij r)) (domain live') UNIV` by (fs [INJ_DEF, EXTENSION, SUBSET_DEF] >> metis_tac []) >>
+                imp_res_tac check_clash_tree_output >>
+                simp []
+            )
+            THEN1 (
+                imp_res_tac check_clash_tree_output
+            )
+        ) >>
+        rw []
+    )
 );
 
 val extract_coloration_output = Q.store_thm("extract_coloration_output",
@@ -5070,44 +5808,7 @@ val extract_coloration_output = Q.store_thm("extract_coloration_output",
     )
 );
 
-val in_clash_tree_eq_live_tree_registers = Q.store_thm("in_clash_tree_eq_live_tree_registers",
-    `!ct r. in_clash_tree ct r <=> r IN (live_tree_registers (get_live_tree ct))`,
-
-    Induct_on `ct` >>
-    rw [in_clash_tree_def, live_tree_registers_def, get_live_tree_def]
-
-    THEN1 metis_tac []
-    THEN1 simp [MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
-    THEN1 (
-        Cases_on `o'` >>
-        simp[live_tree_registers_def] >>
-        simp [MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup] >>
-        metis_tac []
-    )
-);
-
-val get_live_backward_in_live_tree_registers = Q.store_thm("get_live_backward_in_live_tree_registers",
-    `!lt live. domain (get_live_backward lt live) SUBSET domain live UNION live_tree_registers lt`,
-    Induct_on `lt` >>
-    simp [get_live_backward_def, live_tree_registers_def, domain_numset_list_delete, domain_numset_list_insert, branch_domain] >>
-    fs [SUBSET_DEF] >>
-    metis_tac []
-);
-
-val fix_domination_live_tree_registers = Q.store_thm("fix_domination_live_tree_registers",
-    `!lt. live_tree_registers (fix_domination lt) = live_tree_registers lt`,
-    rw [fix_domination_def, live_tree_registers_def] >>
-    `set (MAP FST (toAList (get_live_backward lt LN))) = domain (get_live_backward lt LN)` by rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup] >>
-    qspecl_then [`lt`, `LN`] assume_tac get_live_backward_in_live_tree_registers >>
-    fs [SUBSET_DEF, EXTENSION] >>
-    metis_tac []
-);
-
-val set_MAP_FST_toAList = Q.store_thm("set_MAP_FST_toAList",
-    `!s. set (MAP FST (toAList s)) = domain s`,
-    rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
-);
-
+(*
 val apply_bijection_output = Q.store_thm("apply_bijection_output",
     `!bij invbij (interval : int num_map).
     domain interval SUBSET domain bij /\
@@ -5142,58 +5843,99 @@ val apply_bijection_output = Q.store_thm("apply_bijection_output",
     ) >>
     simp []
 );
+*)
 
-val get_intervals_beg_less_end = Q.store_thm("get_intervals_beg_less_end",
-    `!lt n_in beg_in end_in n_out beg_out end_out.
-    (!r. r IN domain beg_in ==> the 0 (lookup r beg_in) <= the 0 (lookup r end_in)) /\
-    domain beg_in SUBSET domain end_in /\
-    (n_out, beg_out, end_out) = get_intervals lt n_in beg_in end_in ==>
-    (!r. r IN domain beg_out ==> the 0 (lookup r beg_out) <= the 0 (lookup r end_out)) /\
-    domain beg_out SUBSET domain end_out`,
+(* TODO: move *)
+val LENGTH_toAList = Q.store_thm("LENGTH_toAList",
+    `!s. LENGTH (toAList s) = size s`,
+    sg `!s l n. LENGTH (foldi (\k v a. (k,v)::a) n l s) = size s + LENGTH l` THEN1 (
+        Induct_on `s` >>
+        rw [foldi_def]
+    ) >>
+    rw [toAList_def]
+);
 
-    Induct_on `lt` >>
-    simp [get_intervals_def] >>
-    rpt gen_tac >> strip_tac
+val check_col_equal_col = Q.store_thm("check_col_equal_col",
+    `!s f1 f2.
+    (!r. r IN domain s ==> f1 r = f2 r) ==>
+    check_col f1 s = check_col f2 s`,
+
+    rpt strip_tac >>
+    sg `MAP (f1 o FST) (toAList s) = MAP (f2 o FST) (toAList s)` THEN1 (
+        simp [LIST_EQ_REWRITE] >>
+        rw [EL_MAP] >>
+        first_x_assum match_mp_tac >>
+        imp_res_tac EL_MEM >>
+        `MEM (FST (EL x (toAList s))) (MAP FST (toAList s))` by (simp [MEM_MAP, EXISTS_PROD] >> metis_tac [PAIR]) >>
+        fs []
+    ) >>
+    simp [check_col_def]
+);
+
+val check_partial_col_equal_col = Q.store_thm("check_partial_col_equal_col",
+    `!l live flive f1 f2.
+    (!r. MEM r l ==> f1 r = f2 r) ==>
+    check_partial_col f1 l live flive = check_partial_col f2 l live flive`,
+
+    Induct_on `l` >>
+    rw [check_partial_col_def] >>
+    metis_tac []
+);
+
+val check_clash_tree_equal_col = Q.store_thm("check_clash_tree_equal_col",
+    `!f1 f2 ct live flive.
+    (!r. r IN in_clash_tree ct ==> f1 r = f2 r) /\
+    (!r. r IN domain live ==> f1 r = f2 r) ==>
+    check_clash_tree f1 ct live flive = check_clash_tree f2 ct live flive`,
+
+    NTAC 2 gen_tac >>
+    Induct_on `ct` >>
+    rw [] >> TRY (rename1 `Branch optcutset ct1 ct2`) >> TRY (rename1 `Seq ct1 ct2`) >>
+
+    fs [check_clash_tree_def, in_clash_tree_set_eq]
     THEN1 (
-        strip_tac
+        `!r. MEM r l ==> f1 r = f2 r` by simp [] >>
+        `!r. MEM r l0 ==> f1 r = f2 r` by simp [] >>
+        imp_res_tac check_partial_col_equal_col >>
+        sg `MAP f1 l = MAP f2 l` THEN1 (
+            rw [LIST_EQ_REWRITE, EL_MAP] >>
+            imp_res_tac EL_MEM >>
+            fs []
+        ) >>
+        simp []
+    )
+    THEN1 (
+        simp [check_col_equal_col]
+    )
+    THEN1 (
+        rpt (first_x_assum (qspecl_then [`live`, `flive`] assume_tac)) >>
+        Cases_on `optcutset` >> fs [] >> rfs [] >>
+        rpt CASE_TAC
         THEN1 (
-            rw [lookup_numset_list_add_if_lt, lookup_numset_list_add_if_gt]
-            THEN1 (
-                every_case_tac >>
-                simp [the_def] >>
-                intLib.COOPER_TAC
-            )
-            THEN1 rfs [domain_numset_list_add_if_lt]
+            rename1 `check_clash_tree _ ct2 _ _ = SOME (livein2, flivein2)` >>
+            rename1 `check_clash_tree _ ct1 _ _ = SOME (livein1, flivein1)` >>
+            match_mp_tac check_partial_col_equal_col >>
+            rw [MEM_MAP, EXISTS_PROD, MEM_toAList, lookup_difference] >>
+            imp_res_tac check_clash_tree_output_subset >>
+            `r IN domain livein2` by simp [domain_lookup] >>
+            fs [SUBSET_DEF] >>
+            metis_tac []
         )
         THEN1 (
-            fs [domain_numset_list_add_if_lt, domain_numset_list_add_if_gt, SUBSET_DEF] >>
-            metis_tac []
+            simp [check_col_equal_col]
         )
     )
     THEN1 (
-        strip_tac
-        THEN1 (
-            rw [lookup_numset_list_add_if_gt] >>
-            res_tac >>
-            every_case_tac
-            THEN1 (
-                `r NOTIN domain end_in` by fs [lookup_NONE_domain] >>
-                rfs [SUBSET_DEF]
-            )
-            THEN1 (
-                fs [the_def] >>
-                intLib.COOPER_TAC
-            )
-        )
-        THEN1 (
-            simp [domain_numset_list_add_if_gt] >>
-            fs [SUBSET_DEF]
-        )
-    ) >>
-    rpt (pairarg_tac >> fs []) >>
-    `!r. r IN domain int_beg2 ==> the 0 (lookup r int_beg2) <= the 0 (lookup r int_end2)` by metis_tac [] >>
-    metis_tac []
+        first_x_assum (qspecl_then [`live`, `flive`] assume_tac) >>
+        rpt CASE_TAC >>
+        rename1 `check_clash_tree _ _ _ _ = SOME (livein2, flivein2)` >>
+        first_x_assum (qspecl_then [`livein2`, `flivein2`] assume_tac) >>
+        imp_res_tac check_clash_tree_output_subset >>
+        fs [SUBSET_DEF] >>
+        metis_tac []
+    )
 );
+
 
 val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
     `!k moves ct forced.
@@ -5214,266 +5956,206 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
     EVERY (\r1,r2. (sp_default col) r1 = (sp_default col) r2 ==> r1 = r2) forced`,
 
     rpt strip_tac >>
-    simp [linear_scan_reg_alloc_def, run_linear_reg_alloc_intervals_def, run_i_linear_scan_hidden_state_def, run_def, linear_reg_alloc_intervals_and_extract_coloration_def] >>
-    simp msimps >>
+    simp [linear_scan_reg_alloc_def, run_linear_reg_alloc_intervals_def, run_i_linear_scan_hidden_state_def, run_def, linear_reg_alloc_and_extract_coloration_def] >>
 
-    `?livetree. fix_domination (get_live_tree ct) = livetree` by simp [] >>
-    `?int_n int_beg int_end. get_intervals livetree 0 LN LN = (int_n, int_beg, int_end)` by simp [GSYM EXISTS_PROD] >>
-    `?bijstate. FOLDL find_bijection_step find_bijection_init (MAP FST (toAList int_beg)) = bijstate` by simp [] >>
+    `?bijstate. find_bijection_clash_tree find_bijection_init ct = bijstate` by simp [] >>
+    `?ct'. apply_bij_on_clash_tree ct bijstate.bij = ct'` by simp [] >>
     `?forced'. MAP (\r1,r2. (the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij))) forced = forced'` by simp [] >>
     `?moves'. MAP (\p,(r1,r2). (p,(the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij)))) moves = moves'` by simp [] >>
-    `?sthinit. linear_scan_hidden_state (REPLICATE (bijstate.nmax+1) 0) = sthinit` by simp [] >>
-    `?int_beg'. apply_bijection bijstate.bij int_beg = int_beg'` by simp [] >>
-    `?int_end'. apply_bijection bijstate.bij int_end = int_end'` by simp [] >>
-    `?reglist_unsorted. (MAP FST (toAList int_beg')) = reglist_unsorted` by simp [] >>
-    simp [] >>
+    `?reglist_unsorted. (MAP SND (toAList bijstate.bij)) = reglist_unsorted` by simp [] >>
+    `?sth. linear_scan_hidden_state (REPLICATE (bijstate.nmax + 1) 0) (REPLICATE (bijstate.nmax + 1) 1) (REPLICATE (bijstate.nmax + 1) 1) (REPLICATE (bijstate.nmax + 1) 0) (REPLICATE (LENGTH moves) (0, 0, 0)) = sth` by simp [] >>
+    simp msimps >>
+    qspecl_then [`find_bijection_init`, `ct`, `EMPTY`] mp_tac find_bijection_clash_tree_invariants >>
+    impl_tac THEN1 simp [find_bijection_init_invariants] >>
+    simp [] >> strip_tac >>
 
-    qspecl_then [`get_live_tree ct`, `int_n`, `int_beg`, `int_end`] mp_tac get_intervals_domain_eq_live_tree_registers >>
-    impl_tac THEN1 (
+    qspecl_then [`bijstate.bij`, `ct`] mp_tac in_clash_tree_apply_bij >>
+    impl_tac THEN1 fs [good_bijection_state_def] >>
+    strip_tac >> rfs [] >>
+
+    sg `ALL_DISTINCT reglist_unsorted` THEN1 (
+        simp [EL_ALL_DISTINCT_EL_EQ] >>
+        qpat_x_assum `_ = reglist_unsorted` (fn th => assume_tac (GSYM th)) >>
+        simp [] >> rpt strip_tac >>
+        simp [EL_MAP] >>
+        eq_tac >> strip_tac >> simp [] >>
+        `!(p1 : num#num) (p2 : num#num). SND p1 = SND p2 <=> (?a b c. p1 = (a,c) /\ p2 = (b,c))` by (simp [FORALL_PROD] >> metis_tac []) >>
+        fs [] >>
+        imp_res_tac EL_MEM >>
+        rfs [MEM_toAList] >>
+        fs [good_bijection_state_def, sp_inverts_def] >>
+        `a = b` by metis_tac [SOME_11] >>
+        `ALL_DISTINCT (MAP FST (toAList bijstate.bij))` by simp [ALL_DISTINCT_MAP_FST_toAList] >>
+        `ZIP (MAP FST (toAList bijstate.bij), MAP SND (toAList bijstate.bij)) = toAList bijstate.bij` by simp [ZIP_MAP_FST_SND_EQ] >>
+        `ALL_DISTINCT (ZIP (MAP FST (toAList bijstate.bij), MAP SND (toAList bijstate.bij)))` by fs [ALL_DISTINCT_ZIP] >>
+        rfs [EL_ALL_DISTINCT_EL_EQ] >>
         metis_tac []
     ) >>
-    simp [] >> strip_tac >>
 
-    qspecl_then [`find_bijection_init`, `MAP FST (toAList int_beg)`, `EMPTY`] mp_tac FOLDL_find_bijection_invariants >>
+    qspecl_then [`k`, `moves'`, `ct'`, `forced'`] mp_tac (linear_reg_alloc_without_renaming_correct |> REWRITE_RULE msimps) >>
     impl_tac THEN1 (
-        strip_tac THEN1 simp [ALL_DISTINCT_MAP_FST_toAList] >>
+        simp [] >>
+        strip_tac THEN1 rw [EL_REPLICATE] >>
+        strip_tac THEN1 rw [EL_REPLICATE] >>
         strip_tac THEN1 rw [] >>
-        simp [find_bijection_init_invariants]
-    ) >>
-    simp [set_MAP_FST_toAList] >> strip_tac >>
-
-    qspecl_then [`bijstate.bij`, `bijstate.invbij`, `int_beg`] mp_tac apply_bijection_output >>
-    impl_tac THEN1 fs [good_bijection_state_def] >>
-    simp [] >> strip_tac >>
-
-    qspecl_then [`bijstate.bij`, `bijstate.invbij`, `int_end`] mp_tac apply_bijection_output >>
-    impl_tac THEN1 fs [good_bijection_state_def] >>
-    simp [] >> strip_tac >>
-
-    qspecl_then [`int_beg'`, `int_end'`, `k`, `forced'`, `moves'`, `reglist_unsorted`, `sthinit`] mp_tac linear_reg_alloc_intervals_correct >>
-    impl_tac THEN1 (
         strip_tac THEN1 (
-            simp [EVERY_MEM, FORALL_PROD] >>
-            `!r. MEM r reglist_unsorted <=> r IN domain int_beg'` by metis_tac [set_MAP_FST_toAList] >>
-            rpt gen_tac >> strip_tac >>
-            rename1 `MEM (r1,r2) forced'` >>
-            sg `?br1 br2. MEM (br1, br2) forced /\ r1 = the 0 (lookup br1 bijstate.bij) /\ r2 = the 0 (lookup br2 bijstate.bij)` THEN1 (
-              rveq >> fs [MEM_MAP, EXISTS_PROD] >>
-              metis_tac []
-            ) >>
-            `in_clash_tree ct br1 /\ in_clash_tree ct br2` by (fs [EVERY_MEM, FORALL_PROD] >> metis_tac []) >>
-            rfs [in_clash_tree_eq_live_tree_registers] >>
-            `br1 IN live_tree_registers livetree` by metis_tac [fix_domination_live_tree_registers] >>
-            `br2 IN live_tree_registers livetree` by metis_tac [fix_domination_live_tree_registers] >>
-            `br1 IN domain bijstate.bij` by rfs [good_bijection_state_def] >>
-            `br2 IN domain bijstate.bij` by rfs [good_bijection_state_def] >>
-            metis_tac [domain_lookup]
+            `!r. (?v. lookup r bijstate.bij = SOME v) <=> in_clash_tree ct r` by (simp [GSYM domain_lookup] >> fs [good_bijection_state_def, EXTENSION, IN_DEF]) >>
+            rw [MEM_MAP, EXISTS_PROD, MEM_toAList] >>
+            fs [IN_DEF] >>
+            metis_tac [the_def]
         ) >>
         strip_tac THEN1 (
-            simp [EVERY_MEM, FORALL_PROD] >>
-            rpt gen_tac >> strip_tac >>
-            fs [MEM_MAP, EXISTS_PROD] >>
-            rename1 `MEM (p, r1, r2) moves'` >>
-            `LENGTH sthinit.colors = bijstate.nmax+1` by (rveq >> simp []) >>
-            simp [] >>
-            sg `?br1 br2. MEM (p, br1, br2) moves /\ r1 = the 0 (lookup br1 bijstate.bij) /\ r2 = the 0 (lookup br2 bijstate.bij)` THEN1 (
-                rveq >> fs [MEM_MAP, EXISTS_PROD] >>
-                metis_tac []
-            ) >>
             fs [good_bijection_state_def] >>
-            simp [intLib.COOPER_PROVE ``!(a:num) b. a < b+1 <=> a <= b``]
+            rw [in_clash_tree_apply_bij] >>
+            rw [intLib.COOPER_PROVE ``!(a : num) b. a < b+1 <=> a <= b``]
         ) >>
         strip_tac THEN1 (
-            simp [EVERY_MEM] >>
-            gen_tac >> strip_tac >>
-            `r IN domain int_beg'` by metis_tac [set_MAP_FST_toAList] >>
-            res_tac >>
+            fs [EVERY_MEM, FORALL_PROD] >>
+            rw [MEM_MAP, EXISTS_PROD] >>
+            fs [IN_DEF] >>
+            metis_tac []
+        ) >>
+        strip_tac THEN1 (
+            rw [EVERY_MEM, FORALL_PROD, MEM_MAP, EXISTS_PROD] >>
             fs [good_bijection_state_def] >>
-            `LENGTH sthinit.colors = bijstate.nmax+1` by (rveq >> simp []) >>
-            simp [intLib.COOPER_PROVE ``!(a:num) b. a < b+1 <=> a <= b``]
+            rw [intLib.COOPER_PROVE ``!(a : num) b. a < b+1 <=> a <= b``]
         ) >>
         strip_tac THEN1 (
-            simp [EVERY_MEM] >>
-            gen_tac >> strip_tac >>
-            `r IN domain int_beg'` by metis_tac [set_MAP_FST_toAList] >>
-            `?br. br IN domain bijstate.bij /\ r = the 0 (lookup br bijstate.bij)` by fs [] >>
-            `lookup r int_beg' = lookup br int_beg` by fs [] >>
-            `lookup r int_end' = lookup br int_end` by fs [] >>
-            simp [] >>
-            qspecl_then [`livetree`, `0`, `LN`, `LN`, `int_n`, `int_beg`, `int_end`] mp_tac  get_intervals_beg_less_end >>
-            impl_tac THEN1 (
+            fs [good_bijection_state_def] >>
+            `LENGTH reglist_unsorted = LENGTH (toAList bijstate.bij)` by rw [] >>
+            `LENGTH (toAList bijstate.bij) = CARD (domain bijstate.bij)` by simp [LENGTH_toAList, size_domain] >>
+            `LENGTH sth.sorted_regs = bijstate.nmax+1` by rw [] >>
+            sg `INJ (\r. the 0 (lookup r bijstate.bij)) (domain bijstate.bij) (set (GENLIST (\x.x) (bijstate.nmax + 1)))` THEN1 (
+                simp [INJ_DEF] >>
+                strip_tac THEN1 (
+                    simp [MEM_GENLIST, intLib.COOPER_PROVE ``!(a : num) b. a < b+1 <=> a <= b``]
+                ) >>
                 rpt strip_tac >>
-                rw []
+                fs [domain_lookup] >>
+                rfs [the_def, sp_inverts_def] >>
+                metis_tac [SOME_11]
             ) >>
-            rpt strip_tac >>
-            `br IN domain int_beg` by metis_tac [good_bijection_state_def] >>
+            imp_res_tac INJ_CARD >> fs [] >>
+            `!n. ALL_DISTINCT (GENLIST (\x.x) n)` by simp [ALL_DISTINCT_GENLIST] >>
+            `!n. CARD (set (GENLIST (\x.x) n)) = n` by simp [ALL_DISTINCT_CARD_LIST_TO_SET] >>
             fs []
         ) >>
-        strip_tac THEN1 (
-            rveq >> simp [ALL_DISTINCT_MAP_FST_toAList]
-        ) >>
-        strip_tac THEN1 (
-            rveq >> simp [set_MAP_FST_toAList]
-        )
-        THEN1 (
-            simp [EXTENSION] >>
-            gen_tac >> eq_tac >> strip_tac >>
-            rename1 `r IN _` >>
-            `?br. br IN domain bijstate.bij /\ r = the 0 (lookup br bijstate.bij)` by fs [] >>
-            `lookup r int_beg' = lookup br int_beg` by fs [] >>
-            `lookup r int_end' = lookup br int_end` by fs [] >>
-            `r IN domain int_beg' <=> br IN domain int_beg` by fs [domain_lookup] >>
-            `r IN domain int_end' <=> br IN domain int_end` by fs [domain_lookup] >>
-            fs [] >>
-            rfs []
-        )
+        rw []
     ) >>
-    simp [] >> strip_tac >>
-    qpat_x_assum `(Success _, _) = _` (fn th => assume_tac (GSYM th)) >>
-    simp [] >>
+    strip_tac >> fs [case_eq_thms] >>
 
     qspecl_then [`bijstate.bij`, `bijstate.invbij`, `sthout`, `reglist_unsorted`, `LN`] mp_tac extract_coloration_output >>
     impl_tac THEN1 (
-        strip_tac THEN1 fs [good_bijection_state_def] >>
-        strip_tac THEN1 fs [good_bijection_state_def] >>
-        strip_tac >>
-        simp [EVERY_MEM] >> rpt strip_tac >>
-        `r IN domain int_beg'` by metis_tac [set_MAP_FST_toAList] >>
-        `?ir. ir IN domain bijstate.bij /\ r = the 0 (lookup ir bijstate.bij)` by fs []
+        fs [good_bijection_state_def] >>
+        strip_tac
         THEN1 (
-            `?bir. lookup ir bijstate.bij = SOME bir` by fs [domain_lookup] >>
-            fs [the_def] >>
-            `lookup bir bijstate.invbij = SOME ir` by fs [good_bijection_state_def, sp_inverts_def] >>
+            qpat_x_assum `_ = reglist_unsorted` (fn th => assume_tac (GSYM th)) >>
+            simp [EVERY_MEM, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup] >>
+            fs [sp_inverts_def] >>
+            metis_tac []
+        )
+        THEN1 (
+            qpat_x_assum `_ = reglist_unsorted` (fn th => assume_tac (GSYM th)) >>
+            `LENGTH sth.colors = bijstate.nmax+1` by rw [] >>
+            simp [EVERY_MEM, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup, intLib.COOPER_PROVE ``!(a : num) b. a < b+1 <=> a <= b``] >>
+            metis_tac [the_def]
+        )
+    ) >>
+    strip_tac >> simp [] >> fs [lookup_def] >>
+
+    qspecl_then [`bijstate.bij`, `bijstate.invbij`, `\r. EL r sthout.colors`, `ct`, `LN`, `LN`, `LN`, `LN`, `livein`, `flivein`] mp_tac check_clash_tree_apply_bijection >>
+    impl_tac THEN1 fs [good_bijection_state_def] >>
+    simp [] >> strip_tac >>
+
+    sg `!r. in_clash_tree ct r ==> sp_default col r = EL (the 0 (lookup r bijstate.bij)) sthout.colors` THEN1 (
+        rpt strip_tac >>
+        `r IN domain bijstate.bij` by rfs [good_bijection_state_def, IN_DEF] >>
+        sg `MEM (the 0 (lookup r bijstate.bij)) reglist_unsorted` THEN1 (
+            qpat_x_assum `_ = reglist_unsorted` (fn th => assume_tac (GSYM th)) >>
+            simp [MEM_MAP, EXISTS_PROD, MEM_toAList] >>
+            fs [domain_lookup, the_def] >>
+            asm_exists_tac >> simp []
+        ) >>
+        first_x_assum (qspec_then `r` assume_tac) >>
+        rfs [] >>
+        simp [sp_default_def]
+    ) >>
+
+    qspecl_then [`sp_default col`, `\r. EL (the 0 (lookup r bijstate.bij)) sthout.colors`, `ct`, `LN`, `LN`] mp_tac check_clash_tree_equal_col >>
+    impl_tac THEN1 simp [IN_DEF] >>
+    strip_tac >> simp [] >>
+
+    strip_tac THEN1 (
+        rpt strip_tac
+        THEN1 (
+            `r IN domain bijstate.bij` by rfs [good_bijection_state_def, EXTENSION, IN_DEF] >>
+            sg `MEM (the 0 (lookup r bijstate.bij)) reglist_unsorted` THEN1 (
+                qpat_x_assum `_ = reglist_unsorted` (fn th => assume_tac (GSYM th)) >>
+                simp [MEM_MAP, EXISTS_PROD, MEM_toAList] >>
+                `r IN domain bijstate.bij` by rfs [good_bijection_state_def, EXTENSION, IN_DEF] >>
+                fs [domain_lookup, the_def] >>
+                asm_exists_tac >> simp []
+            ) >>
+            `lookup r col = SOME (EL (the 0 (lookup r bijstate.bij)) sthout.colors)` by metis_tac [] >>
             simp [domain_lookup]
         )
         THEN1 (
-            `LENGTH sthinit.colors = bijstate.nmax+1` by (rveq >> simp []) >>
-            simp [intLib.COOPER_PROVE ``!(a:num) b. a < b+1 <=> a <= b``] >>
-            fs [good_bijection_state_def]
-        )
-    ) >>
-    simp [] >> strip_tac >> simp [] >>
-
-    sg `check_intervals (sp_default col) int_beg int_end` THEN1 (
-        fs [check_intervals_def] >>
-        rpt strip_tac >>
-        `r1 IN domain bijstate.bij /\ r2 IN domain bijstate.bij` by rfs [good_bijection_state_def] >>
-        `?br1 br2. lookup r1 bijstate.bij = SOME br1 /\ lookup r2 bijstate.bij = SOME br2` by fs [domain_lookup] >>
-        first_x_assum (qspecl_then [`the 0 (lookup r1 bijstate.bij)`, `the 0 (lookup r2 bijstate.bij)`] mp_tac) >>
-        impl_tac THEN1 (
-            simp [the_def] >>
-            fs [sp_default_def] >>
-            `r1 IN domain bijstate.bij /\ r2 IN domain bijstate.bij` by fs [domain_lookup] >>
-            `lookup br1 int_beg' = lookup r1 int_beg` by metis_tac [the_def] >>
-            `lookup br2 int_beg' = lookup r2 int_beg` by metis_tac [the_def] >>
-            `br1 IN domain int_beg' /\ br2 IN domain int_beg'` by metis_tac [domain_lookup] >>
-            `MEM br1 reglist_unsorted /\ MEM br2 reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
-            `lookup r1 col = SOME (EL (the 0 (lookup r1 bijstate.bij)) sthout.colors)` by metis_tac [the_def] >>
-            `lookup r2 col = SOME (EL (the 0 (lookup r2 bijstate.bij)) sthout.colors)` by metis_tac [the_def] >>
-            fs [the_def]
-        ) >>
-        `lookup br1 bijstate.invbij = SOME r1 /\ lookup br2 bijstate.invbij = SOME r2` by fs [good_bijection_state_def, sp_inverts_def] >>
-        simp [the_def] >>
-        metis_tac [SOME_11]
-    ) >>
-
-    qspecl_then [`get_live_tree ct`, `int_n`, `int_beg`, `int_end`, `sp_default col`] mp_tac check_intervals_check_live_tree >>
-    impl_tac THEN1 (
-        rveq >> simp []
-    ) >>
-    simp [] >> strip_tac >>
-
-    qspecl_then [`sp_default col`, `get_live_tree ct`, `liveout`, `fliveout`] mp_tac fix_domination_check_live_tree >>
-    impl_tac THEN1 (
-        rveq >> simp []
-    ) >>
-    simp [] >> strip_tac >>
-
-    qspecl_then [`sp_default col`, `ct`, `liveout'`, `fliveout'`] mp_tac get_live_tree_correct_LN >>
-    impl_tac THEN1 (
-        simp []
-    ) >>
-    simp [] >> strip_tac >>
-    asm_exists_tac >> simp [] >>
-
-    strip_tac THEN1 (
-        gen_tac >> strip_tac >>
-        `r IN (live_tree_registers livetree)` by metis_tac [in_clash_tree_eq_live_tree_registers, fix_domination_live_tree_registers] >>
-        `r IN domain bijstate.bij` by metis_tac [good_bijection_state_def] >>
-        first_x_assum (qspec_then `r` assume_tac) >>
-        `?ir. lookup r int_beg = SOME ir` by metis_tac [domain_lookup] >>
-        `lookup (the 0 (lookup r bijstate.bij)) int_beg' = SOME ir` by fs [] >>
-        `the 0 (lookup r bijstate.bij) IN domain int_beg'` by fs [domain_lookup] >>
-        `MEM (the 0 (lookup r bijstate.bij)) reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
-        `r IN domain col` by fs [domain_lookup] >>
-        simp [] >>
-        Cases_on `is_phy_var r` >> simp [] >>
-        rpt strip_tac >>
-        `?c. lookup r col = SOME c` by fs [domain_lookup] >>
-        simp [sp_default_def] >>
-        `c = EL (the 0 (lookup r bijstate.bij)) sthout.colors` by metis_tac [SOME_11] >>
-        fs [EVERY_MEM]
-        THEN1 (
-            `is_phy_var (the 0 (lookup r bijstate.bij))` by metis_tac [good_bijection_state_def] >>
-            `EL (the 0 (lookup r bijstate.bij)) sthout.colors = the 0 (lookup r bijstate.bij) DIV 2` by metis_tac [] >>
-            `the 0 (lookup r bijstate.bij) = r` by fs [good_bijection_state_def] >>
-            simp []
-        )
-        THEN1 (
-            `is_stack_var (the 0 (lookup r bijstate.bij))` by metis_tac [good_bijection_state_def] >>
-            metis_tac [convention_partitions]
+            sg `in_clash_tree ct' (the 0 (lookup r bijstate.bij))` THEN1 (
+                simp [IN_DEF] >>
+                qexists_tac `r` >> simp []
+            ) >>
+            CASE_TAC
+            THEN1 (
+                sg `is_phy_var (the 0 (lookup r bijstate.bij))` THEN1 (
+                    fs [good_bijection_state_def] >>
+                    metis_tac [IN_DEF]
+                ) >>
+                fs [good_bijection_state_def] >>
+                qpat_x_assum `!r. r IN in_clash_tree ct /\ is_phy_var r ==> _` (qspec_then `r` mp_tac) >>
+                impl_tac THEN1 rfs [IN_DEF] >>
+                strip_tac >>
+                qpat_x_assum `!r. in_clash_tree ct' r ==> if _ then _ else _` (qspec_then `the 0 (lookup r bijstate.bij)` assume_tac) >>
+                rfs [] >> metis_tac []
+            )
+            THEN1 (
+                strip_tac >>
+                sg `is_stack_var (the 0 (lookup r bijstate.bij))` THEN1 (
+                    fs [good_bijection_state_def] >>
+                    metis_tac [IN_DEF]
+                ) >>
+                `~is_phy_var (the 0 (lookup r bijstate.bij))` by metis_tac [convention_partitions] >>
+                fs [good_bijection_state_def] >>
+                qpat_x_assum `!r. in_clash_tree ct' r ==> if _ then _ else _` (qspec_then `the 0 (lookup r bijstate.bij)` assume_tac) >>
+                rfs []
+            )
         )
     ) >>
 
     strip_tac THEN1 (
         rpt strip_tac >>
         `r IN domain bijstate.bij` by fs [SUBSET_DEF] >>
-        `r IN live_tree_registers livetree` by metis_tac [good_bijection_state_def] >>
-        metis_tac [in_clash_tree_eq_live_tree_registers, fix_domination_live_tree_registers]
+        fs [good_bijection_state_def, IN_DEF]
     )
 
     THEN1 (
         simp [EVERY_MEM, FORALL_PROD] >>
         rpt strip_tac >>
-        rename1 `MEM (r1,r2) forced` >>
-        `MEM (the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij)) forced'` by (rveq >> simp [MEM_MAP, EXISTS_PROD] >> metis_tac []) >>
+        rename1 `MEM (r1, r2) forced` >>
         `in_clash_tree ct r1 /\ in_clash_tree ct r2` by (fs [EVERY_MEM, FORALL_PROD] >> metis_tac []) >>
-        `r1 IN live_tree_registers livetree /\ r2 IN live_tree_registers livetree` by metis_tac [in_clash_tree_eq_live_tree_registers, fix_domination_live_tree_registers] >>
-        sg `r1 IN domain col /\ r2 IN domain col` THEN1 (
-            `r1 IN domain int_beg /\ r2 IN domain int_beg` by simp [] >>
-            `r1 IN domain bijstate.bij /\ r2 IN domain bijstate.bij` by metis_tac [good_bijection_state_def] >>
-            `lookup (the 0 (lookup r1 bijstate.bij)) int_beg' = lookup r1 int_beg` by fs [] >>
-            `lookup (the 0 (lookup r2 bijstate.bij)) int_beg' = lookup r2 int_beg` by fs [] >>
-            `(r1 IN domain int_beg <=> (the 0 (lookup r1 bijstate.bij)) IN domain int_beg') /\ (r2 IN domain int_beg <=> (the 0 (lookup r2 bijstate.bij)) IN domain int_beg')` by fs [domain_lookup] >>
-            `MEM (the 0 (lookup r1 bijstate.bij)) reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
-            `MEM (the 0 (lookup r2 bijstate.bij)) reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
-            `lookup r1 col = SOME (EL (the 0 (lookup r1 bijstate.bij)) sthout.colors)` by metis_tac [] >>
-            `lookup r2 col = SOME (EL (the 0 (lookup r2 bijstate.bij)) sthout.colors)` by metis_tac [] >>
-            simp [domain_lookup]
+        `r1 IN domain bijstate.bij /\ r2 IN domain bijstate.bij` by (fs [good_bijection_state_def, IN_DEF, EXTENSION] >> metis_tac []) >>
+        sg `MEM (the 0 (lookup r1 bijstate.bij)) reglist_unsorted /\ MEM (the 0 (lookup r2 bijstate.bij)) reglist_unsorted` THEN1 (
+            strip_tac >>
+            qpat_x_assum `_ = reglist_unsorted` (fn th => assume_tac (GSYM th)) >>
+            simp [MEM_MAP, EXISTS_PROD, MEM_toAList] >>
+            fs [domain_lookup, the_def] >>
+            metis_tac []
         ) >>
-        `?c1 c2. lookup r1 col = SOME c1 /\ lookup r2 col = SOME c2` by fs [domain_lookup] >>
+        `lookup r1 col = SOME (EL (the 0 (lookup r1 bijstate.bij)) sthout.colors) /\ lookup r2 col = SOME (EL (the 0 (lookup r2 bijstate.bij)) sthout.colors)` by metis_tac [] >>
         fs [sp_default_def] >>
-        fs [EVERY_MEM, FORALL_PROD] >>
-        first_x_assum (qspecl_then [`the 0 (lookup r1 bijstate.bij)`, `the 0 (lookup r2 bijstate.bij)`] mp_tac) >>
-        impl_tac THEN1 simp [] >>
-        impl_tac THEN1 (
-            `r1 IN domain bijstate.bij /\ r2 IN domain bijstate.bij` by metis_tac [good_bijection_state_def] >>
-            `lookup (the 0 (lookup r1 bijstate.bij)) int_beg' = lookup r1 int_beg` by fs [] >>
-            `lookup (the 0 (lookup r2 bijstate.bij)) int_beg' = lookup r2 int_beg` by fs [] >>
-            `(the 0 (lookup r1 bijstate.bij)) IN domain int_beg' <=> r1 IN domain int_beg` by metis_tac [domain_lookup] >>
-            `(the 0 (lookup r2 bijstate.bij)) IN domain int_beg' <=> r2 IN domain int_beg` by metis_tac [domain_lookup] >>
-            `MEM (the 0 (lookup r1 bijstate.bij)) reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
-            `MEM (the 0 (lookup r2 bijstate.bij)) reglist_unsorted` by metis_tac [set_MAP_FST_toAList] >>
-            `c1 = EL (the 0 (lookup r1 bijstate.bij)) sthout.colors` by metis_tac [SOME_11] >>
-            `c2 = EL (the 0 (lookup r2 bijstate.bij)) sthout.colors` by metis_tac [SOME_11] >>
-            simp []
-        ) >>
-        `r1 IN domain bijstate.bij /\ r2 IN domain bijstate.bij` by metis_tac [good_bijection_state_def] >>
-        `?br1 br2. lookup r1 bijstate.bij = SOME br1 /\ lookup r2 bijstate.bij = SOME br2` by fs [domain_lookup] >>
-        `lookup br1 bijstate.invbij = SOME r1 /\ lookup br2 bijstate.invbij = SOME r2` by metis_tac [good_bijection_state_def, sp_inverts_def] >>
-        strip_tac >>
-        rfs [the_def] >>
-        fs []
+        `MEM (the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij)) forced'` by (rw [MEM_MAP, EXISTS_PROD] >> metis_tac []) >>
+        `the 0 (lookup r1 bijstate.bij) = the 0 (lookup r2 bijstate.bij)` by fs [EVERY_MEM, FORALL_PROD] >>
+        fs [domain_lookup] >> rfs [the_def, good_bijection_state_def, sp_inverts_def] >>
+        metis_tac [SOME_11]
     )
 );
 
