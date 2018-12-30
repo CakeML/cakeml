@@ -34,6 +34,8 @@ fun mk_alist_reprs R_thm conv dest cmp
 fun peek_functions_in_rs (AList_Reprs inn_rs)
     = Redblackmap.listItems (! (#dict inn_rs)) |> map fst
 
+fun peek_repr (AList_Reprs inn_rs) tm = Redblackmap.peek (! (#dict inn_rs), tm)
+
 (* constructing is_insert thms *)
 
 fun find_key_rec is_last [] = raise Empty
@@ -168,9 +170,6 @@ fun prove_insert R conv dest cmp k x al = let
 
 (* making repr theorems *)
 
-fun is_short_list xs = listSyntax.is_nil xs
-    orelse total (listSyntax.is_nil o snd o listSyntax.dest_cons) xs = SOME true
-
 fun mk_insert_repr (AList_Reprs rs) prev_repr k_x = let
     val (k, x) = pairSyntax.dest_pair k_x
     val (R, al) = case strip_comb (concl prev_repr)
@@ -179,28 +178,32 @@ fun mk_insert_repr (AList_Reprs rs) prev_repr k_x = let
     val insert = prove_insert R (#conv rs) (#dest rs) (#cmp rs) k x al
   in MATCH_MP repr_insert (CONJ prev_repr insert) end
 
+fun dest_alookup_single tm = let
+    val (f, xs) = strip_comb tm
+  in if not (length xs = 1 andalso same_const f alookup_tm)
+    then NONE
+    else if listSyntax.is_nil (hd xs) then SOME NONE
+    else case total listSyntax.dest_cons (hd xs) of
+        SOME (y, ys) => if listSyntax.is_nil ys then SOME (SOME y) else NONE
+      | NONE => NONE
+  end
+
 fun mk_repr_step rs tm = let
     val (AList_Reprs inn_rs) = rs
     val (f, xs) = strip_comb tm
-    val is_empty = total (optionSyntax.is_none o snd o dest_abs) tm = SOME true
-    val is_alookup = same_const alookup_tm f
-    val is_short = is_alookup andalso total (is_short_list o hd) xs = SOME true
-    val merge_lhs = if same_const option_choice_tm f then [hd xs] else []
-    val merge_unknown = exists ((fn t => not (same_const t alookup_tm
-        orelse same_const t option_choice_tm)) o fst o strip_comb) merge_lhs
-    val merge_alookup_xs = map strip_comb merge_lhs
-        |> filter (same_const alookup_tm o fst) |> map (hd o snd)
-    val is_insert = exists (fn xs => not (listSyntax.is_nil xs)
-        andalso is_short_list xs) merge_alookup_xs
-  in if is_empty
-    then MATCH_MP (MATCH_MP repr_empty (#R_thm inn_rs)) (REFL tm)
-    else if is_short
+    val is_short = dest_alookup_single tm <> NONE
+    val is_merge = same_const option_choice_tm f
+    val is_repr_merge = is_merge andalso (case peek_repr rs (hd xs) of
+        SOME _ => true | NONE => false)
+    val (is_insert, insert_tm) = if not is_merge then (false, T)
+        else case dest_alookup_single (hd xs) of
+            SOME (SOME t) => (true, t) | _ => (false, T)
+  in if is_short
     then MATCH_MP (ISPEC (hd xs) alist_repr_refl) (#R_thm inn_rs)
         |> prove_assum_by_conv (SIMP_CONV list_ss [sortingTheory.SORTED_DEF])
     else if is_insert
-    then mk_insert_repr rs (mk_repr rs (rand tm))
-        (fst (listSyntax.dest_cons (hd merge_alookup_xs)))
-    else if merge_unknown
+    then mk_insert_repr rs (mk_repr rs (rand tm)) insert_tm
+    else if is_repr_merge
     then let
         val l_repr_thm = mk_repr rs (hd xs)
         val l_repr_al = rand (rator (concl l_repr_thm))
@@ -208,22 +211,21 @@ fun mk_repr_step rs tm = let
         val half_repr = list_mk_icomb (option_choice_tm, [look, List.last xs])
         val next_repr = mk_repr rs half_repr
       in MATCH_MP alist_repr_choice_trans_left (CONJ l_repr_thm next_repr) end
-    else if not (null merge_lhs) orelse is_alookup
-    then CHANGED_CONV (SIMP_CONV bool_ss [alookup_to_option_choice,
+    else CHANGED_CONV (SIMP_CONV bool_ss [alookup_to_option_choice,
                 option_choice_f_assoc, alookup_empty_option_choice_f,
-                count_append_def, alookup_append_option_choice_f]) tm
-        handle HOL_ERR _ => raise err "mk_repr_step" ("failed to SIMP_CONV: "
-            ^ Parse.term_to_string tm)
-    else raise err "mk_repr_step" ("no step for: " ^ Parse.term_to_string f)
+                count_append_def, alookup_append_option_choice_f,
+                empty_is_ALOOKUP]) tm
+        handle HOL_ERR _ => raise err "mk_repr_step"
+            ("no progress from SIMP_CONV: " ^ Parse.term_to_string tm)
   end
-and mk_repr_known_step (AList_Reprs inn_rs) tm =
-  case Redblackmap.peek (! (#dict inn_rs), tm) of
+and mk_repr_known_step rs tm =
+  case peek_repr rs tm of
     SOME thm => thm
-  | NONE => mk_repr_step (AList_Reprs inn_rs) tm
+  | NONE => mk_repr_step rs tm
 and mk_repr rs tm = let
     val thm = mk_repr_known_step rs tm
   in if is_eq (concl thm)
-    then mk_repr_known_step rs (rhs (concl thm))
+    then mk_repr rs (rhs (concl thm))
       |> CONV_RULE (RAND_CONV (REWR_CONV (SYM thm)))
     else thm
   end
@@ -231,7 +233,7 @@ and mk_repr rs tm = let
 fun add_alist_repr rs thm = let
     val AList_Reprs inn_rs = rs
     val (f, rhs) = dest_eq (concl thm)
-    val repr_thm = case Redblackmap.peek (! (#dict inn_rs), rhs) of
+    val repr_thm = case peek_repr rs rhs of
         SOME rhs_thm => if is_eq (concl rhs_thm)
           then TRANS thm rhs_thm
           else thm
@@ -328,7 +330,7 @@ fun repr_prove_lookup conv dest cmp repr_thm k = let
 fun reprs_conv rs tm = let
     val AList_Reprs inn_rs = rs
     val (f, x) = dest_comb tm handle HOL_ERR _ => raise UNCHANGED
-    val repr_thm = case Redblackmap.peek (! (#dict inn_rs), f) of
+    val repr_thm = case peek_repr rs f of
       NONE => raise UNCHANGED | SOME thm => thm
   in if is_eq (concl repr_thm)
     then (RATOR_CONV (REWR_CONV repr_thm) THENC reprs_conv rs) tm
