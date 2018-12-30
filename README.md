@@ -45,7 +45,7 @@ Formulae for the Verification of Imperative Programs"
 A verified compiler for CakeML, including:
  - lexing and PEG parsing,
  - type inference,
- - compilation to ASM assembly language, and
+ - compilation to ASM assembly language, and,
  - code generation to x86, ARM, and more.
 
 [developers](developers):
@@ -75,7 +75,7 @@ generated HOL is also included. The directory includes definitions of:
  - the abstract syntax,
  - big step semantics (both functional and relational),
  - a small step semantics,
- - the semantics of FFI calls, and
+ - the semantics of FFI calls, and,
  - the type system.
 
 [translator](translator):

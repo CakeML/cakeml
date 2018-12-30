@@ -5,7 +5,7 @@ generated HOL is also included. The directory includes definitions of:
  - the abstract syntax,
  - big step semantics (both functional and relational),
  - a small step semantics,
- - the semantics of FFI calls, and
+ - the semantics of FFI calls, and,
  - the type system.
 
 [addancs.sml](addancs.sml):
