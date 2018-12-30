@@ -265,4 +265,28 @@ val _ = ml_prog_update (close_module NONE);
 val _ = ml_prog_update close_local_block;
 val r = translate global_f6_def;
 
+(* translating within nested modules *)
+
+val m1_m2_f_def = Define `m1_m2_f i = SUC 1 + i`;
+val m1_m3_f_def = Define `m1_m3_f i = m1_m2_f (SUC i)`;
+val m1_f_def = Define `m1_f i = m1_m2_f (m1_m3_f i)`;
+val m4_f_def = Define `m4_f i = m1_f i + m1_m3_f (m1_m2_f i)`;
+val m4_m5_f_def = Define `m4_m5_f i = m1_f i + m4_f i + m1_m2_f i`;
+
+val _ = ml_prog_update (open_module "m1");
+val _ = ml_prog_update (open_module "m2");
+val r = translate m1_m2_f_def;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (open_module "m3");
+val r = translate m1_m3_f_def;
+val _ = ml_prog_update (close_module NONE);
+val r = translate m1_f_def;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (open_module "m4");
+val r = translate m4_f_def;
+val _ = ml_prog_update (open_module "m5");
+val r = translate m4_m5_f_def;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (close_module NONE);
+
 val _ = export_theory();

@@ -141,6 +141,20 @@ fun normalise_assums th =
 
 val clean_on_exit = ref false;
 
+(* make the qualified identifier for some item, where "base" is its base name
+   (parameter of Short) in its local scope, mods is the module scope it was
+   defined in, and curr_mods is the current module scope. *)
+fun mk_qualified_relative_name curr_mods mods base = let
+    val base_nm = astSyntax.mk_Short base
+    fun drop_same (x :: xs) (y :: ys) = if x = y then drop_same xs ys
+        else (x :: xs)
+      | drop_same xs _ = xs
+    val rel_mods = drop_same mods curr_mods
+    val mks = stringSyntax.fromMLstring
+    fun mk_name [] b = b
+      | mk_name (m :: ms) b = astSyntax.mk_Long (mks m, mk_name ms b)
+  in mk_name rel_mods base_nm end
+
 local
   val v_thms = ref ([] : (string (* name: "name" *) *
                           string (* ML name: "mlname" *) *
@@ -152,21 +166,21 @@ local
                                     |- Eval env (Var (Short "mlname")) (A name) (inside module, or no module)
                                     |- Eval env (Var (Long "modname" "mlname")) (A name) (after module) *) *
                           thm (* precond definition: |- T or |- name_side ... = ... or user-provided *) *
-                          string option (* module name: "modname" *)) list);
+                          string list (* module scope *)) list);
   val eval_thms = ref ([] : (string (* name *) *
                             term (* HOL term *) *
                             thm (* certificate: Eval env exp (P tm) *)) list);
   val prog_state = ref ml_progLib.init_state;
   val cons_name_state = ref ([] : (string  *       (* %%thy%%type%%ctor *)
                                   (term *         (* constructor name  *)
-                                   string option) (* module name       *)) list);
+                                   string list) (* module scope *)) list);
   val type_mod_state = ref ([] : (string * (* type name *)
-                                  string   (* module name *)) list);
+                                  string list (* module scope *)) list);
 in
-  fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string option) = nm
-  fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string option) = tm
-  fun get_cert (_:string,_:string,_:term,th:thm,_:thm,_:string option) = th
-  fun get_pre (_:string,_:string,_:term,_:thm,th:thm,_:string option) = th
+  fun get_ml_name (_:string,nm:string,_:term,_:thm,_:thm,_:string list) = nm
+  fun get_const (_:string,_:string,tm:term,_:thm,_:thm,_:string list) = tm
+  fun get_cert (_:string,_:string,_:term,th:thm,_:thm,_:string list) = th
+  fun get_pre (_:string,_:string,_:term,_:thm,th:thm,_:string list) = th
   fun get_v_thms () = !v_thms
   fun v_thms_reset () =
     (v_thms := [];
@@ -177,9 +191,7 @@ in
   fun get_curr_env () = get_env (!prog_state);
   fun get_curr_state () = get_state (!prog_state);
   fun get_curr_v_defs () = get_v_defs (!prog_state);
-  fun get_curr_module_name () = case (get_open_modules (!prog_state)) of
-      [] => NONE
-    | (m :: _) => SOME m
+  fun get_curr_modules () = get_open_modules (!prog_state);
   fun add_v_thms (name,ml_name,th,pre_def) = let
     val thc = th |> concl
     val (tm,th) =
@@ -187,10 +199,10 @@ in
         (thc |> rand |> rand,
          normalise_assums th)
       else (thc |> rator |> rand,th)
-    val module_name = get_curr_module_name ()
+    val modules = get_curr_modules ()
     val _ = if Teq (concl pre_def) then () else
             (print ("\nWARNING: " ^ml_name^" has a precondition.\n\n"))
-    in (v_thms := (name,ml_name,tm,th,pre_def,module_name) :: (!v_thms)) end;
+    in (v_thms := (name,ml_name,tm,th,pre_def,modules) :: (!v_thms)) end;
   (* if the order didn't matter...
   fun replace_v_thm c th = let
     val (found_v_thms,left_v_thms) = partition (same_const c o get_const) (!v_thms)
@@ -212,17 +224,14 @@ in
           aconv (th |> concl |> rand) v) (!v_thms)
     in ((v_thms := (name,ml_name,tm,th,TRUTH,module_name) :: (!v_thms)); th) end;
   fun get_bare_v_thm const = first (can (C match_term const) o get_const) (!v_thms)
+  fun get_qualified_name mods base = mk_qualified_relative_name
+    (get_curr_modules ()) mods base
   fun lookup_v_thm const = let
     val (name,ml_name,c,th,pre,m) = get_bare_v_thm const
     val th = th |> SPEC_ALL |> UNDISCH_ALL
-    val th = (case m of
-                NONE => MATCH_MP Eval_Var_Short th
-              | SOME mod_name =>
-                  if m = get_curr_module_name ()
-                  then MATCH_MP Eval_Var_Short th
-                  else (MATCH_MP Eval_Var_Long th
-                        |> SPEC (stringSyntax.fromMLstring mod_name)))
-    val th = SPEC (stringSyntax.fromMLstring ml_name) th |> SPEC_ALL |> UNDISCH_ALL
+    val iden = get_qualified_name m (stringSyntax.fromMLstring ml_name)
+    val th = MATCH_MP Eval_Var_general th
+        |> SPEC iden |> UNDISCH_ALL
     in th end
   fun lookup_abs_v_thm const =
     let
@@ -293,14 +302,14 @@ in
     fun check_no_ind_assum_in_v (_,_,tm,th,_,_) = check_no_ind_assum tm th
     val _ = map check_no_ind_assum_in_v (!v_thms)
     val pack_vs = pack_list (pack_6tuple pack_string pack_string pack_term
-                             pack_thm pack_thm (pack_option pack_string))
+                             pack_thm pack_thm (pack_list pack_string))
     val pack_evals = pack_list (pack_triple pack_string pack_term pack_thm)
     val cleaner = if !clean_on_exit then ml_progLib.clean_state else I
     in pack_triple pack_vs pack_evals pack_ml_prog_state
          (!v_thms,!eval_thms, cleaner (!prog_state)) end
   fun unpack_v_thms th = let
     val unpack_vs = unpack_list (unpack_6tuple unpack_string unpack_string unpack_term
-                                 unpack_thm unpack_thm (unpack_option unpack_string))
+                                 unpack_thm unpack_thm (unpack_list unpack_string))
     val unpack_evals = unpack_list (unpack_triple
                           unpack_string unpack_term unpack_thm)
     val (x1,x2,x3) = unpack_triple unpack_vs unpack_evals unpack_ml_prog_state th
@@ -311,19 +320,19 @@ in
   fun pack_cons_names () =
     let
       val pack_ns =
-        pack_pair pack_string (pack_pair pack_term (pack_option pack_string))
+        pack_pair pack_string (pack_pair pack_term (pack_list pack_string))
     in
       pack_list pack_ns (!cons_name_state)
     end
   fun pack_type_mods () =
     let
-      val pack_ns = pack_pair pack_string pack_string
+      val pack_ns = pack_pair pack_string (pack_list pack_string)
     in
       pack_list pack_ns (!type_mod_state)
     end
   fun unpack_type_mods th =
     let
-      val unpack_ns = unpack_pair unpack_string unpack_string
+      val unpack_ns = unpack_pair unpack_string (unpack_list unpack_string)
       val tyms = unpack_list unpack_ns th
     in
       type_mod_state := tyms
@@ -332,7 +341,7 @@ in
     let
       val unpack_ns =
         unpack_pair unpack_string
-                    (unpack_pair unpack_term (unpack_option unpack_string))
+                    (unpack_pair unpack_term (unpack_list unpack_string))
       val tyns = unpack_list unpack_ns th
     in
       cons_name_state := tyns
@@ -347,13 +356,13 @@ in
    *      be entered with their full name. *)
   fun enter_type_mod tyname =
     let
-      val mname = get_curr_module_name ()
+      val mods = get_curr_modules ()
       val _ = lookup_type_mod tyname = NONE orelse
               failwith ("duplicate type: " ^ tyname)
     in
-      case mname of
-        NONE => ()
-      | SOME mname => type_mod_state := (tyname,mname)::(!type_mod_state)
+      case mods of
+        [] => ()
+      | _ => type_mod_state := (tyname,mods)::(!type_mod_state)
     end
   fun get_cons_names () = !cons_name_state
   fun mk_cons_name tm =
@@ -370,12 +379,12 @@ in
   fun enter_cons_name (tm, v_tm) =
     let
       val key   = mk_cons_name tm
-      val mname = get_curr_module_name ()
-      val (v_tm', mname') = lookup_cons_name key
-                            handle HOL_ERR _ => (v_tm, mname)
+      val mods = get_curr_modules ()
+      val (v_tm', mods') = lookup_cons_name key
+                            handle HOL_ERR _ => (v_tm, mods)
     in
-      if v_tm' = v_tm andalso mname = mname' then
-        key before cons_name_state := (key, (v_tm, mname)) :: (!cons_name_state)
+      if v_tm' = v_tm andalso mods = mods' then
+        key before cons_name_state := (key, (v_tm, mods)) :: (!cons_name_state)
       else
         raise ERR "enter_cons_name"
                 ("already entered with different value: " ^ term_to_string v_tm)
@@ -390,12 +399,7 @@ end
 fun full_id n =
   case lookup_type_mod (stringSyntax.fromHOLstring n) of
     NONE => astSyntax.mk_Short n
-  | SOME type_mod =>
-      if SOME type_mod = get_curr_module_name () then
-        astSyntax.mk_Short n
-      else
-          astSyntax.mk_Long (stringSyntax.fromMLstring type_mod,
-                             astSyntax.mk_Short n);
+  | SOME type_mod => get_qualified_name type_mod n;
 
 (* code for managing type information *)
 
@@ -1802,10 +1806,12 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 2 ts
 
   (* register type to belong to current module if all went well *)
   val name = ty |> full_name_of_type
-  val _ = case get_curr_module_name () of
-            NONE => ()
-          | SOME m =>
-              print ("Adding " ^ type_to_string ty ^ " to module " ^ m ^ ".\n")
+  val add_str = "Adding type " ^ type_to_string ty
+  val comma = concat o commafy
+  val _ = case get_curr_modules () of
+      [] => print (add_str ^ ".\n")
+    | [m] => print (add_str ^ " to module " ^ m ^ ".\n")
+    | ms => print (add_str ^ " to nested modules [" ^ comma ms ^ "].\n")
   val _ = enter_type_mod name
   val _ = end_timing start
 
@@ -3884,19 +3890,11 @@ fun instantiate_cons_name th =
     val lcs = List.concat (List.map (get_lcons []) hyps)
     val vars = List.filter (can dest_var)
                            (List.map (rand o rator o fst o dest_eq) lcs)
-    val current_mname = get_curr_module_name ()
     fun inst_var tm =
       let
-        val (nm, mname) = lookup_cons_name (fst (dest_var tm))
-        val s = mk_Short nm
+        val (nm, mods) = lookup_cons_name (fst (dest_var tm))
       in
-        case mname of
-          NONE => s
-        | SOME l =>
-          if current_mname = mname then
-            s
-          else
-            mk_Long (stringSyntax.fromMLstring l, s)
+        get_qualified_name mods nm
       end
     val tyis = List.map (fn tm => (tm |-> inst_var tm)) vars
   in
