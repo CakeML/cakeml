@@ -87,7 +87,7 @@ fun check_in_repr_set tms = let
         pfun_eqs_in_repr := set
   end handle Empty => ()
 
-fun pfun_conv tm = let
+fun nsLookup_pf_conv tm = let
     val (f, xs) = strip_comb tm
     val _ = length xs = 2 orelse raise UNCHANGED
     val _ = exists (same_const f) (nsLookup_tm :: nsLookup_pf_tms)
@@ -121,7 +121,8 @@ val nsLookup_rewrs = List.concat (map BODY_CONJUNCTS
 fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
   (map REWR_CONV nsLookup_rewrs
     @ map (RATOR_CONV o REWR_CONV) nsLookup_rewrs
-    @ map QCHANGED_CONV [nsLookup_arg1_conv nsLookup_conv, pfun_conv])) tm
+    @ map QCHANGED_CONV [nsLookup_arg1_conv nsLookup_conv,
+        nsLookup_pf_conv])) tm
 
 val () = computeLib.add_convs
     (map (fn t => (t, 2, QCHANGED_CONV nsLookup_conv)) nsLookup_pf_tms)
@@ -305,12 +306,34 @@ val loc = unknown_loc;
 val init_state =
   ML_code ([SPEC_ALL init_state_def],[init_env_def],[],ML_code_NIL);
 
-fun open_module mn_str = ML_code_upd "open_module"
-    (SPEC (stringSyntax.fromMLstring mn_str) ML_code_new_module)
+fun mk_comment (s1, s2) = pairSyntax.mk_pair (stringSyntax.fromMLstring s1,
+    stringSyntax.fromMLstring s2)
+
+fun dest_comment t = let
+    val (s1, s2) = pairSyntax.dest_pair t
+  in (stringSyntax.fromHOLstring s1, stringSyntax.fromHOLstring s2) end
+
+fun dest_comment_name t = let
+    val (s1, s2) = dest_comment t
+  in "(" ^ s1 ^ ", " ^ s2 ^ ")" end handle HOL_ERR _ => "(?, ?)"
+
+fun open_block nm comment = ML_code_upd nm (SPEC comment ML_code_new_block)
     [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def])]
+
+fun open_module mn_str = open_block "open_module"
+    (mk_comment ("Module", mn_str))
 
 fun close_module sig_opt = ML_code_upd "close_module"
     ML_code_close_module [let_env_abbrev reduce_conv]
+
+val open_local_block = open_block "open_local_block"
+    (mk_comment ("Local", "local"))
+
+val open_local_in_block = open_block "open_local_in_block"
+    (mk_comment ("Local", "in"))
+
+val close_local_block = ML_code_upd "close_local_block"
+    ML_code_close_local [let_env_abbrev ALL_CONV]
 
 (*
 val tds_tm = ``[]:type_def``
@@ -389,15 +412,23 @@ fun add_Dletrec loc funs v_names = let
         proc]
   end
 
-fun get_open_modules (ML_code (ss,envs,vs,th))
-  = List.mapPartial (total (apfst stringSyntax.fromHOLstring
-        o pairSyntax.dest_pair o hd)) (ML_code_blocks (concl th))
+fun get_block_names (ML_code (ss,envs,vs,th))
+  = ML_code_blocks (concl th) |> map (dest_comment o hd)
+
+fun get_open_modules code
+  = get_block_names code
     |> filter (fn ("Module", _) => true | _ => false)
-    |> map (stringSyntax.fromHOLstring o snd)
-    |> rev
+    |> map snd |> rev
 
 fun get_mod_prefix code = case get_open_modules code of [] => ""
   | (m :: _) => m ^ "_"
+
+fun close_local_blocks code = case get_block_names code of
+    ("Local", "in") :: _ => close_local_blocks (close_local_block code)
+  | ("Local", "local") :: _ => open_local_in_block code
+    |> close_local_block |> close_local_blocks
+  | _ => code
+
 
 (*
 val dec_tm = dec1_tm

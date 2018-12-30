@@ -238,4 +238,31 @@ Theorem EqTyp_test_lemmas
     /\ EqualityType (^st2_inv)`
   (fs (eq_lemmas ()));
 
+(* translating within nested local blocks and modules *)
+
+val hidden_f1_def = Define `hidden_f1 xs = REVERSE xs ++ [()]`;
+val global_f2_def = Define `global_f2 xs = hidden_f1 xs ++ [()]`;
+val hidden_f3_def = Define `hidden_f3 xs = global_f2 (hidden_f1 xs)`;
+val module_f4_def = Define `module_f4 xs = hidden_f3 (global_f2 xs)`;
+val module_f5_def = Define `module_f5 xs = module_f4 xs`;
+val global_f6_def = Define `global_f6 xs = module_f5 xs ++ module_f4 xs`;
+
+val r = translate REVERSE_DEF;
+val _ = ml_prog_update open_local_block;
+val r = translate hidden_f1_def;
+val _ = ml_prog_update open_local_in_block;
+val r = translate global_f2_def;
+val _ = ml_prog_update (open_module "f4_module");
+val _ = ml_prog_update open_local_block;
+val r = translate hidden_f3_def;
+val _ = ml_prog_update open_local_in_block;
+val r = translate module_f4_def;
+val _ = ml_prog_update open_local_block;
+val _ = ml_prog_update open_local_in_block;
+val r = translate module_f5_def;
+val _ = ml_prog_update close_local_blocks;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update close_local_block;
+val r = translate global_f6_def;
+
 val _ = export_theory();
