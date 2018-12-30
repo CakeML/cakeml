@@ -1,12 +1,12 @@
 CakeML How To
 =============
 
-This document introduces how to use the CakeML compiler, in particular
-this text provides:
+This document introduces how to use the CakeML compiler, providing in
+particular:
 
-- a description of how to invoke the CakeML compiler
-- a list of how CakeML differs from SML and OCaml
-- a number of small CakeML code examples
+- a description of how to invoke the CakeML compiler,
+- a list of how CakeML differs from SML and OCaml, and,
+- a number of small CakeML code examples.
 
 This document is not meant to be an introduction to how to program in
 an ML-style language. For such a text, please refer to "ML for the
@@ -28,19 +28,19 @@ which contains among other things:
 - `basis_ffi.c` — C code connecting the CakeML basis library to the OS
 - `Makefile` — for convenience of building binaries
 
-Now let’s run the compiler. Let’s suppose you have a file called
-`hello.cml` which contains:
+Now let's run the compiler. Suppose you have a file called `hello.cml`
+which contains:
 
     print "Hello world!\n";
 
-The simplest way to compile and run this CakeML program, on Linux and
-Mac, is to type `make hello.cake` and then `./hello.cake` on the
+The simplest way to compile and run this CakeML program, on GNU/Linux and
+macOS, is to type `make hello.cake` and then `./hello.cake` on the
 command line as follows. On Windows, one types `make hello.cake.exe`.
 
     $ make hello.cake
     $ ./hello.cake
 
-The last line will print `Hello world!` on stdout.
+The last line will print `Hello world!` on standard output.
 
 By looking at what the `make` does, you'll see that on the first run
 it builds the CakeML compiler `cake`, then it runs the CakeML compiler
@@ -48,7 +48,7 @@ on the input program. The CakeML compiler produces `.S` files that
 consist mostly of hex for machine code but also some wrapper code. We
 use the system's C compiler to build `basis_ffi.c` and to connect the
 CakeML generated machine code with the C code that is accessed through
-CakeML’s foreign function interface (FFI).
+CakeML's foreign function interface (FFI).
 
 A simple but complete program
 -----------------------------
@@ -104,7 +104,7 @@ Haskell. Below is a list of differences between CakeML and SML.
 
 - CakeML has right-to-left evaluation order
 - CakeML has no equality types
-- semantics of equality differs from SML and OCaml
+- the semantics of equality in CakeML differs from those in SML and OCaml
 - CakeML does not support let-polymorphism
 
 ### Differences in conventions
@@ -238,7 +238,7 @@ recursive functions.
     print (foo_toString (B [C, C, D (A 4) C]));
 
 Note that CakeML requires that constructors are fully applied. This
-means that `List.map Some xs` is not allowed, instead one has to write
+means that `List.map Some xs` is not allowed; instead one can write
 `List.map (fn x => Some x) xs`.
 
 Exceptions are defined in a similar style and can be used as normal
@@ -311,16 +311,16 @@ evaluation order. The following prints `123`.
 Stateful features
 -----------------
 
-Most CakeML programs ought to keep to the pure functional subset of
-CakeML for most part. However, CakeML provides stateful features such
-as references `ref` and arrays `Array.array` that can enhance
-performance significantly in certain applications.
+Most CakeML programs ought to keep mostly to the pure functional subset of
+CakeML. However, CakeML provides stateful features such as references `ref`
+and arrays `Array.array` that can enhance performance significantly in
+certain applications.
 
 The circular list example above already showed the use of `ref`. The
-next example illustrates use of arrays in a naive sieve-based
+next example illustrates the use of arrays in a naive sieve-based
 primarily test. Here `Array.array` creates an array and we use `;` for
 sequencing. The final return value is what is stored in the nth
-element of the array, i.e. `Array.sub a n`.
+element of the array, i.e., `Array.sub a n`.
 
     fun is_prime n =
       if n < 0 then false else
@@ -348,10 +348,10 @@ Semantics of equality
 ---------------------
 
 Like SML and OCaml, CakeML includes a polymorphic equality test.
-However, the semantics of CakeML polymorphic equality test differs
-from SML and OCaml. SML uses equality types to ensure that one cannot
-test equality of function closures. In contrast, OCaml raises an
-exception in case closures are part of the compared values.
+However, the semantics of CakeML's polymorphic equality test differs from
+those of SML and OCaml. SML uses equality types to ensure that one cannot
+test equality of function closures. In contrast, OCaml raises an exception
+in case closures are part of the compared values.
 
 In CakeML, we did not want to have equality types, and we do not want
 to search for closures in pointer-equal values. For this reason,
@@ -366,7 +366,7 @@ under the polymorphic equality test in CakeML.
 
 Arguably, it does not make sense to compare functions. Thus we took
 the freedom to pick a semantics that is both well defined and leads to
-a good implementation for the common case, i.e. no closures.
+a good implementation for the common case, i.e., no closures.
 
 Lack of let-polymorphism
 ------------------------
@@ -388,9 +388,9 @@ What next?
 ----------
 
 The definitive definition of the syntax and semantics of CakeML can be
-found at: http://code.cakeml.org/tree/master/semantics
+found at: https://code.cakeml.org/tree/master/semantics
 
 The CakeML team aims to be open and accessible. Feel free to join the
-CakeML slack channel using the invitation link at https://cakeml.org/.
+CakeML Slack channel using the invitation link at https://cakeml.org.
 Ask questions and contribute to the project or build your own project
 based on CakeML.
