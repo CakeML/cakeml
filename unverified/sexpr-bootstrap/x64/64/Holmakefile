@@ -18,7 +18,23 @@ cake-sexpr-$(ARCH)-$(WORD_SIZE): *$(ARCH)SexprScript.sml
 cake.S: cake-sexpr-$(ARCH)-$(WORD_SIZE)
 	$(CAKE_BIN) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --heap_size=$(HEAP_MB) --stack_size=$(STACK_MB) --reg_alg=0 <$< >$@
 
-cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE)
-	tar -chzf $@ --transform='s|^|cake-unverified-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE)
+cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md how-to.output
+	tar -chzf $@ --transform='s|^|cake-unverified-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md
 
-EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz
+# the following extracts the code from how-to.md, compiles it and runs it
+
+how-to.output: how-to.cake
+	./$< >$@
+
+how-to.cake: extract_code.cake how-to.md cake
+	./$< how-to.md >how-to.cml
+	make $@
+	rm -f how-to.cml
+
+extract_code.cake: extract_code.cml cake
+	make $@
+
+cake: cake.S basis_ffi.c
+	make $@
+
+EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz how-to.output how-to.cake how-to.cml extract_code.cake cake

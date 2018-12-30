@@ -14,13 +14,11 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 
 cake.S: *$(ARCH)BootstrapScript.sml
 
-cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile
-	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile
-	make cake   # the following lines are a basic test
-	./cake <input.cml >result.S
-	cc -o result basis_ffi.c result.S
-	./result >output
+cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile how-to.md
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile how-to.md
+	make test-hello.cake   # the following lines are a basic test
+	./test-hello.cake >output
 	echo 'Hello!'>expected_output
 	diff output expected_output   # returns non-zero if files differ
 
-EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz output expected_output result.S result
+EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz cake test-hello.cake output expected_output
