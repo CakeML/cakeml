@@ -106,6 +106,40 @@ val add_ast_compset = computeLib.extend_compset
     ,``:ast$ast_t``
     ]]
 
+val add_gram_compset = computeLib.extend_compset [
+      computeLib.Tys [
+        “:gram$MMLnonT”
+      ]
+    ]
+
+val add_tokenUtils_compset = computeLib.extend_compset [
+      let open tokenUtilsTheory
+      in
+        computeLib.Defs [
+          isInt_def
+        , isString_def
+        , isAlphaT_def
+        , isSymbolT_def
+        , isAlphaSym_def
+        , isTyvarT_def
+        , isWhitespaceT_def
+        , isCharT_def
+        , isWordT_def
+        , isLongidT_def
+        , destTyvarPT_def
+        , destLf_def
+        , destTOK_def
+        , destAlphaT_def
+        , destSymbolT_def
+        , destIntT_def
+        , destCharT_def
+        , destStringT_def
+        , destWordT_def
+        , destFFIT_def
+        ]
+      end
+    ]
+
 val add_lexer_fun_compset = computeLib.extend_compset
   [computeLib.Defs
     let open lexer_funTheory in
@@ -156,20 +190,20 @@ val add_lexer_fun_compset = computeLib.extend_compset
     ]
   ]
 
-val add_ptreeconversion_compset = computeLib.extend_compset
+val add_cmlPtreeConversion_compset = computeLib.extend_compset
   [computeLib.Defs
     let open cmlPtreeConversionTheory in
       [tuplify_def
+      ,bind_loc_def
       ,ptree_TopLevelDecs_def
       ,ptree_TopLevelDec_def
       ,ptree_Structure_def
       ,ptree_StructName_def
-      (*
       ,ptree_SignatureValue_def
       ,ptree_SpeclineList_def
       ,ptree_SpecLine_def
-      *)
       ,ptree_Decl_def
+      ,ptree_Eliteral_def
       ,ptree_Expr_def
       ,mkAst_App_def
       ,Eseq_encode_def
@@ -203,7 +237,7 @@ val add_ptreeconversion_compset = computeLib.extend_compset
 val add_semantics_compset = computeLib.extend_compset [
       computeLib.Extenders [
         add_ast_compset, add_lexer_fun_compset,
-        add_namespace_compset
+        add_namespace_compset, add_cmlPtreeConversion_compset
       ]
     ]
 
