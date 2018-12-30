@@ -43,10 +43,10 @@ Formulae for the Verification of Imperative Programs"
 
 [compiler](compiler):
 A verified compiler for CakeML, including:
- - parsing: lexer and PEG parser
- - inference: type inferencer
- - backend: compilation to ASM assembly language
- - encoders: code generation to x86, ARM, and more
+ - lexing and PEG parsing,
+ - type inference,
+ - compilation to ASM assembly language, and
+ - code generation to x86, ARM, and more.
 
 [developers](developers):
 This directory contains scripts for automating routine tasks, e.g., for
@@ -71,12 +71,12 @@ and what we want to use for CakeML development.
 The definition of the CakeML language. The definition is (mostly)
 expressed in [Lem](http://www.cs.kent.ac.uk/~sao/lem), but the
 generated HOL is also included. The directory includes definitions of:
- - the concrete syntax
- - the abstract syntax
- - small step semantics
- - big step semantics (both functional and relational)
- - semantics of FFI calls
- - a type system
+ - the concrete syntax,
+ - the abstract syntax,
+ - big step semantics (both functional and relational),
+ - a small step semantics,
+ - the semantics of FFI calls, and
+ - the type system.
 
 [translator](translator):
 A proof-producing translator from HOL functions to CakeML.
