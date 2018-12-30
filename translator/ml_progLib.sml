@@ -257,7 +257,7 @@ fun let_env_abbrev conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
   in (th, ML_code (ss, abbrev_defs @ envs, vs, ml_th)) end
 
 fun let_v_abbrev nm conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
-    val (th, abbrev_defs) = cond_let_abbrev false true nm conv op_nm th
+    val (th, abbrev_defs) = cond_let_abbrev false false nm conv op_nm th
   in (th, ML_code (ss, envs, abbrev_defs @ vs, ml_th)) end
 
 fun solve_ml_imp f nm (th, ML_code code) = let
