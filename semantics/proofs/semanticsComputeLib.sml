@@ -106,7 +106,7 @@ val add_ast_compset = computeLib.extend_compset
     ,``:ast$ast_t``
     ]]
 
-val add_lex_fun_compset = computeLib.extend_compset
+val add_lexer_fun_compset = computeLib.extend_compset
   [computeLib.Defs
     let open lexer_funTheory in
       [next_token_def
@@ -202,7 +202,7 @@ val add_ptreeconversion_compset = computeLib.extend_compset
 
 val add_semantics_compset = computeLib.extend_compset [
       computeLib.Extenders [
-        add_ast_compset, add_lex_fun_compset,
+        add_ast_compset, add_lexer_fun_compset,
         add_namespace_compset
       ]
     ]

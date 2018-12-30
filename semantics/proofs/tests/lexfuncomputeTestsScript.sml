@@ -32,7 +32,7 @@ in
   bitLib.add_bit_compset cs;
   ASCIInumbersLib.add_ASCIInumbers_compset cs;
   intReduce.add_int_compset cs;
-  add_lex_fun_compset cs;
+  add_lexer_fun_compset cs;
   cs
 end
 
