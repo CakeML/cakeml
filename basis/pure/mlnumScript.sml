@@ -78,4 +78,10 @@ Theorem fromString_IS_SOME_IFF
   \\ simp[]
   \\ Cases_on`s` \\ fs[]);
 
+(* this formulation avoids a comparsion using = for better performance *)
+Theorem num_cmp_def `
+  num_cmp i (j:num) = if i < j then LESS else
+                      if j < i then GREATER else EQUAL`
+  (fs [comparisonTheory.num_cmp_def] \\ rw []);
+
 val _ = export_theory();

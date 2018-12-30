@@ -53,8 +53,14 @@ val result = translate (EL |> REWRITE_RULE[GSYM nth_def]);
 val nth_side_def = theorem"nth_side_def";
 
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
-
 val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
+
+val _ = next_ml_names := ["takeUntil","dropUntil"];
+val result = translate takeUntil_def;
+val result = translate dropUntil_def;
+
+val _ = next_ml_names := ["cmp"];
+val result = translate list_compare_def;
 
 val result = next_ml_names := ["concat"];
 val result = translate FLAT;
