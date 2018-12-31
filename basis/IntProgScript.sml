@@ -133,6 +133,12 @@ val gcd_side = prove(
   \\ fs [ADD1] \\ rw [] \\ fs [])
   |> update_precondition;
 
+(* compare *)
+
+val _ = (next_ml_names := ["compare"]);
+val _ = translate mlintTheory.cmp_def;
+
+
 val sigs = module_signatures [
   "+",
   "-",
@@ -146,7 +152,8 @@ val sigs = module_signatures [
   "~",
   "toString",
   "fromString",
-  "gcd"
+  "gcd",
+  "compare"
 ];
 
 val _ = ml_prog_update (close_module (SOME sigs));

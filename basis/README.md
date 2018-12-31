@@ -17,9 +17,6 @@ library.
 [CommandLineProofScript.sml](CommandLineProofScript.sml):
 Proof about the command-line module of the CakeML standard basis library.
 
-[CompareProgScript.sml](CompareProgScript.sml):
-Module with various comparison functions.
-
 [IntProgScript.sml](IntProgScript.sml):
 Module about the built-in integer tyoe. Note that CakeML uses
 arbitrary precision integers (the mathematical intergers).

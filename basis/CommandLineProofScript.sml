@@ -262,7 +262,7 @@ Theorem CommandLine_arguments_spec
   >-(xapp \\ rw[])
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
   \\ xapp_spec mlstring_tl_v_thm \\ xsimpl \\ instantiate
-  \\ Cases_on `cl` \\ rw[mllistTheory.tl_def]);
+  \\ Cases_on `cl` \\ rw[TL_DEF]);
 
 val arguments_def = Define `
   arguments () = (\cl. (Success (TL cl), cl))`

@@ -459,6 +459,9 @@ val Eval_fmap_domsub = Q.prove(
   |> (fn th => MATCH_MP th ADEL_eval)
   |> add_user_proved_v_thm;
 
+val _ = (next_ml_names := ["compare"]);
+val _ = translate mllistTheory.list_compare_def;
+
 val _ =  ml_prog_update (close_module NONE);
 
 val _ = export_theory()

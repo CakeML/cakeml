@@ -56,6 +56,11 @@ val fromString_side = Q.prove(
   Cases \\ rw[fromstring_side_def
              ,fromchars_side_thm]) |> update_precondition;
 
+(* compare *)
+
+val _ = (next_ml_names := ["compare"]);
+val _ = translate mlnumTheory.num_cmp_def;
+
 val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();

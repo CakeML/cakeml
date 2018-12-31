@@ -82,4 +82,14 @@ Theorem assign_spec
        (rv ~~> xv) (POSTv v. cond (UNIT_TYPE () v) * rv ~~> yv)`
   (prove_ref_spec "op :=");
 
+val _ = ml_prog_update (open_module "Bool");
+val _ = (next_ml_names := ["compare"]);
+val _ = translate comparisonTheory.bool_cmp_def;
+val _ = ml_prog_update (close_module NONE);
+
+val _ = ml_prog_update (open_module "Pair");
+val _ = (next_ml_names := ["compare"]);
+val _ = translate comparisonTheory.pair_cmp_def;
+val _ = ml_prog_update (close_module NONE);
+
 val _ = export_theory ()
