@@ -481,6 +481,12 @@ val ML_code_def = Define `(ML_code env [] res_st <=> T)
         res_st <=> (ML_code env bls st
             /\ Decls (ML_code_env env bls) st decls res_env res_st))`;
 
+(* retreive the Decls from a toplevel ML_code *)
+Theorem ML_code_Decls
+  `ML_code env1 [(comm, st1, prog, env2)] st2 ==>
+    Decls env1 st1 prog env2 st2`
+  (fs [ML_code_def, ML_code_env_def]);
+
 (* an empty program *)
 local open primSemEnvTheory in
 

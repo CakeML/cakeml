@@ -140,14 +140,14 @@ val reduce_conv =
 
 fun prove_assum_by_conv conv th = let
   val (x,y) = dest_imp (concl th)
-  val lemma = conv x
-  val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV lemma)) th
+  val lemma1 = conv x
+  val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV) (REWR_CONV lemma1)) th
   in MP lemma TRUTH
      handle HOL_ERR e => let
        val _ = print "Failed to convert:\n\n"
        val _ = print_term x
        val _ = print "\n\nto T. It only reduced to:\n\n"
-       val _ = print_term (lemma |> concl |> dest_eq |> snd)
+       val _ = print_term (lemma1 |> concl |> dest_eq |> snd)
        val _ = print "\n\n"
        in failwith "prove_assum_by_conv: unable to reduce term to T"
      end
@@ -225,7 +225,7 @@ fun cond_let_abbrev cond for_eval name conv op_nm th = let
   in if cond andalso is_const f andalso all is_var xs
      then (CONV_RULE let_conv th, [])
      else let
-       val def = define_abbrev for_eval (find_name name) tm |> SPEC_ALL
+       val def = define_abbrev for_eval name tm |> SPEC_ALL
        in (CONV_RULE (RAND_CONV (REWR_CONV (GSYM def))
            THENC let_conv) th, [def])
        end
@@ -324,7 +324,7 @@ fun open_module mn_str = open_block "open_module"
     (mk_comment ("Module", mn_str))
 
 fun close_module sig_opt = ML_code_upd "close_module"
-    ML_code_close_module [let_env_abbrev reduce_conv]
+    ML_code_close_module [let_env_abbrev ALL_CONV]
 
 val open_local_block = open_block "open_local_block"
     (mk_comment ("Local", "local"))
@@ -347,8 +347,7 @@ fun add_Dtype loc tds_tm = ML_code_upd "add_Dtype"
             [write_tdefs_def,MAP,FLAT,FOLDR,REVERSE_DEF,
                 write_conses_def,LENGTH,
                 semanticPrimitivesTheory.build_constrs_def,
-                APPEND,namespaceTheory.mk_id_def]
-            THENC reduce_conv)]
+                APPEND,namespaceTheory.mk_id_def])]
 
 (*
 val loc = unknown_loc
@@ -361,8 +360,7 @@ fun add_Dexn loc n_tm l_tm = ML_code_upd "add_Dexn"
     [let_conv_ML_upd EVAL, let_st_abbrev reduce_conv,
         let_env_abbrev (SIMP_CONV std_ss [MAP,
                                FLAT,FOLDR,REVERSE_DEF,
-                               APPEND,namespaceTheory.mk_id_def]
-            THENC reduce_conv)]
+                               APPEND,namespaceTheory.mk_id_def])]
 
 fun add_Dtabbrev loc l1_tm l2_tm l3_tm = ML_code_upd "add_Dtabbrev"
     (SPECL [l1_tm,l2_tm,l3_tm,loc] ML_code_Dtabbrev) []
@@ -375,7 +373,7 @@ fun add_Dlet eval_thm var_str v_thms = let
     [solve_ml_imp_mp eval_thm,
         solve_ml_imp_conv (SIMP_CONV bool_ss []
             THENC SIMP_CONV bool_ss [ML_code_env_def]),
-        let_env_abbrev reduce_conv, let_st_abbrev reduce_conv]
+        let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
   end
 
 (*
@@ -386,7 +384,7 @@ val (n,v,exp) = (v_tm,w,body)
 fun add_Dlet_Fun loc n v exp v_name = ML_code_upd "add_Dlet_Fun"
     (SPECL [n, v, exp, loc] ML_code_Dlet_Fun)
     [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
-        let_v_abbrev v_name ALL_CONV, let_env_abbrev reduce_conv]
+        let_v_abbrev v_name ALL_CONV, let_env_abbrev ALL_CONV]
 
 val Recclosure_pat =
   semanticPrimitivesTheory.v_nchotomy
@@ -404,7 +402,7 @@ fun add_Dletrec loc funs v_names = let
         val xs = zip v_names tms
         val v_defs = map (fn (x,y) => define_abbrev false x y) xs
         val th = CONV_RULE (RAND_CONV (REWRITE_CONV (map GSYM v_defs))) th
-      in let_env_abbrev reduce_conv nm
+      in let_env_abbrev ALL_CONV nm
         (th, ML_code (ss,envs,v_defs @ vs,mlth)) end
   in ML_code_upd "add_Dletrec"
     (SPECL [funs, loc] ML_code_Dletrec)
@@ -490,6 +488,13 @@ fun remove_snocs (ML_code (ss,envs,vs,th)) = let
 
 fun get_thm (ML_code (ss,envs,vs,th)) = th
 fun get_v_defs (ML_code (ss,envs,vs,th)) = vs
+
+fun get_prog (ML_code (ss,envs,vs,th)) = case ML_code_blocks (concl th) of
+      [comm :: st :: prog :: _] => prog
+    | _ => failwith ("get_prog: couldn't get toplevel declarations")
+fun get_Decls_thm code = let
+    val _ = get_prog code
+  in MATCH_MP ML_code_Decls (get_thm code) end
 
 val merge_env_tm = prim_mk_const {Name = "merge_env", Thy = "ml_prog"}
 val ML_code_env_tm = prim_mk_const {Name = "ML_code_env", Thy = "ml_prog"}

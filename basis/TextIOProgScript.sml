@@ -4,6 +4,7 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
      CommandLineProgTheory MarshallingProgTheory
+     semanticPrimitivesSyntax
 
 val _ = new_theory"TextIOProg";
 
@@ -38,14 +39,11 @@ val EndOfFile_exn_def = Define `
 
 val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])``
 val eval_thm = let
-  val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
-           |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
-  val th = th |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["e","s3"]))
-              |> SPEC iobuff_e
-  val st = th |> SPEC_ALL |> concl |> dest_imp |> #1 |> strip_comb |> #2 |> el 1
+  val env = get_ml_prog_state () |> ml_progLib.get_env
+  val st = get_ml_prog_state () |> ml_progLib.get_state
   val new_st = ``^st with refs := ^st.refs ++ [W8array (REPLICATE 2052 0w)]``
-  val goal = th |> SPEC new_st |> SPEC_ALL |> concl |> dest_imp |> fst
+  val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
+    [st, env, iobuff_e, new_st, mk_var ("x", semanticPrimitivesSyntax.v_ty)])
   val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[semanticPrimitivesTheory.state_component_equality])
   val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
     rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))

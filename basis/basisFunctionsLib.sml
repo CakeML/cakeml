@@ -11,10 +11,9 @@ open preamble
          library instead *)
 
 fun get_module_prefix () = let
-  val mod_tm = ml_progLib.get_thm (get_ml_prog_state ())
-               |> concl |> rator |> rator |> rand
-  in if optionSyntax.is_none mod_tm then "" else
-       stringSyntax.fromHOLstring (mod_tm |> rand |> rator |> rand) ^ "_"
+  val mods = ml_progLib.get_open_modules (get_ml_prog_state ())
+  in case mods of [] => ""
+    | (m :: ms) => m ^ "_"
   end
 
 fun trans ml_name rhs = let
