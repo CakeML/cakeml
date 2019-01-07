@@ -2434,27 +2434,40 @@ val cf_sound = Q.store_thm ("cf_sound",
       qpat_x_assum `sound _ e1 _`
         (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
       Cases_on `r` \\ fs [evaluate_to_heap_def, evaluate_ck_def]
-      THEN1 cheat (* (
+      THEN1 (
         (* e1 ~> Rval v *)
         rename1 `evaluate _ _ [e1] = (_, Rval [v])` \\
         first_x_assum (qspec_then `v` assume_tac) \\
         progress SPLIT_of_SPLIT3_2u3 \\
-        qpat_x_assum `sound _ e2 _`
-          (progress o REWRITE_RULE [sound_def, htriple_valid_def]) \\
-        fs [evaluate_ck_def] \\
-        qexists_tac `r` \\ Cases_on `r` \\ fs []
+        fs [sound_def, htriple_valid_def] \\
+        first_x_assum (qspecl_then
+          [`env with v := nsOptBind opt v env.v`, `Q' (Val v)`, `Q`]
+          mp_tac) \\ rw [] \\
+        first_x_assum (qspecl_then
+          [`st'`, `h_f`, `h_k UNION h_g`] mp_tac) \\ rw [] \\
+        fs [evaluate_to_heap_def, evaluate_ck_def] \\
+        qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs []
+        THEN1 (
+          `SPLIT3 heap (h_f',h_k, h_g UNION h_g')`
+            by SPLIT_TAC
+          \\ rveq \\ instantiate \\ strip_tac
+          THEN1 cheat
+          \\ cheat
+        )
         THEN (
           (* e2 ~> Rval v' || e2 ~> Rerr (Rraise v') *)
-          qexists_tac `st'' with clock := st'.clock + st''.clock` \\
-          `SPLIT3 (st2heap (p:'ffi ffi_proj) st'') (h_f',h_k, h_g UNION h_g')`
-            by SPLIT_TAC \\
-          simp [st2heap_clock] \\ instantiate \\
-          qexists_tac `ck + ck'` \\
-          qpat_assum `evaluate _ _ [e1] = _` (add_to_clock `ck'`) \\
-          qpat_assum `evaluate _ _ [e2] = _` (add_to_clock `st'.clock`) \\
-          fs [with_clock_with_clock]
+          fs [PULL_EXISTS]
+          \\ rename1 `st2heap _ st2 = heap`
+          \\ GEN_EXISTS_TAC "st'" `st2 with clock := st'.clock + st2.clock`
+          \\ `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f',h_k, h_g UNION h_g')`
+            by SPLIT_TAC
+          \\ simp [st2heap_clock] \\ rveq \\ instantiate
+          \\ qexists_tac `ck + ck'`
+          \\ qpat_assum `evaluate _ _ [e1] = _` (add_to_clock `ck'`)
+          \\ qpat_assum `evaluate _ _ [e2] = _` (add_to_clock `st'.clock`)
+          \\ fs [with_clock_with_clock]
         )
-      ) *)
+      )
       THEN1 (
         (* e1 ~> Rerr (Rraise v) *)
         rename1 `evaluate _ _ [e1] = (_, Rerr (Rraise v))` \\
