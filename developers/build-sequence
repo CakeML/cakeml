@@ -42,62 +42,6 @@ compiler/backend/mips
 compiler/backend/riscv
 compiler/backend/ag32
 
-# compiler verification
-compiler/parsing/proofs
-compiler/inference/proofs
-compiler/backend/semantics
-compiler/backend/reg_alloc/proofs
-compiler/backend/proofs
-compiler/encoders/x64/proofs
-compiler/encoders/arm6/proofs
-compiler/encoders/arm8/proofs
-compiler/encoders/mips/proofs
-compiler/encoders/riscv/proofs
-compiler/encoders/ag32/proofs
-compiler/backend/x64/proofs
-compiler/backend/arm6/proofs
-compiler/backend/arm8/proofs
-compiler/backend/mips/proofs
-compiler/backend/riscv/proofs
-compiler/backend/ag32/proofs
-compiler/proofs
-
-# candle
-candle/set-theory
-candle/syntax-lib
-candle/standard/syntax
-candle/standard/semantics
-candle/standard/monadic
-candle/standard/ml_kernel
-candle/standard/opentheory
-candle/standard/opentheory/compilation
-candle/standard/opentheory/compilation/proofs
-
-# examples and tests
-characteristic/examples
-tutorial/solutions
-translator/monadic/examples
-
-examples
-examples/compilation/x64
-examples/compilation/x64/proofs
-examples/compilation/ag32
-examples/compilation/ag32/proofs
-
-translator/okasaki-examples
-translator/other-examples
-compiler/parsing/tests
-compiler/inference/tests
-
 # compiler translation
 compiler/bootstrap/translation
 
-# compiler sexpr bootstrap
-unverified/sexpr-bootstrap/x64/64:cake-unverified-x64-64.tar.gz
-unverified/sexpr-bootstrap/x64/32:cake-unverified-x64-32.tar.gz
-
-# compiler HOL bootstrap
-compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
-compiler/bootstrap/compilation/x64/64/proofs
-compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
-compiler/bootstrap/compilation/x64/32/proofs

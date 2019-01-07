@@ -141,6 +141,12 @@ fun normalise_assums th =
 
 val clean_on_exit = ref false;
 
+fun blog_performance () = let
+    val _ = PolyML.fullGC ()
+    val heap = #sizeHeap (PolyML.Statistics.getLocalStats ())
+    val msg = "Current heap usage: " ^ Int.toString heap ^ "\n"
+  in print msg end
+
 local
   val v_thms = ref ([] : (string (* name: "name" *) *
                           string (* ML name: "mlname" *) *
@@ -172,7 +178,8 @@ in
     (v_thms := [];
      eval_thms := [];
      prog_state := ml_progLib.init_state);
-  fun ml_prog_update f = (prog_state := f (!prog_state));
+  fun ml_prog_update f = (prog_state := f (!prog_state);
+    print "Done an ml_prog_update.\n"; blog_performance ());
   fun get_ml_prog_state () = (!prog_state)
   fun get_curr_env () = get_env (!prog_state);
   fun get_curr_state () = get_state (!prog_state);
