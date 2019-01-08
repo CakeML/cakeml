@@ -26,6 +26,9 @@ Pretty printing for CakeML AST
 ML functions for manipulating HOL terms and types defined as part of the
 CakeML semantics, in particular CakeML abstract syntax.
 
+[astUtilsScript.sml](astUtilsScript.sml):
+Utility funcitons for manipulating AST values
+
 [cmlPtreeConversionScript.sml](cmlPtreeConversionScript.sml):
 Specification of how to convert parse trees to abstract syntax.
 
