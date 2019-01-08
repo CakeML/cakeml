@@ -9,6 +9,14 @@ references, arrays and exceptions.
 An example showing how to use the monadic translator with
 references, arrays and exceptions.
 
+[array_searchProgScript.sml](array_searchProgScript.sml):
+* An example showing how to use the monadic translator to translate monadic
+* array search functions, including exceptions.
+
+[doubleProgScript.sml](doubleProgScript.sml):
+* An example showing how to use the monadic translator to translate monadic
+* doubling functions, including using references (no arrays, no exceptions).
+
 [exceptionArityTestProgScript.sml](exceptionArityTestProgScript.sml):
 A test file for the support of exceptions
 
