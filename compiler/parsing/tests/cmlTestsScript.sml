@@ -54,12 +54,30 @@ fun aconv_mod_locs t1 t2 =
        List.all (equal locs_ty o #2 o dest_var o #redex) s
   |  _ => false
 
+local
+  val lexcs = listLib.list_compset()
+  val _ = List.app (fn f => f lexcs)
+                   [stringLib.add_string_compset,
+                    pairLib.add_pair_compset,
+                    optionLib.OPTION_rws,
+                    combinLib.add_combin_compset,
+                    computeLib.add_thms
+                      [pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY],
+                    numposrepLib.add_numposrep_compset,
+                    bitLib.add_bit_compset,
+                    ASCIInumbersLib.add_ASCIInumbers_compset,
+                    intReduce.add_int_compset,
+                    semanticsComputeLib.add_lexer_fun_compset]
+in
+  val lexeval = computeLib.CBV_CONV lexcs
+end
+
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
   val _ = print ("**********\nLexing "^s^"\n")
   val t = time (rhs o concl o EVAL) ``lexer_fun ^s_t``
-  val ttoks = rhs (concl (EVAL ``MAP (TK o FST)  ^t``))
+  val ttoks = rhs (concl (lexeval ``MAP (TK o FST)  ^t``))
   val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
   val evalth = time EVAL
