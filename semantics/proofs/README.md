@@ -35,6 +35,9 @@ compset for parts of the semantics, including the lexer.
 [semanticsPropsScript.sml](semanticsPropsScript.sml):
 Theorems about the top-level semantics, including totality and determinism.
 
+[tests](tests):
+Tests for functionality in semantics/proofs
+
 [typeSoundInvariantsScript.sml](typeSoundInvariantsScript.sml):
 A type system for values, and
 the invariants that are used for type soundness.
