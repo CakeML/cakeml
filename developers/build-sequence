@@ -85,8 +85,6 @@ examples/compilation/x64/proofs
 examples/compilation/ag32
 examples/compilation/ag32/proofs
 
-compiler/benchmarks
-
 translator/okasaki-examples
 translator/other-examples
 compiler/parsing/tests

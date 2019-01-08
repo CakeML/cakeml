@@ -6,6 +6,7 @@ val _ = numLib.prefer_num();
 
 
 
+local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
 val _ = new_theory "ast"
 val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
 
@@ -229,29 +230,29 @@ type specs = list spec
 (*val pat_bindings : pat -> list varN -> list varN*)
  val pat_bindings_defn = Defn.Hol_multi_defns `
 
-(pat_bindings Pany already_bound= 
-  already_bound)
+((pat_bindings:pat ->(string)list ->(string)list) Pany already_bound=
+   already_bound)
 /\
-(pat_bindings (Pvar n) already_bound=  
- (n::already_bound))
+((pat_bindings:pat ->(string)list ->(string)list) (Pvar n) already_bound=
+   (n::already_bound))
 /\
-(pat_bindings (Plit l) already_bound= 
-  already_bound)
+((pat_bindings:pat ->(string)list ->(string)list) (Plit l) already_bound=
+   already_bound)
 /\
-(pat_bindings (Pcon _ ps) already_bound=  
- (pats_bindings ps already_bound))
+((pat_bindings:pat ->(string)list ->(string)list) (Pcon _ ps) already_bound=
+   (pats_bindings ps already_bound))
 /\
-(pat_bindings (Pref p) already_bound=  
- (pat_bindings p already_bound))
+((pat_bindings:pat ->(string)list ->(string)list) (Pref p) already_bound=
+   (pat_bindings p already_bound))
 /\
-(pat_bindings (Ptannot p _) already_bound=  
- (pat_bindings p already_bound))
+((pat_bindings:pat ->(string)list ->(string)list) (Ptannot p _) already_bound=
+   (pat_bindings p already_bound))
 /\
-(pats_bindings [] already_bound= 
-  already_bound)
+((pats_bindings:(pat)list ->(string)list ->(string)list) [] already_bound=
+   already_bound)
 /\
-(pats_bindings (p::ps) already_bound=  
- (pats_bindings ps (pat_bindings p already_bound)))`;
+((pats_bindings:(pat)list ->(string)list ->(string)list) (p::ps) already_bound=
+   (pats_bindings ps (pat_bindings p already_bound)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) pat_bindings_defn;
 val _ = export_theory()

@@ -29,7 +29,7 @@ val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
 
 (* New list-append translation *)
-val append_v_thm = trans "@" `(++): 'a list -> 'a list -> 'a list`
+val append_v_thm = trans "@" listSyntax.append_tm;
 val _ = save_thm("append_v_thm",append_v_thm);
 
 (* Old list-append translation *)
@@ -59,8 +59,23 @@ val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
 val result = next_ml_names := ["concat"];
 val result = translate FLAT;
 
+(* the let is introduced to produce slight better code (smaller stack frames) *)
+val MAP_let = prove(
+  ``MAP f xs =
+    case xs of
+    | [] => []
+    | (y::ys) => let z = f y in z :: MAP f ys``,
+  Cases_on `xs` \\ fs []);
+
+Theorem MAP_ind
+  `∀P. (∀f xs. (∀y ys z. xs = y::ys ∧ z = f y ⇒ P f ys) ⇒ P f xs) ⇒
+       ∀f xs. P f xs`
+  (ntac 2 strip_tac \\ Induct_on `xs` \\ fs []);
+
+val _ = add_preferred_thy "-"; (* so that the translator finds MAP_ind above *)
+
 val result = next_ml_names := ["map","mapi","mapi","mapPartial"];
-val result = translate MAP;
+val result = translate MAP_let;
 val result = translate mllistTheory.mapi_def;
 val result = translate MAPI_thm;
 val result = translate mapPartial_def;

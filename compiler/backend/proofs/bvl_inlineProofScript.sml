@@ -1,6 +1,7 @@
 (*
   Correctness proof for bvi_inline
 *)
+
 open preamble backendPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_inlineTheory
@@ -8,9 +9,7 @@ local open bvl_handleProofTheory in end
 
 val _ = new_theory"bvl_inlineProof";
 
-val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
-val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
-val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
+val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];
 
 (* removal of ticks *)
 
@@ -509,12 +508,7 @@ Theorem semantics_remove_ticks
     \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
     \\ metis_tac [
          LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
          bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
          bvlPropsTheory.evaluate_add_to_clock_io_events_mono
            |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
            |> Q.SPEC`s with clock := k`
@@ -1342,12 +1336,7 @@ val semantics_tick_inline = prove(
     \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
     \\ metis_tac [
          LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
          bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
          bvlPropsTheory.evaluate_add_to_clock_io_events_mono
            |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
            |> Q.SPEC`s with clock := k`
@@ -1766,12 +1755,7 @@ val semantics_let_op = prove(
     \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
     \\ metis_tac [
          LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
          bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
          bvlPropsTheory.evaluate_add_to_clock_io_events_mono
            |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
            |> Q.SPEC`s with clock := k`
@@ -1932,18 +1916,18 @@ Theorem compile_prog_semantics
   \\ drule (GEN_ALL lets)
   \\ fs [] \\ disch_then (assume_tac o GSYM) \\ fs []);
 
-Theorem handl_ok_optimise
-  `!prog. handle_ok (MAP (SND ∘ SND ∘ optimise b i) prog)`
+Theorem handle_ok_optimise
+  `!prog. bvl_handleProof$handle_ok (MAP (SND ∘ SND ∘ optimise b i) prog)`
   (Induct \\ fs [bvl_handleProofTheory.handle_ok_def,FORALL_PROD]
   \\ once_rewrite_tac [bvl_handleProofTheory.handle_ok_CONS] \\ fs []
   \\ fs [bvl_handleProofTheory.compile_any_handle_ok,optimise_def]);
 
 Theorem compile_prog_handle_ok
   `compile_prog l b i prog = (inlines,prog3) ==>
-    handle_ok (MAP (SND o SND) prog3)`
+    bvl_handleProof$handle_ok (MAP (SND o SND) prog3)`
   (fs [compile_prog_def,compile_inc_def]
   \\ pairarg_tac \\ fs [] \\ rw []
-  \\ fs [MAP_MAP_o,handl_ok_optimise]);
+  \\ fs [MAP_MAP_o,handle_ok_optimise]);
 
 Theorem MAP_FST_MAP_optimise[simp]
   `MAP FST (MAP (optimise x y) z) = MAP FST z`

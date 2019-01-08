@@ -10,6 +10,10 @@ library, as a thin wrapper around the relevant system calls.
 This directory contains the end-to-end correctness theorem for the
 64-bit version of the CakeML compiler.
 
+[test-hello.cml](test-hello.cml):
+A hello world program used for testing that the bootstrapped
+compiler was built succesfully.
+
 [to_dataBootstrapScript.sml](to_dataBootstrapScript.sml):
 Evaluate the 32-bit version of the compiler down to a DataLang
 program.

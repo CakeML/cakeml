@@ -2,7 +2,7 @@
   A pretty printer producing strings.
   Based on the pretty printer from "ML from the working programmer".
 *)
-open preamble holSyntaxTheory mlstringTheory
+open preamble holSyntaxTheory holKernelTheory mlstringTheory
 
 val _ = new_theory "pretty";
 

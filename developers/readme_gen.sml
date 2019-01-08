@@ -26,7 +26,7 @@ val MAX_CODE_LINE_LENGTH = 200
 val PREFIX_FILENAME = "readmePrefix"
 val OUTPUT_FILENAME = "README.md"
 val CHECK_OPT = "--check"
-val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Syntax.sml","Lib.sml",".lem",".c"]
+val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Syntax.sml","Lib.sml",".lem",".c",".cml"]
 val FIRST_TARGET_PREFIX = "all: $(DEFAULT_TARGETS) README.md"
 
 val HOLMAKEFILE_SUGGESTION =
@@ -258,6 +258,31 @@ fun read_comment_from_raw filename = let
     in all_lines end handle e => (TextIO.closeIn(f); raise e)
   end;
 
+(* Read from a markdown file, e.g. how-to.md *)
+
+(*
+val filename = "../how-to.md"
+*)
+fun read_comment_from_markdown filename = let
+  val lines = Option.valOf (read_all_lines filename)
+  val line = List.nth (lines,1) handle Subscript => "\n"
+  val line2 = List.nth (lines,2) handle Subscript => "\n"
+  val lines = if String.isPrefix "==" line orelse String.isPrefix "--" line
+              then List.drop(lines,if is_blank_line line2 then 3 else 2)
+              else lines
+  fun take_until p [] = []
+    | take_until p (x::xs) = if p x then [] else x :: take_until p xs
+  fun drop_until p [] = []
+    | drop_until p (x::xs) = if p x then x::xs else drop_until p xs
+  fun until_next_blank_line [] = []
+    | until_next_blank_line (x::xs) =
+        if is_blank_line x then [] else
+        if String.isSuffix ":\n" x then
+          x :: take_until (not o is_blank_line) xs
+          @ until_next_blank_line (drop_until (not o is_blank_line) xs)
+        else x :: until_next_blank_line xs
+  in until_next_blank_line lines end;
+
 (* Read first paragraph of header from directory *)
 
 fun file_exists filename =
@@ -387,6 +412,7 @@ fun create_summary write_output path extra_files = let
     in if is_dir path_file then
          TitleAndContent (filename,read_comment_from_dir path_file)
        else if String.isSuffix ".sml" filename orelse
+               String.isSuffix ".cml" filename orelse
                String.isSuffix ".lem" filename then
          TitleAndContent (filename,read_comment_from_sml path_file)
        else if String.isSuffix ".c" filename orelse
@@ -394,6 +420,8 @@ fun create_summary write_output path extra_files = let
          TitleAndContent (filename,read_comment_from_c path_file)
        else if String.isSuffix ".sh" filename then
          TitleAndContent (filename,read_comment_from_script path_file)
+       else if String.isSuffix ".md" filename then
+         TitleAndContent (filename,read_comment_from_markdown path_file)
        else
          (TitleAndContent (filename,read_comment_from_script path_file)
           handle ReadmeExn msg =>

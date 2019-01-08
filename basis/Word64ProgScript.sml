@@ -18,13 +18,13 @@ val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "word" (Atapp [] (Short "word64"))`` I);
 
 (* to/from int *)
-val _ = trans "fromInt" `n2w:num->word64`
-val _ = trans "toInt" `w2n:word64->num`
+val _ = trans "fromInt" ``n2w:num->word64``;
+val _ = trans "toInt" ``w2n:word64->num``;
 
 (* bitwise operations *)
-val _ = trans "andb" `word_and:word64->word64->word64`;
-val _ = trans "orb" `word_or:word64->word64->word64`;
-val _ = trans "xorb" `word_xor:word64->word64->word64`;
+val _ = trans "andb" ``word_and:word64->word64->word64``;;
+val _ = trans "orb" ``word_or:word64->word64->word64``;
+val _ = trans "xorb" ``word_xor:word64->word64->word64``;
 
 val word_1comp_eq = prove(
   ``word_1comp w = word_xor w 0xFFFFFFFFFFFFFFFFw:word64``,
@@ -34,8 +34,8 @@ val _ = (next_ml_names := ["notb"]);
 val _ = translate word_1comp_eq
 
 (* arithmetic *)
-val _ = trans "+" `word_add:word64->word64->word64`;
-val _ = trans "-" `word_sub:word64->word64->word64`;
+val _ = trans "+" ``word_add:word64->word64->word64``;
+val _ = trans "-" ``word_sub:word64->word64->word64``;
 
 (* shifts *)
 

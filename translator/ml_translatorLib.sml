@@ -893,7 +893,8 @@ val prove_lookup_cons_eq_fail = ref T;
 fun prove_lookup_cons_eq tm =
   let
     val res = (* TODO: remove the SIMP_CONV and tidy up *)
-      tm |> (EVAL THENC nsLookup_conv THENC EVAL
+      tm |> (REWRITE_CONV [lookup_cons_def]
+             THENC TOP_DEPTH_CONV nsLookup_conv THENC EVAL
              THENC SIMP_CONV (srw_ss())
                [optionTheory.OPTION_CHOICE_EQ_NONE,empty_env_def]
              THENC EVAL THENC nsLookup_conv THENC EVAL)
@@ -1692,7 +1693,7 @@ val (n,f,fxs,pxs,tm,exp,xs) = el 1 ts
       \\ Cases_on `^input_var` \\ rewrite_tac [inv_def]
       \\ simp_tac std_ss [v_11,MEM,stamp_11,CONS_11,ZIP,write_list_def,
            stringTheory.CHR_11,LENGTH,NOT_NIL_CONS,NOT_CONS_NIL,PULL_EXISTS]
-      \\ simp_tac (srw_ss()) []
+      \\ simp_tac (srw_ss()) [cases_th]
       \\ rpt (pop_assum mp_tac) \\ rewrite_tac [TAG_def,CONTAINER_def]
       \\ rpt strip_tac
       \\ first_x_assum match_mp_tac \\ fs [])
@@ -2710,6 +2711,7 @@ val builtin_monops =
    Eval_int_of_num,
    Eval_num_of_int,
    Eval_empty_ffi,
+   Eval_force_out_of_memory_error,
    Eval_Chr,
    Eval_Ord]
   |> map SPEC_ALL
