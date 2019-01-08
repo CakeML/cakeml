@@ -195,18 +195,21 @@ Theorem Eval_Let
   \\ fs [namespaceTheory.nsOptBind_def]
   \\ fs [empty_state_def,state_component_equality]);
 
+Theorem Eval_Var_general
+  `P v ==> !iden. nsLookup env.v iden = SOME v ==> Eval env (Var iden) P`
+  (fs [Eval_rw,state_component_equality]);
+
 Theorem Eval_Var_Short
   `P v ==> !name env.
                (nsLookup env.v (Short name) = SOME v) ==>
                Eval env (Var (Short name)) P`
-  (fs [Eval_rw,state_component_equality]);
+  (fs [Eval_Var_general]);
 
-(*TODO: Single level mdule *)
 Theorem Eval_Var_Long
   `P v ==> !m name env.
                (nsLookup env.v (Long m (Short name)) = SOME v) ==>
                Eval env (Var (Long m (Short name))) P`
-  (fs [Eval_rw,state_component_equality]);
+  (fs [Eval_Var_general]);
 
 Theorem Eval_Var_SWAP_ENV
   `!env1.

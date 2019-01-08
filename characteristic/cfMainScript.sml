@@ -22,14 +22,14 @@ val fname = mk_var("fname",``:string``);
 val main_call = mk_main_call fname;
 
 Theorem call_main_thm1
-`ML_code env1 st1 prog NONE env2 st2 ==> (* get this from the current ML prog state *)
+`Decls env1 st1 prog env2 st2 ==> (* get this from the current ML prog state *)
  lookup_var fname env2 = SOME fv ==> (* get this by EVAL *)
   app p fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * Q) ==> (* this should be the CF spec you prove for the "main" function *)
     SPLIT (st2heap p st2) (h1,h2) /\ P h1 ==>  (* this might need simplification, but some of it may need to stay on the final theorem *)
     ∃st3.
       Decls env1 st1 (SNOC ^main_call prog) env2 st3 /\
       (?h3 h4. SPLIT3 (st2heap p st3) (h3,h2,h4) /\ Q h3)`
-  (rw[ml_progTheory.ML_code_def,SNOC_APPEND,ml_progTheory.Decls_APPEND,PULL_EXISTS]
+  (rw[SNOC_APPEND,ml_progTheory.Decls_APPEND,PULL_EXISTS]
   \\ simp[ml_progTheory.Decls_def]
   \\ fs [terminationTheory.evaluate_decs_def,PULL_EXISTS,
          EVAL ``(pat_bindings (Pcon NONE []) [])``,pair_case_eq,result_case_eq]
@@ -143,7 +143,7 @@ Theorem FFI_part_hprop_SEP_EXISTS
   (rw[FFI_part_hprop_def,SEP_EXISTS_THM] \\ res_tac);
 
 Theorem call_main_thm2
-  `ML_code env1 st1 prog NONE env2 st2 ==>
+  `Decls env1 st1 prog env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
   app (proj1, proj2) fv [Conv NONE []] P (POSTv uv. &UNIT_TYPE () uv * Q) ==>
   FFI_part_hprop Q ==>
@@ -160,7 +160,7 @@ Theorem call_main_thm2
          suffices_by metis_tac[prog_to_semantics_prog]
   \\ reverse (sg `?st3. Decls env1 st1 (SNOC ^main_call prog) env2 st3 ∧ B st3`)
   THEN1 (asm_exists_tac \\ fs [Abbr`C`]
-         \\ fs [ml_progTheory.ML_code_def,ml_progTheory.Decls_def]
+         \\ fs [ml_progTheory.Decls_def]
          \\ imp_res_tac evaluate_decs_call_FFI_rel_imp \\ fs [])
   \\ simp[Abbr`A`,Abbr`B`]
   \\ drule (GEN_ALL call_main_thm1)
@@ -169,7 +169,7 @@ Theorem call_main_thm2
   \\ asm_exists_tac \\ simp[]);
 
 Theorem call_main_thm2_ffidiv
-  `ML_code env1 st1 prog NONE env2 st2 ==>
+  `Decls env1 st1 prog env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
   app (proj1, proj2) fv [Conv NONE []] P (POSTf n. λ c b. Q n c b) ==>
   SPLIT (st2heap (proj1, proj2) st2) (h1,h2) /\ P h1
@@ -187,7 +187,7 @@ Theorem call_main_thm2_ffidiv
                                      st4.ffi.io_events)
                        /\ B st4 n c b /\ C st1 st4`
        suffices_by metis_tac[prog_SNOC_semantics_prog]
-  \\ fs[ml_progTheory.ML_code_def]
+  \\ fs[]
   \\ asm_exists_tac \\ fs[app_def,app_basic_def]
   \\ first_x_assum drule \\ impl_tac >- simp[]
   \\ rpt strip_tac
