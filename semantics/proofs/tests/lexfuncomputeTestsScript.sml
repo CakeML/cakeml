@@ -34,6 +34,7 @@ val _ = app (ignore o test) [
         IntT 6; SemicolonT]”),
       (* (“tlex "val value = 0x10"”,
        “[ValT; IdentT "value"; EqualsT; IntT 16]”) *)
+      (“tlex "List.nil"”, “[LongidT "List" "nil"]”),
       (“tlex "val value = 0 *y - ~1"”,
        “[ValT; AlphaT "value"; EqualsT; IntT 0; StarT; AlphaT "y"; SymbolT "-";
          IntT (-1)]”),

@@ -196,7 +196,8 @@ fun lexer_fun_compset() = let
   val lexcs = listLib.list_compset()
 in
   List.app (fn f => f lexcs)
-           [stringLib.add_string_compset,
+           [listLib.add_rich_list_compset,
+            stringLib.add_string_compset,
             pairLib.add_pair_compset,
             optionLib.OPTION_rws,
             combinLib.add_combin_compset,
@@ -214,16 +215,23 @@ val add_cmlPtreeConversion_compset = computeLib.extend_compset
   [computeLib.Defs
     let open cmlPtreeConversionTheory in
       [Eseq_encode_def
+      ,EtoPat_def
       ,Papply_def
       ,bind_loc_def
       ,dePat_def
       ,dest_Conk_def
       ,destFFIop_def
       ,detuplify_def
+      ,ifM_def
+      ,isConstructor_def
+      ,isSymbolicConstructor_def
       ,letFromPat_def
+      ,maybe_handleRef_def
+      ,merge_locsopt_def
       ,mkAst_App_def
       ,mkFun_def
       ,mk_binop_def
+      ,optLannot_def
       ,ptree_ConstructorName_def
       ,ptree_Dconstructor_def
       ,ptree_Decl_def
@@ -234,6 +242,7 @@ val add_cmlPtreeConversion_compset = computeLib.extend_compset
       ,ptree_Op_def
       ,ptree_OpID_def
       ,ptree_OptTypEqn_def
+      ,ptree_PTbase_def
       ,ptree_Pattern_def
       ,ptree_PbaseList1_def
       ,ptree_SignatureValue_def
@@ -241,6 +250,7 @@ val add_cmlPtreeConversion_compset = computeLib.extend_compset
       ,ptree_SpeclineList_def
       ,ptree_StructName_def
       ,ptree_Structure_def
+      ,ptree_TbaseList_def
       ,ptree_TopLevelDec_def
       ,ptree_TopLevelDecs_def
       ,ptree_Tyop_def
