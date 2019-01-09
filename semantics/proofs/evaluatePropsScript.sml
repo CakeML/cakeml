@@ -875,7 +875,9 @@ Theorem is_clock_io_mono_set_clock
   \\ rpt (FIRST (map CHANGED_TAC [fs [], strip_tac]))
   \\ metis_tac []);
 
-val evaluate_set_clock_lemmas = BODY_CONJUNCTS is_clock_io_mono_evaluate
+val evaluate_set_clock_lemmas
+  = (BODY_CONJUNCTS is_clock_io_mono_evaluate
+    @ BODY_CONJUNCTS is_clock_io_mono_evaluate_decs)
   |> map (BETA_RULE o MATCH_MP is_clock_io_mono_set_clock);
 
 Theorem evaluate_set_clock
@@ -883,6 +885,14 @@ Theorem evaluate_set_clock
       evaluate s env exps = (s1,res) /\
       res <> Rerr (Rabort Rtimeout_error) ==>
       !ck. ?ck1. evaluate (s with clock := ck1) env exps =
+                   (s1 with clock := ck,res)`
+  (metis_tac evaluate_set_clock_lemmas);
+
+Theorem evaluate_decs_set_clock
+  `!s env decs s1 res.
+      evaluate_decs s env decs = (s1,res) /\
+      res <> Rerr (Rabort Rtimeout_error) ==>
+      !ck. ?ck1. evaluate_decs (s with clock := ck1) env decs =
                    (s1 with clock := ck,res)`
   (metis_tac evaluate_set_clock_lemmas);
 

@@ -120,15 +120,15 @@ sig
     val find_const_name : string -> string
     val add_v_thms : string * string * thm * thm -> unit
     val lookup_v_thm : term -> thm
-    val get_v_thms_ref : unit -> (string * string * term * thm * thm * string option) list ref
+    val get_v_thms_ref : unit -> (string * string * term * thm * thm * string list) list ref
     val remove_Eq_from_v_thm : thm -> thm
 
     (* Internal - handling type constructor names *)
     val mk_cons_name : term -> string
     val enter_cons_name : term * term -> string
-    val lookup_cons_name : string -> term * string option
+    val lookup_cons_name : string -> term * string list
     val instantiate_cons_name : thm -> thm
-    val get_cons_names : unit -> (string * (term * string option)) list
+    val get_cons_names : unit -> (string * (term * string list)) list
 
     (* Internal - for preprocess_monadic_def *)
     val force_eqns                   : thm -> thm
