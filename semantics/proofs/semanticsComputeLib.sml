@@ -190,6 +190,24 @@ val add_lexer_fun_compset = computeLib.extend_compset
     ]
   ]
 
+fun lexer_fun_compset() = let
+  val lexcs = listLib.list_compset()
+in
+  List.app (fn f => f lexcs)
+           [stringLib.add_string_compset,
+            pairLib.add_pair_compset,
+            optionLib.OPTION_rws,
+            combinLib.add_combin_compset,
+            computeLib.add_thms
+              [pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY],
+            numposrepLib.add_numposrep_compset,
+            bitLib.add_bit_compset,
+            ASCIInumbersLib.add_ASCIInumbers_compset,
+            intReduce.add_int_compset,
+            add_lexer_fun_compset] ;
+  lexcs
+end
+
 val add_cmlPtreeConversion_compset = computeLib.extend_compset
   [computeLib.Defs
     let open cmlPtreeConversionTheory in

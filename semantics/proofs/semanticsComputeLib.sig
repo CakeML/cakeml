@@ -17,6 +17,8 @@ val add_lexer_fun_compset : computeLib.compset -> unit
        ASCIInumbersLib.add_ASCIInumbers_compset cs;
        intReduce.add_int_compset cs;
   *)
+val lexer_fun_compset : unit -> computeLib.compset
+  (* exactly the above with add_lexer_fun_compset *)
 val add_gram_compset : computeLib.compset -> unit
 val add_tokenUtils_compset : computeLib.compset -> unit
 val add_cmlPtreeConversion_compset : computeLib.compset -> unit
