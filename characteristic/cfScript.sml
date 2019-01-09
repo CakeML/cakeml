@@ -2380,6 +2380,19 @@ fun add_to_clock qtm th g =
         th evaluate_match_add_to_clock_lemma g))
   g;
 
+val evaluate_set_clock = store_thm("evaluate_set_clock",
+  ``evaluate st env xs = (st', res) ==>
+    !k. ?ck res1 st1.
+    evaluate (st with clock := k) env xs = (st1, res1) /\
+    (res1 = res /\ st1 = (st' with clock := ck) \/
+     res1 = Rerr (Rabort Rtimeout_error) /\
+     st1.ffi.io_events ≼ st'.ffi.io_events)``, cheat);
+
+val lprefix_lub_subset = store_thm("lprefix_lub_subset",
+  ``lprefix_lub$lprefix_lub s l /\ s SUBSET t /\
+    (!x y. x IN t /\ ~(x IN s) /\ y IN t ==> LPREFIX x y) ==>
+    lprefix_lub$lprefix_lub t l``, cheat);
+
 val cf_sound = Q.store_thm ("cf_sound",
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`,
   recInduct cf_ind \\ rpt strip_tac \\
@@ -2450,8 +2463,13 @@ val cf_sound = Q.store_thm ("cf_sound",
         THEN1 (
           `SPLIT3 heap (h_f',h_k, h_g UNION h_g')`
             by SPLIT_TAC
-          \\ rveq \\ instantiate \\ strip_tac
-          THEN1 cheat
+          \\ rveq \\ instantiate \\ rpt strip_tac
+          THEN1 (
+            drule evaluate_set_clock \\ fs []
+            \\ disch_then (qspec_then `ck'` strip_assume_tac) \\ fs []
+          )
+          \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
+          \\ asm_exists_tac \\ simp [SUBSET_DEF]
           \\ cheat
         )
         THEN (
