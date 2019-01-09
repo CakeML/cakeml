@@ -4,7 +4,7 @@
 *)
 
 open preamble basis
-     splitwordsTheory balanced_mapTheory
+     splitwordsTheory balanced_mapTheory mlmapTheory
 
 (* note: opening all these theories/libraries can take a while
    and it will print many warning messages which can be ignored *)
@@ -19,14 +19,14 @@ val _ = Globals.max_print_depth := 20
 (* Pure functions for word frequency counting *)
 
 val lookup0_def = Define`
-  lookup0 w t = case lookup compare w t of NONE => 0n | SOME n => n`;
+  lookup0 w t = case mlmap$lookup t w of NONE => 0n | SOME n => n`;
 
 Theorem lookup0_empty[simp]
-  `lookup0 w empty = 0` (EVAL_TAC);
+  `!w cmp. lookup0 w (empty cmp) = 0` (EVAL_TAC \\ fs []);
 
 val insert_word_def = Define`
   insert_word t w =
-    insert compare w (lookup0 w t + 1) t`;
+    insert t w (lookup0 w t + 1)`;
 
 val insert_line_def = Define`
   insert_line t s =
@@ -46,39 +46,73 @@ Theorem IMAGE_key_set_compare_inj[simp]
   \\ fs[EQ_IMP_THM] \\ rw[]
   \\ res_tac \\ fs[]);
 
+val map_ok_def = Define `
+  map_ok (Map cmp t) <=> balanced_map$invariant cmp t /\ good_cmp cmp /\ TotOrd cmp`;
+
+Theorem lookup_insert
+  `map_ok t ==>
+   lookup (insert t k1 v) k2 = if k1 = k2 then SOME v else lookup t k2`
+ (Cases_on `t`
+  \\ fs [map_ok_def,balanced_mapTheory.lookup_insert,lookup_def,insert_def]
+  \\ metis_tac [totoTheory.TotOrd])
+
 Theorem lookup0_insert
-  `invariant compare t ⇒
-   lookup0 k (insert compare k' v t) =
+  `map_ok t ⇒
+   lookup0 k (insert t k' v) =
    if k = k' then v else lookup0 k t`
-  (rw[lookup0_def,lookup_insert,good_cmp_compare] \\
-  metis_tac[TotOrd_compare,totoTheory.TotOrd]);
+  (rw [lookup0_def,lookup_insert]);
+
+val to_fmap_def = Define `
+  to_fmap (Map cmp Tip) = FEMPTY /\
+  to_fmap (Map cmp (Bin s k v l r)) =
+    ((to_fmap (Map cmp l) ⊌ to_fmap (Map cmp r)) |+ (k,v))`;
+
+val cmp_of_def = Define `
+  cmp_of (Map cmp t) = cmp`;
+
+Theorem cmp_of_insert[simp]
+  `cmp_of (insert t k v) = cmp_of t`
+  (Cases_on `t` \\ fs [insert_def,cmp_of_def]);
+
+Theorem cmp_of_empty[simp]
+  `cmp_of (empty cmp) = cmp`
+  (fs [mlmapTheory.empty_def,cmp_of_def]);
+
+Theorem insert_thm
+  `map_ok t ==>
+   map_ok (insert t k v) /\
+   to_fmap (insert t k v) = (to_fmap t |+ (k, v))`
+  cheat;
 
 Theorem insert_line_thm
-  `invariant compare t ∧
+  `map_ok t ∧
    insert_line t s = t'
    ⇒
-   invariant compare t' ∧
+   map_ok t' ∧
    (∀w. lookup0 w t' =
         lookup0 w t + frequency s w) ∧
-   FDOM (to_fmap compare t') = FDOM (to_fmap compare t) ∪ (IMAGE (key_set compare) (set (splitwords s)))`
+   cmp_of t' = cmp_of t ∧
+   FDOM (to_fmap t') =
+   FDOM (to_fmap t) ∪ set (splitwords s)`
   (strip_tac \\ rveq \\
   simp[insert_line_def,splitwords_def,frequency_def] \\
   Q.SPEC_TAC(`tokens isSpace s`,`ls`) \\
   ho_match_mp_tac SNOC_INDUCT \\ simp[] \\
   ntac 3 strip_tac \\
   simp[MAP_SNOC,FOLDL_SNOC,insert_word_def] \\
-  rw[good_cmp_compare,insert_thm,FILTER_SNOC,lookup0_insert] \\
-  rw[EXTENSION] \\ metis_tac[]);
+  rw [insert_thm,lookup0_insert,FILTER_SNOC] \\
+  rw [EXTENSION] \\ metis_tac []);
 
 Theorem FOLDL_insert_line
   `∀ls t t' s.
-    invariant compare t ∧ t' = FOLDL insert_line t ls ∧
+    map_ok t ∧ t' = FOLDL insert_line t ls ∧
     EVERY (λw. ∃x. w = strcat x (strlit "\n")) ls ∧
     s = concat ls
     ⇒
-    invariant compare t' ∧
+    map_ok t' ∧
+    cmp_of t' = cmp_of t /\
     (∀w. lookup0 w t' = lookup0 w t + frequency s w) ∧
-    FDOM (to_fmap compare t') = FDOM (to_fmap compare t) ∪ IMAGE (key_set compare) (set (splitwords s))`
+    FDOM (to_fmap t') = FDOM (to_fmap t) ∪ set (splitwords s)`
   (Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
@@ -99,10 +133,14 @@ val format_output_def = Define`
 
 val res = translate format_output_def;
 
+val empty_def = Define `
+  empty = mlmap$empty compare`;
+
 val compute_wordfreq_output_def = Define `
   compute_wordfreq_output input_lines =
     MAP format_output (toAscList (FOLDL insert_line empty input_lines))`
 
+val res = translate empty_def;
 val res = translate compute_wordfreq_output_def;
 
 (* Main wordfreq implementation *)
@@ -186,6 +224,25 @@ val wordfreq_output_spec_def =
    you like.)
 *)
 
+Theorem empty_thm
+  `(map_ok (empty cmp) = TotOrd cmp) /\ to_fmap (empty cmp) = FEMPTY`
+  (fs [mlmapTheory.empty_def,map_ok_def,balanced_mapTheory.empty_thm,
+      to_fmap_def,balanced_mapTheory.empty_def] \\ cheat)
+
+Theorem MAP_FST_toAscList
+  `map_ok t ⇒
+   SORTED (λx y. cmp_of t x y = Less) (MAP FST (toAscList t)) ∧
+   FDOM (to_fmap t) = set (MAP FST (toAscList t))`
+  cheat;
+
+Theorem MEM_toAscList
+  `map_ok t /\ MEM (k,v) (toAscList t) ==> FLOOKUP (to_fmap t) k = SOME v`
+  cheat;
+
+Theorem lookup_thm
+  `map_ok t ==> lookup t k = FLOOKUP (to_fmap t) k`
+  cheat;
+
 Theorem wordfreq_output_valid
   `!file_contents.
      valid_wordfreq_output file_contents
@@ -198,15 +255,15 @@ Theorem wordfreq_output_valid
            of these pairs *)
   (* qexists_tac `<put your answer here>` \\ *)
   (* Now we use the theorem about insert_line proved earlier *)
-  qspecl_then[`lines_of file_contents`,`empty`]mp_tac FOLDL_insert_line \\
-  simp[empty_thm] \\
+  qspecl_then[`lines_of file_contents`,`empty compare`]mp_tac FOLDL_insert_line \\
+  simp[empty_thm,mlstringTheory.TotOrd_compare] \\
   impl_tac >- (
     simp[lines_of_def,EVERY_MAP,implode_def,strcat_def] \\
     simp[EVERY_MEM] \\ metis_tac[explode_implode] ) \\
   strip_tac \\
-  assume_tac good_cmp_compare \\ simp[Abbr`ls`] \\
+  simp[Abbr`ls`] \\
   (* simplify the remaining goal using properties of toAscList etc. *)
-  simp[MAP_FST_toAscList,mlstring_lt_def] \\
+  simp[MAP_FST_toAscList,mlstring_lt_def,empty_def] \\
   simp[MAP_MAP_o,o_DEF] \\
   imp_res_tac MAP_FST_toAscList \\ fs[empty_thm] \\
   qmatch_goalsub_abbrev_tac`set (splitwords w1) = set (splitwords w2)` \\
@@ -216,6 +273,7 @@ Theorem wordfreq_output_valid
     \\ `isSpace #"\n"` by EVAL_TAC
     \\ simp[splitwords_concat_space] ) \\
   simp[] \\
+  rfs [] \\
   AP_TERM_TAC \\
   simp[MAP_EQ_f] \\
   simp[FORALL_PROD] \\ rw[] \\
