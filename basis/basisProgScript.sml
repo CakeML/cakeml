@@ -10,13 +10,10 @@ val _ = translation_extends"PrettyPrinterProg";
 
 val print_e = ``Var(Long"TextIO"(Short"print"))``
 val eval_thm = let
-  val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
-           |> REWRITE_RULE [ml_progTheory.ML_code_env_def]
-  val th = th |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["e","s3"]))
-              |> SPEC print_e
-  val st = th |> SPEC_ALL |> concl |> dest_imp |> #1 |> strip_comb |> #2 |> el 1
-  val goal = th |> SPEC st |> SPEC_ALL |> concl |> dest_imp |> fst
+  val env = get_ml_prog_state () |> ml_progLib.get_env
+  val state = get_ml_prog_state () |> ml_progLib.get_state
+  val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
+    [state, env, print_e, state, mk_var ("x", v_ty)])
   val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[])
   val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
     rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))
@@ -78,8 +75,7 @@ val basis_st = get_ml_prog_state ();
 val basis_prog_state = save_thm("basis_prog_state",
   ml_progLib.pack_ml_prog_state basis_st);
 
-val basis_prog = basis_st |> remove_snocs
-  |> get_thm |> concl |> rator |> rator |> rator |> rand
+val basis_prog = basis_st |> remove_snocs |> ml_progLib.get_prog;
 
 val basis_def = Define `basis = ^basis_prog`;
 
