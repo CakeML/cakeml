@@ -20,21 +20,7 @@ fun limit n cs t =
       with_flag(stoppers, SOME stop) (CBV_CONV cs) t
     end
 
-val compset = let
-  val cs = listLib.list_compset()
-in
-  stringLib.add_string_compset cs;
-  pairLib.add_pair_compset cs;
-  optionLib.OPTION_rws cs;
-  combinLib.add_combin_compset cs;
-  computeLib.add_thms[pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY] cs;
-  numposrepLib.add_numposrep_compset cs;
-  bitLib.add_bit_compset cs;
-  ASCIInumbersLib.add_ASCIInumbers_compset cs;
-  intReduce.add_int_compset cs;
-  add_lexer_fun_compset cs;
-  cs
-end
+val compset = lexer_fun_compset()
 
 fun test (t_in,t_expected) =
     (tprint ("Lexing " ^ term_to_string t_in);

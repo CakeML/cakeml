@@ -59,11 +59,17 @@ val lexeval = let val cs = semanticsComputeLib.lexer_fun_compset()
                 computeLib.CBV_CONV cs
               end
 
+val ptree_conv_eval = let
+  val cs = semanticsComputeLib.cmlPtreeConversion_compset()
+in
+  computeLib.CBV_CONV cs
+end
+
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
   val _ = print ("**********\nLexing "^s^"\n")
-  val t = time (rhs o concl o EVAL) ``lexer_fun ^s_t``
+  val t = time (rhs o concl o lexeval) ``lexer_fun ^s_t``
   val ttoks = rhs (concl (lexeval ``MAP (TK o FST)  ^t``))
   val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
@@ -101,7 +107,7 @@ in
                   NONE => optionSyntax.mk_none bool
                 | SOME t =>
                   let
-                    val rt = rhs (concl (time EVAL t))
+                    val rt = rhs (concl (time ptree_conv_eval t))
                   in
                     if optionSyntax.is_some rt then
                       rand rt

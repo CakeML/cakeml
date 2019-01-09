@@ -128,6 +128,7 @@ val add_tokenUtils_compset = computeLib.extend_compset [
         , isLongidT_def
         , destTyvarPT_def
         , destLf_def
+        , destLongidT_def
         , destTOK_def
         , destAlphaT_def
         , destSymbolT_def
@@ -148,6 +149,7 @@ val add_lexer_fun_compset = computeLib.extend_compset
       ,token_of_sym_def
       ,read_while_def
       ,read_string_def
+      ,read_FFIcall_def
       ,skip_comment_def
       ,isSymbol_def
       ,isAlphaNumPrime_def
@@ -211,46 +213,84 @@ end
 val add_cmlPtreeConversion_compset = computeLib.extend_compset
   [computeLib.Defs
     let open cmlPtreeConversionTheory in
-      [tuplify_def
+      [Eseq_encode_def
+      ,Papply_def
       ,bind_loc_def
-      ,ptree_TopLevelDecs_def
-      ,ptree_TopLevelDec_def
-      ,ptree_Structure_def
-      ,ptree_StructName_def
-      ,ptree_SignatureValue_def
-      ,ptree_SpeclineList_def
-      ,ptree_SpecLine_def
+      ,dePat_def
+      ,dest_Conk_def
+      ,destFFIop_def
+      ,detuplify_def
+      ,letFromPat_def
+      ,mkAst_App_def
+      ,mkFun_def
+      ,mk_binop_def
+      ,ptree_ConstructorName_def
+      ,ptree_Dconstructor_def
       ,ptree_Decl_def
+      ,ptree_DtypeDecl_def
       ,ptree_Eliteral_def
       ,ptree_Expr_def
-      ,mkAst_App_def
-      ,Eseq_encode_def
-      ,ptree_Pattern_def
-      ,Papply_def
       ,ptree_FQV_def
-      ,ptree_V_def
       ,ptree_Op_def
+      ,ptree_OpID_def
+      ,ptree_OptTypEqn_def
+      ,ptree_Pattern_def
+      ,ptree_PbaseList1_def
+      ,ptree_SignatureValue_def
+      ,ptree_SpecLine_def
+      ,ptree_SpeclineList_def
+      ,ptree_StructName_def
+      ,ptree_Structure_def
+      ,ptree_TopLevelDec_def
+      ,ptree_TopLevelDecs_def
+      ,ptree_Tyop_def
+      ,ptree_TypeAbbrevDec_def
       ,ptree_TypeDec_def
-      ,ptree_DtypeDecl_def
-      ,ptree_Dconstructor_def
-      ,detuplify_def
-      ,ptree_ConstructorName_def
-      ,ptree_UQConstructorName_def
       ,ptree_TypeName_def
       ,ptree_Type_def
-      ,ptree_linfix_def
-      ,ptree_Tyop_def
       ,ptree_TyvarN_def
+      ,ptree_UQConstructorName_def
       ,ptree_UQTyop_def
-      ,ptree_TypeAbbrevDec_def
-      ,ptree_OptTypEqn_def
-      ,mk_binop_def
-      ,ptree_PbaseList1_def
-      ,mkFun_def
-      ,dePat_def
+      ,ptree_V_def
+      ,ptree_linfix_def
+      ,strip_loc_expr_def
+      ,tokcheck_def
+      ,tokcheckl_def
+      ,tuplify_def
       ]
     end
     ]
+
+fun cmlPtreeConversion_compset () =
+    let
+      val cs = listLib.list_compset()
+      val _ = List.app (fn f => f cs) [
+            computeLib.extend_compset [
+              computeLib.Tys [“:(α,β) sum”]
+            ],
+            stringLib.add_string_compset,
+            pairLib.add_pair_compset,
+            optionLib.OPTION_rws,
+            combinLib.add_combin_compset,
+            computeLib.extend_compset [
+              computeLib.Tys [“:(α,β,γ) grammar$parsetree”,
+                              “:(α,β) grammar$symbol”]
+            ],
+            computeLib.extend_compset [
+              computeLib.Tys [“:location$locn”, “:location$locs”]
+            ],
+            computeLib.extend_compset [
+              computeLib.Tys [“:tokens$token”]
+            ],
+            add_gram_compset,
+            add_tokenUtils_compset,
+            add_namespace_compset,
+            add_ast_compset,
+            add_cmlPtreeConversion_compset
+          ]
+    in
+      cs
+    end
 
 val add_semantics_compset = computeLib.extend_compset [
       computeLib.Extenders [
