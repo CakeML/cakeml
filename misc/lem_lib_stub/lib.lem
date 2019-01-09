@@ -1,9 +1,8 @@
 (*
    Extensions to Lem's built-in library to target things we need in HOL.
 *)
+
 open import Pervasives
-import List_extra
-import String
 
 (* TODO: look for these in the built-in library *)
 
