@@ -27,6 +27,11 @@ fun insert_ancestors fname ancs =
                     ", "
                     (map (fn s => "\"" ^ String.toString s ^ "\"") ancs) ^
                   "];\n"
+    val openline = "local open " ^
+                  String.concatWith
+                    " "
+                    (map (fn s => String.toString s ^ "Theory") ancs) ^
+                  " in end;\n"
     fun readInsert lnum seen_ntp acc =
       case TextIO.inputLine istrm of
           NONE => if seen_ntp then List.rev acc
@@ -36,7 +41,7 @@ fun insert_ancestors fname ancs =
             if seen_ntp then
               die (fname^":"^Int.toString lnum^": Seen second new_theory line")
             else
-              readInsert (lnum + 1) true (ancline :: s :: acc)
+              readInsert (lnum + 1) true (ancline :: s :: openline :: acc)
           else readInsert (lnum + 1) seen_ntp (s::acc)
     val lines = readInsert 1 false []
     val _ = TextIO.closeIn istrm

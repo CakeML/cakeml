@@ -5894,7 +5894,7 @@ Theorem stack_alloc_reg_bound
     EVERY (\p. reg_bound p sp)
        (MAP SND prog1) ==>
     EVERY (\p. reg_bound p sp)
-       (MAP SND (compile c.data_conf prog1))`
+       (MAP SND (compile dc prog1))`
   (fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
   >-
@@ -5923,7 +5923,7 @@ Theorem stack_alloc_reg_bound
 
 Theorem stack_alloc_call_args
   `EVERY (λp. call_args p 1 2 3 4 0) (MAP SND prog1) ==>
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile c.data_conf prog1))`
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile dc prog1))`
   (fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
   >-

@@ -17,12 +17,20 @@ val split16_def = tDefine "split16" `
 
 val preamble_tm =
   ``(MAP (\n. strlit(n ++ "\n"))
-      ["/* Preprocessor to get around Mac OS and Linux differences in naming */";
+      ["/* Preprocessor to get around Mac OS, Windows, and Linux differences in naming and calling conventions */";
        "";
        "#if defined(__APPLE__)";
        "# define cdecl(s) _##s";
        "#else";
        "# define cdecl(s) s";
+       "#endif";
+       "";
+       "#if defined(__APPLE__)";
+       "# define wcdecl(s) _##s";
+       "#elif defined(__WIN32)";
+       "# define wcdecl(s) windows_##s";
+       "#else";
+       "# define wcdecl(s) s";
        "#endif";
        "";
        "     .file        \"cake.S\"";

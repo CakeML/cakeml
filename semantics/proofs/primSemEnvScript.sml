@@ -17,7 +17,7 @@ open terminationTheory;
 val _ = new_theory "primSemEnv";
 
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
-``add_to_sem_env (<| clock := 0; ffi := ffi; refs := [];
+``add_to_sem_env (<| clock := 0; ffi := (ffi:'ffi ffi_state); refs := [];
                      next_exn_stamp := 0; next_type_stamp := 0; |>,
                   <| c := nsEmpty; v := nsEmpty |>)
                  prim_types_program``

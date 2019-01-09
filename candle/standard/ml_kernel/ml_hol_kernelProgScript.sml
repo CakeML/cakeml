@@ -29,93 +29,8 @@ val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 val _ = register_type ``:type``;
 
-val MEM_type_size = Q.prove(
-  `!ts t. MEM t ts ==> type_size t < type1_size ts`,
-  Induct \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC);
-
-Theorem type_ind
-  `(!s ts. (!t. MEM t ts ==> P t) ==> P (Tyapp s ts)) /\
-    (!v. P (Tyvar v)) ==> !x. P x`
-  (REPEAT STRIP_TAC \\ completeInduct_on `type_size x`
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
-  \\ Cases_on `x` \\ FULL_SIMP_TAC std_ss []
-  \\ Q.PAT_X_ASSUM `!x1 x2. bb` MATCH_MP_TAC
-  \\ REPEAT STRIP_TAC \\ Q.PAT_X_ASSUM `!x.bbb` MATCH_MP_TAC
-  \\ EVAL_TAC \\ IMP_RES_TAC MEM_type_size \\ DECIDE_TAC);
-
-val TYPE_TYPE_def = fetch "-" "TYPE_TYPE_def"
-
-val LIST_TYPE_NO_CLOSURES = Q.prove(
-  `!xs v.
-      (!x v. MEM x xs /\ p x v ==> no_closures v) /\
-      LIST_TYPE p xs v ==> no_closures v`,
-  Induct \\ FULL_SIMP_TAC std_ss [LIST_TYPE_def]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF,MEM]
-  \\ METIS_TAC []);
-
-val LIST_TYPE_11 = Q.prove(
-  `!P ts v1 us v2.
-      (!x1.
-       MEM x1 ts ==>
-        !v1 x2 v2.
-          P x1 v1 /\ P x2 v2 ==>
-          types_match v1 v2 /\ ((v1 = v2) <=> (x1 = x2))) /\
-    LIST_TYPE P ts v1 /\ LIST_TYPE P us v2 ==>
-    types_match v1 v2 /\ ((v1 = v2) = (ts = us))`,
-  strip_tac \\ Induct \\ Cases_on `us` \\ fs []
-  \\ simp [LIST_TYPE_def,types_match_def,ctor_same_type_def]
-  \\ fs [PULL_EXISTS,types_match_def,ctor_same_type_def,same_type_def]
-  \\ metis_tac []);
-
-val CHAR_IMP_no_closures = Q.prove(
-  `CHAR x v ==> no_closures v`,
-  SIMP_TAC std_ss [CHAR_def,no_closures_def]);
-
-val STRING_IMP_no_closures = Q.prove(
-  `STRING_TYPE x v ==> no_closures v`,
-  Cases_on`x` \\ SIMP_TAC std_ss [STRING_TYPE_def,no_closures_def]);
-
-val EqualityType_thm = Q.prove(
-  `EqualityType abs <=>
-      (!x1 v1. abs x1 v1 ==> no_closures v1) /\
-      (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2 /\
-                                                (v1 = v2 <=> x1 = x2))`,
-  SIMP_TAC std_ss [EqualityType_def] \\ METIS_TAC []);
-
-val STRING_TYPE_lemma = Q.prove(
-  `EqualityType (STRING_TYPE)`,
-  METIS_TAC (eq_lemmas ()));
-
-val EqualityType_TYPE = Q.prove(
-  `EqualityType TYPE_TYPE`,
-  SIMP_TAC std_ss [EqualityType_thm] \\ STRIP_TAC THEN1
-   (HO_MATCH_MP_TAC type_ind
-    \\ FULL_SIMP_TAC std_ss [TYPE_TYPE_def]
-    \\ REPEAT STRIP_TAC
-    \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF]
-    \\ IMP_RES_TAC (LIST_TYPE_NO_CLOSURES |> GEN_ALL)
-    \\ METIS_TAC [CHAR_IMP_no_closures,STRING_IMP_no_closures])
-  \\ HO_MATCH_MP_TAC type_ind \\ reverse STRIP_TAC THEN1
-   (REPEAT STRIP_TAC
-    \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def,same_type_def]
-    \\ ASSUME_TAC STRING_TYPE_lemma
-    \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC)
-  \\ REPEAT GEN_TAC \\ STRIP_TAC \\ REPEAT GEN_TAC \\ STRIP_TAC
-  \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def,same_type_def]
-  \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 /\ (x1 = y1)) /\ (b2 /\ (x2 = y2)) ==>
-       (b1 /\ b2) /\ ((x1 /\ x2 <=> y1 /\ y2))``)
-  \\ STRIP_TAC THEN1
-   (ASSUME_TAC STRING_TYPE_lemma
-    \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC
-    \\ ASM_SIMP_TAC std_ss [])
-  \\ MATCH_MP_TAC LIST_TYPE_11
-  \\ Q.EXISTS_TAC `TYPE_TYPE`
-  \\ FULL_SIMP_TAC std_ss []
-  \\ REPEAT STRIP_TAC \\ RES_TAC)
-  |> store_eq_thm;
+(* check ``:type`` is known to be an EqualityType *)
+val EqualityType_TYPE = EqualityType_rule [] ``:type``;
 
 val _ = register_type ``:term``;
 val _ = register_exn_type ``:hol_exn``;
@@ -411,8 +326,7 @@ fun define_abbrev_conv name tm = let
   in GSYM def |> SPEC_ALL end
 
 val candle_prog_thm =
-  get_thm (get_ml_prog_state()) (* (get_curr_prog_state ()) *)
-  |> REWRITE_RULE [ML_code_def]
+  get_Decls_thm (get_ml_prog_state()) (* (get_curr_prog_state ()) *)
   |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV)
                 (EVAL THENC define_abbrev_conv "candle_code"))
   |> CONV_RULE ((RATOR_CONV o RAND_CONV)

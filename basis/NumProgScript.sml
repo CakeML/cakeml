@@ -10,15 +10,15 @@ val _ = translation_extends "IntProg";
 
 val _ = ml_prog_update (open_module "Num");
 
-val _ = trans "+" `(+):num->num->num`
-val _ = trans "-" `(-):num->num->num`
-val _ = trans "*" `($*):num->num->num `
-val _ = trans "div" `(DIV):num->num->num`
-val _ = trans "mod" `(MOD):num->num->num`
-val _ = trans "<" `(<):num->num->bool`
-val _ = trans ">" `(>):num->num->bool`
-val _ = trans "<=" `(<=):num->num->bool`
-val _ = trans ">=" `(>=):num->num->bool`
+val _ = trans "+" numSyntax.plus_tm;
+val _ = trans "-" numSyntax.minus_tm;
+val _ = trans "*" numSyntax.mult_tm;
+val _ = trans "div" numSyntax.div_tm;
+val _ = trans "mod" numSyntax.mod_tm;
+val _ = trans "<" numSyntax.less_tm;
+val _ = trans ">" numSyntax.greater_tm;
+val _ = trans "<=" numSyntax.leq_tm;
+val _ = trans ">=" numSyntax.geq_tm;
 
 val _ = next_ml_names := ["toString"];
 val result = translate

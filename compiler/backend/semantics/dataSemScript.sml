@@ -115,7 +115,7 @@ val do_eq_def = tDefine"do_eq"`
   (WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`);
 val _ = export_rewrites["do_eq_def"];
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(dataSem$v#('c,'ffi) dataSem$state,dataSem$v)result``)
+val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(dataSem$v#('c,'ffi) dataSem$state, dataSem$v)result``)
 
 val do_install_def = Define `
   do_install vs ^s =

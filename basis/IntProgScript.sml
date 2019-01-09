@@ -17,16 +17,16 @@ val () = generate_sigs := true;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "int" (Atapp [] (Short "int"))`` I);
 
-val _ = trans "+" `(+):int->int->int`
-val _ = trans "-" `(-):int->int->int`
-val _ = trans "*" `int_mul`
-val _ = trans "div" `(/):int->int->int`
-val _ = trans "mod" `(%):int->int->int`
-val _ = trans "<" `(<):int->int->bool`
-val _ = trans ">" `(>):int->int->bool`
-val _ = trans "<=" `(<=):int->int->bool`
-val _ = trans ">=" `(>=):int->int->bool`
-val _ = trans "~" `\i. - (i:int)`
+val _ = trans "+" intSyntax.plus_tm;
+val _ = trans "-" intSyntax.minus_tm;
+val _ = trans "*" intSyntax.mult_tm;
+val _ = trans "div" intSyntax.div_tm;
+val _ = trans "mod" intSyntax.mod_tm;
+val _ = trans "<" intSyntax.less_tm;
+val _ = trans ">" intSyntax.great_tm;
+val _ = trans "<=" intSyntax.leq_tm;
+val _ = trans ">=" intSyntax.geq_tm;
+val _ = trans "~" ``\i. - (i:int)``;
 
 val result = translate zero_pad_def
 

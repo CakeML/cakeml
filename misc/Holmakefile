@@ -1,6 +1,4 @@
-INCLUDES = ../developers lem_lib_stub $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/fun-op-sem/lprefix_lub
-
-CLINE_OPTIONS = --qof
+INCLUDES = $(CAKEMLDIR)/developers lem_lib_stub $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/fun-op-sem/lprefix_lub
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

@@ -1,12 +1,17 @@
 (*
   Correctness proof for clos_known
 *)
+
 open preamble local open bagLib in end
 open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
      closLangTheory db_varsTheory backendPropsTheory
 local open clos_letopProofTheory clos_ticksProofTheory clos_fvsProofTheory in end
 
 val _ = new_theory "clos_knownProof";
+
+val _ = set_grammar_ancestry
+  [ "closLang", "closSem", "closProps", "clos_known", "clos_knownProps" ];
+val _ = temp_bring_to_front_overload "domain" {Name = "domain", Thy = "sptree"};
 
 fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th)
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
@@ -290,18 +295,6 @@ Theorem val_approx_val_merge_I
      val_approx_val (merge a1 a2) v`
   (metis_tac [val_approx_val_merge_I_lemma, merge_comm]);
 
-Theorem val_approx_better_approx_lemma
-  `!a1 v. val_approx_val a1 v ==> !a2. a1 ◁ a2 ==> val_approx_val a2 v`
-  (ho_match_mp_tac val_approx_val_ind
-  \\ rw [] \\ simp []
-  \\ rename1 `Tuple _ _ ◁ apx2`
-  \\ Cases_on `apx2` \\ simp []
-  \\ fs [LIST_REL_EL_EQN] \\ metis_tac [MEM_EL]);
-
-Theorem val_approx_better_approx
-  `!a1 v a2. a1 ◁ a2 /\ val_approx_val a1 v ==> val_approx_val a2 v`
-  (metis_tac [val_approx_better_approx_lemma]);
-
 Theorem evaluate_IMP_shift_seq
   `!es env s0 res s.
      closSem$evaluate (es, env, s0) = (res, s) ==>
@@ -569,7 +562,7 @@ Theorem known_op_correct_approx
   THEN1
    (rveq \\ fs [LIST_REL_EL_EQN])
   THEN1
-   (fs [bvlSemTheory.case_eq_thms] \\ rveq
+   (fs [CaseEq"ffi_result"] \\ rveq
     \\ fs [state_globals_approx_def] \\ metis_tac []));
 
 Theorem ssgc_free_co_shift_seq
@@ -718,7 +711,6 @@ Theorem do_app_ssgc
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[]))
   >> dsimp[]);
-
 
 Theorem dest_closure_Full_sgc_free
   `dest_closure max_app loc_opt f (arg0::args) =
@@ -2256,7 +2248,7 @@ val v_rel_IMP_v_to_bytes_lemma = prove(
            (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
+  \\ Cases_on `tag = backend_common$cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
@@ -2273,7 +2265,7 @@ val v_rel_IMP_v_to_words_lemma = prove(
            (v_to_list y = SOME (MAP Word64 ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
+  \\ Cases_on `tag = backend_common$cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []

@@ -8,6 +8,10 @@ open preamble intLib integerTheory backendPropsTheory
 
 val _ = new_theory"pat_to_closProof"
 
+val _ = set_grammar_ancestry
+  ["patLang", "patSem", "patProps", "pat_to_clos",
+   "closLang", "closSem", "closProps"];
+
 (* value translation *)
 
 val compile_v_def = tDefine"compile_v"`

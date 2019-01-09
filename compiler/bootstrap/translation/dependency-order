@@ -10,6 +10,11 @@ be selected than simple prefixes of the current ordering.
 *)
 
 basis
+to_flat
+to_pat
+to_clos
+to_bvl
+to_bvi
 to_data
 lexer
 parser

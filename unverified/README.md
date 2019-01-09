@@ -1,9 +1,6 @@
 Various unverified tools, e.g. tools for converting OCaml to CakeML
 and an SML version of the CakeML register allocator.
 
-[benchmarks](benchmarks):
-One benchmark. TODO: delete?
-
 [front-end](front-end):
 A CakeML front-end written in Haskell. It tries to give reasonable parse and
 type error messages that include source locations. It includes a rudimentary
@@ -14,8 +11,9 @@ A work in progress attempt to translate the particular OCaml syntax used by HOL
 Light into Standard ML (as a step towards CakeML).
 
 [ocaml-syntax](ocaml-syntax):
-An OCaml to CakeML translator. Possibly translates type-correct OCaml files to
-equivalent CakeML files.
+An OCaml to CakeML translator. Attempts to translate type-correct OCaml files
+to equivalent CakeML files. Multi-file programs should be supported eventually,
+but are not currently.
 
 [reg_alloc](reg_alloc):
 A snapshot of the register allocator from the CakeML compiler, translated from
