@@ -17,7 +17,7 @@ open terminationTheory;
 val _ = new_theory "primSemEnv";
 
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
-``add_to_sem_env (<| clock := 0; ffi := ffi; refs := [];
+``add_to_sem_env (<| clock := 0; ffi := (ffi:'ffi ffi_state); refs := [];
                      next_exn_stamp := 0; next_type_stamp := 0; |>,
                   <| c := nsEmpty; v := nsEmpty |>)
                  prim_types_program``
@@ -28,15 +28,15 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
         val th1 = mk_eq(rhs(concl pth),lhs(concl th)) |> EVAL |> EQT_ELIM
         in TRANS (TRANS pth th1) th end));
 
-val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
+Theorem prim_type_sound_invariants
   `!type_ids sem_st prim_env.
    (sem_st,prim_env) = THE (prim_sem_env ffi) ∧
    DISJOINT type_ids {Tlist_num; Tbool_num; Texn_num}
    ⇒
    ?ctMap.
      type_sound_invariant sem_st prim_env ctMap FEMPTY type_ids prim_tenv ∧
-     FRANGE ((SND o SND) o_f ctMap) ⊆ prim_type_ids`,
-  rw[type_sound_invariant_def, prim_sem_env_eq, prim_tenv_def] >>
+     FRANGE ((SND o SND) o_f ctMap) ⊆ prim_type_ids`
+  (rw[type_sound_invariant_def, prim_sem_env_eq, prim_tenv_def] >>
   qexists_tac`FEMPTY |++ REVERSE [
       (bind_stamp, ([],[],Texn_num));
       (div_stamp, ([],[],Texn_num));

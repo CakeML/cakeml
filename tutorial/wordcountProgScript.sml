@@ -28,7 +28,7 @@ val inputLinesFromAny = process_topdecs`
 
 val () = append_prog inputLinesFromAny;
 
-val inputLinesFromAny_spec = Q.store_thm("inputLinesFromAny_spec",
+Theorem inputLinesFromAny_spec
   `OPTION_TYPE FILENAME fo fov ∧ (IS_SOME fo ⇒ hasFreeFD fs) ∧
   (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"),ReadMode,0)))
    ⇒
@@ -37,8 +37,8 @@ val inputLinesFromAny_spec = Q.store_thm("inputLinesFromAny_spec",
     (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
       (if IS_SOME fo ⇒ inFS_fname fs (File (THE fo))
        then SOME (all_lines fs (case fo of NONE => IOStream(strlit"stdin") | SOME f => File f))
-       else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))`,
-  xcf"inputLinesFromAny"(get_ml_prog_state())
+       else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))`
+  (xcf"inputLinesFromAny"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ reverse(Cases_on`∃ll. wfFS (fs with numchars := ll)`) >- (fs[STDIO_def,IOFS_def] \\ xpull)
   \\ xmatch
@@ -102,12 +102,12 @@ val wordcount_precond_def = Define`
       ALOOKUP fs.files (IOStream (strlit"stdin")) = SOME contents ∧
       fs' = fastForwardFD fs 0`;
 
-val wordcount_precond_numchars = Q.store_thm("wordcount_precond_numchars",
-  `wordcount_precond cl fs contens fs' ⇒ fs'.numchars = fs.numchars`,
-  rw[wordcount_precond_def]
+Theorem wordcount_precond_numchars
+  `wordcount_precond cl fs contens fs' ⇒ fs'.numchars = fs.numchars`
+  (rw[wordcount_precond_def]
   \\ every_case_tac \\ fs[]);
 
-val wordcount_spec = Q.store_thm("wordcount_spec",
+Theorem wordcount_spec
   `wordcount_precond cl fs contents fs'
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordcount" (get_ml_prog_state()))
@@ -118,8 +118,8 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
                             strlit " ";
                             mlint$toString (&(LENGTH (splitlines contents)));
                             strlit "\n"]))
-                * COMMANDLINE cl)`,
-  simp [concat_def] \\
+                * COMMANDLINE cl)`
+  (simp [concat_def] \\
   strip_tac \\
   xcf "wordcount" (get_ml_prog_state()) \\
   xlet_auto >- (xcon \\ xsimpl) \\
@@ -229,7 +229,7 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   \\ Cases_on`t` \\ fs[]
   \\ Cases_on`t'` \\ fs[]);
 
-val wordcount_whole_prog_spec = Q.store_thm("wordcount_whole_prog_spec",
+Theorem wordcount_whole_prog_spec
   `wordcount_precond cl fs contents fs'
    ⇒
    whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs NONE
@@ -238,8 +238,8 @@ val wordcount_whole_prog_spec = Q.store_thm("wordcount_whole_prog_spec",
        (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
                 strlit " ";
                 mlint$toString (&(LENGTH (splitlines contents)));
-                strlit "\n"])))`,
-  disch_then assume_tac
+                strlit "\n"])))`
+  (disch_then assume_tac
   \\ imp_res_tac wordcount_precond_numchars
   \\ pop_assum(assume_tac o SYM)
   \\ simp[whole_prog_spec_def]

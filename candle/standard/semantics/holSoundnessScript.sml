@@ -10,7 +10,7 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U-> bool``
 
-val binary_inference_rule = Q.store_thm("binary_inference_rule",
+Theorem binary_inference_rule
   `is_set_theory ^mem ⇒
     ∀thy h1 h2 p1 p2 q.
     q has_type Bool ∧ term_ok (sigof thy) q ∧
@@ -19,8 +19,8 @@ val binary_inference_rule = Q.store_thm("binary_inference_rule",
            termsem (tmsof thy) i v p2 = True ⇒
            termsem (tmsof thy) i v q = True) ∧
     (thy,h1) |= p1 ∧ (thy,h2) |= p2
-    ⇒ (thy, term_union h1 h2) |= q`,
-  strip_tac >>
+    ⇒ (thy, term_union h1 h2) |= q`
+  (strip_tac >>
   rpt gen_tac >> strip_tac >>
   fs[entails_def,EVERY_term_union] >> rw[] >>
   rpt (first_x_assum(qspec_then`i`mp_tac)>>rw[]) >>
@@ -33,13 +33,13 @@ val binary_inference_rule = Q.store_thm("binary_inference_rule",
   qspecl_then[`h1`,`h2`,`t`]mp_tac MEM_term_union >> simp[] >> strip_tac >>
   metis_tac[MEM_term_union_imp,termsem_aconv,term_ok_welltyped])
 
-val ABS_correct = Q.store_thm("ABS_correct",
+Theorem ABS_correct
   `is_set_theory ^mem ⇒
     ∀thy x ty h l r.
     ¬EXISTS (VFREE_IN (Var x ty)) h ∧ type_ok (tysof thy) ty ∧
     (thy,h) |= l === r
-    ⇒ (thy,h) |= Abs (Var x ty) l === Abs (Var x ty) r`,
-  rw[] >> fs[entails_def] >>
+    ⇒ (thy,h) |= Abs (Var x ty) l === Abs (Var x ty) r`
+  (rw[] >> fs[entails_def] >>
   imp_res_tac theory_ok_sig >>
   conj_asm1_tac >- fs[term_ok_equation,term_ok_def] >>
   conj_asm1_tac >- fs[EQUATION_HAS_TYPE_BOOL] >> rw[] >>
@@ -72,18 +72,18 @@ val ABS_correct = Q.store_thm("ABS_correct",
   simp[Abbr`vv`,combinTheory.APPLY_UPDATE_THM] >>
   rw[] >> metis_tac[term_ok_welltyped])
 
-val ASSUME_correct = Q.store_thm("ASSUME_correct",
+Theorem ASSUME_correct
   `∀thy p.
       theory_ok thy ∧ p has_type Bool ∧ term_ok (sigof thy) p
-      ⇒ (thy,[p]) |= p`,
-  rw[entails_def,satisfies_def])
+      ⇒ (thy,[p]) |= p`
+  (rw[entails_def,satisfies_def])
 
-val BETA_correct = Q.store_thm("BETA_correct",
+Theorem BETA_correct
   `is_set_theory ^mem ⇒
     ∀thy x ty t.
       theory_ok thy ∧ type_ok (tysof thy) ty ∧ term_ok (sigof thy) t ⇒
-      (thy,[]) |= Comb (Abs (Var x ty) t) (Var x ty) === t`,
-  rw[] >> simp[entails_def] >>
+      (thy,[]) |= Comb (Abs (Var x ty) t) (Var x ty) === t`
+  (rw[] >> simp[entails_def] >>
   imp_res_tac theory_ok_sig >>
   imp_res_tac term_ok_welltyped >>
   conj_asm1_tac >- ( simp[term_ok_equation,term_ok_def] ) >>
@@ -111,15 +111,15 @@ val BETA_correct = Q.store_thm("BETA_correct",
   simp[Abbr`f`,Abbr`e`] >>
   rw[combinTheory.APPLY_UPDATE_ID])
 
-val DEDUCT_ANTISYM_correct = Q.store_thm("DEDUCT_ANTISYM_correct",
+Theorem DEDUCT_ANTISYM_correct
   `is_set_theory ^mem ⇒
     ∀thy h1 p1 h2 p2.
       (thy,h1) |= p1 ∧ (thy,h2) |= p2 ⇒
       (thy,
        term_union (term_remove p2 h1)
                   (term_remove p1 h2))
-      |= p1 === p2`,
-  rw[] >> fs[entails_def] >>
+      |= p1 === p2`
+  (rw[] >> fs[entails_def] >>
   imp_res_tac theory_ok_sig >>
   conj_asm1_tac >- (
     simp[term_ok_equation] >>
@@ -165,12 +165,12 @@ val DEDUCT_ANTISYM_correct = Q.store_thm("DEDUCT_ANTISYM_correct",
     metis_tac[typesem_Bool]) >>
   metis_tac[mem_boolset])
 
-val EQ_MP_correct = Q.store_thm("EQ_MP_correct",
+Theorem EQ_MP_correct
   `is_set_theory ^mem ⇒
     ∀thy h1 h2 p q p'.
       (thy,h1) |= p === q ∧ (thy,h2) |= p' ∧ ACONV p p' ⇒
-      (thy,term_union h1 h2) |= q`,
-  rw[] >>
+      (thy,term_union h1 h2) |= q`
+  (rw[] >>
   match_mp_tac (UNDISCH binary_inference_rule) >>
   map_every qexists_tac[`p === q`,`p'`] >>
   fs[entails_def,EQUATION_HAS_TYPE_BOOL] >>
@@ -181,14 +181,14 @@ val EQ_MP_correct = Q.store_thm("EQ_MP_correct",
   imp_res_tac (UNDISCH termsem_equation) >> rfs[boolean_eq_true] >>
   metis_tac[termsem_aconv,term_ok_welltyped])
 
-val INST_correct = Q.store_thm("INST_correct",
+Theorem INST_correct
   `is_set_theory ^mem ⇒
     ∀thy h c.
       (∀s s'. MEM (s',s) ilist ⇒
               ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
       (thy, h) |= c
-    ⇒ (thy, term_image (VSUBST ilist) h) |= VSUBST ilist c`,
-  rw[entails_def,EVERY_MEM,satisfies_def] >>
+    ⇒ (thy, term_image (VSUBST ilist) h) |= VSUBST ilist c`
+  (rw[entails_def,EVERY_MEM,satisfies_def] >>
   TRY ( imp_res_tac MEM_term_image_imp >> rw[] ) >>
   TRY ( match_mp_tac term_ok_VSUBST >> metis_tac[] ) >>
   TRY ( match_mp_tac VSUBST_HAS_TYPE >> metis_tac[] ) >>
@@ -216,13 +216,13 @@ val INST_correct = Q.store_thm("INST_correct",
   first_x_assum(fn th => first_assum (CHANGED_TAC o SUBST1_TAC o SYM o MATCH_MP th)) >>
   metis_tac[MEM_term_image_imp,termsem_VSUBST,welltyped_def,VSUBST_WELLTYPED,termsem_aconv])
 
-val INST_TYPE_correct = Q.store_thm("INST_TYPE_correct",
+Theorem INST_TYPE_correct
   `is_set_theory ^mem ⇒
     ∀thy h c.
       EVERY (type_ok (tysof thy)) (MAP FST tyin) ∧
       (thy, h) |= c
-    ⇒ (thy, term_image (INST tyin) h) |= INST tyin c`,
-  rw[entails_def,EVERY_MAP,EVERY_MEM,satisfies_def] >>
+    ⇒ (thy, term_image (INST tyin) h) |= INST tyin c`
+  (rw[entails_def,EVERY_MAP,EVERY_MEM,satisfies_def] >>
   TRY ( match_mp_tac hypset_ok_term_image >> rw[] ) >>
   TRY ( imp_res_tac MEM_term_image_imp >> rw[] ) >>
   TRY ( match_mp_tac term_ok_INST >> fs[EVERY_MAP,EVERY_MEM] >> metis_tac[] ) >>
@@ -251,13 +251,13 @@ val INST_TYPE_correct = Q.store_thm("INST_TYPE_correct",
   metis_tac[MEM_term_image_imp,SIMP_RULE(srw_ss())[]termsem_INST,
             welltyped_def,INST_WELLTYPED,termsem_aconv])
 
-val MK_COMB_correct = Q.store_thm("MK_COMB_correct",
+Theorem MK_COMB_correct
   `is_set_theory ^mem ⇒
     ∀thy h1 h2 l1 r1 l2 r2.
       (thy,h1) |= l1 === r1 ∧ (thy,h2) |= l2 === r2 ∧
       welltyped (Comb l1 l2)
-      ⇒ (thy,term_union h1 h2) |= Comb l1 l2 === Comb r1 r2`,
-  rw[] >>
+      ⇒ (thy,term_union h1 h2) |= Comb l1 l2 === Comb r1 r2`
+  (rw[] >>
   match_mp_tac (UNDISCH binary_inference_rule) >>
   map_every qexists_tac[`l1 === r1`,`l2 === r2`] >>
   fs[entails_def] >>
@@ -272,12 +272,12 @@ val MK_COMB_correct = Q.store_thm("MK_COMB_correct",
   rfs[boolean_eq_true] >>
   rw[termsem_def])
 
-val REFL_correct = Q.store_thm("REFL_correct",
+Theorem REFL_correct
   `is_set_theory ^mem ⇒
     ∀thy t.
       theory_ok thy ∧ term_ok (sigof thy) t ⇒
-      (thy,[]) |= t === t`,
-  rw[] >>
+      (thy,[]) |= t === t`
+  (rw[] >>
   simp[entails_def,EQUATION_HAS_TYPE_BOOL] >>
   imp_res_tac theory_ok_sig >>
   imp_res_tac term_ok_welltyped >>
@@ -288,9 +288,9 @@ val REFL_correct = Q.store_thm("REFL_correct",
   imp_res_tac termsem_equation >>
   rw[boolean_def])
 
-val proves_sound = Q.store_thm("proves_sound",
-  `is_set_theory ^mem ⇒ ∀thyh c. thyh |- c ⇒ thyh |= c`,
-  strip_tac >> match_mp_tac proves_ind >>
+Theorem proves_sound
+  `is_set_theory ^mem ⇒ ∀thyh c. thyh |- c ⇒ thyh |= c`
+  (strip_tac >> match_mp_tac proves_ind >>
   conj_tac >- metis_tac[ABS_correct] >>
   conj_tac >- metis_tac[ASSUME_correct] >>
   conj_tac >- metis_tac[BETA_correct] >>

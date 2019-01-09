@@ -1,12 +1,12 @@
 The definition of the CakeML language. The definition is (mostly)
 expressed in [Lem](http://www.cs.kent.ac.uk/~sao/lem), but the
 generated HOL is also included. The directory includes definitions of:
- - the concrete syntax
- - the abstract syntax
- - small step semantics
- - big step semantics (both functional and relational)
- - semantics of FFI calls
- - a type system
+ - the concrete syntax,
+ - the abstract syntax,
+ - big step semantics (both functional and relational),
+ - a small step semantics,
+ - the semantics of FFI calls, and,
+ - the type system.
 
 [addancs.sml](addancs.sml):
 A script to add a set_grammar_ancestry line to a generated Script.sml file.
@@ -50,11 +50,8 @@ V ::= "op" ID | ID
 A functional specification of lexing from strings to token lists.
 
 [namespace.lem](namespace.lem):
-TODO: document
-
-[namespacePropsScript.sml](namespacePropsScript.sml):
-Proofs about the namespace datatype.
-TODO: move to proofs directory?
+Defines a datatype for nested namespaces where names can be either
+short (e.g. foo) or long (e.g. ModuleA.InnerB.bar).
 
 [primTypes.lem](primTypes.lem):
 Definition of the primitive types that are in scope before any CakeML program
@@ -70,12 +67,6 @@ primitive operations) used in the semantics.
 [semanticPrimitivesSyntax.sml](semanticPrimitivesSyntax.sml):
 ML functions for manipulating the HOL terms and types defined in
 semanticPrimitivesTheory.
-
-[semanticsComputeLib.sml](semanticsComputeLib.sml):
-compset for parts of the semantics, including the lexer.
-
-[semanticsLib.sml](semanticsLib.sml):
-TODO: move
 
 [semanticsScript.sml](semanticsScript.sml):
 The top-level semantics of CakeML programs.

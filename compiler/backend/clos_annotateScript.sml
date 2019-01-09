@@ -93,27 +93,27 @@ val alt_free_LENGTH_LEMMA = Q.prove(
   \\ rw [])
   |> SIMP_RULE std_ss [] |> SPEC_ALL;
 
-val alt_free_LENGTH = Q.store_thm("alt_free_LENGTH",
-  `!xs ys l. (alt_free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`,
-  REPEAT STRIP_TAC \\ MP_TAC alt_free_LENGTH_LEMMA \\ fs []);
+Theorem alt_free_LENGTH
+  `!xs ys l. (alt_free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`
+  (REPEAT STRIP_TAC \\ MP_TAC alt_free_LENGTH_LEMMA \\ fs []);
 
-val alt_free_SING = Q.store_thm("alt_free_SING",
-  `(alt_free [x] = (ys,l)) ==> ?y. ys = [y]`,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC alt_free_LENGTH
+Theorem alt_free_SING
+  `(alt_free [x] = (ys,l)) ==> ?y. ys = [y]`
+  (REPEAT STRIP_TAC \\ IMP_RES_TAC alt_free_LENGTH
   \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
 
-val LENGTH_FST_alt_free = Q.store_thm("LENGTH_FST_alt_free",
-  `LENGTH (FST (alt_free fns)) = LENGTH fns`,
-  Cases_on `alt_free fns` \\ fs [] \\ IMP_RES_TAC alt_free_LENGTH);
+Theorem LENGTH_FST_alt_free
+  `LENGTH (FST (alt_free fns)) = LENGTH fns`
+  (Cases_on `alt_free fns` \\ fs [] \\ IMP_RES_TAC alt_free_LENGTH);
 
-val HD_FST_alt_free = Q.store_thm("HD_FST_alt_free",
-  `[HD (FST (alt_free [x1]))] = FST (alt_free [x1])`,
-  Cases_on `alt_free [x1]` \\ fs []
+Theorem HD_FST_alt_free
+  `[HD (FST (alt_free [x1]))] = FST (alt_free [x1])`
+  (Cases_on `alt_free [x1]` \\ fs []
   \\ imp_res_tac alt_free_SING \\ fs[]);
 
-val alt_free_CONS = Q.store_thm("alt_free_CONS",
-  `FST (alt_free (x::xs)) = HD (FST (alt_free [x])) :: FST (alt_free xs)`,
-  Cases_on `xs` \\ fs [alt_free_def,SING_HD,LENGTH_FST_alt_free,LET_DEF]
+Theorem alt_free_CONS
+  `FST (alt_free (x::xs)) = HD (FST (alt_free [x])) :: FST (alt_free xs)`
+  (Cases_on `xs` \\ fs [alt_free_def,SING_HD,LENGTH_FST_alt_free,LET_DEF]
   \\ Cases_on `alt_free [x]` \\ fs []
   \\ Cases_on `alt_free (h::t)` \\ fs [SING_HD]
   \\ IMP_RES_TAC alt_free_SING \\ fs []);
@@ -189,27 +189,27 @@ val shift_def = tDefine "shift" `
 
 val shift_ind = theorem "shift_ind";
 
-val shift_LENGTH_LEMMA = Q.store_thm("shift_LENGTH_LEMMA",
-  `!xs m l i. LENGTH (shift xs m l i) = LENGTH xs`,
-  recInduct shift_ind \\ REPEAT STRIP_TAC
+Theorem shift_LENGTH_LEMMA
+  `!xs m l i. LENGTH (shift xs m l i) = LENGTH xs`
+  (recInduct shift_ind \\ REPEAT STRIP_TAC
   \\ fs [shift_def,LET_DEF,ADD1,AC ADD_COMM ADD_ASSOC])
 
-val shift_SING = Q.store_thm("shift_SING",
-  `!ys. (shift [x] m l i = ys) ==> ?y. ys = [y]`,
-  fs [] \\ MP_TAC (Q.SPEC `[x]` shift_LENGTH_LEMMA |> SPEC_ALL)
+Theorem shift_SING
+  `!ys. (shift [x] m l i = ys) ==> ?y. ys = [y]`
+  (fs [] \\ MP_TAC (Q.SPEC `[x]` shift_LENGTH_LEMMA |> SPEC_ALL)
   \\ Cases_on `shift [x] m l i` \\ fs [LENGTH_NIL])
   |> SIMP_RULE std_ss [];
 
-val shift_CONS = Q.store_thm("shift_CONS",
+Theorem shift_CONS
   `shift ((x:closLang$exp)::xs) m l i =
       let c1 = shift [x] m l i in
       let c2 = shift xs m l i in
-        (HD c1 :: c2:closLang$exp list)`,
-  Cases_on `xs` \\ fs [shift_def,LET_DEF,SING_HD,shift_LENGTH_LEMMA]);
+        (HD c1 :: c2:closLang$exp list)`
+  (Cases_on `xs` \\ fs [shift_def,LET_DEF,SING_HD,shift_LENGTH_LEMMA]);
 
-val HD_shift = Q.store_thm("HD_shift[simp]",
-  `[HD (shift [x] m l i)] = shift [x] m l i`,
-  STRIP_ASSUME_TAC shift_SING \\ fs []);
+Theorem HD_shift[simp]
+  `[HD (shift [x] m l i)] = shift [x] m l i`
+  (STRIP_ASSUME_TAC shift_SING \\ fs []);
 
 (* main functions *)
 

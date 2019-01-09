@@ -17,6 +17,7 @@
 
 # Developer generated executables
 developers/readme_gen
+semantics/addancs
 tutorial/solutions/make_ex
 
 # regression test logs

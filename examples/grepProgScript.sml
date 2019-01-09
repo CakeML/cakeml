@@ -40,105 +40,9 @@ val _ = translate charset_mem_def;
 
 val _ = register_type``:regexp``;
 
-(* TODO: this is largely copied from the bootstrap translation
-         can it be properly abstracted out? *)
-local
-  val ths = ml_translatorLib.eq_lemmas();
-in
-  fun find_equality_type_thm tm =
-    first (can (C match_term tm) o rand o snd o strip_imp o concl) ths
-end
+(* check regexp is known to be an EqualityType *)
+val EqualityType_regexp = EqualityType_rule [] ``:regexp``;
 
-val EqualityType_WORD = find_equality_type_thm``WORD``
-val EqualityType_CHARSET_CHARSET_TYPE = find_equality_type_thm``CHARSET_CHARSET_TYPE``
-  |> REWRITE_RULE[EqualityType_WORD]
-
-val REGEXP_REGEXP_TYPE_def = theorem"REGEXP_REGEXP_TYPE_def";
-val REGEXP_REGEXP_TYPE_ind = theorem"REGEXP_REGEXP_TYPE_ind";
-val no_closures_def = ml_translatorTheory.no_closures_def;
-val LIST_TYPE_def = ml_translatorTheory.LIST_TYPE_def;
-val EqualityType_def = ml_translatorTheory.EqualityType_def;
-val types_match_def = ml_translatorTheory.types_match_def;
-val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
-
-val REGEXP_REGEXP_TYPE_no_closures = Q.prove(
-  `∀a b. REGEXP_REGEXP_TYPE a b ⇒ no_closures b`,
-  ho_match_mp_tac REGEXP_REGEXP_TYPE_ind
-  \\ rw[REGEXP_REGEXP_TYPE_def]
-  \\ rw[no_closures_def]
-  \\ TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    last_x_assum mp_tac >>
-    rpt(pop_assum kall_tac) >>
-    map_every qid_spec_tac[`y1`,`x1`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,no_closures_def] >>
-    qx_gen_tac`p` >>
-    simp[PULL_EXISTS,no_closures_def] >>
-    rw[] >>
-    METIS_TAC[EqualityType_def] ) >>
-  metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
-            EqualityType_def]);
-
-val REGEXP_REGEXP_TYPE_types_match = Q.prove(
-  `∀a b c d. REGEXP_REGEXP_TYPE a b ∧ REGEXP_REGEXP_TYPE c d ⇒ types_match b d`,
-  ho_match_mp_tac REGEXP_REGEXP_TYPE_ind \\
-  rw[REGEXP_REGEXP_TYPE_def] \\
-  Cases_on`c` \\ fs[REGEXP_REGEXP_TYPE_def,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] \\ rw[] \\
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    last_x_assum mp_tac >>
-    rpt(pop_assum kall_tac) >>
-    map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >- (
-      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] ) >>
-    qx_gen_tac`p` >>
-    gen_tac >> Cases >> simp[PULL_EXISTS,LIST_TYPE_def] >>
-    rw[types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >>
-    PROVE_TAC[EqualityType_def] ) >>
-  metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
-            EqualityType_def]);
-
-val REGEXP_REGEXP_TYPE_11 = Q.prove(
-  `∀a b c d. REGEXP_REGEXP_TYPE a b ∧ REGEXP_REGEXP_TYPE c d ⇒ (a = c ⇔ b = d)`,
-  ho_match_mp_tac REGEXP_REGEXP_TYPE_ind \\
-  rw[REGEXP_REGEXP_TYPE_def] \\
-  Cases_on`c` \\ fs[REGEXP_REGEXP_TYPE_def] \\ rw[EQ_IMP_THM] \\
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x y1` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE _ x y2` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    last_x_assum mp_tac >>
-    rpt(pop_assum kall_tac) >>
-    map_every qid_spec_tac[`y2`,`y1`,`x`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >>
-    rw[] >>
-    metis_tac[]) >>
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x1 y` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE _ x2 y` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    last_x_assum mp_tac >>
-    rpt(pop_assum kall_tac) >>
-    map_every qid_spec_tac[`y`,`x1`,`x2`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >- (
-      Cases \\ rw[LIST_TYPE_def] ) \\
-    gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
-    metis_tac[]) >>
-  metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
-            EqualityType_def]);
-
-val EqualityType_REGEXP_REGEXP_TYPE = Q.store_thm("EqualityType_REGEXP_REGEXP_TYPE",
-  `EqualityType REGEXP_REGEXP_TYPE`,
-  metis_tac[REGEXP_REGEXP_TYPE_no_closures,REGEXP_REGEXP_TYPE_types_match,REGEXP_REGEXP_TYPE_11,
-  EqualityType_def]);
-
-val _ = store_eq_thm EqualityType_REGEXP_REGEXP_TYPE;
 (* -- *)
 
 val r = translate regexp_compareW_def;
@@ -175,9 +79,9 @@ val compile_regexp_with_limit_def =
           delta_vecs,
           accepts_vec))`;
 
-val Brz_sound_wrt_Brzozo = Q.store_thm("Brz_sound_wrt_Brzozo",
-  `Brz seen worklist acc d = SOME result ==> Brzozo seen worklist acc = result`,
-  rpt strip_tac
+Theorem Brz_sound_wrt_Brzozo
+  `Brz seen worklist acc d = SOME result ==> Brzozo seen worklist acc = result`
+  (rpt strip_tac
   >> `IS_SOME (Brz seen worklist acc d)`
        by rw[optionTheory.IS_SOME_DEF]
   >> `IS_SOME (Brz seen worklist acc (rdepth seen worklist acc))`
@@ -186,17 +90,17 @@ val Brz_sound_wrt_Brzozo = Q.store_thm("Brz_sound_wrt_Brzozo",
        by metis_tac [Brz_determ]
   >> fs[Brzozo_def]);
 
-val Brz_sound_wrt_Brzozowski = Q.store_thm("Brz_sound_wrt_Brzozowski",
-  `Brz seen worklist acc d = SOME result ==> Brzozowski seen worklist acc = result`,
-  rpt strip_tac
+Theorem Brz_sound_wrt_Brzozowski
+  `Brz seen worklist acc d = SOME result ==> Brzozowski seen worklist acc = result`
+  (rpt strip_tac
   >> `IS_SOME (Brz seen worklist acc d)`
        by rw[optionTheory.IS_SOME_DEF]
   >> rw[Brzozowski_def,dom_Brz_def]
   >> metis_tac[Brz_sound_wrt_Brzozo]);
 
-val compile_regexp_with_limit_sound = Q.store_thm("compile_regexp_with_limit_sound",
-  `compile_regexp_with_limit r = SOME result ==> compile_regexp r = result`,
-  fs[compile_regexp_with_limit_def,compile_regexp_def]
+Theorem compile_regexp_with_limit_sound
+  `compile_regexp_with_limit r = SOME result ==> compile_regexp r = result`
+  (fs[compile_regexp_with_limit_def,compile_regexp_def]
   >> every_case_tac
   >> IMP_RES_TAC Brz_sound_wrt_Brzozowski
   >> rw[pairTheory.ELIM_UNCURRY]);
@@ -216,9 +120,9 @@ val regexp_matcher_with_limit_def =
     in
       SOME(exec_dfa acceptsV deltaV start_state s))`;
 
-val regexp_matcher_with_limit_sound = Q.store_thm("regexp_matcher_with_limit_sound",
-  `regexp_matcher_with_limit r s = SOME result ==> regexp_matcher r s = result`,
-  fs[regexp_matcher_with_limit_def,regexp_matcher_def]
+Theorem regexp_matcher_with_limit_sound
+  `regexp_matcher_with_limit r s = SOME result ==> regexp_matcher r s = result`
+  (fs[regexp_matcher_with_limit_def,regexp_matcher_def]
   >> every_case_tac
   >> IMP_RES_TAC compile_regexp_with_limit_sound
   >> rw[pairTheory.ELIM_UNCURRY]);
@@ -287,9 +191,9 @@ val compile_regexp_with_limit_lookup = Q.prove(
                     compile_regexp_with_limit_sound])
   >> fs[eq_cmp_bmapTheory.fdom_def]);
 
-val tolist_fromlist_map_cancel = Q.store_thm("tolist_fromlist_map_cancel",
-  `MAP mlvector$toList (MAP fromList ll) = ll`,
-  Induct_on `ll` >> fs[]);
+Theorem tolist_fromlist_map_cancel
+  `MAP mlvector$toList (MAP fromList ll) = ll`
+  (Induct_on `ll` >> fs[]);
 
 val regexp_matcher_with_limit_side_def = Q.prove(
   `!r s. regexp_matcher_with_limit_side r s ⇔ T`,
@@ -313,10 +217,10 @@ val regexp_matcher_with_limit_side_def = Q.prove(
 
 (* TODO: should this be in regexp_compilerTheory *)
 
-val regexp_matcher_correct = Q.store_thm("regexp_matcher_correct",
+Theorem regexp_matcher_correct
   `dom_Brz_alt empty [normalize r] ⇒
-   (regexp_matcher r s ⇔ s ∈ regexp_lang r)`,
-  rw[regexp_matcher_def]
+   (regexp_matcher r s ⇔ s ∈ regexp_lang r)`
+  (rw[regexp_matcher_def]
   \\ pairarg_tac \\ fs[]
   \\ imp_res_tac compile_regexp_good_vec
   \\ rfs[dom_Brz_alt_equal,eq_cmp_bmapTheory.fdom_def]
@@ -329,14 +233,14 @@ val regexp_matcher_correct = Q.store_thm("regexp_matcher_correct",
          n.b. INTRO_FLOOKUP is copied from parserProgScript.sml
 *)
 
-val INTRO_FLOOKUP = Q.store_thm("INTRO_FLOOKUP",
+Theorem INTRO_FLOOKUP
   `(if n IN FDOM G.rules
      then EV (G.rules ' n) i r y fk
      else Result xx) =
     (case FLOOKUP G.rules n of
        NONE => Result xx
-     | SOME x => EV x i r y fk)`,
-  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]);
+     | SOME x => EV x i r y fk)`
+  (SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]);
 
 val coreloop_def' =
 ( pegexecTheory.coreloop_def
@@ -417,7 +321,7 @@ val print_matching_lines = process_topdecs`
                   print_matching_lines match prefix fd)`;
 val _ = append_prog print_matching_lines;
 
-val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
+Theorem print_matching_lines_spec
   `(STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
    FD fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
    IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ⇒
@@ -429,8 +333,8 @@ val print_matching_lines_spec = Q.store_thm("print_matching_lines_spec",
        STDIO (add_stdout (fastForwardFD fs fd)
                      (concat
                         (MAP (strcat pfx)
-                           (FILTER m (MAP implode (linesFD fs fd)))))))`,
-  Induct_on`linesFD fs fd` \\ rw[]
+                           (FILTER m (MAP implode (linesFD fs fd)))))))`
+  (Induct_on`linesFD fs fd` \\ rw[]
   >- (
     qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
     \\ xcf"print_matching_lines"(get_ml_prog_state())
@@ -517,7 +421,7 @@ val print_matching_lines_in_file = process_topdecs`
         TextIO.output TextIO.stdErr (notfound_string file)`;
 val _ = append_prog print_matching_lines_in_file;
 
-val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_file_spec",
+Theorem print_matching_lines_in_file_spec
   `FILENAME f fv ∧ hasFreeFD fs ∧
    (STRING_TYPE --> BOOL) m mv
    ⇒
@@ -530,8 +434,8 @@ val print_matching_lines_in_file_spec = Q.store_thm("print_matching_lines_in_fil
                       (concat
                           (MAP (strcat f o strcat (strlit":"))
                             (FILTER m (all_lines fs (File f)))))
-                   else add_stderr fs (notfound_string f)))`,
-  xcf"print_matching_lines_in_file"(get_ml_prog_state())
+                   else add_stderr fs (notfound_string f)))`
+  (xcf"print_matching_lines_in_file"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ qmatch_goalsub_abbrev_tac`_ * STDIO fs'`
   \\ reverse(xhandle`POSTve
@@ -628,11 +532,11 @@ val build_matcher_side = Q.prove(
 
 val build_matcher_v_thm = theorem"build_matcher_v_thm"
 
-val build_matcher_partial_spec = Q.store_thm("build_matcher_partial_spec",
+Theorem build_matcher_partial_spec
   `REGEXP_REGEXP_TYPE r rv ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"build_matcher"(get_ml_prog_state())) [rv] emp
-    (POSTv v. &(STRING_TYPE --> BOOL) (build_matcher r) v)`,
-  strip_tac
+    (POSTv v. &(STRING_TYPE --> BOOL) (build_matcher r) v)`
+  (strip_tac
   \\ rw[app_def]
   \\ irule Arrow_IMP_app_basic
   \\ instantiate
@@ -695,34 +599,34 @@ val grep_sem_ind = theorem"grep_sem_ind";
   |> SIMP_RULE(srw_ss())[]
 *)
 
-val grep_sem_file_MAP_FST_infds = Q.store_thm("grep_sem_file_MAP_FST_infds[simp]",
-  `MAP FST (grep_sem_file L ls nm fs).infds = MAP FST fs.infds`,
-  rw[grep_sem_file_def] \\ CASE_TAC \\ simp[]);
+Theorem grep_sem_file_MAP_FST_infds[simp]
+  `MAP FST (grep_sem_file L ls nm fs).infds = MAP FST fs.infds`
+  (rw[grep_sem_file_def] \\ CASE_TAC \\ simp[]);
 
-val grep_sem_file_maxFD = Q.store_thm("grep_sem_file_maxFD[simp]",
-  `(grep_sem_file L ls nm fs).maxFD = fs.maxFD`,
-  rw[grep_sem_file_def] \\ CASE_TAC \\ simp[]);
+Theorem grep_sem_file_maxFD[simp]
+  `(grep_sem_file L ls nm fs).maxFD = fs.maxFD`
+  (rw[grep_sem_file_def] \\ CASE_TAC \\ simp[]);
 
-val STD_streams_grep_sem_file = Q.store_thm("STD_streams_grep_sem_file",
-  `STD_streams fs ⇒ STD_streams (grep_sem_file L fls fn fs)`,
-  rw[grep_sem_file_def]
+Theorem STD_streams_grep_sem_file
+  `STD_streams fs ⇒ STD_streams (grep_sem_file L fls fn fs)`
+  (rw[grep_sem_file_def]
   \\ CASE_TAC \\ simp[STD_streams_add_stderr,STD_streams_add_stdout]);
 
-val grep_sem_file_FILTER_File = Q.store_thm("grep_sem_file_FILTER_File[simp]",
-  `grep_sem_file L (FILTER (isFile o FST) ls) = grep_sem_file L ls`,
-  rw[grep_sem_file_def,FUN_EQ_THM,ALOOKUP_FILTER,o_DEF,LAMBDA_PROD]);
+Theorem grep_sem_file_FILTER_File[simp]
+  `grep_sem_file L (FILTER (isFile o FST) ls) = grep_sem_file L ls`
+  (rw[grep_sem_file_def,FUN_EQ_THM,ALOOKUP_FILTER,o_DEF,LAMBDA_PROD]);
 
-val grep_sem_FILTER_File = Q.store_thm("grep_sem_FILTER_File[simp]",
-  `∀cl ls. grep_sem cl (FILTER (isFile o FST) ls) = grep_sem cl ls`,
-  ho_match_mp_tac grep_sem_ind
+Theorem grep_sem_FILTER_File[simp]
+  `∀cl ls. grep_sem cl (FILTER (isFile o FST) ls) = grep_sem cl ls`
+  (ho_match_mp_tac grep_sem_ind
   \\ rw[grep_sem_def]);
 
-val grep_sem_file_lemma = Q.store_thm("grep_sem_file_lemma",
+Theorem grep_sem_file_lemma
   `STD_streams fs ⇒
    let fs' = FOLDL (λa f. grep_sem_file L fls f o a) I ls fs in
      STD_streams fs' ∧ (hasFreeFD fs ⇒ hasFreeFD fs') ∧
-     FILTER (isFile o FST) fs'.files = FILTER (isFile o FST) fs.files`,
-  simp[]
+     FILTER (isFile o FST) fs'.files = FILTER (isFile o FST) fs.files`
+  (simp[]
   \\ qid_spec_tac`fs`
   \\ qid_spec_tac`ls`
   \\ ho_match_mp_tac SNOC_INDUCT
@@ -731,16 +635,16 @@ val grep_sem_file_lemma = Q.store_thm("grep_sem_file_lemma",
   \\ CASE_TAC
   \\ simp[FILTER_File_add_stderr,FILTER_File_add_stdout]);
 
-val grep_sem_file_with_numchars = Q.store_thm("grep_sem_file_with_numchars",
+Theorem grep_sem_file_with_numchars
   `grep_sem_file L file filename (fs with numchars := ns) =
-   grep_sem_file L file filename fs with numchars := ns`,
-  rw[grep_sem_file_def] \\ CASE_TAC \\ rw[add_stdo_with_numchars]);
+   grep_sem_file L file filename fs with numchars := ns`
+  (rw[grep_sem_file_def] \\ CASE_TAC \\ rw[add_stdo_with_numchars]);
 
-val grep_sem_with_numchars = Q.store_thm("grep_sem_with_numchars",
+Theorem grep_sem_with_numchars
   `∀cl fls fs.
    grep_sem cl fls (fs with numchars := ns) =
-   grep_sem cl fls fs with numchars := ns`,
-  recInduct grep_sem_ind
+   grep_sem cl fls fs with numchars := ns`
+  (recInduct grep_sem_ind
   \\ rw[grep_sem_def,add_stdo_with_numchars]
   \\ CASE_TAC \\ rw[add_stdo_with_numchars]
   \\ rpt(pop_assum kall_tac)
@@ -758,15 +662,15 @@ val grep_termination_assum_def = Define`
      | SOME r => IS_SOME (Brz empty [normalize r] (1,singleton (normalize r) 0,[]) MAXNUM_32)) ∧
   (grep_termination_assum _ ⇔ T)`;
 
-val grep_spec = Q.store_thm("grep_spec",
+Theorem grep_spec
   `hasFreeFD fs ∧
    grep_termination_assum cl
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"grep"(get_ml_prog_state()))
     [Conv NONE []]
     (STDIO fs * COMMANDLINE cl)
-    (POSTv v. &UNIT_TYPE () v * STDIO (grep_sem cl fs.files fs) * COMMANDLINE cl)`,
-  strip_tac
+    (POSTv v. &UNIT_TYPE () v * STDIO (grep_sem cl fs.files fs) * COMMANDLINE cl)`
+  (strip_tac
   \\ xcf"grep"(get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`)>-(fs[COMMANDLINE_def] \\ xpull)
@@ -900,11 +804,11 @@ val grep_spec = Q.store_thm("grep_spec",
 
 val st = get_ml_prog_state()
 
-val grep_whole_prog_spec = Q.store_thm("grep_whole_prog_spec",
+Theorem grep_whole_prog_spec
   `hasFreeFD fs ∧ grep_termination_assum cl ⇒
    whole_prog_spec ^(fetch_v "grep" st) cl fs NONE
-     ((=) (grep_sem cl fs.files fs))`,
-  disch_then assume_tac
+     ((=) (grep_sem cl fs.files fs))`
+  (disch_then assume_tac
   \\ simp[whole_prog_spec_def]
   \\ qexists_tac`grep_sem cl fs.files fs`
   \\ simp[GSYM grep_sem_with_numchars,with_same_numchars]

@@ -22,12 +22,12 @@ val dest_simple_def = Define `
   (dest_simple _ = NONE)`;
 val _ = export_rewrites["dest_simple_def"];
 
-val dest_simple_pmatch = Q.store_thm("dest_simple_pmatch",`
+Theorem dest_simple_pmatch `
   ∀op. dest_simple op =
     case op of
       bvl$Op (Const i) [] => SOME i
-    | _ => NONE`,
-  rpt strip_tac
+    | _ => NONE`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[dest_simple_def]);
 
@@ -38,12 +38,12 @@ val case_op_const_def = Define `
         | _ => NONE
 `
 
-val case_op_const_pmatch = Q.store_thm("case_op_const_pmatch",`
+Theorem case_op_const_pmatch `
   ∀exp. case_op_const exp =
     case exp of
       | (Op op [x1; Op (Const n2) []]) => SOME (op, x1, n2)
-      | _ => NONE`,
-  rpt strip_tac
+      | _ => NONE`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[case_op_const_def]);
 
@@ -57,7 +57,7 @@ val SmartOp_flip_def = Define `
       | _ => (op, x1, x2)
 `
 
-val SmartOp_flip_pmatch = Q.store_thm("SmartOp_flip_pmatch",`
+Theorem SmartOp_flip_pmatch `
     !op x1 x2. SmartOp_flip op x1 x2 =
     case (dest_simple x1) of
     | (SOME i) =>
@@ -65,8 +65,8 @@ val SmartOp_flip_pmatch = Q.store_thm("SmartOp_flip_pmatch",`
         else if op = Sub then (Add, x2, Op (Const (-i)) [])
         else (op, x1, x2)
     | _ => (op, x1, x2)
-`,
-  rpt strip_tac
+`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[SmartOp_flip_def]
 );
@@ -197,12 +197,12 @@ val SmartOp_def = Define `
     | [x1; x2] => SmartOp2 (SmartOp_flip op x1 x2)
     | _ => Op op xs`
 
-val SmartOp_pmatch = Q.store_thm("SmartOp_pmatch",`
+Theorem SmartOp_pmatch `
     !op xs. SmartOp op xs =
       case xs of
       | [x1;x2] => SmartOp2 (SmartOp_flip op x1 x2)
-      | _ => Op op xs`,
-  rpt strip_tac
+      | _ => Op op xs`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[SmartOp_def]
 )
@@ -214,14 +214,14 @@ val extract_def = Define `
     if NULL xs then SOME (Op (Cons t) []) else NONE) /\
   (extract _ _ = NONE)`
 
-val extract_pmatch = Q.store_thm("extract_pmatch",`
+Theorem extract_pmatch `
   ∀op ys. extract op ys =
     case op of
       (Var n):bvl$exp => SOME ((Var (n + LENGTH ys + 1)):bvl$exp)
     | Op (Const i) xs => SOME (Op (Const i) [])
     | Op (Cons t) [] => SOME (Op (Cons t) [])
-    | _ => NONE`,
-  rpt strip_tac
+    | _ => NONE`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[extract_def]);
 
@@ -233,12 +233,12 @@ val delete_var_def = Define `
   (delete_var ((Var n):bvl$exp) = Op (Const 0) []) /\
   (delete_var x = x)`;
 
-val delete_var_pmatch = Q.store_thm("delete_var_pmatch",`!op.
+Theorem delete_var_pmatch `!op.
   delete_var op =
     case op of
       Var n => Op (Const 0) []
-    | x => x`,
-  rpt strip_tac
+    | x => x`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[delete_var_def])
 
@@ -273,15 +273,15 @@ val compile_def = tDefine "compile" `
 
 val compile_ind = theorem"compile_ind";
 
-val compile_length = Q.store_thm("compile_length[simp]",
-  `!n xs. LENGTH (compile n xs) = LENGTH xs`,
-  HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
+Theorem compile_length[simp]
+  `!n xs. LENGTH (compile n xs) = LENGTH xs`
+  (HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [compile_def,ADD1,LET_DEF]
   \\ every_case_tac \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-val compile_HD_SING = Q.store_thm("compile_HD_SING",
-  `[HD (compile n [x])] = compile n [x]`,
-  MP_TAC (Q.SPECL [`n`,`[x]`] compile_length)
+Theorem compile_HD_SING
+  `[HD (compile n [x])] = compile n [x]`
+  (MP_TAC (Q.SPECL [`n`,`[x]`] compile_length)
   \\ Cases_on `compile n [x]` \\ fs [LENGTH_NIL]);
 
 val compile_exp_def = Define `

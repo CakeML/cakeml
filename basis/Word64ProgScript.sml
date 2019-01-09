@@ -18,13 +18,13 @@ val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "word" (Atapp [] (Short "word64"))`` I);
 
 (* to/from int *)
-val _ = trans "fromInt" `n2w:num->word64`
-val _ = trans "toInt" `w2n:word64->num`
+val _ = trans "fromInt" ``n2w:num->word64``;
+val _ = trans "toInt" ``w2n:word64->num``;
 
 (* bitwise operations *)
-val _ = trans "andb" `word_and:word64->word64->word64`;
-val _ = trans "orb" `word_or:word64->word64->word64`;
-val _ = trans "xorb" `word_xor:word64->word64->word64`;
+val _ = trans "andb" ``word_and:word64->word64->word64``;;
+val _ = trans "orb" ``word_or:word64->word64->word64``;
+val _ = trans "xorb" ``word_xor:word64->word64->word64``;
 
 val word_1comp_eq = prove(
   ``word_1comp w = word_xor w 0xFFFFFFFFFFFFFFFFw:word64``,
@@ -34,8 +34,8 @@ val _ = (next_ml_names := ["notb"]);
 val _ = translate word_1comp_eq
 
 (* arithmetic *)
-val _ = trans "+" `word_add:word64->word64->word64`;
-val _ = trans "-" `word_sub:word64->word64->word64`;
+val _ = trans "+" ``word_add:word64->word64->word64``;
+val _ = trans "-" ``word_sub:word64->word64->word64``;
 
 (* shifts *)
 
@@ -50,9 +50,9 @@ val var_word_lsl_def = Define `
     else if n < 7 then w << 6
     else w << 7 else var_word_lsl (w << 8) (n − 8)`
 
-val var_word_lsl_thm = store_thm("var_word_lsl_thm[simp]",
-  ``var_word_lsl w n = word_lsl w n``,
-  ntac 32 (
+Theorem var_word_lsl_thm[simp]
+  `var_word_lsl w n = word_lsl w n`
+  (ntac 32 (
     Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD])
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs []));
@@ -68,9 +68,9 @@ val var_word_lsr_def = Define `
     else if n < 7 then w >>> 6
     else w >>> 7 else var_word_lsr (w >>> 8) (n − 8)`
 
-val var_word_lsr_thm = store_thm("var_word_lsr_thm[simp]",
-  ``var_word_lsr w n = word_lsr w n``,
-  ntac 32 (
+Theorem var_word_lsr_thm[simp]
+  `var_word_lsr w n = word_lsr w n`
+  (ntac 32 (
     Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD])
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs []));
@@ -86,9 +86,9 @@ val var_word_asr_def = Define `
     else if n < 7 then w >> 6
     else w >> 7 else var_word_asr (w >> 8) (n − 8)`
 
-val var_word_asr_thm = store_thm("var_word_asr_thm[simp]",
-  ``var_word_asr w n = word_asr w n``,
-  ntac 32 (
+Theorem var_word_asr_thm[simp]
+  `var_word_asr w n = word_asr w n`
+  (ntac 32 (
     Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD])
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs []));

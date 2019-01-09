@@ -19,14 +19,14 @@ fun cases_on_DecodeBitMasks (g as (asl, _)) =
       (Cases_on `^tm` \\ fs [] \\ Cases_on `x` \\ fs []) g
    end
 
-val Decode_EncodeBitMask = Q.store_thm("Decode_EncodeBitMask",
+Theorem Decode_EncodeBitMask
    `(!w: word32 n s r.
         (EncodeBitMask w = SOME (n, s, r)) ==>
         (?v. DecodeBitMasks (n, s, r, T) = SOME (w, v))) /\
     (!w: word64 n s r.
         (EncodeBitMask w = SOME (n, s, r)) ==>
-        (?v. DecodeBitMasks (n, s, r, T) = SOME (w, v)))`,
-   lrw [arm8Theory.EncodeBitMask_def, arm8Theory.EncodeBitMaskAux_def]
+        (?v. DecodeBitMasks (n, s, r, T) = SOME (w, v)))`
+   (lrw [arm8Theory.EncodeBitMask_def, arm8Theory.EncodeBitMaskAux_def]
    \\ BasicProvers.FULL_CASE_TAC
    \\ fs []
    \\ cases_on_DecodeBitMasks
@@ -636,7 +636,7 @@ val bytes_in_memory_thm = Q.prove(
       state.PC + 1w IN s.mem_domain /\
       state.PC IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def,
-       arm8_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
+       arm8_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    \\ rfs []
    )
 
@@ -653,7 +653,7 @@ val bytes_in_memory_thm2 = Q.prove(
       state.PC + w + 1w IN s.mem_domain /\
       state.PC + w IN s.mem_domain`,
    rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def,
-       arm8_ok_def, asmSemTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
+       arm8_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
    \\ rfs []
    )
 
@@ -840,9 +840,9 @@ val arm8_target_ok = Q.prove (
 val ext12 = ``(11 >< 0) : word64 -> word12``
 val print_tac = asmLib.print_tac "correct"
 
-val arm8_encoder_correct = Q.store_thm ("arm8_encoder_correct",
-   `encoder_correct arm8_target`,
-   simp [asmPropsTheory.encoder_correct_def, arm8_target_ok]
+Theorem arm8_encoder_correct
+   `encoder_correct arm8_target`
+   (simp [asmPropsTheory.encoder_correct_def, arm8_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm8_target`
    \\ rw [arm8_target_def, asmSemTheory.asm_step_def, arm8_config]
    \\ qunabbrev_tac `state_rel`

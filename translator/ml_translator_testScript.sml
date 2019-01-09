@@ -8,6 +8,7 @@ open HolKernel Parse boolLib bossLib;
 val _ = new_theory "ml_translator_test";
 
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
+open ml_progLib;
 
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
@@ -180,16 +181,23 @@ val _ = translate_no_ind test_def;
 
 (* registering types inside modules *)
 
-open ml_progLib
-
 val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
 val my_fun_def = Define `(my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
                          (my_fun my_case3 = 2n)`;
+
+val r = register_type ``:'a option``;
 
 val _ = ml_prog_update (open_module "My_module");
 val r = register_type ``:my_type``;
 val _ = ml_prog_update (close_module NONE);
 val r = translate my_fun_def;
+
+val _ = Datatype `my_type3 = SomE num num | NonE`;
+
+val _ = ml_prog_update (open_module "My_other_module");
+val r = register_type ``:my_type3``;
+val res3 = translate optionTheory.THE_DEF
+val _ = ml_prog_update (close_module NONE);
 
 (* test the abstract translator is working *)
 
@@ -224,10 +232,61 @@ val a_c_inv_num = get_type_inv ``:(num, num) a_c_type``;
 val st_inv = get_type_inv ``:simple_type``;
 val st2_inv = get_type_inv ``:simple_type2``;
 
-val EqTyp_test_lemmas = Q.store_thm ("EqTyp_test_lemmas",
+Theorem EqTyp_test_lemmas
   `EqualityType (^a_inv) /\ EqualityType (^a_b_inv)
     /\ EqualityType (^a_c_inv_num) /\ EqualityType (^st_inv)
-    /\ EqualityType (^st2_inv)`,
-  fs (eq_lemmas ()));
+    /\ EqualityType (^st2_inv)`
+  (fs (eq_lemmas ()));
+
+(* translating within nested local blocks and modules *)
+
+val hidden_f1_def = Define `hidden_f1 xs = REVERSE xs ++ [()]`;
+val global_f2_def = Define `global_f2 xs = hidden_f1 xs ++ [()]`;
+val hidden_f3_def = Define `hidden_f3 xs = global_f2 (hidden_f1 xs)`;
+val module_f4_def = Define `module_f4 xs = hidden_f3 (global_f2 xs)`;
+val module_f5_def = Define `module_f5 xs = module_f4 xs`;
+val global_f6_def = Define `global_f6 xs = module_f5 xs ++ module_f4 xs`;
+
+val r = translate REVERSE_DEF;
+val _ = ml_prog_update open_local_block;
+val r = translate hidden_f1_def;
+val _ = ml_prog_update open_local_in_block;
+val r = translate global_f2_def;
+val _ = ml_prog_update (open_module "f4_module");
+val _ = ml_prog_update open_local_block;
+val r = translate hidden_f3_def;
+val _ = ml_prog_update open_local_in_block;
+val r = translate module_f4_def;
+val _ = ml_prog_update open_local_block;
+val _ = ml_prog_update open_local_in_block;
+val r = translate module_f5_def;
+val _ = ml_prog_update close_local_blocks;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update close_local_block;
+val r = translate global_f6_def;
+
+(* translating within nested modules *)
+
+val m1_m2_f_def = Define `m1_m2_f i = SUC 1 + i`;
+val m1_m3_f_def = Define `m1_m3_f i = m1_m2_f (SUC i)`;
+val m1_f_def = Define `m1_f i = m1_m2_f (m1_m3_f i)`;
+val m4_f_def = Define `m4_f i = m1_f i + m1_m3_f (m1_m2_f i)`;
+val m4_m5_f_def = Define `m4_m5_f i = m1_f i + m4_f i + m1_m2_f i`;
+
+val _ = ml_prog_update (open_module "m1");
+val _ = ml_prog_update (open_module "m2");
+val r = translate m1_m2_f_def;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (open_module "m3");
+val r = translate m1_m3_f_def;
+val _ = ml_prog_update (close_module NONE);
+val r = translate m1_f_def;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (open_module "m4");
+val r = translate m4_f_def;
+val _ = ml_prog_update (open_module "m5");
+val r = translate m4_m5_f_def;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();

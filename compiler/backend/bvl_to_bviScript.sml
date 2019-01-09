@@ -25,12 +25,12 @@ val destLet_def = Define `
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
   (destLet _ = ([],Var 0))`;
 
-val destLet_pmatch = Q.store_thm("destLet_pmatch",`∀exp.
+Theorem destLet_pmatch `∀exp.
   destLet exp =
     case exp of
       Let xs b => (xs,b)
-    | _ => ([],Var 0)`,
-  rpt strip_tac
+    | _ => ([],Var 0)`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[destLet_def])
 
@@ -241,11 +241,11 @@ local val compile_op_quotation = `
 in
 val compile_op_def = Define compile_op_quotation
 
-val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op c1.` @
+Theorem compile_op_pmatch (`∀op c1.` @
   (compile_op_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
+       | aq => aq)))
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[compile_op_def])
 end
@@ -319,13 +319,13 @@ val compile_exps_LENGTH_lemma = Q.prove(
   \\ SIMP_TAC std_ss [compile_exps_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-val compile_exps_LENGTH = Q.store_thm("compile_exps_LENGTH",
-  `(compile_exps n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)`,
-  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_exps_LENGTH_lemma) \\ fs [])
+Theorem compile_exps_LENGTH
+  `(compile_exps n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)`
+  (REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_exps_LENGTH_lemma) \\ fs [])
 
-val compile_exps_SING = Q.store_thm("compile_exps_SING",
-  `(compile_exps n [x] = (c,aux,n1)) ==> ?y. c = [y]`,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
+Theorem compile_exps_SING
+  `(compile_exps n [x] = (c,aux,n1)) ==> ?y. c = [y]`
+  (REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
   \\ Cases_on `c` \\ fs [LENGTH_NIL]);
 
 val compile_single_def = Define `

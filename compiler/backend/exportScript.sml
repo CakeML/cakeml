@@ -17,12 +17,20 @@ val split16_def = tDefine "split16" `
 
 val preamble_tm =
   ``(MAP (\n. strlit(n ++ "\n"))
-      ["/* Preprocessor to get around Mac OS and Linux differences in naming */";
+      ["/* Preprocessor to get around Mac OS, Windows, and Linux differences in naming and calling conventions */";
        "";
        "#if defined(__APPLE__)";
        "# define cdecl(s) _##s";
        "#else";
        "# define cdecl(s) s";
+       "#endif";
+       "";
+       "#if defined(__APPLE__)";
+       "# define wcdecl(s) _##s";
+       "#elif defined(__WIN32)";
+       "# define wcdecl(s) windows_##s";
+       "#else";
+       "# define wcdecl(s) s";
        "#endif";
        "";
        "     .file        \"cake.S\"";
@@ -80,9 +88,9 @@ val all_bytes_def = Define `
 
 val all_bytes_eq = save_thm("all_bytes_eq",EVAL ``all_bytes``);
 
-val byte_to_string_eq = store_thm("byte_to_string_eq",
-  ``!b. byte_to_string b = sub all_bytes (w2n b)``,
-  Cases_on `b` \\ once_rewrite_tac [EQ_SYM_EQ]
+Theorem byte_to_string_eq
+  `!b. byte_to_string b = sub all_bytes (w2n b)`
+  (Cases_on `b` \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ rewrite_tac [all_bytes_def,mlvectorTheory.sub_def]
   \\ full_simp_tac std_ss [w2n_n2w,EVAL ``dimword (:8)``]
   \\ full_simp_tac std_ss [listTheory.EL_GENLIST]);

@@ -43,6 +43,7 @@ val tokmap0 =
                 ("in", ``InT``),
                 ("IntError", ``AlphaT "IntError"``),
                 ("let", ``LetT``),
+                ("local", ``LocalT``),
                 ("nil", ``AlphaT "nil"``),
                 ("o", ``AlphaT "o"``),
                 ("of", ``OfT``),
@@ -148,10 +149,6 @@ val cmlG_def = mk_grammar_def ginfo
  (* function and value declarations *)
  FDecl ::= V PbaseList1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
- Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
-       |  "exception" Dconstructor
-       | TypeAbbrevDec ;
- Decls ::= Decl Decls | ";" Decls | ;
  LetDec ::= "val" Pattern "=" E | "fun" AndFDecls ;
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
@@ -179,9 +176,14 @@ val cmlG_def = mk_grammar_def ginfo
  SpecLineList ::= SpecLine SpecLineList | ";" SpecLineList | ;
  SignatureValue ::= "sig" SpecLineList "end" ;
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
+ Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
+       |  "exception" Dconstructor
+       | TypeAbbrevDec | "local" Decls "in" Decls "end";
+ Decls ::= Decl Decls | ";" Decls | ;
  Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct" Decls "end";
- TopLevelDec ::= Structure | Decl;
- TopLevelDecs ::= E ";" TopLevelDecs | TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
+ TopLevelDec ::= Structure | Decl ;
+ TopLevelDecs ::= E ";" TopLevelDecs | TopLevelDec NonETopLevelDecs
+               |  ";" TopLevelDecs | ;
  NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
 `;
 

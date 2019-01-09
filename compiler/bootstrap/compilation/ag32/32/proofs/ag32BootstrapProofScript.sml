@@ -42,15 +42,15 @@ val LENGTH_data =
 val _ = overload_on("cake_machine_config",
     ``ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)``);
 
-val target_state_rel_cake_start_asm_state = Q.store_thm("target_state_rel_cake_start_asm_state",
+Theorem target_state_rel_cake_start_asm_state
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms ⇒
    ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
-         ((FUNPOW Next n ms).MEM x = ms.MEM x))`,
-  strip_tac
+         ((FUNPOW Next n ms).MEM x = ms.MEM x))`
+  (strip_tac
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
@@ -83,14 +83,14 @@ val compile_correct_applied =
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
 
-val cake_installed = Q.store_thm("cake_installed",
+Theorem cake_installed
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.ffi_names (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (cake_machine_config) (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)`,
-  rewrite_tac[ffi_names, THE_DEF]
+     (cake_machine_config) (FUNPOW Next (cake_startup_clock ms0 inp cl) ms0)`
+  (rewrite_tac[ffi_names, THE_DEF]
   \\ strip_tac
   \\ irule ag32_installed
   \\ drule cake_startup_clock_def
@@ -112,32 +112,32 @@ val cake_machine_sem =
 
 (* TODO: move *)
 
-val get_stdin_stdin_fs = Q.store_thm("get_stdin_stdin_fs[simp]",
-  `get_stdin (stdin_fs inp) = inp`,
-  EVAL_TAC
+Theorem get_stdin_stdin_fs[simp]
+  `get_stdin (stdin_fs inp) = inp`
+  (EVAL_TAC
   \\ SELECT_ELIM_TAC
   \\ simp[EXISTS_PROD, FORALL_PROD]);
 
-val inFS_fname_fastForwardFD = Q.store_thm("inFS_fname_fastForwardFD[simp]",
-  `inFS_fname (fastForwardFD fs fd) fnm ⇔ inFS_fname fs fnm`,
-  rw[fsFFIPropsTheory.inFS_fname_def]);
+Theorem inFS_fname_fastForwardFD[simp]
+  `inFS_fname (fastForwardFD fs fd) fnm ⇔ inFS_fname fs fnm`
+  (rw[fsFFIPropsTheory.inFS_fname_def]);
 
-val File_NOTIN_stdin_fs = Q.store_thm("File_NOTIN_stdin_fs[simp]",
-  `∀nm. ¬ inFS_fname (stdin_fs inp) (File nm)`,
-  rw[stdin_fs_def,fsFFIPropsTheory.inFS_fname_def]);
+Theorem File_NOTIN_stdin_fs[simp]
+  `∀nm. ¬ inFS_fname (stdin_fs inp) (File nm)`
+  (rw[stdin_fs_def,fsFFIPropsTheory.inFS_fname_def]);
 
-val ALOOKUP_fastForwardFD_infds_neq = Q.store_thm("ALOOKUP_fastForwardFD_infds_neq",
-  `fd ≠ fd' ⇒ (ALOOKUP (fastForwardFD fs fd).infds fd' = ALOOKUP fs.infds fd')`,
-  rw[fsFFIPropsTheory.fastForwardFD_def]
+Theorem ALOOKUP_fastForwardFD_infds_neq
+  `fd ≠ fd' ⇒ (ALOOKUP (fastForwardFD fs fd).infds fd' = ALOOKUP fs.infds fd')`
+  (rw[fsFFIPropsTheory.fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ simp[]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]
   \\ simp[ALIST_FUPDKEY_ALOOKUP]
   \\ CASE_TAC);
 
-val FST_ALOOKUP_fastForwardFD_infds = Q.store_thm("FST_ALOOKUP_fastForwardFD_infds",
-  `OPTION_MAP FST (ALOOKUP (fastForwardFD fs fd).infds fd') = OPTION_MAP FST (ALOOKUP fs.infds fd')`,
-  rw[fsFFIPropsTheory.fastForwardFD_def]
+Theorem FST_ALOOKUP_fastForwardFD_infds
+  `OPTION_MAP FST (ALOOKUP (fastForwardFD fs fd).infds fd') = OPTION_MAP FST (ALOOKUP fs.infds fd')`
+  (rw[fsFFIPropsTheory.fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ simp[]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]
@@ -145,9 +145,9 @@ val FST_ALOOKUP_fastForwardFD_infds = Q.store_thm("FST_ALOOKUP_fastForwardFD_inf
   \\ CASE_TAC \\ simp[]
   \\ CASE_TAC \\ simp[]);
 
-val FST_ALOOKUP_add_stdo_infds = Q.store_thm("FST_ALOOKUP_add_stdo_infds",
-  `OPTION_MAP FST (ALOOKUP (add_stdo fd nm fs out).infds fd') = OPTION_MAP FST (ALOOKUP fs.infds fd')`,
-  mp_tac TextIOProofTheory.add_stdo_MAP_FST_infds
+Theorem FST_ALOOKUP_add_stdo_infds
+  `OPTION_MAP FST (ALOOKUP (add_stdo fd nm fs out).infds fd') = OPTION_MAP FST (ALOOKUP fs.infds fd')`
+  (mp_tac TextIOProofTheory.add_stdo_MAP_FST_infds
   \\ strip_tac
   \\ drule (GEN_ALL data_to_word_bignumProofTheory.MAP_FST_EQ_IMP_IS_SOME_ALOOKUP)
   \\ disch_then(qspec_then`fd'`mp_tac)
@@ -159,13 +159,13 @@ val FST_ALOOKUP_add_stdo_infds = Q.store_thm("FST_ALOOKUP_add_stdo_infds",
   \\ simp[ALIST_FUPDKEY_ALOOKUP]
   \\ rw[] \\ Cases_on`x` \\ rw[]);
 
-val ALOOKUP_add_stdout_files = Q.store_thm("ALOOKUP_add_stdout_files",
+Theorem ALOOKUP_add_stdout_files
   `STD_streams fs ⇒ (
    ALOOKUP (add_stdout fs out).files fnm =
    if fnm = IOStream(strlit"stdout") then
      SOME (THE (ALOOKUP fs.files fnm) ++ explode out)
-   else ALOOKUP fs.files fnm)`,
-  strip_tac
+   else ALOOKUP fs.files fnm)`
+  (strip_tac
   \\ imp_res_tac TextIOProofTheory.STD_streams_stdout
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -180,13 +180,13 @@ val ALOOKUP_add_stdout_files = Q.store_thm("ALOOKUP_add_stdout_files",
   \\ TOP_CASE_TAC
   \\ fs[]);
 
-val ALOOKUP_add_stderr_files = Q.store_thm("ALOOKUP_add_stderr_files",
+Theorem ALOOKUP_add_stderr_files
   `STD_streams fs ⇒ (
    ALOOKUP (add_stderr fs err).files fnm =
    if fnm = IOStream(strlit"stderr") then
      SOME (THE (ALOOKUP fs.files fnm) ++ explode err)
-   else ALOOKUP fs.files fnm)`,
-  strip_tac
+   else ALOOKUP fs.files fnm)`
+  (strip_tac
   \\ imp_res_tac TextIOProofTheory.STD_streams_stderr
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -201,13 +201,13 @@ val ALOOKUP_add_stderr_files = Q.store_thm("ALOOKUP_add_stderr_files",
   \\ TOP_CASE_TAC
   \\ fs[]);
 
-val ALOOKUP_add_stdout_infds = Q.store_thm("ALOOKUP_add_stdout_infds",
+Theorem ALOOKUP_add_stdout_infds
   `STD_streams fs ⇒ (
    ALOOKUP (add_stdout fs out).infds fd =
    if fd = 1 then
      SOME ((I ## I ## ((+) (strlen out))) (THE (ALOOKUP fs.infds fd)))
-   else ALOOKUP fs.infds fd)`,
-  strip_tac
+   else ALOOKUP fs.infds fd)`
+  (strip_tac
   \\ imp_res_tac TextIOProofTheory.STD_streams_stdout
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -223,13 +223,13 @@ val ALOOKUP_add_stdout_infds = Q.store_thm("ALOOKUP_add_stdout_infds",
   \\ PairCases_on`x`
   \\ fs[]);
 
-val ALOOKUP_add_stderr_infds = Q.store_thm("ALOOKUP_add_stderr_infds",
+Theorem ALOOKUP_add_stderr_infds
   `STD_streams fs ⇒ (
    ALOOKUP (add_stderr fs err).infds fd =
    if fd = 2 then
      SOME ((I ## I ## ((+) (strlen err))) (THE (ALOOKUP fs.infds fd)))
-   else ALOOKUP fs.infds fd)`,
-  strip_tac
+   else ALOOKUP fs.infds fd)`
+  (strip_tac
   \\ imp_res_tac TextIOProofTheory.STD_streams_stderr
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
@@ -247,7 +247,7 @@ val ALOOKUP_add_stderr_infds = Q.store_thm("ALOOKUP_add_stderr_infds",
 
 (* -- *)
 
-val cake_extract_writes = Q.store_thm("cake_extract_writes",
+Theorem cake_extract_writes
   `wfcl cl ⇒
    let events = MAP get_output_io_event (cake_io_events cl (stdin_fs inp)) in
    let out = extract_writes 1 events in
@@ -257,8 +257,8 @@ val cake_extract_writes = Q.store_thm("cake_extract_writes",
    else
      let (cout, cerr) = compile_32 (TL cl) inp in
      (out = explode (concat (append cout))) ∧
-     (err = explode cerr)`,
-  strip_tac
+     (err = explode cerr)`
+  (strip_tac
   \\ drule(GEN_ALL(DISCH_ALL cake_output))
   \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
@@ -391,7 +391,7 @@ val cake_extract_writes = Q.store_thm("cake_extract_writes",
   \\ simp[STD_streams_stdin_fs]
   \\ simp[stdin_fs_def])
 
-val cake_ag32_next = Q.store_thm("cake_ag32_next",
+Theorem cake_ag32_next
   `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0
@@ -403,8 +403,8 @@ val cake_ag32_next = Q.store_thm("cake_ag32_next",
        (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
        outs ≼ MAP get_output_io_event (cake_io_events cl (stdin_fs inp)) ∧
        ((ms.R (n2w (cake_machine_config).ptr_reg) = 0w) ⇒
-        (outs = MAP get_output_io_event (cake_io_events cl (stdin_fs inp))))`,
-  strip_tac
+        (outs = MAP get_output_io_event (cake_io_events cl (stdin_fs inp))))`
+  (strip_tac
   \\ drule (GEN_ALL cake_machine_sem)
   \\ disch_then drule
   \\ disch_then drule

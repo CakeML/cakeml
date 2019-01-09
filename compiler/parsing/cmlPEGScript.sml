@@ -7,6 +7,7 @@ open HolKernel Parse boolLib bossLib
      gramTheory pegexecTheory pegTheory
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
+local open tokenUtilsTheory in end
 
 val _ = new_theory "cmlPEG"
 val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]
@@ -456,6 +457,8 @@ val cmlPEG_def = zDefine`
                       (bindNT nDecl);
                  seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
                  seql [tokeq ExceptionT; pnt nDconstructor] (bindNT nDecl);
+                 seql [tokeq LocalT; pnt nDecls; tokeq InT; pnt nDecls;
+                       tokeq EndT] (bindNT nDecl);
                  seql [pnt nTypeDec] (bindNT nDecl);
                  seql [pnt nTypeAbbrevDec] (bindNT nDecl)
                ]);
@@ -755,10 +758,9 @@ val PEG_exprs = save_thm(
           pred_setTheory.INSERT_UNION_EQ
          ])
 
-val PEG_wellformed = Q.store_thm(
-  "PEG_wellformed",
-  `wfG cmlPEG`,
-  simp[wfG_def, Gexprs_def, subexprs_def,
+Theorem PEG_wellformed
+  `wfG cmlPEG`
+  (simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,

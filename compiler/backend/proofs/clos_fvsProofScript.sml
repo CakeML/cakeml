@@ -5,34 +5,34 @@ open preamble closLangTheory clos_fvsTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "clos_fvsProof";
 
-val LENGTH_remove_fvs = store_thm("LENGTH_remove_fvs",
-  ``!fvs xs. LENGTH (remove_fvs fvs xs) = LENGTH xs``,
-  recInduct remove_fvs_ind \\ simp [remove_fvs_def] \\ rw [] );
+Theorem LENGTH_remove_fvs
+  `!fvs xs. LENGTH (remove_fvs fvs xs) = LENGTH xs`
+  (recInduct remove_fvs_ind \\ simp [remove_fvs_def] \\ rw [] );
 
-val remove_fvs_SING = store_thm("remove_fvs_SING",
-  ``!x. ?y. remove_fvs fvs [x] = [y]``,
-  Induct \\ fs [remove_fvs_def] \\ rw[]);
+Theorem remove_fvs_SING
+  `!x. ?y. remove_fvs fvs [x] = [y]`
+  (Induct \\ fs [remove_fvs_def] \\ rw[]);
 
-val HD_remove_fvs_SING = store_thm("HD_remove_fvs_SING[simp]",
-  ``!x. [HD (remove_fvs fvs [x])] = remove_fvs fvs [x]``,
-  strip_tac \\ strip_assume_tac (Q.SPEC `x` remove_fvs_SING) \\ simp []);
+Theorem HD_remove_fvs_SING[simp]
+  `!x. [HD (remove_fvs fvs [x])] = remove_fvs fvs [x]`
+  (strip_tac \\ strip_assume_tac (Q.SPEC `x` remove_fvs_SING) \\ simp []);
 
-val EVERY_remove_fvs_SING = Q.store_thm("EVERY_remove_fvs_SING",
-  `EVERY P (remove_fvs fvs [x]) ⇔ P (HD (remove_fvs fvs [x]))`,
-  strip_assume_tac(SPEC_ALL remove_fvs_SING) \\ rw[]);
+Theorem EVERY_remove_fvs_SING
+  `EVERY P (remove_fvs fvs [x]) ⇔ P (HD (remove_fvs fvs [x]))`
+  (strip_assume_tac(SPEC_ALL remove_fvs_SING) \\ rw[]);
 
 val code_rel_def = Define `
   code_rel fvs e1 e2 <=>
     e2 = remove_fvs fvs e1`;
 
-val code_rel_IMP_LENGTH = store_thm("code_rel_IMP_LENGTH",
-  ``!xs ys. code_rel fvs xs ys ==> LENGTH xs = LENGTH ys``,
-  fs [code_rel_def, LENGTH_remove_fvs]);
+Theorem code_rel_IMP_LENGTH
+  `!xs ys. code_rel fvs xs ys ==> LENGTH xs = LENGTH ys`
+  (fs [code_rel_def, LENGTH_remove_fvs]);
 
-val code_rel_CONS_CONS = store_thm("code_rel_CONS_CONS",
-  ``code_rel fvs (x1::x2::xs) (y1::y2::ys) ==>
-      code_rel fvs [x1] [y1] /\ code_rel fvs (x2::xs) (y2::ys)``,
-  simp [code_rel_def, remove_fvs_def]);
+Theorem code_rel_CONS_CONS
+  `code_rel fvs (x1::x2::xs) (y1::y2::ys) ==>
+      code_rel fvs [x1] [y1] /\ code_rel fvs (x2::xs) (y2::ys)`
+  (simp [code_rel_def, remove_fvs_def]);
 
 (* value relation *)
 
@@ -134,12 +134,12 @@ val v_rel_IMP_v_to_words = prove(
 
 (* *)
 
-val lookup_vars_lemma = store_thm("lookup_vars_lemma",
-  ``!vs env1 env2. LIST_REL v_rel env1 env2 ==>
+Theorem lookup_vars_lemma
+  `!vs env1 env2. LIST_REL v_rel env1 env2 ==>
     case lookup_vars vs env1 of
       | NONE => lookup_vars vs env2 = NONE
-      | SOME l1 => ?l2. LIST_REL v_rel l1 l2 /\ lookup_vars vs env2 = SOME l2``,
-  Induct_on `vs` \\ fs [lookup_vars_def]
+      | SOME l1 => ?l2. LIST_REL v_rel l1 l2 /\ lookup_vars vs env2 = SOME l2`
+  (Induct_on `vs` \\ fs [lookup_vars_def]
   \\ rpt strip_tac
   \\ imp_res_tac LIST_REL_LENGTH
   \\ rw []
@@ -148,27 +148,27 @@ val lookup_vars_lemma = store_thm("lookup_vars_lemma",
   \\ fs []
   \\ fs [LIST_REL_EL_EQN]);
 
-val find_code_lemma = store_thm("find_code_lemma",
-  ``!s t p args. state_rel s t ==>
+Theorem find_code_lemma
+  `!s t p args. state_rel s t ==>
       find_code p args s.code = NONE /\
-      find_code p args t.code = NONE``,
-  fs [state_rel_def, find_code_def]);
+      find_code p args t.code = NONE`
+  (fs [state_rel_def, find_code_def]);
 
-val dest_closure_SOME_IMP = store_thm("dest_closure_SOME_IMP",
-  ``dest_closure max_app loc_opt f2 xs = SOME x ==>
+Theorem dest_closure_SOME_IMP
+  `dest_closure max_app loc_opt f2 xs = SOME x ==>
     (?loc arg_env clo_env num_args e. f2 = Closure loc arg_env clo_env num_args e) \/
-    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)``,
-  fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
+    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)`
+  (fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
 
-val dest_closure_SOME_Full_app = store_thm("dest_closure_SOME_Full_app",
-  ``v_rel f1 f2 /\ v_rel a1 a2 /\ LIST_REL v_rel args1 args2 /\
+Theorem dest_closure_SOME_Full_app
+  `v_rel f1 f2 /\ v_rel a1 a2 /\ LIST_REL v_rel args1 args2 /\
     dest_closure max_app loc_opt f1 (a1::args1) = SOME (Full_app exp1 env1 rest_args1) ==>
       ?exp2 env2 rest_args2.
       code_rel (LENGTH env1) [exp1] [exp2] /\
       LIST_REL v_rel env1 env2 /\
       LIST_REL v_rel rest_args1 rest_args2 /\
-      dest_closure max_app loc_opt f2 (a2::args2) = SOME (Full_app exp2 env2 rest_args2)``,
-   rpt strip_tac
+      dest_closure max_app loc_opt f2 (a2::args2) = SOME (Full_app exp2 env2 rest_args2)`
+   (rpt strip_tac
    \\ imp_res_tac dest_closure_SOME_IMP
    \\ rveq \\ fs [] \\ rveq
    \\ imp_res_tac LIST_REL_LENGTH
@@ -220,7 +220,7 @@ val do_app_lemma = prove(
 
 (* evaluate level correctness *)
 
-val evaluate_remove_fvs = Q.store_thm("evaluate_remove_fvs",
+Theorem evaluate_remove_fvs
   `(!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 ys env2 t1.
       evaluate (xs, env1, s1) = (res1, s2) /\
       LIST_REL v_rel env1 env2 /\ state_rel s1 t1 /\
@@ -236,8 +236,8 @@ val evaluate_remove_fvs = Q.store_thm("evaluate_remove_fvs",
       ?res2 t2.
         evaluate_app loc_opt f2 args2 t1 = (res2, t2) /\
         result_rel (LIST_REL v_rel) v_rel res1 res2 /\
-        state_rel s2 t2)`,
-  ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
+        state_rel s2 t2)`
+  (ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ conj_tac
   >- (
@@ -478,27 +478,27 @@ val evaluate_remove_fvs = Q.store_thm("evaluate_remove_fvs",
   \\ strip_tac \\ fs []
   \\ fs [case_eq_thms] \\ rveq \\ fs [])
 
-val remove_fvs_correct = Q.store_thm("remove_fvs_correct",
+Theorem remove_fvs_correct
   `!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t1.
        evaluate (xs, env1, s1) = (res1, s2) /\
        LIST_REL v_rel env1 env2 /\ state_rel s1 t1 ==>
        ?res2 t2.
          evaluate (remove_fvs (LENGTH env1) xs, env2, t1) = (res2, t2) /\
          result_rel (LIST_REL v_rel) v_rel res1 res2 /\
-         state_rel s2 t2`,
-  rpt strip_tac \\ drule (CONJUNCT1 evaluate_remove_fvs) \\ simp [code_rel_def])
+         state_rel s2 t2`
+  (rpt strip_tac \\ drule (CONJUNCT1 evaluate_remove_fvs) \\ simp [code_rel_def])
 
 (* preservation of observational semantics *)
 
-val semantics_compile = Q.store_thm("semantics_compile",
+Theorem semantics_compile
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc compile_inc cc) xs <> Fail ==>
    (!n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co compile_inc o co) cc (clos_fvs$compile xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs`,
-  strip_tac
+     co (pure_cc compile_inc cc) xs`
+  (strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
   \\ drule remove_fvs_correct
@@ -516,9 +516,9 @@ val semantics_compile = Q.store_thm("semantics_compile",
 
 (* syntactic properties *)
 
-val code_locs_remove_fvs = store_thm("code_locs_remove_fvs[simp]",
-  ``!fvs xs. code_locs (remove_fvs fvs xs) = code_locs xs``,
-  ho_match_mp_tac remove_fvs_ind \\ rw []
+Theorem code_locs_remove_fvs[simp]
+  `!fvs xs. code_locs (remove_fvs fvs xs) = code_locs xs`
+  (ho_match_mp_tac remove_fvs_ind \\ rw []
   \\ fs [code_locs_def,remove_fvs_def]
   THEN1
    (`?y. remove_fvs fvs [x] = [y]` by metis_tac [remove_fvs_SING]
@@ -528,11 +528,11 @@ val code_locs_remove_fvs = store_thm("code_locs_remove_fvs[simp]",
   \\ AP_TERM_TAC
   \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]);
 
-val fv_max_remove_fvs = Q.store_thm("fv_max_remove_fvs",
+Theorem fv_max_remove_fvs
   `∀fvs xs.
     every_Fn_vs_NONE xs ⇒
-    (∀v. fv v (remove_fvs fvs xs) ⇒ v < fvs)`,
-  recInduct remove_fvs_ind
+    (∀v. fv v (remove_fvs fvs xs) ⇒ v < fvs)`
+  (recInduct remove_fvs_ind
   \\ rw[remove_fvs_def] \\ fs[fv1_thm]
   \\ full_simp_tac std_ss [fv1_def, HD_remove_fvs_SING]
   \\ fs[LENGTH_remove_fvs]
@@ -550,9 +550,9 @@ val fv_max_remove_fvs = Q.store_thm("fv_max_remove_fvs",
     \\ res_tac )
   \\ rw[]);
 
-val remove_fvs_every_Fn_SOME = Q.store_thm("remove_fvs_every_Fn_SOME[simp]",
-  `∀fvs es. every_Fn_SOME (remove_fvs fvs es) ⇔ every_Fn_SOME es`,
-  recInduct remove_fvs_ind
+Theorem remove_fvs_every_Fn_SOME[simp]
+  `∀fvs es. every_Fn_SOME (remove_fvs fvs es) ⇔ every_Fn_SOME es`
+  (recInduct remove_fvs_ind
   \\ rw[remove_fvs_def]
   >- (
     fs[Once every_Fn_SOME_EVERY]
@@ -567,9 +567,9 @@ val remove_fvs_every_Fn_SOME = Q.store_thm("remove_fvs_every_Fn_SOME[simp]",
     \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ metis_tac[]));
 
-val remove_fvs_every_Fn_vs_NONE = Q.store_thm("remove_fvs_every_Fn_vs_NONE[simp]",
-  `∀fvs es. every_Fn_vs_NONE (remove_fvs fvs es) ⇔ every_Fn_vs_NONE es`,
-  recInduct remove_fvs_ind
+Theorem remove_fvs_every_Fn_vs_NONE[simp]
+  `∀fvs es. every_Fn_vs_NONE (remove_fvs fvs es) ⇔ every_Fn_vs_NONE es`
+  (recInduct remove_fvs_ind
   \\ rw[remove_fvs_def]
   >- (
     fs[Once every_Fn_vs_NONE_EVERY]
@@ -584,9 +584,9 @@ val remove_fvs_every_Fn_vs_NONE = Q.store_thm("remove_fvs_every_Fn_vs_NONE[simp]
     \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ metis_tac[]));
 
-val remove_fvs_set_globals = Q.store_thm("remove_fvs_set_globals[simp]",
-  `∀fvs x. MAP set_globals (remove_fvs fvs x) = MAP set_globals x`,
-  recInduct remove_fvs_ind
+Theorem remove_fvs_set_globals[simp]
+  `∀fvs x. MAP set_globals (remove_fvs fvs x) = MAP set_globals x`
+  (recInduct remove_fvs_ind
   \\ rw[remove_fvs_def] \\ fs[]
   \\ simp[elist_globals_FOLDR]
   >- EVAL_TAC
@@ -594,15 +594,15 @@ val remove_fvs_set_globals = Q.store_thm("remove_fvs_set_globals[simp]",
   \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]
   \\ rw[] \\ res_tac \\ fs[]);
 
-val set_globals_HD_remove_fvs_SING = Q.store_thm("set_globals_HD_remove_fvs_SING[simp]",
-  `set_globals (HD (remove_fvs fvs [x])) = set_globals x`,
-  strip_assume_tac(SPEC_ALL remove_fvs_SING)
+Theorem set_globals_HD_remove_fvs_SING[simp]
+  `set_globals (HD (remove_fvs fvs [x])) = set_globals x`
+  (strip_assume_tac(SPEC_ALL remove_fvs_SING)
   \\ first_assum(mp_tac o Q.AP_TERM`MAP set_globals`)
   \\ rw[]);
 
-val remove_fvs_esgc_free = Q.store_thm("remove_fvs_esgc_free[simp]",
-  `∀fvs x. EVERY (esgc_free) (remove_fvs fvs x) ⇔ EVERY esgc_free x`,
-  recInduct remove_fvs_ind
+Theorem remove_fvs_esgc_free[simp]
+  `∀fvs x. EVERY (esgc_free) (remove_fvs fvs x) ⇔ EVERY esgc_free x`
+  (recInduct remove_fvs_ind
   \\ rw[remove_fvs_def, EVERY_remove_fvs_SING]
   \\ simp[elist_globals_FOLDR]
   \\ AP_THM_TAC
@@ -612,26 +612,38 @@ val remove_fvs_esgc_free = Q.store_thm("remove_fvs_esgc_free[simp]",
   \\ AP_TERM_TAC
   \\ simp[MAP_MAP_o, o_DEF, UNCURRY]);
 
-val remove_fvs_elist_globals = Q.store_thm("remove_fvs_elist_globals[simp]",
-  `elist_globals (remove_fvs fvs xs) = elist_globals xs`,
-  rw[elist_globals_FOLDR]);
+Theorem remove_fvs_elist_globals[simp]
+  `elist_globals (remove_fvs fvs xs) = elist_globals xs`
+  (rw[elist_globals_FOLDR]);
 
-val EVERY_remove_fvs_sing = store_thm("EVERY_remove_fvs_sing",
-  ``EVERY f (remove_fvs n [y]) <=> f (HD (remove_fvs n [y]))``,
-  `?t. remove_fvs n [y] = [t]` by metis_tac [remove_fvs_SING] \\ fs []);
+Theorem EVERY_remove_fvs_sing
+  `EVERY f (remove_fvs n [y]) <=> f (HD (remove_fvs n [y]))`
+  (`?t. remove_fvs n [y] = [t]` by metis_tac [remove_fvs_SING] \\ fs []);
 
-val remove_fvs_no_Labels = store_thm("remove_fvs_no_Labels",
-  ``!n xs. EVERY no_Labels (remove_fvs n xs) = EVERY no_Labels xs``,
-  ho_match_mp_tac remove_fvs_ind \\ rw [remove_fvs_def]
+Theorem remove_fvs_no_Labels
+  `!n xs. EVERY no_Labels (remove_fvs n xs) = EVERY no_Labels xs`
+  (ho_match_mp_tac remove_fvs_ind \\ rw [remove_fvs_def]
   \\ fs [EVERY_remove_fvs_sing]
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
   \\ rw [] \\ eq_tac \\ rw [] \\ res_tac);
 
-val remove_fvs_obeys_max_app = store_thm("remove_fvs_obeys_max_app",
-  ``!n xs. EVERY (obeys_max_app k) (remove_fvs n xs) = EVERY (obeys_max_app k) xs``,
-  ho_match_mp_tac remove_fvs_ind \\ rw [remove_fvs_def]
+Theorem remove_fvs_obeys_max_app
+  `!n xs. EVERY (obeys_max_app k) (remove_fvs n xs) = EVERY (obeys_max_app k) xs`
+  (ho_match_mp_tac remove_fvs_ind \\ rw [remove_fvs_def]
   \\ fs [EVERY_remove_fvs_sing]
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,LENGTH_remove_fvs]
   \\ rw [] \\ eq_tac \\ rw [] \\ res_tac);
+
+Theorem get_code_labels_remove_fvs[simp]
+  `∀n es. MAP get_code_labels (remove_fvs n es) = MAP get_code_labels es`
+  (recInduct clos_fvsTheory.remove_fvs_ind
+  \\ rw[clos_fvsTheory.remove_fvs_def] \\ fs[closLangTheory.assign_get_code_label_def]
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ AP_TERM_TAC
+  \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ rw[] \\ fs[]);
 
 val _ = export_theory();

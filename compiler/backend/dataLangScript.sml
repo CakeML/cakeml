@@ -33,6 +33,31 @@ val _ = set_grammar_ancestry ["closLang" (* for op *), "misc" (* for num_set *)]
 
 
 (* --- Syntax of dataLang --- *)
+val op_space_reset_def = Define `
+  (op_space_reset Add = T) /\
+  (op_space_reset Sub = T) /\
+  (op_space_reset Mult = T) /\
+  (op_space_reset Div = T) /\
+  (op_space_reset Mod = T) /\
+  (op_space_reset Less = T) /\
+  (op_space_reset LessEq = T) /\
+  (op_space_reset Greater = T) /\
+  (op_space_reset GreaterEq = T) /\
+  (op_space_reset Equal = T) /\
+  (op_space_reset ListAppend = T) /\
+  (op_space_reset (FromList _) = T) /\
+  (op_space_reset RefArray = T) /\
+  (op_space_reset (RefByte _) = T) /\
+  (op_space_reset (ConsExtend _) = T) /\
+  (op_space_reset (CopyByte new_flag) = new_flag) /\
+  (op_space_reset ConfigGC = T) /\
+  (op_space_reset (FFI _) = T) /\
+  (op_space_reset _ = F)`;
+
+val op_requires_names_def = Define`
+  op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n) ∨
+                         (∃new_flag. op = CopyByte new_flag) ∨
+                         (op = Install))`;
 
 val _ = Datatype `
   prog = Skip

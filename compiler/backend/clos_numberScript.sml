@@ -63,10 +63,10 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
 
 val renumber_code_locs_ind = theorem"renumber_code_locs_ind";
 
-val renumber_code_locs_length = Q.store_thm("renumber_code_locs_length",
+Theorem renumber_code_locs_length
   `(∀x y. LENGTH (SND (renumber_code_locs_list x y)) = LENGTH y) ∧
-    (∀(x:num)(y:closLang$exp). T)`,
-    ho_match_mp_tac renumber_code_locs_ind >>
+    (∀(x:num)(y:closLang$exp). T)`
+    (ho_match_mp_tac renumber_code_locs_ind >>
     simp[renumber_code_locs_def,UNCURRY] >> rw[] >>
     METIS_TAC[PAIR,FST,SND]);
 

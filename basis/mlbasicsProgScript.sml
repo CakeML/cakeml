@@ -35,25 +35,25 @@ val _ = append_prog
      Tdec (Dtabbrev unknown_loc [] "char" (Tapp [] TC_char))]``
 *)
 
-val _ = trans "+" `(+):int->int->int`
-val _ = trans "-" `(-):int->int->int`
-val _ = trans "*" `int_mul`
-val _ = trans "div" `(/):int->int->int`
-val _ = trans "mod" `(%):int->int->int`
-val _ = trans "<" `(<):int->int->bool`
-val _ = trans ">" `(>):int->int->bool`
-val _ = trans "<=" `(<=):int->int->bool`
-val _ = trans ">=" `(>=):int->int->bool`
-val _ = trans "~" `\i. - (i:int)`
-val _ = trans "@" `(++):'a list -> 'a list -> 'a list`
+val _ = trans "+" intSyntax.plus_tm;
+val _ = trans "-" intSyntax.minus_tm;
+val _ = trans "*" intSyntax.mult_tm;
+val _ = trans "div" intSyntax.div_tm;
+val _ = trans "mod" intSyntax.mod_tm;
+val _ = trans "<" intSyntax.less_tm;
+val _ = trans ">" intSyntax.great_tm;
+val _ = trans "<=" intSyntax.leq_tm;
+val _ = trans ">=" intSyntax.geq_tm;
+val _ = trans "~" ``\i. - (i:int)``;
+val _ = trans "@" listSyntax.append_tm;
 
 
 (* other basics that parser targets -- CF verified *)
 
-val _ = trans "=" `\x1 x2. x1 = x2:'a`
-val _ = trans "not" `\x. ~x:bool`
-val _ = trans "<>" `\x1 x2. x1 <> (x2:'a)`
-val _ = trans "^" `mlstring$strcat`
+val _ = trans "=" ``\x1 x2. x1 = x2:'a``;
+val _ = trans "not" ``\x. ~x:bool``;
+val _ = trans "<>" ``\x1 x2. x1 <> (x2:'a)``;
+val _ = trans "^" mlstringSyntax.strcat_tm;
 
 val _ = append_prog
   ``[mk_binop ":=" Opassign;
@@ -66,20 +66,20 @@ fun prove_ref_spec op_name =
   reduce_tac \\ fs [app_ref_def, app_deref_def, app_assign_def] \\
   xsimpl \\ fs [UNIT_TYPE_def]
 
-val ref_spec = Q.store_thm ("ref_spec",
+Theorem ref_spec
   `!xv. app (p:'ffi ffi_proj) ^(fetch_v "op ref" (get_ml_prog_state ())) [xv]
-          emp (POSTv rv. rv ~~> xv)`,
-  prove_ref_spec "op ref");
+          emp (POSTv rv. rv ~~> xv)`
+  (prove_ref_spec "op ref");
 
-val deref_spec = Q.store_thm ("deref_spec",
+Theorem deref_spec
   `!xv. app (p:'ffi ffi_proj) ^(fetch_v "op !" (get_ml_prog_state ())) [rv]
-          (rv ~~> xv) (POSTv yv. cond (xv = yv) * rv ~~> xv)`,
-  prove_ref_spec "op !");
+          (rv ~~> xv) (POSTv yv. cond (xv = yv) * rv ~~> xv)`
+  (prove_ref_spec "op !");
 
-val assign_spec = Q.store_thm ("assign_spec",
+Theorem assign_spec
   `!rv xv yv.
      app (p:'ffi ffi_proj) ^(fetch_v "op :=" (get_ml_prog_state ())) [rv; yv]
-       (rv ~~> xv) (POSTv v. cond (UNIT_TYPE () v) * rv ~~> yv)`,
-  prove_ref_spec "op :=");
+       (rv ~~> xv) (POSTv v. cond (UNIT_TYPE () v) * rv ~~> yv)`
+  (prove_ref_spec "op :=");
 
 val _ = export_theory ()

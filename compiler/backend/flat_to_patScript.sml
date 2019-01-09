@@ -19,10 +19,10 @@ val isBool_def = Define`
   dtcase e of Con _ t [] => (b ⇒ t = true_tag) ∧ (¬b ⇒ t = false_tag) | _ => F`;
 val _ = export_rewrites["isBool_def"];
 
-val isBool_pmatch = Q.store_thm("isBool_pmatch",
+Theorem isBool_pmatch
   `isBool b e =
-   case e of Con _ t [] => (b ⇒ t = true_tag) ∧ (¬b ⇒ t = false_tag) | _ => F`,
-  CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
+   case e of Con _ t [] => (b ⇒ t = true_tag) ∧ (¬b ⇒ t = false_tag) | _ => F`
+  (CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
   CASE_TAC \\ simp[]);
 
 val sIf_def = Define `
@@ -34,15 +34,15 @@ val sIf_def = Define `
      | Con _ t [] => if t = true_tag then e2 else e3
      | _ => If tra e1 e2 e3)`;
 
-val sIf_pmatch = Q.store_thm("sIf_pmatch",`!e1 e2 e3.
+Theorem sIf_pmatch `!e1 e2 e3.
   sIf t e1 e2 e3 =
   if isBool T e2 ∧ isBool F e3
     then e1
   else
     (case e1 of
      | Con _ t [] => if t = true_tag then e2 else e3
-     | _ => If t e1 e2 e3)`,
-  rpt strip_tac
+     | _ => If t e1 e2 e3)`
+  (rpt strip_tac
   >> every_case_tac
   >- fs[sIf_def]
   >- (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >> fs[sIf_def]));
@@ -107,9 +107,9 @@ val pure_def = Define `
   ∧
   (pure_list (e::es) ⇔ pure e ∧ pure_list es)`;
 
-val pure_list_EVERY = Q.store_thm("pure_list_EVERY",
-  `∀ls. pure_list ls ⇔ EVERY pure ls`,
-  Induct >> simp[pure_def])
+Theorem pure_list_EVERY
+  `∀ls. pure_list ls ⇔ EVERY pure ls`
+  (Induct >> simp[pure_def])
 val _ = export_rewrites["pure_list_EVERY"]
 
 val ground_def = Define `
@@ -141,12 +141,12 @@ val ground_def = Define `
 
 val _ = export_rewrites["pure_op_op_def","pure_op_def","pure_def","ground_def"];
 
-val ground_list_EVERY = Q.store_thm("ground_list_EVERY",
-  `∀n ls. ground_list n ls ⇔ EVERY (ground n) ls`,
-  gen_tac >> Induct >> simp[])
+Theorem ground_list_EVERY
+  `∀n ls. ground_list n ls ⇔ EVERY (ground n) ls`
+  (gen_tac >> Induct >> simp[])
 val _ = export_rewrites["ground_list_EVERY"]
 
-val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
+Theorem pure_op_op_eqn `
   pure_op_op op =
   dtcase op of
     Opref => F
@@ -170,11 +170,11 @@ val pure_op_op_eqn = Q.store_thm("pure_op_op_eqn",`
   | GlobalVarAlloc _ => F
   | GlobalVarInit _ => F
   | FFI _ => F
-  | _ => T`,
-  Cases_on`op`>>fs[]>>
+  | _ => T`
+  (Cases_on`op`>>fs[]>>
   Cases_on`o'`>>fs[])
 
-val pure_op_op_pmatch = Q.store_thm("pure_op_op_pmatch",`
+Theorem pure_op_op_pmatch `
   pure_op_op op =
   case op of
     Opref => F
@@ -198,8 +198,8 @@ val pure_op_op_pmatch = Q.store_thm("pure_op_op_pmatch",`
   | GlobalVarAlloc _ => F
   | GlobalVarInit _ => F
   | FFI _ => F
-  | _ => T`,
-  PURE_ONCE_REWRITE_TAC [pure_op_op_eqn]
+  | _ => T`
+  (PURE_ONCE_REWRITE_TAC [pure_op_op_eqn]
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> REFL_TAC)
 
@@ -213,7 +213,7 @@ val sLet_def = Define `
            else Seq t e1 e2
          else Let t e1 e2`;
 
-val sLet_pmatch = Q.store_thm("sLet_pmatch",
+Theorem sLet_pmatch
   `sLet t e1 e2 =
    case e2 of
      | Var_local _ 0 => e1
@@ -221,8 +221,8 @@ val sLet_pmatch = Q.store_thm("sLet_pmatch",
          if ground 0 e2 then
            if pure e1 then e2
            else Seq t e1 e2
-         else Let t e1 e2`,
-  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
+         else Let t e1 e2`
+  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
   CASE_TAC \\ rw[sLet_def]);
 
 (* bind elements 0..k of the variable n in reverse order above e (first element
@@ -371,16 +371,16 @@ val compile_def = Define`
     compile_exp [] exp :: compile decs ∧
   compile (_::decs) = compile decs`;
 
-val compile_funs_map = Q.store_thm("compile_funs_map",
-  `∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs`,
-  Induct>>simp[pairTheory.FORALL_PROD])
+Theorem compile_funs_map
+  `∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs`
+  (Induct>>simp[pairTheory.FORALL_PROD])
 
-val compile_exps_map = Q.store_thm("compile_exps_map",
-  `∀es. compile_exps a es = MAP (compile_exp a) es`,
-  Induct >> simp[compile_exp_def])
+Theorem compile_exps_map
+  `∀es. compile_exps a es = MAP (compile_exp a) es`
+  (Induct >> simp[compile_exp_def])
 
-val compile_exps_reverse = Q.store_thm("compile_exps_reverse",
-  `compile_exps a (REVERSE ls) = REVERSE (compile_exps a ls)`,
-  rw[compile_exps_map,rich_listTheory.MAP_REVERSE])
+Theorem compile_exps_reverse
+  `compile_exps a (REVERSE ls) = REVERSE (compile_exps a ls)`
+  (rw[compile_exps_map,rich_listTheory.MAP_REVERSE])
 
 val _ = export_theory()

@@ -22,9 +22,9 @@ val names_tac =
   \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
-val arm8_backend_config_ok = Q.store_thm("arm8_backend_config_ok",`
-  backend_config_ok arm8_backend_config`,
-  simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+Theorem arm8_backend_config_ok `
+  backend_config_ok arm8_backend_config`
+  (simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[arm8_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
   >- names_tac
@@ -48,9 +48,9 @@ val arm8_backend_config_ok = Q.store_thm("arm8_backend_config_ok",`
   pop_assum mp_tac>>EVAL_TAC>>
   blastLib.BBLAST_PROVE_TAC);
 
-val arm8_machine_config_ok = Q.store_thm("arm8_machine_config_ok",
-  `is_arm8_machine_config mc ⇒ mc_conf_ok mc`,
-  rw[lab_to_targetProofTheory.mc_conf_ok_def,is_arm8_machine_config_def]
+Theorem arm8_machine_config_ok
+  `is_arm8_machine_config mc ⇒ mc_conf_ok mc`
+  (rw[lab_to_targetProofTheory.mc_conf_ok_def,is_arm8_machine_config_def]
   >- EVAL_TAC
   >- simp[arm8_targetProofTheory.arm8_encoder_correct]
   >- EVAL_TAC
@@ -60,10 +60,10 @@ val arm8_machine_config_ok = Q.store_thm("arm8_machine_config_ok",
   >- EVAL_TAC
   >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,arm8_encoder_correct]);
 
-val arm8_init_ok = Q.store_thm("arm8_init_ok",
+Theorem arm8_init_ok
   `is_arm8_machine_config mc ⇒
-    mc_init_ok arm8_backend_config mc`,
-  rw[mc_init_ok_def] \\
+    mc_init_ok arm8_backend_config mc`
+  (rw[mc_init_ok_def] \\
   fs[is_arm8_machine_config_def] \\
   EVAL_TAC);
 

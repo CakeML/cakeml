@@ -348,6 +348,17 @@ evaluate_dec ck env s1 (Dmod mn ds) (s2, Rval <| v := (nsLift mn new_env.v); c :
 ==>
 evaluate_dec ck env s1 (Dmod mn ds) (s2, Rerr err))
 
+/\ (! ck s1 s2 env lds ds new_env r.
+(evaluate_decs ck env s1 lds (s2, Rval new_env)) /\
+(evaluate_decs ck (extend_dec_env new_env env) s2 ds r)
+==>
+evaluate_dec ck env s1 (Dlocal lds ds) r)
+
+/\ (! ck s1 s2 env lds ds err.
+(evaluate_decs ck env s1 lds (s2, Rerr err))
+==>
+evaluate_dec ck env s1 (Dlocal lds ds) (s2, Rerr err))
+
 /\ (! ck env s.
 T
 ==>
@@ -426,6 +437,18 @@ dec_diverges env st (Dlet locs p e))
 (decs_diverges env st ds)
 ==>
 dec_diverges env st (Dmod mn ds))
+
+/\ (! st env lds ds st2 new_env.
+(evaluate_decs F env st lds (st2, Rval new_env)) /\
+(decs_diverges (extend_dec_env new_env env) st2 ds)
+==>
+dec_diverges env st (Dlocal lds ds))
+
+/\ (! st env lds ds.
+(decs_diverges env st lds)
+==>
+dec_diverges env st (Dlocal lds ds))
+
 
 /\ (! st env d ds.
 (dec_diverges env st d)

@@ -1,10 +1,10 @@
 (*
   Faster cat: process 2048 chars at a time.
 *)
+
 open preamble basis
 
 val _ = new_theory "iocatProg"
-
 
 val _ = translation_extends"basisProg";
 
@@ -18,7 +18,7 @@ val _ = process_topdecs`
  |> append_prog
 
 (* to ensure preserving standard STREAMS, fd1 cannot be a std output *)
-val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
+Theorem pipe_2048_spec
  `!fs fd1 fd2 fnm1 fnm2 fd1v fd2v pos1 c1 c2.
   fd1 <> fd2 /\ fnm1 <> fnm2 /\
   FD fd1 fd1v /\ FD fd2 fd2v /\
@@ -34,8 +34,8 @@ val pipe_2048_spec = Q.store_thm("pipe_2048_spec",
             &((nr = 0) = (eof fd1 fs = SOME T)) *
             STDIO (fsupdate (fsupdate fs fd1 0 (pos1 + nr) c1)
                             fd2 0 (LENGTH c2 +nr)
-                            (c2 ++ TAKE nr (DROP pos1 c1))))`,
-  xcf "pipe_2048" (st()) >> fs[STDIO_def,IOFS_def,IOFS_iobuff_def] >> xpull >>
+                            (c2 ++ TAKE nr (DROP pos1 c1))))`
+  (xcf "pipe_2048" (st()) >> fs[STDIO_def,IOFS_def,IOFS_iobuff_def] >> xpull >>
   rename [`W8ARRAY _ bdef`] >>
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1::t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::t` >>
@@ -106,8 +106,7 @@ val _ = process_topdecs `
 ` |> append_prog
 
 
-val do_onefile_spec = Q.store_thm(
-  "do_onefile_spec",
+Theorem do_onefile_spec
   `∀content pos fnm fd fdv fs out.
       FD fd fdv /\
       ALOOKUP fs.infds fd = SOME (fnm,ReadMode,pos) /\
@@ -119,8 +118,8 @@ val do_onefile_spec = Q.store_thm(
        (STDIO fs)
        (POSTv u. &UNIT_TYPE () u *
               STDIO (up_stdout (fsupdate fs fd 0 (LENGTH content) content)
-                               (strcat out (implode (DROP pos content)))))`,
-  NTAC 5 strip_tac >>
+                               (strcat out (implode (DROP pos content)))))`
+  (NTAC 5 strip_tac >>
   `?N. STRLEN content - pos <= N`
     by (qexists_tac`STRLEN content - pos` >> fs[]) >>
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`pos` >>
@@ -197,7 +196,7 @@ val cat_spec0 = Q.prove(
      fs[ALOOKUP_inFS_fname_openFileFS_nextFD]) >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
   xlet_auto_spec (SOME (Q.SPECL[`nextFD fs`,`fs'`] close_STDIO_spec))
-  >- xsimpl
+  >- (xsimpl \\ simp[Abbr`fs'`])
   >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdo_def] >>
       simp[validFileFD_def]
       \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
@@ -254,15 +253,15 @@ val cat_main = process_topdecs`
   fun cat_main _ = cat (CommandLine.arguments())`;
 val _ = append_prog cat_main;
 
-val cat_main_spec = Q.store_thm("cat_main_spec",
+Theorem cat_main_spec
   `EVERY ((inFS_fname fs) o File) (TL cl) ∧ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main" (st())) [Conv NONE []]
      (STDIO fs * COMMANDLINE cl )
      (POSTv uv. &UNIT_TYPE () uv *
        (STDIO (add_stdout fs (catfiles_string fs (TL cl))))
-       * COMMANDLINE cl)`,
-  strip_tac
+       * COMMANDLINE cl)`
+  (strip_tac
   \\ xcf "cat_main" (st())
   \\ xmatch
   \\ xlet_auto >-(xcon >> xsimpl)
@@ -280,11 +279,11 @@ val cat_main_spec = Q.store_thm("cat_main_spec",
 
 val st = st();
 
-val cat_whole_prog_spec = Q.store_thm("cat_whole_prog_spec",
+Theorem cat_whole_prog_spec
   `EVERY (inFS_fname fs o File) (TL cl) ∧ hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
-    ((=) (add_stdout fs (catfiles_string fs (TL cl))))`,
-  disch_then assume_tac
+    ((=) (add_stdout fs (catfiles_string fs (TL cl))))`
+  (disch_then assume_tac
   \\ simp[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`

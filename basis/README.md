@@ -106,6 +106,10 @@ Instantiate the CakeML FFI oracle for the oracle of the basis library.
 [clFFIScript.sml](clFFIScript.sml):
 Logical model of the commandline state: simply a list of mlstrings
 
+[dependency-order](dependency-order):
+This file records the current, linear dependency order between the
+translation/CF theories making up the basis library verification.
+
 [fsFFIPropsScript.sml](fsFFIPropsScript.sml):
 Lemmas about the file system model used by the proof about TextIO.
 

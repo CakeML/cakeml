@@ -29,9 +29,9 @@ val max_heap_limit_32_def = Define`
 
 val res = translate max_heap_limit_32_def
 
-val max_heap_limit_32_thm = Q.store_thm("max_heap_limit_32_thm",
-  `max_heap_limit (:32) = max_heap_limit_32`,
-  rw[FUN_EQ_THM] \\ EVAL_TAC);
+Theorem max_heap_limit_32_thm
+  `max_heap_limit (:32) = max_heap_limit_32`
+  (rw[FUN_EQ_THM] \\ EVAL_TAC);
 
 (*
 
@@ -207,6 +207,14 @@ val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]
 val res = translate print_option_def
 val res = translate current_build_info_str_def
 
+val nonzero_exit_code_for_error_msg_def = Define `
+  nonzero_exit_code_for_error_msg e =
+    if compiler$is_error_msg e then
+      ml_translator$force_out_of_memory_error () else ()`;
+
+val res = translate compilerTheory.is_error_msg_def;
+val res = translate nonzero_exit_code_for_error_msg_def;
+
 val main = process_topdecs`
   fun main u =
     let
@@ -216,21 +224,22 @@ val main = process_topdecs`
         print compiler_current_build_info_str
       else
         case compiler_compile_32 cl (String.explode (TextIO.inputAll TextIO.stdIn))  of
-          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e)
+          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                     compiler32prog_nonzero_exit_code_for_error_msg e)
     end`;
 
 val res = append_prog main;
 
 val st = get_ml_prog_state()
 
-val main_spec = Q.store_thm("main_spec",
+Theorem main_spec
   `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
        &UNIT_TYPE () uv
        * STDIO (full_compile_32 (TL cl) (get_stdin fs) fs)
-       * COMMANDLINE cl)`,
-  xcf "main" st
+       * COMMANDLINE cl)`
+  (xcf "main" st
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (
@@ -277,18 +286,21 @@ val main_spec = Q.store_thm("main_spec",
   \\ fs[ml_translatorTheory.PAIR_TYPE_def]
   \\ xmatch
   \\ xlet_auto >- xsimpl
-  \\ xapp_spec output_stderr_spec
-  \\ xsimpl
-  \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
-  \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-  \\ qexists_tac`fs'` \\ xsimpl
-  \\ instantiate
-  \\ xsimpl);
+  \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
+  \\ xlet `POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs' err) *
+                     COMMANDLINE cl`
+  THEN1
+   (xapp_spec output_stderr_spec \\ xsimpl
+    \\ qexists_tac `COMMANDLINE cl`
+    \\ asm_exists_tac \\ xsimpl
+    \\ qexists_tac `fs'` \\ xsimpl)
+  \\ xapp
+  \\ asm_exists_tac \\ simp [] \\ xsimpl);
 
-val main_whole_prog_spec = Q.store_thm("main_whole_prog_spec",
+Theorem main_whole_prog_spec
   `whole_prog_spec ^(fetch_v "main" st) cl fs NONE
-    ((=) (full_compile_32 (TL cl) (get_stdin fs) fs))`,
-  simp[whole_prog_spec_def,UNCURRY]
+    ((=) (full_compile_32 (TL cl) (get_stdin fs) fs))`
+  (simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-

@@ -18,42 +18,37 @@ val i = TypeBase.one_one_of ``:(α,β,γ)pegsym``
 infix >*
 fun t1 >* t2 = (t1 >> conj_tac) >- t2
 
-val peg_eval_choicel_NIL = Q.store_thm(
-  "peg_eval_choicel_NIL[simp]",
-  `peg_eval G (i0, choicel []) x = (x = NONE)`,
-  simp[choicel_def, Once peg_eval_cases]);
+Theorem peg_eval_choicel_NIL[simp]
+  `peg_eval G (i0, choicel []) x = (x = NONE)`
+  (simp[choicel_def, Once peg_eval_cases]);
 
-val peg_eval_choicel_CONS = Q.store_thm(
-  "peg_eval_choicel_CONS",
+Theorem peg_eval_choicel_CONS
   `∀x. peg_eval G (i0, choicel (h::t)) x ⇔
           peg_eval G (i0, h) x ∧ x <> NONE ∨
-          peg_eval G (i0,h) NONE ∧ peg_eval G (i0, choicel t) x`,
-  simp[choicel_def, SimpLHS, Once peg_eval_cases] >>
+          peg_eval G (i0,h) NONE ∧ peg_eval G (i0, choicel t) x`
+  (simp[choicel_def, SimpLHS, Once peg_eval_cases] >>
   simp[sumID_def, pairTheory.FORALL_PROD, optionTheory.FORALL_OPTION]);
 
-val peg_eval_seql_NIL = Q.store_thm(
-  "peg_eval_seql_NIL[simp]",
-  `peg_eval G (i0, seql [] f) x ⇔ (x = SOME(i0,f []))`,
-  simp[seql_def, pegf_def] >> simp[Once peg_eval_cases]);
+Theorem peg_eval_seql_NIL[simp]
+  `peg_eval G (i0, seql [] f) x ⇔ (x = SOME(i0,f []))`
+  (simp[seql_def, pegf_def] >> simp[Once peg_eval_cases]);
 
-val peg_eval_try = Q.store_thm(
-  "peg_eval_try",
+Theorem peg_eval_try
   `∀x. peg_eval G (i0, try s) x ⇔
          peg_eval G (i0, s) NONE ∧ x = SOME(i0,[]) ∨
-         ∃i r. peg_eval G (i0, s) (SOME(i,r)) ∧ x = SOME(i,r)`,
-  simp[Once peg_eval_cases, try_def, SimpLHS, choicel_def,
+         ∃i r. peg_eval G (i0, s) (SOME(i,r)) ∧ x = SOME(i,r)`
+  (simp[Once peg_eval_cases, try_def, SimpLHS, choicel_def,
        peg_eval_choice] >> simp[sumID_def] >> metis_tac[]);
 
-val peg_eval_seql_CONS = Q.store_thm(
-  "peg_eval_seql_CONS",
+Theorem peg_eval_seql_CONS
   `∀x. peg_eval G (i0, seql (h::t) f) x ⇔
           peg_eval G (i0, h) NONE ∧ x = NONE ∨
           (∃rh i1. peg_eval G (i0,h) (SOME(i1,rh)) ∧
                    peg_eval G (i1, seql t I) NONE ∧ x = NONE) ∨
           (∃rh i1 i rt. peg_eval G (i0, h) (SOME(i1,rh)) ∧
                         peg_eval G (i1, seql t I) (SOME(i,rt)) ∧
-                        x = SOME(i,f(rh ++ rt)))`,
-  simp[seql_def, pegf_def] >>
+                        x = SOME(i,f(rh ++ rt)))`
+  (simp[seql_def, pegf_def] >>
   simp[SimpLHS, Once peg_eval_cases] >>
   simp[optionTheory.FORALL_OPTION, pairTheory.FORALL_PROD] >>
   conj_tac
@@ -68,10 +63,9 @@ val peg_eval_choicel_SING = save_thm(
     (``peg_eval G (i0, choicel [sym]) NONE``
        |> SIMP_CONV (srw_ss()) [peg_eval_choicel_CONS, peg_eval_choicel_NIL]));
 
-val not_peg0_LENGTH_decreases = Q.store_thm(
-  "not_peg0_LENGTH_decreases",
-  `¬peg0 G s ⇒ peg_eval G (i0, s) (SOME(i,r)) ⇒ LENGTH i < LENGTH i0`,
-  metis_tac[peg_eval_suffix', lemma4_1a])
+Theorem not_peg0_LENGTH_decreases
+  `¬peg0 G s ⇒ peg_eval G (i0, s) (SOME(i,r)) ⇒ LENGTH i < LENGTH i0`
+  (metis_tac[peg_eval_suffix', lemma4_1a])
 
 
 val _ = augment_srw_ss [rewrites [
@@ -79,62 +73,54 @@ val _ = augment_srw_ss [rewrites [
   peg_eval_choicel_CONS, pegf_def, peg_eval_seq_SOME, pnt_def, peg_eval_try,
   try_def]]
 
-val peg_eval_TypeDec_wrongtok = Q.store_thm(
-  "peg_eval_TypeDec_wrongtok",
-  `FST tk ≠ DatatypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeDec) f) (SOME x)`,
-  simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
+Theorem peg_eval_TypeDec_wrongtok
+  `FST tk ≠ DatatypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeDec) f) (SOME x)`
+  (simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME]);
 
-val peg_eval_TypeAbbrevDec_wrongtok = Q.store_thm(
-  "peg_eval_TypeAbbrevDec_wrongtok",
-  `FST tk ≠ TypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeAbbrevDec) f) (SOME x)`,
-  simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
+Theorem peg_eval_TypeAbbrevDec_wrongtok
+  `FST tk ≠ TypeT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTypeAbbrevDec) f) (SOME x)`
+  (simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME]);
 
-val peg_eval_LetDec_wrongtok = Q.store_thm(
-  "peg_eval_LetDec_wrongtok",
-  `FST tk = SemicolonT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nLetDec) f) (SOME x)`,
-  simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
+Theorem peg_eval_LetDec_wrongtok
+  `FST tk = SemicolonT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nLetDec) f) (SOME x)`
+  (simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG,
        peg_TypeDec_def, peg_eval_seq_SOME, tokeq_def, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seql_CONS]);
 
-val peg_eval_nUQConstructor_wrongtok = Q.store_thm(
-  "peg_eval_nUQConstructor_wrongtok",
+Theorem peg_eval_nUQConstructor_wrongtok
   `(∀s. FST t ≠ AlphaT s) ⇒
-    ¬peg_eval cmlPEG (t::i, nt (mkNT nUQConstructorName) f) (SOME x)`,
-  simp[Once peg_eval_cases, cmlpeg_rules_applied,
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nUQConstructorName) f) (SOME x)`
+  (simp[Once peg_eval_cases, cmlpeg_rules_applied,
        peg_eval_tok_SOME,
        peg_UQConstructorName_def] >> Cases_on `t` >> simp[]);
 
-val peg_eval_nConstructor_wrongtok = Q.store_thm(
-  "peg_eval_nConstructor_wrongtok",
+Theorem peg_eval_nConstructor_wrongtok
   `(∀s. FST t ≠ AlphaT s) ∧ (∀s1 s2. FST t ≠ LongidT s1 s2) ⇒
-    ¬peg_eval cmlPEG (t::i, nt (mkNT nConstructorName) f) (SOME x)`,
-  simp[Once peg_eval_cases, cmlpeg_rules_applied, peg_eval_tok_SOME,
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nConstructorName) f) (SOME x)`
+  (simp[Once peg_eval_cases, cmlpeg_rules_applied, peg_eval_tok_SOME,
        peg_eval_choicel_CONS, peg_eval_seq_NONE, pegf_def, pnt_def,
        peg_eval_nUQConstructor_wrongtok, peg_eval_seq_SOME] >>
   Cases_on `t` >> simp[]);
 
-val peg_eval_nV_wrongtok = Q.store_thm(
-  "peg_eval_nV_wrongtok",
+Theorem peg_eval_nV_wrongtok
   `(∀s. FST t ≠ AlphaT s) ∧ (∀s. FST t ≠ SymbolT s) ⇒
-    ¬peg_eval cmlPEG (t::i, nt (mkNT nV) f) (SOME x)`,
-  simp[Once peg_eval_cases, cmlpeg_rules_applied, peg_V_def,
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nV) f) (SOME x)`
+  (simp[Once peg_eval_cases, cmlpeg_rules_applied, peg_V_def,
        peg_eval_seq_NONE, peg_eval_choice] >>
   Cases_on `t` >> simp[]);
 
-val peg_eval_nFQV_wrongtok = Q.store_thm(
-  "peg_eval_nFQV_wrongtok",
+Theorem peg_eval_nFQV_wrongtok
   `(∀s. FST t ≠ AlphaT s) ∧ (∀s. FST t ≠ SymbolT s) ∧ (∀s1 s2. FST t ≠ LongidT s1 s2) ⇒
-    ¬peg_eval cmlPEG (t::i, nt (mkNT nFQV) f) (SOME x)`,
-  simp[Once peg_eval_cases, cmlpeg_rules_applied,
+    ¬peg_eval cmlPEG (t::i, nt (mkNT nFQV) f) (SOME x)`
+  (simp[Once peg_eval_cases, cmlpeg_rules_applied,
        peg_eval_seq_NONE, peg_eval_choice, peg_eval_nV_wrongtok] >>
   Cases_on `t` >> simp[peg_longV_def]);
 
-val peg_eval_rpt_never_NONE = Q.store_thm(
-  "peg_eval_rpt_never_NONE",
-  `¬peg_eval G (i, rpt sym f) NONE`,
-  simp[Once peg_eval_cases]);
+Theorem peg_eval_rpt_never_NONE
+  `¬peg_eval G (i, rpt sym f) NONE`
+  (simp[Once peg_eval_cases]);
 val _ = export_rewrites ["peg_eval_rpt_never_NONE"]
 
 val pegsym_to_sym_def = Define`
@@ -143,73 +129,62 @@ val pegsym_to_sym_def = Define`
   pegsym_to_sym _ = {}
 `
 
-val valid_ptree_mkNd = Q.store_thm(
-  "valid_ptree_mkNd[simp]",
-  ‘valid_ptree G (mkNd N subs) ⇔
+Theorem valid_ptree_mkNd[simp]
+  `valid_ptree G (mkNd N subs) ⇔
      N ∈ FDOM G.rules ∧ MAP ptree_head subs ∈ G.rules ' N ∧
-     ∀pt. MEM pt subs ⇒ valid_ptree G pt’,
-  simp[mkNd_def]);
+     ∀pt. MEM pt subs ⇒ valid_ptree G pt`
+  (simp[mkNd_def]);
 
-val ptree_head_mkNd = Q.store_thm(
-  "ptree_head_mkNd[simp]",
-  ‘ptree_head (mkNd N subs) = NT N’,
-  simp[mkNd_def]);
+Theorem ptree_head_mkNd[simp]
+  `ptree_head (mkNd N subs) = NT N`
+  (simp[mkNd_def]);
 
 val ptree_list_loc_def = grammarTheory.ptree_list_loc_def
-val ptree_list_loc_SING = Q.store_thm(
-  "ptree_list_loc_SING[simp]",
-  ‘ptree_list_loc [pt] = ptree_loc pt’,
-  simp[ptree_list_loc_def]);
+Theorem ptree_list_loc_SING[simp]
+  `ptree_list_loc [pt] = ptree_loc pt`
+  (simp[ptree_list_loc_def]);
 
-val ptree_fringe_mkNd = Q.store_thm(
-  "ptree_fringe_mkNd[simp]",
-  ‘ptree_fringe (mkNd N subs) = FLAT (MAP ptree_fringe subs)’,
-  simp[mkNd_def]);
+Theorem ptree_fringe_mkNd[simp]
+  `ptree_fringe (mkNd N subs) = FLAT (MAP ptree_fringe subs)`
+  (simp[mkNd_def]);
 
-val valid_locs_mkNd = Q.store_thm(
-  "valid_locs_mkNd[simp]",
-  ‘valid_locs (mkNd N subs) ⇔ ∀pt. MEM pt subs ⇒ valid_locs pt’,
-  simp[mkNd_def, ptree_list_loc_def]);
+Theorem valid_locs_mkNd[simp]
+  `valid_locs (mkNd N subs) ⇔ ∀pt. MEM pt subs ⇒ valid_locs pt`
+  (simp[mkNd_def, ptree_list_loc_def]);
 
-val rfringe_length_not_nullable = Q.store_thm(
-  "rfringe_length_not_nullable",
-  ‘∀G s. ¬nullable G [s] ⇒
+Theorem rfringe_length_not_nullable
+  `∀G s. ¬nullable G [s] ⇒
          ∀pt. ptree_head pt = s ⇒ valid_lptree G pt ⇒
-              0 < LENGTH (real_fringe pt)’,
-  metis_tac[fringe_length_not_nullable, LENGTH_real_fringe, valid_lptree_def]);
+              0 < LENGTH (real_fringe pt)`
+  (metis_tac[fringe_length_not_nullable, LENGTH_real_fringe, valid_lptree_def]);
 
-val valid_lptree_mkNd = Q.store_thm(
-  "valid_lptree_mkNd[simp]",
-  ‘valid_lptree G (mkNd n children) ⇔
+Theorem valid_lptree_mkNd[simp]
+  `valid_lptree G (mkNd n children) ⇔
       n ∈ FDOM G.rules ∧ MAP ptree_head children ∈ G.rules ' n ∧
-      ∀pt. MEM pt children ⇒ valid_lptree G pt’,
-  simp[mkNd_def, ptree_list_loc_def]);
+      ∀pt. MEM pt children ⇒ valid_lptree G pt`
+  (simp[mkNd_def, ptree_list_loc_def]);
 
-val real_fringe_mkNd = Q.store_thm(
-  "real_fringe_mkNd[simp]",
-  ‘real_fringe (mkNd n subs) = FLAT (MAP real_fringe subs)’,
-  simp[mkNd_def] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+Theorem real_fringe_mkNd[simp]
+  `real_fringe (mkNd n subs) = FLAT (MAP real_fringe subs)`
+  (simp[mkNd_def] >> rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM]);
 
-val ptree_head_NT_mkNd = Q.store_thm(
-  "ptree_head_NT_mkNd",
-  ‘ptree_head pt = NN n ∧ valid_lptree cmlG pt ∧
+Theorem ptree_head_NT_mkNd
+  `ptree_head pt = NN n ∧ valid_lptree cmlG pt ∧
    real_fringe pt = MAP (TK ## I) pf ⇒
-   ∃subs. pt = mkNd (mkNT n) subs’,
-  Cases_on `pt`
+   ∃subs. pt = mkNd (mkNT n) subs`
+  (Cases_on `pt`
   >- (rename [`ptree_head (Lf pair)`] >> Cases_on `pair` >> simp[] >>
       rw[valid_lptree_def] >> rename [`(NN _, _) = (TK ## I) pair`] >>
       Cases_on `pair` >> fs[]) >>
   rename [`ptree_head (Nd pair _)`] >> Cases_on `pair` >>
   simp[MAP_EQ_CONS, mkNd_def, ptree_list_loc_def]);
 
-val mkNd_11 = Q.store_thm(
-  "mkNd_11[simp]",
-  ‘mkNd n1 sub1 = mkNd n2 sub2 ⇔ n1 = n2 ∧ sub1 = sub2’,
-  csimp[mkNd_def]);
+Theorem mkNd_11[simp]
+  `mkNd n1 sub1 = mkNd n2 sub2 ⇔ n1 = n2 ∧ sub1 = sub2`
+  (csimp[mkNd_def]);
 
-val peg_linfix_correct_lemma = Q.store_thm(
-  "peg_linfix_correct_lemma",
+Theorem peg_linfix_correct_lemma
   `∀UpperN sym sepsym i0 i pts.
       peg_eval cmlPEG (i0, peg_linfix UpperN sym sepsym) (SOME(i,pts)) ⇒
       (∀i0' i pts s.
@@ -232,8 +207,8 @@ val peg_linfix_correct_lemma = Q.store_thm(
           gsep ∈ pegsym_to_sym sepsym ∧ gsym ∈ pegsym_to_sym sym } ⊆
         cmlG.rules ' UpperN ⇒
       ∃pt. pts = [pt] ∧ ptree_head pt = NT UpperN ∧ valid_lptree cmlG pt ∧
-           MAP (TK ## I) i0 = real_fringe pt ++ MAP (TK ## I) i`,
-  rpt strip_tac >> qpat_x_assum `peg_eval X Y Z` mp_tac >>
+           MAP (TK ## I) i0 = real_fringe pt ++ MAP (TK ## I) i`
+  (rpt strip_tac >> qpat_x_assum `peg_eval X Y Z` mp_tac >>
   simp[peg_linfix_def, peg_eval_rpt, peg_eval_seq_SOME] >>
   rpt strip_tac >> rveq >>
   asm_match `peg_eval cmlPEG (i0, sym) (SOME(i1,r1))` >>
@@ -278,26 +253,23 @@ val peg_linfix_correct_lemma = Q.store_thm(
     by fs[SUBSET_DEF] >>
   simp[]);
 
-val length_no_greater = Q.store_thm(
-  "length_no_greater",
-  `peg_eval G (i0, sym) (SOME(i,r)) ⇒ LENGTH i ≤ LENGTH i0`,
-  metis_tac[peg_eval_suffix',
+Theorem length_no_greater
+  `peg_eval G (i0, sym) (SOME(i,r)) ⇒ LENGTH i ≤ LENGTH i0`
+  (metis_tac[peg_eval_suffix',
             DECIDE ``x ≤ y:num ⇔ x < y ∨ x = y``]);
 
-val MAP_TK_11 = Q.store_thm(
-  "MAP_TK_11[simp]",
-  `MAP TK x = MAP TK y ⇔ x = y`,
-  eq_tac >> simp[] >> strip_tac >>
+Theorem MAP_TK_11[simp]
+  `MAP TK x = MAP TK y ⇔ x = y`
+  (eq_tac >> simp[] >> strip_tac >>
   match_mp_tac
     (INST_TYPE [beta |-> ``:(token,MMLnonT) grammar$symbol``]
                listTheory.INJ_MAP_EQ) >>
   qexists_tac `TK` >>
   simp[INJ_DEF]);
 
-val peg_eval_nTyOp_wrongtok = Q.store_thm(
-  "peg_eval_nTyOp_wrongtok",
-  `FST tk = LparT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTyOp) f) (SOME x)`,
-  simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG] >>
+Theorem peg_eval_nTyOp_wrongtok
+  `FST tk = LparT ⇒ ¬peg_eval cmlPEG (tk::i, nt (mkNT nTyOp) f) (SOME x)`
+  (simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG] >>
   simp[Once peg_eval_cases, cmlpeg_rules_applied, FDOM_cmlPEG]);
 
 datatype disposition = X | KEEP
@@ -316,8 +288,7 @@ in
                    assert P o concl))
 end
 
-val peg_EbaseParen_sound = Q.store_thm(
-  "peg_EbaseParen_sound",
+Theorem peg_EbaseParen_sound
   `∀i0 i pts.
       peg_eval cmlPEG (i0, peg_EbaseParen) (SOME(i,pts)) ⇒
       (∀i0' N i pts.
@@ -330,8 +301,8 @@ val peg_EbaseParen_sound = Q.store_thm(
       ∃pt.
         pts = [pt] ∧ ptree_head pt = NT (mkNT nEbase) ∧
         valid_lptree cmlG pt ∧
-        MAP (TOK ## I) i0 = real_fringe pt ++ MAP (TOK ## I) i`,
-  rw[peg_EbaseParen_def]
+        MAP (TOK ## I) i0 = real_fringe pt ++ MAP (TOK ## I) i`
+  (rw[peg_EbaseParen_def]
   >- (rlresolve X (K true) mp_tac >> simp[] >> strip_tac >> rveq >>
       simp[peg_EbaseParenFn_def, cmlG_FDOM, cmlG_applied, DISJ_IMP_THM,
            pairTheory.PAIR_MAP])
@@ -365,9 +336,8 @@ val _ = augment_srw_ss [rewrites [bindNT0_lemma]]
 
 (* left recursive rules in the grammar turn into calls to rpt in the PEG,
    and this in turn requires inductions *)
-val ptPapply_lemma = Q.store_thm(
-  "ptPapply_lemma",
-  ‘∀limit.
+Theorem ptPapply_lemma
+  `∀limit.
      (∀i0 i pts.
        LENGTH i0 < limit ⇒
        peg_eval cmlPEG (i0, nt (mkNT nPbase) I) (SOME (i, pts)) ⇒
@@ -381,8 +351,8 @@ val ptPapply_lemma = Q.store_thm(
        ∃pt. ptPapply0 acc (pt0 :: FLAT ptlist) = [pt] ∧
             ptree_head pt = NN nPapp ∧ valid_lptree cmlG pt ∧
             real_fringe acc ++ real_fringe pt0 ++ MAP (TK ## I) i0 =
-            real_fringe pt ++ MAP (TK ## I) i’,
-  gen_tac >> strip_tac >> Induct
+            real_fringe pt ++ MAP (TK ## I) i`
+  (gen_tac >> strip_tac >> Induct
   >- (simp[Once peg_eval_list] >> simp[ptPapply0_def] >>
       dsimp[cmlG_FDOM, cmlG_applied]) >>
   dsimp[Once peg_eval_list] >> rpt strip_tac >>
@@ -392,16 +362,15 @@ val ptPapply_lemma = Q.store_thm(
           ‘peg_eval_list _ (i1, _) (i, ptlist)’] >>
   first_x_assum (qspecl_then [‘pt1’, ‘mkNd (mkNT nPConApp) [acc; pt0]’, ‘i1’]
                              mp_tac) >> simp[] >>
-  disch_then irule >> dsimp[cmlG_applied, cmlG_FDOM])
+  disch_then irule >> dsimp[cmlG_applied, cmlG_FDOM]);
 
-val peg_sound = Q.store_thm(
-  "peg_sound",
+Theorem peg_sound
   `∀N i0 i pts.
        peg_eval cmlPEG (i0,nt N I) (SOME(i,pts)) ⇒
        ∃pt. pts = [pt] ∧ ptree_head pt = NT N ∧
             valid_lptree cmlG pt ∧
-            MAP (TOK ## I) i0 = real_fringe pt ++ MAP (TOK ## I) i`,
-  ntac 2 gen_tac >> `?iN. iN = (i0,N)` by simp[] >> pop_assum mp_tac >>
+            MAP (TOK ## I) i0 = real_fringe pt ++ MAP (TOK ## I) i`
+  (ntac 2 gen_tac >> `?iN. iN = (i0,N)` by simp[] >> pop_assum mp_tac >>
   map_every qid_spec_tac [`i0`, `N`, `iN`] >>
   qispl_then [`measure (LENGTH:(token # locs) list->num) LEX measure NT_rank`]
              (ho_match_mp_tac o
@@ -597,6 +566,16 @@ val peg_sound = Q.store_thm(
           metis_tac[DECIDE ``x<SUC x``])
       >- (dsimp[cmlG_FDOM, cmlG_applied, MAP_EQ_SING] >> csimp[PAIR_MAP] >>
           metis_tac[DECIDE``x<SUC x``])
+      >- (dsimp[cmlG_FDOM, cmlG_applied, APPEND_EQ_CONS] >> csimp[PAIR_MAP] >>
+          rename[‘MAP (TK ## I) in0’, ‘peg_eval _ (in0, nt (mkNT nDecls) I)’] >>
+          ‘LENGTH in0 < SUC (LENGTH in0)’ by simp[] >>
+          first_assum (pop_assum o mp_then (Pos hd) drule) >>
+          disch_then (qx_choose_then ‘decls1_pt’ strip_assume_tac) >> simp[] >>
+          fs[MAP_EQ_APPEND] >> rveq >> dsimp[PAIR_MAP] >>
+          rename [‘real_fringe decls1_pt = MAP _ in00’,
+                  ‘peg_eval _ (in00 ++ [Int] ++ in01, nt (mkNT nDecls) I)’] >>
+          first_x_assum (qpat_assum ‘peg_eval _ (in01, _) _’ o
+                         mp_then (Pos (el 2)) mp_tac) >> dsimp[])
       >- (`NT_rank (mkNT nTypeDec) < NT_rank (mkNT nDecl)`
             by simp[NT_rank_def] >>
           first_x_assum (erule strip_assume_tac) >>
