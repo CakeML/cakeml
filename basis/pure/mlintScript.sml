@@ -412,8 +412,8 @@ Theorem fromChars_IS_SOME_IFF
   \\ fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE, EL_DROP]);
 
 (* this formulation avoids a comparsion using = for better performance *)
-val cmp_def = Define `
-  cmp i (j:int) = if i < j then LESS else
-                  if j < i then GREATER else EQUAL`
+val int_cmp_def = Define `
+  int_cmp i (j:int) = if i < j then LESS else
+                      if j < i then GREATER else EQUAL`
 
 val _ = export_theory();

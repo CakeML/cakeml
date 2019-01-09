@@ -136,7 +136,7 @@ val gcd_side = prove(
 (* compare *)
 
 val _ = (next_ml_names := ["compare"]);
-val _ = translate mlintTheory.cmp_def;
+val _ = translate mlintTheory.int_cmp_def;
 
 
 val sigs = module_signatures [
