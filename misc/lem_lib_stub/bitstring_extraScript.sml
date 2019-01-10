@@ -630,6 +630,25 @@ val rotate_w2v_mod_lemma = Q.prove(`!(x:num) (y:num) (m:num). (0 < m /\ (x<y MOD
 
 val lemma7_simp = Q.prove(`!x y. (SUC x <= y+1) = (x <= y)`, FULL_SIMP_TAC arith_ss [])
 
+val lemma7_mod_eq_self = Q.prove(`!x m. 0<m ==> ((x MOD m = x)=(x<m))`,
+   rpt STRIP_TAC
+   >> EQ_TAC
+   >> STRIP_TAC
+   >- (POP_ASSUM (fn thm => ONCE_REWRITE_TAC[GSYM thm]) >> simp[MOD_LESS])
+   >> MATCH_MP_TAC MOD_UNIQUE
+   >> Q.EXISTS_TAC `0`
+   >> simp[]
+)
+
+
+val lemma7_exists_SUC = Q.prove(`!b n m n'. (0 < m /\ b < n' /\ (n MOD m = SUC n'))
+                             ==> (?x. (n-(b+1)) MOD m = SUC x)`,
+   rpt STRIP_TAC >> simp[rotate_w2v_mod_lemma]
+   >> `(b+1) MOD m = b+1` by (simp[lemma7_mod_eq_self] >> ASSUME_TAC (ISPEC ``n:num`` MOD_LESS) >> RES_TAC >> fs[ADD1])
+   >> Q.EXISTS_TAC `(n' - (b+1))`
+   >> fs[]
+)
+
 
 val rotate_w2v_lemma7 = Q.prove(`!n b a m. (0 < m /\ b < SUC a /\ (n MOD m=SUC a)) ==> ((a-b) = ((n-(b+1)) MOD m))`,
    rpt STRIP_TAC
@@ -638,7 +657,9 @@ val rotate_w2v_lemma7 = Q.prove(`!n b a m. (0 < m /\ b < SUC a /\ (n MOD m=SUC a
    >> POP_ASSUM (ASSUME_TAC o AP_TERM ``\x. x-1``) >> fs[]
    >> Cases_on `(n-(b+1)) MOD m`
       >- (FULL_SIMP_TAC arith_ss [] >> Cases_on `n MOD m` >> FULL_SIMP_TAC arith_ss [lemma7_simp] >>
-          Cases_on `n<m` >- FULL_SIMP_TAC arith_ss [MOD_LESS] >> Cases_on `n=m` >- (ASM_SIMP_TAC arith_ss [DIVMOD_ID] >> cheat) >> CCONTR_TAC >> fs[] >> cheat
+          Cases_on `n<m` >- FULL_SIMP_TAC arith_ss [MOD_LESS] >> Cases_on `n=m`
+            >- (CCONTR_TAC >> IMP_RES_TAC DIVMOD_ID >> fs[]) >> CCONTR_TAC >> fs[NOT_LESS_EQUAL]
+            >> `~((n-(b+1)) MOD m = 0)` by (IMP_RES_TAC lemma7_exists_SUC >> fs[])
           )
    >> ASM_SIMP_TAC arith_ss []
    >> POP_ASSUM (ASSUME_TAC o GSYM)
@@ -728,7 +749,6 @@ val rotate_w2v = Q.store_thm("rotate_w2v",
                 >> IMP_RES_TAC rotate_w2v_lemma6
                 >> IMP_RES_TAC rotate_w2v_lemma5
                 >> IMP_RES_TAC rotate_w2v_lemma4
-                >> rename1 `a-b`
                 >> ASM_SIMP_TAC arith_ss []
                 >> fs[]
                 >> ASSUME_TAC DIMINDEX_GT_0
