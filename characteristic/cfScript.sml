@@ -2382,18 +2382,50 @@ fun add_to_clock qtm th g =
         th evaluate_match_add_to_clock_lemma g))
   g;
 
-val evaluate_set_clock = store_thm("evaluate_set_clock",
-  ``evaluate st env xs = (st', res) ==>
-    !k. ?ck res1 st1.
-    evaluate (st with clock := k) env xs = (st1, res1) /\
-    (res1 = res /\ st1 = (st' with clock := ck) \/
-     res1 = Rerr (Rabort Rtimeout_error) /\
-     st1.ffi.io_events ≼ st'.ffi.io_events)``, cheat);
+(* TODO: should replace the theorem in evaluateProps *)
+Theorem evaluate_minimal_clock
+  `!(s:'ffi semanticPrimitives$state) env es s' r k.
+     evaluate s env es = (s',r) ∧
+     s'.clock = 0 ∧
+     r ≠ Rerr (Rabort Rtimeout_error) ∧
+     s.clock > k
+     ==>
+     ?s''.
+       evaluate (s with clock := k) env es =
+       (s'',Rerr (Rabort Rtimeout_error)) /\
+       s''.ffi.io_events ≼ s'.ffi.io_events`
+  (cheat (*metis_tac evaluate_minimal_lemmas*));
+
+(* TODO: move to evaluateProps *)
+Theorem evaluate_set_init_clock
+  `evaluate st env xs = (st', res) /\
+   res <> Rerr (Rabort Rtimeout_error) ==>
+   !k. ?ck res1 st1.
+   evaluate (st with clock := k) env xs = (st1, res1) /\
+   (res1 = res /\ st1 = (st' with clock := ck) \/
+    res1 = Rerr (Rabort Rtimeout_error) /\
+    st1.ffi.io_events ≼ st'.ffi.io_events)`
+  (rw []
+  \\ drule evaluatePropsTheory.evaluate_set_clock
+  \\ disch_then (qspec_then `0` mp_tac) \\ fs [] \\ strip_tac
+  \\ Cases_on `ck1 <= k`
+  THEN1 (
+    fs [LESS_EQ_EXISTS] \\ rveq
+    \\ drule evaluatePropsTheory.evaluate_add_to_clock
+    \\ disch_then (qspec_then `p` mp_tac) \\ fs []
+    \\ metis_tac [])
+  \\ drule evaluate_minimal_clock \\ fs []
+  \\ disch_then (qspec_then `k` mp_tac) \\ fs []
+  \\ rw [] \\ fs []);
 
 val lprefix_lub_subset = store_thm("lprefix_lub_subset",
   ``lprefix_lub$lprefix_lub s l /\ s SUBSET t /\
     (!x y. x IN t /\ ~(x IN s) /\ y IN t ==> LPREFIX x y) ==>
     lprefix_lub$lprefix_lub t l``, cheat);
+
+Theorem LPREFIX_fromList_fromList
+  `LPREFIX (fromList x) (fromList y) = (x ≼ y)`
+  (cheat);
 
 Theorem cf_sound
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`
@@ -2468,11 +2500,17 @@ Theorem cf_sound
             by SPLIT_TAC
           \\ rveq \\ instantiate \\ rpt strip_tac
           THEN1 (
-            drule evaluate_set_clock \\ fs []
+            drule evaluate_set_init_clock \\ fs []
             \\ disch_then (qspec_then `ck'` strip_assume_tac) \\ fs []
           )
           \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
           \\ asm_exists_tac \\ simp [SUBSET_DEF]
+          \\ rw []
+          THEN1 (
+            drule evaluatePropsTheory.evaluate_set_clock \\ fs []
+            \\ disch_then (qspec_then `ck'` strip_assume_tac)
+            \\ qexists_tac `ck1` \\ fs [])
+          \\ fs [LPREFIX_fromList_fromList]
           \\ cheat
         )
         THEN (
