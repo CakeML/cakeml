@@ -43,7 +43,82 @@ val _ = register_type``:regexp``;
 (* check regexp is known to be an EqualityType *)
 val EqualityType_regexp = EqualityType_rule [] ``:regexp``;
 
-(* -- *)
+(* The following is a translation of balanced_map. The translation of
+   balanced_map from basis cannot be used here beause the basis only
+   exposes the mlmapTheory functions which provide a neater -- but
+   different -- interface. The duplication doesn't matter due to
+   flat_elim removing all the unused functions during compilation. *)
+
+val _ = translate balanced_mapTheory.size_def;
+val _ = translate balanced_mapTheory.singleton_def;
+val _ = translate balanced_mapTheory.ratio_def;
+val _ = translate balanced_mapTheory.delta_def;
+val _ = translate balanced_mapTheory.balanceL_def;
+val _ = translate balanced_mapTheory.balanceR_def;
+val _ = translate balanced_mapTheory.deleteFindMax_def;
+
+val deleteFindmax_side_thm = Q.prove (
+  `!m. m ≠ Tip ⇒ deletefindmax_1_side m`,
+  ho_match_mp_tac balanced_mapTheory.deleteFindMax_ind >>
+  ONCE_REWRITE_TAC [theorem "deletefindmax_1_side_def"] >>
+  rw [] >>
+  ONCE_REWRITE_TAC [theorem "deletefindmax_1_side_def"] >>
+  rw [] >>
+  metis_tac []) |> update_precondition;
+
+val _ = translate balanced_mapTheory.deleteFindMin_def;
+
+val deleteFindmin_side_thm = Q.prove (
+  `!m. m ≠ Tip ⇒ deletefindmin_1_side m`,
+  ho_match_mp_tac balanced_mapTheory.deleteFindMin_ind >>
+  ONCE_REWRITE_TAC [theorem "deletefindmin_1_side_def"] >>
+  rw [] >>
+  ONCE_REWRITE_TAC [theorem "deletefindmin_1_side_def"] >>
+  rw [] >>
+  metis_tac []) |> update_precondition;
+
+val _ = translate balanced_mapTheory.glue_def;
+
+val glue_side_thm = Q.prove (
+  `!m n. glue_1_side m n`,
+  rw [fetch "-" "glue_1_side_def"] >>
+  metis_tac [deleteFindmin_side_thm, deleteFindmax_side_thm,
+    balanced_mapTheory.balanced_map_distinct])
+  |> update_precondition;
+
+val _ = translate balanced_mapTheory.trim_help_greater_def;
+val _ = translate balanced_mapTheory.trim_help_lesser_def;
+val _ = translate balanced_mapTheory.trim_help_middle_def;
+val _ = translate balanced_mapTheory.trim_def;
+val _ = translate balanced_mapTheory.insertMin_def;
+val _ = translate balanced_mapTheory.insertMax_def;
+val _ = translate balanced_mapTheory.bin_def;
+val _ = translate balanced_mapTheory.link_def;
+val _ = translate balanced_mapTheory.filterLt_help_def;
+val _ = translate balanced_mapTheory.filterLt_def;
+val _ = translate balanced_mapTheory.filterGt_help_def;
+val _ = translate balanced_mapTheory.filterGt_def;
+val _ = translate balanced_mapTheory.insertR_def;
+val _ = translate balanced_mapTheory.hedgeUnion_def;
+val _ = translate balanced_mapTheory.splitLookup_def;
+val _ = translate balanced_mapTheory.submap'_def;
+
+val _ = translate balanced_mapTheory.null_def;
+val _ = translate balanced_mapTheory.lookup_def;
+val _ = translate balanced_mapTheory.member_def;
+val _ = translate balanced_mapTheory.empty_def;
+val _ = translate balanced_mapTheory.insert_def;
+val _ = translate balanced_mapTheory.delete_def;
+val _ = translate balanced_mapTheory.union_def;
+val _ = translate balanced_mapTheory.foldrWithKey_def;
+val _ = translate balanced_mapTheory.toAscList_def;
+val _ = translate balanced_mapTheory.compare_def;
+val _ = translate balanced_mapTheory.map_def;
+val _ = translate balanced_mapTheory.isSubmapOfBy_def;
+val _ = translate balanced_mapTheory.isSubmapOf_def;
+val _ = translate balanced_mapTheory.fromList_def;
+
+(* -- end of translation of balanced_map -- *)
 
 val r = translate regexp_compareW_def;
 
