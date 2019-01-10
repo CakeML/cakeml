@@ -536,10 +536,10 @@ val state_rel_ext_with_clock = Q.prove(
 (* observational semantics preservation *)
 
 Theorem compile_semantics_lemma
-  `state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc ts hl t.clock) (t:('a,'c,'ffi) wordSem$state) /\
-   semantics ffi (fromAList prog) co cc ts hl start <> Fail ==>
+  `state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc ts hl ls t.clock) (t:('a,'c,'ffi) wordSem$state) /\
+   semantics ffi (fromAList prog) co cc ts hl ls start <> Fail ==>
    semantics t start IN
-     extend_with_resource_limit { semantics ffi (fromAList prog) co cc ts hl start }`
+     extend_with_resource_limit { semantics ffi (fromAList prog) co cc ts hl ls start }`
   (simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
   simp[dataSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
@@ -787,10 +787,10 @@ Theorem compile_semantics `
    t.compile_oracle = (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) o tco ∧
    Abbrev (tcc = (λconf progs.
     t.compile conf (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
-   Fail ≠ semantics t.ffi (fromAList prog) co cc ts hl start ⇒
+   Fail ≠ semantics t.ffi (fromAList prog) co cc ts hl ls start ⇒
    semantics t start ∈
    extend_with_resource_limit
-   {semantics t.ffi (fromAList prog) co cc ts hl start}`
+   {semantics t.ffi (fromAList prog) co cc ts hl ls start}`
    (rw[]>>
    match_mp_tac (GEN_ALL compile_semantics_lemma)>>
    qexists_tac`c`>>fs[state_rel_ext_def]>>rw[]>>

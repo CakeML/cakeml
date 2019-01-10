@@ -4053,7 +4053,7 @@ Theorem state_rel_init
     t.stack = [] /\
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
-    state_rel c l1 l2 (initial_state ffi code co cc ts hl t.clock)
+    state_rel c l1 l2 (initial_state ffi code co cc ts hl ls t.clock)
                       (t:('a,'c,'ffi) state) [] []`
   (simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
   \\ fs [state_rel_thm,dataSemTheory.initial_state_def,

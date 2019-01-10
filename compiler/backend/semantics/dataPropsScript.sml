@@ -8,19 +8,19 @@ val _ = new_theory"dataProps";
 val s = ``s:('c,'ffi) dataSem$state``
 
 Theorem initial_state_simp[simp]
-  `(initial_state f c co cc ts hl k).clock = k ∧
-   (initial_state f c co cc ts hl k).locals = LN ∧
-   (initial_state f c co cc ts hl k).code = c ∧
-   (initial_state f c co cc ts hl k).ffi = f ∧
-   (initial_state f c co cc ts hl k).compile_oracle = co ∧
-   (initial_state f c co cc ts hl k).compile = cc ∧
-   (initial_state f c co cc ts hl k).stack = []`
+  `(initial_state f c co cc ts hl ls k).clock = k ∧
+   (initial_state f c co cc ts hl ls k).locals = LN ∧
+   (initial_state f c co cc ts hl ls k).code = c ∧
+   (initial_state f c co cc ts hl ls k).ffi = f ∧
+   (initial_state f c co cc ts hl ls k).compile_oracle = co ∧
+   (initial_state f c co cc ts hl ls k).compile = cc ∧
+   (initial_state f c co cc ts hl ls k).stack = []`
   (srw_tac[][initial_state_def]);
 
 Theorem initial_state_with_simp[simp]
-  `(initial_state f c co cc ts hl k with clock := k' = initial_state f c co cc ts hl k') ∧
-   (initial_state f c co cc ts hl k with stack := [] = initial_state f c co cc ts hl k) ∧
-   (initial_state f c co cc ts hl k with locals := LN = initial_state f c co cc ts hl k)`
+  `(initial_state f c co cc ts hl ls k with clock := k' = initial_state f c co cc ts hl ls k') ∧
+   (initial_state f c co cc ts hl ls k with stack := [] = initial_state f c co cc ts hl ls k) ∧
+   (initial_state f c co cc ts hl ls k with locals := LN = initial_state f c co cc ts hl ls k)`
   (srw_tac[][initial_state_def]);
 
 Theorem Boolv_11[simp]
@@ -899,7 +899,7 @@ Theorem evaluate_add_clock_io_events_mono
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
 Theorem semantics_Div_IMP_LPREFIX
-  `semantics ffi prog co cc ts hl start = Diverge l ==> LPREFIX (fromList ffi.io_events) l`
+  `semantics ffi prog co cc ts hl ls start = Diverge l ==> LPREFIX (fromList ffi.io_events) l`
   (simp[semantics_def]
   \\ IF_CASES_TAC \\ fs[]
   \\ DEEP_INTRO_TAC some_intro \\ fs[]
@@ -924,16 +924,16 @@ Theorem semantics_Div_IMP_LPREFIX
                initial_state_simp,initial_state_with_simp]);
 
 Theorem semantics_Term_IMP_PREFIX
-  `semantics ffi prog co cc ts hl start = Terminate tt l ==> ffi.io_events ≼ l`
+  `semantics ffi prog co cc ts hl ls start = Terminate tt l ==> ffi.io_events ≼ l`
   (simp[semantics_def] \\ IF_CASES_TAC \\ fs[]
   \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[]
   \\ imp_res_tac evaluate_io_events_mono \\ fs[]);
 
 Theorem Resource_limit_hit_implements_semantics
   `implements {Terminate Resource_limit_hit ffi.io_events}
-       {semantics ffi (fromAList prog) co cc ts hl start}`
+       {semantics ffi (fromAList prog) co cc ts hl ls start}`
   (fs [implements_def,extend_with_resource_limit_def]
-  \\ Cases_on `semantics ffi (fromAList prog) co cc ts hl start` \\ fs []
+  \\ Cases_on `semantics ffi (fromAList prog) co cc ts hl ls start` \\ fs []
   \\ imp_res_tac semantics_Div_IMP_LPREFIX \\ fs []
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []);
 
