@@ -15,56 +15,44 @@ struct
 end
 open Parse
 
-val add_parsing_compset = computeLib.extend_compset
-  [computeLib.Defs
-    [destResult_def
-    (* ,parse_top_def
-       ,cmlParseREPLTop_def *)
-    ,cmlParseExpr_def
-    ,sumID_def
-    ,tokeq_def
-    ,cmlPEG_exec_thm
-    ,peg_StructName_def
-    ,peg_EbaseParen_def
-    ,peg_EbaseParenFn_def
-    ,peg_longV_def
-    ,peg_V_def
-    ,peg_TypeDec_def
-    ,peg_UQConstructorName_def
-    ,pnt_def
-    ,try_def
-    ,pegf_def
-    ,seql_def
-    ,choicel_def
-    ,mktokLf_def
-    ,bindNT_def
-    ,peg_linfix_def
-    ,mk_linfix_def
-    ,mk_rinfix_def
-    ,parse_prog_def
-    ],
-   computeLib.Defs [
-     lex_until_toplevel_semicolon_def ,
-     get_token_eqn ,
-     lex_aux_def
-   ],
-   computeLib.Defs [ (* lexer_funTheory *)
-     lexer_fun_def,
-     lexer_fun_aux_def,
-     next_token_def,
-     next_sym_def,
-     read_while_def,
-     read_string_def,
-     isSymbol_def,
-     isAlphaNumPrime_def,
-     is_single_char_symbol_def,
-     init_loc_def,
-     pred_setTheory.IN_INSERT,
-     pred_setTheory.NOT_IN_EMPTY,
-     token_of_sym_def
-    ],
-   computeLib.Tys [``:locn``, ``:locs``, ``:symbol``, ``:token``]
-  ]
+val add_parsing_compset =
+    computeLib.extend_compset [
+      computeLib.Defs
+        [bindNT0_def
+        ,bindNT_def
+        ,choicel_def
+        ,cmlPEG_exec_thm
+        ,cmlParseExpr_def
+        ,destResult_def
+        ,mkNd_def
+        ,mk_linfix_def
+        ,mk_rinfix_def
+        ,mktokLf_def
+        ,parse_prog_def
+        ,peg_EbaseParenFn_def
+        ,peg_EbaseParen_def
+        ,peg_StructName_def
+        ,peg_TypeDec_def
+        ,peg_UQConstructorName_def
+        ,peg_V_def
+        ,peg_linfix_def
+        ,peg_longV_def
+        ,pegf_def
+        ,pnt_def
+        ,ptPapply0_def
+        ,ptPapply_def
+        ,seql_def
+        ,sumID_def
+        ,tokeq_def
+        ,try_def
+        ],
+      computeLib.Defs [
+        pegexecTheory.applykont_thm,
+        pegexecTheory.peg_exec_thm,
+        pegexecTheory.poplistval_def,
+        pegexecTheory.poplist_aux_def
+      ]
+    ]
 
 
 fun limit n cs t =
@@ -77,14 +65,29 @@ fun limit n cs t =
     end
 
 
-val parsing_compset = let
+fun parsing_compset() = let
   val cs = listLib.list_compset()
 in
-  combinLib.add_combin_compset cs;
-  stringLib.add_string_compset cs;
-  optionLib.OPTION_rws cs;
-  pairLib.add_pair_compset cs;
-  add_parsing_compset cs;
+  List.app (fn f => f cs) [
+    combinLib.add_combin_compset,
+    stringLib.add_string_compset,
+    optionLib.OPTION_rws,
+    pairLib.add_pair_compset,
+    computeLib.extend_compset [
+      computeLib.Tys [“:tokens$token”]
+    ],
+    computeLib.add_thms
+      [pred_setTheory.IN_INSERT, pred_setTheory.NOT_IN_EMPTY],
+    computeLib.add_thms [
+      grammarTheory.ptree_list_loc_def,
+      grammarTheory.ptree_loc_def,
+      locationTheory.merge_list_locs_def,
+      locationTheory.merge_locs_def,
+      locationTheory.unknown_loc_def
+    ],
+    semanticsComputeLib.add_tokenUtils_compset,
+    add_parsing_compset
+  ];
   cs
 end;
 

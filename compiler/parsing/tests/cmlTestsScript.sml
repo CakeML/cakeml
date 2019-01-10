@@ -65,6 +65,12 @@ in
   computeLib.CBV_CONV cs
 end
 
+val parse_eval = let
+  val cs = parsingComputeLib.parsing_compset()
+in
+  computeLib.CBV_CONV cs
+end
+
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
   val s_t = stringSyntax.lift_string bool s
@@ -73,7 +79,7 @@ fun parsetest0 nt sem s opt = let
   val ttoks = rhs (concl (lexeval ``MAP (TK o FST)  ^t``))
   val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
-  val evalth = time EVAL
+  val evalth = time parse_eval
                     ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
   val r = rhs (concl evalth)
   fun diag(s,t) = let
