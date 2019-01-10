@@ -46,43 +46,11 @@ Theorem IMAGE_key_set_compare_inj[simp]
   \\ fs[EQ_IMP_THM] \\ rw[]
   \\ res_tac \\ fs[]);
 
-val map_ok_def = Define `
-  map_ok (Map cmp t) <=> balanced_map$invariant cmp t /\ good_cmp cmp /\ TotOrd cmp`;
-
-Theorem lookup_insert
-  `map_ok t ==>
-   lookup (insert t k1 v) k2 = if k1 = k2 then SOME v else lookup t k2`
- (Cases_on `t`
-  \\ fs [map_ok_def,balanced_mapTheory.lookup_insert,lookup_def,insert_def]
-  \\ metis_tac [totoTheory.TotOrd])
-
 Theorem lookup0_insert
   `map_ok t ⇒
    lookup0 k (insert t k' v) =
    if k = k' then v else lookup0 k t`
   (rw [lookup0_def,lookup_insert]);
-
-val to_fmap_def = Define `
-  to_fmap (Map cmp Tip) = FEMPTY /\
-  to_fmap (Map cmp (Bin s k v l r)) =
-    ((to_fmap (Map cmp l) ⊌ to_fmap (Map cmp r)) |+ (k,v))`;
-
-val cmp_of_def = Define `
-  cmp_of (Map cmp t) = cmp`;
-
-Theorem cmp_of_insert[simp]
-  `cmp_of (insert t k v) = cmp_of t`
-  (Cases_on `t` \\ fs [insert_def,cmp_of_def]);
-
-Theorem cmp_of_empty[simp]
-  `cmp_of (empty cmp) = cmp`
-  (fs [mlmapTheory.empty_def,cmp_of_def]);
-
-Theorem insert_thm
-  `map_ok t ==>
-   map_ok (insert t k v) /\
-   to_fmap (insert t k v) = (to_fmap t |+ (k, v))`
-  cheat;
 
 Theorem insert_line_thm
   `map_ok t ∧
@@ -223,25 +191,6 @@ val wordfreq_output_spec_def =
    below and seeing where it ended up. You can skip forward to do that first if
    you like.)
 *)
-
-Theorem empty_thm
-  `(map_ok (empty cmp) = TotOrd cmp) /\ to_fmap (empty cmp) = FEMPTY`
-  (fs [mlmapTheory.empty_def,map_ok_def,balanced_mapTheory.empty_thm,
-      to_fmap_def,balanced_mapTheory.empty_def] \\ cheat)
-
-Theorem MAP_FST_toAscList
-  `map_ok t ⇒
-   SORTED (λx y. cmp_of t x y = Less) (MAP FST (toAscList t)) ∧
-   FDOM (to_fmap t) = set (MAP FST (toAscList t))`
-  cheat;
-
-Theorem MEM_toAscList
-  `map_ok t /\ MEM (k,v) (toAscList t) ==> FLOOKUP (to_fmap t) k = SOME v`
-  cheat;
-
-Theorem lookup_thm
-  `map_ok t ==> lookup t k = FLOOKUP (to_fmap t) k`
-  cheat;
 
 Theorem wordfreq_output_valid
   `!file_contents.
