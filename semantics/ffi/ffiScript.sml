@@ -16,8 +16,6 @@ val _ = new_theory "ffi"
 (*open import Pervasives_extra*)
 (*open import Lib*)
 
-(* An oracle says how to perform an ffi call based on its internal state,
-* represented by the type variable 'ffi. *)
 
 val _ = Hol_datatype `
  ffi_outcome = FFI_failed | FFI_diverged`;
@@ -51,7 +49,7 @@ val _ = Hol_datatype `
 
 (*val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi*)
 val _ = Define `
- (initial_ffi_state oc ffi=
+ ((initial_ffi_state:(string -> 'ffi oracle_function) -> 'ffi -> 'ffi ffi_state) oc ffi=
  (<| oracle      := oc
  ; ffi_state   := ffi
  ; io_events   := ([])
@@ -64,15 +62,15 @@ val _ = Hol_datatype `
 
 (*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_result 'ffi*)
 val _ = Define `
- (call_FFI st s conf bytes=
- (if ~ (s = "") then
+ ((call_FFI:'ffi ffi_state -> string ->(word8)list ->(word8)list -> 'ffi ffi_result) st s conf bytes=
+   (if ~ (s = "") then
     (case st.oracle s st.ffi_state conf bytes of
       Oracle_return ffi' bytes' =>
         if LENGTH bytes' = LENGTH bytes then
           (FFI_return
             ( st with<| ffi_state := ffi'
                     ; io_events :=
-(st.io_events ++
+                        (st.io_events ++
                           [IO_event s conf (ZIP (bytes, bytes'))])
             |>)
             bytes')
@@ -110,8 +108,8 @@ val _ = Hol_datatype `
 
 (*val trace_oracle : oracle (llist io_event)*)
 val _ = Define `
- (trace_oracle s io_trace conf input=
- ((case LHD io_trace of
+ ((trace_oracle:string ->(io_event)llist ->(word8)list ->(word8)list ->((io_event)llist)oracle_result) s io_trace conf input=
+   ((case LHD io_trace of
     SOME (IO_event s' conf' bytes2) =>
       if (s = s') /\ (MAP FST bytes2 = input) /\ (conf = conf') then
         Oracle_return (THE (LTL io_trace)) (MAP SND bytes2)
@@ -120,3 +118,4 @@ val _ = Define `
   )))`;
 
 val _ = export_theory()
+

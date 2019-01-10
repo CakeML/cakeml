@@ -16,13 +16,13 @@ val () = generate_sigs := true;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "string" (Atapp [] (Short "string"))`` I);
 
-val _ = trans "sub" `strsub`
-val _ = trans "implode" `implode`
-val _ = trans "size" `strlen`
-val _ = trans "concat" `mlstring$concat`
-val _ = trans "substring" `mlstring$substring`
+val _ = trans "sub" mlstringSyntax.strsub_tm;
+val _ = trans "implode" mlstringSyntax.implode_tm;
+val _ = trans "size" mlstringSyntax.strlen_tm;
+val _ = trans "concat" mlstringSyntax.concat_tm;
+val _ = trans "substring" mlstringSyntax.substring_tm;
 val result = translate strcat_def;
-val _ = trans "^" `mlstring$strcat`
+val _ = trans "^" mlstringSyntax.strcat_tm;
 
 val _ = next_ml_names := ["explode","explode"];
 val result = translate explode_aux_def;

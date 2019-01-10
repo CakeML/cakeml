@@ -1,10 +1,10 @@
 (*
   Faster cat: process 2048 chars at a time.
 *)
+
 open preamble basis
 
 val _ = new_theory "iocatProg"
-
 
 val _ = translation_extends"basisProg";
 
@@ -198,7 +198,7 @@ val cat_spec0 = Q.prove(
      fs[ALOOKUP_inFS_fname_openFileFS_nextFD]) >>
   qmatch_goalsub_abbrev_tac `STDIO fs'` >>
   xlet_auto_spec (SOME (Q.SPECL[`nextFD fs`,`fs'`] close_STDIO_spec))
-  >- xsimpl
+  >- (xsimpl \\ simp[Abbr`fs'`])
   >- (xsimpl >> fs[InvalidFD_exn_def,Abbr`fs'`,up_stdo_def] >>
       simp[validFileFD_def]
       \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)

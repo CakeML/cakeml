@@ -118,7 +118,7 @@ val list_to_v_def = Define `
 val Unit_def = Define`
   Unit = Block tuple_tag []`
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state),closSem$v)result``)
+val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``)
 
 val v_to_bytes_def = Define `
   v_to_bytes lv = some ns:word8 list.

@@ -17,9 +17,9 @@ val () = generate_sigs := true;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc ["'a"] "vector" (Atapp [Atvar "'a"] (Short "vector"))`` I);
 
-val _ = trans "fromList" `Vector`
-val _ = trans "length" `length`
-val _ = trans "sub" `sub`
+val _ = trans "fromList" ``regexp_compiler$Vector``;
+val _ = trans "length" ``regexp_compiler$length``;
+val _ = trans "sub" ``regexp_compiler$sub``;
 
 
 val _ = next_ml_names := ["tabulate"];

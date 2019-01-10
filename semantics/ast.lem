@@ -1,6 +1,8 @@
 (*
   Definition of CakeML abstract syntax (AST).
 *)
+
+open import Pervasives_extra
 open import Pervasives
 open import Lib
 open import Namespace

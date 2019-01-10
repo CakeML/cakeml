@@ -7,9 +7,6 @@ fixed size oprations on bitstrings
 [lem_list_extraScript.sml](lem_list_extraScript.sml):
 This is a file that is required for Lem to work.
 
-[lem_map_extraScript.sml](lem_map_extraScript.sml):
-This is a file that is required for Lem to work.
-
 [lem_pervasivesScript.sml](lem_pervasivesScript.sml):
 This is a file that is required for Lem to work.
 
@@ -17,9 +14,6 @@ This is a file that is required for Lem to work.
 This is a file that is required for Lem to work.
 
 [lem_set_extraScript.sml](lem_set_extraScript.sml):
-This is a file that is required for Lem to work.
-
-[lem_show_extraScript.sml](lem_show_extraScript.sml):
 This is a file that is required for Lem to work.
 
 [lem_stringScript.sml](lem_stringScript.sml):

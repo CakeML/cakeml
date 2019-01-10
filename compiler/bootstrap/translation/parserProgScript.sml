@@ -60,19 +60,8 @@ val _ = (find_def_for_const := def_of_const);
 val res = register_type``:(token,MMLnonT,locs) parsetree``;
 val res = register_type``:MMLnonT``;
 
-fun EqualityType_conseq_conv dir tm = let
-    val cc = ConseqConv.CONSEQ_REWRITE_CONV (eq_lemmas (), [], [])
-  in cc dir tm end
-
-val EqualityType_tac = ConseqConv.CONSEQ_CONV_TAC EqualityType_conseq_conv
-    \\ simp_tac bool_ss [];
-
 (* checking GRAMMAR_PARSETREE_TYPE etc is known to be an EqualityType *)
-val EqualityType_GRAMMAR_PARSETREE_TYPE_TOKENS_TOKEN_TYPE_GRAM_MMLNONT_TYPE
-    = Q.prove(
-  `EqualityType (GRAMMAR_PARSETREE_TYPE TOKENS_TOKEN_TYPE GRAM_MMLNONT_TYPE
-                                        LOCATION_LOCS_TYPE)`,
-  EqualityType_tac);
+val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
 
 val _ = translate (def_of_const ``cmlPEG``);
 

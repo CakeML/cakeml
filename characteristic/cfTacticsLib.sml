@@ -44,6 +44,9 @@ val () = ml_progComputeLib.add_env_compset cs
 val () = cfComputeLib.add_cf_aux_compset cs
 val () = computeLib.extend_compset [
   computeLib.Defs [
+(*  TS: it's quite unclear to me why CF does this, when ml_progScript is so
+    careful to ensure that these definitions aren't in the compset. I've tried
+    adjusting it, but it results in far too much work. *)
     ml_progTheory.merge_env_def,
     ml_progTheory.write_def,
     ml_progTheory.write_mod_def,
