@@ -2418,14 +2418,23 @@ Theorem evaluate_set_init_clock
   \\ disch_then (qspec_then `k` mp_tac) \\ fs []
   \\ rw [] \\ fs []);
 
-val lprefix_lub_subset = store_thm("lprefix_lub_subset",
-  ``lprefix_lub$lprefix_lub s l /\ s SUBSET t /\
-    (!x y. x IN t /\ ~(x IN s) /\ y IN t ==> LPREFIX x y) ==>
-    lprefix_lub$lprefix_lub t l``, cheat);
+Theorem lprefix_lub_subset
+  `lprefix_lub$lprefix_lub s l /\ s SUBSET t /\
+   (!x. x IN t /\ ~(x IN s) ==> ?y. y IN s /\ LPREFIX x y) ==>
+   lprefix_lub$lprefix_lub t l`
+  (fs [lprefix_lubTheory.lprefix_lub_def] \\ rw []
+  THEN1 (
+    Cases_on `ll IN s`
+    THEN1 (last_x_assum irule \\ rw [])
+    \\ first_x_assum (qspec_then `ll` mp_tac) \\ rw []
+    \\ last_x_assum (qspec_then `y` mp_tac) \\ rw []
+    \\ irule LPREFIX_TRANS \\ instantiate)
+  \\ last_x_assum irule \\ rw []
+  \\ first_x_assum irule \\ fs [SUBSET_DEF]);
 
 Theorem LPREFIX_fromList_fromList
   `LPREFIX (fromList x) (fromList y) = (x ≼ y)`
-  (cheat);
+  (rw [LPREFIX_def, from_toList]);
 
 Theorem cf_sound
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`
@@ -2510,7 +2519,6 @@ Theorem cf_sound
             drule evaluatePropsTheory.evaluate_set_clock \\ fs []
             \\ disch_then (qspec_then `ck'` strip_assume_tac)
             \\ qexists_tac `ck1` \\ fs [])
-          \\ fs [LPREFIX_fromList_fromList]
           \\ cheat
         )
         THEN (
