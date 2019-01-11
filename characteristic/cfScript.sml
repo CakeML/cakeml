@@ -2629,7 +2629,13 @@ Theorem cf_sound
           )
           \\ fs [lprefix_lubTheory.lprefix_lub_def]
           \\ rpt strip_tac
-          THEN1 cheat
+          THEN1 cheat (* (
+            qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
+            \\ qexists_tac `ck - 1` \\ rw []
+            \\ cf_exp2v_evaluate_tac `st with clock := ck`
+            THEN1 cheat
+            \\ fs [evaluateTheory.dec_clock_def]
+          ) *)
           \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
           \\ rpt strip_tac
           \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
@@ -2642,7 +2648,7 @@ Theorem cf_sound
         \\ fs [evaluateTheory.dec_clock_def]
       )
       (* 2+ arguments *)
-      THEN1 cheat (* (
+      THEN1 (
         rename1 `dest_opapp papp_ = SOME (f, pxs)` \\
         rename1 `xs = pxs ++ [x]` \\ fs [LENGTH] \\
         progress exp2v_list_rcons \\ fs [] \\ rw [] \\
@@ -2661,34 +2667,37 @@ Theorem cf_sound
         (* Specialize induction hypothesis with xs := pxs *)
         `LENGTH pxs < LENGTH pxs + 1` by (fs []) \\
         last_assum drule \\ disch_then (qspec_then `pxs` mp_tac) \\ fs [] \\
-        disch_then progress \\ fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def] \\
+        disch_then progress \\ fs [POSTv_def, POST_def, SEP_EXISTS, cond_def, STAR_def] \\
         (* Cleanup *)
         Cases_on `r` \\ fs [] \\
         rename1 `app_basic _ g xv H' Q` \\ fs [SPLIT_emp2] \\ rw [] \\
         (* Exploit the [app_basic (p:'ffi ffi_proj) g xv H' Q] we got from the ind. hyp. *)
         progress SPLIT_of_SPLIT3_2u3 \\
-        fs [app_basic_def] \\ first_x_assum progress \\ fs [evaluate_ck_def] \\
+        fs [app_basic_def, evaluate_to_heap_def, evaluate_ck_def] \\ rveq \\
+        first_x_assum progress \\
         (* Instantiate the result value, case split on it *)
-        qexists_tac `r` \\ Cases_on `r` \\ fs []
+        qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs [] \\ rveq
+        THEN1 cheat
         THEN (
           (* res = Val _ || res = Exn _ *)
-          NTAC 2 (simp [Once terminationTheory.evaluate_def]) \\
-          (* Instantiate the clock, cleanup *)
-          cf_exp2v_evaluate_tac `st with clock := ck + ck' + 1` \\
-          GEN_EXISTS_TAC "ck''" `ck + ck' + 1` \\ rw [] \\
-          qpat_assum `evaluate _ _ [App Opapp papp] = _` (add_to_clock `ck' + 1`) \\
-          fs [with_clock_with_clock] \\
-          (* Finish proving the goal *)
           rename1 `SPLIT3 (st2heap _ st2) (h_f', _, h_g')` \\
           `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f', h_k, h_g' UNION h_g)`
             by SPLIT_TAC \\
+          instantiate \\
+          NTAC 2 (simp [Once terminationTheory.evaluate_def]) \\
+          (* Instantiate the clock, cleanup *)
+          cf_exp2v_evaluate_tac `st with clock := ck + ck' + 1` \\
+          qexists_tac `ck + ck' + 1` \\ rw [] \\
+          qpat_assum `evaluate _ _ [App Opapp papp] = _` (add_to_clock `ck' + 1`) \\
+          fs [with_clock_with_clock] \\
+          (* Finish proving the goal *)
           rename1 `SPLIT (st2heap _ st1)` \\
-          GEN_EXISTS_TAC "st'''" `st2 with clock := st2.clock + st1.clock` \\
-          fs [st2heap_clock] \\ instantiate \\ fs [evaluateTheory.dec_clock_def] \\
+          qexists_tac `st2 with clock := st2.clock + st1.clock` \\
+          fs [st2heap_clock, evaluateTheory.dec_clock_def] \\
           qpat_assum `evaluate (st1 with clock := _) _ _ = _` (add_to_clock `st1.clock`) \\
           fs [with_clock_with_clock]
         )
-      ) *)
+      )
     )
     THEN1 (
       (* Opassign *)
