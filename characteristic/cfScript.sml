@@ -3127,26 +3127,59 @@ Theorem cf_sound
       qexists_tac `Val v` \\ fs [] \\ instantiate \\
       fs [evaluate_ck_def] \\ qexists_tac `ck` \\ fs []
     )
-    THEN1 cheat (* (
+    THEN1 (
       (* e ~> Rerr (Rraise v) *)
       rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rraise v))` \\
       first_x_assum (qspec_then `v` assume_tac) \\
       `EVERY (\b. sound p (SND b) (cf p (SND b))) branches` by
         (fs [EVERY_MAP, EVERY_MEM] \\ NO_TAC) \\
       progress SPLIT_of_SPLIT3_2u3 \\
-      progress cf_cases_evaluate_match \\
-      qexists_tac `r` \\ Cases_on `r` \\ fs [] \\
-      TRY (
+      drule cf_cases_evaluate_match \\
+      disch_then (qspecl_then
+        [`v`, `env`, `Q' (Exn v)`, `Q`, `v`, `st'`, `h_f`, `h_k UNION h_g`]
+        mp_tac) \\ rw [] \\
+      qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs [] \\ rveq
+      THEN1 (
+        instantiate \\ qexists_tac `h_g UNION h_g'` \\ rw []
+        THEN1 SPLIT_TAC
+        THEN1 (
+          fs [evaluate_ck_def]
+          \\ drule evaluate_set_init_clock \\ fs []
+          \\ disch_then (qspec_then `ck'` strip_assume_tac) \\ fs [])
+        \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
+        \\ asm_exists_tac \\ simp [SUBSET_DEF]
+        \\ rw [] \\ fs [evaluate_ck_def]
+        THEN1 (
+          drule evaluatePropsTheory.evaluate_set_clock \\ fs []
+          \\ disch_then (qspec_then `ck'` strip_assume_tac)
+          \\ qexists_tac `ck1` \\ fs [])
+        \\ drule evaluate_set_init_clock \\ fs []
+        \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
+        THEN1 (first_x_assum (qspec_then `ck''` mp_tac) \\ fs [])
+        \\ fs []
+        \\ qpat_x_assum `!ck. ?st''. _` (qspec_then `ck2` strip_assume_tac)
+        \\ rename1 `_ = (st2, _)`
+        \\ qexists_tac `fromList st2.ffi.io_events` \\ rw []
+        THEN1 (qexists_tac `ck2` \\ rw [])
+        \\ `st'.ffi.io_events ≼ st2.ffi.io_events` by (
+          drule (CONJUNCT2 evaluatePropsTheory.evaluate_io_events_mono_imp)
+          \\ rw [evaluatePropsTheory.io_events_mono_def])
+        \\ rw [LPREFIX_fromList_fromList]
+        \\ irule isPREFIX_TRANS
+        \\ instantiate
+      )
+      THEN (
         rename1 `SPLIT3 (st2heap _ st'') (h_f', h_k UNION h_g, h_g')` \\
-        qexists_tac `st'' with clock := st''.clock + st'.clock` \\
-        Q.LIST_EXISTS_TAC [`h_f'`, `h_g UNION h_g'`, `ck + ck'`] \\ rw []
+        fs [PULL_EXISTS] \\
+        Q.LIST_EXISTS_TAC [`h_f'`, `h_g UNION h_g'`, `ck + ck'`,
+          `st'' with clock := st''.clock + st'.clock`] \\ rw []
         THEN1 (fs [st2heap_def] \\ SPLIT_TAC) \\
         fs [evaluate_ck_def] \\
         qpat_assum `evaluate _ _ [e] = _` (add_to_clock `ck'`) \\
         qpat_assum `evaluate_match _ _ _ branches _ = _` (add_to_clock `st'.clock`) \\
         fs [with_clock_with_clock]
       )
-    ) *)
+    )
     THEN1 (
       (* e ~> FFI diverge *)
       rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rabort (Rffi_error (Final_event s conf bytes _))))` \\
