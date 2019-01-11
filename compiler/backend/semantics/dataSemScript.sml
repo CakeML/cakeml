@@ -44,6 +44,40 @@ val s = ``(s:('c,'ffi) dataSem$state)``
 
 val vs = ``(vs:dataSem$v list)``
 
+val size_of_v_def = tDefine"size_of_v"`
+  size_of_v (s_ts : num_set) (Block ts tag vl) =
+    (if ts = 0 ∧ vl = [] ∨ ts ∈ domain s_ts
+     then (0:num,s_ts)
+     else FOLDL (UNCURRY (##) o ((+) ## union)) (2,s_ts) (MAP (size_of_v s_ts) vl))
+∧ size_of_v s_ts v = (0,s_ts)`
+(WF_REL_TAC `measure (λ(ts,v). v_size v)`
+ \\ `∀l. v1_size l = SUM (MAP (λx. v_size x + 1) l)`
+    by (Induct >> rw [definition"v_size_def"])
+ \\ rw []
+ \\ ho_match_mp_tac LESS_EQ_LESS_TRANS
+ \\ Q.EXISTS_TAC `SUM (MAP (λx. v_size x + 1) vl)`
+ \\ rw []
+ \\ IMP_RES_TAC SUM_MAP_MEM_bound
+ \\ ho_match_mp_tac LESS_EQ_TRANS
+ \\ Q.EXISTS_TAC `v_size a + 1`
+ \\ rw [])
+
+
+(* Measures the amount of space everything in a dataLang "heap" would need
+   to fit in wordLang memory (over-approximation)
+*)
+
+val size_of_heap = Define`
+  size_of_heap ^s =
+  let locals_vs     = toList s.locals;
+      extract_stack = (λst. toList case st of Env vs => vs | Exc vs _ => vs);
+      extract_ref   = (λ(n,r). case r of ValueArray l =>  l | _ => []);
+      stack_vs      = FLAT (MAP extract_stack s.stack);
+      refs_vs       = FLAT (MAP extract_ref (fmap_to_alist s.refs));
+      all_vs        = locals_vs ++ stack_vs ++ refs_vs;
+      count_vs      = (λ(z,t) v. let (z',t') = size_of_v t v in (z + z', t'));
+  in FOLDL count_vs (0,LN) all_vs
+`
 
 val add_space_def = Define `
   add_space ^s k = s with space := k`;
