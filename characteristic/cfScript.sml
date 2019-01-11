@@ -2382,42 +2382,6 @@ fun add_to_clock qtm th g =
         th evaluate_match_add_to_clock_lemma g))
   g;
 
-(* TODO: should replace the theorem in evaluateProps *)
-Theorem evaluate_minimal_clock
-  `!(s:'ffi semanticPrimitives$state) env es s' r k.
-     evaluate s env es = (s',r) ∧
-     s'.clock = 0 ∧
-     r ≠ Rerr (Rabort Rtimeout_error) ∧
-     s.clock > k
-     ==>
-     ?s''.
-       evaluate (s with clock := k) env es =
-       (s'',Rerr (Rabort Rtimeout_error)) /\
-       s''.ffi.io_events ≼ s'.ffi.io_events`
-  (cheat (*metis_tac evaluate_minimal_lemmas*));
-
-(* TODO: move to evaluateProps *)
-Theorem evaluate_set_init_clock
-  `evaluate st env xs = (st', res) /\
-   res <> Rerr (Rabort Rtimeout_error) ==>
-   !k. ?ck res1 st1.
-   evaluate (st with clock := k) env xs = (st1, res1) /\
-   (res1 = res /\ st1 = (st' with clock := ck) \/
-    res1 = Rerr (Rabort Rtimeout_error) /\
-    st1.ffi.io_events ≼ st'.ffi.io_events)`
-  (rw []
-  \\ drule evaluatePropsTheory.evaluate_set_clock
-  \\ disch_then (qspec_then `0` mp_tac) \\ fs [] \\ strip_tac
-  \\ Cases_on `ck1 <= k`
-  THEN1 (
-    fs [LESS_EQ_EXISTS] \\ rveq
-    \\ drule evaluatePropsTheory.evaluate_add_to_clock
-    \\ disch_then (qspec_then `p` mp_tac) \\ fs []
-    \\ metis_tac [])
-  \\ drule evaluate_minimal_clock \\ fs []
-  \\ disch_then (qspec_then `k` mp_tac) \\ fs []
-  \\ rw [] \\ fs []);
-
 Theorem lprefix_lub_subset
   `lprefix_lub$lprefix_lub s l /\ s SUBSET t /\
    (!x. x IN t /\ ~(x IN s) ==> ?y. y IN s /\ LPREFIX x y) ==>
@@ -2516,7 +2480,7 @@ Theorem cf_sound
             by SPLIT_TAC
           \\ rveq \\ instantiate \\ rpt strip_tac
           THEN1 (
-            drule evaluate_set_init_clock \\ fs []
+            drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
             \\ disch_then (qspec_then `ck'` strip_assume_tac) \\ fs []
           )
           \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
@@ -2526,7 +2490,7 @@ Theorem cf_sound
             drule evaluatePropsTheory.evaluate_set_clock \\ fs []
             \\ disch_then (qspec_then `ck'` strip_assume_tac)
             \\ qexists_tac `ck1` \\ fs [])
-          \\ drule evaluate_set_init_clock \\ fs []
+          \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
           \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
           THEN1 (first_x_assum (qspec_then `ck''` mp_tac) \\ fs [])
           \\ fs []
@@ -2540,6 +2504,7 @@ Theorem cf_sound
           \\ rw [LPREFIX_fromList_fromList]
           \\ irule isPREFIX_TRANS
           \\ instantiate
+          \\ fs [evaluatePropsTheory.io_events_mono_def]
         )
         THEN (
           (* e2 ~> Rval v' || e2 ~> Rerr (Rraise v') *)
@@ -3144,7 +3109,7 @@ Theorem cf_sound
         THEN1 SPLIT_TAC
         THEN1 (
           fs [evaluate_ck_def]
-          \\ drule evaluate_set_init_clock \\ fs []
+          \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
           \\ disch_then (qspec_then `ck'` strip_assume_tac) \\ fs [])
         \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
         \\ asm_exists_tac \\ simp [SUBSET_DEF]
@@ -3153,7 +3118,7 @@ Theorem cf_sound
           drule evaluatePropsTheory.evaluate_set_clock \\ fs []
           \\ disch_then (qspec_then `ck'` strip_assume_tac)
           \\ qexists_tac `ck1` \\ fs [])
-        \\ drule evaluate_set_init_clock \\ fs []
+        \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
         \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
         THEN1 (first_x_assum (qspec_then `ck''` mp_tac) \\ fs [])
         \\ fs []
@@ -3167,6 +3132,7 @@ Theorem cf_sound
         \\ rw [LPREFIX_fromList_fromList]
         \\ irule isPREFIX_TRANS
         \\ instantiate
+        \\ fs [evaluatePropsTheory.io_events_mono_def]
       )
       THEN (
         rename1 `SPLIT3 (st2heap _ st'') (h_f', h_k UNION h_g, h_g')` \\
