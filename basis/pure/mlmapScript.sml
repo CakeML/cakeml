@@ -57,10 +57,15 @@ val isSubmap_def = Define `
 (* definitions for proofs *)
 
 val map_ok_def = Define `
-  map_ok (Map cmp t) <=> balanced_map$invariant cmp t /\ good_cmp cmp /\ TotOrd cmp`;
+  map_ok (Map cmp t) <=> balanced_map$invariant cmp t /\ TotOrd cmp`;
 
 val cmp_of_def = Define `
   cmp_of (Map cmp t) = cmp`;
+
+val to_fmap_def = Define `
+  to_fmap (Map cmp Tip) = FEMPTY /\
+  to_fmap (Map cmp (Bin s k v l r)) =
+    ((to_fmap (Map cmp l) ⊌ to_fmap (Map cmp r)) |+ (k,v))`;
 
 (* theorems *)
 
@@ -68,13 +73,9 @@ Theorem lookup_insert
   `map_ok t ==>
    lookup (insert t k1 v) k2 = if k1 = k2 then SOME v else lookup t k2`
  (Cases_on `t`
-  \\ fs [map_ok_def,balanced_mapTheory.lookup_insert,lookup_def,insert_def]
-  \\ metis_tac [totoTheory.TotOrd])
-
-val to_fmap_def = Define `
-  to_fmap (Map cmp Tip) = FEMPTY /\
-  to_fmap (Map cmp (Bin s k v l r)) =
-    ((to_fmap (Map cmp l) ⊌ to_fmap (Map cmp r)) |+ (k,v))`;
+  \\ fs [map_ok_def,balanced_mapTheory.lookup_insert,lookup_def,insert_def,
+         comparisonTheory.TotOrder_imp_good_cmp]
+  \\ metis_tac [totoTheory.TotOrd]);
 
 Theorem cmp_of_insert[simp]
   `cmp_of (insert t k v) = cmp_of t`
@@ -84,29 +85,134 @@ Theorem cmp_of_empty[simp]
   `cmp_of (empty cmp) = cmp`
   (fs [empty_def,cmp_of_def]);
 
-Theorem insert_thm
-  `map_ok t ==>
-   map_ok (insert t k v) /\
-   to_fmap (insert t k v) = (to_fmap t |+ (k, v))`
-  cheat;
+val fmap_FLOOKUP_EQ = prove(
+  ``f1 = f2 <=> FLOOKUP f1 = FLOOKUP f2``,
+  fs [GSYM fmap_EQ_THM,FLOOKUP_DEF,FUN_EQ_THM]
+  \\ eq_tac \\ rw []
+  THEN1 metis_tac [SOME_11,NOT_NONE_SOME]
+  \\ first_x_assum (qspec_then `x` mp_tac)
+  \\ rw [] \\ fs [IN_DEF]);
+
+Theorem TotOrd_key_set[simp]
+  `TotOrd cmp ==> key_set cmp k = {k}`
+  (rw[key_set_def,EXTENSION] \\ metis_tac [totoTheory.TotOrd]);
+
+Theorem to_fmap_thm
+  `!t cmp.
+     TotOrd cmp ==>
+     to_fmap cmp t = MAP_KEYS (\x. {x}) (to_fmap (Map cmp t))`
+  (Induct \\ fs [to_fmap_def,balanced_mapTheory.to_fmap_def]
+  \\ rw [] \\ rw [fmap_FLOOKUP_EQ,FUN_EQ_THM]
+  \\ fs [FLOOKUP_UPDATE,FLOOKUP_FUNION]
+  \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
+  \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
+  \\ fs [FLOOKUP_MAP_KEYS]
+  \\ fs [FLOOKUP_UPDATE,FLOOKUP_FUNION,Abbr `ff`]
+  \\ IF_CASES_TAC \\ fs [] \\ rveq
+  THEN1
+   (qexists_tac `k` \\ fs []
+    \\ fs [FLOOKUP_UPDATE,FLOOKUP_FUNION]
+    \\ `!f1 f2 v. k = v /\ (v = k \/ f1 v \/ f2 v) <=> k = v` by metis_tac []
+    \\ fs [])
+  \\ Cases_on `?y. x = {y}` \\ fs [] \\ rveq \\ fs []
+  \\ once_rewrite_tac [METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``]
+  \\ simp []
+  \\ rewrite_tac [GSYM (METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``)]
+  \\ Cases_on `y ∈ FDOM (to_fmap (Map cmp t))` \\ fs []
+  \\ Cases_on `y ∈ FDOM (to_fmap (Map cmp t'))` \\ fs []
+  \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM,FUNION_DEF]);
 
 Theorem empty_thm
   `(map_ok (empty cmp) = TotOrd cmp) /\ to_fmap (empty cmp) = FEMPTY`
   (fs [empty_def,map_ok_def,balanced_mapTheory.empty_thm,
-      to_fmap_def,balanced_mapTheory.empty_def] \\ cheat)
+      to_fmap_def,balanced_mapTheory.empty_def,balanced_mapTheory.invariant_def]);
+
+Theorem MAP_KEYS_sing_set
+  `MAP_KEYS (λx. {x}) f1 = MAP_KEYS (λx. {x}) f2 <=> (f1 = f2)`
+  (eq_tac \\ fs [] \\ fs [fmap_FLOOKUP_EQ]
+  \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
+  \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
+  \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS]
+  \\ fs [Abbr `ff`] \\ rw []
+  \\ first_x_assum (qspec_then `{x}` mp_tac) \\ fs []
+  \\ `!f1 v. x = v /\ f1 v <=> x = v /\ f1 x` by metis_tac [] \\ fs []
+  \\ Cases_on `x ∈ FDOM f1` \\ fs []
+  \\ Cases_on `x ∈ FDOM f2` \\ fs [FLOOKUP_DEF]);
+
+Theorem MAP_KEYS_sing_set_UPDATE
+  `MAP_KEYS (λx. {x}) f |+ ({k},v) = MAP_KEYS (λx. {x}) (f |+ (k,v))`
+  (fs [fmap_FLOOKUP_EQ]
+  \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
+  \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
+  \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS,FLOOKUP_UPDATE]
+  \\ fs [Abbr `ff`] \\ rw [] \\ fs []
+  \\ `!f1 v. k = v /\ f1 v <=> k = v /\ f1 k` by metis_tac [] \\ fs []
+  \\ fs [FLOOKUP_UPDATE]
+  \\ Cases_on `?y. x = {y}` \\ fs [] \\ rveq \\ fs []
+  \\ pop_assum kall_tac
+  \\ once_rewrite_tac [METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``]
+  \\ simp []
+  \\ rewrite_tac [GSYM (METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``)]
+  \\ Cases_on `y ∈ FDOM f` \\ fs [FLOOKUP_UPDATE]);
+
+Theorem insert_thm
+  `map_ok t ==>
+   map_ok (insert t k v) /\
+   to_fmap (insert t k v) = (to_fmap t |+ (k, v))`
+  (Cases_on `t`
+  \\ strip_tac
+  \\ conj_asm1_tac
+  THEN1
+   (fs [map_ok_def,insert_def]
+    \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+    \\ fs [balanced_mapTheory.insert_thm])
+  \\ fs [map_ok_def,insert_def]
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ imp_res_tac balanced_mapTheory.insert_thm
+  \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_UPDATE,MAP_KEYS_sing_set]);
+
+Theorem lookup_thm
+  `map_ok t ==> lookup t k = FLOOKUP (to_fmap t) k`
+  (Cases_on `t`
+  \\ strip_tac
+  \\ fs [map_ok_def,lookup_def]
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ imp_res_tac balanced_mapTheory.lookup_thm \\ fs []
+  \\ rfs [to_fmap_thm,MAP_KEYS_sing_set]
+  \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
+  \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
+  \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS]
+  \\ fs [Abbr`ff`]
+  \\ `!f1 v. k = v /\ f1 v <=> k = v /\ f1 k` by metis_tac [] \\ fs []
+  \\ Cases_on `k ∈ FDOM (to_fmap (Map f b))` \\ fs []
+  \\ fs [FLOOKUP_DEF]);
 
 Theorem MAP_FST_toAscList
   `map_ok t ⇒
    SORTED (λx y. cmp_of t x y = Less) (MAP FST (toAscList t)) ∧
    FDOM (to_fmap t) = set (MAP FST (toAscList t))`
-  cheat;
+  (Cases_on `t` \\ fs [map_ok_def,lookup_def] \\ strip_tac
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ imp_res_tac balanced_mapTheory.MAP_FST_toAscList
+  \\ rfs [cmp_of_def,toAscList_def,to_fmap_thm,MAP_KEYS_def]
+  \\ `(λx. {x}) = key_set f` by fs [FUN_EQ_THM] \\ fs []
+  \\ `(∀x y. key_set f x = key_set f y ⇔ x = y)` by fs []
+  \\ drule (GEN_ALL pred_setTheory.IMAGE_11)
+  \\ strip_tac \\ fs []);
 
 Theorem MEM_toAscList
   `map_ok t /\ MEM (k,v) (toAscList t) ==> FLOOKUP (to_fmap t) k = SOME v`
-  cheat;
-
-Theorem lookup_thm
-  `map_ok t ==> lookup t k = FLOOKUP (to_fmap t) k`
-  cheat;
+  (Cases_on `t` \\ fs [map_ok_def,lookup_def,toAscList_def] \\ strip_tac
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ imp_res_tac balanced_mapTheory.MEM_toAscList
+  \\ rfs [toAscList_def,to_fmap_thm]
+  \\ pop_assum (fn th => fs [GSYM th])
+  \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
+  \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
+  \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS]
+  \\ fs [Abbr`ff`]
+  \\ `!f1 v. k = v /\ f1 v <=> k = v /\ f1 k` by metis_tac [] \\ fs []
+  \\ Cases_on `k ∈ FDOM (to_fmap (Map f b))` \\ fs []
+  \\ fs [FLOOKUP_DEF]);
 
 val _ = export_theory()
