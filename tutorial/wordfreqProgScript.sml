@@ -34,18 +34,6 @@ val insert_line_def = Define`
 
 (* and their verification *)
 
-Theorem key_set_compare_unique[simp]
-  `key_set compare k = {k}`
-  (rw[key_set_def,EXTENSION] \\
-  metis_tac[TotOrd_compare,totoTheory.TotOrd]);
-
-Theorem IMAGE_key_set_compare_inj[simp]
-  `IMAGE (key_set compare) s1 = IMAGE (key_set compare) s2 ⇔ s1 = s2`
-  (rw[EQ_IMP_THM]
-  \\ fs[Once EXTENSION]
-  \\ fs[EQ_IMP_THM] \\ rw[]
-  \\ res_tac \\ fs[]);
-
 Theorem lookup0_insert
   `map_ok t ⇒
    lookup0 k (insert t k' v) =
