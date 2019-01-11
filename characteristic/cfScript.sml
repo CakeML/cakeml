@@ -2436,6 +2436,13 @@ Theorem LPREFIX_fromList_fromList
   `LPREFIX (fromList x) (fromList y) = (x ≼ y)`
   (rw [LPREFIX_def, from_toList]);
 
+Theorem isPREFIX_TRANS
+  `!x y z. x ≼ y /\ y ≼ z ==> x ≼ z`
+  (Induct_on `x` \\ Induct_on `y` \\ Induct_on `z`
+  \\ fs [isPREFIX] \\ rw []
+  \\ last_x_assum irule
+  \\ instantiate);
+
 Theorem cf_sound
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`
 
@@ -2519,7 +2526,20 @@ Theorem cf_sound
             drule evaluatePropsTheory.evaluate_set_clock \\ fs []
             \\ disch_then (qspec_then `ck'` strip_assume_tac)
             \\ qexists_tac `ck1` \\ fs [])
-          \\ cheat
+          \\ drule evaluate_set_init_clock \\ fs []
+          \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
+          THEN1 (first_x_assum (qspec_then `ck''` mp_tac) \\ fs [])
+          \\ fs []
+          \\ last_x_assum (qspec_then `ck2` strip_assume_tac)
+          \\ rename1 `_ = (st2, _)`
+          \\ qexists_tac `fromList st2.ffi.io_events` \\ rw []
+          THEN1 (qexists_tac `ck2` \\ rw [])
+          \\ `st'.ffi.io_events ≼ st2.ffi.io_events` by (
+            drule (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono_imp)
+            \\ rw [evaluatePropsTheory.io_events_mono_def])
+          \\ rw [LPREFIX_fromList_fromList]
+          \\ irule isPREFIX_TRANS
+          \\ instantiate
         )
         THEN (
           (* e2 ~> Rval v' || e2 ~> Rerr (Rraise v') *)
