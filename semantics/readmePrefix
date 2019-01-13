@@ -7,3 +7,6 @@ generated HOL is also included. The directory includes definitions of:
  - a small step semantics,
  - the semantics of FFI calls, and,
  - the type system.
+
+The script files in this directory were generated using Lem commit 194778e.
+If you use a newer lem commit to generate the script files, please update this.

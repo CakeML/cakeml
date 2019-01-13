@@ -8,6 +8,9 @@ generated HOL is also included. The directory includes definitions of:
  - the semantics of FFI calls, and,
  - the type system.
 
+The script files in this directory were generated using Lem commit 194778e.
+If you use a newer lem commit to generate the script files, please update this.
+
 [addancs.sml](addancs.sml):
 A script to add a set_grammar_ancestry line to a generated Script.sml file.
 
