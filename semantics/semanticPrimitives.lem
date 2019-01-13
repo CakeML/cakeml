@@ -581,7 +581,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Litv (Word (bitstringFromInteger i word_size))))
     | (WordToInt word_size, [Litv (Word w)]) ->
         if word_size = length w then
-          Just ((s,t), Rval (Litv (IntLit (integerFromBitstring w))))
+          Just ((s,t), Rval (Litv (IntLit (integerFromNat (natFromBitstring w)))))
         else
           Nothing
     | (WordToWord srcSz destSz, [Litv (Word w)]) ->

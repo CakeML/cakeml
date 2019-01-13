@@ -96,7 +96,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (*val bitstringFromWord8 : word8 -> list bool*)
 (*val word8FromBitstring : list bool -> word8*)
 (*val bitstringFromInteger : integer -> nat -> list bool*)
-(*val integerFromBitstring : list bool -> integer*)
+(*
+val integerFromBitstring : list bool -> integer
+declare hol target_rep function integerFromBitstring = `v2i`
+ *)
+(*val natFromBitstring : list bool -> nat*)
 (*val fixwidth : nat -> list bool -> list bool*)
 (*
 val W8and : word8 -> word8 -> word8

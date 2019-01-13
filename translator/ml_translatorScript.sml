@@ -1010,7 +1010,7 @@ Theorem Eval_w2n
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ qexists_tac `ck1`
   \\ fs [do_app_def,state_component_equality,NUM_def,INT_def]
-  \\ simp[v2i_w2v]);
+  \\ simp[v2n_w2v]);
 
 local
   val lemma = Q.prove(

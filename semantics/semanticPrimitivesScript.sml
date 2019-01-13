@@ -696,7 +696,7 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (Word (i2vN i word_size))))
     | (WordToInt word_size, [Litv (Word w)]) =>
         if word_size = LENGTH w then
-          SOME ((s,t), Rval (Litv (IntLit (v2i w))))
+          SOME ((s,t), Rval (Litv (IntLit (int_of_num (v2n w)))))
         else
           NONE
     | (WordToWord srcSz destSz, [Litv (Word w)]) =>
