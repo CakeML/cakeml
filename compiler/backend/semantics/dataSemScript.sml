@@ -127,7 +127,12 @@ val check_state_def = Define`
 `
 
 val add_space_def = Define `
-  add_space ^s k = s with space := k`;
+  add_space ^s k =
+    s with <|space := k;
+             safe_for_space := (s.safe_for_space
+                                ∧ check_state s
+                                ∧ size_of_heap s + k <= s.limits.heap_limit)|>
+`;
 
 val consume_space_def = Define `
   consume_space k ^s =
