@@ -2677,7 +2677,45 @@ Theorem cf_sound
         first_x_assum progress \\
         (* Instantiate the result value, case split on it *)
         qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs [] \\ rveq
-        THEN1 cheat
+        THEN1 (
+          rename1 `SPLIT3 _ (h_f', _, h_g')`
+          \\ `SPLIT3 UNIV (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC
+          \\ instantiate \\ rw []
+          THEN1 (
+            NTAC 2 (simp [Once terminationTheory.evaluate_def])
+            \\ cf_exp2v_evaluate_tac `st with clock := ck'` \\ fs []
+            \\ NTAC 2 (pop_assum (K ALL_TAC))
+            \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
+            \\ disch_then (qspec_then `ck'` mp_tac) \\ rw [] \\ fs []
+            \\ Cases_on `ck'' = 0` \\ fs [evaluateTheory.dec_clock_def]
+          )
+          \\ match_mp_tac (GEN_ALL lprefix_lub_subset)
+          \\ asm_exists_tac \\ simp [SUBSET_DEF]
+          \\ rw []
+          THEN1 (
+            NTAC 2 (simp [Once terminationTheory.evaluate_def])
+            \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
+            \\ disch_then (qspec_then `ck' + 1` strip_assume_tac)
+            \\ cf_exp2v_evaluate_tac `st with clock := ck1`
+            \\ qexists_tac `ck1` \\ fs [evaluateTheory.dec_clock_def]
+          )
+          \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
+          \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
+          THEN1 cheat
+          \\ qpat_x_assum `!ck. ?st. _` (qspec_then `ck2` strip_assume_tac)
+          \\ rename1 `_ = (st2, _)`
+          \\ qexists_tac `fromList st2.ffi.io_events` \\ rw []
+          THEN1 (qexists_tac `ck2` \\ rw [])
+          \\ `st'.ffi.io_events ≼ st2.ffi.io_events` by (
+            drule (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono_imp)
+            \\ rw [evaluatePropsTheory.io_events_mono_def])
+          \\ rw [LPREFIX_fromList_fromList]
+          \\ irule isPREFIX_TRANS
+          \\ instantiate
+          \\ fs [evaluatePropsTheory.io_events_mono_def]
+          \\ NTAC 2 (simp [Once terminationTheory.evaluate_def])
+          \\ cf_exp2v_evaluate_tac `st with clock := ck'`
+        )
         THEN (
           (* res = Val _ || res = Exn _ *)
           rename1 `SPLIT3 (st2heap _ st2) (h_f', _, h_g')` \\
