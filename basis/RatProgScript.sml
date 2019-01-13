@@ -727,23 +727,6 @@ Theorem EqualityType_REAL_TYPE
   \\ metis_tac [])
   |> store_eq_thm;
 
-val sigs = module_signatures [
-  "fromInt",
-  "<=",
-  ">=",
-  "<",
-  ">",
-  "min",
-  "max",
-  "+",
-  "-",
-  "~",
-  "*",
-  "inv",
-  "/",
-  "toString"
-];
-
-val _ = ml_prog_update (close_module (SOME sigs));
+val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory ()

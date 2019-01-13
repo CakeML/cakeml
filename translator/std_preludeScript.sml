@@ -54,10 +54,13 @@ val EXP_AUX_THM = Q.prove(
   THEN FULL_SIMP_TAC std_ss [ADD1,AC ADD_COMM ADD_ASSOC])
   |> Q.SPECL [`n`,`0`] |> SIMP_RULE std_ss [EXP] |> GSYM;
 
-val _ = next_ml_names := ["exp"];
-val res = translate EXP_AUX_def;
-val _ = next_ml_names := ["exp"];
-val res = translate EXP_AUX_THM; (* tailrec version of EXP *)
+val _ = ml_prog_update open_local_block;
+  val res = translate EXP_AUX_def;
+val _ = ml_prog_update open_local_in_block;
+  val _ = next_ml_names := ["exp"];
+  val res = translate EXP_AUX_THM; (* tailrec version of EXP *)
+val _ = ml_prog_update close_local_block;
+
 val res = translate MIN_DEF;
 val res = translate MAX_DEF;
 val res = translate arithmeticTheory.EVEN_MOD2;

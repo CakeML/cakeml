@@ -10,12 +10,12 @@ val _ = new_theory "MapProg"
 
 val _ = translation_extends "ArrayProg";
 
+val _ = ml_prog_update open_local_block;
+
 val _ = (use_full_type_names := false);
 val _ = register_type ``:('a,'b) balanced_map$balanced_map``;
 val _ = register_type ``:('a,'b) mlmap$map``;
 val _ = (use_full_type_names := true);
-
-val _ = ml_prog_update (open_module "Map");
 
 val _ = next_ml_names := ["size", "singleton"];
 val _ = translate size_def;
@@ -92,6 +92,14 @@ val _ = translate isSubmapOfBy_def;
 val _ = translate isSubmapOf_def;
 val _ = translate fromList_def;
 
+val _ = ml_prog_update open_local_in_block;
+
+val _ = ml_prog_update (open_module "Map");
+
+(* provides the Map.map name for the map type *)
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a";"'b"] "map" (Atapp [Atvar "'a"; Atvar "'b"] (Short "map"))`` I);
+
 val _ = next_ml_names := ["lookup"];
 val _ = translate mlmapTheory.lookup_def;
 val _ = next_ml_names := ["insert"];
@@ -118,5 +126,11 @@ val _ = next_ml_names := ["isSubmap"];
 val _ = translate mlmapTheory.isSubmap_def;
 
 val _ = ml_prog_update (close_module NONE);
+
+(* this is here so that the type name is accessible without the full name *)
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a";"'b"] "map" (Atapp [Atvar "'a"; Atvar "'b"] (Short "map"))`` I);
+
+val _ = ml_prog_update close_local_block;
 
 val _ = export_theory ();
