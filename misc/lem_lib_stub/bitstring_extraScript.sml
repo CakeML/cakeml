@@ -770,31 +770,44 @@ val i2vN_length = Q.store_thm("i2vN_length", `!i n. (LENGTH (i2vN i n)) = n`,
     simp[length_fixwidth,fixsub_length]
 );
 
-val v2w_i2vN = Q.store_thm("v2w_i2vN",`!i n. ((i2w i):'a word)
-                           = ((v2w (i2vN i (dimindex (:'a)))):'a word)`,
- rpt STRIP_TAC >> simp[i2vN_def] >> Cases_on `i < 0` >> fs[]
-   >- cheat >> cheat
-);
+val w2v_0w = Q.prove(`w2v (0w:'a word) = fixwidth (dimindex(:'a)) [F]`,
+   simp[w2v_n2w] >> EVAL_TAC)
+
 
 val w2v_i2w = Q.store_thm("w2v_i2w",`!i. w2v ((i2w i):'a word)
-                          = i2vN i (dimindex (:'a))`,cheat);
+                          = i2vN i (dimindex (:'a))`,
+  STRIP_TAC >> simp[i2w_def] >> BasicProvers.TOP_CASE_TAC >> simp[i2vN_def]
+   >- (fs[GSYM w2v_0w]
+       >> ONCE_REWRITE_TAC[GSYM w2v_n2w]
+       >> simp[fixsub_word_sub]
+       >> MK_COMB_TAC
+       >> simp[])
+   >> simp[w2v_n2w]
+
+);
 
 val v2comp_def = Define`
     v2comp (v : bitstring) : bitstring
     = fixwidth (LENGTH v) (n2v (2**(LENGTH v) - (v2n v)))`
 
-(* TODO prove a theorem relating w2i and v2i *)
 val v2i_def = Define`
-    (v2i ([] : bitstring) : int = 0) /\
-    (v2i ([T] : bitstring) : int = -1) /\
-    (v2i ([F] : bitstring) : int = 0) /\
-    (v2i ((h::t) : bitstring) : int = if ~h
-                     then int_of_num (v2n t)
-                     else -(int_of_num (v2n (v2comp t))))`
+     (v2i [] : int = 0) /\
+     (v2i v : int = if HD v then ~(int_of_num (v2n (v2comp v))) else int_of_num (v2n v))`
 
-val v2i_w2v = Q.store_thm("v2i_w2v",`!w. v2i (w2v w) = &w2n w`,cheat);
-
-val v2i_w2i = Q.store_thm("v2i_w2i",`!v w. (v = w2v w) = (v2i v = w2i w)`,cheat);
+val v2i_w2v = Q.store_thm("v2i_w2v",`!w. v2i (w2v w) = w2i w`,
+    STRIP_TAC >> REWRITE_TAC[w2i_def] >> Cases_on `w2v w` >- fs[w2v_nonempty]
+    >> REWRITE_TAC[v2i_def,HD] >> IMP_RES_TAC fixasr_word_asr_lemma3
+    >> ASM_REWRITE_TAC[] >> BasicProvers.PURE_TOP_CASE_TAC >> ASM_REWRITE_TAC[]
+    >> rpt (MK_COMB_TAC >- simp[]) >> REWRITE_TAC[GSYM v2n_w2v]
+    >> (MK_COMB_TAC >- simp[])
+    >- (REWRITE_TAC[v2comp_def,word_2comp_def] >> simp[GSYM fixsub_word_sub,w2v_n2w]
+       >> MK_COMB_TAC >> simp[]
+          >- (IMP_RES_TAC SUC_LENGTH >> fs[suc_dimindex_sub1])
+          >> simp[dimword_def] >> MK_COMB_TAC >> simp[GSYM v2n_w2v] >> rpt (MK_COMB_TAC >> fs[])
+          >> IMP_RES_TAC SUC_LENGTH >> simp[suc_dimindex_sub1]
+       )
+    >> fs[]
+)
 
 val blt_def = Define`
     blt x y = v2n x < v2n y`
