@@ -91,6 +91,41 @@ val size_of_heap_def = Define`
   in FST (FOLDL count_vs (0,init_st) all_vs)
 `
 
+(* Checks if a value `dataSem$v` is within the limits set by the state:
+
+   * The length of a Block fits in the header (< length_limit)
+
+ *)
+val check_v_def = tDefine"check_v"`
+  check_v ^s (Block _ _ vl) =
+    (if s.limits.length_limit < LENGTH vl
+     then F
+     else EVERY (check_v s) vl)
+∧ check_v s _ = T`
+(WF_REL_TAC `measure (λ(ts,v). v_size v)`
+ \\ `∀l. v1_size l = SUM (MAP (λx. v_size x + 1) l)`
+    by (Induct >> rw [definition"v_size_def"])
+ \\ rw []
+ \\ ho_match_mp_tac LESS_EQ_LESS_TRANS
+ \\ Q.EXISTS_TAC `SUM (MAP (λx. v_size x + 1) vl)`
+ \\ rw []
+ \\ IMP_RES_TAC SUM_MAP_MEM_bound
+ \\ ho_match_mp_tac LESS_EQ_TRANS
+ \\ Q.EXISTS_TAC `v_size a + 1`
+ \\ rw [])
+
+(* Checks the limits for all the values in the heap *)
+val check_state_def = Define`
+  check_state ^s =
+  let locals_vs     = toList s.locals;
+      extract_stack = (λst. toList case st of Env vs => vs | Exc vs _ => vs);
+      extract_ref   = (λ(n,r). case r of ValueArray l =>  l | _ => []);
+      stack_vs      = FLAT (MAP extract_stack s.stack);
+      refs_vs       = FLAT (MAP extract_ref (fmap_to_alist s.refs));
+      all_vs        = locals_vs ++ stack_vs ++ refs_vs;
+  in EVERY (check_v s) all_vs
+`
+
 val add_space_def = Define `
   add_space ^s k = s with space := k`;
 
