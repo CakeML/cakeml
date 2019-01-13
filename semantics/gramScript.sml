@@ -48,7 +48,6 @@ val tokmap0 =
                 ("op", ``OpT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
-                ("ref", ``RefT``),
                 ("sig", ``SigT``),
                 ("struct", ``StructT``),
                 ("structure", ``StructureT``),
@@ -67,7 +66,7 @@ val ginfo = { tokmap = tokmap,
 
 val cmlG_def = mk_grammar_def ginfo
 `(* types *)
- UQTyOp ::= <AlphaT> | <SymbolT> | "ref" ;
+ UQTyOp ::= <AlphaT> | <SymbolT> ;
  TyvarN ::= <TyvarT>;
  TyOp ::= UQTyOp | <LongidT>;
  TypeList1 ::= Type | Type "," TypeList1;

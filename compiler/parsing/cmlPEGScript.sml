@@ -250,7 +250,6 @@ val cmlPEG_def = zDefine`
                                  od = SOME ()) (bindNT nOpID o mktokLf);
                         pegf (tokeq StarT) (bindNT nOpID);
                         pegf (tokeq EqualsT) (bindNT nOpID);
-                        pegf (tokeq RefT) (bindNT nOpID)
               ]);
               (mkNT nEliteral,
                choicel [tok isInt (bindNT nEliteral o mktokLf);
@@ -269,7 +268,7 @@ val cmlPEG_def = zDefine`
                         pegf (pnt nFQV) (bindNT nEbase);
                         pegf (pnt nConstructorName) (bindNT nEbase);
                         seql [tokeq OpT; pnt nOpID] (bindNT nEbase);
-                        pegf (tokeq RefT) (bindNT nEbase)]);
+              ]);
               (mkNT nEseq,
                seql [pnt nE; try (seql [tokeq SemicolonT; pnt nEseq] I)]
                     (bindNT nEseq));
@@ -365,8 +364,7 @@ val cmlPEG_def = zDefine`
                pegf (choicel [pnt nUQTyOp; tok isLongidT mktokLf])
                     (bindNT nTyOp));
               (mkNT nUQTyOp,
-               pegf (choicel [tok isAlphaSym mktokLf; tokeq RefT])
-                    (bindNT nUQTyOp));
+               pegf (tok isAlphaSym mktokLf) (bindNT nUQTyOp));
               (mkNT nPType,
                seql [pnt nDType; try (seql [tokeq StarT; pnt nPType] I)]
                     (bindNT nPType));
@@ -418,8 +416,6 @@ val cmlPEG_def = zDefine`
                                      | [c] => (* can't happen *) []
                                      | _ => ptPapply pts
                          );
-                        seql [tokeq RefT; pnt nPbase; rpt (pnt nPbase) FLAT]
-                             ptPapply;
                         pegf (pnt nPbase) (bindNT nPapp)
               ]);
               (mkNT nPcons,

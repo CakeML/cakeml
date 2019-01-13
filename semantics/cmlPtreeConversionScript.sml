@@ -121,10 +121,6 @@ val ptree_UQTyop_def = Define`
             lf <- destLf pt;
             tk <- destTOK lf;
             destSymbolT tk ++ destAlphaT tk
-          od ++
-          do
-            assert (tokcheck pt RefT) ;
-            return "ref"
           od
         | _ => NONE
 `;
@@ -786,14 +782,16 @@ val mkAst_App_def = Define`
     in
       dest_Conk a10
         (λnm_opt args.
-          let (a2', loc2) = strip_loc_expr a2
-          in optLannot (merge_locsopt loc1 loc2) (Con nm_opt (args ++ [a2'])))
+          if nm_opt = SOME (Short "Ref") ∧ NULL args then App Opref [a2]
+          else
+            let (a2', loc2) = strip_loc_expr a2
+            in
+              optLannot (merge_locsopt loc1 loc2) (Con nm_opt (args ++ [a2'])))
         (dtcase a10 of
            App opn args =>
              (dtcase (destFFIop opn) of
                 NONE => App Opapp [a1;a2]
               | SOME s => App opn (args ++ [a2]))
-         | Con (SOME (Short "Ref")) [] => App Opref [a2]
          | _ => App Opapp [a1;a2])
 `;
 
