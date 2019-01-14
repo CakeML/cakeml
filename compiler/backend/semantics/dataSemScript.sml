@@ -138,9 +138,24 @@ val consume_space_def = Define `
   consume_space k ^s =
     if s.space < k then NONE else SOME (s with space := s.space - k)`;
 
+(* TODO: DEFINE *)
+(* Determines which operations are safe for space *)
+val allowed_op = Define`
+  allowed_op op l = T
+`
+
+(* TODO: DEFINE *)
+(* Gives an upper bound to the memory consuption of an operation *)
+val space_consumed_def = Define `
+  space_consumed op l = ARB
+`
+
 val do_space_def = Define `
   do_space op l ^s =
-    if op_space_reset op then SOME (s with space := 0)
+    if op_space_reset op then
+      let safe = (s.safe_for_space ∧ allowed_op op l
+                  ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit)
+      in SOME (s with <| space := 0; safe_for_space :=  safe |>)
     else if op_space_req op l = 0 then SOME s
          else consume_space (op_space_req op l) s`;
 
