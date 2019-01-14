@@ -68,9 +68,9 @@ Auxiliary files providing glue between a standard HOL installation
 and what we want to use for CakeML development.
 
 [semantics](semantics):
-The definition of the CakeML language. The definition is (mostly)
-expressed in [Lem](http://www.cs.kent.ac.uk/~sao/lem), but the
-generated HOL is also included. The directory includes definitions of:
+The definition of the CakeML language. The definition is (mostly) expressed in
+[Lem](https://www.cl.cam.ac.uk/~pes20/lem), but the generated HOL is included.
+The directory includes definitions of:
  - the concrete syntax,
  - the abstract syntax,
  - big step semantics (both functional and relational),

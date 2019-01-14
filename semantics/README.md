@@ -1,6 +1,6 @@
-The definition of the CakeML language. The definition is (mostly)
-expressed in [Lem](http://www.cs.kent.ac.uk/~sao/lem), but the
-generated HOL is also included. The directory includes definitions of:
+The definition of the CakeML language. The definition is (mostly) expressed in
+[Lem](https://www.cl.cam.ac.uk/~pes20/lem), but the generated HOL is included.
+The directory includes definitions of:
  - the concrete syntax,
  - the abstract syntax,
  - big step semantics (both functional and relational),
@@ -8,8 +8,7 @@ generated HOL is also included. The directory includes definitions of:
  - the semantics of FFI calls, and,
  - the type system.
 
-The script files in this directory were generated using Lem commit 194778e.
-If you use a newer lem commit to generate the script files, please update this.
+The Lem version used: rems-project/lem@194778e97d1e9a41ebbe34a8e4d5fb2d10395ba7
 
 [addancs.sml](addancs.sml):
 A script to add a set_grammar_ancestry line to a generated Script.sml file.
