@@ -1,6 +1,7 @@
 (*
   Correctness proof for bvi_to_data
 *)
+
 open preamble
      bvi_to_dataTheory
      bviSemTheory bviPropsTheory
@@ -11,12 +12,8 @@ open preamble
 
 val _ = new_theory"bvi_to_dataProof";
 
-val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
-val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
-val _ = temp_bring_to_front_overload"delete"{Name="delete",Thy="sptree"};
-val _ = temp_bring_to_front_overload"map"{Name="map",Thy="sptree"};
-val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
-val _ = Parse.hide"tail";
+val _ = set_grammar_ancestry["bvi_to_data", "bviSem", "bviProps", "dataSem", "dataProps"];
+val _ = hide"tail";
 
 (* value relation *)
 
