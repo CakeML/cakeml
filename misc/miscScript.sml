@@ -2843,6 +2843,14 @@ Theorem n2w_ORD_CHR_w2n
   (rw[w2n_lt_256, o_DEF, ORD_BOUND, ORD_CHR, FUN_EQ_THM]
 );
 
+Theorem CHR_w2n_n2w_ORD_simp[simp]
+  `!c. CHR(w2n((n2w:num->word8)(ORD c))) = c`
+  (metis_tac[CHR_w2n_n2w_ORD,o_THM,I_THM]);
+
+Theorem n2w_ORD_CHR_w2n_simp[simp]
+  `!w. n2w(ORD(CHR(w2n w))) = (w:word8)`
+  (metis_tac[n2w_ORD_CHR_w2n,o_THM,I_THM]);
+
 Theorem MAP_CHR_w2n_11
   `!ws1 ws2:word8 list.
       MAP (CHR ∘ w2n) ws1 = MAP (CHR ∘ w2n) ws2 <=> ws1 = ws2`
