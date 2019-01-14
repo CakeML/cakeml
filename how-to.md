@@ -148,7 +148,7 @@ examples. Note how `Some` and `None` differ from SML.
     (fn x => x + 5);
     List.length;
     (let
-       fun fib n = if n < 2 then 1 else fib (n-1) + fib (n-2)
+       fun fib n = if n < 2 then n else fib (n-1) + fib (n-2)
      in
        fib
      end);
