@@ -99,6 +99,7 @@ Haskell. Below is a list of differences between CakeML and SML.
 - constructors must be fully applied
 - alpha-numeric variable and function names begin with a lowercase letter
 - CakeML lacks SML's records, functors, open and (at present) signatures
+- CakeML capitalises `True`, `False` and `Ref`
 
 ### Semantic differences
 
@@ -133,8 +134,8 @@ are written inside `(* ... *)` and can be nested. Below are some
 examples. Note how `Some` and `None` differ from SML.
 
     (* boolean literals *)
-    true;
-    false;
+    True;
+    False;
     (2 < 2) orelse (1 <= 1);
 
     (* some numbers *)
@@ -254,22 +255,22 @@ Like SML, anonymous functions `fn` can have a pattern:
 
 Pattern matching can be done through references, as the following
 example shows. This example uses references to build a circular list.
-Note how the pattern treats `ref` as a constructor.
+Note how the pattern treats `Ref` as a constructor.
 
     datatype 'a clist = Nil | Cons 'a (('a clist) ref);
 
     (* build a simple list with two elements *)
-    val zs = Cons 1 (ref (Cons 2 (ref Nil)));
+    val zs = Cons 1 (Ref (Cons 2 (Ref Nil)));
 
     (* update the end of the list to point at the start of the list *)
-    case zs of Cons _ (ref (Cons _ r)) => (r := zs);
+    case zs of Cons _ (Ref (Cons _ r)) => (r := zs);
 
     (* a function that extracts a normal List.list from a clist *)
     fun take n xs =
       case (n,xs) of
         (0, _) => []
       | (_, Nil) => []
-      | (_, Cons x (ref ys)) => x :: take (n-1) ys;
+      | (_, Cons x (Ref ys)) => x :: take (n-1) ys;
 
     print_int (List.length (take 10 zs));   (* prints 10 *)
 
@@ -312,23 +313,23 @@ Stateful features
 -----------------
 
 Most CakeML programs ought to keep mostly to the pure functional subset of
-CakeML. However, CakeML provides stateful features such as references `ref`
+CakeML. However, CakeML provides stateful features such as references `Ref`
 and arrays `Array.array` that can enhance performance significantly in
 certain applications.
 
-The circular list example above already showed the use of `ref`. The
+The circular list example above already showed the use of `Ref`. The
 next example illustrates the use of arrays in a naive sieve-based
 primarily test. Here `Array.array` creates an array and we use `;` for
 sequencing. The final return value is what is stored in the nth
 element of the array, i.e., `Array.sub a n`.
 
     fun is_prime n =
-      if n < 0 then false else
+      if n < 0 then False else
       let
-        val a = Array.array (n+1) true
+        val a = Array.array (n+1) True
         fun set_steps i k =
           if Array.length a <= i then () else
-            (Array.update a i false; set_steps (i+k) k)
+            (Array.update a i False; set_steps (i+k) k)
         fun set_each i =
           if n <= i then () else
             (set_steps i i; set_each (i+1))
