@@ -126,12 +126,14 @@ val check_state_def = Define`
   in EVERY (check_v s) all_vs
 `
 
+val _ = overload_on("add_space_safe",
+  ``λk ^s. s.safe_for_space ∧ check_state s
+           ∧ size_of_heap s + k <= s.limits.heap_limit``);
+
 val add_space_def = Define `
   add_space ^s k =
     s with <|space := k;
-             safe_for_space := (s.safe_for_space
-                                ∧ check_state s
-                                ∧ size_of_heap s + k <= s.limits.heap_limit)|>
+             safe_for_space := add_space_safe k s|>
 `;
 
 val consume_space_def = Define `
@@ -150,12 +152,14 @@ val space_consumed_def = Define `
   space_consumed op l = ARB
 `
 
+val _ = overload_on("do_space_safe",
+  ``λop l ^s. s.safe_for_space ∧ allowed_op op l
+              ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit``);
+
 val do_space_def = Define `
   do_space op l ^s =
-    if op_space_reset op then
-      let safe = (s.safe_for_space ∧ allowed_op op l
-                  ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit)
-      in SOME (s with <| space := 0; safe_for_space :=  safe |>)
+    if op_space_reset op
+    then  SOME (s with <| space := 0; safe_for_space := do_space_safe op l s |>)
     else if op_space_req op l = 0 then SOME s
          else consume_space (op_space_req op l) s`;
 
