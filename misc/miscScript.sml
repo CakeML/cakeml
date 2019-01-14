@@ -3484,6 +3484,7 @@ Theorem DISTINCT_FUPDATE_LIST_UNION
   (rw[FUPDATE_LIST_alist_to_fmap,ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ match_mp_tac FUNION_COMM \\ rw[DISJOINT_SYM]);
 
+(* TODO - candidate for move to HOL *)
 Theorem FEVERY_alist_to_fmap
   `EVERY P ls ==> FEVERY P (alist_to_fmap ls)`
   (Induct_on`ls` \\ simp[FORALL_PROD]
@@ -3491,6 +3492,7 @@ Theorem FEVERY_alist_to_fmap
   \\ pop_assum mp_tac \\ rw[] \\ fs[]
   \\ imp_res_tac ALOOKUP_MEM \\ fs[EVERY_MEM]);
 
+(* TODO - candidate for move to HOL *)
 Theorem ALL_DISTINCT_FEVERY_alist_to_fmap
   `ALL_DISTINCT (MAP FST ls) ⇒
    (FEVERY P (alist_to_fmap ls) ⇔ EVERY P ls)`
@@ -3500,6 +3502,7 @@ Theorem ALL_DISTINCT_FEVERY_alist_to_fmap
   \\ pop_assum mp_tac \\ rw[] \\ fs[MEM_MAP,EXISTS_PROD]
   \\ metis_tac[ALOOKUP_MEM]);
 
+(* TODO - candidate for move to HOL *)
 Theorem DISJOINT_FEVERY_FUNION
   `DISJOINT (FDOM m1) (FDOM m2) ⇒
    (FEVERY P (FUNION m1 m2) <=> FEVERY P m1 /\ FEVERY P m2)`
@@ -3515,6 +3518,7 @@ Theorem fevery_to_drestrict
   FEVERY P m ⇒ FEVERY P (DRESTRICT m s)`
  (rw [FEVERY_ALL_FLOOKUP,FLOOKUP_DRESTRICT]);
 
+(* TODO - candidate for move to HOL *)
 Theorem EVERY_FLAT
   `EVERY P (FLAT ls) <=> EVERY (EVERY P) ls`
   (rw[EVERY_MEM,MEM_FLAT,PULL_EXISTS] \\ metis_tac[]);
@@ -3529,6 +3533,7 @@ Theorem LAST_FLAT
   \\ fs[FLAT_SNOC,FILTER_SNOC]
   \\ Cases_on`x` \\ fs[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem TOKENS_FRONT
   `¬NULL ls ∧ P (LAST ls) ⇒
    TOKENS P (FRONT ls) = TOKENS P ls`
@@ -3639,6 +3644,7 @@ Theorem LUPDATE_insert_commute
        LUPDATE w pos2 (insert_atI ws pos1 a)`
   (Induct >> simp[insert_atI_NIL,insert_atI_CONS, LUPDATE_commutes]);
 
+(* TODO - candidate for move to HOL *)
 Theorem ALIST_FUPDKEY_comm
  `!k1 k2 f1 f2 l. k1 <> k2 ==>
   ALIST_FUPDKEY k2 f2 (ALIST_FUPDKEY k1 f1 l) =
@@ -3648,6 +3654,7 @@ Theorem ALIST_FUPDKEY_comm
   CASE_TAC >> fs[ALIST_FUPDKEY_def] >>
   CASE_TAC >> fs[ALIST_FUPDKEY_def]);
 
+(* TODO - candidate for move to HOL *)
 Theorem A_DELKEY_ALIST_FUPDKEY_comm
   `!ls f x y. x <> y ==>
   A_DELKEY x (ALIST_FUPDKEY y f ls) = (ALIST_FUPDKEY y f (A_DELKEY x ls))`
@@ -3669,10 +3676,12 @@ Theorem LESS_LENGTH
   \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
   \\ srw_tac [] [ADD1]);
 
+(* TODO - candidate for move to HOL *)
 Theorem MAP_COUNT_LIST
   `MAP f (COUNT_LIST n) = GENLIST f n`
   (rw[COUNT_LIST_GENLIST,MAP_GENLIST]);
 
+(* TODO - candidate for move to HOL *)
 Theorem BAG_ALL_DISTINCT_SUB_BAG
   `∀s t.  s ≤ t ∧ BAG_ALL_DISTINCT t ⇒ BAG_ALL_DISTINCT s`
   (fs[bagTheory.BAG_ALL_DISTINCT,bagTheory.SUB_BAG,bagTheory.BAG_INN]>>
@@ -3683,10 +3692,12 @@ Theorem BAG_ALL_DISTINCT_SUB_BAG
   first_x_assum(qspec_then`e` assume_tac)>>
   DECIDE_TAC);
 
+(* TODO - candidate for move to HOL *)
 Theorem EVEN_SUB
   `∀m n. m ≤ n ⇒ (EVEN (n - m) ⇔ (EVEN n <=> EVEN m))`
   (Induct \\ simp[] \\ Cases \\ simp[EVEN]);
 
+(* TODO - candidate for move to HOL *)
 Theorem ODD_SUB
   `∀m n. m ≤ n ⇒ (ODD (n - m) ⇔ ¬(ODD n ⇔ ODD m))`
   (rw[ODD_EVEN,EVEN_SUB]);
@@ -3699,18 +3710,22 @@ Theorem FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM
   (qid_spec_tac`x` \\ Induct_on`ls` \\ rw[] \\
   res_tac \\ fs[] \\ Cases_on`x` \\ fs[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem BAG_DISJOINT_SUB_BAG
   `!b1 b2 b3. b1 ≤ b2 /\ BAG_DISJOINT b2 b3 ==> BAG_DISJOINT b1 b3`
   (rw [BAG_DISJOINT_BAG_IN] \\ metis_tac [SUB_BAG, BAG_IN]);
 
+(* TODO - candidate for move to HOL *)
 Theorem BAG_DISJOINT_SYM
   `!b1 b2. BAG_DISJOINT b1 b2 <=> BAG_DISJOINT b2 b1`
   (simp [BAG_DISJOINT, DISJOINT_SYM]);
 
+(* TODO - candidate for move to HOL *)
 Theorem MONOID_BAG_UNION_EMPTY_BAG
   `MONOID $⊎ {||}`
   (simp [MONOID_DEF, RIGHT_ID_DEF, LEFT_ID_DEF, ASSOC_DEF, ASSOC_BAG_UNION]);
 
+(* TODO - candidate for move to HOL *)
 Theorem BAG_DISJOINT_FOLDR_BAG_UNION
   `∀ls b0 b1.
     BAG_DISJOINT b1 (FOLDR BAG_UNION b0 ls) ⇔
@@ -3735,8 +3750,10 @@ Theorem BAG_ALL_DISTINCT_FOLDR_BAG_UNION
   \\ rw[EQ_IMP_THM] \\ fs[]
   \\ metis_tac[BAG_DISJOINT_SYM]);
 
+(* TODO - candidate for move to HOL *)
 val bag_of_list_def = Define `bag_of_list = FOLDL $⊎ {||} o MAP EL_BAG`;
 
+(* TODO - candidate for move to HOL *)
 Theorem bag_of_list_append
   `!xs ys. bag_of_list (xs ++ ys) = bag_of_list xs ⊎ bag_of_list ys`
   (simp [bag_of_list_def, FOLDL_APPEND]
@@ -3749,6 +3766,7 @@ Theorem bag_of_list_sub_bag_FLAT_suff
   (ho_match_mp_tac LIST_REL_ind
   \\ srw_tac [bagLib.SBAG_SOLVE_ss] [bag_of_list_append]);
 
+(* TODO - candidate for move to HOL *)
 Theorem bag_of_list_thm
   `bag_of_list [] = {||} ∧
    (∀x xs. bag_of_list (x::xs) = BAG_INSERT x (bag_of_list xs))`
@@ -3766,20 +3784,24 @@ Theorem bag_of_list_thm
   \\ rw[COMM_ASSOC_FOLDL_REVERSE]
   \\ rw[BAG_INSERT_UNION, COMM_BAG_UNION]);
 
+(* TODO - candidate for move to HOL *)
 Theorem IN_bag_of_list_MEM
   `∀l. x <: bag_of_list l ⇔ MEM x l`
   (Induct \\ rw[bag_of_list_thm] \\ fs[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem bag_of_list_SUB_BAG_SUBSET
   `∀l1 l2. bag_of_list l1 ≤ bag_of_list l2 ⇒ set l1 ⊆ set l2`
   (Induct \\ rw[bag_of_list_thm]
   \\ imp_res_tac BAG_INSERT_SUB_BAG_E
   \\ imp_res_tac IN_bag_of_list_MEM \\ fs[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem bag_of_list_ALL_DISTINCT
   `∀ls. BAG_ALL_DISTINCT (bag_of_list ls) ⇔ ALL_DISTINCT ls`
   (Induct \\ rw[bag_of_list_thm,IN_bag_of_list_MEM]);
 
+(* TODO - candidate for move to HOL *)
 val is_subseq_def = Define`
   (is_subseq ls [] ⇔ T) ∧
   (is_subseq [] (x::xs) ⇔ F) ∧
@@ -3787,66 +3809,79 @@ val is_subseq_def = Define`
    (x = y ∧ is_subseq ys xs) ∨
    (is_subseq ys (x::xs)))`;
 
+(* TODO - candidate for move to HOL *)
 val is_subseq_ind = theorem"is_subseq_ind";
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_refl[simp]
   `∀ls. is_subseq ls ls` (Induct \\ rw[is_subseq_def]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_nil[simp]
   `is_subseq [] ls ⇔ ls = []`
   (Cases_on`ls` \\ rw[is_subseq_def]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_cons
   `∀l1 l2 x. is_subseq l1 l2 ⇒ is_subseq (x::l1) l2`
   (recInduct is_subseq_ind
   \\ rw[is_subseq_def]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_snoc
   `∀l1 l2 x. is_subseq l1 l2 ⇒ is_subseq (SNOC x l1) l2`
   (recInduct is_subseq_ind
   \\ rw[is_subseq_def] \\ fs[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_append1
   `∀l3 l1 l2. is_subseq l1 l2 ⇒ is_subseq (l3 ++ l1) l2`
   (Induct
   \\ rw[is_subseq_def] \\ fs[]
   \\ metis_tac[is_subseq_cons]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_append2
   `∀l4 l1 l2. is_subseq l1 l2 ⇒ is_subseq (l1 ++ l4) l2`
   (ho_match_mp_tac SNOC_INDUCT
   \\ rw[is_subseq_def] \\ fs[]
   \\ metis_tac[is_subseq_snoc, SNOC_APPEND, APPEND_ASSOC]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_IS_SUBLIST
   `is_subseq l1 l2 ∧ IS_SUBLIST l3 l1 ⇒ is_subseq l3 l2`
   (rw[IS_SUBLIST_APPEND]
   \\ metis_tac[is_subseq_append1, is_subseq_append2]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_MEM
   `∀l1 l2 x. is_subseq l1 l2 ∧ MEM x l2 ⇒ MEM x l1`
   (recInduct is_subseq_ind
   \\ rw[is_subseq_def]
   \\ metis_tac[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem IS_PREFIX_is_subseq
   `∀l1 l2. IS_PREFIX l1 l2 ⇒ is_subseq l1 l2`
   (recInduct is_subseq_ind
   \\ rw[is_subseq_def]
   \\ fs[IS_PREFIX_NIL]);
 
+(* TODO - candidate for move to HOL *)
 Theorem IS_SUBLIST_is_subseq
   `∀l1 l2. IS_SUBLIST l1 l2 ⇒ is_subseq l1 l2`
   (recInduct is_subseq_ind
   \\ rw[is_subseq_def, IS_SUBLIST]
   \\ simp[IS_PREFIX_is_subseq]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_ALL_DISTINCT
   `∀l1 l2. ALL_DISTINCT l1 ∧ is_subseq l1 l2 ⇒ ALL_DISTINCT l2`
   (recInduct is_subseq_ind
   \\ rw[is_subseq_def] \\ fs[] \\ rfs[]
   \\ metis_tac[is_subseq_MEM]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_append_suff
   `∀l1 l3 l2 l4.
    is_subseq l1 l3 ∧ is_subseq l2 l4 ⇒
@@ -3855,6 +3890,7 @@ Theorem is_subseq_append_suff
   \\ rw[is_subseq_def]
   \\ metis_tac[is_subseq_append1]);
 
+(* TODO - candidate for move to HOL *)
 Theorem is_subseq_FLAT_suff
   `∀ls1 ls2. LIST_REL is_subseq ls1 ls2 ⇒ is_subseq (FLAT ls1) (FLAT ls2)`
   (ho_match_mp_tac LIST_REL_ind
@@ -3869,6 +3905,7 @@ Theorem LIST_REL_IMP_LAST
   \\ `?y1 y2. ys = SNOC y1 y2` by metis_tac [SNOC_CASES]
   \\ asm_rewrite_tac [LAST_SNOC] \\ fs [LIST_REL_SNOC]);
 
+(* TODO - candidate for move to HOL *)
 Theorem MAP2_APPEND
   `!xs ys xs1 ys1 f.
       LENGTH xs = LENGTH xs1 ==>
@@ -3925,10 +3962,12 @@ Theorem FUNPOW_refl_trans_chain
   \\ qexists_tac`FUNPOW f n x`
   \\ simp[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem ALIGNED_eq_aligned
   `ALIGNED = aligned 2`
   (rw[addressTheory.ALIGNED_def,FUN_EQ_THM,alignmentTheory.aligned_bitwise_and]);
 
+(* TODO - candidate for move to HOL *)
 Theorem imp_align_eq_0
   `w2n a < 2 ** p ⇒ (align p a= 0w)`
   (Cases_on`a` \\ fs[]
@@ -3944,14 +3983,17 @@ Theorem byte_align_extract
   \\ rw[alignmentTheory.align_def]
   \\ blastLib.BBLAST_TAC);
 
+(* TODO - candidate for move to HOL *)
 Theorem byte_align_aligned
   `byte_aligned x ⇔ (byte_align x = x)` (EVAL_TAC);
 
+(* TODO - candidate for move to HOL *)
 Theorem byte_aligned_add
   `byte_aligned x ∧ byte_aligned y ⇒ byte_aligned (x+y)`
   (rw[alignmentTheory.byte_aligned_def]
   \\ metis_tac[alignmentTheory.aligned_add_sub_cor]);
 
+(* TODO - candidate for move to HOL *)
 Theorem align_ls
   `align p n <=+ n`
   (simp[WORD_LS]
@@ -3963,6 +4005,7 @@ Theorem align_ls
   \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
   \\ simp[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem align_lo
   `¬aligned p n ⇒ align p n <+ n`
   (simp[WORD_LO]
@@ -4020,12 +4063,14 @@ Theorem byte_align_IN_IMP_IN_range
   \\ asm_exists_tac
   \\ fs[alignmentTheory.byte_align_def]);
 
+(* TODO - candidate for move to HOL *)
 Theorem aligned_or
   `aligned n (w || v) <=> aligned n w /\ aligned n v`
   (Cases_on `n = 0`
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [alignmentTheory.aligned_extract]
   \\ metis_tac [])
 
+(* TODO - candidate for move to HOL *)
 Theorem aligned_w2n
   `aligned k w <=> w2n (w:'a word) MOD 2 ** k = 0`
   (Cases_on `w`
@@ -4041,6 +4086,7 @@ Theorem pow_eq_0
   (fs [dimword_def] \\ fs [LESS_EQ_EXISTS]
   \\ rw [] \\ fs [EXP_ADD,MOD_EQ_0]);
 
+(* TODO - candidate for move to HOL *)
 Theorem aligned_pow
   `aligned k (n2w (2 ** k))`
   (Cases_on `k < dimindex (:'a)`
@@ -4097,6 +4143,7 @@ Theorem align_add_aligned_gen
   \\ impl_tac >- fs[aligned_w2n]
   \\ simp[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem MOD_IMP_aligned
   `!n p. n MOD 2 ** p = 0 ==> aligned p (n2w n)`
   (fs [alignmentTheory.aligned_bitwise_and]
@@ -4109,6 +4156,7 @@ Theorem aligned_lsl_leq
   \\ fs [fcpTheory.CART_EQ,word_lsl_def,word_slice_def,fcpTheory.FCP_BETA]
   \\ rw [] \\ eq_tac \\ fs []);
 
+(* TODO - candidate for move to HOL *)
 Theorem aligned_lsl[simp]
   `aligned k (w << k)`
   (match_mp_tac aligned_lsl_leq \\ fs []);
@@ -4454,12 +4502,14 @@ Theorem word_of_bytes_bytes_to_word
   \\ first_x_assum match_mp_tac
   \\ fs[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem word_bit_thm
   `!n w:'a word. word_bit n w <=> n < dimindex (:'a) /\ w ' n`
   (fs [word_bit_def,LESS_EQ] \\ rw []
   \\ assume_tac DIMINDEX_GT_0
   \\ Cases_on `dimindex (:α)` \\ fs [LESS_EQ]);
 
+(* TODO - candidate for move to HOL *)
 Theorem word_bit_and
   `word_bit n (w1 && w2) <=> word_bit n w1 /\ word_bit n w2`
   (fs [word_bit_def,word_and_def] \\ eq_tac \\ rw []
@@ -4467,6 +4517,7 @@ Theorem word_bit_and
   \\ `n < dimindex (:'a)` by decide_tac
   \\ fs [fcpTheory.FCP_BETA]);
 
+(* TODO - candidate for move to HOL *)
 Theorem word_bit_or
   `word_bit n (w1 || w2) <=> word_bit n w1 \/ word_bit n w2`
   (fs [word_bit_def,word_or_def] \\ eq_tac \\ rw []
@@ -4474,12 +4525,14 @@ Theorem word_bit_or
   \\ `n < dimindex (:'a)` by decide_tac
   \\ fs [fcpTheory.FCP_BETA]);
 
+(* TODO - candidate for move to HOL *)
 Theorem word_bit_lsl
   `word_bit n (w << i) <=>
     word_bit (n - i) (w:'a word) /\ n < dimindex (:'a) /\ i <= n`
   (fs [word_bit_thm,word_lsl_def] \\ eq_tac \\ fs []
   \\ rw [] \\ rfs [fcpTheory.FCP_BETA]);
 
+(* TODO - candidate for move to HOL *)
 Theorem word_msb_align
   `p < dimindex(:'a) ⇒ (word_msb (align p w) = word_msb (w:'a word))`
   (rw[alignmentTheory.align_bitwise_and,word_msb]
@@ -4575,6 +4628,7 @@ Theorem lookup_copy_shape
   (Induct \\ Cases_on `t2` \\ fs [copy_shape_def,lookup_def] \\ rw []
   \\ fs [lookup_def,lookup_copy_shape_LN,domain_EMPTY_lookup]);
 
+(* TODO - candidate for move to HOL *)
 Theorem domain_mapi[simp]
   `domain (mapi f x) = domain x`
   (fs [domain_lookup,EXTENSION,sptreeTheory.lookup_mapi]);
@@ -4917,6 +4971,7 @@ Theorem TWOxDIV2
   (ONCE_REWRITE_TAC[MULT_COMM]
   \\ simp[MULT_DIV]);
 
+(* TODO - candidate for move to HOL *)
 Theorem wf_LN[simp]
   `wf LN` (rw[sptreeTheory.wf_def]);
 
@@ -5172,6 +5227,7 @@ Theorem SUM_SET_count_2
   \\ rewrite_tac[EXP, ONE, TWO, MULT, ADD, LEFT_ADD_DISTRIB, RIGHT_ADD_DISTRIB]
   \\ rw[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem SUM_SET_count
   `∀n. n ≠ 0 ⇒ SUM_SET (count n) = n * (n - 1) DIV 2`
   (Cases \\ simp[]
