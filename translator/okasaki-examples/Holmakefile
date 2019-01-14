@@ -1,28 +1,9 @@
-INCLUDES = .. ../../misc ../../basis
-OPTIONS = QUIT_ON_FAILURE
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis ..
 
 all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)
-
-ifdef POLY
-HOLHEAP = heap
-PARENT_HOLHEAP = ../heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
-all: $(TARGETS) $(HOLHEAP)
-.PHONY: all
-
-BARE_THYS = ../ml_translatorLib
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
-endif
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)

@@ -46,8 +46,23 @@ Translate the RISC-V instruction encoder and RISC-V-specific config.
 [sexp_parserProgScript.sml](sexp_parserProgScript.sml):
 Translate the alternative s-expression parser.
 
+[to_bviProgScript.sml](to_bviProgScript.sml):
+Translate the backend phase from BVL to BVI.
+
+[to_bvlProgScript.sml](to_bvlProgScript.sml):
+Translate the backend phase from closLang to BVL.
+
+[to_closProgScript.sml](to_closProgScript.sml):
+Translate the backend phase from patLang to closLang.
+
 [to_dataProgScript.sml](to_dataProgScript.sml):
-Translate backend phases up to and including dataLang.
+Translate the backend phase from BVI to dataLang.
+
+[to_flatProgScript.sml](to_flatProgScript.sml):
+Translate backend phases up to and including flatLang.
+
+[to_patProgScript.sml](to_patProgScript.sml):
+Translate the backend phase from flatLang to patLang.
 
 [to_target32ProgScript.sml](to_target32ProgScript.sml):
 Translate the final part of the compiler backend for 32-bit targets.

@@ -7,6 +7,7 @@ open HolKernel Parse boolLib bossLib
      gramTheory pegexecTheory pegTheory
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
+local open tokenUtilsTheory in end
 
 val _ = new_theory "cmlPEG"
 val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]

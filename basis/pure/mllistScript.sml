@@ -31,7 +31,7 @@ val drop_def = Define`
 
 val mapi_def = Define `
   (mapi f (n: num) [] = []) /\
-  (mapi f n (h::t) = (f n h)::(mapi f (n + 1) t))`
+  (mapi f n (h::t) = (let y = f n h in (y::(mapi f (n + 1) t))))`
 
 val MAPI_thm_gen = Q.prove (
   `!f l x. MAPi (\a. f (a + x)) l = mapi f x l`,

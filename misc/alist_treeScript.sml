@@ -207,10 +207,9 @@ Theorem option_choice_f_assoc
   (fs [option_choice_f_def, FUN_EQ_THM]
     \\ Cases_on `f x` \\ fs []);
 
-Theorem repr_empty
-  `irreflexive R /\ transitive R ==>
-    (f = (\x. NONE)) ==> sorted_alist_repr R [] f`
-  (fs [FUN_EQ_THM, sorted_alist_repr_def]);
+Theorem empty_is_ALOOKUP
+  `(\x. NONE) = ALOOKUP []`
+  (fs [FUN_EQ_THM]);
 
 Theorem repr_insert
   `sorted_alist_repr R al f /\ is_insert fl fr R k x al al' ==>
