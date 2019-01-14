@@ -1,9 +1,10 @@
 (*
   Correctness proof for source_to_flat
 *)
-open preamble;
-open semanticsTheory namespacePropsTheory semanticPrimitivesTheory semanticPrimitivesPropsTheory;
-open source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory;
+
+open preamble semanticsTheory namespacePropsTheory
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory
+     source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
 
 val _ = new_theory "source_to_flatProof";
 
@@ -93,13 +94,13 @@ val _ = Datatype `
 
 val has_bools_def = Define `
   has_bools genv ⇔
-    FLOOKUP genv ((true_tag, SOME bool_id), 0n) = SOME (TypeStamp "true" bool_type_num) ∧
-    FLOOKUP genv ((false_tag, SOME bool_id), 0n) = SOME (TypeStamp "false" bool_type_num)`;
+    FLOOKUP genv ((true_tag, SOME bool_id), 0n) = SOME (TypeStamp "True" bool_type_num) ∧
+    FLOOKUP genv ((false_tag, SOME bool_id), 0n) = SOME (TypeStamp "False" bool_type_num)`;
 
 val has_lists_def = Define `
   has_lists genv ⇔
     FLOOKUP genv ((cons_tag, SOME list_id), 2n) = SOME (TypeStamp "::" list_type_num) ∧
-    FLOOKUP genv ((nil_tag, SOME list_id), 0n) = SOME (TypeStamp "nil" list_type_num)`;
+    FLOOKUP genv ((nil_tag, SOME list_id), 0n) = SOME (TypeStamp "[]" list_type_num)`;
 
 val has_exns_def = Define `
   has_exns genv ⇔
