@@ -46,6 +46,9 @@ A small example of using the HOL to CakeML translator.
 A collection of functions that have in the past turned out to be tricky to
 translate.
 
+[ml_translator_word_testScript.sml](ml_translator_word_testScript.sml):
+Tests of word operation translation
+
 [monadic](monadic):
 Extensions to the proof-producing translator to support
 stateful/imperative (monadic) HOL functions.
