@@ -263,7 +263,7 @@ language into flatLang.
 [stackLangScript.sml](stackLangScript.sml):
 The stackLang intermediate language is a structured programming
 language with function calls, while loops, if statements, etc. All
-assignments are assmebly instructions and register allocation is
+assignments are assembly instructions and register allocation is
 assumed to have been done. This is the language within which stack
 operations get optimised and turned into normal memory accesses.
 
