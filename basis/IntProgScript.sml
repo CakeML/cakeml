@@ -12,8 +12,6 @@ val _ = translation_extends "mlbasicsProg";
 
 val _ = ml_prog_update (open_module "Int");
 
-val () = generate_sigs := true;
-
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "int" (Atapp [] (Short "int"))`` I);
 
@@ -27,6 +25,8 @@ val _ = trans ">" intSyntax.great_tm;
 val _ = trans "<=" intSyntax.leq_tm;
 val _ = trans ">=" intSyntax.geq_tm;
 val _ = trans "~" ``\i. - (i:int)``;
+
+val _ = ml_prog_update open_local_block;
 
 val result = translate zero_pad_def
 
@@ -51,6 +51,8 @@ val _ = add_preferred_thy "-";
 val result = translate
   (toChars_def |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
+val _ = ml_prog_update open_local_in_block;
+
 val _ = next_ml_names := ["toString"];
 
 val result = translate
@@ -60,6 +62,8 @@ val tostring_side = Q.prove(
   rw[definition"tostring_side_def"]
   \\ intLib.COOPER_TAC)
   |> update_precondition;
+
+val _ = ml_prog_update open_local_block;
 
 val result = translate fromChar_unsafe_def;
 val result = translate fromChars_range_unsafe_def;
@@ -96,6 +100,8 @@ val _ = save_thm("fromChars_ind",
   fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 val result = translate (fromChars_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["fromString"];
 val result = translate fromString_def;
@@ -138,24 +144,8 @@ val gcd_side = prove(
 val _ = (next_ml_names := ["compare"]);
 val _ = translate mlintTheory.int_cmp_def;
 
+val _ = ml_prog_update close_local_blocks;
 
-val sigs = module_signatures [
-  "+",
-  "-",
-  "*",
-  "div",
-  "mod",
-  "<",
-  ">",
-  "<=",
-  ">=",
-  "~",
-  "toString",
-  "fromString",
-  "gcd",
-  "compare"
-];
-
-val _ = ml_prog_update (close_module (SOME sigs));
+val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();
