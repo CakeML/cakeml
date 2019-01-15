@@ -1,6 +1,7 @@
 (*
   Part of the correctness proof for data_to_word
 *)
+
 open preamble dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
      labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
@@ -18,7 +19,11 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
 val _ = augment_srw_ss[rewrites[LENGTH_REPLICATE]]
 
+val _ = set_grammar_ancestry
+  ["dataSem", "dataProps", "wordSem", "data_to_word",
+   "gc_shared", "gc_combined", "word_gcFunctions"];
 val _ = Parse.hide"el";
+val _ = temp_overload_on("good_dimindex", ``labProps$good_dimindex``);
 
 val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
 val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/
