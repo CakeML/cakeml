@@ -75,7 +75,7 @@ val lookup_IMP_lookup_compile = Q.prove(
   full_simp_tac(srw_ss())[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
   \\ `ALOOKUP (stubs c) dest = NONE` by
     (full_simp_tac(srw_ss())[stubs_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac) \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[prog_comp_lemma] \\ full_simp_tac(srw_ss())[ALOOKUP_MAP_gen,ALOOKUP_toAList]
+  \\ full_simp_tac(srw_ss())[prog_comp_lemma] \\ full_simp_tac(srw_ss())[ALOOKUP_MAP_2,ALOOKUP_toAList]
   \\ metis_tac []);
 
 val map_bitmap_APPEND = Q.prove(
@@ -5485,7 +5485,7 @@ Theorem comp_correct
       simp[compile_def,ALOOKUP_APPEND] \\
       gen_tac \\ CASE_TAC \\ fs[] \\
       simp[prog_comp_lemma] \\
-      simp[ALOOKUP_MAP_gen] \\
+      simp[ALOOKUP_MAP_2] \\
       simp[ALOOKUP_toAList,lookup_union] \\
       match_mp_tac EQ_SYM \\ CASE_TAC \\ fs[] \\
       simp[lookup_fromAList] >>
@@ -5739,7 +5739,7 @@ Theorem make_init_semantics
   \\ full_simp_tac(srw_ss())[spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
   \\ srw_tac[][]
   \\ srw_tac[][ALOOKUP_APPEND] \\ BasicProvers.CASE_TAC
-  \\ simp[prog_comp_lambda,ALOOKUP_MAP_gen]
+  \\ simp[prog_comp_lambda,ALOOKUP_MAP_2]
   \\ simp[ALOOKUP_toAList,lookup_fromAList]);
 
 Theorem next_lab_EQ_MAX

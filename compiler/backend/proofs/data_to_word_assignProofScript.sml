@@ -10293,7 +10293,7 @@ Theorem assign_FFI
             \\ `ls2 = LUPDATE (EL (LENGTH l'' - SUC n) r') (LENGTH l'' - SUC n) ls1`
             by (
               simp[Abbr`ls1`,Abbr`ls2`,LIST_EQ_REWRITE,EL_APPEND_EQN,EL_LUPDATE,DROP_def,TAKE_def]
-              \\ rw[] \\ fs[] \\ simp[EL_TAKE,hd_drop,EL_DROP] )
+              \\ rw[] \\ fs[] \\ simp[EL_TAKE,HD_DROP,EL_DROP] )
             \\ qunabbrev_tac`ls2` \\ fs[]
             \\ qmatch_goalsub_abbrev_tac`EL i r'`
             \\ `i < LENGTH l''` by simp[Abbr`i`]

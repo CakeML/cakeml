@@ -709,7 +709,7 @@ val compile_correct = Q.prove(
            lookup_list_to_num_set,EVERY_MEM]
       \\ REPEAT STRIP_TAC \\ RES_TAC
       \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map]
-      \\ IMP_RES_TAC MEM_LIST_REL \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC LIST_REL_MEM_IMP \\ full_simp_tac(srw_ss())[]
       \\ `lookup x t1.locals <> NONE` by METIS_TAC []
       \\ Cases_on `lookup x t1.locals` \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [])
     \\ full_simp_tac(srw_ss())[]
@@ -1123,7 +1123,7 @@ val compile_correct = Q.prove(
          (`lookup x t1.locals <> NONE` by METIS_TAC []
             \\ Cases_on `lookup x t1.locals` \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [])
         \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map]
-        \\ IMP_RES_TAC MEM_LIST_REL \\ full_simp_tac(srw_ss())[])
+        \\ IMP_RES_TAC LIST_REL_MEM_IMP \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[] \\ Cases_on `r.clock < ticks + 1` \\ full_simp_tac(srw_ss())[] THEN1
        (`r.clock < ticks \/ r.clock = ticks` by decide_tac \\ full_simp_tac(srw_ss())[]
         \\ full_simp_tac(srw_ss())[state_rel_def, funpow_dec_clock_clock,data_to_bvi_result_def]
@@ -1287,7 +1287,7 @@ val compile_correct = Q.prove(
         \\ REPEAT STRIP_TAC \\ RES_TAC THEN1
          (Cases_on `lookup x' t1.locals` \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [])
         \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def]
-        \\ IMP_RES_TAC MEM_LIST_REL \\ full_simp_tac(srw_ss())[lookup_map] \\ NO_TAC)
+        \\ IMP_RES_TAC LIST_REL_MEM_IMP \\ full_simp_tac(srw_ss())[lookup_map] \\ NO_TAC)
       \\ first_assum (mp_then Any assume_tac get_vars_thm)
       \\ first_assum (mp_then Any assume_tac get_vars_lift_thm)
       \\ fs [] \\ rveq

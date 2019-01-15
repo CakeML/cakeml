@@ -1476,7 +1476,7 @@ val comp_correct = Q.prove(
           strip_tac  \\ rveq \\
           res_tac \\ simp[] ) \\
         strip_tac \\ imp_res_tac ALOOKUP_MEM \\
-        simp[ALOOKUP_MAP_gen] \\
+        simp[ALOOKUP_MAP_2] \\
         last_x_assum(qspec_then`0` mp_tac)>>simp[]>>
         disch_then drule>>strip_tac>>simp[]>>
         CASE_TAC>>fs[EXTENSION,domain_lookup,PULL_EXISTS]>>
@@ -3115,7 +3115,7 @@ val IMP_code_rel = Q.prove(
     \\ rpt var_eq_tac
     \\ imp_res_tac ALOOKUP_MEM
     \\ imp_res_tac EVERY_MEM \\ full_simp_tac(srw_ss())[]
-    \\ simp[prog_comp_eta,ALOOKUP_MAP_gen]
+    \\ simp[prog_comp_eta,ALOOKUP_MAP_2]
     \\ pop_assum mp_tac \\ EVAL_TAC)>>
   simp[domain_fromAList,compile_def,init_stubs_def,prog_comp_eta,MAP_MAP_o,UNCURRY,o_DEF,ETA_AX]>>
   simp[EXTENSION]>>

@@ -112,13 +112,6 @@ Theorem SUM_SET_IN_LT
   `!s x y. FINITE s /\ x IN s /\ y < x ==> y < SUM_SET s`
   (metis_tac[SUM_SET_IN_LE,LESS_LESS_EQ_TRANS]);
 
-Theorem BIJ_support
-  `∀f s' s. BIJ f s' s' ∧ s' ⊆ s ∧ (∀x. x ∉ s' ⇒ f x = x) ⇒ BIJ f s s`
-  (rw[BIJ_IFF_INV,SUBSET_DEF]
-  >- metis_tac[]
-  \\ qexists_tac`λx. if x ∈ s' then g x else x`
-  \\ rw[] \\ metis_tac[]);
-
 (* only used in proof of tlookup_bij_iff *)
 Theorem CARD_IMAGE_ID_BIJ
   `∀s. FINITE s ⇒ (∀x. x ∈ s ⇒ f x ∈ s) ∧ CARD (IMAGE f s) = CARD s ⇒ BIJ f s s`
@@ -149,14 +142,6 @@ Theorem IMAGE_SUC_SUBSET_UNION
   `IMAGE SUC x SUBSET IMAGE SUC y UNION IMAGE SUC z <=>
     x SUBSET y UNION z`
   (fs [SUBSET_DEF] \\ metis_tac [DECIDE ``(SUC n = SUC m) <=> (m = n)``]);
-
-(* TODO: move to HOL candidate *)
-Theorem ALOOKUP_MAP_gen
-  `∀f al x.
-    ALOOKUP (MAP (λ(x,y). (x,f x y)) al) x =
-    OPTION_MAP (f x) (ALOOKUP al x)`
-  (gen_tac >> Induct >> simp[] >>
-  Cases >> simp[] >> srw_tac[][]);
 
 val _ = overload_on ("LLOOKUP", “λl n. oEL n l”)
 val LLOOKUP_def      = save_thm("LLOOKUP_def", listTheory.oEL_def);
@@ -213,17 +198,6 @@ Theorem GENLIST_eq_MAP
    LENGTH ls = n ∧ ∀m. m < n ⇒ f m = g (EL m ls)`
   (srw_tac[][LIST_EQ_REWRITE,EQ_IMP_THM,EL_MAP])
 
-(* TODO - move to HOL candidate *)
-Theorem GENLIST_ID
-  `!x. GENLIST (\i. EL i x) (LENGTH x) = x`
-  (HO_MATCH_MP_TAC SNOC_INDUCT
-  \\ full_simp_tac(srw_ss())[] \\ simp_tac std_ss [GENLIST,GSYM ADD1]
-  \\ full_simp_tac(srw_ss())[SNOC_APPEND,rich_listTheory.EL_LENGTH_APPEND]
-  \\ rpt strip_tac \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ pop_assum (fn th => simp_tac std_ss [Once (GSYM th)])
-  \\ full_simp_tac(srw_ss())[GENLIST_FUN_EQ] \\ srw_tac[][]
-  \\ match_mp_tac (GSYM rich_listTheory.EL_APPEND1) \\ full_simp_tac(srw_ss())[]);
-
 (* TODO - already in HOL as ZIP_GENLIST *)
 Theorem ZIP_GENLIST1
   `∀l f n. LENGTH l = n ⇒ ZIP (GENLIST f n,l) = GENLIST (λx. (f x, EL x l)) n`
@@ -260,34 +234,6 @@ Theorem LENGTH_TAKE_EQ_MIN
   `!n xs. LENGTH (TAKE n xs) = MIN n (LENGTH xs)`
   (simp[LENGTH_TAKE_EQ] \\ full_simp_tac(srw_ss())[MIN_DEF] \\ decide_tac);
 
-(* TODO - candidate for move to HOL *)
-Theorem hd_drop
-  `!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`
-  (Induct_on `l` >>
-  srw_tac[][DROP_def] >>
-  `n - 1 < LENGTH l` by decide_tac >>
-  res_tac >>
-  `0 < n` by decide_tac >>
-  srw_tac[][EL_CONS] >>
-  `n - 1 = PRE n` by decide_tac >>
-  srw_tac[][]);
-
-(* TODO - candidate for move to HOL; probably better as LIST_REL (=) = (=) *)
-Theorem LIST_REL_eq
-  `!xs ys. LIST_REL (=) xs ys <=> (xs = ys)`
-  (Induct \\ Cases_on `ys` \\ fs []);
-
-(* should use OPTREL (=) = (=) *)
-Theorem LIST_REL_OPT_REL_eq
-  `!xs ys. LIST_REL (OPTREL (=)) xs ys <=> (xs = ys)`
-  (Induct \\ Cases_on `ys` \\ fs []
-  \\ Cases \\ fs [OPTREL_def] \\ eq_tac \\ rw []);
-
-(* TODO - candidate for move to HOL *)
-Theorem MEM_LIST_REL
-  `!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y`
-  (simp[LIST_REL_EL_EQN] >> metis_tac[MEM_EL]);
-
 (* should be switched in orientation; looks like an attempt to get congruence
    rule *)
 Theorem LIST_REL_MEM
@@ -312,16 +258,6 @@ Theorem LIST_REL_lookup_fromList_MAP
     (GENLIST I (LENGTH args)) (MAP f args)`
   (fs [LIST_REL_MAP2,LIST_REL_GENLIST_I,lookup_fromList])
 
-(* TODO - candidate for move to HOL *)
-Theorem LIST_REL_SNOC
-  `(LIST_REL R (SNOC x xs) yys ⇔
-      ∃y ys. yys = SNOC y ys ∧ LIST_REL R xs ys ∧ R x y) ∧
-   (LIST_REL R xxs (SNOC y ys) ⇔
-      ∃x xs. xxs = SNOC x xs ∧ LIST_REL R xs ys ∧ R x y)`
-  (simp[EQ_IMP_THM, PULL_EXISTS, SNOC_APPEND] >> rpt strip_tac
-  >- (imp_res_tac LIST_REL_SPLIT1 >> fs[])
-  >- (imp_res_tac LIST_REL_SPLIT2 >> fs[]));
-
 (* only used in examples/stackProg; oriented badly *)
 Theorem LIST_REL_FRONT_LAST
   `l1 <> [] /\ l2 <> [] ==>
@@ -331,19 +267,6 @@ Theorem LIST_REL_FRONT_LAST
     (fn q => Q.ISPEC_THEN q FULL_STRUCT_CASES_TAC SNOC_CASES >>
              fs[LIST_REL_SNOC])
     [`l1`,`l2`]);
-
-(* TODO - candidate for move to HOL *)
-Theorem LIST_REL_APPEND_EQ
-  `LENGTH x1 = LENGTH x2 ⇒
-   (LIST_REL R (x1 ++ y1) (x2 ++ y2) <=> LIST_REL R x1 x2 /\ LIST_REL R y1 y2)`
-  (metis_tac[LIST_REL_APPEND_IMP, EVERY2_LENGTH, EVERY2_APPEND_suff]);
-
-
-(* TODO - candidate for move to HOL, but only used in inferProps  *)
-Theorem LIST_REL_inv_image_MAP
-  `LIST_REL (inv_image R f) l1 l2 = LIST_REL R (MAP f l1) (MAP f l2)`
-  (rw[LIST_REL_EL_EQN, EQ_IMP_THM, EL_MAP]
-  \\ metis_tac[EL_MAP]);
 
 val lemmas = Q.prove(
   `(2 + 2 * n - 1 = 2 * n + 1:num) /\
