@@ -31,16 +31,7 @@ val fixsub_def = Define`
      let fb = fixwidth m b
       in
         fixadd (fixadd fa (bnot fb)) (fixwidth m (n2v 1)))`
-(*
-val fixadd_def2 = Define`
-   (fixadd2 [] [] = []) /\
-   (fixadd2 a b =
-     let m = LENGTH a in
-     let fa = fixwidth m a in
-     let fb = fixwidth m b in
-        fixwidth m (n2v (v2n a + v2n b)))`
-*)
-(* makes the proofs simpler *)
+
 (* TODO prove properties of fixadd and fixsub *)
 
 val fixadd_comm = Q.store_thm("fixadd_comm",
@@ -838,5 +829,21 @@ val btest_def = Define`
       let m = MAX (LENGTH x) (LENGTH y)
        in
          band x y = fixwidth m (n2v 0)`
+
+Theorem CART_EQ_INV
+   `!x:('a ** 'b) y. (x = y) = (!i. i < dimindex(:'b)
+     ==> (x ' (dimindex(:'b) - (i+1)) = y ' (dimindex(:'b) - (i+1))))`
+   (rpt STRIP_TAC >> simp[fcpTheory.CART_EQ] >> EQ_TAC >> rpt STRIP_TAC
+    \\ `dimindex(:'b) - (i+1) < dimindex(:'b)`
+        by (Cases_on `dimindex(:'b)` \\ fs[DIMINDEX_GT_0])
+    \\ RES_TAC
+    \\ `i = dimindex(:'b) - (dimindex(:'b) - (i+1) + 1)` by (
+          Cases_on `dimindex(:'b)`
+       \\ simp[INST_TYPE [alpha |-> Type`:'b`] DIMINDEX_GT_0,Once SUB_PLUS,ADD1])
+    \\ fs[]);
+
+Theorem w2v_eq
+   `!x:('a word) y. (w2v x = w2v y) = (x = y)`
+   (simp[w2v_def,GENLIST_FUN_EQ,CART_EQ_INV]);
 
 val _ = export_theory()

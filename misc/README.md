@@ -27,3 +27,9 @@ thereby be saved in theories).
 
 [preamble.sml](preamble.sml):
 Proof tools (e.g. tactics) used throughout the development.
+
+[words_extraScript.sml](words_extraScript.sml):
+Defines word test operation
+
+[words_extraSyntax.sml](words_extraSyntax.sml):
+Syntax of word test operation

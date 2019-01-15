@@ -15,6 +15,7 @@ open bitstringTheory;
 open bitstring_extraTheory;
 open bitstringLib;
 open integer_wordTheory;
+open words_extraTheory;
 
 val _ = new_theory "ml_translator";
 
@@ -1015,25 +1016,6 @@ Theorem Eval_w2n
 val tac = rw[Eval_rw] \\ Eval2_tac \\ fs[do_app_def,WORD_def]
           \\ rw[] \\ fs[state_component_equality,BOOL_def]
           \\ simp[semanticPrimitivesTheory.opwb_lookup_def]
-
-(* move *)
-
-val word_test_def = Define `
-    word_test x y = (word_and x y = 0w)`
-
-Theorem CART_EQ_INV
-   `!x:('a ** 'b) y. (x = y) = (!i. i < dimindex(:'b) ==> (x ' (dimindex(:'b) - (i+1)) = y ' (dimindex(:'b) - (i+1))))`
-   (rpt STRIP_TAC >> simp[fcpTheory.CART_EQ] >> EQ_TAC >> rpt STRIP_TAC
-    \\ `dimindex(:'b) - (i+1) < dimindex(:'b)` by (Cases_on `dimindex(:'b)` \\ fs[DIMINDEX_GT_0])
-    \\ RES_TAC
-    \\ `i = dimindex(:'b) - (dimindex(:'b) - (i+1) + 1)` by (
-          Cases_on `dimindex(:'b)`
-       \\ simp[INST_TYPE [alpha |-> Type`:'b`] DIMINDEX_GT_0,Once SUB_PLUS,ADD1])
-    \\ fs[]);
-
-Theorem w2v_eq
-   `!x:('a word) y. (w2v x = w2v y) = (x = y)`
-   (simp[w2v_def,GENLIST_FUN_EQ,CART_EQ_INV]);
 
 Theorem Eval_word_lo
    `Eval env x1 (WORD (w1:'a word)) ==>
