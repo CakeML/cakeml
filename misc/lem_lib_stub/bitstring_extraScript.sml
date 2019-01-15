@@ -770,7 +770,7 @@ val i2vN_length = Q.store_thm("i2vN_length", `!i n. (LENGTH (i2vN i n)) = n`,
     simp[length_fixwidth,fixsub_length]
 );
 
-val w2v_0w = Q.prove(`w2v (0w:'a word) = fixwidth (dimindex(:'a)) [F]`,
+val w2v_0w = Q.store_thm("w2v_0w",`w2v (0w:'a word) = fixwidth (dimindex(:'a)) [F]`,
    simp[w2v_n2w] >> EVAL_TAC)
 
 

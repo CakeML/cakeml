@@ -62,6 +62,9 @@ Theorem Tword_simp[simp]
 val opw_lookup_def = Define`opw_lookup=semanticPrimitives$opw_lookup`
 val _ = export_rewrites["opw_lookup_def"];
 
+val opwb_lookup_def = Define`opwb_lookup=semanticPrimitives$opwb_lookup`
+val _ = export_rewrites["opwb_lookup_def"];
+
 val shift_lookup_def = Define`shift_lookup=semanticPrimitives$shift_lookup`;
 val _ = export_rewrites["shift_lookup_def"];
 

@@ -1012,6 +1012,96 @@ Theorem Eval_w2n
   \\ fs [do_app_def,state_component_equality,NUM_def,INT_def]
   \\ simp[v2n_w2v]);
 
+val tac = rw[Eval_rw] \\ Eval2_tac \\ fs[do_app_def,WORD_def]
+          \\ rw[] \\ fs[state_component_equality,BOOL_def]
+          \\ simp[semanticPrimitivesTheory.opwb_lookup_def]
+
+(* move *)
+
+val word_test_def = Define `
+    word_test x y = (word_and x y = 0w)`
+
+Theorem CART_EQ_INV
+   `!x:('a ** 'b) y. (x = y) = (!i. i < dimindex(:'b) ==> (x ' (dimindex(:'b) - (i+1)) = y ' (dimindex(:'b) - (i+1))))`
+   (rpt STRIP_TAC >> simp[fcpTheory.CART_EQ] >> EQ_TAC >> rpt STRIP_TAC
+    \\ `dimindex(:'b) - (i+1) < dimindex(:'b)` by (Cases_on `dimindex(:'b)` \\ fs[DIMINDEX_GT_0])
+    \\ RES_TAC
+    \\ `i = dimindex(:'b) - (dimindex(:'b) - (i+1) + 1)` by (
+          Cases_on `dimindex(:'b)`
+       \\ simp[INST_TYPE [alpha |-> Type`:'b`] DIMINDEX_GT_0,Once SUB_PLUS,ADD1])
+    \\ fs[]);
+
+Theorem w2v_eq
+   `!x:('a word) y. (w2v x = w2v y) = (x = y)`
+   (simp[w2v_def,GENLIST_FUN_EQ,CART_EQ_INV]);
+
+Theorem Eval_word_lo
+   `Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opwb (dimindex(:'a)) Ltw) [x1;x2])
+      (BOOL (w1 <+ w2))`
+   (tac \\ simp[blt_def,WORD_LO,v2n_w2v]);
+
+Theorem Eval_word_hi
+   `Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opwb (dimindex(:'a)) Gtw) [x1;x2])
+      (BOOL (w1 >+ w2))`
+   (tac \\ simp[bgt_def,WORD_HI,v2n_w2v]);
+
+Theorem Eval_word_ls
+   `Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opwb (dimindex(:'a)) Leqw) [x1;x2])
+      (BOOL (w1 <=+ w2))`
+   (tac \\ simp[bleq_def,WORD_LS,v2n_w2v]);
+
+Theorem Eval_word_hs
+   `Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opwb (dimindex(:'a)) Geqw) [x1;x2])
+      (BOOL (w1 >=+ w2))`
+   (tac \\ simp[bgeq_def,WORD_HS,v2n_w2v]);
+
+Theorem Eval_word_lt
+   `Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opwb (dimindex(:'a)) LtSignw) [x1;x2])
+      (BOOL (w1 < w2))`
+   (tac \\ simp[blt_sign_def,WORD_LTi,v2i_w2v]);
+
+Theorem Eval_word_gt
+   `Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opwb (dimindex(:'a)) GtSignw) [x1;x2])
+      (BOOL (w1 > w2))`
+   (tac \\ simp[bgt_sign_def,WORD_GTi,v2i_w2v]);
+
+Theorem Eval_word_lei
+   `Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opwb (dimindex(:'a)) LeqSignw) [x1;x2])
+      (BOOL (w1 <= w2))`
+   (tac \\ simp[bleq_sign_def,WORD_LEi,v2i_w2v]);
+
+Theorem Eval_word_gei
+   `Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opwb (dimindex(:'a)) GeqSignw) [x1;x2])
+      (BOOL (w1 >= w2))`
+   (tac \\ simp[bgeq_sign_def,WORD_GEi,v2i_w2v]);
+
+Theorem Eval_word_test
+   `Eval env x1 (WORD (w1:'a word)) ==>
+    Eval env x2 (WORD (w2:'a word)) ==>
+    Eval env (App (Opwb (dimindex(:'a)) Test) [x1;x2])
+      (BOOL (word_test w1 w2))`
+   (tac >> simp[word_test_def,band_def,bitwise_w2v_w2v,word_and_def,v2n_w2v,btest_def]
+    >> EQ_TAC >> STRIP_TAC
+       >- fs[GSYM w2v_0w,n2v_def,boolify_def,w2v_eq]
+       >> simp[n2v_def,boolify_def,w2v_0w]);
+
+
 local
   val lemma = Q.prove(
     `(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
