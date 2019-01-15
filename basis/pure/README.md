@@ -15,9 +15,6 @@ Pure functions for the List module.
 [mlmapScript.sml](mlmapScript.sml):
 Pure functions for the Map module.
 
-[mlnumScript.sml](mlnumScript.sml):
-Pure functions for the Num module.
-
 [mloptionScript.sml](mloptionScript.sml):
 Pure functions for the Option module.
 

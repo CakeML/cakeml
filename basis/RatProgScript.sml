@@ -2,12 +2,12 @@
   Module for computing over the rational numbers.
 *)
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
-     mlvectorTheory NumProgTheory basisFunctionsLib
+     mlvectorTheory IntProgTheory basisFunctionsLib
      ratLib gcdTheory ratTheory
 
 val _ = new_theory"RatProg"
 
-val _ = translation_extends "NumProg";
+val _ = translation_extends "IntProg";
 
 val _ = ml_prog_update open_local_block;
 
@@ -684,7 +684,7 @@ val pair_div_side_def = Eval_RAT_DIV
 val toString_def = Define `
   toString (RatPair i n) =
     if n = 1 then mlint$toString i else
-      concat [mlint$toString i ; implode"/" ; mlnum$toString n]`
+      concat [mlint$toString i ; implode"/" ; mlint$toString (&n)]`
 
 val _ = (next_ml_names := ["toString"]);
 val v = translate toString_def;

@@ -15,7 +15,6 @@ Vector
 String
 mlbasics (defines Bool, Pair)
 Int
-Num
 Rat
 Char
 Word64

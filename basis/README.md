@@ -39,9 +39,6 @@ arrays that CakeML foreign-function interface (FFI) uses.
 HOL functions that aid converting to and from the byte arrays that
 CakeML foreign-function interface (FFI) uses.
 
-[NumProgScript.sml](NumProgScript.sml):
-Module containing functios for arithmetic over the natural numbers.
-
 [OptionProgScript.sml](OptionProgScript.sml):
 Module about the option tyoe.
 

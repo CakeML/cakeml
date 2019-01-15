@@ -8,7 +8,6 @@ open
   preamble
   mlstringTheory
   mlintTheory
-  mlnumTheory
   wordsTheory
 
 val _ = new_theory "mlprettyprinter"
@@ -31,23 +30,23 @@ val fromInt_def = Define`
 `
 
 val fromNum_def = Define`
-  fromNum n = List [(mlnum$toString n)]
+  fromNum n = List [(mlint$toString (& n))]
 `
 
 val fromWord8_def = Define`
   fromWord8 (w : 8 word) =
-  List [strlit "0wx"; mlnum$toString (words$w2n w)]
+  List [strlit "0wx"; mlint$toString (& (words$w2n w))]
 `
 
 val fromWord64_def = Define`
   fromWord64 (w : 64 word) =
-  List [strlit "0wx"; mlnum$toString (words$w2n w)]
+  List [strlit "0wx"; mlint$toString (& (words$w2n w))]
 `
 
 val fromRat_def = Define`
   fromRat (n:int, d:num) =
   if d = 1 then List [mlint$toString n]
-  else List [mlint$toString n; strlit "/"; mlnum$toString d]
+  else List [mlint$toString n; strlit "/"; mlint$toString (& d)]
 `
 
 val fromOption_def = Define`
