@@ -3061,6 +3061,16 @@ fun dest_word_shift tm =
   if wordsSyntax.is_word_ror tm then Eval_word_ror else
     failwith("not a word shift")
 
+fun dest_word_cmp tm =
+  if words_extraSyntax.is_word_test tm then Eval_word_test else
+  if wordsSyntax.is_word_lo tm then Eval_word_lo else
+  if wordsSyntax.is_word_hi tm then Eval_word_hi else
+  if wordsSyntax.is_word_ls tm then Eval_word_ls else
+  if wordsSyntax.is_word_hs tm then Eval_word_hs else
+  if wordsSyntax.is_word_lt tm then Eval_word_lt else
+  if wordsSyntax.is_word_gt tm then Eval_word_gt else
+    failwith("not a word comparison")
+
 (* CakeML signature generation and manipulation *)
 val generate_sigs = ref false;
 
