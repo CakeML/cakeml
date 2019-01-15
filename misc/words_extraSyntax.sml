@@ -7,6 +7,6 @@ struct
 
 open words_extraTheory
 
-val (word_test_tm, mk_word_test, dest_word_test, is_word_test) = HolKernel.syntax_fns2 "words_extra"
+val (word_test_tm, mk_word_test, dest_word_test, is_word_test) = HolKernel.syntax_fns2 "words_extra" "word_test"
 
 end
