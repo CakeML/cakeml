@@ -3352,6 +3352,7 @@ fun hol2deep tm =
                    |> REWRITE_RULE []
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_shift" tm result end else
+  (* TODO fix this is a dummy translation *)
   if can dest_word_cmp tm then let
     val lemma = dest_word_cmp tm
     val th1 = hol2deep (tm |> rator |> rand)
