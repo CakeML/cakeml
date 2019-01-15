@@ -53,128 +53,207 @@ val _ = append_prog array_tabulate;
 (*val array_vector = process_topdecs
   `fun vector arr = Vector.tabulate (length arr) (fn i => sub arr i)`*)
 
-val array_copy = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_copy_aux = process_topdecs
   `fun copy_aux src dst di max n =
     if n = max
       then ()
-    else (update dst di (sub src n); copy_aux src dst (di + 1) max (n + 1))
+    else (update dst di (sub src n); copy_aux src dst (di + 1) max (n + 1))`
 
-  fun copy src dst di =
+val _ = append_prog array_copy_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_copy = process_topdecs
+  `fun copy src dst di =
     copy_aux src dst di (length src) 0`
 
 val _ = append_prog array_copy;
 
-val array_copyVec = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_copyVec_aux = process_topdecs
   `fun copyVec_aux src dst di max n =
     if n = max
         then ()
-    else (update dst (di + n) (Vector.sub src n); copyVec_aux src dst di max (n + 1))
+    else (update dst (di + n) (Vector.sub src n); copyVec_aux src dst di max (n + 1))`
 
-  fun copyVec src dst di =
+val _ = append_prog array_copyVec_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_copyVec = process_topdecs
+  `fun copyVec src dst di =
     copyVec_aux src dst di (Vector.length src) 0`
 
 val _ = append_prog array_copyVec;
 
-val array_app = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_app_aux = process_topdecs
   `fun app_aux f arr max n =
     if n = max
       then ()
-    else (f (sub arr n); app_aux f arr max (n + 1))
+    else (f (sub arr n); app_aux f arr max (n + 1))`
 
-  fun app f arr =
+val _ = append_prog array_app_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_app = process_topdecs
+  `fun app f arr =
     app_aux f arr (length arr) 0`
 
 val _ = append_prog array_app;
 
-val array_appi = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_appi_aux = process_topdecs
   `fun appi_aux f arr max n =
     if n = max
       then ()
-    else (f n (sub arr n); app_aux f arr max (n + 1))
+    else (f n (sub arr n); app_aux f arr max (n + 1))`
 
-  fun appi f arr =
+val _ = append_prog array_appi_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_appi = process_topdecs
+  `fun appi f arr =
     appi_aux f arr (length arr) 0`
 
 val _ = append_prog array_appi;
 
-val array_modify = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_modify_aux = process_topdecs
   `fun modify_aux f arr max n =
     if n = max
       then ()
-    else (update arr n (f (sub arr n)); modify_aux f arr max (n + 1))
+    else (update arr n (f (sub arr n)); modify_aux f arr max (n + 1))`
 
-  fun modify f arr =
+val _ = append_prog array_modify_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_modify = process_topdecs
+  `fun modify f arr =
     modify_aux f arr (length arr) 0`
 
 val _ = append_prog array_modify;
 
-val array_modifyi = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_modifyi_aux = process_topdecs
   `fun modifyi_aux f arr max n =
     if n = max
       then ()
-    else (update arr n (f n (sub arr n)); modifyi_aux f arr max (n + 1))
+    else (update arr n (f n (sub arr n)); modifyi_aux f arr max (n + 1))`
 
-  fun modifyi f arr =
+val _ = append_prog array_modifyi_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_modifyi = process_topdecs
+  `fun modifyi f arr =
     modifyi_aux f arr (length arr) 0`
 
 val _ = append_prog array_modifyi;
 
-val array_foldli = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_foldli_aux = process_topdecs
   `fun foldli_aux f init arr max n =
     if n = max
       then init
-    else foldli_aux f (f n (sub arr n) init ) arr max (n + 1)
+    else foldli_aux f (f n (sub arr n) init ) arr max (n + 1)`
 
-  fun foldli f init arr =
+val _ = append_prog array_foldli_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_foldli = process_topdecs
+  `fun foldli f init arr =
     foldli_aux f init arr (length arr) 0`
 
 val _ = append_prog array_foldli;
 
-val array_foldl = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_foldl_aux = process_topdecs
   `fun foldl_aux f init arr max n =
     if n = max
       then init
-    else foldl_aux f (f (sub arr n) init ) arr max (n + 1)
+    else foldl_aux f (f (sub arr n) init ) arr max (n + 1)`
 
-  fun foldl f init arr =
+val _ = append_prog array_foldl_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_foldl = process_topdecs
+  `fun foldl f init arr =
     foldl_aux f init arr (length arr) 0`
 
 val _ = append_prog array_foldl;
 
-val array_foldri = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_foldri_aux = process_topdecs
   `fun foldri_aux f init arr n =
     if n = 0
       then init
-    else foldri_aux f (f (n - 1) (sub arr (n - 1)) init) arr (n - 1)
+    else foldri_aux f (f (n - 1) (sub arr (n - 1)) init) arr (n - 1)`
 
-  fun foldri f init arr =
+val _ = append_prog array_foldri_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_foldri = process_topdecs
+  `fun foldri f init arr =
     foldri_aux f init arr (length arr)`
 
 val _ = append_prog array_foldri;
 
-val array_foldr = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_foldr_aux = process_topdecs
   `fun foldr_aux f init arr n =
     if n = 0
       then init
-    else foldr_aux f (f (sub arr (n - 1)) init) arr (n - 1)
+    else foldr_aux f (f (sub arr (n - 1)) init) arr (n - 1)`
 
-  fun foldr f init arr =
+val _ = append_prog array_foldr_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_foldr = process_topdecs
+  `fun foldr f init arr =
     foldr_aux f init arr (length arr)`
 
 val _ = append_prog array_foldr;
 
-val array_find = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_find_aux = process_topdecs
   `fun find_aux f arr max n =
     if n = max
       then None
     else (if f (sub arr n)
         then Some(sub arr n)
-      else find_aux f arr max (n + 1))
+      else find_aux f arr max (n + 1))`
 
-  fun find f arr =
+val _ = append_prog array_find_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_find = process_topdecs
+  `fun find f arr =
     find_aux f arr (length arr) 0`
 
 val _ = append_prog array_find;
+
+val _ = ml_prog_update open_local_block;
 
 (* Parser bug, see Issue #25 *)
 val array_findi_aux =
@@ -224,48 +303,72 @@ val array_findi_aux =
                                   Var (Short "max")];
                                Var (Short "e")]))))))))))])]``
 
+val _ = append_prog array_findi_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
 val array_findi = process_topdecs
   `fun findi f arr =
     findi_aux f arr (length arr) 0`
 
-val _ = append_prog array_findi_aux;
 val _ = append_prog array_findi;
 
-val array_exists = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_exists_aux = process_topdecs
   `fun exists_aux f arr max n =
     if n = max
       then false
     else (if f (sub arr n)
       then true
-    else exists_aux f arr max (n + 1))
+    else exists_aux f arr max (n + 1))`
 
-  fun exists f arr =
+val _ = append_prog array_exists_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_exists = process_topdecs
+  `fun exists f arr =
     exists_aux f arr (length arr) 0`
 
 val _ = append_prog array_exists;
 
-val array_all = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_all_aux = process_topdecs
   `fun all_aux f arr max n =
     if n = max
       then true
     else (if f (sub arr n)
       then all_aux f arr max (n + 1)
-    else false)
+    else false)`
 
-  fun all f arr =
+val _ = append_prog array_all_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_all = process_topdecs
+  `fun all f arr =
     all_aux f arr (length arr) 0`
 
 val _ = append_prog array_all;
 
-val array_collate = process_topdecs
+val _ = ml_prog_update open_local_block;
+
+val array_collate_aux = process_topdecs
   `fun collate_aux f a1 a2 max ord n =
     if n = max
       then ord
     else (if f (sub a1 n) (sub a2 n) = Equal
         then collate_aux f a1 a2 max ord (n + 1)
-      else f (sub a1 n) (sub a2 n))
+      else f (sub a1 n) (sub a2 n))`
 
-  fun collate f a1 a2 =
+val _ = append_prog array_collate_aux;
+
+val _ = ml_prog_update open_local_in_block;
+
+val array_collate = process_topdecs
+  `fun collate f a1 a2 =
     if (length a1) < (length a2)
       then collate_aux f a1 a2 (length a1) Less 0
     else if (length a2) < (length a1)
@@ -273,6 +376,8 @@ val array_collate = process_topdecs
     else collate_aux f a1 a2 (length a2) Equal 0`
 
 val _ = append_prog array_collate;
+
+val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
 
