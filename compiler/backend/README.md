@@ -174,7 +174,7 @@ string exporter.
 The first intermediate language flatLang. It removes modules and
 resolves all global scoping. Each value definition gets allocated a
 slot in a global variable store, and each type and exception gets a
-unique global identifier.  It removes andalso and orelse and
+unique global identifier. It removes andalso and orelse and
 replaces them with if, and removes the AallocEmpty primitive op and
 replaces it with an alloc call with 0.
 

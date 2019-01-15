@@ -2,9 +2,12 @@
   This compiler phase renames the registers to fit with the target
   architecture.
 *)
-open preamble stackLangTheory;
+
+open preamble stackLangTheory
 
 val _ = new_theory "stack_names";
+
+val _ = set_grammar_ancestry["stackLang"];
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
