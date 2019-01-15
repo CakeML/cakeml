@@ -142,19 +142,21 @@ val consume_space_def = Define `
 
 (* TODO: DEFINE *)
 (* Determines which operations are safe for space *)
-val allowed_op = Define`
-  allowed_op op l = T
+val allowed_op_def = Define`
+  allowed_op (op:closLang$op) (l:num) = T
 `
 
 (* TODO: DEFINE *)
 (* Gives an upper bound to the memory consuption of an operation *)
 val space_consumed_def = Define `
-  space_consumed op l = ARB
+  space_consumed (op:closLang$op) (l:num) = ARB
 `
 
 val _ = overload_on("do_space_safe",
-  ``λop l ^s. s.safe_for_space ∧ allowed_op op l
-              ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit``);
+  ``λop l ^s. if op_space_reset op
+              then s.safe_for_space ∧ allowed_op op l
+                   ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit
+              else s.safe_for_space``);
 
 val do_space_def = Define `
   do_space op l ^s =
@@ -604,6 +606,23 @@ val isBool_def = Define`
   isBool b (Block _ tag []) = (bool_to_tag b = tag)
 ∧ isBool _ _                = F
 `;
+
+val _ = overload_on("evaluate_safe",
+  ``λ(p:prog) ^s.
+      case p of
+        | Assign dest op args names_opt =>
+           if op_requires_names op /\ IS_NONE names_opt
+           then s.safe_for_space
+           else (case cut_state_opt names_opt s of
+                   | NONE => s.safe_for_space
+                   | SOME s =>
+                     (case get_vars args s.locals of
+                        | NONE => s.safe_for_space
+                        | SOME xs => do_app_safe op xs s))
+        | MakeSpace k _ =>
+          (case cut_env names s.locals of
+             | NONE => s.safe_for_space
+             | SOME env => add_space_safe k s)``);
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip,^s) = (NONE,s)) /\
