@@ -250,20 +250,18 @@ val result = translate LUPDATE_def;
 val _ = (next_ml_names := ["compare"]);
 val _ = translate mllistTheory.list_compare_def;
 
+val _ = ml_prog_update open_local_block;
+val res = translate sortingTheory.PART_DEF;
+val res = translate sortingTheory.PARTITION_DEF;
+val _ = ml_prog_update open_local_in_block;
+
+val _ = next_ml_names := ["sort"];
+val res = translate sortingTheory.QSORT_DEF;
+
 val _ =  ml_prog_update close_local_blocks;
 val _ =  ml_prog_update (close_module NONE);
 
-(* sorting -- included here because it depends on List functions like append  *)
-
-val _ = ml_prog_update open_local_block;
-val res = translate sortingTheory.PART_DEF;
-val _ = ml_prog_update open_local_in_block;
-val _ = next_ml_names := ["partition"];
-val res = translate sortingTheory.PARTITION_DEF;
-val res = translate sortingTheory.QSORT_DEF;
-val _ = ml_prog_update close_local_block;
-
-(* finite maps -- similarly *)
+(* finite maps -- depend on lists *)
 
 val _ = ml_prog_update (open_module "Alist");
 
