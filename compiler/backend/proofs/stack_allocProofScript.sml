@@ -1,21 +1,19 @@
 (*
   Correctness proof for stack_alloc
 *)
-open preamble
-     stack_allocTheory
-     stackLangTheory
-     wordSemTheory
-     stackSemTheory
-     stackPropsTheory
+
+open preamble stack_allocTheory
+     stackLangTheory stackSemTheory stackPropsTheory
      word_gcFunctionsTheory
-     local open blastLib in end
+local open blastLib wordSemTheory in end
 
 val _ = new_theory"stack_allocProof";
 val _ = (max_print_depth := 18);
 
 val word_shift_def = backend_commonTheory.word_shift_def
 
-val _ = temp_bring_to_front_overload"compile"{Name="compile",Thy="stack_alloc"};
+val _ = set_grammar_ancestry["stack_alloc", "stackLang", "stackSem", "stackProps"];
+val _ = temp_overload_on("good_dimindex", ``labProps$good_dimindex``);
 
 (* TODO: move and join with stack_remove *)
 
