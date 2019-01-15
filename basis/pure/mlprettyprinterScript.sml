@@ -56,6 +56,15 @@ val fromOption_def = Define`
     | SOME x => Append (List [strlit "SOME "]) (f x)
 `
 
+val fromPair_def = Define`
+  fromPair f1 f2 (x,y) =
+    Append (List [strlit "("])
+   (Append (f1 x)
+   (Append (List [strlit ", "])
+   (Append (f2 y)
+           (List [strlit ")"]))))
+`
+
 val fromList_def = Define`
   fromList f l =
   case l of

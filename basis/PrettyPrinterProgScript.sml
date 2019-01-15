@@ -33,6 +33,7 @@ val _ = tr "fromWord8" fromWord8_def
 val _ = tr "fromWord64" fromWord64_def
 val _ = tr "fromRat" fromRat_def
 val _ = tr "fromOption" fromOption_def
+val _ = tr "fromPair" fromPair_def
 val _ = tr "fromList" fromList_def
 val _ = tr "fromArray" fromArray_def
 val _ = tr "fromVector" fromVector_def
