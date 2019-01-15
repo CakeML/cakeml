@@ -371,6 +371,44 @@ val Eval_REAL_GT = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_GT)
   |> add_user_proved_v_thm;
 
+val pair_compare_def = Define `
+  pair_compare (RatPair n1 d1) (RatPair n2 d2) =
+    let x1 = n1 * & d2 in
+    let x2 = n2 * & d1 in
+      if x1 < x2 then Less else
+      if x2 < x1 then Greater else Equal`
+
+val rat_compare_def = Define `
+  rat_compare (r1:rat) r2 =
+    if r1 < r2 then Less else if r2 < r1 then Greater else Equal`
+
+val _ = next_ml_names := ["compare"];
+val pair_compare_v_thm = translate pair_compare_def;
+
+val Eval_RAT_COMPARE = Q.prove(
+  `!v. (RATIONAL_TYPE --> RATIONAL_TYPE --> ORDERING_TYPE) pair_compare v ==>
+       (RAT_TYPE --> RAT_TYPE --> ORDERING_TYPE) rat_compare v`,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
+                       pair_compare_def,FORALL_PROD] \\ rw [] \\ res_tac
+  \\ pop_assum (strip_assume_tac o SPEC_ALL)
+  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ rw [] \\ first_x_assum drule \\ fs [pair_compare_def]
+  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
+  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
+  \\ pop_assum mp_tac
+  \\ ntac 2 (qpat_x_assum `~_` mp_tac)
+  \\ rpt (pop_assum kall_tac)
+  \\ fs [rat_compare_def]
+  \\ ntac 2 strip_tac
+  \\ match_mp_tac (METIS_PROVE [] ``(x1 = x2) ==> f x1 y ==> f x2 y``)
+  \\ rfs[RAT_LDIV_LES_POS, RDIV_MUL_OUT, RAT_RDIV_LES_POS]
+  \\ full_simp_tac bool_ss [GSYM rat_of_int_of_num, rat_of_int_MUL, rat_of_int_11,
+                            rat_of_int_LT]
+  \\ fs[integerTheory.INT_MUL_COMM])
+  |> (fn th => MATCH_MP th pair_compare_v_thm)
+  |> add_user_proved_v_thm;
+
 val _ = next_ml_names := ["min"];
 val Eval_RAT_MIN = translate rat_min_def;
 
