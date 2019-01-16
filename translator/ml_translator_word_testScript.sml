@@ -42,8 +42,14 @@ val res = translate word_lsr_lsl;
 
 (* TODO fix *)
 (* fails translation with `different constructors`, see ml_translatorLib *)
-val word_and_lt_word_or = Define`word_and_lt_word_or (w1:word64) (w2:word64)
-    = word_lt (word_and w1 w2) (word_or w1 w2)`
-val res = translate word_and_lt_word_or;
+val word_lt_translation_test = Define`word_lt_translation_test (w1:word64) (w2:word64)
+    = (w1 < w2)`
+val res = translate word_lt_translation_test;
+
+val word_lt_translation_test2 = Define`word_lt_translation_test (w1:word64) (w2:word64)
+    = (w1 <+ w2) /\ (w1 < w2)`
+val res = translate word_lt_translation_test2;
+
+
 
 val _ = export_theory();
