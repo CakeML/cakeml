@@ -73,7 +73,7 @@ val example_let_spec = Q.prove (
 )
 
 val alloc_ref2 = process_topdecs
-  `fun alloc_ref2 a b = (ref a, ref b);`
+  `fun alloc_ref2 a b = (Ref a, Ref b);`
 
 val st = ml_progLib.add_prog alloc_ref2 pick_name basis_st
 
@@ -128,7 +128,7 @@ val example_if_spec = Q.prove (
 )
 
 val is_nil = process_topdecs
-  `fun is_nil l = case l of [] => true | x::xs => false`
+  `fun is_nil l = case l of [] => True | x::xs => False`
 
 val st = ml_progLib.add_prog is_nil pick_name basis_st
 
@@ -143,7 +143,7 @@ val is_nil_spec = Q.prove (
 )
 
 val is_none = process_topdecs
-  `fun is_none opt = case opt of None => true | Some _ => false`
+  `fun is_none opt = case opt of None => True | Some _ => False`
 
 val st = ml_progLib.add_prog is_none pick_name basis_st
 
@@ -174,7 +174,7 @@ val example_eq_spec = Q.prove (
 )
 
 val example_and = process_topdecs
-  `fun example_and u = true andalso false`
+  `fun example_and u = True andalso False`
 
 val st = ml_progLib.add_prog example_and pick_name basis_st
 

@@ -318,9 +318,9 @@ val _ = ml_prog_update open_local_block;
 val array_exists_aux = process_topdecs
   `fun exists_aux f arr max n =
     if n = max
-      then false
+      then False
     else (if f (sub arr n)
-      then true
+      then True
     else exists_aux f arr max (n + 1))`
 
 val _ = append_prog array_exists_aux;
@@ -338,10 +338,10 @@ val _ = ml_prog_update open_local_block;
 val array_all_aux = process_topdecs
   `fun all_aux f arr max n =
     if n = max
-      then true
+      then True
     else (if f (sub arr n)
       then all_aux f arr max (n + 1)
-    else false)`
+    else False)`
 
 val _ = append_prog array_all_aux;
 

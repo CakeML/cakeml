@@ -57,8 +57,8 @@ val _ = trans "^" mlstringSyntax.strcat_tm;
 
 val _ = append_prog
   ``[mk_binop ":=" Opassign;
-     mk_unop "!" Opderef;
-     mk_unop "ref" Opref]``
+     mk_unop "!" Opderef
+  (* mk_unop "ref" Opref *)]``
 
 fun prove_ref_spec op_name =
   xcf op_name (get_ml_prog_state()) \\
@@ -66,10 +66,12 @@ fun prove_ref_spec op_name =
   reduce_tac \\ fs [app_ref_def, app_deref_def, app_assign_def] \\
   xsimpl \\ fs [UNIT_TYPE_def]
 
+(*
 Theorem ref_spec
   `!xv. app (p:'ffi ffi_proj) ^(fetch_v "op ref" (get_ml_prog_state ())) [xv]
           emp (POSTv rv. rv ~~> xv)`
   (prove_ref_spec "op ref");
+*)
 
 Theorem deref_spec
   `!xv. app (p:'ffi ffi_proj) ^(fetch_v "op !" (get_ml_prog_state ())) [rv]
