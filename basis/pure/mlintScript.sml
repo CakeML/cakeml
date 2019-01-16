@@ -116,6 +116,8 @@ Theorem toString_thm
     \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
     \\ simp[] ));
 
+val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
+val _ = overload_on("toString",``num_to_str``);
 
 (* fromString Definitions *)
 val fromChar_unsafe_def = Define`

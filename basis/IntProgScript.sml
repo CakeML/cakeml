@@ -55,13 +55,27 @@ val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["toString"];
 
-val result = translate
+val toString_v_thm = translate
   (toString_def |> REWRITE_RULE[maxSmall_DEC_def])
 val tostring_side = Q.prove(
   `∀x. tostring_side x = T`,
   rw[definition"tostring_side_def"]
   \\ intLib.COOPER_TAC)
   |> update_precondition;
+
+val toString_v_thm = toString_v_thm
+  |> DISCH_ALL |> REWRITE_RULE [tostring_side,ml_translatorTheory.PRECONDITION_def]
+  |> ml_translatorLib.remove_Eq_from_v_thm;
+
+val Eval_NUM_toString = Q.prove(
+  `!v. (INT --> STRING_TYPE) toString v ==>
+       (NUM --> STRING_TYPE) num_to_str v`,
+  simp [ml_translatorTheory.Arrow_def,
+    ml_translatorTheory.AppReturns_def,num_to_str_def,
+    ml_translatorTheory.NUM_def,PULL_EXISTS,FORALL_PROD]
+  \\ rw [] \\ res_tac)
+  |> (fn th => MATCH_MP th toString_v_thm)
+  |> add_user_proved_v_thm;
 
 val _ = ml_prog_update open_local_block;
 
