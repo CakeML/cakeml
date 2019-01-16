@@ -1,7 +1,7 @@
 (* NB, 6561 (3^8) and 40000 (2^7 * 5^5) are chosen to be relatively prime so
  * that all element of the array are hit *)
 
-val with_inserts = false
+val with_inserts = False
 
 fun insert1 a n l =
   if n < l then

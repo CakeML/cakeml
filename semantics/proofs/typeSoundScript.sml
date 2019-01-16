@@ -128,7 +128,7 @@ val has_lists_v_to_list = Q.prove (
    metis_tac [same_type_def, stamp_nchotomy]) >>
  rw [] >>
  full_simp_tac(srw_ss())[ctMap_has_lists_def] >>
- `cn = "::" ∨ cn = "nil"` by metis_tac [NOT_SOME_NONE] >>
+ `cn = "::" ∨ cn = "[]"` by metis_tac [NOT_SOME_NONE] >>
  srw_tac[][] >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
@@ -168,7 +168,7 @@ Theorem ctor_canonical_values_thm
     full_simp_tac std_ss [ctMap_has_bools_def, Boolv_def, type_num_defs, ctMap_ok_def] >>
     imp_res_tac type_funs_Tfn
     >- (
-      `stamp = TypeStamp "true" bool_type_num ∨ stamp = TypeStamp "false" bool_type_num`
+      `stamp = TypeStamp "True" bool_type_num ∨ stamp = TypeStamp "False" bool_type_num`
         by metis_tac [NOT_SOME_NONE, same_type_def, stamp_nchotomy] >>
       var_eq_tac >>
       rpt (qpat_x_assum `LIST_REL _ _ _` mp_tac) >>

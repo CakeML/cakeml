@@ -234,9 +234,9 @@ val _ = append_prog array_findi;
 val array_exists = process_topdecs
   `fun exists_aux f arr max n =
     if n = max
-      then false
+      then False
     else (if f (sub arr n)
-      then true
+      then True
     else exists_aux f arr max (n + 1))
 
   fun exists f arr =
@@ -247,10 +247,10 @@ val _ = append_prog array_exists;
 val array_all = process_topdecs
   `fun all_aux f arr max n =
     if n = max
-      then true
+      then True
     else (if f (sub arr n)
       then all_aux f arr max (n + 1)
-    else false)
+    else False)
 
   fun all f arr =
     all_aux f arr (length arr) 0`

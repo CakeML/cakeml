@@ -2,8 +2,8 @@ datatype 'a q = QUEUE of 'a list * 'a list;
 val empty = QUEUE [] [];
 fun is_empty q =
   case q
-  of QUEUE [] xs => true
-  |  _ => false;
+  of QUEUE [] xs => True
+  |  _ => False;
 fun reverse_aux l acc =
   case l
   of [] => acc

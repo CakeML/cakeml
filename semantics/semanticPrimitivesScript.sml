@@ -427,7 +427,7 @@ val _ = Define `
 (*val v_to_list : v -> maybe (list v)*)
  val v_to_list_defn = Defn.Hol_multi_defns `
  ((v_to_list:v ->((v)list)option) (Conv (SOME stamp) [])=
-   (if stamp = TypeStamp "nil" list_type_num then
+   (if stamp = TypeStamp "[]" list_type_num then
     SOME []
   else
     NONE))
@@ -445,7 +445,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 (*val list_to_v : list v -> v*)
  val list_to_v_defn = Defn.Hol_multi_defns `
- ((list_to_v:(v)list -> v) []=  (Conv (SOME (TypeStamp "nil" list_type_num)) []))
+ ((list_to_v:(v)list -> v) []=  (Conv (SOME (TypeStamp "[]" list_type_num)) []))
 /\ ((list_to_v:(v)list -> v) (x::xs)=  (Conv (SOME (TypeStamp "::" list_type_num)) [x; list_to_v xs]))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) list_to_v_defn;
@@ -453,7 +453,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 (*val v_to_char_list : v -> maybe (list char)*)
  val v_to_char_list_defn = Defn.Hol_multi_defns `
  ((v_to_char_list:v ->((char)list)option) (Conv (SOME stamp) [])=
-   (if stamp = TypeStamp "nil" list_type_num then
+   (if stamp = TypeStamp "[]" list_type_num then
     SOME []
   else
     NONE))
@@ -566,8 +566,8 @@ val _ = Define `
 (*val Boolv : bool -> v*)
 val _ = Define `
  ((Boolv:bool -> v) b=  (if b
-  then Conv (SOME (TypeStamp "true" bool_type_num)) []
-  else Conv (SOME (TypeStamp "false" bool_type_num)) []))`;
+  then Conv (SOME (TypeStamp "True" bool_type_num)) []
+  else Conv (SOME (TypeStamp "False" bool_type_num)) []))`;
 
 
 val _ = Hol_datatype `

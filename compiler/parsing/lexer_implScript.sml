@@ -116,7 +116,6 @@ Theorem get_token_eqn
                  else
                    if s = "raise" then RaiseT else
                    if s = "rec" then RecT else
-                   if s = "ref" then RefT else
                    AlphaT s
                else
                  if c = #"s" then
@@ -147,10 +146,10 @@ Theorem get_token_eqn
                tac >>
                full_simp_tac (srw_ss()) [])
            [``#"a"``, ``#"c"``, ``#"d"``, ``#"e"``, ``#"f"``, ``#"h"``,
-            ``#"i"``, ``#"l"``, ``#"o"``, ``#"r"``, ``#"s"``, ``#"t"``, ``#"w"``,
-            ``#"v"``, ``#"'"``, ``#"."``, ``#":"``, ``#"-"``, ``#"="``, ``#"#"``,
-            ``#"("``, ``#")"``, ``#"*"``, ``#","``, ``#";"``, ``#"|"``, ``#"["``,
-            ``#"]"``, ``#"_"``, ``#"{"``, ``#"}"``] >>
+            “#"i"”, ``#"l"``, ``#"o"``, ``#"r"``, ``#"s"``, ``#"t"``, ``#"w"``,
+            “#"v"”, ``#"'"``, ``#"."``, ``#":"``, ``#"-"``, ``#"="``, ``#"#"``,
+            “#"("”, ``#")"``, ``#"*"``, ``#","``, ``#";"``, ``#"|"``, ``#"["``,
+            “#"]"”, ``#"_"``, ``#"{"``, ``#"}"``] >>
  full_simp_tac (srw_ss()) [get_token_def] >>
  rw [processIdent_def, isAlphaNum_def, isAlpha_def, isDigit_def,
      isLower_def, isUpper_def] >>

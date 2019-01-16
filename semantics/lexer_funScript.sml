@@ -340,7 +340,6 @@ val get_token_def = zDefine `
     if s = "orelse" then OrelseT else
     if s = "raise" then RaiseT else
     if s = "rec" then RecT else
-    if s = "ref" then RefT else
     if s = "sharing" then SharingT else
     if s = "sig" then SigT else
     if s = "signature" then SignatureT else

@@ -1197,7 +1197,7 @@ val LIST_TYPE_def = Define `
        a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
   !a v.
      LIST_TYPE a [] v <=>
-     v = Conv (SOME (TypeStamp "nil" 1)) []`
+     v = Conv (SOME (TypeStamp "[]" 1)) []`
 
 val LIST_TYPE_SIMP' = Q.prove(
   `!xs b. CONTAINER LIST_TYPE
