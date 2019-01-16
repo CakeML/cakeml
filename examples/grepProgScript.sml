@@ -398,7 +398,7 @@ val _ = append_prog print_matching_lines;
 
 Theorem print_matching_lines_spec
   `(STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
-   FD fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
+   OUTSTREAM fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
    IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ⇒
    app (p:'ffi ffi_proj)
      ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
@@ -491,7 +491,7 @@ val print_matching_lines_in_file = process_topdecs`
   fun print_matching_lines_in_file m file =
     let val fd = TextIO.openIn file
     in (print_matching_lines m (String.concat[file,":"]) fd;
-        TextIO.close fd)
+        TextIO.closeIn fd)
     end handle TextIO.BadFileName =>
         TextIO.output TextIO.stdErr (notfound_string file)`;
 val _ = append_prog print_matching_lines_in_file;
@@ -550,7 +550,7 @@ Theorem print_matching_lines_in_file_spec
     \\ simp[get_mode_def]
     \\ DEP_REWRITE_TAC[ALOOKUP_inFS_fname_openFileFS_nextFD]
     \\ simp[] )
-  \\ xapp_spec close_STDIO_spec
+  \\ xapp_spec closeIn_STDIO_spec
   \\ instantiate
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'' ==>> _`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs''`
