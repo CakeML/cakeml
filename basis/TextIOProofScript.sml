@@ -11,8 +11,6 @@ val _ = new_theory"TextIOProof";
 val _ = translation_extends "TextIOProg";
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
-val basis_st = get_ml_prog_state;
-
 (* heap predicate for the file-system state *)
 
 val IOFS_iobuff_def = Define`
@@ -576,7 +574,7 @@ Theorem openIn_spec
   `∀s sv fs.
      FILENAME s sv ∧
      hasFreeFD fs ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.openIn" (basis_st())) [sv]
+     app (p:'ffi ffi_proj) TextIO_openIn_v [sv]
        (IOFS fs)
        (POST
           (\fdv. &(INSTREAM (nextFD fs) fdv ∧
@@ -585,7 +583,7 @@ Theorem openIn_spec
                 IOFS (openFileFS s fs ReadMode 0))
           (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs)
           (\n c b. &F))`
-  (xcf "TextIO.openIn" (basis_st()) >>
+  (xcf_with_def "TextIO.openIn" TextIO_openIn_v_def >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
   qmatch_goalsub_abbrev_tac`catfs fs` >>
@@ -660,7 +658,7 @@ Theorem openIn_STDIO_spec
   `∀s sv fs.
      FILENAME s sv ∧
      hasFreeFD fs ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.openIn" (basis_st())) [sv]
+     app (p:'ffi ffi_proj) TextIO_openIn_v [sv]
        (STDIO fs)
        (POST
           (\fdv. &(INSTREAM (nextFD fs) fdv ∧
@@ -681,13 +679,13 @@ Theorem openIn_STDIO_spec
 Theorem closeIn_spec
   `∀fdw fdv fs.
      INSTREAM fdw fdv ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.closeIn" (basis_st())) [fdv]
+     app (p:'ffi ffi_proj) TextIO_closeIn_v [fdv]
        (IOFS fs)
        (POST (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
                  IOFS (fs with infds updated_by A_DELKEY fdw))
              (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs)
              (\n c b. &F))`
-  (xcf "TextIO.closeIn" (basis_st()) >>
+  (xcf_with_def "TextIO.closeIn" TextIO_closeIn_v_def >>
   fs[IOFS_def, IOFS_iobuff_def,INSTREAM_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
   xlet_auto >- xsimpl >> fs [get_in_def] >>
@@ -722,13 +720,13 @@ Theorem closeIn_spec
 Theorem closeOut_spec
   `∀fdw fdv fs.
      OUTSTREAM fdw fdv ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.closeOut" (basis_st())) [fdv]
+     app (p:'ffi ffi_proj) TextIO_closeOut_v [fdv]
        (IOFS fs)
        (POST (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
                  IOFS (fs with infds updated_by A_DELKEY fdw))
              (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs)
              (\n c b. &F))`
-  (xcf "TextIO.closeOut" (basis_st()) >>
+  (xcf_with_def "TextIO.closeOut" TextIO_closeOut_v_def >>
   fs[IOFS_def, IOFS_iobuff_def,OUTSTREAM_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
   xlet_auto >- xsimpl >> fs [get_out_def] >>
@@ -763,7 +761,7 @@ Theorem closeOut_spec
 Theorem closeIn_STDIO_spec
   `∀fd fs fdv.
      INSTREAM fd fdv /\ fd >= 3 /\ fd <= fs.maxFD ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.closeIn" (basis_st())) [fdv]
+     app (p:'ffi ffi_proj) TextIO_closeIn_v [fdv]
        (STDIO fs)
        (POST (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
                  STDIO (fs with infds updated_by A_DELKEY fd))
@@ -781,7 +779,7 @@ Theorem closeIn_STDIO_spec
 Theorem closeOut_STDIO_spec
   `∀fd fs fdv.
      OUTSTREAM fd fdv /\ fd >= 3 /\ fd <= fs.maxFD ⇒
-     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.closeOut" (basis_st())) [fdv]
+     app (p:'ffi ffi_proj) TextIO_closeOut_v [fdv]
        (STDIO fs)
        (POST (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
                  STDIO (fs with infds updated_by A_DELKEY fd))
@@ -803,7 +801,7 @@ Theorem writei_spec
   get_mode fs fd = SOME WriteMode ⇒
   FD fd fdv ⇒ NUM n nv ⇒ NUM i iv ⇒
   bc = h1 :: h2 :: h3 :: h4 :: rest ⇒
-  app (p:'ffi ffi_proj) ^(fetch_v "TextIO.writei" (basis_st())) [fdv;nv;iv]
+  app (p:'ffi ffi_proj) TextIO_writei_v [fdv;nv;iv]
   (IOx fs_ffi_part fs * W8ARRAY iobuff_loc bc)
   (POST
     (\nwv. SEP_EXISTS nw. &(NUM nw nwv) * &(nw > 0) * &(nw <= n) *
@@ -827,7 +825,7 @@ Theorem writei_spec
   map_every qid_spec_tac [`bc`, `h4`, `h3`, `h2`, `h1`, `fs`] >>
   NTAC 2 (FIRST_X_ASSUM MP_TAC) >> qid_spec_tac `ll` >>
   HO_MATCH_MP_TAC always_eventually_ind >>
-  xcf "TextIO.writei" (basis_st()) >> fs[FD_def]
+  xcf_with_def "TextIO.writei" TextIO_writei_v_def >> fs[FD_def]
 (* next el is <> 0 *)
   >-(sg`Lnext_pos ll = 0`
      >-(fs[Lnext_pos_def,Once Lnext_def,liveFS_def,live_numchars_def,always_thm] >>
@@ -937,7 +935,7 @@ Theorem write_spec
    get_mode fs fd = SOME WriteMode ⇒
    FD fd fdv ⇒ NUM n nv ⇒ NUM i iv ⇒
    bc = h1 :: h2 :: h3 :: h4 :: rest ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.write" (basis_st())) [fdv;nv;iv]
+   app (p:'ffi ffi_proj) TextIO_write_v [fdv;nv;iv]
    (IOx fs_ffi_part fs * W8ARRAY iobuff_loc bc)
    (POSTv nwv. SEP_EXISTS k.
       IOFS(fsupdate fs fd k (pos + n)
@@ -946,7 +944,7 @@ Theorem write_spec
   (strip_tac >> `?N. n <= N` by (qexists_tac`n` >> fs[]) >>
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`n` >>
   Induct_on`N` >>
-  xcf "TextIO.write" (basis_st())
+  xcf_with_def "TextIO.write" TextIO_write_v_def
   >>(xlet_auto >- xsimpl >> xif
          >-(TRY instantiate >> xcon >>
                 simp[IOFS_iobuff_def,IOFS_def] >> xsimpl >> qexists_tac`0` >>
@@ -986,12 +984,13 @@ Theorem output1_spec
     get_file_content fs fd = SOME(content, pos) ⇒
     get_mode fs fd = SOME WriteMode ⇒
     CHAR c cv ⇒ OUTSTREAM fd fdv ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.output1" (basis_st())) [fdv; cv]
+    app (p:'ffi ffi_proj) TextIO_output1_v [fdv; cv]
     (IOFS fs)
     (POSTv uv.
       &UNIT_TYPE () uv * SEP_EXISTS k.
       IOFS (fsupdate fs fd k (pos+1) (insert_atI [c] pos content)))`
-  (xcf "TextIO.output1" (basis_st()) >> fs[IOFS_def,IOFS_iobuff_def] >>
+  (xcf_with_def "TextIO.output1" TextIO_output1_v_def >>
+  fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ bdef`] >>
   ntac 3 (xlet_auto >- xsimpl) >>
   fs [OUTSTREAM_def] >>
@@ -1010,7 +1009,7 @@ Theorem output1_STDIO_spec
   `!fd. get_file_content fs fd = SOME(content, pos) ∧
         get_mode fs fd = SOME WriteMode ∧
    CHAR c cv ∧ OUTSTREAM fd fdv ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.output1" (basis_st())) [fdv; cv]
+   app (p:'ffi ffi_proj) TextIO_output1_v [fdv; cv]
    (STDIO fs)
    (POSTv uv.
      &UNIT_TYPE () uv *
@@ -1048,7 +1047,7 @@ val tac =
 
 Theorem output1_stdout_spec
   `CHAR c cv ∧ fdv = stdout_v ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.output1" (basis_st()))
+   app (p:'ffi ffi_proj) TextIO_output1_v
      [fdv; cv] (STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (str c)))`
   (reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ strip_tac \\ xpull)
@@ -1058,7 +1057,7 @@ Theorem output1_stdout_spec
 
 Theorem output1_stderr_spec
   `CHAR c cv ∧ fdv = stderr_v ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.output1" (basis_st()))
+   app (p:'ffi ffi_proj) TextIO_output1_v
      [fdv; cv] (STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs (str c)))`
   (reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ strip_tac \\ xpull)
@@ -1071,7 +1070,7 @@ Theorem output_spec
     OUTSTREAM fd fdv ⇒ STRING_TYPE s sv ⇒
     (get_file_content fs fd = SOME(content, pos)) ⇒
     (get_mode fs fd = SOME WriteMode) ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.output" (basis_st())) [fdv; sv]
+    app (p:'ffi ffi_proj) TextIO_output_v [fdv; sv]
     (IOFS fs)
     (POSTv uv. &(UNIT_TYPE () uv) *
        SEP_EXISTS k. IOFS (fsupdate fs fd k (pos + (strlen s))
@@ -1080,7 +1079,8 @@ Theorem output_spec
   `?n. strlen s <= n` by (qexists_tac`strlen s` >> fs[]) >>
   FIRST_X_ASSUM MP_TAC >> qid_spec_tac`s` >>
   Induct_on`n` >>
-  xcf "TextIO.output" (basis_st()) >> fs[IOFS_def,IOFS_iobuff_def] >>
+  xcf_with_def "TextIO.output" TextIO_output_v_def >>
+  fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ buff`] >>
   Cases_on `buff` >> fs[] >> qmatch_goalsub_rename_tac`h1 :: t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1 :: h2 :: t` >>
@@ -1154,7 +1154,7 @@ Theorem output_spec
 Theorem output_STDIO_spec
   `!fd fdv fs content pos s.
    OUTSTREAM fd fdv ∧ get_file_content fs fd = SOME (content,pos) ∧ get_mode fs fd = SOME WriteMode ∧ STRING_TYPE s sv ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.output" (basis_st())) [fdv;sv]
+   app (p:'ffi ffi_proj) TextIO_output_v [fdv;sv]
    (STDIO fs)
    (POSTv uv. &(UNIT_TYPE () uv) *
       STDIO (fsupdate fs fd 0 (pos+strlen s) (insert_atI (explode s) pos content)))`
@@ -1182,10 +1182,10 @@ Theorem output_STDIO_spec
 Theorem print_spec
   `!fs sv s.
     STRING_TYPE s sv ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.print" (basis_st())) [sv]
+    app (p:'ffi ffi_proj) TextIO_print_v [sv]
     (STDIO fs)
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stdout fs s))`
-  (xcf "TextIO.print" (basis_st())
+  (xcf_with_def "TextIO.print" TextIO_print_v_def
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ xapp_spec output_STDIO_spec
   \\ tac);
@@ -1212,7 +1212,7 @@ Theorem EvalM_print
 Theorem output_stderr_spec
   `!fs sv s fdv.
     STRING_TYPE s sv ∧ fdv = stderr_v ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.output" (basis_st())) [fdv;sv]
+    app (p:'ffi ffi_proj) TextIO_output_v [fdv;sv]
     (STDIO fs)
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs s))`
   (rpt strip_tac
@@ -1223,10 +1223,10 @@ Theorem output_stderr_spec
 Theorem print_err_spec
   `!fs sv s.
     STRING_TYPE s sv ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.print_err" (basis_st())) [sv]
+    app (p:'ffi ffi_proj) TextIO_print_err_v [sv]
     (STDIO fs)
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs s))`
-  (xcf "TextIO.print_err" (basis_st())
+  (xcf_with_def "TextIO.print_err" TextIO_print_err_v_def
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ xapp_spec output_stderr_spec \\ fs []);
 
@@ -1253,7 +1253,7 @@ Theorem EvalM_print_err
 Theorem read_spec
   `!fs fd fdv n nv. wfFS fs ⇒ FD fd fdv ⇒ NUM n nv ⇒
    n < 256**2 ⇒ MAX n 2048 <= LENGTH rest ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.read" (basis_st())) [fdv;nv]
+   app (p:'ffi ffi_proj) TextIO_read_v [fdv;nv]
    (W8ARRAY iobuff_loc (h1::h2::h3::h4::rest) * IOx fs_ffi_part fs)
    (POST
      (\nrv. SEP_EXISTS (nr : num).
@@ -1268,7 +1268,8 @@ Theorem read_spec
         MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest))
      (\e. &InvalidFD_exn e * &(get_file_content fs fd = NONE ∨ get_mode fs fd ≠ SOME ReadMode) * IOFS fs)
      (\n c b. &F))`
-   (xcf "TextIO.read" (basis_st()) >> fs[IOFS_def,IOFS_iobuff_def] >>
+   (xcf_with_def "TextIO.read" TextIO_read_v_def >>
+   fs[IOFS_def,IOFS_iobuff_def] >>
    xlet_auto >- xsimpl >>
    simp[insert_atI_def,n2w2_def] >>
    cases_on`get_file_content fs fd`
@@ -1350,7 +1351,7 @@ Theorem read_byte_spec
     FD fd fdv ⇒
     get_file_content fs fd = SOME(content, pos) ⇒
     get_mode fs fd = SOME ReadMode ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.read_byte" (basis_st())) [fdv]
+    app (p:'ffi ffi_proj) TextIO_read_byte_v [fdv]
     (IOFS fs)
     (POST (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
                 eof fd fs = SOME F) *
@@ -1358,7 +1359,7 @@ Theorem read_byte_spec
           (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
                 IOFS(bumpFD fd fs 0))
           (\n c b. &F))`
-  (xcf "TextIO.read_byte" (basis_st()) >>
+  (xcf_with_def "TextIO.read_byte" TextIO_read_byte_v_def >>
   fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ bdef`] >>
   Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1 :: t` >>
@@ -1379,7 +1380,7 @@ Theorem read_byte_STDIO_spec
   ` FD fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
     get_file_content fs fd = SOME(content, pos) ⇒
     get_mode fs fd = SOME ReadMode ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.read_byte" (basis_st())) [fdv]
+    app (p:'ffi ffi_proj) TextIO_read_byte_v [fdv]
     (STDIO fs)
     (POST (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
                 eof fd fs = SOME F) *
@@ -1400,7 +1401,7 @@ Theorem input1_spec
   ` INSTREAM fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
     get_file_content fs fd = SOME(content, pos) ⇒
     get_mode fs fd = SOME ReadMode ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.input1" (basis_st())) [fdv]
+    app (p:'ffi ffi_proj) TextIO_input1_v [fdv]
     (STDIO fs)
     (POSTv v.
       case eof fd fs of
@@ -1411,7 +1412,7 @@ Theorem input1_spec
         &OPTION_TYPE CHAR NONE v *
         STDIO (bumpFD fd fs 0)
       | _ => &F)`
-  (xcf"TextIO.input1"(get_ml_prog_state())
+  (xcf_with_def "TextIO.input1" TextIO_input1_v_def
   \\ xhandle`POST (λv. &OPTION_TYPE CHAR (SOME (EL pos content)) v *
                        STDIO (forwardFD fs fd 1) * &(eof fd fs = SOME F))
                   (λe. &EndOfFile_exn e * STDIO fs * &(eof fd fs = SOME T))
@@ -1440,13 +1441,13 @@ Theorem input_IOFS_spec
     INSTREAM fd fdv ∧ NUM off offv ∧ NUM len lenv ∧
     get_file_content fs fd = SOME(content, pos) ⇒
     get_mode fs fd = SOME ReadMode ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.input" (basis_st())) [fdv; bufv; offv; lenv]
+    app (p:'ffi ffi_proj) TextIO_input_v [fdv; bufv; offv; lenv]
     (IOFS fs * W8ARRAY bufv buf)
     (POSTv nv. &(NUM (MIN len (LENGTH content - pos)) nv) *
        W8ARRAY bufv (insert_atI (TAKE len (DROP pos (MAP (n2w o ORD) content)))
                                  off buf) *
        SEP_EXISTS k. IOFS (fsupdate fs fd k (MIN (len + pos) (MAX pos (LENGTH content))) content))`
-  (xcf "TextIO.input" (basis_st()) >>
+  (xcf_with_def "TextIO.input" TextIO_input_v_def >>
   reverse(Cases_on`pos ≤ LENGTH content`) >- (
     imp_res_tac get_file_content_eof \\ rfs[] \\
     reverse(Cases_on`wfFS fs`) >- (fs[IOFS_def] \\ xpull) \\
@@ -1629,7 +1630,7 @@ Theorem input_spec
     INSTREAM fd fdv ∧ NUM off offv ∧ NUM len lenv ∧
     get_file_content fs fd = SOME(content, pos) ⇒
     get_mode fs fd = SOME ReadMode ⇒
-    app (p:'ffi ffi_proj) ^(fetch_v "TextIO.input" (basis_st())) [fdv; bufv; offv; lenv]
+    app (p:'ffi ffi_proj) TextIO_input_v [fdv; bufv; offv; lenv]
     (STDIO fs * W8ARRAY bufv buf)
     (POSTv nv. &(NUM (MIN len (LENGTH content - pos)) nv) *
        W8ARRAY bufv (insert_atI (TAKE len (DROP pos (MAP (n2w o ORD) content)))
@@ -1659,9 +1660,9 @@ Theorem input_spec
 
 Theorem extend_array_spec
     `∀arrv arr.
-     app (p:'ffi ffi_proj) ^(fetch_v "TextIO.extend_array" (get_ml_prog_state())) [arrv] (W8ARRAY arrv arr)
+     app (p:'ffi ffi_proj) TextIO_extend_array_v [arrv] (W8ARRAY arrv arr)
        (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))`
-    (xcf"TextIO.extend_array"(get_ml_prog_state())
+    (xcf_with_def "TextIO.extend_array" TextIO_extend_array_v_def
     \\ ntac 5 (xlet_auto >- xsimpl)
     \\ xret \\ xsimpl
     \\ simp[DROP_REPLICATE] );
@@ -1669,13 +1670,13 @@ Theorem extend_array_spec
 Theorem inputLine_spec
   `INSTREAM fd fdv ∧ IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.inputLine" (get_ml_prog_state())) [fdv]
+   app (p:'ffi ffi_proj) TextIO_inputLine_v [fdv]
      (STDIO fs)
      (POSTv sov.
        &OPTION_TYPE STRING_TYPE (OPTION_MAP implode (lineFD fs fd)) sov *
        STDIO (lineForwardFD fs fd))`
-  (strip_tac
-  \\ xcf "TextIO.inputLine" (get_ml_prog_state()) >>
+  (strip_tac \\
+  xcf_with_def "TextIO.inputLine" TextIO_inputLine_v_def \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   qpat_abbrev_tac`protect = STDIO fs` \\
@@ -1949,8 +1950,7 @@ Theorem inputLines_spec
    get_file_content fs fd = SOME (content,pos) ∧
    get_mode fs fd = SOME ReadMode
    ⇒
-   app (p:'ffi ffi_proj)
-     ^(fetch_v "TextIO.inputLines"(get_ml_prog_state())) [fdv]
+   app (p:'ffi ffi_proj) TextIO_inputLines_v [fdv]
      (STDIO fs)
      (POSTv fcv.
        &LIST_TYPE STRING_TYPE
@@ -1963,7 +1963,7 @@ Theorem inputLines_spec
     \\ `LENGTH content - pos = 0` by simp[]
     \\ pop_assum SUBST1_TAC
     \\ `DROP pos content = []` by fs[DROP_NIL]
-    \\ xcf"TextIO.inputLines"(get_ml_prog_state())
+    \\ xcf_with_def "TextIO.inputLines" TextIO_inputLines_v_def
     \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
     \\ xlet_auto >- xsimpl
     \\ rfs[std_preludeTheory.OPTION_TYPE_def,lineFD_def]
@@ -1973,7 +1973,7 @@ Theorem inputLines_spec
     \\ xsimpl
     \\ fs[LIST_TYPE_def])
   \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
-  \\ xcf"TextIO.inputLines"(get_ml_prog_state())
+  \\ xcf_with_def "TextIO.inputLines" TextIO_inputLines_v_def
   \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
   \\ xlet_auto >- xsimpl
   \\ rfs[lineFD_def]
@@ -2018,7 +2018,7 @@ Theorem inputLines_spec
 Theorem inputLinesFrom_spec
   `FILENAME f fv /\ hasFreeFD fs
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"TextIO.inputLinesFrom"(get_ml_prog_state()))
+   app (p:'ffi ffi_proj) TextIO_inputLinesFrom_v
      [fv]
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
@@ -2026,7 +2026,7 @@ Theorem inputLinesFrom_spec
                SOME(all_lines fs (File f))
              else NONE) sv
              * STDIO fs)`
-  (xcf"TextIO.inputLinesFrom"(get_ml_prog_state())
+  (xcf_with_def "TextIO.inputLinesFrom" TextIO_inputLinesFrom_v_def
   \\ reverse(xhandle`POST
        (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
          (if inFS_fname fs (File f)
@@ -2131,12 +2131,12 @@ Theorem inputAll_spec
   `INSTREAM fd fdv ∧
    get_file_content fs fd = SOME (content,pos) ⇒
    get_mode fs fd = SOME ReadMode ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.inputAll" (get_ml_prog_state())) [fdv]
+   app (p:'ffi ffi_proj) TextIO_inputAll_v [fdv]
    (STDIO fs)
    (POSTv v.
      &STRING_TYPE (implode (DROP pos content)) v *
      STDIO (fastForwardFD fs fd))`
-  (xcf"TextIO.inputAll" (get_ml_prog_state()) \\
+  (xcf_with_def "TextIO.inputAll" TextIO_inputAll_v_def \\
   reverse(Cases_on`pos ≤ LENGTH content`)
   >- (
     xfun_spec `inputAll_aux`
@@ -2276,10 +2276,11 @@ Theorem inputAll_spec
 
 Theorem print_list_spec
   `∀ls lv fs out. LIST_TYPE STRING_TYPE ls lv ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "TextIO.print_list" (get_ml_prog_state())) [lv]
+   app (p:'ffi ffi_proj) TextIO_print_list_v [lv]
      (STDIO fs)
      (POSTv v. &UNIT_TYPE () v * STDIO (add_stdout fs (concat ls)))`
-  (Induct \\ rw[LIST_TYPE_def] \\ xcf "TextIO.print_list" (get_ml_prog_state())
+  (Induct \\ rw[LIST_TYPE_def]
+  \\ xcf_with_def "TextIO.print_list" TextIO_print_list_v_def
   \\ (reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull))
   \\ xmatch
   >- (xcon \\ fs[STD_streams_stdout,add_stdo_nil] \\ xsimpl)
