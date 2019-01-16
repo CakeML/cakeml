@@ -29,7 +29,8 @@ val inf_eval = computeLib.CBV_CONV cmp
 *)
 
 local
-  val test = inf_eval ``infertype_prog init_config (TAKE 7300 basis)``
+  (* val test = inf_eval ``infertype_prog init_config (TAKE 62 basis)`` works *)
+  val test = inf_eval ``infertype_prog init_config basis`` works
 in
   val print_types = let
     val x = test |> concl |> rhs
