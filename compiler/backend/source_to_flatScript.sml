@@ -58,6 +58,7 @@ val astOp_to_flatOp_def = Define `
     Opn opn => flatLang$Opn opn
   | Opb opb => flatLang$Opb opb
   | Opw word_size opw => flatLang$Opw word_size opw
+  | Opwb word_size opwb => flatLang$Opwb word_size opwb
   | Shift word_size shift num => flatLang$Shift word_size shift num
   | FP_cmp cmp => flatLang$FP_cmp cmp
   | FP_uop uop => flatLang$FP_uop uop

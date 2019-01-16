@@ -31,6 +31,7 @@ val _ = Datatype `
   | Opb opb
   (* Operations on words *)
   | Opw word_size opw
+  | Opwb word_size opwb
   | Shift word_size shift num
   | Equality
   (* FP operations *)
