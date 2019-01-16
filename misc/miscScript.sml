@@ -278,57 +278,11 @@ val lemmas = Q.prove(
     (2 * m + 1 <> 2 * n' + 2)`,
   intLib.ARITH_TAC);
 
-(* should be map (K a) (map f t) = map (K a) t *)
-Theorem map_map_K
-  `!t. map (K a) (map (K a) t) = map (K a) t`
-  (Induct \\ full_simp_tac(srw_ss())[map_def]);
-
-Theorem lookup_map_K
-  `!t n. lookup n (map (K x) t) = if n IN domain t then SOME x else NONE`
-  (Induct \\ full_simp_tac(srw_ss())[IN_domain,map_def,lookup_def]
-  \\ REPEAT STRIP_TAC \\ Cases_on `n = 0` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `EVEN n` \\ full_simp_tac(srw_ss())[]);
-
 val lookup_any_def = Define `
   lookup_any x sp d =
     case lookup x sp of
     | NONE => d
     | SOME m => m`;
-
-(* TODO - candidate for move to HOL *)
-val alist_insert_def = Define `
-  (alist_insert [] xs t = t) /\
-  (alist_insert vs [] t = t) /\
-  (alist_insert (v::vs) (x::xs) t = insert v x (alist_insert vs xs t))`
-
-val alist_insert_ind = theorem "alist_insert_ind";
-
-Theorem lookup_alist_insert
-  `!x y t z. LENGTH x = LENGTH y ==>
-    (lookup z (alist_insert x y t) =
-    case ALOOKUP (ZIP(x,y)) z of SOME a => SOME a | NONE => lookup z t)`
-    (ho_match_mp_tac (fetch "-" "alist_insert_ind")>>
-    srw_tac[][]>-
-      (full_simp_tac(srw_ss())[LENGTH,alist_insert_def]) >>
-    Cases_on`z=x`>>
-      srw_tac[][lookup_def,alist_insert_def]>>
-    full_simp_tac(srw_ss())[lookup_insert])
-
-(* TODO - candidate for move to HOL *)
-Theorem domain_alist_insert
-  `!a b locs. LENGTH a = LENGTH b ==>
-    domain (alist_insert a b locs) = domain locs UNION set a`
-  (Induct_on`a`>>Cases_on`b`>>full_simp_tac(srw_ss())[alist_insert_def]>>srw_tac[][]>>
-  metis_tac[INSERT_UNION_EQ,UNION_COMM])
-
-(* TODO - candidate for move to HOL *)
-Theorem alist_insert_append
-  `∀a1 a2 s b1 b2.
-   LENGTH a1 = LENGTH a2 ⇒
-   alist_insert (a1++b1) (a2++b2) s =
-   alist_insert a1 a2 (alist_insert b1 b2 s)`
-  (ho_match_mp_tac alist_insert_ind
-  \\ simp[alist_insert_def,LENGTH_NIL_SYM]);
 
 val fromList2_def = Define `
   fromList2 l = SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (0,LN) l)`
@@ -4894,56 +4848,6 @@ Theorem TWOxDIV2
   (ONCE_REWRITE_TAC[MULT_COMM]
   \\ simp[MULT_DIV]);
 
-(* TODO - candidate for move to HOL *)
-Theorem wf_LN[simp]
-  `wf LN` (rw[sptreeTheory.wf_def]);
-
-(*This property is frequently used in other sptree proofs*)
-val splem1 = Q.prove(`
-  a ≠ 0 ⇒
-  (a-1) DIV 2 < a`,
-  simp[DIV_LT_X]);
-
-val splem2 = Q.prove(`
-  ∀a c.
-  a ≠ 0 ∧
-  a < c ∧
-  2 ≤ c-a ⇒
-  (a - 1) DIV 2 < (c-1) DIV 2`,
-  intLib.ARITH_TAC);
-
-val EVEN_ODD_diff = Q.prove(`
-  ∀a c.
-  a < c ∧
-  (EVEN a ∧ EVEN c ∨ ODD a ∧ ODD c) ⇒
-  2 ≤ c-a`,
-  intLib.ARITH_TAC);
-
-val splem3 = Q.prove(`
-  (EVEN c ∧ EVEN a ∨ ODD a ∧ ODD c) ∧
-  a ≠ c ∧ a ≠ 0 ∧ c ≠ 0 ⇒
-  (a-1) DIV 2 ≠ (c-1) DIV 2`,
-  intLib.ARITH_TAC);
-
-Theorem insert_swap `
-  ∀t a b c d.
-  a ≠ c ⇒
-  insert a b (insert c d t) = insert c d (insert a b t)`
-  (completeInduct_on`a`>>
-  completeInduct_on`c`>>
-  Induct>>
-  rw[]>>
-  simp[Once insert_def,SimpRHS]>>
-  simp[Once insert_def]>>
-  ntac 2 IF_CASES_TAC>>
-  fs[]>>
-  rw[]>>
-  simp[Once insert_def,SimpRHS]>>
-  simp[Once insert_def]>>
-  imp_res_tac splem1>>
-  imp_res_tac splem3>>
-  metis_tac[EVEN_ODD])
-
 Theorem alist_insert_pull_insert
   `∀xs ys z. ¬MEM x xs ⇒
    alist_insert xs ys (insert x y z) =
@@ -4960,18 +4864,6 @@ Theorem alist_insert_REVERSE
   \\ gen_tac \\ Cases \\ simp[alist_insert_def]
   \\ simp[alist_insert_append,alist_insert_def]
   \\ rw[] \\ simp[alist_insert_pull_insert]);
-
-Theorem insert_unchanged `
-  ∀t x.
-  lookup x t = SOME y ⇒
-  insert x y t = t`
-  (completeInduct_on`x`>>
-  Induct>>
-  fs[lookup_def]>>rw[]>>
-  simp[Once insert_def,SimpRHS]>>
-  simp[Once insert_def]>>
-  imp_res_tac splem1>>
-  metis_tac[])
 
 Theorem alist_insert_ALL_DISTINCT `
   ∀xs ys t ls.
