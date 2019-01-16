@@ -12,7 +12,21 @@ val _ = translation_extends "MarshallingProg";
 
 val _ = ml_prog_update (open_module "TextIO");
 
-val () = generate_sigs := true;
+val _ = Datatype `instream = Instream mlstring`;
+val _ = Datatype `outstream = Outstream mlstring`;
+
+val get_out_def = Define `get_out (Outstream s) = s`;
+val get_in_def  = Define `get_in  (Instream s) = s`;
+
+val _ = (use_full_type_names := false);
+val _ = register_type ``:instream``;
+val _ = register_type ``:outstream``;
+val _ = (use_full_type_names := true);
+
+val _ = (next_ml_names := ["get_out"]);
+val _ = translate get_out_def;
+val _ = (next_ml_names := ["get_in"]);
+val _ = translate get_in_def;
 
 val _ = process_topdecs `
   exception BadFileName;
@@ -56,12 +70,15 @@ val eval_thm = let
 val _ = ml_prog_update (add_Dlet eval_thm "iobuff" []);
 
 (* stdin, stdout, stderr *)
-val stdIn_def0 = Define`stdIn:mlstring= strlit (MAP (CHR o w2n) (n2w8 0))`
-val stdIn_def = stdIn_def0 |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
-val stdOut_def0 = Define`stdOut:mlstring= strlit (MAP (CHR o w2n) (n2w8 1))`;
-val stdOut_def = stdOut_def0 |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
-val stdErr_def0 = Define`stdErr:mlstring= strlit (MAP (CHR o w2n) (n2w8 2))`;
-val stdErr_def = stdErr_def0 |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+val stdIn_def = Define`
+  stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))`
+  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+val stdOut_def = Define`
+  stdOut = Outstream (strlit (MAP (CHR o w2n) (n2w8 1)))`
+  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+val stdErr_def = Define`
+  stdErr = Outstream (strlit (MAP (CHR o w2n) (n2w8 2)))`
+  |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def];
 val _ = next_ml_names := ["stdIn","stdOut","stdErr"];
 val r = translate stdIn_def;
 val r = translate stdOut_def;
@@ -94,7 +111,7 @@ val _ =
 (* Output functions on given file descriptor *)
 val _ =
   process_topdecs` fun output1 fd c =
-    (Word8Array.update iobuff 4 (Word8.fromInt(Char.ord c)); write fd 1 0; ())
+    (Word8Array.update iobuff 4 (Word8.fromInt(Char.ord c)); write (get_out fd) 1 0; ())
     ` |> append_prog
 
 (* writes a string into a file *)
@@ -104,7 +121,7 @@ val _ =
   let val z = String.size s
       val n = if z <= 2048 then z else 2048
       val fl = Word8Array.copyVec s 0 n iobuff 4
-      val a = write fd n 0 in
+      val a = write (get_out fd) n 0 in
          output fd (String.substring s n (z-n))
   end;
   fun print s = output stdOut s
@@ -121,20 +138,28 @@ fun openIn fname =
   let val b = Word8Array.array 9 (Word8.fromInt 0)
       val a = #(open_in) (fname^^(String.str (Char.chr 0))) b in
         if Word8Array.sub b 0 = Word8.fromInt 0
-        then Word8Array.substring b 1 8
+        then Instream (Word8Array.substring b 1 8)
         else raise BadFileName
   end
 fun openOut fname =
   let val b = Word8Array.array 9 (Word8.fromInt 0)
       val a = #(open_out) (fname^^(String.str (Char.chr 0))) b in
         if Word8Array.sub b 0 = Word8.fromInt 0
-        then Word8Array.substring b 1 8
+        then Outstream (Word8Array.substring b 1 8)
         else raise BadFileName
   end` |> append_prog
 val _ = process_topdecs`
 
-fun close fd =
-  let val a = #(close) fd iobuff in
+fun closeOut fd =
+  let val a = #(close) (get_out fd) iobuff in
+        if Word8Array.sub iobuff 0 = Word8.fromInt 0
+        then () else raise InvalidFD
+  end` |> append_prog
+
+val _ = process_topdecs`
+
+fun closeIn fd =
+  let val a = #(close) (get_in fd) iobuff in
         if Word8Array.sub iobuff 0 = Word8.fromInt 0
         then () else raise InvalidFD
   end` |> append_prog
@@ -157,7 +182,7 @@ fun read_byte fd =
 ` |> append_prog
 
 val _ = (append_prog o process_topdecs)`
-  fun input1 fd = Some (Char.chr(Word8.toInt(read_byte fd))) handle EndOfFile => None`
+  fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
 
 (* val input : in_channel -> bytes -> int -> int -> int
 * input ic buf pos len reads up to len characters from the given channel ic,
@@ -167,7 +192,7 @@ val _ =
   process_topdecs`
 fun input fd buff off len =
 let fun input0 off len count =
-    let val nread = read fd (min len 2048) in
+    let val nread = read (get_in fd) (min len 2048) in
         if nread = 0 then count else
           (Word8Array.copy iobuff 4 nread buff off;
            input0 (off + nread) (len - nread) (count + nread))
@@ -194,7 +219,7 @@ val () = (append_prog o process_topdecs)`
       fun inputLine_aux arr i =
         if i < Word8Array.length arr then
           let
-            val c = read_byte fd
+            val c = read_byte (get_in fd)
             val u = Word8Array.update arr i c
           in
             if c = nl then Some (Word8Array.substring arr 0 (i+1))
@@ -293,7 +318,7 @@ val _ = (append_prog o process_topdecs) `
       val fd = openIn fname
       val lines = inputLines fd
     in
-      close fd; Some lines
+      closeIn fd; Some lines
     end handle BadFileName => None`;
 
 (* read everything (same semantics as SML's TextIO.inputAll) *)
