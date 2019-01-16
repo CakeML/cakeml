@@ -409,7 +409,7 @@ fun create_store_X_hprop refs_manip_list
                          farrays_locs
                          state_type
                          store_hprop_name
-                         store_pinv_opt
+                         store_pinv_def_opt
                          extra_hprop =
   let
     val state_var = mk_var("state", state_type)
@@ -474,10 +474,10 @@ fun create_store_X_hprop refs_manip_list
     val store_hprop = list_mk mk_star (refs_hprops @ rarrays_hprops @ farrays_hprops @ extra_hprops) emp_const
     val store_hprop = SIMP_CONV bool_ss [STAR_ASSOC] store_hprop |> concl |> dest_eq |> snd
                       handle UNCHANGED => store_hprop
-    val store_hprop = case store_pinv_opt of
+    val store_hprop = case store_pinv_def_opt of
                         SOME pinv_def =>
                         mk_star(store_hprop,
-                                mk_cond(mk_comb(concl pinv_def |> lhs, state_var)))
+                                mk_cond(mk_comb( (concl pinv_def |> lhs) , state_var)))
                       | NONE => store_hprop
     val store_hprop = mk_abs(state_var, store_hprop)
 
@@ -1255,6 +1255,8 @@ fun translate_static_init_fixed_store refs_init_list rarrays_init_list farrays_i
     val farrays_locs = List.map (lhs o concl) farrays_locs_defs
 
     val store_pinv_def_opt = get_store_pinv_def_opt store_pinv_opt
+
+(************************************************************************************************************* PROBLEM HERE *)
     val store_X_hprop_def =
       create_store_X_hprop refs_manip_list
                            refs_locs

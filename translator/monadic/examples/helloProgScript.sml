@@ -6,8 +6,9 @@
 (* Load the CakeML basic stuff *)
 open preamble basisProgTheory
 
-(* The ml_monadBaseLib is necessary to define the references and arrays manipulation functions
- * automatically.
+(*
+ * The ml_monadBaseLib is necessary to define the references and arrays
+ * manipulation functions automatically.
  *)
 open ml_monadBaseLib
 open ml_monadStoreLib
@@ -32,7 +33,8 @@ val _ = ParseExtras.temp_loose_equality();
 val _ = monadsyntax.temp_add_monadsyntax();
 
 (* Pattern matching
- * Note that `dtcase` has to be used from now on in the function definitions (and not `case`)
+ * Note that `dtcase` has to be used from now on in the
+ * function definitions (and not `case`)
  *)
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -61,10 +63,12 @@ val [(the_num_ref_name, get_the_num_ref_def, set_the_num_ref_def),
 (* Those functions too can be defined by hand:
 
 val get_the_num_ref_def =
-Define `get_the_num_ref = \(state : state_refs). (Success state.the_num, state)`;
+Define `get_the_num_ref =
+            \(state : state_refs). (Success state.the_num, state)`;
 
 val set_the_num_ref_def =
-Define `set_the_num_ref n = \(state : state_refs). (Success (), state with the_num := n)`;
+Define `set_the_num_ref n =
+          \(state : state_refs). (Success (), state with the_num := n)`;
 
 val access_funs = [("the_num_ref", get_the_num_ref_def, set_the_num_ref_def)];
 

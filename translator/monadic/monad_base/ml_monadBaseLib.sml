@@ -5,41 +5,22 @@
 
 structure ml_monadBaseLib :> ml_monadBaseLib = struct
 
-open preamble ml_monadBaseTheory TypeBase
-open ParseDatatype Datatype
-open packLib
+open preamble ml_monadBaseTheory TypeBase ParseDatatype Datatype packLib
 
 (***************************************************************)
 (* COPY/PASTE from ml_monad_translatorLib *)
 
-fun my_list_mk_comb (f, xs) =
-  let
-    fun mk_type_rec f_ty [] = failwith "mk_type_rec"
-      | mk_type_rec f_ty [x] =
+fun my_list_mk_comb (comb, []) = comb
+  | my_list_mk_comb (comb, arg::args) =
+    let val comb_ty = type_of comb in
+      (case snd (dest_type comb_ty) of
+        [comb_ty1, comb_tys] =>
           let
-            val ty1 = dest_type f_ty |> snd |> hd
-          in
-            (ty1, x)
-          end
-      | mk_type_rec f_ty (x_ty::x_ty'::tys) =
-          let
-            val (ty1, ty2) =
-              case dest_type f_ty |> snd of
-                [ty1,ty2] => (ty1, ty2)
-              | _ => fail ()
-            val (ty3,args_ty) = mk_type_rec ty2 (x_ty'::tys)
-            val ty4 = mk_type ("fun", [ty1, ty3])
-            val args_ty = mk_type ("fun", [x_ty, args_ty])
-          in
-            (ty4, args_ty)
-          end
-    val args_types = List.map type_of xs
-    val (src_ty, target_ty) = mk_type_rec (type_of f) args_types
-    val tys = Type.match_type src_ty target_ty
-    val f = Term.inst tys f
-  in
-    list_mk_comb (f, xs)
-  end
+            val subst = Type.match_type comb_ty1 (type_of arg)
+            val comb' = Term.inst subst comb
+          in my_list_mk_comb (mk_comb(comb', arg), args) end
+      | _ => failwith "my_list_mk_comb")
+    end;
 
 (***************************************************************)
 
@@ -330,9 +311,16 @@ fun define_monad_access_funs data_type =
         val ty = dest_type (type_of set_f) |> snd |> List.hd |> dest_type |> snd |> List.hd
         val tyK = Term.inst [a_ty |-> ty] K_const
         val var = mk_var("x", ty)
-        val set_f' = mk_abs(var, mk_comb(set_f, mk_comb(tyK, var)))
+        val app_tyK_var = mk_comb(tyK, var)
+        val set_f_inp_ty = type_of set_f |> dest_type |> snd |> List.hd
+        val ty_subst = (match_type set_f_inp_ty (type_of(app_tyK_var))
+          handle _ => [])
+        val set_f' = inst ty_subst set_f
+        val ty_subst = (match_type (type_of (app_tyK_var)) set_f_inp_ty
+          handle _ => [])
+        val app_tyK_var' = inst ty_subst app_tyK_var
       in
-        set_f'
+        mk_abs(var, mk_comb(set_f', app_tyK_var'))
       end
 
     val abs_updates = List.map abstract_update updates
