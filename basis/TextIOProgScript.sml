@@ -12,6 +12,8 @@ val _ = translation_extends "MarshallingProg";
 
 val _ = ml_prog_update (open_module "TextIO");
 
+val _ = ml_prog_update open_local_block;
+
 val _ = Datatype `instream = Instream mlstring`;
 val _ = Datatype `outstream = Outstream mlstring`;
 
@@ -28,11 +30,20 @@ val _ = translate get_out_def;
 val _ = (next_ml_names := ["get_in"]);
 val _ = translate get_in_def;
 
+val _ = ml_prog_update open_local_in_block;
+
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "instream" (Atapp [] (Short "instream"))`` I);
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "outstream" (Atapp [] (Short "outstream"))`` I);
+
 val _ = process_topdecs `
   exception BadFileName;
   exception InvalidFD;
   exception EndOfFile
 ` |> append_prog
+
+val _ = ml_prog_update open_local_block;
 
 fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
@@ -69,6 +80,8 @@ val eval_thm = let
 
 val _ = ml_prog_update (add_Dlet eval_thm "iobuff" []);
 
+val _ = ml_prog_update open_local_in_block;
+
 (* stdin, stdout, stderr *)
 val stdIn_def = Define`
   stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))`
@@ -83,6 +96,8 @@ val _ = next_ml_names := ["stdIn","stdOut","stdErr"];
 val r = translate stdIn_def;
 val r = translate stdOut_def;
 val r = translate stdErr_def;
+
+val _ = ml_prog_update open_local_block;
 
 (* writei: higher-lever write function which calls #write until something is written or
 * a filesystem error is raised and outputs the number of bytes written.
@@ -107,6 +122,8 @@ val _ =
       if n = 0 then () else
         let val nw = writei fd n i in
           if nw < n then write fd (n-nw) (i+nw) else () end` |> append_prog
+
+val _ = ml_prog_update open_local_in_block;
 
 (* Output functions on given file descriptor *)
 val _ =
@@ -164,6 +181,8 @@ fun closeIn fd =
         then () else raise InvalidFD
   end` |> append_prog
 
+val _ = ml_prog_update open_local_block;
+
 (* wrapper for ffi call *)
 val _ = process_topdecs`
   fun read fd n =
@@ -180,6 +199,8 @@ fun read_byte fd =
     if read fd 1 = 0 then raise EndOfFile
     else Word8Array.sub iobuff 4
 ` |> append_prog
+
+val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
   fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
@@ -200,6 +221,8 @@ let fun input0 off len count =
 in input0 off len 0 end
 ` |> append_prog
 
+val _ = ml_prog_update open_local_block;
+
 (* helper function:
    extend a byte array, or, more accurately
    copy a byte array into a new one twice the size *)
@@ -209,6 +232,8 @@ val () = (append_prog o process_topdecs)`
       val len = Word8Array.length arr
       val arr' = Word8Array.array (2*len) (Word8.fromInt 0)
     in (Word8Array.copy arr 0 len arr' 0; arr') end`;
+
+val _ = ml_prog_update open_local_in_block;
 
 (* read a line (same semantics as SML's TextIO.inputLine) *)
 (* simple, inefficient version that reads 1 char at a time *)
@@ -338,9 +363,7 @@ val () = (append_prog o process_topdecs)`
         end
       in inputAll_aux (Word8Array.array 127 (Word8.fromInt 0)) 0 end`;
 
-(* TODO: need signatures for the non-translated functions as well *)
-val sigs_subset = module_signatures ["stdIn", "stdOut", "stdErr"];
-
-val _ = ml_prog_update (close_module (SOME sigs_subset));
+val _ = ml_prog_update close_local_blocks;
+val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();
