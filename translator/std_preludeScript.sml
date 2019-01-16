@@ -30,16 +30,12 @@ val res = translate UNCURRY;
 
 val _ = next_ml_names := ["o"];
 val res = translate o_DEF;
-val _ = next_ml_names := ["I"];
+val _ = next_ml_names := ["id"];
 val res = translate I_THM;
-val _ = next_ml_names := ["C"];
+val _ = next_ml_names := ["flip"];
 val res = translate C_DEF;
-val _ = next_ml_names := ["K"];
+val _ = next_ml_names := ["const"];
 val res = translate K_DEF;
-val _ = next_ml_names := ["S"];
-val res = translate S_DEF;
-val _ = next_ml_names := ["W"];
-val res = translate W_DEF;
 val res = translate UPDATE_def;
 
 (* arithmetic *)

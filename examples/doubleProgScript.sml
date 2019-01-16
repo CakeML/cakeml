@@ -104,7 +104,7 @@ Theorem double_tail_rec_spec
 
 val double_ref = process_topdecs `
     fun double_ref x =
-        if !x = 0 then (ref 0) else
+        if !x = 0 then (Ref 0) else
             (
                 x := (!x - 1);
                 (let val result = (double_ref x) in

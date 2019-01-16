@@ -23,7 +23,7 @@ val _ = Hol_datatype `
 | BarT | RbraceT | AndT | AndalsoT | AsT | CaseT | DatatypeT
 | ElseT | EndT | EqtypeT | ExceptionT | FnT | FunT | HandleT | IfT
 | InT | IncludeT | LetT | LocalT | OfT | OpT
-| OpenT | OrelseT | RaiseT | RecT | RefT | SharingT | SigT | SignatureT | StructT
+| OpenT | OrelseT | RaiseT | RecT | SharingT | SigT | SignatureT | StructT
 | StructureT | ThenT | TypeT | ValT | WhereT | WhileT | WithT | WithtypeT
 | IntT of int
 | HexintT of string
