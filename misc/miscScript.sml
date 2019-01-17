@@ -304,20 +304,10 @@ Theorem EVEN_fromList2
     |> SIMP_RULE (srw_ss()) [GSYM fromList2_def]
     |> GEN_ALL) \\ full_simp_tac(srw_ss())[]);
 
-(* TODO - candidate for move to HOL *)
-Theorem SUBMAP_FDOM_SUBSET
-  `f1 ⊑ f2 ⇒ FDOM f1 ⊆ FDOM f2`
-  (srw_tac[][SUBMAP_DEF,SUBSET_DEF])
-
 (* already in HOL as SUBMAP_FRANGE *)
 Theorem SUBMAP_FRANGE_SUBSET
   `f1 ⊑ f2 ⇒ FRANGE f1 ⊆ FRANGE f2`
   (srw_tac[][SUBMAP_DEF,SUBSET_DEF,IN_FRANGE] >> metis_tac[])
-
-(* TODO - candidate for move to HOL *)
-Theorem SUBMAP_FLOOKUP_EQN
-  `f ⊑ g ⇔ (∀x y. FLOOKUP f x = SOME y ⇒ FLOOKUP g x = SOME y)`
-  (rw[SUBMAP_DEF,FLOOKUP_DEF] \\ METIS_TAC[]);
 
 Theorem SUBMAP_mono_FUPDATE_LIST
   `∀ls f g.
@@ -339,15 +329,6 @@ Theorem SUBMAP_DRESTRICT
    DRESTRICT f1 s1 ⊑ DRESTRICT f2 s2`
   (rw[SUBMAP_DEF,FDOM_DRESTRICT,SUBSET_DEF,DRESTRICT_DEF]);
 
-(* TODO - candidate for move to HOL *)
-val FDIFF_def = Define `
-  FDIFF f1 s = DRESTRICT f1 (COMPL s)`;
-
-(* TODO - candidate for move to HOL *)
-Theorem FDOM_FDIFF
-  `x IN FDOM (FDIFF refs f2) <=> x IN FDOM refs /\ ~(x IN f2)`
-  (full_simp_tac(srw_ss())[FDIFF_def,DRESTRICT_DEF]);
-
 Theorem INJ_FAPPLY_FUPDATE
   `INJ ($' f) (FDOM f) (FRANGE f) ∧
    s = k INSERT FDOM f ∧ v ∉ FRANGE f ∧
@@ -358,22 +339,6 @@ Theorem INJ_FAPPLY_FUPDATE
   pop_assum mp_tac >> srw_tac[][] >>
   full_simp_tac(srw_ss())[IN_FRANGE] >>
   METIS_TAC[])
-
-val NUM_NOT_IN_FDOM =
-  MATCH_MP IN_INFINITE_NOT_FINITE (CONJ INFINITE_NUM_UNIV
-    (Q.ISPEC `f:num|->'a` FDOM_FINITE))
-  |> SIMP_RULE std_ss [IN_UNIV]
-  |> curry save_thm "NUM_NOT_IN_FDOM";
-
-val EXISTS_NOT_IN_FDOM_LEMMA = Q.prove(
-  `?x. ~(x IN FDOM (refs:num|->'a))`,
-  METIS_TAC [NUM_NOT_IN_FDOM]);
-
-(* TODO - candidate for move to HOL *)
-Theorem LEAST_NOTIN_FDOM
-  `(LEAST ptr. ptr NOTIN FDOM (refs:num|->'a)) NOTIN FDOM refs`
-  (ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
-           SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ full_simp_tac(srw_ss())[]);
 
 (* TODO - candidate for move to HOL *)
 Theorem LEAST_LESS_EQ
@@ -721,21 +686,6 @@ Theorem MEM_anub_ALOOKUP
   Q.ISPECL_THEN [`ls`,`k`,`[]`] assume_tac (GEN_ALL ALOOKUP_anub)>>
   full_simp_tac(srw_ss())[]>>
   metis_tac[ALOOKUP_ALL_DISTINCT_MEM])
-
-(* TODO - candidate for move to HOL *)
-Theorem FEMPTY_FUPDATE_EQ
-  `∀x y. (FEMPTY |+ x = FEMPTY |+ y) ⇔ (x = y)`
-  (Cases >> Cases >> srw_tac[][fmap_eq_flookup,FDOM_FUPDATE,FLOOKUP_UPDATE] >>
-  Cases_on`q=q'`>>srw_tac[][] >- (
-    srw_tac[][EQ_IMP_THM] >>
-    pop_assum(qspec_then`q`mp_tac) >> srw_tac[][] ) >>
-  qexists_tac`q`>>srw_tac[][])
-
-(* TODO - candidate for move to HOL *)
-Theorem FUPDATE_LIST_EQ_FEMPTY
-  `∀fm ls. fm |++ ls = FEMPTY ⇔ fm = FEMPTY ∧ ls = []`
-  (srw_tac[][EQ_IMP_THM,FUPDATE_LIST_THM] >>
-  full_simp_tac(srw_ss())[GSYM fmap_EQ_THM,FDOM_FUPDATE_LIST])
 
 Theorem IS_SOME_EXISTS
   `∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x`
