@@ -103,6 +103,8 @@ val pair_toString_def = Define `
             strlit")"]`;
 
 val _ = ml_prog_update (open_module "Pair");
+val _ = (next_ml_names := ["map"]);
+val _ = translate pairTheory.PAIR_MAP_THM;
 val _ = (next_ml_names := ["toString"]);
 val _ = translate pair_toString_def;
 val _ = (next_ml_names := ["compare"]);
