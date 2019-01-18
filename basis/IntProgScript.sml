@@ -137,6 +137,9 @@ val fromString_side = Q.prove(
   \\ match_mp_tac fromchars_side_thm
   \\ rw[]) |> update_precondition;
 
+val _ = next_ml_names := ["fromNatString"];
+val result = translate fromNatString_def;
+
 (* GCD *)
 
 val gcd_def = Define `
