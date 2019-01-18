@@ -447,7 +447,7 @@ Theorem ALOOKUP_key_remap_2 `
   first_assum(qspecl_then[`h`,`n`] assume_tac)>>
   IF_CASES_TAC>>full_simp_tac(srw_ss())[]);
 
-val lookup_alist_insert = miscTheory.lookup_alist_insert |> INST_TYPE [alpha|->``:'a word_loc``]
+val lookup_alist_insert = sptreeTheory.lookup_alist_insert |> INST_TYPE [alpha|->``:'a word_loc``]
 
 val strong_locals_rel_subset = Q.prove(`
   s ⊆ s' ∧

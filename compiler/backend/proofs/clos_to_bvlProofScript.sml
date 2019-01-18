@@ -3636,8 +3636,8 @@ Theorem compile_exps_correct
         \\ MATCH_MP_TAC v_rel_NEW_REF \\ full_simp_tac(srw_ss())[]
         \\ MATCH_MP_TAC v_rel_NEW_F \\ full_simp_tac(srw_ss())[])
       \\ conj_tac >-
-       (full_simp_tac(srw_ss())[SUBMAP_DEF,FAPPLY_FUPDATE_THM,FDOM_FDIFF] \\ SRW_TAC [][] \\ METIS_TAC [] ) >>
-      full_simp_tac(srw_ss())[SUBMAP_DEF,FDOM_FDIFF,FAPPLY_FUPDATE_THM,FDIFF_def,DRESTRICT_DEF] >> srw_tac[][] >> METIS_TAC[])
+       (full_simp_tac(srw_ss())[SUBMAP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [][] \\ METIS_TAC [] ) >>
+      full_simp_tac(srw_ss())[SUBMAP_DEF,FAPPLY_FUPDATE_THM,FDIFF_def,DRESTRICT_DEF] >> srw_tac[][] >> METIS_TAC[])
     \\ Cases_on `op = Update` \\ full_simp_tac(srw_ss())[] THEN1
      (full_simp_tac(srw_ss())[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ fs[case_eq_thms,bool_case_eq] \\ rveq

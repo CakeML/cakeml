@@ -818,7 +818,7 @@ Theorem compile_exps_evaluate
     \\ metis_tac [LIST_REL_LENGTH, evaluate_length, LENGTH_REVERSE, ctor_rel_def])
   >-
    (every_case_tac \\ fs [] \\ rw [] \\ fs [env_rel_def]
-    \\ map_every imp_res_tac [nv_rel_ALOOKUP_v_rel, MEM_LIST_REL] \\ rfs [])
+    \\ map_every imp_res_tac [nv_rel_ALOOKUP_v_rel, LIST_REL_MEM_IMP] \\ rfs [])
   >- (simp [Once v_rel_cases] \\ metis_tac [env_rel_def])
   >- (* App *)
    (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
