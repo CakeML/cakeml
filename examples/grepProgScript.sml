@@ -398,7 +398,7 @@ val _ = append_prog print_matching_lines;
 
 Theorem print_matching_lines_spec
   `(STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
-   OUTSTREAM fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
+   INSTREAM fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
    IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ⇒
    app (p:'ffi ffi_proj)
      ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]

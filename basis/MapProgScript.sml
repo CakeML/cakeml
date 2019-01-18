@@ -10,10 +10,13 @@ val _ = new_theory "MapProg"
 
 val _ = translation_extends "ArrayProg";
 
+val _ = (use_full_type_names := false);
+val _ = register_type ``:('a,'b) balanced_map$balanced_map``;
+val _ = (use_full_type_names := true);
+
 val _ = ml_prog_update open_local_block;
 
 val _ = (use_full_type_names := false);
-val _ = register_type ``:('a,'b) balanced_map$balanced_map``;
 val _ = register_type ``:('a,'b) mlmap$map``;
 val _ = (use_full_type_names := true);
 
