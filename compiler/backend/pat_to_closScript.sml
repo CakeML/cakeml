@@ -59,10 +59,13 @@ val compile_def = tDefine"compile" `
     Handle tra (compile e1) (compile e2)) ∧
   (compile (Lit tra (IntLit i)) =
     Op tra (Const i) []) ∧
-  (compile (Lit tra (Word8 w)) =
-    Op tra (Const (& (w2n w))) []) ∧
-  (compile (Lit tra (Word64 w)) =
-    Op (tra§0) WordFromInt [Op (tra§1) (Const (&(w2n w))) []]) ∧
+  (compile (Lit tra (Word w)) =
+    (* TODO check whether LENGTH w <= machines word size - tag bits
+            fill in the following dummy condition *)
+    if LENGTH w <= 64 then
+      Op tra (Const (&(v2n w))) []
+    else
+      Op (tra§0) (WordFromInt (LENGTH w)) [Op (tra§1) (Const (&(v2n w))) []]) ∧
   (compile (Lit tra (Char c)) =
     Op tra (Const (& ORD c)) []) ∧
   (compile (Lit tra (StrLit s)) =
@@ -95,9 +98,10 @@ val compile_def = tDefine"compile" `
           (Raise (tra§5) (Op (tra§6) (Cons div_tag) []))
           (Op (tra§7) Mod [Var (tra§8) 0; Var (tra§9) 1]))) ∧
   (compile (App tra (Op (Opw wz opw)) es) =
-      Op tra (WordOp wz opw) (REVERSE (MAP compile es))) ∧
+    Op tra (WordOp wz opw) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Shift wz sh n)) es) =
-      Op tra (WordShift wz sh n) (REVERSE (MAP compile es))) ∧
+    Op tra (WordShift wz sh n) (REVERSE (MAP compile es))) ∧
+  (* TODO implement word comparisons *)
   (compile (App tra (Op (Opb Lt)) es) =
     Op tra Less (REVERSE (MAP compile es))) ∧
  (compile (App tra (Op (Opb Gt)) es) =
@@ -125,20 +129,13 @@ val compile_def = tDefine"compile" `
     Op (tra§0) Deref ((Op (tra§1) (Const 0) [])::(REVERSE (MAP compile es)))) ∧
   (compile (App tra (Op Opref) es) =
     Op tra Ref (REVERSE (MAP compile es))) ∧
-  (compile (App tra (Op (WordFromInt W8)) es) =
-      case dest_WordToInt W64 es of
-      | SOME e => Op tra (WordFromWord T) [compile e]
-      | NONE =>  Op (tra§0) Mod
-          ((Op (tra§1) (Const 256) [])::(REVERSE (MAP compile es)))) ∧
-  (compile (App tra (Op (WordFromInt W64)) es) =
-      case dest_WordToInt W8 es of
-      | SOME e => Op tra (WordFromWord F) [compile e]
-      | NONE => (Op tra WordFromInt (REVERSE (MAP compile es)))) ∧
-  (compile (App tra (Op (WordToInt W8)) es) =
-    if LENGTH es ≠ 1 then Op tra Sub (REVERSE (MAP compile es)) else
-                     compile (HD es)) ∧
-  (compile (App tra (Op (WordToInt W64)) es) =
-    Op tra WordToInt (REVERSE (MAP compile es))) ∧
+  (* TODO restore lumping of operations together *)
+  (compile (App tra (Op (flatLang$WordFromInt n)) es) =
+    Op tra (WordFromInt n) (REVERSE (MAP compile es))) ∧
+  (compile (App tra (Op (flatLang$WordToInt n)) es) =
+    Op tra (WordToInt n) (REVERSE (MAP compile es))) ∧
+  (compile (App tra (Op (flatLang$WordToWord m n)) es) =
+    Op tra (WordToWord m n) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Ord) es) =
     if LENGTH es ≠ 1 then Op tra Sub (REVERSE (MAP compile es))
     else compile (HD es)) ∧
@@ -251,16 +248,12 @@ val compile_def = tDefine"compile" `
     (Op tra (FP_uop u) (REVERSE (MAP compile es)))) /\
   (compile (App tra (Op (FP_bop b)) es) =
     (Op tra (FP_bop b) (REVERSE (MAP compile es))))`
-  let
-    val exp_size_def = patLangTheory.exp_size_def
-  in
-    WF_REL_TAC `measure exp_size` >>
+    (WF_REL_TAC `measure exp_size` >>
     simp[exp_size_def] >>
     rpt conj_tac >> rpt gen_tac >>
     rw[] >> imp_res_tac MEM_exp1_size >> fs [] >>
     fs [LENGTH_EQ_NUM_compute,exp_size_def] >>
-    imp_res_tac dest_WordToInt_exp_size >> fs []
-  end
+    imp_res_tac dest_WordToInt_exp_size >> fs []);
 val _ = export_rewrites["compile_def"]
 
 val _ = export_theory()

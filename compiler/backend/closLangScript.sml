@@ -62,9 +62,9 @@ val _ = Datatype `
      | GreaterEq     (* >= over the integers *)
      | WordOp word_size opw
      | WordShift word_size shift num
-     | WordFromInt
-     | WordToInt
-     | WordFromWord bool
+     | WordFromInt word_size
+     | WordToInt word_size
+     | WordToWord word_size word_size
      | FP_cmp fp_cmp
      | FP_uop fp_uop
      | FP_bop fp_bop
