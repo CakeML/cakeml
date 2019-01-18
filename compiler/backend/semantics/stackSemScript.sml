@@ -1,9 +1,16 @@
 (*
   The formal semantics of stackLang
 *)
-open preamble stackLangTheory wordSemTheory labSemTheory;
+
+open preamble stackLangTheory
+local open wordSemTheory labSemTheory in end
 
 val _ = new_theory"stackSem";
+
+val _ = set_grammar_ancestry
+  ["stackLang",
+   "wordSem" (* for word_loc *)
+  ];
 
 val _ = Datatype `
   result = Result ('w word_loc)
@@ -762,7 +769,7 @@ Theorem evaluate_clock
   `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock`
   (recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
-  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def,STOP_def]
+  \\ FULL_SIMP_TAC std_ss [STOP_def]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ fs []
   \\ rpt (every_case_tac \\ fs []
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [empty_env_def]

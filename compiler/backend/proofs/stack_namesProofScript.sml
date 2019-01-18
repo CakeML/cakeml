@@ -430,7 +430,7 @@ Theorem make_init_semantics
    (imp_res_tac BIJ_LINV_INV \\ fs [FUN_EQ_THM])
   \\ fs [GSYM IMAGE_COMPOSE] \\ fs [MAP_KEYS_BIJ_LINV]
   \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
-  \\ rw[prog_comp_eta,ALOOKUP_MAP_gen,ALOOKUP_toAList,lookup_fromAList]);
+  \\ rw[prog_comp_eta,ALOOKUP_MAP_2,ALOOKUP_toAList,lookup_fromAList]);
 
 Theorem stack_names_lab_pres `
   ∀f p.

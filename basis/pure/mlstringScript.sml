@@ -333,14 +333,14 @@ Theorem TOKENS_eq_tokens_aux
         >-(imp_res_tac DROP_EMPTY \\ fs[ADD1])
         \\ Cases_on `f h` \\ rw[]
         >-(`n + 1 < LENGTH s'` by fs[]
-          \\ `h = EL (n + 1) s'` by metis_tac[miscTheory.hd_drop, HD] \\ fs[])
+          \\ `h = EL (n + 1) s'` by metis_tac[HD_DROP, HD] \\ fs[])
         \\ rw[TOKENS_def, SPLITP]
       ) (*this is a copy*)
       >-(fs[SPLITP] \\ rfs[] \\ Cases_on `DROP (n + 1) s'`
         >-(imp_res_tac DROP_EMPTY \\ fs[ADD1])
         \\ Cases_on `f h` \\ rw[]
         >-(`n + 1 < LENGTH s'` by fs[]
-          \\ `h = EL (n + 1) s'` by metis_tac[miscTheory.hd_drop, HD] \\ fs[])
+          \\ `h = EL (n + 1) s'` by metis_tac[HD_DROP, HD] \\ fs[])
         \\ rw[TOKENS_def, SPLITP]))
     >-(rw[DROP_EL_CONS, TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP] \\ rfs[]

@@ -2512,11 +2512,11 @@ val do_app_lemma_simp = prove(
     LIST_REL $= xs xs /\
     simple_state_rel $= CURRY_I_rel /\
     simple_val_rel $=``,
-  rw [] \\ fs [LIST_REL_eq,simple_state_rel_def,CURRY_I_rel_def]
+  rw [] \\ fs [simple_state_rel_def,CURRY_I_rel_def]
   THEN1
    (Cases_on `err1` \\ fs [semanticPrimitivesPropsTheory.exc_rel_def]
     \\ eq_tac \\ rw [])
-  \\ fs [simple_val_rel_def] \\ fs [LIST_REL_eq,LIST_REL_OPT_REL_eq]);
+  \\ fs [simple_val_rel_def] \\ fs []);
 
 val do_app_lemma =
   simple_val_rel_do_app
@@ -2683,11 +2683,11 @@ val do_app_lemma_simp = prove(
     LIST_REL $= xs xs /\
     simple_state_rel $= SUBMAP_rel /\
     simple_val_rel $=``,
-  rw [] \\ fs [LIST_REL_eq,simple_state_rel_def]
+  rw [] \\ fs [simple_state_rel_def]
   THEN1
    (Cases_on `err1` \\ fs [semanticPrimitivesPropsTheory.exc_rel_def]
     \\ eq_tac \\ rw [])
-  \\ fs [LIST_REL_eq,LIST_REL_OPT_REL_eq,simple_val_rel_def]
+  \\ fs [simple_val_rel_def]
   \\ fs[SUBMAP_rel_def, closSemTheory.state_component_equality]
   \\ metis_tac[]);
 
