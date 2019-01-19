@@ -36,9 +36,6 @@ Hello World example, printing to standard output.
 [insertSortProgScript.sml](insertSortProgScript.sml):
 In-place insertion sort on a polymorphic array.
 
-[iocatProgScript.sml](iocatProgScript.sml):
-Faster cat: process 2048 chars at a time.
-
 [lcsScript.sml](lcsScript.sml):
 Verification of longest common subsequence algorithms.
 

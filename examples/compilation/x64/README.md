@@ -18,9 +18,6 @@ Compiles the hello example by evaluation inside the logic of HOL
 [helloErrCompileScript.sml](helloErrCompileScript.sml):
 Compiles the helloErr example by evaluation inside the logic of HOL
 
-[iocatCompileScript.sml](iocatCompileScript.sml):
-Compiles the iocat example by evaluation inside the logic of HOL
-
 [patchCompileScript.sml](patchCompileScript.sml):
 Compiles the patch example by evaluation inside the logic of HOL
 
