@@ -2627,18 +2627,30 @@ Theorem cf_sound
             cf_exp2v_evaluate_tac `st with clock := ck`
             \\ fs [evaluateTheory.dec_clock_def]
           )
-          \\ fs [lprefix_lubTheory.lprefix_lub_def]
+          \\ irule lprefix_lub_subset
+          \\ qexists_tac `IMAGE (λck. fromList (FST (evaluate (st with clock := ck) env' [exp])).ffi.io_events) UNIV`
+          \\ fs [SUBSET_DEF]
           \\ rpt strip_tac
-          THEN1 cheat (* (
-            qpat_assum `!ll. _ => LPREFIX ll l` (qspec_then `ll` irule)
-            \\ qexists_tac `ck - 1` \\ rw []
-            \\ cf_exp2v_evaluate_tac `st with clock := ck`
-            THEN1 cheat
-            \\ fs [evaluateTheory.dec_clock_def]
-          ) *)
-          \\ qpat_assum `!ub. _ => LPREFIX l ub` (qspec_then `ub` irule)
-          \\ rpt strip_tac
-          \\ qpat_assum `!ll. _ => LPREFIX ll ub` (qspec_then `ll` irule)
+          THEN1 (
+            cf_exp2v_evaluate_tac `st with clock := ck`
+            THEN1 (
+              qexists_tac `fromList (FST (evaluate st env' [exp])).ffi.io_events`
+              \\ rw [LPREFIX_fromList_fromList]
+              THEN1 (
+                qexists_tac `st.clock`
+                \\ fs [semanticPrimitivesPropsTheory.with_same_clock]
+              )
+              \\ qspecl_then [`st`, `env'`, `[exp]`] strip_assume_tac
+                (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono)
+              \\ fs [evaluatePropsTheory.io_events_mono_def]
+            )
+            \\ qexists_tac `fromList (FST (evaluate (st with clock := ck - 1) env' [exp])).ffi.io_events`
+            \\ rw [LPREFIX_fromList_fromList]
+            THEN1 (qexists_tac `ck - 1` \\ fs [])
+            \\ qspecl_then [`st with clock := ck - 1`, `env'`, `[exp]`] strip_assume_tac
+              (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono)
+            \\ fs [evaluatePropsTheory.io_events_mono_def, evaluateTheory.dec_clock_def]
+          )
           \\ qexists_tac `ck + 1`
           \\ cf_exp2v_evaluate_tac `st with clock := ck + 1`
           \\ fs [evaluateTheory.dec_clock_def]
