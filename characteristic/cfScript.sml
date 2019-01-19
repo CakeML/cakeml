@@ -2701,7 +2701,25 @@ Theorem cf_sound
           )
           \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
           \\ disch_then (qspec_then `ck'` mp_tac) \\ rw []
-          THEN1 cheat
+          THEN1 (
+            NTAC 2 (simp [Once terminationTheory.evaluate_def])
+            \\ cf_exp2v_evaluate_tac `st with clock := ck'`
+            THEN1 (
+              qexists_tac `fromList (FST (evaluate st' env' [exp])).ffi.io_events`
+              \\ rw [LPREFIX_fromList_fromList]
+              THEN1 (
+                qexists_tac `st'.clock`
+                \\ fs [semanticPrimitivesPropsTheory.with_same_clock]
+              )
+              \\ qspecl_then [`st'`, `env'`, `[exp]`] strip_assume_tac
+                (CONJUNCT1 evaluatePropsTheory.evaluate_io_events_mono)
+              \\ fs [evaluatePropsTheory.io_events_mono_def]
+            )
+            \\ fs [evaluateTheory.dec_clock_def]
+            \\ qpat_x_assum `!ck. ?st. _` (qspec_then `ck'' - 1` strip_assume_tac) \\ fs []
+            \\ qexists_tac `fromList st''.ffi.io_events` \\ rw []
+            \\ qexists_tac `ck'' - 1` \\ rw []
+          )
           \\ qpat_x_assum `!ck. ?st. _` (qspec_then `ck2` strip_assume_tac)
           \\ rename1 `_ = (st2, _)`
           \\ qexists_tac `fromList st2.ffi.io_events` \\ rw []
