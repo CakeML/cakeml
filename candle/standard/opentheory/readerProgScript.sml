@@ -60,7 +60,7 @@ Theorem process_line_spec
       xlet_auto >- xsimpl
       \\ xlet_auto \\ xsimpl
       \\ xlet_auto \\ xsimpl
-      \\ xlet_auto \\ xsimpl )
+      \\ xlet_auto \\ xsimpl \\ fs [])
     \\ xcases
     \\ fs[HOL_EXN_TYPE_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
@@ -72,7 +72,7 @@ Theorem process_line_spec
   \\ xlet_auto >- xsimpl
   \\ xlet_auto \\ xsimpl
   \\ xlet_auto \\ xsimpl
-  \\ xlet_auto \\ xsimpl
+  \\ xlet_auto \\ xsimpl \\ fs []
   \\ xcon \\ xsimpl
   \\ fs[SUM_TYPE_def] );
 
@@ -88,7 +88,7 @@ val _ = (append_prog o process_topdecs) `
 Theorem process_lines_spec
   `!n st stv refs.
      READER_STATE_TYPE st stv /\
-     FD fd fdv /\ fd <= maxFD /\ fd <> 1 /\ fd <> 2 /\
+     INSTREAM fd fdv /\ fd <= maxFD /\ fd <> 1 /\ fd <> 2 /\
      STD_streams fs /\
      get_file_content fs fd = SOME (content, n) /\
      get_mode fs fd = SOME ReadMode
@@ -179,7 +179,7 @@ Theorem process_lines_spec
   \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS,get_mode_def]
   \\ `2 <= 255n` by simp[] \\ asm_exists_tac
   \\ instantiate \\ xsimpl
-  \\ conj_tac >- fs [FD_def, GSYM stdErr_def, stderr_v_thm]
+  \\ conj_tac >- fs [OUTSTREAM_def, GSYM stdErr_def, stderr_v_thm]
   \\ simp[insert_atI_end |> Q.GEN`l2` |> Q.ISPEC`explode s`
           |> SIMP_RULE (srw_ss())[LENGTH_explode]]
   \\ simp[add_stdo_def]
@@ -214,7 +214,7 @@ val _ = (append_prog o process_topdecs) `
       val ins = TextIO.openIn file
     in
       process_lines ins init_state;
-      TextIO.close ins
+      TextIO.closeIn ins
     end
     handle TextIO.BadFileName =>
       TextIO.output TextIO.stdErr (msg_bad_name file)`;
@@ -339,7 +339,7 @@ Theorem process_list_spec
     \\ xsimpl
     \\ drule STD_streams_stderr
     \\ rw [stdo_def, get_file_content_def, get_mode_def, PULL_EXISTS, UNCURRY]
-    \\ asm_exists_tac \\ fs [FD_stderr]
+    \\ asm_exists_tac \\ fs [OUTSTREAM_stderr]
     \\ xsimpl
     \\ simp [insert_atI_end
             |> Q.GEN`l2` |> Q.ISPEC `explode out`
@@ -385,7 +385,7 @@ Theorem read_stdin_spec
     \\ xapp
     \\ imp_res_tac stdin_get_file_content
     \\ instantiate
-    \\ fs [FD_stdin, get_mode_def, PULL_EXISTS, stdin_def]
+    \\ fs [INSTREAM_stdin, get_mode_def, PULL_EXISTS, stdin_def]
     \\ xsimpl)
   \\ `STD_streams (fastForwardFD fs 0)` by rw [STD_streams_fastForwardFD]
   \\ xapp
@@ -439,7 +439,7 @@ Theorem read_file_spec
     \\ simp[get_file_content_def,UNCURRY,PULL_EXISTS,get_mode_def]
     \\ `2 <= 255n` by simp[] \\ asm_exists_tac
     \\ instantiate \\ xsimpl
-    \\ conj_tac >- fs [GSYM stdErr_def, FD_def, stderr_v_thm]
+    \\ conj_tac >- fs [GSYM stdErr_def, OUTSTREAM_def, stderr_v_thm]
     \\ simp[insert_atI_end |> Q.GEN`l2` |> Q.ISPEC`explode s`
             |> SIMP_RULE (srw_ss())[LENGTH_explode]]
     \\ simp[add_stdo_def]
@@ -470,7 +470,7 @@ Theorem read_file_spec
     (SOME (Q.SPECL [`fs'`,`fs.maxFD`]
           (Q.GENL [`fs`, `maxFD`] process_lines_spec)))
   \\ xsimpl
-  \\ xapp_spec close_STDIO_spec
+  \\ xapp_spec closeIn_STDIO_spec
   \\ CONV_TAC (RESORT_EXISTS_CONV rev)
   \\ qexists_tac `fd`
   \\ xsimpl
@@ -551,7 +551,7 @@ Theorem reader_main_spec
     \\ xsimpl
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `refs`
-    \\ xsimpl)
+    \\ xsimpl \\ fs [])
   \\ xlet_auto
   >- (xcon \\ xsimpl)
   \\ xlet_auto_spec (SOME CommandLineProofTheory.CommandLine_arguments_spec)
@@ -566,7 +566,7 @@ Theorem reader_main_spec
     \\ instantiate
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `r`
-    \\ xsimpl)
+    \\ xsimpl \\ fs [])
   \\ reverse CASE_TAC \\ fs [LIST_TYPE_def]
   >-
    (xmatch
@@ -577,7 +577,7 @@ Theorem reader_main_spec
     \\ simp [msg_usage_v_thm]
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac `fs`
-    \\ xsimpl)
+    \\ xsimpl \\ fs [])
   \\ xmatch
   \\ xapp
   \\ Cases_on `cl` \\ fs [wfcl_def, FILENAME_def, validArg_def]
@@ -587,7 +587,7 @@ Theorem reader_main_spec
   \\ xsimpl
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `r`
-  \\ xsimpl);
+  \\ xsimpl \\ fs []);
 
 (* ------------------------------------------------------------------------- *)
 (* whole_prog_spec                                                           *)

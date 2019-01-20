@@ -84,4 +84,31 @@ Theorem assign_spec
        (rv ~~> xv) (POSTv v. cond (UNIT_TYPE () v) * rv ~~> yv)`
   (prove_ref_spec "op :=");
 
+val bool_toString_def = Define `
+  bool_toString b = if b then strlit "True" else strlit"False"`;
+
+val _ = ml_prog_update (open_module "Bool");
+val _ = (next_ml_names := ["toString"]);
+val _ = translate bool_toString_def;
+val _ = (next_ml_names := ["compare"]);
+val _ = translate comparisonTheory.bool_cmp_def;
+val _ = ml_prog_update (close_module NONE);
+
+val pair_toString_def = Define `
+  pair_toString f1 f2 (x,y) =
+    concat [strlit"(";
+            f1 x;
+            strlit", ";
+            f2 y;
+            strlit")"]`;
+
+val _ = ml_prog_update (open_module "Pair");
+val _ = (next_ml_names := ["map"]);
+val _ = translate pairTheory.PAIR_MAP_THM;
+val _ = (next_ml_names := ["toString"]);
+val _ = translate pair_toString_def;
+val _ = (next_ml_names := ["compare"]);
+val _ = translate comparisonTheory.pair_cmp_def;
+val _ = ml_prog_update (close_module NONE);
+
 val _ = export_theory ()

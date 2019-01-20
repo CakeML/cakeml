@@ -1496,6 +1496,28 @@ Theorem Eval_length
   \\ `?l. v = Vector l` by metis_tac [vector_nchotomy]
   \\ rw [] \\ fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 
+(* This is useful to force the type inferencer to give the type unit
+   to an unused argument. *)
+val force_unit_type_def = Define `
+  force_unit_type (u:unit) x = x`
+  |> curry save_thm "force_unit_type_def[simp]";
+
+Theorem Eval_force_unit_type
+   `Eval env x1 (UNIT_TYPE u) ==>
+    Eval env x2 ((a:'a -> v -> bool) y) ==>
+    Eval env (Mat x1 [(Pcon NONE [], x2)]) (a (force_unit_type u y))`
+ (fs [Eval_rw] \\ rw []
+  \\ fs[Eval_rw,UNIT_TYPE_def]
+  \\ last_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspec_then `refs++refs'` mp_tac) \\ fs []
+  \\ drule evaluate_set_clock
+  \\ disch_then (qspec_then `0` mp_tac) \\ fs [] \\ strip_tac
+  \\ drule evaluate_add_to_clock
+  \\ rpt (pop_assum kall_tac) \\ rw []
+  \\ first_x_assum (qspec_then `ck1` assume_tac)
+  \\ qexists_tac `ck1' + ck1` \\ fs [pat_bindings_def,pmatch_def]
+  \\ fs [state_component_equality]);
+
 val force_gc_to_run_def = Define `
   force_gc_to_run (i1:int) (i2:int) = ()`;
 

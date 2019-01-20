@@ -2706,6 +2706,7 @@ val builtin_binops =
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
    Eval_force_gc_to_run,
+   Eval_force_unit_type,
    Eval_strsub,
    Eval_ListAppend,
    Eval_sub,
