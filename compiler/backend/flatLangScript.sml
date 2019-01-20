@@ -2,25 +2,25 @@
   The first intermediate language flatLang. It removes modules and
   resolves all global scoping. Each value definition gets allocated a
   slot in a global variable store, and each type and exception gets a
-  unique global identifier.  It removes andalso and orelse and
+  unique global identifier. It removes andalso and orelse and
   replaces them with if, and removes the AallocEmpty primitive op and
   replaces it with an alloc call with 0.
 
   The AST of flatLang differs from the source language by having two
   variable reference forms, one to reference local bindings (still by
   name) and one to reference global bindings (by index). At the top
-  level, modules and let recs are gone.  Top-level lets and letrecs no
+  level, modules and let recs are gone. Top-level lets and letrecs no
   longer bind names (or have patterns). Constructor names are replaced
   with numbers, and type and exception definitions record the arities
   of the constructors rather than the types. Type annotations are
   also gone.
 *)
-open preamble astTheory;
-open backend_commonTheory;
+
+open preamble astTheory backend_commonTheory
 
 val _ = new_theory "flatLang";
 
-val _ = set_grammar_ancestry ["ast"];
+val _ = set_grammar_ancestry ["ast", "backend_common"];
 
 (* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
  * been added. *)

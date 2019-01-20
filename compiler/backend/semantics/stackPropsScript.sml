@@ -1,9 +1,12 @@
 (*
   Properties about stackLang and its semantics
 *)
+
 open preamble stackSemTheory stack_namesTheory
 
 val _ = new_theory"stackProps";
+
+val _ = set_grammar_ancestry["stackSem", "stack_names"];
 
 fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms)

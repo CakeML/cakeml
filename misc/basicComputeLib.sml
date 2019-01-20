@@ -33,7 +33,9 @@ val add_basic_compset =
    , finite_mapLib.add_finite_map_compset
    , sptreeLib.add_sptree_compset
    , pegLib.add_peg_compset
-   , state_monadLib.add_state_monad_compset],
+   , state_monadLib.add_state_monad_compset
+   , alistLib.add_alist_compset
+   , sortingLib.add_sorting_compset],
    computeLib.Tys
    [ (* misc *)
      ``:α app_list``
@@ -61,16 +63,6 @@ val add_basic_compset =
    , miscTheory.list_set_eq_def
    , listTheory.LIST_REL_def
    , libTheory.the_def
-   (* TODO: should be in HOL *)
-   ,optionTheory.OPTION_MAP2_DEF
-   ,optionTheory.OPTION_JOIN_DEF
-   ,alistTheory.alist_to_fmap_def
-   ,alistTheory.ALOOKUP_def
-   ,sortingTheory.PARTITION_DEF
-   ,sortingTheory.PART_DEF
-   ,sortingTheory.QSORT_DEF
-   ,sptreeTheory.list_insert_def
-   ,sptreeTheory.list_to_num_set_def
-   ,sptreeTheory.inter_eq_def
-   ,sptreeTheory.filter_v_def] ]
+   ]
+  ]
 end
