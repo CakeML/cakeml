@@ -1,7 +1,7 @@
 (*
    Implementation and verification of diff and patch algorithms
 *)
-open preamble lcsTheory mlintTheory mlnumTheory mlstringTheory;
+open preamble lcsTheory mlintTheory mlstringTheory;
 
 val _ = new_theory "diff";
 
@@ -14,7 +14,7 @@ fun drule0 th =
 val line_numbers_def = Define `
   (line_numbers l n =
    if LENGTH l <= 1 then
-     toString n
+     toString (n:num)
    else
       strcat (toString n) (strcat(implode ",") (toString (n+LENGTH l))))`
 
@@ -115,45 +115,44 @@ Theorem diff_alg2_refl
 
 (* Patch algorithm definition *)
 
-val num_from_string_def = Define `num_from_string s = fromString_unsafe s`
-
-val string_is_num_def = Define `string_is_num s = EVERY isDigit (explode s)`
-
 val parse_patch_header_def = Define `
     parse_patch_header s =
     case tokens (\x. x = #"a" \/ x = #"d" \/ x = #"c" \/ x = #"\n") s of
       | [l;r] =>
         (case tokens ($= #",") l of
            | [ll;lr] =>
-             (if string_is_num ll /\ string_is_num lr then
-               case tokens ($= #",") r of
+             (case (fromNatString ll, fromNatString lr) of
+              | (SOME lln, SOME lrn) =>
+              (case tokens ($= #",") r of
                 | [rl;rr] =>
-                  if string_is_num rl /\ string_is_num rr then
-                    SOME (num_from_string ll,SOME(num_from_string lr),strsub s (strlen l),
-                          num_from_string rl,SOME(num_from_string rr))
-                  else NONE
+                  (case (fromNatString rl, fromNatString rr) of
+                  | (SOME rln, SOME rrn) =>
+                      SOME (lln,SOME(lrn),strsub s (strlen l),
+                            rln,SOME(rrn))
+                  | _ => NONE)
                 | [r] =>
-                  if string_is_num r then
-                    SOME (num_from_string ll,SOME(num_from_string lr),strsub s (strlen l),
-                          num_from_string r,NONE)
-                  else NONE
-                | _ => NONE
-              else NONE)
+                  (case fromNatString r of
+                  | SOME rn =>
+                      SOME (lln,SOME(lrn),strsub s (strlen l),rn,NONE)
+                  | _ => NONE)
+                | _ => NONE)
+             | _ => NONE)
            | [l'] =>
-             (if string_is_num l' then
-               case tokens ($= #",") r of
+             (case fromNatString l' of
+              | (SOME l'n) =>
+                (case tokens ($= #",") r of
                 | [rl;rr] =>
-                  if string_is_num rl /\ string_is_num rr then
-                    SOME (num_from_string l',NONE,strsub s (strlen l),
-                          num_from_string rl,SOME(num_from_string rr))
-                  else NONE
+                  (case (fromNatString rl, fromNatString rr) of
+                   | (SOME rln, SOME rrn) =>
+                       SOME (l'n,NONE,strsub s (strlen l),rln,SOME(rrn))
+                   | _ => NONE)
                 | [r] =>
-                  if string_is_num r then
-                    SOME (num_from_string l',NONE,strsub s (strlen l),
-                          num_from_string r,NONE)
-                  else NONE
-                | _ => NONE
-              else NONE)
+                  (case fromNatString r of
+                   | (SOME rn) =>
+                      SOME (l'n,NONE,strsub s (strlen l),rn,NONE)
+                   | _ => NONE)
+                | _ => NONE)
+              | _ => NONE)
            | _ => NONE)
       | _ => NONE`;
 
@@ -304,7 +303,7 @@ val SPLITP_HEX = Q.prove(
        (STRING (HEX n) l,r)`,
   recInduct one_to_ten >> rpt strip_tac >> fs[] >> pairarg_tac >> fs[SPLITP]);
 
-val _ = temp_overload_on("ml_num_toString",``mlnum$toString``);
+val _ = temp_overload_on("ml_num_toString",``mlint$num_to_str``);
 val _ = temp_overload_on("hol_int_toString",``integer_word$toString``);
 val _ = temp_overload_on("num_toString",``num_to_dec_string``);
 
@@ -347,12 +346,12 @@ val num_le_10 = Q.prove(
 
 val tokens_toString = Q.prove(
 `tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString (n:num)) = [toString n]`,
-  fs[Once toString_def,num_toString_def] >> fs[TOKENS_eq_tokens_sym]
+  fs[Once toString_def,num_to_str_def] >> fs[TOKENS_eq_tokens_sym]
   >> fs[implode_def,tokens_aux_def,toChar_def,str_def,strlen_def,maxSmall_DEC_def,toChars_thm]
   >> every_case_tac >> fs[explode_thm,TOKENS_def]
   >> TRY(pairarg_tac >> first_x_assum (assume_tac o GSYM)) >> fs[SPLITP] >> rfs[]
   >> fs[SPLITP_num_toString,TOKENS_def,TOKENS_tostring]
-  >> TRY(fs[Once toString_def,num_toString_def]
+  >> TRY(fs[Once toString_def,num_to_str_def]
          \\ fs[implode_def,tokens_def,tokens_aux_def
               , toChar_def,str_def,maxSmall_DEC_def,toChars_thm]));
 
@@ -418,23 +417,6 @@ Theorem int_abs_toString_num
   (recInduct COMPLETE_INDUCTION >> strip_tac
   >> fs[integer_wordTheory.toString_def]);
 
-Theorem num_from_string_toString_cancel
-  `!n. num_from_string (toString n) = n`
-  (rw[num_from_string_def]
-  \\ rw[toString_thm]
-  \\ rw[implode_def]
-  \\ qmatch_goalsub_abbrev_tac`strlit ss`
-  \\ `HD ss ≠ #"~" ∧ EVERY isDigit ss`
-  by (
-    qspec_then`Num(ABS(&n))`mp_tac toString_isDigit
-    \\ simp[Abbr`ss`]
-    \\ Cases_on`num_toString n` \\ simp[]
-    >- fs[num_to_dec_string_not_nil]
-    \\ rpt strip_tac \\ fs[]
-    \\ qhdtm_x_assum`isDigit`mp_tac \\ EVAL_TAC )
-  \\ rw[fromString_unsafe_thm,Abbr`ss`]
-  \\ rw[ASCIInumbersTheory.toString_toNum_cancel]);
-
 val substring_adhoc_simps = Q.prove(`!h.
    (substring (strlit "> " ^ h) 0 2 = strlit "> ")
 /\ (substring (strlit "> " ^ h) 2 (strlen h) = h)
@@ -457,60 +439,44 @@ val patch_aux_nil = Q.prove(`patch_aux [] file remfl n = SOME file`,fs[patch_aux
 
 val line_numbers_not_empty = Q.prove(
   `!l n . line_numbers l n <> strlit ""`,
-  fs[line_numbers_def,toString_def,num_toString_def
+  fs[line_numbers_def,toString_def,num_to_str_def
     , str_def,implode_def,maxSmall_DEC_def,strcat_thm] >>
   rw[] >> fs[] >> rw[Once toChars_def]
   >> PURE_ONCE_REWRITE_TAC[simple_toChars_def] >> rw[Once zero_pad_def,padLen_DEC_def]
   >> fs[Once(GSYM simple_toChars_acc),Once(GSYM zero_pad_acc),Once(GSYM toChars_acc)]);
 
+Theorem tokens_eq_sing
+  `!s f. EVERY ($~ o f) (explode s) /\ s <> strlit "" ==> tokens f s = [s]`
+  (Cases
+  \\ fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode,implode_def]
+  \\ Cases_on `s'` \\ fs [TOKENS_def] \\ rw []
+  \\ fs [o_DEF,SPLITP_EVERY,TOKENS_def])
+
 val tokens_toString_comma =
     Q.prove(`tokens ($= #",") (toString (n:num)) = [toString n]`,
-  fs[TOKENS_eq_tokens_sym,toString_thm,explode_implode]
-  >> fs[implode_def]
-  >> `EVERY isDigit (toString n)` by metis_tac[toString_isDigit]
-  >> `toString n <> []` by metis_tac[num_to_dec_string_not_nil]
-  >> qpat_abbrev_tac `a = num_toString _` >> pop_assum kall_tac
-  >> `!x. isDigit x ==> (λx. (¬(($= #",") x))) x` by fs[isDigit_def]
-  >> drule0 EVERY_MONOTONIC
-  >> strip_tac >> first_x_assum drule0 >> strip_tac >> drule0 SPLITP_EVERY
-  >> strip_tac >> fs[] >> rw[]
-  >> Cases_on `a` >> fs[TOKENS_def])
+  rw [] \\ match_mp_tac tokens_eq_sing
+  \\ fs [num_to_str_thm,implode_def,num_to_dec_string_nil]
+  \\ fs [num_to_str_def]
+  \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
+  \\ qexists_tac `isDigit`
+  \\ fs [EVERY_isDigit_num_to_dec_string] \\ EVAL_TAC);
 
 val tokens_comma_lemma = Q.prove(
   `tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
      (line_numbers l n) = [line_numbers l n]`,
   `EVERY (λx. isDigit x \/ x = #",") (explode(line_numbers l n))`
   by(fs[line_numbers_def] >> rw[]
-     >> fs[toString_thm]
-     >> fs[explode_implode,strcat_thm]
-     >> `!x. isDigit x ==> (\x. isDigit x \/ x = #",") x` by fs[]
-     >> drule0 EVERY_MONOTONIC
-     >> strip_tac
-     >> qspec_then `n` assume_tac toString_isDigit
-     >> first_assum drule0 >> fs[]
-     >> qspec_then `n + LENGTH l` assume_tac toString_isDigit
-     >> first_assum drule0 >> fs[])
-  >> `!x. (\x. isDigit x \/ x = #",") x ==> ($~ ∘ (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")) x` by fs[isDigit_def,GSYM ORD_11]
-  >> drule0 EVERY_MONOTONIC >> strip_tac
-  >> first_x_assum drule0 >> rpt(pop_assum kall_tac) >> strip_tac
-  >> qspecl_then [`l`,`n`] assume_tac line_numbers_not_empty
-  >> qpat_abbrev_tac `a = line_numbers _ _` >> pop_assum kall_tac
-  >> qpat_abbrev_tac `p = (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")` >> pop_assum kall_tac
-  >> Induct_on `a` >> rpt strip_tac
-  >> fs[explode_thm,TOKENS_eq_tokens_sym,implode_def]
-  >> Cases_on `s` >> rpt strip_tac >> fs[TOKENS_def] >> pairarg_tac
-  >> pop_assum (assume_tac o GSYM)
-  >> fs[SPLITP,isDigit_def,TOKENS_def]
-  >> rfs[]
-  >> `T ==> (t = t /\ EVERY ($~ ∘ p) t)` by fs[]
-  >> pop_assum mp_tac
-  >> PURE_REWRITE_TAC [GSYM SPLITP_NIL_SND_EVERY]
-  >> fs[TOKENS_def]);
-
-Theorem string_is_num_toString
-  `string_is_num (toString (n:num))`
-  (fs[string_is_num_def,toString_isDigit,int_abs_toString_num,
-     toString_thm,num_from_string_toString_cancel,explode_implode]);
+     \\ fs[toString_thm,num_to_str_def]
+     \\ fs[explode_implode,strcat_thm]
+     \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
+     \\ qexists_tac `isDigit` \\ fs [toString_isDigit])
+  \\ match_mp_tac tokens_eq_sing
+  \\ conj_tac THEN1
+   (match_mp_tac (MP_CANON EVERY_MONOTONIC)
+    \\ goal_assum (first_x_assum o mp_then Any mp_tac)
+    \\ fs [] \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs [isDigit_def])
+  \\ rw [line_numbers_def,num_to_str_thm,implode_def,num_to_dec_string_nil]
+  \\ fs [strcat_def,concat_def]);
 
 Theorem parse_header_cancel
 `l <> [] \/ l' <> [] ==>
@@ -524,7 +490,7 @@ Theorem parse_header_cancel
      tokens_append,acd_simps,acd_more_simps,tokens_comma_lemma,
      tokens_comma_lemma]
   \\ rw[line_numbers_def,tokens_toString_comma,
-        string_is_num_toString,num_from_string_toString_cancel,
+        fromNatString_toString,
         GSYM str_def,tokens_append,strsub_str]);
 
 val patch_aux_cancel_base_case = Q.prove(
@@ -633,7 +599,7 @@ common_subsequence l r r' ==>
 >> rpt strip_tac
 >-fs[patch_aux_cancel_base_case]
 >> fs[diff_with_lcs_def,diff_single_def,
-      diff_add_prefix_def,num_from_string_def]
+      diff_add_prefix_def]
 >> rpt(pairarg_tac >> fs[])
 >> rw[]
 >- (fs[SPLITP_NIL_FST] >> rveq
@@ -743,6 +709,16 @@ Theorem headers_within_drop
   `headers_within n m (l) ==> headers_within n m (DROP x l)`
   (simp[headers_within_def,MAP_DROP,EVERY_DROP_T]);
 
+Theorem fromString_gt
+  `fromString (implode (STRING #">" x)) = NONE /\
+   fromString (implode (STRING #"<" x)) = NONE`
+  (rw [] \\ match_mp_tac fromString_EQ_NONE \\ EVAL_TAC);
+
+Theorem fromNatString_gt
+  `fromNatString (implode (STRING #">" x)) = NONE /\
+   fromNatString (implode (STRING #"<" x)) = NONE`
+  (rw [fromNatString_def,fromString_gt]);
+
 val parse_nonheader_lemma = Q.prove(
   `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "> ")))`,
   strip_tac >> Induct
@@ -750,12 +726,12 @@ val parse_nonheader_lemma = Q.prove(
   >> strip_tac >> Cases_on `h`
   >> fs[parse_patch_header_def,diff_add_prefix_def]
   >> every_case_tac
-  >> fs[num_from_string_def,strcat_def,mlstringTheory.concat_def]
+  >> fs[strcat_def,mlstringTheory.concat_def]
   >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
   >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq
   >> fs[explode_implode,TOKENS_def,SPLITP,pairTheory.ELIM_UNCURRY]
   >> rveq
-  >> fs[string_is_num_def,explode_implode,isDigit_def]);
+  >> fs[explode_implode,isDigit_def,fromNatString_gt]);
 
 val parse_nonheader_lemma2 = Q.prove(
   `!f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "< ")))`,
@@ -764,18 +740,18 @@ val parse_nonheader_lemma2 = Q.prove(
   >> strip_tac >> Cases_on `h`
   >> fs[parse_patch_header_def,diff_add_prefix_def]
   >> every_case_tac
-  >> fs[num_from_string_def,strcat_def,mlstringTheory.concat_def]
+  >> fs[strcat_def,mlstringTheory.concat_def]
   >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
   >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq
   >> fs[explode_implode,TOKENS_def,SPLITP,pairTheory.ELIM_UNCURRY]
   >> rveq
-  >> fs[string_is_num_def,explode_implode,isDigit_def]);
+  >> fs[explode_implode,isDigit_def,fromNatString_gt]);
 
 val parse_nonheader_lemma3 = Q.prove(
   `parse_patch_header (strlit "---\n") = NONE`,
   fs[parse_patch_header_def]
   >> every_case_tac
-  >> fs[num_from_string_def,strcat_def,mlstringTheory.concat_def]
+  >> fs[strcat_def,mlstringTheory.concat_def]
   >> fs[tokens_append_strlit,TOKENS_eq_tokens_sym]
   >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq);
 
@@ -1142,9 +1118,6 @@ Theorem patch_diff2_cancel
 
 (* TODO:
    this property is false as stated; prove some appropriate weakening
-Theorem diff_patch_cancel
-  `patch_alg patch l = SOME r ==> diff_alg l r = patch`
-  (cheat);
  *)
 
 (* The diff is optimal, in the sense that the number of line changes it
@@ -1170,7 +1143,7 @@ val is_patch_line_simps = Q.prove(
 
 val toString_obtain_digits = Q.prove(
   `!n. ?f r. toString (n:num) = strlit(f::r) /\ isDigit f /\ EVERY isDigit r`,
-  strip_tac >> fs[toString_thm,implode_def]
+  strip_tac >> fs[num_to_str_thm,implode_def]
   >> qspec_then `n` assume_tac toString_isDigit
   >> qspec_then `n` assume_tac (GEN_ALL num_to_dec_string_not_nil)
   >> Cases_on `num_toString n` >> fs[]);

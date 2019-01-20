@@ -18,7 +18,7 @@ val _ = process_topdecs `
         | Some c => (TextIO.output1 TextIO.stdOut c; recurse())
     in
       recurse () ;
-      TextIO.close fd
+      TextIO.closeIn fd
     end
 
   fun cat fnames =
@@ -136,7 +136,7 @@ Theorem do_onefile_spec
       fs[UNIT_TYPE_def,STD_streams_openFileFS]
       \\ simp[get_mode_def]) >>
   (* calling close *)
-  xapp_spec close_STDIO_spec >>
+  xapp_spec closeIn_STDIO_spec >>
   xsimpl >> instantiate >>
   qmatch_goalsub_abbrev_tac`STDIO fs0` >>
   CONV_TAC SWAP_EXISTS_CONV >>

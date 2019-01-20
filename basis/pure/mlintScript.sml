@@ -116,6 +116,12 @@ Theorem toString_thm
     \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
     \\ simp[] ));
 
+val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
+val _ = overload_on("toString",``num_to_str``);
+
+val num_to_str_thm = Q.store_thm("num_to_str_thm",
+  `num_to_str n = implode (num_to_dec_string n)`,
+  fs [toString_thm,num_to_str_def]);
 
 (* fromString Definitions *)
 val fromChar_unsafe_def = Define`
@@ -227,6 +233,12 @@ val fromString_def = Define`
              (fromChars (strlen str - 1)
                         (substring str 1 (strlen str - 1)))
       else OPTION_MAP $& (fromChars (strlen str) str)`;
+
+val fromNatString_def = Define `
+  fromNatString str =
+    case fromString str of
+      NONE => NONE
+    | SOME i => if 0 <= i then SOME (Num i) else NONE`;
 
 (* fromString auxiliar lemmas *)
 Theorem fromChars_range_unsafe_0_substring_thm
@@ -351,6 +363,30 @@ Theorem fromString_toString_Num
   \\ simp[]
   \\ simp[integerTheory.INT_OF_NUM]);
 
+Theorem fromString_toString[simp]
+  `!i:int. fromString (toString i) = SOME i`
+  (rw [toString_thm,implode_def]
+  \\ qmatch_goalsub_abbrev_tac `strlit sss`
+  \\ qspec_then `sss` mp_tac fromString_thm
+  THEN1
+   (reverse impl_tac THEN1
+     (fs [Abbr`sss`,toString_thm,ASCIInumbersTheory.toNum_toString]
+      \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC)
+    \\ fs [Abbr `sss`,miscTheory.EVERY_isDigit_num_to_dec_string])
+  \\ `HD sss ≠ #"~" ∧ HD sss ≠ #"-" ∧ HD sss ≠ #"+"` by
+   (fs [Abbr `sss`]
+    \\ qspec_then `Num (ABS i)` mp_tac miscTheory.EVERY_isDigit_num_to_dec_string
+    \\ Cases_on `num_to_dec_string (Num (ABS i))`
+    \\ fs [miscTheory.num_to_dec_string_nil]
+    \\ CCONTR_TAC \\ fs [] \\ rveq  \\ fs [isDigit_def])
+  \\ fs [Abbr `sss`,miscTheory.EVERY_isDigit_num_to_dec_string]
+  \\ fs [toString_thm,ASCIInumbersTheory.toNum_toString]
+  \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC);
+
+Theorem fromNatString_toString[simp]
+  `!n:num. fromNatString (toString n) = SOME n`
+  (fs [num_to_str_def,fromNatString_def]);
+
 Theorem fromChar_IS_SOME_IFF
   `IS_SOME (fromChar c) ⇔ isDigit c`
   (simp[fromChar_def]
@@ -410,5 +446,17 @@ Theorem fromChars_IS_SOME_IFF
   \\ qspecl_then[`str'`,`SUC v2 - padLen_DEC`,`padLen_DEC`]mp_tac fromChars_range_IS_SOME_IFF
   \\ simp[IS_SOME_EXISTS]
   \\ fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE, EL_DROP]);
+
+Theorem fromString_EQ_NONE
+  `~isDigit c /\ c <> #"+" /\ c <> #"~" /\ c <> #"-" ==>
+   fromString (implode (STRING c x)) = NONE`
+  (rw [fromString_def,implode_def,strsub_def]
+  \\ `(SUC (STRLEN x)) <= strlen (strlit (STRING c x))` by fs [strlen_def]
+  \\ drule fromChars_IS_SOME_IFF \\ fs [explode_def]);
+
+(* this formulation avoids a comparsion using = for better performance *)
+val int_cmp_def = Define `
+  int_cmp i (j:int) = if i < j then LESS else
+                      if j < i then GREATER else EQUAL`
 
 val _ = export_theory();

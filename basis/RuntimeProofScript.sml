@@ -64,10 +64,13 @@ Theorem Runtime_exit_spec
   \\ xsimpl);
 
 Theorem Runtime_abort_spec
-  `app (p:'ffi ffi_proj) ^(fetch_v "Runtime.abort" st) [uv]
+  `UNIT_TYPE u uv ==>
+   app (p:'ffi ffi_proj) ^(fetch_v "Runtime.abort" st) [uv]
      (RUNTIME)
      (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [1w]))`
   (xcf "Runtime.abort" st
+  \\ fs [UNIT_TYPE_def]
+  \\ xmatch
   \\ xapp
   \\ xsimpl \\ EVAL_TAC);
 

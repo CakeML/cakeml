@@ -4,7 +4,7 @@
   design of displayLang is intentionally very simple. The language
   supports Tuples, Items (e.g. datatype constructors), and Lists.
 *)
-open preamble jsonLangTheory mlnumTheory mlintTheory backend_commonTheory;
+open preamble jsonLangTheory mlintTheory backend_commonTheory;
 
 val _ = new_theory"displayLang";
 
