@@ -162,7 +162,7 @@ val ffi = ``p:'ffi ffi_proj``
 val spec1 = Q.prove (
   `ArrowP ro (STATE_REF, ^ffi) (PURE NUM)
           (ArrowM ro (STATE_REF, ^ffi) (PURE NUM) (MONAD NUM UNIT_TYPE)) f1 f1_v`,
-  cheat);
+  ...);
 
 val spec2 = Q.prove (
   `PRECONDITION (f1_side x y st)
@@ -170,7 +170,7 @@ val spec2 = Q.prove (
    ArrowP ro (STATE_REF, ^ffi) (PURE (Eq NUM x))
           (ArrowM ro (STATE_REF, ^ffi) (EqSt (PURE (Eq NUM y)) st)
             (MONAD NUM UNIT_TYPE)) f1 f1_v`,
-  cheat)
+  ...)
 
 mk_app_of_ArrowP spec1
 mk_app_of_ArrowP spec2

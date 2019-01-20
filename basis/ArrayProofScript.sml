@@ -536,7 +536,7 @@ Theorem array_foldli_aux_spec
       >-(xapp \\ xsimpl \\ instantiate \\ qexists_tac `EL n a` \\ fs[LIST_REL_EL_EQN])
     \\ first_x_assum(qspecl_then [`a`, `n + 1`] mp_tac) \\ rw[]
     \\ xapp \\ xsimpl \\ instantiate \\ rw[mllistTheory.foldli_def, mllistTheory.foldli_aux_def, DROP_EL_CONS]
-    \\ cheat (*How to deal with foldli_aux as it has nothing proved about it *)
+    \\ ... (*How to deal with foldli_aux as it has nothing proved about it *)
 );
 
 Theorem array_foldli_spec
@@ -564,12 +564,12 @@ Theorem array_foldl_aux_spec
     \\ xlet `POSTv n1. & NUM (n + 1) n1 * ARRAY av vs`
       >-(xapp \\ xsimpl \\ qexists_tac `&n` \\ fs[NUM_def, integerTheory.INT_ADD])
     \\ xlet `POSTv res. & A (f init b) res * ARRAY av vs`
-      >-(cheat (*xapp*))
+      >-(... (*xapp*))
     \\ xlet `POSTv val. & (val = EL n vs) * ARRAY av vs`
       >-(xapp \\ xsimpl \\ imp_res_tac LIST_REL_LENGTH \\ fs[NUM_def, INT_def] \\ rfs[])
     \\ Induct_on `LENGTH a - n`
       >-(rw[] \\ imp_res_tac LIST_REL_LENGTH \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ rw[] \\ cheat (*xapp*)
+    \\ rw[] \\ ... (*xapp*)
 );
 
 Theorem array_foldl_spec
@@ -613,7 +613,7 @@ Theorem array_foldri_aux_spec
     \\ xlet `POSTv res. & (A (f n (EL n a) init) res) * ARRAY av vs`
         >-(xapp \\ xsimpl \\ instantiate \\ qexists_tac`EL n a` \\ fs[LIST_REL_EL_EQN])
     \\ xapp \\ xsimpl \\ instantiate \\ fs[TAKE_EL_SNOC, ADD1] (*need something similar to FOLDR SNOC*)
-    \\ cheat
+    \\ ...
 );
 
 Theorem array_foldri_spec

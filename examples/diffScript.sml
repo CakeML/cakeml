@@ -1144,7 +1144,7 @@ Theorem patch_diff2_cancel
    this property is false as stated; prove some appropriate weakening
 Theorem diff_patch_cancel
   `patch_alg patch l = SOME r ==> diff_alg l r = patch`
-  (cheat);
+  (...);
  *)
 
 (* The diff is optimal, in the sense that the number of line changes it

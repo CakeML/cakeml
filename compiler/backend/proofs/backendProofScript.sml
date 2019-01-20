@@ -1278,17 +1278,17 @@ Theorem compile_correct
             strip_tac
             \\ first_x_assum drule
             \\ simp[]
-            \\ cheat (* oracle labels... *) )
+            \\ ... (* oracle labels... *) )
           \\ disj1_tac
           \\ fs[Abbr`p7`]
-          \\ cheat (* get_code_labels range...  *) )
+          \\ ... (* get_code_labels range...  *) )
         \\ qspec_then`ppg`mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels
         \\ simp[SUBSET_DEF]
         \\ strip_tac
         \\ gen_tac \\ strip_tac
         \\ first_x_assum drule
         \\ strip_tac \\ rw[]
-        \\ cheat (* referenced labels are present (for oracle) *) *))
+        \\ ... (* referenced labels are present (for oracle) *) *))
       \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
       simp[Abbr`co`, Abbr`co3`] \\
       rpt(pairarg_tac \\ fs[]) \\

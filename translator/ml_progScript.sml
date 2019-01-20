@@ -923,7 +923,7 @@ Theorem lookup_var_merge_env
     (Cases_on`nsLookup e2.v (Short v1)`>>
     fs[namespacePropsTheory.nsLookup_nsAppend_none,
        namespacePropsTheory.nsLookup_nsAppend_some,namespaceTheory.id_to_mods_def])
-  \\ cheat (* TODO *)));
+  \\ ... (* TODO *)));
 *)
 
 val _ = export_theory();
