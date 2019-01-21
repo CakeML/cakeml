@@ -7120,7 +7120,7 @@ Theorem ag32_interference_implemented
   \\ impl_tac >- fs[]
   (*
   \\ Cases_on`EL ffi_index ffi_names = "exit"` \\ fs[]
-  >- cheat (* remove exit from the list ? or implement it *)
+  >- ... (* remove exit from the list ? or implement it *)
   *)
   \\ Cases_on`EL ffi_index ffi_names = ""` \\ fs[]
   >- ffi_tac ag32_ffi_interfer_ ``ag32_ffi__code``

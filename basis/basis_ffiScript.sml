@@ -255,7 +255,7 @@ Theorem extract_stdo_extract_fs
     \\ CASE_TAC \\ fs[]
     \\ simp[ALIST_FUPDKEY_ALOOKUP]
 
-    \\ cheat)
+    \\ ...)
   \\ qpat_x_assum`_ = SOME _`mp_tac
   \\ simp[option_caseeq,pair_caseeq]
   \\ qhdtm_x_assum`stdo`mp_tac
@@ -314,7 +314,7 @@ Theorem extract_stdout_intro
   \\ rw[]
   \\ Induct_on`io_events`
   \\ rw[extract_fs_def]
-  >- cheat
+  >- ...
   \\ Cases_on`h` \\ fs[extract_fs_def]
   \\ rw[] \\ fs[]
   \\ pop_assum mp_tac \\ CASE_TAC

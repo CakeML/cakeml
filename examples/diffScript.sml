@@ -1116,10 +1116,6 @@ Theorem patch_diff2_cancel
   >> rpt(pop_assum kall_tac)
   >> fs[]);
 
-(* TODO:
-   this property is false as stated; prove some appropriate weakening
- *)
-
 (* The diff is optimal, in the sense that the number of line changes it
    reports is precisely the number of deviations from the lcs of the
    files. *)

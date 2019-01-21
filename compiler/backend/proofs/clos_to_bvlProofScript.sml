@@ -6630,8 +6630,8 @@ Theorem compile_common_semantics
          \\ simp[clos_knownProofTheory.known_co_def]
          \\ TOP_CASE_TAC \\ simp[backendPropsTheory.FST_state_co] \\ rw[] )
        \\ pop_assum SUBST_ALL_TAC
-       \\ cheat )
-    \\ cheat (* syntactic properties of clos_call *)*))
+       \\ ... )
+    \\ ... (* syntactic properties of clos_call *)*))
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ fs[FUPDATE_LIST_alist_to_fmap]
   \\ drule clos_callProofTheory.compile_ALL_DISTINCT
@@ -7734,12 +7734,12 @@ Theorem compile_semantics
       \\ simp[]
       \\ simp[all_distinct_count_list] )
     \\ `ALL_DISTINCT (MAP FST (SND (SND pp)) ++ code_locs (MAP (SND o SND) (SND (SND pp))))`
-    by cheat
+    by ...
     \\ pop_assum mp_tac
     \\ simp[ALL_DISTINCT_APPEND]
     \\ strip_tac
-    \\ cheat )
-  \\ cheat (* many syntactic properties of oracle *)*));
+    \\ ... )
+  \\ ... (* many syntactic properties of oracle *)*));
 
 Theorem assign_get_code_label_compile_op
   `closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`

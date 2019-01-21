@@ -1396,7 +1396,7 @@ Theorem infer_ds_complete
     \\ qexists_tac`i` \\ simp[]
     \\ pop_assum(qspec_then`GENLIST Infer_Tvar_db p_1`mp_tac)
     \\ simp[infer_deBruijn_subst_id2]
-    \\ cheat )
+    \\ ... )
   *)
   \\ rw[]
   \\ drule (CONJUNCT2 infer_d_complete_canon)
