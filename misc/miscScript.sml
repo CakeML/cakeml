@@ -322,13 +322,6 @@ Theorem SUBMAP_mono_FUPDATE_LIST
   \\ rw[] \\ fs[]
   \\ METIS_TAC[]);
 
-(* TODO - candidate for move to HOL *)
-Theorem SUBMAP_DRESTRICT
-  `f1 ⊑ f2 ∧ s1 ⊆ s2
-   ⇒
-   DRESTRICT f1 s1 ⊑ DRESTRICT f2 s2`
-  (rw[SUBMAP_DEF,FDOM_DRESTRICT,SUBSET_DEF,DRESTRICT_DEF]);
-
 Theorem INJ_FAPPLY_FUPDATE
   `INJ ($' f) (FDOM f) (FRANGE f) ∧
    s = k INSERT FDOM f ∧ v ∉ FRANGE f ∧
