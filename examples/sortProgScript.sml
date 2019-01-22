@@ -409,8 +409,15 @@ Theorem sort_spec
     \\ simp[MAP_MAP_o,EVERY_MAP,o_DEF,EXISTS_MAP] ) >>
   qmatch_assum_abbrev_tac `LIST_TYPE STRING_TYPE strings strings_v` >>
   imp_res_tac list_type_v_to_list \\
-  cheat (*
-  xlet_auto >- xsimpl \\
+  (* TODO: This let should be solvable by xlet_auto *)
+  xlet
+    `POSTv v. ARRAY v l' * COMMANDLINE cl *
+              STDIO (if LENGTH cl ≤ 1 then fastForwardFD fs 0 else fs)`
+  >- (
+    drule array_fromList_spec
+    \\ disch_then drule \\ strip_tac
+    \\ xapp \\ xsimpl
+  ) \\
   assume_tac strict_weak_order_string_cmp \\
   xlet_auto >- (
     xsimpl
@@ -491,7 +498,7 @@ Theorem sort_spec
     drule (Q.ISPEC `explode `PERM_MAP) \\
     fs [MAP_MAP_o,o_DEF] \\
     CONV_TAC (DEPTH_CONV ETA_CONV) \\
-    fs []) *));
+    fs []));
 
 Theorem sort_whole_prog_spec
   `(if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
