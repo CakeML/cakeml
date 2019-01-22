@@ -65,7 +65,7 @@ val _ = Datatype `
      | WordShift word_size shift num
      | WordFromInt word_size
      | WordToInt word_size
-     | WordToWord word_size word_size
+     | WordToWord word_size word_size (* source/dest size *)
      | WordCmp word_size opwb
      | FP_cmp fp_cmp
      | FP_uop fp_uop
