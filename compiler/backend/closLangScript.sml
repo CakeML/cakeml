@@ -51,6 +51,7 @@ val _ = Datatype `
      | Equal         (* structural equality *)
      | EqualInt int  (* equal to integer constant *)
      | Const int     (* integer *)
+     | WordConst (bool list) (* word constant *)
      | Add           (* + over the integers *)
      | Sub           (* - over the integers *)
      | Mult          (* * over the integers *)
@@ -65,6 +66,7 @@ val _ = Datatype `
      | WordFromInt word_size
      | WordToInt word_size
      | WordToWord word_size word_size
+     | WordCmp word_size opwb
      | FP_cmp fp_cmp
      | FP_uop fp_uop
      | FP_bop fp_bop
