@@ -14,7 +14,7 @@ val _ = Datatype `exn_type = FullQueue | EmptyQueue`;
 val _ = register_exn_type ``:exn_type``;
 
 val queue_decls = process_topdecs
-   ‘fun empty_queue sz err = ref (Array.array sz err, 0, 0, 0)
+   ‘fun empty_queue sz err = Ref (Array.array sz err, 0, 0, 0)
 
     fun full q =
       case !q of (a,f,r,c) => c = Array.length a

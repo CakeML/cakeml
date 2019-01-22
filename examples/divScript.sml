@@ -141,7 +141,7 @@ val condLoop_spec = store_thm("condLoop_spec",
   \\ fs [INT_def] \\ intLib.COOPER_TAC);
 
 (* Non-terminating loop with output *)
-
+(*
 val _ = process_topdecs `
   fun printLoop c = repeat (fn c => (putChar c; c)) c;
   ` |> append_prog
@@ -153,5 +153,6 @@ val printLoop_spec = store_thm("printLoop_spec",
       app (p:'ffi ffi_proj) ^(fetch_v "printLoop" st) [xv]
         emp (POSTd io. T)``,
   cheat);
+*)
 
 val _ = export_theory();

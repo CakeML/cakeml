@@ -103,7 +103,7 @@ val get_file_contents = process_topdecs `
         val fd = TextIO.openIn file
         val res = get_file_contents fd acc
       in
-        (TextIO.close fd;
+        (TextIO.closeIn fd;
          get_files_contents files res)
       end;`
 val _ = append_prog get_file_contents;
@@ -111,7 +111,7 @@ val _ = append_prog get_file_contents;
 (* TODO: these functions are generic, and should probably be moved *)
 Theorem get_file_contents_spec
   `!fs fd fd_v acc_v acc.
-    FD fd fd_v ∧
+    INSTREAM fd fd_v ∧
     IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ∧
     LIST_TYPE STRING_TYPE (MAP implode acc) acc_v
     ⇒
@@ -207,7 +207,7 @@ Theorem get_files_contents_spec
   imp_res_tac STD_streams_nextFD \\ rfs[] \\
   (* TODO: Update xlet_auto so that it can try different specs -
      xlet_auto works with close_STDIO_spec but not close_spec *)
-  xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] close_STDIO_spec))
+  xlet_auto_spec(SOME (Q.SPECL[`fd`,`fastForwardFD fs' fd`] closeIn_STDIO_spec))
   >- (xsimpl \\ simp[Abbr`fs'`])
   >- (xsimpl  \\
     simp[Abbr`fs'`, validFileFD_def]
@@ -302,8 +302,7 @@ Theorem sort_spec
       (POSTv uv.
         &UNIT_TYPE () uv *
           STDIO (sort_sem cl fs) * COMMANDLINE cl)`
-  (cheat (*
-  xcf "sort" (get_ml_prog_state ()) >>
+  (xcf "sort" (get_ml_prog_state ()) >>
   xmatch >>
   qabbrev_tac `fnames = TL cl` >>
   qabbrev_tac `inodes = if LENGTH cl > 1 then MAP File fnames else [IOStream(strlit"stdin")]` >>
@@ -378,7 +377,8 @@ Theorem sort_spec
       CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ qexists_tac`[]` \\
       simp[LIST_TYPE_def,Abbr`inodes`] \\
       xsimpl \\
-      simp[linesFD_def,inFS_fname_def,FD_def,stdin_v_thm,GSYM stdIn_def] \\
+      simp[linesFD_def,inFS_fname_def,INSTREAM_def,
+           FD_def,stdin_v_thm,GSYM stdIn_def] \\
       rw[STD_streams_get_mode] \\
       fs[get_file_content_def,all_lines_def,lines_of_def] \\
       pairarg_tac \\ fs[] \\
@@ -409,6 +409,7 @@ Theorem sort_spec
     \\ simp[MAP_MAP_o,EVERY_MAP,o_DEF,EXISTS_MAP] ) >>
   qmatch_assum_abbrev_tac `LIST_TYPE STRING_TYPE strings strings_v` >>
   imp_res_tac list_type_v_to_list \\
+  cheat (*
   xlet_auto >- xsimpl \\
   assume_tac strict_weak_order_string_cmp \\
   xlet_auto >- (

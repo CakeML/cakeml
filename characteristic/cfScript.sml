@@ -2133,10 +2133,6 @@ val cf_cases_evaluate_match = Q.prove (
     qexists_tac `h_g UNION h_g'` \\ SPLIT_TAC
   ));
 
-(* TODO: move to misc? *)
-val n2w_ORD_CHR_w2n' = Q.prove(`!w. n2w(ORD(CHR(w2n w))) = (w:word8)`,
-  metis_tac[n2w_ORD_CHR_w2n,o_THM,I_THM]);
-
 val cf_ffi_sound = Q.prove (
   `sound (p:'ffi ffi_proj) (App (FFI ffi_index) [c; r]) (\env. local (\H Q.
      ?cv rv. exp2v env r = SOME rv /\
@@ -2192,7 +2188,7 @@ val cf_ffi_sound = Q.prove (
      qpat_x_assum `!x. _ ==> _` kall_tac \\
      `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
      rpt(first_x_assum progress) \\
-     fs[IMPLODE_EXPLODE_I,MAP_MAP_o,o_DEF,n2w_ORD_CHR_w2n',state_component_equality]
+     fs[IMPLODE_EXPLODE_I,MAP_MAP_o,o_DEF,state_component_equality]
       ) \\
    rename1 `_ = SOME (FFIreturn vs s')` \\
    Q.REFINE_EXISTS_TAC `Val v` \\
@@ -2238,7 +2234,7 @@ val cf_ffi_sound = Q.prove (
    fs [store_v_same_type_def,PULL_EXISTS] \\ rveq \\
    progress store2heap_LUPDATE \\ fs [] \\
    fs [FLOOKUP_DEF] \\ rveq \\
-   first_assum progress \\ fs [MAP_MAP_o,o_DEF,n2w_ORD_CHR_w2n',IMPLODE_EXPLODE_I] \\
+   first_assum progress \\ fs [MAP_MAP_o,o_DEF,IMPLODE_EXPLODE_I] \\
    qabbrev_tac `events1 = (FILTER (ffi_has_index_in ns) st.ffi.io_events)` \\
    qabbrev_tac `new_events = events1 ++ [IO_event
                                            ffi_index

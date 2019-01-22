@@ -344,7 +344,7 @@ Theorem STATE_DECOMPOS_FROM_HPROP
       FIRST_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
       SUFF_TAC ``(rv : v store_v) = HD(DROP l s.refs)``
       >-( fs[] >> Cases_on `DROP l s.refs` >- fs[DROP_NIL] >> fs[]) >>
-      fs[hd_drop]
+      fs[HD_DROP]
   ) >>
   irule FALSITY >>
   IMP_RES_TAC store2heap_IN_LENGTH >>

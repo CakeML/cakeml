@@ -18,13 +18,18 @@ val _ = ml_prog_update (add_dec
 
 val r = translate NULL;
 
-val result = next_ml_names := ["length","length"]
+val _ = ml_prog_update open_local_block;
 val res = translate LENGTH_AUX_def;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["length"]
 val res = translate
   (LENGTH_AUX_THM |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [] |> GSYM);
 
-val result = next_ml_names := ["rev"]
+val _ = ml_prog_update open_local_block;
 val res = translate REV_DEF;
+val _ = ml_prog_update open_local_in_block;
+
 val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
 
@@ -53,8 +58,14 @@ val result = translate (EL |> REWRITE_RULE[GSYM nth_def]);
 val nth_side_def = theorem"nth_side_def";
 
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
-
 val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
+
+val _ = next_ml_names := ["takeUntil","dropUntil"];
+val result = translate takeUntil_def;
+val result = translate dropUntil_def;
+
+val _ = next_ml_names := ["cmp"];
+val result = translate list_compare_def;
 
 val result = next_ml_names := ["concat"];
 val result = translate FLAT;
@@ -74,9 +85,14 @@ Theorem MAP_ind
 
 val _ = add_preferred_thy "-"; (* so that the translator finds MAP_ind above *)
 
-val result = next_ml_names := ["map","mapi","mapi","mapPartial"];
+val result = next_ml_names := ["map"]
 val result = translate MAP_let;
+
+val _ = ml_prog_update open_local_block;
 val result = translate mllistTheory.mapi_def;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["mapi","mapPartial"];
 val result = translate MAPI_thm;
 val result = translate mapPartial_def;
 
@@ -89,13 +105,20 @@ val result = translate FIND_thm;
 
 val result = translate FILTER;
 
-val result = next_ml_names := ["partition","partition"];
+val _ = ml_prog_update open_local_block;
 val result = translate partition_aux_def;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["partition"];
 val result = translate mllistTheory.partition_def;
 
 val result = translate FOLDL;
-val result = next_ml_names := ["foldi","foldi"];
+
+val _ = ml_prog_update open_local_block;
 val result = translate foldli_aux_def;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["foldi"];
 val result = translate foldli_def;
 
 val result = translate FOLDR;
@@ -108,8 +131,11 @@ val result = translate EVERY_DEF;
 
 val result = translate SNOC;
 
-val result = next_ml_names := ["genlist","genlist"];
+val _ = ml_prog_update open_local_block;
 val result = translate GENLIST_AUX;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["genlist"];
 val result = translate GENLIST_GENLIST_AUX;
 
 val result = next_ml_names := ["tabulate"];
@@ -221,56 +247,21 @@ val nth_side_def = Q.prove(
 val _ = next_ml_names := ["update"];
 val result = translate LUPDATE_def;
 
-(* TODO: signature for `app` is missing because it's written in CakeML *)
-val sigs = module_signatures [
-  "length",
-  "null",
-  "revAppend",
-  "rev",
-  "append",
-  "hd",
-  "tl",
-  "last",
-  "getItem",
-  "nth",
-  "take",
-  "drop",
-  "concat",
-  "map",
-  "mapPartial",
-  "find",
-  "filter",
-  "partition",
-  "foldl",
-  "foldr",
-  "exists",
-  "all",
-  "snoc",
-  "tabulate",
-  "collate",
-  "zip",
-  "member",
-  "sum",
-  "unzip",
-  "pad_right",
-  "pad_left",
-  "all_distinct",
-  "isPrefix",
-  "front",
-  "splitAtPki",
-  "update"
-];
+val _ = (next_ml_names := ["compare"]);
+val _ = translate mllistTheory.list_compare_def;
 
-val _ =  ml_prog_update (close_module (SOME sigs));
-
-(* sorting -- included here because it depends on List functions like append  *)
-
-val _ = next_ml_names := ["partition","partition"];
+val _ = ml_prog_update open_local_block;
 val res = translate sortingTheory.PART_DEF;
 val res = translate sortingTheory.PARTITION_DEF;
+val _ = ml_prog_update open_local_in_block;
+
+val _ = next_ml_names := ["sort"];
 val res = translate sortingTheory.QSORT_DEF;
 
-(* finite maps -- similarly *)
+val _ =  ml_prog_update close_local_blocks;
+val _ =  ml_prog_update (close_module NONE);
+
+(* finite maps -- depend on lists *)
 
 val _ = ml_prog_update (open_module "Alist");
 

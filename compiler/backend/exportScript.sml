@@ -2,7 +2,7 @@
   Some common helper functions for writing the final byte list ->
   string exporter.
 *)
-open preamble mlstringTheory mlvectorTheory mlnumTheory mlintTheory;
+open preamble mlstringTheory mlvectorTheory mlintTheory;
 
 val _ = new_theory "export";
 
@@ -38,7 +38,7 @@ val preamble_tm =
 val preamble_def = Define`preamble = ^preamble_tm`;
 
 val space_line_def = Define`
-  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString n; strlit "\n"]`;
+  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString (n:num); strlit "\n"]`;
 
 val data_section_def = Define`data_section word_directive heap_space stack_space =
      MAP (\n. strlit (n ++ "\n"))

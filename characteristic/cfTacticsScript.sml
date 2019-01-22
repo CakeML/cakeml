@@ -90,12 +90,12 @@ Theorem UNIT_Conv[simp]
 )
 
 Theorem BOOL_T_Conv[simp]
-  `BOOL T (Conv (SOME (TypeStamp "true" bool_type_num)) []) = T`
+  `BOOL T (Conv (SOME (TypeStamp "True" bool_type_num)) []) = T`
   (fs [BOOL_def, semanticPrimitivesTheory.Boolv_def]
 )
 
 Theorem BOOL_F_Conv[simp]
-  `BOOL F (Conv (SOME (TypeStamp "false" bool_type_num)) []) = T`
+  `BOOL F (Conv (SOME (TypeStamp "False" bool_type_num)) []) = T`
   (fs [BOOL_def, semanticPrimitivesTheory.Boolv_def]
 )
 
@@ -133,9 +133,9 @@ Theorem forall_v_of_pat_norest_length
 );
 
 val BOOL_T = save_thm("BOOL_T",
-  EVAL ``BOOL T (Conv (SOME (TypeStamp "true" 0)) [])``);
+  EVAL ``BOOL T (Conv (SOME (TypeStamp "True" 0)) [])``);
 
 val BOOL_F = save_thm("BOOL_F",
-  EVAL ``BOOL F (Conv (SOME (TypeStamp "false" 0)) [])``);
+  EVAL ``BOOL F (Conv (SOME (TypeStamp "False" 0)) [])``);
 
 val _ = export_theory()

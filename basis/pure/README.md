@@ -12,8 +12,8 @@ Pure functions for the Int module.
 [mllistScript.sml](mllistScript.sml):
 Pure functions for the List module.
 
-[mlnumScript.sml](mlnumScript.sml):
-Pure functions for the Num module.
+[mlmapScript.sml](mlmapScript.sml):
+Pure functions for the Map module.
 
 [mloptionScript.sml](mloptionScript.sml):
 Pure functions for the Option module.
