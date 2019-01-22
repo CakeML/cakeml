@@ -64,8 +64,8 @@ Theorem hexDigit_IMP_digit `!c. isDigit c ==> isHexDigit c`
 
 val parse_patch_header_side = Q.prove(`!s. parse_patch_header_side s = T`,
   rw[fetch "-" "parse_patch_header_side_def"]
-  >> TRY(match_mp_tac(MATCH_MP EVERY_MONOTONIC hexDigit_IMP_digit) >> fs[string_is_num_def])
-  >> TRY(match_mp_tac hexDigit_IMP_digit >> fs[string_is_num_def])
+  >> TRY(match_mp_tac(MATCH_MP EVERY_MONOTONIC hexDigit_IMP_digit) >> fs[])
+  >> TRY(match_mp_tac hexDigit_IMP_digit >> fs[])
   >> metis_tac[tokens_two_less]) |> update_precondition;
 
 val r = translate(depatch_line_def);

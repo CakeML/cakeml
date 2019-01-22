@@ -4235,7 +4235,7 @@ Theorem ALOOKUP_make_gs
   \\ fs [MEM_MAP,FLOOKUP_FUNION]
   \\ qexists_tac `k'` \\ fs []
   \\ rveq \\ fs []
-  \\ cheat (* this proof needs a slightly different approach *));
+  \\ ... (* this proof needs a slightly different approach *));
 *)
 
 Theorem FST_THE_make_gs
@@ -4483,7 +4483,7 @@ val pure_code_locs = Q.store_thm("pure_code_locs", (* DUPLCATED! clos_annotate *
   \\ Q.ISPEC_THEN`es`mp_tac code_locs_map
   \\ disch_then(qspec_then`I`mp_tac)
   \\ simp[FLAT_EQ_NIL, EVERY_MAP, EVERY_MEM]
-  \\ cheat);
+  \\ ...);
 
 Theorem call_dests_code_list_SUBSET
   `!xs n g.
@@ -4519,7 +4519,7 @@ Theorem calls_locs
       set (code_locs call_code) ∪ set (code_locs (MAP (SND ∘ SND) (SND g1))) =
       set (code_locs known_code) ∪ set (code_locs (MAP (SND ∘ SND) (SND g)))`
 
-  (cheat);
+  (...);
 
 (*
 

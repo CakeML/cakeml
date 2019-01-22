@@ -36,9 +36,6 @@ cake_echo: echo.S $(CAKEMLDIR)/basis/basis_ffi.o
 helloErr.S: *helloErrCompileScript.sml
 cake_helloErr: helloErr.S $(CAKEMLDIR)/basis/basis_ffi.o
 	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
-iocat.S: *iocatCompileScript.sml
-cake_iocat: iocat.S $(CAKEMLDIR)/basis/basis_ffi.o
-	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
 
-exec: cake_cat cake_grep cake_patch cake_diff cake_hello cake_sort cake_echo cake_helloErr cake_iocat
+exec: cake_cat cake_grep cake_patch cake_diff cake_hello cake_sort cake_echo cake_helloErr
 .PHONY: exec

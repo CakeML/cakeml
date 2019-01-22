@@ -15,8 +15,8 @@ val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
 (* TODO: move *)
 Theorem int_toString_num
-  `mlint$toString (&n) = mlnum$toString n`
-  (rw[mlintTheory.toString_thm, mlnumTheory.toString_thm]);
+  `mlint$toString ((&(n:num)):int) = toString n`
+  (rw[mlintTheory.num_to_str_def]);
 (* -- *)
 
 val wordcount_stdin_semantics = Q.prove(

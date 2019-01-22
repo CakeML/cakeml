@@ -5349,7 +5349,7 @@ Theorem compile_locs
   \\ drule (GEN_ALL known_app_call_dests)
   \\ disch_then(fn th => assume_tac (SPEC``SOME T`` th) \\ assume_tac (SPEC``SOME F`` th))
   \\ fs[] \\ rfs[]
-  \\ cheat);
+  \\ ...);
 *)
 
 val _ = export_theory();

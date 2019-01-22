@@ -3419,16 +3419,6 @@ val init_stubs_labels = Q.prove(`
   EVERY (λp. get_code_labels p SUBSET (set [(1n,0n);(start,0n)])) (MAP SND (init_stubs ggc mh k start))`,
   rpt(EVAL_TAC>>rw[]>>fs[]));
 
-(* stack_alloc -- this seems strange... *)
-val get_code_labels_comp = Q.prove(
-  `!n m p pp mm.
-  comp n m p = (pp,mm) ⇒
-  get_code_labels pp SUBSET
-    (gc_stub_location,0) INSERT
-    set
-      (MAP (λi. (n,i+mm)) (COUNT_LIST (mm-m)))
-     ∪ get_code_labels p`, cheat);
-
 (* stack_names *)
 val get_code_labels_comp = Q.prove(
   `!f p. get_code_labels (comp f p) = get_code_labels p`,

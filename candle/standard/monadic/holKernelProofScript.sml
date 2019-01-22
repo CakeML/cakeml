@@ -3047,7 +3047,7 @@ Theorem inst_aux_thm
      env = []
      ==>
      inst_aux env tyin tm s <> (Failure (Clash f),t)`
-  (cheat
+  (...
   );
 
 Theorem inst_not_clash[simp]

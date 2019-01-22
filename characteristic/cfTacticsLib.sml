@@ -191,9 +191,8 @@ fun naryFun_repack_conv tm =
 val naryClosure_repack_conv =
   (RAND_CONV naryFun_repack_conv) THENC (REWR_CONV (GSYM naryClosure_def))
 
-fun xcf name st =
+fun xcf_with_def name f_def =
   let
-    val f_def = fetch_def name st
     val Closure_tac =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
       irule app_of_cf THEN
@@ -221,7 +220,14 @@ fun xcf name st =
              err_tac "xcf" "goal is not an app" g
   in
     rpt strip_tac \\ simp [f_def] \\ closure_tac \\ reduce_tac
-  end
+  end;
+
+fun xcf name st =
+  let
+    val f_def = fetch_def name st
+  in
+    xcf_with_def name f_def
+  end;
 
 (* [xlet] *)
 
