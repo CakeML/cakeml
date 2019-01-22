@@ -20,13 +20,13 @@ val op_space_req_def = Define `
   (op_space_req (Cons _) l _ = if l = 0n then 0 else l+1) /\
   (op_space_req Ref l _ = l + 1) /\
   (op_space_req (WordOp sz _) _ arch_size = alloc_size sz arch_size) /\
-  (op_space_req (WordShift sz _ _) arch_size = alloc_size sz arch_size) /\
-  (op_space_req (WordFromInt sz) arch_size = alloc_size sz arch_size) /\
-  (op_space_req (WordToInt sz) arch_size = alloc_size sz arch_size) /\
-  (op_space_req (WordToWord _ dest) arch_size = alloc_size dest arch_size) /\
-  (op_space_req (FP_uop _) v9 = 3) /\
-  (op_space_req (FP_bop _) v9 = 3) /\
-  (op_space_req _ _ = 0)`;
+  (op_space_req (WordShift sz _ _) _ arch_size = alloc_size sz arch_size) /\
+  (op_space_req (WordFromInt sz) _ arch_size = alloc_size sz arch_size) /\
+  (op_space_req (WordToInt sz) _ arch_size = alloc_size sz arch_size) /\
+  (op_space_req (WordToWord _ dest) _ arch_size = alloc_size dest arch_size) /\
+  (op_space_req (FP_uop _) v9 _ = 3) /\
+  (op_space_req (FP_bop _) v9 _ = 3) /\
+  (op_space_req _ _ _ = 0)`;
 
 (*
 Theorem op_space_req_pmatch `!op l.
@@ -52,10 +52,10 @@ val pMakeSpace_def = Define `
   (pMakeSpace (INR (k,names,c)) = Seq (MakeSpace k names) c)`;
 
 val space_def = Define `
-  (space (MakeSpace k names) = INR (k,names,Skip)) /\
-  (space (Seq c1 c2) =
-     let d1 = pMakeSpace (space c1) in
-     let x2 = space c2 in
+  (space (MakeSpace k names) _ = INR (k,names,Skip)) /\
+  (space (Seq c1 c2) arch_size =
+     let d1 = pMakeSpace (space c1 arch_size) in
+     let x2 = space c2 arch_size in
        dtcase x2 of
        | INL c4 =>
           (dtcase c1 of
@@ -70,21 +70,21 @@ val space_def = Define `
                INR (k2,insert src () (delete dest names2),
                     Seq (Move dest src) c4)
            | Assign dest op args NONE =>
-               INR (op_space_req op (LENGTH args) + k2,
+               INR (op_space_req op (LENGTH args) arch_size + k2,
                     list_insert args (delete dest names2),
                     Seq (Assign dest op args NONE) c4)
            | _ => INL (Seq d1 (pMakeSpace x2)))) /\
-  (space (If n c2 c3) =
-     INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))) /\
-  (space c = INL c)`;
+  (space (If n c2 c3) arch_size =
+     INL (If n (pMakeSpace (space c2 arch_size)) (pMakeSpace (space c3 arch_size)))) /\
+  (space c _ = INL c)`;
 
 Theorem space_pmatch `∀c.
-  space c =
+  space c arch_size =
     case c of
     | MakeSpace k names => INR (k,names,Skip)
     | Seq c1 c2 => (
-     let d1 = pMakeSpace (space c1) in
-     let x2 = space c2 in
+     let d1 = pMakeSpace (space c1 arch_size) in
+     let x2 = space c2 arch_size in
        case x2 of
        | INL c4 =>
           (case c1 of
@@ -99,12 +99,12 @@ Theorem space_pmatch `∀c.
                INR (k2,insert src () (delete dest names2),
                     Seq (Move dest src) c4)
            | Assign dest op args NONE =>
-               INR (op_space_req op (LENGTH args) + k2,
+               INR (op_space_req op (LENGTH args) arch_size + k2,
                     list_insert args (delete dest names2),
                     Seq (Assign dest op args NONE) c4)
            | _ => INL (Seq d1 (pMakeSpace x2))))
     | If n c2 c3 =>
-      INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))
+      INL (If n (pMakeSpace (space c2 arch_size)) (pMakeSpace (space c3 arch_size)))
     | c => INL c`
   (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
@@ -112,6 +112,6 @@ Theorem space_pmatch `∀c.
   >> fs[space_def]);
 
 val compile_def = Define `
-  compile c = pMakeSpace (space c)`;
+  compile c arch_size = pMakeSpace (space c arch_size)`;
 
 val _ = export_theory();
