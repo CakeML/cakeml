@@ -121,7 +121,7 @@ val compile_def = tDefine "compile" `
      let ret = SOME (n2, list_to_num_set (live ++ env)) in
      let c3 = (if tail then Return n2 else Skip) in
        (Seq c1 (mk_ticks ticks (Seq (Call ret dest vs (SOME (n1,Seq c2 (Move n2 (HD v))))) c3)), [n2], n2+1))`
- (cheat);
+ (WF_REL_TAC `measure (exp2_size o SND o SND o SND o SND o SND)`);
 
 val compile_ind = theorem"compile_ind";
 
