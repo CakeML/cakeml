@@ -81,15 +81,15 @@ local val comp_quotation = `
 in
 val comp_def = Define comp_quotation
 
-Theorem comp_pmatch (`∀f p.` @
+Theorem comp_pmatch (Q.prove(`∀f p.` @
   (comp_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)))
-  (rpt(
+       | aq => aq)),
+  rpt(
     rpt strip_tac
     >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
     >> every_case_tac
-    >> fs[Once comp_def]));
+    >> fs[Once comp_def])));
 end
 
 val prog_comp_def = Define `
