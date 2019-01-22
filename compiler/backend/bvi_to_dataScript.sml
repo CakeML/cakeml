@@ -160,20 +160,20 @@ Theorem compile_SING_IMP
 (* combine dataLang optimisations *)
 
 val optimise_def = Define `
-  optimise prog = data_space$compile (simp (FST (data_live$compile prog LN)) Skip)`;
+  optimise arch_size prog = data_space$compile (simp (FST (data_live$compile arch_size prog LN)) Skip)`;
 
 (* the top-level compiler includes the optimisations, because the correctness
    proofs are combined *)
 
 val compile_exp = Define `
-  compile_exp arg_count exp =
-    optimise (FST (compile arg_count (COUNT_LIST arg_count) T [] [exp]))`
+  compile_exp arch_size arg_count exp =
+    optimise arch_size (FST (compile arg_count (COUNT_LIST arg_count) T [] [exp]))`
 
 val compile_part = Define `
-  compile_part (name:num, arg_count, exp) =
-    (name, arg_count, compile_exp arg_count exp)`
+  compile_part arch_size (name:num, arg_count, exp) =
+    (name, arg_count, compile_exp arch_size arg_count exp)`
 
 val compile_prog_def = Define `
-  compile_prog prog = MAP compile_part prog`;
+  compile_prog arch_size prog = MAP (compile_part arch_size) prog`;
 
 val _ = export_theory();
