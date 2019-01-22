@@ -2212,6 +2212,7 @@ Theorem ALL_DISTINCT_APPEND_APPEND_IMP
     ALL_DISTINCT (xs ++ ys) /\ ALL_DISTINCT (xs ++ zs) /\ ALL_DISTINCT (ys ++ zs)`
   (fs [ALL_DISTINCT_APPEND]);
 
+(* TODO - candidate for move to HOL *)
 Theorem TAKE_EQ_NIL[simp]
   `TAKE n l = [] <=> n = 0 ∨ l = []`
   (Q.ID_SPEC_TAC `l` THEN Induct_on `n` THEN ASM_SIMP_TAC (srw_ss()) [] THEN
@@ -2221,18 +2222,22 @@ Theorem GSPEC_o
   `GSPEC f o g = { x | ∃y. (g x, T) = f y }`
   (simp[FUN_EQ_THM, GSPECIFICATION]);
 
+(* TODO - candidate for move to HOL *)
 Theorem NULL_APPEND[simp]
   `NULL (l1 ++ l2) ⇔ NULL l1 ∧ NULL l2`
   (simp[NULL_LENGTH]);
 
+(* TODO - candidate for move to HOL *)
 Theorem MAP_DROP
   `∀l i. MAP f (DROP i l) = DROP i (MAP f l)`
   (Induct \\ simp[DROP_def] \\ rw[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem MAP_FRONT
   `∀ls. ls ≠ [] ⇒ MAP f (FRONT ls) = FRONT (MAP f ls)`
   (Induct \\ simp[] \\ Cases_on`ls`\\fs[])
 
+(* TODO - candidate for move to HOL *)
 Theorem LAST_MAP
   `∀ls. ls ≠ [] ⇒ LAST (MAP f ls) = f (LAST ls)`
   (Induct \\ simp[] \\ Cases_on`ls`\\fs[])
@@ -2249,6 +2254,7 @@ Theorem splitAtPki_MAP
   \\ simp[FUN_EQ_THM]
   \\ rw[EQ_IMP_THM] \\ rfs[EL_MAP]);
 
+(* TODO - candidate for move to HOL *)
 Theorem splitAtPki_change_predicate
   `(∀i. i < LENGTH l ⇒ P1 i (EL i l) = P2 i (EL i l)) ⇒
    splitAtPki P1 k l = splitAtPki P2 k l`
@@ -2257,6 +2263,7 @@ Theorem splitAtPki_change_predicate
   \\ simp[FUN_EQ_THM]
   \\ metis_tac[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem SPLITP_splitAtPki
   `SPLITP P = splitAtPki (λi x. P x) $,`
   (simp[FUN_EQ_THM]
@@ -2267,6 +2274,7 @@ Theorem SPLITP_splitAtPki
   \\ CONV_TAC(LAND_CONV(REWRITE_CONV[splitAtPki_push]))
   \\ simp[Abbr`f`]);
 
+(* TODO - candidate for move to HOL *)
 Theorem o_PAIR_MAP
   `FST o (f ## g) = f o FST ∧
    SND o (f ## g) = g o SND`
@@ -2288,6 +2296,7 @@ val option_fold_def = Define `
   (option_fold f x NONE = x) ∧
   (option_fold f x (SOME y) = f y x)`;
 
+(* TODO - candidate for move to HOL *)
 Theorem SPLITP_JOIN
   `!ls l r.
     (SPLITP P ls = (l, r)) ==>
@@ -2316,6 +2325,7 @@ Theorem SPLIT_NIL_SND_EQ
   `!ls r. (SPLITP P ls = (r, [])) ==> (r = ls)`
     (rw[] \\ imp_res_tac SPLITP_JOIN \\ fs[]);
 
+(* TODO - candidate for move to HOL *)
 Theorem SPLITP_NIL_SND_EVERY
   `!ls r. (SPLITP P ls = (r, [])) <=> (r = ls) /\ (EVERY ($~ o P) ls)`
   (rw[] \\ EQ_TAC
@@ -2357,6 +2367,7 @@ Theorem EVERY_TOKENS
   \\ IF_CASES_TAC \\ fs[]
   \\ imp_res_tac SPLITP_IMP);
 
+(* TODO - candidate for move to HOL *)
 Theorem TOKENS_APPEND
   `∀P l1 x l2.
     P x ==>
@@ -2374,6 +2385,7 @@ Theorem TOKENS_APPEND
   \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]);
 
 
+(* TODO - candidate for move to HOL *)
 Theorem TOKENS_NIL
   `!ls. (TOKENS f ls = []) <=> EVERY f ls`
   (Induct \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
