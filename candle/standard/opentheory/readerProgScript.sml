@@ -61,6 +61,7 @@ Theorem process_line_spec
       \\ xlet_auto \\ xsimpl
       \\ xlet_auto \\ xsimpl
       \\ xlet_auto \\ xsimpl \\ fs [])
+    >- xsimpl
     \\ xcases
     \\ fs[HOL_EXN_TYPE_def]
     \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
@@ -429,6 +430,7 @@ Theorem read_file_spec
       &(~inFS_fname fs (File fnm)) *
       STDIO fs * HOL_STORE refs`
     >- ( xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl )
+    >- xsimpl
     \\ fs[BadFileName_exn_def]
     \\ xcases
     \\ xlet_auto >- xsimpl
