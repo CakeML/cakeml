@@ -13,14 +13,17 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val ROUNDUP_DIV = Define `
   ROUNDUP_DIV x y = x DIV y + (if x MOD y = 0 then 0 else 1)`;
 
+val alloc_size_def = Define
+  `alloc_size word_size arch_size = (ROUNDUP_DIV word_size (arch_size-2))-1`
+
 val op_space_req_def = Define `
-  (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
-  (op_space_req Ref l = l + 1) /\
-  (op_space_req (WordOp sz _) _ = (ROUNDUP_DIV sz 8)-1) /\
-  (op_space_req (WordShift sz _ _) _ = (ROUNDUP_DIV sz 8)-1) /\
-  (op_space_req (WordFromInt sz) _ = (ROUNDUP_DIV sz 8)-1) /\
-  (op_space_req (WordToInt sz) _ = (ROUNDUP_DIV sz 8)-1) /\
-  (op_space_req (WordToWord _ dest) _ = (ROUNDUP_DIV dest 8)-1) /\
+  (op_space_req (Cons _) l _ = if l = 0n then 0 else l+1) /\
+  (op_space_req Ref l _ = l + 1) /\
+  (op_space_req (WordOp sz _) _ arch_size = alloc_size sz arch_size) /\
+  (op_space_req (WordShift sz _ _) arch_size = alloc_size sz arch_size) /\
+  (op_space_req (WordFromInt sz) arch_size = alloc_size sz arch_size) /\
+  (op_space_req (WordToInt sz) arch_size = alloc_size sz arch_size) /\
+  (op_space_req (WordToWord _ dest) arch_size = alloc_size dest arch_size) /\
   (op_space_req (FP_uop _) v9 = 3) /\
   (op_space_req (FP_bop _) v9 = 3) /\
   (op_space_req _ _ = 0)`;
