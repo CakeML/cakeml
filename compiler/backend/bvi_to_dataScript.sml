@@ -160,7 +160,7 @@ Theorem compile_SING_IMP
 (* combine dataLang optimisations *)
 
 val optimise_def = Define `
-  optimise arch_size prog = data_space$compile (simp (FST (data_live$compile arch_size prog LN)) Skip)`;
+  optimise arch_size prog = data_space$compile arch_size (simp (FST (data_live$compile arch_size prog LN)) Skip)`;
 
 (* the top-level compiler includes the optimisations, because the correctness
    proofs are combined *)
