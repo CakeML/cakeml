@@ -22,7 +22,12 @@ val DEBUG = true;
 
 fun debug_print msg term =
   if DEBUG then
-    print (msg ^ (term_to_string term) ^ "\n\n")
+    print (msg ^ (term_to_string term) )
+  else ();
+
+fun debug_print_ty msg typ =
+  if DEBUG then
+    print (msg ^ (type_to_string typ) )
   else ();
 
 val _ = (print_asts := true);
@@ -150,6 +155,8 @@ fun mk_write name v env = ISPECL [name, v, env] write_def
   C a1 a2 a3 ..., unifying types of expected inputs to C and types of args
   as it goes along. Fails if unification fails.
 *)
+
+(* TODO why does this version not work?
 fun my_list_mk_comb (comb, []) = comb
   | my_list_mk_comb (comb, arg::args) =
     let val comb_ty = type_of comb in
@@ -161,6 +168,93 @@ fun my_list_mk_comb (comb, []) = comb
           in my_list_mk_comb (mk_comb(comb', arg), args) end
       | _ => failwith "my_list_mk_comb")
     end;
+*)
+fun my_list_mk_comb (comb, args) =
+  let
+    fun mk_type_rec comb_ty [] = failwith "mk_type_rec"
+      | mk_type_rec comb_ty [arg_ty] =
+        (case snd (dest_type comb_ty) of
+            [comb_ty1, comb_tys] => (comb_ty1, arg_ty)
+          | _ => failwith "mk_type_rec")
+      | mk_type_rec comb_ty (arg1_ty :: args_tys) =
+          (case snd (dest_type comb_ty) of
+            [comb_ty1, comb_tys] =>
+              let
+                val (rest_comb_ty, rest_args_tys) =
+                  mk_type_rec comb_tys args_tys
+                val comb_fun_ty = mk_type("fun", [comb_ty1, rest_comb_ty])
+                val args_fun_ty = mk_type("fun", [arg1_ty, rest_args_tys])
+              in (comb_fun_ty, args_fun_ty) end
+          | _ => failwith "mk_type_rec")
+    val args_tys = List.map type_of args
+    val (comb_fun_ty, args_fun_ty) = mk_type_rec (type_of comb) args_tys
+    val subst = Type.match_type comb_fun_ty args_fun_ty
+    val comb' = Term.inst subst comb
+  in list_mk_comb(comb', args) end
+(*
+fun my_list_mk_comb(comb, args) =
+  (debug_print "\n\n\n\nBEGIN " comb;
+  let val _ = map (debug_print "\n  ARGS ") args in () end;
+let
+fun my_list_mk_comb1 (comb, []) =
+        (debug_print_ty "\n\n1. COMB_TY " (type_of comb); failwith "mk_type_rec")
+  | my_list_mk_comb1 (comb, [arg]) =
+          (debug_print_ty "\n\n2. COMB_TY " (type_of comb);
+          debug_print_ty "\n  ARG_TY" (type_of arg);
+
+      (case snd (dest_type (type_of comb)) of
+        [comb_ty1, comb_tys] =>
+          let
+            val subst = Type.match_type comb_ty1 (type_of arg)
+            val comb' = Term.inst subst comb
+          in mk_comb(comb', arg) end
+        | _ => failwith "my_list_mk_comb"))
+  | my_list_mk_comb1 (comb, arg::args) = (
+        debug_print_ty "\n\n3. COMB1_TY " (type_of comb);
+        debug_print_ty "\n  ARG1_TY " (type_of arg);
+        let val _ = map ((debug_print_ty "\n  ARGS_TYS ") o type_of) args in () end;
+    let val comb_ty = type_of comb in
+      (case snd (dest_type comb_ty) of
+        [comb_ty1, comb_tys] =>
+          let
+            val subst = Type.match_type comb_ty1 (type_of arg)
+            val comb' = Term.inst subst comb
+          in my_list_mk_comb1 (mk_comb(comb', arg), args) end
+      | _ => failwith "my_list_mk_comb")
+    end)
+in my_list_mk_comb1(comb, args) end
+);
+*)
+(*
+fun my_list_mk_comb (comb, args) =
+  (debug_print "\n\n\n\nBEGIN " comb;
+  let val _ = map (debug_print "\n  ARGS ") args in () end;
+  let
+    fun mk_type_rec comb_ty [] = (debug_print_ty "\n\n1. COMB_TY " comb_ty; failwith "mk_type_rec")
+      | mk_type_rec comb_ty [arg_ty] = (debug_print_ty "\n\n2. COMB_TY " comb_ty;
+          debug_print_ty "\n  ARG_TY" arg_ty;
+          (case snd (dest_type comb_ty) of
+            [comb_ty1, comb_tys] => (comb_ty1, arg_ty)
+          | _ => failwith "mk_type_rec"))
+      | mk_type_rec comb_ty (arg1_ty :: args_tys) = (
+        debug_print_ty "\n\n3. COMB1_TY " comb_ty;
+        debug_print_ty "\n  ARG1_TY " arg1_ty;
+          let val _ = map (debug_print_ty "\n  ARGS_TYS ") args_tys in () end;
+          (case snd (dest_type comb_ty) of
+            [comb_ty1, comb_tys] =>
+              let
+                val (rest_comb_ty, rest_args_tys) =
+                  mk_type_rec comb_tys args_tys
+                val comb_fun_ty = mk_type("fun", [comb_ty1, rest_comb_ty])
+                val args_fun_ty = mk_type("fun", [arg1_ty, rest_args_tys])
+              in (comb_fun_ty, args_fun_ty) end
+          | _ => failwith "mk_type_rec"))
+    val args_tys = List.map type_of args
+    val (comb_fun_ty, args_fun_ty) = mk_type_rec (type_of comb) args_tys
+    val subst = Type.match_type comb_fun_ty args_fun_ty
+    val comb' = Term.inst subst comb
+  in list_mk_comb(comb', args) end)
+*)
 
 (*
   ISPECL for terms rather than theorems
@@ -187,9 +281,6 @@ fun list_dest f tm =
   let val (x,y) = f tm in list_dest f x @ list_dest f y end
   handle HOL_ERR _ => [tm];
 
-(* dest_fun_type ``:α -> β`` = (``:α``, ``:β) *)
-val dest_fun_type = dom_rng;
-val domain = fst o dest_fun_type;
 val dest_args = snd o strip_comb;
 
 (* TODO rename this, it's ridiculous *)
@@ -213,6 +304,27 @@ end;
 ******************************************************************************)
 
 (* TODO this stuff probably needs to go into a config record *)
+
+val translator_state = {
+  H_def = ref UNIT_TYPE_def,
+  default_H = ref (get_term "refs_emp"),
+  H = ref (get_term "refs_emp"),
+  local_state_init_H = ref false, (* to replace dynamic_init_H *)
+  store_pinv_def = ref (NONE : thm option),
+  refs_type = ref unit_ty
+  EXN_TYPE_def = ref UNIT_TYPE_def, (* to replace EXN_TYPE_def_ref *)
+  EXN_TYPE = ref (get_term "UNIT_TYPE"),
+  exn_type = ref unit_ty, (* WHAT IS THE DIFFERENCE BETWEEN THESE LAST TWO? *)
+  aM = ref (ty_antiq (M_type a_ty)), (* ``:α M`` *)
+  bM = ref (ty_antiq (M_type b_ty)), (* ``:β M`` *)
+  VALID_STORE_THM = ref (NONE : thm option),
+  type_theories = ref ([current_theory(), "ml_translator"] : string list),
+  exn_handles = ref ([] : (term * thm) list),
+  exn_raises = ref ([] : (term * thm) list),
+  exn_functions_defs = ref ([] : (thm * thm) list),
+}
+
+
 (* The store predicate *)
 val H_def = ref UNIT_TYPE_def; (* need a theorem here... *)
 val default_H = ref (get_term "refs_emp");
@@ -226,6 +338,9 @@ val EXN_TYPE_def_ref = ref UNIT_TYPE_def;
 val EXN_TYPE = ref (get_term "UNIT_TYPE");
 val exn_type = ref unit_ty;
 
+(* The theorem stating that there exists a store stasfying the store predicate *)
+val VALID_STORE_THM = ref (NONE : thm option);
+
 (* Some functions to generate monadic types *)
 (* M_type ``:β`` = ``:refs_type -> (β, exn_type) exc # refs_type`` *)
 fun M_type ty = Type.type_subst [a_ty |-> !refs_type,
@@ -235,8 +350,6 @@ fun M_type ty = Type.type_subst [a_ty |-> !refs_type,
 val aM = ref (ty_antiq (M_type a_ty)); (* ``:α M`` *)
 val bM = ref (ty_antiq (M_type b_ty)); (* ``:β M`` *)
 
-(* The theorem stating that there exists a store stasfying the store predicate *)
-val VALID_STORE_THM = ref (NONE : thm option);
 
 (* Additional theories where to look for refinement invariants *)
 val type_theories = ref ([current_theory(), "ml_translator"] : string list);
@@ -337,7 +450,7 @@ fun get_m_type_inv ty = let
 fun get_arrow_type_inv ty =
   if can dest_monad_type ty then get_m_type_inv ty
   else let
-    val (ty1,ty2) = dest_fun_type ty
+    val (ty1,ty2) = dom_rng ty
     val i1 = get_arrow_type_inv ty1
       handle HOL_ERR _ => (mk_PURE (get_type_inv ty1))
     val i2 = get_arrow_type_inv ty2
@@ -357,7 +470,7 @@ fun smart_get_type_inv ty =
       val ri = get_type_inv (ty |> dest_monad_type |> #2)
     in my_list_mk_comb(monad_tm, [ri, !EXN_TYPE]) end
   else let
-      val (ty1, ty2) = dest_fun_type ty
+      val (ty1, ty2) = dom_rng ty
       val inv1 = smart_get_type_inv ty1
       val inv2 = smart_get_type_inv ty2
     in my_list_mk_comb (ArrowM_ro_tm, [!H, inv1, inv2]) |>
@@ -1183,7 +1296,7 @@ fun INST_ro_tm tm =
 fun inst_case_thm_for tm = let
   val (_,_,names) = TypeBase.dest_case tm
   val names = List.map fst names
-  val th = mem_derive_case_of ((repeat rator tm) |> type_of |> domain) |> UNDISCH
+  val th = mem_derive_case_of ((repeat rator tm) |> type_of |> dom_rng |> fst) |> UNDISCH
   val pat = th |> UNDISCH_ALL |> concl |> rator |> rand |> rand
   val (ss,i) = match_term pat tm
   val th = INST ss (INST_TYPE i th)
@@ -1248,9 +1361,14 @@ fun inst_case_thm tm m2deep = let
     val (vs,x) = list_dest_forall tm
     val (x,y) = dest_imp x
     val z = get_Eval_arg y
-    val lemma =
+    val lemma = if can dest_monad_type (type_of z)
+                then m2deep z
+                else hol2deep z
+    val lemma = INST_ro lemma
+    val lemma = D lemma
+    (*val lemma =
       (if can dest_monad_type (type_of z) then m2deep z else hol2deep z)
-      |> INST_ro |> D
+      |> INST_ro |> D*)
     val new_env = get_Eval_env y
     val env = v_env
     val lemma = INST [env|->new_env] lemma
@@ -1265,8 +1383,11 @@ fun inst_case_thm tm m2deep = let
              SIMP_CONV std_ss []) z1 |> DISCH x1
     val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
     val bs = take (length vs div 2) vs
-    fun LIST_UNBETA_CONV l =
-      foldr (fn (x, acc) => UNBETA_CONV x THENC RATOR_CONV (acc)) ALL_CONV l
+    (*fun LIST_UNBETA_CONV l =
+      foldl (fn (x, acc) => UNBETA_CONV x THENC RATOR_CONV (acc)) ALL_CONV l*)
+    fun LIST_UNBETA_CONV [] = ALL_CONV
+      | LIST_UNBETA_CONV (x::xs) =
+          UNBETA_CONV x THENC RATOR_CONV (LIST_UNBETA_CONV xs)
     val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV)
                   (LIST_UNBETA_CONV (rev bs))) lemma
     val lemma = GENL vs lemma
