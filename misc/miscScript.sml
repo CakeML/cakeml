@@ -333,13 +333,6 @@ Theorem INJ_FAPPLY_FUPDATE
   full_simp_tac(srw_ss())[IN_FRANGE] >>
   METIS_TAC[])
 
-(* TODO - candidate for move to HOL *)
-Theorem LEAST_LESS_EQ
-  `(LEAST x. y ≤ x) = y`
-  (numLib.LEAST_ELIM_TAC \\ rw[]
-  >- (qexists_tac`y` \\ simp[])
-  \\ fs[LESS_OR_EQ] \\ res_tac \\ fs[]);
-
 (* used in only one place: stack_to_labProof *)
 Theorem BIJ_FLOOKUP_MAP_KEYS
   `BIJ bij UNIV UNIV ==>
@@ -352,12 +345,6 @@ Theorem BIJ_FLOOKUP_MAP_KEYS
   \\ `BIJ (LINV bij UNIV) UNIV UNIV` by metis_tac [BIJ_LINV_BIJ,BIJ_DEF]
   \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
   \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
-
-
-(* TODO - candidate for move to HOL *)
-Theorem OPTION_BIND_SOME
-  `∀f. OPTION_BIND f SOME = f`
-  (Cases >> simp[])
 
 (* TODO - candidate for move to HOL *)
 Theorem take1
@@ -941,12 +928,6 @@ Theorem FILTER_T[simp]
   `FILTER (\x. T) xs = xs`
   (Induct_on `xs` \\ rw [] \\ fs []);
 
-(* TODO - candidate for move to HOL *)
-Theorem OPTREL_SOME
-  `(!R x y. OPTREL R (SOME x) y <=> (?z. y = SOME z /\ R x z)) /\
-    (!R x y. OPTREL R x (SOME y) <=> (?z. x = SOME z /\ R z y))`
-    (srw_tac[][optionTheory.OPTREL_def])
-
 (* TODO - candidate for move to HOL, preferably as per OPTREL_O below *)
 Theorem LIST_REL_O
   `∀R1 R2 l1 l2.
@@ -959,15 +940,6 @@ Theorem LIST_REL_O
     qexists_tac`GENLIST f (LENGTH l2)` >>
     simp[MEM_ZIP,PULL_EXISTS] ) >>
   metis_tac[])
-
-val OPTREL_O_lemma = Q.prove(
-  `∀R1 R2 l1 l2. OPTREL (R1 O R2) l1 l2 ⇔ ∃l3. OPTREL R2 l1 l3 ∧ OPTREL R1 l3 l2`,
-  srw_tac[][optionTheory.OPTREL_def,EQ_IMP_THM,O_DEF,PULL_EXISTS] >> metis_tac[])
-
-(* TODO - candidate for move to HOL *)
-Theorem OPTREL_O
-  `∀R1 R2. OPTREL (R1 O R2) = OPTREL R1 O OPTREL R2`
-  (srw_tac[][FUN_EQ_THM,OPTREL_O_lemma,O_DEF])
 
 Theorem FUNPOW_mono
   `(∀x y. R1 x y ⇒ R2 x y) ∧
@@ -1406,18 +1378,18 @@ Theorem transitive_LESS
   (srw_tac[][relationTheory.transitive_def] >> PROVE_TAC[LESS_TRANS])
 val _ = export_rewrites["transitive_LESS"]
 
-(* TODO - candidate for move to HOL *)
+(* TODO - already in system as OPTION_ALL *)
 val OPTION_EVERY_def = Define`
   (OPTION_EVERY P NONE = T) /\
   (OPTION_EVERY P (SOME v) = P v)`
 val _ = export_rewrites["OPTION_EVERY_def"]
-(* TODO - candidate for move to HOL *)
+(* TODO - already in system as OPTION_ALL *)
 Theorem OPTION_EVERY_cong
   `!o1 o2 P1 P2. (o1 = o2) /\ (!x. (o2 = SOME x) ==> (P1 x = P2 x)) ==>
                   (OPTION_EVERY P1 o1 = OPTION_EVERY P2 o2)`
   (Cases THEN SRW_TAC[][] THEN SRW_TAC[][])
 val _ = DefnBase.export_cong"OPTION_EVERY_cong"
-(* TODO - candidate for move to HOL *)
+(* TODO - already in system as OPTION_ALL *)
 Theorem OPTION_EVERY_mono
   `(!x. P x ==> Q x) ==> OPTION_EVERY P op ==> OPTION_EVERY Q op`
   (Cases_on `op` THEN SRW_TAC[][])
@@ -3579,10 +3551,10 @@ Theorem BAG_ALL_DISTINCT_FOLDR_BAG_UNION
   \\ rw[EQ_IMP_THM] \\ fs[]
   \\ metis_tac[BAG_DISJOINT_SYM]);
 
-(* TODO - candidate for move to HOL *)
+(* TODO - already present as container$LIST_TO_BAG *)
 val bag_of_list_def = Define `bag_of_list = FOLDL $⊎ {||} o MAP EL_BAG`;
 
-(* TODO - candidate for move to HOL *)
+(* TODO - already present as container$LIST_TO_BAG *)
 Theorem bag_of_list_append
   `!xs ys. bag_of_list (xs ++ ys) = bag_of_list xs ⊎ bag_of_list ys`
   (simp [bag_of_list_def, FOLDL_APPEND]
@@ -3595,7 +3567,7 @@ Theorem bag_of_list_sub_bag_FLAT_suff
   (ho_match_mp_tac LIST_REL_ind
   \\ srw_tac [bagLib.SBAG_SOLVE_ss] [bag_of_list_append]);
 
-(* TODO - candidate for move to HOL *)
+(* TODO - already present as container$LIST_TO_BAG *)
 Theorem bag_of_list_thm
   `bag_of_list [] = {||} ∧
    (∀x xs. bag_of_list (x::xs) = BAG_INSERT x (bag_of_list xs))`
@@ -3613,19 +3585,19 @@ Theorem bag_of_list_thm
   \\ rw[COMM_ASSOC_FOLDL_REVERSE]
   \\ rw[BAG_INSERT_UNION, COMM_BAG_UNION]);
 
-(* TODO - candidate for move to HOL *)
+(* TODO - already present as container$LIST_TO_BAG *)
 Theorem IN_bag_of_list_MEM
   `∀l. x <: bag_of_list l ⇔ MEM x l`
   (Induct \\ rw[bag_of_list_thm] \\ fs[]);
 
-(* TODO - candidate for move to HOL *)
+(* TODO - already present as container$LIST_TO_BAG *)
 Theorem bag_of_list_SUB_BAG_SUBSET
   `∀l1 l2. bag_of_list l1 ≤ bag_of_list l2 ⇒ set l1 ⊆ set l2`
   (Induct \\ rw[bag_of_list_thm]
   \\ imp_res_tac BAG_INSERT_SUB_BAG_E
   \\ imp_res_tac IN_bag_of_list_MEM \\ fs[]);
 
-(* TODO - candidate for move to HOL *)
+(* TODO - already present as container$LIST_TO_BAG *)
 Theorem bag_of_list_ALL_DISTINCT
   `∀ls. BAG_ALL_DISTINCT (bag_of_list ls) ⇔ ALL_DISTINCT ls`
   (Induct \\ rw[bag_of_list_thm,IN_bag_of_list_MEM]);
