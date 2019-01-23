@@ -64,7 +64,7 @@ Theorem is_pure_pmatch `!op.
     | FromList _ => F
     | ListAppend => F
     (* TODO: mark small wordops/wordshifts/wordcmps/conversions as pure *)
-    | WordOp n _ => is_small arch_size n 
+    | WordOp n _ => is_small arch_size n
     | WordShift n _ _ => is_small arch_size n
     | WordCmp n _ => is_small arch_size n
     | WordFromInt n => is_small arch_size n
