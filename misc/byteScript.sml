@@ -9,13 +9,6 @@ val _ = new_theory "byte";
 
 val _ = set_grammar_ancestry ["arithmetic", "list", "words"];
 
-(* TODO: this is duplicated in miscTheory; need it to go to HOL *)
-Theorem TAKE_EQ_NIL[simp]
-  `(TAKE n l = []) <=> (n = 0) ∨ (l = [])`
-  (Q.ID_SPEC_TAC `l` THEN Induct_on `n` THEN ASM_SIMP_TAC (srw_ss()) [] THEN
-  Cases THEN ASM_SIMP_TAC (srw_ss()) []);
-(* -- *)
-
 (* Get and set bytes in a word *)
 
 val byte_index_def = Define `
