@@ -698,20 +698,6 @@ Theorem BIT_11_2
   srw_tac[][] >> full_simp_tac(srw_ss())[] >>
   simp[arithmeticTheory.EXP])
 
-(* TODO - candidate for move to HOL *)
-Theorem binary_induct
-  `∀P. P (0:num) ∧ (∀n. P n ⇒ P (2*n) ∧ P (2*n+1)) ⇒ ∀n. P n`
-  (gen_tac >> strip_tac >>
-  completeInduct_on`n` >>
-  Cases_on`n=0`>>simp[]>>
-  `n DIV 2 < n ∧ ((n = 2 * (n DIV 2)) ∨ (n = 2 * (n DIV 2) + 1))` by (
-    simp[DIV_MULT_THM2] >>
-    `n MOD 2 < 2` by (
-      MATCH_MP_TAC arithmeticTheory.MOD_LESS >>
-      simp[] ) >>
-    simp[] ) >>
-  metis_tac[])
-
 (* TODO - candidate for move to HOL, but with - 1 rather than PRE *)
 Theorem BIT_TIMES2
   `BIT z (2 * n) ⇔ 0 < z ∧ BIT (PRE z) n`
@@ -1307,12 +1293,6 @@ Theorem PERM_PART
 Theorem PERM_PARTITION
   `∀P L A B. ((A,B) = PARTITION P L) ==> PERM L (A ++ B)`
   (METIS_TAC[PERM_PART,PARTITION_DEF,APPEND_NIL])
-
-(* TODO - candidate for move to HOL *)
-Theorem transitive_LESS
-  `transitive ($< : (num->num->bool))`
-  (srw_tac[][relationTheory.transitive_def] >> PROVE_TAC[LESS_TRANS])
-val _ = export_rewrites["transitive_LESS"]
 
 Theorem option_case_NONE_F
   `(case X of NONE => F | SOME x => P x) = (∃x. (X = SOME x) ∧ P x)`
@@ -3280,16 +3260,6 @@ Theorem BAG_ALL_DISTINCT_SUB_BAG
   res_tac>>
   first_x_assum(qspec_then`e` assume_tac)>>
   DECIDE_TAC);
-
-(* TODO - candidate for move to HOL *)
-Theorem EVEN_SUB
-  `∀m n. m ≤ n ⇒ (EVEN (n - m) ⇔ (EVEN n <=> EVEN m))`
-  (Induct \\ simp[] \\ Cases \\ simp[EVEN]);
-
-(* TODO - candidate for move to HOL *)
-Theorem ODD_SUB
-  `∀m n. m ≤ n ⇒ (ODD (n - m) ⇔ ¬(ODD n ⇔ ODD m))`
-  (rw[ODD_EVEN,EVEN_SUB]);
 
 val IN_EVEN =
   save_thm("IN_EVEN", SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``);
