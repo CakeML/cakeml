@@ -1374,7 +1374,7 @@ Theorem read_byte_spec
          fs[EndOfFile_exn_def,eof_def,get_file_content_def,liveFS_bumpFD] >> xsimpl) >>
   xapp >> xsimpl >>
   `nr = 1` by fs[] >> fs[] >> xsimpl >>
-  fs[take1_drop,eof_def,get_file_content_def] >> pairarg_tac >> fs[liveFS_bumpFD]);
+  fs[TAKE1_DROP,eof_def,get_file_content_def] >> pairarg_tac >> fs[liveFS_bumpFD]);
 
 Theorem read_byte_STDIO_spec
   ` FD fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
@@ -1900,7 +1900,7 @@ Theorem inputLine_spec
         \\ `x = pp - pos` by fs[]
         \\ rw[] )
       \\ unabbrev_all_tac \\ simp[DROP_DROP]
-      \\ simp[take1_drop,CHAR_EQ_THM] \\ xsimpl )
+      \\ simp[TAKE1_DROP,CHAR_EQ_THM] \\ xsimpl )
     \\ fs[forwardFD_o,STDIO_numchars]
     \\ xsimpl
     \\ conj_asm1_tac
@@ -1932,7 +1932,7 @@ Theorem inputLine_spec
     \\ pop_assum SUBST_ALL_TAC
     \\ rewrite_tac[TAKE_SUM]
     \\ simp[]
-    \\ simp[take1_drop,EL_DROP,CHAR_EQ_THM]
+    \\ simp[TAKE1_DROP,EL_DROP,CHAR_EQ_THM]
     \\ unabbrev_all_tac \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl

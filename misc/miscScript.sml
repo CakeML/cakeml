@@ -346,18 +346,6 @@ Theorem BIJ_FLOOKUP_MAP_KEYS
   \\ `INJ (LINV bij UNIV) (FDOM f) UNIV` by fs [INJ_DEF,IN_UNIV,BIJ_DEF]
   \\ fs [MAP_KEYS_def] \\ metis_tac [BIJ_LINV_INV,BIJ_DEF,IN_UNIV,LINV_DEF]);
 
-(* TODO - candidate for move to HOL *)
-Theorem take1
-  `!l. l ≠ [] ⇒ TAKE 1 l = [EL 0 l]`
-  (Induct_on `l` >> srw_tac[][]);
-
-(* TODO - candidate for move to HOL *)
-Theorem take1_drop
-  `!n l. n < LENGTH l ==> (TAKE 1 (DROP n l) = [EL n l])`
-  (Induct_on `l` \\ rw[] \\
-  Cases_on `n` \\ rw[EL_restricted]
-);
-
 Theorem SPLIT_LIST
   `!xs.
       ?ys zs. (xs = ys ++ zs) /\
@@ -440,12 +428,6 @@ Theorem EVERY_FST_SND
   `EVERY (λ(a,b). P a ∧ Q b) ls ⇔ EVERY P (MAP FST ls) ∧ EVERY Q (MAP SND ls)`
   (rw[EVERY_MEM,MEM_MAP,UNCURRY,EXISTS_PROD,FORALL_PROD,PULL_EXISTS]
   \\ metis_tac[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem LENGTH_ZIP_MIN
-  `!xs ys. LENGTH (ZIP (xs,ys)) = MIN (LENGTH xs) (LENGTH ys)`
-  (Induct \\ fs [LENGTH,ZIP_def]
-  \\ Cases_on `ys` \\ fs [LENGTH,ZIP_def] \\ fs [MIN_DEF]);
 
 val zlookup_def = Define `
   zlookup m k = case lookup k m of NONE => 0n | SOME k => k`;
@@ -544,12 +526,6 @@ val max3_def = Define`
   max3 (x:num) y z = if x > y then (if z > x then z else x)
                      else (if z > y then z else y)`
 val _ = export_rewrites["max3_def"];
-
-(* TODO - candidate for move to HOL *)
-Theorem SING_HD
-  `(([HD xs] = xs) <=> (LENGTH xs = 1)) /\
-    ((xs = [HD xs]) <=> (LENGTH xs = 1))`
-  (Cases_on `xs` \\ full_simp_tac(srw_ss())[LENGTH_NIL] \\ METIS_TAC []);
 
 Theorem ALOOKUP_SNOC
   `∀ls p k. ALOOKUP (SNOC p ls) k =
@@ -917,30 +893,6 @@ Theorem least_from_thm
     `x = n` by DECIDE_TAC >>
     full_simp_tac(srw_ss())[] ))
 
-(* TODO - candidate for move to HOL *)
-Theorem FILTER_F
-  `∀ls. FILTER (λx. F) ls = []`
-  (Induct >> simp[])
-val _ = export_rewrites["FILTER_F"]
-
-(* TODO - candidate for move to HOL *)
-Theorem FILTER_T[simp]
-  `FILTER (\x. T) xs = xs`
-  (Induct_on `xs` \\ rw [] \\ fs []);
-
-(* TODO - candidate for move to HOL, preferably as per OPTREL_O below *)
-Theorem LIST_REL_O
-  `∀R1 R2 l1 l2.
-     LIST_REL (R1 O R2) l1 l2 ⇔ ∃l3. LIST_REL R2 l1 l3 ∧ LIST_REL R1 l3 l2`
-  (rpt gen_tac >>
-  simp[EVERY2_EVERY,EVERY_MEM,EQ_IMP_THM,GSYM AND_IMP_INTRO,MEM_ZIP,PULL_EXISTS,
-       O_DEF] >>
-  srw_tac[][] >- (
-    full_simp_tac(srw_ss())[GSYM RIGHT_EXISTS_IMP_THM,SKOLEM_THM] >>
-    qexists_tac`GENLIST f (LENGTH l2)` >>
-    simp[MEM_ZIP,PULL_EXISTS] ) >>
-  metis_tac[])
-
 Theorem FUNPOW_mono
   `(∀x y. R1 x y ⇒ R2 x y) ∧
     (∀R1 R2. (∀x y. R1 x y ⇒ R2 x y) ⇒ ∀x y. f R1 x y ⇒ f R2 x y) ⇒
@@ -974,17 +926,6 @@ Theorem APPLY_UPDATE_LIST_ALOOKUP
   (Induct >> simp[UPDATE_LIST_THM,ALOOKUP_APPEND] >>
   Cases >> simp[combinTheory.APPLY_UPDATE_THM] >>
   srw_tac[][] >> BasicProvers.CASE_TAC)
-
-(* TODO - candidate for move to HOL *)
-Theorem IS_SUFFIX_CONS
-  `∀l1 l2 a. IS_SUFFIX l1 l2 ⇒ IS_SUFFIX (a::l1) l2`
-  (srw_tac[][rich_listTheory.IS_SUFFIX_APPEND] >>
-  qexists_tac`a::l` >>srw_tac[][])
-
-(* TODO - candidate for move to HOL *)
-Theorem IS_SUFFIX_TRANS
-  `∀l1 l2 l3. IS_SUFFIX l1 l2 ∧ IS_SUFFIX l2 l3 ⇒ IS_SUFFIX l1 l3`
-  (rw[IS_SUFFIX_APPEND] \\ metis_tac[APPEND_ASSOC]);
 
 (* should be using indexedLists$findi, or INDEX_OF *)
 val find_index_def = Define`
@@ -1762,16 +1703,6 @@ Theorem EVERY_LAST
   (rw [LAST_EL, EVERY_EL, NOT_NIL_EQ_LENGTH_NOT_0]);
 
 (* TODO - candidate for move to HOL *)
-Theorem TAKE_GENLIST
-  `TAKE n (GENLIST f m) = GENLIST f (MIN n m)`
-  (rw[LIST_EQ_REWRITE, LENGTH_TAKE_EQ, MIN_DEF, EL_TAKE]);
-
-(* TODO - candidate for move to HOL *)
-Theorem DROP_GENLIST
-  `DROP n (GENLIST f m) = GENLIST (f o ((+)n)) (m-n)`
-  (rw[LIST_EQ_REWRITE,EL_DROP]);
-
-(* TODO - candidate for move to HOL *)
 Theorem num_to_dec_string_nil
   `¬(num_to_dec_string n = [])`
   (rw[ASCIInumbersTheory.num_to_dec_string_def]
@@ -1951,26 +1882,6 @@ Theorem MEM_enumerate_IMP `
   MEM (i,e) (enumerate 0 xs) ⇒ MEM e xs`
   (fs[MEM_EL,LENGTH_enumerate]>>rw[]>>imp_res_tac EL_enumerate>>
   qexists_tac`n`>>fs[])
-
-(* TODO - candidate for move to HOL *)
-Theorem SNOC_REPLICATE
-  `!n x. SNOC x (REPLICATE n x) = REPLICATE (SUC n) x`
-  (Induct \\ fs [REPLICATE]);
-
-(* TODO - candidate for move to HOL *)
-Theorem REVERSE_REPLICATE
-  `!n x. REVERSE (REPLICATE n x) = REPLICATE n x`
-  (Induct \\ fs [REPLICATE] \\ fs [GSYM REPLICATE,GSYM SNOC_REPLICATE]);
-
-(* TODO - candidate for move to HOL *)
-Theorem SUM_REPLICATE
-  `!n k. SUM (REPLICATE n k) = n * k`
-  (Induct \\ full_simp_tac(srw_ss())[REPLICATE,MULT_CLAUSES,AC ADD_COMM ADD_ASSOC]);
-
-(* TODO - candidate for move to HOL *)
-Theorem LENGTH_FLAT_REPLICATE
-  `∀n. LENGTH (FLAT (REPLICATE n ls)) = n * LENGTH ls`
-  (Induct >> simp[REPLICATE,MULT]);
 
 Theorem SUM_MAP_LENGTH_REPLICATE
   `∀n ls. SUM (MAP LENGTH (REPLICATE n ls)) = n * LENGTH ls`
@@ -2181,67 +2092,10 @@ Theorem ALL_DISTINCT_APPEND_APPEND_IMP
     ALL_DISTINCT (xs ++ ys) /\ ALL_DISTINCT (xs ++ zs) /\ ALL_DISTINCT (ys ++ zs)`
   (fs [ALL_DISTINCT_APPEND]);
 
-(* TODO - candidate for move to HOL *)
-Theorem TAKE_EQ_NIL[simp]
-  `TAKE n l = [] <=> n = 0 ∨ l = []`
-  (Q.ID_SPEC_TAC `l` THEN Induct_on `n` THEN ASM_SIMP_TAC (srw_ss()) [] THEN
-  Cases THEN ASM_SIMP_TAC (srw_ss()) []);
-
 Theorem GSPEC_o
   `GSPEC f o g = { x | ∃y. (g x, T) = f y }`
   (simp[FUN_EQ_THM, GSPECIFICATION]);
 
-(* TODO - candidate for move to HOL *)
-Theorem NULL_APPEND[simp]
-  `NULL (l1 ++ l2) ⇔ NULL l1 ∧ NULL l2`
-  (simp[NULL_LENGTH]);
-
-(* TODO - candidate for move to HOL *)
-Theorem MAP_DROP
-  `∀l i. MAP f (DROP i l) = DROP i (MAP f l)`
-  (Induct \\ simp[DROP_def] \\ rw[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem MAP_FRONT
-  `∀ls. ls ≠ [] ⇒ MAP f (FRONT ls) = FRONT (MAP f ls)`
-  (Induct \\ simp[] \\ Cases_on`ls`\\fs[])
-
-(* TODO - candidate for move to HOL *)
-Theorem LAST_MAP
-  `∀ls. ls ≠ [] ⇒ LAST (MAP f ls) = f (LAST ls)`
-  (Induct \\ simp[] \\ Cases_on`ls`\\fs[])
-
-Theorem splitAtPki_push
-  `f (splitAtPki P k l) = splitAtPki P (λl r. f (k l r)) l`
-  (rw[splitAtPki_EQN]
-  \\ BasicProvers.CASE_TAC \\ simp[]);
-
-Theorem splitAtPki_MAP
-  `splitAtPki P k (MAP f l) = splitAtPki (λi x. P i (f x)) (λl r. k (MAP f l) (MAP f r)) l`
-  (rw[splitAtPki_EQN,MAP_TAKE,MAP_DROP]
-  \\ rpt(AP_THM_TAC ORELSE AP_TERM_TAC)
-  \\ simp[FUN_EQ_THM]
-  \\ rw[EQ_IMP_THM] \\ rfs[EL_MAP]);
-
-(* TODO - candidate for move to HOL *)
-Theorem splitAtPki_change_predicate
-  `(∀i. i < LENGTH l ⇒ P1 i (EL i l) = P2 i (EL i l)) ⇒
-   splitAtPki P1 k l = splitAtPki P2 k l`
-  (rw[splitAtPki_EQN]
-  \\ rpt(AP_THM_TAC ORELSE AP_TERM_TAC)
-  \\ simp[FUN_EQ_THM]
-  \\ metis_tac[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem SPLITP_splitAtPki
-  `SPLITP P = splitAtPki (λi x. P x) $,`
-  (simp[FUN_EQ_THM]
-  \\ Induct
-  \\ simp[SPLITP,splitAtPki_def]
-  \\ rw[o_DEF]
-  \\ qho_match_abbrev_tac`f (splitAtPki (λi x. P x) $, x) = _`
-  \\ CONV_TAC(LAND_CONV(REWRITE_CONV[splitAtPki_push]))
-  \\ simp[Abbr`f`]);
 
 (* TODO - candidate for move to HOL *)
 Theorem o_PAIR_MAP
@@ -2265,26 +2119,6 @@ val option_fold_def = Define `
   (option_fold f x NONE = x) ∧
   (option_fold f x (SOME y) = f y x)`;
 
-(* TODO - candidate for move to HOL *)
-Theorem SPLITP_JOIN
-  `!ls l r.
-    (SPLITP P ls = (l, r)) ==>
-    (ls = l ++ r)`
-    (Induct \\ rw[SPLITP] \\
-    Cases_on `SPLITP P ls`
-    \\ rw[FST, SND]
-);
-
-
-Theorem SPLITP_IMP
-  `∀P ls l r.
-    (SPLITP P ls = (l,r)) ==>
-    EVERY ($~ o P) l /\ (~NULL r ==> P (HD r))`
-  (Induct_on`ls`
-  \\ rw[SPLITP]
-  \\ rw[] \\ fs[]
-  \\ Cases_on`SPLITP P ls` \\ fs[]);
-
 Theorem SPLITP_NIL_IMP
   `∀ls r. (SPLITP P ls = ([],r)) ==> (r = ls) /\ ((ls <> "") ==> (P (HD ls)))`
   (Induct \\ rw[SPLITP]);
@@ -2293,14 +2127,6 @@ Theorem SPLITP_NIL_IMP
 Theorem SPLIT_NIL_SND_EQ
   `!ls r. (SPLITP P ls = (r, [])) ==> (r = ls)`
     (rw[] \\ imp_res_tac SPLITP_JOIN \\ fs[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem SPLITP_NIL_SND_EVERY
-  `!ls r. (SPLITP P ls = (r, [])) <=> (r = ls) /\ (EVERY ($~ o P) ls)`
-  (rw[] \\ EQ_TAC
-    >-(rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN \\ fs[])
-  \\ rw[] \\ Induct_on `ls` \\ rw[SPLITP]
-);
 
 Theorem SPLITP_CONS_IMP
   `∀ls l' r. (SPLITP P ls = (l', r)) /\ (r <> []) ==> (EXISTS P ls)`
@@ -3203,12 +3029,6 @@ Theorem LDROP_LDROP
     fs[LDROP_ADD] >>
     NTAC 2 (full_case_tac >- imp_res_tac LDROP_NONE_LFINITE) >> fs[])
 
-(* TODO - candidate for move to HOL *)
-Theorem TAKE_TAKE_MIN
-  `!m n. TAKE n (TAKE m l) = TAKE (MIN n m) l`
-  (Induct_on`l` >> rw[] >>
-  Cases_on`m` >> Cases_on`n` >> fs[MIN_DEF] >> CASE_TAC >> fs[]);
-
 Theorem SPLITP_TAKE_DROP
  `!P i l. EVERY ($~ ∘ P) (TAKE i l) ==>
   P (EL i l) ==>
@@ -3318,11 +3138,6 @@ Theorem fevery_to_drestrict
 `!P m s.
   FEVERY P m ⇒ FEVERY P (DRESTRICT m s)`
  (rw [FEVERY_ALL_FLOOKUP,FLOOKUP_DRESTRICT]);
-
-(* TODO - candidate for move to HOL *)
-Theorem EVERY_FLAT
-  `EVERY P (FLAT ls) <=> EVERY (EVERY P) ls`
-  (rw[EVERY_MEM,MEM_FLAT,PULL_EXISTS] \\ metis_tac[]);
 
 Theorem SUM_MAP_K
   `∀f ls c. (∀x. f x = c) ⇒ SUM (MAP f ls) = LENGTH ls * c`
@@ -3476,11 +3291,6 @@ Theorem LESS_LENGTH
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [CONS_11]
   \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
   \\ srw_tac [] [ADD1]);
-
-(* TODO - candidate for move to HOL *)
-Theorem MAP_COUNT_LIST
-  `MAP f (COUNT_LIST n) = GENLIST f n`
-  (rw[COUNT_LIST_GENLIST,MAP_GENLIST]);
 
 (* TODO - candidate for move to HOL *)
 Theorem BAG_ALL_DISTINCT_SUB_BAG
@@ -3705,13 +3515,6 @@ Theorem LIST_REL_IMP_LAST
   \\ `?x1 x2. xs = SNOC x1 x2` by metis_tac [SNOC_CASES]
   \\ `?y1 y2. ys = SNOC y1 y2` by metis_tac [SNOC_CASES]
   \\ asm_rewrite_tac [LAST_SNOC] \\ fs [LIST_REL_SNOC]);
-
-(* TODO - candidate for move to HOL *)
-Theorem MAP2_APPEND
-  `!xs ys xs1 ys1 f.
-      LENGTH xs = LENGTH xs1 ==>
-      MAP2 f (xs ++ ys) (xs1 ++ ys1) = MAP2 f xs xs1 ++ MAP2 f ys ys1`
-  (Induct \\ Cases_on `xs1` \\ fs [MAP2]);
 
 val make_even_def = Define`
   make_even n = if EVEN n then n else n+1`;
