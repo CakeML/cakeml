@@ -75,9 +75,9 @@ val double_def = Define`
   expression.
 *)
 
-val double_thm = Q.store_thm("double_thm",
-  `∀e. sem (double e) = 2 * sem e`,
-  Induct \\ rw[double_def]);
+Theorem double_thm
+  `∀e. sem (double e) = 2 * sem e`
+  (Induct \\ rw[double_def]);
 (* a more detailed proof:
   Induct
   (* first subgoal solved by rewriting (sem_def is automatic; we add double_def manually) *)

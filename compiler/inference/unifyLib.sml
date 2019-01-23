@@ -1,3 +1,6 @@
+(*
+  Code that makes evaluating the unification algorithm easy.
+*)
 structure unifyLib = struct
 local
   open HolKernel boolLib bossLib lcsymtacs

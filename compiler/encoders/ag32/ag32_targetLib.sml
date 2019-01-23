@@ -1,3 +1,6 @@
+(*
+  A compset for evaluating the ag32 instruction encoder and config.
+*)
 structure ag32_targetLib :> ag32_targetLib =
 struct
 

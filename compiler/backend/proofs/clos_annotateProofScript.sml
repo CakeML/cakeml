@@ -1,3 +1,6 @@
+(*
+  Correctness proof for clos_annotate
+*)
 open preamble
      db_varsTheory
      closSemTheory closPropsTheory
@@ -16,14 +19,14 @@ val EVERY2_EL = LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst
 val alt_fv_def = Define `
   alt_fv n xs = has_var n (SND (alt_free xs))`;
 
-val alt_free_thm = Q.store_thm("alt_free_thm",
+Theorem alt_free_thm
   `!xs.
      let (ys,l) = alt_free xs in
-       !n. (alt_fv n xs = has_var n l)`,
-  fs [alt_fv_def,UNCURRY]);
+       !n. (alt_fv n xs = has_var n l)`
+  (fs [alt_fv_def,UNCURRY]);
 
-val alt_fv = store_thm("alt_fv",
-  ``(∀n. alt_fv n [] ⇔ F) ∧
+Theorem alt_fv
+  `(∀n. alt_fv n [] ⇔ F) ∧
     (∀y xs x n. alt_fv n (x::y::xs) ⇔ alt_fv n [x] ∨ alt_fv n (y::xs)) ∧
     (∀v0 v n. alt_fv n [Var v0 v] ⇔ n = v) ∧
     (∀x3 x2 x1 v1 n.
@@ -51,8 +54,8 @@ val alt_fv = store_thm("alt_fv",
          EXISTS (λ(num_args,x). alt_fv (n + num_args + LENGTH fns) [x]) fns ∨
          alt_fv (n + LENGTH fns) [x1]) ∧
     (∀x2 x1 v9 n. alt_fv n [Handle v9 x1 x2] ⇔ alt_fv n [x1] ∨ alt_fv (n + 1) [x2]) ∧
-    ∀xs v10 ticks n dest. alt_fv n [Call v10 ticks dest xs] ⇔ alt_fv n xs``,
-  rw [alt_fv_def,alt_free_def]
+    ∀xs v10 ticks n dest. alt_fv n [Call v10 ticks dest xs] ⇔ alt_fv n xs`
+  (rw [alt_fv_def,alt_free_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ Cases_on `has_var (n + LENGTH fns) l2` \\ fs []
   \\ fs [EXISTS_MAP,UNCURRY] \\ fs []
@@ -60,8 +63,8 @@ val alt_fv = store_thm("alt_fv",
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ fs [FUN_EQ_THM,FORALL_PROD]);
 
-val alt_fv_nil = Q.store_thm("alt_fv_nil[simp]",
-  `alt_fv v [] ⇔ F`, rw[alt_fv])
+Theorem alt_fv_nil[simp]
+  `alt_fv v [] ⇔ F` (rw[alt_fv])
 
 val alt_fv1_def = Define`alt_fv1 v e = alt_fv v [e]`;
 val alt_fv1_intro = save_thm("alt_fv1_intro[simp]",GSYM alt_fv1_def)
@@ -69,14 +72,13 @@ val alt_fv1_thm =
   alt_fv |> SIMP_RULE (srw_ss())[]
   |> curry save_thm "alt_fv1_thm"
 
-val alt_fv_cons = Q.store_thm("alt_fv_cons[simp]",
-  `alt_fv v (x::xs) ⇔ alt_fv1 v x ∨ alt_fv v xs`,
-  Cases_on `xs` \\ fs [alt_fv]);
+Theorem alt_fv_cons[simp]
+  `alt_fv v (x::xs) ⇔ alt_fv1 v x ∨ alt_fv v xs`
+  (Cases_on `xs` \\ fs [alt_fv]);
 
-val alt_fv_REPLICATE = Q.store_thm(
-  "alt_fv_REPLICATE[simp]",
-  `alt_fv n (REPLICATE m e) ⇔ 0 < m ∧ alt_fv1 n e`,
-  Induct_on `m` >> simp[REPLICATE, alt_fv,alt_fv1_thm] >>
+Theorem alt_fv_REPLICATE[simp]
+  `alt_fv n (REPLICATE m e) ⇔ 0 < m ∧ alt_fv1 n e`
+  (Induct_on `m` >> simp[REPLICATE, alt_fv,alt_fv1_thm] >>
   simp[] >> metis_tac[]);
 
 (* value relation *)
@@ -145,15 +147,15 @@ val v_rel_simp = let
             ``v_rel y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
   |> curry save_thm "v_rel_simp";
 
-val v_rel_Boolv = Q.store_thm("v_rel_Boolv[simp]",
+Theorem v_rel_Boolv[simp]
   `(v_rel x (Boolv b) ⇔ (x = Boolv b)) ∧
-    (v_rel (Boolv b) x ⇔ (x = Boolv b))`,
-  Cases_on`b`>>EVAL_TAC>>ntac 2(simp[Once v_rel_cases]))
+    (v_rel (Boolv b) x ⇔ (x = Boolv b))`
+  (Cases_on`b`>>EVAL_TAC>>ntac 2(simp[Once v_rel_cases]))
 
-val v_rel_Unit = Q.store_thm("v_rel_Unit[simp]",
+Theorem v_rel_Unit[simp]
   `(v_rel x Unit ⇔ (x = Unit)) ∧
-    (v_rel Unit x ⇔ (x = Unit))`,
-  EVAL_TAC>>ntac 2(simp[Once v_rel_cases]))
+    (v_rel Unit x ⇔ (x = Unit))`
+  (EVAL_TAC>>ntac 2(simp[Once v_rel_cases]))
 
 val env_ok_def = v_rel_cases |> CONJUNCT2
 
@@ -230,36 +232,36 @@ val state_rel_def = Define `
         (shift (FST (alt_free [c])) 0 arity LN = [c2]) /\
         (FLOOKUP t.code name = SOME (arity,c2)))`
 
-val state_rel_max_app = Q.store_thm("state_rel_max_app",
-  `state_rel s t ⇒ s.max_app = t.max_app`,
-  rw[state_rel_def]);
+Theorem state_rel_max_app
+  `state_rel s t ⇒ s.max_app = t.max_app`
+  (rw[state_rel_def]);
 
 (* some syntactic properties of the compiler *)
 
-val MAP_FST_compile = Q.store_thm("MAP_FST_compile[simp]",
-  `MAP FST (clos_annotate$compile p) = MAP FST p`,
-  rw[compile_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]);
+Theorem MAP_FST_compile[simp]
+  `MAP FST (clos_annotate$compile p) = MAP FST p`
+  (rw[compile_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]);
 
-val REVERSE_compile = Q.store_thm("REVERSE_compile",
-  `REVERSE (clos_annotate$compile ls) = compile (REVERSE ls)`,
-  rw[compile_def,MAP_REVERSE]);
+Theorem REVERSE_compile
+  `REVERSE (clos_annotate$compile ls) = compile (REVERSE ls)`
+  (rw[compile_def,MAP_REVERSE]);
 
-val ALOOKUP_compile = Q.store_thm("ALOOKUP_compile",
+Theorem ALOOKUP_compile
   `ALOOKUP (clos_annotate$compile ls) =
     OPTION_MAP (λ(args,e). (args, HD (annotate args [e])))
-      o (ALOOKUP ls)`,
-  rw[GSYM ALOOKUP_MAP]
+      o (ALOOKUP ls)`
+  (rw[GSYM ALOOKUP_MAP]
   \\ rw[FUN_EQ_THM,compile_def,LAMBDA_PROD]);
 
-val compile_append = Q.store_thm("compile_append",
-  `clos_annotate$compile (p1 ++ p2) = compile p1 ++ compile p2`,
-  rw[clos_annotateTheory.compile_def]);
+Theorem compile_append
+  `clos_annotate$compile (p1 ++ p2) = compile p1 ++ compile p2`
+  (rw[clos_annotateTheory.compile_def]);
 
 (* semantic functions respect relation *)
 
-val list_to_v_v_rel = Q.store_thm("list_to_v_v_rel",
-  `!xs ys.  LIST_REL v_rel xs ys ==> v_rel (list_to_v xs) (list_to_v ys)`,
-  Induct
+Theorem list_to_v_v_rel
+  `!xs ys.  LIST_REL v_rel xs ys ==> v_rel (list_to_v xs) (list_to_v ys)`
+  (Induct
   >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
 
@@ -345,9 +347,9 @@ val do_app_err_thm = Q.prove(
   \\ fs[state_rel_def] \\ first_x_assum drule \\ strip_tac \\ fs[]
   \\ rveq \\ rfs[]);
 
-val v_to_bytes = Q.store_thm("v_to_bytes",
-  `v_rel x y ==> (v_to_bytes x) = (v_to_bytes y)`,
-  rw[v_to_bytes_def]
+Theorem v_to_bytes
+  `v_rel x y ==> (v_to_bytes x) = (v_to_bytes y)`
+  (rw[v_to_bytes_def]
   \\ DEEP_INTRO_TAC some_intro
   \\ rw[OPTREL_def]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
@@ -358,9 +360,9 @@ val v_to_bytes = Q.store_thm("v_to_bytes",
   \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
   \\ METIS_TAC[EL_MAP,o_DEF]);
 
-val v_to_words = Q.store_thm("v_to_words",
-  `v_rel x y ==> (v_to_words x) = (v_to_words y)`,
-  rw[v_to_words_def]
+Theorem v_to_words
+  `v_rel x y ==> (v_to_words x) = (v_to_words y)`
+  (rw[v_to_words_def]
   \\ DEEP_INTRO_TAC some_intro
   \\ rw[OPTREL_def]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
@@ -371,14 +373,14 @@ val v_to_words = Q.store_thm("v_to_words",
   \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
   \\ METIS_TAC[EL_MAP,o_DEF]);
 
-val do_install_thm = Q.store_thm("do_install_thm",
+Theorem do_install_thm
   `state_rel s1 t1 /\ LIST_REL v_rel xs ys /\
    do_install xs s1 = (res1,s2) /\
    do_install ys t1 = (res2,t2)
    ==>
    result_rel (λe1 e2. e2 = (annotate 0 e1)) (=) res1 res2 /\
-   state_rel s2 t2`,
-  fs[do_install_def]
+   state_rel s2 t2`
+  (fs[do_install_def]
   \\ simp[CaseEq"list",CaseEq"prod",CaseEq"option"]
   \\ strip_tac \\ rveq \\ fs[]
   \\ imp_res_tac v_to_words
@@ -473,16 +475,15 @@ val FOLDR_mk_Union = prove(
   Induct \\ fs [FORALL_PROD]);
 
 (*
-val MAPi_MAPi = store_thm("MAPi_MAPi",
-  ``!xs. MAPi f (MAPi g xs) = MAPi (\i x. f i (g i x)) xs``,
-  ...);
+Theorem MAPi_MAPi
+  `!xs. MAPi f (MAPi g xs) = MAPi (\i x. f i (g i x)) xs`
+  (...);
 *)
 
-val evaluate_shift_REPLICATE_const_0 =
-  store_thm("evaluate_shift_REPLICATE_const_0[simp]",
-  ``evaluate (shift (REPLICATE n (clos_annotate$const_0 v8)) m l i,env,t1) =
-      (Rval (REPLICATE n (Number 0)),t1)``,
-  Induct_on `n` \\ fs [REPLICATE,shift_def]
+Theorem evaluate_shift_REPLICATE_const_0[simp]
+  `evaluate (shift (REPLICATE n (clos_annotate$const_0 v8)) m l i,env,t1) =
+      (Rval (REPLICATE n (Number 0)),t1)`
+  (Induct_on `n` \\ fs [REPLICATE,shift_def]
   \\ once_rewrite_tac [shift_CONS]
   \\ fs [EVAL ``shift [clos_annotate$const_0 t] a2 a3 a4``]
   \\ once_rewrite_tac [evaluate_CONS]
@@ -1189,9 +1190,9 @@ val annotate_correct = save_thm("annotate_correct",
 
 (* more correctness properties *)
 
-val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift[simp]",
-  `∀a b c d. every_Fn_vs_SOME (shift a b c d)`,
-  ho_match_mp_tac shift_ind >> srw_tac[][shift_def] >> srw_tac[][] >>
+Theorem every_Fn_vs_SOME_shift[simp]
+  `∀a b c d. every_Fn_vs_SOME (shift a b c d)`
+  (ho_match_mp_tac shift_ind >> srw_tac[][shift_def] >> srw_tac[][] >>
   rpt(qpat_x_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
   imp_res_tac shift_SING >>
   full_simp_tac(srw_ss())[Once every_Fn_vs_SOME_EVERY] >>
@@ -1200,12 +1201,12 @@ val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift[simp]",
   simp[EVERY_MEM,FORALL_PROD] >>
   simp[Once every_Fn_vs_SOME_EVERY]);
 
-val every_Fn_vs_SOME_annotate = Q.store_thm("every_Fn_vs_SOME_annotate[simp]",
-  `every_Fn_vs_SOME (annotate n es)`, srw_tac[][annotate_def]);
+Theorem every_Fn_vs_SOME_annotate[simp]
+  `every_Fn_vs_SOME (annotate n es)` (srw_tac[][annotate_def]);
 
-val every_Fn_SOME_shift = Q.store_thm("every_Fn_SOME_shift[simp]",
-  `∀a b c d. every_Fn_SOME (shift a b c d) ⇔ every_Fn_SOME a`,
-  ho_match_mp_tac shift_ind >> srw_tac[][shift_def] >> srw_tac[][] >>
+Theorem every_Fn_SOME_shift[simp]
+  `∀a b c d. every_Fn_SOME (shift a b c d) ⇔ every_Fn_SOME a`
+  (ho_match_mp_tac shift_ind >> srw_tac[][shift_def] >> srw_tac[][] >>
   rpt(qpat_x_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
   imp_res_tac shift_SING >>
   full_simp_tac(srw_ss())[Once every_Fn_SOME_EVERY] >>
@@ -1216,13 +1217,13 @@ val every_Fn_SOME_shift = Q.store_thm("every_Fn_SOME_shift[simp]",
   ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
   simp[EVERY_MAP,EVERY_MEM,FORALL_PROD]);
 
-val every_Fn_SOME_const_0 = Q.store_thm("every_Fn_SOME_const_0[simp]",
-  `every_Fn_SOME [clos_annotate$const_0 t]`,
-  EVAL_TAC );
+Theorem every_Fn_SOME_const_0[simp]
+  `every_Fn_SOME [clos_annotate$const_0 t]`
+  (EVAL_TAC );
 
-val every_Fn_SOME_alt_free = Q.store_thm("every_Fn_SOME_alt_free",
-  `∀es. every_Fn_SOME es ⇒ every_Fn_SOME (FST (alt_free es))`,
-  ho_match_mp_tac alt_free_ind >>
+Theorem every_Fn_SOME_alt_free
+  `∀es. every_Fn_SOME es ⇒ every_Fn_SOME (FST (alt_free es))`
+  (ho_match_mp_tac alt_free_ind >>
   rw[alt_free_def] \\ rpt(pairarg_tac \\ fs[]) \\
   imp_res_tac alt_free_SING >> fs[] \\
   simp[MAP_MAP_o,UNCURRY,o_DEF] >> rveq >>
@@ -1234,8 +1235,8 @@ val every_Fn_SOME_alt_free = Q.store_thm("every_Fn_SOME_alt_free",
   rw[EVERY_MEM,FORALL_PROD] >> res_tac
   \\ metis_tac[alt_free_SING,HD,FST,PAIR,MEM]);
 
-val every_Fn_SOME_annotate = Q.store_thm("every_Fn_SOME_annotate",
-  `every_Fn_SOME es ⇒ every_Fn_SOME (annotate n es)`, rw[annotate_def,every_Fn_SOME_alt_free]);
+Theorem every_Fn_SOME_annotate
+  `every_Fn_SOME es ⇒ every_Fn_SOME (annotate n es)` (rw[annotate_def,every_Fn_SOME_alt_free]);
 
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 
@@ -1248,8 +1249,8 @@ val shift_code_locs = Q.prove(
   \\ ONCE_REWRITE_TAC [code_locs_map]
   \\ AP_TERM_TAC \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD]);
 
-val code_locs_const_0 = Q.store_thm("code_locs_const_0[simp]",
-  `code_locs [clos_annotate$const_0 t] = []`, EVAL_TAC);
+Theorem code_locs_const_0[simp]
+  `code_locs [clos_annotate$const_0 t] = []` (EVAL_TAC);
 
 val alt_free_code_locs = Q.prove(
   `!xs. set (code_locs (FST (alt_free xs))) ⊆ set (code_locs xs)`,
@@ -1290,29 +1291,29 @@ val alt_free_code_locs_distinct = Q.prove(
     \\ metis_tac[SUBSET_DEF,alt_free_code_locs,FST] )
   \\ metis_tac[SUBSET_DEF,alt_free_code_locs,FST,alt_free_SING,HD]);
 
-val annotate_code_locs = Q.store_thm("annotate_code_locs",
+Theorem annotate_code_locs
   `!n ls. set (code_locs (annotate n ls)) ⊆ set (code_locs ls) ∧
-          (ALL_DISTINCT (code_locs ls) ⇒ ALL_DISTINCT (code_locs (annotate n ls)))`,
-  srw_tac[][annotate_def,shift_code_locs,alt_free_code_locs,alt_free_code_locs_distinct]);
+          (ALL_DISTINCT (code_locs ls) ⇒ ALL_DISTINCT (code_locs (annotate n ls)))`
+  (srw_tac[][annotate_def,shift_code_locs,alt_free_code_locs,alt_free_code_locs_distinct]);
 
-val EVERY_shift_sing = store_thm("EVERY_shift_sing",
-  ``EVERY f (shift [y] x1 x2 x3) <=> f (HD (shift [y] x1 x2 x3))``,
-  `?t. shift [y] x1 x2 x3 = [t]` by metis_tac [shift_SING] \\ fs []);
+Theorem EVERY_shift_sing
+  `EVERY f (shift [y] x1 x2 x3) <=> f (HD (shift [y] x1 x2 x3))`
+  (`?t. shift [y] x1 x2 x3 = [t]` by metis_tac [shift_SING] \\ fs []);
 
-val shift_obeys_max_app = store_thm("shift_obeys_max_app",
-  ``!xs m l i.
+Theorem shift_obeys_max_app
+  `!xs m l i.
       EVERY (obeys_max_app n) xs ==>
-      EVERY (obeys_max_app n) (shift xs m l i)``,
-  ho_match_mp_tac shift_ind \\ rw [shift_def]
+      EVERY (obeys_max_app n) (shift xs m l i)`
+  (ho_match_mp_tac shift_ind \\ rw [shift_def]
   \\ fs [EVERY_shift_sing,shift_LENGTH_LEMMA]
   \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
   \\ metis_tac []);
 
-val alt_free_obeys_max_app = store_thm("alt_free_obeys_max_app",
-  ``!xs m l i.
+Theorem alt_free_obeys_max_app
+  `!xs m l i.
       EVERY (obeys_max_app n) xs ==>
-      EVERY (obeys_max_app n) (FST (alt_free xs))``,
-  ho_match_mp_tac alt_free_ind \\ rw [alt_free_def]
+      EVERY (obeys_max_app n) (FST (alt_free xs))`
+  (ho_match_mp_tac alt_free_ind \\ rw [alt_free_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ imp_res_tac alt_free_SING \\ rveq \\ fs [] \\ rw []
   THEN1 (rpt (pop_assum kall_tac)
@@ -1326,27 +1327,27 @@ val alt_free_obeys_max_app = store_thm("alt_free_obeys_max_app",
   \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [] \\ rfs []
   \\ imp_res_tac alt_free_SING \\ fs []);
 
-val annotate_obeys_max_app = store_thm("annotate_obeys_max_app",
-  ``!n xs. EVERY (obeys_max_app m) xs ==>
-           EVERY (obeys_max_app m) (annotate n xs)``,
-  rw [annotate_def]
+Theorem annotate_obeys_max_app
+  `!n xs. EVERY (obeys_max_app m) xs ==>
+           EVERY (obeys_max_app m) (annotate n xs)`
+  (rw [annotate_def]
   \\ match_mp_tac shift_obeys_max_app
   \\ match_mp_tac alt_free_obeys_max_app \\ fs []);
 
-val shift_no_Labels = store_thm("shift_no_Labels",
-  ``!xs m l i.
+Theorem shift_no_Labels
+  `!xs m l i.
       EVERY no_Labels xs ==>
-      EVERY no_Labels (shift xs m l i)``,
-  ho_match_mp_tac shift_ind \\ rw [shift_def]
+      EVERY no_Labels (shift xs m l i)`
+  (ho_match_mp_tac shift_ind \\ rw [shift_def]
   \\ fs [EVERY_shift_sing,shift_LENGTH_LEMMA]
   \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
   \\ metis_tac []);
 
-val alt_free_no_Labels = store_thm("alt_free_no_Labels",
-  ``!xs m l i.
+Theorem alt_free_no_Labels
+  `!xs m l i.
       EVERY no_Labels xs ==>
-      EVERY no_Labels (FST (alt_free xs))``,
-  ho_match_mp_tac alt_free_ind \\ rw [alt_free_def]
+      EVERY no_Labels (FST (alt_free xs))`
+  (ho_match_mp_tac alt_free_ind \\ rw [alt_free_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ imp_res_tac alt_free_SING \\ rveq \\ fs [] \\ rw []
   THEN1 (rpt (pop_assum kall_tac)
@@ -1360,41 +1361,23 @@ val alt_free_no_Labels = store_thm("alt_free_no_Labels",
   \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [] \\ rfs []
   \\ imp_res_tac alt_free_SING \\ fs []);
 
-val annotate_no_Labels = store_thm("annotate_no_Labels",
-  ``!n xs. EVERY no_Labels xs ==>
-           EVERY no_Labels (annotate n xs)``,
-  rw [annotate_def]
+Theorem annotate_no_Labels
+  `!n xs. EVERY no_Labels xs ==>
+           EVERY no_Labels (annotate n xs)`
+  (rw [annotate_def]
   \\ match_mp_tac shift_no_Labels
   \\ match_mp_tac alt_free_no_Labels \\ fs []);
 
-val pure_code_locs = Q.store_thm("pure_code_locs",
-  `!xs. pure xs ==> code_locs [xs] = []`,
-  recInduct closLangTheory.pure_ind
-  \\ rw[closLangTheory.pure_def, closPropsTheory.code_locs_def]
-  \\ fsrw_tac[ETA_ss][EVERY_MEM]
-  \\ Q.ISPEC_THEN`es`mp_tac code_locs_map
-  \\ disch_then(qspec_then`I`mp_tac)
-  \\ simp[FLAT_EQ_NIL, EVERY_MAP, EVERY_MEM]);
-
-val EVERY_pure_code_locs = store_thm("EVERY_pure_code_locs",
-  ``!xs. EVERY pure xs ==> code_locs xs = []``,
-  rw[]
-  \\ Q.ISPEC_THEN`xs`mp_tac code_locs_map
-  \\ disch_then(qspec_then`I`mp_tac)
-  \\ rw[FLAT_EQ_NIL, EVERY_MAP]
-  \\ fs[EVERY_MEM]
-  \\ metis_tac[pure_code_locs]);
-
-val code_locs_REP_const_0 = store_thm("code_locs_REP_const_0",
-  ``code_locs (REPLICATE n (const_0 t)) = []``,
-  `n = LENGTH (GENLIST ARB n)` by simp[]
+Theorem code_locs_REP_const_0
+  `code_locs (REPLICATE n (const_0 t)) = []`
+  (`n = LENGTH (GENLIST ARB n)` by simp[]
   \\ pop_assum SUBST1_TAC
   \\ rw[GSYM MAP_K_REPLICATE]
   \\ rw[code_locs_map, FLAT_EQ_NIL, EVERY_MAP]);
 
-val code_locs_alt_free = store_thm("code_locs_alt_free",
-  ``!xs r1 r2. alt_free xs = (r1,r2) ==> code_locs r1 = code_locs xs``,
-  ho_match_mp_tac clos_annotateTheory.alt_free_ind
+Theorem code_locs_alt_free
+  `!xs r1 r2. alt_free xs = (r1,r2) ==> set (code_locs r1) ⊆ set (code_locs xs)`
+  (ho_match_mp_tac clos_annotateTheory.alt_free_ind
   \\ fs [clos_annotateTheory.alt_free_def]
   \\ rw [] \\ rpt (pairarg_tac \\ fs []) \\ fs []
   \\ rveq \\ fs []
@@ -1404,28 +1387,29 @@ val code_locs_alt_free = store_thm("code_locs_alt_free",
   \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
   \\ fs [closPropsTheory.code_locs_def]
   \\ once_rewrite_tac [closPropsTheory.code_locs_cons]
-  \\ fs [closPropsTheory.code_locs_def,EVERY_pure_code_locs,
-         code_locs_REP_const_0]
+  \\ fs [closPropsTheory.code_locs_def,
+         code_locs_REP_const_0, SUBSET_DEF]
   \\ rw[code_locs_map]
-  \\ AP_TERM_TAC
-  \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD] \\ rw[]
+  >- ( fs[Once code_locs_cons] )
+  \\ fs[MEM_FLAT, MEM_MAP, PULL_EXISTS, EXISTS_PROD]
   \\ first_x_assum drule
   \\ pairarg_tac \\ fs[]
   \\ imp_res_tac alt_free_SING
-  \\ rw[]);
+  \\ rw[] \\ fs[]
+  \\ metis_tac[]);
 
-val code_locs_shift = store_thm("code_locs_shift",
-  ``!xs k1 k2 k3. code_locs (shift xs k1 k2 k3) = code_locs xs``,
-  ho_match_mp_tac clos_annotateTheory.shift_ind
+Theorem code_locs_shift
+  `!xs k1 k2 k3. code_locs (shift xs k1 k2 k3) = code_locs xs`
+  (ho_match_mp_tac clos_annotateTheory.shift_ind
   \\ fs [clos_annotateTheory.shift_def,closPropsTheory.code_locs_def]
   \\ rw[code_locs_append]
   \\ rw[code_locs_map]
   \\ AP_TERM_TAC
   \\ simp[MAP_MAP_o, MAP_EQ_f, FORALL_PROD] \\ rw[]);
 
-val code_locs_annotate = store_thm("code_locs_annotate",
-  ``!n xs. code_locs (annotate n xs) = code_locs xs``,
-  rw [clos_annotateTheory.annotate_def]
+Theorem code_locs_annotate
+  `!n xs. set (code_locs (annotate n xs)) ⊆ set (code_locs xs)`
+  (rw [clos_annotateTheory.annotate_def]
   \\ Cases_on `alt_free xs` \\ fs []
   \\ drule code_locs_alt_free
   \\ fs [code_locs_shift]);
@@ -1435,7 +1419,7 @@ val code_locs_annotate = store_thm("code_locs_annotate",
 val compile_inc_def = Define `
   compile_inc (e,aux) = (annotate 0 e,clos_annotate$compile aux)`;
 
-val semantics_annotate = Q.store_thm ("semantics_annotate",
+Theorem semantics_annotate
   `semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog) co
      (pure_cc compile_inc cc) xs <> Fail ==>
    every_Fn_vs_NONE xs /\
@@ -1445,8 +1429,8 @@ val semantics_annotate = Q.store_thm ("semantics_annotate",
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap (compile prog))
      (pure_co compile_inc ∘ co) cc (annotate 0 xs) =
    semantics (ffi:'ffi ffi_state) max_app (alist_to_fmap prog)
-     co (pure_cc compile_inc cc) xs`,
-  strip_tac
+     co (pure_cc compile_inc cc) xs`
+  (strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
   \\ drule (annotate_correct |> GEN_ALL) \\ fs []
@@ -1478,5 +1462,68 @@ val semantics_annotate = Q.store_thm ("semantics_annotate",
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
   \\ Cases_on `e` \\ fs []);
+
+(* more syntactic properties *)
+
+Theorem call_dests_shift[simp]
+  `∀a b c d. app_call_dests opt (shift a b c d) = app_call_dests opt a`
+  (recInduct clos_annotateTheory.shift_ind
+  \\ rw[clos_annotateTheory.shift_def, closPropsTheory.app_call_dests_def,
+        closPropsTheory.app_call_dests_append]
+  \\ fs[] \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ rw[closPropsTheory.app_call_dests_map]
+  \\ AP_TERM_TAC \\ AP_TERM_TAC
+  \\ rw[MAP_MAP_o, MAP_EQ_f, FORALL_PROD]);
+
+Theorem no_Labels_ann
+  `!xs.
+      EVERY no_Labels (MAP (SND o SND) xs) ==>
+      EVERY no_Labels (MAP (SND ∘ SND) (clos_annotate$compile xs))`
+  (fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`]
+  \\ `?t. annotate x2 [x3] = [t]` by
+    (fs [clos_annotateTheory.annotate_def]
+     \\ Cases_on `alt_free [x3]` \\ fs []
+     \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs [] \\ rveq
+     \\ metis_tac [clos_annotateTheory.shift_SING])
+  \\ fs []
+  \\ qspecl_then [`x2`,`[x3]`] mp_tac annotate_no_Labels
+  \\ fs []);
+
+Theorem obeys_max_app_ann
+  `!xs.
+      EVERY (obeys_max_app m) (MAP (SND o SND) xs) ==>
+      EVERY (obeys_max_app m) (MAP (SND ∘ SND) (clos_annotate$compile xs))`
+  (fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ rename [`(x1,x2,x3)`]
+  \\ `?t. annotate x2 [x3] = [t]` by
+    (fs [clos_annotateTheory.annotate_def]
+     \\ Cases_on `alt_free [x3]` \\ fs []
+     \\ imp_res_tac clos_annotateTheory.alt_free_SING \\ fs [] \\ rveq
+     \\ metis_tac [clos_annotateTheory.shift_SING])
+  \\ fs []
+  \\ qspecl_then [`x2`,`[x3]`] mp_tac annotate_obeys_max_app
+  \\ fs []);
+
+Theorem HD_annotate_SING
+  `[HD (annotate x [y])] = annotate x [y]`
+  (rw[clos_annotateTheory.annotate_def]
+  \\ once_rewrite_tac[GSYM clos_annotateTheory.HD_FST_alt_free]
+  \\ rw[clos_annotateTheory.HD_shift]);
+
+Theorem every_Fn_SOME_ann
+  `!xs.
+      every_Fn_SOME (MAP (SND o SND) xs) ==>
+      every_Fn_SOME (MAP (SND ∘ SND) (clos_annotate$compile xs))`
+  (fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS,clos_annotateTheory.compile_def]
+  \\ rw [] \\ res_tac \\ fs [] \\ fs [MAP_MAP_o,o_DEF,UNCURRY]
+  \\ Induct_on `xs` \\ fs []
+  \\ once_rewrite_tac [closPropsTheory.every_Fn_SOME_APPEND
+      |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
+  \\ fs [] \\ rw []
+  \\ fs [HD_annotate_SING]
+  \\ match_mp_tac every_Fn_SOME_annotate \\ fs []);
 
 val _ = export_theory()

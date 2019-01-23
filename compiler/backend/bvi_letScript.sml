@@ -1,7 +1,3 @@
-open preamble bviTheory;
-
-val _ = new_theory "bvi_let";
-
 (*
 
    This is a BVI transformation that propagates variable lookups that
@@ -42,6 +38,9 @@ val _ = new_theory "bvi_let";
    Let [compile p1; compile p2] (Var 1).
 
 *)
+open preamble bviTheory;
+
+val _ = new_theory "bvi_let";
 
 val extract_def = Define `
   (extract ((Var n):bvi$exp) ys = n + LENGTH ys + 1) /\
@@ -55,9 +54,9 @@ val delete_var_def = Define `
   (delete_var ((Var n):bvi$exp) = Op (Const 0) []) /\
   (delete_var x = x)`;
 
-val exp2_size_APPEND = Q.store_thm("exp2_size_APPEND",
-  `!xs ys. exp2_size (xs++ys) = exp2_size xs + exp2_size ys`,
-  Induct \\ fs [exp_size_def]);
+Theorem exp2_size_APPEND
+  `!xs ys. exp2_size (xs++ys) = exp2_size xs + exp2_size ys`
+  (Induct \\ fs [exp_size_def]);
 
 val compile_def = tDefine "compile" `
   (compile env d [] = []) /\
@@ -98,15 +97,15 @@ val compile_def = tDefine "compile" `
 
 val compile_ind = theorem"compile_ind";
 
-val compile_length = Q.store_thm("compile_length[simp]",
-  `!n d xs. LENGTH (compile n d xs) = LENGTH xs`,
-  HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
+Theorem compile_length[simp]
+  `!n d xs. LENGTH (compile n d xs) = LENGTH xs`
+  (HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [compile_def,ADD1,LET_DEF]
   \\ every_case_tac \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-val compile_HD_SING = Q.store_thm("compile_HD_SING",
-  `[HD (compile n d [x])] = compile n d [x]`,
-  MP_TAC (Q.SPECL [`n`,`d`,`[x]`] compile_length)
+Theorem compile_HD_SING
+  `[HD (compile n d [x])] = compile n d [x]`
+  (MP_TAC (Q.SPECL [`n`,`d`,`[x]`] compile_length)
   \\ Cases_on `compile n d [x]` \\ fs [LENGTH_NIL]);
 
 val compile_exp_def = Define `

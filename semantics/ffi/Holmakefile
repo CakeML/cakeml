@@ -1,19 +1,19 @@
-OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../../misc/lem_lib_stub
+INCLUDES = $(CAKEMLDIR)/misc/lem_lib_stub
 
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
-all: $(TARGETS) ffiTheory.uo simpleIOTheory.uo
+all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
-#LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml) $(wildcard *.lem)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+
 LEM_OPT = -wl_unused_vars ign
 
 LEMSRC = ffi simpleIO
 LEMS = $(patsubst %,%.lem,$(LEMSRC))
 GENS = $(patsubst %,%Script.sml,$(LEMSRC))
+all: $(GENS)
 
 $(GENS): $(LEMS)
 	if type lem;\

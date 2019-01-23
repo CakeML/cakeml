@@ -1,3 +1,7 @@
+(*
+  In-logic compilation of the OPenTHeory article checker to the
+  Silver ISA.
+*)
 open preamble compilationLib readerProgTheory
 
 val _ = new_theory "readerCompile"

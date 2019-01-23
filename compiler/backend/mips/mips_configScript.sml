@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for MIPS
+*)
 open preamble backendTheory mips_targetTheory mips_targetLib
 
 val _ = new_theory"mips_config";

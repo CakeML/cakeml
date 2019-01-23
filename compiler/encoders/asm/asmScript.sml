@@ -1,18 +1,13 @@
-open HolKernel Parse boolLib bossLib
-open wordsTheory alignmentTheory astTheory
-
-val () = new_theory "asm"
-
 (* -------------------------------------------------------------------------
 
-   This script defines the syntax and semantics of a small general-
-   purpose assembly language (without labels).
+   This script defines the syntax of a small general-purpose machine
+   instruction description (without labels).
 
-   The intention is that each instruction in this assembly language
-   can be translated (i.e. encoded) into one instruction in real
-   machine languages such as 32-bit ARM, 64-bit x86, MIPS etc.
+   The intention is that each instruction can be translated
+   (i.e. encoded) into one instruction in real machine languages such
+   as 32-bit ARM, 64-bit x86, MIPS etc.
 
- * A clean, simple and reusable assembly language
+ * A clean, simple and reusable instruction description language
 
    The language is full of compromises as it attempts to be both a
    clean target language for compiler backends and, at the same time,
@@ -66,6 +61,10 @@ val () = new_theory "asm"
    of the semantics is relational but it only allows deterministic behaviour.
 
    ------------------------------------------------------------------------- *)
+open HolKernel Parse boolLib bossLib
+open wordsTheory alignmentTheory astTheory
+
+val () = new_theory "asm"
 
 (* -- syntax of ASM instruction -- *)
 

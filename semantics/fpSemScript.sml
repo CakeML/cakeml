@@ -54,7 +54,7 @@ val _ = Hol_datatype `
 
 (*val fp_cmp : fp_cmp -> word64 -> word64 -> bool*)
 val _ = Define `
- (fp_cmp fop=  ((case fop of
+ ((fp_cmp:fp_cmp -> word64 -> word64 -> bool) fop=  ((case fop of
     FP_Less => fp64_lessThan
   | FP_LessEqual => fp64_lessEqual
   | FP_Greater => fp64_greaterThan
@@ -65,7 +65,7 @@ val _ = Define `
 
 (*val fp_uop : fp_uop -> word64 -> word64*)
 val _ = Define `
- (fp_uop fop=  ((case fop of
+ ((fp_uop:fp_uop -> word64 -> word64) fop=  ((case fop of
     FP_Abs => fp64_abs
   | FP_Neg => fp64_negate
   | FP_Sqrt => fp64_sqrt roundTiesToEven
@@ -74,7 +74,7 @@ val _ = Define `
 
 (*val fp_bop : fp_bop -> word64 -> word64 -> word64*)
 val _ = Define `
- (fp_bop fop=  ((case fop of
+ ((fp_bop:fp_bop -> word64 -> word64 -> word64) fop=  ((case fop of
     FP_Add => fp64_add roundTiesToEven
   | FP_Sub => fp64_sub roundTiesToEven
   | FP_Mul => fp64_mul roundTiesToEven

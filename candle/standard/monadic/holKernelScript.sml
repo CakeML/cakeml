@@ -1,3 +1,8 @@
+(*
+  Define the Candle kernel as shallowly embedded functions in HOL
+  using a monadic style in order to conveniently pass around state and
+  propagate exceptions.
+*)
 open preamble mlstringTheory holSyntaxExtraTheory ml_monadBaseTheory ml_monadBaseLib
 
 val _ = new_theory "holKernel";

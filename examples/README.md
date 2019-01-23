@@ -3,17 +3,23 @@ Examples of verified programs built using CakeML infrastructure.
 Larger examples (like the CakeML compiler and Candle theorem prover) can be
 found in their own top-level directories.
 
+[array_searchProgScript.sml](array_searchProgScript.sml):
+An example based on searching an array.
+
 [catProgScript.sml](catProgScript.sml):
 cat program example: concatenate and print lines from files.
 
 [compilation](compilation):
-Theories for compiling the examples in the logic
+Compilation of the CakeML examples to different architectures.
 
 [diffProgScript.sml](diffProgScript.sml):
 diff example: find a patch representing the difference between two files.
 
 [diffScript.sml](diffScript.sml):
 Implementation and verification of diff and patch algorithms
+
+[doubleProgScript.sml](doubleProgScript.sml):
+Examples on the topic of doubling a number.
 
 [echoProgScript.sml](echoProgScript.sml):
 echo program example: print the command line arguments.
@@ -29,9 +35,6 @@ Hello World example, printing to standard output.
 
 [insertSortProgScript.sml](insertSortProgScript.sml):
 In-place insertion sort on a polymorphic array.
-
-[iocatProgScript.sml](iocatProgScript.sml):
-Faster cat: process 2048 chars at a time.
 
 [lcsScript.sml](lcsScript.sml):
 Verification of longest common subsequence algorithms.

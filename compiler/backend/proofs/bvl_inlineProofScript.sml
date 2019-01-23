@@ -1,3 +1,7 @@
+(*
+  Correctness proof for bvi_inline
+*)
+
 open preamble backendPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_inlineTheory
@@ -5,9 +9,7 @@ local open bvl_handleProofTheory in end
 
 val _ = new_theory"bvl_inlineProof";
 
-val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
-val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
-val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
+val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];
 
 (* removal of ticks *)
 
@@ -74,13 +76,13 @@ val do_app_lemma = prove(
   \\ qpat_x_assum `r = _` (assume_tac o GSYM) \\ fs []
   \\ impl_tac THEN1 fs [domain_map] \\ fs []);
 
-val evaluate_remove_ticks = Q.store_thm("evaluate_remove_ticks",
+Theorem evaluate_remove_ticks
   `!k xs env s (t:('c,'ffi) bvlSem$state) res s'.
       state_rel t s /\ s.clock = k /\
       evaluate (remove_ticks xs,env,s) = (res,s') ==>
       ?ck t'. evaluate (xs,env,t with clock := t.clock + ck) = (res,t') /\
-              state_rel t' s'`,
-  strip_tac \\ completeInduct_on `k` \\ fs [PULL_FORALL,AND_IMP_INTRO]
+              state_rel t' s'`
+  (strip_tac \\ completeInduct_on `k` \\ fs [PULL_FORALL,AND_IMP_INTRO]
   \\ recInduct remove_ticks_ind \\ rw []
   THEN1 (* NIL *)
    (fs [evaluate_def,remove_ticks_def] \\ rveq
@@ -286,7 +288,7 @@ val remove_ticks_co_def = Define `
   remove_ticks_co =
     (I ## MAP (I ## I ## (λx. HD (remove_ticks [x]))))`;
 
-val evaluate_compile_prog = Q.store_thm ("evaluate_compile_prog",
+Theorem evaluate_compile_prog
   `evaluate ([Call 0 (SOME start) []], [],
              initial_state ffi0 (map
                 (I ## (λx. HD (remove_ticks [x]))) prog)
@@ -295,8 +297,8 @@ val evaluate_compile_prog = Q.store_thm ("evaluate_compile_prog",
      evaluate
       ([Call 0 (SOME start) []], [],
         initial_state ffi0 prog co (remove_ticks_cc cc) (k + ck)) = (r, s2) ∧
-     s2.ffi = s.ffi`,
-  strip_tac \\ fs [remove_ticks_co_def,remove_ticks_cc_def]
+     s2.ffi = s.ffi`
+  (strip_tac \\ fs [remove_ticks_co_def,remove_ticks_cc_def]
   \\ drule (ONCE_REWRITE_RULE [CONJ_COMM]
              (REWRITE_RULE [CONJ_ASSOC] evaluate_remove_ticks_thm))
   \\ disch_then (qspec_then `initial_state ffi0 prog co
@@ -310,12 +312,12 @@ val FST_EQ_LEMMA = prove(
   ``FST x = y <=> ?y1. x = (y,y1)``,
   Cases_on `x` \\ fs []);
 
-val semantics_remove_ticks = Q.store_thm ("semantics_remove_ticks",
+Theorem semantics_remove_ticks
   `semantics ffi (map (I ## (λx. HD (remove_ticks [x]))) prog)
                  (remove_ticks_co ∘ co)
                  cc start =
-   semantics (ffi:'b ffi_state) prog co (remove_ticks_cc cc) start`,
-  simp [Once semantics_def]
+   semantics (ffi:'b ffi_state) prog co (remove_ticks_cc cc) start`
+  (simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs []
   THEN1
    (simp [semantics_def] \\ IF_CASES_TAC \\ fs [FST_EQ_LEMMA]
@@ -506,12 +508,7 @@ val semantics_remove_ticks = Q.store_thm ("semantics_remove_ticks",
     \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
     \\ metis_tac [
          LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
          bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
          bvlPropsTheory.evaluate_add_to_clock_io_events_mono
            |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
            |> Q.SPEC`s with clock := k`
@@ -606,9 +603,9 @@ val in_state_rel_def = Define `
        ?exp2. lookup k t.code = SOME (arity,exp2) /\
               exp_rel s.code [exp] [exp2])`;
 
-val subspt_exp_rel = store_thm("subspt_exp_rel",
-  ``!s1 s2 xs ys. subspt s1 s2 /\ exp_rel s1 xs ys ==> exp_rel s2 xs ys``,
-  qsuff_tac `!s1 xs ys. exp_rel s1 xs ys ==> !s2. subspt s1 s2 ==> exp_rel s2 xs ys`
+Theorem subspt_exp_rel
+  `!s1 s2 xs ys. subspt s1 s2 /\ exp_rel s1 xs ys ==> exp_rel s2 xs ys`
+  (qsuff_tac `!s1 xs ys. exp_rel s1 xs ys ==> !s2. subspt s1 s2 ==> exp_rel s2 xs ys`
   THEN1 metis_tac []
   \\ ho_match_mp_tac exp_rel_ind \\ rw []
   \\ once_rewrite_tac [exp_rel_cases] \\ fs []
@@ -625,11 +622,11 @@ val tick_inline_all_acc = prove(
   \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ fs [] \\ pairarg_tac \\ fs []);
 
-val tick_inline_all_names = Q.store_thm("tick_inline_all_names",
+Theorem tick_inline_all_names
   `!limit cs t aux cs1 xs aux.
      tick_inline_all limit cs t aux = (cs1,xs) ==>
-     MAP FST (REVERSE aux) ++ MAP FST t = MAP FST xs`,
-  Induct_on `t` \\ fs [tick_inline_all_def,FORALL_PROD]
+     MAP FST (REVERSE aux) ++ MAP FST t = MAP FST xs`
+  (Induct_on `t` \\ fs [tick_inline_all_def,FORALL_PROD]
   \\ once_rewrite_tac [tick_inline_all_acc] \\ fs []
   \\ rpt strip_tac
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
@@ -659,13 +656,13 @@ val tick_inline_all_domain = prove(
   \\ fs [] \\ pairarg_tac \\ fs [] \\ rw []
   \\ res_tac \\ fs [MAP,SUBSET_DEF] \\ metis_tac []);
 
-val tick_compile_prog_res_range = store_thm("tick_compile_prog_res_range",
-  ``!in1 limit in2 c cs0 cs1.
+Theorem tick_compile_prog_res_range
+  `!in1 limit in2 c cs0 cs1.
       tick_compile_prog limit cs0 in1 = (cs1,in2) /\
       ALL_DISTINCT (MAP FST in1) /\
       subspt cs0 c /\ domain c INTER set (MAP FST in1) = EMPTY ==>
-      subspt cs1 (union c (fromAList in2))``,
-  Induct \\ fs [tick_compile_prog_def]
+      subspt cs1 (union c (fromAList in2))`
+  (Induct \\ fs [tick_compile_prog_def]
   THEN1 (fs [tick_inline_all_def,fromAList_def])
   \\ fs [FORALL_PROD]
   \\ fs [tick_inline_all_def,fromAList_def]
@@ -714,10 +711,10 @@ val exp_rel_swap_lemma = prove(
   \\ once_rewrite_tac [exp_rel_cases] \\ fs []
   \\ res_tac \\ metis_tac []);
 
-val exp_rel_swap = store_thm("exp_rel_swap",
-  ``!x1 x2 x3 y1.
-      (!k. lookup k x1 = lookup k y1) ==> exp_rel x1 x2 x3 = exp_rel y1 x2 x3``,
-  metis_tac [exp_rel_swap_lemma]);
+Theorem exp_rel_swap
+  `!x1 x2 x3 y1.
+      (!k. lookup k x1 = lookup k y1) ==> exp_rel x1 x2 x3 = exp_rel y1 x2 x3`
+  (metis_tac [exp_rel_swap_lemma]);
 
 val exp_rel_rw = prove(
   ``exp_rel (union (union src_code (insert p1 (p2,p3) LN)) (fromAList in1))
@@ -728,15 +725,15 @@ val exp_rel_rw = prove(
   \\ Cases_on `lookup k src_code` \\ fs []
   \\ CCONTR_TAC \\ fs []);
 
-val exp_rel_tick_inline = store_thm("exp_rel_tick_inline",
-  ``!cs0 xs.
+Theorem exp_rel_tick_inline
+  `!cs0 xs.
       (∀k arity v.
         lookup k cs0 = SOME (arity,v) ⇒
         ∃exp.
           lookup k src_code = SOME (arity,exp) ∧
           exp_rel src_code [exp] [v]) ==>
-      exp_rel src_code xs (tick_inline cs0 xs)``,
-  ho_match_mp_tac tick_inline_ind \\ fs [tick_inline_def] \\ rw []
+      exp_rel src_code xs (tick_inline cs0 xs)`
+  (ho_match_mp_tac tick_inline_ind \\ fs [tick_inline_def] \\ rw []
   \\ once_rewrite_tac [exp_rel_cases] \\ fs []
   THEN1
    (sg `?y1 ys. tick_inline cs0 (y::xs) = y1::ys` \\ fs []
@@ -882,13 +879,13 @@ val in_do_app_lemma = prove(
   \\ fs [in_state_rel_def]
   \\ imp_res_tac do_app_const \\ fs []);
 
-val evaluate_inline = store_thm("evaluate_inline",
-  ``!es env s1 res t1 s2 es2.
+Theorem evaluate_inline
+  `!es env s1 res t1 s2 es2.
       in_state_rel limit s1 t1 /\ exp_rel s1.code es es2 /\
       evaluate (es,env,s1) = (res,s2) /\ res ≠ Rerr (Rabort Rtype_error) ==>
       ?t2. evaluate (es2,env,t1) = (res,t2) /\
-           in_state_rel limit s2 t2``,
-  recInduct evaluate_ind \\ rw [] \\ fs []
+           in_state_rel limit s2 t2`
+  (recInduct evaluate_ind \\ rw [] \\ fs []
   \\ fs [evaluate_def] \\ rveq \\ fs []
   \\ qpat_x_assum `exp_rel _ _ _` mp_tac
   \\ once_rewrite_tac [exp_rel_cases] \\ fs [] \\ rw []
@@ -997,9 +994,9 @@ val evaluate_inline = store_thm("evaluate_inline",
       Rerr (Rabort Rtype_error)` by fs []
   \\ drule evaluate_expand_env \\ fs []);
 
-val exp_rel_refl = store_thm("exp_rel_refl",
-  ``!cs xs. exp_rel cs xs xs``,
-  ho_match_mp_tac tick_inline_ind \\ rw []
+Theorem exp_rel_refl
+  `!cs xs. exp_rel cs xs xs`
+  (ho_match_mp_tac tick_inline_ind \\ rw []
   \\ once_rewrite_tac [exp_rel_cases] \\ fs []
   \\ Cases_on `dest` \\ fs []
   \\ Cases_on `lookup x cs` \\ fs []
@@ -1013,10 +1010,10 @@ val in_co_def = Define `
        in
          (cfg,progs)))`;
 
-val MAP_FST_tick_inline_all = store_thm("MAP_FST_tick_inline_all",
-  ``!limit cs prog.
-      MAP FST (SND (tick_inline_all limit cs prog [])) = MAP FST prog``,
-  rw[] \\ Cases_on `tick_inline_all limit cs prog []`
+Theorem MAP_FST_tick_inline_all
+  `!limit cs prog.
+      MAP FST (SND (tick_inline_all limit cs prog [])) = MAP FST prog`
+  (rw[] \\ Cases_on `tick_inline_all limit cs prog []`
   \\ imp_res_tac tick_inline_all_names \\ fs []);
 
 val exp_rel_rw = prove(
@@ -1339,12 +1336,7 @@ val semantics_tick_inline = prove(
     \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
     \\ metis_tac [
          LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
          bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
          bvlPropsTheory.evaluate_add_to_clock_io_events_mono
            |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
            |> Q.SPEC`s with clock := k`
@@ -1382,9 +1374,9 @@ val let_state_rel_alt = let_state_rel_def
 val let_state_rel_def = let_state_rel_def
   |> SIMP_RULE (srw_ss()) [state_component_equality,GSYM CONJ_ASSOC];
 
-val HD_let_op = store_thm("HD_let_op[simp]",
-  ``[HD (let_op [x])] = let_op [x]``,
-  Cases_on `x` \\ simp_tac std_ss [let_op_def] \\ fs []
+Theorem HD_let_op[simp]
+  `[HD (let_op [x])] = let_op [x]`
+  (Cases_on `x` \\ simp_tac std_ss [let_op_def] \\ fs []
   \\ CASE_TAC \\ fs []);
 
 val let_op_sing_thm = prove(
@@ -1419,9 +1411,9 @@ val var_list_IMP_evaluate = prove(
        |> SIMP_RULE std_ss [APPEND,LENGTH])
   \\ asm_exists_tac \\ fs []);
 
-val LENGTH_let_op = store_thm("LENGTH_let_op",
-  ``!xs. LENGTH (let_op xs) = LENGTH xs``,
-  ho_match_mp_tac let_op_ind \\ rw [let_op_def]
+Theorem LENGTH_let_op
+  `!xs. LENGTH (let_op xs) = LENGTH xs`
+  (ho_match_mp_tac let_op_ind \\ rw [let_op_def]
   \\ CASE_TAC \\ fs []);
 
 val do_app_lemma = prove(
@@ -1469,12 +1461,12 @@ val do_app_lemma = prove(
   \\ qpat_x_assum `t1 = _` (assume_tac o GSYM) \\ fs []
   \\ impl_tac THEN1 fs [domain_map] \\ fs []);
 
-val evaluate_let_op = store_thm("evaluate_let_op",
-  ``!es env s1 res t1 s2.
+Theorem evaluate_let_op
+  `!es env s1 res t1 s2.
       let_state_rel q4 l4 s1 t1 /\
       evaluate (es,env,s1) = (res,s2) /\ res ≠ Rerr (Rabort Rtype_error) ==>
-      ?t2. evaluate (let_op es,env,t1) = (res,t2) /\ let_state_rel q4 l4 s2 t2``,
-  recInduct evaluate_ind \\ rw [] \\ fs [let_op_def]
+      ?t2. evaluate (let_op es,env,t1) = (res,t2) /\ let_state_rel q4 l4 s2 t2`
+  (recInduct evaluate_ind \\ rw [] \\ fs [let_op_def]
   \\ fs [evaluate_def]
   THEN1
    (once_rewrite_tac [evaluate_CONS]
@@ -1763,12 +1755,7 @@ val semantics_let_op = prove(
     \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
     \\ metis_tac [
          LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
          bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
          bvlPropsTheory.evaluate_add_to_clock_io_events_mono
            |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
            |> Q.SPEC`s with clock := k`
@@ -1846,9 +1833,9 @@ val map_fromAList_HASH = prove(
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ fs [FUN_EQ_THM,FORALL_PROD]);
 
-val map_fromAList = store_thm("map_fromAList",
-  ``!xs f. map f (fromAList xs) = fromAList (MAP (I ## f) xs)``,
-  Induct \\ fs [fromAList_def,fromAList_def,FORALL_PROD,map_insert]);
+Theorem map_fromAList
+  `!xs f. map f (fromAList xs) = fromAList (MAP (I ## f) xs)`
+  (Induct \\ fs [fromAList_def,fromAList_def,FORALL_PROD,map_insert]);
 
 val ticks =
   semantics_remove_ticks
@@ -1893,24 +1880,24 @@ val MAP_optimise = prove(
         (MAP (I ## I ## (λx. HD (remove_ticks [x]))) prog)``,
   Induct \\ fs [FORALL_PROD,optimise_def,let_opt_def]);
 
-val state_cc_compile_inc_eq = store_thm("state_cc_compile_inc_eq",
-  ``(state_cc (compile_inc limit o1 o2) cc) =
-      (in_cc limit (remove_ticks_cc (let_op_cc o1 o2 cc)))``,
-  fs [state_cc_def,compile_inc_def,in_cc_def,FUN_EQ_THM,remove_ticks_cc_def,
+Theorem state_cc_compile_inc_eq
+  `(state_cc (compile_inc limit o1 o2) cc) =
+      (in_cc limit (remove_ticks_cc (let_op_cc o1 o2 cc)))`
+  (fs [state_cc_def,compile_inc_def,in_cc_def,FUN_EQ_THM,remove_ticks_cc_def,
       let_op_cc_def] \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ fs [MAP_optimise]);
 
-val state_co_compile_inc_eq = store_thm("state_co_compile_inc_eq",
-  ``(state_co (compile_inc limit o1 o2) co) =
-      ((I ## MAP (I ## let_opt o1 o2)) o remove_ticks_co ∘ in_co limit co)``,
-  fs [state_co_def,compile_inc_def,in_co_def,FUN_EQ_THM,remove_ticks_co_def]
+Theorem state_co_compile_inc_eq
+  `(state_co (compile_inc limit o1 o2) co) =
+      ((I ## MAP (I ## let_opt o1 o2)) o remove_ticks_co ∘ in_co limit co)`
+  (fs [state_co_def,compile_inc_def,in_co_def,FUN_EQ_THM,remove_ticks_co_def]
   \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ fs [MAP_optimise]);
 
-val compile_prog_semantics = store_thm("compile_prog_semantics",
-  ``compile_prog limit o1 o2 prog = (s1,prog1) /\
+Theorem compile_prog_semantics
+  `compile_prog limit o1 o2 prog = (s1,prog1) /\
     FST (FST (co 0)) = s1 /\
     ALL_DISTINCT (MAP FST prog) ⇒
     semantics ffi (fromAList prog) co (state_cc (compile_inc limit o1 o2) cc)
@@ -1918,8 +1905,8 @@ val compile_prog_semantics = store_thm("compile_prog_semantics",
     semantics ffi (fromAList prog1) (state_co (compile_inc limit o1 o2) co) cc
       start =
     semantics ffi (fromAList prog) co (state_cc (compile_inc limit o1 o2) cc)
-      start``,
-  fs [state_cc_compile_inc_eq,state_co_compile_inc_eq]
+      start`
+  (fs [state_cc_compile_inc_eq,state_co_compile_inc_eq]
   \\ fs [compile_prog_def,compile_inc_def]
   \\ pairarg_tac \\ fs [] \\ rw []
   \\ rveq \\ fs [MAP_optimise]
@@ -1929,29 +1916,168 @@ val compile_prog_semantics = store_thm("compile_prog_semantics",
   \\ drule (GEN_ALL lets)
   \\ fs [] \\ disch_then (assume_tac o GSYM) \\ fs []);
 
-val handl_ok_optimise = store_thm("handl_ok_optimise",
-  ``!prog. handle_ok (MAP (SND ∘ SND ∘ optimise b i) prog)``,
-  Induct \\ fs [bvl_handleProofTheory.handle_ok_def,FORALL_PROD]
+Theorem handle_ok_optimise
+  `!prog. bvl_handleProof$handle_ok (MAP (SND ∘ SND ∘ optimise b i) prog)`
+  (Induct \\ fs [bvl_handleProofTheory.handle_ok_def,FORALL_PROD]
   \\ once_rewrite_tac [bvl_handleProofTheory.handle_ok_CONS] \\ fs []
   \\ fs [bvl_handleProofTheory.compile_any_handle_ok,optimise_def]);
 
-val compile_prog_handle_ok = store_thm("compile_prog_handle_ok",
-  ``compile_prog l b i prog = (inlines,prog3) ==>
-    handle_ok (MAP (SND o SND) prog3)``,
-  fs [compile_prog_def,compile_inc_def]
+Theorem compile_prog_handle_ok
+  `compile_prog l b i prog = (inlines,prog3) ==>
+    bvl_handleProof$handle_ok (MAP (SND o SND) prog3)`
+  (fs [compile_prog_def,compile_inc_def]
   \\ pairarg_tac \\ fs [] \\ rw []
-  \\ fs [MAP_MAP_o,handl_ok_optimise]);
+  \\ fs [MAP_MAP_o,handle_ok_optimise]);
 
-val MAP_FST_MAP_optimise = Q.store_thm("MAP_FST_MAP_optimise[simp]",
-  `MAP FST (MAP (optimise x y) z) = MAP FST z`,
-  Induct_on`z` \\ fs[FORALL_PROD,optimise_def]);
+Theorem MAP_FST_MAP_optimise[simp]
+  `MAP FST (MAP (optimise x y) z) = MAP FST z`
+  (Induct_on`z` \\ fs[FORALL_PROD,optimise_def]);
 
-val compile_prog_names = store_thm("compile_prog_names",
-  ``compile_prog l b i prog = (inlines,prog3) ==>
-    MAP FST prog3 = MAP FST prog``,
-  fs [compile_prog_def,compile_inc_def] \\ pairarg_tac \\ fs []
+Theorem compile_prog_names
+  `compile_prog l b i prog = (inlines,prog3) ==>
+    MAP FST prog3 = MAP FST prog`
+  (fs [compile_prog_def,compile_inc_def] \\ pairarg_tac \\ fs []
   \\ fs [tick_compile_prog_def]
   \\ imp_res_tac tick_inline_all_names \\ rw []
   \\ rw[] \\ fs[]);
+
+Theorem var_list_code_labels_imp
+  `∀n x y. var_list n x y ⇒ BIGUNION (set (MAP get_code_labels x)) = {}`
+  (recInduct bvl_inlineTheory.var_list_ind
+  \\ rw[bvl_inlineTheory.var_list_def] \\ fs[]);
+
+Theorem let_op_code_labels
+  `∀x. BIGUNION (set (MAP get_code_labels (let_op x))) = BIGUNION (set (MAP get_code_labels x))`
+  (recInduct bvl_inlineTheory.let_op_ind
+  \\ rw[bvl_inlineTheory.let_op_def]
+  \\ full_simp_tac std_ss [Once(GSYM HD_let_op)] \\ fs[]
+  \\ PURE_CASE_TAC \\ fs[]
+  \\ Cases_on`HD (let_op [x2])` \\ fs[bvl_inlineTheory.dest_op_def]
+  \\ rveq
+  \\ imp_res_tac var_list_code_labels_imp
+  \\ fs[] \\ rveq \\ fs[]
+  \\ simp[EXTENSION]
+  \\ metis_tac[]);
+
+Theorem let_op_sing_code_labels[simp]
+  `get_code_labels (let_op_sing x) = get_code_labels x`
+  (rw[bvl_inlineTheory.let_op_sing_def]
+  \\ simp_tac std_ss [Once(GSYM HD_let_op)]
+  \\ simp[]
+  \\ specl_args_of_then``bvl_inline$let_op``let_op_code_labels mp_tac
+  \\ simp_tac std_ss [Once(GSYM HD_let_op)]
+  \\ rw[]);
+
+Theorem remove_ticks_code_labels
+  `∀x.
+     BIGUNION (set (MAP get_code_labels (remove_ticks x))) =
+     BIGUNION (set (MAP get_code_labels x))`
+  (recInduct bvl_inlineTheory.remove_ticks_ind
+  \\ rw[bvl_inlineTheory.remove_ticks_def]
+  \\ FULL_SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[]);
+
+Theorem optimise_get_code_labels
+  `∀x y z.
+     get_code_labels (SND (SND (optimise x y z))) ⊆
+     get_code_labels (SND (SND z))`
+  (rpt gen_tac \\ PairCases_on`z`
+  \\ reverse(rw[bvl_inlineTheory.optimise_def, bvl_handleTheory.compile_any_def, bvl_handleTheory.compile_exp_def])
+  >- (
+    specl_args_of_then``bvl_handle$compile``bvl_handleProofTheory.compile_code_labels mp_tac
+    \\ rw[]
+    \\ qmatch_goalsub_abbrev_tac`bvl_handle$compile a b c`
+    \\ Cases_on`bvl_handle$compile a b c`
+    \\ PairCases_on`r`
+    \\ unabbrev_all_tac
+    \\ imp_res_tac bvl_handleTheory.compile_sing
+    \\ rveq
+    \\ qpat_x_assum`_ ⊆ _`mp_tac
+    \\ simp[]
+    \\ strip_tac
+    \\ match_mp_tac SUBSET_TRANS
+    \\ asm_exists_tac \\ simp[]
+    \\ match_mp_tac SUBSET_TRANS
+    \\ specl_args_of_then``bvl_const$compile_exp`` bvl_constProofTheory.compile_exp_code_labels mp_tac
+    \\ strip_tac \\ asm_exists_tac \\ simp[]
+    \\ specl_args_of_then``bvl_inline$remove_ticks`` remove_ticks_code_labels mp_tac
+    \\ SIMP_TAC std_ss [Once (GSYM bvl_inlineTheory.remove_ticks_SING)] \\ fs[] )
+  \\ Cases_on `remove_ticks [z2]` \\ fs []
+  \\ first_assum (assume_tac o Q.AP_TERM `LENGTH`) \\ fs [] \\ rw []
+  \\ qspec_then `[z2]` assume_tac remove_ticks_code_labels \\ fs [] \\ rfs []
+  \\ pop_assum (SUBST1_TAC o GSYM)
+  \\ qspecl_then [`y`,`let_op_sing h`,`NONE`]
+       assume_tac bvl_handleProofTheory.compile_seqs_code_labels \\ fs []);
+
+Theorem tick_inline_code_labels
+  `!cs xs.
+     BIGUNION (set (MAP get_code_labels (tick_inline cs xs))) SUBSET
+     BIGUNION (set (MAP get_code_labels xs)) UNION
+     BIGUNION (set (MAP (get_code_labels o SND) (toList cs)))`
+  (ho_match_mp_tac bvl_inlineTheory.tick_inline_ind
+  \\ rw [bvl_inlineTheory.tick_inline_def]
+  \\ TRY
+   (qmatch_goalsub_rename_tac `_ (HD (tick_inline cs [x])) SUBSET _`
+    \\ Cases_on `tick_inline cs [x]`
+    \\ pop_assum (assume_tac o Q.AP_TERM `LENGTH`)
+    \\ fs [bvl_inlineTheory.LENGTH_tick_inline] \\ rw []
+    \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac [])
+  \\ TRY
+   (rename1 `closLang$assign_get_code_label op`
+    \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac [])
+  \\ TRY (* what... *)
+   (rename1 `option_CASE dest`
+    \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rw []
+    \\ fs [SUBSET_DEF] \\ rw []
+    \\ fs [MEM_MAP, MEM_toList]
+    \\ metis_tac [FST, SND, PAIR])
+  \\ Cases_on `tick_inline cs [x1]` \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ Cases_on `tick_inline cs [x2]` \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ Cases_on `tick_inline cs [x3]` \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ rw [bvl_inlineTheory.LENGTH_tick_inline]
+  \\ fs [SUBSET_DEF] \\ rw [] \\ metis_tac []);
+
+Theorem tick_inline_all_code_labels
+  `!limit cs xs aux cs1 xs1.
+     tick_inline_all limit cs xs aux = (cs1, xs1)
+     ==>
+     BIGUNION (set (MAP (get_code_labels o SND o SND) xs1)) SUBSET
+     BIGUNION (set (MAP (get_code_labels o SND o SND) xs)) UNION
+     BIGUNION (set (MAP (get_code_labels o SND o SND) aux)) UNION
+     BIGUNION (set (MAP (get_code_labels o SND) (toList cs)))`
+  (ho_match_mp_tac bvl_inlineTheory.tick_inline_all_ind
+  \\ rw [bvl_inlineTheory.tick_inline_all_def]
+  \\ fs [MAP_REVERSE]
+  \\ Cases_on `tick_inline cs [e1]`
+  \\ first_assum (assume_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [bvl_inlineTheory.LENGTH_tick_inline] \\ rw []
+  \\ qispl_then [`cs`,`[e1]`] assume_tac tick_inline_code_labels \\ fs [] \\ rfs []
+  \\ fs [AC UNION_COMM UNION_ASSOC]
+  \\ qmatch_goalsub_abbrev_tac `s1 SUBSET s2 UNION (s3 UNION (s4 UNION s5))`
+  \\ fs [SUBSET_DEF] \\ rw []
+  \\ rpt (first_x_assum drule \\ rw []) \\ fs []
+  \\ fs [MEM_MAP, MEM_toList, lookup_insert]
+  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
+  \\ res_tac \\ fs []
+  \\ fs [Abbr `s3`, MEM_MAP, MEM_toList, PULL_EXISTS]
+  \\ metis_tac [PAIR, FST, SND]);
+
+Theorem compile_prog_get_code_labels
+  `bvl_inline$compile_prog x y z p = (inlines,q) ⇒
+   BIGUNION (set (MAP (get_code_labels o SND o SND) q)) ⊆
+   BIGUNION (set (MAP (get_code_labels o SND o SND) p))`
+  (rw[bvl_inlineTheory.compile_prog_def, bvl_inlineTheory.compile_inc_def, bvl_inlineTheory.tick_compile_prog_def]
+  \\ pairarg_tac \\ fs[] \\ rveq
+  \\ simp[MAP_MAP_o, o_DEF]
+  \\ match_mp_tac SUBSET_TRANS
+  \\ qexists_tac`BIGUNION (set (MAP (get_code_labels o SND o SND) prog1))`
+  \\ conj_tac
+  >- (
+    rw[SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+    \\ rpt(pop_assum mp_tac)
+    \\ specl_args_of_then``bvl_inline$optimise``optimise_get_code_labels mp_tac
+    \\ rw[SUBSET_DEF]
+    \\ metis_tac[])
+  \\ imp_res_tac tick_inline_all_code_labels
+  \\ fs [o_DEF, toList_def, toListA_def]);
 
 val _ = export_theory();

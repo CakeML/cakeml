@@ -1,7 +1,7 @@
 (* NB, 6561 (3^8) and 40000 (2^7 * 5^5) are chosen to be relatively prime so
  * that all element of the array are hit *)
 
-val with_inserts = true
+val with_inserts = True
 
   datatype 'a sptree_spt =  Bs of  'a sptree_spt *  'a  *  'a sptree_spt
                          |  Bn of  'a sptree_spt *  'a sptree_spt
@@ -124,7 +124,7 @@ fun ins_look a n len =
     ((if with_inserts then insert1 a 0 len else ()); lookup1 a 0 len; ins_look a (n - 1) len);
 
 fun harness () =
-let val a = ref Ln in
+let val a = Ref Ln in
   (insert1 a 0 40000;
    ins_look a 1000 40000)
 end;

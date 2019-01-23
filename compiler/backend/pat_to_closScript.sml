@@ -1,15 +1,15 @@
+(*
+  The translation from patLang to closLang is very simple.
+  Its main purpose is simplifying the semantics of some operations,
+  for example to explicitly raise an exception for Div so the semantics
+  in closLang can make more assumptions about the arguments.
+*)
 open preamble patLangTheory closLangTheory backend_commonTheory
 
 val _ = new_theory"pat_to_clos"
 val _ = set_grammar_ancestry ["patLang", "closLang", "backend_common"]
 
 val vector_tag_def = Define`vector_tag = 0:num`
-
-(* The translation from patLang to closLang is very simple.
-   Its main purpose is simplifying the semantics of some operations,
-   for example to explicitly raise an exception for Div so the semantics
-   in closLang can make more assumptions about the arguments.
-*)
 
 fun var_fun m n = ``closLang$Var (tra § ^(numSyntax.term_of_int(36+n))) ^(numSyntax.term_of_int(m-n))``;
 

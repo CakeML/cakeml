@@ -1,7 +1,7 @@
 
-val with_inserts = true
+val with_inserts = True
 
- fun  num_compare v1 = 
+ fun  num_compare v1 =
    (fn  v2 =>
      if  (v1 = v2)
      then  Equal
@@ -36,7 +36,7 @@ fun ins_look a n len =
     ((if with_inserts then insert1 a 0 len else ()); lookup1 a 0 len; ins_look a (n - 1) len);
 
 fun harness () =
-let val a = ref Tip in
+let val a = Ref Tip in
   (insert1 a 0 40000;
    ins_look a 1000 40000)
 end;

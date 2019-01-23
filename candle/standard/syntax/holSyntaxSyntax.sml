@@ -1,3 +1,7 @@
+(*
+  ML functions for constructing and picking apart terms arising from
+  holSyntaxTheory.
+*)
 structure holSyntaxSyntax = struct
 local
   open HolKernel holSyntaxTheory

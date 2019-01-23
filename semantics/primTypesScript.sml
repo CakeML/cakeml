@@ -24,20 +24,20 @@ val _ = new_theory "primTypes"
    exceptions and types must match those in semanticPrimitives *)
 (*val prim_types_program : list dec*)
 val _ = Define `
- (prim_types_program=  
- ([Dexn unknown_loc "Bind" [];
+ ((prim_types_program:(dec)list)=
+   ([Dexn unknown_loc "Bind" [];
    Dexn unknown_loc "Chr" [];
    Dexn unknown_loc "Div" [];
    Dexn unknown_loc "Subscript" [];
-   Dtype unknown_loc [([], "bool", [("false", []); ("true", [])])];
-   Dtype unknown_loc [(["'a"], "list", [("nil", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]) ])] ]))`;
+   Dtype unknown_loc [([], "bool", [("False", []); ("True", [])])];
+   Dtype unknown_loc [(["'a"], "list", [("[]", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]) ])] ]))`;
 
 
 (*val add_to_sem_env :
   forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> list dec -> maybe (state 'ffi * sem_env v)*)
 val _ = Define `
- (add_to_sem_env (st, env) prog=  
- ((case evaluate_decs st env prog of
+ ((add_to_sem_env:'ffi state#(v)sem_env ->(dec)list ->('ffi state#(v)sem_env)option) (st, env) prog=
+   ((case evaluate_decs st env prog of
     (st', Rval env') => SOME (st', extend_dec_env env' env)
   | _ => NONE
   )))`;
@@ -45,8 +45,8 @@ val _ = Define `
 
 (*val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * sem_env v)*)
 val _ = Define `
- (prim_sem_env ffi=  
- (add_to_sem_env
+ ((prim_sem_env:'ffi ffi_state ->('ffi state#(v)sem_env)option) ffi=
+   (add_to_sem_env
     (<| clock :=(( 0 : num)); ffi := ffi; refs := ([]); next_type_stamp :=(( 0 : num)); next_exn_stamp :=(( 0 : num)) |>,
      <| v := nsEmpty; c := nsEmpty |>)
         prim_types_program))`;
@@ -55,15 +55,15 @@ val _ = Define `
 (*open import TypeSystem*)
 
 val _ = Define `
- (prim_tenv=    
- (<| c := (alist_to_ns (REVERSE
+ ((prim_tenv:type_env)=
+     (<| c := (alist_to_ns (REVERSE
           [("Bind", ([],[],Texn_num));
            ("Chr", ([],[],Texn_num));
            ("Div", ([],[],Texn_num));
            ("Subscript", ([],[],Texn_num));
-           ("false", ([],[], Tbool_num));
-           ("true", ([],[], Tbool_num));
-           ("nil", (["'a"],[],Tlist_num));
+           ("False", ([],[], Tbool_num));
+           ("True", ([],[], Tbool_num));
+           ("[]", (["'a"],[],Tlist_num));
            ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]));
        v := nsEmpty;
        t := (alist_to_ns (REVERSE
@@ -87,7 +87,7 @@ val _ = Define `
 
 
 val _ = Define `
- (prim_type_ids=  (LIST_TO_SET (Tlist_num :: (Tbool_num :: prim_type_nums))))`;
+ ((prim_type_ids:(num)set)=  (LIST_TO_SET (Tlist_num :: (Tbool_num :: prim_type_nums))))`;
 
 val _ = export_theory()
 

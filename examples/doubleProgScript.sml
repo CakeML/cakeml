@@ -19,11 +19,11 @@ val double = process_topdecs `
 
 val _ = append_prog double;
 
-val double_spec = Q.store_thm("double_spec",
+Theorem double_spec
     `∀x x_v. NUM x x_v
         ⇒ app (p:'ffi ffi_proj) ^(fetch_v "double" (basis_st())) [x_v]
-        emp (POSTv v. &(NUM (2 * x) v))`,
-    Induct_on `x` >>
+        emp (POSTv v. &(NUM (2 * x) v))`
+    (Induct_on `x` >>
     xcf "double" (basis_st())
     >- (xlet_auto
         >- xsimpl
@@ -57,11 +57,11 @@ val double_tail_rec = process_topdecs `
 
 val _ = append_prog double_tail_rec;
 
-val double_tail_rec_spec = Q.store_thm("double_tail_rec_spec",
+Theorem double_tail_rec_spec
     `∀x x_v. NUM x x_v
         ⇒ app (p:'ffi ffi_proj) ^(fetch_v "double_tail_rec" (basis_st())) [x_v]
-        emp (POSTv v. &(NUM (2 * x) v))`,
-    xcf "double_tail_rec" (basis_st()) >>
+        emp (POSTv v. &(NUM (2 * x) v))`
+    (xcf "double_tail_rec" (basis_st()) >>
     xlet_auto
         >- xsimpl >>
     xif >> fs[BOOL_def]
@@ -104,7 +104,7 @@ val double_tail_rec_spec = Q.store_thm("double_tail_rec_spec",
 
 val double_ref = process_topdecs `
     fun double_ref x =
-        if !x = 0 then (ref 0) else
+        if !x = 0 then (Ref 0) else
             (
                 x := (!x - 1);
                 (let val result = (double_ref x) in
@@ -115,7 +115,7 @@ val double_ref = process_topdecs `
 
 val _ = append_prog double_ref;
 
-val double_ref_spec = Q.store_thm("double_ref_spec",
+Theorem double_ref_spec
     `∀ inp inp_v inp_ref ffi_p .
         NUM inp inp_v
       ⇒ app (ffi_p:'ffi ffi_proj) ^(fetch_v "double_ref" (basis_st())) [inp_ref]
@@ -125,8 +125,8 @@ val double_ref_spec = Q.store_thm("double_ref_spec",
                 (inp_ref ~~> inp0_v) * &(NUM 0 inp0_v)) *
             (SEP_EXISTS ret_v .
                 (ret_ref ~~> ret_v) * &(NUM (2 * inp) ret_v))
-        )`,
-    Induct_on `inp` >>
+        )`
+    (Induct_on `inp` >>
     xcf "double_ref" (basis_st())
     >- (xlet_auto
         >- xsimpl
@@ -180,7 +180,7 @@ val double_ref_same = process_topdecs `
 
 val _ = append_prog double_ref_same;
 
-val double_ref_same_spec = Q.store_thm("double_ref_same_spec",
+Theorem double_ref_same_spec
     `∀ inp inp_v inp_ref ffi_p .
         NUM inp inp_v
       ⇒ app (ffi_p:'ffi ffi_proj)
@@ -192,8 +192,8 @@ val double_ref_same_spec = Q.store_thm("double_ref_same_spec",
                &(NUM (2 * inp) ret_v ∧
                  ret_ref = inp_ref)
             )
-        )`,
-    Induct_on `inp` >>
+        )`
+    (Induct_on `inp` >>
     xcf "double_ref_same" (basis_st())
     >- (
         xlet_auto

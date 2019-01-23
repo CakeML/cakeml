@@ -1,18 +1,18 @@
+(*
+  This compiler phase composes the phases internal to wordLang:
+      1) Inst select (with a few optimizations);
+      2) SSA;
+      3) Dead code elim (not written yet);
+      4) 3-to-2 regs for certain configs;
+      5) reg_alloc;
+      6) word_to_stack.
+*)
 open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory word_simpTheory
 local open word_instTheory in (* word-to-word transformations *) end
 open mlstringTheory
 
 val _ = new_theory "word_to_word";
 
-(*
-Order of word->word transforms:
-1) Inst select (with a few optimizations)
-2) SSA
-3) Dead code elim (not written yet)
-4) 3 to 2 regs for certain configs
-5) reg_alloc
-6) word_to_stack
-*)
 
 (*reg_alg = choice of register allocator*)
 val _ = Datatype`config =
@@ -47,7 +47,7 @@ val compile_def = Define `
     let progs = ZIP (progs,n_oracles) in
     (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
 
-val compile_alt = Q.store_thm("compile_alt",`
+Theorem compile_alt `
   compile word_conf (asm_conf:'a asm_config) progs =
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
@@ -69,8 +69,8 @@ val compile_alt = Q.store_thm("compile_alt",`
     let _ = empty_ffi (strlit "finished: word_alloc") in
     let rmt_ps = MAP remove_must_terminate reg_ps in
     let _ = empty_ffi (strlit "finished: word_remove") in
-    (col,ZIP(names,ZIP(args,rmt_ps)))`,
-  fs[compile_def,next_n_oracle_def,LIST_EQ_REWRITE]>>
+    (col,ZIP(names,ZIP(args,rmt_ps)))`
+  (fs[compile_def,next_n_oracle_def,LIST_EQ_REWRITE]>>
   rw[]>>fs[EL_MAP,full_compile_single_def,EL_ZIP,EL_MAP2]>>
   Cases_on`EL x progs`>>simp[]>>
   Cases_on`r`>>simp[compile_single_def]);

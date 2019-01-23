@@ -1,3 +1,6 @@
+(*
+  Various tactics for reasoning about CF-based goals in HOL.
+*)
 structure cfTacticsLib (*:> cfTacticsLib*) =
 struct
 
@@ -41,6 +44,9 @@ val () = ml_progComputeLib.add_env_compset cs
 val () = cfComputeLib.add_cf_aux_compset cs
 val () = computeLib.extend_compset [
   computeLib.Defs [
+(*  TS: it's quite unclear to me why CF does this, when ml_progScript is so
+    careful to ensure that these definitions aren't in the compset. I've tried
+    adjusting it, but it results in far too much work. *)
     ml_progTheory.merge_env_def,
     ml_progTheory.write_def,
     ml_progTheory.write_mod_def,
@@ -62,7 +68,7 @@ local
 
   fun stateful f ssfl thm =
     let
-      val	ss = List.foldl	(simpLib.++ o Lib.swap)	(srw_ss()) ssfl
+      val       ss = List.foldl (simpLib.++ o Lib.swap) (srw_ss()) ssfl
     in
       f ss thm
     end
@@ -185,9 +191,8 @@ fun naryFun_repack_conv tm =
 val naryClosure_repack_conv =
   (RAND_CONV naryFun_repack_conv) THENC (REWR_CONV (GSYM naryClosure_def))
 
-fun xcf name st =
+fun xcf_with_def name f_def =
   let
-    val f_def = fetch_def name st
     val Closure_tac =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
       irule app_of_cf THEN
@@ -215,7 +220,14 @@ fun xcf name st =
              err_tac "xcf" "goal is not an app" g
   in
     rpt strip_tac \\ simp [f_def] \\ closure_tac \\ reduce_tac
-  end
+  end;
+
+fun xcf name st =
+  let
+    val f_def = fetch_def name st
+  in
+    xcf_with_def name f_def
+  end;
 
 (* [xlet] *)
 

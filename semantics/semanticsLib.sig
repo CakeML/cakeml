@@ -1,4 +1,0 @@
-signature semanticsLib =
-sig
-
-end

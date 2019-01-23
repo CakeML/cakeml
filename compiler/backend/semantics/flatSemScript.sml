@@ -1,3 +1,6 @@
+(*
+  The formal semantics of flatLang
+*)
 open preamble flatLangTheory;
 open semanticPrimitivesPropsTheory;
 
@@ -429,9 +432,9 @@ val do_if_def = Define `
   else
       NONE)`;
 
-val do_if_either_or = Q.store_thm("do_if_is_ether_or",
-  `do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2`,
-  simp [do_if_def]
+Theorem do_if_either_or
+  `do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2`
+  (simp [do_if_def]
   THEN1 (Cases_on `v = Boolv T`
   THENL [simp [],
     Cases_on `v = Boolv F` THEN simp []]))
@@ -632,22 +635,22 @@ val do_app_cases = save_thm ("do_app_cases",
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
-val do_app_const = Q.store_thm ("do_app_const",
-  `do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock`,
-  rw [do_app_cases] >>
+Theorem do_app_const
+  `do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock`
+  (rw [do_app_cases] >>
   rw [] >>
   rfs []);
 
-val evaluate_clock = Q.store_thm("evaluate_clock",
+Theorem evaluate_clock
   `(∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+   (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`
+  (ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
   imp_res_tac fix_clock_IMP >> imp_res_tac do_app_const >> fs[]);
 
-val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
-  `fix_clock s (evaluate env s e) = evaluate env s e`,
-  Cases_on `evaluate env s e` \\ fs [fix_clock_def]
+Theorem fix_clock_evaluate
+  `fix_clock s (evaluate env s e) = evaluate env s e`
+  (Cases_on `evaluate env s e` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,theorem "state_component_equality"]);
 

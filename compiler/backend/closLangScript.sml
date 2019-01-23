@@ -1,4 +1,11 @@
+(*
+  The closLang intermediate language. This language is the last
+  intermediate language that has closure values. This language is
+  designed for optimisation of function calls.
+*)
 open preamble backend_commonTheory;
+
+local open astTheory in end
 
 val _ = new_theory "closLang";
 
@@ -84,9 +91,9 @@ val _ = Datatype `
 
 val exp_size_def = definition"exp_size_def";
 
-val exp1_size_lemma = Q.store_thm("exp1_size_lemma",
-  `!fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns`,
-  Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
+Theorem exp1_size_lemma
+  `!fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns`
+  (Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
   \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
 val pure_op_def = Define `
@@ -106,8 +113,6 @@ val pure_op_def = Define `
 `;
 
 (* pure e means e can neither raise an exception nor side-effect the state *)
-(* the clauses annotated with "could maybe be" were changed for syntactic labels proofs;
-   the condition now also includes cannot contain any function names *)
 val pure_def = tDefine "pure" `
   (pure (Var _ _) ⇔ T)
     ∧
@@ -117,7 +122,7 @@ val pure_def = tDefine "pure" `
     ∧
   (pure (Raise _ _) ⇔ F)
     ∧
-  (pure (Handle _ e1 e2) ⇔ pure e1 ∧ pure e2 (* could maybe be (just): pure e1 *))
+  (pure (Handle _ e1 e2) ⇔ pure e1)
     ∧
   (pure (Tick _ _) ⇔ F)
     ∧
@@ -125,13 +130,18 @@ val pure_def = tDefine "pure" `
     ∧
   (pure (App _ _ _ _) ⇔ F)
     ∧
-  (pure (Fn _ _ _ _ _) ⇔ F (* could maybe be: T *))
+  (pure (Fn _ _ _ _ _) ⇔ T)
     ∧
-  (pure (Letrec _ _ _ _ x) ⇔ F (* could maybe be: pure x *))
+  (pure (Letrec _ _ _ _ x) ⇔ pure x)
     ∧
   (pure (Op _ opn es) ⇔ EVERY pure es ∧ pure_op opn)
 ` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt conj_tac >> rpt gen_tac >>
    (Induct_on `es` ORELSE Induct_on `fns`) >> dsimp[exp_size_def] >>
    rpt strip_tac >> res_tac >> simp[])
+
+(* used in proofs about closLang, BVL, BVI and dataLang *)
+val assign_get_code_label_def = Define`
+  (assign_get_code_label (closLang$Label x) = {x}) ∧
+  (assign_get_code_label x = {})`
 
 val _ = export_theory()

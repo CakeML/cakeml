@@ -1,3 +1,6 @@
+(*
+  Define the target compiler configuration for ARMv8.
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib arm8_stepTheory;
 

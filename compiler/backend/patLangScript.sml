@@ -1,16 +1,13 @@
+(*
+  The patLang intermediate language follows immediately after
+  pattern-match compilation from flatLang. The patLang language
+  differs from earlier languages in that it uses de Bruijn indices
+  for variable names.
+*)
 open preamble flatLangTheory;
 
 val _ = new_theory "patLang"
 val _ = set_grammar_ancestry ["flatLang"]
-
-(* Removes pattern-matching and variable names. Follows exhLang.
- *
- * The AST of patLang differs from exhLang in that it uses de Bruijn indices,
- * there are no Mat expressions, Handle expressions are simplified to catch and
- * bind any exception without matching on it, and there are new Tag_eq and El
- * expressions for checking the constructor of a compound value and retrieving
- * its arguments.
- *)
 
 val _ = Datatype`
   op =
@@ -36,12 +33,12 @@ val _ = Datatype`
 (*TODO: Verify that the introduction of traces wont mess exp_sizes *)
 val exp_size_def = definition"exp_size_def";
 
-val exp1_size_APPEND = Q.store_thm("exp1_size_APPEND[simp]",
-  `patLang$exp1_size (e ++ e2) = exp1_size e + exp1_size e2`,
-  Induct_on`e`>>simp[exp_size_def])
+Theorem exp1_size_APPEND[simp]
+  `patLang$exp1_size (e ++ e2) = exp1_size e + exp1_size e2`
+  (Induct_on`e`>>simp[exp_size_def])
 
-val exp1_size_REVERSE = Q.store_thm("exp1_size_REVERSE[simp]",
-  `patLang$exp1_size (REVERSE es) = exp1_size es`,
-  Induct_on`es`>>simp[exp_size_def])
+Theorem exp1_size_REVERSE[simp]
+  `patLang$exp1_size (REVERSE es) = exp1_size es`
+  (Induct_on`es`>>simp[exp_size_def])
 
 val _ = export_theory()

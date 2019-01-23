@@ -1,3 +1,8 @@
+(*
+  The bignum library used by the CakeML compiler. Note that the
+  implementation is automatically generated from a shallow embedding
+  that is part of the HOL distribution in mc_multiwordTheory.
+*)
 open preamble astTheory wordLangTheory mc_multiwordTheory;
 
 val _ = new_theory "word_bignum";

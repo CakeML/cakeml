@@ -1,3 +1,7 @@
+(*
+  Prove top-level correctness theorem for complete compiler, i.e. the
+  combination of parsing, type inference, compiler backend.
+*)
 open preamble
      compilerTheory
      semanticsTheory targetSemTheory
@@ -16,7 +20,9 @@ val config_ok_def = Define`
     ¬cc.input_is_sexp ∧
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
-    backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    ¬cc.only_print_types ∧
+    backend_config_ok cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
 val initial_condition_def = Define`
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
@@ -33,11 +39,13 @@ val initial_condition_def = Define`
     ¬cc.input_is_sexp ∧
     ¬cc.exclude_prelude ∧
     ¬cc.skip_type_inference ∧
-    backend_config_ok cc.backend_config ∧ mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    ¬cc.only_print_types ∧
+    backend_config_ok cc.backend_config ∧
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
 
-val parse_prog_correct = Q.store_thm("parse_prog_correct",
-  `parse_prog = parse`,
-  simp[FUN_EQ_THM] \\ gen_tac
+Theorem parse_prog_correct
+  `parse_prog = parse`
+  (simp[FUN_EQ_THM] \\ gen_tac
   \\ simp[parse_def,cmlParseTheory.parse_prog_def]
   \\ DEEP_INTRO_TAC some_intro
   \\ simp[]
@@ -85,14 +93,14 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   \\ strip_tac \\ fs[MAP_MAP_o]
   \\ metis_tac[]);
 
-val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
+Theorem infertype_prog_correct
   `env_rel st.tenv ienv ∧
    st.type_ids = count start_type_id ∧
    inf_set_tids_ienv (count start_type_id) ienv ∧
    set_tids_tenv (count start_type_id) st.tenv
    ⇒
-   ∃c' x. infertype_prog ienv p = if can_type_prog st p then Success c' else Failure x`,
-  strip_tac
+   ∃c' x. infertype_prog ienv p = if can_type_prog st p then Success c' else Failure x`
+  (strip_tac
   \\ simp[inferTheory.infertype_prog_def,
           ml_monadBaseTheory.run_def,ml_monadBaseTheory.st_ex_bind_def]
   \\ qmatch_goalsub_abbrev_tac`infer_ds ienv p st0`
@@ -116,12 +124,12 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
   \\ fs[Abbr`st1`, inferTheory.init_infer_state_def]
   \\ rfs[DISJOINT_SYM]);
 
-val compile_tap_compile = Q.store_thm("compile_tap_compile",
+Theorem compile_tap_compile
   `∀conf p res td. backend$compile_tap conf p = (res,td) ⇒
-    backend$compile conf p = res`,
-  simp[backendTheory.compile_def]);
+    backend$compile conf p = res`
+  (simp[backendTheory.compile_def]);
 
-val compile_correct_gen = Q.store_thm("compile_correct_gen",
+Theorem compile_correct_gen
   `∀(st:'ffi semantics$state) (cc:α compiler$config) prelude input mc data_sp cbspace.
     initial_condition st cc mc ⇒
     case FST (compiler$compile cc prelude input) of
@@ -138,12 +146,13 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
             ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
-              (* see theorem about to_data to avoid extend_with_resource_limit *)`,
-  rpt strip_tac
+              (* see theorem about to_data to avoid extend_with_resource_limit *)`
+  (rpt strip_tac
   \\ simp[compilerTheory.compile_def]
   \\ simp[parse_prog_correct]
+  \\ qpat_abbrev_tac `tt = if _ then _ else _`
   \\ BasicProvers.CASE_TAC
-  \\ fs[initial_condition_def]
+  \\ fs[initial_condition_def,Abbr`tt`]
   \\ BasicProvers.CASE_TAC
   \\ fs[initial_condition_def]
   \\ simp[semantics_def]
@@ -151,7 +160,8 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ simp[]
   \\ disch_then(qspec_then`prelude++x`mp_tac)
   \\ qhdtm_assum`type_sound_invariant`
-       (strip_assume_tac o SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariant_def])
+       (strip_assume_tac o
+        SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariant_def])
   \\ rfs[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
@@ -183,7 +193,7 @@ val compile_correct_gen = Q.store_thm("compile_correct_gen",
   \\ CCONTR_TAC \\ fs[SUBSET_DEF] \\ rfs[]
   \\ metis_tac[]);
 
-val compile_correct = Q.store_thm("compile_correct",
+Theorem compile_correct
   `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config) mc data_sp cbspace.
     config_ok cc mc ⇒
     case FST (compiler$compile cc prelude input) of
@@ -198,8 +208,8 @@ val compile_correct = Q.store_thm("compile_correct",
           installed code cbspace data data_sp c.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
-              (* see theorem about to_data to avoid extend_with_resource_limit *)`,
-  rw[semantics_init_def]
+              (* see theorem about to_data to avoid extend_with_resource_limit *)`
+  (rw[semantics_init_def]
   \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
   \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[primSemEnvTheory.prim_sem_env_eq]
   \\ Q.ISPEC_THEN`st`mp_tac compile_correct_gen
@@ -230,12 +240,12 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ fs[])
   \\ match_mp_tac primSemEnvTheory.prim_type_sound_invariants
   \\ simp[])
-|> check_thm;
+  |> check_thm;
 
-val type_config_ok = Q.store_thm ("type_config_ok",
+Theorem type_config_ok
   `env_rel prim_tenv infer$init_config ∧
-   inf_set_tids_ienv prim_type_ids infer$init_config`,
-  rw [env_rel_def, inf_set_tids_ienv_def, ienv_ok_def, ienv_val_ok_def,
+   inf_set_tids_ienv prim_type_ids infer$init_config`
+  (rw [env_rel_def, inf_set_tids_ienv_def, ienv_ok_def, ienv_val_ok_def,
       tenv_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def, env_rel_sound_def,
       env_rel_complete_def, init_config_def, primTypesTheory.prim_tenv_def,
       typeSystemTheory.lookup_var_def] >>

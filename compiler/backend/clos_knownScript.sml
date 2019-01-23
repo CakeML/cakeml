@@ -1,3 +1,12 @@
+(*
+  This complicated compiler phase tracks where closure values flow
+  in a program. It attempts to annotate function applications with the
+  (numeric) names of the called closures (annotations lead to better
+  code in clos_to_bvl). If the code for the applied closure is
+  statically known and small enough, then this compiler phase can
+  inline the body of the called closure. The function inlining is
+  recurisve and controlled using configurable parameters.
+*)
 open preamble closLangTheory;
 open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory;
 
@@ -97,15 +106,15 @@ val get_size_aux_ind = theorem "get_size_aux_ind";
 
 val get_size_def = Define `get_size e = get_size_aux [e]`;
 
-val get_size_sc_aux_correct = Q.store_thm("get_size_sc_aux_correct",
-  `!xs limit n. get_size_sc_aux limit xs = limit - get_size_aux xs`,
-  `!xs limit n. get_size_sc_aux limit xs = n ==> n = limit - get_size_aux xs` suffices_by metis_tac []
+Theorem get_size_sc_aux_correct
+  `!xs limit n. get_size_sc_aux limit xs = limit - get_size_aux xs`
+  (`!xs limit n. get_size_sc_aux limit xs = n ==> n = limit - get_size_aux xs` suffices_by metis_tac []
   \\ ho_match_mp_tac get_size_aux_ind
   \\ simp [get_size_sc_aux_def, get_size_aux_def]);
 
-val get_size_sc_SOME = Q.store_thm("get_size_sc_SOME",
-  `!exp limit n. get_size_sc limit exp = SOME n ==> get_size exp = n`,
-  simp [get_size_sc_def, get_size_def, get_size_sc_aux_correct]);
+Theorem get_size_sc_SOME
+  `!exp limit n. get_size_sc limit exp = SOME n ==> get_size exp = n`
+  (simp [get_size_sc_def, get_size_def, get_size_sc_aux_correct]);
 
 val free_def = tDefine "free" `
   (free [] = ([],Empty)) /\
@@ -172,27 +181,27 @@ val free_LENGTH_LEMMA = Q.prove(
   \\ SRW_TAC [] [] \\ DECIDE_TAC)
   |> SIMP_RULE std_ss [] |> SPEC_ALL;
 
-val free_LENGTH = Q.store_thm("free_LENGTH",
-  `!xs ys l. (free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`,
-  REPEAT STRIP_TAC \\ MP_TAC free_LENGTH_LEMMA \\ fs []);
+Theorem free_LENGTH
+  `!xs ys l. (free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`
+  (REPEAT STRIP_TAC \\ MP_TAC free_LENGTH_LEMMA \\ fs []);
 
-val free_SING = Q.store_thm("free_SING",
-  `(free [x] = (ys,l)) ==> ?y. ys = [y]`,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC free_LENGTH
+Theorem free_SING
+  `(free [x] = (ys,l)) ==> ?y. ys = [y]`
+  (REPEAT STRIP_TAC \\ IMP_RES_TAC free_LENGTH
   \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
 
-val LENGTH_FST_free = Q.store_thm("LENGTH_FST_free",
-  `LENGTH (FST (free fns)) = LENGTH fns`,
-  Cases_on `free fns` \\ fs [] \\ IMP_RES_TAC free_LENGTH);
+Theorem LENGTH_FST_free
+  `LENGTH (FST (free fns)) = LENGTH fns`
+  (Cases_on `free fns` \\ fs [] \\ IMP_RES_TAC free_LENGTH);
 
-val HD_FST_free = Q.store_thm("HD_FST_free",
-  `[HD (FST (free [x1]))] = FST (free [x1])`,
-  Cases_on `free [x1]` \\ fs []
+Theorem HD_FST_free
+  `[HD (FST (free [x1]))] = FST (free [x1])`
+  (Cases_on `free [x1]` \\ fs []
   \\ imp_res_tac free_SING \\ fs[]);
 
-val free_CONS = Q.store_thm("free_CONS",
-  `FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)`,
-  Cases_on `xs` \\ fs [free_def,SING_HD,LENGTH_FST_free,LET_DEF]
+Theorem free_CONS
+  `FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)`
+  (Cases_on `xs` \\ fs [free_def,SING_HD,LENGTH_FST_free,LET_DEF]
   \\ Cases_on `free [x]` \\ fs []
   \\ Cases_on `free (h::t)` \\ fs [SING_HD]
 \\ IMP_RES_TAC free_SING \\ fs []);
@@ -301,7 +310,7 @@ val merge_tup_def = tDefine "merge_tup" `
    disch_then (qspec_then `tag` mp_tac) >> simp[])
 
 (* TODO: this function seems to throw the translator into an infinite loop
-val merge_tup_pmatch = Q.store_thm("merge_tup_pmatch",`!tup.
+Theorem merge_tup_pmatch `!tup.
   merge_tup tup =
     case tup of
       (Impossible,y) => y
@@ -312,15 +321,15 @@ val merge_tup_pmatch = Q.store_thm("merge_tup_pmatch",`!tup.
     | (Clos m1 n1,Clos m2 n2) => if m1 = m2 ∧ n1 = n2 then Clos m1 n1
                                  else Other
     | (Int i,Int j) => if i = j then Int i else Other
-    | _ => Other`,
-  rpt strip_tac
+    | _ => Other`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[merge_tup_def] >> metis_tac []);
  *)
 
-val merge_alt = Q.store_thm("merge_alt",`
-  ∀x y.merge x y = merge_tup (x,y)`,
-  HO_MATCH_MP_TAC (fetch "-" "merge_ind")>>rw[merge_tup_def,MAP2_MAP]>>
+Theorem merge_alt `
+  ∀x y.merge x y = merge_tup (x,y)`
+  (HO_MATCH_MP_TAC (fetch "-" "merge_ind")>>rw[merge_tup_def,MAP2_MAP]>>
   match_mp_tac LIST_EQ>>rw[EL_ZIP,EL_MAP]>>
   first_x_assum match_mp_tac>>metis_tac[MEM_EL])
 
@@ -351,7 +360,7 @@ val known_op_def = Define `
      | _ => (Other,g)) /\
 (known_op op as g = (Other,g))`
 
-val known_op_pmatch = Q.store_thm("known_op_pmatch",`!op as g.
+Theorem known_op_pmatch `!op as g.
 known_op op as g =
   case op of
     Global n =>
@@ -378,8 +387,8 @@ known_op op as g =
      | Impossible::xs => (Impossible,g)
      | _ :: Impossible :: xs => (Impossible,g)
      | _ => (Other,g))
-  | _ => (Other,g)`,
-  rpt strip_tac
+  | _ => (Other,g)`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[known_op_def])
 
@@ -405,12 +414,12 @@ val isGlobal_def = Define`
   (isGlobal (Global _) ⇔ T) ∧
   (isGlobal _ ⇔ F)`;
 
-val isGlobal_pmatch = Q.store_thm("isGlobal_pmatch",`!op.
+Theorem isGlobal_pmatch `!op.
   isGlobal op =
   case op of
     Global _ => T
-    | _ => F`,
-  rpt strip_tac
+    | _ => F`
+  (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[isGlobal_def])
 
@@ -479,11 +488,10 @@ val decide_inline_def = Define `
       | _ => inlD_Nothing
 `;
 
-val decide_inline_LetInline = Q.store_thm(
-  "decide_inline_LetInline",
+Theorem decide_inline_LetInline
   `!c fapx lopt arity body.
-     decide_inline c fapx lopt arity = inlD_LetInline body ==> 0 < c.inline_factor`,
-  rpt strip_tac
+     decide_inline c fapx lopt arity = inlD_LetInline body ==> 0 < c.inline_factor`
+  (rpt strip_tac
   \\ Cases_on `fapx` \\ fs [decide_inline_def, bool_case_eq]
   \\ spose_not_then assume_tac \\ fs []);
 
@@ -585,37 +593,33 @@ val known_def = tDefine "known" `
 
 val known_ind = theorem "known_ind";
 
-val known_LENGTH = Q.store_thm(
-  "known_LENGTH",
-  `∀limit es vs g. LENGTH (FST (known limit es vs g)) = LENGTH es`,
-  recInduct known_ind >> simp[known_def] >> rpt strip_tac >>
+Theorem known_LENGTH
+  `∀limit es vs g. LENGTH (FST (known limit es vs g)) = LENGTH es`
+  (recInduct known_ind >> simp[known_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >>
   rw [] >> CASE_TAC >> CASE_TAC >> fs [] >>
   rpt (pairarg_tac >> fs []));
 
-val known_LENGTH_EQ_E = Q.store_thm(
-  "known_LENGTH_EQ_E",
-  `known limit es vs g0 = (alist, g) ⇒ LENGTH alist = LENGTH es`,
-  metis_tac[FST, known_LENGTH]);
+Theorem known_LENGTH_EQ_E
+  `known limit es vs g0 = (alist, g) ⇒ LENGTH alist = LENGTH es`
+  (metis_tac[FST, known_LENGTH]);
 
-val known_sing = Q.store_thm(
-  "known_sing",
-  `∀limit e vs g. ∃e' a g'. known limit [e] vs g = ([(e',a)], g')`,
-  rpt strip_tac >> Cases_on `known limit [e] vs g` >>
+Theorem known_sing
+  `∀limit e vs g. ∃e' a g'. known limit [e] vs g = ([(e',a)], g')`
+  (rpt strip_tac >> Cases_on `known limit [e] vs g` >>
   rename1 `known limit [e] vs g = (res,g')` >>
   qspecl_then [`limit`, `[e]`, `vs`, `g`] mp_tac known_LENGTH >> simp[] >>
   Cases_on `res` >> simp[LENGTH_NIL] >> metis_tac[pair_CASES])
 
-val known_sing_EQ_E = Q.store_thm(
-  "known_sing_EQ_E",
-  `∀limit e vs g0 all g. known limit [e] vs g0 = (all, g) ⇒ ∃e' apx. all = [(e',apx)]`,
-  metis_tac[PAIR_EQ, known_sing]);
+Theorem known_sing_EQ_E
+  `∀limit e vs g0 all g. known limit [e] vs g0 = (all, g) ⇒ ∃e' apx. all = [(e',apx)]`
+  (metis_tac[PAIR_EQ, known_sing]);
 
 val compile_def = Define `
   compile NONE exps = (NONE, exps) /\
   compile (SOME c) exps =
     let exps = clos_fvs$compile exps in
-    let (es, g) = known c exps [] c.val_approx_spt in
+    let (es, g) = known c exps [] LN in
     let es1 = remove_ticks (MAP FST es) in
     let es2 = let_op es1 in
       (SOME (c with val_approx_spt := g), es2)`;

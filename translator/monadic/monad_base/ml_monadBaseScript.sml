@@ -68,16 +68,16 @@ val Msub_def = Define `
       [] => Failure e
     | x::l' => if n = 0 then Success x else Msub e (n-1) l'`;
 
-val Msub_eq = Q.store_thm ("Msub_eq",
-  `!l n e. n < LENGTH l ==> (Msub e n l = Success (EL n l))`,
-  Induct
+Theorem Msub_eq
+  `!l n e. n < LENGTH l ==> (Msub e n l = Success (EL n l))`
+  (Induct
   \\ rw[Once Msub_def]
   \\ Cases_on `n`
   \\ fs[]);
 
-val Msub_exn_eq = Q.store_thm("Msub_exn_eq",
-  `!l n e. n >= LENGTH l ==> (Msub e n l = Failure e)`,
-  Induct
+Theorem Msub_exn_eq
+  `!l n e. n >= LENGTH l ==> (Msub e n l = Failure e)`
+  (Induct
   \\ rw[Once Msub_def]
   \\ Cases_on `n`
   \\ fs[]);
@@ -95,16 +95,16 @@ val Mupdate_def = Define `
              Success l'' => Success (x'::l'')
            | other => other)`;
 
-val Mupdate_eq = Q.store_thm("Mupdate_eq",
-  `!l n x e. n < LENGTH l ==> (Mupdate e x n l = Success (LUPDATE x n l))`,
-  Induct
+Theorem Mupdate_eq
+  `!l n x e. n < LENGTH l ==> (Mupdate e x n l = Success (LUPDATE x n l))`
+  (Induct
   \\ rw[Once Mupdate_def, LUPDATE_def]
   \\ Cases_on `n`
   \\ fs[LUPDATE_def]);
 
-val Mupdate_exn_eq = Q.store_thm("Mupdate_exn_eq",
-  `!l n x e. n >= LENGTH l ==> (Mupdate e x n l = Failure e)`,
-  Induct
+Theorem Mupdate_exn_eq
+  `!l n x e. n >= LENGTH l ==> (Mupdate e x n l = Failure e)`
+  (Induct
   \\ rw[Once Mupdate_def, LUPDATE_def]
   \\ Cases_on `n`
   \\ fs[LUPDATE_def]);
@@ -119,9 +119,9 @@ val array_resize_def = Define `
         [] => x::array_resize (n-1) x a
       | x'::a' => x'::array_resize (n-1) x a'`;
 
-val array_resize_eq = Q.store_thm("array_resize_eq",
-  `!a n x. array_resize n x a = TAKE n a ++ REPLICATE (n - LENGTH a) x`,
-  Induct \\ Induct_on `n` \\ rw [Once array_resize_def]);
+Theorem array_resize_eq
+  `!a n x. array_resize n x a = TAKE n a ++ REPLICATE (n - LENGTH a) x`
+  (Induct \\ Induct_on `n` \\ rw [Once array_resize_def]);
 
 (* User functions *)
 val Marray_length_def = Define `
@@ -190,9 +190,9 @@ val Mref_assign_def = Define `
 val ref_assign_def = Define `
   ref_assign n x = \s. LUPDATE x (LENGTH s - n - 1) s`;
 
-val dref_const_state_eq = Q.store_thm("dref_cons_state",
-  `n < LENGTH state ==> (dref n (x::state) = dref n state)`,
-  rw[Once dref_def]
+Theorem dref_cons_state
+  `n < LENGTH state ==> (dref n (x::state) = dref n state)`
+  (rw[Once dref_def]
   \\ fs[SUC_ONE_ADD]
   \\ Cases_on `LENGTH state - n` >-(fs[])
   \\ rw[]
@@ -200,16 +200,16 @@ val dref_const_state_eq = Q.store_thm("dref_cons_state",
   \\ `LENGTH state - (n + 1) = LENGTH state - n - 1` by numLib.DECIDE_TAC
   \\ POP_ASSUM(fn x => rw[x]));
 
-val dref_first = Q.store_thm("dref_first",
-  `dref (LENGTH s) (r::s) = r`,
-  fs[Once dref_def, SUC_ONE_ADD]);
+Theorem dref_first
+  `dref (LENGTH s) (r::s) = r`
+  (fs[Once dref_def, SUC_ONE_ADD]);
 
-val Mdref_eq = Q.store_thm("Mdref_eq",
+Theorem Mdref_eq
   `!state n.
      n < LENGTH state
      ==>
-     (Mdref e (StoreRef n) state = (Success(dref n state), state))`,
-  Induct
+     (Mdref e (StoreRef n) state = (Success(dref n state), state))`
+  (Induct
   \\ rw[Once Mdref_def, Once Mdref_aux_def]
   >-(rw[Once dref_def]
      \\ fs[]
@@ -221,15 +221,15 @@ val Mdref_eq = Q.store_thm("Mdref_eq",
       by (last_x_assum(fn x => ALL_TAC) \\ rw[Once Mdref_def])
   \\ POP_ASSUM(fn x => PURE_REWRITE_TAC[x])
   \\ rw[]
-  \\ rw[dref_const_state_eq]);
+  \\ rw[dref_cons_state]);
 
-val Mref_assign_aux_eq = Q.store_thm("Mref_assign_aux_eq",
+Theorem Mref_assign_aux_eq
   `!state e n x.
      n < LENGTH state
      ==>
      (Mref_assign_aux e (LENGTH state - n - 1) x state =
-      Success (ref_assign n x state))`,
-  Induct
+      Success (ref_assign n x state))`
+  (Induct
   \\ rw[Once Mref_assign_aux_def, Once ref_assign_def]
   >-(rw[SUC_ONE_ADD]
      >> Cases_on `LENGTH state - n` >-(rw[LUPDATE_def])
@@ -243,12 +243,12 @@ val Mref_assign_aux_eq = Q.store_thm("Mref_assign_aux_eq",
   \\ `LENGTH state - (n + 1) = n'` by fs[SUC_ONE_ADD]
   \\ rw[]);
 
-val Mref_assign_eq = Q.store_thm("Mref_assign_eq",
+Theorem Mref_assign_eq
   `!state e n x.
      n < LENGTH state
      ==>
-     (Mref_assign e (StoreRef n) x state = (Success(), ref_assign n x state))`,
-  rw[Once Mref_assign_def]
+     (Mref_assign e (StoreRef n) x state = (Success(), ref_assign n x state))`
+  (rw[Once Mref_assign_def]
   \\ IMP_RES_TAC Mref_assign_aux_eq
   \\ fs[]);
 
