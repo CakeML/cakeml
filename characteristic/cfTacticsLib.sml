@@ -134,11 +134,25 @@ val cf_defs =
 
 val cleanup_exn_side_cond =
   simp [cfHeapsBaseTheory.SEP_IMPPOSTv_POSTe_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTf_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTed_left,
         cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTv_left,
         cfHeapsBaseTheory.SEP_IMPPOSTe_POSTf_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTf_left
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTvd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTve_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTvd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTed_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTf_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTve_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_inv_POSTe_left
        ]
 
 val xlocal =
