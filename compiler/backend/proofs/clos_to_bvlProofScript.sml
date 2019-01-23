@@ -1,6 +1,7 @@
 (*
   Correctness proof for clos_to_bvl
 *)
+
 open preamble
      closLangTheory closSemTheory closPropsTheory
      bvlSemTheory bvlPropsTheory
@@ -2973,58 +2974,59 @@ Theorem evaluate_IMP_evaluate_chained
   \\ Cases_on `t5` \\ fs [chain_exps_def]
   \\ Cases_on `c1` \\ fs [chain_exps_def]);
 
-Theorem compile_exps_correct
-  `(!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
-     (tmp = (xs,env,s1)) ∧
-     (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
-     (compile_exps s1.max_app xs aux1 = (ys,aux2)) /\
-     every_Fn_SOME xs ∧ FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
-     every_Fn_vs_SOME xs ∧ FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
-     code_installed aux2 t1.code /\
-     env_rel s1.max_app f1 t1.refs t1.code env env' /\
-     state_rel f1 s1 t1 ==>
-     ?ck res' t2 f2.
-        (evaluate (ys,env',t1 with clock := s1.clock + ck) = (res',t2)) /\
-        result_rel (LIST_REL (v_rel s1.max_app f2 t2.refs t2.code)) (v_rel s1.max_app f2 t2.refs t2.code) res res' /\
-        state_rel f2 s2 t2 /\
-        f1 SUBMAP f2 /\
-        (FDIFF t1.refs (FRANGE f1)) SUBMAP (FDIFF t2.refs (FRANGE f2)) ∧
-        FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
-        FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
-        s2.clock = t2.clock) ∧
-   (!loc_opt func args ^s1 res s2 env (t1:('c,'ffi) bvlSem$state) args' func' f1.
-     evaluate_app loc_opt func args s1 = (res,s2) ∧
-     res ≠ Rerr(Rabort Rtype_error) ∧
-     FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
-     FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
-     v_rel s1.max_app f1 t1.refs t1.code func func' ∧
-     LIST_REL (v_rel s1.max_app f1 t1.refs t1.code) args args' ∧
-     state_rel f1 s1 t1
-     ⇒
-     ?ck res' t2 f2.
-       (LENGTH args' ≠ 0 ⇒
-         case loc_opt of
-          | NONE =>
-              evaluate
-                    ([mk_cl_call (Var (LENGTH args')) (GENLIST Var (LENGTH args'))],
-                      args' ++ [func'] ++ env,
-                      t1 with clock := s1.clock + ck) =
-                (res',t2)
-           | SOME loc =>
-               (case find_code (SOME (loc + num_stubs s1.max_app)) (args' ++ [func']) t1.code of
-                     NONE => (Rerr(Rabort Rtype_error),t2)
-                   | SOME (args,exp) =>
-                       if s1.clock + ck < (LENGTH args') then (Rerr(Rabort Rtimeout_error),t1 with clock := 0)
-                       else evaluate ([exp],args,t1 with clock := s1.clock + ck - LENGTH args')) =
-                 (res',t2)) ∧
-       result_rel (LIST_REL (v_rel s1.max_app f2 t2.refs t2.code)) (v_rel s1.max_app f2 t2.refs t2.code) res res' ∧
-       state_rel f2 s2 t2 ∧
-       f1 ⊑ f2 ∧
-       FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
+Theorem compile_exps_correct:
+  (!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
+    (tmp = (xs,env,s1)) ∧
+    (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
+    (compile_exps s1.max_app xs aux1 = (ys,aux2)) /\
+    every_Fn_SOME xs ∧ FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
+    every_Fn_vs_SOME xs ∧ FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
+    code_installed aux2 t1.code /\
+    env_rel s1.max_app f1 t1.refs t1.code env env' /\
+    state_rel f1 s1 t1 ==>
+    ?ck res' t2 f2.
+       (evaluate (ys,env',t1 with clock := s1.clock + ck) = (res',t2)) /\
+       result_rel (LIST_REL (v_rel s1.max_app f2 t2.refs t2.code)) (v_rel s1.max_app f2 t2.refs t2.code) res res' /\
+       state_rel f2 s2 t2 /\
+       f1 SUBMAP f2 /\
+       (FDIFF t1.refs (FRANGE f1)) SUBMAP (FDIFF t2.refs (FRANGE f2)) ∧
        FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
        FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
-       s2.clock = t2.clock)`
-  (ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
+       s2.clock = t2.clock) ∧
+  (!loc_opt func args ^s1 res s2 env (t1:('c,'ffi) bvlSem$state) args' func' f1.
+    evaluate_app loc_opt func args s1 = (res,s2) ∧
+    res ≠ Rerr(Rabort Rtype_error) ∧
+    FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
+    FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
+    v_rel s1.max_app f1 t1.refs t1.code func func' ∧
+    LIST_REL (v_rel s1.max_app f1 t1.refs t1.code) args args' ∧
+    state_rel f1 s1 t1
+    ⇒
+    ?ck res' t2 f2.
+      (LENGTH args' ≠ 0 ⇒
+        case loc_opt of
+         | NONE =>
+             evaluate
+                   ([mk_cl_call (Var (LENGTH args')) (GENLIST Var (LENGTH args'))],
+                     args' ++ [func'] ++ env,
+                     t1 with clock := s1.clock + ck) =
+               (res',t2)
+          | SOME loc =>
+              (case find_code (SOME (loc + num_stubs s1.max_app)) (args' ++ [func']) t1.code of
+                    NONE => (Rerr(Rabort Rtype_error),t2)
+                  | SOME (args,exp) =>
+                      if s1.clock + ck < (LENGTH args') then (Rerr(Rabort Rtimeout_error),t1 with clock := 0)
+                      else evaluate ([exp],args,t1 with clock := s1.clock + ck - LENGTH args')) =
+                (res',t2)) ∧
+      result_rel (LIST_REL (v_rel s1.max_app f2 t2.refs t2.code)) (v_rel s1.max_app f2 t2.refs t2.code) res res' ∧
+      state_rel f2 s2 t2 ∧
+      f1 ⊑ f2 ∧
+      FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
+      FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
+      FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
+      s2.clock = t2.clock)
+Proof
+  ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (srw_tac[][] >> full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
     \\ metis_tac [ADD_0, SUBMAP_REFL] )
@@ -4332,6 +4334,7 @@ Theorem compile_exps_correct
         \\ qexists_tac`ck'`
         \\ full_simp_tac (srw_ss()++ARITH_ss) [Abbr `t1refs`]
         \\ srw_tac[][]
+        \\ fs[LENGTH_EQ_NUM_compute] \\ rveq \\ fs[]
         \\ Q.EXISTS_TAC `f2` \\ IMP_RES_TAC SUBMAP_TRANS
         \\ ASM_SIMP_TAC std_ss []
         \\ FIRST_X_ASSUM MATCH_MP_TAC
@@ -4958,7 +4961,8 @@ Theorem compile_exps_correct
         by srw_tac[][bvlSemTheory.state_component_equality] >>
   full_simp_tac(srw_ss())[] >>
   `ck + s1.clock − LENGTH args' = ck + (s1.clock − LENGTH args')` by decide_tac >>
-  metis_tac []);
+  metis_tac []
+QED
 
 (* more correctness properties *)
 
