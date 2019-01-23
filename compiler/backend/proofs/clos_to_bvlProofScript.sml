@@ -5287,12 +5287,12 @@ Theorem compile_common_distinct_locs
   \\ simp [ALL_DISTINCT_APPEND]
   \\ qmatch_asmsub_abbrev_tac `renumber_code_locs_list N XS`
   (* clos_known *)
-  \\ `bag_of_list (code_locs ls) ≤ bag_of_list (code_locs es)`
+  \\ `LIST_TO_BAG (code_locs ls) ≤ LIST_TO_BAG (code_locs es)`
     by metis_tac[clos_knownProofTheory.compile_code_locs_bag]
   \\ `LENGTH ls = LENGTH es` by metis_tac[clos_knownProofTheory.compile_LENGTH]
-  \\ `set (code_locs ls) ⊆ set (code_locs es)` by metis_tac[bag_of_list_SUB_BAG_SUBSET]
+  \\ `set (code_locs ls) ⊆ set (code_locs es)` by metis_tac[LIST_TO_BAG_SUBSET]
   \\ `ALL_DISTINCT (code_locs es) ⇒ ALL_DISTINCT (code_locs ls)`
-    by metis_tac[bag_of_list_ALL_DISTINCT, BAG_ALL_DISTINCT_SUB_BAG]
+    by metis_tac[LIST_TO_BAG_DISTINCT, BAG_ALL_DISTINCT_SUB_BAG]
   (* clos_number *)
   \\ `ALL_DISTINCT (code_locs ls) /\
       set (code_locs ls) SUBSET EVEN /\
@@ -5927,9 +5927,9 @@ Theorem kcompile_csyntax_ok
         clos_knownProofTheory.globals_approx_every_Fn_vs_NONE_def]) \\ fs []
   \\ simp[clos_letopProofTheory.code_locs_let_op]
   \\ simp[clos_ticksProofTheory.code_locs_remove_ticks]
-  \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+  \\ simp[GSYM LIST_TO_BAG_DISTINCT]
   \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
-  \\ asm_exists_tac \\ fs[bag_of_list_ALL_DISTINCT]);
+  \\ asm_exists_tac \\ fs[LIST_TO_BAG_DISTINCT]);
 
 Theorem renumber_code_locs_fv1
   `(∀n es v. LIST_REL (λe1 e2. ∀v. fv1 v e1 ⇔ fv1 v e2) (SND (renumber_code_locs_list n es)) es) ∧
@@ -6305,8 +6305,8 @@ Theorem code_locs_FST_ticks_compile_inc[simp]
   (Cases_on`x` \\ rw[clos_ticksProofTheory.compile_inc_def, clos_ticksProofTheory.code_locs_remove_ticks]);
 
 Theorem code_locs_FST_SND_kcompile_inc
-  `bag_of_list (code_locs (FST (SND (clos_knownProof$compile_inc x y z)))) ≤
-   bag_of_list (code_locs (FST z))`
+  `LIST_TO_BAG (code_locs (FST (SND (clos_knownProof$compile_inc x y z)))) ≤
+   LIST_TO_BAG (code_locs (FST z))`
   (rw[kcompile_inc_uncurry]
   \\ qmatch_goalsub_abbrev_tac`known a b c d`
   \\ specl_args_of_then``known``clos_knownProofTheory.known_code_locs_bag mp_tac
@@ -6570,11 +6570,11 @@ Theorem compile_common_semantics
         \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_code_locs_bag
         \\ Cases_on`known aa bb ccc dd` \\ simp[]
         \\ strip_tac
-        \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+        \\ simp[GSYM LIST_TO_BAG_DISTINCT]
         \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
         \\ asm_exists_tac \\ fs[]
         \\ simp[Abbr`bb`]
-        \\ simp[bag_of_list_ALL_DISTINCT]))
+        \\ simp[LIST_TO_BAG_DISTINCT]))
     \\ rveq \\ fs[]
     \\ qexists_tac `THE o clos_callProof$make_gs (FEMPTY |++ aux) co2`
     \\ strip_tac \\ match_mp_tac clos_callProofTheory.IMP_co_ok
@@ -6612,11 +6612,11 @@ Theorem compile_common_semantics
       \\ simp_tac(srw_ss())[clos_knownProofTheory.known_co_def]
       \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co,FST_SND_ignore_table,backendPropsTheory.FST_state_co]
       \\ qmatch_goalsub_abbrev_tac`clos_knownProof$compile_inc xx yy zz`
-      \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+      \\ simp[GSYM LIST_TO_BAG_DISTINCT]
       \\ irule BAG_ALL_DISTINCT_SUB_BAG
-      \\ qexists_tac`bag_of_list(code_locs (FST zz))`
+      \\ qexists_tac`LIST_TO_BAG(code_locs (FST zz))`
       \\ simp[code_locs_FST_SND_kcompile_inc]
-      \\ simp[bag_of_list_ALL_DISTINCT]
+      \\ simp[LIST_TO_BAG_DISTINCT]
       \\ simp[Abbr`zz`,FST_SND_ignore_table] )
     \\ simp[]
     \\ conj_tac
@@ -6644,9 +6644,9 @@ Theorem compile_common_semantics
     \\ qhdtm_x_assum`renumber_code_locs_list`mp_tac
     \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
     \\ ntac 2 strip_tac \\ fs[]
-    \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+    \\ simp[GSYM LIST_TO_BAG_DISTINCT]
     \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
-    \\ asm_exists_tac \\ fs[bag_of_list_ALL_DISTINCT])
+    \\ asm_exists_tac \\ fs[LIST_TO_BAG_DISTINCT])
   \\ strip_tac
   \\ fs[ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ fs[Abbr`cc0`]
@@ -6688,7 +6688,7 @@ Theorem compile_common_semantics
       \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
       \\ ntac 2 strip_tac \\ fs[]
       \\ imp_res_tac SUB_BAG_SET
-      \\ fs[SUBSET_DEF, IN_between, IN_bag_of_list_MEM, EVERY_MEM]
+      \\ fs[SUBSET_DEF, IN_between, IN_LIST_TO_BAG, EVERY_MEM]
       \\ rw[] \\ res_tac \\ res_tac \\ fs[] )
     (*
     \\ conj_asm1_tac
@@ -6740,7 +6740,7 @@ Theorem compile_common_semantics
       \\ Cases_on`known aa bb ccc dd`
       \\ simp[] \\ strip_tac
       \\ imp_res_tac SUB_BAG_SET
-      \\ fs[SUBSET_DEF, IN_bag_of_list_MEM]
+      \\ fs[SUBSET_DEF, IN_LIST_TO_BAG]
       \\ strip_tac
       \\ first_x_assum drule
       \\ simp[Abbr`bb`]
@@ -7685,10 +7685,10 @@ Theorem compile_semantics
           \\ pairarg_tac \\ fs[]
           \\ drule clos_knownProofTheory.known_code_locs_bag
           \\ strip_tac
-          \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+          \\ simp[GSYM LIST_TO_BAG_DISTINCT]
           \\ irule BAG_ALL_DISTINCT_SUB_BAG
           \\ goal_assum(first_assum o mp_then Any mp_tac)
-          \\ simp[bag_of_list_ALL_DISTINCT] )
+          \\ simp[LIST_TO_BAG_DISTINCT] )
         \\ rw[ALL_DISTINCT_APPEND] )
       \\ qmatch_goalsub_abbrev_tac`annotate 0 ls`
       \\ match_mp_tac SUBSET_TRANS
@@ -7721,7 +7721,7 @@ Theorem compile_semantics
       \\ pairarg_tac
       \\ drule clos_knownProofTheory.known_code_locs_bag
       \\ strip_tac
-      \\ drule bag_of_list_SUB_BAG_SUBSET
+      \\ drule LIST_TO_BAG_SUBSET
       \\ simp[]
       \\ fs[SUBSET_DEF, EVERY_MEM, IN_between]
       \\ rw[]

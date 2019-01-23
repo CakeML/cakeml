@@ -571,7 +571,7 @@ Theorem compile_correct
         \\ impl_tac >- (
           EVAL_TAC \\ Cases \\ simp[namespaceTheory.nsLookup_def] )
         \\ rw[]
-        \\ simp[bag_of_list_ALL_DISTINCT]
+        \\ simp[LIST_TO_BAG_DISTINCT]
         \\ irule ALL_DISTINCT_MAP_INJ
         \\ simp[]
         \\ simp[all_distinct_count_list])

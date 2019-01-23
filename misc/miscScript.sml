@@ -4,7 +4,7 @@
 *)
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory mp_then
 open bitstringTheory bagTheory byteTheory optionTheory combinTheory dep_rewrite
-     listTheory pred_setTheory finite_mapTheory alistTheory
+     containerTheory listTheory pred_setTheory finite_mapTheory alistTheory
      rich_listTheory llistTheory arithmeticTheory pairTheory
      sortingTheory relationTheory totoTheory comparisonTheory
      bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory
@@ -3339,56 +3339,19 @@ Theorem BAG_ALL_DISTINCT_FOLDR_BAG_UNION
   \\ rw[EQ_IMP_THM] \\ fs[]
   \\ metis_tac[BAG_DISJOINT_SYM]);
 
-(* TODO - already present as container$LIST_TO_BAG *)
-val bag_of_list_def = Define `bag_of_list = FOLDL $⊎ {||} o MAP EL_BAG`;
-
-(* TODO - already present as container$LIST_TO_BAG *)
-Theorem bag_of_list_append
-  `!xs ys. bag_of_list (xs ++ ys) = bag_of_list xs ⊎ bag_of_list ys`
-  (simp [bag_of_list_def, FOLDL_APPEND]
-  \\ irule COMM_MONOID_FOLDL
-  \\ simp [COMM_DEF, COMM_BAG_UNION, MONOID_BAG_UNION_EMPTY_BAG]);
-
-Theorem bag_of_list_sub_bag_FLAT_suff
-  `!ls1 ls2. LIST_REL (\l1 l2. bag_of_list l1 ≤ bag_of_list l2) ls1 ls2 ==>
-     bag_of_list (FLAT ls1) ≤ bag_of_list (FLAT ls2)`
+(* TODO - candidate for move to HOL *)
+Theorem LIST_TO_BAG_SUB_BAG_FLAT_suff
+  `!ls1 ls2. LIST_REL (\l1 l2. LIST_TO_BAG l1 ≤ LIST_TO_BAG l2) ls1 ls2 ==>
+     LIST_TO_BAG (FLAT ls1) ≤ LIST_TO_BAG (FLAT ls2)`
   (ho_match_mp_tac LIST_REL_ind
-  \\ srw_tac [bagLib.SBAG_SOLVE_ss] [bag_of_list_append]);
+  \\ srw_tac [bagLib.SBAG_SOLVE_ss] [LIST_TO_BAG_APPEND]);
 
-(* TODO - already present as container$LIST_TO_BAG *)
-Theorem bag_of_list_thm
-  `bag_of_list [] = {||} ∧
-   (∀x xs. bag_of_list (x::xs) = BAG_INSERT x (bag_of_list xs))`
-  (conj_tac >- EVAL_TAC
-  \\ rewrite_tac[bag_of_list_def, o_DEF]
-  \\ simp_tac bool_ss []
-  \\ qmatch_goalsub_abbrev_tac`FOLDL f`
-  \\ ntac 2 gen_tac
-  \\ `COMM f` by (rw[Abbr`f`,COMM_DEF,COMM_BAG_UNION])
-  \\ `ASSOC f` by (rw[Abbr`f`,ASSOC_DEF,ASSOC_BAG_UNION])
-  \\ drule (GSYM COMM_ASSOC_FOLDL_REVERSE)
-  \\ disch_then drule
-  \\ disch_then(CONV_TAC o LAND_CONV o REWR_CONV)
-  \\ rw[FOLDL_APPEND,Abbr`f`]
-  \\ rw[COMM_ASSOC_FOLDL_REVERSE]
-  \\ rw[BAG_INSERT_UNION, COMM_BAG_UNION]);
-
-(* TODO - already present as container$LIST_TO_BAG *)
-Theorem IN_bag_of_list_MEM
-  `∀l. x <: bag_of_list l ⇔ MEM x l`
-  (Induct \\ rw[bag_of_list_thm] \\ fs[]);
-
-(* TODO - already present as container$LIST_TO_BAG *)
-Theorem bag_of_list_SUB_BAG_SUBSET
-  `∀l1 l2. bag_of_list l1 ≤ bag_of_list l2 ⇒ set l1 ⊆ set l2`
-  (Induct \\ rw[bag_of_list_thm]
+(* TODO - candidate for move to HOL *)
+Theorem LIST_TO_BAG_SUBSET
+  `∀l1 l2. LIST_TO_BAG l1 ≤ LIST_TO_BAG l2 ⇒ set l1 ⊆ set l2`
+  (Induct \\ rw[LIST_TO_BAG_def]
   \\ imp_res_tac BAG_INSERT_SUB_BAG_E
-  \\ imp_res_tac IN_bag_of_list_MEM \\ fs[]);
-
-(* TODO - already present as container$LIST_TO_BAG *)
-Theorem bag_of_list_ALL_DISTINCT
-  `∀ls. BAG_ALL_DISTINCT (bag_of_list ls) ⇔ ALL_DISTINCT ls`
-  (Induct \\ rw[bag_of_list_thm,IN_bag_of_list_MEM]);
+  \\ imp_res_tac IN_LIST_TO_BAG \\ fs[]);
 
 (* TODO - candidate for move to HOL *)
 val is_subseq_def = Define`
