@@ -304,11 +304,6 @@ Theorem EVEN_fromList2
     |> SIMP_RULE (srw_ss()) [GSYM fromList2_def]
     |> GEN_ALL) \\ full_simp_tac(srw_ss())[]);
 
-(* already in HOL as SUBMAP_FRANGE *)
-Theorem SUBMAP_FRANGE_SUBSET
-  `f1 ⊑ f2 ⇒ FRANGE f1 ⊆ FRANGE f2`
-  (srw_tac[][SUBMAP_DEF,SUBSET_DEF,IN_FRANGE] >> metis_tac[])
-
 Theorem SUBMAP_mono_FUPDATE_LIST
   `∀ls f g.
    DRESTRICT f (COMPL (set (MAP FST ls))) ⊑

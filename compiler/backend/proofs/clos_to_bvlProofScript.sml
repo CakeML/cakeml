@@ -1063,7 +1063,7 @@ val v_rel_SUBMAP = Q.prove(
   THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ full_simp_tac(srw_ss())[])
   THEN1 ( fs[SUBMAP_DEF,FLOOKUP_DEF,FDIFF_def,DRESTRICT_DEF] )
   THEN1 (fs[SUBMAP_DEF,FLOOKUP_DEF] )
-  THEN1 (imp_res_tac SUBMAP_FRANGE_SUBSET >>
+  THEN1 (imp_res_tac SUBMAP_FRANGE >>
          imp_res_tac cl_rel_SUBMAP >>
          disj2_tac >>
          full_simp_tac(srw_ss())[ETA2_THM] >>
@@ -1071,7 +1071,7 @@ val v_rel_SUBMAP = Q.prove(
   THEN1 (imp_res_tac cl_rel_SUBMAP >>
          disj2_tac >>
          full_simp_tac(srw_ss())[ETA2_THM] >>
-         metis_tac [SUBMAP_FRANGE_SUBSET] ))
+         metis_tac [SUBMAP_FRANGE] ))
   |> SPEC_ALL |> MP_CANON;
 
 val env_rel_SUBMAP = Q.prove(
