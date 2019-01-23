@@ -1,11 +1,11 @@
 (*
   Properties of the operational semantics.
 *)
-open preamble evaluateTheory;
-open namespaceTheory namespacePropsTheory;
+
+open preamble evaluateTheory
+     namespaceTheory namespacePropsTheory
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open terminationTheory
-open semanticPrimitivesTheory;
-open semanticPrimitivesPropsTheory;
 
 val _ = new_theory"evaluateProps";
 
@@ -358,16 +358,17 @@ Theorem evaluate_sing
  >> Cases_on `t`
  >> fs []);
 
-Theorem evaluate_cons
- `∀(s:'ffi state) env e es.
+Theorem evaluate_cons:
+  ∀(s:'ffi state) env e es.
    evaluate s env (e::es) =
      case evaluate s env [e] of
      | (s', Rval vs) =>
       (case evaluate s' env es of
        | (s'', Rval vs') => (s'', Rval (vs++vs'))
        | err => err)
-     | err => err`
- (Cases_on `es`
+     | err => err
+Proof
+ Cases_on `es`
  >> rw [evaluate_def]
  >- every_case_tac
  >> split_pair_case_tac
@@ -381,7 +382,7 @@ Theorem evaluate_cons
  >> Cases_on `r`
  >> simp []
  >> drule evaluate_sing
- >> rw []);
+ >> rw [] \\ rw[]);
 
 Theorem evaluate_decs_nil[simp]
   `∀(s:'ffi state) env.

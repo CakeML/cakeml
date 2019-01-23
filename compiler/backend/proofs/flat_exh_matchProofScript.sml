@@ -1,9 +1,10 @@
 (*
   Correctness proof for flat_exh_match
 *)
-open semanticPrimitivesTheory
-open semanticPrimitivesPropsTheory
+
+open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open preamble flatPropsTheory flatSemTheory flat_exh_matchTheory
+(* TODO: fix grammar ancestry problems when these opens are combined *)
 
 val _ = new_theory "flat_exh_matchProof"
 
@@ -13,14 +14,18 @@ val _ = new_theory "flat_exh_matchProof"
 
 val _ = set_grammar_ancestry["flat_exh_match","flatSem","flatProps","ffi","misc"];
 
-Theorem compile_exps_SING_HD[simp]
-  `[HD (compile_exps exh [x])] = compile_exps exh [x]`
-  (Cases_on `compile_exps exh [x]`
-  \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`) \\ fs [compile_exps_LENGTH]);
+Theorem compile_exps_SING_HD[simp]:
+  LENGTH (compile_exps exh [x]) = 1 ∧
+  [HD (compile_exps exh [x])] = compile_exps exh [x]
+Proof
+  Cases_on `compile_exps exh [x]`
+  \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`) \\ fs [compile_exps_LENGTH]
+QED
 
-Theorem compile_exps_CONS
-  `compile_exps exh (x::xs) = compile_exps exh [x] ++ compile_exps exh xs`
-  (qid_spec_tac `x` \\ Induct_on `xs` \\ rw [compile_exps_def]);
+Theorem compile_exps_CONS:
+  compile_exps exh (x::xs) = compile_exps exh [x] ++ compile_exps exh xs
+Proof qid_spec_tac `x` \\ Induct_on `xs` \\ rw [compile_exps_def]
+QED
 
 Theorem compile_exps_APPEND
   `compile_exps exh (xs ++ ys) = compile_exps exh xs ++ compile_exps exh ys`
@@ -28,13 +33,15 @@ Theorem compile_exps_APPEND
   \\ rw [Once compile_exps_CONS]
   \\ rw [Once (GSYM compile_exps_CONS)]);
 
-Theorem compile_exps_REVERSE[simp]
-  `REVERSE (compile_exps exh xs) = compile_exps exh (REVERSE xs)`
-  (Induct_on `xs` \\ rw [compile_exps_def]
+Theorem compile_exps_REVERSE[simp]:
+  REVERSE (compile_exps exh xs) = compile_exps exh (REVERSE xs)
+Proof
+  Induct_on `xs` \\ rw [compile_exps_def]
   \\ rw [Once compile_exps_CONS, Once compile_exps_APPEND]
-  \\ `LENGTH (compile_exps exh [h]) = LENGTH [h]`
+  \\ `LENGTH (compile_exps exh [h]) = 1`
     by fs [compile_exps_LENGTH]
-  \\ fs [LENGTH_EQ_NUM_compute]);
+  \\ fs [LENGTH_EQ_NUM_compute]
+QED
 
 Theorem compile_exps_MAP_FST
   `MAP FST funs =
@@ -131,12 +138,14 @@ Theorem v_rel_thms[simp]
    \\ every_case_tac \\ fs []
    \\ metis_tac [SUBMAP_REFL, LIST_REL_EL_EQN, FLOOKUP_SUBMAP]);
 
-Theorem v_rel_Boolv
-  `init_ctors SUBMAP ctors ==>
-   v_rel ctors (Boolv x) (Boolv x)`
-  (Cases_on `x` \\ fs [Once v_rel_cases, Boolv_def] \\ rw []
+Theorem v_rel_Boolv:
+  init_ctors SUBMAP ctors ==>
+  v_rel ctors (Boolv x) (Boolv x)
+Proof
+  Cases_on `x` \\ fs [Once v_rel_cases, Boolv_def] \\ rw []
   \\ asm_exists_tac \\ fs [ok_ctor_def]
-  \\ EVAL_TAC \\ rw [lookup_def]);
+  \\ EVAL_TAC \\ rw [lookup_def]
+QED
 
 Theorem nv_rel_LIST_REL
   `!xs ys ctors.
@@ -746,45 +755,46 @@ Theorem v_rel_ok_ctor
 
 val s1 = mk_var ("s1",
   ``flatSem$evaluate`` |> type_of |> strip_fun |> snd
-  |> dest_prod |> fst)
+  |> dest_prod |> fst);
 
-Theorem compile_exps_evaluate
-  `(!env1 ^s1 xs t1 r1.
-     evaluate env1 s1 xs = (t1, r1) /\
-     r1 <> Rerr (Rabort Rtype_error)
-     ==>
-     !ctors env2 s2 ctors_pre.
-       env_rel ctors env1 env2 /\
-       state_rel ctors s1 s2 /\
-       ctors_pre SUBMAP ctors
-       ==>
-       ?t2 r2.
-         result_rel (LIST_REL o v_rel) ctors r1 r2 /\
-         state_rel ctors t1 t2 /\
-         evaluate env2 s2 (compile_exps ctors_pre xs) = (t2, r2)) /\
-   (!env1 ^s1 v ps err_v t1 r1.
-     evaluate_match env1 s1 v ps err_v = (t1, r1) /\
-     r1 <> Rerr (Rabort Rtype_error)
-     ==>
-     !ps2 is_handle ctors env2 s2 v2 tr err_v2 ctors_pre.
-       env_rel ctors env1 env2 /\
-       state_rel ctors s1 s2 /\
-       ctors_pre SUBMAP ctors /\
-       v_rel ctors v v2 /\
-       v_rel ctors err_v err_v2 /\
-       (is_handle  ==> err_v = v) /\
-       (~is_handle ==> err_v = bind_exn_v) /\
-       (ps2 = add_default tr is_handle F ps \/
-        exists_match env1 s1.refs (MAP FST ps) v /\
-        ps2 = add_default tr is_handle T ps)
-       ==>
-       ?t2 r2.
-         result_rel (LIST_REL o v_rel) ctors r1 r2 /\
-         state_rel ctors t1 t2 /\
-         evaluate_match env2 s2 v2
-           (MAP (\(p,e). (p, HD (compile_exps ctors_pre [e]))) ps2)
-           err_v2 = (t2, r2))`
-  (ho_match_mp_tac evaluate_ind
+Theorem compile_exps_evaluate:
+  (!env1 ^s1 xs t1 r1.
+    evaluate env1 s1 xs = (t1, r1) /\
+    r1 <> Rerr (Rabort Rtype_error)
+    ==>
+    !ctors env2 s2 ctors_pre.
+      env_rel ctors env1 env2 /\
+      state_rel ctors s1 s2 /\
+      ctors_pre SUBMAP ctors
+      ==>
+      ?t2 r2.
+        result_rel (LIST_REL o v_rel) ctors r1 r2 /\
+        state_rel ctors t1 t2 /\
+        evaluate env2 s2 (compile_exps ctors_pre xs) = (t2, r2)) /\
+  (!env1 ^s1 v ps err_v t1 r1.
+    evaluate_match env1 s1 v ps err_v = (t1, r1) /\
+    r1 <> Rerr (Rabort Rtype_error)
+    ==>
+    !ps2 is_handle ctors env2 s2 v2 tr err_v2 ctors_pre.
+      env_rel ctors env1 env2 /\
+      state_rel ctors s1 s2 /\
+      ctors_pre SUBMAP ctors /\
+      v_rel ctors v v2 /\
+      v_rel ctors err_v err_v2 /\
+      (is_handle  ==> err_v = v) /\
+      (~is_handle ==> err_v = bind_exn_v) /\
+      (ps2 = add_default tr is_handle F ps \/
+       exists_match env1 s1.refs (MAP FST ps) v /\
+       ps2 = add_default tr is_handle T ps)
+      ==>
+      ?t2 r2.
+        result_rel (LIST_REL o v_rel) ctors r1 r2 /\
+        state_rel ctors t1 t2 /\
+        evaluate_match env2 s2 v2
+          (MAP (\(p,e). (p, HD (compile_exps ctors_pre [e]))) ps2)
+          err_v2 = (t2, r2))
+Proof
+  ho_match_mp_tac evaluate_ind
   \\ rw [compile_exps_def, evaluate_def] \\ fs [result_rel_def]
   >-
    (simp [Once evaluate_cons]
@@ -944,7 +954,8 @@ Theorem compile_exps_evaluate
   \\ fs [evaluate_def, compile_exps_def] \\ rw [] \\ fs []
   \\ fs [exists_match_def, PULL_EXISTS]
   \\ rw [] \\ fsrw_tac [DNF_ss] []
-  \\ metis_tac [pmatch_any_no_match]);
+  \\ metis_tac [pmatch_any_no_match]
+QED
 
 (* ------------------------------------------------------------------------- *)
 (* Compile declarations                                                      *)
@@ -1015,8 +1026,6 @@ val compile_exps_lemma =
   |> Q.SPECL [`ctors`,`ctors`]
   |> SIMP_RULE (srw_ss()) []
   |> DISCH_ALL |> GEN_ALL;
-
-(* --- HERE --- *)
 
 val get_tdecs_def = Define `
   get_tdecs xs =
