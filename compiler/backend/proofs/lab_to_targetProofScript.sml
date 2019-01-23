@@ -4317,7 +4317,7 @@ val remove_labels_loop_thm = Q.prove(
     all_encd0 c.encode code ∧
     enc_ok c ∧
     EVEN init_pos ∧
-    (!l1 l2. OPTION_EVERY EVEN (lab_lookup l1 l2 init_labs))
+    (!l1 l2. OPTION_ALL EVEN (lab_lookup l1 l2 init_labs))
     ⇒
     all_enc_ok_pre c code2 ∧
     (* TODO: add sec_labels_ok preservation *)
@@ -4465,7 +4465,7 @@ val remove_labels_loop_thm = Q.prove(
     \\ qexists_tac`init_labs`
     \\ asm_exists_tac \\ fs[]
     \\ fs[lab_lookup_def]
-    \\ metis_tac[OPTION_EVERY_def])
+    \\ metis_tac[OPTION_ALL_def])
   THEN1 (
     fs[IN_DISJOINT]>>
     first_assum (fn th => mp_tac (SIMP_RULE std_ss [lab_lookup_def] th))>>
@@ -4538,7 +4538,7 @@ Theorem remove_labels_thm
    get_labels code ⊆ get_code_labels code ∪ labs_domain init_labs ∧
    all_enc_ok_pre conf code /\
    EVEN init_pos ∧
-   (!l1 l2. OPTION_EVERY EVEN (lab_lookup l1 l2 init_labs)) ==>
+   (!l1 l2. OPTION_ALL EVEN (lab_lookup l1 l2 init_labs)) ==>
    all_enc_ok conf labs ffi_names init_pos code2 /\
    code_similar code code2 /\
    (has_odd_inst code2 ⇒ conf.code_alignment = 0) /\

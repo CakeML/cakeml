@@ -1319,23 +1319,6 @@ Theorem transitive_LESS
   (srw_tac[][relationTheory.transitive_def] >> PROVE_TAC[LESS_TRANS])
 val _ = export_rewrites["transitive_LESS"]
 
-(* TODO - already in system as OPTION_ALL *)
-val OPTION_EVERY_def = Define`
-  (OPTION_EVERY P NONE = T) /\
-  (OPTION_EVERY P (SOME v) = P v)`
-val _ = export_rewrites["OPTION_EVERY_def"]
-(* TODO - already in system as OPTION_ALL *)
-Theorem OPTION_EVERY_cong
-  `!o1 o2 P1 P2. (o1 = o2) /\ (!x. (o2 = SOME x) ==> (P1 x = P2 x)) ==>
-                  (OPTION_EVERY P1 o1 = OPTION_EVERY P2 o2)`
-  (Cases THEN SRW_TAC[][] THEN SRW_TAC[][])
-val _ = DefnBase.export_cong"OPTION_EVERY_cong"
-(* TODO - already in system as OPTION_ALL *)
-Theorem OPTION_EVERY_mono
-  `(!x. P x ==> Q x) ==> OPTION_EVERY P op ==> OPTION_EVERY Q op`
-  (Cases_on `op` THEN SRW_TAC[][])
-val _ = IndDefLib.export_mono"OPTION_EVERY_mono"
-
 Theorem option_case_NONE_F
   `(case X of NONE => F | SOME x => P x) = (∃x. (X = SOME x) ∧ P x)`
   (Cases_on`X`>>srw_tac[][])

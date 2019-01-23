@@ -307,7 +307,7 @@ val wfv_ind = theorem"wfv_ind";
 
 val wfv_state_def = Define`
   wfv_state g l code s ⇔
-    EVERY (OPTION_EVERY (wfv g l code)) s.globals ∧
+    EVERY (OPTION_ALL (wfv g l code)) s.globals ∧
     FEVERY (every_refv (wfv g l code) o SND) s.refs ∧
     s.code = FEMPTY`;
 
@@ -1485,7 +1485,7 @@ Theorem wfv_state_SUBMAP
       wfv_state g1 l1 code s /\ code SUBMAP code1 ==>
       wfv_state g1 l1 code1 s`
   (rw[wfv_state_def, EVERY_MEM, FEVERY_ALL_FLOOKUP]
-  \\ metis_tac[OPTION_EVERY_mono, wfv_SUBMAP, every_refv_def,
+  \\ metis_tac[OPTION_ALL_MONO, wfv_SUBMAP, every_refv_def,
                MONO_EVERY, ref_nchotomy]);
 
 Theorem v_rel_SUBMAP
