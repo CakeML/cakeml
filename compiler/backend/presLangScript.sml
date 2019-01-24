@@ -5,7 +5,7 @@
 open preamble astTheory mlintTheory
 open flatLangTheory patLangTheory closLangTheory
      displayLangTheory source_to_flatTheory
-     wordLangTheory;
+     wordLangTheory bitstringTheory;
 
 val _ = new_theory"presLang";
 
@@ -61,7 +61,7 @@ Theorem num_to_hex_eq
 
 val display_word_to_hex_string_def = Define `
   display_word_to_hex_string w =
-    empty_item (implode ("0x" ++ num_to_hex (w2n w)))`;
+    empty_item (implode ("0x" ++ num_to_hex (v2n w)))`;
 
 val lit_to_display_def = Define`
   (lit_to_display (IntLit i) =
@@ -73,11 +73,8 @@ val lit_to_display_def = Define`
   (lit_to_display (StrLit s) =
     Item NONE (strlit "StrLit") [string_to_display2 s])
   /\
-  (lit_to_display (Word8 w) =
-    Item NONE (strlit "Word8") [display_word_to_hex_string w])
-  /\
-  (lit_to_display (Word64 w) =
-    Item NONE (strlit "Word64") [display_word_to_hex_string w])`;
+  (lit_to_display (Word w) =
+    Item NONE (strlit "Word") [display_word_to_hex_string w])`
 
 val list_to_display_def = Define`
   (list_to_display f xs = displayLang$List (MAP f xs))`
@@ -111,9 +108,7 @@ val fp_bop_to_display_def = Define `
     | FP_Div => empty_item (strlit "FP_Div")`
 
 val word_size_to_display_def = Define`
-  (word_size_to_display W8 = empty_item (strlit "W8"))
-  /\
-  (word_size_to_display W64 = empty_item (strlit "W64"))`;
+ word_size_to_display n = item_with_num (strlit "W") n`
 
 val opn_to_display_def = Define`
   (opn_to_display Plus = empty_item (strlit "Plus"))
@@ -145,6 +140,25 @@ val opw_to_display_def = Define`
   (opw_to_display Add = empty_item (strlit "Add"))
   /\
   (opw_to_display Sub = empty_item (strlit "Sub"))`;
+
+val opwb_to_display_def = Define`
+  (opwb_to_display Ltw = empty_item (strlit "Ltw"))
+  /\
+  (opwb_to_display Gtw = empty_item (strlit "Gtw"))
+  /\
+  (opwb_to_display Leqw = empty_item (strlit "Leqw"))
+  /\
+  (opwb_to_display Geqw = empty_item (strlit "Geqw"))
+  /\
+  (opwb_to_display Test = empty_item (strlit "Test"))
+  /\
+  (opwb_to_display LtSignw = empty_item (strlit "LtSignw"))
+  /\
+  (opwb_to_display GtSignw = empty_item (strlit "GtSignw"))
+  /\
+  (opwb_to_display LeqSignw = empty_item (strlit "LeqSignw"))
+  /\
+  (opwb_to_display GeqSignw = empty_item (strlit "GeqSignw"))`
 
 val shift_to_display_def = Define`
   (shift_to_display Lsl = empty_item (strlit "Lsl"))
@@ -187,6 +201,8 @@ val flat_op_to_display_def = Define `
     | Opb op => opb_to_display op
     | Opw ws op =>
         Item NONE (strlit "Opw") [ word_size_to_display ws; opw_to_display op ]
+    | Opwb ws op =>
+        Item NONE (strlit "Opwb") [ word_size_to_display ws; opwb_to_display op ]
     | Shift ws sh num => Item NONE (strlit "Shift") [
       word_size_to_display ws;
       shift_to_display sh;
@@ -443,9 +459,9 @@ val clos_op_to_display_def = Define `
       shift_to_display sh;
       num_to_display num
     ]
-    | WordFromInt => empty_item (strlit "WordFromInt")
-    | WordToInt => empty_item (strlit "WordToInt")
-    | WordFromWord b => Item NONE (strlit "WordFromWord") [bool_to_display b]
+    | WordFromInt ws => Item NONE (strlit "WordFromInt") [word_size_to_display ws]
+    | WordToInt ws => Item NONE (strlit "WordToInt") [word_size_to_display ws]
+    | WordToWord srcs dests => Item NONE (strlit "WordToWord") [word_size_to_display srcs; word_size_to_display dests]
     | FP_cmp cmp => fp_cmp_to_display cmp
     | FP_uop op => fp_uop_to_display op
     | FP_bop op => fp_bop_to_display op
