@@ -1291,12 +1291,15 @@ val app_aw8alloc_def = Define `
         (H * W8ARRAY a (REPLICATE (Num n) w) ==>> Q (Val a))) /\
      Q ==e> POST_F /\ Q ==f> POST_F)`
 
+val Litv_WORD_def = Define`
+ Litv_WORD w = Litv (Word (w2v w))`
+
 val app_aw8sub_def = Define `
   app_aw8sub a (i: int) H Q =
     ((?ws F.
         0 <= i /\ (Num i) < LENGTH ws /\
         (H ==>> F * W8ARRAY a ws) /\
-        (H ==>> Q (Val (Litv (Word8 (EL (Num i) ws)))))) /\
+        (H ==>> Q (Val (Litv_WORD (EL (Num i) ws))))) /\
      Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_aw8length_def = Define `
@@ -1351,12 +1354,7 @@ val app_copyaw8str_def = Define `
 
 val app_wordFromInt_W8_def = Define `
   app_wordFromInt_W8 (i: int) H Q =
-    (H ==>> Q (Val (Litv (Word8 (i2w i)))) /\
-     Q ==e> POST_F /\ Q ==f> POST_F)`
-
-val app_wordFromInt_W64_def = Define `
-  app_wordFromInt_W64 (i: int) H Q =
-    (H ==>> Q (Val (Litv (Word64 (i2w i)))) /\
+    (H ==>> Q (Val (Litv_WORD (i2w i:word8))) /\
      Q ==e> POST_F /\ Q ==f> POST_F)`
 
 val app_wordToInt_def = Define `
@@ -1536,7 +1534,7 @@ val cf_aw8alloc_def = Define `
   cf_aw8alloc xn xw = \env. local (\H Q.
     ?n w.
       exp2v env xn = SOME (Litv (IntLit n)) /\
-      exp2v env xw = SOME (Litv (Word8 w)) /\
+      exp2v env xw = SOME (Litv_WORD w) /\
       app_aw8alloc n w H Q)`
 
 val cf_aw8sub_def = Define `
@@ -1557,7 +1555,7 @@ val cf_aw8update_def = Define `
     ?a i w.
       exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
-      exp2v env xw = SOME (Litv (Word8 w)) /\
+      exp2v env xw = SOME (Litv_WORD w) /\
       app_aw8update a i w H Q)`
 
 val cf_copyaw8aw8_def = Define `
@@ -1593,24 +1591,6 @@ val cf_wordFromInt_W8_def = Define `
     ?i.
       exp2v env xi = SOME (Litv (IntLit i)) /\
       app_wordFromInt_W8 i H Q)`
-
-val cf_wordFromInt_W64_def = Define `
-  cf_wordFromInt_W64 xi = \env. local (\H Q.
-    ?i.
-      exp2v env xi = SOME (Litv (IntLit i)) /\
-      app_wordFromInt_W64 i H Q)`
-
-val cf_wordToInt_W8_def = Define `
-  cf_wordToInt_W8 xw = \env. local (\H Q.
-    ?w.
-      exp2v env xw = SOME (Litv (Word8 w)) /\
-      app_wordToInt w H Q)`
-
-val cf_wordToInt_W64_def = Define `
-  cf_wordToInt_W64 xw = \env. local (\H Q.
-    ?w.
-      exp2v env xw = SOME (Litv (Word64 w)) /\
-      app_wordToInt w H Q)`
 
 val app_ffi_def = Define `
   app_ffi ffi_index c a H Q =
@@ -1766,21 +1746,9 @@ val cf_def = tDefine "cf" `
           (case args of
              | [s; so; l] => cf_copyaw8str s so l
              | _ => cf_bottom)
-        | WordFromInt W8 =>
+        | WordFromInt 8 =>
           (case args of
              | [i] => cf_wordFromInt_W8 i
-             | _ => cf_bottom)
-        | WordFromInt W64 =>
-          (case args of
-             | [i] => cf_wordFromInt_W64 i
-             | _ => cf_bottom)
-        | WordToInt W8 =>
-          (case args of
-             | [w] => cf_wordToInt_W8 w
-             | _ => cf_bottom)
-        | WordToInt W64 =>
-          (case args of
-             | [w] => cf_wordToInt_W64 w
              | _ => cf_bottom)
         | FFI ffi_index =>
           (case args of
@@ -1847,9 +1815,6 @@ val cf_defs = [
   cf_copystraw8_def,
   cf_copyaw8str_def,
   cf_wordFromInt_W8_def,
-  cf_wordFromInt_W64_def,
-  cf_wordToInt_W8_def,
-  cf_wordToInt_W64_def,
   cf_app_def,
   cf_ref_def,
   cf_assign_def,
@@ -2721,7 +2686,7 @@ Theorem cf_sound
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
       instantiate \\ fs [integerTheory.INT_ABS] \\
       full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
-      fs [state_component_equality]
+      fs [state_component_equality,Litv_WORD_def]
     ) \\
     try_finally (
       (* Aw8length & Alength *)
@@ -2771,7 +2736,7 @@ Theorem cf_sound
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\ fs [do_app_def] \\
-      fs [app_wordFromInt_W8_def, app_wordFromInt_W64_def, app_wordToInt_def] \\
+      fs [app_wordFromInt_W8_def, app_wordToInt_def] \\
       fs [SEP_IMP_def, st2heap_def] \\ res_tac \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate
     ) \\
@@ -2867,7 +2832,64 @@ Theorem cf_sound
       rename1`TAKE (Num do) wd ++ TAKE (Num l) (DROP (Num so) ws)` \\
       `Num do + Num l = Num (do +l)` by intLib.ARITH_TAC \\
       SPLIT_TAC
-    )
+    ) \\
+    try_finally (
+      (* Aw8alloc *)
+      Q.REFINE_EXISTS_TAC `Val tv` \\ simp[] \\ cf_evaluate_step_tac
+      \\ GEN_EXISTS_TAC "ck" `st.clock` \\ fs[with_clock_self]
+      \\ cf_exp2v_evaluate_tac `st`
+      \\ fs[st2heap_def,do_app_def,store_alloc_def]
+      \\ fs[Litv_WORD_def,W8ARRAY_def,app_aw8alloc_def]
+      \\ fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def]
+      \\ first_x_assum (qspec_then `Loc (LENGTH st.refs)` strip_assume_tac)
+      \\  qmatch_asmsub_rename_tac(`REPLICATE (Num n) vv`)
+      \\   ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
+          [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num n) vv)) INSERT h_i`])
+        ORELSE (fn l => first_x_assum (qspecl_then l mp_tac))
+        [`Mem (LENGTH st.refs) (Varray (REPLICATE (Num n) vv)) INSERT h_i`])
+      \\ fs[integerTheory.INT_ABS]
+      \\ assume_tac store2heap_alloc_disjoint \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      impl_tac
+      THEN1 (instantiate \\ fs[SPLIT_emp1] \\ SPLIT_TAC)
+      THEN1 (rpt STRIP_TAC \\ every_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC)
+             \\ instantiate \\ fs[store2heap_append] \\ qexists_tac `{}` \\ SPLIT_TAC)
+    ) \\
+    try_finally (
+      (* Aw8update *)
+      Q.REFINE_EXISTS_TAC `Val tv` \\ simp[] \\ cf_evaluate_step_tac
+      \\ GEN_EXISTS_TAC "ck" `st.clock` \\ fs[with_clock_self]
+      \\ cf_exp2v_evaluate_tac `st`
+      \\ fs[st2heap_def, app_aw8update_def]
+      \\ fs[W8ARRAY_def]
+      \\ fs[SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def]
+      \\ first_x_assum progress \\ rename1 `a = Loc l` \\ rw[]
+      \\ assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+         rename1 `W8array _` \\
+        `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC
+      \\ progress store2heap_IN_LENGTH
+      \\ progress store2heap_IN_EL
+      \\ fs[do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def]
+      \\ fs[integerTheory.INT_ABS,Litv_WORD_def]
+      \\ full_case_tac >- (irule FALSITY \\ intLib.ARITH_TAC)
+      \\ fs[evaluateTheory.list_result_def]
+      \\ rename1`LUPDATE vv (Num i) ws`
+      \\ qexists_tac `Mem l (W8array (LUPDATE vv (Num i) ws)) INSERT u`
+      \\ qexists_tac `{}`
+      \\ mp_tac store2heap_IN_unique_key
+      \\ rpt STRIP_TAC
+      >- (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC)
+      >- (first_assum irule \\ instantiate \\ SPLIT_TAC)) \\
+    try_finally (
+      (* WordFromInt W8 *)
+      Q.REFINE_EXISTS_TAC `Val tv` \\ simp[] \\ cf_evaluate_step_tac
+      \\ GEN_EXISTS_TAC "ck" `st.clock` \\ fs[with_clock_self]
+      \\ cf_exp2v_evaluate_tac `st`
+      \\ fs[st2heap_def,app_wordFromInt_W8_def]
+      \\ fs[SEP_IMP_def,st2heap_def] \\ res_tac
+      \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+      \\ simp[do_app_def] \\ simp[Litv_WORD_def] \\ simp[bitstring_extraTheory.w2v_i2w]
+      \\ fs[state_component_equality])
   )
 
   THEN1 (

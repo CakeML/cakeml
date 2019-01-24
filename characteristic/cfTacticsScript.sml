@@ -74,14 +74,9 @@ Theorem STRING_Litv[simp]
   (Cases_on`s` \\ fs [STRING_TYPE_def] \\ eq_tac \\ fs []
 )
 
-Theorem WORD8_Litv[simp]
-  `WORD w (Litv (Word8 w')) = (w = w')`
-  (fs [WORD_def, w2w_def] \\ eq_tac \\ fs []
-)
-
-Theorem WORD64_Litv[simp]
-  `WORD w (Litv (Word64 w')) = (w = w')`
-  (fs [WORD_def, w2w_def] \\ eq_tac \\ fs []
+Theorem WORD_Litv[simp]
+  `WORD w (Litv_WORD w') = (w = w')`
+  (fs [WORD_def, Litv_WORD_def] \\ eq_tac \\ fs [bitstring_extraTheory.w2v_eq]
 )
 
 Theorem UNIT_Conv[simp]
