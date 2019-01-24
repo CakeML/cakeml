@@ -167,6 +167,17 @@ Theorem words_of_bytes_append
   \\ Cases_on`w2n bytes_in_word` \\ fs[] \\ rw[]
   \\ Cases_on`n''` \\ fs[]);
 
+Theorem words_of_bytes_append_word:
+  0 < LENGTH l1 ∧ (LENGTH l1 = w2n (bytes_in_word:'a word)) ⇒
+  (words_of_bytes be (l1 ++ l2) = word_of_bytes be (0w:'a word) l1 :: words_of_bytes be l2)
+Proof
+  rw[]
+  \\ Cases_on`l1` \\ rw[words_of_bytes_def] \\ fs[]
+  \\ fs[MAX_DEF]
+  \\ first_x_assum(assume_tac o SYM) \\ fs[ADD1]
+  \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]
+QED
+
 val bytes_to_word_def = Define `
   (bytes_to_word 0 a bs w be = w) /\
   (bytes_to_word (SUC k) a [] w be = w) /\
