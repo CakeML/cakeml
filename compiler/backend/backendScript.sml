@@ -57,7 +57,7 @@ val compile_tap_def = Define`
     let c = c with clos_conf updated_by (λc. c with start:=s) in
     let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
     let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
-    let p = bvi_to_data$compile_prog p in
+    let p = bvi_to_data$compile_prog (dimindex(:'a)) p in
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
@@ -113,14 +113,14 @@ val to_bvi_def = Define`
   (c,p)`;
 
 val to_data_def = Define`
-  to_data c p =
+  to_data arch_size c p =
   let (c,p) = to_bvi c p in
-  let p = bvi_to_data$compile_prog p in
+  let p = bvi_to_data$compile_prog arch_size p in
   (c,p)`;
 
 val to_word_def = Define`
-  to_word c p =
-  let (c,p) = to_data c p in
+  to_word (c:'a config) p =
+  let (c,p) = to_data (dimindex(:'a)) c p in
   let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p)`;
@@ -196,8 +196,8 @@ val from_data_def = Define`
   from_word c p`;
 
 val from_bvi_def = Define`
-  from_bvi c p =
-  let p = bvi_to_data$compile_prog p in
+  from_bvi (c:'a config) p =
+  let p = bvi_to_data$compile_prog (dimindex(:'a)) p in
   from_data c p`;
 
 val from_bvl_def = Define`
@@ -247,7 +247,7 @@ Theorem compile_eq_from_source
 
 val to_livesets_def = Define`
   to_livesets (c:α backend$config) p =
-  let (c',p) = to_data c p in
+  let (c',p) = to_data (dimindex(:α)) c p in
   let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
   let data_conf = (data_conf with has_fp_ops := (1 < asm_conf.fp_reg_count)) in
   let p = stubs(:α) data_conf ++ MAP (compile_part data_conf) p in
@@ -345,12 +345,12 @@ Theorem to_livesets_invariant `
   rpt(rfs[]>>fs[]));
 
 Theorem to_data_change_config
-  `to_data c1 prog = (c1',prog') ⇒
+  `to_data (dimindex(:'a)) (c1:'a config) prog = (c1',prog') ⇒
    c2.source_conf = c1.source_conf ∧
    c2.clos_conf = c1.clos_conf ∧
    c2.bvl_conf = c1.bvl_conf
    ⇒
-   to_data c2 prog =
+   to_data (dimindex(:'a)) (c2:'a config) prog =
      (c2 with <| source_conf := c1'.source_conf;
                  clos_conf := c1'.clos_conf;
                  bvl_conf := c1'.bvl_conf |>,
