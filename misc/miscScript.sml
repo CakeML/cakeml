@@ -351,11 +351,6 @@ Theorem SPLIT_LIST
   \\ MATCH_MP_TAC (GSYM LENGTH_TAKE)
   \\ full_simp_tac(srw_ss())[DIV_LE_X] \\ DECIDE_TAC);
 
-(* GSYM of existing ALL_EL_MAP *)
-Theorem EVERY_o
-  `!xs P f. EVERY (P o f) xs = EVERY P (MAP f xs)`
-  (Induct \\ fs []);
-
 Theorem EXISTS_ZIP
   `!l f. EXISTS (\(x,y). f x) l = EXISTS f (MAP FST l)`
   (Induct_on `l` >>
@@ -2892,11 +2887,6 @@ Theorem subspt_alt
   `subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v`
   (fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
   \\ res_tac \\ fs []);
-
-(* GSYM of existing lookup_NONE_domain *)
-Theorem not_in_domain
-  `!k t. k ∉ domain t <=> lookup k t = NONE`
-  (fs [domain_lookup] \\ rw [] \\ Cases_on `lookup k t` \\ fs []);
 
 (* TODO - candidate for move to HOL *)
 Theorem subspt_domain_SUBSET

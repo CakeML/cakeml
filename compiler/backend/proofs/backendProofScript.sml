@@ -516,7 +516,7 @@ Theorem compile_correct
       \\ qid_spec_tac`x`
       \\ simp[GSYM EVERY_MEM]
       \\ irule flat_to_patProofTheory.compile_esgc_free
-      \\ simp[EVERY_o]
+      \\ simp[GSYM ALL_EL_MAP]
       \\ irule source_to_flatProofTheory.compile_esgc_free
       \\ asm_exists_tac \\ rw[]
       \\ EVAL_TAC
@@ -1665,7 +1665,7 @@ Theorem compile_correct
         \\ EVAL_TAC \\ simp[])
       \\ simp[Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b``]EVERY_CONJ)
               |> Q.SPEC`Q o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
-      \\ simp[EVERY_o, GSYM CONJ_ASSOC]
+      \\ simp[GSYM ALL_EL_MAP, GSYM CONJ_ASSOC]
       \\ simp[MAP_MAP_o, o_DEF]
       \\ qpat_x_assum`Abbrev(bmk = _)`mp_tac
       \\ simp[PAIR_MAP]
@@ -1718,7 +1718,7 @@ Theorem compile_correct
       \\ simp[EVERY_MAP]
       \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
       \\ simp[Once(GSYM o_DEF)]
-      \\ simp[EVERY_o]
+      \\ simp[GSYM ALL_EL_MAP]
       \\ qpat_assum`∀n. EVERY ($<= _) _`mp_tac
       \\ disch_then(qspec_then`n`strip_assume_tac)
       \\ conj_tac
