@@ -144,15 +144,15 @@ fun pormat(control_string: string, values: pormatValue list) =
  * (CF_T y x) is the residual capacity from (y,x) to t.
  * We do not compute the residual capacity from t to (y,x) because it will
  * be used.
- * (EF_RIGHT? y x) is true if there is an edge from (y,x) to (y,x+1) in the
+ * (EF_RIGHT? y x) is True if there is an edge from (y,x) to (y,x+1) in the
  * residual network.
- * (EF_LEFT? y x) is true if there is an edge from (y,x) to (y,x_1) in the
+ * (EF_LEFT? y x) is True if there is an edge from (y,x) to (y,x_1) in the
  * residual network.
- * (EF_DOWN? y x) is true if there is an edge from (y,x) to (y+1,x) in the
+ * (EF_DOWN? y x) is True if there is an edge from (y,x) to (y+1,x) in the
  * residual network.
- * (EF_UP? y x) is true if there is an edge from (y,x) to (y_1,x) in the
+ * (EF_UP? y x) is True if there is an edge from (y,x) to (y_1,x) in the
  * residual network.
- * (EF_T? y x) is true if there is an edge from (y,x) to t in the
+ * (EF_T? y x) is True if there is an edge from (y,x) to t in the
  * residual network.
  * There are always edges in the residual network from s to (y,X_1), (y,0),
  * (Y_1,x), and (0,x).
@@ -180,7 +180,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
       val f_t = make_matrix(height, width, 0)
       val h = make_matrix(height, width, 0)
       val e = make_matrix(height, width, 0)
-      val marked = make_matrix(height, width, false)
+      val marked = make_matrix(height, width, False)
       val m1 = height * width + 2
       val m2 = 2 * height * width + 2
       val q = make_vector(2 * height * width + 3, [])
@@ -205,7 +205,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                                  matrix_ref(h, y, x),
                                  (cons((x, y),
                                        vector_ref(q, matrix_ref(h, y, x)))))
-                      ; matrix_set(marked, y, x, true))
+                      ; matrix_set(marked, y, x, True))
                else ()
             fun cf_t(y, x) = v * matrix_ref(w, y, x) - matrix_ref(f_t, y, x)
             fun ef_t(y, x) = positive(cf_t(y, x))
@@ -335,21 +335,21 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                let
                   fun null(q) =
                      case !q of
-                        Nil => true
-                      | _ => false
-                  val q= ref Nil : (int * int) queue ref
-                  val tail = ref Nil : (int * int) queue ref
+                        Nil => True
+                      | _ => False
+                  val q= Ref Nil : (int * int) queue ref
+                  val tail = Ref Nil : (int * int) queue ref
                   fun enqueue(y, x, value) =
                      if value < matrix_ref(h, y, x)
                         then (matrix_set(h, y, x, value)
                               ; if not(matrix_ref(marked, y, x))
-                                   then (matrix_set(marked, y, x, true)
+                                   then (matrix_set(marked, y, x, True)
                                          ; (case !tail of
                                                Nil =>
-                                                  (tail := Cons (x, y) (ref Nil)
+                                                  (tail := Cons (x, y) (Ref Nil)
                                                    ; q := !tail)
                                              | Cons _ cdr =>
-                                                  (cdr := Cons (x, y) (ref Nil)
+                                                  (cdr := Cons (x, y) (Ref Nil)
                                                    ; tail := !cdr)))
                                 else ())
                      else ()
@@ -357,14 +357,14 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                      case !q of
                         Nil => raise Fail "dequeue"
                       | Cons p rest =>
-                         (matrix_set(marked, y p, x p, false)
+                         (matrix_set(marked, y p, x p, False)
                           ; q := !rest
                           ; if null q then tail := Nil else ()
                           ; p)
                in doo(height, fn y =>
                      doo(width, fn x =>
                         (matrix_set(h, y, x, m1)
-                         ; matrix_set(marked, y, x, false))))
+                         ; matrix_set(marked, y, x, False))))
                   ; doo(height, fn y =>
                        doo(width, fn x =>
                           if ef_t(y, x)
@@ -413,9 +413,9 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
             ; doo(width - 1, fn x =>
                  (matrix_set(e, height - 1, x, ~1)
                   ; matrix_set(e, 0, x, ~1)))
-            ; let val pushes = ref 0
-                  val lifts = ref 0
-                  val relabels = ref 0
+            ; let val pushes = Ref 0
+                  val lifts = Ref 0
+                  val relabels = Ref 0
                   fun loop(i, p) =
                      if zero(modulo(i, 6)) andalso not p
                         then (relabel()
@@ -464,13 +464,13 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                                        vector_set(q, k, []))
                                     ; doo(height, fn y =>
                                          doo(width, fn x =>
-                                            matrix_set(marked, y, x, false)))
+                                            matrix_set(marked, y, x, False)))
                                     ; doo(height, fn y =>
                                          doo(width, fn x =>
                                             if not(zero(matrix_ref(e, y, x)))
                                                then enqueue(y, x)
                                             else ()))
-                                    ; loop(i, true)))
+                                    ; loop(i, True)))
                      else if some_vector(q, fn ps =>
                                          some(ps, fn p =>
                                               let val x = x p
@@ -493,7 +493,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                                               ; (for_each
                                                  (ps, fn p =>
                                                   matrix_set(marked, y p, x p,
-                                                             false)))
+                                                             False)))
                                               ; (for_each
                                                  (ps, fn p =>
                                                   let val x = x p
@@ -531,7 +531,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                                     else ()
                                  in loop(vector_length q - 1)
                                  end
-                              ; loop(i + 1, false))
+                              ; loop(i + 1, False))
                           else
                              (* This is so MIN_CUT and MIN_CUT_INCLUDES_EVERY_EDGE_TO_T work. *)
                              (relabel()
@@ -545,7 +545,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                                            String(if !relabels = 1 then "" else "s"),
                                            Int i,
                                            String(if i = 1 then "" else "s")])))
-              in loop(0, false)
+              in loop(0, False)
               end
          end
            fun min_cut_includes_every_edge_to_t() =

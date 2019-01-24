@@ -9,8 +9,8 @@ struct
       let
          fun loop b () =
             case f b of
-               NONE => Nil
-             | SOME p => case p of (x,b) => (Cons x (loop b))
+               None => Nil
+             | Some p => case p of (x,b) => (Cons x (loop b))
       in
          loop
       end
@@ -18,8 +18,8 @@ struct
    fun map f =
       unfold (fn s =>
               case s () of
-                 Nil => NONE
-               | Cons x xs => SOME (f x, xs))
+                 Nil => None
+               | Cons x xs => Some (f x, xs))
 
 end
 
@@ -53,7 +53,7 @@ struct
    val pi =
       let
          val init = unit
-         val lfts = Stream.map (fn k => (k, 4*k+2, 0, 2*k+1)) (Stream.unfold (fn i => SOME(i, i+1)) 1)
+         val lfts = Stream.map (fn k => (k, 4*k+2, 0, 2*k+1)) (Stream.unfold (fn i => Some(i, i+1)) 1)
          fun floor_extr (q,r,s,t) x = (q * x + r) div (s * x + t)
          fun next z = floor_extr z 3
          fun safe z n = n = floor_extr z 4
@@ -98,10 +98,10 @@ struct
    fun main (name, arguments) =
       case arguments of
          [n] => (case Int.fromString n of
-                    SOME n => if n >= 1
+                    Some n => if n >= 1
                                  then (display n; OS.Process.success)
                               else usage name
-                  | NONE => usage name)
+                  | None => usage name)
        | _ => usage name*)
 end
 
@@ -132,10 +132,10 @@ struct
    fun main (name, arguments) =
       case arguments of
          [n] => (case IntInf.fromString n of
-                    SOME n => if n >= 1
+                    Some n => if n >= 1
                                  then (display n; OS.Process.success)
                               else usage name
-                  | NONE => usage name)
+                  | None => usage name)
        | _ => usage name*)
 
    val doit = display

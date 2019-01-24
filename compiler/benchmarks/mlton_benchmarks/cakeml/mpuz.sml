@@ -83,7 +83,7 @@ structure Mpuz =
                   else ()
                end
 
-            val values = List.map (fn v =>(v, ref false)) [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+            val values = List.map (fn v =>(v, Ref False)) [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
             (* Try all assignments of values to letters. *)
             fun loop(letters) =
@@ -94,10 +94,10 @@ structure Mpuz =
                      (values, fn (v, r) =>
                       if !r
                          then ()
-                      else (r := true
+                      else (r := True
                             ; setLetterValue(c, v)
                             ; loop(letters)
-                            ; r := false))
+                            ; r := False))
 
          in loop(letters)
          end

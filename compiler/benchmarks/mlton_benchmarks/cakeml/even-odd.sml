@@ -2,10 +2,10 @@ fun abs i = if i < 0 then ~i else i
 exception Fail of string
 
 fun even' i = case i of
-    0 => true
+    0 => True
   | _ => odd' (i-1)
 and odd'  i = case i of
-    0 => false
+    0 => False
   | _ => even' (i-1)
 
 fun even i = even' (abs i)
