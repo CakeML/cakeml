@@ -8,6 +8,7 @@ open HolKernel boolLib bossLib dep_rewrite Parse
 val _ = new_theory "byte";
 
 val _ = set_grammar_ancestry ["arithmetic", "list", "words"];
+val _ = temp_tight_equality();
 
 (* Get and set bytes in a word *)
 
@@ -29,6 +30,12 @@ val set_byte_def = Define `
       (word_slice_alt (dimindex (:'a)) (i + 8) w
        || w2w b << i
        || word_slice_alt i 0 w)`;
+
+Theorem set_byte_change_a:
+  w2n (a:α word) MOD (dimindex(:α) DIV 8) = w2n a' MOD (dimindex(:α) DIV 8) ⇒
+    set_byte a b w be = set_byte a' b w be
+Proof rw[set_byte_def,byte_index_def]
+QED
 
 Theorem get_byte_set_byte:
   8 ≤ dimindex(:α) ⇒
@@ -184,6 +191,8 @@ val bytes_to_word_def = Define `
   (bytes_to_word (SUC k) a (b::bs) w be =
      set_byte a b (bytes_to_word k (a+1w) bs w be) be)`
 
+val bytes_to_word_ind = theorem "bytes_to_word_ind";
+
 Theorem word_of_bytes_bytes_to_word
   `∀be a bs k.
    LENGTH bs ≤ k ⇒
@@ -201,5 +210,27 @@ Theorem word_of_bytes_bytes_to_word
   \\ AP_TERM_TAC
   \\ first_x_assum match_mp_tac
   \\ fs[]);
+
+Theorem bytes_to_word_same:
+  ∀bw k b1 w be b2.
+    (∀n. n < bw ⇒ n < LENGTH b1 ∧ n < LENGTH b2 ∧ EL n b1 = EL n b2)
+    ⇒
+    (bytes_to_word bw k b1 w be = bytes_to_word bw k b2 w be)
+Proof
+  ho_match_mp_tac bytes_to_word_ind
+  \\ rw[bytes_to_word_def]
+  >- (first_x_assum(qspec_then`0`mp_tac) \\ simp[])
+  \\ Cases_on`b2` \\ fs[]
+  >- (first_x_assum(qspec_then`0`mp_tac) \\ simp[])
+  \\ simp[bytes_to_word_def]
+  \\ first_assum(qspec_then`0`mp_tac)
+  \\ impl_tac >- simp[]
+  \\ simp_tac(srw_ss())[] \\ rw[]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ first_x_assum match_mp_tac
+  \\ gen_tac \\ strip_tac
+  \\ first_x_assum(qspec_then`SUC n`mp_tac)
+  \\ simp[]
+QED
 
 val _ = export_theory();
