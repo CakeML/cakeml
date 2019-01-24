@@ -5631,7 +5631,7 @@ Theorem get_byte_bytes_to_word
     \\ TRY (Cases_on `t`) \\ fs []
     \\ TRY (Cases_on `t'`) \\ fs []
     \\ rewrite_tac [expand_num,bytes_to_word_def]
-    \\ rpt (fs [labPropsTheory.get_byte_set_byte]
+    \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
       \\ match_mp_tac get_byte_set_byte_alt
       \\ fs [dimword_def,alignmentTheory.byte_align_def,
              alignmentTheory.align_w2n]))
@@ -5647,7 +5647,7 @@ Theorem get_byte_bytes_to_word
     \\ TRY (Cases_on `t`) \\ fs []
     \\ TRY (Cases_on `t'`) \\ fs []
     \\ rewrite_tac [expand_num,bytes_to_word_def]
-    \\ rpt (fs [labPropsTheory.get_byte_set_byte]
+    \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
       \\ match_mp_tac get_byte_set_byte_alt
       \\ fs [dimword_def,alignmentTheory.byte_align_def,
              alignmentTheory.align_w2n]))

@@ -221,23 +221,14 @@ Theorem LENGTH_line_bytes[simp]
 val good_dimindex_def = Define `
   good_dimindex (:'a) <=> dimindex (:'a) = 32 \/ dimindex (:'a) = 64`;
 
-Theorem get_byte_set_byte
-  `good_dimindex (:'a) ==>
-    (get_byte a (set_byte (a:'a word) b w be) be = b)`
-  (fs [get_byte_def,set_byte_def,LET_DEF]
-  \\ fs [fcpTheory.CART_EQ,w2w,good_dimindex_def] \\ rpt strip_tac
-  \\ `i < dimindex (:'a)` by decide_tac
-  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsr_def,word_lsl_def]
-  \\ `i + byte_index a be < dimindex (:'a)` by
-   (fs [byte_index_def,LET_DEF] \\ rw []
-    \\ `w2n a MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
-    \\ `w2n a MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
-    \\ decide_tac)
-  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsr_def,word_lsl_def,
-         word_slice_alt_def,w2w] \\ rfs []
-  \\ `~(i + byte_index a be < byte_index a be)` by decide_tac
-  \\ `~(byte_index a be + 8 <= i + byte_index a be)` by decide_tac
-  \\ fs [])
+Theorem good_dimindex_get_byte_set_byte:
+  good_dimindex (:'a) ==>
+    (get_byte a (set_byte (a:'a word) b w be) be = b)
+Proof
+  strip_tac \\
+  match_mp_tac get_byte_set_byte \\
+  fs[good_dimindex_def]
+QED
 
 val byte_index_LESS_IMP = Q.prove(
   `(dimindex (:'a) = 32 \/ dimindex (:'a) = 64) /\

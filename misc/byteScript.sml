@@ -30,6 +30,39 @@ val set_byte_def = Define `
        || w2w b << i
        || word_slice_alt i 0 w)`;
 
+Theorem get_byte_set_byte:
+  8 ≤ dimindex(:α) ⇒
+  (get_byte a (set_byte (a:'a word) b w be) be = b)
+Proof
+  fs [get_byte_def,set_byte_def]
+  \\ fs [fcpTheory.CART_EQ,w2w] \\ rpt strip_tac
+  \\ `i < dimindex (:'a)` by fs[dimindex_8]
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsr_def,word_lsl_def]
+  \\ `i + byte_index a be < dimindex (:'a)` by (
+    fs [byte_index_def,LET_DEF]
+    \\ qmatch_goalsub_abbrev_tac`_ MOD dd`
+    \\ match_mp_tac LESS_EQ_LESS_TRANS
+    \\ qexists_tac`i + 8 * (dd-1)`
+    \\ `0 < dd` by fs[Abbr`dd`, X_LT_DIV, NOT_LESS, dimindex_8]
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ `w2n a MOD dd < dd` by (match_mp_tac MOD_LESS \\ decide_tac)
+      \\ simp[] )
+    \\ match_mp_tac LESS_LESS_EQ_TRANS
+    \\ qexists_tac`8 * dd`
+    \\ simp[LEFT_SUB_DISTRIB]
+    \\ fs[dimindex_8]
+    \\ qspec_then`8`mp_tac DIVISION
+    \\ impl_tac >- simp[]
+    \\ disch_then(qspec_then`dimindex(:α)`(SUBST1_TAC o CONJUNCT1))
+    \\ simp[] )
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsr_def,word_lsl_def,
+         word_slice_alt_def,w2w] \\ rfs []
+  \\ `~(i + byte_index a be < byte_index a be)` by decide_tac
+  \\ fs[dimindex_8]
+QED
+
 (* Convert between lists of bytes and words *)
 
 val bytes_in_word_def = Define `

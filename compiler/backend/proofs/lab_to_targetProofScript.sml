@@ -1122,7 +1122,7 @@ val CallFFI_bytearray_lemma = Q.prove(
   \\ `byte_align c1 IN s1.mem_domain` by
     (full_simp_tac(srw_ss())[mem_load_byte_aux_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[labSemTheory.upd_mem_def,word_loc_val_byte_def,APPLY_UPDATE_THM]
-  \\ Cases_on `a = c1` \\ full_simp_tac(srw_ss())[word_loc_val_def,get_byte_set_byte]
+  \\ Cases_on `a = c1` \\ full_simp_tac(srw_ss())[word_loc_val_def,good_dimindex_get_byte_set_byte]
   \\ Cases_on `byte_align c1 = byte_align a` \\ full_simp_tac(srw_ss())[word_loc_val_def]
   \\ full_simp_tac(srw_ss())[get_byte_set_byte_diff]);
 
@@ -1688,7 +1688,7 @@ val Inst_lemma = Q.prove(
         IF_CASES_TAC>>fs[word_loc_val_def]>>
         IF_CASES_TAC>>fs[]
         >-
-          (simp[get_byte_set_byte]>>
+          (simp[good_dimindex_get_byte_set_byte]>>
           first_x_assum(qspec_then`n` assume_tac)>>rfs[word_loc_val_def])
         >>
         simp[get_byte_set_byte_diff]>>
