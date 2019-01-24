@@ -1561,6 +1561,38 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_WordOp opw word_size (c:data_to_word$config) (secn:num)
+               (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (* unboxed case *)
+        (if word_size<=dimindex(:'a)-2 then
+           (GiveUp,l)
+         (* small boxed case *)
+         else if word_size<=dimindex(:'a) then
+           (GiveUp,l)
+         (* large boxed case *)
+         else
+           (list_Seq [],l)): 'a wordLang$prog # num`
+
+val def = assign_Define `
+  assign_WordCmp opwb word_size (c:data_to_word$config) (secn:num)
+               (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (* unboxed case *)
+        (if word_size<=dimindex(:'a)-2 then
+           (GiveUp,l)
+         (* small boxed case *)
+         else if word_size<=dimindex(:'a) then
+           (GiveUp,l)
+         (* large boxed case *)
+         else
+           (list_Seq [],l)): 'a wordLang$prog # num`
+
+
+val def = assign_Define `
+  assign_WordShift sh word_size n (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 =
+        (GiveUp,l): 'a wordLang$prog # num`
+
+val def = assign_Define `
   assign_WordShiftW8 sh n (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
         (Assign (adjust_var dest)
@@ -1607,7 +1639,7 @@ val def = assign_Define `
                  WordShift64_on_32 sh n;
                  WriteWord64_on_32 c header dest 33 31],l))
       : 'a wordLang$prog # num`;
-
+(*
 val def = assign_Define `
   assign_WordFromWord b (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
@@ -1722,6 +1754,22 @@ val def = assign_Define `
                         (Assign (adjust_var dest) (Shift Lsl (Var 11) 2))
                         (WriteWord32_on_32 c header1 dest 11)])],l)))
       : 'a wordLang$prog # num`;
+*)
+
+val def = assign_Define `
+  assign_WordToInt word_size (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v =
+    (GiveUp,l) : 'a wordLang$prog # num`
+
+val def = assign_Define `
+  assign_WordFromInt word_size (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v =
+    (GiveUp,l) : 'a wordLang$prog # num`
+
+val def = assign_Define `
+  assign_WordToWord src_size dest_size (c:data_to_word$config) (secn_num)
+             (l:num) (dest:num) (names:num_set option) v =
+    (GiveUp,l) : 'a wordLang$prog # num`
 
 val def = assign_Define `
   assign_FFI ffi_index (c:data_to_word$config) (secn:num)
@@ -1922,13 +1970,12 @@ val assign_def = Define `
     | Mult => arg2 args (assign_Mult c secn l dest names) (Skip,l)
     | Div => arg2 args (assign_Div c secn l dest names) (Skip,l)
     | Mod => arg2 args (assign_Mod c secn l dest names) (Skip,l)
-    | WordOp W8 opw => arg2 args (assign_WordOpW8 opw c secn l dest names) (Skip,l)
-    | WordOp W64 opw => arg2 args (assign_WordOpW64 opw c secn l dest names) (Skip,l)
-    | WordShift W8 sh n => arg1 args (assign_WordShiftW8 sh n c secn l dest names) (Skip,l)
-    | WordShift W64 sh n => arg1 args (assign_WordShiftW64 sh n c secn l dest names) (Skip,l)
-    | WordFromWord b => arg1 args (assign_WordFromWord b c secn l dest names) (Skip,l)
-    | WordFromInt => arg1 args (assign_WordFromInt c secn l dest names) (Skip,l)
-    | WordToInt => arg1 args (assign_WordToInt c secn l dest names) (Skip,l)
+    | WordOp word_size opw => arg2 args (assign_WordOp opw word_size c secn l dest names) (Skip,l)
+    | WordShift word_size sh n => arg1 args (assign_WordShift word_size sh n c secn l dest names) (Skip,l)
+    | WordToWord src_size dest_size => arg1 args (assign_WordToWord src_size dest_size c secn l dest names) (Skip,l)
+    | WordFromInt word_size => arg1 args (assign_WordFromInt word_size c secn l dest names) (Skip,l)
+    | WordToInt word_size => arg1 args (assign_WordToInt word_size c secn l dest names) (Skip,l)
+    | WordCmp word_size opwb => arg2 args (assign_WordCmp opwb word_size c secn l dest names) (Skip,l)
     | FFI ffi_index => arg2 args (assign_FFI ffi_index c secn l dest names) (Skip,l)
     | EqualInt i => arg1 args (assign_EqualInt i c secn l dest names) (Skip,l)
     | Install => arg4 args (assign_Install c secn l dest names) (Skip,l)
