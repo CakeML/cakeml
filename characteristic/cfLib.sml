@@ -9,4 +9,5 @@ structure cfLib = struct
     cfLetAutoTheory cfLetAutoLib
     cfNormaliseLib
     cfMainTheory
+    cfDivLib
 end

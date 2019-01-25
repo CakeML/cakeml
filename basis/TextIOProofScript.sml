@@ -576,13 +576,12 @@ Theorem openIn_spec
      hasFreeFD fs ⇒
      app (p:'ffi ffi_proj) TextIO_openIn_v [sv]
        (IOFS fs)
-       (POST
+       (POSTve
           (\fdv. &(INSTREAM (nextFD fs) fdv ∧
                   validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
                   inFS_fname fs (File s)) *
                 IOFS (openFileFS s fs ReadMode 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs)
-          (\n c b. &F))`
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs))`
   (xcf_with_def "TextIO.openIn" TextIO_openIn_v_def >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
@@ -599,7 +598,7 @@ Theorem openIn_spec
             W8ARRAY iobuff_loc fnm0 *
             catfs fs'`
     >- (simp[Abbr`catfs`,Abbr`fs'`] >>
-        xffi >> simp[] >>
+        xffi >> xsimpl >>
         qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
         fs[strcat_thm,implode_def] >>
         simp[fsFFITheory.fs_ffi_part_def,IOx_def] >>
@@ -633,7 +632,7 @@ Theorem openIn_spec
   xlet `POSTv u2.
             &UNIT_TYPE () u2 * catfs fs * W8ARRAY iobuff_loc fnm0 *
             W8ARRAY loc (LUPDATE 1w 0 fd0)`
-  >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> simp[] >>
+  >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> xsimpl >>
       simp[fsFFITheory.fs_ffi_part_def,IOx_def] >>
       qmatch_goalsub_abbrev_tac`IO st f ns` >>
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
@@ -660,13 +659,12 @@ Theorem openIn_STDIO_spec
      hasFreeFD fs ⇒
      app (p:'ffi ffi_proj) TextIO_openIn_v [sv]
        (STDIO fs)
-       (POST
+       (POSTve
           (\fdv. &(INSTREAM (nextFD fs) fdv ∧
                   validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
                   inFS_fname fs (File s)) *
                 STDIO (openFileFS s fs ReadMode 0))
-          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * STDIO fs)
-          (\n c b. &F))`
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * STDIO fs))`
  (rw[STDIO_def] >> xpull >> xapp_spec openIn_spec >>
  map_every qexists_tac [`emp`,`s`,`fs with numchars := ll`] >>
  xsimpl >> rw[] >> qexists_tac`ll` >> fs[openFileFS_fupd_numchars] >> xsimpl >>
@@ -681,10 +679,10 @@ Theorem closeIn_spec
      INSTREAM fdw fdv ⇒
      app (p:'ffi ffi_proj) TextIO_closeIn_v [fdv]
        (IOFS fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
-                 IOFS (fs with infds updated_by A_DELKEY fdw))
-             (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs)
-             (\n c b. &F))`
+       (POSTve
+          (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
+               IOFS (fs with infds updated_by A_DELKEY fdw))
+          (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs))`
   (xcf_with_def "TextIO.closeIn" TextIO_closeIn_v_def >>
   fs[IOFS_def, IOFS_iobuff_def,INSTREAM_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
@@ -722,10 +720,10 @@ Theorem closeOut_spec
      OUTSTREAM fdw fdv ⇒
      app (p:'ffi ffi_proj) TextIO_closeOut_v [fdv]
        (IOFS fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
-                 IOFS (fs with infds updated_by A_DELKEY fdw))
-             (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs)
-             (\n c b. &F))`
+       (POSTve
+         (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
+              IOFS (fs with infds updated_by A_DELKEY fdw))
+         (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs))`
   (xcf_with_def "TextIO.closeOut" TextIO_closeOut_v_def >>
   fs[IOFS_def, IOFS_iobuff_def,OUTSTREAM_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
@@ -763,10 +761,10 @@ Theorem closeIn_STDIO_spec
      INSTREAM fd fdv /\ fd >= 3 /\ fd <= fs.maxFD ⇒
      app (p:'ffi ffi_proj) TextIO_closeIn_v [fdv]
        (STDIO fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
-                 STDIO (fs with infds updated_by A_DELKEY fd))
-             (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs)
-             (\n c b. &F))`
+       (POSTve
+          (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
+               STDIO (fs with infds updated_by A_DELKEY fd))
+          (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs))`
   (rw[STDIO_def] >> xpull >> xapp_spec closeIn_spec >>
   map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`] >>
   xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFileFD_def] >> xsimpl >>
@@ -781,10 +779,10 @@ Theorem closeOut_STDIO_spec
      OUTSTREAM fd fdv /\ fd >= 3 /\ fd <= fs.maxFD ⇒
      app (p:'ffi ffi_proj) TextIO_closeOut_v [fdv]
        (STDIO fs)
-       (POST (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
-                 STDIO (fs with infds updated_by A_DELKEY fd))
-             (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs)
-             (\n c b. &F))`
+       (POSTve
+          (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
+               STDIO (fs with infds updated_by A_DELKEY fd))
+          (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs))`
   (rw[STDIO_def] >> xpull >> xapp_spec closeOut_spec >>
   map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`] >>
   xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFileFD_def] >> xsimpl >>
@@ -803,7 +801,7 @@ Theorem writei_spec
   bc = h1 :: h2 :: h3 :: h4 :: rest ⇒
   app (p:'ffi ffi_proj) TextIO_writei_v [fdv;nv;iv]
   (IOx fs_ffi_part fs * W8ARRAY iobuff_loc bc)
-  (POST
+  (POSTve
     (\nwv. SEP_EXISTS nw. &(NUM nw nwv) * &(nw > 0) * &(nw <= n) *
            W8ARRAY iobuff_loc (0w :: n2w2 nw ++ (n2w i :: rest)) *
            IOx fs_ffi_part
@@ -811,8 +809,7 @@ Theorem writei_spec
                   (insert_atI (TAKE nw (MAP (CHR o w2n) (DROP i rest))) pos
                                     content)))
     (\e. &(InvalidFD_exn e) * W8ARRAY iobuff_loc (1w :: n2w n :: n2w2 i ++ rest) * &(F) *
-         IOFS (fs with numchars:= THE(LDROP (1 + Lnext_pos fs.numchars) fs.numchars)))
-    (\n c b. &F))`
+         IOFS (fs with numchars:= THE(LDROP (1 + Lnext_pos fs.numchars) fs.numchars))))`
   (strip_tac >>
   `?ll. fs.numchars = ll` by simp[]  >> fs[] >>
   `ll ≠ [||]`  by (cases_on`ll` >> fs[wfFS_def,liveFS_def,live_numchars_def]) >>
@@ -1255,7 +1252,7 @@ Theorem read_spec
    n < 256**2 ⇒ MAX n 2048 <= LENGTH rest ⇒
    app (p:'ffi ffi_proj) TextIO_read_v [fdv;nv]
    (W8ARRAY iobuff_loc (h1::h2::h3::h4::rest) * IOx fs_ffi_part fs)
-   (POST
+   (POSTve
      (\nrv. SEP_EXISTS (nr : num).
       &(NUM nr nrv) *
       SEP_EXISTS content pos.
@@ -1266,8 +1263,7 @@ Theorem read_spec
       IOx fs_ffi_part (bumpFD fd fs nr) *
       W8ARRAY iobuff_loc (0w :: n2w (nr DIV 256) :: n2w nr :: h4::
         MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest))
-     (\e. &InvalidFD_exn e * &(get_file_content fs fd = NONE ∨ get_mode fs fd ≠ SOME ReadMode) * IOFS fs)
-     (\n c b. &F))`
+     (\e. &InvalidFD_exn e * &(get_file_content fs fd = NONE ∨ get_mode fs fd ≠ SOME ReadMode) * IOFS fs))`
    (xcf_with_def "TextIO.read" TextIO_read_v_def >>
    fs[IOFS_def,IOFS_iobuff_def] >>
    xlet_auto >- xsimpl >>
@@ -1315,7 +1311,7 @@ Theorem read_spec
       rpt(xlet_auto >- xsimpl) >> xif >> instantiate >>
       xlet_auto >-(xcon >> xsimpl >> instantiate >> xsimpl) >>
       xraise >> xsimpl >> fs[InvalidFD_exn_def] >> xsimpl) >>
-   xlet `POST (\uv. SEP_EXISTS nr nrv . &(NUM nr nrv) *
+   xlet `POSTve (\uv. SEP_EXISTS nr nrv . &(NUM nr nrv) *
       SEP_EXISTS content pos.  &(get_file_content fs fd = SOME(content, pos) /\
           get_mode fs fd = SOME ReadMode /\
           (nr <= MIN n (LENGTH content - pos)) /\
@@ -1323,8 +1319,7 @@ Theorem read_spec
         IOx fs_ffi_part (bumpFD fd fs nr) *
         W8ARRAY iobuff_loc (0w :: n2w (nr DIV 256) :: n2w nr :: h4 ::
           (MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest)))
-          (\e. &(get_file_content fs fd = NONE))
-          (\n c b. &F)` >> xsimpl
+          (\e. &(get_file_content fs fd = NONE))` >> xsimpl
    >-(xffi >> xsimpl >>
       fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
       qmatch_goalsub_abbrev_tac`IO st f ns` >>
@@ -1353,12 +1348,12 @@ Theorem read_byte_spec
     get_mode fs fd = SOME ReadMode ⇒
     app (p:'ffi ffi_proj) TextIO_read_byte_v [fdv]
     (IOFS fs)
-    (POST (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
-                eof fd fs = SOME F) *
-                IOFS (bumpFD fd fs 1))
-          (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
-                IOFS(bumpFD fd fs 0))
-          (\n c b. &F))`
+    (POSTve
+      (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
+            eof fd fs = SOME F) *
+            IOFS (bumpFD fd fs 1))
+      (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
+            IOFS(bumpFD fd fs 0)))`
   (xcf_with_def "TextIO.read_byte" TextIO_read_byte_v_def >>
   fs[IOFS_def,IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ bdef`] >>
@@ -1367,7 +1362,6 @@ Theorem read_byte_spec
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t` >>
   Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t` >>
   xlet_auto >-(fs[] >> xsimpl >> rw[] >> instantiate >> xsimpl)
-  >- xsimpl
   >- xsimpl >>
   xlet_auto >- xsimpl >>
   xif >-(xlet_auto >- (xcon >> xsimpl) >> xraise >>
@@ -1382,12 +1376,12 @@ Theorem read_byte_STDIO_spec
     get_mode fs fd = SOME ReadMode ⇒
     app (p:'ffi ffi_proj) TextIO_read_byte_v [fdv]
     (STDIO fs)
-    (POST (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
-                eof fd fs = SOME F) *
-                STDIO (bumpFD fd fs 1))
-          (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
-                STDIO(bumpFD fd fs 0))
-          (\n c b. &F))`
+    (POSTve
+      (\cv. &(WORD (n2w (ORD (EL pos content)):word8) cv /\
+            eof fd fs = SOME F) *
+            STDIO (bumpFD fd fs 1))
+      (\e.  &(EndOfFile_exn e /\ eof fd fs = SOME T) *
+            STDIO(bumpFD fd fs 0)))`
   (rw[STDIO_def] >> xpull >> xapp_spec read_byte_spec >>
   mp_tac(GSYM(SPEC_ALL get_file_content_numchars)) >> rw[] >>
   mp_tac(get_mode_with_numchars) >> rw[] >>
@@ -1413,10 +1407,9 @@ Theorem input1_spec
         STDIO (bumpFD fd fs 0)
       | _ => &F)`
   (xcf_with_def "TextIO.input1" TextIO_input1_v_def
-  \\ xhandle`POST (λv. &OPTION_TYPE CHAR (SOME (EL pos content)) v *
-                       STDIO (forwardFD fs fd 1) * &(eof fd fs = SOME F))
-                  (λe. &EndOfFile_exn e * STDIO fs * &(eof fd fs = SOME T))
-                  (λn c b. &F)`
+  \\ xhandle`POSTve (λv. &OPTION_TYPE CHAR (SOME (EL pos content)) v *
+                         STDIO (forwardFD fs fd 1) * &(eof fd fs = SOME F))
+                    (λe. &EndOfFile_exn e * STDIO fs * &(eof fd fs = SOME T))`
   >- (
     fs [INSTREAM_def]
     \\ xlet_auto >- xsimpl \\ fs [get_in_def]
@@ -1474,7 +1467,6 @@ Theorem input_IOFS_spec
       xlet_auto \\ simp[]
       >- xsimpl
       >- xsimpl
-      >- xsimpl
       \\ xlet_auto >- xsimpl
       \\ xif
       \\ instantiate
@@ -1525,7 +1517,7 @@ Theorem input_IOFS_spec
      fs [INSTREAM_def] >>
      xlet_auto >- xsimpl >> fs [get_in_def] >>
      `FD fd sv` by fs [FD_def] >>
-     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >- xsimpl >>
+     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >>
      xlet_auto >-xsimpl >>
      xif >> instantiate >> xlit >> xsimpl >>
      qexists_tac `1` >>
@@ -1551,7 +1543,7 @@ Theorem input_IOFS_spec
      fs [INSTREAM_def] >>
      xlet_auto >- xsimpl >> fs [get_in_def] >>
      `FD fd sv` by fs [FD_def] >>
-     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >- xsimpl >>
+     xlet_auto >-(fs[] >> xsimpl) >- xsimpl >>
      xlet_auto >- xsimpl >> xif >> instantiate >> xlit >> xsimpl >>
      qexists_tac `1` >>
      fs[get_file_content_def] >> pairarg_tac >> rw[] >>
@@ -1574,7 +1566,6 @@ Theorem input_IOFS_spec
   `FD fd sv` by fs [FD_def] >>
   xlet_auto
   >-(fs[] >> xsimpl >> rw[] >> TRY instantiate >> xsimpl)
-  >- xsimpl
   >- xsimpl >>
   xlet_auto >- xsimpl >>
   `MEM fd (MAP FST fs'.infds)` by
@@ -1716,6 +1707,7 @@ Theorem inputLine_spec
           \\ qexists_tac`THE(LTL ll)`
           \\ xsimpl )
         \\ xsimpl )
+      \\ xsimpl
       \\ xcases
       \\ fs[EndOfFile_exn_def]
       \\ reverse conj_tac >- (EVAL_TAC \\ fs[])
@@ -1781,10 +1773,9 @@ Theorem inputLine_spec
       \\ simp[Abbr`arrmax`])
     \\ qmatch_asmsub_rename_tac`MAP _ (TAKE (pp-pos) arr2)`
     \\ qho_match_abbrev_tac`cf_handle _ _ _ _ (POSTv v. post v)`
-    \\ reverse (xhandle`POST (λv. &(pp < LENGTH content) * post v)
+    \\ reverse (xhandle`POSTve (λv. &(pp < LENGTH content) * post v)
         (λe. &(EndOfFile_exn e ∧ pp = LENGTH content)
-             * W8ARRAY arrv arr2 * STDIO fs')
-        (λn c b. &F)`)
+             * W8ARRAY arrv arr2 * STDIO fs')`)
     >- (
       xcases \\ xsimpl
       \\ fs[EndOfFile_exn_def]
@@ -1816,12 +1807,11 @@ Theorem inputLine_spec
     \\ fs [INSTREAM_def]
     \\ xlet_auto >- xsimpl \\ fs [get_in_def]
     \\ `FD fd sv` by fs [FD_def]
-    \\ xlet `POST (λv. &(WORD ((n2w(ORD (EL pp content))):word8) v ∧
+    \\ xlet `POSTve (λv. &(WORD ((n2w(ORD (EL pp content))):word8) v ∧
                          pp < LENGTH content)
-                      * W8ARRAY arrv arr2 * STDIO (forwardFD fs' fd 1))
-                  (λe. &(EndOfFile_exn e ∧ pp = LENGTH content)
-                   * W8ARRAY arrv arr2 * STDIO fs')
-                  (λn c b. &F)`
+                       * W8ARRAY arrv arr2 * STDIO (forwardFD fs' fd 1))
+                    (λe. &(EndOfFile_exn e ∧ pp = LENGTH content)
+                       * W8ARRAY arrv arr2 * STDIO fs')`
     >- (
       fs[STDIO_def]
       \\ xpull
@@ -1843,7 +1833,6 @@ Theorem inputLine_spec
       \\ rw[]
       \\ qexists_tac`THE(LTL ll)`
       \\ xsimpl )
-    >- xsimpl
     >- xsimpl
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
@@ -2027,13 +2016,12 @@ Theorem inputLinesFrom_spec
              else NONE) sv
              * STDIO fs)`
   (xcf_with_def "TextIO.inputLinesFrom" TextIO_inputLinesFrom_v_def
-  \\ reverse(xhandle`POST
+  \\ reverse(xhandle`POSTve
        (λv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
          (if inFS_fname fs (File f)
           then SOME(all_lines fs (File f))
           else NONE) v * STDIO fs)
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)
-       (λn c b. &F)`)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)`)
   >- (xcases \\ fs[BadFileName_exn_def]
       \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
       \\ xcon \\ xsimpl \\ fs[std_preludeTheory.OPTION_TYPE_def])
@@ -2051,7 +2039,6 @@ Theorem inputLinesFrom_spec
     xsimpl
     \\ rw[inFS_fname_numchars]
     \\ qexists_tac`ll` \\ xsimpl )
-  >- xsimpl
   \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
   \\ imp_res_tac nextFD_ltX
   \\ disch_then(qspec_then`0`mp_tac) \\ rw[]
@@ -2064,6 +2051,7 @@ Theorem inputLinesFrom_spec
   by ( simp[Abbr`fso`, openFileFS_def, get_mode_def] )
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fsob`
+  \\ rename1 `INSTREAM fd fdv`
   \\ qspecl_then[`fd`,`fsob`,`fdv`]mp_tac closeIn_STDIO_spec
   \\ impl_tac >- (
     fs[STD_streams_def, Abbr`fsob`, Abbr`fso`]
@@ -2085,7 +2073,6 @@ Theorem inputLinesFrom_spec
     \\ simp[Abbr`fsob`, Abbr`fso`]
     \\ imp_res_tac STD_streams_nextFD
     \\ rfs[])
-  >- xsimpl
   >- xsimpl
   \\ reverse xcon \\ xsimpl
   \\ fs[]
