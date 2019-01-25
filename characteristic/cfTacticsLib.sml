@@ -134,11 +134,25 @@ val cf_defs =
 
 val cleanup_exn_side_cond =
   simp [cfHeapsBaseTheory.SEP_IMPPOSTv_POSTe_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTffi_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTf_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTed_left,
         cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTffi_POSTv_left,
         cfHeapsBaseTheory.SEP_IMPPOSTe_POSTf_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTf_left
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTvd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTve_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTvd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTed_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTf_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTve_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_inv_POSTe_left
        ]
 
 val xlocal =
@@ -198,6 +212,7 @@ fun xcf_with_def name f_def =
       irule app_of_cf THEN
       CONJ_TAC THEN1 eval_tac THEN
       CONJ_TAC THEN1 eval_tac THEN simp [cf_def]
+
     val Recclosure_tac =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THEN
@@ -239,8 +254,7 @@ fun xlet_core cont0 cont1 cont2 =
   cont0 \\
   rpt CONJ_TAC THENL [
     all_tac,
-    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left),
-    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTffi_POSTv_left),
+    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left),
     cont1 \\ cont2
   ]
 

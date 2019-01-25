@@ -18,6 +18,9 @@ diff example: find a patch representing the difference between two files.
 [diffScript.sml](diffScript.sml):
 Implementation and verification of diff and patch algorithms
 
+[divScript.sml](divScript.sml):
+Examples of non-termination.
+
 [doubleProgScript.sml](doubleProgScript.sml):
 Examples on the topic of doubling a number.
 

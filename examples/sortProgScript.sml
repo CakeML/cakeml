@@ -169,7 +169,7 @@ Theorem get_files_contents_spec
       ^(fetch_v "get_files_contents" (get_ml_prog_state ()))
       [fnames_v; acc_v]
       (STDIO fs)
-      (POST
+      (POSTve
         (\strings_v.
           STDIO fs *
           &(LIST_TYPE STRING_TYPE
@@ -180,8 +180,7 @@ Theorem get_files_contents_spec
         (\e.
           STDIO fs *
           &(BadFileName_exn e ∧
-          ¬EVERY (inFS_fname fs o File) fnames))
-        (\n c b. &F))`
+          ¬EVERY (inFS_fname fs o File) fnames)))`
   (Induct_on `fnames` >>
   rw [] >>
   xcf "get_files_contents" (get_ml_prog_state ()) >>
@@ -194,7 +193,6 @@ Theorem get_files_contents_spec
   qmatch_assum_rename_tac `FILENAME fname fname_v` >>
   reverse(Cases_on`STD_streams fs`)>-(fs[STDIO_def] \\ xpull) \\
   xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
-  >- xsimpl
   >- xsimpl
   >- xsimpl >>
   qmatch_assum_abbrev_tac `validFD fd fs'` >>
@@ -214,8 +212,7 @@ Theorem get_files_contents_spec
   >- (xsimpl  \\
     simp[Abbr`fs'`, validFileFD_def]
     \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
-    \\ rfs[] )
-  >- xsimpl >>
+    \\ rfs[] ) >>
   xapp >>
   xsimpl >>
   simp[Abbr`fs'`,Abbr`fd`,openFileFS_A_DELKEY_nextFD] >>
@@ -324,14 +321,13 @@ Theorem sort_spec
     \\ metis_tac[] ) \\
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) >>
   reverse (xhandle
-    `POST
+    `POSTve
       (\uv. &(UNIT_TYPE () uv ∧
               EVERY (inFS_fname fs) inodes) *
             STDIO (sort_sem cl fs) * COMMANDLINE cl)
       (\e.  &(BadFileName_exn e ∧
               ¬EVERY (inFS_fname fs) inodes) *
-            STDIO fs * COMMANDLINE cl)
-      (\n c b. &F)`) >>
+            STDIO fs * COMMANDLINE cl)`) >>
   xsimpl
   >- (
     fs [BadFileName_exn_def] >>
@@ -353,7 +349,7 @@ Theorem sort_spec
   >- (xret >> xsimpl) >>
   xlet_auto >- xsimpl >>
   xlet
-    `POST
+    `POSTve
        (\strings_v.
           COMMANDLINE cl * STDIO (if LENGTH cl ≤ 1 then fastForwardFD fs 0 else fs) *
           &(LIST_TYPE STRING_TYPE
@@ -362,8 +358,7 @@ Theorem sort_spec
        (\e.
           COMMANDLINE cl * STDIO fs *
           &(BadFileName_exn e ∧
-          ¬EVERY (inFS_fname fs) inodes))
-       (\n c b. &F)` >>
+          ¬EVERY (inFS_fname fs) inodes))` >>
   xsimpl
   >- (
     `?command args. cl = command::args`
@@ -414,7 +409,15 @@ Theorem sort_spec
     \\ simp[MAP_MAP_o,EVERY_MAP,o_DEF,EXISTS_MAP] ) >>
   qmatch_assum_abbrev_tac `LIST_TYPE STRING_TYPE strings strings_v` >>
   imp_res_tac list_type_v_to_list \\
-  xlet_auto >- xsimpl \\
+  (* TODO: This let should be solvable by xlet_auto *)
+  xlet
+    `POSTv v. ARRAY v l' * COMMANDLINE cl *
+              STDIO (if LENGTH cl ≤ 1 then fastForwardFD fs 0 else fs)`
+  >- (
+    drule array_fromList_spec
+    \\ disch_then drule \\ strip_tac
+    \\ xapp \\ xsimpl
+  ) \\
   assume_tac strict_weak_order_string_cmp \\
   xlet_auto >- (
     xsimpl

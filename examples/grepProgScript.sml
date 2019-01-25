@@ -513,10 +513,9 @@ Theorem print_matching_lines_in_file_spec
   (xcf"print_matching_lines_in_file"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
   \\ qmatch_goalsub_abbrev_tac`_ * STDIO fs'`
-  \\ reverse(xhandle`POST
+  \\ reverse(xhandle`POSTve
        (λv. &UNIT_TYPE () v * STDIO fs')
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)
-       (λn c b. &F)`)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)`)
   >- (
     xcases
     \\ fs[BadFileName_exn_def]
@@ -527,7 +526,6 @@ Theorem print_matching_lines_in_file_spec
     \\ xsimpl)
   >- ( xsimpl )
   \\ xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
-  >- ( xsimpl )
   >- ( xsimpl )
   >- ( xsimpl )
   \\ xlet_auto

@@ -22,6 +22,8 @@ sig
 
   val heap_clean_conv : conv
 
+  val SEP_IMPPOST_VARIANTS : thm
+
   (*----------------------------------------------------------------*)
   (* Prove an "easy" goal about sets, involving UNION, DISJOINT,... Useful
     after unfolding the definitions of heap predicates. *)
