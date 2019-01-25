@@ -693,35 +693,6 @@ Theorem BIT_11_2
   srw_tac[][] >> full_simp_tac(srw_ss())[] >>
   simp[arithmeticTheory.EXP])
 
-(* TODO - candidate for move to HOL, but with - 1 rather than PRE *)
-Theorem BIT_TIMES2
-  `BIT z (2 * n) ⇔ 0 < z ∧ BIT (PRE z) n`
-  (Cases_on`z`>>simp[]>-(
-    simp[BIT0_ODD] >>
-    simp[arithmeticTheory.ODD_EVEN] >>
-    simp[arithmeticTheory.EVEN_DOUBLE] ) >>
-  qmatch_rename_tac`BIT (SUC z) (2 * n) ⇔ BIT z n` >>
-  qspecl_then[`z`,`n`,`1`]mp_tac BIT_SHIFT_THM >>
-  simp[arithmeticTheory.ADD1])
-
-(* TODO - candidate for move to HOL *)
-Theorem BIT_TIMES2_1
-  `∀n z. BIT z (2 * n + 1) ⇔ (z=0) ∨ BIT z (2 * n)`
-  (Induct >> simp_tac std_ss [] >- (
-    simp_tac std_ss [BIT_ZERO] >>
-    Cases_on`z`>>simp_tac std_ss [BIT0_ODD] >>
-    simp_tac arith_ss [GSYM BIT_DIV2,BIT_ZERO] ) >>
-  Cases >> simp_tac std_ss [BIT0_ODD] >- (
-    simp_tac std_ss [arithmeticTheory.ODD_EXISTS,arithmeticTheory.ADD1] >>
-    metis_tac[] ) >>
-  simp_tac std_ss [GSYM BIT_DIV2] >>
-  qspec_then`2`mp_tac arithmeticTheory.ADD_DIV_RWT >>
-  simp[] >>
-  disch_then(qspecl_then[`2 * SUC n`,`1`]mp_tac) >>
-  simp_tac std_ss [] >>
-  simp_tac std_ss [arithmeticTheory.MOD_EQ_0_DIVISOR] >>
-  metis_tac[] )
-
 (* only used below in proof of theorem that is in turn used just twice *)
 Theorem LOG2_TIMES2
   `0 < n ⇒ (LOG2 (2 * n) = SUC (LOG2 n))`
