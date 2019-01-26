@@ -1,12 +1,13 @@
-open preamble astTheory mlnumTheory mlintTheory
+(*
+  Functions for converting various intermediate languages
+  into displayLang representations.
+*)
+open preamble astTheory mlintTheory
 open flatLangTheory patLangTheory closLangTheory
      displayLangTheory source_to_flatTheory
      wordLangTheory;
 
 val _ = new_theory"presLang";
-
-(* Functions for converting various intermediate languages
-   into displayLang representations. *)
 
 (* basics *)
 
@@ -44,14 +45,14 @@ val num_to_hex_def = Define `
 (* num_to_hex "implements" words$word_to_hex_string in a
    simple way that the translator can handle. these lemmas
    check that is true. *)
-val num_to_hex_digit_eq = Q.store_thm ("num_to_hex_digit_eq",
-  `!i. i < 16 ==> num_to_hex_digit i = [HEX i]`,
-  CONV_TAC (REPEATC (numLib.BOUNDED_FORALL_CONV EVAL))
+Theorem num_to_hex_digit_eq
+  `!i. i < 16 ==> num_to_hex_digit i = [HEX i]`
+  (CONV_TAC (REPEATC (numLib.BOUNDED_FORALL_CONV EVAL))
   \\ simp []);
 
-val num_to_hex_eq = Q.store_thm ("num_to_hex_eq",
-  `num_to_hex (w2n w) = words$word_to_hex_string w`,
-  simp [wordsTheory.word_to_hex_string_def, wordsTheory.w2s_def]
+Theorem num_to_hex_eq
+  `num_to_hex (w2n w) = words$word_to_hex_string w`
+  (simp [wordsTheory.word_to_hex_string_def, wordsTheory.w2s_def]
   \\ Q.SPEC_TAC (`w2n w`, `n`)
   \\ measureInduct_on `I n`
   \\ simp [Once numposrepTheory.n2l_def, ASCIInumbersTheory.n2s_def]

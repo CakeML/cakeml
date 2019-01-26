@@ -1,3 +1,7 @@
+(*
+  This is a simple example of applying the translator to an
+  algorithm-level model of a copying garbage collector.
+*)
 open HolKernel Parse boolLib bossLib; val _ = new_theory "example_copying_gc";
 
 open copying_gcTheory ml_translatorLib;

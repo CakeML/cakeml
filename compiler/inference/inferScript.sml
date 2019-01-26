@@ -1,3 +1,6 @@
+(*
+  Definition of CakeML's type inferencer.
+*)
 open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
 open namespacePropsTheory;
 open infer_tTheory unifyTheory;
@@ -615,21 +618,21 @@ constrain_op l op ts =
 
 val constrain_op_def = Define constrain_op_quotation;
 
-val constrain_op_pmatch = Q.store_thm("constrain_op_pmatch",`∀op ts.` @
+Theorem constrain_op_pmatch (`∀op ts.` @
   (constrain_op_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
+       | aq => aq)))
+ (rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
   >> fs[constrain_op_def]);
 
-val constrain_op_error_msg_sanity = Q.store_thm ("constrain_op_error_msg_sanity",
+Theorem constrain_op_error_msg_sanity
 `!l op args s l' s' msg.
   LENGTH args = SND (op_to_string op) ∧
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
-  IS_PREFIX (explode msg) "Type mismatch"`,
- rpt strip_tac >>
+  IS_PREFIX (explode msg) "Type mismatch"`
+ (rpt strip_tac >>
  qmatch_abbrev_tac `IS_PREFIX _ m` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_def] >>
@@ -1122,6 +1125,10 @@ val infer_d_def = Define `
               inf_c := nsEmpty;
               inf_t := nsEmpty;
               inf_s := (nsSing sn (dids, oids, ienv_sig))|>
+  od) ∧
+(infer_d ienv (Dlocal lds ds) =
+  do ienv' <- infer_ds ienv lds;
+    infer_ds (extend_dec_ienv ienv' ienv) ds
   od) ∧
 (infer_ds ienv [] =
   return <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty ; inf_s := nsEmpty|>) ∧

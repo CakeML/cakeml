@@ -35,7 +35,6 @@ val tokmap0 =
                 ("else", ``ElseT``),
                 ("end", ``EndT``),
                 ("exception", ``ExceptionT``),
-                ("false", ``AlphaT "false"``),
                 ("fn", ``FnT``),
                 ("fun", ``FunT``),
                 ("handle", ``HandleT``),
@@ -43,19 +42,17 @@ val tokmap0 =
                 ("in", ``InT``),
                 ("IntError", ``AlphaT "IntError"``),
                 ("let", ``LetT``),
-                ("nil", ``AlphaT "nil"``),
+                ("local", ``LocalT``),
                 ("o", ``AlphaT "o"``),
                 ("of", ``OfT``),
                 ("op", ``OpT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
-                ("ref", ``RefT``),
                 ("sig", ``SigT``),
                 ("signature", ``SignatureT``),
                 ("struct", ``StructT``),
                 ("structure", ``StructureT``),
                 ("then", ``ThenT``),
-                ("true", ``AlphaT "true"``),
                 ("type", ``TypeT``),
                 ("val", ``ValT``)]
 fun tokmap s =
@@ -70,7 +67,7 @@ val ginfo = { tokmap = tokmap,
 
 val cmlG_def = mk_grammar_def ginfo
 `(* types *)
- UQTyOp ::= <AlphaT> | <SymbolT> | "ref" ;
+ UQTyOp ::= <AlphaT> | <SymbolT> ;
  TyvarN ::= <TyvarT>;
  TyOp ::= UQTyOp | <LongidT>;
  TypeList1 ::= Type | Type "," TypeList1;
@@ -94,33 +91,29 @@ val cmlG_def = mk_grammar_def ginfo
  TypeAbbrevDec ::= "type" TypeName "=" Type;
 
  (* expressions - base cases and function applications *)
- UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``)
-                    | "true" | "false" | "nil";
+ UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``);
  ConstructorName ::=
      UQConstructorName
   | ^(``{LongidT str ms s | ms,str,s |
-           s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s) ∨
-           s ∈ {"true"; "false"; "nil"}}``);
- V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"; "true"; "false";
-                            "nil" } ∧
+           s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s)}``);
+ V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"} ∧
                        s ≠ "" ∧ ¬isUpper (HD s)}``)
     |  ^(``{SymbolT s |
             s ∉ {"+"; "*"; "-"; "/"; "<"; ">"; "<="; ">="; "<>"; ":=";
                  "::"; "@"; "\094"}}``);
  FQV ::= V
       |  ^(``{LongidT str ms s | str,ms,s |
-              s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
-              s ∉ {"true"; "false"; "nil"}}``) ;
+              s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
  OpID ::= ^(``{LongidT str ms s | str,ms,s | s ≠ ""}``)
        |  ^(``{AlphaT s | s ≠ ""}``)
        |  ^(``{SymbolT s | s ≠ ""}``)
-       |  "*" | "=" | "ref" ;
+       |  "*" | "=" ;
 
  Eliteral ::= <IntT> |  <CharT> | <StringT> | <WordT> | <FFIT> ;
 
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | Eliteral
         | "let" LetDecs "in" Eseq "end" | "[" "]"
-        | "[" Elist1 "]" | "op" OpID | "ref" ;
+        | "[" Elist1 "]" | "op" OpID ;
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
@@ -150,17 +143,13 @@ val cmlG_def = mk_grammar_def ginfo
  (* function and value declarations *)
  FDecl ::= V PbaseList1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
- Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
-       |  "exception" Dconstructor
-       | TypeAbbrevDec ;
- Decls ::= Decl Decls | ";" Decls | ;
  LetDec ::= "val" Pattern "=" E | "fun" AndFDecls ;
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
  (* patterns *)
  Pbase ::= V | ConstructorName | <IntT> | <StringT> | <CharT> | Ptuple | "_"
         |  "[" "]" | "[" PatternList "]" | "op" OpID;
- PConApp ::= ConstructorName | "ref" | PConApp Pbase ;
+ PConApp ::= ConstructorName | PConApp Pbase ;
  Papp ::= PConApp Pbase | Pbase ;
  Pcons ::= Papp "::" Pcons | Papp ;
  Pattern ::= Pcons | Pcons ":" Type ;
@@ -183,6 +172,10 @@ val cmlG_def = mk_grammar_def ginfo
            |  Signature
            |  TypeDec ;
  OptTypEqn ::= "=" Type | ;
+ Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
+       |  "exception" Dconstructor
+       | TypeAbbrevDec | "local" Decls "in" Decls "end";
+ Decls ::= Decl Decls | ";" Decls | ;
  SpecLineList ::= SpecLine SpecLineList | ";" SpecLineList | ;
  SignatureValue ::= "sig" SpecLineList "end" ;
  OptionalSignatureAscription ::= ":>" SigName | ;

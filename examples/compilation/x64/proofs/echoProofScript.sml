@@ -1,3 +1,8 @@
+(*
+  Compose the echo semantics theorem and the compiler correctness
+  theorem with the compiler evaluation theorem to produce end-to-end
+  correctness theorem that reaches final machine code.
+*)
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      echoProgTheory echoCompileTheory

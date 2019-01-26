@@ -8,6 +8,9 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "simpleIO"
 
+(*
+  A simple instantiation of the ffi type.
+*)
 (*open import Pervasives*)
 (*open import Pervasives_extra*)
 (*open import Lib*)
@@ -19,8 +22,8 @@ val _ = Hol_datatype `
 
 (*val isEof : oracle_function simpleIO*)
 val _ = Define `
- (isEof st conf input=  
- ((case input of
+ ((isEof:simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) st conf input=
+   ((case input of
     [] => Oracle_final FFI_failed
   | x::xs => Oracle_return st ((if st.input = LNIL then n2w (( 1 : num)) else n2w (( 0 : num)))::xs)
   )))`;
@@ -28,8 +31,8 @@ val _ = Define `
 
 (*val getChar : oracle_function simpleIO*)
 val _ = Define `
- (getChar st conf input=  
- ((case input of
+ ((getChar:simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) st conf input=
+   ((case input of
     [] => Oracle_final FFI_failed
   | x::xs =>
       (case LHD st.input of
@@ -41,8 +44,8 @@ val _ = Define `
 
 (*val putChar : oracle_function simpleIO*)
 val _ = Define `
- (putChar st conf input=  
- ((case input of
+ ((putChar:simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) st conf input=
+   ((case input of
     [] => Oracle_final FFI_failed
   | x::_ => Oracle_return (( st with<| output := (LCONS x st.output) |>)) input
   )))`;
@@ -50,13 +53,13 @@ val _ = Define `
 
 (*val exit : oracle_function simpleIO*)
 val _ = Define `
- (exit st conf input=  (Oracle_final FFI_diverged))`;
+ ((exit:simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) st conf input=  (Oracle_final FFI_diverged))`;
 
 
 (*val simpleIO_oracle : oracle simpleIO*)
 val _ = Define `
- (simpleIO_oracle s st conf input=  
- (if s = "isEof" then
+ ((simpleIO_oracle:string -> simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) s st conf input=
+   (if s = "isEof" then
     isEof st conf input
   else if s = "getChar" then
     getChar st conf input

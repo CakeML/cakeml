@@ -1,6 +1,7 @@
 ## The regression test runs through this list of directories.
 
 # download the latest cake binary
+developers
 developers/bin
 
 # semantics and metatheory
@@ -82,8 +83,6 @@ examples/compilation/x64
 examples/compilation/x64/proofs
 examples/compilation/ag32
 examples/compilation/ag32/proofs
-
-compiler/benchmarks
 
 translator/okasaki-examples
 translator/other-examples

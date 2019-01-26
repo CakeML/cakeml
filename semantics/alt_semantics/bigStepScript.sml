@@ -8,6 +8,10 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "bigStep"
 
+(*
+  A clocked relational big-step semantics for CakeML. This semantics
+  is no longer used in the CakeML development.
+*)
 (*open import Pervasives_extra*)
 (*open import Lib*)
 (*open import Namespace*)
@@ -349,6 +353,17 @@ T
 ==>
 evaluate_dec ck env s (Dsig sn sps) (s, Rval <| v := nsEmpty; c := nsEmpty |>))
 
+/\ (! ck s1 s2 env lds ds new_env r.
+(evaluate_decs ck env s1 lds (s2, Rval new_env)) /\
+(evaluate_decs ck (extend_dec_env new_env env) s2 ds r)
+==>
+evaluate_dec ck env s1 (Dlocal lds ds) r)
+
+/\ (! ck s1 s2 env lds ds err.
+(evaluate_decs ck env s1 lds (s2, Rerr err))
+==>
+evaluate_dec ck env s1 (Dlocal lds ds) (s2, Rerr err))
+
 /\ (! ck env s.
 T
 ==>
@@ -428,6 +443,18 @@ dec_diverges env st (Dlet locs p e))
 ==>
 dec_diverges env st (Dmod mn sn ds))
 
+/\ (! st env lds ds st2 new_env.
+(evaluate_decs F env st lds (st2, Rval new_env)) /\
+(decs_diverges (extend_dec_env new_env env) st2 ds)
+==>
+dec_diverges env st (Dlocal lds ds))
+
+/\ (! st env lds ds.
+(decs_diverges env st lds)
+==>
+dec_diverges env st (Dlocal lds ds))
+
+
 /\ (! st env d ds.
 (dec_diverges env st d)
 ==>
@@ -470,4 +497,3 @@ prog_diverges (extend_dec_env new_env env) s2 tops
 prog_diverges env s1 (top::tops)
 *)
 val _ = export_theory()
-

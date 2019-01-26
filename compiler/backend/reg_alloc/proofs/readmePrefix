@@ -1,0 +1,2 @@
+This directory contains the proofs of the register allocator and
+parallel-move algorithms.

@@ -216,3 +216,10 @@ evaluate_decs st env [Dmod mn _ ds] =
 and
 evaluate_decs st env [Dsig _ _] =
   (st, Rval <| v = nsEmpty; c = nsEmpty |>)
+and
+evaluate_decs st env [Dlocal lds ds] =
+  match evaluate_decs st env lds with
+  | (st1, Rval env1) ->
+    evaluate_decs st1 (extend_dec_env env1 env) ds
+  | res -> res
+  end

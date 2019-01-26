@@ -1,6 +1,8 @@
 (*
   Definition of CakeML abstract syntax (AST).
 *)
+
+open import Pervasives_extra
 open import Pervasives
 open import Lib
 open import Namespace
@@ -196,6 +198,19 @@ type dec =
   | Dmod of modN * maybe (id modN sigN) * list dec
   (* Signatures *)
   | Dsig of sigN * list spec
+  (* Local: local part, visible part *)
+  | Dlocal of list dec * list dec
+
+(* Specifications
+   For giving the signature of a module *)
+type spec =
+  | Sval of varN * ast_t
+  | Stype of type_def
+  | Stabbrev of list tvarN * typeN * ast_t
+  | Stype_opq of list tvarN * typeN
+  | Sexn of conN * list ast_t
+
+type specs = list spec
 
 (* Accumulates the bindings of a pattern *)
 val pat_bindings : pat -> list varN -> list varN

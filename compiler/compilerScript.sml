@@ -9,7 +9,7 @@ open preamble
      cmlParseTheory
      inferTheory
      backendTheory
-     mlnumTheory mlintTheory mlstringTheory basisProgTheory
+     mlintTheory mlstringTheory basisProgTheory
      fromSexpTheory simpleSexpParseTheory
 
 open x64_configTheory export_x64Theory
@@ -111,7 +111,7 @@ val compile_def = Define`
                                          inf_env_to_types_string ic ++
                                          [strlit "\n"]))), [])
           else
-          case backend$compile_tap c.backend_config (prelude ++ prog) of
+          case backend$compile_tap c.backend_config full_prog of
           | (NONE, td) => (Failure CompileError, td)
           | (SOME (bytes,c), td) => (Success (bytes,c), td)`;
 
@@ -126,6 +126,9 @@ val error_to_str_def = Define`
      else s) /\
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
   (error_to_str CompileError = strlit "### ERROR: compile error\n")`;
+
+val is_error_msg_def = Define `
+  is_error_msg x = mlstring$isPrefix (strlit "###") x`;
 
 (* TODO: translator fails inside mlstringLib.mlstring_case_conv
   when the following definition just matches against (strlit str) directly *)

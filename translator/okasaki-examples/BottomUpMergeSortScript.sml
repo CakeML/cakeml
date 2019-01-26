@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Bottom Up Merge
+  Sort algorithm from Chris Okasaki's book.
+*)
 open preamble
 open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib ListProgTheory;
 val _ = numLib.prefer_num()
@@ -187,22 +191,22 @@ rw [] >|
              [Once add_seg_def, sortable_to_bag_def, mrg_bag, mrg_length,
               arithmeticTheory.SUB_PLUS]]);
 
-val add_bag = Q.store_thm ("add_bag",
+Theorem add_bag
 `!leq x size segs.
   sortable_inv leq (size,segs) 1
   ⇒
   (sortable_to_bag (add leq x (size, segs)) =
-   BAG_INSERT x (sortable_to_bag (size, segs)))`,
-rw [add_def] >>
+   BAG_INSERT x (sortable_to_bag (size, segs)))`
+(rw [add_def] >>
 ASSUME_TAC (Q.SPECL [`leq`, `size`, `segs`, `1`, `[x]`] add_seg_bag) >>
 fs [list_to_bag_def, BAG_INSERT_UNION]);
 
-val add_correct = Q.store_thm ("add_correct",
+Theorem add_correct
 `!leq x size segs.
   WeakLinearOrder leq ∧ sortable_inv leq (size,segs) 1
   ⇒
-  sortable_inv leq (add leq x (size,segs)) 1`,
-rw [add_def] >>
+  sortable_inv leq (add leq x (size,segs)) 1`
+(rw [add_def] >>
 match_mp_tac add_seg_sub_inv >>
 rw [SORTED_DEF]);
 
@@ -222,12 +226,12 @@ induct_on `segs` >>
 rw [mrg_all_def] >>
 metis_tac [mrg_perm, PERM_CONG, PERM_REFL, PERM_TRANS]);
 
-val sort_sorted = Q.store_thm ("sort_sorted",
+Theorem sort_sorted
 `!leq size segs.
   WeakLinearOrder leq ∧ sortable_inv leq (size,segs) 1
   ⇒
-  SORTED leq (sort leq (size,segs))`,
-rw [sort_def] >>
+  SORTED leq (sort leq (size,segs))`
+(rw [sort_def] >>
 metis_tac [sortable_inv_sorted, SORTED_DEF, mrg_all_sorted]);
 
 val sortable_to_bag_lem = Q.prove (
@@ -235,10 +239,10 @@ val sortable_to_bag_lem = Q.prove (
 induct_on `segs` >>
 rw [sortable_to_bag_def, list_to_bag_def, list_to_bag_append]);
 
-val sort_bag = Q.store_thm ("sort_bag",
+Theorem sort_bag
 `!leq x size segs.
-  list_to_bag (sort leq (size,segs)) = sortable_to_bag (size,segs)`,
-rw [sort_def, sortable_to_bag_lem, list_to_bag_perm] >>
+  list_to_bag (sort leq (size,segs)) = sortable_to_bag (size,segs)`
+(rw [sort_def, sortable_to_bag_lem, list_to_bag_perm] >>
 metis_tac [mrg_all_perm, APPEND]);
 
 

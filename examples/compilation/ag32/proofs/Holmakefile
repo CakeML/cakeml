@@ -1,5 +1,13 @@
-INCLUDES = ../../../../semantics/proofs ../../../../misc .. ../../.. ../../../../compiler/backend/proofs ../../../../compiler/encoders/ag32/proofs ../../../../compiler/backend/ag32 ../../../../compiler/backend/ag32/proofs
-CLINE_OPTIONS = --qof
-ifdef POLY
-HOLHEAP=../heap
-endif
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics/proofs\
+					 $(CAKEMLDIR)/compiler/encoders/ag32/proofs\
+					 $(CAKEMLDIR)/compiler/backend/ag32\
+					 $(CAKEMLDIR)/compiler/backend/ag32/proofs\
+					 .. ../../..
+
+all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)

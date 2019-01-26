@@ -20,10 +20,7 @@ val add_basis_compset = computeLib.extend_compset
      mlintTheory.padLen_DEC_eq,
      mlintTheory.toChars_def,
      mlintTheory.toString_def,
-     mlnumTheory.toString_def,
-     mlnumTheory.num_toString_def,
-     mlnumTheory.fromString_def,
-     mlnumTheory.fromString_unsafe_def
+     mlintTheory.num_to_str_def
     ]
   ]
 

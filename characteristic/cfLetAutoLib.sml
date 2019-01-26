@@ -1,3 +1,6 @@
+(*
+  Theorems, conversions, solvers used by the xlet_auto tactic.
+*)
 structure cfLetAutoLib :> cfLetAutoLib =
 struct
 
@@ -228,7 +231,10 @@ val {mk,dest,export} = ThmSetData.new_exporter "refinement_invariants"
 
 fun export_refinement_invariants slist = List.app export slist;
 
-(* Don't put UNIT_TYPE in here and use UNIT_TYPE_EXPAND and UNIT_TYPE_RETRACT instead - because of the nature of the unit type, the automatically generated retract rule for UNIT_TYPE introduces a new variable: !u v. v = Conv NONE [] <=> UNIT_TYPE u v *)
+(* Don't put UNIT_TYPE in here and use UNIT_TYPE_EXPAND and
+   UNIT_TYPE_RETRACT instead - because of the nature of the unit type,
+   the automatically generated retract rule for UNIT_TYPE introduces a
+   new variable: !u v. v = Conv NONE [] <=> UNIT_TYPE u v *)
 val _ = add_refinement_invariants [NUM_def, INT_def, BOOL_def, STRING_TYPE_def];
 
 fun add_match_thms thms =
@@ -419,50 +425,49 @@ fun ivariant varsl v =
         | false => v
   end;
 
-(* [rename_dest_postv]
-   Deconstructs the POSTv of a heap condition and rename the POSTv value
-   so that it is a fresh variable. *)
-fun rename_dest_postv (varsl, c) =
-  let
-      val (v, c1) = cfHeapsBaseSyntax.dest_postv c
-      val v' = variant varsl v
-      val c2 = Term.subst [v |-> v'] c1
-  in
-      (v', c2)
-  end;
-
-(* [rename_dest_poste]
-   Deconstructs the POSTe of a heap condition and rename the POSTe value
-   so that it is a fresh variable. *)
-fun rename_dest_poste (varsl, c) =
-  let
-      val (v, c1) = cfHeapsBaseSyntax.dest_poste c
-      val v' = variant varsl v
-      val c2 = Term.subst [v |-> v'] c1
-  in
-      (v', c2)
-  end;
-
 (* [dest_post_condition] *)
 fun dest_post_condition c =
   if cfHeapsBaseSyntax.is_postv c then
       let
           val (postv_v, postv_pred) = cfHeapsBaseSyntax.dest_postv c
       in
-          (SOME postv_v, SOME postv_pred, NONE, NONE, NONE, NONE) end
+          (SOME postv_v, SOME postv_pred, NONE, NONE, NONE, NONE, NONE, NONE) end
   else if cfHeapsBaseSyntax.is_poste c then
       let
           val (poste_v, poste_pred) = cfHeapsBaseSyntax.dest_poste c
       in
-          (NONE, NONE, SOME poste_v, SOME poste_pred, NONE, NONE) end
+          (NONE, NONE, SOME poste_v, SOME poste_pred, NONE, NONE, NONE, NONE) end
   (* TODO: add postf *)
+  else if cfHeapsBaseSyntax.is_postd c then
+      let
+          val (postd_io, postd_pred) = cfHeapsBaseSyntax.dest_postd c
+      in
+          (NONE, NONE, NONE, NONE, NONE, NONE, SOME postd_io, SOME postd_pred) end
+  else if cfHeapsBaseSyntax.is_postve c then
+      let
+          val (postv_v, postv_pred, poste_v, poste_pred) = cfHeapsBaseSyntax.dest_postve c
+      in
+          (SOME postv_v, SOME postv_pred, SOME poste_v, SOME poste_pred,
+           NONE, NONE, NONE, NONE) end
+  else if cfHeapsBaseSyntax.is_postvd c then
+      let
+          val (postv_v, postv_pred, postd_io, postd_pred) = cfHeapsBaseSyntax.dest_postvd c
+      in
+          (SOME postv_v, SOME postv_pred, NONE, NONE,
+           NONE, NONE, SOME postd_io, SOME postd_pred) end
+  else if cfHeapsBaseSyntax.is_posted c then
+      let
+          val (poste_v, poste_pred, postd_io, postd_pred) = cfHeapsBaseSyntax.dest_posted c
+      in
+          (NONE, NONE, SOME poste_v, SOME poste_pred,
+           NONE, NONE, SOME postd_io, SOME postd_pred) end
   else if cfHeapsBaseSyntax.is_post c then
       let
         val (postv_v, postv_pred, poste_v, poste_pred,
-             postf_args,postf_pred) = cfHeapsBaseSyntax.dest_post c
+             postf_args, postf_pred, postd_io, postd_pred) = cfHeapsBaseSyntax.dest_post c
       in
           (SOME postv_v, SOME postv_pred, SOME poste_v, SOME poste_pred,
-           SOME postf_args, SOME postf_pred) end
+           SOME postf_args, SOME postf_pred, SOME postd_io, SOME postd_pred) end
   else
       raise (ERR "rename_dest_post" "Not a heap post-condition");
 
@@ -474,19 +479,56 @@ fun rename_dest_post (varsl, c) =
           val postv_v' = variant varsl postv_v
           val postv_pred' = Term.subst [postv_v |-> postv_v'] postv_pred
       in
-          (SOME postv_v', SOME postv_pred', NONE, NONE, NONE, NONE) end
+          (SOME postv_v', SOME postv_pred', NONE, NONE, NONE, NONE, NONE, NONE) end
   else if cfHeapsBaseSyntax.is_poste c then
       let
           val (poste_v, poste_pred) = cfHeapsBaseSyntax.dest_poste c
           val poste_v' = variant varsl poste_v
           val poste_pred' = Term.subst [poste_v |-> poste_v']  poste_pred
       in
-         (NONE, NONE, SOME poste_v', SOME poste_pred', NONE, NONE) end
+         (NONE, NONE, SOME poste_v', SOME poste_pred', NONE, NONE, NONE, NONE) end
   (* TODO: add postf *)
+  else if cfHeapsBaseSyntax.is_postd c then
+      let
+          val (postd_io, postd_pred) = cfHeapsBaseSyntax.dest_postd c
+          val postd_io' = variant varsl postd_io
+          val postd_pred' = Term.subst [postd_io |-> postd_io']  postd_pred
+      in
+          (NONE, NONE, NONE, NONE, NONE, NONE, SOME postd_io', SOME postd_pred') end
+  else if cfHeapsBaseSyntax.is_postve c then
+      let
+          val (postv_v, postv_pred, poste_v, poste_pred) = cfHeapsBaseSyntax.dest_postve c
+          val postv_v' = variant varsl postv_v
+          val postv_pred' = Term.subst [postv_v |-> postv_v'] postv_pred
+          val poste_v' = variant (postv_v'::varsl) poste_v
+          val poste_pred' = Term.subst [poste_v |-> poste_v'] poste_pred
+      in
+          (SOME postv_v', SOME postv_pred', SOME poste_v', SOME poste_pred',
+           NONE, NONE, NONE, NONE) end
+  else if cfHeapsBaseSyntax.is_postvd c then
+      let
+          val (postv_v, postv_pred, postd_io, postd_pred) = cfHeapsBaseSyntax.dest_postvd c
+          val postv_v' = variant varsl postv_v
+          val postv_pred' = Term.subst [postv_v |-> postv_v'] postv_pred
+          val postd_io' = variant (postv_v'::varsl) postd_io
+          val postd_pred' = Term.subst [postd_io |-> postd_io'] postd_pred
+      in
+          (SOME postv_v', SOME postv_pred', NONE, NONE,
+           NONE, NONE, SOME postd_io', SOME postd_pred') end
+  else if cfHeapsBaseSyntax.is_posted c then
+      let
+          val (poste_v, poste_pred, postd_io, postd_pred) = cfHeapsBaseSyntax.dest_posted c
+          val poste_v' = variant varsl poste_v
+          val poste_pred' = Term.subst [poste_v |-> poste_v'] poste_pred
+          val postd_io' = variant (poste_v'::varsl) postd_io
+          val postd_pred' = Term.subst [postd_io |-> postd_io'] postd_pred
+      in
+          (NONE, NONE, SOME poste_v', SOME poste_pred',
+           NONE, NONE, SOME postd_io', SOME postd_pred') end
   else if cfHeapsBaseSyntax.is_post c then
       let
           val (postv_v, postv_pred, poste_v, poste_pred,
-               postf_args,postf_pred) = cfHeapsBaseSyntax.dest_post c
+               postf_args, postf_pred, postd_io, postd_pred) = cfHeapsBaseSyntax.dest_post c
           val postv_v' = variant varsl postv_v
           val postv_pred' = Term.subst [postv_v |-> postv_v'] postv_pred
           val poste_v' = variant (postv_v'::varsl) poste_v
@@ -498,9 +540,11 @@ fun rename_dest_post (varsl, c) =
               end
           val postf_args' = variants (poste_v'::postv_v'::varsl) postf_args
           val postf_pred' = Term.subst (map2 (curry op |->) postf_args postf_args') postf_pred
+          val postd_io' = variant (postf_args'@poste_v'::postv_v'::varsl) postd_io
+          val postd_pred' = Term.subst [postd_io |-> postd_io']  postd_pred
       in
         (SOME postv_v', SOME postv_pred', SOME poste_v', SOME poste_pred',
-         SOME postf_args', SOME postf_pred') end
+         SOME postf_args', SOME postf_pred', SOME postd_io', SOME postd_pred') end
   else
       raise (ERR "rename_dest_post" "Not a heap post-condition");
 
@@ -606,13 +650,20 @@ fun mk_heap_condition (ex_vl, hpl, pfl) =
    - the optional poste value
    - the optional poste predicate
 *)
-fun mk_post_condition (postv_v, postv_pred, poste_v, poste_pred, postf_vl, postf_pred) =
-  case (postv_v, postv_pred, poste_v, poste_pred, postf_vl, postf_pred) of
-      (SOME postv_v, SOME postv_pred, NONE, NONE, NONE, NONE) => cfHeapsBaseSyntax.mk_postv (postv_v, postv_pred)
-   |  (NONE, NONE, SOME poste_v, SOME poste_pred, NONE, NONE) => cfHeapsBaseSyntax.mk_poste (poste_v, poste_pred)
-   |  (SOME postv_v, SOME postv_pred, SOME poste_v, SOME poste_pred, SOME postf_vl, SOME postf_pred) =>
+fun mk_post_condition (postv_v, postv_pred, poste_v, poste_pred, postf_args, postf_pred, postd_io, postd_pred) =
+  case (postv_v, postv_pred, poste_v, poste_pred, postf_args, postf_pred, postd_io, postd_pred) of
+      (SOME postv_v, SOME postv_pred, NONE, NONE, NONE, NONE, NONE, NONE) => cfHeapsBaseSyntax.mk_postv (postv_v, postv_pred)
+   |  (NONE, NONE, SOME poste_v, SOME poste_pred, NONE, NONE, NONE, NONE) => cfHeapsBaseSyntax.mk_poste (poste_v, poste_pred)
+   |  (NONE, NONE, NONE, NONE, NONE, NONE, SOME postd_io, SOME postd_pred) => cfHeapsBaseSyntax.mk_postd (postd_io, postd_pred)
+   |  (SOME postv_v, SOME postv_pred, SOME poste_v, SOME poste_pred, NONE, NONE, NONE, NONE) =>
+        cfHeapsBaseSyntax.mk_postve (postv_v, postv_pred, poste_v, poste_pred)
+   |  (SOME postv_v, SOME postv_pred, NONE, NONE, NONE, NONE, SOME postd_io, SOME postd_pred) =>
+        cfHeapsBaseSyntax.mk_postvd (postv_v, postv_pred, postd_io, postd_pred)
+   |  (NONE, NONE, SOME poste_v, SOME poste_pred, NONE, NONE, SOME postd_io, SOME postd_pred) =>
+        cfHeapsBaseSyntax.mk_posted (poste_v, poste_pred, postd_io, postd_pred)
+   |  (SOME postv_v, SOME postv_pred, SOME poste_v, SOME poste_pred, SOME postf_args, SOME postf_pred, SOME postd_io, SOME postd_pred) =>
         cfHeapsBaseSyntax.mk_post (postv_v, postv_pred, poste_v, poste_pred,
-                                   postf_vl, postf_pred)
+                                   postf_args, postf_pred, postd_io, postd_pred)
    (* TODO: add postf *)
    | _  => raise (ERR "mk_heap_post_condition" "Not valid parameters")
 
@@ -852,7 +903,7 @@ fun rename_post_variables ri_thms asl post_condition =
       val ri_set = HOLset.fromList Term.compare ri_terms
       val varset = FVL asl empty_varset
       val varsl = HOLset.listItems varset
-      val (v_o, vpred_o, e_o, epred_o, fargs_o, fpred_o) = dest_post_condition post_condition
+      val (v_o, vpred_o, e_o, epred_o, f_o, fpred_o, d_o, dpred_o) = dest_post_condition post_condition
 
       (* Rename the exception *)
       val (e_o', epred_o') =
@@ -920,21 +971,33 @@ fun rename_post_variables ri_thms asl post_condition =
             | _ => (v_o, vpred_o)
 
       (* Rename ffi-divergence *)
-      val (fargs_o', fpred_o') =
-          case (fargs_o,fpred_o) of
-              (SOME fargs, SOME pred) =>
+      val (f_o', fpred_o') =
+          case (f_o,fpred_o) of
+              (SOME f, SOME pred) =>
               let
                  fun ivariants varsl [] = []
-                   | ivariants varsl (f::r) =
-                     ivariant varsl f::ivariants (f::varsl) r
-                  val n_args = ivariants varsl fargs
-                  val n_pred = Term.subst (map2 (curry op |->) fargs n_args) pred
+                   | ivariants varsl (h::r) =
+                     ivariant varsl h::ivariants (h::varsl) r
+                  val n_f = ivariants varsl f
+                  val n_pred = Term.subst (map2 (curry op |->) f n_f) pred
               in
-                  (SOME n_args, SOME n_pred)
+                  (SOME n_f, SOME n_pred)
               end
             | x => x
+
+      (* Rename the io lazy list *)
+      val (d_o', dpred_o') =
+          case (d_o, dpred_o) of
+              (SOME d, SOME pred) =>
+              let
+                  val n_d = ivariant varsl d
+                  val n_pred = Term.subst [d |-> n_d] pred
+              in
+                  (SOME n_d, SOME n_pred)
+              end
+            | _ => (d_o, dpred_o)
   in
-      mk_post_condition (v_o', vpred_o', e_o', epred_o',fargs_o',fpred_o')
+      mk_post_condition (v_o', vpred_o', e_o', epred_o', f_o', fpred_o', d_o', dpred_o')
   end
   handle HOL_ERR _ => raise (ERR "rename_post_variables" "");
 
@@ -1630,7 +1693,7 @@ fun xlet_mk_post_condition asl frame_hpl app_spec =
 
       (* Decompose the app post-condition *)
       val (post_postv_vo, post_postv_po, post_poste_vo, post_poste_po,
-           post_postf_argso,post_postf_po) =
+           post_postf_argso, post_postf_po, post_postd_ioo, post_postd_po) =
           rename_dest_post (fvl, app_post)
 
       (* Filter the heap predicates from the let pre-condition *)
@@ -1655,7 +1718,7 @@ fun xlet_mk_post_condition asl frame_hpl app_spec =
       (* Construct the post-condition *)
       val let_heap_condition =
           mk_post_condition (post_postv_vo, post_postv_po', post_poste_vo, post_poste_po',
-                             post_postf_argso,post_postf_po')
+                             post_postf_argso, post_postf_po', post_postd_ioo, post_postd_po)
 
       (* Retrieve the assumptions defining equalities between variables and terms *)
       fun transf_vt_eq a =

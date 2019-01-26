@@ -1,3 +1,6 @@
+(*
+  Compiles the diff example by evaluation inside the logic of HOL
+*)
 open preamble compilationLib diffProgTheory
 
 val _ = new_theory "diffCompile"

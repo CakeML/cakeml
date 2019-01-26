@@ -1,3 +1,6 @@
+(*
+  Instantiate the CakeML FFI oracle for the oracle of the basis library.
+*)
 open preamble ml_translatorTheory ml_translatorLib ml_progLib
      cfLib basisFunctionsLib set_sepTheory
      fsFFITheory fsFFIPropsTheory
@@ -61,7 +64,7 @@ val basis_ffi_def = Define `
 val basis_proj1_def = Define `
   basis_proj1 = (λ(cls, fs).
     FEMPTY |++ ((mk_proj1 cl_ffi_part cls)
-		++ (mk_proj1 fs_ffi_part fs)
+                ++ (mk_proj1 fs_ffi_part fs)
                 ++ (mk_proj1 runtime_ffi_part ()
                 )))`;
 
@@ -71,9 +74,9 @@ val basis_proj2_def = Define `
      mk_proj2 fs_ffi_part;
      mk_proj2 runtime_ffi_part]`;
 
-val basis_proj1_write = Q.store_thm("basis_proj1_write",
-  `basis_proj1 ffi ' "write" = encode(SND ffi)`,
-  PairCases_on`ffi` \\ EVAL_TAC);
+Theorem basis_proj1_write
+  `basis_proj1 ffi ' "write" = encode(SND ffi)`
+  (PairCases_on`ffi` \\ EVAL_TAC);
 
 (* builds the file system from a list of events *)
 
@@ -89,12 +92,12 @@ val extract_fs_with_numchars_def = Define `
                        | _ => NONE)
     | NONE => extract_fs_with_numchars init_fs xs)`
 
-val extract_fs_with_numchars_APPEND = Q.store_thm("extract_fs_with_numchars_APPEND",
+Theorem extract_fs_with_numchars_APPEND
   `!xs ys init_fs. extract_fs_with_numchars init_fs (xs ++ ys) =
     case extract_fs_with_numchars init_fs xs of
     | NONE => NONE
-    | SOME fs => extract_fs_with_numchars fs ys`,
-  Induct_on`xs` \\ simp[extract_fs_with_numchars_def]
+    | SOME fs => extract_fs_with_numchars fs ys`
+  (Induct_on`xs` \\ simp[extract_fs_with_numchars_def]
   \\ Cases \\ simp[extract_fs_with_numchars_def]
   \\ CASE_TAC
   \\ rpt gen_tac
@@ -105,7 +108,7 @@ val extract_fs_def = Define`
     OPTION_MAP (numchars_fupd (K init_fs.numchars))
     (extract_fs_with_numchars init_fs events)`;
 
-val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numchars_keeps_iostreams",
+Theorem extract_fs_with_numchars_keeps_iostreams
   `∀ls fs fs' off.
    (extract_fs_with_numchars fs ls = SOME fs') ∧
    (ALOOKUP fs'.infds fd = SOME(IOStream nm, md, off)) ⇒
@@ -117,8 +120,8 @@ val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numc
        ⇒
        ∃written.
          (ALOOKUP fs'.files (IOStream nm) = SOME (content ++ written)) ∧
-         (off = off' + LENGTH written))`,
-  Induct
+         (off = off' + LENGTH written))`
+  (Induct
   >- ( rw[extract_fs_with_numchars_def])
   \\ Cases
   \\ rw[extract_fs_with_numchars_def]
@@ -158,13 +161,13 @@ val extract_fs_with_numchars_keeps_iostreams = Q.store_thm("extract_fs_with_numc
     \\ metis_tac[] )
   \\ fsrw_tac[DNF_ss][FORALL_PROD]);
 
-val extract_fs_with_numchars_closes_iostreams = Q.store_thm("extract_fs_with_numchars_closes_iostreams",
+Theorem extract_fs_with_numchars_closes_iostreams
   `∀ls fs fs' fd nm off.
    (extract_fs_with_numchars fs ls = SOME fs') ∧
    (∀fd off. ALOOKUP fs.infds fd ≠ SOME(IOStream nm, md, off))
    ⇒
-   (ALOOKUP fs'.infds fd ≠ SOME(IOStream nm, md, off))`,
-  Induct
+   (ALOOKUP fs'.infds fd ≠ SOME(IOStream nm, md, off))`
+  (Induct
   >- (
     rw[extract_fs_with_numchars_def]
     \\ metis_tac[] )
@@ -209,12 +212,12 @@ val extract_stdo_def = Define`
 val _ = overload_on("extract_stdout",``extract_stdo stdOut``);
 val _ = overload_on("extract_stderr",``extract_stdo stdErr``);
 
-val extract_stdo_extract_fs = Q.store_thm("extract_stdo_extract_fs",
+Theorem extract_stdo_extract_fs
   `∀io_events fs init out ll.
    stdo fd nm fs init ∧ fd < 256 ∧ ALOOKUP fs.infds
    extract_fs fs io_events = SOME (add_stdo fd nm fs out with numchars := ll) ⇒
-   extract_stdo (n2w fd) io_events = out`,
-  Induct \\ simp[extract_fs_def,extract_stdo_def]
+   extract_stdo (n2w fd) io_events = out`
+  (Induct \\ simp[extract_fs_def,extract_stdo_def]
   >- (
     rpt gen_tac
     \\ simp[GSYM AND_IMP_INTRO] \\ strip_tac
@@ -252,7 +255,7 @@ val extract_stdo_extract_fs = Q.store_thm("extract_stdo_extract_fs",
     \\ CASE_TAC \\ fs[]
     \\ simp[ALIST_FUPDKEY_ALOOKUP]
 
-    \\ cheat)
+    \\ ...)
   \\ qpat_x_assum`_ = SOME _`mp_tac
   \\ simp[option_caseeq,pair_caseeq]
   \\ qhdtm_x_assum`stdo`mp_tac
@@ -277,12 +280,12 @@ val extract_writes_def = Define
 val _ = overload_on("extract_stdout",``extract_writes 1w``);
 val _ = overload_on("extract_stderr",``extract_writes 2w``);
 
-val extract_writes_thm = Q.store_thm("extract_writes_thm",
+Theorem extract_writes_thm
   `extract_fs init_fs io_events = SOME fs ∧
    get_file_content init_fs = SOME (init,pos)
    ⇒
-  `,
-  type_of``get_file_content``
+  `
+  (type_of``get_file_content``
 ffi_write_def
 write_def
 fs_ffi_part_def
@@ -295,11 +298,11 @@ val extract_stdout_def = Define`
       ∀fs. wfFS fs ∧ STD_streams fs ⇒
           ∃ll. extract_fs fs io_events = SOME (add_stdout fs out with numchars := ll)`;
 
-val extract_stdout_intro = Q.store_thm("extract_stdout_intro",
+Theorem extract_stdout_intro
   `wfFS fs ∧ STD_streams fs ∧
    extract_fs fs io_events = SOME (add_stdout fs out with numchars := ll) ⇒
-   extract_stdout io_events = out`,
-  rw[extract_stdout_def]
+   extract_stdout io_events = out`
+  (rw[extract_stdout_def]
   \\ SELECT_ELIM_TAC \\ reverse(rw[])
   >- (
     first_x_assum(qspec_then`fs`mp_tac)
@@ -311,7 +314,7 @@ val extract_stdout_intro = Q.store_thm("extract_stdout_intro",
   \\ rw[]
   \\ Induct_on`io_events`
   \\ rw[extract_fs_def]
-  >- cheat
+  >- ...
   \\ Cases_on`h` \\ fs[extract_fs_def]
   \\ rw[] \\ fs[]
   \\ pop_assum mp_tac \\ CASE_TAC
@@ -325,10 +328,10 @@ val extract_stdout_intro = Q.store_thm("extract_stdout_intro",
 (* TODO: remove? *)
 
 (* the failure of an fs ffi call doesn't depend on the filesystem
-val fs_ffi_NONE_irrel = Q.store_thm("fs_ffi_NONE_irrel",
+Theorem fs_ffi_NONE_irrel
  `!f. f ∈ {ffi_read; ffi_write; ffi_open_in; ffi_open_out; ffi_close} ∧
-      f bytes fs = NONE ⇒ f bytes fs' = NONE`,
-  rw[] >>
+      f bytes fs = NONE ⇒ f bytes fs' = NONE`
+  (rw[] >>
   fs[ffi_read_def,ffi_write_def,ffi_open_in_def,ffi_open_out_def,ffi_close_def] >>
   every_case_tac >> fs[OPTION_CHOICE_EQ_NONE]); *)
 
@@ -337,13 +340,13 @@ val fs_ffi_NONE_irrel = Q.store_thm("fs_ffi_NONE_irrel",
   your oracle (and projs), then this proof should be relatively similar. Note
   that to make the subsequent proofs similar one should show an equivalence between
   extract_output and proj1  *)
-val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis_events",
+Theorem RTC_call_FFI_rel_IMP_basis_events
   `!fs st st'. call_FFI_rel^* st st' ==> st.oracle = basis_ffi_oracle ==>
   (extract_fs_with_numchars fs st.io_events
      = fsFFI$decode (basis_proj1 st.ffi_state ' "write") ==>
    extract_fs_with_numchars fs st'.io_events
-     = fsFFI$decode (basis_proj1 st'.ffi_state ' "write"))`,
-  strip_tac
+     = fsFFI$decode (basis_proj1 st'.ffi_state ' "write"))`
+  (strip_tac
   \\ HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
@@ -362,27 +365,27 @@ val RTC_call_FFI_rel_IMP_basis_events = Q.store_thm ("RTC_call_FFI_rel_IMP_basis
 
 (* the first condition for the previous theorem holds for the
   init_state ffi  *)
-val extract_fs_basis_ffi = Q.store_thm ("extract_fs_basis_ffi",
+Theorem extract_fs_basis_ffi
   `!ll. extract_fs fs (basis_ffi cls fs).io_events =
-   decode (basis_proj1 (basis_ffi cls fs).ffi_state ' "write")`,
-  rw[ml_progTheory.init_state_def,extract_fs_def,extract_fs_with_numchars_def,
+   decode (basis_proj1 (basis_ffi cls fs).ffi_state ' "write")`
+  (rw[ml_progTheory.init_state_def,extract_fs_def,extract_fs_with_numchars_def,
      basis_ffi_def,basis_proj1_write,IO_fs_component_equality]);
 
-val append_hprop = Q.store_thm ("append_hprop",
-  `A s1 /\ B s2 ==> DISJOINT s1 s2 ==> (A * B) (s1 ∪ s2)`,
-  rw[set_sepTheory.STAR_def] \\ SPLIT_TAC
+Theorem append_hprop
+  `A s1 /\ B s2 ==> DISJOINT s1 s2 ==> (A * B) (s1 ∪ s2)`
+  (rw[set_sepTheory.STAR_def] \\ SPLIT_TAC
 );
 
 val iobuff_loc_num =
   TextIOProgTheory.iobuff_loc_def
   |> concl |> rhs |> rand;
 
-val IOFS_precond = Q.store_thm ("STDIO_precond",
+Theorem IOFS_precond
   `wfFS fs ⇒ LENGTH v >= 2052 ⇒
    IOFS fs
     ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
-    ∪ {Mem ^iobuff_loc_num (W8array v)})`,
-  rw[IOFS_def,cfHeapsBaseTheory.IOx_def,fs_ffi_part_def,cfHeapsBaseTheory.IO_def,one_def,
+    ∪ {Mem ^iobuff_loc_num (W8array v)})`
+  (rw[IOFS_def,cfHeapsBaseTheory.IOx_def,fs_ffi_part_def,cfHeapsBaseTheory.IO_def,one_def,
      IOFS_iobuff_def,W8ARRAY_def,cell_def]
   \\ rw[set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,set_sepTheory.SEP_CLAUSES,
         TextIOProgTheory.iobuff_loc_def]
@@ -390,24 +393,24 @@ val IOFS_precond = Q.store_thm ("STDIO_precond",
   \\ fs[SEP_CLAUSES,one_STAR,one_def,append_hprop]
   )|> UNDISCH_ALL;
 
-val STDIO_precond = Q.store_thm ("STDIO_precond",
+Theorem STDIO_precond
 ` wfFS fs ==>
   STD_streams fs ==>
   LENGTH v >= 2052 ==>
   STDIO fs
     ({FFI_part (encode fs)
                (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
-     ∪ {Mem ^iobuff_loc_num (W8array v)})`,
-  rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
+     ∪ {Mem ^iobuff_loc_num (W8array v)})`
+  (rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
   qexists_tac`fs.numchars` >>
   mp_tac (IOFS_precond |> DISCH_ALL |> GEN ``fs : IO_fs``)>>
   cases_on`fs` >> fs[IO_fs_numchars_fupd]
   ) |> UNDISCH_ALL |> curry save_thm "STDIO_precond";
 
-val RUNTIME_precond = Q.store_thm ("RUNTIME_precond",
+Theorem RUNTIME_precond
   `RUNTIME {FFI_part (encode ()) (mk_ffi_next runtime_ffi_part)
-           (MAP FST (SND(SND runtime_ffi_part))) events}`,
-  rw[RUNTIME_def,runtimeFFITheory.runtime_ffi_part_def,
+           (MAP FST (SND(SND runtime_ffi_part))) events}`
+  (rw[RUNTIME_def,runtimeFFITheory.runtime_ffi_part_def,
      IOx_def,SEP_EXISTS_THM,SEP_CLAUSES,IO_def,one_def]);
 
 (*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
@@ -438,9 +441,9 @@ val whole_prog_ffidiv_spec_def = Define`
       (POSTf n. λc b. STDIO fs' * RUNTIME * &(n = n' /\ c = c' /\ b = b')) ∧
     post n' c' b' (fs' with numchars := fs.numchars)`;
 
-val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog",
+Theorem whole_prog_spec_semantics_prog
   `∀fname fv.
-     ML_code env1 (init_state (basis_ffi cl fs)) prog NONE env2 st2 ==>
+     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_spec fv cl fs sprop Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
@@ -449,8 +452,8 @@ val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog
    ∃io_events fs'.
      semantics_prog (init_state (basis_ffi cl fs)) env1
        (SNOC ^main_call prog) (Terminate Success io_events) /\
-     extract_fs fs io_events = SOME fs' ∧ Q fs'`,
-  rw[whole_prog_spec_def]
+     extract_fs fs io_events = SOME fs' ∧ Q fs'`
+  (rw[whole_prog_spec_def]
   \\ drule (GEN_ALL call_main_thm2)
   \\ rpt(disch_then drule)
   \\ disch_then (qspecl_then [`h2`, `h1`] mp_tac)
@@ -487,9 +490,9 @@ val whole_prog_spec_semantics_prog = Q.store_thm("whole_prog_spec_semantics_prog
   \\ fs[basis_proj1_write,STAR_def,cond_def]
   \\ metis_tac[]);
 
-val whole_prog_spec_semantics_prog_ffidiv = Q.store_thm("whole_prog_spec_semantics_prog_ffidiv",
+Theorem whole_prog_spec_semantics_prog_ffidiv
   `∀fname fv.
-     ML_code env1 (init_state (basis_ffi cl fs)) prog NONE env2 st2 ==>
+     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_ffidiv_spec fv cl fs Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
@@ -499,8 +502,8 @@ val whole_prog_spec_semantics_prog_ffidiv = Q.store_thm("whole_prog_spec_semanti
      semantics_prog (init_state (basis_ffi cl fs)) env1
        (SNOC ^main_call prog)
        (Terminate (FFI_outcome(Final_event n c b FFI_diverged)) io_events) /\
-     extract_fs fs io_events = SOME fs' ∧ Q n c b fs'`,
-  rw[whole_prog_ffidiv_spec_def]
+     extract_fs fs io_events = SOME fs' ∧ Q n c b fs'`
+  (rw[whole_prog_ffidiv_spec_def]
   \\ drule (GEN_ALL call_main_thm2_ffidiv)
   \\ rpt(disch_then drule)
   \\ disch_then (qspecl_then [`basis_proj2`,`basis_proj1`] mp_tac)
@@ -548,7 +551,7 @@ val basis_ffi_part_defs = save_thm("basis_ffi_part_defs",
     [fs_ffi_part_def,clFFITheory.cl_ffi_part_def,runtime_ffi_part_def]);
 
 (* This is used to show to show one of the parts of parts_ok for the state after a spec *)
-val oracle_parts = Q.store_thm("oracle_parts",
+Theorem oracle_parts
   `!st.
      st.ffi.oracle = basis_ffi_oracle /\
      MEM (ns, u) basis_proj2 /\
@@ -556,8 +559,8 @@ val oracle_parts = Q.store_thm("oracle_parts",
      u m conf bytes (basis_proj1 x ' m) = SOME (FFIreturn new_bytes w)
      ==>
      (?y. st.ffi.oracle m x conf bytes = Oracle_return y new_bytes /\
-          basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)`,
-  simp[basis_proj2_def,basis_proj1_def]
+          basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)`
+  (simp[basis_proj2_def,basis_proj1_def]
   \\ pairarg_tac \\ fs[]
   \\ rw[cfHeapsBaseTheory.mk_proj1_def,
         cfHeapsBaseTheory.mk_proj2_def,
@@ -573,35 +576,35 @@ val oracle_parts = Q.store_thm("oracle_parts",
   \\ CCONTR_TAC \\ fs[] \\ rfs[]);
 
 (* TODO: move to fsFFI? *)
-val fs_ffi_no_ffi_div = Q.store_thm("fs_ffi_no_ffi_div",`
+Theorem fs_ffi_no_ffi_div `
   (ffi_open_in conf bytes fs = SOME FFIdiverge ==> F) /\
   (ffi_open_out conf bytes fs = SOME FFIdiverge ==> F) /\
   (ffi_read conf bytes fs = SOME FFIdiverge ==> F) /\
   (ffi_close conf bytes fs = SOME FFIdiverge ==> F) /\
   (ffi_write conf bytes fs = SOME FFIdiverge ==> F)
-`,
-  rw[ffi_open_in_def,ffi_open_out_def,ffi_read_def,ffi_close_def,ffi_write_def,
+`
+  (rw[ffi_open_in_def,ffi_open_out_def,ffi_read_def,ffi_close_def,ffi_write_def,
      OPTION_GUARD_COND,OPTION_CHOICE_EQUALS_OPTION,ELIM_UNCURRY]
   \\ rpt(PURE_TOP_CASE_TAC \\ rw[])
   \\ rw[OPTION_CHOICE_EQUALS_OPTION,ELIM_UNCURRY]);
 
 (* TODO: move to clFFI? *)
-val cl_ffi_no_ffi_div = Q.store_thm("cl_ffi_no_ffi_div",`
+Theorem cl_ffi_no_ffi_div `
   (ffi_get_arg_count conf bytes cls = SOME FFIdiverge ==> F) /\
   (ffi_get_arg_length conf bytes cls = SOME FFIdiverge ==> F) /\
   (ffi_get_arg conf bytes cls = SOME FFIdiverge ==> F)
-`,
-  rw[clFFITheory.ffi_get_arg_count_def,clFFITheory.ffi_get_arg_length_def,
+`
+  (rw[clFFITheory.ffi_get_arg_count_def,clFFITheory.ffi_get_arg_length_def,
      clFFITheory.ffi_get_arg_def]);
 
-val oracle_parts_div = Q.store_thm("oracle_parts_div",
+Theorem oracle_parts_div
   `!st.
      st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\
      MEM m ns /\
      u m conf bytes (basis_proj1 x ' m) = SOME FFIdiverge
      ==>
-     st.ffi.oracle m x conf bytes = Oracle_final FFI_diverged`,
-  simp[basis_proj2_def,basis_proj1_def]
+     st.ffi.oracle m x conf bytes = Oracle_final FFI_diverged`
+  (simp[basis_proj2_def,basis_proj1_def]
   \\ pairarg_tac \\ fs[]
   \\ rw[cfHeapsBaseTheory.mk_proj1_def,
         cfHeapsBaseTheory.mk_proj2_def,
@@ -615,9 +618,14 @@ val oracle_parts_div = Q.store_thm("oracle_parts_div",
   \\ disj2_tac
   \\ CCONTR_TAC \\ fs[] \\ rfs[]);
 
-val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
-  `parts_ok (auto_state_1 (basis_ffi cls fs)).ffi (basis_proj1, basis_proj2)` ,
-  qmatch_goalsub_abbrev_tac`st.ffi`
+val _ = translation_extends "TextIOProg";
+val st_f = get_ml_prog_state () |> get_state |> strip_comb |> fst;
+val st = mk_icomb (st_f, ``basis_ffi cls fs``);
+val _ = reset_translation ()
+
+Theorem parts_ok_basis_st
+  `parts_ok (^st).ffi (basis_proj1, basis_proj2)`
+  (qmatch_goalsub_abbrev_tac`st.ffi`
   \\ `st.ffi.oracle = basis_ffi_oracle`
   by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
   \\ rw[cfStoreTheory.parts_ok_def]
@@ -636,10 +644,10 @@ val parts_ok_basis_st = Q.store_thm("parts_ok_basis_st",
 );
 
 (* TODO: move somewhere else? *)
-val SPLIT_exists = Q.store_thm ("SPLIT_exists",
+Theorem SPLIT_exists
   `(A * B) s /\ s ⊆ C
-    ==> (?h1 h2. SPLIT C (h1, h2) /\ (A * B) h1)`,
-  rw[]
+    ==> (?h1 h2. SPLIT C (h1, h2) /\ (A * B) h1)`
+  (rw[]
   \\ qexists_tac `s` \\ qexists_tac `C DIFF s`
   \\ SPLIT_TAC);
 

@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for ag32
+*)
 open preamble backendTheory ag32_targetTheory ag32_targetLib
 
 val _ = new_theory"ag32_config";

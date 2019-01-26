@@ -1,3 +1,6 @@
+(*
+  End-to-end correctness theorems for the OpenTheory article checker.
+*)
 open preamble
      semanticsPropsTheory backendProofTheory x64_configProofTheory
      readerProgTheory readerCompileTheory
@@ -35,4 +38,3 @@ val reader_compiled_thm =
   |> curry save_thm "reader_compiled_thm";
 
 val _ = export_theory ();
-

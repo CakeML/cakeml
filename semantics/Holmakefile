@@ -1,22 +1,22 @@
-OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../developers ../misc $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub ffi
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
+					 $(HOLDIR)/examples/fun-op-sem/lprefix_lub\
+					 $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
+					 ffi
 
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-all: $(TARGETS) addancs
+all: $(DEFAULT_TARGETS) README.md addancs
 .PHONY: all
 
 #LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
-LEM_OPT = -wl_unused_vars ign
+LEM_OPT = -wl_unused_vars ign -suppress_renaming -auxiliary_level none
 
 SRC = fpSem semanticPrimitives evaluate typeSystem primTypes
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
+all: $(GENS)
 
-LEMLIB = ../misc/lem_lib_stub/lib.lem
+LEMLIB = $(CAKEMLDIR)/misc/lem_lib_stub/lib.lem
 
-LEM_CMD = lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i $(LEMLIB) -i ffi/ffi.lem -hol
+LEM_CMD = lem $(LEM_OPT) -i $(LEMLIB) -i ffi/ffi.lem -hol
 
 $(GENS): $(LEMS) $(LEMLIB) ffi/ffi.lem
 	if type lem;\
@@ -27,37 +27,32 @@ astScript.sml: ast.lem namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
           $(LEM_CMD) $< && ./addancs $@ integer words string namespace location; \
         else touch astScript.sml ; fi
+all: astScript.sml
 
 tokensScript.sml: tokens.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
           $(LEM_CMD) $< && ./addancs $@ integer string ; \
         else touch $@ ; fi
+all: tokensScript.sml
 
 namespaceScript.sml: namespace.lem $(LEMLIB) ffi/ffi.lem addancs
 	if type lem; then \
-          $(LEM_CMD) $< && ./addancs $@ integer words string alist; \
+          $(LEM_CMD) $< && ./addancs $@ alist ; \
         else touch namespaceScript.sml ; fi
+all: namespaceScript.sml
 
-OTHER_SCRIPTS = cmlPtreeConversion gram lexer_fun namespaceProps semantics termination tokenUtils
+OTHER_SCRIPTS = cmlPtreeConversion gram lexer_fun semantics termination tokenUtils
 
-README_SOURCES = $(LEMS) ast.lem tokens.lem namespace.lem\
-	grammar.txt addancs.sml astPP.sml\
+README_SOURCES = grammar.txt addancs.sml astPP.sml\
 	$(patsubst %,%Script.sml,$(OTHER_SCRIPTS))\
-	$(wildcard *Syntax.sml) $(wildcard *Lib.sml)
+	$(wildcard *Syntax.sml) $(wildcard *Lib.sml) $(wildcard *.lem)
 DIRS = $(wildcard */)
-README.md: ../developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
-	../developers/readme_gen $(README_SOURCES)
-all: README.md
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 ifdef POLY
-HOLHEAP = heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o addancs
 
-GRAMMAR_DEPS0 = peg pegexec
-GRAMMAR_DEPS = $(patsubst %,$(HOLDIR)/examples/formal-languages/context-free/%Theory,$(GRAMMAR_DEPS0))
-
-BARE_THYS = ../misc/preamble $(GRAMMAR_DEPS) ../misc/basicComputeLib ffi/ffiTheory
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+EXTRA_CLEANS = addancs
 
 ifdef RELOCBUILD
 RELOC_FIXUP = $(protect $(HOLDIR)/tools/set_mtime/set_mtime.exe) addancs addancs.sml
@@ -65,13 +60,7 @@ else
 RELOC_FIXUP = :
 endif
 
-all: $(HOLHEAP)
-
 addancs: addancs.sml
 	$(POLYC) -o $@ $< && $(RELOC_FIXUP)
 
-
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS) ASCIInumbersTheory
 endif

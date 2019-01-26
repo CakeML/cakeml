@@ -1,4 +1,7 @@
-
+(*
+  This is a simple example of applying the translator to
+  the 91 function.
+*)
 open HolKernel Parse boolLib bossLib; val _ = new_theory "example_91";
 
 open ninetyOneTheory arithmeticTheory listTheory sortingTheory;
@@ -12,4 +15,3 @@ open ml_translatorLib;
 val res = translate N_def
 
 val _ = export_theory();
-

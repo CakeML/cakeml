@@ -1,3 +1,6 @@
+(*
+  An example of how to translate `run`
+*)
 open preamble ml_monadBaseLib ml_monadBaseTheory
 open ml_monad_translatorTheory ml_monad_translatorLib
 

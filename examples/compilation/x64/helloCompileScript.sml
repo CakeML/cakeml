@@ -1,3 +1,6 @@
+(*
+  Compiles the hello example by evaluation inside the logic of HOL
+*)
 open preamble compilationLib helloProgTheory
 
 val _ = new_theory "helloCompile"

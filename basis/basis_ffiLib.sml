@@ -6,7 +6,7 @@ structure basis_ffiLib :> basis_ffiLib =
 struct
 
 open preamble
-open ml_progLib basis_ffiTheory semanticsLib set_sepTheory cfHeapsBaseTheory
+open ml_progLib basis_ffiTheory set_sepTheory cfHeapsBaseTheory
      CommandLineProofTheory TextIOProofTheory
 
 fun ERR f s = mk_HOL_ERR"basis_ffiLib" f s;
@@ -119,12 +119,13 @@ fun whole_prog_thm st name spec =
        else raise(call_ERR "Conclusion must be a whole_prog_spec or whole_prog_ffidiv_spec")
     val th =
       whole_prog_spec_thm
-        |> C MATCH_MP (st |> get_thm |> GEN_ALL |> ISPEC basis_ffi_tm)
+        |> C MATCH_MP (st |> get_Decls_thm |> GEN_ALL |> ISPEC basis_ffi_tm)
         |> SPEC(stringSyntax.fromMLstring name)
         |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
         |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)
         |> C HO_MATCH_MP spec
         |> SIMP_RULE bool_ss [option_case_def, set_sepTheory.SEP_CLAUSES]
+    (* TS: what is this doing? why not call remove_snocs? *)
     val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc
     val prog_rewrite = EVAL prog_with_snoc
     val th = PURE_REWRITE_RULE[prog_rewrite] th

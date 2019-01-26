@@ -1,3 +1,7 @@
+(*
+  A collection of small examples that show (and test) what can be done
+  in CF proofs.
+*)
 open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
 local open ml_progLib basisProgTheory in end
@@ -69,7 +73,7 @@ val example_let_spec = Q.prove (
 )
 
 val alloc_ref2 = process_topdecs
-  `fun alloc_ref2 a b = (ref a, ref b);`
+  `fun alloc_ref2 a b = (Ref a, Ref b);`
 
 val st = ml_progLib.add_prog alloc_ref2 pick_name basis_st
 
@@ -124,7 +128,7 @@ val example_if_spec = Q.prove (
 )
 
 val is_nil = process_topdecs
-  `fun is_nil l = case l of [] => true | x::xs => false`
+  `fun is_nil l = case l of [] => True | x::xs => False`
 
 val st = ml_progLib.add_prog is_nil pick_name basis_st
 
@@ -139,7 +143,7 @@ val is_nil_spec = Q.prove (
 )
 
 val is_none = process_topdecs
-  `fun is_none opt = case opt of None => true | Some _ => false`
+  `fun is_none opt = case opt of None => True | Some _ => False`
 
 val st = ml_progLib.add_prog is_none pick_name basis_st
 
@@ -170,7 +174,7 @@ val example_eq_spec = Q.prove (
 )
 
 val example_and = process_topdecs
-  `fun example_and u = true andalso false`
+  `fun example_and u = True andalso False`
 
 val st = ml_progLib.add_prog example_and pick_name basis_st
 
@@ -243,8 +247,7 @@ val example_handle2_spec = Q.prove (
      app (p:'ffi ffi_proj) ^(fetch_v "example_handle2" st) [xv]
        emp (POSTv v. & INT (if x > 0 then 1 else (-1)) v)`,
   xcf "example_handle2" st \\
-  xhandle `POST (\v. & (x > 0 /\ INT 1 v)) (\e. & (x <= 0 /\ Foo_exn (-1) e))
-                (\n c b. &F)`
+  xhandle `POSTve (\v. & (x > 0 /\ INT 1 v)) (\e. & (x <= 0 /\ Foo_exn (-1) e))`
   THEN1 (
     xlet `POSTv bv. & (BOOL (x > 0) bv)`
     THEN1 (xapp \\ fs []) \\
@@ -295,12 +298,12 @@ val bytearray_fromlist = process_topdecs
 
 val st = ml_progLib.add_prog bytearray_fromlist pick_name basis_st
 
-val list_length_spec = Q.store_thm ("list_length_spec",
+Theorem list_length_spec
   `!a l lv.
      LIST_TYPE a l lv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "length" st) [lv]
-       emp (POSTv v. & NUM (LENGTH l) v)`,
-  Induct_on `l`
+       emp (POSTv v. & NUM (LENGTH l) v)`
+  (Induct_on `l`
   THEN1 (
     xcf "length" st \\ fs [LIST_TYPE_def] \\
     xmatch \\ xret \\ xsimpl
@@ -391,12 +394,13 @@ val example_ffidiv_spec = Q.prove (
           (λuv. &(UNIT_TYPE () uv) * &(¬b) * RUNTIME)
           (λev. &F)
           (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [1w])
-                   * RUNTIME))`,
+                   * RUNTIME)
+          (λio. F))`,
   xcf "example_ffidiv" st
   >> xif
   >- (xlet_auto
       >- (xcon >- xsimpl)
       >> xapp >> xsimpl >> rw[] >> qexists_tac `x` >> xsimpl)
   >> xcon >> xsimpl);
-                             
+
 val _ = export_theory();

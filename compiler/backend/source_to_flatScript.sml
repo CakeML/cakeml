@@ -1,3 +1,16 @@
+(*
+  This is the compiler phase that translates the CakeML source
+  language into flatLang.
+
+  The translator to flatLang keeps two mappings, one mapping module
+  paths to indices into the genv, and the other mapping module paths
+  to constructor ids.  All variable references are replaced with
+  global references to the genv index if they are in the
+  mappings. This includes top-level letrec names which are all put
+  into the mapping before translating any of the let rec functions.
+  This enables the semantics of let rec to just create Closures rather
+  than Recclosures.
+*)
 open preamble astTheory terminationTheory flatLangTheory;
 open flat_elimTheory flat_exh_matchTheory flat_uncheck_ctorsTheory
      flat_reorder_matchTheory
@@ -5,16 +18,6 @@ open flat_elimTheory flat_exh_matchTheory flat_uncheck_ctorsTheory
 val _ = numLib.prefer_num();
 
 val _ = new_theory"source_to_flat";
-
-(*
- * The translator to flatLang keeps two mappings, one mapping module paths to
- * indices into the genv, and the other mapping module paths to constructor ids.
- * All variable references are replaced with global references to the genv index
- * if they are in the mappings. This includes top-level letrec names which are
- * all put into the mapping before translating any of the let rec functions.
- * This enables the semantics of let rec to just create Closures rather than
- * Recclosures.
- *)
 
 val _ = Datatype `
   environment =
@@ -177,30 +180,30 @@ val compile_exp_def = tDefine"compile_exp"`
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-val compile_exps_append = Q.store_thm("compile_exps_append",
+Theorem compile_exps_append
   `!env es es'.
     compile_exps t env (es ++ es') =
-    compile_exps t env es ++ compile_exps t env es'`,
-  Induct_on `es` >>
+    compile_exps t env es ++ compile_exps t env es'`
+  (Induct_on `es` >>
   fs [compile_exp_def]);
 
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-val compile_exps_reverse = Q.store_thm("compile_exps_reverse",
+Theorem compile_exps_reverse
   `!env es.
-    compile_exps t env (REVERSE es) = REVERSE (compile_exps t env es)`,
-  Induct_on `es` >>
+    compile_exps t env (REVERSE es) = REVERSE (compile_exps t env es)`
+  (Induct_on `es` >>
   rw [compile_exp_def, compile_exps_append]);
 
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-val compile_funs_map = Q.store_thm("compile_funs_map",
+Theorem compile_funs_map
   `!env funs.
     compile_funs t env funs =
-      MAP (\(f,x,e). (f,x,compile_exp t (env with v := nsBind x (Var_local t x) env.v) e)) funs`,
-  induct_on `funs` >>
+      MAP (\(f,x,e). (f,x,compile_exp t (env with v := nsBind x (Var_local t x) env.v) e)) funs`
+  (induct_on `funs` >>
   rw [compile_exp_def] >>
   PairCases_on `h` >>
   rw [compile_exp_def]);
@@ -208,12 +211,12 @@ val compile_funs_map = Q.store_thm("compile_funs_map",
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-val compile_funs_dom = Q.store_thm("compile_funs_dom",
+Theorem compile_funs_dom
   `!funs.
     (MAP (λ(x,y,z). x) funs)
     =
-    (MAP (λ(x,y,z). x) (compile_funs t env funs))`,
-   induct_on `funs` >>
+    (MAP (λ(x,y,z). x) (compile_funs t env funs))`
+   (induct_on `funs` >>
    rw [compile_exp_def] >>
    PairCases_on `h` >>
    rw [compile_exp_def]);
@@ -227,14 +230,14 @@ val alloc_defs_def = Define `
   (alloc_defs n next (x::xs) =
     (x, App (Cons om_tra n) (GlobalVarLookup next) []) :: alloc_defs (n + 1) (next + 1) xs)`;
 
-val fst_alloc_defs = Q.store_thm("fst_alloc_defs",
-  `!n next l. MAP FST (alloc_defs n next l) = l`,
-  induct_on `l` >>
+Theorem fst_alloc_defs
+  `!n next l. MAP FST (alloc_defs n next l) = l`
+  (induct_on `l` >>
   rw [alloc_defs_def]);
 
-val alloc_defs_append = Q.store_thm("alloc_defs_append",
-  `!m n l1 l2. alloc_defs m n (l1++l2) = alloc_defs m n l1 ++ alloc_defs (m + LENGTH l1) (n + LENGTH l1) l2`,
-  induct_on `l1` >>
+Theorem alloc_defs_append
+  `!m n l1 l2. alloc_defs m n (l1++l2) = alloc_defs m n l1 ++ alloc_defs (m + LENGTH l1) (n + LENGTH l1) l2`
+  (induct_on `l1` >>
   srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]);
 
 val make_varls_def = Define`
@@ -314,6 +317,11 @@ val compile_decs_def = tDefine "compile_decs" `
        (n', next', (lift_env mn new_env), ds')) ∧
   (compile_decs n next env [Dsig _ _] =
      (n, next, empty_env, [])) ∧
+  (compile_decs n next env [Dlocal lds ds] =
+     let (n', next1, new_env1, lds') = compile_decs n next env lds in
+     let (n'', next2, new_env2, ds') = compile_decs n' next1
+        (extend_env new_env1 env) ds
+     in (n'', next2, new_env2, lds'++ds')) ∧
   (compile_decs n next env [] =
     (n, next, empty_env, [])) ∧
   (compile_decs n next env (d::ds) =
@@ -322,10 +330,8 @@ val compile_decs_def = tDefine "compile_decs" `
        compile_decs n' next1 (extend_env new_env1 env) ds
      in
        (n'', next2, extend_env new_env2 new_env1, d'++ds'))`
- (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND)` >>
-  rw [] >>
-  Induct_on `ds` >>
-  rw [astTheory.dec_size_def, list_size_def]);
+ (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND)`
+  >> rw [dec1_size_eq]);
 
 val _ = Datatype`
   config = <| next : next_indices

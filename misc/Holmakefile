@@ -1,11 +1,9 @@
-INCLUDES = ../developers lem_lib_stub $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/fun-op-sem/lprefix_lub
+INCLUDES = $(CAKEMLDIR)/developers lem_lib_stub $(HOLDIR)/examples/machine-code/hoare-triple $(HOLDIR)/examples/fun-op-sem/lprefix_lub
 
-CLINE_OPTIONS = --qof
-
-all: README.md preamble.uo miscTheory.uo basicComputeLib.uo alist_treeTheory.uo alist_treeLib.uo packLib.uo
+all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
-README_SOURCES = preamble.sml miscScript.sml basicComputeLib.sml packLib.sml
-
-README.md: $(README_SOURCES) readmePrefix ../developers/readme_gen
-	../developers/readme_gen $(README_SOURCES)
+README_SOURCES = preamble.sml $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)

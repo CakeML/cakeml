@@ -1,3 +1,7 @@
+(*
+  A compset for the type inferencer. This is to make it easy to
+  evaluate the type inferencers inside the logic. See tests.
+*)
 structure inferenceComputeLib = struct
   open HolKernel boolLib bossLib lcsymtacs
   open infer_tTheory inferTheory
@@ -70,7 +74,22 @@ structure inferenceComputeLib = struct
     ,typeSystemTheory.Tword64_num_def
     ,typeSystemTheory.Tword8_num_def
     ,typeSystemTheory.Tword8array_num_def
+
     ,typeSystemTheory.Tlist_def
+    ,typeSystemTheory.Tarray_def
+    ,typeSystemTheory.Tbool_def
+    ,typeSystemTheory.Tchar_def
+    ,typeSystemTheory.Texn_def
+    ,typeSystemTheory.Tfn_def
+    ,typeSystemTheory.Tint_def
+    ,typeSystemTheory.Tref_def
+    ,typeSystemTheory.Tstring_def
+    ,typeSystemTheory.Ttup_def
+    ,typeSystemTheory.Tvector_def
+    ,typeSystemTheory.Tword64_def
+    ,typeSystemTheory.Tword8_def
+    ,typeSystemTheory.Tword8array_def
+
     ,primTypesTheory.prim_tenv_def
     ,inferTheory.lift_ienv_def
     ,infer_tTheory.ty_var_name_def
@@ -94,6 +113,7 @@ structure inferenceComputeLib = struct
     ,``:tenv_ctor``
     ,``:tenv_abbrev``
     ,``:type_env``
+    ,``:loc_err_info``
     ]
     ,computeLib.Extenders
     [semanticsComputeLib.add_ast_compset

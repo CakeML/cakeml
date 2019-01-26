@@ -1,3 +1,6 @@
+(*
+  Some tests for the compiler's lexer.
+*)
 open ASCIInumbersLib intLib;
 open preamble;
 open lexer_funTheory lexer_implTheory;
