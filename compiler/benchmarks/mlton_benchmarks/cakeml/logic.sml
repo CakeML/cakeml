@@ -17,15 +17,15 @@ end;
 
 structure Trail =
 struct
-  val global_trail = ref (nil : Term.term option ref list)
-  val trail_counter = ref 0
+  val global_trail = Ref ([] : Term.term option ref list)
+  val trail_counter = Ref 0
   fun unwind_trail ps =
   case ps of
     (0, tr) => tr
-  | (n, r::tr) => ( r := NONE ; unwind_trail (n-1, tr) )
+  | (n, r::tr) => ( r := None ; unwind_trail (n-1, tr) )
   | (_, []) => raise Term.BadArg "unwind_trail"
 
-  fun reset_trail () = ( global_trail := nil )
+  fun reset_trail () = ( global_trail := [] )
 
   fun trail func =
       let
@@ -38,7 +38,7 @@ struct
       end
 
   fun bind (r, t) =
-      ( r := SOME t ;
+      ( r := Some t ;
        global_trail := r::(!global_trail) ;
        trail_counter := !trail_counter+1 )
 
@@ -51,7 +51,7 @@ struct
   fun same_ref p =
     case p of
       (r, Term.REF(r')) => (r = r')
-    | _ => false
+    | _ => False
 
   fun occurs_check r t =
       let
@@ -59,12 +59,12 @@ struct
             (Term.STR _ ts) => ocs ts
           | (Term.REF(r')) =>
               (case !r' of
-                   SOME(s) => oc s
+                   Some(s) => oc s
                  | _ => r <> r')
-          | (Term.CON _) => true
-          | (Term.INT _) => true
+          | (Term.CON _) => True
+          | (Term.INT _) => True
           and ocs ls = case ls of
-            [] => true
+            [] => True
           | (t::ts) => oc t andalso ocs ts
       in
           oc t
@@ -74,7 +74,7 @@ struct
     case t of
       (Term.REF(x)) =>
        (case !x of
-            SOME(s) => deref s
+            Some(s) => deref s
           | _ => t)
      | t => t
 
@@ -126,7 +126,7 @@ struct
     val cON_nil_s = Term.CON(nil_s)
     val cON_x_s = Term.CON(x_s)
 
-    fun exists sc = sc (Term.REF(ref(NONE)))
+    fun exists sc = sc (Term.REF(Ref(None)))
 
 fun move_horiz (t_1, t_2) sc =
 (

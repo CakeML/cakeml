@@ -10,12 +10,12 @@ val with_inserts = True
 
   fun  lookup v7 v8 =
     case  v8
-    of  Ln =>  NONE
+    of  Ln =>  None
     |   Ls(v1) =>  (if  (v7 <= 0)
-                    then  (SOME(v1))
-                    else  NONE)
+                    then  (Some(v1))
+                    else  None)
     |   Bn v3 v2  =>  (if  (v7 <= 0)
-                       then  NONE
+                       then  None
                         else  (lookup ((let val  k = v7 - 1
                                          in
                                           if  (k < 0)
@@ -25,7 +25,7 @@ val with_inserts = True
                                                       then  v3
                                                        else  v2)))
     |   Bs v6 v5 v4  =>  (if  (v7 <= 0)
-                          then  (SOME(v5))
+                          then  (Some(v5))
                           else  (lookup ((let val  k = v7 - 1
                                            in
                                             if  (k < 0)
