@@ -80,8 +80,8 @@ val _ = Define `
           ("unit",([],Tapp [] Ttup_num));
           (* pairs are specially handled *)
           ("vector",(["'a"],Tapp [Tvar "'a"] Tvector_num));
-          ("word64",([],Tapp [] Tword64_num));
-          ("word8",([],Tapp [] Tword8_num));
+          ("word64",([],TwordApp(( 64 : num))));
+          ("word8",([],TwordApp(( 8 : num))));
           ("word8array",([],Tapp [] Tword8array_num))]
           ))|>))`;
 

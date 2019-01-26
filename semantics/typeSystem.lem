@@ -20,6 +20,7 @@ type t =
      is the identity of the compilation unit that it was defined in, and the
      second is its identity inside of that unit *)
   | Tapp of list t * type_ident
+  | TwordApp of nat
 
 (* Some abbreviations *)
 let Tarray_num : type_ident = 0
@@ -33,14 +34,13 @@ let Tref_num : type_ident = 7
 let Tstring_num : type_ident = 8
 let Ttup_num : type_ident = 9
 let Tvector_num : type_ident = 10
-let Tword64_num : type_ident = 11
-let Tword8_num : type_ident = 12
-let Tword8array_num : type_ident = 13
+let Tword_num : type_ident = 11
+let Tword8array_num : type_ident = 12
 
 (* The numbers for the primitive types *)
 let prim_type_nums =
   [Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
-   Tvector_num; Tword64_num; Tword8_num; Tword8array_num]
+   Tvector_num; Tword_num; Tword8array_num]
 
 let Tarray t = Tapp [t] Tarray_num
 let Tbool = Tapp [] Tbool_num
@@ -53,8 +53,7 @@ let Tref t = Tapp [t] Tref_num
 let Tstring = Tapp [] Tstring_num
 let Ttup ts = Tapp ts Ttup_num
 let Tvector t = Tapp [t] Tvector_num
-let Tword64 = Tapp [] Tword64_num
-let Tword8 = Tapp [] Tword8_num
+let Tword n = TwordApp n
 let Tword8array = Tapp [] Tword8array_num
 
 (* Check that the free type variables are in the given list. Every deBruijn
@@ -69,6 +68,8 @@ check_freevars dbmax tvs (Tapp ts tn) =
   List.all (check_freevars dbmax tvs) ts
 and
 check_freevars dbmax tvs (Tvar_db n) = n < dbmax
+and
+check_freevars dbmax tvs (TwordApp n) = true
 
 val check_freevars_ast : list tvarN -> ast_t -> bool
 let rec
@@ -98,6 +99,8 @@ type_subst s (Tapp ts tn) =
   Tapp (List.map (type_subst s) ts) tn
 and
 type_subst s (Tvar_db n) = Tvar_db n
+and
+type_subst s (TwordApp n) = TwordApp n
 
 (* Increment the deBruijn indices in a type by n levels, skipping all levels
  * less than skip. *)
@@ -112,6 +115,8 @@ deBruijn_inc skip n (Tvar_db m) =
     Tvar_db (m + n)
 and
 deBruijn_inc skip n (Tapp ts tn) = Tapp (List.map (deBruijn_inc skip n) ts) tn
+and
+deBruijn_inc skip n (TwordApp tn) = TwordApp tn
 
 (* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
 val deBruijn_subst : nat -> list t -> t -> t
@@ -128,6 +133,8 @@ deBruijn_subst skip ts (Tvar_db n) =
 and
 deBruijn_subst skip ts (Tapp ts' tn) =
   Tapp (List.map (deBruijn_subst skip ts) ts') tn
+and
+deBruijn_subst skip ts (TwordApp tn) = TwordApp tn
 
 (* Type environments *)
 type tenv_val_exp =
@@ -243,31 +250,23 @@ let type_op op ts t =
     | (Opapp, [t1; t2]) -> t1 = Tfn t2 t
     | (Opn _, [t1; t2]) -> t1 = Tint && t2 = Tint && t = Tint
     | (Opb _, [t1; t2]) -> t1 = Tint && t2 = Tint && t = Tbool
-    | (Opw 8 _, [t1; t2]) -> t1 = Tword8 && t2 = Tword8 && t = Tword8
-    | (Opw 64 _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
-    | (Opwb 8 _, [t1; t2]) -> t1 = Tword8 && t2 = Tword8 && t = Tbool
-    | (Opwb 64 _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tbool
-    | (FP_bop _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
-    | (FP_uop _, [t1]) ->  t1 = Tword64 && t = Tword64
-    | (FP_cmp _, [t1; t2]) ->  t1 = Tword64 && t2 = Tword64 && t = Tbool
-    | (Shift 8 _ _, [t1]) -> t1 = Tword8 && t = Tword8
-    | (Shift 64 _ _, [t1]) -> t1 = Tword64 && t = Tword64
+    | (Opw n _, [t1; t2]) -> t1 = Tword n && t2 = Tword n && t = Tword n
+    | (Opwb n _, [t1; t2]) -> t1 = Tword n && t2 = Tword n && t = Tbool
+    | (FP_bop _, [t1; t2]) -> t1 = Tword 64 && t2 = Tword 64 && t = Tword 64
+    | (FP_uop _, [t1]) ->  t1 = Tword 64 && t = Tword 64
+    | (FP_cmp _, [t1; t2]) ->  t1 = Tword 64 && t2 = Tword 64 && t = Tbool
+    | (Shift n _ _, [t1]) -> t1 = Tword n && t = Tword n
     | (Equality, [t1; t2]) -> t1 = t2 && t = Tbool
     | (Opassign, [t1; t2]) -> t1 = Tref t2 && t = Ttup []
     | (Opref, [t1]) -> t = Tref t1
     | (Opderef, [t1]) -> t1 = Tref t
-    | (Aw8alloc, [t1; t2]) -> t1 = Tint && t2 = Tword8 && t = Tword8array
-    | (Aw8sub, [t1; t2]) -> t1 = Tword8array && t2 = Tint && t = Tword8
+    | (Aw8alloc, [t1; t2]) -> t1 = Tint && t2 = Tword 8 && t = Tword8array
+    | (Aw8sub, [t1; t2]) -> t1 = Tword8array && t2 = Tint && t = Tword 8
     | (Aw8length, [t1]) -> t1 = Tword8array && t = Tint
-    | (Aw8update, [t1; t2; t3]) -> t1 = Tword8array && t2 = Tint && t3 = Tword8 && t = Ttup []
-    | (WordFromInt 8, [t1]) -> t1 = Tint && t = Tword8
-    | (WordToInt 8, [t1]) -> t1 = Tword8 && t = Tint
-    | (WordFromInt 64, [t1]) -> t1 = Tint && t = Tword64
-    | (WordToInt 64, [t1]) -> t1 = Tword64 && t = Tint
-    | (WordToWord 8 8, [t1]) -> t1 = Tword8 && t = Tword8
-    | (WordToWord 64 64, [t1]) -> t1 = Tword64 && t = Tword64
-    | (WordToWord 8 64, [t1]) -> t1 = Tword8 && t = Tword64
-    | (WordToWord 64 8, [t1]) -> t1 = Tword64 && t = Tword8
+    | (Aw8update, [t1; t2; t3]) -> t1 = Tword8array && t2 = Tint && t3 = Tword 8 && t = Ttup []
+    | (WordFromInt n, [t1]) -> t1 = Tint && t = Tword n
+    | (WordToInt n, [t1]) -> t1 = Tword n && t = Tint
+    | (WordToWord m n, [t1]) -> t1 = Tword m && t = Tword n
     | (CopyStrStr, [t1; t2; t3]) -> t1 = Tstring && t2 = Tint && t3 = Tint && t = Tstring
     | (CopyStrAw8, [t1; t2; t3; t4; t5]) ->
       t1 = Tstring && t2 = Tint && t3 = Tint && t4 = Tword8array && t5 = Tint && t = Ttup []
@@ -415,17 +414,10 @@ type_p tvs tenv (Plit (StrLit s)) Tstring []
 
 and
 
-plit_word8 : forall tvs tenv w.
-length w = 8
+plit_word : forall tvs tenv w n.
+length w = n
 ==>
-type_p tvs tenv (Plit (Word w)) Tword8 []
-
-and
-
-plit_word64 : forall tvs tenv w.
-length w = 64
-==>
-type_p tvs tenv (Plit (Word w)) Tword64 []
+type_p tvs tenv (Plit (Word w)) (Tword n) []
 
 and
 
@@ -500,17 +492,10 @@ type_e tenv tenvE (Lit (StrLit s)) Tstring
 
 and
 
-lit_word8 : forall tenv tenvE w.
-length w = 8
+lit_word : forall tenv tenvE w n.
+length w = n
 ==>
-type_e tenv tenvE (Lit (Word w)) Tword8
-
-and
-
-lit_word64 : forall tenv tenvE w.
-length w = 64
-==>
-type_e tenv tenvE (Lit (Word w)) Tword64
+type_e tenv tenvE (Lit (Word w)) (Tword n)
 
 and
 

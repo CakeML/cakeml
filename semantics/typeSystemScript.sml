@@ -30,7 +30,8 @@ val _ = Hol_datatype `
   (* The two numbers represent the identity of the type constructor. The first
      is the identity of the compilation unit that it was defined in, and the
      second is its identity inside of that unit *)
-  | Tapp of t list => type_ident`;
+  | Tapp of t list => type_ident
+  | TwordApp of num`;
 
 
 (* Some abbreviations *)
@@ -68,20 +69,17 @@ val _ = Define `
  ((Tvector_num:num) : type_ident= (( 10 : num)))`;
 
 val _ = Define `
- ((Tword64_num:num) : type_ident= (( 11 : num)))`;
+ ((Tword_num:num) : type_ident= (( 11 : num)))`;
 
 val _ = Define `
- ((Tword8_num:num) : type_ident= (( 12 : num)))`;
-
-val _ = Define `
- ((Tword8array_num:num) : type_ident= (( 13 : num)))`;
+ ((Tword8array_num:num) : type_ident= (( 12 : num)))`;
 
 
 (* The numbers for the primitive types *)
 val _ = Define `
  ((prim_type_nums:(num)list)=
    ([Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
-   Tvector_num; Tword64_num; Tword8_num; Tword8array_num]))`;
+   Tvector_num; Tword_num; Tword8array_num]))`;
 
 
 val _ = Define `
@@ -118,10 +116,7 @@ val _ = Define `
  ((Tvector:t -> t) t=  (Tapp [t] Tvector_num))`;
 
 val _ = Define `
- ((Tword64:t)=  (Tapp [] Tword64_num))`;
-
-val _ = Define `
- ((Tword8:t)=  (Tapp [] Tword8_num))`;
+ ((Tword:num -> t) n=  (TwordApp n))`;
 
 val _ = Define `
  ((Tword8array:t)=  (Tapp [] Tword8array_num))`;
@@ -139,7 +134,9 @@ val _ = Define `
 ((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tapp ts tn)=
    (EVERY (check_freevars dbmax tvs) ts))
 /\
-((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tvar_db n)=  (n < dbmax))`;
+((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (Tvar_db n)=  (n < dbmax))
+/\
+((check_freevars:num ->(string)list -> t -> bool) dbmax tvs (TwordApp n)=  T)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) check_freevars_defn;
 
@@ -174,7 +171,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 ((type_subst:((string),(t))fmap -> t -> t) s (Tapp ts tn)=
    (Tapp (MAP (type_subst s) ts) tn))
 /\
-((type_subst:((string),(t))fmap -> t -> t) s (Tvar_db n)=  (Tvar_db n))`;
+((type_subst:((string),(t))fmap -> t -> t) s (Tvar_db n)=  (Tvar_db n))
+/\
+((type_subst:((string),(t))fmap -> t -> t) s (TwordApp n)=  (TwordApp n))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) type_subst_defn;
 
@@ -191,7 +190,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   else
     Tvar_db (m + n)))
 /\
-((deBruijn_inc:num -> num -> t -> t) skip n (Tapp ts tn)=  (Tapp (MAP (deBruijn_inc skip n) ts) tn))`;
+((deBruijn_inc:num -> num -> t -> t) skip n (Tapp ts tn)=  (Tapp (MAP (deBruijn_inc skip n) ts) tn))
+/\
+((deBruijn_inc:num -> num -> t -> t) skip n (TwordApp tn)=  (TwordApp tn))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) deBruijn_inc_defn;
 
@@ -210,7 +211,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
     Tvar_db n))
 /\
 ((deBruijn_subst:num ->(t)list -> t -> t) skip ts (Tapp ts' tn)=
-   (Tapp (MAP (deBruijn_subst skip ts) ts') tn))`;
+   (Tapp (MAP (deBruijn_subst skip ts) ts') tn))
+/\
+((deBruijn_subst:num ->(t)list -> t -> t) skip ts (TwordApp tn)=  (TwordApp tn))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) deBruijn_subst_defn;
 
@@ -339,233 +342,54 @@ val _ = Define `
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
 val _ = Define `
- ((type_op:op ->(t)list -> t -> bool) op ts t= 
-  ((case op of
-       Opn o0 => (case(o0,ts) of
-                     ( _, [t1; t2]) => (t1 = Tint) /\
-                                         (t2 = Tint) /\ (t = Tint)
-                   | (_,_) => F
-                 )
-     | Opb o1 => (case(o1,ts) of
-                     ( _, [t1; t2]) => (t1 = Tint) /\
-                                         (t2 = Tint) /\ (t = Tbool)
-                   | (_,_) => F
-                 )
-     | Opwb w o2 =>
-   if(w = ( 8 : num)) then
-     ((case(o2,ts) of
-          ( _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tbool)
-        | (_,_) => F
-      )) else
-     (
-     if(w = ( 64 : num)) then
-       ((case(o2,ts) of
-            ( _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tbool)
-          | (_,_) => F
-        )) else F)
-     | Opw w0 o3 =>
-   if(w0 = ( 8 : num)) then
-     ((case(o3,ts) of
-          ( _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tword8)
-        | (_,_) => F
-      )) else
-     (
-     if(w0 = ( 64 : num)) then
-       ((case(o3,ts) of
-            ( _, [t1; t2]) => (t1 = Tword64) /\
-                                (t2 = Tword64) /\ (t = Tword64)
-          | (_,_) => F
-        )) else F)
-     | Shift w1 s n0 =>
-   if(w1 = ( 8 : num)) then
-     ((case(s,n0,ts) of
-          ( _, _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
-        | (_,_,_) => F
-      )) else
-     (
-     if(w1 = ( 64 : num)) then
-       ((case(s,n0,ts) of
-            ( _, _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
-          | (_,_,_) => F
-        )) else F)
-     | Equality => (case ts of
-                       [t1; t2] => (t1 = t2) /\ (t = Tbool)
-                     | _ => F
-                   )
-     | FP_cmp f => (case(f,ts) of
-                       ( _, [t1; t2]) => (t1 = Tword64) /\
-                                           (t2 = Tword64) /\ (t = Tbool)
-                     | (_,_) => F
-                   )
-     | FP_uop f0 => (case(f0,ts) of
-                        ( _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
-                      | (_,_) => F
-                    )
-     | FP_bop f1 => (case(f1,ts) of
-                        ( _, [t1; t2]) => (t1 = Tword64) /\
-                                            (t2 = Tword64) /\ (t = Tword64)
-                      | (_,_) => F
-                    )
-     | Opapp => (case ts of [t1; t2] => t1 = Tfn t2 t | _ => F )
-     | Opassign => (case ts of
-                       [t1; t2] => (t1 = Tref t2) /\ (t = Ttup [])
-                     | _ => F
-                   )
-     | Opref => (case ts of [t1] => t = Tref t1 | _ => F )
-     | Opderef => (case ts of [t1] => t1 = Tref t | _ => F )
-     | Aw8alloc => (case ts of
-                       [t1; t2] => (t1 = Tint) /\
-                                     (t2 = Tword8) /\ (t = Tword8array)
-                     | _ => F
-                   )
-     | Aw8sub => (case ts of
-                     [t1; t2] => (t1 = Tword8array) /\
-                                   (t2 = Tint) /\ (t = Tword8)
-                   | _ => F
-                 )
-     | Aw8length => (case ts of
-                        [t1] => (t1 = Tword8array) /\ (t = Tint)
-                      | _ => F
-                    )
-     | Aw8update => (case ts of
-                        [t1; t2; t3] => (t1 = Tword8array) /\
-                                          (t2 = Tint) /\
-                                            (t3 = Tword8) /\ (t = Ttup [])
-                      | _ => F
-                    )
-     | WordFromInt w2 =>
-   if(w2 = ( 8 : num)) then
-     ((case ts of [t1] => (t1 = Tint) /\ (t = Tword8) | _ => F )) else
-     (
-     if(w2 = ( 64 : num)) then
-       ((case ts of [t1] => (t1 = Tint) /\ (t = Tword64) | _ => F )) else 
-     F)
-     | WordToInt w3 =>
-   if(w3 = ( 8 : num)) then
-     ((case ts of [t1] => (t1 = Tword8) /\ (t = Tint) | _ => F )) else
-     (
-     if(w3 = ( 64 : num)) then
-       ((case ts of [t1] => (t1 = Tword64) /\ (t = Tint) | _ => F )) else 
-     F)
-     | WordToWord w4 w5 =>
-   if(w4 = ( 8 : num)) then
-     (
-     if(w5 = ( 8 : num)) then
-       ((case ts of [t1] => (t1 = Tword8) /\ (t = Tword8) | _ => F )) else
-       (
-       if(w5 = ( 64 : num)) then
-         ((case ts of [t1] => (t1 = Tword8) /\ (t = Tword64) | _ => F )) else
-         F)) else
-     (
-     if(w4 = ( 64 : num)) then
-       (
-       if(w5 = ( 64 : num)) then
-         ((case ts of [t1] => (t1 = Tword64) /\ (t = Tword64) | _ => F ))
-       else
-         (
-         if(w5 = ( 8 : num)) then
-           ((case ts of [t1] => (t1 = Tword64) /\ (t = Tword8) | _ => F ))
-         else F)) else F)
-     | CopyStrStr => (case ts of
-                         [t1; t2; t3] => (t1 = Tstring) /\
-                                           (t2 = Tint) /\
-                                             (t3 = Tint) /\ (t = Tstring)
-                       | _ => F
-                     )
-     | CopyStrAw8 => (case ts of
-                         [t1; t2; t3; t4; t5] => (t1 = Tstring) /\
-                                                   (t2 = Tint) /\
-                                                     (t3 = Tint) /\
-                                                       (t4 = Tword8array) /\
-                                                         (t5 = Tint) /\
-                                                           (t = Ttup [])
-                       | _ => F
-                     )
-     | CopyAw8Str => (case ts of
-                         [t1; t2; t3] => (t1 = Tword8array) /\
-                                           (t2 = Tint) /\
-                                             (t3 = Tint) /\ (t = Tstring)
-                       | _ => F
-                     )
-     | CopyAw8Aw8 => (case ts of
-                         [t1; t2; t3; t4; t5] => (t1 = Tword8array) /\
-                                                   (t2 = Tint) /\
-                                                     (t3 = Tint) /\
-                                                       (t4 = Tword8array) /\
-                                                         (t5 = Tint) /\
-                                                           (t = Ttup [])
-                       | _ => F
-                     )
-     | Ord => (case ts of [t1] => (t1 = Tchar) /\ (t = Tint) | _ => F )
-     | Chr => (case ts of [t1] => (t1 = Tint) /\ (t = Tchar) | _ => F )
-     | Chopb o4 => (case(o4,ts) of
-                       ( _, [t1; t2]) => (t1 = Tchar) /\
-                                           (t2 = Tchar) /\ (t = Tbool)
-                     | (_,_) => F
-                   )
-     | Implode => (case ts of
-                      [t1] => (t1 = Tlist Tchar) /\ (t = Tstring)
-                    | _ => F
-                  )
-     | Strsub => (case ts of
-                     [t1; t2] => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
-                   | _ => F
-                 )
-     | Strlen => (case ts of [t1] => (t1 = Tstring) /\ (t = Tint) | _ => F )
-     | Strcat => (case ts of
-                     [t1] => (t1 = Tlist Tstring) /\ (t = Tstring)
-                   | _ => F
-                 )
-     | VfromList => (case ts of
-                        [Tapp [t1] ctor] => (ctor = Tlist_num) /\
-                                              (t = Tvector t1)
-                      | _ => F
-                    )
-     | Vsub => (case ts of
-                   [t1; t2] => (t2 = Tint) /\ (Tvector t = t1)
-                 | _ => F
-               )
-     | Vlength => (case ts of
-                      [Tapp [t1] ctor] => (ctor = Tvector_num) /\ (t = Tint)
-                    | _ => F
-                  )
-     | Aalloc => (case ts of
-                     [t1; t2] => (t1 = Tint) /\ (t = Tarray t2)
-                   | _ => F
-                 )
-     | AallocEmpty => (case ts of
-                          [t1] => (t1 = Ttup []) /\ (? t2. t = Tarray t2)
-                        | _ => F
-                      )
-     | Asub => (case ts of
-                   [t1; t2] => (t2 = Tint) /\ (Tarray t = t1)
-                 | _ => F
-               )
-     | Alength => (case ts of
-                      [Tapp [t1] ctor] => (ctor = Tarray_num) /\ (t = Tint)
-                    | _ => F
-                  )
-     | Aupdate => (case ts of
-                      [t1; t2; t3] => (t1 = Tarray t3) /\
-                                        (t2 = Tint) /\ (t = Ttup [])
-                    | _ => F
-                  )
-     | ListAppend => (case ts of
-                         [Tapp [t1] ctor; t2] => (ctor = Tlist_num) /\
-                                                   (t2 = Tapp [t1] ctor) /\
-                                                     (t = t2)
-                       | _ => F
-                     )
-     | ConfigGC => (case ts of
-                       [t1;t2] => (t1 = Tint) /\ (t2 = Tint) /\ (t = Ttup [])
-                     | _ => F
-                   )
-     | FFI s0 => (case(s0,ts) of
-                     (_, [t1;t2]) => (t1 = Tstring) /\
-                                       (t2 = Tword8array) /\ (t = Ttup [])
-                   | (_,_) => F
-                 )
-   )))`;
+ ((type_op:op ->(t)list -> t -> bool) op ts t=
+   ((case (op,ts) of
+      (Opapp, [t1; t2]) => t1 = Tfn t2 t
+    | (Opn _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tint)
+    | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
+    | (Opw n _, [t1; t2]) => (t1 = Tword n) /\ (t2 = Tword n) /\ (t = Tword n)
+    | (Opwb n _, [t1; t2]) => (t1 = Tword n) /\ (t2 = Tword n) /\ (t = Tbool)
+    | (FP_bop _, [t1; t2]) => (t1 = Tword(( 64 : num))) /\ (t2 = Tword(( 64 : num))) /\ (t = Tword(( 64 : num)))
+    | (FP_uop _, [t1]) =>  (t1 = Tword(( 64 : num))) /\ (t = Tword(( 64 : num)))
+    | (FP_cmp _, [t1; t2]) =>  (t1 = Tword(( 64 : num))) /\ (t2 = Tword(( 64 : num))) /\ (t = Tbool)
+    | (Shift n _ _, [t1]) => (t1 = Tword n) /\ (t = Tword n)
+    | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
+    | (Opassign, [t1; t2]) => (t1 = Tref t2) /\ (t = Ttup [])
+    | (Opref, [t1]) => t = Tref t1
+    | (Opderef, [t1]) => t1 = Tref t
+    | (Aw8alloc, [t1; t2]) => (t1 = Tint) /\ (t2 = Tword(( 8 : num))) /\ (t = Tword8array)
+    | (Aw8sub, [t1; t2]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t = Tword(( 8 : num)))
+    | (Aw8length, [t1]) => (t1 = Tword8array) /\ (t = Tint)
+    | (Aw8update, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tword(( 8 : num))) /\ (t = Ttup [])
+    | (WordFromInt n, [t1]) => (t1 = Tint) /\ (t = Tword n)
+    | (WordToInt n, [t1]) => (t1 = Tword n) /\ (t = Tint)
+    | (WordToWord m n, [t1]) => (t1 = Tword m) /\ (t = Tword n)
+    | (CopyStrStr, [t1; t2; t3]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
+    | (CopyStrAw8, [t1; t2; t3; t4; t5]) =>
+      (t1 = Tstring) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
+    | (CopyAw8Str, [t1; t2; t3]) => (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t = Tstring)
+    | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) =>
+      (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
+    | (Chr, [t1]) => (t1 = Tint) /\ (t = Tchar)
+    | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
+    | (Chopb _, [t1; t2]) => (t1 = Tchar) /\ (t2 = Tchar) /\ (t = Tbool)
+    | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
+    | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
+    | (Strlen, [t1]) => (t1 = Tstring) /\ (t = Tint)
+    | (Strcat, [t1]) => (t1 = Tlist Tstring) /\ (t = Tstring)
+    | (VfromList, [Tapp [t1] ctor]) => (ctor = Tlist_num) /\ (t = Tvector t1)
+    | (Vsub, [t1; t2]) => (t2 = Tint) /\ (Tvector t = t1)
+    | (Vlength, [Tapp [t1] ctor]) => (ctor = Tvector_num) /\ (t = Tint)
+    | (Aalloc, [t1; t2]) => (t1 = Tint) /\ (t = Tarray t2)
+    | (AallocEmpty, [t1]) => (t1 = Ttup []) /\ (? t2. t = Tarray t2)
+    | (Asub, [t1; t2]) => (t2 = Tint) /\ (Tarray t = t1)
+    | (Alength, [Tapp [t1] ctor]) => (ctor = Tarray_num) /\ (t = Tint)
+    | (Aupdate, [t1; t2; t3]) => (t1 = Tarray t3) /\ (t2 = Tint) /\ (t = Ttup [])
+    | (ConfigGC, [t1;t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Ttup [])
+    | (FFI n, [t1;t2]) => (t1 = Tstring) /\ (t2 = Tword8array) /\ (t = Ttup [])
+    | (ListAppend, [Tapp [t1] ctor; t2]) => (ctor = Tlist_num) /\ (t2 = Tapp [t1] ctor) /\ (t = t2)
+    | _ => F
+  )))`;
 
 
 (*val check_type_names : tenv_abbrev -> ast_t -> bool*)
@@ -687,15 +511,10 @@ T
 ==>
 type_p tvs tenv (Plit (StrLit s)) Tstring [])
 
-/\ (! tvs tenv w.
-(LENGTH w =( 8 : num))
+/\ (! tvs tenv w n.
+(LENGTH w = n)
 ==>
-type_p tvs tenv (Plit (Word w)) Tword8 [])
-
-/\ (! tvs tenv w.
-(LENGTH w =( 64 : num))
-==>
-type_p tvs tenv (Plit (Word w)) Tword64 [])
+type_p tvs tenv (Plit (Word w)) (Tword n) [])
 
 /\ (! tvs tenv cn ps ts tvs' tn ts' bindings.
 (EVERY (check_freevars tvs []) ts' /\
@@ -748,15 +567,10 @@ T
 ==>
 type_e tenv tenvE (Lit (StrLit s)) Tstring)
 
-/\ (! tenv tenvE w.
-(LENGTH w =( 8 : num))
+/\ (! tenv tenvE w n.
+(LENGTH w = n)
 ==>
-type_e tenv tenvE (Lit (Word w)) Tword8)
-
-/\ (! tenv tenvE w.
-(LENGTH w =( 64 : num))
-==>
-type_e tenv tenvE (Lit (Word w)) Tword64)
+type_e tenv tenvE (Lit (Word w)) (Tword n))
 
 /\ (! tenv tenvE e t.
 (check_freevars (num_tvs tenvE) [] t /\

@@ -9,6 +9,8 @@ open semanticPrimitivesPropsTheory;
 open evaluatePropsTheory;
 open weakeningTheory typeSysPropsTheory typeSoundInvariantsTheory;
 open semanticsTheory;
+open bitstringTheory;
+open bitstring_extraTheory;
 local open primSemEnvTheory in end;
 
 val _ = new_theory "typeSound";
@@ -25,8 +27,7 @@ val type_num_defs = LIST_CONJ [
   Tstring_num_def,
   Ttup_num_def,
   Tvector_num_def,
-  Tword64_num_def,
-  Tword8_num_def,
+  Tword_num_def,
   Tword8array_num_def];
 
 Theorem list_rel_flat
@@ -69,10 +70,8 @@ Theorem prim_canonical_values_thm
   `(type_v tvs ctMap tenvS v Tint ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (IntLit n))) ∧
    (type_v tvs ctMap tenvS v Tchar ∧ ctMap_ok ctMap ⇒ (∃c. v = Litv (Char c))) ∧
    (type_v tvs ctMap tenvS v Tstring ∧ ctMap_ok ctMap ⇒ (∃s. v = Litv (StrLit s))) ∧
-   (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒
-     (∃n. (v = Litv (Word n)) ∧ (LENGTH n = 8))) ∧
-   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒
-     (∃n. (v = Litv (Word n)) ∧ (LENGTH n = 64))) ∧
+   (type_v tvs ctMap tenvS v (Tword m) ∧ ctMap_ok ctMap ⇒
+     (∃n. (v = Litv (Word n)) /\ (LENGTH n = m))) ∧
    (type_v tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
      (∃vs. v = Conv NONE vs ∧ LENGTH ts = LENGTH vs)) ∧
    (type_v tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
@@ -643,6 +642,28 @@ Theorem type_v_list_to_v_APPEND
   \\ first_x_assum (qspec_then `ys` mp_tac)
   \\ EVAL_TAC \\ metis_tac [Tlist_num_def]);
 
+Theorem LUPDATE_too_long `!ll n x. LENGTH ll <= n ==>  LUPDATE x n ll = ll`
+   (Induct >> simp[LUPDATE_def] >> rpt STRIP_TAC >> Induct_on `n` >> simp[LUPDATE_def]);
+
+(* TODO move *)
+Theorem bitwise_length `!f x y. LENGTH (bitwise f x y) = MAX (LENGTH x) (LENGTH y)`
+ (simp[bitwise_def]);
+
+Theorem fixshiftl_length `!x n. LENGTH (fixshiftl x n) = LENGTH x`
+ (simp[fixshiftl_def]);
+Theorem fixshiftr_length `!x n. LENGTH (fixshiftr x n) = LENGTH x`
+ (simp[fixshiftr_def]);
+Theorem fixasr_length `!x n. LENGTH (fixasr x n) = LENGTH x`
+ (Cases_on `n` >- (Cases >> simp[fixasr_def] >> simp[sign_extend_def,PAD_LEFT]) >> Cases >- simp[fixasr_def] >> rename1 `h::t` >> simp[fixasr_def] >> TOP_CASE_TAC >> fs[NOT_GREATER_EQ]
+  >> rename1 `TAKE (LENGTH t − (n + 1)) t` >> Cases_on `n` >- (Cases_on `t` >> simp[sign_extend_def,PAD_LEFT])  >> rename1 `SUC (SUC n)`
+  >> `LENGTH (h::TAKE (SUC (LENGTH t) - (SUC n+1)) t) < SUC (LENGTH t)` by simp[ADD1]
+  >> simp[length_sign_extend])
+
+Theorem opw_lookup_length `!op x y. (LENGTH y = LENGTH x) ==> LENGTH (opw_lookup op x y) = LENGTH x`
+ (simp[opw_lookup_def,semanticPrimitivesTheory.opw_lookup_def] >> simp[band_def,bor_def,bxor_def] >>Cases >> simp[bitwise_length,fixadd_length,fixsub_length])
+Theorem shift_lookup_length `!sh x n. LENGTH (shift_lookup sh x n) = LENGTH x`
+ (simp[shift_lookup_def,semanticPrimitivesTheory.shift_lookup_def] >> Cases >> simp[fixshiftl_length,fixshiftr_length,fixasr_length])
+
 Theorem op_type_sound
 `!ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
@@ -660,8 +681,8 @@ Theorem op_type_sound
    | Rval v => type_v 0 ctMap tenvS' v t
    | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
    | Rerr (Rabort(Rffi_error _)) => T
-   | Rerr (Rabort _) => F` cheat (*
-  rw [type_op_cases, good_ctMap_def] >>
+   | Rerr (Rabort _) => F`
+  (rw [type_op_cases, good_ctMap_def] >>
   fs [] >>
   rw [] >>
   rpt (
@@ -992,7 +1013,76 @@ Theorem op_type_sound
    rw [] >>
    qexists_tac `tenvS` >>
    rw [store_type_extension_refl] >>
-   metis_tac [type_v_list_to_v_APPEND, type_v_list_to_v])*);
+   metis_tac [type_v_list_to_v_APPEND, type_v_list_to_v])
+ >> TRY ( (* Opwb *)
+   rename1`Opwb` >>
+   rw [do_app_cases,PULL_EXISTS] >>
+   qexists_tac `tenvS` >> simp[store_type_extension_refl]
+   >> simp[Once type_v_cases]
+   >> simp[Tbool_num_def,Tint_num_def,Tword8array_num_def,Ttup_num_def,Tstring_num_def,Tchar_num_def]
+   >> DISJ1_TAC
+   >> rename1 `opwb_lookup a b c`
+   >> Cases_on `opwb_lookup a b c`
+   >> fs[Boolv_def]
+   >> fs[ctMap_has_bools_def,Tbool_num_def]
+ )
+ >> TRY ( (* Opw *)
+   rename1`Opw` >>
+   rw [do_app_cases,PULL_EXISTS] >>
+   qexists_tac `tenvS` >> simp[store_type_extension_refl]
+   >> IMP_RES_TAC opw_lookup_length
+   >> fs[Once type_v_cases]
+ )
+ >> TRY ( (* shift *)
+   rename1`Shift` >>
+   rw [do_app_cases,PULL_EXISTS] >>
+   qexists_tac `tenvS` >> simp[store_type_extension_refl]
+   >> ASSUME_TAC shift_lookup_length
+   >> fs[Once type_v_cases]
+ )
+ >> TRY (
+   rename1`Aw8alloc` >>
+   rw[do_app_cases,PULL_EXISTS] >>
+   rename1 `Litv (Word w)` >>
+   rename1 `Litv (IntLit n)` >>
+   `type_sv ctMap tenvS (W8array (REPLICATE (Num (ABS n)) (v2w w))) W8array_t`
+by rw [type_sv_def] >> drule store_alloc_type_sound >> rpt (disch_then drule)
+   >> rw[]
+   >> Cases_on `n<0`
+   >> simp[type_v_exn,sub_exn_v_def]
+   >- metis_tac[store_type_extension_refl]
+   >> simp[Once type_v_cases]
+   >> metis_tac[store_type_extension_refl]
+ )
+ >> TRY (
+   rename1`Aw8update`
+   >> rw[do_app_cases,PULL_EXISTS]
+   >> first_x_assum drule
+   >> rw[]
+   >> rename1 `type_v _ _ _ (Litv (IntLit z)) _`
+   >> rename1 `type_v _ _ _ (Loc l) _`
+   >> Cases_on `z < 0`
+   >> fs[type_v_exn,sub_exn_v_def]
+   >- metis_tac[store_type_extension_refl]
+   >> simp[Once type_v_cases]
+   >> `type_sv ctMap tenvS (W8array (LUPDATE (v2w n) (Num (ABS z)) ws)) W8array_t`
+by rw [type_sv_def]
+   >> drule store_assign_type_sound
+   >> rpt (disch_then drule)
+   >> rw[]
+   >> fs[]
+   >> rename1 `Num (ABS z) >= LENGTH ws` >> Cases_on `LENGTH ws <= Num (ABS z)` >> fs[]
+   >- (IMP_RES_TAC LUPDATE_too_long >> fs[] >> fs[store_assign_def] >> simp[type_v_def]
+       >> simp[Once type_v_cases] >> fs[ctMap_has_exns_def,FLOOKUP_DEF] >> Q.EXISTS_TAC `tenvS`
+       >> fs[store_type_extension_refl])
+   >> Q.EXISTS_TAC `tenvS` >> fs[store_type_extension_refl])
+  >> TRY (
+    rename1`WordFromInt`
+    >> rw[do_app_cases,PULL_EXISTS]
+    >> Q.EXISTS_TAC `tenvS` >> fs[store_type_extension_refl]
+    >> simp[Once type_v_cases]
+    >> simp[i2vN_length])
+);
 
 Theorem build_conv_type_sound
 `!envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.

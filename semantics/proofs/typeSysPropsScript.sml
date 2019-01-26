@@ -30,8 +30,7 @@ val _ = export_rewrites [
   "typeSystem.Tstring_def",
   "typeSystem.Ttup_def",
   "typeSystem.Tvector_def",
-  "typeSystem.Tword64_def",
-  "typeSystem.Tword8_def",
+  "typeSystem.Tword_def",
   "typeSystem.Tword8array_def"]
 
 (* ----------- Basic stuff ----------- *)
@@ -125,7 +124,8 @@ Theorem check_freevars_add
 (ho_match_mp_tac check_freevars_ind >>
 srw_tac[][check_freevars_def] >-
 metis_tac [MEM_EL, EVERY_MEM] >>
-decide_tac);
+decide_tac
+);
 
 (* ---------- type_subst ---------- *)
 
@@ -248,8 +248,7 @@ decide_tac >-
      metis_tac []) >-
 (induct_on `ts` >>
      srw_tac[][] >>
-     metis_tac []) >>
-metis_tac []);
+     metis_tac []));
 
 (* ---------- deBruijn_subst ---------- *)
 
@@ -1018,8 +1017,8 @@ Theorem type_e_subst
       ⇒
       type_funs tenv (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
                       funs
-                      (MAP (\(x,t). (x, deBruijn_subst (num_tvs tenvE1) targs' t)) env))` cheat
- (* ho_match_mp_tac type_e_strongind >>
+                      (MAP (\(x,t). (x, deBruijn_subst (num_tvs tenvE1) targs' t)) env))`
+ (ho_match_mp_tac type_e_strongind >>
  srw_tac[][] >>
  ONCE_REWRITE_TAC [type_e_cases] >>
  srw_tac[][deBruijn_subst_def, deBruijn_subst_tenvE_def, opt_bind_name_def,
@@ -1334,7 +1333,7 @@ Theorem type_e_subst
      full_simp_tac(srw_ss())[] >>
      srw_tac[][] >>
      full_simp_tac(srw_ss())[] >>
-     metis_tac [mem_exists_set])*);
+     metis_tac [mem_exists_set]));
 
 (* Recursive functions have function type *)
 Theorem type_funs_Tfn

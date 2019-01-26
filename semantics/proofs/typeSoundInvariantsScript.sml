@@ -81,10 +81,8 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     type_v tvs ctMap tenvS (Litv (Char c)) Tchar) ∧
   (!tvs ctMap tenvS s.
     type_v tvs ctMap tenvS (Litv (StrLit s)) Tstring) ∧
-  (!tvs ctMap tenvS w.
-    (LENGTH w = 8) ==> type_v tvs ctMap tenvS (Litv (Word w)) Tword8) ∧
-  (!tvs ctMap tenvS w.
-    (LENGTH w = 64) ==> type_v tvs ctMap tenvS (Litv (Word w)) Tword64) ∧
+  (!tvs ctMap tenvS w n.
+    (LENGTH w = n) ==> type_v tvs ctMap tenvS (Litv (Word w)) (TwordApp n)) ∧
   (!tvs ctMap tenvS vs tvs' stamp ts' ts ti.
     EVERY (check_freevars tvs []) ts' ∧
     LENGTH tvs' = LENGTH ts' ∧
