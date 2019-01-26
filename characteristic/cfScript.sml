@@ -2368,6 +2368,7 @@ Theorem isPREFIX_TRANS
   \\ last_x_assum irule
   \\ instantiate);
 
+(* TODO cleanup old TRYs old leftover from 8-bit/64-bit cases *)
 Theorem cf_sound
   `!p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)`
 

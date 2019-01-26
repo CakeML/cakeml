@@ -664,6 +664,7 @@ Theorem opw_lookup_length `!op x y. (LENGTH y = LENGTH x) ==> LENGTH (opw_lookup
 Theorem shift_lookup_length `!sh x n. LENGTH (shift_lookup sh x n) = LENGTH x`
  (simp[shift_lookup_def,semanticPrimitivesTheory.shift_lookup_def] >> Cases >> simp[fixshiftl_length,fixshiftr_length,fixasr_length])
 
+(* TODO cleanup old TRYs old leftover from 8-bit/64-bit cases *)
 Theorem op_type_sound
 `!ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
