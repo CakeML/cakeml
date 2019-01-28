@@ -17,16 +17,9 @@ Theorem let_op_SING
   (Induct \\ fs [let_op_def] \\ CASE_TAC);
 
 Theorem HD_let_op_SING[simp]
-  `!x. [HD (let_op [x])] = let_op [x]`
+  `!x. [HD (let_op [x])] = let_op [x] ∧
+       LENGTH (let_op [x]) = 1`
   (strip_tac \\ strip_assume_tac (Q.SPEC `x` let_op_SING) \\ simp []);
-
-(* This seems generally useful, but what should it be called? *)
-(* TODO: this is COND_RAND *)
-Theorem PUSH_IF
-  `!f b x y. (if b then f x else f y) = f (if b then x else y)`
-  (METIS_TAC [])
-
-(* *)
 
 val code_rel_def = Define `
   code_rel e1 e2 <=>
@@ -274,24 +267,25 @@ val do_app_lemma = prove(
 
 (* evaluate_let_op *)
 
-Theorem evaluate_let_op
-  `(!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 ys env2 t1.
-       evaluate (xs, env1, s1) = (res1, s2) /\
-       LIST_REL v_rel env1 env2 /\ state_rel s1 t1 /\
-       code_rel xs ys ==>
-       ?res2 t2.
-         evaluate (ys, env2, t1) = (res2, t2) /\
-         result_rel (LIST_REL v_rel) v_rel res1 res2 /\
-         state_rel s2 t2) /\
-    (!loc_opt f1 args1 (s1:('c,'ffi) closSem$state) res1 s2 f2 args2 t1.
-       evaluate_app loc_opt f1 args1 s1 = (res1, s2) /\
-       v_rel f1 f2 /\ LIST_REL v_rel args1 args2 /\
-       state_rel s1 t1 ==>
-       ?res2 t2.
-         evaluate_app loc_opt f2 args2 t1 = (res2, t2) /\
-         result_rel (LIST_REL v_rel) v_rel res1 res2 /\
-         state_rel s2 t2)`
-  (ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
+Theorem evaluate_let_op:
+  (!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 ys env2 t1.
+      evaluate (xs, env1, s1) = (res1, s2) /\
+      LIST_REL v_rel env1 env2 /\ state_rel s1 t1 /\
+      code_rel xs ys ==>
+      ?res2 t2.
+        evaluate (ys, env2, t1) = (res2, t2) /\
+        result_rel (LIST_REL v_rel) v_rel res1 res2 /\
+        state_rel s2 t2) /\
+   (!loc_opt f1 args1 (s1:('c,'ffi) closSem$state) res1 s2 f2 args2 t1.
+      evaluate_app loc_opt f1 args1 s1 = (res1, s2) /\
+      v_rel f1 f2 /\ LIST_REL v_rel args1 args2 /\
+      state_rel s1 t1 ==>
+      ?res2 t2.
+        evaluate_app loc_opt f2 args2 t1 = (res2, t2) /\
+        result_rel (LIST_REL v_rel) v_rel res1 res2 /\
+        state_rel s2 t2)
+Proof
+  ho_match_mp_tac (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt strip_tac
   \\ imp_res_tac code_rel_IMP_LENGTH \\ fs [LENGTH_EQ_NUM_compute] \\ rveq
@@ -574,7 +568,7 @@ Theorem evaluate_let_op
    (fs [dest_closure_def]
     \\ fs [case_eq_thms] \\ rveq \\ fs [] \\ rveq
     \\ imp_res_tac LIST_REL_LENGTH
-    \\ fs [PUSH_IF]
+    \\ fs [GSYM COND_RAND]
     \\ pairarg_tac \\ fs []
     \\ pairarg_tac \\ fs []
     \\ Cases_on `i < LENGTH funs2` \\ fs []
@@ -618,7 +612,8 @@ Theorem evaluate_let_op
   \\ unabbrev_all_tac \\ simp []
   \\ impl_tac THEN1 fs [dec_clock_def, state_rel_def]
   \\ strip_tac \\ fs []
-  \\ fs [case_eq_thms] \\ rveq \\ fs [])
+  \\ fs [case_eq_thms] \\ rveq \\ fs []
+QED
 
 Theorem let_op_correct
   `!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t1.
