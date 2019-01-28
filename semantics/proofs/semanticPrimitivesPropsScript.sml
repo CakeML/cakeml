@@ -76,6 +76,14 @@ val do_word_op_def = Define`
   (do_word_op op _ _ _ = NONE)`;
 val _ = export_rewrites["do_word_op_def"];
 
+val do_word_cmp_def = Define`
+  (do_word_cmp op word_size (Word w1) (Word w2) =
+     if (word_size = LENGTH w1) /\ (word_size = LENGTH w2) then
+       SOME (opwb_lookup op w1 w2)
+     else NONE) /\
+  (do_word_cmp op _ _ _ = NONE)`
+val _ = export_rewrites["do_word_cmp_def"];
+
 val do_shift_def = Define`
   (do_shift sh n word_size (Word w) =
     if (word_size = LENGTH w) then
@@ -95,6 +103,37 @@ val _ = export_rewrites["do_word_to_int_def"];
 val do_word_from_int_def = Define`
   do_word_from_int n i = Word (i2vN i n)`;
 val _ = export_rewrites["do_word_from_int_def"];
+
+val do_word_to_word_def = Define`
+  (do_word_to_word src_size dest_size (Word w) =
+    if src_size = LENGTH w then
+      SOME(fixwidth dest_size w)
+    else NONE) /\
+  (do_word_to_word _ _ _ = NONE)`;
+val _ = export_rewrites["do_word_to_word_def"];
+
+(* TODO abstract these inside semanticPrimitives lem *)
+
+val do_fp_bop_def = Define`
+  (do_fp_bop bop w1 w2 =
+    if LENGTH w1 = 64 /\ LENGTH w2 = 64 then
+       SOME (w2v (fp_bop bop (v2w w1) (v2w w2)))
+    else NONE)`;
+val _ = export_rewrites["do_fp_bop_def"];
+
+val do_fp_uop_def = Define`
+  (do_fp_uop uop w =
+    if LENGTH w = 64 then
+       SOME (w2v (fp_uop uop (v2w w)))
+    else NONE)`;
+val _ = export_rewrites["do_fp_uop_def"];
+
+val do_fp_cmp_def = Define`
+  (do_fp_cmp cmp w1 w2 =
+    if LENGTH w1 = 64 /\ LENGTH w2 = 64 then
+       SOME (fp_cmp cmp (v2w w1) (v2w w2))
+    else NONE)`;
+val _ = export_rewrites["do_fp_cmp_def"];
 
 Theorem lit_same_type_refl
   `∀l. lit_same_type l l`

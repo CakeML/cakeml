@@ -193,20 +193,30 @@ val do_app_def = Define `
       SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-  | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_bop bop w1 w2))))
-  | (FP_uop uop, [Litv (Word64 w)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_uop uop w))))
-  | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-      SOME (s,Rval (Boolv (fp_cmp cmp w1 w2)))
+  | (FP_bop bop, [Litv (Word w1); Litv (Word w2)]) =>
+    (case do_fp_bop bop w1 w2 of
+     | SOME w => SOME (s, Rval (Litv (Word w)))
+     | NONE => NONE)
+  | (FP_uop uop, [Litv (Word w)]) =>
+    (case do_fp_uop uop w of
+     | SOME w => SOME (s,Rval (Litv (Word w)))
+     | NONE => NONE)
+  | (FP_cmp cmp, [Litv (Word w1); Litv (Word w2)]) =>
+    (case do_fp_cmp cmp w1 w2 of
+     | NONE => NONE
+     | SOME b => SOME (s,Rval (Boolv b)))
   | (Opw wz op, [Litv w1; Litv w2]) =>
-     (case do_word_op op wz w1 w2 of
-          | NONE => NONE
-          | SOME w => SOME (s, Rval (Litv w)))
+    (case do_word_op op wz w1 w2 of
+     | NONE => NONE
+     | SOME w => SOME (s, Rval (Litv w)))
+  | (Opwb wz cmp, [Litv w1; Litv w2]) =>
+    (case do_word_cmp cmp wz w1 w2 of
+     | NONE => NONE
+     | SOME b => SOME (s, Rval (Boolv b)))
   | (Shift wz sh n, [Litv w]) =>
-      (case do_shift sh n wz w of
-         | NONE => NONE
-         | SOME w => SOME (s, Rval (Litv w)))
+    (case do_shift sh n wz w of
+     | NONE => NONE
+     | SOME w => SOME (s, Rval (Litv w)))
   | (Equality, [v1; v2]) =>
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
@@ -222,12 +232,12 @@ val do_app_def = Define `
     (case store_lookup n s.refs of
      | SOME (Refv v) => SOME (s,Rval v)
      | _ => NONE)
-  | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
+  | (Aw8alloc, [Litv (IntLit n); Litv (Word w)]) =>
     if n < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
     else
       let (s',lnum) =
-        store_alloc (W8array (REPLICATE (Num (ABS n)) w)) s.refs
+        store_alloc (W8array (REPLICATE (Num (ABS n)) (v2w w))) s.refs
       in
         SOME (s with refs := s', Rval (Loc lnum))
   | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
@@ -240,14 +250,15 @@ val do_app_def = Define `
            if n >= LENGTH ws then
              SOME (s, Rerr (Rraise subscript_exn_v))
            else
-             SOME (s, Rval (Litv (Word8 (EL n ws))))
+             SOME (s, Rval (Litv (Word (w2v (EL n ws)))))
      | _ => NONE)
   | (Aw8length, [Loc n]) =>
     (case store_lookup n s.refs of
      | SOME (W8array ws) =>
        SOME (s,Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
      | _ => NONE)
-  | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+  | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word w)]) =>
+    (if LENGTH w = 8 then
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
        if i < 0 then
@@ -257,16 +268,20 @@ val do_app_def = Define `
            if n >= LENGTH ws then
              SOME (s, Rerr (Rraise subscript_exn_v))
            else
-             (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
+             (case store_assign lnum (W8array (LUPDATE (v2w w) n ws)) s.refs of
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval (Unitv check_ctor)))
-     | _ => NONE)
+     | _ => NONE) else NONE)
   | (WordFromInt wz, [Litv (IntLit i)]) =>
     SOME (s, Rval (Litv (do_word_from_int wz i)))
   | (WordToInt wz, [Litv w]) =>
     (case do_word_to_int wz w of
       | NONE => NONE
       | SOME i => SOME (s, Rval (Litv (IntLit i))))
+  | (WordToWord srcs dests, [Litv w]) =>
+     (case do_word_to_word srcs dests w of
+      | NONE => NONE
+      | SOME v => SOME (s, Rval (Litv (Word v))))
   | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME (s,
       (case copy_array (str,off) len NONE of
@@ -606,7 +621,6 @@ val v_thms = { nchotomy = theorem "v_nchotomy", case_def = fetch "-" "v_case_def
 val store_v_thms = { nchotomy = semanticPrimitivesTheory.store_v_nchotomy, case_def = semanticPrimitivesTheory.store_v_case_def};
 val lit_thms = { nchotomy = astTheory.lit_nchotomy, case_def = astTheory.lit_case_def};
 val eq_v_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def};
-val wz_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def};
 
 val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy, case_def = semanticPrimitivesTheory.result_case_def };
 val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
@@ -614,7 +628,7 @@ val err_thms = { nchotomy = semanticPrimitivesTheory.error_result_nchotomy, case
 
 val eqs = LIST_CONJ (map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms,
-   eq_v_thms, wz_thms, result_thms, ffi_result_thms, err_thms])
+   eq_v_thms, result_thms, ffi_result_thms, err_thms])
 
 val case_eq_thms = save_thm ("case_eq_thms", eqs)
 
