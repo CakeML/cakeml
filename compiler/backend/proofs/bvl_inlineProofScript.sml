@@ -680,7 +680,7 @@ Theorem tick_compile_prog_res_range
       \\ reverse conj_tac THEN1 metis_tac []
       \\ fs [subspt_alt,lookup_insert] \\ rw []
       \\ fs [lookup_union,lookup_insert,lookup_def,case_eq_thms]
-      \\ metis_tac [not_in_domain])
+      \\ metis_tac [lookup_NONE_domain])
     \\ fs [GSYM union_assoc]
     \\ match_mp_tac subspt_union_lemma
     \\ fs [lookup_union,lookup_insert,lookup_def,fromAList_def]
@@ -791,12 +791,12 @@ val tick_compile_prog_IMP_exp_rel = prove(
   \\ fs [lookup_insert,case_eq_thms] \\ rveq
   THEN1
    (rename1 `must_inline k2 _ _`
-    \\ fs [lookup_union,case_eq_thms,not_in_domain]
+    \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain]
     \\ match_mp_tac subspt_exp_rel
     \\ qexists_tac `src_code`
     \\ conj_tac THEN1 fs [subspt_alt,lookup_union]
     \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
-  \\ fs [lookup_union,case_eq_thms,not_in_domain,lookup_insert,lookup_def]
+  \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain,lookup_insert,lookup_def]
   \\ pop_assum (assume_tac o GSYM)
   \\ first_x_assum drule \\ strip_tac \\ fs []
   \\ match_mp_tac (subspt_exp_rel |> ONCE_REWRITE_RULE [CONJ_COMM])
@@ -1053,7 +1053,7 @@ val lookup_tick_inline_all = prove(
   \\ IF_CASES_TAC \\ rw []
   THEN1 (match_mp_tac exp_rel_tick_inline
          \\ fs [lookup_insert,lookup_union]
-         \\ rw [] \\ fs [not_in_domain]
+         \\ rw [] \\ fs [GSYM lookup_NONE_domain]
          \\ first_x_assum drule \\ fs [] \\ strip_tac \\ fs [])
   \\ fs [] \\ rveq
   \\ qmatch_goalsub_abbrev_tac `tick_inline_all _ cs1`
@@ -1072,16 +1072,16 @@ val lookup_tick_inline_all = prove(
         \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP,FORALL_PROD] \\ rfs [])
       \\ match_mp_tac exp_rel_tick_inline
       \\ rw [] \\ first_x_assum drule
-      \\ IF_CASES_TAC THEN1 fs [not_in_domain]
+      \\ IF_CASES_TAC THEN1 fs [GSYM lookup_NONE_domain]
       \\ fs [case_eq_thms] \\ strip_tac
       \\ fs [lookup_union,lookup_insert,lookup_fromAList]
       \\ rfs [exp_rel_rw])
     \\ rpt strip_tac \\ first_x_assum drule
     \\ fs [lookup_union,lookup_insert]
-    \\ fs [not_in_domain] \\ fs [exp_rel_rw])
+    \\ fs [GSYM lookup_NONE_domain] \\ fs [exp_rel_rw])
   \\ rpt strip_tac \\ first_x_assum drule
   \\ fs [lookup_union,lookup_insert]
-  \\ IF_CASES_TAC \\ fs [not_in_domain] \\ fs [exp_rel_rw]);
+  \\ IF_CASES_TAC \\ fs [GSYM lookup_NONE_domain] \\ fs [exp_rel_rw]);
 
 val subspt_tick_inline = prove(
   ``!prog cs aux.

@@ -625,8 +625,8 @@ Theorem sv_rel_cases
 
 Theorem sv_rel_O
   `∀R1 R2. sv_rel (R1 O R2) = sv_rel R1 O sv_rel R2`
-  (srw_tac[][FUN_EQ_THM,sv_rel_cases,O_DEF,EQ_IMP_THM] >>
-  metis_tac[miscTheory.LIST_REL_O])
+  (srw_tac[][FUN_EQ_THM,sv_rel_cases,O_DEF,EQ_IMP_THM, LIST_REL_O] >>
+   metis_tac[]);
 
 Theorem sv_rel_mono
   `(∀x y. P x y ⇒ Q x y) ⇒ sv_rel P x y ⇒ sv_rel Q x y`

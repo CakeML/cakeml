@@ -9,22 +9,22 @@ structure Main =
 
     fun length l = let
           fun j p = case p of
-            (k, nil) => k
+            (k, []) => k
           | (k, a::x) => j(k+1,x)
           in
             j(0,l)
           end
 
     fun append p = case p of
-        (nil, l) => l
+        ([], l) => l
       | (a::r, l) => a :: (append (r,l))
 
     fun rev l = let
           fun f p = case p of
-            (nil, h) => h
+            ([], h) => h
           | (a::r, h) => f(r, a::h)
           in
-            f(l,nil)
+            f(l,[])
           end
 
     fun app f = let
@@ -70,14 +70,14 @@ fun it_list2 f =
 
 fun exists p =
   let fun exists_rec ls = case ls of
-          []  => false
+          []  => False
         | (a::l) => (p a) orelse (exists_rec l)
   in exists_rec
   end
 
 fun for_all p =
   let fun for_all_rec ls = case ls of
-          []  => true
+          []  => True
         | (a::l) => (p a) andalso (for_all_rec l)
   in for_all_rec
   end
@@ -106,7 +106,7 @@ fun partition p =
 
 fun mem a =
   let fun mem_rec ls = case ls of
-          [] => false
+          [] => False
         | (b::l) => (a=b) orelse mem_rec l
   in mem_rec
   end
@@ -121,7 +121,7 @@ fun union l1 l2 =
 
 fun mem_assoc a =
   let fun mem_rec ls = case ls of
-          [] => false
+          [] => False
         | ((b,_)::l) => (a=b) orelse mem_rec l
   in mem_rec
   end
@@ -296,10 +296,10 @@ fun reduce l m =
 (* A more efficient version of can (rewrite1 (l,r)) for r arbitrary *)
 fun reducible l =
   let fun redrec m =
-    (matching l m; true)
+    (matching l m; True)
     handle Failure _ =>
       case m of Term _ sons => exists redrec sons
-              |        _     => false
+              |        _     => False
   in redrec
   end
 
@@ -341,9 +341,9 @@ pretty_term (mrewrite_all Group_rules m where m,_=<<A*(I(B)*B)>>);;
 
 datatype ordering = Greater | Equal | NotGE;
 
-fun ge_ord order pair = case order pair of NotGE => false | _ => true
-and gt_ord order pair = case order pair of Greater => true | _ => false
-and eq_ord order pair = case order pair of Equal => true | _ => false
+fun ge_ord order pair = case order pair of NotGE => False | _ => True
+and gt_ord order pair = case order pair of Greater => True | _ => False
+and eq_ord order pair = case order pair of Equal => True | _ => False
 
 fun rem_eq equiv =
   let fun remrec x ls = case ls of
@@ -603,7 +603,7 @@ fun group_precedence op1 op2 =
 
     val group_order = rpo group_precedence lex_ext
 
-    fun greater pair = (case group_order pair of Greater => true | _ => false)
+    fun greater pair = (case group_order pair of Greater => True | _ => False)
 
     fun doit() = kb_complete greater [] geom_rules
 
