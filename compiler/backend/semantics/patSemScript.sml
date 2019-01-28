@@ -128,10 +128,10 @@ val vs_to_string_def = Define`
   (vs_to_string _ = NONE)`;
 
 val v_to_bytes_def = Define `
-  v_to_bytes lv = some ns. v_to_list lv = SOME (MAP (Litv o Word8) ns)`;
+  v_to_bytes lv = some ns. v_to_list lv = SOME (MAP (Litv o Word o w2v) ns)`;
 
 val v_to_words_def = Define `
-  v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word64) ns)`;
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word o w2v) ns)`;
 
 val _ = Define `
   Boolv b = Conv (if b then true_tag else false_tag) []`;
@@ -157,19 +157,29 @@ val do_app_def = Define `
     | (Op (Opb op), [Litv (IntLit n1); Litv (IntLit n2)]) =>
         SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
     | (Op (Opw wz op), [Litv w1; Litv w2]) =>
-       (case do_word_op op wz w1 w2 of
-            | NONE => NONE
-            | SOME w => SOME (s, Rval (Litv w)))
-    | (Op (FP_bop bop), [Litv (Word64 w1); Litv (Word64 w2)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_bop bop w1 w2))))
-    | (Op (FP_uop uop), [Litv (Word64 w)]) =>
-        SOME (s,Rval (Litv (Word64 (fp_uop uop w))))
-    | (Op (FP_cmp cmp), [Litv (Word64 w1); Litv (Word64 w2)]) =>
-        SOME (s,Rval (Boolv (fp_cmp cmp w1 w2)))
+        (case do_word_op op wz w1 w2 of
+         | NONE => NONE
+         | SOME w => SOME (s, Rval (Litv w)))
+    | (Op (Opwb wz cmp), [Litv w1; Litv w2]) =>
+        (case do_word_cmp cmp wz w1 w2 of
+          | NONE => NONE
+          | SOME b => SOME (s, Rval (Boolv b)))
+    | (Op (FP_bop bop), [Litv (Word w1); Litv (Word w2)]) =>
+        (case do_fp_bop bop w1 w2 of
+         | SOME w => SOME (s, Rval (Litv (Word w)))
+         | NONE => NONE)
+    | (Op (FP_uop uop), [Litv (Word w)]) =>
+        (case do_fp_uop uop w of
+         | SOME w => SOME (s,Rval (Litv (Word w)))
+         | NONE => NONE)
+    | (Op (FP_cmp cmp), [Litv (Word w1); Litv (Word w2)]) =>
+        (case do_fp_cmp cmp w1 w2 of
+         | NONE => NONE
+         | SOME b => SOME (s,Rval (Boolv b)))
     | (Op (Shift wz sh n), [Litv w]) =>
-        (case do_shift sh n wz w of
-           | NONE => NONE
-           | SOME w => SOME (s, Rval (Litv w)))
+         (case do_shift sh n wz w of
+          | NONE => NONE
+          | SOME w => SOME (s, Rval (Litv w)))
     | (Op Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -196,12 +206,12 @@ val do_app_def = Define `
           )
         else
           NONE
-    | (Op Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
+    | (Op Aw8alloc, [Litv (IntLit n); Litv (Word w)]) =>
         if n <( 0 : int) then
           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
         else
           let (st,lnum) =
-(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s.refs)
+(store_alloc (W8array (REPLICATE (Num (ABS ( n))) (v2w w))) s.refs)
           in
             SOME (s with refs := st, Rval (Loc lnum))
     | (Op Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
@@ -214,7 +224,7 @@ val do_app_def = Define `
                   if n >= LENGTH ws then
                     SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
                   else
-                    SOME (s, Rval (Litv (Word8 (EL n ws))))
+                    SOME (s, Rval (Litv (Word (w2v (EL n ws)))))
           | _ => NONE
         )
     | (Op Aw8length, [Loc n]) =>
@@ -223,7 +233,8 @@ val do_app_def = Define `
               SOME (s,Rval (Litv (IntLit (int_of_num (LENGTH ws)))))
           | _ => NONE
         )
-    | (Op Aw8update, [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) =>
+    | (Op Aw8update, [Loc lnum; Litv (IntLit i); Litv (Word w)]) =>
+        (if LENGTH w = 8 then
         (case store_lookup lnum s.refs of
           SOME (W8array ws) =>
             if i <( 0 : int) then
@@ -233,18 +244,21 @@ val do_app_def = Define `
                 if n >= LENGTH ws then
                   SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
                 else
-                  (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
+                  (case store_assign lnum (W8array (LUPDATE (v2w w) n ws)) s.refs of
                       NONE => NONE
                     | SOME st => SOME (s with refs := st, Rval (Conv tuple_tag []))
                   )
-        | _ => NONE
-        )
+        | _ => NONE) else NONE)
     | (Op (WordFromInt wz), [Litv (IntLit i)]) =>
       SOME (s, Rval (Litv (do_word_from_int wz i)))
     | (Op (WordToInt wz), [Litv w]) =>
       (case do_word_to_int wz w of
         | NONE => NONE
         | SOME i => SOME (s, Rval (Litv (IntLit i))))
+    | (Op (WordToWord srcs dests), [Litv w]) =>
+      (case do_word_to_word srcs dests w of
+        | NONE => NONE
+        | SOME v => SOME (s, Rval (Litv (Word v))))
     | (Op CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME (s,
         (case copy_array (str,off) len NONE of

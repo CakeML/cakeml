@@ -22,7 +22,7 @@ val _ = Datatype `
 val _ = Datatype `
   v =
     Number int
-  | Word64 word64
+  | Word (bool list)
   | Block num (v list)
   | ByteVector (word8 list)
   | RefPtr num
@@ -64,9 +64,9 @@ val do_eq_def = tDefine "do_eq" `
          (case y of
           | Number j => Eq_val (i = j)
           | _ => Eq_type_error)
-     | Word64 v =>
+     | Word v =>
          (case y of
-          | Word64 w => Eq_val (v = w)
+          | Word w => if (LENGTH v = LENGTH w) then Eq_val (v = w) else Eq_type_error
           | _ => Eq_type_error)
      | Block t1 xs =>
          (case y of
@@ -85,7 +85,7 @@ val do_eq_def = tDefine "do_eq" `
      | _ =>
          (case y of
           | Number _ => Eq_type_error
-          | Word64 _ => Eq_type_error
+          | Word _ => Eq_type_error
           | Block _ _ => Eq_type_error
           | ByteVector _ => Eq_type_error
           | RefPtr _ => Eq_type_error
@@ -125,7 +125,7 @@ val v_to_bytes_def = Define `
                     v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
 
 val v_to_words_def = Define `
-  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP (Word o w2v) ns)`;
 
 val s = ``s:('c,'ffi)closSem$state``;
 
@@ -313,28 +313,29 @@ val do_app_def = Define `
          Rval (Boolv (n1 > n2),s)
     | (GreaterEq,[Number n1; Number n2]) =>
          Rval (Boolv (n1 >= n2),s)
-    | (WordOp W8 opw,[Number n1; Number n2]) =>
-       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
+    | (WordOp wz opw,[Word w1;Word w2]) =>
+       (case do_word_op opw wz (ast$Word w1) (ast$Word w2) of
         | NONE => Error
-        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
-    | (WordOp W64 opw,[Word64 w1; Word64 w2]) =>
-        Rval (Word64 (opw_lookup opw w1 w2),s)
-    | (WordShift W8 sh n, [Number i]) =>
-       (case some (w:word8). i = &(w2n w) of
+        | SOME (ast$Word w) => Rval (Word w,s))
+    | (WordCmp wz cmp,[Word w1;Word w2]) =>
+       (case do_word_cmp cmp wz (ast$Word w1) (ast$Word w2) of
         | NONE => Error
-        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
-    | (WordShift W64 sh n, [Word64 w]) =>
-        Rval (Word64 (shift_lookup sh w n),s)
-    | (WordFromInt, [Number i]) =>
-        Rval (Word64 (i2w i),s)
-    | (WordToInt, [Word64 w]) =>
-        Rval (Number (&(w2n w)),s)
-    | (WordFromWord T, [Word64 w]) =>
-        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
-    | (WordFromWord F, [Number n]) =>
-       (case some (w:word8). n = &(w2n w) of
+        | SOME b => Rval (Boolv b,s))
+    | (WordShift wz sh n, [Word w]) =>
+       (case do_shift sh n wz (ast$Word w) of
         | NONE => Error
-        | SOME w => Rval (Word64 (w2w w),s))
+        | SOME (ast$Word w) => Rval (Word w,s))
+    | (WordFromInt wz, [Number i]) =>
+       (case do_word_from_int wz i of
+        | ast$Word w => Rval (Word w,s))
+    | (WordToInt wz, [Word w]) =>
+       (case do_word_to_int wz (ast$Word w) of
+        | NONE => Error
+        | SOME i => Rval (Number i,s))
+    | (WordToWord srcs dests, [Word w]) =>
+       (case do_word_to_word srcs dests (ast$Word w) of
+        | NONE => Error
+        | SOME w => Rval (Word w,s))
     | (FFI n, [ByteVector conf; RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray F ws) =>
@@ -348,15 +349,21 @@ val do_app_def = Define `
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s))
+         | [Word w1; Word w2] => (case do_fp_bop bop w1 w2 of
+           | SOME w => Rval (Word w,s)
+           | NONE => Error)
          | _ => Error)
     | (FP_uop uop, ws) =>
         (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop uop w),s))
+         | [Word v] => (case do_fp_uop uop v of
+           | SOME w => Rval (Word w,s)
+           | NONE => Error)
          | _ => Error)
     | (FP_cmp cmp, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s))
+         | [Word w1; Word w2] => (case do_fp_cmp cmp w1 w2 of
+           | SOME b => Error
+           | NONE => Error)
          | _ => Error)
     | (BoundsCheckBlock,[Block tag ys; Number i]) =>
         Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)

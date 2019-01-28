@@ -16,7 +16,7 @@ val _ = Parse.hide "str";
 val _ = Datatype `
   v =
     Number int          (* integer *)
-  | Word64 word64
+  | Word (bool list)
   | Block num (v list)  (* cons block: tag and payload *)
   | CodePtr num         (* code pointer *)
   | RefPtr num          (* pointer to ref cell *)`;
@@ -63,9 +63,11 @@ val do_eq_def = tDefine"do_eq"`
   (do_eq _ (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
   (do_eq _ (Number _) _ = Eq_type_error) ∧
   (do_eq _ _ (Number _) = Eq_type_error) ∧
-  (do_eq _ (Word64 w1) (Word64 w2) = (Eq_val (w1 = w2))) ∧
-  (do_eq _ (Word64 _) _ = Eq_type_error) ∧
-  (do_eq _ _ (Word64 _) = Eq_type_error) ∧
+  (do_eq _ (Word w1) (Word w2) = if (LENGTH w1 = LENGTH w2)
+    then Eq_val (w1 = w2)
+    else Eq_type_error) ∧
+  (do_eq _ (Word _) _ = Eq_type_error) ∧
+  (do_eq _ _ (Word _) = Eq_type_error) ∧
   (do_eq refs (RefPtr n1) (RefPtr n2) =
     case (FLOOKUP refs n1, FLOOKUP refs n2) of
       (SOME (ByteArray T bs1), SOME (ByteArray T bs2))
@@ -98,7 +100,7 @@ val v_to_bytes_def = Define `
                     v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
 
 val v_to_words_def = Define `
-  v_to_words lv = some ns. v_to_list lv = SOME (MAP Word64 ns)`;
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP (Word o w2v) ns)`;
 
 val s = ``(s:('c,'ffi) bvlSem$state)``
 
@@ -290,28 +292,29 @@ val do_app_def = Define `
          Rval (Boolv (n1 > n2),s)
     | (GreaterEq,[Number n1; Number n2]) =>
          Rval (Boolv (n1 >= n2),s)
-    | (WordOp W8 opw,[Number n1; Number n2]) =>
-       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
+    | (WordOp wz opw,[Word w1; Word w2]) =>
+       (case do_word_op opw wz (ast$Word w1) (ast$Word w2) of
         | NONE => Error
-        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
-    | (WordOp W64 opw,[Word64 w1; Word64 w2]) =>
-        Rval (Word64 (opw_lookup opw w1 w2),s)
-    | (WordShift W8 sh n, [Number i]) =>
-       (case some (w:word8). i = &(w2n w) of
+        | SOME (ast$Word w) => Rval (Word w,s))
+    | (WordCmp wz cmp,[Word w1;Word w2]) =>
+       (case do_word_cmp cmp wz (ast$Word w1) (ast$Word w2) of
         | NONE => Error
-        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
-    | (WordShift W64 sh n, [Word64 w]) =>
-        Rval (Word64 (shift_lookup sh w n),s)
-    | (WordFromInt, [Number i]) =>
-        Rval (Word64 (i2w i),s)
-    | (WordToInt, [Word64 w]) =>
-        Rval (Number (&(w2n w)),s)
-    | (WordFromWord T, [Word64 w]) =>
-        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
-    | (WordFromWord F, [Number n]) =>
-       (case some (w:word8). n = &(w2n w) of
+        | SOME b => Rval (Boolv b,s))
+    | (WordShift wz sh n, [Word w]) =>
+       (case do_shift sh n wz (ast$Word w) of
         | NONE => Error
-        | SOME w => Rval (Word64 (w2w w),s))
+        | SOME (ast$Word w) => Rval (Word w,s))
+    | (WordFromInt wz, [Number i]) =>
+       (case do_word_from_int wz i of
+        | ast$Word w => Rval (Word w,s))
+    | (WordToInt wz, [Word w]) =>
+       (case do_word_to_int wz (ast$Word w) of
+        | NONE => Error
+        | SOME i => Rval (Number i,s))
+    | (WordToWord srcs dests, [Word w]) =>
+       (case do_word_to_word srcs dests (ast$Word w) of
+        | NONE => Error
+        | SOME w => Rval (Word w,s))
     | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
@@ -325,15 +328,21 @@ val do_app_def = Define `
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s))
+         | [Word w1; Word w2] => (case do_fp_bop bop w1 w2 of
+           | SOME w => Rval (Word w,s)
+           | NONE => Error)
          | _ => Error)
     | (FP_uop uop, ws) =>
         (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop uop w),s))
+         | [Word v] => (case do_fp_uop uop v of
+           | SOME w => Rval (Word w,s)
+           | NONE => Error)
          | _ => Error)
     | (FP_cmp cmp, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp cmp w1 w2),s))
+         | [Word w1; Word w2] => (case do_fp_cmp cmp w1 w2 of
+           | SOME b => Error
+           | NONE => Error)
          | _ => Error)
     | (BoundsCheckBlock,xs) =>
         (case xs of
@@ -470,10 +479,9 @@ val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory
 val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def" };
 val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def };
 val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy, case_def = ffiTheory.ffi_result_case_def };
-val word_size_thms = { nchotomy = astTheory.word_size_nchotomy, case_def = astTheory.word_size_case_def };
 val eq_result_thms = { nchotomy = semanticPrimitivesTheory.eq_result_nchotomy, case_def = semanticPrimitivesTheory.eq_result_case_def };
 val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_eq_thm
-  [list_thms, option_thms, op_thms, v_thms, ref_thms, word_size_thms, eq_result_thms,
+  [list_thms, option_thms, op_thms, v_thms, ref_thms, eq_result_thms,
    ffi_result_thms]))
   |> curry save_thm"case_eq_thms";
 
