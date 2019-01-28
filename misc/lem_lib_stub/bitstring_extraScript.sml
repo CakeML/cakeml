@@ -236,15 +236,6 @@ val fixshiftl_def = Define`
         fixwidth m (shiftl a n)`
 
 (* TODO prove properties of fixed size shifts *)
-(* The following 2 lemmas are COPIED from miscTheory, as it builds after this directory *)
-val TAKE_GENLIST = Q.store_thm("TAKE_GENLIST",
-`TAKE n (GENLIST f m) = GENLIST f (MIN n m)`,
- rw[LIST_EQ_REWRITE,LENGTH_TAKE_EQ,MIN_DEF,EL_TAKE]
-)
-
-Theorem DROP_GENLIST
-  `DROP n (GENLIST f m) = GENLIST (f o ((+)n)) (m-n)`
-(rw[LIST_EQ_REWRITE,EL_DROP]);
 
 val MIN_SUB = Q.store_thm("MIN_SUB",
 `!x y. MIN (x-y) x = x-y`,
