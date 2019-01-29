@@ -174,6 +174,7 @@ val do_app_def = Define `
     | (AllocGlobal,[]) =>
         Rval (Unit, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => Rval (Number i, s)
+    | (WordConst v,[]) => Rval (Word v, s)
     | (Cons tag,xs) => Rval (Block tag xs, s)
     | (ConsExtend tag, Block _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ &LENGTH xs' < lower + len ∨

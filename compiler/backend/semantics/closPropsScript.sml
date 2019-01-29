@@ -1945,6 +1945,7 @@ Theorem vr_list_NONE
   \\ rw [] \\ metis_tac [isClos_def]);
 
 val _ = print "The following proof is slow due to Rerr cases.\n"
+val print_tac = asmLib.print_tac "simple_val_rel_do_app_rev";
 val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
   ``simple_val_rel vr /\ simple_state_rel vr sr ==>
     sr s (t:('c,'ffi) closSem$state) /\ LIST_REL vr xs ys ==>
@@ -1953,42 +1954,48 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
                            exc_rel vr err1 err2)
     | Rval (y,t1) => ?x s1. vr x y /\ sr s1 t1 /\
                             do_app opp xs s = Rval (x,s1)``,
-  (* strip_tac
+  strip_tac
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
-  \\ Cases_on `opp = ListAppend`
+  \\ Cases_on `opp = ListAppend` 
   THEN1
-   (Cases_on `do_app opp ys t` \\ pop_assum mp_tac
+   (print_tac "opp = ListAppend" \\ Cases_on `do_app opp ys t` \\ pop_assum mp_tac
     \\ rw [do_app_def, case_eq_thms, pair_case_eq, bool_case_eq, PULL_EXISTS]
     \\ TRY CASE_TAC \\ fs [] \\ rw []
     \\ metis_tac [simple_val_rel_list, simple_val_rel_APPEND, vr_list_NONE])
   \\ Cases_on `opp = Add \/ opp = Sub \/ opp = Mult \/ opp = Div \/ opp = Mod \/
                opp = Less \/ opp = LessEq \/ opp = Greater \/ opp = GreaterEq \/
-               opp = LengthBlock \/ (?i. opp = Const i) \/ opp = WordFromInt \/
+               opp = LengthBlock \/ (?i. opp = Const i) \/ (?n. opp = WordFromInt n) \/
+               (?n. opp = WordToInt n) \/
                (?f. opp = FP_cmp f) \/ (?s. opp = String s) \/
                (?f. opp = FP_uop f) \/ (opp = BoundsCheckBlock) \/
-               (?f. opp = FP_bop f) \/ opp = WordToInt \/ opp = ConfigGC \/
+               (?f. opp = FP_bop f) \/ opp = ConfigGC \/
                (?n. opp = Label n) \/ (?n. opp = Cons n) \/
                (?i. opp = LessConstSmall i) \/ opp = LengthByteVec \/
                (?i. opp = EqualInt i) \/ (?n. opp = TagEq n) \/
                (?n n1. opp = TagLenEq n n1) \/ opp = Install \/
                (?w oo k. opp = WordShift w oo k) \/
-               (?b. opp = WordFromWord b) \/
-               (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec`
+               (?w oo. opp = WordCmp w oo) \/
+               (?w oo. opp = WordOp w oo) \/ opp = ConcatByteVec \/ (?m n. opp = WordToWord m n)`
   THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "large opp case" >> Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
     \\ strip_tac \\ rveq
     \\ drule v_rel_to_list_ByteVector
     \\ rfs [simple_val_rel_alt] \\ rveq \\ fs []
     \\ rpt strip_tac \\ rveq \\ fs []
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-    \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC))
+    \\ res_tac \\ fs [isClos_cases])
+ \\ Cases_on `?w. opp = WordConst w` THEN1
+   (print_tac "WordConst" \\ Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ rw[do_app_def,case_eq_thms,pair_case_eq,bool_case_eq,Unit_def]
+    >- (rename1 `Rval b` \\ Cases_on `b` \\ simp[] \\ fs[do_app_def] \\ rename1 `LIST_REL vr xs ys` \\ Cases_on `ys` \\ rfs[simple_val_rel_alt] \\ rename1 `vr q q` \\ Cases_on `q` \\ fs[])
+    >> fs[do_app_def] \\ drule v_rel_to_list_ByteVector \\ rveq \\ rw[] \\ Q.EXISTS_TAC `Rabort Rtype_error` \\ simp[] \\ rename1 `LIST_REL vr xs ys` \\ Cases_on `ys` \\ fs[]
+  )
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
                opp = DerefByteVec \/ opp = DerefByte \/ opp = Deref \/
                opp = GlobalsPtr \/ opp = El \/ opp = SetGlobalsPtr`
   THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "array opp case" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
     \\ strip_tac \\ rveq \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []
     \\ rfs [simple_val_rel_alt] \\ rveq \\ fs []
@@ -2001,7 +2008,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ imp_res_tac (prove(``0 <= (i:int) ==> ?n. i = & n``,Cases_on `i` \\ fs []))
     \\ rveq \\ fs [])
   \\ Cases_on `?n. opp = ConsExtend n` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "ConsExtend case" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
     \\ strip_tac \\ rveq \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs []
@@ -2012,7 +2019,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ match_mp_tac EVERY2_TAKE \\ fs []
     \\ match_mp_tac EVERY2_DROP \\ fs [])
   \\ Cases_on `opp = FromListByte` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "FromListByte" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
@@ -2020,7 +2027,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ disch_then drule
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
   \\ Cases_on `?b. opp = FromList b` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "FromList" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
@@ -2029,7 +2036,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ strip_tac \\ fs []
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
   \\ Cases_on `?n. opp = Global n` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "Global" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
@@ -2038,7 +2045,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ disch_then (qspec_then `n` mp_tac) \\ fs []
     \\ strip_tac \\ fs [])
   \\ Cases_on `opp = Equal` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "Equal" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
@@ -2046,7 +2053,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ Cases_on `b` \\ fs [Boolv_def]
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
   \\ Cases_on `?n. opp = SetGlobal n` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "SetGlobal" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ fs [] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
@@ -2058,7 +2065,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ match_mp_tac EVERY2_LUPDATE_same \\ fs []
     \\ fs [OPTREL_def] \\ fs [simple_state_rel_def])
   \\ Cases_on `opp = AllocGlobal` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "AllocGlobal" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
@@ -2067,7 +2074,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ match_mp_tac simple_state_rel_update_globals \\ fs []
     \\ fs [OPTREL_def] \\ fs [simple_state_rel_def])
   \\ Cases_on `opp = RefArray \/ opp = Ref \/ (?b. opp = RefByte b)` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "RefArray/Ref/RefByte" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
@@ -2078,7 +2085,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
   \\ Cases_on `opp = UpdateByte \/ opp = Update \/ ?n. opp = FFI n` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+   (print_tac "UpdateByte/Update/FFI" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
@@ -2098,7 +2105,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ asm_exists_tac \\ fs []
     \\ match_mp_tac EVERY2_LUPDATE_same \\ fs [])
   \\ Cases_on `?b. opp = CopyByte b` THEN1
-   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+  (print_tac "CopyByte" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq,bool_case_eq]
     \\ strip_tac \\ rveq
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs []
@@ -2110,7 +2117,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ fs [closSemTheory.Unit_def]
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
-  \\ Cases_on `opp` \\ fs [] *) cheat);
+  \\ Cases_on `opp` \\ fs []);
 
 Theorem simple_val_rel_do_app
   `simple_val_rel vr /\ simple_state_rel vr sr ==>
