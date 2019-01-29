@@ -627,8 +627,8 @@ Theorem do_app_clock
   \\ rw[]);
 
 Theorem evaluate_clock
-`!xs s1 vs s2 arch_size. (evaluate (xs,s1) arch_size = (vs,s2)) ==> s2.clock <= s1.clock`
-  ((* recInduct evaluate_ind >> rw[evaluate_def] >>
+`!xs s1 arch_size vs s2. (evaluate (xs,s1) arch_size = (vs,s2)) ==> s2.clock <= s1.clock`
+  (recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[set_var_def,cut_state_opt_def,cut_state_def,call_env_def,dec_clock_def,add_space_def,jump_exc_def,push_env_clock] >> rw[] >> rfs[] >>
   imp_res_tac fix_clock_IMP >> fs[] >>
@@ -638,7 +638,7 @@ Theorem evaluate_clock
   every_case_tac >> rw[] >> simp[] >> rfs[] >>
   first_assum(split_uncurry_arg_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
-  \\ imp_res_tac fix_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[] >> rfs[] *) cheat);
+  \\ imp_res_tac fix_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[] >> rfs[]);
 
 Theorem fix_clock_evaluate
   `fix_clock s (evaluate (xs,s) arch_size) = evaluate (xs,s) arch_size`
