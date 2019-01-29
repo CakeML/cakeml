@@ -363,7 +363,7 @@ val do_app_def = Define `
     | (FP_cmp cmp, ws) =>
         (case ws of
          | [Word w1; Word w2] => (case do_fp_cmp cmp w1 w2 of
-           | SOME b => Error
+           | SOME b => Rval (Boolv b,s)
            | NONE => Error)
          | _ => Error)
     | (BoundsCheckBlock,[Block tag ys; Number i]) =>
