@@ -93,9 +93,9 @@ val do_shift_def = Define`
 val _ = export_rewrites["do_shift_def"];
 
 val do_word_to_int_def = Define`
-  (do_word_to_int word_size (Word w) =
+  (do_word_to_int word_size (Word w) : int option =
      if word_size = LENGTH w then
-       SOME(v2i w)
+       SOME(&v2n w)
      else NONE) ∧
   (do_word_to_int _ _ = NONE)`;
 val _ = export_rewrites["do_word_to_int_def"];
