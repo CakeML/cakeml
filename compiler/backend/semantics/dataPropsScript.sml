@@ -216,7 +216,7 @@ Theorem evaluate_stack_swap
                    (!xs. (LENGTH s.stack = LENGTH xs) ==>
                            evaluate (c,s with stack := xs) arch_size =
                              (res, s1 with stack := xs))`
-  cheat (*recInduct evaluate_ind \\ REPEAT STRIP_TAC
+  (recInduct evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 full_simp_tac(srw_ss())[evaluate_def]
   THEN1 (
     full_simp_tac(srw_ss())[evaluate_def] >> EVAL_TAC >>
@@ -252,8 +252,8 @@ Theorem evaluate_stack_swap
     every_case_tac >> full_simp_tac(srw_ss())[] )
   THEN1 (* Seq *)
    (full_simp_tac(srw_ss())[evaluate_def]
-    \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ Cases_on `evaluate (c2,r)` \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ Cases_on `evaluate (c1,s) arch_size` \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ Cases_on `evaluate (c2,r) arch_size` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ Cases_on `q = NONE` \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
     \\ TRY (Cases_on `x`) \\ TRY (Cases_on`e`) \\ full_simp_tac(srw_ss())[jump_exc_def]
     \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
@@ -262,8 +262,8 @@ Theorem evaluate_stack_swap
     \\ Q.PAT_X_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ full_simp_tac(srw_ss())[])
   THEN1 (* If *)
    (full_simp_tac(srw_ss())[evaluate_def]
-    \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ Cases_on `evaluate (c2,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ Cases_on `evaluate (c1,s) arch_size` \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ Cases_on `evaluate (c2,s) arch_size` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[get_var_def]
     \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[get_var_def])
@@ -286,7 +286,7 @@ Theorem evaluate_stack_swap
     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `cut_env r' s.locals` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] THEN1 (full_simp_tac(srw_ss())[call_env_def])
-    \\ Cases_on `evaluate (r,call_env q (push_env x' (IS_SOME handler) (dec_clock ^s)))` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `evaluate (r,call_env q (push_env x' (IS_SOME handler) (dec_clock ^s))) arch_size` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `q''` \\ fs []
     \\ Cases_on `x''` \\ full_simp_tac(srw_ss())[]
     THEN1 (Cases_on `handler`
@@ -328,10 +328,10 @@ Theorem evaluate_stack_swap
       \\ every_case_tac \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])
     \\ Cases_on `x''` \\ full_simp_tac(srw_ss())[]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate (r,call_env q (push_env x8 T (dec_clock s))) =
+    \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate (r,call_env q (push_env x8 T (dec_clock s))) arch_size =
           (SOME (Rerr (Rraise b)),s9)`
-    \\ Cases_on `evaluate (r''',set_var q'' b s9)` \\ full_simp_tac(srw_ss())[]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate (r''',set_var q'' b s9) = (res,r5)`
+    \\ Cases_on `evaluate (r''',set_var q'' b s9) arch_size` \\ full_simp_tac(srw_ss())[]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate (r''',set_var q'' b s9) arch_size = (res,r5)`
     \\ Cases_on `res` \\ full_simp_tac(srw_ss())[]
     THEN1 (* NONE *)
      (STRIP_TAC THEN1 (full_simp_tac(srw_ss())[set_var_def,pop_env_def,jump_exc_def,call_env_def,
@@ -352,7 +352,9 @@ Theorem evaluate_stack_swap
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])
+      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
+      \\ rpt (MK_COMB_TAC \\ simp[]) \\ simp[dataSemTheory.state_component_equality]
+     )
     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
     THEN1 (* SOME Rval *)
      (STRIP_TAC THEN1 (full_simp_tac(srw_ss())[set_var_def,pop_env_def,jump_exc_def,call_env_def,
@@ -373,7 +375,7 @@ Theorem evaluate_stack_swap
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])
+      \\ REPEAT AP_TERM_TAC \\ rpt (MK_COMB_TAC \\ simp[]) \\ simp[dataSemTheory.state_component_equality])
     \\ Cases_on`e` \\ full_simp_tac(srw_ss())[]
     THEN1 (* Rraise *)
      (FIRST_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
@@ -428,7 +430,8 @@ Theorem evaluate_stack_swap
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]))*);
+      \\ REPEAT AP_TERM_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]
+      \\ rpt (MK_COMB_TAC \\ simp[]) \\ simp[dataSemTheory.state_component_equality])));
 
 Theorem evaluate_stack
   `!c ^s arch_size.
@@ -519,14 +522,14 @@ Theorem locals_ok_get_vars
   \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]);
 
 Theorem evaluate_locals
-  `!c s res s2 vars l arch_size.
+  `!c s arch_size res s2 vars l.
       res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) arch_size = (res,s2)) /\
       locals_ok s.locals l ==>
       ?w. (evaluate (c, s with locals := l) arch_size =
              (res,if res = NONE then s2 with locals := w
                                 else s2)) /\
           locals_ok s2.locals w`
-  (* recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
+  (recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   THEN1 (* Skip *) (METIS_TAC [])
   THEN1 (* Move *)
    (Cases_on `get_var src s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
@@ -610,7 +613,7 @@ Theorem evaluate_locals
       \\ full_simp_tac(srw_ss())[state_component_equality,dec_clock_def,call_env_def,push_env_def])
     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ full_simp_tac(srw_ss())[call_env_def,locals_ok_def,lookup_def,fromList_def]
-    \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [locals_ok_refl,with_same_locals]) *) cheat;
+    \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
 
 Theorem funpow_dec_clock_clock
   `!n s. FUNPOW dec_clock n s = (s with clock := s.clock - n)`
@@ -739,12 +742,12 @@ Theorem with_same_clock[simp]
   (srw_tac[][state_component_equality]);
 
 Theorem evaluate_add_clock
-  `!exps s1 res s2.
+  `!exps s1 arch_size res s2.
     evaluate (exps,s1) arch_size = (res, s2) ∧
     res ≠ SOME(Rerr(Rabort Rtimeout_error))
     ⇒
     !ck. evaluate (exps,s1 with clock := s1.clock + ck) arch_size = (res, s2 with clock := s2.clock + ck)`
-  cheat (*recInduct evaluate_ind >> srw_tac[][evaluate_def]
+  (recInduct evaluate_ind >> srw_tac[][evaluate_def]
   >- (
     every_case_tac >> full_simp_tac(srw_ss())[get_var_def,set_var_def] >> srw_tac[][] >> full_simp_tac(srw_ss())[] )
   >- (
@@ -778,7 +781,7 @@ Theorem evaluate_add_clock
     fsrw_tac[ARITH_ss][call_env_def,dec_clock_def,push_env_def,pop_env_def,set_var_def] >>
     first_x_assum(qspec_then`ck`mp_tac) >> simp[] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
-    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])*)
+    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]))
 
 Theorem set_var_const[simp]
   `(set_var x y z).ffi = z.ffi ∧
@@ -850,28 +853,28 @@ Theorem pop_env_const
    srw_tac[][] >> srw_tac[][]);
 
 Theorem evaluate_io_events_mono
-  `!exps s1 res s2.
+  `!exps s1 arch_size res s2.
     evaluate (exps,s1) arch_size = (res, s2)
     ⇒
     s1.ffi.io_events ≼ s2.ffi.io_events`
-  (* recInduct evaluate_ind >> srw_tac[][evaluate_def] >>
+  (recInduct evaluate_ind >> srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   TRY (pairarg_tac >> full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])>>
   imp_res_tac cut_state_opt_const >>full_simp_tac(srw_ss())[] >>
   imp_res_tac pop_env_const >>full_simp_tac(srw_ss())[] >>
   imp_res_tac jump_exc_IMP >> full_simp_tac(srw_ss())[] >>
   imp_res_tac do_app_io_events_mono  >>full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-  metis_tac[IS_PREFIX_TRANS]*) cheat;
+  metis_tac[IS_PREFIX_TRANS]);
 
 Theorem with_clock_ffi
   `(^s with clock := y).ffi = s.ffi`
   (EVAL_TAC)
 
 Theorem evaluate_add_clock_io_events_mono
-  `∀exps s extra.
+  `∀exps s arch_size extra.
     (SND(evaluate(exps,s) arch_size)).ffi.io_events ≼
     (SND(evaluate(exps,s with clock := s.clock + extra) arch_size)).ffi.io_events`
-  (*recInduct evaluate_ind >>
+  (recInduct evaluate_ind >>
   srw_tac[][evaluate_def,LET_THM] >>
   TRY (
     rename1`find_code` >>
@@ -896,7 +899,7 @@ Theorem evaluate_add_clock_io_events_mono
   rveq >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE] >>
-  metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]*) cheat;
+  metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
 Theorem semantics_Div_IMP_LPREFIX
   `semantics ffi prog co cc start arch_size = Diverge l ==> LPREFIX (fromList ffi.io_events) l`
