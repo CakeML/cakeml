@@ -588,14 +588,14 @@ val evaluate_def = tDefine "evaluate" `
                       | SOME (n,h) => evaluate (h, set_var n x s2) arch_size)
                   | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                   | res => res)))))`
-  cheat (*WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
-                          (\(xs,s). (s.clock,xs)))`
+  (WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
+                          ((\(xs,s). (s.clock,xs)) o FST))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
   \\ imp_res_tac fix_clock_IMP
   \\ imp_res_tac (GSYM fix_clock_IMP)
   \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,push_env_clock, call_env_def]
-  \\ decide_tac*);
+  \\ decide_tac);
 
 val evaluate_ind = theorem"evaluate_ind";
 
