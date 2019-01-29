@@ -441,6 +441,12 @@ Theorem do_app_thm
   >-
    (fs [] \\ fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS]
     \\ rw [] \\ fs [])
+  \\ Cases_on `?sz. op = Opwb sz Ltw \/ op = Opwb sz Gtw \/ op = Opwb sz Leqw \/
+                    op = Opwb sz Geqw \/ op = Opwb sz Test \/ op = Opwb sz LtSignw \/
+                    op = Opwb sz GtSignw \/ op = Opwb sz LeqSignw \/ op = Opwb sz GeqSignw`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS]
+    \\ rw [] \\ fs [do_word_cmp_def,v_rel_Boolv])
   \\ Cases_on `op = Equality`
   >-
    (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
@@ -495,7 +501,7 @@ Theorem do_app_thm
     \\ every_case_tac \\ fs [] \\ rveq \\ fs []
     \\ rw [EL_LUPDATE, ok_ctor_def]
     \\ metis_tac [])
-  \\ Cases_on `(?sz. op = WordFromInt sz) \/ (?sz. op = WordToInt sz)`
+  \\ Cases_on `(?sz. op = WordFromInt sz) \/ (?sz. op = WordToInt sz) \/ (?sz1 sz2. op = WordToWord sz1 sz2)`
   >- (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs [])
   \\ Cases_on `op = CopyStrStr`
   >-
@@ -612,6 +618,7 @@ Theorem do_app_thm
   \\ Cases_on `?opn. op = Opn opn` >- (fs [] \\ Cases_on `opn` \\ fs [])
   \\ Cases_on `?opb. op = Opb opb` >- (fs [] \\ Cases_on `opb` \\ fs [])
   \\ Cases_on `?s opw. op = Opw s opw` >- (fs [] \\ Cases_on `opw` \\ fs [])
+  \\ Cases_on `?s opwb. op = Opwb s opwb` >- (fs [] \\ Cases_on `opwb` \\ fs[])
   \\ Cases_on `?opb. op = Chopb opb` >- (fs [] \\ Cases_on `opb` \\ fs [])
   \\ Cases_on `op` \\ fs [] \\ rw []
   \\ fs [do_app_def, pair_case_eq, case_eq_thms] \\ rw [] \\ fs []

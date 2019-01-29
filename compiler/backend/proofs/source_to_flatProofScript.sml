@@ -782,16 +782,15 @@ val do_app = Q.prove (
   >- ((* Opb *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
+  >- ((* Opwb *)
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems])
   >- ((* Opw *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems]
-      \\ Cases_on`o'` \\ fs[opw8_lookup_def,opw64_lookup_def])
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems])
   >- ((* Shift *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      TRY (rename1 `shift8_lookup s11 w11 n11`) >>
-      TRY (rename1 `shift64_lookup s11 w11 n11`) >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems]
-      \\ Cases_on`w11` \\ Cases_on`s11` \\ fs[shift8_lookup_def,shift64_lookup_def])
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems])
   >- ((* Equality *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
@@ -881,6 +880,9 @@ val do_app = Q.prove (
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
   >- ((* WordToInt *)
+    srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
+    \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
+  >- ((* WordToWord *)
     srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def]
     \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
   >- ((* CopyStrStr *)
