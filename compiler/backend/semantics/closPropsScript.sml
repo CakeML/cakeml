@@ -1956,7 +1956,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
                             do_app opp xs s = Rval (x,s1)``,
   strip_tac
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
-  \\ Cases_on `opp = ListAppend` 
+  \\ Cases_on `opp = ListAppend`
   THEN1
    (print_tac "opp = ListAppend" \\ Cases_on `do_app opp ys t` \\ pop_assum mp_tac
     \\ rw [do_app_def, case_eq_thms, pair_case_eq, bool_case_eq, PULL_EXISTS]
