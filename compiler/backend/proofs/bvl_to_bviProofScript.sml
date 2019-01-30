@@ -3878,7 +3878,7 @@ Theorem compile_semantics
     \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names
     \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
     \\ strip_tac \\ fs [])
-  \\ fs [bvi_tailrecProofTheory.input_condition_def,EVERY_o]
+  \\ fs [bvi_tailrecProofTheory.input_condition_def,GSYM ALL_EL_MAP]
   \\ fs [GSYM in_ns_def,EVAL ``in_ns 2 2``]
   \\ conj_asm1_tac
   >- (
@@ -4059,7 +4059,7 @@ Theorem ALL_DISTINCT_MAP_FST_SND_full_co
       \\ simp[bvl_inlineProofTheory.MAP_FST_tick_inline_all] )
     \\ rw[]
     \\ drule (GEN_ALL compile_inc_next_range)
-    \\ simp[MEM_MAP, PULL_EXISTS, EVERY_o, EVERY_MEM, EXISTS_PROD]
+    \\ simp[MEM_MAP, PULL_EXISTS, GSYM ALL_EL_MAP, EVERY_MEM, EXISTS_PROD]
     \\ rpt strip_tac
     \\ first_x_assum drule
     \\ simp[bvi_tailrecProofTheory.free_names_def]

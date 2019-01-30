@@ -5631,7 +5631,7 @@ Theorem get_byte_bytes_to_word
     \\ TRY (Cases_on `t`) \\ fs []
     \\ TRY (Cases_on `t'`) \\ fs []
     \\ rewrite_tac [expand_num,bytes_to_word_def]
-    \\ rpt (fs [labPropsTheory.get_byte_set_byte]
+    \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
       \\ match_mp_tac get_byte_set_byte_alt
       \\ fs [dimword_def,alignmentTheory.byte_align_def,
              alignmentTheory.align_w2n]))
@@ -5647,7 +5647,7 @@ Theorem get_byte_bytes_to_word
     \\ TRY (Cases_on `t`) \\ fs []
     \\ TRY (Cases_on `t'`) \\ fs []
     \\ rewrite_tac [expand_num,bytes_to_word_def]
-    \\ rpt (fs [labPropsTheory.get_byte_set_byte]
+    \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
       \\ match_mp_tac get_byte_set_byte_alt
       \\ fs [dimword_def,alignmentTheory.byte_align_def,
              alignmentTheory.align_w2n]))
@@ -5752,26 +5752,6 @@ Theorem decode_length_make_byte_header
   \\ qunabbrev_tac`n`
   \\ decide_tac);
 
-Theorem bytes_to_word_same
-  `∀bw k b1 w be b2.
-    (∀n. n < bw ⇒ n < LENGTH b1 ∧ n < LENGTH b2 ∧ EL n b1 = EL n b2)
-    ⇒
-    (bytes_to_word bw k b1 w be = bytes_to_word bw k b2 w be)`
-  (ho_match_mp_tac bytes_to_word_ind
-  \\ rw[bytes_to_word_def]
-  >- (first_x_assum(qspec_then`0`mp_tac) \\ simp[])
-  \\ Cases_on`b2` \\ fs[]
-  >- (first_x_assum(qspec_then`0`mp_tac) \\ simp[])
-  \\ simp[bytes_to_word_def]
-  \\ first_assum(qspec_then`0`mp_tac)
-  \\ impl_tac >- simp[]
-  \\ simp_tac(srw_ss())[] \\ rw[]
-  \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ first_x_assum match_mp_tac
-  \\ gen_tac \\ strip_tac
-  \\ first_x_assum(qspec_then`SUC n`mp_tac)
-  \\ simp[]);
-
 Theorem write_bytes_same
   `∀ws b1 b2.
    (∀n. n < LENGTH (ws:α word list) * (dimindex(:α) DIV 8) ⇒ n < LENGTH b1 ∧ n < LENGTH b2 ∧ EL n b1 = EL n b2)
@@ -5788,11 +5768,6 @@ Theorem write_bytes_same
   \\ qpat_abbrev_tac`bw= _ DIV _`
   \\ first_x_assum(qspec_then`n+bw`mp_tac)
   \\ simp[EL_DROP]);
-
-Theorem set_byte_change_a
-  `w2n (a:α word) MOD (dimindex(:α) DIV 8) = w2n a' MOD (dimindex(:α) DIV 8) ⇒
-   set_byte a b w be = set_byte a' b w be`
-  (rw[set_byte_def,byte_index_def]);
 
 Theorem set_byte_bytes_to_word
   `i < LENGTH ls ∧ i < 2 ** k ∧ 2 ** k = dimindex (:α) DIV 8 ∧

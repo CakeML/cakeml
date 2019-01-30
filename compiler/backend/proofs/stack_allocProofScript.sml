@@ -5498,7 +5498,8 @@ Theorem comp_correct
       fs[prog_comp_lemma]>>
       match_mp_tac SUBMAP_mono_FUPDATE \\
       simp[GSYM SUBMAP_DOMSUB_gen] \\
-      metis_tac[SUBMAP_DOMSUB,SUBMAP_TRANS,SUBMAP_DRESTRICT,SUBSET_REFL])>>
+      metis_tac[SUBMAP_DOMSUB,SUBMAP_TRANS,SUBMAP_DRESTRICT_MONOTONE,
+                SUBSET_REFL])>>
     fs[wordSemTheory.buffer_flush_def]>>rw[])
   (* CodeBufferWrite *)
   \\ conj_tac >- (
@@ -5526,7 +5527,7 @@ Theorem comp_correct
     \\ qmatch_goalsub_abbrev_tac `a1 ⊑ _`
     \\ qpat_x_assum `_ = a1` (assume_tac o GSYM)
     \\ simp[]
-    \\ match_mp_tac SUBMAP_DRESTRICT
+    \\ match_mp_tac SUBMAP_DRESTRICT_MONOTONE
     \\ simp[])
   \\ rpt strip_tac
   \\ qexists_tac `0`

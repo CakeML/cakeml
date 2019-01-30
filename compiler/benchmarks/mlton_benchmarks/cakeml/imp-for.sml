@@ -2,7 +2,7 @@ exception Fail of string;
 
 fun for start stop f
   = let
-      val i = ref start
+      val i = Ref start
       fun loop () = if !i >= stop
                       then ()
                       else (f (!i) ; i := !i + 1 ; loop ())
@@ -14,7 +14,7 @@ structure Main =
 struct
   fun doit ()
     = let
-        val x = ref 0
+        val x = Ref 0
 
         val u = for 0 10 (fn _ =>
                 for 0 10 (fn _ =>

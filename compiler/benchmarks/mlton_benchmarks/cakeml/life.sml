@@ -24,8 +24,8 @@ structure Main =
 
 
     fun exists p = let fun existsp ls = case ls of
-                       [] => false
-                     | (a::x) => if p a then true else existsp x
+                       [] => False
+                     | (a::x) => if p a then True else existsp x
                 in existsp end
 
     fun equal a b = (a  = b)
@@ -53,7 +53,7 @@ structure Main =
     | (a::x) => append (lexordset (filter (lexless a) x))
                 (append [a] (lexordset (filter (lexgreater a) x)))
     and lexless(a1:int,b1:int)(a2,b2) =
-         if a2<a1 then true else if a2=a1 then b2<b1 else false
+         if a2<a1 then True else if a2=a1 then b2<b1 else False
     and lexgreater pr1 pr2 = lexless pr2 pr1
     fun collect f list =
            let fun accumf sofar ls = case ls of
@@ -115,7 +115,7 @@ structure Main =
     val glider = [(0,0),(0,2),(1,1),(1,2),(2,1)]
     val bail = [(0,0),(0,1),(1,0),(1,1)]
     fun barberpole n =
-       let fun f i = if i=n then (n+n-1,n+n)::(n+n,n+n)::nil
+       let fun f i = if i=n then (n+n-1,n+n)::(n+n,n+n)::[]
                        else (i+i,i+i+1)::(i+i+2,i+i+1)::f(i+1)
         in (0,0)::(1,0):: f 0
        end

@@ -601,7 +601,7 @@ val compare_aux_spec = Q.prove (
   Cases_on `s2` >>
   fs [] >>
   full_simp_tac (srw_ss()) [TAKE_SUM, DECIDE ``!n. SUC n = 1 + n``] >>
-  fs [take1_drop, DROP_DROP_T, char_lt_def] >>
+  fs [TAKE1_DROP, DROP_DROP_T, char_lt_def] >>
   fs [string_lt_def] >>
   simp [] >>
   rw [] >>

@@ -1,6 +1,7 @@
 (*
   Correctness proof for clos_to_bvl
 *)
+
 open preamble
      closLangTheory closSemTheory closPropsTheory
      bvlSemTheory bvlPropsTheory
@@ -1063,7 +1064,7 @@ val v_rel_SUBMAP = Q.prove(
   THEN1 (REPEAT (POP_ASSUM MP_TAC) \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ full_simp_tac(srw_ss())[])
   THEN1 ( fs[SUBMAP_DEF,FLOOKUP_DEF,FDIFF_def,DRESTRICT_DEF] )
   THEN1 (fs[SUBMAP_DEF,FLOOKUP_DEF] )
-  THEN1 (imp_res_tac SUBMAP_FRANGE_SUBSET >>
+  THEN1 (imp_res_tac SUBMAP_FRANGE >>
          imp_res_tac cl_rel_SUBMAP >>
          disj2_tac >>
          full_simp_tac(srw_ss())[ETA2_THM] >>
@@ -1071,7 +1072,7 @@ val v_rel_SUBMAP = Q.prove(
   THEN1 (imp_res_tac cl_rel_SUBMAP >>
          disj2_tac >>
          full_simp_tac(srw_ss())[ETA2_THM] >>
-         metis_tac [SUBMAP_FRANGE_SUBSET] ))
+         metis_tac [SUBMAP_FRANGE] ))
   |> SPEC_ALL |> MP_CANON;
 
 val env_rel_SUBMAP = Q.prove(
@@ -2973,58 +2974,59 @@ Theorem evaluate_IMP_evaluate_chained
   \\ Cases_on `t5` \\ fs [chain_exps_def]
   \\ Cases_on `c1` \\ fs [chain_exps_def]);
 
-Theorem compile_exps_correct
-  `(!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
-     (tmp = (xs,env,s1)) ∧
-     (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
-     (compile_exps s1.max_app xs aux1 = (ys,aux2)) /\
-     every_Fn_SOME xs ∧ FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
-     every_Fn_vs_SOME xs ∧ FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
-     code_installed aux2 t1.code /\
-     env_rel s1.max_app f1 t1.refs t1.code env env' /\
-     state_rel f1 s1 t1 ==>
-     ?ck res' t2 f2.
-        (evaluate (ys,env',t1 with clock := s1.clock + ck) = (res',t2)) /\
-        result_rel (LIST_REL (v_rel s1.max_app f2 t2.refs t2.code)) (v_rel s1.max_app f2 t2.refs t2.code) res res' /\
-        state_rel f2 s2 t2 /\
-        f1 SUBMAP f2 /\
-        (FDIFF t1.refs (FRANGE f1)) SUBMAP (FDIFF t2.refs (FRANGE f2)) ∧
-        FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
-        FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
-        s2.clock = t2.clock) ∧
-   (!loc_opt func args ^s1 res s2 env (t1:('c,'ffi) bvlSem$state) args' func' f1.
-     evaluate_app loc_opt func args s1 = (res,s2) ∧
-     res ≠ Rerr(Rabort Rtype_error) ∧
-     FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
-     FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
-     v_rel s1.max_app f1 t1.refs t1.code func func' ∧
-     LIST_REL (v_rel s1.max_app f1 t1.refs t1.code) args args' ∧
-     state_rel f1 s1 t1
-     ⇒
-     ?ck res' t2 f2.
-       (LENGTH args' ≠ 0 ⇒
-         case loc_opt of
-          | NONE =>
-              evaluate
-                    ([mk_cl_call (Var (LENGTH args')) (GENLIST Var (LENGTH args'))],
-                      args' ++ [func'] ++ env,
-                      t1 with clock := s1.clock + ck) =
-                (res',t2)
-           | SOME loc =>
-               (case find_code (SOME (loc + num_stubs s1.max_app)) (args' ++ [func']) t1.code of
-                     NONE => (Rerr(Rabort Rtype_error),t2)
-                   | SOME (args,exp) =>
-                       if s1.clock + ck < (LENGTH args') then (Rerr(Rabort Rtimeout_error),t1 with clock := 0)
-                       else evaluate ([exp],args,t1 with clock := s1.clock + ck - LENGTH args')) =
-                 (res',t2)) ∧
-       result_rel (LIST_REL (v_rel s1.max_app f2 t2.refs t2.code)) (v_rel s1.max_app f2 t2.refs t2.code) res res' ∧
-       state_rel f2 s2 t2 ∧
-       f1 ⊑ f2 ∧
-       FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
+Theorem compile_exps_correct:
+  (!tmp xs env ^s1 aux1 (t1:('c,'ffi) bvlSem$state) env' f1 res s2 ys aux2.
+    (tmp = (xs,env,s1)) ∧
+    (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
+    (compile_exps s1.max_app xs aux1 = (ys,aux2)) /\
+    every_Fn_SOME xs ∧ FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
+    every_Fn_vs_SOME xs ∧ FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
+    code_installed aux2 t1.code /\
+    env_rel s1.max_app f1 t1.refs t1.code env env' /\
+    state_rel f1 s1 t1 ==>
+    ?ck res' t2 f2.
+       (evaluate (ys,env',t1 with clock := s1.clock + ck) = (res',t2)) /\
+       result_rel (LIST_REL (v_rel s1.max_app f2 t2.refs t2.code)) (v_rel s1.max_app f2 t2.refs t2.code) res res' /\
+       state_rel f2 s2 t2 /\
+       f1 SUBMAP f2 /\
+       (FDIFF t1.refs (FRANGE f1)) SUBMAP (FDIFF t2.refs (FRANGE f2)) ∧
        FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
        FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
-       s2.clock = t2.clock)`
-  (ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
+       s2.clock = t2.clock) ∧
+  (!loc_opt func args ^s1 res s2 env (t1:('c,'ffi) bvlSem$state) args' func' f1.
+    evaluate_app loc_opt func args s1 = (res,s2) ∧
+    res ≠ Rerr(Rabort Rtype_error) ∧
+    FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
+    FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
+    v_rel s1.max_app f1 t1.refs t1.code func func' ∧
+    LIST_REL (v_rel s1.max_app f1 t1.refs t1.code) args args' ∧
+    state_rel f1 s1 t1
+    ⇒
+    ?ck res' t2 f2.
+      (LENGTH args' ≠ 0 ⇒
+        case loc_opt of
+         | NONE =>
+             evaluate
+                   ([mk_cl_call (Var (LENGTH args')) (GENLIST Var (LENGTH args'))],
+                     args' ++ [func'] ++ env,
+                     t1 with clock := s1.clock + ck) =
+               (res',t2)
+          | SOME loc =>
+              (case find_code (SOME (loc + num_stubs s1.max_app)) (args' ++ [func']) t1.code of
+                    NONE => (Rerr(Rabort Rtype_error),t2)
+                  | SOME (args,exp) =>
+                      if s1.clock + ck < (LENGTH args') then (Rerr(Rabort Rtimeout_error),t1 with clock := 0)
+                      else evaluate ([exp],args,t1 with clock := s1.clock + ck - LENGTH args')) =
+                (res',t2)) ∧
+      result_rel (LIST_REL (v_rel s1.max_app f2 t2.refs t2.code)) (v_rel s1.max_app f2 t2.refs t2.code) res res' ∧
+      state_rel f2 s2 t2 ∧
+      f1 ⊑ f2 ∧
+      FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
+      FEVERY (λp. every_Fn_SOME [SND (SND p)]) s2.code ∧
+      FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s2.code ∧
+      s2.clock = t2.clock)
+Proof
+  ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (srw_tac[][] >> full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
     \\ metis_tac [ADD_0, SUBMAP_REFL] )
@@ -4332,6 +4334,7 @@ Theorem compile_exps_correct
         \\ qexists_tac`ck'`
         \\ full_simp_tac (srw_ss()++ARITH_ss) [Abbr `t1refs`]
         \\ srw_tac[][]
+        \\ fs[LENGTH_EQ_NUM_compute] \\ rveq \\ fs[]
         \\ Q.EXISTS_TAC `f2` \\ IMP_RES_TAC SUBMAP_TRANS
         \\ ASM_SIMP_TAC std_ss []
         \\ FIRST_X_ASSUM MATCH_MP_TAC
@@ -4958,7 +4961,8 @@ Theorem compile_exps_correct
         by srw_tac[][bvlSemTheory.state_component_equality] >>
   full_simp_tac(srw_ss())[] >>
   `ck + s1.clock − LENGTH args' = ck + (s1.clock − LENGTH args')` by decide_tac >>
-  metis_tac []);
+  metis_tac []
+QED
 
 (* more correctness properties *)
 
@@ -5283,12 +5287,12 @@ Theorem compile_common_distinct_locs
   \\ simp [ALL_DISTINCT_APPEND]
   \\ qmatch_asmsub_abbrev_tac `renumber_code_locs_list N XS`
   (* clos_known *)
-  \\ `bag_of_list (code_locs ls) ≤ bag_of_list (code_locs es)`
+  \\ `LIST_TO_BAG (code_locs ls) ≤ LIST_TO_BAG (code_locs es)`
     by metis_tac[clos_knownProofTheory.compile_code_locs_bag]
   \\ `LENGTH ls = LENGTH es` by metis_tac[clos_knownProofTheory.compile_LENGTH]
-  \\ `set (code_locs ls) ⊆ set (code_locs es)` by metis_tac[bag_of_list_SUB_BAG_SUBSET]
+  \\ `set (code_locs ls) ⊆ set (code_locs es)` by metis_tac[LIST_TO_BAG_SUBSET]
   \\ `ALL_DISTINCT (code_locs es) ⇒ ALL_DISTINCT (code_locs ls)`
-    by metis_tac[bag_of_list_ALL_DISTINCT, BAG_ALL_DISTINCT_SUB_BAG]
+    by metis_tac[LIST_TO_BAG_DISTINCT, BAG_ALL_DISTINCT_SUB_BAG]
   (* clos_number *)
   \\ `ALL_DISTINCT (code_locs ls) /\
       set (code_locs ls) SUBSET EVEN /\
@@ -5923,9 +5927,9 @@ Theorem kcompile_csyntax_ok
         clos_knownProofTheory.globals_approx_every_Fn_vs_NONE_def]) \\ fs []
   \\ simp[clos_letopProofTheory.code_locs_let_op]
   \\ simp[clos_ticksProofTheory.code_locs_remove_ticks]
-  \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+  \\ simp[GSYM LIST_TO_BAG_DISTINCT]
   \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
-  \\ asm_exists_tac \\ fs[bag_of_list_ALL_DISTINCT]);
+  \\ asm_exists_tac \\ fs[LIST_TO_BAG_DISTINCT]);
 
 Theorem renumber_code_locs_fv1
   `(∀n es v. LIST_REL (λe1 e2. ∀v. fv1 v e1 ⇔ fv1 v e2) (SND (renumber_code_locs_list n es)) es) ∧
@@ -6301,8 +6305,8 @@ Theorem code_locs_FST_ticks_compile_inc[simp]
   (Cases_on`x` \\ rw[clos_ticksProofTheory.compile_inc_def, clos_ticksProofTheory.code_locs_remove_ticks]);
 
 Theorem code_locs_FST_SND_kcompile_inc
-  `bag_of_list (code_locs (FST (SND (clos_knownProof$compile_inc x y z)))) ≤
-   bag_of_list (code_locs (FST z))`
+  `LIST_TO_BAG (code_locs (FST (SND (clos_knownProof$compile_inc x y z)))) ≤
+   LIST_TO_BAG (code_locs (FST z))`
   (rw[kcompile_inc_uncurry]
   \\ qmatch_goalsub_abbrev_tac`known a b c d`
   \\ specl_args_of_then``known``clos_knownProofTheory.known_code_locs_bag mp_tac
@@ -6566,11 +6570,11 @@ Theorem compile_common_semantics
         \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_code_locs_bag
         \\ Cases_on`known aa bb ccc dd` \\ simp[]
         \\ strip_tac
-        \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+        \\ simp[GSYM LIST_TO_BAG_DISTINCT]
         \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
         \\ asm_exists_tac \\ fs[]
         \\ simp[Abbr`bb`]
-        \\ simp[bag_of_list_ALL_DISTINCT]))
+        \\ simp[LIST_TO_BAG_DISTINCT]))
     \\ rveq \\ fs[]
     \\ qexists_tac `THE o clos_callProof$make_gs (FEMPTY |++ aux) co2`
     \\ strip_tac \\ match_mp_tac clos_callProofTheory.IMP_co_ok
@@ -6608,11 +6612,11 @@ Theorem compile_common_semantics
       \\ simp_tac(srw_ss())[clos_knownProofTheory.known_co_def]
       \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co,FST_SND_ignore_table,backendPropsTheory.FST_state_co]
       \\ qmatch_goalsub_abbrev_tac`clos_knownProof$compile_inc xx yy zz`
-      \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+      \\ simp[GSYM LIST_TO_BAG_DISTINCT]
       \\ irule BAG_ALL_DISTINCT_SUB_BAG
-      \\ qexists_tac`bag_of_list(code_locs (FST zz))`
+      \\ qexists_tac`LIST_TO_BAG(code_locs (FST zz))`
       \\ simp[code_locs_FST_SND_kcompile_inc]
-      \\ simp[bag_of_list_ALL_DISTINCT]
+      \\ simp[LIST_TO_BAG_DISTINCT]
       \\ simp[Abbr`zz`,FST_SND_ignore_table] )
     \\ simp[]
     \\ conj_tac
@@ -6640,9 +6644,9 @@ Theorem compile_common_semantics
     \\ qhdtm_x_assum`renumber_code_locs_list`mp_tac
     \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
     \\ ntac 2 strip_tac \\ fs[]
-    \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+    \\ simp[GSYM LIST_TO_BAG_DISTINCT]
     \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
-    \\ asm_exists_tac \\ fs[bag_of_list_ALL_DISTINCT])
+    \\ asm_exists_tac \\ fs[LIST_TO_BAG_DISTINCT])
   \\ strip_tac
   \\ fs[ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ fs[Abbr`cc0`]
@@ -6684,7 +6688,7 @@ Theorem compile_common_semantics
       \\ specl_args_of_then``renumber_code_locs_list``clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
       \\ ntac 2 strip_tac \\ fs[]
       \\ imp_res_tac SUB_BAG_SET
-      \\ fs[SUBSET_DEF, IN_between, IN_bag_of_list_MEM, EVERY_MEM]
+      \\ fs[SUBSET_DEF, IN_between, IN_LIST_TO_BAG, EVERY_MEM]
       \\ rw[] \\ res_tac \\ res_tac \\ fs[] )
     (*
     \\ conj_asm1_tac
@@ -6736,7 +6740,7 @@ Theorem compile_common_semantics
       \\ Cases_on`known aa bb ccc dd`
       \\ simp[] \\ strip_tac
       \\ imp_res_tac SUB_BAG_SET
-      \\ fs[SUBSET_DEF, IN_bag_of_list_MEM]
+      \\ fs[SUBSET_DEF, IN_LIST_TO_BAG]
       \\ strip_tac
       \\ first_x_assum drule
       \\ simp[Abbr`bb`]
@@ -7681,10 +7685,10 @@ Theorem compile_semantics
           \\ pairarg_tac \\ fs[]
           \\ drule clos_knownProofTheory.known_code_locs_bag
           \\ strip_tac
-          \\ simp[GSYM bag_of_list_ALL_DISTINCT]
+          \\ simp[GSYM LIST_TO_BAG_DISTINCT]
           \\ irule BAG_ALL_DISTINCT_SUB_BAG
           \\ goal_assum(first_assum o mp_then Any mp_tac)
-          \\ simp[bag_of_list_ALL_DISTINCT] )
+          \\ simp[LIST_TO_BAG_DISTINCT] )
         \\ rw[ALL_DISTINCT_APPEND] )
       \\ qmatch_goalsub_abbrev_tac`annotate 0 ls`
       \\ match_mp_tac SUBSET_TRANS
@@ -7717,7 +7721,7 @@ Theorem compile_semantics
       \\ pairarg_tac
       \\ drule clos_knownProofTheory.known_code_locs_bag
       \\ strip_tac
-      \\ drule bag_of_list_SUB_BAG_SUBSET
+      \\ drule LIST_TO_BAG_SUBSET
       \\ simp[]
       \\ fs[SUBSET_DEF, EVERY_MEM, IN_between]
       \\ rw[]

@@ -13,6 +13,9 @@ fast insertion and lookup into association lists (alists).
 [basicComputeLib.sml](basicComputeLib.sml):
 Build a basic compset for evaluation in the logic.
 
+[byteScript.sml](byteScript.sml):
+A theory about byte-level manipulation of machine words.
+
 [lem_lib_stub](lem_lib_stub):
 Empty versions of the Lem libraries (which we don't use, but building
 with Lem requires)

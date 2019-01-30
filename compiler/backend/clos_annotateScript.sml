@@ -207,9 +207,11 @@ Theorem shift_CONS
         (HD c1 :: c2:closLang$exp list)`
   (Cases_on `xs` \\ fs [shift_def,LET_DEF,SING_HD,shift_LENGTH_LEMMA]);
 
-Theorem HD_shift[simp]
-  `[HD (shift [x] m l i)] = shift [x] m l i`
-  (STRIP_ASSUME_TAC shift_SING \\ fs []);
+Theorem HD_shift[simp]:
+  LENGTH (shift [x] m l i) = 1 ∧
+  [HD (shift [x] m l i)] = shift [x] m l i
+Proof STRIP_ASSUME_TAC shift_SING \\ fs []
+QED
 
 (* main functions *)
 
