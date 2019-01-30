@@ -2307,25 +2307,28 @@ Theorem decs_type_sound_no_check
      >> simp [])
    >- metis_tac [type_s_weakening, good_ctMap_def])
  >- ( (* Case module *)
-   cheat
    qpat_x_assum `type_d _ _ (Dmod _ _ _) _ _` mp_tac >>
    rw [Once type_d_cases] >>
    split_pair_case_tac >>
    fs [] >>
    rename [`evaluate_decs _ _ _ = (st1, r1)`] >>
+   first_x_assum drule >>
+   `type_sound_invariant st env ctMap tenvS (set decls1) tenv`
+   by (
+     fs [type_sound_invariant_def] >>
+     cheat (* Don't know if this is true or not *)) >>
+   disch_then drule >>
+   rw [] >>
+   rename [`weakCT ctMap1 _`] >>
+   rename [`store_type_extension _ tenvS1`] >>
+   qexists_tac `ctMap1` >>
+   qexists_tac `tenvS1` >>
+   simp [] >>
+   conj_tac >- cheat >> (* Similar to above cheat *)
    Cases_on `r1` >>
    fs [] >>
-   rw []
-   >- (
-     first_x_assum drule >>
-     disch_then drule >>
-     rw [] >>
-     rename [`weakCT ctMap1 _`] >>
-     qexists_tac `ctMap1` >>
-     rw [] >>
-     rename [`store_type_extension _ tenvS1`] >>
-     qexists_tac `tenvS1` >>
-     rw [] >>
+   cheat
+   (*
      (* This won't be true once signatures start doing things *)
      `tenv'' = tenv_sig`
      by (

@@ -2202,6 +2202,7 @@ Theorem extend_dec_tenv_ok
  >> irule nsAll_nsAppend
  >> simp []);
 
+ (*
 val check_sig_tenv_ok = Q.store_thm ("check_sig_tenv_ok",
   `!tenv tenv' sn_opt decls1 decls2 tenv_sig.
    tenv_ok tenv ∧
@@ -2212,6 +2213,7 @@ val check_sig_tenv_ok = Q.store_thm ("check_sig_tenv_ok",
   rw [check_sig_cases] >>
   rw [] >>
   cheat);
+  *)
 
 val type_tdefs_tenv_ok = Q.store_thm ("type_tdefs_tenv_ok",
   `!tenv tdef tids tenv'.
@@ -2305,9 +2307,9 @@ Theorem type_d_tenv_ok_helper
    >> rw []
    >> irule check_freevars_type_name_subst
    >> simp [tenv_abbrev_ok_def])
- >- (
+ >- (cheat (*
    `tenv_ok tenv_sig` by metis_tac [check_sig_tenv_ok] >>
-   fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def])
+   fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]*))
  >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
  >- metis_tac [extend_dec_tenv_ok]
  >- metis_tac [extend_dec_tenv_ok]);
