@@ -201,17 +201,6 @@ type dec =
   (* Local: local part, visible part *)
   | Dlocal of list dec * list dec
 
-(* Specifications
-   For giving the signature of a module *)
-type spec =
-  | Sval of varN * ast_t
-  | Stype of type_def
-  | Stabbrev of list tvarN * typeN * ast_t
-  | Stype_opq of list tvarN * typeN
-  | Sexn of conN * list ast_t
-
-type specs = list spec
-
 (* Accumulates the bindings of a pattern *)
 val pat_bindings : pat -> list varN -> list varN
 let rec

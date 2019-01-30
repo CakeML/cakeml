@@ -109,7 +109,8 @@ deBruijn_inc skip n (Tvar_db m) =
 and
 deBruijn_inc skip n (Tapp ts tn) = Tapp (List.map (deBruijn_inc skip n) ts) tn
 
-(* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
+(* skip the lowest given indices and replace the next (LENGTH ts) with the
+  given types and reduce all the higher ones *)
 val deBruijn_subst : nat -> list t -> t -> t
 let rec
 deBruijn_subst skip ts (Tvar tv) = Tvar tv
@@ -172,7 +173,8 @@ type type_env =
    first for datatypes, and the second for opaque types. Where the signature is
    used, the first should be replaced with real type identifiers that are valid
    at the usage site, and the second with real types valid at the usage site. *)
-type tenv_sig = namespace modN sigN (list type_ident * list (list tvarN * type_ident) * type_env)
+type signature = list type_ident * list (list tvarN * type_ident) * type_env
+type tenv_sig = namespace modN sigN signature
 
 val extend_dec_tenv : type_env -> type_env -> type_env
 let extend_dec_tenv tenv' tenv =
@@ -232,7 +234,8 @@ and type_ident_subst subst1 subst2 (Tapp ts tid) =
 
 (* Instantiate a signature with the given substitutions for its datatype and
  * opaque type identifiers *)
-val sig_instantiate : Map.map type_ident type_ident -> Map.map type_ident (list tvarN * t) -> type_env -> type_env
+val sig_instantiate : Map.map type_ident type_ident ->
+            Map.map type_ident (list tvarN * t) -> type_env -> type_env
 let sig_instantiate subst1 subst2 tenv =
   <| v = nsMap (fun (tvs, t) -> (tvs, type_ident_subst subst1 subst2 t)) tenv.v;
      c = nsMap (fun (tvs, ts, tid) ->
@@ -325,6 +328,7 @@ let type_op op ts t =
     | _ -> false
   end
 
+(* Check that the names of type constructors in an AST type are defined *)
 val check_type_names : tenv_abbrev -> ast_t -> bool
 let rec
 check_type_names tenvT (Atvar tv) =
@@ -732,6 +736,7 @@ let type_pe_determ tenv tenvE p e =
     -->
     tenv1 = tenv2
 
+(* Check whether the second type scheme can be instantiated to be the first *)
 val tscheme_inst : (nat * t) -> (nat * t) -> bool
 let tscheme_inst (tvs_spec, t_spec) (tvs_impl, t_impl) =
   exists subst.
@@ -785,9 +790,11 @@ let weak_tenv tenv_impl tenv_spec =
   nsSub ctor_inst tenv_spec.c tenv_impl.c &&
   nsSub type_def_inst tenv_spec.t tenv_impl.t
 
-val sig_rename_tids :  list type_ident -> list (list tvarN * type_ident) -> type_env -> list type_ident -> list (list tvarN * type_ident) -> type_env -> bool
-(* Checks whether the tids' can be substituted for the tids in tenv to form tenv' *)
-let sig_rename_tids datatype_tids opaque_tids tenv datatype_tids' opaque_tids' tenv' =
+(* Checks whether the tids' can be substituted for the tids in tenv to form
+  tenv'. *)
+val sig_rename_tids : signature -> signature -> bool
+let sig_rename_tids (datatype_tids, opaque_tids, tenv)
+                    (datatype_tids', opaque_tids', tenv') =
   List.length datatype_tids = List.length datatype_tids' &&
   List.length opaque_tids = List.length opaque_tids' &&
   List.allDistinct (datatype_tids' ++ List.map snd opaque_tids') &&
@@ -801,37 +808,43 @@ let sig_rename_tids datatype_tids opaque_tids tenv datatype_tids' opaque_tids' t
                    opaque_tids')))
     tenv)
 
-indreln [type_sp : type_env -> spec -> set type_ident -> set (list tvarN * type_ident) -> type_env -> bool] and
-        [type_sps : type_env -> list spec -> set type_ident -> set (list tvarN * type_ident) -> type_env -> bool]
+val tenvLiftSig : modN -> signature -> signature
+let tenvLiftSig mn (ids1, ids2, tenv) =
+  (ids1, ids2, tenvLift mn tenv)
+
+indreln [type_sp : type_env -> spec -> signature -> bool] and
+        [type_sps : type_env -> list spec -> signature -> bool]
 
 sval : forall tenv x t fvs subst.
 check_freevars_ast fvs t &&
 check_type_names tenv.t t &&
 subst = alistToFmap (List_extra.zipSameLength fvs (List.map Tvar_db (genlist (fun x -> x) (List.length fvs))))
 ==>
-type_sp tenv (Sval x t) {} {}
-  <| v = nsSing x (List.length fvs, type_subst subst (type_name_subst tenv.t t));
-     c = nsEmpty;
-     t = nsEmpty;
-     s = nsEmpty |>
+type_sp tenv (Sval x t)
+  ([], [],
+   <| v = nsSing x (List.length fvs, type_subst subst (type_name_subst tenv.t t));
+      c = nsEmpty;
+      t = nsEmpty;
+      s = nsEmpty |>)
 
 and
 
 stype : forall tenv tdefs tids tenv'.
 type_tdefs tenv tdefs tids = Just tenv'
 ==>
-type_sp tenv (Stype tdefs) (Set.fromList tids) {} tenv'
+type_sp tenv (Stype tdefs) (tids, [], tenv')
 
 and
 
 stype_opq : forall tenv tvs tn type_ident.
 true
 ==>
-type_sp tenv (Stype_opq tvs tn) {} { (tvs, type_ident) }
-  <| v = nsEmpty;
-     c = nsEmpty;
-     t = nsSing tn (tvs, Tapp (List.map Tvar tvs) type_ident);
-     s = nsEmpty |>
+type_sp tenv (Stype_opq tvs tn)
+  ([], [ (tvs, type_ident) ],
+   <| v = nsEmpty;
+      c = nsEmpty;
+      t = nsSing tn (tvs, Tapp (List.map Tvar tvs) type_ident);
+      s = nsEmpty |>)
 
 and
 
@@ -840,8 +853,10 @@ check_freevars_ast tvs t &&
 check_type_names tenv.t t &&
 List.allDistinct tvs
 ==>
-type_sp tenv (Stabbrev tvs tn t) {} {}
-  <| v = nsEmpty; c = nsEmpty; t = nsSing tn (tvs,type_name_subst tenv.t t); s = nsEmpty |>
+type_sp tenv (Stabbrev tvs tn t)
+  ([], [],
+   <| v = nsEmpty; c = nsEmpty;
+      t = nsSing tn (tvs,type_name_subst tenv.t t); s = nsEmpty |>)
 
 and
 
@@ -849,20 +864,20 @@ sexn : forall tenv cn ts.
 List.all (check_freevars_ast []) ts &&
 List.all (check_type_names tenv.t) ts
 ==>
-type_sp tenv (Sexn cn ts) {} {}
-  <| v = nsEmpty;
-     c = nsSing cn ([], List.map (type_name_subst tenv.t) ts, Texn_num);
-     t = nsEmpty;
-     s = nsEmpty |>
+type_sp tenv (Sexn cn ts)
+  ([], [],
+   <| v = nsEmpty;
+      c = nsSing cn ([], List.map (type_name_subst tenv.t) ts, Texn_num);
+      t = nsEmpty;
+      s = nsEmpty |>)
 
 and
 
-smod : forall tenv mn tenv_sig sn datatype_tids opaque_tids datatype_tids' opaque_tids' tenv_sig'.
-nsLookup tenv.s sn = Just (datatype_tids, opaque_tids, tenv_sig) &&
-sig_rename_tids datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig'
+smod : forall tenv mn sn signature signature'.
+nsLookup tenv.s sn = Just signature &&
+sig_rename_tids signature signature'
 ==>
-type_sp tenv (Smod mn sn) (Set.fromList datatype_tids') (Set.fromList opaque_tids')
-  (tenvLift mn tenv_sig')
+type_sp tenv (Smod mn sn) (tenvLiftSig mn signature')
 
 and
 
@@ -882,31 +897,31 @@ and
 empty : forall tenv.
 true
 ==>
-type_sps tenv [] {} {} <| v = nsEmpty; c = nsEmpty; t = nsEmpty; s = nsEmpty |>
+type_sps tenv []
+  ([],[], <| v = nsEmpty; c = nsEmpty; t = nsEmpty; s = nsEmpty |>)
 
 and
 
 cons : forall tenv sp sps tenv1 tenv2 datatype_tids1 datatype_tids2 opaque_tids1 opaque_tids2.
-type_sp tenv sp datatype_tids1 opaque_tids1 tenv1 &&
-type_sps (extend_dec_tenv tenv1 tenv) sps datatype_tids1 opaque_tids1 tenv2 &&
-disjoint datatype_tids1 datatype_tids2 &&
-disjoint (Set.map snd opaque_tids1) (Set.map snd opaque_tids2) &&
-disjoint datatype_tids1 (Set.map snd opaque_tids2) &&
-disjoint (Set.map snd opaque_tids1) datatype_tids2
+type_sp tenv sp (datatype_tids1, opaque_tids1, tenv1) &&
+type_sps (extend_dec_tenv tenv1 tenv) sps (datatype_tids1, opaque_tids1, tenv2) &&
+disjoint (Set.fromList (datatype_tids1 ++ List.map snd opaque_tids1))
+         (Set.fromList (datatype_tids2 ++ List.map snd opaque_tids2))
 ==>
-type_sps tenv (sp::sps) (datatype_tids1 union datatype_tids2) (opaque_tids1 union opaque_tids2) (extend_dec_tenv tenv2 tenv1)
+type_sps tenv (sp::sps)
+  (datatype_tids1 ++ datatype_tids2, opaque_tids1 ++ opaque_tids2,
+   extend_dec_tenv tenv2 tenv1)
 
-indreln [check_sig : type_env -> maybe (id modN sigN) -> type_env -> set type_ident -> type_env -> bool]
+val get_sig : type_env -> maybe (id modN sigN) -> signature -> maybe signature
+let get_sig tenv sn default =
+  match sn with
+  | Nothing -> Just default
+  | Just sn -> nsLookup tenv.s sn
+  end
 
-cs_none: forall tenv tenv_mod.
-true
-==>
-check_sig tenv Nothing tenv_mod {} tenv_mod
+indreln [check_sig : signature -> type_env -> bool]
 
-and
-
-cs_some: forall tenv sn tenv_mod tids ts datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig' tenv_sig1.
-nsLookup tenv.s sn = Just (datatype_tids, opaque_tids, tenv_sig) &&
+cs_some: forall tids ts datatype_tids opaque_tids tenv_sig mod_tenv tenv_sig1.
 List.length datatype_tids = List.length tids &&
 List.length opaque_tids = List.length ts &&
 List.map fst opaque_tids = List.map fst ts &&
@@ -916,10 +931,9 @@ tenv_sig1 = sig_instantiate
                    (alistToFmap (List_extra.zipSameLength datatype_tids tids))
                    (alistToFmap (List_extra.zipSameLength (List.map snd opaque_tids) ts))
                    tenv_sig &&
-weak_tenv tenv_mod tenv_sig1 &&
-sig_rename_tids datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig'
+weak_tenv mod_tenv tenv_sig1
 ==>
-check_sig tenv (Just sn) tenv_mod (Set.fromList (datatype_tids' ++ List.map snd opaque_tids')) tenv_sig'
+check_sig (datatype_tids, opaque_tids, tenv_sig) mod_tenv
 
 indreln [type_d : bool -> type_env -> dec -> set nat -> type_env -> bool] and
         [type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool]
@@ -999,23 +1013,27 @@ type_d extra_checks tenv (Dexn locs cn ts)
 
 and
 
-dmod : forall extra_checks tenv mn ds decls1 decls2 tenv' tenv_sig sn_opt.
-disjoint decls1 decls2 &&
-type_ds extra_checks tenv ds decls1 tenv' &&
-check_sig tenv sn_opt tenv' decls2 tenv_sig
+dmod : forall extra_checks tenv mn sn_opt ds decls1 decls2 decls3 tenv' tenv_sig signature.
+disjoint (Set.fromList decls1) (Set.fromList decls2) &&
+type_ds extra_checks tenv ds (Set.fromList decls1) tenv' &&
+get_sig tenv sn_opt (decls1, [], tenv') = Just signature &&
+check_sig signature tenv' &&
+sig_rename_tids signature (decls2, decls3, tenv_sig)
 ==>
-type_d extra_checks tenv (Dmod mn sn_opt ds) decls2 (tenvLift mn tenv_sig)
+type_d extra_checks tenv (Dmod mn sn_opt ds)
+  (Set.fromList decls2 union Set.fromList (List.map snd decls3))
+  (tenvLift mn tenv_sig)
 
 and
 
-dsig : forall extra_checks tenv sn sps datatype_tids opaque_tids tenv_sig.
-type_sps tenv sps (Set.fromList datatype_tids) (Set.fromList opaque_tids) tenv_sig
+dsig : forall extra_checks tenv sn sps signature.
+type_sps tenv sps signature
 ==>
 type_d extra_checks tenv (Dsig sn sps) {}
   <| v = nsEmpty;
      c = nsEmpty;
      t = nsEmpty;
-     s = nsSing sn (datatype_tids, opaque_tids, tenv_sig) |>
+     s = nsSing sn signature |>
 
 and
 
@@ -1025,7 +1043,6 @@ type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 &&
 disjoint decls1 decls2
 ==>
 type_d extra_checks tenv (Dlocal lds ds) (decls1 union decls2) tenv2
-
 
 and
 

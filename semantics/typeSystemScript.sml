@@ -191,7 +191,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) deBruijn_inc_defn;
 
-(* skip the lowest given indices and replace the next (LENGTH ts) with the given types and reduce all the higher ones *)
+(* skip the lowest given indices and replace the next (LENGTH ts) with the
+  given types and reduce all the higher ones *)
 (*val deBruijn_subst : nat -> list t -> t -> t*)
  val deBruijn_subst_defn = Defn.Hol_multi_defns `
 
@@ -266,7 +267,8 @@ val _ = Hol_datatype `
    first for datatypes, and the second for opaque types. Where the signature is
    used, the first should be replaced with real type identifiers that are valid
    at the usage site, and the second with real types valid at the usage site. *)
-val _ = type_abbrev( "tenv_sig" , ``: (modN, sigN, ( type_ident list # ( tvarN list # type_ident) list # type_env)) namespace``);
+val _ = type_abbrev( "signature" , ``: type_ident list # ( tvarN list # type_ident) list # type_env``);
+val _ = type_abbrev( "tenv_sig" , ``: (modN, sigN, signature) namespace``);
 
 (*val extend_dec_tenv : type_env -> type_env -> type_env*)
 val _ = Define `
@@ -318,10 +320,10 @@ val _ = Define `
  * (subst1) and types (subst2) *)
 (*val type_ident_subst : Map.map type_ident type_ident -> Map.map type_ident (list tvarN * t) -> t -> t*)
  val type_ident_subst_defn = Defn.Hol_multi_defns `
- (type_ident_subst subst1 subst2 (Tvar tv)=  (Tvar tv))
-/\ (type_ident_subst subst1 subst2 (Tvar_db v)=  (Tvar_db v))
-/\ (type_ident_subst subst1 subst2 (Tapp ts tid)=
- (let ts' = (MAP (type_ident_subst subst1 subst2) ts) in
+ ((type_ident_subst:((num),(num))fmap ->((num),((string)list#t))fmap -> t -> t) subst1 subst2 (Tvar tv)=  (Tvar tv))
+/\ ((type_ident_subst:((num),(num))fmap ->((num),((string)list#t))fmap -> t -> t) subst1 subst2 (Tvar_db v)=  (Tvar_db v))
+/\ ((type_ident_subst:((num),(num))fmap ->((num),((string)list#t))fmap -> t -> t) subst1 subst2 (Tapp ts tid)=
+   (let ts' = (MAP (type_ident_subst subst1 subst2) ts) in
   (case FLOOKUP subst1 tid of
     NONE =>
     (case FLOOKUP subst2 tid of
@@ -335,11 +337,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 (* Instantiate a signature with the given substitutions for its datatype and
  * opaque type identifiers *)
-(*val sig_instantiate : Map.map type_ident type_ident -> Map.map type_ident (list tvarN * t) -> type_env -> type_env*)
+(*val sig_instantiate : Map.map type_ident type_ident ->
+            Map.map type_ident (list tvarN * t) -> type_env -> type_env*)
 val _ = Define `
- (sig_instantiate subst1 subst2 tenv=
- (<| v := (nsMap (\ (tvs, t) .  (tvs, type_ident_subst subst1 subst2 t)) tenv.v);
-     c := (nsMap (\ (tvs, ts, tid) .
+ ((sig_instantiate:((type_ident),(type_ident))fmap ->((type_ident),((tvarN)list#t))fmap -> type_env -> type_env) subst1 subst2 tenv=
+   (<| v := (nsMap (\ (tvs, t) .  (tvs, type_ident_subst subst1 subst2 t)) tenv.v);
+     c := (nsMap (\ (tvs, ts, tid) . 
        (tvs, MAP (type_ident_subst subst1 subst2) ts,
         (case FLOOKUP subst1 tid of
           NONE => tid
@@ -432,6 +435,7 @@ val _ = Define `
   )))`;
 
 
+(* Check that the names of type constructors in an AST type are defined *)
 (*val check_type_names : tenv_abbrev -> ast_t -> bool*)
  val check_type_names_defn = Defn.Hol_multi_defns `
 
@@ -487,7 +491,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   EVERY
     (\ (cn,ts) .  EVERY (check_freevars_ast tvs) ts /\ EVERY (check_type_names tenvT) ts)
     ctors /\
-  ~ (MEM tn (MAP (\p .
+  ~ (MEM tn (MAP (\p .  
   (case (p ) of ( (_,tn,_) ) => tn )) tds)) /\
   check_ctor_tenv tenvT tds))`;
 
@@ -767,6 +771,7 @@ val _ = Define `
     (tenv1 = tenv2)))`;
 
 
+(* Check whether the second type scheme can be instantiated to be the first *)
 (*val tscheme_inst : (nat * t) -> (nat * t) -> bool*)
 val _ = Define `
  ((tscheme_inst:num#t -> num#t -> bool) (tvs_spec, t_spec) (tvs_impl, t_impl)=
@@ -778,21 +783,21 @@ val _ = Define `
 
 
 val _ = Define `
- (tenvLift mn tenv=
- (<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t);
+ ((tenvLift:string -> type_env -> type_env) mn tenv=
+   (<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t);
      s := (nsLift mn tenv.s) |>))`;
 
 
 (*val type_tdefs : type_env -> type_def -> list type_ident -> maybe type_env*)
 val _ = Define `
- (type_tdefs tenv tdef tids=
- (if (LENGTH tids = LENGTH tdef) /\
+ ((type_tdefs:type_env ->((string)list#string#(conN#(ast_t)list)list)list ->(num)list ->(type_env)option) tenv tdef tids=
+   (if (LENGTH tids = LENGTH tdef) /\
      ALL_DISTINCT tids /\
      DISJOINT (LIST_TO_SET tids)
               (LIST_TO_SET (Tlist_num :: (Tbool_num :: prim_type_nums)))
   then
     let tenvT =
-(alist_to_ns (MAP2 (\ (tvs,tn,ctors) i .  (tn, (tvs, Tapp (MAP Tvar tvs) i)))
+      (alist_to_ns (MAP2 (\ (tvs,tn,ctors) i .  (tn, (tvs, Tapp (MAP Tvar tvs) i)))
                       tdef tids))
     in
     if check_ctor_tenv (nsAppend tenvT tenv.t) tdef then
@@ -807,41 +812,44 @@ val _ = Define `
 
 
 val _ = Define `
- (tscheme_inst2 _ ts1 ts2=  (tscheme_inst ts1 ts2))`;
+ ((tscheme_inst2:'a -> num#t -> num#t -> bool) _ ts1 ts2=  (tscheme_inst ts1 ts2))`;
 
 
 val _ = Define `
- (ctor_inst _ (tvs_spec, ts_spec, tid_spec) (tvs_impl, ts_impl, tid_impl)=
+ ((ctor_inst:'b ->(string)list#(t)list#'a ->(string)list#(t)list#'a -> bool) _ (tvs_spec, ts_spec, tid_spec) (tvs_impl, ts_impl, tid_impl)=
    ((tid_spec = tid_impl) /\
-(LENGTH tvs_spec = LENGTH tvs_impl) /\
-(let subst = (FUPDATE_LIST FEMPTY (ZIP (tvs_impl, (MAP Tvar tvs_spec)))) in
+  (LENGTH tvs_spec = LENGTH tvs_impl) /\
+  (let subst = (FUPDATE_LIST FEMPTY (ZIP (tvs_impl, (MAP Tvar tvs_spec)))) in
     ts_spec = MAP (type_subst subst) ts_impl)))`;
 
 
 val _ = Define `
- (type_def_inst _ (tvs_spec, t_spec) (tvs_impl, t_impl)=
+ ((type_def_inst:'a ->(string)list#t ->(string)list#t -> bool) _ (tvs_spec, t_spec) (tvs_impl, t_impl)=
    ((LENGTH tvs_spec = LENGTH tvs_impl) /\
-(let subst = (FUPDATE_LIST FEMPTY (ZIP (tvs_impl, (MAP Tvar tvs_spec)))) in
+  (let subst = (FUPDATE_LIST FEMPTY (ZIP (tvs_impl, (MAP Tvar tvs_spec)))) in
     t_spec = type_subst subst t_impl)))`;
 
 
 (* Will need to add something for nested signature declarations *)
 (*val weak_tenv : type_env -> type_env -> bool*)
 val _ = Define `
- (weak_tenv tenv_impl tenv_spec=
- (nsSub tscheme_inst2 tenv_spec.v tenv_impl.v /\
+ ((weak_tenv:type_env -> type_env -> bool) tenv_impl tenv_spec=
+   (nsSub tscheme_inst2 tenv_spec.v tenv_impl.v /\
   nsSub ctor_inst tenv_spec.c tenv_impl.c /\
   nsSub type_def_inst tenv_spec.t tenv_impl.t))`;
 
-(*val sig_rename_tids :  list type_ident -> list (list tvarN * type_ident) -> type_env -> list type_ident -> list (list tvarN * type_ident) -> type_env -> bool*)
-(* Checks whether the tids' can be substituted for the tids in tenv to form tenv' *)
+
+(* Checks whether the tids' can be substituted for the tids in tenv to form
+  tenv'. *)
+(*val sig_rename_tids : signature -> signature -> bool*)
 val _ = Define `
- (sig_rename_tids datatype_tids opaque_tids tenv datatype_tids' opaque_tids' tenv'=
+ ((sig_rename_tids:(num)list#((string)list#num)list#type_env ->(num)list#((string)list#num)list#type_env -> bool) (datatype_tids, opaque_tids, tenv)
+                    (datatype_tids', opaque_tids', tenv')=
    ((LENGTH datatype_tids = LENGTH datatype_tids') /\
-(LENGTH opaque_tids = LENGTH opaque_tids') /\
+  (LENGTH opaque_tids = LENGTH opaque_tids') /\
   ALL_DISTINCT (datatype_tids' ++ MAP SND opaque_tids') /\
-(MAP FST opaque_tids = MAP FST opaque_tids') /\
-(tenv' =
+  (MAP FST opaque_tids = MAP FST opaque_tids') /\
+  (tenv' =
    (sig_instantiate
     (alist_to_fmap (ZIP (datatype_tids, datatype_tids')))
     (alist_to_fmap (ZIP ((MAP SND opaque_tids), (MAP (\ (tvs, tid) .  (tvs, Tapp (MAP Tvar tvs) tid))
@@ -849,79 +857,93 @@ val _ = Define `
     tenv))))`;
 
 
+(*val tenvLiftSig : modN -> signature -> signature*)
+val _ = Define `
+ ((tenvLiftSig:string ->(type_ident)list#((tvarN)list#type_ident)list#type_env ->(type_ident)list#((tvarN)list#type_ident)list#type_env) mn (ids1, ids2, tenv)=
+   (ids1, ids2, tenvLift mn tenv))`;
+
+
 val _ = Hol_reln ` (! tenv x t fvs subst.
 (check_freevars_ast fvs t /\
 check_type_names tenv.t t /\
 (subst = alist_to_fmap (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))))))
 ==>
-type_sp tenv (Sval x t) {} {}
-  <| v := (nsSing x (LENGTH fvs, type_subst subst (type_name_subst tenv.t t)));
-     c := nsEmpty;
-     t := nsEmpty;
-     s := nsEmpty |>)
+type_sp tenv (Sval x t)
+  ([], [],
+   <| v := (nsSing x (LENGTH fvs, type_subst subst (type_name_subst tenv.t t)));
+      c := nsEmpty;
+      t := nsEmpty;
+      s := nsEmpty |>))
 
 /\ (! tenv tdefs tids tenv'.
 (type_tdefs tenv tdefs tids = SOME tenv')
 ==>
-type_sp tenv (Stype tdefs) (LIST_TO_SET tids) {} tenv')
+type_sp tenv (Stype tdefs) (tids, [], tenv'))
 
 /\ (! tenv tvs tn type_ident.
 T
 ==>
-type_sp tenv (Stype_opq tvs tn) {} { (tvs, type_ident) }
-  <| v := nsEmpty;
-     c := nsEmpty;
-     t := (nsSing tn (tvs, Tapp (MAP Tvar tvs) type_ident));
-     s := nsEmpty |>)
+type_sp tenv (Stype_opq tvs tn)
+  ([], [ (tvs, type_ident) ],
+   <| v := nsEmpty;
+      c := nsEmpty;
+      t := (nsSing tn (tvs, Tapp (MAP Tvar tvs) type_ident));
+      s := nsEmpty |>))
 
 /\ (! tenv tvs tn t.
 (check_freevars_ast tvs t /\
 check_type_names tenv.t t /\
 ALL_DISTINCT tvs)
 ==>
-type_sp tenv (Stabbrev tvs tn t) {} {}
-  <| v := nsEmpty; c := nsEmpty; t := (nsSing tn (tvs,type_name_subst tenv.t t)); s := nsEmpty |>)
+type_sp tenv (Stabbrev tvs tn t)
+  ([], [],
+   <| v := nsEmpty; c := nsEmpty;
+      t := (nsSing tn (tvs,type_name_subst tenv.t t)); s := nsEmpty |>))
 
 /\ (! tenv cn ts.
 (EVERY (check_freevars_ast []) ts /\
 EVERY (check_type_names tenv.t) ts)
 ==>
-type_sp tenv (Sexn cn ts) {} {}
-  <| v := nsEmpty;
-     c := (nsSing cn ([], MAP (type_name_subst tenv.t) ts, Texn_num));
-     t := nsEmpty;
-     s := nsEmpty |>)
+type_sp tenv (Sexn cn ts)
+  ([], [],
+   <| v := nsEmpty;
+      c := (nsSing cn ([], MAP (type_name_subst tenv.t) ts, Texn_num));
+      t := nsEmpty;
+      s := nsEmpty |>))
 
-/\ (! tenv mn tenv_sig sn datatype_tids opaque_tids datatype_tids' opaque_tids' tenv_sig'.
-((nsLookup tenv.s sn = SOME (datatype_tids, opaque_tids, tenv_sig)) /\
-sig_rename_tids datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig')
+/\ (! tenv mn sn signature signature'.
+((nsLookup tenv.s sn = SOME signature) /\
+sig_rename_tids signature signature')
 ==>
-type_sp tenv (Smod mn sn) (LIST_TO_SET datatype_tids') (LIST_TO_SET opaque_tids')
-  (tenvLift mn tenv_sig'))
+type_sp tenv (Smod mn sn) (tenvLiftSig mn signature'))
 
 /\ (! tenv.
 T
 ==>
-type_sps tenv [] {} {} <| v := nsEmpty; c := nsEmpty; t := nsEmpty; s := nsEmpty |>)
+type_sps tenv []
+  ([],[], <| v := nsEmpty; c := nsEmpty; t := nsEmpty; s := nsEmpty |>))
 
 /\ (! tenv sp sps tenv1 tenv2 datatype_tids1 datatype_tids2 opaque_tids1 opaque_tids2.
-(type_sp tenv sp datatype_tids1 opaque_tids1 tenv1 /\
-type_sps (extend_dec_tenv tenv1 tenv) sps datatype_tids1 opaque_tids1 tenv2 /\
-DISJOINT datatype_tids1 datatype_tids2 /\
-DISJOINT (IMAGE SND opaque_tids1) (IMAGE SND opaque_tids2) /\
-DISJOINT datatype_tids1 (IMAGE SND opaque_tids2) /\
-DISJOINT (IMAGE SND opaque_tids1) datatype_tids2)
+(type_sp tenv sp (datatype_tids1, opaque_tids1, tenv1) /\
+type_sps (extend_dec_tenv tenv1 tenv) sps (datatype_tids1, opaque_tids1, tenv2) /\
+DISJOINT (LIST_TO_SET (datatype_tids1 ++ MAP SND opaque_tids1))
+         (LIST_TO_SET (datatype_tids2 ++ MAP SND opaque_tids2)))
 ==>
-type_sps tenv (sp::sps) (datatype_tids1 UNION datatype_tids2) (opaque_tids1 UNION opaque_tids2) (extend_dec_tenv tenv2 tenv1))`;
+type_sps tenv (sp::sps)
+  ((datatype_tids1 ++ datatype_tids2), (opaque_tids1 ++ opaque_tids2),
+   extend_dec_tenv tenv2 tenv1))`;
 
-val _ = Hol_reln ` (! tenv tenv_mod.
-T
-==>
-check_sig tenv NONE tenv_mod {} tenv_mod)
+(*val get_sig : type_env -> maybe (id modN sigN) -> signature -> maybe signature*)
+val _ = Define `
+ ((get_sig:type_env ->(((string),(string))id)option ->(type_ident)list#((tvarN)list#type_ident)list#type_env ->((type_ident)list#((tvarN)list#type_ident)list#type_env)option) tenv sn default=
+   ((case sn of
+    NONE => SOME default
+  | SOME sn => nsLookup tenv.s sn
+  )))`;
 
-/\ (! tenv sn tenv_mod tids ts datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig' tenv_sig1.
-((nsLookup tenv.s sn = SOME (datatype_tids, opaque_tids, tenv_sig)) /\
-(LENGTH datatype_tids = LENGTH tids) /\
+
+val _ = Hol_reln ` (! tids ts datatype_tids opaque_tids tenv_sig mod_tenv tenv_sig1.
+((LENGTH datatype_tids = LENGTH tids) /\
 (LENGTH opaque_tids = LENGTH ts) /\
 (MAP FST opaque_tids = MAP FST ts) /\
 EVERY (\ (tvs,t) .  (check_freevars(( 0 : num)) tvs t)) ts /\
@@ -930,10 +952,9 @@ ALL_DISTINCT tids /\
                    (alist_to_fmap (ZIP (datatype_tids, tids)))
                    (alist_to_fmap (ZIP ((MAP SND opaque_tids), ts)))
                    tenv_sig) /\
-weak_tenv tenv_mod tenv_sig1 /\
-sig_rename_tids datatype_tids opaque_tids tenv_sig datatype_tids' opaque_tids' tenv_sig')
+weak_tenv mod_tenv tenv_sig1)
 ==>
-check_sig tenv (SOME sn) tenv_mod (LIST_TO_SET (datatype_tids' ++ MAP SND opaque_tids')) tenv_sig')`;
+check_sig (datatype_tids, opaque_tids, tenv_sig) mod_tenv)`;
 
 val _ = Hol_reln ` (! extra_checks tvs tenv p e t bindings locs.
 (is_value e /\
@@ -998,21 +1019,25 @@ type_d extra_checks tenv (Dexn locs cn ts)
      t := nsEmpty;
      s := nsEmpty |>)
 
-/\ (! extra_checks tenv mn ds decls1 decls2 tenv' tenv_sig sn_opt.
-(DISJOINT decls1 decls2 /\
-type_ds extra_checks tenv ds decls1 tenv' /\
-check_sig tenv sn_opt tenv' decls2 tenv_sig)
+/\ (! extra_checks tenv mn sn_opt ds decls1 decls2 decls3 tenv' tenv_sig signature.
+(DISJOINT (LIST_TO_SET decls1) (LIST_TO_SET decls2) /\
+type_ds extra_checks tenv ds (LIST_TO_SET decls1) tenv' /\
+(get_sig tenv sn_opt (decls1, [], tenv') = SOME signature) /\
+check_sig signature tenv' /\
+sig_rename_tids signature (decls2, decls3, tenv_sig))
 ==>
-type_d extra_checks tenv (Dmod mn sn_opt ds) decls2 (tenvLift mn tenv_sig))
+type_d extra_checks tenv (Dmod mn sn_opt ds)
+  (LIST_TO_SET decls2 UNION LIST_TO_SET (MAP SND decls3))
+  (tenvLift mn tenv_sig))
 
-/\ (! extra_checks tenv sn sps datatype_tids opaque_tids tenv_sig.
-(type_sps tenv sps (LIST_TO_SET datatype_tids) (LIST_TO_SET opaque_tids) tenv_sig)
+/\ (! extra_checks tenv sn sps signature.
+(type_sps tenv sps signature)
 ==>
 type_d extra_checks tenv (Dsig sn sps) {}
   <| v := nsEmpty;
      c := nsEmpty;
      t := nsEmpty;
-     s := (nsSing sn (datatype_tids, opaque_tids, tenv_sig)) |>)
+     s := (nsSing sn signature) |>)
 
 /\ (! extra_checks tenv lds ds tenv1 tenv2 decls1 decls2.
 (type_ds extra_checks tenv lds decls1 tenv1 /\
@@ -1020,7 +1045,6 @@ type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 /\
 DISJOINT decls1 decls2)
 ==>
 type_d extra_checks tenv (Dlocal lds ds) (decls1 UNION decls2) tenv2)
-
 
 /\ (! extra_checks tenv.
 T
@@ -1036,166 +1060,5 @@ DISJOINT decls1 decls2)
 ==>
 type_ds extra_checks tenv (d::ds)
   (decls1 UNION decls2) (extend_dec_tenv tenv2 tenv1))`;
-
-(*
-indreln [type_specs : list modN -> tenv_abbrev -> specs -> decls -> type_env -> bool]
-
-empty : forall mn tenvT.
-true
-==>
-type_specs mn tenvT []
-  empty_decls <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
-
-and
-
-sval : forall mn tenvT x t specs tenv fvs decls subst.
-check_freevars 0 fvs t &&
-check_type_names tenvT t &&
-type_specs mn tenvT specs decls tenv &&
-subst = alistToFmap (List_extra.zipSameLength fvs (List.map Tvar_db (genlist (fun x -> x) (List.length fvs))))
-==>
-type_specs mn tenvT (Sval x t :: specs)
-  decls
-  (extend_dec_tenv tenv
-    <| v = nsSing x (List.length fvs, type_subst subst (type_name_subst tenvT t));
-       c = nsEmpty;
-       t = nsEmpty |>)
-
-and
-
-stype : forall mn tenvT tenv td specs decls' decls tenvT'.
-tenvT' = alist_to_ns (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) td) &&
-check_ctor_tenv (nsAppend tenvT' tenvT) td &&
-type_specs mn (nsAppend tenvT' tenvT) specs decls tenv &&
-decls' = <| defined_mods = {};
-            defined_types = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) td);
-            defined_exns = {} |>
-==>
-type_specs mn tenvT (Stype td :: specs)
-  (union_decls decls decls')
-  (extend_dec_tenv tenv
-   <| v = nsEmpty;
-      c = build_ctor_tenv mn (nsAppend tenvT' tenvT) td;
-      t = tenvT' |>)
-
-and
-
-stabbrev : forall mn tenvT tenvT' tvs tn t specs decls tenv.
-List.allDistinct tvs &&
-check_freevars 0 tvs t &&
-check_type_names tenvT t &&
-tenvT' = nsSing tn (tvs,type_name_subst tenvT t) &&
-type_specs mn (nsAppend tenvT' tenvT) specs decls tenv
-==>
-type_specs mn tenvT (Stabbrev tvs tn t :: specs)
-  decls (extend_dec_tenv tenv <| v = nsEmpty; c = nsEmpty; t = tenvT' |>)
-
-and
-
-sexn : forall mn tenvT tenv cn ts specs decls.
-check_exn_tenv mn cn ts &&
-type_specs mn tenvT specs decls tenv &&
-List.all (check_type_names tenvT) ts
-==>
-type_specs mn tenvT (Sexn cn ts :: specs)
-  (union_decls decls <| defined_mods = {}; defined_types = {}; defined_exns = {mk_id mn cn} |>)
-  (extend_dec_tenv tenv
-   <| v = nsEmpty;
-      c = nsSing cn ([], List.map (type_name_subst tenvT) ts, TypeExn (mk_id mn cn));
-      t = nsEmpty |>)
-
-and
-
-stype_opq : forall mn tenvT tenv tn specs tvs decls tenvT'.
-List.allDistinct tvs &&
-tenvT' = nsSing tn (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))) &&
-type_specs mn (nsAppend tenvT' tenvT) specs decls tenv
-==>
-type_specs mn tenvT (Stype_opq tvs tn :: specs)
-  (union_decls decls <| defined_mods = {}; defined_types = {mk_id mn tn}; defined_exns = {} |>)
-  (extend_dec_tenv tenv <| v = nsEmpty; c = nsEmpty; t = tenvT' |>)
-
-val weak_decls : decls -> decls -> bool
-let weak_decls decls_impl decls_spec =
-  decls_impl.defined_mods = decls_spec.defined_mods &&
-  decls_spec.defined_types subset decls_impl.defined_types &&
-  decls_spec.defined_exns subset decls_impl.defined_exns
-   *)
-
-(*
-val weak_tenvT : id modN typeN -> (list tvarN * t) -> (list tvarN * t) -> bool
-let weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl) =
-  (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
-  tvs_spec = tvs_impl &&
-  (t_spec = t_impl ||
-   (* The specified type is opaque *)
-   t_spec = Tapp (List.map Tvar tvs_spec) (TC_name n))
-   *)
-
-val _ = Define `
- ((tscheme_inst2:'a -> num#t -> num#t -> bool) _ ts1 ts2=  (tscheme_inst ts1 ts2))`;
-
-
-(*val weak_tenv : type_env -> type_env -> bool*)
-val _ = Define `
- ((weak_tenv:type_env -> type_env -> bool) tenv_impl tenv_spec=
-   (nsSub tscheme_inst2 tenv_spec.v tenv_impl.v /\
-  nsSub (\i x y .  (case (i ,x ,y ) of ( _ , x , y ) => x = y )) tenv_spec.c tenv_impl.c))`;
-(* &&
-  nsSub weak_tenvT tenv_spec.t tenv_impl.t*)
-
-(*
-indreln [check_signature : list modN -> tenv_abbrev -> decls -> type_env -> maybe specs -> decls -> type_env -> bool]
-
-none : forall mn tenvT decls tenv.
-true
-==>
-check_signature mn tenvT decls tenv Nothing decls tenv
-
-and
-
-some : forall mn specs tenv_impl tenv_spec decls_impl decls_spec tenvT.
-weak_tenv tenv_impl tenv_spec &&
-weak_decls decls_impl decls_spec &&
-type_specs mn tenvT specs decls_spec tenv_spec
-==>
-check_signature mn tenvT decls_impl tenv_impl (Just specs) decls_spec tenv_spec
-
-let tenvLift mn tenv =
-  <| v = nsLift mn tenv.v; c = nsLift mn tenv.c; t = nsLift mn tenv.t; |>
-
-indreln [type_top : bool -> decls -> type_env -> top -> decls -> type_env -> bool]
-
-tdec : forall extra_checks tenv d tenv' decls decls'.
-type_d extra_checks [] decls tenv d decls' tenv'
-==>
-type_top extra_checks decls tenv (Tdec d) decls' tenv'
-
-and
-
-tmod : forall extra_checks tenv mn spec ds tenv_impl tenv_spec decls decls_impl decls_spec.
-not ([mn] IN decls.defined_mods) &&
-type_ds extra_checks [mn] decls tenv ds decls_impl tenv_impl &&
-check_signature [mn] tenv.t decls_impl tenv_impl spec decls_spec tenv_spec
-==>
-type_top extra_checks decls tenv (Tmod mn spec ds)
-  (union_decls <| defined_mods = {[mn]}; defined_types = {}; defined_exns = {} |> decls_spec)
-  (tenvLift mn tenv_spec)
-
-indreln [type_prog : bool -> decls -> type_env -> list top -> decls -> type_env -> bool]
-
-empty : forall extra_checks tenv decls.
-true
-==>
-type_prog extra_checks decls tenv [] empty_decls <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
-
-and
-
-cons : forall extra_checks tenv top tops tenv1 tenv2 decls decls1 decls2.
-type_top extra_checks decls tenv top decls1 tenv1 &&
-type_prog extra_checks (union_decls decls1 decls) (extend_dec_tenv tenv1 tenv) tops decls2 tenv2
-==>
-type_prog extra_checks decls tenv (top :: tops)
-  (union_decls decls2 decls1) (extend_dec_tenv tenv2 tenv1)
-  *)
 val _ = export_theory()
+
