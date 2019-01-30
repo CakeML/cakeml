@@ -109,8 +109,18 @@ val ArrowM_ro_tm = mk_comb(ArrowM_const, mk_var("ro", bool_ty));
 val ArrowP_PURE_pat = get_term "ArrowP ro PURE";
 val ArrowP_EqSt_pat = get_term "ArrowP ro EqSt";
 val nsLookup_val_pat = get_term "nsLookup_val_pat"
+val EvalM_pat = get_term "EvalM_pat"
 
+val nsLookup_assum = get_term "nsLookup_assum"
+val lookup_cons_assum = get_term "lookup_cons_assum"
+val eqtype_assum = get_term "eqtype_assum"
 val emp_tm = get_term "emp_tm";
+val nsLookup_closure_pat = get_term "nsLookup_closure_pat"
+val nsLookup_recclosure_pat = get_term "nsLookup_recclosure_pat"
+val var_assum = get_term "var_assum"
+val nsLookup_assum = get_term "nsLookup_assum"
+val lookup_cons_assum = get_term "lookup_cons_assum"
+val eqtype_assum = get_term "eqtype_assum"
 
 (******************************************************************************
 
@@ -1325,7 +1335,6 @@ fun inst_case_thm_for tm = let
   val th = INST_ro th
   in th end;
 
-val EvalM_pat = get_term "EvalM_pat"
 fun inst_monad_type tm =
   let
       val ty_subst = Type.match_type poly_M_type (type_of tm)
@@ -1336,212 +1345,6 @@ fun inst_monad_type tm =
       tm'
   end;
 
-fun inst_case_thm tm m2deep = let
-  val tm = if can dest_monad_type (type_of tm) then (inst_monad_type tm) else tm
-  val th = inst_case_thm_for tm
-  val th = CONV_RULE (RATOR_CONV (PURE_REWRITE_CONV [CONJ_ASSOC])) th
-  val (hyps,rest) = dest_imp (concl th)
-  fun list_dest_forall tm = let
-    val (v,tm) = dest_forall tm
-    val (vs,tm) = list_dest_forall tm
-    in (v::vs,tm) end handle HOL_ERR _ => ([],tm)
-  fun take n xs = List.take(xs, n)
-  fun simp_env tm =
-    if can (match_term EvalM_pat) tm then
-        REPEATC ((PURE_ONCE_REWRITE_CONV [EvalM_Var_SIMP]) THENC (SIMP_CONV list_ss string_rewrites)) tm
-    else NO_CONV tm
-  fun sat_hyp tm = let
-    val (vs,x) = list_dest_forall tm
-    val (x,y) = dest_imp x
-    val z = get_Eval_arg y
-    val lemma = if can dest_monad_type (type_of z)
-                then m2deep z
-                else hol2deep z
-    val lemma = INST_ro lemma
-    val lemma = D lemma
-    (*val lemma =
-      (if can dest_monad_type (type_of z) then m2deep z else hol2deep z)
-      |> INST_ro |> D*)
-    val new_env = get_Eval_env y
-    val env = v_env
-    val lemma = INST [env|->new_env] lemma
-    val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
-    val (z1,z2) = dest_imp (concl lemma)
-    val thz =
-      QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
-             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
-             REWRITE_CONV [lookup_cons_write,lookup_var_write] THENC
-             DEPTH_CONV stringLib.string_EQ_CONV THENC
-             SIMP_CONV std_ss []) z1 |> DISCH x1
-    val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
-    val bs = take (length vs div 2) vs
-    (*fun LIST_UNBETA_CONV l =
-      foldl (fn (x, acc) => UNBETA_CONV x THENC RATOR_CONV (acc)) ALL_CONV l*)
-    fun LIST_UNBETA_CONV [] = ALL_CONV
-      | LIST_UNBETA_CONV (x::xs) =
-          UNBETA_CONV x THENC RATOR_CONV (LIST_UNBETA_CONV xs)
-    val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV)
-                  (LIST_UNBETA_CONV (rev bs))) lemma
-    val lemma = GENL vs lemma
-    (* Clean the environments in the lemma *)
-    val lemma = CONV_RULE ((STRIP_QUANT_CONV o RATOR_CONV o RAND_CONV) (DEPTH_CONV simp_env)) lemma
-    (* Return *)
-    val _ = can (match_term tm) (concl lemma) orelse failwith("sat_hyp failed")
-    in lemma end handle HOL_ERR _ => (print ((term_to_string tm) ^ "\n\n"); last_fail := tm; fail())
-  fun sat_hyps tm = if is_conj tm then let
-    val (x,y) = dest_conj tm
-    in CONJ (sat_hyps x) (sat_hyps y) end else sat_hyp tm
-  val lemma = sat_hyps hyps
-  val th = MATCH_MP th lemma
-  val th = CONV_RULE (RATOR_CONV (DEPTH_CONV BETA_CONV THENC
-                                  REWRITE_CONV [])) th
-  in th |> UNDISCH_ALL end handle Empty => failwith "empty";
-
-(* PMATCH *)
-val IMP_EQ_T = ml_monad_translatorTheory.IMP_EQ_T;
-val BETA_PAIR_THM = ml_monad_translatorTheory.BETA_PAIR_THM;
-
-val var_assum = get_term "var_assum"
-val nsLookup_assum = get_term "nsLookup_assum"
-val lookup_cons_assum = get_term "lookup_cons_assum"
-val eqtype_assum = get_term "eqtype_assum"
-fun prove_EvalMPatBind goal m2deep = let
-  val (vars,rhs_tm) = repeat (snd o dest_forall) goal
-                      |> rand |> get_Eval_arg |> rator
-                      |> dest_pabs
-  val res = m2deep rhs_tm
-  val exp = res |> concl |> get_Eval_exp
-  val th = D res
-  (* *)
-  val is_var_assum = can (match_term var_assum)
-  fun is_lookup_eqtype_assum x =
-      can (match_term nsLookup_assum) x
-      orelse can (match_term lookup_cons_assum) x
-      orelse can (match_term eqtype_assum) x
-  val vs = find_terms is_var_assum (concl th)
-  val assums = find_terms is_lookup_eqtype_assum (concl th)
-  val all_assums = append vs assums
-  fun delete_assum tm =
-    if mem tm (all_assums) then MATCH_MP IMP_EQ_T (ASSUME tm)
-    else NO_CONV tm
-  val th = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assum)) th
-  val th = CONV_RULE ((RATOR_CONV) (SIMP_CONV bool_ss [])) th
-  val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
-              (PairRules.UNPBETA_CONV vars)) th
-  val p = th |> concl |> dest_imp |> fst |> rator
-  val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
-                |> dest_imp |> fst |> rand |> rator
-  val ws = free_vars vars
-  val vs = List.filter (fn tm => not (mem (rand (rand tm)) ws)) vs |> mk_set
-  val new_goal = goal |> subst [mk_var("e",exp_ty)|->exp,p2 |-> p]
-  val all_assums = (append vs assums) |>
-                    List.foldl (fn (x,s) => HOLset.add (s,x)) empty_tmset |>
-                    HOLset.listItems
-  val num_assums = List.length all_assums
-  val new_goal = List.foldr mk_imp new_goal all_assums
-
-  val th = TAC_PROOF (([],new_goal),
-    NTAC num_assums STRIP_TAC \\ STRIP_TAC
-    (**)
-    \\ FULL_SIMP_TAC pure_ss [FORALL_PROD,BETA_PAIR_THM, UNCURRY_DEF]
-    \\ CONV_TAC (DEPTH_CONV BETA_CONV)
-    \\ REPEAT STRIP_TAC
-    (* \\ fs [FORALL_PROD] \\ REPEAT STRIP_TAC *)
-    \\ MATCH_MP_TAC (D res) \\ fs []
-    \\ fs [EvalPatBind_def,Pmatch_def]
-    \\ REPEAT (POP_ASSUM MP_TAC)
-    \\ NTAC num_assums STRIP_TAC
-    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL) (* Expand the refin. inv. *)
-    \\ STRIP_TAC \\ fs [] \\ rfs []
-    \\ fs [Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_IF_ELIM]
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ rpt (CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,Once EvalM_Var_SIMP,lookup_cons_write,lookup_var_write]))
-    \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
-    \\ fs[GSYM FORALL_PROD]
-    \\ EVAL_TAC
-    \\ fs [])
-  in UNDISCH_ALL th end handle HOL_ERR e => failwith ("prove_EvalMPatBind failed: (" ^ #message e ^ ")");
-
-val pmatch_index = ref 1;
-fun pmatch_m2deep tm m2deep = let
-  val (x,ts) = dest_pmatch_K_T tm
-  val v = genvar (type_of x)
-  val x_res = hol2deep x |> D
-  val x_type = type_of x
-  val x_inv = get_type_inv x_type
-  val pmatch_type = type_of tm
-  val pmatch_inv = get_m_type_inv pmatch_type
-  val x_exp = x_res |> UNDISCH |> concl |> rator |> rand
-  val nil_lemma = EvalM_PMATCH_NIL
-                  |> ISPEC_EvalM
-                  |> ISPEC pmatch_inv
-                  |> ISPEC x_exp
-                  |> ISPEC v
-                  |> ISPEC x_inv
-                  |> INST_ro
-  val cons_lemma = EvalM_PMATCH
-                   |> ISPEC_EvalM
-                   |> ISPEC pmatch_inv
-                   |> ISPEC x_inv
-                   |> ISPEC x_exp
-                   |> ISPEC v
-                   |> INST_ro
-  fun prove_hyp conv th =
-    MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
-  val assm = nil_lemma |> concl |> dest_imp |> fst
-
-(*
-DEBUG:
-
-val th = nil_lemma
-
-val n = 19;
-val xs = drop (ts,n);
-val (pat,rhs_tm) = el n ts;
-val th = trans xs
-
-val i = ref (List.length ts)
-val xs_ref = ref ts
-val th_ref = ref nil_lemma
-*)
-  val index_str = Int.toString (!pmatch_index)
-  val _ = pmatch_index := (!pmatch_index + 1)
-  val n = List.length ts
-  fun trans [] = nil_lemma
-    | trans ((pat,rhs_tm)::xs) =
-        let
-          val th = trans xs
-          val i_str = Int.toString (n - (List.length xs))
-          val _ = print ("pmatch " ^index_str ^ " " ^ i_str  ^ "\n")
-          val p = pat |> dest_pabs |> snd |> hol2deep
-                      |> concl |> rator |> rand |> to_pattern
-          val lemma = cons_lemma |> Q.GEN `pt` |> ISPEC p |> (prove_hyp EVAL) |>
-                        Q.GEN `pat` |> ISPEC pat |>
-                        prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) |>
-                        UNDISCH
-          val th = UNDISCH th |>
-                   CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v)) |>
-                   MATCH_MP lemma |> remove_primes
-          val goal = fst (dest_imp (concl th))
-          val th = MP th (prove_EvalPatRel goal hol2deep) |> remove_primes |>
-                   Q.GEN `res` |> ISPEC rhs_tm
-          val goal = fst (dest_imp (concl th))
-          val th = MATCH_MP th (prove_EvalMPatBind goal m2deep) |>
-                    remove_primes |>
-                    CONV_RULE ((RATOR_CONV o RAND_CONV)
-                    (SIMP_CONV std_ss [FORALL_PROD,
-                      patternMatchesTheory.PMATCH_ROW_COND_def])) |>
-                    DISCH assm
-        in th end
-
-  val th = trans ts
-
-  val _ = pmatch_index := (!pmatch_index - 1)
-  val th = MY_MATCH_MP th (UNDISCH x_res) (* strange bug with MATCH_MP: the side function variable is sometimes renamed?? *)
-  val th = UNDISCH_ALL th
-  in th end handle HOL_ERR e =>
-  failwith ("pmatch_m2deep failed (" ^ #message e ^ ")");
 
 (* ---- *)
 
@@ -1807,45 +1610,6 @@ fun inst_list_EvalM_env xl th = let
                   |> GENL (state_var::xl@vl)
 in th2 end
 
-fun inst_EvalM_handle EvalM_th tm m2deep = let
-    val x = tm |> rator |> rand
-    val y = tm |> rand
-    val (vars, y_body) = strip_abs y
-    val thx = m2deep x
-    val thy = m2deep y_body
-
-    val thy2 = inst_list_EvalM_env vars thy
-    val inv = get_type_inv (#2 (dest_monad_type (type_of x)))
-
-    val var_to_HOL_name = stringLib.fromMLstring o fst o dest_var
-    val HOL_names = List.map var_to_HOL_name vars
-    val bind_names = listSyntax.mk_list (HOL_names, string_ty)
-    val lemma1 = ISPECL [bind_names, inv, !(#H translator_state)] EvalM_th |> SPEC_ALL
-
-    (* Prove the assumptions *)
-    fun prove_assumption th = let
-        val a = concl th |> dest_imp |> fst
-        val a_th = prove(a,EVAL_TAC)
-    in MP th a_th end
-    val lemma2 = prove_assumption lemma1 |> prove_assumption |> UNDISCH
-    val lemma3 = MATCH_MP lemma2 (D thx)
-
-    (* Match with thy2 *)
-    val lemma4 = PURE_REWRITE_RULE [write_list_def] lemma3
-    val expr1 = concl lemma4 |> dest_imp |> fst |> strip_forall |> snd
-                      |> strip_imp |> snd |> rator |> rand |> rand
-    val expr2 = dest_abs expr1 |> snd |> rator
-    val eq = mk_eq(expr1, expr2)
-    val eq_lemma = prove(eq, irule EQ_EXT \\ rw[])
-    val lemma4 = PURE_REWRITE_RULE [eq_lemma] lemma4
-
-    val lemma5 = MY_MATCH_MP lemma4 thy2
-            |> CONV_RULE ((RATOR_CONV o RAND_CONV)
-               (SIMP_CONV list_ss []))
-            |> CONV_RULE ((RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV)
-               (SIMP_CONV list_ss [MAP]))
-            |> UNDISCH_ALL
-in check_inv "handle" tm lemma5 end
 
 fun inst_ro th1 th2 = let
   val tm1 = th1 |> concl |> dest_args |> hd
@@ -1855,35 +1619,6 @@ fun inst_ro th1 th2 = let
        (th1,th2)
   end handle HOL_ERR _ => (th1,th2)
            | Empty => (th1,th2);
-
-fun inst_EvalM_otherwise tm m2deep = let
-    val x = tm |> rator |> rand
-    val y = tm |> rand
-    val th1 = m2deep x
-    val th2 = m2deep y
-    val (th1,th2) = inst_ro th1 th2
-  fun simp_EvalM_env tm =
-    if can (match_term EvalM_pat) tm then
-        REPEATC ((PURE_ONCE_REWRITE_CONV [EvalM_Var_SIMP]) THENC (DEPTH_CONV stringLib.string_EQ_CONV) THENC (SIMP_CONV bool_ss [])) tm
-    else NO_CONV tm
-    val th2 = th2 |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
-                  |> DISCH_ALL |> Q.INST [`env`|->`write "v" i env`]
-                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_cons_write]
-                  |> UNDISCH_ALL
-                  |> HYP_CONV_RULE (fn x => true) (DEPTH_CONV simp_EvalM_env)
-                  |> DISCH_ALL
-                  |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
-                  |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
-                  |> REWRITE_RULE []
-                  |> REWRITE_RULE [SafeVar_def] |> D
-    val st2 = concl th2 |> dest_imp |> snd |> get_EvalM_state
-    val assums = concl th2 |> dest_imp |> fst
-    val assums_eq = mk_comb(mk_abs(st2, assums), st2) |> BETA_CONV
-    val th3 = CONV_RULE ((RATOR_CONV o RAND_CONV) (PURE_ONCE_REWRITE_CONV [GSYM assums_eq])) th2 |> Q.GEN `i` |> GEN st2
-    val th4 = CONJ (D th1) th3
-    val result = MATCH_MP (SPEC_ALL EvalM_otherwise) th4
-    val result = CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV BETA_CONV)) result |> UNDISCH
-in result end;
 
 fun inst_gen_eq_vars th = let
     (* Instantiate the variables in the occurences of Eq *)
@@ -1913,58 +1648,6 @@ fun m2deep_previously_translated th tm = let
                       |> INST_ro
 in result end
 
-(* normal function application *)
-val nsLookup_assum = get_term "nsLookup_assum"
-val lookup_cons_assum = get_term "lookup_cons_assum"
-val eqtype_assum = get_term "eqtype_assum"
-fun m2deep_normal_fun_app tm m2deep = let
-    val (f,x) = dest_comb tm
-    val thf = m2deep f |> (CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) (PURE_REWRITE_CONV [ArrowM_def])))
-    val thf = INST_ro thf
-    val (thx,is_monad) =
-        ((hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) |> D,false)
-              handle e => (D(m2deep x),true))
-    val thx = INST_ro thx
-    (* If the argument is monadic, clean it by removing Eq and EqSt*)
-    val is_var_assum = can (match_term var_assum)
-    fun is_var_lookup_eqtype_assum x =
-      can (match_term var_assum) x
-      orelse can (match_term nsLookup_assum) x
-      orelse can (match_term lookup_cons_assum) x
-      orelse can (match_term eqtype_assum) x
-    val assums = find_terms is_var_lookup_eqtype_assum (concl thx)
-    fun delete_assums tm =
-      if mem tm assums then MATCH_MP IMP_EQ_T (ASSUME tm)
-      else NO_CONV tm
-    val thx = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assums)) thx
-    val thx = CONV_RULE ((RATOR_CONV o RAND_CONV)
-              (SIMP_CONV (srw_ss()) [CONTAINER_def, ml_translatorTheory.PRECONDITION_def])) thx
-    val thx =  MP thx TRUTH
-               handle HOL_ERR _ => failwith "normal function application"
-    val thx = force_remove_fix thx |> PURE_REWRITE_RULE[ArrowM_def]
-
-    (* Compute the result *)
-    val result = MATCH_MP (MATCH_MP EvalM_ArrowM thf
-                 |> PURE_REWRITE_RULE[ArrowM_def]) thx
-                 handle HOL_ERR _ =>
-                 MY_MATCH_MP (MATCH_MP EvalM_ArrowM thf)
-                             (MATCH_MP EvalM_Eq thx)
-                 handle HOL_ERR _ => let
-      val state_var = concl thf |> get_EvalM_state
-      val thc = PURE_REWRITE_RULE[ArrowM_def] thf |> concl
-                                 |> rator |> rand |> rator |> rand
-      val eq_state_var_opt = get_EqSt_var thc
-      in case eq_state_var_opt of NONE =>
-                                  failwith "m2deep: function application"
-         | SOME v => MY_MATCH_MP (MATCH_MP EvalM_ArrowM_EqSt
-                                           (INST [v |-> state_var] thf))
-                                 (MATCH_MP EvalM_Eq thx)
-      end
-    val result = PURE_REWRITE_RULE [GSYM ArrowM_def] result
-in result end
-
-val nsLookup_closure_pat = get_term "nsLookup_closure_pat"
-val nsLookup_recclosure_pat = get_term "nsLookup_recclosure_pat"
 fun abbrev_nsLookup_code th = let
     (* Prevent the introduction of abbreviations for already abbreviated code *)
     val th = HYP_CONV_RULE (fn x => true) (PURE_REWRITE_CONV (List.map GSYM (!(#local_code_abbrevs translator_state)))) th
@@ -2012,7 +1695,325 @@ fun lookup_dynamic_v_thm tm = let
 in th end;
 
 
-fun m2deep tm =
+
+
+(*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************)
+
+
+val pmatch_index = ref 1;
+
+(* PMATCH *)
+fun prove_EvalMPatBind goal = let
+  val (vars,rhs_tm) = repeat (snd o dest_forall) goal
+                      |> rand |> get_Eval_arg |> rator
+                      |> dest_pabs
+  val res = m2deep rhs_tm
+  val exp = res |> concl |> get_Eval_exp
+  val th = D res
+  (* *)
+  val is_var_assum = can (match_term var_assum)
+  fun is_lookup_eqtype_assum x =
+      can (match_term nsLookup_assum) x
+      orelse can (match_term lookup_cons_assum) x
+      orelse can (match_term eqtype_assum) x
+  val vs = find_terms is_var_assum (concl th)
+  val assums = find_terms is_lookup_eqtype_assum (concl th)
+  val all_assums = append vs assums
+  fun delete_assum tm =
+    if mem tm (all_assums) then MATCH_MP ml_monad_translatorTheory.IMP_EQ_T (ASSUME tm)
+    else NO_CONV tm
+  val th = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assum)) th
+  val th = CONV_RULE ((RATOR_CONV) (SIMP_CONV bool_ss [])) th
+  val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
+              (PairRules.UNPBETA_CONV vars)) th
+  val p = th |> concl |> dest_imp |> fst |> rator
+  val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
+                |> dest_imp |> fst |> rand |> rator
+  val ws = free_vars vars
+  val vs = List.filter (fn tm => not (mem (rand (rand tm)) ws)) vs |> mk_set
+  val new_goal = goal |> subst [mk_var("e",exp_ty)|->exp,p2 |-> p]
+  val all_assums = (append vs assums) |>
+                    List.foldl (fn (x,s) => HOLset.add (s,x)) empty_tmset |>
+                    HOLset.listItems
+  val num_assums = List.length all_assums
+  val new_goal = List.foldr mk_imp new_goal all_assums
+
+  val th = TAC_PROOF (([],new_goal),
+    NTAC num_assums STRIP_TAC \\ STRIP_TAC
+    (**)
+    \\ FULL_SIMP_TAC pure_ss [FORALL_PROD, ml_monad_translatorTheory.BETA_PAIR_THM, UNCURRY_DEF]
+    \\ CONV_TAC (DEPTH_CONV BETA_CONV)
+    \\ REPEAT STRIP_TAC
+    (* \\ fs [FORALL_PROD] \\ REPEAT STRIP_TAC *)
+    \\ MATCH_MP_TAC (D res) \\ fs []
+    \\ fs [EvalPatBind_def,Pmatch_def]
+    \\ REPEAT (POP_ASSUM MP_TAC)
+    \\ NTAC num_assums STRIP_TAC
+    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL) (* Expand the refin. inv. *)
+    \\ STRIP_TAC \\ fs [] \\ rfs []
+    \\ fs [Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_IF_ELIM]
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ rpt (CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,Once EvalM_Var_SIMP,lookup_cons_write,lookup_var_write]))
+    \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
+    \\ fs[GSYM FORALL_PROD]
+    \\ EVAL_TAC
+    \\ fs [])
+  in UNDISCH_ALL th end handle HOL_ERR e => failwith ("prove_EvalMPatBind failed: (" ^ #message e ^ ")")
+
+and pmatch_m2deep tm = let
+  val (x,ts) = dest_pmatch_K_T tm
+  val v = genvar (type_of x)
+  val x_res = hol2deep x |> D
+  val x_type = type_of x
+  val x_inv = get_type_inv x_type
+  val pmatch_type = type_of tm
+  val pmatch_inv = get_m_type_inv pmatch_type
+  val x_exp = x_res |> UNDISCH |> concl |> rator |> rand
+  val nil_lemma = EvalM_PMATCH_NIL
+                  |> ISPEC_EvalM
+                  |> ISPEC pmatch_inv
+                  |> ISPEC x_exp
+                  |> ISPEC v
+                  |> ISPEC x_inv
+                  |> INST_ro
+  val cons_lemma = EvalM_PMATCH
+                   |> ISPEC_EvalM
+                   |> ISPEC pmatch_inv
+                   |> ISPEC x_inv
+                   |> ISPEC x_exp
+                   |> ISPEC v
+                   |> INST_ro
+  fun prove_hyp conv th =
+    MP (CONV_RULE ((RATOR_CONV o RAND_CONV) conv) th) TRUTH
+  val assm = nil_lemma |> concl |> dest_imp |> fst
+
+  val index_str = Int.toString (!pmatch_index)
+  val _ = pmatch_index := (!pmatch_index + 1)
+  val n = List.length ts
+  fun trans [] = nil_lemma
+    | trans ((pat,rhs_tm)::xs) =
+        let
+          val th = trans xs
+          val i_str = Int.toString (n - (List.length xs))
+          val _ = print ("pmatch " ^index_str ^ " " ^ i_str  ^ "\n")
+          val p = pat |> dest_pabs |> snd |> hol2deep
+                      |> concl |> rator |> rand |> to_pattern
+          val lemma = cons_lemma |> Q.GEN `pt` |> ISPEC p |> (prove_hyp EVAL) |>
+                        Q.GEN `pat` |> ISPEC pat |>
+                        prove_hyp (SIMP_CONV (srw_ss()) [FORALL_PROD]) |>
+                        UNDISCH
+          val th = UNDISCH th |>
+                   CONV_RULE ((RATOR_CONV o RAND_CONV) (UNBETA_CONV v)) |>
+                   MATCH_MP lemma |> remove_primes
+          val goal = fst (dest_imp (concl th))
+          val th = MP th (prove_EvalPatRel goal hol2deep) |> remove_primes |>
+                   Q.GEN `res` |> ISPEC rhs_tm
+          val goal = fst (dest_imp (concl th))
+          val th = MATCH_MP th (prove_EvalMPatBind goal) |>
+                    remove_primes |>
+                    CONV_RULE ((RATOR_CONV o RAND_CONV)
+                    (SIMP_CONV std_ss [FORALL_PROD,
+                      patternMatchesTheory.PMATCH_ROW_COND_def])) |>
+                    DISCH assm
+        in th end
+
+  val th = trans ts
+
+  val _ = pmatch_index := (!pmatch_index - 1)
+  val th = MY_MATCH_MP th (UNDISCH x_res) (* strange bug with MATCH_MP: the side function variable is sometimes renamed?? *)
+  val th = UNDISCH_ALL th
+  in th end handle HOL_ERR e =>
+  failwith ("pmatch_m2deep failed (" ^ #message e ^ ")")
+
+and inst_case_thm tm = let
+  val tm = if can dest_monad_type (type_of tm) then (inst_monad_type tm) else tm
+  val th = inst_case_thm_for tm
+  val th = CONV_RULE (RATOR_CONV (PURE_REWRITE_CONV [CONJ_ASSOC])) th
+  val (hyps,rest) = dest_imp (concl th)
+  fun list_dest_forall tm = let
+    val (v,tm) = dest_forall tm
+    val (vs,tm) = list_dest_forall tm
+    in (v::vs,tm) end handle HOL_ERR _ => ([],tm)
+  fun take n xs = List.take(xs, n)
+  fun simp_env tm =
+    if can (match_term EvalM_pat) tm then
+        REPEATC ((PURE_ONCE_REWRITE_CONV [EvalM_Var_SIMP]) THENC (SIMP_CONV list_ss string_rewrites)) tm
+    else NO_CONV tm
+  fun sat_hyp tm = let
+    val (vs,x) = list_dest_forall tm
+    val (x,y) = dest_imp x
+    val z = get_Eval_arg y
+    val lemma = if can dest_monad_type (type_of z)
+                then m2deep z
+                else hol2deep z
+    val lemma = INST_ro lemma
+    val lemma = D lemma
+    (*val lemma =
+      (if can dest_monad_type (type_of z) then m2deep z else hol2deep z)
+      |> INST_ro |> D*)
+    val new_env = get_Eval_env y
+    val env = v_env
+    val lemma = INST [env|->new_env] lemma
+    val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
+    val (z1,z2) = dest_imp (concl lemma)
+    val thz =
+      QCONV (SIMP_CONV std_ss [ASSUME x1,Eval_Var_SIMP] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
+             ONCE_REWRITE_CONV [EvalM_Var_SIMP] THENC
+             REWRITE_CONV [lookup_cons_write,lookup_var_write] THENC
+             DEPTH_CONV stringLib.string_EQ_CONV THENC
+             SIMP_CONV std_ss []) z1 |> DISCH x1
+    val lemma = MATCH_MP sat_hyp_lemma (CONJ thz lemma)
+    val bs = take (length vs div 2) vs
+    (*fun LIST_UNBETA_CONV l =
+      foldl (fn (x, acc) => UNBETA_CONV x THENC RATOR_CONV (acc)) ALL_CONV l*)
+    fun LIST_UNBETA_CONV [] = ALL_CONV
+      | LIST_UNBETA_CONV (x::xs) =
+          UNBETA_CONV x THENC RATOR_CONV (LIST_UNBETA_CONV xs)
+    val lemma = CONV_RULE ((RATOR_CONV o RAND_CONV o RAND_CONV)
+                  (LIST_UNBETA_CONV (rev bs))) lemma
+    val lemma = GENL vs lemma
+    (* Clean the environments in the lemma *)
+    val lemma = CONV_RULE ((STRIP_QUANT_CONV o RATOR_CONV o RAND_CONV) (DEPTH_CONV simp_env)) lemma
+    (* Return *)
+    val _ = can (match_term tm) (concl lemma) orelse failwith("sat_hyp failed")
+    in lemma end handle HOL_ERR _ => (print ((term_to_string tm) ^ "\n\n"); last_fail := tm; fail())
+  fun sat_hyps tm = if is_conj tm then let
+    val (x,y) = dest_conj tm
+    in CONJ (sat_hyps x) (sat_hyps y) end else sat_hyp tm
+  val lemma = sat_hyps hyps
+  val th = MATCH_MP th lemma
+  val th = CONV_RULE (RATOR_CONV (DEPTH_CONV BETA_CONV THENC
+                                  REWRITE_CONV [])) th
+  in th |> UNDISCH_ALL end handle Empty => failwith "empty"
+
+
+and inst_EvalM_handle EvalM_th tm = let
+    val x = tm |> rator |> rand
+    val y = tm |> rand
+    val (vars, y_body) = strip_abs y
+    val thx = m2deep x
+    val thy = m2deep y_body
+
+    val thy2 = inst_list_EvalM_env vars thy
+    val inv = get_type_inv (#2 (dest_monad_type (type_of x)))
+
+    val var_to_HOL_name = stringLib.fromMLstring o fst o dest_var
+    val HOL_names = List.map var_to_HOL_name vars
+    val bind_names = listSyntax.mk_list (HOL_names, string_ty)
+    val lemma1 = ISPECL [bind_names, inv, !(#H translator_state)] EvalM_th |> SPEC_ALL
+
+    (* Prove the assumptions *)
+    fun prove_assumption th = let
+        val a = concl th |> dest_imp |> fst
+        val a_th = prove(a,EVAL_TAC)
+    in MP th a_th end
+    val lemma2 = prove_assumption lemma1 |> prove_assumption |> UNDISCH
+    val lemma3 = MATCH_MP lemma2 (D thx)
+
+    (* Match with thy2 *)
+    val lemma4 = PURE_REWRITE_RULE [write_list_def] lemma3
+    val expr1 = concl lemma4 |> dest_imp |> fst |> strip_forall |> snd
+                      |> strip_imp |> snd |> rator |> rand |> rand
+    val expr2 = dest_abs expr1 |> snd |> rator
+    val eq = mk_eq(expr1, expr2)
+    val eq_lemma = prove(eq, irule EQ_EXT \\ rw[])
+    val lemma4 = PURE_REWRITE_RULE [eq_lemma] lemma4
+
+    val lemma5 = MY_MATCH_MP lemma4 thy2
+            |> CONV_RULE ((RATOR_CONV o RAND_CONV)
+               (SIMP_CONV list_ss []))
+            |> CONV_RULE ((RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV)
+               (SIMP_CONV list_ss [MAP]))
+            |> UNDISCH_ALL
+in check_inv "handle" tm lemma5 end
+
+and inst_EvalM_otherwise tm = let
+    val x = tm |> rator |> rand
+    val y = tm |> rand
+    val th1 = m2deep x
+    val th2 = m2deep y
+    val (th1,th2) = inst_ro th1 th2
+  fun simp_EvalM_env tm =
+    if can (match_term EvalM_pat) tm then
+        REPEATC ((PURE_ONCE_REWRITE_CONV [EvalM_Var_SIMP]) THENC (DEPTH_CONV stringLib.string_EQ_CONV) THENC (SIMP_CONV bool_ss [])) tm
+    else NO_CONV tm
+    val th2 = th2 |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
+                  |> DISCH_ALL |> Q.INST [`env`|->`write "v" i env`]
+                  |> REWRITE_RULE [Eval_Var_SIMP,lookup_cons_write]
+                  |> UNDISCH_ALL
+                  |> HYP_CONV_RULE (fn x => true) (DEPTH_CONV simp_EvalM_env)
+                  |> DISCH_ALL
+                  |> REWRITE_RULE [lookup_cons_write,lookup_var_write]
+                  |> CONV_RULE (DEPTH_CONV stringLib.string_EQ_CONV)
+                  |> REWRITE_RULE []
+                  |> REWRITE_RULE [SafeVar_def] |> D
+    val st2 = concl th2 |> dest_imp |> snd |> get_EvalM_state
+    val assums = concl th2 |> dest_imp |> fst
+    val assums_eq = mk_comb(mk_abs(st2, assums), st2) |> BETA_CONV
+    val th3 = CONV_RULE ((RATOR_CONV o RAND_CONV) (PURE_ONCE_REWRITE_CONV [GSYM assums_eq])) th2 |> Q.GEN `i` |> GEN st2
+    val th4 = CONJ (D th1) th3
+    val result = MATCH_MP (SPEC_ALL EvalM_otherwise) th4
+    val result = CONV_RULE ((RATOR_CONV o RAND_CONV) (DEPTH_CONV BETA_CONV)) result |> UNDISCH
+in result end
+
+
+(* normal function application *)
+and m2deep_normal_fun_app tm = let
+    val (f,x) = dest_comb tm
+    val thf = m2deep f |> (CONV_RULE ((RATOR_CONV o RAND_CONV o RATOR_CONV o RATOR_CONV o RAND_CONV) (PURE_REWRITE_CONV [ArrowM_def])))
+    val thf = INST_ro thf
+    val (thx,is_monad) =
+        ((hol2deep x |> MATCH_MP (ISPEC_EvalM Eval_IMP_PURE) |> D,false)
+              handle e => (D(m2deep x),true))
+    val thx = INST_ro thx
+    (* If the argument is monadic, clean it by removing Eq and EqSt*)
+    val is_var_assum = can (match_term var_assum)
+    fun is_var_lookup_eqtype_assum x =
+      can (match_term var_assum) x
+      orelse can (match_term nsLookup_assum) x
+      orelse can (match_term lookup_cons_assum) x
+      orelse can (match_term eqtype_assum) x
+    val assums = find_terms is_var_lookup_eqtype_assum (concl thx)
+    fun delete_assums tm =
+      if mem tm assums then MATCH_MP ml_monad_translatorTheory.IMP_EQ_T (ASSUME tm)
+      else NO_CONV tm
+    val thx = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assums)) thx
+    val thx = CONV_RULE ((RATOR_CONV o RAND_CONV)
+              (SIMP_CONV (srw_ss()) [CONTAINER_def, ml_translatorTheory.PRECONDITION_def])) thx
+    val thx =  MP thx TRUTH
+               handle HOL_ERR _ => failwith "normal function application"
+    val thx = force_remove_fix thx |> PURE_REWRITE_RULE[ArrowM_def]
+
+    (* Compute the result *)
+    val result = MATCH_MP (MATCH_MP EvalM_ArrowM thf
+                 |> PURE_REWRITE_RULE[ArrowM_def]) thx
+                 handle HOL_ERR _ =>
+                 MY_MATCH_MP (MATCH_MP EvalM_ArrowM thf)
+                             (MATCH_MP EvalM_Eq thx)
+                 handle HOL_ERR _ => let
+      val state_var = concl thf |> get_EvalM_state
+      val thc = PURE_REWRITE_RULE[ArrowM_def] thf |> concl
+                                 |> rator |> rand |> rator |> rand
+      val eq_state_var_opt = get_EqSt_var thc
+      in case eq_state_var_opt of NONE =>
+                                  failwith "m2deep: function application"
+         | SOME v => MY_MATCH_MP (MATCH_MP EvalM_ArrowM_EqSt
+                                           (INST [v |-> state_var] thf))
+                                 (MATCH_MP EvalM_Eq thx)
+      end
+    val result = PURE_REWRITE_RULE [GSYM ArrowM_def] result
+in result end
+
+
+and m2deep tm =
   (* variable *)
   if is_var tm then let
     (* val _ = debug_print "is_var\n" tm *)
@@ -2058,7 +2059,7 @@ fun m2deep tm =
   if can (get_pattern (!(#exn_handles translator_state))) tm then let
     (* val _ = debug_print "handle custom pattern\n" tm *)
     val (_, EvalM_th) = get_pattern (!(#exn_handles translator_state)) tm
-    val result = inst_EvalM_handle EvalM_th tm m2deep
+    val result = inst_EvalM_handle EvalM_th tm
     in check_inv "handle custom pattern" tm result end
   (* return *)
   else if can (match_term return_pat) tm then let
@@ -2080,7 +2081,7 @@ fun m2deep tm =
   (* otherwise *)
   if can (match_term otherwise_pat) tm then let
     (* val _ = debug_print "otherwise\n" tm *)
-    val result = inst_EvalM_otherwise tm m2deep
+    val result = inst_EvalM_otherwise tm
     in check_inv "otherwise" tm result end else
   (* abs *)
   if is_abs tm then let
@@ -2104,7 +2105,7 @@ fun m2deep tm =
     in check_inv "let" tm result end else
   (* data-type pattern-matching *)
   ( (* debug_print "data-type pattern-matching\n" tm; *)
-    inst_case_thm tm m2deep) handle HOL_ERR _ =>
+    inst_case_thm tm) handle HOL_ERR _ =>
   (* previously translated term for dynamic store initialisation *)
   if can lookup_dynamic_v_thm tm then let
     (* val _ = debug_print "previously translated - dynamic\n" tm *)
@@ -2228,15 +2229,27 @@ fun m2deep tm =
     val lemma = pmatch_preprocess_conv tm
     val tm = lemma |> concl |> rand
     (* HERE *)
-    val result = pmatch_m2deep tm m2deep
+    val result = pmatch_m2deep tm
     val result = result |> CONV_RULE (RATOR_CONV (RAND_CONV (RAND_CONV (K (GSYM lemma)))))
     in check_inv "pmatch_m2deep" original_tm result end else
   (* normal function applications *)
   if is_comb tm then let
     (* val _ = debug_print "normal function application\n" tm *)
-    val result = m2deep_normal_fun_app tm m2deep
+    val result = m2deep_normal_fun_app tm
     in check_inv "comb" tm result end else
   failwith ("cannot translate: " ^ term_to_string tm);
+(*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************
+*****************************************************************************)
+
+
+
+
 
 fun EvalM_P_CONV CONV tm =
   if is_imp tm then (RAND_CONV o RATOR_CONV o RAND_CONV) CONV tm
