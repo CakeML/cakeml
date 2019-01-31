@@ -153,9 +153,7 @@ fun union l1 =
 
 (****************** Term manipulations *****************)
 
-datatype term
-  = Var of int
-  | Term of string * term list
+datatype term = Var int | Term string (term list)
 
 fun vars t = case t of
     (Var n) => [n]
