@@ -1020,8 +1020,7 @@ type_d extra_checks tenv (Dexn locs cn ts)
      s := nsEmpty |>)
 
 /\ (! extra_checks tenv mn sn_opt ds decls1 decls2 decls3 tenv' tenv_sig signature.
-(DISJOINT (LIST_TO_SET decls1) (LIST_TO_SET decls2) /\
-type_ds extra_checks tenv ds (LIST_TO_SET decls1) tenv' /\
+(type_ds extra_checks tenv ds (LIST_TO_SET decls1) tenv' /\
 (get_sig tenv sn_opt (decls1, [], tenv') = SOME signature) /\
 check_sig signature tenv' /\
 sig_rename_tids signature (decls2, decls3, tenv_sig))

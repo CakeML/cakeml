@@ -1014,7 +1014,6 @@ type_d extra_checks tenv (Dexn locs cn ts)
 and
 
 dmod : forall extra_checks tenv mn sn_opt ds decls1 decls2 decls3 tenv' tenv_sig signature.
-disjoint (Set.fromList decls1) (Set.fromList decls2) &&
 type_ds extra_checks tenv ds (Set.fromList decls1) tenv' &&
 get_sig tenv sn_opt (decls1, [], tenv') = Just signature &&
 check_sig signature tenv' &&
