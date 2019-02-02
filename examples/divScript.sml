@@ -25,9 +25,7 @@ val pureloop_spec = store_thm("pureloop_spec",
   \\ simp[lprefix_lub_def]
   \\ conj_tac >- xsimpl
   \\ fs[SEP_CLAUSES]
-  \\ xlet `POSTv uv. &(uv = xv) * one (FFI_full [])`
-  >- (xvar \\ xsimpl)
-  \\ xcon \\ xsimpl);
+  \\ xvar \\ xsimpl);
 
 (* A conditionally terminating loop *)
 val _ = process_topdecs `
@@ -61,10 +59,7 @@ val oddloop_spec = store_thm("oddloop_spec",
   \\ xlet `POSTv iv2. &INT (i − &(2 * SUC j)) iv2 * one(FFI_full [])`
   >- (xapp \\ xsimpl \\ fs[ml_translatorTheory.INT_def]
       \\ intLib.COOPER_TAC)
-  \\ xlet `POSTv iv2. &INT (i − &(2 * SUC j)) iv2 * one(FFI_full [])`
-  >- (xvar \\ xsimpl)
-  \\ xcon >- (xsimpl \\ fs[ml_translatorTheory.INT_def])
-  \\ xsimpl);
+  \\ xvar \\ xsimpl \\ fs[ml_translatorTheory.INT_def]);
 
 (* A simple pure non-terminating loop *)
 

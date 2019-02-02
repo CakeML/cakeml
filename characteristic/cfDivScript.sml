@@ -14,6 +14,11 @@ val _ = new_theory "cfDiv";
 
 val _ = ml_translatorLib.translation_extends "std_prelude";
 
+
+(* -- general set up -- *)
+
+val st = ``st:'ffi semanticPrimitives$state``
+
 val POSTd_eq = store_thm("POSTd_eq",
   ``$POSTd Q r h <=> ?io1. r = Div io1 /\ Q io1 /\ emp h``,
   Cases_on `r` \\ fs [POSTd_def,POST_def,cond_def,emp_def]
@@ -22,6 +27,71 @@ val POSTd_eq = store_thm("POSTd_eq",
 fun append_prog tm = let
   val tm = QCONV EVAL tm |> concl |> rand
   in ml_translatorLib.ml_prog_update (ml_progLib.add_prog tm I) end
+
+val dest_opapp_exp_size = Q.store_thm("dest_opapp_exp_size",
+  `!tm f arg. dest_opapp tm = SOME(f,arg)
+   ==> exps_size arg < exp_size tm`,
+  ho_match_mp_tac cfNormaliseTheory.dest_opapp_ind
+  >> rw[cfNormaliseTheory.dest_opapp_def]
+  >> every_case_tac >> fs[]
+  >> rveq
+  >> fs[terminationTheory.size_abbrevs,astTheory.exp_size_def]
+  >> first_x_assum dxrule
+  >> fs[REWRITE_RULE [terminationTheory.size_abbrevs] terminationTheory.exps_size_thm,
+        SUM_APPEND]);
+
+val dest_opapp_eq_nil_IMP = Q.store_thm("dest_opapp_eq_nil_IMP",
+  `dest_opapp(exp) = SOME(f,[])
+   ==> F`,
+  Cases_on `exp` >>
+  fs[cfNormaliseTheory.dest_opapp_def] >>
+  rename1 `App op exps` >>
+  Cases_on `op` >> Cases_on `exps` >>
+  fs[cfNormaliseTheory.dest_opapp_def] >>
+  every_case_tac >> fs[] >> strip_tac);
+
+val dest_opapp_eq_single_IMP = Q.store_thm("dest_opapp_eq_single_IMP",
+  `dest_opapp(App op exps) = SOME(f,[arg])
+   ==> op = Opapp /\ exps = [f;arg]`,
+  Cases_on `op` >> Cases_on `exps` >>
+  fs[cfNormaliseTheory.dest_opapp_def] >>
+  every_case_tac >> fs[] >> strip_tac >>
+  rveq >> rename1 `dest_opapp exp` >>
+  Cases_on `exp` >> fs[cfNormaliseTheory.dest_opapp_def] >>
+  rename1 `App op exps` >>
+  Cases_on `op` >> Cases_on `exps` >>
+  fs[cfNormaliseTheory.dest_opapp_def] >>
+  every_case_tac >> fs[]);
+
+Theorem nsLookup_build_rec_env_fresh:
+  !funs env env' fname.
+    EVERY (λx. fname ≠ x) (MAP FST funs)
+    ==>
+    nsLookup(build_rec_env funs env' env.v) (Short fname) =
+    nsLookup env.v (Short fname)
+Proof
+  `∀(funs:(string # string # exp) list) funs' env env' fname.
+   EVERY (λx. fname ≠ x) (MAP FST funs) ⇒
+   nsLookup
+   (FOLDR (λ(f,x,e) env''. nsBind f (Recclosure env' (funs':(string # string # exp) list) f) env'')
+          env.v funs) (Short fname) = nsLookup env.v (Short fname)`
+    suffices_by rw[semanticPrimitivesTheory.build_rec_env_def] >>
+  Induct >> rw[semanticPrimitivesTheory.build_rec_env_def] >>
+  fs[ELIM_UNCURRY]
+QED
+
+Theorem nsLookup_alist_to_ns_fresh:
+  !l fname.
+    EVERY (λx. fname ≠ x) (MAP FST l)
+    ==>
+    nsLookup(alist_to_ns l) (Short fname) = NONE
+Proof
+  fs[namespaceTheory.alist_to_ns_def,namespaceTheory.nsLookup_def,
+     ALOOKUP_NONE,EVERY_MEM]
+QED
+
+
+(* -- tailrec -- *)
 
 val tailrec_clos = cfTacticsLib.process_topdecs `
   fun tailrec f x =
@@ -37,18 +107,6 @@ val mk_inl_def = Define `mk_inl e =
 
 val mk_inr_def = Define `mk_inr e =
   Let (SOME "x") e (Con(SOME(Short "Inr")) [Var(Short "x")])`
-
-val dest_opapp_exp_size = Q.store_thm("dest_opapp_exp_size",
-  `!tm f arg. dest_opapp tm = SOME(f,arg)
-   ==> exps_size arg < exp_size tm`,
-  ho_match_mp_tac cfNormaliseTheory.dest_opapp_ind
-  >> rw[cfNormaliseTheory.dest_opapp_def]
-  >> every_case_tac >> fs[]
-  >> rveq
-  >> fs[terminationTheory.size_abbrevs,astTheory.exp_size_def]
-  >> first_x_assum dxrule
-  >> fs[REWRITE_RULE [terminationTheory.size_abbrevs] terminationTheory.exps_size_thm,
-        SUM_APPEND]);
 
 val mk_single_app_def = tDefine "mk_single_app"
   `(mk_single_app fname allow_fname (Raise e) =
@@ -261,29 +319,6 @@ val mk_tailrec_closure_def = Define
          )
     od) /\ mk_tailrec_closure _ = NONE`
 
-val dest_opapp_eq_nil_IMP = Q.store_thm("dest_opapp_eq_nil_IMP",
-  `dest_opapp(exp) = SOME(f,[])
-   ==> F`,
-  Cases_on `exp` >>
-  fs[cfNormaliseTheory.dest_opapp_def] >>
-  rename1 `App op exps` >>
-  Cases_on `op` >> Cases_on `exps` >>
-  fs[cfNormaliseTheory.dest_opapp_def] >>
-  every_case_tac >> fs[] >> strip_tac);
-
-val dest_opapp_eq_single_IMP = Q.store_thm("dest_opapp_eq_single_IMP",
-  `dest_opapp(App op exps) = SOME(f,[arg])
-   ==> op = Opapp /\ exps = [f;arg]`,
-  Cases_on `op` >> Cases_on `exps` >>
-  fs[cfNormaliseTheory.dest_opapp_def] >>
-  every_case_tac >> fs[] >> strip_tac >>
-  rveq >> rename1 `dest_opapp exp` >>
-  Cases_on `exp` >> fs[cfNormaliseTheory.dest_opapp_def] >>
-  rename1 `App op exps` >>
-  Cases_on `op` >> Cases_on `exps` >>
-  fs[cfNormaliseTheory.dest_opapp_def] >>
-  every_case_tac >> fs[]);
-
 val mk_single_app_F_unchanged_gen = Q.prove(
   `(!fname allow_fname e e'. mk_single_app fname allow_fname e = SOME e'
                /\ allow_fname = F ==> e = e') /\
@@ -392,8 +427,6 @@ val evaluate_inr = Q.store_thm("evaluate_inr",
     ntac 2(PURE_TOP_CASE_TAC >> fs[] >> rveq) >>
     imp_res_tac evaluatePropsTheory.evaluate_length >>
     fs[quantHeuristicsTheory.LIST_LENGTH_1]);
-
-val st = ``st:'ffi semanticPrimitives$state``
 
 val evaluate_IMP_inr = Q.store_thm("evaluate_IMP_inr",
     `do_con_check env.c (SOME (Short "Inr")) 1 = T /\
@@ -564,28 +597,6 @@ val mk_single_app_NONE_evaluate_single = Q.prove(
   rpt strip_tac >>
   match_mp_tac(CONJUNCT1 mk_single_app_NONE_evaluate) >>
   simp[mk_single_app_def]);
-
-val nsLookup_build_rec_env_fresh = Q.prove(
- `!funs env env' fname.
-  EVERY (λx. fname ≠ x) (MAP FST funs)
-  ==>
-  nsLookup(build_rec_env funs env' env.v) (Short fname) =
-  nsLookup env.v (Short fname)`,
-  `∀(funs:(string # string # exp) list) funs' env env' fname.
-   EVERY (λx. fname ≠ x) (MAP FST funs) ⇒
-   nsLookup
-   (FOLDR (λ(f,x,e) env''. nsBind f (Recclosure env' (funs':(string # string # exp) list) f) env'')
-          env.v funs) (Short fname) = nsLookup env.v (Short fname)`
-    suffices_by rw[semanticPrimitivesTheory.build_rec_env_def] >>
-  Induct >> rw[semanticPrimitivesTheory.build_rec_env_def] >>
-  fs[ELIM_UNCURRY]);
-
-val nsLookup_alist_to_ns_fresh = Q.prove(
- `!l fname.
-  EVERY (λx. fname ≠ x) (MAP FST l)
-  ==>
-  nsLookup(alist_to_ns l) (Short fname) = NONE`,
-  fs[namespaceTheory.alist_to_ns_def,namespaceTheory.nsLookup_def,ALOOKUP_NONE,EVERY_MEM]);
 
 val partially_evaluates_to_def = Define `
 partially_evaluates_to fv env st [] = T /\
@@ -2121,7 +2132,7 @@ val app_opapp_intro = Q.store_thm("app_opapp_intro",
   simp[] >>
   metis_tac[]);
 
-val IMP_app_POSTd = store_thm("IMP_app_POSTd",
+val IMP_app_POSTd_old = store_thm("IMP_app_POSTd_old",
   ``mk_stepfun_closure env fname farg fbody = SOME stepv /\
     nsLookup env.c (Short "Inl") = SOME (1,TypeStamp "Inl" 4) /\
     do_con_check env.c (SOME (Short "Inr")) 1 ∧
@@ -2155,6 +2166,1443 @@ val IMP_app_POSTd = store_thm("IMP_app_POSTd",
   \\ fs [] \\ conj_tac
   THEN1 (rw [] \\ qexists_tac `Hs i` \\ fs [])
   \\ rw [] \\ fs [STAR_ASSOC]);
+
+
+(* -- repeat -- *)
+
+val repeat_clos = cfTacticsLib.process_topdecs `
+  fun repeat f x = repeat f (f x);
+  ` |> rator |> rand |> rand
+
+val repeat_body = repeat_clos |> rator |> rand |> rand |> rand |> rand
+
+val cause_type_error_def = Define `cause_type_error = App Opapp []`
+
+Theorem evaluate[simp]:
+  evaluate s env [cause_type_error] = (s,Rerr (Rabort Rtype_error))
+Proof
+  fs [terminationTheory.evaluate_def,cause_type_error_def,
+      semanticPrimitivesTheory.do_opapp_def]
+QED
+
+val then_tyerr_def = Define `then_tyerr e =
+  Let NONE e cause_type_error`;
+
+val make_single_app_def = tDefine "make_single_app"
+  `(make_single_app fname allow_fname (Raise e) =
+    do
+      e <- make_single_app fname F e;
+      SOME(Raise e)
+    od) /\
+   (make_single_app fname allow_fname (Handle e pes) =
+    do
+      e <- make_single_app fname F e;
+      pes <- make_single_appps fname allow_fname pes;
+      if allow_fname then
+        SOME(Handle (then_tyerr e) pes)
+      else
+        SOME(Handle e pes)
+    od) /\
+   (make_single_app fname allow_fname (Lit l) =
+    if allow_fname then
+      SOME(then_tyerr(Lit l))
+    else
+      SOME(Lit l)) /\
+   (make_single_app fname allow_fname (Con c es) =
+    do
+      es <- make_single_apps fname es;
+      if allow_fname then
+        SOME(then_tyerr(Con c es))
+      else
+        SOME(Con c es)
+    od
+   ) /\
+   (make_single_app fname allow_fname (Var(Short v)) =
+    if SOME v = fname then
+      NONE
+    else if allow_fname then
+      SOME(then_tyerr(Var(Short v)))
+    else
+      SOME(Var(Short v))
+   ) /\
+   (make_single_app fname allow_fname (Var v) =
+    if allow_fname then
+      SOME(then_tyerr(Var v))
+    else
+      SOME(Var v)
+   ) /\
+   (make_single_app fname allow_fname (Fun x e) =
+    let fname' = if SOME x = fname then
+                   NONE
+                 else
+                   fname
+    in
+    do
+      e <- make_single_app fname' F e;
+      if allow_fname then
+        SOME(then_tyerr(Fun x e))
+      else
+        SOME(Fun x e)
+    od
+   ) /\
+   (make_single_app fname allow_fname (Log lop e1 e2) =
+    do
+      e1 <- make_single_app fname F e1;
+      e2 <- make_single_app fname F e2;
+      if allow_fname then
+        SOME(then_tyerr(Log lop e1 e2))
+      else
+        SOME(Log lop e1 e2)
+    od
+   ) /\
+   (make_single_app fname allow_fname (If e1 e2 e3) =
+    do
+      e1 <- make_single_app fname F e1;
+      e2 <- make_single_app fname allow_fname e2;
+      e3 <- make_single_app fname allow_fname e3;
+      SOME(If e1 e2 e3)
+    od
+   ) /\
+   (make_single_app fname allow_fname (Mat e pes) =
+    do
+      e <- make_single_app fname F e;
+      pes <- make_single_appps fname allow_fname pes;
+      SOME(Mat e pes)
+    od
+   ) /\
+   (make_single_app fname allow_fname (Tannot e ty) =
+    do
+      e <- make_single_app fname allow_fname e;
+      SOME(Tannot e ty)
+    od
+   ) /\
+   (make_single_app fname allow_fname (Lannot e l) =
+    do
+      e <- make_single_app fname allow_fname e;
+      SOME(Lannot e l)
+    od
+   ) /\
+   (make_single_app fname allow_fname (Let NONE e1 e2) =
+    do
+      e1 <- make_single_app fname F e1;
+      e2 <- make_single_app fname allow_fname e2;
+      SOME(Let NONE e1 e2)
+    od) /\
+   (make_single_app fname allow_fname (Let (SOME x) e1 e2) =
+    let fname' =
+        if SOME x = fname then
+          NONE
+        else fname
+    in
+    do
+      e1 <- make_single_app fname F e1;
+      e2 <- make_single_app fname' allow_fname e2;
+      SOME(Let (SOME x) e1 e2)
+    od) /\
+   (make_single_app fname allow_fname (Letrec recfuns e) =
+    let fname' = if EXISTS ($= fname o SOME) (MAP FST recfuns)
+                 then NONE else fname
+    in
+    do
+      recfuns <- make_single_appr fname' recfuns;
+      e <- make_single_app fname' allow_fname e;
+      SOME(Letrec recfuns e)
+    od) /\
+   (make_single_app fname allow_fname (App op es) =
+      (case dest_opapp (App op es) of
+         SOME(Var(Short f),[arg]) =>
+           if SOME f = fname then
+             if allow_fname then
+               do
+                 arg <- make_single_app fname F arg;
+                 SOME arg
+               od
+             else NONE
+           else
+             do
+               arg <- make_single_app fname F arg;
+               if allow_fname then
+                 SOME(then_tyerr(App op [Var(Short f); arg]))
+               else
+                 SOME(App op [Var(Short f); arg])
+             od
+       | _ =>
+         do
+           es <- make_single_apps fname es;
+           if allow_fname then
+             SOME(then_tyerr(App op es))
+           else
+             SOME(App op es)
+         od
+      )
+   ) /\
+   (make_single_apps fname (e::es) =
+    do
+      e <- make_single_app fname F e;
+      es <- make_single_apps fname es;
+      SOME(e::es)
+    od) /\
+   (make_single_apps fname [] = SOME []) /\
+   (make_single_appps fname allow_fname ((p,e)::pes) =
+    let fname' = if EXISTS ($= fname o SOME) (pat_bindings p [])
+                 then NONE
+                 else fname
+    in
+    do
+      e <- make_single_app fname' allow_fname e;
+      pes <- make_single_appps fname allow_fname pes;
+      SOME((p,e)::pes)
+    od) /\
+   (make_single_appps fname allow_fname [] =
+    SOME []) /\
+   (make_single_appr fname ((f,x,e)::recfuns) =
+    let fname' = if SOME x = fname then NONE else fname
+    in
+    do
+      e <- make_single_app fname F e;
+      recfun <- make_single_appr fname recfuns;
+      SOME((f,x,e)::recfuns)
+    od) /\
+   (make_single_appr fname [] = SOME [])`
+  (WF_REL_TAC `inv_image $< (\x. case x of
+                                 | INL (t,x,e) => exp_size e
+                                 | INR (INL (t,es)) => exps_size es
+                                 | INR (INR (INL (t,x,pes))) => pes_size pes
+                                 | INR (INR (INR (t,recfuns))) => funs_size recfuns)` >>
+   srw_tac [ARITH_ss] [terminationTheory.size_abbrevs, astTheory.exp_size_def] >>
+   imp_res_tac dest_opapp_exp_size >>
+   fs[terminationTheory.size_abbrevs,astTheory.exp_size_def]);
+
+val make_single_app_ind = fetch "-" "make_single_app_ind"
+
+val make_stepfun_closure_def = Define
+  ` make_stepfun_closure env fname farg fbody =
+    do
+     gbody <- make_single_app (SOME fname) T fbody;
+     SOME(let benv = build_rec_env [(fname,farg,fbody)] env env.v
+          in Closure (env with v := benv) farg gbody)
+    od`
+
+val make_repeat_closure_def = Define
+  `(make_repeat_closure (Recclosure env [(fname,farg,fbody)] name2) =
+    do
+     gclosure <- make_stepfun_closure  env fname farg fbody;
+     SOME(Closure (env with <| v :=
+            (nsBind fname gclosure env.v) |>) farg
+          (App Opapp
+               [App Opapp
+                  [Letrec ^repeat_clos (Var(Short "repeat"));
+                   Var(Short fname)];
+                Var(Short farg)]
+          )
+         )
+    od) /\ make_repeat_closure _ = NONE`
+
+val make_single_app_F_unchanged_gen = Q.prove(
+  `(!fname allow_fname e e'. make_single_app fname allow_fname e = SOME e'
+               /\ allow_fname = F ==> e = e') /\
+   (!fname es es'. make_single_apps fname es = SOME es'
+               ==> es = es') /\
+   (!fname allow_fname pes pes'. make_single_appps fname allow_fname pes = SOME pes'
+               /\ allow_fname = F ==> pes = pes') /\
+   (!fname recfuns recfuns'. make_single_appr fname recfuns = SOME recfuns'
+               ==> recfuns = recfuns')
+  `,
+  ho_match_mp_tac make_single_app_ind >>
+  rw[make_single_app_def] >> fs[] >>
+  every_case_tac >> fs[] >> rfs[] >>
+  first_x_assum drule >> simp[] >>
+  imp_res_tac dest_opapp_eq_single_IMP >>
+  fs[]);
+
+val make_single_app_F_unchanged = save_thm("make_single_app_F_unchanged",
+  SIMP_RULE std_ss [] make_single_app_F_unchanged_gen);
+
+val mk_tyerr_res_def = Define `
+  mk_tyerr_res (Rerr e) = Rerr e /\
+  mk_tyerr_res r = Rerr (Rabort Rtype_error)`;
+
+Theorem evaluate_then_tyerr[simp]:
+  evaluate st env [then_tyerr e] =
+  case evaluate st env [e] of (st,res) => (st,mk_tyerr_res res)
+Proof
+  fs[terminationTheory.evaluate_def,then_tyerr_def]
+  \\ every_case_tac \\ fs [mk_tyerr_res_def]
+QED
+
+Theorem dest_opapp_not_NIL[simp]:
+  dest_opapp f <> SOME (x,[])
+Proof
+  Cases_on `f` \\ fs [dest_opapp_def]
+  \\ rename [`App op`] \\ Cases_on `op` \\ fs [dest_opapp_def]
+  \\ fs [list_case_eq,option_case_eq,pair_case_eq]
+QED
+
+Theorem make_single_app_NONE_evaluate:
+   (!fname allow_fname e e' ^st env.
+      make_single_app fname allow_fname e = SOME e' /\ allow_fname
+      /\ fname = NONE
+      ==> evaluate st env [e']
+                = case evaluate st env [e] of
+                  (st',res) => (st', mk_tyerr_res res)) /\
+   (!fname es es'.
+      make_single_apps fname es = SOME es'
+      ==> T) /\
+   (!fname allow_fname pes pes' ^st env v err_v.
+      make_single_appps fname allow_fname pes = SOME pes' /\ allow_fname
+      /\ fname = NONE
+      ==> evaluate_match st env v pes' err_v
+                = case evaluate_match st env v pes err_v of
+                  (st',res) => (st', mk_tyerr_res res)) /\
+   (!fname recfuns recfuns'.
+      make_single_appr fname recfuns = SOME recfuns'
+      ==> T)
+Proof
+  ho_match_mp_tac make_single_app_ind
+  \\ rpt conj_tac \\ simp []
+  \\ TRY (
+    rw[make_single_app_def] \\ fs []
+    \\ CASE_TAC \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs []
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ NO_TAC)
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Raise e2`]
+    \\ CASE_TAC \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs []
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Handle _ _`]
+    \\ CASE_TAC \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def] \\ rveq
+    \\ rename [`evaluate_match st2`])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`If _ _ _`]
+    \\ CASE_TAC \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def] \\ rveq
+    \\ rfs []
+    \\ fs [do_if_def,bool_case_eq] \\ fs [] \\ rveq
+    \\ rename [`evaluate st2`]
+    \\ first_x_assum (qspecl_then [`st2`,`env`] strip_assume_tac)
+    \\ first_x_assum (qspecl_then [`st2`,`env`] strip_assume_tac)
+    \\ rfs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Mat _ _`]
+    \\ CASE_TAC \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def] \\ rveq
+    \\ rename [`evaluate_match st2`]
+    \\ first_x_assum (qspecl_then [`st2`,`env`,`HD a`,`bind_exn_v`] strip_assume_tac)
+    \\ rfs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Let NONE _ _`]
+    \\ CASE_TAC \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def] \\ rveq
+    \\ pop_assum kall_tac
+    \\ rename [`evaluate st2`]
+    \\ fs [namespaceTheory.nsOptBind_def]
+    \\ first_x_assum (qspecl_then [`st2`,`env`] strip_assume_tac)
+    \\ rfs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Let (SOME _) _ _`]
+    \\ CASE_TAC \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ every_case_tac \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def] \\ rveq
+    \\ pop_assum kall_tac
+    \\ rename [`evaluate st2`]
+    \\ fs [namespaceTheory.nsOptBind_def]
+    \\ first_x_assum (qspecl_then
+         [`st2`,`env with v := nsBind x (HD a) env.v`] strip_assume_tac)
+    \\ rfs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Letrec _ _`]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ CASE_TAC \\ fs [mk_tyerr_res_def]
+    \\ CASE_TAC \\ fs [mk_tyerr_res_def] \\ rveq \\ fs [])
+  THEN1
+   (rw [] \\ rename [`App _ _`]
+    \\ Cases_on `dest_opapp (App op es)`
+    THEN1
+     (fs [make_single_app_def] \\ rveq \\ fs []
+      \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq)
+      \\ Cases_on `?f a. x = (Var(Short f),[a])`
+    \\ fs [] \\ rveq \\ fs [make_single_app_def] \\ rveq \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    THEN1
+     (qsuff_tac `es = [Var (Short f); a]` \\ fs []
+      \\ Cases_on `op` \\ fs [dest_opapp_def,list_case_eq,option_case_eq]
+      \\ fs [pair_case_eq] \\ rveq \\ fs [])
+    \\ Cases_on `x` \\ fs [] \\ rveq \\ fs []
+    \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ Cases_on `i` \\ fs [] \\ rveq \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs [list_case_eq] \\ rveq \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq)
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`(p,_)::_`]
+    \\ CASE_TAC \\ fs []
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def]
+    \\ CASE_TAC \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def]
+    \\ CASE_TAC \\ fs [] \\ rveq \\ fs [mk_tyerr_res_def])
+  \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def,make_single_app_def]
+QED
+
+val make_single_app_NONE_evaluate_exp =
+  make_single_app_NONE_evaluate |> CONJUNCT1 |> SIMP_RULE std_ss [];
+
+val part_evaluates_to_def = Define `
+  part_evaluates_to fv env st (e1,e2) =
+    case evaluate st env [e1] of
+      (st',Rval v1) =>
+        (?st'' res. evaluate st env [e2] = (st'',res) /\
+            case do_opapp [fv; HD v1] of
+              SOME(env',e3) =>
+                 if st'.clock = 0 then st'' = st' /\ res = Rerr(Rabort(Rtimeout_error))
+                 else
+                   evaluate (dec_clock st') env' [e3] = (st'',res)
+            | NONE => res = Rerr (Rabort Rtype_error))
+     | (st',Rerr (Rabort Rtype_error)) =>
+         (?res. evaluate st env [e2] = (st',res))
+     | (st',Rerr err) => evaluate st env [e2] = (st',Rerr err)`;
+
+val part_evaluates_to_match_def = Define `
+  part_evaluates_to_match fv mv err_v env st (pr1,pr2) =
+    case evaluate_match st env mv pr1 err_v of
+      (st',Rval v1) =>
+        (?st'' res. evaluate_match st env mv pr2 err_v = (st'',res) /\
+            case do_opapp [fv; HD v1] of
+                SOME(env',e3) =>
+                  if st'.clock = 0 then
+                    (st'' = st' /\ res = Rerr(Rabort(Rtimeout_error)))
+                  else
+                    evaluate (dec_clock st') env' [e3] = (st'',res)
+              | NONE => res = Rerr (Rabort Rtype_error))
+     | (st',Rerr (Rabort Rtype_error)) =>
+         (?res. evaluate_match st env mv pr2 err_v = (st',res))
+     | (st',Rerr err) => evaluate_match st env mv pr2 err_v = (st',Rerr err)`;
+
+Theorem make_single_app_SOME_evaluate:
+   (!fname allow_fname e e' ^st env f fv.
+      make_single_app fname allow_fname e = SOME e' /\ allow_fname
+      /\ fname = SOME f /\ nsLookup env.v (Short f) = SOME fv
+      ==> part_evaluates_to fv env st (e',e)) /\
+   (!fname es es'.
+      make_single_apps fname es = SOME es'
+      ==> T) /\
+   (!fname allow_fname pes pes' ^st env v err_v f fv.
+      make_single_appps fname allow_fname pes = SOME pes' /\ allow_fname
+      /\ fname = SOME f /\ nsLookup env.v (Short f) = SOME fv
+      ==> part_evaluates_to_match fv v err_v env st (pes',pes)) /\
+   (!fname recfuns recfuns'.
+      make_single_appr fname recfuns = SOME recfuns'
+      ==> T)
+Proof
+  ho_match_mp_tac make_single_app_ind
+  \\ rpt conj_tac \\ simp []
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Raise e2`]
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ fs []
+    \\ fs [part_evaluates_to_def]
+    \\ CASE_TAC \\ fs []
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ every_case_tac \\ fs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Handle _ _`]
+    \\ rveq \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ CASE_TAC \\ fs []
+    \\ Cases_on `r` \\ fs [mk_tyerr_res_def] \\ rfs []
+    \\ reverse CASE_TAC \\ fs []
+    THEN1 (every_case_tac \\ fs [])
+    \\ first_x_assum drule
+    \\ rename [`evaluate_match st2`]
+    \\ disch_then (qspecl_then [`st2`,`a`,`a`] strip_assume_tac)
+    \\ fs [part_evaluates_to_match_def])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Lit _`]
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Con _ _`]
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ IF_CASES_TAC \\ fs [mk_tyerr_res_def]
+    \\ CASE_TAC \\ fs []
+    \\ reverse CASE_TAC \\ fs [mk_tyerr_res_def]
+    THEN1 (every_case_tac \\ fs [])
+    \\ CASE_TAC \\ fs [mk_tyerr_res_def])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Var _`]
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ reverse CASE_TAC \\ fs [mk_tyerr_res_def])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Var _`]
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ reverse CASE_TAC \\ fs [mk_tyerr_res_def])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Fun _ _`]
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Log _ _ _`]
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ CASE_TAC \\ fs []
+    \\ reverse CASE_TAC \\ fs [mk_tyerr_res_def]
+    THEN1 (every_case_tac \\ fs [])
+    \\ reverse CASE_TAC \\ fs [mk_tyerr_res_def]
+    \\ reverse CASE_TAC \\ fs [mk_tyerr_res_def]
+    \\ reverse CASE_TAC \\ fs [mk_tyerr_res_def]
+    \\ Cases_on `r` \\ fs [mk_tyerr_res_def]
+    \\ every_case_tac \\ fs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`If _ _ _`] \\ rfs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ res_tac
+    \\ CASE_TAC \\ fs []
+    \\ reverse (Cases_on `r`) \\ fs []
+    THEN1 (every_case_tac \\ fs [])
+    \\ fs [do_if_def]
+    \\ IF_CASES_TAC \\ fs []
+    \\ IF_CASES_TAC \\ fs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Mat _ _`]
+    \\ rveq \\ fs [] \\ rfs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ res_tac
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ CASE_TAC \\ fs []
+    \\ reverse (Cases_on `r`) \\ fs [mk_tyerr_res_def] \\ rfs []
+    THEN1 (every_case_tac \\ fs [])
+    \\ rename [`evaluate_match st2`]
+    \\ reverse CASE_TAC \\ fs []
+    \\ first_x_assum drule
+    \\ disch_then (qspecl_then [`st2`,`HD a`,`bind_exn_v`] strip_assume_tac)
+    \\ fs [part_evaluates_to_match_def] \\ rfs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Tannot _ _`]
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Lannot _ _`]
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Let NONE _`]
+    \\ rveq \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ rfs []
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ CASE_TAC \\ fs []
+    \\ reverse (Cases_on `r`) \\ fs [mk_tyerr_res_def] \\ rfs []
+    THEN1 (every_case_tac \\ fs [])
+    \\ rename [`evaluate st2`]
+    \\ fs [namespaceTheory.nsOptBind_def]
+    \\ first_x_assum (qspecl_then [`st2`,`env`,`fv`] strip_assume_tac) \\ rfs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Let (SOME _) _`]
+    \\ rveq \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ rfs []
+    \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    \\ CASE_TAC \\ fs []
+    THEN1
+     (reverse (Cases_on `r`) \\ fs [mk_tyerr_res_def] \\ rfs []
+      THEN1 (every_case_tac \\ fs [])
+      \\ rename [`evaluate st2`]
+      \\ fs [namespaceTheory.nsOptBind_def]
+      \\ drule make_single_app_NONE_evaluate_exp \\ fs []
+      \\ CASE_TAC \\ Cases_on `r` \\ fs [mk_tyerr_res_def]
+      \\ rename [`Rerr err`]
+      \\ every_case_tac \\ fs [])
+    THEN1
+     (reverse (Cases_on `r`) \\ fs [mk_tyerr_res_def] \\ rfs []
+      THEN1 (every_case_tac \\ fs [])
+      \\ rename [`evaluate st2`]
+      \\ fs [namespaceTheory.nsOptBind_def]))
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`Letrec _`]
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ rfs []
+    \\ rveq \\ fs [] \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    THEN1
+     (IF_CASES_TAC \\ fs []
+      \\ drule make_single_app_NONE_evaluate_exp \\ fs []
+      \\ CASE_TAC \\ fs [mk_tyerr_res_def]
+      \\ Cases_on `r` \\ fs [mk_tyerr_res_def]
+      \\ every_case_tac \\ fs [])
+    \\ IF_CASES_TAC \\ fs []
+    \\ qmatch_goalsub_abbrev_tac `evaluate st env1`
+    \\ first_x_assum (qspecl_then [`st`,`env1`,`fv`] mp_tac)
+    \\ reverse impl_tac THEN1 fs []
+    \\ fs [Abbr`env1`]
+    \\ qpat_x_assum `_ = SOME fv` (fn th => fs [GSYM th])
+    \\ match_mp_tac nsLookup_build_rec_env_fresh
+    \\ last_x_assum mp_tac
+    \\ qid_spec_tac `recfuns` \\ Induct \\ fs [])
+  THEN1
+   (rw [] \\ rename [`App _ _`]
+    \\ Cases_on `dest_opapp (App op es)`
+    THEN1
+     (fs [make_single_app_def] \\ rveq \\ fs []
+      \\ fs [part_evaluates_to_def] \\ CASE_TAC \\ fs []
+      \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+      \\ Cases_on `r` \\ fs [mk_tyerr_res_def]
+      \\ every_case_tac \\ fs [])
+    \\ Cases_on `?a fn. x = (Var (Short fn),[a])`
+    THEN1
+     (fs [] \\ rveq \\ fs [make_single_app_def] \\ rveq \\ fs []
+      \\ Cases_on `op` \\ fs [dest_opapp_def,list_case_eq,option_case_eq,pair_case_eq]
+      \\ rveq \\ fs [] \\ Cases_on `fn = f` \\ fs []
+      \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+      THEN1
+       (fs [part_evaluates_to_def]
+        \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+        \\ CASE_TAC \\ fs []
+        \\ reverse (Cases_on `r`) \\ fs []
+        THEN1 (every_case_tac \\ fs [])
+        \\ CASE_TAC \\ fs []
+        \\ CASE_TAC \\ fs []
+        \\ CASE_TAC \\ fs []
+        \\ metis_tac [PAIR])
+      \\ fs [part_evaluates_to_def]
+      \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+      \\ Cases_on `evaluate st env [a]` \\ fs []
+      \\ reverse (Cases_on `r`) \\ fs [mk_tyerr_res_def]
+      THEN1 (every_case_tac \\ fs [])
+      \\ CASE_TAC \\ fs [mk_tyerr_res_def]
+      \\ CASE_TAC \\ fs [mk_tyerr_res_def]
+      \\ CASE_TAC \\ fs [mk_tyerr_res_def]
+      \\ CASE_TAC \\ fs [mk_tyerr_res_def]
+      \\ CASE_TAC \\ fs [mk_tyerr_res_def]
+      \\ rename [`mk_tyerr_res r2`] \\ Cases_on `r2` \\ fs [mk_tyerr_res_def]
+      \\ every_case_tac \\ fs [])
+    \\ fs [] \\ rveq \\ fs [make_single_app_def] \\ rveq \\ fs []
+    \\ PairCases_on `x` \\ Cases_on `x0` \\ fs []
+    \\ rveq \\ fs []
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq
+    \\ fs [part_evaluates_to_def]
+    \\ CASE_TAC \\ fs [mk_tyerr_res_def]
+    \\ CASE_TAC \\ fs [mk_tyerr_res_def]
+    \\ TRY
+     (Cases_on `i` \\ fs [list_case_eq]
+      \\ rveq \\ fs [pair_case_eq]
+      \\ rveq \\ fs [pair_case_eq])
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ fs []
+    \\ fs [pair_case_eq] \\ rveq \\ fs []
+    \\ rename [`mk_tyerr_res r2`] \\ Cases_on `r2` \\ fs [mk_tyerr_res_def]
+    \\ every_case_tac \\ fs [])
+  THEN1
+   (rw[make_single_app_def] \\ fs [] \\ rename [`(p,_)::_`]
+    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ rfs []
+    \\ rveq \\ fs [] \\ fs [part_evaluates_to_def]
+    \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+    THEN1
+     (drule make_single_app_NONE_evaluate_exp
+      \\ simp [part_evaluates_to_match_def,terminationTheory.evaluate_def]
+      \\ reverse IF_CASES_TAC \\ fs []
+      \\ reverse CASE_TAC \\ fs []
+      THEN1
+       (CASE_TAC \\ fs [mk_tyerr_res_def]
+        \\ Cases_on `r` \\ fs [mk_tyerr_res_def]
+        \\ every_case_tac \\ fs [])
+      \\ res_tac \\ fs [part_evaluates_to_match_def])
+    \\ last_x_assum drule \\ strip_tac
+    \\ simp [part_evaluates_to_match_def,terminationTheory.evaluate_def]
+    \\ reverse IF_CASES_TAC \\ fs []
+    \\ CASE_TAC \\ fs []
+    THEN1 (fs [part_evaluates_to_match_def,terminationTheory.evaluate_def])
+    \\ qmatch_goalsub_abbrev_tac `evaluate st env1`
+    \\ last_x_assum (qspecl_then [`st`,`env1`,`fv`] mp_tac)
+    \\ reverse impl_tac THEN1 fs []
+    \\ fs [Abbr`env1`]
+    \\ fs [ml_progTheory.nsLookup_nsAppend_Short,option_case_eq]
+    \\ disj1_tac
+    \\ match_mp_tac nsLookup_alist_to_ns_fresh
+    \\ imp_res_tac semanticPrimitivesPropsTheory.pmatch_extend
+    \\ rveq \\ fs []
+    \\ last_x_assum mp_tac
+    \\ qspec_tac (`pat_bindings p []`,`xs`)
+    \\ Induct \\ fs [])
+  \\ fs [make_single_app_def,part_evaluates_to_match_def]
+  \\ fs[terminationTheory.evaluate_def,mk_tyerr_res_def]
+QED
+
+val make_single_app_SOME_evaluate_exp =
+  make_single_app_SOME_evaluate |> CONJUNCT1 |> SIMP_RULE std_ss [];
+
+val make_single_app_unroll_lemma = Q.prove(
+  `!fname fbody gbody ^st st' ck1 env farg ck2 x v.
+    make_single_app (SOME fname) T fbody = SOME gbody /\
+    evaluate (^st with clock := ck1)
+               (env with
+                v :=
+                  nsBind farg x
+                    (nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                       env.v)) [gbody] =
+             (st' with clock := 0,Rval [v]) /\
+    fname ≠ farg
+    ==>
+    evaluate (^st with clock := ck1 + ck2 + 1)
+             (env with
+                  v :=
+              nsBind farg x
+                     (nsBind fname (Recclosure env [(fname,farg,fbody)] fname) env.v))
+             [fbody] =
+   evaluate (st' with clock := ck2)
+            (env with
+                 v :=
+             nsBind farg v
+                    (nsBind fname (Recclosure env [(fname,farg,fbody)] fname) env.v))
+            [fbody]`,
+  rpt strip_tac >>
+  drule make_single_app_SOME_evaluate_exp >>
+  disch_then(qspecl_then [`st with clock := ck1 + ck2 + 1`,
+    `env with v := nsBind farg x
+       (nsBind fname (Recclosure env [(fname,farg,fbody)] fname) env.v)`] mp_tac) >>
+  simp[part_evaluates_to_def] >>
+  drule evaluatePropsTheory.evaluate_add_to_clock >>
+  disch_then(qspec_then `ck2 + 1` mp_tac) >>
+  simp[evaluateTheory.dec_clock_def,do_opapp_def,
+       Once find_recfun_def] >>
+  rpt strip_tac >>
+  simp[] >> fs[build_rec_env_def]);
+
+val evaluate_repeat_diverge_lemma = Q.prove(
+  `!ck fbody gbody env env' ^st farg x v fname.
+   make_single_app (SOME fname) T fbody = SOME gbody /\
+   fname <> farg /\
+   (!ck. ?st'. evaluate_ck ck ^st
+     (env with
+      v :=
+        nsBind "x" v
+          (nsBind "f"
+             (Closure
+                (env with
+                 v :=
+                   nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                     env.v) farg gbody)
+             (build_rec_env
+                ^repeat_clos
+                (env with
+                 v :=
+                   nsBind farg x
+                     (nsBind fname
+                        (Closure
+                           (env with
+                            v :=
+                              nsBind fname
+                                (Recclosure env [(fname,farg,fbody)] fname)
+                                env.v) farg gbody) env.v))
+                env')))
+     [^repeat_body] = (st',Rerr(Rabort Rtimeout_error))) ==>
+   ?st' res2.
+       evaluate_ck ck ^st
+         (env with
+          v := nsBind farg v (build_rec_env [(fname,farg,fbody)] env env.v))
+         [fbody] = (st',Rerr(Rabort Rtimeout_error))`,
+  ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
+  pop_assum mp_tac >>
+  ntac 5 (simp[Once terminationTheory.evaluate_def]) >>
+  simp[semanticPrimitivesTheory.build_rec_env_def,semanticPrimitivesTheory.do_opapp_def,
+       Once semanticPrimitivesTheory.find_recfun_def] >>
+  simp[GSYM LEFT_EXISTS_IMP_THM] >>
+  Q.REFINE_EXISTS_TAC `SUC ck'` >>
+  simp[evaluateTheory.dec_clock_def] >>
+  reverse(Cases_on `?ck'.
+    SND(evaluate (st with clock := ck')
+                 (env with
+                  v :=
+                    nsBind farg v
+                      (nsBind fname
+                         (Recclosure env [(fname,farg,fbody)] fname) env.v))
+                 [gbody]) <> Rerr(Rabort(Rtimeout_error))`)
+  THEN1
+    (fs[] >>
+     first_x_assum(qspec_then `ck` assume_tac) >>
+     Cases_on `evaluate (st with clock := ck)
+              (env with
+               v :=
+                 nsBind farg v
+                   (nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                      env.v)) [gbody]` >>
+     fs[] >> rveq >>
+     drule make_single_app_SOME_evaluate_exp >>
+     disch_then(qspecl_then [`st with clock := ck`,`env with v :=
+              nsBind farg v
+                (nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                   env.v)`] mp_tac) >>
+     fs [] >> simp[part_evaluates_to_def]) >>
+   fs[] >>
+   Cases_on `evaluate (st with clock := ck')
+            (env with
+             v :=
+               nsBind farg v
+                 (nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                    env.v)) [gbody]` >>
+   fs[] >>
+   drule evaluatePropsTheory.evaluate_set_clock >>
+   simp[] >> disch_then(qspec_then `0` mp_tac) >>
+   simp[] >> strip_tac >>
+   drule evaluatePropsTheory.evaluate_add_to_clock >>
+   simp[] >> strip_tac >>
+   Q.REFINE_EXISTS_TAC `ck1 + extra` >>
+   simp[] >> first_x_assum kall_tac >>
+   PURE_TOP_CASE_TAC >> fs[] >> rveq >>
+   fs[LEFT_EXISTS_IMP_THM] >>
+   drule make_single_app_SOME_evaluate_exp >>
+   disch_then(qspecl_then [`st with clock := ck1`,`env with v :=
+            nsBind farg v
+              (nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                 env.v)`] mp_tac) >> fs [] >>
+   simp[part_evaluates_to_def] >>
+   strip_tac >>
+   fs[semanticPrimitivesTheory.do_opapp_def,
+      semanticPrimitivesTheory.find_recfun_def] >>
+   rveq >>
+   reverse(Cases_on `ck1 < ck`) >-
+     (disch_then kall_tac >>
+      spose_not_then strip_assume_tac >>
+      fs[NOT_LESS,LESS_EQ_EXISTS] >>
+      rename1 `ck1 = ck + ck2` >>
+      Cases_on `evaluate (st with clock := ck)
+          (env with
+           v :=
+             nsBind farg v
+               (nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                  env.v)) [fbody]` >>
+      drule evaluatePropsTheory.evaluate_add_to_clock >>
+      disch_then(qspec_then `ck2` mp_tac) >>
+      impl_tac >- fs[CLOSED_PAIR_EQ] >>
+      fs[]) >>
+   imp_res_tac evaluatePropsTheory.evaluate_length >>
+   fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+   rveq >> fs[] >> rveq >>
+   ntac 2 (simp[Once terminationTheory.evaluate_def]) >>
+   simp[namespaceTheory.nsOptBind_def,ml_progTheory.nsLookup_nsBind_compute] >>
+   simp[Once terminationTheory.evaluate_def] >>
+   imp_res_tac build_conv_check_IMP_nsLookup >>
+   simp[astTheory.pat_bindings_def,terminationTheory.pmatch_def,
+        semanticPrimitivesTheory.same_type_def,
+        semanticPrimitivesTheory.same_ctor_def] >>
+   ntac 4 (simp[Once terminationTheory.evaluate_def]) >>
+   simp[do_opapp_def,Once find_recfun_def] >>
+   simp[GSYM LEFT_EXISTS_IMP_THM] >>
+   Q.REFINE_EXISTS_TAC `extra + 2` >>
+   simp[LEFT_EXISTS_IMP_THM] >>
+   simp[evaluateTheory.dec_clock_def] >>
+   simp[Once terminationTheory.evaluate_def] >>
+   fs[do_opapp_def] >>
+   qmatch_goalsub_abbrev_tac
+     `evaluate
+       (ast with clock := _)
+       (aenv with
+         v := nsBind _ argv
+               (nsBind _ funv (build_rec_env _ (_ with v := nsBind _ argx _) aenv'))
+       )` >>
+   fs[LESS_EQ,LESS_EQ_EXISTS] >>
+   rename1 `ck = ck2 + SUC ck1` >>
+   fs[ADD1] >>
+   drule make_single_app_unroll_lemma >>
+   disch_then drule >>
+   simp[] >>
+   disch_then kall_tac >>
+   strip_tac >>
+   last_x_assum(qspec_then `ck2` mp_tac) >>
+   impl_tac >- metis_tac[ADD_SYM,ADD_ASSOC] >>
+   disch_then drule >>
+   disch_then(qspecl_then [`aenv`,`aenv'`,`ast`,`farg`,`argx`,`argv`] mp_tac) >>
+   simp[] >> simp[build_rec_env_def]);
+
+val evaluate_repeat_div_ind_lemma = Q.prove(
+  `!ck fbody gbody env env' ^st farg x v fname st' res.
+   make_single_app (SOME fname) T fbody = SOME gbody /\
+   fname <> farg /\
+   ck > 0 /\
+   evaluate_ck ck ^st
+     (env with
+      v :=
+        nsBind "x" v
+          (nsBind "f"
+             (Closure
+                (env with
+                 v :=
+                   nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                     env.v) farg gbody)
+             (build_rec_env
+                ^repeat_clos
+                (env with
+                 v :=
+                   nsBind farg x
+                     (nsBind fname
+                        (Closure
+                           (env with
+                            v :=
+                              nsBind fname
+                                (Recclosure env [(fname,farg,fbody)] fname)
+                                env.v) farg gbody) env.v))
+                env')))
+     [^repeat_body] = (st',Rerr(Rabort(Rtimeout_error))) ==>
+   ∃ck'.
+       evaluate_ck ck' ^st
+         (env with
+          v := nsBind farg v (build_rec_env [(fname,farg,fbody)] env env.v))
+         [fbody] = (st',Rerr(Rabort Rtimeout_error))`,
+  ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
+  pop_assum mp_tac >>
+  ntac 5 (simp[Once terminationTheory.evaluate_def]) >>
+  simp[semanticPrimitivesTheory.build_rec_env_def,semanticPrimitivesTheory.do_opapp_def,
+       Once semanticPrimitivesTheory.find_recfun_def] >>
+  simp[evaluateTheory.dec_clock_def] >>
+  drule make_single_app_SOME_evaluate_exp >>
+  qmatch_goalsub_abbrev_tac `evaluate ast aenv` >>
+  disch_then(qspecl_then [`ast`,`aenv`] mp_tac) >>
+  unabbrev_all_tac >> simp[ml_progTheory.nsLookup_nsBind_compute] >>
+  simp[semanticPrimitivesTheory.build_rec_env_def,part_evaluates_to_def] >>
+  qmatch_goalsub_abbrev_tac `evaluate ast aenv` >>
+  Cases_on `evaluate ast aenv [gbody]` >>
+  reverse(Cases_on `r`) >-
+    ((* Rerror *)
+     fs[] >> rpt strip_tac >> rveq >>
+     qexists_tac `ast.clock` >>
+     simp[Abbr`ast`] \\ fs []) >>
+  fs [] >> simp[] >>
+  strip_tac >>
+  imp_res_tac evaluatePropsTheory.evaluate_length >>
+  fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+  rveq >>
+  fs[] >> rveq >>
+  ntac 2(simp[Once terminationTheory.evaluate_def]) >>
+  simp[namespaceTheory.nsOptBind_def] >>
+  simp[Once terminationTheory.evaluate_def] >>
+  simp[astTheory.pat_bindings_def] >>
+  simp[terminationTheory.pmatch_def] >>
+  imp_res_tac build_conv_check_IMP_nsLookup >>
+  simp[semanticPrimitivesTheory.same_type_def,semanticPrimitivesTheory.same_ctor_def] >>
+  simp[Once terminationTheory.evaluate_def] >>
+  simp[astTheory.pat_bindings_def] >>
+  simp[terminationTheory.pmatch_def] >>
+  simp[terminationTheory.evaluate_def] >>
+  simp[semanticPrimitivesTheory.do_opapp_def,Once semanticPrimitivesTheory.find_recfun_def] >>
+  IF_CASES_TAC >-
+    (strip_tac >> fs[Abbr `ast`,do_opapp_def,Once find_recfun_def] >>
+     asm_exists_tac >> simp[]) >>
+  simp[Once terminationTheory.evaluate_def] >>
+  qpat_x_assum `evaluate _ _ [gbody] = _` assume_tac >>
+  drule evaluatePropsTheory.evaluate_set_clock >>
+  simp[] >>
+  disch_then(qspec_then `0` strip_assume_tac) >>
+  drule make_single_app_SOME_evaluate_exp >>
+  disch_then(qspecl_then [`ast with clock := ck1`,`aenv`] mp_tac) >>
+  unabbrev_all_tac >> simp[] >>
+  simp[semanticPrimitivesTheory.build_rec_env_def,part_evaluates_to_def] >>
+  simp[do_opapp_def,Once find_recfun_def] >> strip_tac >>
+  rfs [] >>
+  IF_CASES_TAC >-
+    (fs[evaluateTheory.dec_clock_def] >>
+     strip_tac >> rveq >>
+     qexists_tac `ck1` >>
+     simp[semanticPrimitivesTheory.state_component_equality]) >>
+  simp[evaluateTheory.dec_clock_def] >>
+  qmatch_goalsub_abbrev_tac `_ with clock := ack` >>
+  Cases_on `ack = 0` >-
+    (rveq >> simp[terminationTheory.evaluate_def,do_opapp_def] >>
+     strip_tac >> rveq >> qexists_tac `ck1` >>
+     simp[semanticPrimitivesTheory.state_component_equality]) >>
+  `ack < ck`
+    by(imp_res_tac terminationTheory.evaluate_clock >> fs[Abbr `ack`]) >>
+  strip_tac >>
+  drule make_single_app_unroll_lemma >> simp[] >>
+  disch_then drule >>
+  simp[] >>
+  strip_tac >>
+  Q.REFINE_EXISTS_TAC `ck1 + (more_clock + 1)` >>
+  simp[] >> pop_assum kall_tac >>
+  first_x_assum drule >>
+  disch_then drule >>
+  simp[build_rec_env_def] >>
+  disch_then match_mp_tac >>
+  simp[] >>
+  asm_exists_tac >> first_x_assum ACCEPT_TAC);
+
+val evaluate_repeat_div_ind_lemma2 = Q.prove(
+  `!ck fbody gbody env env' ^st farg x v fname st' res.
+   make_single_app (SOME fname) T fbody = SOME gbody /\
+   fname <> farg /\
+   evaluate_ck ck ^st
+         (env with
+          v := nsBind farg v (build_rec_env [(fname,farg,fbody)] env env.v))
+         [fbody] = (st',Rerr(Rabort(Rtimeout_error))) ==>
+   ?ck res2. evaluate_ck ck ^st
+     (env with
+      v :=
+        nsBind "x" v
+          (nsBind "f"
+             (Closure
+                (env with
+                 v :=
+                   nsBind fname (Recclosure env [(fname,farg,fbody)] fname)
+                     env.v) farg gbody)
+             (build_rec_env
+                ^repeat_clos
+                (env with
+                 v :=
+                   nsBind farg x
+                     (nsBind fname
+                        (Closure
+                           (env with
+                            v :=
+                              nsBind fname
+                                (Recclosure env [(fname,farg,fbody)] fname)
+                                env.v) farg gbody) env.v))
+                env')))
+     [^repeat_body] = (st',Rerr(Rabort res2)) /\
+     (res2 <> Rtimeout_error ==> res2 = Rtype_error)`,
+  ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
+  Q.REFINE_EXISTS_TAC `ck' + 1` >>
+  ntac 5 (simp[Once terminationTheory.evaluate_def]) >>
+  simp[semanticPrimitivesTheory.build_rec_env_def,semanticPrimitivesTheory.do_opapp_def,
+       Once semanticPrimitivesTheory.find_recfun_def] >>
+  simp[evaluateTheory.dec_clock_def] >>
+  pop_assum mp_tac >>
+  drule make_single_app_SOME_evaluate_exp >>
+  qmatch_goalsub_abbrev_tac `evaluate ast aenv` >>
+  disch_then(qspecl_then [`ast`,`aenv`] mp_tac) >>
+  unabbrev_all_tac >> simp[ml_progTheory.nsLookup_nsBind_compute] >>
+  simp[semanticPrimitivesTheory.build_rec_env_def,part_evaluates_to_def] >>
+  qmatch_goalsub_abbrev_tac `evaluate ast aenv` >>
+  ntac 2 strip_tac >> fs [] >>
+  Cases_on `evaluate ast aenv [gbody]` >> fs [] >>
+  reverse(Cases_on `r`) >-
+    ((* Rerror *)
+     fs[] >> rpt strip_tac >> rveq >>
+     qexists_tac `ast.clock` >>
+     simp[Abbr`ast`] >>
+     Cases_on `e` >> fs [] >>
+     Cases_on `a` >> fs []) >>
+  fs [] >>
+  imp_res_tac evaluatePropsTheory.evaluate_length >>
+  fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+  rveq >>
+  qpat_x_assum `evaluate _ _ [gbody] = _` assume_tac >>
+  drule evaluatePropsTheory.evaluate_set_clock >>
+  disch_then(qspec_then `0` mp_tac) >>
+  impl_tac >- simp[] >>
+  strip_tac >>
+  Q.REFINE_EXISTS_TAC `ck1 + extra` >>
+  qunabbrev_tac `ast` >>
+  drule evaluatePropsTheory.evaluate_add_to_clock >>
+  simp[] >> disch_then kall_tac >>
+  ntac 2(simp[Once terminationTheory.evaluate_def]) >>
+  simp[namespaceTheory.nsOptBind_def] >>
+  simp[Once terminationTheory.evaluate_def] >>
+  Q.REFINE_EXISTS_TAC `extra + 2` >>
+  simp[Once terminationTheory.evaluate_def] >>
+  simp[terminationTheory.evaluate_def] >>
+  simp[semanticPrimitivesTheory.do_opapp_def,Once semanticPrimitivesTheory.find_recfun_def] >>
+  simp[Once terminationTheory.evaluate_def] >>
+  simp[evaluateTheory.dec_clock_def] >> fs [] >>
+  fs [EVAL ``do_opapp [Recclosure env [(fname,farg,fbody)] fname; e1]``] >>
+  Cases_on `q.clock = 0` \\ fs [] \\ rveq \\ fs [] >-
+   (qexists_tac `0` \\ fs []
+    \\ ntac 5 (simp[Once terminationTheory.evaluate_def])
+    \\ fs [do_opapp_def,evaluateTheory.dec_clock_def]
+    \\ fs [state_component_equality]) >>
+  first_x_assum(match_mp_tac o MP_CANON) >>
+  fs[evaluateTheory.dec_clock_def,build_rec_env_def] >>
+  HINT_EXISTS_TAC >> simp[] >>
+  imp_res_tac terminationTheory.evaluate_clock >> fs[]);
+
+val make_repeat_closure_sound_basic = Q.store_thm("make_repeat_closure_sound_basic",
+  `!fv env .
+     make_repeat_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
+     /\ fname <> farg
+     /\ app_basic (p:'ffi ffi_proj) fv x H ($POSTd Q)
+     ==> app_basic p (Recclosure env [(fname,farg,fbody)] fname) x H ($POSTd Q)`,
+  rw[make_repeat_closure_def,make_stepfun_closure_def,app_basic_def] >>
+  first_x_assum drule >>
+  disch_then drule >>
+  strip_tac >>
+  asm_exists_tac >> fs[semanticPrimitivesTheory.do_opapp_def] >>
+  simp[semanticPrimitivesTheory.find_recfun_def] >>
+  asm_exists_tac >>
+  asm_exists_tac >>
+  simp[] >> rveq >> Cases_on `r` >>
+  fs [POSTd_def,cond_def] >> rveq \\ fs [] >>
+  fs[evaluate_to_heap_def] >>
+  rename1 `lprefix_lub` >>
+  conj_asm1_tac >-
+    (strip_tac >>
+     qpat_x_assum `!ck. ?st. _` mp_tac >>
+     simp[GSYM LEFT_EXISTS_IMP_THM] >>
+     Q.REFINE_EXISTS_TAC `ck1 + 2` >>
+     simp[LEFT_EXISTS_IMP_THM] >>
+     simp[evaluate_ck_def] >>
+     ntac 8 (simp[Once terminationTheory.evaluate_def]) >>
+     simp[build_rec_env_def,ml_progTheory.nsLookup_nsBind_compute,do_opapp_def,
+          Once find_recfun_def] >>
+     simp[Once evaluateTheory.dec_clock_def] >>
+     simp[Once terminationTheory.evaluate_def] >>
+     simp[evaluateTheory.dec_clock_def] >>
+     strip_tac >>
+     match_mp_tac (SIMP_RULE (srw_ss())
+                     [semanticPrimitivesTheory.build_rec_env_def,
+                      evaluate_ck_def]
+                     evaluate_repeat_diverge_lemma) >>
+     asm_exists_tac >> simp[] >>
+     metis_tac []) >>
+  qmatch_asmsub_abbrev_tac `lprefix_lub (IMAGE f _)` >>
+  `!i. LPREFIX(f i) (f (i + 1))`
+    by(rw[Abbr`f`,LPREFIX_fromList,from_toList] >>
+       simp[evaluate_ck_def] >>
+       `st with clock := i + 1 = (st with clock := i) with clock := (st with clock := i).clock + 1`
+         by(simp[semanticPrimitivesTheory.state_component_equality]) >>
+       metis_tac[evaluatePropsTheory.io_events_mono_def,
+                 evaluatePropsTheory.evaluate_add_to_clock_io_events_mono]) >>
+  drule(GEN_ALL lprefix_lub_unskip) >>
+  simp[SimpR ``$==>``, lprefix_lub_def] >>
+  strip_tac >>
+  conj_tac >-
+    (pop_assum(qspecl_then [`l`,`\ck. ck + 2`] mp_tac) >>
+     simp[] >>
+     impl_tac >- simp[ETA_THM] >>
+     qhdtm_x_assum `lprefix_lub` kall_tac >> strip_tac >>
+     qunabbrev_tac `f` >>
+     rpt strip_tac >>
+     fs[lprefix_lub_def] >>
+     first_x_assum match_mp_tac >>
+     rveq >>
+     qmatch_goalsub_abbrev_tac `evaluate_ck ck ast aenv aexp` >>
+     Cases_on `evaluate_ck ck ast aenv aexp` >>
+     simp[evaluate_ck_def] >>
+     ntac 8 (simp[Once terminationTheory.evaluate_def]) >>
+     simp[semanticPrimitivesTheory.build_rec_env_def,
+          do_opapp_def, Once find_recfun_def,evaluateTheory.dec_clock_def] >>
+     simp[Once terminationTheory.evaluate_def] >>
+     drule evaluate_repeat_div_ind_lemma2 >>
+     rpt(disch_then drule) >>
+     disch_then(qspec_then `ck` mp_tac) >> simp[Abbr `aexp`] >>
+     unabbrev_all_tac >>
+     qpat_x_assum `!ck. ?st. evaluate_ck _ _ _ _ = _`(qspec_then `ck` assume_tac) >>
+     fs[] >> rveq >> disch_then drule >>
+     simp[evaluate_ck_def,build_rec_env_def] >>
+     metis_tac[FST]) >>
+  pop_assum(qspecl_then [`l`,`\ck. ck + 3`] mp_tac) >>
+  simp[] >>
+  impl_tac >- simp[ETA_THM] >>
+  qhdtm_x_assum `lprefix_lub` kall_tac >> strip_tac >>
+  qunabbrev_tac `f` >>
+  fs[lprefix_lub_def] >>
+  rpt strip_tac >> last_x_assum match_mp_tac >>
+  rpt strip_tac >> first_x_assum match_mp_tac >>
+  rveq >>
+  qmatch_goalsub_abbrev_tac `evaluate_ck (ck + 3) ast aenv aexp` >>
+  Cases_on `evaluate_ck (ck + 3) ast aenv aexp` >>
+  qpat_assum `!ck. ?st'. evaluate_ck ck ast aenv aexp = _`
+    (qspec_then `ck + 3` strip_assume_tac) >>
+  fs[] >> rveq >>
+  pop_assum mp_tac >> unabbrev_all_tac >>
+  simp[evaluate_ck_def] >>
+  ntac 8 (simp[Once terminationTheory.evaluate_def]) >>
+  simp[semanticPrimitivesTheory.build_rec_env_def,
+       do_opapp_def, Once find_recfun_def,evaluateTheory.dec_clock_def] >>
+  simp[Once terminationTheory.evaluate_def] >>
+  strip_tac >>
+  drule evaluate_repeat_div_ind_lemma >>
+  rpt(disch_then drule) >>
+  disch_then(qspec_then `i + 1` mp_tac) >> simp[] >>
+  simp[build_rec_env_def] >>
+  simp[evaluate_ck_def] >>
+  disch_then drule >>
+  strip_tac >>
+  rename1 `evaluate (_ with clock := newclock)` >>
+  qexists_tac `newclock` >>
+  simp[]);
+
+Theorem make_repeat_closure_sound:
+  !fv env .
+    make_repeat_closure(Recclosure env [(fname,farg,fbody)] fname) = SOME fv
+    /\ fname <> farg
+    /\ app p fv [x] H ($POSTd Q)
+    ==> app p (Recclosure env [(fname,farg,fbody)] fname) [x] H ($POSTd Q)
+Proof
+  metis_tac[make_repeat_closure_sound_basic,app_def]
+QED;
+
+val some_repeat_clos_def = Define `
+  some_repeat_clos env = Recclosure env ^repeat_clos "repeat"`;
+
+fun rename_conv s tm =
+  let
+    val (v,body) = dest_abs tm
+  in ALPHA_CONV (mk_var(s,type_of v)) tm end;
+
+val get_index_def = Define `
+  get_index st states i = if i = 0:num then (i,st) else
+                            (i, states (get_index st states (i-1)))`
+
+val FFI_full_IN_st2heap_IMP = store_thm("FFI_full_IN_st2heap_IMP",
+  ``FFI_full io ∈ st2heap p s ==> s.ffi.io_events = io``,
+  strip_tac \\ fs [st2heap_def]
+  THEN1 fs [store2heap_def,FFI_full_NOT_IN_store2heap_aux]
+  \\ Cases_on `p` \\ fs [ffi2heap_def]
+  \\ Cases_on `parts_ok s.ffi (q,r)` \\ fs []);
+
+val let_a = repeat_clos |> rator |> rand |> rand |> rand |> rand
+
+val evaluate_ck_timeout_error_IMP = store_thm("evaluate_ck_timeout_error_IMP",
+  ``evaluate_ck ck st env exps = (st1,Rerr (Rabort Rtimeout_error)) /\
+    ck0 <= ck ==>
+    ?st2. evaluate_ck ck0 st env exps = (st2,Rerr (Rabort Rtimeout_error))``,
+  rw [] \\ CCONTR_TAC \\ fs []
+  \\ fs [evaluate_ck_def]
+  \\ Cases_on `evaluate (st with clock := ck0) env exps` \\ fs []
+  \\ drule evaluatePropsTheory.evaluate_add_to_clock \\ fs []
+  \\ qexists_tac `ck-ck0` \\ fs []);
+
+val repeat_POSTd = store_thm("repeat_POSTd",
+  ``!p env fv xv H Q.
+      (?Hs events vs io.
+         vs 0 = xv /\ H ==>> Hs 0 /\
+         (!i. ?P. Hs i = P * one (FFI_full (events i))) /\
+         (!i.
+            (app p fv [vs i] (Hs i)
+                             (POSTv v'. &(v' = vs (SUC i)) * Hs (SUC i)))) /\
+         lprefix_lub (IMAGE (fromList o events) UNIV) io /\
+         Q io)
+      ==>
+      app p (some_repeat_clos env) [fv; xv] H ($POSTd Q)``,
+  rpt strip_tac
+  \\ rw [app_def, app_basic_def]
+  \\ fs [some_repeat_clos_def,do_opapp_def,Once find_recfun_def]
+  \\ fs [POSTv_eq,PULL_EXISTS,SEP_EXISTS_THM,cond_STAR]
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ simp [Once evaluate_to_heap_def]
+  \\ fs [evaluate_ck_def,terminationTheory.evaluate_def,PULL_EXISTS,
+         cfStoreTheory.st2heap_clock]
+  \\ `SPLIT3 (st2heap p st) (h_i,h_k,EMPTY)` by fs [SPLIT3_def,SPLIT_def]
+  \\ asm_exists_tac \\ fs []
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ rpt strip_tac
+  \\ rename [`SPLIT (st2heap p st1) (h_j,h_l)`]
+  \\ qexists_tac `Div io`
+  \\ fs [POSTd_eq] \\ fs [emp_def]
+  \\ qexists_tac `UNIV DIFF h_l`
+  \\ qexists_tac `UNIV`
+  \\ conj_tac THEN1 fs [SPLIT3_def,IN_DISJOINT,EXTENSION]
+  \\ fs [evaluate_to_heap_def]
+  \\ fs [app_def,app_basic_def,POSTv_eq,PULL_EXISTS]
+  \\ fs [evaluate_to_heap_def,PULL_EXISTS,cond_STAR]
+  \\ qabbrev_tac `assert_Hs = \i st.
+                    ?h_i h_k. SPLIT (st2heap p st) (h_i,h_k) /\ Hs i h_i`
+  \\ `!i st0.
+        assert_Hs i st0 ==>
+        ?env exp ck st1.
+          assert_Hs (i+1) st1 /\
+          do_opapp [fv; vs i] = SOME (env,exp) /\
+          evaluate_ck ck st0 env [exp] = (st1,Rval [vs (i+1)]) /\
+          st1.clock = 0` by
+   (fs [Abbr`assert_Hs`,PULL_EXISTS] \\ rpt strip_tac
+    \\ first_assum drule \\ disch_then drule
+    \\ strip_tac \\ fs [ADD1]
+    \\ fs [evaluate_ck_def]
+    \\ drule evaluatePropsTheory.evaluate_set_clock
+    \\ disch_then (qspec_then `0` mp_tac) \\ strip_tac \\ fs []
+    \\ qexists_tac `ck1` \\ fs [cfStoreTheory.st2heap_clock]
+    \\ rename [`SPLIT3 (st2heap p st4) (h1,h2,h3)`]
+    \\ qexists_tac `h1` \\ fs []
+    \\ qexists_tac `h2 UNION h3` \\ fs []
+    \\ fs [SPLIT3_def,SPLIT_def,IN_DISJOINT,AC UNION_COMM UNION_ASSOC]
+    \\ metis_tac [])
+  \\ `!x. ?ck st1. let (i,st0) = x in
+            assert_Hs i st0 ==>
+            ?env exp.
+              assert_Hs (i+1) st1 /\
+              do_opapp [fv; vs i] = SOME (env,exp) /\
+              evaluate_ck ck st0 env [exp] = (st1,Rval [vs (i+1)]) /\
+              st1.clock = 0` by (fs [FORALL_PROD] \\ metis_tac [])
+  \\ pop_assum mp_tac
+  \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [SKOLEM_THM]))
+  \\ simp []
+  \\ fs [FORALL_PROD]
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rr") (rename_conv "clocks"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrar") (rename_conv "states"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrarar") (rename_conv "i"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrararar") (rename_conv "st0"))
+  \\ strip_tac
+  \\ qabbrev_tac `get_i = get_index st1 states`
+  \\ qabbrev_tac `cks = clocks o get_i`
+  \\ qabbrev_tac `sts = \i.
+                    if i = 0 then st1 else states (get_index st1 states (i-1))`
+  \\ `∀i.
+        ∃env exp.
+            do_opapp [fv; vs i] = SOME (env,exp) ∧
+            evaluate_ck (cks i) (sts i) env [exp] =
+            (sts (i+1),Rval [vs (i + 1)]) ∧
+            (sts (i+1)).clock = 0 ∧
+            assert_Hs i (sts i) ∧ assert_Hs (i+1) (sts (i+1))` by
+    (Induct THEN1
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+       \\ `assert_Hs 0 st1` by
+         (fs [Abbr`assert_Hs`] \\ asm_exists_tac \\ fs [SEP_IMP_def])
+       \\ fs [] \\ once_rewrite_tac [get_index_def] \\ fs []
+       \\ first_x_assum drule \\ strip_tac \\ fs [])
+     \\ fs [ADD1]
+     \\ first_x_assum drule
+     \\ strip_tac \\ fs []
+     \\ `(states (i + 1,sts (i + 1))) = sts (i+2)` by
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+       \\ once_rewrite_tac [EQ_SYM_EQ]
+       \\ simp [Once get_index_def])
+     \\ `clocks (i + 1,sts (i + 1)) = cks (i+1)` by
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+       \\ once_rewrite_tac [EQ_SYM_EQ]
+       \\ simp [Once get_index_def])
+     \\ fs [])
+  \\ qabbrev_tac `cks_sum = \i. SUM (GENLIST cks i) + 3 * i`
+  \\ qabbrev_tac `nth_env = \i. (env with
+               v :=
+                 nsBind "x" (vs i)
+                   (nsBind "f" fv
+                      (build_rec_env ^repeat_clos env env.v)))`
+  \\ `(env with v :=
+                 nsBind "x" (vs 0)
+                   (nsBind "f" fv
+                      (build_rec_env ^repeat_clos env env.v))) = nth_env 0`
+        by fs [Abbr `nth_env`] \\ fs [] \\ pop_assum kall_tac
+  \\ qabbrev_tac `body = ^let_a`
+  \\ `(∀i n.
+         i <= n ==>
+         ∃st'.
+            evaluate_ck (cks_sum n - cks_sum i) (sts i) (nth_env i) [body] =
+              (st',Rerr (Rabort Rtimeout_error)) /\
+            st'.ffi.io_events = events n)` by
+   (completeInduct_on `n-i:num` \\ rw []
+    \\ fs [PULL_FORALL] \\ Cases_on `n = i` \\ fs [] \\ rveq
+    THEN1
+     (simp [Once terminationTheory.evaluate_def,Abbr `body`,evaluate_ck_def]
+      \\ simp [Once terminationTheory.evaluate_def,Abbr `nth_env`]
+      \\ ntac 4 (simp [Once terminationTheory.evaluate_def])
+      \\ first_x_assum (qspec_then `i` mp_tac) \\ rw [] \\ fs []
+      \\ qunabbrev_tac `assert_Hs` \\ fs []
+      \\ last_x_assum (qspec_then `i` mp_tac)
+      \\ rw [] \\ fs [] \\ fs [STAR_def,one_def,SPLIT_def,EXTENSION]
+      \\ match_mp_tac FFI_full_IN_st2heap_IMP \\ metis_tac [])
+    \\ simp [Once terminationTheory.evaluate_def,Abbr `body`,evaluate_ck_def]
+    \\ simp [Once terminationTheory.evaluate_def,Abbr `nth_env`]
+    \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
+    \\ qpat_x_assum `!i. ?x. _`(qspec_then `i` mp_tac) \\ rw [] \\ fs []
+    \\ `cks_sum i + 3 + cks i <= cks_sum n` by
+     (fs [Abbr`cks_sum`]
+      \\ `SUC i <= n` by fs []
+      \\ pop_assum mp_tac
+      \\ simp [Once LESS_EQ_EXISTS] \\ rw [ADD1,LEFT_ADD_DISTRIB] \\ fs []
+      \\ qsuff_tac `SUM (GENLIST cks i) + cks i <= SUM (GENLIST cks (i + (p' + 1)))`
+      THEN1 fs [] \\ fs [GSYM SUM_GENLIST_SUC]
+      \\ match_mp_tac SUM_GENLIST_LESS_EQ \\ fs [])
+    \\ simp [evaluateTheory.dec_clock_def,namespaceTheory.nsOptBind_def]
+    \\ fs [evaluate_ck_def]
+    \\ drule evaluatePropsTheory.evaluate_add_to_clock \\ fs []
+    \\ disch_then (qspec_then `(cks_sum n − (cks_sum i + 1)) - cks i` mp_tac)
+    \\ `cks_sum n − (cks_sum i + 1) − cks i + cks i =
+        cks_sum n − (cks_sum i + 1)` by fs [] \\ fs []
+    \\ disch_then kall_tac
+    \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
+    \\ fs [astTheory.pat_bindings_def]
+    \\ fs [terminationTheory.pmatch_def,same_ctor_def,same_type_def]
+    \\ fs [build_rec_env_def]
+    \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
+    \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
+    \\ simp [Once terminationTheory.evaluate_def]
+    \\ simp [do_opapp_def,Once find_recfun_def]
+    \\ simp [Once terminationTheory.evaluate_def]
+    \\ fs [evaluateTheory.dec_clock_def]
+    \\ `(cks i + (cks_sum i + 3)) = cks_sum (i+1)` by
+     (fs [Abbr`cks_sum`,GSYM ADD1] \\ fs [GENLIST]
+      \\ fs [SNOC_APPEND,SUM_APPEND])
+    \\ fs [AND_IMP_INTRO,build_rec_env_def])
+  \\ pop_assum (qspec_then `0` mp_tac)
+  \\ fs [Abbr `sts`] \\ strip_tac
+  \\ `cks_sum 0 = 0` by fs [Abbr `cks_sum`] \\ fs []
+  \\ conj_tac
+  THEN1
+   (rw [] \\ first_assum (qspec_then `ck` mp_tac)
+    \\ strip_tac \\ imp_res_tac evaluate_ck_timeout_error_IMP
+    \\ pop_assum match_mp_tac
+    \\ unabbrev_all_tac \\ fs [GENLIST_CONS])
+  \\ ho_match_mp_tac (GEN_ALL lprefix_lub_skip)
+  \\ qexists_tac `cks_sum`
+  \\ fs [llistTheory.LPREFIX_fromList,llistTheory.from_toList]
+  \\ rw []
+  THEN1
+   (fs [evaluate_ck_def]
+    \\ qspecl_then [`st1 with clock := ck`,`nth_env 0`,`[body]`,`1`] mp_tac
+         (evaluatePropsTheory.evaluate_add_to_clock_io_events_mono
+          |> CONJUNCT1 |> INST_TYPE [``:'ffi``|->``:'a``])
+    \\ fs [evaluatePropsTheory.io_events_mono_def])
+  THEN1
+   (fs [Abbr`cks_sum`]
+    \\ qsuff_tac `SUM (GENLIST cks ck) <= SUM (GENLIST cks (ck + 1))` THEN1 fs []
+    \\ match_mp_tac SUM_GENLIST_LESS_EQ \\ fs [])
+  \\ qpat_x_assum `lprefix_lub _ io` mp_tac
+  \\ match_mp_tac (METIS_PROVE []
+       ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
+  \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
+  \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []);
+
+val IMP_app_POSTd = store_thm("IMP_app_POSTd",
+  ``make_stepfun_closure env fname farg fbody = SOME stepv /\
+    fname ≠ farg ∧
+    (∃Hs events vs io.
+         vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_full (events 0)) ∧
+         (∀i.
+              app p stepv [vs i] (Hs i * one (FFI_full (events i)))
+                (POSTv v'. &(v' = vs (SUC i)) *
+                           Hs (SUC i) * one (FFI_full (events (SUC i))))) ∧
+         lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
+    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
+  strip_tac
+  \\ match_mp_tac make_repeat_closure_sound \\ fs []
+  \\ fs [make_repeat_closure_def]
+  \\ rveq \\ fs [] \\ rveq \\ fs []
+  \\ match_mp_tac app_opapp_intro
+  \\ fs [terminationTheory.evaluate_def,build_rec_env_def]
+  \\ fs [GSYM some_repeat_clos_def]
+  \\ match_mp_tac (GEN_ALL repeat_POSTd) \\ fs []
+  \\ qexists_tac `\i. Hs i * one (FFI_full (events i))`
+  \\ qexists_tac `events`
+  \\ qexists_tac `vs`
+  \\ qexists_tac `io`
+  \\ fs [] \\ conj_tac
+  THEN1 (rw [] \\ qexists_tac `Hs i` \\ fs [])
+  \\ rw [] \\ fs [STAR_ASSOC]);
+
+
+(* -- old repeat approach -- *)
 
 val _ = (append_prog o cfTacticsLib.process_topdecs)
   `fun repeat f x = repeat f (f x);`

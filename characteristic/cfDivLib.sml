@@ -14,19 +14,14 @@ fun xcf_div name st =
     \\ simp[f_def]
     \\ match_mp_tac(GEN_ALL IMP_app_POSTd)
     (* TODO: we could look at the goal state and generate a fresh name instead*)
-    \\ qmatch_goalsub_abbrev_tac `mk_stepfun_closure highly_improbable_name`
+    \\ qmatch_goalsub_abbrev_tac `make_stepfun_closure highly_improbable_name`
     \\ CONV_TAC(QUANT_CONV(PATH_CONV "l" EVAL))
     \\ qunabbrev_tac `highly_improbable_name`
     \\ qmatch_goalsub_abbrev_tac `highly_improbable_name = _`
     \\ qexists_tac `highly_improbable_name`
     \\ conj_tac >- MATCH_ACCEPT_TAC(Q.REFL `highly_improbable_name`)
+    \\ conj_tac >- EVAL_TAC
     \\ qunabbrev_tac `highly_improbable_name`
-    \\ conj_tac >- EVAL_TAC
-    \\ conj_tac >- EVAL_TAC
-    \\ conj_tac >- (EVAL_TAC >> simp[])
-    \\ conj_tac >- (EVAL_TAC >> simp[])
-    \\ conj_tac >- (EVAL_TAC >> simp[])
-    \\ conj_tac >- (EVAL_TAC >> simp[])
     \\ CONV_TAC(STRIP_QUANT_CONV(PATH_CONV "rrl" (DEPTH_CONV naryClosure_repack_conv)))
     \\ CONSEQ_CONV_TAC(
           DEPTH_CONSEQ_CONV(
