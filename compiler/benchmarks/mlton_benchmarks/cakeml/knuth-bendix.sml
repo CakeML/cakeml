@@ -45,7 +45,7 @@ structure Main =
 
 (******* Quelques definitions du prelude CAML **************)
 
-    exception Failure of string;
+    exception Failure string;
 
     fun failwith s = raise(Failure s)
 

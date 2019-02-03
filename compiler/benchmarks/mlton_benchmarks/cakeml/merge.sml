@@ -1,5 +1,5 @@
 (* Written by Stephen Weeks (sweeks@sweeks.com). *)
-exception Fail of string;
+exception Fail string;
 
 fun merge (l1: int list, l2) =
    case (l1, l2) of

@@ -15,7 +15,7 @@
  *)
 fun print _ = ()
 
-exception Fail of string
+exception Fail string
 
 
 fun doo(max: int, f: int -> unit) =

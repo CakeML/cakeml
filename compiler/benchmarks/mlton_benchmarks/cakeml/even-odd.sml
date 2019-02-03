@@ -1,5 +1,5 @@
 fun abs i = if i < 0 then ~i else i
-exception Fail of string
+exception Fail string
 
 fun even' i = case i of
     0 => True

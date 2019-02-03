@@ -5,7 +5,7 @@ structure Main =
         [] => []
       | (a::x) => f a :: map f x
 
-    exception Ex_undefined of string
+    exception Ex_undefined string
     fun error str = raise Ex_undefined str
 
     fun accumulate f = let

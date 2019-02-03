@@ -1,5 +1,5 @@
 (* Written by Stephen Weeks (sweeks@sweeks.com). *)
-exception Fail of string;
+exception Fail string;
 
 structure Main =
    struct
