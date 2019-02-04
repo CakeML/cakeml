@@ -3100,17 +3100,6 @@ Theorem LESS_LENGTH
   \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
   \\ srw_tac [] [ADD1]);
 
-(* TODO - candidate for move to HOL *)
-Theorem BAG_ALL_DISTINCT_SUB_BAG
-  `∀s t.  s ≤ t ∧ BAG_ALL_DISTINCT t ⇒ BAG_ALL_DISTINCT s`
-  (fs[bagTheory.BAG_ALL_DISTINCT,bagTheory.SUB_BAG,bagTheory.BAG_INN]>>
-  rw[]>>
-  CCONTR_TAC>>
-  `s e ≥ 2` by fs[]>>
-  res_tac>>
-  first_x_assum(qspec_then`e` assume_tac)>>
-  DECIDE_TAC);
-
 val IN_EVEN =
   save_thm("IN_EVEN", SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``);
 
@@ -3118,28 +3107,6 @@ Theorem FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM
   `FOLDL OPTION_CHOICE x ls = SOME y ⇒ MEM (SOME y) (x::ls)`
   (qid_spec_tac`x` \\ Induct_on`ls` \\ rw[] \\
   res_tac \\ fs[] \\ Cases_on`x` \\ fs[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem BAG_DISJOINT_SUB_BAG
-  `!b1 b2 b3. b1 ≤ b2 /\ BAG_DISJOINT b2 b3 ==> BAG_DISJOINT b1 b3`
-  (rw [BAG_DISJOINT_BAG_IN] \\ metis_tac [SUB_BAG, BAG_IN]);
-
-(* TODO - candidate for move to HOL *)
-Theorem BAG_DISJOINT_SYM
-  `!b1 b2. BAG_DISJOINT b1 b2 <=> BAG_DISJOINT b2 b1`
-  (simp [BAG_DISJOINT, DISJOINT_SYM]);
-
-(* TODO - candidate for move to HOL *)
-Theorem MONOID_BAG_UNION_EMPTY_BAG
-  `MONOID $⊎ {||}`
-  (simp [MONOID_DEF, RIGHT_ID_DEF, LEFT_ID_DEF, ASSOC_DEF, ASSOC_BAG_UNION]);
-
-(* TODO - candidate for move to HOL *)
-Theorem BAG_DISJOINT_FOLDR_BAG_UNION
-  `∀ls b0 b1.
-    BAG_DISJOINT b1 (FOLDR BAG_UNION b0 ls) ⇔
-    EVERY (BAG_DISJOINT b1) (b0::ls)`
-  (Induct \\ rw[] \\ metis_tac[]);
 
 Theorem BAG_ALL_DISTINCT_FOLDR_BAG_UNION
   `∀ls b0.
