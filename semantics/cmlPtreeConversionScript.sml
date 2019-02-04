@@ -414,14 +414,9 @@ val ptree_Dconstructor_def = Define`
                                  args <- ptree_TbaseList blist ;
                                  return args
                                od
-                             | [oft; ty_pt] =>
-                               if tokcheck oft OfT then
-                                 OPTION_MAP detuplify (ptree_Type nType ty_pt)
-                               else NONE
                              | _ => NONE;
                  SOME(cname, types)
               od
-            | _ :: t => NONE
         else NONE
 `;
 

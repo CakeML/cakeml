@@ -356,7 +356,7 @@ val table = [[ 8,  ~3,   1,   3,   6,   9,  ~2,   4,  ~9,  ~9,   2,   3,   8,  ~
 
 fun f (x, y) = List.nth (List.nth table x) y
 fun show m = print (Matrix.toString (m, Int.toString))
-exception Fail of string;
+exception Fail string;
 structure Main =
    struct
       fun snf() =

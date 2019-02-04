@@ -2,7 +2,7 @@ fun print _ = ()
 
 structure Stream =
 struct
-   datatype 'a u = Nil | Cons of 'a * (unit -> 'a u)
+   datatype 'a u = Nil | Cons 'a (unit -> 'a u)
    type 'a t = unit -> 'a u
 
    fun unfold f =

@@ -82,8 +82,7 @@ val cmlG_def = mk_grammar_def ginfo
  (* type declarations *)
  TypeName ::= UQTyOp | "(" TyVarList ")" UQTyOp | <TyvarT> UQTyOp ;
  TyVarList ::= TyvarN | TyVarList "," TyvarN;
- Dconstructor ::= UQConstructorName "of" Type
-               |  UQConstructorName TbaseList;
+ Dconstructor ::= UQConstructorName TbaseList;
  DtypeCons ::= Dconstructor | DtypeCons "|" Dconstructor;
  DtypeDecl ::= TypeName "=" DtypeCons ;
  DtypeDecls ::= DtypeDecl | DtypeDecls "and" DtypeDecl;

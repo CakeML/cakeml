@@ -5,7 +5,7 @@ structure Main =
         [] => []
       | (a::x) => f a :: map f x
 
-    exception Ex_undefined of string
+    exception Ex_undefined string
     fun error str = raise Ex_undefined str
 
     fun accumulate f = let
@@ -74,7 +74,7 @@ structure Main =
             and diff x y = filter (fn x => not (member y x)) x
          in f [] [] [] [] x end
 
-    datatype generation = GEN of (int*int) list
+    datatype generation = GEN ((int*int) list)
     fun alive (GEN livecoords) = livecoords
     and mkgen coordlist = GEN (lexordset coordlist)
     and mk_nextgen_fn neighbours gen =

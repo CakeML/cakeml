@@ -1,5 +1,5 @@
 datatype tree = Leaf
-              | Branch of tree * int * tree;
+              | Branch tree int tree;
 fun insert x t =
   case t
   of Leaf => (Branch Leaf x Leaf)

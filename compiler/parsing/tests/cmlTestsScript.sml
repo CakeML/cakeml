@@ -372,9 +372,9 @@ val _ = tytest "(bool * int)"
 val _ = tytest "(bool list * int) * bool"
 val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Foo"
                    (SOME ``Dexn locs "Foo" []``)
-val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar int"
                    (SOME ``Dexn locs "Bar" [Atapp [] (Short "int")]``)
-val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar of int * int"
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "exception Bar int int"
                    (SOME ``Dexn locs "Bar"
                              [Atapp [] (Short "int");
                               Atapp [] (Short "int")]``);
@@ -475,9 +475,9 @@ val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec``
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec`` "val x = 10"
 val _ = parsetest ``nDecls`` elab_decls "fun f x y = x + y"
 val _ = parsetest ``nDecls`` elab_decls
-                  "datatype 'a list = Nil | Cons of 'a * 'a list \
+                  "datatype 'a list = Nil | Cons 'a ('a list) \
                   \fun map f l = case l of Nil => Nil \
-                  \                      | Cons(h,t) => Cons(f h, map f t)"
+                  \                      | Cons h t => Cons(f h, map f t)"
 val _ = parsetest0 “nDecl” “ptree_Decl”
           "datatype 'a Tree = Lf1 | Nd ('a Tree) 'a ('a Tree) | Lf2 int"
           (SOME “Dtype _ [(["'a"], "Tree",
@@ -487,7 +487,7 @@ val _ = parsetest0 “nDecl” “ptree_Decl”
                                     Atapp [Atvar "'a"] (Short "Tree")]);
                             ("Lf2", [Atapp [] (Short "int")])])]”)
 val _ = parsetest0 “nDecl” “ptree_Decl”
-          "datatype 'a Tree = Lf1 | Nd of ('a Tree * 'a * 'a Tree) | Lf2 of int"
+          "datatype 'a Tree = Lf1 | Nd ('a Tree) 'a ('a Tree) | Lf2 int"
           (SOME “Dtype _ [(["'a"], "Tree",
                            [("Lf1", []);
                             ("Nd", [Atapp [Atvar "'a"] (Short "Tree");
@@ -557,11 +557,11 @@ val _ = parsetest ``nTypeName`` ``ptree_TypeName``
 val _ = parsetest ``nConstructorName`` T "Cname"
 val _ = parsetest ``nDconstructor`` ``ptree_Dconstructor`` "Cname"
 val _ = parsetest ``nDconstructor`` ``ptree_Dconstructor``
-                  "Cname of bool * 'a"
+                  "Cname bool 'a"
 val _ = parsetest ``nDtypeDecl`` ``ptree_DtypeDecl``
-                  "'a foo = C of 'a | D of bool | E"
+                  "'a foo = C 'a | D bool | E"
 val _ = parsetest ``nTypeDec`` ``ptree_TypeDec``
-                  "datatype 'a foo = C of 'a | D of bool | E and bar = F | G"
+                  "datatype 'a foo = C 'a | D bool | E and bar = F | G"
 
 (* expressions *)
 val _ = parsetest ``nEbase`` ``ptree_Expr nEbase`` "x"

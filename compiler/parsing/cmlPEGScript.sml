@@ -385,9 +385,7 @@ val cmlPEG_def = zDefine`
                      peg_linfix (mkNT nDtypeCons) (pnt nDconstructor) (tokeq BarT)]
                     (bindNT nDtypeDecl));
               (mkNT nDconstructor,
-               seql [pnt nUQConstructorName;
-                     choicel [seql [tokeq OfT; pnt nType] I;
-                              pnt nTbaseList]]
+               seql [pnt nUQConstructorName; pnt nTbaseList]
                     (bindNT nDconstructor));
               (mkNT nUQConstructorName, peg_UQConstructorName);
               (mkNT nConstructorName,

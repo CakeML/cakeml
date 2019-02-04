@@ -5,12 +5,12 @@
 structure Term =
 struct
   datatype term
-    = STR of string * term list
-    | INT of int
-    | CON of string
-    | REF of term option ref
+    = STR string (term list)
+    | INT int
+    | CON string
+    | REF (term option ref)
 
-  exception BadArg of string
+  exception BadArg string
 end;
 
 (* trail.sml *)

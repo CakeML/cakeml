@@ -206,7 +206,7 @@ val example_raise_spec = Q.prove (
 );
 
 val example_handle = process_topdecs
-  `exception Foo of int
+  `exception Foo int
    fun example_handle x = (raise (Foo 3)) handle Foo i => i`
 (* handle precedence bug in the parser? *)
 
@@ -231,7 +231,7 @@ val example_handle_spec = Q.prove (
 );
 
 val example_handle2 = process_topdecs
-  `exception Foo of int
+  `exception Foo int
    fun example_handle2 x =
      (if x > 0 then
         1
