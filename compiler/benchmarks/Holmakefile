@@ -1,0 +1,25 @@
+INCLUDES = cakeml_benchmarks/cakeml
+
+all: $(DEFAULT_TARGETS) README.md benchmarks2.eps
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(dprot $(CAKEMLDIR)/developers/readme_gen) readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+
+report.html: benchmarks2.eps
+	echo '<!doctype html>' > report.html
+	echo '<html lang="en">' >> report.html
+	echo '<head><meta charset="utf-8">' >> report.html
+	echo '<title>CakeML benchmark report</title>' >> report.html
+	echo '</head>' >> report.html
+	echo '<body>' >> report.html
+	echo '<h1>CakeML benchmarks</h1>' >> report.html
+	echo '<img src="benchmarks2.eps">' >> report.html
+	echo '</body>' >> report.html
+	echo '</html>' >> report.html
+
+benchmarks2.eps:
+	cakeml_benchmarks/run_all.sh
+	$(CP) cakeml_benchmarks/benchmarks2.eps benchmarks2.eps
