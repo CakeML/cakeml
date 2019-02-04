@@ -3127,20 +3127,6 @@ Theorem BAG_ALL_DISTINCT_FOLDR_BAG_UNION
   \\ metis_tac[BAG_DISJOINT_SYM]);
 
 (* TODO - candidate for move to HOL *)
-Theorem LIST_TO_BAG_SUB_BAG_FLAT_suff
-  `!ls1 ls2. LIST_REL (\l1 l2. LIST_TO_BAG l1 ≤ LIST_TO_BAG l2) ls1 ls2 ==>
-     LIST_TO_BAG (FLAT ls1) ≤ LIST_TO_BAG (FLAT ls2)`
-  (ho_match_mp_tac LIST_REL_ind
-  \\ srw_tac [bagLib.SBAG_SOLVE_ss] [LIST_TO_BAG_APPEND]);
-
-(* TODO - candidate for move to HOL *)
-Theorem LIST_TO_BAG_SUBSET
-  `∀l1 l2. LIST_TO_BAG l1 ≤ LIST_TO_BAG l2 ⇒ set l1 ⊆ set l2`
-  (Induct \\ rw[LIST_TO_BAG_def]
-  \\ imp_res_tac BAG_INSERT_SUB_BAG_E
-  \\ imp_res_tac IN_LIST_TO_BAG \\ fs[]);
-
-(* TODO - candidate for move to HOL *)
 val is_subseq_def = Define`
   (is_subseq ls [] ⇔ T) ∧
   (is_subseq [] (x::xs) ⇔ F) ∧
