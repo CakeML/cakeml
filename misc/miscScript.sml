@@ -1167,50 +1167,6 @@ Theorem PERM_ZIP
   metis_tac[PERM_TRANS])
 
 (* TODO - candidate for move to HOL *)
-Theorem PERM_BIJ
-  `∀l1 l2. PERM l1 l2 ⇒ ∃f. (BIJ f (count(LENGTH l1)) (count(LENGTH l1)) ∧ (l2 = GENLIST (λi. EL (f i) l1) (LENGTH l1)))`
-  (ho_match_mp_tac PERM_IND >> simp[BIJ_EMPTY] >>
-  conj_tac >- (
-    simp[GENLIST_CONS] >>
-    srw_tac[][combinTheory.o_DEF] >>
-    qexists_tac`λi. case i of 0 => 0 | SUC i => SUC(f i)` >>
-    simp[EL_CONS,PRE_SUB1] >>
-    full_simp_tac(srw_ss())[BIJ_IFF_INV] >>
-    conj_tac >- ( Cases >> simp[] ) >>
-    qexists_tac`λi. case i of 0 => 0 | SUC i => SUC(g i)` >>
-    conj_tac >- ( Cases >> simp[] ) >>
-    conj_tac >- ( Cases >> simp[] ) >>
-    ( Cases >> simp[] )) >>
-  conj_tac >- (
-    simp[GENLIST_CONS] >>
-    srw_tac[][combinTheory.o_DEF] >>
-    qexists_tac`λi. case i of 0 => 1 | SUC 0 => 0 | SUC(SUC n) => SUC(SUC(f n))` >>
-    simp[PRE_SUB1,EL_CONS] >>
-    REWRITE_TAC[ONE] >> simp[] >>
-    full_simp_tac(srw_ss())[BIJ_IFF_INV] >>
-    conj_tac >- (Cases >> simp[]>> Cases_on`n`>>simp[]) >>
-    qexists_tac`λi. case i of 0 => 1 | SUC 0 => 0 | SUC(SUC n) => SUC(SUC(g n))` >>
-    simp[] >>
-    conj_tac >- (Cases >> simp[]>> Cases_on`n`>>simp[]) >>
-    conj_tac >- (Cases >> simp[]>> TRY(Cases_on`n`)>>simp[] >> REWRITE_TAC[ONE]>>simp[]) >>
-    (Cases >> simp[]>> TRY(Cases_on`n`)>>simp[] >> REWRITE_TAC[ONE]>>simp[])) >>
-  ntac 2 (srw_tac[][LENGTH_GENLIST]) >>
-  simp[LIST_EQ_REWRITE,EL_GENLIST] >>
-  full_simp_tac(srw_ss())[LENGTH_GENLIST] >>
-  qexists_tac`f o f'` >>
-  simp[combinTheory.o_DEF] >>
-  full_simp_tac(srw_ss())[BIJ_IFF_INV] >>
-  qexists_tac`g' o g` >>
-  simp[combinTheory.o_DEF] )
-
-(* TODO - candidate for move to HOL *)
-Theorem PERM_EVERY
-`∀ls ls'.
-  PERM ls ls' ⇒
-  (EVERY P ls ⇔ EVERY P ls')`
-  (ho_match_mp_tac PERM_STRONG_IND>>srw_tac[][]>>metis_tac[])
-
-(* TODO - candidate for move to HOL *)
 Theorem RTC_RINTER
   `!R1 R2 x y. RTC (R1 RINTER R2) x y ⇒ ((RTC R1) RINTER (RTC R2)) x y`
   (ntac 2 gen_tac >>
