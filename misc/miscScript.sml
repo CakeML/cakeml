@@ -2784,55 +2784,16 @@ Theorem INJ_UPDATE
   (simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
   \\ metis_tac []);
 
-(* TODO - candidate for move to HOL *)
-Theorem subspt_union `
-  subspt s (union s t)`
-  (fs[subspt_lookup,lookup_union]);
-
-(* TODO - candidate for move to HOL *)
-Theorem subspt_FOLDL_union
-  `∀ls t. subspt t (FOLDL union t ls)`
-  (Induct \\ rw[] \\ metis_tac[subspt_union,subspt_trans]);
-
-(* TODO - candidate for move to HOL *)
-Theorem lookup_FOLDL_union
-  `lookup k (FOLDL union t ls) =
-   FOLDL OPTION_CHOICE (lookup k t) (MAP (lookup k) ls)`
-  (qid_spec_tac`t` \\ Induct_on`ls` \\ rw[lookup_union] \\
-  BasicProvers.TOP_CASE_TAC \\ simp[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem map_union
-  `∀t1 t2. map f (union t1 t2) = union (map f t1) (map f t2)`
-  (Induct
-  \\ rw[map_def,union_def]
-  \\ BasicProvers.TOP_CASE_TAC
-  \\ rw[map_def,union_def]);
-
 (* exists in HOL as subspt_lookup *)
 Theorem subspt_alt
   `subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v`
   (fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
   \\ res_tac \\ fs []);
 
-(* TODO - candidate for move to HOL *)
+(* TODO - exists as an IFF in HOL already (subspt_domain) *)
 Theorem subspt_domain_SUBSET
   `subspt t1 t2 ==> domain t1 SUBSET domain t2`
   (fs [subspt_def,SUBSET_DEF]);
-
-(* TODO - candidate for move to HOL *)
-Theorem domain_eq
-  `!t1 t2. domain t1 = domain t2 <=>
-            !k. lookup k t1 = NONE <=> lookup k t2 = NONE`
-  (rw [domain_lookup,EXTENSION] \\ eq_tac \\ rw []
-  THEN1
-   (pop_assum (qspec_then `k` mp_tac)
-    \\ Cases_on `lookup k t1` \\ fs []
-    \\ Cases_on `lookup k t2` \\ fs [])
-  THEN1
-   (pop_assum (qspec_then `x` mp_tac)
-    \\ Cases_on `lookup x t1` \\ fs []
-    \\ Cases_on `lookup x t2` \\ fs []));
 
 (* Some temporal logic definitions based on lazy lists *)
 (* move into llistTheory? *)
@@ -3803,11 +3764,6 @@ Theorem lookup_copy_shape
   `!t1 t2 n. lookup n (copy_shape t1 t2) = lookup n t1`
   (Induct \\ Cases_on `t2` \\ fs [copy_shape_def,lookup_def] \\ rw []
   \\ fs [lookup_def,lookup_copy_shape_LN,domain_EMPTY_lookup]);
-
-(* TODO - candidate for move to HOL *)
-Theorem domain_mapi[simp]
-  `domain (mapi f x) = domain x`
-  (fs [domain_lookup,EXTENSION,sptreeTheory.lookup_mapi]);
 
 (* / TODO *)
 
