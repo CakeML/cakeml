@@ -1,6 +1,6 @@
-INCLUDES = cakeml_benchmarks/cakeml
+INCLUDES = cakeml_benchmarks/cakeml mlton_benchmarks/cakeml
 
-all: $(DEFAULT_TARGETS) README.md benchmarks2.eps
+all: $(DEFAULT_TARGETS) README.md report.html
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
