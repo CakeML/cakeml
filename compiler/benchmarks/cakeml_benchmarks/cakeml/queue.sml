@@ -1,4 +1,4 @@
-datatype 'a q = QUEUE of 'a list * 'a list;
+datatype 'a q = QUEUE ('a list) ('a list);
 val empty = QUEUE [] [];
 fun is_empty q =
   case q

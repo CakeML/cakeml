@@ -1,4 +1,4 @@
-exception Fail of string;
+exception Fail string;
 
 fun fib' n a b = case n of
     0 => a

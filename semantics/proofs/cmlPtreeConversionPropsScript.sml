@@ -554,17 +554,17 @@ Theorem TbaseList_OK
   fs[FORALL_AND_THM, DISJ_IMP_THM, MAP_EQ_APPEND] >>
   metis_tac[PTbase_OK]);
 
-Theorem Dconstructor_OK
-  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDconstructor ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃dc. ptree_Dconstructor pt = SOME dc`
-  (start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_Dconstructor_def, tokcheck_def]
-  >- (map_every (erule strip_assume_tac o n)
-                [UQConstructorName_OK, Type_OK] >>
-      simp[]) >>
+Theorem Dconstructor_OK:
+  valid_ptree cmlG pt ∧ ptree_head pt = NN nDconstructor ∧
+  MAP TK toks = ptree_fringe pt
+   ⇒
+  ∃dc. ptree_Dconstructor pt = SOME dc
+Proof
+  start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> simp[ptree_Dconstructor_def, tokcheck_def] >>
   map_every (erule strip_assume_tac o n) [UQConstructorName_OK, TbaseList_OK] >>
-  simp[])
+  simp[]
+QED
 
 Theorem DtypeCons_OK
   `valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeCons ∧
