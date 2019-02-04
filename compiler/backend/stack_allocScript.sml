@@ -610,15 +610,16 @@ val next_lab_quotation = `
 in
 val next_lab_def = Define next_lab_quotation;
 
-Theorem next_lab_pmatch (Q.prove(`∀p aux.` @
-  (next_lab_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
-  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
-  >> rpt strip_tac
-  >> rw[Once next_lab_def]
-  >> every_case_tac >> fs[]));
+Theorem next_lab_pmatch
+  (`∀p aux.` @
+    (next_lab_quotation |>
+     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+         | aq => aq)))
+  (rpt strip_tac
+   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+   >> rpt strip_tac
+   >> rw[Once next_lab_def]
+   >> every_case_tac >> fs[]);
 end
 
 local
@@ -649,14 +650,15 @@ val comp_quotation = `
 in
 val comp_def = Define comp_quotation
 
-Theorem comp_pmatch (Q.prove(`∀n m p.` @
-  (comp_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
-  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
-  >> rpt strip_tac
-  >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]));
+Theorem comp_pmatch
+  (`∀n m p.` @
+    (comp_quotation |>
+     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+         | aq => aq)))
+  (rpt strip_tac
+   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+   >> rpt strip_tac
+   >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
 val prog_comp_def = Define `
   prog_comp (n,p) = (n,FST (comp n (next_lab p 1) p))`

@@ -3,10 +3,10 @@
 
 val with_inserts = True
 
-  datatype 'a sptree_spt =  Bs of  'a sptree_spt *  'a  *  'a sptree_spt
-                         |  Bn of  'a sptree_spt *  'a sptree_spt
-                         |  Ls of  'a
-                          |  Ln;
+  datatype 'a sptree_spt =  Bs ('a sptree_spt) 'a  ('a sptree_spt)
+                         |  Bn ('a sptree_spt) ('a sptree_spt)
+                         |  Ls 'a
+                         |  Ln;
 
   fun  lookup v7 v8 =
     case  v8

@@ -15,7 +15,7 @@
  *)
 fun print _ = ()
 
-exception Fail of string
+exception Fail string
 
 
 fun doo(max: int, f: int -> unit) =
@@ -76,7 +76,7 @@ fun some_vector(v, p) =
 fun x(x, _) = x
 fun y(_, y) = y
 
-datatype 'a matrix = Matrix of 'a array array
+datatype 'a matrix = Matrix ('a array array)
 
 fun make_matrix(m: int, n: int, a) =
    Matrix(map_n_vector(m, fn i => make_vector(n, a)))
@@ -86,9 +86,7 @@ fun matrix_columns(Matrix a) = vector_length(vector_ref(a, 0))
 fun matrix_ref(Matrix a, i, j) = vector_ref(vector_ref(a, i), j)
 fun matrix_set(Matrix a, i, j, x) = vector_set(vector_ref(a, i), j, x)
 
-datatype pormatValue =
-   Int of int
-  | String of string
+datatype pormatValue = Int int | String string
 
 fun pormat(control_string: string, values: pormatValue list) =
    let
@@ -170,7 +168,7 @@ fun positive_plus(x, y) = if negative x then x else x + y
 
 datatype 'a queue =
    Nil
- | Cons of 'a * 'a queue ref
+ | Cons 'a ('a queue ref)
 
 fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
    let val height = matrix_rows w
