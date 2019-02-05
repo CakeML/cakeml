@@ -536,17 +536,14 @@ Theorem ML_code_new_block
         :: (comm, st, decls, env) :: bls) st2`
   (fs [ML_code_def] \\ rw [Decls_NIL] \\ EVAL_TAC);
 
-val ML_code_new_module = Q.store_thm("ML_code_new_module",
-  `ML_code env1 s1 prog NONE env2 s2 ==>
-    !mn. ML_code env1 s1 [] (SOME (mn,prog,env2)) empty_env s2`,
-  fs [ML_code_def] \\ rw [Decls_NIL] \\ EVAL_TAC);
-
-val ML_code_close_module = Q.store_thm("ML_code_close_module",
-  `ML_code env1 s1 prog (SOME (mn,ds,env)) env2 s2 ==>
-(* ∀sigs. *)
-      ML_code env1 s1 (SNOC (Dmod mn NONE prog) ds) NONE
-        (write_mod mn env2 env) s2`,
-  fs [ML_code_def] \\ rw [] \\ fs [SNOC_APPEND,Decls_APPEND]
+Theorem ML_code_close_module
+  `ML_code inp_env ((("Module", mn), m_i_st, m_decls, m_env)
+        :: (comm, st, decls, env) :: bls) st2
+    ==> let env2 = write_mod mn m_env env
+        in ML_code inp_env ((comm, st, SNOC (Dmod mn NONE m_decls) decls,
+            env2) :: bls) st2`
+  (rw [ML_code_def, ML_code_env_def]
+  \\ fs [SNOC_APPEND,Decls_APPEND]
   \\ asm_exists_tac \\ fs [Decls_Dmod,PULL_EXISTS]
   \\ asm_exists_tac
   \\ fs [write_mod_def,merge_env_def,empty_env_def]);
