@@ -1357,9 +1357,12 @@ val decsexp_def = tDefine"decsexp"`
   (decsexp (Dsig name specs) = listsexp [SX_SYM "Dsig"; SEXSTR name; listsexp (MAP specsexp specs)]) ∧
   (decsexp (Dlocal ldecs decs) = listsexp [SX_SYM "Dlocal";
         listsexp (MAP decsexp ldecs); listsexp (MAP decsexp decs)])`
-`
-  (wf_rel_tac`measure dec_size` \\ ntac 2 gen_tac
-   \\ Induct_on`decs` \\ rw[dec_size_def]
+  (wf_rel_tac`measure dec_size` \\
+   rw []
+   >- (
+     Induct_on `ldecs` >> rw [dec_size_def] >>
+     res_tac >> rw []) >>
+   Induct_on`decs` \\ rw[dec_size_def]
    \\ res_tac \\ rw[]);
 
 Theorem decsexp_11[simp]
@@ -1903,9 +1906,18 @@ Theorem decsexp_sexpdec
   >- (
     pop_assum mp_tac \\ CASE_TAC \\ fs[IS_SOME_EXISTS] \\ rw[] \\ rw[]
     \\ imp_res_tac idsexp_sexpid_odestSEXSTR )
-  \\ first_x_assum (match_mp_tac o MP_CANON)
-  \\ simp[sxMEM_def,listsexp_def]
-  \\ metis_tac[MEM_EL]);
+  >- (
+    first_x_assum (match_mp_tac o MP_CANON)
+    \\ simp[sxMEM_def,listsexp_def]
+    \\ metis_tac[MEM_EL])
+  >- (
+    last_x_assum (match_mp_tac o MP_CANON)
+    \\ simp[sxMEM_def,listsexp_def]
+    \\ metis_tac[MEM_EL])
+  >- (
+    first_x_assum (match_mp_tac o MP_CANON)
+    \\ simp[sxMEM_def,listsexp_def]
+    \\ metis_tac[MEM_EL]))
 
 (* valid sexps *)
 
