@@ -34,7 +34,7 @@ benchmarks = [
 ]
 
 #Benchmark iterations
-bm_iters = 1
+bm_iters = 5
 
 #Benchmark timeouts (in seconds)
 bm_timeout = 60
@@ -89,7 +89,7 @@ def timecmd(cmd,iters):
     try:
       proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     except:
-      print("failed to start benchmark")
+      print("failed to execute benchmark")
       return None
     try:
       timer = Timer(bm_timeout, kill, [proc])
@@ -128,6 +128,11 @@ for bm in benchmarks:
             cmd = [execp,arg,path+bm+suffix]
             timings[mls] = timecmd(cmd,bm_iters)
     bmdict[bm] = timings
+
+import pickle
+pickle.dump(bmdict,open("bmdict.pickle","w"))
+
+#bmdict = pickle.load(open("bmdict.pickle","rb"))
 
 #Invert the mapping
 mls = comp_mls.keys() + interp_mls.keys()
@@ -196,7 +201,7 @@ for (mli,(ml,c,h)) in enumerate(zip(mls,colors,hatches)):
     if(not(mltimes[normalizer][bm]==None)):
       (normavg,normstd) = mltimes[normalizer][bm]
     else:
-      print("normalizing against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
+      print("normalizing "+bm+" against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
       (normavg,normstd) = (bm_timeout,0.0)
     if (not(mltimes.has_key(ml)) or not(mltimes[ml].has_key(bm)) or mltimes[ml][bm] == None):
       bmt += [(0.0,0.0)]
@@ -270,11 +275,11 @@ for (mli,(ml,hi,c,h)) in enumerate(zip(mls,has_inf,colors,hatches)):
     if(not(mltimes[normalizer][bm]==None)):
       (normavg,normstd) = mltimes[normalizer][bm]
     else:
-      print("normalizing against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
+      print("normalizing "+bm+" against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
       (normavg,normstd) = (bm_timeout,0.0)
     if (not(mltimes.has_key(ml)) or not(mltimes[ml].has_key(bm)) or mltimes[ml][bm] == None):
       bmt += [(0.0,0.0)]
-      bmt3 += [bm_timeout]
+      bmt3 += [0.0]
     else:
       (l,r) = mltimes[ml][bm]
       bmt+= [(l/normavg,r/normstd)]
@@ -347,7 +352,7 @@ for (mli,(ml,c,h)) in enumerate(zip(mls,colors,hatches)):
     if(not(mltimes[normalizer][bm]==None)):
       (normavg,normstd) = mltimes[normalizer][bm]
     else:
-      print("normalizing against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
+      print("normalizing "+bm+" against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
       (normavg,normstd) = (bm_timeout,0.0)
     if (not(mltimes.has_key(ml)) or not(mltimes[ml].has_key(bm)) or mltimes[ml][bm] == None):
       bmt += [(0.0,0.0)]
