@@ -19,4 +19,4 @@ mosml_% : %.sml
 	- $(MOSMLC) -orthodox -standalone -toplevel -o $@ $<
 
 clean:
-	rm $(PROGSM) $(PROGSMINF) $(PROGSMOS)
+	$(RM) mlton_* mlton_intif_* mosml_* *.ui *.uo

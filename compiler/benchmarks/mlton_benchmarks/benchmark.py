@@ -4,107 +4,128 @@ import time
 import subprocess
 import numpy as np
 from os import system
+from threading import Timer
 
 #The benchmarks to test
 benchmarks = [
-    #Small, pure benchmarks
-    "even-odd",
-    "fib",
-    "merge",
-    "tailfib",
-    "tak",
+  #Small, pure benchmarks
+  "even-odd",
+  "fib",
+  "merge",
+  "tailfib",
+  "tak",
 
-    #Small, imperative benchmarks
-    "flat-array",
-    "imp-for",
-    "vector-concat",
-    "vector-rev",
+  #Small, imperative benchmarks
+  "flat-array",
+  "imp-for",
+  "vector-concat",
+  "vector-rev",
 
-    #Large, pure benchmarks
-    "knuth-bendix",
-    "life",
-    "pidigits",
+  #Large, pure benchmarks
+  "knuth-bendix",
+  "life",
+  "pidigits",
 
-    #Large, imperative benchmarks
-    "logic",
-    "mpuz",
-    "ratio-regions",
-    "smith-normal-form",
+  #Large, imperative benchmarks
+  "logic",
+  "mpuz",
+  "ratio-regions",
+  "smith-normal-form",
 ]
-bm_iters = 20
 
+#Benchmark iterations
+bm_iters = 1
+
+#Benchmark timeouts (in seconds)
+bm_timeout = 60
+
+# Format: key -> (path,suffix)
 #compiled MLs
 comp_mls = {
-    # MLton with and without intinf
-    "mlton" : "./sml/mlton_",
-    "mlton_intinf" : "./sml/mlton_intinf_",
+  # MLton with and without intinf
+  "mlton"          : ("./sml/mlton_",""),
+  "mlton_intinf"   : ("./sml/mlton_intinf_",""),
 
-    ## MosML compiled
-    "mosml" : "./sml/mosml_",
+  # MosML compiled
+  "mosml"          : ("./sml/mosml_",""),
 
-    ## CakeML compiled
-    "cakeml_all" : "./cakeml/all/cake_",
-    "cakeml_noclos" : "./cakeml/noclos/cake_",
-    "cakeml_nobvl" : "./cakeml/nobvl/cake_",
-    "cakeml_noalloc" : "./cakeml/noalloc/cake_"
+  # CakeML compiled
+  "cakeml_all"     : ("./cakeml/all/",".cake"),
+  "cakeml_noclos"  : ("./cakeml/noclos/",".cake"),
+  "cakeml_nobvl"   : ("./cakeml/nobvl/",".cake"),
+  "cakeml_noalloc" : ("./cakeml/noalloc/",".cake"),
 
-    #GC tests
-    #"cakeml_gc" : "./cakeml/gc/cake_",
-    #"cakeml_gc2" : "./cakeml/gc2/cake_",
-    #"cakeml_gc3" : "./cakeml/gc3/cake_",
+  #GC tests
+  #"cakeml_gc"      : ("./cakeml/gc/cake_",".cake")
 }
 
-#interpreted MLs,
+#Format: key -> (interpreter executable, extra arguments, path, suffix)
+#interpreted MLs
 interp_mls = {
-   #This should be a path to PolyML without --enable-intinf-as-int
-   "poly" : ("poly","./sml/"),
+  #This should be a path to PolyML without --enable-intinf-as-int
+  "poly" : ("poly","--use","./sml/",".sml"),
 
-   ##This should be a path to PolyML with --enable-intinf-as-int
-   "poly_intinf" : ("~/polyml2/poly","./sml/"),
+  #This should be a path to PolyML with --enable-intinf-as-int
+  #"poly_intinf" : ("~/polyml2/poly","./sml/",".sml"),
 
-   #Path to SMLNJ
-   "smlnj" : ("~/sml/smlnj/bin/sml @SMLalloc=100000k","./sml/"),
+  #Path to SMLNJ
+  "smlnj" : ("sml","@SMLalloc=100000k", "./sml/",".sml"),
 }
 
-#Exclude SML/NJ and MosML on the IntInf benchmarks because they either take
-#forever (>200s) to run, or fail to compile entirely
+#Exclude benchmarks
 exclude = [
-  ("smlnj","smith-normal-form"),("smlnj","pidigits"),
-  ("mosml","smith-normal-form"),("mosml","pidigits"),
+  #("smlnj","smith-normal-form"),("smlnj","pidigits"),
+  #("mosml","smith-normal-form"),("mosml","pidigits"),
 ]
 
-def timecmd(cmd,iters,bmin=None):
-    print("Timing " +str(cmd))
-    print(str(iters)+" Iterations")
-    times = []
-    for i in range(0,iters):
-        start = time.time()
-        ret = system(cmd)
-        end = time.time()
-        if ret == 0:
-            print(end-start)
-            times.append(end-start)
-        else:
-            return None
-    return times
+kill = lambda process: process.kill()
+
+def timecmd(cmd,iters):
+  print("Timing " +str(cmd))
+  print(str(iters)+" Iterations")
+  times = []
+  for i in range(0,iters):
+    start = time.time()
+    try:
+      proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    except:
+      print("failed to start benchmark")
+      return None
+    try:
+      timer = Timer(bm_timeout, kill, [proc])
+      timer.start()
+      stdout, stderr = proc.communicate()
+    finally:
+      timer.cancel()
+
+    end = time.time()
+    ret = proc.returncode
+    if ret == 0:
+      print(end-start)
+      times.append(end-start)
+    else:
+      print("benchmark timed out or did not return successfully")
+      return None
+  return times
 
 bmdict = {}
 for bm in benchmarks:
     timings = {}
     #Time the compiled ones
     for mls in comp_mls:
-        cmd = comp_mls[mls]+bm
         if ((mls,bm) in exclude):
             timings[mls] = None
         else:
+            (path,suffix) = comp_mls[mls]
+            cmd = path+bm+suffix
             timings[mls] = timecmd(cmd,bm_iters)
     #Time the interpreted ones
     for mls in interp_mls:
         if ((mls,bm) in exclude):
             timings[mls] = None
         else:
-            (execp,path) = interp_mls[mls]
-            cmd = execp+" < "+path+bm+".sml > /dev/null"
+            (execp,arg,path,suffix) = interp_mls[mls]
+            cmd = [execp,arg,path+bm+suffix]
             timings[mls] = timecmd(cmd,bm_iters)
     bmdict[bm] = timings
 
@@ -150,10 +171,15 @@ matplotlib.rcParams['hatch.linewidth']=0.5
 rbm = benchmarks[::-1]
 ind = np.arange(len(rbm))*5
 fs = (8,8)
-ind[4::]+=2
-ind[7::]+=2
-ind[11::]+=2
 width = 1.0
+
+#Configuration for annotations
+xoffset=-110
+xoffsett=-130
+heightmul = 31
+offset = 19
+axh = 1.55
+lenB = 11.2
 
 #First plot will be between polyml, mlton, cakeml all with intinfs
 mls = ["mlton_intinf","poly_intinf","cakeml_all"]
@@ -165,27 +191,60 @@ hatches = ['||','///','\\\\\\']
 fig, ax = plt.subplots(figsize=fs)
 rects=[]
 for (mli,(ml,c,h)) in enumerate(zip(mls,colors,hatches)):
-    bmt = []
-    for bm in rbm:
-        (normavg,normstd) = mltimes[normalizer][bm]
-        if (not(mltimes[ml].has_key(bm))):
-            bmt += [(0.0,0.0)]
-        else:
-            if mltimes[ml][bm] == None:
-                bmt += [(0.0,0.0)]
-            else:
-                (l,r) = mltimes[ml][bm]
-                bmt+= [(l/normavg,r/normstd)]
-    bmt1 = [i for (i,j) in bmt]
-    bmt2 = [j for (i,j) in bmt]
-    (bmt1,bmt2)
-    rects+=[ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor=c, hatch=h)]
-    ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor='black')
+  bmt = []
+  for bm in rbm:
+    if(not(mltimes[normalizer][bm]==None)):
+      (normavg,normstd) = mltimes[normalizer][bm]
+    else:
+      print("normalizing against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
+      (normavg,normstd) = (bm_timeout,0.0)
+    if (not(mltimes.has_key(ml)) or not(mltimes[ml].has_key(bm)) or mltimes[ml][bm] == None):
+      bmt += [(0.0,0.0)]
+    else:
+      (l,r) = mltimes[ml][bm]
+      bmt+= [(l/normavg,r/normstd)]
+  bmt1 = [i for (i,j) in bmt]
+  bmt2 = [j for (i,j) in bmt]
+  (bmt1,bmt2)
+  rects+=[ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor=c, hatch=h)]
+  ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor='black')
 
 plt.xscale('log')
 ax.set_yticks(ind+(len(mls)-1)*width/2)
 ax.set_yticklabels(tuple(rbm))
 lgd = ax.legend(rects,mlnames, loc='upper center', ncol=len(mls), bbox_to_anchor=(0.5,1.05))
+
+#4 benchmarks
+a1=ax.annotate('Large, Imperative', xy=(xoffset, offset+2*heightmul), xytext=(xoffsett, offset+2*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
+            annotation_clip=False)
+
+#3 benchmarks
+a2=ax.annotate('Large, Pure', xy=(xoffset, offset+5.5*heightmul), xytext=(xoffsett, offset+5.5*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*3)+', lengthB='+str(lenB)),
+            annotation_clip=False)
+
+#4 benchmarks
+a3=ax.annotate('Small, Imperative', xy=(xoffset, offset+9*heightmul), xytext=(xoffsett, offset+9*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
+            annotation_clip=False)
+
+#5 benchmarks
+a4=ax.annotate('Small, Pure', xy=(xoffset, offset+13.5*heightmul), xytext=(xoffsett, offset+13.5*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*5)+', lengthB='+str(lenB)),
+            annotation_clip=False)
 
 plt.tight_layout()
 plt.savefig('plot1noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
@@ -205,37 +264,69 @@ hatches = ['********','xxxxxxxx','||','///','\\\\\\']
 fig, ax = plt.subplots(figsize=fs)
 rects=[]
 for (mli,(ml,hi,c,h)) in enumerate(zip(mls,has_inf,colors,hatches)):
-    bmt = []
-    bmt3 = []
-    for bm in rbm:
-        (normavg,normstd) = mltimes[normalizer][bm]
-        if (not(mltimes[ml].has_key(bm))):
-            bmt += [(0.0,0.0)]
-            bmt3 += [0.0]
-        else:
-            if mltimes[ml][bm] == None:
-                bmt += [(0.0,0.0)]
-                bmt3 += [0.0]
-            else:
-                (l,r) = mltimes[ml][bm]
-                bmt+= [(l/normavg,r/normstd)]
-                if hi:
-                    (l,r) = mltimes[ml+inf_suffix][bm]
-                    bmt3 += [l/normavg]
-                else:
-                    bmt3 +=[l/normavg]
-    bmt1 = [i for (i,j) in bmt]
-    bmt2 = [j for (i,j) in bmt]
-    (bmt1,bmt2)
-    sub = [j-i for (i,j) in zip(bmt1,bmt3)]
-    rects+=[ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor=c, hatch=h)]
-    ax.barh(ind+mli*width,sub, width, fill=True, color=c, edgecolor=c, hatch=h, left = bmt1)
-    ax.barh(ind+mli*width,bmt3, width, fill=False, color=c, edgecolor='black')
+  bmt = []
+  bmt3 = []
+  for bm in rbm:
+    if(not(mltimes[normalizer][bm]==None)):
+      (normavg,normstd) = mltimes[normalizer][bm]
+    else:
+      print("normalizing against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
+      (normavg,normstd) = (bm_timeout,0.0)
+    if (not(mltimes.has_key(ml)) or not(mltimes[ml].has_key(bm)) or mltimes[ml][bm] == None):
+      bmt += [(0.0,0.0)]
+      bmt3 += [bm_timeout]
+    else:
+      (l,r) = mltimes[ml][bm]
+      bmt+= [(l/normavg,r/normstd)]
+      if hi and mltimes.has_key(ml+inf_suffix) and not(mltimes[ml+inf_suffix][bm]==None) :
+        (l,r) = mltimes[ml+inf_suffix][bm]
+        bmt3 += [l/normavg]
+      else:
+        bmt3 +=[l/normavg]
+  bmt1 = [i for (i,j) in bmt]
+  bmt2 = [j for (i,j) in bmt]
+  (bmt1,bmt2)
+  sub = [j-i for (i,j) in zip(bmt1,bmt3)]
+  rects+=[ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor=c, hatch=h)]
+  ax.barh(ind+mli*width,sub, width, fill=True, color=c, edgecolor=c, hatch=h, left = bmt1)
+  ax.barh(ind+mli*width,bmt3, width, fill=False, color=c, edgecolor='black')
 
 plt.xscale('log')
 ax.set_yticks(ind+(len(mls)-1)*width/2)
 ax.set_yticklabels(tuple(rbm))
 lgd = ax.legend(rects,mlnames, loc='upper center', ncol=len(mls), bbox_to_anchor=(0.5,1.05))
+
+#4 benchmarks
+a1=ax.annotate('Large, Imperative', xy=(xoffset, offset+2*heightmul), xytext=(xoffsett, offset+2*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
+            annotation_clip=False)
+
+#3 benchmarks
+a2=ax.annotate('Large, Pure', xy=(xoffset, offset+5.5*heightmul), xytext=(xoffsett, offset+5.5*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*3)+', lengthB='+str(lenB)),
+            annotation_clip=False)
+
+#4 benchmarks
+a3=ax.annotate('Small, Imperative', xy=(xoffset, offset+9*heightmul), xytext=(xoffsett, offset+9*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
+            annotation_clip=False)
+
+#5 benchmarks
+a4=ax.annotate('Small, Pure', xy=(xoffset, offset+13.5*heightmul), xytext=(xoffsett, offset+13.5*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*5)+', lengthB='+str(lenB)),
+            annotation_clip=False)
 
 plt.tight_layout()
 plt.savefig('plot2noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
@@ -251,27 +342,60 @@ hatches = ['xxxxxxxx','||','///','\\\\\\']
 fig, ax = plt.subplots(figsize=fs)
 rects=[]
 for (mli,(ml,c,h)) in enumerate(zip(mls,colors,hatches)):
-    bmt = []
-    for bm in rbm:
-        (normavg,normstd) = mltimes[normalizer][bm]
-        if (not(mltimes[ml].has_key(bm))):
-            bmt += [(0.0,0.0)]
-        else:
-            if mltimes[ml][bm] == None:
-                bmt += [(0.0,0.0)]
-            else:
-                (l,r) = mltimes[ml][bm]
-                bmt+= [(l/normavg,r/normstd)]
-    bmt1 = [i for (i,j) in bmt]
-    bmt2 = [j for (i,j) in bmt]
-    (bmt1,bmt2)
-    rects+=[ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor=c, hatch=h)]
-    ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor='black')
+  bmt = []
+  for bm in rbm:
+    if(not(mltimes[normalizer][bm]==None)):
+      (normavg,normstd) = mltimes[normalizer][bm]
+    else:
+      print("normalizing against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
+      (normavg,normstd) = (bm_timeout,0.0)
+    if (not(mltimes.has_key(ml)) or not(mltimes[ml].has_key(bm)) or mltimes[ml][bm] == None):
+      bmt += [(0.0,0.0)]
+    else:
+      (l,r) = mltimes[ml][bm]
+      bmt+= [(l/normavg,r/normstd)]
+  bmt1 = [i for (i,j) in bmt]
+  bmt2 = [j for (i,j) in bmt]
+  (bmt1,bmt2)
+  rects+=[ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor=c, hatch=h)]
+  ax.barh(ind+mli*width,bmt1, width, fill=False, color=c, edgecolor='black')
 
 plt.xscale('log')
 ax.set_yticks(ind+(len(mls)-1)*width/2)
 ax.set_yticklabels(tuple(rbm))
 lgd = ax.legend(rects,mlnames, loc='upper center', ncol=len(mls), bbox_to_anchor=(0.5,1.05))
+
+#4 benchmarks
+a1=ax.annotate('Large, Imperative', xy=(xoffset, offset+2*heightmul), xytext=(xoffsett, offset+2*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
+            annotation_clip=False)
+
+#3 benchmarks
+a2=ax.annotate('Large, Pure', xy=(xoffset, offset+5.5*heightmul), xytext=(xoffsett, offset+5.5*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*3)+', lengthB='+str(lenB)),
+            annotation_clip=False)
+
+#4 benchmarks
+a3=ax.annotate('Small, Imperative', xy=(xoffset, offset+9*heightmul), xytext=(xoffsett, offset+9*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
+            annotation_clip=False)
+
+#5 benchmarks
+a4=ax.annotate('Small, Pure', xy=(xoffset, offset+13.5*heightmul), xytext=(xoffsett, offset+13.5*heightmul), xycoords='axes pixels',
+            ha='center', va='center',
+            rotation=90,
+            bbox=dict(boxstyle='square', fc='white'),
+            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*5)+', lengthB='+str(lenB)),
+            annotation_clip=False)
 
 plt.tight_layout()
 plt.savefig('plot3noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')

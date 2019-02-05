@@ -14,7 +14,7 @@ structure List =
       open List
 
       fun exists(l, p) = List.exists p l
-         
+
       fun map(l, f) = List.map f l
 
       fun fold(l, b, f) =
@@ -141,3 +141,6 @@ structure Main =
    end
 
 val foo = Main.doit 5;
+
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

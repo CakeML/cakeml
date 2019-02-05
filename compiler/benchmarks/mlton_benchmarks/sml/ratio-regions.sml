@@ -16,12 +16,12 @@
 fun print _ = ()
 
 local
-   
+
 fun doo(max: int, f: int -> unit): unit =
    let fun loop i = if i >= max then () else (f i; loop(i + 1))
    in loop 0
    end
-       
+
 fun zero x = x = 0
 val cons = op ::
 val make_vector = Array.array
@@ -74,7 +74,7 @@ fun x(x, _) = x
 fun y(_, y) = y
 
 datatype 'a matrix = Matrix of 'a array array
-   
+
 fun make_matrix(m: int, n: int, a: 'a): 'a matrix =
    Matrix(map_n_vector(m, fn i => make_vector(n, a)))
 
@@ -98,7 +98,7 @@ fun pormat(control_string: string, values: pormatValue list): unit =
                           in case (c2, values) of
                              (#"s", Int n :: values) =>
                                 (print(Int.toString n) ; loop(i + 2, values))
-                           | (#"a", String s :: values) => 
+                           | (#"a", String s :: values) =>
                                 (print s ; loop(i + 2, values))
                            | (#"%", _) =>
                                 (print "\n"; loop(i + 2, values))
@@ -342,7 +342,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                               ; if not(matrix_ref(marked, y, x))
                                    then (matrix_set(marked, y, x, true)
                                          ; (case !tail of
-                                               Nil => 
+                                               Nil =>
                                                   (tail := Cons((x, y), ref Nil)
                                                    ; q := !tail)
                                              | Cons(_, cdr) =>
@@ -353,7 +353,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                   fun dequeue() =
                      case !q of
                         Nil => raise Fail "dequeue"
-                      | Cons(p, rest) => 
+                      | Cons(p, rest) =>
                          (matrix_set(marked, y p, x p, false)
                           ; q := !rest
                           ; if null q then tail := Nil else ()
@@ -463,7 +463,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                                          doo(width, fn x =>
                                             matrix_set(marked, y, x, false)))
                                     ; doo(height, fn y =>
-                                         doo(width, fn x => 
+                                         doo(width, fn x =>
                                             if not(zero(matrix_ref(e, y, x)))
                                                then enqueue(y, x)
                                             else ()))
@@ -534,7 +534,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
                              (relabel()
                               ; relabels := !relabels + 1
                               ; (pormat("~s push~a, ~s lift~a, ~s relabel~a, ~s wave~a~%",
-                                          [Int(! pushes), 
+                                          [Int(! pushes),
                                            String(if !pushes = 1 then "" else "es"),
                                            Int(! lifts),
                                            String(if !lifts = 1 then "" else "s"),
@@ -546,7 +546,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
               end
          end
            fun min_cut_includes_every_edge_to_t() =
-              (* This requires that a relabel was done immediately before returning from 
+              (* This requires that a relabel was done immediately before returning from
                * PREFLOW_PUSH.
                *)
              every_n(height, fn y =>
@@ -585,7 +585,7 @@ fun rao_ratio_region(c_right, c_down, w, lg_max_v) =
 
 in
 
-fun doit n = 
+fun doit n =
    let val height = n
       val width = n
       val lg_max_v = 15
@@ -624,3 +624,6 @@ structure Main =
    end
 
 val foo = Main.doit 250;
+
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);
