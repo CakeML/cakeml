@@ -156,7 +156,7 @@ structure Main : BMARK =
 
   end (* Life *)
 
-val foo = Main.doit 2;
+val foo = Main.doit 1;
 
 (* Quit out correctly for interacive SMLs *)
 val _ = OS.Process.exit(OS.Process.success);

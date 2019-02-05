@@ -601,7 +601,7 @@ fun Group_precedence op1 op2 =
 
   end (* Main *)
 
-val foo = Main.doit 200;
+val foo = Main.doit 150;
 
 (* Quit out correctly for interacive SMLs *)
 val _ = OS.Process.exit(OS.Process.success);

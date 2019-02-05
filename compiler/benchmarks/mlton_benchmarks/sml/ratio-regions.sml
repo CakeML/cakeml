@@ -623,7 +623,7 @@ structure Main =
       val doit = doit
    end
 
-val foo = Main.doit 250;
+val foo = Main.doit 200;
 
 (* Quit out correctly for interacive SMLs *)
 val _ = OS.Process.exit(OS.Process.success);

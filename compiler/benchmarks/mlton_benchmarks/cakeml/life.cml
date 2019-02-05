@@ -151,4 +151,4 @@ structure Main =
 
   end (* Life *)
 
-val foo = Main.doit 2;
+val foo = Main.doit 1;

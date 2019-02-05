@@ -18,7 +18,7 @@ structure Main =
          end
    end
 
-val foo = Main.doit 50000;
+val foo = Main.doit 25000;
 
 (* Quit out correctly for interacive SMLs *)
 val _ = OS.Process.exit(OS.Process.success);

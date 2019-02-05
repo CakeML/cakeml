@@ -31,7 +31,7 @@ struct
   val doit = fn size => for (0, size, fn _ => doit ())
 end
 
-val foo = Main.doit 100;
+val foo = Main.doit 80;
 
 (* Quit out correctly for interacive SMLs *)
 val _ = OS.Process.exit(OS.Process.success);
