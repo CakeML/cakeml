@@ -57,22 +57,18 @@ val size_of_v_def = tDefine"size_of_v"`
   size_of_v (s_ts : num_set option) (Block ts tag vl) =
     (let ts_set = case s_ts of SOME x => x | _ => LN;
          s_ts'  = OPTION_MAP (insert ts ()) s_ts;
-         coutn_ts = UNCURRY (##) o ((+) ## OPTION_MAP2 union)
      in if ts = 0 ∧ vl = [] ∨ ts ∈ domain ts_set
         then (0:num,s_ts)
-        else FOLDL coutn_ts (1 + LENGTH vl,s_ts') (MAP (size_of_v s_ts') vl))
-∧ size_of_v s_ts v = (0,s_ts)`
-(WF_REL_TAC `measure (λ(ts,v). v_size v)`
- \\ `∀l. v1_size l = SUM (MAP (λx. v_size x + 1) l)`
-    by (Induct >> rw [definition"v_size_def"])
- \\ rw []
- \\ ho_match_mp_tac LESS_EQ_LESS_TRANS
- \\ Q.EXISTS_TAC `SUM (MAP (λx. v_size x + 1) vl)`
- \\ rw []
- \\ IMP_RES_TAC SUM_MAP_MEM_bound
- \\ ho_match_mp_tac LESS_EQ_TRANS
- \\ Q.EXISTS_TAC `v_size a + 1`
- \\ rw [])
+        else let (sz_l,ts_l) = size_of_v_list s_ts' vl
+             in (1 + LENGTH vl + sz_l,ts_l))
+∧ size_of_v s_ts v = (0,s_ts)
+∧ size_of_v_list s_ts [] = (0,s_ts)
+∧ size_of_v_list s_ts (v::^vs) =
+   (let (sz,s_ts')  = size_of_v s_ts v;
+        (sz_l,ts_l) = size_of_v_list s_ts' vs
+    in (sz + sz_l,ts_l))`
+(WF_REL_TAC `measure (λx. (case x of INR (_,vl) => v1_size vl
+                                   | INL (_,v ) => v_size v))`)
 
 
 (* Measures the amount of space everything in a dataLang "heap" would need
