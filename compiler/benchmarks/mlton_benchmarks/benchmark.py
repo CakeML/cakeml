@@ -34,7 +34,7 @@ benchmarks = [
 ]
 
 #Benchmark iterations
-bm_iters = 5
+bm_iters = 1
 
 #Benchmark timeouts (in seconds)
 bm_timeout = 60
@@ -132,29 +132,30 @@ for bm in benchmarks:
 import pickle
 pickle.dump(bmdict,open("bmdict.pickle","w"))
 
+#import pickle
 #bmdict = pickle.load(open("bmdict.pickle","rb"))
 
 #Invert the mapping
 mls = comp_mls.keys() + interp_mls.keys()
 mltimes = {}
 for ml in mls:
-    mltimes[ml] = {}
-    for bm in benchmarks:
-        tml = bmdict[bm][ml]
-        if tml == None:
-            mltimes[ml][bm] = None
-        else:
-            logtime = tml #map(np.log10,tml)
-            meantime = np.mean(logtime)
-            stdtime = np.std(logtime)
-            mltimes[ml][bm] = (meantime,stdtime)
+  mltimes[ml] = {}
+  for bm in benchmarks:
+    tml = bmdict[bm][ml]
+    if tml == None:
+      mltimes[ml][bm] = None
+    else:
+      logtime = tml #map(np.log10,tml)
+      meantime = np.mean(logtime)
+      stdtime = np.std(logtime)
+      mltimes[ml][bm] = (meantime,stdtime)
 
 #Dump to log file
 p2 = open('all.dat', 'w')
-for bm in benchmarks:
+for bm in sorted(benchmarks):
   times = bmdict[bm]
   pstr=bm+"\n"
-  for ml in times.keys():
+  for ml in sorted(times.keys()):
       tml = times[ml]
       if tml == None:
           pstr+=ml+" : Failed\n"
