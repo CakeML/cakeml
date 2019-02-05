@@ -4110,7 +4110,7 @@ val mem_size_lemma = Q.prove ( `list_size sz xs < N ==> (MEM x xs ⇒ sz x < N)`
 val num_bindings_def = tDefine"num_bindings"
   `(num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
    (num_bindings (Dletrec _ f) = LENGTH f) ∧
-   (num_bindings (Dmod _ ds) = SUM (MAP num_bindings ds)) ∧
+   (num_bindings (Dmod _ _ ds) = SUM (MAP num_bindings ds)) ∧
    (num_bindings (Dlocal lds ds) = SUM (MAP num_bindings lds)
         + SUM (MAP num_bindings ds)) ∧
    (num_bindings _ = 0)`
