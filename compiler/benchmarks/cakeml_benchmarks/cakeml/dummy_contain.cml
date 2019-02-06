@@ -27,7 +27,8 @@ fun ins_look a n len =
 
 fun harness () =
 let val a = Array.array 40000 0 in
-  ins_look a 10000 40000
+  (insert1 a 0 40000;
+   ins_look a 1000 40000)
 end;
 
 val test = harness ();

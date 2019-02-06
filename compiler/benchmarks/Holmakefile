@@ -1,6 +1,6 @@
 INCLUDES =
 
-all: $(DEFAULT_TARGETS) README.md report.html
+all: $(DEFAULT_TARGETS) README.md cakeml_report.html mlton_report.html
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
@@ -8,50 +8,62 @@ DIRS = $(wildcard */)
 README.md: $(dprot $(CAKEMLDIR)/developers/readme_gen) readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
-MLTON_PLOTS = plot1noerr.svg plot2noerr.svg plot3noerr.svg all.dat
+CAKEML_PLOTS = cakeml_plot1noerr.svg cakeml_plot2noerr.svg cakeml_plot3noerr.svg cakeml_all.dat
+MLTON_PLOTS = mlton_plot1noerr.svg mlton_plot2noerr.svg mlton_plot3noerr.svg mlton_all.dat
+EXTRA_CLEANS = $(RM) $(wildcard *.dat *.html *.svg)
 
-#TODO: update cakeml_benchmarks
-#report.html: benchmarks2.eps
-#	echo '<!doctype html>' > report.html
-#	echo '<html lang="en">' >> report.html
-#	echo '<head><meta charset="utf-8">' >> report.html
-#	echo '<title>CakeML benchmark report</title>' >> report.html
-#	echo '</head>' >> report.html
-#	echo '<body>' >> report.html
-#	echo '<h1>CakeML benchmarks</h1>' >> report.html
-#	echo '<img src="benchmarks2.eps">' >> report.html
-#	echo '</body>' >> report.html
-#	echo '</html>' >> report.html
-#
-#benchmarks2.eps:
-#	cakeml_benchmarks/run_all.sh
-#	$(CP) cakeml_benchmarks/benchmarks2.eps benchmarks2.eps
+cakeml_report.html: $(CAKEML_PLOTS)
+	echo '<!doctype html>' > cakeml_report.html
+	echo '<html lang="en">' >> cakeml_report.html
+	echo '<head><meta charset="utf-8">' >> cakeml_report.html
+	echo '<style>' >> cakeml_report.html
+	echo 'text {' >> cakeml_report.html
+	echo '	white-space: pre;' >> cakeml_report.html
+	echo '}' >> cakeml_report.html
+	echo '</style>' >> cakeml_report.html
+	echo '<title>CakeML benchmark cakeml_report</title>' >> cakeml_report.html
+	echo '</head>' >> cakeml_report.html
+	echo '<body>' >> cakeml_report.html
+	echo '<h1>CakeML mini benchmark plots</h1> <p>' >> cakeml_report.html
+	echo '<img src="cakeml_plot1noerr.svg"> <p>' >> cakeml_report.html
+	echo '<img src="cakeml_plot2noerr.svg"> <p>' >> cakeml_report.html
+	echo '<img src="cakeml_plot3noerr.svg"> <p>' >> cakeml_report.html
+	echo '<h1>CakeML mini benchmark raw numbers (mean & std. dev., in seconds)</h1> <p>' >> cakeml_report.html
+	echo '<text>' >> cakeml_report.html
+	cat  cakeml_all.dat >> cakeml_report.html
+	echo '</text>' >> cakeml_report.html
+	echo '</body>' >> cakeml_report.html
+	echo '</html>' >> cakeml_report.html
 
-report.html: $(MLTON_PLOTS)
-	echo '<!doctype html>' > report.html
-	echo '<html lang="en">' >> report.html
-	echo '<head><meta charset="utf-8">' >> report.html
-	echo '<style>' >> report.html
-	echo 'text {' >> report.html
-	echo '	white-space: pre;' >> report.html
-	echo '}' >> report.html
-	echo '</style>' >> report.html
-	echo '<title>CakeML benchmark report</title>' >> report.html
-	echo '</head>' >> report.html
-	echo '<body>' >> report.html
-	echo '<h1>MLton benchmark plots</h1> <p>' >> report.html
-	echo '<img src="plot1noerr.svg"> <p>' >> report.html
-	echo '<img src="plot2noerr.svg"> <p>' >> report.html
-	echo '<img src="plot3noerr.svg"> <p>' >> report.html
-	echo '<h1>MLton benchmark raw numbers (mean & std. dev., in seconds)</h1> <p>' >> report.html
-	echo '<text>' >> report.html
-	cat  all.dat >> report.html
-	echo '</text>' >> report.html
-	echo '</body>' >> report.html
-	echo '</html>' >> report.html
+$(CAKEML_PLOTS): cakeml_benchmarks/benchmark.py
+	cd cakeml_benchmarks; python benchmark.py
+	$(CP) cakeml_benchmarks/*.svg .
+	$(CP) cakeml_benchmarks/*.dat .
+
+mlton_report.html: $(MLTON_PLOTS)
+	echo '<!doctype html>' > mlton_report.html
+	echo '<html lang="en">' >> mlton_report.html
+	echo '<head><meta charset="utf-8">' >> mlton_report.html
+	echo '<style>' >> mlton_report.html
+	echo 'text {' >> mlton_report.html
+	echo '	white-space: pre;' >> mlton_report.html
+	echo '}' >> mlton_report.html
+	echo '</style>' >> mlton_report.html
+	echo '<title>CakeML benchmark mlton_report</title>' >> mlton_report.html
+	echo '</head>' >> mlton_report.html
+	echo '<body>' >> mlton_report.html
+	echo '<h1>MLton benchmark plots</h1> <p>' >> mlton_report.html
+	echo '<img src="mlton_plot1noerr.svg"> <p>' >> mlton_report.html
+	echo '<img src="mlton_plot2noerr.svg"> <p>' >> mlton_report.html
+	echo '<img src="mlton_plot3noerr.svg"> <p>' >> mlton_report.html
+	echo '<h1>MLton benchmark raw numbers (mean & std. dev., in seconds)</h1> <p>' >> mlton_report.html
+	echo '<text>' >> mlton_report.html
+	cat  mlton_all.dat >> mlton_report.html
+	echo '</text>' >> mlton_report.html
+	echo '</body>' >> mlton_report.html
+	echo '</html>' >> mlton_report.html
 
 $(MLTON_PLOTS): mlton_benchmarks/benchmark.py
 	cd mlton_benchmarks; python benchmark.py
 	$(CP) mlton_benchmarks/*.svg .
-	$(CP) mlton_benchmarks/all.dat .
-
+	$(CP) mlton_benchmarks/*.dat .

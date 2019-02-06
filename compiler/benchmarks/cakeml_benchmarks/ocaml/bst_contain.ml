@@ -14,12 +14,12 @@ let rec  lookup v6 v7 v8 =
                                 |   Greater ->  (lookup v6 v7 v1))
  let  singleton v1 =  (fun  v2 -> Bin(1,v1,v2,Tip,Tip))
  let  ratio = 2
- let  size v6 = 
+ let  size v6 =
    match  v6
    with  Tip ->  0
    |   Bin(v5,v4,v3,v2,v1) ->  v5
  let  delta = 3
-   let rec  balancel v41 = 
+   let rec  balancel v41 =
    (fun  v42 ->
      (fun  v43 ->
        (fun  v44 ->
@@ -47,7 +47,7 @@ let rec  lookup v6 v7 v8 =
                                                                                                                                                               else  (Bin((1 + v40) + v35,v24,v23,Bin((1 + v30) + (size v22),v39,v38,v37,v22),Bin((1 + v35) + (size v21),v41,v42,v21,Bin(v35,v34,v33,v32,v31)))))))
                                                                                else  (Bin((1 + v40) + v35,v41,v42,Bin(v40,v39,v38,v37,v36),Bin(v35,v34,v33,v32,v31))))))))
 
-   let rec  balancer v41 = 
+   let rec  balancer v41 =
    (fun  v42 ->
      (fun  v43 ->
        (fun  v44 ->
@@ -82,7 +82,7 @@ let rec  lookup v6 v7 v8 =
                                 with  Less ->  (balancel v4 v3 (insert v6 v7 v9 v2) v1)
                                 |   Equal ->  (Bin(v5,v7,v9,v2,v1))
                                 |   Greater ->  (balancer v4 v3 v2 (insert v6 v7 v9 v1)))
- let  num_compare v1 = 
+ let  num_compare v1 =
    (fun  v2 ->
      if  (v1 = v2)
      then  Equal

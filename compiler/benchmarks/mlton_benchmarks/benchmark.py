@@ -34,10 +34,10 @@ benchmarks = [
 ]
 
 #Benchmark iterations
-bm_iters = 1
+bm_iters = 5
 
 #Benchmark timeouts (in seconds)
-bm_timeout = 60
+bm_timeout = 120
 
 # Format: key -> (path,suffix)
 #compiled MLs
@@ -66,7 +66,7 @@ interp_mls = {
   "poly" : ("poly","--use","./sml/",".sml"),
 
   #This should be a path to PolyML with --enable-intinf-as-int
-  #"poly_intinf" : ("~/polyml2/poly","./sml/",".sml"),
+  #"poly_intinf" : ("~/polyml2/poly","--use","./sml/",".sml"),
 
   #Path to SMLNJ
   "smlnj" : ("sml","@SMLalloc=100000k", "./sml/",".sml"),
@@ -151,8 +151,8 @@ for ml in mls:
       mltimes[ml][bm] = (meantime,stdtime)
 
 #Dump to log file
-p2 = open('all.dat', 'w')
-for bm in sorted(benchmarks):
+p2 = open('mlton_all.dat', 'w')
+for bm in benchmarks:
   times = bmdict[bm]
   pstr=bm+"\n"
   for ml in sorted(times.keys()):
@@ -253,7 +253,7 @@ a4=ax.annotate('Small, Pure', xy=(xoffset, offset+13.5*heightmul), xytext=(xoffs
             annotation_clip=False)
 
 plt.tight_layout()
-plt.savefig('plot1noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
+plt.savefig('mlton_plot1noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
 
 #Second plot will be between all the MLs without intinfs
 #Fill in solid bars for the 'intinf' ones
@@ -335,7 +335,7 @@ a4=ax.annotate('Small, Pure', xy=(xoffset, offset+13.5*heightmul), xytext=(xoffs
             annotation_clip=False)
 
 plt.tight_layout()
-plt.savefig('plot2noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
+plt.savefig('mlton_plot2noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
 
 #Third plot will be CakeML vs CakeML plots
 ind = np.arange(len(rbm))*6
@@ -404,4 +404,4 @@ a4=ax.annotate('Small, Pure', xy=(xoffset, offset+13.5*heightmul), xytext=(xoffs
             annotation_clip=False)
 
 plt.tight_layout()
-plt.savefig('plot3noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
+plt.savefig('mlton_plot3noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
