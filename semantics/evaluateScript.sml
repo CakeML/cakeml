@@ -170,11 +170,56 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_defn;
 
+
+(*val get_spec_names : namespace modN sigN sig_names -> spec -> sig_names*)
+ val _ = Define `
+ ((get_spec_names:((string),(string),(((string),(string),(unit))namespace#((string),(string),(unit))namespace))namespace -> spec ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv (Sval n t)=  (nsSing n () , nsEmpty))
+/\ ((get_spec_names:((string),(string),(((string),(string),(unit))namespace#((string),(string),(unit))namespace))namespace -> spec ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv (Stype tdefs)=
+   (nsEmpty, alist_to_ns (FLAT (MAP (\p .  
+  (case (p ) of
+      ( (_, _, ctors) ) => MAP
+                             (\p .  (case (p ) of ( (cn, _) ) => (cn, () ) ))
+                             ctors
+  )) tdefs))))
+/\ ((get_spec_names:((string),(string),(((string),(string),(unit))namespace#((string),(string),(unit))namespace))namespace -> spec ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv (Stype_opq _ _)=  (nsEmpty, nsEmpty))
+/\ ((get_spec_names:((string),(string),(((string),(string),(unit))namespace#((string),(string),(unit))namespace))namespace -> spec ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv (Stabbrev _ _ _)=  (nsEmpty, nsEmpty))
+/\ ((get_spec_names:((string),(string),(((string),(string),(unit))namespace#((string),(string),(unit))namespace))namespace -> spec ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv (Sexn _ _)=  (nsEmpty, nsEmpty))
+/\ ((get_spec_names:((string),(string),(((string),(string),(unit))namespace#((string),(string),(unit))namespace))namespace -> spec ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv (Smod mn sn)=
+   ((case nsLookup senv sn of
+    SOME (sig1, sig2) => (nsLift mn sig1, nsLift mn sig2)
+  | NONE => (nsEmpty, nsEmpty)
+  )))`;
+
+
+(*val get_specs_names : namespace modN sigN sig_names -> list spec -> sig_names*)
+ val get_specs_names_defn = Defn.Hol_multi_defns `
+ ((get_specs_names:((modN),(sigN),(sig_names))namespace ->(spec)list ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv []=  (nsEmpty, nsEmpty))
+/\ ((get_specs_names:((modN),(sigN),(sig_names))namespace ->(spec)list ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv (spec::specs)=
+   (let (v1,c1) = (get_spec_names senv spec) in
+  let (v2,c2) = (get_specs_names senv specs) in
+    (nsAppend v2 v1, nsAppend c2 c1)))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) get_specs_names_defn;
+
+(*val get_sig_names : namespace modN sigN sig_names -> maybe (id modN sigN) -> sem_env v -> sig_names*)
+ val _ = Define `
+ ((get_sig_names:((string),(string),(((string),(string),(unit))namespace#((string),(string),(unit))namespace))namespace ->(((string),(string))id)option ->(v)sem_env ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv NONE env=
+   (nsMap (\v .  (case (v ) of ( _ ) => ()  )) env.v, nsMap (\p .  
+  (case (p ) of ( _ ) => ()  )) env.c))
+/\ ((get_sig_names:((string),(string),(((string),(string),(unit))namespace#((string),(string),(unit))namespace))namespace ->(((string),(string))id)option ->(v)sem_env ->((string),(string),(unit))namespace#((string),(string),(unit))namespace) senv (SOME s) env=
+   ((case nsLookup senv s of
+    NONE => (nsMap (\v .  
+  (case (v ) of ( _ ) => ()  )) env.v, nsMap (\p .  
+  (case (p ) of ( _ ) => ()  )) env.c)
+  | SOME snames => snames
+  )))`;
+
+
 (*val evaluate_decs :
   forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v*)
  val evaluate_decs_defn = Defn.Hol_multi_defns `
 
-((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env []=  (st, Rval <| v := nsEmpty; c := nsEmpty |>))
+((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env []=  (st, Rval <| v := nsEmpty; c := nsEmpty; s := nsEmpty |>))
 /\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env (d1::d2::ds)=
    ((case evaluate_decs st env [d1] of
@@ -191,7 +236,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
       (st', Rval v) =>
         (st',
          (case pmatch env.c st'.refs p (HD v) [] of
-           Match new_vals => Rval <| v := (alist_to_ns new_vals); c := nsEmpty |>
+           Match new_vals => Rval <| v := (alist_to_ns new_vals); c := nsEmpty; s := nsEmpty |>
          | No_match => Rerr (Rraise bind_exn_v)
          | Match_type_error => Rerr (Rabort Rtype_error)
          ))
@@ -203,36 +248,40 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dletrec locs funs]=
    (st,
    (if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
-     Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty |>
+     Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty; s := nsEmpty |>
    else
      Rerr (Rabort Rtype_error))))
 /\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dtype locs tds]=
    (if EVERY check_dup_ctors tds then
     (( st with<| next_type_stamp := (st.next_type_stamp + LENGTH tds) |>),
-     Rval <| v := nsEmpty; c := (build_tdefs st.next_type_stamp tds) |>)
+     Rval <| v := nsEmpty; c := (build_tdefs st.next_type_stamp tds); s := nsEmpty |>)
   else
     (st, Rerr (Rabort Rtype_error))))
 /\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dtabbrev locs tvs tn t]=
-   (st, Rval <| v := nsEmpty; c := nsEmpty |>))
+   (st, Rval <| v := nsEmpty; c := nsEmpty; s := nsEmpty |>))
 /\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dexn locs cn ts]=
    (( st with<| next_exn_stamp := (st.next_exn_stamp +( 1 : num)) |>),
-   Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp)) |>))
+   Rval <| v := nsEmpty; c := (nsSing cn (LENGTH ts, ExnStamp st.next_exn_stamp)); s := nsEmpty |>))
 /\
-(evaluate_decs st env [Dmod mn _ ds]=
- ((case evaluate_decs st env ds of
+((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dmod mn sn_opt ds]=
+   ((case evaluate_decs st env ds of
     (st', r) =>
       (st',
        (case r of
-         Rval env' => Rval <| v := (nsLift mn env'.v); c := (nsLift mn env'.c) |>
+         Rval env' =>
+         let (vnames, cnames) = (get_sig_names env.s sn_opt env') in
+           Rval <| v := (nsLift mn (nsRestrict env'.v vnames));
+                   c := (nsLift mn (nsRestrict env'.c cnames));
+                   s := (nsLift mn env'.s) |>
        | Rerr err => Rerr err
        ))
   )))
 /\
-(evaluate_decs st env [Dsig _ _]=
-  (st, Rval <| v := nsEmpty; c := nsEmpty |>))
+((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dsig sn specs]=
+   (st, Rval <| v := nsEmpty; c := nsEmpty; s := (nsSing sn (get_specs_names env.s specs)) |>))
 /\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dlocal lds ds]=
    ((case evaluate_decs st env lds of
@@ -242,5 +291,5 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_decs_defn;
-
 val _ = export_theory()
+

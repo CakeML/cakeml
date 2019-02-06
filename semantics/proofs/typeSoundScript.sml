@@ -1,6 +1,7 @@
 (*
   Proof of type soundness: a type-correct program does not crash.
 *)
+
 open preamble;
 open libTheory astTheory typeSystemTheory semanticPrimitivesTheory evaluateTheory;
 open terminationTheory;
@@ -2306,6 +2307,7 @@ Theorem decs_type_sound_no_check
      >> irule nsAll2_nsBind
      >> simp [])
    >- metis_tac [type_s_weakening, good_ctMap_def])
+
  >- ( (* Case module *)
    qpat_x_assum `type_d _ _ (Dmod _ _ _) _ _` mp_tac >>
    rw [Once type_d_cases] >>

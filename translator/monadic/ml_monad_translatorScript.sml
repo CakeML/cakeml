@@ -866,9 +866,10 @@ val nsAppend_append = Q.prove(
   Induct_on `a` >> rw[namespaceTheory.nsAppend_def]);
 
 val write_list_eq = Q.prove(
- `!bind_names paramsv l1 l2 cenv.
+ `!bind_names paramsv l1 l2 cenv senv.
   LENGTH paramsv = LENGTH bind_names ==>
-  write_list bind_names paramsv (sem_env (Bind l1 l2) cenv) = sem_env (Bind ((REVERSE (ZIP (bind_names,paramsv))) ++ l1) l2) cenv`,
+  write_list bind_names paramsv (sem_env (Bind l1 l2) cenv senv) = sem_env (Bind
+  ((REVERSE (ZIP (bind_names,paramsv))) ++ l1) l2) cenv senv`,
   Induct_on `bind_names`
   >> Cases_on `paramsv`
   >> rw[namespaceTheory.nsAppend_def, namespaceTheory.alist_to_ns_def, write_list_def, write_def]
@@ -2840,7 +2841,8 @@ val nsAppend_build_rec_env_eq = Q.prove(
 val merge_build_rec_env = Q.prove(
   `!funs env1 env0.
      merge_env <|v := (build_rec_env funs (merge_env env1 env0) env1.v);
-                 c := env1.c|> env0 =
+                 c := env1.c;
+                 s := env1.s |> env0 =
      (merge_env env1 env0) with v :=
         build_rec_env funs (merge_env env1 env0) (merge_env env1 env0).v`,
   fs[merge_env_def, nsAppend_build_rec_env_eq]);
@@ -2848,22 +2850,23 @@ val merge_build_rec_env = Q.prove(
 Theorem EvalSt_Letrec_Fun
   `!funs env exp st P H.
   (ALL_DISTINCT (MAP (\(x,y,z). x) funs)) ==>
-  EvalSt <|v := (build_rec_env funs env env.v); c := env.c|> st exp P H ==>
+  EvalSt <|v := (build_rec_env funs env env.v); c := env.c; s := env.s |> st exp P H ==>
   EvalSt env st (Letrec funs exp) P H`
   (rw[EvalSt_def]
   \\ qpat_x_assum `!s. A` imp_res_tac
   \\ rw[evaluate_def]
-  \\ `<|v := build_rec_env funs env env.v; c := env.c|> =
+  \\ `<|v := build_rec_env funs env env.v; c := env.c; s := env.s |> =
       env with v := build_rec_env funs env env.v` by fs[sem_env_component_equality]
   \\ fs[]
   \\ metis_tac[]);
 
 Theorem merge_env_bind_empty
-  `merge_env <| v := Bind [] []; c := Bind [] [] |> env  = env`
+  `merge_env <| v := Bind [] []; c := Bind [] []; s := Bind [] []|> env  = env`
   (rw[merge_env_def]
   \\ Cases_on `env`
   \\ Cases_on `n`
   \\ Cases_on `n0`
+  \\ Cases_on `n1`
   \\ rw[namespaceTheory.nsAppend_def, sem_env_component_equality]);
 
 Theorem Bind_list_to_write
@@ -3131,7 +3134,7 @@ val nsLookup_write_simp = Q.prove(
   \\ fs[namespaceTheory.nsLookup_def, merge_env_def, write_def]);
 
 val sem_env_same_components = Q.prove(
-  `<|v := env.v; c := env.c|> = (env : v sem_env)`,
+  `<|v := env.v; c := env.c; s := env.s|> = (env : v sem_env)`,
   fs[sem_env_component_equality]);
 
 val lookup_cons_write_simp = Q.prove(

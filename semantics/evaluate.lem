@@ -154,10 +154,40 @@ evaluate_match st env v ((p,e)::pes) err_v  =
 declare {isabelle} rename function evaluate = fun_evaluate
 declare {isabelle} rename function evaluate_match = fun_evaluate_match
 
+
+val get_spec_names : namespace modN sigN sig_names -> spec -> sig_names
+let rec get_spec_names senv (Sval n t) = (nsSing n (), nsEmpty)
+and get_spec_names senv (Stype tdefs) =
+  (nsEmpty, alist_to_ns (List.concat (List.map (fun (_, _, ctors) -> List.map (fun (cn, _) -> (cn, ())) ctors) tdefs)))
+and get_spec_names senv (Stype_opq _ _) = (nsEmpty, nsEmpty)
+and get_spec_names senv (Stabbrev _ _ _) = (nsEmpty, nsEmpty)
+and get_spec_names senv (Sexn _ _) = (nsEmpty, nsEmpty)
+and get_spec_names senv (Smod mn sn) =
+  match nsLookup senv sn with
+    Just (sig1, sig2) -> (nsLift mn sig1, nsLift mn sig2)
+  | Nothing -> (nsEmpty, nsEmpty)
+  end
+
+val get_specs_names : namespace modN sigN sig_names -> list spec -> sig_names
+let rec get_specs_names senv [] = (nsEmpty, nsEmpty)
+and get_specs_names senv (spec::specs) =
+  let (v1,c1) = get_spec_names senv spec in
+  let (v2,c2) = get_specs_names senv specs in
+    (nsAppend v2 v1, nsAppend c2 c1)
+
+val get_sig_names : namespace modN sigN sig_names -> maybe (id modN sigN) -> sem_env v -> sig_names
+let rec get_sig_names senv Nothing env =
+  (nsMap (fun _ -> ()) env.v, nsMap (fun _ -> ()) env.c)
+and get_sig_names senv (Just s) env =
+  match nsLookup senv s with
+    Nothing -> (nsMap (fun _ -> ()) env.v, nsMap (fun _ -> ()) env.c)
+  | Just snames -> snames
+  end
+
 val evaluate_decs :
   forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v
 let rec
-evaluate_decs st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
+evaluate_decs st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty; s = nsEmpty |>)
 and
 evaluate_decs st env (d1::d2::ds) =
   match evaluate_decs st env [d1] with
@@ -174,7 +204,7 @@ evaluate_decs st env [Dlet locs p e] =
     | (st', Rval v) ->
         (st',
          match pmatch env.c st'.refs p (head v) [] with
-         | Match new_vals -> Rval <| v = alist_to_ns new_vals; c = nsEmpty |>
+         | Match new_vals -> Rval <| v = alist_to_ns new_vals; c = nsEmpty; s = nsEmpty |>
          | No_match -> Rerr (Rraise bind_exn_v)
          | Match_type_error -> Rerr (Rabort Rtype_error)
          end)
@@ -186,36 +216,40 @@ and
 evaluate_decs st env [Dletrec locs funs] =
   (st,
    if allDistinct (map (fun (x,y,z) -> x) funs) then
-     Rval <| v = build_rec_env funs env nsEmpty; c = nsEmpty |>
+     Rval <| v = build_rec_env funs env nsEmpty; c = nsEmpty; s = nsEmpty |>
    else
      Rerr (Rabort Rtype_error))
 and
 evaluate_decs st env [Dtype locs tds] =
   if List.all check_dup_ctors tds then
     (<| st with next_type_stamp = st.next_type_stamp + List.length tds |>,
-     Rval <| v = nsEmpty; c = build_tdefs st.next_type_stamp tds |>)
+     Rval <| v = nsEmpty; c = build_tdefs st.next_type_stamp tds; s = nsEmpty |>)
   else
     (st, Rerr (Rabort Rtype_error))
 and
 evaluate_decs st env [Dtabbrev locs tvs tn t] =
-  (st, Rval <| v = nsEmpty; c = nsEmpty |>)
+  (st, Rval <| v = nsEmpty; c = nsEmpty; s = nsEmpty |>)
 and
 evaluate_decs st env [Dexn locs cn ts] =
   (<| st with next_exn_stamp = st.next_exn_stamp + 1 |>,
-   Rval <| v = nsEmpty; c = nsSing cn (length ts, ExnStamp st.next_exn_stamp) |>)
+   Rval <| v = nsEmpty; c = nsSing cn (length ts, ExnStamp st.next_exn_stamp); s = nsEmpty |>)
 and
-evaluate_decs st env [Dmod mn _ ds] =
+evaluate_decs st env [Dmod mn sn_opt ds] =
   match evaluate_decs st env ds with
   | (st', r) ->
       (st',
        match r with
-       | Rval env' -> Rval <| v = nsLift mn env'.v; c = nsLift mn env'.c |>
+       | Rval env' ->
+         let (vnames, cnames) = get_sig_names env.s sn_opt env' in
+           Rval <| v = nsLift mn (nsRestrict env'.v vnames);
+                   c = nsLift mn (nsRestrict env'.c cnames);
+                   s = nsLift mn env'.s |>
        | Rerr err -> Rerr err
        end)
   end
 and
-evaluate_decs st env [Dsig _ _] =
-  (st, Rval <| v = nsEmpty; c = nsEmpty |>)
+evaluate_decs st env [Dsig sn specs] =
+  (st, Rval <| v = nsEmpty; c = nsEmpty; s = nsSing sn (get_specs_names env.s specs) |>)
 and
 evaluate_decs st env [Dlocal lds ds] =
   match evaluate_decs st env lds with

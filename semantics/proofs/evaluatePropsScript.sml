@@ -9,6 +9,19 @@ open terminationTheory
 
 val _ = new_theory"evaluateProps";
 
+Theorem nsRestrict_ident
+  `!ns ns' f. ns' = nsMap f ns ⇒ nsRestrict ns ns' = ns`
+ (ho_match_mp_tac nsRestrict_ind >> rw [nsRestrict_def, nsMap_def] >>
+  Induct_on `ns` >> rw [] >>
+  pairarg_tac >> fs [] >> rw [] >>
+  `!f g x s. FILTER f x = FILTER g x ∧ FILTER f x = x ⇒ FILTER g x = x`
+    by metis_tac [] >>
+  irule (PROVE [] ``!f g x s. FILTER f x = FILTER g x ∧ FILTER f x = x ⇒ FILTER g x = x``) >>
+  asm_exists_tac >> simp [FILTER_EQ] >> rw [] >>
+  pairarg_tac >> rw [ALOOKUP_MAP, ALOOKUP_NONE, MEM_MAP, EXISTS_PROD] >>
+  metis_tac []);
+
+
 Theorem call_FFI_LENGTH
   `(call_FFI st index conf x = FFI_return new_st new_bytes) ==>
     (LENGTH x = LENGTH new_bytes)`
@@ -386,7 +399,7 @@ Proof
 
 Theorem evaluate_decs_nil[simp]
   `∀(s:'ffi state) env.
-    evaluate_decs s env [] = (s,Rval <| v := nsEmpty; c := nsEmpty |>)`
+    evaluate_decs s env [] = (s,Rval <| v := nsEmpty; c := nsEmpty; s := nsEmpty |>)`
  (rw [evaluate_decs_def]);
 
 Theorem evaluate_decs_cons

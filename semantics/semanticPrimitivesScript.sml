@@ -37,11 +37,17 @@ let type_defs_to_new_tdecs mn tdefs =
   Set.fromList (List.map (fun (tvs,tn,ctors) -> TypeId (mk_id mn tn)) tdefs)
 *)
 
+val _ = type_abbrev( "sig_names" , ``: (modN, varN, unit)
+  namespace # (modN, conN, unit) namespace``);
+
 val _ = Hol_datatype `
 (*  'v *) sem_env =
   <| v : (modN, varN, 'v) namespace
    (* Lexical mapping of constructor idents to arity, stamp pairs *)
    ; c : (modN, conN, (num # stamp)) namespace
+   (* Keep information on what bindings a signature has, but we don't care
+      about the types *)
+   ; s : (modN, sigN, sig_names) namespace
    |>`;
 
 
@@ -905,14 +911,15 @@ val _ = Define `
  ((combine_dec_result:(v)sem_env ->(((v)sem_env),'a)result ->(((v)sem_env),'a)result) env r=
    ((case r of
       Rerr e => Rerr e
-    | Rval env' => Rval <| v := (nsAppend env'.v env.v); c := (nsAppend env'.c env.c) |>
+    | Rval env' =>
+      Rval <| v := (nsAppend env'.v env.v); c := (nsAppend env'.c env.c); s := (nsAppend env'.s env.s) |>
   )))`;
 
 
 (*val extend_dec_env : sem_env v -> sem_env v -> sem_env v*)
 val _ = Define `
  ((extend_dec_env:(v)sem_env ->(v)sem_env ->(v)sem_env) new_env env=
-   (<| c := (nsAppend new_env.c env.c); v := (nsAppend new_env.v env.v) |>))`;
+   (<| c := (nsAppend new_env.c env.c); v := (nsAppend new_env.v env.v); s := (nsAppend new_env.s env.s) |>))`;
 
 
 (*

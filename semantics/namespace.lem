@@ -110,3 +110,10 @@ val nsMap : forall 'v 'w 'm 'n. ('v -> 'w) -> namespace 'm 'n 'v -> namespace 'm
 let rec nsMap f (Bind v m) =
   Bind (List.map (fun (n,x) -> (n, f x)) v)
        (List.map (fun (mn,e) -> (mn, nsMap f e)) m)
+
+val nsRestrict: forall 'm 'n 'v 'w. Eq 'n, Eq 'v, Eq 'w => namespace 'm 'n 'v -> namespace 'm 'n 'w -> namespace 'm 'n 'v
+let rec nsRestrict (Bind v m) (Bind v' m') =
+  Bind
+    (List.filter (fun (n,x) -> List.lookup n v' <> Nothing) v)
+    m
+

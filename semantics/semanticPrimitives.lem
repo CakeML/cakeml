@@ -25,10 +25,16 @@ let type_defs_to_new_tdecs mn tdefs =
   Set.fromList (List.map (fun (tvs,tn,ctors) -> TypeId (mk_id mn tn)) tdefs)
 *)
 
+type sig_names =
+  namespace modN varN unit * namespace modN conN unit
+
 type sem_env 'v =
   <| v : namespace modN varN 'v
    (* Lexical mapping of constructor idents to arity, stamp pairs *)
    ; c : namespace modN conN (nat * stamp)
+   (* Keep information on what bindings a signature has, but we don't care
+      about the types *)
+   ; s : namespace modN sigN sig_names
    |>
 
 (* Value forms *)
@@ -776,12 +782,13 @@ val combine_dec_result : forall 'a. sem_env v -> result (sem_env v) 'a -> result
 let combine_dec_result env r =
   match r with
     | Rerr e -> Rerr e
-    | Rval env' -> Rval <| v = nsAppend env'.v env.v; c = nsAppend env'.c env.c |>
+    | Rval env' ->
+      Rval <| v = nsAppend env'.v env.v; c = nsAppend env'.c env.c; s = nsAppend env'.s env.s |>
   end
 
 val extend_dec_env : sem_env v -> sem_env v -> sem_env v
 let extend_dec_env new_env env =
-  <| c = nsAppend new_env.c env.c; v = nsAppend new_env.v env.v |>
+  <| c = nsAppend new_env.c env.c; v = nsAppend new_env.v env.v; s = nsAppend new_env.s env.s |>
 
 (*
 val decs_to_types : list dec -> list typeN

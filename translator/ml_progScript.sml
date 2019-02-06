@@ -28,18 +28,20 @@ val write_cons_def = zDefine `
     (env with c := nsAppend (nsSing n d) env.c)`
 
 val empty_env_def = zDefine `
-  (empty_env:v sem_env) = <| v := nsEmpty ; c:= nsEmpty|>`;
+  (empty_env:v sem_env) = <| v := nsEmpty ; c:= nsEmpty; s := nsEmpty |>`;
 
 val write_mod_def = zDefine `
   write_mod mn (env:v sem_env) env2 =
     env2 with <|
       c := nsAppend (nsLift mn env.c) env2.c
-      ; v := nsAppend (nsLift mn env.v) env2.v |>`
+      ; v := nsAppend (nsLift mn env.v) env2.v
+      ; s := nsAppend (nsLift mn env.s) env2.s |>`
 
 val merge_env_def = zDefine `
   merge_env (env2:v sem_env) env1 =
     <| v := nsAppend env2.v env1.v
-     ; c := nsAppend env2.c env1.c|>`
+     ; c := nsAppend env2.c env1.c
+     ; s := nsAppend env2.s env1.s|>`
 
 (* the components of nsLookup are 'nicer' partial functions *)
 
@@ -191,12 +193,16 @@ val write_conses_v = prove(
   ``!xs env. (write_conses xs env).v = env.v``,
   Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]);
 
+val write_conses_s = prove(
+  ``!xs env. (write_conses xs env).s = env.s``,
+  Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]);
+
 val write_tdefs_lemma = prove(
   ``!tds env n.
       write_tdefs n tds env =
-      merge_env <|v := nsEmpty; c := build_tdefs n tds|> env``,
+      merge_env <|v := nsEmpty; c := build_tdefs n tds; s := nsEmpty|> env``,
   Induct \\ fs [write_tdefs_def,merge_env_def,build_tdefs_def,FORALL_PROD]
-  \\ rw [write_conses_v]
+  \\ rw [write_conses_v, write_conses_s]
   \\ rewrite_tac [GSYM namespacePropsTheory.nsAppend_assoc]
   \\ AP_TERM_TAC
   \\ Q.SPEC_TAC (`REVERSE (build_constrs n p_2)`,`xs`)
@@ -204,7 +210,7 @@ val write_tdefs_lemma = prove(
 
 Theorem write_tdefs_thm
   `write_tdefs n tds empty_env =
-    <|v := nsEmpty; c := build_tdefs n tds|>`
+    <|v := nsEmpty; c := build_tdefs n tds; s := nsEmpty|>`
   (fs [write_tdefs_lemma,empty_env_def,merge_env_def]);
 
 val merge_env_write_conses = prove(
@@ -377,14 +383,16 @@ Theorem Decls_Dletrec
   \\ pop_assum (assume_tac o GSYM) \\ fs []);
 
 Theorem Decls_Dmod
-  `Decls env1 s1 [Dmod mn sn ds] env2 s2 <=>
+  `Decls env1 s1 [Dmod mn NONE ds] env2 s2 <=>
    ?s env.
       Decls env1 s1 ds env s /\ s2 = s /\
       env2 = write_mod mn env empty_env`
   (fs [Decls_def,Decls_def,evaluate_decs_def,PULL_EXISTS,
-      combine_dec_result_def,write_mod_def,empty_env_def]
+      combine_dec_result_def,write_mod_def,empty_env_def,
+      evaluateTheory.get_sig_names_def]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs [pair_case_eq,result_case_eq]
-  \\ rveq \\ fs [] \\ asm_exists_tac \\ fs []);
+  \\ rveq \\ fs [] \\ asm_exists_tac \\ fs [] >>
+  metis_tac [nsRestrict_ident]);
 
 Theorem Decls_Dlocal
   `Decls env st lds env2 st2

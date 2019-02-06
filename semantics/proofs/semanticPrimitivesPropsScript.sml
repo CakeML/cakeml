@@ -16,7 +16,7 @@ Theorem with_same_v[simp]
 
 Theorem unchanged_env[simp]
  `!(env : 'a sem_env).
-  <| v := env.v; c := env.c |> = env`
+  <| v := env.v; c := env.c; s := env.s |> = env`
  (rw [sem_env_component_equality]);
 
 Theorem with_same_clock
