@@ -56,7 +56,7 @@ val f_rel_def = Define `
 
 val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!i. v_rel (Number i) (Number i)) /\
-  (!w. v_rel (Word64 w) (Word64 w)) /\
+  (!w. v_rel (Word w) (Word w)) /\
   (!w. v_rel (ByteVector w) (ByteVector w)) /\
   (!n. v_rel (RefPtr n) (RefPtr n)) /\
   (!tag xs ys.
@@ -76,7 +76,7 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
 val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Number n)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Block n p)``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Word64 p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Word p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (ByteVector p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (RefPtr p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Closure x1 x2 x3 x4 x5)``,
@@ -294,8 +294,8 @@ val v_rel_IMP_v_to_bytes = prove(
 val v_rel_IMP_v_to_words_lemma = prove(
   ``!y x.
       v_rel x y ==>
-      !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
+      !ns. (v_to_list x = SOME (MAP (Word o w2v) ns)) <=>
+           (v_to_list y = SOME (MAP (Word o w2v) ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
   \\ Cases_on `tag = cons_tag` \\ fs []

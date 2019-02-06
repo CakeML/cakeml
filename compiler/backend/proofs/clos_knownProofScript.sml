@@ -2135,7 +2135,7 @@ Theorem v1_size_append
 
 val v_rel_def = tDefine "v_rel" `
   (v_rel c g (Number i) v <=> v = Number i) /\
-  (v_rel c g (Word64 w) v <=> v = Word64 w) /\
+  (v_rel c g (Word w) v <=> v = Word w) /\
   (v_rel c g (ByteVector ws) v <=> v = ByteVector ws) /\
   (v_rel c g (RefPtr n) v <=> v = RefPtr n) /\
   (v_rel c g (Block n xs) v <=>
@@ -2174,7 +2174,7 @@ val v_rel_ind = theorem "v_rel_ind";
 
 val v_rel_app_def = Define `
   (v_rel_app c g (Number i) v args1 <=> v_rel c g (Number i) v) /\
-  (v_rel_app c g (Word64 w) v args1 <=> v_rel c g (Word64 w) v) /\
+  (v_rel_app c g (Word w) v args1 <=> v_rel c g (Word w) v) /\
   (v_rel_app c g (ByteVector ws) v args1 <=> v_rel c g (ByteVector ws) v) /\
   (v_rel_app c g (RefPtr n) v args1 <=> v_rel c g (RefPtr n) v) /\
   (v_rel_app c g (Block n xs) v args1 <=> v_rel c g (Block n xs) v) /\
@@ -2261,8 +2261,8 @@ val v_rel_IMP_v_to_bytes = prove(
 val v_rel_IMP_v_to_words_lemma = prove(
   ``!x y c g.
       v_rel c g x y ==>
-      !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
+      !ns. (v_to_list x = SOME (MAP (Word o w2v) ns)) <=>
+           (v_to_list y = SOME (MAP (Word o w2v) ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
   \\ Cases_on `tag = backend_common$cons_tag` \\ fs []

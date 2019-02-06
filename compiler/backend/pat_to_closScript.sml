@@ -32,9 +32,9 @@ val CopyByteStr_def = Define`CopyByteStr tra = ^checkT`;
 val CopyByteAw8_def = Define`CopyByteAw8 tra = ^checkF`;
 
 val dest_WordToInt_def = Define `
-  (dest_WordToInt w [App _ op [x]] =
+  (dest_WordToInt w1 [App _ op [x]] =
       case op of
-      | Op (WordToInt w) =>  SOME x
+      | Op (WordToInt w2) => if(w1 = w2) then SOME (x,w1) else NONE
       | _ => NONE) /\
   (dest_WordToInt _ _ = NONE)`
 
@@ -48,8 +48,10 @@ val MEM_exp1_size = prove(
   Cases_on`t`>>fs[exp_size_def] >> rw[] >> simp[]>>
   Cases_on`t'`>>fs[exp_size_def] >> rw[] >> simp[]);
 
+val dest_WordToInt_ind = theorem "dest_WordToInt_ind";
+
 val dest_WordToInt_exp_size = Q.prove(
-  `!w es e. (dest_WordToInt w es = SOME e) ==>
+  `!w es e wsz. (dest_WordToInt w es = SOME (e,wsz)) ==>
              exp_size e < exp1_size es`,
   ho_match_mp_tac (theorem "dest_WordToInt_ind") >> simp[dest_WordToInt_def]
    >> rpt STRIP_TAC >> Cases_on `op` >> fs[]
@@ -132,7 +134,7 @@ val compile_def = tDefine"compile" `
   (* TODO? do more elaborate lumping of WordFromInt/WordToInt/WordToWord together *)
   (compile (App tra (Op (flatLang$WordFromInt n)) es) =
     case dest_WordToInt n es of
-     | SOME e => Op tra (WordFromInt n) [compile e]
+     | SOME (e,dest_sz) => Op tra (WordToWord n dest_sz) [compile e]
      | NONE => Op tra (WordFromInt n) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (flatLang$WordToInt n)) es) =
     Op tra (WordToInt n) (REVERSE (MAP compile es))) ∧

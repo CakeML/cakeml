@@ -149,7 +149,7 @@ val renumber_code_locs_list_els = Q.prove(
 val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
   (v_rel max_app (Number j) (Number j))
   /\
-  (v_rel max_app (Word64 w) (Word64 w))
+  (v_rel max_app (Word w) (Word w))
   /\
   (EVERY2 (v_rel max_app) (xs:closSem$v list) (ys:closSem$v list) ==>
    v_rel max_app (Block t xs) (Block t ys))
@@ -222,14 +222,14 @@ val state_rel_code = Q.prove(
 val v_rel_simp = let
   val f = SIMP_CONV (srw_ss()) [Once v_rel_cases]
   in map f [``v_rel max_app (Number x) y``,
-            ``v_rel max_app (Word64 n) y``,
+            ``v_rel max_app (Word n) y``,
             ``v_rel max_app (Block n l) y``,
             ``v_rel max_app (ByteVector ws) y``,
             ``v_rel max_app (RefPtr x) y``,
             ``v_rel max_app (Closure n a l narg x) y``,
             ``v_rel max_app (Recclosure x1 x2 x3 x4 x5) y``,
             ``v_rel max_app y (Number x)``,
-            ``v_rel max_app y (Word64 n)``,
+            ``v_rel max_app y (Word n)``,
             ``v_rel max_app y (Block n l)``,
             ``v_rel max_app y (ByteVector ws)``,
             ``v_rel max_app y (RefPtr x)``,
@@ -487,9 +487,10 @@ val v_to_words = Q.prove(
   \\ rw[] \\ fs[]
   \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
   \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
-  \\ rw[]
-  >- ( qexists_tac`x` \\ simp[EL_MAP] )
+  >- (rpt STRIP_TAC >> RES_TAC >> fs[bitstring_extraTheory.w2v_eq])
+  >- (Q.EXISTS_TAC `x` >> rw[EL_MAP])
   \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
+  \\ res_tac
   \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
   \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
 

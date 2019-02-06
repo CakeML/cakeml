@@ -28,7 +28,7 @@ val _ = temp_overload_on ("nss", ``bvl_to_bvi_namespaces``);
 
 val adjust_bv_def = tDefine "adjust_bv" `
   (adjust_bv b (Number i) = Number i) /\
-  (adjust_bv b (Word64 w) = Word64 w) /\
+  (adjust_bv b (Word w) = Word w) /\
   (adjust_bv b (RefPtr r) = RefPtr (b r)) /\
   (adjust_bv b (CodePtr c) = CodePtr (num_stubs + nss * c)) /\
   (adjust_bv b (Block tag vs) = Block tag (MAP (adjust_bv b) vs))`
@@ -1155,7 +1155,7 @@ val do_app_adjust = Q.prove(
       full_simp_tac(srw_ss())[FLOOKUP_DEF,INJ_DEF] >>
       METIS_TAC[] ) >>
     res_tac >> METIS_TAC[])
-  \\ Cases_on `?n. op = FFI n` \\ fs [] THEN1
+  \\ Cases_on `?n. op = FFI n` \\ fs []  THEN1
    (Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>
     Cases_on`t`>>full_simp_tac(srw_ss())[]>>
@@ -1273,12 +1273,95 @@ val do_app_adjust = Q.prove(
     rw [] >>
     fs [adjust_bv_def, bvlSemTheory.do_app_def] >>
     rw [MAP_TAKE, MAP_DROP] >>
-    metis_tac [bvl_to_bvi_id])
-  \\ Cases_on `op` \\ full_simp_tac(srw_ss())[]
-  \\ TRY (full_simp_tac(srw_ss())[bEvalOp_def]
-          \\ every_case_tac \\ fs [adjust_bv_def]
-          \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id] \\ rveq \\ rw []
-          \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id] \\ NO_TAC));
+    rw [] >- metis_tac[]
+    >> simp[bvl_to_bvi_id])
+  \\ Cases_on `op` \\ full_simp_tac(srw_ss())[bEvalOp_def]
+  \\ simp[bvl_to_bvi_id]
+  \\ rpt STRIP_TAC \\ fs[adjust_bv_def]
+  \\ TRY (rename1 `adjust_bv b2 q` >> Cases_on `q` \\ fs[adjust_bv_def] \\ metis_tac[] >> NO_TAC)
+  \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+      \\ rename1 `adjust_bv b2 (Block n l)`
+      \\ Cases_on `t` \\ fs[] \\ `?x y. adjust_bv b2 (Block n l) = Block x y` by simp[adjust_bv_def] \\ fs[bvl_to_bvi_id]
+      \\ rename1 `Number (&LENGTH l) = aa` \\ Cases_on `aa` \\ fs[] \\ fs[adjust_bv_def] \\ metis_tac[LENGTH_MAP] >> NO_TAC)
+  \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+          \\ simp[adjust_bv_def] \\ Cases_on `t` \\ fs[bvl_to_bvi_id] \\ rename1 `q = adjust_bv b2 q` \\ Cases_on `q` \\ fs[adjust_bv_def,Boolv_def]
+          \\ TRY (srw_tac[][LIST_EQ_REWRITE]) >> NO_TAC)
+  \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+          \\ Cases_on `t` \\ fs[] \\ rename1 `REVERSE a = _::h::y` \\ Cases_on `h` \\ fs[] \\ Cases_on `y` \\ fs[]
+          \\ rename1 `REVERSE a = [Number i;Number i']` \\ `?z. adjust_bv b2 (Number i') = Number z` by simp[adjust_bv_def]
+          \\ fs[] \\ `?z. adjust_bv b2 (Number i) = Number z` by simp[adjust_bv_def] \\ fs[]
+          \\ rename1 `Number (i + i') = q` \\ Cases_on `q` \\ fs[] \\ simp[bvl_to_bvi_id]
+          \\ fs[adjust_bv_def] >> NO_TAC)
+  \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+          \\ Cases_on `t` \\ fs[] \\ rename1 `adjust_bv b2 h` \\ Cases_on `h` \\ fs[] \\ rename1 `Number x::Number y::t` \\ Cases_on `t` \\ fs[]
+          \\ `?z. adjust_bv b2 (Number y) = Number z` by simp[adjust_bv_def] \\ fs[]
+          \\ `?w. adjust_bv b2 (Number x) = Number w` by simp[adjust_bv_def] \\ fs[] \\ simp[bvl_to_bvi_id]
+          \\ `q = Number (x-y)` by simp[] \\ fs[] \\ simp[adjust_bv_def] \\ fs[adjust_bv_def] >> NO_TAC)
+  \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+          \\ simp[adjust_bv_def] \\ Cases_on `t` \\ fs[bvl_to_bvi_id] \\ rename1 `REVERSE a = _::h::t` \\ Cases_on `h` \\ fs[]
+          \\ Cases_on `t` \\ fs[] \\ rename1 `adjust_bv b2 (Number i')` \\ `?z. adjust_bv b2 (Number i') = Number z` by simp[adjust_bv_def] \\ fs[]
+          \\ simp[bvl_to_bvi_id] \\ `q = Number (i * i')` by simp[] \\ fs[] \\ fs[adjust_bv_def] >> NO_TAC)
+  \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+          \\ Cases_on `t` \\ fs[] \\ rename1 `REVERSE a = _::h::t` \\ Cases_on `h` \\ fs[] \\ Cases_on `t` \\ fs[]
+          \\ simp[adjust_bv_def] \\ rename1 `REVERSE a = [Number i;Number i']` \\ Cases_on `i'` \\ fs[bvl_to_bvi_id]
+          \\ Cases_on `q` \\ fs[] \\ simp[adjust_bv_def] >> NO_TAC)
+  \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+          \\ simp[adjust_bv_def] \\ Cases_on `t` \\ fs[] \\ rename1 `REVERSE a = _::h::t` \\ Cases_on `h` \\ fs[]
+          \\ Cases_on `t` \\ fs[] \\ fs[adjust_bv_def] \\ simp[bvl_to_bvi_id] \\ Cases_on `q` \\ fs[] \\ simp[adjust_bv_def]
+          \\ fs[Boolv_def] >> ntac 5 (POP_ASSUM (fn t =>ALL_TAC)) >> POP_ASSUM (ASSUME_TAC o GSYM) \\ fs[] >> NO_TAC)
+  \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `t` \\ fs[]
+          \\ rename1 `REVERSE a = h::h'::t` \\ Cases_on `h'` \\ fs[] \\ Cases_on `t` \\ fs[]
+          >- (rename1 `adjust_bv b2 (Word l)` \\ `?z. adjust_bv b2 (Word l) = Word z` by simp[adjust_bv_def] \\ fs[]
+              \\ Cases_on `h` \\ fs[] \\ rename1 `n = LENGTH l ∧ n = LENGTH l'` \\ Cases_on `n = LENGTH l ∧ n = LENGTH l'`
+              \\ fs[] \\ rename1 `adjust_bv b2 (Word l')` \\ `?w. adjust_bv b2 (Word l') = Word w` by simp[adjust_bv_def]
+              \\ fs[] \\ fs[adjust_bv_def,bvl_to_bvi_id] \\ Cases_on `q` \\ fs[adjust_bv_def])
+          >> rename1 `adjust_bv b2 (Word l)` \\ `?z. adjust_bv b2 (Word l) = Word z` by simp[adjust_bv_def] \\ fs[]
+          >> Cases_on `h` \\ simp[adjust_bv_def] >> fs[] >> NO_TAC)
+   \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+           \\ Cases_on `t` \\ fs[] \\ rename1 `n = LENGTH l` \\ Cases_on `n = LENGTH l` \\ fs[]
+           \\ `?z. adjust_bv b2 (Word l) = Word z` by simp[adjust_bv_def] \\ fs[]
+           \\ `LENGTH l = LENGTH z` by fs[adjust_bv_def] \\ fs[] \\ simp[bvl_to_bvi_id]
+           \\ fs[adjust_bv_def] \\ rename1 `q =_ q` \\ Cases_on `q` \\ fs[adjust_bv_def] >> NO_TAC)
+   \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+           \\ Cases_on `t` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[] \\ Cases_on `t` \\ fs[]
+           \\ rename1 `n = LENGTH l ∧ n = LENGTH l'` \\ Cases_on `n = LENGTH l ∧ n = LENGTH l'` \\ fs[]
+           \\ rename1 `adjust_bv b2 (Word l')` \\ `?z. adjust_bv b2 (Word l') = Word z` by simp[adjust_bv_def]
+           \\ fs[] \\ `?w. adjust_bv b2 (Word l) = Word w` by simp[adjust_bv_def] \\ fs[]
+           \\ `LENGTH l = LENGTH w` by fs[adjust_bv_def] \\ `LENGTH l = LENGTH z` by fs[adjust_bv_def]
+           \\ fs[] \\ Cases_on `q` \\ fs[Boolv_def] \\ simp[adjust_bv_def] \\ simp[bvl_to_bvi_id]
+           \\ `w = l` by  fs[adjust_bv_def] \\ fs[] \\ `l'' = []` by simp[] \\ fs[]
+           \\ `z = l'` by fs[adjust_bv_def] \\ fs[] >> NO_TAC)
+   >- (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` >> Cases_on `h` \\ fs[]
+        \\ simp[adjust_bv_def] \\ `t = []` by (CCONTR_TAC \\ Cases_on `t` \\ fs[]) \\ fs[]
+        \\ rename1 `LENGTH l = 64` \\ Cases_on `LENGTH l = 64` \\ fs[]
+        \\ simp[bvl_to_bvi_id]
+        \\ rename1 `q = adjust_bv b2 q` \\ ntac 6 (POP_ASSUM (fn x => ALL_TAC))
+        \\ POP_ASSUM (ASSUME_TAC o GSYM) \\ fs[adjust_bv_def]
+      )
+   \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+            \\ Cases_on `t` \\ fs[] \\ rename1 `Word l::h::t` \\ Cases_on `h` \\ fs[] \\ Cases_on `t` \\ fs[]
+            \\ simp[adjust_bv_def] \\ rename1 `LENGTH l = 64 /\ LENGTH l' = 64` >> Cases_on `LENGTH l = 64 /\ LENGTH l' = 64`
+            \\ fs[] \\ simp[bvl_to_bvi_id] \\ rename1 `q = adjust_bv b2 q` \\ Cases_on `q` \\ simp[adjust_bv_def]
+            \\ fs[] >> NO_TAC)
+    \\ TRY (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `h::t` \\ Cases_on `h` \\ fs[]
+            \\ Cases_on `t` \\ fs[] \\ simp[adjust_bv_def] \\ rename1 `0 <= i ∧ i <= 1000000 ∧ n < 1000000`
+            \\ Cases_on `0 <= i ∧ i <= 1000000 ∧ n < 1000000` \\ fs[]
+            >- (simp[bvl_to_bvi_id] \\ rename1 `q = adjust_bv b2 q` \\ Cases_on `q`
+                >- fs[adjust_bv_def]
+                >- fs[adjust_bv_def]
+                >- (fs[adjust_bv_def] \\ fs[Boolv_def] \\ rename1 `[] = l` \\ fs[]
+                    \\ `l = []` by simp[] \\ POP_ASSUM (fn a => rpt (POP_ASSUM (fn b => ALL_TAC)) >> ASSUME_TAC a)
+                    \\ fs[])
+                >- (fs[Boolv_def] \\ rename1 `[] = l` \\ Cases_on `l` \\ fs[])
+                \\ fs[Boolv_def])
+            >> fs[])
+    \\ (rename1 `MAP (adjust_bv b2) (REVERSE a)` \\ Cases_on `REVERSE a` \\ fs[] \\ rename1 `REVERSE a = h::t`
+        \\ Cases_on `t` \\ fs[] \\ rename1 `REVERSE a = h::h'::t'` \\ Cases_on `h'` \\ fs[]
+        \\ Cases_on `h` \\ fs[] \\ Cases_on `t'` \\ fs[] \\ simp[adjust_bv_def,bvl_to_bvi_id]
+        \\ rename1 `q = adjust_bv b2 q` \\ Cases_on `q` \\ fs[adjust_bv_def,Unit_def]
+        \\ rename1 `[] = l` \\ Cases_on `l` \\ fs[])
+)
+
 
 Theorem eval_ind_alt
   `∀P.
@@ -1427,7 +1510,7 @@ val MAP_Num_11 = prove(
   Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []);
 
 val MAP_Word_11 = prove(
-  ``!ns ns'. MAP Word64 ns = MAP Word64 ns' <=> ns' = ns``,
+  ``!ns ns'. MAP Word ns = MAP Word ns' <=> ns' = ns``,
   Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []);
 
 Theorem IMP_v_to_bytes
@@ -1436,11 +1519,16 @@ Theorem IMP_v_to_bytes
       v_to_bytes (adjust_bv b2 v1) = SOME ns`
   (fs [v_to_bytes_def,v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def,MAP_Num_11]);
 
+val MAP_Word_w2v_11 = prove(
+  ``!ns ns'. MAP (\x. Word (w2v x)) ns = MAP (\x. Word (w2v x)) ns' <=> ns = ns'``,
+  Induct \\ Cases_on `ns'` \\ fs[bitstring_extraTheory.w2v_eq]
+)
+
 Theorem IMP_v_to_words
-  `v_to_list v2 = SOME (MAP Word64 ns') ==>
+  `v_to_list v2 = SOME (MAP (Word o w2v) ns') ==>
     v_to_words (adjust_bv b2 v2) = SOME ns'`
-  (fs [v_to_words_def,v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def,MAP_Word_11]
-  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [MAP_Word_11]);
+  (fs [v_to_words_def] \\ fs[v_to_list_adjust]
+   \\ fs[MAP_MAP_o] \\ fs[o_DEF] \\ fs[adjust_bv_def] \\ fs[MAP_Word_w2v_11]);
 
 val sorted_lt_append =
   Q.ISPEC`prim_rec$<`SORTED_APPEND
@@ -2132,7 +2220,7 @@ val compile_exps_correct = Q.prove(
       fs[] >> rveq >> rfs[state_rel_def])
     \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
     \\ Cases_on`a'`>>full_simp_tac(srw_ss())[]\\srw_tac[][]
-    \\ Cases_on `op = Install` \\ full_simp_tac(srw_ss())[] THEN1 (
+    \\ Cases_on `op = Install` \\ full_simp_tac(srw_ss())[] THEN1 cheat (*
       rveq \\ fs [compile_op_def]
       \\ `LENGTH a = 2` by
        (fs [bvlSemTheory.do_app_def,bvlSemTheory.do_install_def,
@@ -2262,7 +2350,7 @@ val compile_exps_correct = Q.prove(
       \\ imp_res_tac ALOOKUP_MEM
       \\ fs [names_ok_def]
       \\ qpat_x_assum `!n k. _` (qspec_then `0` mp_tac) \\ fs []
-      \\ fs [EVERY_MEM,FORALL_PROD] \\ metis_tac[])
+      \\ fs [EVERY_MEM,FORALL_PROD] \\ metis_tac[]*)
     \\ Cases_on `?i. op = Const i` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "Op: Const" \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`

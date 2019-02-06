@@ -28,10 +28,10 @@ Theorem get_vars_IMP_LENGTH
 val case_eq_thms = bvlPropsTheory.case_eq_thms;
 
 val evaluate_compile = Q.prove(
-  `!c s res s2 vars l.
-     res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
+  `!c s arch_size res s2 vars l.
+     res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) arch_size = (res,s2)) /\
      locals_ok s.locals l ==>
-     ?w. (evaluate (compile c, s with locals := l) =
+     ?w. (evaluate (compile c arch_size, s with locals := l) arch_size =
             (res,if res = NONE then s2 with locals := w
                                else s2)) /\
          locals_ok s2.locals w`,
@@ -57,7 +57,7 @@ val evaluate_compile = Q.prove(
         \\ full_simp_tac(srw_ss())[EVERY_MEM,locals_ok_def]
         \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
         \\ full_simp_tac(srw_ss())[domain_lookup])
-      \\ full_simp_tac(srw_ss())[] \\ reverse(Cases_on `do_app op x s`)
+      \\ full_simp_tac(srw_ss())[] \\ reverse(Cases_on `do_app op x arch_size s`)
       \\ full_simp_tac(srw_ss())[] >- (
            imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
            fs [EVAL ``op_requires_names (FFI i)``])
@@ -103,9 +103,9 @@ val evaluate_compile = Q.prove(
     \\ full_simp_tac(srw_ss())[locals_ok_def,call_env_def,lookup_fromList,
            dec_clock_def])
   THEN1 (* Seq *)
-   (full_simp_tac(srw_ss())[LET_DEF] \\ Cases_on `space c2`
+   (full_simp_tac(srw_ss())[LET_DEF] \\ Cases_on `space c2 arch_size`
     \\ full_simp_tac(srw_ss())[] THEN1
-     (Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[]
+     (Cases_on `evaluate (c1,s) arch_size` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `c1` \\ full_simp_tac(srw_ss())[pMakeSpace_def]
       THEN1 (full_simp_tac(srw_ss())[evaluate_def])
       \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))`
@@ -118,7 +118,7 @@ val evaluate_compile = Q.prove(
       \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ Q.EXISTS_TAC `w` \\ full_simp_tac(srw_ss())[])
     \\ PairCases_on `y` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `evaluate (c1,s) arch_size` \\ full_simp_tac(srw_ss())[]
     \\ reverse (Cases_on `c1`) \\ full_simp_tac(srw_ss())[]
     \\ TRY (full_simp_tac(srw_ss())[pMakeSpace_def,space_def]
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
@@ -173,7 +173,7 @@ val evaluate_compile = Q.prove(
         \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `get_vars l' x'` \\ full_simp_tac(srw_ss())[]
         \\ SRW_TAC [] []
-        \\ reverse(Cases_on `do_app o' x'' (s with locals := x')`)
+        \\ reverse(Cases_on `do_app o' x'' arch_size (s with locals := x')`)
         \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >- (
              imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
              full_simp_tac(srw_ss())[]>>srw_tac[][]
@@ -186,8 +186,8 @@ val evaluate_compile = Q.prove(
         \\ full_simp_tac(srw_ss())[locals_ok_refl] \\ REPEAT STRIP_TAC
         \\ Cases_on `cut_env y1 (set_var n q' r').locals` \\ full_simp_tac(srw_ss())[LET_DEF]
         \\ Q.EXISTS_TAC `w'` \\ full_simp_tac(srw_ss())[]
-        \\ Q.PAT_X_ASSUM `evaluate xxx = yyy` (fn th => SIMP_TAC std_ss [GSYM th])
-        \\ AP_TERM_TAC \\ AP_TERM_TAC
+        \\ Q.PAT_X_ASSUM `evaluate xxx arch_size = yyy` (fn th => SIMP_TAC std_ss [GSYM th])
+        \\ MK_COMB_TAC \\ simp[] \\ AP_TERM_TAC \\ AP_TERM_TAC
         \\ full_simp_tac(srw_ss())[state_component_equality,add_space_def])
       \\ Cases_on `op_requires_names o'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ Cases_on `get_vars l' s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
@@ -197,7 +197,7 @@ val evaluate_compile = Q.prove(
       \\ full_simp_tac(srw_ss())[pMakeSpace_def,space_def]
       \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
-      \\ reverse (Cases_on `do_app o' x s`) \\ full_simp_tac(srw_ss())[] THEN1
+      \\ reverse (Cases_on `do_app o' x arch_size s`) \\ full_simp_tac(srw_ss())[] THEN1
        (IMP_RES_TAC do_app_err \\ full_simp_tac(srw_ss())[]
         \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
         \\ fs [EVAL ``¬op_requires_names (FFI i)``])
@@ -248,12 +248,12 @@ val evaluate_compile = Q.prove(
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ full_simp_tac(srw_ss())[consume_space_def]
       \\ `¬op_space_reset o'` by fs[dataLangTheory.op_requires_names_def] \\ fs[]
-      \\ Cases_on `s.space < op_space_req o' (LENGTH l')`
+      \\ Cases_on `s.space < op_space_req o' (LENGTH l') arch_size`
       \\ full_simp_tac(srw_ss())[]
       (* \\ `s with space := s.space - op_space_req o' (LENGTH x) = s` *)
       (*    by (full_simp_tac(srw_ss())[] \\ NO_TAC) *)
       \\ full_simp_tac(srw_ss())[]
-      \\ `~(op_space_req o' (LENGTH l') + y0 < op_space_req o' (LENGTH l'))`
+      \\ `~(op_space_req o' (LENGTH l') arch_size + y0 < op_space_req o' (LENGTH l') arch_size)`
             by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
       \\ full_simp_tac(srw_ss())[]
@@ -309,7 +309,7 @@ val evaluate_compile = Q.prove(
         \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
       \\ SIMP_TAC (srw_ss()) [get_var_def]
       \\ qpat_abbrev_tac `ll = insert n _ _`
-      \\ qmatch_assum_abbrev_tac`evaluate (y2,s4) = _`
+      \\ qmatch_assum_abbrev_tac`evaluate (y2,s4) arch_size = _`
       \\ `s with <|locals := ll; space := y0|> =
           s4 with locals := ll` by (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality]) \\ full_simp_tac(srw_ss())[]
       \\ `locals_ok s4.locals ll` by
@@ -375,20 +375,20 @@ val evaluate_compile = Q.prove(
 
 Theorem compile_correct
   `!c s.
-      FST (evaluate (c,s)) <> NONE /\
-      FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
-      (evaluate (compile c, s) = evaluate (c,s))`
-  (REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
-  \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_compile)
+      FST (evaluate (c,s) arch_size) <> NONE /\
+      FST (evaluate (c,s) arch_size) <> SOME (Rerr(Rabort Rtype_error)) ==>
+      (evaluate (compile c arch_size, s) arch_size = evaluate (c,s) arch_size)`
+  (REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s) arch_size` \\ full_simp_tac(srw_ss())[]
+  \\ MP_TAC (Q.SPECL [`c`,`s`,`arch_size`] evaluate_compile)
   \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
   \\ POP_ASSUM (MP_TAC o Q.SPECL [`s.locals`])
   \\ full_simp_tac(srw_ss())[locals_ok_refl]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[with_same_locals]);
 
 Theorem get_code_labels_space
-  `∀x y y0 y1 y2.
-   (space x = INL y ⇒ get_code_labels y = get_code_labels x) ∧
-   (space x = INR (y0,y1,y2) ⇒ get_code_labels y2 = get_code_labels x)`
+  `∀x arch_size y y0 y1 y2.
+   (space x arch_size = INL y ⇒ get_code_labels y = get_code_labels x) ∧
+   (space x arch_size = INR (y0,y1,y2) ⇒ get_code_labels y2 = get_code_labels x)`
   (recInduct data_spaceTheory.space_ind
   \\ rw[data_spaceTheory.space_def] \\ simp[]
   \\ fs[CaseEq"sum",CaseEq"dataLang$prog"] \\ rveq \\ fs[data_spaceTheory.space_def]
@@ -396,15 +396,15 @@ Theorem get_code_labels_space
   \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
   \\ rveq \\ fs[]
   \\ every_case_tac \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
-  \\ Cases_on`space c2` \\ Cases_on`space c3` \\ fs[] \\ TRY(PairCases_on`y`)
+  \\ Cases_on`space c2 arch_size` \\ Cases_on`space c3 arch_size` \\ fs[] \\ TRY(PairCases_on`y`)
   \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
   \\ PairCases_on`y'`
   \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]);
 
 Theorem get_code_labels_compile[simp]
-  `∀x. get_code_labels (data_space$compile x) = get_code_labels x`
+  `∀x. get_code_labels (data_space$compile x arch_size) = get_code_labels x`
   (rw[data_spaceTheory.compile_def]
-  \\ Cases_on`space x`
+  \\ Cases_on`space x arch_size`
   \\ simp[data_spaceTheory.pMakeSpace_def]
   \\ TRY (PairCases_on`y`)
   \\ simp[data_spaceTheory.pMakeSpace_def]
