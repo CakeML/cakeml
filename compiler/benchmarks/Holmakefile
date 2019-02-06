@@ -38,7 +38,7 @@ cakeml_report.html: $(CAKEML_PLOTS)
 	echo '</body>' >> cakeml_report.html; \
 	echo '</html>' >> cakeml_report.html
 
-$(CAKEML_PLOTS): cakeml_benchmarks/benchmark.py
+$(CAKEML_PLOTS): cakeml_benchmarks/benchmark.py cml_cakeml cml_ocaml cml_sml
 	cd cakeml_benchmarks ; python benchmark.py; \
 	$(CP) *.svg .. ; \
 	$(CP) *.dat ..
@@ -79,7 +79,7 @@ mlton_report.html: $(MLTON_PLOTS)
 	echo '</body>' >> mlton_report.html; \
 	echo '</html>' >> mlton_report.html
 
-$(MLTON_PLOTS): mlton_benchmarks/benchmark.py
+$(MLTON_PLOTS): mlton_benchmarks/benchmark.py mlton_cakeml mlton_ocaml mlton_sml
 	cd mlton_benchmarks ; python benchmark.py; \
 	$(CP) *.svg .. ; \
 	$(CP) *.dat ..
