@@ -1,3 +1,6 @@
+(*
+  Benchmark program computing the digits of pi
+*)
 fun print _ = ()
 
 structure Stream =

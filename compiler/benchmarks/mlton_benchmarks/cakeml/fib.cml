@@ -1,3 +1,7 @@
+(*
+  A simple Fibonacci benchmark program from mlton
+*)
+
 exception Fail string;
 
 fun fib n =

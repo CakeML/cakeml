@@ -1,4 +1,6 @@
-(* From the SML/NJ benchmark suite. *)
+(*
+  A logic formalisation From the SML/NJ benchmark suite
+*)
 
 (* term.sml *)
 
@@ -153,96 +155,126 @@ Trail.trail (fn () =>
 Trail.trail (fn () =>
 exists (fn t =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, t])])]), tt])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, t])])]), tt])) (fn () =>
-sc ())))))
+Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s,
+Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, t])])]), tt]))
+(fn () => Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s (
+[cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s,
+t])])]), tt])) (fn () => sc ())))))
 ;
 exists (fn p1 =>
 exists (fn p5 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [p5, cON_nil_s])])])])]), tt])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [p5, cON_nil_s])])])])]), tt])) (fn () =>
+Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_x_s, Term.STR cons_s (
+  [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [p5, cON_nil_s])])])])]), tt])) (fn () =>
+Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_o_s, Term.STR cons_s (
+  [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [p5, cON_nil_s])])])])]), tt])) (fn () =>
 sc ())))))
 ))
 ;
 exists (fn p1 =>
 exists (fn p2 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [p2, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])])])]), tt])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [p2, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])])]), tt])) (fn () =>
+Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [p2, Term.STR cons_s (
+  [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])])])]), tt])) (fn () =>
+Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [p2, Term.STR cons_s (
+  [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])])]), tt])) (fn () =>
 sc ())))))
 ))
 ;
 exists (fn l1 =>
 exists (fn p4 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [p4, cON_nil_s])])])]), tt])])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [p4, cON_nil_s])])])]), tt])])) (fn () =>
+Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s (
+  [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [p4, cON_nil_s])])])]), tt])])) (fn () =>
+Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s (
+  [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [p4, cON_nil_s])])])]), tt])])) (fn () =>
 sc ())))))
 ))
 ;
 exists (fn l1 =>
 exists (fn p1 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])])]), tt])])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])]), tt])])) (fn () =>
+Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s (
+  [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])])]), tt])])) (fn () =>
+Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s (
+  [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])]), tt])])) (fn () =>
 sc ())))))
 ))
 ;
 exists (fn l1 =>
 exists (fn l2 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [l2, Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])]), tt])])])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [l2, Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])]), tt])])])) (fn () =>
-sc ())))))
-))
+Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [l2,
+Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s (
+[cON_x_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])]), tt])])])) (fn
+() => Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [l2,
+Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s (
+[cON_o_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])]), tt])])])) (fn
+() => sc ()))))) ))
 ;
 exists (fn t =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, t])])]), tt])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, t])])]), tt])) (fn () =>
-sc ()))))
-))
+Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s,
+Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, t])])]), tt]))
+(fn () => Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s (
+[cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s,
+t])])]), tt])) (fn () => sc ())))) ))
 ;
 exists (fn p1 =>
 exists (fn p5 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [p5, cON_nil_s])])])])]), tt])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [p5, cON_nil_s])])])])]), tt])) (fn () =>
-sc ())))))
-))
+Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR
+cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s (
+[cON_x_s, Term.STR cons_s ( [p5, cON_nil_s])])])])]), tt])) (fn () =>
+Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR
+cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s (
+[cON_o_s, Term.STR cons_s ( [p5, cON_nil_s])])])])]), tt])) (fn () =>
+sc ()))))) ))
 ;
 exists (fn p1 =>
 exists (fn p2 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [p2, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])])]), tt])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [p2, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])])])]), tt])) (fn () =>
-sc ())))))
-))
+Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR
+cons_s ( [p2, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s,
+Term.STR cons_s ( [cON_x_s, cON_nil_s])])])])]), tt])) (fn () =>
+Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR
+cons_s ( [p2, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s,
+Term.STR cons_s ( [cON_o_s, cON_nil_s])])])])]), tt])) (fn () => sc
+()))))) ))
 ;
 exists (fn l1 =>
 exists (fn p4 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [p4, cON_nil_s])])])]), tt])])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [p4, cON_nil_s])])])]), tt])])) (fn () =>
-sc ())))))
-))
+Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR
+cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s (
+[cON_x_s, Term.STR cons_s ( [p4, cON_nil_s])])])]), tt])])) (fn () =>
+Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR
+cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s (
+[cON_o_s, Term.STR cons_s ( [p4, cON_nil_s])])])]), tt])])) (fn () =>
+sc ()))))) ))
 ;
 exists (fn l1 =>
 exists (fn p1 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])]), tt])])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR cons_s ( [p1, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])])]), tt])])) (fn () =>
-sc ())))))
-))
+Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR
+cons_s ( [p1, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s,
+Term.STR cons_s ( [cON_x_s, cON_nil_s])])])]), tt])])) (fn () =>
+Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [Term.STR
+cons_s ( [p1, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s,
+Term.STR cons_s ( [cON_o_s, cON_nil_s])])])]), tt])])) (fn () => sc
+()))))) ))
 ;
 exists (fn l1 =>
 exists (fn l2 =>
 exists (fn tt =>
-Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [l2, Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])]), tt])])])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [l2, Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])]), tt])])])) (fn () =>
-sc ())))))
-)
+Unify.unify (t_1, Term.STR cons_s ( [l1, Term.STR cons_s ( [l2,
+Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s (
+[cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])]), tt])])])) (fn
+() => Unify.unify (t_2, Term.STR cons_s ( [l1, Term.STR cons_s ( [l2,
+Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s (
+[cON_o_s, Term.STR cons_s ( [cON_o_s, cON_nil_s])])]), tt])])])) (fn
+() => sc ()))))) )
+
 (*  | move_horiz _ _ = () *)
 
 and rotate (t_1, t_2) sc =
@@ -261,8 +293,24 @@ exists (fn p33 =>
 exists (fn p41 =>
 exists (fn p42 =>
 exists (fn p51 =>
-Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p11, Term.STR cons_s ( [p12, Term.STR cons_s ( [p13, Term.STR cons_s ( [p14, Term.STR cons_s ( [p15, cON_nil_s])])])])]), Term.STR cons_s ( [Term.STR cons_s ( [p21, Term.STR cons_s ( [p22, Term.STR cons_s ( [p23, Term.STR cons_s ( [p24, cON_nil_s])])])]), Term.STR cons_s ( [Term.STR cons_s ( [p31, Term.STR cons_s ( [p32, Term.STR cons_s ( [p33, cON_nil_s])])]), Term.STR cons_s ( [Term.STR cons_s ( [p41, Term.STR cons_s ( [p42, cON_nil_s])]), Term.STR cons_s ( [Term.STR cons_s ( [p51, cON_nil_s]), cON_nil_s])])])])])) (fn () =>
-Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p51, Term.STR cons_s ( [p41, Term.STR cons_s ( [p31, Term.STR cons_s ( [p21, Term.STR cons_s ( [p11, cON_nil_s])])])])]), Term.STR cons_s ( [Term.STR cons_s ( [p42, Term.STR cons_s ( [p32, Term.STR cons_s ( [p22, Term.STR cons_s ( [p12, cON_nil_s])])])]), Term.STR cons_s ( [Term.STR cons_s ( [p33, Term.STR cons_s ( [p23, Term.STR cons_s ( [p13, cON_nil_s])])]), Term.STR cons_s ( [Term.STR cons_s ( [p24, Term.STR cons_s ( [p14, cON_nil_s])]), Term.STR cons_s ( [Term.STR cons_s ( [p15, cON_nil_s]), cON_nil_s])])])])])) (fn () =>
+Unify.unify (t_1, Term.STR cons_s ( [Term.STR cons_s ( [p11, Term.STR
+cons_s ( [p12, Term.STR cons_s ( [p13, Term.STR cons_s ( [p14,
+Term.STR cons_s ( [p15, cON_nil_s])])])])]), Term.STR cons_s (
+[Term.STR cons_s ( [p21, Term.STR cons_s ( [p22, Term.STR cons_s (
+[p23, Term.STR cons_s ( [p24, cON_nil_s])])])]), Term.STR cons_s (
+[Term.STR cons_s ( [p31, Term.STR cons_s ( [p32, Term.STR cons_s (
+[p33, cON_nil_s])])]), Term.STR cons_s ( [Term.STR cons_s ( [p41,
+Term.STR cons_s ( [p42, cON_nil_s])]), Term.STR cons_s ( [Term.STR
+cons_s ( [p51, cON_nil_s]), cON_nil_s])])])])])) (fn () =>
+Unify.unify (t_2, Term.STR cons_s ( [Term.STR cons_s ( [p51, Term.STR
+cons_s ( [p41, Term.STR cons_s ( [p31, Term.STR cons_s ( [p21,
+Term.STR cons_s ( [p11, cON_nil_s])])])])]), Term.STR cons_s (
+[Term.STR cons_s ( [p42, Term.STR cons_s ( [p32, Term.STR cons_s (
+[p22, Term.STR cons_s ( [p12, cON_nil_s])])])]), Term.STR cons_s (
+[Term.STR cons_s ( [p33, Term.STR cons_s ( [p23, Term.STR cons_s (
+[p13, cON_nil_s])])]), Term.STR cons_s ( [Term.STR cons_s ( [p24,
+Term.STR cons_s ( [p14, cON_nil_s])]), Term.STR cons_s ( [Term.STR
+cons_s ( [p15, cON_nil_s]), cON_nil_s])])])])])) (fn () =>
 sc ())))))))))))))))))
 (*  | rotate _ _ = () *)
 
@@ -324,18 +372,40 @@ solitaire (y, z, n) sc))))))))
 and solution1 (t_1) sc =
 exists (fn x =>
 Unify.unify (t_1, x) (fn () =>
-solitaire (Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s,
- cON_nil_s])])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, cON_nil_s]), cON_nil_s])])])])])
-, x, Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.INT(0)])])])])])])])])])])])])])) sc))
-(*  | solution1 _ _ = () *)
+solitaire (Term.STR cons_s ( [Term.STR cons_s ( [cON_o_s, Term.STR
+ cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s (
+ [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])])]), Term.STR
+ cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s,
+ Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s,
+ cON_nil_s])])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s,
+ Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s,
+ cON_nil_s])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s,
+ Term.STR cons_s ( [cON_x_s, cON_nil_s])]), Term.STR cons_s (
+ [Term.STR cons_s ( [cON_x_s, cON_nil_s]), cON_nil_s])])])])]) , x,
+ Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s (
+ [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s (
+ [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s (
+ [Term.STR s_s ( [Term.INT(0)])])])])])])])])])])])])])) sc)) (* |
+ solution1 _ _ = () *)
 
 and solution2 (t_1) sc =
 exists (fn x =>
 Unify.unify (t_1, x) (fn () =>
-solitaire (Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s,
- cON_nil_s])])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, cON_nil_s]), cON_nil_s])])])])])
-, x, Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.INT(0)])])])])])])])])])])])])])) sc))
-(*  | solution2 _ _ = ()  *)
+solitaire (Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR
+ cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s, Term.STR cons_s (
+ [cON_x_s, Term.STR cons_s ( [cON_x_s, cON_nil_s])])])])]), Term.STR
+ cons_s ( [Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s,
+ Term.STR cons_s ( [cON_x_s, Term.STR cons_s ( [cON_x_s,
+ cON_nil_s])])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s,
+ Term.STR cons_s ( [cON_o_s, Term.STR cons_s ( [cON_x_s,
+ cON_nil_s])])]), Term.STR cons_s ( [Term.STR cons_s ( [cON_x_s,
+ Term.STR cons_s ( [cON_x_s, cON_nil_s])]), Term.STR cons_s (
+ [Term.STR cons_s ( [cON_x_s, cON_nil_s]), cON_nil_s])])])])]) , x,
+ Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s (
+ [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s (
+ [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s ( [Term.STR s_s (
+ [Term.STR s_s ( [Term.INT(0)])])])])])])])])])])])])])) sc)) (* |
+ solution2 _ _ = () *)
 
 end; (* Data *)
 

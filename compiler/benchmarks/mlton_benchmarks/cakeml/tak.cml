@@ -1,3 +1,6 @@
+(*
+  A short benchmark program
+*)
 fun tak x y z =
    if not (y < x)
       then z

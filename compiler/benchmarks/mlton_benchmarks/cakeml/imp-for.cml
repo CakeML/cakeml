@@ -1,3 +1,7 @@
+(*
+  Benchmarking a for loop
+*)
+
 exception Fail string;
 
 fun for start stop f

@@ -1,6 +1,6 @@
-(* From the SML/NJ benchmark suite. *)
-(* knuth-bendix.sml
- *)
+(*
+  knuth-bendix example from the SML NJ benchmark suite
+*)
 
 structure Main =
   struct

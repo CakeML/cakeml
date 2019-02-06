@@ -1,3 +1,6 @@
+(*
+  An imperative quicksort program used for benchmarking
+*)
 fun swap i j arr =
   let val ti = Array.sub arr i
       val tj = Array.sub arr j

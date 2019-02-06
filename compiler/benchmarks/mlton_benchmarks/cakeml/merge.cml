@@ -1,4 +1,6 @@
-(* Written by Stephen Weeks (sweeks@sweeks.com). *)
+(*
+  Merge benchmark program written by Stephen Weeks (sweeks@sweeks.com)
+*)
 exception Fail string;
 
 fun merge (l1: int list, l2) =

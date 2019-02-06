@@ -1,3 +1,6 @@
+(*
+  Benchmark of the Map datastructure from the basis library
+*)
 
 val with_inserts = True
 

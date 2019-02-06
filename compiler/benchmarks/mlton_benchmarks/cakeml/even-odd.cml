@@ -1,3 +1,7 @@
+(*
+  A simple even/odd benchmark program from mlton
+*)
+
 fun abs i = if i < 0 then ~i else i
 exception Fail string
 
