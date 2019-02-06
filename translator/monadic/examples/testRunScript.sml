@@ -1,5 +1,5 @@
 (*
-  An example showing how to use of m_transle_run
+  An example showing how to make use of m_translate_run
 *)
 
 open preamble ml_monadBaseLib

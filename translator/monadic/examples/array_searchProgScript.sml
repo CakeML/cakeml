@@ -1,6 +1,6 @@
 (*
- * An example showing how to use the monadic translator to translate monadic
- * array search functions, including exceptions.
+  An example showing how to use the monadic translator to translate monadic
+  array search functions, including exceptions.
  *)
 
 open preamble basisProgTheory

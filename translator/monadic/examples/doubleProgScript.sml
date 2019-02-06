@@ -1,6 +1,6 @@
 (*
- * An example showing how to use the monadic translator to translate monadic
- * doubling functions, including using references (no arrays, no exceptions).
+  An example showing how to use the monadic translator to translate monadic
+  doubling functions, including using references (no arrays, no exceptions).
  *)
 
 (* Load the CakeML basic stuff *)

@@ -132,7 +132,7 @@ val PRECONDITION_pat = get_term "PRECONDITION_pat"
 val LOOKUP_VAR_pat = get_term "LOOKUP_VAR_pat";
 val nsLookup_pat = get_term "nsLookup_pat"
 val EVAL_T_F = ml_monad_translatorTheory.EVAL_T_F;
-
+val refs_emp = get_term "refs_emp"
 
 (******************************************************************************
 
@@ -168,8 +168,8 @@ fun rm_fix res = let
 val translator_state = {
   (* the store predicate *)
   H_def = ref UNIT_TYPE_def,
-  default_H = ref (get_term "refs_emp"),
-  H = ref (get_term "refs_emp"),
+  default_H = ref refs_emp,
+  H = ref refs_emp,
 
   (* the type of the references object *)
   refs_type = ref unit_ty,
@@ -178,8 +178,6 @@ val translator_state = {
   EXN_TYPE_def = ref UNIT_TYPE_def, (* to replace EXN_TYPE_def_ref *)
   EXN_TYPE = ref (get_term "UNIT_TYPE"),
   exn_type = ref unit_ty, (* WHAT IS THE DIFFERENCE BETWEEN THESE LAST TWO? *)
-  aM = ref (ty_antiq (a_ty)), (* ``:α M`` *)
-  bM = ref (ty_antiq (b_ty)), (* ``:β M`` *)
   VALID_STORE_THM = ref (NONE : thm option),
   type_theories = ref ([current_theory(), "ml_translator"] : string list),
   exn_handles = ref ([] : (term * thm) list),
@@ -190,7 +188,9 @@ val translator_state = {
   rarrays_functions_defs = ref([] : (thm * thm * thm * thm * thm * thm) list),
   farrays_functions_defs = ref([] : (thm * thm * thm * thm * thm) list),
 
-  (* TODO is the stuff below needed ? *)
+  local_environment_var_name = ref "%env",
+  num_local_environment_vars = ref 0,
+
   local_state_init_H = ref false,
     (* ^ to replace dynamic_init_H - does store predicate have free vars?*)
   store_pinv_def = ref (NONE : thm option),
@@ -214,13 +214,14 @@ TODO TODO TODO TODO TODO *)
 
 datatype access_fun = Ref of thm * thm (* get, set *)
                     | FArray of thm * thm * thm * thm * thm
-                      (* TODO get, init, set, sub, length *)
+                      (* get, set, length, sub, ??? *)
                     | RArray of thm * thm * thm * thm * thm * thm;
-                      (* TODO get, init, set, update, sub, length*)
+                      (* get, set, length, sub, update, alloc *)
 
 fun get_funs ( Ref(get, set) ) = [get, set]
 (*TODO*)  | get_funs ( FArray(x1, x2, x3, x4, x5) ) = [x1, x2, x3, x4, x5]
-(*TODO*)  | get_funs ( RArray(x1, x2, x3, x4, x5, x6) ) = [x1, x2, x3, x4, x5, x6];
+  | get_funs ( RArray(get, set, length, subscript, update, allocate) ) =
+      [get, set, length, subscript, update, allocate]
 
 val access_funs = ref [] : access_fun list ref;
 fun get_access_funs () = List.concat (List.map get_funs (!access_funs));
@@ -322,9 +323,6 @@ fun M_type ty = Type.type_subst [a_ty |-> !(#refs_type translator_state),
                                  c_ty |-> !(#exn_type translator_state)]
                                 poly_M_type
 
-val _ = (#aM translator_state) := ty_antiq (M_type a_ty);
-val _ = (#bM translator_state) := ty_antiq (M_type b_ty);
-
 (* Some minor functions *)
 local
   val {H=H, EXN_TYPE=EXN_TYPE, VALID_STORE_THM=VALID_STORE_THM, ...} =
@@ -359,14 +357,16 @@ fun get_curr_prog_state () = let
     !k
   end;
 
-val local_environment_var_name = "%env";
-val num_local_environment_vars = ref 0;
-
+(*
+  Local environment
+*)
 fun get_curr_env () =
   if !(#local_state_init_H translator_state) then (
-    num_local_environment_vars := (!num_local_environment_vars) + 1;
+    #num_local_environment_vars translator_state :=
+      (!(#num_local_environment_vars translator_state)) + 1;
     mk_var(
-      local_environment_var_name ^(int_to_string (!num_local_environment_vars)),
+      (!(#local_environment_var_name translator_state))
+      ^(int_to_string (!(#num_local_environment_vars translator_state))),
       venvironment))
   else
     get_env (get_curr_prog_state ());
@@ -984,8 +984,6 @@ fun init_translation (monad_translation_params : monadic_translation_parameters)
                     strip_forall |> snd |> dest_eq |> fst |> strip_comb |> fst);
       #exn_type st :=
         (type_of (!(#EXN_TYPE st)) |> dest_type |> snd |> List.hd);
-      #aM st := (ty_antiq (M_type a_ty));
-      #bM st := (ty_antiq (M_type b_ty));
       #VALID_STORE_THM st := store_pred_exists_thm;
       #type_theories st :=
         (current_theory() :: (add_type_theories @ ["ml_translator"]));
@@ -2949,14 +2947,15 @@ fun add_dynamic_v_thms (name, ml_name, th, pre_def) = let
     val th = UNDISCH_ALL th
     val thc = concl th
     val hol_fun = thc |> rator |> rand
-    val _ = (#dynamic_v_thms translator_state) :=
+in
+    #dynamic_v_thms translator_state :=
       (Net.insert (hol_fun, (name, ml_name, hol_fun, th, pre_def, NONE))
-        (!(#dynamic_v_thms translator_state)))
-    val _ = print("Added a dynamic specification for "
-                  ^(dest_const hol_fun |> fst) ^"\n")
-    val _ = if concl pre_def = T then () else
-            (print ("\nWARNING: " ^ml_name^" has a precondition.\n\n"))
-in () end;
+        (!(#dynamic_v_thms translator_state)));
+    print("Added a dynamic specification for "
+          ^ (dest_const hol_fun |> fst) ^ "\n");
+    if concl pre_def = T then () else
+      (print ("\nWARNING: " ^ml_name^" has a precondition.\n\n"))
+end;
 
 fun m_translate def =
   let
@@ -3065,7 +3064,9 @@ fun m_translate def =
 
 fun compute_env_index env = let
     val env_name = dest_var env |> fst
-    val env_index_str = String.extract(env_name, String.size local_environment_var_name, NONE)
+    val env_index_str = String.extract (
+      env_name, String.size (!(#local_environment_var_name translator_state)),
+      NONE)
     val index = string_to_int env_index_str
 in index end;
 
@@ -3601,9 +3602,15 @@ fun m_translate_run def =
 
    The following fields are currently *not* saved:
 
-   - dynamic_v_thms
-   - dynamic_refs_bindings
-   - num_local_environment_vars
+    - local_state_init_H : bool ref,
+    - store_pinv_def : thm option ref,
+    - dynamic_v_thms :
+        (string * string * term * thm * thm * string option) net ref,
+    - dynamic_refs_bindings = (term * term) list ref,
+    - local_code_abbrevs = thm list ref,
+    - mem_derive_case_ref = (hol_type * thm) list ref
+    - local_environment_var_name = string ref,
+    - num_local_environment_vars = int ref,
 
 ******************************************************************************)
 
@@ -3636,8 +3643,6 @@ local
     pack_list I [
       pack_type                                 (!(#refs_type st)),
       pack_type                                 (!(#exn_type st)),
-      pack_term                                 (!(#aM st)),
-      pack_term                                 (!(#bM st)),
      (pack_option pack_thm)                     (!(#VALID_STORE_THM st)),
       pack_thm                                  (!(#EXN_TYPE_def st)),
       pack_term                                 (!(#EXN_TYPE st)),
@@ -3673,7 +3678,7 @@ local
   fun unpack_translator_state th = (
     case (unpack_list I th) of
       [
-        refs_type, exn_type, aM, bM, VALID_STORE_THM, EXN_TYPE_def, EXN_TYPE,
+        refs_type, exn_type, VALID_STORE_THM, EXN_TYPE_def, EXN_TYPE,
         type_theories, exn_handles, exn_raises, exn_functions_defs, default_H,
         H_def, H, access_patterns, refs_functions_defs, rarrays_functions_defs,
         farrays_functions_defs
@@ -3693,8 +3698,6 @@ local
       in
         #refs_type st := (refs_type |> unpack_type);
         #exn_type st := (exn_type |> unpack_type);
-        #aM st := (aM |> unpack_term);
-        #bM st := (bM |> unpack_term);
         #VALID_STORE_THM st := (VALID_STORE_THM |> (unpack_option unpack_thm));
         #EXN_TYPE_def st := (EXN_TYPE_def |> unpack_thm);
         #EXN_TYPE st := (EXN_TYPE |> unpack_term);

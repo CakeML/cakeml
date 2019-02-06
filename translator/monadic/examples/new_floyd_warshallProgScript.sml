@@ -1,23 +1,10 @@
 (*
-  Trying out the monadic translator
+  The Floyd-Warshall algorithm - testing the monadic translator
 *)
 
-open preamble state_transformerTheory
-open ml_monadBaseLib ml_monadBaseTheory
-open ml_monadStoreLib ml_monad_translatorTheory ml_monad_translatorLib
+open preamble ml_monad_translator_interfaceLib ml_monadBaseTheory
 
-val _ = new_theory "floyd_warshallProg"
-val _ = ParseExtras.temp_loose_equality();
-val _ = monadsyntax.temp_add_monadsyntax()
-
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
-
-val _ = hide "state";
-
-val _ = (use_full_type_names := false);
+val _ = new_theory "new_floyd_warshallProg"
 
 (* An adjacency matrix represented as a 1D-array with a dimension var *)
 val _ = Hol_datatype `
@@ -25,76 +12,21 @@ val _ = Hol_datatype `
            ; dim     : num
            |>`;
 
-val accessors = define_monad_access_funs ``:graph``;
-
-val adj_mat_accessors = el 1 accessors;
-val (adj_mat,get_adj_mat_def,set_adj_mat_def) = adj_mat_accessors;
-
-val dim_accessors = el 2 accessors;
-val (dim,get_dim_def,set_dim_def) = dim_accessors;
-
-(* Create the data type to handle the references *)
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
+val _ = Hol_datatype `
   state_exn = Fail of string | Subscript`;
 
-(* Monadic functions to handle the exceptions *)
-val exn_functions = define_monad_exception_functions ``:state_exn`` ``:graph``;
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+(* Translator configuration *)
+val config =  global_state_config |>
+              with_state ``:graph`` |>
+              with_exn ``:state_exn`` |>
+              with_refs [("dim", ``0 : num``)] |>
+              with_resizeable_arrays
+                [("adj_mat", ``[] : num option list``,
+                  ``Subscript``, ``Subscript``)];
 
-val sub_exn = ``Subscript``;
-val update_exn = ``Subscript``;
-val arr_manip = define_MRarray_manip_funs [adj_mat_accessors] sub_exn update_exn;
-
-val adj_mat_manip = el 1 arr_manip;
-
-(* Register the types used for the translation *)
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``;
-val _ = register_type ``:'a option``;
-val _ = register_type ``:unit``;
-
-val _ = register_exn_type ``:state_exn``;
-val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
-
-val store_hprop_name = "GRAPH";
-val state_type = ``:graph``;
-
-(* Initializing the state monad
-  - Define an initializer for each stateful component of the state
-  - Pass to translate_fixed_store
-    - [list of ref inits]
-    - [list of array inits, along with their manipulators]
-*)
-
-(* TODO: move? *)
-fun mk_ref_init (name,get,set) init = (name,init,get,set);
-fun mk_rarr_init (name,get,set,len,sub,upd,alloc) init = (name,init,get,set,len,sub,upd,alloc);
-
-(* Initializers for the references *)
-val init_dim_def = Define`
-  init_dim = 0:num`
-
-val refs_init_list = [mk_ref_init dim_accessors init_dim_def]
-
-(* Initializers for the arrays *)
-val init_adj_mat_def = Define`
-  init_adj_mat = []:(num option) list`
-
-val rarrays_init_list = [mk_rarr_init adj_mat_manip init_adj_mat_def]
-val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
-
-val (init_trans, store_translation, exn_thms) =
-    start_static_init_fixed_store_translation refs_init_list
-                                              rarrays_init_list
-                                              farrays_init_list
-                                              store_hprop_name
-                                              state_type
-                                              STATE_EXN_TYPE_def
-                                              exn_functions
-                                              [] NONE NONE;
-
-(* Interacting with the graph component of the state monad *)
+(* Begin the translation *)
+val _ = start_translation config;
 
 (* allocate an n x n matrix *)
 val mk_graph_def = Define`
@@ -220,6 +152,7 @@ val do_floyd_def = Define`
 val alloc_adj_mat_def = definition "alloc_adj_mat_def";
 val get_dim_def = definition "get_dim_def";
 val st_ex_FOR_ind = theorem"st_ex_FOR_ind";
+val set_dim_def = definition "set_dim_def";
 
 val msimps = [st_ex_bind_def,st_ex_FOR_def]
 
@@ -350,7 +283,8 @@ val relax_SUCCESS = Q.prove(`
   res.dim = s.dim ∧
   LENGTH res.adj_mat = res.dim * res.dim`,
   rw[]>>
-  fs[relax_def,st_ex_bind_def,get_weight_def,reind_def,get_dim_def,st_ex_return_def,set_weight_def]>>
+  fs[relax_def,st_ex_bind_def,get_weight_def,reind_def,get_dim_def,
+     st_ex_return_def,set_weight_def]>>
   imp_res_tac adj_mat_sub_SUCCESS>>rfs[]>>
   every_case_tac>>fs[]>>
   imp_res_tac update_adj_mat_SUCCESS>>rfs[]);
@@ -380,7 +314,8 @@ val floyd_warshall_SUCCESS_i = Q.prove(`
   LENGTH s.adj_mat = s.dim * s.dim
   ⇒
   ∃res.
-  st_ex_FOR i s.dim (\i. st_ex_FOR 0 s.dim (\j. relax i k j)) s = (Success (),res) ∧
+  st_ex_FOR i s.dim (\i. st_ex_FOR 0 s.dim (\j. relax i k j)) s =
+    (Success (),res) ∧
   res.dim = s.dim ∧
   LENGTH res.adj_mat = res.dim * s.dim`,
   Induct_on`s.dim-i`
@@ -457,6 +392,8 @@ Theorem do_floyd_SUCCESS `
   \\ `LENGTH s1.adj_mat = s1.dim * s1.dim` by fs[]
   \\ metis_tac[floyd_warshall_SUCCESS_k]);
 
+
+
 val res = m_translate mk_graph_def;
 val res = m_translate reind_def;
 val res = m_translate set_weight_def;
@@ -469,13 +406,5 @@ val res = m_translate floyd_warshall_def;
 val res = m_translate init_from_ls_def;
 val res = m_translate do_floyd_def;
 
-(* TODO: What to do from here onwards?
-val ML_code(_,_,_,th) = (get_ml_prog_state());
-val prog_with_snoc = th |> concl |> find_term listSyntax.is_snoc
-val prog_rewrite = EVAL prog_with_snoc |> concl |> rhs
 
-val _ = set_trace "pp_avoids_symbol_merges" 0
-val _ = astPP.enable_astPP()
-*)
-
-val _ = export_theory ();
+val _ = export_theory();

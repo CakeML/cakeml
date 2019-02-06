@@ -10,17 +10,17 @@ open preamble ml_monadBaseTheory TypeBase ParseDatatype Datatype packLib
 (***************************************************************)
 (* COPY/PASTE from ml_monad_translatorLib *)
 
-fun my_list_mk_comb (comb, []) = comb
-  | my_list_mk_comb (comb, arg::args) =
-    let val comb_ty = type_of comb in
-      (case snd (dest_type comb_ty) of
-        [comb_ty1, comb_tys] =>
-          let
-            val subst = Type.match_type comb_ty1 (type_of arg)
-            val comb' = Term.inst subst comb
-          in my_list_mk_comb (mk_comb(comb', arg), args) end
-      | _ => failwith "my_list_mk_comb")
-    end;
+fun my_list_mk_comb (comb, args) =
+  let fun get_type_subst (comb_ty, []) = ([], [])
+        | get_type_subst (comb_ty, arg_ty::args_tys) =
+          (case snd (dest_type comb_ty) of
+              [comb_ty1, comb_tys] =>
+                let val tail_subst = get_type_subst (comb_tys, args_tys)
+                in raw_match_type comb_ty1 arg_ty tail_subst end
+            | _ => failwith "my_list_mk_comb - get_type_subst")
+      val subst = get_type_subst (type_of comb, List.map type_of args)
+      val comb' = Term.inst (fst subst) comb
+  in list_mk_comb (comb', args) end;
 
 (***************************************************************)
 
