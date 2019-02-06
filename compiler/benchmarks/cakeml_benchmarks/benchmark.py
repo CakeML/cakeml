@@ -43,13 +43,13 @@ comp_mls = {
   "ocamlc"         : ("./ocaml/ocamlc_",""),
 
   # CakeML compiled
-  "cakeml_all"     : ("./cakeml/all/",".cake"),
-  "cakeml_noclos"  : ("./cakeml/noclos/",".cake"),
-  "cakeml_nobvl"   : ("./cakeml/nobvl/",".cake"),
-  "cakeml_noalloc" : ("./cakeml/noalloc/",".cake"),
+  "cakeml_all"     : ("./cakeml/all_",".cake"),
+  "cakeml_noclos"  : ("./cakeml/noclos_",".cake"),
+  "cakeml_nobvl"   : ("./cakeml/nobvl_",".cake"),
+  "cakeml_noalloc" : ("./cakeml/noalloc_",".cake"),
 
   #GC tests
-  #"cakeml_gc"      : ("./cakeml/gc/cake_",".cake")
+  #"cakeml_gc"      : ("./cakeml/gc_",".cake")
 }
 
 #Format: key -> (interpreter executable, extra arguments, path, suffix)

@@ -1,32 +1,29 @@
 #Cleanup
 make clean
-rm -rf noclos/ nobvl/ noalloc/ all/ gc/
 
-#No clos optimizations
-mkdir -p noclos
+mkdir -p temp
+#No clos optimisations
 make CAKEFLAGS="--multi=false --known=false --call=false --max_app=1"
-mv *.cake noclos/
+for f in *.cake ; do mv -- "$f" "temp/noclos_$f" ; done
 
-#No BVL optimizations
-mkdir -p nobvl
+#No BVL optimisations
 make CAKEFLAGS="--inline_size=0 --exp_cut=10000 --split=false"
-mv *.cake nobvl/
+for f in *.cake ; do mv -- "$f" "temp/nobvl_$f" ; done
 
 #No register allocator
-mkdir -p noalloc
 make CAKEFLAGS="--reg_alg=0"
-mv *.cake noalloc/
+for f in *.cake ; do mv -- "$f" "temp/noalloc_$f" ; done
 
-#All default optimizations enabled
-mkdir -p all
+#All default optimisations enabled
 make
-mv *.cake all/
+for f in *.cake ; do mv -- "$f" "temp/all_$f" ; done
 
 #GC debug enabled
-mkdir -p gc
 make CAKEFLAGS="--emit_empty_ffi=true" FLAGS='-g -D"DEBUG_FFI" -o'
-make
-mv *.cake gc/
+for f in *.cake ; do mv -- "$f" "temp/gc_$f" ; done
+
+mv temp/* .
+rm -r temp/
 
 #TODO: this needs to be updated:
 #Compilation to different targets
