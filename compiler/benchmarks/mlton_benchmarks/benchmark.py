@@ -176,10 +176,11 @@ import numpy as np
 matplotlib.rcParams['hatch.linewidth']=0.5
 rbm = benchmarks[::-1]
 ind = np.arange(len(rbm))*5
-fs = (8,8)
+fs = (12,12)
 width = 1.0
 
 #Configuration for annotations
+label_size = 12
 xoffset=-110
 xoffsett=-130
 heightmul = 31
@@ -217,40 +218,8 @@ for (mli,(ml,c,h)) in enumerate(zip(mls,colors,hatches)):
 
 plt.xscale('log')
 ax.set_yticks(ind+(len(mls)-1)*width/2)
-ax.set_yticklabels(tuple(rbm))
-lgd = ax.legend(rects,mlnames, loc='upper center', ncol=len(mls), bbox_to_anchor=(0.5,1.05))
-
-#4 benchmarks
-a1=ax.annotate('Large, Imperative', xy=(xoffset, offset+2*heightmul), xytext=(xoffsett, offset+2*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
-            annotation_clip=False)
-
-#3 benchmarks
-a2=ax.annotate('Large, Pure', xy=(xoffset, offset+5.5*heightmul), xytext=(xoffsett, offset+5.5*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*3)+', lengthB='+str(lenB)),
-            annotation_clip=False)
-
-#4 benchmarks
-a3=ax.annotate('Small, Imperative', xy=(xoffset, offset+9*heightmul), xytext=(xoffsett, offset+9*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
-            annotation_clip=False)
-
-#5 benchmarks
-a4=ax.annotate('Small, Pure', xy=(xoffset, offset+13.5*heightmul), xytext=(xoffsett, offset+13.5*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*5)+', lengthB='+str(lenB)),
-            annotation_clip=False)
+ax.set_yticklabels(tuple(rbm),fontsize=label_size)
+lgd = ax.legend(rects,mlnames, loc='upper center', ncol=len(mls), bbox_to_anchor=(0.5,1.05), fontsize=label_size)
 
 plt.tight_layout()
 plt.savefig('mlton_plot1noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
@@ -258,7 +227,7 @@ plt.savefig('mlton_plot1noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight'
 #Second plot will be between all the MLs without intinfs
 #Fill in solid bars for the 'intinf' ones
 ind = np.arange(len(rbm))*8
-fs = (8,8)
+fs = (12,16)
 mls = ["smlnj","mosml","mlton","poly","cakeml_all"]
 has_inf = [False,False,True,True,False]
 inf_suffix = '_intinf'
@@ -285,8 +254,11 @@ for (mli,(ml,hi,c,h)) in enumerate(zip(mls,has_inf,colors,hatches)):
       (l,r) = mltimes[ml][bm]
       bmt+= [(l/normavg,r/normstd)]
       if hi and mltimes.has_key(ml+inf_suffix) and not(mltimes[ml+inf_suffix][bm]==None) :
-        (l,r) = mltimes[ml+inf_suffix][bm]
-        bmt3 += [l/normavg]
+        (ll,rr) = mltimes[ml+inf_suffix][bm]
+        if ll > l:
+          bmt3 += [ll/normavg]
+        else:
+          bmt3 += [l/normavg]
       else:
         bmt3 +=[l/normavg]
   bmt1 = [i for (i,j) in bmt]
@@ -299,47 +271,15 @@ for (mli,(ml,hi,c,h)) in enumerate(zip(mls,has_inf,colors,hatches)):
 
 plt.xscale('log')
 ax.set_yticks(ind+(len(mls)-1)*width/2)
-ax.set_yticklabels(tuple(rbm))
-lgd = ax.legend(rects,mlnames, loc='upper center', ncol=len(mls), bbox_to_anchor=(0.5,1.05))
-
-#4 benchmarks
-a1=ax.annotate('Large, Imperative', xy=(xoffset, offset+2*heightmul), xytext=(xoffsett, offset+2*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
-            annotation_clip=False)
-
-#3 benchmarks
-a2=ax.annotate('Large, Pure', xy=(xoffset, offset+5.5*heightmul), xytext=(xoffsett, offset+5.5*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*3)+', lengthB='+str(lenB)),
-            annotation_clip=False)
-
-#4 benchmarks
-a3=ax.annotate('Small, Imperative', xy=(xoffset, offset+9*heightmul), xytext=(xoffsett, offset+9*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
-            annotation_clip=False)
-
-#5 benchmarks
-a4=ax.annotate('Small, Pure', xy=(xoffset, offset+13.5*heightmul), xytext=(xoffsett, offset+13.5*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*5)+', lengthB='+str(lenB)),
-            annotation_clip=False)
+ax.set_yticklabels(tuple(rbm),fontsize=label_size)
+lgd = ax.legend(rects,mlnames, loc='upper center', ncol=len(mls), bbox_to_anchor=(0.5,1.05), fontsize=label_size)
 
 plt.tight_layout()
 plt.savefig('mlton_plot2noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
 
 #Third plot will be CakeML vs CakeML plots
 ind = np.arange(len(rbm))*6
-fs = (8,8)
+fs = (12,12)
 mls = ["cakeml_noclos","cakeml_nobvl","cakeml_noalloc","cakeml_all"]
 mlnames = ["CO","BO","RA","All"]
 colors = ['0.5','red','green','blue']
@@ -368,40 +308,8 @@ for (mli,(ml,c,h)) in enumerate(zip(mls,colors,hatches)):
 
 plt.xscale('log')
 ax.set_yticks(ind+(len(mls)-1)*width/2)
-ax.set_yticklabels(tuple(rbm))
-lgd = ax.legend(rects,mlnames, loc='upper center', ncol=len(mls), bbox_to_anchor=(0.5,1.05))
-
-#4 benchmarks
-a1=ax.annotate('Large, Imperative', xy=(xoffset, offset+2*heightmul), xytext=(xoffsett, offset+2*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
-            annotation_clip=False)
-
-#3 benchmarks
-a2=ax.annotate('Large, Pure', xy=(xoffset, offset+5.5*heightmul), xytext=(xoffsett, offset+5.5*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*3)+', lengthB='+str(lenB)),
-            annotation_clip=False)
-
-#4 benchmarks
-a3=ax.annotate('Small, Imperative', xy=(xoffset, offset+9*heightmul), xytext=(xoffsett, offset+9*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*4)+', lengthB='+str(lenB)),
-            annotation_clip=False)
-
-#5 benchmarks
-a4=ax.annotate('Small, Pure', xy=(xoffset, offset+13.5*heightmul), xytext=(xoffsett, offset+13.5*heightmul), xycoords='axes pixels',
-            ha='center', va='center',
-            rotation=90,
-            bbox=dict(boxstyle='square', fc='white'),
-            arrowprops=dict(arrowstyle='-[, widthB='+str(axh*5)+', lengthB='+str(lenB)),
-            annotation_clip=False)
+ax.set_yticklabels(tuple(rbm),fontsize=label_size)
+lgd = ax.legend(rects,mlnames, loc='upper center', ncol=len(mls), bbox_to_anchor=(0.5,1.05), fontsize=label_size)
 
 plt.tight_layout()
 plt.savefig('mlton_plot3noerr.svg',bbox_extra_artists=(lgd,),bbox_inches='tight')
