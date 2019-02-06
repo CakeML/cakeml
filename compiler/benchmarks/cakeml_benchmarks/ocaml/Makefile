@@ -9,10 +9,10 @@ PROGSO = $(patsubst %.ml,ocamlopt_%,$(SRCS))
 all: $(PROGSC) $(PROGSO)
 
 ocamlc_% : %.ml
-	$(OCAMLC) -o $@ $<
+	- $(OCAMLC) -o $@ $<
 
 ocamlopt_% : %.ml
-	$(OCAMLOPT) -o $@ $<
+	- $(OCAMLOPT) -o $@ $<
 
 clean:
 	rm $(PROGSC) $(PROGSO) *.cmo *.cmx *.cmi *.o
