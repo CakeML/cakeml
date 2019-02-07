@@ -161,6 +161,7 @@ val do_app_aux_def = Define `
     | (Const i,xs) => if small_enough_int i then
                         Rval (Number i : v, s)
                       else Error
+    | (WordConst w,xs) => Rval (Word w,s)
     | (Label l,xs) => (case xs of
                        | [] => if l IN domain s.code then
                                  Rval (CodePtr l, s)
