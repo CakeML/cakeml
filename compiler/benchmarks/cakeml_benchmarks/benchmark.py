@@ -160,7 +160,6 @@ for bm in benchmarks:
 p2.close()
 
 #Plotting
-import pandas
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
