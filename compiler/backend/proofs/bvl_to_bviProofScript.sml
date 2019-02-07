@@ -2225,7 +2225,7 @@ val compile_exps_correct = Q.prove(
       fs[] >> rveq >> rfs[state_rel_def])
     \\ full_simp_tac(srw_ss())[GSYM PULL_FORALL]
     \\ Cases_on`a'`>>full_simp_tac(srw_ss())[]\\srw_tac[][]
-    \\ Cases_on `op = Install` \\ full_simp_tac(srw_ss())[] THEN1 cheat (*
+    \\ Cases_on `op = Install` \\ full_simp_tac(srw_ss())[] THEN1 (
       rveq \\ fs [compile_op_def]
       \\ `LENGTH a = 2` by
        (fs [bvlSemTheory.do_app_def,bvlSemTheory.do_install_def,
@@ -2241,7 +2241,7 @@ val compile_exps_correct = Q.prove(
       \\ fs [EVAL ``ListLength_code``] \\ fs [GSYM (EVAL ``SND ListLength_code``)]
       \\ drule (GEN_ALL evaluate_ListLength_code)
       \\ fs [v_to_bytes_def,some_def]
-      \\ rfs [MAP_Num_11,o_DEF] \\ rveq
+      \\ rfs [MAP_Word_11,o_DEF] \\ rveq
       \\ disch_then (qspec_then `adjust_bv b2 v1` mp_tac) \\ fs []
       \\ simp [v_to_list_adjust]
       \\ disch_then (qspec_then `0` strip_assume_tac)
@@ -2282,8 +2282,13 @@ val compile_exps_correct = Q.prove(
       \\ simp [GSYM PULL_EXISTS,state_co_def,UNCURRY,case_eq_thms]
       \\ qpat_x_assum `names_ok _ _ _` assume_tac
       \\ conj_tac THEN1
-       (fs [v_to_bytes_def,v_to_list_adjust,o_DEF,adjust_bv_def,MAP_MAP_o,
-            MAP_Num_11])
+       (MATCH_MP_TAC IMP_v_to_bytes \\ fs[] \\ simp[o_DEF] \\ simp[MAP_Word_w2v_11])
+      \\ conj_tac THEN1
+       (MATCH_MP_TAC IMP_v_to_words \\ fs[] \\ simp[o_DEF] \\ simp[MAP_Word_w2v_11])
+      \\ conj_tac THEN1
+       simp[MAP_Word_w2v_11]
+      \\ conj_tac THEN1
+       simp[MAP_Word_w2v_11]
       \\ conj_asm1_tac THEN1
        (simp [IN_DISJOINT] \\ CCONTR_TAC \\ fs [] \\ fs [names_ok_def]
         \\ rfs [] \\ first_x_assum drule
@@ -2355,7 +2360,7 @@ val compile_exps_correct = Q.prove(
       \\ imp_res_tac ALOOKUP_MEM
       \\ fs [names_ok_def]
       \\ qpat_x_assum `!n k. _` (qspec_then `0` mp_tac) \\ fs []
-      \\ fs [EVERY_MEM,FORALL_PROD] \\ metis_tac[]*)
+      \\ fs [EVERY_MEM,FORALL_PROD] \\ metis_tac[])
     \\ Cases_on `?i. op = Const i` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "Op: Const" \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
