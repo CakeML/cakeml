@@ -122,10 +122,10 @@ val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#(
 
 val v_to_bytes_def = Define `
   v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Number o $& o w2n) ns)`;
+                    v_to_list lv = SOME (MAP (Word o w2v) ns)`;
 
 val v_to_words_def = Define `
-  v_to_words lv = some ns. v_to_list lv = SOME (MAP (Word o w2v) ns)`;
+  v_to_words lv = some ns:word64 list. v_to_list lv = SOME (MAP (Word o w2v) ns)`;
 
 val s = ``s:('c,'ffi)closSem$state``;
 

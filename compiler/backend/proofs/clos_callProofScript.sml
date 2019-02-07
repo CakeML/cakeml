@@ -1533,8 +1533,8 @@ Theorem v_to_list_thm
 val v_rel_IMP_v_to_bytes_lemma = prove(
   ``!x y c g code.
       v_rel c g code x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+      !ns. (v_to_list x = SOME (MAP (Word o (w2v:word8->bool list)) ns)) <=>
+           (v_to_list y = SOME (MAP (Word o (w2v:word8->bool list)) ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def,v_rel_def]
   \\ Cases_on `tag = cons_tag` \\ fs []
@@ -1547,8 +1547,8 @@ val v_rel_IMP_v_to_bytes_lemma = prove(
 val v_rel_IMP_v_to_words_lemma = prove(
   ``!x y c g.
       v_rel c g code x y ==>
-      !ns. (v_to_list x = SOME (MAP Word ns)) <=>
-           (v_to_list y = SOME (MAP Word ns))``,
+      !ns. (v_to_list x = SOME (MAP (Word o (w2v:word64->bool list)) ns)) <=>
+           (v_to_list y = SOME (MAP (Word o (w2v:word64->bool list)) ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def,v_rel_def]
   \\ Cases_on `tag = cons_tag` \\ fs []
@@ -1565,12 +1565,18 @@ Theorem v_to_bytes_thm
   (rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []
   \\ rw [] \\ fs []);
 
-Theorem v_to_words_thm
-  `!h h' x.
+
+Theorem v_to_words_thm:
+  !h h' x.
       v_to_words h = SOME x /\ v_rel g1 l1 code h h' ==>
-      v_to_words h' = SOME x`
-  cheat (*rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []
-  \\ rw [] \\ fs []*);
+      v_to_words h' = SOME x
+Proof
+  rw [v_to_words_def]\\
+   drule v_rel_IMP_v_to_words_lemma
+  \\ fs[]
+  \\ rw[]
+   \\ fs[]
+QED
 
 Theorem v_to_list_wfv
   `!h x. v_to_list h = SOME x /\ wfv g1 l1 code h ==> EVERY (wfv g1 l1 code) x`

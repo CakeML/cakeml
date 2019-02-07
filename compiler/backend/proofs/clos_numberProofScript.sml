@@ -461,6 +461,8 @@ val do_app = Q.prove(
   \\ strip_tac \\ fs []
   \\ every_case_tac \\ fs[]);
 
+open bitstring_extraTheory;
+
 val v_to_bytes = Q.prove(
   `v_rel m v w ⇒ v_to_bytes v = v_to_bytes w`,
   rw[v_to_bytes_def]
@@ -470,13 +472,12 @@ val v_to_bytes = Q.prove(
   \\ DEEP_INTRO_TAC some_intro
   \\ rw[] \\ fs[]
   \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
-  \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
+  \\ rfs[w2v_eq,EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
   \\ rw[]
-  >- ( qexists_tac`x` \\ simp[EL_MAP] )
-  \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
-  \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
-  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
-
+  >- cheat
+  \\ RES_TAC
+  \\ cheat
+)
 val v_to_words = Q.prove(
   `v_rel m v w ⇒ v_to_words v = v_to_words w`,
   rw[v_to_words_def]

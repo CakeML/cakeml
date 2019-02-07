@@ -6,6 +6,7 @@ open preamble
      db_varsTheory
      closSemTheory closPropsTheory
      clos_annotateTheory backendPropsTheory
+     bitstring_extraTheory
 
 val _ = new_theory"clos_annotateProof";
 
@@ -348,31 +349,71 @@ val do_app_err_thm = Q.prove(
   \\ fs[state_rel_def] \\ first_x_assum drule \\ strip_tac \\ fs[]
   \\ rveq \\ rfs[]);
 
-Theorem v_to_bytes
-  `v_rel x y ==> (v_to_bytes x) = (v_to_bytes y)`
-  (rw[v_to_bytes_def]
-  \\ DEEP_INTRO_TAC some_intro
-  \\ rw[OPTREL_def]
-  \\ DEEP_INTRO_TAC some_intro \\ rw[]
-  \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
-  \\ TRY (strip_tac \\ rw[])
-  \\ fs[EVERY2_MAP,v_rel_Number]
-  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ,quotient_listTheory.LIST_REL_EQ]
-  \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
-  \\ METIS_TAC[EL_MAP,o_DEF]);
+Theorem list_rel_WORD
+  `!x y. LIST_REL v_rel (MAP (Word o w2v) x) (MAP (Word o w2v) y) <=> x = y`
+  (
+   rpt STRIP_TAC \\ fs[] \\ EQ_TAC
+   >- (STRIP_TAC \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN]
+       \\ rfs[EL_MAP,v_rel_simp,w2v_eq]
+   )
+   \\ rw[LIST_EQ_REWRITE,LIST_REL_EL_EQN]
+   \\ simp[EL_MAP,v_rel_simp]
+)
 
-Theorem v_to_words
-  `v_rel x y ==> (v_to_words x) = (v_to_words y)`
-  cheat (*rw[v_to_words_def]
-  \\ DEEP_INTRO_TAC some_intro
-  \\ rw[OPTREL_def]
-  \\ DEEP_INTRO_TAC some_intro \\ rw[]
-  \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
-  \\ TRY (strip_tac \\ rw[])
-  \\ fs[EVERY2_MAP,v_rel_Number]
-  \\ fsrw_tac[ETA_ss][EQ_SYM_EQ,quotient_listTheory.LIST_REL_EQ]
-  \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
-  \\ METIS_TAC[EL_MAP,o_DEF]*);
+Theorem list_rel_MAP_WORD:
+  !x y. LIST_REL v_rel (MAP (Word o w2v) x) y <=> y = (MAP (Word o w2v) x)
+Proof
+  rpt STRIP_TAC \\ fs[] \\ EQ_TAC
+  >- (STRIP_TAC \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN]
+       \\ rfs[EL_MAP,v_rel_simp,w2v_eq]
+   )
+  >> rw[LIST_EQ_REWRITE,LIST_REL_EL_EQN]
+  >> simp[EL_MAP,v_rel_simp]
+QED
+
+Theorem list_rel_MAP_WORD_SYM:
+  !x y. LIST_REL v_rel y (MAP (Word o w2v) x) <=> y = (MAP (Word o w2v) x)
+Proof
+  rpt STRIP_TAC \\ fs[] \\ EQ_TAC
+  >- (STRIP_TAC \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN]
+       \\ rfs[EL_MAP,v_rel_simp,w2v_eq]
+   )
+  >> rw[LIST_EQ_REWRITE,LIST_REL_EL_EQN]
+  >> simp[EL_MAP,v_rel_simp]
+QED
+
+
+
+Theorem v_to_bytes:
+  v_rel x y ==> (v_to_bytes x) = (v_to_bytes y)
+Proof
+  simp[v_to_bytes_def] \\ rw[v_rel_simp]
+   \\ DEEP_INTRO_TAC some_intro
+   \\ rw[OPTREL_def]
+   \\ DEEP_INTRO_TAC some_intro \\ rw[]
+   \\ imp_res_tac v_to_list \\ fs[] \\ rw[]
+   \\ TRY(strip_tac \\ rw[])
+   \\ fs[list_rel_WORD]
+   >- (fs[list_rel_MAP_WORD] \\ metis_tac[])
+   \\ fs[list_rel_MAP_WORD_SYM]
+   \\ metis_tac[]
+QED
+
+Theorem v_to_words:
+  v_rel x y ==> (v_to_words x) = (v_to_words y)
+Proof
+   every_case_tac >> simp[v_to_words_def]
+   >> rw[v_rel_simp]
+   >> DEEP_INTRO_TAC some_intro
+   >> rw[OPTREL_def]
+   >> DEEP_INTRO_TAC some_intro \\ rw[]
+   >> imp_res_tac v_to_list \\ fs[] \\ rw[]
+   >> TRY (strip_tac \\ rw[])
+   >> fs[list_rel_WORD]
+   >- (fs[list_rel_MAP_WORD] \\ metis_tac[])
+   >> fs[list_rel_MAP_WORD_SYM]
+   >> metis_tac[]
+QED
 
 Theorem do_install_thm:
   state_rel s1 t1 /\ LIST_REL v_rel xs ys /\
@@ -382,7 +423,7 @@ Theorem do_install_thm:
   result_rel (λe1 e2. e2 = (annotate 0 e1)) (=) res1 res2 /\
   state_rel s2 t2
 Proof
-  cheat (*fs[do_install_def]
+  fs[do_install_def]
   \\ simp[CaseEq"list",CaseEq"prod",CaseEq"option"]
   \\ strip_tac \\ rveq \\ fs[]
   \\ imp_res_tac v_to_words
@@ -410,13 +451,13 @@ Proof
   \\ fs[CaseEq"bool"] \\ rveq \\ fs[] \\ rw[]
   THEN (
     rw [] \\ fs[state_rel_def,FUN_EQ_THM,FDOM_FUPDATE_LIST]
-    \\ conj_tac >- metis_tac[]
+    (* \\ conj_tac >- metis_tac[]
     \\ simp[flookup_fupdate_list,REVERSE_compile,ALOOKUP_compile]
     \\ rpt gen_tac
     \\ TOP_CASE_TAC \\ fs[]
     \\ simp[annotate_def]
     \\ Cases_on`alt_free [c]`
-    \\ imp_res_tac alt_free_SING \\ fs[])*)
+    \\ imp_res_tac alt_free_SING \\ fs[]*) \\ cheat)
 QED
 
 (* compiler correctness *)

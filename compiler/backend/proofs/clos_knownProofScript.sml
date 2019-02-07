@@ -2244,8 +2244,8 @@ Theorem v_rel_Unit[simp]
 val v_rel_IMP_v_to_bytes_lemma = prove(
   ``!x y c g.
       v_rel c g x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+      !ns. (v_to_list x = SOME (MAP (Word o (w2v:word8->bool list)) ns)) <=>
+           (v_to_list y = SOME (MAP (Word o (w2v:word8->bool list)) ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
   \\ Cases_on `tag = backend_common$cons_tag` \\ fs []
@@ -2261,7 +2261,7 @@ val v_rel_IMP_v_to_bytes = prove(
 val v_rel_IMP_v_to_words_lemma = prove(
   ``!x y c g.
       v_rel c g x y ==>
-      !ns. (v_to_list x = SOME (MAP (Word o w2v) ns)) <=>
+      !ns:word64 list. (v_to_list x = SOME (MAP (Word o w2v) ns)) <=>
            (v_to_list y = SOME (MAP (Word o w2v) ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
@@ -2273,7 +2273,13 @@ val v_rel_IMP_v_to_words_lemma = prove(
 
 val v_rel_IMP_v_to_words = prove(
   ``v_rel c g x y ==> v_to_words y = v_to_words x``,
-  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+  rw[v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs[]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ DEEP_INTRO_TAC some_intro
+  \\ fs[]
+  \\ rw[]
+  \\ fs[o_DEF]
+);
 
 (* state relation *)
 

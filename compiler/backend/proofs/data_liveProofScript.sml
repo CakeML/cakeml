@@ -231,11 +231,11 @@ val evaluate_compile = Q.prove(
          (ASSUME_TAC o GSYM) \\ fs [get_var_def]
     \\ SRW_TAC [] [call_env_def])
   THEN1 (* Seq *)
-   cheat (*fs [evaluate_def]
-    \\ `?res1 u1. evaluate (c1,s) = (res1,u1)` by METIS_TAC [PAIR]
-    \\ `?res2 u2. evaluate (c2,u1) = (res2,u2)` by METIS_TAC [PAIR]
-    \\ `?x2 l5. compile c2 l2 = (x2,l5)` by METIS_TAC [PAIR]
-    \\ `?x1 l6. compile c1 l5 = (x1,l6)` by METIS_TAC [PAIR]
+   (fs [evaluate_def]
+    \\ `?res1 u1. evaluate (c1,s) arch_size = (res1,u1)` by METIS_TAC [PAIR]
+    \\ `?res2 u2. evaluate (c2,u1) arch_size = (res2,u2)` by METIS_TAC [PAIR]
+    \\ `?x2 l5. compile c2 l2 arch_size = (x2,l5)` by METIS_TAC [PAIR]
+    \\ `?x1 l6. compile c1 l5 arch_size = (x1,l6)` by METIS_TAC [PAIR]
     \\ fs [LET_DEF,compile_def,evaluate_def]
     \\ FIRST_X_ASSUM (MP_TAC o GSYM o Q.SPECL [`l5`,`t1`]) \\ fs []
     \\ Cases_on `res1 = SOME (Rerr (Rabort Rtype_error))` \\ fs []
@@ -253,7 +253,7 @@ val evaluate_compile = Q.prove(
     \\ POP_ASSUM (K ALL_TAC) \\ fs []
     \\ `state_rel u1 t2 LN` by fs [state_rel_def]
     \\ MP_TAC (Q.SPECL [`u1`,`t2`] jump_exc_IMP_state_rel) \\ fs []
-    \\ ASM_SIMP_TAC (srw_ss()) [state_rel_def]*)
+    \\ ASM_SIMP_TAC (srw_ss()) [state_rel_def])
   THEN1 (* If *)
    (Q.ABBREV_TAC `l9 = l2` \\ POP_ASSUM (K ALL_TAC)
     \\ `?d3 l3. compile c2 l9 arch_size = (d3,l3)` by METIS_TAC [PAIR]
@@ -279,7 +279,7 @@ val evaluate_compile = Q.prove(
   (* Call from here onwards *)
   \\ Cases_on `ret` \\ fs [evaluate_def,compile_def]
   THEN1 (* Call with ret = NONE *)
-   cheat (*`s.clock = t1.clock /\ s.code = t1.code` by fs [state_rel_def]
+   (`s.clock = t1.clock /\ s.code = t1.code` by fs [state_rel_def]
     \\ REV_FULL_SIMP_TAC std_ss []
     \\ fs [] \\ Cases_on `get_vars args s.locals` \\ fs []
     \\ `get_vars args t1.locals = get_vars args s.locals` by
@@ -309,7 +309,7 @@ val evaluate_compile = Q.prove(
       \\ cheat
     )
     THEN Cases_on`e` >> fs[] THEN1
-     (REPEAT STRIP_TAC
+     cheat (*REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1.stack`])
       \\ Q.PAT_X_ASSUM `!x.bbb` (MP_TAC o GSYM)
       \\ Q.MATCH_ASSUM_RENAME_TAC
@@ -325,12 +325,12 @@ val evaluate_compile = Q.prove(
       \\ `s.handler = t1.handler /\
           LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ ASM_SIMP_TAC (srw_ss()) [Once jump_exc_def]
-      \\ REPEAT STRIP_TAC \\ fs [] \\ fs [state_rel_def])
-    THEN Cases_on`a`>>fs[] THEN
-     (fs [call_env_def,dec_clock_def] \\ REPEAT STRIP_TAC
+      \\ REPEAT STRIP_TAC \\ fs [] \\ fs [state_rel_def]*)
+    THEN Cases_on`a`>>fs[] THEN cheat
+     (*fs [call_env_def,dec_clock_def] \\ REPEAT STRIP_TAC
       \\ `LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t1.stack`) \\ fs []
-      \\ SRW_TAC [] [state_rel_def])*)
+      \\ SRW_TAC [] [state_rel_def]*))
   (* Call with SOME ret *)
   \\ Cases_on `x` \\ Q.MATCH_ASSUM_RENAME_TAC
        `(d,l1) = compile (Call (SOME (v,names)) dest args handler) l2 arch_size`

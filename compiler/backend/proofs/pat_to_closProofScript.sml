@@ -149,25 +149,37 @@ Theorem Boolv[simp]
 
 (* TODO fix definitions of v_to_bytes and v_to_words *)
 
-Theorem v_to_bytes
-  `v_to_bytes v = SOME ls ==> v_to_bytes (compile_v v) = SOME ls`
-  (*simp[patSemTheory.v_to_bytes_def,v_to_bytes_def]
-  \\ DEEP_INTRO_TAC some_intro \\ rw[]
-  \\ imp_res_tac v_to_list
-  \\ rw[MAP_MAP_o,o_DEF]
-  \\ DEEP_INTRO_TAC some_intro \\ rw[]
-  \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
-  \\ metis_tac[]*) cheat;
+Theorem MAP_Word_w2v_eq:
+  MAP (\x. Word (w2v x)) ls = MAP (\x. Word (w2v x)) x <=> ls = x
+Proof
+  EQ_TAC \\ STRIP_TAC \\ fs[]
+  \\ imp_res_tac INJ_MAP_EQ
+  \\ POP_ASSUM MATCH_MP_TAC
+  \\ rw[]
+  \\ simp[INJ_DEF,bitstring_extraTheory.w2v_eq]
+QED
 
-Theorem v_to_words
-  `v_to_words v = SOME ls ==> v_to_words (compile_v v) = SOME ls`
-  (*simp[patSemTheory.v_to_words_def,v_to_words_def]
+Theorem v_to_bytes:
+  v_to_bytes v = SOME ls ==> v_to_bytes (compile_v v) = SOME ls
+Proof
+  simp[patSemTheory.v_to_bytes_def,v_to_bytes_def]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
   \\ imp_res_tac v_to_list
   \\ rw[MAP_MAP_o,o_DEF]
-  \\ DEEP_INTRO_TAC some_intro \\ rw[ETA_AX]
-  \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
-  \\ metis_tac[]*) cheat;
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]
+  \\ fs[MAP_Word_w2v_eq]
+QED
+
+Theorem v_to_words:
+  v_to_words v = SOME ls ==> v_to_words (compile_v v) = SOME ls
+Proof
+  simp[patSemTheory.v_to_words_def,v_to_words_def]
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]
+  \\ imp_res_tac v_to_list
+  \\ rw[MAP_MAP_o,o_DEF]
+  \\ DEEP_INTRO_TAC some_intro \\ rw[]
+  \\ fs[MAP_Word_w2v_eq]
+QED
 
 Theorem do_install
   `patSem$do_install vs s = SOME (v1,v2) ∧
@@ -695,7 +707,7 @@ Theorem compile_semantics
 
 Theorem compile_contains_App_SOME
   `0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]`
-  (*strip_tac >>
+  (strip_tac >>
   ho_match_mp_tac compile_ind >>
   simp[compile_def,contains_App_SOME_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[] >> srw_tac[ETA_ss][] >>
@@ -707,11 +719,17 @@ Theorem compile_contains_App_SOME
   rw[contains_App_SOME_def] >>
   TOP_CASE_TAC >> fs[contains_App_SOME_def] >>
   rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
-  fs[contains_App_SOME_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]*) cheat;
+  fs[contains_App_SOME_def,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  rename1 `dest_WordToInt n es = SOME x` >> Cases_on `x` >>
+  IMP_RES_TAC dest_WordToInt_SOME
+  >> rename1 `_ = [App tra' (Op (WordToInt r)) [q]]`
+  >> Cases_on `(q,r)` >> fs[]
+  >> fs[contains_App_SOME_def]
+);
 
 Theorem compile_every_Fn_vs_NONE
   `∀e. every_Fn_vs_NONE[compile e]`
-  (*ho_match_mp_tac compile_ind >>
+  (ho_match_mp_tac compile_ind >>
   rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[Once every_Fn_vs_NONE_EVERY] >>
   simp[EVERY_REVERSE,EVERY_MAP] >>
@@ -719,11 +737,16 @@ Theorem compile_every_Fn_vs_NONE
   rw[] >> rw[] >>
   TOP_CASE_TAC >> fs[] >>
   rw[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,GSYM MAP_REVERSE] >>
-  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]*) cheat;
+  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
+  TOP_CASE_TAC
+  >> IMP_RES_TAC dest_WordToInt_SOME
+  >> rw[Once every_Fn_vs_NONE_EVERY]
+);
 
+(* TODO cleanup *)
 Theorem set_globals_eq
   `∀e. set_globals e = set_globals (compile e)`
-  (* ho_match_mp_tac compile_ind >>
+  (ho_match_mp_tac compile_ind >>
   rw[compile_def,patPropsTheory.op_gbag_def,op_gbag_def,elist_globals_reverse,CopyByteStr_def,CopyByteAw8_def]
   >>
     TRY
@@ -740,16 +763,37 @@ Theorem set_globals_eq
     rpt (pop_assum mp_tac) >>
     TRY (EVAL_TAC \\ NO_TAC) >>
     fs [elist_globals_reverse] >>
-    Induct_on`es`>>fs[] \\ EVAL_TAC)
+    Induct_on`es`>>fs[] \\ EVAL_TAC \\ NO_TAC)
   >>
-    fs[LENGTH_eq,ETA_AX]>>
+   TRY (fs[LENGTH_eq,ETA_AX]>>
     TRY(pop_assum SUBST_ALL_TAC>>fs[bagTheory.COMM_BAG_UNION])>>
     Induct_on`n`>>fs[REPLICATE,op_gbag_def] >>
-  Induct_on`es`>>fs[]*) cheat;
+  Induct_on`es`>>fs[] \\ NO_TAC)
+  >> TRY
+   (qmatch_goalsub_abbrev_tac `dest_WordToInt www` >>
+    Cases_on `dest_WordToInt www es` >>
+    qunabbrev_tac `www` \\ fs[]
+    >> rw[]  >> fs[LENGTH_eq,op_gbag_def]
+    >> TRY (    fs [dest_WordToInt_SOME] >> rw [] >>
+    fs[LENGTH_eq,op_gbag_def]>>
+    pop_assum kall_tac >>
+    rpt (pop_assum mp_tac) >>
+    TRY (EVAL_TAC \\ NO_TAC) >>
+    fs [elist_globals_reverse] >>
+    Induct_on`es`>>fs[] \\ EVAL_TAC \\ NO_TAC)
+    >> BasicProvers.TOP_CASE_TAC
+    >> IMP_RES_TAC dest_WordToInt_SOME
+    >> fs[]
+    >> fs[LENGTH_eq,op_gbag_def]>>
+    pop_assum kall_tac >>
+    rpt (pop_assum mp_tac) >>
+    TRY (EVAL_TAC \\ NO_TAC) >>
+    fs [elist_globals_reverse] >> NO_TAC))
+;
 
 Theorem compile_esgc_free
   `∀e. esgc_free e ⇒ esgc_free (compile e)`
-  (* ho_match_mp_tac compile_ind >>
+  (ho_match_mp_tac compile_ind >>
   rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   fs[EVERY_REVERSE,EVERY_MAP,EVERY_MEM]>>
   fs[set_globals_eq,LENGTH_eq,REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS]
@@ -760,7 +804,9 @@ Theorem compile_esgc_free
     fs [dest_WordToInt_SOME] >> rw [] >>
     fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
     fs [])
-  >- (Induct_on`es`>>fs[set_globals_eq])*) cheat;
+  >- (rename1 `_ = SOME x` >> Cases_on `x` >> IMP_RES_TAC dest_WordToInt_SOME
+      >> fs[])
+  >- (Induct_on`es`>>fs[set_globals_eq]));
 
 Theorem compile_distinct_setglobals
   `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
