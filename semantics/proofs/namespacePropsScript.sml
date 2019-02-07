@@ -263,6 +263,16 @@ Theorem nsLookup_to_nsLookupMod
   CASE_TAC >>
   fs []);
 
+Theorem nsLookupLong_none
+  `nsLookup ns (Long m x) = NONE ⇔
+   (nsLookupMod ns [m] = NONE ∨
+    ?m'. nsLookupMod ns [m] = SOME m' ∧ nsLookup m' x = NONE)`
+ (Cases_on `ns` >> rw [nsLookup_def, nsLookupMod_def] >> every_case_tac);
+
+Theorem nsLookupMod_none_imp
+  `nsLookupMod ns [mn] = NONE ⇒ !mns. nsLookupMod ns (mn::mns) = NONE`
+ (Cases_on `ns` >> rw [nsLookupMod_def] >> every_case_tac >> fs []);
+
 (* -------------- alist_to_ns --------------- *)
 
 Theorem nsLookup_alist_to_ns_some

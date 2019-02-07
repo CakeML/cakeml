@@ -603,7 +603,7 @@ val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
     env_rel genv env_v_local env'
     ⇒
     env_all_rel genv map
-      <| c := env.c; v := nsAppend env_v_local env.v |>
+      <| c := env.c; v := nsAppend env_v_local env.v; s := env.s |>
       <| c := FDOM genv.c; v := env'; exh_pat := F; check_ctor := T |>
       locals)`;
 
@@ -1146,7 +1146,7 @@ val lookup_build_rec_env_lem = Q.prove (
   full_simp_tac(srw_ss())[]);
 
 val sem_env_eq_lemma = Q.prove (
-  `!(env:'a sem_env) x. (env with v := x) = <| v := x; c := env.c |>`,
+  `!(env:'a sem_env) x. (env with v := x) = <| v := x; c := env.c; s := env.s |>`,
   rw [] >>
   rw [sem_env_component_equality]);
 
@@ -1992,7 +1992,7 @@ val compile_exp_correct' = Q.prove (
     first_x_assum match_mp_tac >> simp[] >>
     full_simp_tac(srw_ss())[env_all_rel_cases] >>
     rw [] >>
-    qexists_tac `build_rec_env funs <|v := nsAppend (alist_to_ns l) env'.v; c := env'.c|> (alist_to_ns l)` >>
+    qexists_tac `build_rec_env funs <|v := nsAppend (alist_to_ns l) env'.v; c := env'.c; s := env'.s|> (alist_to_ns l)` >>
     qexists_tac `env'` >>
     rw [semanticPrimitivesPropsTheory.build_rec_env_merge,build_rec_env_merge]
     >- (
@@ -2192,31 +2192,47 @@ val compile_decs_num_bindings = Q.prove(
   pairarg_tac >>
   fs []);
 
+val same_top_binds_def = Define `
+  same_top_binds ns1 ns2 ⇔
+    (!x. nsLookup ns1 (Short x) = NONE ⇔ nsLookup ns2 (Short x) = NONE) ∧
+    (!mn. nsLookupMod ns1 [mn] = NONE ⇔ nsLookupMod ns2 [mn] = NONE)`;
+
 val env_domain_eq_def = Define `
   env_domain_eq (var_map : source_to_flat$environment) (env : 'a sem_env)⇔
-    nsDom var_map.v = nsDom env.v ∧
-    nsDomMod var_map.v = nsDomMod env.v ∧
-    nsDom var_map.c = nsDom env.c ∧
-    nsDomMod var_map.c = nsDomMod env.c`;
+    same_top_binds var_map.v env.v ∧
+    same_top_binds var_map.c env.c`;
 
-val env_domain_eq_append = Q.prove (
+Theorem env_domain_eq_append
   `env_domain_eq env1 env1' ∧
    env_domain_eq env2 env2'
    ⇒
-   env_domain_eq (extend_env env1 env2) (extend_dec_env env1' env2')`,
-  rw [env_domain_eq_def, extend_env_def, extend_dec_env_def,nsLookupMod_nsAppend_some,
-      nsLookup_nsAppend_some, nsLookup_nsDom, namespaceTheory.nsDomMod_def,
-      EXTENSION, GSPECIFICATION, EXISTS_PROD] >>
-  metis_tac [option_nchotomy, NOT_SOME_NONE, pair_CASES]);
+   env_domain_eq (extend_env env1 env2) (extend_dec_env env1' env2')`
+ (rw [env_domain_eq_def, extend_env_def, extend_dec_env_def,nsLookupMod_nsAppend_none,
+      nsLookup_nsAppend_none, nsLookup_nsDom, namespaceTheory.nsDomMod_def,
+      EXTENSION, GSPECIFICATION, EXISTS_PROD, same_top_binds_def,
+      namespaceTheory.id_to_mods_def]
+  >- (
+    EQ_TAC >> rw []
+    >- metis_tac []
+    >- (Cases_on `p1` >> fs [] >> rw [] >> metis_tac [NOT_SOME_NONE])
+    >- metis_tac []
+    >- (Cases_on `p1` >> fs [] >> rw [] >> metis_tac [NOT_SOME_NONE]))
+  >- (
+    EQ_TAC >> rw []
+    >- metis_tac []
+    >- (Cases_on `p1` >> fs [] >> rw [] >> metis_tac [NOT_SOME_NONE])
+    >- metis_tac []
+    >- (Cases_on `p1` >> fs [] >> rw [] >> metis_tac [NOT_SOME_NONE])));
 
-val global_env_inv_append = Q.prove (
+Theorem global_env_inv_append
   `!genv var_map1 var_map2 env1 env2.
     env_domain_eq var_map1 env1 ∧
     global_env_inv genv var_map1 {} env1 ∧
     global_env_inv genv var_map2 {} env2
     ⇒
-    global_env_inv genv (extend_env var_map1 var_map2) {} (extend_dec_env env1 env2)`,
-  rw [env_domain_eq_def, v_rel_eqns, nsLookup_nsAppend_some, extend_env_def, extend_dec_env_def] >>
+    global_env_inv genv (extend_env var_map1 var_map2) {} (extend_dec_env env1 env2)`
+ (rw [env_domain_eq_def, same_top_binds_def, v_rel_eqns, nsLookup_nsAppend_some,
+      extend_env_def, extend_dec_env_def, get_shorts_def, get_first_mods_def] >>
   first_x_assum drule >>
   rw []
   >- rw []
@@ -2227,12 +2243,12 @@ val global_env_inv_append = Q.prove (
     rw [] >>
     disj2_tac >>
     rw []
+    >- (Cases_on `x` >> fs [namespaceTheory.id_to_mods_def, nsLookupLong_none])
     >- (
-      fs [EXTENSION, namespaceTheory.nsDom_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
-      metis_tac [NOT_SOME_NONE, option_nchotomy])
-    >- (
-      fs [EXTENSION, namespaceTheory.nsDomMod_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
-      metis_tac [NOT_SOME_NONE, option_nchotomy]))
+      Cases_on `x` >>
+      fs [namespaceTheory.id_to_mods_def, nsLookupLong_none] >>
+      Cases_on `p1` >> fs [] >> rw [] >>
+      metis_tac [nsLookupMod_none_imp, APPEND, list_distinct]))
   >- rw []
   >- (
     rw [] >>
@@ -2240,12 +2256,12 @@ val global_env_inv_append = Q.prove (
     rw [] >>
     disj2_tac >>
     rw []
+    >- (Cases_on `x` >> fs [namespaceTheory.id_to_mods_def, nsLookupLong_none])
     >- (
-      fs [EXTENSION, namespaceTheory.nsDom_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
-      metis_tac [pair_CASES, NOT_SOME_NONE, option_nchotomy])
-    >- (
-      fs [EXTENSION, namespaceTheory.nsDomMod_def, GSPECIFICATION, UNCURRY, LAMBDA_PROD, EXISTS_PROD] >>
-      metis_tac [NOT_SOME_NONE, option_nchotomy])));
+      Cases_on `x` >>
+      fs [namespaceTheory.id_to_mods_def, nsLookupLong_none] >>
+      Cases_on `p1` >> fs [] >> rw [] >>
+      metis_tac [nsLookupMod_none_imp, APPEND, list_distinct])))
 
 val pmatch_lem =
   pmatch
@@ -2314,7 +2330,7 @@ val global_env_inv_extend = Q.prove (
       <|c := nsEmpty;
         v := alist_to_ns (alloc_defs tt (LENGTH g1) (REVERSE (MAP FST pat_env')))|>
       ∅
-      <|v := alist_to_ns pat_env; c := nsEmpty|>`,
+      <|v := alist_to_ns pat_env; c := nsEmpty; s := nsEmpty|>`,
   rw [v_rel_eqns, extend_dec_env_def, extend_env_def, nsLookup_nsAppend_some,
       nsLookup_alist_to_ns_some] >>
   rfs [Once (GSYM alookup_distinct_reverse)] >>
@@ -2867,7 +2883,8 @@ val compile_decs_correct' = Q.prove (
   simp [terminationTheory.evaluate_decs_def] >>
   conj_tac
   >- (
-    rw [compile_decs_def, evaluate_decs_def, v_rel_eqns, invariant_def, env_domain_eq_def] >>
+    rw [compile_decs_def, evaluate_decs_def, v_rel_eqns, invariant_def,
+        env_domain_eq_def, same_top_binds_def] >>
     rw [extend_dec_env_def, evaluate_decs_def, extend_env_def, empty_env_def] >>
     qexists_tac `genv` >>
     metis_tac [SUBMAP_REFL, subglobals_refl]) >>
@@ -3087,12 +3104,13 @@ val compile_decs_correct' = Q.prove (
             rw []) >>
           metis_tac [])
         >- (
-          fs [env_domain_eq_def] >>
+          fs [env_domain_eq_def, same_top_binds_def] >>
           drule (CONJUNCT1 pmatch_bindings) >>
           simp [GSYM MAP_MAP_o, fst_alloc_defs, EXTENSION] >>
           rw [MEM_MAP] >>
           imp_res_tac env_rel_dom >>
           fs [] >>
+          cheat >>
           metis_tac [FST, MEM_MAP])
         >- (
           fs [] >>
@@ -3132,7 +3150,8 @@ val compile_decs_correct' = Q.prove (
           semanticPrimitivesTheory.build_rec_env_def] >>
       qexists_tac `genv` >>
       rw [] >>
-      fs [invariant_def, v_rel_eqns, s_rel_cases, env_domain_eq_def] >>
+      fs [invariant_def, v_rel_eqns, s_rel_cases, env_domain_eq_def,
+          same_top_binds_def] >>
       metis_tac [subglobals_refl])
     >- ( (* One function *)
       fs [compile_decs_def] >>
@@ -3174,8 +3193,9 @@ val compile_decs_correct' = Q.prove (
         rw [] >>
         res_tac >>
         fs [])
-      >- rw [env_domain_eq_def, semanticPrimitivesTheory.build_rec_env_def,
-             alloc_defs_def]
+      >- (rw [env_domain_eq_def, semanticPrimitivesTheory.build_rec_env_def,
+             alloc_defs_def, same_top_binds_def] >>
+         cheat)
       >- (
         rw [v_rel_eqns, nsLookup_alist_to_ns_some,
             semanticPrimitivesTheory.build_rec_env_def, EL_LUPDATE] >>
@@ -3251,12 +3271,15 @@ val compile_decs_correct' = Q.prove (
         res_tac >>
         fs [])
       >- (
-        rw [env_domain_eq_def, semanticPrimitivesPropsTheory.build_rec_env_merge] >>
+        rw [env_domain_eq_def, same_top_binds_def,
+            semanticPrimitivesPropsTheory.build_rec_env_merge] >>
         rw [EXTENSION, GSYM MAP_MAP_o, fst_alloc_defs] >>
-        rw [MEM_MAP, EXISTS_PROD])
+        rw [MEM_MAP, EXISTS_PROD] >>
+        cheat)
       >- (
         fs [Abbr`s2`, semanticPrimitivesPropsTheory.build_rec_env_merge] >>
-        qmatch_abbrev_tac `global_env_inv <| v := g1++middle++g2; c := _ |> _ _ <| v := alist_to_ns pat_env; c := _ |>` >>
+        qmatch_abbrev_tac `global_env_inv <| v := g1++middle++g2; c := _ |> _ _
+        <| v := alist_to_ns pat_env; c := _; s := _ |>` >>
         qspecl_then [`pat_env`,
                      `<| v := g1 ⧺ middle ⧺ g2;
                          c := genv.c|>`,
@@ -3346,7 +3369,7 @@ val compile_decs_correct' = Q.prove (
       qexists_tac `genv` >>
       simp [] >>
       fs [v_rel_eqns, s_rel_cases] >>
-      rw [env_domain_eq_def, subglobals_refl]) >>
+      rw [env_domain_eq_def, same_top_binds_def, subglobals_refl]) >>
     strip_tac >>
     rename [`EVERY check_dup_ctors (td::tds)`] >>
     `?tvs tn ctors. td = (tvs, tn ,ctors)` by metis_tac [pair_CASES] >>
@@ -3391,10 +3414,12 @@ val compile_decs_correct' = Q.prove (
     >- (
       fs [env_domain_eq_def, build_tdefs_def, ADD1] >>
       ONCE_REWRITE_TAC [nsAppend_foldl] >>
-      rw [build_tdefs_no_mod, nsDom_nsAppend_flat, nsDomMod_nsAppend_flat,
+      rw [build_tdefs_no_mod, same_top_binds_def, nsDom_nsAppend_flat,
+          nsDomMod_nsAppend_flat,
           o_DEF, build_constrs_def, MAP_REVERSE, MAP_MAP_o, EXTENSION] >>
       eq_tac >>
       rw [MEM_MAP, EXISTS_PROD] >>
+      cheat >>
       metis_tac [FST])
     >- (
       fs [build_tdefs_def, v_rel_eqns] >>
@@ -3406,6 +3431,7 @@ val compile_decs_correct' = Q.prove (
         rw [Once nsAppend_foldl] >>
         rw [nsLookup_nsAppend_some])
       >- (
+        cheat >>
         fs [build_constrs_def, nsLookup_alist_to_ns_some, env_domain_eq_def] >>
         rw [Once nsAppend_foldl] >>
         rw [nsLookup_nsAppend_some] >>
@@ -3422,7 +3448,7 @@ val compile_decs_correct' = Q.prove (
     fs [evaluate_decs_def, evaluate_dec_def] >>
     qexists_tac `genv` >>
     fs [invariant_def, s_rel_cases, v_rel_eqns, extend_dec_env_def, extend_env_def,
-        empty_env_def, env_domain_eq_def] >>
+        empty_env_def, env_domain_eq_def, same_top_binds_def] >>
     metis_tac [subglobals_refl])
   >- ( (* exceptions *)
     reverse (rw [evaluate_decs_def, evaluate_dec_def]) >>
@@ -3491,7 +3517,7 @@ val compile_decs_correct' = Q.prove (
       rw [subglobals_refl] >>
       `genv = <|v := s_i1.globals; c := genv.c|>` by rw [theorem "global_env_component_equality"] >>
       metis_tac [])
-    >- rw [env_domain_eq_def]
+    >- rw [env_domain_eq_def, same_top_binds_def]
     >- rw [FLOOKUP_DEF])
   >- ( (* Module *)
     pairarg_tac >>
@@ -3511,22 +3537,26 @@ val compile_decs_correct' = Q.prove (
     qexists_tac `genv'` >>
     rw [] >>
     every_case_tac >>
+    fs [] >>
+    rw [] >>
+    pairarg_tac >>
     fs []
     >- (
-      fs [env_domain_eq_def, lift_env_def] >>
-      rw [nsDom_nsLift, nsDomMod_nsLift])
+      fs [env_domain_eq_def, lift_env_def, same_top_binds_def] >>
+      rw [nsDom_nsLift, nsDomMod_nsLift, nsLookup_nsLift, nsLookupMod_nsLift] >>
+      rw [namespaceTheory.nsLookupMod_def])
     >- (
       rw [] >>
       fs [v_rel_eqns] >>
       rw [lift_env_def, nsLookup_nsLift] >>
       CASE_TAC >>
       rw [] >>
-      fs [])
-    >- rw [])
+      fs [] >>
+      cheat))
   >- ( (* Signature *)
     rw [evaluate_decs_def] >>
     qexists_tac `genv` >>
-    rw [env_domain_eq_def, empty_env_def]
+    rw [env_domain_eq_def, empty_env_def, same_top_binds_def]
     >- metis_tac [subglobals_refl] >>
     simp [Once v_rel_cases])
   >- ( (* local *)
