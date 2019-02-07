@@ -2,6 +2,7 @@
   Correctness proof for clos_number
 *)
 open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory closPropsTheory;
+open bitstring_extraTheory;
 
 val _ = new_theory"clos_numberProof";
 
@@ -461,8 +462,6 @@ val do_app = Q.prove(
   \\ strip_tac \\ fs []
   \\ every_case_tac \\ fs[]);
 
-open bitstring_extraTheory;
-
 val v_to_bytes = Q.prove(
   `v_rel m v w ⇒ v_to_bytes v = v_to_bytes w`,
   rw[v_to_bytes_def]
@@ -472,12 +471,16 @@ val v_to_bytes = Q.prove(
   \\ DEEP_INTRO_TAC some_intro
   \\ rw[] \\ fs[]
   \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
-  \\ rfs[w2v_eq,EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
+  \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
   \\ rw[]
-  >- cheat
-  \\ RES_TAC
-  \\ cheat
+  >- (rpt STRIP_TAC >> RES_TAC >> fs[bitstring_extraTheory.w2v_eq])
+  >- (rename1 `v_to_list w = SOME (MAP (Word o w2v) x)` >> Q.EXISTS_TAC `x` >> rw[EL_MAP])
+  \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
+  \\ res_tac
+  \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
+  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]
 )
+
 val v_to_words = Q.prove(
   `v_rel m v w ⇒ v_to_words v = v_to_words w`,
   rw[v_to_words_def]
@@ -488,12 +491,14 @@ val v_to_words = Q.prove(
   \\ rw[] \\ fs[]
   \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
   \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
+  \\ rw[]
   >- (rpt STRIP_TAC >> RES_TAC >> fs[bitstring_extraTheory.w2v_eq])
-  >- (Q.EXISTS_TAC `x` >> rw[EL_MAP])
+  >- (rename1 `v_to_list w = SOME (MAP (Word o w2v) x)` >> Q.EXISTS_TAC `x` >> rw[EL_MAP])
   \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
   \\ res_tac
   \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
-  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
+  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]
+)
 
 (*
 val do_install = Q.prove(

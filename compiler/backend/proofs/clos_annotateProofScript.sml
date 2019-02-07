@@ -451,13 +451,13 @@ Proof
   \\ fs[CaseEq"bool"] \\ rveq \\ fs[] \\ rw[]
   THEN (
     rw [] \\ fs[state_rel_def,FUN_EQ_THM,FDOM_FUPDATE_LIST]
-    (* \\ conj_tac >- metis_tac[]
+    \\ conj_tac >- metis_tac[]
     \\ simp[flookup_fupdate_list,REVERSE_compile,ALOOKUP_compile]
     \\ rpt gen_tac
     \\ TOP_CASE_TAC \\ fs[]
     \\ simp[annotate_def]
     \\ Cases_on`alt_free [c]`
-    \\ imp_res_tac alt_free_SING \\ fs[]*) \\ cheat)
+    \\ imp_res_tac alt_free_SING \\ fs[])
 QED
 
 (* compiler correctness *)

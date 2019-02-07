@@ -1504,25 +1504,30 @@ val iEval_bVarBound_extra = prove(
      evaluate (d,vs,s)``,
   simp [iEval_bVarBound]);
 
+(*
 val MAP_Num_11 = prove(
   ``!ns:word8 list ns'.
       MAP (λx. Number (&w2n x)) ns = MAP (λx. Number (&w2n x)) ns' <=> ns' = ns``,
   Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []);
+*)
 
 val MAP_Word_11 = prove(
   ``!ns ns'. MAP Word ns = MAP Word ns' <=> ns' = ns``,
   Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []);
 
-Theorem IMP_v_to_bytes
-  `!v1 ns.
-      v_to_list v1 = SOME (MAP (Number ∘ $& ∘ w2n) ns) ==>
-      v_to_bytes (adjust_bv b2 v1) = SOME ns`
-  (fs [v_to_bytes_def,v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def,MAP_Num_11]);
-
 val MAP_Word_w2v_11 = prove(
   ``!ns ns'. MAP (\x. Word (w2v x)) ns = MAP (\x. Word (w2v x)) ns' <=> ns = ns'``,
   Induct \\ Cases_on `ns'` \\ fs[bitstring_extraTheory.w2v_eq]
 )
+
+Theorem IMP_v_to_bytes
+  `!v1 ns.
+      v_to_list v1 = SOME (MAP (Word ∘ w2v) ns) ==>
+      v_to_bytes (adjust_bv b2 v1) = SOME ns`
+  (fs[v_to_bytes_def,v_to_list_adjust]
+   \\ fs[MAP_MAP_o,o_DEF,adjust_bv_def]
+   \\ fs[MAP_Word_w2v_11]
+  );
 
 Theorem IMP_v_to_words
   `v_to_list v2 = SOME (MAP (Word o w2v) ns') ==>

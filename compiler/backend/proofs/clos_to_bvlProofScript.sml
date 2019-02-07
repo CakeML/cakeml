@@ -2618,8 +2618,8 @@ Theorem clos_tag_shift_eq_nil_tag[simp]
 val v_rel_IMP_v_to_words_lemma = prove(
   ``!x y.
       v_rel max_app f refs code x y ==>
-      !ns. (v_to_list x = SOME (MAP Word ns)) <=>
-           (v_to_list y = SOME (MAP Word ns))``,
+      !ns. (v_to_list x = SOME (MAP (Word o w2v:word64->bool list) ns)) <=>
+           (v_to_list y = SOME (MAP (Word o w2v) ns))``,
   ho_match_mp_tac closSemTheory.v_to_list_ind \\ rw []
   \\ fs [bvlSemTheory.v_to_list_def,closSemTheory.v_to_list_def,v_rel_SIMP]
   \\ Cases_on `tag = cons_tag` \\ fs [] \\ rveq \\ fs []
@@ -2631,14 +2631,14 @@ val v_rel_IMP_v_to_words_lemma = prove(
 
 val v_rel_IMP_v_to_words = prove(
   ``v_rel max_app f refs code x y ==> v_to_words y = v_to_words x``,
-  (* rw [v_to_words_def,closSemTheory.v_to_words_def]
-  \\ drule v_rel_IMP_v_to_words_lemma \\ fs []*) cheat);
+  rw [v_to_words_def,closSemTheory.v_to_words_def]
+  \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
 
 val v_rel_IMP_v_to_bytes_lemma = prove(
   ``!x y.
       v_rel max_app f refs code x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+      !ns. (v_to_list x = SOME (MAP (Word o w2v:word8->bool list) ns)) <=>
+           (v_to_list y = SOME (MAP (Word o w2v) ns))``,
   ho_match_mp_tac closSemTheory.v_to_list_ind \\ rw []
   \\ fs [bvlSemTheory.v_to_list_def,closSemTheory.v_to_list_def,v_rel_SIMP]
   \\ Cases_on `tag = cons_tag` \\ fs [] \\ rveq \\ fs []
@@ -2650,8 +2650,8 @@ val v_rel_IMP_v_to_bytes_lemma = prove(
 
 val v_rel_IMP_v_to_bytes = prove(
   ``v_rel max_app f refs code x y ==> v_to_bytes y = v_to_bytes x``,
-  cheat (* rw [v_to_bytes_def,closSemTheory.v_to_bytes_def]
-  \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []*));
+  rw [v_to_bytes_def,closSemTheory.v_to_bytes_def]
+  \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
 
 Theorem not_domain_lookup
   `~(n IN domain x) <=> lookup n x = NONE`
