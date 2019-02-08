@@ -1097,4 +1097,19 @@ Theorem nsDomMod_nsAppend_flat
     fs [] >>
     metis_tac [option_nchotomy]));
 
+Theorem nsLookup_nsRestrict
+  `!ns1 x ns2 v. nsLookup (nsRestrict ns1 ns2) x = SOME v ⇒ nsLookup ns1 x = SOME v`
+ (ho_match_mp_tac nsLookup_ind >>
+  rw [] >>
+  Cases_on `ns2` >>
+  fs [nsRestrict_def, nsLookup_def] >>
+  Induct_on `ns1` >>
+  rw [] >>
+  pairarg_tac >>
+  fs [] >>
+  rw [] >>
+  fs [] >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs [MEM_FILTER]);
+
 val _ = export_theory ();

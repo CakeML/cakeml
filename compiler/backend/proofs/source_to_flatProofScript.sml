@@ -2232,7 +2232,7 @@ Theorem global_env_inv_append
     ⇒
     global_env_inv genv (extend_env var_map1 var_map2) {} (extend_dec_env env1 env2)`
  (rw [env_domain_eq_def, same_top_binds_def, v_rel_eqns, nsLookup_nsAppend_some,
-      extend_env_def, extend_dec_env_def, get_shorts_def, get_first_mods_def] >>
+      extend_env_def, extend_dec_env_def] >>
   first_x_assum drule >>
   rw []
   >- rw []
@@ -3106,11 +3106,12 @@ val compile_decs_correct' = Q.prove (
         >- (
           fs [env_domain_eq_def, same_top_binds_def] >>
           drule (CONJUNCT1 pmatch_bindings) >>
+          simp [nsLookup_alist_to_ns_none, ALOOKUP_NONE] >>
           simp [GSYM MAP_MAP_o, fst_alloc_defs, EXTENSION] >>
           rw [MEM_MAP] >>
           imp_res_tac env_rel_dom >>
           fs [] >>
-          cheat >>
+          rw [] >>
           metis_tac [FST, MEM_MAP])
         >- (
           fs [] >>
@@ -3193,9 +3194,15 @@ val compile_decs_correct' = Q.prove (
         rw [] >>
         res_tac >>
         fs [])
-      >- (rw [env_domain_eq_def, semanticPrimitivesTheory.build_rec_env_def,
-             alloc_defs_def, same_top_binds_def] >>
-         cheat)
+      >- (
+        rw [env_domain_eq_def, semanticPrimitivesTheory.build_rec_env_def,
+           alloc_defs_def, same_top_binds_def]
+        >- (
+          Cases_on `f = x'` >>
+          simp [])
+        >- (
+          simp [namespaceTheory.nsBind_def, namespaceTheory.nsEmpty_def,
+                namespaceTheory.nsLookupMod_def]))
       >- (
         rw [v_rel_eqns, nsLookup_alist_to_ns_some,
             semanticPrimitivesTheory.build_rec_env_def, EL_LUPDATE] >>
@@ -3273,9 +3280,9 @@ val compile_decs_correct' = Q.prove (
       >- (
         rw [env_domain_eq_def, same_top_binds_def,
             semanticPrimitivesPropsTheory.build_rec_env_merge] >>
+        simp [nsLookup_alist_to_ns_none, ALOOKUP_NONE] >>
         rw [EXTENSION, GSYM MAP_MAP_o, fst_alloc_defs] >>
-        rw [MEM_MAP, EXISTS_PROD] >>
-        cheat)
+        rw [MEM_MAP, EXISTS_PROD])
       >- (
         fs [Abbr`s2`, semanticPrimitivesPropsTheory.build_rec_env_merge] >>
         qmatch_abbrev_tac `global_env_inv <| v := g1++middle++g2; c := _ |> _ _
@@ -3412,10 +3419,9 @@ val compile_decs_correct' = Q.prove (
       metis_tac [DECIDE ``!x. x ≥ x:num``])
     >- metis_tac [UNION_ASSOC]
     >- (
-      fs [env_domain_eq_def, build_tdefs_def, ADD1] >>
+      fs [env_domain_eq_def, same_top_binds_def, build_tdefs_def, ADD1] >>
       ONCE_REWRITE_TAC [nsAppend_foldl] >>
-      rw [build_tdefs_no_mod, same_top_binds_def, nsDom_nsAppend_flat,
-          nsDomMod_nsAppend_flat,
+      rw [build_tdefs_no_mod, nsDom_nsAppend_flat, nsDomMod_nsAppend_flat,
           o_DEF, build_constrs_def, MAP_REVERSE, MAP_MAP_o, EXTENSION] >>
       eq_tac >>
       rw [MEM_MAP, EXISTS_PROD] >>
@@ -3552,7 +3558,8 @@ val compile_decs_correct' = Q.prove (
       CASE_TAC >>
       rw [] >>
       fs [] >>
-      cheat))
+      first_x_assum match_mp_tac >>
+      metis_tac [nsLookup_nsRestrict]))
   >- ( (* Signature *)
     rw [evaluate_decs_def] >>
     qexists_tac `genv` >>
