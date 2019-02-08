@@ -127,7 +127,7 @@ pickle.dump(bmdict,open("bmdict.pickle","w"))
 #bmdict = pickle.load(open("bmdict.pickle","rb"))
 
 #Invert the mapping
-mls = comp_mls.keys() + interp_mls.keys()
+mls = list(comp_mls.keys()) + list(interp_mls.keys())
 mltimes = {}
 for ml in mls:
   mltimes[ml] = {}
@@ -195,7 +195,7 @@ for (mli,(ml,c,h)) in enumerate(zip(mls,colors,hatches)):
     else:
       print("normalizing "+bm+" against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
       (normavg,normstd) = (bm_timeout,0.0)
-    if (not(mltimes.has_key(ml)) or not(mltimes[ml].has_key(bm)) or mltimes[ml][bm] == None):
+    if (ml not in mltimes or bm not in mltimes[ml] or mltimes[ml][bm] == None):
       bmt += [(0.0,0.0)]
     else:
       (l,r) = mltimes[ml][bm]
@@ -237,13 +237,13 @@ for (mli,(ml,hi,c,h)) in enumerate(zip(mls,has_inf,colors,hatches)):
     else:
       print("normalizing "+bm+" against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
       (normavg,normstd) = (bm_timeout,0.0)
-    if (not(mltimes.has_key(ml)) or not(mltimes[ml].has_key(bm)) or mltimes[ml][bm] == None):
+    if (ml not in mltimes or bm not in mltimes[ml] or mltimes[ml][bm] == None):
       bmt += [(0.0,0.0)]
       bmt3 += [0.0]
     else:
       (l,r) = mltimes[ml][bm]
       bmt+= [(l/normavg,r/normstd)]
-      if hi and mltimes.has_key(ml+inf_suffix) and not(mltimes[ml+inf_suffix][bm]==None) :
+      if hi and (ml+inf_suffix) in mltimes and not(mltimes[ml+inf_suffix][bm]==None) :
         (ll,rr) = mltimes[ml+inf_suffix][bm]
         if ll > l:
           bmt3 += [ll/normavg]
@@ -285,7 +285,7 @@ for (mli,(ml,c,h)) in enumerate(zip(mls,colors,hatches)):
     else:
       print("normalizing "+bm+" against: "+normalizer+", but numbers not found. Setting to maximum value: "+ str(bm_timeout))
       (normavg,normstd) = (bm_timeout,0.0)
-    if (not(mltimes.has_key(ml)) or not(mltimes[ml].has_key(bm)) or mltimes[ml][bm] == None):
+    if (ml not in mltimes or bm not in mltimes[ml] or mltimes[ml][bm] == None):
       bmt += [(0.0,0.0)]
     else:
       (l,r) = mltimes[ml][bm]
