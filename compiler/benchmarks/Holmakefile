@@ -79,7 +79,7 @@ mlton_report.html: $(MLTON_PLOTS)
 	echo '</body>' >> mlton_report.html; \
 	echo '</html>' >> mlton_report.html
 
-$(MLTON_PLOTS): mlton_benchmarks/benchmark.py mlton_cakeml mlton_ocaml mlton_sml
+$(MLTON_PLOTS): mlton_benchmarks/benchmark.py mlton_cakeml mlton_sml
 	(cd mlton_benchmarks && python3 benchmark.py&& \
 	$(CP) *.svg .. && \
 	$(CP) *.dat ..) | true
