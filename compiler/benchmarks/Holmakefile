@@ -39,19 +39,19 @@ cakeml_report.html: $(CAKEML_PLOTS)
 	echo '</html>' >> cakeml_report.html
 
 $(CAKEML_PLOTS): cakeml_benchmarks/benchmark.py cml_cakeml cml_ocaml cml_sml
-	cd cakeml_benchmarks ; python benchmark.py; \
-	$(CP) *.svg .. ; \
-	$(CP) *.dat ..
+	(cd cakeml_benchmarks && python3 benchmark.py && \
+	$(CP) *.svg .. && \
+	$(CP) *.dat ..) | true
 
 .PHONY: cml_cakeml cml_ocaml cml_sml
 cml_cakeml:
-	(cd cakeml_benchmarks/cakeml;./make_all.sh)
+	(cd cakeml_benchmarks/cakeml && ./make_all.sh)
 
 cml_ocaml:
-	(cd cakeml_benchmarks/ocaml/; make clean; make)
+	(cd cakeml_benchmarks/ocaml/ && make clean && make)
 
 cml_sml:
-	(cd cakeml_benchmarks/sml/; make clean; make)
+	(cd cakeml_benchmarks/sml/ && make clean && make)
 
 mlton_report.html: $(MLTON_PLOTS)
 	echo '<!doctype html>' > mlton_report.html; \
@@ -80,13 +80,13 @@ mlton_report.html: $(MLTON_PLOTS)
 	echo '</html>' >> mlton_report.html
 
 $(MLTON_PLOTS): mlton_benchmarks/benchmark.py mlton_cakeml mlton_ocaml mlton_sml
-	cd mlton_benchmarks ; python benchmark.py; \
-	$(CP) *.svg .. ; \
-	$(CP) *.dat ..
+	(cd mlton_benchmarks && python3 benchmark.py&& \
+	$(CP) *.svg .. && \
+	$(CP) *.dat ..) | true
 
 .PHONY: mlton_cakeml mlton_sml
 mlton_cakeml:
-	(cd mlton_benchmarks/cakeml;./make_all.sh)
+	(cd mlton_benchmarks/cakeml && ./make_all.sh)
 
 mlton_sml:
-	(cd mlton_benchmarks/sml/; make clean; make)
+	(cd mlton_benchmarks/sml/ && make clean && make)
