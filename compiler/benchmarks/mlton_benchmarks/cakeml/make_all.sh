@@ -1,3 +1,4 @@
+#!/bin/sh
 #Cleanup
 make clean
 
