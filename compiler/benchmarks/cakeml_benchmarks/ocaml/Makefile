@@ -15,4 +15,4 @@ ocamlopt_% : %.ml
 	- $(OCAMLOPT) -o $@ $<
 
 clean:
-	rm $(PROGSC) $(PROGSO) *.cmo *.cmx *.cmi *.o
+	$(RM) $(PROGSC) $(PROGSO) *.cmo *.cmx *.cmi *.o
