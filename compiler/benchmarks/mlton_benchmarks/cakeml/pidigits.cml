@@ -1,3 +1,6 @@
+(*
+  Benchmark program computing the digits of pi
+*)
 fun print _ = ()
 
 structure Stream =
@@ -141,4 +144,4 @@ struct
    val doit = display
 end
 
-val foo = Main.doit 500;
+val foo = Main.doit 400;

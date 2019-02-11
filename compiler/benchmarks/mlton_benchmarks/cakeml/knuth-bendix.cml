@@ -1,6 +1,6 @@
-(* From the SML/NJ benchmark suite. *)
-(* knuth-bendix.sml
- *)
+(*
+  knuth-bendix example from the SML NJ benchmark suite
+*)
 
 structure Main =
   struct
@@ -620,4 +620,4 @@ fun group_precedence op1 op2 =
 
   end (* Main *)
 
-val foo = Main.doit 200;
+val foo = Main.doit 150;

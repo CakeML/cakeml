@@ -1,3 +1,6 @@
+(*
+  A simple queue datastructure used for benchmarking
+*)
 datatype 'a q = QUEUE ('a list) ('a list);
 val empty = QUEUE [] [];
 fun is_empty q =

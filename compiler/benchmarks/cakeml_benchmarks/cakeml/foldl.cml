@@ -1,3 +1,6 @@
+(*
+  foldl benchmark program
+*)
 fun foldl f e xs =
   case xs of [] => e
   | (x::xs) => foldl f (f e x) xs;

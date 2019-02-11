@@ -1,3 +1,7 @@
+(*
+  A simple even/odd benchmark program from mlton
+*)
+
 fun abs i = if i < 0 then ~i else i
 exception Fail string
 
@@ -25,4 +29,4 @@ structure Main =
               end
    end
 
-val foo = Main.doit 10;
+val foo = Main.doit 5;

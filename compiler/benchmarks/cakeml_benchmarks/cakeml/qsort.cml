@@ -1,3 +1,6 @@
+(*
+  A functional quicksort program used for benchmarking
+*)
 fun part p l (l1,l2) =
   case l
   of [] => (l1,l2)

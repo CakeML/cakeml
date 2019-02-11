@@ -3,7 +3,7 @@
 structure Main =
    struct
       open Vector
-         
+
       fun rev v =
          let
             val n = length v
@@ -25,4 +25,7 @@ structure Main =
          end
    end
 
-val foo = Main.doit 2
+val foo = Main.doit 1;
+
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

@@ -1,6 +1,8 @@
 (*
- * Written by sweeks@sweeks.com on 1999-08-31.
- *
+  mpuz solver written by sweeks@sweeks.com
+*)
+
+(*
  * A solution to mpuz. (Try M-x mpuz in emacs.)
  * This solution is very loosely based on an OCAML solution posted to
  * comp.lang.ml by Laurent Vaucher <blo.b@infonie.fr>.
@@ -125,4 +127,4 @@ structure Main =
          end
    end
 
-val foo = Main.doit 5;
+val foo = Main.doit 3;

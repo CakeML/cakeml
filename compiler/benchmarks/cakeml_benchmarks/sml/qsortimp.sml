@@ -48,3 +48,7 @@ fun main ()=
 
   val test = inplace_qsort (fn (x,y) => (fn (a,b) => if x = a then y <= b else x<a)) (0,60000,foo);
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

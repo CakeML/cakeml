@@ -1,3 +1,6 @@
+(*
+  A game of life benchmark program
+*)
 structure Main =
   struct
     fun append x y = x @ y
@@ -151,4 +154,4 @@ structure Main =
 
   end (* Life *)
 
-val foo = Main.doit 2;
+val foo = Main.doit 1;

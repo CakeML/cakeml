@@ -1,3 +1,6 @@
+(*
+  A naive functional implementation of reverse for benchmarking
+*)
 fun reverse xs =
   let
     fun append xs ys =

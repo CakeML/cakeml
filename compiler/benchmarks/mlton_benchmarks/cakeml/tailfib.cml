@@ -1,3 +1,6 @@
+(*
+  A tail-recursive fib benchmark program
+*)
 exception Fail string;
 
 fun fib' n a b = case n of

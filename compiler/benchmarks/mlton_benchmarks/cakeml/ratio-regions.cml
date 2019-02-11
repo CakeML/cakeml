@@ -1,4 +1,6 @@
 (*
+   Ratio regions benchmark program
+
  * Translated from Jeff Siskind's Scheme code by Stephen Weeks
  * (sweeks@sweeks.com).
  * Here is the description from Jeff Siskind (qobi@research.nj.nec.com)
@@ -622,4 +624,4 @@ structure Main =
       val doit = doit
    end
 
-val foo = Main.doit 250;
+val foo = Main.doit 200;

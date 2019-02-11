@@ -1,3 +1,6 @@
+(*
+  Fibonacci benchmark program
+*)
 fun fib n =
   if (n < 2)
   then n
