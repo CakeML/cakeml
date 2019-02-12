@@ -29,14 +29,11 @@ An example showing how to use the monadic translator to translate
 monadic functions using references (no arrays, no exceptions).
 
 [floyd_warshallProgScript.sml](floyd_warshallProgScript.sml):
-Trying out the monadic translator
+The Floyd-Warshall algorithm - testing the monadic translator
 
 [helloProgScript.sml](helloProgScript.sml):
 An example showing how to use the monadic translator to translate
 monadic functions using IO primitives from the basis library.
-
-[new_floyd_warshallProgScript.sml](new_floyd_warshallProgScript.sml):
-The Floyd-Warshall algorithm - testing the monadic translator
 
 [refStateProgScript.sml](refStateProgScript.sml):
 An example showing how to use the monadic translator to translate

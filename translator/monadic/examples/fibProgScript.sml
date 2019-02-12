@@ -6,16 +6,10 @@
 (* Load the CakeML basic stuff *)
 open preamble basisProgTheory
 
-(* The ml_monadBaseLib is necessary to define the references and arrays manipulation functions
- * automatically.
- *)
-open ml_monadBaseLib
-open ml_monadStoreLib
-
 (*
  * Those libraries are used in the translation
  *)
-open ml_monad_translatorLib
+open ml_monad_translatorLib ml_monad_translator_interfaceLib
 
 (* For IO: print, arguments, name *)
 open TextIOProofTheory CommandLineProofTheory
@@ -24,96 +18,33 @@ val _ = new_theory "fibProg"
 
 val _ = translation_extends "basisProg";
 
-(* Use monadic syntax: do x <- f y; ... od *)
-val _ = ParseExtras.temp_loose_equality();
-val _ = monadsyntax.temp_add_monadsyntax();
-
-(* Pattern matching
- * Note that `dtcase` has to be used from now on in the function definitions (and not `case`)
+(*
+ * Pattern matching
+ * Note that `dtcase` has to be used from now on in the
+ * function definitions (and not `case`)
  *)
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-(* Some overloadings for the parser *)
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
-
-(* Need to hide "state" because of semanticPrimitives *)
-val _ = hide "state";
-
-val _ = (use_full_type_names := false);
-
-(* Create the data type to handle the references and I/O.
- *)
+(* Create the data type to handle the references and I/O. *)
 val _ = Datatype `
-  state_refs = <| commandline : mlstring list
-                ; stdio : IO_fs |>`;
-
-(* Generate the monadic functions to manipulate the reference(s). *)
-val refs_access_funs = define_monad_access_funs (``:state_refs``);
-val [(commandline_name, get_commandline_def, set_commandline_def),
-     (stdio_name, get_stdio_def, set_stdio_def)] = refs_access_funs;
-
-(* Those functions too can be defined by hand:
-
-val get_the_num_ref_def =
-Define `get_the_num_ref = \(state : state_refs). (Success state.the_num, state)`;
-
-val set_the_num_ref_def =
-Define `set_the_num_ref n = \(state : state_refs). (Success (), state with the_num := n)`;
-
-val access_funs = [("the_num_ref", get_the_num_ref_def, set_the_num_ref_def)];
-
-*)
-
-
-(* MONADIC TRANSLATION : initialisation *)
-(* Define the initial value for the `the_num` reference *)
-val refs_init_list = [] : (string * thm * thm * thm) list;
-
-(* No arrays *)
-val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
-val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
-
-(* Name for the store invariant *)
-val store_hprop_name = "STATE_STORE";
-
-(* Data-type used for the state *)
-val state_type = ``:state_refs``;
+  state_references = <| commandline : mlstring list
+                      ; stdio : IO_fs |>`;
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`
   state_exn = Fail`;
 
-(* It is necessary to register that type for the CakeML program to be able to use it*)
-val _ = register_exn_type ``:state_exn``;
-val STATE_EXN_TYPE_def = theorem"STATE_EXN_TYPE_def";
-val exn_ri_def = STATE_EXN_TYPE_def
-val exn_functions = define_monad_exception_functions ``:state_exn`` state_type;
+val config =  global_state_config |>
+              with_state ``:state_references``;
+val config = with_exception ``:state_exn`` config
 
-(* No additional theories where to look for types *)
-val type_theories = [] : string list;
-
-(* We don't want to add more conditions than what the monadic translator will automatically generate for the store invariant *)
-val store_pinv_opt = NONE : (thm * thm) option;
-
-val extra_hprop = SOME ``COMMANDLINE s.commandline * MONAD_IO s.stdio``;
+val config = with_commandline "commandline" "stdio" config;
 
 (* Initialize the translation *)
-val (monad_parameters, store_translation, exn_specs) =
-    start_static_init_fixed_store_translation refs_init_list
-                                              rarrays_init_list
-                                              farrays_init_list
-                                              store_hprop_name
-                                              state_type
-                                              exn_ri_def
-                                              exn_functions
-                                              type_theories
-                                              store_pinv_opt
-                                              extra_hprop;
+val _ = start_translation config;
 
-val _ = overload_on("stdio",``liftM state_refs_stdio stdio_fupd``);
-val _ = overload_on("commandline",``liftM state_refs_commandline commandline_fupd``);
+val _ = overload_on("stdio",``liftM state_references_stdio stdio_fupd``);
+val _ = overload_on("commandline",``liftM state_references_commandline commandline_fupd``);
 
 val hd_def = Define `
   hd l = dtcase l of [] => raise_Fail | x::l' => return x`;
@@ -129,9 +60,6 @@ val fiba_def = Define`
 
 val num_to_str_def = Define `
   num_to_str (n:num) = mlint$toString (& n)`
-
-(* TODO this seems unnecessary ... *)
-(*val _ = bring_to_front_overload "print" {Name="print",Thy="TextIOProof"}*)
 
 val fibm_def = Define`
   fibm () =
@@ -161,12 +89,12 @@ val stdio_INTRO = prove(
             (MONAD_IO,p:'ffi ffi_proj)) ==>
     (!st. EvalM ro env st exp
             (MONAD UNIT_TYPE exc_ty (stdio f))
-            (STATE_STORE,p:'ffi ffi_proj))``,
+            (STATE_REFERENCES,p:'ffi ffi_proj))``,
   fs [ml_monad_translatorTheory.EvalM_def] \\ rw []
   \\ first_x_assum (qspecl_then [`st.stdio`,`s`] mp_tac)
   \\ impl_tac
   THEN1 (fs [ml_monad_translatorBaseTheory.REFS_PRED_def]
-         \\ fs [fetch "-" "STATE_STORE_def"]
+         \\ fs [fetch "-" "STATE_REFERENCES_def"]
          \\ qabbrev_tac `a = MONAD_IO st.stdio`
          \\ qabbrev_tac `b = GC`
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
@@ -180,7 +108,7 @@ val stdio_INTRO = prove(
   \\ Cases_on `f st.stdio` \\ fs []
   \\ every_case_tac
   \\ rveq \\ fs []
-  \\ fs [fetch "-" "STATE_STORE_def"]
+  \\ fs [fetch "-" "STATE_REFERENCES_def"]
   \\ rw []
   \\ first_x_assum (qspec_then `COMMANDLINE st.commandline * F'` mp_tac)
   \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]
@@ -195,12 +123,12 @@ val commandline_INTRO = prove(
             (COMMANDLINE,p:'ffi ffi_proj)) ==>
     (!st. EvalM ro env st exp
             (MONAD ret_ty exc_ty (commandline f))
-            (STATE_STORE,p:'ffi ffi_proj))``,
+            (STATE_REFERENCES,p:'ffi ffi_proj))``,
   fs [ml_monad_translatorTheory.EvalM_def] \\ rw []
   \\ first_x_assum (qspecl_then [`st.commandline`,`s`] mp_tac)
   \\ impl_tac
   THEN1 (fs [ml_monad_translatorBaseTheory.REFS_PRED_def]
-         \\ fs [fetch "-" "STATE_STORE_def"]
+         \\ fs [fetch "-" "STATE_REFERENCES_def"]
          \\ qabbrev_tac `a = COMMANDLINE st.commandline`
          \\ qabbrev_tac `b = GC`
          \\ fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM]
@@ -214,7 +142,7 @@ val commandline_INTRO = prove(
   \\ Cases_on `f st.commandline` \\ fs []
   \\ every_case_tac
   \\ rveq \\ fs []
-  \\ fs [fetch "-" "STATE_STORE_def"]
+  \\ fs [fetch "-" "STATE_REFERENCES_def"]
   \\ rw []
   \\ first_x_assum (qspec_then `MONAD_IO st.stdio * F'` mp_tac)
   \\ fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC]
@@ -226,7 +154,7 @@ val EvalM_stdio_print = prove(
     (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
     EvalM F env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE STATE_EXN_TYPE (stdio (print x)))
-      (STATE_STORE,p:'ffi ffi_proj)``,
+      (STATE_REFERENCES,p:'ffi ffi_proj)``,
   metis_tac [stdio_INTRO,EvalM_print]);
 
 val EvalM_stdio_print_err = prove(
@@ -234,7 +162,7 @@ val EvalM_stdio_print_err = prove(
     (nsLookup env.v (Long "TextIO" (Short "print_err")) = SOME TextIO_print_err_v) ==>
     EvalM F env st (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
       (MONAD UNIT_TYPE STATE_EXN_TYPE (stdio (print_err x)))
-      (STATE_STORE,p:'ffi ffi_proj)``,
+      (STATE_REFERENCES,p:'ffi ffi_proj)``,
   metis_tac [stdio_INTRO,EvalM_print_err]);
 
 val EvalM_commandline_name = prove(
@@ -243,7 +171,7 @@ val EvalM_commandline_name = prove(
        SOME CommandLine_name_v) ==>
     EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "name")); exp])
       (MONAD STRING_TYPE STATE_EXN_TYPE (commandline (name x)))
-      (STATE_STORE,p:'ffi ffi_proj)``,
+      (STATE_REFERENCES,p:'ffi ffi_proj)``,
   metis_tac [commandline_INTRO,EvalM_name]);
 
 val EvalM_commandline_arguments = prove(
@@ -252,7 +180,7 @@ val EvalM_commandline_arguments = prove(
        SOME CommandLine_arguments_v) ==>
     EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "arguments")); exp])
       (MONAD (LIST_TYPE STRING_TYPE) STATE_EXN_TYPE (commandline (arguments x)))
-      (STATE_STORE,p:'ffi ffi_proj)``,
+      (STATE_REFERENCES,p:'ffi ffi_proj)``,
   metis_tac [commandline_INTRO,EvalM_arguments]);
 
 val _ = add_access_pattern EvalM_stdio_print;
