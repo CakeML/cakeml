@@ -1320,7 +1320,9 @@ Theorem do_app_add_to_clock
   \\ simp [Once do_app_def]
   \\ fs [case_eq_thms]
   \\ rpt strip_tac \\ fs []
-  \\ rveq \\ simp [do_app_def]);
+  \\ rveq \\ simp [do_app_def]
+  \\ fs[bitstring_extraTheory.w2v_eq]
+);
 
 Theorem do_install_add_to_clock
   `do_install vs s = (Rval e,s') ⇒
@@ -1428,7 +1430,7 @@ val do_app_io_events_mono = Q.prove(
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] \\ fs[bitstring_extraTheory.w2v_eq]);
 
 Theorem evaluate_io_events_mono
   `(∀p. ((SND(SND p)):('c,'ffi) closSem$state).ffi.io_events ≼ (SND (evaluate p)).ffi.io_events) ∧
@@ -2080,7 +2082,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs []
     \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC)
-    \\ `FDOM s.refs = FDOM t.refs` by fs [simple_state_rel_def] \\ fs []
+    \\ `FDOM s.refs = FDOM t.refs` by fs [simple_state_rel_def] \\ fs [bitstring_extraTheory.w2v_eq]
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update))
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])

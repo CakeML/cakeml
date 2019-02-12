@@ -233,13 +233,14 @@ val do_app_def = Define `
      | SOME (Refv v) => SOME (s,Rval v)
      | _ => NONE)
   | (Aw8alloc, [Litv (IntLit n); Litv (Word w)]) =>
-    if n < 0 then
+    if LENGTH w = 8 then
+    (if n < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
     else
       let (s',lnum) =
         store_alloc (W8array (REPLICATE (Num (ABS n)) (v2w w))) s.refs
       in
-        SOME (s with refs := s', Rval (Loc lnum))
+        SOME (s with refs := s', Rval (Loc lnum))) else NONE
   | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>

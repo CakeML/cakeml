@@ -201,11 +201,11 @@ val do_app_def = Define `
           | SOME (ByteArray _ xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (RefByte F,[Number i;Number b]) =>
-         if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
+    | (RefByte F,[Number i;Word b]) =>
+         if 0 ≤ i ∧ (∃w:word8. b = w2v w) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              Rval (RefPtr ptr, s with refs := s.refs |+
-               (ptr,ByteArray F (REPLICATE (Num i) (i2w b))))
+               (ptr,ByteArray F (REPLICATE (Num i) (v2w b))))
          else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
@@ -217,7 +217,7 @@ val do_app_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray _ ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
-             then Rval (Number (& (w2n (EL (Num i) ws))),s)
+             then Rval (Word (w2v (EL (Num i) ws)),s)
              else Error)
          | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
@@ -246,7 +246,7 @@ val do_app_def = Define `
         (Rval (Number (& LENGTH bs), s))
     | (DerefByteVec,[ByteVector bs; Number i]) =>
         (if 0 ≤ i ∧ i < &LENGTH bs then
-           Rval (Number (&(w2n(EL (Num i) bs))), s)
+           Rval (Word (w2v (EL (Num i) bs)), s)
          else Error)
     | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
         (case FLOOKUP s.refs dst of
