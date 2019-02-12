@@ -2142,28 +2142,12 @@ rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 rw []);
 
-(* All type ids in a type belonging to a set *)
-val set_tids_def = tDefine "set_tids"`
-  (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
-  (set_tids _ = {})`
-  (WF_REL_TAC `measure t_size` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac)
-
-val set_tids_ind = theorem"set_tids_ind";
-
 Theorem set_tids_ts_tid_rename
   `∀f t. set_tids (ts_tid_rename f t) = IMAGE f (set_tids t)`
   (recInduct ts_tid_rename_ind
   \\ rw[ts_tid_rename_def, set_tids_def]
   \\ rw[Once EXTENSION, MEM_MAP, PULL_EXISTS]
   \\ metis_tac[IN_IMAGE]);
-
-val set_tids_subset_def = Define`
-  set_tids_subset tids t <=> set_tids t ⊆ tids`
 
 Theorem set_tids_subset_type_subst `
   ∀s t tids.
@@ -2249,10 +2233,6 @@ val inf_set_tids_ienv_def = Define`
 val inf_set_tids_subst_def = Define`
   inf_set_tids_subst tids subst ⇔
   !t. t ∈ FRANGE subst ⇒ inf_set_tids_subset tids t`
-
-val prim_tids_def = Define`
-  prim_tids contain tids ⇔
-    EVERY (\x. x ∈ tids ⇔ contain) (Tlist_num::Tbool_num::prim_type_nums)`
 
 Theorem set_tids_subset_type_name_subst `
   ∀tenvt t tids.
