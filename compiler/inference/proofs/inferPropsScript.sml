@@ -2142,34 +2142,6 @@ rw [FUN_EQ_THM] >>
 PairCases_on `x` >>
 rw []);
 
-val t_ind = t_induction
-  |> Q.SPECL[`P`,`EVERY P`]
-  |> UNDISCH_ALL
-  |> CONJUNCT1
-  |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) []
-  |> Q.GEN`P`
-  |> curry save_thm "t_ind";
-
-(* Rename (type_system) type identifiers with a function *)
-val ts_tid_rename_def = tDefine"ts_tid_rename"`
-  (ts_tid_rename f (Tapp ts tn) = Tapp (MAP (ts_tid_rename f) ts) (f tn)) ∧
-  (ts_tid_rename f t = t)`
-  (WF_REL_TAC `measure (λ(_,y). t_size y)` >>
-  rw [] >>
-  induct_on `ts` >>
-  rw [t_size_def] >>
-  res_tac >>
-  decide_tac);
-
-val ts_tid_rename_ind = theorem"ts_tid_rename_ind";
-
-Theorem ts_tid_rename_I[simp]
-  `ts_tid_rename I = I`
-  (simp[FUN_EQ_THM]
-  \\ ho_match_mp_tac t_ind
-  \\ rw[ts_tid_rename_def, MAP_EQ_ID, EVERY_MEM]);
-
 (* All type ids in a type belonging to a set *)
 val set_tids_def = tDefine "set_tids"`
   (set_tids (Tapp ts tn) = tn INSERT (BIGUNION (set (MAP set_tids ts)))) ∧
@@ -3236,21 +3208,6 @@ Theorem infer_deBruijn_subst_infer_subst_walkstar `
   reverse IF_CASES_TAC
   >- (fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>metis_tac[])
   >> REFL_TAC));
-
-val remap_tenv_def = Define`
-  remap_tenv f tenv =
-  <|
-    t := nsMap (λ(ls,t). (ls, ts_tid_rename f t)) tenv.t;
-    c := nsMap (λ(ls,ts,tid). (ls, MAP (ts_tid_rename f) ts, f tid)) tenv.c;
-    v := nsMap (λ(n,t). (n,ts_tid_rename f t)) tenv.v
-   |>`
-
-Theorem remap_tenv_I[simp]
-  `remap_tenv I = I`
-  (rw[FUN_EQ_THM, remap_tenv_def, type_env_component_equality]
-  \\ qmatch_goalsub_abbrev_tac`nsMap I'`
-  \\ `I' = I` by simp[Abbr`I'`, UNCURRY, FUN_EQ_THM]
-  \\ rw[]);
 
 Theorem t_vwalk_set_tids
   `∀s.  t_wfs s ⇒
