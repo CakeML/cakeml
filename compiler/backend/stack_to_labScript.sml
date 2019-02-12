@@ -92,16 +92,17 @@ local val flatten_quotation = `
       (List [Asm (Cbw r1 r2) [] 0],F,m)
     | _  => (List [],F,m)`
 in
-val flatten_def = Define flatten_quotation
+val flatten_def = Define flatten_quotation;
 
-Theorem flatten_pmatch (`∀p n m.` @
-  (flatten_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)))
+Theorem flatten_pmatch
+  (`∀p n m.` @
+    (flatten_quotation |>
+     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+         | aq => aq)))
   (rpt strip_tac
-  >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
-  >> rpt strip_tac
-  >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
+   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
+   >> rpt strip_tac
+   >> rw[Once flatten_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
 
 val prog_to_section_def = Define `

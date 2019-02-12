@@ -206,7 +206,7 @@ val example_raise_spec = Q.prove (
 );
 
 val example_handle = process_topdecs
-  `exception Foo of int
+  `exception Foo int
    fun example_handle x = (raise (Foo 3)) handle Foo i => i`
 (* handle precedence bug in the parser? *)
 
@@ -231,7 +231,7 @@ val example_handle_spec = Q.prove (
 );
 
 val example_handle2 = process_topdecs
-  `exception Foo of int
+  `exception Foo int
    fun example_handle2 x =
      (if x > 0 then
         1
@@ -247,8 +247,7 @@ val example_handle2_spec = Q.prove (
      app (p:'ffi ffi_proj) ^(fetch_v "example_handle2" st) [xv]
        emp (POSTv v. & INT (if x > 0 then 1 else (-1)) v)`,
   xcf "example_handle2" st \\
-  xhandle `POST (\v. & (x > 0 /\ INT 1 v)) (\e. & (x <= 0 /\ Foo_exn (-1) e))
-                (\n c b. &F)`
+  xhandle `POSTve (\v. & (x > 0 /\ INT 1 v)) (\e. & (x <= 0 /\ Foo_exn (-1) e))`
   THEN1 (
     xlet `POSTv bv. & (BOOL (x > 0) bv)`
     THEN1 (xapp \\ fs []) \\
@@ -395,7 +394,8 @@ val example_ffidiv_spec = Q.prove (
           (λuv. &(UNIT_TYPE () uv) * &(¬b) * RUNTIME)
           (λev. &F)
           (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [1w])
-                   * RUNTIME))`,
+                   * RUNTIME)
+          (λio. F))`,
   xcf "example_ffidiv" st
   >> xif
   >- (xlet_auto

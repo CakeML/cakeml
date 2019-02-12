@@ -48,7 +48,6 @@ val add_basic_compset =
    , miscTheory.LEAST_thm
    , miscTheory.least_from_thm
    , miscTheory.lookup_any_def
-   , miscTheory.bytes_in_word_def
    , miscTheory.UPDATE_LIST_THM
    , miscTheory.list_max_def
    , miscTheory.anub_def
@@ -61,8 +60,10 @@ val add_basic_compset =
    , miscTheory.option_fold_def
    , miscTheory.list_subset_def
    , miscTheory.list_set_eq_def
-   , listTheory.LIST_REL_def
    , libTheory.the_def
+   (* TODO: move to HOL *)
+   , listTheory.LIST_REL_def
+   , byteTheory.bytes_in_word_def
    ]
   ]
 end

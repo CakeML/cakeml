@@ -1,11 +1,11 @@
 (*
   Properties of the operational semantics.
 *)
-open preamble evaluateTheory;
-open namespaceTheory namespacePropsTheory;
+
+open preamble evaluateTheory
+     namespaceTheory namespacePropsTheory
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open terminationTheory
-open semanticPrimitivesTheory;
-open semanticPrimitivesPropsTheory;
 
 val _ = new_theory"evaluateProps";
 
@@ -358,16 +358,17 @@ Theorem evaluate_sing
  >> Cases_on `t`
  >> fs []);
 
-Theorem evaluate_cons
- `∀(s:'ffi state) env e es.
+Theorem evaluate_cons:
+  ∀(s:'ffi state) env e es.
    evaluate s env (e::es) =
      case evaluate s env [e] of
      | (s', Rval vs) =>
       (case evaluate s' env es of
        | (s'', Rval vs') => (s'', Rval (vs++vs'))
        | err => err)
-     | err => err`
- (Cases_on `es`
+     | err => err
+Proof
+ Cases_on `es`
  >> rw [evaluate_def]
  >- every_case_tac
  >> split_pair_case_tac
@@ -381,7 +382,7 @@ Theorem evaluate_cons
  >> Cases_on `r`
  >> simp []
  >> drule evaluate_sing
- >> rw []);
+ >> rw [] \\ rw[]);
 
 Theorem evaluate_decs_nil[simp]
   `∀(s:'ffi state) env.
@@ -900,7 +901,8 @@ Theorem is_clock_io_mono_minimal
   `is_clock_io_mono f s
     ==> f s = (s', r) /\ s'.clock = 0 /\ r <> Rerr (Rabort Rtimeout_error)
         /\ s.clock > k
-    ==> (?s''. f (s with clock := k) = (s'', Rerr (Rabort Rtimeout_error)))`
+    ==> (?s''. f (s with clock := k) = (s'', Rerr (Rabort Rtimeout_error)) /\
+               io_events_mono s''.ffi s'.ffi)`
   (fs [is_clock_io_mono_def]
   \\ rpt (FIRST (map CHANGED_TAC [fs [], strip_tac]))
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k`)
@@ -910,21 +912,50 @@ val evaluate_minimal_lemmas = BODY_CONJUNCTS is_clock_io_mono_evaluate
   |> map (BETA_RULE o MATCH_MP is_clock_io_mono_minimal);
 
 Theorem evaluate_minimal_clock
-`(!(s:'ffi state) env es s' r k. evaluate s env es = (s',r) ∧
-  s'.clock = 0 ∧
-  r ≠ Rerr (Rabort Rtimeout_error) ∧
-  s.clock > k
-  ==>
-  ?s''. evaluate (s with clock := k) env es = (s'',Rerr (Rabort Rtimeout_error)))`
+  `(!(s:'ffi state) env es s' r k.
+    evaluate s env es = (s',r) ∧
+    s'.clock = 0 ∧
+    r ≠ Rerr (Rabort Rtimeout_error) ∧
+    s.clock > k
+    ==>
+    ?s''.
+      evaluate (s with clock := k) env es =
+      (s'',Rerr (Rabort Rtimeout_error)) /\
+      io_events_mono s''.ffi s'.ffi)`
   (metis_tac evaluate_minimal_lemmas);
 
 Theorem evaluate_match_minimal_clock
-`(!(s:'ffi state) env v pes err_v s' r k. evaluate_match s env v pes err_v = (s',r) ∧
-  s'.clock = 0 ∧
-  r ≠ Rerr (Rabort Rtimeout_error) ∧
-  s.clock > k
-  ==>
-  ?s''. evaluate_match (s with clock := k) env v pes err_v = (s'',Rerr (Rabort Rtimeout_error)))`
+  `(!(s:'ffi state) env v pes err_v s' r k.
+    evaluate_match s env v pes err_v = (s',r) ∧
+    s'.clock = 0 ∧
+    r ≠ Rerr (Rabort Rtimeout_error) ∧
+    s.clock > k
+    ==>
+    ?s''.
+      evaluate_match (s with clock := k) env v pes err_v =
+      (s'',Rerr (Rabort Rtimeout_error)) /\
+      io_events_mono s''.ffi s'.ffi)`
   (metis_tac evaluate_minimal_lemmas);
+
+Theorem evaluate_set_init_clock
+  `evaluate st env xs = (st', res) /\
+   res <> Rerr (Rabort Rtimeout_error) ==>
+   !k. ?ck res1 st1.
+   evaluate (st with clock := k) env xs = (st1, res1) /\
+   (res1 = res /\ st1 = (st' with clock := ck) \/
+    res1 = Rerr (Rabort Rtimeout_error) /\
+    io_events_mono st1.ffi st'.ffi)`
+  (rw []
+  \\ drule evaluate_set_clock
+  \\ disch_then (qspec_then `0` mp_tac) \\ fs [] \\ strip_tac
+  \\ Cases_on `ck1 <= k`
+  THEN1 (
+    fs [LESS_EQ_EXISTS] \\ rveq
+    \\ drule evaluate_add_to_clock
+    \\ disch_then (qspec_then `p` mp_tac) \\ fs []
+    \\ metis_tac [])
+  \\ drule evaluate_minimal_clock \\ fs []
+  \\ disch_then (qspec_then `k` mp_tac) \\ fs []
+  \\ rw [] \\ fs []);
 
 val _ = export_theory();

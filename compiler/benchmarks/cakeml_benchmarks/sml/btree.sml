@@ -30,3 +30,7 @@ fun main ()=
   fun use_tree n = tree_sort (append (mk_list n) (mk_list n));
   val test = use_tree 20000;
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

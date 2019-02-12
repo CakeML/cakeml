@@ -1122,7 +1122,7 @@ val CallFFI_bytearray_lemma = Q.prove(
   \\ `byte_align c1 IN s1.mem_domain` by
     (full_simp_tac(srw_ss())[mem_load_byte_aux_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[labSemTheory.upd_mem_def,word_loc_val_byte_def,APPLY_UPDATE_THM]
-  \\ Cases_on `a = c1` \\ full_simp_tac(srw_ss())[word_loc_val_def,get_byte_set_byte]
+  \\ Cases_on `a = c1` \\ full_simp_tac(srw_ss())[word_loc_val_def,good_dimindex_get_byte_set_byte]
   \\ Cases_on `byte_align c1 = byte_align a` \\ full_simp_tac(srw_ss())[word_loc_val_def]
   \\ full_simp_tac(srw_ss())[get_byte_set_byte_diff]);
 
@@ -1688,7 +1688,7 @@ val Inst_lemma = Q.prove(
         IF_CASES_TAC>>fs[word_loc_val_def]>>
         IF_CASES_TAC>>fs[]
         >-
-          (simp[get_byte_set_byte]>>
+          (simp[good_dimindex_get_byte_set_byte]>>
           first_x_assum(qspec_then`n` assume_tac)>>rfs[word_loc_val_def])
         >>
         simp[get_byte_set_byte_diff]>>
@@ -4317,7 +4317,7 @@ val remove_labels_loop_thm = Q.prove(
     all_encd0 c.encode code ∧
     enc_ok c ∧
     EVEN init_pos ∧
-    (!l1 l2. OPTION_EVERY EVEN (lab_lookup l1 l2 init_labs))
+    (!l1 l2. OPTION_ALL EVEN (lab_lookup l1 l2 init_labs))
     ⇒
     all_enc_ok_pre c code2 ∧
     (* TODO: add sec_labels_ok preservation *)
@@ -4465,7 +4465,7 @@ val remove_labels_loop_thm = Q.prove(
     \\ qexists_tac`init_labs`
     \\ asm_exists_tac \\ fs[]
     \\ fs[lab_lookup_def]
-    \\ metis_tac[OPTION_EVERY_def])
+    \\ metis_tac[OPTION_ALL_def])
   THEN1 (
     fs[IN_DISJOINT]>>
     first_assum (fn th => mp_tac (SIMP_RULE std_ss [lab_lookup_def] th))>>
@@ -4538,7 +4538,7 @@ Theorem remove_labels_thm
    get_labels code ⊆ get_code_labels code ∪ labs_domain init_labs ∧
    all_enc_ok_pre conf code /\
    EVEN init_pos ∧
-   (!l1 l2. OPTION_EVERY EVEN (lab_lookup l1 l2 init_labs)) ==>
+   (!l1 l2. OPTION_ALL EVEN (lab_lookup l1 l2 init_labs)) ==>
    all_enc_ok conf labs ffi_names init_pos code2 /\
    code_similar code code2 /\
    (has_odd_inst code2 ⇒ conf.code_alignment = 0) /\

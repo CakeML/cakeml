@@ -96,6 +96,9 @@ compiler/bootstrap/translation
 unverified/sexpr-bootstrap/x64/64:cake-unverified-x64-64.tar.gz
 unverified/sexpr-bootstrap/x64/32:cake-unverified-x64-32.tar.gz
 
+# build benchmarks and report (must come after sexp bootstrap)
+compiler/benchmarks
+
 # compiler HOL bootstrap
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
 compiler/bootstrap/compilation/x64/64/proofs

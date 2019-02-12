@@ -25,3 +25,7 @@ fun main ()=
   fun run_queue n = head (use_queue n empty);
   val test = run_queue 5000000;
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

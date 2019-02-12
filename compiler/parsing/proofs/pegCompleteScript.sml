@@ -3793,8 +3793,7 @@ Theorem completeness
           first_assum (unify_firstconj kall_tac o has_length) >>
           qexists_tac ‘decls_pt1’ >> simp[] >> dsimp[EXISTS_PROD] >>
           normlist >> first_x_assum irule >> simp[]))
-  >- (print_tac "nDconstructor" >> stdstart >> pmap_cases
-      >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
+  >- (print_tac "nDconstructor" >> stdstart >> pmap_cases >>
       rename [‘ptree_head upt = NN nUQConstructorName’,
               ‘real_fringe upt = MAP _ upf’,
               ‘ptree_head blpt = NN nTbaseList’,

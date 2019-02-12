@@ -16,21 +16,40 @@ val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 val evaluate_ck_def = Define `
   evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)`
 
+val io_prefix_def = Define `
+  io_prefix (s1:'ffi semanticPrimitives$state) (s2:'ffi semanticPrimitives$state) ⇔
+    (* TODO: update io_events to an llist and use LPREFIX instead of ≼ *)
+    s1.ffi.io_events ≼ s2.ffi.io_events`;
+
+val evaluate_to_heap_def = Define `
+  evaluate_to_heap st env exp p heap (r:res) <=>
+    case r of
+    | Val v => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rval [v]) /\
+                         st2heap p st' = heap)
+    | Exn e => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)) /\
+                         st2heap p st' = heap)
+    | FFIDiv name conf bytes => (∃ck st'.
+      evaluate_ck ck st env [exp]
+      = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
+      st2heap p st' = heap)
+    | Div io => heap = UNIV /\
+                (* all clocks produce timeout *)
+                (∀ck. ∃st'. evaluate_ck ck st env [exp] =
+                      (st', Rerr (Rabort Rtimeout_error))) /\
+                (* io is the limit of the io_events of all states *)
+                lprefix_lub (IMAGE (λck. fromList (FST(evaluate_ck ck st env [exp])).ffi.io_events)
+                                   UNIV)
+                              io`
+
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
   app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
-    !(h_i: heap) (h_k: heap) (st: 'ffi state).
+    !(h_i: heap) (h_k: heap) (st: 'ffi semanticPrimitives$state).
       SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
-      ?env exp (r: res) (h_f: heap) (h_g: heap) (st': 'ffi state) ck.
-        SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
-        Q r h_f /\
+      ?env exp (r: res) (h_f: heap) (h_g: heap) heap.
+        SPLIT3 heap (h_f, h_k, h_g) /\
         do_opapp [f;x] = SOME (env, exp) /\
-        case r of
-          | Val v => evaluate_ck ck st env [exp] = (st', Rval [v])
-          | Exn e => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))
-          | FFIDiv name conf bytes =>
-              evaluate_ck ck st env [exp]
-              = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged))))`
+        Q r h_f /\ evaluate_to_heap st env exp p heap r`;
 
 val app_basic_local = Q.prove (
   `!f x. is_local (app_basic p f x)`,
@@ -110,12 +129,12 @@ Theorem app_wgframe
   Induct_on `xs` THEN1 (fs [app_def]) \\ rpt strip_tac \\ rename1 `x::xs` \\
   Cases_on `xs = []`
   THEN1 (
-    fs [app_def] \\ irule local_frame_gc \\ conj_tac
+    fs [app_def] \\ irule local_frame_gc \\ rpt conj_tac
     THEN1 fs [app_basic_local] \\
     instantiate
   )
   THEN1 (
-    fs [app_ge_2_unfold] \\ irule local_frame \\ conj_tac
+    fs [app_ge_2_unfold] \\ irule local_frame \\ rpt conj_tac
     THEN1 (fs [app_basic_local]) \\
     instantiate \\ simp [SEP_IMPPOST_def, STARPOST_def] \\ qx_gen_tac `r` \\
     Cases_on `r` \\ simp [POSTv_def] \\ hpull \\ hsimpl \\
@@ -603,7 +622,7 @@ Theorem Arrow_IMP_app_basic
       app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. &b (f x) v)`
   (fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
       ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,PULL_EXISTS]
-  \\ fs [evaluate_ck_def] \\ rw []
+  \\ fs [evaluate_ck_def, evaluate_to_heap_def] \\ rw []
   \\ first_x_assum drule \\ strip_tac
   \\ first_x_assum (qspec_then`st.refs`strip_assume_tac)
   \\ instantiate
@@ -633,7 +652,7 @@ Theorem app_basic_IMP_Arrow
   `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒
    Arrow a b f v`
   (rw[app_basic_def,ml_translatorTheory.Arrow_def,
-     ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1]
+     ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1,evaluate_to_heap_def]
   \\ first_x_assum drule
   \\ fs[evaluate_ck_def]
   \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
