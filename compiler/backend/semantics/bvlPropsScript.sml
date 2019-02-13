@@ -64,6 +64,8 @@ Theorem do_app_Rval_swap
        <| globals := x1.globals; refs := x1.refs;
           clock := x1.clock; ffi := x1.ffi |>)`
   (rw[do_app_cases_val] \\ rfs[SUBSET_DEF] \\ fs []
+  \\ rename1 `w2v w = w2v _`
+  \\ Q.EXISTS_TAC `w`
   \\ strip_tac \\ res_tac \\ fs []);
 
 Theorem do_app_with_code
@@ -102,7 +104,8 @@ Theorem do_app_with_code_err_not_Install
                          ; compile := cc
                          ; compile_oracle := co |>) = Rerr e`
   (rw [Once do_app_cases_err] >> rw [do_app_def] >> fs [SUBSET_DEF] >>
-  fs [do_install_def,case_eq_thms,UNCURRY]);
+  fs [do_install_def,case_eq_thms,UNCURRY]
+  \\ metis_tac[]);
 
 Theorem do_app_with_code_err
   `bvlSem$do_app op vs s = Rerr e ⇒
@@ -111,6 +114,7 @@ Theorem do_app_with_code_err
   (rw [Once do_app_cases_err] >> rw [do_app_def] >> fs [SUBSET_DEF] >>
   fs [do_install_def,case_eq_thms,UNCURRY] >>
   rveq \\ fs [PULL_EXISTS]
+  >- metis_tac[]
   \\ CCONTR_TAC \\ fs []
   \\ rename1 `s.compile _ args = _`
   \\ qpat_x_assum `args = _` (fn th => fs [GSYM th])
@@ -406,7 +410,7 @@ Theorem do_app_change_clock
   `(do_app op args s1 = Rval (res,s2)) ==>
    (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))`
   (rw [do_app_cases_val,UNCURRY,do_install_def]
-  \\ every_case_tac \\ fs []);
+  \\ every_case_tac \\ fs [] \\ metis_tac[]);
 
 Theorem do_app_change_clock_err
   `(do_app op args s1 = Rerr e) ==>
@@ -414,7 +418,8 @@ Theorem do_app_change_clock_err
   (disch_then (strip_assume_tac o SIMP_RULE (srw_ss()) [do_app_cases_err])
   \\ rveq \\ asm_simp_tac (srw_ss()) [do_app_def]
   \\ fs [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []);
+  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ metis_tac[]);
 
 Theorem evaluate_add_clock
   `!exps env s1 res s2.

@@ -460,7 +460,18 @@ val do_app = Q.prove(
   \\ qpat_x_assum `_ = Rerr (Rraise _)` mp_tac
   \\ simp [do_app_cases_err]
   \\ strip_tac \\ fs []
-  \\ every_case_tac \\ fs[]);
+  \\ every_case_tac \\ fs[]
+  \\ fs[do_app_def]
+  \\ fs[case_eq_thms]
+  \\ rename1 `0<=j /\ ?w. b = w2v w`
+  \\ Cases_on `0<=j` \\ fs[]
+  \\ reverse(Cases_on `?w. b = w2v w`)
+  >- metis_tac[]
+  \\ srw_tac[][]
+  \\ fs[case_eq_thms]
+  \\ rpt (POP_ASSUM (fn a => ASSUME_TAC a >> UNDISCH_TAC (concl a)))
+  \\ TOP_CASE_TAC
+);
 
 val v_to_bytes = Q.prove(
   `v_rel m v w ⇒ v_to_bytes v = v_to_bytes w`,

@@ -58,6 +58,7 @@ val dest_WordToInt_exp_size = Q.prove(
    >> rename1 `Op o'` >> Cases_on `o'` >> fs[exp_size_def]
 )
 
+(* TODO Char should be compiled to WordConst *)
 val compile_def = tDefine"compile" `
   (compile (Raise tra e) =
     Raise tra (compile e)) ∧
@@ -172,7 +173,7 @@ val compile_def = tDefine"compile" `
   (compile (App tra (Op Strsub) es) =
     Let (tra§0) (REVERSE (MAP compile es))
       (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 0; Var (tra§4) 1])
-         (Op (tra§5) DerefByteVec [Var (tra§6) 0; Var (tra§7) 1])
+         (Op (tra§5) DerefByteVecAsNum [Var (tra§6) 0; Var (tra§7) 1])
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op Implode) es) =
     Op tra (FromListByte) (REVERSE (MAP compile es))) ∧

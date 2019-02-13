@@ -5,6 +5,7 @@ open preamble intLib integerTheory backendPropsTheory
      semanticPrimitivesTheory
      patSemTheory patPropsTheory pat_to_closTheory
      closLangTheory closSemTheory closPropsTheory
+open bitstringTheory
 val _ = new_theory"pat_to_closProof"
 
 val _ = set_grammar_ancestry
@@ -260,10 +261,18 @@ val do_app_WordToInt_Rerr_IMP = prove(
   ``closSem$do_app (WordToInt n) ws x = Rerr e ==> e = Rabort Rtype_error``,
   fs [do_app_def,case_eq_thms,pair_case_eq] \\ rw [] \\ fs []);
 
-open finite_mapTheory;
+(* TODO prove and move *)
 
-Theorem MAP_GENLIST_I `!f n. GENLIST f n = MAP f (GENLIST I n)`
-   (simp[MAP_GENLIST])
+Theorem zero_extend_n2v_v2n_cons
+  `!h t. zero_extend (SUC (LENGTH t)) (n2v (v2n (h::t))) = h::t`
+(rpt STRIP_TAC \\ simp[zero_extend_def,PAD_LEFT] \\ cheat)
+
+Theorem DROP_n2v_v2n_sub
+  `!h t. DROP (LENGTH (n2v (v2n (h::t))) - LENGTH (h::t)) (n2v (v2n (h::t)))
+   = n2v (v2n (h::t))` cheat;
+
+Theorem n2v_v2n_not_less_id
+  `~(LENGTH (n2v (v2n (h::t))) < LENGTH (h::t)) ==> n2v (v2n (h::t)) = (h::t)` cheat;
 
 Theorem compile_evaluate
   `0 < max_app ⇒
@@ -390,7 +399,32 @@ Theorem compile_evaluate
         rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
         rw[] >> fs[] >>
         fs[do_app_def] \\ NO_TAC)
-      >> cheat
+      >- (rw[] >> fs[do_app_def,LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE]
+          \\ simp[Once evaluate_CONS] \\ rw[case_eq_thms,pair_case_eq]
+          \\ simp[evaluate_def,do_app_def])
+      >- (TOP_CASE_TAC
+          >- fs[evaluate_def,do_app_def,ETA_AX,MAP_REVERSE]
+          >> TOP_CASE_TAC
+          >> IMP_RES_TAC dest_WordToInt_SOME
+          >> simp[evaluate_def,do_app_def]
+          \\ rw[dest_WordToInt_def]
+          \\ fs[evaluate_def]
+          \\ ntac 2 (TOP_CASE_TAC \\ fs[])
+          \\ fs[do_app_def]
+          \\ TOP_CASE_TAC \\ fs[]
+          >- (TOP_CASE_TAC \\ fs[]
+              >> rename1 `REVERSE b`
+              >> Cases_on `REVERSE b` \\ fs[]
+              >> rename1 `REVERSE b = h::t` \\ Cases_on `h` \\ fs[]
+              \\ Cases_on `t` \\ fs[]
+              \\ rename1 `fixwidth r l` \\ Cases_on `r = LENGTH l` \\ fs[]
+              \\ rename1 `n = LENGTH l` \\ Cases_on `n = LENGTH l` \\ fs[]
+              \\ fs[dest_WordToInt_def])
+          >> rename1 `REVERSE b` \\ Cases_on `REVERSE b` \\ fs[]
+          >> rename1 `REVERSE b = h::t` \\ Cases_on `h` \\ fs[]
+          \\ Cases_on `t` \\ fs[]
+          \\ rename1 `_ = SOME (q,r)`
+          \\ fs[case_eq_thms,pair_case_eq])
     ) >>
     Cases_on `op = (Op ListAppend)`
     >-
@@ -586,9 +620,9 @@ evaluate_REPLICATE_Op_AllocGlobal, REPLICATE_GENLIST, MAP_GENLIST]
          >> simp[EL_LUPDATE] \\ NO_TAC) \\ NO_TAC)
     >- (simp[Once evaluate_def] \\ fs[MAP_REVERSE,ETA_AX]
         \\ simp[Once evaluate_def] \\ simp[Once evaluate_def] \\ simp[Once evaluate_def] \\ ntac 2 (simp[Once evaluate_def])
-        \\ simp[do_app_def] \\ simp[Once evaluate_def] \\ `1 < LENGTH env + LENGTH vs` by cheat \\ fs[]
-        \\ simp[EL_APPEND_EQN] \\ `LENGTH vs = 2` by cheat \\ fs[] \\ rename1 `REVERSE vs = [Litv (IntLit n'');Litv (Word w'')]`
-        \\ `vs = [Litv (Word w'');Litv (IntLit n'')]` by cheat \\ fs[] \\ simp[evaluate_def] \\ simp[do_app_def]
+        \\ simp[do_app_def] \\ simp[Once evaluate_def] \\ `1 < LENGTH env + LENGTH vs` by fs[SWAP_REVERSE_SYM] \\ fs[]
+        \\ simp[EL_APPEND_EQN] \\ `LENGTH vs = 2` by fs[SWAP_REVERSE_SYM] \\ fs[] \\ rename1 `REVERSE vs = [Litv (IntLit n'');Litv (Word w'')]`
+        \\ `vs = [Litv (Word w'');Litv (IntLit n'')]` by fs[SWAP_REVERSE_SYM] \\ fs[] \\ simp[evaluate_def] \\ simp[do_app_def]
         \\ fs[int_arithTheory.not_less]
         \\ `0 <= n''` by intLib.ARITH_TAC
         \\ `?wv:word8. w'' = w2v wv` by (CCONTR_TAC \\ fs[] \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `v2w w''`) \\ fs[bitstringTheory.w2v_v2w]
@@ -612,37 +646,76 @@ evaluate_REPLICATE_Op_AllocGlobal, REPLICATE_GENLIST, MAP_GENLIST]
     >- (simp[Once evaluate_def] \\ fs[MAP_REVERSE,ETA_AX]
         \\ simp[Once evaluate_def] \\ simp[Once evaluate_def] \\ simp[Once evaluate_def]
         \\ simp[Once evaluate_def] \\ simp[Once evaluate_def] \\ fs[do_app_def]
-        \\ `1 < LENGTH env + LENGTH vs /\ 2 < LENGTH env + LENGTH vs` by cheat
+        \\ `1 < LENGTH env + LENGTH vs /\ 2 < LENGTH env + LENGTH vs` by fs[SWAP_REVERSE_SYM]
         \\ fs[]
-        \\ `EL 1 (MAP compile_v vs ++ MAP compile_v env) = compile_v (EL 1 vs)` by cheat
-        \\ fs[]
-        \\ rename1 `REVERSE vs = [Loc lnum'';Litv (IntLit i');_]`
-        \\ `EL 1 vs = Litv (IntLit i')` by cheat
-        \\ fs[compile_v_def]
-        \\ `EL 2 (MAP compile_v vs ++ MAP compile_v env) = compile_v (EL 2 vs)` by cheat
-        \\ fs[]
-        \\ `EL 2 vs = Loc lnum''` by cheat
-        \\ fs[compile_v_def]
+        \\ fs[SWAP_REVERSE_SYM]
         \\ fs[FLOOKUP_compile_state_refs]
         \\ rename1 `0<=i' /\ i' < &(LENGTH ws)`
-        \\ `0<=i' /\ i' < &(LENGTH ws)` by cheat
+        \\ `0<=i' /\ i' < &(LENGTH ws)` by intLib.COOPER_TAC
         \\ fs[]
         \\ ntac 5 (simp[Once evaluate_def])
         \\ simp[Once do_app_def]
-        \\ rename1 `REVERSE vs = [_;_;Litv (Word w''')]`
-        \\ `HD (MAP compile_v vs ++ MAP compile_v env) = compile_v (Litv (Word w'''))` by cheat
+        \\ simp[Once evaluate_def]
+        \\ ntac 2 (simp[Once evaluate_def])
+        \\ simp[FLOOKUP_compile_state_refs]
+        \\ simp[do_app_def]
+        \\ simp[Once evaluate_def]
+        \\ simp[state_component_equality]
+        \\ simp[compile_state_def]
+        \\ simp[fmap_eq_flookup]
+        \\ simp[ALOOKUP_GENLIST,FLOOKUP_UPDATE]
+        \\ STRIP_TAC \\ rpt (TOP_CASE_TAC \\ fs[store_lookup_def,store_assign_def])
+        \\ rveq >> simp[LUPDATE_LENGTH,EL_LUPDATE] \\ rpt(MK_COMB_TAC \\ simp[])
+       )
+   >- (TOP_CASE_TAC \\ fs[]
+        >- (simp[evaluate_def] \\ fs[MAP_REVERSE,ETA_AX]
+            \\ TOP_CASE_TAC \\ fs[]
+            >- (fs[do_app_def] \\ TOP_CASE_TAC \\ fs[])
+            \\ fs[do_app_def])
+        \\ TOP_CASE_TAC
+        \\ IMP_RES_TAC dest_WordToInt_SOME
         \\ fs[]
-        \\ cheat (* wrong *))
-    >- (TOP_CASE_TAC \\ fs[] >- (simp[evaluate_def,do_app_def] \\ fs[ETA_AX,MAP_REVERSE]) \\ TOP_CASE_TAC \\ fs[]
-        \\ simp[evaluate_def] \\ simp[do_app_def] \\ IMP_RES_TAC dest_WordToInt_SOME \\ fs[]
-        \\ fs[evaluate_def] \\ ntac 2 (TOP_CASE_TAC \\ fs[]) \\ fs[do_app_def] \\ Cases_on `REVERSE a` \\ fs[]
-         \\ Cases_on `h` \\ fs[] \\ Cases_on `t` \\ fs[] \\ fs[dest_WordToInt_def]
-         \\ TOP_CASE_TAC \\ fs[] >- (TOP_CASE_TAC \\ Cases_on `r = LENGTH l` \\ fs[] \\
-               rveq \\ MK_COMB_TAC \\ simp[]
-               \\ cheat
-           )
-         \\ Cases_on `r = LENGTH l` \\ fs[])
-    >> cheat ) >>
+        \\ fs[evaluate_def]
+        \\ TOP_CASE_TAC \\ fs[]
+        \\ TOP_CASE_TAC \\ fs[do_app_def]
+        \\ rename1 `REVERSE a` \\ Cases_on `REVERSE a` \\ fs[]
+        \\ rename1 `REVERSE a = h::t` \\ Cases_on `h` \\ fs[]
+        \\ Cases_on `t` \\ fs[]
+        \\ rename1 `i2vN i'' _`
+        \\ fs[patSemTheory.evaluate_def]
+        \\ fs[evaluate_def,patSemTheory.evaluate_def,do_app_def,case_eq_thms,pair_case_eq]
+        \\ fs[dest_WordToInt_def]
+        \\ `i'' = &v2n l` by fs[]
+        \\ fs[]
+        \\ simp[bitstring_extraTheory.i2vN_def]
+        \\ fs[fixwidth_def]
+        \\ reverse TOP_CASE_TAC
+        >- (Cases_on `l` >- EVAL_TAC \\ simp[DROP_n2v_v2n_sub] \\ ASM_SIMP_TAC arith_ss [n2v_v2n_not_less_id])
+        \\ Cases_on `l` \\ fs[] \\ simp[zero_extend_n2v_v2n_cons]
+      )
+   >- (simp[Once evaluate_def] \\ fs[MAP_REVERSE,ETA_AX]
+       \\ ntac 5 (simp[Once evaluate_def])
+       \\ fs[do_app_def]
+       \\ `1 < LENGTH env + LENGTH vs /\ 2 < LENGTH env + LENGTH vs` by fs[SWAP_REVERSE_SYM]
+       \\ fs[]
+       \\ fs[SWAP_REVERSE_SYM]
+       \\ fs[FLOOKUP_compile_state_refs]
+       \\ ntac 7 (simp[Once evaluate_def])
+       \\ simp[do_app_def]
+       \\ fs[FLOOKUP_compile_state_refs]
+       \\ rename1 `0<=i' /\ i' < &(LENGTH ws)`
+       \\ `0<=i' /\ i' < &(LENGTH ws)` by intLib.COOPER_TAC
+       \\ fs[]
+       \\ ntac 2 (simp[Once evaluate_def])
+       \\ simp[do_app_def]
+       \\ simp[compile_state_def]
+       \\ simp[fmap_eq_flookup]
+       \\ simp[ALOOKUP_GENLIST,FLOOKUP_UPDATE]
+       \\ STRIP_TAC \\ rpt (TOP_CASE_TAC \\ fs[store_lookup_def,store_assign_def])
+       \\ rveq >> simp[LUPDATE_LENGTH,EL_LUPDATE] \\ simp[LUPDATE_MAP]
+       \\ rpt(MK_COMB_TAC \\ simp[])
+   )
+  ) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def,patSemTheory.do_if_def] >> rw[] >>
     fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ fs[] \\ rveq \\

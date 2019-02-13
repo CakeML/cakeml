@@ -220,13 +220,13 @@ val do_app_def = Define `
              then Rval (Word (w2v (EL (Num i) ws)),s)
              else Error)
          | _ => Error)
-    | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
+    | (UpdateByte,[RefPtr ptr; Number i; Word b]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray f bs) =>
-            (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
+            (if 0 ≤ i ∧ i < &LENGTH bs ∧ (LENGTH b = 8)
              then
                Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
+                 (ptr, ByteArray f (LUPDATE (v2w b) (Num i) bs)))
              else Error)
          | _ => Error)
     | (ConcatByteVec,[lv]) =>
@@ -247,6 +247,10 @@ val do_app_def = Define `
     | (DerefByteVec,[ByteVector bs; Number i]) =>
         (if 0 ≤ i ∧ i < &LENGTH bs then
            Rval (Word (w2v (EL (Num i) bs)), s)
+         else Error)
+    | (DerefByteVecAsNum,[ByteVector bs; Number i]) =>
+        (if 0 ≤ i ∧ i < &LENGTH bs then
+           Rval (Number (&(w2n (EL (Num i) bs))), s)
          else Error)
     | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
         (case FLOOKUP s.refs dst of

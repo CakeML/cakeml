@@ -41,6 +41,7 @@ val _ = Datatype `
      | FromListByte  (* convert list of chars to ByteVector *)
      | LengthByteVec (* get length of ByteVector *)
      | DerefByteVec  (* load a byte from a ByteVector *)
+     | DerefByteVecAsNum (* loads a byte from a ByteVector as a number *)
      | TagLenEq num num (* check Block's tag and length *)
      | TagEq num     (* check Block's tag *)
      | Ref           (* makes a reference *)

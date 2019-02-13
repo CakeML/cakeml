@@ -1994,7 +1994,8 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
   )
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
-               opp = DerefByteVec \/ opp = DerefByte \/ opp = Deref \/
+               opp = DerefByteVec \/ opp = DerefByteVecAsNum \/
+               opp = DerefByte \/ opp = Deref \/
                opp = GlobalsPtr \/ opp = El \/ opp = SetGlobalsPtr`
   THEN1
    (print_tac "array opp case" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
