@@ -26,7 +26,8 @@ monadic functions using exceptions (no references, no arrays).
 
 [fibProgScript.sml](fibProgScript.sml):
 An example showing how to use the monadic translator to translate
-monadic functions using references (no arrays, no exceptions).
+monadic functions using references, stdio, and commandline
+(no arrays, no exceptions).
 
 [floyd_warshallProgScript.sml](floyd_warshallProgScript.sml):
 The Floyd-Warshall algorithm - testing the monadic translator

@@ -50,6 +50,41 @@ datatype translator_mode = GLOBAL | LOCAL;
 
 ******************************************************************************)
 
+(* Type definition of the internal state *)
+type state = {
+  state_access_funs         : (string * thm * thm) list ref,
+                                (* (name, get, set) *)
+  store_invariant_name      : string ref,
+  store_exn_invariant_name  : string ref,
+  exn_type_def              : thm ref,
+  additional_type_theories  : string list ref,
+  extra_hprop               : term option ref,
+  monad_translation_params  : monadic_translation_parameters option ref,
+  store_trans_result        : store_translation_result option ref,
+  exn_specs                 : (thm * thm) list ref,
+  stdio_name                : string option ref,
+  commandline_name          : string option ref,
+  exn_type                  : hol_type ref,
+  state_type                : hol_type ref
+};
+
+(* Initial internal state *)
+val internal_state : state = {
+  state_access_funs        = ref [],
+  store_invariant_name     = ref "STATE_STORE",
+  store_exn_invariant_name = ref "STATE_EXN",
+  exn_type_def             = ref ml_translatorTheory.UNIT_TYPE_def,
+  additional_type_theories = ref [],
+  extra_hprop              = ref NONE,
+  monad_translation_params = ref NONE,
+  store_trans_result       = ref NONE,
+  exn_specs                = ref [],
+  stdio_name               = ref NONE,
+  commandline_name         = ref NONE,
+  state_type               = ref unit_ty,
+  exn_type                 = ref unit_ty
+};
+
 (* Type definition of the user-visible configuration *)
 type config = {
   mode              : translator_mode,
@@ -68,8 +103,8 @@ type config = {
 (* Local-mode translation base state *)
 val local_state_config : config = {
   mode              = LOCAL,
-  state_type        = ref unit_ty,
-  exn_type          = ref unit_ty,
+  state_type        = (#state_type internal_state),
+  exn_type          = (#exn_type internal_state),
   exn_access_funs   = ref [],
   refs              = ref [],
   fixed_arrays      = ref [],
@@ -80,46 +115,14 @@ val local_state_config : config = {
 (* Global-mode translation base state *)
 val global_state_config : config = {
   mode              = GLOBAL,
-  state_type        = ref unit_ty,
-  exn_type          = ref unit_ty,
+  state_type        = (#state_type internal_state),
+  exn_type          = (#exn_type internal_state),
   exn_access_funs   = ref [],
   refs              = ref [],
   fixed_arrays      = ref [],
   resizeable_arrays = ref [],
   extra_state_inv   = ref NONE
 };
-
-(* Type definition of the internal state *)
-type state = {
-  state_access_funs         : (string * thm * thm) list ref,
-                                (* (name, get, set) *)
-  store_invariant_name      : string ref,
-  store_exn_invariant_name  : string ref,
-  exn_type_def              : thm ref,
-  additional_type_theories  : string list ref,
-  extra_hprop               : term option ref,
-  monad_translation_params  : monadic_translation_parameters option ref,
-  store_trans_result        : store_translation_result option ref,
-  exn_specs                 : (thm * thm) list ref,
-  stdio_name                : string option ref,
-  commandline_name          : string option ref
-};
-
-(* Initial internal state *)
-val internal_state : state = {
-  state_access_funs        = ref [],
-  store_invariant_name     = ref "STATE_STORE",
-  store_exn_invariant_name = ref "STATE_EXN",
-  exn_type_def             = ref ml_translatorTheory.UNIT_TYPE_def,
-  additional_type_theories = ref [],
-  extra_hprop              = ref NONE,
-  monad_translation_params = ref NONE,
-  store_trans_result       = ref NONE,
-  exn_specs                = ref [],
-  stdio_name               = ref NONE,
-  commandline_name         = ref NONE
-};
-
 
 
 (******************************************************************************
@@ -134,7 +137,7 @@ val internal_state : state = {
 fun with_state state_type (translator_config : config) =
   let val accessors = define_monad_access_funs state_type
   in
-    #state_type translator_config := state_type;
+    #state_type internal_state := state_type;
     #store_invariant_name internal_state :=
       (state_type |> dest_type |> fst |> toUppers);
     #state_access_funs internal_state := accessors;
@@ -167,7 +170,7 @@ fun with_exception exn_type (translator_config : config) =
       fun to_named_tuple (raise_thm, handle_thm) =
         {raise_thm=raise_thm, handle_thm=handle_thm}
   in
-    #exn_type translator_config := exn_type;
+    #exn_type internal_state := exn_type;
     #exn_access_funs translator_config := map to_named_tuple exn_access_funs;
     #exn_type_def internal_state := (register_exception_type exn_type);
     translator_config
@@ -344,136 +347,116 @@ fun extract_farrays_manip_funs (name, init, get, set, len, sub, upd) =
       (name, get, set, len, sub, upd);
 
 local
+
   val IMP_STAR_GC = Q.prove(
-    `(STAR a x) s ∧ (y = GC) ⇒ (STAR a y) s`,
-    fs [set_sepTheory.STAR_def] >>
-    rw [] >> asm_exists_tac >> fs [] >>
-    EVAL_TAC >>
-    fs [set_sepTheory.SEP_EXISTS_THM] >>
-    qexists_tac `K T` >>
-    fs []
-  )
+      `(STAR a x) s ∧ (y = GC) ⇒ (STAR a y) s`,
+      fs [set_sepTheory.STAR_def] >>
+      rw [] >> asm_exists_tac >> fs [] >>
+      EVAL_TAC >>
+      fs [set_sepTheory.SEP_EXISTS_THM] >>
+      qexists_tac `K T` >>
+      fs []
+    )
 
 in
 
-  fun prove_stdio_commandline_intros stdio_name commandline_name = let
-    val stdio = Term [QUOTE stdio_name] |> Term.inst [alpha |-> unit_ty]
-    val commandline = Term [QUOTE commandline_name]
-    val st_stdio = Term [QUOTE "st.", QUOTE stdio_name]
-    val st_commandline = Term [QUOTE "st.", QUOTE commandline_name]
-    val store_inv_name = ( !(#store_invariant_name internal_state) )
-    val state_predicate = Term [QUOTE store_inv_name]
-    val stdio_intro =
-      Q.prove(
-        ` (∀ st . EvalM ro env st exp
-            (MONAD UNIT_TYPE exc_ty f) (MONAD_IO, p:'ffi ffi_proj))
-        ⇒
-          (∀ st . EvalM ro env st exp
-            (MONAD UNIT_TYPE exc_ty (^stdio f))
-              (^state_predicate, p:'ffi ffi_proj))`,
-
-        fs [ml_monad_translatorTheory.EvalM_def] >> rw [] >>
-        first_x_assum (qspecl_then [`^st_stdio`,`s`] mp_tac) >>
-        impl_tac
-        >- (
-          fs [ml_monad_translatorBaseTheory.REFS_PRED_def] >>
-          fs [fetch "-" (store_inv_name ^ "_def")] >>
-          qabbrev_tac `a = MONAD_IO ^st_stdio` >>
-          qabbrev_tac `b = GC` >>
-          fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] >>
-          last_x_assum mp_tac >>
-          metis_tac [IMP_STAR_GC]
-        ) >>
-        disch_then strip_assume_tac >>
-        asm_exists_tac >> fs [] >>
-        fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
-            semanticPrimitivesTheory.state_component_equality] >>
-        rveq >> fs [ml_monad_translatorTheory.MONAD_def] >>
-        Cases_on `f ^st_stdio` >> fs [] >>
-        EVERY_CASE_TAC >>
-        rveq >> fs [] >>
-        fs [fetch "-" (store_inv_name ^ "_def")] >>
-        rw [] >>
-        first_x_assum (qspec_then `COMMANDLINE ^st_commandline * F'` mp_tac) >>
-        fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC] >>
-        fs [ml_monadBaseTheory.liftM_def] >>
-        rw [] >>
-        fs [set_sepTheory.STAR_COMM]
+  fun add_stdio_access_patterns stdio_name = let
+      val store_inv_name = ( !(#store_invariant_name internal_state) )
+      val state_ty = ( !(#state_type internal_state) )
+      val state_predicate =
+        if state_ty = unit_ty then ``UNIT_TYPE``
+        else Term [QUOTE store_inv_name]
+      val stdio = Term [QUOTE stdio_name] |> Term.inst [alpha |-> unit_ty]
+      val st_stdio = Term [QUOTE "st.", QUOTE stdio_name]
+      val MONAD_IO_STAR_COMM = Q.prove(
+        `∀ p q . p * MONAD_IO q = MONAD_IO q * p`,
+        metis_tac[set_sepTheory.STAR_COMM]
       )
-    val commandline_intro =
-      Q.prove(
-        ` (∀st. EvalM ro env st exp
-            (MONAD ret_ty exc_ty f) (COMMANDLINE, p:'ffi ffi_proj))
-        ⇒
-          (∀st. EvalM ro env st exp
-            (MONAD ret_ty exc_ty (^commandline f))
-              (^state_predicate, p:'ffi ffi_proj))`,
-        fs [ml_monad_translatorTheory.EvalM_def] >> rw [] >>
-        first_x_assum (qspecl_then [`^st_commandline`,`s`] mp_tac) >>
-        impl_tac
-        >- (
-          fs [ml_monad_translatorBaseTheory.REFS_PRED_def] >>
+
+      val stdio_intro =
+        Q.prove(
+          ` (∀ st . EvalM ro env st exp
+              (MONAD UNIT_TYPE exc_ty f) (MONAD_IO, p:'ffi ffi_proj))
+          ⇒
+            (∀ st . EvalM ro env st exp
+              (MONAD UNIT_TYPE exc_ty (^stdio f))
+                (^state_predicate, p:'ffi ffi_proj))`,
+
+          fs [ml_monad_translatorTheory.EvalM_def] >> rw [] >>
+          first_x_assum (qspecl_then [`^st_stdio`,`s`] mp_tac) >>
+          impl_tac
+          >- (
+            fs [ml_monad_translatorBaseTheory.REFS_PRED_def] >>
+            fs [fetch "-" (store_inv_name ^ "_def")] >>
+            qabbrev_tac `a = MONAD_IO ^st_stdio` >>
+            qabbrev_tac `b = GC` >>
+            fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] >>
+            last_x_assum mp_tac >>
+            metis_tac [IMP_STAR_GC]
+          ) >>
+          disch_then strip_assume_tac >>
+          asm_exists_tac >> fs [] >>
+          fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
+              semanticPrimitivesTheory.state_component_equality] >>
+          rveq >> fs [ml_monad_translatorTheory.MONAD_def] >>
+          Cases_on `f ^st_stdio` >> fs [] >>
+          EVERY_CASE_TAC >>
+          rveq >> fs [] >>
           fs [fetch "-" (store_inv_name ^ "_def")] >>
-          qabbrev_tac `a = COMMANDLINE ^st_commandline` >>
-          qabbrev_tac `b = GC` >>
-          fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] >>
-          last_x_assum mp_tac >>
-          metis_tac [IMP_STAR_GC]
-        ) >>
-        disch_then strip_assume_tac >>
-        asm_exists_tac >> fs [] >>
-        fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
-            semanticPrimitivesTheory.state_component_equality] >>
-        rveq >> fs [ml_monad_translatorTheory.MONAD_def] >>
-        Cases_on `f ^st_commandline` >> fs [] >>
-        EVERY_CASE_TAC >>
-        rveq >> fs [] >>
-        fs [fetch "-" (store_inv_name ^ "_def")] >>
-        rw [] >>
-        first_x_assum (qspec_then `MONAD_IO ^st_stdio * F'` mp_tac) >>
-        fs [AC set_sepTheory.STAR_COMM set_sepTheory.STAR_ASSOC] >>
-        fs [ml_monadBaseTheory.liftM_def] >>
-        rw []
-      )
-  in
-    save_thm("stdio_INTRO", stdio_intro);
-    save_thm("commandline_INTRO", commandline_intro);
-    (stdio_intro, commandline_intro)
-  end;
+          fs [ml_monadBaseTheory.liftM_def] >>
+          rw [] >>
+          rfs[] >>
+          fs[MONAD_IO_STAR_COMM, set_sepTheory.STAR_ASSOC] >>
+          metis_tac[set_sepTheory.STAR_ASSOC]
+        )
 
-  fun add_stdio_access_patterns stdio_name stdio_intro_thm =
-    let val store_inv_name = ( !(#store_invariant_name internal_state) )
-        val state_predicate = Term [QUOTE store_inv_name]
-        val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
-        val state_exn_predicate = Term [QUOTE state_exn_name, QUOTE "_TYPE"]
-        val state_exn_ty =
-          state_exn_predicate |> type_of |> dest_type |> snd |> hd
-        val stdio = Term [QUOTE stdio_name] |>
-                    Term.inst [alpha |-> unit_ty, beta |-> state_exn_ty]
+      val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
+      val state_exn_ty = ( !(#exn_type internal_state) )
+      val state_exn_predicate =
+        if state_exn_ty = unit_ty then ``UNIT_TYPE``
+        else Term [QUOTE state_exn_name, QUOTE "_TYPE"]
+      val stdio = Term [QUOTE stdio_name] |>
+                  Term.inst [alpha |-> unit_ty, beta |-> state_exn_ty]
+      val EvalM_print = (
+        fetch "TextIOProof" "EvalM_print"
+        handle HOL_ERR e => (
+          print ("\n\nCould not find TextIOProofTheory.EvalM_name." ^
+                 " Have you opened basisProgTheory?\n\n");
+          raise (HOL_ERR e)
+        ))
+      val EvalM_print_err = (
+        fetch "TextIOProof" "EvalM_print_err"
+        handle HOL_ERR e => (
+          print ("\n\nCould not find TextIOProofTheory.EvalM_name." ^
+                 " Have you opened basisProgTheory?\n\n");
+          raise (HOL_ERR e)
+        ))
 
-        val EvalM_stdio_print =
-          Q.prove(
-            ` Eval env exp (STRING_TYPE x) ∧
-              (nsLookup env.v (Short "print") = SOME TextIO_print_v)
-            ⇒
-              EvalM F env st (App Opapp [Var (Short "print"); exp])
-                (MONAD UNIT_TYPE ^state_exn_predicate (^stdio (print x)))
-                (^state_predicate, p:'ffi ffi_proj)`,
-            metis_tac [stdio_intro_thm, TextIOProofTheory.EvalM_print]
-          )
-        val EvalM_stdio_print_err =
-          Q.prove(
-            ` Eval env exp (STRING_TYPE x) ∧
-              (nsLookup env.v (Long "TextIO" (Short "print_err")) =
-                SOME TextIO_print_err_v)
-            ⇒
-              EvalM F env st
-                (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
-                (MONAD UNIT_TYPE ^state_exn_predicate (^stdio (print_err x)))
-                (^state_predicate, p:'ffi ffi_proj)`,
-            metis_tac [stdio_intro_thm, TextIOProofTheory.EvalM_print_err]
-          )
+      val EvalM_stdio_print =
+        Q.prove(
+          ` Eval env exp (STRING_TYPE x) ∧
+            (nsLookup env.v (Short "print") = SOME TextIO_print_v)
+          ⇒
+            EvalM F env st (App Opapp [Var (Short "print"); exp])
+              (MONAD UNIT_TYPE ^state_exn_predicate (^stdio (print x)))
+              (^state_predicate, p:'ffi ffi_proj)`,
+          metis_tac [stdio_intro, EvalM_print]
+        )
+
+      val EvalM_stdio_print_err =
+        Q.prove(
+          ` Eval env exp (STRING_TYPE x) ∧
+            (nsLookup env.v (Long "TextIO" (Short "print_err")) =
+              SOME TextIO_print_err_v)
+          ⇒
+            EvalM F env st
+              (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
+              (MONAD UNIT_TYPE ^state_exn_predicate (^stdio (print_err x)))
+              (^state_predicate, p:'ffi ffi_proj)`,
+          metis_tac [stdio_intro, EvalM_print_err]
+        )
     in
+      save_thm("stdio_INTRO", stdio_intro);
       save_thm("EvalM_" ^ stdio_name ^ "_print", EvalM_stdio_print);
       save_thm("EvalM_" ^ stdio_name ^ "_print_err", EvalM_stdio_print_err);
       print("Saved EvalM theorems for "^stdio_name^": print, print_err.\n");
@@ -483,54 +466,116 @@ in
       ignore_type ``:IO_fs``
     end
 
-  fun add_commandline_access_patterns commandline_name commandline_intro_thm =
-    let val store_inv_name = ( !(#store_invariant_name internal_state) )
-        val state_predicate = Term [QUOTE store_inv_name]
-        val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
-        val state_exn_predicate = Term [QUOTE state_exn_name, QUOTE "_TYPE"]
-        val state_exn_ty =
-          state_exn_predicate |> type_of |> dest_type |> snd |> hd
-        val commandline = Term [QUOTE commandline_name] |>
-                          Term.inst [alpha |-> ``:mlstring``,
-                                     beta |-> state_exn_ty]
-        val commandline_list = Term [QUOTE commandline_name] |>
-                               Term.inst [alpha |-> ``:mlstring list``,
-                                          beta |-> state_exn_ty]
+  fun add_commandline_access_patterns commandline_name = let
+      val store_inv_name = ( !(#store_invariant_name internal_state) )
+      val state_ty = ( !(#state_type internal_state) )
+      val state_predicate =
+        if state_ty = unit_ty then ``UNIT_TYPE``
+        else Term [QUOTE store_inv_name]
+      val commandline = Term [QUOTE commandline_name]
+      val st_commandline = Term [QUOTE "st.", QUOTE commandline_name]
+      val COMMANDLINE_STAR_COMM = Q.prove(
+        `∀ p q . p * COMMANDLINE q = COMMANDLINE q * p`,
+        metis_tac[set_sepTheory.STAR_COMM]
+      )
 
+      val commandline_intro =
+        Q.prove(
+          ` (∀st. EvalM ro env st exp
+              (MONAD ret_ty exc_ty f) (COMMANDLINE, p:'ffi ffi_proj))
+          ⇒
+            (∀st. EvalM ro env st exp
+              (MONAD ret_ty exc_ty (^commandline f))
+                (^state_predicate, p:'ffi ffi_proj))`,
+          fs [ml_monad_translatorTheory.EvalM_def] >> rw [] >>
+          first_x_assum (qspecl_then [`^st_commandline`,`s`] mp_tac) >>
+          impl_tac
+          >- (
+            fs [ml_monad_translatorBaseTheory.REFS_PRED_def] >>
+            fs [fetch "-" (store_inv_name ^ "_def")] >>
+            qabbrev_tac `a = COMMANDLINE ^st_commandline` >>
+            qabbrev_tac `b = GC` >>
+            fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] >>
+            last_x_assum mp_tac >>
+            metis_tac [IMP_STAR_GC]
+          ) >>
+          disch_then strip_assume_tac >>
+          asm_exists_tac >> fs [] >>
+          fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
+              semanticPrimitivesTheory.state_component_equality] >>
+          rveq >> fs [ml_monad_translatorTheory.MONAD_def] >>
+          Cases_on `f ^st_commandline` >> fs [] >>
+          EVERY_CASE_TAC >>
+          rveq >> fs [] >>
+          fs [fetch "-" (store_inv_name ^ "_def")] >>
+          fs [ml_monadBaseTheory.liftM_def] >>
+          rw [] >>
+          rfs[] >>
+          fs[COMMANDLINE_STAR_COMM, set_sepTheory.STAR_ASSOC] >>
+          metis_tac[set_sepTheory.STAR_ASSOC]
+        )
 
-        val EvalM_commandline_name =
-          Q.prove(
-            ` Eval env exp (UNIT_TYPE x) ∧
-              (nsLookup env.v (Long "CommandLine" (Short "name")) =
-                SOME CommandLine_name_v)
-            ⇒
-              EvalM F env st
-                (App Opapp [Var (Long "CommandLine" (Short "name")); exp])
-                (MONAD STRING_TYPE ^state_exn_predicate (^commandline
-                  (name x : mlstring list ->
-                    (mlstring, ^(ty_antiq state_exn_ty)) exc # mlstring list)
-                  ))
-                (^state_predicate, p:'ffi ffi_proj)`,
-            metis_tac [commandline_intro_thm, CommandLineProofTheory.EvalM_name]
-          )
+      val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
+      val state_exn_ty = ( !(#exn_type internal_state) )
+      val state_exn_predicate =
+        if state_exn_ty = unit_ty then ``UNIT_TYPE``
+        else Term [QUOTE state_exn_name, QUOTE "_TYPE"]
+      val state_exn_ty =
+        state_exn_predicate |> type_of |> dest_type |> snd |> hd
+      val commandline = Term [QUOTE commandline_name] |>
+                        Term.inst [alpha |-> ``:mlstring``,
+                                   beta |-> state_exn_ty]
+      val commandline_list = Term [QUOTE commandline_name] |>
+                             Term.inst [alpha |-> ``:mlstring list``,
+                                        beta |-> state_exn_ty]
+      val EvalM_name = (
+        fetch "CommandLineProof" "EvalM_name"
+        handle HOL_ERR e => (
+          print ("\n\nCould not find CommandLineProofTheory.EvalM_name." ^
+                 " Have you opened basisProgTheory?\n\n");
+          raise (HOL_ERR e)
+        ))
+      val EvalM_arguments = (
+        fetch "CommandLineProof" "EvalM_arguments"
+        handle HOL_ERR e => (
+          print ("\n\nCould not find CommandLineProofTheory.EvalM_name." ^
+                 " Have you opened basisProgTheory?\n\n");
+          raise (HOL_ERR e)
+        ))
 
-        val EvalM_commandline_arguments =
-          Q.prove(
-            ` Eval env exp (UNIT_TYPE x) ∧
-              (nsLookup env.v (Long "CommandLine" (Short "arguments")) =
-                SOME CommandLine_arguments_v)
-            ⇒
-              EvalM F env st
-                (App Opapp [Var (Long "CommandLine" (Short "arguments")); exp])
-                (MONAD (LIST_TYPE STRING_TYPE) ^state_exn_predicate
-                  (^commandline_list (arguments x : mlstring list ->
-                    (mlstring list, ^(ty_antiq state_exn_ty)) exc # mlstring list)
-                  ))
-                (^state_predicate, p:'ffi ffi_proj)`,
-            metis_tac [commandline_intro_thm,
-                       CommandLineProofTheory.EvalM_arguments]
-          )
+      val EvalM_commandline_name =
+        Q.prove(
+          ` Eval env exp (UNIT_TYPE x) ∧
+            (nsLookup env.v (Long "CommandLine" (Short "name")) =
+              SOME CommandLine_name_v)
+          ⇒
+            EvalM F env st
+              (App Opapp [Var (Long "CommandLine" (Short "name")); exp])
+              (MONAD STRING_TYPE ^state_exn_predicate (^commandline
+                (name x : mlstring list ->
+                  (mlstring, ^(ty_antiq state_exn_ty)) exc # mlstring list)
+                ))
+              (^state_predicate, p:'ffi ffi_proj)`,
+          metis_tac [commandline_intro, EvalM_name]
+        )
+
+      val EvalM_commandline_arguments =
+        Q.prove(
+          ` Eval env exp (UNIT_TYPE x) ∧
+            (nsLookup env.v (Long "CommandLine" (Short "arguments")) =
+              SOME CommandLine_arguments_v)
+          ⇒
+            EvalM F env st
+              (App Opapp [Var (Long "CommandLine" (Short "arguments")); exp])
+              (MONAD (LIST_TYPE STRING_TYPE) ^state_exn_predicate
+                (^commandline_list (arguments x : mlstring list ->
+                  (mlstring list, ^(ty_antiq state_exn_ty)) exc # mlstring list)
+                ))
+              (^state_predicate, p:'ffi ffi_proj)`,
+          metis_tac [commandline_intro, EvalM_arguments]
+        )
     in
+      save_thm("commandline_INTRO", commandline_intro);
       save_thm("EvalM_" ^ commandline_name ^ "_print", EvalM_commandline_name);
       save_thm("EvalM_" ^ commandline_name ^ "_print_err",
                EvalM_commandline_arguments);
@@ -544,20 +589,13 @@ in
 
   fun add_access_patterns () =
     case ( !(#stdio_name internal_state) ) of SOME stdio_name => (
-      case ( !(#commandline_name internal_state) ) of
-          SOME commandline_name => (* both commandline and stdio *)
-            let val (stdio_intro, commandline_intro) =
-              prove_stdio_commandline_intros stdio_name commandline_name
-            in
-              add_stdio_access_patterns stdio_name stdio_intro;
-              add_commandline_access_patterns commandline_name commandline_intro
-            end
-        | NONE => (* only stdio, no commandline TODO *)
-          ()
+        add_stdio_access_patterns stdio_name;
+        case ( !(#commandline_name internal_state) ) of
+            SOME commandline_name =>
+              add_commandline_access_patterns commandline_name
+          | NONE => ()
       )
-
     | NONE => () (* no stdio, so no access patterns *)
-
 
 end (* end local *)
 

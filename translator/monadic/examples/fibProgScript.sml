@@ -4,13 +4,8 @@
   (no arrays, no exceptions).
 *)
 
-(* Load the CakeML basic stuff *)
-open preamble basisProgTheory
-
-(*
- * Load the interface to the monadic translator
- *)
-open ml_monad_translator_interfaceLib
+(* Load the interface to the monadic translator, and basis for IO *)
+open preamble basisProgTheory ml_monad_translator_interfaceLib
 
 val _ = new_theory "fibProg"
 
@@ -80,7 +75,6 @@ val str_to_num_side = Q.prove (
 
 val res = translate num_to_str_def
 val res = translate fiba_def
-
 val res = m_translate fibm_def
 
 val _ = export_theory ();

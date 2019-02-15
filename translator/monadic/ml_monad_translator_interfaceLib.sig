@@ -92,7 +92,9 @@ type state = {
   store_trans_result        : store_translation_result option ref,
   exn_specs                 : (thm * thm) list ref,
   stdio_name                : string option ref,
-  commandline_name          : string option ref
+  commandline_name          : string option ref,
+  exn_type                  : hol_type ref,
+  state_type                : hol_type ref
 };
 
 (* Initial internal state *)
