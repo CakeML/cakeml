@@ -1041,8 +1041,7 @@ fun start_static_init_fixed_store_translation refs_init_list
       List.map (fn (_, _, x1, x2, x3, x4, x5) => (x1, x2, x3, x4, x5))
       farrays_init_list
 
-    val store_pinv_def_opt =
-      case store_pinv_opt of SOME (th, _) => SOME th | NONE => NONE
+    val store_pinv_def_opt = Option.map fst store_pinv_opt
     val store_pred_exists_thm = SOME (#store_pred_exists_thm store_trans_result)
 
     val _ = init_translation monad_translation_params

@@ -47,13 +47,12 @@ sig
     mode              : translator_mode,
     state_type        : hol_type ref,
     exn_type          : hol_type ref,
-    exn_access_funs   : (thm * thm) list ref,
-                         (* (raise, handle) *)
-    refs              : (string * thm * thm * thm) list ref,
-                          (* (name, init, get, set) *)
-    fixed_arrays      : (string * (int * thm) * thm * thm * thm * thm * thm) list ref,
-    resizeable_arrays : (string*thm * thm * thm * thm * thm * thm * thm) list ref,
-                          (* (name, init, get, set, len, sub, update, alloc) *)
+    exn_access_funs   : {raise_thm:thm, handle_thm:thm} list ref,
+    refs              : {name:string, init:thm, get:thm, set:thm} list ref,
+    fixed_arrays      : {name:string, init: int * thm, get:thm, set:thm,
+                         len:thm, sub:thm, update:thm} list ref,
+    resizeable_arrays : {name:string, init:thm, get:thm, set:thm,
+                         len:thm, sub:thm, update:thm, alloc:thm} list ref,
     extra_state_inv   : (thm * thm) option ref
                         (* state_inv_def, state_inv_valid *)
   }
@@ -61,16 +60,47 @@ sig
   val local_state_config : config
   val global_state_config : config
 
-(* TODO - remove internal state visibility *)
-  type state = {
-    state_access_funs :   (string * thm * thm) list ref,
-                            (* (name, get, set) *)
-    store_invariant_name : string ref,
-    exn_type_def : thm ref,
-    additional_type_theories : string list ref,
-    extra_hprop : term option ref
-  }
-  val internal_state : state
+
+
+  type monadic_translation_parameters = {
+    store_pred_def : thm,
+    refs_specs     : (thm * thm) list,
+    rarrays_specs  : (thm * thm * thm * thm) list,
+    farrays_specs  : (thm * thm * thm) list
+  };
+
+  type store_translation_result = {
+      refs_init_values      : thm list,
+      refs_locations        : thm list,
+      rarrays_init_values   : thm list,
+      farrays_init_values   : thm list,
+      rarrays_locations     : thm list,
+      farrays_locations     : thm list,
+      store_pred_validity   : thm,
+      store_pred_exists_thm : thm
+    };
+
+type state = {
+  state_access_funs         : (string * thm * thm) list ref,
+                                (* (name, get, set) *)
+  store_invariant_name      : string ref,
+  store_exn_invariant_name  : string ref,
+  exn_type_def              : thm ref,
+  additional_type_theories  : string list ref,
+  extra_hprop               : term option ref,
+  monad_translation_params  : monadic_translation_parameters option ref,
+  store_trans_result        : store_translation_result option ref,
+  exn_specs                 : (thm * thm) list ref,
+  stdio_name                : string option ref,
+  commandline_name          : string option ref
+};
+
+(* Initial internal state *)
+val internal_state : state
+
+
+
+
 
     (* Choose a state type for the translation (optional) *)
     val with_state : hol_type -> config -> config
@@ -117,6 +147,7 @@ sig
 
   (* From ml_translatorLib *)
   val translation_extends : string -> unit
+  val update_precondition : thm -> thm
 
   (* Resume prior monadic translation.
    * Loads the state specific to the monadic translation from the specified
