@@ -28,6 +28,7 @@ val _ = Datatype `
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
+            ; has_fp_tern : bool (* can compile FMA *)
             ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
             ; gc_kind : gc_kind (* GC settings *) |>`
 
@@ -978,8 +979,7 @@ val fp_cmp_inst_def = Define `
   fp_cmp_inst FP_Equal = FPEqual 3 0 1`;
 
 val fp_top_inst_def_def = Define `
-  fp_top_inst FP_Fma = FPFma 0 0 1 2 /\
-  fp_top_inst FP_Fms = FPFms 0 0 1 2`;
+  fp_top_inst FP_Fma = FPFma 0 1 2`;
 
 val fp_bop_inst_def = Define `
   fp_bop_inst FP_Add = FPAdd 0 0 1 /\
@@ -1819,7 +1819,7 @@ val def = assign_Define `
   val def = assign_Define `
     assign_FP_top fpt (c:data_to_word$config) (secn:num)
               (l:num) (dest:num) (names:num_set option) v1 v2 v3 =
-       (if ~c.has_fp_ops then (GiveUp,l) else
+       (if ~c.has_fp_ops \/ ~c.has_fp_tern then (GiveUp,l) else
         if dimindex(:'a) = 64 then
          (dtcase encode_header c 3 1 of
           | NONE => (GiveUp,l)
@@ -1980,6 +1980,7 @@ val assign_def = Define `
     | EqualInt i => arg1 args (assign_EqualInt i c secn l dest names) (Skip,l)
     | Install => arg4 args (assign_Install c secn l dest names) (Skip,l)
     | FP_cmp fpc => arg2 args (assign_FP_cmp fpc c secn l dest names) (Skip,l)
+    | FP_top fpt => arg3 args (assign_FP_top fpt c secn l dest names) (Skip,l)
     | FP_bop fpb => arg2 args (assign_FP_bop fpb c secn l dest names) (Skip,l)
     | FP_uop fpu => arg1 args (assign_FP_uop fpu c secn l dest names) (Skip,l)
     | _ => (Skip,l)`;
@@ -2197,7 +2198,9 @@ Theorem check_LongDiv_location
 
 val compile_def = Define `
   compile data_conf word_conf asm_conf prog =
-    let data_conf = (data_conf with has_fp_ops := (2 < asm_conf.fp_reg_count)) in
+    let data_conf =
+      (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
+                      has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 

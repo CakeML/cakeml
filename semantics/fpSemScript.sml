@@ -29,7 +29,7 @@ val _ = Hol_datatype `
  fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div`;
 
 val _ = Hol_datatype `
- fp_top = FP_Fma | FP_Fms`;
+ fp_top =   FP_Fma`;
 
 
 (*val fp64_lessThan     : word64 -> word64 -> bool*)
@@ -48,7 +48,6 @@ val _ = Hol_datatype `
 (*val fp64_div : rounding -> word64 -> word64 -> word64*)
 
 (*val fp64_mul_add : rounding -> word64 -> word64 -> word64 -> word64*)
-(*val fp64_mul_sub : rounding -> word64 -> word64 -> word64 -> word64*)
 
 (*val roundTiesToEven : rounding*)
 
@@ -84,9 +83,8 @@ val _ = Define `
 
 (*val fp_top : fp_top -> word64 -> word64 -> word64 -> word64*)
 val _ = Define `
- (fp_top fop=  ((case fop of
+ ((fp_top:fp_top -> word64 -> word64 -> word64 -> word64) fop=  ((case fop of
     FP_Fma => fp64_mul_add roundTiesToEven
-  | FP_Fms => fp64_mul_sub roundTiesToEven
 )))`;
 val _ = export_theory()
 

@@ -659,12 +659,10 @@ val fp_name_def = Define `
   (fp_name (FPDiv d1 d2 d3) c <=>
       (c.two_reg_arith ==> (d1 = d2)) /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
-  (fp_name (FPFma d1 d2 d3 d4) c <=>
-      (* FIXME: c.two_reg_arith ?? *)
-      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c /\ fp_reg_ok d4 c) /\
-  (fp_name (FPFms d1 d2 d3 d4) c <=>
-      (* FIXME: c.two_reg_arith ?? *)
-      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c /\ fp_reg_ok d4 c) /\
+  (fp_name (FPFma d1 d2 d3) c <=>
+      (c.ISA = ARMv7) /\
+      2 < c.fp_reg_count /\
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_name (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_name (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>
       reg_name r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_name r2 c) /\

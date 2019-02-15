@@ -919,6 +919,10 @@ Theorem stubs_with_has_fp_ops[simp]
   `stubs (:α) (data_conf with has_fp_ops := b) = stubs (:α) data_conf`
   (EVAL_TAC \\ fs []);
 
+Theorem stubs_with_has_fp_tern[simp]
+  `stubs (:'a) (data_conf with has_fp_tern := b) = stubs (:'a) data_conf`
+  (EVAL_TAC \\ fs []);
+
 Theorem data_to_word_compile_lab_pres `
   let (c,p) = compile data_conf word_conf asm_conf prog in
     MAP FST p = MAP FST (stubs(:α) data_conf) ++ MAP FST prog ∧
@@ -978,7 +982,8 @@ val MemEqList_no_inst = Q.prove(`
 val assign_no_inst = Q.prove(`
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-   (a.has_fp_ops ⇒ 2 < ac.fp_reg_count) ∧
+   (a.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
+   (a.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7) /\
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
   fs[assign_def]>>
@@ -1003,7 +1008,8 @@ Theorem comp_no_inst `
   ∀c n m p.
   ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-   (c.has_fp_ops ⇒ 2 < ac.fp_reg_count)) ∧
+   (c.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
+   (c.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7)) /\
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w ⇒
   every_inst (inst_ok_less ac) (FST(comp c n m p))`
   (ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
