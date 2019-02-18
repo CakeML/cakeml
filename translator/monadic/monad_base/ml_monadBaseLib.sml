@@ -524,7 +524,7 @@ fun create_dynamic_access_functions exn data_type =
         val case_tm = mk_comb(case_tm, var)
 
         fun add_fun (f, case_tm) =
-          if f = case_fun_var then
+          if f ~~ case_fun_var then
             mk_comb(case_tm, case_fun)
           else
             let
