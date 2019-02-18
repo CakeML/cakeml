@@ -5954,7 +5954,7 @@ Theorem stack_alloc_call_args
   rpt(pairarg_tac>>fs[call_args_def]));
 
 Theorem compile_has_fp_ops[simp]
-  `compile (dconf with has_fp_ops := b) code = compile dconf code`
+  `compile (dconf with <| has_fp_ops := b1; has_fp_tern := b2 |>) code = compile dconf code`
   (fs [compile_def,stubs_def,word_gc_code_def]
   \\ every_case_tac \\ fs []
   \\ fs [data_to_wordTheory.small_shift_length_def,
