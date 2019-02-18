@@ -18,7 +18,7 @@ val _ = process_topdecs `
         | Some c => (TextIO.output1 TextIO.stdOut c; recurse())
     in
       recurse () ;
-      TextIO.close fd
+      TextIO.closeIn fd
     end
 
   fun cat fnames =
@@ -43,19 +43,17 @@ Theorem do_onefile_spec
     ⇒
       app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (get_ml_prog_state())) [fnv]
        (STDIO fs)
-       (POST
+       (POSTve
          (\u. SEP_EXISTS content.
               &UNIT_TYPE () u *
               &(ALOOKUP fs.files (File fnm) = SOME content) *
               STDIO (add_stdout fs (implode content)))
          (\e. &BadFileName_exn e *
               &(~inFS_fname fs (File fnm)) *
-              STDIO fs)
-         (\n c b. &F))`
+              STDIO fs))`
   (rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
   xlet_auto_spec (SOME (SPEC_ALL openIn_STDIO_spec))
-  >- xsimpl
   >- xsimpl
   >- xsimpl
   \\ imp_res_tac nextFD_ltX
@@ -136,7 +134,7 @@ Theorem do_onefile_spec
       fs[UNIT_TYPE_def,STD_streams_openFileFS]
       \\ simp[get_mode_def]) >>
   (* calling close *)
-  xapp_spec close_STDIO_spec >>
+  xapp_spec closeIn_STDIO_spec >>
   xsimpl >> instantiate >>
   qmatch_goalsub_abbrev_tac`STDIO fs0` >>
   CONV_TAC SWAP_EXISTS_CONV >>
@@ -185,7 +183,6 @@ val cat_spec0 = Q.prove(
   progress inFS_fname_ALOOKUP_EXISTS >>
   xlet_auto_spec(SOME (SPEC_ALL do_onefile_spec))
   >- xsimpl
-  >- xsimpl
   >- xsimpl >>
   xapp \\
   xsimpl \\
@@ -197,7 +194,7 @@ val cat_spec0 = Q.prove(
   imp_res_tac add_stdo_o \\
   simp[Abbr`fs0`] \\
   simp[Once file_contents_def,SimpR``(==>>)``,concat_cons] \\
-  simp[file_contents_add_stdout] \\ xsimpl)
+  simp[file_contents_add_stdout] \\ xsimpl);
 
 val cat_spec = save_thm(
   "cat_spec",
@@ -223,13 +220,12 @@ Theorem cat1_spec
           &UNIT_TYPE () u *
           STDIO (add_stdout fs (catfile_string fs fnm)))`
   (xcf "cat1" (get_ml_prog_state()) >>
-  xhandle `POST
+  xhandle `POSTve
              (\u. SEP_EXISTS content. &UNIT_TYPE () u *
                &(ALOOKUP fs.files (File fnm) = SOME content) *
                STDIO (add_stdout fs (implode content)))
              (\e. &BadFileName_exn e * &(~inFS_fname fs (File fnm)) *
-               STDIO fs)
-             (\n c b. &F)` >> fs[]
+               STDIO fs)` >> fs[]
   >- ((*xapp_prepare_goal*) xapp >> fs[])
   >- (xsimpl >> rpt strip_tac >>
       imp_res_tac ALOOKUP_SOME_inFS_fname >>

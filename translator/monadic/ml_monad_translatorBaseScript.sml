@@ -156,7 +156,7 @@ fun SUFF_ABS_TAC (g as (asl, w)) =
       val (e1, e2) = dest_eq w
       val (x1, e1') = dest_abs e1
       val (x2, e2') = dest_abs e2
-      val _ = if x1 <> x2 then failwith "" else ()
+      val _ = if x1 !~ x2 then failwith "" else ()
       val w' = mk_forall(x1,  mk_eq(e1', e2'))
   in
       (SUFF_TAC w' THEN rw[]) g
@@ -344,7 +344,7 @@ Theorem STATE_DECOMPOS_FROM_HPROP
       FIRST_ASSUM (fn x => PURE_REWRITE_TAC[x]) >>
       SUFF_TAC ``(rv : v store_v) = HD(DROP l s.refs)``
       >-( fs[] >> Cases_on `DROP l s.refs` >- fs[DROP_NIL] >> fs[]) >>
-      fs[hd_drop]
+      fs[HD_DROP]
   ) >>
   irule FALSITY >>
   IMP_RES_TAC store2heap_IN_LENGTH >>

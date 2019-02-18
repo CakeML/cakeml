@@ -4239,30 +4239,30 @@ Theorem code_locs_decide_inline
 Theorem known_code_locs_bag
   `!c xs aenv g0 eas g.
      known c xs aenv g0 = (eas, g) ==>
-     bag_of_list (code_locs (MAP FST eas)) ≤ bag_of_list (code_locs xs)`
+     LIST_TO_BAG (code_locs (MAP FST eas)) ≤ LIST_TO_BAG (code_locs xs)`
   (recInduct known_ind
   \\ rw[known_def] \\ rw[]
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
   \\ imp_res_tac known_sing_EQ_E \\ rw []
-  \\ fs [code_locs_def, code_locs_append, bag_of_list_append]
+  \\ fs [code_locs_def, code_locs_append, LIST_TO_BAG_APPEND]
   \\ srw_tac [bagLib.SBAG_SOLVE_ss] []
-  THEN1 (simp [Once code_locs_cons, code_locs_append, bag_of_list_append]
+  THEN1 (simp [Once code_locs_cons, code_locs_append, LIST_TO_BAG_APPEND]
          \\ srw_tac [bagLib.SBAG_SOLVE_ss] [])
   THEN1 (qpat_abbrev_tac `gooblygook = gO_destApx _`
          \\ Cases_on `gooblygook` \\ simp [code_locs_def])
   THEN1 (fs [inlD_case_eq] \\ rw []
-         \\ fs [code_locs_def, code_locs_append, bag_of_list_append]
+         \\ fs [code_locs_def, code_locs_append, LIST_TO_BAG_APPEND]
          \\ srw_tac [bagLib.SBAG_SOLVE_ss] []
          \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
          \\ imp_res_tac code_locs_decide_inline
          \\ imp_res_tac known_sing_EQ_E
          \\ fs [bool_case_eq] \\ rw []
-         \\ simp [code_locs_def, code_locs_append, bag_of_list_append]
-         \\ fs [bag_of_list_def]
+         \\ simp [code_locs_def, code_locs_append, LIST_TO_BAG_APPEND]
+         \\ fs [LIST_TO_BAG_def]
          \\ srw_tac [bagLib.SBAG_SOLVE_ss] [])
   \\ simp[MAP_MAP_o, o_DEF, UNCURRY, code_locs_map]
   \\ irule (el 7 (CONJUNCTS SUB_BAG_UNION)) \\ simp []
-  \\ irule bag_of_list_sub_bag_FLAT_suff
+  \\ irule LIST_TO_BAG_SUB_BAG_FLAT_suff
   \\ fs[EVERY2_MAP]
   \\ irule EVERY2_refl
   \\ simp[MAP_EQ_f, FORALL_PROD]
@@ -4276,7 +4276,7 @@ Theorem known_code_locs_bag
 
 Theorem compile_code_locs_bag
   `clos_known$compile kc es = (kc', es') ⇒
-     bag_of_list (code_locs es') ≤ bag_of_list (code_locs es)`
+     LIST_TO_BAG (code_locs es') ≤ LIST_TO_BAG (code_locs es)`
   (Cases_on`kc`
   \\ rw[clos_knownTheory.compile_def]
   \\ pairarg_tac \\ fs[]
@@ -5349,7 +5349,7 @@ Theorem compile_locs
   \\ drule (GEN_ALL known_app_call_dests)
   \\ disch_then(fn th => assume_tac (SPEC``SOME T`` th) \\ assume_tac (SPEC``SOME F`` th))
   \\ fs[] \\ rfs[]
-  \\ cheat);
+  \\ ...);
 *)
 
 val _ = export_theory();

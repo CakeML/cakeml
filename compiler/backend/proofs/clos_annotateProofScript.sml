@@ -1,6 +1,7 @@
 (*
   Correctness proof for clos_annotate
 *)
+
 open preamble
      db_varsTheory
      closSemTheory closPropsTheory
@@ -373,14 +374,15 @@ Theorem v_to_words
   \\ fs[LIST_EQ_REWRITE,EL_MAP,LIST_REL_EL_EQN] \\ rfs[EL_MAP]
   \\ METIS_TAC[EL_MAP,o_DEF]);
 
-Theorem do_install_thm
-  `state_rel s1 t1 /\ LIST_REL v_rel xs ys /\
-   do_install xs s1 = (res1,s2) /\
-   do_install ys t1 = (res2,t2)
-   ==>
-   result_rel (λe1 e2. e2 = (annotate 0 e1)) (=) res1 res2 /\
-   state_rel s2 t2`
-  (fs[do_install_def]
+Theorem do_install_thm:
+  state_rel s1 t1 /\ LIST_REL v_rel xs ys /\
+  do_install xs s1 = (res1,s2) /\
+  do_install ys t1 = (res2,t2)
+  ==>
+  result_rel (λe1 e2. e2 = (annotate 0 e1)) (=) res1 res2 /\
+  state_rel s2 t2
+Proof
+  fs[do_install_def]
   \\ simp[CaseEq"list",CaseEq"prod",CaseEq"option"]
   \\ strip_tac \\ rveq \\ fs[]
   \\ imp_res_tac v_to_words
@@ -403,7 +405,7 @@ Theorem do_install_thm
   \\ `annotate 0 es = [] ⇔ es = []` by (
     simp[annotate_def]
     \\ rewrite_tac[GSYM LENGTH_NIL]
-    \\ rewrite_tac[shift_LENGTH_LEMMA, LENGTH_FST_alt_free] )
+    \\ rewrite_tac[shift_LENGTH_LEMMA, LENGTH_FST_alt_free])
   \\ fs[]
   \\ fs[CaseEq"bool"] \\ rveq \\ fs[] \\ rw[]
   THEN (
@@ -414,7 +416,8 @@ Theorem do_install_thm
     \\ TOP_CASE_TAC \\ fs[]
     \\ simp[annotate_def]
     \\ Cases_on`alt_free [c]`
-    \\ imp_res_tac alt_free_SING \\ fs[]));
+    \\ imp_res_tac alt_free_SING \\ fs[])
+QED
 
 (* compiler correctness *)
 

@@ -23,6 +23,9 @@ val _ = register_type ``:tag``;
 val _ = register_type ``:clash_tree``;
 val _ = register_type ``:algorithm``;
 
+val res = translate sortingTheory.PART_DEF;
+val res = translate sortingTheory.PARTITION_DEF;
+
 (*
  *  Set up the monadic translator
  *)
@@ -364,12 +367,10 @@ misc code to generate the unverified register allocator in SML
 
 open ml_progLib astPP
 
-val ML_code_prog =
+val prog =
   get_ml_prog_state ()
   |> clean_state |> remove_snocs
-  |> get_thm
-
-val prog = ML_code_prog |> concl |> strip_comb |> #2 |> el 3
+  |> ml_progLib.get_prog
 
 val _ = enable_astPP()
 val _ = trace("pp_avoids_symbol_merges",0)

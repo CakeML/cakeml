@@ -451,15 +451,6 @@ Theorem align_eq_0_imp
   \\ fs[MULT]
 *)
 
-Theorem words_of_bytes_append_word
-  `0 < LENGTH l1 ∧ (LENGTH l1 = w2n (bytes_in_word:'a word)) ⇒
-   (words_of_bytes be (l1 ++ l2) = word_of_bytes be (0w:'a word) l1 :: words_of_bytes be l2)`
-  (rw[]
-  \\ Cases_on`l1` \\ rw[words_of_bytes_def] \\ fs[]
-  \\ fs[MAX_DEF]
-  \\ first_x_assum(assume_tac o SYM) \\ fs[ADD1]
-  \\ rw[TAKE_APPEND,DROP_APPEND,DROP_LENGTH_NIL] \\ fs[]);
-
 Theorem asm_step_target_configured
   `asm_step c s1 i s2 ∧ target_configured s1 mc ⇒
    target_configured s2 mc`
@@ -7120,7 +7111,7 @@ Theorem ag32_interference_implemented
   \\ impl_tac >- fs[]
   (*
   \\ Cases_on`EL ffi_index ffi_names = "exit"` \\ fs[]
-  >- cheat (* remove exit from the list ? or implement it *)
+  >- ... (* remove exit from the list ? or implement it *)
   *)
   \\ Cases_on`EL ffi_index ffi_names = ""` \\ fs[]
   >- ffi_tac ag32_ffi_interfer_ ``ag32_ffi__code``

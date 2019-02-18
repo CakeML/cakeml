@@ -121,10 +121,6 @@ val ptree_UQTyop_def = Define`
             lf <- destLf pt;
             tk <- destTOK lf;
             destSymbolT tk ++ destAlphaT tk
-          od ++
-          do
-            assert (tokcheck pt RefT) ;
-            return "ref"
           od
         | _ => NONE
 `;
@@ -414,14 +410,9 @@ val ptree_Dconstructor_def = Define`
                                  args <- ptree_TbaseList blist ;
                                  return args
                                od
-                             | [oft; ty_pt] =>
-                               if tokcheck oft OfT then
-                                 OPTION_MAP detuplify (ptree_Type nType ty_pt)
-                               else NONE
                              | _ => NONE;
                  SOME(cname, types)
               od
-            | _ :: t => NONE
         else NONE
 `;
 
@@ -592,7 +583,6 @@ val ptree_OpID_def = Define`
                  (return (Con (SOME (Short "*")) []))
                  (return (Var (Short "*")))
            else if tk = EqualsT then return (Var (Short "="))
-           else if tk = RefT then return (Var (Short "ref"))
            else NONE)
         | _ => NONE
 `;
@@ -605,7 +595,7 @@ val Papply_def = Define`
 `;
 
 val maybe_handleRef_def = Define‘
-  maybe_handleRef (Pcon (SOME (Short "ref")) [pat]) = Pref pat ∧
+  maybe_handleRef (Pcon (SOME (Short "Ref")) [pat]) = Pref pat ∧
   maybe_handleRef p = p
 ’;
 
@@ -632,7 +622,7 @@ val ptree_Pattern_def = Define`
           do assert(tokcheck vic UnderbarT) ; return Pany od
         | [lb; rb] =>
           if tokcheckl args [LbrackT; RbrackT] then
-            SOME(Pcon (SOME (Short "nil")) [])
+            SOME(Pcon (SOME (Short "[]")) [])
           else if tokcheckl [lb] [OpT] then
             do e <- ptree_OpID rb ; EtoPat e od
           else NONE
@@ -641,7 +631,7 @@ val ptree_Pattern_def = Define`
             assert (tokcheckl [lb;rb] [LbrackT; RbrackT]);
             plist <- ptree_Plist plistpt;
             SOME (FOLDR (λp a. Pcon (SOME (Short "::")) [p; a])
-                        (Pcon (SOME (Short "nil")) [])
+                        (Pcon (SOME (Short "[]")) [])
                         plist)
           od
         | _ => NONE
@@ -651,10 +641,6 @@ val ptree_Pattern_def = Define`
         do
           cname <- ptree_ConstructorName cn ;
           return (Pcon (SOME cname) [])
-        od ++
-        do
-          assert (tokcheck cn RefT) ;
-          return (Pcon (SOME (Short "ref")) [])
         od
       | [capp_pt; base_pt] =>
         do
@@ -791,14 +777,16 @@ val mkAst_App_def = Define`
     in
       dest_Conk a10
         (λnm_opt args.
-          let (a2', loc2) = strip_loc_expr a2
-          in optLannot (merge_locsopt loc1 loc2) (Con nm_opt (args ++ [a2'])))
+          if nm_opt = SOME (Short "Ref") ∧ NULL args then App Opref [a2]
+          else
+            let (a2', loc2) = strip_loc_expr a2
+            in
+              optLannot (merge_locsopt loc1 loc2) (Con nm_opt (args ++ [a2'])))
         (dtcase a10 of
            App opn args =>
              (dtcase (destFFIop opn) of
                 NONE => App Opapp [a1;a2]
               | SOME s => App opn (args ++ [a2]))
-         | Var (Short "ref") => App Opref [a2]
          | _ => App Opapp [a1;a2])
 `;
 
@@ -858,7 +846,7 @@ local
               assert(tokcheckl [lpart;rpart][LbrackT; RbrackT]);
               elist <- ptree_Exprlist nElist1 pt;
               SOME(FOLDR (λe acc. Con (SOME (Short "::")) [e; acc])
-                         (Con (SOME (Short "nil")) [])
+                         (Con (SOME (Short "[]")) [])
                          elist)
             od
           | [single] =>
@@ -870,12 +858,11 @@ local
               do cname <- ptree_ConstructorName single;
                  SOME (Con (SOME cname) [])
               od ++
-              ptree_Expr nEtuple single ++
-              do assert (tokcheck single RefT) ; return (Var (Short "ref")) od
+              ptree_Expr nEtuple single
           | [lp;rp] => if tokcheckl [lp;rp][LparT;RparT] then
                          SOME (Con NONE [])
                        else if tokcheckl [lp;rp] [LbrackT; RbrackT] then
-                         SOME (Con (SOME (Short "nil")) [])
+                         SOME (Con (SOME (Short "[]")) [])
                        else if tokcheck lp OpT then
                          ptree_OpID rp
                        else

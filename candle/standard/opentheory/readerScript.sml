@@ -3,7 +3,6 @@
   article checker.
 *)
 open preamble ml_hol_kernelProgTheory
-     mlnumTheory
      mlintTheory StringProgTheory
      prettyTheory
 

@@ -14,4 +14,7 @@ structure Main =
       val doit = f
    end
 
-val foo = Main.doit 6;
+val foo = Main.doit 4;
+
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

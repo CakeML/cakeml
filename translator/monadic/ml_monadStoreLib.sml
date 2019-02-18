@@ -14,11 +14,13 @@ open ml_monadBaseTheory ml_monad_translatorBaseTheory ml_monad_translatorTheory 
 open Redblackmap AC_Sort Satisfy
 open ml_translatorLib
 
-(* COPY/PASTE from basisFunctionsLib *)
+(* COPY/PASTE from other manual eval_rel proofs *)
 fun derive_eval_thm for_eval v_name e = let
-  val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_Dlet_var th
-  val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
+  val env = get_ml_prog_state () |> get_env
+  val st = get_ml_prog_state () |> get_state
+  val st2 = mk_var ("st2", type_of st)
+  val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
+    [st, env, e, st2, mk_var ("x", semanticPrimitivesSyntax.v_ty)])
   val lemma = goal
     |> (NCONV 50 (SIMP_CONV (srw_ss()) [evaluate_def,ml_progTheory.eval_rel_alt,
             PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
@@ -34,7 +36,7 @@ fun derive_eval_thm for_eval v_name e = let
   val v_tm = v_thm |> concl |> rand
   val v_def = define_abbrev for_eval v_name v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
-(* end of COPY/PASTE from basisFunctionsLib *)
+(* end of COPY/PASTE *)
 
 fun ERR fname msg = mk_HOL_ERR "ml_monadStoreLib" fname msg;
 

@@ -41,14 +41,12 @@ Theorem COMMANDLINE_FFI_part_hprop
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
 val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
 
-val st = get_ml_prog_state();
-
 Theorem CommandLine_read16bit
   `2 <= LENGTH a ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.read16bit" st) [av]
+   app (p:'ffi ffi_proj) CommandLine_read16bit_v [av]
      (W8ARRAY av a)
      (POSTv v. W8ARRAY av a * & NUM (w2n (EL 0 a) + 256 * w2n (EL 1 a)) v)`
-  (xcf "CommandLine.read16bit" st
+  (xcf_with_def "CommandLine.read16bit" CommandLine_read16bit_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
@@ -62,10 +60,10 @@ Theorem CommandLine_read16bit
 
 Theorem CommandLine_write16bit
   `NUM n nv /\ 2 <= LENGTH a ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.write16bit" st) [av;nv]
+   app (p:'ffi ffi_proj) CommandLine_write16bit_v [av;nv]
      (W8ARRAY av a)
      (POSTv v. W8ARRAY av (n2w n::n2w (n DIV 256)::TL (TL a)))`
-  (xcf "CommandLine.write16bit" st
+  (xcf_with_def "CommandLine.write16bit" CommandLine_write16bit_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
@@ -109,16 +107,16 @@ Theorem CommandLine_cloop_spec
   `!n nv av cv a.
      LIST_TYPE STRING_TYPE (DROP n cl) cv /\
      NUM n nv /\ n <= LENGTH cl /\ LENGTH a = 2 ==>
-     app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.cloop" st) [av; nv; cv]
+     app (p:'ffi ffi_proj) CommandLine_cloop_v [av; nv; cv]
       (COMMANDLINE cl * W8ARRAY av a)
       (POSTv v. & LIST_TYPE STRING_TYPE cl v * COMMANDLINE cl)`
   (Induct \\ rw []
   THEN1
-   (xcf "CommandLine.cloop" st
+   (xcf_with_def "CommandLine.cloop" CommandLine_cloop_v_def
     \\ xlet_auto THEN1 xsimpl
     \\ xif \\ asm_exists_tac \\ fs []
     \\ xvar \\ xsimpl)
-  \\ xcf "CommandLine.cloop" st
+  \\ xcf_with_def "CommandLine.cloop" CommandLine_cloop_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ asm_exists_tac \\ fs []
   \\ rpt (xlet_auto THEN1 xsimpl)
@@ -182,10 +180,12 @@ Theorem CommandLine_cloop_spec
 
 Theorem CommandLine_cline_spec
   `UNIT_TYPE u uv ==>
-   app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.cline" st) [uv]
+   app (p:'ffi ffi_proj) CommandLine_cline_v [uv]
     (COMMANDLINE cl)
     (POSTv v. & LIST_TYPE STRING_TYPE cl v * COMMANDLINE cl)`
-  (xcf "CommandLine.cline" st
+  (xcf_with_def "CommandLine.cline" CommandLine_cline_v_def
+  \\ fs [UNIT_TYPE_def] \\ rveq
+  \\ xmatch
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_rename_tac `W8ARRAY av`
@@ -221,14 +221,12 @@ val mlstring_hd_v_thm = hd_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring
 
 Theorem CommandLine_name_spec
   `UNIT_TYPE u uv ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.name" st) [uv]
+    app (p:'ffi ffi_proj) CommandLine_name_v [uv]
     (COMMANDLINE cl)
     (POSTv namev. & STRING_TYPE (HD cl) namev * COMMANDLINE cl)`
-  (xcf "CommandLine.name" st
-  \\ xlet `POSTv vz. & UNIT_TYPE () vz * COMMANDLINE cl`
-  >-(xcon \\ xsimpl)
+  (xcf_with_def "CommandLine.name" CommandLine_name_v_def
   \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE cl cs * COMMANDLINE cl`
-  >-(xapp \\ rw[])
+  >-(xapp \\ rw[] \\ fs [])
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
   \\ xapp_spec mlstring_hd_v_thm
   \\ xsimpl \\ instantiate \\ Cases_on `cl` \\ rw[]);
@@ -251,18 +249,16 @@ Theorem EvalM_name
 
 Theorem CommandLine_arguments_spec
   `UNIT_TYPE u uv ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "CommandLine.arguments" st) [uv]
+    app (p:'ffi ffi_proj) CommandLine_arguments_v [uv]
     (COMMANDLINE cl)
     (POSTv argv. & LIST_TYPE STRING_TYPE
        (TL cl) argv * COMMANDLINE cl)`
-  (xcf "CommandLine.arguments" st
-  \\ xlet `POSTv vz. & UNIT_TYPE () vz * COMMANDLINE cl`
-  >-(xcon \\ xsimpl)
+  (xcf_with_def "CommandLine.arguments" CommandLine_arguments_v_def
   \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE cl cs * COMMANDLINE cl`
-  >-(xapp \\ rw[])
+  >-(xapp \\ rw[] \\ fs [])
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
   \\ xapp_spec mlstring_tl_v_thm \\ xsimpl \\ instantiate
-  \\ Cases_on `cl` \\ rw[mllistTheory.tl_def]);
+  \\ Cases_on `cl` \\ rw[TL_DEF]);
 
 val arguments_def = Define `
   arguments () = (\cl. (Success (TL cl), cl))`

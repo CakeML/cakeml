@@ -262,12 +262,12 @@ Theorem array_copy_aux_spec
       NUM di div /\ NUM n nv /\ NUM max maxv /\
       di = LENGTH bfr/\ LENGTH mid = max - n /\ n <= max /\
       max <= LENGTH src
-      ==> app (p:'ffi ffi_proj) ^(fetch_v "Array.copy_aux" array_st) [srcv; dstv; div; maxv; nv]
+      ==> app (p:'ffi ffi_proj) Array_copy_aux_v [srcv; dstv; div; maxv; nv]
       (ARRAY srcv src * ARRAY dstv (bfr ++ mid ++ afr))
     (POSTv uv. ARRAY srcv src *
                ARRAY dstv (bfr ++ (TAKE (max -n) (DROP n src)) ++ afr))`
       (gen_tac \\ gen_tac \\ Induct_on `max - n` >>
-      xcf "Array.copy_aux" array_st
+      xcf_with_def "Array.copy_aux" Array_copy_aux_v_def
       >-(xlet_auto >> (xsimpl >> xif) >>
          instantiate >> xcon >> xsimpl >> metis_tac[TAKE_0,LENGTH_NIL]) >>
       xlet_auto >- xsimpl >>
@@ -307,12 +307,12 @@ Theorem array_app_aux_spec
      n < LENGTH l ⇒
      app p f_v [EL n l] (eff l n) (POSTv v. &UNIT_TYPE () v * (eff l (n+1))))
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "Array.app_aux" array_st) [f_v; a_v; len_v; idx_v]
+   app (p:'ffi ffi_proj) Array_app_aux_v [f_v; a_v; len_v; idx_v]
      (eff l idx * ARRAY a_v l)
      (POSTv v. &UNIT_TYPE () v * (eff l (LENGTH l)) * ARRAY a_v l)`
   (ntac 2 gen_tac >>
   completeInduct_on `LENGTH l - idx` >>
-  xcf "Array.app_aux" array_st  >>
+  xcf_with_def "Array.app_aux" Array_app_aux_v_def >>
   rw [] >>
   xlet `POSTv env_v. eff l idx * ARRAY a_v l * &BOOL (idx = LENGTH l) env_v`
   >- (
@@ -381,16 +381,16 @@ val ARRAY_TYPE_def = Define`
 Theorem array_modify_aux_spec
   `!a n f fv vs av max maxv nv A.
     NUM max maxv /\ LENGTH a = max /\ NUM n nv /\ (A --> A) f fv /\ n <= max /\ LIST_REL A a vs
-    ==> app (p:'ffi ffi_proj) ^(fetch_v "Array.modify_aux" array_st) [fv; av; maxv; nv]
+    ==> app (p:'ffi ffi_proj) Array_modify_aux_v [fv; av; maxv; nv]
     (ARRAY av vs) (POSTv uv. SEP_EXISTS vs1 vs2. ARRAY av (vs1 ++ vs2) * cond(EVERY2 A (TAKE n a) vs1) * cond(EVERY2 A (MAP f (DROP n a)) vs2))`
     (gen_tac \\ gen_tac \\ Induct_on `LENGTH a - n`
-      >-(xcf "Array.modify_aux" array_st
+      >-(xcf_with_def "Array.modify_aux" Array_modify_aux_v_def
       \\ rw[] \\ xlet `POSTv bool. & (BOOL (nv = maxv) bool) * ARRAY av vs`
         >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
       \\ xif
         >- (xcon \\ xsimpl \\ fs[NUM_def, INT_def, BOOL_def] \\ rw[DROP_LENGTH_NIL])
       \\ `LENGTH a = n` by DECIDE_TAC \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ xcf "Array.modify_aux" array_st
+    \\ xcf_with_def "Array.modify_aux" Array_modify_aux_v_def
     \\ xlet `POSTv bool. & (BOOL (nv = maxv) bool) * ARRAY av vs`
       >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def, BOOL_def])
     \\ xif
@@ -447,17 +447,17 @@ Theorem array_modifyi_aux_spec
   `!a n f fv vs av max maxv nv A.
     NUM max maxv /\ max = LENGTH a /\ NUM n nv /\ (NUM --> A --> A) f fv /\ n <= max /\
     LIST_REL A a vs
-    ==> app (p:'ffi ffi_proj) ^(fetch_v "Array.modifyi_aux" array_st) [fv; av; maxv; nv]
+    ==> app (p:'ffi ffi_proj) Array_modifyi_aux_v [fv; av; maxv; nv]
     (ARRAY av vs) (POSTv uv. SEP_EXISTS vs1 vs2. ARRAY av (vs1 ++ vs2) * cond(EVERY2 A (TAKE n a) vs1) *
       cond(EVERY2 A (MAPi (\i. f (n + i)) (DROP n a)) vs2))`
     (gen_tac \\ gen_tac \\ Induct_on `LENGTH a - n`
-      >-(xcf "Array.modifyi_aux" array_st
+      >-(xcf_with_def "Array.modifyi_aux" Array_modifyi_aux_v_def
         \\ xlet `POSTv bool. & BOOL (nv=maxv) bool * ARRAY av vs`
           >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[INT_def, NUM_def, BOOL_def])
         \\ xif
           >-(xcon \\ xsimpl \\ fs[NUM_def, INT_def] \\ rw[DROP_LENGTH_NIL])
         \\ `LENGTH a = n` by DECIDE_TAC \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ xcf "Array.modifyi_aux" array_st
+    \\ xcf_with_def "Array.modifyi_aux" Array_modifyi_aux_v_def
     \\ xlet `POSTv bool. & BOOL (nv=maxv) bool * ARRAY av vs`
       >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[INT_def, NUM_def, BOOL_def])
     \\ xif
@@ -514,16 +514,16 @@ Theorem array_foldli_aux_spec
   `!a n f fv init initv vs av max maxv nv (A:'a->v->bool) (B:'b->v->bool).
     (NUM-->B-->A-->A) f fv /\ LIST_REL B a vs /\ A init initv /\ NUM max maxv /\ NUM n nv
     /\ max = LENGTH a /\ n <= max
-    ==> app (p:'ffi ffi_proj) ^(fetch_v "foldli_aux" foldli_st) [fv; initv; av; maxv; nv]
+    ==> app (p:'ffi ffi_proj) Array_foldli_aux_v [fv; initv; av; maxv; nv]
     (ARRAY av vs) (POSTv val. & A (mllist$foldli (\i. f (i + n)) init (DROP n a)) val * ARRAY av vs)`
     (gen_tac \\ gen_tac \\ Induct_on `LENGTH a - n`
-      >-(xcf "foldli_aux" foldli_st
+      >-(xcf_with_def "foldli_aux" Array_foldli_aux_v_def
       \\ xlet `POSTv bool. & BOOL (nv = maxv) bool * ARRAY av vs`
         >-(xapp \\ xsimpl \\ instantiate\\ fs[BOOL_def, INT_def, NUM_def])
       \\ xif
         >-(xvar \\ xsimpl \\ fs[NUM_def, INT_def, DROP_LENGTH_NIL, mllistTheory.foldli_def, mllistTheory.foldli_aux_def])
      \\ fs[NUM_def, INT_def, BOOL_def] \\ rfs[])
-    \\ xcf "foldli_aux" foldli_st
+    \\ xcf_with_def "foldli_aux" Array_foldli_aux_v_def
     \\ xlet `POSTv bool. & BOOL (nv = maxv) bool * ARRAY av vs`
       >-(xapp \\ xsimpl \\ instantiate\\ fs[BOOL_def, INT_def, NUM_def])
     \\ xif
@@ -536,7 +536,7 @@ Theorem array_foldli_aux_spec
       >-(xapp \\ xsimpl \\ instantiate \\ qexists_tac `EL n a` \\ fs[LIST_REL_EL_EQN])
     \\ first_x_assum(qspecl_then [`a`, `n + 1`] mp_tac) \\ rw[]
     \\ xapp \\ xsimpl \\ instantiate \\ rw[mllistTheory.foldli_def, mllistTheory.foldli_aux_def, DROP_EL_CONS]
-    \\ cheat (*How to deal with foldli_aux as it has nothing proved about it *)
+    \\ ... (*How to deal with foldli_aux as it has nothing proved about it *)
 );
 
 Theorem array_foldli_spec
@@ -554,9 +554,9 @@ Theorem array_foldl_aux_spec
   `!f fv init initv a vs av max maxv n nv (A:'a->v->bool) (B:'b->v->bool).
     (B-->A-->A) f fv /\ LIST_REL B a vs /\ A init initv /\ NUM max maxv /\ NUM n nv
     /\ max = LENGTH a /\ n <= max
-    ==> app (p:'ffi ffi_proj) ^(fetch_v "foldl_aux" foldl_st) [fv; initv; av; maxv; nv]
+    ==> app (p:'ffi ffi_proj) Array_foldl_aux_v [fv; initv; av; maxv; nv]
     (ARRAY av vs) (POSTv val. & A (FOLDL (\i. f (i + n)) init (DROP n a)) val * ARRAY av vs)`
-    (xcf "foldl_aux" foldl_st
+    (xcf_with_def "foldl_aux" Array_foldl_aux_v_def
     \\ xlet `POSTv bool. & BOOL (nv = maxv) bool * ARRAY av vs`
       >-(xapp \\ xsimpl \\ instantiate\\ fs[BOOL_def, INT_def, NUM_def])
     \\ xif
@@ -564,12 +564,12 @@ Theorem array_foldl_aux_spec
     \\ xlet `POSTv n1. & NUM (n + 1) n1 * ARRAY av vs`
       >-(xapp \\ xsimpl \\ qexists_tac `&n` \\ fs[NUM_def, integerTheory.INT_ADD])
     \\ xlet `POSTv res. & A (f init b) res * ARRAY av vs`
-      >-(cheat (*xapp*))
+      >-(... (*xapp*))
     \\ xlet `POSTv val. & (val = EL n vs) * ARRAY av vs`
       >-(xapp \\ xsimpl \\ imp_res_tac LIST_REL_LENGTH \\ fs[NUM_def, INT_def] \\ rfs[])
     \\ Induct_on `LENGTH a - n`
       >-(rw[] \\ imp_res_tac LIST_REL_LENGTH \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ rw[] \\ cheat (*xapp*)
+    \\ rw[] \\ ... (*xapp*)
 );
 
 Theorem array_foldl_spec
@@ -588,16 +588,16 @@ Theorem array_foldri_aux_spec
     `!n f fv init initv a vs av nv (A:'a->v->bool) (B:'b->v->bool).
       (NUM-->B-->A-->A) f fv /\ LIST_REL B a vs /\ A init initv /\
       NUM n nv /\ n <= LENGTH a
-      ==> app (p:'ffi ffi_proj) ^(fetch_v "foldri_aux" foldri_st) [fv; initv; av; nv]
+      ==> app (p:'ffi ffi_proj) Array_foldri_aux_v [fv; initv; av; nv]
       (ARRAY av vs) (POSTv val. & A (FOLDRi f init (TAKE n a)) val * ARRAY av vs)`
     (gen_tac \\ Induct_on `n`
-      >-(xcf "foldri_aux" foldri_st
+      >-(xcf_with_def "foldri_aux" Array_foldri_aux_v_def
       \\ xlet `POSTv bool. SEP_EXISTS ov. & BOOL (nv = ov) bool * ARRAY av vs * & NUM 0 ov`
         >-(xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
       \\ xif
         >-(xvar \\ xsimpl)
       \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ xcf "foldri_aux" foldri_st
+    \\ xcf_with_def "foldri_aux" Array_foldri_aux_v_def
     \\ xlet `POSTv bool. SEP_EXISTS ov. & BOOL (nv = ov) bool * ARRAY av vs * & NUM 0 ov`
       >-(xapp \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
     \\ xif
@@ -613,7 +613,7 @@ Theorem array_foldri_aux_spec
     \\ xlet `POSTv res. & (A (f n (EL n a) init) res) * ARRAY av vs`
         >-(xapp \\ xsimpl \\ instantiate \\ qexists_tac`EL n a` \\ fs[LIST_REL_EL_EQN])
     \\ xapp \\ xsimpl \\ instantiate \\ fs[TAKE_EL_SNOC, ADD1] (*need something similar to FOLDR SNOC*)
-    \\ cheat
+    \\ ...
 );
 
 Theorem array_foldri_spec
@@ -634,16 +634,16 @@ Theorem array_foldr_aux_spec
     `!n f fv init initv a vs av nv (A:'a->v->bool) (B:'b->v->bool).
       (B-->A-->A) f fv /\ LIST_REL B a vs /\ A init initv /\
       NUM n nv /\ n <= LENGTH a
-      ==> app (p:'ffi ffi_proj) ^(fetch_v "Array.foldr_aux" array_st) [fv; initv; av; nv]
+      ==> app (p:'ffi ffi_proj) Array_foldr_aux_v [fv; initv; av; nv]
       (ARRAY av vs) (POSTv val. & A (FOLDR f init (TAKE n a)) val * ARRAY av vs)`
     (gen_tac \\ Induct_on `n`
-      >-(xcf "Array.foldr_aux" array_st
+      >-(xcf_with_def "Array.foldr_aux" Array_foldr_aux_v_def
       \\ xlet `POSTv bool. SEP_EXISTS ov. & BOOL (nv = ov) bool * ARRAY av vs * & NUM 0 ov`
         >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
       \\ xif
         >-(xvar \\ xsimpl)
       \\ fs[NUM_def, INT_def] \\ rfs[])
-    \\ xcf "Array.foldr_aux" array_st
+    \\ xcf_with_def "Array.foldr_aux" Array_foldr_aux_v_def
     \\ xlet `POSTv bool. SEP_EXISTS ov. & BOOL (nv = ov) bool * ARRAY av vs * & NUM 0 ov`
       >-(xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[NUM_def, INT_def])
     \\ xif

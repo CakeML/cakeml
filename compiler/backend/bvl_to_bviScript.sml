@@ -239,15 +239,16 @@ local val compile_op_quotation = `
     | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
     | _ => Op op c1`
 in
-val compile_op_def = Define compile_op_quotation
+val compile_op_def = Define compile_op_quotation;
 
-Theorem compile_op_pmatch (`∀op c1.` @
-  (compile_op_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)))
+Theorem compile_op_pmatch
+  (`∀op c1.` @
+    (compile_op_quotation |>
+     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+         | aq => aq)))
   (rpt strip_tac
-  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[compile_op_def])
+   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+   >> fs[compile_op_def]);
 end
 
 val _ = temp_overload_on("++",``SmartAppend``);

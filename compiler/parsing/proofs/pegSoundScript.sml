@@ -652,27 +652,8 @@ Theorem peg_sound
        NT_rank (mkNT nPbase) < NT_rank (mkNT nPapp)`
         by simp[NT_rank_def] >>
       reverse strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied]
-      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >> fs[])
-      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >> fs[])
-      >- (rename [‘RefT = FST tkl’] >> Cases_on ‘tkl’ >> fs[] >>
-          rveq >> fs[peg_eval_rpt] >>
-          first_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nPbase) I) _’ o
-                       mp_then (Pos (el 2)) mp_tac) >>
-          simp_tac (srw_ss()) [] >>
-          disch_then (qx_choose_then ‘pb1pt’ strip_assume_tac) >> rveq >>
-          simp[ptPapply_def] >>
-          first_assum (mp_then (Pos (el 2)) mp_tac ptPapply_lemma) >>
-          ntac 2 (disch_then (first_assum o mp_then (Pos (el 2)) mp_tac)) >>
-          rename [‘SUC (LENGTH i1)’, ‘(RefT, refloc)’] >>
-          disch_then
-            (qspecl_then [‘SUC (LENGTH i1)’,
-                          ‘mkNd (mkNT nPConApp)
-                                [Lf (TK RefT, refloc)]’]
-                         mp_tac) >>
-          simp[cmlG_FDOM, cmlG_applied] >> disch_then irule >>
-          imp_res_tac
-            (MATCH_MP not_peg0_LENGTH_decreases peg0_nPbase) >>
-          simp[]) >>
+      >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
+          fs[]) >>
       first_x_assum (erule mp_tac) >> strip_tac >> rveq >> dsimp[] >>
       imp_res_tac
         (MATCH_MP not_peg0_LENGTH_decreases peg0_nConstructorName) >>
@@ -736,16 +717,12 @@ Theorem peg_sound
         by simp[NT_rank_def] >>
       strip_tac >>
       rveq >> simp[cmlG_FDOM, cmlG_applied, listTheory.APPEND_EQ_CONS,
-                   MAP_EQ_SING] >> (* three subgoals, all with UQCons first *)
+                   MAP_EQ_SING] >>
       first_x_assum (qpat_x_assum ‘NT_rank _ < NT_rank _’ o
                      mp_then (Pos hd) mp_tac) >>
       disch_then (first_assum o
                   mp_then (Pos hd) strip_assume_tac) >>
-      simp[] >> rveq >> dsimp[] >> csimp[] (* still three *)
-      >- (first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nType) I) _’ o
-                         mp_then Any mp_tac) >>
-          metis_tac[not_peg0_LENGTH_decreases, peg0_nUQConstructorName,
-                    LENGTH, DECIDE``SUC x < y ⇒ x < y``, MAP]) >>
+      simp[] >> rveq >> dsimp[] >> csimp[] >>
       first_x_assum (qpat_assum ‘peg_eval _ (_, nt (mkNT nTbaseList) I) _’o
                      mp_then Any mp_tac) >>
       metis_tac[not_peg0_LENGTH_decreases, peg0_nUQConstructorName,

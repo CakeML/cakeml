@@ -326,8 +326,7 @@ fun define_abbrev_conv name tm = let
   in GSYM def |> SPEC_ALL end
 
 val candle_prog_thm =
-  get_thm (get_ml_prog_state()) (* (get_curr_prog_state ()) *)
-  |> REWRITE_RULE [ML_code_def]
+  get_Decls_thm (get_ml_prog_state()) (* (get_curr_prog_state ()) *)
   |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV)
                 (EVAL THENC define_abbrev_conv "candle_code"))
   |> CONV_RULE ((RATOR_CONV o RAND_CONV)

@@ -1,9 +1,10 @@
 (*
   Correctness proof for source_to_flat
 *)
-open preamble;
-open semanticsTheory namespacePropsTheory semanticPrimitivesTheory semanticPrimitivesPropsTheory;
-open source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory;
+
+open preamble semanticsTheory namespacePropsTheory
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory
+     source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
 
 val _ = new_theory "source_to_flatProof";
 
@@ -93,13 +94,13 @@ val _ = Datatype `
 
 val has_bools_def = Define `
   has_bools genv ⇔
-    FLOOKUP genv ((true_tag, SOME bool_id), 0n) = SOME (TypeStamp "true" bool_type_num) ∧
-    FLOOKUP genv ((false_tag, SOME bool_id), 0n) = SOME (TypeStamp "false" bool_type_num)`;
+    FLOOKUP genv ((true_tag, SOME bool_id), 0n) = SOME (TypeStamp "True" bool_type_num) ∧
+    FLOOKUP genv ((false_tag, SOME bool_id), 0n) = SOME (TypeStamp "False" bool_type_num)`;
 
 val has_lists_def = Define `
   has_lists genv ⇔
     FLOOKUP genv ((cons_tag, SOME list_id), 2n) = SOME (TypeStamp "::" list_type_num) ∧
-    FLOOKUP genv ((nil_tag, SOME list_id), 0n) = SOME (TypeStamp "nil" list_type_num)`;
+    FLOOKUP genv ((nil_tag, SOME list_id), 0n) = SOME (TypeStamp "[]" list_type_num)`;
 
 val has_exns_def = Define `
   has_exns genv ⇔
@@ -3975,12 +3976,12 @@ Theorem compile_exp_esgc_free
 
 Theorem set_globals_make_varls
   `∀a b c d. flatProps$set_globals (make_varls a b c d) =
-             bag_of_list (MAP ((+)c) (COUNT_LIST (LENGTH d)))`
+             LIST_TO_BAG (MAP ((+)c) (COUNT_LIST (LENGTH d)))`
   (recInduct source_to_flatTheory.make_varls_ind
   \\ rw[source_to_flatTheory.make_varls_def]
   >- EVAL_TAC
   >- ( EVAL_TAC \\ rw[] \\ rw[EL_BAG] )
-  \\ simp[COUNT_LIST_def, MAP_MAP_o, ADD1, o_DEF, bag_of_list_thm]
+  \\ simp[COUNT_LIST_def, MAP_MAP_o, ADD1, o_DEF, LIST_TO_BAG_def]
   \\ EVAL_TAC
   \\ AP_THM_TAC
   \\ simp[FUN_EQ_THM]
@@ -4132,7 +4133,7 @@ Theorem compile_decs_elist_globals
    compile_decs n next env ds = (e,f,g,p) ∧
    nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) env.v ⇒
    elist_globals (MAP dest_Dlet (FILTER is_Dlet p)) =
-     bag_of_list (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings ds))))`
+     LIST_TO_BAG (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings ds))))`
   (recInduct source_to_flatTheory.compile_decs_ind
   \\ rw[source_to_flatTheory.compile_decs_def]
   \\ rw[set_globals_make_varls]
@@ -4199,9 +4200,9 @@ Theorem compile_decs_elist_globals
       \\ rw[] )
     \\ rw[COUNT_LIST_ADD_SYM]
     \\ simp[MAP_MAP_o, o_DEF]
-    \\ rw[bag_of_list_append]
+    \\ rw[LIST_TO_BAG_APPEND]
     \\ simp[EVAL``COUNT_LIST 1``]
-    \\ rw[bag_of_list_thm]
+    \\ rw[LIST_TO_BAG_def]
     \\ first_x_assum(qspec_then`0`mp_tac)
     \\ rw[]
     \\ AP_TERM_TAC
@@ -4229,7 +4230,7 @@ Theorem compile_decs_elist_globals
     \\ rw []
     \\ imp_res_tac compile_decs_num_bindings
     \\ rw [COUNT_LIST_ADD_SYM]
-    \\ srw_tac [ETA_ss] [bag_of_list_append, MAP_MAP_o, o_DEF]
+    \\ srw_tac [ETA_ss] [LIST_TO_BAG_APPEND, MAP_MAP_o, o_DEF]
     \\ AP_TERM_TAC
     \\ simp [MAP_EQ_f]
   )
@@ -4254,7 +4255,7 @@ Theorem compile_decs_elist_globals
     \\ `a + (b + c) = b + (a + c)` by simp[]
     \\ pop_assum SUBST_ALL_TAC
     \\ simp[Once COUNT_LIST_ADD,SimpRHS]
-    \\ simp[bag_of_list_append]
+    \\ simp[LIST_TO_BAG_APPEND]
     \\ simp[MAP_MAP_o, o_DEF]
     \\ rw[]
     \\ AP_TERM_TAC

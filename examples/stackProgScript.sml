@@ -13,7 +13,7 @@ val _ = Datatype `exn_type = EmptyStack`;
 val _ = register_exn_type ``:exn_type``;
 
 val stack_decls = process_topdecs
-   ‘fun empty_stack u = ref (Array.arrayEmpty (), 0)
+   ‘fun empty_stack u = Ref (Array.arrayEmpty (), 0)
 
     fun push q e =
         case !q of (a,i) =>
@@ -167,9 +167,8 @@ Theorem pop_spec
    EqualityType A ==>
    app (p:'ffi ffi_proj) ^(fetch_v "pop" st) [qv]
    (STACK A vs qv)
-   (POST (\v. &(not(NULL vs) /\ A (LAST vs) v) * STACK A (FRONT vs) qv)
-         (\e. &(NULL vs /\ EmptyStack_exn e) * STACK A vs qv)
-         (\n c b. &F))`
+   (POSTve (\v. &(not(NULL vs) /\ A (LAST vs) v) * STACK A (FRONT vs) qv)
+           (\e. &(NULL vs /\ EmptyStack_exn e) * STACK A vs qv))`
    (xcf "pop" st >>
    simp[STACK_def] >>
    xpull >>
