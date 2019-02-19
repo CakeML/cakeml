@@ -804,7 +804,7 @@ local
                              GSYM AND_IMP_INTRO] handle_spec
       (* Check *)
       val f = UNDISCH_ALL handle_spec |> concl |> rator |> rand |> rand
-      val _ = if f = handle_fun then () else raise (ERR "prove_handle_spec"
+      val _ = if f ~~ handle_fun then () else raise (ERR "prove_handle_spec"
                  "Error : the generated spec does not have the proper form")
 
       (* Generalize *)
@@ -1166,7 +1166,7 @@ fun inst_EvalM_bind th1 th2 = let
         val hyps = hyp th
         val th = List.foldl (fn (a, th) =>
           if can (match_term pat) a then th
-          else if a = a0 then th
+          else if a ~~ a0 then th
             else DISCH a th) th hyps
         val th = PURE_REWRITE_RULE [AND_IMP_INTRO] th
       in if is_imp (concl th) then th else DISCH T th end
@@ -1667,7 +1667,7 @@ fun prove_EvalMPatBind goal = let
   val assums = find_terms is_lookup_eqtype_assum (concl th)
   val all_assums = append vs assums
   fun delete_assum tm =
-    if mem tm (all_assums) then
+    if tmem tm (all_assums) then
       MATCH_MP ml_monad_translatorTheory.IMP_EQ_T (ASSUME tm)
     else NO_CONV tm
   val th = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assum)) th
@@ -1678,7 +1678,7 @@ fun prove_EvalMPatBind goal = let
   val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
                 |> dest_imp |> fst |> rand |> rator
   val ws = free_vars vars
-  val vs = List.filter (fn tm => not (mem (rand (rand tm)) ws)) vs |> mk_set
+  val vs = List.filter (fn tm => not (tmem (rand (rand tm)) ws)) vs |> op_mk_set aconv
   val new_goal = goal |> subst [mk_var("e",exp_ty)|->exp,p2 |-> p]
   val all_assums = (append vs assums) |>
                     List.foldl (fn (x,s) => HOLset.add (s,x)) empty_tmset |>
@@ -1966,7 +1966,7 @@ and m2deep_normal_fun_app tm = let
     end
     val assums = find_terms is_var_lookup_eqtype_assum (concl thx)
     fun delete_assums tm =
-      if mem tm assums then
+      if tmem tm assums then
         MATCH_MP ml_monad_translatorTheory.IMP_EQ_T (ASSUME tm)
       else NO_CONV tm
     val thx = CONV_RULE ((RATOR_CONV) (DEPTH_CONV delete_assums)) thx
@@ -2312,7 +2312,7 @@ fun apply_ind thms ind = let
     val goals = List.map get_goal thms
     val gs = goals |> List.map (snd o snd o snd) |> list_mk_conj
     val hs = goals |> List.map (fst o snd o snd) |> flatten
-                   |> all_distinct |> list_mk_conj
+                   |> op_mk_set aconv |> list_mk_conj
     val goal = mk_imp(hs,gs)
     val ind_thm = (the ind)
                       |> rename_bound_vars_rule "i"
@@ -2371,7 +2371,7 @@ fun apply_ind thms ind = let
                     List.map case_split_vars lsrs
                     |> List.filter (not o null)
                     |> List.map hd
-                    |> mlibUseful.setify
+                    |> op_mk_set aconv
             in
               case vars of
                   [] => tac
@@ -2504,7 +2504,7 @@ fun extract_precondition_non_rec th pre_var =
     val c = (RATOR_CONV o RAND_CONV) c
     val th = CONV_RULE c th
     val rhs = th |> concl |> dest_imp |> fst |> rand
-    in if rhs = T then
+    in if Teq rhs then
       (UNDISCH_ALL (SIMP_RULE std_ss [EVAL_PRECONDITION_T] th),NONE)
     else let
     val def_tm = mk_eq(pre_var,rhs)
@@ -2565,7 +2565,7 @@ fun extract_precondition_rec thms = let
     ((tm2 |> subst ss
           |> QCONV (REWRITE_CONV
                 ([rw2, PreImp_def, PRECONDITION_def, CONTAINER_def] @ rw_thms))
-          |> concl |> rand) = T)
+          |> concl |> rand) |> Teq)
   val no_pre = (not o (List.exists (fn x => not x))) (List.map is_true_pre thms)
 
   (* if no pre then remove pre_var from thms *)
@@ -2952,7 +2952,7 @@ in
         (!(#dynamic_v_thms translator_state)));
     print("Added a dynamic specification for "
           ^ (dest_const hol_fun |> fst) ^ "\n");
-    if concl pre_def = T then () else
+    if Teq (concl pre_def) then () else
       (print ("\nWARNING: " ^ml_name^" has a precondition.\n\n"))
 end;
 

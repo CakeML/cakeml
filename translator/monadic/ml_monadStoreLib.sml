@@ -736,14 +736,14 @@ local
       in if is_loc1 andalso not is_loc2 then LESS
         else if is_loc2 andalso not is_loc1 then GREATER
         else if is_loc1 andalso is_loc2 then
-            (if loc = (get_loc t1) then LESS else GREATER)
+            (if loc ~~ (get_loc t1) then LESS else GREATER)
         else Term.compare(t1, t2)
       end
     fun PICK_REF_CONV loc = AC_Sort.sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_ref_order loc, combine = ALL_CONV, preprocess = ALL_CONV}
     fun pick_pinv_order field_pat (t1, t2) = let
         val is_cond1 = is_cond t1
         val is_cond2 = is_cond t2
-        val has_pat = patternMatchesSyntax.has_subterm (fn x => x = field_pat)
+        val has_pat = patternMatchesSyntax.has_subterm (aconv field_pat)
       in if is_cond1 andalso has_pat t1 then LESS
          else if is_cond2 andalso has_pat t2 then GREATER
          else Term.compare(t1, t2)
