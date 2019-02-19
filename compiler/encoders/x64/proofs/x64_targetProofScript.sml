@@ -745,7 +745,7 @@ local
           SOME (l, r) =>
              (case Lib.total wordsSyntax.dest_word_extract l of
                  SOME (h, l, x, _) =>
-                    if x = v andalso h = ``3n`` andalso l = ``3n``
+                    if x ~~ v andalso h ~~ ``3n`` andalso l ~~ ``3n``
                        then (case Lib.total wordsSyntax.uint_of_word r of
                                 SOME 0 => SOME true
                               | SOME 1 => SOME false
