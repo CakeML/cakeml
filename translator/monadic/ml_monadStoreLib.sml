@@ -40,8 +40,6 @@ fun derive_eval_thm for_eval v_name e = let
 
 fun ERR fname msg = mk_HOL_ERR "ml_monadStoreLib" fname msg;
 
-val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT
-
 val get_term = let
   val ys = unpack_list (unpack_pair unpack_string unpack_term)
              ml_monadStoreTheory.parsed_terms
@@ -83,8 +81,7 @@ fun mk_get_refs state = let
     val get_refs = mk_comb(get_refs, state) |> BETA_CONV |> concl |> rand
 in get_refs end
 
-fun mk_opref_expr name =
-  mk_comb(opref_expr, name) |> BETA_CONV |> concl |> rand
+
 
 fun mk_REF_REL TYPE r x =
   ISPECL [TYPE, r, x] REF_REL_def |> concl |> dest_eq |> fst
@@ -139,7 +136,7 @@ fun PURE_FACTS_FIRST_CONV H =
 val EXTRACT_PURE_FACTS_CONV =
   (RATOR_CONV PURE_FACTS_FIRST_CONV)
   THENC (SIMP_CONV pure_ss [GSYM STAR_ASSOC])
-  THENC (SIMP_CONV pure_ss [HCOND_EXTRACT])
+  THENC (SIMP_CONV pure_ss [cfLetAutoTheory.HCOND_EXTRACT])
   THENC (SIMP_CONV pure_ss [STAR_ASSOC]);
 
 val SEPARATE_SEP_EXISTS_CONV = ((SIMP_CONV pure_ss [GSYM STAR_ASSOC, SEP_EXISTS_INWARD]) THENC (SIMP_CONV pure_ss [STAR_ASSOC, SEP_EXISTS_SEPARATE]))
@@ -152,7 +149,7 @@ fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
       val hpreds' = List.map (fst o dest_comb) hpreds
       val hpreds_eqs = List.map (PURE_FACTS_FIRST_CONV) hpreds'
   in
-      ((fs hpreds_eqs) >> fs[GSYM STAR_ASSOC] >> fs[HCOND_EXTRACT] >> fs[STAR_ASSOC]) g
+      ((fs hpreds_eqs) >> fs[GSYM STAR_ASSOC] >> fs[cfLetAutoTheory.HCOND_EXTRACT] >> fs[STAR_ASSOC]) g
   end;
 (***********************************************************************************************)
 (******* End of COPY/PASTE from ml_monadProgScipt.sml *****************************************)
@@ -210,10 +207,6 @@ fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     val th = SIMP_RULE pure_ss [GSYM ref_def] th
 in (array_v_thm, array_loc_def, ref_def, th) end;
 
-(*
-val init_value_def = def
-*)
-
 fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val init_value_name = concl init_value_def |> lhs |> dest_const |> fst
     val _ = (next_ml_names := init_value_name::(!next_ml_names))
@@ -252,23 +245,15 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val _ = print ("Saved theorem: " ^init_name ^"_v_thm")
 in (init_v_th, array_loc_def, th) end;
 
-fun get_store_pinv_def_opt opt =
-  case opt of
-      SOME (def, _) => SOME def
-    | NONE => NONE;
+fun get_store_pinv_def_opt opt = Option.map fst opt;
 
 (* Create the store for a static initialization *)
 fun create_store refs_init_list rarrays_init_list farrays_init_list =
   let
       val initial_state = get_state(get_ml_prog_state())
       val initial_store = EVAL (mk_get_refs initial_state) |> concl |> rhs
-
-(*
-val (name, def) = hd ref_name_def_pairs
-val for_eval = false
-val v_name = name
-*)
-
+      fun mk_opref_expr name =
+        mk_comb(opref_expr, name) |> BETA_CONV |> concl |> rand
       (* Allocate the references *)
       fun create_ref (name, def) =
         let
@@ -286,10 +271,6 @@ val v_name = name
       val ref_name_def_pairs = List.map (fn (n, d, _, _) => (n, d)) refs_init_list
       val refs_trans_results = List.map create_ref ref_name_def_pairs
 
-(*
-val (name, def) = hd rarray_name_def_pairs
-*)
-
       (* Allocate the resizable arrays *)
       fun create_rarray (name, def) =
         let
@@ -304,10 +285,6 @@ val (name, def) = hd rarray_name_def_pairs
 
       val rarray_name_def_pairs = List.map (fn (n, d, _, _, _, _, _, _) => (n, d)) rarrays_init_list
       val rarrays_trans_results = List.map create_rarray rarray_name_def_pairs
-
-(*
-val (name, (n, def)) = hd farray_name_def_pairs
-*)
 
       (* Allocate the fixed size arrays *)
       fun create_farray (name, (n, def)) =
@@ -324,12 +301,6 @@ val (name, (n, def)) = hd farray_name_def_pairs
   in
     (initial_store, refs_trans_results, rarrays_trans_results, farrays_trans_results)
   end;
-
-
-(*
-val (initial_store, refs_trans_results, arrays_trans_results) =
-create_store refs_init_list arrays_init_list store_hprop_name;
-*)
 
 fun find_refs_access_functions refs_init_list =
   let
@@ -396,13 +367,6 @@ fun find_farrays_access_functions arrays_init_list = let
       in (name, get, get_fun, set, set_fun, length, sub, update) end
   in List.map find_add_read_write arrays_init_list end;
 
-
-(*
-val refs_init_list = find_refs_access_functions refs_init_list;
-val rarrays_init_list = find_rarrays_access_functions rarrays_init_list;
-val farrays_init_list = find_farrays_access_functions farrays_init_list;
-*)
-
 fun create_store_X_hprop refs_manip_list
                          refs_locs
                          rarrays_manip_list
@@ -411,7 +375,7 @@ fun create_store_X_hprop refs_manip_list
                          farrays_locs
                          state_type
                          store_hprop_name
-                         store_pinv_opt
+                         store_pinv_def_opt
                          extra_hprop =
   let
     val state_var = mk_var("state", state_type)
@@ -476,10 +440,10 @@ fun create_store_X_hprop refs_manip_list
     val store_hprop = list_mk mk_star (refs_hprops @ rarrays_hprops @ farrays_hprops @ extra_hprops) emp_const
     val store_hprop = SIMP_CONV bool_ss [STAR_ASSOC] store_hprop |> concl |> dest_eq |> snd
                       handle UNCHANGED => store_hprop
-    val store_hprop = case store_pinv_opt of
+    val store_hprop = case store_pinv_def_opt of
                         SOME pinv_def =>
                         mk_star(store_hprop,
-                                mk_cond(mk_comb(concl pinv_def |> lhs, state_var)))
+                                mk_cond(mk_comb( (concl pinv_def |> lhs) , state_var)))
                       | NONE => store_hprop
     val store_hprop = mk_abs(state_var, store_hprop)
 
@@ -498,14 +462,8 @@ in
     store_hprop_def
 end;
 
-(* val store_X_hprop_def = create_store_X_hprop refs_init_list arrays_init_list refs_trans_results arrays_trans_results state_type store_hprop_name; *)
-
 (* Prove that the current store satisfies the built heap predicate *)
 local
-(*
-val (g as (asl, w)) = top_goal();
-*)
-
     fun instantiate_ref_values refs_trans_results
                                rarrays_trans_results
                                farrays_trans_results
@@ -725,10 +683,6 @@ in
     end
 end;
 
-(*
- val valid_store_X_hprop_thm = prove_valid_store_X_hprop refs_init_list arrays_init_list initial_store refs_trans_results arrays_trans_results state_type store_X_hprop_def;
-*)
-
 (* Prove the validity theorem for the characteristic heap predicate *)
 fun prove_exists_store_X_hprop save_th
                                state_type
@@ -771,8 +725,6 @@ in
     exists_store_X_hprop_thm
 end;
 
-(* val exists_store_X_hprop_thm = prove_exists_store_X_hprop state_type store_hprop_name valid_store_X_hprop_thm; *)
-
 (* Prove the specifications for the get/set functions *)
 
 local
@@ -784,14 +736,14 @@ local
       in if is_loc1 andalso not is_loc2 then LESS
         else if is_loc2 andalso not is_loc1 then GREATER
         else if is_loc1 andalso is_loc2 then
-            (if loc = (get_loc t1) then LESS else GREATER)
+            (if loc ~~ (get_loc t1) then LESS else GREATER)
         else Term.compare(t1, t2)
       end
     fun PICK_REF_CONV loc = AC_Sort.sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_ref_order loc, combine = ALL_CONV, preprocess = ALL_CONV}
     fun pick_pinv_order field_pat (t1, t2) = let
         val is_cond1 = is_cond t1
         val is_cond2 = is_cond t2
-        val has_pat = patternMatchesSyntax.has_subterm (fn x => x = field_pat)
+        val has_pat = patternMatchesSyntax.has_subterm (aconv field_pat)
       in if is_cond1 andalso has_pat t1 then LESS
          else if is_cond2 andalso has_pat t2 then GREATER
          else Term.compare(t1, t2)
@@ -1257,6 +1209,8 @@ fun translate_static_init_fixed_store refs_init_list rarrays_init_list farrays_i
     val farrays_locs = List.map (lhs o concl) farrays_locs_defs
 
     val store_pinv_def_opt = get_store_pinv_def_opt store_pinv_opt
+
+(************************************************************************************************************* PROBLEM HERE *)
     val store_X_hprop_def =
       create_store_X_hprop refs_manip_list
                            refs_locs

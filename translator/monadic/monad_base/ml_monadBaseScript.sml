@@ -449,7 +449,7 @@ val Marray_alloc_const =
 val parsed_terms = save_thm("parsed_terms",
   pack_list (pack_pair pack_string pack_term)
     [
-     ("K", ``K : 'a -> 'a -> 'a``),
+     ("K", ``K : 'a -> 'b -> 'a``),
      ("FST", ``FST : 'a # 'b -> 'a``),
      ("SND", ``SND : 'a # 'b -> 'b``),
      ("REPLICATE", ``REPLICATE : num -> 'a -> 'a list``),

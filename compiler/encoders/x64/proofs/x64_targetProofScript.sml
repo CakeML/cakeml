@@ -677,7 +677,7 @@ local
        [l] =>
          let
            val ts = List.map (HolKernel.find_terms is_n2w_var) l
-                    |> List.concat |> Lib.mk_set
+                    |> List.concat |> Lib.op_mk_set aconv
            val ts =
              List.foldl
                (fn (t, (n, a)) => (n + 1, mk_abbrev t n :: a)) (0, []) ts
@@ -745,7 +745,7 @@ local
           SOME (l, r) =>
              (case Lib.total wordsSyntax.dest_word_extract l of
                  SOME (h, l, x, _) =>
-                    if x = v andalso h = ``3n`` andalso l = ``3n``
+                    if x ~~ v andalso h ~~ ``3n`` andalso l ~~ ``3n``
                        then (case Lib.total wordsSyntax.uint_of_word r of
                                 SOME 0 => SOME true
                               | SOME 1 => SOME false
