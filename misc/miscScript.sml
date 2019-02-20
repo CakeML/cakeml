@@ -1166,14 +1166,6 @@ Theorem PERM_ZIP
   simp[] >> strip_tac >>
   metis_tac[PERM_TRANS])
 
-(* TODO - candidate for move to HOL *)
-Theorem RTC_RINTER
-  `!R1 R2 x y. RTC (R1 RINTER R2) x y ⇒ ((RTC R1) RINTER (RTC R2)) x y`
-  (ntac 2 gen_tac >>
-  match_mp_tac RTC_INDUCT >>
-  simp[RINTER] >>
-  metis_tac[RTC_CASES1] )
-
 (* never used *)
 Theorem RTC_invariant
   `!R P. (!x y. P x /\ R x y ==> P y) ==> !x y. RTC R x y ==> P x ==> RTC (R RINTER (\x y. P x /\ P y)) x y`
