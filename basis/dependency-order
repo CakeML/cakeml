@@ -22,6 +22,7 @@ Word8
 Word8Array
 Array
 Map
+Hashtable
 CommandLine
 TextIO
 PrettyPrinter
