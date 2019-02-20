@@ -38,25 +38,23 @@ val () = ml_prog_update(open_module "Hashtable");
 *)
 
 
+val _ = ml_prog_update open_local_block;
+
+val hashtable_hashtable = (append_prog o process_topdecs)
+`datatype ('k, 'v) hashtable =
+  Hashtable
+    (int ref) (*Element counter*)
+    ((('k,'v) Map.map) array ref) (*Buckets*)
+    ('k -> int) (*Hash function*)
+    ('k -> 'k -> ordering) (*Key compare function*)`
+
 (* provides the Hashtable.hashtable name for the hashtable type *)
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc ["'a";"'b"] "hashtable" (Atapp [Atvar "'a"; Atvar "'b"] (Short "hashtable"))`` I);
 
-val _ = ml_prog_update open_local_block;
-
-val hashtable_hashtable = process_topdecs
-`datatype ('k, 'v) hashtable =
-  Hashtable (
-    int ref * (*Element counter*)
-    (('k,'v) Map.map) array ref * (*Buckets*)
-    ('k -> int) *(*Hash function*)
-    ('k -> 'k -> ordering) (*Key compare function*))`
-
-val _ = append_prog hashtable_hashtable;
-
 val _ = ml_prog_update open_local_in_block;
 
-val hashtable_delete = process_topdecs
+val hashtable_delete = (append_prog o process_topdecs)
 `fun delete ht k =
  case ht of Hashtable(usedRef,bucketsRef,hf,_) =>
   let
@@ -68,9 +66,8 @@ val hashtable_delete = process_topdecs
       |None => ()
   end`;
 
-val _ = append_prog hashtable_delete;
 
-val hashtable_lookup = process_topdecs
+val hashtable_lookup = (append_prog o process_topdecs)
 `fun lookup ht k =
  case ht of Hashtable(usedRef,bucketsRef,hf,cmp) =>
   let
@@ -79,34 +76,23 @@ val hashtable_lookup = process_topdecs
     Map.lookup bucket k
   end`;
 
-val _ = append_prog hashtable_lookup;
-
-
-val hashtable_toAscList = process_topdecs
+val hashtable_toAscList = (append_prog o process_topdecs)
 `fun toAscList ht =
  case ht of Hashtable(_,bucketsRef,_,cmp) =>
   Map.toAscList (Array.foldr Map.union (Map.empty cmp) (!bucketsRef))`;
 
-
-val _ = append_prog hashtable_toAscList;
-
-
-val hashtable_size = process_topdecs
+val hashtable_size = (append_prog o process_topdecs)
 `fun size ht =
  case ht of Hashtable(usedRef,bucketsRef,hf,cmp) =>
   !usedRef`;
 
-val _ = append_prog hashtable_size;
-
 val _ = ml_prog_update open_local_block;
-val hashtable_initBuckets = process_topdecs
+val hashtable_initBuckets = (append_prog o process_topdecs)
 `fun initBuckets n cmp = Array.tabulate n (fn _ => Map.empty cmp)`;
-
-val _ = append_prog hashtable_initBuckets;
 
 val _ = ml_prog_update open_local_in_block;
 
-val hashtable_empty = process_topdecs
+val hashtable_empty = (append_prog o process_topdecs)
 `fun empty size hf cmp =
   Hashtable(
     Ref 0,
@@ -115,19 +101,15 @@ val hashtable_empty = process_topdecs
     cmp
   )`;
 
-val _ = append_prog hashtable_empty;
-
-val hashtable_clear = process_topdecs
+val hashtable_clear = (append_prog o process_topdecs)
 `fun clear ht =
  case ht of Hashtable(usedRef,bucketsRef,_,cmp) =>
   (bucketsRef := initBuckets (Array.length (!bucketsRef)) cmp;
   usedRef := 0)`;
 
-val _ = append_prog hashtable_clear;
-
 val _ = ml_prog_update open_local_block;
 
-val hashtable_staticInsert = process_topdecs
+val hashtable_staticInsert = (append_prog o process_topdecs)
 `fun staticInsert ht k v =
   case ht of Hashtable(usedRef,bucketsRef,hf,cmp) =>
     let
@@ -140,12 +122,10 @@ val hashtable_staticInsert = process_topdecs
         |Some _ => Array.update (!bucketsRef) index (Map.insert bucket k v)
     end`;
 
-val _ = append_prog hashtable_staticInsert;
-
 val _ = ml_prog_update open_local_in_block;
 val _ = ml_prog_update open_local_block;
 
-val hashtable_doubleCapacity = process_topdecs
+val hashtable_doubleCapacity = (append_prog o process_topdecs)
 `fun doubleCapacity ht =
  case ht of Hashtable(usedRef,bucketsRef,_,cmp) =>
   let
@@ -156,20 +136,16 @@ val hashtable_doubleCapacity = process_topdecs
     Array.app (fn b=>List.app (fn (k,v) => staticInsert ht k v) (Map.toAscList b)) (oldArr)
   end`;
 
-val _ = append_prog hashtable_doubleCapacity;
 
 val _ = ml_prog_update open_local_in_block;
 
 (*Load treshold values for insert function, default 3/4*)
-val hashtable_insert = process_topdecs
+val hashtable_insert = (append_prog o process_topdecs)
 `fun insert ht k v =
  case ht of Hashtable(usedRef,bucketsRef,_,_) =>
   if (4*(!usedRef))<(3* (Array.length (!bucketsRef)))
   then staticInsert ht k v
   else (doubleCapacity ht; staticInsert ht k v)`;
-
-val _ = append_prog hashtable_insert;
-
 
 
 val _ = ml_prog_update close_local_blocks;
