@@ -161,17 +161,10 @@ val _ = append_prog hashtable_doubleCapacity;
 val _ = ml_prog_update open_local_in_block;
 
 (*Load treshold values for insert function, default 3/4*)
-val _ = ml_prog_update open_local_block;
-val _ = translate (Define `val load_treshold_den = 3`)
-val _ = ml_prog_update open_local_in_block;
-val _ = ml_prog_update open_local_block;
-val _ = translate (Define `val load_treshold_num = 4`)
-val _ = ml_prog_update open_local_in_block;
-
 val hashtable_insert = process_topdecs
 `fun insert ht k v =
  case ht of Hashtable(usedRef,bucketsRef,_,_) =>
-  if (load_treshold_num*(!usedRef))<(load_treshold_den * (Array.length (!bucketsRef)))
+  if (4*(!usedRef))<(3* (Array.length (!bucketsRef)))
   then staticInsert ht k v
   else (doubleCapacity ht; staticInsert ht k v)`;
 
