@@ -1308,20 +1308,6 @@ Theorem fmap_linv_FAPPLY
   (SRW_TAC[][fmap_linv_def,FLOOKUP_DEF])
 
 (* TODO - candidate for move to HOL *)
-Theorem o_f_cong
-  `!f fm f' fm'.
-    (fm = fm') /\
-    (!v. v IN FRANGE fm ==> (f v = f' v))
-    ==> (f o_f fm = f' o_f fm')`
-  (SRW_TAC[DNF_ss][GSYM fmap_EQ_THM,FRANGE_DEF])
-val _ = DefnBase.export_cong"o_f_cong"
-
-(* TODO - candidate for move to HOL *)
-Theorem o_f_id
-`!m. (\x.x) o_f m = m`
-(rw [fmap_EXT]);
-
-(* TODO - candidate for move to HOL *)
 Theorem plus_compose
   `!n:num m. $+ n o $+ m = $+ (n + m)`
   (SRW_TAC[ARITH_ss][FUN_EQ_THM])
@@ -2883,17 +2869,6 @@ Theorem ALL_DISTINCT_FEVERY_alist_to_fmap
   \\ rw[EQ_IMP_THM]
   \\ pop_assum mp_tac \\ rw[] \\ fs[MEM_MAP,EXISTS_PROD]
   \\ metis_tac[ALOOKUP_MEM]);
-
-(* TODO - candidate for move to HOL *)
-Theorem DISJOINT_FEVERY_FUNION
-  `DISJOINT (FDOM m1) (FDOM m2) ⇒
-   (FEVERY P (FUNION m1 m2) <=> FEVERY P m1 /\ FEVERY P m2)`
-  (rw[EQ_IMP_THM,fevery_funion]
-  \\ fs[FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION,IN_DISJOINT] \\ rw[]
-  \\ first_x_assum match_mp_tac
-  \\ CASE_TAC
-  \\ fs[FLOOKUP_DEF]
-  \\ metis_tac[]);
 
 Theorem fevery_to_drestrict
 `!P m s.
