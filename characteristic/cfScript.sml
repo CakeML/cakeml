@@ -1598,16 +1598,20 @@ val cf_wordToInt_W64_def = Define `
 
 val app_ffi_def = Define `
   app_ffi ffi_index c a H Q =
-    ((?conf ws F s u ns.
+    ((?conf ws frame s u ns events.
          MEM ffi_index ns /\
          c = Litv(StrLit(MAP (CHR o w2n) conf)) /\
-         (H ==>> F * W8ARRAY a ws * IO s u ns) /\
+         (H ==>> frame * W8ARRAY a ws * one (FFI_part s u ns events) *
+                 cond (~MEM "" ns)) /\
          (case u ffi_index conf ws s of
             SOME(FFIreturn vs s') =>
-             (F * W8ARRAY a vs * IO s' u ns) ==>> Q (Val (Conv NONE []))
+             (frame * W8ARRAY a vs * one (FFI_part s' u ns
+                 (events ++ [IO_event ffi_index conf (ZIP (ws, vs))])) *
+              cond (~MEM "" ns)) ==>> Q (Val (Conv NONE []))
           | SOME(FFIdiverge) =>
-             (F * W8ARRAY a ws * IO s u ns) ==>> Q(FFIDiv ffi_index conf ws)
-          | NONE => bool$F)) /\
+             (frame * W8ARRAY a ws * one (FFI_part s u ns events) *
+              cond (~MEM "" ns)) ==>> Q (FFIDiv ffi_index conf ws)
+          | NONE => F)) /\
      Q ==e> POST_F /\ Q ==d> POST_F)`
 
 val cf_ffi_def = Define `
@@ -2158,7 +2162,7 @@ val cf_ffi_sound = Q.prove (
      fs [STAR_def,cell_def,one_def,cond_def] \\
      first_assum progress \\ fs [SPLIT_emp1] \\ rveq \\
      fs [SPLIT_SING_2] \\ rveq \\
-     rename1 `F' u2` \\
+     rename1 `frame u2` \\
      `store_lookup y st.refs = SOME (W8array ws) /\
       Mem y (W8array ws) IN st2heap p st` by
        (`Mem y (W8array ws) IN st2heap p st` by SPLIT_TAC
@@ -2167,7 +2171,7 @@ val cf_ffi_sound = Q.prove (
         \\ imp_res_tac store2heap_IN_LENGTH
         \\ fs [store_lookup_def] \\ NO_TAC) \\
      fs [ffiTheory.call_FFI_def] \\
-     fs [IO_def,SEP_EXISTS_THM,cond_STAR] \\ rveq \\
+     fs [SEP_EXISTS_THM,cond_STAR] \\ rveq \\
      fs [one_def] \\ rveq \\
      fs [st2heap_def,
             FFI_split_NOT_IN_store2heap,
@@ -2199,7 +2203,7 @@ val cf_ffi_sound = Q.prove (
    fs [STAR_def,cell_def,one_def,cond_def] \\
    first_assum progress \\ fs [SPLIT_emp1] \\ rveq \\
    fs [SPLIT_SING_2] \\ rveq \\
-   rename1 `F' u2` \\
+   rename1 `frame u2` \\
    `store_lookup y st.refs = SOME (W8array ws) /\
     Mem y (W8array ws) IN st2heap p st` by
      (`Mem y (W8array ws) IN st2heap p st` by SPLIT_TAC
@@ -2208,7 +2212,7 @@ val cf_ffi_sound = Q.prove (
       \\ imp_res_tac store2heap_IN_LENGTH
       \\ fs [store_lookup_def] \\ NO_TAC) \\
    fs [ffiTheory.call_FFI_def] \\
-   fs [IO_def,SEP_EXISTS_THM,cond_STAR] \\ rveq \\
+   fs [SEP_EXISTS_THM,cond_STAR] \\ rveq \\
    fs [one_def] \\ rveq \\
    fs [st2heap_def,
        FFI_split_NOT_IN_store2heap,
@@ -2256,9 +2260,7 @@ val cf_ffi_sound = Q.prove (
    drule SPLIT_IMP_Mem_NOT_IN \\
    ntac 2 strip_tac \\
    reverse conj_tac THEN1
-    (first_assum match_mp_tac \\ fs [PULL_EXISTS,SPLIT_SING_2]
-     \\ qexists_tac `u2` \\ fs []
-     \\ qexists_tac `new_events` \\ fs []) \\
+    (first_assum match_mp_tac \\ qexists_tac `u2` \\ fs [SPLIT_emp2]) \\
    match_mp_tac SPLIT3_of_SPLIT_emp3 \\
    qpat_abbrev_tac `f1 = ffi2heap (p0,p1) _` \\
    sg `f1 = (ffi2heap (p0,p1) st.ffi DELETE
