@@ -5,7 +5,13 @@ open preamble intLib integerTheory backendPropsTheory
      semanticPrimitivesTheory
      patSemTheory patPropsTheory pat_to_closTheory
      closLangTheory closSemTheory closPropsTheory
+(* TODO move *)
 open bitstringTheory
+open numposrepTheory;
+open alist_treeTheory;
+open logrootTheory;
+open bitstring_extraTheory;
+
 val _ = new_theory"pat_to_closProof"
 
 val _ = set_grammar_ancestry
@@ -17,7 +23,7 @@ val _ = set_grammar_ancestry
 val compile_v_def = tDefine"compile_v"`
   (compile_v (Litv (IntLit i)) = (Number i):closSem$v) ∧
   (compile_v (Litv (Word w)) = (Word w)) ∧
-  (compile_v (Litv (Char c)) = (Number (& ORD c))) ∧
+  (compile_v (Litv (Char c)) = (Word (bitstring$fixwidth 8 (bitstring$n2v (ORD c))))) ∧
   (compile_v (Litv (StrLit s)) = (ByteVector (MAP (n2w o ORD) s))) ∧
   (compile_v (Loc m) = (RefPtr m)) ∧
   (compile_v (Conv cn vs) = (Block cn (MAP (compile_v) vs))) ∧
@@ -87,6 +93,70 @@ Theorem compile_state_with_refs_snoc
 
 (* semantic functions respect translation *)
 
+Theorem LENGTH_n2v
+`!n. LENGTH (n2v n) = if n = 0 then 1 else SUC (LOG 2 n)`
+(simp[n2v_def,num_to_bin_list_def,boolify_reverse_map] \\ rw[]
+ \\ ASSUME_TAC (Q.SPEC `2` LENGTH_n2l) \\ fs[])
+
+Theorem LENGTH_n2v_ORD
+  `!c. LENGTH (n2v (ORD c)) <= 8`
+ (Cases \\ simp[ORD_CHR]
+  \\ simp[LENGTH_n2v]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ simp[GSYM LESS_EQ]
+  \\ `8 = LOG 2 256` by EVAL_TAC
+  \\ ASM_REWRITE_TAC[]
+  \\ MATCH_MP_TAC LESS_EQ_LESS_TRANS
+  \\ qexists_tac `LOG 2 255`
+  \\ reverse CONJ_TAC
+  >- EVAL_TAC
+  \\ MATCH_MP_TAC (MP_CANON LOG_LE_MONO)
+  \\ DECIDE_TAC
+)
+
+open bitTheory;
+
+Theorem num_to_bin_list_eq
+`!x y. num_to_bin_list x = num_to_bin_list y <=> x = y`
+(rpt STRIP_TAC \\ reverse(EQ_TAC) >- rw[]
+ \\ cheat)
+
+Theorem EL_num_to_bin_list_not_SUC_SUC
+ `!x n y. n < LENGTH (num_to_bin_list x) ==> ~(EL n (num_to_bin_list x) = SUC (SUC y))`
+(Induct >- (EVAL_TAC \\ Cases \\ simp[]) \\ rw[EL_num_to_bin_list]
+ \\ simp[BITV_def] \\ simp[BITS_THM]
+ \\ rename1 `a MOD 2 = _`
+ \\ `a MOD 2 = 0 \/ a MOD 2 = 1` by (Cases_on `a MOD 2` \\ fs[] \\ rename1 `b = 0` \\ Cases_on `b` \\ fs[]
+     \\ `a MOD 2 < 2` by (MATCH_MP_TAC MOD_LESS \\ simp[])
+     \\ DECIDE_TAC)
+ \\ fs[]
+)
+
+Theorem LIST_REL_bin_list_eq `LIST_REL (λn n'. n = 0 ⇔ n' = 0) (num_to_bin_list x)
+           (num_to_bin_list y) = LIST_REL (λn n'. n = n') (num_to_bin_list x)
+           (num_to_bin_list y)`
+(rw[LIST_REL_EL_EQN] \\ EQ_TAC \\ rw[] \\
+`n < LENGTH (num_to_bin_list x)` by fs[] \\ RES_TAC
+ \\ Cases_on `EL n (num_to_bin_list x)` \\ fs[]
+ \\ Cases_on `EL n (num_to_bin_list y)` \\ fs[]
+ \\ rename1 `a=b` \\ Cases_on `a` \\ Cases_on `b` \\ fs[]
+ \\ metis_tac[EL_num_to_bin_list_not_SUC_SUC])
+
+
+Theorem MAP_num_to_bin_list_eq `!x y. MAP (λn. n ≠ 0) (num_to_bin_list x) =
+    MAP (λn. n ≠ 0) (num_to_bin_list y) <=> num_to_bin_list x = num_to_bin_list y`
+(rpt STRIP_TAC \\ EQ_TAC \\ rw[] \\ fs[MAP_EQ_EVERY2]
+\\ simp[LIST_EQ_REWRITE] \\ fs[LIST_REL_bin_list_eq]
+\\ fs[LIST_REL_EL_EQN]
+)
+
+Theorem n2v_eq
+`!x y. n2v x = n2v y <=> x = y`
+(rpt STRIP_TAC \\ EQ_TAC \\ STRIP_TAC \\ fs[n2v_def]
+ \\ fs[boolify_reverse_map]
+ \\ fs[num_to_bin_list_eq,MAP_num_to_bin_list_eq])
+
+
 Theorem do_eq
   `(∀v1 v2. do_eq v1 v2 ≠ Eq_type_error ⇒
       (do_eq v1 v2 = do_eq (compile_v v1) (compile_v v2))) ∧
@@ -95,9 +165,17 @@ Theorem do_eq
   (ho_match_mp_tac patSemTheory.do_eq_ind >>
   simp[patSemTheory.do_eq_def,closSemTheory.do_eq_def] >>
   conj_tac >- (
-    Cases >> Cases >> simp[lit_same_type_def,closSemTheory.do_eq_def] >>
-    rw[LIST_EQ_REWRITE,EL_MAP,EQ_IMP_THM] \\ rfs[EL_MAP] \\ res_tac
-    \\ fs[ORD_11,ORD_BOUND]) >>
+    reverse(Cases >> Cases >> simp[lit_same_type_def,closSemTheory.do_eq_def])
+    >- (rw[LIST_EQ_REWRITE,EL_MAP,EQ_IMP_THM] \\ rfs[EL_MAP] \\ res_tac
+    \\ fs[ORD_11,ORD_BOUND])
+    \\ EQ_TAC \\ rw[]
+    \\ rename1 `c=c'` \\ Cases_on `c` \\ Cases_on `c'`
+    \\ `ORD (CHR n) = n` by fsrw_tac[][ORD_CHR]
+    \\ `ORD (CHR n') = n'` by fsrw_tac[][ORD_CHR]
+    \\ fs[]
+    \\ `fixwidth 8 (n2v n) = fixwidth 8 (n2v n') <=> n2v n = n2v n'` by cheat
+    \\ fs[n2v_eq]
+  ) >>
   conj_tac >- rw[ETA_AX] >>
   conj_tac >- rw[ETA_AX] >>
   rw[] >>
@@ -113,7 +191,7 @@ val v_to_list_def = closSemTheory.v_to_list_def;
 
 Theorem v_to_char_list
   `∀v ls. (v_to_char_list v = SOME ls) ⇒
-           (v_to_list (compile_v v) = SOME (MAP (Number o $& o ORD) ls))`
+           (v_to_list (compile_v v) = SOME (MAP (Word o fixwidth 8 o n2v o ORD) ls))`
   (ho_match_mp_tac v_to_char_list_ind >>
   simp[v_to_char_list_def,v_to_list_def] >>
   rw[] >>
@@ -262,18 +340,235 @@ val do_app_WordToInt_Rerr_IMP = prove(
   fs [do_app_def,case_eq_thms,pair_case_eq] \\ rw [] \\ fs []);
 
 (* TODO prove and move *)
+val lem = Q.prove(`!t. EVERY ($= 0 ∘ combin$C $MOD 2)
+           (REVERSE (MAP (λb. if b then 1 else 0) t)) ==> EVERY ($= F) t`,
+     simp[EVERY_REVERSE,EVERY_MAP] \\ Induct \\ fs[])
 
-Theorem zero_extend_n2v_v2n_cons
-  `!h t. zero_extend (SUC (LENGTH t)) (n2v (v2n (h::t))) = h::t`
-(rpt STRIP_TAC \\ simp[zero_extend_def,PAD_LEFT] \\ cheat)
+val GENLIST_K_REVERSE_SUC = Q.prove(`!x y. GENLIST (K x) (SUC y) = [x] ++ GENLIST (K x) y`,
+  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i` \\ simp[EL]
+)
+
+val GENLIST_K_REVERSE_SUC_CONS = Q.prove(`!x y. GENLIST (K x) (SUC y) = x::GENLIST (K x) y`,
+  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i` \\ simp[EL]
+)
+
+
+val GENLIST_K_REVERSE_APPEND = Q.prove(`!x y. GENLIST (K x) y ++ [x] = GENLIST (K x) (SUC y)`,
+  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i`
+  >- (simp[HD_APPEND] \\ TOP_CASE_TAC \\ Induct_on `y` >- EVAL_TAC
+      \\ Cases_on `y` \\ fs[] \\ simp[GSYM EL])
+  \\ simp[EL_APPEND_EQN] \\ TOP_CASE_TAC \\ simp[]
+  \\ `SUC n - y = 0` by DECIDE_TAC \\ ASM_REWRITE_TAC[] \\ simp[]
+)
+
+
+
+val EVERY_EQ_GENLIST = Q.prove(`!l x. EVERY ($= x) l = (l = GENLIST (K x) (LENGTH l))`,
+     Induct \\ fs[] \\ rpt STRIP_TAC \\ EQ_TAC \\ rw[] \\ fs[GENLIST_K_REVERSE_SUC]
+)
+
+val LENGTH_zero_extend = Q.prove(`LENGTH (zero_extend n v) = MAX (LENGTH v) n`,
+  simp[zero_extend_def,PAD_LEFT] \\ simp[MAX_DEF]
+)
+
+
+val PRE_SUB_PRE = Q.prove(`!x y. ~(y=0) ==> PRE x - PRE y = x - y`,
+  rpt (Induct) >- simp[] >- fs[] >- simp[] \\ fs[]
+)
+
+
+Theorem length_zero_extend2
+  `!x n. LENGTH (zero_extend n x) = MAX n (LENGTH x)`
+(rw[zero_extend_def,PAD_LEFT] \\ simp[MAX_DEF])
+
+val GENLIST_K_EVERY = Q.prove(`!x y. (y = GENLIST (K x) (LENGTH y)) = EVERY ($=x) y`,
+ simp[EVERY_EQ_GENLIST]
+)
+
+val v2n_eq0 = Q.prove(`!x. (v2n x = 0) <=> (x = GENLIST (K F) (LENGTH x))`,
+ simp[v2n_def,bitify_reverse_map,num_from_bin_list_def,l2n_eq_0,EVERY_REVERSE,EVERY_MAP]
+ \\ simp[GENLIST_K_EVERY] \\ STRIP_TAC \\ rpt (MK_COMB_TAC \\ simp[]) \\ srw_tac[][FUN_EQ_THM]
+ \\ TOP_CASE_TAC \\ EVAL_TAC
+)
+
+
+val TAKE_ID = prove(
+  ``∀l n. (LENGTH l = n) ⇒ (TAKE n l = l)``,
+Induct THEN SRW_TAC [ARITH_ss][]);
+
+
+Theorem l2n_2_append
+ `!y x. l2n 2 (x ++ y) = l2n 2 x + (2**LENGTH x) * (l2n 2 y)`
+  (INDUCT_THEN list_INDUCT ASSUME_TAC \\ fs[] \\ STRIP_TAC \\ INDUCT_THEN list_INDUCT ASSUME_TAC \\ fs[]
+  \\ rw[] \\ simp[Once l2n_def] \\ ONCE_REWRITE_TAC[ADD_SYM] \\ simp[EXP] \\ simp[LEFT_ADD_DISTRIB]
+  \\ simp[l2n_def])
+
+
+val l2n_GENLIST_0 = prove(``!n. l2n 2 (GENLIST (\v. 0) n) = 0``,
+  ASSUME_TAC (Q.SPEC `2` l2n_eq_0) \\ fs[EVERY_GENLIST]
+)
+
+val v2n_fixwidth_n2v_ORD = Q.prove(`!c. v2n (fixwidth 8 (n2v (ORD c))) = ORD c`, 
+   lrw [n2v_def, v2n_def, bitify_def, num_from_bin_list_def, l2n_def,
+       num_to_bin_list_def, bitify_reverse_map, boolify_reverse_map,
+       rich_listTheory.MAP_REVERSE, listTheory.MAP_MAP_o,
+numposrepTheory.n2l_BOUND, numposrepTheory.l2n_n2l,ORD_BOUND,fixwidth_def
+         ,zero_extend_def,PAD_LEFT,MAP_GENLIST,REVERSE_APPEND,REVERSE_GENLIST,MAP_DROP,REVERSE_DROP
+         , MAP_REVERSE, MAP_MAP_o,o_DEF]
+  >- (simp[l2n_2_append,l2n_GENLIST_0] \\ fs[] 
+      \\ Q.MATCH_ABBREV_TAC `l2n 2 X = _`
+  \\ `X = n2l 2 (ORD c)` by (UNABBREV_ALL_TAC \\ cheat)
+  \\ fs[] \\ MATCH_MP_TAC l2n_n2l \\ simp[]
+)
+  \\ simp[LASTN_def,GSYM MAP_TAKE]
+  \\ `LENGTH (n2l 2 (ORD c)) = 8` by cheat
+  \\ srw_tac[][TAKE_ID]
+  \\ Q.MATCH_ABBREV_TAC `l2n 2 X = _`
+  \\ `X = n2l 2 (ORD c)` by (UNABBREV_ALL_TAC \\ cheat)
+  \\ fs[]
+  \\ MATCH_MP_TAC l2n_n2l \\ simp[]
+)
+
+Theorem EVERY_MOD_EQUAL_LESS_EQUIV_EQUAL
+  `!l. (EVERY ($>2) l /\ EVERY ($=0 o combin$C $MOD 2) l) = EVERY ($=0) l`
+  (INDUCT_THEN list_INDUCT ASSUME_TAC \\ rw[EVERY_DEF] \\ EQ_TAC \\ rw[] \\ fs[])
+
+Theorem n2v_v2n_LENGTH_sub
+  `!h t. LENGTH (n2v (v2n (h::t))) - LENGTH (h::t) = 0`
+ (rw[] \\ simp[n2v_def,v2n_def,boolify_reverse_map,bitify_reverse_map,num_to_bin_list_def,num_from_bin_list_def]
+  \\ simp[l2n_2_append] \\ Cases_on `h` \\ fs[] \\ `1<2` by simp[]
+  \\ ASM_SIMP_TAC arith_ss [LENGTH_n2l]
+  >- (ONCE_REWRITE_TAC[ADD_COMM]
+      \\ `LOG 2 (l2n 2 (REVERSE (MAP (λb. if b then 1 else 0) t)) + 2 ** LENGTH t) = LENGTH t` by
+        (MATCH_MP_TAC LOG_ADD \\ fs[] \\ `LENGTH t = LENGTH (REVERSE (MAP (λb. if b then 1 else 0) t))` by simp[LENGTH_REVERSE,LENGTH_MAP]
+         \\ ONCE_ASM_REWRITE_TAC[]
+         \\ `0<2` by fs[]
+         \\ ASSUME_TAC l2n_lt
+         \\ (POP_ASSUM (ASSUME_TAC o Q.SPECL[`(REVERSE (MAP (λb. if b then 1 else 0) t))`,`2`])) \\ fs[]
+        )
+      \\ fs[])
+  \\ `0<2` by fs[]
+  \\ ASM_SIMP_TAC arith_ss [l2n_eq_0]
+  \\ simp[EVERY_REVERSE]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ `LOG 2 (l2n 2 (REVERSE (MAP (λb. if b then 1 else 0) t))) = PRE (LENGTH (dropWhile ($= 0) (REVERSE (REVERSE (MAP (λb. if b then 1 else 0) t)))))` by
+     (cheat)
+  \\ fs[] \\ `LENGTH (dropWhile ($= 0) (MAP (λb. if b then 1 else 0) t)) <= LENGTH (MAP (λb. if b then 1 else 0) t)` by simp[LENGTH_dropWhile_LESS_EQ]
+  \\ fs[LENGTH_MAP])
 
 Theorem DROP_n2v_v2n_sub
   `!h t. DROP (LENGTH (n2v (v2n (h::t))) - LENGTH (h::t)) (n2v (v2n (h::t)))
-   = n2v (v2n (h::t))` cheat;
+   = n2v (v2n (h::t))`
+(rpt STRIP_TAC
+ \\ ASM_SIMP_TAC arith_ss [DROP,n2v_v2n_LENGTH_sub])
+
+Theorem zero_extend_n2v_v2n_cons
+  `!h t. zero_extend (SUC (LENGTH t)) (n2v (v2n (h::t))) = h::t`
+(rw[] \\ simp[zero_extend_def,PAD_LEFT,n2v_def,v2n_def,boolify_reverse_map,bitify_reverse_map,num_to_bin_list_def,num_from_bin_list_def]
+ \\ ASM_SIMP_TAC arith_ss [LENGTH_n2l] \\ TOP_CASE_TAC \\ fs[] >-
+    (fs[l2n_eq_0] \\ simp[GENLIST_K_REVERSE_APPEND] \\ simp[GENLIST_K_REVERSE_SUC]
+     \\ Cases_on `h` \\ fs[] \\ fs[EVERY_REVERSE,EVERY_MAP] \\ cheat)
+ \\ Q.MATCH_ABBREV_TAC `_ ++ (REVERSE (MAP _ (n2l 2 (l2n 2 P)))) = _`
+ \\ `EVERY ($> 2) P` by (UNABBREV_ALL_TAC \\ simp[EVERY_REVERSE,EVERY_MAP]
+                         \\ rw[] \\ rpt (POP_ASSUM (K ALL_TAC))
+                         \\ Induct_on `t` \\ rw[EVERY_DEF])
+ \\ ASM_SIMP_TAC arith_ss [n2l_l2n]
+ \\ fs[l2n_eq_0,o_DEF]
+ \\ ASSUME_TAC (Q.SPEC `2` LOG_l2n)
+ \\ fs[]
+ \\ Cases_on `h` \\ fs[]
+ \\ UNABBREV_ALL_TAC
+ >- (simp[MAP_TAKE,MAP_REVERSE,MAP_MAP_o,o_DEF,REVERSE_APPEND]
+     \\ simp[TAKE_APPEND,GSYM MAP_REVERSE,GSYM MAP_TAKE]
+     \\ simp[GSYM ADD1] >> 
+     `LENGTH (REVERSE t) <= SUC (LENGTH t)` by simp[] \\
+      IMP_RES_TAC TAKE_LENGTH_TOO_LONG \\ fs[]
+      \\ Q.MATCH_ABBREV_TAC `MAP f _ = _`
+      \\ `f = I` by (UNABBREV_ALL_TAC \\ simp[I_DEF,S_DEF,K_DEF] \\ ABS_TAC \\ TOP_CASE_TAC \\ simp[])
+      \\ fs[])
+ \\ simp[l2n_2_append]
+ \\ Induct_on `t` \\ rw[TAKE_APPEND,MAP_REVERSE,GSYM ADD1]
+ >- (`LENGTH (REVERSE t) <= SUC (LENGTH t)` by simp[] \\ ASM_SIMP_TAC arith_ss [TAKE_LENGTH_TOO_LONG]
+     \\ simp[REVERSE_REVERSE,MAP_REVERSE] \\ simp[MAP_TAKE,MAP_REVERSE,MAP_MAP_o,o_DEF]
+     \\ cheat)
+ \\ ASSUME_TAC (Q.SPEC `2` l2n_SNOC_0)
+ \\ fs[]
+ \\ ONCE_ASM_REWRITE_TAC[GSYM SNOC_APPEND]
+ \\ ntac 3 (POP_ASSUM (K ALL_TAC))
+ \\ POP_ASSUM (ASSUME_TAC o GSYM)
+ \\ fs[]
+ \\ POP_ASSUM (K ALL_TAC)
+ \\ rw[]
+ \\ ONCE_REWRITE_TAC[GSYM SNOC_APPEND]
+ \\ ASSUME_TAC (Q.SPEC `2` l2n_SNOC_0)
+ \\ fs[]
+ \\ ONCE_REWRITE_TAC[GSYM SNOC_APPEND]
+ \\ ASM_SIMP_TAC (simpLib.empty_ss) []
+ \\ simp[MAP_TAKE,MAP_REVERSE,MAP_MAP_o,o_DEF,REVERSE_APPEND]
+ (* \\ `!x. F::x = [F] ++ x` by simp[]
+ \\ ONCE_ASM_REWRITE_TAC[] *) \\ cheat
+)
+
 
 Theorem n2v_v2n_not_less_id
-  `~(LENGTH (n2v (v2n (h::t))) < LENGTH (h::t)) ==> n2v (v2n (h::t)) = (h::t)` cheat;
+  `~(LENGTH (n2v (v2n (h::t))) < LENGTH (h::t)) ==> n2v (v2n (h::t)) = (h::t)`
+(simp[LENGTH_n2v] \\ TOP_CASE_TAC
+ >- (Cases_on `t` \\ fs[] \\ Cases_on `h` \\ EVAL_TAC \\ POP_ASSUM (fn a => ASSUME_TAC a \\ UNDISCH_TAC (concl a)) \\ EVAL_TAC)
+ \\ Cases_on `h` \\ rw[v2n_def,n2v_def,num_from_bin_list_def,num_to_bin_list_def,bitify_reverse_map,boolify_reverse_map]
+ \\ Q.MATCH_ABBREV_TAC `REVERSE (MAP _ (n2l 2 (l2n 2 X))) = _`
+ \\ `EVERY ($> 2) X` by (UNABBREV_ALL_TAC \\ simp[EVERY_REVERSE,EVERY_MAP]
+                         \\ Q.MATCH_ABBREV_TAC `EVERY X _`
+                         \\ `X = K T` by (UNABBREV_ALL_TAC \\ simp[K_DEF] \\ ABS_TAC \\ TOP_CASE_TAC \\ simp[])
+                         \\ fs[] \\ rpt (POP_ASSUM (K ALL_TAC))
+                         \\ Induct_on `t` \\ simp[EVERY_DEF])
+ \\ IMP_RES_TAC n2l_l2n
+ \\ fs[]
+ \\ UNABBREV_ALL_TAC
+ \\ fs[l2n_eq_0]
+ \\ simp[MAP_TAKE,MAP_REVERSE,MAP_MAP_o,o_DEF,REVERSE_APPEND]
+ \\ ASSUME_TAC (Q.SPEC `2` LOG_l2n)
+ \\ fs[]
+ \\ `0 < LENGTH t + 1` by simp[]
+ \\ `SUC (PRE (LENGTH t + 1)) = LENGTH t + 1` by metis_tac[SUC_PRE]
+ \\ ASM_REWRITE_TAC[]
+ >- (simp[TAKE_APPEND,GSYM MAP_REVERSE,GSYM MAP_TAKE] \\ `LENGTH (REVERSE t) <= LENGTH t + 1` by simp[] \\ ASM_SIMP_TAC arith_ss [TAKE_LENGTH_TOO_LONG,REVERSE_REVERSE]
+     \\ fs[EVERY_REVERSE] \\ fs[EVERY_MAP] \\ rw[]
+     \\ simp[MAP_EQ_ID]
+     \\ rpt STRIP_TAC
+     \\ TOP_CASE_TAC \\ fs[])
+ \\ TOP_CASE_TAC \\ fs[]
+ >- (rw[] \\ POP_ASSUM (fn a => ASSUME_TAC a \\ UNDISCH_TAC (concl a)) \\ ntac 4 (POP_ASSUM (K ALL_TAC))
+     \\ rw[] \\ fs[v2n_def,num_from_bin_list_def,l2n_eq_0,o_DEF,bitify_reverse_map]
+     \\ FULL_SIMP_TAC(simpLib.empty_ss)[EXISTS_NOT_EVERY] \\ metis_tac[])
+ \\ simp[TAKE_APPEND] \\ simp[MAP_TAKE] \\ simp[MAP_REVERSE,MAP_MAP_o,o_DEF] \\ fs[EXISTS_REVERSE,EXISTS_MAP]
+ \\ `SUC (LOG 2 (l2n 2 (REVERSE (MAP (λb. if b then 1 else 0) t) ++ [0]))) <= LENGTH t` by
+   (simp[GSYM SNOC_APPEND] \\ simp[l2n_SNOC_0] \\
+    Q.MATCH_ABBREV_TAC `SUC (LOG 2 (l2n 2 X)) <= _`
+    \\ `LOG 2 (l2n 2 X) = PRE (LENGTH (dropWhile ($=0) (REVERSE X)))`
+        by (MATCH_MP_TAC LOG_l2n_dropWhile \\ fs[] \\ UNABBREV_ALL_TAC
+            \\ simp[EXISTS_REVERSE,EXISTS_MAP]
+            \\ POP_ASSUM (fn a => ASSUME_TAC a \\ UNDISCH_TAC (concl a))
+            \\ rpt(POP_ASSUM (K ALL_TAC))
+            \\ `!x y. (x = y) ==> (x ==> y)` by simp[]
+            \\ POP_ASSUM MATCH_MP_TAC
+            \\ rpt (MK_COMB_TAC \\ simp[])
+            \\ ABS_TAC \\ rw[])
+    \\ fs[]
+    \\ UNABBREV_ALL_TAC
+    \\ simp[REVERSE_REVERSE]
+    \\ Q.MATCH_ABBREV_TAC `SUC (PRE X) <= _`
+    \\ Cases_on `0 < X` >- 
+        (fs[SUC_PRE] \\ UNABBREV_ALL_TAC \\ metis_tac[LENGTH_MAP,LENGTH_dropWhile_LESS_EQ])
+    \\ reverse(Cases_on `X`) >- (POP_ASSUM (fn x => ASSUME_TAC x \\ UNDISCH_TAC (concl x)) \\ simp[])
+    \\ simp[] \\ rename1 `1 <= LENGTH t` \\ Cases_on `t` \\ simp[]
+    \\ fs[]
+  )
+ \\ IMP_RES_TAC TAKE_REVERSE \\ fs[])
+;
 
+Theorem MAP_Word
+  `!x y. MAP Word x = MAP Word y <=> x = y`
+ (rpt STRIP_TAC \\  MATCH_MP_TAC INJ_MAP_EQ_IFF \\ simp[INJ_DEF])
 Theorem compile_evaluate
   `0 < max_app ⇒
    (∀env ^s es s' r.
@@ -297,8 +592,10 @@ Theorem compile_evaluate
     imp_res_tac evaluate_sing >> rw[] >>fs[] >> rfs[]) >>
   strip_tac >- (
     Cases_on`l`>>
-    rw[evaluate_def,do_app_def] >> rw[] >>
-    simp[GSYM MAP_REVERSE,evaluate_MAP_Op_Const,combinTheory.o_DEF]) >>
+    TRY (rw[evaluate_def,do_app_def] >> rw[] >>
+    simp[GSYM MAP_REVERSE,evaluate_MAP_Op_Const,combinTheory.o_DEF] \\ NO_TAC)
+    \\ simp[compile_def]
+   ) >>
   strip_tac >- (
     rw[evaluate_def,evaluate_pat_def,case_eq_thms,pair_case_eq] >>
     imp_res_tac evaluate_const \\ fs[] \\
@@ -529,8 +826,9 @@ Theorem compile_evaluate
       \\ NO_TAC) >>
     TRY (
       rename1`Chopb op` >>
-      Cases_on`op`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def] >>
-      NO_TAC) >>
+      Cases_on`op`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def,SWAP_REVERSE_SYM,MAP_REVERSE,opwb_lookup_def,blt_def,bgt_def,bleq_def,bgeq_def]
+      \\ simp[v2n_fixwidth_n2v_ORD] \\ intLib.COOPER_TAC 
+      \\ NO_TAC) >>
     TRY (
       rename1`do_word_op op wz w1 w2`
       \\ Cases_on`wz` \\ Cases_on`w1` \\ Cases_on`w2` \\ fs[evaluate_def]
@@ -693,10 +991,31 @@ evaluate_REPLICATE_Op_AllocGlobal, REPLICATE_GENLIST, MAP_GENLIST]
         >- (Cases_on `l` >- EVAL_TAC \\ simp[DROP_n2v_v2n_sub] \\ ASM_SIMP_TAC arith_ss [n2v_v2n_not_less_id])
         \\ Cases_on `l` \\ fs[] \\ simp[zero_extend_n2v_v2n_cons]
       )
+   >- (simp[evaluate_def] \\ fs[MAP_REVERSE,ETA_AX] \\ simp[do_app_def] \\ simp[v2n_fixwidth_n2v_ORD])
+   >- (fs[evaluate_def,do_app_def,MAP_REVERSE,ETA_AX] \\ rw[] >- COOPER_TAC
+       \\ fs[] \\ rename1 `ABS i` \\ Cases_on `i` \\ fs[i2vN_def]
+      )
+   >- (fsrw_tac [ETA_ss] [evaluate_def, do_app_def, case_eq_thms,pair_case_eq, PULL_EXISTS, SWAP_REVERSE_SYM,MAP_REVERSE]
+       \\ imp_res_tac v_to_char_list \\ fs[]
+       \\ DEEP_INTRO_TAC some_intro \\ simp[]
+       \\ ONCE_REWRITE_TAC[MAP_o] \\ simp[o_DEF] \\ rw[] \\ fs[MAP_Word] \\ rveq
+       >- (simp[MAP_MAP_o,o_DEF]
+       \\ `!v. (v2w (fixwidth 8 v)):word8 = v2w v` by (
+            ASSUME_TAC(INST_TYPE [alpha |-> Type`:8`] v2w_fixwidth) \\ fs[])
+       \\ fs[]
+       \\ simp[INST[``s``|->``ls``] IMPLODE_EXPLODE_I])
+       \\ simp[EVERY_MAP]
+     )
+   >- (fsrw_tac[ETA_ss,ARITH_ss][evaluate_def,do_app_def,case_eq_thms,pair_case_eq,PULL_EXISTS,SWAP_REVERSE_SYM,MAP_REVERSE]
+       \\ rename1 `0 <= i'⁴' ∧ i'⁴' < &STRLEN str''`
+       \\ `0 <= i'⁴' ∧ i'⁴' < &STRLEN str''` by intLib.COOPER_TAC
+       \\ Cases_on `i''''` \\ (ASM_SIMP_TAC arith_ss [EL_MAP] \\ fs[])
+       >- (fsrw_tac[ETA_ss,ARITH_ss][EL_MAP] \\ simp[w2v_n2w])
+       \\ Cases_on `str''` >- fs[STRLEN_DEF] \\ simp[HD_MAP]
+       \\ simp[w2v_n2w]) 
    >- (simp[Once evaluate_def] \\ fs[MAP_REVERSE,ETA_AX]
        \\ ntac 5 (simp[Once evaluate_def])
        \\ fs[do_app_def]
-       \\ `1 < LENGTH env + LENGTH vs /\ 2 < LENGTH env + LENGTH vs` by fs[SWAP_REVERSE_SYM]
        \\ fs[]
        \\ fs[SWAP_REVERSE_SYM]
        \\ fs[FLOOKUP_compile_state_refs]
@@ -714,8 +1033,7 @@ evaluate_REPLICATE_Op_AllocGlobal, REPLICATE_GENLIST, MAP_GENLIST]
        \\ STRIP_TAC \\ rpt (TOP_CASE_TAC \\ fs[store_lookup_def,store_assign_def])
        \\ rveq >> simp[LUPDATE_LENGTH,EL_LUPDATE] \\ simp[LUPDATE_MAP]
        \\ rpt(MK_COMB_TAC \\ simp[])
-   )
-  ) >>
+   )) >>
   strip_tac >- (
     simp[evaluate_def,evaluate_pat_def,patSemTheory.do_if_def] >> rw[] >>
     fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ fs[] \\ rveq \\
