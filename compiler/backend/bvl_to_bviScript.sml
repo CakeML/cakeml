@@ -209,8 +209,8 @@ local val compile_op_quotation = `
                            [Var 1; Op (Const 0) []] NONE;
                          Var 0; Var 1])
     | String str =>
-        Let [Op (RefByte T) [Op (Const 0) c1; compile_int (&(LENGTH str))]]
-          (Let (MAPi (λn c. Op UpdateByte [Op (Const &(ORD c)) []; compile_int (&n); Var 0]) str)
+        Let [Op (RefByte T) [Op (Const 0) c1; Op (WordFromInt 8) [compile_int (&(LENGTH str))]]]
+          (Let (MAPi (λn c. Op UpdateByte [Op (WordConst (fixwidth 8 (n2v (ORD c)))) []; compile_int (&n); Var 0]) str)
             (Var (LENGTH str)))
     | FromListByte =>
         Let (if NULL c1 then [Op (Const 0) []] else c1)
