@@ -1822,10 +1822,10 @@ val v_rel_to_list_byte = prove(
   ``simple_val_rel vr ==>
     !y x.
       vr x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns) ∧
-            EVERY (λn. n < 256) ns) <=>
-           (v_to_list y = SOME (MAP (Number ∘ $&) ns) ∧
-            EVERY (λn. n < 256) ns)``,
+      !ns. (v_to_list x = SOME (MAP Word ns) ∧
+            EVERY (λn. LENGTH n = 8) ns) <=>
+           (v_to_list y = SOME (MAP Word ns) ∧
+            EVERY (λn. LENGTH n = 8) ns)``,
   strip_tac \\ fs [simple_val_rel_def]
   \\ ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def] \\ res_tac
@@ -1946,6 +1946,11 @@ Theorem vr_list_NONE
   \\ rpt (disch_then drule \\ fs [])
   \\ rw [] \\ metis_tac [isClos_def]);
 
+Theorem simple_val_rel_ByteVector
+  `!x vr. simple_val_rel vr ==> vr (ByteVector x) (ByteVector x)`
+  (rw[] \\ rfs[simple_val_rel_alt])
+
+
 val _ = print "The following proof is slow due to Rerr cases.\n"
 val print_tac = asmLib.print_tac "simple_val_rel_do_app_rev";
 val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
@@ -1958,6 +1963,13 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
                             do_app opp xs s = Rval (x,s1)``,
   strip_tac
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
+  \\ Cases_on `opp = FromListByte` THEN1
+   (print_tac "FromListByte" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp[do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp[PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ drule v_rel_to_list_byte \\ fs[]
+    \\ disch_then drule \\ rfs[simple_val_rel_def])
   \\ Cases_on `opp = ListAppend`
   THEN1
    (print_tac "opp = ListAppend" \\ Cases_on `do_app opp ys t` \\ pop_assum mp_tac
@@ -1994,7 +2006,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
   )
   \\ Cases_on `opp = Length \/ (?b. opp = BoundsCheckByte b) \/
                opp = BoundsCheckArray \/ opp = LengthByte \/
-               opp = DerefByteVec \/ opp = DerefByteVecAsNum \/
+               opp = DerefByteVec \/
                opp = DerefByte \/ opp = Deref \/
                opp = GlobalsPtr \/ opp = El \/ opp = SetGlobalsPtr`
   THEN1
@@ -2021,14 +2033,6 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
     \\ match_mp_tac EVERY2_TAKE \\ fs []
     \\ match_mp_tac EVERY2_DROP \\ fs [])
-  \\ Cases_on `opp = FromListByte` THEN1
-   (print_tac "FromListByte" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
-    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
-    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
-    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ drule v_rel_to_list_byte \\ fs []
-    \\ disch_then drule
-    \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
   \\ Cases_on `?b. opp = FromList b` THEN1
    (print_tac "FromList" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq

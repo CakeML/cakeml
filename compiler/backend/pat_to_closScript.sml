@@ -5,6 +5,7 @@
   in closLang can make more assumptions about the arguments.
 *)
 open preamble patLangTheory closLangTheory backend_commonTheory
+open bitstringTheory
 
 val _ = new_theory"pat_to_clos"
 val _ = set_grammar_ancestry ["patLang", "closLang", "backend_common"]
@@ -69,7 +70,7 @@ val compile_def = tDefine"compile" `
   (compile (Lit tra (Word w)) =
     Op tra (WordConst w) []) ∧
   (compile (Lit tra (Char c)) =
-    Op tra (Const (& ORD c)) []) ∧
+    Op tra (WordConst (bitstring$fixwidth 8 (bitstring$n2v (ORD c)))) []) ∧
   (compile (Lit tra (StrLit s)) =
     Op tra (String s) []) ∧
   (compile (Con tra cn es) =
@@ -114,13 +115,13 @@ val compile_def = tDefine"compile" `
   (compile (App tra (Op (Opb Geq)) es) =
     Op tra GreaterEq (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Chopb Lt)) es) =
-    Op tra Less (REVERSE (MAP compile es))) ∧
+    Op tra (WordCmp 8 Ltw) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Chopb Gt)) es) =
-    Op tra Greater (REVERSE (MAP compile es))) ∧
+    Op tra (WordCmp 8 Gtw) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Chopb Leq)) es) =
-    Op tra LessEq (REVERSE (MAP compile es))) ∧
+    Op tra (WordCmp 8 Leqw) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op (Chopb Geq)) es) =
-    Op tra GreaterEq (REVERSE (MAP compile es))) ∧
+    Op tra (WordCmp 8 Geqw) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Equality) es) =
     Op tra Equal (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Opassign) es) =
@@ -142,15 +143,14 @@ val compile_def = tDefine"compile" `
   (compile (App tra (Op (flatLang$WordToWord m n)) es) =
     Op tra (WordToWord m n) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Ord) es) =
-    if LENGTH es ≠ 1 then Op tra Sub (REVERSE (MAP compile es))
-    else compile (HD es)) ∧
+    Op tra (WordToInt 8) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Chr) es) =
     Let (tra§0) (REVERSE (MAP compile es))
       (If (tra§1) (Op (tra§2) Less [Op (tra§3) (Const 0) []; Var (tra§4) 0])
         (Raise (tra§5) (Op (tra§6) (Cons chr_tag) []))
         (If (tra§7) (Op (tra§8) Less [Var (tra§9) 0; Op (tra§10) (Const 255) []])
           (Raise (tra§11) (Op (tra§12) (Cons chr_tag) []))
-          (Var (tra§13) 0)))) ∧
+          (Op (tra§13) (WordFromInt 8) [Var (tra§10) 0])))) ∧
   (compile (App tra (Op Aw8alloc) es) =
     Let (tra§0) (REVERSE (MAP compile es))
       (If (tra§1) (Op (tra§2) Less [Op (tra§3) (Const 0) []; Var (tra§4) 1])
@@ -173,7 +173,7 @@ val compile_def = tDefine"compile" `
   (compile (App tra (Op Strsub) es) =
     Let (tra§0) (REVERSE (MAP compile es))
       (If (tra§1) (Op (tra§2) (BoundsCheckByte F) [Var (tra§3) 0; Var (tra§4) 1])
-         (Op (tra§5) DerefByteVecAsNum [Var (tra§6) 0; Var (tra§7) 1])
+         (Op (tra§5) DerefByteVec [Var (tra§6) 0; Var (tra§7) 1])
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op Implode) es) =
     Op tra (FromListByte) (REVERSE (MAP compile es))) ∧

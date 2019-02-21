@@ -239,18 +239,14 @@ val do_app_def = Define `
          | _ => Error)
     | (String str,[]) => Rval (ByteVector (MAP (n2w o ORD) str),s)
     | (FromListByte,[lv]) =>
-        (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
-         | SOME ns => Rval (ByteVector (MAP n2w ns), s)
+        (case some ns. v_to_list lv = SOME (MAP Word ns) ∧ EVERY (λn. LENGTH n = 8) ns of
+         | SOME ns => Rval (ByteVector (MAP v2w ns), s)
          | NONE => Error)
     | (LengthByteVec,[ByteVector bs]) =>
         (Rval (Number (& LENGTH bs), s))
     | (DerefByteVec,[ByteVector bs; Number i]) =>
         (if 0 ≤ i ∧ i < &LENGTH bs then
            Rval (Word (w2v (EL (Num i) bs)), s)
-         else Error)
-    | (DerefByteVecAsNum,[ByteVector bs; Number i]) =>
-        (if 0 ≤ i ∧ i < &LENGTH bs then
-           Rval (Number (&(w2n (EL (Num i) bs))), s)
          else Error)
     | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
         (case FLOOKUP s.refs dst of
