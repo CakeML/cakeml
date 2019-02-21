@@ -112,6 +112,7 @@ val is_pure_do_app_Rerr_IMP = Q.prove(
   \\ simp[do_space_def,data_spaceTheory.op_space_req_def,
           case_eq_thms,do_install_def,UNCURRY] \\ rw[]);
 
+
 val small_alloc = Q.prove(`!n. 0 < arch_size-2 ==> is_small arch_size n ==> alloc_size n arch_size = 0`,
     simp[data_spaceTheory.alloc_size_def,data_liveTheory.is_small_def,data_spaceTheory.ROUNDUP_DIV_def]
     \\ fs[LESS_OR_EQ] \\ SIMP_TAC arith_ss [] \\ rpt STRIP_TAC \\ fs[] \\ Cases_on `n = 0` \\ fs[]
@@ -132,9 +133,10 @@ val is_pure_do_app_Rval_IMP = Q.prove(
    \\ fs[case_eq_thms]
   );
 
+
 val evaluate_compile = Q.prove(
-  `!c s1 arch_size res s2 l2 t1 l1 d. 0 < arch_size - 2 /\
-      (evaluate (c,s1) arch_size = (res,s2)) /\ state_rel s1 t1 l1 /\
+  `!c s1 arch_size res s2 l2 t1 l1 d.
+      0 < arch_size - 2 /\ (evaluate (c,s1) arch_size = (res,s2)) /\ state_rel s1 t1 l1 /\
       (compile c l2 arch_size = (d,l1)) /\ (res <> SOME (Rerr (Rabort Rtype_error))) /\
       (!s3. (jump_exc s1 = SOME s3) ==>
             ?t3. (jump_exc t1 = SOME t3) /\ state_rel s3 t3 LN /\
@@ -299,17 +301,14 @@ val evaluate_compile = Q.prove(
       fs [call_env_def,dec_clock_def,state_rel_def,state_component_equality]
     \\ fs [] \\ Q.MATCH_ASSUM_RENAME_TAC
          `evaluate (r,call_env q (dec_clock s)) arch_size = (SOME res2,s2)`
-    \\ (Q.ISPECL_THEN [`r`,`call_env q (dec_clock s)`] mp_tac evaluate_stack_swap)
+    \\ (Q.ISPECL_THEN [`r`,`call_env q (dec_clock s)`,`arch_size`] mp_tac evaluate_stack_swap)
     \\ fs [] \\ Cases_on `res2` \\ fs [] THEN1
      (fs [call_env_def,dec_clock_def] \\ REPEAT STRIP_TAC
       \\ `LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `arch_size`)
-      \\ fs []
-      \\ SRW_TAC [] [state_rel_def]
-      \\ cheat
-    )
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t1.stack`) \\ fs []
+      \\ SRW_TAC [] [state_rel_def])
     THEN Cases_on`e` >> fs[] THEN1
-     cheat (*REPEAT STRIP_TAC
+     (REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1.stack`])
       \\ Q.PAT_X_ASSUM `!x.bbb` (MP_TAC o GSYM)
       \\ Q.MATCH_ASSUM_RENAME_TAC
@@ -325,18 +324,18 @@ val evaluate_compile = Q.prove(
       \\ `s.handler = t1.handler /\
           LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ ASM_SIMP_TAC (srw_ss()) [Once jump_exc_def]
-      \\ REPEAT STRIP_TAC \\ fs [] \\ fs [state_rel_def]*)
-    THEN Cases_on`a`>>fs[] THEN cheat
-     (*fs [call_env_def,dec_clock_def] \\ REPEAT STRIP_TAC
+      \\ REPEAT STRIP_TAC \\ fs [] \\ fs [state_rel_def])
+    THEN Cases_on`a`>>fs[] THEN
+     (fs [call_env_def,dec_clock_def] \\ REPEAT STRIP_TAC
       \\ `LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t1.stack`) \\ fs []
-      \\ SRW_TAC [] [state_rel_def]*))
+      \\ SRW_TAC [] [state_rel_def]))
   (* Call with SOME ret *)
   \\ Cases_on `x` \\ Q.MATCH_ASSUM_RENAME_TAC
        `(d,l1) = compile (Call (SOME (v,names)) dest args handler) l2 arch_size`
   \\ Cases_on `handler`
   THEN1 (* Call with handler NONE *)
-   cheat (*fs [compile_def,LET_DEF,evaluate_def]
+   (fs [compile_def,LET_DEF,evaluate_def]
     \\ `t1.clock = s.clock /\ t1.code = s.code` by fs [state_rel_def]
     \\ Cases_on `get_vars args s.locals` \\ fs []
     \\ IMP_RES_TAC state_rel_IMP_get_vars \\ fs []
@@ -355,18 +354,18 @@ val evaluate_compile = Q.prove(
           with stack := t5.stack) = t5` by
      (UNABBREV_ALL_TAC
       \\ fs [call_env_def,push_env_def,dec_clock_def,state_rel_def,
-             state_component_equality] \\ NO_TAC) \\ fs []
+             state_component_equality]) \\ fs []
     \\ Q.ABBREV_TAC `t4 =
          call_env q (push_env ((inter s.locals names)) F (dec_clock s))`
     \\ `LENGTH t4.stack = LENGTH t5.stack` by
      (UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def,dec_clock_def]
       \\ fs [state_rel_def] \\ NO_TAC)
-    \\ (Q.ISPECL_THEN [`r`,`t4`] mp_tac evaluate_stack_swap)
+    \\ (Q.ISPECL_THEN [`r`,`t4`,`arch_size`] mp_tac evaluate_stack_swap)
     \\ Cases_on `s.clock = 0` \\ fs []
     THEN1 (fs [state_rel_def,call_env_def])
     \\ Cases_on `evaluate (r,t4) arch_size` \\ fs []
     \\ Cases_on `q'` \\ fs [] \\ Cases_on `x'` \\ fs [] THEN1
-     (*REPEAT STRIP_TAC
+     (REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
       \\ REPEAT STRIP_TAC \\ fs [] \\ SIMP_TAC (srw_ss()) [pop_env_def]
       \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
@@ -375,12 +374,12 @@ val evaluate_compile = Q.prove(
              domain_inter,domain_delete] \\ REPEAT STRIP_TAC
       \\ Cases_on `x' = v` \\ fs []
       \\ Cases_on `x' IN domain names` \\ fs []
-      \\ REPEAT STRIP_TAC \\ SRW_TAC [] []*) cheat
+      \\ REPEAT STRIP_TAC \\ SRW_TAC [] [])
     THEN Cases_on`e` >> fs[] THEN1
-     (*REPEAT STRIP_TAC
-      \\ POP_ASSUM (MP_TAC o Q.SPECL [`arch_size`])
+     (REPEAT STRIP_TAC
+      \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
       \\ Q.PAT_X_ASSUM `!x.bbb` (MP_TAC o GSYM)
-      \\ Q.MATCH_ASSUM_RENAME_TAC `SOME s3 = jump_exc t4`
+      \\ Q.MATCH_ASSUM_RENAME_TAC `jump_exc t4 = SOME s3`
       \\ Q.PAT_X_ASSUM `jump_exc t4 = SOME s3` (MP_TAC o GSYM)
       \\ UNABBREV_ALL_TAC
       \\ SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
@@ -406,11 +405,11 @@ val evaluate_compile = Q.prove(
                     clock := s.clock - 1|>` by
                 fs [state_component_equality,state_rel_def]
       \\ REV_FULL_SIMP_TAC std_ss []
-      \\ fs [state_rel_def] \\ SRW_TAC [] [] \\ fs []*) cheat
+      \\ fs [state_rel_def] \\ SRW_TAC [] [] \\ fs [])
     THEN Cases_on`a`>>fs[] THEN
      (REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
-      \\ REPEAT STRIP_TAC \\ fs [state_rel_ID])*)
+      \\ REPEAT STRIP_TAC \\ fs [state_rel_ID]))
   (* Call with SOME handler *)
   \\ `?var handle. x = (var,handle)` by METIS_TAC [PAIR]
   \\ POP_ASSUM (fn th => fs [th])
@@ -441,12 +440,12 @@ val evaluate_compile = Q.prove(
   \\ `LENGTH t4.stack = LENGTH t5.stack` by
    (UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def,dec_clock_def]
     \\ fs [state_rel_def] \\ NO_TAC)
-  \\ (Q.ISPECL_THEN [`r`,`t4`]mp_tac evaluate_stack_swap)
+  \\ (Q.ISPECL_THEN [`r`,`t4`,`arch_size`]mp_tac evaluate_stack_swap)
   \\ Cases_on `s.clock = 0` \\ fs []
   THEN1 (fs [state_rel_def,call_env_def])
   \\ Cases_on `evaluate (r,t4) arch_size` \\ fs []
   \\ Cases_on `q'` \\ fs [] \\ Cases_on `x'` \\ fs [] THEN1
-   cheat (*REPEAT STRIP_TAC
+   (REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
     \\ REPEAT STRIP_TAC \\ fs [] \\ SIMP_TAC (srw_ss()) [pop_env_def]
     \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
@@ -454,7 +453,7 @@ val evaluate_compile = Q.prove(
     \\ fs [lookup_insert,lookup_inter_alt,lookup_union,
            domain_list_insert,domain_union,
            domain_inter,domain_delete] \\ REPEAT STRIP_TAC
-    \\ fs [dec_clock_def]*)
+    \\ fs [dec_clock_def])
   \\ Cases_on`e`>>fs[]
   \\ TRY (
     Cases_on`a` >> fs[] >> (
@@ -462,8 +461,7 @@ val evaluate_compile = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
     \\ REPEAT STRIP_TAC \\ fs [state_rel_ID] \\ NO_TAC))
   \\ REPEAT STRIP_TAC
-  \\ POP_ASSUM (MP_TAC o Q.SPEC `arch_size`)
-  \\ POP_ASSUM (MP_TAC)
+  \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
   \\ UNABBREV_ALL_TAC
   \\ NTAC 3 (SIMP_TAC std_ss [Once dec_clock_def])
   \\ NTAC 3 (SIMP_TAC std_ss [Once push_env_def])
@@ -480,7 +478,7 @@ val evaluate_compile = Q.prove(
              (dec_clock t1))` by (fs [call_env_def,push_env_def,dec_clock_def])
   \\ fs [] \\ REPEAT STRIP_TAC \\ POP_ASSUM (K ALL_TAC)
   \\ POP_ASSUM (K ALL_TAC)
-  \\ (* FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
+  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
   \\ STRIP_TAC THEN1
    (fs [state_rel_def,set_var_def,lookup_insert,call_env_def,
       push_env_def,dec_clock_def,jump_exc_def]
@@ -498,7 +496,7 @@ val evaluate_compile = Q.prove(
   \\ SRW_TAC [] [] \\ fs []
   \\ Cases_on `LASTN (t1.handler + 1) t1.stack` \\ fs []
   \\ Cases_on `h` \\ fs []
-  \\ SRW_TAC [] [] \\ fs [] *) cheat);
+  \\ SRW_TAC [] [] \\ fs []);
 
 Theorem compile_correct
   `!c s. 0 < arch_size - 2 /\ FST (evaluate (c,s) arch_size) <> SOME (Rerr(Rabort Rtype_error)) /\
@@ -516,7 +514,7 @@ Theorem compile_correct
   \\ fs [state_rel_def,state_component_equality]
   \\ (Q.ISPECL_THEN [`c`,`s`,`arch_size`] mp_tac evaluate_stack)
   \\ (Q.ISPECL_THEN [`FST (compile c LN arch_size)`,`s`,`arch_size`]mp_tac evaluate_stack)
-  \\ fs [] \\ Cases_on `x` \\ fs [] \\ rw[]
+  \\ fs [] \\ Cases_on `x` \\ fs []
   \\ Cases_on`e`>>fs[] \\ Cases_on`a`>>fs[]
   \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []);
 

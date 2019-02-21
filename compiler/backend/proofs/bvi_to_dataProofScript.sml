@@ -19,10 +19,10 @@ val _ = hide"tail";
 
 val code_rel_def = Define `
   code_rel (bvi_code : (num # bvi$exp) num_map)
-           (data_code : (num # dataLang$prog) num_map) <=>
+           (data_code : (num # dataLang$prog) num_map) arch_size <=>
     wf bvi_code /\ wf data_code /\
     (domain bvi_code = domain data_code) /\
-    !n exp arg_count arch_size.
+    !n exp arg_count.
       (lookup n bvi_code = SOME (arg_count,exp)) ==>
       (lookup n data_code = SOME (arg_count,compile_exp arch_size arg_count exp))`;
 
@@ -70,7 +70,7 @@ val data_to_bvi_ref_def = Define`
 val state_rel_def = Define `
   state_rel (s:('c,'ffi) bviSem$state) (t:('c,'ffi) dataSem$state) arch_size <=>
     (s.clock = t.clock) /\
-    code_rel s.code t.code /\
+    code_rel s.code t.code arch_size /\
     (t.compile_oracle = ((I ## bvi_to_data$compile_prog arch_size) o s.compile_oracle)) /\
     (s.compile = (λcfg prog. t.compile cfg (bvi_to_data$compile_prog arch_size prog))) /\
     (s.refs = data_to_bvi_ref o_f t.refs) /\
@@ -108,20 +108,14 @@ val find_code_lemma = Q.prove(
         \\ Cases_on `a` \\ fs [])
   \\ `?t1 t2'. a = SNOC t1 t2'` by METIS_TAC [SNOC_CASES]
   \\ FULL_SIMP_TAC std_ss [FRONT_SNOC,LENGTH_SNOC,ADD1,MAP_SNOC]
-  \\ Q.EXISTS_TAC `t2'` \\ fs[]
-  \\ Cases_on `lookup n t2.code`
-  >- fs[lookup_def]
-  \\ rename1 `lookup n t2.code = SOME y`
-  \\ Q.EXISTS_TAC `y` \\ fs[]
-  \\ TOP_CASE_TAC
 );
 
 Theorem optimise_correct
-  `!c s. FST (evaluate (c,s) arch_size) <> SOME (Rerr(Rabort Rtype_error)) /\
+  `!c s. 0<arch_size-2 /\ FST (evaluate (c,s) arch_size) <> SOME (Rerr(Rabort Rtype_error)) /\
          FST (evaluate (c,s) arch_size) <> NONE ==>
          (evaluate (optimise arch_size c,s) arch_size = evaluate (c,s) arch_size)`
- (full_simp_tac(srw_ss())[optimise_def] \\ REPEAT STRIP_TAC \\ IMP_RES_TAC compile_correct
-  \\ fs[] \\ cheat);
+ (full_simp_tac(srw_ss())[optimise_def] \\ REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s) arch_size` \\ full_simp_tac(srw_ss())[]
+  \\ METIS_TAC [simp_correct,data_liveProofTheory.compile_correct,data_spaceProofTheory.compile_correct,FST]);
 
 val compile_RANGE_lemma = Q.prove(
   `!arch_size n env tail live xs.
@@ -373,6 +367,7 @@ val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
        do_app_aux op z t = Rval (pres,s2) ∧
        res = data_to_bvi_v pres ∧
        state_rel s1 s2 arch_size`,
+  cheat (* STRIP_TAC \\ `?debug. debug () = op` by (qexists_tac `K op` \\ fs[]) \\ 
   Cases_on `op`
   \\ ntac 2 (fs [ do_app_aux_def
                 , bvlSemTheory.do_app_def
@@ -430,16 +425,18 @@ val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
   >- (ONCE_REWRITE_TAC [GSYM MAP_APPEND] \\ rw [list_to_v_MAP])
+  >- (ONCE_REWRITE_TAC [GSYM MAP_APPEND] \\ rw [list_to_v_MAP])
   >- (Cases_on `t.tstamps`
      \\ Cases_on `z`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
+     \\ simp[list_to_v_MAP]
      \\ METIS_TAC [])
   >- (`Num i < LENGTH l'`
       by ((drule o GEN_ALL o GSYM) integerTheory.NUM_LT \\ strip_tac \\ fs [])
       \\ rw [EL_MAP])
   >- rfs [code_rel_def]
   >- (rfs [data_to_bvi_do_eq,data_to_bvi_v_Boolv])
-);
+*));
 
 val compile_correct = Q.prove(
   `∀xs env s1 arch_size res s2 t1 n corr tail live.
@@ -478,7 +475,7 @@ val compile_correct = Q.prove(
                     case res of
                     | Rval xs => var_corr xs vs (map data_to_bvi_v t2.locals)
                     | _ => F)`,
-  (*SIMP_TAC std_ss [Once EQ_SYM_EQ]
+cheat (*  SIMP_TAC std_ss [Once EQ_SYM_EQ]
   \\ recInduct bviSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
   THEN1 (* NIL *)
@@ -726,11 +723,11 @@ val compile_correct = Q.prove(
              lookup_inter_EQ,lookup_list_to_num_set,lookup_map]
       \\ Q.PAT_X_ASSUM `LIST_REL rrr xs1 xs2` MP_TAC
       \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
-      \\ full_simp_tac(srw_ss())[EVERY2_REVERSE] \\ NO_TAC)
+      \\ full_simp_tac(srw_ss())[EVERY2_REVERSE])
     \\ IMP_RES_TAC get_vars_thm
     \\ IMP_RES_TAC get_vars_lift_thm
-    \\ `state_rel r (t2 with <|locals := env1; space := 0|>)` by
-          (full_simp_tac(srw_ss())[state_rel_def] \\ NO_TAC)
+    \\ `state_rel r (t2 with <|locals := env1; space := 0|>) arch_size` by
+          (full_simp_tac(srw_ss())[state_rel_def])
     \\ `z = REVERSE z'` by
        (rveq \\ UNABBREV_ALL_TAC
        \\ fs [get_vars_mk_wf]
@@ -762,7 +759,7 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[var_corr_def,call_env_def,state_rel_def,data_to_bvi_result_def])
     \\ simp[]
     \\ Cases_on`op = Install`
-    >- cheat (*
+    >- (
       fs[dataLangTheory.op_requires_names_def,domain_map]
       \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
       \\ fs[bviSemTheory.do_app_def,dataSemTheory.do_app_def]
@@ -780,8 +777,8 @@ val compile_correct = Q.prove(
       >- (
         rfs[state_rel_def] \\ fs[]
         \\ fs[compile_prog_def] )
-      \\ `r.compile = λcfg prog. t2.compile cfg (compile_prog prog)` by fs[state_rel_def]
-      \\ `t2.compile_oracle = (I ## compile_prog) o r.compile_oracle` by fs[state_rel_def]
+      \\ `r.compile = λcfg prog. t2.compile cfg (compile_prog arch_size prog)` by fs[state_rel_def]
+      \\ `t2.compile_oracle = (I ## (compile_prog arch_size)) o r.compile_oracle` by fs[state_rel_def]
       \\ fs[] \\ rveq \\ fs[shift_seq_def]
       \\ Cases_on`h` \\ fs[set_var_def,lookup_insert,var_corr_def,state_rel_def,o_DEF,get_var_def,lookup_insert,lookup_map]
       \\ qmatch_goalsub_abbrev_tac`fromAList progs1`
@@ -819,7 +816,7 @@ val compile_correct = Q.prove(
       \\ rw[] \\ res_tac
       \\ fs[jump_exc_def]
       \\ TOP_CASE_TAC \\ fs[]
-      \\ TOP_CASE_TAC \\ fs[] *)
+      \\ TOP_CASE_TAC \\ fs[])
     \\ Cases_on `op = Greater \/ op = GreaterEq` THEN1
      (fs []
       \\ (fs [dataLangTheory.op_requires_names_def
@@ -849,8 +846,8 @@ val compile_correct = Q.prove(
       \\ qpat_x_assum `Number _ = _` (ASSUME_TAC o GSYM)
       \\ qpat_x_assum `Number _ = _` (ASSUME_TAC o GSYM)
       \\ IMP_RES_TAC data_to_bvi_eq_Number \\ rveq
-      \\ fs [EVAL ``dataSem$do_app Less [Number i'; Number i] t``]
-      \\ fs [EVAL ``dataSem$do_app LessEq [Number i'; Number i] t``]
+      \\ fs [EVAL ``dataSem$do_app Less [Number i'; Number i] arch_size t``]
+      \\ fs [EVAL ``dataSem$do_app LessEq [Number i'; Number i] arch_size t``]
       \\ fs [set_var_def,lookup_insert,integerTheory.int_gt,integerTheory.int_ge]
       \\ fs [state_rel_def]
       \\ fs [EVAL ``(bvl_to_bvi (bvi_to_bvl r) r).refs``]
@@ -951,7 +948,7 @@ val compile_correct = Q.prove(
      (`op_space_reset op` by
       rfs [dataLangTheory.op_space_reset_def
           ,dataLangTheory.op_requires_names_def]
-      \\ `state_rel r (t2 with <|locals := env1; space := 0|>)`
+      \\ `state_rel r (t2 with <|locals := env1; space := 0|>) arch_size`
          by fs[state_rel_def]
       \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
       \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
@@ -995,7 +992,7 @@ val compile_correct = Q.prove(
     \\ rveq
     \\ imp_res_tac get_vars_reverse
     \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac (srw_ss()) []
-    \\ Cases_on `op_space_req op (LENGTH vs) = 0`
+    \\ Cases_on `op_space_req op (LENGTH vs) arch_size = 0`
     \\ full_simp_tac(srw_ss())[evaluate_def,dataLangTheory.op_requires_names_def]
     \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def,
           cut_state_def,cut_env_def]
@@ -1006,7 +1003,7 @@ val compile_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC compile_LESS_EQ \\ full_simp_tac(srw_ss())[lookup_insert]
     THEN1
-     (`state_rel r t2` by fs[state_rel_def]
+     (`state_rel r t2 arch_size` by fs[state_rel_def]
      \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
      \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
      \\ rw []
@@ -1047,7 +1044,7 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map])
     \\ full_simp_tac(srw_ss())[consume_space_add_space,lookup_insert]
     THEN1
-     (`state_rel r (t2 with <|locals := env1; space := 0|>)` by fs[state_rel_def]
+     (`state_rel r (t2 with <|locals := env1; space := 0|>) arch_size` by fs[state_rel_def]
      \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
      \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
      \\ rw []
@@ -1086,7 +1083,7 @@ val compile_correct = Q.prove(
          \\ full_simp_tac(srw_ss())[jump_exc_def])
       \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map]))
   THEN1 (* Tick *)
-   (`?c1 v1 n1. compile n corr tail live [x] = (c1,v1,n1)` by METIS_TAC [PAIR]
+   (`?c1 v1 n1. compile arch_size n corr tail live [x] = (c1,v1,n1)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,evaluate_def]
     \\ Cases_on `t1.clock = 0` \\ FULL_SIMP_TAC std_ss []
     THEN1 (full_simp_tac(srw_ss())[state_rel_def,call_env_def,data_to_bvi_result_def])
@@ -1094,19 +1091,19 @@ val compile_correct = Q.prove(
     \\ FULL_SIMP_TAC std_ss []
     \\ Q.PAT_X_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss [LENGTH]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`dec_clock t1`,`n`,`corr`,`tail`,`live`])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`arch_size`,`dec_clock t1`,`n`,`corr`,`tail`,`live`])
     \\ FULL_SIMP_TAC std_ss []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,dataSemTheory.dec_clock_def,
          get_var_def,state_rel_def,bviSemTheory.dec_clock_def,jump_exc_NONE])
   THEN1 (* Call *)
    (Cases_on `handler` THEN1 (* Call without handler *)
-     (`?c1 vs n1. compile n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
+     (`?c1 vs n1. compile arch_size n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
       \\ FULL_SIMP_TAC std_ss [LET_DEF,evaluate_def,call_env_def,compile_def,
            evaluate_mk_ticks]
       \\ Cases_on `evaluate (xs,env,s1)`
       \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`arch_size`,`t1`,`n`,`corr`,`F`,`live`])
       \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[]>> strip_tac
       \\ Cases_on `pres`
       \\ FULL_SIMP_TAC (srw_ss()) []
@@ -1147,7 +1144,7 @@ val compile_correct = Q.prove(
            \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\
            Cases_on`e` >> full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
         \\ FIRST_X_ASSUM (qspecl_then
-             [`call_env args' (FUNPOW dec_clock (ticks+1) t2)`,
+             [`arch_size`,`call_env args' (FUNPOW dec_clock (ticks+1) t2)`,
                `LENGTH args'`,
                `GENLIST I (LENGTH args')`,`T`,`[]`]mp_tac)
         \\ FULL_SIMP_TAC std_ss []
@@ -1178,7 +1175,8 @@ val compile_correct = Q.prove(
         \\ Cases_on`e` \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
       \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
       \\ FIRST_X_ASSUM (qspecl_then
-          [`call_env args' (push_env env2 F (FUNPOW dec_clock (ticks + 1) t2))`,
+          [`arch_size`,
+           `call_env args' (push_env env2 F (FUNPOW dec_clock (ticks + 1) t2))`,
            `LENGTH args'`,
            `GENLIST I (LENGTH args')`,`T`,`[]`]mp_tac)
       \\ FULL_SIMP_TAC std_ss []
@@ -1272,14 +1270,14 @@ val compile_correct = Q.prove(
                  \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
                  \\ BasicProvers.EVERY_CASE_TAC))
     \\ (* Call with handle *)
-      `?c1 vs n1. compile n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
-      \\ `?c2 v n2. compile (n1+1) (n1::corr) F live [x] = (c2,v,n2)` by
+      `?c1 vs n1. compile arch_size n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
+      \\ `?c2 v n2. compile arch_size (n1+1) (n1::corr) F live [x] = (c2,v,n2)` by
             METIS_TAC [PAIR]
       \\ full_simp_tac(srw_ss())[LET_DEF,evaluate_def,evaluate_mk_ticks,call_env_def,compile_def]
       \\ Cases_on `evaluate (xs,env,s1)`
       \\ Cases_on `dest = NONE` \\ full_simp_tac(srw_ss())[]
       \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`arch_size`,`t1`,`n`,`corr`,`F`,`live`])
       \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[]>> strip_tac
       \\ Cases_on `pres`
       \\ FULL_SIMP_TAC (srw_ss()) []
@@ -1322,7 +1320,8 @@ val compile_correct = Q.prove(
        (Cases_on `res4` \\ full_simp_tac(srw_ss())[LET_DEF] \\ full_simp_tac(srw_ss())[]
         \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
         \\ FIRST_X_ASSUM (qspecl_then
-            [`call_env args' (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`,
+            [`arch_size`,
+             `call_env args' (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`,
              `LENGTH args'`,
              `GENLIST I (LENGTH args')`,`T`,`[]`] mp_tac)
         \\ FULL_SIMP_TAC std_ss []
@@ -1341,9 +1340,9 @@ val compile_correct = Q.prove(
         \\ SIMP_TAC std_ss [call_env_def] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
         \\ first_assum (mp_then Any assume_tac data_to_bvi_result_eq)
         \\ fs [] \\ rveq
-        \\ Cases_on `evaluate (c2,set_var n1 z' t2')` \\ full_simp_tac(srw_ss())[]
+        \\ Cases_on `evaluate (c2,set_var n1 z' t2') arch_size` \\ full_simp_tac(srw_ss())[]
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
-              [`set_var n1 z' t2'`,`n1+1`,`n1::corr`,`F`,`live`]) \\ full_simp_tac(srw_ss())[]
+              [`arch_size`,`set_var n1 z' t2'`,`n1+1`,`n1::corr`,`F`,`live`]) \\ full_simp_tac(srw_ss())[]
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (full_simp_tac(srw_ss())[var_corr_def,state_rel_def,set_var_def,lookup_insert,get_var_def,lookup_map]
           \\ full_simp_tac(srw_ss())[jump_exc_def,call_env_def,push_env_def,dataSemTheory.dec_clock_def]
@@ -1434,7 +1433,8 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[]
       \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
       \\ FIRST_X_ASSUM (qspecl_then
-          [`call_env args' (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`,
+          [`arch_size`,
+           `call_env args' (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`,
            `LENGTH args'`,
            `GENLIST I (LENGTH args')`,`T`,`[]`]mp_tac)
       \\ FULL_SIMP_TAC std_ss []
@@ -1520,18 +1520,18 @@ val compile_correct = Q.prove(
        (full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[jump_exc_def] \\ rev_full_simp_tac(srw_ss())[]
         \\ Cases_on `LASTN (t2.handler + 1) t2.stack` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
-      \\ fs[var_corr_def,get_var_def,lookup_map])*) cheat);
+      \\ fs[var_corr_def,get_var_def,lookup_map])*));
 
 val compile_exp_lemma = compile_correct
-  |> Q.SPECL [`[exp]`,`env`,`s1`,`res`,`s2`,`t1`,`n`,`GENLIST I n`,`T`,`[]`]
+  |> Q.SPECL [`[exp]`,`env`,`s1`,`arch_size`,`res`,`s2`,`t1`,`n`,`GENLIST I n`,`T`,`[]`]
   |> SIMP_RULE std_ss [LENGTH,GSYM compile_exp_def,option_case_NONE_F,
        PULL_EXISTS,EVERY_DEF];
 
 Theorem compile_exp_correct
-  `^(compile_exp_lemma |> concl |> dest_imp |> fst) ==>
+  `^(compile_exp_lemma |> concl |> dest_imp |> fst) /\ 0 < arch_size - 2 ==>
     ∃t2 prog vs next_var r.
-      evaluate (compile_exp n exp,t1) = (SOME r,t2) /\
-      state_rel s2 t2 /\ res_list (data_to_bvi_result r) = res`
+      evaluate (compile_exp arch_size n exp,t1) arch_size = (SOME r,t2) /\
+      state_rel s2 t2 arch_size /\ res_list (data_to_bvi_result r) = res`
   (REPEAT STRIP_TAC \\ MP_TAC compile_exp_lemma \\ full_simp_tac(srw_ss())[]
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[compile_exp_def,LET_DEF]
   \\ MP_TAC (Q.SPECL [`prog`,`t1`] optimise_correct) \\ full_simp_tac(srw_ss())[]
@@ -1539,23 +1539,23 @@ Theorem compile_exp_correct
   \\  srw_tac[][COUNT_LIST_GENLIST]);
 
 val state_rel_dec_clock = Q.prove(
-  `state_rel s1 t1 ⇒ state_rel (dec_clock 1 s1) (dec_clock t1)`,
+  `state_rel s1 t1 arch_size ⇒ state_rel (dec_clock 1 s1) (dec_clock t1) arch_size`,
   srw_tac[][state_rel_def,bviSemTheory.dec_clock_def,dataSemTheory.dec_clock_def])
 
 Theorem compile_part_evaluate
-  `evaluate ([Call 0 (SOME start) [] NONE],[],s1) = (res,s2) ∧
-   res ≠ Rerr (Rabort Rtype_error) ∧ state_rel s1 t1 ∧
+  `0 < arch_size - 2 ∧ evaluate ([Call 0 (SOME start) [] NONE],[],s1) = (res,s2) ∧
+   res ≠ Rerr (Rabort Rtype_error) ∧ state_rel s1 t1 arch_size ∧
    isEmpty t1.locals ∧ (∀x. res = Rerr (Rraise x) ⇒ jump_exc t1 ≠ NONE)
    ⇒ ∃r t2.
-      evaluate ((Call NONE (SOME start) [] NONE),t1) = (SOME r,t2) ∧
-      state_rel s2 t2 ∧ res_list (data_to_bvi_result r) = res`
+      evaluate ((Call NONE (SOME start) [] NONE),t1) arch_size = (SOME r,t2) ∧
+      state_rel s2 t2 arch_size ∧ res_list (data_to_bvi_result r) = res`
   (srw_tac[][bviSemTheory.evaluate_def,dataSemTheory.evaluate_def
            ,get_vars_def,find_code_def,dataSemTheory.find_code_def]
   \\ Cases_on`lookup start s1.code`
   \\ full_simp_tac(srw_ss())[]
   \\ qmatch_assum_rename_tac`lookup start s1.code = SOME p`
   \\ PairCases_on`p`
-  \\ `lookup start t1.code = SOME (p0,compile_exp p0 p1)`
+  \\ `lookup start t1.code = SOME (p0,compile_exp arch_size p0 p1)`
      by (full_simp_tac(srw_ss())[state_rel_def,code_rel_def])
   \\ full_simp_tac(srw_ss())[]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> var_eq_tac
@@ -1586,35 +1586,37 @@ Theorem compile_part_evaluate
   \\ full_simp_tac(srw_ss())[]);
 
 Theorem MAP_FST_compile_prog[simp]
-  `∀prog. MAP FST (compile_prog prog) = MAP FST prog`
-  (simp[compile_prog_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD,compile_part_def]);
+  `∀arch_size (prog : (num#num#bvi$exp) list). MAP FST (compile_prog arch_size prog) = MAP FST prog`
+  (rw[] \\ simp[compile_prog_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD,compile_part_def]);
 
 Theorem compile_prog_evaluate
-  `evaluate ([Call 0 (SOME start) [] NONE],[],
-     initial_state ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) k) = (r,s) ∧
+  `0 < arch_size - 2 ∧ evaluate ([Call 0 (SOME start) [] NONE],[],
+     initial_state ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog arch_size prog)) k) = (r,s) ∧
    r ≠ Rerr (Rabort Rtype_error) ∧ (∀x. r ≠ Rerr (Rraise x))
    ⇒  ∃r2 s2.
        evaluate (Call NONE (SOME start) [] NONE,
-         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc k) = (SOME r2,s2) ∧
-         state_rel s s2 ∧ res_list (data_to_bvi_result r2) = r`
+         initial_state ffi0 (fromAList (compile_prog arch_size prog)) ((I ## (compile_prog arch_size)) o co) cc k) arch_size = (SOME r2,s2) ∧
+         state_rel s s2 arch_size ∧ res_list (data_to_bvi_result r2) = r`
   (srw_tac[][]
-  \\ match_mp_tac (GEN_ALL compile_part_evaluate)
+  \\ match_mp_tac (GEN_ALL compile_part_evaluate) \\ fs[]
   \\ asm_exists_tac >> simp[]
   \\ simp[initial_state_def,state_rel_def]
   \\ simp[code_rel_def,wf_fromAList,domain_fromAList,lookup_fromAList]
   \\ simp[compile_prog_def,ALOOKUP_MAP,compile_part_thm]);
 
 Theorem FST_compile_part[simp]
-  `FST (compile_part a) = (FST a)`
+  `FST (compile_part arch_size a) = (FST a)`
   (PairCases_on`a` \\ EVAL_TAC);
 
 (* observational semantics *)
 
+(* TODO check against master *)
 Theorem compile_prog_semantics
-  `semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start ≠ Fail ⇒
-   semantics ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc start =
-   semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start`
-  (simp[bviSemTheory.semantics_def]
+  `0 < arch_size - 2 /\ 
+   bviSem$semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (bvi_to_data$compile_prog arch_size prog)) start ≠ Fail ⇒
+   dataSem$semantics ffi0 (fromAList (bvi_to_data$compile_prog arch_size prog)) ((I ## (bvi_to_data$compile_prog arch_size)) o co) cc start arch_size =
+   bviSem$semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (bvi_to_data$compile_prog arch_size prog)) start`
+  cheat (*simp[bviSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
   \\ DEEP_INTRO_TAC some_intro >> simp[]
   \\ conj_tac
@@ -1704,15 +1706,15 @@ Theorem compile_prog_semantics
   >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]
      \\ last_x_assum(qspec_then`k`mp_tac)>>simp[])
   \\ strip_tac >> simp[]
-  \\ full_simp_tac(srw_ss())[state_rel_def]);
+  \\ full_simp_tac(srw_ss())[state_rel_def]*);
 
 Theorem get_code_labels_iAssign[simp]
-  `∀a b c d e. get_code_labels (iAssign a b c d e) = closLang$assign_get_code_label b`
+  `∀a b c d e. get_code_labels (iAssign a arch_size b c d e) = closLang$assign_get_code_label b`
   (rw[bvi_to_dataTheory.iAssign_def]
   \\ EVAL_TAC);
 
 Theorem get_code_labels_compile
-  `∀a b c d e. get_code_labels (FST (compile a b c d e)) ⊆
+  `∀a arch_size b c d e. get_code_labels (FST (compile a arch_size b c d e)) ⊆
     BIGUNION (set (MAP get_code_labels e)) `
   (recInduct bvi_to_dataTheory.compile_ind
   \\ rw[bvi_to_dataTheory.compile_def]
@@ -1729,7 +1731,7 @@ Theorem get_code_labels_compile
   \\ disch_then drule \\ rw[Abbr`b`,Abbr`a`]);
 
 Theorem compile_prog_good_code_labels
-  `∀p. good_code_labels p ⇒ good_code_labels (bvi_to_data$compile_prog p)`
+  `∀p. good_code_labels p ⇒ good_code_labels (bvi_to_data$compile_prog arch_size p)`
   (simp[bvi_to_dataTheory.compile_prog_def]
   \\ simp[dataPropsTheory.good_code_labels_def, MAP_MAP_o, o_DEF, LAMBDA_PROD]
   \\ simp[bvi_to_dataTheory.compile_part_def]
@@ -1746,13 +1748,13 @@ Theorem compile_prog_good_code_labels
   \\ simp_tac std_ss [SUBSET_DEF]
   \\ disch_then drule
   \\ rw[Abbr`a`,Abbr`b`]
-  \\ qmatch_asmsub_abbrev_tac`FST (compile a b)`
+  \\ qmatch_asmsub_abbrev_tac`FST (compile a b arch_size)`
   \\ qspecl_then[`a`,`b`]mp_tac data_liveProofTheory.get_code_labels_compile
   \\ simp[SUBSET_DEF]
   \\ disch_then drule
   \\ rw[Abbr`a`, Abbr`b`]
-  \\ qmatch_asmsub_abbrev_tac`FST (compile a b c d e)`
-  \\ qspecl_then[`a`,`b`,`c`,`d`,`e`]mp_tac get_code_labels_compile
+  \\ qmatch_asmsub_abbrev_tac`FST (compile _ a b c d e)`
+  \\ qspecl_then[`arch_size`,`a`,`b`,`c`,`d`,`e`]mp_tac get_code_labels_compile
   \\ simp[SUBSET_DEF,Abbr`c`]
   \\ disch_then drule
   \\ simp[Abbr`e`]);
