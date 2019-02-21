@@ -46,6 +46,7 @@ val do_app_aux_def = Define `
     | (Const i,xs) => if small_enough_int i then
                         SOME (SOME (Number i, s))
                       else NONE
+    | (WordConst w,xs) => SOME (SOME (Word w, s))
     | (Label l,xs) => (case xs of
                        | [] => if l IN domain s.code then
                                  SOME (SOME (CodePtr l, s))
@@ -72,11 +73,11 @@ val do_app_aux_def = Define `
          | _ => NONE)
     | (RefByte f, xs) =>
         (case xs of
-          | [Number i; Number b] =>
-            if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
+          | [Number i; Word b] =>
+            if 0 ≤ i ∧ (LENGTH b = 8) then
               let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
                 SOME (SOME (RefPtr ptr, s with refs := s.refs |+
-                  (ptr, ByteArray f (REPLICATE (Num i) (i2w b)))))
+                  (ptr, ByteArray f (REPLICATE (Num i) (v2w b)))))
             else NONE
           | _ => NONE)
     | (Global n, _) => NONE

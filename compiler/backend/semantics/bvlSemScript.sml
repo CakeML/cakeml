@@ -224,10 +224,10 @@ val do_app_def = Define `
         Rval (RefPtr ptr, s with refs := s.refs |+
           (ptr,ByteArray T (MAP (n2w o ORD) str)))
     | (FromListByte,[lv]) =>
-        (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
+        (case some ns. v_to_list lv = SOME (MAP Word ns) ∧ EVERY (λn. LENGTH n = 8) ns of
           | SOME ns => let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
                          Rval (RefPtr ptr, s with refs := s.refs |+
-                           (ptr,ByteArray T (MAP n2w ns)))
+                           (ptr,ByteArray T (MAP v2w ns)))
           | NONE => Error)
     | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
