@@ -12,6 +12,8 @@ open preamble basis
 val _ = new_theory "reader_commonProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
+val _ = use_full_type_names := true;
+
 (* ------------------------------------------------------------------------- *)
 (* Translate prettyTheory                                                    *)
 (* ------------------------------------------------------------------------- *)
