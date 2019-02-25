@@ -17,6 +17,12 @@ library.
 [CommandLineProofScript.sml](CommandLineProofScript.sml):
 Proof about the command-line module of the CakeML standard basis library.
 
+[HashtableProgScript.sml](HashtableProgScript.sml):
+A module about hash tables for the CakeML standard basis library.
+
+[HashtableProofScript.sml](HashtableProofScript.sml):
+Proofs about the Array module.
+
 [IntProgScript.sml](IntProgScript.sml):
 Module about the built-in integer tyoe. Note that CakeML uses
 arbitrary precision integers (the mathematical intergers).
