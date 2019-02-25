@@ -670,7 +670,7 @@ local
      Drule.GEN_ALL (Thm.AP_THM arm7_targetTheory.arm7_next_def ``s:arm_state``)
    val i_tm = ``R_mode ms.CPSR.M (n2w i)``
    fun fail_if_vacuous_tac gs =
-     (if List.hd (fst gs) = boolSyntax.T then NO_TAC else all_tac) gs
+     (if List.hd (fst gs) ~~ boolSyntax.T then NO_TAC else all_tac) gs
    fun next_state_tac0 step_list (asl, g) =
      (let
          val x as (pc, l, _, _) =
