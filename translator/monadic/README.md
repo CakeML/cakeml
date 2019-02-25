@@ -31,6 +31,9 @@ The ML code that implements the main part of the monadic translator.
 Defines EvalM and other judgements that are central to the monadic
 translator.
 
+[ml_monad_translator_interfaceLib.sml](ml_monad_translator_interfaceLib.sml):
+The user-friendly interface to the monadic translator
+
 [monad_base](monad_base):
 The state-and-exception monad that is used by the proof-producing translator
 for monadic HOL functions.
