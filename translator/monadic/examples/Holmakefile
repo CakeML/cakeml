@@ -1,6 +1,6 @@
 INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
 					 $(CAKEMLDIR)/characteristic $(CAKEMLDIR)/basis\
-					 .. ../..
+					 $(CAKEMLDIR)/misc ../monad_base .. ../..
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

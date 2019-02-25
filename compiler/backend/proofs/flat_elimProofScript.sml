@@ -249,46 +249,66 @@ Theorem analyse_code_thm
 (**************************** REACHABILITY LEMMAS *****************************)
 
 Theorem subspt_superdomain
-    `∀ t1 a t2 . subspt (superdomain t1) (superdomain (BS t1 a t2)) ∧
-                 subspt (superdomain t2) (superdomain (BS t1 a t2)) ∧
-                 subspt a (superdomain (BS t1 a t2)) ∧
-                 subspt (superdomain t1) (superdomain (BN t1 t2)) ∧
-                 subspt (superdomain t2) (superdomain (BN t1 t2))`
-    (rw[subspt_domain, superdomain_def, domain_union, SUBSET_DEF]
-);
+  `∀ t1 a t2 . subspt (superdomain t1) (superdomain (BS t1 a t2)) ∧
+               subspt (superdomain t2) (superdomain (BS t1 a t2)) ∧
+               subspt a (superdomain (BS t1 a t2)) ∧
+               subspt (superdomain t1) (superdomain (BN t1 t2)) ∧
+               subspt (superdomain t2) (superdomain (BN t1 t2))`
+  (
+    fs[subspt_domain, superdomain_def] >>
+    fs[SUBSET_DEF, domain_lookup, lookup_spt_fold_union_STRONG, lookup_def] >>
+    rw[]
+    >- (
+      qexists_tac `2 * n1 + 2` >>
+      fs[EVEN_DOUBLE, EVEN_ADD] >>
+      once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT]
+      )
+    >- (
+      qexists_tac `2 * n1 + 1` >>
+      fs[EVEN_DOUBLE, EVEN_ADD] >>
+      once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV]
+      )
+    >- (
+      qexists_tac `0` >>
+      fs[]
+      )
+    >- (
+      qexists_tac `2 * n1 + 2` >>
+      fs[EVEN_DOUBLE, EVEN_ADD] >>
+      once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT]
+      )
+    >- (
+      qexists_tac `2 * n1 + 1` >>
+      fs[EVEN_DOUBLE, EVEN_ADD] >>
+      once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV]
+      )
+  );
 
 Theorem superdomain_thm
-    `∀ x y (tree:num_set num_map) . lookup x tree = SOME y
+  `∀ x y (tree : unit spt spt) . lookup x tree = SOME y
   ⇒ domain y ⊆ domain (superdomain tree)`
-    (Induct_on `tree` >- rw[lookup_def]
-    >- rw[lookup_def, superdomain_def, foldi_def, domain_map]
-    >> rw[] >> fs[lookup_def] >> Cases_on `EVEN x` >> res_tac >>
-       qspecl_then [`tree`, `a`, `tree'`] mp_tac subspt_superdomain >>
-       Cases_on `x = 0` >> fs[subspt_domain] >> metis_tac[SUBSET_TRANS]
-);
+  (
+    fs[superdomain_def, domain_lookup, SUBSET_DEF] >>
+    fs[lookup_spt_fold_union_STRONG, lookup_def] >>
+    rw[] >> metis_tac[]
+  );
 
 Theorem superdomain_inverse_thm
-    `∀ n tree . n ∈ domain (superdomain tree)
-    ⇒ ∃ k aSet . lookup k tree = SOME aSet ∧ n ∈ domain aSet`
-    (Induct_on `tree` >> rw[superdomain_def] >>
-    fs[lookup_def, domain_union] >> res_tac
-    >- (qexists_tac `2 * k + 2` >> fs[EVEN_DOUBLE, EVEN_ADD] >>
-        once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
-    >- (qexists_tac `2 * k + 1` >> fs[EVEN_DOUBLE, EVEN_ADD] >>
-        once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV])
-    >- (qexists_tac `2 * k + 2` >> fs[EVEN_DOUBLE, EVEN_ADD] >>
-        once_rewrite_tac[MULT_COMM] >> fs[DIV_MULT])
-    >- (qexists_tac `0` >> fs[])
-    >- (qexists_tac `2 * k + 1` >> fs[EVEN_DOUBLE, EVEN_ADD] >>
-        once_rewrite_tac[MULT_COMM] >> fs[MULT_DIV])
-);
+  `∀ n tree . n ∈ domain (superdomain tree)
+  ⇒ ∃ k aSet . lookup k tree = SOME aSet ∧ n ∈ domain aSet`
+  (
+    fs[superdomain_def, domain_lookup] >>
+    fs[lookup_spt_fold_union_STRONG, lookup_def]
+  );
 
 Theorem superdomain_not_in_thm
-    `∀ n tree . n ∉ domain (superdomain tree)
+  `∀ n tree . n ∉ domain (superdomain tree)
   ⇒ ∀ k aSet . lookup k tree = SOME aSet ⇒ n ∉ domain aSet`
-    (Induct_on `tree` >> rw[superdomain_def] >> fs[lookup_def, domain_union] >>
-    res_tac >> Cases_on `k = 0` >> Cases_on `EVEN k` >> fs[] >> metis_tac[]
-);
+  (
+    fs[superdomain_def, domain_lookup] >>
+    fs[lookup_spt_fold_union_STRONG, lookup_def] >>
+    rw[] >> metis_tac[]
+  );
 
 val wf_set_tree_def = Define `
     wf_set_tree tree ⇔
