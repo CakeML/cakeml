@@ -3118,6 +3118,10 @@ val tm = ``5w:word32``
 
 *)
 
+val tm = ``5w <+ (4w:64 word)``
+
+val tm = ``5w + 4w``
+
 fun hol2deep tm =
   (* variables *)
   if is_var tm then let
@@ -3353,13 +3357,13 @@ fun hol2deep tm =
                    |> REWRITE_RULE []
                    |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_shift" tm result end else
-  (* TODO fix this is a dummy translation *)
   if can dest_word_cmp tm then let
     val lemma = dest_word_cmp tm
     val th1 = hol2deep (tm |> rator |> rand)
     val th2 = hol2deep (tm |> rand)
-    val result = MATCH_MP lemma (CONJ th1 th2)
-                 |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
+    val result = MATCH_MP lemma th1
+    val result = MATCH_MP result th2
+    val result = result |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_cmp" tm result end else
   (* $& o f *)
   if can (match_term int_of_num_o_pat) tm then let

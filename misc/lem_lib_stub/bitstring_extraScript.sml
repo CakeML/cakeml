@@ -48,13 +48,6 @@ val fixadd_assoc = Q.store_thm("fixadd_assoc",
   `!x y z. fixadd (fixadd x y) z = fixadd x (fixadd y z)`,
   REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> simp[fixadd_length] >> cheat);
 
-
-val fixadd_word_add2 = Q.store_thm("fixadd_word_add2",
-  `!x y. (dimindex (:'a) = MAX (LENGTH x) (LENGTH y))
-     ==> (v2n (fixadd x y) = w2n (word_add (v2w x:'a word) (v2w y:'a word)))`,
-      REPEAT STRIP_TAC >> REWRITE_TAC [fixadd_def] >> cheat
-    );
-
 (* this one is from CakeML/hardware translator/verilog *)
 val w2v_n2w = Q.store_thm("w2v_n2w",
  `!n. w2v ((n2w n):'a word) = fixwidth (dimindex (:'a)) (n2v n)`,
@@ -76,17 +69,59 @@ val fixadd_word_add = Q.store_thm("fixadd_word_add",
      >> simp[word_add_def]
 );
 
+open numposrepTheory
+
+Theorem l2n_2_append
+ `!y x. l2n 2 (x ++ y) = l2n 2 x + (2**LENGTH x) * (l2n 2 y)`
+  (INDUCT_THEN list_INDUCT ASSUME_TAC \\ fs[] \\ STRIP_TAC \\ INDUCT_THEN list_INDUCT ASSUME_TAC \\ fs[]
+  \\ rw[] \\ simp[Once l2n_def] \\ ONCE_REWRITE_TAC[ADD_SYM] \\ simp[EXP] \\ simp[LEFT_ADD_DISTRIB]
+  \\ simp[l2n_def])
+
+Theorem v2n_append
+ `!y x. v2n (x++y) = (2**LENGTH y) *(v2n x) + v2n y`
+ (simp[v2n_def,num_from_bin_list_def,bitify_reverse_map,REVERSE_APPEND,l2n_2_append])
+
+val GENLIST_K_REVERSE_SUC = Q.prove(`!x y. GENLIST (K x) (SUC y) = [x] ++ GENLIST (K x) y`,
+  rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i` \\ simp[EL]
+)
+
+val EVERY_EQ_GENLIST = Q.prove(`!l x. EVERY ($= x) l = (l = GENLIST (K x) (LENGTH l))`,
+     Induct \\ fs[] \\ rpt STRIP_TAC \\ EQ_TAC \\ rw[] \\ fs[GENLIST_K_REVERSE_SUC]
+)
+
+val GENLIST_K_EVERY = Q.prove(`!x y. (y = GENLIST (K x) (LENGTH y)) = EVERY ($=x) y`,
+ simp[EVERY_EQ_GENLIST]
+)
+
+Theorem v2n_eq0
+ `!x. (v2n x = 0) <=> (x = GENLIST (K F) (LENGTH x))`
+ (simp[v2n_def,bitify_reverse_map,num_from_bin_list_def,l2n_eq_0,EVERY_REVERSE,EVERY_MAP]
+ \\ simp[GENLIST_K_EVERY] \\ STRIP_TAC \\ rpt (MK_COMB_TAC \\ simp[]) \\ srw_tac[][FUN_EQ_THM]
+ \\ BasicProvers.TOP_CASE_TAC \\ EVAL_TAC)
+
+
+val v2n_zero_extend = Q.prove(`!x n. v2n (zero_extend n x) = v2n x`,
+  rw[zero_extend_def] \\ rw[PAD_LEFT] \\ rw[v2n_append] \\ simp[v2n_eq0]
+)
+
+val fixadd_word_add2 = Q.store_thm("fixadd_word_add2",
+  `!x y. (MAX (LENGTH x) (LENGTH y) = dimindex(:'a))
+     ==> (v2n (fixadd x y) = w2n (word_add (v2w x:'a word) (v2w y:'a word)))`,
+      rpt STRIP_TAC >> simp[GSYM v2n_w2v] \\ MK_COMB_TAC \\ simp[] \\ simp[GSYM fixadd_word_add]
+      \\ simp[w2v_v2w] \\ simp[fixadd_def]
+      \\ simp[fixwidth_eq,testbit_el] \\ rpt STRIP_TAC \\ ntac 2 (MK_COMB_TAC \\ simp[])
+      \\ fs[MAX_DEF] \\ Cases_on `LENGTH x < LENGTH y` \\ fs[] \\ simp[fixwidth_def]
+      \\ TRY (BasicProvers.TOP_CASE_TAC) \\ fs[v2n_zero_extend]
+      \\ `LENGTH y - dimindex(:'a) = 0` by fs[] \\ ASM_REWRITE_TAC[] \\ simp[]
+    );
+
+
+
 val fixsub_lemma1 = Q.store_thm("fixsub_lemma1",
   `!x y. ((v2w x:'a word) - (v2w y:'a word)
              = ((v2w x:'a word) + ~(v2w y:'a word) + (1w:'a word)))`,
         REPEAT STRIP_TAC >> REWRITE_TAC [word_sub_def]
         >> REWRITE_TAC [WORD_NEG] >> METIS_TAC [WORD_ADD_ASSOC]);
-
-val fixsub_word_sub2 = Q.store_thm("fixsub_word_sub2",
-  `!x y. (dimindex (:'a) = MAX (LENGTH x) (LENGTH y))
-     ==> (v2n (fixsub x y) = w2n ((v2w x:'a word) - (v2w y:'a word)))`,
-   REPEAT STRIP_TAC >> simp[fixsub_def]
-   >> REWRITE_TAC [fixsub_lemma1] >> ASM_REWRITE_TAC [fixadd_word_add] >> cheat);
 
 val fixsub_lemma = Q.store_thm("fixsub_lemma",
   `!x y. x - y = x + ~y + 1w`,
@@ -218,6 +253,63 @@ val fixsub_word_sub = Q.store_thm("fixsub_word_sub",
         >> ASM_SIMP_TAC arith_ss []
         >> REWRITE_TAC[ISPEC ``1w:('a word)`` word_1_lemma]
  )))
+);
+
+
+val fixwidth_w2v_swap = Q.prove(`!x:'b word. fixwidth (dimindex(:'a)) (w2v x) = w2v ((w2w x):'a word)`,
+   rw[LIST_EQ_REWRITE] \\ ASM_SIMP_TAC arith_ss [el_fixwidth,length_w2v,el_w2v]
+   \\ rw[]
+)
+
+val length_bnot = Q.prove(`!x. LENGTH (bnot x) = LENGTH x`,cheat)
+(* TODO define *)
+(* val testbit_n2v *)
+
+val fixsub_word_sub2 = Q.store_thm("fixsub_word_sub2",
+  `!x y.  (MAX (LENGTH x) (LENGTH y) = dimindex(:'a))
+     ==> (v2n (fixsub x y) = w2n ((v2w x:'a word) - (v2w y:'a word)))`,
+   REPEAT STRIP_TAC >> simp[GSYM v2n_w2v] >> MK_COMB_TAC \\ simp[]
+   \\ simp[GSYM fixadd_word_add] \\ Cases_on `(x = []) \/ (y = [])`
+   \\ fs[]
+   \\ fs[DIMINDEX_GT_0,fixsub_def,w2v_v2w]
+   \\ simp[fixadd_word_add]
+   \\ Cases_on `y`
+   \\ Cases_on `x`
+   \\ fs[DIMINDEX_GT_0]
+   >- (simp[fixadd_def] \\ simp[v2n_w2v]
+       \\ `v2n (fixwidth (dimindex(:'a)) []) = 0` by cheat
+       \\ fs[]
+       \\ simp[fixsub_def]
+       \\ `fixwidth (dimindex (:α)) [] = w2v (0w:'a word)` by cheat
+       \\ fs[]
+       \\ simp[Once fixadd_def] \\ simp[fixadd_length,length_bnot]
+       \\ simp[n2v_w2n]
+       \\ `!x. fixadd (w2v (0w:'a word)) x = fixwidth (MAX (LENGTH x) (dimindex(:'a))) x` by cheat
+       \\ fs[]
+       \\ `v2n (fixwidth (dimindex (:α)) (n2v 1)) = 1` by cheat
+       \\ fs[]
+       \\ simp[length_bnot]
+       \\ simp[fixwidth_eq]
+       \\ rw[]
+       \\ simp[n2v_w2n,w2v_v2w,v2n_n2v]
+       \\ cheat
+       \\ simp[fixadd_def]
+       \\ simp[length_bnot]
+       \\ Cases_on `dimindex(:'a)`
+       \\ fs[DIMINDEX_GT_0]
+       \\ simp[MAX_DEF]
+       \\ POP_ASSUM (ASSUME_TAC o GSYM) \\ fs[]
+       \\ `bnot [T] = [F]` by EVAL_TAC
+       \\ fs[]
+       \\ `v2n [F] = 0` by EVAL_TAC
+       \\ fs[])
+   >- cheat
+   \\ rename1 `fixsub (a::b) (c::d)`
+   \\ `?v. (a::b) = w2v v` by cheat
+   \\ `?w. (c::d) = w2v w` by cheat
+   \\ ASM_SIMP_TAC arith_ss [fixsub_word_sub,v2w_w2v,fixwidth_w2v_swap,fixadd_word_add,w2w_id,word_sub_def]
+   \\ `-1w * w = -w` by (simp[Once WORD_NEG_1])
+   \\ fs[]
 );
 
 val fixshiftr_def = Define`
@@ -833,7 +925,7 @@ Theorem CART_EQ_INV
        \\ simp[INST_TYPE [alpha |-> Type`:'b`] DIMINDEX_GT_0,Once SUB_PLUS,ADD1])
     \\ fs[]);
 
-Theorem w2v_eq
+Theorem w2v_eq[simp]
    `!x:('a word) y. (w2v x = w2v y) = (x = y)`
    (simp[w2v_def,GENLIST_FUN_EQ,CART_EQ_INV]);
 

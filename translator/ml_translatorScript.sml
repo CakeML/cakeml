@@ -906,7 +906,7 @@ Theorem Eval_word_and
       (WORD (word_and w1 w2))`
   (tac
   \\ fs [bitstringTheory.band_def]
-  \\ fs [bitwise_w2v_w2v] \\ AP_TERM_TAC
+  \\ fs [bitwise_w2v_w2v]
   \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_and_def]);
 
 Theorem Eval_word_or
@@ -916,7 +916,7 @@ Theorem Eval_word_or
       (WORD (word_or w1 w2))`
   (tac
   \\ fs [bitstringTheory.bor_def]
-  \\ fs [bitwise_w2v_w2v] \\ AP_TERM_TAC
+  \\ fs [bitwise_w2v_w2v]
   \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_or_def]);
 
 Theorem Eval_word_xor
@@ -926,7 +926,7 @@ Theorem Eval_word_xor
       (WORD (word_xor w1 w2))`
   (tac
   \\ fs [bitstringTheory.bxor_def]
-  \\ fs [bitwise_w2v_w2v] \\ AP_TERM_TAC
+  \\ fs [bitwise_w2v_w2v]
   \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_xor_def]);
 
 val DISTRIB_ANY = Q.prove(
@@ -1080,7 +1080,7 @@ Theorem Eval_word_test
       (BOOL (word_test w1 w2))`
    (tac >> simp[word_test_def,band_def,bitwise_w2v_w2v,word_and_def,v2n_w2v,btest_def]
     >> EQ_TAC >> STRIP_TAC
-       >- fs[GSYM w2v_0w,n2v_def,boolify_def,w2v_eq]
+       >- fs[GSYM w2v_0w,n2v_def,boolify_def]
        >> simp[n2v_def,boolify_def,w2v_0w]);
 
 
