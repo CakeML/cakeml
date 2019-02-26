@@ -3601,6 +3601,253 @@ val IMP_app_POSTd = store_thm("IMP_app_POSTd",
   THEN1 (rw [] \\ qexists_tac `Hs i` \\ fs [])
   \\ rw [] \\ fs [STAR_ASSOC]);
 
+(* -- FFI_part -- *)
+
+val limited_parts_def = Define `
+  limited_parts ns ((proj,parts):'ffi ffi_proj) <=>
+    ns = FLAT (MAP FST parts)`
+
+val FFI_part_IN_st2heap_IMP = store_thm("FFI_part_IN_st2heap_IMP",
+  ``FFI_part s u ns events ∈ st2heap p st ==>
+    FILTER (ffi_has_index_in ns) st.ffi.io_events = events``,
+  strip_tac \\ fs [st2heap_def]
+  THEN1 fs [store2heap_def, FFI_part_NOT_IN_store2heap_aux]
+  \\ Cases_on `p` \\ fs [ffi2heap_def]
+  \\ Cases_on `parts_ok st.ffi (q,r)` \\ fs []);
+
+val limited_FFI_part_IN_st2heap_IMP = store_thm("limited_FFI_part_IN_st2heap_IMP",
+  ``limited_parts ns p ==>
+    FFI_part s u ns events ∈ st2heap p st ==>
+    st.ffi.io_events = events``,
+  rpt (strip_tac)
+  \\ fs [st2heap_def]
+  THEN1 fs [store2heap_def, FFI_part_NOT_IN_store2heap_aux]
+  \\ Cases_on `p` \\ fs [ffi2heap_def]
+  \\ Cases_on `parts_ok st.ffi (q,r)` \\ fs []
+  \\ irule ((snd o EQ_IMP_RULE o SPEC_ALL) EQ_SYM_EQ)
+  \\ irule ((snd o EQ_IMP_RULE o SPEC_ALL) FILTER_EQ_ID)
+  \\ fs [parts_ok_def, limited_parts_def]);
+
+val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
+  ``!p env fv xv H Q ns.
+      limited_parts ns p /\
+      (?Hs events vs ss u io.
+         vs 0 = xv /\ H ==>> Hs 0 /\
+         (!i. ?P. Hs i = P * one (FFI_part (ss i) u ns (events i))) /\
+         (!i.
+            (app p fv [vs i] (Hs i)
+                             (POSTv v'. &(v' = vs (SUC i)) * Hs (SUC i)))) /\
+         lprefix_lub (IMAGE (fromList o events) UNIV) io /\
+         Q io)
+      ==>
+      app p (some_repeat_clos env) [fv; xv] H ($POSTd Q)``,
+  rpt strip_tac
+  \\ rw [app_def, app_basic_def]
+  \\ fs [some_repeat_clos_def,do_opapp_def,Once find_recfun_def]
+  \\ fs [POSTv_eq,PULL_EXISTS,SEP_EXISTS_THM,cond_STAR]
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ simp [Once evaluate_to_heap_def]
+  \\ fs [evaluate_ck_def,terminationTheory.evaluate_def,PULL_EXISTS,
+         cfStoreTheory.st2heap_clock]
+  \\ `SPLIT3 (st2heap p st) (h_i,h_k,EMPTY)` by fs [SPLIT3_def,SPLIT_def]
+  \\ asm_exists_tac \\ fs []
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ rpt strip_tac
+  \\ rename [`SPLIT (st2heap p st1) (h_j,h_l)`]
+  \\ qexists_tac `Div io`
+  \\ fs [POSTd_eq] \\ fs [emp_def]
+  \\ qexists_tac `UNIV DIFF h_l`
+  \\ qexists_tac `UNIV`
+  \\ conj_tac THEN1 fs [SPLIT3_def,IN_DISJOINT,EXTENSION]
+  \\ fs [evaluate_to_heap_def]
+  \\ fs [app_def,app_basic_def,POSTv_eq,PULL_EXISTS]
+  \\ fs [evaluate_to_heap_def,PULL_EXISTS,cond_STAR]
+  \\ qabbrev_tac `assert_Hs = \i st.
+                    ?h_i h_k. SPLIT (st2heap p st) (h_i,h_k) /\ Hs i h_i`
+  \\ `!i st0.
+        assert_Hs i st0 ==>
+        ?env exp ck st1.
+          assert_Hs (i+1) st1 /\
+          do_opapp [fv; vs i] = SOME (env,exp) /\
+          evaluate_ck ck st0 env [exp] = (st1,Rval [vs (i+1)]) /\
+          st1.clock = 0` by
+   (fs [Abbr`assert_Hs`,PULL_EXISTS] \\ rpt strip_tac
+    \\ first_assum drule \\ disch_then drule
+    \\ strip_tac \\ fs [ADD1]
+    \\ fs [evaluate_ck_def]
+    \\ drule evaluatePropsTheory.evaluate_set_clock
+    \\ disch_then (qspec_then `0` mp_tac) \\ strip_tac \\ fs []
+    \\ qexists_tac `ck1` \\ fs [cfStoreTheory.st2heap_clock]
+    \\ rename [`SPLIT3 (st2heap p st4) (h1,h2,h3)`]
+    \\ qexists_tac `h1` \\ fs []
+    \\ qexists_tac `h2 UNION h3` \\ fs []
+    \\ fs [SPLIT3_def,SPLIT_def,IN_DISJOINT,AC UNION_COMM UNION_ASSOC]
+    \\ metis_tac [])
+  \\ `!x. ?ck st1. let (i,st0) = x in
+            assert_Hs i st0 ==>
+            ?env exp.
+              assert_Hs (i+1) st1 /\
+              do_opapp [fv; vs i] = SOME (env,exp) /\
+              evaluate_ck ck st0 env [exp] = (st1,Rval [vs (i+1)]) /\
+              st1.clock = 0` by (fs [FORALL_PROD] \\ metis_tac [])
+  \\ pop_assum mp_tac
+  \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [SKOLEM_THM]))
+  \\ simp []
+  \\ fs [FORALL_PROD]
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rr") (rename_conv "clocks"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrar") (rename_conv "states"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrarar") (rename_conv "i"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrararar") (rename_conv "st0"))
+  \\ strip_tac
+  \\ qabbrev_tac `get_i = get_index st1 states`
+  \\ qabbrev_tac `cks = clocks o get_i`
+  \\ qabbrev_tac `sts = \i.
+                    if i = 0 then st1 else states (get_index st1 states (i-1))`
+  \\ `∀i.
+        ∃env exp.
+            do_opapp [fv; vs i] = SOME (env,exp) ∧
+            evaluate_ck (cks i) (sts i) env [exp] =
+            (sts (i+1),Rval [vs (i + 1)]) ∧
+            (sts (i+1)).clock = 0 ∧
+            assert_Hs i (sts i) ∧ assert_Hs (i+1) (sts (i+1))` by
+    (Induct THEN1
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+       \\ `assert_Hs 0 st1` by
+         (fs [Abbr`assert_Hs`] \\ asm_exists_tac \\ fs [SEP_IMP_def])
+       \\ fs [] \\ once_rewrite_tac [get_index_def] \\ fs []
+       \\ first_x_assum drule \\ strip_tac \\ fs [])
+     \\ fs [ADD1]
+     \\ first_x_assum drule
+     \\ strip_tac \\ fs []
+     \\ `(states (i + 1,sts (i + 1))) = sts (i+2)` by
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+       \\ once_rewrite_tac [EQ_SYM_EQ]
+       \\ simp [Once get_index_def])
+     \\ `clocks (i + 1,sts (i + 1)) = cks (i+1)` by
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+       \\ once_rewrite_tac [EQ_SYM_EQ]
+       \\ simp [Once get_index_def])
+     \\ fs [])
+  \\ qabbrev_tac `cks_sum = \i. SUM (GENLIST cks i) + 3 * i`
+  \\ qabbrev_tac `nth_env = \i. (env with
+               v :=
+                 nsBind "x" (vs i)
+                   (nsBind "f" fv
+                      (build_rec_env ^repeat_clos env env.v)))`
+  \\ `(env with v :=
+                 nsBind "x" (vs 0)
+                   (nsBind "f" fv
+                      (build_rec_env ^repeat_clos env env.v))) = nth_env 0`
+        by fs [Abbr `nth_env`] \\ fs [] \\ pop_assum kall_tac
+  \\ qabbrev_tac `body = ^let_a`
+  \\ `(∀i n.
+         i <= n ==>
+         ∃st'.
+            evaluate_ck (cks_sum n - cks_sum i) (sts i) (nth_env i) [body] =
+              (st',Rerr (Rabort Rtimeout_error)) /\
+            st'.ffi.io_events = events n)` by
+   (completeInduct_on `n-i:num` \\ rw []
+    \\ fs [PULL_FORALL] \\ Cases_on `n = i` \\ fs [] \\ rveq
+    THEN1
+     (simp [Once terminationTheory.evaluate_def,Abbr `body`,evaluate_ck_def]
+      \\ simp [Once terminationTheory.evaluate_def,Abbr `nth_env`]
+      \\ ntac 4 (simp [Once terminationTheory.evaluate_def])
+      \\ first_x_assum (qspec_then `i` mp_tac) \\ rw [] \\ fs []
+      \\ qunabbrev_tac `assert_Hs` \\ fs []
+      \\ last_x_assum (qspec_then `i` mp_tac)
+      \\ rw [] \\ fs [] \\ fs [STAR_def,one_def,SPLIT_def,EXTENSION]
+      \\ irule limited_FFI_part_IN_st2heap_IMP
+      \\ MAP_EVERY qexists_tac [`ns`, `p`, `ss i`, `u`]
+      \\ metis_tac [])
+    \\ simp [Once terminationTheory.evaluate_def,Abbr `body`,evaluate_ck_def]
+    \\ simp [Once terminationTheory.evaluate_def,Abbr `nth_env`]
+    \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
+    \\ qpat_x_assum `!i. ?x. _`(qspec_then `i` mp_tac) \\ rw [] \\ fs []
+    \\ `cks_sum i + 3 + cks i <= cks_sum n` by
+     (fs [Abbr`cks_sum`]
+      \\ `SUC i <= n` by fs []
+      \\ pop_assum mp_tac
+      \\ simp [Once LESS_EQ_EXISTS] \\ rw [ADD1,LEFT_ADD_DISTRIB] \\ fs []
+      \\ qsuff_tac `SUM (GENLIST cks i) + cks i <= SUM (GENLIST cks (i + (p' + 1)))`
+      THEN1 fs [] \\ fs [GSYM SUM_GENLIST_SUC]
+      \\ match_mp_tac SUM_GENLIST_LESS_EQ \\ fs [])
+    \\ simp [evaluateTheory.dec_clock_def,namespaceTheory.nsOptBind_def]
+    \\ fs [evaluate_ck_def]
+    \\ drule evaluatePropsTheory.evaluate_add_to_clock \\ fs []
+    \\ disch_then (qspec_then `(cks_sum n − (cks_sum i + 1)) - cks i` mp_tac)
+    \\ `cks_sum n − (cks_sum i + 1) − cks i + cks i =
+        cks_sum n − (cks_sum i + 1)` by fs [] \\ fs []
+    \\ disch_then kall_tac
+    \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
+    \\ fs [astTheory.pat_bindings_def]
+    \\ fs [terminationTheory.pmatch_def,same_ctor_def,same_type_def]
+    \\ fs [build_rec_env_def]
+    \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
+    \\ ntac 3 (simp [Once terminationTheory.evaluate_def])
+    \\ simp [Once terminationTheory.evaluate_def]
+    \\ simp [do_opapp_def,Once find_recfun_def]
+    \\ simp [Once terminationTheory.evaluate_def]
+    \\ fs [evaluateTheory.dec_clock_def]
+    \\ `(cks i + (cks_sum i + 3)) = cks_sum (i+1)` by
+     (fs [Abbr`cks_sum`,GSYM ADD1] \\ fs [GENLIST]
+      \\ fs [SNOC_APPEND,SUM_APPEND])
+    \\ fs [AND_IMP_INTRO,build_rec_env_def])
+  \\ pop_assum (qspec_then `0` mp_tac)
+  \\ fs [Abbr `sts`] \\ strip_tac
+  \\ `cks_sum 0 = 0` by fs [Abbr `cks_sum`] \\ fs []
+  \\ conj_tac
+  THEN1
+   (rw [] \\ first_assum (qspec_then `ck` mp_tac)
+    \\ strip_tac \\ imp_res_tac evaluate_ck_timeout_error_IMP
+    \\ pop_assum match_mp_tac
+    \\ unabbrev_all_tac \\ fs [GENLIST_CONS])
+  \\ ho_match_mp_tac (GEN_ALL lprefix_lub_skip)
+  \\ qexists_tac `cks_sum`
+  \\ fs [llistTheory.LPREFIX_fromList,llistTheory.from_toList]
+  \\ rw []
+  THEN1
+   (fs [evaluate_ck_def]
+    \\ qspecl_then [`st1 with clock := ck`,`nth_env 0`,`[body]`,`1`] mp_tac
+         (evaluatePropsTheory.evaluate_add_to_clock_io_events_mono
+          |> CONJUNCT1 |> INST_TYPE [``:'ffi``|->``:'a``])
+    \\ fs [evaluatePropsTheory.io_events_mono_def])
+  THEN1
+   (fs [Abbr`cks_sum`]
+    \\ qsuff_tac `SUM (GENLIST cks ck) <= SUM (GENLIST cks (ck + 1))` THEN1 fs []
+    \\ match_mp_tac SUM_GENLIST_LESS_EQ \\ fs [])
+  \\ qpat_x_assum `lprefix_lub _ io` mp_tac
+  \\ match_mp_tac (METIS_PROVE []
+       ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
+  \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
+  \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []);
+
+val IMP_app_POSTd_one_FFI_part = store_thm("IMP_app_POSTd_one_FFI_part",
+  ``make_stepfun_closure env fname farg fbody = SOME stepv /\
+    fname ≠ farg ∧
+    limited_parts ns p ∧
+    (∃Hs events vs ss u io.
+         vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_part (ss 0) u ns (events 0)) ∧
+         (∀i.
+              app p stepv [vs i] (Hs i * one (FFI_part (ss i) u ns (events i)))
+                (POSTv v'. &(v' = vs (SUC i)) *
+                           Hs (SUC i) * one (FFI_part (ss (SUC i)) u ns (events (SUC i))))) ∧
+         lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
+    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
+  strip_tac
+  \\ match_mp_tac make_repeat_closure_sound \\ fs []
+  \\ fs [make_repeat_closure_def]
+  \\ rveq \\ fs [] \\ rveq \\ fs []
+  \\ match_mp_tac app_opapp_intro
+  \\ fs [terminationTheory.evaluate_def,build_rec_env_def]
+  \\ fs [GSYM some_repeat_clos_def]
+  \\ match_mp_tac (GEN_ALL repeat_POSTd_one_FFI_part) \\ fs []
+  \\ qexists_tac `ns` \\ fs []
+  \\ qexists_tac `\i. Hs i * one (FFI_part (ss i) u ns (events i))`
+  \\ MAP_EVERY qexists_tac [`events`, `vs`, `ss`, `u`, `io`]
+  \\ fs [] \\ conj_tac
+  THEN1 (rw [] \\ qexists_tac `Hs i` \\ fs [])
+  \\ rw [] \\ fs [STAR_ASSOC]);
 
 (* -- old repeat approach -- *)
 

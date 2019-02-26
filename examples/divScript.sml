@@ -16,16 +16,18 @@ val _ = process_topdecs `
 
 val st = ml_translatorLib.get_ml_prog_state();
 
-val pureloop_spec = store_thm("pureloop_spec",
-  ``!xv.
-      app (p:'ffi ffi_proj) ^(fetch_v "pureloop" st) [xv]
-        (one (FFI_full [])) (POSTd io. io = [||])``,
+Theorem pureloop_spec:
+  !xv s u ns.
+    limited_parts ns p ==>
+    app (p:'ffi ffi_proj) ^(fetch_v "pureloop" st) [xv]
+      (one (FFI_part s u ns [])) (POSTd io. io = [||])
+Proof
   xcf_div "pureloop" st
-  \\ MAP_EVERY qexists_tac [`K(&T)`,`K []`,`K xv`]
-  \\ simp[lprefix_lub_def]
-  \\ conj_tac >- xsimpl
-  \\ fs[SEP_CLAUSES]
-  \\ xvar \\ xsimpl);
+  \\ MAP_EVERY qexists_tac [`K emp`, `K []`, `K xv`, `K s`, `u`]
+  \\ rw [lprefix_lub_def]
+  THEN1 xsimpl
+  \\ xvar \\ xsimpl
+QED
 
 (* A conditionally terminating loop *)
 val _ = process_topdecs `
