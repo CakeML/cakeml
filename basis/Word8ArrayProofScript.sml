@@ -4,6 +4,8 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib
      Word8ArrayProgTheory
+     bitstring_extraTheory
+     (* TODO^ move? *)
 
 val _ = new_theory "Word8ArrayProof";
 
@@ -20,7 +22,7 @@ fun prove_array_spec op_name =
   fs [app_aw8alloc_def, app_aw8sub_def, app_aw8length_def, app_aw8update_def,
       app_aalloc_def, app_asub_def, app_alength_def, app_aupdate_def,
       app_copyaw8aw8_def, app_copystraw8_def, app_copyaw8str_def] \\
-  xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def] \\
+  xsimpl \\ fs [INT_def, NUM_def, WORD_def, w2w_def, UNIT_TYPE_def,Litv_WORD_def] \\
   TRY (simp_tac (arith_ss ++ intSimps.INT_ARITH_ss) []) \\
   TRY (
     qmatch_assum_rename_tac`STRING_TYPE s sv`

@@ -113,12 +113,13 @@ val _ = ml_prog_update (close_module (SOME sigs));
 (* if any more theorems get added here, probably should create Word8ProofTheory *)
 
 open ml_translatorTheory
+open bitstring_extraTheory
 
 Theorem WORD_UNICITY_R[xlet_auto_match]
 `!f fv fv'. WORD (f :word8) fv ==> (WORD f fv' <=> fv' = fv)` (fs[WORD_def]);
 
 Theorem WORD_UNICITY_L[xlet_auto_match]
-`!f f' fv. WORD (f :word8) fv ==> (WORD f' fv <=> f = f')` (fs[WORD_def]);
+`!f f' fv. WORD (f :word8) fv ==> (WORD f' fv <=> f = f')` (fs[WORD_def,w2v_eq]);
 
 Theorem n2w_UNICITY[xlet_auto_match]
  `!n1 n2.n1 <= 255 ==> ((n2w n1 :word8 = n2w n2 /\ n2 <= 255) <=> n1 = n2)`

@@ -42,7 +42,8 @@ Theorem Runtime_exit_spec
    (simp[cf_aw8alloc_def]
     \\ irule local_elim \\ reduce_tac
     \\ fs[WORD_def] \\ simp[app_aw8alloc_def]
-    \\ xsimpl \\ EVAL_TAC)
+    (* TODO check why do we need explicit instantiation after adding n-bit words *)
+    \\ xsimpl \\ Q.EXISTS_TAC `i2w i` \\ EVAL_TAC)
   \\ simp[cf_ffi_def,local_def]
   \\ rw[]
   \\ qexists_tac `RUNTIME * W8ARRAY loc [i2w i]`

@@ -74,6 +74,10 @@ Theorem STRING_Litv[simp]
   (Cases_on`s` \\ fs [STRING_TYPE_def] \\ eq_tac \\ fs []
 )
 
+(* TODO check the correct formulation of simp *)
+Theorem Litv_WORD[simp]
+ `Litv_WORD w' = Litv (Word (w2v w))`
+
 Theorem WORD_Litv[simp]
   `WORD w (Litv_WORD w') = (w = w')`
   (fs [WORD_def, Litv_WORD_def] \\ eq_tac \\ fs [bitstring_extraTheory.w2v_eq]

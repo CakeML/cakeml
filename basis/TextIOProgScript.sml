@@ -62,21 +62,30 @@ val InvalidFD_exn_def = Define `
 val EndOfFile_exn_def = Define `
   EndOfFile_exn v = (v = Conv (SOME ^EndOfFile) [])`
 
-val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])``
+val w2v_0w8 = Q.prove(`w2v (0w:word8) = [F;F;F;F;F;F;F;F]`,EVAL_TAC)
+
+
+val v2w_0w8 = Q.prove(`(v2w [F;F;F;F;F;F;F;F]) = 0w:word8`,EVAL_TAC)
+
+
+
+val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word (w2v (0w:word8)))])``
 val eval_thm = let
   val env = get_ml_prog_state () |> ml_progLib.get_env
   val st = get_ml_prog_state () |> ml_progLib.get_state
   val new_st = ``^st with refs := ^st.refs ++ [W8array (REPLICATE 2052 0w)]``
   val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
     [st, env, iobuff_e, new_st, mk_var ("x", semanticPrimitivesSyntax.v_ty)])
-  val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[semanticPrimitivesTheory.state_component_equality])
+  val lemma = goal |> (EVAL THENC SIMP_CONV(srw_ss())[semanticPrimitivesTheory.state_component_equality,w2v_0w8,v2w_0w8])
+
   val v_thm = prove(mk_imp(lemma |> concl |> rand, goal),
     rpt strip_tac \\ rveq \\ match_mp_tac(#2(EQ_IMP_RULE lemma))
     \\ asm_simp_tac bool_ss [])
     |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL;
   val v_tm = v_thm |> concl |> strip_comb |> #2 |> last
   val v_def = define_abbrev false "iobuff_loc" v_tm
-  in v_thm |> REWRITE_RULE [GSYM v_def] end
+  in v_thm |> REWRITE_RULE [GSYM v_def,w2v_0w8] end
+
 
 val _ = ml_prog_update (add_Dlet eval_thm "iobuff" []);
 
