@@ -126,10 +126,10 @@ let rec ins_look a n len =
   else
     ((if with_inserts then insert1 a 0 len else ()); lookup1 a 0 len; ins_look a (n - 1) len)
 
-let harness n =
+let harness () =
 let a = ref Ln in
   (insert1 a 0 40000;
    ins_look a 1000 40000)
 
 
-let test = harness 40000
+let test = harness ()

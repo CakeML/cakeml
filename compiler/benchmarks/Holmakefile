@@ -1,0 +1,92 @@
+INCLUDES = cakeml_benchmarks/cakeml mlton_benchmarks/cakeml
+
+all: $(DEFAULT_TARGETS) README.md cakeml_report.html mlton_report.html
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(dprot $(CAKEMLDIR)/developers/readme_gen) readmePrefix $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+
+CAKEML_PLOTS = cakeml_plot1noerr.svg cakeml_plot2noerr.svg cakeml_plot3noerr.svg cakeml_all.dat
+MLTON_PLOTS = mlton_plot1noerr.svg mlton_plot2noerr.svg mlton_plot3noerr.svg mlton_all.dat
+EXTRA_CLEANS = $(wildcard *.dat *.html *.svg)
+
+cakeml_report.html: $(CAKEML_PLOTS)
+	echo '<!doctype html>' > cakeml_report.html; \
+	echo '<html lang="en">' >> cakeml_report.html; \
+	echo '<head><meta charset="utf-8">' >> cakeml_report.html; \
+	echo '<style>' >> cakeml_report.html; \
+	echo 'text {' >> cakeml_report.html; \
+	echo '	white-space: pre;' >> cakeml_report.html; \
+	echo '}' >> cakeml_report.html; \
+	echo '</style>' >> cakeml_report.html; \
+	echo '<title>CakeML benchmark cakeml_report</title>' >> cakeml_report.html; \
+	echo '</head>' >> cakeml_report.html; \
+	echo '<body>' >> cakeml_report.html; \
+	echo '<h1>CakeML mini benchmark plots</h1> <p>' >> cakeml_report.html; \
+	echo '<h2>Comparison v.s. other MLs (IntInf only)</h2> <p>' >> cakeml_report.html; \
+	echo '<img src="cakeml_plot1noerr.svg"> <p>' >> cakeml_report.html; \
+	echo '<h2>Comparison v.s. other MLs (All)</h2> <p>' >> cakeml_report.html; \
+	echo '<img src="cakeml_plot2noerr.svg"> <p>' >> cakeml_report.html; \
+	echo '<h2>Comparison of various optimisation levels</h2> <p>' >> cakeml_report.html; \
+	echo '<img src="cakeml_plot3noerr.svg"> <p>' >> cakeml_report.html; \
+	echo '<h1>CakeML mini benchmark raw numbers (mean & std. dev., in seconds)</h1> <p>' >> cakeml_report.html; \
+	echo '<text>' >> cakeml_report.html; \
+	cat  cakeml_all.dat >> cakeml_report.html; \
+	echo '</text>' >> cakeml_report.html; \
+	echo '</body>' >> cakeml_report.html; \
+	echo '</html>' >> cakeml_report.html
+
+$(CAKEML_PLOTS): cakeml_benchmarks/benchmark.py cml_cakeml cml_ocaml cml_sml
+	(cd cakeml_benchmarks && python3 benchmark.py && \
+	$(CP) *.svg .. && \
+	$(CP) *.dat ..) | true
+
+.PHONY: cml_cakeml cml_ocaml cml_sml
+cml_cakeml:
+	(cd cakeml_benchmarks/cakeml && ./make_all.sh)
+
+cml_ocaml:
+	(cd cakeml_benchmarks/ocaml/ && make clean && make)
+
+cml_sml:
+	(cd cakeml_benchmarks/sml/ && make clean && make)
+
+mlton_report.html: $(MLTON_PLOTS)
+	echo '<!doctype html>' > mlton_report.html; \
+	echo '<html lang="en">' >> mlton_report.html; \
+	echo '<head><meta charset="utf-8">' >> mlton_report.html; \
+	echo '<style>' >> mlton_report.html; \
+	echo 'text {' >> mlton_report.html; \
+	echo '	white-space: pre;' >> mlton_report.html; \
+	echo '}' >> mlton_report.html; \
+	echo '</style>' >> mlton_report.html; \
+	echo '<title>CakeML benchmark mlton_report</title>' >> mlton_report.html; \
+	echo '</head>' >> mlton_report.html; \
+	echo '<body>' >> mlton_report.html; \
+	echo '<h1>MLton benchmark plots</h1> <p>' >> mlton_report.html; \
+	echo '<h2>Comparison v.s. other MLs (IntInf only)</h2> <p>' >> mlton_report.html; \
+	echo '<img src="mlton_plot1noerr.svg"> <p>' >> mlton_report.html; \
+	echo '<h2>Comparison v.s. other MLs (All)</h2> <p>' >> mlton_report.html; \
+	echo '<img src="mlton_plot2noerr.svg"> <p>' >> mlton_report.html; \
+	echo '<h2>Comparison of various optimisation levels</h2> <p>' >> mlton_report.html; \
+	echo '<img src="mlton_plot3noerr.svg"> <p>' >> mlton_report.html; \
+	echo '<h1>MLton benchmark raw numbers (mean & std. dev., in seconds)</h1> <p>' >> mlton_report.html; \
+	echo '<text>' >> mlton_report.html; \
+	cat  mlton_all.dat >> mlton_report.html; \
+	echo '</text>' >> mlton_report.html; \
+	echo '</body>' >> mlton_report.html; \
+	echo '</html>' >> mlton_report.html
+
+$(MLTON_PLOTS): mlton_benchmarks/benchmark.py mlton_cakeml mlton_sml
+	(cd mlton_benchmarks && python3 benchmark.py&& \
+	$(CP) *.svg .. && \
+	$(CP) *.dat ..) | true
+
+.PHONY: mlton_cakeml mlton_sml
+mlton_cakeml:
+	(cd mlton_benchmarks/cakeml && ./make_all.sh)
+
+mlton_sml:
+	(cd mlton_benchmarks/sml/ && make clean && make)

@@ -35,3 +35,7 @@ val with_inserts = false
 
   val test = harness ();
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

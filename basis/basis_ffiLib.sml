@@ -83,8 +83,8 @@ fun subset_basis_st st precond sets sets_thm =
        )
     val (subgoals,_) = tac ([],goal)
     fun mk_mapping (x,y) =
-      if mem x to_inst then SOME (x |-> y) else
-      if mem y to_inst then SOME (y |-> x) else NONE
+      if tmem x to_inst then SOME (x |-> y) else
+      if tmem y to_inst then SOME (y |-> x) else NONE
     fun safe_dest_eq tm =
       if boolSyntax.is_eq tm then boolSyntax.dest_eq tm else
       Lib.tryfind boolSyntax.dest_eq (boolSyntax.strip_disj tm)

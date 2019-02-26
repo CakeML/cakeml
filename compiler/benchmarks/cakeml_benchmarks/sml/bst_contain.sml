@@ -17,12 +17,12 @@ val with_inserts = false
                                 |   Greater =>  (lookup v6 v7 v1));
  fun  singleton v1 =  (fn  v2 => Bin(1,v1,v2,Tip,Tip));
  val  ratio = 2;
- fun  size v6 = 
+ fun  size v6 =
    case  v6
    of  Tip =>  0
    |   Bin(v5,v4,v3,v2,v1) =>  v5;
  val  delta = 3;
- fun  balancel v41 = 
+ fun  balancel v41 =
    (fn  v42 =>
      (fn  v43 =>
        (fn  v44 =>
@@ -49,7 +49,7 @@ val with_inserts = false
                                                                                                                                                               then  (Bin((1 + v40) + v35,v39,v38,v37,Bin((1 + v35) + v25,v41,v42,v36,Bin(v35,v34,v33,v32,v31))))
                                                                                                                                                               else  (Bin((1 + v40) + v35,v24,v23,Bin((1 + v30) + (size v22),v39,v38,v37,v22),Bin((1 + v35) + (size v21),v41,v42,v21,Bin(v35,v34,v33,v32,v31)))))))
                                                                                else  (Bin((1 + v40) + v35,v41,v42,Bin(v40,v39,v38,v37,v36),Bin(v35,v34,v33,v32,v31))))))));
- fun  balancer v41 = 
+ fun  balancer v41 =
    (fn  v42 =>
      (fn  v43 =>
        (fn  v44 =>
@@ -83,7 +83,7 @@ val with_inserts = false
                                 of  Less =>  (balancel v4 v3 (insert v6 v7 v9 v2) v1)
                                 |   Equal =>  (Bin(v5,v7,v9,v2,v1))
                                 |   Greater =>  (balancer v4 v3 v2 (insert v6 v7 v9 v1)));
- fun  num_compare v1 = 
+ fun  num_compare v1 =
    (fn  v2 =>
      if  (v1 = v2)
      then  Equal
@@ -126,3 +126,7 @@ end;
 
   val test = harness ();
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

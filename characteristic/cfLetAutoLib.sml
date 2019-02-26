@@ -1032,7 +1032,7 @@ fun match_heap_conditions hcond sub_hcond =
       (* Interior loop *)
       fun match_loop_int h1 [] = raise ERR "match_loop_int" "Empty"
         | match_loop_int h1 (h2::hl2) =
-          if h1 = h2 then ([], hl2)
+          if h1 ~~ h2 then ([], hl2)
           else
               (let
                   val result = tryfind (try_match (mk_sep_imp_hprop (h1, h2))) extr_pairs
