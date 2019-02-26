@@ -88,7 +88,7 @@ val hashtable_size = (append_prog o process_topdecs)
 
 val _ = ml_prog_update open_local_block;
 val hashtable_initBuckets = (append_prog o process_topdecs)
-`fun initBuckets n cmp = Array.tabulate n (fn _ => Map.empty cmp)`;
+`fun initBuckets n cmp = Array.array n (Map.empty cmp)`;
 
 val _ = ml_prog_update open_local_in_block;
 
