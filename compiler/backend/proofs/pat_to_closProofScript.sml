@@ -408,14 +408,14 @@ val l2n_GENLIST_0 = prove(``!n. l2n 2 (GENLIST (\v. 0) n) = 0``,
   ASSUME_TAC (Q.SPEC `2` l2n_eq_0) \\ fs[EVERY_GENLIST]
 )
 
-val v2n_fixwidth_n2v_ORD = Q.prove(`!c. v2n (fixwidth 8 (n2v (ORD c))) = ORD c`, 
+val v2n_fixwidth_n2v_ORD = Q.prove(`!c. v2n (fixwidth 8 (n2v (ORD c))) = ORD c`,
    lrw [n2v_def, v2n_def, bitify_def, num_from_bin_list_def, l2n_def,
        num_to_bin_list_def, bitify_reverse_map, boolify_reverse_map,
        rich_listTheory.MAP_REVERSE, listTheory.MAP_MAP_o,
 numposrepTheory.n2l_BOUND, numposrepTheory.l2n_n2l,ORD_BOUND,fixwidth_def
          ,zero_extend_def,PAD_LEFT,MAP_GENLIST,REVERSE_APPEND,REVERSE_GENLIST,MAP_DROP,REVERSE_DROP
          , MAP_REVERSE, MAP_MAP_o,o_DEF]
-  >- (simp[l2n_2_append,l2n_GENLIST_0] \\ fs[] 
+  >- (simp[l2n_2_append,l2n_GENLIST_0] \\ fs[]
       \\ Q.MATCH_ABBREV_TAC `l2n 2 X = _`
   \\ `X = n2l 2 (ORD c)` by (UNABBREV_ALL_TAC \\ cheat)
   \\ fs[] \\ MATCH_MP_TAC l2n_n2l \\ simp[]
@@ -480,7 +480,7 @@ Theorem zero_extend_n2v_v2n_cons
  \\ UNABBREV_ALL_TAC
  >- (simp[MAP_TAKE,MAP_REVERSE,MAP_MAP_o,o_DEF,REVERSE_APPEND]
      \\ simp[TAKE_APPEND,GSYM MAP_REVERSE,GSYM MAP_TAKE]
-     \\ simp[GSYM ADD1] >> 
+     \\ simp[GSYM ADD1] >>
      `LENGTH (REVERSE t) <= SUC (LENGTH t)` by simp[] \\
       IMP_RES_TAC TAKE_LENGTH_TOO_LONG \\ fs[]
       \\ Q.MATCH_ABBREV_TAC `MAP f _ = _`
@@ -557,7 +557,7 @@ Theorem n2v_v2n_not_less_id
     \\ UNABBREV_ALL_TAC
     \\ simp[REVERSE_REVERSE]
     \\ Q.MATCH_ABBREV_TAC `SUC (PRE X) <= _`
-    \\ Cases_on `0 < X` >- 
+    \\ Cases_on `0 < X` >-
         (fs[SUC_PRE] \\ UNABBREV_ALL_TAC \\ metis_tac[LENGTH_MAP,LENGTH_dropWhile_LESS_EQ])
     \\ reverse(Cases_on `X`) >- (POP_ASSUM (fn x => ASSUME_TAC x \\ UNDISCH_TAC (concl x)) \\ simp[])
     \\ simp[] \\ rename1 `1 <= LENGTH t` \\ Cases_on `t` \\ simp[]
@@ -827,7 +827,7 @@ Theorem compile_evaluate
     TRY (
       rename1`Chopb op` >>
       Cases_on`op`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def,SWAP_REVERSE_SYM,MAP_REVERSE,opwb_lookup_def,blt_def,bgt_def,bleq_def,bgeq_def]
-      \\ simp[v2n_fixwidth_n2v_ORD] \\ intLib.COOPER_TAC 
+      \\ simp[v2n_fixwidth_n2v_ORD] \\ intLib.COOPER_TAC
       \\ NO_TAC) >>
     TRY (
       rename1`do_word_op op wz w1 w2`
@@ -1012,7 +1012,7 @@ evaluate_REPLICATE_Op_AllocGlobal, REPLICATE_GENLIST, MAP_GENLIST]
        \\ Cases_on `i''''` \\ (ASM_SIMP_TAC arith_ss [EL_MAP] \\ fs[])
        >- (fsrw_tac[ETA_ss,ARITH_ss][EL_MAP] \\ simp[w2v_n2w])
        \\ Cases_on `str''` >- fs[STRLEN_DEF] \\ simp[HD_MAP]
-       \\ simp[w2v_n2w]) 
+       \\ simp[w2v_n2w])
    >- (simp[Once evaluate_def] \\ fs[MAP_REVERSE,ETA_AX]
        \\ ntac 5 (simp[Once evaluate_def])
        \\ fs[do_app_def]

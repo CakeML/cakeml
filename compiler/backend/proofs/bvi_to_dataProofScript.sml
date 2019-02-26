@@ -367,7 +367,7 @@ val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
        do_app_aux op z t = Rval (pres,s2) ∧
        res = data_to_bvi_v pres ∧
        state_rel s1 s2 arch_size`,
-  cheat (* STRIP_TAC \\ `?debug. debug () = op` by (qexists_tac `K op` \\ fs[]) \\ 
+  cheat (* STRIP_TAC \\ `?debug. debug () = op` by (qexists_tac `K op` \\ fs[]) \\
   Cases_on `op`
   \\ ntac 2 (fs [ do_app_aux_def
                 , bvlSemTheory.do_app_def
@@ -1612,7 +1612,7 @@ Theorem FST_compile_part[simp]
 
 (* TODO check against master *)
 Theorem compile_prog_semantics
-  `0 < arch_size - 2 /\ 
+  `0 < arch_size - 2 /\
    bviSem$semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (bvi_to_data$compile_prog arch_size prog)) start ≠ Fail ⇒
    dataSem$semantics ffi0 (fromAList (bvi_to_data$compile_prog arch_size prog)) ((I ## (bvi_to_data$compile_prog arch_size)) o co) cc start arch_size =
    bviSem$semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (bvi_to_data$compile_prog arch_size prog)) start`

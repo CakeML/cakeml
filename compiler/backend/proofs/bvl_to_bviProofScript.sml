@@ -796,7 +796,7 @@ val compile_int_thm = Q.prove(
 open bitstring_extraTheory
 val v2w_fixwidth_n2v = Q.prove(`!x. v2w (fixwidth 8 (n2v x)):word8 = n2w x`,
  STRIP_TAC \\ ASSUME_TAC(GSYM (INST_TYPE [alpha |-> Type`:8`]w2v_n2w))
- \\ fs[wordsTheory.dimindex_8] 
+ \\ fs[wordsTheory.dimindex_8]
 )
 
 val compile_string_thm = Q.prove(
