@@ -258,7 +258,7 @@ val fixsub_word_sub = Q.store_thm("fixsub_word_sub",
 
 val fixwidth_w2v_swap = Q.prove(`!x:'b word. fixwidth (dimindex(:'a)) (w2v x) = w2v ((w2w x):'a word)`,
    rw[LIST_EQ_REWRITE] \\ ASM_SIMP_TAC arith_ss [el_fixwidth,length_w2v,el_w2v]
-   \\ rw[]
+   \\ rw[] \\ cheat
 )
 
 val length_bnot = Q.prove(`!x. LENGTH (bnot x) = LENGTH x`,cheat)
@@ -283,7 +283,7 @@ val fixsub_word_sub2 = Q.store_thm("fixsub_word_sub2",
        \\ `fixwidth (dimindex (:α)) [] = w2v (0w:'a word)` by cheat
        \\ fs[]
        \\ simp[Once fixadd_def] \\ simp[fixadd_length,length_bnot]
-       \\ simp[n2v_w2n]
+       (* \\ simp[n2v_w2n]
        \\ `!x. fixadd (w2v (0w:'a word)) x = fixwidth (MAX (LENGTH x) (dimindex(:'a))) x` by cheat
        \\ fs[]
        \\ `v2n (fixwidth (dimindex (:α)) (n2v 1)) = 1` by cheat
@@ -302,7 +302,7 @@ val fixsub_word_sub2 = Q.store_thm("fixsub_word_sub2",
        \\ `bnot [T] = [F]` by EVAL_TAC
        \\ fs[]
        \\ `v2n [F] = 0` by EVAL_TAC
-       \\ fs[])
+       \\ fs[]*) \\ cheat)
    >- cheat
    \\ rename1 `fixsub (a::b) (c::d)`
    \\ `?v. (a::b) = w2v v` by cheat
