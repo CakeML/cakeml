@@ -461,16 +461,6 @@ val do_app = Q.prove(
   \\ simp [do_app_cases_err]
   \\ strip_tac \\ fs []
   \\ every_case_tac \\ fs[]
-  \\ fs[do_app_def]
-  \\ fs[case_eq_thms]
-  \\ rename1 `0<=j /\ ?w. b = w2v w`
-  \\ Cases_on `0<=j` \\ fs[]
-  \\ reverse(Cases_on `?w. b = w2v w`)
-  >- metis_tac[]
-  \\ srw_tac[][]
-  \\ fs[case_eq_thms]
-  \\ rpt (POP_ASSUM (fn a => ASSUME_TAC a >> UNDISCH_TAC (concl a)))
-  \\ TOP_CASE_TAC
 );
 
 val v_to_bytes = Q.prove(
@@ -484,7 +474,6 @@ val v_to_bytes = Q.prove(
   \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
   \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
   \\ rw[]
-  >- (rpt STRIP_TAC >> RES_TAC >> fs[bitstring_extraTheory.w2v_eq])
   >- (rename1 `v_to_list w = SOME (MAP (Word o w2v) x)` >> Q.EXISTS_TAC `x` >> rw[EL_MAP])
   \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
   \\ res_tac
@@ -503,7 +492,6 @@ val v_to_words = Q.prove(
   \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
   \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
   \\ rw[]
-  >- (rpt STRIP_TAC >> RES_TAC >> fs[bitstring_extraTheory.w2v_eq])
   >- (rename1 `v_to_list w = SOME (MAP (Word o w2v) x)` >> Q.EXISTS_TAC `x` >> rw[EL_MAP])
   \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
   \\ res_tac

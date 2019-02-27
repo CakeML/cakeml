@@ -3791,8 +3791,7 @@ Proof
       qpat_x_assum`_ = Rval _`mp_tac >>
       IF_CASES_TAC >> fsrw_tac[][] >>
       IF_CASES_TAC \\ fsrw_tac[][] >>
-      reverse (IF_CASES_TAC \\ fsrw_tac[][]) >- (rename1 `w2v wv = _` \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `wv`) \\ fs[])
-      >> srw_tac[][] >>
+      srw_tac[][] >>
       qpat_abbrev_tac`pp = $LEAST P` >>
       qpat_abbrev_tac`qq = $LEAST P` >>
       simp[v_rel_SIMP] >>
