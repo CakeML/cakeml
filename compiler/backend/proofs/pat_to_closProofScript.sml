@@ -408,7 +408,8 @@ val l2n_GENLIST_0 = prove(``!n. l2n 2 (GENLIST (\v. 0) n) = 0``,
   ASSUME_TAC (Q.SPEC `2` l2n_eq_0) \\ fs[EVERY_GENLIST]
 )
 
-val v2n_fixwidth_n2v_ORD = Q.prove(`!c. v2n (fixwidth 8 (n2v (ORD c))) = ORD c`,
+(* get an alternative version of zero extend with strict inquality the other way *)
+val v2n_fixwidth_n2v_ORD = Q.prove(`!c. v2n (fixwidth 8 (n2v (ORD c))) = ORD c`, 
    lrw [n2v_def, v2n_def, bitify_def, num_from_bin_list_def, l2n_def,
        num_to_bin_list_def, bitify_reverse_map, boolify_reverse_map,
        rich_listTheory.MAP_REVERSE, listTheory.MAP_MAP_o,
@@ -462,6 +463,7 @@ Theorem DROP_n2v_v2n_sub
 (rpt STRIP_TAC
  \\ ASM_SIMP_TAC arith_ss [DROP,n2v_v2n_LENGTH_sub])
 
+(* TODO cleaner idea - prove that v2n (h::t) = v2n (non-zero prepended suffix of h::t) *)
 Theorem zero_extend_n2v_v2n_cons
   `!h t. zero_extend (SUC (LENGTH t)) (n2v (v2n (h::t))) = h::t`
 (rw[] \\ simp[zero_extend_def,PAD_LEFT,n2v_def,v2n_def,boolify_reverse_map,bitify_reverse_map,num_to_bin_list_def,num_from_bin_list_def]
