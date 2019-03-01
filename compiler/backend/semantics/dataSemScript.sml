@@ -487,6 +487,11 @@ val do_app_aux_def = Define `
     | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error`;
 
+val _ = overload_on("do_app_safe",
+  ``λop vs s. if op = Install
+              then s.safe_for_space (* ASK: Really? *)
+              else if MEM op [Greater; GreaterEq] then s.safe_for_space
+              else do_space_safe op (LENGTH vs) s``);
 
 val do_app_def = Define `
   do_app op vs ^s =

@@ -72,8 +72,9 @@ Theorem cut_state_opt_with_const
   (EVAL_TAC >> every_case_tac >> simp[]);
 
 Theorem consume_space_add_space
-  `consume_space k (add_space t k with locals := env1) =
-    SOME (t with <| locals := env1 ; space := 0  |>)`
+  `∃sf. consume_space k (add_space t k with locals := env1) =
+          SOME (t with <| locals := env1 ; space := 0;
+                          safe_for_space := sf |>)`
   (full_simp_tac(srw_ss())[consume_space_def,add_space_def,state_component_equality] \\ DECIDE_TAC);
 
 val consume_space_with_stack = Q.prove(
