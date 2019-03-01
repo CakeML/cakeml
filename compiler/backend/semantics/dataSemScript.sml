@@ -603,23 +603,6 @@ val isBool_def = Define`
 ∧ isBool _ _                = F
 `;
 
-val _ = overload_on("evaluate_safe",
-  ``λ(p:prog) ^s.
-      case p of
-        | Assign dest op args names_opt =>
-           if op_requires_names op /\ IS_NONE names_opt
-           then s.safe_for_space
-           else (case cut_state_opt names_opt s of
-                   | NONE => s.safe_for_space
-                   | SOME s =>
-                     (case get_vars args s.locals of
-                        | NONE => s.safe_for_space
-                        | SOME xs => do_app_safe op xs s))
-        | MakeSpace k _ =>
-          (case cut_env names s.locals of
-             | NONE => s.safe_for_space
-             | SOME env => add_space_safe k s)``);
-
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip,^s) = (NONE,s)) /\
   (evaluate (Move dest src,s) =
@@ -713,6 +696,10 @@ val evaluate_def = tDefine "evaluate" `
   \\ decide_tac);
 
 val evaluate_ind = theorem"evaluate_ind";
+
+val _ = overload_on("evaluate_safe",``
+  λc s. let (res,s1) = evaluate (c,s)
+        in s1.safe_for_space``);
 
 (* We prove that the clock never increases. *)
 
