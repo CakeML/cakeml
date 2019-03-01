@@ -6,7 +6,7 @@
 *)
 
 open preamble ml_translatorTheory ml_translatorLib cfLib
-     mlbasicsProgTheory ArrayProgTheory MapProgTheory HashtableProgTheory
+     mlbasicsProgTheory ArrayProgTheory ArrayProofTheory MapProgTheory HashtableProgTheory
 
 val _ = new_theory"HashtableProof";
 
@@ -28,8 +28,7 @@ val hashtable_inv_def = Define `
   hashtable_inv a b hf cmp (h:'a|->'b) vlv =
     ?buckets.
       h = to_fmap (list_union buckets) /\
-      LIST_REL (MAP_TYPE a b) buckets vlv /\
-      ARB`;
+      LIST_REL (MAP_TYPE a b) buckets vlv `;
 
 val REF_NUM_def = Define `
   REF_NUM loc n =
@@ -38,6 +37,7 @@ val REF_NUM_def = Define `
 val REF_ARRAY_def = Define `
   REF_ARRAY loc content =
     SEP_EXISTS v. REF loc v * ARRAY v content`;
+
 
 val HASHTABLE_def = Define
  `HASHTABLE a b hf cmp (h:'a|->'b) v =
@@ -48,6 +48,9 @@ val HASHTABLE_def = Define
         hashtable_inv a b hf cmp h vlv) *
       REF_NUM ur heuristic_size *
       REF_ARRAY ar vlv`;
+
+
+
 
 Theorem hashtable_initBuckets_spec
  `!a b n nv cmp cmpv.
@@ -67,5 +70,79 @@ Theorem hashtable_initBuckets_spec
 \\ asm_exists_tac
 \\ simp[]);
 
+Theorem hashtable_empty_spec
+  `!a b hf hfv cmp cmpv size sizev htv.
+      (a --> INT) hf hfv /\
+      (a --> a --> ORDERING_TYPE) cmp cmpv /\
+      (h = FEMPTY) /\
+      NUM size sizev ==>
+      app (p:'ffi ffi_proj) Hashtable_empty_v [sizev; hfv; cmpv]
+        emp
+        (POSTv htv. HASHTABLE a b hf cmp h htv)`
+(xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
+\\ xlet_auto
+   >-(xsimpl)
+\\ xlet `POSTv v. &(NUM 1 v \/ NUM size' v)`
+  >-(xif
+  \\ xlit
+  \\ xsimpl
+  \\ xvar
+  \\ xsimpl)
+\\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
+   >-(xapp
+  \\ simp[])
+\\ xlet `POSTv loc. SEP_EXISTS addr. &(addr = loc) * REF_ARRAY loc (REPLICATE 1 mpv)`
+     >-(xref
+      \\fs[REF_ARRAY_def,REF_NUM_def]
+      \\ xsimpl)
+\\ xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE 1 mpv)`
+     >-(xref
+    \\ fs[REF_ARRAY_def, REF_NUM_def]
+    \\ xsimpl)
+\\ xcon
+\\ fs[HASHTABLE_def]
+\\ xsimpl
+\\ qexists_tac `(REPLICATE 1 mpv)`
+\\ qexists_tac `0`
+\\ xsimpl
+\\ fs[hashtable_inv_def]
+\\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
+\\ simp[LIST_REL_REPLICATE_same]
+\\ EVAL_TAC
+
+\\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
+   >-(xapp
+  \\ simp[])
+\\ xlet `POSTv loc. SEP_EXISTS addr. &(addr = loc) * REF_ARRAY loc (REPLICATE size' mpv)`
+     >-(xref
+      \\fs[REF_ARRAY_def,REF_NUM_def]
+      \\ xsimpl)
+\\ xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE size' mpv)`
+     >-(xref
+    \\ fs[REF_ARRAY_def, REF_NUM_def]
+    \\ xsimpl)
+\\ xcon
+\\ fs[HASHTABLE_def]
+\\ xsimpl
+\\ qexists_tac `(REPLICATE size' mpv)`
+\\ qexists_tac `0`
+\\ xsimpl
+\\ fs[hashtable_inv_def]
+\\ qexists_tac `(REPLICATE size' (mlmap$empty cmp))`
+\\ simp[LIST_REL_REPLICATE_same]
+\\ Induct_on `size'`
+\\ EVAL_TAC
+
+
+
+
+(*\\ xlet `POSTv loc. SEP_EXISTS ar v aref mpv. &(INT 0 v) * REF loc v * REF aref ar * ARRAY ar (REPLICATE 1 mpv)`
+\\ xref
+\\ xsimpl
+\\qexists_tac `ar'`
+//More q exists
+
+\\fs[HASHTABLE_def,REF_ARRAY_def,REF_NUM_def]
+\\xsimpl
 
 val _ = export_theory();
