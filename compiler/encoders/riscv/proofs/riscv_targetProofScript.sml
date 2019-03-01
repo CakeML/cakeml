@@ -246,7 +246,6 @@ in
       in
          imp_res_tac th
          \\ tac
-         \\ `¬word_bit 0 (^the_state.c_PC ^the_state.procID)` by cheat
          \\ assume_tac step_thm
          \\ qabbrev_tac `^next_state_var = ^next_state`
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
@@ -497,8 +496,7 @@ Theorem riscv_encoder_correct
             print_tac "Binop"
             \\ Cases_on `r`
             \\ Cases_on `b`
-            \\ TRY next_tac
-            \\ cheat (* Binop Sub n n0 (Imm c), second r, second b *)
+            \\ next_tac
             )
          >- (
             (*--------------
@@ -633,8 +631,7 @@ Theorem riscv_encoder_correct
           Loc
         --------------*)
       print_tac "Loc"
-      \\ cheat (* matching error
-      \\ next_tac *)
+      \\ next_tac
       )
    )
 
