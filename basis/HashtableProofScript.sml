@@ -20,14 +20,13 @@ val hashtable_st = get_ml_prog_state();
 (* the vlv list contains the buckets *)
 (* each bucket only contains keys that hash there *)
 
-val list_union_def = Define `
-  list_union [x] = x /\
-  list_union (x::xs) = mlmap$union x (list_union xs)`
+val buckets_to_fmap = Define `
+  buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
 
 val hashtable_inv_def = Define `
   hashtable_inv a b hf cmp (h:'a|->'b) vlv =
     ?buckets.
-      h = to_fmap (list_union buckets) /\
+      h = buckets_to_fmap buckets /\
       LIST_REL (MAP_TYPE a b) buckets vlv `;
 
 val REF_NUM_def = Define `
@@ -78,15 +77,15 @@ Theorem hashtable_empty_spec
       NUM size sizev ==>
       app (p:'ffi ffi_proj) Hashtable_empty_v [sizev; hfv; cmpv]
         emp
-        (POSTv htv. HASHTABLE a b hf cmp h htv)`
+        (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)`
 (xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
 \\ xlet_auto
    >-(xsimpl)
-\\ xlet `POSTv v. &(NUM 1 v \/ NUM size' v)`
+\\ xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
   >-(xif
   \\ xlit
   \\ xsimpl
-  \\ xvar
+  \\ fs[]
   \\ xsimpl)
 \\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
    >-(xapp
@@ -128,21 +127,12 @@ Theorem hashtable_empty_spec
 \\ qexists_tac `0`
 \\ xsimpl
 \\ fs[hashtable_inv_def]
-\\ qexists_tac `(REPLICATE size' (mlmap$empty cmp))`
+\\ qexists_tac `(REPLICATE size' (empty cmp))`
 \\ simp[LIST_REL_REPLICATE_same]
-\\ Induct_on `size'`
+\\ fs[buckets_to_fmap]
+\\ fs[map_replicate]
 \\ EVAL_TAC
+\\ fs[FLAT_REPLICATE_NIL]);
 
-
-
-
-(*\\ xlet `POSTv loc. SEP_EXISTS ar v aref mpv. &(INT 0 v) * REF loc v * REF aref ar * ARRAY ar (REPLICATE 1 mpv)`
-\\ xref
-\\ xsimpl
-\\qexists_tac `ar'`
-//More q exists
-
-\\fs[HASHTABLE_def,REF_ARRAY_def,REF_NUM_def]
-\\xsimpl
 
 val _ = export_theory();
