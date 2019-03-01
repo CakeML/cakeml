@@ -7,6 +7,7 @@ open preamble ml_monadBaseTheory
      holKernelTheory holKernelProofTheory
      holSyntaxTheory holSyntaxExtraTheory
      readerTheory reader_initTheory
+     TextIOProgTheory
 
 val _ = new_theory"readerProof";
 
@@ -1792,4 +1793,55 @@ Theorem reader_proves
   \\ fs [STATE_def, CONTEXT_def] \\ rveq
   \\ fs [EQ_SYM_EQ]);
 
+(*
+ * If the reader succeeds, then there is no output on stderr.
+ *)
+
+Theorem readLines_Fail_not_empty
+  `!ls st refs err refs'.
+     readLines ls st refs = (Failure (Fail err), refs')
+     ==>
+     err <> strlit""`
+ (recInduct readLines_ind
+  \\ Cases >- rw [Once readLines_def, st_ex_return_def]
+  \\ rw []
+  \\ simp [Once readLines_def]
+  \\ rw [st_ex_return_def, st_ex_bind_def, handle_Fail_def, raise_Fail_def,
+         case_eq_thms, line_Fail_def, mlstringTheory.concat_def]);
+
+val no_errors_def = Define `
+  no_errors fs fs' <=>
+    get_file_content fs 2 = get_file_content fs' 2`;
+
+val input_exists_def = Define `
+  input_exists cl fs =
+    case cl of [] => ?inp. stdin fs inp 0 | _ => hasFreeFD fs
+  `;
+
+val _ = export_rewrites ["input_exists_def"];
+
+Theorem reader_success_stderr
+  `input_exists cl fs /\
+   STD_streams fs /\
+   reader_main fs refs cl = (fs', refs', s) /\
+   no_errors fs fs'
+   ==>
+   ?st. s = SOME st`
+ (rw [reader_main_def, read_stdin_def, read_file_def, case_eq_thms] \\ fs []
+  \\ pop_assum mp_tac \\ fs []
+  \\ simp [no_errors_def, msg_bad_name_def, msg_usage_def]
+  \\ fs [case_eq_thms, bool_case_eq] \\ rw [] \\ fs []
+  \\ imp_res_tac TextIOProofTheory.STD_streams_stderr
+  \\ fs [TextIOProofTheory.add_stdo_def, TextIOProofTheory.stdo_def,
+         TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def,
+         fsFFITheory.get_file_content_def,
+         fsFFIPropsTheory.fastForwardFD_def, TextIOProofTheory.stdin_def]
+  \\ rpt (PURE_CASE_TAC \\ fs [])
+  \\ fs [libTheory.the_def, ALIST_FUPDKEY_ALOOKUP, case_eq_thms] \\ rw []
+  \\ fs [mlstringTheory.concat_thm, msg_bad_name_def]
+  \\ SELECT_ELIM_TAC \\ fs []
+  \\ imp_res_tac readLines_Fail_not_empty
+  \\ Cases_on `e` \\ fs []);
+
 val _ = export_theory();
+
