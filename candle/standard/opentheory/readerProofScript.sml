@@ -1835,7 +1835,7 @@ val no_errors_def = Define `
 Theorem reader_success_stderr
   `input_exists fs cl /\
    STD_streams fs /\
-   reader_main fs refs cl = (fs', refs', s) /\
+   reader_main fs refs (TL cl) = (fs', refs', s) /\
    no_errors fs fs'
    ==>
    ?st. s = SOME st`
