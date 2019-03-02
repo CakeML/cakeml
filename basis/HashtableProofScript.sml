@@ -19,15 +19,25 @@ val hashtable_st = get_ml_prog_state();
 (* the union of each bucket is the heap *)
 (* the vlv list contains the buckets *)
 (* each bucket only contains keys that hash there *)
-
 val buckets_to_fmap = Define `
   buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
+
+val bucket_good_hash_def = Define `
+  bucket_good_hash bucket i hf =
+    mlmap$foldrWithKey (\k v bo. hf k = i /\ bo) T bucket`;
+
+val buckets_good_hash_def = Define `
+  buckets_good_hash buckets hf =
+    FOLDR (/\) T (mllist$tabulate (LENGTH buckets) (\i. bucket_good_hash (EL i buckets) i hf))`
 
 val hashtable_inv_def = Define `
   hashtable_inv a b hf cmp (h:'a|->'b) vlv =
     ?buckets.
       h = buckets_to_fmap buckets /\
-      LIST_REL (MAP_TYPE a b) buckets vlv `;
+      LIST_REL (MAP_TYPE a b) buckets vlv /\
+      buckets_good_hash buckets hf`;
+
+
 
 val REF_NUM_def = Define `
   REF_NUM loc n =
@@ -85,19 +95,18 @@ Theorem hashtable_empty_spec
   >-(xif
   \\ xlit
   \\ xsimpl
-  \\ fs[]
-  \\ xsimpl)
-\\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
+  \\ fs[BOOL_def])
+ \\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
    >-(xapp
   \\ simp[])
 \\ xlet `POSTv loc. SEP_EXISTS addr. &(addr = loc) * REF_ARRAY loc (REPLICATE 1 mpv)`
      >-(xref
-      \\fs[REF_ARRAY_def,REF_NUM_def]
+      \\ fs[REF_ARRAY_def,REF_NUM_def]
       \\ xsimpl)
 \\ xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE 1 mpv)`
      >-(xref
-    \\ fs[REF_ARRAY_def, REF_NUM_def]
-    \\ xsimpl)
+      \\ fs[REF_ARRAY_def, REF_NUM_def]
+      \\ xsimpl)
 \\ xcon
 \\ fs[HASHTABLE_def]
 \\ xsimpl
