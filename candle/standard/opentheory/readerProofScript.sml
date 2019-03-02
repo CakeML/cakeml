@@ -1770,6 +1770,15 @@ Theorem process_line_inv
    \\ drule (GEN_ALL readLine_thm)
    \\ rpt (disch_then drule) \\ rw []);
 
+val flush_stdin_def = Define `
+  flush_stdin cl fs =
+   case cl of
+      [] => fastForwardFD fs 0
+    | _ => fs
+  `;
+
+val _ = export_rewrites ["flush_stdin_def"];
+
 Theorem reader_proves
   `reader_main fs init_refs cl = (outp,refs,SOME s)
    ==>
@@ -1777,8 +1786,7 @@ Theorem reader_proves
       MEM (Sequent asl c) s.thms
       ==>
       (thyof refs.the_context, asl) |- c) /\
-   let fs' = case cl of [] => fastForwardFD fs 0 | _ => fs in
-   outp = add_stdout fs' (msg_success s refs.the_context) /\
+   outp = add_stdout (flush_stdin cl fs) (msg_success s refs.the_context) /\
    refs.the_context extends init_ctxt`
   (rw [reader_main_def, case_eq_thms, read_file_def, read_stdin_def,
       bool_case_eq, PULL_EXISTS]
@@ -1793,9 +1801,20 @@ Theorem reader_proves
   \\ fs [STATE_def, CONTEXT_def] \\ rveq
   \\ fs [EQ_SYM_EQ]);
 
-(*
- * If the reader succeeds, then there is no output on stderr.
- *)
+(* ------------------------------------------------------------------------- *)
+(* Some things useful for the top-level soundness theorem, for instance:     *)
+(* if there was no output on stderr, then reader_main processed all commands *)
+(* in the article without errors.                                            *)
+(* ------------------------------------------------------------------------- *)
+
+val input_exists_def = Define `
+  input_exists fs cl =
+    case TL cl of
+      [] => ?inp. stdin fs inp 0
+    | _ => hasFreeFD fs
+  `;
+
+val _ = export_rewrites ["input_exists_def"];
 
 Theorem readLines_Fail_not_empty
   `!ls st refs err refs'.
@@ -1813,31 +1832,24 @@ val no_errors_def = Define `
   no_errors fs fs' <=>
     get_file_content fs 2 = get_file_content fs' 2`;
 
-val input_exists_def = Define `
-  input_exists cl fs =
-    case cl of [] => ?inp. stdin fs inp 0 | _ => hasFreeFD fs
-  `;
-
-val _ = export_rewrites ["input_exists_def"];
-
 Theorem reader_success_stderr
-  `input_exists cl fs /\
+  `input_exists fs cl /\
    STD_streams fs /\
    reader_main fs refs cl = (fs', refs', s) /\
    no_errors fs fs'
    ==>
    ?st. s = SOME st`
- (rw [reader_main_def, read_stdin_def, read_file_def, case_eq_thms] \\ fs []
-  \\ pop_assum mp_tac \\ fs []
-  \\ simp [no_errors_def, msg_bad_name_def, msg_usage_def]
+ (rw [reader_main_def, read_stdin_def, read_file_def, case_eq_thms,
+      no_errors_def, msg_bad_name_def, msg_usage_def]
+  \\ pop_assum mp_tac
   \\ fs [case_eq_thms, bool_case_eq] \\ rw [] \\ fs []
   \\ imp_res_tac TextIOProofTheory.STD_streams_stderr
   \\ fs [TextIOProofTheory.add_stdo_def, TextIOProofTheory.stdo_def,
          TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def,
          fsFFITheory.get_file_content_def,
          fsFFIPropsTheory.fastForwardFD_def, TextIOProofTheory.stdin_def]
-  \\ rpt (PURE_CASE_TAC \\ fs [])
-  \\ fs [libTheory.the_def, ALIST_FUPDKEY_ALOOKUP, case_eq_thms] \\ rw []
+  \\ fs [libTheory.the_def, UNCURRY, ALIST_FUPDKEY_ALOOKUP, case_eq_thms,
+         bool_case_eq]
   \\ fs [mlstringTheory.concat_thm, msg_bad_name_def]
   \\ SELECT_ELIM_TAC \\ fs []
   \\ imp_res_tac readLines_Fail_not_empty
