@@ -235,7 +235,7 @@ val reg_alloc_aux_trans_def = Q.prove(
          freeze_wl := [];
          avail_moves_wl := [];
          unavail_moves_wl := [];
-         coalesced := (SND(SND x),NONE);
+         coalesced := (SND(SND x),0);
          move_related := (SND(SND x),F);
          stack := []|>`,
  Cases_on `x` >> Cases_on `r` >> fs[reg_alloc_aux_def]);
