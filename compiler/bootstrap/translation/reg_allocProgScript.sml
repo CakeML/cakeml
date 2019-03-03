@@ -205,6 +205,7 @@ val _ = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate extend_graph_def;
 val _ = m_translate mk_tags_def;
 val _ = m_translate init_ra_state_def;
+val _ = m_translate do_upd_coalesce_def;
 val _ = m_translate (init_alloc1_heu_def |> REWRITE_RULE [rewrite_subs]);
 val _ = m_translate do_alloc1_def;
 val _ = m_translate extract_color_def;
@@ -216,6 +217,7 @@ val _ = translate resort_moves_def;
 
 val _ = m_translate (full_consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
                            METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
+val _ = translate update_move_def;
 val _ = m_translate do_reg_alloc_def;
 
 (* Finish the monadic translation *)

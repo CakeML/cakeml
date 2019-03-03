@@ -1201,6 +1201,11 @@ val init_ra_state_def = Define`
     mk_tags n (sp_default fa);
   od`;
 
+(* work around translator bug *)
+val do_upd_coalesce_def = Define`
+  do_upd_coalesce i =
+  update_coalesced i (0+i)`
+
 (* Initializer for the first allocation step *)
 val init_alloc1_heu_def = Define`
   init_alloc1_heu moves d k =
@@ -1216,10 +1221,10 @@ val init_alloc1_heu_def = Define`
         adjls <- adj_ls_sub i;
         fills <- st_ex_FILTER (λv. considered_var k v) adjls [];
         update_degrees i (LENGTH fills);
-        update_coalesced i i
       od
       );
 
+    st_ex_FOREACH ds do_upd_coalesce;
     set_avail_moves_wl (sort_moves moves);
     reset_move_related moves;
 
