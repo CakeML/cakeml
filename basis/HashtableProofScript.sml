@@ -22,21 +22,25 @@ val hashtable_st = get_ml_prog_state();
 val buckets_to_fmap = Define `
   buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
 
-val bucket_good_hash_def = Define `
-  bucket_good_hash bucket i hf =
-    mlmap$foldrWithKey (\k v bo. hf k = i /\ bo) T bucket`;
-
 val buckets_good_hash_def = Define `
-  buckets_good_hash buckets hf =
-    FOLDR (/\) T (mllist$tabulate (LENGTH buckets) (\i. bucket_good_hash (EL i buckets) i hf))`
+    buckets_good_hash bs hf = !i.
+      i< LENGTH bs ==>
+        mlmap$foldrWithKey (\k v bo. hf k = i /\ bo) T (EL i bs)`;
 
 val hashtable_inv_def = Define `
   hashtable_inv a b hf cmp (h:'a|->'b) vlv =
     ?buckets.
       h = buckets_to_fmap buckets /\
-      LIST_REL (MAP_TYPE a b) buckets vlv /\
-      buckets_good_hash buckets hf`;
+      buckets_good_hash buckets hf /\
+      LIST_REL (MAP_TYPE a b) buckets vlv `;
 
+Theorem buckets_good_hash_empty
+  `buckets_good_hash (REPLICATE n (mlmap$empty cmp)) hf`
+( fs[buckets_good_hash_def]
+\\ fs[EL_REPLICATE]
+\\ rpt strip_tac
+\\ REWRITE_TAC[mlmapTheory.empty_def, mlmapTheory.foldrWithKey_def]
+\\ REWRITE_TAC[balanced_mapTheory.empty_def, balanced_mapTheory.foldrWithKey_def]);
 
 
 val REF_NUM_def = Define `
@@ -52,13 +56,11 @@ val HASHTABLE_def = Define
  `HASHTABLE a b hf cmp (h:'a|->'b) v =
     SEP_EXISTS ur ar hfv cmpv vlv heuristic_size.
       &(v = (Conv (SOME (TypeStamp "Hashtable" 8)) [ur; ar; hfv; cmpv]) /\
-        (a --> INT) hf hfv /\
+        (a --> NUM) hf hfv /\
         (a --> a --> ORDERING_TYPE) cmp cmpv /\
         hashtable_inv a b hf cmp h vlv) *
       REF_NUM ur heuristic_size *
       REF_ARRAY ar vlv`;
-
-
 
 
 Theorem hashtable_initBuckets_spec
@@ -81,7 +83,7 @@ Theorem hashtable_initBuckets_spec
 
 Theorem hashtable_empty_spec
   `!a b hf hfv cmp cmpv size sizev htv.
-      (a --> INT) hf hfv /\
+      (a --> NUM) hf hfv /\
       (a --> a --> ORDERING_TYPE) cmp cmpv /\
       (h = FEMPTY) /\
       NUM size sizev ==>
@@ -89,21 +91,22 @@ Theorem hashtable_empty_spec
         emp
         (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)`
 (xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
-\\ xlet_auto
+\\xlet_auto
    >-(xsimpl)
 \\ xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
-  >-(xif
+  THEN1 (xif
   \\ xlit
   \\ xsimpl
   \\ fs[BOOL_def])
- \\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
+  (*size > 1*)
+ THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
    >-(xapp
   \\ simp[])
-\\ xlet `POSTv loc. SEP_EXISTS addr. &(addr = loc) * REF_ARRAY loc (REPLICATE 1 mpv)`
+THEN1 (xlet `POSTv loc. SEP_EXISTS addr. &(addr = loc) * REF_ARRAY loc (REPLICATE 1 mpv)`
      >-(xref
       \\ fs[REF_ARRAY_def,REF_NUM_def]
       \\ xsimpl)
-\\ xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE 1 mpv)`
+THEN1 (xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE 1 mpv)`
      >-(xref
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
@@ -116,16 +119,18 @@ Theorem hashtable_empty_spec
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
 \\ simp[LIST_REL_REPLICATE_same]
-\\ EVAL_TAC
-
-\\ xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
+\\ conj_tac
+>- (EVAL_TAC)
+\\ fs[buckets_good_hash_empty])))
+(*size > 1*)
+THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
    >-(xapp
   \\ simp[])
-\\ xlet `POSTv loc. SEP_EXISTS addr. &(addr = loc) * REF_ARRAY loc (REPLICATE size' mpv)`
+THEN1 (xlet `POSTv loc. SEP_EXISTS addr. &(addr = loc) * REF_ARRAY loc (REPLICATE size' mpv)`
      >-(xref
       \\fs[REF_ARRAY_def,REF_NUM_def]
       \\ xsimpl)
-\\ xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE size' mpv)`
+THEN1 (xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE size' mpv)`
      >-(xref
     \\ fs[REF_ARRAY_def, REF_NUM_def]
     \\ xsimpl)
@@ -137,11 +142,17 @@ Theorem hashtable_empty_spec
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE size' (empty cmp))`
-\\ simp[LIST_REL_REPLICATE_same]
+\\ conj_tac
 \\ fs[buckets_to_fmap]
 \\ fs[map_replicate]
-\\ EVAL_TAC
-\\ fs[FLAT_REPLICATE_NIL]);
+>- (EVAL_TAC \\
+  fs[FLAT_REPLICATE_NIL])
+\\ conj_tac
+\\ fs[buckets_good_hash_empty]
+\\ simp[LIST_REL_REPLICATE_same]))));
+
+
+
 
 
 val _ = export_theory();
