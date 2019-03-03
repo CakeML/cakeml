@@ -62,7 +62,7 @@ val hashtable_delete = (append_prog o process_topdecs)
     val bucket = Array.sub (!bucketsRef) index
   in
     case Map.lookup bucket k of
-      Some _ => (usedRef:=(!usedRef)-1; Array.update (!bucketsRef) index (Map.delete Map.map k))
+      Some _ => (usedRef:=(!usedRef)-1; Array.update (!bucketsRef) index (Map.delete bucket k))
       |None => ()
   end`;
 
