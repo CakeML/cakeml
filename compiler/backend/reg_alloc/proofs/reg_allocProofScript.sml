@@ -2061,6 +2061,7 @@ val bg_ok_success = Q.prove(`
   IF_CASES_TAC>>fs[good_ra_state_def,EVERY_MEM]>>
   metis_tac[]);
 
+(*
 val canonize_move_success = Q.prove(`
   x < s.dim ∧ y < s.dim ∧ good_ra_state s ⇒
   ∃x2 y2.
@@ -2069,7 +2070,7 @@ val canonize_move_success = Q.prove(`
   rw[canonize_move_def,is_Fixed_def]>>simp msimps>>
   fs[good_ra_state_def]>>
   every_case_tac>>fs[]);
-
+*)
 val st_ex_FIRST_consistency_ok_bg_ok = Q.prove(`
   ∀ls acc.
   good_ra_state s ⇒
@@ -2085,7 +2086,7 @@ val st_ex_FIRST_consistency_ok_bg_ok = Q.prove(`
   drule (SPEC_ALL consistency_ok_success)>>
   rw[]>>simp[]>>
   IF_CASES_TAC>>fs[]>>
-  mp_tac canonize_move_success>>
+(*  mp_tac canonize_move_success>> *)
   rw[]>>simp[]>>
   drule (GEN_ALL bg_ok_success)>>
   disch_then(qspecl_then[`y2`,`x2`,`k`] assume_tac)>>rfs[]>>
@@ -2678,7 +2679,7 @@ Theorem do_reg_alloc_correct `
   st.simp_wl = [] ==>
   st.spill_wl = [] ==>
   st.freeze_wl = [] ==>
-  st.coalesced = REPLICATE n NONE ==>
+  st.coalesced = REPLICATE n 0 ==>
   st.move_related = REPLICATE n F ==>
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>

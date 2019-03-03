@@ -17,12 +17,26 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = hide "state";
 
-(* The graph-coloring register allocator *)
+(*
+  The graph-coloring register allocator
 
-(* Datatype representing the state of nodes
+  It currently uses several ``secret'' invariants that are important for
+  performance but are not verified.
+
+  This is an attempt at listing them:
+
+  1) In ra_state.coalesced, if coalesced[x] ≥ x it is not coalesced
+     i.e., coalesces only happen ``downwards''
+
+  2) adjacency lists are ALWAYS sorted
+*)
+
+(*
+  The tag datatype representing the state of nodes:
+
   Fixed n : means it is fixed to color n
   Atemp   : means that the node is allowed to be allocated to any register or stack pos
-  Stemp   : only allowed to be mapped to k, k+1, ...
+  Stemp   : only allowed to be mapped to k, k+1, ... (stack positions)
 *)
 val _ = Datatype`
   tag = Fixed num | Atemp | Stemp`
@@ -60,8 +74,8 @@ val _ = Hol_datatype `
      ; unavail_moves_wl : (num,(num # num)) alist (* inactive moves -- list *)
 
      (* book keeping *)
-     ; coalesced : (num option) list  (* keep track of coalesce for each node -- arr *)
-     ; move_related : bool list       (* fast check if a node is still move related -- arr *)
+     ; coalesced : num list       (* keep track of coalesce target for each node -- arr *)
+     ; move_related : bool list   (* fast check if a node is still move related -- arr *)
      ; stack    : num list
      |>`;
 
@@ -159,17 +173,61 @@ val st_ex_FILTER_def = Define`
   -- alternative: maintain an "invisible" invariant that
      all the adj_lists are sorted
 *)
+val sorted_insert_def = Define`
+  (sorted_insert (x:num) acc [] = REVERSE (x::acc)) ∧
+  (sorted_insert x acc (y::ys) =
+    if x = y then REVERSE acc ++ y::ys
+    else if x < y then REVERSE acc ++ x::y::ys
+    else sorted_insert x (y::acc) ys)`
+
+(* TODO quick sanity check: move to proof file when done *)
+val hide_def = Define`
+  hide x = x`
+
+val sorted_insert_correct = Q.prove(`
+  ∀ls acc.
+  SORTED $< ls ∧
+  SORTED $< (REVERSE acc) ∧
+  SORTED $< (REVERSE acc ++ ls) ∧
+  EVERY (\y. y < x) acc ⇒
+  hide (SORTED $< (sorted_insert x acc ls) ∧
+        MEM x (sorted_insert x acc ls))`,
+  Induct>>
+  fs[sorted_insert_def]
+  >-
+    (rw[hide_def]>>
+    DEP_ONCE_REWRITE_TAC[SORTED_APPEND]>>
+    simp[transitive_def]>>
+    fs[EVERY_MEM])
+  >>
+  rw[]
+  >-
+    simp[hide_def]
+  >-
+    (DEP_ONCE_REWRITE_TAC[SORTED_APPEND]>>
+    simp[transitive_def,hide_def]>>
+    CONJ_TAC >-
+      (fs[SORTED_DEF,less_sorted_eq]>>
+      metis_tac[LESS_TRANS])>>
+    rw[]>>fs[EVERY_MEM]
+    >-
+      metis_tac[LESS_TRANS]
+    >>
+    fs[less_sorted_eq]>>
+    metis_tac[LESS_TRANS])
+  >>
+    first_x_assum match_mp_tac>>
+    fs[less_sorted_eq,SORTED_APPEND_IFF]>>
+    Cases_on`ls`>>fs[]);
 
 val insert_edge_def = Define`
   insert_edge x y =
   do
     adjx <- adj_ls_sub x;
     adjy <- adj_ls_sub y;
-    if MEM y adjx then return ()
-    else
     do
-      update_adj_ls x (y::adjx);
-      update_adj_ls y (x::adjy)
+      update_adj_ls x (sorted_insert y [] adjx);
+      update_adj_ls y (sorted_insert x [] adjy)
     od
   od`;
 
@@ -276,7 +334,7 @@ val is_not_coalesced_def = Define`
   is_not_coalesced d =
   do
     dt <- coalesced_sub d;
-    return (dt = NONE)
+    return (d <= dt)
   od`
 
 val split_degree_def = Define`
@@ -370,10 +428,11 @@ val inc_deg_def = Define`
   od`
 
 (*
-  In the allocator, we will assume that all moves
-  have the form
+  Within the allocator, we will assume that all moves
+  have the form:
 
-  x:=y where x is Fixed (<k) or Atemp, and y is Atemp
+  1) x:=y where x is Fixed (<k) or Atemp, and y is Atemp
+  2) x < y
 *)
 
 (*
@@ -390,13 +449,6 @@ val inc_deg_def = Define`
   In both cases, we leave the v-y edge dangling
 *)
 
-(* This is inefficient *)
-val pair_rename_def = Define`
-  pair_rename x y (p,(a,b)) =
-  let a = if a = y then x else a in
-  let b = if b = y then x else b in
-  (p,(a,b))`
-
 (* An actual register *)
 val is_Fixed_def = Define`
   is_Fixed x =
@@ -409,12 +461,12 @@ val do_coalesce_real_def = Define`
   do_coalesce_real x y case1 case2 =
   do
     (* mark y as coalesced to x *)
-    update_coalesced y (SOME x);
-    (* replace all instances of y in the move lists to x *)
+    update_coalesced y x;
+    (* replace all instances of y in the move lists to x
     am <- get_avail_moves_wl;
     set_avail_moves_wl (MAP (pair_rename x y) am);
     uam <- get_unavail_moves_wl;
-    set_unavail_moves_wl (MAP (pair_rename x y) uam);
+    set_unavail_moves_wl (MAP (pair_rename x y) uam); *)
     (*
       increment degree of x by new vertices
     *)
@@ -535,6 +587,26 @@ val consistency_ok_def = Define`
     od
   od`
 
+(*
+  find the ancestor
+  and collapse along the way
+
+*)
+val coalesce_parent_def = Define`
+  coalesce_parent x =
+  do
+    xt <- coalesced_sub x;
+    if x <= xt then
+      return x
+    else
+    do
+      anc <- coalesce_parent xt;
+      update_coalesced x anc;
+      return anc
+    od
+  od`
+
+(*
 val canonize_move_def = Define`
   canonize_move x y =
   do
@@ -544,11 +616,12 @@ val canonize_move_def = Define`
     else
       return (x,y)
   od`
+*)
 
 (*
   Picks apart the available moves worklist
   1) If we find any inconsistent ones -> throw them away
-  2) canonize the move to put fixed register in front
+  not necessary? -- 2) canonize the move to put fixed register in front
   3) returns the first bg_ok move that is also consistent
 *)
 val st_ex_FIRST_def = Define`
@@ -556,12 +629,14 @@ val st_ex_FIRST_def = Define`
   (st_ex_FIRST P Q (m::ms) unavail =
     let (p,(x,y)) = m in
     do
+      x <- coalesce_parent x;
+      y <- coalesce_parent y;
       b1 <- P x y;
       if ¬b1 then
         st_ex_FIRST P Q ms unavail
       else
       do
-        (x,y) <- canonize_move x y;
+        (x,y) <- return(if x < y then (x,y) else (y,x));
         optb2 <- Q x y;
         case optb2 of
           NONE => st_ex_FIRST P Q ms (m::unavail)
@@ -1140,9 +1215,11 @@ val init_alloc1_heu_def = Define`
       do
         adjls <- adj_ls_sub i;
         fills <- st_ex_FILTER (λv. considered_var k v) adjls [];
-        update_degrees i (LENGTH fills)
+        update_degrees i (LENGTH fills);
+        update_coalesced i i
       od
       );
+
     set_avail_moves_wl (sort_moves moves);
     reset_move_related moves;
 
@@ -1151,6 +1228,7 @@ val init_alloc1_heu_def = Define`
     set_spill_wl gtk;
     set_simp_wl ltksimp;
     set_freeze_wl ltkfreeze;
+
     return (LENGTH allocs)
   od`
 
@@ -1215,12 +1293,9 @@ val biased_pref_def = Define`
     d <- get_dim;
     if n < d then
     do
-      copt <- coalesced_sub n;
+      v <- coalesced_sub n;
       let vs = case lookup n mtable of NONE => [] | SOME vs => vs in
-      (case copt of
-        NONE => handle_Subscript (first_match_col ks vs) (return NONE)
-      | SOME v =>
-          handle_Subscript (first_match_col ks (v::vs)) (return NONE))
+      handle_Subscript (first_match_col ks (v::vs)) (return NONE)
     od
     else
       return NONE
@@ -1250,12 +1325,21 @@ val full_consistency_ok_def = Define`
     od
   od`
 
+val update_move_def = Define`
+  update_move spta (p:num,(x:num,y:num)) =
+  let spx:num = spta x in
+  let spy:num = spta y in
+  if spx ≤ spy then
+    (p, (spx,spy))
+  else
+    (p, (spy,spx))`
+
 (* Putting everything together in one call *)
 val do_reg_alloc_def = Define`
   do_reg_alloc alg sc k moves ct forced (ta,fa,n) =
   do
     init_ra_state ct forced (ta,fa,n);
-    moves <- return (MAP  (λ(p,(x,y)). (p,(sp_default ta x),(sp_default ta y))) moves);
+    moves <- return (MAP (update_move (sp_default ta)) moves);
     moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves [];
     ls <- do_alloc1 (if alg = Simple then [] else moves) sc k;
     assign_Atemps k ls (biased_pref (resort_moves (moves_to_sp moves LN)));
@@ -1285,7 +1369,7 @@ val reg_alloc_aux_def = Define`
                        ; freeze_wl := []
                        ; avail_moves_wl   := []
                        ; unavail_moves_wl := []
-                       ; coalesced := (n,NONE)
+                       ; coalesced := (n,0)
                        ; move_related := (n,F)
                        ; stack     := [] |>`;
 

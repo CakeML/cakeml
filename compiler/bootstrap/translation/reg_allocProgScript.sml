@@ -6,9 +6,16 @@ open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
 open parserProgTheory;
 
+(*
+open basisProgTheory
+*)
+
 val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "parserProg";
+(*
+val _ = translation_extends "basisProg";
+*)
 
 val _ = monadsyntax.temp_add_monadsyntax()
 
@@ -141,7 +148,7 @@ val _ = m_translate (unspill_def |> REWRITE_RULE [rewrite_subs]);
 val _ = m_translate do_simplify_def;
 val _ = m_translate inc_deg_def;
 
-val _ = translate pair_rename_def;
+val _ = translate sorted_insert_def;
 val _ = m_translate (insert_edge_def |> REWRITE_RULE [MEMBER_INTRO])
 val _ = m_translate list_insert_edge_def
 
@@ -162,8 +169,8 @@ val _ = m_translate  (bg_ok_def |> REWRITE_RULE [MEMBER_INTRO,rewrite_subs])
 
 val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
                            METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
-val _ = m_translate canonize_move_def;
 
+val _ = m_translate coalesce_parent_def;
 val _ = m_translate st_ex_FIRST_def;
 val _ = m_translate (respill_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate do_coalesce_def;
