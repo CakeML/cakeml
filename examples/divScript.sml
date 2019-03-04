@@ -23,7 +23,7 @@ Theorem pureLoop_spec:
       (one (FFI_part s u ns [])) (POSTd io. io = [||])
 Proof
   xcf_div "pureLoop" st
-  \\ MAP_EVERY qexists_tac [`K emp`, `K []`, `K xv`, `K s`, `u`]
+  \\ MAP_EVERY qexists_tac [`K emp`, `K []`, `K($= xv)`, `K s`, `u`]
   \\ xsimpl \\ rw [lprefix_lub_def]
   \\ xvar \\ xsimpl
 QED
@@ -70,7 +70,7 @@ Proof
     fs [SEP_CLAUSES] \\ fs [SEP_F_to_cond, POSTvd_def, GSYM POSTd_def]
     \\ xcf_div "condLoop" st
     \\ MAP_EVERY qexists_tac
-      [`K emp`, `K []`, `\i. Litv (IntLit (-&n - &i))`, `K s`, `u`]
+      [`K emp`, `K []`, `\i. $= (Litv (IntLit (-&n - &i)))`, `K s`, `u`]
     \\ xsimpl \\ rw [lprefix_lub_def]
     THEN1 fs [INT_def]
     \\ xlet `POSTv v. &BOOL F v * one (FFI_part s u ns [])`
@@ -222,7 +222,7 @@ Theorem printLoop_spec:
 Proof
   xcf_div "printLoop" st
   \\ MAP_EVERY qexists_tac
-    [`K emp`, `\i. REPLICATE [put_char_event c] i`, `K cv`,
+    [`K emp`, `\i. REPLICATE [put_char_event c] i`, `K($= cv)`,
      `\i. Str (REPLICATE [c] i)`, `update`]
   \\ fs [GSYM SIO_def, REPLICATE_def]
   \\ xsimpl \\ rw [lprefix_lub_def]
@@ -237,7 +237,35 @@ Proof
       \\ fs [REPLICATE_SNOC] \\ xsimpl)
     \\ xvar \\ fs [REPLICATE_APPEND] \\ xsimpl)
   THEN1 fs [LPREFIX_REPLICATE_LREPEAT]
-  \\ cheat
+  \\ qmatch_goalsub_abbrev_tac `LPREFIX a1 a2`
+  \\ `a1 = a2` suffices_by simp[]
+  \\ unabbrev_all_tac
+  \\ PURE_ONCE_REWRITE_TAC [LLIST_BISIMULATION]
+  \\ qexists_tac `\x y. x = LREPEAT [put_char_event c] /\ y = ub`
+  \\ simp[]
+  \\ conj_tac
+  THEN1 (
+    fs[PULL_EXISTS]
+    \\ first_x_assum(qspec_then `1` mp_tac)
+    \\ PURE_REWRITE_TAC[REPLICATE_def,ONE]
+    \\ rw[LPREFIX_LCONS,LHD_LCONS] \\ rw[LHD_LCONS])
+  \\ fs[PULL_EXISTS]
+  \\ PURE_ONCE_REWRITE_TAC [LLIST_BISIMULATION]
+  \\ qexists_tac `\y z. (!x. LPREFIX (fromList (REPLICATE [put_char_event c] x)) z) /\ y = THE(LTL z)`
+  \\ rw[]
+  \\ match_mp_tac OR_INTRO_THM2
+  \\ conj_tac
+  THEN1 (
+    first_x_assum(qspec_then `SUC(SUC 0)` mp_tac)
+    \\ PURE_REWRITE_TAC[REPLICATE_def]
+    \\ rw[LPREFIX_LCONS,LHD_LCONS,LTL_LCONS]
+    \\ rw[LTL_LCONS])
+  \\ strip_tac
+  \\ first_x_assum(qspec_then `SUC x` mp_tac)
+  \\ simp[GSYM REPLICATE_APPEND,REPLICATE_APPEND_SYM]
+  \\ simp[LPREFIX_LCONS]
+  \\ rw[]
+  \\ rw[LTL_LCONS]
 QED
 
 val _ = export_theory();
