@@ -702,9 +702,10 @@ val evaluate_def = tDefine "evaluate" `
 
 val evaluate_ind = theorem"evaluate_ind";
 
-val _ = overload_on("evaluate_safe",``
-  λc s. let (res,s1) = evaluate (c,s)
-        in s1.safe_for_space``);
+val evaluate_safe_def = Define`
+  evaluate_safe c s = let (x,s1) = evaluate (c,s)
+                      in s1.safe_for_space
+`;
 
 (* We prove that the clock never increases. *)
 
