@@ -2,7 +2,7 @@
   Proofs about the Array module.
   load "cfLib";
   load "HashtableProgTheory";
-
+  load "ArrayProofTheory";
 *)
 
 open preamble ml_translatorTheory ml_translatorLib cfLib
@@ -22,25 +22,29 @@ val hashtable_st = get_ml_prog_state();
 val buckets_to_fmap = Define `
   buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
 
-val buckets_good_hash_def = Define `
-    buckets_good_hash bs hf = !i.
-      i< LENGTH bs ==>
-        mlmap$foldrWithKey (\k v bo. hf k = i /\ bo) T (EL i bs)`;
+val bucket_ok_def = Define `
+  bucket_ok b idx hf length = !k v.
+    mlmap$lookup b k = SOME v ==> (hf k) MOD length = idx`;
+
+val buckets_ok_def = Define `
+    buckets_ok bs hf = !i.
+      i < LENGTH bs ==>
+        bucket_ok (EL i bs) i hf (LENGTH bs)`;
 
 val hashtable_inv_def = Define `
   hashtable_inv a b hf cmp (h:'a|->'b) vlv =
     ?buckets.
       h = buckets_to_fmap buckets /\
-      buckets_good_hash buckets hf /\
+      buckets_ok buckets hf /\
       LIST_REL (MAP_TYPE a b) buckets vlv `;
 
-Theorem buckets_good_hash_empty
-  `buckets_good_hash (REPLICATE n (mlmap$empty cmp)) hf`
-( fs[buckets_good_hash_def]
+Theorem buckets_ok_empty
+  `buckets_ok (REPLICATE n (mlmap$empty cmp)) hf`
+( rw[buckets_ok_def]
 \\ fs[EL_REPLICATE]
-\\ rpt strip_tac
-\\ REWRITE_TAC[mlmapTheory.empty_def, mlmapTheory.foldrWithKey_def]
-\\ REWRITE_TAC[balanced_mapTheory.empty_def, balanced_mapTheory.foldrWithKey_def]);
+\\ rw[bucket_ok_def]
+\\ fs[mlmapTheory.lookup_def, mlmapTheory.empty_def,
+      balanced_mapTheory.empty_def, balanced_mapTheory.lookup_def]);
 
 
 val REF_NUM_def = Define `
@@ -121,7 +125,7 @@ THEN1 (xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE 1 mpv)`
 \\ simp[LIST_REL_REPLICATE_same]
 \\ conj_tac
 >- (EVAL_TAC)
-\\ fs[buckets_good_hash_empty])))
+\\ fs[buckets_ok_empty])))
 (*size > 1*)
 THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
    >-(xapp
@@ -148,11 +152,8 @@ THEN1 (xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE size' mpv)`
 >- (EVAL_TAC \\
   fs[FLAT_REPLICATE_NIL])
 \\ conj_tac
-\\ fs[buckets_good_hash_empty]
+\\ fs[buckets_ok_empty]
 \\ simp[LIST_REL_REPLICATE_same]))));
-
-
-
 
 
 val _ = export_theory();
