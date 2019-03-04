@@ -56,22 +56,19 @@ val _ = ml_prog_update (add_dec
 
 val hashtable_delete = (append_prog o process_topdecs)
 `fun delete ht k =
- case ht of Hashtable usedRef bucketsRef hf _ =>
-  let
-    val index = (hf k) mod (Array.length (!bucketsRef))
-    val bucket = Array.sub (!bucketsRef) index
-  in
+  case ht of Hashtable usedRef bucketsRef hf _ =>
     let
-      val preEmpty = Map.isEmpty bucket
+      val index = (hf k) mod (Array.length (!bucketsRef))
+      val bucket = Array.sub (!bucketsRef) index
+      val newBucket = Map.delete bucket k
     in
-      let
-        fun upd () = Array.update (!bucketsRef) index (Map.delete bucket k v))
-      in
-        if (not preEmpty) andalso Map.isEmpty bucket
-        then (usedRef := (!usedRef)+1;upd ();)
-        else upd ();
-      end
-  end`;
+      Array.update (!bucketsRef) index newBucket;
+      if not (Map.null bucket) andalso Map.null newBucket then (
+        usedRef := (!usedRef)-1 )
+      else
+        ()
+    end`;
+
 
 
 val hashtable_lookup = (append_prog o process_topdecs)
@@ -124,13 +121,11 @@ val hashtable_staticInsert = (append_prog o process_topdecs)
       val index = (hf k) mod (Array.length (!bucketsRef))
       val bucket = Array.sub (!bucketsRef) index
     in
-      let
-        fun upd () = Array.update (!bucketsRef) index (Map.insert bucket k v))
-      in
-        if Map.isEmpty bucket
-        then (usedRef := (!usedRef)+1;upd ();)
-        else upd ();
-      end
+      Array.update (!bucketsRef) index (Map.insert bucket k v);
+      if Map.null bucket then (
+        usedRef := (!usedRef)+1 )
+      else
+        ()
     end`;
 
 val _ = ml_prog_update open_local_in_block;
