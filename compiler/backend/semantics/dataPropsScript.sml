@@ -87,7 +87,9 @@ val consume_space_with_locals = Q.prove(
 
 val do_app_with_stack = time Q.prove(
   `do_app op vs (s with stack := z) =
-   map_result (λ(x,y). (x,y with stack := z)) I (do_app op vs s)`,
+   map_result (λ(x,y). (x,y with <| stack := z ;
+                                    safe_for_space := do_app_safe op vs (s with stack := z)|>))
+              I (do_app op vs s)`,
   Cases_on `do_app op vs (s with stack := z)`
   \\ Cases_on `op`
   \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
@@ -95,9 +97,9 @@ val do_app_with_stack = time Q.prove(
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def] >>
+              pair_case_eq,consume_space_def,op_space_reset_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []));
+          rveq >> fs []) >> rw [state_component_equality]);
 
 val do_app_aux_with_space = time Q.store_thm("do_app_aux_with_space",
   `do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)`,
@@ -126,7 +128,10 @@ val do_app_aux_with_locals = time Q.store_thm("do_app_aux_with_locals",
           rveq >> fs []));
 
 val do_app_with_locals = time Q.prove(
-  `do_app op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app op vs s)`,
+  `do_app op vs (s with locals := z) =
+   map_result (λ(x,y). (x,y with <| locals := z ;
+                                    safe_for_space := do_app_safe op vs (s with locals := z)|>))
+                       I (do_app op vs s)`,
   Cases_on `do_app op vs (s with locals := z)`
   \\ Cases_on `op`
   \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
@@ -136,7 +141,7 @@ val do_app_with_locals = time Q.prove(
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []));
+          rveq >> fs []) >> rw [state_component_equality]);
 
 val do_app_aux_err = Q.store_thm("do_app_aux_err",
   `do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
@@ -178,96 +183,117 @@ Theorem do_app_const
 Theorem do_app_locals
   `(do_app op x s = Rval (q,r)) ==>
    (do_app op x (s with locals := extra) =
-         Rval (q,r with locals := extra))`
+         Rval (q,r with <| locals := extra ;
+                           safe_for_space := do_app_safe op x (s with locals := extra) |>))`
    (rw [ do_app_def,do_app_aux_def,case_eq_thms
       , do_install_def,do_space_def,with_fresh_ts_def
       , PULL_EXISTS, UNCURRY,consume_space_def]
-   \\ fs []);
+   \\ fs [] >> rw [state_component_equality]);
 
 Theorem do_space_alt
   `do_space op l s =
-      if op_space_reset op then SOME (s with space := 0)
+      if op_space_reset op
+      then SOME (s with <| space := 0 ; safe_for_space := do_space_safe op l s |>)
       else consume_space (op_space_req op l) s`
   (full_simp_tac(srw_ss())[do_space_def] \\ SRW_TAC [] [consume_space_def]
   \\ full_simp_tac(srw_ss())[state_component_equality] \\ fs[] \\ DECIDE_TAC);
 
 Theorem Seq_Skip
   `evaluate (Seq c Skip,s) = evaluate (c,s)`
-  (full_simp_tac(srw_ss())[evaluate_def] \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []);
+  (full_simp_tac(srw_ss())[evaluate_def]
+  \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []);
+
+(* TODO *)
+Theorem evaluate_safe_swap
+  `∀c s r s' safe. evaluate (c,s) = (r,s') ⇒
+    evaluate (c,s with safe_for_space := safe) =
+      (r,s' with safe_for_space := evaluate_safe c (s with safe_for_space := safe))`
+  (recInduct evaluate_ind \\ REPEAT STRIP_TAC
+  >- fs [evaluate_safe_def,evaluate_def]
+  >- (fs[evaluate_def,evaluate_def] >> EVAL_TAC
+     \\ every_case_tac
+     \\ fs[state_component_equality,get_var_def,set_var_def] >> rw [])
+  \\ cheat);
 
 Theorem evaluate_stack_swap
   `!c ^s.
-     case evaluate (c,s) of
-     | (SOME (Rerr(Rabort Rtype_error)),s1) => T
-     | (SOME (Rerr(Rabort a)),s1) => (s1.stack = []) /\
-                   (!xs. (LENGTH s.stack = LENGTH xs) ==>
-                           evaluate (c,s with stack := xs) =
-                             (SOME (Rerr(Rabort a)),s1))
-     | (SOME (Rerr (Rraise t)),s1) =>
-           (?s2. (jump_exc s = SOME s2) /\ (s2.locals = s1.locals) /\
-                 (s2.stack = s1.stack) /\ (s2.handler = s1.handler) /\
-                 (!xs s7. (jump_exc (s with stack := xs) = SOME s7) /\
-                          (LENGTH s.stack = LENGTH xs) ==>
-                          (evaluate (c,s with stack := xs) =
-                             (SOME (Rerr (Rraise t)),
-                              s1 with <| stack := s7.stack ;
-                                         handler := s7.handler ;
-                                         locals := s7.locals |>))))
-     | (res,s1) => (s1.stack = s.stack) /\ (s1.handler = s.handler) /\
-                   (!xs. (LENGTH s.stack = LENGTH xs) ==>
-                           evaluate (c,s with stack := xs) =
-                             (res, s1 with stack := xs))`
-  (recInduct evaluate_ind \\ REPEAT STRIP_TAC
-  THEN1 full_simp_tac(srw_ss())[evaluate_def]
-  THEN1 (
-    full_simp_tac(srw_ss())[evaluate_def] >> EVAL_TAC >>
-    every_case_tac >> full_simp_tac(srw_ss())[] )
-  THEN1 (
-    full_simp_tac(srw_ss())[evaluate_def] >>
-    every_case_tac >>
-    full_simp_tac(srw_ss())[set_var_def,cut_state_opt_with_const,do_app_with_stack] >>
-    imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-    full_simp_tac(srw_ss())[cut_state_opt_def,cut_state_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >>
-    rpt var_eq_tac >> full_simp_tac(srw_ss())[do_app_with_locals] >>
-    TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
-    imp_res_tac do_app_const >> simp[] >>
-    EVAL_TAC >> simp[])
-  THEN1 (
-    full_simp_tac(srw_ss())[evaluate_def] >>
-    EVAL_TAC >>
-    every_case_tac >> full_simp_tac(srw_ss())[] )
-  THEN1 (
-    full_simp_tac(srw_ss())[evaluate_def] >>
-    EVAL_TAC >>
-    every_case_tac >> full_simp_tac(srw_ss())[] )
-  THEN1 (
-    full_simp_tac(srw_ss())[evaluate_def] >>
-    EVAL_TAC >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    rpt gen_tac >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >>
-    srw_tac[][] >> simp[])
-  THEN1 (
-    full_simp_tac(srw_ss())[evaluate_def] >>
-    EVAL_TAC >>
-    every_case_tac >> full_simp_tac(srw_ss())[] )
-  THEN1 (* Seq *)
-   (full_simp_tac(srw_ss())[evaluate_def]
-    \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ Cases_on `evaluate (c2,r)` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ Cases_on `q = NONE` \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
-    \\ TRY (Cases_on `x`) \\ TRY (Cases_on`e`) \\ full_simp_tac(srw_ss())[jump_exc_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-    \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-    \\ Q.PAT_X_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ full_simp_tac(srw_ss())[])
-  THEN1 (* If *)
-   (full_simp_tac(srw_ss())[evaluate_def]
-    \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ Cases_on `evaluate (c2,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[get_var_def])
+     let sfs = (λxs. evaluate_safe c (s with stack := xs))
+     in case evaluate (c,s) of
+          | (SOME (Rerr(Rabort Rtype_error)),s1) => T
+          | (SOME (Rerr(Rabort a)),s1) => (s1.stack = [])
+              /\ (!xs. (LENGTH s.stack = LENGTH xs) ==>
+                       evaluate (c,s with stack := xs) =
+                         (SOME (Rerr(Rabort a)),s1 with safe_for_space := sfs xs))
+          | (SOME (Rerr (Rraise t)),s1) =>
+                (?s2. (jump_exc s = SOME s2) /\ (s2.locals = s1.locals) /\
+                      (s2.stack = s1.stack) /\ (s2.handler = s1.handler) /\
+                      (!xs s7. (jump_exc (s with stack := xs) = SOME s7) /\
+                               (LENGTH s.stack = LENGTH xs) ==>
+                               (evaluate (c,s with stack := xs) =
+                                  (SOME (Rerr (Rraise t)),
+                                   s1 with <| stack := s7.stack ;
+                                              handler := s7.handler ;
+                                              locals := s7.locals ;
+                                              safe_for_space := sfs xs|>))))
+          | (res,s1) => (s1.stack = s.stack) /\ (s1.handler = s.handler) /\
+                        (!xs. (LENGTH s.stack = LENGTH xs) ==>
+                                evaluate (c,s with stack := xs) =
+                                  (res, s1 with <| stack := xs ;
+                                                   safe_for_space := sfs xs|>))`
+  (
+
+  fs [LET_DEF] \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
+  >- fs[evaluate_def,state_component_equality,evaluate_safe_def]
+  >- (fs[evaluate_def] >> EVAL_TAC
+      \\ every_case_tac
+      \\ fs[state_component_equality,evaluate_safe_def])
+  >- (fs[evaluate_def,evaluate_safe_def]
+     \\ every_case_tac
+     \\ fs[set_var_def,cut_state_opt_with_const,do_app_with_stack]
+     \\ imp_res_tac do_app_err >> fs[] >> rpt var_eq_tac
+     \\ fs[cut_state_opt_def,cut_state_def] >> every_case_tac >> fs[]
+     \\ rpt var_eq_tac >> fs[do_app_with_locals]
+     \\ TRY(first_assum(split_uncurry_arg_tac o rhs o concl) >> fs[])
+     \\ imp_res_tac do_app_const >> simp[]
+     \\ EVAL_TAC >> simp[state_component_equality])
+  >- (fs[evaluate_def,evaluate_safe_def]
+     \\ EVAL_TAC
+     \\ every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def,evaluate_safe_def]
+     \\ EVAL_TAC
+     \\ every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def,evaluate_safe_def]
+     \\ EVAL_TAC
+     \\ every_case_tac >> fs[]
+     \\ rpt gen_tac
+     \\ every_case_tac >> fs[]
+     \\ srw_tac[][] >> simp[state_component_equality])
+  >- (fs[evaluate_def,evaluate_safe_def]
+     \\ EVAL_TAC
+     \\ every_case_tac >> fs[state_component_equality])
+  >- (fs[evaluate_def,LET_DEF] (* Seq *)
+     \\ Cases_on `evaluate (c1,s)` \\ fs[LET_DEF]
+     \\ Cases_on `evaluate (c2,r)` \\ fs[LET_DEF]
+     \\ Cases_on `q = NONE` \\ fs[] \\ Cases_on `q'` \\ fs[]
+     \\ TRY (Cases_on `x`) \\ TRY (Cases_on`e`) \\ fs[jump_exc_def]
+     \\ every_case_tac \\ fs[] \\ SRW_TAC [] [] \\ fs[]
+     \\ every_case_tac \\ fs[]
+     \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
+     \\ Q.PAT_X_ASSUM `!xs. bbb` (MP_TAC o Q.SPEC `xs`) \\ fs[]
+     \\ TRY (Q.PAT_X_ASSUM `!xs. bbb` (MP_TAC o Q.SPEC `xs`) \\ fs[])
+     \\ rw []
+     \\ ONCE_ASM_REWRITE_TAC [evaluate_safe_def, evaluate_def]
+     \\ ONCE_ASM_REWRITE_TAC [evaluate_safe_def, evaluate_def]
+     \\ fs [] \\ pairarg_tac
+     \\ rw [state_component_equality]
+     \\ IMP_RES_TAC evaluate_safe_swap
+     \\ fs [state_component_equality])
+  >- (fs[evaluate_def,evaluate_safe_def]
+     \\ Cases_on `evaluate (c1,s)` \\ fs[LET_DEF]
+     \\ Cases_on `evaluate (c2,s)` \\ fs[LET_DEF]
+     \\ Cases_on `get_var n s.locals` \\ fs[]
+     \\ Cases_on `isBool T x` \\ fs[get_var_def]
+     \\ Cases_on `isBool F x` \\ fs[get_var_def])
   THEN1 (* Call *)
    (full_simp_tac(srw_ss())[evaluate_def]
     \\ Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
