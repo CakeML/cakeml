@@ -3632,11 +3632,11 @@ val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
   ``!p env fv xv H Q ns.
       limited_parts ns p /\
       (?Hs events vs ss u io.
-         vs 0 = xv /\ H ==>> Hs 0 /\
+         vs 0 xv /\ H ==>> Hs 0 /\
          (!i. ?P. Hs i = P * one (FFI_part (ss i) u ns (events i))) /\
-         (!i.
-            (app p fv [vs i] (Hs i)
-                             (POSTv v'. &(v' = vs (SUC i)) * Hs (SUC i)))) /\
+         (!i xv. vs i xv ==>
+            (app p fv [xv] (Hs i)
+                             (POSTv v'. &(vs (SUC i) v') * Hs (SUC i)))) /\
          lprefix_lub (IMAGE (fromList o events) UNIV) io /\
          Q io)
       ==>
@@ -3665,31 +3665,37 @@ val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
   \\ fs [evaluate_to_heap_def,PULL_EXISTS,cond_STAR]
   \\ qabbrev_tac `assert_Hs = \i st.
                     ?h_i h_k. SPLIT (st2heap p st) (h_i,h_k) /\ Hs i h_i`
-  \\ `!i st0.
-        assert_Hs i st0 ==>
-        ?env exp ck st1.
+  \\ `!i xv st0.
+        assert_Hs i st0 /\ vs i xv ==>
+        ?env exp ck st1 xv'.
           assert_Hs (i+1) st1 /\
-          do_opapp [fv; vs i] = SOME (env,exp) /\
-          evaluate_ck ck st0 env [exp] = (st1,Rval [vs (i+1)]) /\
+          do_opapp [fv; xv] = SOME (env,exp) /\
+          evaluate_ck ck st0 env [exp] = (st1,Rval [xv']) /\
+          vs (i+1) xv' /\
           st1.clock = 0` by
    (fs [Abbr`assert_Hs`,PULL_EXISTS] \\ rpt strip_tac
     \\ first_assum drule \\ disch_then drule
+    \\ disch_then drule
     \\ strip_tac \\ fs [ADD1]
-    \\ fs [evaluate_ck_def]
+    \\ drule SPLIT_of_SPLIT3_2u3
+    \\ strip_tac
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac `st'' with clock := 0`
+    \\ simp[st2heap_clock]
+    \\ asm_exists_tac \\ simp[]
+    \\ PURE_ONCE_REWRITE_TAC[CONJ_SYM]
+    \\ asm_exists_tac \\ simp[]
+    \\ fs[evaluate_ck_def]
     \\ drule evaluatePropsTheory.evaluate_set_clock
     \\ disch_then (qspec_then `0` mp_tac) \\ strip_tac \\ fs []
-    \\ qexists_tac `ck1` \\ fs [cfStoreTheory.st2heap_clock]
-    \\ rename [`SPLIT3 (st2heap p st4) (h1,h2,h3)`]
-    \\ qexists_tac `h1` \\ fs []
-    \\ qexists_tac `h2 UNION h3` \\ fs []
-    \\ fs [SPLIT3_def,SPLIT_def,IN_DISJOINT,AC UNION_COMM UNION_ASSOC]
-    \\ metis_tac [])
-  \\ `!x. ?ck st1. let (i,st0) = x in
-            assert_Hs i st0 ==>
+    \\ qexists_tac `ck1` \\ fs [cfStoreTheory.st2heap_clock])
+  \\ `!x. ?ck st1 xv'. let (i,st0,xv) = x in
+            assert_Hs i st0 /\ vs i xv ==>
             ?env exp.
               assert_Hs (i+1) st1 /\
-              do_opapp [fv; vs i] = SOME (env,exp) /\
-              evaluate_ck ck st0 env [exp] = (st1,Rval [vs (i+1)]) /\
+              do_opapp [fv; xv] = SOME (env,exp) /\
+              evaluate_ck ck st0 env [exp] = (st1,Rval [xv']) /\
+              vs (i+1) xv' /\
               st1.clock = 0` by (fs [FORALL_PROD] \\ metis_tac [])
   \\ pop_assum mp_tac
   \\ CONV_TAC (RATOR_CONV (SIMP_CONV std_ss [SKOLEM_THM]))
@@ -3697,46 +3703,57 @@ val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
   \\ fs [FORALL_PROD]
   \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rr") (rename_conv "clocks"))
   \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrar") (rename_conv "states"))
-  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrarar") (rename_conv "i"))
-  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrararar") (rename_conv "st0"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrarar") (rename_conv "values"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrararar") (rename_conv "i"))
+  \\ CONV_TAC ((RATOR_CONV o PATH_CONV "rrarararar") (rename_conv "st0"))
   \\ strip_tac
-  \\ qabbrev_tac `get_i = get_index st1 states`
+  \\ qabbrev_tac `svpairs = (\x. states x, values x)`
+  \\ qabbrev_tac `get_i = get_index (st1,xv) svpairs`
   \\ qabbrev_tac `cks = clocks o get_i`
   \\ qabbrev_tac `sts = \i.
-                    if i = 0 then st1 else states (get_index st1 states (i-1))`
+                    if i = 0 then st1 else states (get_index (st1,xv) svpairs (i-1))`
+  \\ qabbrev_tac `vls = \i.
+                    if i = 0 then xv else values (get_index (st1,xv) svpairs (i-1))`
   \\ `∀i.
         ∃env exp.
-            do_opapp [fv; vs i] = SOME (env,exp) ∧
+            do_opapp [fv; vls i] = SOME (env,exp) ∧
             evaluate_ck (cks i) (sts i) env [exp] =
-            (sts (i+1),Rval [vs (i + 1)]) ∧
+            (sts (i+1),Rval [vls (i + 1)]) ∧
             (sts (i+1)).clock = 0 ∧
-            assert_Hs i (sts i) ∧ assert_Hs (i+1) (sts (i+1))` by
+            assert_Hs i (sts i) ∧ assert_Hs (i+1) (sts (i+1)) /\
+            vs (i+1) (vls (i+1))` by
     (Induct THEN1
-      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`, Abbr`svpairs`,Abbr`vls`]
        \\ `assert_Hs 0 st1` by
          (fs [Abbr`assert_Hs`] \\ asm_exists_tac \\ fs [SEP_IMP_def])
+       \\ `vs 0 xv` by simp[]
        \\ fs [] \\ once_rewrite_tac [get_index_def] \\ fs []
-       \\ first_x_assum drule \\ strip_tac \\ fs [])
+       \\ first_x_assum drule \\ disch_then drule \\ strip_tac \\ fs []
+      )
      \\ fs [ADD1]
-     \\ first_x_assum drule
+     \\ first_x_assum drule \\ disch_then drule
      \\ strip_tac \\ fs []
-     \\ `(states (i + 1,sts (i + 1))) = sts (i+2)` by
-      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+     \\ `(states (i + 1,sts (i + 1),vls(i+1))) = sts (i+2)` by
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`,Abbr`vls`,Abbr`svpairs`]
        \\ once_rewrite_tac [EQ_SYM_EQ]
        \\ simp [Once get_index_def])
-     \\ `clocks (i + 1,sts (i + 1)) = cks (i+1)` by
-      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`]
+     \\ `(values (i + 1,sts (i + 1),vls(i+1))) = vls (i+2)` by
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`,Abbr`vls`,Abbr`svpairs`]
+       \\ once_rewrite_tac [EQ_SYM_EQ]
+       \\ simp [Once get_index_def])
+     \\ `clocks (i + 1,sts (i + 1),vls(i+1)) = cks (i+1)` by
+      (fs [Abbr`sts`,Abbr`cks`,Abbr`get_i`,Abbr`vls`,Abbr`svpairs`]
        \\ once_rewrite_tac [EQ_SYM_EQ]
        \\ simp [Once get_index_def])
      \\ fs [])
   \\ qabbrev_tac `cks_sum = \i. SUM (GENLIST cks i) + 3 * i`
   \\ qabbrev_tac `nth_env = \i. (env with
                v :=
-                 nsBind "x" (vs i)
+                 nsBind "x" (vls i)
                    (nsBind "f" fv
                       (build_rec_env ^repeat_clos env env.v)))`
   \\ `(env with v :=
-                 nsBind "x" (vs 0)
+                 nsBind "x" (vls 0)
                    (nsBind "f" fv
                       (build_rec_env ^repeat_clos env env.v))) = nth_env 0`
         by fs [Abbr `nth_env`] \\ fs [] \\ pop_assum kall_tac
@@ -3800,7 +3817,8 @@ val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
   THEN1
    (rw [] \\ first_assum (qspec_then `ck` mp_tac)
     \\ strip_tac \\ imp_res_tac evaluate_ck_timeout_error_IMP
-    \\ pop_assum match_mp_tac
+    \\ `ck <= cks_sum ck` by(unabbrev_all_tac >> fs[])
+    \\ first_x_assum drule
     \\ unabbrev_all_tac \\ fs [GENLIST_CONS])
   \\ ho_match_mp_tac (GEN_ALL lprefix_lub_skip)
   \\ qexists_tac `cks_sum`
@@ -3811,7 +3829,7 @@ val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
     \\ qspecl_then [`st1 with clock := ck`,`nth_env 0`,`[body]`,`1`] mp_tac
          (evaluatePropsTheory.evaluate_add_to_clock_io_events_mono
           |> CONJUNCT1 |> INST_TYPE [``:'ffi``|->``:'a``])
-    \\ fs [evaluatePropsTheory.io_events_mono_def])
+    \\ fs [Abbr `nth_env`,Abbr`vls`,evaluatePropsTheory.io_events_mono_def])
   THEN1
    (fs [Abbr`cks_sum`]
     \\ qsuff_tac `SUM (GENLIST cks ck) <= SUM (GENLIST cks (ck + 1))` THEN1 fs []
@@ -3820,17 +3838,19 @@ val repeat_POSTd_one_FFI_part = store_thm("repeat_POSTd_one_FFI_part",
   \\ match_mp_tac (METIS_PROVE []
        ``x = y ==> lprefix_lub (IMAGE x u) io ==> lprefix_lub (IMAGE y u) io``)
   \\ fs [FUN_EQ_THM] \\ rw [] \\ AP_TERM_TAC
-  \\ first_x_assum (qspec_then `ck` strip_assume_tac) \\ fs []);
+  \\ first_x_assum (qspec_then `ck` strip_assume_tac)
+  \\ unabbrev_all_tac \\ fs[]);
 
 val IMP_app_POSTd_one_FFI_part = store_thm("IMP_app_POSTd_one_FFI_part",
   ``make_stepfun_closure env fname farg fbody = SOME stepv /\
     fname ≠ farg ∧
     limited_parts ns p ∧
     (∃Hs events vs ss u io.
-         vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_part (ss 0) u ns (events 0)) ∧
-         (∀i.
-              app p stepv [vs i] (Hs i * one (FFI_part (ss i) u ns (events i)))
-                (POSTv v'. &(v' = vs (SUC i)) *
+         vs 0 xv ∧ H ==>> Hs 0 * one (FFI_part (ss 0) u ns (events 0)) ∧
+         (∀i xv'.
+              vs i xv' ==>
+              app p stepv [xv'] (Hs i * one (FFI_part (ss i) u ns (events i)))
+                (POSTv v'. &(vs (SUC i) v') *
                            Hs (SUC i) * one (FFI_part (ss (SUC i)) u ns (events (SUC i))))) ∧
          lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
     app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
