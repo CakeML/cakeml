@@ -2648,34 +2648,58 @@ val compile_exps_correct = Q.prove(
         \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
         \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `REVERSE a` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `t'` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on`0 ≤ i` >>full_simp_tac(srw_ss())[]
-      \\ Cases_on`a` >>full_simp_tac(srw_ss())[adjust_bv_def,case_eq_thms]
-      \\ STRIP_TAC THEN1 (rpt var_eq_tac \\ simp[Abbr`b3`,adjust_bv_def,APPLY_UPDATE_THM])
-      \\ reverse STRIP_TAC THEN1 (rpt strip_tac \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
-         \\ srw_tac[][] \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF])
-      \\ full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE,bvl_to_bvi_id,bvi_to_bvl_def]
+      \\ Cases_on`REVERSE a`>>full_simp_tac(srw_ss())[]
+      \\ Cases_on`t`>>full_simp_tac(srw_ss())[]
+      \\ Cases_on`h'`>>full_simp_tac(srw_ss())[]
+      \\ Cases_on`h`>>full_simp_tac(srw_ss())[]
+      \\ Cases_on`t'`>>full_simp_tac(srw_ss())[]
+      \\ qpat_x_assum`X = Rval Y`mp_tac
+      \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[] \\ strip_tac \\ rpt var_eq_tac
+      \\ Cases_on`a`>>full_simp_tac(srw_ss())[adjust_bv_def]
+      \\ IF_CASES_TAC \\ fs[] \\ rveq \\ fs[adjust_bv_def]
+      \\ STRIP_TAC THEN1 (
+        rpt var_eq_tac >>
+        simp[Abbr`b3`,adjust_bv_def,APPLY_UPDATE_THM] )
+      \\ reverse STRIP_TAC THEN1
+       (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
+        \\ SRW_TAC [] []
+        \\ IMP_RES_TAC evaluate_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF] \\ RES_TAC)
+      \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
+      \\ full_simp_tac(srw_ss())[state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_UPDATE]
       \\ rpt var_eq_tac \\ simp[]
-      \\ STRIP_TAC >- (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ full_simp_tac(srw_ss())[])
+      \\ STRIP_TAC
+      THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ full_simp_tac(srw_ss())[])
       \\ srw_tac[][MAP_REVERSE] \\ full_simp_tac(srw_ss())[]
-      \\ TRY (full_simp_tac(srw_ss())[Abbr`b3`,APPLY_UPDATE_THM] \\ NO_TAC)
-      \\ TRY (simp[Abbr`b3`,APPLY_UPDATE_THM] \\ srw_tac[][] \\ NO_TAC)
-      \\ TRY ( Cases_on `FLOOKUP s5.refs k = NONE` \\ full_simp_tac(srw_ss())[rich_listTheory.MAP_REVERSE]
+      \\ TRY ( full_simp_tac(srw_ss())[Abbr`b3`,APPLY_UPDATE_THM] \\ NO_TAC)
+      \\ TRY ( simp[Abbr`b3`,APPLY_UPDATE_THM] >> srw_tac[][] >> NO_TAC)
+      \\ TRY ( full_simp_tac(srw_ss())[FLOOKUP_DEF] >> NO_TAC)
+      \\ TRY (
+        qexists_tac`z`>>simp[]>>
+        simp[GSYM MAP_MAP_o] >> srw_tac[][] >>
+        simp[Abbr`b3`,APPLY_UPDATE_THM] >> srw_tac[][] >>
+        NO_TAC)
+      \\ TRY (
+        qmatch_rename_tac`t2.global ≠ SOME p` >>
+        full_simp_tac(srw_ss())[FLOOKUP_DEF] >> METIS_TAC[])
+      \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ full_simp_tac(srw_ss())[rich_listTheory.MAP_REVERSE]
       \\ (`b3 k <> y` by
        (full_simp_tac(srw_ss())[] \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM,FLOOKUP_DEF]
         \\ full_simp_tac(srw_ss())[INJ_DEF] \\ RES_TAC \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]))
-     \\ (`b3 k = b2 k` by (Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM,FLOOKUP_DEF]))
-     \\ full_simp_tac(srw_ss())[FLOOKUP_DEF])
-      >- metis_tac[INJ_DEF]
-      >- cheat
-      >-  (qmatch_rename_tac`t2.global ≠ SOME p` >>
-full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ metis_tac[])
-      >- (full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ simp[GSYM MAP_MAP_o]
-          \\ qexists_tac`z` \\ simp[])
-      )
+      \\ (`b3 k = b2 k` by (Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM,FLOOKUP_DEF]))
+      THEN1 ( full_simp_tac(srw_ss())[FLOOKUP_DEF] >> METIS_TAC[INJ_DEF] )
+      \\ full_simp_tac(srw_ss())[] \\ Cases_on `FLOOKUP s5.refs k` \\ full_simp_tac(srw_ss())[]
+      \\ ntac 3 (Q.PAT_X_ASSUM `!k. bbb` MP_TAC)
+      \\ Q.PAT_X_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
+      \\ full_simp_tac(srw_ss())[MAP_EQ_f] \\ REPEAT STRIP_TAC
+      \\ MATCH_MP_TAC (GEN_ALL bv_ok_IMP_adjust_bv_eq) \\ qexists_tac `s5.refs`
+      \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss []
+      \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[state_ok_def]
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k`) \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC
+      \\ Q.UNABBREV_TAC `b3` \\ full_simp_tac(srw_ss())[APPLY_UPDATE_THM]
+      \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
     \\ Cases_on`∃n. op = Global n` \\ full_simp_tac(srw_ss())[] THEN1 (
          note_tac "Global" >> simp[compile_op_def] >>
          full_simp_tac(srw_ss())[bEvalOp_def] >>

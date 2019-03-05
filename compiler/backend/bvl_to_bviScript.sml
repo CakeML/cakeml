@@ -231,6 +231,7 @@ local val compile_op_quotation = `
                [Op (Const 0) [];
                 Call 0 (SOME SumListLength_location)
                   [Var 0; Op (Const 0) []] NONE]] NONE)
+    (* TODO some of the stubs should use CopyByte T *)
 (*    | CopyByte T => (* TODO: this should eventually be implemented in data_to_word instead for efficiency *)
       Let (if LENGTH c1 < 3 then (c1 ++ REPLICATE 3 (Op (Const 0) [])) else c1)
         (Let [Op (RefByte T) [Op (Const 0) []; Var 0]]
