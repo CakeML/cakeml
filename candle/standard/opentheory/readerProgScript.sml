@@ -526,8 +526,8 @@ val _ = (append_prog o process_topdecs) `
     end`;
 
 Theorem reader_main_spec
-  `(!r s. init_reader () refs = (r, s) ==> r = Success ()) /\
-   (case TL cl of [] => ?inp. stdin fs inp 0 | _ => hasFreeFD fs)
+  `(?s. init_reader () refs = (Success (), s)) /\
+   input_exists fs cl
    ==>
    app (p:'ffi ffi_proj) ^(fetch_v "reader_main" (get_ml_prog_state()))
      [Conv NONE []]
@@ -535,16 +535,15 @@ Theorem reader_main_spec
      (POSTv u.
        &UNIT_TYPE () u *
        STDIO (FST (reader_main fs refs (TL cl))))`
-  (xcf "reader_main" (get_ml_prog_state())
+ (xcf "reader_main" (get_ml_prog_state())
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on `wfcl cl`)
   >- (fs [COMMANDLINE_def] \\ xpull)
   \\ simp [reader_main_def]
-  \\ Cases_on `init_reader () refs` \\ rw []
   \\ xlet_auto
   >- (xcon \\ xsimpl)
-  \\ xlet `POSTv u. STDIO fs * HOL_STORE r * &UNIT_TYPE () u * COMMANDLINE cl`
+  \\ xlet `POSTv u. STDIO fs * HOL_STORE s * &UNIT_TYPE () u * COMMANDLINE cl`
   \\ xsimpl
   >-
    (xapp
@@ -565,7 +564,7 @@ Theorem reader_main_spec
     \\ xsimpl
     \\ instantiate
     \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac `r`
+    \\ qexists_tac `s`
     \\ xsimpl \\ fs [])
   \\ reverse CASE_TAC \\ fs [LIST_TYPE_def]
   >-
@@ -586,7 +585,7 @@ Theorem reader_main_spec
   \\ asm_exists_tac \\ fs []
   \\ xsimpl
   \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ qexists_tac `r`
+  \\ qexists_tac `s`
   \\ xsimpl \\ fs []);
 
 (* ------------------------------------------------------------------------- *)
@@ -594,7 +593,7 @@ Theorem reader_main_spec
 (* ------------------------------------------------------------------------- *)
 
 Theorem reader_whole_prog_spec
-  `(case TL cl of [] => ?inp. stdin fs inp 0 | _ => hasFreeFD fs)
+  `input_exists fs cl
    ==>
    whole_prog_spec ^(fetch_v "reader_main" (get_ml_prog_state()))
      cl fs (SOME (HOL_STORE init_refs))
@@ -605,17 +604,18 @@ Theorem reader_whole_prog_spec
   \\ reverse conj_tac
   >-
    (fs [reader_main_def, read_file_def, read_stdin_def]
-    \\ every_case_tac
+    \\ rpt (PURE_CASE_TAC \\ fs [])
     \\ fs [GSYM add_stdo_with_numchars, with_same_numchars]
-    \\ AP_THM_TAC
-    \\ AP_TERM_TAC
     \\ metis_tac [fastForwardFD_with_numchars, with_same_numchars])
-  \\ irule
-    (DISCH_ALL ((MP_CANON (MATCH_MP app_wgframe (UNDISCH reader_main_spec)))))
+  \\ irule (reader_main_spec
+            |> UNDISCH |> MATCH_MP app_wgframe
+            |> MP_CANON |> DISCH_ALL
+            |> SIMP_RULE (srw_ss()) [])
   \\ xsimpl \\ instantiate
   \\ xsimpl
-  \\ CONV_TAC (RESORT_EXISTS_CONV rev)
+  \\ CONV_TAC SWAP_EXISTS_CONV
   \\ qexists_tac `init_refs` \\ xsimpl
+  \\ Cases_on `init_reader () init_refs`
   \\ fs [init_reader_success]);
 
 val _ = add_user_heap_thm HOL_STORE_init_precond;
