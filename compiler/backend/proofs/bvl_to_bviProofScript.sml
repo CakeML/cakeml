@@ -3008,7 +3008,7 @@ val compile_exps_correct = Q.prove(
       \\ fs[state_ok_def,EVERY_MEM]
       \\ res_tac \\ fs[] \\ rw[]
       \\ fs[Abbr`a`,LEAST_NOTIN_FDOM,Abbr`p`] *)
-    \\ Cases_on`op = ConcatByteVec` \\ fs[] >- cheat (*
+    \\ Cases_on`op = ConcatByteVec` \\ fs[] >- (
       note_tac "Op: ConcatByteVec" \\
       fs[compile_op_def,bEvalOp_def,case_eq_thms]
       \\ imp_res_tac evaluate_IMP_LENGTH
@@ -3093,16 +3093,15 @@ val compile_exps_correct = Q.prove(
       \\ pop_assum (assume_tac o SYM)
       \\ rw[iEval_def,find_code_def,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
       \\ fs[inc_clock_def,dec_clock_def]
-      \\ reverse IF_CASES_TAC
-      >- ( `F` by METIS_TAC[EVAL``w2n (0w:word8)``] )
-      \\ simp[integer_wordTheory.i2w_def]
+      \\ `v2w (fixwidth 8 []) = 0w:word8` by EVAL_TAC
+      \\ fs[]
       \\ simp[APPLY_UPDATE_THM]
       \\ imp_res_tac evaluate_ok
       \\ imp_res_tac evaluate_refs_SUBSET
       \\ rpt(qhdtm_x_assum`evaluate`kall_tac)
       \\ rpt(qhdtm_x_assum`lookup`kall_tac)
       \\ match_mp_tac state_rel_add_bytearray
-      \\ METIS_TAC[LEAST_NOTIN_FDOM]*)
+      \\ METIS_TAC[LEAST_NOTIN_FDOM])
     \\ Cases_on`op = CopyByte F` \\ fs[] >- (
       note_tac "Op: CopyByte F" \\
       CONV_TAC(RESORT_EXISTS_CONV List.rev)
