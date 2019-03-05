@@ -805,20 +805,34 @@ val compile_string_thm = Q.prove(
    evaluate (MAPi (λn c. Op UpdateByte [Op (WordConst (fixwidth 8 (n2v (ORD c)))) []; compile_int (&(n + LENGTH vs)); Var 0]) str,
     RefPtr ptr::env, s) = (Rval (REPLICATE (LENGTH str) Unit),
       s with refs := s.refs |+ (ptr, ByteArray T (TAKE (LENGTH vs) ls ++ (MAP (n2w o ORD) str))))`,
-cheat (* Induct \\ rw[evaluate_def,REPLICATE]
+  Induct \\ rw[evaluate_def,REPLICATE]
   >- (rw[state_component_equality]
       \\ match_mp_tac (GSYM FUPDATE_ELIM) \\ fs[FLOOKUP_DEF])
   \\ rw[Once evaluate_CONS]
-  \\ reverse(rw[evaluate_def,do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,v2w_fixwidth_n2v])
-  \\ fs[compile_int_thm] \\ rw[bvlSemTheory.do_app_def]
+  \\ rw[evaluate_def,do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,v2w_fixwidth_n2v]
+  \\ fs[compile_int_thm]
+  \\ rw[bvlSemTheory.do_app_def]
   \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
-  \\ simp[case_eq_thms,pair_case_thm,v2w_fixwidth_n2v]
-  \\ qpat_abbrev_tac`ss = s with refs := _`
-  \\ first_x_assum(qspec_then`ss`mp_tac)
+  \\ simp[case_eq_thms,pair_case_eq,v2w_fixwidth_n2v]
+  \\ qpat_abbrev_tac `ss = s with refs := _`
+  \\ first_x_assum (qspec_then`ss`mp_tac)
   \\ simp[Abbr`ss`,FLOOKUP_UPDATE]
-   \\ disch_then(qspec_then`ARB::vs`mp_tac)
- \\ rw[ADD1,state_component_equality]
- \\ rw[fmap_eq_flookup,FLOOKUP_UPDATE] \\ rw[] *)
+  \\ fs[o_DEF]
+  \\ disch_then(qspec_then`ARB::vs`mp_tac)
+  \\ rw[]
+  \\ POP_ASSUM(mp_tac)
+  \\ qpat_abbrev_tac `X = MAPi _ str`
+  \\ qpat_abbrev_tac `Y = MAPi _ str`
+  \\ `X=Y` by (UNABBREV_ALL_TAC \\ rpt(ABS_TAC ORELSE MK_COMB_TAC \\ simp[]))
+  \\ fs[]
+  \\ rw[state_component_equality]
+  \\ MK_COMB_TAC \\ simp[]
+  \\ rw[LIST_EQ_REWRITE]
+  \\ simp[EL_TAKE]
+  \\ simp[EL_LUPDATE,EL_APPEND_EQN]
+  \\ TOP_CASE_TAC \\ simp[]
+  \\ `x<LENGTH vs` by DECIDE_TAC
+  \\ fs[EL_TAKE]
 )
   |> Q.SPECL[`str`,`s`,`ls`,`[]`]
   |> SIMP_RULE(srw_ss())[]
@@ -921,42 +935,19 @@ val iEval_bVarBound = Q.prove(
       \\ simp[compile_int_thm]
       \\ first_x_assum(qspecl_then[`n`,`vs`]mp_tac) \\ fs[]
       \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[]
-      \\ simp[do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,bvlSemTheory.do_app_def])
-    \\ Cases_on`op = CopyByte T`
-    >- (
-      fs[compile_op_def]
-      \\ first_x_assum drule
-      \\ disch_then(qspecl_then[`n`,`s`,`env`]mp_tac) \\ simp[]
-      \\ IF_CASES_TAC
-      >- (
-        rw[Once bviSemTheory.evaluate_def]
-        \\ rw[evaluate_APPEND]
-        \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
-        \\ rw[evaluate_APPEND,REPLICATE_compute]
-        \\ CASE_TAC \\  simp[]
-        \\ Cases_on`q` \\ simp[]
-        \\ rw[bviSemTheory.evaluate_def,REPLICATE_compute,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,HD_APPEND3]
-        \\ CASE_TAC \\ simp[]
-        \\ imp_res_tac evaluate_IMP_LENGTH
-        \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM EL]
-        \\ simp[EL_APPEND1]
-        \\ CASE_TAC \\ fs[EL_APPEND1]) \\
-      rw[Once bviSemTheory.evaluate_def]
-      \\ rw[evaluate_APPEND]
-      \\ rw[Once bviSemTheory.evaluate_def,SimpRHS]
-      \\ rw[evaluate_APPEND,REPLICATE_compute]
-      \\ CASE_TAC \\  simp[]
-      \\ Cases_on`q` \\ simp[]
-      \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ Cases_on`a` \\ fs[]
-      \\ Cases_on`t` \\ fs[]
-      \\ rename1`SUC (LENGTH t)`
-      \\ Cases_on`t` \\ fs[]
-      \\ rw[bviSemTheory.evaluate_def,iEvalOp_def,do_app_aux_def,backend_commonTheory.small_enough_int_def]
-      \\ CASE_TAC \\ simp[]
-      \\ CASE_TAC \\ simp[]
-      \\ CASE_TAC \\ simp[]
-      \\ CASE_TAC \\ simp[])
+      \\ simp[do_app_def,do_app_aux_def,backend_commonTheory.small_enough_int_def,bvlSemTheory.do_app_def]
+      \\ pop_assum(SUBST_ALL_TAC o SYM)
+      \\ qmatch_goalsub_abbrev_tac`r.refs |+ (ptr,ByteArray T ls)`
+      \\ qpat_abbrev_tac`rr = r with refs := _`
+      \\ qspecl_then[`str`,`ls`,`ptr`,`rr`,`vs`]mp_tac compile_string_thm
+      \\ impl_tac >- simp[Abbr`ls`,Abbr`rr`,FLOOKUP_UPDATE,LENGTH_REPLICATE]
+      \\ simp[]
+      \\ qspecl_then[`str`,`ls`,`ptr`,`rr`,`vs++env`]mp_tac compile_string_thm
+      \\ impl_tac >- simp[Abbr`ls`,Abbr`rr`,FLOOKUP_UPDATE,LENGTH_REPLICATE]
+      \\ simp[]
+      \\ ntac 3 (disch_then kall_tac)
+      \\ simp[LENGTH_REPLICATE,Abbr`ls`,EL_APPEND1]
+    )
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `op`
     \\ full_simp_tac(srw_ss())[compile_op_def,iEval_def,compile_int_thm]
@@ -2801,7 +2792,7 @@ full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ metis_tac[])
          `a + SUC b = SUC (a + b)` by simp[] >>
          rw[] >>
          simp[LIST_EQ_REWRITE,Abbr`a`,Abbr`b`,LENGTH_REPLICATE,EL_REPLICATE])
-    \\ Cases_on`∃str. op = String str` \\ fs[] >- cheat (*
+    \\ Cases_on`∃str. op = String str` \\ fs[] >- (
       note_tac "Op: String" \\ fs[compile_op_def,bEvalOp_def]
       \\ Cases_on`REVERSE a` \\ fs[] \\ rw[]
       \\ simp[iEval_def,compile_int_thm]
@@ -2820,15 +2811,13 @@ full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ metis_tac[])
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
       \\ simp[adjust_bv_def,Abbr`b2'`,APPLY_UPDATE_THM]
       \\ simp[iEvalOp_def,do_app_aux_def,bEvalOp_def,backend_commonTheory.small_enough_int_def]
-      \\ reverse IF_CASES_TAC \\ fs[]
-      >- (first_x_assum(qspec_then`0w`mp_tac) \\ simp[])
+      \\ fs[]
       \\ qmatch_goalsub_abbrev_tac`RefPtr ptr'::MAP _ env,ss`
       \\ qmatch_asmsub_abbrev_tac`ByteArray T ls`
       \\ qspecl_then[`str`,`ls`,`ptr'`,`ss`,`MAP (adjust_bv b2) env`]mp_tac compile_string_thm
       \\ impl_tac >- simp[Abbr`ss`,FLOOKUP_UPDATE,Abbr`ls`,LENGTH_REPLICATE]
       \\ simp[] \\ disch_then kall_tac
       \\ simp[LENGTH_REPLICATE,Abbr`ls`,EL_APPEND1,EL_APPEND2]
-      \\ qpat_x_assum`0 = _`(SUBST_ALL_TAC o SYM) \\ simp[]
       \\ reverse conj_tac
       >- (
         rw[Abbr`ptr`]
@@ -2875,7 +2864,7 @@ full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ metis_tac[])
       \\ imp_res_tac evaluate_ok
       \\ fs[state_ok_def,EVERY_MEM]
       \\ res_tac \\ fs[] \\ rw[]
-      \\ fs[Abbr`a`,LEAST_NOTIN_FDOM] *)
+      \\ fs[Abbr`a`,LEAST_NOTIN_FDOM])
     \\ Cases_on`∃str. op = FromListByte` \\ fs[] >- cheat (*
       note_tac "Op: FromListByte" \\ fs[compile_op_def,bEvalOp_def]
       \\ `∃lv. REVERSE a = [lv]` by (every_case_tac \\ fs[]) \\ fs[]
@@ -3133,13 +3122,13 @@ full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ metis_tac[])
       >- (TOP_CASE_TAC \\ fs[FLOOKUP_DEF] \\ METIS_TAC[INJ_DEF])
       >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[] )
       \\ METIS_TAC[] )
-    \\ Cases_on`op = CopyByte T` \\ fs[] >- cheat (*
+    \\ Cases_on`op = CopyByte T` \\ fs[] >- (
         note_tac "Op: CopyByte T" \\
         CONV_TAC(RESORT_EXISTS_CONV List.rev)
         \\ qexists_tac`c`
         \\ fs[bEvalOp_def,case_eq_thms] \\ rw[]
         \\ fs[SWAP_REVERSE_SYM]
-        \\ imp_res_tac evaluate_IMP_LENGTH \\ fs[LENGTH_EQ_NUM_compute] \\ rw[]
+        \\ imp_res_tac evaluate_IMP_LENGTH \\ fs[] \\ rw[]
         \\ simp[compile_op_def]
         \\ fs[semanticPrimitivesTheory.copy_array_def,case_eq_thms]
         \\ qabbrev_tac`pp = LEAST ptr. ptr ∉ FDOM s5.refs`
@@ -3156,22 +3145,14 @@ full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ metis_tac[])
         \\ qhdtm_x_assum`bviSem$evaluate`mp_tac
         \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,adjust_bv_def,backend_commonTheory.small_enough_int_def]
         \\ fsrw_tac[intLib.INT_ARITH_ss][]
-        \\ reverse IF_CASES_TAC
-        >- (fs[] \\ first_x_assum(qspec_then`0w`mp_tac) \\ simp[])
         \\ simp[bEvalOp_def,FLOOKUP_UPDATE]
-        \\ rename1`qq = b2 src`
-        \\ IF_CASES_TAC
-        >- (
-          fs[state_rel_def]
-          \\ ntac 4 (first_x_assum(qspec_then`src`mp_tac))
-          \\ simp[]
-          \\ fs[FLOOKUP_DEF]
-          \\ METIS_TAC[LEAST_NOTIN_FDOM] )
-        \\ (`FLOOKUP t2.refs (b2 src) = FLOOKUP s5.refs src`
+        \\ (`FLOOKUP t2.refs (b2 src') = FLOOKUP s5.refs src'`
         by (
           fs[state_rel_def]
-          \\ ntac 4 (first_x_assum(qspec_then`src`mp_tac))
-          \\ simp[] \\ NO_TAC) )
+          \\ ntac 4 (first_x_assum(fn a => qspec_then`src`mp_tac a \\ qspec_then`src'`mp_tac a))
+          \\ rw[]
+          \\ fs[FLOOKUP_DEF]
+          )) \\ fs[]
         \\ simp[semanticPrimitivesTheory.copy_array_def]
         \\ asm_simp_tac(srw_ss()++intLib.INT_ARITH_ss)[integerTheory.INT_ABS]
         \\ simp[APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id]
@@ -3184,7 +3165,7 @@ full_simp_tac(srw_ss())[FLOOKUP_DEF] \\ metis_tac[])
           \\ simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] )
         \\ rw[]
         \\ imp_res_tac evaluate_refs_SUBSET
-        \\ METIS_TAC[SUBSET_DEF,LEAST_NOTIN_FDOM] *)
+        \\ METIS_TAC[SUBSET_DEF,LEAST_NOTIN_FDOM])
     \\ Cases_on`∃b. op = CopyByte b` \\ fs[] >- (Cases_on`b` \\ fs[])
     \\ `compile_op op c1 = Op op c1` by
       (Cases_on `op` \\ full_simp_tac(srw_ss())[compile_op_def] \\ NO_TAC)
