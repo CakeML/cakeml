@@ -873,8 +873,6 @@ structure reg_alloc = struct
                 of  (v12,v11) =>  (case  v11
                 of  (v10,v9) =>  (let val  v8 = coalesce_parent v10
                     val  v7 = coalesce_parent v9
-                    val _ = print ("coalescing: "^Int.toString v10^" "^Int.toString v9^" ")
-                    val _ = print ("mapped: "^Int.toString v8^" "^Int.toString v7^"\n")
                     val  v6 = v16 v8 v7
                  in
                   if  (v6 = (0 < 0))
@@ -883,8 +881,6 @@ structure reg_alloc = struct
                  in
                   case  v5
                 of  (v4,v3) =>  (let
-                 val _ = if is_fixed v4 then print"L fix " else print"L free "
-                 val _ = if is_fixed v3 then print"R fix " else print"R free "
                  val  v2 = v17 v4 v3
                  in
                   case  v2
