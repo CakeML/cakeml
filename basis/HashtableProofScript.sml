@@ -22,9 +22,11 @@ val hashtable_st = get_ml_prog_state();
 val buckets_to_fmap_def = Define `
   buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
 
+(*
 val buckets_to_fmap_def = Define `
   buckets_to_fmap [] = FEMPTY /\
   buckets_to_fmap (x::xs) = FUNION (mlmap$to_fmap x) (buckets_to_fmap xs)`;
+  *)
 
 
 val bucket_ok_def = Define `
@@ -39,7 +41,7 @@ val buckets_ok_def = Define `
 val hashtable_inv_def = Define `
   hashtable_inv a b hf cmp (h:'a|->'b) vlv =
     ?buckets.
-      h = to_fmap (list_union buckets) /\
+      h = buckets_to_fmap buckets /\
       buckets_ok buckets hf /\
       LIST_REL (MAP_TYPE a b) buckets vlv `;
 
@@ -51,17 +53,6 @@ Theorem buckets_ok_empty
 \\ rw[bucket_ok_def]
 \\ fs[mlmapTheory.lookup_def, mlmapTheory.empty_def,
       balanced_mapTheory.empty_def, balanced_mapTheory.lookup_def]);
-
-Theorem list_union_replicate
-
-  `buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`
-(
-  \\fs[buckets_to_fmap_def]
-  \\Induct_on `n`
-  \\fs[FUNION_DEF]
-  \\fs[Once to_fmap]
-  \\fs[swazi_def])
-
 
 val REF_NUM_def = Define `
   REF_NUM loc n =
@@ -121,17 +112,18 @@ Theorem hashtable_empty_spec
  THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
    >-(xapp
   \\ simp[])
-THEN1 (xlet `POSTv loc. SEP_EXISTS addr. &(addr = loc) * REF_ARRAY loc (REPLICATE 1 mpv)`
+THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE 1 mpv)`
      >-(xref
       \\ fs[REF_ARRAY_def,REF_NUM_def]
       \\ xsimpl)
-THEN1 (xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE 1 mpv)`
+THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE 1 mpv)`
      >-(xref
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
 \\ xcon
 \\ fs[HASHTABLE_def]
 \\ xsimpl
+\\ qexists_tac `arr`
 \\ qexists_tac `(REPLICATE 1 mpv)`
 \\ qexists_tac `0`
 \\ xsimpl
@@ -145,24 +137,25 @@ THEN1 (xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE 1 mpv)`
 THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
    >-(xapp
   \\ simp[])
-THEN1 (xlet `POSTv loc. SEP_EXISTS addr. &(addr = loc) * REF_ARRAY loc (REPLICATE size' mpv)`
+THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE size' mpv)`
      >-(xref
       \\fs[REF_ARRAY_def,REF_NUM_def]
       \\ xsimpl)
-THEN1 (xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE size' mpv)`
+THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE size' mpv)`
      >-(xref
     \\ fs[REF_ARRAY_def, REF_NUM_def]
     \\ xsimpl)
 \\ xcon
 \\ fs[HASHTABLE_def]
 \\ xsimpl
+\\ qexists_tac `arr`
 \\ qexists_tac `(REPLICATE size' mpv)`
 \\ qexists_tac `0`
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE size' (empty cmp))`
 \\ conj_tac
-\\ fs[buckets_to_fmap]
+\\ fs[buckets_to_fmap_def]
 \\ fs[map_replicate]
 >- (EVAL_TAC \\
   fs[FLAT_REPLICATE_NIL])
