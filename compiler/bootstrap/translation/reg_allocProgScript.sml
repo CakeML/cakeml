@@ -141,7 +141,9 @@ val rewrite_subs = Q.prove(`
   (st_ex_MAP (deg_or_inf kk) xs = st_ex_MAP (\x. deg_or_inf kk x) xs)`,
   metis_tac[ETA_AX]);
 
-val _ = m_translate (revive_moves_def |> REWRITE_RULE[MEMBER_INTRO,rewrite_subs]);
+val _ = translate sorted_mem_def;
+
+val _ = m_translate (revive_moves_def |> REWRITE_RULE[rewrite_subs]);
 
 val _ = m_translate (unspill_def |> REWRITE_RULE [rewrite_subs]);
 
@@ -149,7 +151,7 @@ val _ = m_translate do_simplify_def;
 val _ = m_translate inc_deg_def;
 
 val _ = translate sorted_insert_def;
-val _ = m_translate (insert_edge_def |> REWRITE_RULE [MEMBER_INTRO])
+val _ = m_translate (insert_edge_def)
 val _ = m_translate list_insert_edge_def
 
 val _ = m_translate is_Fixed_def;
@@ -171,6 +173,7 @@ val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
                            METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
 
 val _ = m_translate coalesce_parent_def;
+val _ = m_translate canonize_move_def;
 val _ = m_translate st_ex_FIRST_def;
 val _ = m_translate (respill_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate do_coalesce_def;
@@ -374,18 +377,34 @@ TODO: update the following code (comes from the non-monadic register allocator
 
 misc code to generate the unverified register allocator in SML
 
-open ml_progLib astPP
+(* Not sure where this gets overwritten *)
+val implode = String.implode;
+val explode = String.explode;
 
-val prog =
-  get_ml_prog_state ()
-  |> clean_state |> remove_snocs
-  |> ml_progLib.get_prog
+open ml_progLib cfLib basis
+open astPP
+
+val main = process_topdecs`
+  fun main u = ()`
+
+val res = append_prog main;
+
+val st =  get_ml_prog_state ();
+
+Theorem main_whole_prog_spec
+  `whole_prog_spec ^(fetch_v "main" st) cl fs NONE (\x. T)`
+  cheat
+
+val (_,prog_tm) = whole_prog_thm st "main" main_whole_prog_spec;
 
 val _ = enable_astPP()
+val _ = Globals.max_print_depth:= ~1
 val _ = trace("pp_avoids_symbol_merges",0)
 val t = TextIO.openOut("reg_alloc.sml")
-val _ = TextIO.output(t,term_to_string prog)
+val _ = TextIO.output(t,term_to_string prog_tm)
 val _ = TextIO.closeOut(t)
+val _ = Globals.max_print_depth:= 20
+val _ = disable_astPP()
 
 *)
 

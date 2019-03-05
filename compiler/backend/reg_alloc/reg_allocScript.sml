@@ -180,6 +180,13 @@ val sorted_insert_def = Define`
     else if x < y then REVERSE acc ++ x::y::ys
     else sorted_insert x (y::acc) ys)`
 
+val sorted_mem_def = Define`
+  (sorted_mem (x:num) [] = F) ∧
+  (sorted_mem x (y::ys) =
+    if x = y then T
+    else if x <= y then F
+    else sorted_mem x ys)`
+
 (* TODO quick sanity check: move to proof file when done *)
 val hide_def = Define`
   hide x = x`
@@ -219,6 +226,15 @@ val sorted_insert_correct = Q.prove(`
     first_x_assum match_mp_tac>>
     fs[less_sorted_eq,SORTED_APPEND_IFF]>>
     Cases_on`ls`>>fs[]);
+
+val sorted_mem_correct = Q.prove(`
+  ∀ls.
+  SORTED $< ls ⇒
+  (sorted_mem x ls ⇔ MEM x ls)`,
+  Induct>>rw[sorted_mem_def]>>
+  fs[less_sorted_eq]>>
+  rw[EQ_IMP_THM]>>
+  simp[NOT_LESS,LESS_EQ,NOT_LESS_EQUAL])
 
 val insert_edge_def = Define`
   insert_edge x y =
@@ -375,7 +391,7 @@ val revive_moves_def = Define`
     am <- get_avail_moves_wl;
     let fnbs = FLAT nbs in
     let (rev,unavail) = PARTITION
-      (λ(_,(x,y)). MEM x fnbs ∨ MEM y fnbs) uam in
+      (λ(_,(x,y)). sorted_mem x fnbs ∨ sorted_mem y fnbs) uam in
     let sorted = smerge (sort_moves rev) am in
     do
       set_avail_moves_wl sorted;
@@ -530,7 +546,7 @@ val bg_ok_def = Define`
     adjx <- adj_ls_sub x;
     adjy <- adj_ls_sub y;
     (* see do_coalesce_real for the cases *)
-    let (case1,case2) = PARTITION (λv. MEM v adjx) adjy in
+    let (case1,case2) = PARTITION (λv. sorted_mem v adjx) adjy in
     do
       (* the "true" case1 and 2s *)
       case1 <- st_ex_FILTER (considered_var k) case1 [];
@@ -540,7 +556,7 @@ val bg_ok_def = Define`
       let c2len = LENGTH (FILTER (λx. x >= k) case2degs) in
       if c2len = 0 then return (SOME (case1,case2)) (* george criterion*)
       else
-      let case3 = FILTER (λv. ¬MEM v adjy) adjx in
+      let case3 = FILTER (λv. ¬sorted_mem v adjy) adjx in
       do
         case3 <- st_ex_FILTER (considered_var k) case3 [];
         case1degs <- st_ex_MAP (deg_or_inf (k+1)) case1; (*k+1 is infinity here..*)
@@ -575,7 +591,7 @@ val consistency_ok_def = Define`
     else
     do
       adjy <- adj_ls_sub y; (* check 2 *)
-      if MEM x adjy then return F
+      if sorted_mem x adjy then return F
       else
       do
         bx <- is_Fixed x;
@@ -596,27 +612,32 @@ val coalesce_parent_def = Define`
   coalesce_parent x =
   do
     xt <- coalesced_sub x;
-    if x <= xt then
-      return x
+    bx <- is_Fixed xt;
+    (* Special case where x is coalesced to a fixed color already *)
+    if bx then
+      return xt
     else
-    do
-      anc <- coalesce_parent xt;
-      update_coalesced x anc;
-      return anc
-    od
+      if x <= xt then
+        return x
+      else
+      do
+        anc <- coalesce_parent xt;
+        update_coalesced x anc;
+        return anc
+      od
   od`
 
-(*
 val canonize_move_def = Define`
   canonize_move x y =
   do
+    bx <- is_Fixed x;
     by <- is_Fixed y;
-    if by then
-      return (y,x)
+    if by then return (y,x)
+    else if bx then return (x,y)
     else
-      return (x,y)
+      if x < y then return (x,y)
+      else return (y,x)
   od`
-*)
 
 (*
   Picks apart the available moves worklist
@@ -636,7 +657,7 @@ val st_ex_FIRST_def = Define`
         st_ex_FIRST P Q ms unavail
       else
       do
-        (x,y) <- return(if x < y then (x,y) else (y,x));
+        (x,y) <- canonize_move x y;
         optb2 <- Q x y;
         case optb2 of
           NONE => st_ex_FIRST P Q ms (m::unavail)
@@ -1318,7 +1339,7 @@ val full_consistency_ok_def = Define`
     else
     do
       adjy <- adj_ls_sub y; (* check 2 *)
-      if MEM x adjy then return F
+      if sorted_mem x adjy then return F
       else
       do
         bx <- is_Fixed_k k x;
