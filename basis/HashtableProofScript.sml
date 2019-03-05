@@ -19,8 +19,13 @@ val hashtable_st = get_ml_prog_state();
 (* the union of each bucket is the heap *)
 (* the vlv list contains the buckets *)
 (* each bucket only contains keys that hash there *)
-val buckets_to_fmap = Define `
+val buckets_to_fmap_def = Define `
   buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
+
+val buckets_to_fmap_def = Define `
+  buckets_to_fmap [] = FEMPTY /\
+  buckets_to_fmap (x::xs) = FUNION (mlmap$to_fmap x) (buckets_to_fmap xs)`;
+
 
 val bucket_ok_def = Define `
   bucket_ok b idx hf length = !k v.
@@ -34,9 +39,10 @@ val buckets_ok_def = Define `
 val hashtable_inv_def = Define `
   hashtable_inv a b hf cmp (h:'a|->'b) vlv =
     ?buckets.
-      h = buckets_to_fmap buckets /\
+      h = to_fmap (list_union buckets) /\
       buckets_ok buckets hf /\
       LIST_REL (MAP_TYPE a b) buckets vlv `;
+
 
 Theorem buckets_ok_empty
   `buckets_ok (REPLICATE n (mlmap$empty cmp)) hf`
@@ -46,25 +52,34 @@ Theorem buckets_ok_empty
 \\ fs[mlmapTheory.lookup_def, mlmapTheory.empty_def,
       balanced_mapTheory.empty_def, balanced_mapTheory.lookup_def]);
 
+Theorem list_union_replicate
+
+  `buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`
+(
+  \\fs[buckets_to_fmap_def]
+  \\Induct_on `n`
+  \\fs[FUNION_DEF]
+  \\fs[Once to_fmap]
+  \\fs[swazi_def])
+
 
 val REF_NUM_def = Define `
   REF_NUM loc n =
     SEP_EXISTS v. REF loc v * & (NUM n v)`;
 
 val REF_ARRAY_def = Define `
-  REF_ARRAY loc content =
-    SEP_EXISTS v. REF loc v * ARRAY v content`;
+  REF_ARRAY loc arr content = REF loc arr * ARRAY arr content`;
 
 
 val HASHTABLE_def = Define
  `HASHTABLE a b hf cmp (h:'a|->'b) v =
-    SEP_EXISTS ur ar hfv cmpv vlv heuristic_size.
+    SEP_EXISTS ur ar arr hfv cmpv vlv heuristic_size.
       &(v = (Conv (SOME (TypeStamp "Hashtable" 8)) [ur; ar; hfv; cmpv]) /\
         (a --> NUM) hf hfv /\
         (a --> a --> ORDERING_TYPE) cmp cmpv /\
         hashtable_inv a b hf cmp h vlv) *
       REF_NUM ur heuristic_size *
-      REF_ARRAY ar vlv`;
+      REF_ARRAY ar arr vlv`;
 
 
 Theorem hashtable_initBuckets_spec
@@ -154,6 +169,30 @@ THEN1 (xlet `POSTv loc. REF_NUM loc 0 * REF_ARRAY addr (REPLICATE size' mpv)`
 \\ conj_tac
 \\ fs[buckets_ok_empty]
 \\ simp[LIST_REL_REPLICATE_same]))));
+
+Theorem hashtable_staticInsert_spec
+  `!a b hf hfv cmp cmpv k kv v vv htv.
+      (a --> NUM) hf hfv /\
+      (a --> a --> ORDERING_TYPE) cmp cmpv /\
+      a k kv /\
+      b v vv ==>
+      app (p:'ffi ffi_proj) Hashtable_staticInsert_v [htv; kv; vv]
+        (HASHTABLE a b hf cmp h htv)
+        (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h|+(k,v)) htv)`
+(xcf_with_def "Hashtable.staticInsert" Hashtable_staticInsert_v_def
+\\ fs[HASHTABLE_def]
+\\ xpull
+\\ xmatch
+\\ xlet `POSTv v. HASHTABLE a b hf cmp h htv`
+  >-(xapp
+    \\ fs[HASHTABLE_def]
+    \\qexists_tac `ARRAY arr vlv * REF_NUM ur heuristic_size`
+    \\qexists_tac `arr`
+    \\fs[REF_ARRAY_def]
+    \\xsimpl
+    \\qexists_tac `heuristic_size`
+    \\xsimpl)
+
 
 
 val _ = export_theory();
