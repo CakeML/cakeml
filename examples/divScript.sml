@@ -821,32 +821,6 @@ Proof
   simp[]
 QED
 
-Theorem LIST_ROTATE_SNOC_IS_PIVOT:
-  !n l. n < LENGTH l ==> ?l'.
-   DROP n l ++ TAKE n l = SNOC (EL n (LAST l :: BUTLAST l)) l'
-Proof
-  Induct_on `n` >> Cases >> fs[] >> rw[]
-  >- (Q.ISPEC_THEN `t` assume_tac SNOC_CASES >> fs[])
-  >> fs[RIGHT_EXISTS_IMP_THM] >> rw []
-  >> first_x_assum(drule_then strip_assume_tac)
-  >> fs[]
-  >> fs[APPEND_EQ_APPEND_MID,APPEND_EQ_APPEND]
-  >> fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
-  >> rveq >> fs[]
-  >> TRY(
-       `n <= LENGTH t` by simp[]
-       >> imp_res_tac LENGTH_TAKE
-       >> pop_assum mp_tac
-       >> qpat_assum `TAKE _ _ = _` (fn thm => PURE_ONCE_REWRITE_TAC [thm])
-       >> simp[] >> strip_tac >> rveq
-       >> Cases_on `t` >> fs[])
-  >> TRY(Cases_on `t` >> fs[] >> NO_TAC)
-  >> fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
-  >> rveq >> fs[]
-  >> TRY(qexists_tac `[]` >> simp[] >> NO_TAC)
-  >> fs[GSYM ADD1] >> metis_tac[]
-QED
-
 val highly_specific_MOD_lemma = Q.prove(
   `!n a. n < a
    ==> (n + 2) MOD (a + 1)
@@ -957,12 +931,10 @@ val LNTH_LREPEAT_ub = Q.prove(
        >> drule_then(qspec_then `SUC ul` strip_assume_tac) LTAKE_LPREFIX
        >> imp_res_tac LTAKE_LENGTH
        >> fs[]) >>
-  `less_opt x (LLENGTH ub)`
-    by(fs[LFINITE_LLENGTH] >> metis_tac[option_CASES,less_opt_def]) >>
   simp[LNTH_LAPPEND,LLENGTH_MAP,LNTH_fromList] >>
   simp[EL_MAP] >>
   IF_CASES_TAC >- simp[] >>
-  `0 < LENGTH l` by(Cases_on `l` >> fs[]) >>  
+  `0 < LENGTH l` by(Cases_on `l` >> fs[]) >>
   simp[SUB_MOD]);
 
 val LPREFIX_ub_LAPPEND = Q.prove(
@@ -1111,7 +1083,5 @@ Proof
   \\ match_mp_tac llist_upto_rel
   \\ simp[]
 QED
-
-
 
 val _ = export_theory();
