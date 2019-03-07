@@ -973,7 +973,8 @@ Theorem pointerLoop_spec:
   !c cv rv.
     limited_parts names p ==>
     app (p:'ffi ffi_proj) ^(fetch_v "pointerLoop" st) [rv]
-      (SIO "" [] * REF_LIST rv (SNOC rv rvs) CHAR l) (POSTd io. io = LMAP put_char_event (LREPEAT l))
+      (SIO [||] "" [] * REF_LIST rv (SNOC rv rvs) CHAR l)
+      (POSTd io. io = LMAP put_char_event (LREPEAT l))
 Proof
   reverse(Cases_on `LENGTH l = SUC(LENGTH rvs)`)
   THEN1 (
@@ -983,7 +984,7 @@ Proof
   \\ MAP_EVERY qexists_tac
     [`K(REF_LIST rv (SNOC rv rvs) CHAR l)`, `\i. THE(LTAKE i (LMAP put_char_event (LREPEAT l)))`,
      `\i. $= (EL (i MOD (LENGTH rvs + 1)) (rv::rvs))`,
-     `\i. Str (THE(LTAKE i (LREPEAT l)))`,`update`]
+     `\i. State [||] (THE(LTAKE i (LREPEAT l)))`,`update`]
   \\ fs [GSYM SIO_def, REPLICATE_def]
   \\ xsimpl \\ rw [lprefix_lub_def]
   THEN1 (
@@ -992,7 +993,7 @@ Proof
           &(CHAR (EL (i MOD (LENGTH rvs + 1)) l) cv) *
           &(lv = EL ((i+1) MOD (LENGTH rvs + 1)) (rv::rvs)) *
           REF_LIST rv (SNOC rv rvs) CHAR l *
-          SIO (THE (LTAKE i (LREPEAT l)))
+          SIO [||] (THE (LTAKE i (LREPEAT l)))
            (THE (LTAKE i (LMAP put_char_event (LREPEAT l))))`
     THEN1 (
       `i MOD (LENGTH rvs + 1) < LENGTH rvs + 1`
@@ -1026,7 +1027,7 @@ Proof
     \\ xmatch
     \\ xlet `POSTv v. &UNIT_TYPE () v * SEP_EXISTS cv lv.
              REF_LIST rv (SNOC rv rvs) CHAR l *
-             SIO (THE (LTAKE (SUC i) (LREPEAT l)))
+             SIO [||] (THE (LTAKE (SUC i) (LREPEAT l)))
                (THE (LTAKE (SUC i) (LMAP put_char_event (LREPEAT l))))`
     THEN1 (
       xapp
@@ -1035,8 +1036,8 @@ Proof
       \\ simp[]
       \\ qexists_tac `REF_LIST rv (SNOC rv rvs) CHAR l * GC`
       \\ xsimpl
-      \\ qmatch_goalsub_abbrev_tac `SIO a1 a2`
-      \\ MAP_EVERY qexists_tac [`a1`,`a2`]
+      \\ qmatch_goalsub_abbrev_tac `SIO [||] a1 a2`
+      \\ MAP_EVERY qexists_tac [`a1`,`[||]`,`a2`]
       \\ MAP_EVERY qunabbrev_tac [`a1`,`a2`]
       \\ xsimpl
       \\ fs[LTAKE_LMAP]
@@ -1100,7 +1101,6 @@ Proof
   \\ rw[LTL_LDROP_1]
   \\ match_mp_tac LPREFIX_ub_LTAKE
   \\ simp[] \\ Cases_on `l` \\ fs[]
->>>>>>> New cf-div example: traverse a cyclic pointer structure on the heap
 QED
 
 val _ = export_theory();
