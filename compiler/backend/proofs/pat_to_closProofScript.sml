@@ -409,7 +409,7 @@ val l2n_GENLIST_0 = prove(``!n. l2n 2 (GENLIST (\v. 0) n) = 0``,
 )
 
 (* get an alternative version of zero extend with strict inquality the other way *)
-val v2n_fixwidth_n2v_ORD = Q.prove(`!c. v2n (fixwidth 8 (n2v (ORD c))) = ORD c`, 
+val v2n_fixwidth_n2v_ORD = Q.prove(`!c. v2n (fixwidth 8 (n2v (ORD c))) = ORD c`,
    lrw [n2v_def, v2n_def, bitify_def, num_from_bin_list_def, l2n_def,
        num_to_bin_list_def, bitify_reverse_map, boolify_reverse_map,
        rich_listTheory.MAP_REVERSE, listTheory.MAP_MAP_o,
