@@ -497,4 +497,610 @@ Proof
   \\ cheat
 QED
 
+(* Infinite lists encoded as cyclic pointer structures in the heap *)
+
+val REF_LIST_def = Define `
+ (REF_LIST rv [] A [] = SEP_EXISTS loc. cond(rv=Loc loc))
+ /\
+ (REF_LIST rv (rv2::rvs) A (x::l) =
+  (SEP_EXISTS loc v1.
+    cond(rv = Loc loc)
+    * cell loc (Refv(Conv NONE [v1;rv2]))
+    * cond(A x v1)
+    * REF_LIST rv2 rvs A l
+  ) /\
+  (REF_LIST _ _ _ _ = &F)
+ )
+`
+
+Theorem REF_LIST_extend:
+  !rv rvs A l x v1.
+   (REF_LIST rv rvs A l *
+    SEP_EXISTS v1 loc loc'.
+     cond(LAST(rv::rvs) = Loc loc)
+     * cell loc (Refv(Conv NONE [v1;rv2]))
+     * cond(rv2 = Loc loc')
+     * cond(A x v1))
+   = (REF_LIST rv (SNOC rv2 rvs) A (SNOC x l))
+Proof
+  PURE_ONCE_REWRITE_TAC[FUN_EQ_THM] >>
+  ho_match_mp_tac (fetch "-" "REF_LIST_ind") >>
+  rpt strip_tac >-
+    (simp[REF_LIST_def] >>
+     simp[SEP_CLAUSES] >>
+     simp[AC STAR_COMM STAR_ASSOC] >>
+     simp[SEP_EXISTS,cond_STAR] >>
+     metis_tac[]) >-
+    (pop_assum(assume_tac o REWRITE_RULE[GSYM FUN_EQ_THM] o GSYM) >>
+     simp[REF_LIST_def] >>
+     simp[SEP_CLAUSES] >>
+     simp[AC STAR_COMM STAR_ASSOC] >>
+     simp[SEP_EXISTS,cond_STAR]) >-
+    (simp[REF_LIST_def,SNOC_APPEND] >>
+     rename1 `REF_LIST _ (a1 ++ _)` >>
+     Cases_on `a1` >> simp[REF_LIST_def,SEP_CLAUSES]) >-
+    (simp[REF_LIST_def,SNOC_APPEND] >>
+     rename1 `REF_LIST _ _ _ (a1 ++ _)` >>
+     Cases_on `a1` >> simp[REF_LIST_def,SEP_CLAUSES])
+QED
+
+(* TODO: lots of these lemmas should probably live in characteristic/ or llistTheory *)
+
+Theorem REF_cell_eq:
+  loc ~~>> Refv v = Loc loc ~~> v
+Proof
+  rw[FUN_EQ_THM,cell_def,REF_def,SEP_EXISTS,cond_STAR]
+QED
+
+val LTAKE_LNTH_EQ = Q.prove(
+  `!x ll y. LTAKE (LENGTH x) ll = SOME x
+   /\ y < LENGTH x
+   ==> LNTH y ll = SOME(EL y x)`,
+  Induct_on `x` >> rw[LTAKE] >>
+  Cases_on `ll` >> fs[] >>
+  PURE_FULL_CASE_TAC >> fs[] >> rveq >>
+  Cases_on `y` >> fs[]);
+
+val LNTH_DROP_lemma = Q.prove(
+ `!n m ll.
+  less_opt m (LLENGTH ll)
+  ==>
+  LNTH n (THE(LDROP m ll)) = LNTH(n + m) ll`,
+  Induct_on `m`
+  >> rw[]
+  >> Cases_on `ll`
+  >- fs[less_opt_def]
+  >> simp[LDROP,GSYM ADD_SUC]
+  >> first_x_assum(match_mp_tac o CONV_RULE(PURE_ONCE_REWRITE_CONV [ADD_SYM]))
+  >> Cases_on `LLENGTH t` >> fs[less_opt_def]
+  >> simp[GSYM ADD_SUC]
+  >> drule_then assume_tac less_opt_SUC_elim
+  >> disch_then drule)
+
+Theorem LTAKE_LPREFIX:
+  !x ll.
+   ~LFINITE ll ==> ?l. LTAKE x ll = SOME l /\
+   LPREFIX (fromList l) ll
+Proof
+  Induct >> rw[] >>
+  Cases_on `ll` >> fs[] >>
+  first_x_assum(drule_then strip_assume_tac) >>
+  fs[LPREFIX_LCONS]
+QED
+
+Theorem LMAP_fromList:
+  LMAP f (fromList l) = fromList(MAP f l)
+Proof
+  Induct_on `l` >> fs[]
+QED
+
+Theorem LTAKE_LMAP:
+  !n f ll. LTAKE n (LMAP f ll) =
+   OPTION_MAP (MAP f) (LTAKE n ll)
+Proof
+  Induct_on `n` >> rw[] >>
+  Cases_on `ll` >> fs[OPTION_MAP_COMPOSE,o_DEF]
+QED
+
+Theorem LNTH_LREPEAT:
+  !i x l.
+  LNTH i (LREPEAT l) = SOME x
+  ==> x = EL (i MOD LENGTH l) l
+Proof
+  Induct_on `i DIV LENGTH l` >> rw[]
+  >- (Cases_on `l = []`
+      >> fs[Once LREPEAT_thm]
+      >> fs[LNTH_LAPPEND]
+      >> `0 < LENGTH l` by(Cases_on `l` >> fs[])
+      >> qpat_x_assum `0 = _` (assume_tac o GSYM)
+      >> rfs[RatProgTheory.DIV_EQ_0]
+      >> fs[LNTH_fromList])
+  >> fs[ADD1]
+  >> `LENGTH l <= i`
+       by(CCONTR_TAC >> fs[LESS_DIV_EQ_ZERO])
+  >> `0 < LENGTH l` by(Cases_on `l` >> fs[])
+  >> `v = (i - LENGTH l) DIV LENGTH l`
+       by(fs[Q.INST[`q`|->`1`] DIV_SUB |> REWRITE_RULE [MULT_CLAUSES]])
+  >> first_x_assum drule
+  >> drule lnth_some_down_closed
+  >> disch_then(qspec_then `i - LENGTH l` mp_tac)
+  >> impl_tac >- simp[]
+  >> strip_tac
+  >> disch_then drule
+  >> strip_tac
+  >> rveq
+  >> qpat_x_assum `LNTH (_ - _) _ = _`
+       (fn thm => qpat_x_assum `LNTH _ _ = _` mp_tac >> assume_tac thm)
+  >> simp[Once LREPEAT_thm]
+  >> fs[LNTH_LAPPEND]
+  >> fs[SUB_MOD]
+QED
+
+
+Theorem REF_LIST_is_loc:
+  !rv rvs A l h. REF_LIST rv rvs A l h ==> ?loc. rv = Loc loc
+Proof
+  ho_match_mp_tac (fetch "-" "REF_LIST_ind") >>
+  rw[REF_LIST_def,SEP_CLAUSES,SEP_F_def,STAR_def,SEP_EXISTS,cond_def]
+QED
+
+Theorem REF_LIST_LENGTH:
+  !rv rvs A l h. REF_LIST rv rvs A l h ==> LENGTH rvs = LENGTH l
+Proof
+  ho_match_mp_tac (fetch "-" "REF_LIST_ind") >>
+  rw[REF_LIST_def,SEP_CLAUSES,SEP_F_def,STAR_def,SEP_EXISTS,cond_def] >>
+  metis_tac[]
+QED
+
+Theorem REF_LIST_rotate_1:
+  REF_LIST rv (SNOC rv (rv2::rvs)) A (x::l) =
+  REF_LIST rv2 (SNOC rv2 (SNOC rv rvs)) A (SNOC x l)
+Proof
+  rw[FUN_EQ_THM] >>
+  simp[REF_LIST_def,GSYM REF_LIST_extend,Once LAST_DEF] >>
+  simp[SEP_CLAUSES,AC STAR_COMM STAR_ASSOC] >>
+  simp[SEP_EXISTS,cond_STAR] >>
+  rw[EQ_IMP_THM] >-
+    (asm_exists_tac >> simp[] >>
+     fs[STAR_def] >> Cases_on `l` >>
+     fs[REF_LIST_def] >> metis_tac[REF_LIST_is_loc]) >>
+  metis_tac[]
+QED
+
+val push_cond = Q.prove(`
+   m ~~>> v * (&C * B) = cond C * (m ~~>> v * B)
+/\ m ~~>> v * &C = &C * m ~~>> v
+/\ REF_LIST rv rvs A l * (&C * B) = cond C * (REF_LIST rv rvs A l * B)
+/\ REF_LIST rv rvs A l * &C = &C * REF_LIST rv rvs A l
+`,
+  simp[AC STAR_COMM STAR_ASSOC]);
+
+val EL_LENGTH_TAKE = Q.prove(
+  `!h e. EL (LENGTH l) (h::TAKE (LENGTH l) (e::l))
+   = EL(LENGTH l) (h::e::l)`,
+ Induct_on `l` >> fs[]);
+
+val EL_LENGTH_TAKE2 = Q.prove(
+  `!h e l. n < LENGTH l ==>
+   EL n (h::TAKE n (e::l))
+   = EL n (h::e::l)`,
+ Induct_on `n` >> rw[] >>
+ Cases_on `l` >> fs[]);
+
+val PRE_SUB = Q.prove(
+  `!n. n <> 0 ==> PRE n = n - 1`,
+  Cases >> simp[]);
+
+Theorem REF_LIST_rv_loc:
+  REF_LIST rv rvs n l h ==> ?loc. rv = Loc loc
+Proof
+  rpt strip_tac >>
+  imp_res_tac REF_LIST_LENGTH >>
+  Cases_on `l` >>
+  Cases_on `rvs` >>
+  fs[REF_LIST_def,SEP_EXISTS,cond_STAR,cond_def,STAR_def]
+QED
+
+Theorem REF_LIST_rotate_n:
+  !n rv rvs A l.
+  n < LENGTH l ==>
+  REF_LIST rv (SNOC rv rvs) A l =
+    REF_LIST (EL n (rv::rvs))
+             (DROP n (SNOC rv rvs)
+               ++
+              TAKE n (SNOC rv rvs)
+             )
+           A (DROP n l ++ TAKE n l)
+Proof
+  rpt gen_tac >>
+  reverse(Cases_on `LENGTH l = LENGTH rvs + 1`) >-
+    (rw[FUN_EQ_THM,EQ_IMP_THM] >>
+     imp_res_tac REF_LIST_LENGTH >>
+     fs[LENGTH_TAKE_EQ]) >>
+  simp[FUN_EQ_THM] >>
+  rpt(pop_assum mp_tac) >>
+  Induct_on `n` >- rw[REF_LIST_def] >>
+  rpt strip_tac >>
+  first_x_assum(drule) >>
+  disch_then(qspec_then `x` mp_tac) >>
+  impl_tac >- fs[] >>
+  strip_tac >> fs[ADD1] >>
+  Cases_on `l` >> fs[ADD1] >>
+  Cases_on `n` >-
+    (Cases_on `rvs` >> fs[REF_LIST_def,GSYM SNOC_APPEND] >>
+     fs[GSYM REF_LIST_rotate_1] >> fs[REF_LIST_def]) >>
+  Cases_on `rvs` >>
+  fs[DROP_SNOC,TAKE_SNOC] >>
+  fs[DROP_CONS_EL] >>
+  fs[ADD1,REF_LIST_def] >>
+  fs[TAKE_EL_SNOC] >>
+  Cases_on `n' + 1 = LENGTH t'` >-
+    (fs[DROP_LENGTH_NIL] >>
+     PURE_REWRITE_TAC[GSYM SNOC] >>
+     PURE_REWRITE_TAC[REF_LIST_rotate_1] >>
+     fs[DROP_LENGTH_TOO_LONG,REF_LIST_def,GSYM REF_LIST_extend] >>
+     fs[SEP_CLAUSES,AC STAR_COMM STAR_ASSOC] >>
+     fs[LAST_EL] >> fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+     rveq >> fs[] >> rveq >> fs[cond_CONJ] >>
+     rw[SEP_EXISTS] >>
+     simp[push_cond] >>
+     simp[STAR_ASSOC,GSYM cond_CONJ] >>
+     simp[GSYM STAR_ASSOC,cond_STAR] >>
+     fs[AC CONJ_ASSOC CONJ_SYM] >>
+     rw[EL_LENGTH_TAKE,SNOC_APPEND,EL_APPEND_EQN,EL_LENGTH_TAKE] >>
+     fs[AC CONJ_ASSOC CONJ_SYM] >>
+     rw[EQ_IMP_THM] >>
+     rpt(asm_exists_tac >> simp[]) >>
+     metis_tac[STAR_ASSOC, STAR_COMM]) >>
+  `SUC n' < LENGTH t'` by simp[] >>
+  fs[ADD1,DROP_CONS_EL] >>
+  PURE_REWRITE_TAC[GSYM SNOC,Once APPEND_SNOC] >>
+  PURE_REWRITE_TAC[REF_LIST_rotate_1] >>
+  fs[REF_LIST_def,GSYM REF_LIST_extend] >>
+  PURE_REWRITE_TAC[GSYM SNOC,APPEND_SNOC,GSYM REF_LIST_extend] >>
+  fs[SEP_CLAUSES,AC STAR_COMM STAR_ASSOC] >>
+  fs[LAST_EL] >> fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+  rveq >> fs[] >> rveq >> fs[cond_CONJ] >>
+  rw[SEP_EXISTS] >>
+  simp[push_cond] >>
+  simp[STAR_ASSOC,GSYM cond_CONJ] >>
+  simp[GSYM STAR_ASSOC,cond_STAR] >>
+  fs[AC CONJ_ASSOC CONJ_SYM,ADD1] >>
+  rw[EL_LENGTH_TAKE,SNOC_APPEND,EL_APPEND_EQN,EL_LENGTH_TAKE] >>
+  fs[AC CONJ_ASSOC CONJ_SYM] >>
+  rw[EQ_IMP_THM] >>
+  rpt(asm_exists_tac >> simp[]) >>
+  rename1 `y1 ~~>> _ * (_ ~~>> Refv (Conv NONE [y2; _]) * _)` >>
+  MAP_EVERY qexists_tac [`y1`,`y2`] >>
+  rfs[] >>
+  rw[EL_CONS_IF] >> fs[] >>
+  Cases_on `t'` >> fs[] >>
+  rw[EL_APPEND_EQN] >> fs[] >>
+  fs[ADD1,EL_LENGTH_TAKE2,REWRITE_RULE [ADD1] EL] >>
+  fs[STAR_def] >>
+  fs[EL_APPEND_EQN] >> rfs[] >>
+  fs[EL_CONS_IF,EL_APPEND_EQN,EL_LENGTH_TAKE2] >> rw[] >> fs[] >> rfs[] >>
+  fs[PRE_SUB] >> rfs[PRE_SUB] >>
+  fs[EL_TAKE] >> imp_res_tac REF_LIST_rv_loc >>
+  simp[]
+QED
+
+Theorem LIST_ROTATE_SNOC_IS_PIVOT:
+  !n l. n < LENGTH l ==> ?l'.
+   DROP n l ++ TAKE n l = SNOC (EL n (LAST l :: BUTLAST l)) l'
+Proof
+  Induct_on `n` >> Cases >> fs[] >> rw[]
+  >- (Q.ISPEC_THEN `t` assume_tac SNOC_CASES >> fs[])
+  >> fs[RIGHT_EXISTS_IMP_THM] >> rw []
+  >> first_x_assum(drule_then strip_assume_tac)
+  >> fs[]
+  >> fs[APPEND_EQ_APPEND_MID,APPEND_EQ_APPEND]
+  >> fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
+  >> rveq >> fs[]
+  >> TRY(
+       `n <= LENGTH t` by simp[]
+       >> imp_res_tac LENGTH_TAKE
+       >> pop_assum mp_tac
+       >> qpat_assum `TAKE _ _ = _` (fn thm => PURE_ONCE_REWRITE_TAC [thm])
+       >> simp[] >> strip_tac >> rveq
+       >> Cases_on `t` >> fs[])
+  >> TRY(Cases_on `t` >> fs[] >> NO_TAC)
+  >> fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
+  >> rveq >> fs[]
+  >> TRY(qexists_tac `[]` >> simp[] >> NO_TAC)
+  >> fs[GSYM ADD1] >> metis_tac[]
+QED
+
+val highly_specific_MOD_lemma = Q.prove(
+  `!n a. n < a
+   ==> (n + 2) MOD (a + 1)
+    = if n + 1 = a then 0 else (n + 1) MOD a + 1`,
+  rw[] >> rw[]);
+
+val highly_specific_MOD_lemma2 = Q.prove(
+ `0 < LENGTH l
+  ==>
+  EL ((i+1) MOD LENGTH l) (CONS (LAST l) (FRONT l))
+  = EL (i MOD LENGTH l) l`,
+strip_tac >>
+Cases_on `1 < LENGTH l` >-
+  (Cases_on `i MOD LENGTH l = LENGTH l - 1` >-
+     (drule(GSYM MOD_PLUS) >>
+      disch_then(qspecl_then[`i`,`1`] mp_tac) >>
+      disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+      pop_assum(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+      simp[ONE_MOD] >>
+      Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
+      fs[] >> rveq >> fs[EL_APPEND2]) >>
+   drule(GSYM MOD_PLUS) >>
+   disch_then(qspecl_then[`i`,`1`] mp_tac) >>
+   disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+   drule ONE_MOD >>
+   disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
+   `i MOD LENGTH l < LENGTH l - 1`
+     by(drule_then(qspec_then `i` mp_tac) MOD_LESS >>
+        intLib.COOPER_TAC) >>
+   `i MOD LENGTH l + 1 < LENGTH l` by simp[] >>
+   simp[LESS_MOD] >>
+   simp[REWRITE_RULE [ADD1] EL_CONS] >>
+   simp[DECIDE ``!n. PRE(n+1) = n``] >>
+   match_mp_tac EL_FRONT >>
+   Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
+   fs[] >> rveq >> fs[FRONT_APPEND]) >>
+  Cases_on `l` >> fs[] >> Cases_on `t` >> fs[]);
+
+Theorem LIST_ROTATE_CONS_NEXT:
+  !n l. n < LENGTH l ==> ?l'.
+   DROP n l ++ TAKE n l = (EL ((n + 1) MOD LENGTH l) (LAST l :: BUTLAST l))::l'
+Proof
+  Induct_on `n` >> Cases >> fs[] >> rw[]
+  >- (Cases_on `t` >> fs[])
+  >> fs[RIGHT_EXISTS_IMP_THM] >> rw []
+  >> first_x_assum(drule_then strip_assume_tac)
+  >> fs[]
+  >> fs[APPEND_EQ_APPEND_MID,APPEND_EQ_APPEND]
+  >> fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
+  >> rveq >> fs[]
+  >> fs[APPEND_EQ_CONS |> CONV_RULE(LHS_CONV SYM_CONV)]
+  >> fs[DROP_NIL]
+  >> fs[ADD1,highly_specific_MOD_lemma]
+  >> rw[]
+  >- (Cases_on `t` >> fs[])
+  >> PURE_REWRITE_TAC[EL,GSYM ADD1,TL]
+  >> rw[Once EL_CONS_IF]
+  >> simp[DECIDE ``PRE(n+2) = SUC n``]
+  >> Cases_on `t` >> fs[]
+QED
+
+val LNTH_LREPEAT_ub = Q.prove(
+  `!n x l.
+    (l <> [] /\ x <= LENGTH l
+    /\
+    ∀x.
+    LPREFIX
+    (fromList (THE (LTAKE x (LMAP put_char_event (LREPEAT l)))))
+    ub)
+    ==>
+    LNTH n (THE(LDROP x ub))
+    =
+    LNTH n (LAPPEND (LMAP put_char_event (fromList (DROP x l))) ub)
+  `,
+  rpt strip_tac >>
+  `~LFINITE(LREPEAT l)`
+    by(rw[LFINITE_LLENGTH,LLENGTH_MAP,LLENGTH_LREPEAT,NULL_EQ] >>
+       CCONTR_TAC >> fs[]) >>
+  `!y. LNTH y ub = SOME(put_char_event(EL (y MOD LENGTH l) l))`
+    by(strip_tac >>
+       first_x_assum(qspec_then `SUC y` mp_tac) >>
+       strip_tac >>
+       fs[LPREFIX_APPEND,LTAKE_LMAP] >>
+       drule NOT_LFINITE_TAKE >>
+       disch_then(qspec_then `SUC y` strip_assume_tac) >>
+       fs[] >>
+       imp_res_tac LTAKE_LENGTH >>
+       fs[LNTH_LAPPEND] >>
+       rename1 `SUC y = STRLEN z` >>
+       `y < LENGTH(MAP put_char_event z)` by simp[] >>
+       imp_res_tac lnth_fromList_some >>
+       simp[] >>
+       drule LTAKE_LNTH_EQ >>
+       disch_then(qspec_then `y` mp_tac) >>
+       impl_tac >- simp[] >>
+       strip_tac >>
+       drule_then(assume_tac o GSYM) LNTH_LREPEAT >>
+       fs[EL_MAP]) >>
+  `~LFINITE ub`
+    by(simp[LFINITE_LLENGTH]
+       >> CCONTR_TAC >> fs[]
+       >> rename1 `LLENGTH ub = SOME ul`
+       >> qpat_x_assum `!x. LPREFIX _ _` (qspec_then `SUC ul` assume_tac)
+       >> fs[LPREFIX_APPEND]
+       >> rveq
+       >> fs[LLENGTH_APPEND]
+       >> `~LFINITE(LMAP put_char_event (LREPEAT l))` by simp[LFINITE_MAP]
+       >> drule_then(qspec_then `SUC ul` strip_assume_tac) LTAKE_LPREFIX
+       >> imp_res_tac LTAKE_LENGTH
+       >> fs[]) >>
+  `less_opt x (LLENGTH ub)`
+    by(fs[LFINITE_LLENGTH] >> metis_tac[option_CASES,less_opt_def]) >>
+  simp[LNTH_DROP_lemma] >>
+  simp[LNTH_LAPPEND,LLENGTH_MAP,LNTH_fromList] >>
+  IF_CASES_TAC >-
+     (`n + x < STRLEN l` by(intLib.COOPER_TAC) >>
+      simp[EL_DROP]) >>
+  `0 < LENGTH l` by(Cases_on `l` >> fs[]) >>
+  simp[SUB_MOD]);
+
+Theorem LTL_LDROP_1:
+  LTL = LDROP 1
+Proof
+  simp[FUN_EQ_THM] >> Cases >> rw[] >>
+  PURE_REWRITE_TAC[ONE,LDROP_THM] >> simp[]
+QED
+
+val LPREFIX_ub_LTAKE = Q.prove(
+  `
+  !n x l.
+    (l <> [] /\ x <= LENGTH l
+    /\
+    ∀x.
+    LPREFIX
+    (fromList (THE (LTAKE x (LMAP put_char_event (LREPEAT l)))))
+    ub)
+    ==>
+    LTAKE n (THE(LDROP x ub))
+    =
+    LTAKE n (LAPPEND (LMAP put_char_event (fromList (DROP x l))) ub)
+  `,
+  Induct
+  >> rw[]
+  >> first_x_assum(drule_then(drule_then(drule_then(assume_tac o GSYM))))
+  >> fs[LTAKE_SNOC_LNTH]
+  >> `LNTH n (LAPPEND (LMAP put_char_event (fromList (DROP x l))) ub)
+      = LNTH n (THE (LDROP x ub))`
+       suffices_by simp[]
+  >> metis_tac[LNTH_LREPEAT_ub])
+
+val _ = process_topdecs `
+  fun pointerLoop c = (
+    case !c of
+     (a,b) => (put_char a; pointerLoop b));
+  ` |> append_prog;
+
+val st = ml_translatorLib.get_ml_prog_state();
+
+Theorem pointerLoop_spec:
+  !c cv rv.
+    limited_parts names p ==>
+    app (p:'ffi ffi_proj) ^(fetch_v "pointerLoop" st) [rv]
+      (SIO "" [] * REF_LIST rv (SNOC rv rvs) CHAR l) (POSTd io. io = LMAP put_char_event (LREPEAT l))
+Proof
+  reverse(Cases_on `LENGTH l = SUC(LENGTH rvs)`)
+  THEN1 (
+    rw[app_def,app_basic_def,STAR_def] >>
+    imp_res_tac REF_LIST_LENGTH >> fs[])
+  \\ xcf_div "pointerLoop" st
+  \\ MAP_EVERY qexists_tac
+    [`K(REF_LIST rv (SNOC rv rvs) CHAR l)`, `\i. THE(LTAKE i (LMAP put_char_event (LREPEAT l)))`,
+     `\i. $= (EL (i MOD (LENGTH rvs + 1)) (rv::rvs))`,
+     `\i. Str (THE(LTAKE i (LREPEAT l)))`,`update`]
+  \\ fs [GSYM SIO_def, REPLICATE_def]
+  \\ xsimpl \\ rw [lprefix_lub_def]
+  THEN1 (
+    xlet `POSTv v. SEP_EXISTS cv lv.
+          &(v = Conv NONE[cv;lv]) *
+          &(CHAR (EL (i MOD (LENGTH rvs + 1)) l) cv) *
+          &(lv = EL ((i+1) MOD (LENGTH rvs + 1)) (rv::rvs)) *
+          REF_LIST rv (SNOC rv rvs) CHAR l *
+          SIO (THE (LTAKE i (LREPEAT l)))
+           (THE (LTAKE i (LMAP put_char_event (LREPEAT l))))`
+    THEN1 (
+      `i MOD (LENGTH rvs + 1) < LENGTH rvs + 1`
+        by(match_mp_tac MOD_LESS \\ simp[])
+      \\ `i MOD (LENGTH rvs + 1) < LENGTH l`
+        by simp[]
+      \\ drule_then(qspecl_then[`rv`,`rvs`,`CHAR`] assume_tac) REF_LIST_rotate_n
+      \\ drule LIST_ROTATE_CONS_NEXT \\ strip_tac
+      \\ FULL_SIMP_TAC std_ss []
+      \\ `i MOD (LENGTH rvs + 1) < LENGTH(SNOC rv rvs)` by simp[]
+      \\ drule LIST_ROTATE_CONS_NEXT \\ strip_tac
+      \\ FULL_SIMP_TAC std_ss [LAST_SNOC,FRONT_SNOC]
+      \\ simp[REF_LIST_def]
+      \\ xpull
+      \\ xapp
+      \\ xsimpl
+      \\ CONV_TAC SWAP_EXISTS_CONV
+      \\ qmatch_goalsub_abbrev_tac `Refv a1` \\ qexists_tac `a1` \\ qunabbrev_tac `a1`
+      \\ simp[REF_cell_eq]
+      \\ simp[GSYM STAR_ASSOC]
+      \\ qmatch_goalsub_abbrev_tac `_ ~~> _ * a1` \\ qexists_tac `a1` \\ qunabbrev_tac `a1`
+      \\ simp[SEP_IMP_REFL]
+      \\ rename1 `CHAR _ v1`
+      \\ qexists_tac `v1`
+      \\ xsimpl
+      \\ simp[ADD1]
+      \\ qpat_x_assum `CHAR _ _` mp_tac
+      \\ simp[ADD1]
+      \\ qpat_x_assum `LENGTH _ = _` (assume_tac o REWRITE_RULE[ADD1] o GSYM)
+      \\ simp[highly_specific_MOD_lemma2])
+    \\ xmatch
+    \\ xlet `POSTv v. &UNIT_TYPE () v * SEP_EXISTS cv lv.
+             REF_LIST rv (SNOC rv rvs) CHAR l *
+             SIO (THE (LTAKE (SUC i) (LREPEAT l)))
+               (THE (LTAKE (SUC i) (LMAP put_char_event (LREPEAT l))))`
+    THEN1 (
+      xapp
+      \\ xsimpl
+      \\ asm_exists_tac
+      \\ simp[]
+      \\ qexists_tac `REF_LIST rv (SNOC rv rvs) CHAR l * GC`
+      \\ xsimpl
+      \\ qmatch_goalsub_abbrev_tac `SIO a1 a2`
+      \\ MAP_EVERY qexists_tac [`a1`,`a2`]
+      \\ MAP_EVERY qunabbrev_tac [`a1`,`a2`]
+      \\ xsimpl
+      \\ fs[LTAKE_LMAP]
+      \\ `~LFINITE(LREPEAT l)`
+         by(rw[LFINITE_LLENGTH,LLENGTH_MAP,LLENGTH_LREPEAT,NULL_EQ] >>
+            CCONTR_TAC >> fs[])
+      \\ drule NOT_LFINITE_TAKE
+      \\ disch_then(qspec_then `i` strip_assume_tac)
+      \\ fs[]
+      \\ fs[]
+      \\ fs[LTAKE_SNOC_LNTH]
+      \\ imp_res_tac infinite_lnth_some
+      \\ pop_assum(qspec_then `i` strip_assume_tac)
+      \\ fs[SNOC_APPEND]
+      \\ qpat_x_assum `LENGTH _ = SUC _` (assume_tac o REWRITE_RULE[ADD1] o GSYM)
+      \\ fs[]
+      \\ drule LNTH_LREPEAT
+      \\ strip_tac
+      \\ rveq
+      \\ simp[SEP_IMP_REFL])
+    \\ xvar \\ xsimpl \\ simp[ADD1])
+  THEN1 (
+    `~LFINITE(LMAP put_char_event (LREPEAT l))`
+      by(rw[LFINITE_LLENGTH,LLENGTH_MAP,LLENGTH_LREPEAT,NULL_EQ] >>
+         CCONTR_TAC >> fs[])
+    \\ drule_then(qspec_then `x` strip_assume_tac) LTAKE_LPREFIX
+    \\ fs[])
+  \\ qmatch_goalsub_abbrev_tac `LPREFIX a1 a2`
+  \\ `a1 = a2` suffices_by simp[]
+  \\ unabbrev_all_tac
+  \\ PURE_ONCE_REWRITE_TAC [LLIST_BISIMULATION]
+  \\ qexists_tac `\x y. (?n. n <= LENGTH l
+                         /\ x = LMAP put_char_event (LAPPEND (fromList(DROP n l)) (LREPEAT l))
+                         /\ y = LAPPEND (LMAP put_char_event(fromList (DROP n l))) ub)`
+  \\ conj_tac
+  THEN1 (
+    simp[] \\ qexists_tac `LENGTH l` \\ PURE_REWRITE_TAC[DROP_LENGTH_NIL] \\ simp[])
+  \\ simp[] \\ rw[]
+  \\ match_mp_tac OR_INTRO_THM2
+  \\ conj_tac
+  \\ qpat_x_assum `LENGTH _ = _` (assume_tac o GSYM)
+  THEN1 (
+    fs[PULL_EXISTS]
+    \\ fs[LESS_OR_EQ]
+    \\ fs[DROP_CONS_EL,DROP_LENGTH_NIL]
+    \\ first_x_assum(qspec_then `1` mp_tac)
+    \\ Cases_on `l` >> PURE_ONCE_REWRITE_TAC[LREPEAT_thm] >> fs[]
+    \\ PURE_REWRITE_TAC[ONE,LTAKE_THM]
+    \\ fs[LPREFIX_LCONS] \\ rw[] \\ rw[LHD_LCONS])
+  \\ fs[]
+  \\ qexists_tac `if n = LENGTH l then 1 else SUC n`
+  \\ reverse IF_CASES_TAC
+  THEN1 fs[DROP_CONS_EL]
+  \\ simp[DROP_LENGTH_NIL]
+  \\ conj_tac
+  THEN1 (
+    simp[Once LREPEAT_thm] \\
+    Cases_on `l` >> fs[])
+  \\ fs[PULL_EXISTS]
+  \\ rw[LTAKE_EQ]
+  \\ rw[LTL_LDROP_1]
+  \\ match_mp_tac LPREFIX_ub_LTAKE
+  \\ simp[] \\ Cases_on `l` \\ fs[]
+>>>>>>> New cf-div example: traverse a cyclic pointer structure on the heap
+QED
+
 val _ = export_theory();
