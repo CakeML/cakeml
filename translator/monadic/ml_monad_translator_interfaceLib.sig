@@ -14,16 +14,17 @@
         ...
       ] |>
       with_fixed_arrays [
-        ("farray1,``<init_val_farray1> : <init_val_farray2_type>``,
+        ("farray1",``<init_val_farray1> : <init_val_farray2_type>``,
             ``<subscript_exception>``, ``<update_exception>``),
         ...
       ] |>
       with_resizeable_arrays [
-        ("rarray1,``<init_val_rarray1> : <init_val_rarray2_type>``,
+        ("rarray1",``<init_val_rarray1> : <init_val_rarray2_type>``,
             ``<subscript_exception>``, ``<update_exception>``),
         ...
       ] |>
       {
+        with_heap_propositions [(<predicate1>, "field_name1"), ...]    |
         with_stdio "stdio_name"    |
         with_commandline "commandline_name" "stdio_name"}
       } |>
@@ -53,56 +54,13 @@ sig
                          len:thm, sub:thm, update:thm} list ref,
     resizeable_arrays : {name:string, init:thm, get:thm, set:thm,
                          len:thm, sub:thm, update:thm, alloc:thm} list ref,
+    extra_hprop       : term option ref,
     extra_state_inv   : (thm * thm) option ref
                         (* state_inv_def, state_inv_valid *)
   }
 
   val local_state_config : config
   val global_state_config : config
-
-
-
-  type monadic_translation_parameters = {
-    store_pred_def : thm,
-    refs_specs     : (thm * thm) list,
-    rarrays_specs  : (thm * thm * thm * thm) list,
-    farrays_specs  : (thm * thm * thm) list
-  };
-
-  type store_translation_result = {
-      refs_init_values      : thm list,
-      refs_locations        : thm list,
-      rarrays_init_values   : thm list,
-      farrays_init_values   : thm list,
-      rarrays_locations     : thm list,
-      farrays_locations     : thm list,
-      store_pred_validity   : thm,
-      store_pred_exists_thm : thm
-    };
-
-type state = {
-  state_access_funs         : (string * thm * thm) list ref,
-                                (* (name, get, set) *)
-  store_invariant_name      : string ref,
-  store_exn_invariant_name  : string ref,
-  exn_type_def              : thm ref,
-  additional_type_theories  : string list ref,
-  extra_hprop               : term option ref,
-  monad_translation_params  : monadic_translation_parameters option ref,
-  store_trans_result        : store_translation_result option ref,
-  exn_specs                 : (thm * thm) list ref,
-  stdio_name                : string option ref,
-  commandline_name          : string option ref,
-  exn_type                  : hol_type ref,
-  state_type                : hol_type ref
-};
-
-(* Initial internal state *)
-val internal_state : state
-
-
-
-
 
     (* Choose a state type for the translation (optional) *)
     val with_state : hol_type -> config -> config
@@ -125,14 +83,20 @@ val internal_state : state
       (string * term * term * term) list -> config -> config
       (* field name, initial array, subscript exception, update exception *)
 
-  (* NB: USE EITHER with_stdio OR with_commandline *)
+    (* Choose other heap propositions (e.g. HOL_STORE)*)
+    val with_heap_propositions : (term * string) list -> config -> config
+      (* NB: USE EITHER with_stdio OR with_commandline *)
+      (* Choose stdio field from the state (optional).
+         Shorthand for:
+            with_heap_propositions [(``MONAD_IO``, <field_name>)] *)
+      val with_stdio : string -> config -> config (* field name *)
 
-    (* Choose stdio field from the state (optional) *)
-    val with_stdio : string -> config -> config (* field name *)
-
-    (* Choose commandline and stdio fields from the state (optional) *)
-    val with_commandline : string -> string -> config -> config
-      (* commandline field name, stdio field name *)
+      (* Choose commandline and stdio fields from the state (optional)
+         Shorthand for
+            with_heap_propositions [(``MONAD_IO``, <field_name2>),
+                                    (``COMMANDLINE``, <field_name1>)] *)
+      val with_commandline : string -> string -> config -> config
+        (* commandline field name, stdio field name *)
 
   (* Advanced: create your own additional state invariant *)
     val with_state_invariant : thm -> thm -> config -> config
