@@ -368,16 +368,52 @@ val echo_def = Define `
 
 val lecho_def = Define `
   lecho ll = LFLATTEN (LMAP (\c. fromList [get_char_event c;
-                                          put_char_event c]) ll)`
+                                           put_char_event c]) ll)`
+
+Theorem lecho_LCONS:
+  !h t. lecho (h ::: t) = LAPPEND (fromList [get_char_event h;
+                                             put_char_event h]) (lecho t)
+Proof
+  rw [lecho_def]
+QED
+
+Theorem lecho_NOT_LFINITE:
+  !ll. ~LFINITE ll ==> ~LFINITE (lecho ll)
+Proof
+  cheat
+QED
 
 Theorem lecho_LTAKE_SUC:
   !ll c n.
-    LNTH n ll = SOME c ==>
+    ~LFINITE ll /\ LNTH n ll = SOME c ==>
     THE (LTAKE (2 * SUC n) (lecho ll)) =
       THE (LTAKE (2 * n) (lecho ll)) ++
         [get_char_event c; put_char_event c]
 Proof
-  cheat
+  Induct_on `n` \\ rw []
+  \\ qmatch_goalsub_abbrev_tac `[g; p]`
+  THEN1 (
+    Cases_on `ll` \\ fs [lecho_LCONS] \\ rveq
+    \\ `2 = LENGTH [g; p]` by EVAL_TAC
+    \\ `IS_SOME (LTAKE (LENGTH [g; p]) (fromList [g; p]))`
+      by fs [LTAKE_fromList]
+    \\ drule LTAKE_LAPPEND1
+    \\ disch_then (qspec_then `lecho t` mp_tac) \\ strip_tac
+    \\ fs [LTAKE_fromList])
+  \\ Cases_on `ll` \\ fs [lecho_LCONS]
+  \\ qmatch_goalsub_abbrev_tac `g' ::: p' ::: _`
+  \\ `2 * SUC n = SUC (SUC (2 * n))` by fs [MULT_CLAUSES]
+  \\ `2 * SUC (SUC n) = SUC (SUC (2 * SUC n))` by fs [MULT_CLAUSES]
+  \\ rw [] \\ fs []
+  \\ `SUC (SUC (2 * n)) = 2 * SUC n` by fs [MULT_CLAUSES]
+  \\ rw [] \\ fs []
+  \\ drule lecho_NOT_LFINITE \\ strip_tac
+  \\ drule NOT_LFINITE_TAKE \\ strip_tac
+  \\ first_assum (qspec_then `2 * SUC n` mp_tac)
+  \\ first_x_assum (qspec_then `2 * n` mp_tac)
+  \\ rpt strip_tac \\ rw []
+  \\ first_x_assum (qspecl_then [`t`, `c`] drule)
+  \\ disch_then drule \\ fs []
 QED
 
 Theorem echoLoop_spec:
@@ -493,7 +529,12 @@ Proof
       \\ fs [SNOC_APPEND] \\ xsimpl)
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xvar \\ fs [SNOC_APPEND, UNIT_TYPE_def] \\ xsimpl)
-  THEN1 cheat
+  THEN1 (
+    drule lecho_NOT_LFINITE
+    \\ rw [LPREFIX_fromList, toList]
+    \\ drule NOT_LFINITE_TAKE
+    \\ disch_then (qspec_then `2 * x` mp_tac) \\ strip_tac \\ fs []
+    \\ `LENGTH y = 2 * x` by (drule LTAKE_LENGTH \\ fs []) \\ fs [])
   \\ cheat
 QED
 
