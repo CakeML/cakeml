@@ -452,6 +452,51 @@ Proof
   \\ disch_then drule \\ fs []
 QED
 
+Theorem LPREFIX_LTAKE:
+  !ll1 ll2.
+    ~LFINITE ll1 /\ (!n. LPREFIX (fromList (THE (LTAKE n ll1))) ll2) ==>
+    ll1 = ll2
+Proof
+  rw [LTAKE_EQ]
+  \\ Cases_on `toList ll2`
+  THEN1 (
+    drule NOT_LFINITE_TAKE
+    \\ disch_then (qspec_then `n` mp_tac) \\ strip_tac
+    \\ drule LTAKE_LENGTH \\ strip_tac
+    \\ first_x_assum (qspec_then `n` mp_tac) \\ strip_tac
+    \\ fs [LPREFIX_fromList] \\ rfs [])
+  \\ rename1 `SOME l`
+  \\ first_x_assum (qspec_then `SUC (LENGTH l)` mp_tac) \\ strip_tac
+  \\ fs [LPREFIX_fromList] \\ rfs []
+  \\ drule NOT_LFINITE_TAKE
+  \\ disch_then (qspec_then `SUC (LENGTH l)` mp_tac) \\ strip_tac
+  \\ drule LTAKE_LENGTH \\ strip_tac \\ fs []
+  \\ drule IS_PREFIX_LENGTH \\ strip_tac \\ fs []
+QED
+
+Theorem IS_PREFIX_TAKE:
+  !l n. TAKE n l ≼ l
+Proof
+  Induct_on `l` \\ Cases_on `n` \\ rw []
+QED
+
+Theorem LPREFIX_LTAKE_MULT:
+  !ll1 ll2 m.
+    0 < m /\ ~LFINITE ll1 /\
+    (!n. LPREFIX (fromList (THE (LTAKE (m * n) ll1))) ll2) ==>
+    (!n. LPREFIX (fromList (THE (LTAKE n ll1))) ll2)
+Proof
+  rw []
+  \\ first_x_assum (qspec_then `n` mp_tac) \\ strip_tac
+  \\ irule LPREFIX_TRANS \\ instantiate
+  \\ fs [LPREFIX_fromList_fromList]
+  \\ drule NOT_LFINITE_TAKE
+  \\ disch_then (qspec_then `m * n` mp_tac) \\ strip_tac
+  \\ `n <= m * n` by simp []
+  \\ drule (GEN_ALL LTAKE_TAKE_LESS)
+  \\ disch_then drule \\ rw [IS_PREFIX_TAKE]
+QED
+
 Theorem echoLoop_spec:
   !uv input.
     limited_parts names p /\ UNIT_TYPE () uv ==>
@@ -566,11 +611,14 @@ Proof
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xvar \\ fs [SNOC_APPEND, UNIT_TYPE_def] \\ xsimpl)
   THEN1 (
-    rw [LPREFIX_fromList, toList] \\ fs [lecho_NOT_LFINITE]
+    rw [LPREFIX_fromList, toList] \\ fs [lecho_LFINITE]
     \\ drule NOT_LFINITE_TAKE
     \\ disch_then (qspec_then `2 * x` mp_tac) \\ strip_tac \\ fs []
     \\ `LENGTH y = 2 * x` by (drule LTAKE_LENGTH \\ fs []) \\ fs [])
-  \\ cheat
+  \\ `lecho input = ub` suffices_by fs []
+  \\ irule LPREFIX_LTAKE \\ fs [lecho_LFINITE]
+  \\ irule LPREFIX_LTAKE_MULT \\ fs []
+  \\ qexists_tac `2` \\ fs [PULL_EXISTS]
 QED
 
 (* Infinite lists encoded as cyclic pointer structures in the heap *)
