@@ -377,10 +377,47 @@ Proof
   rw [lecho_def]
 QED
 
-Theorem lecho_NOT_LFINITE:
-  !ll. ~LFINITE ll ==> ~LFINITE (lecho ll)
+(* TODO: move LFINITE_LFLATTEN and every_LNTH to llistTheory or similar *)
+
+Theorem LFINITE_LFLATTEN:
+  !lll:'a llist llist.
+    every (\ll. LFINITE ll /\ ll <> LNIL) lll ==>
+    LFINITE (LFLATTEN lll) = LFINITE lll
 Proof
-  cheat
+  `!lll.
+      LFINITE lll ==> llist$every (\ll. LFINITE ll /\ ll <> LNIL) lll ==>
+      LFINITE (LFLATTEN lll)` by (ho_match_mp_tac LFINITE_ind \\ fs [LFINITE_APPEND])
+  \\ qsuff_tac `!x.
+      LFINITE x ==>
+      !lll. x = LFLATTEN lll /\ llist$every (\ll. LFINITE ll /\ ll <> LNIL) lll ==>
+      LFINITE lll` THEN1 (metis_tac [])
+  \\ ho_match_mp_tac LFINITE_ind
+  \\ fs [PULL_FORALL] \\ rw []
+  THEN1 (Cases_on `lll` \\ fs [])
+  \\ rename [`_ = LFLATTEN lll2`]
+  \\ Cases_on `lll2` \\ fs []
+  \\ rename [`h2 <> _`]
+  \\ Cases_on `h2` \\ fs [] \\ rw []
+  \\ rename [`LAPPEND t2`]
+  \\ Cases_on `t2` \\ fs []
+  \\ rename [`LAPPEND t1`]
+  \\ first_x_assum (qspec_then `(h:::t1) ::: t` mp_tac) \\ fs []
+QED
+
+Theorem every_LNTH:
+  !P ll. every P ll <=> !n e. LNTH n ll = SOME e ==> P e
+Proof
+  fs [every_def,exists_LNTH] \\ metis_tac []
+QED
+
+Theorem lecho_LFINITE:
+  !ll. LFINITE ll <=> LFINITE (lecho ll)
+Proof
+  rw [lecho_def] \\ qmatch_goalsub_abbrev_tac `LFLATTEN ll'`
+  \\ `LFINITE (LFLATTEN ll') <=> LFINITE ll'`
+    suffices_by (unabbrev_all_tac \\ fs [LFINITE_MAP])
+  \\ irule LFINITE_LFLATTEN
+  \\ rw [every_LNTH] \\ unabbrev_all_tac \\ fs []
 QED
 
 Theorem lecho_LTAKE_SUC:
@@ -406,8 +443,7 @@ Proof
   \\ `2 * SUC (SUC n) = SUC (SUC (2 * SUC n))` by fs [MULT_CLAUSES]
   \\ rw [] \\ fs []
   \\ `SUC (SUC (2 * n)) = 2 * SUC n` by fs [MULT_CLAUSES]
-  \\ rw [] \\ fs []
-  \\ drule lecho_NOT_LFINITE \\ strip_tac
+  \\ rw [] \\ fs [lecho_LFINITE]
   \\ drule NOT_LFINITE_TAKE \\ strip_tac
   \\ first_assum (qspec_then `2 * SUC n` mp_tac)
   \\ first_x_assum (qspec_then `2 * n` mp_tac)
@@ -429,7 +465,7 @@ Proof
   rw [] \\ Cases_on `LFINITE input` \\ fs [POSTvd_def, SEP_CLAUSES]
   \\ fs [SEP_F_to_cond, GSYM POSTv_def, GSYM POSTd_def]
   THEN1 (
-    reverse (sg `
+    qsuff_tac `
       (\input.
          !uv output events.
            app p echoLoop_v [uv] (SIO input output events)
@@ -437,9 +473,9 @@ Proof
                        SIO [||] (output ++ THE (toList input))
                            (events ++ SNOC get_char_eof_event
                                            (echo (THE (toList input))))))
-        input`)
+        input`
     THEN1 (
-      fs [] \\ pop_assum (qspecl_then [`uv`, `[]`, `[]`] mp_tac) \\ fs [])
+      rw [] \\ pop_assum (qspecl_then [`uv`, `[]`, `[]`] mp_tac) \\ fs [])
     \\ irule LFINITE_STRONG_INDUCTION \\ rw []
     THEN1 (
       xcf "echoLoop" st
@@ -530,8 +566,7 @@ Proof
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xvar \\ fs [SNOC_APPEND, UNIT_TYPE_def] \\ xsimpl)
   THEN1 (
-    drule lecho_NOT_LFINITE
-    \\ rw [LPREFIX_fromList, toList]
+    rw [LPREFIX_fromList, toList] \\ fs [lecho_NOT_LFINITE]
     \\ drule NOT_LFINITE_TAKE
     \\ disch_then (qspec_then `2 * x` mp_tac) \\ strip_tac \\ fs []
     \\ `LENGTH y = 2 * x` by (drule LTAKE_LENGTH \\ fs []) \\ fs [])
