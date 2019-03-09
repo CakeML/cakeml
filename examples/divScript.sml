@@ -245,39 +245,130 @@ Proof
     \\ xcon \\ xsimpl \\ fs [OPTION_TYPE_def, CHR_ORD, ORD_BOUND])
 QED
 
-(* Useful definitions *)
+(* TODO: Move REPLICATE_LIST and lemmas to an appropriate theory *)
 
-val REPLICATE_def = Define `
-  (!l. REPLICATE l 0 = []) /\
-  (!l n. REPLICATE l (SUC n) = REPLICATE l n ++ l)`
+val REPLICATE_LIST_def = Define `
+  (!l. REPLICATE_LIST l 0 = []) /\
+  (!l n. REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)`
 
-(* Useful lemmas *)
-
-Theorem REPLICATE_SNOC:
-  !x n. SNOC x (REPLICATE [x] n) = REPLICATE [x] (SUC n)
+Theorem REPLICATE_LIST_SNOC:
+  !x n. SNOC x (REPLICATE_LIST [x] n) = REPLICATE_LIST [x] (SUC n)
 Proof
-  rw [REPLICATE_def]
+  rw [REPLICATE_LIST_def]
 QED
 
-Theorem REPLICATE_APPEND:
-  !xs n. REPLICATE xs n ++ xs = REPLICATE xs (SUC n)
+Theorem REPLICATE_LIST_APPEND:
+  !l n. REPLICATE_LIST l n ++ l = REPLICATE_LIST l (SUC n)
 Proof
-  rw [REPLICATE_def]
+  rw [REPLICATE_LIST_def]
 QED
 
-Theorem REPLICATE_APPEND_SYM:
-  !xs n. REPLICATE xs n ++ xs = xs ++ REPLICATE xs n
+Theorem REPLICATE_LIST_APPEND_SYM:
+  !l n. REPLICATE_LIST l n ++ l = l ++ REPLICATE_LIST l n
 Proof
-  strip_tac \\ Induct_on `n` \\ fs [REPLICATE_def]
+  strip_tac \\ Induct_on `n` \\ fs [REPLICATE_LIST_def]
 QED
 
-Theorem LPREFIX_REPLICATE_LREPEAT:
-  !xs n. LPREFIX (fromList (REPLICATE xs n)) (LREPEAT xs)
+Theorem REPLICATE_LIST_LENGTH:
+  !l n. LENGTH (REPLICATE_LIST l n) = LENGTH l * n
+Proof
+  Induct_on `n` THEN1 (EVAL_TAC \\ fs [])
+  \\ rw [REPLICATE_LIST_def, MULT_CLAUSES]
+QED
+
+Theorem LPREFIX_REPLICATE_LIST_LREPEAT:
+  !l n. LPREFIX (fromList (REPLICATE_LIST l n)) (LREPEAT l)
 Proof
   strip_tac \\ Induct_on `n`
-  \\ fs [REPLICATE_def, REPLICATE_APPEND_SYM, GSYM LAPPEND_fromList]
+  \\ fs [REPLICATE_LIST_def, REPLICATE_LIST_APPEND_SYM, GSYM LAPPEND_fromList]
   \\ rw [Once LREPEAT_thm] \\ fs [LPREFIX_APPEND]
   \\ qexists_tac `ll` \\ fs [LAPPEND_ASSOC]
+QED
+
+Theorem LTAKE_EQ_MULT:
+  !ll1 ll2 m.
+    0 < m /\ ~LFINITE ll1 /\
+    (!n. LTAKE (m * n) ll1 = LTAKE (m * n) ll2) ==>
+    (!n. LTAKE n ll1 = LTAKE n ll2)
+Proof
+  rw []
+  \\ first_x_assum (qspec_then `n` mp_tac) \\ strip_tac
+  \\ drule NOT_LFINITE_TAKE
+  \\ disch_then (qspec_then `m * n` mp_tac) \\ strip_tac \\ fs []
+  \\ rename1 `SOME l`
+  \\ `n <= m * n` by fs []
+  \\ `LTAKE n ll1 = SOME (TAKE n l)` by (
+    irule LTAKE_TAKE_LESS \\ qexists_tac `m * n` \\ fs [])
+  \\ `LTAKE n ll2 = SOME (TAKE n l)` by (
+    irule LTAKE_TAKE_LESS \\ qexists_tac `m * n` \\ fs [])
+  \\ fs []
+QED
+
+Theorem LTAKE_LAPPEND_fromList:
+  !ll l n.
+    LTAKE (n + LENGTH l) (LAPPEND (fromList l) ll) =
+      OPTION_MAP (APPEND l) (LTAKE n ll)
+Proof
+  rw [] \\ Cases_on `LTAKE n ll` \\ fs []
+  THEN1 (
+    `LFINITE ll` by (fs [LFINITE] \\ instantiate)
+    \\ drule LFINITE_HAS_LENGTH \\ strip_tac \\ rename1 `SOME m`
+    \\ irule LTAKE_LLENGTH_NONE
+    \\ qexists_tac `m + LENGTH l` \\ rw []
+    THEN1 (
+      drule LTAKE_LLENGTH_SOME \\ strip_tac
+      \\ Cases_on `n ≤ m` \\ fs []
+      \\ drule (GEN_ALL LTAKE_TAKE_LESS)
+      \\ disch_then drule \\ fs [])
+    \\ fs [LLENGTH_APPEND, LFINITE_fromList])
+  \\ Induct_on `l` \\ rw []
+  \\ fs [LTAKE_CONS_EQ_SOME]
+  \\ instantiate
+QED
+
+Theorem REPLICATE_LIST_LREPEAT:
+  !l ll.
+    l <> [] /\ (!n. LPREFIX (fromList (REPLICATE_LIST l n)) ll) ==>
+    ll = LREPEAT l
+Proof
+  rw [LTAKE_EQ]
+  \\ Cases_on `toList ll`
+  THEN1 (
+    irule LTAKE_EQ_MULT
+    \\ `~LFINITE ll` by fs [LFINITE_toList_SOME] \\ fs []
+    \\ qexists_tac `LENGTH l`
+    \\ `0 < LENGTH l` by (Cases_on `l` \\ fs []) \\ rw []
+    \\ rpt (pop_assum mp_tac) \\ qid_spec_tac `ll`
+    \\ Induct_on `n` \\ rw []
+    \\ `?ll1. ll = LAPPEND (fromList l) ll1` by (
+      first_x_assum (qspec_then `1` mp_tac) \\ strip_tac
+      \\ fs [LPREFIX_APPEND, EVAL ``REPLICATE_LIST l 1``]
+      \\ rename1 `LAPPEND _ ll1`
+      \\ qexists_tac `ll1` \\ fs [])
+    \\ `~LFINITE ll1` by fs [LFINITE_APPEND, LFINITE_fromList]
+    \\ `toList ll1 = NONE` by fs [LFINITE_toList_SOME]
+    \\ `!n. LPREFIX (fromList (REPLICATE_LIST l n)) ll1` by (
+      strip_tac \\ rename1 `REPLICATE_LIST _ n1`
+      \\ first_x_assum (qspec_then `SUC n1` mp_tac) \\ strip_tac
+      \\ fs [LPREFIX_fromList] \\ rfs []
+      \\ fs [REPLICATE_LIST_LENGTH, MULT_CLAUSES]
+      \\ qspecl_then [`ll1`, `l`, `n1 * LENGTH l`] mp_tac
+                     LTAKE_LAPPEND_fromList \\ strip_tac
+      \\ fs [REPLICATE_LIST_def, REPLICATE_LIST_APPEND_SYM])
+    \\ first_x_assum (qspec_then `ll1` drule)
+    \\ rpt (disch_then drule) \\ strip_tac \\ rveq
+    \\ `LENGTH l * SUC n = LENGTH l * n + LENGTH l` by fs [MULT_CLAUSES]
+    \\ qspecl_then [`ll1`, `l`, `LENGTH l * n`] mp_tac
+                   LTAKE_LAPPEND_fromList \\ strip_tac
+    \\ rw [Once LREPEAT_thm]
+    \\ qspecl_then [`LREPEAT l`, `l`, `LENGTH l * n`] mp_tac
+                   LTAKE_LAPPEND_fromList \\ strip_tac
+    \\ fs [])
+  \\ first_x_assum (qspec_then `SUC (LENGTH x)` mp_tac) \\ strip_tac
+  \\ fs [LPREFIX_fromList] \\ rfs []
+  \\ drule IS_PREFIX_LENGTH \\ strip_tac
+  \\ fs [REPLICATE_LIST_LENGTH]
+  \\ Cases_on `l` \\ Cases_on `LENGTH x` \\ fs [MULT_CLAUSES]
 QED
 
 (* A non-terminating loop with side effects *)
@@ -296,61 +387,28 @@ Theorem printLoop_spec:
 Proof
   xcf_div "printLoop" st
   \\ MAP_EVERY qexists_tac
-    [`K emp`, `\i. REPLICATE [put_char_event c] i`, `K ($= cv)`,
-     `\i. State [||] (REPLICATE [c] i)`, `update`]
-  \\ fs [GSYM SIO_def, REPLICATE_def]
+    [`K emp`, `\i. REPLICATE_LIST [put_char_event c] i`, `K ($= cv)`,
+     `\i. State [||] (REPLICATE_LIST [c] i)`, `update`]
+  \\ fs [GSYM SIO_def, REPLICATE_LIST_def]
   \\ xsimpl \\ rw [lprefix_lub_def]
   THEN1 (
     xlet `POSTv v. &UNIT_TYPE () v *
-                   SIO [||] (REPLICATE [c] (SUC i))
-                       (REPLICATE [put_char_event c] (SUC i))`
+                   SIO [||] (REPLICATE_LIST [c] (SUC i))
+                       (REPLICATE_LIST [put_char_event c] (SUC i))`
     THEN1 (
       xapp
       \\ MAP_EVERY qexists_tac
-        [`emp`, `REPLICATE [c] i`, `[||]`,
-         `REPLICATE [put_char_event c] i`, `c`]
-      \\ fs [REPLICATE_SNOC] \\ xsimpl)
-    \\ xvar \\ fs [REPLICATE_APPEND] \\ xsimpl)
-  THEN1 fs [LPREFIX_REPLICATE_LREPEAT]
-
-(* alternative version using REPLICATE_LREPEAT
+        [`emp`, `REPLICATE_LIST [c] i`, `[||]`,
+         `REPLICATE_LIST [put_char_event c] i`, `c`]
+      \\ fs [REPLICATE_LIST_SNOC] \\ xsimpl)
+    \\ xvar \\ fs [REPLICATE_LIST_APPEND] \\ xsimpl)
+  THEN1 fs [LPREFIX_REPLICATE_LIST_LREPEAT]
   \\ fs [PULL_EXISTS]
   \\ qmatch_goalsub_abbrev_tac `LPREFIX ll`
   \\ `ub = ll` suffices_by simp []
   \\ unabbrev_all_tac
-  \\ irule REPLICATE_LREPEAT
+  \\ irule REPLICATE_LIST_LREPEAT
   \\ fs []
-*)
-
-  \\ qmatch_goalsub_abbrev_tac `LPREFIX a1 a2`
-  \\ `a1 = a2` suffices_by simp[]
-  \\ unabbrev_all_tac
-  \\ PURE_ONCE_REWRITE_TAC [LLIST_BISIMULATION]
-  \\ qexists_tac `\x y. x = LREPEAT [put_char_event c] /\ y = ub`
-  \\ simp[]
-  \\ conj_tac
-  THEN1 (
-    fs[PULL_EXISTS]
-    \\ first_x_assum(qspec_then `1` mp_tac)
-    \\ PURE_REWRITE_TAC[REPLICATE_def,ONE]
-    \\ rw[LPREFIX_LCONS,LHD_LCONS] \\ rw[LHD_LCONS])
-  \\ fs[PULL_EXISTS]
-  \\ PURE_ONCE_REWRITE_TAC [LLIST_BISIMULATION]
-  \\ qexists_tac `\y z. (!x. LPREFIX (fromList (REPLICATE [put_char_event c] x)) z) /\ y = THE(LTL z)`
-  \\ rw[]
-  \\ match_mp_tac OR_INTRO_THM2
-  \\ conj_tac
-  THEN1 (
-    first_x_assum(qspec_then `SUC(SUC 0)` mp_tac)
-    \\ PURE_REWRITE_TAC[REPLICATE_def]
-    \\ rw[LPREFIX_LCONS,LHD_LCONS,LTL_LCONS]
-    \\ rw[LTL_LCONS])
-  \\ strip_tac
-  \\ first_x_assum(qspec_then `SUC x` mp_tac)
-  \\ simp[GSYM REPLICATE_APPEND,REPLICATE_APPEND_SYM]
-  \\ simp[LPREFIX_LCONS]
-  \\ rw[]
-  \\ rw[LTL_LCONS]
 QED
 
 (* An IO-conditional loop with side effects *)
@@ -1099,7 +1157,7 @@ Proof
     [`K(REF_LIST rv (SNOC rv rvs) CHAR l)`, `\i. THE(LTAKE i (LMAP put_char_event (LREPEAT l)))`,
      `\i. $= (EL (i MOD (LENGTH rvs + 1)) (rv::rvs))`,
      `\i. State [||] (THE(LTAKE i (LREPEAT l)))`,`update`]
-  \\ fs [GSYM SIO_def, REPLICATE_def]
+  \\ fs [GSYM SIO_def, REPLICATE_LIST_def]
   \\ xsimpl \\ rw [lprefix_lub_def]
   THEN1 (
     xlet `POSTv v. SEP_EXISTS cv lv.
