@@ -299,6 +299,16 @@ structure reg_alloc = struct
    else  (if  (v2 = v3)
   then  (unbound_colour (v3 + 1) v1)
   else  (unbound_colour v3 v1)));
+  fun  sorted_lt_nub_aux v4 v3 =
+  case  v3
+  of  []  =>  (v4::[] )
+  |   v2::v1 =>  (if  (v4 = v2)
+  then  (sorted_lt_nub_aux v4 v1)
+  else  (v4::(sorted_lt_nub_aux v2 v1)));
+  fun  sorted_lt_nub v3 =
+    case  v3
+    of  []  =>  []
+     |   v2::v1 =>  (sorted_lt_nub_aux v2 v1);
   fun  pri_move_insert v3 =
     (fn  v4 =>
       (fn  v5 =>
@@ -853,16 +863,18 @@ structure reg_alloc = struct
                  end))
                 end
                     val  canonize_move =
-                  (fn  v2 =>
-                    (fn  v3 =>
-                      let val  v1 = is_fixed v3
+                  (fn  v3 =>
+                    (fn  v4 =>
+                      let val  v2 = is_fixed v3
+                          val  v1 = is_fixed v4
                        in
                         if  v1
-                       then  (v3,v2)
-                      else if is_fixed v2 then (v2,v3)
-                      else  (if  (v2 < v3)
-                      then  (v2,v3)
-                      else  (v3,v2))
+                       then  (v4,v3)
+                      else  (if  v2
+                       then  (v3,v4)
+                      else  (if  (v3 < v4)
+                      then  (v3,v4)
+                      else  (v4,v3)))
                       end))
                     fun  st_ex_first v16 v17 v18 v19 =
                 case  v18
@@ -880,8 +892,7 @@ structure reg_alloc = struct
                 else  (let val  v5 = canonize_move v8 v7
                  in
                   case  v5
-                of  (v4,v3) =>  (let
-                 val  v2 = v17 v4 v3
+                of  (v4,v3) =>  (let val  v2 = v17 v4 v3
                  in
                   case  v2
                 of  NONE =>  (st_ex_first v16 v17 v14 (v15::v19))
@@ -1191,19 +1202,35 @@ structure reg_alloc = struct
                          end)
                         else  NONE
                          end)))
-                    fun  clique_insert_edge v4 =
+                    val  insert_edge_unsorted =
+                  (fn  v4 =>
+                    (fn  v5 =>
+                      let val  v3 = Array.sub ( adj_ls, v4)
+                          val  v2 = Array.sub ( adj_ls, v5)
+                          val  v1 = Array.update ( adj_ls, v4, (v5::v3))
+                      in
+                        Array.update ( adj_ls, v5, (v4::v2))
+                      end))
+                    fun  list_insert_edge_unsorted v5 v4 =
                 case  v4
                 of  []  =>  ()
-                |   v3::v2 =>  (let val  v1 = list_insert_edge v3 v2
+                |   v3::v2 =>  (let val  v1 = insert_edge_unsorted v5 v3
                  in
-                  clique_insert_edge v2
+                  list_insert_edge_unsorted v5 v2
+                 end)
+                    fun  clique_insert_edge_unsorted v4 =
+                case  v4
+                of  []  =>  ()
+                |   v3::v2 =>  (let val  v1 = list_insert_edge_unsorted v3 v2
+                 in
+                  clique_insert_edge_unsorted v2
                  end)
                     fun  extend_clique v5 v4 =
                 case  v5
                 of  []  =>  v4
                 |   v3::v2 =>  (if  (member v3 v4)
                 then  (extend_clique v2 v4)
-                else  (let val  v1 = list_insert_edge v3 v4
+                else  (let val  v1 = list_insert_edge_unsorted v3 v4
                  in
                   extend_clique v2 (v3::v4)
                 end))
@@ -1220,7 +1247,7 @@ structure reg_alloc = struct
                  end)
                 |   Set(v11) =>  (let val  v10 =
                   map v26 (map fst (toalist v11))
-                    val  v9 = clique_insert_edge v10
+                    val  v9 = clique_insert_edge_unsorted v10
                  in
                   v10
                  end)
@@ -1235,7 +1262,7 @@ structure reg_alloc = struct
                  end)
                 |   SOME(v15) =>  (let val  v14 =
                   map v26 (map fst (toalist v15))
-                    val  v13 = clique_insert_edge v14
+                    val  v13 = clique_insert_edge_unsorted v14
                  in
                   v14
                  end)
@@ -1269,17 +1296,24 @@ structure reg_alloc = struct
                         end))
                       end))
                     val  init_ra_state =
-                  (fn  v11 =>
-                    (fn  v9 =>
-                      (fn  v10 =>
-                        case  (v9,v10)
-                        of  (v8,v7) =>  (case  v7
-                        of  (v6,v5) =>  (case  v5
-                        of  (v4,v3) =>  (let val  v2 =
-                          mk_graph (sp_default v6) v11 []
-                             val  v1 = extend_graph (sp_default v6) v8
+                  (fn  v14 =>
+                    (fn  v15 =>
+                      (fn  v16 =>
+                        case  (v15,v16)
+                        of  (v13,v12) =>  (case  v12
+                        of  (v11,v10) =>  (case  v10
+                        of  (v9,v8) =>  (let val  v7 =
+                          mk_graph (sp_default v11) v14 []
+                             val  v6 =
+                          st_ex_foreach (count_list v8) (fn  v4 =>
+                            (let val  v3 = Array.sub ( adj_ls, v4)
+                            in
+                              Array.update ( adj_ls, v4, (sorted_lt_nub (sort (fn  v2 =>
+                              (fn  v1 => (v2 < v1))) v3)))
+                            end))
+                            val  v5 = extend_graph (sp_default v11) v13
                          in
-                          mk_tags v3 (sp_default v4)
+                          mk_tags v8 (sp_default v9)
                         end))))))
                     val  do_upd_coalesce =
                   (fn  v1 => Array.update ( coalesced, v1, (0 + v1)))
@@ -1365,7 +1399,7 @@ structure reg_alloc = struct
                         end)
                         end)
                         end))))
-                  fun apply_col col ls = filter (fn (p,(x,y)) => (col x = col y)) ls
+                    fun apply_col col ls = filter (fn (p,(x,y)) => (col x = col y)) ls
                     val  do_reg_alloc =
                   (fn  v27 =>
                     (fn  v28 =>

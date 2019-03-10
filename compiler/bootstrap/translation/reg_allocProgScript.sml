@@ -189,8 +189,8 @@ val _ = m_translate st_ex_list_MAX_deg_def;
 val _ = m_translate do_spill_def;
 
 val _ = m_translate (do_step_def |> SIMP_RULE std_ss []);
-
 val _ = m_translate rpt_do_step_def;
+
 val _ = m_translate remove_colours_def;
 val _ = m_translate assign_Atemp_tag_def;
 val _ = m_translate assign_Atemps_def;
@@ -202,9 +202,14 @@ val _ = m_translate (assign_Stemp_tag_def |> REWRITE_RULE [rewrite_subs]);
 val _ = m_translate assign_Stemps_def;
 val _ = m_translate (first_match_col_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate biased_pref_def;
-val _ = m_translate clique_insert_edge_def;
+
+val _ = m_translate insert_edge_unsorted_def;
+val _ = m_translate list_insert_edge_unsorted_def;
+val _ = m_translate clique_insert_edge_unsorted_def;
 val _ = m_translate (extend_clique_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO]);
+val _ = translate sorted_lt_nub_aux_def;
+val _ = translate sorted_lt_nub_def;
 val _ = m_translate extend_graph_def;
 val _ = m_translate mk_tags_def;
 val _ = m_translate init_ra_state_def;

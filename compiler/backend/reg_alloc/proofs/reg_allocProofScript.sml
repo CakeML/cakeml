@@ -2425,7 +2425,7 @@ val do_alloc1_success = Q.prove(`
   EVERY (λ(p:num,x,y). x < s.dim ∧ y < s.dim) moves
   ⇒
   ∃ls s'.
-  do_alloc1 alg moves sc k s = (Success ls,s') ∧
+  do_alloc1 moves sc k s = (Success ls,s') ∧
   good_ra_state s' ∧
   is_subgraph s.adj_ls s'.adj_ls ∧
   (* This allows the coalescing phase to modify the adjacency list *)
