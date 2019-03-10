@@ -22,7 +22,7 @@ val add_reg_alloc_compset = extend_compset
     reg_allocTheory.st_ex_MAP_def,
     reg_allocTheory.st_ex_PARTITION_def,
     reg_allocTheory.st_ex_FILTER_def,
-    (* reg_allocTheory.list_remap_def, *)
+    reg_allocTheory.list_remap_def,
     reg_allocTheory.mk_bij_aux_def,
     reg_allocTheory.mk_bij_def,
     reg_allocTheory.is_phy_var_def,
@@ -71,7 +71,7 @@ val add_reg_alloc_compset = extend_compset
     reg_allocTheory.biased_pref_def,
     reg_allocTheory.insert_edge_def,
     reg_allocTheory.list_insert_edge_def,
-    reg_allocTheory.clique_insert_edge_unsorted_def,
+    reg_allocTheory.clique_insert_edge_def,
     reg_allocTheory.extend_clique_def,
     reg_allocTheory.mk_graph_def,
     reg_allocTheory.extend_graph_def,

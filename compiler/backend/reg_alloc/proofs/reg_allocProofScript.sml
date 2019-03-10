@@ -917,16 +917,16 @@ Theorem list_insert_edge_succeeds `
 (* From here onwards we stop characterizing s'.adj_ls exactly
    although it could be done
  *)
-Theorem clique_insert_edge_unsorted_succeeds `
+Theorem clique_insert_edge_succeeds `
   ∀ls s.
   good_ra_state s ∧
   EVERY ( λy. y < s.dim) ls ==>
-  ∃s'. clique_insert_edge_unsorted ls s = (Success (),s') ∧
+  ∃s'. clique_insert_edge ls s = (Success (),s') ∧
   good_ra_state s' ∧
   s' = s with adj_ls := s'.adj_ls ∧
   is_clique ls s'.adj_ls ∧
   is_subgraph s.adj_ls s'.adj_ls`
-  (Induct>>rw[clique_insert_edge_unsorted_def]>>fs msimps
+  (Induct>>rw[clique_insert_edge_def]>>fs msimps
   >-
     fs[ra_state_component_equality,is_subgraph_def,is_clique_def]>>
   drule list_insert_edge_succeeds>>
@@ -1134,7 +1134,7 @@ Theorem mk_graph_succeeds `
     fs[EVERY_MEM,SUBSET_DEF,EXTENSION,MEM_FILTER,MEM_MAP]>>
     metis_tac[is_subgraph_trans])
   >-
-    (drule clique_insert_edge_unsorted_succeeds>>
+    (drule clique_insert_edge_succeeds>>
     qmatch_goalsub_abbrev_tac`_ ls  s'`>>
     disch_then (qspec_then`ls` mp_tac)>>
     impl_keep_tac>-
@@ -1170,8 +1170,8 @@ Theorem mk_graph_succeeds `
       fs[EVERY_MEM,SUBSET_DEF,EXTENSION,MEM_FILTER,MEM_MAP]>>
       metis_tac[is_subgraph_trans])
     >>
-      drule clique_insert_edge_unsorted_succeeds>>
-      qmatch_goalsub_abbrev_tac`clique_insert_edge_unsorted ls _`>>
+      drule clique_insert_edge_succeeds>>
+      qmatch_goalsub_abbrev_tac`clique_insert_edge ls _`>>
       disch_then(qspec_then`ls` mp_tac)>>
       impl_keep_tac>-
         (fs[Abbr`ls`,EVERY_MEM,Once MEM_MAP,toAList_domain]>>
@@ -1391,7 +1391,7 @@ Theorem mk_graph_check_clash_tree `
       qpat_abbrev_tac`tas = MAP ta _`>>
       match_mp_tac colouring_satisfactory_cliques>>
       qexists_tac`s''.adj_ls`>>fs[]>>
-      drule clique_insert_edge_unsorted_succeeds>>
+      drule clique_insert_edge_succeeds>>
       disch_then (qspec_then`tas` mp_tac)>>
       impl_keep_tac>- (
         unabbrev_all_tac>>
@@ -1515,7 +1515,7 @@ Theorem mk_graph_check_clash_tree `
       fs[SUBSET_DEF,EXTENSION]>>
       metis_tac[])
     >>
-      drule clique_insert_edge_unsorted_succeeds>>
+      drule clique_insert_edge_succeeds>>
       disch_then(qspec_then`MAP ta (MAP FST (toAList x))` mp_tac)>>
       impl_tac>-
         (simp[Once EVERY_MAP,EVERY_MEM,toAList_domain]>>
