@@ -25,10 +25,9 @@ val _ = hide "state";
 
   This is an attempt at listing them:
 
-  1) In ra_state.coalesced, if coalesced[x] ≥ x it is not coalesced
+  -  In ra_state.coalesced, if coalesced[x] ≥ x it is not coalesced
      i.e., coalesces only happen ``downwards''
 
-  2) adjacency lists are ALWAYS sorted
 *)
 
 (*
@@ -169,9 +168,7 @@ val st_ex_FILTER_def = Define`
   od)`
 
 (* Insert an undirect edge into the adj list representation
-  -- This is VERY lightly optimized to remove duplicates
-  -- alternative: maintain an "invisible" invariant that
-     all the adj_lists are sorted
+  assumes that adj lists are sorted $<
 *)
 val sorted_insert_def = Define`
   (sorted_insert (x:num) acc [] = REVERSE (x::acc)) ∧
@@ -187,55 +184,7 @@ val sorted_mem_def = Define`
     else if x <= y then F
     else sorted_mem x ys)`
 
-(* TODO quick sanity check: move to proof file when done *)
-val hide_def = Define`
-  hide x = x`
-
-val sorted_insert_correct = Q.prove(`
-  ∀ls acc.
-  SORTED $< ls ∧
-  SORTED $< (REVERSE acc) ∧
-  SORTED $< (REVERSE acc ++ ls) ∧
-  EVERY (\y. y < x) acc ⇒
-  hide (SORTED $< (sorted_insert x acc ls) ∧
-        MEM x (sorted_insert x acc ls))`,
-  Induct>>
-  fs[sorted_insert_def]
-  >-
-    (rw[hide_def]>>
-    DEP_ONCE_REWRITE_TAC[SORTED_APPEND]>>
-    simp[transitive_def]>>
-    fs[EVERY_MEM])
-  >>
-  rw[]
-  >-
-    simp[hide_def]
-  >-
-    (DEP_ONCE_REWRITE_TAC[SORTED_APPEND]>>
-    simp[transitive_def,hide_def]>>
-    CONJ_TAC >-
-      (fs[SORTED_DEF,less_sorted_eq]>>
-      metis_tac[LESS_TRANS])>>
-    rw[]>>fs[EVERY_MEM]
-    >-
-      metis_tac[LESS_TRANS]
-    >>
-    fs[less_sorted_eq]>>
-    metis_tac[LESS_TRANS])
-  >>
-    first_x_assum match_mp_tac>>
-    fs[less_sorted_eq,SORTED_APPEND_IFF]>>
-    Cases_on`ls`>>fs[]);
-
-val sorted_mem_correct = Q.prove(`
-  ∀ls.
-  SORTED $< ls ⇒
-  (sorted_mem x ls ⇔ MEM x ls)`,
-  Induct>>rw[sorted_mem_def]>>
-  fs[less_sorted_eq]>>
-  rw[EQ_IMP_THM]>>
-  simp[NOT_LESS,LESS_EQ,NOT_LESS_EQUAL])
-
+(* insert a single undirected edge x - y *)
 val insert_edge_def = Define`
   insert_edge x y =
   do
@@ -247,7 +196,9 @@ val insert_edge_def = Define`
     od
   od`;
 
-(* insert a list of edges all adjacent to one node *)
+(* insert all the undirected edges x-ys
+  TODO: this can be optimized to do all the x-y directed edges quickly
+*)
 val list_insert_edge_def = Define`
   (list_insert_edge x [] = return ()) ∧
   (list_insert_edge x (y::ys) =
@@ -256,12 +207,31 @@ val list_insert_edge_def = Define`
       list_insert_edge x ys
     od)`;
 
-val clique_insert_edge_def = Define`
-  (clique_insert_edge [] = return ()) ∧
-  (clique_insert_edge (x::xs) =
+(* insert_edge NOT caring about sorting *)
+val insert_edge_unsorted_def = Define`
+  insert_edge_unsorted x y =
   do
-    list_insert_edge x xs;
-    clique_insert_edge xs
+    adjx <- adj_ls_sub x;
+    adjy <- adj_ls_sub y;
+    update_adj_ls x (y::adjx);
+    update_adj_ls y (x::adjy)
+  od`;
+
+val list_insert_edge_unsorted_def = Define`
+  (list_insert_edge_unsorted x [] = return ()) ∧
+  (list_insert_edge_unsorted x (y::ys) =
+    do
+      insert_edge_unsorted x y;
+      list_insert_edge_unsorted x ys
+    od)`;
+
+(* insert a clique UNSORTED *)
+val clique_insert_edge_unsorted_def = Define`
+  (clique_insert_edge_unsorted [] = return ()) ∧
+  (clique_insert_edge_unsorted (x::xs) =
+  do
+    list_insert_edge_unsorted x xs;
+    clique_insert_edge_unsorted xs
   od)`;
 
 (* assuming vertices in cli already forms a clique,
@@ -275,7 +245,7 @@ val extend_clique_def = Define`
       extend_clique xs cli
     else
     do
-      list_insert_edge x cli;
+      list_insert_edge_unsorted x cli;
       extend_clique xs (x::cli)
     od)`;
 
@@ -1168,7 +1138,7 @@ val mk_graph_def = Define`
   (mk_graph ta (Set t) liveout =
     do
       live <- return(MAP ta (MAP FST (toAList t)));
-      clique_insert_edge live;
+      clique_insert_edge_unsorted live;
       return live
     od) ∧
   (mk_graph ta (Branch topt t1 t2) liveout =
@@ -1184,7 +1154,7 @@ val mk_graph_def = Define`
       | SOME t =>
         do
           clashes <- return (MAP ta (MAP FST (toAList t)));
-          clique_insert_edge clashes;
+          clique_insert_edge_unsorted clashes;
           return clashes
         od)
     od) ∧
@@ -1206,6 +1176,32 @@ val extend_graph_def = Define`
     extend_graph ta xs
   od)`
 
+val sorted_lt_nub_aux_def = Define`
+  (sorted_lt_nub_aux x [] = [x]) ∧
+  (sorted_lt_nub_aux x (y::ys) =
+  if x = y then
+    sorted_lt_nub_aux x ys
+  else
+    x::sorted_lt_nub_aux y ys)`
+
+val sorted_lt_nub_def = Define`
+  (sorted_lt_nub [] = []) ∧
+  (sorted_lt_nub (x::xs) = sorted_lt_nub_aux x xs)`
+
+(* cleans up the adjacency lists in graph *)
+val sort_graph_def = Define`
+  sort_graph =
+  do
+    d <- get_dim;
+    st_ex_FOREACH (COUNT_LIST d)
+      (λi.
+      do
+        adjls <- adj_ls_sub i;
+        update_adj_ls i (sorted_lt_nub (QSORT $< adjls))
+      od
+      )
+  od`
+
 (* sets up the register allocator init state with the clash_tree input
   TODO: should the sptrees be hidden right away?
   It might be easier to transfer an sptree directly for the oracle register
@@ -1218,6 +1214,7 @@ val init_ra_state_def = Define`
   init_ra_state ct forced (ta,fa,n) =
   do
     mk_graph (sp_default ta) ct []; (* Put in the usual edges *)
+    sort_graph;
     extend_graph (sp_default ta) forced;
     mk_tags n (sp_default fa);
   od`;
