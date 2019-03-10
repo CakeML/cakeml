@@ -4961,10 +4961,10 @@ Theorem jump_exc_push_env_SOME
   \\ full_simp_tac(srw_ss())[LASTN_ADD1]);
 
 Theorem eval_push_env_T_Raise_IMP_stack_length
-  `evaluate (p,call_env ys (push_env x T (dec_clock (s:('c,'ffi)dataSem$state)))) =
+  `evaluate (p,call_env ys (push_env x T (dec_clock (s:('c,'ffi)dataSem$state)))) arch_size =
        (SOME (Rerr (Rraise a)),r') ==>
     LENGTH r'.stack = LENGTH s.stack`
-  (qspecl_then [`p`,`call_env ys (push_env x T (dec_clock s))`]
+  (qspecl_then [`p`,`call_env ys (push_env x T (dec_clock s))`,`arch_size`]
     mp_tac dataPropsTheory.evaluate_stack_swap
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[call_env_def,jump_exc_def,push_env_def,dataSemTheory.dec_clock_def,LASTN_ADD1]
@@ -4984,10 +4984,10 @@ Theorem eval_push_env_SOME_exc_IMP_s_key_eq
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 Theorem eval_exc_stack_shorter
-  `evaluate (c,call_env ys (push_env x F (dec_clock (s:('c,'ffi)dataSem$state)))) =
+  `evaluate (c,call_env ys (push_env x F (dec_clock (s:('c,'ffi)dataSem$state)))) arch_size =
       (SOME (Rerr (Rraise a)),r') ==>
     LENGTH r'.stack < LENGTH s.stack`
-  (srw_tac[][] \\ qspecl_then [`c`,`call_env ys (push_env x F (dec_clock s))`]
+  (srw_tac[][] \\ qspecl_then [`c`,`call_env ys (push_env x F (dec_clock s))`,`arch_size`]
              mp_tac dataPropsTheory.evaluate_stack_swap
   \\ full_simp_tac(srw_ss())[] \\ once_rewrite_tac [EQ_SYM_EQ] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[dataSemTheory.jump_exc_def,call_env_def,push_env_def,dataSemTheory.dec_clock_def]

@@ -1028,6 +1028,14 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_WordConst w (l:num) (dest:num) =
+        if LENGTH w < dimindex(:'a)-2 then
+           (Assign (adjust_var dest) (Const (v2w w)),l)
+        else
+           (ARB,l)
+       : 'a wordLang$prog # num`
+
+val def = assign_Define `
   assign_SetGlobalsPtr (l:num) (dest:num) v1 =
       (Seq (Set Globals (Var (adjust_var v1)))
            (Assign (adjust_var dest) Unit),l)
@@ -1588,7 +1596,8 @@ val def = assign_Define `
         (* unboxed case *)
         (if word_size<=dimindex(:'a)-2 then
            (Assign (adjust_var dest) (dtcase lookup_word_op opw of
-             | Bitwise op => Op And [Op op [Var (adjust_var v1); Var (adjust_var v2)];Const (small_bitmask (:'a) word_size)]
+             | Bitwise op => Op op [Var (adjust_var v1); Var (adjust_var v2)]
+             (* TODO wrong, we need to add an overflow carry *)
              | Carried op => Op And [Op op [Var (adjust_var v1);Var (adjust_var v2)];Const (small_bitmask (:'a) word_size)]
            ),l)
          (* small boxed case *)
@@ -2000,6 +2009,7 @@ val assign_def = Define `
     (args:num list) (names:num_set option) =
     dtcase op of
     | Const i => assign_Const i l dest
+    | WordConst w => assign_WordConst w l dest
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr l dest) (Skip,l)
     | El => arg2 args (assign_El c l dest) (Skip,l)
