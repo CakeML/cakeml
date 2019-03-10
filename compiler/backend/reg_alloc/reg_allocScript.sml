@@ -40,6 +40,10 @@ val _ = hide "state";
 val _ = Datatype`
   tag = Fixed num | Atemp | Stemp`
 
+(* Allocation algorithm *)
+val _ = Datatype`
+  algorithm = Simple | IRC`
+
 (*
   Inputs are tagged with Fixed, Atemp , Stemp
 
@@ -811,6 +815,18 @@ val do_spill_def = Define`
       od
   od`
 
+val do_step_simp_def = Define`
+  do_step_simp sc k =
+  do
+    b <- do_simplify k;
+    if b then return b
+    else
+    do
+      b <- do_spill sc k;
+      return b
+    od
+  od`
+
 val do_step_def = Define`
   do_step sc k =
   do
@@ -845,6 +861,14 @@ val rpt_do_step_def = Define`
   do
     b <- do_step sc k;
     if b then rpt_do_step sc k c else return ()
+  od)`
+
+val rpt_do_step_simp_def = Define`
+  (rpt_do_step_simp sc k 0 = return ()) ∧
+  (rpt_do_step_simp sc k (SUC c) =
+  do
+    b <- do_step_simp sc k;
+    if b then rpt_do_step_simp sc k c else return ()
   od)`
 
 (*
@@ -1188,20 +1212,6 @@ val sorted_lt_nub_def = Define`
   (sorted_lt_nub [] = []) ∧
   (sorted_lt_nub (x::xs) = sorted_lt_nub_aux x xs)`
 
-(* cleans up the adjacency lists in graph *)
-val sort_graph_def = Define`
-  sort_graph =
-  do
-    d <- get_dim;
-    st_ex_FOREACH (COUNT_LIST d)
-      (λi.
-      do
-        adjls <- adj_ls_sub i;
-        update_adj_ls i (sorted_lt_nub (QSORT $< adjls))
-      od
-      )
-  od`
-
 (* sets up the register allocator init state with the clash_tree input
   TODO: should the sptrees be hidden right away?
   It might be easier to transfer an sptree directly for the oracle register
@@ -1214,7 +1224,13 @@ val init_ra_state_def = Define`
   init_ra_state ct forced (ta,fa,n) =
   do
     mk_graph (sp_default ta) ct []; (* Put in the usual edges *)
-    sort_graph;
+    st_ex_FOREACH (COUNT_LIST n)
+      (λi.
+      do
+        adjls <- adj_ls_sub i;
+        update_adj_ls i (sorted_lt_nub (QSORT $< adjls))
+      od
+      );
     extend_graph (sp_default ta) forced;
     mk_tags n (sp_default fa);
   od`;
@@ -1226,7 +1242,7 @@ val do_upd_coalesce_def = Define`
 
 (* Initializer for the first allocation step *)
 val init_alloc1_heu_def = Define`
-  init_alloc1_heu moves d k =
+  init_alloc1_heu alg moves d k =
   do
     ds <- return (COUNT_LIST d);
 
@@ -1242,27 +1258,42 @@ val init_alloc1_heu_def = Define`
       od
       );
 
-    st_ex_FOREACH ds do_upd_coalesce;
-    set_avail_moves_wl (sort_moves moves);
-    reset_move_related moves;
-
     (ltk,gtk) <- st_ex_PARTITION (split_degree d k) allocs [] [];
-    (ltkfreeze,ltksimp) <- st_ex_PARTITION (move_related_sub) ltk [] [];
     set_spill_wl gtk;
-    set_simp_wl ltksimp;
-    set_freeze_wl ltkfreeze;
-
-    return (LENGTH allocs)
+    if alg = Simple then
+      do
+        set_simp_wl ltk;
+        return (LENGTH allocs)
+      od
+    else
+      do
+        st_ex_FOREACH ds do_upd_coalesce;
+        set_avail_moves_wl (sort_moves moves);
+        reset_move_related moves;
+        (ltkfreeze,ltksimp) <- st_ex_PARTITION (move_related_sub) ltk [] [];
+        set_simp_wl ltksimp;
+        set_freeze_wl ltkfreeze;
+        return (LENGTH allocs)
+      od
   od`
 
 val do_alloc1_def = Define`
-  do_alloc1 moves sc k =
+  do_alloc1 alg moves sc k =
   do
     d <- get_dim;
-    l <- init_alloc1_heu moves d k;
-    rpt_do_step sc k l;
-    st <- get_stack;
-    return st
+    l <- init_alloc1_heu alg moves d k;
+    if alg = Simple then
+    do
+      rpt_do_step_simp sc k l;
+      st <- get_stack;
+      return st
+    od
+    else
+    do
+      rpt_do_step sc k l;
+      st <- get_stack;
+      return st
+    od
   od`
 
 val extract_tag_def = Define`
@@ -1305,9 +1336,6 @@ val moves_to_sp_def = Define`
 val resort_moves_def = Define`
   resort_moves acc =
   map (λls. MAP SND (sort_moves ls)) acc`
-
-val _ = Datatype`
-  algorithm = Simple | IRC`
 
 (* mtable is an sptree lookup for the moves *)
 val biased_pref_def = Define`
@@ -1364,7 +1392,7 @@ val do_reg_alloc_def = Define`
     init_ra_state ct forced (ta,fa,n);
     moves <- return (MAP (update_move (sp_default ta)) moves);
     moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves [];
-    ls <- do_alloc1 (if alg = Simple then [] else moves) sc k;
+    ls <- do_alloc1 alg moves sc k;
     assign_Atemps k ls (biased_pref (resort_moves (moves_to_sp moves LN)));
     assign_Stemps k;
     spcol <- extract_color ta;
@@ -1392,8 +1420,8 @@ val reg_alloc_aux_def = Define`
                        ; freeze_wl := []
                        ; avail_moves_wl   := []
                        ; unavail_moves_wl := []
-                       ; coalesced := (n,0)
-                       ; move_related := (n,F)
+                       ; coalesced := (if alg = Simple then 0 else n,0)
+                       ; move_related := (if alg = Simple then 0 else n,F)
                        ; stack     := [] |>`;
 
 val reg_alloc_def = Define`
