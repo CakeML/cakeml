@@ -285,9 +285,6 @@ architecture.
 This compiler phase implements all stack operations as normal memory
 load/store operations.
 
-[stack_seqScript.sml](stack_seqScript.sml):
-Associates all Seq applications to the right.
-
 [stack_to_labScript.sml](stack_to_labScript.sml):
 This compiler phase maps stackLang programs, which has structure
 such as If, While, Return etc, to labLang programs that are a soup
