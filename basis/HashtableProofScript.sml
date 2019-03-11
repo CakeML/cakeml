@@ -115,7 +115,7 @@ Theorem hashtable_empty_spec
 (xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
 \\xlet_auto
    >-(xsimpl)
-\\ xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
+THEN1 (xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
   THEN1 (xif
   \\ xlit
   \\ xsimpl
@@ -142,11 +142,11 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
-\\ conj_tac
-\\ simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def]
-\\ simp[buckets_ok_empty]
-\\ simp[LIST_REL_REPLICATE_same]
-\\ fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])))
+\\ rpt conj_tac
+THEN1(simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def])
+THEN1(simp[buckets_ok_empty])
+THEN1(simp[LIST_REL_REPLICATE_same])
+\\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])))
 (*size > 1*)
 THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
    >-(xapp
@@ -169,12 +169,12 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE size' (mlmap$empty cmp))`
-\\ conj_tac
-\\ simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def]
-\\ simp[buckets_ok_empty]
-\\ fs[BOOL_def]
-\\ simp[LIST_REL_REPLICATE_same]
-\\ fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm]))));
+\\ rpt conj_tac
+THEN1(simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def])
+THEN1(simp[buckets_ok_empty])
+THEN1(fs[BOOL_def])
+THEN1(simp[LIST_REL_REPLICATE_same])
+\\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])))));
 
 
 Theorem lupdate_fupdate_insert
