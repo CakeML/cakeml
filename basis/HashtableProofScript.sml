@@ -23,16 +23,13 @@ val hashtable_st = get_ml_prog_state();
 val hash_key_set_def = Define`
   hash_key_set hf length idx  = { k' | hf k' MOD length = idx }`;
 
-
 val bucket_ok_def = Define `
 bucket_ok b hf idx length  = !k v.
-      mlmap$lookup b k = SOME v ==> k ∈ (hash_key_set hf length idx)`;
-
-(*
-val bucket_ok_def = Define `
-bucket_ok b hf idx length  = !k v. to_fmap b = FEMPTY \/
       (mlmap$lookup b k = SOME v ==> k ∈ (hash_key_set hf length idx))`;
-*)
+
+val buckets_empty_def = Define `
+  buckets_empty bs = (MAP mlmap$to_fmap bs = (REPLICATE (LENGTH bs) FEMPTY))`;
+
 
 val buckets_to_fmap_def = Define `
   buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
@@ -53,9 +50,6 @@ val hashtable_inv_def = Define `
       LIST_REL (MAP_TYPE a b) buckets vlv /\
       EVERY mlmap$map_ok buckets`;
 
-Theorem buckets_ok_empty
-  `buckets_ok (REPLICATE n (mlmap$empty cmp)) hf`
-( rw[EVERY_REPLICATE,buckets_ok_def, mlmapTheory.cmp_of_def]);
 
 
 val REF_NUM_def = Define `
@@ -354,7 +348,7 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\qexists_tac `heuristic_size + 1`
   \\xsimpl
   \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
-  \\fs ckets_ok_insert, list_rel_insert, every_map_ok_insert]))
+  \\fs[lupdate_fupdate_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]))
 
   \\xcon
   \\xsimpl
