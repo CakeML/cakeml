@@ -965,7 +965,9 @@ fun pairmaparg_tac (g as (asl,w)) =
           (fn (bvs,tm) =>
             is_comb tm andalso
             pairSyntax.is_pair_map (rator tm) andalso
-            null_intersection bvs (free_vars (rand tm)) andalso
+            HOLset.isEmpty
+              (HOLset.intersection (FVL bvs empty_tmset,
+                                    FVL [rand tm] empty_tmset)) andalso
             not (pairSyntax.is_pair (rand tm)))
           (fn tm => Cases_on [ANTIQUOTE (rand tm)])))
     (w::asl)) g
