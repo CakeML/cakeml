@@ -63,13 +63,14 @@ val REF_ARRAY_def = Define `
 
 
 val HASHTABLE_def = Define
- `HASHTABLE a b hf cmp h v =
+ `HASHTABLE UP a b hf cmp h v =
     SEP_EXISTS ur ar hfv vlv arr cmpv heuristic_size.
       &(v = (Conv (SOME (TypeStamp "Hashtable" 8)) [ur; ar; hfv; cmpv]) /\
         (a --> NUM) hf hfv /\
         (a --> a --> ORDERING_TYPE) cmp cmpv /\
         TotOrd cmp /\
-        hashtable_inv a b hf cmp h vlv) *
+        (hashtable_inv a b hf cmp h vlv) /\
+        UP heuristic_size) *
       REF_NUM ur heuristic_size *
       REF_ARRAY ar arr vlv`;
 
@@ -101,7 +102,7 @@ Theorem buckets_ok_empty
 
 
 Theorem hashtable_empty_spec
-  `!a b hf hfv cmp cmpv size sizev htv.
+  `!a b hf hfv cmp cmpv size sizev ar.
       NUM size sizev /\
       (a --> NUM) hf hfv /\
       (a --> a --> ORDERING_TYPE) cmp cmpv /\
@@ -111,7 +112,7 @@ Theorem hashtable_empty_spec
         (POSTv htv. SEP_EXISTS capacity.
             &(size < 1 ==> capacity = 1 /\
               size >= 1 ==> capacity = size) *
-           HASHTABLE a b hf cmp (REPLICATE capacity FEMPTY) htv)`
+           HASHTABLE ($=0) a b hf cmp (REPLICATE capacity FEMPTY) htv)`
 (xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
 \\xlet_auto
    >-(xsimpl)
@@ -138,7 +139,7 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ qexists_tac `1`
 \\ qexists_tac `(REPLICATE 1 mpv)`
 \\ qexists_tac `arr`
-\\ qexists_tac `0`
+
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
@@ -165,7 +166,6 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ qexists_tac `size'`
 \\ qexists_tac `(REPLICATE size' mpv)`
 \\ qexists_tac `arr`
-\\ qexists_tac `0`
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE size' (mlmap$empty cmp))`
@@ -249,12 +249,13 @@ Theorem every_map_ok_insert
 \\simp[]);
 
 Theorem hashtable_staticInsert_spec
-  `!a b hf hfv cmp cmpv k kv v vv htv.
+  `!a b hf hfv cmp cmpv k kv v vv htv used.
       a k kv /\
       b v vv  ==>
       app (p:'ffi ffi_proj) Hashtable_staticInsert_v [htv; kv; vv]
-        (HASHTABLE a b hf cmp h htv)
-        (POSTv uv. SEP_EXISTS hsh fm. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (LUPDATE (fm|+(k,v)) hsh h) htv)`
+        (HASHTABLE ($= used) a b hf cmp h htv)
+        (POSTv uv. SEP_EXISTS hsh fm. &(UNIT_TYPE () uv) *
+          HASHTABLE ($=(if fm = FEMPTY then used+1 else used)) a b hf cmp (LUPDATE (fm|+(k,v)) hsh h) htv)`
 (xcf_with_def "Hashtable.staticInsert" Hashtable_staticInsert_v_def
 \\ fs[HASHTABLE_def]
 \\ xpull
@@ -356,7 +357,12 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\qexists_tac `heuristic_size + 1`
   \\xsimpl
   \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
-  \\fs[lupdate_fupdate_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]))
+  \\fs[lupdate_fupdate_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]
+  \\Cases_on `to_fmap (EL (hf k MOD LENGTH vlv) buckets) = FEMPTY`
+  \\simp[]
+  \\Cases_on `(EL (hf k MOD LENGTH vlv) buckets)`
+  \\Induct_on `b''`
+  \\fs[mlmapTheory.null_def,balanced_mapTheory.null_def, balanced_mapTheory.null_thm, mlmapTheory.to_fmap_def]))
 
   \\xcon
   \\xsimpl
@@ -371,7 +377,12 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\qexists_tac `heuristic_size`
   \\xsimpl
   \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
-  \\fs[lupdate_fupdate_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]));
+  \\fs[lupdate_fupdate_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]
+  \\Cases_on `(EL (hf k MOD LENGTH vlv) buckets)`
+  \\simp[]
+  \\Induct_on `b''`
+  \\fs[mlmapTheory.null_def,balanced_mapTheory.null_def, balanced_mapTheory.null_thm, mlmapTheory.to_fmap_def]
+  \\fs[mlmapTheory.null_def,balanced_mapTheory.null_def, balanced_mapTheory.null_thm, mlmapTheory.to_fmap_def]));
 
 
 val _ = export_theory();
