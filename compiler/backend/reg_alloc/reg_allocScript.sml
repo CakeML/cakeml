@@ -168,11 +168,7 @@ val st_ex_FILTER_def = Define`
       st_ex_FILTER P xs acc
   od)`
 
-(* Insert an undirect edge into the adj list representation
-  -- This is VERY lightly optimized to remove duplicates
-  -- alternative: maintain an "invisible" invariant that
-     all the adj_lists are sorted
-*)
+(* Insert an undirect edge into the adj list representation *)
 val sorted_insert_def = Define`
   (sorted_insert (x:num) acc [] = REVERSE (x::acc)) ∧
   (sorted_insert x acc (y::ys) =
@@ -186,55 +182,6 @@ val sorted_mem_def = Define`
     if x = y then T
     else if x <= y then F
     else sorted_mem x ys)`
-
-(* TODO quick sanity check: move to proof file when done *)
-val hide_def = Define`
-  hide x = x`
-
-val sorted_insert_correct = Q.prove(`
-  ∀ls acc.
-  SORTED $< ls ∧
-  SORTED $< (REVERSE acc) ∧
-  SORTED $< (REVERSE acc ++ ls) ∧
-  EVERY (\y. y < x) acc ⇒
-  hide (SORTED $< (sorted_insert x acc ls) ∧
-        MEM x (sorted_insert x acc ls))`,
-  Induct>>
-  fs[sorted_insert_def]
-  >-
-    (rw[hide_def]>>
-    DEP_ONCE_REWRITE_TAC[SORTED_APPEND]>>
-    simp[transitive_def]>>
-    fs[EVERY_MEM])
-  >>
-  rw[]
-  >-
-    simp[hide_def]
-  >-
-    (DEP_ONCE_REWRITE_TAC[SORTED_APPEND]>>
-    simp[transitive_def,hide_def]>>
-    CONJ_TAC >-
-      (fs[SORTED_DEF,less_sorted_eq]>>
-      metis_tac[LESS_TRANS])>>
-    rw[]>>fs[EVERY_MEM]
-    >-
-      metis_tac[LESS_TRANS]
-    >>
-    fs[less_sorted_eq]>>
-    metis_tac[LESS_TRANS])
-  >>
-    first_x_assum match_mp_tac>>
-    fs[less_sorted_eq,SORTED_APPEND_IFF]>>
-    Cases_on`ls`>>fs[]);
-
-val sorted_mem_correct = Q.prove(`
-  ∀ls.
-  SORTED $< ls ⇒
-  (sorted_mem x ls ⇔ MEM x ls)`,
-  Induct>>rw[sorted_mem_def]>>
-  fs[less_sorted_eq]>>
-  rw[EQ_IMP_THM]>>
-  simp[NOT_LESS,LESS_EQ,NOT_LESS_EQUAL])
 
 val insert_edge_def = Define`
   insert_edge x y =
@@ -478,11 +425,6 @@ val do_coalesce_real_def = Define`
   do
     (* mark y as coalesced to x *)
     update_coalesced y x;
-    (* replace all instances of y in the move lists to x
-    am <- get_avail_moves_wl;
-    set_avail_moves_wl (MAP (pair_rename x y) am);
-    uam <- get_unavail_moves_wl;
-    set_unavail_moves_wl (MAP (pair_rename x y) uam); *)
     (*
       increment degree of x by new vertices
     *)
@@ -586,20 +528,15 @@ val consistency_ok_def = Define`
     return F (* check 1 *)
   else
   do
-    d <- get_dim; (* unnecessary*)
-    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
+    adjy <- adj_ls_sub y; (* check 2 *)
+    if sorted_mem x adjy then return F
     else
     do
-      adjy <- adj_ls_sub y; (* check 2 *)
-      if sorted_mem x adjy then return F
-      else
-      do
-        bx <- is_Fixed x;
-        by <- is_Fixed y;
-        movrelx <- move_related_sub x;
-        movrely <- move_related_sub y;
-        return ((bx ∨ movrelx) ∧ (by ∨ movrely) ∧ ¬(bx ∧ by) );
-      od
+      bx <- is_Fixed x;
+      by <- is_Fixed y;
+      movrelx <- move_related_sub x;
+      movrely <- move_related_sub y;
+      return ((bx ∨ movrelx) ∧ (by ∨ movrely) ∧ ¬(bx ∧ by) );
     od
   od`
 
@@ -1334,8 +1271,8 @@ val full_consistency_ok_def = Define`
     return F (* check 1 *)
   else
   do
-    d <- get_dim; (* unnecessary*)
-    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
+    d <- get_dim;
+    if x ≥ d ∨ y ≥ d then return F
     else
     do
       adjy <- adj_ls_sub y; (* check 2 *)
