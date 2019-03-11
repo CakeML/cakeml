@@ -7,6 +7,7 @@
 
 open preamble ml_translatorTheory ml_translatorLib cfLib
      mlbasicsProgTheory ArrayProgTheory ArrayProofTheory MapProgTheory HashtableProgTheory
+     comparisonTheory;
 
 val _ = new_theory"HashtableProof";
 
@@ -90,6 +91,15 @@ Theorem hashtable_initBuckets_spec
 \\ asm_exists_tac
 \\ simp[]);
 
+Theorem buckets_ok_empty
+  `!n cmp hf. TotOrd cmp ==>
+      buckets_ok (REPLICATE n (mlmap$empty cmp)) hf`
+(rpt strip_tac
+\\fs[EL_REPLICATE,TotOrder_imp_good_cmp,buckets_ok_def, bucket_ok_def,
+  mlmapTheory.empty_thm,balanced_mapTheory.empty_thm,
+  mlmapTheory.lookup_thm, balanced_mapTheory.lookup_thm,flookup_thm]);
+
+
 Theorem hashtable_empty_spec
   `!a b hf hfv cmp cmpv size sizev htv.
       NUM size sizev /\
@@ -132,12 +142,11 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
-\\ simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def]
-\\ simp[buckets_ok]
-\\ simp[LIST_REL_REPLICATE_same]
 \\ conj_tac
->- (EVAL_TAC)
-\\ fs[buckets_ok_empty])))
+\\ simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def]
+\\ simp[buckets_ok_empty]
+\\ simp[LIST_REL_REPLICATE_same]
+\\ fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])))
 (*size > 1*)
 THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
    >-(xapp
@@ -153,20 +162,19 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ xcon
 \\ fs[HASHTABLE_def]
 \\ xsimpl
-\\ qexists_tac `arr`
+\\ qexists_tac `size'`
 \\ qexists_tac `(REPLICATE size' mpv)`
+\\ qexists_tac `arr`
 \\ qexists_tac `0`
 \\ xsimpl
 \\ fs[hashtable_inv_def]
-\\ qexists_tac `(REPLICATE size' (empty cmp))`
+\\ qexists_tac `(REPLICATE size' (mlmap$empty cmp))`
 \\ conj_tac
-\\ fs[buckets_to_fmap_def]
-\\ fs[map_replicate]
->- (EVAL_TAC \\
-  fs[FLAT_REPLICATE_NIL])
-\\ conj_tac
-\\ fs[buckets_ok_empty]
-\\ simp[LIST_REL_REPLICATE_same]))));
+\\ simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def]
+\\ simp[buckets_ok_empty]
+\\ fs[BOOL_def]
+\\ simp[LIST_REL_REPLICATE_same]
+\\ fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm]))));
 
 
 Theorem lupdate_fupdate_insert
