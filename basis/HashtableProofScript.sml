@@ -19,40 +19,44 @@ val hashtable_st = get_ml_prog_state();
 (* the union of each bucket is the heap *)
 (* the vlv list contains the buckets *)
 (* each bucket only contains keys that hash there *)
-val buckets_to_fmap_def = Define `
-  buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
 
-(*
-val buckets_to_fmap_def = Define `
-  buckets_to_fmap [] = FEMPTY /\
-  buckets_to_fmap (x::xs) = FUNION (mlmap$to_fmap x) (buckets_to_fmap xs)`;
-  *)
+val hash_key_set_def = Define`
+  hash_key_set hf length idx  = { k' | hf k' MOD length = idx }`;
 
 
 val bucket_ok_def = Define `
-  bucket_ok b idx hf length = !k v.
-    mlmap$lookup b k = SOME v ==> (hf k) MOD length = idx`;
+bucket_ok b hf idx length  = !k v.
+      mlmap$lookup b k = SOME v ==> k ∈ (hash_key_set hf length idx)`;
+
+(*
+val bucket_ok_def = Define `
+bucket_ok b hf idx length  = !k v. to_fmap b = FEMPTY \/
+      (mlmap$lookup b k = SOME v ==> k ∈ (hash_key_set hf length idx))`;
+*)
+
+val buckets_to_fmap_def = Define `
+  buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
+
+
 
 val buckets_ok_def = Define `
-    buckets_ok bs hf = !i.
-      i < LENGTH bs ==>
-        bucket_ok (EL i bs) i hf (LENGTH bs)`;
+   buckets_ok bs hf =
+     !i. i < LENGTH bs ==>
+       bucket_ok (EL i bs) hf i (LENGTH bs)`;
 
 val hashtable_inv_def = Define `
-  hashtable_inv a b hf cmp (h:'a|->'b) vlv =
+  hashtable_inv a b hf cmp (h:(('a|->'b) list)) vlv =
     ?buckets.
-      h = buckets_to_fmap buckets /\
+      h = MAP mlmap$to_fmap buckets /\
       buckets_ok buckets hf /\
-      LIST_REL (MAP_TYPE a b) buckets vlv `;
-
+      (LENGTH vlv) > 0 /\
+      LIST_REL (MAP_TYPE a b) buckets vlv /\
+      EVERY mlmap$map_ok buckets`;
 
 Theorem buckets_ok_empty
   `buckets_ok (REPLICATE n (mlmap$empty cmp)) hf`
-( rw[buckets_ok_def]
-\\ fs[EL_REPLICATE]
-\\ rw[bucket_ok_def]
-\\ fs[mlmapTheory.lookup_def, mlmapTheory.empty_def,
-      balanced_mapTheory.empty_def, balanced_mapTheory.lookup_def]);
+( rw[EVERY_REPLICATE,buckets_ok_def, mlmapTheory.cmp_of_def]);
+
 
 val REF_NUM_def = Define `
   REF_NUM loc n =
@@ -62,16 +66,17 @@ val REF_ARRAY_def = Define `
   REF_ARRAY loc arr content = REF loc arr * ARRAY arr content`;
 
 
+
 val HASHTABLE_def = Define
- `HASHTABLE a b hf cmp (h:'a|->'b) v =
-    SEP_EXISTS ur ar arr hfv cmpv vlv heuristic_size.
+ `HASHTABLE a b hf cmp h v =
+    SEP_EXISTS ur ar hfv vlv arr cmpv heuristic_size.
       &(v = (Conv (SOME (TypeStamp "Hashtable" 8)) [ur; ar; hfv; cmpv]) /\
         (a --> NUM) hf hfv /\
         (a --> a --> ORDERING_TYPE) cmp cmpv /\
+        TotOrd cmp /\
         hashtable_inv a b hf cmp h vlv) *
       REF_NUM ur heuristic_size *
       REF_ARRAY ar arr vlv`;
-
 
 Theorem hashtable_initBuckets_spec
  `!a b n nv cmp cmpv.
@@ -93,13 +98,16 @@ Theorem hashtable_initBuckets_spec
 
 Theorem hashtable_empty_spec
   `!a b hf hfv cmp cmpv size sizev htv.
+      NUM size sizev /\
       (a --> NUM) hf hfv /\
       (a --> a --> ORDERING_TYPE) cmp cmpv /\
-      (h = FEMPTY) /\
-      NUM size sizev ==>
+      TotOrd cmp ==>
       app (p:'ffi ffi_proj) Hashtable_empty_v [sizev; hfv; cmpv]
         emp
-        (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)`
+        (POSTv htv. SEP_EXISTS capacity.
+            &(size < 1 ==> capacity = 1 /\
+              size >= 1 ==> capacity = size) *
+           HASHTABLE a b hf cmp (REPLICATE capacity FEMPTY) htv)`
 (xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
 \\xlet_auto
    >-(xsimpl)
@@ -123,12 +131,15 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ xcon
 \\ fs[HASHTABLE_def]
 \\ xsimpl
-\\ qexists_tac `arr`
+\\ qexists_tac `1`
 \\ qexists_tac `(REPLICATE 1 mpv)`
+\\ qexists_tac `arr`
 \\ qexists_tac `0`
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
+\\ simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def]
+\\ simp[buckets_ok]
 \\ simp[LIST_REL_REPLICATE_same]
 \\ conj_tac
 >- (EVAL_TAC)
@@ -163,29 +174,202 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ fs[buckets_ok_empty]
 \\ simp[LIST_REL_REPLICATE_same]))));
 
+
+Theorem lupdate_fupdate_insert
+  `!buckets idx k v.
+      EVERY map_ok buckets /\
+      idx < LENGTH buckets ==>
+      LUPDATE (mlmap$to_fmap (EL idx buckets) |+ (k,v)) idx (MAP mlmap$to_fmap buckets) =
+        MAP mlmap$to_fmap (LUPDATE (mlmap$insert (EL idx buckets) k v) idx buckets)`
+(fs[EVERY_EL,LIST_REL_EL_EQN,LUPDATE_MAP,mlmapTheory.insert_thm]);
+
+
+Theorem buckets_ok_insert
+  `!buckets hf idx k v.
+      EVERY map_ok buckets /\
+      buckets_ok buckets hf /\
+      idx < LENGTH buckets /\
+      idx = hf k MOD LENGTH buckets ==>
+        buckets_ok
+          (LUPDATE (mlmap$insert (EL idx buckets) k v)
+            idx buckets) hf`
+(rpt strip_tac
+\\fs[EVERY_EL,EL_LUPDATE,buckets_ok_def, bucket_ok_def, hash_key_set_def]
+\\strip_tac
+\\strip_tac
+\\strip_tac
+\\strip_tac
+\\Cases_on ` i = hf k MOD LENGTH buckets`
+\\fs[mlmapTheory.lookup_insert]
+\\Cases_on `k=k'`
+\\simp[]
+\\simp[]
+\\simp[]);
+
+
+Theorem insert_not_empty
+  `!a b (mp:('a,'b) map) k v.
+      mlmap$map_ok mp ==>
+        to_fmap (mlmap$insert mp k v) <> FEMPTY`
+(fs[mlmapTheory.insert_thm, mlmapTheory.to_fmap_def,
+  balanced_mapTheory.insert_thm,
+  balanced_mapTheory.to_fmap_def, FEMPTY_FUPDATE_EQ]);
+
+
+Theorem list_rel_insert
+  `!a b buckets updMap vlv idx k v.
+      LIST_REL (MAP_TYPE a b) buckets vlv /\
+      MAP_TYPE a b (mlmap$insert (EL idx buckets) k v) updMap /\
+      EVERY map_ok buckets /\
+      idx < LENGTH buckets  ==>
+        LIST_REL (MAP_TYPE a b)
+          (LUPDATE (mlmap$insert (EL idx buckets) k v) idx buckets)
+        (LUPDATE updMap idx vlv)`
+(rpt strip_tac
+\\fs[EVERY_EL,LIST_REL_EL_EQN, EL_LUPDATE]
+\\strip_tac
+\\strip_tac
+\\Cases_on `n = idx`
+\\fs[mlmapTheory.insert_thm]
+\\simp[]);
+
+Theorem every_map_ok_insert
+  `!buckets idx k v.
+      EVERY map_ok buckets /\
+      idx < LENGTH buckets  ==>
+        EVERY map_ok (LUPDATE (insert (EL idx buckets) k v) idx buckets)`
+(rpt strip_tac
+\\fs[EVERY_EL,EL_LUPDATE]
+\\strip_tac
+\\strip_tac
+\\Cases_on `n=idx`
+\\fs[mlmapTheory.insert_thm]
+\\simp[]);
+
 Theorem hashtable_staticInsert_spec
   `!a b hf hfv cmp cmpv k kv v vv htv.
-      (a --> NUM) hf hfv /\
-      (a --> a --> ORDERING_TYPE) cmp cmpv /\
       a k kv /\
-      b v vv ==>
+      b v vv  ==>
       app (p:'ffi ffi_proj) Hashtable_staticInsert_v [htv; kv; vv]
         (HASHTABLE a b hf cmp h htv)
-        (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h|+(k,v)) htv)`
+        (POSTv uv. SEP_EXISTS hsh fm. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (LUPDATE (fm|+(k,v)) hsh h) htv)`
 (xcf_with_def "Hashtable.staticInsert" Hashtable_staticInsert_v_def
 \\ fs[HASHTABLE_def]
 \\ xpull
 \\ xmatch
-\\ xlet `POSTv v. HASHTABLE a b hf cmp h htv`
+\\ fs[hashtable_inv_def]
+\\ xlet `POSTv arr. SEP_EXISTS aRef arr2 avl uRef uv uvv.
+    &(aRef = ar /\ arr2 = arr /\ avl = vlv /\ uRef = ur /\ uv = heuristic_size) *
+    REF_ARRAY ar arr vlv * REF ur uvv * & (NUM heuristic_size uvv)`
   >-(xapp
-    \\ fs[HASHTABLE_def]
     \\qexists_tac `ARRAY arr vlv * REF_NUM ur heuristic_size`
     \\qexists_tac `arr`
-    \\fs[REF_ARRAY_def]
-    \\xsimpl
-    \\qexists_tac `heuristic_size`
+    \\fs[REF_ARRAY_def, REF_NUM_def]
     \\xsimpl)
+\\ xlet `POSTv v. SEP_EXISTS length. &(length = LENGTH vlv /\ NUM length v) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+  >-(xapp
+    \\qexists_tac `aRef ~~> arr2 * REF_NUM uRef uv`
+    \\qexists_tac `avl`
+    \\fs[REF_ARRAY_def,REF_NUM_def]
+    \\xsimpl)
+\\ xlet `POSTv v. SEP_EXISTS hashval. &(hashval = (hf k) /\ NUM hashval v) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+  >-(xapp
+    \\qexists_tac `REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+    \\qexists_tac `k`
+    \\qexists_tac `hf`
+    \\conj_tac
+     >-(qexists_tac `a`
+      \\simp[])
+    \\xsimpl)
+\\ xlet `POSTv v. SEP_EXISTS idx. &(idx = (hashval MOD length') /\ NUM idx v /\
+    idx < LENGTH avl /\ idx < LENGTH buckets /\ LENGTH buckets = LENGTH avl) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+  >-(xapp
+    \\qexists_tac `REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+    \\qexists_tac `&length'`
+    \\qexists_tac `&hashval`
+    \\fs[NOT_NIL_EQ_LENGTH_NOT_0,X_MOD_Y_EQ_X,LENGTH_NIL_SYM,NUM_def, hashtable_inv_def, LIST_REL_LENGTH]
+    \\xsimpl
+    \\EVAL_TAC
+    \\fs[LIST_REL_LENGTH,NOT_NIL_EQ_LENGTH_NOT_0,LIST_REL_EL_EQN, X_MOD_Y_EQ_X])
+\\ xlet `POSTv mp. SEP_EXISTS oldMap. &(oldMap = mp /\ MAP_TYPE a b (EL idx buckets) mp) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+ >-(xapp
+    \\qexists_tac `aRef ~~> arr2 * REF_NUM uRef uv`
+    \\qexists_tac `idx`
+    \\qexists_tac `vlv`
+    \\fs[hashtable_inv_def,NOT_NIL_EQ_LENGTH_NOT_0,LIST_REL_EL_EQN, X_MOD_Y_EQ_X,REF_ARRAY_def]
+    \\xsimpl)
+\\ xlet `POSTv retv. SEP_EXISTS newMp.
+      &(newMp = retv /\  MAP_TYPE a b (mlmap$insert (EL idx buckets)  k v) retv) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+ >-(xapp
+    \\qexists_tac `REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+    \\qexists_tac `v`
+    \\qexists_tac `k`
+    \\qexists_tac `EL idx buckets`
+    \\qexists_tac `b`
+    \\qexists_tac `a`
+    \\fs[LIST_REL_EL_EQN]
+    \\xsimpl)
+\\ xlet `POSTv unitv. SEP_EXISTS newBuckets.
+    &(UNIT_TYPE () unitv /\ newBuckets = (LUPDATE newMp idx avl)) *
+    REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+  >-(xapp
+    \\qexists_tac `aRef ~~> arr2 * REF_NUM uRef uv`
+    \\qexists_tac `idx`
+    \\qexists_tac `vlv`
+    \\fs[REF_ARRAY_def]
+    \\xsimpl)
+\\ xlet `POSTv b. &(BOOL (mlmap$null (EL idx buckets)) b) * REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+  >-(xapp
+    \\qexists_tac `REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+    \\qexists_tac `EL idx buckets`
+    \\xsimpl
+    \\qexists_tac `a`
+    \\qexists_tac `b`
+    \\fs[])
+THEN1 (xif
+THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+  >-(xapp
+    \\qexists_tac `REF_ARRAY aRef arr2 newBuckets`
+    \\qexists_tac `uvv`
+    \\fs[REF_NUM_def, NUM_def, INT_def]
+    \\xsimpl)
+\\ xlet_auto
+  >-(qexists_tac `REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+    \\xsimpl)
+  THEN1( xapp
+  \\qexists_tac `REF_ARRAY aRef arr2 newBuckets`
+  \\qexists_tac `usedv`
+  \\fs[REF_NUM_def, NUM_def, INT_def]
+  \\xsimpl
+  \\strip_tac
+  \\strip_tac
+  \\qexists_tac `idx`
+  \\qexists_tac `mlmap$to_fmap (EL (hf k MOD LENGTH buckets) buckets)`
+  \\qexists_tac `uRef`
+  \\qexists_tac `aRef`
+  \\qexists_tac `hfv`
+  \\qexists_tac `newBuckets`
+  \\qexists_tac `arr2`
+  \\qexists_tac `cmpv`
+  \\qexists_tac `heuristic_size + 1`
+  \\xsimpl
+  \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
+  \\fs ckets_ok_insert, list_rel_insert, every_map_ok_insert]))
 
+  \\xcon
+  \\xsimpl
+  \\qexists_tac `idx`
+  \\qexists_tac `mlmap$to_fmap (EL (hf k MOD LENGTH buckets) buckets)`
+  \\qexists_tac `uRef`
+  \\qexists_tac `aRef`
+  \\qexists_tac `hfv`
+  \\qexists_tac `newBuckets`
+  \\qexists_tac `arr2`
+  \\qexists_tac `cmpv`
+  \\qexists_tac `heuristic_size`
+  \\xsimpl
+  \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
+  \\fs[lupdate_fupdate_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]));
 
 
 val _ = export_theory();
