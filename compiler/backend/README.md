@@ -274,6 +274,9 @@ replaces all calls to Alloc by calls to code that it inserts into
 the compiled program. the inserted code is a stackLang
 implementation of the garbage collector.
 
+[stack_callScript.sml](stack_callScript.sml):
+Comment here
+
 [stack_namesScript.sml](stack_namesScript.sml):
 This compiler phase renames the registers to fit with the target
 architecture.
@@ -281,6 +284,9 @@ architecture.
 [stack_removeScript.sml](stack_removeScript.sml):
 This compiler phase implements all stack operations as normal memory
 load/store operations.
+
+[stack_seqScript.sml](stack_seqScript.sml):
+Associates all Seq applications to the right.
 
 [stack_to_labScript.sml](stack_to_labScript.sml):
 This compiler phase maps stackLang programs, which has structure
