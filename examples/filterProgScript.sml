@@ -499,7 +499,6 @@ val _ = append_prog forward_matching_lines;
 
 val st = get_ml_prog_state();
 
-
 val maincall =
   ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])``
 
@@ -571,16 +570,9 @@ QED
 Theorem decode_encode_oracle_state_11:
   !ffi_st. decode_oracle_state(encode_oracle_state ffi_st) = ffi_st
 Proof
-  `!(l:word8 list llist). LUNFOLD
-        (λn.
-           lift ($, (SUC n) ∘ MAP (n2w ∘ ORD))
-           (destStr
-              (case LNTH n l of
-                   NONE => Num 0
-                 | SOME l => Str (MAP (CHR ∘ w2n) l)))) 0 = l`
-    suffices_by rw[encode_oracle_state_def,decode_oracle_state_def,
+  rw[encode_oracle_state_def,decode_oracle_state_def,
                    filter_ffi_component_equality] >>
-  strip_tac >> rename1 `_ = ll` >>
+  rename1 `_ = ll` >>
   qho_match_abbrev_tac `a1 ll = _` >>
   PURE_ONCE_REWRITE_TAC[LLIST_BISIMULATION] >>
   qexists_tac `\x y. ?ll. x = a1 ll /\ y = ll` >>
@@ -640,17 +632,15 @@ val finite_events_is_list2 = Q.prove(
   `,
   Induct >-
     rpt(rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM]) >-
-    (rw[] >-
-     (ntac 2 (rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM]) >>
+    (rw[] >>
+     TRY(rename1 `T` >>
+         ntac 2 (rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM])) >>
+     TRY(rename1 `F` >>
+         rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM]) >>     
       simp[PULL_EXISTS] >>
       qmatch_goalsub_abbrev_tac `LUNFOLD (_ f) (_,init2,b)` >>
       first_x_assum(qspecl_then[`f`,`init2`,`b`] strip_assume_tac) >>
-      asm_exists_tac >> simp[] >> Cases_on `b` >> fs[]) >-
-     (rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM] >>
-      simp[PULL_EXISTS] >>
-      qmatch_goalsub_abbrev_tac `LUNFOLD (_ f) (_,init2,b)` >>
-      first_x_assum(qspecl_then[`f`,`init2`,`b`] strip_assume_tac) >>
-      asm_exists_tac >> simp[] >> Cases_on `b` >> fs[])));
+      asm_exists_tac >> simp[] >> Cases_on `b` >> fs[]));
 
 val toList_FINITE_LAPPEND = Q.prove(
   `!ll1 l1 ll2 l2.
@@ -1272,8 +1262,7 @@ Proof
   >> rw[] >> fs[] >> rveq >> fs[]
   >> every_case_tac >> fs[] >> rveq >> fs[LENGTH_TAKE_EQ]
   >> rw[fmap_eq_flookup,FLOOKUP_UPDATE]
-QED  
-  
+QED
   
 Theorem forward_matching_lines_semantics:
  LLENGTH input = NONE /\ every null_terminated_w input /\
