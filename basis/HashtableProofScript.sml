@@ -164,23 +164,45 @@ Theorem list_union_thm
        \\ Cases_on `list_union (h'::t')`
        \\ rfs[mlmapTheory.union_thm]));
 
-Theorem map_to_fmap_union:
-          cmp_of t1 = cmp_of t2 /\
-          map_ok t1 /\ map_ok t2 ==>
-          mlmap$to_fmap (mlmap$union t1 t2) = (to_fmap t1 ⊌ to_fmap t2)
+Theorem list_union_empty_maps
+  `!cmp.
+    (h::t) <> [] /\
+    EVERY ($=(mlmap$empty cmp)) (h::t) /\
+    EVERY (\t. cmp_of t = cmp) (h::t) /\
+    EVERY map_ok (h::t) ==>
+      mlmap$to_fmap (list_union (h::t)) = FEMPTY`
   (rpt strip_tac
-  \\Cases_on `t1`
-  \\Cases_on `t2`
-  \\fs[mlmapTheory.map_ok_def, mlmapTheory.cmp_of_def]
-  \\Cases_on `b`
-  \\Cases_on `b'`
-  >-(EVAL_TAC)
-  >-(EVAL_TAC)
-  >-(EVAL_TAC)
+  \\ Induct_on `(h::t)`
+  >-(simp[])
   >-(rpt strip_tac
-    \\simp[mlmapTheory.union_def, balanced_mapTheory.union_def, mlmapTheory.to_fmap_def])
-  \\rpt strip_tac
-  \\
+    \\ Cases_on `t=[]`
+    >-(rw[]
+      \\ fs[EVERY_DEF, list_union_def]
+      \\ pop_assum kall_tac
+      \\ pop_assum kall_tac
+      \\ rveq
+      \\ simp[mlmapTheory.empty_thm])
+    >-(imp_res_tac list_union_thm
+      \\rfs[]
+      \\Cases_on `t`
+      >-(fs[])
+      >-(rfs[]
+        \\ fs[EVERY_DEF]
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ pop_assum kall_tac
+        \\ rveq
+        \\ simp[mlmapTheory.empty_thm]))));
+
 
 
 Theorem hashtable_empty_spec
