@@ -35,7 +35,9 @@ val buckets_empty_def = Define `
 val buckets_to_fmap_def = Define `
   buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
 
-
+val list_union_def = Define `
+  list_union [x] = x /\
+  list_union (x::xs) = mlmap$union x (list_union xs)`;
 
 val buckets_ok_def = Define `
    buckets_ok bs hf =
@@ -43,11 +45,11 @@ val buckets_ok_def = Define `
        bucket_ok (EL i bs) hf i (LENGTH bs)`;
 
 val hashtable_inv_def = Define `
-  hashtable_inv a b hf cmp (h:(('a|->'b) list)) vlv =
+  hashtable_inv a b hf cmp (h:('a|->'b)) vlv =
     ?buckets.
-      h = MAP mlmap$to_fmap buckets /\
+      h = to_fmap (list_union buckets) /\
       buckets_ok buckets hf /\
-      (LENGTH vlv) > 0 /\
+      0 <> (LENGTH vlv)  /\
       LIST_REL (MAP_TYPE a b) buckets vlv /\
       EVERY mlmap$map_ok buckets`;
 
@@ -63,14 +65,13 @@ val REF_ARRAY_def = Define `
 
 
 val HASHTABLE_def = Define
- `HASHTABLE UP a b hf cmp h v =
+ `HASHTABLE a b hf cmp h v =
     SEP_EXISTS ur ar hfv vlv arr cmpv heuristic_size.
       &(v = (Conv (SOME (TypeStamp "Hashtable" 8)) [ur; ar; hfv; cmpv]) /\
         (a --> NUM) hf hfv /\
         (a --> a --> ORDERING_TYPE) cmp cmpv /\
         TotOrd cmp /\
-        (hashtable_inv a b hf cmp h vlv) /\
-        UP heuristic_size) *
+        hashtable_inv a b hf cmp h vlv) *
       REF_NUM ur heuristic_size *
       REF_ARRAY ar arr vlv`;
 
@@ -100,6 +101,87 @@ Theorem buckets_ok_empty
   mlmapTheory.empty_thm,balanced_mapTheory.empty_thm,
   mlmapTheory.lookup_thm, balanced_mapTheory.lookup_thm,flookup_thm]);
 
+Theorem list_union_cmp_of
+  `!cmp h t.
+    (h::t) <> [] /\
+    EVERY (\t. cmp_of t = cmp) (h::t) /\
+    EVERY map_ok (h::t) ==>
+      cmp_of (list_union (h::t)) = cmp`
+  (rpt strip_tac
+  \\ Induct_on `(h::t)`
+     >-(simp[])
+     >-(rpt strip_tac
+       \\Cases_on `t`
+       >-(fs[list_union_def])
+       >-(fs[list_union_def]
+          \\ Cases_on `h'`
+          \\ Cases_on `list_union (h''::t')`
+          \\ fs[EVERY_DEF, mlmapTheory.union_def, mlmapTheory.cmp_of_def])));
+
+Theorem list_union_map_ok
+  `!cmp h t.
+    (h::t) <> [] /\
+    EVERY (\t. cmp_of t = cmp) (h::t) /\
+    EVERY map_ok (h::t) ==>
+      map_ok (list_union (h::t))`
+  (rpt strip_tac
+  \\ Induct_on `(h::t)`
+     >-(simp[])
+     >-(rpt strip_tac
+       \\ Cases_on `t = []`
+       \\ rw[]
+       \\ fs[EVERY_DEF, list_union_def]
+       >-(Cases_on `t`
+          >-(fs[])
+          >-(simp[list_union_def]
+            \\imp_res_tac list_union_cmp_of
+            \\rfs[]
+            \\imp_res_tac mlmapTheory.union_thm
+            \\rfs[]))));
+
+Theorem list_union_thm
+  `!cmp.
+    (h::t) <> [] /\
+    EVERY (\t. cmp_of t = cmp) (h::t) /\
+    EVERY map_ok (h::t) ==>
+      map_ok (list_union (h::t)) /\
+      cmp_of (list_union (h::t)) = cmp /\
+      (t = [] ==> to_fmap (list_union (h::t)) = to_fmap h ) /\
+      (t <> [] ==> to_fmap (list_union (h::t)) = to_fmap h ⊌ to_fmap (list_union t))`
+  (rpt strip_tac
+  >-(fs[EVERY_DEF,list_union_map_ok])
+  >-(fs[EVERY_DEF, list_union_cmp_of])
+  >-(rw[]
+    \\ fs[list_union_def])
+  \\ Cases_on `t`
+     >-(fs[])
+     >-(simp[list_union_def]
+       \\ imp_res_tac list_union_cmp_of
+       \\ imp_res_tac list_union_map_ok
+       \\ imp_res_tac mlmapTheory.union_thm
+       \\ rfs[]
+       \\ Cases_on `h`
+       \\ Cases_on `list_union (h'::t')`
+       \\ rfs[mlmapTheory.union_thm]));
+
+Theorem map_to_fmap_union:
+          cmp_of t1 = cmp_of t2 /\
+          map_ok t1 /\ map_ok t2 ==>
+          mlmap$to_fmap (mlmap$union t1 t2) = (to_fmap t1 ⊌ to_fmap t2)
+  (rpt strip_tac
+  \\Cases_on `t1`
+  \\Cases_on `t2`
+  \\fs[mlmapTheory.map_ok_def, mlmapTheory.cmp_of_def]
+  \\Cases_on `b`
+  \\Cases_on `b'`
+  >-(EVAL_TAC)
+  >-(EVAL_TAC)
+  >-(EVAL_TAC)
+  >-(rpt strip_tac
+    \\simp[mlmapTheory.union_def, balanced_mapTheory.union_def, mlmapTheory.to_fmap_def])
+  \\rpt strip_tac
+  \\
+
 
 Theorem hashtable_empty_spec
   `!a b hf hfv cmp cmpv size sizev ar.
@@ -109,10 +191,7 @@ Theorem hashtable_empty_spec
       TotOrd cmp ==>
       app (p:'ffi ffi_proj) Hashtable_empty_v [sizev; hfv; cmpv]
         emp
-        (POSTv htv. SEP_EXISTS capacity.
-            &(size < 1 ==> capacity = 1 /\
-              size >= 1 ==> capacity = size) *
-           HASHTABLE ($=0) a b hf cmp (REPLICATE capacity FEMPTY) htv)`
+        (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)`
 (xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
 \\xlet_auto
    >-(xsimpl)
@@ -136,16 +215,16 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ xcon
 \\ fs[HASHTABLE_def]
 \\ xsimpl
-\\ qexists_tac `1`
 \\ qexists_tac `(REPLICATE 1 mpv)`
 \\ qexists_tac `arr`
-
+\\ qexists_tac `0`
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
 \\ rpt conj_tac
-THEN1(simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def])
+THEN1(simp[fs[REPLICATE_GENLIST, GENLIST_CONS, list_union_def, mlmapTheory.empty_thm])
 THEN1(simp[buckets_ok_empty])
+THEN1(simp[REPLICATE_NIL])
 THEN1(simp[LIST_REL_REPLICATE_same])
 \\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])))
 (*size > 1*)
@@ -163,14 +242,26 @@ THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPL
 \\ xcon
 \\ fs[HASHTABLE_def]
 \\ xsimpl
-\\ qexists_tac `size'`
 \\ qexists_tac `(REPLICATE size' mpv)`
 \\ qexists_tac `arr`
+\\ qexists_tac `0`
 \\ xsimpl
 \\ fs[hashtable_inv_def]
 \\ qexists_tac `(REPLICATE size' (mlmap$empty cmp))`
 \\ rpt conj_tac
-THEN1(simp[map_replicate, mlmapTheory.empty_def, balanced_mapTheory.empty_def, mlmapTheory.to_fmap_def])
+THEN1(
+  Cases_on `REPLICATE size' (empty cmp)`
+  \\ fs[BOOL_def, REPLICATE_NIL]
+  \\ Cases_on `h=mlmap$empty cmp`
+  \\ rpt strip_tac
+  \\ Cases_on `list_union (x::xs)`
+  \\ Cases_on `t`
+  \\ simp[mlmapTheory.to_fmap_def, mlmapTheory.empty_def, balanced_mapTheory.empty_def, list_union_def]
+  \ simp[mlmapTheory.to_fmap_def, mlmapTheory.empty_def, balanced_mapTheory.empty_def,
+         list_union_def, mlmapTheory.union_def]
+  \\ fs[TotOrder_imp_good_cmp,mlmapTheory.empty_def, mlmapTheory.union_def,
+     balanced_mapTheory.empty_def,balanced_mapTheory.union_thm]
+  simp[REPLICATE_GENLIST, GENLIST_CONS, list_union_def, mlmapTheory.empty_thm])
 THEN1(simp[buckets_ok_empty])
 THEN1(fs[BOOL_def])
 THEN1(simp[LIST_REL_REPLICATE_same])
@@ -383,6 +474,5 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\Induct_on `b''`
   \\fs[mlmapTheory.null_def,balanced_mapTheory.null_def, balanced_mapTheory.null_thm, mlmapTheory.to_fmap_def]
   \\fs[mlmapTheory.null_def,balanced_mapTheory.null_def, balanced_mapTheory.null_thm, mlmapTheory.to_fmap_def]));
-
 
 val _ = export_theory();

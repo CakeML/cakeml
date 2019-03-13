@@ -192,6 +192,7 @@ Theorem insert_thm
 Theorem union_thm
   `map_ok t1 /\ map_ok t2 /\ cmp_of t1 = cmp_of t2 ==>
    map_ok (union t1 t2) /\
+   cmp_of (union t1 t2) = cmp_of t1 /\
    to_fmap (union t1 t2) = to_fmap t1 ⊌ to_fmap t2`
   (Cases_on `t1` \\ Cases_on `t2` \\ fs [cmp_of_def]
   \\ strip_tac \\ rveq
@@ -207,7 +208,8 @@ Theorem union_thm
   \\ rename [`invariant f (union f b1 b2)`]
   \\ `to_fmap f (union f b1 b2) = to_fmap f b1 ⊌ to_fmap f b2`
         by metis_tac [balanced_mapTheory.union_thm]
-  \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_FUNION,MAP_KEYS_sing_set]);
+  \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_FUNION,MAP_KEYS_sing_set]
+  \\simp[cmp_of_def]);
 
 
 Theorem lookup_thm
