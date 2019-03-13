@@ -167,8 +167,19 @@ val encode_rwts =
        Utype_def, UJtype_def]
    end
 
+val word_bit_0_add4 = prove(
+  ``word_bit 0 (w +  4w:word64) = word_bit 0 w /\
+    word_bit 0 (w +  8w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 12w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 16w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 20w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 24w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 28w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 32w:word64) = word_bit 0 w``,
+  blastLib.BBLAST_TAC);
+
 val enc_rwts =
-  [riscv_config, riscv_asm_ok, lem6] @ encode_rwts @ asmLib.asm_rwts
+  [riscv_config, riscv_asm_ok, lem6, word_bit_0_add4] @ encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
   [asmPropsTheory.enc_ok_def, riscv_config, riscv_asm_ok] @ encode_rwts
@@ -186,12 +197,18 @@ local
    val find_NextRISCV =
       dest_NextRISCV o List.hd o HolKernel.find_terms is_NextRISCV
    val s = ``s: riscv_state``
+   val word_bit_0_lemmas = Q.store_thm("word_bit_0_lemmas",
+     `!w. ¬word_bit 0 (0xFFFFFFFFFFFFFFFEw && w:word64) /\
+          word_bit 0 ((0xFFFFFFFFFFFFFFFEw && w:word64) + v) = word_bit 0 v`,
+     blastLib.BBLAST_TAC)
+   fun post_process th =
+     th |> REWRITE_RULE [word_bit_0_lemmas]
    fun step the_state l =
       let
          val v = listSyntax.mk_list (bytes l, Type.bool)
          val thm = Thm.INST [s |-> the_state] (riscv_stepLib.riscv_step v)
       in
-         (Drule.DISCH_ALL thm,
+         (Drule.DISCH_ALL thm |> post_process,
           optionSyntax.dest_some (boolSyntax.rand (Thm.concl thm)))
       end
    val ms = ``ms: riscv_state``
@@ -273,6 +290,9 @@ local
       rpt (WEAKEN_TAC (fn tm => not (markerSyntax.is_abbrev tm) andalso
                                 free_in var tm))
     end
+  val word_bit_0_mask = prove(
+    ``!w. ¬word_bit 0 (0xFFFFFFFFFFFFFFFEw && w:word64)``,
+    blastLib.BBLAST_TAC)
 in
   fun state_tac asm (gs as (asl, _)) =
     let
@@ -289,7 +309,7 @@ in
               (* Need to show that the register contents from the first
                  instruction are aligned *)
               NO_STRIP_FULL_SIMP_TAC (srw_ss()) [lem11]
-              \\ qpat_assum `aligned 2 (_ : word64) ==> (NextRISCV _ = _)`
+              \\ TRY (qpat_assum `aligned 2 (_ : word64) ==> (NextRISCV _ = _)`
                 (fn th => SUBGOAL_THEN (rand (rator (concl th)))
                              (fn lth => NO_STRIP_FULL_SIMP_TAC std_ss [lth])
                           >- (qpat_x_assum `aligned 2 _` mp_tac
@@ -298,7 +318,7 @@ in
                                    [Abbr [QUOTE x],
                                     combinTheory.APPLY_UPDATE_THM,
                                     alignmentTheory.aligned_extract]
-                              \\ blastLib.BBLAST_TAC))
+                              \\ blastLib.BBLAST_TAC)))
               \\ qpat_x_assum `~(0xFFFFFFFFFFF00000w <= c) \/ ~(c <= 0xFFFFFw)`
                    kall_tac
            else
@@ -309,6 +329,7 @@ in
             \\ asm_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
                                         alignmentTheory.aligned_numeric]
             ) l
+       \\ NO_STRIP_FULL_SIMP_TAC std_ss [word_bit_0_mask]
        \\ drop_var_asms_tac x
        \\ qunabbrev_tac [QUOTE x]
        \\ asm_simp_tac (srw_ss())
@@ -384,6 +405,9 @@ local
    val (_, _, dest_riscv_enc, is_riscv_enc) =
      HolKernel.syntax_fns1 "riscv_target" "riscv_enc"
    fun get_asm tm = dest_riscv_enc (HolKernel.find_term is_riscv_enc tm)
+   val aligned_imp_bit_0 = prove(
+     ``aligned 2 w ==> ¬word_bit 0 (w:word64)``,
+     fs [alignmentTheory.aligned_bitwise_and] \\ blastLib.BBLAST_TAC)
 in
   fun next_tac gs =
     let
@@ -391,12 +415,16 @@ in
     in
       NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ next_tac_by_instructions
+      \\ imp_res_tac aligned_imp_bit_0
+      \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ state_tac asm
     end gs
   fun jc_next_tac c =
     NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
     \\ Cases_on c
     >| [next_tac_by_instructions, jc_next_tac_by_instructions]
+    \\ imp_res_tac aligned_imp_bit_0
+    \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
     \\ state_tac ``Inst Skip : 64 asm``
 end
 
@@ -571,15 +599,13 @@ Theorem riscv_encoder_correct
    >- (
       print_tac "Jump"
       \\ Cases_on `-0x100000w <= c /\ c <= 0xFFFFFw`
-      \\ TRY next_tac
-      \\ cheat (* second case *)
+      \\ next_tac
       )
    >- (
       (*--------------
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
-      \\ cheat (*
       \\ Cases_on `-0xFFCw <= c0 /\ c0 <= 0xFFFw`
       >- (Cases_on `r`
           \\ Cases_on `c`
@@ -607,7 +633,7 @@ Theorem riscv_encoder_correct
         jc_next_tac `~(ms.c_gpr ms.procID (n2w n) <+ c')`,
         jc_next_tac `~(ms.c_gpr ms.procID (n2w n) < c')`,
         jc_next_tac `(ms.c_gpr ms.procID (n2w n) && c') <> 0w`
-      ] *)
+      ]
       )
       (*--------------
           Call
@@ -615,16 +641,14 @@ Theorem riscv_encoder_correct
    >- (
       print_tac "Call"
       \\ Cases_on `-0x100000w <= c /\ c <= 0xFFFFFw`
-      \\ TRY next_tac
-      \\ cheat (* second case *)
+      \\ next_tac
       )
    >- (
       (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
-      \\ cheat (* splits into numerous subgoals
-      \\ next_tac *)
+      \\ next_tac
       )
    >- (
       (*--------------
