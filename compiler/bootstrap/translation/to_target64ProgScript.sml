@@ -190,6 +190,58 @@ val _ = translate (flatten_def |> spec64)
 val _ = translate (compile_def |> spec64)
 
 open lab_filterTheory lab_to_targetTheory asmTheory
+open ml_monad_translatorLib monadic_encTheory
+
+(* The record types used for the monadic state and exceptions *)
+val state_type = ``:enc_state_64``;
+val exn_type   = ``:monadic_enc$state_exn``;
+val _          = register_exn_type exn_type;
+
+val STATE_EXN_TYPE_def =  theorem "MONADIC_ENC_STATE_EXN_TYPE_def"
+val exn_ri_def         = STATE_EXN_TYPE_def;
+val store_hprop_name   = "ENC_STATE_64";
+
+(* Accessor functions are defined (and used) previously together
+   with exceptions, etc. *)
+
+val exn_functions = [
+    (raise_Fail_def, handle_Fail_def),
+    (raise_Subscript_def, handle_Subscript_def)
+];
+
+val refs_manip_list = [] : (string * thm * thm) list;
+val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+val farrays_manip_list = [
+    ("hash_tab", get_hash_tab_def, set_hash_tab_def, hash_tab_length_def, hash_tab_sub_def, update_hash_tab_def)];
+
+val add_type_theories  = ([] : string list);
+val store_pinv_def_opt = NONE : thm option;
+
+val _ = translate (hash_reg_imm_def |> INST_TYPE [alpha|->``:64``])
+val _ = translate hash_binop_def
+val _ = translate hash_cmp_def
+val _ = translate hash_shift_def
+val _ = translate (hash_arith_def |> INST_TYPE [alpha|->``:64``])
+val _ = translate hash_memop_def
+val _ = translate hash_fp_def
+val _ = translate (hash_inst_def |> INST_TYPE [alpha|->``:64``])
+val _ = translate (hash_asm_def |> INST_TYPE [alpha|->``:64``])
+
+(* Initialization *)
+
+val res = start_dynamic_init_fixed_store_translation
+            refs_manip_list
+            rarrays_manip_list
+            farrays_manip_list
+            store_hprop_name
+            state_type
+            exn_ri_def
+            exn_functions
+            add_type_theories
+            store_pinv_def_opt;
+
+val _ = m_translate lookup_insert_table_def
+val _ = m_translate enc_line_hash_def (* broken *)
 
 val _ = translate (spec64 filter_skip_def)
 

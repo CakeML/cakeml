@@ -1,3 +1,6 @@
+(*
+  Implement and prove correct monadic version of encoder
+*)
 open preamble state_transformerTheory
 open ml_monadBaseLib ml_monadBaseTheory
 open asmTheory lab_to_targetTheory
