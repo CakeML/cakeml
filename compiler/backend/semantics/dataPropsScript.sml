@@ -203,23 +203,142 @@ Theorem Seq_Skip
   (full_simp_tac(srw_ss())[evaluate_def]
   \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] []);
 
-(* TODO *)
-Theorem evaluate_safe_swap
-  `∀c s r s' safe. evaluate (c,s) = (r,s') ⇒
-    evaluate (c,s with safe_for_space := safe) =
-      (r,s' with safe_for_space := evaluate_safe c (s with safe_for_space := safe))`
-  (recInduct evaluate_ind \\ REPEAT STRIP_TAC
-  >- fs [evaluate_safe_def,evaluate_def]
-  >- (fs[evaluate_def,evaluate_def] >> EVAL_TAC
-     \\ every_case_tac
-     \\ fs[state_component_equality,get_var_def,set_var_def] >> rw [])
-  \\ cheat);
 
 Theorem evaluate_safe_alt
   `!c s. evaluate_safe c s = (SND (evaluate(c,s))).safe_for_space`
   (rw [evaluate_safe_def,SND]
   \\ Cases_on `evaluate(c,s)`
   \\ rw []);
+
+Theorem do_app_safe_swap
+  `∀op vs s q s' safe. do_app op vs s = Rval (q,s')
+    ⇒ do_app op vs (s with safe_for_space := safe) =
+      Rval (q,s' with safe_for_space := do_app_safe op vs (s with safe_for_space := safe))`
+  (Cases \\ rw [do_app_def
+              , do_install_def
+              , do_app_aux_def
+              , with_fresh_ts_def
+              , do_space_def
+              , op_space_reset_def
+              , data_spaceTheory.op_space_req_def
+              , consume_space_def]
+  \\ TRY (pairarg_tac \\ fs [])
+  \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
+        , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
+        , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
+  \\ fs  [data_spaceTheory.op_space_req_def]
+  \\ rfs [data_spaceTheory.op_space_req_def]);
+
+
+Theorem do_app_err_safe_swap
+  `∀op vs s e safe. do_app op vs s = Rerr e
+    ⇒ do_app op vs (s with safe_for_space := safe) =
+      Rerr e`
+  (Cases \\ rw [do_app_def
+              , do_install_def
+              , do_app_aux_def
+              , with_fresh_ts_def
+              , do_space_def
+              , op_space_reset_def
+              , data_spaceTheory.op_space_req_def
+              , consume_space_def]
+  \\ TRY (pairarg_tac \\ fs [])
+  \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
+        , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
+        , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
+  \\ fs  [data_spaceTheory.op_space_req_def]
+  \\ rfs [data_spaceTheory.op_space_req_def]);
+
+
+Theorem evaluate_safe_swap
+  `∀c s r s' safe. evaluate (c,s) = (r,s') ⇒
+    evaluate (c,s with safe_for_space := safe) =
+      (r,s' with safe_for_space := evaluate_safe c (s with safe_for_space := safe))`
+  let val full_fs = fs[ get_var_def, set_var_def
+                      , cut_state_opt_def
+                      , cut_state_def
+                      , get_vars_def
+                      , do_install_def
+                      , op_space_reset_def
+                      , call_env_def
+                      , dec_clock_def
+                      , add_space_def
+                      , jump_exc_def
+                      , op_requires_names_def];
+      val full_cases = fs [ list_case_eq,option_case_eq
+                          , v_case_eq
+                          , bool_case_eq
+                          , closSemTheory.ref_case_eq
+                          , ffiTheory.ffi_result_case_eq
+                          , ffiTheory.oracle_result_case_eq
+                          , semanticPrimitivesTheory.eq_result_case_eq
+                          , astTheory.word_size_case_eq
+                          , pair_case_eq];
+      val basic_tac = fs [evaluate_safe_alt,evaluate_def]
+                      \\ rpt (every_case_tac
+                      \\ full_fs
+                      \\ fs [state_component_equality]);
+   in recInduct evaluate_ind \\ REPEAT STRIP_TAC
+      >- basic_tac
+      >- basic_tac
+      >- (fs [evaluate_def]
+         \\ full_cases >> full_fs
+         \\ fs [evaluate_safe_alt,evaluate_def]
+         \\ full_cases >> full_fs
+         \\ fs [] \\ rfs[]
+         \\ rveq \\ fs []
+         \\ every_case_tac
+         \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPEC `safe`) do_app_safe_swap))
+         \\ TRY (first_assum (mp_then Any (ASSUME_TAC o Q.SPEC `safe`) do_app_err_safe_swap))
+         \\ rfs [] \\ rveq \\ fs [])
+      >- basic_tac
+      >- basic_tac
+      >- basic_tac
+      >- basic_tac
+      >- (fs[evaluate_def] (* Seq *)
+         \\ Cases_on `evaluate (c1,s)` \\ fs[]
+         \\ every_case_tac
+         \\ fs [evaluate_safe_alt,evaluate_def]
+         \\ qpat_x_assum `∀safe. evaluate (c1,_) = _` (ASSUME_TAC o Q.SPEC `safe`)
+         \\ ONCE_ASM_REWRITE_TAC [] \\  rw [])
+      >- basic_tac
+      >- (fs [evaluate_def]
+         \\ full_cases >> full_fs
+         \\ fs [evaluate_safe_alt,evaluate_def]
+         \\ full_cases >> full_fs
+         \\ fs [] \\ rfs[]
+         \\ rveq \\ fs []
+         \\ first_x_assum (assume_tac o Q.SPEC `safe`)
+         \\ ONCE_ASM_REWRITE_TAC []
+         \\ rw []
+         >- (Q.EXISTS_TAC `NONE`
+            \\ qmatch_asmsub_abbrev_tac `evaluate s_foo = (_,s')`
+            \\ qmatch_asmsub_abbrev_tac `evaluate (prog,s_bar) = (NONE, s'_bar)`
+            \\ Q.EXISTS_TAC `s'_bar`
+            \\ qmatch_goalsub_abbrev_tac `evaluate (prog,bar_s)`
+            \\ `bar_s = s_bar`
+                  by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\ fs[push_env_def])
+            \\ rw [Abbr`s'_bar`]
+            \\ ONCE_ASM_REWRITE_TAC []
+            \\ rw [])
+         \\ Q.EXISTS_TAC `SOME v6` \\ fs []
+         \\ qpat_x_assum `evaluate _ = (_,s2)` (K ALL_TAC)
+         \\ qmatch_asmsub_abbrev_tac `evaluate (prog,s_bar) = (SOME v6, s'_bar)`
+         \\ Q.EXISTS_TAC `s'_bar`
+         \\ qmatch_goalsub_abbrev_tac `evaluate (prog,bar_s)`
+         \\ `bar_s = s_bar`
+               by (UNABBREV_ALL_TAC \\ Cases_on `handler` \\ fs[push_env_def])
+         \\ rw [Abbr`s'_bar`]
+         \\ Cases_on `v6`
+         >- (fs [pop_env_def]
+            \\ Cases_on `s2.stack` \\ fs []
+            \\ ONCE_ASM_REWRITE_TAC [] \\ rw []
+            \\ Cases_on `h` \\ fs []
+            \\ ONCE_ASM_REWRITE_TAC [] \\ rw [])
+         \\ Cases_on `e` \\ fs [] \\ Cases_on `handler` \\ fs []
+         \\ ONCE_ASM_REWRITE_TAC [] \\ rw []
+         \\ full_cases \\ fs [])
+  end;
 
 Theorem evaluate_stack_swap
   `!c ^s.
