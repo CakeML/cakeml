@@ -1,6 +1,5 @@
 (*
   Pure functions for the Map module.
-
   This file defines a wrapper around the balanced_map type. The new
   type is essentially a pair that carries the compare functions next
   to the tree so that users don't have to provide the compare function
@@ -155,6 +154,25 @@ Theorem MAP_KEYS_sing_set_UPDATE
   \\ rewrite_tac [GSYM (METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``)]
   \\ Cases_on `y ∈ FDOM f` \\ fs [FLOOKUP_UPDATE]);
 
+Theorem MAP_KEYS_sing_set_FUNION
+  `MAP_KEYS (λx. {x}) f1 ⊌ MAP_KEYS (λx. {x}) f2 =
+   MAP_KEYS (λx. {x}) (f1 ⊌ f2)`
+  (fs [fmap_FLOOKUP_EQ]
+  \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
+  \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
+  \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS,FLOOKUP_FUNION]
+  \\ fs [Abbr `ff`] \\ rw [] \\ fs []
+  \\ Cases_on `x` \\ fs []
+  \\ reverse (Cases_on `t`)
+  THEN1 (`!y. x' INSERT x INSERT t' <> {y}` by
+          (fs [EXTENSION,IN_INSERT] \\ metis_tac []) \\ fs [])
+  \\ fs []
+  \\ `!f1 v. x' = v /\ f1 v <=> x' = v /\ f1 x'` by metis_tac [] \\ fs []
+  \\ Cases_on `x' ∈ FDOM f1` \\ fs []
+  THEN1 fs [FLOOKUP_DEF,FUNION_DEF]
+  \\ Cases_on `x' ∈ FDOM f2` \\ fs []
+  THEN1 fs [FLOOKUP_DEF,FUNION_DEF]);
+
 Theorem insert_thm
   `map_ok t ==>
    map_ok (insert t k v) /\
@@ -170,6 +188,28 @@ Theorem insert_thm
   \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
   \\ imp_res_tac balanced_mapTheory.insert_thm
   \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_UPDATE,MAP_KEYS_sing_set]);
+
+Theorem union_thm
+  `map_ok t1 /\ map_ok t2 /\ cmp_of t1 = cmp_of t2 ==>
+   map_ok (union t1 t2) /\
+   cmp_of (union t1 t2) = cmp_of t1 /\
+   to_fmap (union t1 t2) = to_fmap t1 ⊌ to_fmap t2`
+  (Cases_on `t1` \\ Cases_on `t2` \\ fs [cmp_of_def]
+  \\ strip_tac \\ rveq
+  \\ fs [union_def]
+  \\ conj_asm1_tac
+  THEN1
+   (fs [map_ok_def]
+    \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+    \\ fs [balanced_mapTheory.union_thm])
+  \\ fs [map_ok_def,union_def]
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ fs [to_fmap_thm]
+  \\ rename [`invariant f (union f b1 b2)`]
+  \\ `to_fmap f (union f b1 b2) = to_fmap f b1 ⊌ to_fmap f b2`
+        by metis_tac [balanced_mapTheory.union_thm]
+  \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_FUNION,MAP_KEYS_sing_set]
+  \\simp[cmp_of_def]);
 
 Theorem lookup_thm
   `map_ok t ==> lookup t k = FLOOKUP (to_fmap t) k`
