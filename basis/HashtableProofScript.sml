@@ -83,16 +83,16 @@ Theorem hashtable_initBuckets_spec
       app (p:'ffi ffi_proj) Hashtable_initBuckets_v [nv; cmpv]
       emp
       (POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE n mpv))`
-(xcf_with_def "Hashtable.initBuckets" Hashtable_initBuckets_v_def
-\\ xlet `POSTv r1. & (MAP_TYPE a b (mlmap$empty cmp) r1)`
+  (xcf_with_def "Hashtable.initBuckets" Hashtable_initBuckets_v_def
+  \\ xlet `POSTv r1. & (MAP_TYPE a b (mlmap$empty cmp) r1)`
     >-(xapp
     \\ simp[])
-\\ xapp_spec array_alloc_spec
-\\ xsimpl
-\\ asm_exists_tac
-\\ simp[]
-\\ asm_exists_tac
-\\ simp[]);
+  \\ xapp_spec array_alloc_spec
+  \\ xsimpl
+  \\ asm_exists_tac
+  \\ simp[]
+  \\ asm_exists_tac
+  \\ simp[]);
 
 Theorem buckets_ok_empty
   `!n cmp hf. TotOrd cmp ==>
@@ -179,8 +179,7 @@ Theorem list_union_empty_maps
     \\ Cases_on `t=[]`
     >-(rw[]
       \\ fs[EVERY_DEF, list_union_def]
-      \\ pop_assum kall_tac
-      \\ pop_assum kall_tac
+      \\ ntac 2 (pop_assum kall_tac)
       \\ rveq
       \\ simp[mlmapTheory.empty_thm])
     >-(imp_res_tac list_union_thm
@@ -189,18 +188,7 @@ Theorem list_union_empty_maps
       >-(fs[])
       >-(rfs[]
         \\ fs[EVERY_DEF]
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
-        \\ pop_assum kall_tac
+        \\ ntac 12 (pop_assum kall_tac)
         \\ rveq
         \\ simp[mlmapTheory.empty_thm]))));
 
@@ -220,14 +208,14 @@ Theorem replicate_empty_map_thm
       EVERY ($=(mlmap$empty cmp)) xs /\
       EVERY (mlmap$map_ok) xs /\
       EVERY (\t. mlmap$cmp_of t = cmp) xs`
-(rpt strip_tac
->-(imp_res_tac replicate_every_same)
->-(imp_res_tac replicate_every_same
-  \\rw[]
-  \\fs[EVERY_REPLICATE, mlmapTheory.empty_thm])
->-(imp_res_tac replicate_every_same
-  \\rw[]
-  \\fs[EVERY_REPLICATE, mlmapTheory.cmp_of_def]));
+  (rpt strip_tac
+  >-(imp_res_tac replicate_every_same)
+  >-(imp_res_tac replicate_every_same
+    \\rw[]
+    \\fs[EVERY_REPLICATE, mlmapTheory.empty_thm])
+  >-(imp_res_tac replicate_every_same
+    \\rw[]
+    \\fs[EVERY_REPLICATE, mlmapTheory.cmp_of_def]));
 
 Theorem hashtable_empty_spec
   `!a b hf hfv cmp cmpv size sizev ar.
@@ -238,89 +226,86 @@ Theorem hashtable_empty_spec
       app (p:'ffi ffi_proj) Hashtable_empty_v [sizev; hfv; cmpv]
         emp
         (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)`
-(xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
-\\xlet_auto
-   >-(xsimpl)
-THEN1 (xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
-  THEN1 (xif
-  \\ xlit
-  \\ xsimpl
-  \\ fs[BOOL_def])
+  (xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
+  \\xlet_auto
+    >-(xsimpl)
+  THEN1 (xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
+    THEN1 (xif
+    \\ xlit
+    \\ xsimpl
+    \\ fs[BOOL_def])
   (*size > 1*)
- THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
-   >-(xapp
-  \\ simp[])
-THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE 1 mpv)`
-     >-(xref
+  THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE 1 mpv)`
+    >-(xapp
+    \\ simp[])
+  THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE 1 mpv)`
+      >-(xref
       \\ fs[REF_ARRAY_def,REF_NUM_def]
       \\ xsimpl)
-THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE 1 mpv)`
-     >-(xref
+  THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE 1 mpv)`
+      >-(xref
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
-\\ xcon
-\\ fs[HASHTABLE_def]
-\\ xsimpl
-\\ qexists_tac `(REPLICATE 1 mpv)`
-\\ qexists_tac `arr`
-\\ qexists_tac `0`
-\\ xsimpl
-\\ fs[hashtable_inv_def]
-\\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
-\\ rpt conj_tac
-THEN1(simp[REPLICATE_GENLIST, GENLIST_CONS, list_union_def, mlmapTheory.empty_thm])
-THEN1(simp[buckets_ok_empty])
-THEN1(simp[REPLICATE_NIL])
-THEN1(simp[LIST_REL_REPLICATE_same])
-THEN1(fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])
-\\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.cmp_of_def])))
-(*size > 1*)
-THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
-   >-(xapp
-  \\ simp[])
-THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE size' mpv)`
-     >-(xref
-      \\fs[REF_ARRAY_def,REF_NUM_def]
+  \\ xcon
+  \\ fs[HASHTABLE_def]
+  \\ xsimpl
+  \\ qexists_tac `(REPLICATE 1 mpv)`
+  \\ qexists_tac `arr`
+  \\ qexists_tac `0`
+  \\ xsimpl
+  \\ fs[hashtable_inv_def]
+  \\ qexists_tac `(REPLICATE 1 (mlmap$empty cmp))`
+  \\ rpt conj_tac
+  THEN1(simp[REPLICATE_GENLIST, GENLIST_CONS, list_union_def, mlmapTheory.empty_thm])
+  THEN1(simp[buckets_ok_empty])
+  THEN1(simp[REPLICATE_NIL])
+  THEN1(simp[LIST_REL_REPLICATE_same])
+  THEN1(fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])
+  \\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.cmp_of_def])))
+  (*size > 1*)
+  THEN1 (xlet `POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) * ARRAY ar (REPLICATE size' mpv)`
+      >-(xapp
+      \\ simp[])
+  THEN1 (xlet `POSTv loc. SEP_EXISTS addr arr. &(addr = loc) * REF_ARRAY loc arr (REPLICATE size' mpv)`
+      >-(xref
+        \\fs[REF_ARRAY_def,REF_NUM_def]
+        \\ xsimpl)
+  THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE size' mpv)`
+      >-(xref
+      \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
-THEN1 (xlet `POSTv loc. SEP_EXISTS arr. REF_NUM loc 0 * REF_ARRAY addr arr (REPLICATE size' mpv)`
-     >-(xref
-    \\ fs[REF_ARRAY_def, REF_NUM_def]
-    \\ xsimpl)
-\\ xcon
-\\ fs[HASHTABLE_def]
-\\ xsimpl
-\\ qexists_tac `(REPLICATE size' mpv)`
-\\ qexists_tac `arr`
-\\ qexists_tac `0`
-\\ xsimpl
-\\ fs[hashtable_inv_def]
-\\ qexists_tac `(REPLICATE size' (mlmap$empty cmp))`
-\\ rpt conj_tac
-THEN1(Cases_on `REPLICATE size' (empty cmp)`
+  \\ xcon
+  \\ fs[HASHTABLE_def]
+  \\ xsimpl
+  \\ qexists_tac `(REPLICATE size' mpv)`
+  \\ qexists_tac `arr`
+  \\ qexists_tac `0`
+  \\ xsimpl
+  \\ fs[hashtable_inv_def]
+  \\ qexists_tac `(REPLICATE size' (mlmap$empty cmp))`
+  \\ rpt conj_tac
+  THEN1 (Cases_on `REPLICATE size' (empty cmp)`
       >-(fs[BOOL_def, REPLICATE_NIL])
-      \\imp_res_tac replicate_empty_map_thm
-      \\fs[list_union_empty_maps])
-THEN1(simp[buckets_ok_empty])
-THEN1(fs[BOOL_def, REPLICATE_NIL])
-THEN1(simp[LIST_REL_REPLICATE_same])
-THEN1(Cases_on `REPLICATE size' (empty cmp)`
+        \\imp_res_tac replicate_empty_map_thm
+        \\fs[list_union_empty_maps])
+  THEN1 (simp[buckets_ok_empty])
+  THEN1 (fs[BOOL_def, REPLICATE_NIL])
+  THEN1 (simp[LIST_REL_REPLICATE_same])
+  THEN1 (Cases_on `REPLICATE size' (empty cmp)`
       >-(fs[BOOL_def, REPLICATE_NIL])
-      \\ imp_res_tac replicate_empty_map_thm)
-THEN1(Cases_on `REPLICATE size' (empty cmp)`
+        \\ imp_res_tac replicate_empty_map_thm)
+  THEN1 (Cases_on `REPLICATE size' (empty cmp)`
       >-(fs[BOOL_def, REPLICATE_NIL])
-      \\imp_res_tac replicate_empty_map_thm))))));
+        \\imp_res_tac replicate_empty_map_thm))))));
 
-\\fs[EVERY_EL,HD, REPLICATE_GENLIST, GENLIST_CONS, mlmapTheory.empty_thm, balanced_mapTheory.empty_thm])))));
-
-
+(*
 Theorem lupdate_fupdate_insert
   `!buckets idx k v.
       EVERY map_ok buckets /\
       idx < LENGTH buckets ==>
       LUPDATE (mlmap$to_fmap (EL idx buckets) |+ (k,v)) idx (MAP mlmap$to_fmap buckets) =
         MAP mlmap$to_fmap (LUPDATE (mlmap$insert (EL idx buckets) k v) idx buckets)`
-(fs[EVERY_EL,LIST_REL_EL_EQN,LUPDATE_MAP,mlmapTheory.insert_thm]);
-
+(fs[EVERY_EL,LIST_REL_EL_EQN,LUPDATE_MAP,mlmapTheory.insert_thm]);*)
 
 Theorem buckets_ok_insert
   `!buckets hf idx k v.
@@ -331,27 +316,27 @@ Theorem buckets_ok_insert
         buckets_ok
           (LUPDATE (mlmap$insert (EL idx buckets) k v)
             idx buckets) hf`
-(rpt strip_tac
-\\fs[EVERY_EL,EL_LUPDATE,buckets_ok_def, bucket_ok_def, hash_key_set_def]
-\\strip_tac
-\\strip_tac
-\\strip_tac
-\\strip_tac
-\\Cases_on ` i = hf k MOD LENGTH buckets`
-\\fs[mlmapTheory.lookup_insert]
-\\Cases_on `k=k'`
-\\simp[]
-\\simp[]
-\\simp[]);
+  (rpt strip_tac
+  \\fs[EVERY_EL,EL_LUPDATE,buckets_ok_def, bucket_ok_def, hash_key_set_def]
+  \\strip_tac
+  \\strip_tac
+  \\strip_tac
+  \\strip_tac
+  \\Cases_on ` i = hf k MOD LENGTH buckets`
+  \\fs[mlmapTheory.lookup_insert]
+  \\Cases_on `k=k'`
+  \\simp[]
+  \\simp[]
+  \\simp[]);
 
 
 Theorem insert_not_empty
   `!a b (mp:('a,'b) map) k v.
       mlmap$map_ok mp ==>
         to_fmap (mlmap$insert mp k v) <> FEMPTY`
-(fs[mlmapTheory.insert_thm, mlmapTheory.to_fmap_def,
-  balanced_mapTheory.insert_thm,
-  balanced_mapTheory.to_fmap_def, FEMPTY_FUPDATE_EQ]);
+  (fs[mlmapTheory.insert_thm, mlmapTheory.to_fmap_def,
+      balanced_mapTheory.insert_thm,
+      balanced_mapTheory.to_fmap_def, FEMPTY_FUPDATE_EQ]);
 
 
 Theorem list_rel_insert
@@ -362,36 +347,37 @@ Theorem list_rel_insert
       idx < LENGTH buckets  ==>
         LIST_REL (MAP_TYPE a b)
           (LUPDATE (mlmap$insert (EL idx buckets) k v) idx buckets)
-        (LUPDATE updMap idx vlv)`
-(rpt strip_tac
-\\fs[EVERY_EL,LIST_REL_EL_EQN, EL_LUPDATE]
-\\strip_tac
-\\strip_tac
-\\Cases_on `n = idx`
-\\fs[mlmapTheory.insert_thm]
-\\simp[]);
+            (LUPDATE updMap idx vlv)`
+  (rpt strip_tac
+  \\ fs[EVERY_EL,LIST_REL_EL_EQN, EL_LUPDATE]
+  \\ strip_tac
+  \\ strip_tac
+  \\ Cases_on `n = idx`
+  \\ fs[mlmapTheory.insert_thm]
+  \\ simp[]);
 
 Theorem every_map_ok_insert
   `!buckets idx k v.
       EVERY map_ok buckets /\
       idx < LENGTH buckets  ==>
         EVERY map_ok (LUPDATE (insert (EL idx buckets) k v) idx buckets)`
-(rpt strip_tac
-\\fs[EVERY_EL,EL_LUPDATE]
-\\strip_tac
-\\strip_tac
-\\Cases_on `n=idx`
-\\fs[mlmapTheory.insert_thm]
-\\simp[]);
+  (rpt strip_tac
+  \\ fs[EVERY_EL,EL_LUPDATE]
+  \\ strip_tac
+  \\ strip_tac
+  \\ Cases_on `n=idx`
+  \\ fs[mlmapTheory.insert_thm]
+  \\ simp[]);
 
+(*
 Theorem hashtable_staticInsert_spec
   `!a b hf hfv cmp cmpv k kv v vv htv used.
       a k kv /\
       b v vv  ==>
       app (p:'ffi ffi_proj) Hashtable_staticInsert_v [htv; kv; vv]
-        (HASHTABLE ($= used) a b hf cmp h htv)
-        (POSTv uv. SEP_EXISTS hsh fm. &(UNIT_TYPE () uv) *
-          HASHTABLE ($=(if fm = FEMPTY then used+1 else used)) a b hf cmp (LUPDATE (fm|+(k,v)) hsh h) htv)`
+        (HASHTABLE a b hf cmp h htv)
+        (POSTv uv. &(UNIT_TYPE () uv) *
+          HASHTABLE a b hf cmp (h|+(k,v)) htv)`
 (xcf_with_def "Hashtable.staticInsert" Hashtable_staticInsert_v_def
 \\ fs[HASHTABLE_def]
 \\ xpull
@@ -482,8 +468,6 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\xsimpl
   \\strip_tac
   \\strip_tac
-  \\qexists_tac `idx`
-  \\qexists_tac `mlmap$to_fmap (EL (hf k MOD LENGTH buckets) buckets)`
   \\qexists_tac `uRef`
   \\qexists_tac `aRef`
   \\qexists_tac `hfv`
@@ -502,8 +486,6 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
 
   \\xcon
   \\xsimpl
-  \\qexists_tac `idx`
-  \\qexists_tac `mlmap$to_fmap (EL (hf k MOD LENGTH buckets) buckets)`
   \\qexists_tac `uRef`
   \\qexists_tac `aRef`
   \\qexists_tac `hfv`
@@ -519,5 +501,6 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\Induct_on `b''`
   \\fs[mlmapTheory.null_def,balanced_mapTheory.null_def, balanced_mapTheory.null_thm, mlmapTheory.to_fmap_def]
   \\fs[mlmapTheory.null_def,balanced_mapTheory.null_def, balanced_mapTheory.null_thm, mlmapTheory.to_fmap_def]));
+*)
 
 val _ = export_theory();
