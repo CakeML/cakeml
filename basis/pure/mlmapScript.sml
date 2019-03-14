@@ -84,9 +84,9 @@ Theorem cmp_of_empty[simp]
   `cmp_of (empty cmp) = cmp`
   (fs [empty_def,cmp_of_def]);
 
-val fmap_FLOOKUP_EQ = prove(
-  ``f1 = f2 <=> FLOOKUP f1 = FLOOKUP f2``,
-  fs [GSYM fmap_EQ_THM,FLOOKUP_DEF,FUN_EQ_THM]
+Theorem fmap_FLOOKUP_EQ
+  `f1 = f2 <=> FLOOKUP f1 = FLOOKUP f2`
+  (fs [GSYM fmap_EQ_THM,FLOOKUP_DEF,FUN_EQ_THM]
   \\ eq_tac \\ rw []
   THEN1 metis_tac [SOME_11,NOT_NONE_SOME]
   \\ first_x_assum (qspec_then `x` mp_tac)
