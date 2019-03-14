@@ -7879,7 +7879,67 @@ Theorem evaluate_WordOp64_on_32
   \\ Cases_on `c` \\ fs [multiwordTheory.b2n_def]
   \\ `n' <= n` by decide_tac
   \\ fs [LESS_EQ_EXISTS]);
+*)
 
+
+Theorem memory_rel_small_word_IMP
+ `good_dimindex(:'a) /\ data_to_word_memoryProof$small_word (:'a) w /\
+  memory_rel c be refs sp st m dm ((Word w,v:'a word_loc)::vars) ==>
+  v = Word (v2w w)`
+(fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+   bc_stack_ref_inv_def,v_inv_def] \\ rw[] \\ fs[]
+ \\ fs[word_addr_def] \\ cheat
+)
+
+Theorem assign_WordOp_small
+ `good_dimindex(:'a) /\ arch_size = dimindex(:'a)
+  /\ (?opw wsize. op = WordOp wsize opw /\ wsize <= dimindex(:'a)-2) ==> ^assign_thm_goal`
+(
+ rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw[] \\ fs[]
+ \\ `t.termdep <> 0` by fs[]
+ \\ rpt_drule0 state_rel_cut_IMP
+ \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+ \\ imp_res_tac get_vars_IMP_LENGTH
+ \\ fs[do_app]
+ \\ every_case_tac \\ fs[]
+ \\ clean_tac
+ \\ imp_res_tac state_rel_get_vars_IMP
+ \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
+ \\ clean_tac
+ \\ fs[state_rel_thm] \\ eval_tac
+ \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+ \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
+ \\ strip_tac
+ \\ fs[]
+ \\ clean_tac
+ \\ qmatch_asmsub_rename_tac`[Word w1; Word w2]`
+ \\ imp_res_tac memory_rel_small_word_IMP
+ \\ fs[data_to_word_memoryProofTheory.small_word_def]
+ \\ res_tac
+ \\ fs[]
+ \\ cheat
+);
+
+Theorem assign_WordOp_large
+ `good_dimindex(:'a) /\ arch_size = dimindex(:'a)
+  /\ (?opw wsize. op = WordOp wsize opw /\ ~(wsize <= dimindex(:'a)-2)) ==> ^assign_thm_goal`
+cheat;
+
+Theorem assign_WordOp
+ `good_dimindex(:'a) /\ arch_size = dimindex(:'a)
+  /\ (?opw wsize. op = WordOp wsize opw) ==> ^assign_thm_goal`
+(rpt strip_tac
+ \\ Cases_on `wsize <= dimindex(:'a) - 2`
+ >- (IMP_RES_TAC assign_WordOp_small \\ POP_ASSUM (ASSUME_TAC o Q.SPECL[`n`,`l`,`dest`])
+     \\ fs[] \\ qexists_tac `q` \\ qexists_tac`r` \\ fs[] \\ var_eq_tac \\ fs[])
+ >- (IMP_RES_TAC assign_WordOp_large \\ POP_ASSUM (ASSUME_TAC o Q.SPECL[`n`,`l`,`dest`])
+     \\ fs[] \\ qexists_tac `q` \\ qexists_tac`r` \\ fs[] \\ var_eq_tac \\ fs[])
+)
+
+
+
+
+(*
 Theorem assign_WordOpW64
   `(?opw. op = WordOp W64 opw) ==> ^assign_thm_goal`
   (rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
@@ -7991,9 +8051,6 @@ Theorem assign_WordOpW64
   \\ rveq \\ fs [] \\ rw [] \\ fs [code_oracle_rel_def,FLOOKUP_UPDATE]);
  *)
 
-Theorem assign_WordOp
- `(?opw size. op = WordOp size opw) ==> ^assign_thm_goal`
- cheat;
 (*
 Theorem assign_WordShiftW8
   `(?sh n. op = WordShift W8 sh n) ==> ^assign_thm_goal`
@@ -8512,6 +8569,20 @@ Theorem w2w_w2w_64
   `!w. dimindex (:'a) = 64 ==> w2w ((w2w w):'a word) = w:word64`
   (Cases \\ fs [w2w_def,dimword_def]);
 
+
+Theorem v2w_w2v_64
+  `!w. dimindex (:'a) = 64 ==> v2w (w2v (w:'a word)) = (w2w w):word64`
+  (Cases \\ fs [w2w_def,dimword_def] \\ cheat);
+
+Theorem subscript_dimindex64
+  `!w. dimindex(:'a) = 64 ==> (w2w (((63 :num) >< (0 :num)) (w :'a word) :'a word) :word64) = w2w w`
+  cheat;
+
+Theorem op_dimindex_to_64
+  `!op (w:'a word) (wv:'a word). dimindex(:'a) = 64 /\ (op = fp64_greaterThan \/ op = fp64_greaterEqual \/ op = fp64_lessThan \/ op = fp64_lessEqual)
+      ==> (op (w2w ((63 >< 0) wv)) (w2w ((63 >< 0) w)) <=> op (w2w wv) (w2w w))`
+  (STRIP_TAC \\ fs[] \\ cheat)
+
 val fp_greater = prove(
   ``fp64_greaterThan a b = fp64_lessThan b a /\
     fp64_greaterEqual a b = fp64_lessEqual b a``,
@@ -8527,6 +8598,25 @@ val fp_greater = prove(
   \\ every_case_tac \\ fs [] \\ rveq \\ fs []
   \\ metis_tac [realTheory.REAL_LT_ANTISYM,
                 realTheory.REAL_LT_TOTAL,word1_cases]);
+
+
+
+Theorem memory_rel_Word64_IMP2
+`!w64. memory_rel c be refs sp st m dm ((Word (w2v w64),v)::vars) ∧
+     good_dimindex (:α) ⇒
+     ∃ptr x w.
+         v = Word (get_addr c ptr (Word 0w)) ∧
+         get_real_addr c st (get_addr c ptr (Word 0w)) = SOME x ∧ x ∈ dm ∧
+         m x = Word w ∧ word_bit 3 w ∧ ¬word_bit 4 w ∧ word_bit 2 w ∧
+         x + bytes_in_word ∈ dm ∧
+         if dimindex (:α) < 64 then
+           m (x + bytes_in_word) = Word ((63 >< 32) w64) ∧
+           x + bytes_in_word ≪ 1 ∈ dm ∧
+           m (x + bytes_in_word ≪ 1) = Word ((31 >< 0) w64) ∧
+           decode_length c w = 2w ∧ w = make_header c 3w 2
+         else
+           m (x + bytes_in_word) = Word ((63 >< 0) w64) ∧
+           decode_length c w = 1w ∧ w = make_header c 3w 1` cheat;
 
 Theorem assign_FP_cmp
   `(?fpc. op = FP_cmp fpc) ==> ^assign_thm_goal`
@@ -8547,17 +8637,19 @@ Theorem assign_FP_cmp
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ cheat
-  (* \\ drule0 memory_rel_Word64_IMP
+  \\ `?w. l' = w2v w` by cheat
+  \\ `?wv. l'' = w2v wv` by cheat
+  \\ fs[]
+  \\ drule0 memory_rel_Word64_IMP2
   \\ imp_res_tac memory_rel_tl
-  \\ drule0 memory_rel_Word64_IMP
+  \\ drule0 memory_rel_Word64_IMP2
   \\ qhdtm_x_assum`memory_rel`kall_tac
   \\ simp[] \\ ntac 2 strip_tac
   \\ clean_tac
   \\ simp [assign_FP_cmp]
   \\ TOP_CASE_TAC THEN1 fs []
   \\ Cases_on `dimindex (:'a) = 64` \\ simp [] THEN1
-   (fs [] \\ clean_tac
+   (fs [bitstringTheory.v2w_w2v] \\ clean_tac
     \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
     \\ rpt_drule0 get_var_get_real_addr_lemma
     \\ once_rewrite_tac [list_Seq_def] \\ eval_tac
@@ -8582,10 +8674,24 @@ Theorem assign_FP_cmp
     \\ match_mp_tac memory_rel_insert
     \\ fs [inter_insert_ODD_adjust_set_alt,fp_greater]
     \\ rw [] \\ fs [WORD_MUL_LSL]
+    \\ fs[v2w_w2v_64]
+    \\ fs[subscript_dimindex64]
+    \\ Q.HO_MATCH_ABBREV_TAC `_ ((Boolv (OP _ _),_)::_)`
+    \\ ((`OP (w2w wv) (w2w w) <=> (OP :word64 -> word64 -> bool)
+           (w2w (((63 :num) >< (0 :num)) (wv :'a word) :'a word) :word64)
+           (w2w (((63 :num) >< (0 :num)) (w :'a word) :'a word) :word64)` by cheat
+    \\ fs[]
     \\ TRY (match_mp_tac memory_rel_Boolv_T)
     \\ TRY (match_mp_tac memory_rel_Boolv_F)
-    \\ fs [])
+    \\ fs[good_dimindex_def] \\ NO_TAC) ORELSE (`OP (w2w w) (w2w wv) <=> (OP :word64 -> word64 -> bool)
+           (w2w (((63 :num) >< (0 :num)) (w :'a word) :'a word) :word64)
+           (w2w (((63 :num) >< (0 :num)) (wv :'a word) :'a word) :word64)` by cheat
+    \\ fs[]
+    \\ TRY (match_mp_tac memory_rel_Boolv_T)
+    \\ TRY (match_mp_tac memory_rel_Boolv_F)
+    \\ fs[good_dimindex_def])))
   \\ fs []
+  (*
   \\ `dimindex (:'a) = 32` by rfs [good_dimindex_def] \\ fs [] \\ rveq
   \\ eval_tac
   \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
@@ -8625,7 +8731,7 @@ Theorem assign_FP_cmp
 
 Theorem assign_FP_bop
   `(?fpb. op = FP_bop fpb) ==> ^assign_thm_goal`
-  (rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  cheat (*rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
@@ -8642,11 +8748,12 @@ Theorem assign_FP_bop
   \\ strip_tac
   \\ fs[wordSemTheory.get_vars_def]
   \\ every_case_tac \\ fs[] \\ clean_tac
-  \\ cheat
-  (*
-  \\ drule0 memory_rel_Word64_IMP
+  \\ `?w. l' = w2v w` by cheat
+  \\ `?wv. l'' = w2v wv` by cheat
+  \\ fs[]
+  \\ drule0 memory_rel_Word64_IMP2
   \\ imp_res_tac memory_rel_tl
-  \\ drule0 memory_rel_Word64_IMP
+  \\ drule0 memory_rel_Word64_IMP2
   \\ qhdtm_x_assum`memory_rel`kall_tac
   \\ simp[] \\ ntac 2 strip_tac
   \\ clean_tac
@@ -8722,7 +8829,7 @@ Theorem assign_FP_bop
   \\ disch_then (qspec_then `ww` mp_tac) \\ fs []
   \\ TRY impl_tac \\ TRY (rw [] \\ NO_TAC)
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rveq \\ fs [] \\ rw []*));
+  \\ rveq \\ fs [] \\ rw []*);
 
 Theorem assign_FP_uop
   `(?fpu. op = FP_uop fpu) ==> ^assign_thm_goal`
