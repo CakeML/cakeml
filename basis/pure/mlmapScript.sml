@@ -84,14 +84,6 @@ Theorem cmp_of_empty[simp]
   `cmp_of (empty cmp) = cmp`
   (fs [empty_def,cmp_of_def]);
 
-Theorem fmap_FLOOKUP_EQ
-  `f1 = f2 <=> FLOOKUP f1 = FLOOKUP f2`
-  (fs [GSYM fmap_EQ_THM,FLOOKUP_DEF,FUN_EQ_THM]
-  \\ eq_tac \\ rw []
-  THEN1 metis_tac [SOME_11,NOT_NONE_SOME]
-  \\ first_x_assum (qspec_then `x` mp_tac)
-  \\ rw [] \\ fs [IN_DEF]);
-
 Theorem TotOrd_key_set[simp]
   `TotOrd cmp ==> key_set cmp k = {k}`
   (rw[key_set_def,EXTENSION] \\ metis_tac [totoTheory.TotOrd]);
@@ -101,7 +93,7 @@ Theorem to_fmap_thm
      TotOrd cmp ==>
      to_fmap cmp t = MAP_KEYS (\x. {x}) (to_fmap (Map cmp t))`
   (Induct \\ fs [to_fmap_def,balanced_mapTheory.to_fmap_def]
-  \\ rw [] \\ rw [fmap_FLOOKUP_EQ,FUN_EQ_THM]
+  \\ rw [] \\ rw [finite_mapTheory.fmap_eq_flookup,FUN_EQ_THM]
   \\ fs [FLOOKUP_UPDATE,FLOOKUP_FUNION]
   \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
   \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
@@ -128,7 +120,7 @@ Theorem empty_thm
 
 Theorem MAP_KEYS_sing_set
   `MAP_KEYS (λx. {x}) f1 = MAP_KEYS (λx. {x}) f2 <=> (f1 = f2)`
-  (eq_tac \\ fs [] \\ fs [fmap_FLOOKUP_EQ]
+  (eq_tac \\ fs [] \\ fs [finite_mapTheory.fmap_eq_flookup]
   \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
   \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
   \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS]
@@ -140,7 +132,7 @@ Theorem MAP_KEYS_sing_set
 
 Theorem MAP_KEYS_sing_set_UPDATE
   `MAP_KEYS (λx. {x}) f |+ ({k},v) = MAP_KEYS (λx. {x}) (f |+ (k,v))`
-  (fs [fmap_FLOOKUP_EQ]
+  (fs [finite_mapTheory.fmap_eq_flookup]
   \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
   \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
   \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS,FLOOKUP_UPDATE]
@@ -157,7 +149,7 @@ Theorem MAP_KEYS_sing_set_UPDATE
 Theorem MAP_KEYS_sing_set_FUNION
   `MAP_KEYS (λx. {x}) f1 ⊌ MAP_KEYS (λx. {x}) f2 =
    MAP_KEYS (λx. {x}) (f1 ⊌ f2)`
-  (fs [fmap_FLOOKUP_EQ]
+  (fs [finite_mapTheory.fmap_eq_flookup]
   \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
   \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
   \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS,FLOOKUP_FUNION]
