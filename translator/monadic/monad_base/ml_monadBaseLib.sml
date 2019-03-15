@@ -7,29 +7,13 @@ structure ml_monadBaseLib :> ml_monadBaseLib = struct
 
 open preamble ml_monadBaseTheory TypeBase ParseDatatype Datatype packLib
 
-(***************************************************************)
-(* COPY/PASTE from ml_monad_translatorLib *)
-fun my_list_mk_comb (comb, args) = let
-  (* returns a combinator substitution and a list of instantiated arguments *)
-  fun aux (_, [], (sub, args')) = (sub, rev args')
-    | aux (comb_ty, arg::args, (sub, args')) =
-        case (comb_ty |> dest_type |> snd) of [comb_ty1, comb_tys] => let
-          val arg_ty = type_of arg
-          val (head_subst, arg') =
-            if can (raw_match_type comb_ty1 arg_ty) sub then
-              (raw_match_type comb_ty1 arg_ty sub, arg)
-            else
-              let val arg' = Term.inst
-                (match_type arg_ty (type_subst (fst sub) comb_ty1)) arg in
-              (raw_match_type comb_ty1 (type_of arg') sub, arg') end
-         in aux (comb_tys, args, (head_subst, arg'::args')) end
-        | _ => failwith "my_list_mk_comb"
-  val (sub, args') = aux (type_of comb, args, (([], []), []))
-  val comb' = Term.inst (fst sub) comb
-in list_mk_comb (comb', args') end
 
-(***************************************************************)
+(******************************************************************************
 
+  Get constant terms and types from ml_monad_BaseTheory.
+  Prevents parsing in the wrong context.
+
+******************************************************************************)
 
 val get_term =
   let
@@ -67,6 +51,12 @@ val Marray_sub_const = get_term "Marray_sub"
 val Marray_update_const = get_term "Marray_update"
 val Marray_alloc_const = get_term "Marray_alloc"
 val run_const = get_term "run"
+
+(******************************************************************************
+
+  Helper functions.
+
+******************************************************************************)
 
 fun mk_exc_type a b = Type.type_subst [a_ty |-> a, b_ty |-> b] exc_ty
 
@@ -122,6 +112,40 @@ fun mk_fun_type (tyl, ret_ty) =
   case tyl of
     ty::tyl => mk_type ("fun", [ty, mk_fun_type (tyl, ret_ty)])
   | [] => ret_ty
+
+(*
+  Like list_mk_comb, but first attempts to unify combinator/argument types.
+  For combinator C and args a1, a2, a3, ... : attempts to apply
+  C a1 a2 a3 ..., unifying types of expected inputs to C and types of args.
+  Fails if unification fails.
+
+  This is a very odd function in that it instantiates argument types
+  "as one", rather than separately. Replacing with list_mk_ucomb fails
+  however. To implement this quirk, the function creates a function type
+  from all the n argument types, and does the same for the first n expected
+  argument types. The two created function types are then unified to give
+  the necessary substitutions.
+*)
+fun my_list_mk_comb (comb, []) = comb
+  | my_list_mk_comb (comb, args) = let
+      val comb_ty = type_of comb
+      val (all_comb_arg_tys, comb_ret_ty) = dest_fun_type comb_ty
+      val arg_tys = map type_of args
+      val comb_arg_tys =
+        if (length args <= length all_comb_arg_tys) then
+          List.take (all_comb_arg_tys, (List.length args))
+        else raise Fail "my_list_mk_comb - too many arguments"
+
+      fun mk_fun_type [] = raise Fail "mk_fun_type" (* shouldn't happen *)
+        | mk_fun_type [arg_ty] = arg_ty
+        | mk_fun_type (arg_ty :: args_tys) =
+            mk_type("fun", [arg_ty, mk_fun_type args_tys])
+
+      val (f_sub, arg_sub) = sep_type_unify
+                              (mk_fun_type comb_arg_tys) (mk_fun_type arg_tys)
+    in
+      list_mk_comb(Term.inst f_sub comb, map (Term.inst arg_sub) args)
+    end;
 
 (* TODO tidy *)
 fun mk_list_vars basename types =
