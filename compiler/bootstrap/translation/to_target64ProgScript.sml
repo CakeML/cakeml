@@ -314,10 +314,27 @@ val _ = m_translate_run enc_secs_aux_trans_def;
 
 val _ = translate enc_secs_def;
 
+val to_target64prog_enc_line_hash_ls_side_def = Q.prove(`
+  ∀a b c d e.
+  d ≠ 0 ⇒
+  to_target64prog_enc_line_hash_ls_side a b c d e ⇔ T`,
+  Induct_on`e`>>
+  simp[Once (fetch "-" "to_target64prog_enc_line_hash_ls_side_def")]>>
+  EVAL_TAC>>rw[]>>fs[]);
+
+val to_target64prog_enc_sec_hash_ls_side_def = Q.prove(`
+  ∀a b c d e.
+  d ≠ 0 ⇒
+  to_target64prog_enc_sec_hash_ls_side a b c d e ⇔ T`,
+  Induct_on`e`>>
+  simp[Once (fetch "-" "to_target64prog_enc_sec_hash_ls_side_def")]>>
+  metis_tac[to_target64prog_enc_line_hash_ls_side_def]);
+
 Theorem monadic_enc_enc_secs_side_def
   `monadic_enc_enc_secs_side a b c ⇔ T`
   (EVAL_TAC>>
-  cheat)
+  rw[]>>
+  metis_tac[to_target64prog_enc_sec_hash_ls_side_def,DECIDE``1n ≠ 0``])
   |> update_precondition;
 
 val _ = translate (spec64 filter_skip_def)
@@ -339,6 +356,8 @@ val _ = translate (conv64 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPT
 (* TODO: there may be a better rewrite for aligned (in to_word64Prog's translation of offset_ok) *)
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
+
+val _ = translate (spec64 remove_labels_def |> REWRITE_RULE [GSYM monadic_encTheory.enc_secs_correct])
 
 val _ = translate (spec64 compile_def)
 

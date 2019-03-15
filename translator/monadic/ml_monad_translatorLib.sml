@@ -3491,7 +3491,8 @@ fun m_translate_run def =
 
     (* Retrieve information about the exc type *)
     val EXC_TYPE_tm = get_type_inv exc_ty |> rator |> rator
-    val EXC_TYPE_def = DB.find "EXC_TYPE_def" |> List.hd |> snd |> fst
+    (* TODO: Not sure if this is the right lookup *)
+    val EXC_TYPE_def = DB.find "ML_MONADBASE_EXC_TYPE_def" |> List.hd |> snd |> fst
                        handle Empty =>
                         raise (ERR "m_translate_run" "The `exc` type needs to \
                                \be registered in the current program")
