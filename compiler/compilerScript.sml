@@ -17,6 +17,7 @@ open arm8_configTheory export_arm8Theory
 open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
 open arm6_configTheory export_arm6Theory
+open arm7_configTheory export_arm7Theory
 open ag32_configTheory export_ag32Theory
 
 val _ = new_theory"compiler";
@@ -405,6 +406,7 @@ val parse_target_32_def = Define`
     NONE => INL (arm6_backend_config,arm6_export)
   | SOME rest =>
     if rest = strlit"arm6" then INL (arm6_backend_config,arm6_export)
+    else if rest = strlit"arm7" then INL (arm7_backend_config,arm7_export)
     else if rest = strlit"ag32" then INL (ag32_backend_config,ag32_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 
