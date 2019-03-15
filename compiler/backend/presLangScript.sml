@@ -110,6 +110,11 @@ val fp_bop_to_display_def = Define `
     | FP_Mul => empty_item (strlit "FP_Mul")
     | FP_Div => empty_item (strlit "FP_Div")`
 
+val fp_top_to_display_def = Define `
+  fp_top_to_display op =
+    case op of
+      |FP_Fma => empty_item (strlit "FP_Fma")`
+
 val word_size_to_display_def = Define`
   (word_size_to_display W8 = empty_item (strlit "W8"))
   /\
@@ -196,6 +201,7 @@ val flat_op_to_display_def = Define `
     | FP_cmp cmp => fp_cmp_to_display cmp
     | FP_uop op => fp_uop_to_display op
     | FP_bop op => fp_bop_to_display op
+    | FP_top op => fp_top_to_display op
     | Opapp => empty_item (strlit "Opapp")
     | Opassign => empty_item (strlit "Opassign")
     | Opref => empty_item (strlit "Opref")
@@ -449,6 +455,7 @@ val clos_op_to_display_def = Define `
     | FP_cmp cmp => fp_cmp_to_display cmp
     | FP_uop op => fp_uop_to_display op
     | FP_bop op => fp_bop_to_display op
+    | FP_top op => fp_top_to_display op
     | BoundsCheckBlock => empty_item (strlit "BoundsCheckBlock")
     | BoundsCheckArray => empty_item (strlit "BoundsCheckArray")
     | BoundsCheckByte b => Item NONE (strlit "BoundsCheckByte") [bool_to_display b]
@@ -596,6 +603,7 @@ val asm_fp_to_display_def = Define `
     | FPSub n1 n2 n3 => item_with_nums (strlit "FPSub") [n1; n2; n3]
     | FPMul n1 n2 n3 => item_with_nums (strlit "FPMul") [n1; n2; n3]
     | FPDiv n1 n2 n3 => item_with_nums (strlit "FPDiv") [n1; n2; n3]
+    | FPFma n1 n2 n3 => item_with_nums (strlit "FPFma") [n1; n2; n3]
     | FPMov n1 n2 => item_with_nums (strlit "FPMov") [n1; n2]
     | FPMovToReg n1 n2 n3 => item_with_nums (strlit "FPMovToReg") [n1; n2; n3]
     | FPMovFromReg n1 n2 n3 => item_with_nums (strlit "FPMovFromReg") [n1; n2; n3]
