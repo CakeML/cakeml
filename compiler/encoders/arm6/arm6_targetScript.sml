@@ -175,6 +175,8 @@ val arm6_enc_def = Define`
       enc (VFP (vmul (T, n2w d1, n2w d2, n2w d3)))) /\
    (arm6_enc (Inst (FP (FPDiv d1 d2 d3))) =
       enc (VFP (vdiv (T, n2w d1, n2w d2, n2w d3)))) /\
+   (arm6_enc (Inst (FP (FPFma d1 d2 d3))) =  (* Skip *)
+      enc (Data (ShiftImmediate (F, F, 0w, 0w, SRType_LSL, 0)))) /\
    (arm6_enc (Inst (FP (FPMovToReg r1 r2 d))) =
       enc (VFP (vmov_double (T, n2w r1, n2w r2, n2w d)))) /\
    (arm6_enc (Inst (FP (FPMovFromReg d r1 r2))) =

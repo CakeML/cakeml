@@ -14,7 +14,7 @@ local
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
            "load", (* "load32", *) "load8", "store", (* "store32", *) "store8",
            "fp less", "fp less eq", "fp eq", "fp mov", "fp abs", "fp neg",
-           "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp to reg",
+           "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp fma", "fp to reg",
            "fp from reg", "fp to int", "fp from int", "jump", "cjump reg",
            "cjump imm", "call", "jump reg", "loc"]
   val l = Lib.zip n (Drule.CONJUNCTS arm6_enc_def)
