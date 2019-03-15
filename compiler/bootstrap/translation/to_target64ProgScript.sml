@@ -190,7 +190,8 @@ val _ = translate (flatten_def |> spec64)
 val _ = translate (compile_def |> spec64)
 
 open lab_filterTheory lab_to_targetTheory asmTheory
-open ml_monad_translatorLib monadic_encTheory
+open monadic_encTheory
+open ml_monad_translatorLib;
 
 (* The record types used for the monadic state and exceptions *)
 val state_type = ``:enc_state_64``;
@@ -240,8 +241,84 @@ val res = start_dynamic_init_fixed_store_translation
             add_type_theories
             store_pinv_def_opt;
 
-val _ = m_translate lookup_insert_table_def
-val _ = m_translate enc_line_hash_def (* broken *)
+val _ = translate (lab_inst_def |> INST_TYPE [alpha |-> ``:64``])
+val _ = translate (cbw_to_asm_def |> INST_TYPE [alpha |-> ``:64``])
+val _ = m_translate lookup_insert_table_def;
+val _ = m_translate enc_line_hash_def;
+
+val _ = ParseExtras.temp_tight_equality();
+val _ = monadsyntax.temp_add_monadsyntax()
+
+val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
+val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("return", ``st_ex_return``);
+
+val enc_line_hash_ls_def = Define`
+  (enc_line_hash_ls enc skip_len n [] = return []) ∧
+  (enc_line_hash_ls enc skip_len n (x::xs) =
+  do
+    fx <- enc_line_hash enc skip_len n x;
+    fxs <- enc_line_hash_ls enc skip_len n xs;
+    return (fx::fxs)
+  od)`
+
+val _ = m_translate enc_line_hash_ls_def;
+
+val enc_sec_hash_ls_def = Define`
+  (enc_sec_hash_ls enc skip_len n [] = return []) ∧
+  (enc_sec_hash_ls enc skip_len n (x::xs) =
+  case x of Section k ys =>
+  do
+    ls <- enc_line_hash_ls enc skip_len n ys;
+    rest <- enc_sec_hash_ls enc skip_len n xs;
+    return (Section k ls::rest)
+  od)`
+
+val _ = m_translate enc_sec_hash_ls_def;
+
+val enc_sec_hash_ls_full_def = Define`
+  enc_sec_hash_ls_full enc n xs =
+  enc_sec_hash_ls enc (LENGTH (enc (Inst Skip))) n xs`
+
+val _ = m_translate enc_sec_hash_ls_full_def;
+
+val enc_line_hash_eq = Q.prove(`
+  ∀ls s.
+  st_ex_MAP (enc_line_hash enc n l) ls s =
+  enc_line_hash_ls enc n l ls s`,
+  Induct>>rw[]>>EVAL_TAC>>
+  simp[]);
+
+val enc_sec_hash_eq = Q.prove(`
+  ∀xs s.
+   st_ex_MAP (enc_sec_hash enc (LENGTH (enc (Inst Skip))) n) xs s =
+   enc_sec_hash_ls enc (LENGTH (enc (Inst Skip))) n xs s`,
+  Induct>>rw[]>>EVAL_TAC>>
+  Cases_on`h`>>EVAL_TAC>>
+  simp[enc_line_hash_eq]>>
+  every_case_tac>>fs[]);
+
+val enc_secs_aux_trans_def = Q.prove(
+ `∀enc n xs st.
+     enc_secs_aux enc n xs =
+     run_ienc_state_64 (enc_sec_hash_ls_full enc n xs)
+       <| hash_tab := (n,[]) |>`,
+  simp[enc_secs_aux_def,enc_sec_hash_ls_full_def,run_ienc_state_64_def]>>
+  rw[enc_sec_list_hash_def]>>
+  AP_THM_TAC>>
+  AP_TERM_TAC>>
+  metis_tac[enc_sec_hash_eq]);
+
+val _ = m_translate_run enc_secs_aux_trans_def;
+
+val _ = translate enc_secs_def;
+
+Theorem monadic_enc_enc_secs_side_def
+  `monadic_enc_enc_secs_side a b c ⇔ T`
+  (EVAL_TAC>>
+  cheat)
+  |> update_precondition;
 
 val _ = translate (spec64 filter_skip_def)
 

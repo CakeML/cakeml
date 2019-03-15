@@ -1344,8 +1344,16 @@ local
         else
           ("'a"^(Int.toString i))::(generate_varnames c (i+1) (n-1))
       val ty_names = generate_varnames #"a" 1 (List.length ty_args)
-      val ty_args = List.map mk_vartype ty_names
-    in mk_type(ty_cons, ty_args) end
+      val ty_args_new = List.map mk_vartype ty_names
+      (* Don't generalize fcp type arguments *)
+      fun undo_fcp_types_rec (x::xs) (y::ys) =
+        if is_vartype y andalso fcpSyntax.is_numeric_type x andalso fcpSyntax.dest_int_numeric_type x > 1
+        then
+          x::(undo_fcp_types_rec xs ys)
+        else
+          y::(undo_fcp_types_rec xs ys)
+      | undo_fcp_types_rec _ _ = []
+    in mk_type(ty_cons, undo_fcp_types_rec ty_args ty_args_new) end
     else ty
 
   fun mem_derive_case_of ty =
@@ -2752,7 +2760,7 @@ fun m_translate_main def =
     val (is_rec,defs,ind) = preprocess_def def
     val info = List.map get_info defs
     val msg = comma (List.map (fn (fname,_,_,_,_) => fname) info)
-    (* val (fname,ml_fname,lhs,tm,def) = List.hd info *)
+    (* val (fname,ml_fname,lhs,rhs,def) = List.hd info *)
     (* derive deep embedding *)
     fun compute_deep_embedding info =
       let
