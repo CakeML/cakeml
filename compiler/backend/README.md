@@ -224,7 +224,7 @@ compiler configuration.
 This directory contains the mips-specific part of the compiler backend.
 
 [monadic_enc](monadic_enc):
-Monadic implementation of lab-to-target encoder.
+Monadic implementation of encoder.
 
 [patLangScript.sml](patLangScript.sml):
 The patLang intermediate language follows immediately after

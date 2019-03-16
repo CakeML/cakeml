@@ -5,6 +5,7 @@ open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
 open to_word64ProgTheory std_preludeTheory;
+open monadic_encTheory ml_monad_translatorLib;
 
 val _ = new_theory "to_target64Prog"
 
@@ -190,8 +191,6 @@ val _ = translate (flatten_def |> spec64)
 val _ = translate (compile_def |> spec64)
 
 open lab_filterTheory lab_to_targetTheory asmTheory
-open monadic_encTheory
-open ml_monad_translatorLib;
 
 (* The record types used for the monadic state and exceptions *)
 val state_type = ``:enc_state_64``;
@@ -337,6 +336,9 @@ Theorem monadic_enc_enc_secs_side_def
   metis_tac[to_target64prog_enc_sec_hash_ls_side_def,DECIDE``1n ≠ 0``])
   |> update_precondition;
 
+(* TODO: make this a configurable parameter directly *)
+val res = translate (GSYM monadic_encTheory.enc_secs_correct |> INST [``n:num`` |->``1632899n``])
+
 val _ = translate (spec64 filter_skip_def)
 
 val _ = translate (get_jump_offset_def |>INST_TYPE [alpha|->``:64``,beta |-> ``:64``])
@@ -356,8 +358,6 @@ val _ = translate (conv64 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPT
 (* TODO: there may be a better rewrite for aligned (in to_word64Prog's translation of offset_ok) *)
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
-
-val _ = translate (spec64 remove_labels_def |> REWRITE_RULE [GSYM monadic_encTheory.enc_secs_correct])
 
 val _ = translate (spec64 compile_def)
 
