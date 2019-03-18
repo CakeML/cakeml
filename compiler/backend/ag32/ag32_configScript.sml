@@ -18,7 +18,7 @@ val word_to_word_conf = ``<| reg_alg:=2; col_oracle := λn. NONE |>``
 val ag32_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; has_fp_ops:=T; call_empty_ffi:=F; gc_kind:=Simple|>``
 val ag32_word_conf = ``<| bitmaps := []:32 word list |>``
 val ag32_stack_conf = ``<|jump:=T;reg_names:=ag32_names|>``
-val ag32_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=ag32_config;init_clock:=5|>``
+val ag32_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=ag32_config;init_clock:=5;hash_size:=1632899n|>``
 
 val ag32_backend_config_def = Define`
   ag32_backend_config =
