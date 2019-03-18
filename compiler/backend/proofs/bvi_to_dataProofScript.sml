@@ -367,49 +367,49 @@ val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
        do_app_aux op z t = Rval (pres,s2) ∧
        res = data_to_bvi_v pres ∧
        state_rel s1 s2 arch_size`,
-  cheat (* STRIP_TAC \\ `?debug. debug () = op` by (qexists_tac `K op` \\ fs[]) \\
-  Cases_on `op`
-  \\ ntac 2 (fs [ do_app_aux_def
-                , bvlSemTheory.do_app_def
-                , bviSemTheory.do_app_def
-                , bviSemTheory.do_app_aux_def
-                , list_case_eq
-                , option_case_eq
-                , bool_case_eq
-                , v_case_eq
-                , bvlSemTheory.v_case_eq
-                , ffiTheory.call_FFI_def
-                , with_fresh_ts_def
-                , closSemTheory.ref_case_eq
-                , do_install_def
-                , ffiTheory.ffi_result_case_eq
-                , ffiTheory.oracle_result_case_eq
-                , semanticPrimitivesTheory.eq_result_case_eq
-                , pair_case_eq
-                , dataLangTheory.op_space_reset_def
-                , consume_space_def])
-  \\ rw [case_eq_thms, bvlSemTheory.case_eq_thms, pair_case_eq]
-  \\ every_case_tac \\ fs []
-  \\ REPEAT (CHANGED_TAC (rfs [MAP_EQ_CONS]))
-  \\ rveq
-  \\ rpt (qpat_x_assum `_ = data_to_bvi_v _` (ASSUME_TAC o GSYM))
-  \\ imp_res_tac data_to_bvi_v_eq
-  \\ rw[data_to_bvi_v_def]
-  \\ fs[bvi_to_bvl_def,bvl_to_bvi_def
-       , bviSemTheory.state_component_equality
-       , data_to_bvi_ref_def
-       , state_rel_def
-       , o_f_FUPDATE
-       , map_replicate
-       , data_to_bvi_eq_ByteArray
-       , v_to_list_eq
-       , v_to_list_def
-       , data_to_bvi_v_Boolv
-       , data_to_bvi_v_Unit]
-  \\ rfs [FLOOKUP_o_f,option_case_eq]
-  \\ imp_res_tac data_to_bvi_ref_eq
-  \\ imp_res_tac data_to_bvi_v_eq
-  \\ fs [data_to_bvi_v_def
+       STRIP_TAC \\ `?debug. debug () = op` by (qexists_tac `K op` \\ fs[]) \\
+       Cases_on `op`
+       \\ ntac 2 (fs [ do_app_aux_def
+               , bvlSemTheory.do_app_def
+               , bviSemTheory.do_app_def
+               , bviSemTheory.do_app_aux_def
+               , list_case_eq
+               , option_case_eq
+               , bool_case_eq
+               , v_case_eq
+               , bvlSemTheory.v_case_eq
+               , ffiTheory.call_FFI_def
+               , with_fresh_ts_def
+               , closSemTheory.ref_case_eq
+               , do_install_def
+               , ffiTheory.ffi_result_case_eq
+               , ffiTheory.oracle_result_case_eq
+               , semanticPrimitivesTheory.eq_result_case_eq
+               , pair_case_eq
+               , dataLangTheory.op_space_reset_def
+               , consume_space_def])
+        \\ rw [case_eq_thms, bvlSemTheory.case_eq_thms, pair_case_eq]
+        \\ every_case_tac \\ fs []
+\\ REPEAT (CHANGED_TAC (rfs [MAP_EQ_CONS]))
+        \\ rveq
+\\ rpt (qpat_x_assum `_ = data_to_bvi_v _` (ASSUME_TAC o GSYM))
+        \\ imp_res_tac data_to_bvi_v_eq
+        \\ rw[data_to_bvi_v_def]
+        \\ fs[bvi_to_bvl_def,bvl_to_bvi_def
+        , bviSemTheory.state_component_equality
+        , data_to_bvi_ref_def
+        , state_rel_def
+        , o_f_FUPDATE
+        , map_replicate
+        , data_to_bvi_eq_ByteArray
+        , v_to_list_eq
+        , v_to_list_def
+        , data_to_bvi_v_Boolv
+        , data_to_bvi_v_Unit]
+        \\ rfs [FLOOKUP_o_f,option_case_eq]
+        \\ imp_res_tac data_to_bvi_ref_eq
+        \\ imp_res_tac data_to_bvi_v_eq
+        \\ fs [data_to_bvi_v_def
         ,data_to_bvi_ref_def
         ,LENGTH_MAP,EL_MAP
         ,o_f_FUPDATE
@@ -425,7 +425,6 @@ val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
   >- (ONCE_REWRITE_TAC [GSYM MAP_APPEND] \\ rw [list_to_v_MAP])
-  >- (ONCE_REWRITE_TAC [GSYM MAP_APPEND] \\ rw [list_to_v_MAP])
   >- (Cases_on `t.tstamps`
      \\ Cases_on `z`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
@@ -436,10 +435,11 @@ val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
       \\ rw [EL_MAP])
   >- rfs [code_rel_def]
   >- (rfs [data_to_bvi_do_eq,data_to_bvi_v_Boolv])
-*));
+);
 
 val compile_correct = Q.prove(
   `∀xs env s1 arch_size res s2 t1 n corr tail live.
+     0 < arch_size - 2 ∧
      evaluate (xs,env,s1) = (res,s2) ∧
      res ≠ Rerr(Rabort Rtype_error) ∧
      var_corr env corr (map data_to_bvi_v t1.locals) ∧
@@ -475,7 +475,7 @@ val compile_correct = Q.prove(
                     case res of
                     | Rval xs => var_corr xs vs (map data_to_bvi_v t2.locals)
                     | _ => F)`,
-cheat (*  SIMP_TAC std_ss [Once EQ_SYM_EQ]
+  SIMP_TAC std_ss [Once EQ_SYM_EQ]
   \\ recInduct bviSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [compile_def,dataSemTheory.evaluate_def,bviSemTheory.evaluate_def]
   THEN1 (* NIL *)
@@ -697,7 +697,7 @@ cheat (*  SIMP_TAC std_ss [Once EQ_SYM_EQ]
     \\ IMP_RES_TAC jump_exc_IMP \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[jump_exc_def,data_to_bvi_result_def])
   THEN1 (* Op *)
-   (`?c1 vs n1. compile arch_size n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
+   ( `?c1 vs n1. compile arch_size n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,evaluate_def]
     \\ Cases_on `evaluate (xs,env,s)`
     \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
@@ -887,7 +887,7 @@ cheat (*  SIMP_TAC std_ss [Once EQ_SYM_EQ]
          \\ IMP_RES_TAC jump_exc_IMP
          \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
          \\ full_simp_tac(srw_ss())[jump_exc_def])))
-    \\ Cases_on`∃b. op = CopyByte b` >- (
+    \\ Cases_on`op = CopyByte F` >- (
       fs[dataLangTheory.op_requires_names_def]
       \\ qhdtm_x_assum`bviSem$do_app`mp_tac
       \\ simp[bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,closSemTheory.case_eq_thms]
@@ -931,6 +931,52 @@ cheat (*  SIMP_TAC std_ss [Once EQ_SYM_EQ]
       \\ fs[jump_exc_def]
       \\ TOP_CASE_TAC \\ fs[]
       \\ TOP_CASE_TAC \\ fs[])
+    \\ Cases_on`op = CopyByte T` >- (
+        fs[dataLangTheory.op_requires_names_def]
+      \\ qhdtm_x_assum`bviSem$do_app`mp_tac
+      \\ simp[bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,closSemTheory.case_eq_thms]
+      \\ strip_tac \\ rveq \\ fs[pair_case_eq,domain_map] \\ rw[]
+      \\ simp[evaluate_def,cut_state_opt_def,cut_state_def,cut_env_def]
+      \\ fs[dataSemTheory.do_app_def,do_space_def,dataLangTheory.op_space_reset_def,
+            data_spaceTheory.op_space_req_def,do_app_aux_def]
+      \\ fs[state_rel_def,code_rel_def]
+      \\ fs [ bvlSemTheory.do_app_def
+         , bvlSemTheory.case_eq_thms
+         , case_eq_thms
+         , pair_case_eq,SWAP_REVERSE_SYM,FLOOKUP_o_f]
+      \\ ntac 5 (rfs [MAP_EQ_CONS])
+      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
+      \\ fs[FLOOKUP_o_f,case_eq_thms]
+      \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
+      \\ fs[set_var_def,bvl_to_bvi_id,lookup_insert
+           ,lookup_map,map_insert]
+      \\ fs[bvi_to_bvl_def,bvl_to_bvi_def
+           ,bviSemTheory.state_component_equality
+           , data_to_bvi_ref_def]
+      \\ conj_tac
+      >- ( rw[Abbr`env1`,lookup_inter_EQ] )
+          \\ fs[var_corr_def,data_to_bvi_v_Unit,get_var_def,lookup_insert
+           ,lookup_map,bvlPropsTheory.case_eq_thms
+           ,LENGTH_MAP,LIST_REL_LENGTH,lookup_map]
+      \\ fs[] \\ rveq
+      \\ fs[] \\ rveq
+      \\ conj_tac
+      >- ( fs[LIST_REL_EL_EQN]
+         \\ rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+         \\ metis_tac[MEM_EL,prim_recTheory.LESS_REFL])
+      \\ conj_tac
+      >- (rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+          \\ res_tac \\ fs[])
+      \\ conj_tac
+      >- (rw[Abbr`env1`,lookup_inter_EQ,lookup_list_to_num_set]
+          \\ metis_tac[prim_recTheory.LESS_REFL])
+      \\ rw[] \\ res_tac
+      \\ fs[jump_exc_def]
+      >-( TOP_CASE_TAC \\ fs[] \\ TOP_CASE_TAC \\ fs[])
+      \\ simp[data_to_bvi_v_def]
+    )
+    \\ Cases_on `?b. op = CopyByte b` >- (fs[] \\ Cases_on `b` \\ fs[])
     \\ fs []
     \\ fs[bviSemTheory.state_component_equality] \\ rveq
     \\ Cases_on `op_requires_names op`
@@ -1097,7 +1143,7 @@ cheat (*  SIMP_TAC std_ss [Once EQ_SYM_EQ]
     \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,dataSemTheory.dec_clock_def,
          get_var_def,state_rel_def,bviSemTheory.dec_clock_def,jump_exc_NONE])
   THEN1 (* Call *)
-   (Cases_on `handler` THEN1 (* Call without handler *)
+   ( Cases_on `handler` THEN1 (* Call without handler *)
      (`?c1 vs n1. compile arch_size n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
       \\ FULL_SIMP_TAC std_ss [LET_DEF,evaluate_def,call_env_def,compile_def,
            evaluate_mk_ticks]
@@ -1520,7 +1566,7 @@ cheat (*  SIMP_TAC std_ss [Once EQ_SYM_EQ]
        (full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[jump_exc_def] \\ rev_full_simp_tac(srw_ss())[]
         \\ Cases_on `LASTN (t2.handler + 1) t2.stack` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
-      \\ fs[var_corr_def,get_var_def,lookup_map])*));
+      \\ fs[var_corr_def,get_var_def,lookup_map]));
 
 val compile_exp_lemma = compile_correct
   |> Q.SPECL [`[exp]`,`env`,`s1`,`arch_size`,`res`,`s2`,`t1`,`n`,`GENLIST I n`,`T`,`[]`]
@@ -1528,8 +1574,8 @@ val compile_exp_lemma = compile_correct
        PULL_EXISTS,EVERY_DEF];
 
 Theorem compile_exp_correct
-  `^(compile_exp_lemma |> concl |> dest_imp |> fst) /\ 0 < arch_size - 2 ==>
-    ∃t2 prog vs next_var r.
+  `^(compile_exp_lemma |> concl |> dest_imp |> fst) ==>
+    ∃t2 r.
       evaluate (compile_exp arch_size n exp,t1) arch_size = (SOME r,t2) /\
       state_rel s2 t2 arch_size /\ res_list (data_to_bvi_result r) = res`
   (REPEAT STRIP_TAC \\ MP_TAC compile_exp_lemma \\ full_simp_tac(srw_ss())[]
@@ -1572,18 +1618,14 @@ Theorem compile_part_evaluate
   \\ imp_res_tac state_rel_dec_clock
   \\ disch_then(drule o (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``state_rel`` o fst o strip_comb))))))
   \\ simp[]
-  \\ impl_tac
-  >- (simp[lookup_def,dataSemTheory.dec_clock_def]
-     \\ full_simp_tac(srw_ss())[jump_exc_def]
-     \\ every_case_tac >> full_simp_tac(srw_ss())[]
-     \\ rpt var_eq_tac >> full_simp_tac(srw_ss())[])
   \\ strip_tac
-  \\ simp[call_env_def,fromList_def]
-  \\ `dec_clock t1 with locals := LN = dec_clock t1`
-     by (EVAL_TAC >> simp[dataSemTheory.state_component_equality])
-  \\ pop_assum SUBST1_TAC >> simp[]
-  \\ every_case_tac
-  \\ full_simp_tac(srw_ss())[]);
+  \\ fs[]
+  \\ pop_assum (assume_tac o Q.SPECL [`s2`,`res`,`0`,`p1`])
+  \\ `call_env [] (dec_clock t1) = dec_clock t1` by (fs[call_env_def,dec_clock_def,dataSemTheory.state_component_equality] \\ EVAL_TAC)
+  \\ fs[]
+  \\ drule compile_exp_correct
+  \\ cheat
+);
 
 Theorem MAP_FST_compile_prog[simp]
   `∀arch_size (prog : (num#num#bvi$exp) list). MAP FST (compile_prog arch_size prog) = MAP FST prog`
@@ -1616,7 +1658,7 @@ Theorem compile_prog_semantics
    bviSem$semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (bvi_to_data$compile_prog arch_size prog)) start ≠ Fail ⇒
    dataSem$semantics ffi0 (fromAList (bvi_to_data$compile_prog arch_size prog)) ((I ## (bvi_to_data$compile_prog arch_size)) o co) cc start arch_size =
    bviSem$semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (bvi_to_data$compile_prog arch_size prog)) start`
-  cheat (*simp[bviSemTheory.semantics_def]
+  (simp[bviSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
   \\ DEEP_INTRO_TAC some_intro >> simp[]
   \\ conj_tac
