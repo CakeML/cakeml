@@ -68,7 +68,7 @@ val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a wor
 
 val _ = inst_tyargs := [alpha]
 
-open word_to_stackTheory
+open word_to_stackTheory;
 
 val _ = translate (conv64 write_bitmap_def|> (RW (!extra_preprocessing)))
 
@@ -95,7 +95,7 @@ val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:64``])
 
 val _ = translate (compile_def |> INST_TYPE [alpha|->``:64``,beta|->``:64``]);
 
-open stack_allocTheory
+open stack_allocTheory;
 
 val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
                                     backend_commonTheory.word_shift_def]
@@ -157,7 +157,7 @@ val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side c
   fs[fetch "-" "stack_alloc_compile_side_def", stack_alloc_prog_comp_side]) |> update_precondition;
 *)
 
-open stack_removeTheory
+open stack_removeTheory;
 
 (* Might be better to inline this *)
 val _ = translate (conv64 word_offset_def)
@@ -173,13 +173,13 @@ val _ = translate (init_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss [w
 
 val _ = translate (spec64 compile_def)
 
-open stack_namesTheory
+open stack_namesTheory;
 
 val _ = translate (spec64 comp_def)
 val _ = translate (prog_comp_def |> INST_TYPE [beta |-> ``:64``])
 val _ = translate (compile_def |> INST_TYPE [beta |-> ``:64``])
 
-open stack_to_labTheory
+open stack_to_labTheory;
 
 val _ = matches := [``foo:'a labLang$prog``,``foo:'a
   labLang$sec``,``foo:'a labLang$line``,``foo:'a
@@ -190,7 +190,7 @@ val _ = translate (flatten_def |> spec64)
 
 val _ = translate (compile_def |> spec64)
 
-open lab_filterTheory lab_to_targetTheory asmTheory
+open lab_filterTheory lab_to_targetTheory asmTheory;
 
 (* The record types used for the monadic state and exceptions *)
 val state_type = ``:enc_state_64``;
@@ -244,100 +244,36 @@ val _ = translate (lab_inst_def |> INST_TYPE [alpha |-> ``:64``])
 val _ = translate (cbw_to_asm_def |> INST_TYPE [alpha |-> ``:64``])
 val _ = m_translate lookup_insert_table_def;
 val _ = m_translate enc_line_hash_def;
-
-val _ = ParseExtras.temp_tight_equality();
-val _ = monadsyntax.temp_add_monadsyntax()
-
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
-
-val enc_line_hash_ls_def = Define`
-  (enc_line_hash_ls enc skip_len n [] = return []) ∧
-  (enc_line_hash_ls enc skip_len n (x::xs) =
-  do
-    fx <- enc_line_hash enc skip_len n x;
-    fxs <- enc_line_hash_ls enc skip_len n xs;
-    return (fx::fxs)
-  od)`
-
 val _ = m_translate enc_line_hash_ls_def;
-
-val enc_sec_hash_ls_def = Define`
-  (enc_sec_hash_ls enc skip_len n [] = return []) ∧
-  (enc_sec_hash_ls enc skip_len n (x::xs) =
-  case x of Section k ys =>
-  do
-    ls <- enc_line_hash_ls enc skip_len n ys;
-    rest <- enc_sec_hash_ls enc skip_len n xs;
-    return (Section k ls::rest)
-  od)`
-
 val _ = m_translate enc_sec_hash_ls_def;
-
-val enc_sec_hash_ls_full_def = Define`
-  enc_sec_hash_ls_full enc n xs =
-  enc_sec_hash_ls enc (LENGTH (enc (Inst Skip))) n xs`
-
 val _ = m_translate enc_sec_hash_ls_full_def;
 
-val enc_line_hash_eq = Q.prove(`
-  ∀ls s.
-  st_ex_MAP (enc_line_hash enc n l) ls s =
-  enc_line_hash_ls enc n l ls s`,
-  Induct>>rw[]>>EVAL_TAC>>
-  simp[]);
-
-val enc_sec_hash_eq = Q.prove(`
-  ∀xs s.
-   st_ex_MAP (enc_sec_hash enc (LENGTH (enc (Inst Skip))) n) xs s =
-   enc_sec_hash_ls enc (LENGTH (enc (Inst Skip))) n xs s`,
-  Induct>>rw[]>>EVAL_TAC>>
-  Cases_on`h`>>EVAL_TAC>>
-  simp[enc_line_hash_eq]>>
-  every_case_tac>>fs[]);
-
-val enc_secs_aux_trans_def = Q.prove(
- `∀enc n xs st.
-     enc_secs_aux enc n xs =
-     run_ienc_state_64 (enc_sec_hash_ls_full enc n xs)
-       <| hash_tab := (n,[]) |>`,
-  simp[enc_secs_aux_def,enc_sec_hash_ls_full_def,run_ienc_state_64_def]>>
-  rw[enc_sec_list_hash_def]>>
-  AP_THM_TAC>>
-  AP_TERM_TAC>>
-  metis_tac[enc_sec_hash_eq]);
-
-val _ = m_translate_run enc_secs_aux_trans_def;
+val _ = m_translate_run enc_secs_aux_def;
 
 val _ = translate enc_secs_def;
 
-val to_target64prog_enc_line_hash_ls_side_def = Q.prove(`
+val monadic_enc_enc_line_hash_ls_side_def = Q.prove(`
   ∀a b c d e.
   d ≠ 0 ⇒
-  to_target64prog_enc_line_hash_ls_side a b c d e ⇔ T`,
+  monadic_enc_enc_line_hash_ls_side a b c d e ⇔ T`,
   Induct_on`e`>>
-  simp[Once (fetch "-" "to_target64prog_enc_line_hash_ls_side_def")]>>
+  simp[Once (fetch "-" "monadic_enc_enc_line_hash_ls_side_def")]>>
   EVAL_TAC>>rw[]>>fs[]);
 
-val to_target64prog_enc_sec_hash_ls_side_def = Q.prove(`
+val monadic_enc_enc_sec_hash_ls_side_def = Q.prove(`
   ∀a b c d e.
   d ≠ 0 ⇒
-  to_target64prog_enc_sec_hash_ls_side a b c d e ⇔ T`,
+  monadic_enc_enc_sec_hash_ls_side a b c d e ⇔ T`,
   Induct_on`e`>>
-  simp[Once (fetch "-" "to_target64prog_enc_sec_hash_ls_side_def")]>>
-  metis_tac[to_target64prog_enc_line_hash_ls_side_def]);
+  simp[Once (fetch "-" "monadic_enc_enc_sec_hash_ls_side_def")]>>
+  metis_tac[monadic_enc_enc_line_hash_ls_side_def]);
 
 Theorem monadic_enc_enc_secs_side_def
   `monadic_enc_enc_secs_side a b c ⇔ T`
   (EVAL_TAC>>
   rw[]>>
-  metis_tac[to_target64prog_enc_sec_hash_ls_side_def,DECIDE``1n ≠ 0``])
+  metis_tac[monadic_enc_enc_sec_hash_ls_side_def,DECIDE``1n ≠ 0``])
   |> update_precondition;
-
-(* TODO: make this a configurable parameter directly *)
-val res = translate (GSYM monadic_encTheory.enc_secs_correct |> INST [``n:num`` |->``1632899n``])
 
 val _ = translate (spec64 filter_skip_def)
 
@@ -359,7 +295,35 @@ val _ = translate (conv64 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPT
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
-val _ = translate (spec64 compile_def)
+(* Add in hidden argument to compile_lab *)
+val remove_labels_hash_def = Define `
+  remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
+    remove_labels_loop init_clock c pos labs ffis (enc_secs c.encode hash_size sec_list)`;
+
+val res = translate (remove_labels_hash_def |> spec64);
+
+val compile_lab_thm = Q.prove(`
+  compile_lab c sec_list =
+    let current_ffis = find_ffi_names sec_list in
+    let (ffis,ffis_ok) =
+      case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
+    in
+    if ffis_ok then
+      case remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list of
+      | SOME (sec_list,l1) =>
+          SOME (prog_to_bytes sec_list,
+                c with <| labels := l1;
+                          pos := FOLDL (λpos sec. sec_length (Section_lines sec) pos) c.pos sec_list;
+                          ffi_names := SOME ffis
+                        |>)
+      | NONE => NONE
+    else NONE`,
+  rw[compile_lab_def,remove_labels_hash_def,remove_labels_def]>>
+  simp[enc_secs_correct]);
+
+val res = translate compile_lab_thm;
+
+val res = translate (spec64 compile_def);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 

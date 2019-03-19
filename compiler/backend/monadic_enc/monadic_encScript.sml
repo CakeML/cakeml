@@ -161,26 +161,28 @@ val enc_line_hash_def = Define `
        return (LabAsm l 0w bs (LENGTH bs))
      od)`
 
-val st_ex_MAP_def = Define `
-  (st_ex_MAP f [] = return []) ∧
-  (st_ex_MAP f (x::xs) =
+val enc_line_hash_ls_def = Define`
+  (enc_line_hash_ls enc skip_len n [] = return []) ∧
+  (enc_line_hash_ls enc skip_len n (x::xs) =
   do
-    fx <- f x;
-    fxs <- st_ex_MAP f xs;
+    fx <- enc_line_hash enc skip_len n x;
+    fxs <- enc_line_hash_ls enc skip_len n xs;
     return (fx::fxs)
   od)`
 
-val enc_sec_hash_def = Define `
-  enc_sec_hash enc skip_len n (Section k xs) =
+val enc_sec_hash_ls_def = Define`
+  (enc_sec_hash_ls enc skip_len n [] = return []) ∧
+  (enc_sec_hash_ls enc skip_len n (x::xs) =
+  case x of Section k ys =>
   do
-    ls <- st_ex_MAP (enc_line_hash enc skip_len n) xs;
-    return (Section k ls)
-  od`;
+    ls <- enc_line_hash_ls enc skip_len n ys;
+    rest <- enc_sec_hash_ls enc skip_len n xs;
+    return (Section k ls::rest)
+  od)`
 
-val enc_sec_list_hash_def = Define `
-  enc_sec_list_hash enc n xs =
-  let skip_len = LENGTH (enc (Inst Skip)) in
-  st_ex_MAP (enc_sec_hash enc skip_len n) xs`
+val enc_sec_hash_ls_full_def = Define`
+  enc_sec_hash_ls_full enc n xs =
+  enc_sec_hash_ls enc (LENGTH (enc (Inst Skip))) n xs`
 
 (* As we are using fixed-size array, we need to define a different record type for the initialization *)
 val array_fields_names = ["hash_tab"];
@@ -190,7 +192,7 @@ val run_ienc_state_64_def = define_run ``:enc_state_64``
 
 val enc_secs_aux_def = Define`
   enc_secs_aux enc n xs =
-    run_ienc_state_64 (enc_sec_list_hash enc n xs) <| hash_tab := (n, []) |>`
+    run_ienc_state_64 (enc_sec_hash_ls_full enc n xs) <| hash_tab := (n, []) |>`
 
 val enc_secs_def = Define`
   enc_secs enc n xs =
@@ -290,14 +292,14 @@ val enc_line_hash_correct = Q.prove(`
   rw[]>>
   drule lookup_insert_table_correct>>rw[]>>simp[]);
 
-val st_ex_MAP_correct1 = Q.prove(`
+val enc_line_hash_ls_correct = Q.prove(`
   ∀xs s.
   good_table enc n s ∧ 0 < n ⇒
   ∃s'.
-  st_ex_MAP (enc_line_hash enc skip_len n) xs s =
+  enc_line_hash_ls enc skip_len n xs s =
   (Success (MAP (enc_line enc skip_len) xs), s') ∧
   good_table enc n s'`,
-  Induct>>fs[st_ex_MAP_def]>>
+  Induct>>fs[enc_line_hash_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
   drule enc_line_hash_correct>>
@@ -305,53 +307,35 @@ val st_ex_MAP_correct1 = Q.prove(`
   first_x_assum drule>>
   rw[]>>simp[]);
 
-val enc_sec_hash_correct = Q.prove(`
-  ∀s sec.
-  good_table enc n s ∧ 0 < n ⇒
-  ∃s'.
-  enc_sec_hash enc skip_len n sec s =
-  (Success (enc_sec enc skip_len sec), s') ∧
-  good_table enc n s'`,
-  rw[]>>
-  Cases_on`sec`>>
-  simp[enc_sec_hash_def,enc_sec_def]>>fs msimps>>
-  drule st_ex_MAP_correct1>>
-  disch_then (qspec_then `l` assume_tac)>> rfs[]);
-
-val st_ex_MAP_correct2 = Q.prove(`
+val enc_sec_hash_ls_correct = Q.prove(`
   ∀xs s.
   good_table enc n s ∧ 0 < n ⇒
   ∃s'.
-  st_ex_MAP (enc_sec_hash enc skip_len n) xs s =
+  enc_sec_hash_ls enc skip_len n xs s =
   (Success (MAP (enc_sec enc skip_len) xs), s') ∧
   good_table enc n s'`,
-  Induct>>fs[st_ex_MAP_def]>>
+  Induct>>fs[enc_sec_hash_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
-  drule enc_sec_hash_correct>>
-  disch_then (qspec_then `h` assume_tac)>>rfs[]>>
-  first_x_assum drule>>
-  rw[]>>simp[]);
-
-val enc_sec_list_hash_correct = Q.prove(`
-  good_table enc n s ∧ 0 < n ⇒
-  ∃s'.
-  enc_sec_list_hash enc n xs s =
-  (Success (enc_sec_list enc xs), s') ∧
-  good_table enc n s'`,
-  rw[enc_sec_list_hash_def,enc_sec_list_def]>>
-  metis_tac[st_ex_MAP_correct2]);
+  TOP_CASE_TAC>>simp[]>>
+  drule enc_line_hash_ls_correct>>
+  simp[]>>
+  disch_then(qspec_then`l` assume_tac)>>fs[]>>
+  first_x_assum drule>>rw[]>>
+  simp[enc_sec_def]);
 
 Theorem enc_secs_correct`
   enc_secs enc n xs =
   (enc_sec_list enc xs)`
-  (fs[enc_secs_def,enc_secs_aux_def]>>
+  (
+  fs[enc_secs_def,enc_secs_aux_def]>>
   fs[fetch "-" "run_ienc_state_64_def",run_def]>>
-  qmatch_goalsub_abbrev_tac `_ enc nn xs s`>>
-  qspecl_then [`xs`,`s`,`nn`,`enc`] mp_tac (GEN_ALL enc_sec_list_hash_correct)>>
+  simp[enc_sec_hash_ls_full_def]>>
+  qmatch_goalsub_abbrev_tac `_ enc sl nn xs s`>>
+  qspecl_then [`sl`,`nn`,`enc`,`xs`,`s`] mp_tac (GEN_ALL enc_sec_hash_ls_correct)>>
   impl_tac>-
     (unabbrev_all_tac>>fs[good_table_def,EVERY_REPLICATE])>>
   rw[]>>
-  fs[]);
+  fs[enc_sec_list_def]);
 
 val _ = export_theory();
