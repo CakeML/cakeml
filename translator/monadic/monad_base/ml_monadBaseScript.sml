@@ -34,6 +34,25 @@ val st_ex_bind_def = Define `
         (Success y,s) => f y s
       | (Failure x,s) => (Failure x,s)`;
 
+(*
+ * Congruence theorem for st_ex_bind.
+ * Used by TFL rewriters when deriving termination conditions.
+ * Ensures that intermediate values of the monad bind (y, s'')
+ * are captured.
+ *)
+Theorem st_ex_bind_CONG:
+  ∀ x s x' s' f f'.
+    (x = x') ∧ (s = s') ∧
+    (∀ y s''. (x' s' = (Success y, s'')) ⇒ (f y s'' = f' y s''))
+  ⇒ (st_ex_bind x f s = st_ex_bind x' f' s')
+Proof
+  rw[st_ex_bind_def] >>
+  Cases_on `x s` >>
+  rw[] >>
+  Cases_on `q` >> fs[]
+QED
+DefnBase.export_cong "st_ex_bind_CONG";
+
 val st_ex_return_def = Define `
   (st_ex_return (*: α -> (β, α, γ) M*)) x =
     λs. (Success x, s)`;
