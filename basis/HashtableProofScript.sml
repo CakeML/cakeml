@@ -547,7 +547,6 @@ Theorem buckets_ok_insert
   \\Cases_on `k=k'`
   \\ntac 3 (simp[]));
 
-
 Theorem insert_not_empty
   `!a b (mp:('a,'b) map) k v.
       mlmap$map_ok mp ==>
@@ -774,6 +773,55 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]));
 
 
+Theorem hashtable_toAscList_spec
+  `!a b hf cmp h htv.
+    app (p:'ffi ffi_proj) Hashtable_toAscList_v [htv]
+      (HASHTABLE a b hf cmp h htv)
+      (* TODO: more meaningful postcondition? *)
+      (POSTv listv. SEP_EXISTS bsalist.
+        &(LIST_TYPE (PAIR_TYPE a b) bsalist listv)
+        * HASHTABLE a b hf cmp h htv)`
+  (xcf_with_def "Hashtable.toAscList" Hashtable_toAscList_v_def
+  \\fs[HASHTABLE_def]
+  \\xpull
+  \\fs[hashtable_inv_def]
+  \\xmatch
+  \\xlet `POSTv bsv. REF_ARRAY ar bsv vlv * REF_NUM ur heuristic_size`
+    >-( xapp
+      \\qexists_tac `ARRAY arr vlv * REF_NUM ur heuristic_size`
+      \\qexists_tac `arr`
+      \\fs[REF_ARRAY_def, REF_NUM_def] \\xsimpl)
+  \\xlet `POSTv ackv. SEP_EXISTS ack. & (MAP_TYPE a b ack ackv /\
+            ack = mlmap$empty cmp) * REF_ARRAY ar bsv vlv
+            * REF_NUM ur heuristic_size`
+    >-( xapp
+      \\qexists_tac `REF_ARRAY ar bsv vlv * REF_NUM ur heuristic_size`
+      \\asm_exists_tac \\qexists_tac `b`
+      \\fs[REF_ARRAY_def, REF_NUM_def] \\ xsimpl)
+  \\xlet `POSTv bigmapv.
+          &(MAP_TYPE a b (FOLDR mlmap$union ack buckets) bigmapv)
+          * REF_ARRAY ar bsv vlv * REF_NUM ur heuristic_size`
+    >-( xapp_spec (INST_TYPE
+        [``:'a``|->``:(α, β) map``, ``:'b``|->``:(α, β) map``]
+        ArrayProofTheory.array_foldr_spec)
+      \\qexists_tac `ar ~~> bsv  * REF_NUM ur heuristic_size`
+      \\qexists_tac `vlv`
+      \\asm_exists_tac
+      \\qexists_tac `mlmap$union`
+      \\qexists_tac `buckets`
+      \\xsimpl
+      \\qexists_tac `MAP_TYPE a b`
+      \\fs[REF_ARRAY_def, REF_NUM_def, union_1_v_thm] \\xsimpl)
+  \\xapp
+  \\qexists_tac `REF_ARRAY ar bsv vlv * REF_NUM ur heuristic_size`
+  \\asm_exists_tac
+  \\xsimpl
+  \\rpt strip_tac
+  \\qexists_tac `toAscList (FOLDR union (empty cmp) buckets)`
+  \\MAP_EVERY qexists_tac [`ur`, `ar`, `hfv`, `vlv`, `bsv`, `cmpv`, `heuristic_size`]
+  \\xsimpl
+  \\qexists_tac `buckets`
+  \\xsimpl);
 
 
 val _ = export_theory();
