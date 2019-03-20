@@ -221,11 +221,11 @@ val _ = translate (hash_reg_imm_def |> INST_TYPE [alpha|->``:64``])
 val _ = translate hash_binop_def
 val _ = translate hash_cmp_def
 val _ = translate hash_shift_def
-val _ = translate (hash_arith_def |> INST_TYPE [alpha|->``:64``])
+val _ = translate (hash_arith_def |> INST_TYPE [alpha|->``:64``] |> SIMP_RULE std_ss [roll_hash_def])
 val _ = translate hash_memop_def
-val _ = translate hash_fp_def
-val _ = translate (hash_inst_def |> INST_TYPE [alpha|->``:64``])
-val _ = translate (hash_asm_def |> INST_TYPE [alpha|->``:64``])
+val _ = translate (hash_fp_def |> SIMP_RULE std_ss [roll_hash_def])
+val _ = translate (hash_inst_def |> INST_TYPE [alpha|->``:64``] |> SIMP_RULE std_ss [roll_hash_def])
+val _ = translate (hash_asm_def |> INST_TYPE [alpha|->``:64``] |> SIMP_RULE std_ss [roll_hash_def])
 
 (* Initialization *)
 

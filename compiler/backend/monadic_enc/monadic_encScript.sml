@@ -46,94 +46,136 @@ val hash_tab_manip = el 1 arr_manip;
 
 val hash_tab_accessor = save_thm("hash_tab_accessor",accessor_thm hash_tab_manip);
 
-(* There are probably better ways to hash *)
-
+(*
+  This hash function is roughly a rolling hash
+  The modulus m is a hash size parameter
+*)
 val hash_reg_imm_def = Define`
-  (hash_reg_imm (Reg reg) = reg) ∧
-  (hash_reg_imm (Imm imm) = 64n + w2n imm)`
+  (hash_reg_imm m (Reg reg) = reg) ∧
+  (hash_reg_imm m (Imm imm) = 67n + (w2n imm MOD m))`
 
 val hash_binop_def = Define`
-  (hash_binop Add = 2n) ∧
-  (hash_binop Sub = 3n) ∧
-  (hash_binop And = 5n) ∧
-  (hash_binop Or  = 7n) ∧
-  (hash_binop Xor = 11n)`
+  (hash_binop Add = 0n) ∧
+  (hash_binop Sub = 1n) ∧
+  (hash_binop And = 2n) ∧
+  (hash_binop Or  = 3n) ∧
+  (hash_binop Xor = 4n)`
 
 val hash_cmp_def = Define`
-  (hash_cmp Equal = 2n) ∧
-  (hash_cmp Lower = 3n) ∧
-  (hash_cmp Less  = 5n) ∧
-  (hash_cmp Test  = 7n) ∧
-  (hash_cmp NotEqual = 11n) ∧
-  (hash_cmp NotLower = 13n) ∧
-  (hash_cmp NotLess  = 17n) ∧
-  (hash_cmp NotTest  = 19n)`
+  (hash_cmp Equal = 5n) ∧
+  (hash_cmp Lower = 6n) ∧
+  (hash_cmp Less  = 7n) ∧
+  (hash_cmp Test  = 8n) ∧
+  (hash_cmp NotEqual = 9n) ∧
+  (hash_cmp NotLower = 10n) ∧
+  (hash_cmp NotLess  = 11n) ∧
+  (hash_cmp NotTest  = 12n)`
 
 val hash_shift_def = Define`
-  (hash_shift Lsl = 2n) ∧
-  (hash_shift Lsr = 3n) ∧
-  (hash_shift Asr = 5n) ∧
-  (hash_shift Ror = 7n)`
-
-val hash_arith_def = Define`
-  (hash_arith (Binop bop r1 r2 ri) =
-    2n * (2n * (2n * hash_binop bop + r1) + r2) + hash_reg_imm ri) ∧
-  (hash_arith (Shift sh r1 r2 n) =
-    3n * (3n * (3n * hash_shift sh + r1) + r2) + n) ∧
-  (hash_arith (Div r1 r2 r3) = (5n * (5n * r1 + r2) + r3)) ∧
-  (hash_arith (LongMul r1 r2 r3 r4) = 7n * (7n * (7n * r1 + r2) + r3) + r4) ∧
-  (hash_arith (LongDiv r1 r2 r3 r4 r5) =
-    11n * (11n * (11n * (11n * r1 + r2) + r3) + r4) + r5) ∧
-  (hash_arith (AddCarry r1 r2 r3 r4) = 13n * (13n * (13n * r1 + r2) + r3) + r4) ∧
-  (hash_arith (AddOverflow r1 r2 r3 r4) = 17n * (17n * (17n * r1 + r2) + r3) + r4) ∧
-  (hash_arith (SubOverflow r1 r2 r3 r4) = 19n * (19n * (19n * r1 + r2) + r3) + r4)`
+  (hash_shift Lsl = 13n) ∧
+  (hash_shift Lsr = 14n) ∧
+  (hash_shift Asr = 15n) ∧
+  (hash_shift Ror = 16n)`
 
 val hash_memop_def = Define`
-  (hash_memop Load   = 2n) ∧
-  (hash_memop Load8  = 3n) ∧
-  (hash_memop Store  = 5n) ∧
-  (hash_memop Store8 = 7n)`
+  (hash_memop Load   = 17n) ∧
+  (hash_memop Load8  = 18n) ∧
+  (hash_memop Store  = 19n) ∧
+  (hash_memop Store8 = 20n)`
+
+val roll_hash_def = Define`
+  (roll_hash [] acc = acc) ∧
+  (roll_hash (x::xs) acc = roll_hash xs (31n * acc + x))`
+
+(*
+Roughly, roll_hash [b;c;d;e] a
+gives
+roll_hash [b; c; d; e] a = 31 * (31 * (31 * (31 * a + b) + c) + d) + e
+
+Try to put largest terms at the end of the list!
+*)
+
+val hash_arith_def = Define`
+  (hash_arith m (Binop bop r1 r2 ri) =
+    roll_hash [hash_binop bop; r1; r2; hash_reg_imm m ri] 21n) ∧
+  (hash_arith m (Shift sh r1 r2 n) =
+    roll_hash [hash_shift sh; r1; r2; n] 22n) ∧
+  (hash_arith m (Div r1 r2 r3) =
+    roll_hash [r1;r2;r3] 23n) ∧
+  (hash_arith m (LongMul r1 r2 r3 r4) =
+    roll_hash [r1;r2;r3;r4] 24n) ∧
+  (hash_arith m (LongDiv r1 r2 r3 r4 r5) =
+    roll_hash [r1;r2;r3;r4;r5] 25n) ∧
+  (hash_arith m (AddCarry r1 r2 r3 r4) =
+    roll_hash [r1;r2;r3;r4] 26n) ∧
+  (hash_arith m (AddOverflow r1 r2 r3 r4) =
+    roll_hash [r1;r2;r3;r4] 27n) ∧
+  (hash_arith m (SubOverflow r1 r2 r3 r4) =
+    roll_hash [r1;r2;r3;r4] 28n)`
 
 val hash_fp_def = Define`
-  (hash_fp (FPLess r f1 f2) = 2n * (2n * r + f1) + f2) ∧
-  (hash_fp (FPLessEqual r f1 f2) = 3n * (3n * r + f1) + f2) ∧
-  (hash_fp (FPEqual r f1 f2) = 5n * (5n * r + f1) + f2) ∧
+  (hash_fp (FPLess r f1 f2) =
+    roll_hash [r;f1;f2] 29n) ∧
+  (hash_fp (FPLessEqual r f1 f2) =
+    roll_hash [r;f1;f2] 30n) ∧
+  (hash_fp (FPEqual r f1 f2) =
+    roll_hash [r;f1;f2] 31n) ∧
 
-  (hash_fp (FPAbs f1 f2) = 7n * f1 + f2) ∧
-  (hash_fp (FPNeg f1 f2) = 11n * f1 + f2) ∧
-  (hash_fp (FPSqrt f1 f2) = 13n * f1 + f2) ∧
+  (hash_fp (FPAbs f1 f2) =
+    roll_hash [f1;f2] 32n) ∧
+  (hash_fp (FPNeg f1 f2) =
+    roll_hash [f1;f2] 33n) ∧
+  (hash_fp (FPSqrt f1 f2) =
+    roll_hash [f1;f2] 34n) ∧
 
-  (hash_fp (FPAdd f1 f2 f3) = 17n * (17n * f1 + f2) + f3) ∧
-  (hash_fp (FPSub f1 f2 f3) = 19n * (19n * f1 + f2) + f3) ∧
-  (hash_fp (FPMul f1 f2 f3) = 23n * (23n * f1 + f2) + f3) ∧
-  (hash_fp (FPDiv f1 f2 f3) = 29n * (29n * f1 + f2) + f3) ∧
+  (hash_fp (FPAdd f1 f2 f3) =
+    roll_hash [f1;f2;f3] 35n) ∧
+  (hash_fp (FPSub f1 f2 f3) =
+    roll_hash [f1;f2;f3] 36n) ∧
+  (hash_fp (FPMul f1 f2 f3) =
+    roll_hash [f1;f2;f3] 37n) ∧
+  (hash_fp (FPDiv f1 f2 f3) =
+    roll_hash [f1;f2;f3] 38n) ∧
 
-  (hash_fp (FPMov f1 f2) = 31n * f1 + f2) ∧
-  (hash_fp (FPMovToReg r1 r2 f) = 37n * (37n * r1 + r2) + f) ∧
-  (hash_fp (FPMovFromReg f r1 r2) = 41n * (41n * f + r1) + r2) ∧
-  (hash_fp (FPToInt f1 f2) = 43n * f1 + f2) ∧
-  (hash_fp (FPFromInt f1 f2) = 47n * f1 + f2)`
+  (hash_fp (FPMov f1 f2) =
+    roll_hash [f1;f2] 39n) ∧
+  (hash_fp (FPMovToReg r1 r2 f) =
+    roll_hash [r1;r2;f] 40n) ∧
+  (hash_fp (FPMovFromReg f r1 r2) =
+    roll_hash [f;r1;r2] 41n) ∧
+  (hash_fp (FPToInt f1 f2) =
+    roll_hash [f1;f2] 42n) ∧
+  (hash_fp (FPFromInt f1 f2) =
+    roll_hash [f1;f2] 43n)`
 
 val hash_inst_def = Define`
-  (hash_inst Skip = 2n) ∧
-  (hash_inst (Const r w) = (3n * r + w2n w)) ∧
-  (hash_inst (Arith a) = (5n * hash_arith a)) ∧
-  (hash_inst (Mem m r (Addr rr w)) =
-    7n * (7n * (7n * hash_memop m + r) + rr) + w2n w) ∧
-  (hash_inst (FP fp) =
-    9n * hash_fp fp)`
+  (hash_inst m Skip = 44n) ∧
+  (hash_inst m (Const r w) =
+    roll_hash [r;w2n w MOD m] 45n) ∧
+  (hash_inst m (Arith a) =
+    roll_hash [hash_arith m a] 46n) ∧
+  (hash_inst m (Mem mop r (Addr rr w)) =
+    roll_hash [hash_memop mop; r; rr; w2n w MOD m] 47n) ∧
+  (hash_inst m (FP fp) =
+    roll_hash [hash_fp fp] 48n)`
 
 val hash_asm_def = Define`
-  (hash_asm (Inst i) = 2n * hash_inst i) ∧
-  (hash_asm (Jump w) = 3n * w2n w) ∧
-  (hash_asm (JumpCmp c r ri w) = 5n * (5n * (5n * (hash_cmp c) + r) + hash_reg_imm ri) + w2n w) ∧
-  (hash_asm (Call w) = 7n * w2n w) ∧
-  (hash_asm (JumpReg r) = 9n * r) ∧
-  (hash_asm (Loc r w) = 11n * r + w2n w)`
+  (hash_asm m (Inst i) =
+    roll_hash [hash_inst m i] 49n) ∧
+  (hash_asm m (Jump w) =
+    roll_hash [w2n w MOD m] 50n) ∧
+  (hash_asm m (JumpCmp c r ri w) =
+    roll_hash [hash_cmp c; r; hash_reg_imm m ri; w2n w MOD m] 51n) ∧
+  (hash_asm m (Call w) =
+    roll_hash [w2n w MOD m] 52n) ∧
+  (hash_asm m (JumpReg r) =
+    roll_hash [r] 53n) ∧
+  (hash_asm m (Loc r w) =
+    roll_hash [r; w2n w MOD m] 54n)`
 
 val lookup_insert_table_def = Define`
   lookup_insert_table enc n a =
-  let v = hash_asm a MOD n in
+  let v = hash_asm n a MOD n in
   do
     ls <- hash_tab_sub v;
     case ALOOKUP ls a of
