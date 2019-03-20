@@ -6,7 +6,8 @@
 *)
 
 open preamble ml_translatorTheory ml_translatorLib cfLib
-     mlbasicsProgTheory ArrayProgTheory ArrayProofTheory MapProgTheory HashtableProgTheory
+     mlbasicsProgTheory ArrayProgTheory ArrayProofTheory ListProgTheory
+     MapProgTheory HashtableProgTheory
      comparisonTheory;
 
 val _ = new_theory"HashtableProof";
@@ -773,7 +774,87 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\ simp[]
   \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]));
 
+Theorem list_app_pairs_spec
+ `∀a b l start lv.
+  LIST_TYPE (PAIR_TYPE a b) l lv /\
+  (!n xv. n < LENGTH l ∧ (PAIR_TYPE a b) (EL n l) xv ==>
+    app p fv [xv] (eff (start+n)) (POSTv v. &UNIT_TYPE () v * (eff (start+n+1))))
+  ==>
+  app (p:'ffi ffi_proj) List_app_v [fv; lv] (eff start)
+    (POSTv v. &UNIT_TYPE () v * (eff (start + (LENGTH l))))`
+ (Induct_on `l` \\ rw[LIST_TYPE_def]
+ >- ( xcf_with_def "List.app" List_app_v_def \\ xmatch \\ xcon \\ xsimpl )
+ \\ xcf_with_def "List.app" List_app_v_def
+ \\ xmatch
+ \\ xlet`POSTv v. &UNIT_TYPE () v * eff (start+1)`
+ >- (
+   xapp
+   \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["n"]))
+   \\ qexists_tac`0` \\ xsimpl )
+ \\ first_x_assum drule
+ \\ disch_then(qspec_then`start+1`mp_tac)
+ \\ simp[ADD1]
+ \\ impl_tac
+ >- (
+   rw[]
+   \\ first_x_assum(qspec_then`n+1`mp_tac)
+   \\ simp[EL_CONS,PRE_SUB1] )
+ \\ strip_tac \\ xapp);
 
+Theorem fupdate_list_take_el
+  `n < LENGTH l ==>
+    fm|++ ((TAKE (n+1) l)) =
+    (fm|++ (TAKE n l)) |+ EL n l`
+  (strip_tac
+  \\fs[TAKE_EL_SNOC]
+  \\fs[SNOC_APPEND]
+  \\fs[FUPDATE_LIST_APPEND]
+  \\fs[FUPDATE_LIST_THM]);
+
+Theorem hashtable_insertList_spec
+  `!a b hf cmp  htv l lv.
+      LIST_TYPE (PAIR_TYPE a b) l lv ==>
+      app (p:'ffi ffi_proj) Hashtable_insertList_v [htv;lv]
+        (HASHTABLE a b hf cmp h htv)
+        (POSTv uv. &(UNIT_TYPE () uv) *
+          HASHTABLE a b hf cmp (h|++l) htv)`
+  (xcf_with_def "Hashtable.insertList" Hashtable_insertList_v_def
+  \\xfun_spec `f`
+   `!k v pv h' n.
+      n < LENGTH l /\
+      (PAIR_TYPE a b) (EL n l) pv ==>
+      app (p:'ffi ffi_proj) f [pv]
+        (HASHTABLE a b hf cmp (h'|++TAKE n l) htv)
+        (POSTv uv. &(UNIT_TYPE () uv) *
+          HASHTABLE a b hf cmp ((h'|++TAKE n l)|+EL n l) htv)`
+    >-(rpt strip_tac
+      \\Cases_on `(EL n l)`
+      \\fs[PAIR_TYPE_def]
+      \\xapp
+      \\xmatch
+      \\rw[PAIR_TYPE_def]
+      >-(xapp
+        \\rfs[]))
+  >-(xapp_spec list_app_pairs_spec
+    \\CONV_TAC(RESORT_EXISTS_CONV(sort_vars["l'", "start", "eff"]))
+    \\qexists_tac `l`
+    \\qexists_tac `0`
+    \\qexists_tac `(λn1.  HASHTABLE a b hf cmp (h |++ (TAKE n1 l)) htv)`
+    \\xsimpl
+    \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\xsimpl
+    \\qexists_tac `b`
+    \\qexists_tac `a`
+    \\simp[FUPDATE_LIST_THM]
+    \\xsimpl
+    \\rpt strip_tac
+    >-(xapp
+      \\CONV_TAC(RESORT_EXISTS_CONV(sort_vars["n'", "h'"]))
+      \\qexists_tac `n`
+      \\qexists_tac `h`
+      \\xsimpl
+      \\fs[fupdate_list_take_el]
+      \\xsimpl)));
 
 
 val _ = export_theory();
