@@ -61,9 +61,9 @@ fun regexpc r =
       final = Vector.fromList ifinal}
  end;
 
-val regexp_compilation_results as {certificate, aux, ...} 
+val regexp_compilation_results as {certificate, aux, ...}
   = regexpc (Regexp_Type.fromString the_regexp);
-  
+
 val matcher_certificate = save_thm
   ("matcher_certificate",
     certificate
@@ -121,7 +121,7 @@ val _ = ml_translatorLib.pick_name :=
 val spec64 = INST_TYPE[alpha|->``:64``]
 
 val _ = translate matcher_def
-                  
+
 val mem_tolist = Q.prove(`MEM (toList l) (MAP toList ll) = MEM l ll`,
   Induct_on `ll` >> fs[]);
 
@@ -218,7 +218,7 @@ val null_index_def = tDefine "null_index"
   `null_index s n =
     if n >= strlen s then NONE
     else if strsub s n = CHR 0 then SOME n
-    else null_index s (SUC n)`  
+    else null_index s (SUC n)`
   (wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (strlen ## I)`);
 
 val null_index_ind = fetch "-" "null_index_ind";
@@ -316,7 +316,7 @@ val null_index_w_def = tDefine "null_index_w"
   `null_index_w s n =
     if n >= LENGTH s then NONE
     else if EL n s = 0w then SOME n
-    else null_index_w s (SUC n)`  
+    else null_index_w s (SUC n)`
   (wf_rel_tac `inv_image (measure (λ(a,b). SUC a - b)) (LENGTH ## I)`);
 
 val null_index_w_ind = fetch "-" "null_index_w_ind";
@@ -398,7 +398,7 @@ val null_index_w_thm = Q.store_thm("null_index_w_thm",
   >> rpt strip_tac
   >> MAP_EVERY PURE_ONCE_REWRITE_TAC [[null_index_def],[null_index_w_def]] >> rw[]
   >> fs[mlstringTheory.implode_def]
-  >> `n < LENGTH s` by fs[]  
+  >> `n < LENGTH s` by fs[]
   >> rfs[EL_MAP]
   >> qspecl_then [`[EL n s]`,`[0w]`] assume_tac MAP_CHR_w2n_11
   >> fs[]);
@@ -436,7 +436,7 @@ val null_index_strcat1 = Q.store_thm("null_index_strcat1",
   >> rw[] >> fs[]
   >> MAP_EVERY Cases_on [`s1`,`s2`]
   >> fs[mlstringTheory.strsub_def,mlstringTheory.strcat_def,mlstringTheory.concat_def,EL_APPEND_EQN])
-  
+
 val null_terminated_cut_APPEND = Q.store_thm("null_terminated_cut_APPEND",
   `!s1 s2. null_terminated s1 ==> cut_at_null(strcat s1 s2) = cut_at_null s1`,
   rw[null_terminated_def,cut_at_null_def] >> imp_res_tac null_index_strcat1
@@ -474,7 +474,7 @@ val eval_thm = let
   in v_thm |> REWRITE_RULE [GSYM v_def] end
 
 val dummyarr_loc_def = fetch "-" "dummyarr_loc_def";
-                 
+
 val _ = ml_prog_update (add_Dlet eval_thm "dummyarr" []);
 
 val forward_matching_lines = process_topdecs`
@@ -546,7 +546,7 @@ val filter_cf_oracle = Define `
   filter_cf_oracle port conf bytes ffi =
   case filter_oracle port (decode_oracle_state ffi) conf bytes of
       Oracle_final FFI_failed => NONE
-    | Oracle_final FFI_diverged => SOME FFIdiverge                                   
+    | Oracle_final FFI_diverged => SOME FFIdiverge
     | Oracle_return st' bytes => SOME(FFIreturn bytes (encode_oracle_state st'))`
 
 val seL4_IO_def = Define `
@@ -636,7 +636,7 @@ val finite_events_is_list2 = Q.prove(
      TRY(rename1 `T` >>
          ntac 2 (rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM])) >>
      TRY(rename1 `F` >>
-         rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM]) >>     
+         rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM]) >>
       simp[PULL_EXISTS] >>
       qmatch_goalsub_abbrev_tac `LUNFOLD (_ f) (_,init2,b)` >>
       first_x_assum(qspecl_then[`f`,`init2`,`b`] strip_assume_tac) >>
@@ -718,7 +718,7 @@ Proof
   Induct_on `i1` >-
     (rw[filter_events] >>
      CONV_TAC(RHS_CONV(RAND_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])))) >>
-     CONV_TAC(RHS_CONV(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])))) >>     
+     CONV_TAC(RHS_CONV(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])))) >>
      simp[next_filter_event,toList_THM,LAPPEND_NIL_2ND]) >-
     (rw[filter_events] >>
      Cases_on `f(cut_at_null_w h)`
@@ -896,7 +896,7 @@ Proof
            simp[] >> imp_res_tac every_LTAKE >>
            drule_all filter_events_append >>
            disch_then(qspecl_then [`fromList[i1]`,`language ∘ MAP (CHR ∘ w2n)`] mp_tac) >>
-           simp[LAPPEND_fromList] >> disch_then kall_tac >>           
+           simp[LAPPEND_fromList] >> disch_then kall_tac >>
            ntac 2 (simp[Once LUNFOLD] >> simp[next_filter_event]) >>
            fs[match_string_eq] >> fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
            imp_res_tac every_LDROP >> fs[every_thm] >>
@@ -944,7 +944,7 @@ Proof
            fs[match_string_eq] >> fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
            imp_res_tac every_LDROP >> fs[every_thm] >>
            fs[null_terminated_w_thm,implode_def] >>
-           fs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>           
+           fs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
            fs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
            simp[next_filter_event] >>
            qspecl_then [`i2`,`language o MAP (CHR o w2n)`,`REPLICATE 256 0w`,`F`] mp_tac finite_events_is_list >>
@@ -1113,7 +1113,7 @@ Proof
   pop_assum(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
   qunabbrev_tac `newevents` >>
   pop_assum kall_tac >>
-  rpt(pop_assum mp_tac) >> 
+  rpt(pop_assum mp_tac) >>
   SPEC_ALL_TAC >>
   Induct_on `l` >-
     (rw[] >>
@@ -1180,8 +1180,8 @@ Proof
      simp[seL4_IO_def] >>
      imp_res_tac STRING_TYPE_explode >>
      rveq >> fs[] >>
-     simp[cut_at_null_thm] >> 
-     qmatch_goalsub_abbrev_tac `one(FFI_part s u ns newevents)` >>        
+     simp[cut_at_null_thm] >>
+     qmatch_goalsub_abbrev_tac `one(FFI_part s u ns newevents)` >>
      MAP_EVERY qexists_tac [`cut_at_null_w(TAKE 256 newinit)`,`W8ARRAY v' newinit`,`s`,`u`,`ns`,`newevents`] >>
      unabbrev_all_tac >> simp[] >> xsimpl >>
      simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
@@ -1263,7 +1263,7 @@ Proof
   >> every_case_tac >> fs[] >> rveq >> fs[LENGTH_TAKE_EQ]
   >> rw[fmap_eq_flookup,FLOOKUP_UPDATE]
 QED
-  
+
 Theorem forward_matching_lines_semantics:
  LLENGTH input = NONE /\ every null_terminated_w input /\
  every ($>= 256 ∘ LENGTH) input
@@ -1275,7 +1275,7 @@ Theorem forward_matching_lines_semantics:
 Proof
   rpt strip_tac >>
   `nsLookup ^(get_env st).v (Short "forward_matching_lines") = SOME forward_matching_lines_v`
-    by(unabbrev_all_tac >> EVAL_TAC) >>  
+    by(unabbrev_all_tac >> EVAL_TAC) >>
   assume_tac limited_parts_proj >>
   drule_all forward_matching_lines_div_spec >>
   disch_then(qspec_then `ARB` mp_tac) >>
@@ -1378,7 +1378,7 @@ Theorem forward_matching_lines_ffidiv_semantics:
 Proof
   rpt strip_tac >>
   `nsLookup ^(get_env st).v (Short "forward_matching_lines") = SOME forward_matching_lines_v`
-    by(unabbrev_all_tac >> EVAL_TAC) >>    
+    by(unabbrev_all_tac >> EVAL_TAC) >>
   assume_tac limited_parts_proj >>
   drule_all forward_matching_lines_ffidiv_spec >>
   disch_then(qspec_then `Conv NONE []` mp_tac) >>
@@ -1427,7 +1427,7 @@ Proof
   qmatch_asmsub_abbrev_tac `{ffipart}` >>
   `ffipart ∈ st2heap (seL4_proj1,seL4_proj2) st'`
     by(unabbrev_all_tac >> fs[]) >>
-  unabbrev_all_tac >>  
+  unabbrev_all_tac >>
   drule_all limited_FFI_part_IN_st2heap_IMP >>
   strip_tac >> fs[] >>
   fs[evaluate_to_heap_def,semanticsTheory.semantics_prog_def] >>
@@ -1441,7 +1441,7 @@ Proof
   qexists_tac `SUC ck` >>
   fs[evaluate_ck_def]
 QED
-                                         
+
 val event_stream_finite = Q.store_thm("event_stream_finite",
   `!st f n.
   LLENGTH st.input = SOME n /\
@@ -1559,7 +1559,7 @@ val next_filter_event_invariants_lemma = Q.prove(
   >> simp[LENGTH_TAKE_EQ] >> rfs[]);
 
 val next_filter_event_invariants_lemma' = Q.prove(
-  `!n inl f buff newbuff ffi b.   
+  `!n inl f buff newbuff ffi b.
    EVERY ($~ ∘ f ∘ cut_at_null_w) (THE(LTAKE (n-1) inl)) /\
    LENGTH buff = 256 /\
    ¬exists ($~ ∘ $>= 256 ∘ LENGTH) inl /\
