@@ -5971,6 +5971,33 @@ val subtype_at_eq = Q.store_thm("subtype_at_eq",
   >> fs[subtype_at_def]
 );
 
+val subtype_at_Tyvar = Q.store_thm("subtype_at_Tyvar",
+  `!p a. IS_SOME (subtype_at (Tyvar a) p) = NULL p`,
+  Induct >> fs[subtype_at_def]
+);
+
+val subtype_at_IS_SOME_parent = Q.prove(
+  `!x p q. IS_SOME (subtype_at x (p ++ q)) ==> IS_SOME (subtype_at x p)`,
+  Induct_on `p`
+  >> fs[subtype_at_def]
+  >> Cases
+  >> ho_match_mp_tac type_ind
+  >> fs[subtype_at_Tyvar]
+  >> rw[]
+  >> Cases_on `m = q /\ r < LENGTH l`
+  >> fs[subtype_at_def]
+  >- last_x_assum imp_res_tac
+  >> fs[subtype_at_def]
+);
+
+val subtype_at_NONE_child = Q.prove(
+  `!x p q. IS_NONE (subtype_at x p) ==> IS_NONE (subtype_at x (p ++ q)) `,
+  CCONTR_TAC
+  >> fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_NONE_EQ_NONE]
+  >> imp_res_tac subtype_at_IS_SOME_parent
+  >> fs[quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
+);
+
 val subtype_at_trans = Q.store_thm("subtype_at_trans",
   `!x p y p' z. subtype_at x p = SOME y /\  subtype_at y p' = SOME z
   ==> subtype_at x (p++p') = SOME z`,
@@ -6034,27 +6061,31 @@ val subtype_at_MEM = Q.store_thm("subtype_at_MEM",
   rw[MEM_EL] >> qexists_tac `(m,n)` >> fs[subtype_at_def]
 );
 
-val subtype_at_Tyvar = Q.store_thm("subtype_at_Tyvar",
-  `!p a. IS_SOME (subtype_at (Tyvar a) p) = NULL p`,
+val subtype_at_Tyvar_neg = Q.store_thm("subtype_at_Tyvar_neg",
+  `!p a. (subtype_at (Tyvar a) p = NONE) = ~NULL p`,
   Induct >> fs[subtype_at_def]
 );
 
+val subtype_at_Tyapp = Q.store_thm("subtype_at_Tyapp",
+  `!p a. ~NULL p ==> (subtype_at (Tyapp a []) p = NONE)`,
+  rw[subtype_at_def,NULL_EQ]
+  >> Cases_on `p`
+  >> fs[]
+  >> Cases_on `h`
+  >> Cases_on `a = q /\ r < LENGTH []`
+  >> fs[subtype_at_def]
+);
+
 val subtype_at_decomp_path = Q.store_thm("subtype_at_decomp_path",
-  `!q ty1 p ty2 ty3. subtype_at ty1 p = SOME ty2 /\ subtype_at ty1 (p++q) = SOME ty3
-  ==> subtype_at ty2 q = SOME ty3`,
-  Induct
-  >> fs[subtype_at_def]
-  >- (
-    ho_match_mp_tac (fetch "-" "subtype_at_ind")
-    >> fs[subtype_at_def]
-    >> rpt strip_tac
-    >> first_x_assum drule
-    >> disch_then match_mp_tac
-    >> fs[]
-  )
-  >> strip_tac
-  >> ho_match_mp_tac (fetch "-" "subtype_at_ind")
-  >> fs[subtype_at_def]
+  `!ty1 p q ty2. subtype_at ty1 p = SOME ty2 ==> subtype_at ty1 (p++q) = subtype_at ty2 q`,
+  ho_match_mp_tac (fetch "-" "subtype_at_ind")
+  >> rw[subtype_at_def]
+);
+
+val subtype_at_THE_subtype_at = Q.prove(
+  `!x p q. IS_SOME (subtype_at x p) ==> subtype_at (THE (subtype_at x p)) q = subtype_at x (p++q)`,
+  ho_match_mp_tac (fetch "-" "subtype_at_ind")
+  >> rw[subtype_at_def]
 );
 
 val subtype_at_type_size = Q.store_thm("subtype_at_type_size",
@@ -6082,6 +6113,300 @@ val subtype_at_cyclic = Q.store_thm("subtype_at_cyclic",
   >> imp_res_tac subtype_at_type_size
   >> `MEM (EL n aty) aty` by (rw[MEM_EL] >> qexists_tac `n` >> fs[])
   >> imp_res_tac type1_size_mem
+  >> fs[]
+);
+
+(* subtype_at leaf *)
+val is_subtype_leaf_def = Define`
+  is_subtype_leaf ty p = (IS_SOME (subtype_at ty p)
+    /\ !q. ~NULL q = IS_NONE (subtype_at ty (p++q)))
+`;
+
+val is_subtype_leaf_def' = Q.prove(
+  `!x p. is_subtype_leaf x p = !q. IS_SOME (subtype_at x (p++q)) = NULL q`,
+  rw[is_subtype_leaf_def,EQ_IMP_THM,NULL_EQ,quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
+  >> CCONTR_TAC
+  >> fs[]
+  >> qpat_x_assum `!p. _` imp_res_tac
+);
+
+val is_subtype_leaf_IS_SOME_subtype = Q.prove(
+  `!x p. is_subtype_leaf x p ==> IS_SOME (subtype_at x p)`,
+  fs[is_subtype_leaf_def]
+);
+
+val is_subtype_leaf_Tyapp = Q.store_thm("is_subtype_leaf_Tyapp",
+  `!p m l. is_subtype_leaf (Tyapp m l) p ==> (NULL l = NULL p)`,
+  Cases
+  >> rw[subtype_at_def,is_subtype_leaf_def,NULL_EQ,EQ_IMP_THM]
+  >> TRY (Cases_on `l`)
+  >> TRY (Cases_on `q`)
+  >> TRY (Cases_on `h`)
+  >> fs[subtype_at_def,is_subtype_leaf_def,NULL_EQ]
+  >> (
+    first_x_assum (qspec_then `(m,0)::[]` assume_tac)
+    >> fs[subtype_at_def]
+  )
+);
+
+val is_subtype_leaf_Tyvar = Q.store_thm("is_subtype_leaf_Tyvar",
+  `!p a. is_subtype_leaf (Tyvar a) p = NULL p`,
+  rw[]
+  >> rw[subtype_at_def,is_subtype_leaf_def,subtype_at_Tyvar]
+  >> Cases_on `NULL p`
+  >> fs[NULL_EQ]
+  >> assume_tac (ccontr_equiv (subtype_at_Tyvar))
+  >> pop_assum (assume_tac o ONCE_REWRITE_RULE[NOT_IS_SOME_EQ_NONE])
+  >> fs[NULL_EQ]
+);
+
+val is_subtype_leaf_all_types = Q.store_thm("is_subtype_leaf_all_types",
+  `!t. ?p. is_subtype_leaf t p`,
+  ho_match_mp_tac type_ind
+  >> rw[]
+  >- (
+    qexists_tac `[]`
+    >> fs[is_subtype_leaf_Tyvar,NULL_EQ]
+  )
+  >> Cases_on `NULL l`
+  >- (
+    qexists_tac `[]`
+    >> fs[NULL_EQ,is_subtype_leaf_def]
+    >> rw[subtype_at_def,EQ_IMP_THM]
+    >> Cases_on `q`
+    >> fs[subtype_at_def]
+    >> Cases_on `h`
+    >> fs[subtype_at_def]
+  )
+  >> fs[EVERY_MEM,NOT_NULL_MEM]
+  >> last_x_assum imp_res_tac
+  >> fs[MEM_EL]
+  >> qexists_tac `(m,n)::p`
+  >> rveq
+  >> fs[is_subtype_leaf_def,subtype_at_def]
+);
+
+val is_subtype_leaf_eq = Q.store_thm("is_subtype_leaf_eq",
+  `!t p. is_subtype_leaf t p = (?a. subtype_at t p = SOME (Tyvar a) \/ subtype_at t p = SOME (Tyapp a []))`,
+  rw[is_subtype_leaf_def,EQ_IMP_THM,IS_SOME_EXISTS]
+  >> fs[]
+  >- (
+    Cases_on `x`
+    >> fs[]
+    >> Cases_on `l`
+    >> first_x_assum (qspec_then `[(m,0)]` assume_tac)
+    >> imp_res_tac subtype_at_decomp_path
+    >> fs[subtype_at_def]
+  )
+  >> imp_res_tac subtype_at_decomp_path
+  >> rw[subtype_at_def,subtype_at_Tyvar_neg,subtype_at_Tyapp]
+  >> pop_assum (fn x => fs[x])
+  >- fs[subtype_at_Tyvar_neg]
+  >> Cases_on `q`
+  >> fs[subtype_at_def]
+  >> Cases_on `h`
+  >> fs[subtype_at_def]
+);
+
+val subtype_leaf_above_or_below = Q.prove(
+  `!x p. ?q r. (p = q ++ r \/ q = p ++ r) ==> is_subtype_leaf x q`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- (
+    rw[is_subtype_leaf_Tyvar,NULL_EQ]
+    >> qexists_tac `[]`
+    >> qexists_tac `p`
+    >> fs[]
+  )
+  >> Cases
+  >- (
+    rw[is_subtype_leaf_eq]
+    >> qexists_tac `[]`
+    >> qexists_tac `p`
+    >> fs[]
+    >> qexists_tac `m`
+    >> fs[subtype_at_def]
+  )
+  >> rw[]
+  >> Cases_on `p`
+  >- (
+    (qspec_then `Tyapp m (h::t)` assume_tac) is_subtype_leaf_all_types
+    >> fs[]
+    >> NTAC 2 (qexists_tac `p`)
+    >> fs[]
+  )
+  >> fs[EVERY_MEM,PULL_FORALL]
+  >> Cases_on `h'`
+  >> Cases_on `q = m /\ r < LENGTH (h::t)`
+  >> fs[]
+  >- (
+    Cases_on `r = 0`
+    >- (
+      last_x_assum (qspec_then `t'` assume_tac)
+      >> fs[]
+      >> qexists_tac `(m,0)::q'`
+      >> qexists_tac `r'`
+      >> fs[is_subtype_leaf_def',subtype_at_def]
+      >> rw[]
+      >> fs[]
+    )
+    >> first_x_assum (qspecl_then [`EL (PRE r) t`,`t'`] assume_tac)
+    >> fs[MEM_EL,NOT_ZERO_LT_ZERO]
+    >> `PRE r < LENGTH t` by fs[]
+    >> qpat_x_assum `_ ==> _` imp_res_tac
+    >> fs[]
+    >> qexists_tac `(m,r)::q'`
+    >> qexists_tac `r'`
+    >> fs[is_subtype_leaf_def',subtype_at_def,EL_CONS]
+    >> rw[]
+    >> fs[]
+  )
+  >> qexists_tac `[]`
+  >> qexists_tac `[]`
+  >> fs[is_subtype_leaf_def',subtype_at_def]
+);
+
+val subtype_has_leaf = Q.prove(
+  `!x y p q. (!p. is_subtype_leaf x p \/ is_subtype_leaf y p ==> subtype_at x p = subtype_at y p)
+  /\ subtype_at x p = NONE /\ IS_SOME (subtype_at y (p ⧺ q)) ==> (NONE = subtype_at y p)`,
+  CCONTR_TAC
+  >> fs[is_subtype_leaf_def]
+  >> (qspecl_then [`x`,`p`] assume_tac) subtype_at_NONE_child
+  >> (qspec_then `THE (subtype_at y (p++q))` assume_tac) is_subtype_leaf_all_types
+  >> fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,is_subtype_leaf_def,NULL_EQ]
+  >> last_x_assum (qspec_then `p++q++p'` assume_tac)
+  >> (qspecl_then [`y`,`p++q`] assume_tac) subtype_at_THE_subtype_at
+  >> rfs[]
+  >> fs[]
+  >> rfs[]
+  >> qpat_x_assum `!q. subtype_at x _ = _` (qspec_then `q++p'` assume_tac)
+  >> fs[]
+  >> qpat_x_assum `NONE = _` (assume_tac o GSYM)
+  >> fs[IS_SOME_DEF]
+);
+
+val is_subtype_leaf_eq' = Q.store_thm("is_subtype_leaf_eq'",
+  `!x y. (x = y) = (!p. (is_subtype_leaf x p \/ is_subtype_leaf y p)
+  ==> subtype_at x p = subtype_at y p)`,
+  fs[EQ_IMP_THM,subtype_at_eq]
+  >> ho_match_mp_tac type_ind
+  >> strip_tac
+  >> rw[]
+  >- (
+    fs[subtype_at_eq,is_subtype_leaf_Tyvar]
+    >> rw[]
+    >> Cases_on `p`
+    >> fs[subtype_at_def]
+    >> first_x_assum (qspec_then `[]` assume_tac)
+    >> fs[subtype_at_def,subtype_at_Tyvar]
+    >> (qspec_then `h::t` assume_tac) subtype_at_Tyvar
+    >> fs[NULL_EQ]
+    >> rveq
+    >> fs[]
+  )
+  >> Cases_on `y`
+  >- (
+    first_x_assum (qspec_then `[]` assume_tac)
+    >> fs[is_subtype_leaf_Tyvar,subtype_at_def]
+  )
+  >> Cases_on `NULL l`
+  >> Cases_on `NULL l'`
+  >- (
+    fs[NULL_EQ]
+    >> first_x_assum (qspec_then `[]` assume_tac)
+    >> fs[is_subtype_leaf_eq,subtype_at_def]
+  )
+  >- (
+    fs[NULL_EQ]
+    >> first_x_assum (qspec_then `[]` assume_tac)
+    >> fs[is_subtype_leaf_eq,subtype_at_def]
+  )
+  >- (
+    fs[NULL_EQ]
+    >> first_x_assum (qspec_then `[]` assume_tac)
+    >> fs[is_subtype_leaf_eq,subtype_at_def]
+  )
+  >> fs[EVERY_MEM,Once PULL_FORALL]
+  >> Cases_on `m = m'`
+  >> fs[]
+  >- (
+    Cases_on `LENGTH l = LENGTH l'`
+    >> fs[]
+    >- (
+      Cases_on `l = l'`
+      >> fs[]
+      >> (Q.ISPECL_THEN [`l:type list`,`l'`,`I:type->type`,`I:type->type`] assume_tac) (ccontr_equiv(MAP_EQ_EVERY2))
+      >> rfs[MAP_ID,LIST_REL_EVERY_ZIP]
+      >> fs[EXISTS_MEM]
+      >> assume_tac (Q.ISPECL [`l':type list`,`l:type list`,`e:type#type`] MEM_ZIP)
+      >> rfs[]
+      >> rveq
+      >> qpat_x_assum `LENGTH l = LENGTH _` (assume_tac o GSYM)
+      >> last_x_assum (qspecl_then [`EL n l`,`EL n l'`] assume_tac)
+      >> pop_assum (assume_tac o REWRITE_RULE[MEM_EL])
+      >> fs[]
+      >> pop_assum imp_res_tac
+      >> fs[GSYM subtype_at_eq]
+      >> rfs[]
+      >> last_x_assum (qspec_then `(m,n)::p'` assume_tac)
+      >> fs[is_subtype_leaf_def',subtype_at_def]
+      >> rfs[]
+    )
+    (* LENGTH l <> LENGTH l' *)
+    >> Cases_on `LENGTH l < LENGTH l'`
+    >> fs[]
+    >> TRY (imp_res_tac LESS_CASES_IMP)
+    >> qmatch_assum_abbrev_tac `LENGTH sl < LENGTH ll`
+    >> (qspec_then `LAST ll` assume_tac) is_subtype_leaf_all_types
+    >> fs[]
+    >> first_x_assum (qspec_then `(m,PRE (LENGTH ll))::p'` assume_tac)
+    >> fs[is_subtype_leaf_def',subtype_at_def]
+    >> rfs[LAST_EL,NULL_EQ]
+    >> first_x_assum (qspec_then `[]` assume_tac)
+    >> fs[quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
+  )
+  (* m <> m' *)
+  >> (
+    (qspec_then `Tyapp m l` assume_tac) is_subtype_leaf_all_types
+    >> fs[]
+    >> qpat_x_assum `!p. _ ==> _` imp_res_tac
+    >> Cases_on `p'`
+    >> fs[subtype_at_def]
+    >> Cases_on `h`
+    >> fs[subtype_at_def]
+    >> FULL_CASE_TAC
+    >> rfs[is_subtype_leaf_def']
+    >> first_x_assum (qspec_then `[]` assume_tac)
+    >> rfs[NULL_EQ,subtype_at_def]
+  )
+);
+
+val is_instance_subtype_leaf_imp = Q.prove(
+  `!t ti. is_instance t ti ==> !p. is_subtype_leaf t p ==> IS_SOME (subtype_at ti p)`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- (
+    rpt strip_tac
+    >> (qspecl_then [`Tyvar m`,`[]`,`i`,`Tyvar m`] assume_tac) subtype_at_TYPE_SUBST
+    >> fs[is_subtype_leaf_Tyvar,NULL_EQ,subtype_at_def]
+  )
+  >> rpt strip_tac
+  >> imp_res_tac is_subtype_leaf_Tyapp
+  >> Cases_on `NULL l`
+  >> Cases_on `p`
+  >> fs[is_subtype_leaf_def',NULL_EQ]
+  >> Cases_on `h`
+  >> Cases_on `q = m /\ r < LENGTH l`
+  >> fs[subtype_at_def]
+  >- (
+    fs[EVERY_MEM,MEM_EL]
+    >> last_x_assum (qspec_then `EL r l` assume_tac)
+    >> pop_assum imp_res_tac
+    >> fs[]
+    >> first_x_assum (qspecl_then [`i`,`t`] assume_tac)
+    >> imp_res_tac TYPE_SUBST_EL
+    >> fs[]
+  )
   >> fs[]
 );
 
@@ -6120,17 +6445,6 @@ val unify_types_invariant_def = Define
       ==> ?s'. EVERY (λ(x,y). (TYPE_SUBST s' o TYPE_SUBST sigma) x
         = (TYPE_SUBST s' o TYPE_SUBST sigma) y) orig_l)
 )`;
-
-val REV_ASSOCD_drop =
-  Q.prove(`!l1. x <> b ==> REV_ASSOCD x (l1 ++ (a,b)::l2) y = REV_ASSOCD x (l1 ++ l2) y`,
-            Induct >- rw[REV_ASSOCD]
-            \\ Cases \\rw[REV_ASSOCD]);
-
-
-val REV_ASSOCD_self_append = Q.prove(
-  `!l. REV_ASSOCD x (MAP (f ## I) l ++ l) y = REV_ASSOCD x (MAP (f ## I) l) y`,
-  Induct >- rw[REV_ASSOCD]
-  \\ Cases \\ rw[REV_ASSOCD,REV_ASSOCD_drop]);
 
 val REV_ASSOCD_MAP_FST = Q.prove(
   `!l.
