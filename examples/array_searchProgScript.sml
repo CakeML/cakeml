@@ -39,8 +39,6 @@ Theorem linear_search_spec
    `∀ a ffi_p value value_v elems elem_vs arr_v .
         EqualityType a ∧
         (a) value value_v ∧
-        (∀ x y z . a x y ∧ a x z ⇒ y = z) ∧
-        (∀ x y z . a x z ∧ a y z ⇒ x = y) ∧
         LIST_REL (a) elems elem_vs
     ⇒
         app (ffi_p : 'ffi ffi_proj) ^(fetch_v "linear_search" (basis_st()))
@@ -88,7 +86,11 @@ Theorem linear_search_spec
                 let e = (start + 1) in
                 search_aux e
         *)
-        gen_tac >> Induct_on `sublist` >> rw[]
+        gen_tac >> Induct_on `sublist` >> rw[] >>
+        `(∀ x y z . a x y ∧ a x z ⇒ y = z) ∧
+         (∀ x y z . a x z ∧ a y z ⇒ x = y)` by (
+          rw[] >- imp_res_tac EQTYPE_UNICITY_R
+          >- imp_res_tac EQTYPE_UNICITY_L)
         >- ( (* base case - empty sublist *)
             last_x_assum xapp_spec >>
             `LENGTH elems ≤ offset` by (
@@ -309,9 +311,6 @@ Theorem binary_search_spec
    `∀ a ffi_p cmp cmp_v value value_v elems elem_vs arr_v .
         strict_weak_order cmp ∧
         EqualityType a ∧
-        (∀ x y z . a x y ∧ a x z ⇒ y = z) ∧
-        (∀ x y z . a x z ∧ a y z ⇒ x = y) ∧
-        (∀ x y u v . a x y ∧ a u v ∧ y ≠ v ⇒ x ≠ u) ∧
         (a --> a --> BOOL) cmp cmp_v ∧
         (a) value value_v ∧
         LIST_REL (a) elems elem_vs ∧
@@ -368,6 +367,14 @@ Theorem binary_search_spec
             )
         >>  gen_tac >>
             completeInduct_on `LENGTH sublist` >> rw[] >>
+            `(∀ x y z . a x y ∧ a x z ⇒ y = z) ∧
+            (∀ x y z . a x z ∧ a y z ⇒ x = y) ∧
+            (∀ x y u v . a x y ∧ a u v ∧ y ≠ v ⇒ x ≠ u)` by (
+              rw[]
+              >- imp_res_tac EQTYPE_UNICITY_R
+              >- imp_res_tac EQTYPE_UNICITY_L
+              >- (CCONTR_TAC >> fs[] >> imp_res_tac EQTYPE_UNICITY_R)
+            ) >>
             `LENGTH (DROP start (TAKE finish elems)) = finish - start` by
                 fs[LENGTH_DROP, LENGTH_TAKE] >>
             imp_res_tac LIST_REL_LENGTH >>

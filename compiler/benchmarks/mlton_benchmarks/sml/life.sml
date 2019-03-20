@@ -4,7 +4,7 @@ signature BMARK =
     val doit : int -> unit
     val testit : unit -> unit
   end;
-structure Main : BMARK = 
+structure Main : BMARK =
   struct
 
     fun map f [] = []
@@ -51,11 +51,11 @@ structure Main : BMARK =
 
     fun spaces n = concat (copy n " ")
 
-    local 
+    local
       fun lexordset [] = []
         | lexordset (a::x) = lexordset (filter (lexless a) x) @ [a] @
                              lexordset (filter (lexgreater a) x)
-      and lexless(a1:int,b1:int)(a2,b2) = 
+      and lexless(a1:int,b1:int)(a2,b2) =
            if a2<a1 then true else if a2=a1 then b2<b1 else false
       and lexgreater pr1 pr2 = lexless pr2 pr1
       fun collect f list =
@@ -63,10 +63,10 @@ structure Main : BMARK =
                    | accumf sofar (a::x) = accumf (revonto sofar (f a)) x
               in accumf [] list
              end
-      fun occurs3 x = 
+      fun occurs3 x =
           (* finds coords which occur exactly 3 times in coordlist x *)
           let fun f xover x3 x2 x1 [] = diff x3 xover
-                | f xover x3 x2 x1 (a::x) = 
+                | f xover x3 x2 x1 (a::x) =
                    if member xover a then f xover x3 x2 x1 x else
                    if member x3 a then f (a::xover) x3 x2 x1 x else
                    if member x2 a then f xover (a::x3) x2 x1 x else
@@ -74,9 +74,9 @@ structure Main : BMARK =
                                        f xover x3 x2 (a::x1) x
               and diff x y = filter (not o member y) x
            in f [] [] [] [] x end
-     in 
+     in
       abstype generation = GEN of (int*int) list
-        with 
+        with
           fun alive (GEN livecoords) = livecoords
           and mkgen coordlist = GEN (lexordset coordlist)
           and mk_nextgen_fn neighbours gen =
@@ -107,13 +107,13 @@ structure Main : BMARK =
                       str :: plotfrom(x+1,ystart)""((x1,y1)::more)
             | plotfrom (x,y) str [] = [str]
            fun good (x,y) = x>=xstart andalso y>=ystart
-     in  fun plot coordlist = plotfrom(xstart,ystart) "" 
+     in  fun plot coordlist = plotfrom(xstart,ystart) ""
                                  (filter good coordlist)
     end
 
 
     infix 6 at
-    fun coordlist at (x:int,y:int) = let fun move(a,b) = (a+x,b+y) 
+    fun coordlist at (x:int,y:int) = let fun move(a,b) = (a+x,b+y)
                                       in map move coordlist end
     val rotate = map (fn (x:int,y:int) => (y,~x))
 
@@ -151,9 +151,12 @@ structure Main : BMARK =
                    loop(n-1))
        in loop size
        end
-    
+
     fun testit () = show (fn c => print c) (nthgen gun 25000)
 
   end (* Life *)
 
-val foo = Main.doit 2;
+val foo = Main.doit 1;
+
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

@@ -40,14 +40,14 @@ fun fs thl = lcsymtacs.fs thl >> FIXEQ_TAC
 fun PULLV v t = let
   val (bv,b) = dest_abs(rand t)
 in
-  if bv = v then ALL_CONV
+  if bv ~~ v then ALL_CONV
   else BINDER_CONV (PULLV v) THENC SWAP_VARS_CONV
 end t
 
 fun REFINE_EXISTS_TAC t (asl, w) = let
   val (qvar, body) = dest_exists w
   val ctxt = free_varsl (w::asl)
-  val qvars = set_diff (free_vars t) ctxt
+  val qvars = op_set_diff aconv (free_vars t) ctxt
   val newgoal = subst [qvar |-> t] body
   fun chl [] ttac = ttac
     | chl (h::t) ttac = X_CHOOSE_THEN h (chl t ttac)
@@ -64,14 +64,15 @@ fun unify_firstconj k th (g as (asl,w)) = let
   val c = hd (strip_conj body)
   val (favs, fabody) = strip_forall (concl th)
   val con = #2 (dest_imp fabody)
-  val theta = Unify.simp_unify_terms (set_diff (free_vars c) exvs) c con
+  val theta = Unify.simp_unify_terms (op_set_diff aconv (free_vars c) exvs) c con
   fun inst_exvs theta =
       case theta of
           [] => ALL_TAC
         | {redex,residue} :: rest =>
-          if mem redex exvs andalso null (intersect (free_vars residue) exvs)
+          if tmem redex exvs andalso
+             HOLset.isEmpty (HOLset.intersection (FVL [residue] empty_tmset, HOLset.addList(empty_tmset,exvs)))
           then
-            if null (intersect (free_vars residue) favs) then
+            if HOLset.isEmpty (HOLset.intersection (FVL [residue] empty_tmset, HOLset.addList(empty_tmset,favs))) then
               CONV_TAC (PULLV redex) THEN EXISTS_TAC residue THEN
               inst_exvs rest
             else CONV_TAC (PULLV redex) THEN REFINE_EXISTS_TAC residue THEN
@@ -81,7 +82,7 @@ fun unify_firstconj k th (g as (asl,w)) = let
       case theta of
           [] => k th
         | {redex,residue} :: rest =>
-          if mem redex favs then
+          if tmem redex favs then
             inst_favs rest (th |> CONV_RULE (PULLV redex) |> SPEC residue)
           else inst_favs rest th
 in
@@ -3793,8 +3794,7 @@ Theorem completeness
           first_assum (unify_firstconj kall_tac o has_length) >>
           qexists_tac ‘decls_pt1’ >> simp[] >> dsimp[EXISTS_PROD] >>
           normlist >> first_x_assum irule >> simp[]))
-  >- (print_tac "nDconstructor" >> stdstart >> pmap_cases
-      >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
+  >- (print_tac "nDconstructor" >> stdstart >> pmap_cases >>
       rename [‘ptree_head upt = NN nUQConstructorName’,
               ‘real_fringe upt = MAP _ upf’,
               ‘ptree_head blpt = NN nTbaseList’,

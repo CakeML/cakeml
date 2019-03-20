@@ -19,3 +19,6 @@ structure Main =
    end
 
 val foo = Main.doit 1;
+
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

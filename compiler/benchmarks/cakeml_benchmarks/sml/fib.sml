@@ -8,3 +8,7 @@ fun main ()=
     (((((fib n) + (fib n)) + (fib n)) + (fib n)) + (fib n)) + (fib n);
   val test = use_fib 40;
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);
