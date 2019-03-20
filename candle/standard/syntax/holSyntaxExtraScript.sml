@@ -95,6 +95,16 @@ val ALOOKUP_MAP_dest_var = Q.store_thm("ALOOKUP_MAP_dest_var",
 
 (* type substitution *)
 
+val REV_ASSOCD_drop =
+  Q.prove(`!l1. x <> b ==> REV_ASSOCD x (l1 ++ (a,b)::l2) y = REV_ASSOCD x (l1 ++ l2) y`,
+            Induct >- rw[REV_ASSOCD]
+            \\ Cases \\rw[REV_ASSOCD]);
+
+val REV_ASSOCD_self_append = Q.prove(
+  `!l. REV_ASSOCD x (MAP (f ## I) l ++ l) y = REV_ASSOCD x (MAP (f ## I) l) y`,
+  Induct >- rw[REV_ASSOCD]
+  \\ Cases \\ rw[REV_ASSOCD,REV_ASSOCD_drop]);
+
 val TYPE_SUBST_NIL = Q.store_thm("TYPE_SUBST_NIL",
   `∀ty. TYPE_SUBST [] ty = ty`,
   ho_match_mp_tac type_ind >>
@@ -238,6 +248,41 @@ val TYPE_SUBST_NOT_MEM = Q.prove(
   rw[]
   >> assume_tac (Q.SPECL [`s`,`[]`,`Tyvar a`] TYPE_SUBST_reduce_list)
   >> fs[tyvars_def]
+);
+
+val TYPE_SUBST_duplicates = Q.prove(
+  `!s a t t'. TYPE_SUBST ((t,Tyvar a)::(t',Tyvar a)::s) = TYPE_SUBST ((t,Tyvar a)::s)`,
+  rw[FUN_EQ_THM,TYPE_SUBST_tyvars]
+  >> Cases_on `x'=a`
+  >> fs[REV_ASSOCD_def]
+);
+
+val TYPE_SUBST_drop_prefix = Q.prove(
+  `!l pfx a. ~MEM (Tyvar a) (MAP SND pfx) ==> TYPE_SUBST (pfx++l) (Tyvar a) = TYPE_SUBST l (Tyvar a)`,
+  Induct_on `pfx`
+  >> rw[REV_ASSOCD_drop]
+  >> Cases_on `h`
+  >> fs[REV_ASSOCD_def]
+);
+
+val TYPE_SUBST_MEM' = Q.prove(
+  `!s a b. ALL_DISTINCT (MAP SND s) /\ MEM (b,Tyvar a) s ==> TYPE_SUBST s (Tyvar a) = b`,
+  rw[MEM_SPLIT]
+  >> fs[MAP_APPEND,ALL_DISTINCT_APPEND]
+  >> imp_res_tac TYPE_SUBST_drop_prefix
+  >> pop_assum (qspec_then `[(b,Tyvar a)]++l2` assume_tac)
+  >> fs[REV_ASSOCD_def]
+);
+
+val TYPE_SUBST_EL = Q.store_thm("TYPE_SUBST_EL",
+  `!l i n. n < LENGTH l ==> TYPE_SUBST i (EL n l) = EL n (MAP (λa. TYPE_SUBST i a) l)`,
+  Induct
+  >> fs[]
+  >> rpt strip_tac
+  >> Cases_on `n = 0`
+  >> fs[NOT_ZERO_LT_ZERO]
+  >> `?m. n = SUC m` by (qexists_tac `PRE n` >> fs[])
+  >> fs[EL]
 );
 
 (* Welltyped terms *)
