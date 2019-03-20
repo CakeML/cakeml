@@ -1,3 +1,6 @@
+(*
+  Filter case study from CASE.
+*)
 open preamble basis MapProgTheory ml_translatorLib ml_progLib basisFunctionsLib ml_translatorTheory
      charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory cfTacticsBaseLib
      cfDivTheory cfDivLib;
