@@ -44,7 +44,7 @@ fun regexpc r =
      val dfa_thm = MATCH_MP thm hyps_thm
      val eq_tm = snd(strip_forall (concl dfa_thm))
      val (_,[final,table,start,_]) = strip_comb(boolSyntax.lhs eq_tm)
-     val ifinal = List.map (equal boolSyntax.T)
+     val ifinal = List.map (aconv boolSyntax.T)
                   (fst(listSyntax.dest_list (dest_vector final)))
      val istart = numSyntax.int_of_term start
      val rows1 = dest_vector table
