@@ -1613,18 +1613,31 @@ Theorem compile_part_evaluate
   \\ simp[] >> full_simp_tac(srw_ss())[]
   \\ first_assum(subterm split_pair_case0_tac o concl)
   \\ full_simp_tac(srw_ss())[]
-  \\ drule (GEN_ALL compile_exp_correct)
+  \\ mp_tac (GEN_ALL compile_exp_correct)
+  \\ QUANT_TAC [("arch_size", `arch_size`, []),("res",`res`,[])]
   \\ simp[var_corr_def,SIMP_RULE std_ss [NULL_EQ]NULL_GENLIST]
   \\ imp_res_tac state_rel_dec_clock
   \\ disch_then(drule o (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``state_rel`` o fst o strip_comb))))))
-  \\ simp[]
-  \\ strip_tac
+  \\ `(∀v. res = Rerr (Rraise v) ⇒ jump_exc (dec_clock t1) ≠ NONE)` by (
+     simp[lookup_def,dataSemTheory.dec_clock_def]
+     \\ full_simp_tac(srw_ss())[jump_exc_def]
+     \\ every_case_tac
+  ) \\ fs[]
+  \\ `!n. (∀k. n <= k ⇒ lookup k (dec_clock t1).locals = NONE)` by simp[lookup_def,dataSemTheory.dec_clock_def]
   \\ fs[]
-  \\ pop_assum (assume_tac o Q.SPECL [`s2`,`res`,`0`,`p1`])
-  \\ `call_env [] (dec_clock t1) = dec_clock t1` by (fs[call_env_def,dec_clock_def,dataSemTheory.state_component_equality] \\ EVAL_TAC)
+  \\ disch_then(mp_tac o Q.SPEC `s2`)
+  \\ QUANT_TAC [("env",`[]`,[])]
+  \\ QUANT_TAC [("exp'",`p1`,[])]
   \\ fs[]
-  \\ drule compile_exp_correct
-  \\ cheat
+  \\ `v3 = res` by (Cases_on `v3` \\ fs[] \\ Cases_on `e` \\ fs[])
+  \\ fs[]
+  \\ `s' = s2` by (Cases_on `res` \\ fs[] \\ Cases_on `e` \\ fs[])
+  \\ fs[]
+  \\ disch_then(mp_tac o Q.SPEC `0`) \\ fs[]
+  \\ first_x_assum (assume_tac o Q.SPEC `0`) \\ fs[]
+  \\ `call_env [] (dec_clock t1) = dec_clock t1` by(simp[call_env_def,fromList_def] \\ EVAL_TAC >> simp[dataSemTheory.state_component_equality])
+  \\ fs[]
+  \\ every_case_tac \\ fs[]
 );
 
 Theorem MAP_FST_compile_prog[simp]
@@ -1639,7 +1652,7 @@ Theorem compile_prog_evaluate
        evaluate (Call NONE (SOME start) [] NONE,
          initial_state ffi0 (fromAList (compile_prog arch_size prog)) ((I ## (compile_prog arch_size)) o co) cc k) arch_size = (SOME r2,s2) ∧
          state_rel s s2 arch_size ∧ res_list (data_to_bvi_result r2) = r`
-  (srw_tac[][]
+  (strip_tac \\ srw_tac[][]
   \\ match_mp_tac (GEN_ALL compile_part_evaluate) \\ fs[]
   \\ asm_exists_tac >> simp[]
   \\ simp[initial_state_def,state_rel_def]
@@ -1652,10 +1665,9 @@ Theorem FST_compile_part[simp]
 
 (* observational semantics *)
 
-(* TODO check against master *)
 Theorem compile_prog_semantics
-  `0 < arch_size - 2 /\
-   bviSem$semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (bvi_to_data$compile_prog arch_size prog)) start ≠ Fail ⇒
+  `(0 < arch_size - 2 /\
+   bviSem$semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (bvi_to_data$compile_prog arch_size prog)) start ≠ Fail) ⇒
    dataSem$semantics ffi0 (fromAList (bvi_to_data$compile_prog arch_size prog)) ((I ## (bvi_to_data$compile_prog arch_size)) o co) cc start arch_size =
    bviSem$semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (bvi_to_data$compile_prog arch_size prog)) start`
   (simp[bviSemTheory.semantics_def]
@@ -1669,8 +1681,16 @@ Theorem compile_prog_semantics
         \\ last_x_assum(qspec_then`k'`mp_tac)>>simp[]
         \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g)
         \\ spose_not_then strip_assume_tac
-        \\ drule compile_prog_evaluate
-        \\ impl_tac >- ( srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] )
+        \\ drule (Q.SPECL[`q`,`prog`,`k'`,`ffi0`,`co`,`cc`] (
+             Q.ISPEC `r':(('a,'ffi) bviSem$state)` (Q.SPEC `start` (GEN_ALL compile_prog_evaluate))))
+        \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (q,r'))`
+        \\ Q.PAT_ABBREV_TAC `Y = ~(q = Rerr (Rabort (Rtype_error)))`
+        \\ Q.PAT_ABBREV_TAC `Z = !x. ~(q = Rerr (Rraise x))`
+        \\ strip_tac
+        \\ PURE_ASM_REWRITE_TAC[] \\ simp[]
+        \\ pop_assum (drule)
+        \\ UNABBREV_ALL_TAC
+        \\ impl_tac >- (srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[])
         \\ strip_tac >> full_simp_tac(srw_ss())[] >> rveq
         \\ every_case_tac >> full_simp_tac(srw_ss())[]
         \\ Cases_on `e` >> fs [data_to_bvi_result_def])
@@ -1678,10 +1698,10 @@ Theorem compile_prog_semantics
      \\ conj_tac
      >- (gen_tac >> strip_tac >> rveq >> simp[]
         \\ qmatch_assum_abbrev_tac`bviSem$evaluate (exps,[],ss) = _`
-        \\ qmatch_assum_abbrev_tac`dataSem$evaluate (bxps,bs) = _`
+        \\ qmatch_assum_abbrev_tac`dataSem$evaluate (bxps,bs) _ = _`
         \\ qspecl_then[`exps`,`[]`,`ss`]mp_tac
-             (INST_TYPE[beta|->``:'ffi``]bviPropsTheory.evaluate_add_to_clock_io_events_mono)
-        \\ Q.ISPECL_THEN[`bxps`,`bs`]mp_tac dataPropsTheory.evaluate_add_clock_io_events_mono
+        (INST_TYPE[beta|->``:'ffi``]bviPropsTheory.evaluate_add_to_clock_io_events_mono)
+        \\ Q.ISPECL_THEN[`bxps`,`bs`,`arch_size`]mp_tac dataPropsTheory.evaluate_add_clock_io_events_mono
         \\ simp[bviPropsTheory.inc_clock_def,Abbr`ss`,Abbr`bs`]
         \\ disch_then(qspec_then`k`strip_assume_tac)
         \\ disch_then(qspec_then`k'`strip_assume_tac)
@@ -1689,17 +1709,24 @@ Theorem compile_prog_semantics
         \\ drule bviPropsTheory.evaluate_add_clock
         \\ disch_then(qspec_then `k'` mp_tac)
         \\ impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[])
-        \\ qpat_x_assum `evaluate _ = (SOME r',s')` assume_tac
+        \\ qpat_x_assum `evaluate _ _ = (SOME r',s')` assume_tac
         \\ drule dataPropsTheory.evaluate_add_clock
         \\ disch_then(qspec_then `k` mp_tac)
         \\ impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[])
         \\ simp[inc_clock_def]
         \\ ntac 2 strip_tac >> unabbrev_all_tac
-        \\ drule compile_prog_evaluate
-        \\ impl_tac >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
+        \\ drule (Q.SPECL[`(s with clock := k' + s.clock)`,`r`,`prog`,`k+k'`,`ffi0`,`co`,`cc`]
+           ((Q.SPEC `start` (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))))
+        \\ Q.PAT_ABBREV_TAC `X = (_ = (r,s_))`
+        \\ impl_tac >- (every_case_tac >> full_simp_tac(srw_ss())[])
+        \\ UNABBREV_ALL_TAC
         \\ strip_tac >> rveq >> fs[state_rel_def]
-        \\ rpt(PURE_FULL_CASE_TAC >> fs[data_to_bvi_result_def]))
-     \\ drule compile_prog_evaluate
+        \\ rpt(PURE_FULL_CASE_TAC >> fs[data_to_bvi_result_def])
+     )
+     \\ drule (Q.SPECL[`start`,`s`,`r`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))
+     \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (r,s))`
+     \\ PURE_ASM_REWRITE_TAC[] \\ simp[]
+     \\ UNABBREV_ALL_TAC
      \\ impl_tac
      >- (last_x_assum(qspec_then`k`mp_tac)
         \\ full_simp_tac(srw_ss())[]
@@ -1709,46 +1736,55 @@ Theorem compile_prog_semantics
      \\ asm_exists_tac >> simp[]
      \\ full_simp_tac(srw_ss())[state_rel_def]
      \\ every_case_tac >> full_simp_tac(srw_ss())[data_to_bvi_result_def])
-  \\ strip_tac
-  \\ simp[dataSemTheory.semantics_def]
-  \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
-  >- (last_x_assum(qspec_then`k`mp_tac)
+ \\ rpt strip_tac
+ \\ simp[dataSemTheory.semantics_def]
+ \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
+ >- (last_x_assum(qspec_then`k`mp_tac)
      \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
      \\ strip_tac
-     \\ drule compile_prog_evaluate
+     \\ drule (Q.SPECL[`start`,`r`,`q`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))
+     \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (q,r))`
+     \\ PURE_ASM_REWRITE_TAC[]
      \\ impl_tac
-        >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
+      >- (simp[] \\ conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
      \\ strip_tac
+     \\ UNABBREV_ALL_TAC
      \\ full_simp_tac(srw_ss())[] >> srw_tac[][]
      \\ every_case_tac >> full_simp_tac(srw_ss())[]
-     \\ Cases_on `e` >> fs [data_to_bvi_result_def])
-  \\ DEEP_INTRO_TAC some_intro >> simp[]
-  \\ conj_tac
-  >- (spose_not_then strip_assume_tac
-     \\ last_x_assum(qspec_then`k`mp_tac)
-     \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
-     \\ strip_tac
-     \\ drule compile_prog_evaluate
-     \\ impl_tac
-     >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
-     \\ strip_tac
-     \\ full_simp_tac(srw_ss())[] >> srw_tac[][]
-     \\ every_case_tac >> full_simp_tac(srw_ss())[]
-     \\ last_x_assum(qspec_then`k`mp_tac)
-     \\ simp[]
-     \\ every_case_tac >> simp[]
-     \\ rev_full_simp_tac(srw_ss())[state_rel_def,data_to_bvi_result_def])
-  \\ strip_tac
-  \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ simp[FUN_EQ_THM] >> gen_tac
-  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (rhs(#2 g)))
-  \\ drule compile_prog_evaluate
-  \\ impl_tac
-  >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]
-     \\ last_x_assum(qspec_then`k`mp_tac)>>simp[])
-  \\ strip_tac >> simp[]
-  \\ full_simp_tac(srw_ss())[state_rel_def]*);
+     \\ Cases_on`e` >> fs[data_to_bvi_result_def])
+ \\ DEEP_INTRO_TAC some_intro >> simp[]
+ \\ conj_tac
+ >- (spose_not_then strip_assume_tac
+    \\ last_x_assum(qspec_then`k`mp_tac)
+    \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
+    \\ strip_tac
+    \\ drule (Q.SPECL[`start`,`r'`,`q`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))
+    \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (q,r'))`
+    \\ PURE_ASM_REWRITE_TAC[]
+    \\ impl_tac
+     >- (simp[] \\ conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
+    \\ strip_tac
+    \\ UNABBREV_ALL_TAC
+    \\ full_simp_tac(srw_ss())[] >> srw_tac[][]
+    \\ every_case_tac >> full_simp_tac(srw_ss())[]
+    \\ last_x_assum(qspec_then`k`mp_tac)
+    \\ simp[]
+    \\ every_case_tac >> simp[]
+    \\ rev_full_simp_tac(srw_ss())[state_rel_def,data_to_bvi_result_def])
+ \\ strip_tac
+ \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
+ \\ simp[FUN_EQ_THM] >> gen_tac
+ \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+ \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (rhs(#2 g)))
+ \\ drule (Q.SPECL [`start`,`r`,`q`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->Type`:'ffi`] (GEN_ALL compile_prog_evaluate)))
+ \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (q,r))`
+ \\ PURE_ASM_REWRITE_TAC[]
+ \\ impl_tac
+ >- (UNABBREV_ALL_TAC \\ simp[] \\ conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]
+    \\ last_x_assum(qspec_then`k`mp_tac) >> simp[])
+ \\ strip_tac >> simp[]
+ \\ full_simp_tac(srw_ss())[state_rel_def]
+);
 
 Theorem get_code_labels_iAssign[simp]
   `∀a b c d e. get_code_labels (iAssign a arch_size b c d e) = closLang$assign_get_code_label b`
