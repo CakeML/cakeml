@@ -133,15 +133,19 @@ val hashtable_staticInsert = (append_prog o process_topdecs)
 val _ = ml_prog_update open_local_in_block;
 val _ = ml_prog_update open_local_block;
 
+val hashtable_insertList = (append_prog o process_topdecs)
+`fun insertList ht l = List.app (fn (k,v) => staticInsert ht k v) l`;
+
 val hashtable_doubleCapacity = (append_prog o process_topdecs)
 `fun doubleCapacity ht =
   case ht of Hashtable usedRef bucketsRef _ cmp =>
     let
       val oldArr = !bucketsRef
+      val oldList = toAscList ht
     in
       usedRef := 0;
       bucketsRef := initBuckets (Array.length oldArr * 2) cmp;
-      Array.app (fn b=>List.app (fn (k,v) => staticInsert ht k v) (Map.toAscList b)) (oldArr)
+      insertList ht oldList
     end`;
 
 
