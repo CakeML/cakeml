@@ -71,6 +71,7 @@ Theorem cut_state_opt_with_const
    (cut_state_opt x (y with clock := k) = OPTION_MAP (λs. s with clock := k) (cut_state_opt x y))`
   (EVAL_TAC >> every_case_tac >> simp[]);
 
+(* INFO: only used in bvi_to_dataProof *)
 Theorem consume_space_add_space
   `∃sf. consume_space k (add_space t k with locals := env1) =
           SOME (t with <| locals := env1 ; space := 0;
@@ -644,7 +645,7 @@ Theorem evaluate_stack
                   (s2.stack = s1.stack) /\ (s2.handler = s1.handler))
       | (_,s1) => (s1.stack = s.stack) /\ (s1.handler = s.handler)`
   (REPEAT STRIP_TAC \\ ASSUME_TAC (SPEC_ALL evaluate_stack_swap)
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
+  \\ every_case_tac \\ fs[LET_DEF]);
 
 Theorem evaluate_NONE_jump_exc
   `(evaluate (c,^s) = (NONE,u1)) /\ (jump_exc u1 = SOME x) ==>
@@ -722,99 +723,121 @@ Theorem locals_ok_get_vars
   \\ Cases_on `get_vars x s` \\ full_simp_tac(srw_ss())[]
   \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]);
 
+(* INFO: only used in bvi_to_dataProof *)
 Theorem evaluate_locals
   `!c s res s2 vars l.
       res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
       locals_ok s.locals l ==>
-      ?w. (evaluate (c, s with locals := l) =
-             (res,if res = NONE then s2 with locals := w
-                                else s2)) /\
+      ?w safe. (evaluate (c, s with locals := l) =
+             (res,if res = NONE
+                  then (s2 with <| locals := w; safe_for_space := safe |>)
+                  else s2 with safe_for_space := safe)) /\
           locals_ok s2.locals w`
   (recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
-  THEN1 (* Skip *) (METIS_TAC [])
-  THEN1 (* Move *)
-   (Cases_on `get_var src s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[get_var_def,lookup_union,set_var_def,locals_ok_def]
-    \\ Q.EXISTS_TAC `insert dest x l` \\ full_simp_tac(srw_ss())[lookup_insert]
-    \\ METIS_TAC [])
-  THEN1 (* Assign *)
-   (Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `op_requires_names op` \\ full_simp_tac(srw_ss())[cut_state_opt_def] THEN1
-     (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[cut_state_opt_def]
-      \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
-      \\ fs [do_app_with_locals]
-      \\ fs [case_eq_thms,semanticPrimitivesTheory.result_case_eq]
-      \\ fs [call_env_def,set_var_def,state_component_equality]
-      \\ fs [locals_ok_def,lookup_insert] \\ rw []
-      \\ rpt (qpat_x_assum `insert _ _ _ = _` (assume_tac o GSYM))
-      \\ rpt (qpat_x_assum `fromList [] = _` (assume_tac o GSYM))
-      \\ fs [lookup_insert] \\ rfs []
-      \\ imp_res_tac do_app_const \\ fs [fromList_def,lookup_def])
-    \\ full_simp_tac(srw_ss())[cut_state_def]
-    \\ Cases_on `cut_env x s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
-    \\ Q.EXISTS_TAC `s2.locals` \\ full_simp_tac(srw_ss())[locals_ok_def]
-    \\ SRW_TAC [] [state_component_equality])
-  THEN1 (* Tick *)
-   (Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
-           dec_clock_def] \\ METIS_TAC [])
-  THEN1 (* MakeSpace *)
-   (Cases_on `cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ IMP_RES_TAC locals_ok_cut_env
-    \\ full_simp_tac(srw_ss())[LET_DEF,add_space_def,state_component_equality,locals_ok_def])
-  THEN1 (* Raise *)
-   (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ `jump_exc (s with locals := l) = jump_exc s` by
-         full_simp_tac(srw_ss())[jump_exc_def] \\ Cases_on `jump_exc s` \\ full_simp_tac(srw_ss())[]
-    \\ `get_var n l = SOME x` by
-         full_simp_tac(srw_ss())[locals_ok_def,get_var_def] \\ full_simp_tac(srw_ss())[]
-    \\ srw_tac [] [] \\ Q.EXISTS_TAC `s2.locals`
-    \\ full_simp_tac(srw_ss())[locals_ok_def])
-  THEN1 (* Return *)
-   (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ `get_var n l = SOME x` by
-         full_simp_tac(srw_ss())[locals_ok_def,get_var_def] \\ full_simp_tac(srw_ss())[]
-    \\ srw_tac [] [call_env_def]
-    \\ simp[locals_ok_def,lookup_fromList])
-  THEN1 (* Seq *)
-   (Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))` \\ full_simp_tac(srw_ss())[]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
-    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ METIS_TAC [])
-  THEN1 (* If *)
-   (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[])
-  THEN1 (* Call *)
-   (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `find_code dest x s.code` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `ret` \\ full_simp_tac(srw_ss())[] THEN1
-     (Cases_on `handler` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-      \\ `call_env q (dec_clock (s with locals := l)) =
-          call_env q (dec_clock s)` by
-         full_simp_tac(srw_ss())[state_component_equality,dec_clock_def,call_env_def] \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[call_env_def,locals_ok_def,lookup_def,fromList_def]
-      \\ Q.EXISTS_TAC `s2.locals` \\ full_simp_tac(srw_ss())[locals_ok_refl]
-      \\ SRW_TAC [] [state_component_equality])
-    \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `cut_env r' s.locals` \\ full_simp_tac(srw_ss())[]
-    \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
-    \\ `call_env q (push_env x' (IS_SOME handler)
-          (dec_clock (s with locals := l))) =
-        call_env q (push_env x' (IS_SOME handler)
-          (dec_clock s))` by
-     (Cases_on `handler`
-      \\ full_simp_tac(srw_ss())[state_component_equality,dec_clock_def,call_env_def,push_env_def])
-    \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[call_env_def,locals_ok_def,lookup_def,fromList_def]
-    \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
+  (* Skip *)
+  >- (MAP_EVERY Q.EXISTS_TAC [`l`,`s2.safe_for_space`]
+     \\ rw [state_component_equality])
+  (* Move *)
+  >- (Cases_on `get_var src s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+     \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
+     \\ full_simp_tac(srw_ss())[get_var_def,lookup_union,set_var_def,locals_ok_def]
+     \\ Q.EXISTS_TAC `insert dest x l`
+     \\ Q.EXISTS_TAC `s.safe_for_space`
+     \\ fs[lookup_insert,state_component_equality]
+     \\ METIS_TAC [])
+  (* Assign *)
+  >- (Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `op_requires_names op` \\ full_simp_tac(srw_ss())[cut_state_opt_def]
+     >- (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[cut_state_opt_def]
+        \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
+        \\ fs [do_app_with_locals]
+        \\ fs [case_eq_thms,semanticPrimitivesTheory.result_case_eq]
+        \\ fs [call_env_def,set_var_def,state_component_equality]
+        \\ fs [locals_ok_def,lookup_insert] \\ rw []
+        \\ rpt (qpat_x_assum `insert _ _ _ = _` (assume_tac o GSYM))
+        \\ rpt (qpat_x_assum `fromList [] = _` (assume_tac o GSYM))
+        \\ fs [lookup_insert] \\ rfs []
+        \\ imp_res_tac do_app_const \\ fs [fromList_def,lookup_def])
+     \\ full_simp_tac(srw_ss())[cut_state_def]
+     \\ Cases_on `cut_env x s.locals` \\ full_simp_tac(srw_ss())[]
+     \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
+     \\ Q.EXISTS_TAC `s2.locals`
+     \\ Q.EXISTS_TAC `s2.safe_for_space`
+     \\ fs[locals_ok_def]
+     \\ SRW_TAC [] [state_component_equality])
+   (* Tick *)
+  >- (Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+     \\ fs[locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def, dec_clock_def]
+     \\ MAP_EVERY (TRY o Q.EXISTS_TAC) [`l`,`s.safe_for_space`]
+     \\ rw [state_component_equality])
+  (* MakeSpace *)
+  >- (Cases_on `cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
+     \\ IMP_RES_TAC locals_ok_cut_env
+     \\ full_simp_tac(srw_ss())[LET_DEF,add_space_def,state_component_equality,locals_ok_def])
+  (* Raise *)
+  >- (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+     \\ `jump_exc (s with locals := l) = jump_exc s`
+        by full_simp_tac(srw_ss())[jump_exc_def]
+     \\ Cases_on `jump_exc s` \\ full_simp_tac(srw_ss())[]
+     \\ `get_var n l = SOME x` by
+          full_simp_tac(srw_ss())[locals_ok_def,get_var_def] \\ full_simp_tac(srw_ss())[]
+     \\ srw_tac [] [] \\ Q.EXISTS_TAC `s2.locals`
+     \\ full_simp_tac(srw_ss())[locals_ok_def,state_component_equality])
+  (* Return *)
+  >- (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+     \\ `get_var n l = SOME x` by
+          full_simp_tac(srw_ss())[locals_ok_def,get_var_def] \\ full_simp_tac(srw_ss())[]
+     \\ srw_tac [] [call_env_def]
+     \\ simp[locals_ok_def,lookup_fromList,state_component_equality])
+  (* Seq *)
+  >- (Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
+     \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))` \\ full_simp_tac(srw_ss())[]
+     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
+     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+     >- (qpat_x_assum `∀l. bb` drule \\ rw []
+        \\ drule evaluate_safe_swap \\ rw []
+        \\ fs [state_component_equality]
+        \\ METIS_TAC [])
+     \\ METIS_TAC [])
+  (* If *)
+  >- (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[]
+     \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[])
+  (* Call *)
+  >- (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[]
+     \\ IMP_RES_TAC locals_ok_get_vars \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `find_code dest x s.code` \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `ret` \\ full_simp_tac(srw_ss())[]
+     >- (Cases_on `handler` \\ full_simp_tac(srw_ss())[]
+         \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+         \\ `call_env q (dec_clock (s with locals := l)) =
+             call_env q (dec_clock s)`
+            by fs[state_component_equality,dec_clock_def,call_env_def]
+         \\ fs[]
+         \\ fs[call_env_def,locals_ok_def,lookup_def,fromList_def]
+         >- fs [state_component_equality]
+         \\ Q.EXISTS_TAC `s2.locals`
+         \\ Q.EXISTS_TAC `s2.safe_for_space`
+         \\ full_simp_tac(srw_ss())[locals_ok_refl]
+         \\ SRW_TAC [] [state_component_equality])
+     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
+     \\ Cases_on `cut_env r' s.locals` \\ full_simp_tac(srw_ss())[]
+     \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
+     \\ `call_env q (push_env x' (IS_SOME handler)
+           (dec_clock (s with locals := l))) =
+         call_env q (push_env x' (IS_SOME handler)
+           (dec_clock s))`
+        by (Cases_on `handler`
+           \\ fs[state_component_equality,dec_clock_def,call_env_def,push_env_def])
+     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+     \\ full_simp_tac(srw_ss())[call_env_def,locals_ok_def,lookup_def,fromList_def]
+     \\ full_simp_tac(srw_ss())[]
+     >- rw [state_component_equality]
+     \\ MAP_EVERY Q.EXISTS_TAC [`s2.locals`,`s2.safe_for_space`]
+     \\ rw [state_component_equality]));
 
 Theorem funpow_dec_clock_clock
   `!n s. FUNPOW dec_clock n s = (s with clock := s.clock - n)`
@@ -831,7 +854,7 @@ Theorem evaluate_mk_ticks
     else
       evaluate (p, FUNPOW dec_clock n s)`
   (Induct_on `n` >>
-  srw_tac[][evaluate_def, mk_ticks_def, FUNPOW] >>
+  srw_tac[][ mk_ticks_def, FUNPOW] >>
   full_simp_tac(srw_ss())[mk_ticks_def, evaluate_def] >>
   srw_tac[][funpow_dec_clock_clock, dec_clock_def] >>
   simp [call_env_def] >>
@@ -847,6 +870,7 @@ Theorem FUNPOW_dec_clock_code[simp]
     ((FUNPOW dec_clock n t).handler = t.handler) /\
     ((FUNPOW dec_clock n t).refs = t.refs) /\
     ((FUNPOW dec_clock n t).ffi = t.ffi) /\
+    ((FUNPOW dec_clock n t).safe_for_space = t.safe_for_space) /\
     ((FUNPOW dec_clock n t).global = t.global) /\
     ((FUNPOW dec_clock n t).locals = t.locals) /\
     ((FUNPOW dec_clock n t).compile = t.compile) /\
@@ -875,6 +899,10 @@ Theorem do_app_Rerr
                              (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `
   (strip_tac \\ imp_res_tac do_app_err \\ fs []);
 
+Theorem size_of_heap_with_clock
+  `∀s z. size_of_heap (s with clock := z) = size_of_heap s`
+  (rw [size_of_heap_def]);
+
 Theorem do_app_with_clock
   `do_app op vs (s with clock := z) =
    map_result (λ(x,y). (x,y with clock := z)) I (do_app op vs s)`
@@ -891,7 +919,7 @@ Theorem do_app_with_clock
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def] >>
+              pair_case_eq,consume_space_def,size_of_heap_with_clock] >>
           rveq >> fs []));
 
 Theorem do_app_change_clock
@@ -909,7 +937,7 @@ Theorem do_app_change_clock
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def] >>
+              pair_case_eq,consume_space_def,size_of_heap_with_clock] >>
           rveq >> fs []));
 
 Theorem do_app_change_clock_err
@@ -942,47 +970,64 @@ Theorem with_same_clock[simp]
   `^s with clock := s.clock = s`
   (srw_tac[][state_component_equality]);
 
+Theorem check_v_with_clock
+  `∀s v z. check_v (s with clock := z) v = check_v s v`
+  (ho_match_mp_tac check_v_ind >> rw [check_v_def]
+  \\ EQ_TAC >> rw [EVERY_MEM] >> rfs []);
+
+Theorem check_state_with_clock
+  `check_state (s with clock := z) = check_state s`
+  (rw [check_state_def,check_v_with_clock]
+  \\ `check_v (s with clock := z) = check_v s` suffices_by rw []
+  \\ ONCE_REWRITE_TAC [FUN_EQ_THM]
+  \\ rw [check_v_with_clock]);
+
 Theorem evaluate_add_clock
-  `!exps s1 res s2.
+  `∀exps s1 res s2.
     evaluate (exps,s1) = (res, s2) ∧
     res ≠ SOME(Rerr(Rabort Rtimeout_error))
     ⇒
-    !ck. evaluate (exps,s1 with clock := s1.clock + ck) = (res, s2 with clock := s2.clock + ck)`
+    ∀ck. evaluate (exps,s1 with clock := s1.clock + ck) = (res, s2 with clock := s2.clock + ck)`
   (recInduct evaluate_ind >> srw_tac[][evaluate_def]
-  >- (
-    every_case_tac >> full_simp_tac(srw_ss())[get_var_def,set_var_def] >> srw_tac[][] >> full_simp_tac(srw_ss())[] )
-  >- (
-    fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,cut_state_opt_def,cut_state_def,
-              bool_case_eq,ffiTheory.call_FFI_def,semanticPrimitivesTheory.result_case_eq,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def] >>
-    rveq \\ fs [call_env_def,do_app_with_clock,do_app_with_locals]
-    \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality]
-    \\ PairCases_on `y` \\ fs []
-    \\ qpat_x_assum `v4 = _` (fn th => once_rewrite_tac [th]) \\ fs []
-    \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality])
-  >- ( EVAL_TAC >> simp[state_component_equality] )
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> EVAL_TAC )
-  >- (
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[jump_exc_NONE] >>
-    imp_res_tac jump_exc_IMP >> full_simp_tac(srw_ss())[] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[jump_exc_def])
-  >- (
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][call_env_def] )
-  >- (
-    full_simp_tac(srw_ss())[LET_THM] >>
-    pairarg_tac >> full_simp_tac(srw_ss())[] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    rev_full_simp_tac(srw_ss())[] >> srw_tac[][] )
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] )
-  >- (
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-    fsrw_tac[ARITH_ss][call_env_def,dec_clock_def,push_env_def,pop_env_def,set_var_def] >>
-    first_x_assum(qspec_then`ck`mp_tac) >> simp[] >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
-    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]))
+  >- (every_case_tac
+     \\ fs[get_var_def,set_var_def]
+     \\ srw_tac[][] >> fs[])
+  >- (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,cut_state_opt_def,cut_state_def
+         , bool_case_eq,ffiTheory.call_FFI_def,semanticPrimitivesTheory.result_case_eq
+         , with_fresh_ts_def,closSemTheory.ref_case_eq
+         , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq
+         , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq
+         , pair_case_eq,consume_space_def]
+     \\ rveq \\ fs [call_env_def,do_app_with_clock,do_app_with_locals]
+     \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality]
+     \\ PairCases_on `y` \\ fs []
+     \\ qpat_x_assum `v4 = _` (fn th => once_rewrite_tac [th]) \\ fs []
+     \\ imp_res_tac do_app_const
+     \\ fs [set_var_def,state_component_equality]
+     (* FIX: this is obnoxious *)
+     \\ qmatch_goalsub_abbrev_tac `size_of_heap f1`
+     \\ qpat_abbrev_tac `f2 = (s with locals := _)`
+     \\ `size_of_heap f1 = size_of_heap f2` suffices_by rw []
+     \\ `f1 = f2 with clock := ck + s.clock` by rw [Abbr `f1`,Abbr `f2`,state_component_equality]
+     \\ rw [size_of_heap_with_clock])
+  >- (EVAL_TAC >> simp[state_component_equality])
+  >- (every_case_tac >> fs[] >> srw_tac[][]
+     \\ computeLib.RESTR_EVAL_TAC [``size_of_heap``,``check_state``]
+     \\ rw [state_component_equality,size_of_heap_with_clock,check_state_with_clock])
+  >- (every_case_tac >> fs[] >> srw_tac[][] >> fs[jump_exc_NONE]
+     \\ imp_res_tac jump_exc_IMP >> fs[]
+     \\ srw_tac[][] >> fs[jump_exc_def])
+  >- (every_case_tac >> fs[] >> srw_tac[][call_env_def])
+  >- (fs[LET_THM]
+     \\ pairarg_tac >> fs[]
+     \\ every_case_tac >> fs[] >> srw_tac[][]
+     \\ rfs[] >> srw_tac[][])
+  >- (every_case_tac >> fs[] >> srw_tac[][])
+  >- (every_case_tac >> fs[] >> srw_tac[][] >> rfs[]
+     \\ fsrw_tac[ARITH_ss][call_env_def,dec_clock_def,push_env_def,pop_env_def,set_var_def]
+     \\ first_x_assum(qspec_then`ck`mp_tac) >> simp[]
+     \\ every_case_tac >> fs[] >> srw_tac[][] >> rfs[] >> fs[]
+     \\ spose_not_then strip_assume_tac >> fs[]))
 
 Theorem set_var_const[simp]
   `(set_var x y z).ffi = z.ffi ∧
@@ -1075,32 +1120,31 @@ Theorem evaluate_add_clock_io_events_mono
   `∀exps s extra.
     (SND(evaluate(exps,s))).ffi.io_events ≼
     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events`
-  (recInduct evaluate_ind >>
-  srw_tac[][evaluate_def,LET_THM] >>
-  TRY (
-    rename1`find_code` >>
-    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-    imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac pop_env_const >> full_simp_tac(srw_ss())[] >>
-    fsrw_tac[ARITH_ss][dec_clock_def,call_env_with_const,push_env_with_const] >>
-    imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-    fsrw_tac[ARITH_ss][call_env_with_const] >>
-    rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[set_var_with_const] >>
-    metis_tac[evaluate_io_events_mono,SND,PAIR,IS_PREFIX_TRANS,
-              set_var_const,set_var_with_const,with_clock_ffi]) >>
-  rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
-  every_case_tac >> full_simp_tac(srw_ss())[cut_state_opt_with_const] >> rev_full_simp_tac(srw_ss())[] >>
-  rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
-  fs [do_app_with_clock] >>
-  TRY (PairCases_on `y`) >> fs [] >>
-  imp_res_tac jump_exc_IMP >> full_simp_tac(srw_ss())[jump_exc_NONE] >>
-  rveq >> full_simp_tac(srw_ss())[state_component_equality] >>
-  imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
-  rveq >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
-  fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE] >>
-  metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
+  (recInduct evaluate_ind
+  \\ srw_tac[][evaluate_def,LET_THM]
+  \\ TRY (rename1`find_code`
+         \\ every_case_tac >> fs[] >> srw_tac[][]
+         \\ imp_res_tac evaluate_io_events_mono >> fs[]
+         \\ imp_res_tac pop_env_const >> fs[]
+         \\ fsrw_tac[ARITH_ss][dec_clock_def,call_env_with_const,push_env_with_const]
+         \\ imp_res_tac evaluate_add_clock >> fs[] >> rfs[]
+         \\ fsrw_tac[ARITH_ss][call_env_with_const]
+         \\ rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])
+         \\ srw_tac[][] >> fs[set_var_with_const]
+         \\ metis_tac[evaluate_io_events_mono,SND,PAIR,IS_PREFIX_TRANS
+                     ,set_var_const,set_var_with_const,with_clock_ffi])
+  \\ rpt (pairarg_tac >> fs[])
+  \\ every_case_tac >> fs[cut_state_opt_with_const] >> rfs[]
+  \\ rveq >> fs[] >> rveq >> fs[]
+  \\ fs [do_app_with_clock]
+  \\ TRY (PairCases_on `y`) >> fs []
+  \\ imp_res_tac jump_exc_IMP >> fs[jump_exc_NONE]
+  \\ rveq >> fs[state_component_equality]
+  \\ imp_res_tac evaluate_add_clock >> fs[]
+  \\ rveq >> fs[]
+  \\ imp_res_tac evaluate_io_events_mono >> rfs[]
+  \\ fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE]
+  \\ metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
 Theorem semantics_Div_IMP_LPREFIX
   `semantics ffi prog co cc ts hl ls start = Diverge l ==> LPREFIX (fromList ffi.io_events) l`
