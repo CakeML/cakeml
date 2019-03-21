@@ -415,8 +415,7 @@ Theorem Pattern_OK0
   >- simp[ptree_Pattern_def, ptree_ConstructorName_def, ptree_V_def]
   >- (erule strip_assume_tac (n OpID_OK) >> simp[EtoPat_def] >>
       rename [`Var v`] >> Cases_on `v` >> simp[EtoPat_def])
-  >- (erule strip_assume_tac (n ConstructorName_OK) >> simp[])
-  >- simp[ptree_ConstructorName_def]);
+  >- (erule strip_assume_tac (n ConstructorName_OK) >> simp[]));
 
 val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);
 
@@ -518,8 +517,6 @@ Theorem E_OK0
   >- (erule strip_assume_tac (n Eliteral_OK) >> simp[])
   >- (erule strip_assume_tac (n Eseq_encode_OK) >> simp[])
   >- (erule strip_assume_tac (n OpID_OK) >> simp[])
-  >- (simp[ptree_Eliteral_def, ptree_FQV_def, ptree_ConstructorName_def,
-           ptree_Expr_def])
   >- (rw[])
   >- (erule strip_assume_tac (n Pattern_OK) >> std)
   >- (erule strip_assume_tac (n Pattern_OK) >> std)
@@ -557,17 +554,17 @@ Theorem TbaseList_OK
   fs[FORALL_AND_THM, DISJ_IMP_THM, MAP_EQ_APPEND] >>
   metis_tac[PTbase_OK]);
 
-Theorem Dconstructor_OK
-  `valid_ptree cmlG pt ∧ ptree_head pt = NN nDconstructor ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃dc. ptree_Dconstructor pt = SOME dc`
-  (start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
-  rveq >> simp[ptree_Dconstructor_def, tokcheck_def]
-  >- (map_every (erule strip_assume_tac o n)
-                [UQConstructorName_OK, Type_OK] >>
-      simp[]) >>
+Theorem Dconstructor_OK:
+  valid_ptree cmlG pt ∧ ptree_head pt = NN nDconstructor ∧
+  MAP TK toks = ptree_fringe pt
+   ⇒
+  ∃dc. ptree_Dconstructor pt = SOME dc
+Proof
+  start >> fs[MAP_EQ_APPEND, FORALL_AND_THM, DISJ_IMP_THM] >>
+  rveq >> simp[ptree_Dconstructor_def, tokcheck_def] >>
   map_every (erule strip_assume_tac o n) [UQConstructorName_OK, TbaseList_OK] >>
-  simp[])
+  simp[]
+QED
 
 Theorem DtypeCons_OK
   `valid_ptree cmlG pt ∧ ptree_head pt = NN nDtypeCons ∧

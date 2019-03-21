@@ -18,6 +18,9 @@ diff example: find a patch representing the difference between two files.
 [diffScript.sml](diffScript.sml):
 Implementation and verification of diff and patch algorithms
 
+[divScript.sml](divScript.sml):
+Examples of non-termination.
+
 [doubleProgScript.sml](doubleProgScript.sml):
 Examples on the topic of doubling a number.
 
@@ -35,9 +38,6 @@ Hello World example, printing to standard output.
 
 [insertSortProgScript.sml](insertSortProgScript.sml):
 In-place insertion sort on a polymorphic array.
-
-[iocatProgScript.sml](iocatProgScript.sml):
-Faster cat: process 2048 chars at a time.
 
 [lcsScript.sml](lcsScript.sml):
 Verification of longest common subsequence algorithms.

@@ -551,7 +551,7 @@ val take_drop_lem = Q.prove (
     DROP skip env ≠ [] ⇒
     EL skip env::TAKE n (DROP (1 + skip) env) = TAKE (n + 1) (DROP skip env)`,
   Induct_on `n` >>
-  srw_tac[][take1, hd_drop] >>
+  srw_tac[][TAKE1, HD_DROP] >>
   `skip + SUC n ≤ LENGTH env` by decide_tac >>
   res_tac >>
   `LENGTH (DROP skip env) = LENGTH env - skip` by srw_tac[][LENGTH_DROP] >>

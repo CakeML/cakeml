@@ -276,6 +276,7 @@ val strip_annot_exp_def = tDefine"strip_annot_exp"`
                                  | INR (INR (INR funs)) => funs_size funs)` >>
    srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
 
+(*
 val norm_def = tDefine "norm" `
   norm (is_named: bool) (as_value: bool) (ns: string list) (Lit l) = (Lit l, ns, ([]: (string # exp) list)) /\
   norm is_named as_value ns (Var (Short name)) = (Var (Short name), name::ns, []) /\
@@ -382,9 +383,10 @@ val norm_def = tDefine "norm" `
   protect_letrec_branch is_named ns branch =
     (let (branch_e', ns) = protect is_named ns (SND (SND branch)) in
      ((FST branch, FST (SND branch), branch_e'), ns))`
- cheat;
+ (...);
 (* TODO: prove the termination of [norm]. This is probably a bit tricky and
    requires refactoring the way [norm] is defined. *)
+*)
 
 val full_normalise_def = Define `
   full_normalise ns e = FST (protect T ns (strip_annot_exp e))`;

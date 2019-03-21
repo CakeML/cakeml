@@ -38,10 +38,10 @@ Theorem call_main_thm1
          ml_progTheory.lookup_var_def,option_case_eq,match_result_case_eq,
          ml_progTheory.nsLookup_merge_env,app_def,app_basic_def]
   \\ first_x_assum drule \\ fs [] \\ strip_tac \\ fs []
-  \\ fs [cfHeapsBaseTheory.POSTv_def]
+  \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ Cases_on `r` \\ fs [cond_STAR] \\ fs [cond_def]
   \\ fs [UNIT_TYPE_def] \\ rveq \\ fs []
-  \\ fs [ml_progTheory.Decls_def,evaluate_ck_def]
+  \\ fs [ml_progTheory.Decls_def,evaluate_to_heap_def, evaluate_ck_def]
   \\ drule evaluate_add_to_clock
   \\ disch_then (qspec_then `ck2` mp_tac) \\ simp []
   \\ qpat_x_assum `_ env1 prog = _` assume_tac
@@ -194,33 +194,34 @@ Theorem call_main_thm2_ffidiv
   \\ Cases_on `r`
   >- (fs[cond_def])
   >- (fs[cond_def])
-  \\ fs[]
-  \\ rename1 `Final_event name conf bytes`
-  \\ rename1 `evaluate_ck _ _ _ _ = (st4,_)`
-  \\ MAP_EVERY qexists_tac [`st4`,`name`,`conf`,`bytes`]
-  \\ conj_tac
-  >- (fs[semanticsTheory.semantics_prog_def,semanticsTheory.evaluate_prog_with_clock_def,
-         terminationTheory.evaluate_decs_def]
-      \\ simp[Once terminationTheory.evaluate_def]
-      \\ simp[astTheory.pat_bindings_def]
-      \\ simp[Once terminationTheory.evaluate_def]
-      \\ simp[Once terminationTheory.evaluate_def]
-      \\ simp[do_con_check_def,build_conv_def]
-      \\ simp[Once terminationTheory.evaluate_def]
-      \\ simp[ml_progTheory.nsLookup_merge_env]
-      \\ fs[ml_progTheory.lookup_var_def,evaluate_ck_def]
-      \\ Q.REFINE_EXISTS_TAC `SUC k` \\ fs[]
-      \\ simp[evaluateTheory.dec_clock_def]
-      \\ qexists_tac `ck` \\ simp[])
-  \\ conj_tac
-  >- metis_tac[]
-  \\ unabbrev_all_tac
-  \\ simp[]
-  \\ fs[ml_progTheory.Decls_def]
-  \\ drule evaluate_decs_call_FFI_rel_imp
-  \\ strip_tac
-  \\ fs[evaluate_ck_def]
-  \\ imp_res_tac evaluate_call_FFI_rel_imp
-  \\ fs[] \\ metis_tac[RTC_RTC]);
+  >- (fs[evaluate_to_heap_def]
+      \\ rename1 `Final_event name conf bytes _`
+      \\ rename1 `evaluate_ck _ _ _ _ = (st4,_)`
+      \\ MAP_EVERY qexists_tac [`st4`,`name`,`conf`,`bytes`]
+      \\ conj_tac
+      >- (fs[semanticsTheory.semantics_prog_def,semanticsTheory.evaluate_prog_with_clock_def,
+             terminationTheory.evaluate_decs_def]
+          \\ simp[Once terminationTheory.evaluate_def]
+          \\ simp[astTheory.pat_bindings_def]
+          \\ simp[Once terminationTheory.evaluate_def]
+          \\ simp[Once terminationTheory.evaluate_def]
+          \\ simp[do_con_check_def,build_conv_def]
+          \\ simp[Once terminationTheory.evaluate_def]
+          \\ simp[ml_progTheory.nsLookup_merge_env]
+          \\ fs[ml_progTheory.lookup_var_def,evaluate_ck_def]
+          \\ Q.REFINE_EXISTS_TAC `SUC k` \\ fs[]
+          \\ simp[evaluateTheory.dec_clock_def]
+          \\ qexists_tac `ck` \\ simp[])
+      \\ conj_tac
+      >- metis_tac[]
+      \\ unabbrev_all_tac
+      \\ simp[]
+      \\ fs[ml_progTheory.Decls_def]
+      \\ drule evaluate_decs_call_FFI_rel_imp
+      \\ strip_tac
+      \\ fs[evaluate_ck_def]
+      \\ imp_res_tac evaluate_call_FFI_rel_imp
+      \\ fs[] \\ metis_tac[RTC_RTC])
+  >- (fs[cond_def]));
 
 val _ = export_theory()

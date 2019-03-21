@@ -14,6 +14,7 @@ sig
      into a characteristic formula.
   *)
   val xcf : string -> ml_progLib.ml_prog_state -> tactic
+  val xcf_with_def : string -> thm -> tactic
 
   (* [xpull] must be called whenever the goal is a cf which
      precondition contains pure facts ([& H]); [xpull] then

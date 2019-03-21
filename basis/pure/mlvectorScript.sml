@@ -157,7 +157,7 @@ val foldri_aux_thm = Q.prove (
     (foldri_aux f e vec len = FOLDRi f e (TAKE len (toList vec)))`,
   Induct_on `len` \\ rw[foldri_aux_def] \\
   Cases_on `vec` \\ fs[length_def, toList_thm, sub_def] \\
-  rw [ADD1, TAKE_SUM, take1_drop, FOLDRi_APPEND]
+  rw [ADD1, TAKE_SUM, TAKE1_DROP, FOLDRi_APPEND]
 );
 
 Theorem foldri_thm
@@ -180,7 +180,7 @@ val foldr_aux_thm = Q.prove (
     (foldr_aux f e vec len = FOLDR f e (TAKE len (toList vec)))`,
   Induct_on `len` \\ rw[foldr_aux_def] \\
   Cases_on `vec` \\ fs[length_def, toList_thm, sub_def] \\
-  rw [ADD1, TAKE_SUM, take1_drop, FOLDR_APPEND]
+  rw [ADD1, TAKE_SUM, TAKE1_DROP, FOLDR_APPEND]
 );
 
 Theorem foldr_thm

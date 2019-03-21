@@ -23,6 +23,9 @@ val _ = register_type ``:tag``;
 val _ = register_type ``:clash_tree``;
 val _ = register_type ``:algorithm``;
 
+val res = translate sortingTheory.PART_DEF;
+val res = translate sortingTheory.PARTITION_DEF;
+
 (*
  *  Set up the monadic translator
  *)

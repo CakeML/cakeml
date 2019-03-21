@@ -3751,7 +3751,7 @@ Theorem infer_d_inf_set_tids
     match_mp_tac nsAll_alist_to_ns
     \\ simp[EVERY_MAP,every_zip_snd]
     \\ imp_res_tac generalise_inf_set_tids
-    \\ fs[LIST_REL_inv_image_MAP, quotient_listTheory.LIST_REL_EQ]
+    \\ fs[GSYM LIST_REL_MAP_inv_image, quotient_listTheory.LIST_REL_EQ]
     \\ simp[GSYM (Q.ISPEC`inf_set_tids`(CONV_RULE SWAP_FORALL_CONV EVERY_MAP))]
     \\ pop_assum(assume_tac o SYM)
     \\ simp[]
@@ -3790,7 +3790,7 @@ Theorem infer_d_inf_set_tids
     \\ simp[MAP2_MAP, UNCURRY, EVERY_MAP]
     \\ simp[every_zip_snd]
     \\ imp_res_tac generalise_inf_set_tids
-    \\ fs[LIST_REL_inv_image_MAP, quotient_listTheory.LIST_REL_EQ]
+    \\ fs[GSYM LIST_REL_MAP_inv_image, quotient_listTheory.LIST_REL_EQ]
     \\ simp[GSYM (Q.ISPEC`inf_set_tids`(CONV_RULE SWAP_FORALL_CONV EVERY_MAP))]
     \\ pop_assum(assume_tac o SYM)
     \\ simp[]

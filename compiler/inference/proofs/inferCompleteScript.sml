@@ -3,10 +3,12 @@
   for the program, then the type inferencer will find a type (the most
   general type).
 *)
-open preamble
-open typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory
-     astPropsTheory typeSysPropsTheory inferPropsTheory namespacePropsTheory envRelTheory
-     infer_eSoundTheory infer_eCompleteTheory type_eDetermTheory type_dCanonTheory
+
+open preamble semanticPrimitivesTheory namespacePropsTheory
+     astTheory astPropsTheory typeSystemTheory typeSysPropsTheory
+     unifyTheory inferTheory inferPropsTheory envRelTheory
+     infer_eSoundTheory infer_eCompleteTheory type_eDetermTheory type_dCanonTheory;
+open terminationTheory
 
 val _ = new_theory "inferComplete";
 
@@ -40,22 +42,23 @@ val t_ind = t_induction
   |> SIMP_RULE (srw_ss()) []
   |> Q.GEN`P`;
 
-Theorem env_rel_binding_lemma
-  `!t fvs fvs' subst.
-    check_freevars 0 fvs' t ∧
-    set fvs' ⊆ set fvs ∧
-    ALL_DISTINCT fvs'
-    ⇒
-    infer_deBruijn_subst subst
-      (infer_type_subst (ZIP (fvs',MAP Infer_Tvar_db (COUNT_LIST (LENGTH (fvs'))))) t) =
-    infer_deBruijn_subst
-      (GENLIST (λn.
-           infer_deBruijn_subst subst
-             (case find_index (EL n fvs) fvs' 0 of
-                NONE => Infer_Tapp [] TC_int
-              | SOME t => Infer_Tvar_db t)) (LENGTH fvs))
-      (infer_type_subst (ZIP (fvs,GENLIST (λx. Infer_Tvar_db x) (LENGTH fvs))) t)`
-  (ho_match_mp_tac t_ind >>
+Theorem env_rel_binding_lemma:
+  !t fvs fvs' subst.
+   check_freevars 0 fvs' t ∧
+   set fvs' ⊆ set fvs ∧
+   ALL_DISTINCT fvs'
+   ⇒
+   infer_deBruijn_subst subst
+     (infer_type_subst (ZIP (fvs',MAP Infer_Tvar_db (COUNT_LIST (LENGTH (fvs'))))) t) =
+   infer_deBruijn_subst
+     (GENLIST (λn.
+          infer_deBruijn_subst subst
+            (case find_index (EL n fvs) fvs' 0 of
+               NONE => Infer_Tapp [] arb
+             | SOME t => Infer_Tvar_db t)) (LENGTH fvs))
+     (infer_type_subst (ZIP (fvs,GENLIST (λx. Infer_Tvar_db x) (LENGTH fvs))) t)
+Proof
+  ho_match_mp_tac t_ind >>
   rw [infer_type_subst_def, infer_deBruijn_subst_def, check_freevars_def]
   >- (
     qmatch_assum_abbrev_tac `MEM name _` >>
@@ -90,7 +93,8 @@ Theorem env_rel_binding_lemma
   >- (
     irule LIST_EQ >>
     rw [EL_MAP] >>
-    fs [EVERY_EL]));
+    fs [EVERY_EL])
+QED
 
 Theorem env_rel_binding_lemma2
   `!t fvs fvs' subst.
@@ -586,28 +590,29 @@ Theorem inf_set_tids_extend_dec_ienv
   \\ rw[SUBSET_DEF, UNCURRY, inf_set_tids_subset_def]
   \\ rw[] \\ res_tac \\ fs[]);
 
-Theorem infer_d_complete_canon
-  `(!d n tenv ids tenv' ienv st1.
-    type_d_canon n tenv d ids tenv' ∧
-    env_rel tenv ienv ∧
-    inf_set_tids_ienv (count n) ienv ∧
-    st1.next_id = n ∧ start_type_id ≤ n
-    ⇒
-    ?ienv' st2.
-      env_rel tenv' ienv' ∧
-      st2.next_id = st1.next_id + ids ∧
-      infer_d ienv d st1 = (Success ienv', st2)) ∧
-   (!ds n tenv ids tenv' ienv st1.
-    type_ds_canon n tenv ds ids tenv' ∧
-    env_rel tenv ienv ∧
-    inf_set_tids_ienv (count n) ienv ∧
-    st1.next_id = n ∧ start_type_id ≤ n
-    ⇒
-    ?ienv' st2.
-      env_rel tenv' ienv' ∧
-      st2.next_id = st1.next_id + ids ∧
-      infer_ds ienv ds st1 = (Success ienv', st2))`
-  (Induct>>
+Theorem infer_d_complete_canon:
+  (!d n tenv ids tenv' ienv st1.
+   type_d_canon n tenv d ids tenv' ∧
+   env_rel tenv ienv ∧
+   inf_set_tids_ienv (count n) ienv ∧
+   st1.next_id = n ∧ start_type_id ≤ n
+   ⇒
+   ?ienv' st2.
+     env_rel tenv' ienv' ∧
+     st2.next_id = st1.next_id + ids ∧
+     infer_d ienv d st1 = (Success ienv', st2)) ∧
+  (!ds n tenv ids tenv' ienv st1.
+   type_ds_canon n tenv ds ids tenv' ∧
+   env_rel tenv ienv ∧
+   inf_set_tids_ienv (count n) ienv ∧
+   st1.next_id = n ∧ start_type_id ≤ n
+   ⇒
+   ?ienv' st2.
+     env_rel tenv' ienv' ∧
+     st2.next_id = st1.next_id + ids ∧
+     infer_ds ienv ds st1 = (Success ienv', st2))
+Proof
+  Induct>>
   rw [] >>
   imp_res_tac type_d_canon_tenv_ok >>
   qpat_x_assum`_ _ _ _ _ tenv'` mp_tac>>
@@ -1246,10 +1251,10 @@ Theorem infer_d_complete_canon
           `pure_add_constraints st.subst ((ZIP(uvars,funs_ts))++constr) s` by
             metis_tac[pure_add_constraints_append,pure_add_constraints_success]>>
           imp_res_tac pure_add_constraints_apply>>
-          fs[Abbr`uvars`,MAP_APPEND,MAP_ZIP,Once LIST_EQ_REWRITE]>>
+          fs[Abbr`uvars`,MAP_APPEND,MAP_ZIP,Once LIST_EQ_REWRITE,LENGTH_COUNT_LIST]>>
           first_x_assum(qspec_then`n` kall_tac)>>
           first_x_assum(qspec_then`n` assume_tac)>>
-          rfs[EL_APPEND1,EL_MAP,EL_ZIP,EL_COUNT_LIST])>>
+          rfs[EL_APPEND1,EL_MAP,EL_ZIP,EL_COUNT_LIST,MAP_COUNT_LIST])>>
         pop_assum SUBST_ALL_TAC>>
         AP_TERM_TAC>>
         Q.ISPECL_THEN [`s`,`s'`,`subst'`,`_`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
@@ -1350,7 +1355,8 @@ Theorem infer_d_complete_canon
       \\ fs[])
     \\ rw[] >>
     fs[]>>
-    metis_tac[env_rel_extend]);
+    metis_tac[env_rel_extend]
+QED
 
 Theorem infer_ds_complete
   `type_ds T tenv ds ids tenv' ∧
@@ -1396,7 +1402,7 @@ Theorem infer_ds_complete
     \\ qexists_tac`i` \\ simp[]
     \\ pop_assum(qspec_then`GENLIST Infer_Tvar_db p_1`mp_tac)
     \\ simp[infer_deBruijn_subst_id2]
-    \\ cheat )
+    \\ ... )
   *)
   \\ rw[]
   \\ drule (CONJUNCT2 infer_d_complete_canon)

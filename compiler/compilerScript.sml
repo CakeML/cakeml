@@ -9,7 +9,7 @@ open preamble
      cmlParseTheory
      inferTheory
      backendTheory
-     mlnumTheory mlintTheory mlstringTheory basisProgTheory
+     mlintTheory mlstringTheory basisProgTheory
      fromSexpTheory simpleSexpParseTheory
 
 open x64_configTheory export_x64Theory

@@ -14,7 +14,7 @@ val _ = Datatype `exn_type = FullQueue | EmptyQueue`;
 val _ = register_exn_type ``:exn_type``;
 
 val queue_decls = process_topdecs
-   ‘fun empty_queue sz err = ref (Array.array sz err, 0, 0, 0)
+   ‘fun empty_queue sz err = Ref (Array.array sz err, 0, 0, 0)
 
     fun full q =
       case !q of (a,f,r,c) => c = Array.length a
@@ -208,9 +208,8 @@ Theorem dequeue_spec
   `∀p qv xv vs x A mx.
       app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv)
-       (POST (λv. &(vs ≠ [] ∧ A (HD vs) v) * QUEUE A mx (TL vs) qv)
-             (λe. &(vs = [] ∧ EmptyQueue_exn e) * QUEUE A mx vs qv)
-             (λn c b. &F))`
+       (POSTve (λv. &(vs ≠ [] ∧ A (HD vs) v) * QUEUE A mx (TL vs) qv)
+               (λe. &(vs = [] ∧ EmptyQueue_exn e) * QUEUE A mx vs qv))’
   (xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
   reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif
   >- ((* throws exception *)

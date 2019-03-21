@@ -2,9 +2,13 @@
   This compiler phase implements all stack operations as normal memory
   load/store operations.
 *)
-open preamble stackLangTheory;
+
+open preamble stackLangTheory
 
 val _ = new_theory "stack_remove";
+
+val _ = set_grammar_ancestry ["stackLang",
+  "misc" (* for bytes_in_word *) ];
 
 (* -- compiler -- *)
 

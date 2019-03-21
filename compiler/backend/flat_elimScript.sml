@@ -236,21 +236,8 @@ val analyse_code_def = Define `
 
 
 val superdomain_def = Define `
-    superdomain LN = LN ∧
-    superdomain (LS (t:num_set)) = t ∧
-    superdomain (BN t1 t2) = union (superdomain t1) (superdomain t2) ∧
-    superdomain (BS t1 a t2) =
-        union (superdomain t1) (union a (superdomain t2))
+    superdomain (t:num_set num_map) = spt_fold union LN t
 `
-
-(* TODO - USE THIS FOLD DEFINITION OF SUPERDOMAIN
-
-val sd_def = Define `
-    sd (t:num_set num_map) = (foldi (λ k v a . union v a) 0 LN) t
-`
-);
-
-*)
 
 val mk_wf_set_tree_def = Define `
     mk_wf_set_tree t =

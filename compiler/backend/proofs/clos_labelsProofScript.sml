@@ -18,7 +18,8 @@ Theorem remove_dests_SING
   \\ Cases_on`opt` \\ rw[remove_dests_def]);
 
 Theorem HD_remove_dests_SING[simp]
-  `!x. [HD (remove_dests dests [x])] = remove_dests dests [x]`
+  `!x. [HD (remove_dests dests [x])] = remove_dests dests [x] ∧
+       LENGTH (remove_dests dests [x]) = 1`
   (strip_tac \\ strip_assume_tac (Q.SPEC `x` remove_dests_SING) \\ simp []);
 
 Theorem EVERY_remove_dests_SING

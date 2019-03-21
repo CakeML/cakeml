@@ -17,9 +17,6 @@ library.
 [CommandLineProofScript.sml](CommandLineProofScript.sml):
 Proof about the command-line module of the CakeML standard basis library.
 
-[CompareProgScript.sml](CompareProgScript.sml):
-Module with various comparison functions.
-
 [IntProgScript.sml](IntProgScript.sml):
 Module about the built-in integer tyoe. Note that CakeML uses
 arbitrary precision integers (the mathematical intergers).
@@ -41,9 +38,6 @@ arrays that CakeML foreign-function interface (FFI) uses.
 [MarshallingScript.sml](MarshallingScript.sml):
 HOL functions that aid converting to and from the byte arrays that
 CakeML foreign-function interface (FFI) uses.
-
-[NumProgScript.sml](NumProgScript.sml):
-Module containing functios for arithmetic over the natural numbers.
 
 [OptionProgScript.sml](OptionProgScript.sml):
 Module about the option tyoe.

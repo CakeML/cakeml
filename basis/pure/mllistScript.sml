@@ -7,27 +7,26 @@ val _ = new_theory"mllist"
 
 val _ = set_grammar_ancestry ["indexedLists", "toto"]
 
-val tl_def = Define`
-  (tl [] = []) /\
-  (tl (h::t) = t)`;
-
-
 val getItem_def = Define`
   (getItem [] = NONE) /\
   (getItem (h::t) = SOME(h, t))`;
 
-
 val nth_def = Define`
   nth l i = EL i l`;
-
 
 val take_def = Define`
   take l i = TAKE i l`;
 
-
 val drop_def = Define`
   drop l i = DROP i l`;
 
+val takeUntil_def = Define `
+  (takeUntil p [] = []) /\
+  (takeUntil p (x::xs) = if p x then [] else x :: takeUntil p xs)`;
+
+val dropUntil_def = Define `
+  (dropUntil p [] = []) /\
+  (dropUntil p (x::xs) = if p x then x::xs else dropUntil p xs)`;
 
 val mapi_def = Define `
   (mapi f (n: num) [] = []) /\
@@ -49,7 +48,6 @@ Theorem MAPI_thm
   |> SIMP_RULE (srw_ss()++ETA_ss) [])]
 );
 
-
 val mapPartial_def = Define`
   (mapPartial f [] = []) /\
   (mapPartial f (h::t) = case (f h) of
@@ -61,12 +59,10 @@ Theorem mapPartial_thm
   (Induct_on `l` \\ rw [mapPartial_def] \\ Cases_on `f h` \\ rw [THE_DEF] \\ fs [IS_SOME_DEF]
 );
 
-
 Theorem index_find_thm
   `!x y. OPTION_MAP SND (INDEX_FIND x f l) = OPTION_MAP SND (INDEX_FIND y f l)`
   (Induct_on`l` \\ rw[INDEX_FIND_def]
 );
-
 
 Theorem FIND_thm
   `(FIND f [] = NONE) ∧
@@ -106,7 +102,6 @@ val foldl_aux_def = Define`
 
 val foldl_def = Define`
   foldl f e l = foldl_aux f e 0 l`;
-
 
 val foldli_aux_def = Define`
   (foldli_aux f e n [] = e) /\
@@ -212,5 +207,7 @@ Theorem LENGTH_AUX_THM
   (Induct THEN ASM_SIMP_TAC std_ss [LENGTH_AUX_def,LENGTH,ADD1,AC ADD_COMM ADD_ASSOC])
   |> Q.SPECL [`xs`,`0`] |> GSYM |> SIMP_RULE std_ss [];
 
+val _ = save_thm("list_compare_def",
+  ternaryComparisonsTheory.list_compare_def);
 
 val _ = export_theory()

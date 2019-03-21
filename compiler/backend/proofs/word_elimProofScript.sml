@@ -2,7 +2,7 @@
   Correctness proof for word_elim
 *)
 
-open preamble backendComputeLib wordLangTheory
+open preamble wordLangTheory
      word_elimTheory wordSemTheory wordPropsTheory
      flat_elimProofTheory
 
