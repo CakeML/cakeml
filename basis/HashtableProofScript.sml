@@ -905,5 +905,50 @@ Theorem hashtable_toAscList_spec
   \\qexists_tac `buckets`
   \\xsimpl);
 
+Theorem hashtable_doubleCapacity_spec
+  `!a b hf cmp  htv.
+      app (p:'ffi ffi_proj) Hashtable_doubleCapacity_v [htv]
+        (HASHTABLE a b hf cmp h htv)
+        (POSTv uv. &(UNIT_TYPE () uv) *
+          HASHTABLE a b hf cmp h htv)`
+  (xcf_with_def "Hashtable.doubleCapacity" Hashtable_doubleCapacity_v_def
+  \\ fs[HASHTABLE_def]
+  \\ xpull
+  \\ xmatch
+  \\ xlet `POSTv oldArr. &(oldArr = arr) *
+                         REF_ARRAY ar arr vlv *
+                         REF_NUM ur heuristic_size`
+  >-(xapp
+    \\qexists_tac `ARRAY arr vlv * REF_NUM ur heuristic_size`
+    \\qexists_tac `arr`
+    \\fs[REF_ARRAY_def]
+    \\xsimpl)
+
+  \\xlet `POSTv listv. SEP_EXISTS l.
+                        &(LIST_TYPE (PAIR_TYPE a b) l listv) *
+                        HASHTABLE a b hf cmp h htv`
+  >-(xapp
+    \\MAP_EVERY qexists_tac [`emp`,`hf`, `h`, `cmp`, `b`, `a`]
+    \\xsimpl
+    \\fs[HASHTABLE_def]
+    \\xsimpl
+    \\MAP_EVERY qexists_tac [`vlv`,`arr`, `heuristic_size`])
+  \\xlet `POSTv v. &(UNIT_TYPE () v) *
+                    ur ~~>  Litv (IntLit 0) *
+                    REF_ARRAY ar arr vlv`
+  >-(  fs[HASHTABLE_def]
+    \\ xpull
+    \\ xapp
+    \\ fs[REF_NUM_def]
+    \\ qexists_tac `REF_ARRAY ar' arr' vlv'`
+    \\ qexists_tac `Litv (IntLit 0)`
+    \\ xsimpl
+    \\ fs[HT_NO_NUMREF_def, HASHTABLE_def]
+    \\ xsimpl
+
+
+
+
+
 
 val _ = export_theory();
