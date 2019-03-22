@@ -861,8 +861,11 @@ Theorem hashtable_toAscList_spec
       (HASHTABLE a b hf cmp h htv)
       (* TODO: more meaningful postcondition? *)
       (POSTv listv. SEP_EXISTS bsalist.
-        &(LIST_TYPE (PAIR_TYPE a b) bsalist listv)
+        &(LIST_TYPE (PAIR_TYPE a b) bsalist listv /\
+          (FEMPTY |++ bsalist = h))
         * HASHTABLE a b hf cmp h htv)`
+  cheat
+(*
   (xcf_with_def "Hashtable.toAscList" Hashtable_toAscList_v_def
   \\fs[HASHTABLE_def]
   \\xpull
@@ -904,14 +907,16 @@ Theorem hashtable_toAscList_spec
   \\xsimpl
   \\qexists_tac `buckets`
   \\xsimpl);
+*)
 
-Theorem hashtable_doubleCapacity_spec
-  `!a b hf cmp  htv.
+Theorem hashtable_doubleCapacity_spec:
+   !a b hf cmp  htv.
       app (p:'ffi ffi_proj) Hashtable_doubleCapacity_v [htv]
         (HASHTABLE a b hf cmp h htv)
         (POSTv uv. &(UNIT_TYPE () uv) *
-          HASHTABLE a b hf cmp h htv)`
-  (xcf_with_def "Hashtable.doubleCapacity" Hashtable_doubleCapacity_v_def
+          HASHTABLE a b hf cmp h htv)
+Proof
+  xcf_with_def "Hashtable.doubleCapacity" Hashtable_doubleCapacity_v_def
   \\ fs[HASHTABLE_def]
   \\ xpull
   \\ xmatch
@@ -923,32 +928,49 @@ Theorem hashtable_doubleCapacity_spec
     \\qexists_tac `arr`
     \\fs[REF_ARRAY_def]
     \\xsimpl)
-
+  \\ xlet `POSTv av. &(NUM (LENGTH vlv) av) *
+                     REF_ARRAY ar arr vlv * REF_NUM ur heuristic_size`
+  >- (xapp \\ fs [REF_ARRAY_def] \\ xsimpl)
+  \\ xlet_auto >- xsimpl
   \\xlet `POSTv listv. SEP_EXISTS l.
-                        &(LIST_TYPE (PAIR_TYPE a b) l listv) *
+                        &(LIST_TYPE (PAIR_TYPE a b) l listv /\
+                          (FEMPTY |++ l = h)) *
                         HASHTABLE a b hf cmp h htv`
-  >-(xapp
+  >-(
+    xapp
     \\MAP_EVERY qexists_tac [`emp`,`hf`, `h`, `cmp`, `b`, `a`]
     \\xsimpl
     \\fs[HASHTABLE_def]
     \\xsimpl
-    \\MAP_EVERY qexists_tac [`vlv`,`arr`, `heuristic_size`])
-  \\xlet `POSTv v. &(UNIT_TYPE () v) *
-                    ur ~~>  Litv (IntLit 0) *
-                    REF_ARRAY ar arr vlv`
-  >-(  fs[HASHTABLE_def]
-    \\ xpull
-    \\ xapp
-    \\ fs[REF_NUM_def]
-    \\ qexists_tac `REF_ARRAY ar' arr' vlv'`
-    \\ qexists_tac `Litv (IntLit 0)`
+    \\MAP_EVERY qexists_tac [`vlv`,`arr`, `heuristic_size`]
+    \\ xsimpl)
+  \\ fs[HASHTABLE_def,REF_NUM_def]
+  \\ xpull
+  \\ rename [`REF_ARRAY ar arr1 vlv1`]
+  \\ rveq
+  \\ xlet_auto >- xsimpl
+  \\ xlet `POSTv ar1. SEP_EXISTS mpv.
+             ur ~~> Litv (IntLit 0) *
+             &(MAP_TYPE a b (mlmap$empty cmp) mpv) *
+             REF ar arr1 * ARRAY ar1 (REPLICATE (2 * LENGTH vlv) mpv)`
+  >- (xapp
     \\ xsimpl
-    \\ fs[HT_NO_NUMREF_def, HASHTABLE_def]
-    \\ xsimpl
-
-
-
-
-
+    \\ rpt (asm_exists_tac \\ fs [])
+    \\ qexists_tac `b` \\ fs []
+    \\ rw []
+    \\ rpt (asm_exists_tac \\ fs [])
+    \\ fs [REF_ARRAY_def] \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ xapp
+  \\ asm_exists_tac \\ fs []
+  \\ fs [HASHTABLE_def,REF_NUM_def,REF_ARRAY_def]
+  \\ xsimpl
+  \\ fs [PULL_EXISTS]
+  \\ rpt (asm_exists_tac \\ fs [])
+  \\ qexists_tac `FEMPTY`
+  \\ conj_tac THEN1 cheat
+  \\ rw []
+  \\ asm_exists_tac \\ fs []
+QED;
 
 val _ = export_theory();

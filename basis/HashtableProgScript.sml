@@ -141,10 +141,11 @@ val hashtable_doubleCapacity = (append_prog o process_topdecs)
   case ht of Hashtable usedRef bucketsRef _ cmp =>
     let
       val oldArr = !bucketsRef
+      val newLen = Array.length oldArr * 2
       val oldList = toAscList ht
     in
       usedRef := 0;
-      bucketsRef := initBuckets (Array.length oldArr * 2) cmp;
+      bucketsRef := initBuckets newLen cmp;
       insertList ht oldList
     end`;
 
