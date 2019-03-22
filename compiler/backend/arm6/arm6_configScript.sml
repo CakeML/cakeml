@@ -36,7 +36,7 @@ val word_to_word_conf = ``<| reg_alg:=2; col_oracle := λn. NONE |>``
 val arm6_data_conf = ``<| tag_bits:=0; len_bits:=0; pad_bits:=1; len_size:=20; has_div:=F; has_longdiv:=F; has_fp_ops:=T; call_empty_ffi:=F; gc_kind:=Simple|>``
 val arm6_word_conf = ``<| bitmaps := []:32 word list |>``
 val arm6_stack_conf = ``<|jump:=T;reg_names:=arm6_names|>``
-val arm6_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=arm6_config;init_clock:=5;hash_size:=1632899n|>``
+val arm6_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=arm6_config;init_clock:=5;hash_size:=104729n|>``
 
 val arm6_backend_config_def = Define`
   arm6_backend_config =
