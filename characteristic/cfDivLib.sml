@@ -38,13 +38,13 @@ fun xcf_div_FFI_full name st =
     \\ CONV_TAC(DEPTH_CONV BETA_CONV)
   end
 
-fun xcf_div name st =
+fun xcf_div_rule thm name st =
   let
     val f_def = fetch_def name st
   in
     rpt strip_tac
     \\ simp[f_def]
-    \\ match_mp_tac(GEN_ALL IMP_app_POSTd_one_FFI_part)
+    \\ match_mp_tac(GEN_ALL thm)
     (* TODO: we could look at the goal state and generate a fresh name instead*)
     \\ qmatch_goalsub_abbrev_tac `make_stepfun_closure highly_improbable_name`
     \\ CONV_TAC(STRIP_QUANT_CONV(PATH_CONV "l" EVAL))
@@ -74,5 +74,7 @@ fun xcf_div name st =
                                                       dest_opapp_def]))))
     \\ CONV_TAC(DEPTH_CONV BETA_CONV)
   end
+
+val xcf_div = xcf_div_rule IMP_app_POSTd_one_FFI_part
 
 end
