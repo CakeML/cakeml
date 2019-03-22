@@ -4790,4 +4790,46 @@ val repeat_POSTd_one_FFI_part_FLATTEN = store_thm("repeat_POSTd_one_FFI_part_FLA
         \\ Cases_on `n` >> fs[])
   \\ simp[]);
 
+Theorem LFLATTEN_LGENLIST_REPEAT:
+  LFLATTEN(LGENLIST (\x. fromList l) NONE) = LREPEAT l
+Proof
+  Cases_on `l = []` >-
+    (rw[Once LFLATTEN,every_LNTH,LNTH_LGENLIST]) >-
+    (match_mp_tac LLIST_BISIM_UPTO
+     \\ qexists_tac `\ll1 ll2. ?n.
+                      ll1 = LFLATTEN(LGENLIST (\x. fromList l) NONE) /\
+                      ll2 = LREPEAT l`
+     \\ conj_tac >- (fs[] >> qexists_tac `0` >> fs[])
+     \\ rw[]
+     \\ Cases_on `l` \\ fs[]
+     >- fs[Once LGENLIST_NONE_UNFOLD, Once LREPEAT_thm]
+     \\ CONV_TAC(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LGENLIST_NONE_UNFOLD])))
+     \\ fs[] \\ match_mp_tac llist_upto_context
+     \\ match_mp_tac llist_upto_rel \\ simp[o_DEF])
+QED
+
+val IMP_app_POSTd_one_FFI_part_FLATTEN = store_thm("IMP_app_POSTd_one_FFI_part_FLATTEN",
+  ``make_stepfun_closure env fname farg fbody = SOME stepv /\
+    fname ≠ farg ∧
+    limited_parts ns p /\
+    (?Hs events vs ss u io.
+       vs 0 xv /\ H ==>> Hs 0 * one (FFI_part (ss 0) u ns (events 0)) /\
+       (!i xv. vs i xv ==>
+          (app p stepv [xv] (Hs i * one (FFI_part (ss i) u ns []))
+                           (POSTv v'. &(vs (SUC i) v') * Hs (SUC i)
+                            * one (FFI_part (ss(SUC i)) u ns (events(SUC i)))))) /\
+       Q(LFLATTEN(LGENLIST (fromList o events) NONE)))
+      ==>
+    app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
+  strip_tac
+  \\ match_mp_tac make_repeat_closure_sound \\ fs []
+  \\ fs [make_repeat_closure_def]
+  \\ rveq \\ fs [] \\ rveq \\ fs []
+  \\ match_mp_tac app_opapp_intro
+  \\ fs [terminationTheory.evaluate_def,semanticPrimitivesTheory.build_rec_env_def]
+  \\ fs [GSYM some_repeat_clos_def]
+  \\ match_mp_tac (GEN_ALL repeat_POSTd_one_FFI_part_FLATTEN) \\ fs []
+  \\ qexists_tac `ns` \\ fs []
+  \\ asm_exists_tac \\ fs[] \\ asm_exists_tac \\ fs[]);
+
 val _ = export_theory();

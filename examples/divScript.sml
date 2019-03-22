@@ -70,15 +70,13 @@ Proof
     fs [SEP_CLAUSES] \\ fs [SEP_F_to_cond, POSTvd_def, GSYM POSTd_def]
     \\ xcf_div "condLoop" st
     \\ MAP_EVERY qexists_tac
-      [`K emp`, `K []`, `\i. $= (Litv (IntLit (-&n - &i)))`, `K s`, `u`]
-    \\ xsimpl \\ rw [lprefix_lub_def]
-    THEN1 fs [INT_def]
-    \\ xlet `POSTv v. &BOOL F v * one (FFI_part s u ns [])`
-    THEN1 (xapp_spec eq_v_INT_thm \\ xsimpl)
-    \\ xif \\ instantiate
-    \\ xlet `POSTv v. &INT (-&n - &i - 1) v * one (FFI_part s u ns [])`
-    THEN1 (xapp \\ xsimpl)
-    \\ xvar \\ xsimpl \\ fs [INT_def] \\ intLib.COOPER_TAC)
+      [`K emp`, `K []`, `\n v. ?i. INT i v /\ i < 0`, `K s`, `u`]
+    \\ xsimpl \\ qexists_tac `-&n` \\ simp[lprefix_lub_def]
+    \\ rw[]
+    \\ xlet_auto >- xsimpl
+    \\ xif \\ fs[]
+    \\ xlet_auto >- xsimpl
+    \\ xvar \\ xsimpl \\ fs[INT_def] \\ intLib.COOPER_TAC)
   \\ xcf "condLoop" st
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ instantiate
@@ -416,27 +414,21 @@ Theorem printLoop_spec:
     app (p:'ffi ffi_proj) ^(fetch_v "printLoop" st) [cv]
       (SIO [||] []) (POSTd io. io = LREPEAT [put_char_event c])
 Proof
-  xcf_div "printLoop" st
+  xcf_div_rule IMP_app_POSTd_one_FFI_part_FLATTEN "printLoop" st
   \\ MAP_EVERY qexists_tac
-    [`K emp`, `\i. REPLICATE_LIST [put_char_event c] i`, `K ($= cv)`,
+    [`K emp`, `\i. if i = 0 then [] else [put_char_event c]`, `K ($= cv)`,
      `K (State [||])`, `update`]
+  \\ SIMP_TAC std_ss [LFLATTEN_LGENLIST_REPEAT,o_DEF,K_DEF,Once LGENLIST_NONE_UNFOLD,
+                      LFLATTEN_THM, CONJUNCT1 llistTheory.fromList_def]
   \\ fs [GSYM SIO_def, REPLICATE_LIST_def]
-  \\ xsimpl \\ rw [lprefix_lub_def]
+  \\ xsimpl
+  \\ xlet `POSTv v. &UNIT_TYPE () v *
+                    SIO [||] [put_char_event c]`
   THEN1 (
-    xlet `POSTv v. &UNIT_TYPE () v *
-                   SIO [||] (REPLICATE_LIST [put_char_event c] (SUC i))`
-    THEN1 (
-      xapp
-      \\ MAP_EVERY qexists_tac
-        [`emp`, `[||]`, `REPLICATE_LIST [put_char_event c] i`, `c`]
-      \\ fs [REPLICATE_LIST_SNOC] \\ xsimpl)
-    \\ xvar \\ fs [REPLICATE_LIST_APPEND] \\ xsimpl)
-  THEN1 fs [LPREFIX_REPLICATE_LIST_LREPEAT]
-  \\ fs [PULL_EXISTS]
-  \\ qmatch_goalsub_abbrev_tac `LPREFIX ll`
-  \\ `ub = ll` suffices_by simp []
-  \\ unabbrev_all_tac
-  \\ irule REPLICATE_LIST_LREPEAT \\ fs []
+    xapp
+    \\ MAP_EVERY qexists_tac [`emp`, `[||]`, `[]`, `c`]
+    \\ xsimpl)
+  \\ xvar \\ xsimpl
 QED
 
 (* The Unix yes program *)
