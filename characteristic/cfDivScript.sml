@@ -4102,4 +4102,692 @@ val repeat_POSTe = store_thm("repeat_POSTe",
   \\ qexists_tac `emp`
   \\ xsimpl);
 
+(* TODO: up-to techniques duplicated from divTheory; should go elsewhere (llistTheory?)
+         other stuff can probably be moved to llistTheory, various other cf theories,
+         evaluateProps etc.
+*)
+val (llist_upto_rules,llist_upto_ind,llist_upto_case) =
+Hol_reln `
+  (llist_upto R x x) /\
+  (R x y ==> llist_upto R x y) /\
+  (llist_upto R x y /\ llist_upto R y z ==> llist_upto R x z) /\
+  (llist_upto R x y ==> llist_upto R (LAPPEND z x) (LAPPEND z y))
+  `
+
+val [llist_upto_eq,llist_upto_rel,llist_upto_trans,llist_upto_context] =
+  llist_upto_rules |> SPEC_ALL |> CONJUNCTS |> map GEN_ALL
+  |> curry (ListPair.map save_thm)
+    ["llist_upto_eq","llist_upto_rel",
+     "llist_upto_trans","llist_upto_context"]
+
+Theorem LLIST_BISIM_UPTO:
+  ∀ll1 ll2 R.
+    R ll1 ll2 ∧
+    (∀ll3 ll4.
+      R ll3 ll4 ⇒
+      ll3 = [||] ∧ ll4 = [||] ∨
+      LHD ll3 = LHD ll4 ∧
+      llist_upto R (THE (LTL ll3)) (THE (LTL ll4)))
+  ==> ll1 = ll2
+Proof
+  rpt strip_tac
+  >> PURE_ONCE_REWRITE_TAC[LLIST_BISIMULATION]
+  >> qexists_tac `llist_upto R`
+  >> conj_tac >- rw[llist_upto_rules]
+  >> ho_match_mp_tac llist_upto_ind
+  >> rpt conj_tac
+  >- rw[llist_upto_rules]
+  >- first_x_assum ACCEPT_TAC
+  >- (rw[]
+      >> match_mp_tac OR_INTRO_THM2
+      >> conj_tac >- simp[]
+      >> metis_tac[llist_upto_rules])
+  >- (rw[llist_upto_rules]
+      >> Cases_on `ll3 = [||]`
+      >- (Cases_on `ll4` >> fs[llist_upto_rules])
+      >> match_mp_tac OR_INTRO_THM2
+      >> conj_tac
+      >- (Cases_on `z` >> simp[])
+      >> Cases_on `z` >- simp[]
+      >> simp[]
+      >> Cases_on `ll3` >> Cases_on `ll4`
+      >> fs[] >> rveq
+      >> CONV_TAC(RAND_CONV(RAND_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [GSYM(CONJUNCT1 LAPPEND)]))))
+      >> CONV_TAC(RATOR_CONV(RAND_CONV(RAND_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [GSYM(CONJUNCT1 LAPPEND)])))))
+      >> PURE_ONCE_REWRITE_TAC[GSYM(CONJUNCT2 LAPPEND)]
+      >> simp[GSYM LAPPEND_ASSOC]
+      >> metis_tac[llist_upto_rules])
+QED
+
+
+Theorem LFLATTEN_fromList: !l.
+  LFLATTEN(fromList(MAP fromList l)) = fromList(FLAT l)
+Proof
+  Induct >> rw[LAPPEND_fromList]
+QED
+
+Theorem parts_ok_remove_events:
+  parts_ok st.ffi (q,r)
+  ==> parts_ok (st.ffi with io_events := []) (q,r)
+Proof
+  rw[parts_ok_def] >> metis_tac[]
+QED
+
+Theorem do_app_ffi_mono:
+  do_app (refs,ffi:'ffi ffi_state) op args = SOME ((refs',ffi'),r)
+   ⇒
+   ?l. ffi'.io_events = ffi.io_events ++ l
+Proof
+  rw[]
+  \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
+  \\ rw[] \\ fs[]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
+QED
+
+Theorem do_app_SOME_ffi_same_oracle_state
+  `do_app (refs,ffi:'ffi ffi_state) op args = SOME ((refs',ffi'),r)
+   ⇒
+   do_app (refs,ffi with io_events := l) op args =
+   SOME ((refs',ffi' with io_events := l ++ DROP (LENGTH ffi.io_events) ffi'.io_events),r)`
+  (rw[]
+  \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
+  \\ rw[] \\ fs[]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
+  \\ fs[DROP_APPEND,DROP_LENGTH_NIL]);
+
+Theorem evaluate_history_irrelevance:
+    (!(st1:'ffi semanticPrimitives$state) env exp st st' res l.
+    evaluate st1 env exp = (st',res) ==>
+    st1 = (st with ffi := st.ffi with io_events := l)
+    ==>
+    evaluate st env exp =
+    (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ DROP (LENGTH l) st'.ffi.io_events, res)) /\
+  (!(st1:'ffi semanticPrimitives$state) env v pes err_v st st' res l.
+    evaluate_match st1 env v pes err_v = (st',res)
+    ==>
+    st1 = (st with ffi := st.ffi with io_events := l)
+    ==>
+    evaluate_match st env v pes err_v =
+    (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ DROP (LENGTH l) st'.ffi.io_events, res))
+Proof
+       ho_match_mp_tac terminationTheory.evaluate_ind >>
+       rw[terminationTheory.evaluate_def] >>
+       every_case_tac >> fs[DROP_LENGTH_NIL] >> rveq >>
+       TRY(simp[semanticPrimitivesTheory.state_component_equality,
+                ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL] >>
+           NO_TAC) >>
+       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
+           impl_tac >- simp[] >>
+           strip_tac >> fs[] >>
+           rveq >> fs[] >>
+           NO_TAC) >>
+       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
+           impl_tac >- simp[] >>
+           strip_tac >> fs[] >>
+           first_x_assum drule >>
+           rename1 `st1 with ffi:= _ = st2` >>
+           disch_then(qspecl_then [`st2`,`st1.ffi.io_events`] mp_tac) >>
+           impl_tac >- fs[semanticPrimitivesTheory.state_component_equality,
+                            ffiTheory.ffi_state_component_equality] >>
+           strip_tac >> fs[] >> rveq >>
+           fs[semanticPrimitivesTheory.state_component_equality,
+              ffiTheory.ffi_state_component_equality] >>
+           imp_res_tac evaluatePropsTheory.evaluate_io_events_mono_imp >>
+           fs[evaluatePropsTheory.io_events_mono_def] >>
+           fs[IS_PREFIX_APPEND] >>
+           fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``] >>
+           NO_TAC) >>
+       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
+           impl_tac >- simp[] >>
+           strip_tac >> fs[] >>
+           rveq >> fs[] >>
+           drule(GEN_ALL do_app_SOME_ffi_same_oracle_state) >>
+           strip_tac >>
+           fs[] >>
+           rveq >>
+           fs[state_component_equality,ffiTheory.ffi_state_component_equality] >>
+           imp_res_tac do_app_ffi_mono >>
+           fs[DROP_APPEND,DROP_LENGTH_NIL] >>
+           imp_res_tac evaluatePropsTheory.evaluate_io_events_mono_imp >>
+           fs[evaluatePropsTheory.io_events_mono_def] >>
+           fs[IS_PREFIX_APPEND] >>
+           fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``] >>
+           NO_TAC) >>
+       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
+           impl_tac >- simp[] >>
+           strip_tac >> fs[] >>
+           rveq >> fs[] >>
+           imp_res_tac
+             (semanticPrimitivesPropsTheory.do_app_NONE_ffi
+              |> INST_TYPE [beta |-> alpha]) >>
+           fs[] >> NO_TAC) >>
+       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
+           impl_tac >- simp[] >>
+           strip_tac >> fs[] >>
+           rveq >> fs[] >> rveq >> fs[] >>
+           qmatch_goalsub_abbrev_tac `st1.ffi with io_events := events` >>
+           first_x_assum(qspecl_then [`st1 with ffi := st1.ffi with io_events := events`,`st1.ffi.io_events`] mp_tac) >>
+           impl_tac >- simp[state_component_equality,ffiTheory.ffi_state_component_equality] >>
+           rw[state_component_equality,ffiTheory.ffi_state_component_equality,Abbr `events`] >>
+           imp_res_tac evaluatePropsTheory.evaluate_io_events_mono_imp >>
+           fs[evaluatePropsTheory.io_events_mono_def] >>
+           fs[IS_PREFIX_APPEND] >>
+           fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``] >>
+           NO_TAC) >>
+       TRY(rename1 `dec_clock` >>
+           first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
+           impl_tac >- simp[] >>
+           strip_tac >> fs[] >>
+           rveq >> fs[] >> rveq >> fs[] >>
+           qmatch_goalsub_abbrev_tac `dec_clock(_ with ffi:= st1.ffi with io_events := events)` >>
+           first_x_assum drule >>
+           disch_then(qspecl_then [`dec_clock(st1 with ffi := st1.ffi with io_events := events)`,`st1.ffi.io_events`] mp_tac) >>
+           impl_tac >- simp[evaluateTheory.dec_clock_def,state_component_equality,
+                            ffiTheory.ffi_state_component_equality] >>
+           rw[evaluateTheory.dec_clock_def,state_component_equality,
+                ffiTheory.ffi_state_component_equality,Abbr `events`] >>
+           imp_res_tac evaluatePropsTheory.evaluate_io_events_mono_imp >>
+           fs[evaluatePropsTheory.io_events_mono_def] >>
+           fs[IS_PREFIX_APPEND] >>
+           fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``,
+              evaluateTheory.dec_clock_def])
+QED
+
+Theorem evaluate_add_history:
+  (!(st:'ffi semanticPrimitives$state) env exp st' res. evaluate (st with ffi := st.ffi with io_events := []) env exp = (st',res)
+  ==> evaluate st env exp = (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res)) /\
+  (!(st:'ffi semanticPrimitives$state) env v pes err_v st' res.
+   evaluate_match (st with ffi := st.ffi with io_events := []) env v pes err_v = (st',res)
+  ==> evaluate_match st env v pes err_v = (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res))
+Proof
+  strip_assume_tac evaluate_history_irrelevance >>
+  rpt(pop_assum(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev))) >>
+  rpt(disch_then(qspec_then `[]` strip_assume_tac)) >>
+  fs[]
+QED
+
+Theorem evaluate_add_history2:
+  (!(st:'ffi semanticPrimitives$state) env ck exp st' res. evaluate_ck ck (st with ffi := st.ffi with io_events := []) env exp = (st',res)
+  ==> evaluate_ck ck st env exp = (st' with ffi := st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res))
+Proof
+  rw[evaluate_ck_def] >>
+  mp_tac(CONJUNCT1 evaluate_add_history) >>
+  disch_then(qspecl_then [`st with clock := ck`,`env`,`exp`,`st'`,`res`] mp_tac) >>
+  rw[]
+QED
+
+Theorem evaluate_history_irrelevance_2:
+  (!(st:'ffi semanticPrimitives$state) env ck exp st' res l. evaluate_ck ck (st with ffi := st.ffi with io_events := l) env exp = (st',res)
+  ==> evaluate_ck ck st env exp = (st' with ffi := st'.ffi with io_events := st.ffi.io_events ++ DROP (LENGTH l) st'.ffi.io_events, res))
+Proof
+  rw[evaluate_ck_def] >>
+  mp_tac(CONJUNCT1 evaluate_history_irrelevance) >>
+  disch_then(qspecl_then [`st with <|clock := ck; ffi:= st.ffi with io_events:= l|>`,`env`,`exp`,`st with <|clock := ck|>`,`st'`,`res`,`l`] mp_tac) >>
+  simp[]
+QED
+
+Theorem remove_events_IMAGE:
+parts_ok st.ffi p ==>
+st2heap p (st with ffi := st.ffi with io_events := []) =
+IMAGE (\x. case x of FFI_part s u ns l => FFI_part s u ns []
+                   | _ => x) (st2heap p st)
+Proof
+  Cases_on `p` >>
+  rw[st2heap_def,FUN_EQ_THM,EQ_IMP_THM,ffi2heap_def] >> fs[parts_ok_remove_events] >-
+    (qexists_tac `x` >> every_case_tac >> fs[FFI_part_NOT_IN_store2heap]) >-
+    (qexists_tac `FFI_split` >> simp[]) >-
+    (qexists_tac `FFI_part s u ns (FILTER (ffi_has_index_in ns) st.ffi.io_events)` >> every_case_tac >> fs[] >> rveq >> fs[]) >-
+    (every_case_tac >> fs[FFI_part_NOT_IN_store2heap])
+QED
+
+Theorem parts_ok_swap_events:
+  parts_ok st.ffi p /\
+  EVERY (ffi_has_index_in (FLAT (MAP FST (SND p)))) es ==>
+  parts_ok (st.ffi with io_events := es) p
+Proof
+  Cases_on `p` >> rw[parts_ok_def] >> metis_tac[]
+QED
+
+Theorem FFI_part_has_index_in:
+  FFI_part s u ns es ∈ st2heap p st'
+  ==>
+  EVERY (ffi_has_index_in (FLAT (MAP FST (SND p)))) es
+Proof
+  Cases_on `p` >>
+  rw[st2heap_def,ffi2heap_def,FFI_part_NOT_IN_store2heap] >>
+  fs[parts_ok_def] >>
+  metis_tac[EVERY_FILTER_IMP]
+QED
+
+Theorem remove_events_IMAGE2:
+parts_ok st.ffi p /\
+parts_ok (st.ffi with io_events := es) p
+==>
+st2heap p (st with ffi := st.ffi with io_events := es) =
+IMAGE (\x. case x of FFI_part s u ns l => FFI_part s u ns (FILTER (ffi_has_index_in ns) es)
+                   | _ => x) (st2heap p st)
+Proof
+  Cases_on `p` >>
+  rw[st2heap_def,FUN_EQ_THM,EQ_IMP_THM,ffi2heap_def] >> fs[parts_ok_remove_events] >-
+    (qexists_tac `x` >> every_case_tac >> fs[FFI_part_NOT_IN_store2heap]) >-
+    (qexists_tac `FFI_split` >> simp[]) >-
+    (qexists_tac `FFI_part s u ns (FILTER (ffi_has_index_in ns) st.ffi.io_events)` >> every_case_tac >> fs[] >> rveq >> fs[]) >-
+    (every_case_tac >> fs[FFI_part_NOT_IN_store2heap])
+QED
+
+(* TODO: move every_LNTH *)
+Theorem every_LNTH:
+  !P ll. every P ll <=> !n e. LNTH n ll = SOME e ==> P e
+Proof
+  fs [every_def,exists_LNTH] \\ metis_tac []
+QED
+
+Theorem LNTH_LUNFOLD_SOME:
+  !n f g x.
+   LNTH n (LUNFOLD (\x. SOME(f x, g x)) x) =
+   SOME(g(FUNPOW f n x))
+Proof
+ Induct >>
+ simp[LNTH_LUNFOLD,FUNPOW]
+QED
+
+val every_LGENLIST = Q.prove(`
+  every P (LGENLIST f NONE)
+  = !x. P(f x)
+  `,
+  rw[every_LNTH,LNTH_LGENLIST,EQ_IMP_THM]);
+
+Theorem LFLATTEN_LAPPEND_fromList:
+  !l1 ll2.
+  LFLATTEN(LAPPEND (fromList l1) ll2) = LAPPEND (LFLATTEN(fromList l1)) (LFLATTEN ll2)
+Proof
+  Induct >>
+  rw[LAPPEND_ASSOC]
+QED
+
+Theorem LGENLIST_NONE_UNFOLD:
+  LGENLIST f NONE = f 0:::LGENLIST(f o $+ 1) NONE
+Proof
+  rw[LGENLIST_def,Once LUNFOLD,LUNFOLD_BISIMULATION]
+  \\ qexists_tac `\x y. x = y + 1`
+  \\ simp[]
+QED
+
+Theorem LAPPEND_fromList_EQ: !l ll ll'.
+  LAPPEND (fromList l) ll = LAPPEND (fromList l) ll'
+  ==> ll = ll'
+Proof
+  Induct >> rw[]
+QED
+
+Theorem LFLATTEN_NOT_NIL_IMP:
+  LFLATTEN ll <> [||]
+  ==>
+  ?n ll2. LNTH n ll = SOME ll2 /\ ll2 <> [||]
+Proof
+ rw[LFLATTEN_EQ_NIL,every_LNTH] >> metis_tac[]
+QED
+
+Theorem LFINITE_LFLATTEN_LGENERATE:
+  LFINITE(LFLATTEN(LGENLIST f NONE))
+  ==>
+  ?n. LFLATTEN(LGENLIST (f o $+ n) NONE) = [||]
+Proof
+  rpt strip_tac
+  \\ dxrule_then strip_assume_tac LFINITE_HAS_LENGTH
+  \\ pop_assum mp_tac
+  \\ MAP_EVERY qid_spec_tac [`f`,`n`]
+  \\ ho_match_mp_tac COMPLETE_INDUCTION
+  \\ Cases >-
+    (rw[] \\ qexists_tac `0` \\ simp[])
+  \\ rw[]
+  \\ `LFLATTEN(LGENLIST f NONE) <> [||]` by(CCONTR_TAC >> fs[])
+  \\ dxrule LFLATTEN_NOT_NIL_IMP
+  \\ disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
+  \\ qmatch_asmsub_abbrev_tac `LNTH a1`
+  \\ Q.ISPECL_THEN [`a1`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST)
+  \\ fs[]
+  \\ fs[LFLATTEN_LAPPEND_fromList]
+  \\ `GENLIST f a1 = REPLICATE a1 [||]`
+    by(match_mp_tac LIST_EQ
+       \\ rw[EL_REPLICATE]
+       \\ first_x_assum drule
+       \\ simp[LNTH_LAPPEND,LNTH_fromList])
+  \\ fs[LNTH_LAPPEND]
+  \\ `LFLATTEN (fromList (REPLICATE a1 [||])) = [||]`
+      by(rw[LFLATTEN_EQ_NIL,every_LNTH,LNTH_fromList,EL_REPLICATE])
+  \\ fs[]
+  \\ qpat_x_assum `LLENGTH _ = SOME _` mp_tac
+  \\ simp[SimpL ``$==>``,Once LGENLIST_NONE_UNFOLD]
+  \\ fs[LLENGTH_LGENLIST]
+  \\ fs[]
+  \\ rw[LLENGTH_APPEND]
+  \\ fs[LNTH_LGENLIST]
+  \\ imp_res_tac LFINITE_LLENGTH
+  \\ rename1 `LLENGTH (f a1) = SOME m`
+  \\ `m > 0` by(Cases_on `f a1` >> fs[])
+  \\ fs[]
+  \\ last_x_assum(qspec_then `n` mp_tac)
+  \\ impl_tac >- fs[]
+  \\ disch_then drule
+  \\ rw[]
+  \\ rename1 `f o $+a o $+b o $+c`
+  \\ qexists_tac `a + b + c`
+  \\ fs[o_DEF]
+QED
+
+val list_length_eq = Q.prove(
+   `l1 = l2 ==> LENGTH l1 = LENGTH l2`,
+   simp[])
+
+val list_length_eq2 = Q.prove(
+   `l1 = l2 ==> LENGTH(FLAT(MAP FST l1)) = LENGTH(FLAT(MAP FST l2))`,
+   simp[])
+
+Theorem MEM_FLAT_MAP_FST_SING:
+  MEM (FLAT (MAP FST r),u) r
+  /\
+  ALL_DISTINCT(FLAT (MAP FST r))
+  /\
+  MEM (ns, u') r
+  /\
+  ns <> []
+  ==>
+  ns = FLAT(MAP FST r) /\ u' = u
+Proof
+  strip_tac >>
+  Cases_on `r` >> fs[] >> rveq >> fs[] >>
+  Cases_on `FLAT (MAP FST t)` >> fs[FLAT_EQ_NIL,EVERY_MAP] >>
+  imp_res_tac EVERY_MEM >> fs[] >>
+  TRY(qpat_x_assum `_ = h` (assume_tac o CONV_RULE(RHS_CONV(PURE_ONCE_REWRITE_CONV[GSYM PAIR])))) >>
+  fs[] >-
+  (fs[MEM_APPEND] >>
+   fs[MEM_SPLIT] >> rveq >> fs[FLAT_APPEND] >>
+   fs[APPEND_EQ_CONS] >> rveq >> fs[] >>
+   imp_res_tac list_length_eq >> fs[]) >>
+  fs[MEM_APPEND] >>
+  fs[MEM_SPLIT] >> rveq >> fs[FLAT_APPEND] >>
+  qpat_x_assum `_ = _::_` (strip_assume_tac o REWRITE_RULE [APPEND_EQ_CONS]) >>
+  fs[] >> rveq >> fs[] >>
+  qpat_x_assum `_ ++ _ = _ ++ _` (strip_assume_tac o REWRITE_RULE [APPEND_EQ_APPEND_MID]) >>
+  rveq >> fs[] >>
+  TRY(
+    qpat_x_assum `_ ++ _ = _ ++ _` (strip_assume_tac o REWRITE_RULE
+                                    [CONV_RULE(LHS_CONV SYM_CONV) APPEND_EQ_APPEND_MID]) >>
+    rveq >> fs[] >> rveq >> fs[] >>
+    imp_res_tac list_length_eq2 >> fs[] >>
+    qpat_x_assum `_::_ = _ ++ _` (strip_assume_tac o REWRITE_RULE
+                                      [CONV_RULE(LHS_CONV SYM_CONV) APPEND_EQ_SING]) >>
+    rveq >> fs[] >> rveq >> fs[] >>
+    NO_TAC) >>
+  imp_res_tac list_length_eq >> fs[ADD1] >>
+  `LENGTH ns = 0` by intLib.COOPER_TAC >>
+  fs[quantHeuristicsTheory.LIST_LENGTH_0]
+QED
+
+Theorem limited_parts_unique_part:
+  limited_parts ns p /\
+  FFI_part s u ns events ∈ st2heap p st /\
+  FFI_part s' u' ns' events' ∈ st2heap p st
+  ==>
+  s = s' /\ u = u' /\ ns = ns' /\ events = events'
+Proof
+  strip_tac >>
+  Cases_on `p` >> fs[st2heap_def,limited_parts_def] >>
+  fs[FFI_part_NOT_IN_store2heap,ffi2heap_def] >>
+  PURE_FULL_CASE_TAC >> fs[] >> rveq >>
+  fs[parts_ok_def] >>
+  conj_asm2_tac >- (fs[] >> rveq >> fs[] >> Cases_on `FLAT (MAP FST r)` >> fs[]) >>
+  metis_tac[MEM_FLAT_MAP_FST_SING]
+QED
+
+Theorem IMAGE_purge_parts_no_parts:
+  (!s u ns es. FFI_part s u ns es ∉ h)
+  ==>
+  IMAGE
+      (λx.
+           case x of
+             Mem v7 v8 => x
+           | FFI_split => x
+           | FFI_part s u ns l => FFI_part s u ns []
+           | FFI_full v13 => x) h = h
+Proof
+  simp[IN_DEF,FUN_EQ_THM] >> strip_tac >> Cases >> fs[] >>
+  rw[EQ_IMP_THM] >> rpt(PURE_FULL_CASE_TAC >> rveq >> fs[]) >>
+  qmatch_asmsub_abbrev_tac `h a1` >>
+  qexists_tac `a1` >> simp[Abbr `a1`]
+QED
+
+Theorem IMAGE_purge_parts_no_parts2:
+  (!s u ns es. FFI_part s u ns es ∉ h)
+  ==>
+  IMAGE
+      (λx.
+           case x of
+             Mem v7 v8 => x
+           | FFI_split => x
+           | FFI_part s u ns l => FFI_part s u ns (f ns)
+           | FFI_full v13 => x) h = h
+Proof
+  simp[IN_DEF,FUN_EQ_THM] >> strip_tac >> Cases >> fs[] >>
+  rw[EQ_IMP_THM] >> rpt(PURE_FULL_CASE_TAC >> rveq >> fs[]) >>
+  qmatch_asmsub_abbrev_tac `h a1` >>
+  qexists_tac `a1` >> simp[Abbr `a1`]
+QED
+
+val repeat_POSTd_one_FFI_part_FLATTEN = store_thm("repeat_POSTd_one_FFI_part_FLATTEN",
+  ``!p env fv xv H Q ns.
+      limited_parts ns p /\
+      (?Hs events vs ss u io.
+         vs 0 xv /\ H ==>> Hs 0 * one (FFI_part (ss 0) u ns (events 0)) /\
+         (!i xv. vs i xv ==>
+            (app p fv [xv] (Hs i * one (FFI_part (ss i) u ns []))
+                             (POSTv v'. &(vs (SUC i) v') * Hs (SUC i)
+                              * one (FFI_part (ss(SUC i)) u ns (events(SUC i)))))) /\
+         Q(LFLATTEN(LGENLIST (fromList o events) NONE)))
+      ==>
+      app p (some_repeat_clos env) [fv; xv] H ($POSTd Q)``,
+  rpt strip_tac
+  \\ match_mp_tac(GEN_ALL repeat_POSTd_one_FFI_part)
+  \\ asm_exists_tac \\ simp[]
+  \\ asm_exists_tac \\ simp[]
+  \\ qexists_tac
+       `\n. Hs n *
+              one (FFI_part (ss n) u ns (FLAT(GENLIST events (SUC n))))`
+  \\ simp[]
+  \\ qexists_tac `\n. FLAT(GENLIST events (SUC n))`
+  \\ qexists_tac `ss`
+  \\ qexists_tac `u`
+  \\ qexists_tac `LFLATTEN (LGENLIST (fromList o events) NONE)`
+  \\ conj_tac >- metis_tac[]
+  \\ conj_tac >-
+    (rw[] \\ first_x_assum drule \\
+     fs[app_def,app_basic_def,evaluate_to_heap_def] \\
+     rw[] \\
+     fs[STAR_def,one_def] \\
+     `parts_ok st.ffi p`
+       by(Cases_on `p` >> CCONTR_TAC >>
+          fs[SPLIT_def,st2heap_def] >>
+          rveq >> fs[ffi2heap_def] >>
+          fs[UNION_DEF,FUN_EQ_THM,EQ_IMP_THM,DISJ_IMP_THM] >>
+          metis_tac[FFI_part_NOT_IN_store2heap]) \\
+     rename1 `SPLIT h_i (u1, _)` \\
+     qabbrev_tac `h_i' = FFI_part (ss i) u ns [] INSERT u1` \\
+     first_x_assum(qspecl_then [`h_i'`,`h_k`,`st with ffi := st.ffi with io_events := []`] mp_tac) \\
+     impl_keep_tac >-
+       (fs[Abbr `h_i'`,SPLIT_SING_2] >>
+        fs[remove_events_IMAGE,SPLIT_def] >>
+        qpat_x_assum `_ = st2heap _ _` (assume_tac o GSYM) >>
+        fs[] >>
+        reverse conj_tac >-
+          (CCONTR_TAC >> fs[] >>
+           `FFI_part (ss i) u ns [] ∈ st2heap p st` by metis_tac[IN_UNION] >>
+           `FFI_part (ss i) u ns (FLAT (GENLIST events (SUC i))) ∈ st2heap p st`
+             by metis_tac[IN_UNION,IN_INSERT] >>
+           imp_res_tac limited_parts_unique_part >> fs[]) >>
+        qmatch_goalsub_abbrev_tac `(_ INSERT a1) ∪ a2 = (_ INSERT a3) ∪ a4` >>
+        `a3 = a1 /\ a4 = a2` suffices_by simp[] >>
+        conj_tac >> unabbrev_all_tac >> match_mp_tac IMAGE_purge_parts_no_parts >>
+        rw[] >> spose_not_then strip_assume_tac >>
+        metis_tac[IN_UNION,IN_INSERT,limited_parts_unique_part]) >>
+     simp[PULL_EXISTS] >> disch_then(qspec_then `u1` mp_tac) >>
+     impl_keep_tac >-
+       (simp[] >>
+        fs[SPLIT_SING_2] >> fs[SPLIT_def] >>
+        metis_tac[IN_UNION,IN_INSERT,limited_parts_unique_part]) >>
+     strip_tac >>
+     fs[] >> qexists_tac `r` >>
+     Cases_on `r` >> fs[cond_def,SPLIT_emp1] >>
+     rveq >>
+     rename1 `SPLIT h_f (u2, _)` \\
+     qabbrev_tac `h_f' = FFI_part (ss (SUC i)) u ns (FLAT (GENLIST events (SUC (SUC i)))) INSERT u2` \\
+     `SPLIT3 (st2heap p (st' with ffi := st'.ffi
+                             with io_events := FLAT (GENLIST events (SUC(SUC i))))) (h_f',h_k,h_g)`
+       by(qmatch_goalsub_abbrev_tac `st2heap _ st2` >>
+          `parts_ok st'.ffi p`
+            by(Cases_on `p` >> CCONTR_TAC >>
+               fs[SPLIT3_def,SPLIT_def,st2heap_def] >>
+               rveq >> fs[ffi2heap_def] >>
+               fs[UNION_DEF,FUN_EQ_THM,EQ_IMP_THM,DISJ_IMP_THM] >>
+               metis_tac[FFI_part_NOT_IN_store2heap]) >>
+          drule(GEN_ALL remove_events_IMAGE2) >>
+          `FFI_part (ss (SUC i)) u ns (events (SUC i)) ∈ st2heap p st'`
+            by metis_tac[IN_UNION,IN_INSERT,SPLIT_def,SPLIT3_def] >>
+          `FFI_part (ss i) u ns (FLAT (GENLIST events (SUC i))) ∈ st2heap p st`
+            by metis_tac[IN_UNION,IN_INSERT,SPLIT_def,SPLIT3_def] >>
+          `parts_ok st2.ffi p`
+           by(simp[Abbr `st2`] >>
+              match_mp_tac parts_ok_swap_events >>
+              simp[] >>
+              imp_res_tac limited_FFI_part_IN_st2heap_IMP >>
+              imp_res_tac FFI_part_has_index_in >>
+              simp[Once GENLIST,SNOC_APPEND]) >>
+          imp_res_tac FFI_part_has_index_in >>
+          qunabbrev_tac `st2` >> fs[] >> disch_then drule >>
+          disch_then kall_tac >>
+          fs[SPLIT_def,SPLIT3_def,Abbr `h_f'`] >> rveq >> fs[] >>
+          qpat_x_assum `_ = st2heap _ _` (assume_tac o GSYM) >>
+          fs[] >>
+          reverse conj_tac >-
+            (conj_tac >> CCONTR_TAC >> fs[] >>
+             metis_tac[IN_UNION,IN_INSERT,limited_parts_unique_part]) >>
+          PURE_ONCE_REWRITE_TAC[GENLIST] >>
+          `ns = FLAT(MAP FST(SND p))` by(Cases_on `p` >> fs[limited_parts_def]) >>
+          fs[EVERY_FILTER,SNOC_APPEND,FILTER_APPEND] >>
+          fs[GSYM FILTER_EQ_ID] >>
+          qmatch_goalsub_abbrev_tac `(_ INSERT a1) ∪ a2 ∪ a3 = a4 ∪ _ ∪ a5 ∪ a6` >>
+          `a4 = a1 /\ a5 = a2 /\ a6 = a3`
+            suffices_by(simp[IN_DEF,UNION_DEF,INSERT_DEF,FUN_EQ_THM] >>
+                        rveq >> metis_tac[]) >>
+          unabbrev_all_tac >> rpt conj_tac >> ho_match_mp_tac IMAGE_purge_parts_no_parts2 >>
+          rw[] >> spose_not_then strip_assume_tac >>
+          metis_tac[IN_UNION,IN_INSERT,limited_parts_unique_part]) >>
+     asm_exists_tac >>
+     simp[] >>
+     conj_tac >-
+       (unabbrev_all_tac >> fs[SPLIT_SING_2] >>
+        qexists_tac `u2` >> fs[] >>
+        fs[SPLIT_def,SPLIT3_def] >>
+        metis_tac[IN_UNION,IN_INSERT,limited_parts_unique_part]) >>
+     drule(GEN_ALL evaluate_history_irrelevance_2) >>
+     strip_tac >> asm_exists_tac >>
+     simp[] >>
+     `FFI_part (ss (SUC i)) u ns (events (SUC i)) ∈ st2heap p st'`
+       by metis_tac[IN_UNION,IN_INSERT,SPLIT_def,SPLIT3_def] >>
+     `FFI_part (ss i) u ns (FLAT (GENLIST events (SUC i))) ∈ st2heap p st`
+       by metis_tac[IN_UNION,IN_INSERT,SPLIT_def,SPLIT3_def] >>
+     simp[Once GENLIST,SNOC_APPEND] >>
+     imp_res_tac limited_FFI_part_IN_st2heap_IMP >> simp[])
+  \\ conj_tac >-
+    (rw[lprefix_lub_def] >-
+       (rw[LPREFIX_APPEND]
+        \\ Q.ISPECL_THEN [`SUC x`,`llist$fromList o events`]
+                         mp_tac
+                         (GEN_ALL LGENLIST_CHUNK_GENLIST)
+        \\ disch_then (fn thm => simp[thm])
+        \\ simp[LFLATTEN_LAPPEND_fromList,GSYM MAP_GENLIST,LFLATTEN_fromList]
+        \\ metis_tac[])
+     \\ fs[PULL_EXISTS]
+     \\ qmatch_goalsub_abbrev_tac `LPREFIX ll1 ll2`
+     \\ reverse(Cases_on `LFINITE ll1`) >-
+         (`ll1 = ll2` suffices_by simp[]
+          \\ unabbrev_all_tac
+          \\ match_mp_tac LLIST_BISIM_UPTO
+          \\ qexists_tac`\ll1 ll2. ?n.
+            ll1 = LFLATTEN (LGENLIST (fromList o events o $+ n) NONE) /\
+            ~LFINITE ll1 /\
+            (!x. LPREFIX(fromList(FLAT (GENLIST (events o $+ n) (SUC x)))) ll2)`
+          \\ conj_tac >-
+            (rw[] >> qexists_tac `0` >> rw[o_DEF] >> metis_tac[])
+          \\ rpt(pop_assum kall_tac)
+          \\ rw[]
+          \\ Cases_on `every ($= [||]) (LGENLIST (fromList ∘ events ∘ $+ n) NONE)` >-
+            (fs[Once LFLATTEN])
+          \\ match_mp_tac OR_INTRO_THM2
+          \\ pop_assum(assume_tac o Ho_Rewrite.REWRITE_RULE [every_LGENLIST,o_DEF,NOT_FORALL_THM])
+          \\ pop_assum(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
+          \\ fs[CONV_RULE(LHS_CONV SYM_CONV) fromList_EQ_LNIL]
+          \\ qspecl_then [`LEAST x. events (n + x) <> []`,`fromList o events o $+ n`] mp_tac
+              (LGENLIST_CHUNK_GENLIST
+               |> GEN_ALL
+               |> INST_TYPE [alpha|->``:io_event llist``])
+          \\ disch_then(fn thm => simp[thm])
+          \\ simp[LFLATTEN_LAPPEND_fromList]
+          \\ simp[Once LGENLIST_NONE_UNFOLD]
+          \\ simp[GSYM LAPPEND_ASSOC]
+          \\ Cases_on `events(n + LEAST x. events(n + x) <> [])` >> fs[]
+          \\ simp[Once(GSYM MAP_GENLIST),LFLATTEN_fromList]
+          \\ qmatch_goalsub_abbrev_tac `GENLIST a1 a2`
+          \\ `GENLIST a1 a2 = REPLICATE a2 []`
+            by(unabbrev_all_tac >>
+               match_mp_tac LIST_EQ >>
+               rw[EL_REPLICATE])
+          \\ last_assum(qspec_then `a2` assume_tac)
+          \\ rfs[GENLIST,LPREFIX_APPEND,SNOC_APPEND,FLAT_REPLICATE_NIL]
+          \\ conj_tac >- (unabbrev_all_tac \\ fs[])
+          \\ simp[GSYM MAP_GENLIST,LFLATTEN_fromList,FLAT_REPLICATE_NIL]
+          \\ CONV_TAC(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV[LGENLIST_NONE_UNFOLD])))
+          \\ simp[]
+          \\ unabbrev_all_tac \\ simp[]
+          \\ fs[]
+          \\ match_mp_tac llist_upto_context
+          \\ match_mp_tac llist_upto_rel
+          \\ rw[]
+          \\ qexists_tac `n + (LEAST x. events (n + x) <> []) + 1`
+          \\ simp[o_DEF]
+          \\ conj_tac >-
+            (qpat_x_assum `~LFINITE _` mp_tac >>
+             Q.ISPECL_THEN
+               [`SUC(LEAST x. events(n + x) <> [])`,`llist$fromList o events o $+ n`]
+               mp_tac
+               (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
+             simp[Once(GSYM MAP_GENLIST)] >>
+             simp[LFLATTEN_LAPPEND_fromList,LFINITE_APPEND,LFLATTEN_fromList,LFINITE_fromList] >>
+             simp[o_DEF,ADD1])
+          \\ rw[]
+          \\ fs[GSYM MAP_GENLIST]
+          \\ last_assum(qspec_then `x + SUC(LEAST x. events(n + x) <> [])` strip_assume_tac)
+          \\ rfs[GENLIST,SNOC_APPEND,FLAT_REPLICATE_NIL]
+          \\ rfs[GENLIST_APPEND,GENLIST,SNOC_APPEND,FLAT_REPLICATE_NIL]
+          \\ fs[GSYM LAPPEND_fromList,LAPPEND_ASSOC]
+          \\ imp_res_tac LAPPEND_fromList_EQ
+          \\ rveq
+          \\ fs[ADD1]
+          \\ Ho_Rewrite.PURE_ONCE_REWRITE_TAC[prove(``$+ n = \x. n + x:num``,rw[FUN_EQ_THM])]
+          \\ simp[]
+          \\ metis_tac[])
+        \\ unabbrev_all_tac
+        \\ imp_res_tac LFINITE_LFLATTEN_LGENERATE
+        \\ Q.ISPECL_THEN [`n`,`llist$fromList o events`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST)
+        \\ fs[LFLATTEN_LAPPEND_fromList,LAPPEND_NIL_2ND]
+        \\ fs[GSYM MAP_GENLIST,LFLATTEN_fromList]
+        \\ Cases_on `n` >> fs[])
+  \\ simp[]);
+
 val _ = export_theory();
