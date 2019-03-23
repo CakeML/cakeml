@@ -223,6 +223,7 @@ Theorem lookup_thm
 Theorem MAP_FST_toAscList
   `map_ok t ⇒
    SORTED (λx y. cmp_of t x y = Less) (MAP FST (toAscList t)) ∧
+   ALL_DISTINCT (MAP FST (toAscList t)) ∧
    FDOM (to_fmap t) = set (MAP FST (toAscList t))`
   (Cases_on `t` \\ fs [map_ok_def,lookup_def] \\ strip_tac
   \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
@@ -231,7 +232,11 @@ Theorem MAP_FST_toAscList
   \\ `(λx. {x}) = key_set f` by fs [FUN_EQ_THM] \\ fs []
   \\ `(∀x y. key_set f x = key_set f y ⇔ x = y)` by fs []
   \\ drule (GEN_ALL pred_setTheory.IMAGE_11)
-  \\ strip_tac \\ fs []);
+  \\ strip_tac \\ fs []
+  \\ match_mp_tac (MP_CANON sortingTheory.SORTED_ALL_DISTINCT |> GEN_ALL)
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ fs [irreflexive_def,transitive_def]
+  \\ metis_tac [totoTheory.TotOrd,EVAL ``Equal = Less``]);
 
 Theorem MEM_toAscList
   `map_ok t /\ MEM (k,v) (toAscList t) ==> FLOOKUP (to_fmap t) k = SOME v`
