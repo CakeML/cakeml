@@ -5,7 +5,6 @@ open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
 open to_word64ProgTheory std_preludeTheory;
-open monadic_encTheory ml_monad_translatorLib;
 
 val _ = new_theory "to_target64Prog"
 
@@ -191,31 +190,28 @@ val _ = translate (flatten_def |> spec64)
 val _ = translate (compile_def |> spec64)
 
 open lab_filterTheory lab_to_targetTheory asmTheory;
+open monadic_encTheory monadic_enc64Theory ml_monad_translatorLib;
 
 (* The record types used for the monadic state and exceptions *)
-val state_type = ``:enc_state_64``;
-val exn_type   = ``:monadic_enc$state_exn``;
+val exn_type   = ``:monadic_enc64$state_exn_64``;
 val _          = register_exn_type exn_type;
-
-val STATE_EXN_TYPE_def =  theorem "MONADIC_ENC_STATE_EXN_TYPE_def"
+val STATE_EXN_TYPE_def =  theorem "MONADIC_ENC64_STATE_EXN_64_TYPE_def"
 val exn_ri_def         = STATE_EXN_TYPE_def;
-val store_hprop_name   = "ENC_STATE_64";
-
-(* Accessor functions are defined (and used) previously together
-   with exceptions, etc. *)
 
 val exn_functions = [
     (raise_Fail_def, handle_Fail_def),
     (raise_Subscript_def, handle_Subscript_def)
 ];
-
 val refs_manip_list = [] : (string * thm * thm) list;
 val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
-val farrays_manip_list = [
-    ("hash_tab", get_hash_tab_def, set_hash_tab_def, hash_tab_length_def, hash_tab_sub_def, update_hash_tab_def)];
 
 val add_type_theories  = ([] : string list);
 val store_pinv_def_opt = NONE : thm option;
+
+val state_type_64 = ``:enc_state_64``;
+val store_hprop_name_64   = "ENC_STATE_64";
+val farrays_manip_list_64 = [
+    ("hash_tab_64", get_hash_tab_64_def, set_hash_tab_64_def, hash_tab_64_length_def, hash_tab_64_sub_def, update_hash_tab_64_def)];
 
 val _ = translate (hash_reg_imm_def |> INST_TYPE [alpha|->``:64``])
 val _ = translate hash_binop_def
@@ -232,9 +228,9 @@ val _ = translate (hash_asm_def |> INST_TYPE [alpha|->``:64``] |> SIMP_RULE std_
 val res = start_dynamic_init_fixed_store_translation
             refs_manip_list
             rarrays_manip_list
-            farrays_manip_list
-            store_hprop_name
-            state_type
+            farrays_manip_list_64
+            store_hprop_name_64
+            state_type_64
             exn_ri_def
             exn_functions
             add_type_theories
@@ -242,37 +238,37 @@ val res = start_dynamic_init_fixed_store_translation
 
 val _ = translate (lab_inst_def |> INST_TYPE [alpha |-> ``:64``])
 val _ = translate (cbw_to_asm_def |> INST_TYPE [alpha |-> ``:64``])
-val _ = m_translate lookup_insert_table_def;
-val _ = m_translate enc_line_hash_def;
-val _ = m_translate enc_line_hash_ls_def;
-val _ = m_translate enc_sec_hash_ls_def;
-val _ = m_translate enc_sec_hash_ls_full_def;
+val _ = m_translate lookup_ins_table_64_def;
+val _ = m_translate enc_line_hash_64_def;
+val _ = m_translate enc_line_hash_64_ls_def;
+val _ = m_translate enc_sec_hash_64_ls_def;
+val _ = m_translate enc_sec_hash_64_ls_full_def;
 
-val _ = m_translate_run enc_secs_aux_def;
+val _ = m_translate_run enc_secs_64_aux_def;
 
-val _ = translate enc_secs_def;
+val _ = translate enc_secs_64_def;
 
-val monadic_enc_enc_line_hash_ls_side_def = Q.prove(`
+val monadic_enc64_enc_line_hash_64_ls_side_def = Q.prove(`
   ∀a b c d e.
   d ≠ 0 ⇒
-  monadic_enc_enc_line_hash_ls_side a b c d e ⇔ T`,
+  monadic_enc64_enc_line_hash_64_ls_side a b c d e ⇔ T`,
   Induct_on`e`>>
-  simp[Once (fetch "-" "monadic_enc_enc_line_hash_ls_side_def")]>>
+  simp[Once (fetch "-" "monadic_enc64_enc_line_hash_64_ls_side_def")]>>
   EVAL_TAC>>rw[]>>fs[]);
 
-val monadic_enc_enc_sec_hash_ls_side_def = Q.prove(`
+val monadic_enc64_enc_sec_hash_64_ls_side_def = Q.prove(`
   ∀a b c d e.
   d ≠ 0 ⇒
-  monadic_enc_enc_sec_hash_ls_side a b c d e ⇔ T`,
+  monadic_enc64_enc_sec_hash_64_ls_side a b c d e ⇔ T`,
   Induct_on`e`>>
-  simp[Once (fetch "-" "monadic_enc_enc_sec_hash_ls_side_def")]>>
-  metis_tac[monadic_enc_enc_line_hash_ls_side_def]);
+  simp[Once (fetch "-" "monadic_enc64_enc_sec_hash_64_ls_side_def")]>>
+  metis_tac[monadic_enc64_enc_line_hash_64_ls_side_def]);
 
-Theorem monadic_enc_enc_secs_side_def
-  `monadic_enc_enc_secs_side a b c ⇔ T`
+Theorem monadic_enc64_enc_secs_64_side_def
+  `monadic_enc64_enc_secs_64_side a b c ⇔ T`
   (EVAL_TAC>>
   rw[]>>
-  metis_tac[monadic_enc_enc_sec_hash_ls_side_def,DECIDE``1n ≠ 0``])
+  metis_tac[monadic_enc64_enc_sec_hash_64_ls_side_def,DECIDE``1n ≠ 0``])
   |> update_precondition;
 
 val _ = translate (spec64 filter_skip_def)
@@ -298,7 +294,7 @@ val _ = translate (spec64 asmTheory.asm_ok_def)
 (* Add in hidden argument to compile_lab *)
 val remove_labels_hash_def = Define `
   remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
-    remove_labels_loop init_clock c pos labs ffis (enc_secs c.encode hash_size sec_list)`;
+    remove_labels_loop init_clock c pos labs ffis (enc_secs_64 c.encode hash_size sec_list)`;
 
 val res = translate (remove_labels_hash_def |> spec64);
 
@@ -319,7 +315,7 @@ val compile_lab_thm = Q.prove(`
       | NONE => NONE
     else NONE`,
   rw[compile_lab_def,remove_labels_hash_def,remove_labels_def]>>
-  simp[enc_secs_correct]);
+  simp[enc_secs_64_correct]);
 
 val res = translate compile_lab_thm;
 
