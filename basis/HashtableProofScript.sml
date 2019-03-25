@@ -855,18 +855,66 @@ Theorem hashtable_insertList_spec
       \\fs[fupdate_list_take_el]
       \\xsimpl)));
 
-Theorem hashtable_toAscList_spec
-  `!a b hf cmp h htv.
+
+Theorem foldr_list_union_eq:
+  !bs.
+    bs <> [] ==>
+     FOLDR mlmap$union (mlmap$empty cmp) bs = list_union bs
+Proof
+  Induct \\ strip_tac
+  >- (fs[])
+   \\rpt strip_tac
+   \\cases_on `bs`
+     >- (cases_on `h` \\ cases_on `empty cmp` \\ cases_on `b'` \\ cases_on `b`
+         >-(fs[list_union_def,mlmapTheory.union_def,balanced_mapTheory.union_def])
+         >-(fs[list_union_def,mlmapTheory.union_def,balanced_mapTheory.union_def])
+         >-(fs[mlmapTheory.empty_def, balanced_mapTheory.empty_def])
+         >-(fs[mlmapTheory.empty_def, balanced_mapTheory.empty_def]))
+   \\fs[list_union_def]
+QED
+
+Theorem fupdate_list_fempty_toAsclist_eq_to_fmap:
+  !m.
+    map_ok m ==>
+      FEMPTY |++ mlmap$toAscList m = to_fmap m
+Proof
+  rpt strip_tac
+  \\fs[EQ_FDOM_SUBMAP]
+  \\fs[FDOM_FUPDATE_LIST]
+  \\fs[mlmapTheory.MAP_FST_toAscList]
+  \\fs[SUBMAP_DEF]
+  \\rpt strip_tac
+  >-(fs[FUPDATE_LIST_alist_to_fmap]
+    \\imp_res_tac mlmapTheory.MAP_FST_toAscList
+    \\fs[MEM_MAP]
+    \\qexists_tac `y`
+    \\Cases_on `y`
+    \\fs[FDOM_FLOOKUP])
+  >-(`MEM x (MAP FST (REVERSE (toAscList m)))`
+        by fs[FUPDATE_LIST_alist_to_fmap]
+    \\fs[MEM_MAP]
+    \\`ALL_DISTINCT (MAP FST (toAscList m))`
+        by (imp_res_tac mlmapTheory.MAP_FST_toAscList)
+    \\Cases_on `y`
+    \\imp_res_tac mlmapTheory.MEM_toAscList
+    \\imp_res_tac ALOOKUP_ALL_DISTINCT_MEM
+    \\imp_res_tac FLOOKUP_FUPDATE_LIST_ALOOKUP_SOME
+    \\rw[]
+    \\rfs[FUPDATE_LIST_ALL_DISTINCT_REVERSE]
+    \\fs[FLOOKUP_DEF])
+QED
+
+Theorem hashtable_toAscList_spec:
+  !a b hf cmp h htv.
     app (p:'ffi ffi_proj) Hashtable_toAscList_v [htv]
       (HASHTABLE a b hf cmp h htv)
       (* TODO: more meaningful postcondition? *)
-      (POSTv listv. SEP_EXISTS bsalist.
+      (POSTv listv. SEP_EXISTS bsalist asclist.
         &(LIST_TYPE (PAIR_TYPE a b) bsalist listv /\
           (FEMPTY |++ bsalist = h))
-        * HASHTABLE a b hf cmp h htv)`
-  cheat
-(*
-  (xcf_with_def "Hashtable.toAscList" Hashtable_toAscList_v_def
+        * HASHTABLE a b hf cmp h htv)
+Proof
+  xcf_with_def "Hashtable.toAscList" Hashtable_toAscList_v_def
   \\fs[HASHTABLE_def]
   \\xpull
   \\fs[hashtable_inv_def]
@@ -906,8 +954,15 @@ Theorem hashtable_toAscList_spec
   \\MAP_EVERY qexists_tac [`ur`, `ar`, `hfv`, `vlv`, `bsv`, `cmpv`, `heuristic_size`]
   \\xsimpl
   \\qexists_tac `buckets`
-  \\xsimpl);
-*)
+  \\xsimpl
+  \\imp_res_tac LIST_REL_LENGTH
+  \\`buckets <> []` by fs[LIST_REL_LENGTH, NOT_NIL_EQ_LENGTH_NOT_0]
+  \\fs[foldr_list_union_eq,LIST_REL_LENGTH]
+  \\Cases_on `buckets`
+  >-(fs[])
+  >-(`map_ok (list_union (h'::t))` by (imp_res_tac list_union_map_ok)
+    \\fs[fupdate_list_fempty_toAsclist_eq_to_fmap])
+QED;
 
 Theorem hashtable_doubleCapacity_spec:
    !a b hf cmp  htv.
@@ -949,7 +1004,7 @@ Proof
   \\ rename [`REF_ARRAY ar arr1 vlv1`]
   \\ rveq
   \\ xlet_auto >- xsimpl
-  \\ xlet `POSTv ar1. SEP_EXISTS mpv.
+  \\ xlet `POSTv ar1. SEP_EXISTS mpv buckets2.
              ur ~~> Litv (IntLit 0) *
              &(MAP_TYPE a b (mlmap$empty cmp) mpv) *
              REF ar arr1 * ARRAY ar1 (REPLICATE (2 * LENGTH vlv) mpv)`
@@ -968,9 +1023,23 @@ Proof
   \\ fs [PULL_EXISTS]
   \\ rpt (asm_exists_tac \\ fs [])
   \\ qexists_tac `FEMPTY`
-  \\ conj_tac THEN1 cheat
+  \\ conj_tac
+  >-(fs[hashtable_inv_def]
+    \\qexists_tac `REPLICATE (2*LENGTH vlv)  (mlmap$empty cmp)`
+    \\fs[buckets_ok_empty, REPLICATE_NIL, LIST_REL_REPLICATE_same]
+    \\`EVERY ($= (empty cmp)) (REPLICATE (2 * LENGTH vlv) (empty cmp))`
+            by (imp_res_tac replicate_empty_map_thm \\ fs[EVERY_DEF])
+    \\`EVERY map_ok (REPLICATE (2 * LENGTH vlv) (empty cmp))`
+            by (imp_res_tac replicate_empty_map_thm \\ fs[EVERY_DEF])
+    \\`EVERY (λt. cmp_of t = cmp) (REPLICATE (2 * LENGTH vlv) (empty cmp))`
+            by (imp_res_tac replicate_empty_map_thm \\ fs[EVERY_DEF])
+    \\Cases_on `REPLICATE (2 * LENGTH vlv) (empty cmp)`
+    >-(fs[REPLICATE_NIL])
+    >-(fs[list_union_empty_maps]))
   \\ rw []
   \\ asm_exists_tac \\ fs []
 QED;
+
+
 
 val _ = export_theory();
