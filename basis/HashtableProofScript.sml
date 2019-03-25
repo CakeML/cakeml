@@ -558,7 +558,7 @@ Theorem insert_not_empty
 
 
 Theorem list_rel_insert
-  `!a b buckets updMap vlv idx k v.
+  `
       LIST_REL (MAP_TYPE a b) buckets vlv /\
       MAP_TYPE a b (mlmap$insert (EL idx buckets) k v) updMap /\
       EVERY map_ok buckets /\
@@ -647,13 +647,12 @@ Theorem every_cmp_of_insert
   \\ simp[]);
 
 Theorem hashtable_staticInsert_spec
-  `!a b hf hfv cmp cmpv k kv v vv htv used.
+  `!a b hf cmp k kv v vv htv.
       a k kv /\
       b v vv  ==>
       app (p:'ffi ffi_proj) Hashtable_staticInsert_v [htv; kv; vv]
         (HASHTABLE a b hf cmp h htv)
-        (POSTv uv. &(UNIT_TYPE () uv) *
-          HASHTABLE a b hf cmp (h|+(k,v)) htv)`
+        (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h|+(k,v)) htv)`
 (xcf_with_def "Hashtable.staticInsert" Hashtable_staticInsert_v_def
 \\ fs[HASHTABLE_def]
 \\ xpull
@@ -1040,6 +1039,66 @@ Proof
   \\ asm_exists_tac \\ fs []
 QED;
 
-
+Theorem hashtable_insert_spec:
+   !a b hf cmp  htv k v kv vv.
+      a k kv /\ b v vv ==>
+      app (p:'ffi ffi_proj) Hashtable_insert_v [htv;kv;vv]
+        (HASHTABLE a b hf cmp h htv)
+        (POSTv uv. &(UNIT_TYPE () uv) *
+          HASHTABLE a b hf cmp (h|+(k,v)) htv)
+Proof
+     xcf_with_def "Hashtable.insert" Hashtable_insert_v_def
+  \\ fs[HASHTABLE_def]
+  \\ fs[REF_ARRAY_def]
+  \\ xpull
+  \\ xmatch
+  \\ xlet_auto
+  >-(CONV_TAC(RESORT_EXISTS_CONV List.rev)
+     \\ qexists_tac `arr` \\ xsimpl)
+  \\ xlet `POSTv dv. &(NUM (LENGTH vlv) dv) *
+                    REF_ARRAY ar arr vlv *
+                    REF_NUM ur heuristic_size`
+  >-( fs[REF_ARRAY_def] \\ xapp
+    \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ qexists_tac `vlv` \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ fs[REF_NUM_def]
+  \\ xpull
+  \\ xlet_auto >- xsimpl
+  \\ fs[REF_NUM_def]
+  \\ xlet `POSTv bv. &(NUM (4*heuristic_size) bv) *
+                    REF_ARRAY ar arr vlv *
+                    REF_NUM ur heuristic_size`
+  >-(fs[REF_NUM_def] \\ xapp \\ xsimpl
+    \\ fs[NUM_def] \\asm_exists_tac \\fs[])
+  \\ xlet_auto >- xsimpl
+  \\fs[REF_NUM_def]
+  \\xpull
+  >-(xif
+    >-(fs[REF_ARRAY_def] \\ xapp \\ fs[HASHTABLE_def, REF_NUM_def] \\ xsimpl
+      \\ fs[PULL_EXISTS]
+      \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
+      \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
+      \\ fs[REF_ARRAY_def] \\ xsimpl
+      \\ rpt strip_tac
+      \\ asm_exists_tac \\ fs[])
+    >-( fs[REF_ARRAY_def]
+      \\xlet `POSTv uv. HASHTABLE a b hf cmp h htv`
+      >-( xapp \\ xsimpl
+        \\ fs[HASHTABLE_def, REF_ARRAY_def, REF_NUM_def] \\ xsimpl
+        \\ fs[PULL_EXISTS]
+        \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
+        \\ rpt strip_tac
+        \\ asm_exists_tac \\ fs[])
+      >-(  fs[HASHTABLE_def, REF_NUM_def, REF_ARRAY_def]
+        \\ xpull
+        \\ xapp
+        \\ fs[HASHTABLE_def, REF_ARRAY_def, REF_NUM_def]
+        \\ xsimpl
+        \\ fs[PULL_EXISTS]
+        \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
+        \\ rpt strip_tac
+        \\ asm_exists_tac \\ fs[])))
+QED;
 
 val _ = export_theory();
