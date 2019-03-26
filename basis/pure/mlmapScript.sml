@@ -144,7 +144,7 @@ Theorem MAP_KEYS_sing_set_UPDATE
   \\ once_rewrite_tac [METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``]
   \\ simp []
   \\ rewrite_tac [GSYM (METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``)]
-  \\ Cases_on `y ∈ FDOM f` \\ fs [DOMSUB_FLOOKUP_THM]);
+  \\ Cases_on `y ∈ FDOM f` \\ fs [FLOOKUP_UPDATE]);
 
 Theorem MAP_KEYS_sing_set_DOMSUB
   `MAP_KEYS (λx. {x}) f \\ {k} = MAP_KEYS (λx. {x}) (f \\ k)`
