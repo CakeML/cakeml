@@ -144,7 +144,21 @@ Theorem MAP_KEYS_sing_set_UPDATE
   \\ once_rewrite_tac [METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``]
   \\ simp []
   \\ rewrite_tac [GSYM (METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``)]
-  \\ Cases_on `y ∈ FDOM f` \\ fs [FLOOKUP_UPDATE]);
+  \\ Cases_on `y ∈ FDOM f` \\ fs [DOMSUB_FLOOKUP_THM]);
+
+Theorem MAP_KEYS_sing_set_DOMSUB
+  `MAP_KEYS (λx. {x}) f \\ {k} = MAP_KEYS (λx. {x}) (f \\ k)`
+  (fs [finite_mapTheory.fmap_eq_flookup]
+  \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
+  \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
+  \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS,DOMSUB_FLOOKUP_THM]
+  \\ fs [Abbr `ff`] \\ rw [] \\ fs []
+  \\ `!f1 v. k = v /\ f1 v <=> k = v /\ f1 k` by metis_tac [] \\ fs []
+  \\ Cases_on `?y. x = {y}` \\ fs [] \\ rveq \\ fs []
+  \\ once_rewrite_tac [METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``]
+  \\ simp []
+  \\ rewrite_tac [GSYM (METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``)]
+  \\ Cases_on `y ∈ FDOM f` \\ fs [DOMSUB_FLOOKUP_THM]);
 
 Theorem MAP_KEYS_sing_set_FUNION
   `MAP_KEYS (λx. {x}) f1 ⊌ MAP_KEYS (λx. {x}) f2 =
@@ -180,6 +194,24 @@ Theorem insert_thm
   \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
   \\ imp_res_tac balanced_mapTheory.insert_thm
   \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_UPDATE,MAP_KEYS_sing_set]);
+
+Theorem delete_thm
+  `map_ok t ==>
+   map_ok (delete t k) /\
+   to_fmap (delete t k) = (to_fmap t \\ k)`
+  (Cases_on `t`
+  \\ strip_tac
+  \\ conj_asm1_tac
+  THEN1
+   (fs [map_ok_def,delete_def]
+    \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+    \\ fs [balanced_mapTheory.delete_thm])
+  \\ fs [map_ok_def,delete_def]
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ imp_res_tac balanced_mapTheory.delete_thm
+  \\ rfs[GSYM DRESTRICT_DOMSUB]
+  \\ rfs[DRESTRICT_FDOM]
+  \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_DOMSUB,MAP_KEYS_sing_set]);
 
 Theorem union_thm
   `map_ok t1 /\ map_ok t2 /\ cmp_of t1 = cmp_of t2 ==>
