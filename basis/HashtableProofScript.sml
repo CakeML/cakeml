@@ -1101,4 +1101,40 @@ Proof
         \\ asm_exists_tac \\ fs[])))
 QED;
 
+Theorem hashtable_lookup_spec
+     !a b hf cmp  htv k kv.
+      a k kv  ==>
+      app (p:'ffi ffi_proj) Hashtable_lookup_v [htv;kv]
+        (HASHTABLE a b hf cmp h htv)
+        (POSTv v. &(OPTION_TYPE b (FLOOKUP h k) v) *
+                    HASHTABLE a b hf cmp h htv)
+Proof
+  xcf_with_def "Hashtable.lookup" Hashtable_lookup_v_def
+  \\ fs[HASHTABLE_def, REF_ARRAY_def]
+  \\ xpull
+  \\ xmatch
+  \\ xlet_auto
+  >-(CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ qexists_tac `arr` \\ xsimpl)
+  \\ xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- (fs[hashtable_inv_def] \\ xsimpl)
+  \\ fs[hashtable_inv_def]
+  \\ xlet_auto
+  >-(xsimpl \\ fs[NOT_NIL_EQ_LENGTH_NOT_0, MOD_LESS] )
+  >-(xapp_spec (INST_TYPE
+        [``:β``|->``:α``, ``:α``|->``:β``]
+        mlmapTheory.lookup_def)
+
+
+    xapp \\ fs[PULL_EXISTS]
+    \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ xsimpl
+    \\qexists_tac `b`
+    \\qexists_tac `a`
+    \\MAP_EVERY qexists_tac
+        [`a`, `b`, `EL (hf k MOD LENGTH vlv) buckets`, `k`])
+
+
 val _ = export_theory();
