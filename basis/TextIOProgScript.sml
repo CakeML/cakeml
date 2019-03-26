@@ -14,16 +14,32 @@ val _ = ml_prog_update (open_module "TextIO");
 
 val _ = ml_prog_update open_local_block;
 
+
+(* val get_buffered_in_def = Define `get_out (InstreamBuffered)` *)
+
+
 val _ = Datatype `instream = Instream mlstring`;
 val _ = Datatype `outstream = Outstream mlstring`;
 
 val get_out_def = Define `get_out (Outstream s) = s`;
 val get_in_def  = Define `get_in  (Instream s) = s`;
 
+
+
 val _ = (use_full_type_names := false);
 val _ = register_type ``:instream``;
 val _ = register_type ``:outstream``;
 val _ = (use_full_type_names := true);
+
+val instream_buffered_def = (append_prog o process_topdecs)
+  `datatype instreambuffered =
+  InstreamBuffered
+    instream     (* stream name *)
+    (int ref)    (* read index *)
+    (int ref)   (* write index *)
+    byte_array
+    (bool ref)`;
+
 
 val _ = (next_ml_names := ["get_out"]);
 val _ = translate get_out_def;
@@ -201,6 +217,93 @@ fun read_byte fd =
 ` |> append_prog
 
 val _ = ml_prog_update open_local_in_block;
+
+(* - it tries to read from the InstreamBuffered's byte array only
+- if that isn't enough, then call input and provide the InstreamBuffered's
+   byte array *)
+
+val _ = (append_prog o process_topdecs)`
+  fun consume_data_aux is buff off n =
+    case is of InstreamBuffered fd rref wref surplus full =>
+      let
+        val readat = !rref
+        val writeat = !wref
+        val cap = Word8Array.length surplus
+        val ntoread = min n (cap - readat)
+      in
+        Word8Array.copy surplus readat ntoread buff off;
+        rref := (readat + ntoread) mod cap;
+        ntoread
+      end`;
+
+val _ = (append_prog o process_topdecs)`
+      fun consume_data is buff off n =
+        case is of InstreamBuffered fd rref wref surplus full =>
+          let
+            val readat = !rref
+            val writeat = !wref
+          in
+          if (not (!full) andalso readat=writeat orelse n = 0) then 0 else (
+            full := False;
+            if readat < writeat then
+              (consume_data_aux is buff off (min n (writeat-readat)))
+            else
+              let
+                val nread = consume_data_aux is buff off n
+                val ntoread = n - nread
+              in
+                (if ntoread <> 0 then
+                  (consume_data_aux is buff (off+nread) (min ntoread writeat))
+                else n)
+              end
+          )end`;
+
+val _ = (append_prog o process_topdecs)`
+    fun fetch_data is =
+      case is of InstreamBuffered fd rref wref surplus full =>
+        let
+          val writeat = !wref
+          val readat  = !rref
+        in
+          if writeat = readat andalso !full then () else (
+            if writeat < readat then
+              (wref := writeat + input fd surplus writeat (readat-writeat);
+              full := True)
+            else
+              let
+                val spaceright = Word8Array.length surplus - writeat
+                val nread = input fd surplus writeat spaceright
+              in
+                if nread = spaceright then
+                  (wref := input fd surplus 0 readat;
+                   full := readat = (!wref))
+                else (wref := writeat + nread)
+              end)
+        end`;
+
+
+val _ = (append_prog o process_topdecs)`
+  fun input_buffered is buff off len =
+    case is of InstreamBuffered fd rref wref surplus full =>
+      let
+        val readat = !rref
+        val writeat = !wref
+        val cap = Word8Array.length surplus
+        val nleftover = if not (!full) andalso readat = writeat then 0
+                        else ((cap + writeat - readat) mod cap)
+      in
+        if cap < len then
+          let
+            val c = consume_data is buff off cap
+          in
+            input fd buff (off + c) (len - c)
+          end
+        else(
+          if nleftover < len then
+            (fetch_data is) else ();
+          consume_data is buff off len)
+      end`;
+
 
 val _ = (append_prog o process_topdecs)`
   fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
