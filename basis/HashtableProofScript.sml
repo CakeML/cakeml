@@ -548,6 +548,24 @@ Theorem buckets_ok_insert
   \\Cases_on `k=k'`
   \\ntac 3 (simp[]));
 
+Theorem buckets_ok_delete:
+  !buckets hf idx k v.
+      EVERY map_ok buckets /\
+      buckets_ok buckets hf /\
+      idx = hf k MOD LENGTH buckets ==>
+        buckets_ok
+          (LUPDATE (mlmap$delete (EL idx buckets) k)
+            idx buckets) hf
+Proof
+  rpt strip_tac
+  \\fs[EVERY_EL,EL_LUPDATE,buckets_ok_def, bucket_ok_def, hash_key_set_def]
+  \\ntac 4 strip_tac
+  \\Cases_on `i = hf k MOD LENGTH buckets`
+  \\fs[mlmapTheory.lookup_delete]
+  \\Cases_on `k=k'`
+  \\ntac 3 (simp[])
+QED;
+
 Theorem insert_not_empty
   `!a b (mp:('a,'b) map) k v.
       mlmap$map_ok mp ==>
@@ -574,6 +592,24 @@ Theorem list_rel_insert
   \\ fs[mlmapTheory.insert_thm]
   \\ simp[]);
 
+Theorem list_rel_delete:
+    LIST_REL (MAP_TYPE a b) buckets vlv /\
+    MAP_TYPE a b (mlmap$delete (EL idx buckets) k) updMap /\
+    EVERY map_ok buckets /\
+    idx < LENGTH buckets  ==>
+      LIST_REL (MAP_TYPE a b)
+        (LUPDATE (mlmap$delete (EL idx buckets) k) idx buckets)
+          (LUPDATE updMap idx vlv)
+Proof
+  rpt strip_tac
+  \\ fs[EVERY_EL,LIST_REL_EL_EQN, EL_LUPDATE]
+  \\ strip_tac
+  \\ strip_tac
+  \\ Cases_on `n = idx`
+  \\ fs[mlmapTheory.delete_thm]
+  \\ simp[]
+QED;
+
 Theorem every_map_ok_insert
   `!buckets idx k v.
       EVERY map_ok buckets /\
@@ -587,7 +623,22 @@ Theorem every_map_ok_insert
   \\ fs[mlmapTheory.insert_thm]
   \\ simp[]);
 
-Theorem list_union_lupdate
+Theorem every_map_ok_delete:
+  !buckets idx k v.
+      EVERY map_ok buckets /\
+      idx < LENGTH buckets  ==>
+        EVERY map_ok (LUPDATE (mlmap$delete (EL idx buckets) k) idx buckets)
+Proof
+  rpt strip_tac
+  \\ fs[EVERY_EL,EL_LUPDATE]
+  \\ strip_tac
+  \\ strip_tac
+  \\ Cases_on `n=idx`
+  \\ fs[mlmapTheory.delete_thm]
+  \\ simp[]
+QED;
+
+Theorem list_union_lupdate_insert
   `bs <> [] /\
    buckets_ok bs hf /\
    EVERY map_ok bs /\
@@ -633,6 +684,55 @@ Theorem list_union_lupdate
             \\simp[])
           >-(imp_res_tac lookup_list_union \\ simp[])));
 
+Theorem list_union_lupdate_delete:
+   bs <> [] /\
+   buckets_ok bs hf /\
+   EVERY map_ok bs /\
+   EVERY (\m. cmp_of m = cmp) bs ==>
+    to_fmap (list_union bs) \\ k =
+      to_fmap (list_union (LUPDATE (mlmap$delete
+                            (EL (hf k MOD LENGTH bs) bs) k)
+                              (hf k MOD LENGTH bs) bs))
+Proof
+  rpt strip_tac
+  \\ rfs[fmap_eq_flookup] \\ strip_tac
+  \\ `?i. i = hf k MOD LENGTH bs` by simp[]
+  \\ `?j. j = hf x MOD LENGTH bs` by simp[]
+  \\ `0 < LENGTH bs` by fs[NOT_NIL_EQ_LENGTH_NOT_0]
+  \\ `i < (LENGTH bs)` by fs[MOD_LESS]
+  \\ `map_ok (list_union bs)`
+      by (cases_on `bs` >- (fs[]) >- (imp_res_tac list_union_map_ok))
+  \\ `map_ok (EL i bs) /\ cmp_of (EL i bs) = cmp` by fs[EVERY_EL]
+  \\ `map_ok (delete (EL i bs) k)` by fs[mlmapTheory.delete_thm]
+  \\ `cmp_of (delete (EL i bs) k) = cmp` by fs[mlmapTheory.cmp_of_delete]
+  \\ `EVERY map_ok (LUPDATE (delete (EL i bs) k) i bs) /\
+      EVERY (\m. cmp_of m = cmp) (LUPDATE (delete (EL i bs) k) i bs)`
+      by fs[IMP_EVERY_LUPDATE]
+  \\ `map_ok (list_union(LUPDATE (delete (EL i bs) k) i bs))`
+      by (cases_on `LUPDATE (delete (EL i bs) k) i bs`
+            >- (fs[])
+            >- (imp_res_tac list_union_map_ok \\ fs[]))
+  \\ `buckets_ok (LUPDATE (delete (EL i bs) k) i bs) hf` by fs[buckets_ok_delete]
+  \\ `lookup (list_union (LUPDATE (delete (EL i bs) k) i bs)) x
+      = lookup (EL j (LUPDATE (delete (EL i bs) k) i (bs : ('a,'b) map list))) x`
+      by (`(LUPDATE (delete (EL i bs) k) i bs) <> []`
+            by fs[LENGTH_LUPDATE, NOT_NIL_EQ_LENGTH_NOT_0]
+        \\ `j = hf (x:'a) MOD (LENGTH (LUPDATE (delete (EL i bs) k) i bs))`
+            by fs[LENGTH_LUPDATE]
+        \\ imp_res_tac lookup_list_union)
+  \\ rfs[GSYM mlmapTheory.lookup_thm]
+  \\ cases_on `x=k`
+      >- (fs[EL_LUPDATE, mlmapTheory.lookup_delete, DOMSUB_FLOOKUP_THM])
+      >- (fs[DOMSUB_FLOOKUP_THM]
+        \\simp[GSYM mlmapTheory.lookup_thm,EL_LUPDATE]
+        \\CASE_TAC
+          >-(simp[mlmapTheory.lookup_delete]
+            \\`?j'. j' = hf x MOD LENGTH bs` by simp[]
+            \\imp_res_tac lookup_list_union
+            \\simp[])
+          >-(imp_res_tac lookup_list_union \\ simp[]))
+QED;
+
 Theorem every_cmp_of_insert
   `!buckets idx k v.
       EVERY (λt. cmp_of t = cmp) buckets /\
@@ -645,6 +745,23 @@ Theorem every_cmp_of_insert
   \\ Cases_on `n=idx`
   \\ fs[mlmapTheory.insert_thm]
   \\ simp[]);
+
+Theorem every_cmp_of_delete:
+  !buckets idx k v.
+    EVERY (λt. cmp_of t = cmp) buckets /\
+    idx < LENGTH buckets  ==>
+    EVERY (λt. cmp_of t = cmp)
+      (LUPDATE (mlmap$delete
+        (EL idx buckets) k) idx buckets)
+Proof
+  rpt strip_tac
+  \\ fs[EVERY_EL,EL_LUPDATE]
+  \\ strip_tac
+  \\ strip_tac
+  \\ Cases_on `n=idx`
+  \\ fs[mlmapTheory.delete_thm]
+  \\ simp[]
+QED;
 
 Theorem hashtable_staticInsert_spec
   `!a b hf cmp k kv v vv htv.
@@ -753,7 +870,7 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\xsimpl
   \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
   \\`buckets <> []` by simp[NOT_NIL_EQ_LENGTH_NOT_0]
-  \\ imp_res_tac list_union_lupdate
+  \\ imp_res_tac list_union_lupdate_insert
   \\ simp[]
   \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]))
   \\xcon
@@ -768,7 +885,7 @@ THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF
   \\xsimpl
   \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
   \\`buckets <> []` by simp[NOT_NIL_EQ_LENGTH_NOT_0]
-  \\ imp_res_tac list_union_lupdate
+  \\ imp_res_tac list_union_lupdate_insert
   \\ simp[]
   \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]));
 
@@ -1101,8 +1218,8 @@ Proof
         \\ asm_exists_tac \\ fs[])))
 QED;
 
-Theorem hashtable_lookup_spec
-     !a b hf cmp  htv k kv.
+Theorem hashtable_lookup_spec:
+     !a b hf cmp htv k kv.
       a k kv  ==>
       app (p:'ffi ffi_proj) Hashtable_lookup_v [htv;kv]
         (HASHTABLE a b hf cmp h htv)
@@ -1123,18 +1240,120 @@ Proof
   \\ fs[hashtable_inv_def]
   \\ xlet_auto
   >-(xsimpl \\ fs[NOT_NIL_EQ_LENGTH_NOT_0, MOD_LESS] )
-  >-(xapp_spec (INST_TYPE
-        [``:β``|->``:α``, ``:α``|->``:β``]
-        mlmapTheory.lookup_def)
+  >-(xapp_spec (INST_TYPE [alpha|->beta, beta|->alpha] lookup_1_v_thm)
+    \\ fs[PULL_EXISTS]
+    \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ MAP_EVERY qexists_tac [`a`, `b`,
+          `EL (hf k MOD LENGTH vlv) buckets`, `k`]
+    \\ xsimpl \\ `LENGTH buckets = LENGTH vlv` by (imp_res_tac LIST_REL_LENGTH)
+    \\ `(hf k MOD LENGTH vlv) < LENGTH buckets`
+          by fs[LENGTH_NIL,NOT_NIL_EQ_LENGTH_NOT_0, MOD_LESS]
+    \\ `MAP_TYPE a b (EL (hf k MOD LENGTH vlv) buckets)
+          (EL (hf k MOD LENGTH vlv) vlv)` by fs[LIST_REL_EL_EQN] \\ simp[]
+    \\ ntac 2 strip_tac
+    \\ MAP_EVERY qexists_tac [`ur`,`ar`,`hfv`,`vlv`,`arr`,
+                              `cmpv`,`heuristic_size`]
+    \\`buckets <> []` by (imp_res_tac LIST_REL_LENGTH
+                        \\ fs[NOT_NIL_EQ_LENGTH_NOT_0])
+    \\ `map_ok (list_union buckets)`
+          by (Cases_on `buckets` >- (fs[]) >- imp_res_tac list_union_map_ok)
+    \\`lookup (EL (hf k MOD LENGTH vlv) buckets) k =
+        FLOOKUP (to_fmap (list_union buckets)) k`
+          by (imp_res_tac lookup_list_union \\ rfs[mlmapTheory.lookup_thm])
+    \\fs[] \\ xsimpl \\ qexists_tac `buckets` \\ fs[LIST_REL_EL_EQN])
+QED;
 
 
-    xapp \\ fs[PULL_EXISTS]
-    \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
-    \\ xsimpl
-    \\qexists_tac `b`
-    \\qexists_tac `a`
-    \\MAP_EVERY qexists_tac
-        [`a`, `b`, `EL (hf k MOD LENGTH vlv) buckets`, `k`])
-
+Theorem hashtable_delete_spec:
+  !a b hf cmp k kv htv.
+      a k kv ==>
+      app (p:'ffi ffi_proj) Hashtable_delete_v [htv; kv]
+        (HASHTABLE a b hf cmp h htv)
+        (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h \\ k) htv)
+Proof
+  xcf_with_def "Hashtable.delete" Hashtable_delete_v_def
+  \\ fs[HASHTABLE_def, REF_ARRAY_def, hashtable_inv_def]
+  \\ xpull
+  \\ xmatch
+  \\ xlet_auto
+  >-(CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ qexists_tac `arr` \\ xsimpl)
+  \\ xlet `POSTv bv. &(NUM (LENGTH vlv) bv) *
+                    REF_ARRAY ar arr vlv *
+                    REF_NUM ur heuristic_size`
+  >-( fs[REF_ARRAY_def] \\ xapp
+    \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ qexists_tac `vlv` \\ xsimpl)
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ fs[REF_ARRAY_def]
+  \\ xlet_auto >-( xsimpl \\ fs[LENGTH_NIL,NOT_NIL_EQ_LENGTH_NOT_0, MOD_LESS])
+  \\ `LENGTH buckets = LENGTH vlv` by (imp_res_tac LIST_REL_LENGTH)
+  \\ `hf k MOD LENGTH vlv < LENGTH buckets`
+        by fs[LENGTH_NIL,NOT_NIL_EQ_LENGTH_NOT_0, MOD_LESS]
+  \\ `MAP_TYPE a b (EL (hf k MOD LENGTH vlv) buckets)
+          (EL (hf k MOD LENGTH vlv) vlv)`
+        by fs[LIST_REL_EL_EQN]
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xlet `POSTv fv.
+            &(BOOL (¬(mlmap$null (EL (hf k MOD LENGTH vlv) buckets)) /\ mlmap$null
+                (mlmap$delete (EL (hf k MOD LENGTH vlv) buckets) k)) fv) *
+            ARRAY yv (LUPDATE v' (hf k MOD LENGTH vlv) vlv) * ar ~~> yv *
+            REF_NUM ur heuristic_size`
+  >-(xlog
+    \\CASE_TAC
+    >-(xapp \\ fs[PULL_EXISTS]
+      \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+      \\ MAP_EVERY qexists_tac [`b`, `a`,
+            `(delete (EL (hf k MOD LENGTH vlv) buckets) k)`]
+      \\xsimpl)
+    >-(xsimpl))
+  \\xlet `POSTv jv.
+            &(BOOL (¬(mlmap$null (EL (hf k MOD LENGTH vlv) buckets)) /\
+                      mlmap$null (mlmap$delete (EL (hf k MOD LENGTH vlv)
+                        buckets) k) /\
+                      0 < heuristic_size) jv) *
+            ARRAY yv (LUPDATE v' (hf k MOD LENGTH vlv) vlv) * ar ~~> yv *
+            REF_NUM ur heuristic_size`
+  >-(xlog
+    \\ CASE_TAC
+    >-(fs[REF_NUM_def] \\ xpull \\ xlet_auto >-(xsimpl)
+    >-(xapp \\ fs[PULL_EXISTS]
+      \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+      \\qexists_tac `&heuristic_size`
+      \\xsimpl \\ fs[NUM_def]))
+    >-(xsimpl \\ fs[NUM_def]))
+  >-(xif
+    >-(fs[REF_NUM_def] \\ xpull \\ xlet_auto >- xsimpl
+    >-(fs[NUM_def] \\ xlet_auto >- xsimpl
+      >-(xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+        \\qexists_tac `yv'` \\ xsimpl
+        \\ ntac 2 strip_tac
+        \\ MAP_EVERY qexists_tac
+            [`ur`, `ar`, `hfv`, `(LUPDATE v' (hf k MOD LENGTH vlv) vlv)`,
+            `yv`, `cmpv`, `heuristic_size - 1`, `iv`] \\ xsimpl
+        \\ qexists_tac `(LUPDATE (mlmap$delete (EL (hf k MOD LENGTH vlv) buckets) k)
+                           (hf k MOD LENGTH vlv) buckets)`
+        \\ `buckets <> []` by (imp_res_tac LIST_REL_LENGTH
+                              \\ fs[NOT_NIL_EQ_LENGTH_NOT_0])
+        \\imp_res_tac list_union_lupdate_delete \\ rfs[]
+        \\fs[buckets_ok_delete, every_map_ok_delete,
+             every_cmp_of_delete, list_rel_delete]
+        \\ fs[INT_def] \\ fs[int_arithTheory.INT_NUM_SUB])))
+  \\ xcon \\ xsimpl
+  \\ MAP_EVERY qexists_tac
+      [`ur`, `ar`, `hfv`, `(LUPDATE v' (hf k MOD LENGTH vlv) vlv)`,
+       `yv`, `cmpv`, `heuristic_size `] \\ xsimpl
+  \\qexists_tac `(LUPDATE (mlmap$delete (EL (hf k MOD LENGTH vlv) buckets) k)
+                    (hf k MOD LENGTH vlv) buckets)`
+  \\ `buckets <> []` by (imp_res_tac LIST_REL_LENGTH
+                        \\ fs[NOT_NIL_EQ_LENGTH_NOT_0])
+  \\imp_res_tac list_union_lupdate_delete \\ rfs[]
+  \\fs[buckets_ok_delete, every_map_ok_delete,
+       every_cmp_of_delete, list_rel_delete])
+QED;
 
 val _ = export_theory();

@@ -64,13 +64,12 @@ val hashtable_delete = (append_prog o process_topdecs)
       val newBucket = Map.delete bucket k
     in
       Array.update buckets index newBucket;
-      if not (Map.null bucket) andalso Map.null newBucket then (
+      if not (Map.null bucket) andalso Map.null newBucket
+            andalso (0 < (!usedRef)) then (
         usedRef := (!usedRef)-1 )
       else
         ()
     end`;
-
-
 
 val hashtable_lookup = (append_prog o process_topdecs)
 `fun lookup ht k =
