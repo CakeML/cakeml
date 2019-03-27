@@ -23,7 +23,7 @@ Theorem pureLoop_spec:
       (one (FFI_part s u ns [])) (POSTd io. io = [||])
 Proof
   xcf_div "pureLoop" st
-  \\ MAP_EVERY qexists_tac [`K emp`, `K []`, `K($= xv)`, `K s`, `u`]
+  \\ MAP_EVERY qexists_tac [`K emp`, `K []`, `K(K T)`, `K s`, `u`]
   \\ xsimpl \\ rw [lprefix_lub_def]
   \\ xvar \\ xsimpl
 QED
@@ -493,6 +493,17 @@ Proof
   rw [lecho_def]
 QED
 
+Theorem LMAP_EQ_LGENLIST:
+¬LFINITE ll
+==>
+LMAP f ll =
+LGENLIST (\x. f(THE(LNTH x ll))) NONE
+Proof
+  rw[LNTH_EQ,LNTH_LMAP,LNTH_LGENLIST,LFINITE_LNTH_NONE,
+     GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] >>
+  metis_tac[THE_DEF]
+QED
+
 (* TODO: move LFINITE_LFLATTEN and every_LNTH to llistTheory or similar *)
 
 Theorem LFINITE_LFLATTEN:
@@ -620,7 +631,7 @@ Theorem echoLoop_spec:
       (SIO input []) (POSTvd
         (\v. &(LFINITE input /\ UNIT_TYPE () v) *
              SIO [||]
-                 (SNOC get_char_eof_event (echo (THE (toList input)))))
+                 (SNOC get_char_eof_event (echo(THE(toList input)))))
         (\io. ~LFINITE input /\ io = lecho input))
 Proof
   rw [] \\ Cases_on `LFINITE input` \\ fs [POSTvd_def, SEP_CLAUSES]
@@ -676,9 +687,10 @@ Proof
     \\ xapp
     \\ MAP_EVERY qexists_tac [`emp`, `events1`]
     \\ xsimpl)
-  \\ xcf_div "echoLoop" st
+  \\ xcf_div_rule IMP_app_POSTd_one_FFI_part_FLATTEN "echoLoop" st
   \\ MAP_EVERY qexists_tac
-    [`K emp`, `\i. THE (LTAKE (2 * i) (lecho input))`, `K ($= uv)`,
+    [`K emp`, `\i. if i = 0 then [] else
+                   [get_char_event(THE(LNTH (i-1) input));put_char_event(THE(LNTH (i-1) input))]`, `K ($= uv)`,
      `\i. State (THE (LDROP i input))`, `update`]
   \\ fs [GSYM SIO_def] \\ xsimpl \\ rw [lprefix_lub_def]
   THEN1 (
@@ -687,13 +699,13 @@ Proof
     \\ Cases_on `LNTH i input` THEN1 metis_tac [LFINITE_LNTH_NONE]
     \\ rename1 `LNTH _ _ = SOME c`
     \\ `input1 = c ::: input2` by (
-      Cases_on `LDROP i input` \\ Cases_on `LDROP (SUC i) input`
+      unabbrev_all_tac \\
+      simp[LDROP_SUC]
+      \\ Cases_on `LDROP i input`
       \\ TRY (metis_tac [LDROP_NONE_LFINITE])
-      \\ unabbrev_all_tac \\ qabbrev_tac `input2 = LDROP (SUC i) input`
-      \\ drule NOT_LFINITE_DROP_LFINITE \\ disch_then drule
-      \\ drule LNTH_LDROP \\ fs []
-      \\ rpt strip_tac \\ unabbrev_all_tac \\ rename1 `ll = _`
-      \\ Cases_on `ll` \\ fs [SUC_ONE_ADD, LDROP_ADD] \\ rfs [])
+      \\ drule LNTH_LDROP
+      \\ fs[] \\ rw[] \\ rename1 `ll = _`
+      \\ Cases_on `ll`  \\ fs[])
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xlet `POSTv v. &OPTION_TYPE CHAR (SOME c) v *
                       SIO input2 (SNOC (get_char_event c) events1)`
@@ -710,18 +722,10 @@ Proof
         [`emp`, `input2`, `SNOC (get_char_event c) events1`, `c`]
       \\ qmatch_goalsub_abbrev_tac `&_ * SIO _ events'`
       \\ `events' = events2` by (
-        unabbrev_all_tac \\ fs [SNOC_APPEND, lecho_LTAKE_SUC])
+        unabbrev_all_tac \\ fs [SNOC_APPEND])
       \\ fs [SNOC_APPEND] \\ xsimpl)
     \\ xvar \\ xsimpl)
-  THEN1 (
-    rw [LPREFIX_fromList, toList] \\ fs [lecho_LFINITE]
-    \\ drule NOT_LFINITE_TAKE
-    \\ disch_then (qspec_then `2 * x` mp_tac) \\ strip_tac \\ fs []
-    \\ `LENGTH y = 2 * x` by (drule LTAKE_LENGTH \\ fs []) \\ fs [])
-  \\ `lecho input = ub` suffices_by fs []
-  \\ irule LPREFIX_LTAKE \\ fs [lecho_LFINITE]
-  \\ irule LPREFIX_LTAKE_MULT \\ fs []
-  \\ qexists_tac `2` \\ fs [PULL_EXISTS]
+  \\ simp[Once LGENLIST_NONE_UNFOLD,o_DEF,lecho_def,LMAP_EQ_LGENLIST]
 QED
 
 (* Infinite lists encoded as cyclic pointer structures in the heap *)
@@ -1307,6 +1311,41 @@ Proof
   \\ match_mp_tac llist_upto_context
   \\ match_mp_tac llist_upto_rel
   \\ simp[]
+QED
+
+(* Meta-example: using the repeat transformation to verify repeat *)
+
+val _ = (append_prog o process_topdecs)
+  `fun myRepeat (f,x) = myRepeat (f,f x)`
+
+val st = get_ml_prog_state()
+
+Theorem myRepeat_spec:
+  !fv xv.
+    limited_parts ns p
+    ==>
+    app (p:'ffi ffi_proj) ^(fetch_v "myRepeat" st) [Conv NONE[fv;xv]]
+      (H * &(vs 0 xv /\
+             H ==>> Hs 0 * one(FFI_part (ss 0) u ns (events 0)) /\
+             (∀i xv.
+               vs i xv ⇒
+               app p fv [xv] (Hs i * one (FFI_part (ss i) u ns []))
+                (POSTv v'.
+                  &vs (SUC i) v' * Hs (SUC i) *
+                    one
+                   (FFI_part (ss (SUC i)) u ns (events (SUC i))))) /\
+            Q (LFLATTEN (LGENLIST (fromList ∘ events) NONE))))
+      (POSTd io. Q io)
+Proof
+  rpt strip_tac >> xpull >>
+  xcf_div_rule IMP_app_POSTd_one_FFI_part_FLATTEN "myRepeat" st >>
+  MAP_EVERY qexists_tac [`Hs`,`events`,`\n cv. ?v. cv = Conv NONE [fv; v] /\ vs n v`,
+                         `ss`,`u`] >>
+  rw[PULL_EXISTS] >>
+  xmatch >>
+  xlet_auto >- xsimpl >>
+  xlet_auto >- (xcon >> xsimpl) >>
+  xvar >> xsimpl
 QED
 
 val _ = export_theory();
