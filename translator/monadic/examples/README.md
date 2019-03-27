@@ -36,6 +36,10 @@ The Floyd-Warshall algorithm - testing the monadic translator
 An example showing how to use the monadic translator to translate
 monadic functions using IO primitives from the basis library.
 
+[polyTestScript.sml](polyTestScript.sml):
+* An example showing how to use the monadic translator to translate monadic
+* array search functions, including exceptions.
+
 [refStateProgScript.sml](refStateProgScript.sml):
 An example showing how to use the monadic translator to translate
 monadic functions using references (no arrays, no exceptions).

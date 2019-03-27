@@ -144,10 +144,10 @@ val binary_search_aux_def = tDefine "binary_search_aux" `
 val binary_search_def = Define `
   binary_search value =
     do len <- arr_length; binary_search_aux value 0 len od`;
-
+(*
 val linear_search_aux_v = m_translate linear_search_aux_def;
 val linear_search_v = m_translate linear_search_def;
-
+*)
 val binary_search_aux_v = m_translate binary_search_aux_def;
 val binary_search_v = m_translate binary_search_def;
 
