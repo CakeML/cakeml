@@ -76,31 +76,28 @@ Theorem lookup_insert
          comparisonTheory.TotOrder_imp_good_cmp]
   \\ metis_tac [totoTheory.TotOrd]);
 
-Theorem bmap_lookup_delete:
-   good_cmp cmp ∧ invariant cmp t ⇒
-   balanced_map$lookup cmp k (balanced_map$delete cmp k' t) =
-   if cmp k k' = Equal then NONE else balanced_map$lookup cmp k t
-Proof
-  rw[]
-  >-(imp_res_tac balanced_mapTheory.delete_thm
-    \\fs[balanced_mapTheory.lookup_thm]
-    \\ rfs[GSYM DRESTRICT_DOMSUB]
-    \\ rfs[DRESTRICT_FDOM]
-    \\ fs[DOMSUB_FLOOKUP_THM]
-    \\ metis_tac[balanced_mapTheory.key_set_eq,comparisonTheory.cmp_thms])
-  >-(imp_res_tac balanced_mapTheory.delete_thm
-    \\fs[balanced_mapTheory.lookup_thm]
-    \\ rfs[GSYM DRESTRICT_DOMSUB]
-    \\ rfs[DRESTRICT_FDOM]
-    \\ fs[DOMSUB_FLOOKUP_THM]
-    \\ metis_tac[balanced_mapTheory.key_set_eq,comparisonTheory.cmp_thms])
-QED;
-
 Theorem lookup_delete:
   map_ok t ==>
   lookup (delete t k1) k2 = if k1 = k2 then NONE else lookup t k2
 Proof
-  Cases_on `t`
+  SUBGOAL_THEN ``good_cmp cmp ∧ invariant cmp bt ⇒
+                  balanced_map$lookup cmp k (balanced_map$delete cmp k' bt) =
+                  if cmp k k' = Equal then NONE else balanced_map$lookup cmp k bt``
+                      assume_tac
+  >-(rw[]
+    >-(imp_res_tac balanced_mapTheory.delete_thm
+      \\fs[balanced_mapTheory.lookup_thm]
+      \\ rfs[GSYM DRESTRICT_DOMSUB]
+      \\ rfs[DRESTRICT_FDOM]
+      \\ fs[DOMSUB_FLOOKUP_THM]
+      \\ metis_tac[balanced_mapTheory.key_set_eq,comparisonTheory.cmp_thms])
+    >-(imp_res_tac balanced_mapTheory.delete_thm
+      \\fs[balanced_mapTheory.lookup_thm]
+      \\ rfs[GSYM DRESTRICT_DOMSUB]
+      \\ rfs[DRESTRICT_FDOM]
+      \\ fs[DOMSUB_FLOOKUP_THM]
+      \\ metis_tac[balanced_mapTheory.key_set_eq,comparisonTheory.cmp_thms]))
+  \\ Cases_on `t`
   \\ fs [map_ok_def,bmap_lookup_delete,lookup_def,delete_def,
          comparisonTheory.TotOrder_imp_good_cmp]
   \\ metis_tac [totoTheory.TotOrd]
