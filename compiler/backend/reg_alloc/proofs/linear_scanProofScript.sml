@@ -5623,38 +5623,15 @@ val check_clash_tree_apply_bijection = Q.store_thm("check_clash_tree_apply_bijec
         qspecl_then [`l0`, `numset_list_delete (MAP appbij l) live`, `numset_list_delete (MAP f (MAP appbij l)) flive`, `numset_list_delete l live'`, `numset_list_delete (MAP (\r. f (appbij r)) l) flive'`, `livein`, `flivein`] mp_tac check_partial_col_apply_bijection >>
         impl_tac
         THEN1 (
-            rw [domain_numset_list_delete]
-            THEN1 fs [SUBSET_DEF]
-
-            (* TODO: 3 copy-paste *)
-            THEN1 (
-                `INJ f (set (MAP appbij l) UNION domain live) UNIV` by imp_res_tac check_partial_col_success_INJ_lemma >>
-                qpat_x_assum `INJ f (domain live) UNIV` kall_tac >>
-                simp [EXTENSION] >>
-                FULL_SIMP_TAC bool_ss [INJ_DEF, SUBSET_DEF, MEM_MAP] >>
-                rfs [] >> (* TODO: slow as hell and only used to translate `x IN set l <=> MEM x l`... *)
-                metis_tac [MEM_MAP]
-            )
-
-            THEN1 (
-                `INJ f (set (MAP appbij l) UNION domain live) UNIV` by imp_res_tac check_partial_col_success_INJ_lemma >>
-                qpat_x_assum `INJ f (domain live) UNIV` kall_tac >>
-                simp [EXTENSION] >>
-                FULL_SIMP_TAC bool_ss [INJ_DEF, SUBSET_DEF, MEM_MAP] >>
-                rfs [] >> (* TODO: slow as hell and only used to translate `x IN set l <=> MEM x l`... *)
-                metis_tac [MEM_MAP]
-            )
-
-            THEN1 (
-                `INJ f (set (MAP appbij l) UNION domain live) UNIV` by imp_res_tac check_partial_col_success_INJ_lemma >>
-                qpat_x_assum `INJ f (domain live) UNIV` kall_tac >>
-                simp [EXTENSION] >>
-                FULL_SIMP_TAC bool_ss [INJ_DEF, SUBSET_DEF, MEM_MAP] >>
-                rfs [] >> (* TODO: slow as hell and only used to translate `x IN set l <=> MEM x l`... *)
-                metis_tac [MEM_MAP]
-            )
-
-            THEN1 metis_tac [DIFF_SUBSET, INJ_SUBSET, UNIV_SUBSET]
+            simp [domain_numset_list_delete] >>
+            strip_tac THEN1 fs [SUBSET_DEF] >>
+            reverse (rw []) THEN1 metis_tac [DIFF_SUBSET, INJ_SUBSET, UNIV_SUBSET] >>
+            `INJ f (set (MAP appbij l) UNION domain live) UNIV` by imp_res_tac check_partial_col_success_INJ_lemma >>
+            qpat_x_assum `INJ f (domain live) UNIV` kall_tac >>
+            simp [EXTENSION] >>
+            rpt (pop_assum mp_tac) >>
+            rewrite_tac [INJ_DEF, SUBSET_DEF, MEM_MAP, IN_UNION] >>
+            metis_tac [MEM_MAP]
         ) >>
         rw []
     )
