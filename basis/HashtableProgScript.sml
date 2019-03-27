@@ -110,7 +110,7 @@ val hashtable_clear = (append_prog o process_topdecs)
 `fun clear ht =
   case ht of Hashtable usedRef bucketsRef _ cmp =>
     (bucketsRef := initBuckets (Array.length (!bucketsRef)) cmp;
-    usedRef := 0)`;
+    usedRef := (!usedRef)*0)`;
 
 val _ = ml_prog_update open_local_block;
 

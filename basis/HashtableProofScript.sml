@@ -1356,4 +1356,53 @@ Proof
        every_cmp_of_delete, list_rel_delete])
 QED;
 
+Theorem hashtable_clear_spec:
+  !a b hf cmp htv.
+      a k kv ==>
+      app (p:'ffi ffi_proj) Hashtable_clear_v [htv]
+        (HASHTABLE a b hf cmp h htv)
+        (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp FEMPTY htv)
+Proof
+  xcf_with_def "Hashtable.clear" Hashtable_clear_v_def
+  \\ fs[HASHTABLE_def, REF_ARRAY_def, hashtable_inv_def]
+  \\ xpull
+  \\ xmatch
+  \\ xlet_auto
+  >-(CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ qexists_tac `arr` \\ xsimpl)
+  \\ xlet `POSTv bv. &(NUM (LENGTH vlv) bv) *
+                    REF_ARRAY ar arr vlv *
+                    REF_NUM ur heuristic_size`
+  >-(fs[REF_ARRAY_def] \\ xapp
+    \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ qexists_tac `vlv` \\ xsimpl)
+  \\ fs[REF_NUM_def] \\ xpull
+  \\ xlet `POSTv cv. SEP_EXISTS em.
+                     &(MAP_TYPE a b (mlmap$empty cmp) em) *
+                     REF_ARRAY ar arr vlv *
+                     ARRAY cv (REPLICATE (LENGTH vlv) em) *
+                     REF_NUM ur heuristic_size`
+  >-(fs[REF_ARRAY_def, REF_NUM_def] \\ xapp
+    \\ asm_exists_tac \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ MAP_EVERY qexists_tac [`a`, `b`, `cmp`] \\ xsimpl
+    \\ rpt strip_tac \\ qexists_tac `x` \\ fs[])
+  \\ fs[REF_ARRAY_def, REF_NUM_def] \\ xpull
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ fs[NUM_def] \\ xlet_auto >- xsimpl
+  >-(xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ qexists_tac `v'` \\ xsimpl
+    \\ ntac 2 strip_tac \\ MAP_EVERY qexists_tac
+            [`ur`, `ar`, `hfv`, `REPLICATE (LENGTH vlv) em`,
+            `cv`, `cmpv`, `&0`, `nv`] \\ fs[NUM_def] \\ xsimpl
+    \\ qexists_tac `REPLICATE (LENGTH vlv) (mlmap$empty cmp)`
+    \\ imp_res_tac replicate_empty_map_thm
+    \\ fs[buckets_ok_empty, LIST_REL_REPLICATE_same, NOT_NIL_EQ_LENGTH_NOT_0]
+    \\Cases_on `REPLICATE (LENGTH vlv) (empty cmp)` >- fs[REPLICATE_NIL]
+    >-(`h'::t <> []` by fs[NOT_NIL_EQ_LENGTH_NOT_0]
+      \\ imp_res_tac replicate_empty_map_thm
+      \\ fs[list_union_empty_maps]))
+QED;
+
+
 val _ = export_theory();
