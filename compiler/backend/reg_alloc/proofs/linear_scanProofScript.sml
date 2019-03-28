@@ -21,11 +21,9 @@ val _ = hide "state";
 
 (* TODO: clean up this file: e.g., move things upstream *)
 
-val set_MAP_FST_toAList = Q.store_thm("set_MAP_FST_toAList",
-    `!s. set (MAP FST (toAList s)) = domain s`,
-    rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
-);
-
+Theorem set_MAP_FST_toAList_eq_domain[simp]
+    `!s. set (MAP FST (toAList s)) = domain s`
+    (rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]);
 
 Theorem numset_list_insert_FOLDL
     `!l live. numset_list_insert l live = FOLDL (\live x. insert x () live) live l`
@@ -105,15 +103,15 @@ Theorem domain_numset_list_delete
     rw [numset_list_delete_def, DIFF_INSERT]
 );
 
-val check_partial_col_success_INJ_lemma = Q.prove(`
-    !l live flive f.
+Theorem check_partial_col_success_INJ_lemma
+    `!l live flive f.
     domain flive = IMAGE f (domain live) /\
     INJ f (domain live) UNIV /\
     check_partial_col f l live flive = SOME (live',flive')
     ==>
-    INJ f (set l UNION domain live) UNIV`,
+    INJ f (set l UNION domain live) UNIV`
 
-    Induct_on `l` >> rw [] >>
+    (Induct_on `l` >> rw [] >>
     fs [check_partial_col_def] >>
     Cases_on `lookup h live` THEN1 (
         Cases_on `lookup (f h) flive` >> fs [] >>
@@ -479,7 +477,7 @@ Theorem get_live_tree_correct_lemma
             rw [] >>
             `domain livein = set (MAP FST (toAList (difference livein2 livein1))) UNION domain livein1` by metis_tac [check_partial_col_domain, FST] >>
             `domain livein' = set (MAP FST (toAList (difference livein2' livein1'))) UNION domain livein1'` by metis_tac [check_partial_col_domain, FST] >>
-            rw []
+            fs []
         )
         THEN1 (
             `domain flivein1' = IMAGE f (domain livein1') /\ INJ f (domain livein1') UNIV` by metis_tac [check_live_tree_success] >>
@@ -1941,13 +1939,13 @@ Theorem check_intervals_check_live_tree
     metis_tac [check_intervals_check_live_tree_lemma]
 );
 
-val get_intervals_ct_aux_live = Q.store_thm("get_intervals_ct_aux_live",
+Theorem get_intervals_ct_aux_live
     `!ct n_in beg_in end_in live_in live_in' n_out beg_out end_out live_out.
     domain live_in = domain live_in' /\
     (n_out, beg_out, end_out, live_out) = get_intervals_ct_aux ct n_in beg_in end_in live_in ==>
-    domain live_out = domain (get_live_backward (get_live_tree ct) live_in')`,
+    domain live_out = domain (get_live_backward (get_live_tree ct) live_in')`
 
-    Induct_on `ct` >>
+    (Induct_on `ct` >>
     rw [get_live_backward_def, get_intervals_ct_aux_def, get_live_tree_def]
     THEN1 rw [domain_numset_list_insert, domain_numset_list_delete]
     THEN1 (
@@ -1968,12 +1966,12 @@ val get_intervals_ct_aux_live = Q.store_thm("get_intervals_ct_aux_live",
     )
 );
 
-val get_intervals_ct_aux_int = Q.store_thm("get_intervals_ct_aux_int",
+Theorem get_intervals_ct_aux_int
     `!ct n_in beg_in end_in live_in n_out beg_out end_out live_out.
     (n_out, beg_out, end_out, live_out) = get_intervals_ct_aux ct n_in beg_in end_in live_in ==>
-    (n_out, beg_out, end_out) = get_intervals (get_live_tree ct) n_in beg_in end_in`,
+    (n_out, beg_out, end_out) = get_intervals (get_live_tree ct) n_in beg_in end_in`
 
-    Induct_on `ct` >>
+    (Induct_on `ct` >>
     rw [get_intervals_ct_aux_def, get_live_tree_def, get_intervals_def]
     THEN1 intLib.COOPER_TAC
     THEN1 (
@@ -1992,19 +1990,14 @@ val get_intervals_ct_aux_int = Q.store_thm("get_intervals_ct_aux_int",
     )
 );
 
-val set_MAP_FST_toAList_eq_domain = Q.store_thm("set_MAP_FST_toAList_eq[simp]",
-    `!s. set (MAP FST (toAList s)) = domain s`,
-    rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]
-);
-
-val get_intervals_ct_eq = Q.store_thm("get_intervals_ct_eq",
+Theorem get_intervals_ct_eq
     `!ct int_beg1 int_beg2 int_end1 int_end2 n1 n2.
     (n1, int_beg1, int_end1) = get_intervals_ct ct /\
     (n2, int_beg2, int_end2) = get_intervals (fix_domination (get_live_tree ct)) 0 LN LN ==>
     (!r. lookup r int_beg1 = lookup r int_beg2) /\
-    (!r. lookup r int_end1 = lookup r int_end2)`,
+    (!r. lookup r int_end1 = lookup r int_end2)`
 
-    simp [get_intervals_def, fix_domination_def, get_intervals_ct_def] >>
+    (simp [get_intervals_def, fix_domination_def, get_intervals_ct_def] >>
     rpt gen_tac >> strip_tac >>
     rpt (pairarg_tac >> fs []) >>
     `get_intervals (get_live_tree ct) 0 LN LN = (n, int_beg, int_end)` by metis_tac [get_intervals_ct_aux_int] >>
@@ -2032,76 +2025,76 @@ Theorem update_colors_eqn[simp] `
   (rw[update_colors_def]>>
   fs[Marray_update_def]);
 
-val int_beg_sub_eqn = Q.store_thm("int_beg_sub_eqn[simp]",`
-  int_beg_sub n s =
+Theorem int_beg_sub_eqn[simp]
+  `int_beg_sub n s =
   if n < LENGTH s.int_beg then
     (Success (EL n s.int_beg),s)
   else
-    (Failure (Subscript),s)`,
-  rw[int_beg_sub_def]>>
+    (Failure (Subscript),s)`
+  (rw[int_beg_sub_def]>>
   fs[Marray_sub_def]);
 
-val update_int_beg_eqn = Q.store_thm("update_int_beg_eqn[simp]",`
-  update_int_beg n t s =
+Theorem update_int_beg_eqn[simp]
+  `update_int_beg n t s =
   if n < LENGTH s.int_beg then
      (Success (),s with int_beg := LUPDATE t n s.int_beg)
   else
-     (Failure (Subscript),s)`,
-  rw[update_int_beg_def]>>
+     (Failure (Subscript),s)`
+  (rw[update_int_beg_def]>>
   fs[Marray_update_def]);
 
-val int_end_sub_eqn = Q.store_thm("int_end_sub_eqn[simp]",`
-  int_end_sub n s =
+Theorem int_end_sub_eqn[simp]
+  `int_end_sub n s =
   if n < LENGTH s.int_end then
     (Success (EL n s.int_end),s)
   else
-    (Failure (Subscript),s)`,
-  rw[int_end_sub_def]>>
+    (Failure (Subscript),s)`
+  (rw[int_end_sub_def]>>
   fs[Marray_sub_def]);
 
-val update_int_end_eqn = Q.store_thm("update_int_end_eqn[simp]",`
-  update_int_end n t s =
+Theorem update_int_end_eqn[simp]
+  `update_int_end n t s =
   if n < LENGTH s.int_end then
      (Success (),s with int_end := LUPDATE t n s.int_end)
   else
-     (Failure (Subscript),s)`,
-  rw[update_int_end_def]>>
+     (Failure (Subscript),s)`
+  (rw[update_int_end_def]>>
   fs[Marray_update_def]);
 
-val sorted_regs_sub_eqn = Q.store_thm("sorted_regs_sub_eqn[simp]",`
-  sorted_regs_sub n s =
+Theorem sorted_regs_sub_eqn[simp]
+  `sorted_regs_sub n s =
   if n < LENGTH s.sorted_regs then
     (Success (EL n s.sorted_regs),s)
   else
-    (Failure (Subscript),s)`,
-  rw[sorted_regs_sub_def]>>
+    (Failure (Subscript),s)`
+  (rw[sorted_regs_sub_def]>>
   fs[Marray_sub_def]);
 
-val update_sorted_regs_eqn = Q.store_thm("update_sorted_regs_eqn[simp]",`
-  update_sorted_regs n t s =
+Theorem update_sorted_regs_eqn[simp]
+  `update_sorted_regs n t s =
   if n < LENGTH s.sorted_regs then
      (Success (),s with sorted_regs := LUPDATE t n s.sorted_regs)
   else
-     (Failure (Subscript),s)`,
-  rw[update_sorted_regs_def]>>
+     (Failure (Subscript),s)`
+  (rw[update_sorted_regs_def]>>
   fs[Marray_update_def]);
 
-val sorted_moves_sub_eqn = Q.store_thm("sorted_moves_sub_eqn[simp]",`
-  sorted_moves_sub n s =
+Theorem sorted_moves_sub_eqn[simp]
+  `sorted_moves_sub n s =
   if n < LENGTH s.sorted_moves then
     (Success (EL n s.sorted_moves),s)
   else
-    (Failure (Subscript),s)`,
-  rw[sorted_moves_sub_def]>>
+    (Failure (Subscript),s)`
+  (rw[sorted_moves_sub_def]>>
   fs[Marray_sub_def]);
 
-val update_sorted_moves_eqn = Q.store_thm("update_sorted_moves_eqn[simp]",`
-  update_sorted_moves n t s =
+Theorem update_sorted_moves_eqn[simp]
+  `update_sorted_moves n t s =
   if n < LENGTH s.sorted_moves then
      (Success (),s with sorted_moves := LUPDATE t n s.sorted_moves)
   else
-     (Failure (Subscript),s)`,
-  rw[update_sorted_moves_def]>>
+     (Failure (Subscript),s)`
+  (rw[update_sorted_moves_def]>>
   fs[Marray_update_def]);
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
@@ -3776,24 +3769,25 @@ Theorem st_ex_FOLDL_linear_reg_alloc_step_passn_invariants
     fs []
 );
 
-val swap_regs_eq = Q.store_thm("swap_regs_eq",
+Theorem swap_regs_eq
     `!sth i1 i2.
     i1 < LENGTH sth.sorted_regs /\ i2 < LENGTH sth.sorted_regs ==>
     ?sthout. swap_regs i1 i2 sth = (Success (), sthout) /\
-    sthout = sth with sorted_regs := LUPDATE (EL i1 sth.sorted_regs) i2 (LUPDATE (EL i2 sth.sorted_regs) i1 sth.sorted_regs)`,
-    rw (swap_regs_def::msimps)
+    sthout = sth with sorted_regs := LUPDATE (EL i1 sth.sorted_regs) i2 (LUPDATE (EL i2 sth.sorted_regs) i1 sth.sorted_regs)`
+    (rw (swap_regs_def::msimps)
 );
 
-val if_thm = Q.store_thm("if_thm",
-    `!b x y z. (if b then x else y) = z <=> ((b /\ x = z) \/ (~b /\ y=z))`,
-    rw []
+(* TODO: move *)
+Theorem if_thm
+    `!b x y z. (if b then x else y) = z <=> ((b /\ x = z) \/ (~b /\ y=z))`
+    (rw []
 );
 
-val split_at_indice_sing = Q.store_thm("split_at_indice_sing",
+Theorem split_at_indice_sing
     `!l i.
     i < LENGTH l ==>
-    ?l1 x l2. l = l1 ++ [x] ++ l2 /\ LENGTH l1 = i`,
-    Induct_on `l` >>
+    ?l1 x l2. l = l1 ++ [x] ++ l2 /\ LENGTH l1 = i`
+    (Induct_on `l` >>
     rw [] >>
     Cases_on `i` THEN1 (
         qexists_tac `[]` >>
@@ -3810,11 +3804,11 @@ val split_at_indice_sing = Q.store_thm("split_at_indice_sing",
     rw []
 );
 
-val split_at_indice= Q.store_thm("split_at_indice",
+Theorem split_at_indice
     `!l i.
     i <= LENGTH l ==>
-    ?l1 l2. l = l1 ++ l2 /\ LENGTH l1 = i`,
-    Induct_on `l` >>
+    ?l1 l2. l = l1 ++ l2 /\ LENGTH l1 = i`
+    (Induct_on `l` >>
     rw [] >>
     Cases_on `i` THEN1 (
         qexists_tac `[]` >>
@@ -3829,12 +3823,12 @@ val split_at_indice= Q.store_thm("split_at_indice",
     rw []
 );
 
-val swap_perm_lemma = Q.store_thm("swap_perm_lemma",
+Theorem swap_perm_lemma
     `!l i1 i2.
     i1 < LENGTH l /\
     i2 < LENGTH l ==>
-    PERM l (LUPDATE (EL i1 l) i2 (LUPDATE (EL i2 l) i1 l))`,
-    rw [] >>
+    PERM l (LUPDATE (EL i1 l) i2 (LUPDATE (EL i2 l) i1 l))`
+    (rw [] >>
     Cases_on `i1 = i2`
     THEN1 fs [LUPDATE_SAME] >>
     rpt (first_x_assum mp_tac) >> simp [] >>
@@ -3863,20 +3857,20 @@ val swap_perm_lemma = Q.store_thm("swap_perm_lemma",
     metis_tac [PERM_APPEND, PERM_APPEND_IFF, APPEND_ASSOC]
 );
 
-val LUPDATE_TAKE = Q.store_thm("LUPDATE_TAKE",
-    `!n x y l. x < n /\ n <= LENGTH l ==> TAKE n (LUPDATE y x l) = LUPDATE y x (TAKE n l)`,
-    Induct_on `l` >>
+Theorem LUPDATE_TAKE
+    `!n x y l. x < n /\ n <= LENGTH l ==> TAKE n (LUPDATE y x l) = LUPDATE y x (TAKE n l)`
+    (Induct_on `l` >>
     rw [] >>
     simp [LIST_EQ_REWRITE] >>
     Cases >>
     rw [EL_TAKE, EL_LUPDATE]
 );
 
-val swap_regs_perm = Q.store_thm("swap_regs_perm",
+Theorem swap_regs_perm
     `!sth i1 i2 sthout.
     swap_regs i1 i2 sth = (Success (), sthout) ==>
-    (!n. i1 < n /\ i2 < n /\ n <= LENGTH sth.sorted_regs ==> PERM (TAKE n sth.sorted_regs) (TAKE n sthout.sorted_regs))`,
-    rw (swap_regs_def::msimps) >>
+    (!n. i1 < n /\ i2 < n /\ n <= LENGTH sth.sorted_regs ==> PERM (TAKE n sth.sorted_regs) (TAKE n sthout.sorted_regs))`
+    (rw (swap_regs_def::msimps) >>
     fs [case_eq_thms] >> fs [if_thm] >>
     fs [linear_scan_hidden_state_component_equality] >>
     qpat_x_assum `_ = sthout.sorted_regs` (fn th => assume_tac (GSYM th)) >>
@@ -3884,7 +3878,7 @@ val swap_regs_perm = Q.store_thm("swap_regs_perm",
     rfs [EL_TAKE, LUPDATE_TAKE]
 );
 
-val partition_regs_correct = Q.store_thm("partition_regs_correct",
+Theorem partition_regs_correct
     `!l rpiv begrpiv r sth.
     (!i. l <= i /\ i < r ==> EL i sth.sorted_regs < LENGTH sth.int_beg) /\
     l <= LENGTH sth.sorted_regs /\
@@ -3900,9 +3894,9 @@ val partition_regs_correct = Q.store_thm("partition_regs_correct",
         ($< LEX $<=) (EL reg sth.int_beg, reg) (begrpiv, rpiv)) /\
     (!ind. mid <= ind /\ ind < r ==>
         let reg = EL ind sthout.sorted_regs in
-        ($< LEX $<=) (begrpiv, rpiv) (EL reg sth.int_beg, reg))`,
+        ($< LEX $<=) (begrpiv, rpiv) (EL reg sth.int_beg, reg))`
 
-    recInduct partition_regs_ind >>
+    (recInduct partition_regs_ind >>
     rpt strip_tac >>
     once_rewrite_tac [partition_regs_def] >>
     rw msimps
@@ -3963,27 +3957,27 @@ val partition_regs_correct = Q.store_thm("partition_regs_correct",
     )
 );
 
-val PERM_EVERY_EQ = Q.store_thm("PERM_EVERY_EQ",
+Theorem PERM_EVERY_EQ
     `!P l1 l2.
     PERM l1 l2 ==>
-    (EVERY P l1 <=> EVERY P l2)`,
+    (EVERY P l1 <=> EVERY P l2)`
 
-    rw [EVERY_MEM] >>
+    (rw [EVERY_MEM] >>
     eq_tac >> rw [] >>
     imp_res_tac PERM_MEM_EQ >>
     rw []
 );
 
-val qsort_regs_prop_lemma = Q.store_thm("qsort_regs_prop_lemma",
+Theorem qsort_regs_prop_lemma
     `!(P : num -> bool) l1 l2 l r.
     l <= LENGTH l1 /\
     r <= LENGTH l1 /\
     (!ind. ind < l \/ r <= ind ==> EL ind l2 = EL ind l1) /\
     (!ind. l <= ind /\ ind < r ==> P (EL ind l1)) /\
     PERM l1 l2 ==>
-    (!ind. l <= ind /\ ind < r ==> P (EL ind l2))`,
+    (!ind. l <= ind /\ ind < r ==> P (EL ind l2))`
 
-    rpt gen_tac >> strip_tac >>
+    (rpt gen_tac >> strip_tac >>
     imp_res_tac PERM_LENGTH >>
     reverse (Cases_on `l <= r`) THEN1 fs [] >>
     `?l1_12 l1_3. l1 = l1_12 ++ l1_3 /\ LENGTH l1_12 = r` by metis_tac [split_at_indice] >>
@@ -4018,7 +4012,7 @@ val qsort_regs_prop_lemma = Q.store_thm("qsort_regs_prop_lemma",
     fs [EL_APPEND_EQN]
 );
 
-val qsort_regs_correct = Q.store_thm("qsort_regs_correct",
+Theorem qsort_regs_correct
     `!l r sth.
     (!i. l <= i /\ i < r ==> EL i sth.sorted_regs < LENGTH sth.int_beg) /\
     l <= LENGTH sth.sorted_regs /\
@@ -4032,9 +4026,9 @@ val qsort_regs_correct = Q.store_thm("qsort_regs_correct",
       let reg1 = EL i1 sthout.sorted_regs in
       let reg2 = EL i2 sthout.sorted_regs in
         ($< LEX $<=) (EL reg1 sth.int_beg, reg1) (EL reg2 sth.int_beg, reg2)
-    )`,
+    )`
 
-    recInduct qsort_regs_ind >>
+    (recInduct qsort_regs_ind >>
     rpt strip_tac >>
     once_rewrite_tac [qsort_regs_def] >>
     rw msimps
@@ -4198,28 +4192,28 @@ val qsort_regs_correct = Q.store_thm("qsort_regs_correct",
     )
 );
 
-val swap_moves_eq = Q.store_thm("swap_moves_eq",
+Theorem swap_moves_eq
     `!sth i1 i2.
     i1 < LENGTH sth.sorted_moves /\ i2 < LENGTH sth.sorted_moves ==>
     ?sthout. swap_moves i1 i2 sth = (Success (), sthout) /\
-    sthout = sth with sorted_moves := LUPDATE (EL i1 sth.sorted_moves) i2 (LUPDATE (EL i2 sth.sorted_moves) i1 sth.sorted_moves)`,
-    rw (swap_moves_def::msimps)
+    sthout = sth with sorted_moves := LUPDATE (EL i1 sth.sorted_moves) i2 (LUPDATE (EL i2 sth.sorted_moves) i1 sth.sorted_moves)`
+    (rw (swap_moves_def::msimps)
 );
 
-val swap_moves_correct = Q.store_thm("swap_moves_perm",
+Theorem swap_moves_correct
     `!sth i1 i2.
     i1 < LENGTH sth.sorted_moves /\ i2 < LENGTH sth.sorted_moves ==>
     ?sthout. swap_moves i1 i2 sth = (Success (), sthout) /\
     sthout = sth with sorted_moves := sthout.sorted_moves /\
     LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
-    (!n. i1 < n /\ i2 < n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))`,
-    rw (swap_moves_def::msimps) >>
+    (!n. i1 < n /\ i2 < n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))`
+    (rw (swap_moves_def::msimps) >>
     fs [case_eq_thms] >> fs [if_thm] >>
     `let l = TAKE n sth.sorted_moves in PERM l (LUPDATE (EL i1 l) i2 (LUPDATE (EL i2 l) i1 l))` by simp [swap_perm_lemma] >>
     rfs [EL_TAKE, LUPDATE_TAKE]
 );
 
-val partition_moves_correct = Q.store_thm("partition_moves_correct",
+Theorem partition_moves_correct
     `!l ppiv r sth.
     l <= LENGTH sth.sorted_moves /\
     r <= LENGTH sth.sorted_moves ==>
@@ -4227,9 +4221,9 @@ val partition_moves_correct = Q.store_thm("partition_moves_correct",
     (l <= r ==> l <= mid /\ mid <= r) /\
     sthout = sth with sorted_moves := sthout.sorted_moves /\
     LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
-    (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))`,
+    (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))`
 
-    recInduct partition_moves_ind >>
+    (recInduct partition_moves_ind >>
     rw [] >>
     once_rewrite_tac [partition_moves_def] >>
     rw msimps
@@ -4252,16 +4246,16 @@ val partition_moves_correct = Q.store_thm("partition_moves_correct",
     metis_tac [PERM_TRANS]
 );
 
-val qsort_moves_correct = Q.store_thm("qsort_moves_correct",
+Theorem qsort_moves_correct
     `!l r sth.
     l <= LENGTH sth.sorted_moves /\
     r <= LENGTH sth.sorted_moves ==>
     ?sthout. qsort_moves l r sth = (Success (), sthout) /\
     sthout = sth with sorted_moves := sthout.sorted_moves /\
     LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
-    (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))`,
+    (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))`
 
-    recInduct qsort_moves_ind >>
+    (recInduct qsort_moves_ind >>
     rw [] >>
     once_rewrite_tac [qsort_moves_def] >>
     rw msimps
@@ -4378,11 +4372,11 @@ Theorem forbidden_is_from_forced_take_sublist
     metis_tac []
 );
 
-val good_linear_scan_state_REVERSE = Q.store_thm("good_linear_scan_state_REVERSE",
+Theorem good_linear_scan_state_REVERSE
     `!st sth l pos forced mincol.
     good_linear_scan_state st sth (REVERSE l) pos forced mincol <=>
-    good_linear_scan_state st sth l pos forced mincol`,
-    rw [good_linear_scan_state_def'] >>
+    good_linear_scan_state st sth l pos forced mincol`
+    (rw [good_linear_scan_state_def'] >>
     eq_tac >>
     rw [EVERY_REVERSE, FILTER_REVERSE, MAP_REVERSE, ALL_DISTINCT_REVERSE]
 );
@@ -4410,16 +4404,16 @@ val lt_div_2 = Q.prove(
     intLib.COOPER_TAC
 );
 
-val list_to_sorted_regs_correct = Q.store_thm("list_to_sorted_regs_correct",
+Theorem list_to_sorted_regs_correct
     `!l n sth.
     n + LENGTH l <= LENGTH sth.sorted_regs ==>
     ?sthout. (Success (), sthout) = list_to_sorted_regs l n sth /\
     LENGTH sthout.sorted_regs = LENGTH sth.sorted_regs /\
     sthout = sth with sorted_regs := sthout.sorted_regs /\
     TAKE n sthout.sorted_regs = TAKE n sth.sorted_regs /\
-    TAKE (LENGTH l) (DROP n sthout.sorted_regs) = l`,
+    TAKE (LENGTH l) (DROP n sthout.sorted_regs) = l`
 
-    Induct_on `l` >>
+    (Induct_on `l` >>
     rw (linear_scan_hidden_state_component_equality::list_to_sorted_regs_def::msimps)
     THEN1 (
       qexists_tac `sth` >>
@@ -4448,12 +4442,12 @@ val list_to_sorted_regs_correct = Q.store_thm("list_to_sorted_regs_correct",
     )
 );
 
-val sorted_regs_to_list_correct = Q.store_thm("sorted_regs_to_list_correct",
+Theorem sorted_regs_to_list_correct
     `!n last sth.
     last <= LENGTH sth.sorted_regs ==>
-    sorted_regs_to_list n last sth = (Success (TAKE (last-n) (DROP n sth.sorted_regs)), sth)`,
+    sorted_regs_to_list n last sth = (Success (TAKE (last-n) (DROP n sth.sorted_regs)), sth)`
 
-    recInduct sorted_regs_to_list_ind >>
+    (recInduct sorted_regs_to_list_ind >>
     rw [] >>
     once_rewrite_tac [sorted_regs_to_list_def] >>
     rw msimps >>
@@ -4465,16 +4459,16 @@ val sorted_regs_to_list_correct = Q.store_thm("sorted_regs_to_list_correct",
     rw [EL_TAKE, EL_DROP, ADD1]
 );
 
-val list_to_sorted_moves_correct = Q.store_thm("list_to_sorted_moves_correct",
+Theorem list_to_sorted_moves_correct
     `!l n sth.
     n + LENGTH l <= LENGTH sth.sorted_moves ==>
     ?sthout. (Success (), sthout) = list_to_sorted_moves l n sth /\
     LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
     sthout = sth with sorted_moves := sthout.sorted_moves /\
     TAKE n sthout.sorted_moves = TAKE n sth.sorted_moves /\
-    TAKE (LENGTH l) (DROP n sthout.sorted_moves) = l`,
+    TAKE (LENGTH l) (DROP n sthout.sorted_moves) = l`
 
-    Induct_on `l` >>
+    (Induct_on `l` >>
     rw (linear_scan_hidden_state_component_equality::list_to_sorted_moves_def::msimps)
     THEN1 (
       qexists_tac `sth` >>
@@ -4503,12 +4497,12 @@ val list_to_sorted_moves_correct = Q.store_thm("list_to_sorted_moves_correct",
     )
 );
 
-val sorted_moves_to_list_correct = Q.store_thm("sorted_moves_to_list_correct",
+Theorem sorted_moves_to_list_correct
     `!n last sth.
     last <= LENGTH sth.sorted_moves ==>
-    sorted_moves_to_list n last sth = (Success (TAKE (last-n) (DROP n sth.sorted_moves)), sth)`,
+    sorted_moves_to_list n last sth = (Success (TAKE (last-n) (DROP n sth.sorted_moves)), sth)`
 
-    recInduct sorted_moves_to_list_ind >>
+    (recInduct sorted_moves_to_list_ind >>
     rw [] >>
     once_rewrite_tac [sorted_moves_to_list_def] >>
     rw msimps >>
@@ -5087,20 +5081,20 @@ Theorem FOLDL_find_bijection_invariants
     simp []
 );
 
-val foldi_find_bijection_invariants = Q.store_thm("foldi_find_bijection_invariants",
+Theorem foldi_find_bijection_invariants
     `!st s regset.
     good_bijection_state st regset ==>
-    good_bijection_state (foldi (\r v acc. find_bijection_step acc r) 0 st s) (domain s UNION regset)`,
-    rw [foldi_FOLDR_toAList] >>
+    good_bijection_state (foldi (\r v acc. find_bijection_step acc r) 0 st s) (domain s UNION regset)`
+    (rw [foldi_FOLDR_toAList] >>
     `FOLDR (\(r,v) acc. find_bijection_step acc r) st (toAList s) = FOLDR (\r acc. find_bijection_step acc r) st (MAP FST (toAList s))` by simp [FOLDR_MAP, LAMBDA_PROD] >>
     `(\a b. find_bijection_step a b) = find_bijection_step` by rw [FUN_EQ_THM] >>
     fs [FOLDR_FOLDL_REVERSE] >>
-    once_rewrite_tac [GSYM set_MAP_FST_toAList] >>
+    once_rewrite_tac [GSYM set_MAP_FST_toAList_eq_domain] >>
     once_rewrite_tac [GSYM LIST_TO_SET_REVERSE] >>
     simp [FOLDL_find_bijection_invariants]
 );
 
-val in_clash_tree_set_eq = Q.store_thm("in_clash_tree_set_eq",
+Theorem in_clash_tree_set_eq
     `(!w r. in_clash_tree (Delta w r) = set w UNION set r) /\
     (!names. in_clash_tree (Set names) = domain names) /\
     (!name_opt t1 t2.
@@ -5109,19 +5103,19 @@ val in_clash_tree_set_eq = Q.store_thm("in_clash_tree_set_eq",
           | SOME names => domain names UNION in_clash_tree t1 UNION in_clash_tree t2
           | NONE => in_clash_tree t1 UNION in_clash_tree t2
     ) /\
-    (!t1 t2. in_clash_tree (Seq t1 t2) = in_clash_tree t1 UNION in_clash_tree t2)`,
-    rw [in_clash_tree_def, EXTENSION, IN_DEF] >>
+    (!t1 t2. in_clash_tree (Seq t1 t2) = in_clash_tree t1 UNION in_clash_tree t2)`
+    (rw [in_clash_tree_def, EXTENSION, IN_DEF] >>
     CASE_TAC >>
     rw [UNION_DEF, IN_DEF] >>
     metis_tac []
 );
 
-val find_bijection_clash_tree_invariants = Q.store_thm("find_bijection_clash_tree_invariants",
+Theorem find_bijection_clash_tree_invariants
     `!st ct regset.
     good_bijection_state st regset ==>
-    good_bijection_state (find_bijection_clash_tree st ct) (in_clash_tree ct UNION regset)`,
+    good_bijection_state (find_bijection_clash_tree st ct) (in_clash_tree ct UNION regset)`
 
-    Induct_on `ct` >>
+    (Induct_on `ct` >>
     rw [find_bijection_clash_tree_def]
     THEN1 (
         simp [in_clash_tree_set_eq, GSYM UNION_ASSOC] >>
@@ -5143,9 +5137,9 @@ val find_bijection_clash_tree_invariants = Q.store_thm("find_bijection_clash_tre
     )
 );
 
-val find_bijection_init_invariants = Q.store_thm("find_bijection_init_invariants",
-    `good_bijection_state find_bijection_init EMPTY`,
-    simp [good_bijection_state_def, find_bijection_init_def, sp_inverts_def, lookup_def, is_stack_var_def, is_alloc_var_def, the_def]
+Theorem find_bijection_init_invariants
+    `good_bijection_state find_bijection_init EMPTY`
+    (simp [good_bijection_state_def, find_bijection_init_def, sp_inverts_def, lookup_def, is_stack_var_def, is_alloc_var_def, the_def]
 );
 
 val sptree_eq_list_def = Define`
@@ -5155,7 +5149,7 @@ val sptree_eq_list_def = Define`
       (EL i l <= 0 <=> lookup i s = SOME (EL i l))
 `
 
-val numset_list_add_if_lt_monad_correct = Q.store_thm("numset_list_add_if_lt_monad_correct",
+Theorem numset_list_add_if_lt_monad_correct
     `!int_beg sth l v.
     v <= 0 /\
     sptree_eq_list int_beg sth.int_beg /\
@@ -5163,9 +5157,9 @@ val numset_list_add_if_lt_monad_correct = Q.store_thm("numset_list_add_if_lt_mon
     ?sthout. numset_list_add_if_lt_monad l v sth = (Success (), sthout) /\
     sptree_eq_list (numset_list_add_if_lt l v int_beg) sthout.int_beg /\
     sthout = sth with int_beg := sthout.int_beg /\
-    LENGTH sthout.int_beg = LENGTH sth.int_beg`,
+    LENGTH sthout.int_beg = LENGTH sth.int_beg`
 
-    Induct_on `l` >>
+    (Induct_on `l` >>
     rw ([numset_list_add_if_lt_def, numset_list_add_if_def, numset_list_add_if_lt_monad_def] @ msimps) >>
     fs [GSYM numset_list_add_if_lt_def] >>
     `!(n : int). ~(0 < n) <=> n <= 0` by intLib.COOPER_TAC >>
@@ -5176,7 +5170,7 @@ val numset_list_add_if_lt_monad_correct = Q.store_thm("numset_list_add_if_lt_mon
     )
 );
 
-val numset_list_add_if_gt_monad_correct = Q.store_thm("numset_list_add_if_gt_monad_correct",
+Theorem numset_list_add_if_gt_monad_correct
     `!int_end sth l v.
     v <= 0 /\
     sptree_eq_list int_end sth.int_end /\
@@ -5184,9 +5178,9 @@ val numset_list_add_if_gt_monad_correct = Q.store_thm("numset_list_add_if_gt_mon
     ?sthout. numset_list_add_if_gt_monad l v sth = (Success (), sthout) /\
     sptree_eq_list (numset_list_add_if_gt l v int_end) sthout.int_end /\
     sthout = sth with int_end := sthout.int_end /\
-    LENGTH sthout.int_end = LENGTH sth.int_end`,
+    LENGTH sthout.int_end = LENGTH sth.int_end`
 
-    Induct_on `l` >>
+    (Induct_on `l` >>
     rw ([numset_list_add_if_gt_def, numset_list_add_if_def, numset_list_add_if_gt_monad_def] @ msimps) >>
     fs [GSYM numset_list_add_if_gt_def] >>
     `!(n : int). ~(0 < n) <=> n <= 0` by intLib.COOPER_TAC >>
@@ -5197,7 +5191,7 @@ val numset_list_add_if_gt_monad_correct = Q.store_thm("numset_list_add_if_gt_mon
     )
 );
 
-val get_intervals_ct_monad_aux_correct = Q.store_thm("get_intervals_ct_monad_aux_correct",
+Theorem get_intervals_ct_monad_aux_correct
     `!ct sth live n int_beg int_end nout int_begout int_endout liveout.
     n <= 0 /\
     sptree_eq_list int_beg sth.int_beg /\
@@ -5213,9 +5207,9 @@ val get_intervals_ct_monad_aux_correct = Q.store_thm("get_intervals_ct_monad_aux
     LENGTH sthout.int_end = LENGTH sth.int_end /\
     (!r. r IN domain liveout ==> r < LENGTH sth.int_beg) /\
     sthout = sth with <| int_beg := sthout.int_beg ; int_end := sthout.int_end |> /\
-    nout <= 0`,
+    nout <= 0`
 
-    Induct_on `ct` >>
+    (Induct_on `ct` >>
     rw ([get_intervals_ct_monad_aux_def, get_intervals_ct_aux_def] @ msimps)
 
     THEN1 (
@@ -5291,7 +5285,7 @@ val get_intervals_ct_monad_aux_correct = Q.store_thm("get_intervals_ct_monad_aux
     )
 );
 
-val get_intervals_ct_monad_correct = Q.store_thm("get_intervals_ct_monad_correct",
+Theorem get_intervals_ct_monad_correct
     `!ct sth n int_beg int_end.
     (!i. i < LENGTH sth.int_beg ==> 0 < EL i sth.int_beg) /\
     (!i. i < LENGTH sth.int_end ==> 0 < EL i sth.int_end) /\
@@ -5303,9 +5297,9 @@ val get_intervals_ct_monad_correct = Q.store_thm("get_intervals_ct_monad_correct
     sptree_eq_list int_end sthout.int_end /\
     LENGTH sthout.int_beg = LENGTH sth.int_beg /\
     LENGTH sthout.int_end = LENGTH sth.int_end /\
-    sthout = sth with <| int_beg := sthout.int_beg ; int_end := sthout.int_end |>`,
+    sthout = sth with <| int_beg := sthout.int_beg ; int_end := sthout.int_end |>`
 
-    `!(n : int). ~(n <= 0) <=> 0 < n` by intLib.COOPER_TAC >>
+    (`!(n : int). ~(n <= 0) <=> 0 < n` by intLib.COOPER_TAC >>
     rw (get_intervals_ct_monad_def :: get_intervals_ct_def :: msimps) >>
     rpt (pairarg_tac >> fs []) >>
     rename1 `get_intervals_ct_aux _ _ _ _ _ = (n1, int_beg1, int_end1, live)` >>
@@ -5316,13 +5310,13 @@ val get_intervals_ct_monad_correct = Q.store_thm("get_intervals_ct_monad_correct
     rename1 `_ = (Success _, sth1)` >>
 
     qspecl_then [`int_beg1`, `sth1`, `MAP FST (toAList live)`, `n1`] mp_tac numset_list_add_if_lt_monad_correct >>
-    impl_tac THEN1 rw [EVERY_MEM, set_MAP_FST_toAList] >>
+    impl_tac THEN1 rw [EVERY_MEM] >>
     strip_tac >> rw [] >>
     rename1 `_ = (Success _, sth2)` >>
     fs [linear_scan_hidden_state_component_equality] >>
 
     qspecl_then [`int_end1`, `sth2`, `MAP FST (toAList live)`, `n1`] mp_tac numset_list_add_if_gt_monad_correct >>
-    impl_tac THEN1 rw [EVERY_MEM, set_MAP_FST_toAList] >>
+    impl_tac THEN1 rw [EVERY_MEM] >>
     strip_tac >> simp [] >>
     rename1 `_ = (Success _, sth2)` >>
     fs [linear_scan_hidden_state_component_equality]
@@ -5505,16 +5499,16 @@ Theorem linear_reg_alloc_without_renaming_correct
     fs [EVERY_MEM]
 );
 
-val check_col_apply_bijection = Q.store_thm("check_col_apply_bijection",
+Theorem check_col_apply_bijection
     `!(cutset:num_set) livein flivein f.
     (!r. r IN bijdom ==> (appbij r) IN bijcodom /\ appinvbij (appbij r) = r) /\
     (!r. r IN bijcodom ==> (appinvbij r) IN bijdom /\ appbij (appinvbij r) = r) /\
     domain cutset SUBSET bijdom /\
     check_col f (foldi (\r _ acc. insert (appbij r) () acc) 0 LN cutset) = SOME (livein, flivein) ==>
     ?livein' flivein'. check_col (\r. f (appbij r)) cutset = SOME (livein', flivein') /\
-    domain livein' = IMAGE appinvbij (domain livein)`,
+    domain livein' = IMAGE appinvbij (domain livein)`
 
-    simp [check_col_def] >>
+    (simp [check_col_def] >>
     rpt gen_tac >> strip_tac >>
     fs [MAP_o, foldi_FOLDR_toAList] >>
     `FOLDR (\(r,_) acc. insert (appbij r) () acc) LN (toAList cutset) = FOLDR (\r acc. insert (appbij r) () acc) LN (MAP FST (toAList cutset))` by rw [FOLDR_MAP, LAMBDA_PROD] >>
@@ -5542,7 +5536,7 @@ val check_col_apply_bijection = Q.store_thm("check_col_apply_bijection",
 );
 
 
-val check_partial_col_apply_bijection = Q.store_thm("check_partial_col_apply_bijection",
+Theorem check_partial_col_apply_bijection
     `!l live flive live' flive' livein flivein.
     (!r. r IN bijdom ==> (appbij r) IN bijcodom /\ appinvbij (appbij r) = r) /\
     (!r. r IN bijcodom ==> (appinvbij r) IN bijdom /\ appbij (appinvbij r) = r) /\
@@ -5554,9 +5548,9 @@ val check_partial_col_apply_bijection = Q.store_thm("check_partial_col_apply_bij
     INJ f (domain live) UNIV /\
     check_partial_col f (MAP appbij l) live flive = SOME (livein, flivein) ==>
     ?livein' flivein'. check_partial_col (\r. f (appbij r)) l live' flive' = SOME (livein', flivein') /\
-    domain livein' = IMAGE appinvbij (domain livein)`,
+    domain livein' = IMAGE appinvbij (domain livein)`
 
-    Induct_on `l` >>
+    (Induct_on `l` >>
     rw [check_partial_col_def] >>
     `domain flive' = domain flive` by (rw [EXTENSION] >> fs [] >> metis_tac [SUBSET_DEF]) >>
     fs [case_eq_thms]
@@ -5587,11 +5581,11 @@ val check_partial_col_apply_bijection = Q.store_thm("check_partial_col_apply_bij
     )
 );
 
-val check_clash_tree_output_subset = Q.store_thm("check_clash_tree_output_subset",
+Theorem check_clash_tree_output_subset
     `!ct live flive livein flivein.
     check_clash_tree f ct live flive = SOME (livein, flivein) ==>
-    domain livein SUBSET domain live UNION in_clash_tree ct`,
-    Induct_on `ct` >>
+    domain livein SUBSET domain live UNION in_clash_tree ct`
+    (Induct_on `ct` >>
     rw [check_clash_tree_def, in_clash_tree_set_eq] >>
     fs [case_eq_thms]
     THEN1 (
@@ -5615,10 +5609,10 @@ val check_clash_tree_output_subset = Q.store_thm("check_clash_tree_output_subset
     )
 );
 
-val domain_apply_bij_set = Q.store_thm("domain_apply_bij_set",
-    `!s bij. domain (foldi (λr _ acc. insert (the 0 (lookup r bij)) () acc) 0 LN s) = IMAGE (\r. the 0n (lookup r bij)) (domain s)`,
+Theorem domain_apply_bij_set
+    `!s bij. domain (foldi (λr _ acc. insert (the 0 (lookup r bij)) () acc) 0 LN s) = IMAGE (\r. the 0n (lookup r bij)) (domain s)`
 
-    rw [foldi_FOLDR_toAList] >>
+    (rw [foldi_FOLDR_toAList] >>
     `FOLDR (\(r,_) acc. insert (the 0 (lookup r bij)) () acc) LN (toAList s) = FOLDR (\r acc. insert (the 0 (lookup r bij)) () acc) LN (MAP FST (toAList s))` by rw [FOLDR_MAP, LAMBDA_PROD] >>
     simp [] >>
     `domain s = set (MAP FST (toAList s))` by simp [] >>
@@ -5631,12 +5625,12 @@ val domain_apply_bij_set = Q.store_thm("domain_apply_bij_set",
     rw []
 );
 
-val in_clash_tree_apply_bij = Q.store_thm("in_clash_tree_apply_bij",
+Theorem in_clash_tree_apply_bij
     `!bij ct.
     in_clash_tree ct SUBSET domain bij ==>
-    in_clash_tree (apply_bij_on_clash_tree ct bij) = IMAGE (\r. the 0n (lookup r bij)) (in_clash_tree ct)`,
+    in_clash_tree (apply_bij_on_clash_tree ct bij) = IMAGE (\r. the 0n (lookup r bij)) (in_clash_tree ct)`
 
-    Induct_on `ct` >>
+    (Induct_on `ct` >>
     rw [apply_bij_on_clash_tree_def, in_clash_tree_set_eq, LIST_TO_SET_MAP]
     THEN1 (
         simp [domain_apply_bij_set]
@@ -5649,7 +5643,7 @@ val in_clash_tree_apply_bij = Q.store_thm("in_clash_tree_apply_bij",
     )
 );
 
-val check_clash_tree_apply_bijection = Q.store_thm("check_clash_tree_apply_bijection",
+Theorem check_clash_tree_apply_bijection
     `!bij invbij f ct live flive live' flive' livein flivein.
     sp_inverts bij invbij /\
     sp_inverts invbij bij /\
@@ -5661,9 +5655,9 @@ val check_clash_tree_apply_bijection = Q.store_thm("check_clash_tree_apply_bijec
     INJ f (domain live) UNIV /\
     check_clash_tree f (apply_bij_on_clash_tree ct bij) live flive = SOME (livein, flivein) ==>
     ?livein' flivein'. check_clash_tree (\r. f (the 0n (lookup r bij))) ct live' flive' = SOME (livein', flivein') /\
-    domain livein' = IMAGE (\r. the 0n (lookup r invbij)) (domain livein)`,
+    domain livein' = IMAGE (\r. the 0n (lookup r invbij)) (domain livein)`
 
-    NTAC 3 gen_tac >>
+    (NTAC 3 gen_tac >>
     Induct_on `ct` >>
     rw [apply_bij_on_clash_tree_def, check_clash_tree_def] >> (
         TRY (rename1 `Branch optcutset ct1 ct2`) >>
@@ -5805,7 +5799,7 @@ val check_clash_tree_apply_bijection = Q.store_thm("check_clash_tree_apply_bijec
     )
 );
 
-val extract_coloration_output = Q.store_thm("extract_coloration_output",
+Theorem extract_coloration_output
     `!bij invbij sth l acc.
     sp_inverts bij invbij /\
     sp_inverts invbij bij /\
@@ -5817,9 +5811,9 @@ val extract_coloration_output = Q.store_thm("extract_coloration_output",
         lookup r col = SOME (EL (the 0 (lookup r bij)) sth.colors)
       else
         lookup r col = lookup r acc) /\
-    domain col SUBSET domain bij UNION domain acc`,
+    domain col SUBSET domain bij UNION domain acc`
 
-    NTAC 3 gen_tac >>
+    (NTAC 3 gen_tac >>
     Induct_on `l` >>
     rw [extract_coloration_def] >> simp msimps >>
     fs [] >>
@@ -5859,59 +5853,22 @@ val extract_coloration_output = Q.store_thm("extract_coloration_output",
     )
 );
 
-(*
-val apply_bijection_output = Q.store_thm("apply_bijection_output",
-    `!bij invbij (interval : int num_map).
-    domain interval SUBSET domain bij /\
-    sp_inverts bij invbij ==>
-    (!r. r IN domain bij ==>
-      lookup (the 0 (lookup r bij)) (apply_bijection bij interval) =
-      lookup r interval) /\
-    (!r. r IN domain (apply_bijection bij interval) ==>
-        ?r'. r' IN domain bij /\ r = the 0 (lookup r' bij)) /\
-    (!r. r IN domain interval ==> (the 0 (lookup r bij)) IN domain (apply_bijection bij interval))`,
-
-    rpt gen_tac >>
-    `!r. lookup r interval = ALOOKUP (toAList interval) r` by metis_tac [ALOOKUP_toAList] >>
-    `domain interval = set (MAP FST (toAList interval))` by simp [set_MAP_FST_toAList] >>
-    simp [apply_bijection_def, foldi_FOLDR_toAList] >>
-    qabbrev_tac `l = toAList interval` >>
-    rpt (first_x_assum kall_tac) >>
-
-    Induct_on `l` >>
-    rw [lookup_def] >>
-    pairarg_tac >>
-    rename1 `h = (k,v)`
-    THEN1 (
-      rw [lookup_insert] >>
-      fs [sp_inverts_def, domain_lookup] >>
-      rfs [the_def] >>
-      metis_tac [SOME_11]
-    )
-    THEN1 (
-      fs [] >>
-      qexists_tac `k` >> simp []
-    ) >>
-    simp []
-);
-*)
-
 (* TODO: move *)
-val LENGTH_toAList = Q.store_thm("LENGTH_toAList",
-    `!s. LENGTH (toAList s) = size s`,
-    sg `!s l n. LENGTH (foldi (\k v a. (k,v)::a) n l s) = size s + LENGTH l` THEN1 (
+Theorem LENGTH_toAList
+    `!s. LENGTH (toAList s) = size s`
+    (sg `!s l n. LENGTH (foldi (\k v a. (k,v)::a) n l s) = size s + LENGTH l` THEN1 (
         Induct_on `s` >>
         rw [foldi_def]
     ) >>
     rw [toAList_def]
 );
 
-val check_col_equal_col = Q.store_thm("check_col_equal_col",
+Theorem check_col_equal_col
     `!s f1 f2.
     (!r. r IN domain s ==> f1 r = f2 r) ==>
-    check_col f1 s = check_col f2 s`,
+    check_col f1 s = check_col f2 s`
 
-    rpt strip_tac >>
+    (rpt strip_tac >>
     sg `MAP (f1 o FST) (toAList s) = MAP (f2 o FST) (toAList s)` THEN1 (
         simp [LIST_EQ_REWRITE] >>
         rw [EL_MAP] >>
@@ -5923,23 +5880,23 @@ val check_col_equal_col = Q.store_thm("check_col_equal_col",
     simp [check_col_def]
 );
 
-val check_partial_col_equal_col = Q.store_thm("check_partial_col_equal_col",
+Theorem check_partial_col_equal_col
     `!l live flive f1 f2.
     (!r. MEM r l ==> f1 r = f2 r) ==>
-    check_partial_col f1 l live flive = check_partial_col f2 l live flive`,
+    check_partial_col f1 l live flive = check_partial_col f2 l live flive`
 
-    Induct_on `l` >>
+    (Induct_on `l` >>
     rw [check_partial_col_def] >>
     metis_tac []
 );
 
-val check_clash_tree_equal_col = Q.store_thm("check_clash_tree_equal_col",
+Theorem check_clash_tree_equal_col
     `!f1 f2 ct live flive.
     (!r. r IN in_clash_tree ct ==> f1 r = f2 r) /\
     (!r. r IN domain live ==> f1 r = f2 r) ==>
-    check_clash_tree f1 ct live flive = check_clash_tree f2 ct live flive`,
+    check_clash_tree f1 ct live flive = check_clash_tree f2 ct live flive`
 
-    NTAC 2 gen_tac >>
+    (NTAC 2 gen_tac >>
     Induct_on `ct` >>
     rw [] >> TRY (rename1 `Branch optcutset ct1 ct2`) >> TRY (rename1 `Seq ct1 ct2`) >>
 
@@ -5988,7 +5945,7 @@ val check_clash_tree_equal_col = Q.store_thm("check_clash_tree_equal_col",
 );
 
 
-val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
+Theorem linear_scan_reg_alloc_correct
     `!k moves ct forced.
     EVERY (\r1,r2. in_clash_tree ct r1 /\ in_clash_tree ct r2) forced ==>
     ?col livein flivein.
@@ -6004,9 +5961,9 @@ val linear_scan_reg_alloc_correct = Q.store_thm("linear_scan_reg_alloc_correct",
         T
     ) /\
     (!r. r IN domain col ==> in_clash_tree ct r) /\
-    EVERY (\r1,r2. (sp_default col) r1 = (sp_default col) r2 ==> r1 = r2) forced`,
+    EVERY (\r1,r2. (sp_default col) r1 = (sp_default col) r2 ==> r1 = r2) forced`
 
-    rpt strip_tac >>
+    (rpt strip_tac >>
     simp [linear_scan_reg_alloc_def, run_linear_reg_alloc_intervals_def, run_i_linear_scan_hidden_state_def, run_def, linear_reg_alloc_and_extract_coloration_def] >>
 
     `?bijstate. find_bijection_clash_tree find_bijection_init ct = bijstate` by simp [] >>
