@@ -478,15 +478,19 @@ val _ = process_topdecs `
 
 val st = ml_translatorLib.get_ml_prog_state();
 
+val _ = overload_on("output_events",``SIO [||]``);
+val _ = overload_on("write_string",``put_str_event``);
+val _ = overload_on("yes",``yes_v``);
+
 Theorem yes_spec:
   !uv.
     limited_parts names p ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "yes" st) [uv]
-      (SIO [||] []) (POSTd io. io = LREPEAT [put_str_event "y\n"])
+    app (p:'ffi ffi_proj) ^(fetch_v "yes" st) [arg]
+      (output_events []) (POSTd io. io = LREPEAT [write_string "y\n"])
 Proof
   xcf_div "yes" st
   \\ MAP_EVERY qexists_tac
-    [`K emp`, `\i. REPLICATE_LIST [put_str_event "y\n"] i`, `K ($= uv)`,
+    [`K emp`, `\i. REPLICATE_LIST [put_str_event "y\n"] i`, `K ($= arg)`,
      `K (State [||])`, `update`]
   \\ fs [GSYM SIO_def, REPLICATE_LIST_def]
   \\ xsimpl \\ rw [lprefix_lub_def]
@@ -507,6 +511,8 @@ Proof
   \\ unabbrev_all_tac
   \\ irule REPLICATE_LIST_LREPEAT \\ fs []
 QED
+
+val yes_spec = save_thm("yes_spec",yes_spec |> SPEC_ALL |> UNDISCH_ALL);
 
 (* An IO-conditional loop with side effects *)
 
