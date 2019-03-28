@@ -609,7 +609,7 @@ Theorem openFileFS_inode_tbl
 Theorem wfFS_openFileFS
   `!f fs k.CARD (FDOM (alist_to_fmap fs.infds)) <= fs.maxFD /\ wfFS fs ==>
                    wfFS (openFileFS f fs md k)`
-  (rw[wfFS_def,openFileFS_def,liveFS_def,consistentFS_def] >> 
+  (rw[wfFS_def,openFileFS_def,liveFS_def,consistentFS_def] >>
   full_case_tac >> fs[openFile_def] >>
   cases_on`x` >> rw[] >> fs[MEM_MAP] >> res_tac >> fs[]
   >-(imp_res_tac ALOOKUP_MEM >-(qexists_tac`(File f,x')` >> fs[])) >>
