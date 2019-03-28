@@ -1,9 +1,4 @@
-(*
-  Proofs about the Array module.
-  load "cfLib";
-  load "HashtableProgTheory";
-  load "ArrayProofTheory";
-*)
+(*Proof of the hashtable module*)
 
 open preamble ml_translatorTheory ml_translatorLib cfLib
      mlbasicsProgTheory ArrayProgTheory ArrayProofTheory ListProgTheory
