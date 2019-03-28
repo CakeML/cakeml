@@ -117,6 +117,45 @@ Proof
   \\ xvar \\ xsimpl \\ fs[ml_translatorTheory.INT_def]
 QED
 
+(* A loop containing a divergent function *)
+
+val _ = process_topdecs `
+  fun outerLoop x = if x = 5000 then pureLoop () else outerLoop (x + 1);
+  ` |> append_prog;
+
+val st = ml_translatorLib.get_ml_prog_state();
+
+Theorem outerLoop_spec:
+  !n nv s u ns.
+    limited_parts ns p /\ NUM n nv ==>
+    app (p:'ffi ffi_proj) ^(fetch_v "outerLoop" st) [nv]
+      (one (FFI_part s u ns [])) (POSTd io. io = [||])
+Proof
+  strip_tac \\ Cases_on `n <= 5000`
+  THEN1 (
+    Induct_on `5000 - n`
+    THEN1 (
+      xcf "outerLoop" st
+      \\ xlet_auto THEN1 xsimpl
+      \\ xif \\ instantiate
+      \\ xlet_auto THEN1 (xcon \\ xsimpl)
+      \\ xapp \\ fs [])
+    \\ xcf "outerLoop" st
+    \\ xlet_auto THEN1 xsimpl
+    \\ xif \\ instantiate
+    \\ xlet_auto THEN1 xsimpl
+    \\ xapp \\ fs []
+    \\ qexists_tac `n + 1` \\ fs [])
+  \\ xcf_div "outerLoop" st
+  \\ MAP_EVERY qexists_tac
+    [`K emp`, `K []`, `\i. NUM (n + i)`, `K s`, `u`]
+  \\ xsimpl \\ rw [lprefix_lub_def]
+  \\ xlet_auto THEN1 xsimpl
+  \\ xif \\ instantiate
+  \\ xlet_auto THEN1 xsimpl
+  \\ xvar \\ xsimpl \\ fs [ADD_CLAUSES, ADD_1_SUC]
+QED
+
 (* A small IO model needed for IO examples *)
 
 val names_def = Define `names = ["put_char"; "get_char"]`;
