@@ -561,15 +561,6 @@ val seL4_IO_def = Define `
       ["accept_call";"emit_string"]
       events)`
 
-Theorem LUNFOLD_ADD1:
-  LUNFOLD (\n. lift ($, (SUC n)) (f (LNTH n (x:::y)))) 1 =
-  LUNFOLD (\n. lift ($, (SUC n)) (f (LNTH n y))) 0
-Proof
-  PURE_ONCE_REWRITE_TAC[LUNFOLD_BISIMULATION] >>
-  qexists_tac `\x y. x = SUC y` >>
-  rw[] >> metis_tac[option_CASES]
-QED
-
 Theorem decode_encode_oracle_state_11:
   !ffi_st. decode_oracle_state(encode_oracle_state ffi_st) = ffi_st
 Proof
@@ -590,98 +581,6 @@ Proof
   rw[] >> metis_tac[option_CASES]
 QED
 
-val next_filter_event = Define
-  `next_filter_event filter_fun (ffi_st,last_input,b) =
-   if b then
-       SOME((ffi_st,
-            last_input,F),
-           IO_event "emit_string" (cut_at_null_w last_input) [])
-   else if LLENGTH(ffi_st.input) = SOME 0 then
-     NONE
-   else
-     let fhd = THE(LHD(ffi_st.input));
-         ftl = THE(LTL(ffi_st.input));
-         fhd' = TAKE 256 fhd ++ DROP (LENGTH fhd) last_input;
-     in
-       SOME((ffi_st with input := ftl,fhd',filter_fun(cut_at_null_w fhd)),
-            IO_event "accept_call" [] (ZIP (last_input, fhd')))`
-
-val filter_events = Define
-  `filter_events filter_fun ffi_st =
-   LUNFOLD (next_filter_event filter_fun) (ffi_st,REPLICATE 256 (0w:word8),F)
-  `
-
-val is_accept_def = Define
-  `is_accept (IO_event s _ _) = (s = "accept_call")`
-
-val bytes_of_def = Define
-  `bytes_of (IO_event s conf bytes) = MAP SND bytes`
-
-val finite_events_is_list = Q.prove(
-  `
-    !i1 f init b.
-    IS_SOME(toList (LUNFOLD (next_filter_event f)
-                            (<|input := fromList i1|>,init,b)))
-  `,
-  Induct >>
-  rpt(rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM,IS_SOME_MAP]));
-
-val finite_events_is_list2 = Q.prove(
-  `
-    !i1 f init b.
-    ? l. toList(LUNFOLD (next_filter_event f) (<|input := fromList i1|>,init,b)) = SOME l /\
-         (LENGTH l <= 2 * LENGTH i1 + if b then 1 else 0) /\
-         LENGTH i1 <= LENGTH l
-  `,
-  Induct >-
-    rpt(rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM]) >-
-    (rw[] >>
-     TRY(rename1 `T` >>
-         ntac 2 (rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM])) >>
-     TRY(rename1 `F` >>
-         rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM]) >>
-      simp[PULL_EXISTS] >>
-      qmatch_goalsub_abbrev_tac `LUNFOLD (_ f) (_,init2,b)` >>
-      first_x_assum(qspecl_then[`f`,`init2`,`b`] strip_assume_tac) >>
-      asm_exists_tac >> simp[] >> Cases_on `b` >> fs[]));
-
-val toList_FINITE_LAPPEND = Q.prove(
-  `!ll1 l1 ll2 l2.
-  toList ll1 = SOME l1
-  /\ toList ll2 = SOME l2
-  ==> toList(LAPPEND ll1 ll2) = SOME(l1 ++ l2)`,
-  Induct_on `l1` >> Cases_on `ll1` >> rw[toList_THM]);
-
-val finite_events_sane_length = Q.prove(
-  `
-    !i1 f init b.
-    LENGTH init = 256 /\
-    EVERY ($>= 256 o LENGTH) i1 ==>
-    EVERY ($= 256 o LENGTH)
-          (MAP bytes_of
-            (FILTER is_accept(
-                THE(toList (LUNFOLD (next_filter_event f)
-                           (<|input := fromList i1|>,init,b))))))
-  `,
-  Induct >-
-    ntac 2 (rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM,is_accept_def,bytes_of_def]) >>
-  rw[] >>
-  `LENGTH(TAKE 256 h ++ DROP (LENGTH h) init) = 256` by(rw[LENGTH_TAKE_EQ]) >>
-  first_x_assum drule_all >>
-  disch_then(qspecl_then [`f`,`f(cut_at_null_w h)`] assume_tac) >>
-  Q.ISPECL_THEN [`i1`,`f`,`TAKE 256 h ++ DROP (LENGTH h) init`,`f(cut_at_null_w h)`] assume_tac finite_events_is_list >>
-  fs[IS_SOME_EXISTS] >> fs[] >>
-  ntac 2 (rw[Once LUNFOLD] >> rw[next_filter_event,toList_THM,is_accept_def,bytes_of_def]));
-
-Theorem every_LTAKE:
-  !i l ll.
-  every f ll /\
-  LTAKE i ll = SOME l
-  ==> EVERY f l
-Proof
-  Induct >> Cases_on `ll` >> rw[] >> rw[] >> metis_tac[]
-QED
-
 Theorem every_LDROP:
   !i l ll1.
   every f ll1 /\
@@ -691,89 +590,200 @@ Proof
   Induct >> Cases_on `ll1` >> rw[] >> rw[] >> metis_tac[]
 QED
 
-Theorem filter_events_append:
-!i1 i2 f.
-EVERY (null_terminated_w) i1 /\
-EVERY ($>= 256 o LENGTH) i1
-==>
-filter_events f
-  (<|input := LAPPEND (fromList i1) i2|>
-  )
-=
-LAPPEND (filter_events f
-         <|input:=fromList i1|>)
-        (LUNFOLD
-          (next_filter_event f)
-          (<|input := i2|>,
-          LAST(REPLICATE 256 0w
-           ::
-           MAP bytes_of(FILTER is_accept
-             (THE(toList(filter_events
-              f
-               <|input:=fromList i1|>))))),
-           F))
-Proof
-  simp[filter_events] >>
-  qpat_abbrev_tac `init = REPLICATE 256 0w` >>
-  `LENGTH init = 256` by(unabbrev_all_tac >> simp[]) >>
-  pop_assum mp_tac >> pop_assum kall_tac >>
-  simp[PULL_FORALL] >> qid_spec_tac `init` >>
-  Induct_on `i1` >-
-    (rw[filter_events] >>
-     CONV_TAC(RHS_CONV(RAND_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])))) >>
-     CONV_TAC(RHS_CONV(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])))) >>
-     simp[next_filter_event,toList_THM,LAPPEND_NIL_2ND]) >-
-    (rw[filter_events] >>
-     Cases_on `f(cut_at_null_w h)`
-       >-
-       ((* f h *)
-        CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])) >>
-        simp[next_filter_event] >>
-        CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])) >>
-        simp[next_filter_event] >>
-        CONV_TAC(RHS_CONV(RATOR_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD]))) >>
-        simp[next_filter_event] >>
-        CONV_TAC(RHS_CONV(RATOR_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD]))) >>
-        simp[next_filter_event] >>
-        CONV_TAC(RHS_CONV(RAND_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])))) >>
-        simp[next_filter_event] >>
-        CONV_TAC(RHS_CONV(RAND_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])))) >>
-        simp[next_filter_event,toList_THM] >>
-        qmatch_goalsub_abbrev_tac `LUNFOLD _ (_,newinit,F)` >>
-        first_x_assum(qspecl_then [`newinit`,`i2`,`f`] mp_tac) >>
-        impl_tac >- (unabbrev_all_tac >> fs[LENGTH_TAKE_EQ]) >>
-        impl_tac >- rw[] >>
-        disch_then(fn thm => simp[thm]) >>
-        Q.ISPECL_THEN [`i1`,`f`,`newinit`,`F`] mp_tac finite_events_is_list >>
-        rw[IS_SOME_EXISTS] >>
-        rw[is_accept_def,bytes_of_def] >>
-        unabbrev_all_tac >> fs[] >>
-        fs[MAP_ZIP,LENGTH_TAKE_EQ]
-        ) >-
-       ((* ¬f h *)
-        CONV_TAC(LHS_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])) >>
-        simp[next_filter_event] >>
-        CONV_TAC(RHS_CONV(RATOR_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD]))) >>
-        simp[next_filter_event] >>
-        CONV_TAC(RHS_CONV(RAND_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LUNFOLD])))) >>
-        simp[next_filter_event,toList_THM] >>
-        qmatch_goalsub_abbrev_tac `LUNFOLD _ (_,newinit,F)` >>
-        first_x_assum(qspecl_then [`newinit`,`i2`,`f`] mp_tac) >>
-        impl_tac >- (unabbrev_all_tac >> fs[LENGTH_TAKE_EQ]) >>
-        impl_tac >- rw[] >>
-        disch_then(fn thm => simp[thm]) >>
-        Q.ISPECL_THEN [`i1`,`f`,`newinit`,`F`] mp_tac finite_events_is_list >>
-        rw[IS_SOME_EXISTS] >>
-        rw[is_accept_def,bytes_of_def] >>
-        unabbrev_all_tac >> fs[] >>
-        fs[MAP_ZIP,LENGTH_TAKE_EQ]
-       )
-    )
-QED
-
 val LLENGTH_NONE_LTAKE = Q.prove(
   `!n ll. LLENGTH ll = NONE ==> ?l. LTAKE n ll = SOME l`,
   Induct >> Cases_on `ll` >> rw[]);
+
+val is_emit_def = Define
+  `is_emit (IO_event s _ _) = (s = "emit_string")`
+
+val output_event_of_def = Define
+  `output_event_of s = IO_event "emit_string" s []`
+
+val nth_arr_def = Define `nth_arr n ll =
+ FST(FUNPOW (λ(l,ll).
+ if ll = [||] then (l,[||])
+ else (
+   TAKE 256 (THE(LHD ll)) ++ DROP (LENGTH(THE(LHD ll))) l
+      ,THE(LTL ll))) n
+ (REPLICATE 256 (0w:word8),ll))`
+
+Theorem nth_arr_infinite:
+ !n ll.
+ LLENGTH ll = NONE ==>
+ nth_arr n ll =
+ FST(FUNPOW (λ(l,ll).
+ (TAKE 256 (THE(LHD ll)) ++ DROP (LENGTH(THE(LHD ll))) l,THE(LTL ll))) n
+ (REPLICATE 256 (0w:word8),ll))
+Proof
+  simp[nth_arr_def] >>
+  qabbrev_tac `a1 = REPLICATE 256 (0w:word8)` >>
+  `LENGTH a1 = 256` by(unabbrev_all_tac >> simp[]) >>
+  MAP_EVERY pop_assum [mp_tac,kall_tac] >>
+  simp[PULL_FORALL] >> qid_spec_tac `a1` >>
+  Induct_on `n` >> rw[FUNPOW] >>
+  Cases_on `ll` >> fs[LENGTH_TAKE_EQ]
+QED
+
+Theorem nth_arr_SUC: !n ll.
+  LLENGTH ll = NONE ==>
+  nth_arr (SUC n) ll
+  =
+  TAKE 256 (THE(LNTH n ll)) ++ DROP (LENGTH(THE(LNTH n ll))) (nth_arr n ll)
+Proof
+  `∀n ll (l:word8 list).
+       LLENGTH ll = NONE /\ LENGTH l = 256 ⇒
+       (FUNPOW
+            (λ(l,ll).
+                 (TAKE 256 (THE (LHD ll)) ++ DROP (LENGTH (THE (LHD ll))) l,
+                  THE (LTL ll))) (SUC n) (l,ll)) =
+       (TAKE 256 (THE (LNTH n ll)) ++
+       DROP (LENGTH (THE (LNTH n ll)))
+         (FST
+            (FUNPOW
+               (λ(l,ll).
+                    (TAKE 256 (THE (LHD ll)) ++
+                     DROP (LENGTH (THE (LHD ll))) l,THE (LTL ll))) n
+               (l,ll))),THE(LDROP (SUC n) ll))`
+    suffices_by rw[nth_arr_infinite] >>
+  Induct_on `n` >> rpt strip_tac >> fs[FUNPOW_SUC,LDROP1_THM,CONJUNCT1 LNTH] >>
+  `~LFINITE ll` by simp[LFINITE_LLENGTH] >>
+  imp_res_tac infinite_lnth_some >>
+  first_x_assum(qspec_then `SUC n` strip_assume_tac) >>
+  drule LNTH_LDROP >> simp[] >> disch_then kall_tac >>
+  Cases_on `ll` >> fs[LDROP_SUC] >>
+  rename1 `LDROP n ll` >>
+  Cases_on `LDROP n ll` >> fs[] >>
+  metis_tac[LDROP_NONE_LFINITE]
+QED
+
+Theorem nth_arr_LENGTH:
+  every ($>= 256 ∘ LENGTH) ll
+   ==> LENGTH(nth_arr n ll) = 256
+Proof
+  simp[nth_arr_def] >>
+  qabbrev_tac `a1 = REPLICATE 256 (0w:word8)` >>
+  `LENGTH a1 = 256` by(unabbrev_all_tac >> simp[]) >>
+  MAP_EVERY pop_assum [mp_tac,kall_tac] >>
+  qid_spec_tac `a1` >> qid_spec_tac `ll` >>
+  Induct_on `n` >> rw[FUNPOW] >>
+  Cases_on `ll` >> fs[LENGTH_TAKE_EQ]
+QED
+
+val next_filter_events = Define
+  `next_filter_events filter_fun last_input input =
+   let new_input = TAKE 256 input ++ DROP (LENGTH input) last_input
+   in
+    [IO_event "accept_call" [] (ZIP (last_input,new_input))] ++
+    if filter_fun(cut_at_null_w input) then
+      [IO_event "emit_string" (cut_at_null_w new_input) []]
+    else
+      []`
+
+val nth_arr_init_def = Define `nth_arr_init n ll buff =
+      FST(FUNPOW
+             (λ(l,ll).
+               if ll = [||] then (l,[||])
+               else
+                 (TAKE 256 (THE (LHD ll)) ++
+                  DROP (LENGTH (THE (LHD ll))) l,THE (LTL ll))) n
+             (buff:word8 list,ll))`
+
+Theorem nth_arr_init_SUC: !h n ll init.
+  nth_arr_init (SUC n) (h:::ll) init = nth_arr_init n ll (TAKE 256 h ++ DROP(LENGTH h) init)
+Proof
+  rw[nth_arr_init_def,FUNPOW]
+QED
+
+Theorem nth_arr_init_add: !n m ll init.
+  LLENGTH ll = NONE ==>
+  nth_arr_init (n + m) ll init = nth_arr_init n (THE(LDROP m ll)) (nth_arr_init m ll init)
+Proof
+  Induct_on `m` >- rw[nth_arr_init_def] >>
+  rw[] >>
+  PURE_ONCE_REWRITE_TAC[GSYM ADD_SUC] >>
+  Cases_on `ll` >> fs[] >>
+  fs[nth_arr_init_SUC]
+QED
+
+Theorem LLENGTH_NONE_LDROP:
+  !n ll ll'. LLENGTH ll = NONE /\ LDROP n ll = SOME ll' ==> LLENGTH ll' = NONE
+Proof
+  Induct >> Cases_on `ll` >> rw[] >> rw[LLENGTH_THM] >> metis_tac[]
+QED
+
+Theorem nth_arr_init_LENGTH:
+  !n ll init. every ($>= 256 ∘ LENGTH) ll /\
+  LENGTH init = 256 /\ LLENGTH ll = NONE
+   ==> LENGTH(nth_arr_init n ll init) = 256
+Proof
+  Induct_on `n` >> Cases_on `ll` >> rw[nth_arr_init_SUC,TAKE_LENGTH_TOO_LONG] >>
+  TRY(simp[nth_arr_init_def] >> NO_TAC)
+QED
+
+val filter_bisim_rel_infinite_def = Define `
+  filter_bisim_rel_infinite =
+  λl1 l2.
+   (?inl buff.
+     l1 = LFILTER is_emit (LFLATTEN
+               (LGENLIST
+                  (λx.
+                       fromList
+                         (next_filter_events (language ∘ MAP (CHR ∘ w2n))
+                            (nth_arr_init x inl buff) (THE (LNTH x inl)))) NONE)) /\
+     l2 = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) inl) /\
+     LLENGTH inl = NONE /\
+     LENGTH buff = 256 /\
+     every ($>= 256 ∘ LENGTH) inl /\
+     every null_terminated_w inl)`
+
+val exists_LFLATTEN = Q.store_thm("exists_LFLATTEN",
+  `!P ll. exists P (LFLATTEN ll) /\
+   every LFINITE ll /\
+   every ($<> [||]) ll==>
+   exists (exists P) ll`,
+  rw[exists_LNTH] >>
+  rpt(pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`e`,`ll`,`n`] >>
+  ho_match_mp_tac COMPLETE_INDUCTION >>
+  Cases >> rw[LNTH] >-
+    (Cases_on `ll` >> fs[] >>
+     rename1 `[||] <> hd` >> Cases_on `hd` >> fs[] >>
+     rveq >> qexists_tac `0` >> simp[] >> qexists_tac `0` >> simp[]) >-
+    (qpat_x_assum `_ = OPTION_JOIN _` (assume_tac o GSYM) >>
+     fs[OPTION_JOIN_EQ_SOME,OPTION_MAP_EQ_SOME] >>
+     Cases_on `ll` >> fs[] >>
+     rename1 `h:::ll` >>
+     Cases_on `h` >> fs[] >>
+     rename1 `(h:::l):::ll` >>
+     imp_res_tac LFINITE_HAS_LENGTH >>
+     rveq >> fs[LNTH_LAPPEND] >>
+     PURE_FULL_CASE_TAC >-
+       (fs[] >> qexists_tac `0` >> simp[] >>
+        Q.REFINE_EXISTS_TAC `SUC _` >> simp[] >> metis_tac[]) >-
+       (fs[] >> Q.REFINE_EXISTS_TAC `SUC _` >> simp[] >>
+        rename1 `n0 < n` >>
+        first_x_assum (match_mp_tac o MP_CANON) >>
+        qexists_tac `n0 - n` >> simp[] >> metis_tac[])));
+
+val cut_at_null_simplify = Q.prove(`(?n' e'.
+   SOME e' =
+     LNTH n'
+        (fromList
+         (next_filter_events f
+         iarr input)) ∧ is_emit e')
+  = f(cut_at_null_w input)`,
+  rw[EQ_IMP_THM,next_filter_events] >-
+    (qexists_tac `SUC 0` >> fs[is_emit_def]) >-
+    (rename1 `LNTH n` >> Cases_on `n` >> fs[] >> rveq >> fs[is_emit_def] >>
+     CCONTR_TAC >> fs[] >> rveq >> fs[is_emit_def]));
+
+val LFLATTEN_fromList_GENLIST =
+    LFLATTEN_fromList |> Q.SPEC `GENLIST f n` |> SIMP_RULE std_ss [MAP_GENLIST,o_DEF]
+
+val LFILTER_fromList = Q.prove(`
+  !l. LFILTER f (fromList l) = fromList(FILTER f l)`,
+  Induct >> rw[]);
 
 Theorem forward_matching_lines_div_spec:
   !input output rv.
@@ -784,51 +794,39 @@ Theorem forward_matching_lines_div_spec:
     ==>
     app (p:'ffi ffi_proj) ^(fetch_v "forward_matching_lines" st) [rv]
       (seL4_IO input [] * W8ARRAY dummyarr_loc [])
-      (POSTd io. io = filter_events (language o MAP (CHR o w2n)) <|input:=input|>)
+      (POSTd io. LFILTER is_emit io = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input))
 Proof
   xcf "forward_matching_lines" st >>
   xlet_auto >- xsimpl >>
   xlet_auto >- xsimpl >>
   unfold_cf_app >>
-  xcf_div "forward_loop" st >>
+  xcf_div_rule IMP_app_POSTd_one_FFI_part_FLATTEN "forward_loop" st >>
   rename1 `_ 0 inputarr` >>
-  qabbrev_tac `a1 = λn. THE(toList(filter_events
-        (language o MAP (CHR o w2n))
-        <|input:=fromList(THE(LTAKE n input))|>))` >>
   MAP_EVERY qexists_tac
     [`λn. W8ARRAY dummyarr_loc [] *
       W8ARRAY inputarr
-              (LAST(REPLICATE 256 0w::MAP bytes_of(FILTER is_accept(a1 n))))`,
-     `a1`,
+              (nth_arr n input)`,
+     `\n. if n = 0 then []
+          else next_filter_events (language o MAP (CHR o w2n)) (nth_arr (n-1) input) (THE(LNTH (n-1) input))
+     `,
      `K($= inputarr)`,
      `λn. encode_oracle_state
       <|input:=THE(LDROP n input)|>`,
-     `filter_cf_oracle`,
-     `filter_events (language o MAP (CHR o w2n)) <|input:=input|>`
+     `filter_cf_oracle`
     ] >>
-  qunabbrev_tac `a1` >>
   conj_tac >- simp[] >>
   conj_tac >-
     (xsimpl >>
-     simp[seL4_IO_def,filter_events,Once LUNFOLD,next_filter_event] >>
+     simp[seL4_IO_def,next_filter_events,nth_arr_def] >>
      simp[Once LUNFOLD] >>
-     simp[toList,LAPPEND_NIL_2ND,next_filter_event] >>
+     simp[toList,LAPPEND_NIL_2ND] >>
      xsimpl) >>
   simp[] >>
   conj_tac >-
     (strip_tac >>
      qmatch_goalsub_abbrev_tac `W8ARRAY inputarr inputbuff` >>
      `LENGTH inputbuff = 256`
-       by(unabbrev_all_tac >>
-          rw[filter_events] >>
-          Q.ISPEC_THEN `\l. LENGTH l = 256` (ho_match_mp_tac o SIMP_RULE std_ss []) EVERY_LAST >>
-          rw[] >>
-          qspecl_then [`THE(LTAKE i input)`,`language o MAP (CHR o w2n)`,`REPLICATE 256 0w`,`F`] mp_tac finite_events_sane_length >>
-          impl_tac >-
-            (drule LLENGTH_NONE_LTAKE >>
-             disch_then(qspec_then `i` strip_assume_tac) >>
-             fs[] >> metis_tac[every_LTAKE]) >>
-          match_mp_tac EVERY_MONOTONIC >> rw[]) >>
+       by(unabbrev_all_tac >> metis_tac[nth_arr_LENGTH]) >>
      xlet `(POSTv v. &UNIT_TYPE () v * W8ARRAY dummyarr_loc [] *
             W8ARRAY inputarr ((TAKE 256 (THE (LHD (THE (LDROP i input)))) ++
                               DROP (LENGTH (THE (LHD (THE (LDROP i input))))) inputbuff))  *
@@ -837,14 +835,10 @@ Proof
            (encode_oracle_state
               <|input := THE (LDROP (SUC i) input)|>) filter_cf_oracle
            ["accept_call"; "emit_string"]
-           (THE
-              (toList
-                 (filter_events (language ∘ MAP (CHR ∘ w2n))
-                    <|input := fromList (THE (LTAKE i input))|>)) ++
-              [IO_event "accept_call" [] (ZIP(inputbuff,
+           [IO_event "accept_call" [] (ZIP(inputbuff,
                                           ((TAKE 256 (THE (LHD (THE (LDROP i input)))) ++
                               DROP (LENGTH (THE (LHD (THE (LDROP i input))))) inputbuff))))]
-           )))` >-
+           ))` >-
        (xffi >> xsimpl >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
         MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
@@ -865,10 +859,7 @@ Proof
            (encode_oracle_state
               <|input := THE (LDROP (SUC i) input)|>) filter_cf_oracle
            ["accept_call"; "emit_string"]
-           (THE
-              (toList
-                 (filter_events (language ∘ MAP (CHR ∘ w2n))
-                    <|input := fromList (THE (LTAKE (SUC i) input))|>)))))` >-
+           (next_filter_events (language o MAP (CHR o w2n)) inputbuff (THE(LNTH i input)))))` >-
        (xlet_auto >-
           (xsimpl >>
            `?i1 input'. LDROP i input = SOME(i1:::input')`
@@ -883,37 +874,20 @@ Proof
         xlet_auto >- xsimpl >>
         reverse xif >-
           (xcon >> xsimpl >>
-           `?i1 input'. LDROP i input = SOME(i1:::input')`
-             by(qpat_x_assum `LLENGTH input = NONE` mp_tac >>
-                qid_spec_tac `input` >> rpt(pop_assum kall_tac) >>
-                Induct_on `i` >> fs[] >>
-                Cases >> rw[]) >>
+           `~LFINITE input` by rw[LFINITE_LLENGTH] >>
+           `?i1. LNTH i input = SOME(i1)`
+             by(CCONTR_TAC >> fs[LFINITE_LNTH_NONE] >> metis_tac[NOT_SOME_NONE,option_nchotomy]) >>
            fs[] >>
-           simp[LTAKE_SNOC_LNTH,LNTH_HD_LDROP] >>
-           `?i2. LTAKE i input = SOME i2`
-             by(qpat_x_assum `LLENGTH input = NONE` mp_tac >>
-                qid_spec_tac `input` >>
-                rpt(pop_assum kall_tac) >>
-                Induct_on `i` >> fs[] >>
-                Cases >> rw[]) >>
-           simp[] >> imp_res_tac every_LTAKE >>
-           drule_all filter_events_append >>
-           disch_then(qspecl_then [`fromList[i1]`,`language ∘ MAP (CHR ∘ w2n)`] mp_tac) >>
-           simp[LAPPEND_fromList] >> disch_then kall_tac >>
-           ntac 2 (simp[Once LUNFOLD] >> simp[next_filter_event]) >>
+           simp[Abbr `inputbuff`,next_filter_events,nth_arr_SUC] >>
+           drule_then(qspec_then `i` strip_assume_tac) (GEN_ALL nth_arr_LENGTH) >>
+           drule_then strip_assume_tac LNTH_LDROP >> fs[] >>
            fs[match_string_eq] >> fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
-           imp_res_tac every_LDROP >> fs[every_thm] >>
+           imp_res_tac every_LNTH >> fs[every_thm] >>
            fs[null_terminated_w_thm,implode_def] >>
            fs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
            fs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
-           qspecl_then [`i2`,`language o MAP (CHR o w2n)`,`REPLICATE 256 0w`,`F`] mp_tac finite_events_is_list >>
-           rw[IS_SOME_EXISTS] >>
-           rw[filter_events] >>
-           drule toList_FINITE_LAPPEND >>
-           qmatch_goalsub_abbrev_tac `LAPPEND _ [|ll2|]` >>
-           disch_then(qspecl_then [`[|ll2|]`,`[ll2]`] mp_tac) >>
-           impl_tac >- simp[toList_THM] >>
-           simp[] >> xsimpl) >-
+           fs[DROP_LENGTH_TOO_LONG] >>
+           xsimpl) >-
           (xffi >>
            fs[cut_at_null_thm,STRING_TYPE_def] >>
            qmatch_goalsub_abbrev_tac `MAP _ a1 = _` >>
@@ -926,146 +900,171 @@ Proof
            MAP_EVERY qexists_tac [`s`,`u`,`ns`,`events`] >>
            unabbrev_all_tac >> simp[filter_cf_oracle,filter_oracle] >>
            xsimpl >>
-           `?i1 input'. LDROP i input = SOME(i1:::input')`
-             by(qpat_x_assum `LLENGTH input = NONE` mp_tac >>
-                qid_spec_tac `input` >> rpt(pop_assum kall_tac) >>
-                Induct_on `i` >> fs[] >>
-                Cases >> rw[]) >>
+           `~LFINITE input` by rw[LFINITE_LLENGTH] >>
+           `?i1. LNTH i input = SOME(i1)`
+             by(CCONTR_TAC >> fs[LFINITE_LNTH_NONE] >> metis_tac[NOT_SOME_NONE,option_nchotomy]) >>
            fs[] >>
-           simp[LTAKE_SNOC_LNTH,LNTH_HD_LDROP] >>
-           `?i2. LTAKE i input = SOME i2`
-             by(qpat_x_assum `LLENGTH input = NONE` mp_tac >>
-                qid_spec_tac `input` >>
-                rpt(pop_assum kall_tac) >>
-                Induct_on `i` >> fs[] >>
-                Cases >> rw[]) >>
-           simp[] >> imp_res_tac every_LTAKE >>
-           drule_all filter_events_append >>
-           disch_then(qspecl_then [`fromList[i1]`,`language ∘ MAP (CHR ∘ w2n)`] mp_tac) >>
-           simp[LAPPEND_fromList] >> disch_then kall_tac >>
-           ntac 3 (simp[Once LUNFOLD] >> simp[next_filter_event]) >>
+           simp[next_filter_events,nth_arr_SUC] >>
+           drule_then(qspec_then `i` strip_assume_tac) (GEN_ALL nth_arr_LENGTH) >>
+           drule_then strip_assume_tac LNTH_LDROP >> fs[] >>
            fs[match_string_eq] >> fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
-           imp_res_tac every_LDROP >> fs[every_thm] >>
+           imp_res_tac every_LNTH >> fs[every_thm] >>
            fs[null_terminated_w_thm,implode_def] >>
            fs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
+           fs[DROP_LENGTH_TOO_LONG] >>
            fs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
-           simp[next_filter_event] >>
-           qspecl_then [`i2`,`language o MAP (CHR o w2n)`,`REPLICATE 256 0w`,`F`] mp_tac finite_events_is_list >>
-           rw[IS_SOME_EXISTS] >>
-           rw[filter_events] >>
-           drule toList_FINITE_LAPPEND >>
-           qmatch_goalsub_abbrev_tac `LAPPEND _ [|ll2;ll3|]` >>
-           disch_then(qspecl_then [`[|ll2;ll3|]`,`[ll2;ll3]`] mp_tac) >>
-           impl_tac >- simp[toList_THM] >>
            simp[decode_encode_oracle_state_11] >>
-           PURE_REWRITE_TAC[GSYM APPEND_ASSOC,APPEND] >>
-           xsimpl
-          )
+           xsimpl)
        ) >>
        xvar >> xsimpl >>
-       `?i1 input'. LDROP i input = SOME(i1:::input')`
-             by(qpat_x_assum `LLENGTH input = NONE` mp_tac >>
-                qid_spec_tac `input` >> rpt(pop_assum kall_tac) >>
-                Induct_on `i` >> fs[] >>
-                Cases >> rw[]) >>
-       fs[] >>
-       simp[LTAKE_SNOC_LNTH,LNTH_HD_LDROP] >>
-       `?i2. LTAKE i input = SOME i2`
-         by(qpat_x_assum `LLENGTH input = NONE` mp_tac >>
-            qid_spec_tac `input` >>
-            rpt(pop_assum kall_tac) >>
-            Induct_on `i` >> fs[] >>
-            Cases >> rw[]) >>
-       simp[] >> imp_res_tac every_LTAKE >>
-       qunabbrev_tac `inputbuff` >>
-       fs[] >>
-       drule_all filter_events_append >>
-       disch_then(qspecl_then [`fromList[i1]`,`language ∘ MAP (CHR ∘ w2n)`] mp_tac) >>
-       simp[GSYM LAPPEND_fromList] >> disch_then kall_tac >>
-       rpt(CHANGED_TAC(simp[Once LUNFOLD] >> rw[next_filter_event])) >>
-       qspecl_then [`i2`,`language o MAP (CHR o w2n)`,`REPLICATE 256 0w`,`F`] mp_tac finite_events_is_list >>
-       rw[IS_SOME_EXISTS] >>
-       rw[filter_events] >>
-       drule toList_FINITE_LAPPEND >>
-       TRY(qmatch_goalsub_abbrev_tac `LAPPEND _ [|ll2;ll3|]` >>
-           disch_then(qspecl_then [`[|ll2;ll3|]`,`[ll2;ll3]`] mp_tac) >>
-           impl_tac >- simp[toList_THM] >>
-           simp[Abbr `ll2`,Abbr `ll3`]) >>
-       TRY(qmatch_goalsub_abbrev_tac `LAPPEND _ [|ll2|]` >>
-           disch_then(qspecl_then [`[|ll2|]`,`[ll2]`] mp_tac) >>
-           impl_tac >- simp[toList_THM] >>
-           simp[Abbr `ll2`]) >>
-       simp[FILTER_APPEND,is_accept_def,bytes_of_def] >>
-       disch_then kall_tac >>
-       SIMP_TAC bool_ss [GSYM SNOC_APPEND,GSYM SNOC,LAST_SNOC] >>
-       qmatch_goalsub_abbrev_tac `ZIP(l1,l2)` >>
-       `LENGTH l1 = LENGTH l2` suffices_by(simp[MAP_ZIP]) >>
-       unabbrev_all_tac >>
-       imp_res_tac every_LDROP >> fs[every_thm] >>
-       qmatch_goalsub_abbrev_tac `LENGTH l1 = _` >>
-       `LENGTH l1 = 256` suffices_by rw[LENGTH_TAKE_EQ] >>
-       unabbrev_all_tac >>
-       Q.ISPEC_THEN `\x. LENGTH x = 256` (match_mp_tac o CONV_RULE(DEPTH_CONV BETA_CONV)) EVERY_LAST >>
-       simp[] >>
-       Q.ISPEC_THEN `i2` mp_tac finite_events_sane_length >>
-       disch_then(qspecl_then [`language o MAP(CHR o w2n)`,`REPLICATE 256 0w`,`F`] mp_tac) >>
-       impl_tac >- simp[] >>
-       simp[] >> match_mp_tac EVERY_MONOTONIC >> rw[]
+       simp[nth_arr_SUC] >>
+       `~LFINITE input` by rw[LFINITE_LLENGTH] >>
+       `?i1. LNTH i input = SOME(i1)`
+         by(CCONTR_TAC >> fs[LFINITE_LNTH_NONE] >> metis_tac[NOT_SOME_NONE,option_nchotomy]) >>
+         fs[] >>
+       drule_then strip_assume_tac LNTH_LDROP >> fs[]
     ) >>
-  rw[lprefix_lub_def] >-
-    (rw[LPREFIX_APPEND] >>
-     `~LFINITE(input)` by simp[LFINITE_LLENGTH] >>
-     drule(CONJUNCT1 LTAKE_DROP) >>
-     disch_then(qspec_then `x` (fn thm => PURE_ONCE_REWRITE_TAC [GSYM thm] >> assume_tac thm)) >>
-     drule LLENGTH_NONE_LTAKE >> disch_then(qspec_then `x` strip_assume_tac) >>
-     imp_res_tac every_LTAKE >>
-     drule_all filter_events_append >>
-     disch_then(qspecl_then [`THE(LDROP x input)`,`language o (MAP (CHR o w2n))`] mp_tac) >>
-     qpat_assum `LTAKE _ _ = _` (fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
-     simp[] >> disch_then kall_tac >>
-     qmatch_goalsub_abbrev_tac `LAPPEND ll1 _ = LAPPEND ll2 _` >>
-     `ll1 = ll2` suffices_by metis_tac[] >>
+  simp [Once(REWRITE_RULE [o_DEF] LGENLIST_NONE_UNFOLD)] >>
+  match_mp_tac LLIST_BISIM_UPTO >>
+  qexists_tac `filter_bisim_rel_infinite` >>
+  conj_tac >-
+    (simp[filter_bisim_rel_infinite_def,nth_arr_def,nth_arr_init_def] >>
+     metis_tac[LENGTH_REPLICATE]) >>
+  rpt(pop_assum kall_tac) >>
+  rw[filter_bisim_rel_infinite_def] >>
+  qmatch_goalsub_abbrev_tac `a1 /\ _ \/ _` >>
+  Cases_on `a1` (* Are there incoming messages that will pass the filter? *) >>
+  fs[markerTheory.Abbrev_def]
+  >-
+    (`LFILTER (language ∘ MAP (CHR ∘ w2n) ∘ cut_at_null_w) inl = [||]` suffices_by fs[] >>
+     fs[LFILTER_EQ_NIL] >>
+     rpt(pop_assum mp_tac) >>
+     MAP_EVERY qid_spec_tac [`buff`,`inl`] >>
+     SIMP_TAC pure_ss [AND_IMP_INTRO,LEFT_FORALL_IMP_THM] >>
+     ho_match_mp_tac every_coind >>
+     rpt gen_tac >> rpt(disch_then strip_assume_tac) >>
+     fs[] >>
+     pop_assum(assume_tac o PURE_ONCE_REWRITE_RULE[LGENLIST_NONE_UNFOLD]) >>
+     pop_assum(mp_tac o PURE_REWRITE_RULE[Once next_filter_events]) >>
+     rw[is_emit_def] >> fs[o_DEF] >>
+     fs(map (REWRITE_RULE[ADD1]) [nth_arr_init_SUC,LNTH]) >>
+     PURE_ONCE_REWRITE_TAC[CONJ_SYM] >> asm_exists_tac >>
+     fs[LENGTH_TAKE_EQ]) >>
+  fs[LFILTER_EQ_NIL,every_def] >>
+  conj_tac >-
+    (drule exists_LFLATTEN >>
+     impl_tac >- rw[every_LNTH,LNTH_LGENLIST,next_filter_events,LFINITE_fromList] >>
+     simp[SimpL ``$==>``,exists_LNTH,LNTH_LGENLIST] >>
+     Ho_Rewrite.PURE_ONCE_REWRITE_TAC [cut_at_null_simplify] >>
+     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+     rename1 `LNTH n0` >>
+     qmatch_goalsub_abbrev_tac `LGENLIST f` >>
+     Q.ISPECL_THEN [`n0`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
+     simp[] >>
+     pop_assum kall_tac >>
+     simp[LFLATTEN_LAPPEND_fromList] >>
      unabbrev_all_tac >>
-     imp_res_tac LTAKE_LENGTH >>
-     simp[LTAKE_LAPPEND1,LTAKE_fromList] >>
-     match_mp_tac(GSYM to_fromList) >>
-     rw[LFINITE_toList_SOME,filter_events] >>
-     MATCH_ACCEPT_TAC finite_events_is_list) >>
-  fs[PULL_EXISTS] >>
-  qmatch_goalsub_abbrev_tac `LPREFIX ll ub` >>
-  `ll = ub` suffices_by simp[] >>
-  qunabbrev_tac `ll` >>
-  fs[filter_events] >>
-  rw[LTAKE_EQ] >>
-  first_x_assum(qspec_then `2*n` assume_tac) >>
-  fs[LPREFIX_APPEND] >>
-  qspecl_then [`THE(LTAKE (2*n) input)`,`language o MAP (CHR o w2n)`
-               ,`REPLICATE 256 0w`,`F`] strip_assume_tac finite_events_is_list2 >>
-  fs[] >>
-  drule_then(qspec_then `2*n` strip_assume_tac) LLENGTH_NONE_LTAKE >>
-  drule_then (strip_assume_tac o GSYM) LTAKE_LENGTH >>
-  fs[] >>
-  `~LFINITE input` by fs[LFINITE_LLENGTH] >>
-  drule_then(qspec_then `2 * n` mp_tac) (CONJUNCT1 LTAKE_DROP) >>
-  disch_then(fn thm => PURE_ONCE_REWRITE_TAC [GSYM thm] >> assume_tac thm) >>
-  imp_res_tac every_LTAKE >>
-  drule filter_events_append >> disch_then drule >>
-  qpat_assum `LTAKE _ _ = _` (fn thm => PURE_ONCE_REWRITE_TAC[thm]) >>
-  simp[filter_events] >>
-  disch_then kall_tac >>
-  qmatch_asmsub_abbrev_tac `toList lll` >>
-  `LFINITE lll` by(Q.ISPEC_THEN `lll` mp_tac (GEN_ALL LFINITE_toList_SOME) >> simp[]) >>
-  `fromList l = LUNFOLD (next_filter_event (language ∘ MAP (CHR ∘ w2n)))
-              (<|input := fromList l'|>,REPLICATE 256 0w,F)`
-    by(drule to_fromList >> unabbrev_all_tac >> simp[]) >>
-  `IS_SOME(LTAKE n lll)` suffices_by fs[IS_SOME_EXISTS,Abbr`lll`,LTAKE_LAPPEND1] >>
-  unabbrev_all_tac >>
-  pop_assum(assume_tac o GSYM) >>
-  fs[] >>
-  `n <= LENGTH l` by simp[] >>
-  Q.ISPEC_THEN `l` assume_tac LTAKE_fromList >>
-  drule_all LTAKE_TAKE_LESS >>
-  simp[]
+     Ho_Rewrite.REWRITE_TAC[LFLATTEN_fromList_GENLIST] >>
+     simp[LFILTER_APPEND,LFINITE_fromList,LFILTER_fromList] >>
+     qmatch_goalsub_abbrev_tac `FILTER is_emit a1` >>
+     `FILTER is_emit a1 = []`
+       by(unabbrev_all_tac >>
+          rw[FILTER_EQ_NIL,EVERY_FLAT,EVERY_GENLIST,next_filter_events,
+             is_emit_def]) >>
+     simp[] >> ntac 2 (pop_assum kall_tac) >>
+     simp[Once LGENLIST_NONE_UNFOLD] >>
+     simp[LFILTER_APPEND,LFINITE_fromList,LFILTER_fromList,
+          next_filter_events,is_emit_def] >>
+     `~LFINITE inl` by fs[LFINITE_LLENGTH] >>
+     drule(CONJUNCT1 LTAKE_DROP) >>
+     disch_then(qspec_then `n0` (fn thm => CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [GSYM thm])))) >>
+     simp[LFILTER_APPEND,LFINITE_fromList,LFILTER_fromList] >>
+     qmatch_goalsub_abbrev_tac `FILTER af al` >>
+     `FILTER af al = []`
+       by(unabbrev_all_tac >>
+          drule_then(qspec_then `n0` strip_assume_tac) LLENGTH_NONE_LTAKE >>
+          rw[FILTER_EQ_NIL,EVERY_FLAT,EVERY_GENLIST,next_filter_events,
+             is_emit_def] >>
+          rw[EVERY_EL] >>
+          first_x_assum(qspec_then `n` mp_tac) >>
+          impl_keep_tac >- metis_tac[LTAKE_LENGTH] >>
+          drule_then drule LTAKE_LNTH_EL >> simp[]) >>
+     unabbrev_all_tac >>
+     `?i1 inl'. LDROP n0 inl = SOME(i1:::inl')`
+          by(qpat_x_assum `LLENGTH inl = NONE` mp_tac >>
+             qid_spec_tac `inl` >> rpt(pop_assum kall_tac) >>
+             Induct_on `n0` >> fs[] >>
+             Cases >> rw[]) >>
+     fs[LNTH_HD_LDROP,output_event_of_def] >>
+     fs[GSYM every_def] >>
+     imp_res_tac every_LDROP >>
+     fs[TAKE_LENGTH_TOO_LONG] >>
+     fs[null_terminated_cut_w_APPEND]) >-
+    (qmatch_goalsub_abbrev_tac `llist_upto REL` >>
+     drule exists_LFLATTEN >>
+     impl_tac >- rw[every_LNTH,LNTH_LGENLIST,next_filter_events,LFINITE_fromList] >>
+     simp[SimpL ``$==>``,exists_LNTH,LNTH_LGENLIST] >>
+     Ho_Rewrite.PURE_ONCE_REWRITE_TAC [cut_at_null_simplify] >>
+     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+     rename1 `LNTH n0` >>
+     qmatch_goalsub_abbrev_tac `LGENLIST f` >>
+     Q.ISPECL_THEN [`n0`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
+     simp[] >>
+     pop_assum kall_tac >>
+     simp[LFLATTEN_LAPPEND_fromList] >>
+     qunabbrev_tac `f` >>
+     Ho_Rewrite.REWRITE_TAC[LFLATTEN_fromList_GENLIST] >>
+     simp[LFILTER_APPEND,LFINITE_fromList,LFILTER_fromList] >>
+     qmatch_goalsub_abbrev_tac `FILTER is_emit a1` >>
+     `FILTER is_emit a1 = []`
+       by(unabbrev_all_tac >>
+          rw[FILTER_EQ_NIL,EVERY_FLAT,EVERY_GENLIST,next_filter_events,
+             is_emit_def]) >>
+     simp[] >> ntac 2 (pop_assum kall_tac) >>
+     CONV_TAC(RATOR_CONV(RAND_CONV(PURE_ONCE_REWRITE_CONV [LGENLIST_NONE_UNFOLD]))) >>
+     simp[LFILTER_APPEND,LFINITE_fromList,LFILTER_fromList,
+          Once next_filter_events,is_emit_def] >>
+     `~LFINITE inl` by fs[LFINITE_LLENGTH] >>
+     drule(CONJUNCT1 LTAKE_DROP) >>
+     disch_then(qspec_then `n0` (fn thm => CONV_TAC(RAND_CONV(PURE_ONCE_REWRITE_CONV [GSYM thm])))) >>
+     simp[LFILTER_APPEND,LFINITE_fromList,LFILTER_fromList] >>
+     fs[is_emit_def] >>
+     qmatch_goalsub_abbrev_tac `llist$fromList(FILTER af al)` >>
+     `FILTER af al = []`
+       by(unabbrev_all_tac >>
+          drule_then(qspec_then `n0` strip_assume_tac) LLENGTH_NONE_LTAKE >>
+          rw[FILTER_EQ_NIL,EVERY_FLAT,EVERY_GENLIST,next_filter_events,
+             is_emit_def] >>
+          rw[EVERY_EL] >>
+          first_x_assum(qspec_then `n` mp_tac) >>
+          impl_keep_tac >- metis_tac[LTAKE_LENGTH] >>
+          drule_then drule LTAKE_LNTH_EL >> simp[]) >>
+     unabbrev_all_tac >>
+     `?i1 inl'. LDROP n0 inl = SOME(i1:::inl')`
+          by(qpat_x_assum `LLENGTH inl = NONE` mp_tac >>
+             qid_spec_tac `inl` >> rpt(pop_assum kall_tac) >>
+             Induct_on `n0` >> fs[] >>
+             Cases >> rw[]) >>
+     fs[LNTH_HD_LDROP,output_event_of_def] >>
+     fs[GSYM every_def] >>
+     imp_res_tac every_LDROP >>
+     fs[TAKE_LENGTH_TOO_LONG] >>
+     fs[null_terminated_cut_w_APPEND] >>
+     match_mp_tac llist_upto_rel >>
+     rw[o_DEF] >>
+     qexists_tac `inl'` >> fs[o_DEF] >>
+     qexists_tac `nth_arr_init (n0 + 1) inl buff` >>
+     fs[] >>
+     simp[REWRITE_RULE [o_DEF] nth_arr_init_LENGTH] >>
+     PURE_ONCE_REWRITE_TAC[ADD_SYM] >>
+     PURE_ONCE_REWRITE_TAC[GSYM ADD_ASSOC] >>
+     FULL_SIMP_TAC std_ss [nth_arr_init_add] >>
+     PURE_ONCE_REWRITE_TAC[ADD_SYM] >>
+     PURE_ONCE_REWRITE_TAC[GSYM ADD1] >>
+     FULL_SIMP_TAC std_ss [Once LDROP_ADD] >>
+     fs[REWRITE_RULE [ADD1] LDROP_SUC,LDROP_SUC] >>
+     drule_all LLENGTH_NONE_LDROP >>
+     rw[LLENGTH_THM])
 QED
 
 Theorem LTAKE_LLENGTH_SOME2:
@@ -1096,9 +1095,14 @@ Theorem forward_matching_lines_ffidiv_spec:
       (seL4_IO input [] * W8ARRAY dummyarr_loc [])
       (POSTf s. λconf (bytes:word8 list).
          &(s = "accept_call" /\ conf = []) *
-         seL4_IO [||] (THE(toList(filter_events (language o MAP (CHR o w2n)) <|input:=input|>))) *
          W8ARRAY dummyarr_loc [] *
-         SEP_EXISTS loc init. W8ARRAY loc init
+         SEP_EXISTS loc init. W8ARRAY loc init *
+         SEP_EXISTS events.
+         seL4_IO [||] events *
+         cond(LFILTER is_emit (fromList events) =
+              LMAP (output_event_of o cut_at_null_w)
+                   (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w)
+                   input))
       )
 Proof
   xcf "forward_matching_lines" st >>
@@ -1106,15 +1110,12 @@ Proof
   xlet_auto >- xsimpl >>
   unfold_cf_app >>
   imp_res_tac LTAKE_LLENGTH_SOME2 >> rveq >>
-  simp[filter_events] >>
   qmatch_goalsub_abbrev_tac `W8ARRAY _ init` >>
   `LENGTH init = 256` by(qunabbrev_tac `init` >> simp[]) >>
   pop_assum mp_tac >> pop_assum kall_tac >>
   qmatch_goalsub_abbrev_tac `seL4_IO _ events` >>
-  qmatch_goalsub_abbrev_tac `seL4_IO [||] newevents` >>
-  `newevents = events ++ newevents` by(unabbrev_all_tac >> simp[]) >>
+  `!newevents. seL4_IO [||] newevents = seL4_IO [||] (events ++ newevents)` by(unabbrev_all_tac >> simp[]) >>
   pop_assum(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
-  qunabbrev_tac `newevents` >>
   pop_assum kall_tac >>
   rpt(pop_assum mp_tac) >>
   SPEC_ALL_TAC >>
@@ -1137,11 +1138,10 @@ Proof
         unabbrev_all_tac >> xsimpl >>
         simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
         xsimpl) >>
-     simp[SEP_IMPPOSTv_inv_def,SEP_IMPPOSTd_POSTf_left,SEP_IMPPOSTe_POSTf_left] >>
-     rw[SEP_IMPPOSTf_def] >>
-     simp[Once LUNFOLD] >> simp[next_filter_event,toList_THM] >>
-     xsimpl >> metis_tac[SEP_IMP_REFL]) >>
-  rw[] >>
+     xsimpl >> rename1 `W8ARRAY loc init` >>
+     MAP_EVERY qexists_tac [`loc`,`init`,`[]`] >>
+     simp[] >> xsimpl) >>
+  rpt strip_tac >> fs[] >>
   xcf "forward_loop" st >>
   qabbrev_tac `newinit = TAKE 256 h ++ DROP (LENGTH h) init` >>
   xlet `POSTv v. &UNIT_TYPE () v *
@@ -1157,19 +1157,19 @@ Proof
      simp[SNOC_APPEND,SEP_IMP_REFL]) >>
   xlet `(POSTv v. &UNIT_TYPE () v * W8ARRAY dummyarr_loc [] *
          W8ARRAY v' newinit *
-         seL4_IO (fromList l) (events ++ THE
-                 (toList
-                    (LUNFOLD
-                       (next_filter_event (language ∘ MAP (CHR ∘ w2n)))
-                       (<|input := [|h|]|>,init,F)))))` >-
+         SEP_EXISTS events'.
+         seL4_IO (fromList l) (events ++ events') *
+         &(LFILTER is_emit (fromList events') =
+           LMAP (output_event_of o cut_at_null_w)
+           (if language (MAP(CHR o w2n) (cut_at_null_w h)) then
+             [|h|]
+            else [||])))` >-
     (xlet_auto >- (xsimpl >> simp[LENGTH_TAKE_EQ]) >>
      xlet_auto >- xsimpl >>
      xlet_auto >- xsimpl >>
      reverse xif >-
        (xcon >> xsimpl >>
         fs[match_string_eq] >>
-        simp[Once LUNFOLD,next_filter_event] >>
-        simp[Once LUNFOLD,next_filter_event] >>
         qunabbrev_tac `newinit` >>
         fs[null_terminated_w_thm,implode_def] >>
         rfs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG,TAKE_TAKE_MIN] >>
@@ -1178,7 +1178,11 @@ Proof
         fs[DROP_APPEND1,DROP_LENGTH_TOO_LONG] >>
         simp[SNOC_APPEND,toList_THM] >> xsimpl >>
         PURE_REWRITE_TAC[GSYM APPEND_ASSOC,APPEND,SNOC_APPEND] >>
-        xsimpl) >>
+        xsimpl >>
+        qmatch_goalsub_abbrev_tac `events ++ x` >>
+        qexists_tac `x` >> simp[Abbr `x`] >>
+        simp[is_emit_def] >> xsimpl
+       ) >>
      xffi >> xsimpl >>
      simp[seL4_IO_def] >>
      imp_res_tac STRING_TYPE_explode >>
@@ -1189,50 +1193,30 @@ Proof
      unabbrev_all_tac >> simp[] >> xsimpl >>
      simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
      xsimpl >>
-     ntac 2 (simp[Once LUNFOLD,next_filter_event]) >>
      fs[match_string_eq] >>
      fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
      fs[null_terminated_w_thm,implode_def] >>
      rfs[null_terminated_cut_APPEND,TAKE_APPEND,TAKE_LENGTH_TOO_LONG] >>
      rfs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
-     simp[Once LUNFOLD,next_filter_event,toList_THM] >>
+     simp[toList_THM] >>
      PURE_REWRITE_TAC[GSYM APPEND_ASSOC,APPEND,SNOC_APPEND] >>
-     xsimpl) >>
-  qmatch_goalsub_abbrev_tac `seL4_IO _ oldevents` >>
-  qmatch_goalsub_abbrev_tac `seL4_IO [||] newevents` >>
-  `newevents = oldevents ++ THE(toList(LUNFOLD(next_filter_event (language o MAP(CHR o w2n)))
-                                              (<|input := fromList l|>,newinit,F)))`
-    by(unabbrev_all_tac >>
-       simp[] >>
-       simp[SimpL``$=``,Once LUNFOLD,next_filter_event] >>
-       CONV_TAC(RHS_CONV(RATOR_CONV(PURE_ONCE_REWRITE_CONV[LUNFOLD]))) >>
-       simp[next_filter_event] >>
-       reverse(Cases_on `language (MAP (CHR ∘ w2n) (cut_at_null_w h))`) >-
-         (CONV_TAC(RHS_CONV(RATOR_CONV(PURE_ONCE_REWRITE_CONV[LUNFOLD]))) >>
-          simp[next_filter_event] >>
-       simp[toList_THM] >>
-       qmatch_goalsub_abbrev_tac `LUNFOLD (next_filter_event f)
-                                           (<|input := fromList i1|>,innit,b)` >>
-       qspecl_then [`i1`,`f`,`innit`,`b`] mp_tac finite_events_is_list >>
-       rw[IS_SOME_EXISTS] >> rw[]) >>
-       CONV_TAC(RHS_CONV(RATOR_CONV(PURE_ONCE_REWRITE_CONV[LUNFOLD]))) >>
-       simp[SimpL``$=``,Once LUNFOLD,next_filter_event] >>
-       CONV_TAC(RHS_CONV(RATOR_CONV(PURE_ONCE_REWRITE_CONV[LUNFOLD]))) >>
-       simp[next_filter_event] >>
-       simp[toList_THM] >>
-       qmatch_goalsub_abbrev_tac `LUNFOLD (next_filter_event f)
-                                           (<|input := fromList i1|>,innit,b)` >>
-       qspecl_then [`i1`,`f`,`innit`,`b`] mp_tac finite_events_is_list >>
-       rw[IS_SOME_EXISTS] >> rw[]) >>
-  simp[] >>
-  fs[LLENGTH_fromList] >>
-  `LENGTH newinit = 256` by(fs[Abbr `newinit`,LENGTH_TAKE_EQ]) >>
-  xapp >> xsimpl >>
-  CONV_TAC SWAP_EXISTS_CONV >> qexists_tac `oldevents` >>
+     xsimpl >>
+     qmatch_goalsub_abbrev_tac `events ++ x` >>
+     qexists_tac `x` >> simp[Abbr `x`] >>
+     simp[is_emit_def] >> xsimpl >>
+     simp[output_event_of_def,cut_at_null_w_thm,implode_def]
+    ) >>
+  xapp >>
   xsimpl >>
-  asm_exists_tac >> simp[] >>
-  rw[] >> rename1 `W8ARRAY a b` >>
-  MAP_EVERY qexists_tac [`a`,`b`] >>
+  CONV_TAC SWAP_EXISTS_CONV >>
+  qexists_tac `events ++ events'` >>
+  xsimpl >>
+  unabbrev_all_tac >> simp[LENGTH_TAKE_EQ] >>
+  asm_exists_tac >> rw[] >>
+  rename1 `events ++ events' ++ events''` >>
+  rename1 `W8ARRAY a1 a2` >>
+  MAP_EVERY qexists_tac [`a1`,`a2`,`events' ++ events''`] >>
+  fs[LFILTER_APPEND,LFINITE_fromList,GSYM LAPPEND_fromList] >>
   xsimpl
 QED
 
@@ -1271,10 +1255,12 @@ Theorem forward_matching_lines_semantics:
  LLENGTH input = NONE /\ every null_terminated_w input /\
  every ($>= 256 ∘ LENGTH) input
  ==>
+ ?events.
  semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
   [Dlet unknown_loc (Pcon NONE [])
            (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])]
-  (Diverge (filter_events (language o MAP (CHR o w2n)) <|input:=input|>))
+  (Diverge events) /\
+ LFILTER is_emit events = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input)
 Proof
   rpt strip_tac >>
   `nsLookup ^(get_env st).v (Short "forward_matching_lines") = SOME forward_matching_lines_v`
@@ -1323,7 +1309,9 @@ Proof
   strip_tac >>
   Cases_on `r` >> fs[cond_def] >> rveq >>
   fs[evaluate_to_heap_def,semanticsTheory.semantics_prog_def] >>
-  strip_tac >-
+  rename1 `lprefix_lub _ events` >>
+  qexists_tac `events` >>
+  rpt strip_tac >-
     (simp[semanticsTheory.evaluate_prog_with_clock_def,
           terminationTheory.evaluate_decs_def,
           astTheory.pat_bindings_def] >>
@@ -1333,6 +1321,7 @@ Proof
      fs[evaluate_ck_def] >>
      first_x_assum(qspec_then `k - 1` strip_assume_tac) >>
      fs[]) >>
+  fs[] >>
   match_mp_tac(GEN_ALL lprefix_lub_subset) >>
   asm_exists_tac >> simp[] >> conj_tac >-
     (rw[IMAGE_DEF,SUBSET_DEF] >>
@@ -1372,12 +1361,13 @@ Theorem forward_matching_lines_ffidiv_semantics:
  LLENGTH input = SOME n /\ every null_terminated_w input /\
  every ($>= 256 ∘ LENGTH) input
  ==>
- ?bytes.
+ ?bytes events.
  semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
   [Dlet unknown_loc (Pcon NONE [])
            (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])]
   (Terminate (FFI_outcome(Final_event "accept_call" [] bytes FFI_diverged))
-             (THE(toList(filter_events (language o MAP (CHR o w2n)) <|input:=input|>))))
+             events) /\
+ LFILTER is_emit (fromList events) = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input)
 Proof
   rpt strip_tac >>
   `nsLookup ^(get_env st).v (Short "forward_matching_lines") = SOME forward_matching_lines_v`
@@ -1440,331 +1430,12 @@ Proof
   simp[terminationTheory.evaluate_def] >>
   simp[semanticPrimitivesTheory.do_con_check_def,semanticPrimitivesTheory.build_conv_def] >>
   rw[evaluateTheory.dec_clock_def] >>
+  PURE_ONCE_REWRITE_TAC[CONJ_SYM] >>
+  asm_exists_tac >> simp[] >>
   CONV_TAC SWAP_EXISTS_CONV >>
   qexists_tac `SUC ck` >>
   fs[evaluate_ck_def]
 QED
-
-val event_stream_finite = Q.store_thm("event_stream_finite",
-  `!st f n.
-  LLENGTH st.input = SOME n /\
-  every null_terminated_w st.input /\
-  every ($>= 256 o LENGTH) st.input
-  ==> LFINITE(filter_events f st)`,
-  rw[LFINITE_toList_SOME] >>
-  Cases_on `st` >> simp[filter_events] >>
-  `filter_ffi l = <|input := l|>` by simp[filter_ffi_component_equality] >>
-  fs[] >> metis_tac[LTAKE_LLENGTH_SOME2,finite_events_is_list]);
-
-val is_emit_def = Define
-  `is_emit (IO_event s _ _) = (s = "emit_string")`
-
-val output_event_of_def = Define
-  `output_event_of s = IO_event "emit_string" s []`
-
-val LDROP_APPEND3 = Q.store_thm("LDROP_APPEND3",
-  `LLENGTH l1 = SOME n ==> LDROP n (LAPPEND l1 l2) = SOME l2`,
-  strip_tac
-  >> `LDROP n l1 = SOME [||]` by(rw[LDROP_EQ_LNIL])
-  >> drule LDROP_APPEND1 >> rw[]);
-
-val exists_split = Q.store_thm("exists_split",
-  `!ll. exists f ll ==> ?ll1 e ll2. ll = LAPPEND ll1 (e:::ll2) /\ every ($~ ∘ f) ll1 /\ LFINITE ll1 /\ f e`,
-  ho_match_mp_tac exists_strongind >> rpt strip_tac
-  >- (qexists_tac `[||]` >> simp[])
-  >> Cases_on `f h`
-  >- (qexists_tac `[||]` >> simp[])
-  >> qexists_tac `h:::ll1`
-  >> fs[]
-  >> metis_tac[]);
-
-val not_o_not = Q.prove(`$~ ∘ ($~:bool -> bool) ∘ f = f`,
-  rw[FUN_EQ_THM]);
-
-val LUNFOLD_EQ_APPEND_IMP = Q.prove(
-  `LUNFOLD f e = LAPPEND ll1 ll2 /\ LFINITE ll1
-   ==> ll2 = LUNFOLD f (FUNPOW (FST o THE o f) (THE(LLENGTH ll1)) e)
-  `,
-  rpt strip_tac
-  >> imp_res_tac to_fromList
-  >> qmatch_asmsub_abbrev_tac `fromList a1`
-  >> pop_assum kall_tac
-  >> rveq >> fs[]
-  >> rpt(pop_assum mp_tac)
-  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`ll1`,`ll2`,`f`,`e`,`a1`]
-  >> Induct
-  >- fs[]
-  >> rpt strip_tac
-  >> fs[]
-  >> qhdtm_x_assum `LUNFOLD` (assume_tac o PURE_ONCE_REWRITE_RULE[LUNFOLD])
-  >> PURE_FULL_CASE_TAC >> fs[]
-  >> PURE_FULL_CASE_TAC >> fs[FUNPOW]);
-
-val LUNFOLD_EQ_APPEND_IMP2 = Q.prove(
-  `LUNFOLD f e = LAPPEND ll1 ll2 /\ LFINITE ll1
-   ==> toList(ll1) = LTAKE (THE(LLENGTH ll1)) (LUNFOLD f e)
-  `,
-  rpt strip_tac
-  >> imp_res_tac to_fromList
-  >> qmatch_asmsub_abbrev_tac `fromList a1`
-  >> pop_assum kall_tac
-  >> rveq >> fs[]
-  >> rpt(pop_assum mp_tac)
-  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`ll1`,`ll2`,`f`,`e`,`a1`]
-  >> Induct
-  >- fs[toList]
-  >> rpt strip_tac
-  >> fs[toList]
-  >> qhdtm_x_assum `LUNFOLD` (assume_tac o PURE_ONCE_REWRITE_RULE[LUNFOLD])
-  >> PURE_FULL_CASE_TAC >> fs[]
-  >> PURE_FULL_CASE_TAC >> fs[FUNPOW]
-  >> metis_tac[LTAKE_LAPPEND1,LTAKE_fromList]);
-
-val next_filter_event_invariants_lemma = Q.prove(
-  `!n inl f buff newbuff ffi b.
-   (case LLENGTH inl of NONE => T | SOME l => n < SUC l) /\
-   EVERY ($~ ∘ f ∘ cut_at_null_w) (THE(LTAKE (n-1) inl)) /\
-   LENGTH buff = 256 /\
-   ¬exists ($~ ∘ $>= 256 ∘ LENGTH) inl /\
-   ¬exists ($~ ∘ null_terminated_w) inl /\
-   FUNPOW (FST o THE o next_filter_event f) n (<|input := inl|>,buff,F)
-   = (ffi,newbuff,b) ==>
-   ffi = <|input := THE(LDROP n inl)|> /\
-   LENGTH newbuff = 256 /\ (b = if n = 0 then F else f(cut_at_null_w(THE(LNTH (n-1) inl)))) /\
-   if n = 0 then buff = newbuff else
-    cut_at_null_w(THE(LNTH (n-1) inl)) =
-    cut_at_null_w newbuff`,
-  Induct
-  >- fs[]
-  >> rpt(gen_tac ORELSE disch_then strip_assume_tac)
-  >> Cases_on `inl` >> fs[FUNPOW]
-  >> fs[next_filter_event]
-  >> Cases_on `n`
-  >- (fs[] >> rveq >> simp[LENGTH_TAKE_EQ]
-      >> fs[GREATER_EQ,TAKE_LENGTH_TOO_LONG,null_terminated_cut_w_APPEND])
-  >> fs[] >> rename1 `SUC n`
-  >> first_x_assum match_mp_tac
-  >> Cases_on `LLENGTH t` >> fs[]
-  >- (rename1 `LLENGTH newinput = NONE`
-      >> `~LFINITE newinput` by(CCONTR_TAC >> fs[] >> imp_res_tac LFINITE_HAS_LENGTH >> fs[])
-      >> drule NOT_LFINITE_TAKE >> disch_then(qspec_then `n` strip_assume_tac)
-      >> fs[]
-      >> qmatch_asmsub_abbrev_tac `FUNPOW _ _(_,oldbuff,_)`
-      >> qexists_tac `oldbuff` >> qunabbrev_tac `oldbuff`
-      >> simp[LENGTH_TAKE_EQ] >> rfs[])
-  >> rename1 `LLENGTH newinput = SOME _`
-  >> `LFINITE newinput` by(simp[LFINITE_LLENGTH])
-  >> drule LFINITE_TAKE >> simp[] >> disch_then(qspec_then `n` mp_tac)
-  >> impl_tac >- simp[]
-  >> strip_tac >> fs[]
-  >> qmatch_asmsub_abbrev_tac `FUNPOW _ _(_,oldbuff,_)`
-  >> qexists_tac `oldbuff` >> qunabbrev_tac `oldbuff`
-  >> simp[LENGTH_TAKE_EQ] >> rfs[]);
-
-val next_filter_event_invariants_lemma' = Q.prove(
-  `!n inl f buff newbuff ffi b.
-   EVERY ($~ ∘ f ∘ cut_at_null_w) (THE(LTAKE (n-1) inl)) /\
-   LENGTH buff = 256 /\
-   ¬exists ($~ ∘ $>= 256 ∘ LENGTH) inl /\
-   ¬exists ($~ ∘ null_terminated_w) inl /\
-   FUNPOW (FST o THE o next_filter_event f) n (<|input := inl|>,buff,F)
-                                          = (ffi,newbuff,b) /\
-   less_opt n (lift SUC (LLENGTH inl)) ==>
-   ffi = <|input := THE(LDROP n inl)|> /\
-   LENGTH newbuff = 256 /\ (b = if n = 0 then F else f(cut_at_null_w(THE(LNTH (n-1) inl)))) /\
-   if n = 0 then buff = newbuff else
-    cut_at_null_w(THE(LNTH (n-1) inl)) =
-    cut_at_null_w newbuff`,
-  rpt(gen_tac ORELSE disch_then strip_assume_tac)
-  >> ho_match_mp_tac(GEN_ALL next_filter_event_invariants_lemma)
-  >> PURE_TOP_CASE_TAC >> fs[less_opt_def] >> asm_exists_tac >> fs[]);
-
-val less_opt_SUC = Q.prove(`!n n'. less_opt (SUC n) (lift SUC n') = less_opt n n'`,
-  Cases_on `n'` >> rw[less_opt_def]);
-
-val next_filter_event_cut_lemma = Q.prove(
-  `LFINITE ll1 /\
-   toList ll1 =
-   LTAKE (THE (LLENGTH ll1))
-         (LUNFOLD (next_filter_event f)
-                  (ffi,buff,F)) /\
-   LFILTER is_emit ll1 = [||] /\ LENGTH buff = 256
-   ==> EVERY ($~ ∘ f ∘ cut_at_null_w) (THE(LTAKE (THE(LLENGTH ll1) - 1) ffi.input)) /\
-       less_opt(THE(LLENGTH ll1)) (lift SUC (LLENGTH ffi.input))
-  `,
-  rpt(disch_then strip_assume_tac)
-  >> imp_res_tac to_fromList
-  >> qmatch_asmsub_abbrev_tac `fromList a1`
-  >> pop_assum kall_tac
-  >> rveq >> fs[]
-  >> rpt(pop_assum mp_tac)
-  >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`f`,`ffi`,`buff`,`a1`]
-  >> Induct
-  >- (rpt strip_tac >> fs[] >> Cases_on `LLENGTH ffi.input` >> fs[less_opt_def])
-  >> rpt(gen_tac ORELSE disch_then strip_assume_tac)
-  >> rfs[toList,LTAKE_fromList]
-  >> PURE_FULL_CASE_TAC >> fs[]
-  >> fs[LTAKE_LUNFOLD]
-  >> fs[next_filter_event]
-  >> PURE_FULL_CASE_TAC >> fs[] >> rveq
-  >> Cases_on `a1` >- (fs[] >> Cases_on `LLENGTH ffi.input` >> fs[less_opt_def] >> Cases_on `ffi.input` >> fs[])
-  >> Cases_on `ffi.input` >> fs[]
-  >> `~f(cut_at_null_w(THE(LHD ffi.input)))`
-     by(fs[LTAKE_LUNFOLD]
-        >> fs[next_filter_event]
-        >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq >> fs[is_emit_def]))
-  >> rfs[] >> fs[]
-  >> first_x_assum (drule o GSYM)
-  >> impl_tac >- simp[LENGTH_TAKE_EQ]
-  >> strip_tac
-  >> fs[less_opt_SUC]
-  >> Cases_on `LTAKE (LENGTH t) t'`
-  >> fs[less_opt_def]);
-
-val LTAKE_DROP' = Q.prove(`
-  !n ll. less_opt n (lift SUC (LLENGTH ll))
-  ==> LAPPEND (fromList(THE(LTAKE n ll))) (THE(LDROP n ll)) = ll`,
-  rpt strip_tac >> reverse(Cases_on `LLENGTH ll`) >> fs[less_opt_def]
-  >- (`LFINITE ll` by(CCONTR_TAC >> imp_res_tac NOT_LFINITE_NO_LENGTH >> fs[])
-      >> match_mp_tac(CONJUNCT2 LTAKE_DROP) >> fs[])
-  >> `~LFINITE ll` by(fs[LFINITE_LLENGTH])
-  >> metis_tac[LTAKE_DROP]);
-
-val LTAKE_IS_SOME = Q.prove(`
-  !n ll. less_opt n (lift SUC (LLENGTH ll))
-  ==> IS_SOME(LTAKE n ll)`,
-  rpt strip_tac >> reverse(Cases_on `LLENGTH ll`) >> fs[less_opt_def]
-  >- (`LFINITE ll` by(fs[LFINITE_LLENGTH])
-      >> fs[IS_SOME_EXISTS] >> fs[LESS_EQ] >> drule LFINITE_TAKE >> simp[])
-  >> `~LFINITE ll` by(fs[LFINITE_LLENGTH])
-  >> fs[IS_SOME_EXISTS,NOT_LFINITE_TAKE]);
-
-val LTAKE_IS_SOME' = Q.prove(`
-  !n ll. less_opt n (LLENGTH ll)
-  ==> IS_SOME(LTAKE n ll)`,
-  rpt strip_tac >> match_mp_tac LTAKE_IS_SOME  >> reverse(Cases_on `LLENGTH ll`) >> fs[less_opt_def]);
-
-val LFILTER_fromList = Q.prove(`
-  !l. LFILTER f (fromList l) = fromList(FILTER f l)`,
-  Induct >> rw[]);
-
-val LMAP_fromList = Q.prove(
-  `!l. LMAP f (fromList l) = fromList(MAP f l)`,
-  Induct >> rw[]);
-
-val FILTER_EQ_NIL' = Q.prove(
-  `!l. FILTER P l = [] ⇔ EVERY ($~ o P) l`,
-  metis_tac[NOT_DEF,FILTER_EQ_NIL]);
-
-val every_LDROP = Q.prove(`
-  !n ll. every P ll /\ less_opt n (lift SUC(LLENGTH ll)) ==> every P (THE(LDROP n ll))
-  `,
-  Induct >> rpt strip_tac >> fs[]
-  >> imp_res_tac less_opt_SUC_elim >> fs[]
-  >> Cases_on `ll` >> fs[less_opt_def,less_opt_SUC]);
-
-val filter_bisim_rel_def = Define `
-  filter_bisim_rel =
-  λl1 l2.
-   (?inl buff.
-     l1 = LFILTER is_emit (LUNFOLD (next_filter_event (language o MAP (CHR o w2n))) (<|input := inl|>,buff,F)) /\
-     l2 = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) inl) /\
-     LENGTH buff = 256 /\
-     every ($>= 256 ∘ LENGTH) inl /\
-     every null_terminated_w inl)`
-
-val filter_bisim_rel_is_bisim = Q.store_thm("filter_bisim_rel_is_bisim",
-  `∀ll1 ll2.
-    filter_bisim_rel ll1 ll2 ⇒
-    ll1 = [||] ∧ ll2 = [||] ∨
-    ∃h t1 t2. ll1 = h:::t1 ∧ ll2 = h:::t2 ∧ filter_bisim_rel t1 t2`,
-  rw[filter_bisim_rel_def]
-  >> rpt strip_tac >> simp[]
-  >> qmatch_goalsub_abbrev_tac `a1 /\ _ \/ _`
-  >> Cases_on `a1` (* Are there incoming messages that will pass the filter? *)
-  >> fs[markerTheory.Abbrev_def]
-  >- ((* No incoming messages *)
-      `LFILTER (language ∘ MAP (CHR ∘ w2n) ∘ cut_at_null_w) inl = [||]` suffices_by fs[]
-      >> fs[LFILTER_EQ_NIL]
-      >> rpt(pop_assum mp_tac)
-      >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`buff`,`inl`]
-      >> SIMP_TAC pure_ss [AND_IMP_INTRO,LEFT_FORALL_IMP_THM]
-      >> ho_match_mp_tac every_coind
-      >> rpt gen_tac >> rpt(disch_then strip_assume_tac)
-      >> qpat_x_assum `_ _ (LUNFOLD _ _)` (assume_tac o PURE_ONCE_REWRITE_RULE [LUNFOLD])
-      >> pop_assum (assume_tac o PURE_ONCE_REWRITE_RULE [next_filter_event])
-      >> fs[is_emit_def]
-      >> `¬language (MAP (CHR ∘ w2n) (cut_at_null_w h))`
-         by(CCONTR_TAC
-            >> qpat_x_assum `_ _ (LUNFOLD _ _)` (assume_tac o PURE_ONCE_REWRITE_RULE [LUNFOLD])
-            >> pop_assum (assume_tac o PURE_ONCE_REWRITE_RULE [next_filter_event])
-            >> rfs[is_emit_def])
-      >> fs[]
-      >> PURE_ONCE_REWRITE_TAC [CONJ_SYM] >> asm_exists_tac
-      >> fs[LENGTH_TAKE_EQ])
-  (* Some incoming messages *)
-  >> fs[LFILTER_EQ_NIL,every_def]
-  >> imp_res_tac exists_split >> fs[]
-  >> fs[LFILTER_APPEND]
-  >> fs[GSYM LFILTER_EQ_NIL]
-  >> fs[not_o_not]
-  >> drule LUNFOLD_EQ_APPEND_IMP >> disch_then drule
-  >> disch_then(strip_assume_tac o PURE_ONCE_REWRITE_RULE[LUNFOLD])
-  >> PURE_FULL_CASE_TAC >> fs[]
-  >> PURE_FULL_CASE_TAC >> fs[]
-  >> rveq
-  >> qmatch_asmsub_abbrev_tac `next_filter_event _ a1`
-  >> Cases_on `a1`
-  >> rename1 `Abbrev((_,a2) = _)`
-  >> Cases_on `a2`
-  >> pop_assum(assume_tac o GSYM o PURE_ONCE_REWRITE_RULE[markerTheory.Abbrev_def])
-  >> qhdtm_x_assum `next_filter_event` (assume_tac o PURE_ONCE_REWRITE_RULE [next_filter_event])
-  >> rfs[]
-  >> rename1 `if a3 then _ else _`
-  >> Cases_on `a3` >> fs[] >> rveq >> fs[is_emit_def]
-  >> rename1 `FUNPOW _ _ _ = (ffi,_)`
-  >> rename1 `FUNPOW _ _ _ = (_,newbuff,_)`
-  >> fs[PULL_EXISTS]
-  >> qexists_tac `ffi.input`
-  >> qexists_tac `newbuff`
-  >> qmatch_goalsub_abbrev_tac `LFILTER _ (LUNFOLD _ (ffi1,_)) = LFILTER _ (LUNFOLD _ (ffi2,_))`
-  >> `ffi1 = ffi2` by(unabbrev_all_tac >> fs[fetch "-" "filter_ffi_component_equality"])
-  >> unabbrev_all_tac >> fs[]
-  >> imp_res_tac LUNFOLD_EQ_APPEND_IMP2
-  >> drule(GEN_ALL next_filter_event_cut_lemma)
-  >> disch_then drule
-  >> impl_tac >- simp[]
-  >> strip_tac >> fs[]
-  >> FULL_SIMP_TAC bool_ss
-                   [Q.prove(`!a b c d. a o b o c o d = a o (b o c) o d`,simp[FUN_EQ_THM])]
-  >> drule(GEN_ALL next_filter_event_invariants_lemma')
-  >> rpt(disch_then drule) >> strip_tac
-  >> fs[]
-  >> conj_tac
-  >- (drule(GSYM LTAKE_DROP') >> disch_then(fn thm => PURE_ONCE_REWRITE_TAC[thm] >> assume_tac thm)
-      >> fs[LFILTER_APPEND]
-      >> `?y. LLENGTH ll1 = SOME y` by(fs[LFINITE_LLENGTH])
-      >> fs[]
-      >> `LFINITE(fromList(THE(LTAKE y inl)))` by(fs[LFINITE_LLENGTH])
-      >> fs[LFILTER_APPEND,LMAP_APPEND]
-      >> fs[LFILTER_fromList]
-      >> Cases_on `y` >> fs[]
-      >> fs [LTAKE_SNOC_LNTH]
-      >> imp_res_tac LTAKE_IS_SOME
-      >> fs[IS_SOME_EXISTS]
-      >> drule LTAKE_LNTH_EL >> disch_then(qspec_then `n` assume_tac) >> fs[]
-      >> fs[less_opt_SUC]
-      >> imp_res_tac LTAKE_IS_SOME'
-      >> fs[IS_SOME_EXISTS]
-      >> fs[FILTER_APPEND,LMAP_fromList]
-      >> fs[GSYM FILTER_EQ_NIL']
-      >> fs[output_event_of_def]
-      >> fs[FUNPOW]
-      >> qmatch_goalsub_abbrev_tac `LDROP _ (LAPPEND a1 _)`
-      >> `LLENGTH a1 = SOME(SUC n)` by(qunabbrev_tac `a1` >> imp_res_tac LTAKE_LENGTH >> fs[])
-      >> fs[LDROP_APPEND3])
-  >> fs[GSYM every_def]
-  >> imp_res_tac every_LDROP >> simp[]);
 
 val semantics_diverge_filter = Q.store_thm("semantics_diverge_filter",
   `every ($>= 256 o LENGTH) inl
@@ -1778,18 +1449,10 @@ val semantics_diverge_filter = Q.store_thm("semantics_diverge_filter",
          >> metis_tac[forward_matching_lines_ffidiv_semantics,ffiTheory.behaviour_distinct,
                       semanticsPropsTheory.semantics_prog_deterministic])
   >> imp_res_tac(GEN_ALL forward_matching_lines_semantics)
-  >> first_x_assum(qspec_then `ffi` assume_tac)
+  >> first_x_assum(qspec_then `ffi` strip_assume_tac)
   >> dxrule semanticsPropsTheory.semantics_prog_deterministic
   >> disch_then dxrule >> simp[]
-  >> strip_tac >> rveq
-  >> simp[filter_events]
-  >> PURE_ONCE_REWRITE_TAC[LLIST_BISIMULATION0]
-  >> qexists_tac `filter_bisim_rel`
-  >> conj_tac
-  >- (* The llists are in the candidate relation *)
-    (rw[filter_bisim_rel_def] >> MAP_EVERY qexists_tac [`inl`,`REPLICATE 256 0w`] >> rw[] >> EVAL_TAC)
-  (* The candidate relation is closed under destruction *)
-  >> ACCEPT_TAC filter_bisim_rel_is_bisim);
+  >> metis_tac[]);
 
 val semantics_finite_filter = Q.store_thm("semantics_finite_filter",
   `every ($>= 256 o LENGTH) inl
@@ -1806,21 +1469,7 @@ val semantics_finite_filter = Q.store_thm("semantics_finite_filter",
   >> drule forward_matching_lines_ffidiv_semantics >> rpt(disch_then drule) >> strip_tac
   >> dxrule(GEN_ALL semanticsPropsTheory.semantics_prog_deterministic)
   >> disch_then dxrule >> simp[]
-  >> strip_tac >> rveq
-  >> simp[filter_events]
-  >> PURE_ONCE_REWRITE_TAC[LLIST_BISIMULATION0]
-  >> qexists_tac `filter_bisim_rel`
-  >> conj_tac
-  >- (* The llists are in the candidate relation *)
-  (rw[filter_bisim_rel_def] >> MAP_EVERY qexists_tac [`inl`,`REPLICATE 256 0w`] >> rw[]
-   >> qmatch_goalsub_abbrev_tac `toList a1`
-   >> `LFINITE a1`
-       by (qunabbrev_tac `a1`
-           >> match_mp_tac (PURE_ONCE_REWRITE_RULE [filter_events] event_stream_finite)
-           >> EVAL_TAC >> fs[every_def])
-   >> simp[to_fromList] >> qunabbrev_tac `a1` >> EVAL_TAC)
-  (* The candidate relation is closed under destruction *)
-  >> ACCEPT_TAC filter_bisim_rel_is_bisim);
+  >> metis_tac[]);
 
 (* S-expr generation handled by CMake build system
 val _ = astToSexprLib.write_ast_to_file "../program.sexp" prog;
