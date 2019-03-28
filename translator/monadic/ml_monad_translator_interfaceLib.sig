@@ -111,6 +111,9 @@ sig
   val m_translate : thm -> thm
   val m_translate_run : thm -> thm
 
+  (* From ml_monadBaseLib *)
+  val define_run : hol_type -> string list -> string -> thm
+
   (* From ml_translatorLib *)
   val translation_extends : string -> unit
   val update_precondition : thm -> thm

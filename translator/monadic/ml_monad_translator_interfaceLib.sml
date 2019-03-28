@@ -498,6 +498,9 @@ val register_type = ml_monad_translatorLib.register_type;
 val m_translate = ml_monad_translatorLib.m_translate;
 val m_translate_run = ml_monad_translatorLib.m_translate_run;
 
+(* From ml_monadBaseLib *)
+val define_run = ml_monadBaseLib.define_run;
+
 (*
  * From ml_translatorLib
  *
