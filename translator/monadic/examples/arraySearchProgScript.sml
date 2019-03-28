@@ -5,7 +5,7 @@
 
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "array_searchProg"
+val _ = new_theory "arraySearchProg"
 
 (* Create the data type to handle the array. *)
 val _ = Datatype `

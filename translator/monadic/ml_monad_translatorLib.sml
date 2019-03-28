@@ -23,7 +23,7 @@ open ml_monadStoreLib
 ******************************************************************************)
 
 (* TODO add useful debug/info printing *)
-val DEBUG = true;
+val DEBUG = false;
 val INFO = true;
 
 fun info_print msg term =
@@ -221,7 +221,7 @@ val translator_state = {
 
 (* This is not used in this file, but is in the signature *)
 fun add_access_pattern th =
-  let val th' = th |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> SPEC_ALL |> UNDISCH_ALL
+  let val th' = REWRITE_RULE [GSYM AND_IMP_INTRO] th |> SPEC_ALL |> UNDISCH_ALL
       val tm = th' |> concl |> rator |> rand |> rand
   in
     (#access_patterns translator_state :=
@@ -279,10 +279,17 @@ fun disch_asms th =
   Creates a monad type with return type ty, and state/exception types as given
   by the translator_state.
 *)
-fun M_type ty = Type.type_subst [a_ty |-> !(#refs_type translator_state),
-                                 b_ty |-> ty,
-                                 c_ty |-> !(#exn_type translator_state)]
-                                poly_M_type
+
+(* some fresh type variables *)
+val gen1 = gen_tyvar();
+val gen2 = gen_tyvar();
+val gen3 = gen_tyvar();
+
+fun M_type ty =
+  Type.type_subst [a_ty |-> gen1, b_ty |-> gen2, c_ty |-> gen3] poly_M_type |>
+  Type.type_subst [gen1 |-> !(#refs_type translator_state),
+                   gen2 |-> ty,
+                   gen3 |-> !(#exn_type translator_state)]
 
 (* Some minor functions *)
 local
@@ -332,12 +339,9 @@ fun get_curr_env () =
   else
     get_env (get_curr_prog_state ());
 
-fun mk_PURE'' x = my_list_mk_comb
-                  (Term.inst [b_ty |-> !(#refs_type translator_state)]
-                    PURE_const, [x]);
-
-fun mk_PURE x = mk_icomb(PURE_const, x) |>
-                 Term.inst [b_ty |-> !(#refs_type translator_state)]
+fun mk_PURE x = Term.inst [b_ty |-> gen1] PURE_const |>
+                (fn t => mk_icomb(t, x)) |>
+                Term.inst [gen1 |-> !(#refs_type translator_state)]
 
 (* Retrieves the parameters given to Eval or EvalM *)
 fun get_Eval_arg e = if same_const (strip_comb e |> fst) Eval_const then
@@ -399,18 +403,12 @@ in th end;
 
 ******************************************************************************)
 
-fun get_m_type_inv'' ty = let
-    val MONAD_tm =
-      Term.inst [c_ty |-> !(#refs_type translator_state)] MONAD_const
-    val RI = get_type_inv (dest_monad_type ty |> #2)
-  in my_list_mk_comb(MONAD_tm, [RI, !(#EXN_TYPE translator_state)]) end
-  handle HOL_ERR _ => raise (ERR "get_m_type_inv" "unsupported type");
-
 fun get_m_type_inv ty =
   let val RI = get_type_inv (dest_monad_type ty |> #2)
-      val MONAD_tm =
-        list_mk_icomb(MONAD_const, [RI, !(#EXN_TYPE translator_state)])
-  in Term.inst [c_ty |-> !(#refs_type translator_state)] MONAD_tm end
+      val MONAD_tm = Term.inst [c_ty |-> gen1] MONAD_const
+      val MONAD_comb =
+        list_mk_icomb(MONAD_tm, [RI, !(#EXN_TYPE translator_state)])
+  in Term.inst [gen1 |-> !(#refs_type translator_state)] MONAD_comb end
 
 fun get_arrow_type_inv ty =
   if can dest_monad_type ty then get_m_type_inv ty
@@ -643,13 +641,6 @@ local
 
       (* Instantiate the specification *)
       val cv = mk_var (mk_cons_name cons, astSyntax.str_id_ty)
-(*      val handle_spec = ISPECL [cv, stamp, CORRECT_CONS, PARAMS_CONDITIONS,
-                                EXN_RI_tm, alt_handle_fun,
-                                alt_x1, alt_x2, arity_tm, a2_alt] EvalM_handle
-                                (*|>
-                    (* TODO *)            (List.map (Term.inst [gen_var |-> alpha])))*)
-                                EvalM_handle
-TODO this is the original version, what follows is modified*)
       val handle_spec = ISPECL ([cv, stamp, CORRECT_CONS, PARAMS_CONDITIONS,
                                 EXN_RI_tm, alt_handle_fun, alt_x1, alt_x2,
                                 arity_tm])
@@ -1190,12 +1181,6 @@ fun inst_EvalM_bind th1 th2 = let
     val vs = concl th2 |> dest_imp |> fst
     val v = rand vs
     val z = rator vs |> rand
-    (* TODO
-    val th2' = Dfilter
-      (UNDISCH
-      (INST_TY_TERM ([``a' : 'a->v->bool`` |-> ``a:'a->v->bool``], []) th2)
-      ) vs
-    *)
     val th2' = Dfilter (UNDISCH th2) vs
     val a2 = concl th2' |> dest_imp |> fst
     val a2 = mk_comb(mk_abs(z, a2), z)
@@ -2213,27 +2198,18 @@ and m2deep tm =
     val xs = dest_args tm
     val f = repeat rator lhs
     val str = stringLib.fromMLstring fname
-    (* TODO - replace mk_PURE with the function below *)
-    fun mk_PURE' x = mk_icomb(PURE_const, x) |>
-                     Term.inst [b_ty |-> !(#refs_type translator_state)]
-    (* TODO replace get_m_type_inv with the function below *)
-    fun get_m_type_inv' ty =
-      let val RI = get_type_inv (dest_monad_type ty |> #2)
-          val MONAD_tm =
-            list_mk_icomb(MONAD_const, [RI, !(#EXN_TYPE translator_state)])
-      in Term.inst [c_ty |-> !(#refs_type translator_state)] MONAD_tm end
     fun mk_fix tm =
       let
         val inv_type = type_of tm
         val inv = smart_get_type_inv inv_type
         val eq = ISPECL [inv, tm] Eq_def |> concl |> dest_eq |> fst
-      in mk_PURE' eq end
+      in mk_PURE eq end
     fun mk_fix_st tm =
       let
         val inv_type = type_of tm
         val inv = smart_get_type_inv inv_type
         val eq = ISPECL [inv, tm] Eq_def |> concl |> dest_eq |> fst
-        val pure = mk_PURE' eq
+        val pure = mk_PURE eq
         val eq_st = ISPECL [pure, state_eq_var] EqSt_def
                            |> concl |> dest_eq |> fst
       in eq_st end
@@ -2241,7 +2217,7 @@ and m2deep tm =
       my_list_mk_comb(ArrowM_ro_tm, [!(#H translator_state),x,y])
     fun mk_inv [] res = res
       | mk_inv (x::xs) res = mk_inv xs (mk_m_arrow (mk_fix x) res)
-    val res = mk_m_arrow (mk_fix_st (hd xs)) (get_m_type_inv' (type_of tm))
+    val res = mk_m_arrow (mk_fix_st (hd xs)) (get_m_type_inv (type_of tm))
     val inv = mk_inv (tl xs) res
     val ss = fst (match_term lhs tm)
     val tys =
@@ -3592,7 +3568,6 @@ fun m_translate_run def =
     val all_params = strip_comb def_lhs |> snd
     val params_evals = List.map var_create_Eval all_params
 
-    (* TODO fails here *)
     val th = m_translate_run_abstract_parameters th def params_evals
 
     (* Clean up any stray lookup_cons with variables in them *)

@@ -477,9 +477,13 @@ fun create_store_X_hprop refs_manip_list
                                 mk_cond(mk_comb( (concl pinv_def |> lhs) , state_var)))
                       | NONE => store_hprop
 
-    val store_hprop_state_var = free_vars store_hprop |>
-                                (filter (fn t => fst (dest_var t) = "state")) |>
-                                hd
+    val store_hprop_state_vars = free_vars store_hprop |>
+                                (filter (fn t => fst (dest_var t) = "state"))
+    val store_hprop_state_var = (
+      case store_hprop_state_vars of
+          [] => state_var
+        | (x::_) => x)
+
     val store_hprop = mk_abs(store_hprop_state_var, store_hprop)
     (*
       val store_hprop = mk_abs(``state:'a state_refs``, store_hprop)

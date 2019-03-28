@@ -1,12 +1,12 @@
 (*
- * An example showing how to use the monadic translator to translate monadic
- * array search functions, including exceptions.
+ An example showing how to use the monadic translator to translate polymorphic
+ monadic array search functions, including exceptions.
  *)
 open preamble ml_monad_translatorLib
 open ml_monadBaseLib ml_monadStoreLib
 open ml_monad_translatorTheory ml_monad_translatorLib ml_monadStoreLib
 
-val _ = new_theory "polyTest"
+val _ = new_theory "polyArraySearchProg"
 
 val _ = ParseExtras.temp_loose_equality();
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
