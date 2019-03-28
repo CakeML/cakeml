@@ -1,3 +1,6 @@
+(*
+  Correctness proof for uncheck_ctors
+*)
 open preamble;
 open flatLangTheory flatSemTheory flatPropsTheory flat_uncheck_ctorsTheory;
 
@@ -5,39 +8,13 @@ val _ = new_theory "flat_uncheck_ctorsProof";
 
 val _ = set_grammar_ancestry ["misc","flatProps","flat_uncheck_ctors"];
 
-val pat_bindings_compile_pat = Q.store_thm ("pat_bindings_compile_pat[simp]",
-`!(p:flatLang$pat) vars. pat_bindings (compile_pat p) vars = pat_bindings p vars`,
-  ho_match_mp_tac compile_pat_ind >>
+Theorem pat_bindings_compile_pat[simp]
+`!(p:flatLang$pat) vars. pat_bindings (compile_pat p) vars = pat_bindings p vars`
+  (ho_match_mp_tac compile_pat_ind >>
   simp [compile_pat_def, astTheory.pat_bindings_def, pat_bindings_def] >>
   induct_on `ps` >>
   rw [] >>
   fs [pat_bindings_def,astTheory.pat_bindings_def, PULL_FORALL]);
-
-(* TODO: move? *)
-
-val compile_append = Q.prove (
-  `!es es2. compile (es:flatLang$exp list ++ es2) = compile es ++ compile es2`,
-  Induct >>
-  rw [compile_def] >>
-  Cases_on `es` >>
-  rw [compile_def] >>
-  fs [compile_def] >>
-  Cases_on `es2` >>
-  rw [] >>
-  Cases_on `h` >>
-  rw [compile_def]);
-
-val compile_reverse = Q.prove (
-  `!es. compile (REVERSE es) = REVERSE (compile es:flatLang$exp list)`,
-  ho_match_mp_tac compile_ind >>
-  rw [compile_def, compile_append]);
-
-val compile_HD_sing = Q.store_thm("compile_HD_sing",
-  `[HD (compile [e])] = compile [e:flatLang$exp]`,
-  qspec_then`e`strip_assume_tac compile_sing
-  \\ fs[]);
-
-(* -- *)
 
 val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!lit.
@@ -106,9 +83,9 @@ val alookup_env_rel = Q.prove (
   first_x_assum (qspec_then `env' with v := t'` mp_tac) >>
   rw [env_rel_cases]);
 
-val v_rel_bool = Q.store_thm("v_rel_bool[simp]",
-  `!v b. v_rel (Boolv b) v ⇔ v = Boolv b`,
-  rw [Once v_rel_cases, Boolv_def, libTheory.the_def]);
+Theorem v_rel_bool[simp]
+  `!v b. v_rel (Boolv b) v ⇔ v = Boolv b`
+  (rw [Once v_rel_cases, Boolv_def, libTheory.the_def]);
 
 val lemma = Q.prove (
   `(\(x,y,z). x) = FST`,
@@ -192,7 +169,7 @@ val s_rel_store_lookup = Q.prove (
   fs [semanticPrimitivesPropsTheory.sv_rel_cases] >>
   fs []);
 
-val v_rel_eqn = Q.store_thm("v_rel_eqn[simp]",
+Theorem v_rel_eqn[simp]
  `(!lit v. v_rel (flatSem$Litv lit) v ⇔ v = Litv lit) ∧
   (!lit v. v_rel v (flatSem$Litv lit) ⇔ v = Litv lit) ∧
   (v_rel (Conv NONE []) (Conv (SOME (0,NONE)) [])) ∧
@@ -201,12 +178,12 @@ val v_rel_eqn = Q.store_thm("v_rel_eqn[simp]",
   (!loc l. v_rel (Loc loc) l ⇔ l = Loc loc) ∧
   (!loc l. v_rel l (Loc loc) ⇔ l = Loc loc) ∧
   (!vs v. v_rel (Vectorv vs) v ⇔ ∃vs'. v = Vectorv vs' ∧ LIST_REL v_rel vs vs') ∧
-  (!vs v. v_rel v (Vectorv vs) ⇔ ∃vs'. v = Vectorv vs' ∧ LIST_REL v_rel vs' vs)`,
-  rw [flatSemTheory.subscript_exn_v_def, flatSemTheory.bind_exn_v_def] >>
+  (!vs v. v_rel v (Vectorv vs) ⇔ ∃vs'. v = Vectorv vs' ∧ LIST_REL v_rel vs' vs)`
+  (rw [flatSemTheory.subscript_exn_v_def, flatSemTheory.bind_exn_v_def] >>
   ONCE_REWRITE_TAC [v_rel_cases] >>
   rw [libTheory.the_def]);
 
-val do_eq_correct = Q.store_thm("do_eq_correct",
+Theorem do_eq_correct
   `(∀a c b d e.
     v_rel a b ∧ v_rel c d ∧
     do_eq a c = Eq_val e ⇒
@@ -214,8 +191,8 @@ val do_eq_correct = Q.store_thm("do_eq_correct",
    (∀a c b d e.
     LIST_REL v_rel a b ∧ LIST_REL v_rel c d ∧
     do_eq_list a c = Eq_val e ⇒
-    do_eq_list b d = Eq_val e)`,
-  ho_match_mp_tac do_eq_ind
+    do_eq_list b d = Eq_val e)`
+  (ho_match_mp_tac do_eq_ind
   \\ rw[do_eq_def] \\ fs[do_eq_def] \\ rw[]
   \\ imp_res_tac LIST_REL_LENGTH
   \\ fs[case_eq_thms, bool_case_eq] \\ rw[] \\ fs[]
@@ -224,9 +201,9 @@ val do_eq_correct = Q.store_thm("do_eq_correct",
   \\ Cases_on`cn1` \\ TRY(Cases_on`cn2`) \\ fs[libTheory.the_def, ctor_same_type_def]
   \\ imp_res_tac LIST_REL_LENGTH \\ fs[] \\ rfs[]);
 
-val v_to_char_list_v_rel = Q.store_thm("v_to_char_list_v_rel",
-  `∀x y ls. v_rel x y ∧ v_to_char_list x = SOME ls ⇒ v_to_char_list y = SOME ls`,
-  recInduct v_to_char_list_ind
+Theorem v_to_char_list_v_rel
+  `∀x y ls. v_rel x y ∧ v_to_char_list x = SOME ls ⇒ v_to_char_list y = SOME ls`
+  (recInduct v_to_char_list_ind
   \\ rw[v_to_char_list_def]
   >- fs[Once v_rel_cases, v_to_char_list_def, libTheory.the_def]
   \\ qhdtm_x_assum`v_rel`mp_tac
@@ -235,9 +212,9 @@ val v_to_char_list_v_rel = Q.store_thm("v_to_char_list_v_rel",
   \\ fs[case_eq_thms]
   \\ metis_tac[]);
 
-val v_to_list_v_rel = Q.store_thm("v_to_list_v_rel",
-  `∀x y ls. v_rel x y ∧ v_to_list x = SOME ls ⇒ ∃ls'. v_to_list y = SOME ls' ∧ LIST_REL v_rel ls ls'`,
-  recInduct v_to_list_ind
+Theorem v_to_list_v_rel
+  `∀x y ls. v_rel x y ∧ v_to_list x = SOME ls ⇒ ∃ls'. v_to_list y = SOME ls' ∧ LIST_REL v_rel ls ls'`
+  (recInduct v_to_list_ind
   \\ rw[v_to_list_def]
   \\ qhdtm_x_assum`v_rel`mp_tac
   \\ rw[Once v_rel_cases, v_to_list_def, libTheory.the_def]
@@ -245,16 +222,16 @@ val v_to_list_v_rel = Q.store_thm("v_to_list_v_rel",
   \\ fs[case_eq_thms]
   \\ rw[PULL_EXISTS]);
 
-val vs_to_string_v_rel = Q.store_thm("vs_to_string_v_rel",
-  `∀vs ws str. LIST_REL v_rel vs ws ∧ vs_to_string vs = SOME str ⇒ vs_to_string ws = SOME str`,
-  recInduct vs_to_string_ind
+Theorem vs_to_string_v_rel
+  `∀vs ws str. LIST_REL v_rel vs ws ∧ vs_to_string vs = SOME str ⇒ vs_to_string ws = SOME str`
+  (recInduct vs_to_string_ind
   \\ rw[vs_to_string_def]
   \\ rw[vs_to_string_def]
   \\ fs[case_eq_thms] \\ rw[]);
 
-val v_rel_list_to_v = Q.store_thm("v_rel_list_to_v",
-  `∀x y. LIST_REL v_rel x y ⇒ v_rel (list_to_v x) (list_to_v y)`,
-  Induct \\ rw[list_to_v_def]
+Theorem v_rel_list_to_v
+  `∀x y. LIST_REL v_rel x y ⇒ v_rel (list_to_v x) (list_to_v y)`
+  (Induct \\ rw[list_to_v_def]
   \\ rw[Once v_rel_cases, libTheory.the_def]
   \\ fs[PULL_EXISTS, list_to_v_def]);
 
@@ -416,7 +393,7 @@ val do_app_correct = Q.prove (
     \\ res_tac \\ fs[OPTREL_def] \\ rfs[]
     \\ rw[] \\ fs[]));
 
-val pmatch_correct = Q.store_thm("pmatch_correct",
+Theorem pmatch_correct
   `(∀env1 refs1 p v1 acc1 env2 refs2 v2 acc2.
     env_rel env1 env2 ∧
     LIST_REL (sv_rel v_rel) refs1 refs2 ∧
@@ -444,8 +421,8 @@ val pmatch_correct = Q.store_thm("pmatch_correct",
         pmatch_list env2 refs2 (MAP compile_pat p) v2 acc2 = Match res2 ∧
         LIST_REL v_rel (MAP SND res1) (MAP SND res2) ∧
         MAP FST res1 = MAP FST res2
-    | r => pmatch_list env2 refs2 (MAP compile_pat p) v2 acc2 = r)`,
-  ho_match_mp_tac pmatch_ind
+    | r => pmatch_list env2 refs2 (MAP compile_pat p) v2 acc2 = r)`
+  (ho_match_mp_tac pmatch_ind
   \\ rw[pmatch_def, compile_pat_def, libTheory.the_def]
   \\ TRY (
     qpat_x_assum`v_rel (Conv _ _) _`mp_tac
@@ -740,7 +717,7 @@ val dec_res_rel_def = Define `
      result_rel (LIST_REL v_rel) v_rel (Rerr r1) (Rerr r2)) /\
   (dec_res_rel _ _ <=> F)`;
 
-val dec_res_rel_thms = Q.store_thm("dec_res_rel_thms[simp]",
+Theorem dec_res_rel_thms[simp]
   `(!r. dec_res_rel NONE r <=> r = NONE) /\
    (!r. dec_res_rel r NONE <=> r = NONE) /\
    (!e r. dec_res_rel (SOME e) r <=>
@@ -748,10 +725,10 @@ val dec_res_rel_thms = Q.store_thm("dec_res_rel_thms[simp]",
            result_rel (LIST_REL v_rel) v_rel (Rerr e) (Rerr e1)) /\
    (!e r. dec_res_rel r (SOME e) <=>
       ?e1. r = SOME e1 /\
-           result_rel (LIST_REL v_rel) v_rel (Rerr e1) (Rerr e))`,
-  rw [] \\ Cases_on `r` \\ rw [dec_res_rel_def]);
+           result_rel (LIST_REL v_rel) v_rel (Rerr e1) (Rerr e))`
+  (rw [] \\ Cases_on `r` \\ rw [dec_res_rel_def]);
 
-val compile_dec_correct = Q.store_thm ("compile_dec_correct",
+Theorem compile_dec_correct
   `∀env (s : 'a flatSem$state) d s' r s1 env'.
     evaluate_dec env s d = (s',c,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
@@ -761,8 +738,8 @@ val compile_dec_correct = Q.store_thm ("compile_dec_correct",
     ?s1' r1.
       dec_res_rel r r1 ∧
       s_rel s' s1' ∧
-      evaluate_decs env' s1 (compile_decs [d]) = (s1', {}, r1)`,
-  Cases_on `d` >>
+      evaluate_decs env' s1 (compile_decs [d]) = (s1', {}, r1)`
+  (Cases_on `d` >>
   simp [evaluate_decs_def, evaluate_dec_def, compile_decs_def] >>
   rpt gen_tac
   >- (
@@ -794,7 +771,7 @@ val lemma = Q.prove (
   `!x. (x with c updated_by $UNION ∅) = x`,
   rw [environment_component_equality]);
 
-val compile_decs_correct = Q.store_thm ("compile_decs_correct",
+Theorem compile_decs_correct
   `∀env (s : 'a flatSem$state) ds s' r s1 env' c.
     evaluate_decs env s ds = (s',c,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
@@ -804,8 +781,8 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
     ?s1' r1.
       dec_res_rel r r1 ∧
       s_rel s' s1' ∧
-      evaluate_decs env' s1 (compile_decs ds) = (s1', {}, r1)`,
-  Induct_on `ds` >>
+      evaluate_decs env' s1 (compile_decs ds) = (s1', {}, r1)`
+  (Induct_on `ds` >>
   rw [evaluate_decs_def, compile_decs_def] >>
   rw [] >>
   split_pair_case_tac >>
@@ -847,12 +824,12 @@ val compile_decs_correct = Q.store_thm ("compile_decs_correct",
     every_case_tac >>
     fs []));
 
-val compile_decs_eval_sim = Q.store_thm("compile_decs_eval_sim",
+Theorem compile_decs_eval_sim
   `eval_sim
      (ffi:'ffi ffi$ffi_state) T T ds1 T F
      (compile_decs ds1)
-     (\p1 p2. p2 = compile_decs p1) F`,
-  rw [eval_sim_def]
+     (\p1 p2. p2 = compile_decs p1) F`
+  (rw [eval_sim_def]
   \\ qexists_tac `0`
   \\ CONV_TAC (RESORT_EXISTS_CONV rev)
   \\ drule compile_decs_correct >>
@@ -871,5 +848,109 @@ val compile_decs_semantics = save_thm ("compile_decs_semantics",
            compile_decs_eval_sim
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]);
+
+(* syntactic results *)
+
+Theorem compile_elist_globals_eq_empty
+  `!es. elist_globals es = {||} ==> elist_globals (compile es) = {||}`
+  (ho_match_mp_tac compile_ind
+  \\ rw [compile_def]
+  \\ TRY
+    (rename1 `HD (compile [e])`
+     \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs [])
+  \\ fs [MAP_MAP_o, o_DEF, UNCURRY, elist_globals_append]
+  \\ TRY
+   (map_every (fn tm => qspec_then tm assume_tac compile_sing) [`e1`,`e2`,`e3`]
+    \\ fs [] \\ fs []
+    \\ NO_TAC)
+  \\ pop_assum mp_tac
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ pop_assum mp_tac
+  \\ rename1 `elist_globals (MAP _ xs)`
+  \\ Induct_on `xs` \\ fs [FORALL_PROD] \\ rw []
+  \\ first_x_assum(fn th => mp_tac th \\ impl_tac >- METIS_TAC[])
+  \\ fsrw_tac [DNF_ss] [SUB_BAG_UNION] \\ rw []
+  \\ rename1 `HD (compile [e])`
+  \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs []);
+
+Theorem compile_set_globals_eq_empty
+  `set_globals e = {||} ==> set_globals (HD (compile [e])) = {||}`
+  (qspec_then`[e]`mp_tac compile_elist_globals_eq_empty
+  \\ rw[] \\ fs[] \\ Cases_on `compile [e]` \\ fs []);
+
+Theorem compile_esgc_free
+  `!es. EVERY esgc_free es ==> EVERY esgc_free (compile es)`
+  (ho_match_mp_tac compile_ind
+  \\ rw [compile_def]
+  \\ fs [compile_set_globals_eq_empty]
+  \\ TRY
+    (rename1 `compile [e]`
+     \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs [])
+  \\ fs [EVERY_MAP, EVERY_MEM, FORALL_PROD, elist_globals_eq_empty]
+  \\ fs [MEM_MAP, MAP_MAP_o, PULL_EXISTS, FORALL_PROD]
+  \\ rw []
+  \\ TRY(
+    match_mp_tac compile_set_globals_eq_empty
+    \\ res_tac )
+  \\ rename1 `HD (compile [p])`
+   \\ qspec_then `p` assume_tac compile_sing \\ fs [] \\ fs []
+  \\ res_tac \\ fs []);
+
+Theorem compile_decs_esgc_free
+  `∀ds. EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds)) ⇒
+        EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (flat_uncheck_ctors$compile_decs ds)))`
+  (Induct \\ simp[flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ Cases \\ simp[] \\ rw[] \\ fs[flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ qspec_then`[e]`mp_tac compile_esgc_free
+  \\ strip_assume_tac (SPEC_ALL flat_uncheck_ctorsTheory.compile_sing)
+  \\ rw[]);
+
+Theorem compile_sub_bag
+  `!es. (elist_globals (compile es)) ≤ (elist_globals es)`
+  (ho_match_mp_tac compile_ind
+  \\ rw [compile_def]
+  \\ TRY
+    (rename1 `compile [e]`
+     \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs [])
+  \\ TRY
+   (map_every (fn tm => qspec_then tm assume_tac compile_sing) [`e1`,`e2`,`e3`]
+    \\ fs [] \\ fs []
+    \\ fs [SUB_BAG_UNION]
+    \\ NO_TAC)
+  \\ fs [SUB_BAG_UNION, elist_globals_append] \\ rfs []
+  \\ fs [MAP_MAP_o, UNCURRY, o_DEF] \\ fs [LAMBDA_PROD]
+  \\ (FIRST
+    (map (fn th => match_mp_tac (MP_CANON th) \\ conj_tac >- simp[])
+         (CONJUNCTS SUB_BAG_UNION)))
+  \\  rename1 `elist_globals (MAP _ xs)`
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ pop_assum mp_tac
+  \\ Induct_on `xs` \\ fs [FORALL_PROD] \\ rw []
+  \\ first_x_assum(fn th => mp_tac th \\ impl_tac >- METIS_TAC[])
+  \\ fsrw_tac [DNF_ss] [SUB_BAG_UNION] \\ rw []
+  \\ rename1 `HD (compile [e])`
+  \\ qspec_then `e` assume_tac compile_sing \\ fs [] \\ fs []
+  \\ fsrw_tac [DNF_ss] [SUB_BAG_UNION]);
+
+Theorem compile_distinct_globals
+  `BAG_ALL_DISTINCT (elist_globals es)
+   ==>
+   BAG_ALL_DISTINCT (elist_globals (compile es))`
+  (metis_tac [compile_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
+
+Theorem compile_decs_sub_bag
+  `(elist_globals (MAP dest_Dlet (FILTER is_Dlet (flat_uncheck_ctors$compile_decs ds)))) ≤ (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)))`
+  (Induct_on`ds` \\ rw [flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ fs [UNCURRY] \\ rw []
+  \\ Cases_on `h` \\ fs [flat_uncheck_ctorsTheory.compile_decs_def]
+  \\ qspec_then `e` assume_tac flat_uncheck_ctorsTheory.compile_sing \\ fs []
+  \\ `elist_globals [e2] <= elist_globals [e]`
+    by metis_tac [compile_sub_bag]
+  \\ fs [SUB_BAG_UNION]);
+
+Theorem compile_decs_distinct_globals
+  `BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))) ⇒
+   BAG_ALL_DISTINCT (elist_globals (MAP dest_Dlet (FILTER is_Dlet (flat_uncheck_ctors$compile_decs ds))))`
+  (metis_tac [compile_decs_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]);
 
 val _ = export_theory ();

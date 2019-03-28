@@ -1,3 +1,8 @@
+(*
+  Composes all of the compiler phases within the compiler backend into
+  a single compile function which is connected (in ../compilerScript.sml)
+  to the front-end, i.e. parsing and type inference.
+*)
 open preamble
      source_to_flatTheory
      flat_to_patTheory
@@ -24,6 +29,7 @@ val _ = Datatype`config =
    ; word_conf : 'a word_to_stack$config
    ; stack_conf : stack_to_lab$config
    ; lab_conf : 'a lab_to_target$config
+   ; tap_conf : tap_config
    |>`;
 
 val config_component_equality = theorem"config_component_equality";
@@ -32,14 +38,17 @@ val attach_bitmaps_def = Define `
   attach_bitmaps bitmaps (SOME (bytes,c)) = SOME (bytes,bitmaps,c) /\
   attach_bitmaps _ _ = NONE`
 
-val compile_def = Define`
-  compile c p =
+val compile_tap_def = Define`
+  compile_tap c p =
     let (c',p) = source_to_flat$compile c.source_conf p in
+    let td = tap_flat c.tap_conf p [] in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
     let p = flat_to_pat$compile p in
+    let td = tap_pat c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: flat_to_pat") in
     let p = MAP pat_to_clos$compile p in
+    let td = tap_clos c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: pat_to_clos") in
     let (c',p) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
@@ -52,6 +61,7 @@ val compile_def = Define`
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+    let td = tap_word c.tap_conf p td in
     let _ = empty_ffi (strlit "finished: data_to_word") in
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
@@ -64,7 +74,10 @@ val compile_def = Define`
     let res = attach_bitmaps c.word_conf.bitmaps
       (lab_to_target$compile c.lab_conf (p:'a prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
-      res`;
+      (res, td)`;
+
+val compile_def = Define`
+  compile c p = FST (compile_tap c p)`;
 
 val to_flat_def = Define`
   to_flat c p =
@@ -134,9 +147,9 @@ val to_target_def = Define`
     attach_bitmaps c.word_conf.bitmaps
       (lab_to_target$compile c.lab_conf p)`;
 
-val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
-  `compile = to_target`,
-  srw_tac[][FUN_EQ_THM,compile_def,
+Theorem compile_eq_to_target
+  `compile = to_target`
+  (srw_tac[][FUN_EQ_THM,compile_def,compile_tap_def,
      to_target_def,
      to_lab_def,
      to_stack_def,
@@ -153,6 +166,9 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
 val prim_config_def = Define`
   prim_config =
     FST (to_flat <| source_conf := empty_config |> (prim_types_program))`;
+
+val prim_config_eq = save_thm("prim_config_eq",
+  EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]);
 
 val from_lab_def = Define`
   from_lab c p =
@@ -213,9 +229,9 @@ val from_source_def = Define`
   let c = c with source_conf := c' in
   from_flat c p`;
 
-val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
-  `compile = from_source`,
-  srw_tac[][FUN_EQ_THM,compile_def,
+Theorem compile_eq_from_source
+  `compile = from_source`
+  (srw_tac[][FUN_EQ_THM,compile_def,compile_tap_def,
      from_source_def,
      from_lab_def,
      from_stack_def,
@@ -273,16 +289,16 @@ val from_livesets_def = Define`
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c p`
 
-val compile_oracle = Q.store_thm("compile_oracle",`
-  from_livesets (to_livesets c p) = compile c p`,
-  srw_tac[][FUN_EQ_THM,
+Theorem compile_oracle `
+  from_livesets (to_livesets c p) = compile c p`
+  (srw_tac[][FUN_EQ_THM,
      to_data_def,
      to_bvi_def,
      to_bvl_def,
      to_clos_def,
      to_pat_def,
      to_flat_def,to_livesets_def] >>
-  fs[compile_def]>>
+  fs[compile_def,compile_tap_def]>>
   pairarg_tac>>
   fs[data_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
   fs[from_livesets_def,from_word_def,from_stack_def,from_lab_def]>>
@@ -313,12 +329,12 @@ val compile_oracle = Q.store_thm("compile_oracle",`
   rveq>>fs[]>>
   BasicProvers.EVERY_CASE_TAC>>fs[]);
 
-val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
+Theorem to_livesets_invariant `
   wc.reg_alg = c.word_to_word_conf.reg_alg ⇒
   to_livesets (c with word_to_word_conf:=wc) p =
   let (rcm,c,p) = to_livesets c p in
-    (rcm,c with word_to_word_conf:=wc,p)`,
-  srw_tac[][FUN_EQ_THM,
+    (rcm,c with word_to_word_conf:=wc,p)`
+  (srw_tac[][FUN_EQ_THM,
      to_data_def,
      to_bvi_def,
      to_bvl_def,
@@ -328,7 +344,7 @@ val to_livesets_invariant = Q.store_thm("to_livesets_invariant",`
   unabbrev_all_tac>>fs[]>>
   rpt(rfs[]>>fs[]));
 
-val to_data_change_config = Q.store_thm("to_data_change_config",
+Theorem to_data_change_config
   `to_data c1 prog = (c1',prog') ⇒
    c2.source_conf = c1.source_conf ∧
    c2.clos_conf = c1.clos_conf ∧
@@ -338,8 +354,8 @@ val to_data_change_config = Q.store_thm("to_data_change_config",
      (c2 with <| source_conf := c1'.source_conf;
                  clos_conf := c1'.clos_conf;
                  bvl_conf := c1'.bvl_conf |>,
-      prog')`,
-  rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_flat_def]
+      prog')`
+  (rw[to_data_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_flat_def]
   \\ rpt (pairarg_tac \\ fs[]) \\ rw[] \\ fs[] \\ rfs[] \\ rveq \\ fs[] \\ rfs[] \\ rveq \\ fs[]
   \\ simp[config_component_equality]);
 

@@ -1,3 +1,6 @@
+(*
+  compset for the operational semantics.
+*)
 structure evaluateComputeLib = struct
 open HolKernel boolLib bossLib
 open semanticPrimitivesTheory evaluateTheory

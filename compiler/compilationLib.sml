@@ -1,3 +1,7 @@
+(*
+  Library for in-logic compilation of CakeML abstract syntax producing machine
+  code (for a variety of targets) using the CakeML compiler backend.
+*)
 structure compilationLib = struct
 
 open preamble backendTheory
@@ -5,6 +9,7 @@ open preamble backendTheory
      arm8_compileLib export_arm8Theory
      mips_compileLib export_mipsTheory
      riscv_compileLib export_riscvTheory
+     ag32_compileLib export_ag32Theory
      x64_compileLib export_x64Theory
 
 val _ = Globals.max_print_depth := 20;
@@ -170,12 +175,14 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
           arm8_targetLib.add_arm8_encode_compset,
           mips_targetLib.add_mips_encode_compset,
           riscv_targetLib.add_riscv_encode_compset,
+          ag32_targetLib.add_ag32_encode_compset,
           x64_targetLib.add_x64_encode_compset],
         computeLib.Defs [
           arm6_backend_config_def, arm6_names_def,
           arm8_backend_config_def, arm8_names_def,
           mips_backend_config_def, mips_names_def,
           riscv_backend_config_def, riscv_names_def,
+          ag32_backend_config_def, ag32_names_def,
           x64_backend_config_def, x64_names_def,
           data_prog_def
           ]
@@ -694,7 +701,9 @@ val arm8_export_defs = [
 
 val x64_export_defs = [
   export_x64Theory.x64_export_def,
-  export_x64Theory.ffi_asm_def];
+  export_x64Theory.ffi_asm_def,
+  export_x64Theory.windows_ffi_asm_def
+  ];
 
 val mips_export_defs = [
   export_mipsTheory.mips_export_def,
@@ -703,6 +712,9 @@ val mips_export_defs = [
 val riscv_export_defs = [
   export_riscvTheory.riscv_export_def,
   export_riscvTheory.ffi_asm_def];
+
+val ag32_export_defs = [
+  export_ag32Theory.ag32_export_def];
 
 datatype 'a app_list = Nil | List of 'a list | Append of 'a app_list * 'a app_list
 val is_Nil = same_const (prim_mk_const{Thy="misc",Name="Nil"})
@@ -832,8 +844,7 @@ fun cbv_to_bytes
     val eval = computeLib.CBV_CONV cs;
 
     val bootstrap_thm =
-      stack_to_lab_thm
-      |> CONV_RULE(RAND_CONV(eval))
+      timez "lab_to_target" (CONV_RULE(RAND_CONV(eval))) stack_to_lab_thm
 
     val result = extract_compilation_result bootstrap_thm
     val code_def = mk_abbrev code_name (#code result)
@@ -845,6 +856,7 @@ fun cbv_to_bytes
 
     val out = TextIO.openOut filename
 
+    val () = Lib.say(pad_to 30 (" export: "))
     val () = time (
       eval_export word_directive target_export_defs heap_size stack_size code_def data_def ffi_names_tm) out
 
@@ -882,6 +894,13 @@ val cbv_to_bytes_riscv =
     riscv_backend_config_def riscv_names_def
     riscv_export_defs
 
+val cbv_to_bytes_ag32 =
+  cbv_to_bytes
+    "quad"
+    ag32_targetLib.add_ag32_encode_compset
+    ag32_backend_config_def ag32_names_def
+    ag32_export_defs
+
 val cbv_to_bytes_x64 =
   cbv_to_bytes
     "quad"
@@ -912,6 +931,7 @@ val compile_arm6 = compile arm6_backend_config_def cbv_to_bytes_arm6
 val compile_arm8 = compile arm8_backend_config_def cbv_to_bytes_arm8
 val compile_mips = compile mips_backend_config_def cbv_to_bytes_mips
 val compile_riscv = compile riscv_backend_config_def cbv_to_bytes_riscv
+val compile_ag32 = compile ag32_backend_config_def cbv_to_bytes_ag32
 val compile_x64 = compile x64_backend_config_def cbv_to_bytes_x64
 
 end

@@ -14,7 +14,7 @@ val _ = Datatype `exn_type = FullQueue | EmptyQueue`;
 val _ = register_exn_type ``:exn_type``;
 
 val queue_decls = process_topdecs
-   ‘fun empty_queue sz err = ref (Array.array sz err, 0, 0, 0)
+   ‘fun empty_queue sz err = Ref (Array.array sz err, 0, 0, 0)
 
     fun full q =
       case !q of (a,f,r,c) => c = Array.length a
@@ -53,18 +53,16 @@ val lqueue_def = Define‘
      r ≤ f ∧ (∃p s mj. qels = s ++ mj ++ p ∧ els = p ++ s ∧
                        r = LENGTH s ∧ f = r + LENGTH mj))’;
 
-val lqueue_empty = Q.store_thm(
-  "lqueue_empty",
-  ‘i < LENGTH xs ⇒ lqueue xs i i []’,
-  simp[lqueue_def] >> strip_tac >>
+Theorem lqueue_empty
+  `i < LENGTH xs ⇒ lqueue xs i i []`
+  (simp[lqueue_def] >> strip_tac >>
   map_every qexists_tac [‘TAKE i xs’, ‘DROP i xs’] >> simp[])
 
-val lqueue_enqueue = Q.store_thm(
-  "lqueue_enqueue",
-  ‘∀x f r vs aels n.
+Theorem lqueue_enqueue
+  `∀x f r vs aels n.
       LENGTH vs < LENGTH aels ∧ lqueue aels f r vs ∧ (n = LENGTH aels) ⇒
-      lqueue (LUPDATE x r aels) f ((r + 1) MOD n) (vs ++ [x])’,
-  rw[lqueue_def] >> fs[]
+      lqueue (LUPDATE x r aels) f ((r + 1) MOD n) (vs ++ [x])`
+  (rw[lqueue_def] >> fs[]
   >- (Cases_on ‘r + 1 = LENGTH pj + (LENGTH rj + LENGTH vs)’ >> simp[]
       >- ((* wrap around happened *)
           disj2_tac >> qexists_tac `pj` >> simp[] >>
@@ -79,10 +77,9 @@ val lqueue_enqueue = Q.store_thm(
   map_every qexists_tac [‘p’, ‘s ++ [x]’, ‘TL mj’] >> Cases_on ‘mj’ >> fs[] >>
   simp[LUPDATE_APPEND2, LUPDATE_APPEND1])
 
-val lqueue_dequeue = Q.store_thm(
-  "lqueue_dequeue",
-  ‘lqueue aels f r (v::vs) ⇒ lqueue aels ((f + 1) MOD LENGTH aels) r vs’,
-  rw[lqueue_def] >> fs[]
+Theorem lqueue_dequeue
+  `lqueue aels f r (v::vs) ⇒ lqueue aels ((f + 1) MOD LENGTH aels) r vs`
+  (rw[lqueue_def] >> fs[]
   >- (disj1_tac >> map_every qexists_tac [‘pj ++ [v]’, ‘rj’] >> simp[]) >>
   Cases_on ‘LENGTH p = 1’ >> simp[]
   >- ((* f wraps around *) disj1_tac >> Cases_on ‘p’ >> fs[]) >>
@@ -126,11 +123,11 @@ val xs_auto_tac = rpt (FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp, xle
 
 val st = get_ml_prog_state ();
 
-val empty_queue_spec = Q.store_thm ("empty_queue_spec",
+Theorem empty_queue_spec
     `NUM n nv ∧ 0 < n ∧ A a errv ⇒
       app (p:'ffi ffi_proj) ^(fetch_v "empty_queue" st) [nv; errv]
-          emp (POSTv qv. QUEUE A n [] qv)`,
-    xcf "empty_queue" st \\
+          emp (POSTv qv. QUEUE A n [] qv)`
+    (xcf "empty_queue" st \\
     xs_auto_tac >> simp[QUEUE_def] >> xsimpl >>
     qexists_tac `REPLICATE n a` >>
     simp[lqueue_def, LIST_REL_REPLICATE_same])
@@ -142,11 +139,11 @@ val eq_int_thm = mlbasicsProgTheory.eq_v_thm
                    |> Q.INST [‘a’ |-> ‘INT’]
                    |> PROVE_HYP EqualityType_INT
 
-val full_spec = Q.store_thm("full_spec",
+Theorem full_spec
   `app (p:'ffi ffi_proj) ^(fetch_v "full" st) [qv]
        (QUEUE A mx vs qv)
-       (POSTv bv. &(BOOL (LENGTH vs = mx) bv) * QUEUE A mx vs qv)`,
-  xcf "full" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
+       (POSTv bv. &(BOOL (LENGTH vs = mx) bv) * QUEUE A mx vs qv)`
+  (xcf "full" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
   reverse (rw[]) >- EVAL_TAC (* validate_pat *) >>
   xlet_auto >- xsimpl >>
   xapp_spec (cf_spec “:'ffi” Translator_spec eq_int_thm) >> xsimpl >>
@@ -154,11 +151,11 @@ val full_spec = Q.store_thm("full_spec",
   rpt (goal_assum (first_assum o mp_then (Pos hd) mp_tac)) >>
   imp_res_tac LIST_REL_LENGTH >> simp[] >> metis_tac[]);
 
-val enqueue_spec = Q.store_thm ("enqueue_spec",
+Theorem enqueue_spec
     `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "enqueue" st) [qv; xv]
           (QUEUE A mx vs qv * & (A x xv ∧ LENGTH vs < mx))
-          (POSTv uv. QUEUE A mx (vs ++ [x]) qv)`,
-    xcf "enqueue" st >>
+          (POSTv uv. QUEUE A mx (vs ++ [x]) qv)`
+    (xcf "enqueue" st >>
     xpull >> xs_auto_tac >>
     xlet ‘POSTv bv. QUEUE A mx vs qv * &(BOOL (LENGTH vs = mx) bv)’
     >- (xapp >> xsimpl >> qexists_tac `emp` >> xsimpl >>
@@ -178,10 +175,9 @@ val enqueue_spec = Q.store_thm ("enqueue_spec",
     rpt (goal_assum (first_assum o mp_then (Pos hd) mp_tac)) >>
     simp[lqueue_enqueue]);
 
-val LIST_REL_REL_lqueue_HD = Q.store_thm(
-  "LIST_REL_REL_lqueue_HD",
-  ‘LIST_REL A qels qelvs ∧ lqueue qels f r (h::t) ⇒ A h (EL f qelvs)’,
-  simp[lqueue_def] >> rw[]
+Theorem LIST_REL_REL_lqueue_HD
+  `LIST_REL A qels qelvs ∧ lqueue qels f r (h::t) ⇒ A h (EL f qelvs)`
+  (simp[lqueue_def] >> rw[]
   >- (fs[LIST_REL_SPLIT1] >> rw[] >>
       imp_res_tac LIST_REL_LENGTH >>
       simp[EL_APPEND1, EL_APPEND2]) >>
@@ -208,15 +204,13 @@ val dequeue_spec_noexn = Q.prove(
     Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
     metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]);
 
-val dequeue_spec = Q.store_thm(
-  "dequeue_spec",
-  ‘∀p qv xv vs x A mx.
+Theorem dequeue_spec
+  `∀p qv xv vs x A mx.
       app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv)
-       (POST (λv. &(vs ≠ [] ∧ A (HD vs) v) * QUEUE A mx (TL vs) qv)
-             (λe. &(vs = [] ∧ EmptyQueue_exn e) * QUEUE A mx vs qv)
-             (λn c b. &F))’,
-  xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
+       (POSTve (λv. &(vs ≠ [] ∧ A (HD vs) v) * QUEUE A mx (TL vs) qv)
+               (λe. &(vs = [] ∧ EmptyQueue_exn e) * QUEUE A mx vs qv))’
+  (xcf "dequeue" st >> simp[QUEUE_def] >> xpull >> xs_auto_tac >>
   reverse(rw[]) >- EVAL_TAC >> xlet_auto >- xsimpl >> xif
   >- ((* throws exception *)
       xs_auto_tac >> rw[] >> xraise >> xsimpl >> dsimp[] >> fs[] >>

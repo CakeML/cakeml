@@ -8,6 +8,10 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "bigSmallInvariants"
 
+(*
+  Invariants used in the proof relating the big-step and small-step
+  version of the CakeML source semantics.
+*)
 (*open import Pervasives*)
 (*open import Lib*)
 (*open import Namespace*)
@@ -160,4 +164,3 @@ evaluate_state (env, (refs, ffi), Exp e, c) bv)
 ==>
 evaluate_state (env, (refs, ffi), Val v, c) bv)`;
 val _ = export_theory()
-

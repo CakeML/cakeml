@@ -15,8 +15,12 @@
 # Generated assembly
 *.S
 
+# Generated tarball
+cake-x64-64.tar.gz
+
 # Developer generated executables
 developers/readme_gen
+semantics/addancs
 tutorial/solutions/make_ex
 
 # regression test logs
@@ -32,6 +36,7 @@ timing.log
 *_thm.txt
 *_ast.txt
 *.ml.txt
+*translate_timing.txt
 
 # Emacs backup files
 *~

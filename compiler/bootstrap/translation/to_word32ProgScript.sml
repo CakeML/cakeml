@@ -1,11 +1,16 @@
-open preamble;
-open terminationTheory
-open ml_translatorLib ml_translatorTheory;
-open sexp_parserProgTheory std_preludeTheory;
+(*
+  Translate the data_to_word part of the 32-bit compiler.
+*)
+
+open preamble ml_translatorLib ml_translatorTheory
+     sexp_parserProgTheory std_preludeTheory
+local open backendTheory in end
 
 val _ = new_theory "to_word32Prog"
 
 val _ = translation_extends "sexp_parserProg";
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word32Prog");
 
 val RW = REWRITE_RULE
 
@@ -94,317 +99,10 @@ val inline_simp =
 
 val _ = register_type ``:32 wordLang$prog``;
 
+(* check 32 prog is known to be an EqualityType *)
+val EqualityType_prog = EqualityType_rule [] ``:32 wordLang$prog``;
+
 val _ = translate (StoreEach_def |> inline_simp |> conv32);
-
-local
-  val ths = ml_translatorLib.eq_lemmas();
-in
-  fun find_equality_type_thm tm =
-    first (can (C match_term tm) o rand o snd o strip_imp o concl) ths
-end
-
-val EqualityType_NUM = find_equality_type_thm``NUM``
-val EqualityType_WORD = find_equality_type_thm``WORD``
-val EqualityType_UNIT_TYPE = find_equality_type_thm ``UNIT_TYPE``
-val EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE =
-  find_equality_type_thm ``SPTREE_SPT_TYPE UNIT_TYPE``
-  |> Q.GEN`a` |> Q.ISPEC`UNIT_TYPE` |> SIMP_RULE std_ss [EqualityType_UNIT_TYPE];
-val EqualityType_OPTION_TYPE_NUM = find_equality_type_thm``OPTION_TYPE NUM``
-  |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM]
-val EqualityType_LIST_TYPE_NUM = find_equality_type_thm ``LIST_TYPE NUM``
-  |> Q.GEN`a` |> Q.ISPEC`NUM` |> SIMP_RULE std_ss [EqualityType_NUM];
-val EqualityType_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
-  |> Q.GENL[`b`,`c`]
-  |> Q.ISPECL[`NUM`,`NUM`]
-  |> SIMP_RULE std_ss [EqualityType_NUM];
-val EqualityType_LIST_TYPE_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``LIST_TYPE _``
-  |> Q.GEN`a` |> Q.ISPEC`PAIR_TYPE NUM NUM` |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_PAIR_TYPE_NUM_NUM];
-
-val EqualityType_ASM_CMP_TYPE = find_equality_type_thm``ASM_CMP_TYPE``
-  |> SIMP_RULE std_ss []
-val EqualityType_ASM_REG_IMM_TYPE = find_equality_type_thm``ASM_REG_IMM_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
-val EqualityType_AST_SHIFT_TYPE = find_equality_type_thm``AST_SHIFT_TYPE``
-  |> SIMP_RULE std_ss []
-val EqualityType_ASM_BINOP_TYPE = find_equality_type_thm``ASM_BINOP_TYPE``
-  |> SIMP_RULE std_ss []
-val EqualityType_ASM_ADDR_TYPE = find_equality_type_thm``ASM_ADDR_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
-val EqualityType_ASM_MEMOP_TYPE = find_equality_type_thm``ASM_MEMOP_TYPE``
-  |> SIMP_RULE std_ss []
-val EqualityType_ASM_ARITH_TYPE = find_equality_type_thm``ASM_ARITH_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_SHIFT_TYPE,
-                       EqualityType_ASM_BINOP_TYPE,EqualityType_ASM_REG_IMM_TYPE]
-val EqualityType_ASM_FP_TYPE = find_equality_type_thm``ASM_FP_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM]
-val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD,EqualityType_ASM_ADDR_TYPE,
-                       EqualityType_ASM_MEMOP_TYPE,EqualityType_ASM_ARITH_TYPE,
-                       EqualityType_ASM_FP_TYPE]
-
-val EqualityType_STACKLANG_STORE_NAME_TYPE = find_equality_type_thm``STACKLANG_STORE_NAME_TYPE``
-  |> SIMP_RULE std_ss []
-
-val WORDLANG_EXP_TYPE_def = theorem"WORDLANG_EXP_TYPE_def";
-val WORDLANG_EXP_TYPE_ind = theorem"WORDLANG_EXP_TYPE_ind";
-
-val WORDLANG_EXP_TYPE_no_closures = Q.prove(
-  `∀a b. WORDLANG_EXP_TYPE a b ⇒ no_closures b`,
-  ho_match_mp_tac WORDLANG_EXP_TYPE_ind \\
-  rw[WORDLANG_EXP_TYPE_def] \\
-  rw[no_closures_def] \\
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x y` \\
-    qhdtm_x_assum`LIST_TYPE`mp_tac \\
-    last_x_assum mp_tac \\
-    map_every qid_spec_tac[`y`,`x`] \\
-    Induct \\ rw[LIST_TYPE_def] \\
-    rw[no_closures_def] \\
-    metis_tac[] ) \\
-  metis_tac[EqualityType_def,
-            EqualityType_NUM,
-            EqualityType_WORD,
-            EqualityType_AST_SHIFT_TYPE,
-            EqualityType_ASM_BINOP_TYPE,
-            EqualityType_STACKLANG_STORE_NAME_TYPE]);
-
-val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
-
-val WORDLANG_EXP_TYPE_types_match = Q.prove(
-  `∀a b c d. WORDLANG_EXP_TYPE a b ∧ WORDLANG_EXP_TYPE c d ⇒ types_match b d`,
-  ho_match_mp_tac WORDLANG_EXP_TYPE_ind \\
-  rw[WORDLANG_EXP_TYPE_def] \\
-  Cases_on`c` \\ fs[WORDLANG_EXP_TYPE_def] \\
-  rw[types_match_def,ctor_same_type_def] \\
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` \\
-    qhdtm_x_assum`LIST_TYPE`mp_tac \\
-    qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` \\
-    qhdtm_x_assum`LIST_TYPE`mp_tac \\
-    last_x_assum mp_tac \\
-    map_every qid_spec_tac[`y1`,`x1`,`y2`,`x2`] \\
-    Induct \\ rw[LIST_TYPE_def] \\
-    Cases_on`x1` \\ fs[LIST_TYPE_def] \\
-    rw[types_match_def,ctor_same_type_def] \\
-    metis_tac[] ) \\
-  metis_tac[EqualityType_def,
-            EqualityType_NUM,
-            EqualityType_WORD,
-            EqualityType_AST_SHIFT_TYPE,
-            EqualityType_ASM_BINOP_TYPE,
-            EqualityType_STACKLANG_STORE_NAME_TYPE]);
-
-val WORDLANG_EXP_TYPE_11 = Q.prove(
-  `∀a b c d. WORDLANG_EXP_TYPE a b ∧ WORDLANG_EXP_TYPE c d ⇒ (a = c ⇔ b = d)`,
-  ho_match_mp_tac WORDLANG_EXP_TYPE_ind \\
-  rw[WORDLANG_EXP_TYPE_def] \\
-  Cases_on`c` \\ fs[WORDLANG_EXP_TYPE_def] \\
-  rw[EQ_IMP_THM] \\
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x y1` \\
-    qhdtm_x_assum`LIST_TYPE`mp_tac \\
-    qmatch_assum_rename_tac`LIST_TYPE _ x y2` \\
-    qhdtm_x_assum`LIST_TYPE`mp_tac \\
-    last_x_assum mp_tac \\
-    map_every qid_spec_tac[`y1`,`y2`,`x`] \\
-    Induct \\ rw[LIST_TYPE_def] \\
-    metis_tac[] ) \\
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x1 y` \\
-    qhdtm_x_assum`LIST_TYPE`mp_tac \\
-    qmatch_assum_rename_tac`LIST_TYPE _ x2 y` \\
-    qhdtm_x_assum`LIST_TYPE`mp_tac \\
-    last_x_assum mp_tac \\
-    map_every qid_spec_tac[`y`,`x1`,`x2`] \\
-    Induct \\ rw[LIST_TYPE_def] \\
-    Cases_on`x1` \\ fs[LIST_TYPE_def] \\
-    metis_tac[] ) \\
-  metis_tac[EqualityType_def,
-            EqualityType_NUM,
-            EqualityType_WORD,
-            EqualityType_AST_SHIFT_TYPE,
-            EqualityType_ASM_BINOP_TYPE,
-            EqualityType_STACKLANG_STORE_NAME_TYPE])
-
-val EqualityType_WORDLANG_EXP_TYPE = Q.prove(
-  `EqualityType WORDLANG_EXP_TYPE`,
-  metis_tac[EqualityType_def,WORDLANG_EXP_TYPE_no_closures,WORDLANG_EXP_TYPE_types_match,WORDLANG_EXP_TYPE_11])
-  |> store_eq_thm;
-
-val WORDLANG_PROG_TYPE_def = theorem"WORDLANG_PROG_TYPE_def";
-val WORDLANG_PROG_TYPE_ind = theorem"WORDLANG_PROG_TYPE_ind";
-
-val EqualityType_CHAR = find_equality_type_thm``CHAR``
-
-val EqualityType_LIST_TYPE_CHAR = find_equality_type_thm``LIST_TYPE CHAR``
-  |> Q.GEN`a` |> Q.ISPEC`CHAR` |> SIMP_RULE std_ss [EqualityType_CHAR]
-
-val WORDLANG_PROG_TYPE_no_closures = Q.prove(
-  `∀a b. WORDLANG_PROG_TYPE a b ⇒ no_closures b`,
-  ho_match_mp_tac WORDLANG_PROG_TYPE_ind
-  \\ rw[WORDLANG_PROG_TYPE_def]
-  \\ rw[no_closures_def] \\
-  TRY (
-    qmatch_assum_rename_tac`OPTION_TYPE (_ _ (_ _ (_ WORDLANG_PROG_TYPE _))) x y` \\
-    Cases_on`x` \\ fs[OPTION_TYPE_def] \\ rw[no_closures_def] \\
-    qmatch_rename_tac`no_closures y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
-    rw[no_closures_def] >-
-      metis_tac[EqualityType_def,EqualityType_NUM] \\
-    qmatch_rename_tac`no_closures y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
-    rw[no_closures_def] >-
-      metis_tac[EqualityType_def,EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE] \\
-    qmatch_rename_tac`no_closures y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
-    rw[no_closures_def] \\
-    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM]) \\
-  TRY (
-    qmatch_rename_tac`no_closures y` \\
-    qmatch_assum_rename_tac`_ x y` \\
-    Cases_on`x` \\ fs[OPTION_TYPE_def] \\ rw[no_closures_def] \\
-    qmatch_rename_tac`no_closures y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
-    rw[no_closures_def] >-
-      metis_tac[EqualityType_def,EqualityType_NUM] \\
-    qmatch_rename_tac`no_closures y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
-    rw[no_closures_def] \\
-    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM]) \\
-  metis_tac[EqualityType_def,EqualityType_NUM,
-            EqualityType_WORDLANG_EXP_TYPE,
-            EqualityType_LIST_TYPE_PAIR_TYPE_NUM_NUM,
-            EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE,
-            EqualityType_ASM_REG_IMM_TYPE,
-            EqualityType_OPTION_TYPE_NUM,
-            EqualityType_LIST_TYPE_NUM,
-            EqualityType_LIST_TYPE_CHAR,
-            EqualityType_STACKLANG_STORE_NAME_TYPE,
-            EqualityType_ASM_INST_TYPE,
-            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
-            EqualityType_ASM_CMP_TYPE]);
-
-
-val WORDLANG_PROG_TYPE_types_match = Q.prove(
-  `∀a b c d. WORDLANG_PROG_TYPE a b ∧ WORDLANG_PROG_TYPE c d ⇒ types_match b d`,
-  ho_match_mp_tac WORDLANG_PROG_TYPE_ind \\
-  rw[WORDLANG_PROG_TYPE_def] \\
-  Cases_on`c` \\ fs[WORDLANG_PROG_TYPE_def] \\
-  rw[types_match_def,ctor_same_type_def] \\
-  TRY (
-    qmatch_rename_tac`_ y1 y2` \\
-    qmatch_assum_rename_tac`OPTION_TYPE (_ _) x1 y1` \\
-    qmatch_assum_rename_tac`OPTION_TYPE (_ _) x2 y2` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[OPTION_TYPE_def] \\
-    rw[types_match_def,ctor_same_type_def] \\
-    qmatch_rename_tac`_ y1 y2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y1` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y2` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\
-    rw[types_match_def,ctor_same_type_def] >-
-      metis_tac[EqualityType_def,EqualityType_NUM] \\
-    qmatch_rename_tac`_ y1 y2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y1` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y2` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\
-    rw[types_match_def,ctor_same_type_def] >-
-      metis_tac[EqualityType_def,EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE] \\
-    qmatch_rename_tac`_ y1 y2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y1` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y2` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\
-    rw[types_match_def,ctor_same_type_def] \\
-    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_NUM]) \\
-  metis_tac[EqualityType_def,EqualityType_NUM,
-            EqualityType_PAIR_TYPE_NUM_NUM,
-            EqualityType_WORDLANG_EXP_TYPE,
-            EqualityType_LIST_TYPE_PAIR_TYPE_NUM_NUM,
-            EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE,
-            EqualityType_ASM_REG_IMM_TYPE,
-            EqualityType_OPTION_TYPE_NUM,
-            EqualityType_LIST_TYPE_NUM,
-            EqualityType_LIST_TYPE_CHAR,
-            EqualityType_STACKLANG_STORE_NAME_TYPE,
-            EqualityType_ASM_INST_TYPE,
-            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
-            EqualityType_ASM_CMP_TYPE])
-
-val WORDLANG_PROG_TYPE_11 = Q.prove(
-  `∀a b c d. WORDLANG_PROG_TYPE a b ∧ WORDLANG_PROG_TYPE c d ⇒ (a = c ⇔ b = d)`,
-  ho_match_mp_tac WORDLANG_PROG_TYPE_ind \\
-  rw[WORDLANG_PROG_TYPE_def] \\
-  Cases_on`c` \\ fs[WORDLANG_PROG_TYPE_def] \\
-  rw[EQ_IMP_THM] \\
-  TRY (
-    qmatch_rename_tac`y1 = y2` \\
-    qmatch_assum_rename_tac`OPTION_TYPE (_ _) x y1` \\
-    qmatch_assum_rename_tac`OPTION_TYPE (_ _) x y2` \\
-    Cases_on`x` \\ fs[OPTION_TYPE_def] \\ rw[] \\
-    qmatch_rename_tac`y1 = y2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y1` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y2` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
-    rw[] >-
-      metis_tac[EqualityType_def,EqualityType_NUM] \\
-    qmatch_rename_tac`y1 = y2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y1` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y2` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
-    rw[] >-
-      metis_tac[EqualityType_def,EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE] \\
-    qmatch_rename_tac`y1 = y2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y1` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y2` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
-    rw[] \\
-    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_NUM]) \\
-  TRY (
-    qmatch_rename_tac`x1 = x2` \\
-    qmatch_assum_rename_tac`OPTION_TYPE (_ _) x1 y` \\
-    qmatch_assum_rename_tac`OPTION_TYPE (_ _) x2 y` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[OPTION_TYPE_def] \\
-    rw[] \\
-    qmatch_rename_tac`x1 = x2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\
-    rw[] >-
-      metis_tac[EqualityType_def,EqualityType_NUM] \\
-    qmatch_rename_tac`x1 = x2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\
-    rw[] >-
-      metis_tac[EqualityType_def,EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE] \\
-    qmatch_rename_tac`x1 = x2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\
-    rw[] \\
-    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_NUM]) \\
-  metis_tac[EqualityType_def,EqualityType_NUM,
-            EqualityType_PAIR_TYPE_NUM_NUM,
-            EqualityType_WORDLANG_EXP_TYPE,
-            EqualityType_LIST_TYPE_PAIR_TYPE_NUM_NUM,
-            EqualityType_SPTREE_SPT_TYPE_UNIT_TYPE,
-            EqualityType_ASM_REG_IMM_TYPE,
-            EqualityType_OPTION_TYPE_NUM,
-            EqualityType_LIST_TYPE_NUM,
-            EqualityType_LIST_TYPE_CHAR,
-            EqualityType_STACKLANG_STORE_NAME_TYPE,
-            EqualityType_ASM_INST_TYPE,
-            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
-            EqualityType_ASM_CMP_TYPE]);
-
-val EqualityType_WORDLANG_PROG_TYPE = Q.prove(
-  `EqualityType WORDLANG_PROG_TYPE`,
-  metis_tac[EqualityType_def,WORDLANG_PROG_TYPE_no_closures,WORDLANG_PROG_TYPE_types_match,WORDLANG_PROG_TYPE_11])
-  |> store_eq_thm;
 
 val _ = translate (all_ones_def |> conv32_RHS |> we_simp |> SIMP_RULE std_ss [shift_left_rwt,shift_right_rwt] |> wcomp_simp |> conv32 |> wcomp_simp |> conv32)
 
@@ -462,9 +160,19 @@ val _ = translate(Make_ptr_bits_code_def |> inline_simp |> conv32);
 val _ = translate(SilentFFI_def |> inline_simp |> wcomp_simp |> conv32);
 val _ = translate(AllocVar_def |> inline_simp |> wcomp_simp |> conv32);
 
-(*val _ = translate (assign_pmatch |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv32 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)*)
+val _ = translate arg1_def;
+val _ = translate arg2_pmatch;
+val _ = translate arg3_pmatch;
+val _ = translate arg4_pmatch;
 
-val _ = translate (assign_def |> SIMP_RULE std_ss [assign_rw] |> inline_simp |> conv32 |> we_simp |> SIMP_RULE std_ss[SHIFT_ZERO,shift_left_rwt] |> SIMP_RULE std_ss [word_mul_def,LET_THM]|>gconv)
+fun tweak_assign_def th =
+  th |> SIMP_RULE std_ss [assign_rw]
+     |> inline_simp |> conv32 |> we_simp
+     |> SIMP_RULE std_ss [SHIFT_ZERO,shift_left_rwt]
+     |> SIMP_RULE std_ss [word_mul_def,LET_THM] |> gconv;
+
+val res = all_assign_defs |> CONJUNCTS |> map tweak_assign_def |> map translate;
+val res = translate (assign_def |> tweak_assign_def);
 
 val lemma = Q.prove(`!A B. A = B ==> B ≠ A ==> F`,metis_tac[])
 
@@ -778,7 +486,13 @@ val _ = translate (word_bignumTheory.generated_bignum_stubs_eq |> inline_simp |>
 val res = translate (data_to_wordTheory.compile_def
                      |> SIMP_RULE std_ss [data_to_wordTheory.stubs_def] |> conv32_RHS);
 
+(* translate some 32/64 specific parts of the tap/explorer
+   that can't be translated in explorerProgScript *)
+val res = translate (presLangTheory.tap_word_def |> conv32);
+
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

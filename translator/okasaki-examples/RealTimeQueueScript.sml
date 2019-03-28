@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Real-Time
+  Heap algorithm from Chris Okasaki's book.
+*)
 open HolKernel Parse boolLib bossLib; val _ = new_theory "RealTimeQueue";
 
 open listTheory arithmeticTheory ml_translatorLib ListProgTheory;

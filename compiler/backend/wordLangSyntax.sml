@@ -1,3 +1,6 @@
+(*
+  ML functions for dealing with the syntax of wordLang programs.
+*)
 structure wordLangSyntax = struct
   local
   open HolKernel boolLib bossLib;

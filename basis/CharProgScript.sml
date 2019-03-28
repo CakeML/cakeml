@@ -1,3 +1,6 @@
+(*
+  A module about the char type for the CakeML standard basis library.
+*)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
      RatProgTheory
 
@@ -14,12 +17,12 @@ val () = generate_sigs := true;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "char" (Atapp [] (Short "char"))`` I);
 
-val _ = trans "ord" `ORD`
-val _ = trans "chr" `CHR`
-val _ = trans "<" `string$char_lt`
-val _ = trans ">" `string$char_gt`
-val _ = trans "<=" `string$char_le`
-val _ = trans ">=" `string$char_ge`
+val _ = trans "ord" stringSyntax.ord_tm;
+val _ = trans "chr" stringSyntax.chr_tm;
+val _ = trans "<" stringSyntax.char_lt_tm;
+val _ = trans ">" stringSyntax.char_gt_tm;
+val _ = trans "<=" stringSyntax.char_le_tm;
+val _ = trans ">=" stringSyntax.char_ge_tm;
 
 val _ = next_ml_names := ["isSpace"];
 val res = translate stringTheory.isSpace_def;

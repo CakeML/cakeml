@@ -1,3 +1,6 @@
+(*
+  Translate the compiler's register allocator.
+*)
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib
@@ -27,6 +30,9 @@ val _ = hide "state";
 val _ = register_type ``:tag``;
 val _ = register_type ``:clash_tree``;
 val _ = register_type ``:algorithm``;
+
+val res = translate sortingTheory.PART_DEF;
+val res = translate sortingTheory.PARTITION_DEF;
 
 (*
  *  Set up the monadic translator
@@ -74,15 +80,15 @@ val store_pinv_def_opt = NONE : thm option;
 (* Initialization *)
 
 val _ = start_dynamic_init_fixed_store_translation
-	    refs_manip_list
-	    rarrays_manip_list
-	    farrays_manip_list
-	    store_hprop_name
-	    state_type
-	    exn_ri_def
-	    exn_functions
-	    add_type_theories
-	    store_pinv_def_opt
+            refs_manip_list
+            rarrays_manip_list
+            farrays_manip_list
+            store_hprop_name
+            state_type
+            exn_ri_def
+            exn_functions
+            add_type_theories
+            store_pinv_def_opt
 
 (*
  * Translate the register allocator
@@ -166,31 +172,9 @@ val _ = m_translate  (bg_ok_def |> REWRITE_RULE [MEMBER_INTRO,rewrite_subs])
 (* TODO: something in the monadic translator automatically rewrites
   the ¬ (a ∧ b) check
   and then fails on the original def*)
-val consistency_ok_thm = Q.prove(`
-  consistency_ok x y =
-  if x = y then
-    return F (* check 1 *)
-  else
-  do
-    d <- get_dim; (* unnecessary*)
-    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
-    else
-    do
-      adjy <- adj_ls_sub y; (* check 2 *)
-      if MEMBER x adjy then return F
-      else
-      do
-        bx <- is_Fixed x;
-        by <- is_Fixed y;
-        movrelx <- move_related_sub x;
-        movrely <- move_related_sub y;
-        return ((bx ∨ movrelx) ∧ (by ∨ movrely) ∧ (¬bx \/ ¬by) );
-      od
-    od
-  od`,
-  fs[consistency_ok_def,MEMBER_INTRO]);
 
-val _ = m_translate consistency_ok_thm;
+val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
+                           METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
 val _ = m_translate canonize_move_def;
 
 val _ = m_translate st_ex_FIRST_def;
@@ -207,35 +191,8 @@ val _ = m_translate st_ex_list_MIN_cost_def;
 val _ = m_translate st_ex_list_MAX_deg_def;
 val _ = m_translate do_spill_def;
 
-val do_step_thm = Q.prove(`
-  do_step sc k =
-  do
-    b <- do_simplify k;
-    if b then return T
-    else
-    do
-      b <- do_coalesce k;
-      if b then return T
-      else
-      do
-        b <- do_prefreeze k;
-        if b then return T
-        else
-        do
-          b <- do_freeze k;
-          if b then return T
-          else
-            do
-              b <- do_spill sc k;
-              return b
-            od
-        od
-      od
-    od
-  od`,
-  fs[do_step_def]);
+val _ = m_translate (do_step_def |> SIMP_RULE std_ss []);
 
-val _ = m_translate do_step_thm;
 val _ = m_translate rpt_do_step_def;
 val _ = m_translate remove_colours_def;
 val _ = m_translate assign_Atemp_tag_def;
@@ -263,31 +220,8 @@ val _ = translate undir_move_insert_def;
 val _ = translate moves_to_sp_def;
 val _ = translate resort_moves_def;
 
-val full_consistency_ok_thm = Q.prove(`
-  full_consistency_ok k x y =
-  if x = y then
-    return F (* check 1 *)
-  else
-  do
-    d <- get_dim; (* unnecessary*)
-    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
-    else
-    do
-      adjy <- adj_ls_sub y; (* check 2 *)
-      if MEMBER x adjy then return F
-      else
-      do
-        bx <- is_Fixed_k k x;
-        by <- is_Fixed_k k y;
-        ax <- is_Atemp x;
-        ay <- is_Atemp y;
-        return ((bx ∨ ax) ∧ (by ∨ ay) ∧ (¬bx \/ ¬by) );
-      od
-    od
-  od`,
-  fs[full_consistency_ok_def,MEMBER_INTRO]);
-
-val _ = m_translate full_consistency_ok_thm;
+val _ = m_translate (full_consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
+                           METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
 val _ = m_translate do_reg_alloc_def;
 
 (* Finish the monadic translation *)
@@ -359,15 +293,15 @@ val store_pinv_def_opt = NONE : thm option;
 (* Initialization *)
 
 val _ = start_dynamic_init_fixed_store_translation
-	    refs_manip_list
-	    rarrays_manip_list
-	    farrays_manip_list
-	    store_hprop_name
-	    state_type
-	    exn_ri_def
-	    [] (* exn_functions *)
-	    add_type_theories
-	    store_pinv_def_opt
+            refs_manip_list
+            rarrays_manip_list
+            farrays_manip_list
+            store_hprop_name
+            state_type
+            exn_ri_def
+            [] (* exn_functions *)
+            add_type_theories
+            store_pinv_def_opt
 
 (* Translate basics *)
 
@@ -381,13 +315,15 @@ val res = translate pairTheory.LEX_DEF;
 (* Translate linear scan register allocator *)
 
 val map_colors_sub_def = Define `
-  (map_colors_sub [] = return []) ∧
+  (map_colors_sub [] = st_ex_return []) ∧
   (map_colors_sub (x::xs) =
-     do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)`
+     st_ex_bind (colors_sub x)
+       (\fx. st_ex_bind (map_colors_sub xs)
+               (\fxs. st_ex_return (fx::fxs))))`
 
-val map_colors_sub_eq = store_thm("map_colors_sub_eq",
-  ``map_colors_sub = st_ex_MAP colors_sub``,
-  once_rewrite_tac [FUN_EQ_THM]
+Theorem map_colors_sub_eq
+  `map_colors_sub = st_ex_MAP colors_sub`
+  (once_rewrite_tac [FUN_EQ_THM]
   \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]);
 
 val res = m_translate spill_register_def;
@@ -460,8 +396,6 @@ val res = translate linear_scan_reg_alloc_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
-val _ = export_theory();
-
 (*
 TODO: update the following code (comes from the non-monadic register allocator
 
@@ -469,11 +403,6 @@ misc code to generate the unverified register allocator in SML
 
 open ml_progLib
 (* LOAD astPP separately! *)
-
-val ML_code_prog =
-  get_ml_prog_state ()
-  |> clean_state |> remove_snocs
-  |> get_thm
 
 val prog = rconc (EVAL (ML_code_prog |> concl |> strip_comb |> #2 |> el 3))
 

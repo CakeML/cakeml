@@ -13,8 +13,8 @@ LogicalOp ::= "andalso"     // And
            |  "orelse"      // Or
 
 Literal ::= IntegerLiteral    // IntLit i
-         |  "true"            // Bool T
-         |  "false"           // Bool F
+         |  "True"            // Bool T
+         |  "False"           // Bool F
          |  "()"              // Unit
          |  StringLiteral     // String s
 

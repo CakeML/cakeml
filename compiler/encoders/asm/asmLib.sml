@@ -1,3 +1,6 @@
+(*
+  Various ML tools for dealing with the asm language.
+*)
 structure asmLib :> asmLib =
 struct
 
@@ -166,7 +169,7 @@ fun using_first n thms_tac =
           end)
 
 val (_, mk_bytes_in_memory, dest_bytes_in_memory, _) =
-   HolKernel.syntax_fns4 "asmSem" "bytes_in_memory"
+   HolKernel.syntax_fns4 "misc" "bytes_in_memory"
 
 val strip_bytes_in_memory =
    Option.map (fn (_, l, _, _) => fst (listSyntax.dest_list l)) o
@@ -175,7 +178,7 @@ val strip_bytes_in_memory =
 local
    val bytes_in_memory_concat =
       GENL [“l1: word8 list”, “l2 : word8 list”]
-         (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL bytes_in_memory_concat)))
+         (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL miscTheory.bytes_in_memory_APPEND)))
    val w8 = ``:word8``
    val pc = Term.mk_var ("pc", ``:'a word``)
    val mem = Term.mk_var ("mem", ``: 'a word -> word8``)
@@ -199,7 +202,7 @@ in
                         THENC Conv.PATH_CONV "rrlllr"
                                 (Conv.DEPTH_CONV listLib.LENGTH_CONV))
             in
-               qpat_x_assum `asmSem$bytes_in_memory ^pc ^l ^mem ^mem_domain`
+               qpat_x_assum `misc$bytes_in_memory ^pc ^l ^mem ^mem_domain`
                   (fn thm =>
                       let
                          val (th1, th2) =

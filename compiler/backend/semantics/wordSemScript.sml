@@ -1,5 +1,8 @@
+(*
+  The formal semantics of wordLang
+*)
 open preamble wordLangTheory;
-local open alignmentTheory in end;
+local open alignmentTheory asmTheory ffiTheory in end;
 
 val _ = new_theory"wordSem";
 val _ = set_grammar_ancestry [
@@ -42,28 +45,9 @@ val theWord_def = Define `
 val isWord_def = Define `
   (isWord (Word w) = T) /\ (isWord _ = F)`;
 
-val isWord_exists = Q.store_thm("isWord_exists",
-  `isWord x ⇔ ∃w. x = Word w`,
-  Cases_on`x` \\ rw[isWord_def]);
-
-val byte_index_def = Define `
-  byte_index (a:'a word) is_bigendian =
-    let d = dimindex (:'a) DIV 8 in
-      if is_bigendian then 8 * ((d - 1) - w2n a MOD d) else 8 * (w2n a MOD d)`
-
-val get_byte_def = Define `
-  get_byte (a:'a word) (w:'a word) is_bigendian =
-    (w2w (w >>> byte_index a is_bigendian)):word8`
-
-val word_slice_alt_def = Define `
-  (word_slice_alt h l (w:'a word) :'a word) = FCP i. l <= i /\ i < h /\ w ' i`
-
-val set_byte_def = Define `
-  set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
-    let i = byte_index a is_bigendian in
-      (word_slice_alt (dimindex (:'a)) (i + 8) w
-       || w2w b << i
-       || word_slice_alt i 0 w)`;
+Theorem isWord_exists
+  `isWord x ⇔ ∃w. x = Word w`
+  (Cases_on`x` \\ rw[isWord_def]);
 
 val mem_load_byte_aux_def = Define `
   mem_load_byte_aux m dm be w =
@@ -788,46 +772,46 @@ val evaluate_def = tDefine "evaluate" `
     if bad_dest_args dest args then (SOME Error,s)
     else
     case find_code dest (add_ret_loc ret xs) s.code of
-	  | NONE => (SOME Error,s)
-	  | SOME (args1,prog) =>
-	  case ret of
-	  | NONE (* tail call *) =>
+          | NONE => (SOME Error,s)
+          | SOME (args1,prog) =>
+          case ret of
+          | NONE (* tail call *) =>
       if handler = NONE then
         if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
         else (case evaluate (prog, call_env args1 (dec_clock s)) of
          | (NONE,s) => (SOME Error,s)
          | (SOME res,s) => (SOME res,s))
       else (SOME Error,s)
-	  | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
+          | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
     if domain names = {} then (SOME Error,s)
     else
-	  (case cut_env names s.locals of
-		| NONE => (SOME Error,s)
-		| SOME env =>
-	       if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-	       (case fix_clock (call_env args1 (push_env env handler (dec_clock s)))
+          (case cut_env names s.locals of
+                | NONE => (SOME Error,s)
+                | SOME env =>
+               if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
+               (case fix_clock (call_env args1 (push_env env handler (dec_clock s)))
                        (evaluate (prog, call_env args1
-		               (push_env env handler (dec_clock s)))) of
-		| (SOME (Result x y),s2) =>
+                               (push_env env handler (dec_clock s)))) of
+                | (SOME (Result x y),s2) =>
       if x ≠ Loc l1 l2 then (SOME Error,s2)
       else
-		   (case pop_env s2 of
-		    | NONE => (SOME Error,s2)
-		    | SOME s1 =>
-			(if domain s1.locals = domain env
-			 then evaluate(ret_handler,set_var n y s1)
-			 else (SOME Error,s1)))
-		| (SOME (Exception x y),s2) =>
-		   (case handler of (* if handler is present, then handle exc *)
-		    | NONE => (SOME (Exception x y),s2)
-		    | SOME (n,h,l1,l2) =>
+                   (case pop_env s2 of
+                    | NONE => (SOME Error,s2)
+                    | SOME s1 =>
+                        (if domain s1.locals = domain env
+                         then evaluate(ret_handler,set_var n y s1)
+                         else (SOME Error,s1)))
+                | (SOME (Exception x y),s2) =>
+                   (case handler of (* if handler is present, then handle exc *)
+                    | NONE => (SOME (Exception x y),s2)
+                    | SOME (n,h,l1,l2) =>
         if x ≠ Loc l1 l2 then (SOME Error,s2)
         else
           (if domain s2.locals = domain env
            then evaluate (h, set_var n y s2)
            else (SOME Error,s2)))
         | (NONE,s) => (SOME Error,s)
-		| res => res)))`
+                | res => res)))`
   (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
                   (\(xs,^s). (s.termdep,s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
@@ -843,16 +827,16 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases and that termdep is constant. *)
 
-val gc_clock = Q.store_thm("gc_clock",
-  `!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
-  full_simp_tac(srw_ss())[gc_def,LET_DEF] \\ SRW_TAC [] []
+Theorem gc_clock
+  `!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep`
+  (full_simp_tac(srw_ss())[gc_def,LET_DEF] \\ SRW_TAC [] []
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
-val alloc_clock = Q.store_thm("alloc_clock",
+Theorem alloc_clock
   `!xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==>
-                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
-  SIMP_TAC std_ss [alloc_def] \\ rpt gen_tac
+                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep`
+  (SIMP_TAC std_ss [alloc_def] \\ rpt gen_tac
   \\ rpt (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac gc_clock
   \\ rpt (disch_then strip_assume_tac)
@@ -870,10 +854,10 @@ val inst_clock = Q.prove(
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []
   \\ EVAL_TAC \\ fs[]);
 
-val evaluate_clock = Q.store_thm("evaluate_clock",
+Theorem evaluate_clock
   `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==>
-                 s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
-  recInduct evaluate_ind \\ REPEAT STRIP_TAC
+                 s2.clock <= s1.clock /\ s2.termdep = s1.termdep`
+  (recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ rpt (disch_then strip_assume_tac)
   \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]

@@ -1,3 +1,6 @@
+(*
+  Implements CF tactics for CF-style separation logic
+*)
 structure cfHeapsBaseLib :> cfHeapsBaseLib =
 struct
 
@@ -32,6 +35,11 @@ val SEP_CLAUSES = LIST_CONJ [SEP_CLAUSES, STARPOST_def, cond_eq_def]
 val heap_clean_conv =
   SIMP_CONV bool_ss [SEP_CLAUSES] THENC
   DEPTH_CONV (REWR_CONV SEP_F_to_cond)
+
+val SEP_IMPPOST_VARIANTS = LIST_CONJ
+  [SEP_IMPPOST_def, SEP_IMPPOSTv_def, SEP_IMPPOSTe_def,
+   SEP_IMPPOSTf_def, SEP_IMPPOSTd_def, SEP_IMPPOSTv_inv_def,
+   SEP_IMPPOSTe_inv_def]
 
 (*------------------------------------------------------------------*)
 (** Auxiliary functions *)
@@ -324,7 +332,10 @@ val hcancel_conseq_conv =
     [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_unfold))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_def))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_def))),
-     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTffi_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTf_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTd_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_inv_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_inv_def))),
      (true, NONE, K (SCC hcancel_setup_conv)),
      (true, NONE, K hsimpl_cancel_conseq_conv),
      (true, NONE, K hpullr_conseq_conv),
@@ -346,7 +357,10 @@ val hsimpl_conseq_conv =
     [(true, NONE, K (SCC (REWR_CONV SEP_IMPPOST_unfold))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_def))),
      (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_def))),
-     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTffi_def))),     
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTf_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTd_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTv_inv_def))),
+     (true, NONE, K (SCC (REWR_CONV SEP_IMPPOSTe_inv_def))),
      (true, NONE, K (SCC hcancel_setup_conv)),
      (true, NONE, K hpull_conseq_conv),
      (true, NONE, K hsimpl_cancel_conseq_conv),

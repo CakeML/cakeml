@@ -1,15 +1,23 @@
+(*
+  A collection of functions that have in the past turned out to be tricky to
+  translate.
+*)
+
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "ml_translator_test";
 
 open listTheory pairTheory ml_translatorLib ml_translatorTheory;
-
-(* This file contains a collection of functions that have in the past
-   turned out to be tricky to translate. *)
+open ml_progLib;
 
 val ZIP2_def = Define `
   (ZIP2 ([],[]) z = []) /\
   (ZIP2 (x::xs,y::ys) z = (x,y) :: ZIP2 (xs, ys) (5:int))`
+
+(* test timing by setting this
+val _ = (ml_translatorLib.trace_timing_to
+    := SOME "ml_translator_test_timing.txt")
+*)
 
 val res = translate ZIP2_def;
 
@@ -157,17 +165,128 @@ val _ = Datatype `
 
 val _ = register_type ``:tt``;
 
-(* registering types inside modules *)
+(* test no_ind again *)
 
-open ml_progLib
+val test_def = xDefine "test" `test x = (case x of
+  | A1 => [()]
+  | B1 x => test x ++ [()]
+  | C1 NONE => []
+  | C1 (SOME x) => test x ++ REVERSE (test x)
+  | D1 tts => (case tts of [] => [(); ()]
+        | (tt :: tts) => test (D1 tts) ++ test tt)
+  | E1 (x, y) => REVERSE (test x) ++ test y)`
+;
+
+val _ = translate_no_ind test_def;
+
+(* registering types inside modules *)
 
 val _ = Datatype `my_type = my_case1 | my_case2 | my_case3`;
 val my_fun_def = Define `(my_fun my_case1 = 0n) /\ (my_fun my_case2 = 1n) /\
                          (my_fun my_case3 = 2n)`;
 
+val r = register_type ``:'a option``;
+
 val _ = ml_prog_update (open_module "My_module");
 val r = register_type ``:my_type``;
 val _ = ml_prog_update (close_module NONE);
 val r = translate my_fun_def;
+
+val _ = Datatype `my_type3 = SomE num num | NonE`;
+
+val _ = ml_prog_update (open_module "My_other_module");
+val r = register_type ``:my_type3``;
+val res3 = translate optionTheory.THE_DEF
+val _ = ml_prog_update (close_module NONE);
+
+(* test the abstract translator is working *)
+
+val map_again_def = Define `map_again f [] = []
+  /\ map_again f (x :: xs) = f x :: map_again f xs`;
+
+val inc_list_def = Define `inc_list xs = map_again (\x. x + SUC 0) xs`;
+
+val r = abs_translate map_again_def;
+val r = abs_translate inc_list_def;
+val r = concretise [``map_again``, ``inc_list``];
+
+(* check EqualityType proves for some modestly complex datatypes *)
+
+val _ = Datatype `a_type = AT_Nil | AT_Rec (a_type list) ((a_type # num) list)`;
+val _ = Datatype `a_b_type = ABT_Nil
+  | ABT_Rec (bool list) ((a_b_type # num) list)`;
+val _ = Datatype.Hol_datatype `a_c_type = ACT_Nil
+  | ACT_One of 'a | ACT_Two of 'b | ACT_Rec of (a_c_type # num) list`;
+val _ = Datatype `simple_type = STA | STB | STC | STX | STY | STZ`;
+val _ = Datatype `simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z`;
+
+val r = register_type ``:a_type``;
+val r = register_type ``:a_b_type``;
+val r = register_type ``:('a, 'b) a_c_type``;
+val r = register_type ``:simple_type``;
+val r = register_exn_type ``:simple_type2``;
+
+val a_inv = get_type_inv ``:a_type``;
+val a_b_inv = get_type_inv ``:a_b_type``;
+val a_c_inv_num = get_type_inv ``:(num, num) a_c_type``;
+val st_inv = get_type_inv ``:simple_type``;
+val st2_inv = get_type_inv ``:simple_type2``;
+
+Theorem EqTyp_test_lemmas
+  `EqualityType (^a_inv) /\ EqualityType (^a_b_inv)
+    /\ EqualityType (^a_c_inv_num) /\ EqualityType (^st_inv)
+    /\ EqualityType (^st2_inv)`
+  (fs (eq_lemmas ()));
+
+(* translating within nested local blocks and modules *)
+
+val hidden_f1_def = Define `hidden_f1 xs = REVERSE xs ++ [()]`;
+val global_f2_def = Define `global_f2 xs = hidden_f1 xs ++ [()]`;
+val hidden_f3_def = Define `hidden_f3 xs = global_f2 (hidden_f1 xs)`;
+val module_f4_def = Define `module_f4 xs = hidden_f3 (global_f2 xs)`;
+val module_f5_def = Define `module_f5 xs = module_f4 xs`;
+val global_f6_def = Define `global_f6 xs = module_f5 xs ++ module_f4 xs`;
+
+val r = translate REVERSE_DEF;
+val _ = ml_prog_update open_local_block;
+val r = translate hidden_f1_def;
+val _ = ml_prog_update open_local_in_block;
+val r = translate global_f2_def;
+val _ = ml_prog_update (open_module "f4_module");
+val _ = ml_prog_update open_local_block;
+val r = translate hidden_f3_def;
+val _ = ml_prog_update open_local_in_block;
+val r = translate module_f4_def;
+val _ = ml_prog_update open_local_block;
+val _ = ml_prog_update open_local_in_block;
+val r = translate module_f5_def;
+val _ = ml_prog_update close_local_blocks;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update close_local_block;
+val r = translate global_f6_def;
+
+(* translating within nested modules *)
+
+val m1_m2_f_def = Define `m1_m2_f i = SUC 1 + i`;
+val m1_m3_f_def = Define `m1_m3_f i = m1_m2_f (SUC i)`;
+val m1_f_def = Define `m1_f i = m1_m2_f (m1_m3_f i)`;
+val m4_f_def = Define `m4_f i = m1_f i + m1_m3_f (m1_m2_f i)`;
+val m4_m5_f_def = Define `m4_m5_f i = m1_f i + m4_f i + m1_m2_f i`;
+
+val _ = ml_prog_update (open_module "m1");
+val _ = ml_prog_update (open_module "m2");
+val r = translate m1_m2_f_def;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (open_module "m3");
+val r = translate m1_m3_f_def;
+val _ = ml_prog_update (close_module NONE);
+val r = translate m1_f_def;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (open_module "m4");
+val r = translate m4_f_def;
+val _ = ml_prog_update (open_module "m5");
+val r = translate m4_m5_f_def;
+val _ = ml_prog_update (close_module NONE);
+val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();

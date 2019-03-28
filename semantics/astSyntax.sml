@@ -1,3 +1,7 @@
+(*
+  ML functions for manipulating HOL terms and types defined as part of the
+  CakeML semantics, in particular CakeML abstract syntax.
+*)
 structure astSyntax = struct
   local
   open HolKernel boolLib bossLib;

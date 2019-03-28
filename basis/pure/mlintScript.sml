@@ -1,3 +1,6 @@
+(*
+  Pure functions for the Int module.
+*)
 open preamble mlstringTheory
 
 val _ = new_theory"mlint";
@@ -6,9 +9,9 @@ val toChar_def = Define`
   toChar digit = if digit < 10 then CHR (ORD #"0" + digit)
   else CHR (ORD #"A" + digit - 10)`;
 
-val toChar_HEX = Q.store_thm("toChar_HEX",
-  `d < 16 ⇒ (toChar d = HEX d)`,
-  strip_tac \\ rpt(fs[Once NUMERAL_LESS_THM] >- EVAL_TAC));
+Theorem toChar_HEX
+  `d < 16 ⇒ (toChar d = HEX d)`
+  (strip_tac \\ rpt(fs[Once NUMERAL_LESS_THM] >- EVAL_TAC));
 
 (* This should be smaller than the maximum smallint supported by the compiler
 (see bvl_to_bviTheory for that. 2**28-1?) Also it must be a power of the radix
@@ -26,9 +29,9 @@ val zero_pad_def = Define`
   (zero_pad 0 acc = acc) ∧
   (zero_pad (SUC n) acc = zero_pad n (#"0" :: acc))`;
 
-val zero_pad_thm = Q.store_thm("zero_pad_thm",
-  `∀n acc. zero_pad n acc = REPLICATE n #"0" ++ acc`,
-  Induct \\ rw[GSYM SNOC_REPLICATE,zero_pad_def] \\ EVAL_TAC);
+Theorem zero_pad_thm
+  `∀n acc. zero_pad n acc = REPLICATE n #"0" ++ acc`
+  (Induct \\ rw[GSYM SNOC_REPLICATE,zero_pad_def] \\ EVAL_TAC);
 
 val simple_toChars_def = Define`
   simple_toChars pad i acc =
@@ -36,10 +39,10 @@ val simple_toChars_def = Define`
     else simple_toChars (pad-1) (i DIV 10) (toChar (i MOD 10) :: acc)`;
 val simple_toChars_ind = theorem"simple_toChars_ind";
 
-val simple_toChars_thm = Q.store_thm("simple_toChars_thm",
+Theorem simple_toChars_thm
   `∀pad i acc. simple_toChars pad i acc =
-    REPLICATE (pad - LENGTH (num_to_dec_string i)) #"0" ++ num_to_dec_string i ++ acc`,
-  ho_match_mp_tac simple_toChars_ind \\
+    REPLICATE (pad - LENGTH (num_to_dec_string i)) #"0" ++ num_to_dec_string i ++ acc`
+  (ho_match_mp_tac simple_toChars_ind \\
   rw[ASCIInumbersTheory.num_to_dec_string_def,
      ASCIInumbersTheory.n2s_def] \\
   rw[Once simple_toChars_def]
@@ -63,11 +66,11 @@ val toChars_def = tDefine"toChars"`
  \\ rw[maxSmall_DEC_def,DIV_LT_X] \\ fs[maxSmall_DEC_def]);
 val toChars_ind = theorem"toChars_ind";
 
-val toChars_thm = Q.store_thm("toChars_thm",
+Theorem toChars_thm
   `∀chunk rest acc. chunk < maxSmall_DEC ⇒
     (toChars chunk rest acc =
-      num_to_dec_string (rest * maxSmall_DEC + chunk) ++ acc)`,
-  ho_match_mp_tac toChars_ind
+      num_to_dec_string (rest * maxSmall_DEC + chunk) ++ acc)`
+  (ho_match_mp_tac toChars_ind
   \\ rw[]
   \\ rw[Once toChars_def]
   \\ rw[simple_toChars_thm,REPLICATE]
@@ -94,9 +97,9 @@ val toString_def = Define`
       implode ((if i < 0i then "~" else "")++
                (toChars (Num (ABS i) MOD maxSmall_DEC) (Num (ABS i) DIV maxSmall_DEC) ""))`;
 
-val toString_thm = Q.store_thm("toString_thm",
-  `toString i = implode ((if i < 0i then "~" else "") ++ num_to_dec_string (Num (ABS i)))`,
-  rw[toString_def]
+Theorem toString_thm
+  `toString i = implode ((if i < 0i then "~" else "") ++ num_to_dec_string (Num (ABS i)))`
+  (rw[toString_def]
   >- (`F` by intLib.COOPER_TAC)
   >- (
     rw[str_def]
@@ -113,6 +116,12 @@ val toString_thm = Q.store_thm("toString_thm",
     \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
     \\ simp[] ));
 
+val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
+val _ = overload_on("toString",``num_to_str``);
+
+val num_to_str_thm = Q.store_thm("num_to_str_thm",
+  `num_to_str n = implode (num_to_dec_string n)`,
+  fs [toString_thm,num_to_str_def]);
 
 (* fromString Definitions *)
 val fromChar_unsafe_def = Define`
@@ -134,9 +143,9 @@ val fromChar_def = Define`
       | _    => NONE`;
 
 (* Equivalence between the safe and unsafe versions of fromChar *)
-val fromChar_eq_unsafe = Q.store_thm("fromChar_eq_unsafe",
-  `∀char. isDigit char ⇒ fromChar char = SOME (fromChar_unsafe char)`,
-  Cases_on `char` \\ rw [isDigit_def, fromChar_def, fromChar_unsafe_def]
+Theorem fromChar_eq_unsafe
+  `∀char. isDigit char ⇒ fromChar char = SOME (fromChar_unsafe char)`
+  (Cases_on `char` \\ rw [isDigit_def, fromChar_def, fromChar_unsafe_def]
   \\ rpt (pop_assum (ASSUME_TAC o CONV_RULE (BINOP_CONV (TRY_CONV numLib.num_CONV)))
   \\ fs [LE]));
 
@@ -152,11 +161,11 @@ val fromChars_range_def = Define`
         head = fromChar (strsub str (l + n))
     in OPTION_MAP2 $+ rest head`;
 
-val fromChars_range_eq_unsafe = Q.store_thm("fromChars_range_eq_unsafe",
+Theorem fromChars_range_eq_unsafe
   `∀str l r. EVERY isDigit str ∧ l + r <= STRLEN str ⇒
      fromChars_range l r (strlit str) =
-     SOME (fromChars_range_unsafe l r (strlit str))`,
-  Induct_on `r`
+     SOME (fromChars_range_unsafe l r (strlit str))`
+  (Induct_on `r`
   \\ rw [fromChars_range_def
         , fromChars_range_unsafe_def
         , fromChar_eq_unsafe
@@ -186,10 +195,10 @@ val fromChars_def = tDefine "fromChars" `
 (wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
 val fromChars_ind = theorem"fromChars_ind"
 
-val fromChars_eq_unsafe = Q.store_thm("fromChars_eq_unsafe",
+Theorem fromChars_eq_unsafe
   `∀n s. EVERY isDigit (explode s) ∧ n ≤ strlen s ⇒
-    fromChars n s = SOME (fromChars_unsafe n s)`,
-  let val tactics = [fromChars_def
+    fromChars n s = SOME (fromChars_unsafe n s)`
+  (let val tactics = [fromChars_def
                     , fromChars_unsafe_def
                     , fromChars_range_eq_unsafe
                     , strlen_def
@@ -225,20 +234,25 @@ val fromString_def = Define`
                         (substring str 1 (strlen str - 1)))
       else OPTION_MAP $& (fromChars (strlen str) str)`;
 
+val fromNatString_def = Define `
+  fromNatString str =
+    case fromString str of
+      NONE => NONE
+    | SOME i => if 0 <= i then SOME (Num i) else NONE`;
+
 (* fromString auxiliar lemmas *)
-val fromChars_range_unsafe_0_substring_thm =
-  Q.store_thm("fromChars_range_unsafe_0_substring_thm",
+Theorem fromChars_range_unsafe_0_substring_thm
   `∀m r s. r ≤ m ⇒
     fromChars_range_unsafe 0 r s =
-      fromChars_range_unsafe 0 r (substring s 0 m)`,
-  Induct_on `r` \\ rw [fromChars_range_unsafe_def, strsub_substring_0_thm]);
+      fromChars_range_unsafe 0 r (substring s 0 m)`
+  (Induct_on `r` \\ rw [fromChars_range_unsafe_def, strsub_substring_0_thm]);
 
-val fromChars_range_unsafe_split = Q.store_thm("fromChars_range_unsafe_split",
+Theorem fromChars_range_unsafe_split
   `∀m n s. m ≠ 0 ∧ m < n
     ⇒ fromChars_range_unsafe 0 n s =
         10 ** m * fromChars_range_unsafe    0    (n - m) s
-        +         fromChars_range_unsafe (n - m)    m    s`,
-  Induct_on `m`
+        +         fromChars_range_unsafe (n - m)    m    s`
+  (Induct_on `m`
   >- rw []
   >- (`∀m k w. 10**SUC m*k + 10*w = 10*(10**m*k + w)` by simp [EXP]
       \\ Cases_on `n`
@@ -247,20 +261,20 @@ val fromChars_range_unsafe_split = Q.store_thm("fromChars_range_unsafe_split",
       \\ rw [fromChars_range_unsafe_def]));
 
 (* fromString proofs *)
-val fromChar_unsafe_thm = Q.store_thm("fromChar_unsafe_thm",
-  `∀ h. isDigit h ⇒ fromChar_unsafe h = num_from_dec_string [h]`,
-  let
+Theorem fromChar_unsafe_thm
+  `∀ h. isDigit h ⇒ fromChar_unsafe h = num_from_dec_string [h]`
+  (let
     val num_conv = ASSUME_TAC o CONV_RULE (BINOP_CONV (TRY_CONV numLib.num_CONV))
   in Cases_on `h`
   \\ rw [isDigit_def]
   \\ rpt (pop_assum num_conv >> fs [LE, fromChar_unsafe_def])
   end);
 
-val fromChars_range_unsafe_thm = Q.store_thm("fromChars_range_unsafe_thm",
+Theorem fromChars_range_unsafe_thm
   `∀str. EVERY isDigit str ⇒
     fromChars_range_unsafe 0 (STRLEN str) (strlit str) =
-      num_from_dec_string str`,
-  recInduct SNOC_INDUCT
+      num_from_dec_string str`
+  (recInduct SNOC_INDUCT
   \\ rw [fromChars_range_unsafe_def
         ,ASCIInumbersTheory.num_from_dec_string_def]
   \\ `isDigit x` by fs [EVERY_SNOC]
@@ -282,9 +296,9 @@ val fromChars_range_unsafe_thm = Q.store_thm("fromChars_range_unsafe_thm",
                      |> SIMP_RULE std_ss [SEG_LENGTH_ID]]
   \\ fs [ASCIInumbersTheory.s2n_def,EVERY_SNOC]);
 
-val fromChars_range_unsafe_eq = Q.store_thm("fromChars_range_unsafe_eq",
-  `∀n s. n ≤ (strlen s) ⇒ fromChars_unsafe n s = fromChars_range_unsafe 0 n s`,
-  recInduct fromChars_unsafe_ind
+Theorem fromChars_range_unsafe_eq
+  `∀n s. n ≤ (strlen s) ⇒ fromChars_unsafe n s = fromChars_range_unsafe 0 n s`
+  (recInduct fromChars_unsafe_ind
   \\ rw [fromChars_unsafe_def
         , fromChars_range_unsafe_def
         , padLen_DEC_eq
@@ -293,17 +307,17 @@ val fromChars_range_unsafe_eq = Q.store_thm("fromChars_range_unsafe_eq",
                                        |> SIMP_RULE std_ss []
                                        |> GSYM]);
 
-val fromString_unsafe_thm = Q.store_thm("fromString_unsafe_thm",
+Theorem fromString_unsafe_thm
   `∀str. (HD str ≠ #"~" ⇒ EVERY isDigit str) ∧
          (HD str = #"~" ⇒ EVERY isDigit (DROP 1 str)) ⇒
          fromString_unsafe (strlit str) =
            if HD str = #"~"
            then ~&num_from_dec_string (DROP 1 str)
-           else &num_from_dec_string str`,
-  rw [fromString_unsafe_def
+           else &num_from_dec_string str`
+  (rw [fromString_unsafe_def
      , fromChars_range_unsafe_eq
      , fromChars_range_unsafe_thm
-     , substring_def, SEG_TAKE_BUTFISTN
+     , substring_def, SEG_TAKE_DROP
      , TAKE_LENGTH_ID_rwt
      , fromChars_range_unsafe_thm
        |> ISPEC ``DROP 1 str' : string``
@@ -311,7 +325,7 @@ val fromString_unsafe_thm = Q.store_thm("fromString_unsafe_thm",
           [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]
   \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]);
 
-val fromString_thm = Q.store_thm("fromString_thm",
+Theorem fromString_thm
   `∀str. (HD str ≠ #"~" ∧ HD str ≠ #"-" ∧ HD str ≠ #"+" ⇒ EVERY isDigit str) ∧
          (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str)) ⇒
          fromString (strlit str) = SOME
@@ -319,12 +333,12 @@ val fromString_thm = Q.store_thm("fromString_thm",
            then ~&num_from_dec_string (DROP 1 str)
            else if HD str = #"+"
            then &num_from_dec_string (DROP 1 str)
-           else &num_from_dec_string str`,
-  rw [fromString_def
+           else &num_from_dec_string str`
+  (rw [fromString_def
      , fromChars_eq_unsafe
      , fromChars_range_unsafe_eq
      , fromChars_range_unsafe_thm
-     , substring_def, SEG_TAKE_BUTFISTN
+     , substring_def, SEG_TAKE_DROP
      , TAKE_LENGTH_ID_rwt
      , fromChars_range_unsafe_thm
        |> ISPEC ``DROP 1 str' : string``
@@ -335,9 +349,9 @@ val fromString_thm = Q.store_thm("fromString_thm",
 val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
   fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]);
 
-val fromString_toString_Num = Q.store_thm("fromString_toString_Num",
-  `0 ≤ n ⇒ fromString (strlit (num_to_dec_string (Num n))) = SOME n`,
-  strip_tac
+Theorem fromString_toString_Num
+  `0 ≤ n ⇒ fromString (strlit (num_to_dec_string (Num n))) = SOME n`
+  (strip_tac
   \\ DEP_REWRITE_TAC[fromString_thm]
   \\ qspec_then`Num n`assume_tac EVERY_isDigit_num_to_dec_string
   \\ Cases_on`num_to_dec_string (Num n)` \\ fs[num_to_dec_string_nil]
@@ -349,9 +363,33 @@ val fromString_toString_Num = Q.store_thm("fromString_toString_Num",
   \\ simp[]
   \\ simp[integerTheory.INT_OF_NUM]);
 
-val fromChar_IS_SOME_IFF = Q.store_thm("fromChar_IS_SOME_IFF",
-  `IS_SOME (fromChar c) ⇔ isDigit c`,
-  simp[fromChar_def]
+Theorem fromString_toString[simp]
+  `!i:int. fromString (toString i) = SOME i`
+  (rw [toString_thm,implode_def]
+  \\ qmatch_goalsub_abbrev_tac `strlit sss`
+  \\ qspec_then `sss` mp_tac fromString_thm
+  THEN1
+   (reverse impl_tac THEN1
+     (fs [Abbr`sss`,toString_thm,ASCIInumbersTheory.toNum_toString]
+      \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC)
+    \\ fs [Abbr `sss`,miscTheory.EVERY_isDigit_num_to_dec_string])
+  \\ `HD sss ≠ #"~" ∧ HD sss ≠ #"-" ∧ HD sss ≠ #"+"` by
+   (fs [Abbr `sss`]
+    \\ qspec_then `Num (ABS i)` mp_tac miscTheory.EVERY_isDigit_num_to_dec_string
+    \\ Cases_on `num_to_dec_string (Num (ABS i))`
+    \\ fs [miscTheory.num_to_dec_string_nil]
+    \\ CCONTR_TAC \\ fs [] \\ rveq  \\ fs [isDigit_def])
+  \\ fs [Abbr `sss`,miscTheory.EVERY_isDigit_num_to_dec_string]
+  \\ fs [toString_thm,ASCIInumbersTheory.toNum_toString]
+  \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC);
+
+Theorem fromNatString_toString[simp]
+  `!n:num. fromNatString (toString n) = SOME n`
+  (fs [num_to_str_def,fromNatString_def]);
+
+Theorem fromChar_IS_SOME_IFF
+  `IS_SOME (fromChar c) ⇔ isDigit c`
+  (simp[fromChar_def]
   \\ rpt(IF_CASES_TAC  \\ rveq >- EVAL_TAC)
   \\ rw[]
   \\ EVAL_TAC
@@ -359,9 +397,9 @@ val fromChar_IS_SOME_IFF = Q.store_thm("fromChar_IS_SOME_IFF",
   \\ simp[]
   \\ fs[]);
 
-val fromChars_range_IS_SOME_IFF = Q.store_thm("fromChars_range_IS_SOME_IFF",
-  `∀s x y. (x + y ≤ strlen s) ⇒ (IS_SOME (fromChars_range x y s) ⇔ EVERY isDigit (TAKE y (DROP x (explode s))))`,
-  Induct_on`y`
+Theorem fromChars_range_IS_SOME_IFF
+  `∀s x y. (x + y ≤ strlen s) ⇒ (IS_SOME (fromChars_range x y s) ⇔ EVERY isDigit (TAKE y (DROP x (explode s))))`
+  (Induct_on`y`
   \\ rw[fromChars_range_def]
   \\ fs[IS_SOME_EXISTS] \\ rw[]
   \\ fs[PULL_EXISTS]
@@ -385,9 +423,9 @@ val fromChars_range_IS_SOME_IFF = Q.store_thm("fromChars_range_IS_SOME_IFF",
   \\ first_x_assum(qspec_then`y`mp_tac)
   \\ simp[]);
 
-val fromChars_IS_SOME_IFF = Q.store_thm("fromChars_IS_SOME_IFF",
-  `∀n s. n ≤ strlen s ⇒ (IS_SOME (fromChars n s) ⇔ EVERY isDigit (TAKE n (explode s)))`,
-  recInduct fromChars_ind
+Theorem fromChars_IS_SOME_IFF
+  `∀n s. n ≤ strlen s ⇒ (IS_SOME (fromChars n s) ⇔ EVERY isDigit (TAKE n (explode s)))`
+  (recInduct fromChars_ind
   \\ rw[fromChars_def]
   \\ fs[fromChars_range_IS_SOME_IFF]
   \\ fs[IS_SOME_EXISTS, PULL_EXISTS]
@@ -408,5 +446,17 @@ val fromChars_IS_SOME_IFF = Q.store_thm("fromChars_IS_SOME_IFF",
   \\ qspecl_then[`str'`,`SUC v2 - padLen_DEC`,`padLen_DEC`]mp_tac fromChars_range_IS_SOME_IFF
   \\ simp[IS_SOME_EXISTS]
   \\ fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE, EL_DROP]);
+
+Theorem fromString_EQ_NONE
+  `~isDigit c /\ c <> #"+" /\ c <> #"~" /\ c <> #"-" ==>
+   fromString (implode (STRING c x)) = NONE`
+  (rw [fromString_def,implode_def,strsub_def]
+  \\ `(SUC (STRLEN x)) <= strlen (strlit (STRING c x))` by fs [strlen_def]
+  \\ drule fromChars_IS_SOME_IFF \\ fs [explode_def]);
+
+(* this formulation avoids a comparsion using = for better performance *)
+val int_cmp_def = Define `
+  int_cmp i (j:int) = if i < j then LESS else
+                      if j < i then GREATER else EQUAL`
 
 val _ = export_theory();

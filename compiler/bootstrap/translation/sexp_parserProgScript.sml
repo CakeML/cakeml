@@ -1,3 +1,6 @@
+(*
+  Translate the alternative s-expression parser.
+*)
 open preamble explorerProgTheory
      ml_translatorLib ml_translatorTheory
      pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory
@@ -5,13 +8,15 @@ open preamble explorerProgTheory
 val _ = new_theory"sexp_parserProg";
 val _ = translation_extends "explorerProg";
 
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
+
 (* TODO: this is duplicated in parserProgTheory *)
 val monad_unitbind_assert = Q.prove(
   `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
-val OPTION_BIND_THM = Q.store_thm("OPTION_BIND_THM",
-  `!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i`,
-  Cases THEN SRW_TAC [] []);
+Theorem OPTION_BIND_THM
+  `!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i`
+  (Cases THEN SRW_TAC [] []);
 (* -- *)
 
 val r = translate simpleSexpPEGTheory.pnt_def
@@ -76,12 +81,12 @@ val r = translate simpleSexpTheory.dstrip_sexp_def
 
 
 (* TODO: move (used?) *)
-val isHexDigit_cases = Q.store_thm("isHexDigit_cases",
+Theorem isHexDigit_cases
   `isHexDigit c ⇔
    isDigit c ∨
    c ∈ {#"a";#"b";#"c";#"d";#"e";#"f"} ∨
-   c ∈ {#"A";#"B";#"C";#"D";#"E";#"F"}`,
-  rw[isHexDigit_def,isDigit_def]
+   c ∈ {#"A";#"B";#"C";#"D";#"E";#"F"}`
+  (rw[isHexDigit_def,isDigit_def]
   \\ EQ_TAC \\ strip_tac \\ simp[]
   >- (
     `ORD c = 97 ∨
@@ -100,15 +105,15 @@ val isHexDigit_cases = Q.store_thm("isHexDigit_cases",
      ORD c = 70` by decide_tac \\
     pop_assum(assume_tac o Q.AP_TERM`CHR`) \\ fs[CHR_ORD] ));
 
-val isHexDigit_UNHEX_LESS = Q.store_thm("isHexDigit_UNHEX_LESS",
-  `isHexDigit c ⇒ UNHEX c < 16`,
-  rw[isHexDigit_cases] \\ EVAL_TAC \\
+Theorem isHexDigit_UNHEX_LESS
+  `isHexDigit c ⇒ UNHEX c < 16`
+  (rw[isHexDigit_cases] \\ EVAL_TAC \\
   rw[GSYM simpleSexpParseTheory.isDigit_UNHEX_alt] \\
   fs[isDigit_def]);
 
-val num_from_hex_string_alt_length_2 = Q.store_thm("num_from_hex_string_alt_length_2",
-  `num_from_hex_string_alt [d1;d2] < 256`,
-  rw[lexer_implTheory.num_from_hex_string_alt_def,
+Theorem num_from_hex_string_alt_length_2
+  `num_from_hex_string_alt [d1;d2] < 256`
+  (rw[lexer_implTheory.num_from_hex_string_alt_def,
      ASCIInumbersTheory.s2n_def,
      numposrepTheory.l2n_def]
   \\ qspecl_then[`unhex_alt d1`,`16`]mp_tac MOD_LESS
@@ -118,11 +123,11 @@ val num_from_hex_string_alt_length_2 = Q.store_thm("num_from_hex_string_alt_leng
   \\ decide_tac);
 (* -- *)
 
-val num_from_hex_string_alt_intro = Q.store_thm("num_from_hex_string_alt_intro",
+Theorem num_from_hex_string_alt_intro
   `EVERY isHexDigit ls ⇒
    num_from_hex_string ls =
-   num_from_hex_string_alt ls`,
-  rw[ASCIInumbersTheory.num_from_hex_string_def,
+   num_from_hex_string_alt ls`
+  (rw[ASCIInumbersTheory.num_from_hex_string_def,
      lexer_implTheory.num_from_hex_string_alt_def,
      ASCIInumbersTheory.s2n_def,
      numposrepTheory.l2n_def] \\
@@ -256,5 +261,7 @@ val sexpdec_alt_side = Q.prove(
   \\ rw[Once(fetch"-""sexpdec_alt_side_def")]
   \\ fs[LENGTH_EQ_NUM_compute])
   |> update_precondition;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = export_theory();

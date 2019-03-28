@@ -1,3 +1,7 @@
+(*
+  Definitions of semantic primitives (e.g., values, and functions for doing
+  primitive operations) used in the semantics.
+*)
 open import Pervasives
 open import Lib
 import List_extra
@@ -341,7 +345,7 @@ let do_opapp vs =
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 val v_to_list : v -> maybe (list v)
 let rec v_to_list (Conv (Just stamp) []) =
-  if stamp = TypeStamp "nil" list_type_num then
+  if stamp = TypeStamp "[]" list_type_num then
     Just []
   else
     Nothing
@@ -356,12 +360,12 @@ and v_to_list (Conv (Just stamp) [v1;v2]) =
 and v_to_list _ = Nothing
 
 val list_to_v : list v -> v
-let rec list_to_v [] = Conv (Just (TypeStamp "nil" list_type_num)) []
+let rec list_to_v [] = Conv (Just (TypeStamp "[]" list_type_num)) []
 and list_to_v (x::xs) = Conv (Just (TypeStamp "::" list_type_num)) [x; list_to_v xs]
 
 val v_to_char_list : v -> maybe (list char)
 let rec v_to_char_list (Conv (Just stamp) []) =
-  if stamp = TypeStamp "nil" list_type_num then
+  if stamp = TypeStamp "[]" list_type_num then
     Just []
   else
     Nothing
@@ -456,8 +460,8 @@ end
 
 val Boolv : bool -> v
 let Boolv b = if b
-  then Conv (Just (TypeStamp "true" bool_type_num)) []
-  else Conv (Just (TypeStamp "false" bool_type_num)) []
+  then Conv (Just (TypeStamp "True" bool_type_num)) []
+  else Conv (Just (TypeStamp "False" bool_type_num)) []
 
 type exp_or_val =
   | Exp of exp

@@ -1,3 +1,6 @@
+(*
+  Provides a compset for the ARMv6-specific parts of the backend
+*)
 structure arm6_compileLib =
 struct
 

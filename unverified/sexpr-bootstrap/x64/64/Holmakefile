@@ -2,36 +2,39 @@ ARCH = x64
 WORD_SIZE = 64
 STACK_MB = 1000
 HEAP_MB = 1000
-CAKE_BIN = ../../../../developers/bin/cake
-INCLUDES = ../../../../compiler/bootstrap/translation ../../../sexpr-bootstrap ../../../../developers/bin/ ../../../../characteristic
-CLINE_OPTIONS = --qof
+CAKE_BIN = $(CAKEMLDIR)/developers/bin/cake
+INCLUDES = $(CAKEMLDIR)/compiler/bootstrap/translation $(CAKEMLDIR)/developers/bin $(CAKEMLDIR)/characteristic ../..
 
-ifdef POLY
-HOLHEAP = heap
-PARENT_HOLHEAP = ../../../../compiler/bootstrap/translation/heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
-all: $(TARGETS) $(HOLHEAP) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz
+all: $(DEFAULT_TARGETS) README.md cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
 
-BARE_THYS = ../../../../compiler/bootstrap/translation/compiler$(WORD_SIZE)ProgTheory
-
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
-endif
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 cake-sexpr-$(ARCH)-$(WORD_SIZE): *$(ARCH)SexprScript.sml
 
 cake.S: cake-sexpr-$(ARCH)-$(WORD_SIZE)
 	$(CAKE_BIN) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --heap_size=$(HEAP_MB) --stack_size=$(STACK_MB) --reg_alg=0 <$< >$@
 
-cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE)
-	tar -chzf $@ --transform='s|^|cake-unverified-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE)
+cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md how-to.output
+	tar -chzf $@ --transform='s|^|cake-unverified-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile cake-sexpr-$(ARCH)-$(WORD_SIZE) how-to.md
 
-EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz
+# the following extracts the code from how-to.md, compiles it and runs it
+
+how-to.output: how-to.cake
+	./$< >$@
+
+how-to.cake: extract_code.cake how-to.md cake
+	./$< how-to.md >how-to.cml
+	make $@
+	rm -f how-to.cml
+
+extract_code.cake: extract_code.cml cake
+	make $@
+
+cake: cake.S basis_ffi.c
+	make $@
+
+EXTRA_CLEANS = cake.S cake-sexpr-$(ARCH)-$(WORD_SIZE) cake-unverified-$(ARCH)-$(WORD_SIZE).tar.gz how-to.output how-to.cake how-to.cml extract_code.cake cake

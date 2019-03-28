@@ -1,12 +1,6 @@
-open preamble
-     astTheory libTheory semanticPrimitivesTheory
-     ml_progTheory ml_translatorTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
-open terminationTheory ml_translatorTheory
-
-val _ = new_theory "ml_optimise";
-
 (*
+  A simple verified optimiser for CakeML expressions, which is applied once the
+  translator has produced some CakeML syntax.
 
   The HOL-->ML translator occsionally produces clunky code. This file
   defines a verified optimiser which is used to simplify the clunky
@@ -18,9 +12,15 @@ val _ = new_theory "ml_optimise";
        "x - n + n" --> "x"
        "x + n - n" --> "x"
        "let x = y in x" --> "y"
-
 *)
 
+open preamble
+     astTheory libTheory semanticPrimitivesTheory
+     ml_progTheory ml_translatorTheory
+     semanticPrimitivesPropsTheory evaluatePropsTheory;
+open terminationTheory ml_translatorTheory
+
+val _ = new_theory "ml_optimise";
 
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
@@ -90,9 +90,9 @@ val REVERSE_BOTTOM_UP_OPT_LIST = prove(
   ``!xs. REVERSE (BOTTOM_UP_OPT_LIST f xs) = BOTTOM_UP_OPT_LIST f (REVERSE xs)``,
   Induct \\ fs [BOTTOM_UP_OPT_def,BOTTOM_UP_OPT_LIST_APPEND]);
 
-val dec_clock_with_clock = store_thm("dec_clock_with_clock[simp]",
-  ``(dec_clock st1 with clock := c) = st1 with clock := c``,
-  fs [state_component_equality,evaluateTheory.dec_clock_def]);
+Theorem dec_clock_with_clock[simp]
+  `(dec_clock st1 with clock := c) = st1 with clock := c`
+  (fs [state_component_equality,evaluateTheory.dec_clock_def]);
 
 val s = ``s:'ffi semanticPrimitives$state``
 
@@ -392,9 +392,9 @@ val OPTIMISE_def = Define `
   OPTIMISE =
     BOTTOM_UP_OPT (opt_sub_add o let_id) o BOTTOM_UP_OPT abs2let`;
 
-val Eval_OPTIMISE = Q.store_thm("Eval_OPTIMISE",
-  `Eval env exp P ==> Eval env (OPTIMISE exp) P`,
-  simp [Eval_def] \\ rpt strip_tac
+Theorem Eval_OPTIMISE
+  `Eval env exp P ==> Eval env (OPTIMISE exp) P`
+  (simp [Eval_def] \\ rpt strip_tac
   \\ first_x_assum(qspec_then`refs`strip_assume_tac)
   \\ qexists_tac `res` \\ fs [OPTIMISE_def]
   \\ qexists_tac`refs'`

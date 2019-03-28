@@ -1,3 +1,8 @@
+(*
+  Definition of CakeML abstract syntax (AST).
+*)
+
+open import Pervasives_extra
 open import Pervasives
 open import Lib
 open import Namespace
@@ -168,7 +173,10 @@ type dec =
   | Dtabbrev of locs * list tvarN * typeN * ast_t
   (* New exceptions *)
   | Dexn of locs * conN * list ast_t
+  (* Module *)
   | Dmod of modN * list dec
+  (* Local: local part, visible part *)
+  | Dlocal of list dec * list dec
 
 (*
 (* Specifications

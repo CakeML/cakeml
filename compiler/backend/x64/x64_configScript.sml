@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for x64
+*)
 open preamble backendTheory x64_targetTheory x64_targetLib
 
 val _ = new_theory"x64_config";
@@ -51,7 +54,8 @@ val x64_backend_config_def = Define`
                word_to_word_conf:=^(word_to_word_conf);
                word_conf:=^(x64_word_conf);
                stack_conf:=^(x64_stack_conf);
-               lab_conf:=^(x64_lab_conf)
+               lab_conf:=^(x64_lab_conf);
+               tap_conf:=default_tap_config
                |>`;
 
 val _ = export_theory();

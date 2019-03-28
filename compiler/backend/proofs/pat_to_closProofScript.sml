@@ -1,9 +1,16 @@
+(*
+  Correctness proof for pat_to_clos
+*)
 open preamble intLib integerTheory backendPropsTheory
      semanticPrimitivesTheory
      patSemTheory patPropsTheory pat_to_closTheory
      closLangTheory closSemTheory closPropsTheory
 
 val _ = new_theory"pat_to_closProof"
+
+val _ = set_grammar_ancestry
+  ["patLang", "patSem", "patProps", "pat_to_clos",
+   "closLang", "closSem", "closProps"];
 
 (* value translation *)
 
@@ -38,55 +45,55 @@ val compile_state_def = Define`
        clock := s.clock;
        code := FEMPTY;
        compile := cc;
-       compile_oracle := pure_co (λe. (compile e,[])) o s.compile_oracle;
+       compile_oracle := pure_co (λes. (MAP compile es,[])) o s.compile_oracle;
        max_app := max_app
     |>`;
 
-val compile_state_const = Q.store_thm("compile_state_const[simp]",
+Theorem compile_state_const[simp]
   `(compile_state max_app cc s).clock = s.clock ∧
    (compile_state max_app cc s).ffi = s.ffi ∧
    (compile_state max_app cc s).compile = cc ∧
    (compile_state max_app cc s).max_app = max_app ∧
-   (compile_state max_app cc s).compile_oracle = pure_co (λe. (compile e,[])) o s.compile_oracle`,
-  EVAL_TAC);
+   (compile_state max_app cc s).compile_oracle = pure_co (λe. (MAP compile e,[])) o s.compile_oracle`
+  (EVAL_TAC);
 
-val compile_state_dec_clock = Q.store_thm("compile_state_dec_clock[simp]",
-  `compile_state max_app cc (dec_clock y) = dec_clock 1 (compile_state max_app cc y)`,
-  EVAL_TAC >> simp[])
+Theorem compile_state_dec_clock[simp]
+  `compile_state max_app cc (dec_clock y) = dec_clock 1 (compile_state max_app cc y)`
+  (EVAL_TAC >> simp[])
 
-val compile_state_with_clock = Q.store_thm("compile_state_with_clock[simp]",
-  `compile_state max_app cc (s with clock := k) = compile_state max_app cc s with clock := k`,
-  EVAL_TAC >> simp[])
+Theorem compile_state_with_clock[simp]
+  `compile_state max_app cc (s with clock := k) = compile_state max_app cc s with clock := k`
+  (EVAL_TAC >> simp[])
 
-val compile_state_with_refs_const = Q.store_thm("compile_state_with_refs_const[simp]",
+Theorem compile_state_with_refs_const[simp]
   `(compile_state w cc (s with refs := r)).globals = (compile_state w cc s).globals ∧
-   (compile_state w cc (s with refs := r)).code = (compile_state w cc s).code`,
-  EVAL_TAC);
+   (compile_state w cc (s with refs := r)).code = (compile_state w cc s).code`
+  (EVAL_TAC);
 
-val FLOOKUP_compile_state_refs = Q.store_thm("FLOOKUP_compile_state_refs",
+Theorem FLOOKUP_compile_state_refs
   `FLOOKUP (compile_state w cc s).refs =
-   OPTION_MAP compile_sv o (combin$C store_lookup s.refs) `,
-  rw[FUN_EQ_THM,compile_state_def,ALOOKUP_GENLIST,store_lookup_def] \\ rw[]);
+   OPTION_MAP compile_sv o (combin$C store_lookup s.refs) `
+  (rw[FUN_EQ_THM,compile_state_def,ALOOKUP_GENLIST,store_lookup_def] \\ rw[]);
 
-val FDOM_compile_state_refs = Q.store_thm("FDOM_compile_state_refs[simp]",
-  `FDOM (compile_state w cc s).refs = count (LENGTH s.refs)`,
-  rw[compile_state_def,MAP_GENLIST,o_DEF,LIST_TO_SET_GENLIST]);
+Theorem FDOM_compile_state_refs[simp]
+  `FDOM (compile_state w cc s).refs = count (LENGTH s.refs)`
+  (rw[compile_state_def,MAP_GENLIST,o_DEF,LIST_TO_SET_GENLIST]);
 
-val compile_state_with_refs_snoc = Q.store_thm("compile_state_with_refs_snoc",
+Theorem compile_state_with_refs_snoc
   `compile_state w cc (s with refs := s.refs ++ [x]) =
    compile_state w cc s with refs :=
-     (compile_state w cc s).refs |+ (LENGTH s.refs, compile_sv x)`,
-  rw[compile_state_def,fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST]
+     (compile_state w cc s).refs |+ (LENGTH s.refs, compile_sv x)`
+  (rw[compile_state_def,fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST]
   \\ rw[EL_APPEND1,EL_APPEND2]);
 
 (* semantic functions respect translation *)
 
-val do_eq = Q.store_thm("do_eq",
+Theorem do_eq
   `(∀v1 v2. do_eq v1 v2 ≠ Eq_type_error ⇒
       (do_eq v1 v2 = do_eq (compile_v v1) (compile_v v2))) ∧
     (∀vs1 vs2. do_eq_list vs1 vs2 ≠ Eq_type_error ⇒
-      (do_eq_list vs1 vs2 = do_eq_list (MAP compile_v vs1) (MAP compile_v vs2)))`,
-  ho_match_mp_tac patSemTheory.do_eq_ind >>
+      (do_eq_list vs1 vs2 = do_eq_list (MAP compile_v vs1) (MAP compile_v vs2)))`
+  (ho_match_mp_tac patSemTheory.do_eq_ind >>
   simp[patSemTheory.do_eq_def,closSemTheory.do_eq_def] >>
   conj_tac >- (
     Cases >> Cases >> simp[lit_same_type_def,closSemTheory.do_eq_def] >>
@@ -105,10 +112,10 @@ val do_eq = Q.store_thm("do_eq",
 
 val v_to_list_def = closSemTheory.v_to_list_def;
 
-val v_to_char_list = Q.store_thm("v_to_char_list",
+Theorem v_to_char_list
   `∀v ls. (v_to_char_list v = SOME ls) ⇒
-           (v_to_list (compile_v v) = SOME (MAP (Number o $& o ORD) ls))`,
-  ho_match_mp_tac v_to_char_list_ind >>
+           (v_to_list (compile_v v) = SOME (MAP (Number o $& o ORD) ls))`
+  (ho_match_mp_tac v_to_char_list_ind >>
   simp[v_to_char_list_def,v_to_list_def] >>
   rw[] >>
   Cases_on`v`>>fs[v_to_char_list_def] >>
@@ -121,30 +128,30 @@ val v_to_char_list = Q.store_thm("v_to_char_list",
   rw[]>>fs[]>>
   Cases_on`v_to_char_list h`>>fs[]>> rw[])
 
-val v_to_list = Q.store_thm("v_to_list",
+Theorem v_to_list
   `∀v ls. (v_to_list v = SOME ls) ⇒
-           (v_to_list (compile_v v) = SOME (MAP compile_v ls))`,
-  ho_match_mp_tac patSemTheory.v_to_list_ind >>
+           (v_to_list (compile_v v) = SOME (MAP compile_v ls))`
+  (ho_match_mp_tac patSemTheory.v_to_list_ind >>
   simp[patSemTheory.v_to_list_def,v_to_list_def] >>
   rw[] >> Cases_on`v_to_list v`>>fs[]>> rw[])
 
-val vs_to_string = Q.store_thm("vs_to_string",
+Theorem vs_to_string
   `∀vs ws. vs_to_string vs = SOME ws ⇒
     ∃wss. MAP compile_v vs = MAP ByteVector wss ∧
-      FLAT wss = MAP (n2w o ORD) ws`,
-  ho_match_mp_tac vs_to_string_ind
+      FLAT wss = MAP (n2w o ORD) ws`
+  (ho_match_mp_tac vs_to_string_ind
   \\ rw[vs_to_string_def]
   \\ every_case_tac \\ fs[] \\ rveq
   \\ qmatch_goalsub_abbrev_tac`ByteVector ws1`
   \\ qexists_tac`ws1::wss` \\ simp[]);
 
-val Boolv = Q.store_thm("Boolv[simp]",
-  `compile_v (Boolv b) = Boolv b`,
-  Cases_on`b`>>EVAL_TAC)
+Theorem Boolv[simp]
+  `compile_v (Boolv b) = Boolv b`
+  (Cases_on`b`>>EVAL_TAC)
 
-val v_to_bytes = Q.store_thm("v_to_bytes",
-  `v_to_bytes v = SOME ls ==> v_to_bytes (compile_v v) = SOME ls`,
-  simp[patSemTheory.v_to_bytes_def,v_to_bytes_def]
+Theorem v_to_bytes
+  `v_to_bytes v = SOME ls ==> v_to_bytes (compile_v v) = SOME ls`
+  (simp[patSemTheory.v_to_bytes_def,v_to_bytes_def]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
   \\ imp_res_tac v_to_list
   \\ rw[MAP_MAP_o,o_DEF]
@@ -152,9 +159,9 @@ val v_to_bytes = Q.store_thm("v_to_bytes",
   \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
   \\ metis_tac[]);
 
-val v_to_words = Q.store_thm("v_to_words",
-  `v_to_words v = SOME ls ==> v_to_words (compile_v v) = SOME ls`,
-  simp[patSemTheory.v_to_words_def,v_to_words_def]
+Theorem v_to_words
+  `v_to_words v = SOME ls ==> v_to_words (compile_v v) = SOME ls`
+  (simp[patSemTheory.v_to_words_def,v_to_words_def]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
   \\ imp_res_tac v_to_list
   \\ rw[MAP_MAP_o,o_DEF]
@@ -162,14 +169,14 @@ val v_to_words = Q.store_thm("v_to_words",
   \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
   \\ metis_tac[]);
 
-val do_install = Q.store_thm("do_install",
+Theorem do_install
   `patSem$do_install vs s = SOME (v1,v2) ∧
-   s.compile = pure_cc (λe. (compile e,[])) cc
+   s.compile = pure_cc (λe. (MAP compile e,[])) cc
    ==>
    closSem$do_install (MAP compile_v vs) (compile_state max_app cc s) =
      if s.clock = 0 then (Rerr (Rabort Rtimeout_error),compile_state max_app cc v2)
-     else (Rval (compile v1),dec_clock 1(compile_state max_app cc v2))`,
-  simp[do_install_def,patSemTheory.do_install_def,case_eq_thms]
+     else (Rval (MAP compile v1),dec_clock 1(compile_state max_app cc v2))`
+  (simp[do_install_def,patSemTheory.do_install_def,case_eq_thms]
   \\ simp[] \\ strip_tac \\ rveq \\ fs[]
   \\ imp_res_tac v_to_bytes \\ imp_res_tac v_to_words
   \\ rpt(pairarg_tac \\ fs[])
@@ -206,29 +213,29 @@ val LENGTH_eq = Q.prove(
    (2 = LENGTH ls ⇔ LENGTH ls = 2)`,
   Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL]);
 
-val list_to_v_compile = Q.store_thm("list_to_v_compile",
+Theorem list_to_v_compile
   `!x xs.
    v_to_list x = SOME xs /\
    v_to_list (compile_v x) = SOME (MAP compile_v xs) ==>
-     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)`,
-  ho_match_mp_tac patSemTheory.v_to_list_ind
+     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)`
+  (ho_match_mp_tac patSemTheory.v_to_list_ind
   \\ rw [patSemTheory.v_to_list_def] \\ fs []
   \\ fs [list_to_v_def, patSemTheory.list_to_v_def, case_eq_thms] \\ rveq
   \\ fs [v_to_list_def, case_eq_thms, list_to_v_def, patSemTheory.list_to_v_def]);
 
-val list_to_v_compile_APPEND = Q.store_thm("list_to_v_compile_APPEND",
+Theorem list_to_v_compile_APPEND
   `!xs ys.
      list_to_v (MAP compile_v xs) = compile_v (list_to_v xs) /\
      list_to_v (MAP compile_v ys) = compile_v (list_to_v ys) ==>
        list_to_v (MAP compile_v (xs ++ ys)) =
-       compile_v (list_to_v (xs ++ ys))`,
-  Induct \\ rw [patSemTheory.list_to_v_def]
+       compile_v (list_to_v (xs ++ ys))`
+  (Induct \\ rw [patSemTheory.list_to_v_def]
   \\ fs [list_to_v_def, patSemTheory.list_to_v_def]);
 
-val dest_WordToInt_SOME = store_thm("dest_WordToInt_SOME",
-  ``!w es x. dest_WordToInt w es = SOME x <=>
-             ?tra. es = [App tra (Op (WordToInt w)) [x]]``,
-  ho_match_mp_tac dest_WordToInt_ind
+Theorem dest_WordToInt_SOME
+  `!w es x. dest_WordToInt w es = SOME x <=>
+             ?tra. es = [App tra (Op (WordToInt w)) [x]]`
+  (ho_match_mp_tac dest_WordToInt_ind
   \\ fs [dest_WordToInt_def]);
 
 val Rabort_Rtype_error_map_error = prove(
@@ -240,15 +247,15 @@ val do_app_WordToInt_Rerr_IMP = prove(
   ``closSem$do_app WordToInt ws x = Rerr e ==> e = Rabort Rtype_error``,
   fs [do_app_def,case_eq_thms,pair_case_eq] \\ rw [] \\ fs []);
 
-val compile_evaluate = Q.store_thm("compile_evaluate",
+Theorem compile_evaluate
   `0 < max_app ⇒
    (∀env ^s es s' r.
       evaluate env s es = (s',r) ∧
-      s.compile = pure_cc (λe. (pat_to_clos$compile e,[])) cc ∧
+      s.compile = pure_cc (λe. (MAP pat_to_clos$compile e,[])) cc ∧
       r ≠ Rerr (Rabort Rtype_error) ⇒
       evaluate (MAP compile es,MAP compile_v env,compile_state max_app cc s) =
-        (map_result (MAP compile_v) compile_v r, compile_state max_app cc s'))`,
-  strip_tac >>
+        (map_result (MAP compile_v) compile_v r, compile_state max_app cc s'))`
+  (strip_tac >>
   ho_match_mp_tac patSemTheory.evaluate_ind >>
   strip_tac >- (rw[evaluate_pat_def,evaluate_def]>>rw[]) >>
   strip_tac >- (
@@ -338,7 +345,14 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       drule do_install \\
       imp_res_tac patPropsTheory.evaluate_const \\ fs[MAP_REVERSE] \\
       imp_res_tac patPropsTheory.do_install_const \\
-      IF_CASES_TAC \\ fs[] \\ fs[patSemTheory.dec_clock_def]) \\
+      IF_CASES_TAC \\ fs[] \\ fs[patSemTheory.dec_clock_def]
+      \\ fs[CaseEq"prod"] \\ fs[]
+      \\ fs[CaseEq"semanticPrimitives$result"] \\ rveq \\ fs[]
+      \\ rw[]
+      \\ irule LAST_MAP
+      \\ imp_res_tac evaluate_IMP_LENGTH
+      \\ strip_tac \\ fs[do_install_def,CaseEq"prod",CaseEq"option",CaseEq"bool",CaseEq"list"]
+      \\ pairarg_tac \\ fs[CaseEq"bool",CaseEq"prod",CaseEq"option"]) \\
     reverse(fs[case_eq_thms,pair_case_eq]) \\ rw[] \\ fs[] >- (
       reverse(Cases_on`op`)>>fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
         rw[] >> fs[LENGTH_eq,evaluate_def,do_app_def] >>
@@ -392,7 +406,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     fsrw_tac[ETA_ss][SWAP_REVERSE_SYM] >>
     fs[evaluate_def,MAP_REVERSE,do_app_def,PULL_EXISTS,
        store_alloc_def,FLOOKUP_compile_state_refs,int_gt,
-       prim_exn_def,NOT_LESS,LEAST_LESS_EQ,EL_MAP,GREATER_EQ] >>
+       prim_exn_def,NOT_LESS,EL_MAP,GREATER_EQ] >>
     imp_res_tac evaluate_length >> fs[LENGTH_EQ_NUM_compute] >>
     rveq \\
     fs[evaluate_def,do_app_def,FLOOKUP_compile_state_refs,
@@ -575,12 +589,12 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
        combinTheory.o_DEF,ETA_AX,MAP_MAP_o,clos_env_def] >>
     fsrw_tac[ETA_ss][] ));
 
-val compile_semantics = Q.store_thm("compile_semantics",
-  `0 < max_app ∧ st.compile = pure_cc (λe. (compile e,[])) cc ∧ st.globals = [] ∧ st.refs = [] ⇒
+Theorem compile_semantics
+  `0 < max_app ∧ st.compile = pure_cc (λe. (MAP compile e,[])) cc ∧ st.globals = [] ∧ st.refs = [] ⇒
    semantics [] (st:('c,'ffi)patSem$state) es ≠ Fail ⇒
-   semantics st.ffi max_app FEMPTY (pure_co (λe. (compile e,[])) o st.compile_oracle) cc (MAP compile es) =
-   semantics [] st es`,
-  strip_tac >>
+   semantics st.ffi max_app FEMPTY (pure_co (λe. (MAP compile e,[])) o st.compile_oracle) cc (MAP compile es) =
+   semantics [] st es`
+  (strip_tac >>
   simp[patSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -662,9 +676,9 @@ val compile_semantics = Q.store_thm("compile_semantics",
 
 (* more correctness properties *)
 
-val compile_contains_App_SOME = Q.store_thm("compile_contains_App_SOME",
-  `0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]`,
-  strip_tac >>
+Theorem compile_contains_App_SOME
+  `0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]`
+  (strip_tac >>
   ho_match_mp_tac compile_ind >>
   simp[compile_def,contains_App_SOME_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[] >> srw_tac[ETA_ss][] >>
@@ -678,9 +692,9 @@ val compile_contains_App_SOME = Q.store_thm("compile_contains_App_SOME",
   rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
   fs[contains_App_SOME_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]);
 
-val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
-  `∀e. every_Fn_vs_NONE[compile e]`,
-  ho_match_mp_tac compile_ind >>
+Theorem compile_every_Fn_vs_NONE
+  `∀e. every_Fn_vs_NONE[compile e]`
+  (ho_match_mp_tac compile_ind >>
   rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[Once every_Fn_vs_NONE_EVERY] >>
   simp[EVERY_REVERSE,EVERY_MAP] >>
@@ -690,9 +704,9 @@ val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
   rw[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,GSYM MAP_REVERSE] >>
   fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]);
 
-val set_globals_eq = Q.store_thm("set_globals_eq",
-  `∀e. set_globals e = set_globals (compile e)`,
-  ho_match_mp_tac compile_ind >>
+Theorem set_globals_eq
+  `∀e. set_globals e = set_globals (compile e)`
+  (ho_match_mp_tac compile_ind >>
   rw[compile_def,patPropsTheory.op_gbag_def,op_gbag_def,elist_globals_reverse,CopyByteStr_def,CopyByteAw8_def]
   >>
     TRY
@@ -716,9 +730,9 @@ val set_globals_eq = Q.store_thm("set_globals_eq",
     Induct_on`n`>>fs[REPLICATE,op_gbag_def] >>
   Induct_on`es`>>fs[]);
 
-val compile_esgc_free = Q.store_thm("compile_esgc_free",
-  `∀e. esgc_free e ⇒ esgc_free (compile e)`,
-  ho_match_mp_tac compile_ind >>
+Theorem compile_esgc_free
+  `∀e. esgc_free e ⇒ esgc_free (compile e)`
+  (ho_match_mp_tac compile_ind >>
   rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   fs[EVERY_REVERSE,EVERY_MAP,EVERY_MEM]>>
   fs[set_globals_eq,LENGTH_eq,REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS]
@@ -731,9 +745,19 @@ val compile_esgc_free = Q.store_thm("compile_esgc_free",
     fs [])
   >- (Induct_on`es`>>fs[set_globals_eq]));
 
-val compile_distinct_setglobals = Q.store_thm("compile_distinct_setglobals",
+Theorem compile_distinct_setglobals
   `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
-       BAG_ALL_DISTINCT (set_globals (compile e))`,
-  fs[set_globals_eq]);
+       BAG_ALL_DISTINCT (set_globals (compile e))`
+  (fs[set_globals_eq]);
+
+Theorem compile_no_Labels
+  `!e. no_Labels (compile e)`
+  (ho_match_mp_tac compile_ind \\ rw [compile_def]
+  \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
+  \\ TRY (fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ NO_TAC)
+  \\ every_case_tac \\ fs []
+  \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  \\ EVAL_TAC \\ fs []);
 
 val _ = export_theory()

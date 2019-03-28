@@ -1,3 +1,7 @@
+(*
+  Theory support for translation of deeply-embedded (PMATCH-based)
+  pattern-matches occurring in HOL functions.
+*)
 open preamble
      astTheory libTheory semanticPrimitivesTheory
      patternMatchesTheory patternMatchesLib
@@ -62,12 +66,12 @@ val EvalPatBind_def = Define`
       (Pmatch env refs [p] [av] = SOME env2) ∧
       (pat vars = x)`
 
-val Pmatch_cons = Q.store_thm("Pmatch_cons",
+Theorem Pmatch_cons
   `∀ps vs.
       Pmatch env refs (p::ps) (v::vs) =
       case Pmatch env refs [p] [v] of | NONE => NONE
-      | SOME env' => Pmatch env' refs ps vs`,
-  Induct >> Cases_on`vs` >> simp[Pmatch_def] >>
+      | SOME env' => Pmatch env' refs ps vs`
+  (Induct >> Cases_on`vs` >> simp[Pmatch_def] >>
   BasicProvers.CASE_TAC >>
   Cases_on`ps`>>simp[Pmatch_def])
 
@@ -121,32 +125,32 @@ val pmatch_imp_Pmatch = Q.prove(
   |> SIMP_RULE std_ss []
   |> curry save_thm "pmatch_imp_Pmatch"
 
-val Pmatch_SOME_const = Q.store_thm("Pmatch_SOME_const",
+Theorem Pmatch_SOME_const
   `∀env refs ps vs env'.
       Pmatch env refs ps vs = SOME env' ⇒
-      env'.c = env.c`,
-  ho_match_mp_tac Pmatch_ind >> simp[Pmatch_def] >>
+      env'.c = env.c`
+  (ho_match_mp_tac Pmatch_ind >> simp[Pmatch_def] >>
   rw[] >> BasicProvers.EVERY_CASE_TAC >> fs[] >>
   fs[write_def])
 
-val pmatch_PMATCH_ROW_COND_No_match = Q.store_thm("pmatch_PMATCH_ROW_COND_No_match",
+Theorem pmatch_PMATCH_ROW_COND_No_match
   `EvalPatRel env a p pat ∧
     (∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ∧
     a xv res ⇒
-    pmatch env.c refs p res [] = No_match`,
-  fs [PMATCH_ROW_COND_def] >>
+    pmatch env.c refs p res [] = No_match`
+  (fs [PMATCH_ROW_COND_def] >>
   rw[EvalPatRel_def] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   first_x_assum(qspec_then`refs`mp_tac) >>
   simp [evaluate_def] >>
   every_case_tac >> fs []);
 
-val pmatch_PMATCH_ROW_COND_Match = Q.store_thm("pmatch_PMATCH_ROW_COND_Match",
+Theorem pmatch_PMATCH_ROW_COND_Match
   `EvalPatRel env a p pat ∧
     PMATCH_ROW_COND pat (K T) xv vars ∧
     a xv res
-    ⇒ ∃env2. pmatch env.c refs p res [] = Match env2`,
-  rw[EvalPatRel_def,PMATCH_ROW_COND_def] >>
+    ⇒ ∃env2. pmatch env.c refs p res [] = Match env2`
+  (rw[EvalPatRel_def,PMATCH_ROW_COND_def] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   first_x_assum(qspec_then`refs`mp_tac) >>
   simp [evaluate_def] >>
@@ -154,14 +158,14 @@ val pmatch_PMATCH_ROW_COND_Match = Q.store_thm("pmatch_PMATCH_ROW_COND_Match",
   fs [pmatch_def,build_conv_def,do_con_check_def] >>
   metis_tac []);
 
-val Eval_PMATCH_NIL = Q.store_thm("Eval_PMATCH_NIL",
+Theorem Eval_PMATCH_NIL
   `!b x xv a.
       Eval env x (a xv) ==>
       CONTAINER F ==>
-      Eval env (Mat x []) (b (PMATCH xv []))`,
-  rw[CONTAINER_def]);
+      Eval env (Mat x []) (b (PMATCH xv []))`
+  (rw[CONTAINER_def]);
 
-val Eval_PMATCH = Q.store_thm("Eval_PMATCH",
+Theorem Eval_PMATCH
   `!b a x xv.
       ALL_DISTINCT (pat_bindings p []) ⇒
       (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
@@ -173,8 +177,8 @@ val Eval_PMATCH = Q.store_thm("Eval_PMATCH",
         Eval env2 e (b (res vars))) ⇒
       (∀vars. CONTAINER (PMATCH_ROW_COND pat (K T) xv vars) ⇒ p2 vars) ∧
       ((∀vars. ¬CONTAINER (PMATCH_ROW_COND pat (K T) xv vars)) ⇒ p1 xv) ⇒
-      Eval env (Mat x ((p,e)::ys)) (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs)))`,
-  rw[Eval_def,CONTAINER_def]
+      Eval env (Mat x ((p,e)::ys)) (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs)))`
+  (rw[Eval_def,CONTAINER_def]
   \\ rw[evaluate_def,PULL_EXISTS] \\ fs[]
   \\ first_x_assum(qspec_then`refs`strip_assume_tac)
   \\ reverse (Cases_on`∃vars. PMATCH_ROW_COND pat (K T) xv vars` >> fs[])
@@ -231,17 +235,17 @@ val Eval_PMATCH = Q.store_thm("Eval_PMATCH",
   \\ qsuff_tac `(some x. pat x = pat vars) = SOME vars` \\ simp []
   \\ simp[optionTheory.some_def] \\ metis_tac []);
 
-val PMATCH_option_case_rwt = Q.store_thm("PMATCH_option_case_rwt",
+Theorem PMATCH_option_case_rwt
   `((case x of NONE => NONE
       | SOME (y1,y2) => P y1 y2) = SOME env2) <=>
-    ?y1 y2. (x = SOME (y1,y2)) /\ (P y1 y2 = SOME env2)`,
-  Cases_on `x` \\ fs [] \\ Cases_on `x'` \\ fs []);
+    ?y1 y2. (x = SOME (y1,y2)) /\ (P y1 y2 = SOME env2)`
+  (Cases_on `x` \\ fs [] \\ Cases_on `x'` \\ fs []);
 
-val PMATCH_SIMP = store_thm("PMATCH_SIMP",
-  ``((∀vars. ¬CONTAINER (vars = x)) = F) /\
+Theorem PMATCH_SIMP
+  `((∀vars. ¬CONTAINER (vars = x)) = F) /\
     ((∀vars. ¬CONTAINER (x = vars)) = F) /\
     ((∀vars. ¬(vars = x)) = F) /\
-    ((∀vars. ¬(x = vars)) = F)``,
-  fs [CONTAINER_def]);
+    ((∀vars. ¬(x = vars)) = F)`
+  (fs [CONTAINER_def]);
 
 val _ = export_theory()

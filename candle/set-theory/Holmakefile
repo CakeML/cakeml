@@ -1,21 +1,9 @@
-INCLUDES = ../../misc $(HOLDIR)/src/pred_set/src/more_theories
-OPTIONS = QUIT_ON_FAILURE
+INCLUDES = $(CAKEMLDIR)/misc
 
-ifdef POLY
-HOLHEAP = heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
-all: $(TARGETS) $(HOLHEAP)
+all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
-BARE_THYS = $(HOLDIR)/src/pred_set/src/more_theories/cardinalTheory ../../misc/miscTheory
-
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
-endif
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)

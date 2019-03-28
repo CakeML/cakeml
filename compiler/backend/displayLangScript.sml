@@ -1,18 +1,16 @@
-open preamble jsonLangTheory mlnumTheory mlintTheory backend_commonTheory;
+(*
+  displayLang is a stepping stone when before pretty printing any of
+  the compiler's intermediate languages for inspection by humans. The
+  design of displayLang is intentionally very simple. The language
+  supports Tuples, Items (e.g. datatype constructors), and Lists.
+*)
+open preamble jsonLangTheory mlintTheory backend_commonTheory;
 
 val _ = new_theory"displayLang";
 
-
-(* displayLang is an intermediate language between presLang and jsonLang. The
-* purpose of strucutredLang is to force each presLang expression into a unified
-* form, that is easily expressed by uniform jsonLang object that are either
-*   a) Objects representing a tuple (Tuple)
-*   b) Objects representing a constructor with many arguments or (Item)
-*   c) Arrays (List)
-*   *)
 val _ = Datatype`
   sExp =
-    | Item (tra option) string (sExp list)
+    | Item (tra option) mlstring (sExp list)
     | Tuple (sExp list)
     | List (sExp list)`;
 
@@ -37,15 +35,15 @@ val trace_to_json_def = Define`
   * the top level of a trace. *)
   (trace_to_json None = Null)`;
 
-val MEM_sExp_size = store_thm("MEM_sExp_size",
-  ``!es a. MEM a es ==> sExp_size a < sExp1_size es``,
-  Induct \\ fs [] \\ rw [sExp_size_def] \\ fs [] \\ res_tac \\ fs []);
+Theorem MEM_sExp_size
+  `!es a. MEM a es ==> sExp_size a < sExp1_size es`
+  (Induct \\ fs [] \\ rw [sExp_size_def] \\ fs [] \\ res_tac \\ fs []);
 
 (* Converts a display expression to JSON *)
 val display_to_json_def = tDefine"display_to_json" `
   (display_to_json (Item tra name es) =
     let es' = MAP display_to_json es in
-    let props = [("name", String name); ("args", Array es')] in
+    let props = [("name", String (explode name)); ("args", Array es')] in
     let props' = case tra of
                    | NONE => props
                    | SOME t => ("trace", trace_to_json t)::props in
