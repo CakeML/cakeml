@@ -350,7 +350,6 @@ Theorem validFD_fastForwardFD[simp]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
-<<<<<<< HEAD
 Theorem validFileFD_fastForwardFD[simp]
   `validFileFD fd (fastForwardFD fs x).infds ⇔ validFileFD fd fs.infds`
   (rw[validFileFD_def, fastForwardFD_def]
@@ -605,7 +604,6 @@ Theorem openFileFS_inode_tbl
   `!s fs k. (openFileFS s fs k).files = fs.files`
  (rw[openFileFS_def] \\ CASE_TAC \\ CASE_TAC \\ fs[openFile_def] \\ rw[]);
 
-<<<<<<< HEAD
 Theorem wfFS_openFileFS
   `!f fs k.CARD (FDOM (alist_to_fmap fs.infds)) <= fs.maxFD /\ wfFS fs ==>
                    wfFS (openFileFS f fs md k)`
@@ -1090,7 +1088,6 @@ Theorem STD_streams_fastForwardFD
   qexists_tac`if fd = 0 then MAX (LENGTH r) off else inp` \\ rw[EXISTS_PROD] \\
   metis_tac[SOME_11,PAIR,FST,SND,lemma] );
 
-<<<<<<< HEAD
 val get_mode_def = Define`
   get_mode fs fd =
     OPTION_MAP (FST o SND) (ALOOKUP fs.infds fd)`;

@@ -378,7 +378,6 @@ Theorem linesFD_add_stderr
    linesFD (add_stderr fs err) fd = linesFD fs fd`
   (rw[linesFD_def,get_file_content_add_stderr]);
 
-<<<<<<< HEAD
 Theorem up_stdo_forwardFD
   `fd ≠ fd' ⇒ up_stdo fd' (forwardFD fs fd n) out = forwardFD (up_stdo fd' fs out) fd n`
   (rw[forwardFD_def,up_stdo_def,fsupdate_def,ALIST_FUPDKEY_ALOOKUP]
