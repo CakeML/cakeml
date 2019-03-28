@@ -450,6 +450,7 @@ Theorem replicate_empty_map_thm
     \\rw[]
     \\fs[EVERY_REPLICATE, mlmapTheory.cmp_of_def]));
 
+
 Theorem hashtable_empty_spec
   `!a b hf hfv cmp cmpv size sizev ar.
       NUM size sizev /\
@@ -517,17 +518,17 @@ Theorem hashtable_empty_spec
   \\ fs[hashtable_inv_def]
   \\ qexists_tac `(REPLICATE size' (mlmap$empty cmp))`
   \\ rpt conj_tac
-  THEN1 (Cases_on `REPLICATE size' (empty cmp)`
+  THEN1 (Cases_on `REPLICATE size' (mlmap$empty cmp)`
       >-(fs[BOOL_def, REPLICATE_NIL])
         \\imp_res_tac replicate_empty_map_thm
         \\fs[list_union_empty_maps])
   THEN1 (simp[buckets_ok_empty])
   THEN1 (fs[BOOL_def, REPLICATE_NIL])
   THEN1 (simp[LIST_REL_REPLICATE_same])
-  THEN1 (Cases_on `REPLICATE size' (empty cmp)`
+  THEN1 (Cases_on `REPLICATE size' (mlmap$empty cmp)`
       >-(fs[BOOL_def, REPLICATE_NIL])
         \\ imp_res_tac replicate_empty_map_thm)
-  THEN1 (Cases_on `REPLICATE size' (empty cmp)`
+  THEN1 (Cases_on `REPLICATE size' (mlmap$empty cmp)`
       >-(fs[BOOL_def, REPLICATE_NIL])
         \\imp_res_tac replicate_empty_map_thm))))));
 
@@ -981,7 +982,7 @@ Proof
   >- (fs[])
    \\rpt strip_tac
    \\cases_on `bs`
-     >- (cases_on `h` \\ cases_on `empty cmp` \\ cases_on `b'` \\ cases_on `b`
+     >- (cases_on `h` \\ cases_on `mlmap$empty cmp` \\ cases_on `b'` \\ cases_on `b`
          >-(fs[list_union_def,mlmapTheory.union_def,balanced_mapTheory.union_def])
          >-(fs[list_union_def,mlmapTheory.union_def,balanced_mapTheory.union_def])
          >-(fs[mlmapTheory.empty_def, balanced_mapTheory.empty_def])
@@ -1080,6 +1081,7 @@ Proof
     \\fs[fupdate_list_fempty_toAsclist_eq_to_fmap])
 QED;
 
+
 Theorem hashtable_doubleCapacity_spec:
    !a b hf cmp  htv.
       app (p:'ffi ffi_proj) Hashtable_doubleCapacity_v [htv]
@@ -1143,18 +1145,19 @@ Proof
   >-(fs[hashtable_inv_def]
     \\qexists_tac `REPLICATE (2*LENGTH vlv)  (mlmap$empty cmp)`
     \\fs[buckets_ok_empty, REPLICATE_NIL, LIST_REL_REPLICATE_same]
-    \\`EVERY ($= (empty cmp)) (REPLICATE (2 * LENGTH vlv) (empty cmp))`
+    \\`EVERY ($= (mlmap$empty cmp)) (REPLICATE (2 * LENGTH vlv) (mlmap$empty cmp))`
             by (imp_res_tac replicate_empty_map_thm \\ fs[EVERY_DEF])
-    \\`EVERY map_ok (REPLICATE (2 * LENGTH vlv) (empty cmp))`
+    \\`EVERY map_ok (REPLICATE (2 * LENGTH vlv) (mlmap$empty cmp))`
             by (imp_res_tac replicate_empty_map_thm \\ fs[EVERY_DEF])
-    \\`EVERY (λt. cmp_of t = cmp) (REPLICATE (2 * LENGTH vlv) (empty cmp))`
+    \\`EVERY (λt. cmp_of t = cmp) (REPLICATE (2 * LENGTH vlv) (mlmap$empty cmp))`
             by (imp_res_tac replicate_empty_map_thm \\ fs[EVERY_DEF])
-    \\Cases_on `REPLICATE (2 * LENGTH vlv) (empty cmp)`
+    \\Cases_on `REPLICATE (2 * LENGTH vlv) (mlmap$empty cmp)`
     >-(fs[REPLICATE_NIL])
     >-(fs[list_union_empty_maps]))
   \\ rw []
   \\ asm_exists_tac \\ fs []
 QED;
+
 
 Theorem hashtable_insert_spec:
    !a b hf cmp  htv k v kv vv.
@@ -1398,7 +1401,7 @@ Proof
     \\ qexists_tac `REPLICATE (LENGTH vlv) (mlmap$empty cmp)`
     \\ imp_res_tac replicate_empty_map_thm
     \\ fs[buckets_ok_empty, LIST_REL_REPLICATE_same, NOT_NIL_EQ_LENGTH_NOT_0]
-    \\Cases_on `REPLICATE (LENGTH vlv) (empty cmp)` >- fs[REPLICATE_NIL]
+    \\Cases_on `REPLICATE (LENGTH vlv) (mlmap$empty cmp)` >- fs[REPLICATE_NIL]
     >-(`h'::t <> []` by fs[NOT_NIL_EQ_LENGTH_NOT_0]
       \\ imp_res_tac replicate_empty_map_thm
       \\ fs[list_union_empty_maps]))
