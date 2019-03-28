@@ -1,10 +1,10 @@
 (*
   Correctness proof for clos_call
 *)
-open preamble backendPropsTheory match_goal dep_rewrite
+
+open preamble backendPropsTheory match_goal
      closSemTheory closPropsTheory
-     clos_callTheory
-     db_varsTheory;
+     clos_callTheory db_varsTheory
 
 val _ = new_theory"clos_callProof";
 
@@ -307,7 +307,7 @@ val wfv_ind = theorem"wfv_ind";
 
 val wfv_state_def = Define`
   wfv_state g l code s ⇔
-    EVERY (OPTION_EVERY (wfv g l code)) s.globals ∧
+    EVERY (OPTION_ALL (wfv g l code)) s.globals ∧
     FEVERY (every_refv (wfv g l code) o SND) s.refs ∧
     s.code = FEMPTY`;
 
@@ -965,7 +965,9 @@ fun pairmaparg_tac (g as (asl,w)) =
           (fn (bvs,tm) =>
             is_comb tm andalso
             pairSyntax.is_pair_map (rator tm) andalso
-            null_intersection bvs (free_vars (rand tm)) andalso
+            HOLset.isEmpty
+              (HOLset.intersection (FVL bvs empty_tmset,
+                                    FVL [rand tm] empty_tmset)) andalso
             not (pairSyntax.is_pair (rand tm)))
           (fn tm => Cases_on [ANTIQUOTE (rand tm)])))
     (w::asl)) g
@@ -1485,7 +1487,7 @@ Theorem wfv_state_SUBMAP
       wfv_state g1 l1 code s /\ code SUBMAP code1 ==>
       wfv_state g1 l1 code1 s`
   (rw[wfv_state_def, EVERY_MEM, FEVERY_ALL_FLOOKUP]
-  \\ metis_tac[OPTION_EVERY_mono, wfv_SUBMAP, every_refv_def,
+  \\ metis_tac[OPTION_ALL_MONO, wfv_SUBMAP, every_refv_def,
                MONO_EVERY, ref_nchotomy]);
 
 Theorem v_rel_SUBMAP
@@ -2049,8 +2051,8 @@ max_print_depth := 800
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 val say = say0 "calls_correct";
 
-Theorem calls_correct
-  `(∀tmp xs env1 s0 g0 g env2 ^t0 ys res s l l1 g1.
+Theorem calls_correct:
+  (∀tmp xs env1 s0 g0 g env2 ^t0 ys res s l l1 g1.
     tmp = (xs,env1,s0) ∧
     evaluate (xs,env1,s0) = (res,s) ∧
     res ≠ Rerr (Rabort Rtype_error) ∧
@@ -2093,8 +2095,9 @@ Theorem calls_correct
       state_rel g l s t ∧
       code_inv (SOME g) s.code s.compile s.compile_oracle
                         t.code t.compile t.compile_oracle ∧
-      result_rel (LIST_REL (v_rel g l t.code)) (v_rel g l t.code) res res')`
-  (ho_match_mp_tac evaluate_ind
+      result_rel (LIST_REL (v_rel g l t.code)) (v_rel g l t.code) res res')
+Proof
+  ho_match_mp_tac evaluate_ind
   \\ conj_tac >- (
     rw[]
     \\ qexists_tac`0`
@@ -2512,6 +2515,8 @@ Theorem calls_correct
       \\ IF_CASES_TAC \\ fs [] \\ ntac 2 strip_tac
       \\ first_x_assum match_mp_tac
       \\ pop_assum mp_tac \\ EVAL_TAC)
+    \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs [])
+    \\ pop_assum SUBST_ALL_TAC
     \\ Cases_on `q` \\ fs [] \\ rveq \\ fs []
     \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
     \\ strip_tac \\ fs []
@@ -3565,13 +3570,16 @@ Theorem calls_correct
                        \\ imp_res_tac calls_sing \\ fs [])
     \\ strip_tac \\ fs []
     \\ fs [PUSH_EXISTS_IMP,GSYM PULL_EXISTS] \\ rw [] \\ fs []
-    \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs []) \\ fs []
+    \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs [])
+    \\ pop_assum SUBST_ALL_TAC
     \\ `t0.clock = s.clock` by fs [state_rel_def]
     \\ fs [evaluate_def]
     \\ qexists_tac `ck` \\ fs [dec_clock_def]
     \\ `ck + s.clock − 1 = ck + (s.clock − 1)` by decide_tac
     \\ qpat_x_assum `_ = (_,_)` mp_tac
     \\ pop_assum (fn th => simp_tac std_ss [th])
+    \\ `[HD e1] = e1` by (imp_res_tac calls_sing \\ fs [])
+    \\ pop_assum SUBST_ALL_TAC
     \\ fs [])
   (* Call *)
   \\ conj_tac >- (
@@ -3984,7 +3992,8 @@ Theorem calls_correct
   \\ qmatch_assum_abbrev_tac `closSem$evaluate (_,_,(_ with clock := ck11)) = _`
   \\ qmatch_goalsub_abbrev_tac `_ with clock := ck22`
   \\ qsuff_tac `ck11 = ck22` \\ rw [] \\ fs []
-  \\ unabbrev_all_tac \\ fs []);
+  \\ unabbrev_all_tac \\ fs []
+QED
 
 val code_locs_calls_list = Q.prove(`
   ∀ls n tr i. code_locs (MAP SND (calls_list tr i n ls)) = []`,
@@ -4235,7 +4244,7 @@ Theorem ALOOKUP_make_gs
   \\ fs [MEM_MAP,FLOOKUP_FUNION]
   \\ qexists_tac `k'` \\ fs []
   \\ rveq \\ fs []
-  \\ cheat (* this proof needs a slightly different approach *));
+  \\ ... (* this proof needs a slightly different approach *));
 *)
 
 Theorem FST_THE_make_gs
@@ -4483,7 +4492,7 @@ val pure_code_locs = Q.store_thm("pure_code_locs", (* DUPLCATED! clos_annotate *
   \\ Q.ISPEC_THEN`es`mp_tac code_locs_map
   \\ disch_then(qspec_then`I`mp_tac)
   \\ simp[FLAT_EQ_NIL, EVERY_MAP, EVERY_MEM]
-  \\ cheat);
+  \\ ...);
 
 Theorem call_dests_code_list_SUBSET
   `!xs n g.
@@ -4519,7 +4528,7 @@ Theorem calls_locs
       set (code_locs call_code) ∪ set (code_locs (MAP (SND ∘ SND) (SND g1))) =
       set (code_locs known_code) ∪ set (code_locs (MAP (SND ∘ SND) (SND g)))`
 
-  (cheat);
+  (...);
 
 (*
 

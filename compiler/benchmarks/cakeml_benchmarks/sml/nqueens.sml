@@ -26,3 +26,7 @@ fun main ()=
 
   val foo = nqueens 29 0 [];
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

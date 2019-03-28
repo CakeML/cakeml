@@ -1,6 +1,7 @@
 (*
   Correctness proof for stack_to_lab
 *)
+
 open preamble
      stackSemTheory stackPropsTheory
      stack_allocTheory stack_to_labTheory
@@ -2813,7 +2814,7 @@ Theorem full_make_init_semantics
           \\ first_assum(part_match_exists_tac (fst o dest_conj) o (rconc o SYM_CONV o rand o concl))
           \\ simp[Abbr`code1`]
           \\ drule (GEN_ALL stack_allocProofTheory.stack_alloc_call_args)
-          \\ disch_then(qspec_then`<|data_conf:=data_conf|>`mp_tac) \\ simp[] )
+          \\ disch_then(qspec_then`data_conf`mp_tac) \\ simp[] )
         \\ ntac 3 strip_tac
         \\ conj_tac
         >- (
@@ -2901,7 +2902,7 @@ Theorem full_make_init_semantics
     >- (
       imp_res_tac stack_alloc_reg_bound \\
       rfs[EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS,Abbr`code1`] \\
-      first_x_assum(qspec_then`<|data_conf := data_conf|>`mp_tac) \\ simp[] \\
+      first_x_assum(qspec_then`data_conf`mp_tac) \\ simp[] \\
       ntac 4 strip_tac \\
       conj_tac >- metis_tac[] \\
       fs[stack_allocTheory.compile_def,stack_allocTheory.stubs_def]
@@ -2917,7 +2918,7 @@ Theorem full_make_init_semantics
       fs[Abbr`coracle1`]>>
       drule (GEN_ALL stack_alloc_reg_bound)>>
       disch_then drule>>
-      disch_then(qspec_then `<|data_conf:=ARB|>` assume_tac)>>
+      disch_then(qspec_then `ARB` assume_tac)>>
       fs[stack_allocTheory.compile_def]>>
       fs[Once EVERY_MAP,LAMBDA_PROD,EVERY_MEM,FORALL_PROD]>>
       conj_tac>-
@@ -3417,16 +3418,6 @@ val get_code_labels_comp = Q.prove(
 val init_stubs_labels = Q.prove(`
   EVERY (λp. get_code_labels p SUBSET (set [(1n,0n);(start,0n)])) (MAP SND (init_stubs ggc mh k start))`,
   rpt(EVAL_TAC>>rw[]>>fs[]));
-
-(* stack_alloc -- this seems strange... *)
-val get_code_labels_comp = Q.prove(
-  `!n m p pp mm.
-  comp n m p = (pp,mm) ⇒
-  get_code_labels pp SUBSET
-    (gc_stub_location,0) INSERT
-    set
-      (MAP (λi. (n,i+mm)) (COUNT_LIST (mm-m)))
-     ∪ get_code_labels p`, cheat);
 
 (* stack_names *)
 val get_code_labels_comp = Q.prove(

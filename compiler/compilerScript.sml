@@ -9,7 +9,7 @@ open preamble
      cmlParseTheory
      inferTheory
      backendTheory
-     mlnumTheory mlintTheory mlstringTheory basisProgTheory
+     mlintTheory mlstringTheory basisProgTheory
      fromSexpTheory simpleSexpParseTheory
 
 open x64_configTheory export_x64Theory
@@ -126,6 +126,9 @@ val error_to_str_def = Define`
      else s) /\
   (error_to_str (ConfigError s) = concat [strlit "### ERROR: config error\n"; s; strlit "\n"]) /\
   (error_to_str CompileError = strlit "### ERROR: compile error\n")`;
+
+val is_error_msg_def = Define `
+  is_error_msg x = mlstring$isPrefix (strlit "###") x`;
 
 (* TODO: translator fails inside mlstringLib.mlstring_case_conv
   when the following definition just matches against (strlit str) directly *)

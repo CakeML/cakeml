@@ -118,20 +118,21 @@ Theorem ArrowP_PURE_to_app
   \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
   \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   \\ asm_exists_tac \\ fs []
-  \\ fs [evaluate_ck_def,with_same_refs]
-  \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []);
+  \\ fs [evaluate_to_heap_def,evaluate_ck_def,with_same_refs]
+  \\ drule evaluatePropsTheory.evaluate_set_clock \\ rw []
+  \\ first_x_assum (qspec_then `0` mp_tac) \\ strip_tac
+  \\ instantiate);
 
 Theorem ArrowP_MONAD_to_app
   `!A B C f fv H x xv ro refs p.
      A x xv ==>
      ArrowP ro (H,p) (PURE A) (MONAD B C) f fv ==>
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
-     (POST
+     (POSTve
         (\rv. SEP_EXISTS refs' r. H refs' *
               &(f x refs = (Success r, refs')) * &(B r rv))
         (\ev. SEP_EXISTS refs' e. H refs' *
-              &(f x refs = (Failure e, refs')) * &(C e ev))
-        (\n c b. &F))`
+              &(f x refs = (Failure e, refs')) * &(C e ev)))`
   (rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum drule
@@ -141,7 +142,7 @@ Theorem ArrowP_MONAD_to_app
   \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
   \\ fs [REFS_PRED_FRAME_def]
   \\ fs [with_same_refs]
-  \\ fs [evaluate_ck_def]
+  \\ fs [evaluate_to_heap_def, evaluate_ck_def]
   \\ `(H refs * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
   \\ first_x_assum drule \\ rw []
   \\ drule HPROP_SPLIT3_clock0 \\ rw []
@@ -152,23 +153,24 @@ Theorem ArrowP_MONAD_to_app
   \\ TRY (rename1 `Rval [a]` \\ qexists_tac `Val a`)
   \\ TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
   \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
-  \\ disch_then (qspec_then `0` strip_assume_tac)
-  \\ rw[] \\ qexists_tac `ck1`
-  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
-  \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ simp[]);
+  \\ disch_then (qspec_then `0` strip_assume_tac) \\ rw [SEP_EXISTS_THM]
+  \\ TRY
+   (rename1 `&(b = _ /\ r = _)`
+    \\ qexists_tac `r` \\ qexists_tac `b`
+    \\ rw [SEP_CLAUSES])
+  \\ qexists_tac `ck1`
+  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]);
 
 Theorem ArrowP_MONAD_EqSt_to_app
   `!A B C f fv H x xv ro refs p.
      A x xv ==>
      ArrowP ro (H,p) (EqSt (PURE A) refs) (MONAD B C) f fv ==>
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
-     (POST
+     (POSTve
           (\rv. SEP_EXISTS refs' r. H refs' *
                 &(f x refs = (Success r, refs')) * &(B r rv))
           (\ev. SEP_EXISTS refs' e. H refs' *
-                &(f x refs = (Failure e, refs')) * &(C e ev))
-          (\n c b. &F))`
+                &(f x refs = (Failure e, refs')) * &(C e ev)))`
   (rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum drule
@@ -178,7 +180,7 @@ Theorem ArrowP_MONAD_EqSt_to_app
   \\ first_x_assum (qspec_then `[]` strip_assume_tac) \\ rw []
   \\ fs [REFS_PRED_FRAME_def]
   \\ fs [with_same_refs]
-  \\ fs [evaluate_ck_def]
+  \\ fs [evaluate_to_heap_def, evaluate_ck_def]
   \\ `(H refs * ($= h_k)) (st2heap p st)` by (rw [STAR_def] \\ SATISFY_TAC)
   \\ first_x_assum drule \\ rw []
   \\ drule HPROP_SPLIT3_clock0 \\ rw []
@@ -190,11 +192,13 @@ Theorem ArrowP_MONAD_EqSt_to_app
   \\ TRY (rename1 `Rerr (Rraise a)` \\ qexists_tac `Exn a`)
   \\ rw[]
   \\ drule evaluatePropsTheory.evaluate_set_clock \\ fs []
-  \\ disch_then (qspec_then `0` strip_assume_tac)
+  \\ disch_then (qspec_then `0` strip_assume_tac) \\ rw [SEP_EXISTS_THM]
+  \\ TRY
+   (rename1 `&(b = _ /\ r = _)`
+    \\ qexists_tac `r` \\ qexists_tac `b`
+    \\ rw [SEP_CLAUSES])
   \\ qexists_tac `ck1`
-  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
-  \\ simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ simp[]);
+  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]);
 
 val st2heap_with_clock = store_thm("st2heap_with_clock[simp]", (* TODO: move *)
   ``st2heap p (s with clock := c) = st2heap p s``,
@@ -244,7 +248,7 @@ Theorem EvalM_from_app
     (H, p)`
   (rw [EvalM_def] \\ fs [Eval_def]
   \\ first_x_assum (qspec_then `s.refs` strip_assume_tac)
-  \\ fs [cfAppTheory.app_def, cfAppTheory.app_basic_def]
+  \\ fs [cfAppTheory.app_def, cfAppTheory.app_basic_def, evaluate_to_heap_def]
   \\ simp [MONAD_def]
   \\ first_x_assum (qspecl_then [`x`,`st`] strip_assume_tac) \\ fs []
   \\ first_assum drule
@@ -257,11 +261,11 @@ Theorem EvalM_from_app
          cfStoreTheory.st2heap_def, SUBSET_DEF]
   \\ fs [Abbr`rss`]
   \\ rpt (disch_then drule) \\ rw []
-  \\ fs [cfHeapsBaseTheory.POSTv_def]
+  \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
   \\ rw [evaluate_def, PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV
-  \\ rename1 `Rval [val]`
+  \\ rename1 `RET_TYPE r val`
   \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS]
   \\ fs [UNIT_TYPE_def]
   \\ rw [MONAD_def, PULL_EXISTS]

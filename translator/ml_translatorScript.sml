@@ -195,18 +195,21 @@ Theorem Eval_Let
   \\ fs [namespaceTheory.nsOptBind_def]
   \\ fs [empty_state_def,state_component_equality]);
 
+Theorem Eval_Var_general
+  `P v ==> !iden. nsLookup env.v iden = SOME v ==> Eval env (Var iden) P`
+  (fs [Eval_rw,state_component_equality]);
+
 Theorem Eval_Var_Short
   `P v ==> !name env.
                (nsLookup env.v (Short name) = SOME v) ==>
                Eval env (Var (Short name)) P`
-  (fs [Eval_rw,state_component_equality]);
+  (fs [Eval_Var_general]);
 
-(*TODO: Single level mdule *)
 Theorem Eval_Var_Long
   `P v ==> !m name env.
                (nsLookup env.v (Long m (Short name)) = SOME v) ==>
                Eval env (Var (Long m (Short name))) P`
-  (fs [Eval_rw,state_component_equality]);
+  (fs [Eval_Var_general]);
 
 Theorem Eval_Var_SWAP_ENV
   `!env1.
@@ -1215,7 +1218,7 @@ val LIST_TYPE_def = Define `
        a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
   !a v.
      LIST_TYPE a [] v <=>
-     v = Conv (SOME (TypeStamp "nil" 1)) []`
+     v = Conv (SOME (TypeStamp "[]" 1)) []`
 
 val LIST_TYPE_SIMP' = Q.prove(
   `!xs b. CONTAINER LIST_TYPE
@@ -1493,6 +1496,28 @@ Theorem Eval_length
   \\ `?l. v = Vector l` by metis_tac [vector_nchotomy]
   \\ rw [] \\ fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def]);
 
+(* This is useful to force the type inferencer to give the type unit
+   to an unused argument. *)
+val force_unit_type_def = Define `
+  force_unit_type (u:unit) x = x`
+  |> curry save_thm "force_unit_type_def[simp]";
+
+Theorem Eval_force_unit_type
+   `Eval env x1 (UNIT_TYPE u) ==>
+    Eval env x2 ((a:'a -> v -> bool) y) ==>
+    Eval env (Mat x1 [(Pcon NONE [], x2)]) (a (force_unit_type u y))`
+ (fs [Eval_rw] \\ rw []
+  \\ fs[Eval_rw,UNIT_TYPE_def]
+  \\ last_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
+  \\ first_x_assum (qspec_then `refs++refs'` mp_tac) \\ fs []
+  \\ drule evaluate_set_clock
+  \\ disch_then (qspec_then `0` mp_tac) \\ fs [] \\ strip_tac
+  \\ drule evaluate_add_to_clock
+  \\ rpt (pop_assum kall_tac) \\ rw []
+  \\ first_x_assum (qspec_then `ck1` assume_tac)
+  \\ qexists_tac `ck1' + ck1` \\ fs [pat_bindings_def,pmatch_def]
+  \\ fs [state_component_equality]);
+
 val force_gc_to_run_def = Define `
   force_gc_to_run (i1:int) (i2:int) = ()`;
 
@@ -1501,6 +1526,20 @@ Theorem Eval_force_gc_to_run
     Eval env x2 (INT i2) ==>
     Eval env (App ConfigGC [x1; x2]) (UNIT_TYPE (force_gc_to_run i1 i2))`
   (tac2 \\ fs [do_app_def,INT_def,UNIT_TYPE_def]);
+
+val force_out_of_memory_error_def = Define `
+  force_out_of_memory_error (x:'a) = x`;
+
+val two_pow_64 = EVAL ``2i**64`` |> concl |> rand
+
+Theorem Eval_force_out_of_memory_error
+   `Eval env x (a i) ==>
+    Eval env (Let (SOME "a") x
+             (Let (SOME "n") (Lit (IntLit ^two_pow_64))
+             (Let NONE (App Aalloc [Var (Short "n"); Var (Short "n")])
+               (Var (Short "a"))))) (a (force_out_of_memory_error i))`
+  (tac1 \\ fs [namespaceTheory.nsOptBind_def,store_alloc_def,
+               force_out_of_memory_error_def]);
 
 Theorem Eval_empty_ffi
   `Eval env x (STRING_TYPE s) ==>
@@ -1723,6 +1762,7 @@ val type_names_eq = Q.prove(
                 | Dmod _ ds => []
                 | Dtype _ tds => MAP (\(tvs,tn,ctors). tn) tds
                 | Dtabbrev _ tvs tn t => []
+                | Dlocal _ _ => []
                 | Dexn _ v10 v11 => []) ds))) ++ names`,
   Induct \\ fs [type_names_def] \\ Cases_on `h`
   \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]);
@@ -2109,9 +2149,11 @@ Theorem Eval_Con_NONE
 
 (* terms used by the Lib file *)
 
+
+
 val translator_terms = save_thm("translator_terms",
   pack_list (pack_pair pack_string pack_term)
-    [("find_recfun",``find_recfun name (funs:('a,'b # 'c) alist)``),
+    [("find_recfun",``find_recfun name funs : ('a # 'b) option``),
      ("eq type",``EqualityType (a:'a->v->bool)``),
      ("lookup_cons",``lookup_cons s e = SOME x``),
      ("nsLookup",``nsLookup e s = SOME (x:v)``), (*TODO: Should this be e or e.v?*)

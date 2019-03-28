@@ -40,106 +40,85 @@ val _ = translate charset_mem_def;
 
 val _ = register_type``:regexp``;
 
-(* TODO: this is largely copied from the bootstrap translation
-         can it be properly abstracted out? *)
-local
-  val ths = ml_translatorLib.eq_lemmas();
-in
-  fun find_equality_type_thm tm =
-    first (can (C match_term tm) o rand o snd o strip_imp o concl) ths
-end
+(* check regexp is known to be an EqualityType *)
+val EqualityType_regexp = EqualityType_rule [] ``:regexp``;
 
-val EqualityType_WORD = find_equality_type_thm``WORD``
-val EqualityType_CHARSET_CHARSET_TYPE = find_equality_type_thm``CHARSET_CHARSET_TYPE``
-  |> REWRITE_RULE[EqualityType_WORD]
+(* The following is a translation of balanced_map. The translation of
+   balanced_map from basis cannot be used here beause the basis only
+   exposes the mlmapTheory functions which provide a neater -- but
+   different -- interface. The duplication doesn't matter due to
+   flat_elim removing all the unused functions during compilation. *)
 
-val REGEXP_REGEXP_TYPE_def = theorem"REGEXP_REGEXP_TYPE_def";
-val REGEXP_REGEXP_TYPE_ind = theorem"REGEXP_REGEXP_TYPE_ind";
-val no_closures_def = ml_translatorTheory.no_closures_def;
-val LIST_TYPE_def = ml_translatorTheory.LIST_TYPE_def;
-val EqualityType_def = ml_translatorTheory.EqualityType_def;
-val types_match_def = ml_translatorTheory.types_match_def;
-val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
+val _ = translate balanced_mapTheory.size_def;
+val _ = translate balanced_mapTheory.singleton_def;
+val _ = translate balanced_mapTheory.ratio_def;
+val _ = translate balanced_mapTheory.delta_def;
+val _ = translate balanced_mapTheory.balanceL_def;
+val _ = translate balanced_mapTheory.balanceR_def;
+val _ = translate balanced_mapTheory.deleteFindMax_def;
 
-val REGEXP_REGEXP_TYPE_no_closures = Q.prove(
-  `∀a b. REGEXP_REGEXP_TYPE a b ⇒ no_closures b`,
-  ho_match_mp_tac REGEXP_REGEXP_TYPE_ind
-  \\ rw[REGEXP_REGEXP_TYPE_def]
-  \\ rw[no_closures_def]
-  \\ TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    last_x_assum mp_tac >>
-    rpt(pop_assum kall_tac) >>
-    map_every qid_spec_tac[`y1`,`x1`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,no_closures_def] >>
-    qx_gen_tac`p` >>
-    simp[PULL_EXISTS,no_closures_def] >>
-    rw[] >>
-    METIS_TAC[EqualityType_def] ) >>
-  metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
-            EqualityType_def]);
+val deleteFindmax_side_thm = Q.prove (
+  `!m. m ≠ Tip ⇒ deletefindmax_1_side m`,
+  ho_match_mp_tac balanced_mapTheory.deleteFindMax_ind >>
+  ONCE_REWRITE_TAC [theorem "deletefindmax_1_side_def"] >>
+  rw [] >>
+  ONCE_REWRITE_TAC [theorem "deletefindmax_1_side_def"] >>
+  rw [] >>
+  metis_tac []) |> update_precondition;
 
-val REGEXP_REGEXP_TYPE_types_match = Q.prove(
-  `∀a b c d. REGEXP_REGEXP_TYPE a b ∧ REGEXP_REGEXP_TYPE c d ⇒ types_match b d`,
-  ho_match_mp_tac REGEXP_REGEXP_TYPE_ind \\
-  rw[REGEXP_REGEXP_TYPE_def] \\
-  Cases_on`c` \\ fs[REGEXP_REGEXP_TYPE_def,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] \\ rw[] \\
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x1 y1` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE _ x2 y2` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    last_x_assum mp_tac >>
-    rpt(pop_assum kall_tac) >>
-    map_every qid_spec_tac[`y2`,`x2`,`y1`,`x1`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >- (
-      Cases >> simp[LIST_TYPE_def,PULL_EXISTS,types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] ) >>
-    qx_gen_tac`p` >>
-    gen_tac >> Cases >> simp[PULL_EXISTS,LIST_TYPE_def] >>
-    rw[types_match_def,ctor_same_type_def,semanticPrimitivesTheory.same_type_def] >>
-    PROVE_TAC[EqualityType_def] ) >>
-  metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
-            EqualityType_def]);
+val _ = translate balanced_mapTheory.deleteFindMin_def;
 
-val REGEXP_REGEXP_TYPE_11 = Q.prove(
-  `∀a b c d. REGEXP_REGEXP_TYPE a b ∧ REGEXP_REGEXP_TYPE c d ⇒ (a = c ⇔ b = d)`,
-  ho_match_mp_tac REGEXP_REGEXP_TYPE_ind \\
-  rw[REGEXP_REGEXP_TYPE_def] \\
-  Cases_on`c` \\ fs[REGEXP_REGEXP_TYPE_def] \\ rw[EQ_IMP_THM] \\
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x y1` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE _ x y2` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    last_x_assum mp_tac >>
-    rpt(pop_assum kall_tac) >>
-    map_every qid_spec_tac[`y2`,`y1`,`x`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >>
-    rw[] >>
-    metis_tac[]) >>
-  TRY (
-    qmatch_assum_rename_tac`LIST_TYPE _ x1 y` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    qmatch_assum_rename_tac`LIST_TYPE _ x2 y` >>
-    qhdtm_x_assum`LIST_TYPE`mp_tac >>
-    last_x_assum mp_tac >>
-    rpt(pop_assum kall_tac) >>
-    map_every qid_spec_tac[`y`,`x1`,`x2`] >>
-    Induct >> simp[LIST_TYPE_def,PULL_EXISTS] >- (
-      Cases \\ rw[LIST_TYPE_def] ) \\
-    gen_tac \\ Cases \\ rw[LIST_TYPE_def] >>
-    metis_tac[]) >>
-  metis_tac[EqualityType_CHARSET_CHARSET_TYPE,
-            EqualityType_def]);
+val deleteFindmin_side_thm = Q.prove (
+  `!m. m ≠ Tip ⇒ deletefindmin_1_side m`,
+  ho_match_mp_tac balanced_mapTheory.deleteFindMin_ind >>
+  ONCE_REWRITE_TAC [theorem "deletefindmin_1_side_def"] >>
+  rw [] >>
+  ONCE_REWRITE_TAC [theorem "deletefindmin_1_side_def"] >>
+  rw [] >>
+  metis_tac []) |> update_precondition;
 
-Theorem EqualityType_REGEXP_REGEXP_TYPE
-  `EqualityType REGEXP_REGEXP_TYPE`
-  (metis_tac[REGEXP_REGEXP_TYPE_no_closures,REGEXP_REGEXP_TYPE_types_match,REGEXP_REGEXP_TYPE_11,
-  EqualityType_def]);
+val _ = translate balanced_mapTheory.glue_def;
 
-val _ = store_eq_thm EqualityType_REGEXP_REGEXP_TYPE;
-(* -- *)
+val glue_side_thm = Q.prove (
+  `!m n. glue_1_side m n`,
+  rw [fetch "-" "glue_1_side_def"] >>
+  metis_tac [deleteFindmin_side_thm, deleteFindmax_side_thm,
+    balanced_mapTheory.balanced_map_distinct])
+  |> update_precondition;
+
+val _ = translate balanced_mapTheory.trim_help_greater_def;
+val _ = translate balanced_mapTheory.trim_help_lesser_def;
+val _ = translate balanced_mapTheory.trim_help_middle_def;
+val _ = translate balanced_mapTheory.trim_def;
+val _ = translate balanced_mapTheory.insertMin_def;
+val _ = translate balanced_mapTheory.insertMax_def;
+val _ = translate balanced_mapTheory.bin_def;
+val _ = translate balanced_mapTheory.link_def;
+val _ = translate balanced_mapTheory.filterLt_help_def;
+val _ = translate balanced_mapTheory.filterLt_def;
+val _ = translate balanced_mapTheory.filterGt_help_def;
+val _ = translate balanced_mapTheory.filterGt_def;
+val _ = translate balanced_mapTheory.insertR_def;
+val _ = translate balanced_mapTheory.hedgeUnion_def;
+val _ = translate balanced_mapTheory.splitLookup_def;
+val _ = translate balanced_mapTheory.submap'_def;
+
+val _ = translate balanced_mapTheory.null_def;
+val _ = translate balanced_mapTheory.lookup_def;
+val _ = translate balanced_mapTheory.member_def;
+val _ = translate balanced_mapTheory.empty_def;
+val _ = translate balanced_mapTheory.insert_def;
+val _ = translate balanced_mapTheory.delete_def;
+val _ = translate balanced_mapTheory.union_def;
+val _ = translate balanced_mapTheory.foldrWithKey_def;
+val _ = translate balanced_mapTheory.toAscList_def;
+val _ = translate balanced_mapTheory.compare_def;
+val _ = translate balanced_mapTheory.map_def;
+val _ = translate balanced_mapTheory.isSubmapOfBy_def;
+val _ = translate balanced_mapTheory.isSubmapOf_def;
+val _ = translate balanced_mapTheory.fromList_def;
+
+(* -- end of translation of balanced_map -- *)
 
 val r = translate regexp_compareW_def;
 
@@ -419,7 +398,7 @@ val _ = append_prog print_matching_lines;
 
 Theorem print_matching_lines_spec
   `(STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
-   FD fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
+   INSTREAM fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
    IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ⇒
    app (p:'ffi ffi_proj)
      ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
@@ -512,7 +491,7 @@ val print_matching_lines_in_file = process_topdecs`
   fun print_matching_lines_in_file m file =
     let val fd = TextIO.openIn file
     in (print_matching_lines m (String.concat[file,":"]) fd;
-        TextIO.close fd)
+        TextIO.closeIn fd)
     end handle TextIO.BadFileName =>
         TextIO.output TextIO.stdErr (notfound_string file)`;
 val _ = append_prog print_matching_lines_in_file;
@@ -536,10 +515,9 @@ Theorem print_matching_lines_in_file_spec
   \\ reverse(Cases_on`consistentFS fs`)
   >-(fs[STDIO_def,IOFS_def] >> xpull >> fs[wfFS_def,consistentFS_def] >> res_tac)
   \\ qmatch_goalsub_abbrev_tac`_ * STDIO fs'`
-  \\ reverse(xhandle`POST
+  \\ reverse(xhandle`POSTve
        (λv. &UNIT_TYPE () v * STDIO fs')
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs)
-       (λn c b. &F)`)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs)`)
   >- (
     xcases
     \\ fs[BadFileName_exn_def]
@@ -550,7 +528,6 @@ Theorem print_matching_lines_in_file_spec
     \\ xsimpl)
   >- ( xsimpl )
   \\ xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
-  >- ( xsimpl )
   >- ( xsimpl )
   >- ( xsimpl )
   \\ xlet_auto
@@ -573,7 +550,7 @@ Theorem print_matching_lines_in_file_spec
     \\ simp[get_mode_def]
     \\ DEP_REWRITE_TAC[ALOOKUP_inFS_fname_openFileFS_nextFD]
     \\ simp[] )
-  \\ xapp_spec close_STDIO_spec
+  \\ xapp_spec closeIn_STDIO_spec
   \\ instantiate
   \\ qmatch_goalsub_abbrev_tac`STDIO fs'' ==>> _`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs''`

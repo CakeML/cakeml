@@ -1,6 +1,7 @@
 (*
   Correctness proof for bvi_inline
 *)
+
 open preamble backendPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_inlineTheory
@@ -8,9 +9,7 @@ local open bvl_handleProofTheory in end
 
 val _ = new_theory"bvl_inlineProof";
 
-val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
-val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
-val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
+val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];
 
 (* removal of ticks *)
 
@@ -509,12 +508,7 @@ Theorem semantics_remove_ticks
     \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
     \\ metis_tac [
          LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
          bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
          bvlPropsTheory.evaluate_add_to_clock_io_events_mono
            |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
            |> Q.SPEC`s with clock := k`
@@ -686,7 +680,7 @@ Theorem tick_compile_prog_res_range
       \\ reverse conj_tac THEN1 metis_tac []
       \\ fs [subspt_alt,lookup_insert] \\ rw []
       \\ fs [lookup_union,lookup_insert,lookup_def,case_eq_thms]
-      \\ metis_tac [not_in_domain])
+      \\ metis_tac [lookup_NONE_domain])
     \\ fs [GSYM union_assoc]
     \\ match_mp_tac subspt_union_lemma
     \\ fs [lookup_union,lookup_insert,lookup_def,fromAList_def]
@@ -797,12 +791,12 @@ val tick_compile_prog_IMP_exp_rel = prove(
   \\ fs [lookup_insert,case_eq_thms] \\ rveq
   THEN1
    (rename1 `must_inline k2 _ _`
-    \\ fs [lookup_union,case_eq_thms,not_in_domain]
+    \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain]
     \\ match_mp_tac subspt_exp_rel
     \\ qexists_tac `src_code`
     \\ conj_tac THEN1 fs [subspt_alt,lookup_union]
     \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
-  \\ fs [lookup_union,case_eq_thms,not_in_domain,lookup_insert,lookup_def]
+  \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain,lookup_insert,lookup_def]
   \\ pop_assum (assume_tac o GSYM)
   \\ first_x_assum drule \\ strip_tac \\ fs []
   \\ match_mp_tac (subspt_exp_rel |> ONCE_REWRITE_RULE [CONJ_COMM])
@@ -1059,7 +1053,7 @@ val lookup_tick_inline_all = prove(
   \\ IF_CASES_TAC \\ rw []
   THEN1 (match_mp_tac exp_rel_tick_inline
          \\ fs [lookup_insert,lookup_union]
-         \\ rw [] \\ fs [not_in_domain]
+         \\ rw [] \\ fs [GSYM lookup_NONE_domain]
          \\ first_x_assum drule \\ fs [] \\ strip_tac \\ fs [])
   \\ fs [] \\ rveq
   \\ qmatch_goalsub_abbrev_tac `tick_inline_all _ cs1`
@@ -1078,16 +1072,16 @@ val lookup_tick_inline_all = prove(
         \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP,FORALL_PROD] \\ rfs [])
       \\ match_mp_tac exp_rel_tick_inline
       \\ rw [] \\ first_x_assum drule
-      \\ IF_CASES_TAC THEN1 fs [not_in_domain]
+      \\ IF_CASES_TAC THEN1 fs [GSYM lookup_NONE_domain]
       \\ fs [case_eq_thms] \\ strip_tac
       \\ fs [lookup_union,lookup_insert,lookup_fromAList]
       \\ rfs [exp_rel_rw])
     \\ rpt strip_tac \\ first_x_assum drule
     \\ fs [lookup_union,lookup_insert]
-    \\ fs [not_in_domain] \\ fs [exp_rel_rw])
+    \\ fs [GSYM lookup_NONE_domain] \\ fs [exp_rel_rw])
   \\ rpt strip_tac \\ first_x_assum drule
   \\ fs [lookup_union,lookup_insert]
-  \\ IF_CASES_TAC \\ fs [not_in_domain] \\ fs [exp_rel_rw]);
+  \\ IF_CASES_TAC \\ fs [GSYM lookup_NONE_domain] \\ fs [exp_rel_rw]);
 
 val subspt_tick_inline = prove(
   ``!prog cs aux.
@@ -1342,12 +1336,7 @@ val semantics_tick_inline = prove(
     \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
     \\ metis_tac [
          LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
          bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
          bvlPropsTheory.evaluate_add_to_clock_io_events_mono
            |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
            |> Q.SPEC`s with clock := k`
@@ -1766,12 +1755,7 @@ val semantics_let_op = prove(
     \\ qspecl_then [`k1`,`k2`] mp_tac LESS_EQ_CASES
     \\ metis_tac [
          LESS_EQ_EXISTS,
-         bviPropsTheory.initial_state_with_simp,
          bvlPropsTheory.initial_state_with_simp,
-         bviPropsTheory.evaluate_add_to_clock_io_events_mono
-           |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
-           |> Q.SPEC`s with clock := k`
-           |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
          bvlPropsTheory.evaluate_add_to_clock_io_events_mono
            |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
            |> Q.SPEC`s with clock := k`
@@ -1932,18 +1916,18 @@ Theorem compile_prog_semantics
   \\ drule (GEN_ALL lets)
   \\ fs [] \\ disch_then (assume_tac o GSYM) \\ fs []);
 
-Theorem handl_ok_optimise
-  `!prog. handle_ok (MAP (SND ∘ SND ∘ optimise b i) prog)`
+Theorem handle_ok_optimise
+  `!prog. bvl_handleProof$handle_ok (MAP (SND ∘ SND ∘ optimise b i) prog)`
   (Induct \\ fs [bvl_handleProofTheory.handle_ok_def,FORALL_PROD]
   \\ once_rewrite_tac [bvl_handleProofTheory.handle_ok_CONS] \\ fs []
   \\ fs [bvl_handleProofTheory.compile_any_handle_ok,optimise_def]);
 
 Theorem compile_prog_handle_ok
   `compile_prog l b i prog = (inlines,prog3) ==>
-    handle_ok (MAP (SND o SND) prog3)`
+    bvl_handleProof$handle_ok (MAP (SND o SND) prog3)`
   (fs [compile_prog_def,compile_inc_def]
   \\ pairarg_tac \\ fs [] \\ rw []
-  \\ fs [MAP_MAP_o,handl_ok_optimise]);
+  \\ fs [MAP_MAP_o,handle_ok_optimise]);
 
 Theorem MAP_FST_MAP_optimise[simp]
   `MAP FST (MAP (optimise x y) z) = MAP FST z`

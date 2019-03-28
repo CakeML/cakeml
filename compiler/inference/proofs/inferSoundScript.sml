@@ -101,6 +101,18 @@ Theorem set_ids_same[simp]
   `set_ids x x = {}`
   (rw[set_ids_eq]);
 
+Theorem set_ids_eq_union
+  `x <= y /\ y <= z ==> set_ids x z = set_ids x y UNION set_ids y z`
+  (fs [set_ids_def, EXTENSION]);
+
+Theorem set_ids_eq_union_eq
+  `x <= y /\ y <= z /\ s = set_ids y z
+    ==> set_ids x z = set_ids x y UNION s`
+  (fs [set_ids_eq_union]);
+
+fun str_tac strs = ConseqConv.CONSEQ_CONV_TAC
+  (ConseqConv.CONSEQ_REWRITE_CONV ([], strs, []));
+
 Theorem infer_d_sound
   `(!d tenv ienv st1 st2 ienv'.
     infer_d ienv d st1 = (Success ienv', st2) ∧
@@ -633,6 +645,23 @@ Theorem infer_d_sound
     first_x_assum drule>> disch_then drule>>fs[]>> strip_tac>>
     HINT_EXISTS_TAC>>fs[]>>
     simp[ienv_to_tenv_def,tenvLift_def,lift_ienv_def,nsLift_nsMap])
+  >- (
+    (* Dlocal *)
+    rw[infer_d_def, success_eqns]
+    >> rpt (first_x_assum drule >> rw [])
+    >> simp[Once type_d_cases]
+    >> goal_assum(first_assum o mp_then Any mp_tac)
+    >> str_tac [set_ids_eq_union_eq]
+    >> fs []
+    >> imp_res_tac infer_d_next_id_mono
+    >> fs []
+    >> first_x_assum (fn a =>
+      CHANGED_TAC (str_tac [a, env_rel_extend, env_rel_ienv_to_tenv]))
+    >> fs []
+    >> conj_tac
+    >- metis_tac [env_rel_def, infer_d_check]
+    >> fs [set_ids_def,EXTENSION,DISJOINT_DEF]
+  )
   >- (
     (* infer_ds [] *)
     fs[infer_d_def,success_eqns,env_rel_def]>>

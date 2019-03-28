@@ -2713,6 +2713,11 @@ Theorem infer_d_check
      typeSoundInvariantsTheory.tenv_ctor_ok_def,
      typeSoundInvariantsTheory.tenv_abbrev_ok_def]
   \\ metis_tac[])
+ >- (
+  rpt (first_x_assum drule)
+  \\ rw []
+  \\ metis_tac [ienv_ok_extend_dec_ienv]
+ )
  >- fs[ienv_ok_def,ienv_val_ok_def]
  >>
    match_mp_tac ienv_ok_extend_dec_ienv>>
@@ -3746,7 +3751,7 @@ Theorem infer_d_inf_set_tids
     match_mp_tac nsAll_alist_to_ns
     \\ simp[EVERY_MAP,every_zip_snd]
     \\ imp_res_tac generalise_inf_set_tids
-    \\ fs[LIST_REL_inv_image_MAP, quotient_listTheory.LIST_REL_EQ]
+    \\ fs[GSYM LIST_REL_MAP_inv_image, quotient_listTheory.LIST_REL_EQ]
     \\ simp[GSYM (Q.ISPEC`inf_set_tids`(CONV_RULE SWAP_FORALL_CONV EVERY_MAP))]
     \\ pop_assum(assume_tac o SYM)
     \\ simp[]
@@ -3785,7 +3790,7 @@ Theorem infer_d_inf_set_tids
     \\ simp[MAP2_MAP, UNCURRY, EVERY_MAP]
     \\ simp[every_zip_snd]
     \\ imp_res_tac generalise_inf_set_tids
-    \\ fs[LIST_REL_inv_image_MAP, quotient_listTheory.LIST_REL_EQ]
+    \\ fs[GSYM LIST_REL_MAP_inv_image, quotient_listTheory.LIST_REL_EQ]
     \\ simp[GSYM (Q.ISPEC`inf_set_tids`(CONV_RULE SWAP_FORALL_CONV EVERY_MAP))]
     \\ pop_assum(assume_tac o SYM)
     \\ simp[]
@@ -3865,7 +3870,7 @@ Theorem infer_d_inf_set_tids
     fs[EVERY_MAP, set_tids_subset_type_name_subst]
     \\ fs[start_type_id_def] \\ EVAL_TAC \\ fs[] )
   >- ( fs[lift_ienv_def] )
-  >- (
+  \\ ( (* cases with two components (x::xs and [Dlocal lds ds]) *)
     qpat_x_assum` _ ⇒ _` mp_tac>>
     imp_res_tac infer_d_next_id_mono>>
     impl_tac
@@ -3893,7 +3898,8 @@ Theorem infer_d_inf_set_tids
       fs[set_tids_subset_def,SUBSET_DEF,EVERY_MEM]>>
       rw[]>>
       first_x_assum drule>>fs[]>>
-      disch_then drule>>fs[]));
+      disch_then drule>>fs[])
+  );
 
 Theorem infer_d_wfs
   `(∀d ienv st ienv' st'.

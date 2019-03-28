@@ -8,6 +8,10 @@ open preamble intLib integerTheory backendPropsTheory
 
 val _ = new_theory"pat_to_closProof"
 
+val _ = set_grammar_ancestry
+  ["patLang", "patSem", "patProps", "pat_to_clos",
+   "closLang", "closSem", "closProps"];
+
 (* value translation *)
 
 val compile_v_def = tDefine"compile_v"`
@@ -402,7 +406,7 @@ Theorem compile_evaluate
     fsrw_tac[ETA_ss][SWAP_REVERSE_SYM] >>
     fs[evaluate_def,MAP_REVERSE,do_app_def,PULL_EXISTS,
        store_alloc_def,FLOOKUP_compile_state_refs,int_gt,
-       prim_exn_def,NOT_LESS,LEAST_LESS_EQ,EL_MAP,GREATER_EQ] >>
+       prim_exn_def,NOT_LESS,EL_MAP,GREATER_EQ] >>
     imp_res_tac evaluate_length >> fs[LENGTH_EQ_NUM_compute] >>
     rveq \\
     fs[evaluate_def,do_app_def,FLOOKUP_compile_state_refs,

@@ -158,7 +158,7 @@ val code_rel_union_fromAList = Q.prove(`
       metis_tac[option_CLAUSES])>>
     fs[lookup_fromAList]>>
     simp[Once LAMBDA_PROD,Once compile_single_eta]>>
-    simp[ALOOKUP_MAP_gen]>>
+    simp[ALOOKUP_MAP_2]>>
     metis_tac[])
   >>
     first_x_assum drule>>rw[]>>

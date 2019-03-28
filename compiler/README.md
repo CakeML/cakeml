@@ -1,8 +1,8 @@
 A verified compiler for CakeML, including:
- - parsing: lexer and PEG parser
- - inference: type inferencer
- - backend: compilation to ASM assembly language
- - encoders: code generation to x86, ARM, and more
+ - lexing and PEG parsing,
+ - type inference,
+ - compilation to ASM assembly language, and,
+ - code generation to x86, ARM, and more.
 
 [backend](backend):
 The CakeML compiler backend.

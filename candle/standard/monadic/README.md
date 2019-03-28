@@ -17,7 +17,3 @@ faithful to the inference rules of the Candle logic.
 Define the Candle kernel as shallowly embedded functions in HOL
 using a monadic style in order to conveniently pass around state and
 propagate exceptions.
-
-[pmatch](pmatch):
-This directory contains some translations of Candle-specific PMATCH
-examples.

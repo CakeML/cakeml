@@ -21,7 +21,8 @@ Theorem remove_ticks_SING
   (Induct \\ fs [remove_ticks_def]);
 
 Theorem HD_remove_ticks_SING[simp]
-  `!x. [HD (remove_ticks [x])] = remove_ticks [x]`
+  `!x. [HD (remove_ticks [x])] = remove_ticks [x] ∧
+       LENGTH (remove_ticks [x]) = 1`
   (gen_tac \\ strip_assume_tac (Q.SPEC `x` remove_ticks_SING) \\ fs []);
 
 (* code relation *)

@@ -255,7 +255,7 @@ Theorem extract_stdo_extract_fs
     \\ CASE_TAC \\ fs[]
     \\ simp[ALIST_FUPDKEY_ALOOKUP]
 
-    \\ cheat)
+    \\ ...)
   \\ qpat_x_assum`_ = SOME _`mp_tac
   \\ simp[option_caseeq,pair_caseeq]
   \\ qhdtm_x_assum`stdo`mp_tac
@@ -314,7 +314,7 @@ Theorem extract_stdout_intro
   \\ rw[]
   \\ Induct_on`io_events`
   \\ rw[extract_fs_def]
-  >- cheat
+  >- ...
   \\ Cases_on`h` \\ fs[extract_fs_def]
   \\ rw[] \\ fs[]
   \\ pop_assum mp_tac \\ CASE_TAC
@@ -443,7 +443,7 @@ val whole_prog_ffidiv_spec_def = Define`
 
 Theorem whole_prog_spec_semantics_prog
   `∀fname fv.
-     ML_code env1 (init_state (basis_ffi cl fs)) prog NONE env2 st2 ==>
+     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_spec fv cl fs sprop Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
@@ -492,7 +492,7 @@ Theorem whole_prog_spec_semantics_prog
 
 Theorem whole_prog_spec_semantics_prog_ffidiv
   `∀fname fv.
-     ML_code env1 (init_state (basis_ffi cl fs)) prog NONE env2 st2 ==>
+     Decls env1 (init_state (basis_ffi cl fs)) prog env2 st2 ==>
      lookup_var fname env2 = SOME fv ==>
      whole_prog_ffidiv_spec fv cl fs Q ==>
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
@@ -618,8 +618,13 @@ Theorem oracle_parts_div
   \\ disj2_tac
   \\ CCONTR_TAC \\ fs[] \\ rfs[]);
 
+val _ = translation_extends "TextIOProg";
+val st_f = get_ml_prog_state () |> get_state |> strip_comb |> fst;
+val st = mk_icomb (st_f, ``basis_ffi cls fs``);
+val _ = reset_translation ()
+
 Theorem parts_ok_basis_st
-  `parts_ok (auto_state_1 (basis_ffi cls fs)).ffi (basis_proj1, basis_proj2)`
+  `parts_ok (^st).ffi (basis_proj1, basis_proj2)`
   (qmatch_goalsub_abbrev_tac`st.ffi`
   \\ `st.ffi.oracle = basis_ffi_oracle`
   by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)

@@ -208,11 +208,16 @@ rw [] >>
 full_simp_tac (srw_ss()++BAG_ss)
               [root_def, is_heap_ordered_def, heap_to_bag_def,
                BAG_INSERT_UNION] >|
-[metis_tac [is_heap_ordered_def],
+[
+  metis_tac [is_heap_ordered_def],
+
  metis_tac [is_heap_ordered_def],
+
  `tree_to_bag h''' ⊎ heap_to_bag t' = heap_to_bag r ⊎ tree_to_bag (Node n a l)`
               by metis_tac [] >>
+     simp[Once COMM_BAG_UNION] >>
      srw_tac [BAG_ss] [heap_to_bag_def, BAG_INSERT_UNION],
+
  `BAG_IN y (tree_to_bag q) ∨ BAG_IN y (heap_to_bag r)`
         by metis_tac [BAG_IN_BAG_UNION] >|
      [`is_heap_ordered_tree get_key leq q` by metis_tac [] >>
@@ -224,6 +229,7 @@ full_simp_tac (srw_ss()++BAG_ss)
           metis_tac [WeakLinearOrder, WeakOrder, transitive_def],
       fs [BAG_EVERY] >>
           metis_tac [WeakLinearOrder, WeakOrder, transitive_def]],
+
  `BAG_IN y (tree_to_bag q) ∨ BAG_IN y (heap_to_bag r)`
         by metis_tac [BAG_IN_BAG_UNION] >|
      [`is_heap_ordered_tree get_key leq q` by metis_tac [] >>
@@ -235,12 +241,15 @@ full_simp_tac (srw_ss()++BAG_ss)
           metis_tac [WeakLinearOrder, WeakOrder, transitive_def],
       fs [BAG_EVERY] >>
           metis_tac [WeakLinearOrder, WeakOrder, transitive_def]],
+
  cases_on `h'` >>
      fs [root_def, is_heap_ordered_def, heap_to_bag_def, BAG_EVERY] >>
      metis_tac [WeakLinearOrder, WeakOrder, WeakLinearOrder_neg,
                 transitive_def],
+
  metis_tac [WeakLinearOrder, WeakOrder, WeakLinearOrder_neg, root_def,
-            transitive_def]]);
+            transitive_def]
+]);
 
 Theorem find_min_correct
 `!h get_key leq.

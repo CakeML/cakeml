@@ -258,7 +258,7 @@ val x64_enc3_1_th =
 fun avoidp t =
 if wordsSyntax.is_word_le t then
   let val (l,r) = wordsSyntax.dest_word_compare t in
-    l = ``0xFFFFFFFF80000000w:word64``
+    l ~~ ``0xFFFFFFFF80000000w:word64``
   end
 else if is_conj t then
   let val(l,r) = dest_conj t in

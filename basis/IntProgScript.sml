@@ -12,21 +12,21 @@ val _ = translation_extends "mlbasicsProg";
 
 val _ = ml_prog_update (open_module "Int");
 
-val () = generate_sigs := true;
-
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "int" (Atapp [] (Short "int"))`` I);
 
-val _ = trans "+" `(+):int->int->int`
-val _ = trans "-" `(-):int->int->int`
-val _ = trans "*" `int_mul`
-val _ = trans "div" `(/):int->int->int`
-val _ = trans "mod" `(%):int->int->int`
-val _ = trans "<" `(<):int->int->bool`
-val _ = trans ">" `(>):int->int->bool`
-val _ = trans "<=" `(<=):int->int->bool`
-val _ = trans ">=" `(>=):int->int->bool`
-val _ = trans "~" `\i. - (i:int)`
+val _ = trans "+" intSyntax.plus_tm;
+val _ = trans "-" intSyntax.minus_tm;
+val _ = trans "*" intSyntax.mult_tm;
+val _ = trans "div" intSyntax.div_tm;
+val _ = trans "mod" intSyntax.mod_tm;
+val _ = trans "<" intSyntax.less_tm;
+val _ = trans ">" intSyntax.great_tm;
+val _ = trans "<=" intSyntax.leq_tm;
+val _ = trans ">=" intSyntax.geq_tm;
+val _ = trans "~" ``\i. - (i:int)``;
+
+val _ = ml_prog_update open_local_block;
 
 val result = translate zero_pad_def
 
@@ -51,15 +51,33 @@ val _ = add_preferred_thy "-";
 val result = translate
   (toChars_def |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
+val _ = ml_prog_update open_local_in_block;
+
 val _ = next_ml_names := ["toString"];
 
-val result = translate
+val toString_v_thm = translate
   (toString_def |> REWRITE_RULE[maxSmall_DEC_def])
 val tostring_side = Q.prove(
   `∀x. tostring_side x = T`,
   rw[definition"tostring_side_def"]
   \\ intLib.COOPER_TAC)
   |> update_precondition;
+
+val toString_v_thm = toString_v_thm
+  |> DISCH_ALL |> REWRITE_RULE [tostring_side,ml_translatorTheory.PRECONDITION_def]
+  |> ml_translatorLib.remove_Eq_from_v_thm;
+
+val Eval_NUM_toString = Q.prove(
+  `!v. (INT --> STRING_TYPE) toString v ==>
+       (NUM --> STRING_TYPE) num_to_str v`,
+  simp [ml_translatorTheory.Arrow_def,
+    ml_translatorTheory.AppReturns_def,num_to_str_def,
+    ml_translatorTheory.NUM_def,PULL_EXISTS,FORALL_PROD]
+  \\ rw [] \\ res_tac)
+  |> (fn th => MATCH_MP th toString_v_thm)
+  |> add_user_proved_v_thm;
+
+val _ = ml_prog_update open_local_block;
 
 val result = translate fromChar_unsafe_def;
 val result = translate fromChars_range_unsafe_def;
@@ -97,6 +115,8 @@ val _ = save_thm("fromChars_ind",
 val result = translate (fromChars_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
+val _ = ml_prog_update open_local_in_block;
+
 val _ = next_ml_names := ["fromString"];
 val result = translate fromString_def;
 val fromstring_side_def = definition"fromstring_side_def";
@@ -117,6 +137,9 @@ val fromString_side = Q.prove(
   \\ match_mp_tac fromchars_side_thm
   \\ rw[]) |> update_precondition;
 
+val _ = next_ml_names := ["fromNatString"];
+val result = translate fromNatString_def;
+
 (* GCD *)
 
 val gcd_def = Define `
@@ -133,22 +156,13 @@ val gcd_side = prove(
   \\ fs [ADD1] \\ rw [] \\ fs [])
   |> update_precondition;
 
-val sigs = module_signatures [
-  "+",
-  "-",
-  "*",
-  "div",
-  "mod",
-  "<",
-  ">",
-  "<=",
-  ">=",
-  "~",
-  "toString",
-  "fromString",
-  "gcd"
-];
+(* compare *)
 
-val _ = ml_prog_update (close_module (SOME sigs));
+val _ = (next_ml_names := ["compare"]);
+val _ = translate mlintTheory.int_cmp_def;
+
+val _ = ml_prog_update close_local_blocks;
+
+val _ = ml_prog_update (close_module NONE);
 
 val _ = export_theory();

@@ -2,7 +2,7 @@
   Some common helper functions for writing the final byte list ->
   string exporter.
 *)
-open preamble mlstringTheory mlvectorTheory mlnumTheory mlintTheory;
+open preamble mlstringTheory mlvectorTheory mlintTheory;
 
 val _ = new_theory "export";
 
@@ -17,7 +17,7 @@ val split16_def = tDefine "split16" `
 
 val preamble_tm =
   ``(MAP (\n. strlit(n ++ "\n"))
-      ["/* Preprocessor to get around Mac OS and Linux differences in naming */";
+      ["/* Preprocessor to get around Mac OS, Windows, and Linux differences in naming and calling conventions */";
        "";
        "#if defined(__APPLE__)";
        "# define cdecl(s) _##s";
@@ -25,12 +25,20 @@ val preamble_tm =
        "# define cdecl(s) s";
        "#endif";
        "";
+       "#if defined(__APPLE__)";
+       "# define wcdecl(s) _##s";
+       "#elif defined(__WIN32)";
+       "# define wcdecl(s) windows_##s";
+       "#else";
+       "# define wcdecl(s) s";
+       "#endif";
+       "";
        "     .file        \"cake.S\"";
        ""])`` |> EVAL |> rconc;
 val preamble_def = Define`preamble = ^preamble_tm`;
 
 val space_line_def = Define`
-  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString n; strlit "\n"]`;
+  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString (n:num); strlit "\n"]`;
 
 val data_section_def = Define`data_section word_directive heap_space stack_space =
      MAP (\n. strlit (n ++ "\n"))

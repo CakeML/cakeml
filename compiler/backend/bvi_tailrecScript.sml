@@ -2,9 +2,13 @@
   A compiler phase that turns some non-tail-recursive functions into
   tail-recursive functions.
 *)
-open preamble bviTheory backend_commonTheory;
+
+open preamble bviTheory backend_commonTheory
 
 val _ = new_theory "bvi_tailrec";
+
+val _ = set_grammar_ancestry["bvi", "backend_common"];
+val _ = temp_tight_equality();
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;

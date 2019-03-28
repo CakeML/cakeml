@@ -355,7 +355,7 @@ Theorem compile_correct
         val d2 = get_data (lhs tms2,[])
         fun get_pair (k,cn) =
           let
-            val (arity, stamp) = pairSyntax.dest_pair (assoc k d1)
+            val (arity, stamp) = pairSyntax.dest_pair (tassoc k d1)
           in
             pairSyntax.mk_pair(pairSyntax.mk_pair(cn, arity), stamp)
           end
@@ -516,7 +516,7 @@ Theorem compile_correct
       \\ qid_spec_tac`x`
       \\ simp[GSYM EVERY_MEM]
       \\ irule flat_to_patProofTheory.compile_esgc_free
-      \\ simp[EVERY_o]
+      \\ simp[GSYM ALL_EL_MAP]
       \\ irule source_to_flatProofTheory.compile_esgc_free
       \\ asm_exists_tac \\ rw[]
       \\ EVAL_TAC
@@ -571,7 +571,7 @@ Theorem compile_correct
         \\ impl_tac >- (
           EVAL_TAC \\ Cases \\ simp[namespaceTheory.nsLookup_def] )
         \\ rw[]
-        \\ simp[bag_of_list_ALL_DISTINCT]
+        \\ simp[LIST_TO_BAG_DISTINCT]
         \\ irule ALL_DISTINCT_MAP_INJ
         \\ simp[]
         \\ simp[all_distinct_count_list])
@@ -1278,17 +1278,17 @@ Theorem compile_correct
             strip_tac
             \\ first_x_assum drule
             \\ simp[]
-            \\ cheat (* oracle labels... *) )
+            \\ ... (* oracle labels... *) )
           \\ disj1_tac
           \\ fs[Abbr`p7`]
-          \\ cheat (* get_code_labels range...  *) )
+          \\ ... (* get_code_labels range...  *) )
         \\ qspec_then`ppg`mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels
         \\ simp[SUBSET_DEF]
         \\ strip_tac
         \\ gen_tac \\ strip_tac
         \\ first_x_assum drule
         \\ strip_tac \\ rw[]
-        \\ cheat (* referenced labels are present (for oracle) *) *))
+        \\ ... (* referenced labels are present (for oracle) *) *))
       \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
       simp[Abbr`co`, Abbr`co3`] \\
       rpt(pairarg_tac \\ fs[]) \\
@@ -1665,7 +1665,7 @@ Theorem compile_correct
         \\ EVAL_TAC \\ simp[])
       \\ simp[Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b``]EVERY_CONJ)
               |> Q.SPEC`Q o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
-      \\ simp[EVERY_o, GSYM CONJ_ASSOC]
+      \\ simp[GSYM ALL_EL_MAP, GSYM CONJ_ASSOC]
       \\ simp[MAP_MAP_o, o_DEF]
       \\ qpat_x_assum`Abbrev(bmk = _)`mp_tac
       \\ simp[PAIR_MAP]
@@ -1718,7 +1718,7 @@ Theorem compile_correct
       \\ simp[EVERY_MAP]
       \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
       \\ simp[Once(GSYM o_DEF)]
-      \\ simp[EVERY_o]
+      \\ simp[GSYM ALL_EL_MAP]
       \\ qpat_assum`∀n. EVERY ($<= _) _`mp_tac
       \\ disch_then(qspec_then`n`strip_assume_tac)
       \\ conj_tac

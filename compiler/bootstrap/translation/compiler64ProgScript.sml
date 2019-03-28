@@ -176,6 +176,7 @@ val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_
 (* x64 *)
 val res = translate x64_configTheory.x64_names_def;
 val res = translate export_x64Theory.ffi_asm_def;
+val res = translate export_x64Theory.windows_ffi_asm_def;
 val res = translate export_x64Theory.x64_export_def;
 val res = translate
   (x64_configTheory.x64_backend_config_def
@@ -226,6 +227,14 @@ val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO]
 val res = translate print_option_def
 val res = translate current_build_info_str_def
 
+val nonzero_exit_code_for_error_msg_def = Define `
+  nonzero_exit_code_for_error_msg e =
+    if compiler$is_error_msg e then
+      ml_translator$force_out_of_memory_error () else ()`;
+
+val res = translate compilerTheory.is_error_msg_def;
+val res = translate nonzero_exit_code_for_error_msg_def;
+
 val main = process_topdecs`
   fun main u =
     let
@@ -235,7 +244,8 @@ val main = process_topdecs`
         print compiler_current_build_info_str
       else
         case compiler_compile_64 cl (String.explode (TextIO.inputAll TextIO.stdIn))  of
-          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e)
+          (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                     compiler64prog_nonzero_exit_code_for_error_msg e)
     end`;
 
 val res = append_prog main;
@@ -288,7 +298,7 @@ Theorem main_spec
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`fs`
     \\ xsimpl)
-  \\ xlet_auto >- (xsimpl \\ fs[FD_stdin, STD_streams_get_mode])
+  \\ xlet_auto >- (xsimpl \\ fs[INSTREAM_stdin, STD_streams_get_mode])
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]
@@ -296,13 +306,16 @@ Theorem main_spec
   \\ fs[ml_translatorTheory.PAIR_TYPE_def]
   \\ xmatch
   \\ xlet_auto >- xsimpl
-  \\ xapp_spec output_stderr_spec
-  \\ xsimpl
-  \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
-  \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-  \\ qexists_tac`fs'` \\ xsimpl
-  \\ instantiate
-  \\ xsimpl);
+  \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
+  \\ xlet `POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs' err) *
+                     COMMANDLINE cl`
+  THEN1
+   (xapp_spec output_stderr_spec \\ xsimpl
+    \\ qexists_tac `COMMANDLINE cl`
+    \\ asm_exists_tac \\ xsimpl
+    \\ qexists_tac `fs'` \\ xsimpl)
+  \\ xapp
+  \\ asm_exists_tac \\ simp [] \\ xsimpl);
 
 Theorem main_whole_prog_spec
   `whole_prog_spec ^(fetch_v "main" st) cl fs NONE

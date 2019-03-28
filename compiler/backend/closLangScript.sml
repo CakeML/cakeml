@@ -5,6 +5,8 @@
 *)
 open preamble backend_commonTheory;
 
+local open astTheory in end
+
 val _ = new_theory "closLang";
 
 val _ = set_grammar_ancestry ["ast"]

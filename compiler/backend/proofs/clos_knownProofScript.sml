@@ -1,12 +1,17 @@
 (*
   Correctness proof for clos_known
 *)
+
 open preamble local open bagLib in end
 open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
      closLangTheory db_varsTheory backendPropsTheory
 local open clos_letopProofTheory clos_ticksProofTheory clos_fvsProofTheory in end
 
 val _ = new_theory "clos_knownProof";
+
+val _ = set_grammar_ancestry
+  [ "closLang", "closSem", "closProps", "clos_known", "clos_knownProps" ];
+val _ = temp_bring_to_front_overload "domain" {Name = "domain", Thy = "sptree"};
 
 fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th)
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
@@ -290,18 +295,6 @@ Theorem val_approx_val_merge_I
      val_approx_val (merge a1 a2) v`
   (metis_tac [val_approx_val_merge_I_lemma, merge_comm]);
 
-Theorem val_approx_better_approx_lemma
-  `!a1 v. val_approx_val a1 v ==> !a2. a1 ◁ a2 ==> val_approx_val a2 v`
-  (ho_match_mp_tac val_approx_val_ind
-  \\ rw [] \\ simp []
-  \\ rename1 `Tuple _ _ ◁ apx2`
-  \\ Cases_on `apx2` \\ simp []
-  \\ fs [LIST_REL_EL_EQN] \\ metis_tac [MEM_EL]);
-
-Theorem val_approx_better_approx
-  `!a1 v a2. a1 ◁ a2 /\ val_approx_val a1 v ==> val_approx_val a2 v`
-  (metis_tac [val_approx_better_approx_lemma]);
-
 Theorem evaluate_IMP_shift_seq
   `!es env s0 res s.
      closSem$evaluate (es, env, s0) = (res, s) ==>
@@ -569,7 +562,7 @@ Theorem known_op_correct_approx
   THEN1
    (rveq \\ fs [LIST_REL_EL_EQN])
   THEN1
-   (fs [bvlSemTheory.case_eq_thms] \\ rveq
+   (fs [CaseEq"ffi_result"] \\ rveq
     \\ fs [state_globals_approx_def] \\ metis_tac []));
 
 Theorem ssgc_free_co_shift_seq
@@ -718,7 +711,6 @@ Theorem do_app_ssgc
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[])
       >- (first_x_assum match_mp_tac >> fs[] >> metis_tac[]))
   >> dsimp[]);
-
 
 Theorem dest_closure_Full_sgc_free
   `dest_closure max_app loc_opt f (arg0::args) =
@@ -2256,7 +2248,7 @@ val v_rel_IMP_v_to_bytes_lemma = prove(
            (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
+  \\ Cases_on `tag = backend_common$cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
@@ -2273,7 +2265,7 @@ val v_rel_IMP_v_to_words_lemma = prove(
            (v_to_list y = SOME (MAP Word64 ns))``,
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
+  \\ Cases_on `tag = backend_common$cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
@@ -4247,30 +4239,30 @@ Theorem code_locs_decide_inline
 Theorem known_code_locs_bag
   `!c xs aenv g0 eas g.
      known c xs aenv g0 = (eas, g) ==>
-     bag_of_list (code_locs (MAP FST eas)) ≤ bag_of_list (code_locs xs)`
+     LIST_TO_BAG (code_locs (MAP FST eas)) ≤ LIST_TO_BAG (code_locs xs)`
   (recInduct known_ind
   \\ rw[known_def] \\ rw[]
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
   \\ imp_res_tac known_sing_EQ_E \\ rw []
-  \\ fs [code_locs_def, code_locs_append, bag_of_list_append]
+  \\ fs [code_locs_def, code_locs_append, LIST_TO_BAG_APPEND]
   \\ srw_tac [bagLib.SBAG_SOLVE_ss] []
-  THEN1 (simp [Once code_locs_cons, code_locs_append, bag_of_list_append]
+  THEN1 (simp [Once code_locs_cons, code_locs_append, LIST_TO_BAG_APPEND]
          \\ srw_tac [bagLib.SBAG_SOLVE_ss] [])
   THEN1 (qpat_abbrev_tac `gooblygook = gO_destApx _`
          \\ Cases_on `gooblygook` \\ simp [code_locs_def])
   THEN1 (fs [inlD_case_eq] \\ rw []
-         \\ fs [code_locs_def, code_locs_append, bag_of_list_append]
+         \\ fs [code_locs_def, code_locs_append, LIST_TO_BAG_APPEND]
          \\ srw_tac [bagLib.SBAG_SOLVE_ss] []
          \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
          \\ imp_res_tac code_locs_decide_inline
          \\ imp_res_tac known_sing_EQ_E
          \\ fs [bool_case_eq] \\ rw []
-         \\ simp [code_locs_def, code_locs_append, bag_of_list_append]
-         \\ fs [bag_of_list_def]
+         \\ simp [code_locs_def, code_locs_append, LIST_TO_BAG_APPEND]
+         \\ fs [LIST_TO_BAG_def]
          \\ srw_tac [bagLib.SBAG_SOLVE_ss] [])
   \\ simp[MAP_MAP_o, o_DEF, UNCURRY, code_locs_map]
   \\ irule (el 7 (CONJUNCTS SUB_BAG_UNION)) \\ simp []
-  \\ irule bag_of_list_sub_bag_FLAT_suff
+  \\ irule LIST_TO_BAG_SUB_BAG_FLAT_suff
   \\ fs[EVERY2_MAP]
   \\ irule EVERY2_refl
   \\ simp[MAP_EQ_f, FORALL_PROD]
@@ -4284,7 +4276,7 @@ Theorem known_code_locs_bag
 
 Theorem compile_code_locs_bag
   `clos_known$compile kc es = (kc', es') ⇒
-     bag_of_list (code_locs es') ≤ bag_of_list (code_locs es)`
+     LIST_TO_BAG (code_locs es') ≤ LIST_TO_BAG (code_locs es)`
   (Cases_on`kc`
   \\ rw[clos_knownTheory.compile_def]
   \\ pairarg_tac \\ fs[]
@@ -5357,7 +5349,7 @@ Theorem compile_locs
   \\ drule (GEN_ALL known_app_call_dests)
   \\ disch_then(fn th => assume_tac (SPEC``SOME T`` th) \\ assume_tac (SPEC``SOME F`` th))
   \\ fs[] \\ rfs[]
-  \\ cheat);
+  \\ ...);
 *)
 
 val _ = export_theory();

@@ -24,3 +24,7 @@ fun main ()=
     qsort (fn x => (fn y => (x <= y))) (append (mk_list n) (mk_list n));
   val test = use_qsort 10000;
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

@@ -611,13 +611,14 @@ constrain_op l op ts =
 
 val constrain_op_def = Define constrain_op_quotation;
 
-Theorem constrain_op_pmatch (`∀op ts.` @
-  (constrain_op_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)))
- (rpt strip_tac
-  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[constrain_op_def]);
+Theorem constrain_op_pmatch
+  (`∀op ts.` @
+    (constrain_op_quotation |>
+     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+         | aq => aq)))
+  (rpt strip_tac
+   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+   >> fs[constrain_op_def]);
 
 Theorem constrain_op_error_msg_sanity
 `!l op args s l' s' msg.
@@ -894,6 +895,10 @@ val infer_d_def = Define `
 (infer_d ienv (Dmod mn ds) =
   do ienv' <- infer_ds ienv ds;
      return (lift_ienv mn ienv')
+  od) ∧
+(infer_d ienv (Dlocal lds ds) =
+  do ienv' <- infer_ds ienv lds;
+    infer_ds (extend_dec_ienv ienv' ienv) ds
   od) ∧
 (infer_ds ienv [] =
   return <| inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty |>) ∧

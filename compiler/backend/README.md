@@ -174,7 +174,7 @@ string exporter.
 The first intermediate language flatLang. It removes modules and
 resolves all global scoping. Each value definition gets allocated a
 slot in a global variable store, and each type and exception gets a
-unique global identifier.  It removes andalso and orelse and
+unique global identifier. It removes andalso and orelse and
 replaces them with if, and removes the AallocEmpty primitive op and
 replaces it with an alloc call with 0.
 
@@ -263,7 +263,7 @@ language into flatLang.
 [stackLangScript.sml](stackLangScript.sml):
 The stackLang intermediate language is a structured programming
 language with function calls, while loops, if statements, etc. All
-assignments are assmebly instructions and register allocation is
+assignments are assembly instructions and register allocation is
 assumed to have been done. This is the language within which stack
 operations get optimised and turned into normal memory accesses.
 

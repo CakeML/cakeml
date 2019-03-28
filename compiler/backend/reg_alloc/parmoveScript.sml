@@ -1084,7 +1084,7 @@ Theorem fstep_MAP_INJ
       \\ first_x_assum match_mp_tac
       \\ simp[state_to_list_def] )
     \\ rw[] )
-  \\ CONV_TAC(LAND_CONV(REWR_CONV splitAtPki_push))
+  \\ CONV_TAC(LAND_CONV(REWR_CONV splitAtPki_RAND))
   \\ simp[splitAtPki_MAP]
   \\ qmatch_abbrev_tac`splitAtPki P1 k1 _ = splitAtPki P2 k2 _`
   \\ `splitAtPki P2 k2 p0 = splitAtPki P1 k2 p0`

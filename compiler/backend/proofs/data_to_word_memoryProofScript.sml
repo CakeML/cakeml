@@ -1,7 +1,8 @@
 (*
   Part of the correctness proof for data_to_word
 *)
-open preamble bvlSemTheory dataSemTheory dataPropsTheory copying_gcTheory
+
+open preamble dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
      labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
      gc_sharedTheory gc_combinedTheory word_gcFunctionsTheory;
@@ -18,7 +19,11 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
 val _ = augment_srw_ss[rewrites[LENGTH_REPLICATE]]
 
+val _ = set_grammar_ancestry
+  ["dataSem", "dataProps", "wordSem", "data_to_word",
+   "gc_shared", "gc_combined", "word_gcFunctions"];
 val _ = Parse.hide"el";
+val _ = temp_overload_on("good_dimindex", ``labProps$good_dimindex``);
 
 val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
 val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/
@@ -175,9 +180,11 @@ val v_inv_def = tDefine "v_inv" `
      (x = Data (Loc n 0))) /\
   (v_inv (RefPtr n) (x,f,heap) <=>
      (x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) /\
-  (v_inv (Block n vs) (x,f,heap) <=>
+  (v_inv (Block ts n vs) (x,f,heap) <=>
      if vs = []
-     then (x = Data (Word (BlockNil n))) /\ n < dimword(:'a) DIV 16
+     then (x = Data (Word (BlockNil n))) /\
+          n < dimword(:'a) DIV 16 /\
+          ts = 0
      else
        ?ptr xs.
          EVERY2 (\v x. v_inv v (x,f,heap)) vs xs /\
@@ -191,14 +198,14 @@ val get_refs_def = tDefine "get_refs" `
   (get_refs (Word64 _) = []) /\
   (get_refs (CodePtr _) = []) /\
   (get_refs (RefPtr p) = [p]) /\
-  (get_refs (Block tag vs) = FLAT (MAP get_refs vs))`
+  (get_refs (Block _ tag vs) = FLAT (MAP get_refs vs))`
  (WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `vs`
   \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC);
 
 val ref_edge_def = Define `
   ref_edge refs (x:num) (y:num) =
     case FLOOKUP refs x of
-    | SOME (ValueArray ys) => MEM y (get_refs (Block ARB ys))
+    | SOME (ValueArray ys) => MEM y (get_refs (Block 0 ARB ys))
     | _ => F`
 
 val reachable_refs_def = Define `
@@ -434,7 +441,7 @@ val v_inv_related = Q.prove(
       \\ full_simp_tac std_ss [v_size_def] \\ rpt strip_tac
       \\ Q.MATCH_ASSUM_RENAME_TAC `MEM k (get_f a)`
       \\ imp_res_tac MEM_IMP_v_size
-      \\ `v_size a < 1 + (n + v1_size l)` by DECIDE_TAC
+      \\ `v_size a < 1 + (n0 + (n + v1_size l))` by DECIDE_TAC
       \\ `?l1 l2. l = l1 ++ a::l2` by metis_tac [MEM_SPLIT]
       \\ full_simp_tac std_ss [] \\ imp_res_tac LIST_REL_SPLIT1
       \\ fs[] \\ rw[] \\ fs[]
@@ -447,7 +454,7 @@ val v_inv_related = Q.prove(
     \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
     \\ `MEM (EL t xs) xs` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
     \\ `(!ptr u. (EL t xs = Pointer ptr u) ==> ptr IN FDOM g)` by metis_tac []
-    \\ `v_size (EL t l)  < v_size (Block n l)` by
+    \\ `v_size (EL t l)  < v_size (Block n0 n l)` by
      (full_simp_tac std_ss [v_size_def]
       \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC)
     \\ res_tac \\ full_simp_tac std_ss [EL_ADDR_MAP]
@@ -1285,7 +1292,7 @@ val v_inv_SUBMAP = Q.prove(
     \\ rpt strip_tac
     \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
     \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-    \\ `v_size (EL t l) < v_size (Block n l)` by
+    \\ `v_size (EL t l) < v_size (Block n0 n l)` by
      (full_simp_tac std_ss [v_size_def]
       \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac)
   THEN1 (full_simp_tac std_ss [v_inv_def] \\ metis_tac [])
@@ -1379,10 +1386,6 @@ Theorem isDataElement_lemmas[simp]
     Word64Rep_def,RefBlock_def,Bytes_def]);
 
 (* --- Allocating multiple cons-elements in one go --- *)
-
-val list_to_v_alt_def = Define `
-  list_to_v_alt t []     = t /\
-  list_to_v_alt t (h::l) = Block cons_tag [h; list_to_v_alt t l]`;
 
 val list_to_BlockReps_def = Define `
   list_to_BlockReps conf t a []     = ARB /\
@@ -1502,7 +1505,7 @@ Theorem list_to_v_alt_get_refs
   `!xs t r.
      MEM r (get_refs (list_to_v_alt t xs)) ==>
        ?x. (MEM x xs \/ x = t) /\ MEM r (get_refs x)`
-  (Induct \\ rw [list_to_v_alt_def]
+  (Induct \\ rw [dataSemTheory.list_to_v_alt_def]
   \\ fs [get_refs_def] \\ metis_tac []);
 
 Theorem v_inv_lemma
@@ -1556,9 +1559,9 @@ val v_inv_list_to_v_alt_lem = Q.prove (
   \\ Cases_on `rs = []` \\ fs []
   \\ Cases_on `?r. rs = [r]` \\ fs [] \\ rveq
   >-
-   (fs [list_to_v_alt_def, list_to_BlockReps_def, v_inv_def]
+   (fs [dataSemTheory.list_to_v_alt_def, list_to_BlockReps_def, v_inv_def]
     \\ unlength_tac [BlockRep_def, heap_length_APPEND, heap_lookup_APPEND,
-                     heap_lookup_def, list_to_v_alt_def]
+                     heap_lookup_def, dataSemTheory.list_to_v_alt_def]
     \\ conj_tac
     \\ qmatch_goalsub_abbrev_tac `ha ++ hs ++ _`
     \\ `3 = heap_length hs` by unlength_tac [Abbr`hs`]
@@ -1571,7 +1574,7 @@ val v_inv_list_to_v_alt_lem = Q.prove (
   \\ rename1 `list_to_BlockReps _ _ _ (r::rr::rs)`
   \\ first_x_assum (qspec_then `LENGTH (rr::rs)` mp_tac) \\ simp []
   \\ disch_then (qspec_then `rr::rs` mp_tac) \\ fs [] \\ strip_tac
-  \\ once_rewrite_tac [list_to_v_alt_def]
+  \\ once_rewrite_tac [dataSemTheory.list_to_v_alt_def]
   \\ first_x_assum (qspecl_then [`w::vs`,`t`,`rt`] mp_tac)
   \\ qmatch_goalsub_abbrev_tac `ha++el::_++_`
   \\ disch_then (qspec_then `ha++[el]` mp_tac) \\ fs []
@@ -1822,7 +1825,7 @@ Theorem cons_thm_alt
       (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_store_unused_alt a (sp+sp1) (BlockRep tag rs) heap = (heap2,T)) /\
       abs_ml_inv conf
-        ((Block tag xs)::stack) refs
+        ((Block ts tag xs)::stack) refs
         (Pointer a (Word (ptr_bits conf tag (LENGTH xs)))::roots2,
          heap2,be,a+el_length (BlockRep tag rs),
          sp-el_length (BlockRep tag rs),sp1,gens) limit`
@@ -1907,7 +1910,7 @@ Theorem cons_thm_alt
 Theorem cons_thm_EMPTY
   `abs_ml_inv conf stack refs (roots,heap:'a ml_heap,be,a,sp,sp1,gens) limit /\
     tag < dimword (:'a) DIV 16 ==>
-    abs_ml_inv conf ((Block tag [])::stack) refs
+    abs_ml_inv conf ((Block 0 tag [])::stack) refs
       (Data (Word (BlockNil tag))::roots,heap,be,a,sp,sp1,gens) limit`
   (simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
@@ -1917,7 +1920,7 @@ Theorem cons_thm_EMPTY
   \\ full_simp_tac (srw_ss()) [v_inv_def]
   \\ rpt strip_tac \\ sg `reachable_refs stack refs n` \\ res_tac
   \\ full_simp_tac std_ss [reachable_refs_def]
-  \\ Cases_on `x = Block tag []` \\ full_simp_tac std_ss []
+  \\ Cases_on `x = Block 0 tag []` \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [get_refs_def] \\ metis_tac []);
 
 (* word64 *)
@@ -2120,7 +2123,7 @@ Theorem bignum_alt_thm
 
 val ref_edge_ValueArray = Q.prove(
   `ref_edge (refs |+ (ptr,ValueArray xs)) x y =
-    if x = ptr then MEM y (get_refs (Block ARB xs)) else ref_edge refs x y`,
+    if x = ptr then MEM y (get_refs (Block 0 ARB xs)) else ref_edge refs x y`,
   simp_tac std_ss [FUN_EQ_THM,ref_edge_def] \\ rpt strip_tac
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
   \\ Cases_on `x = ptr` \\ full_simp_tac (srw_ss()) []
@@ -2131,7 +2134,7 @@ val reachable_refs_UPDATE = Q.prove(
   `reachable_refs (xs ++ RefPtr ptr::stack) (refs |+ (ptr,ValueArray xs)) n ==>
     reachable_refs (xs ++ RefPtr ptr::stack) refs n`,
   full_simp_tac std_ss [reachable_refs_def] \\ rpt strip_tac
-  \\ Cases_on `?m. MEM m (get_refs (Block ARB xs)) /\
+  \\ Cases_on `?m. MEM m (get_refs (Block 0 ARB xs)) /\
         RTC (ref_edge refs) m n` THEN1
    (full_simp_tac std_ss [get_refs_def,MEM_FLAT,MEM_MAP]
     \\ srw_tac [] [] \\ metis_tac [])
@@ -2302,7 +2305,7 @@ val v_inv_Ref = Q.prove(
       \\ rpt strip_tac
       \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
       \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-      \\ `v_size (EL t l) < v_size (Block n l)` by
+      \\ `v_size (EL t l) < v_size (Block n0 n l)` by
        (full_simp_tac std_ss [v_size_def]
         \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac
       \\ full_simp_tac std_ss [])
@@ -2316,7 +2319,7 @@ val v_inv_Ref = Q.prove(
       \\ rpt strip_tac
       \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
       \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-      \\ `v_size (EL t l) < v_size (Block n l)` by
+      \\ `v_size (EL t l) < v_size (Block n0 n l)` by
        (full_simp_tac std_ss [v_size_def]
         \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac
       \\ full_simp_tac std_ss []))
@@ -3019,11 +3022,11 @@ Theorem deref_thm
 (* el *)
 
 Theorem el_thm
-  `abs_ml_inv conf (Block n xs::stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
+  `abs_ml_inv conf (Block ts n xs::stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
     i < LENGTH xs ==>
     ?r roots2 y.
       (roots = r :: roots2) /\ (heap_el r i heap = (y,T)) /\
-      abs_ml_inv conf (EL i xs::Block n xs::stack) refs
+      abs_ml_inv conf (EL i xs::Block ts n xs::stack) refs
                       (y::roots,heap,be,a,sp,sp1,gens) limit`
   (full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ rpt strip_tac \\ Cases_on `roots` \\ full_simp_tac (srw_ss()) [LIST_REL_def]
@@ -3047,7 +3050,7 @@ Theorem el_thm
   \\ full_simp_tac std_ss [reachable_refs_def]
   \\ reverse (Cases_on `x = EL i xs`)
   THEN1 (full_simp_tac std_ss [MEM] \\ metis_tac [])
-  \\ Q.LIST_EXISTS_TAC [`Block n xs`,`r`]
+  \\ Q.LIST_EXISTS_TAC [`Block ts n xs`,`r`]
   \\ asm_simp_tac std_ss [MEM]
   \\ full_simp_tac std_ss [get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
   \\ qexists_tac `EL i xs` \\ full_simp_tac std_ss []
@@ -3589,7 +3592,7 @@ Theorem word_ml_inv_Unit
   (fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
   \\ qexists_tac `Data (Word 2w)`
   \\ qexists_tac `hs` \\ fs [word_addr_def]
-  \\ fs [bvlSemTheory.Unit_def,EVAL ``tuple_tag``]
+  \\ fs [dataSemTheory.Unit_def,EVAL ``tuple_tag``]
   \\ drule (GEN_ALL cons_thm_EMPTY)
   \\ disch_then (qspec_then `0` mp_tac)
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
@@ -3718,7 +3721,7 @@ Theorem word_ml_inv_num
   \\ qexists_tac `hs` \\ fs [] \\ conj_tac
   THEN1
    (match_mp_tac abs_ml_inv_Num \\ fs []
-    \\ fs [bviSemTheory.small_enough_int_def]
+    \\ fs [backend_commonTheory.small_enough_int_def]
     \\ fs [small_int_def,Smallnum_def]
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [])
   \\ fs [word_addr_def,Smallnum_def,GSYM word_mul_n2w]
@@ -3747,7 +3750,7 @@ Theorem word_ml_inv_neg_num
   \\ qexists_tac `hs` \\ fs [] \\ conj_tac
   THEN1
    (match_mp_tac abs_ml_inv_Num \\ fs []
-    \\ fs [bviSemTheory.small_enough_int_def]
+    \\ fs [backend_commonTheory.small_enough_int_def]
     \\ fs [small_int_def,Smallnum_def]
     \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [])
   \\ fs [word_addr_def,Smallnum_def,GSYM word_mul_n2w]
@@ -3761,7 +3764,7 @@ Theorem word_list_APPEND
 
 Theorem memory_rel_El
   `memory_rel c be refs sp st m dm
-     ((Block tag vals,ptr)::(Number (&index),i)::vars) /\
+     ((Block ts tag vals,ptr)::(Number (&index),i)::vars) /\
     good_dimindex (:'a) /\
     index < LENGTH vals ==>
     ?ptr_w i_w x y:'a word.
@@ -3771,7 +3774,7 @@ Theorem memory_rel_El
       (x + y) IN dm /\
       memory_rel c be refs sp st m dm
         ((EL index vals,m (x + y))::
-         (Block tag vals,ptr)::(Number (&index),i)::vars)`
+         (Block ts tag vals,ptr)::(Number (&index),i)::vars)`
   (rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
   \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
@@ -4384,7 +4387,7 @@ Theorem memory_rel_Cons1
         store_list free (Word hd::ws) m dm = SOME m1 /\
         memory_rel c be refs (sp - (LENGTH ws + 1))
           (st |+ (NextFree,Word w)) m1 dm
-          ((Block tag vals,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars)`
+          ((Block ts tag vals,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars)`
   (simp_tac std_ss [LET_THM]
   \\ rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -4392,7 +4395,7 @@ Theorem memory_rel_Cons1
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
   \\ fs [MAP_ZIP]
   \\ drule (GEN_ALL cons_thm_alt)
-  \\ disch_then (qspecl_then [`tag`] strip_assume_tac)
+  \\ disch_then (qspecl_then [`ts`,`tag`] strip_assume_tac)
   \\ rfs [] \\ fs [] \\ clean_tac
   \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
@@ -4455,12 +4458,13 @@ Theorem memory_rel_Cons_empty
   `memory_rel c be refs sp st m (dm:'a word set) vars /\
     tag < dimword (:α) DIV 16 /\ good_dimindex (:'a) ==>
     memory_rel c be refs sp st m dm
-      ((Block tag [],Word (BlockNil tag))::vars)`
+      ((Block 0 tag [],Word (BlockNil tag))::vars)`
   (fs [memory_rel_def] \\ rw []
   \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def]
   \\ rpt_drule cons_thm_EMPTY
-  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ disch_then strip_assume_tac
+  \\ asm_exists_tac \\ fs []
   \\ fs [word_addr_def,BlockNil_def,WORD_MUL_LSL,word_mul_n2w]
   \\ fs [GSYM word_mul_n2w]
   \\ match_mp_tac BlockNil_and_lemma \\ fs []);
@@ -4608,7 +4612,7 @@ Theorem memory_rel_Cons_alt
       ((word_list free (Word hd::ws) * SEP_T) (fun2set(m,dm)) ==>
        memory_rel c be refs (sp - (LENGTH ws + 1))
          (st |+ (NextFree,Word (free + bytes_in_word * n2w (LENGTH ws + 1)))) m dm
-         ((Block tag vals,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars))`
+         ((Block ts tag vals,make_cons_ptr c (free - curr) tag (LENGTH ws))::vars))`
   (simp_tac std_ss [LET_THM]
   \\ rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -4616,7 +4620,7 @@ Theorem memory_rel_Cons_alt
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
   \\ fs [MAP_ZIP]
   \\ drule (GEN_ALL cons_thm_alt)
-  \\ disch_then (qspecl_then [`tag`] strip_assume_tac)
+  \\ disch_then (qspecl_then [`ts`,`tag`] strip_assume_tac)
   \\ rfs [] \\ fs [] \\ clean_tac
   \\ `?free curr. FLOOKUP st NextFree = SOME (Word free) ∧
                   FLOOKUP st CurrHeap = SOME (Word curr)` by
@@ -5234,11 +5238,13 @@ Theorem memory_rel_CodePtr
   \\ fs [get_refs_def] \\ res_tac);
 
 Theorem memory_rel_Block_IMP
-  `memory_rel c be refs sp st m dm ((Block tag vals,v:'a word_loc)::vars) /\
+  `memory_rel c be refs sp st m dm ((Block ts tag vals,v:'a word_loc)::vars) /\
     good_dimindex (:'a) ==>
     ?w. v = Word w /\
+        (* ASK: If the Block has no vals then it's timestamp is 0 *)
         if vals = [] then
-          w = n2w tag * 16w + 2w /\ ~(w ' 0) /\ tag < dimword (:'a) DIV 16
+          w = n2w tag * 16w + 2w /\ ~(w ' 0) /\
+          tag < dimword (:'a) DIV 16 /\ ts = 0
         else
           ?a x.
             w ' 0 /\ ~(word_bit 3 x) /\ ~(word_bit 2 x) /\
@@ -5280,7 +5286,7 @@ Theorem IMP_memory_rel_Number
   \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma]);
 
 Theorem memory_rel_El_any
-  `memory_rel c be refs sp st m dm ((Block tag vals,ptr:'a word_loc)::vars) /\
+  `memory_rel c be refs sp st m dm ((Block ts tag vals,ptr:'a word_loc)::vars) /\
     good_dimindex (:'a) /\
     index < LENGTH vals ==>
     ?ptr_w x y:'a word.
@@ -5289,11 +5295,11 @@ Theorem memory_rel_El_any
       (x + bytes_in_word + bytes_in_word * n2w index) IN dm /\
       memory_rel c be refs sp st m dm
         ((EL index vals,m (x + bytes_in_word + bytes_in_word * n2w index))::
-         (Block tag vals,ptr)::vars)`
+         (Block ts tag vals,ptr)::vars)`
   (rw [] \\ rpt_drule memory_rel_Block_IMP \\ rw [] \\ fs []
   \\ Cases_on `vals = []` \\ fs []
   \\ `memory_rel c be refs sp st m dm
-           ((Block tag vals,Word w)::(Number (&index),
+           ((Block ts tag vals,Word w)::(Number (&index),
               Word (Smallnum (&index)))::vars)` by
    (match_mp_tac memory_rel_swap
     \\ match_mp_tac IMP_memory_rel_Number \\ fs []
@@ -5372,7 +5378,7 @@ Theorem copy_list_thm
   \\ rename1 `v_to_list h2 = SOME vs`
   \\ rename1 `get_real_addr c st w7 = SOME a7`
   \\ `memory_rel c be refs sp st m0 dm
-         ((Block cons_tag [h; h2],Word w7)::
+         ((Block n0 cons_tag [h; h2],Word w7)::
               (Number 1,Word (Smallnum 1))::(Number 0,Word (Smallnum 0))::
               vars)` by (pop_assum mp_tac
         \\ match_mp_tac memory_rel_rearrange \\ fs [] \\ rw [] \\ fs [])
@@ -5382,7 +5388,7 @@ Theorem copy_list_thm
      \\ rfs [get_real_offset_def,labPropsTheory.good_dimindex_def,
          Smallnum_def,bytes_in_word_def,WORD_MUL_LSL] \\ NO_TAC) \\ rveq \\ fs []
   \\ `memory_rel c be refs sp st m0 dm
-         ((Block cons_tag [h; h2],Word w7)::
+         ((Block n0 cons_tag [h; h2],Word w7)::
           (Number 0,Word (Smallnum 0))::
               (h2,m0 (a7 + 2w * bytes_in_word))::vars)` by (pop_assum mp_tac
         \\ match_mp_tac memory_rel_rearrange \\ fs [] \\ rw [] \\ fs [])
@@ -5423,7 +5429,7 @@ Theorem memory_rel_FromList
       FLOOKUP st CurrHeap = SOME (Word curr) ∧
       copy_list c st (LENGTH vs) (a,Word hd,free,m,dm) = SOME (f1,m1) /\
       memory_rel c be refs (sp − (LENGTH vs + 1)) (st |+ (NextFree,Word f1)) m1 dm
-        ((Block tag vs,
+        ((Block ts tag vs,
           make_cons_ptr c (free − curr) tag (LENGTH vs))::vars)`
   (strip_tac
   \\ `?f. FLOOKUP st NextFree = SOME (Word f)` by
@@ -5478,7 +5484,7 @@ Theorem encode_header_tag_mask
         MATCH_MP MULT_DIV (DECIDE ``0<2n``),ODD_MULT] \\ fs []);
 
 Theorem memory_rel_tag_limit
-  `memory_rel c be refs sp st m dm ((Block tag l,(w:'a word_loc))::rest) /\
+  `memory_rel c be refs sp st m dm ((Block ts tag l,(w:'a word_loc))::rest) /\
     good_dimindex (:'a) ==>
     tag < dimword (:'a) DIV 16`
   (strip_tac \\ drule memory_rel_Block_IMP \\ fs [] \\ rw []
@@ -5494,7 +5500,7 @@ val MULT_BIT0 = Q.prove(
   fs [bitTheory.BIT0_ODD,ODD_MULT]);
 
 Theorem memory_rel_test_nil_eq
-  `memory_rel c be refs sp st m dm ((Block tag l,w:'a word_loc)::rest) /\
+  `memory_rel c be refs sp st m dm ((Block ts tag l,w:'a word_loc)::rest) /\
     n < dimword (:'a) DIV 16 /\ good_dimindex (:'a) ==>
     ?v. w = Word v /\ (v = n2w (16 * n + 2) <=> tag = n /\ l = [])`
   (strip_tac \\ drule memory_rel_Block_IMP \\ fs [] \\ rw []
@@ -5505,7 +5511,7 @@ Theorem memory_rel_test_nil_eq
 
 Theorem memory_rel_test_none_eq
   `encode_header c (4 * n) len = (NONE:'a word option) /\
-    memory_rel c be refs sp st m dm ((Block tag l,w:'a word_loc)::rest) /\
+    memory_rel c be refs sp st m dm ((Block ts tag l,w:'a word_loc)::rest) /\
     len <> 0 /\ good_dimindex (:'a) ==>
     ~(tag = n /\ LENGTH l = len)`
   (strip_tac \\ drule memory_rel_Block_IMP \\ fs [] \\ rw []
@@ -5625,7 +5631,7 @@ Theorem get_byte_bytes_to_word
     \\ TRY (Cases_on `t`) \\ fs []
     \\ TRY (Cases_on `t'`) \\ fs []
     \\ rewrite_tac [expand_num,bytes_to_word_def]
-    \\ rpt (fs [labPropsTheory.get_byte_set_byte]
+    \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
       \\ match_mp_tac get_byte_set_byte_alt
       \\ fs [dimword_def,alignmentTheory.byte_align_def,
              alignmentTheory.align_w2n]))
@@ -5641,7 +5647,7 @@ Theorem get_byte_bytes_to_word
     \\ TRY (Cases_on `t`) \\ fs []
     \\ TRY (Cases_on `t'`) \\ fs []
     \\ rewrite_tac [expand_num,bytes_to_word_def]
-    \\ rpt (fs [labPropsTheory.get_byte_set_byte]
+    \\ rpt (fs [labPropsTheory.good_dimindex_get_byte_set_byte]
       \\ match_mp_tac get_byte_set_byte_alt
       \\ fs [dimword_def,alignmentTheory.byte_align_def,
              alignmentTheory.align_w2n]))
@@ -5746,26 +5752,6 @@ Theorem decode_length_make_byte_header
   \\ qunabbrev_tac`n`
   \\ decide_tac);
 
-Theorem bytes_to_word_same
-  `∀bw k b1 w be b2.
-    (∀n. n < bw ⇒ n < LENGTH b1 ∧ n < LENGTH b2 ∧ EL n b1 = EL n b2)
-    ⇒
-    (bytes_to_word bw k b1 w be = bytes_to_word bw k b2 w be)`
-  (ho_match_mp_tac bytes_to_word_ind
-  \\ rw[bytes_to_word_def]
-  >- (first_x_assum(qspec_then`0`mp_tac) \\ simp[])
-  \\ Cases_on`b2` \\ fs[]
-  >- (first_x_assum(qspec_then`0`mp_tac) \\ simp[])
-  \\ simp[bytes_to_word_def]
-  \\ first_assum(qspec_then`0`mp_tac)
-  \\ impl_tac >- simp[]
-  \\ simp_tac(srw_ss())[] \\ rw[]
-  \\ AP_THM_TAC \\ AP_TERM_TAC
-  \\ first_x_assum match_mp_tac
-  \\ gen_tac \\ strip_tac
-  \\ first_x_assum(qspec_then`SUC n`mp_tac)
-  \\ simp[]);
-
 Theorem write_bytes_same
   `∀ws b1 b2.
    (∀n. n < LENGTH (ws:α word list) * (dimindex(:α) DIV 8) ⇒ n < LENGTH b1 ∧ n < LENGTH b2 ∧ EL n b1 = EL n b2)
@@ -5782,11 +5768,6 @@ Theorem write_bytes_same
   \\ qpat_abbrev_tac`bw= _ DIV _`
   \\ first_x_assum(qspec_then`n+bw`mp_tac)
   \\ simp[EL_DROP]);
-
-Theorem set_byte_change_a
-  `w2n (a:α word) MOD (dimindex(:α) DIV 8) = w2n a' MOD (dimindex(:α) DIV 8) ⇒
-   set_byte a b w be = set_byte a' b w be`
-  (rw[set_byte_def,byte_index_def]);
 
 Theorem set_byte_bytes_to_word
   `i < LENGTH ls ∧ i < 2 ** k ∧ 2 ** k = dimindex (:α) DIV 8 ∧
@@ -6625,7 +6606,7 @@ Theorem memory_rel_Boolv_T
     memory_rel c be refs sp st m dm ((Boolv T,Word (18w:'a word))::vars)`
   (fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
-  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `1` assume_tac)
+  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspecl_then [`1`] assume_tac)
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
@@ -6636,7 +6617,7 @@ Theorem memory_rel_Boolv_F
     memory_rel c be refs sp st m dm ((Boolv F,Word (2w:'a word))::vars)`
   (fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
-  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `0` assume_tac)
+  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspecl_then [`0`] assume_tac)
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
@@ -7082,7 +7063,7 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def
 val v_same_type_def = tDefine"v_same_type"`
   (v_same_type (Number _) (Number _) = T) ∧
   (v_same_type (Word64 _) (Word64 _) = T) ∧
-  (v_same_type (Block t1 l1) (Block t2 l2) = (t1 = t2 ∧ LENGTH l1 = LENGTH l2 ⇒ LIST_REL v_same_type l1 l2)) ∧
+  (v_same_type (Block _ t1 l1) (Block _ t2 l2) = (t1 = t2 ∧ LENGTH l1 = LENGTH l2 ⇒ LIST_REL v_same_type l1 l2)) ∧
   (v_same_type (CodePtr _) (CodePtr _) = T) ∧
   (v_same_type (RefPtr _) (RefPtr _) = T) ∧
   (v_same_type _ _ = F)`
@@ -7090,7 +7071,7 @@ val v_same_type_def = tDefine"v_same_type"`
  \\ Induct_on`l1` \\ ntac 2 (rw[v_size_def])
  \\ Cases_on`l2` \\ fs[] \\ rw[]
  \\ res_tac \\ fs[] \\ rfs[]
- \\ first_x_assum(qspec_then`t1`mp_tac) \\ rw[]);
+ \\ first_x_assum(qspecl_then[`0`,`t1`]mp_tac) \\ rw[]);
 val _ = export_rewrites["v_same_type_def"];
 
 val v_ind =
@@ -7101,14 +7082,14 @@ val v_ind =
   |> DISCH_ALL
 
 Theorem memory_rel_Block_MEM
-  `memory_rel c be refs sp st m dm ((Block n ls,(v:'a word_loc))::vars) ∧
+  `memory_rel c be refs sp st m dm ((Block ts n ls,(v:'a word_loc))::vars) ∧
    i < LENGTH ls ∧
    good_dimindex (:'a)
    ⇒
    ∃w a y.
    get_real_offset (Smallnum (&i)) = SOME y ∧
    v = Word w ∧ get_real_addr c st w = SOME a ∧ (a + y) IN dm /\
-   memory_rel c be refs sp st m dm ((EL i ls,m (a + y))::(Block n ls,v)::vars)`
+   memory_rel c be refs sp st m dm ((EL i ls,m (a + y))::(Block ts n ls,v)::vars)`
   (rw[]
   \\ rpt_drule memory_rel_Block_IMP
   \\ rw[]
@@ -7141,10 +7122,10 @@ Theorem Smallnum_1
   \\ fs[word_bit_test,Smallnum_bits]);
 
 val vb_size_def = tDefine"vb_size"`
-  (vb_size (Block t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
+  (vb_size (Block ts t ls) = 1 + t + SUM (MAP vb_size ls) + LENGTH ls) ∧
   (vb_size _ = 1n)`
 (WF_REL_TAC`measure v_size` \\
- gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
+ ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
  \\ res_tac \\ rw[]);
 
 val vb_size_ind = theorem"vb_size_ind";
@@ -7156,7 +7137,7 @@ Theorem memory_rel_pointer_eq_size
      vb_size v1 = vb_size v2`
   (ho_match_mp_tac v_ind \\ rw[] \\ Cases_on`v2` \\ fs[vb_size_def]
   \\ qhdtm_x_assum`memory_rel`mp_tac
-  \\ qid_spec_tac`n` \\ qid_spec_tac`n'`
+  \\ qid_spec_tac`n` \\ qid_spec_tac`n0` \\ qid_spec_tac`n'`
   THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 1 3
   THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 2 3
   THEN_LT USE_SG_THEN (fn th => metis_tac[memory_rel_swap,th]) 6 4
@@ -7351,32 +7332,17 @@ Theorem v1_size_map
   (Induct \\ rw[v_size_def]);
 
 val v_depth_def = tDefine"v_depth"`
-  (v_depth (Block _ ls) = (if NULL ls then 0 else 1) + list_max (MAP v_depth ls)) ∧
+  (v_depth (Block _ _ ls) = (if NULL ls then 0 else 1) + list_max (MAP v_depth ls)) ∧
   (v_depth _ = 0n)`
 (WF_REL_TAC`measure v_size` \\
- gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
+ ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
  \\ res_tac \\ rw[]);
 val _ = export_rewrites["v_depth_def"];
 
 val v_depth_ind = theorem"v_depth_ind";
 
-val clear_pointers_def = tDefine"clear_pointers_def"`
-  (clear_pointers (Block t ls) = Block t (MAP clear_pointers ls)) ∧
-  (clear_pointers (CodePtr _) = CodePtr 0) ∧
-  (clear_pointers (RefPtr _) = RefPtr 0) ∧
-  (clear_pointers x = x)`
-(WF_REL_TAC`measure v_size` \\
- gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
- \\ res_tac \\ rw[]);
-
-Theorem vb_size_clear
-  `∀v. vb_size v = v_size (clear_pointers v)`
-  (ho_match_mp_tac vb_size_ind
-  \\ rw[v_size_def,vb_size_def,clear_pointers_def,v1_size_map]
-  \\ AP_TERM_TAC \\ rw[MAP_MAP_o,MAP_EQ_f]);
-
 Theorem v_inv_Block_tag_limit
-  `v_inv c (Block n l) (v,f,(heap:'a ml_heap)) ∧
+  `v_inv c (Block ts n l) (v,f,(heap:'a ml_heap)) ∧
    heap_in_memory_store heap a sp sp1 gens c s m (dm:'a word set) limit
   ⇒ n < dimword(:'a) DIV 16`
   (rw[v_inv_def] \\ fs[BlockRep_def]
@@ -7391,7 +7357,7 @@ val elements_list_def = Define`
   (elements_list [] = T) ∧
   (elements_list [v] = T) ∧
   (elements_list (v::w::vs) =
-   ∃t ls. w = Block t ls ∧ MEM v ls ∧ elements_list (w::vs))`;
+   ∃ts t ls. w = Block ts t ls ∧ MEM v ls ∧ elements_list (w::vs))`;
 val _ = export_rewrites["elements_list_def"];
 
 val elements_list_ind = theorem"elements_list_ind";
@@ -7447,17 +7413,17 @@ Theorem memory_rel_elements_list_distinct
   \\ Cases_on`vars` \\ fs[]
   \\ qmatch_assum_rename_tac`_ :: _ = MAP FST l1` \\ rveq
   \\ Cases_on`l1` \\ fs[] \\ rveq
-  \\ qmatch_assum_rename_tac`Block _ _ = FST p`
+  \\ qmatch_assum_rename_tac`Block _ _ _ = FST p`
   \\ Cases_on`p` \\ fs[]
   \\ qmatch_assum_rename_tac`MEM (FST p) ls`
   \\ Cases_on`p` \\ fs[] \\ rveq
-  \\ qmatch_asmsub_rename_tac`(Block t ls,wb)`
-  \\ qmatch_asmsub_rename_tac`Block t ls :: MAP FST l1`
-  \\ first_x_assum(qspec_then`(Block t ls,wb)::l1`mp_tac)
+  \\ qmatch_asmsub_rename_tac`(Block ts t ls,wb)`
+  \\ qmatch_asmsub_rename_tac`Block ts t ls :: MAP FST l1`
+  \\ first_x_assum(qspec_then`(Block ts t ls,wb)::l1`mp_tac)
   \\ simp[]
   \\ rpt_drule memory_rel_tail \\ simp[]
   \\ strip_tac \\ strip_tac
-  \\ qmatch_asmsub_rename_tac`(v,w)::(Block _ _,_)::_`
+  \\ qmatch_asmsub_rename_tac`(v,w)::(Block _ _ _,_)::_`
   \\ Cases_on`w = wb` \\ fs[]
   >- (
     rpt_drule memory_rel_pointer_eq_size
@@ -7495,7 +7461,7 @@ Theorem memory_rel_elements_list_words
   \\ rw[] \\ rw[] \\ Cases_on`vars` \\ fs[]
   \\ qmatch_assum_rename_tac`_ :: _ = MAP FST l1` \\ rveq
   \\ Cases_on`l1` \\ fs[] \\ rveq
-  \\ qmatch_assum_rename_tac`Block _ _ = FST p`
+  \\ qmatch_assum_rename_tac`Block _ _ _ = FST p`
   \\ Cases_on`p` \\ fs[]
   \\ qmatch_assum_rename_tac`MEM (FST p) ls`
   \\ Cases_on`p` \\ fs[] \\ rveq
@@ -7628,7 +7594,7 @@ Theorem memory_rel_ptr_eq
 
 val memory_rel_Block_Block_small_eq = prove(
   ``memory_rel c be refs sp st m dm
-      ((Block t1 v1,Word (w1:'a word))::(Block t2 v2,Word w2)::vars) /\
+      ((Block ts1 t1 v1,Word (w1:'a word))::(Block ts2 t2 v2,Word w2)::vars) /\
     good_dimindex (:'a) /\ w1 <> w2 /\ ¬word_bit 0 w1 ==>
     LENGTH v1 <> LENGTH v2 \/ t1 <> t2``,
   rw [] \\ drule memory_rel_Block_IMP \\ fs []
@@ -7786,7 +7752,7 @@ Theorem bit_pattern_1100[simp]
   \\ metis_tac [DECIDE ``2 < 32n /\ 2 < 64n /\ 3 < 32n /\ 3 < 64n``]);
 
 val memory_rel_isClos = prove(
-  ``memory_rel c be refs sp st m dm ((Block t1 v1,Word (w1:'a word))::vars) /\
+  ``memory_rel c be refs sp st m dm ((Block ts1 t1 v1,Word (w1:'a word))::vars) /\
     word_bit 0 w1 /\
     get_real_addr c st w1 = SOME a' /\ m a' = Word x' /\ good_dimindex (:'a) ==>
     (isClos t1 v1 <=> word_is_clos c x')``,
@@ -7830,11 +7796,11 @@ val eq_assum_APPEND = prove(
 
 val memory_rel_Block_explode_lemma = prove(
   ``!n.
-      memory_rel c be refs sp st m dm ((Block t1 v1,Word w1)::vars) /\
+      memory_rel c be refs sp st m dm ((Block ts1 t1 v1,Word w1)::vars) /\
       word_bit 0 w1 /\ get_real_addr c st w1 = SOME a /\ good_dimindex (:α) ==>
       memory_rel c be refs sp st m dm
         (eq_explode (a + bytes_in_word) m dm (TAKE n v1) ++
-         (Block t1 v1,Word (w1:'a word))::vars) /\
+         (Block ts1 t1 v1,Word (w1:'a word))::vars) /\
       eq_assum (a + bytes_in_word) m dm (TAKE n v1)``,
   Induct THEN1
    (fs [TAKE_def,eq_explode_def,eq_assum_def] \\ rw []
@@ -7846,7 +7812,7 @@ val memory_rel_Block_explode_lemma = prove(
   \\ fs [] \\ ntac 2 strip_tac
   \\ fs [eq_explode_APPEND,eq_explode_def,eq_assum_APPEND,eq_assum_def]
   \\ `memory_rel c be refs sp st m dm
-        ((Block t1 v1,Word w1)::
+        ((Block ts1 t1 v1,Word w1)::
          (eq_explode (a + bytes_in_word) m dm (TAKE n v1) ++ vars))` by
    (qpat_x_assum `memory_rel c be refs sp st m dm _` kall_tac
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
@@ -7860,7 +7826,7 @@ val memory_rel_Block_explode_lemma = prove(
   \\ fs [] \\ rw [] \\ fs []);
 
 Theorem memory_rel_Block_explode
-  `memory_rel c be refs sp st m dm ((Block t1 v1,Word w1)::vars) /\
+  `memory_rel c be refs sp st m dm ((Block ts1 t1 v1,Word w1)::vars) /\
     word_bit 0 w1 /\ get_real_addr c st w1 = SOME a /\ good_dimindex (:α) ==>
     memory_rel c be refs sp st m dm
       (eq_explode (a + bytes_in_word:'a word) m dm v1 ++ vars) /\
@@ -8233,7 +8199,7 @@ val word_eq_thm0 = prove(
     \\ rpt_drule memory_rel_Block_explode
     \\ strip_tac
     \\ `memory_rel c be refs sp st m dm
-         ((Block t1 v2,Word w2)::(eq_explode (a' + bytes_in_word) m dm v1 ++
+         ((Block v29 t1 v2,Word w2)::(eq_explode (a' + bytes_in_word) m dm v1 ++
           vars))` by
      (first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
       \\ fs [] \\ rw [] \\ fs [] \\ NO_TAC)

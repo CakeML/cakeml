@@ -18,6 +18,7 @@ val state_rel_def = Define `
     s1.ffi = t1.ffi /\ s1.refs = t1.refs /\ s1.global = t1.global /\
     s1.handler = t1.handler /\ (LENGTH s1.stack = LENGTH t1.stack) /\
     s1.compile = t1.compile /\ s1.compile_oracle = t1.compile_oracle /\
+    s1.tstamps = t1.tstamps /\
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
 
 val state_rel_ID = Q.prove(
@@ -35,6 +36,20 @@ val jump_exc_IMP_state_rel = Q.prove(
   \\ every_case_tac >> fs[]
   \\ SRW_TAC [] [] \\ fs [state_rel_def]);
 
+val state_rel_IMP_do_app_aux = Q.prove(
+  `(do_app_aux op args s1 = Rval (v,s2)) /\
+    state_rel s1 t1 anything ==>
+    (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
+    (do_app_aux op args t1 = Rval (v,s2 with <| locals := t1.locals ;
+                                             stack := t1.stack ;
+                                             handler := t1.handler |>))`,
+  STRIP_TAC
+  \\ Cases_on `op`
+  \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def,state_rel_def]
+  \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
+  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
+  \\ SRW_TAC [] [] \\ fs[]);
+
 val state_rel_IMP_do_app = Q.prove(
   `(do_app op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
@@ -44,13 +59,23 @@ val state_rel_IMP_do_app = Q.prove(
                                              handler := t1.handler |>))`,
   STRIP_TAC
   \\ IMP_RES_TAC do_app_const
-  \\ fs [do_app_def,do_space_def]
-  \\ fs [state_rel_def,consume_space_def]
-  \\ `(!n. (data_to_bvi (s1 with space := n)) =
-           (data_to_bvi (t1 with space := n))) /\
-      (data_to_bvi (s1) = (data_to_bvi (t1)))` by
-       (fs [data_to_bvi_def] \\ NO_TAC)
-  \\ fs [bvlPropsTheory.case_eq_thms,bvi_to_data_def,do_install_def,UNCURRY]
+  \\ fs [do_app_def, do_space_def, do_install_def
+        , state_rel_def, consume_space_def
+        , UNCURRY, case_eq_thms]
+ \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
+ \\ qmatch_goalsub_abbrev_tac `do_app_aux op args t1'`
+ \\ TRY (qpat_x_assum `_ = s1'` (ASSUME_TAC o GSYM))
+ \\ `state_rel s1' t1' anything` by (UNABBREV_ALL_TAC \\ fs [state_rel_def])
+ \\ IMP_RES_TAC state_rel_IMP_do_app_aux
+ \\ rw [Abbr `t1'`]);
+
+val state_rel_IMP_do_app_aux_err = Q.prove(
+  `(do_app_aux op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
+    (do_app_aux op args t1 = Rerr e)`,
+  STRIP_TAC
+  \\ Cases_on `op`
+  \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def]
+  \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
   \\ SRW_TAC [] [] \\ fs[]);
 
@@ -59,14 +84,13 @@ val state_rel_IMP_do_app_err = Q.prove(
     (do_app op args t1 = Rerr e)`,
   STRIP_TAC
   \\ fs [do_app_def,do_space_def]
-  \\ fs [state_rel_def,consume_space_def]
-  \\ `(!n. (data_to_bvi (s1 with space := n)) =
-           (data_to_bvi (t1 with space := n))) /\
-      (data_to_bvi (s1) = (data_to_bvi (t1)))` by
-       (fs [data_to_bvi_def] \\ NO_TAC)
-  \\ fs [bvlPropsTheory.case_eq_thms,bvi_to_data_def,do_install_def,UNCURRY]
-  \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
-  \\ SRW_TAC [] [] \\ fs[]);
+  \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
+  \\ qmatch_goalsub_abbrev_tac `do_app_aux op args t1'`
+  \\ TRY (qpat_x_assum `_ = s1'` (ASSUME_TAC o GSYM))
+  \\ `state_rel s1' t1' anything` by (UNABBREV_ALL_TAC \\ fs [state_rel_def])
+  \\ IMP_RES_TAC state_rel_IMP_do_app_aux_err
+  \\ rw [Abbr `t1'`]
+);
 
 val state_rel_IMP_get_vars = Q.prove(
   `!args s1 t1 t xs.
@@ -84,18 +108,15 @@ val state_rel_IMP_get_vars = Q.prove(
 val is_pure_do_app_Rerr_IMP = Q.prove(
   `is_pure op /\ do_app op xs s = Rerr e ==>
     Rabort Rtype_error = e`,
-  Cases_on `op` \\ fs [is_pure_def,do_app_def]
-  \\ simp[do_space_def,bvi_to_dataTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
-          bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,bvlSemTheory.do_app_def,
-          bvlPropsTheory.case_eq_thms,do_install_def,UNCURRY] \\ rw[]);
+  Cases_on `op` \\ fs [is_pure_def,do_app_def,do_app_aux_def]
+  \\ simp[do_space_def,data_spaceTheory.op_space_req_def,
+          case_eq_thms,do_install_def,UNCURRY] \\ rw[]);
 
 val is_pure_do_app_Rval_IMP = Q.prove(
   `is_pure op /\ do_app op x s = Rval (q,r) ==> r = s`,
-  Cases_on `op` \\ fs [is_pure_def,do_app_def]
-  \\ simp[do_space_def,bvi_to_dataTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
-          bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,bvlSemTheory.do_app_def,
-          bviSemTheory.bvl_to_bvi_def,dataSemTheory.data_to_bvi_def,dataSemTheory.bvi_to_data_def,
-          dataSemTheory.consume_space_def,do_install_def,UNCURRY,bvlPropsTheory.case_eq_thms]
+  Cases_on `op` \\ fs [is_pure_def,do_app_def,do_app_aux_def]
+  \\ simp[do_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
+          consume_space_def,do_install_def,UNCURRY,case_eq_thms]
   \\ rw[] \\ fs [state_component_equality,is_pure_def,data_spaceTheory.op_space_req_def]);
 
 val evaluate_compile = Q.prove(
@@ -230,13 +251,13 @@ val evaluate_compile = Q.prove(
     \\ `(get_var n s.locals = get_var n t1.locals)` by
          (fs [state_rel_def,domain_union,domain_insert,get_var_def]
           \\ METIS_TAC [])
-    \\ Cases_on `x = Boolv T` \\ fs [] THEN1
+    \\ Cases_on `isBool T x` \\ fs [] THEN1
      (Q.PAT_X_ASSUM `xxx = evaluate (c1,s)` (ASSUME_TAC o GSYM) \\ fs []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t1`]) \\ fs []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC \\ fs []
       \\ fs [state_rel_def,domain_union])
-    \\ Cases_on `x = Boolv F` \\ fs [] THEN1
+    \\ Cases_on `isBool F x` \\ fs [] THEN1
      (Q.PAT_X_ASSUM `xxx = evaluate (c2,s)` (ASSUME_TAC o GSYM) \\ fs []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t1`]) \\ fs []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC

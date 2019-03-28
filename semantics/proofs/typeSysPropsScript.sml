@@ -2270,6 +2270,7 @@ Theorem type_d_tenv_ok_helper
    >> irule check_freevars_type_name_subst
    >> simp [tenv_abbrev_ok_def])
  >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
+ >- metis_tac [extend_dec_tenv_ok]
  >- metis_tac [extend_dec_tenv_ok]);
 
 Theorem type_d_tenv_ok

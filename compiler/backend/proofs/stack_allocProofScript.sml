@@ -1,21 +1,25 @@
 (*
   Correctness proof for stack_alloc
 *)
-open preamble
-     stack_allocTheory
-     stackLangTheory
-     wordSemTheory
-     stackSemTheory
-     stackPropsTheory
+
+open preamble stack_allocTheory
+     stackLangTheory stackSemTheory stackPropsTheory
      word_gcFunctionsTheory
-     local open blastLib in end
+local open blastLib wordSemTheory in end
 
 val _ = new_theory"stack_allocProof";
 val _ = (max_print_depth := 18);
 
 val word_shift_def = backend_commonTheory.word_shift_def
+val theWord_def = wordSemTheory.theWord_def;
+val isWord_def = wordSemTheory.isWord_def;
+val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def;
 
-val _ = temp_bring_to_front_overload"compile"{Name="compile",Thy="stack_alloc"};
+val _ = set_grammar_ancestry["stack_alloc", "stackLang", "stackSem", "stackProps",
+  "word_gcFunctions" (* for memcpy *)
+];
+val _ = temp_overload_on("good_dimindex", ``labProps$good_dimindex``);
+val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
 
 (* TODO: move and join with stack_remove *)
 
@@ -75,7 +79,7 @@ val lookup_IMP_lookup_compile = Q.prove(
   full_simp_tac(srw_ss())[lookup_fromAList,compile_def] \\ srw_tac[][ALOOKUP_APPEND]
   \\ `ALOOKUP (stubs c) dest = NONE` by
     (full_simp_tac(srw_ss())[stubs_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac) \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[prog_comp_lemma] \\ full_simp_tac(srw_ss())[ALOOKUP_MAP_gen,ALOOKUP_toAList]
+  \\ full_simp_tac(srw_ss())[prog_comp_lemma] \\ full_simp_tac(srw_ss())[ALOOKUP_MAP_2,ALOOKUP_toAList]
   \\ metis_tac []);
 
 val map_bitmap_APPEND = Q.prove(
@@ -5485,7 +5489,7 @@ Theorem comp_correct
       simp[compile_def,ALOOKUP_APPEND] \\
       gen_tac \\ CASE_TAC \\ fs[] \\
       simp[prog_comp_lemma] \\
-      simp[ALOOKUP_MAP_gen] \\
+      simp[ALOOKUP_MAP_2] \\
       simp[ALOOKUP_toAList,lookup_union] \\
       match_mp_tac EQ_SYM \\ CASE_TAC \\ fs[] \\
       simp[lookup_fromAList] >>
@@ -5494,7 +5498,8 @@ Theorem comp_correct
       fs[prog_comp_lemma]>>
       match_mp_tac SUBMAP_mono_FUPDATE \\
       simp[GSYM SUBMAP_DOMSUB_gen] \\
-      metis_tac[SUBMAP_DOMSUB,SUBMAP_TRANS,SUBMAP_DRESTRICT,SUBSET_REFL])>>
+      metis_tac[SUBMAP_DOMSUB,SUBMAP_TRANS,SUBMAP_DRESTRICT_MONOTONE,
+                SUBSET_REFL])>>
     fs[wordSemTheory.buffer_flush_def]>>rw[])
   (* CodeBufferWrite *)
   \\ conj_tac >- (
@@ -5522,7 +5527,7 @@ Theorem comp_correct
     \\ qmatch_goalsub_abbrev_tac `a1 ⊑ _`
     \\ qpat_x_assum `_ = a1` (assume_tac o GSYM)
     \\ simp[]
-    \\ match_mp_tac SUBMAP_DRESTRICT
+    \\ match_mp_tac SUBMAP_DRESTRICT_MONOTONE
     \\ simp[])
   \\ rpt strip_tac
   \\ qexists_tac `0`
@@ -5739,7 +5744,7 @@ Theorem make_init_semantics
   \\ full_simp_tac(srw_ss())[spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
   \\ srw_tac[][]
   \\ srw_tac[][ALOOKUP_APPEND] \\ BasicProvers.CASE_TAC
-  \\ simp[prog_comp_lambda,ALOOKUP_MAP_gen]
+  \\ simp[prog_comp_lambda,ALOOKUP_MAP_2]
   \\ simp[ALOOKUP_toAList,lookup_fromAList]);
 
 Theorem next_lab_EQ_MAX
@@ -5894,7 +5899,7 @@ Theorem stack_alloc_reg_bound
     EVERY (\p. reg_bound p sp)
        (MAP SND prog1) ==>
     EVERY (\p. reg_bound p sp)
-       (MAP SND (compile c.data_conf prog1))`
+       (MAP SND (compile dc prog1))`
   (fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
   >-
@@ -5923,7 +5928,7 @@ Theorem stack_alloc_reg_bound
 
 Theorem stack_alloc_call_args
   `EVERY (λp. call_args p 1 2 3 4 0) (MAP SND prog1) ==>
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile c.data_conf prog1))`
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile dc prog1))`
   (fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
   >-

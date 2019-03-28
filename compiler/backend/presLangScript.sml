@@ -2,7 +2,7 @@
   Functions for converting various intermediate languages
   into displayLang representations.
 *)
-open preamble astTheory mlnumTheory mlintTheory
+open preamble astTheory mlintTheory
 open flatLangTheory patLangTheory closLangTheory
      displayLangTheory source_to_flatTheory
      wordLangTheory;

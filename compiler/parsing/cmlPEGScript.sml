@@ -7,6 +7,7 @@ open HolKernel Parse boolLib bossLib
      gramTheory pegexecTheory pegTheory
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
+local open tokenUtilsTheory in end
 
 val _ = new_theory "cmlPEG"
 val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]
@@ -110,8 +111,7 @@ val pnt_def = Define`pnt ntsym = nt (mkNT ntsym) I`
 val peg_UQConstructorName_def = Define`
   peg_UQConstructorName =
     tok (λt. do s <- destAlphaT t ;
-                assert (s ≠ "" ∧ isUpper (HD s) ∨
-                        s ∈ {"true"; "false"; "nil"})
+                assert (s ≠ "" ∧ isUpper (HD s))
              od = SOME ())
         (bindNT nUQConstructorName o mktokLf)
 `;
@@ -129,8 +129,7 @@ val peg_V_def = Define`
   peg_V =
    choicel [tok (λt.
                   do s <- destAlphaT t;
-                     assert(s ∉ {"before"; "div"; "mod"; "o";
-                                 "true"; "false";"nil"} ∧
+                     assert(s ∉ {"before"; "div"; "mod"; "o"} ∧
                             s ≠ "" ∧ ¬isUpper (HD s))
                   od = SOME ())
                 (bindNT nV o mktokLf);
@@ -145,8 +144,7 @@ val peg_V_def = Define`
 val peg_longV_def = Define`
   peg_longV = tok (λt. do
                         (str,s) <- destLongidT t;
-                        assert(s <> "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
-                               s ∉ {"true"; "false"; "nil"})
+                        assert(s <> "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)))
                        od = SOME ())
                   (bindNT nFQV o mktokLf)
 `
@@ -253,7 +251,6 @@ val cmlPEG_def = zDefine`
                                  od = SOME ()) (bindNT nOpID o mktokLf);
                         pegf (tokeq StarT) (bindNT nOpID);
                         pegf (tokeq EqualsT) (bindNT nOpID);
-                        pegf (tokeq RefT) (bindNT nOpID)
               ]);
               (mkNT nEliteral,
                choicel [tok isInt (bindNT nEliteral o mktokLf);
@@ -272,7 +269,7 @@ val cmlPEG_def = zDefine`
                         pegf (pnt nFQV) (bindNT nEbase);
                         pegf (pnt nConstructorName) (bindNT nEbase);
                         seql [tokeq OpT; pnt nOpID] (bindNT nEbase);
-                        pegf (tokeq RefT) (bindNT nEbase)]);
+              ]);
               (mkNT nEseq,
                seql [pnt nE; try (seql [tokeq SemicolonT; pnt nEseq] I)]
                     (bindNT nEseq));
@@ -368,8 +365,7 @@ val cmlPEG_def = zDefine`
                pegf (choicel [pnt nUQTyOp; tok isLongidT mktokLf])
                     (bindNT nTyOp));
               (mkNT nUQTyOp,
-               pegf (choicel [tok isAlphaSym mktokLf; tokeq RefT])
-                    (bindNT nUQTyOp));
+               pegf (tok isAlphaSym mktokLf) (bindNT nUQTyOp));
               (mkNT nPType,
                seql [pnt nDType; try (seql [tokeq StarT; pnt nPType] I)]
                     (bindNT nPType));
@@ -389,9 +385,7 @@ val cmlPEG_def = zDefine`
                      peg_linfix (mkNT nDtypeCons) (pnt nDconstructor) (tokeq BarT)]
                     (bindNT nDtypeDecl));
               (mkNT nDconstructor,
-               seql [pnt nUQConstructorName;
-                     choicel [seql [tokeq OfT; pnt nType] I;
-                              pnt nTbaseList]]
+               seql [pnt nUQConstructorName; pnt nTbaseList]
                     (bindNT nDconstructor));
               (mkNT nUQConstructorName, peg_UQConstructorName);
               (mkNT nConstructorName,
@@ -399,9 +393,7 @@ val cmlPEG_def = zDefine`
                  pegf (pnt nUQConstructorName) (bindNT nConstructorName);
                  tok (λt. do
                             (str,s) <- destLongidT t;
-                            assert(s <> "" ∧ isAlpha (HD s) ∧
-                                   isUpper (HD s) ∨
-                                   s ∈ {"true"; "false"; "nil"})
+                            assert(s <> "" ∧ isAlpha (HD s) ∧ isUpper (HD s))
                           od = SOME ())
                      (bindNT nConstructorName o mktokLf)]);
               (mkNT nPbase,
@@ -423,8 +415,6 @@ val cmlPEG_def = zDefine`
                                      | [c] => (* can't happen *) []
                                      | _ => ptPapply pts
                          );
-                        seql [tokeq RefT; pnt nPbase; rpt (pnt nPbase) FLAT]
-                             ptPapply;
                         pegf (pnt nPbase) (bindNT nPapp)
               ]);
               (mkNT nPcons,
@@ -456,6 +446,8 @@ val cmlPEG_def = zDefine`
                       (bindNT nDecl);
                  seql [tokeq FunT; pnt nAndFDecls] (bindNT nDecl);
                  seql [tokeq ExceptionT; pnt nDconstructor] (bindNT nDecl);
+                 seql [tokeq LocalT; pnt nDecls; tokeq InT; pnt nDecls;
+                       tokeq EndT] (bindNT nDecl);
                  seql [pnt nTypeDec] (bindNT nDecl);
                  seql [pnt nTypeAbbrevDec] (bindNT nDecl)
                ]);
