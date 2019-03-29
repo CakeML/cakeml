@@ -21,7 +21,7 @@ val hashtable_st = get_ml_prog_state();
 (* the vlv list contains the buckets *)
 (* each bucket only contains keys that hash there *)
 
-val hash_key_set_def = Define`
+(* val hash_key_set_def = Define`
   hash_key_set hf length idx  = { k' | hf k' MOD length = idx }`;
 
 val bucket_ok_def = Define `
@@ -821,7 +821,7 @@ Theorem hashtable_toAscList_spec
   \\MAP_EVERY qexists_tac [`ur`, `ar`, `hfv`, `vlv`, `bsv`, `cmpv`, `heuristic_size`]
   \\xsimpl
   \\qexists_tac `buckets`
-  \\xsimpl);
+  \\xsimpl); *)
 
 
 val _ = export_theory();
