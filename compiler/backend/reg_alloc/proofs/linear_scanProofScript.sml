@@ -4281,9 +4281,9 @@ Theorem qsort_moves_correct
 );
 
 
-val list_minimum = Q.prove(
-    `!f (l:num list). ?(x:int). EVERY (\y. x <= f y) l`,
-    gen_tac >> Induct_on `l` >>
+Theorem list_minimum
+    `!f (l:num list). ?(x:int). EVERY (\y. x <= f y) l`
+    (gen_tac >> Induct_on `l` >>
     rw [] >>
     Cases_on `x <= f h`
     THEN1 (
@@ -4394,14 +4394,14 @@ Theorem FILTER_remove_MEM_l
     metis_tac []
 );
 
-val le_div_2 = Q.prove(
-    `!k r. k <= r DIV 2 <=> 2*k <= r`,
-    intLib.COOPER_TAC
+Theorem le_div_2
+    `!k r. k <= r DIV 2 <=> 2*k <= r`
+    (intLib.COOPER_TAC
 );
 
-val lt_div_2 = Q.prove(
-    `!k r. r DIV 2 < k <=> r < 2*k`,
-    intLib.COOPER_TAC
+Theorem lt_div_2
+    `!k r. r DIV 2 < k <=> r < 2*k`
+    (intLib.COOPER_TAC
 );
 
 Theorem list_to_sorted_regs_correct
@@ -4958,11 +4958,11 @@ val good_bijection_state_def = Define`
     )
 `;
 
-val convention_partitions_or = Q.prove(
+Theorem convention_partitions_or
     `!r. ( is_phy_var r /\ ~is_stack_var r /\ ~is_alloc_var r) \/
          (~is_phy_var r /\  is_stack_var r /\ ~is_alloc_var r) \/
-         (~is_phy_var r /\ ~is_stack_var r /\  is_alloc_var r)`,
-    metis_tac [convention_partitions]
+         (~is_phy_var r /\ ~is_stack_var r /\  is_alloc_var r)`
+    (metis_tac [convention_partitions]
 );
 
 Theorem find_bijection_invariants
