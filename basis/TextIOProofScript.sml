@@ -1,10 +1,19 @@
 (*
   Proofs about the code in the TextIO module.
+  load "cfLib";
+  load "cfMonadLib";
+  load "ArrayProofTheory";
+  load "basisFunctionsLib";
+  load "fsFFITheory";
+  load "fsFFIPropsTheory";
+  load "Word8ArrayProofTheory";
+  load "TextIOProgTheory";
+  load "MarshallingProgTheory";
 *)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIPropsTheory Word8ProgTheory cfMonadLib
-     Word8ArrayProofTheory TextIOProgTheory MarshallingProgTheory MarshallingTheory
+     Word8ArrayProofTheory TextIOProgTheory MarshallingProgTheory MarshallingTheory;
 
 val _ = new_theory"TextIOProof";
 
@@ -550,6 +559,24 @@ val INSTREAM_def = Define `
   INSTREAM fd fdv <=>
     INSTREAM_TYPE (Instream (strlit(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
     fd < 256**8`
+
+val REF_NUM_def = Define `
+  REF_NUM loc n =
+    SEP_EXISTS v. REF loc v * & (NUM n v)`;
+
+val REF_BOOL_def = Define `
+  REF_BOOL loc b =
+    SEP_EXISTS bv. REF loc bv * & (BOOL b bv)`;
+
+val INSTREAM_BUFFERED_def = Define `
+  INSTREAM_BUFFERED is =
+    SEP_EXISTS ir i jr j full fullv buff content fd fdv.
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 9)) [fdv; ir; jr; buff; full])) *
+      & (INSTREAM fd fdv) *
+      REF_NUM ir i *
+      REF_NUM jr j *
+      W8ARRAY buff content *
+      REF_BOOL full fullv`;
 
 val OUTSTREAM_def = Define `
   OUTSTREAM fd fdv <=>
@@ -1615,6 +1642,42 @@ Theorem input_IOFS_spec
   simp[ALIST_FUPDKEY_unchanged])
   \\ xapp \\ instantiate \\ xsimpl);
 
+Theorem insert_buffered_spec
+  `!fd fdv fs content pos off offv len lenv buf bufv surp surpv.
+    len + off <= LENGTH buf ∧
+    NUM ri riv /\ NUM wi wiv /\
+    INSTREAM fd fdv ∧ NUM off offv ∧ NUM len lenv ∧
+    get_file_content fs fd = SOME (content, pos) ⇒
+    get_mode fs fd = SOME ReadMode ⇒
+    app (p:'ffi ffi_proj) TextIO_input_buffered_v [fdv; bufv; offv; lenv]
+    (STDIO fs * W8ARRAY bufv buf * W8ARRAY surpv surp)
+    (POSTv nv. &(NUM (MIN len (LENGTH content - pos)) nv) *
+      W8ARRAY bufv (insert_atI (TAKE len (DROP pos (MAP (n2w o ORD) content)))
+                                 off buf) *
+        STDIO (fsupdate fs fd 0 (MIN (len + pos) (MAX pos (LENGTH content))) content))`
+
+
+(* & (UNIT_TYPE () r) * *)
+
+Theorem fetch_data_spec
+  `INSTREAM fd fdv /\
+    is = (Conv (SOME (TypeStamp "InstreamBuffered" 9)) [fdv; ir; jr; buff; full]) /\
+    get_file_content fs fd = SOME (content, pos) ⇒
+    get_mode fs fd = SOME ReadMode ⇒
+      app (p:'ffi ffi_proj) TextIO_fetch_data_v [is]
+      (STDIO fs * W8ARRAY bufv buf * REF_NUM ir i * REF_NUM jr j
+        * W8ARRAY surp surpc * REF_BOOL full fullv)
+      (POSTv r. STDIO fs * W8ARRAY bufv buf * REF_NUM ir i * REF_NUM jr j
+        * W8ARRAY surp surpc * REF_BOOL full fullv)`
+    (xcf_with_def "TextIO.fetch_data" TextIO_fetch_data_v_def
+    \\fs[INSTREAM_BUFFERED_def, INSTREAM_def]
+    \\xpull
+    \\xmatch
+    \\xsimpl
+    \\fs[INSTREAM_TYPE_def])
+TextIO_extend_array_v_def
+
+
 Theorem input_spec
   `!fd fdv fs content pos off offv len lenv buf bufv.
     len + off <= LENGTH buf ∧
@@ -1652,7 +1715,7 @@ Theorem input_spec
 Theorem extend_array_spec
     `∀arrv arr.
      app (p:'ffi ffi_proj) TextIO_extend_array_v [arrv] (W8ARRAY arrv arr)
-       (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))`
+        (POSTv v. W8ARRAY v (arr ++ (REPLICATE (LENGTH arr) 0w)))`
     (xcf_with_def "TextIO.extend_array" TextIO_extend_array_v_def
     \\ ntac 5 (xlet_auto >- xsimpl)
     \\ xret \\ xsimpl
