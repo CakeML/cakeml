@@ -518,25 +518,22 @@ val yes_spec = save_thm("yes_spec",yes_spec |> SPEC_ALL |> UNDISCH_ALL);
 (* An IO-conditional loop with side effects *)
 
 val _ = process_topdecs `
-  fun echoLoop u = case get_char () of
+  fun catLoop u = case get_char () of
       None   => ()
-    | Some c => (put_char c; echoLoop u);
+    | Some c => (put_char c; catLoop u);
   ` |> append_prog;
 
 val st = ml_translatorLib.get_ml_prog_state();
 
-val echo_def = Define `
-  echo l = FLAT (MAP (\c. [get_char_event c; put_char_event c]) l)`
+val cat_def = Define `
+  cat ll = LFLATTEN (LMAP (\c. fromList [get_char_event c;
+                                         put_char_event c]) ll)`
 
-val lecho_def = Define `
-  lecho ll = LFLATTEN (LMAP (\c. fromList [get_char_event c;
-                                           put_char_event c]) ll)`
-
-Theorem lecho_LCONS:
-  !h t. lecho (h ::: t) = LAPPEND (fromList [get_char_event h;
-                                             put_char_event h]) (lecho t)
+Theorem cat_LCONS:
+  !h t. cat (h ::: t) = LAPPEND (fromList [get_char_event h;
+                                           put_char_event h]) (cat t)
 Proof
-  rw [lecho_def]
+  rw [cat_def]
 QED
 
 Theorem LMAP_EQ_LGENLIST:
@@ -583,40 +580,40 @@ Proof
   fs [every_def,exists_LNTH] \\ metis_tac []
 QED
 
-Theorem lecho_LFINITE:
-  !ll. LFINITE ll <=> LFINITE (lecho ll)
+Theorem cat_LFINITE:
+  !ll. LFINITE ll <=> LFINITE (cat ll)
 Proof
-  rw [lecho_def] \\ qmatch_goalsub_abbrev_tac `LFLATTEN ll'`
+  rw [cat_def] \\ qmatch_goalsub_abbrev_tac `LFLATTEN ll'`
   \\ `LFINITE (LFLATTEN ll') <=> LFINITE ll'`
     suffices_by (unabbrev_all_tac \\ fs [LFINITE_MAP])
   \\ irule LFINITE_LFLATTEN
   \\ rw [every_LNTH] \\ unabbrev_all_tac \\ fs []
 QED
 
-Theorem lecho_LTAKE_SUC:
+Theorem cat_LTAKE_SUC:
   !ll c n.
     ~LFINITE ll /\ LNTH n ll = SOME c ==>
-    THE (LTAKE (2 * SUC n) (lecho ll)) =
-      THE (LTAKE (2 * n) (lecho ll)) ++
+    THE (LTAKE (2 * SUC n) (cat ll)) =
+      THE (LTAKE (2 * n) (cat ll)) ++
         [get_char_event c; put_char_event c]
 Proof
   Induct_on `n` \\ rw []
   \\ qmatch_goalsub_abbrev_tac `[g; p]`
   THEN1 (
-    Cases_on `ll` \\ fs [lecho_LCONS] \\ rveq
+    Cases_on `ll` \\ fs [cat_LCONS] \\ rveq
     \\ `2 = LENGTH [g; p]` by EVAL_TAC
     \\ `IS_SOME (LTAKE (LENGTH [g; p]) (fromList [g; p]))`
       by fs [LTAKE_fromList]
     \\ drule LTAKE_LAPPEND1
-    \\ disch_then (qspec_then `lecho t` mp_tac) \\ strip_tac
+    \\ disch_then (qspec_then `cat t` mp_tac) \\ strip_tac
     \\ fs [LTAKE_fromList])
-  \\ Cases_on `ll` \\ fs [lecho_LCONS]
+  \\ Cases_on `ll` \\ fs [cat_LCONS]
   \\ qmatch_goalsub_abbrev_tac `g' ::: p' ::: _`
   \\ `2 * SUC n = SUC (SUC (2 * n))` by fs [MULT_CLAUSES]
   \\ `2 * SUC (SUC n) = SUC (SUC (2 * SUC n))` by fs [MULT_CLAUSES]
   \\ rw [] \\ fs []
   \\ `SUC (SUC (2 * n)) = 2 * SUC n` by fs [MULT_CLAUSES]
-  \\ rw [] \\ fs [lecho_LFINITE]
+  \\ rw [] \\ fs [cat_LFINITE]
   \\ drule NOT_LFINITE_TAKE \\ strip_tac
   \\ first_assum (qspec_then `2 * SUC n` mp_tac)
   \\ first_x_assum (qspec_then `2 * n` mp_tac)
@@ -670,15 +667,15 @@ Proof
   \\ disch_then drule \\ rw [IS_PREFIX_TAKE]
 QED
 
-Theorem echoLoop_spec:
+Theorem catLoop_spec:
   !uv input.
     limited_parts names p ==>
-    app (p:'ffi ffi_proj) ^(fetch_v "echoLoop" st) [uv]
+    app (p:'ffi ffi_proj) ^(fetch_v "catLoop" st) [uv]
       (SIO input []) (POSTvd
         (\v. &(LFINITE input /\ UNIT_TYPE () v) *
              SIO [||]
-                 (SNOC get_char_eof_event (echo(THE(toList input)))))
-        (\io. ~LFINITE input /\ io = lecho input))
+                 (SNOC get_char_eof_event (THE(toList(cat input)))))
+        (\io. ~LFINITE input /\ io = cat input))
 Proof
   rw [] \\ Cases_on `LFINITE input` \\ fs [POSTvd_def, SEP_CLAUSES]
   \\ fs [SEP_F_to_cond, GSYM POSTv_def, GSYM POSTd_def]
@@ -691,14 +688,14 @@ Proof
              (POSTv v. &UNIT_TYPE () v *
                        SIO [||]
                            (events ++ SNOC get_char_eof_event
-                                           (echo (THE (toList input))))))
+                                           (THE (toList (cat input))))))
         input`
     THEN1 (
       rw [] \\ pop_assum (qspecl_then [`uv`, `[]`] mp_tac) \\ fs [])
     \\ irule LFINITE_STRONG_INDUCTION \\ rw []
     \\ unabbrev_all_tac
     THEN1 (
-      xcf "echoLoop" st
+      xcf "catLoop" st
       \\ xlet_auto THEN1 (xcon \\ xsimpl)
       \\ xlet `POSTv v. &OPTION_TYPE CHAR NONE v *
                         SIO [||] (SNOC (get_char_eof_event) events)`
@@ -708,8 +705,8 @@ Proof
         \\ xsimpl)
       \\ xmatch \\ fs [OPTION_TYPE_def]
       \\ reverse (rw []) THEN1 EVAL_TAC
-      \\ xcon \\ fs [toList, echo_def, SNOC_APPEND] \\ xsimpl)
-    \\ xcf "echoLoop" st
+      \\ xcon \\ fs [toList, cat_def, SNOC_APPEND] \\ xsimpl)
+    \\ xcf "catLoop" st
     \\ xlet_auto THEN1 (xcon \\ xsimpl)
     \\ xlet `POSTv v. &OPTION_TYPE CHAR (SOME h) v *
                       SIO t (SNOC (get_char_event h) events)`
@@ -727,13 +724,13 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `SIO _ events1`
     \\ qmatch_goalsub_abbrev_tac `_ * SIO _ events2`
     \\ `events2 = events1 ++ SNOC get_char_eof_event
-                                  (echo (THE (toList t)))` by (
-      unabbrev_all_tac \\ fs [SNOC_APPEND, echo_def]
-      \\ drule LFINITE_toList \\ strip_tac \\ fs [toList_THM])
+                                  (THE (toList (cat t)))` by (
+      unabbrev_all_tac \\ fs [cat_LFINITE, cat_LCONS, toList_THM]
+      \\ drule LFINITE_toList \\ strip_tac \\ fs [])
     \\ xapp
     \\ MAP_EVERY qexists_tac [`emp`, `events1`]
     \\ xsimpl)
-  \\ xcf_div_rule IMP_app_POSTd_one_FFI_part_FLATTEN "echoLoop" st
+  \\ xcf_div_rule IMP_app_POSTd_one_FFI_part_FLATTEN "catLoop" st
   \\ MAP_EVERY qexists_tac
     [`K emp`, `\i. if i = 0 then [] else
                    [get_char_event(THE(LNTH (i-1) input));put_char_event(THE(LNTH (i-1) input))]`, `K ($= uv)`,
@@ -771,7 +768,7 @@ Proof
         unabbrev_all_tac \\ fs [SNOC_APPEND])
       \\ fs [SNOC_APPEND] \\ xsimpl)
     \\ xvar \\ xsimpl)
-  \\ simp[Once LGENLIST_NONE_UNFOLD,o_DEF,lecho_def,LMAP_EQ_LGENLIST]
+  \\ simp[Once LGENLIST_NONE_UNFOLD,o_DEF,cat_def,LMAP_EQ_LGENLIST]
 QED
 
 (* Infinite lists encoded as cyclic pointer structures in the heap *)
