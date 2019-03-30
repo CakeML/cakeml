@@ -264,7 +264,7 @@ structure reg_alloc = struct
   of  []  =>  (0 < 0)
   |   v2::v1 =>  (if  (v4 = v2)
   then  (0 <= 0)
-  else  (if  (v4 <= v2)
+  else  (if  (v4 > v2)
   then  (0 < 0)
   else  (sorted_mem v4 v1)));
   fun  sorted_insert v5 v3 v4 =
@@ -272,7 +272,7 @@ structure reg_alloc = struct
   of  []  =>  (rev (v5::v3))
   |   v2::v1 =>  (if  (v5 = v2)
   then  ((rev v3) @ (v2::v1))
-  else  (if  (v5 < v2)
+  else  (if  (v5 > v2)
   then  ((rev v3) @ (v5::v2::v1))
   else  (sorted_insert v5 (v2::v3) v1)));
   fun  safe_div v2 =
@@ -723,8 +723,8 @@ structure reg_alloc = struct
                               val  v4 = is_fixed v8
                               val  v3 =
                             if  v4
-                             then  (inc_deg v8 (length v7))
-                            else  ()
+                             then  ()
+                            else  (inc_deg v8 (length v7))
                               val  v2 = list_insert_edge v8 v7
                               val  v1 = st_ex_foreach v6 dec_deg
                            in
@@ -817,25 +817,20 @@ structure reg_alloc = struct
                         end)
                         end)))
                     val  consistency_ok =
-                  (fn  v7 =>
-                    (fn  v8 =>
-                      if  (v7 = v8)
+                  (fn  v6 =>
+                    (fn  v7 =>
+                      if  (v6 = v7)
                       then  (0 < 0)
-                      else  (let val  v6 = !( dim)
+                      else  (let val  v5 = Array.sub ( adj_ls, v7)
                       in
-                        if  ((v7 >= v6) orelse  (v8 >= v6))
+                        if  (sorted_mem v6 v5)
                       then  (0 < 0)
-                      else  (let val  v5 = Array.sub ( adj_ls, v8)
-                      in
-                        if  (sorted_mem v7 v5)
-                      then  (0 < 0)
-                      else  (let val  v4 = is_fixed v7
-                          val  v3 = is_fixed v8
-                          val  v2 = Array.sub ( move_related, v7)
-                          val  v1 = Array.sub ( move_related, v8)
+                      else  (let val  v4 = is_fixed v6
+                          val  v3 = is_fixed v7
+                          val  v2 = Array.sub ( move_related, v6)
+                          val  v1 = Array.sub ( move_related, v7)
                       in
                         (v4 orelse  v2) andalso  ((v3 orelse  v1) andalso  ((v4 = (0 < 0)) orelse  (v3 = (0 < 0))))
-                      end)
                       end)
                       end)))
                     fun  coalesce_parent v5 =
@@ -853,16 +848,18 @@ structure reg_alloc = struct
                  end))
                 end
                     val  canonize_move =
-                  (fn  v2 =>
-                    (fn  v3 =>
-                      let val  v1 = is_fixed v3
+                  (fn  v3 =>
+                    (fn  v4 =>
+                      let val  v2 = is_fixed v3
+                          val  v1 = is_fixed v4
                        in
                         if  v1
-                       then  (v3,v2)
-                      else if is_fixed v2 then (v2,v3)
-                      else  (if  (v2 < v3)
-                      then  (v2,v3)
-                      else  (v3,v2))
+                       then  (v4,v3)
+                      else  (if  v2
+                       then  (v3,v4)
+                      else  (if  (v3 < v4)
+                      then  (v3,v4)
+                      else  (v4,v3)))
                       end))
                     fun  st_ex_first v16 v17 v18 v19 =
                 case  v18
@@ -880,11 +877,10 @@ structure reg_alloc = struct
                 else  (let val  v5 = canonize_move v8 v7
                  in
                   case  v5
-                of  (v4,v3) =>  (let
-                 val  v2 = v17 v4 v3
+                of  (v4,v3) =>  (let val  v2 = v17 v4 v3
                  in
                   case  v2
-                of  NONE =>  (st_ex_first v16 v17 v14 (v15::v19))
+                of  NONE =>  (st_ex_first v16 v17 v14 ((v12,(v4,v3))::v19))
                 |   SOME(v1) =>  (let val  x = ((v4,v3),(v1,v14))
                 in
                   SOME(x)
@@ -986,17 +982,15 @@ structure reg_alloc = struct
                   (fn  v8 =>
                     let val  v7 = !( freeze_wl)
                     in
-                      if  (null v7)
-                    then  (0 < 0)
-                    else  (case  v7
+                      case  v7
                     of  []  =>  (0 < 0)
-                    |   (v6::v5) =>  (let val  v4 = dec_degree v6
+                    |   v6::v5 =>  (let val  v4 = dec_degree v6
                         val  v3 = push_stack v6
                         val  v2 = freeze_wl := v5
                         val  v1 = unspill v8
                      in
                       0 <= 0
-                     end))
+                     end)
                     end)
                     fun  st_ex_list_min_cost v10 v9 v7 v8 v5 v6 =
                 case  v9
@@ -1400,7 +1394,6 @@ structure reg_alloc = struct
                                     val  v6 = extract_color v16
                                     val  cols = apply_col (fn x => lookup_1 x v6) v30
                                     val _ = print ("moves: "^Int.toString (length v30)^"\tcoalesceable: "^Int.toString (length v10) ^"\tcoalesced: "^Int.toString (length cols)^"\n")
-
                                  in
                                   v6
                                  end))))))))))))))

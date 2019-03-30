@@ -168,19 +168,21 @@ val st_ex_FILTER_def = Define`
       st_ex_FILTER P xs acc
   od)`
 
+(* Keep adjacency lists sorted by > *)
+
 (* Insert an undirect edge into the adj list representation *)
 val sorted_insert_def = Define`
   (sorted_insert (x:num) acc [] = REVERSE (x::acc)) ∧
   (sorted_insert x acc (y::ys) =
     if x = y then REVERSE acc ++ y::ys
-    else if x < y then REVERSE acc ++ x::y::ys
+    else if x > y then REVERSE acc ++ x::y::ys
     else sorted_insert x (y::acc) ys)`
 
 val sorted_mem_def = Define`
   (sorted_mem (x:num) [] = F) ∧
   (sorted_mem x (y::ys) =
     if x = y then T
-    else if x <= y then F
+    else if x > y then F
     else sorted_mem x ys)`
 
 val insert_edge_def = Define`
@@ -429,7 +431,7 @@ val do_coalesce_real_def = Define`
       increment degree of x by new vertices
     *)
     bx <- is_Fixed x;
-    if bx then inc_deg x (LENGTH case2) else return ();
+    if bx then return () else inc_deg x (LENGTH case2);
     (* add corresponding edges *)
     list_insert_edge x case2;
     st_ex_FOREACH case1 dec_deg;
@@ -597,7 +599,7 @@ val st_ex_FIRST_def = Define`
         (x,y) <- canonize_move x y;
         optb2 <- Q x y;
         case optb2 of
-          NONE => st_ex_FIRST P Q ms (m::unavail)
+          NONE => st_ex_FIRST P Q ms ((p,(x,y))::unavail)
         | SOME pr =>
           return (SOME ((x,y),pr,ms),unavail)
       od
@@ -703,9 +705,6 @@ val do_freeze_def = Define`
   do_freeze k =
   do
     freeze <- get_freeze_wl;
-    if NULL freeze then
-      return F
-    else
     case freeze of
       [] => return F
     | x::xs =>

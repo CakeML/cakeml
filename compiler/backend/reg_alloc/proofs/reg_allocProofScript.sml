@@ -43,7 +43,7 @@ val good_ra_state_def = Define`
   LENGTH s.move_related = s.dim ∧
   EVERY (\v. v < s.dim) s.coalesced ∧
   EVERY (λls. EVERY (λv. v < s.dim) ls) s.adj_ls ∧
-  EVERY (λls. SORTED $< ls) s.adj_ls ∧
+  EVERY (λls. SORTED $> ls) s.adj_ls ∧
   EVERY (λv. v < s.dim) s.simp_wl ∧
   EVERY (λv. v < s.dim) s.spill_wl ∧
   EVERY (λv. v < s.dim) s.freeze_wl ∧
@@ -872,14 +872,23 @@ Theorem is_subgraph_trans `
 val hide_def = Define`
   hide x = x`
 
+val GT_TRANS = Q.prove(`
+  a:num > b ∧ b > c ⇒ a > c`,
+  fs[]);
+
+val GT_sorted_eq = Q.prove(`
+  SORTED $> (x:num::L) ⇔ SORTED $> L ∧ ∀y. MEM y L ⇒ x > y`,
+  match_mp_tac SORTED_EQ>>
+  fs[transitive_def]);
+
 val sorted_insert_correct_lem = Q.prove(`
   ∀ls acc.
-  SORTED $< ls ∧
-  SORTED $< (REVERSE acc) ∧
-  SORTED $< (REVERSE acc ++ ls) ∧
-  EVERY (\y. y < x) acc ⇒
+  SORTED $> ls ∧
+  SORTED $> (REVERSE acc) ∧
+  SORTED $> (REVERSE acc ++ ls) ∧
+  EVERY (\y. y > x) acc ⇒
   hide (
-    SORTED $< (sorted_insert x acc ls) ∧
+    SORTED $> (sorted_insert x acc ls) ∧
     ∀z.
     MEM z (sorted_insert x acc ls) ⇔
     x = z ∨ MEM z ls ∨ MEM z acc)`,
@@ -901,28 +910,28 @@ val sorted_insert_correct_lem = Q.prove(`
     simp[transitive_def,hide_def]>>
     simp[GSYM CONJ_ASSOC]>>
     CONJ_TAC >-
-      (fs[SORTED_DEF,less_sorted_eq]>>
-      metis_tac[LESS_TRANS])>>
+      (fs[SORTED_DEF,GT_sorted_eq]>>
+      metis_tac[GT_TRANS])>>
     CONJ_TAC>- (
       rw[]>>fs[EVERY_MEM]
       >-
-        metis_tac[LESS_TRANS]
+        metis_tac[GT_TRANS]
       >>
-      fs[less_sorted_eq]>>
-      metis_tac[LESS_TRANS])>>
+      fs[GT_sorted_eq]>>
+      metis_tac[GT_TRANS])>>
     metis_tac[])
   >>
     first_x_assum (qspec_then `h::acc` mp_tac)>>
     impl_tac>- (
-      fs[less_sorted_eq,SORTED_APPEND_IFF]>>
+      fs[GT_sorted_eq,SORTED_APPEND_IFF]>>
       Cases_on`ls`>>fs[] )>>
     simp[hide_def]>>
     metis_tac[]);
 
 Theorem sorted_insert_correct `
   ∀ls.
-  SORTED $< ls ⇒
-    SORTED $< (sorted_insert x [] ls) ∧
+  SORTED $> ls ⇒
+    SORTED $> (sorted_insert x [] ls) ∧
     ∀z.
     MEM z (sorted_insert x [] ls) ⇔ x = z ∨ MEM z ls`
   (ntac 2 strip_tac>>
@@ -931,12 +940,13 @@ Theorem sorted_insert_correct `
 
 Theorem sorted_mem_correct `
   ∀ls.
-  SORTED $< ls ⇒
+  SORTED $> ls ⇒
   (sorted_mem x ls ⇔ MEM x ls)`
   (Induct>>rw[sorted_mem_def]>>
-  fs[less_sorted_eq]>>
+  fs[GT_sorted_eq]>>
   rw[EQ_IMP_THM]>>
-  simp[NOT_LESS,LESS_EQ,NOT_LESS_EQUAL])
+  simp[NOT_GREATER]>>
+  first_x_assum drule>>fs[]);
 
 Theorem insert_edge_succeeds `
   good_ra_state s ∧
@@ -2274,7 +2284,7 @@ val st_ex_FIRST_consistency_ok_bg_ok = Q.prove(`
   TOP_CASE_TAC>>fs[]
   >- (
     first_x_assum drule>>
-    disch_then(qspec_then `(p,x,y)::acc` assume_tac)>>rfs[]>>
+    disch_then(qspec_then `(p,x2,y2)::acc` assume_tac)>>rfs[]>>
     metis_tac[ra_state_component_equality])
   >>
   metis_tac[ra_state_component_equality]);
@@ -2457,7 +2467,6 @@ val do_freeze_success = Q.prove(`
   s.dim = s'.dim ∧
   s.node_tag = s'.node_tag`,
   rw[do_freeze_def]>> fs all_eqns>>
-  IF_CASES_TAC>- fs[is_subgraph_refl]>>
   TOP_CASE_TAC>-fs[is_subgraph_def]>>
   drule dec_degree_success>>
   disch_then(qspec_then `[h]` assume_tac)>>
