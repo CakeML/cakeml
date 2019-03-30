@@ -2072,7 +2072,6 @@ val cf_cases_evaluate_match = Q.prove (
           (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
           st2heap p st' = heap
         | Div io =>
-          heap = UNIV /\
           (∀ck. ?st'. evaluate_match (st with clock := ck) env v rows nomatch_exn =
               (st', Rerr (Rabort Rtimeout_error))) /\
           lprefix_lub$lprefix_lub (IMAGE (\ck. fromList (FST(evaluate_match (st with clock := ck) env v rows nomatch_exn)).ffi.io_events) UNIV) io`,
@@ -2688,8 +2687,8 @@ Theorem cf_sound
         (* Instantiate the result value, case split on it *)
         qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs [] \\ rveq
         THEN1 (
-          rename1 `SPLIT3 _ (h_f', _, h_g')`
-          \\ `SPLIT3 UNIV (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC
+          rename1 `SPLIT3 heap (h_f', _, h_g')`
+          \\ `SPLIT3 heap (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC
           \\ instantiate \\ rw []
           THEN1 (
             NTAC 2 (simp [Once terminationTheory.evaluate_def])
@@ -3180,8 +3179,9 @@ Theorem cf_sound
         mp_tac) \\ rw [] \\
       qexists_tac `r` \\ reverse (Cases_on `r`) \\ fs [] \\ rveq
       THEN1 (
-        instantiate \\ qexists_tac `h_g UNION h_g'` \\ rw []
-        THEN1 SPLIT_TAC
+        rename1 `SPLIT3 heap (h_f', _, h_g')`
+        \\ `SPLIT3 heap (h_f', h_k, h_g' UNION h_g)` by SPLIT_TAC
+        \\ instantiate \\ rw []
         THEN1 (
           fs [evaluate_ck_def]
           \\ drule evaluatePropsTheory.evaluate_set_init_clock \\ fs []
@@ -3278,7 +3278,6 @@ Theorem cf_sound'
             (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
             st2heap p st' = heap
           | Div io =>
-            heap = UNIV /\
             (∀ck. ?st'. evaluate (st with clock := ck) env [e] =
             (st', Rerr (Rabort Rtimeout_error))) /\
             lprefix_lub$lprefix_lub (IMAGE (\ck. fromList (FST(evaluate (st with clock := ck) env [e])).ffi.io_events) UNIV) io`
@@ -3308,7 +3307,6 @@ Theorem cf_sound_local
             (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
             st2heap p st' = heap
           | Div io =>
-            heap = UNIV /\
             (∀ck. ?st'. evaluate (st with clock := ck) env [e] =
             (st', Rerr (Rabort Rtimeout_error))) /\
             lprefix_lub$lprefix_lub (IMAGE (\ck. fromList (FST(evaluate (st with clock := ck) env [e])).ffi.io_events) UNIV) io`

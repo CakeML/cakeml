@@ -2070,8 +2070,8 @@ val app_opapp_intro = Q.store_thm("app_opapp_intro",
   every_case_tac >> fs[] >>
   TRY(
     rename1 `lprefix_lub` >>
-    rename1 `SPLIT3 𝕌(:heap_part) (h1,h2 ∪ h3,h4)` >>
-    `SPLIT3 𝕌(:heap_part) (h1,h2,h3 ∪ h4)`
+    rename1 `SPLIT3 heap (h1,h2 ∪ h3,h4)` >>
+    `SPLIT3 heap (h1,h2,h3 ∪ h4)`
       by(fs[SPLIT3_def] >> rveq >> fs[] >> metis_tac[DISJOINT_SYM,UNION_COMM,UNION_ASSOC]) >>
     asm_exists_tac >> fs[] >>
     asm_exists_tac >> fs[] >>

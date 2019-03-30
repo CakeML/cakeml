@@ -32,8 +32,7 @@ val evaluate_to_heap_def = Define `
       evaluate_ck ck st env [exp]
       = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
       st2heap p st' = heap)
-    | Div io => heap = UNIV /\
-                (* all clocks produce timeout *)
+    | Div io => (* all clocks produce timeout *)
                 (∀ck. ∃st'. evaluate_ck ck st env [exp] =
                       (st', Rerr (Rabort Rtimeout_error))) /\
                 (* io is the limit of the io_events of all states *)
