@@ -21,7 +21,7 @@ val _ = hide "state";
 
 (* TODO: clean up this file: e.g., move things upstream *)
 
-Theorem set_MAP_FST_toAList_eq_domain[simp]
+Theorem set_MAP_FST_toAList_eq_domain
     `!s. set (MAP FST (toAList s)) = domain s`
     (rw [EXTENSION, MEM_MAP, EXISTS_PROD, MEM_toAList, domain_lookup]);
 
@@ -950,7 +950,7 @@ Theorem get_intervals_withlive_intbeg_reduce
           rpt CASE_TAC >>
           Cases_on `lookup r int_beg1` >> Cases_on `lookup r int_beg2` >>
           Cases_on `lookup r live` >>
-          rfs [] >> fs [] >> rw [] >>
+          rfs [] >> fs [set_MAP_FST_toAList_eq_domain] >> rw [] >>
           rpt (qpat_x_assum `lookup _ _ = _` kall_tac) >>
           intLib.COOPER_TAC
       )
@@ -2004,7 +2004,7 @@ Theorem get_intervals_ct_eq
     `domain live = domain (get_live_backward (get_live_tree ct) LN)` by metis_tac [get_intervals_ct_aux_live] >>
     Cases_on `get_live_backward (get_live_tree ct) LN = LN` >> fs [] >>
     fs [get_intervals_def] >>
-    simp [lookup_numset_list_add_if_lt, lookup_numset_list_add_if_gt]
+    simp [lookup_numset_list_add_if_lt, lookup_numset_list_add_if_gt, set_MAP_FST_toAList_eq_domain]
 );
 
 Theorem colors_sub_eqn[simp] `
@@ -5241,7 +5241,7 @@ Theorem get_intervals_ct_monad_aux_correct
     THEN1 (
         qspecl_then [`int_end`, `sth`, `MAP FST (toAList s)`, `n`] mp_tac numset_list_add_if_gt_monad_correct >>
         impl_tac THEN1
-        fs [in_clash_tree_def, EVERY_MEM] >>
+        fs [in_clash_tree_def, EVERY_MEM, set_MAP_FST_toAList_eq_domain] >>
         strip_tac >> rw [] >>
         fs [linear_scan_hidden_state_component_equality, domain_union, in_clash_tree_def] >>
         intLib.COOPER_TAC
@@ -5262,7 +5262,7 @@ Theorem get_intervals_ct_monad_aux_correct
           rename1 `_ = (Success _, sth1)` >>
           rfs [linear_scan_hidden_state_component_equality, domain_union, in_clash_tree_def] >> (
             qspecl_then [`int_end1`, `sth1`, `MAP FST (toAList x)`, `n1`] mp_tac numset_list_add_if_gt_monad_correct >>
-            impl_tac THEN1 fs [EVERY_MEM, in_clash_tree_def, domain_union] >>
+            impl_tac THEN1 fs [EVERY_MEM, in_clash_tree_def, domain_union, set_MAP_FST_toAList_eq_domain] >>
             strip_tac >> rw [] >>
             fs [linear_scan_hidden_state_component_equality] >>
             intLib.COOPER_TAC
@@ -5310,13 +5310,13 @@ Theorem get_intervals_ct_monad_correct
     rename1 `_ = (Success _, sth1)` >>
 
     qspecl_then [`int_beg1`, `sth1`, `MAP FST (toAList live)`, `n1`] mp_tac numset_list_add_if_lt_monad_correct >>
-    impl_tac THEN1 rw [EVERY_MEM] >>
+    impl_tac THEN1 rw [EVERY_MEM, set_MAP_FST_toAList_eq_domain] >>
     strip_tac >> rw [] >>
     rename1 `_ = (Success _, sth2)` >>
     fs [linear_scan_hidden_state_component_equality] >>
 
     qspecl_then [`int_end1`, `sth2`, `MAP FST (toAList live)`, `n1`] mp_tac numset_list_add_if_gt_monad_correct >>
-    impl_tac THEN1 rw [EVERY_MEM] >>
+    impl_tac THEN1 rw [EVERY_MEM, set_MAP_FST_toAList_eq_domain] >>
     strip_tac >> simp [] >>
     rename1 `_ = (Success _, sth2)` >>
     fs [linear_scan_hidden_state_component_equality]
@@ -5326,7 +5326,7 @@ Theorem in_clash_tree_eq_live_tree_registers
     `!ct r. in_clash_tree ct r <=> r IN (live_tree_registers (get_live_tree ct))`
 
     (Induct_on `ct` >>
-    rw [in_clash_tree_def, live_tree_registers_def, get_live_tree_def]
+    rw [in_clash_tree_def, live_tree_registers_def, get_live_tree_def, set_MAP_FST_toAList_eq_domain]
     THEN1 metis_tac []
     THEN1 (
         Cases_on `o'` >>
@@ -5516,10 +5516,10 @@ Theorem check_col_apply_bijection
     imp_res_tac ALL_DISTINCT_INJ_MAP >> fs [] >>
     qpat_x_assum `ALL_DISTINCT _` kall_tac >>
     `ALL_DISTINCT (MAP FST (toAList cutset))` by simp [ALL_DISTINCT_MAP_FST_toAList] >>
-    `domain cutset = set (MAP FST (toAList cutset))` by simp [] >>
+    `domain cutset = set (MAP FST (toAList cutset))` by simp [set_MAP_FST_toAList_eq_domain] >>
     qabbrev_tac `l = MAP FST (toAList cutset)` >> qpat_x_assum `Abbrev _` kall_tac >>
     `domain (FOLDR (\r acc. insert (appbij r) () acc) LN l) = IMAGE appbij (set l)` by (rpt (first_x_assum kall_tac) >> Induct_on `l` >> rw []) >>
-    fs [] >> first_x_assum kall_tac >>
+    fs [set_MAP_FST_toAList_eq_domain] >> first_x_assum kall_tac >>
     strip_tac
     THEN1 (
         qpat_x_assum `domain cutset = set l` kall_tac >>
@@ -5615,7 +5615,7 @@ Theorem domain_apply_bij_set
     (rw [foldi_FOLDR_toAList] >>
     `FOLDR (\(r,_) acc. insert (the 0 (lookup r bij)) () acc) LN (toAList s) = FOLDR (\r acc. insert (the 0 (lookup r bij)) () acc) LN (MAP FST (toAList s))` by rw [FOLDR_MAP, LAMBDA_PROD] >>
     simp [] >>
-    `domain s = set (MAP FST (toAList s))` by simp [] >>
+    `domain s = set (MAP FST (toAList s))` by simp [set_MAP_FST_toAList_eq_domain] >>
     qabbrev_tac `l = MAP FST (toAList s)` >>
     qpat_x_assum `Abbrev _` kall_tac >>
     qpat_x_assum `FOLDR _ _ _ = FOLDR _ _ _` kall_tac >>
@@ -5725,7 +5725,7 @@ Theorem check_clash_tree_apply_bijection
             imp_res_tac check_clash_tree_output_subset >> rfs [] >>
 
             sg `set (MAP appbij (MAP FST (toAList (difference livein2 livein1)))) UNION domain t1_out = domain t1_out UNION domain t2_out` THEN1 (
-                rw [LIST_TO_SET_MAP, domain_difference] >>
+                rw [LIST_TO_SET_MAP, domain_difference, set_MAP_FST_toAList_eq_domain] >>
                 `IMAGE appinvbij (domain t2_out) DIFF IMAGE appinvbij (domain t1_out) = IMAGE appinvbij (domain t2_out DIFF domain t1_out)` by (rfs [EXTENSION, SUBSET_DEF] >> metis_tac []) >>
                 `domain t2_out SUBSET bijcodom` by (fs [SUBSET_DEF] >> metis_tac []) >>
                 `IMAGE appbij (IMAGE appinvbij (domain t2_out DIFF domain t1_out)) = domain t2_out DIFF domain t1_out` by (rfs [EXTENSION, SUBSET_DEF] >> metis_tac []) >>
@@ -5745,7 +5745,7 @@ Theorem check_clash_tree_apply_bijection
             ) >>
             sg `domain brlivein = domain livein` THEN1 (
                 imp_res_tac check_partial_col_domain >>
-                rfs [] >>
+                rfs [set_MAP_FST_toAList_eq_domain] >>
                 simp [domain_difference, EXTENSION] >>
                 metis_tac []
             ) >>
@@ -5753,7 +5753,7 @@ Theorem check_clash_tree_apply_bijection
             impl_tac >>
             rw []
             THEN1 (
-                rfs [SUBSET_DEF, domain_difference] >>
+                rfs [SUBSET_DEF, domain_difference, set_MAP_FST_toAList_eq_domain] >>
                 metis_tac []
             )
             THEN1 (
@@ -5772,6 +5772,7 @@ Theorem check_clash_tree_apply_bijection
             rfs []
         )
     )
+
     THEN1 (
         fs [case_eq_thms] >>
         first_x_assum (qspecl_then [`live`, `flive`, `live'`, `flive'`, `t2_out`, `ft2_out`] assume_tac) >>
@@ -5875,7 +5876,7 @@ Theorem check_col_equal_col
         first_x_assum match_mp_tac >>
         imp_res_tac EL_MEM >>
         `MEM (FST (EL x (toAList s))) (MAP FST (toAList s))` by (simp [MEM_MAP, EXISTS_PROD] >> metis_tac [PAIR]) >>
-        fs []
+        fs [set_MAP_FST_toAList_eq_domain]
     ) >>
     simp [check_col_def]
 );
