@@ -190,6 +190,8 @@ val translator_state = {
   rarrays_functions_defs = ref([] : (thm * thm * thm * thm * thm * thm) list),
   farrays_functions_defs = ref([] : (thm * thm * thm * thm * thm) list),
 
+  induction_helper_thms = ref ([] : (string * thm) list),
+
   local_environment_var_name = ref "%env",
   num_local_environment_vars = ref 0,
 
@@ -2325,9 +2327,85 @@ in
     val remove_Eq = remove_Eq_aux o remove_EqSt
 end (* end local *)
 
+local (* ported from ml_translatorLib *)
+  fun guess_def_name original_def = let
+    val def_tm = concl original_def
+    val const_tm = original_def |> SPEC_ALL |> CONJUNCTS |> hd |> SPEC_ALL
+                                |> concl |> dest_eq |> fst |> repeat rator
+    val const_name = const_tm |> dest_thy_const |> #Name
+    val const_thy = const_tm |> dest_thy_const |> #Thy
+    fun try_find_in thys = let
+      val xs = DB.match thys def_tm
+      val xs = filter (aconv def_tm o concl o fst o snd) xs
+      val ((thy,name),_) = first (fn x => Def = (x |> snd |> snd)) xs
+                           handle HOL_ERR _ => hd xs handle Empty => fail ()
+      in (thy,name) end
+    val (thy,name) = try_find_in [const_thy]
+                     handle HOL_ERR _ => try_find_in []
+                     handle HOL_ERR _ => (const_thy,const_name ^ "_def")
+    in if current_theory() = thy then name else thy ^ "Theory." ^ name end
+
+  fun break_lines_at k [] = []
+    | break_lines_at k (x::xs) = let
+        fun consume ts [] = (ts,[])
+          | consume ts (x::xs) =
+              if String.size ts + 1 + String.size x <= k then
+                consume (ts ^ " " ^ x) xs
+              else (ts,x::xs)
+        val (line,rest) = consume x xs
+        in line :: (break_lines_at k rest) end;
+
+  fun break_line_at k prefix text = let
+    val words = String.tokens (fn c => c = #" ") text
+    val lines = break_lines_at k words
+    in map (fn str => prefix ^ str) lines end;
+
+in
+
+  fun print_unable_to_prove_ind_thm goal original_def ml_name = let
+    val name = guess_def_name original_def
+    val thy_const = original_def |> SPEC_ALL |> CONJUNCTS |> hd |>
+                    SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
+                    |> dest_thy_const
+    val _ = print ("\nERROR: Unable to prove induction for "^name^"\n")
+    val _ = print ("\n")
+    val t = (!show_types)
+    val _ = (show_types := true)
+    val _ = print_term goal
+    val _ = (show_types := t)
+    val line_length = 53
+    val _ = map print (break_line_at line_length "\n  "
+      ("This induction goal has been left as an assumption on the theorem "^
+       "returned by the translator. You can prove it with something like "^
+       "the following before "^(#Name thy_const)^" is used in subsequent "^
+       "translations."))
+    val _ = print ("\n")
+    val _ = print ("\nval res = m_translate "^name^";")
+    val _ = print ("\n")
+    val _ = print ("\nval ind_lemma = Q.prove(")
+    val _ = print ("\n  `^(nth ((hyp res), <index>)`,")
+    val _ = print ("\n  rpt gen_tac")
+    val _ = print ("\n  \\\\ strip_tac")
+    val _ = print ("\n  \\\\ ho_match_mp_tac (<relevant induction theorem>)")
+    val _ = print ("\n  \\\\ rpt strip_tac")
+    val _ = print ("\n  \\\\ match_mp_tac <relevant helper theorem>")
+    val _ = print ("\n  \\\\ last_x_assum match_mp_tac")
+    val _ = print ("\n  \\\\ rpt strip_tac")
+    val _ = print ("\n  \\\\ <unfold definitions and finish proof>)")
+    val _ = print ("\n  |> update_precondition;")
+    val _ = print ("\n")
+    val _ = map print (break_line_at line_length "\n  "
+      ("The relevant induction theorem will likely be saved in the database " ^
+       "as "^(#Name thy_const)^"_ind. Some helper theorems have been saved " ^
+       "in the database as "^(#Name thy_const)^"_helper_X."))
+    val _ = print ("\n")
+    val _ = print ("\n")
+    in () end;
+
+end (* end local *)
+
 (* Apply the induction in the case of a recursive function w/o preconditions *)
 fun apply_ind thms ind = let
-    (* val (fname,ml_fname,def,th,pre) = hd thms *)
     fun get_goal (fname,ml_fname,def,th,pre) = let
         val th = REWRITE_RULE [CONTAINER_def] th
         val hs = hyp th
@@ -2335,31 +2413,31 @@ fun apply_ind thms ind = let
         val state_var = th |> UNDISCH_ALL |> concl |> rator
                            |> rator |> rator |> rand
         val forall_st_tm = mk_forall(state_var, th |> UNDISCH_ALL |> concl)
-        (* *)
-        val st_eq_tm = REWRITE_RULE[ArrowM_def ]th |> UNDISCH_ALL |> concl |>
+        val st_eq_tm = REWRITE_RULE [ArrowM_def] th |> UNDISCH_ALL |> concl |>
                        rator |> rand |> rator |> rand |> get_EqSt_var |> the
         val forall_st_tm = mk_forall(st_eq_tm, forall_st_tm)
-        (* *)
         val hyp_tm = list_mk_abs(rev rev_params, forall_st_tm)
         val goal = list_mk_forall(rev rev_params, forall_st_tm)
     in (hyp_tm,(th,(hs,goal))) end
     val goals = List.map get_goal thms
+
     val gs = goals |> List.map (snd o snd o snd) |> list_mk_conj
     val hs = goals |> List.map (fst o snd o snd) |> flatten
                    |> op_mk_set aconv |> list_mk_conj
     val goal = mk_imp(hs,gs)
-    val ind_thm = (the ind)
-                      |> rename_bound_vars_rule "i"
-                      (* |> SIMP_RULE std_ss [] *)
-                      |> ISPECL (goals |> List.map fst)
-                      |> CONV_RULE (DEPTH_CONV BETA_CONV)
+    val ind_thm = (the ind) |> rename_bound_vars_rule "i"
+    val ind_thm = (ISPECL (goals |> List.map fst) ind_thm
+                  handle HOL_ERR e => ind_thm) |>
+                  CONV_RULE (DEPTH_CONV BETA_CONV)
+
     fun POP_MP_TACs ([],gg) = ALL_TAC ([],gg)
       | POP_MP_TACs (ws,gg) =
         POP_ASSUM (fn th => (POP_MP_TACs THEN MP_TAC th)) (ws,gg)
     val pres = List.map
       (fn (_,_,_,_,pre) => case pre of SOME x => x | _ => TRUTH) thms
 
-      (*  val lhs = fst o dest_eq;  val rhs = snd o dest_eq; *)
+
+    (*  val lhs = fst o dest_eq;  val rhs = snd o dest_eq; *)
     fun split_ineq_orelse_tac tac (asms,concl) = (asms,concl) |>
     let
         val (asms',concl) = strip_imp concl
@@ -2414,10 +2492,10 @@ fun apply_ind thms ind = let
             end
       end
 
-    val lemma =
+    fun prove_ind_thm goal goals ind_thm =
       auto_prove "ind" (goal,
         STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
+        \\ HO_MATCH_MP_TAC ind_thm
         \\ REPEAT STRIP_TAC
         \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
         \\ REPEAT STRIP_TAC
@@ -2429,7 +2507,7 @@ fun apply_ind thms ind = let
       handle HOL_ERR _ =>
       auto_prove "ind" (goal,
         STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
+        \\ HO_MATCH_MP_TAC ind_thm
         \\ REPEAT STRIP_TAC
         \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
         \\ REPEAT STRIP_TAC
@@ -2439,8 +2517,8 @@ fun apply_ind thms ind = let
       auto_prove "ind" (goal,
         STRIP_TAC
         \\ SIMP_TAC std_ss [FORALL_PROD]
-        \\ (MATCH_MP_TAC ind_thm ORELSE
-            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
+        \\ (HO_MATCH_MP_TAC ind_thm ORELSE
+            HO_MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
         \\ REPEAT STRIP_TAC
         \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
@@ -2452,8 +2530,8 @@ fun apply_ind thms ind = let
       auto_prove "ind" (goal,
         STRIP_TAC
         \\ SIMP_TAC std_ss [FORALL_PROD]
-        \\ (MATCH_MP_TAC ind_thm ORELSE
-            MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
+        \\ (HO_MATCH_MP_TAC ind_thm ORELSE
+            HO_MATCH_MP_TAC (SIMP_RULE bool_ss [FORALL_PROD] ind_thm))
         \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC PreImp_IMP
         \\ CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV pres))
@@ -2467,7 +2545,7 @@ fun apply_ind thms ind = let
       handle HOL_ERR _ =>
       auto_prove "ind" (mk_imp(hs,ind_thm |> concl |> rand),
         STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
+        \\ HO_MATCH_MP_TAC ind_thm
         \\ REPEAT STRIP_TAC
         \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
         \\ REPEAT STRIP_TAC
@@ -2476,7 +2554,7 @@ fun apply_ind thms ind = let
       handle HOL_ERR e =>
         auto_prove "ind" (goal,
         STRIP_TAC
-        \\ MATCH_MP_TAC ind_thm
+        \\ HO_MATCH_MP_TAC ind_thm
         \\ REPEAT STRIP_TAC
         \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
         \\ REPEAT STRIP_TAC
@@ -2485,6 +2563,48 @@ fun apply_ind thms ind = let
         \\ SIMP_TAC std_ss [UNCURRY_SIMP]
         \\ SIMP_TAC std_ss [GSYM FORALL_PROD]
         \\ rpt(split_ineq_orelse_tac(metis_tac [])))
+      handle HOL_ERR e =>
+        auto_prove "ind" (goal,
+        STRIP_TAC
+        \\ HO_MATCH_MP_TAC ind_thm
+        \\ REPEAT STRIP_TAC
+        \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
+        \\ REPEAT STRIP_TAC
+        \\ last_x_assum match_mp_tac
+        \\ fs[st_ex_return_def]
+        \\ metis_tac[])
+
+    fun save_helper_theorems fname index [] = print "\n"
+      | save_helper_theorems fname index (thm::thms) =
+          let val name = (fname ^ "_helper_" ^ int_to_string(index))
+          in
+            save_thm(name, thm);
+            print ("Saved theorem ____ :" ^ name ^ "\n");
+            #induction_helper_thms translator_state :=
+              (name, thm) :: (!(#induction_helper_thms translator_state));
+            save_helper_theorems fname (index + 1) thms
+          end
+
+    val lemma = prove_ind_thm goal goals ind_thm
+    handle HOL_ERR _ => let
+      val (_,ml_name,def,_,_) = hd thms
+      val ind_hyp = ind_thm |> UNDISCH_ALL |> hyp |> hd
+      val lemma = mk_imp(hs, ind_hyp) |> ASSUME |> UNDISCH_ALL |>
+                  HO_MATCH_MP ind_thm |> DISCH hs (* leave goal on assumptions *)
+      in
+        save_helper_theorems ml_name 0 (List.map (fst o snd) goals);
+        print_unable_to_prove_ind_thm (mk_imp (hs, ind_hyp)) def ml_name;
+        lemma
+      end
+    handle _ => let
+      val (_,ml_name,def,_,_) = hd thms
+      val lemma = ASSUME goal |> UNDISCH_ALL |> DISCH hs
+      in
+        save_helper_theorems ml_name 0 (List.map (fst o snd) goals);
+        print_unable_to_prove_ind_thm goal def ml_name;
+        lemma
+      end
+
     val results = UNDISCH lemma |> CONJUNCTS |> List.map SPEC_ALL
     val thms = List.map
       (fn (th, (fname,ml_fname,def,_,pre)) => (fname,ml_fname,def,th,pre))
@@ -2786,21 +2906,13 @@ fun m_translate_main def =
     val (is_rec,defs,ind) = preprocess_def def
     val info = List.map get_info defs
     val msg = comma (List.map (fn (fname,_,_,_,_) => fname) info)
-    (* val (fname,ml_fname,lhs,tm,def) = List.hd info *)
-    (* derive deep embedding *)
-    fun compute_deep_embedding info =
-      let
-        val _ = List.map (fn (fname,ml_fname,lhs,_,_) =>
-                             install_rec_pattern lhs fname ml_fname) info
-        (*
-        val [(_,_,_,tm,_)] = info
-        *)
-        val thms = List.map (fn (fname,ml_fname,lhs,rhs,def) =>
-                                (fname,ml_fname,m2deep rhs,def)) info
-        val _ = uninstall_rec_patterns ()
-      in thms end
+
     val _ = print ("Translating " ^ msg ^ "\n")
-    val thms = compute_deep_embedding info
+    val _ = List.map (fn (fname,ml_fname,lhs,_,_) =>
+                         install_rec_pattern lhs fname ml_fname) info
+    val thms = List.map (fn (fname,ml_fname,lhs,rhs,def) =>
+                            (fname,ml_fname,m2deep rhs,def)) info
+    val _ = uninstall_rec_patterns ()
     val thms = List.map
       (fn (x0,x1,th,x2) => (x0,x1,instantiate_cons_name th,x2)) thms
 
@@ -2925,17 +3037,22 @@ fun m_translate_main def =
           val thms = case #5 (hd thms) of
                          SOME _ => thms
                        | NONE => apply_ind thms ind
+
           (* clean up *)
-          fun fix (fname,ml_fname,def,th,pre) =
-            let
-              val th = remove_Eq th
-              val th = SIMP_EqualityType_ASSUMS th
-              val th = th |> DISCH_ALL |>
-                REWRITE_RULE ((GSYM AND_IMP_INTRO)::code_defs) |> UNDISCH_ALL |>
-                SPEC_ALL |> UNDISCH_ALL |> remove_local_code_abbrevs
-            in (fname,ml_fname,def,th,pre) end
+          fun fix_thm th = th |> remove_Eq |> SIMP_EqualityType_ASSUMS |>
+            DISCH_ALL |> REWRITE_RULE ((GSYM AND_IMP_INTRO)::code_defs) |>
+            UNDISCH_ALL |> SPEC_ALL |> UNDISCH_ALL |> remove_local_code_abbrevs
+
+          fun fix (fname, ml_fname, def, th, pre) =
+            (fname, ml_fname, def, fix_thm th, pre)
 
           val results = List.map fix thms
+          val _ = (
+            #induction_helper_thms translator_state :=
+              List.map ((fn x => x) ## fix_thm)
+                (!(#induction_helper_thms translator_state))
+            )
+
           val _ = List.map
             (delete_const o fst o dest_const o fst o dest_eq o concl) code_defs
           val _ = undef_local_code_abbrevs ()
@@ -2999,7 +3116,7 @@ fun m_translate def =
   in
     if is_rec then
     let
-      val recc = results |> List.map (fn (fname,_,def,th,pre) => th) |> hd |>
+      val recc = results |> List.map (#4) |> hd |>
         hyp |> first (can (match_term LOOKUP_VAR_pat)) |> rand |> rator |> rand
       val ii = INST [cl_env_tm |-> get_curr_env()]
       val v_names = List.map (fn x => find_const_name (#1 x ^ "_v")) results
@@ -3012,8 +3129,23 @@ fun m_translate def =
       val jj = INST
         (if !(#local_state_init_H translator_state) then []
           else [v_env |-> get_curr_env()])
+      val lemmas = LOOKUP_VAR_def :: List.map GSYM v_defs
+
+      fun inst_helper_envs (name, th) =
+        let val th' = th |> ii |> jj |> disch_asms |> REWRITE_RULE lemmas |>
+                      SIMP_RULE std_ss [lookup_var_def] |> clean_assumptions |>
+                      DISCH_ALL
+        in
+          save_thm(name, th');
+          (name, th')
+        end
+
+      val _ = (
+        #induction_helper_thms translator_state :=
+          List.map inst_helper_envs (!(#induction_helper_thms translator_state))
+        )
+
       fun inst_envs (fname,ml_fname,def,th,pre) = let
-          val lemmas = LOOKUP_VAR_def :: List.map GSYM v_defs
           val th = th |> ii |> jj
           val state_var = concl th |> get_EvalM_state
           val th = GEN state_var th |>
@@ -3821,5 +3953,4 @@ in
 end (* end local *)
 
 (******************************************************************************)
-
 end (* end struct *)
