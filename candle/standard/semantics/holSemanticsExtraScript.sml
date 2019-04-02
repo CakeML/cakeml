@@ -455,9 +455,26 @@ val type_ok_TYPE_SUBSTf = Q.store_thm("type_ok_TYPE_SUBSTf",
   gen_tac >> ho_match_mp_tac TYPE_SUBSTf_ind >>
   simp[type_ok_def] >> rw[EVERY_MAP,EVERY_MEM]);
 
-val FOLDR_LIST_UNION_empty = Q.prove(
+val FOLDR_LIST_UNION_empty = Q.store_thm("FOLDR_LIST_UNION_empty",
   `EVERY (λx. tyvars x = []) tys ==> (FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys = [])`,
   Induct_on `tys` >> fs[]);
+
+val FOLDR_LIST_UNION_empty' = Q.store_thm("FOLDR_LIST_UNION_empty'",
+  `(FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys = []) ==> EVERY (λx. tyvars x = []) tys`,
+  rw[] >> fs[EVERY_MEM] >>
+  `!z. MEM z (FOLDR (λx y. LIST_UNION (tyvars x) y) [] tys) = F`
+    by rw[] >>
+  last_x_assum kall_tac >>
+  fs[MEM_FOLDR_LIST_UNION] >> rw[] >>
+  rename1 `MEM ty tys` >>
+  fs[GSYM IMP_DISJ_THM] >>  
+  first_x_assum(assume_tac o CONV_RULE SWAP_FORALL_CONV) >>
+  fs[GSYM PULL_FORALL] >>
+  first_x_assum drule >>
+  pop_assum kall_tac >>
+  rename1 `l = []` >>
+  Induct_on `l` >> simp[] >>
+  metis_tac[]);
 
 val allTypes'_no_tyvars = Q.store_thm("allTypes'_no_tyvars",
   `!ty x. MEM x (allTypes' ty) /\ tyvars ty = [] ==> tyvars x = []`,

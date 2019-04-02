@@ -22,9 +22,9 @@ val consistent_theory_def = Define`
 
 Theorem proves_consistent
   `is_set_theory ^mem ⇒
-    ∀thy. theory_ok thy ∧ (∃i. i models thy) ⇒
-      consistent_theory thy`
-  (rw[consistent_theory_def] >- (
+    ∀thy. theory_ok thy ∧ (∃δ γ. models δ γ thy) ⇒
+      consistent_theory thy`,
+  rw[consistent_theory_def] >- (
     match_mp_tac (List.nth(CONJUNCTS proves_rules,8)) >>
     simp[term_ok_def,type_ok_def] >>
     imp_res_tac theory_ok_sig >>
@@ -32,46 +32,97 @@ Theorem proves_consistent
   spose_not_then strip_assume_tac >>
   imp_res_tac proves_sound >>
   fs[entails_def] >>
-  first_x_assum(qspec_then`i`mp_tac) >>
-  simp[satisfies_def] >>
-  qexists_tac`(K boolset),
-              λ(x,ty). if (x,ty) = (strlit"x",Bool) then True else
+  first_x_assum(qspecl_then[`δ`,`γ`]mp_tac) >>
+  simp[satisfies_def,satisfies_t_def] >>
+  qexists_tac `K Bool` >>
+  simp[tyvars_def] >>
+  conj_tac >- (
+    imp_res_tac theory_ok_sig >>
+    imp_res_tac term_ok_welltyped >>    
+    imp_res_tac term_ok_type_ok >>
+    rfs[typeof_equation] >>
+    fs[ground_terms_uninst_def] >>
+    qexists_tac `Bool` >> fs[ground_types_def,tyvars_def]) >>
+  qexists_tac`λ(x,ty). if (x,ty) = (strlit"x",Bool) then True else
                        if (x,ty) = (strlit"y",Bool) then False else
-                       @v. v <: typesem (tyaof i) (K boolset) ty` >>
+                       @v. v <: ext_type_frag_builtins δ (TYPE_SUBSTf (K Bool) ty)` >>
   conj_asm1_tac >- (
-    simp[is_valuation_def] >>
-    conj_asm1_tac >- (simp[is_type_valuation_def,mem_boolset] >> PROVE_TAC[]) >>
-    fs[models_def,is_term_valuation_def,is_interpretation_def] >>
-    imp_res_tac is_std_interpretation_is_type >>
-    imp_res_tac typesem_Bool >>
-    rw[mem_boolset] >>
-    metis_tac[typesem_inhabited] ) >>
-  qmatch_abbrev_tac`termsem (tmsof (sigof thy)) i v (s === t) ≠ True` >>
-  qspecl_then[`sigof thy`,`i`,`v`,`s`,`t`]mp_tac(UNDISCH termsem_equation) >>
-  simp[] >>
+    reverse conj_asm2_tac >- 
+      (match_mp_tac terms_of_frag_uninst_term_ok >> simp[tyvars_def] >>
+       imp_res_tac theory_ok_sig >> fs[term_ok_clauses]) >>
+    simp[valuates_frag_builtins] >> rw[valuates_frag_def] >>
+    rw[ext_type_frag_builtins_simps,mem_boolset] >>
+    `is_type_frag_interpretation (FST(total_fragment (sigof thy))) δ`
+      by(fs[models_def,is_frag_interpretation_def,total_fragment_def]) >>
+    pop_assum mp_tac >> rw[total_fragment_def] >>
+    qspec_then `sigof thy` mp_tac total_fragment_is_fragment >>
+    rw[total_fragment_def] >>
+    drule is_type_frag_interpretation_ext >>
+    rpt(disch_then drule) >>
+    simp[is_type_frag_interpretation_def] >>
+    qpat_x_assum `_ ∈ _` mp_tac >>
+    simp[types_of_frag_def,total_fragment_def] >>
+    strip_tac >> disch_then drule >>
+    metis_tac[]) >>
+  drule (GEN_ALL termsem_ext_equation) >>
+  qspec_then `sigof thy` assume_tac total_fragment_is_fragment >>
+  disch_then drule >>
+  `is_frag_interpretation (total_fragment (sigof thy)) δ γ`
+    by(fs[models_def]) >>
+  disch_then drule >>
+  fs[valuates_frag_builtins] >>
+  disch_then drule >>
+  disch_then(qspecl_then [`Var (strlit "x") Bool`,`Var (strlit "y") Bool`] mp_tac) >>
   impl_tac >- (
-    simp[term_ok_equation,is_structure_def] >>
-    fs[models_def,theory_ok_def] ) >>
-  simp[Abbr`s`,Abbr`t`,termsem_def,boolean_eq_true,Abbr`v`,true_neq_false])
+    simp[] >>
+    conj_tac >> match_mp_tac terms_of_frag_uninst_term_ok >>
+    imp_res_tac theory_ok_sig >>
+    simp[term_ok_def,tyvars_def,term_ok_clauses]) >>
+  simp[termsem_ext_def] >> disch_then kall_tac >>
+  simp[boolean_eq_true,termsem_def,true_neq_false]);
 
-Theorem init_ctxt_has_model
-  `is_set_theory ^mem ⇒ ∃i. i models (thyof init_ctxt)`
-  (rw[models_def,init_ctxt_def,conexts_of_upd_def] >>
-  rw[is_std_interpretation_def,is_std_type_assignment_def,EXISTS_PROD] >>
-  qho_match_abbrev_tac`∃f g. P f g ∧ (Q f ∧ f x2 z2 = y2) ∧ (g interprets x3 on z3 as y3)` >>
-  qexists_tac`λx. if x = strlit"fun" then (λls. Funspace (HD ls) (HD (TL ls))) else if x = x2 then (K y2) else ARB` >>
-  qexists_tac`K y3` >>
-  rw[Abbr`x2`,Abbr`P`,Abbr`Q`,interprets_def] >>
-  rw[is_interpretation_def,is_type_assignment_def,is_term_assignment_def] >>
-  rw[FEVERY_FUPDATE,Abbr`y2`,Abbr`y3`,FEVERY_FEMPTY,Abbr`z3`] >>
-  rw[typesem_def,tyvars_def] >- metis_tac[boolean_in_boolset] >>
-  TRY (
-    rw[INORDER_INSERT_def,STRING_SORT_def,LIST_UNION_def,LIST_INSERT_def,mlstringTheory.implode_def] >>
-    match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
-    match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] ) >>
-  Cases_on`ls`>>fs[]>>Cases_on`t`>>fs[listTheory.LENGTH_NIL] >>
-  match_mp_tac (UNDISCH funspace_inhabited) >>
-  metis_tac[])
+(* TODO: change definition in holSyntaxScript *)
+val is_builtin_type_def = Q.prove(
+  `(∀v0. is_builtin_type (Tyvar v0) ⇔ F) ∧
+     ∀m ty. is_builtin_type (Tyapp m ty) ⇔
+        ((m = strlit "fun" /\ LENGTH ty = 2) \/
+         (m = strlit "bool" /\ LENGTH ty = 0))`,
+  cheat);
+
+val init_ctxt_builtin = Q.store_thm("init_ctxt_builtin",
+  `!ty. type_ok (tysof init_ctxt) ty /\ tyvars ty = [] ==> is_builtin_type ty`,
+  Cases >> rw[init_ctxt_def,type_ok_def,tyvars_def,is_builtin_type_def]);
+ 
+val init_ctxt_no_ground = Q.store_thm("init_ctxt_no_ground",
+`!ty. ty ∈ ground_types (sigof init_ctxt) ∩ nonbuiltin_types ==> F`,
+  ho_match_mp_tac type_ind >> rpt strip_tac
+  >- fs[ground_types_def,tyvars_def]
+  >> fs[ground_types_def,init_ctxt_def,tyvars_def]
+  >> imp_res_tac FOLDR_LIST_UNION_empty'
+  >> fs[type_ok_def]
+  >> fs[EVERY_MEM,FLOOKUP_UPDATE]
+  >> every_case_tac
+  >> rveq >> fs[nonbuiltin_types_def,is_builtin_type_def]);
+
+val init_ctxt_no_ground_set = Q.store_thm("init_ctxt_no_ground_set",
+  `ground_types (sigof init_ctxt) ∩ nonbuiltin_types = {}`,
+  PURE_REWRITE_TAC [FUN_EQ_THM,EQ_IMP_THM,EMPTY_DEF] >> rpt strip_tac >>
+  metis_tac[init_ctxt_no_ground,IN_DEF]);
+
+val init_ctxt_has_model = Q.store_thm("init_ctxt_has_model",
+  `is_set_theory ^mem ⇒ ∃δ γ. models δ γ (thyof init_ctxt)`,
+  rw[models_def,conexts_of_upd_def,total_fragment_def,
+     is_frag_interpretation_def,init_ctxt_no_ground_set] >>
+  MAP_EVERY qexists_tac [`ARB`,`ARB`] >>
+  reverse conj_tac >-
+    (rw[init_ctxt_def,conexts_of_upd_def]) >>
+  reverse conj_tac >-
+    (mp_tac init_ctxt_no_ground_set >>
+     fs[INTER_DEF,IN_DEF,FUN_EQ_THM,ELIM_UNCURRY,GSYM IMP_DISJ_THM] >>
+     fs[ground_consts_def,term_ok_def,ELIM_UNCURRY,PULL_EXISTS] >>
+     fs[init_ctxt_def,nonbuiltin_constinsts_def,builtin_consts_def] >>
+     strip_tac >> Cases >> rw[]) >>
+  rw[is_type_frag_interpretation_def]);
 
 Theorem min_hol_consistent
   `is_set_theory ^mem ⇒

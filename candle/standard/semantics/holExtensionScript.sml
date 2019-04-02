@@ -12,11 +12,306 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
+val terminating_descending_nats = Q.store_thm("terminating_descending_nats",
+  `terminating (\x y. x = SUC y)`,
+  rw[terminating_def]
+  >> qexists_tac `x`
+  >> Induct_on `x`
+  >- simp[]
+  >> MAP_EVERY PURE_ONCE_REWRITE_TAC [[ADD1],[ADD_SYM],[NRC_ADD_EQN]]
+  >> fs[GSYM ADD1]);
+
+ `~WF (\x y. x = SUC y)`
+  rw[WF_DEF,PULL_EXISTS]
+  >> qexists_tac `\n. n <> 0`
+  >> qexists_tac `1`
+  >> simp[]
+
+>> simp[Once NRC_SUC_RECURSE_LEFT]
+>> simp[Once NRC_SUC_RECURSE_LEFT]
+
+val terminating_IMP_wellfounded_INV = Q.store_thm("terminating_IMP_wellfounded_INV",
+  `terminating R ==> WF(Rᵀ)`,
+  rw[terminating_def,prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,inv_DEF] >>
+  CCONTR_TAC >> fs[] >>
+  `!n. NRC R n (f 0) (f n)`
+   by(last_x_assum kall_tac >>
+      Induct >- simp[] >>
+      simp[NRC_SUC_RECURSE_LEFT] >>
+      metis_tac[]) >>
+  metis_tac[]);
+
+val type_matches_def = Define `
+  type_matches ty defn =
+  case defn of
+  | TypeDefn name pred abs rep =>
+      (let tyvars = MAP implode (STRING_SORT (MAP explode (tvars pred)))
+       in
+         case ty of
+           Tyvar x => NONE (* shouldn't happen --- we only interpret ground types *)
+         | Tyapp name2 tyargs =>
+           if name = name2 /\ LENGTH tyargs = LENGTH(tvars pred) then
+             SOME(pred,name,ZIP(tyargs,MAP Tyvar tyvars))
+           else
+             NONE)
+  | _ => NONE  
+  `
+
+val ZIP_swap = Q.store_thm("ZIP_swap",
+  `!l1 l2.
+   LENGTH l1 = LENGTH l2
+   ==>
+   MAP (λ(x,y). (y,x)) (ZIP(l1,l2)) =  ZIP(l2,l1)
+  `,
+  Induct >- rw[] >>
+  strip_tac >> Cases >> rw[]);
+                                       
+val type_matches_depends = Q.store_thm("type_matches_depends",
+  `type_matches ty defn = SOME (pred,name,sigma) /\
+   MEM defn ctxt /\
+   MEM c (allCInsts pred)
+   ==>
+   subst_clos (dependency ctxt) (INL ty) (INR(INST sigma c))
+  `,
+  rw[type_matches_def,subst_clos_def,dependency_cases] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
+  qmatch_goalsub_abbrev_tac `ZIP (l,a1)` >>
+  qexists_tac `Tyapp m a1` >>
+  qexists_tac `c` >>
+  qexists_tac `ZIP (l,a1)` >>
+  unabbrev_all_tac >> simp[] >>
+  simp[MAP_MAP_o,o_DEF,REV_ASSOCD_ALOOKUP,ZIP_swap] >>
+  conj_tac >-
+    (
+     qspec_then `pred` assume_tac tvars_ALL_DISTINCT >>
+     imp_res_tac ALL_DISTINCT_MAP_explode >>
+     simp[LIST_EQ_REWRITE] >>
+     rw[EL_MAP] >>
+     qmatch_goalsub_abbrev_tac `ALOOKUP a1` >>
+     qmatch_goalsub_abbrev_tac `EL a2` >>
+     Q.ISPECL_THEN [`a1`,`a2`] mp_tac ALOOKUP_ALL_DISTINCT_EL >>
+     unabbrev_all_tac >>
+     impl_tac >-
+       (
+        simp[MAP_ZIP] >>
+        match_mp_tac ALL_DISTINCT_MAP_INJ >>
+        rw[implode_def]
+       ) >>
+     simp[EL_ZIP,EL_MAP]
+    ) >>
+  rename1 `TypeDefn _ pred abs rep` >>
+  MAP_EVERY qexists_tac [`pred`,`abs`,`rep`] >>
+  simp[] >>
+  cheat (* requires changing definition of dependency *));  
+
+tDefine "interpretation_of" `
+  (type_interpretation_of0
+   ^mem thy ctxt ty =
+   (*if ~is_set_theory ^mem then
+     ARB
+   else *)if ~terminating(subst_clos (dependency ctxt)) then
+     ARB
+   else if ~orth_ctxt ctxt then
+     ARB
+   else
+     case mapPartial (type_matches ty) ctxt of
+     | [] => One
+     | [(pred,ty',sigma)] =>
+       let t = INST sigma pred;
+           pty = domain pred;
+           ptysem = ARB pty
+       in
+         ptysem suchthat
+           (term_interpretation_of0 ^mem
+              ctxt 
+           )
+     | _ => ARB
+  ) /\
+  (term_interpretation_of0
+   ^mem thy ctxt name ty =
+   (*if ~is_set_theory ^mem then
+     ARB
+   else *)if ~terminating(subst_clos (dependency ctxt)) then
+     ARB
+   else if ~orth_ctxt ctxt then
+     ARB
+   else
+     case u of
+     | (INL ty) =>
+       ARB
+     | (INR tm) => ARB)
+  `
+
+  `
+ 
+val extends_consistent = Q.store_thm("extends_consistent",
+  `is_set_theory ^mem ⇒
+    ∀ctxt. ctxt extends init_ctxt /\
+           (∀p. MEM (NewAxiom p) ctxt ⇒ MEM (NewAxiom p) init_ctxt)
+    ⇒
+        ∃δ γ. models δ γ (thyof ctxt)`,
+  rpt strip_tac >>
+  `~cyclic ctxt` by cheat >>
+  drule cyclic_IMP_wf >>
+  disch_then (strip_assume_tac o REWRITE_RULE[wf_ctxt_def]) >>
+  imp_res_tac terminating_IMP_wellfounded_INV >>
+  simp[models_def,satisfies_t_def,satisfies_def] >>
+
+  drule WF_REC
+  
+  drule WF_INDUCTION_THM >> strip_tac
+  
+  
+  strip_tac
+  
+val extends_consistent = Q.store_thm("extends_consistent",
+  `is_set_theory ^mem ⇒
+    ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
+      ∀i. theory_ok (thyof ctxt1) ∧ i models (thyof ctxt1) ∧
+          (∀p. MEM (NewAxiom p) ctxt2 ⇒ MEM (NewAxiom p) ctxt1)
+        ⇒
+        ∃i'. equal_on (sigof ctxt1) i i' ∧ i' models (thyof ctxt2)`,
+
+ 
+val LRC2_def = Define
+  `(LRC2 R [e1;e2] = R e1 e2) /\
+   (LRC2 R (e1::e2::l)= (R e1 e2 /\ LRC2 R (e2::l)))`
+
+val LRC_LRC2 = Q.store_thm("LRC_LRC2",
+  `!x y z ls. LRC R (z::ls) x y =
+   (x = z /\ LRC2 R (z::ls ++ [y]))`,
+  Induct_on `ls`
+  >- (rw[LRC_def,LRC2_def] >> metis_tac[])
+  >> rw[LRC_def,LRC2_def,EQ_IMP_THM]
+  >- (first_x_assum(qspecl_then [`h`,`y`,`h`] (mp_tac o GSYM))
+      >> simp[] >> Cases_on `ls` >> fs[LRC2_def,LRC_def])
+  >- (Cases_on `ls` >> fs[LRC2_def])
+  >> first_x_assum(qspecl_then [`h`,`y`,`h`] mp_tac)
+  >> simp[]
+  >> Cases_on `ls` >> fs[LRC2_def,LRC_def]);
+
+val LRC_LRC2' = Q.store_thm("LRC_LRC2'",
+  `!x y n ls. (LRC R ls x y /\ LENGTH ls = SUC n) =
+   (?ls'. ls = x::ls' /\ LENGTH ls' = n /\ LRC2 R (x::ls' ++ [y]))`,
+  Cases_on `ls` >> fs[LRC_LRC2] >> metis_tac[]);
+           
+  >- (rw[LRC_def,LRC2_def] >> metis_tac[])
+  >> rw[LRC_def,LRC2_def,EQ_IMP_THM]
+  >- (first_x_assum(qspecl_then [`h`,`y`,`h`] (mp_tac o GSYM))
+      >> simp[] >> Cases_on `ls` >> fs[LRC2_def,LRC_def])
+  >- (Cases_on `ls` >> fs[LRC2_def])
+  >> first_x_assum(qspecl_then [`h`,`y`,`h`] mp_tac)
+  >> simp[]
+  >> Cases_on `ls` >> fs[LRC2_def,LRC_def]);
+
+
+(*
+  `f' = \n. GENLIST (\n. if n = 0 then x else f(n-1)) (SUC n)`
+    (rw[FUN_EQ_THM] >>
+     Induct_on `n` >-
+     (fs[] >> first_x_assum(qspec_then `0` assume_tac) >> fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+      rveq >> fs[LRC_def,inv_DEF]) >>
+     fs[] >>
+     first_assum(qspec_then `SUC n` assume_tac) >>
+     first_x_assum(qspec_then `n` assume_tac) >> fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+     rveq >> fs[LRC_def,inv_DEF] >> rfs[] >>
+     fs[GENLIST] >> rw[] >> fs[] >>
+     fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
+     rveq >> fs[LRC_def,inv_DEF]
+     fs[LRC_def]
+  
+  
+  qexists_tac `\n. if n = 0 then x else f(n-1)` >>
+  Induct >-
+    (fs[] >> first_x_assum(qspec_then `0` assume_tac) >> fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+     rveq >> fs[LRC_def,inv_DEF]) >>
+  fs[] >>
+  PURE_FULL_CASE_TAC >-
+    (first_x_assum(qspec_then `1` assume_tac) >> fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
+     rveq >> fs[LRC_def,inv_DEF] >> rveq >> )
+    
+  fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
+  pop_assum(fn thm => fs[thm,LRC_def]) >> fs[inv_DEF] >> rveq
+  
+  
+  
+  fs[SKOLEM_THM]
+
+  first_x_assum(qspec_then `\n. FUNPOW (\x. @y. R y x)  n x` assume_tac) >>
+  fs[] >> qexists_tac `n`
+  CCONTR_TAC >> fs[]
+
+  >> pop_assum mp_tac >>
+  qid_spec_tac `x` >>
+  Induct_on `n`
+  
+
+  if n = 0 then x else `
+    
+  spose_not_then strip_assume_tac >>
+
+  
+  last_x_assum mp_tac >> rw[] >>
+  fs[SKOLEM_THM] >> fs[NRC_LRC] >>
+  qexists_tac `\n. if n = 0 then x else f(n-1)` >>
+  strip_tac >>
+  Induct_on `n` >- (
+    pop_assum(qspec_then `0` mp_tac) >> simp[inv_DEF]) >>
+  fs[] >>
+  PURE_FULL_CASE_TAC >-
+    (rveq >> fs[] >> first_x_assum(qspec_then `1` mp_tac) >>
+     PURE_ONCE_REWRITE_TAC[NRC_SUC_RECURSE_LEFT] >>
+     fs[INV_def]
+  fs[NRC_SUC_RECURSE_LEFT]
+  
+  
+  first_x_assum(qspec_then `\n. FUNPOW (\x. @y. R y x) n x` strip_assume_tac) >>
+  qexists_tac `n` >> fs[]
+  SIMP_TAC pure_ss [GSYM NOT_FORALL_THM,GSYM NOT_EXISTS_THM]
+  pop_assum mp_tac >>
+  W (curry Q.SPEC_TAC) `x` >>
+  Induct_on `n` >-
+    (rw[] >> qexists_tac `0` >> rw[])
+  
+  SIMP_TAC pure_ss [GSYM NOT_FORALL_THM,GSYM NOT_EXISTS_THM]
+    
+  CCONTR_TAC >> fs[] >>
+  
+  
+  `!n. NRC R n (f 0) (f n)`
+   by(last_x_assum kall_tac >>
+      Induct >- simp[] >>
+      simp[NRC_SUC_RECURSE_LEFT] >>
+      metis_tac[]) >>
+  metis_tac[]);
+ 
+      MAP_EVERY PURE_ONCE_REWRITE_TAC [[ADD1],[ADD_SYM],[NRC_ADD_EQN]] >>
+      fs[GSYM ADD1] >> metis_tac[])
+  
+      )
+                                            ]
+  
+  
+  CCONTR_TAC >> fs[]
+  
+  FULL_SIMP_TAC pure_ss [GSYM NOT_EXISTS_THM,GSYM NOT_FORALL_THM]
+  
+  metis_tac[]
+  
+      HINT_EXISTS_TAC >> simp[] >>
+      qexists_tac `
+      PURE_ONCE_REWRITE_TAC [NRC_ADD_EQN] >>
+      simp[PULL_EXISTS]
+      
+  first_x_assum(qspec_then `w` strip_assume_tac)
+  rename1 `B w` >>
+  )
+ *)
 val sound_update_def = xDefine"sound_update"`
   sound_update0 ^mem ctxt upd ⇔
-    ∀i. i models (thyof ctxt) ⇒
-      ∃i'. equal_on (sigof ctxt) i i' ∧
-           i' models (thyof (upd::ctxt))`
+    ∀δ γ. models δ γ (thyof ctxt) ⇒
+      ∃δ' γ'. fleq (total_fragment(sigof ctxt),(δ,γ)) (total_fragment (sigof(upd::ctxt)),(δ',γ')) ∧
+           models δ γ (thyof (upd::ctxt))`
 val _ = Parse.overload_on("sound_update",``sound_update0 ^mem``)
 
 Theorem new_constant_correct
@@ -25,9 +320,18 @@ Theorem new_constant_correct
      theory_ok (thyof ctxt) ∧
      name ∉ (FDOM (tmsof ctxt)) ∧
      type_ok (tysof ctxt) ty ⇒
-     sound_update ctxt (NewConst name ty)`
-  (rw[] >> REWRITE_TAC[sound_update_def,equal_on_def] >>
-  gen_tac >> strip_tac >>
+     sound_update ctxt (NewConst name ty)`,
+  rw[] >> REWRITE_TAC[sound_update_def,equal_on_def] >>
+  rpt strip_tac >>
+  qexists_tac `δ` >>
+  qexists_tac `
+    λ(x,ty). if x = name then
+                @v. v <: ext_type_frag_builtins δ ty
+             else
+                γ(x,ty)` >>
+  conj_asm1_tac >-
+    ()
+ ` >>
   qexists_tac`(tyaof i,
     (name =+ λl. @v. v <: typesem (tyaof i) ((K boolset) =++
       (REVERSE(ZIP((MAP implode (STRING_SORT (MAP explode (tyvars ty))),l))))) ty)
