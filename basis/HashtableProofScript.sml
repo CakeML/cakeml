@@ -1,4 +1,6 @@
-(*Proof of the hashtable module*)
+(*
+Proof of the hashtable module
+*)
 
 open preamble ml_translatorTheory ml_translatorLib cfLib
      mlbasicsProgTheory ArrayProgTheory ArrayProofTheory ListProgTheory
@@ -1356,7 +1358,6 @@ QED;
 
 Theorem hashtable_clear_spec:
   !a b hf cmp htv.
-      a k kv ==>
       app (p:'ffi ffi_proj) Hashtable_clear_v [htv]
         (HASHTABLE a b hf cmp h htv)
         (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp FEMPTY htv)
