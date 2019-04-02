@@ -313,11 +313,13 @@ fun with_state_invariant inv_def inv_valid (translator_config : config) =
     translator_config
   end;
 
+
 (******************************************************************************
 
   Initialisation and translation functions
 
 ******************************************************************************)
+
 (* Convert from named tuple to plain tuple, as ml_monad_translatorLib expects *)
 fun from_named_tuple_exn {raise_thm=raise_thm, handle_thm=handle_thm} =
   (raise_thm, handle_thm);
@@ -510,5 +512,124 @@ val define_run = ml_monadBaseLib.define_run;
  * translator (i.e. fetching the rest of the translator state).
  *)
 val m_translation_extends = ml_monad_translatorLib.m_translation_extends;
+
+
+(******************************************************************************
+
+  Monadic definition functions
+
+******************************************************************************)
+
+local
+
+  val st_ex_eta_intro = Q.prove(
+    `∀  f : 'b -> 'a -> ('d, 'c) exc # 'a .
+      f = ( λ x s . f x s)`,
+      metis_tac[ETA_THM]
+  )
+
+  val monad_state_if = Q.prove (
+    `∀ b f g x .
+      (λ s . if b then f s else g s) = (λ s . (if b then f else g) s)`,
+    fs[Once COND_RATOR]
+  );
+
+  val monad_state_let = Q.prove (
+    `∀ n m .
+      (λ s . let x = n in (m s)) = (λ s . (let x = n in m) s)`,
+    fs[]
+  );
+
+  val remove_state_arg = Q.prove (
+    `∀ f g . (∀ s . (f s = g s)) ⇔ (f = λ a . g a)`,
+    rw[] >>
+    EQ_TAC >>
+    rw[] >>
+    fs[ETA_THM, EQ_EXT]
+  );
+
+  (* Theorems to push/pull state term into compound terms *)
+  (* TODO - add more theorems, these will not be enough *)
+  val pull_thms = [monad_state_if, monad_state_let]
+  val push_thms = List.map GSYM pull_thms
+
+  val st_ex_bind_term = (fetch "ml_monadBase" "st_ex_bind_def" |> concl |>
+    dest_forall |> snd |> dest_forall |> snd |> lhs |> strip_comb |> fst)
+
+  (*
+   *  Find all ``st_ex_bind x (λ ret . f ret)`` and eta-expand to include the
+   *  state, giving ``st_ex_bind x (λ ret state . f ret state)``.
+   *  Some extra machinery with bound vars is needed to ensure names end up
+   *  as the user defined originally. Also introduce an explicit state arg.
+   *  Needed so that TotalDefn gives correct termination conditions.
+   *)
+  fun expand_term tm =
+    let val bind_terms =
+          find_terms (fn t => can (match_term ``^st_ex_bind_term x f``) t) tm
+        fun get_bvar_name tm = strip_comb tm |> snd |> last |> bvar |>
+                               dest_var |> fst
+        val bvar_names = List.map get_bvar_name bind_terms
+        val bvars_binds = Lib.zip bvar_names bind_terms
+        val bind_terms' = bvars_binds |>
+          List.map
+            (fn (bvar, term) => term |>
+                    (PAT_CONV ``λ f . ^st_ex_bind_term x f``
+                      (ONCE_REWRITE_CONV [st_ex_eta_intro])
+              THENC (DEPTH_CONV BETA_CONV)
+              THENC (REWRITE_CONV push_thms)
+              THENC (DEPTH_CONV ETA_CONV)
+              THENC (RAND_CONV (RENAME_VARS_CONV [bvar]))
+              )
+            )
+    in tm |> (
+        REWRITE_CONV (bind_terms')
+        THENC RAND_CONV (ONCE_REWRITE_CONV [GSYM ETA_THM])
+        THENC REWRITE_CONV [GSYM remove_state_arg]
+      ) |> concl |> rhs |> dest_forall |> snd
+    end
+
+  (*
+   *  Remove all eta-expansions and so on, to give a pretty definition to
+   *  return to the user. Should in fact give a definition which looks exactly
+   *  like the quotation from user input.
+   *)
+  fun contract_def def = def |>
+    REWRITE_RULE pull_thms |>
+    CONV_RULE (DEPTH_CONV ETA_CONV) |>
+    REWRITE_RULE [remove_state_arg] |>
+    REWRITE_RULE [ETA_THM]
+
+  fun delete_defn name = (
+    delete_binding (name ^ (!Defn.def_suffix));
+    delete_binding (name ^ (!Defn.ind_suffix));
+    delete_const name
+  )
+  handle _ => ()
+
+in
+
+  fun mDefine name quotation =
+    let val _ = delete_defn name
+        val term = Term quotation
+        val expanded_term = expand_term term
+        val def = Define `^expanded_term` (* check for term entry point *)
+        val contracted_def = contract_def def
+    in
+      save_thm(name ^ (!Defn.def_suffix), contracted_def);
+      contracted_def
+    end
+
+  fun mtDefine name quotation tactic =
+    let val _ = delete_defn name
+        val term = Term quotation
+        val expanded_term = expand_term term
+        val def = tDefine name `^expanded_term` tactic
+        val contracted_def = contract_def def
+    in
+      save_thm(name ^ (!Defn.def_suffix), contracted_def);
+      contracted_def
+    end
+
+end
 
 end (* end struct *)

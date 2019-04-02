@@ -32,16 +32,19 @@
 
     val _ = start_translation config;
 
+    val foo_def = mDefine "foo" `...`
+    val bar_def = mtDefine "bar" `...` <tactic>
     ...
 
 *)
+
 signature ml_monad_translator_interfaceLib =
 sig
 
   type term = Term.term
   type thm = Thm.thm
   type hol_type = Type.hol_type
-
+  type tactic = Abbrev.tactic
   datatype translator_mode = GLOBAL | LOCAL;
 
   type config = {
@@ -124,4 +127,12 @@ sig
    * translator (i.e. fetching the rest of the translator state).
    *)
   val m_translation_extends : string -> unit
+
+  (*
+   * Definitional entry points - these wrap the usual Define machinery to allow
+   * simpler definition of monadic functions, including proving termination.
+   *)
+  val mDefine : string -> term frag list -> thm
+  val mtDefine : string -> term frag list -> tactic -> thm
+
 end

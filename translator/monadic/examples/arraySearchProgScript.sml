@@ -27,19 +27,21 @@ val _ = start_translation config;
 
 (* Monadic definitions *)
 
-val linear_search_aux_def = tDefine "linear_search_aux" `
-  linear_search_aux (value:num) (start_index:num) s =
+val linear_search_aux_def = mtDefine "linear_search_aux" `
+  linear_search_aux (value:num) (start_index:num) =
     do
       len <- arr_length;
-      (λ s1 .
-        if start_index ≥ len then return NONE s1
-        else do
-          elem <- arr_sub start_index;
-          (λ s2 .
-            if elem = value then return (SOME start_index) s2
-            else linear_search_aux value (start_index + 1) s2)
-        od s1)
-    od s`
+      if start_index ≥ len then
+        return NONE
+      else
+        do
+          elem <- (arr_sub start_index);
+          if elem = value then
+            return (SOME start_index)
+          else
+            linear_search_aux value (start_index + 1)
+        od
+    od`
 (
   rw[fetch "-" "arr_length_def"] >>
   rw[ml_monadBaseTheory.Marray_length_def] >>
@@ -82,27 +84,6 @@ val binary_search_def = Define `
     do len <- arr_length; binary_search_aux value 0 len od`;
 
 (* Monadic translation *)
-
-Theorem pull_monad_state_if[simp]:
-  ∀ b f g x . (λ s . if b then f s else g s) = (λ s . (if b then f else g) s)
-Proof
-  fs[Once COND_RATOR]
-QED
-
-Theorem remove_state_arg[simp]:
-  ∀ f g . (∀ s . (f s = g s)) ⇔ (f = λ a . g a)
-Proof
-  rw[] >>
-  EQ_TAC >>
-  rw[] >>
-  fs[ETA_THM, EQ_EXT]
-QED
-
-val linear_search_aux_def = linear_search_aux_def |>
-                            REWRITE_RULE [pull_monad_state_if] |>
-                            CONV_RULE (DEPTH_CONV ETA_CONV) |>
-                            REWRITE_RULE [remove_state_arg] |>
-                            REWRITE_RULE [ETA_THM]
 
 val linear_search_aux_v_thm = m_translate linear_search_aux_def
 
