@@ -5,6 +5,7 @@
 structure basis = struct open
 
 ml_translatorTheory ml_progLib ml_translatorLib cfLib
+std_preludeTheory
 
 clFFITheory
 fsFFITheory fsFFIPropsTheory

@@ -1,7 +1,13 @@
+(*
+  Define semantics for the Boolean operations and show the definitions are
+  correct.
+*)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory
      holSemanticsTheory holSemanticsExtraTheory setSpecTheory
 
 val _ = new_theory"holBool"
+
+val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
@@ -19,8 +25,7 @@ val _ = Parse.temp_overload_on("FAx",``Forall (strlit "x") A``)
 
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
-(*
-val bool_sig_instances = Q.store_thm("bool_sig_instances",
+Theorem bool_sig_instances
   `is_bool_sig sig ⇒
     instance (tmsof sig) (i:'U interpretation) (strlit "T") Bool = (K (tmaof i (strlit "T") [])) ∧
     instance (tmsof sig) i (strlit "F") Bool = (K (tmaof i (strlit "F") [])) ∧
@@ -29,10 +34,9 @@ val bool_sig_instances = Q.store_thm("bool_sig_instances",
     instance (tmsof sig) i (strlit "\\/") (Fun Bool (Fun Bool Bool)) = (K (tmaof i (strlit "\\/") [])) ∧
     instance (tmsof sig) i (strlit "~") (Fun Bool Bool) = (K (tmaof i (strlit "~") [])) ∧
     instance (tmsof sig) i (strlit "!") (Fun (Fun A Bool) Bool) = (λτ. tmaof i (strlit "!") [τ (strlit "A")]) ∧
-    instance (tmsof sig) i (strlit "?") (Fun (Fun A Bool) Bool) = (λτ. tmaof i (strlit "?") [τ (strlit "A")])`,
-  rw[is_bool_sig_def] >> fs sigs >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
+    instance (tmsof sig) i (strlit "?") (Fun (Fun A Bool) Bool) = (λτ. tmaof i (strlit "?") [τ (strlit "A")])`
+  (rw[is_bool_sig_def] >> fs sigs >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
   rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def] >> EVAL_TAC >> metis_tac[])
-*)
 
 (* TODO: move *)
 val ext_type_frag_builtins_simps = Q.store_thm("ext_type_frag_builtins_simps",
@@ -41,7 +45,7 @@ val ext_type_frag_builtins_simps = Q.store_thm("ext_type_frag_builtins_simps",
        ext_type_frag_builtins δ (Fun dom rng) =
        Funspace (ext_type_frag_builtins δ dom) (ext_type_frag_builtins δ rng))`,
   rw[] >> simp[Once ext_type_frag_builtins_def]);
-    
+
 val Boolrel_def = xDefine"Boolrel"`
   Boolrel0 ^mem R =
       (Abstract boolset (Funspace boolset boolset)
@@ -96,7 +100,7 @@ val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
     is_true_interpretation γ ∧
     is_and_interpretation γ ∧
     is_implies_interpretation γ ∧
-    (!ty. ty ∈ ground_types sig ==> is_forall_interpretation γ δ ty) ∧ 
+    (!ty. ty ∈ ground_types sig ==> is_forall_interpretation γ δ ty) ∧
     (!ty. ty ∈ ground_types sig ==> is_exists_interpretation γ δ ty) ∧
     is_or_interpretation γ ∧
     is_false_interpretation γ ∧
@@ -109,10 +113,10 @@ val is_bool_interpretation_ext_def = xDefine"is_bool_interpretation_ext"`
     (ext_type_frag_builtins δ)
     (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)`
 val _ = Parse.overload_on("is_bool_interpretation_ext",``is_bool_interpretation_ext0 ^mem``)
-                         
-val boolrel_in_funspace = Q.store_thm("boolrel_in_funspace",
-  `is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)`,
-  rw[Boolrel_def] >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
+
+Theorem boolrel_in_funspace
+  `is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)`
+  (rw[Boolrel_def] >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
   match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] )
 val _ = export_rewrites["boolrel_in_funspace"]
 
@@ -171,7 +175,7 @@ fun init_tac q1 q2 ty rule =
     simp[boolean_eq_true] >>
     simp[termsem_def] >> simp[Once ext_term_frag_builtins_def] >>
     disch_then kall_tac
-    
+
 val apply_abstract_tac = rpt ( (
     qmatch_abbrev_tac`Abstract AA BB CC ' DD <: EE` >>
     match_mp_tac (UNDISCH apply_in_rng) >>
@@ -200,12 +204,12 @@ val apply_abstract_tac = rpt ( (
 val boolean_eq_boolean = Q.store_thm("boolean_eq_boolean",
   `is_set_theory ^mem ==> !a b. Boolean a = Boolean b <=> a = b`,
   rw[boolean_def] >> rw[true_neq_false]);
-  
-val apply_boolrel = Q.store_thm("apply_boolrel",
+
+Theorem apply_boolrel
   `is_set_theory ^mem ⇒
     ∀b1 b2 b3. b1 <: boolset ∧ b2 <: boolset ∧ (b3 = Boolean (R (b1 = True) (b2 = True))) ⇒
-      Boolrel R ' b1 ' b2 = b3 `,
-  rw[] >>
+      Boolrel R ' b1 ' b2 = b3 `
+  (rw[] >>
   `Boolrel R ' b1 = Abstract boolset boolset (λb2. Boolean (R (b1 = True) (b2 = True)))` by (
     rw[Boolrel_def] >>
     match_mp_tac apply_abstract_matchable >>
@@ -221,7 +225,7 @@ val apply_boolrel_rw = Q.store_thm("apply_boolrel_rw",
     ∀b1 b2 b3. b1 <: boolset ∧ b2 <: boolset ⇒
       Boolrel R ' b1 ' b2 = Boolean (R (b1 = True) (b2 = True)) `,
   metis_tac[apply_boolrel]);
-                               
+
 (* TODO: move *)
 val builtins_std_assignment = Q.prove(
   `is_std_type_assignment(ext_type_frag_builtins δ)`,
@@ -237,7 +241,7 @@ val is_builtin_type_def = Q.prove(
          (m = strlit "bool" /\ LENGTH ty = 0))`,
   cheat);
 
-            
+
 (* TODO: move *)
 val is_std_interpretation_total_fragment = Q.store_thm("is_std_interpretation_total_fragment",
  `!sig δ γ.
@@ -301,7 +305,7 @@ val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
     ntac 2 strip_tac >> simp[] >>
     rpt conj_asm2_tac
     >- simp[]
-    >- simp[boolean_in_boolset] >> 
+    >- simp[boolean_in_boolset] >>
     drule((PURE_ONCE_REWRITE_RULE [termsem_ext_def] o GEN_ALL o MP_CANON) termsem_ext_equation) >>
     ntac 2 (disch_then drule) >>
     qmatch_goalsub_abbrev_tac `termsem _ _ a1 a2 (a3 === a4)` >>
@@ -353,7 +357,7 @@ val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
         simp[boolean_in_boolset]) >>
       simp[] >>
       match_mp_tac apply_abstract_matchable >>
-      simp[boolean_def,mem_boolset] ) >> 
+      simp[boolean_def,mem_boolset] ) >>
     metis_tac[]) >>
   conj_asm1_tac >- (
     init_tac ``Const (strlit "==>") (Fun Bool (Fun Bool Bool))`` ``ImpliesDef`` ``Bool`` exists_valuation_bool >>
@@ -372,7 +376,7 @@ val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
     ntac 2 strip_tac >> simp[] >>
     rpt conj_asm2_tac
     >- simp[]
-    >- simp[boolean_in_boolset] >> 
+    >- simp[boolean_in_boolset] >>
     drule((PURE_ONCE_REWRITE_RULE [termsem_ext_def] o GEN_ALL o MP_CANON) termsem_ext_equation) >>
     ntac 2 (disch_then drule) >>
     qmatch_goalsub_abbrev_tac `termsem _ _ a1 a2 (a3 === a4)` >>
@@ -392,12 +396,12 @@ val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
     qmatch_assum_abbrev_tac`f1 = f2` >>
     rename1 `_ ' b1 ' b2` >>
     `Boolrel $/\ ' b1 = Abstract boolset boolset (λb2. Boolean (b1 = True ∧ b2 = True))` by (
-      unabbrev_all_tac >> simp[Boolrel_def] >> 
+      unabbrev_all_tac >> simp[Boolrel_def] >>
       match_mp_tac apply_abstract_matchable >> simp[] >>
       match_mp_tac (UNDISCH abstract_in_funspace) >> simp[boolean_in_boolset]) >>
     `Boolrel $/\ ' b1 ' b2 =  Boolean (b1 = True ∧ b2 = True)` by (
       rveq >> unabbrev_all_tac >> simp[] >>
-      match_mp_tac apply_abstract_matchable >> simp[boolean_in_boolset]) >>    
+      match_mp_tac apply_abstract_matchable >> simp[boolean_in_boolset]) >>
     unabbrev_all_tac >> fs[boolean_def] >> every_case_tac >> fs[] >>
     rfs[mem_boolset] >> fs[]) >>
   conj_asm1_tac >- (
@@ -622,7 +626,7 @@ val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
      simp[holds_def] >>
      qmatch_goalsub_abbrev_tac `Abstract dom rng rator ' _` >>
      drule apply_abstract >>
-     disch_then(qspecl_then [`rator`] mp_tac) >>     
+     disch_then(qspecl_then [`rator`] mp_tac) >>
      disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV List.rev)) >>
      disch_then(qspecl_then [`rng`,`dom`] mp_tac) >>
      `∀x. x ⋲ dom ==> rator x ⋲ rng` by
@@ -636,7 +640,7 @@ val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
             asm_exists_tac >> simp[] >>
             match_mp_tac(MP_CANON apply_in_rng) >> simp[] >>
             asm_exists_tac >> simp[]) >>
-        simp[] >> metis_tac[boolrel_in_funspace,apply_in_rng]) >>     
+        simp[] >> metis_tac[boolrel_in_funspace,apply_in_rng]) >>
      MAP_EVERY qunabbrev_tac [`dom`,`rng`] >>
      simp[] >> disch_then kall_tac >>
      qunabbrev_tac `rator` >>
@@ -646,7 +650,7 @@ val bool_has_bool_interpretation = Q.store_thm("bool_has_bool_interpretation",
     init_tac ``Const (strlit "F") Bool`` ``FalseDef`` ``Bool`` exists_valuation_bool >>
     fs[FalseDef_def] >>
     simp[termsem_def] >>
-    `Bool ∈ ground_types sig` by(simp[ground_types_def,tyvars_def,type_ok_def]) >> 
+    `Bool ∈ ground_types sig` by(simp[ground_types_def,tyvars_def,type_ok_def]) >>
     last_x_assum drule >> simp[] >> disch_then kall_tac >>
     PURE_ONCE_REWRITE_TAC[ext_type_frag_builtins_def] >> simp[combinTheory.UPDATE_def] >>
     qmatch_goalsub_abbrev_tac `Abstract dom rng rator ' rand` >>
@@ -706,13 +710,13 @@ val extends_is_bool_interpretation = Q.store_thm("extends_is_bool_interpretation
     EVAL_TAC) >>
   `FLOOKUP (tysof sig) (strlit "bool") = SOME 0` by (
     unabbrev_all_tac >>
-    match_mp_tac(MP_CANON FLOOKUP_tysof_extends) >> 
+    match_mp_tac(MP_CANON FLOOKUP_tysof_extends) >>
     asm_exists_tac >>
     qpat_x_assum`is_std_sig _` mp_tac >>
     simp[is_std_sig_def]) >>
   `FLOOKUP (tysof sig) (strlit "fun") = SOME 2` by (
     unabbrev_all_tac >>
-    match_mp_tac(MP_CANON FLOOKUP_tysof_extends) >> 
+    match_mp_tac(MP_CANON FLOOKUP_tysof_extends) >>
     asm_exists_tac >>
     qpat_x_assum`is_std_sig _` mp_tac >>
     simp[is_std_sig_def]) >>
@@ -918,7 +922,7 @@ val extends_is_bool_interpretation = Q.store_thm("extends_is_bool_interpretation
       ntac 7 (pop_assum kall_tac) >>
       metis_tac[mem_boolset,true_neq_false])));
 
-val termsem_implies = Q.store_thm("termsem_implies",
+Theorem termsem_implies
   `is_set_theory ^mem ⇒
   ∀δ γ sigma v s p1 p2.
     is_frag_interpretation (total_fragment s) δ γ ∧
@@ -933,10 +937,10 @@ val termsem_implies = Q.store_thm("termsem_implies",
     Boolean (termsem_ext δ γ v sigma p1 = True ⇒
              termsem_ext δ γ v sigma p2 = True)`,
   rw[termsem_def,termsem_ext_def,is_implies_sig_def,is_implies_interpretation_def] >>
-  qmatch_goalsub_abbrev_tac `Boolrel _ ' tm1 ' tm2` >>  
+  qmatch_goalsub_abbrev_tac `Boolrel _ ' tm1 ' tm2` >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
   `tm1 ⋲ ext_type_frag_builtins δ (TYPE_SUBSTf sigma (typeof p1))`
-    by(unabbrev_all_tac >> 
+    by(unabbrev_all_tac >>
        match_mp_tac termsem_in_type_ext2 >> rpt(asm_exists_tac >> simp[]) >>
        conj_asm1_tac >- metis_tac[terms_of_frag_uninst_term_ok] >>
        fs[valuates_frag_def] >> rw[] >> first_x_assum match_mp_tac >>
@@ -945,7 +949,7 @@ val termsem_implies = Q.store_thm("termsem_implies",
        drule term_frag_uninst_in_type_frag >> disch_then drule >>
        simp[]) >>
   `tm2 ⋲ ext_type_frag_builtins δ (TYPE_SUBSTf sigma (typeof p2))`
-    by(unabbrev_all_tac >> 
+    by(unabbrev_all_tac >>
        match_mp_tac termsem_in_type_ext2 >> rpt(asm_exists_tac >> simp[]) >>
        conj_asm1_tac >- metis_tac[terms_of_frag_uninst_term_ok] >>
        fs[valuates_frag_def] >> rw[] >> first_x_assum match_mp_tac >>
@@ -957,7 +961,7 @@ val termsem_implies = Q.store_thm("termsem_implies",
   simp[] >> PURE_ONCE_REWRITE_TAC[ext_type_frag_builtins_def] >> rw[] >>
   simp[apply_boolrel_rw]);
 
-val termsem_forall = Q.store_thm("termsem_forall",
+Theorem termsem_forall
   `is_set_theory ^mem ⇒
   ∀δ γ sigma v s f y b.
     is_frag_interpretation (total_fragment s) δ γ ∧
@@ -1017,7 +1021,7 @@ val termsem_forall = Q.store_thm("termsem_forall",
     simp[ext_type_frag_builtins_simps]) >>
   simp[]);
 
-val termsem_exists = Q.store_thm("termsem_exists",
+Theorem termsem_exists
   `is_set_theory ^mem ⇒
   ∀δ γ sigma v s f y b.
     is_frag_interpretation (total_fragment s) δ γ ∧
@@ -1074,9 +1078,9 @@ val termsem_exists = Q.store_thm("termsem_exists",
          drule term_frag_uninst_in_type_frag >> disch_then drule >>
          simp[]) >>
        simp[ext_type_frag_builtins_simps]) >>
-  metis_tac[]);  
+  metis_tac[]);
 
-val termsem_and = Q.store_thm("termsem_and",
+Theorem termsem_and
   `is_set_theory ^mem ⇒
   ∀δ γ sigma v s p1 p2.
     is_frag_interpretation (total_fragment s) δ γ ∧
@@ -1091,10 +1095,10 @@ val termsem_and = Q.store_thm("termsem_and",
     Boolean (termsem_ext δ γ v sigma p1 = True /\
              termsem_ext δ γ v sigma p2 = True)`,
   rw[termsem_def,termsem_ext_def,is_and_sig_def,is_and_interpretation_def] >>
-  qmatch_goalsub_abbrev_tac `Boolrel _ ' tm1 ' tm2` >>  
+  qmatch_goalsub_abbrev_tac `Boolrel _ ' tm1 ' tm2` >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
   `tm1 ⋲ ext_type_frag_builtins δ (TYPE_SUBSTf sigma (typeof p1))`
-    by(unabbrev_all_tac >> 
+    by(unabbrev_all_tac >>
        match_mp_tac termsem_in_type_ext2 >> rpt(asm_exists_tac >> simp[]) >>
        conj_asm1_tac >- metis_tac[terms_of_frag_uninst_term_ok] >>
        fs[valuates_frag_def] >> rw[] >> first_x_assum match_mp_tac >>
@@ -1103,7 +1107,7 @@ val termsem_and = Q.store_thm("termsem_and",
        drule term_frag_uninst_in_type_frag >> disch_then drule >>
        simp[]) >>
   `tm2 ⋲ ext_type_frag_builtins δ (TYPE_SUBSTf sigma (typeof p2))`
-    by(unabbrev_all_tac >> 
+    by(unabbrev_all_tac >>
        match_mp_tac termsem_in_type_ext2 >> rpt(asm_exists_tac >> simp[]) >>
        conj_asm1_tac >- metis_tac[terms_of_frag_uninst_term_ok] >>
        fs[valuates_frag_def] >> rw[] >> first_x_assum match_mp_tac >>
@@ -1130,10 +1134,10 @@ val termsem_or = Q.store_thm("termsem_or",
     Boolean (termsem_ext δ γ v sigma p1 = True \/
              termsem_ext δ γ v sigma p2 = True)`,
   rw[termsem_def,termsem_ext_def,is_or_sig_def,is_or_interpretation_def] >>
-  qmatch_goalsub_abbrev_tac `Boolrel _ ' tm1 ' tm2` >>  
+  qmatch_goalsub_abbrev_tac `Boolrel _ ' tm1 ' tm2` >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
   `tm1 ⋲ ext_type_frag_builtins δ (TYPE_SUBSTf sigma (typeof p1))`
-    by(unabbrev_all_tac >> 
+    by(unabbrev_all_tac >>
        match_mp_tac termsem_in_type_ext2 >> rpt(asm_exists_tac >> simp[]) >>
        conj_asm1_tac >- metis_tac[terms_of_frag_uninst_term_ok] >>
        fs[valuates_frag_def] >> rw[] >> first_x_assum match_mp_tac >>
@@ -1142,7 +1146,7 @@ val termsem_or = Q.store_thm("termsem_or",
        drule term_frag_uninst_in_type_frag >> disch_then drule >>
        simp[]) >>
   `tm2 ⋲ ext_type_frag_builtins δ (TYPE_SUBSTf sigma (typeof p2))`
-    by(unabbrev_all_tac >> 
+    by(unabbrev_all_tac >>
        match_mp_tac termsem_in_type_ext2 >> rpt(asm_exists_tac >> simp[]) >>
        conj_asm1_tac >- metis_tac[terms_of_frag_uninst_term_ok] >>
        fs[valuates_frag_def] >> rw[] >> first_x_assum match_mp_tac >>
@@ -1154,7 +1158,7 @@ val termsem_or = Q.store_thm("termsem_or",
   simp[] >> PURE_ONCE_REWRITE_TAC[ext_type_frag_builtins_def] >> rw[] >>
   simp[apply_boolrel_rw]);
 
-val termsem_not = Q.store_thm("termsem_not",
+Theorem termsem_not
   `is_set_theory ^mem ⇒
   ∀δ γ sigma v s p1 p2.
     is_frag_interpretation (total_fragment s) δ γ ∧
@@ -1171,7 +1175,7 @@ val termsem_not = Q.store_thm("termsem_not",
   qmatch_goalsub_abbrev_tac `_ ' tm1` >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
   `tm1 ⋲ ext_type_frag_builtins δ (TYPE_SUBSTf sigma (typeof p1))`
-    by(unabbrev_all_tac >> 
+    by(unabbrev_all_tac >>
        match_mp_tac termsem_in_type_ext2 >> rpt(asm_exists_tac >> simp[]) >>
        conj_asm1_tac >- metis_tac[terms_of_frag_uninst_term_ok] >>
        fs[valuates_frag_def] >> rw[] >> first_x_assum match_mp_tac >>

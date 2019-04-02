@@ -1,3 +1,7 @@
+(*
+  An example universe satisfying is_set_theory and (assuming the
+  existence of an infinite set) is_model.
+*)
 open preamble bitTheory setSpecTheory
 
 val _ = new_theory"setModel"
@@ -12,9 +16,9 @@ val is_set_theory_pred_def = Define`
    (∀x y. is_v_rep x ∧ is_v_rep y ⇒ ∃z. is_v_rep z ∧ (∀a. is_v_rep a ⇒ (in_rep a z ⇔ (a = x ∨ a = y)))) ∧
    (∀x. is_v_rep x ⇒ ∃y. is_v_rep y ∧ (∀a. is_v_rep a ∧ in_rep a x ⇒ in_rep y x))`
 
-val l_model_exists = Q.store_thm("l_model_exists",
-  `∃(P : α+num -> bool) (mem : α+num -> α+num -> bool). is_set_theory_pred P mem`,
-  qexists_tac`ISR` >>
+Theorem l_model_exists
+  `∃(P : α+num -> bool) (mem : α+num -> α+num -> bool). is_set_theory_pred P mem`
+  (qexists_tac`ISR` >>
   REWRITE_TAC[is_set_theory_pred_def] >>
   qexists_tac`λl1 l2. BIT (OUTR l1) (OUTR l2)` >>
   conj_tac >- (qexists_tac`INR 0` >> simp[]) >>
@@ -180,9 +184,9 @@ val V_mem_rep_def =
 
 val V_mem_def = Define`V_mem x y = V_mem_rep (dest_V x) (dest_V y)`
 
-val is_set_theory_V = Q.store_thm("is_set_theory_V",
-  `is_set_theory V_mem`,
-  simp[is_set_theory_def] >>
+Theorem is_set_theory_V
+  `is_set_theory V_mem`
+  (simp[is_set_theory_def] >>
   conj_tac >- (
     simp[extensional_def] >>
     simp[V_mem_def] >>
@@ -239,9 +243,9 @@ val V_indset_def =
   new_specification("V_indset_def",["V_indset"],
     METIS_PROVE[]``∃i:α V. (∃x:α V. is_infinite V_mem x) ⇒ is_infinite V_mem i``)
 
-val is_model_V = Q.store_thm("is_model_V",
+Theorem is_model_V
   `(∃I:α V. is_infinite V_mem I) ⇒
-    is_model (V_mem,V_indset:α V,V_choice)`,
-  simp[is_model_def,is_set_theory_V,V_choice_def,V_indset_def])
+    is_model (V_mem,V_indset:α V,V_choice)`
+  (simp[is_model_def,is_set_theory_V,V_choice_def,V_indset_def])
 
 val _ = export_theory()

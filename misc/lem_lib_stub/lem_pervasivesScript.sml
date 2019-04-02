@@ -1,3 +1,6 @@
+(*
+  This is a file that is required for Lem to work.
+*)
 open HolKernel Parse boolLib bossLib;
 open intLib finite_mapTheory;
 

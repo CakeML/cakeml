@@ -1,3 +1,7 @@
+(*
+  A small-step semantics for CakeML. This semantics is no longer used
+  in the CakeML development.
+*)
 open import Pervasives_extra
 open import Lib
 open import Ast
@@ -24,7 +28,7 @@ type ctxt_frame =
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of maybe (id modN conN) * list v * unit * list exp
-  | Ctannot of unit * t
+  | Ctannot of unit * ast_t
   | Clannot of unit * locs
 type ctxt = ctxt_frame * sem_env v
 
@@ -180,7 +184,7 @@ let e_step (env, s, ev, c) =
               end
           | Log l e1 e2 -> push env s e1 (Clog l () e2) c
           | If e1 e2 e3 -> push env s e1 (Cif () e2 e3) c
-          | Mat e pes -> push env s e (Cmat () pes (Conv (Just ("Bind", TypeExn (Short "Bind"))) [])) c
+          | Mat e pes -> push env s e (Cmat () pes bind_exn_v) c
           | Let n e1 e2 -> push env s e1 (Clet n () e2) c
           | Letrec funs e ->
               if not (allDistinct (List.map (fun (x,y,z) -> x) funs)) then

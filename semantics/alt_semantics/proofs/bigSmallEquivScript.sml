@@ -1,3 +1,6 @@
+(*
+  Big step/small step equivalence
+*)
 open preamble;
 open libTheory semanticPrimitivesTheory bigStepTheory smallStepTheory;
 open bigSmallInvariantsTheory semanticPrimitivesPropsTheory determTheory bigClockTheory;
@@ -191,25 +194,26 @@ srw_tac[][] >|
 [pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once RTC_CASES1]) >>
      full_simp_tac(srw_ss())[return_def, e_step_reln_def, e_step_def, push_def, do_con_check_def] >>
      every_case_tac >>
-     full_simp_tac(srw_ss())[] >>
+     full_simp_tac(srw_ss())[bind_exn_v_def] >>
      metis_tac [pair_CASES],
  srw_tac[][return_def, Once RTC_CASES1, e_step_reln_def, e_step_def, push_def,REVERSE_APPEND,
      do_con_check_def] >>
+     fs [bind_exn_v_def] >>
      metis_tac [],
  pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once RTC_CASES1]) >>
-     full_simp_tac(srw_ss())[e_step_reln_def, e_step_def, push_def, return_def, do_con_check_def] >>
+     full_simp_tac(srw_ss())[e_step_reln_def, e_step_def, push_def, return_def, do_con_check_def, bind_exn_v_def] >>
      every_case_tac >>
      full_simp_tac(srw_ss())[] >>
      metis_tac [],
  srw_tac[][return_def, Once RTC_CASES1, e_step_reln_def, Once e_step_def, push_def,
      do_con_check_def] >>
-     full_simp_tac(srw_ss())[REVERSE_APPEND] >>
+     full_simp_tac(srw_ss())[REVERSE_APPEND, bind_exn_v_def] >>
      metis_tac [],
  qpat_x_assum `e_step_reln^* spat1 spat2`
              (ASSUME_TAC o
               SIMP_RULE (srw_ss()) [Once RTC_CASES1,e_step_reln_def,
                                     e_step_def, push_def]) >>
-     full_simp_tac(srw_ss())[] >>
+     full_simp_tac(srw_ss())[bind_exn_v_def] >>
      every_case_tac >>
      full_simp_tac(srw_ss())[return_def, do_con_check_def] >>
      srw_tac[][] >-
@@ -220,7 +224,7 @@ srw_tac[][] >|
      metis_tac [],
  srw_tac[][return_def, Once RTC_CASES1, e_step_reln_def, Once e_step_def, push_def,
      do_con_check_def] >>
-     full_simp_tac(srw_ss())[REVERSE_APPEND] >>
+     full_simp_tac(srw_ss())[REVERSE_APPEND, bind_exn_v_def] >>
      metis_tac []];
 
 val small_eval_raise = Q.prove (
@@ -281,7 +285,7 @@ small_eval_step_tac);
 val small_eval_match = Q.prove (
 `!env s e1 pes c r err_v.
   small_eval env s (Mat e1 pes) c r =
-  small_eval env s e1 ((Cmat () pes (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []),env)::c) r`,
+  small_eval env s e1 ((Cmat () pes (Conv (SOME bind_stamp) []),env)::c) r`,
 small_eval_step_tac);
 
 val small_eval_let = Q.prove (
@@ -1240,7 +1244,7 @@ val big_exp_to_small_exp = Q.prove (
                by (match_mp_tac small_eval_err_add_ctxt >>
                    srw_tac[][]) >>
        full_simp_tac(srw_ss())[])
-   >- (full_simp_tac(srw_ss())[small_eval_def] >>
+   >- (full_simp_tac(srw_ss())[small_eval_def, bind_exn_v_def] >>
        imp_res_tac small_eval_match_thm >>
        PairCases_on `r` >>
        full_simp_tac(srw_ss())[] >>
@@ -1250,7 +1254,7 @@ val big_exp_to_small_exp = Q.prove (
        srw_tac[][] >>
        full_simp_tac(srw_ss())[small_eval_def, alt_small_eval_def] >>
        metis_tac [transitive_def, transitive_RTC, e_step_add_ctxt, APPEND])
-   >- (`small_eval env (to_small_st s) e ([] ++ [(Cmat () pes (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []),env)]) (to_small_st s', Rerr err)`
+   >- (`small_eval env (to_small_st s) e ([] ++ [(Cmat () pes (Conv (SOME bind_stamp) []),env)]) (to_small_st s', Rerr err)`
                by (match_mp_tac small_eval_err_add_ctxt >>
                    srw_tac[][]) >>
        full_simp_tac(srw_ss())[])
@@ -1569,14 +1573,14 @@ srw_tac[][]);
 
 val evaluate_ctxts_type_error_matchable = Q.prove (
 `!a s c. s' = s ⇒ evaluate_ctxts s c (Rerr (Rabort a)) (s',Rerr (Rabort a))`,
-metis_tac[evaluate_ctxts_type_error])
+metis_tac[evaluate_ctxts_type_error]);
 
 val one_step_backward_type_error = Q.prove (
   `!env s e c.
     (e_step (env,to_small_st s,e,c) = Eabort a)
     ⇒
     evaluate_state (env,to_small_st s,e,c)
-      ((s with <| defined_mods := {}; defined_types := {}; clock := 0 |>),
+      ((s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>),
        Rerr (Rabort a))`,
   srw_tac[][e_step_def] >>
   cases_on `e` >>
@@ -1650,7 +1654,7 @@ val evaluate_state_no_ctxt = Q.prove (
 `!env s e r.
   evaluate_state (env,to_small_st s,Exp e,[]) r
   ⇔
-  evaluate F env (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>) e r`,
+  evaluate F env (s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>) e r`,
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  full_simp_tac(srw_ss())[to_small_st_def] >>
@@ -1662,7 +1666,7 @@ val evaluate_state_val_no_ctxt = Q.prove (
 `!env s e.
   evaluate_state (env,to_small_st s,Val e,[]) r
   ⇔
-  (r = (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>, Rval e))`,
+  (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>, Rval e))`,
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  full_simp_tac(srw_ss())[to_small_st_def] >>
@@ -1674,7 +1678,7 @@ val evaluate_state_val_raise_ctxt = Q.prove (
 `!env s v env'.
   evaluate_state (env,to_small_st s,Val v,[(Craise (), env')]) r
   ⇔
-  (r = (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>, Rerr (Rraise v)))`,
+  (r = (s with <| next_type_stamp := 0; next_exn_stamp := 0; clock := 0 |>, Rerr (Rraise v)))`,
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  srw_tac[][evaluate_state_cases, Once evaluate_ctxts_cases] >>
  srw_tac[][evaluate_ctxt_cases] >>
@@ -1687,15 +1691,15 @@ val evaluate_state_val_raise_ctxt = Q.prove (
 val evaluate_change_state = Q.prove(
   `evaluate a b c d (e,f) ∧ c = c' ∧ e = e' ⇒
    evaluate a b c' d (e',f)`,
-   srw_tac[][] >> srw_tac[][]) |> GEN_ALL
+   srw_tac[][] >> srw_tac[][]) |> GEN_ALL;
 
-val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
+Theorem small_big_exp_equiv
 `!env s e s' r.
   (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧
-   s.clock = s'.clock ∧ s.defined_types = s'.defined_types ∧ s.defined_mods = s'.defined_mods)
+   s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧ s.next_exn_stamp= s'.next_exn_stamp)
   ⇔
-  evaluate F env s e (s',r)`,
- srw_tac[][] >>
+  evaluate F env s e (s',r)`
+ (srw_tac[][] >>
  eq_tac
  >- (srw_tac[][] >>
      cases_on `r` >|
@@ -1704,9 +1708,9 @@ val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
      full_simp_tac(srw_ss())[small_eval_def] >>
      imp_res_tac small_exp_to_big_exp >>
      full_simp_tac(srw_ss())[evaluate_state_val_no_ctxt, evaluate_state_no_ctxt, evaluate_state_val_raise_ctxt] >>
-     imp_res_tac evaluate_ignores_types_mods >>
+     imp_res_tac evaluate_ignores_types_exns >>
      full_simp_tac(srw_ss())[] >> TRY (
-         pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
+         pop_assum (qspecl_then [`s.next_exn_stamp`, `s.next_type_stamp`] mp_tac) >>
          srw_tac[][] >>
          match_mp_tac evaluate_change_state >>
          imp_res_tac big_unclocked >>
@@ -1716,8 +1720,8 @@ val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
      (imp_res_tac one_step_backward_type_error >>
          full_simp_tac(srw_ss())[] >>
          res_tac >>
-         imp_res_tac evaluate_ignores_types_mods >>
-         pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
+         imp_res_tac evaluate_ignores_types_exns >>
+         pop_assum (qspecl_then [`s.next_exn_stamp`, `s.next_type_stamp`] mp_tac) >>
          srw_tac[][] >>
          pop_assum mp_tac >>
          ntac 3 (pop_assum kall_tac) >> strip_tac >>
@@ -1729,25 +1733,25 @@ val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
  >- (srw_tac[][] >>
      imp_res_tac big_exp_to_small_exp >>
      full_simp_tac(srw_ss())[small_eval_def, to_small_res_def] >>
-     metis_tac [evaluate_no_new_types_mods, FST, big_unclocked]));
+     metis_tac [evaluate_no_new_types_exns, FST, big_unclocked]));
 
 (* ---------------------- Small step determinacy ------------------------- *)
 
-val small_exp_determ = Q.store_thm ("small_exp_determ",
+Theorem small_exp_determ
 `!env s e r1 r2.
   small_eval env s e [] r1 ∧ small_eval env s e [] r2
   ⇒
-  (r1 = r2)`,
- srw_tac[][] >>
+  (r1 = r2)`
+ (srw_tac[][] >>
  assume_tac small_big_exp_equiv >>
  full_simp_tac(srw_ss())[to_small_st_def] >>
  PairCases_on `r1` >>
  PairCases_on `r2` >>
- pop_assum (qspecl_then [`env`, `<| ffi := SND s; refs := FST s; clock := 0; defined_types := {}; defined_mods := {} |>`, `e`] mp_tac) >>
+ pop_assum (qspecl_then [`env`, `<| ffi := SND s; refs := FST s; clock := 0; next_type_stamp := 0; next_exn_stamp := 0 |>`, `e`] mp_tac) >>
  simp [] >>
  strip_tac >>
- first_assum (qspec_then `<| ffi := r11; refs := r10; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
- first_assum (qspec_then `<| ffi := r21; refs := r20; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
+ first_assum (qspec_then `<| ffi := r11; refs := r10; clock := 0; next_type_stamp := 0; next_exn_stamp := 0 |>` mp_tac) >>
+ first_assum (qspec_then `<| ffi := r21; refs := r20; clock := 0; next_type_stamp := 0; next_exn_stamp := 0 |>` mp_tac) >>
  pop_assum kall_tac >>
  simp [] >>
  strip_tac >>

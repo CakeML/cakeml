@@ -1,3 +1,11 @@
+(*
+  This compiler phase maps wordLang programs into stackLang
+  programs. The most complicated part is the handling of spilled
+  variables in conjunction with function calls. This compiler phase
+  also introduces the so called bitmaps that the garbage collector
+  uses to known which variables it should treat as roots in a given
+  stack frame.
+*)
 open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
      word_allocTheory
 
@@ -185,7 +193,9 @@ val SeqStackFree_def = Define `
 val call_dest_def = Define `
   (call_dest (SOME pos) args kf = (Skip, INL pos)) /\
   (call_dest NONE args kf =
-     if LENGTH args = 0 then (Skip, INL 0n) else
+     if LENGTH args = 0
+       then (Skip, INL raise_stub_location) (* this case can never occur, raise_stub_location is convenient *)
+       else
        let (x1,r) = wReg2 (LAST args) kf in
          (wStackLoad x1 Skip, INR r))`
 

@@ -1,4 +1,7 @@
-open preamble backend_commonTheory closLangTheory conLangTheory
+(*
+  The formal semantics of closLang
+*)
+open preamble backend_commonTheory closLangTheory flatLangTheory
      semanticPrimitivesPropsTheory (* for opw_lookup and others *)
 
 val _ = new_theory"closSem"
@@ -26,14 +29,21 @@ val _ = Datatype `
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
 
+val _ = type_abbrev("clos_cc",
+  ``:'c -> closLang$exp list # (num # num # closLang$exp) list ->
+     (word8 list # word64 list # 'c) option``);
+
+val _ = type_abbrev("clos_co",
+  ``:num -> 'c # (closLang$exp list # (num # num # closLang$exp) list)``);
+
 val _ = Datatype `
   state =
     <| globals : (closSem$v option) list
      ; refs    : num |-> closSem$v ref
      ; ffi     : 'ffi ffi_state
      ; clock   : num
-     ; compile : 'c -> closLang$exp # (num # num # closLang$exp) list -> (word8 list # word64 list # 'c) option
-     ; compile_oracle : num -> 'c # (closLang$exp # (num # num # closLang$exp) list)
+     ; compile : 'c clos_cc
+     ; compile_oracle : 'c clos_co
      ; code    : num |-> (num # closLang$exp)
      ; max_app : num
     |> `
@@ -108,7 +118,7 @@ val list_to_v_def = Define `
 val Unit_def = Define`
   Unit = Block tuple_tag []`
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state),closSem$v)result``)
+val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``)
 
 val v_to_bytes_def = Define `
   v_to_bytes lv = some ns:word8 list.
@@ -130,8 +140,9 @@ val do_install_def = Define `
                 (if DISJOINT (FDOM s.code) (set (MAP FST (SND progs))) /\
                     ALL_DISTINCT (MAP FST (SND progs)) then
                  (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (exp,aux) =>
-                      if bytes = bytes' ∧ data = data' ∧ FST(new_oracle 0) = cfg' then
+                  | SOME (bytes',data',cfg'), (exps,aux) =>
+                      if bytes = bytes' ∧ data = data' ∧
+                         FST(new_oracle 0) = cfg' ∧ exps <> [] then
                        (let s' =
                           s with <|
                              code := s.code |++ aux
@@ -141,8 +152,8 @@ val do_install_def = Define `
                         in
                           if s.clock = 0
                           then (Rerr(Rabort Rtimeout_error),s')
-                          else (Rval exp, s'))
-                      else ((Rerr(Rabort Rtype_error):(closLang$exp,v)result),s)
+                          else (Rval exps, s'))
+                      else ((Rerr(Rabort Rtype_error):(closLang$exp list,v)result),s)
                   | _ => (Rerr(Rabort Rtype_error),s))
                   else (Rerr(Rabort Rtype_error),s))
             | _ => (Rerr(Rabort Rtype_error),s))
@@ -494,14 +505,14 @@ val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
 
 val _ = save_thm ("case_eq_thms", case_eq_thms);
 
-val do_install_clock = Q.store_thm("do_install_clock",
-  `do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1`,
-  rw[do_install_def,case_eq_thms]
+Theorem do_install_clock
+  `do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1`
+  (rw[do_install_def,case_eq_thms]
   \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]);
 
-val do_install_clock_less_eq = Q.store_thm("do_install_clock_less_eq",
-  `do_install vs s = (res,s') ⇒ s'.clock <= s.clock`,
-  rw[do_install_def,case_eq_thms] \\ fs []
+Theorem do_install_clock_less_eq
+  `do_install vs s = (res,s') ⇒ s'.clock <= s.clock`
+  (rw[do_install_def,case_eq_thms] \\ fs []
   \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]);
 
 val evaluate_def = tDefine "evaluate" `
@@ -538,9 +549,14 @@ val evaluate_def = tDefine "evaluate" `
      case fix_clock s (evaluate (xs,env,s)) of
      | (Rval vs,s) =>
        if op = Install then
+       (*
        (case do_install (REVERSE vs) s of
-        | (Rval e,s) => evaluate ([e],[],s)
+        | (Rval es,s) =>
+            (case evaluate (es,[],s) of
+             | (Rval vs,s) => (Rval [LAST vs],s)
+             | res => res)
         | (Rerr err,s) => (Rerr err,s))
+       *) (Rerr (Rabort Rtype_error), s)
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)
@@ -629,14 +645,14 @@ val evaluate_app_NIL = save_thm(
 
 (* We prove that the clock never increases. *)
 
-val do_app_const = Q.store_thm("do_app_const",
+Theorem do_app_const
   `(do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\
     (s2.max_app = s1.max_app) /\
     (s2.code = s1.code) /\
     (s2.compile_oracle = s1.compile_oracle) /\
-    (s2.compile = s1.compile)`,
-  simp[do_app_def,case_eq_thms]
+    (s2.compile = s1.compile)`
+  (simp[do_app_def,case_eq_thms]
   \\ strip_tac \\ fs[] \\ rveq \\ fs[]
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]);
 
@@ -658,16 +674,16 @@ val evaluate_clock_help = Q.prove (
   \\ IMP_RES_TAC do_install_clock_less_eq
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC);
 
-val evaluate_clock = Q.store_thm("evaluate_clock",
+Theorem evaluate_clock
 `(!xs env s1 vs s2.
       (evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock) ∧
     (!loc_opt f args s1 vs s2.
-      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`,
-metis_tac [evaluate_clock_help, SND]);
+      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`
+(metis_tac [evaluate_clock_help, SND]);
 
-val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
-  `fix_clock s (evaluate (xs,env,s)) = evaluate (xs,env,s)`,
-  Cases_on `evaluate (xs,env,s)` \\ fs [fix_clock_def]
+Theorem fix_clock_evaluate
+  `fix_clock s (evaluate (xs,env,s)) = evaluate (xs,env,s)`
+  (Cases_on `evaluate (xs,env,s)` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,theorem "state_component_equality"]);
 

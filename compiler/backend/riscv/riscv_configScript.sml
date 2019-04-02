@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for RISC-V
+*)
 open preamble backendTheory riscv_targetTheory riscv_targetLib
 
 val _ = new_theory"riscv_config";
@@ -38,7 +41,6 @@ val riscv_names_def = save_thm("riscv_names_def",
   CONV_RULE (RAND_CONV EVAL) riscv_names_def);
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)
-val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := λn. NONE |>``
@@ -50,14 +52,14 @@ val riscv_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=riscv_confi
 val riscv_backend_config_def = Define`
   riscv_backend_config =
              <|source_conf:=^(source_conf);
-               mod_conf:=^(mod_conf);
                clos_conf:=^(clos_conf);
                bvl_conf:=^(bvl_conf);
                data_conf:=^(riscv_data_conf);
                word_to_word_conf:=^(word_to_word_conf);
                word_conf:=^(riscv_word_conf);
                stack_conf:=^(riscv_stack_conf);
-               lab_conf:=^(riscv_lab_conf)
+               lab_conf:=^(riscv_lab_conf);
+               tap_conf:=default_tap_config
                |>`;
 
 val _ = export_theory();

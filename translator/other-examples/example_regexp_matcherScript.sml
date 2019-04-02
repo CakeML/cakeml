@@ -1,4 +1,7 @@
-
+(*
+  This is a simple example of applying the translator to a
+  matcher for regular expressions.
+*)
 open HolKernel Parse boolLib bossLib; val _ = new_theory "example_regexp_matcher";
 
 open arithmeticTheory listTheory sortingTheory regexpMatchTheory;

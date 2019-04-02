@@ -1,3 +1,7 @@
+(*
+  This is a simple example of applying the translator to the
+  TEA block cipher.
+*)
 open HolKernel bossLib Theory Parse Tactic boolLib Lib
 
 val _ = new_theory "example_tea";

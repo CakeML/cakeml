@@ -1,22 +1,25 @@
+(*
+  Apply the monadic translator to the Candle kernel to generate the
+  deeply embedded CakeML code for the kernel. As a side effect, the
+  monadic translator proves certificate theorems that state a formal
+  connection between the generated code and the input HOL functions.
+*)
 open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory bigStepTheory semanticPrimitivesTheory
-open terminationTheory ml_progLib ml_progTheory
+open astTheory libTheory evaluateTheory semanticPrimitivesTheory
+open terminationTheory ml_progLib ml_progTheory terminationTheory
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
 open cfHeapsBaseTheory basisFunctionsLib
 open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
 open holKernelTheory
+open basisProgTheory
+open holAxiomsSyntaxTheory (* for setting up the context *)
 
 val _ = new_theory "ml_hol_kernelProg";
+val _ = translation_extends "basisProg"
 
 val _ = (use_full_type_names := false);
 
 val _ = hide "abs";
-
-val _ = register_type ``:ordering``
-val _ = register_type ``:'a # 'b``;
-val _ = register_type ``:'a list``
-val _ = register_type ``:'a option``
-val _ = register_type ``:unit``
 
 val _ = ml_prog_update (open_module "Kernel");
 
@@ -26,101 +29,17 @@ val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 val _ = register_type ``:type``;
 
-val MEM_type_size = Q.prove(
-  `!ts t. MEM t ts ==> type_size t < type1_size ts`,
-  Induct \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ EVAL_TAC \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC);
-
-val type_ind = Q.store_thm("type_ind",
-  `(!s ts. (!t. MEM t ts ==> P t) ==> P (Tyapp s ts)) /\
-    (!v. P (Tyvar v)) ==> !x. P x`,
-  REPEAT STRIP_TAC \\ completeInduct_on `type_size x`
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
-  \\ Cases_on `x` \\ FULL_SIMP_TAC std_ss []
-  \\ Q.PAT_X_ASSUM `!x1 x2. bb` MATCH_MP_TAC
-  \\ REPEAT STRIP_TAC \\ Q.PAT_X_ASSUM `!x.bbb` MATCH_MP_TAC
-  \\ EVAL_TAC \\ IMP_RES_TAC MEM_type_size \\ DECIDE_TAC);
-
-val TYPE_TYPE_def = fetch "-" "TYPE_TYPE_def"
-
-val LIST_TYPE_NO_CLOSURES = Q.prove(
-  `!xs v.
-      (!x v. MEM x xs /\ p x v ==> no_closures v) /\
-      LIST_TYPE p xs v ==> no_closures v`,
-  Induct \\ FULL_SIMP_TAC std_ss [LIST_TYPE_def]
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF,MEM]
-  \\ METIS_TAC []);
-
-val LIST_TYPE_11 = Q.prove(
-  `!P ts v1 us v2.
-      (!x1.
-       MEM x1 ts ==>
-        !v1 x2 v2.
-          P x1 v1 /\ P x2 v2 ==>
-          types_match v1 v2 /\ ((v1 = v2) <=> (x1 = x2))) /\
-    LIST_TYPE P ts v1 /\ LIST_TYPE P us v2 ==>
-    types_match v1 v2 /\ ((v1 = v2) = (ts = us))`,
-  STRIP_TAC \\ Induct \\ Cases_on `us` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [LIST_TYPE_def,types_match_def,ctor_same_type_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS,types_match_def,ctor_same_type_def]
-  \\ METIS_TAC []);
-
-val CHAR_IMP_no_closures = Q.prove(
-  `CHAR x v ==> no_closures v`,
-  SIMP_TAC std_ss [CHAR_def,no_closures_def]);
-
-val STRING_IMP_no_closures = Q.prove(
-  `STRING_TYPE x v ==> no_closures v`,
-  Cases_on`x` \\ SIMP_TAC std_ss [STRING_TYPE_def,no_closures_def]);
-
-val EqualityType_thm = Q.prove(
-  `EqualityType abs <=>
-      (!x1 v1. abs x1 v1 ==> no_closures v1) /\
-      (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2 /\
-                                                (v1 = v2 <=> x1 = x2))`,
-  SIMP_TAC std_ss [EqualityType_def] \\ METIS_TAC []);
-
-val STRING_TYPE_lemma = Q.prove(
-  `EqualityType (STRING_TYPE)`,
-  METIS_TAC (eq_lemmas ()));
-
-val EqualityType_TYPE = Q.prove(
-  `EqualityType TYPE_TYPE`,
-  SIMP_TAC std_ss [EqualityType_thm] \\ STRIP_TAC THEN1
-   (HO_MATCH_MP_TAC type_ind
-    \\ FULL_SIMP_TAC std_ss [TYPE_TYPE_def]
-    \\ REPEAT STRIP_TAC
-    \\ FULL_SIMP_TAC std_ss [no_closures_def,EVERY_DEF]
-    \\ IMP_RES_TAC (LIST_TYPE_NO_CLOSURES |> GEN_ALL)
-    \\ METIS_TAC [CHAR_IMP_no_closures,STRING_IMP_no_closures])
-  \\ HO_MATCH_MP_TAC type_ind \\ reverse STRIP_TAC THEN1
-   (REPEAT STRIP_TAC
-    \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def]
-    \\ ASSUME_TAC STRING_TYPE_lemma
-    \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC)
-  \\ REPEAT GEN_TAC \\ STRIP_TAC \\ REPEAT GEN_TAC \\ STRIP_TAC
-  \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def]
-  \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 /\ (x1 = y1)) /\ (b2 /\ (x2 = y2)) ==>
-       (b1 /\ b2) /\ ((x1 /\ x2 <=> y1 /\ y2))``)
-  \\ STRIP_TAC THEN1
-   (ASSUME_TAC STRING_TYPE_lemma
-    \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC
-    \\ ASM_SIMP_TAC std_ss [])
-  \\ MATCH_MP_TAC LIST_TYPE_11
-  \\ Q.EXISTS_TAC `TYPE_TYPE`
-  \\ FULL_SIMP_TAC std_ss []
-  \\ REPEAT STRIP_TAC \\ RES_TAC)
-  |> store_eq_thm;
+(* check ``:type`` is known to be an EqualityType *)
+val EqualityType_TYPE = EqualityType_rule [] ``:type``;
 
 val _ = register_type ``:term``;
 val _ = register_exn_type ``:hol_exn``;
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
 
 (* Initialize the translation *)
+
 val init_type_constants_def = Define `
-init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
+  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
 
 val init_term_constants_def = Define `
   init_term_constants = [(strlit"=",
@@ -148,7 +67,6 @@ val refs_init_list = [
 val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
 val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
 
-
 val raise_functions = [raise_Fail_def, raise_Clash_def];
 val handle_functions = [handle_Fail_def, handle_Clash_def];
 val exn_functions = zip raise_functions handle_functions;
@@ -159,13 +77,13 @@ val exn_ri_def = HOL_EXN_TYPE_def
 
 val (monad_parameters, store_translation, exn_specs) =
     start_static_init_fixed_store_translation refs_init_list
-					      rarrays_init_list
-					      farrays_init_list
-					      store_hprop_name
-					      state_type
-					      exn_ri_def
-					      exn_functions
-					      []
+                                              rarrays_init_list
+                                              farrays_init_list
+                                              store_hprop_name
+                                              state_type
+                                              exn_ri_def
+                                              exn_functions
+                                              []
                                               NONE
                                               NONE;
 
@@ -173,16 +91,8 @@ val (monad_parameters, store_translation, exn_specs) =
 (**************************************************************************************************)
 (* --- perform translation --- *)
 
-val res = translate FST;
-val res = translate SND;
-val res = translate listTheory.LENGTH;
-val res = translate listTheory.MAP;
-val res = translate MEMBER_def;
-val res = translate listTheory.EVERY_DEF;
-val res = translate listTheory.EXISTS_DEF;
-val res = translate listTheory.FILTER;
-val res = translate listTheory.APPEND;
 (* TODO: want builtin support for these *)
+(*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
 val explode_aux_side_thm = Q.prove(
@@ -193,34 +103,12 @@ val explode_side_thm = Q.prove(
   rw[definition"explode_side_def",explode_aux_side_thm])
   |> update_precondition
 val res = translate mlstringTheory.strcat_def;
+*) (* TODO temporary *)
+
 val res = translate stringTheory.string_lt_def
 val res = translate stringTheory.string_le_def
-val res = Q.prove(`mlstring_lt x1 x2 = string_lt (explode x1) (explode x2)`,
-                simp [inv_image_def, mlstringTheory.mlstring_lt_inv_image])
-          |> translate
 val res = translate totoTheory.TO_of_LinearOrder
-val res = translate mlstringTheory.compare_aux_def
-val res = translate mlstringTheory.compare_def
 
-(* Copy and paste from mlstringProg *)
-val compare_aux_side_def = theorem"compare_aux_side_def";
-val compare_side_def = definition"compare_side_def";
-
-val compare_aux_side_thm = Q.prove (
-  `!s1 s2 ord n len. (n + len =
-    if strlen s1 < strlen s2
-      then strlen s1
-    else strlen s2) ==> compare_aux_side s1 s2 ord n len`,
-  Induct_on `len` \\ rw [Once compare_aux_side_def]
-);
-
-val compare_side_thm = Q.prove (
-  `!s1 s2. compare_side s1 s2`,
-  rw [compare_side_def, compare_aux_side_thm] ) |> update_precondition
-(* end copy and paste *)
-
-val res = translate comparisonTheory.pair_cmp_def
-val res = translate ternaryComparisonsTheory.list_compare_def
 (* -- *)
 val res = translate (subset_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (holSyntaxExtraTheory.subtract_def |> REWRITE_RULE [MEMBER_INTRO]);
@@ -234,6 +122,13 @@ val res = translate rev_assocd_def;
 val res = translate holKernelTheory.type_subst_def;
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
+
+Theorem raconv_side
+  `!x y z. raconv_side x y z`
+  (ho_match_mp_tac holKernelTheory.raconv_ind
+  \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
+  |> update_precondition;
+
 val res = translate aconv_def;
 val res = translate holKernelPmatchTheory.is_var_def;
 val res = translate holKernelPmatchTheory.is_const_def;
@@ -241,7 +136,6 @@ val res = translate holKernelPmatchTheory.is_abs_def;
 val res = translate holKernelPmatchTheory.is_comb_def;
 val res = translate mk_var_def;
 val res = translate holSyntaxExtraTheory.frees_def;
-val res = translate combinTheory.o_DEF;
 val res = translate freesl_def;
 val res = translate (freesin_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate holKernelPmatchTheory.vfree_in_def;
@@ -253,9 +147,6 @@ val res = translate holKernelPmatchTheory.is_eq_def;
 val res = translate dest_thm_def;
 val res = translate hyp_def;
 val res = translate concl_def;
-val res = translate sortingTheory.PART_DEF;
-val res = translate sortingTheory.PARTITION_DEF;
-val res = translate sortingTheory.QSORT_DEF;
 
 val type_compare_def = tDefine "type_compare" `
   (type_compare t1 t2 =
@@ -398,7 +289,14 @@ val def = inst_def |> m_translate
 val def = mk_eq_def |> m_translate
 val def = REFL_def |> m_translate
 val def = holKernelPmatchTheory.TRANS_def |> m_translate
-val def = holKernelPmatchTheory.MK_COMB_def |> m_translate
+
+val MK_COMB_lemma = prove(
+  ``MK_COMB x = case x of (Sequent asl1 c1,Sequent asl2 c2) =>
+                  MK_COMB (Sequent asl1 c1,Sequent asl2 c2)``,
+  every_case_tac)
+  |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss [holKernelPmatchTheory.MK_COMB_def]));
+
+val def = MK_COMB_lemma |> m_translate
 val def = holKernelPmatchTheory.ABS_def |> m_translate
 val def = holKernelPmatchTheory.BETA_def |> m_translate
 val def = DEDUCT_ANTISYM_RULE_def |> m_translate
@@ -412,6 +310,11 @@ val def = PROVE_HYP_def |> m_translate
 val def = list_to_hypset_def |> translate
 val def = ALPHA_THM_def |> m_translate
 
+val def = axioms_def |> m_translate
+val def = types_def |> m_translate
+val def = constants_def |> m_translate
+val def = context_def |> m_translate
+
 val _ = ml_prog_update (close_module NONE); (* TODO: needs signature SOME ... *)
 
 (* extract the interesting thm *)
@@ -423,8 +326,7 @@ fun define_abbrev_conv name tm = let
   in GSYM def |> SPEC_ALL end
 
 val candle_prog_thm =
-  get_thm (get_ml_prog_state()) (* (get_curr_prog_state ()) *)
-  |> REWRITE_RULE [ML_code_def]
+  get_Decls_thm (get_ml_prog_state()) (* (get_curr_prog_state ()) *)
   |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV)
                 (EVAL THENC define_abbrev_conv "candle_code"))
   |> CONV_RULE ((RATOR_CONV o RAND_CONV)

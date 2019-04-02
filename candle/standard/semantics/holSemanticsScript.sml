@@ -1,6 +1,13 @@
+(*
+  Define semantics for HOL sequents, in particular the notion of entailment
+  i.e. valid sequents, which are those that satisfied by any model of the
+  theory context.
+*)
 open HolKernel boolLib boolSimps bossLib lcsymtacs holSyntaxTheory holSyntaxExtraTheory setSpecTheory
 
 val _ = new_theory"holSemantics"
+
+val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
@@ -248,7 +255,7 @@ val RTC_lifts_invariants_inv = Q.prove(
   >> metis_tac[])
 
 val terms_of_frag_combE = Q.store_thm("terms_of_frag_combE",
-  `!f a b sig. is_sig_fragment sig f /\ Comb a b ∈ terms_of_frag f ==> 
+  `!f a b sig. is_sig_fragment sig f /\ Comb a b ∈ terms_of_frag f ==>
    a ∈ terms_of_frag f /\ b ∈ terms_of_frag f`,
   Cases
   >> rw[terms_of_frag_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
@@ -257,7 +264,7 @@ val terms_of_frag_combE = Q.store_thm("terms_of_frag_combE",
   >> fs[] >> metis_tac[]);
 
 val terms_of_frag_uninst_combE = Q.store_thm("terms_of_frag_uninst_combE",
-  `!f a b sig sigma. is_sig_fragment sig f /\ Comb a b ∈ terms_of_frag_uninst f sigma ==> 
+  `!f a b sig sigma. is_sig_fragment sig f /\ Comb a b ∈ terms_of_frag_uninst f sigma ==>
    a ∈ terms_of_frag_uninst f sigma /\ b ∈ terms_of_frag_uninst f sigma`,
   Cases
   >> rw[terms_of_frag_uninst_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
@@ -267,7 +274,7 @@ val terms_of_frag_uninst_combE = Q.store_thm("terms_of_frag_uninst_combE",
   >> fs[] >> metis_tac[]);
 
 val terms_of_frag_AbsE = Q.store_thm("terms_of_frag_AbsE",
-  `!f a b sig. is_sig_fragment sig f /\ Abs a b ∈ terms_of_frag f ==> 
+  `!f a b sig. is_sig_fragment sig f /\ Abs a b ∈ terms_of_frag f ==>
    a ∈ terms_of_frag f /\ b ∈ terms_of_frag f`,
   Cases
   >> rw[terms_of_frag_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
@@ -276,7 +283,7 @@ val terms_of_frag_AbsE = Q.store_thm("terms_of_frag_AbsE",
   >> fs[] >> metis_tac[has_type_rules]);
 
 val terms_of_frag_uninst_AbsE = Q.store_thm("terms_of_frag_uninst_AbsE",
-  `!f a b sig sigma. is_sig_fragment sig f /\ Abs a b ∈ terms_of_frag_uninst f sigma ==> 
+  `!f a b sig sigma. is_sig_fragment sig f /\ Abs a b ∈ terms_of_frag_uninst f sigma ==>
    a ∈ terms_of_frag_uninst f sigma /\ b ∈ terms_of_frag_uninst f sigma`,
   Cases
   >> rw[terms_of_frag_uninst_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
@@ -286,7 +293,7 @@ val terms_of_frag_uninst_AbsE = Q.store_thm("terms_of_frag_uninst_AbsE",
 
 val terms_of_frag_combI = Q.store_thm("terms_of_frag_combI",
   `!f a b sig. is_sig_fragment sig f /\ a ∈ terms_of_frag f /\ b ∈ terms_of_frag f
-           /\ welltyped(Comb a b)==> 
+           /\ welltyped(Comb a b)==>
    Comb a b ∈ terms_of_frag f`,
   Cases
   >> rw[terms_of_frag_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
@@ -297,7 +304,7 @@ val terms_of_frag_combI = Q.store_thm("terms_of_frag_combI",
 
 val terms_of_frag_uninst_combI = Q.store_thm("terms_of_frag_uninst_combI",
   `!f a b sig sigma. is_sig_fragment sig f /\ a ∈ terms_of_frag_uninst f sigma /\ b ∈ terms_of_frag_uninst f sigma
-           /\ welltyped(Comb a b)==> 
+           /\ welltyped(Comb a b)==>
    Comb a b ∈ terms_of_frag_uninst f sigma`,
   Cases
   >> rw[terms_of_frag_uninst_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
@@ -308,7 +315,7 @@ val terms_of_frag_uninst_combI = Q.store_thm("terms_of_frag_uninst_combI",
 
 val terms_of_frag_absI = Q.store_thm("terms_of_frag_absI",
   `!f a b sig. is_sig_fragment sig f /\ a ∈ terms_of_frag f /\ b ∈ terms_of_frag f
-           /\ welltyped(Abs a b)==> 
+           /\ welltyped(Abs a b)==>
    Abs a b ∈ terms_of_frag f`,
   Cases
   >> rw[terms_of_frag_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
@@ -319,7 +326,7 @@ val terms_of_frag_absI = Q.store_thm("terms_of_frag_absI",
 
 val terms_of_frag_uninst_absI = Q.store_thm("terms_of_frag_uninst_absI",
   `!f a b sig sigma. is_sig_fragment sig f /\ a ∈ terms_of_frag_uninst f sigma /\ b ∈ terms_of_frag_uninst f sigma
-           /\ welltyped(Abs a b)==> 
+           /\ welltyped(Abs a b)==>
    Abs a b ∈ terms_of_frag_uninst f sigma`,
   Cases
   >> rw[terms_of_frag_uninst_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,welltyped_def,
@@ -428,7 +435,7 @@ val term_frag_uninst_in_type_frag = Q.store_thm("term_frag_uninst_in_type_frag",
   Cases
   >> rw[types_of_frag_def,ground_types_def,pred_setTheory.SUBSET_DEF,is_sig_fragment_def,
         welltyped_def,terms_of_frag_uninst_def]
-  >> fs[listTheory.MEM_FLAT,listTheory.MEM_MAP,PULL_EXISTS]  
+  >> fs[listTheory.MEM_FLAT,listTheory.MEM_MAP,PULL_EXISTS]
   >> match_mp_tac builtin_closure_allTypes'''
   >> rw[] >> first_x_assum match_mp_tac
   >> imp_res_tac WELLTYPED_LEMMA
@@ -556,7 +563,7 @@ val is_type_frag_interpretation_ext = Q.store_thm("is_type_frag_interpretation_e
    is_type_frag_interpretation (builtin_closure tyfrag) (ext_type_frag_builtins δ)`,
   rw[] >> rw[is_type_frag_interpretation_def]
   >> qhdtm_x_assum `is_type_frag_interpretation0` mp_tac
-  >> qhdtm_x_assum `is_sig_fragment` mp_tac    
+  >> qhdtm_x_assum `is_sig_fragment` mp_tac
   >> pop_assum mp_tac
   >> simp[boolTheory.IN_DEF]
   >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`ty`,`tyfrag`]
@@ -716,7 +723,7 @@ val is_std_interpretation_def = xDefine "is_std_interpretation"`
           (λx. Abstract (δ ty) boolset (λy. Boolean (x = y)))`
 
 val _ = Parse.overload_on("is_std_interpretation",``is_std_interpretation0 ^mem``);
-                                         
+
 val termsem_in_type = Q.store_thm("termsem_in_type",
   `!tyfrag tmfrag δ γ v sigma tm.
   is_set_theory ^mem /\
@@ -1001,7 +1008,7 @@ val LIST_UNION_EQ_NIL = Q.store_thm("LIST_UNION_EQ_NIL",
   rw[EQ_IMP_THM]
   \\ `set(LIST_UNION a1 a2) = set []` by(simp_tac list_ss [] \\ pop_assum ACCEPT_TAC)
   \\ fs[]);
-                         
+
 val total_fragment_def = Define `
   total_fragment sig = (ground_types sig ∩ nonbuiltin_types, ground_consts sig ∩ nonbuiltin_constinsts)`
 
@@ -1033,7 +1040,7 @@ val total_fragment_is_top_fragment = Q.store_thm("total_fragment_is_top_fragment
 
 val satisfies_t_def = xDefine"satisfies_t"`
   satisfies_t0 ^mem sig δ γ (h,c) ⇔
-  !sigma. 
+  !sigma.
     (!ty. tyvars(sigma ty) = []) /\
     (!ty. type_ok (tysof sig) (sigma ty)) /\
     EVERY (λtm. tm ∈ ground_terms_uninst sig sigma) h /\ c ∈ ground_terms_uninst sig sigma

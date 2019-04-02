@@ -1,3 +1,8 @@
+(*
+  Properties of the CakeML CFG, including automatically derived
+  nullability results for various non-terminals, and results about
+  the grammar’s rules finite map.
+*)
 open HolKernel Parse boolLib bossLib
 
 open lcsymtacs boolSimps
@@ -280,11 +285,10 @@ val fringe_lengths_def = Define`
 `
 
 val RTC_R_I = relationTheory.RTC_RULES |> SPEC_ALL |> CONJUNCT2 |> GEN_ALL
-val fringe_length_ptree = Q.store_thm(
-  "fringe_length_ptree",
+Theorem fringe_length_ptree
   `∀G i pt. ptree_fringe pt = MAP TOK i ∧ valid_ptree G pt ⇒
-           LENGTH i ∈ fringe_lengths G [ptree_head pt]`,
-  ntac 2 gen_tac >>
+           LENGTH i ∈ fringe_lengths G [ptree_head pt]`
+  (ntac 2 gen_tac >>
   HO_MATCH_MP_TAC grammarTheory.ptree_ind >> dsimp[MAP_EQ_SING] >>
   conj_tac
   >- ( simp[fringe_lengths_def] >> rpt strip_tac >>
@@ -296,28 +300,25 @@ val fringe_length_ptree = Q.store_thm(
   `MAP TOK i = ptree_fringe pt` by simp[Abbr`pt`] >> simp[] >>
   match_mp_tac grammarTheory.valid_ptree_derive >> simp[Abbr`pt`]);
 
-val fringe_length_not_nullable = Q.store_thm(
-  "fringe_length_not_nullable",
+Theorem fringe_length_not_nullable
   `∀G s. ¬nullable G [s] ⇒
           ∀pt. ptree_head pt = s ⇒ valid_ptree G pt ⇒
-               0 < LENGTH (ptree_fringe pt)`,
-  spose_not_then strip_assume_tac >>
+               0 < LENGTH (ptree_fringe pt)`
+  (spose_not_then strip_assume_tac >>
   `LENGTH (ptree_fringe pt) = 0` by decide_tac >>
   fs[listTheory.LENGTH_NIL] >>
   erule mp_tac grammarTheory.valid_ptree_derive >>
   fs[NTpropertiesTheory.nullable_def]);
 
-val derives_singleTOK = Q.store_thm(
-  "derives_singleTOK",
-  `derives G [TOK t] l ⇔ (l = [TOK t])`,
-  simp[Once relationTheory.RTC_CASES1, grammarTheory.derive_def] >>
+Theorem derives_singleTOK
+  `derives G [TOK t] l ⇔ (l = [TOK t])`
+  (simp[Once relationTheory.RTC_CASES1, grammarTheory.derive_def] >>
   metis_tac[]);
 val _ = export_rewrites ["derives_singleTOK"]
 
-val fringe_lengths_V = Q.store_thm(
-  "fringe_lengths_V",
-  `fringe_lengths cmlG [NT (mkNT nV)] = {1}`,
-  simp[fringe_lengths_def] >>
+Theorem fringe_lengths_V
+  `fringe_lengths cmlG [NT (mkNT nV)] = {1}`
+  (simp[fringe_lengths_def] >>
   simp[Once relationTheory.RTC_CASES1, MAP_EQ_SING, cmlG_FDOM] >>
   dsimp[MAP_EQ_SING,cmlG_applied] >>
   simp[EXTENSION, EQ_IMP_THM] >> qx_gen_tac `t` >> rpt strip_tac >>

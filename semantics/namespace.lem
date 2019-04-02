@@ -1,3 +1,7 @@
+(*
+  Defines a datatype for nested namespaces where names can be either
+  short (e.g. foo) or long (e.g. ModuleA.InnerB.bar).
+*)
 open import Pervasives
 open import Set_extra
 

@@ -1,3 +1,6 @@
+(*
+  Hello World example, printing to standard output.
+*)
 open preamble basis
 
 val _ = new_theory "helloProg"
@@ -11,17 +14,17 @@ val () = append_prog hello
 
 val st = get_ml_prog_state ()
 
-val hello_spec = Q.store_thm ("hello_spec",
+Theorem hello_spec
   ` app (p:'ffi ffi_proj) ^(fetch_v "hello" st)
         [Conv NONE []]
         (STDIO fs)
-        (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (strlit "Hello World!\n")))`,
-  xcf "hello" st \\ xapp \\ xsimpl);
+        (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (strlit "Hello World!\n")))`
+  (xcf "hello" st \\ xapp \\ xsimpl);
 
-val hello_whole_prog_spec = Q.store_thm("hello_whole_prog_spec",
-  `whole_prog_spec ^(fetch_v "hello" st) cl fs
-    ((=) (add_stdout fs (strlit "Hello World!\n")))`,
-  rw[whole_prog_spec_def]
+Theorem hello_whole_prog_spec
+  `whole_prog_spec ^(fetch_v "hello" st) cl fs NONE
+    ((=) (add_stdout fs (strlit "Hello World!\n")))`
+  (rw[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]

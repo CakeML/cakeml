@@ -33,7 +33,9 @@ val add_basic_compset =
    , finite_mapLib.add_finite_map_compset
    , sptreeLib.add_sptree_compset
    , pegLib.add_peg_compset
-   , state_monadLib.add_state_monad_compset],
+   , state_monadLib.add_state_monad_compset
+   , alistLib.add_alist_compset
+   , sortingLib.add_sorting_compset],
    computeLib.Tys
    [ (* misc *)
      ``:α app_list``
@@ -46,13 +48,9 @@ val add_basic_compset =
    , miscTheory.LEAST_thm
    , miscTheory.least_from_thm
    , miscTheory.lookup_any_def
-   , miscTheory.list_insert_def
-   , miscTheory.list_to_num_set_def
-   , miscTheory.bytes_in_word_def
    , miscTheory.UPDATE_LIST_THM
    , miscTheory.list_max_def
    , miscTheory.anub_def
-   , miscTheory.safeTL_def
    , miscTheory.zlookup_def
    , miscTheory.tlookup_def
    , miscTheory.any_el_def
@@ -62,16 +60,10 @@ val add_basic_compset =
    , miscTheory.option_fold_def
    , miscTheory.list_subset_def
    , miscTheory.list_set_eq_def
-   , listTheory.LIST_REL_def
    , libTheory.the_def
-   (* TODO: should be in HOL *)
-   ,optionTheory.OPTION_MAP2_DEF
-   ,optionTheory.OPTION_JOIN_DEF
-   ,alistTheory.alist_to_fmap_def
-   ,alistTheory.ALOOKUP_def
-   ,sortingTheory.PARTITION_DEF
-   ,sortingTheory.PART_DEF
-   ,sortingTheory.QSORT_DEF
-   ,sptreeTheory.inter_eq_def
-   ,sptreeTheory.filter_v_def] ]
+   (* TODO: move to HOL *)
+   , listTheory.LIST_REL_def
+   , byteTheory.bytes_in_word_def
+   ]
+  ]
 end

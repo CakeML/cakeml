@@ -1,3 +1,6 @@
+(*
+  Prove determinism lemmas about the type inferencer.
+*)
 open preamble;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory;
@@ -15,16 +18,16 @@ val sub_completion_empty = Q.prove (
  rw [sub_completion_def, pure_add_constraints_def] >>
  metis_tac []);
 
-val type_p_pat_bindings = Q.store_thm ("type_p_pat_bindings",
+Theorem type_p_pat_bindings
 `(∀tvs tenv p t new_bindings.
   type_p tvs tenv p t new_bindings ⇒ MAP FST new_bindings = pat_bindings p []) ∧
  (∀tvs tenv ps ts new_bindings.
-  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps [])`,
- ho_match_mp_tac type_p_ind >>
+  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps [])`
+ (ho_match_mp_tac type_p_ind >>
  rw [pat_bindings_def] >>
  metis_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]);
 
-val infer_pe_complete = Q.store_thm ("infer_pe_complete",
+Theorem infer_pe_complete
   `ienv_ok {} ienv ∧
     env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty) ∧
     ALL_DISTINCT (pat_bindings p []) ∧
@@ -32,7 +35,7 @@ val infer_pe_complete = Q.store_thm ("infer_pe_complete",
     type_e tenv (bind_tvar tvs Empty) e t1
     ⇒
     ?t t' new_bindings st st' s constrs s'.
-      infer_e loc ienv e init_infer_state = (Success t, st) ∧
+      infer_e loc ienv e (init_infer_state ss) = (Success t, st) ∧
       infer_p loc ienv p st = (Success (t', new_bindings), st') ∧
       t_unify st'.subst t t' = SOME s ∧
       sub_completion tvs st'.next_uvar s constrs s' ∧
@@ -42,13 +45,13 @@ val infer_pe_complete = Q.store_thm ("infer_pe_complete",
       t_wfs s ∧
       (* This might be implied by something above *)
       EVERY (λ(n,t). check_t tvs {} (t_walkstar s' t)) new_bindings ∧
-      convert_env s' new_bindings = tenv1`,
-  rw []
+      convert_env s' new_bindings = tenv1`
+  (rw []
   >> drule (CONJUNCT1 infer_e_complete)
   >> drule (CONJUNCT1 infer_p_complete) >>
   rw [] >>
-  `t_wfs init_infer_state.subst` by rw [t_wfs_def, init_infer_state_def] >>
-  first_x_assum (qspecl_then [`loc`, `FEMPTY`, `ienv`, `init_infer_state`, `[]`] mp_tac) >>
+  `t_wfs (init_infer_state ss).subst` by rw [t_wfs_def, init_infer_state_def] >>
+  first_x_assum (qspecl_then [`loc`, `FEMPTY`, `ienv`, `init_infer_state ss`, `[]`] mp_tac) >>
   rw [sub_completion_empty, init_infer_state_def] >>
   `t_wfs st'.subst`
           by (imp_res_tac (CONJUNCT1 infer_e_wfs) >>
@@ -160,18 +163,18 @@ val unconvert_11 = Q.prove (
  rfs [EL_MAP] >>
  metis_tac [EL_MEM]);
 
-val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
+Theorem infer_e_type_pe_determ
 `!loc ienv p e st st' t t' tenv' s.
   ALL_DISTINCT (MAP FST tenv') ∧
   ienv_ok {} ienv ∧
   env_rel_complete FEMPTY ienv tenv Empty ∧
-  infer_e loc ienv e init_infer_state = (Success t, st) ∧
+  infer_e loc ienv e (init_infer_state ss) = (Success t, st) ∧
   infer_p loc ienv p st = (Success (t', tenv'), st') ∧
   t_unify st'.subst t t' = SOME s ∧
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'
   ⇒
-  type_pe_determ tenv Empty p e`,
- rw [type_pe_determ_def] >>
+  type_pe_determ tenv Empty p e`
+ (rw [type_pe_determ_def] >>
  mp_tac (Q.INST [`tvs`|->`0`] infer_pe_complete) >>
  simp[]>>impl_keep_tac>-
    (imp_res_tac infer_p_bindings>>fs[])>>
@@ -185,19 +188,7 @@ val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
  fs [t_compat_def] >>
  metis_tac [t_walkstar_no_vars]);
 
-val generalise_complete_lem = Q.prove (
-`∀n s t tvs s' t' tvs next_uvar.
-  t_wfs s ∧ check_s 0 (count next_uvar) s ∧
-  check_t 0 (count next_uvar) t ∧
-  generalise 0 n FEMPTY (t_walkstar s t) = (tvs,s',t') ⇒
-  ∃ec1 last_sub.
-    t' = t_walkstar last_sub t ∧ t_wfs last_sub ∧
-    sub_completion (tvs + n) next_uvar s ec1 last_sub`,
- rw [] >>
- mp_tac (Q.SPECL [`n`, `s`, `[t]`] generalise_complete) >>
- rw [generalise_def, LET_THM]);
-
-val t_vars_check_t = Q.prove(`
+Theorem t_vars_check_t `
   (∀t.
   ¬check_t 0 {} t ∧
   check_t 0 s t ⇒
@@ -206,23 +197,23 @@ val t_vars_check_t = Q.prove(`
   ∀x.MEM x ts ⇒
     ¬check_t 0 {} x ∧
     check_t 0 s x ⇒
-    ∃n'. n' ∈ s ∧ n' ∈ t_vars x)`,
-  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+    ∃n'. n' ∈ s ∧ n' ∈ t_vars x)`
+  (ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,t_vars_eqn]>>
   fs[EXISTS_MEM,EVERY_MEM]>>res_tac>>
   qexists_tac `n'`>>
   fs[MEM_MAP]>>
   metis_tac[]);
 
-val t_walkstar_diff = Q.prove(`
+Theorem t_walkstar_diff `
   t_wfs s1 ∧ t_wfs s2 ∧
   (t_walkstar s1 (Infer_Tuvar n) ≠ t_walkstar s2 (Infer_Tuvar n))
   ⇒
   (∀t.(n ∈ t_vars t) ⇒ t_walkstar s1 t ≠ t_walkstar s2 t) ∧
   (∀ts.
   ∀x. MEM x ts ⇒
-    n ∈ t_vars x ⇒ t_walkstar s1 x ≠ t_walkstar s2 x)`,
-  strip_tac>>
+    n ∈ t_vars x ⇒ t_walkstar s1 x ≠ t_walkstar s2 x)`
+  (strip_tac>>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[t_vars_eqn]>>fs[]>>
   fs[t_walkstar_eqn,t_walk_eqn,MEM_MAP]>>
@@ -237,9 +228,10 @@ val env_rel_sound_weaken = Q.prove(
   fs[env_rel_sound_def]>>rw[]>>res_tac>>
   qexists_tac`tvs'`>>fs[]>>
   match_mp_tac tscheme_approx_weakening>>fs[]>>
-  qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL;
+  qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL
+  |> curry save_thm "env_rel_sound_weaken";
 
-val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
+Theorem type_pe_determ_infer_e
 `!loc ienv p e st st' t t' new_bindings s.
   ALL_DISTINCT (MAP FST new_bindings) ∧
   (*
@@ -254,14 +246,14 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
   tenv_inv FEMPTY ienv.inf_v tenv.v ∧*)
   env_rel_sound FEMPTY ienv tenv Empty ∧
   ienv_ok {} ienv ∧
-  infer_e loc ienv e init_infer_state = (Success t, st) ∧
+  infer_e loc ienv e (init_infer_state ss) = (Success t, st) ∧
   infer_p loc ienv p st = (Success (t', new_bindings), st') ∧
   t_unify st'.subst t t' = SOME s ∧
   type_pe_determ tenv Empty p e
   ⇒
-  EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) new_bindings`,
- rw [type_pe_determ_def] >>
- `t_wfs init_infer_state.subst` by rw [t_wfs_def, init_infer_state_def] >>
+  EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) new_bindings`
+ (rw [type_pe_determ_def] >>
+ `t_wfs (init_infer_state ss).subst` by rw [t_wfs_def, init_infer_state_def] >>
  `t_wfs st.subst` by metis_tac [infer_e_wfs] >>
  `t_wfs st'.subst` by metis_tac [infer_p_wfs] >>
  `t_wfs s` by metis_tac [t_unify_wfs] >>
@@ -270,13 +262,13 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
               fs [init_infer_state_def,ienv_ok_def]) >>
  `check_s 0 (count st.next_uvar) st.subst`
            by (match_mp_tac (CONJUNCT1 infer_e_check_s) >>
-               MAP_EVERY qexists_tac [`loc`, `ienv`, `e`, `init_infer_state`] >>
+               MAP_EVERY qexists_tac [`loc`, `ienv`, `e`, `init_infer_state ss`] >>
                rw [init_infer_state_def, check_s_def]) >>
  `?l. set l = count st'.next_uvar DIFF FDOM s ∧ ALL_DISTINCT l`
           by metis_tac [FINITE_COUNT, FINITE_DIFF, SET_TO_LIST_INV, ALL_DISTINCT_SET_TO_LIST] >>
- qabbrev_tac `inst1 = MAP (\n. (Infer_Tuvar n, Infer_Tbool)) l` >>
- qabbrev_tac `inst2 = MAP (\n. (Infer_Tuvar n, Infer_Tint)) l` >>
-(* Because we're instantiating exactly the unconstrained variables *)
+ qabbrev_tac `inst1 = MAP (\n. (Infer_Tuvar n, (Infer_Tapp [] Tbool_num))) l` >>
+ qabbrev_tac `inst2 = MAP (\n. (Infer_Tuvar n, (Infer_Tapp [] Tint_num))) l` >>
+  (* Because we're instantiating exactly the unconstrained variables *)
  let
    fun tac q q1 =
      simp[sub_completion_def] >>
@@ -292,11 +284,11 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
        simp[pure_add_constraints_def,FUPDATE_LIST_THM] >> rw[] >>
        qho_match_abbrev_tac`∃s2. P s2 ∧ Q s2` >>
        qsuff_tac`∃s2. P s2 ∧ (t_wfs s2 ⇒ Q s2)`>-metis_tac[t_unify_wfs] >>
-       simp[Abbr`P`,t_unify_eqn,t_walk_eqn,Infer_Tbool_def,Infer_Tint_def,Once t_vwalk_eqn] >>
+       simp[Abbr`P`,t_unify_eqn,t_walk_eqn,Once t_vwalk_eqn] >>
        simp[FLOOKUP_DEF] >> rw[] >- (
          fs[EXTENSION] >> metis_tac[] ) >>
        simp[t_ext_s_check_eqn,Once t_oc_eqn,t_walk_eqn] >>
-       simp[GSYM Infer_Tbool_def,GSYM Infer_Tint_def,Abbr`Q`] >> strip_tac >>
+       simp[Abbr`Q`] >> strip_tac >>
        first_x_assum (match_mp_tac o MP_CANON) >>
        simp[FDOM_FUPDATE] >> fs[EXTENSION] >> metis_tac[] ) >>
      conj_tac >- (
@@ -310,7 +302,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
          imp_res_tac ALOOKUP_FAILS >>
          fs[MEM_MAP,EXTENSION] >> metis_tac[] ) >>
        imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP] >>
-       rw[Infer_Tbool_def,Infer_Tint_def] >> rw[check_t_def] ) >>
+       rw[] >> rw[check_t_def] ) >>
      first_assum(fn th=> mp_tac (MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] (CONJUNCT1 infer_p_check_s)) th)) >>
      simp[] >> disch_then(qspec_then`0`mp_tac) >> simp[AND_IMP_INTRO] >>
      impl_tac>-
@@ -334,15 +326,14 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
       |> REWRITE_RULE[GSYM AND_IMP_INTRO]
       |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
      disch_then(qspecl_then[`0`,`st'.next_uvar`]mp_tac) >> simp[] >>
-     impl_tac >- (
-       simp[Abbr q1,EVERY_MEM,MEM_MAP,PULL_EXISTS,check_t_def,Infer_Tbool_def,Infer_Tint_def] ) >>
+     impl_tac >- simp[Abbr q1,EVERY_MEM,MEM_MAP,PULL_EXISTS,check_t_def] >>
      strip_tac >>
      match_mp_tac (MP_CANON check_s_more3) >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      simp[SUBSET_DEF,MEM_MAP,PULL_EXISTS]
  in
-   `?s1. sub_completion 0 st'.next_uvar s inst1 s1` by (tac ``Infer_Tbool`` `inst1`) >>
-   `?s2. sub_completion 0 st'.next_uvar s inst2 s2` by (tac ``Infer_Tint`` `inst2`)
+   `?s1. sub_completion 0 st'.next_uvar s inst1 s1` by (tac ``Infer_Tapp [] Tbool_num`` `inst1`) >>
+   `?s2. sub_completion 0 st'.next_uvar s inst2 s2` by (tac ``Infer_Tapp [] Tint_num`` `inst2`)
  end >>
  `t_wfs s1 ∧ t_wfs s2` by metis_tac[sub_completion_wfs] >>
  imp_res_tac env_rel_sound_weaken>>
@@ -418,17 +409,15 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
     impl_tac>-
       (rfs[]>>
       `MEM n' l` by fs[]>>
-      `t_walkstar s1 (Infer_Tuvar n') = Infer_Tbool ∧
-       t_walkstar s2 (Infer_Tuvar n') = Infer_Tint ` by
+      `t_walkstar s1 (Infer_Tuvar n') = Infer_Tapp [] Tbool_num ∧
+       t_walkstar s2 (Infer_Tuvar n') = Infer_Tapp [] Tint_num ` by
         (imp_res_tac pure_add_constraints_apply>>
         unabbrev_all_tac>>
         fs[MAP_EQ_f,FORALL_PROD,MEM_MAP]>>
-        ntac 2 (pop_assum kall_tac)>>
-        pop_assum (qspecl_then [`Infer_Tuvar n'`,`Infer_Tint`] mp_tac)>>
-        pop_assum (qspecl_then [`Infer_Tuvar n'`,`Infer_Tbool`] mp_tac)>>
-        ntac 4 (pop_assum kall_tac)>>
-        fs[t_walkstar_eqn,t_walk_eqn,Infer_Tint_def,Infer_Tbool_def])>>
-      fs[Infer_Tint_def,Infer_Tbool_def])>>
+        fsrw_tac[DNF_ss][] >>
+        res_tac >>
+        fs[t_walkstar_eqn, t_walk_eqn])>>
+      fs[]>>EVAL_TAC)>>
     rw[]>>pop_assum kall_tac>>
     pop_assum (qspec_then `t_walkstar s tt` assume_tac)>>rfs[]>>
     metis_tac[t_compat_def])>>
@@ -451,10 +440,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
    unification variables are exactly bound in s1 and s2 to
    Infer_Tbool and Infer_Tint, hence the walkstars must differ *)
 
-fun drule0 th =
-  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
-
-val infer_funs_complete = Q.store_thm("infer_funs_complete",
+Theorem infer_funs_complete
  `
   ienv_ok {} ienv ∧
   tenv_ok tenv ∧
@@ -463,22 +449,23 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
   ⇒
   ∃funs_ts st st' constr s.
   infer_funs loc
-    (ienv with inf_v:= nsAppend (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar n) (COUNT_LIST (LENGTH funs))))) ienv.inf_v) funs (init_infer_state with next_uvar:= init_infer_state.next_uvar + LENGTH funs) =
+    (ienv with inf_v:= nsAppend (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar n)
+       (COUNT_LIST (LENGTH funs))))) ienv.inf_v) funs ((init_infer_state ss) with next_uvar:= (init_infer_state ss).next_uvar + LENGTH funs) =
     (Success funs_ts,st) ∧
   st.next_uvar = st'.next_uvar ∧
+  st.next_id = st'.next_id ∧
   pure_add_constraints st.subst
-    (ZIP (MAP (λn. Infer_Tuvar (init_infer_state.next_uvar + n))
+    (ZIP (MAP (λn. Infer_Tuvar ((init_infer_state ss).next_uvar + n))
               (COUNT_LIST (LENGTH funs)),funs_ts)) st'.subst ∧
   check_s 0 (count st'.next_uvar) st'.subst ∧
   sub_completion tvs st'.next_uvar st'.subst constr s ∧
   FDOM s = count st'.next_uvar ∧
-  MAP SND bindings = MAP (convert_t o t_walkstar s) funs_ts`,
-
-  rw[]>>
+  MAP SND bindings = MAP (convert_t o t_walkstar s) funs_ts`
+  (rw[]>>
   imp_res_tac type_funs_distinct >> fs[FST_triple] >>
   imp_res_tac type_funs_MAP_FST >>
   imp_res_tac type_funs_Tfn>>
-  Q.ISPECL_THEN [`init_infer_state`,`[]:(infer_t,infer_t) alist`,`FEMPTY:num|->infer_t`,`MAP SND bindings`,`tvs`] mp_tac extend_multi_props>>
+  Q.ISPECL_THEN [`(init_infer_state ss)`,`[]:(infer_t,infer_t) alist`,`FEMPTY:num|->infer_t`,`MAP SND bindings`,`tvs`] mp_tac extend_multi_props>>
   fs[]>>
   impl_keep_tac>-
     (fs[t_wfs_def,init_infer_state_def,pure_add_constraints_def,EVERY_MAP,FORALL_PROD,EVERY_MEM]>>
@@ -486,26 +473,26 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
     imp_res_tac ALOOKUP_ALL_DISTINCT_MEM>>res_tac>>fs[])>>
   qmatch_goalsub_abbrev_tac`pure_add_constraints _ init_constraints init_subst`>>rw[]>>
   qmatch_goalsub_abbrev_tac`infer_funs _ ienv_upd _`>>rw[]>>
-  drule0 (el 3 (CONJUNCTS infer_e_complete))>>
-  disch_then (qspecl_then [`loc`, `init_subst`,`ienv_upd`,`(init_infer_state with next_uvar := LENGTH funs)`,`init_constraints`] mp_tac)>>
+  drule (el 3 (CONJUNCTS infer_e_complete))>>
+  disch_then (qspecl_then [`loc`, `init_subst`,`ienv_upd`,`((init_infer_state ss) with next_uvar := LENGTH funs)`,`init_constraints`] mp_tac)>>
   fs[Abbr`ienv_upd`]>>
   impl_keep_tac>-
     (* Hmm, this gets re-proved a lot*)
     (fs[ienv_ok_def,ienv_val_ok_def]>>
-    match_mp_tac nsAll_nsAppend>>
-    rw[]
-    >-
-      (match_mp_tac nsAll_alist_to_ns>>
-      simp[MAP2_MAP,LENGTH_COUNT_LIST]>>
-      fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_ZIP,LENGTH_COUNT_LIST]>>rw[]>>
-      simp[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST,check_t_def])
-     >>
-       irule nsAll_mono>>
-       HINT_EXISTS_TAC>>
-       simp[FORALL_PROD]>>
-       metis_tac[check_t_more])>>
-  impl_tac>-
-    (fs[init_infer_state_def,sub_completion_def]>>
+    CONJ_TAC>-
+      (match_mp_tac nsAll_nsAppend>>
+      rw[]
+      >-
+        (match_mp_tac nsAll_alist_to_ns>>
+        simp[MAP2_MAP,LENGTH_COUNT_LIST]>>
+        fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,MEM_ZIP,LENGTH_COUNT_LIST]>>rw[]>>
+        simp[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST,check_t_def])
+       >>
+         irule nsAll_mono>>
+         HINT_EXISTS_TAC>>
+         simp[FORALL_PROD]>>
+         metis_tac[check_t_more])>>
+    fs[init_infer_state_def,sub_completion_def]>>
     CONJ_ASM2_TAC >- fs[] >> rw[]
     >-
       metis_tac[LENGTH_MAP]
@@ -589,12 +576,12 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
     rw[]>>
     fs[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
     (* In this case, the completion was already forced initially *)
-    qpat_x_assum `∀n. n < LENGTH bindings ⇒ P`(qspec_then `n` mp_tac)>>
+    first_x_assum(qspec_then `n` mp_tac)>>
     impl_tac>-
-      metis_tac[LENGTH_MAP]>>
+      fs[SUBSET_DEF]>>
     simp[EL_MAP]>>
     imp_res_tac infer_e_check_t>>rfs[ienv_ok_def]>>
-    drule0 (CONJUNCT1 check_t_walkstar)>>
+    drule (CONJUNCT1 check_t_walkstar)>>
     disch_then(qspecl_then[`EL n env'`,`tvs`] mp_tac)>>
     impl_tac>-
       (fs[EVERY_EL]>>res_tac>>
@@ -612,7 +599,7 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
   (* And break it upwe compose the constraints *)
   fs[pure_add_constraints_append]>>
   (* The thing in the middle is the desired unification *)
-  qexists_tac`<|next_uvar:=st'.next_uvar;subst:=s2''|>`>>
+  qexists_tac`<|next_uvar:=st'.next_uvar;subst:=s2'';next_id:=st'.next_id|>`>>
   fs[]>>
   qexists_tac`constraints'`>>qexists_tac`si'`>>
   simp[]>>

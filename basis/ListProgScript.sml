@@ -1,3 +1,6 @@
+(*
+  Module about the built-in list tyoe.
+*)
 open preamble ml_translatorLib ml_progLib cfLib std_preludeTheory
 open mllistTheory ml_translatorTheory OptionProgTheory
 open basisFunctionsLib
@@ -10,18 +13,28 @@ val _ = ml_prog_update (open_module "List");
 
 val () = generate_sigs := true;
 
-val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "list" (Tapp [Tvar "'a"] (TC_name (Short "list")))`` I);
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a"] "list" (Atapp [Atvar "'a"] (Short "list"))`` I);
 
-val result = translate LENGTH;
 val r = translate NULL;
 
-val result = next_ml_names := ["revAppend"]
+val _ = ml_prog_update open_local_block;
+val res = translate LENGTH_AUX_def;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["length"]
+val res = translate
+  (LENGTH_AUX_THM |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [] |> GSYM);
+
+val _ = ml_prog_update open_local_block;
 val res = translate REV_DEF;
+val _ = ml_prog_update open_local_in_block;
+
 val result = next_ml_names := ["rev"];
 val res = translate REVERSE_REV;
 
 (* New list-append translation *)
-val append_v_thm = trans "@" `(++): 'a list -> 'a list -> 'a list`
+val append_v_thm = trans "@" listSyntax.append_tm;
 val _ = save_thm("append_v_thm",append_v_thm);
 
 (* Old list-append translation *)
@@ -34,13 +47,7 @@ val hd_side_def = Q.prove(
   Cases THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "hd_side_def"])
   |> update_precondition;
 
-val result = translate tl_def;
-val result = next_ml_names := ["TL_hol"];
-val result = translate TL;
-val tl_1_side_def = Q.prove(
-  `!xs. tl_1_side xs = ~(xs = [])`,
-  Cases THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "tl_1_side_def"])
-  |> update_precondition;
+val result = translate TL_DEF;
 
 val result = translate LAST_DEF;
 
@@ -51,23 +58,43 @@ val result = translate (EL |> REWRITE_RULE[GSYM nth_def]);
 val nth_side_def = theorem"nth_side_def";
 
 val result = translate (TAKE_def |> REWRITE_RULE[GSYM take_def]);
-
-
 val result = translate (DROP_def |> REWRITE_RULE[GSYM drop_def]);
 
+val _ = next_ml_names := ["takeUntil","dropUntil"];
+val result = translate takeUntil_def;
+val result = translate dropUntil_def;
+
+val _ = next_ml_names := ["cmp"];
+val result = translate list_compare_def;
 
 val result = next_ml_names := ["concat"];
 val result = translate FLAT;
 
+(* the let is introduced to produce slight better code (smaller stack frames) *)
+val MAP_let = prove(
+  ``MAP f xs =
+    case xs of
+    | [] => []
+    | (y::ys) => let z = f y in z :: MAP f ys``,
+  Cases_on `xs` \\ fs []);
 
-val result = next_ml_names := ["map","mapi_aux","mapi","mapPartial"];
-val result = translate MAP;
+Theorem MAP_ind
+  `∀P. (∀f xs. (∀y ys z. xs = y::ys ∧ z = f y ⇒ P f ys) ⇒ P f xs) ⇒
+       ∀f xs. P f xs`
+  (ntac 2 strip_tac \\ Induct_on `xs` \\ fs []);
+
+val _ = add_preferred_thy "-"; (* so that the translator finds MAP_ind above *)
+
+val result = next_ml_names := ["map"]
+val result = translate MAP_let;
+
+val _ = ml_prog_update open_local_block;
 val result = translate mllistTheory.mapi_def;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["mapi","mapPartial"];
 val result = translate MAPI_thm;
-
-
 val result = translate mapPartial_def;
-
 
 val app = process_topdecs`
   fun app f ls = case ls of [] => ()
@@ -76,36 +103,111 @@ val _ = ml_prog_update(ml_progLib.add_prog app pick_name)
 
 val result = translate FIND_thm;
 
-
 val result = translate FILTER;
 
-
+val _ = ml_prog_update open_local_block;
 val result = translate partition_aux_def;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["partition"];
 val result = translate mllistTheory.partition_def;
 
-
 val result = translate FOLDL;
-val result = translate foldli_aux_def;
-val result = translate foldli_def;
 
+val _ = ml_prog_update open_local_block;
+val result = translate foldli_aux_def;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["foldi"];
+val result = translate foldli_def;
 
 val result = translate FOLDR;
 val result = translate (FOLDRi_def |> REWRITE_RULE[o_DEF]);
 
-
 val result = translate EXISTS_DEF;
-
 
 val result = next_ml_names := ["all"];
 val result = translate EVERY_DEF;
 
-
 val result = translate SNOC;
-val result = translate GENLIST_AUX;
-val result = translate GENLIST_GENLIST_AUX;
-val res = translate tabulate_aux_def;
 
+val _ = ml_prog_update open_local_block;
+val result = translate GENLIST_AUX;
+val _ = ml_prog_update open_local_in_block;
+
+val result = next_ml_names := ["genlist"];
+val result = translate GENLIST_GENLIST_AUX;
+
+val result = next_ml_names := ["tabulate"];
+val result = translate tabulate_aux_def;
+
+val tabulate_aux_inv_spec =
+  let
+    val st = get_ml_prog_state();
+  in
+  Q.store_thm("tabulate_aux_inv_spec",
+  `∀f fv A heap_inv n m nv mv acc accv ls.
+    NUM n nv /\ NUM m mv /\ LIST_TYPE A acc accv /\
+    ls = REVERSE acc ++ GENLIST (f o FUNPOW SUC n) (m - n) /\
+    (!i iv. NUM i iv /\ n <= i /\ i < m ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
+    ==>
+    app (p:'ffi ffi_proj) ^(fetch_v "tabulate" st) [nv;mv;fv;accv] heap_inv
+      (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
+  ntac 6 gen_tac
+  \\ Induct_on`m-n`
+  >- (
+    rw[]
+    \\ xcf "tabulate" st
+    \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
+      >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+    \\ xif \\ asm_exists_tac \\ simp[]
+    \\ xapp
+    \\ instantiate \\ xsimpl
+    \\ `m - n = 0` by simp[] \\ simp[])
+  \\ rw[]
+  \\ xcf "tabulate" st
+  \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
+    >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+  \\ xif \\ asm_exists_tac \\ simp[]
+  \\ Cases_on`m` \\ fs[]
+  \\ rename1`SUC v = SUC m - n`
+  \\ `v = m - n` by decide_tac
+  \\ qpat_x_assum`SUC v = _`(assume_tac o SYM)
+  \\ rw[] \\ fs[GENLIST_CONS,FUNPOW_SUC_PLUS]
+  \\ xlet `POSTv v. &(A (f n) v) * heap_inv`
+  >- ( xapp \\ xsimpl )
+  \\ xlet `POSTv nv. &NUM (n+1) nv * heap_inv`
+  >-( xopn \\  xsimpl \\ fs[NUM_def,INT_def] \\ intLib.COOPER_TAC)
+  \\ xlet `POSTv av. &LIST_TYPE A (f n::acc) av * heap_inv`
+  >-( xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
+  \\ xapp
+  \\ xsimpl
+  \\ map_every qexists_tac[`n+1`,`SUC m`]
+  \\ instantiate
+  \\ simp[o_DEF,ADD1]
+  \\ once_rewrite_tac[CONS_APPEND]
+  \\ simp[]) end;
+
+val result = next_ml_names := ["tabulate"];
 val result = translate tabulate_def;
+
+val tabulate_inv_spec =
+  let
+    val st = get_ml_prog_state();
+  in
+  Q.store_thm("tabulate_inv_spec",
+  `!f fv A heap_inv n nv ls.
+    NUM n nv /\ ls = GENLIST f n /\
+    (!i iv. NUM i iv /\ i < n ==> app p fv [iv] heap_inv (POSTv v. &(A (f i) v) * heap_inv))
+    ==>
+    app (p:'ffi ffi_proj) ^(fetch_v "tabulate" st) [nv; fv] heap_inv (POSTv lv. &LIST_TYPE A ls lv * heap_inv)`,
+  xcf "tabulate" st \\
+  xlet`POSTv v. &LIST_TYPE A [] v * heap_inv`
+  >- (xcon \\ xsimpl \\ fs[LIST_TYPE_def] )
+  \\ xapp_spec tabulate_aux_inv_spec
+  \\ xsimpl
+  \\ instantiate
+  \\ simp[FUNPOW_SUC_PLUS,o_DEF,ETA_AX]) end;
 
 val result = translate collate_def;
 
@@ -113,9 +215,6 @@ val result = translate ZIP_def;
 
 val result = translate MEMBER_def;
 
-(*Extra translations from std_preludeLib.sml *)
-val res = translate LENGTH_AUX_def;
-(*val res = translate LENGTH_AUX_THM;*)
 val result = translate SUM;
 val result = translate UNZIP;
 val result = translate PAD_RIGHT;
@@ -126,7 +225,6 @@ val result = translate isPREFIX;
 val result = translate FRONT_DEF;
 val _ = next_ml_names := ["splitAtPki"];
 val result = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
-
 
 val front_side_def = Q.prove(
   `!xs. front_side xs = ~(xs = [])`,
@@ -140,7 +238,6 @@ val last_side_def = Q.prove(
   THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
   |> update_precondition;
 
-
 val nth_side_def = Q.prove(
   `!n xs. nth_side xs n = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "nth_side_def"]
@@ -150,56 +247,23 @@ val nth_side_def = Q.prove(
 val _ = next_ml_names := ["update"];
 val result = translate LUPDATE_def;
 
-(* TODO: signature for `app` is missing because it's written in CakeML *)
-val sigs = module_signatures [
-  "length",
-  "null",
-  "revAppend",
-  "rev",
-  "append",
-  "hd",
-  "tl",
-  "last",
-  "getItem",
-  "nth",
-  "take",
-  "drop",
-  "concat",
-  "map",
-  "mapPartial",
-  "find",
-  "filter",
-  "partition",
-  "foldl",
-  "foldr",
-  "exists",
-  "all",
-  "snoc",
-  "tabulate",
-  "collate",
-  "zip",
-  "member",
-  "sum",
-  "unzip",
-  "pad_right",
-  "pad_left",
-  "all_distinct",
-  "isPrefix",
-  "front",
-  "splitAtPki",
-  "update"
-];
+val _ = (next_ml_names := ["compare"]);
+val _ = translate mllistTheory.list_compare_def;
 
-val _ =  ml_prog_update (close_module (SOME sigs));
-
-(* sorting -- included here because it depends on List functions like append  *)
-
+val _ = ml_prog_update open_local_block;
 val res = translate sortingTheory.PART_DEF;
-val _ = next_ml_names := ["partition"];
 val res = translate sortingTheory.PARTITION_DEF;
+val _ = ml_prog_update open_local_in_block;
+
+val _ = next_ml_names := ["sort"];
 val res = translate sortingTheory.QSORT_DEF;
 
-(* finite maps -- similarly *)
+val _ =  ml_prog_update close_local_blocks;
+val _ =  ml_prog_update (close_module NONE);
+
+(* finite maps -- depend on lists *)
+
+val _ = ml_prog_update (open_module "Alist");
 
 val FMAP_EQ_ALIST_def = Define `
   FMAP_EQ_ALIST f l <=> (ALOOKUP l = FLOOKUP f)`;
@@ -211,6 +275,7 @@ val FMAP_TYPE_def = Define `
 val _ = add_type_inv ``FMAP_TYPE (a:'a -> v -> bool) (b:'b -> v -> bool)``
                      ``:('a # 'b) list``;
 
+val _ = next_ml_names := ["lookup"];
 val ALOOKUP_eval = translate ALOOKUP_def;
 
 val Eval_FLOOKUP = Q.prove(
@@ -222,6 +287,7 @@ val Eval_FLOOKUP = Q.prove(
   |> (fn th => MATCH_MP th ALOOKUP_eval)
   |> add_user_proved_v_thm;
 
+val _ = next_ml_names := ["update"];
 val AUPDATE_def = Define `AUPDATE l (x:'a,y:'b) = (x,y)::l`;
 val AUPDATE_eval = translate AUPDATE_def;
 
@@ -260,6 +326,7 @@ val AEVERY_AUX_def = Define `
      if MEMBER x aux then AEVERY_AUX aux P xs else
        P (x,y) /\ AEVERY_AUX (x::aux) P xs)`;
 val AEVERY_def = Define `AEVERY = AEVERY_AUX []`;
+val _ = next_ml_names := ["every","every"];
 val _ = translate AEVERY_AUX_def;
 val AEVERY_eval = translate AEVERY_def;
 
@@ -292,6 +359,7 @@ val Eval_FEVERY = Q.prove(
   |> (fn th => MATCH_MP th AEVERY_eval)
   |> add_user_proved_v_thm;
 
+val _ = next_ml_names := ["map"];
 val AMAP_def = Define `
   (AMAP f [] = []) /\
   (AMAP f ((x:'a,y:'b)::xs) = (x,(f y):'c) :: AMAP f xs)`;
@@ -348,6 +416,7 @@ val Eval_FUNION = Q.prove(
   |> (fn th => MATCH_MP th append_eval)
   |> add_user_proved_v_thm;
 
+val _ = next_ml_names := ["delete"];
 val ADEL_def = Define `
   (ADEL [] z = []) /\
   (ADEL ((x:'a,y:'b)::xs) z = if x = z then ADEL xs z else (x,y)::ADEL xs z)`
@@ -374,5 +443,7 @@ val Eval_fmap_domsub = Q.prove(
   METIS_TAC[FMAP_EQ_ALIST_ADEL])
   |> (fn th => MATCH_MP th ADEL_eval)
   |> add_user_proved_v_thm;
+
+val _ =  ml_prog_update (close_module NONE);
 
 val _ = export_theory()

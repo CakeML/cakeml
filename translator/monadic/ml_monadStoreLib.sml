@@ -1,7 +1,11 @@
+(*
+  Automation that derives lemmas about arrays and references for use
+  by the monadic translator.
+*)
 structure ml_monadStoreLib :> ml_monadStoreLib = struct
 
 open preamble ml_translatorTheory ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory bigStepTheory semanticPrimitivesTheory
+open astTheory libTheory evaluateTheory semanticPrimitivesTheory
 open terminationTheory ml_progLib ml_progTheory
 open packLib
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
@@ -10,29 +14,31 @@ open ml_monadBaseTheory ml_monad_translatorBaseTheory ml_monad_translatorTheory 
 open Redblackmap AC_Sort Satisfy
 open ml_translatorLib
 
-(* COPY/PASTE from basisFunctionsLib *)
-fun derive_eval_thm v_name e = let
-  val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_NONE_Dlet_var th
-           handle HOL_ERR _ =>
-           MATCH_MP ml_progTheory.ML_code_SOME_Dlet_var th
-  val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
+(* COPY/PASTE from other manual eval_rel proofs *)
+fun derive_eval_thm for_eval v_name e = let
+  val env = get_ml_prog_state () |> get_env
+  val st = get_ml_prog_state () |> get_state
+  val st2 = mk_var ("st2", type_of st)
+  val goal = list_mk_icomb (prim_mk_const {Thy="ml_prog", Name="eval_rel"},
+    [st, env, e, st2, mk_var ("x", semanticPrimitivesSyntax.v_ty)])
   val lemma = goal
-    |> (NCONV 50 (SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases,
+    |> (NCONV 50 (SIMP_CONV (srw_ss()) [evaluate_def,ml_progTheory.eval_rel_alt,
             PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
   val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),
                     rpt strip_tac \\ rveq \\
                     match_mp_tac (#2(EQ_IMP_RULE lemma)) \\
-                    simp_tac bool_ss [])
-                 |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
-  val v_tm = v_thm |> concl |> rand |> rand |> rand
-  val v_def = define_abbrev true v_name v_tm
+                    simp_tac bool_ss [] \\
+                    fs [state_component_equality])
+                 |> GEN_ALL |> SIMP_RULE std_ss [GSYM PULL_EXISTS]
+                            |> SIMP_RULE std_ss [PULL_EXISTS]
+                            |> SIMP_RULE (srw_ss()) [PULL_EXISTS]
+                            |> SPEC_ALL
+  val v_tm = v_thm |> concl |> rand
+  val v_def = define_abbrev for_eval v_name v_tm
   in v_thm |> REWRITE_RULE [GSYM v_def] end
-(* end of COPY/PASTE from basisFunctionsLib *)
+(* end of COPY/PASTE *)
 
 fun ERR fname msg = mk_HOL_ERR "ml_monadStoreLib" fname msg;
-
-val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT
 
 val get_term = let
   val ys = unpack_list (unpack_pair unpack_string unpack_term)
@@ -67,7 +73,7 @@ val empty_v_list = get_term "empty_v_list"
 val empty_v_store = get_term "empty_v_store"
 val empty_alpha_list = get_term "empty_alpha_list"
 val nsLookup_env_short_term = get_term "nsLookup_env_short"
-val prim_exn_Subscript = get_term "prim_exn Subscript"
+val Conv_Subscript = get_term "Conv_Subscript"
 
 fun mk_get_refs state = let
     val ffi_ty = type_of state |> dest_type |> snd |> hd
@@ -75,8 +81,7 @@ fun mk_get_refs state = let
     val get_refs = mk_comb(get_refs, state) |> BETA_CONV |> concl |> rand
 in get_refs end
 
-fun mk_opref_expr name =
-  mk_comb(opref_expr, name) |> BETA_CONV |> concl |> rand
+
 
 fun mk_REF_REL TYPE r x =
   ISPECL [TYPE, r, x] REF_REL_def |> concl |> dest_eq |> fst
@@ -131,7 +136,7 @@ fun PURE_FACTS_FIRST_CONV H =
 val EXTRACT_PURE_FACTS_CONV =
   (RATOR_CONV PURE_FACTS_FIRST_CONV)
   THENC (SIMP_CONV pure_ss [GSYM STAR_ASSOC])
-  THENC (SIMP_CONV pure_ss [HCOND_EXTRACT])
+  THENC (SIMP_CONV pure_ss [cfLetAutoTheory.HCOND_EXTRACT])
   THENC (SIMP_CONV pure_ss [STAR_ASSOC]);
 
 val SEPARATE_SEP_EXISTS_CONV = ((SIMP_CONV pure_ss [GSYM STAR_ASSOC, SEP_EXISTS_INWARD]) THENC (SIMP_CONV pure_ss [STAR_ASSOC, SEP_EXISTS_SEPARATE]))
@@ -144,7 +149,7 @@ fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
       val hpreds' = List.map (fst o dest_comb) hpreds
       val hpreds_eqs = List.map (PURE_FACTS_FIRST_CONV) hpreds'
   in
-      ((fs hpreds_eqs) >> fs[GSYM STAR_ASSOC] >> fs[HCOND_EXTRACT] >> fs[STAR_ASSOC]) g
+      ((fs hpreds_eqs) >> fs[GSYM STAR_ASSOC] >> fs[cfLetAutoTheory.HCOND_EXTRACT] >> fs[STAR_ASSOC]) g
   end;
 (***********************************************************************************************)
 (******* End of COPY/PASTE from ml_monadProgScipt.sml *****************************************)
@@ -156,6 +161,13 @@ fun get_rarrays_manip_funs (l : (string * thm * thm * thm * thm * thm * thm * th
   List.map (fn (x1, _, x2, x3, x4, x5, x6, x7) => (x1, x2, x3, x4, x5, x6, x7)) l;
 fun get_farrays_manip_funs (l : (string * (int * thm) * thm * thm * thm * thm * thm) list) =
   List.map (fn (x1, _, x2, x3, x4, x5, x6) => (x1, x2, x3, x4, x5, x6)) l;
+
+(*
+
+val v_name = name
+val value_def = def
+
+*)
 
 fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     val env = get_env(get_ml_prog_state())
@@ -178,24 +190,27 @@ fun derive_eval_thm_ALLOCATE_EMPTY_ARRAY v_name value_def = let
     val th = SIMP_RULE pure_ss [GSYM array_v_def] th
     val res_pair = rand(concl th)
     val res_pair_eq = EVAL res_pair
-    val th = SIMP_RULE pure_ss [res_pair_eq] th
+    val res_pair2 = rand(rator(concl th))
+    val res_pair2_eq = EVAL res_pair2
+    val th = SIMP_RULE pure_ss [res_pair_eq,res_pair2_eq] th
 
     (* Abbreviate the array location *)
-    val array_loc = concl th |> rand |> dest_pair |> fst |> rand |> rator |> rand |> rand |> rand |>
-        rator |> rand |> rand
+    val array_loc = concl th |> rator |> rand |> rand |> rator
+                    |> rand |> rand |> rand |> listSyntax.dest_cons |> fst
     val array_loc_def = define_abbrev false array_loc_name array_loc
-    val th = SIMP_RULE pure_ss [GSYM array_loc_def] th
+    val th = PURE_REWRITE_RULE [GSYM array_loc_def] th
 
     (* Abbreviate the reference location *)
-    val res = concl th |> rand |> dest_pair |> snd |> rand
+    val res = concl th |> rand
     val ref_var = mk_var(ref_name, v_ty)
     val ref_def = Define `^ref_var = ^res`
     val th = SIMP_RULE pure_ss [GSYM ref_def] th
 in (array_v_thm, array_loc_def, ref_def, th) end;
 
 fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
-    val init_value_v_thm = translate init_value_def
     val init_value_name = concl init_value_def |> lhs |> dest_const |> fst
+    val _ = (next_ml_names := init_value_name::(!next_ml_names))
+    val init_value_v_thm = translate init_value_def
 
     val env = get_env(get_ml_prog_state())
     val s = get_state(get_ml_prog_state())
@@ -207,13 +222,14 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val th = MATCH_MP th lookup_assum
 
     (* Abbreviate the constants and simplify the theorem *)
-    val array_v = concl th |> rand |> rator |> rand |> rator |> rand |> rand |> rand |> rator |> rand |> rand
-    val array_v_name = find_const_name (name ^ "_v")
-    val array_v_abbrev = define_abbrev false array_v_name array_v
-    val th = SIMP_RULE pure_ss [GSYM array_v_abbrev] th
     val th = CONV_RULE (RAND_CONV computeLib.EVAL_CONV) th
+    val array_v = concl th |> rator |> rand |> rator |> rand |> rand |> rand
+                           |> listSyntax.dest_cons |> fst |> rand
+    val array_v_name = find_const_name (name ^ "_v")
+    val array_v_def = define_abbrev false array_v_name array_v
+    val th = SIMP_RULE pure_ss [GSYM array_v_def] th
 
-    val array_loc = concl th |> rand |> dest_pair |> snd |> rand
+    val array_loc = concl th |> rand
     val array_loc_name = find_const_name (name ^ "_loc")
     val array_loc_def = define_abbrev false array_loc_name array_loc
     val th = SIMP_RULE pure_ss [GSYM array_loc_def] th
@@ -223,22 +239,21 @@ fun derive_eval_thm_ALLOCATE_ARRAY name n init_value_def = let
     val init_v_th = MATCH_MP (SPEC (numSyntax.term_of_int n) LIST_REL_REPLICATE) init_value_v_thm
     val init_array = concl init_v_th |> rator |> rand
     val array_abbrev = define_abbrev false init_name init_array
-    val init_v_th = PURE_REWRITE_RULE [GSYM array_abbrev, GSYM array_v_abbrev] init_v_th
+    val init_v_th = PURE_REWRITE_RULE
+                      [GSYM array_abbrev, GSYM array_v_def] init_v_th
     val _ = save_thm (init_name ^"_v_thm", init_v_th)
     val _ = print ("Saved theorem: " ^init_name ^"_v_thm")
 in (init_v_th, array_loc_def, th) end;
 
-fun get_store_pinv_def_opt opt =
-  case opt of
-      SOME (def, _) => SOME def
-    | NONE => NONE;
+fun get_store_pinv_def_opt opt = Option.map fst opt;
 
 (* Create the store for a static initialization *)
 fun create_store refs_init_list rarrays_init_list farrays_init_list =
   let
       val initial_state = get_state(get_ml_prog_state())
       val initial_store = EVAL (mk_get_refs initial_state) |> concl |> rhs
-
+      fun mk_opref_expr name =
+        mk_comb(opref_expr, name) |> BETA_CONV |> concl |> rand
       (* Allocate the references *)
       fun create_ref (name, def) =
         let
@@ -246,7 +261,9 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
           val init_name = concl def |> dest_eq |> fst |> dest_const |> fst
           val init_name = stringLib.fromMLstring init_name
           val e = mk_opref_expr init_name
-          val _ = ml_prog_update (add_Dlet (derive_eval_thm name e) name [])
+          val eval_thm = REWRITE_RULE [ML_code_env_def]
+                                      (derive_eval_thm false name e)
+          val _ = ml_prog_update (add_Dlet eval_thm name [])
           val ref_def = DB.fetch (current_theory()) (name ^ "_def")
         in
           (value_def, ref_def)
@@ -284,12 +301,6 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
   in
     (initial_store, refs_trans_results, rarrays_trans_results, farrays_trans_results)
   end;
-
-
-(*
-val (initial_store, refs_trans_results, arrays_trans_results) =
-create_store refs_init_list arrays_init_list store_hprop_name;
-*)
 
 fun find_refs_access_functions refs_init_list =
   let
@@ -356,13 +367,6 @@ fun find_farrays_access_functions arrays_init_list = let
       in (name, get, get_fun, set, set_fun, length, sub, update) end
   in List.map find_add_read_write arrays_init_list end;
 
-
-(*
-val refs_init_list = find_refs_access_functions refs_init_list;
-val rarrays_init_list = find_rarrays_access_functions rarrays_init_list;
-val farrays_init_list = find_farrays_access_functions farrays_init_list;
-*)
-
 fun create_store_X_hprop refs_manip_list
                          refs_locs
                          rarrays_manip_list
@@ -371,7 +375,7 @@ fun create_store_X_hprop refs_manip_list
                          farrays_locs
                          state_type
                          store_hprop_name
-                         store_pinv_opt
+                         store_pinv_def_opt
                          extra_hprop =
   let
     val state_var = mk_var("state", state_type)
@@ -436,10 +440,10 @@ fun create_store_X_hprop refs_manip_list
     val store_hprop = list_mk mk_star (refs_hprops @ rarrays_hprops @ farrays_hprops @ extra_hprops) emp_const
     val store_hprop = SIMP_CONV bool_ss [STAR_ASSOC] store_hprop |> concl |> dest_eq |> snd
                       handle UNCHANGED => store_hprop
-    val store_hprop = case store_pinv_opt of
+    val store_hprop = case store_pinv_def_opt of
                         SOME pinv_def =>
                         mk_star(store_hprop,
-                                mk_cond(mk_comb(concl pinv_def |> lhs, state_var)))
+                                mk_cond(mk_comb( (concl pinv_def |> lhs) , state_var)))
                       | NONE => store_hprop
     val store_hprop = mk_abs(state_var, store_hprop)
 
@@ -458,14 +462,8 @@ in
     store_hprop_def
 end;
 
-(* val store_X_hprop_def = create_store_X_hprop refs_init_list arrays_init_list refs_trans_results arrays_trans_results state_type store_hprop_name; *)
-
 (* Prove that the current store satisfies the built heap predicate *)
 local
-(*
-val (g as (asl, w)) = top_goal();
-*)
-
     fun instantiate_ref_values refs_trans_results
                                rarrays_trans_results
                                farrays_trans_results
@@ -685,10 +683,6 @@ in
     end
 end;
 
-(*
- val valid_store_X_hprop_thm = prove_valid_store_X_hprop refs_init_list arrays_init_list initial_store refs_trans_results arrays_trans_results state_type store_X_hprop_def;
-*)
-
 (* Prove the validity theorem for the characteristic heap predicate *)
 fun prove_exists_store_X_hprop save_th
                                state_type
@@ -731,8 +725,6 @@ in
     exists_store_X_hprop_thm
 end;
 
-(* val exists_store_X_hprop_thm = prove_exists_store_X_hprop state_type store_hprop_name valid_store_X_hprop_thm; *)
-
 (* Prove the specifications for the get/set functions *)
 
 local
@@ -744,14 +736,14 @@ local
       in if is_loc1 andalso not is_loc2 then LESS
         else if is_loc2 andalso not is_loc1 then GREATER
         else if is_loc1 andalso is_loc2 then
-            (if loc = (get_loc t1) then LESS else GREATER)
+            (if loc ~~ (get_loc t1) then LESS else GREATER)
         else Term.compare(t1, t2)
       end
     fun PICK_REF_CONV loc = AC_Sort.sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_ref_order loc, combine = ALL_CONV, preprocess = ALL_CONV}
     fun pick_pinv_order field_pat (t1, t2) = let
         val is_cond1 = is_cond t1
         val is_cond2 = is_cond t2
-        val has_pat = patternMatchesSyntax.has_subterm (fn x => x = field_pat)
+        val has_pat = patternMatchesSyntax.has_subterm (aconv field_pat)
       in if is_cond1 andalso has_pat t1 then LESS
          else if is_cond2 andalso has_pat t2 then GREATER
          else Term.compare(t1, t2)
@@ -759,8 +751,8 @@ local
     fun PICK_PINV_CONV field_pat = AC_Sort.sort{assoc = STAR_ASSOC, comm = STAR_COMM, dest = dest_star, mk = mk_star, cmp = pick_pinv_order field_pat, combine = ALL_CONV, preprocess = ALL_CONV}
 
     fun remove_assumption th = let
-	val assum = concl th |> dest_imp |> fst
-	val lemma = SIMP_CONV (srw_ss()) [] assum |> EQT_ELIM
+        val assum = concl th |> dest_imp |> fst
+        val lemma = SIMP_CONV (srw_ss()) [] assum |> EQT_ELIM
     in MP th lemma end
 
 in
@@ -782,6 +774,8 @@ fun prove_store_access_specs refs_manip_list
     val exc_type = type_of exn_ri |> dest_type |> snd |> List.hd
     val exc_type_aq = ty_antiq exc_type
     val state_type_aq = ty_antiq state_type
+
+    val intro_hprop = REWRITE_RULE [GSYM store_X_hprop_def, SEP_CLAUSES]
 
     (*
        val ((name, get_fun_def, read_fun, set_fun_def, write_fun), loc_def) =
@@ -858,7 +852,7 @@ fun prove_store_access_specs refs_manip_list
         val thm_name = "set_" ^name ^"_thm"
         val _ = save_thm(thm_name, write_spec)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
-    in (read_spec, write_spec) end
+    in (intro_hprop read_spec, intro_hprop write_spec) end
 
     val refs_access_thms = List.map prove_ref_specs (zip refs_manip_list refs_locs_defs)
 
@@ -908,25 +902,25 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the sub exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[sub_exn,prim_exn_Subscript])
-	val (subscript_eval, usesSubscript) = let
-	    val eval_th = EVAL EXN_TYPE_e_Subscript
-	    val eval_th = EQT_ELIM eval_th
-	in (eval_th, true) end
+            list_mk_comb(EXN_TYPE,[sub_exn,Conv_Subscript])
+        val (subscript_eval, usesSubscript) = let
+            val eval_th = EVAL EXN_TYPE_e_Subscript
+            val eval_th = EQT_ELIM eval_th
+        in (eval_th, true) end
         handle HOL_ERR _ => (TRUTH, false)
 
-	val sub_thm =
-	  if usesSubscript then let
-	    val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn]
+        val sub_thm =
+          if usesSubscript then let
+            val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn]
                             EvalM_R_Marray_sub_subscript |> SPEC_ALL
-	    val th = MP th subscript_eval |> UNDISCH |> UNDISCH |> rewrite_thm
-	  in th end
-	  else let
-	    val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp]
+            val th = MP th subscript_eval |> UNDISCH |> UNDISCH |> rewrite_thm
+          in th end
+          else let
+            val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp]
                             EvalM_R_Marray_sub_handle |> SPEC_ALL
             val th = rewrite_thm th |> UNDISCH |> UNDISCH |> UNDISCH
-	    val th = MP th Eval_sub_rexp
-	  in th end
+            val th = MP th Eval_sub_rexp
+          in th end
 
         val thm_name = name ^"_sub_thm"
         val _ = save_thm(thm_name, sub_thm)
@@ -936,31 +930,31 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the update exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[update_exn,prim_exn_Subscript])
-	val (subscript_eval, usesSubscript) = let
-	    val eval_th = EVAL EXN_TYPE_e_Subscript
-	    val eval_th = EQT_ELIM eval_th
-	in (eval_th, true) end
+            list_mk_comb(EXN_TYPE,[update_exn,Conv_Subscript])
+        val (subscript_eval, usesSubscript) = let
+            val eval_th = EVAL EXN_TYPE_e_Subscript
+            val eval_th = EQT_ELIM eval_th
+        in (eval_th, true) end
         handle HOL_ERR _ => (TRUTH, false)
 
-	val update_thm =
-	  if usesSubscript then let
-	    val th =
-	      ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,update_exn]
-		      EvalM_R_Marray_update_subscript
-	    val th = SPEC_ALL th |> UNDISCH |> UNDISCH
-	    val th = MP th subscript_eval |> remove_assumption
-			|> remove_assumption |> UNDISCH_ALL
-	  in rewrite_thm th end
-	  else let
-	    val th =
+        val update_thm =
+          if usesSubscript then let
+            val th =
+              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,update_exn]
+                      EvalM_R_Marray_update_subscript
+            val th = SPEC_ALL th |> UNDISCH |> UNDISCH
+            val th = MP th subscript_eval |> remove_assumption
+                        |> remove_assumption |> UNDISCH_ALL
+          in rewrite_thm th end
+          else let
+            val th =
               ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,
-		     update_exn,update_rexp] EvalM_R_Marray_update_handle
-	    val th = SPEC_ALL th |> UNDISCH |> UNDISCH
-	    val th = remove_assumption th |> remove_assumption
-	    val th = UNDISCH th
-	    val th = MP th Eval_update_rexp |> UNDISCH
-	  in rewrite_thm th end
+                     update_exn,update_rexp] EvalM_R_Marray_update_handle
+            val th = SPEC_ALL th |> UNDISCH |> UNDISCH
+            val th = remove_assumption th |> remove_assumption
+            val th = UNDISCH th
+            val th = MP th Eval_update_rexp |> UNDISCH
+          in rewrite_thm th end
 
         val thm_name = name ^"_update_thm"
         val _ = save_thm(thm_name, update_thm)
@@ -970,13 +964,16 @@ fun prove_store_access_specs refs_manip_list
         val alloc_thm = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr]
                               EvalM_R_Marray_alloc |> SPEC_ALL
         val alloc_thm = rewrite_thm alloc_thm |> UNDISCH
-	val alloc_thm = remove_assumption alloc_thm |> remove_assumption
+        val alloc_thm = remove_assumption alloc_thm |> remove_assumption
 
         val thm_name = name ^"_alloc_thm"
         val _ = save_thm(thm_name, alloc_thm)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
     in
-        (length_thm, sub_thm, update_thm, alloc_thm)
+        (intro_hprop length_thm,
+         intro_hprop sub_thm,
+         intro_hprop update_thm,
+         intro_hprop alloc_thm)
     end
 
     val rarrays_access_thms = List.map prove_rarray_specs (zip rarrays_manip_list rarrays_refs_locs_defs)
@@ -1027,25 +1024,25 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the sub exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[sub_exn,prim_exn_Subscript])
-	val (subscript_eval, usesSubscript) = let
-	    val eval_th = EVAL EXN_TYPE_e_Subscript
-	    val eval_th = EQT_ELIM eval_th
-	in (eval_th, true) end
+            list_mk_comb(EXN_TYPE,[sub_exn,Conv_Subscript])
+        val (subscript_eval, usesSubscript) = let
+            val eval_th = EVAL EXN_TYPE_e_Subscript
+            val eval_th = EQT_ELIM eval_th
+        in (eval_th, true) end
         handle HOL_ERR _ => (TRUTH, false)
 
-	val sub_thm =
-	  if usesSubscript then let
-	    val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn]
+        val sub_thm =
+          if usesSubscript then let
+            val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn]
                             EvalM_F_Marray_sub_subscript |> SPEC_ALL
-	    val th = MP th subscript_eval |> UNDISCH |> UNDISCH |> rewrite_thm
-	  in th end
-	  else let
-	    val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp]
+            val th = MP th subscript_eval |> UNDISCH |> UNDISCH |> rewrite_thm
+          in th end
+          else let
+            val th = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,sub_exn,sub_rexp]
                             EvalM_F_Marray_sub_handle |> SPEC_ALL
             val th = rewrite_thm th |> UNDISCH |> UNDISCH |> UNDISCH
-	    val th = MP th Eval_sub_rexp
-	  in th end
+            val th = MP th Eval_sub_rexp
+          in th end
 
         val thm_name = name ^"_sub_thm"
         val _ = save_thm(thm_name, sub_thm)
@@ -1055,37 +1052,39 @@ fun prove_store_access_specs refs_manip_list
         (* Test if the update exception is linked to the CakeML subscript
            exception by the exception refinement invariant *)
         val EXN_TYPE_e_Subscript =
-	    list_mk_comb(EXN_TYPE,[update_exn,prim_exn_Subscript])
-	val (subscript_eval, usesSubscript) = let
-	    val eval_th = EVAL EXN_TYPE_e_Subscript
-	    val eval_th = EQT_ELIM eval_th
-	in (eval_th, true) end
+            list_mk_comb(EXN_TYPE,[update_exn,Conv_Subscript])
+        val (subscript_eval, usesSubscript) = let
+            val eval_th = EVAL EXN_TYPE_e_Subscript
+            val eval_th = EQT_ELIM eval_th
+        in (eval_th, true) end
         handle HOL_ERR _ => (TRUTH, false)
 
-	val update_thm =
-	  if usesSubscript then let
-	    val th =
-	      ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,update_exn]
-		      EvalM_F_Marray_update_subscript
-	    val th = SPEC_ALL th |> UNDISCH |> UNDISCH
-	    val th = MP th subscript_eval |> remove_assumption
-			|> remove_assumption |> UNDISCH_ALL
-	  in rewrite_thm th end
-	  else let
-	    val th =
+        val update_thm =
+          if usesSubscript then let
+            val th =
+              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,update_exn]
+                      EvalM_F_Marray_update_subscript
+            val th = SPEC_ALL th |> UNDISCH |> UNDISCH
+            val th = MP th subscript_eval |> remove_assumption
+                        |> remove_assumption |> UNDISCH_ALL
+          in rewrite_thm th end
+          else let
+            val th =
               ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,
-		     update_exn,update_rexp] EvalM_F_Marray_update_handle
-	    val th = SPEC_ALL th |> UNDISCH |> UNDISCH
-	    val th = remove_assumption th |> remove_assumption
-	    val th = UNDISCH th
-	    val th = MP th Eval_update_rexp |> UNDISCH
-	  in rewrite_thm th end
+                     update_exn,update_rexp] EvalM_F_Marray_update_handle
+            val th = SPEC_ALL th |> UNDISCH |> UNDISCH
+            val th = remove_assumption th |> remove_assumption
+            val th = UNDISCH th
+            val th = MP th Eval_update_rexp |> UNDISCH
+          in rewrite_thm th end
 
         val thm_name = name ^"_update_thm"
         val _ = save_thm(thm_name, update_thm)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
     in
-        (length_thm, sub_thm, update_thm)
+        (intro_hprop length_thm,
+         intro_hprop sub_thm,
+         intro_hprop update_thm)
     end
 
     val farrays_access_thms = List.map prove_farray_specs (zip farrays_manip_list farrays_locs_defs)
@@ -1210,6 +1209,8 @@ fun translate_static_init_fixed_store refs_init_list rarrays_init_list farrays_i
     val farrays_locs = List.map (lhs o concl) farrays_locs_defs
 
     val store_pinv_def_opt = get_store_pinv_def_opt store_pinv_opt
+
+(************************************************************************************************************* PROBLEM HERE *)
     val store_X_hprop_def =
       create_store_X_hprop refs_manip_list
                            refs_locs

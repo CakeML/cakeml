@@ -1,4 +1,14 @@
-open preamble wordLangTheory reg_allocTheory
+(*
+  This is the compiler's regsiter allocator. It supports different modes:
+      0) simple allocator, no spill heuristics;
+      1) simple allocator + spill heuristics;
+      2) IRC allocator, no spill heuristics (default);
+      3) IRC allocator + spill heuristics;
+      4) linear scan register allocator.
+*)
+open preamble wordLangTheory;
+open linear_scanTheory;
+open reg_allocTheory;
 
 val _ = new_theory "word_alloc";
 val _ = set_grammar_ancestry [
@@ -8,13 +18,6 @@ val _ = set_grammar_ancestry [
   "wordLang"
 ]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
-(*Defines the algorithms related to the register allocator, currently:
-0) Syntactic forms before and after allocation
-1) SSA form
-2) Colouring and Liveness Analysis
-3) Combined passes
-*)
 
 (*SSA form*)
 val apply_nummap_key_def = Define`
@@ -732,7 +735,7 @@ val get_writes_def = Define`
   (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
   (get_writes prog = LN)`
 
-val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
+Theorem get_writes_pmatch `!inst.
   get_writes inst =
     case inst of
     | Move pri ls => numset_list_insert (MAP FST ls) LN
@@ -741,8 +744,8 @@ val get_writes_pmatch = Q.store_thm("get_writes_pmatch",`!inst.
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
     | Install r1 _ _ _ _ => insert r1 () LN
-    | prog => LN`,
-  rpt strip_tac
+    | prog => LN`
+  (rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac >> fs[get_writes_def])
 
@@ -891,7 +894,7 @@ val get_prefs_def = Define`
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
   (get_prefs prog acc = acc)`
 
-val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
+Theorem get_prefs_pmatch `!s acc.
   get_prefs s acc =
     case s of
     | (Move pri ls) => (MAP (λx,y. (pri,x,y)) ls) ++ acc
@@ -905,8 +908,8 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
     get_prefs ret_handler acc
     | (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args (SOME (_,prog,_,_))) =>
     get_prefs prog (get_prefs ret_handler acc)
-    | prog => acc`,
-  rpt strip_tac
+    | prog => acc`
+  (rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> every_case_tac
@@ -930,6 +933,8 @@ val get_prefs_pmatch = Q.store_thm("get_prefs_pmatch",`!s acc.
 *)
 
 val _ = type_abbrev ("heu_data",``:num#num#num#num#num``);
+
+val _ = Parse.hide"mem";
 
 val add1_lhs_const_def = Define`
   add1_lhs_const x (t: (heu_data num_map)) =
@@ -1122,7 +1127,7 @@ val get_forced_def = Define`
     | Arith (LongMul r1 r2 r3 r4) =>
        if (c.ISA = ARMv6) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
-       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Tiny) then
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Ag32) then
          (if r1=r3 then [] else [(r1,r3)]) ++
          (if r1=r4 then [] else [(r1,r4)]) ++
          acc
@@ -1147,7 +1152,7 @@ val get_forced_def = Define`
     | SOME (v,prog,l1,l2) => get_forced c prog (get_forced c ret_handler acc)) ∧
   (get_forced c prog acc = acc)`
 
-val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
+Theorem get_forced_pmatch `!c prog acc.
   (get_forced (c:'a asm_config) prog acc =
     case prog of
       Inst(Arith (AddCarry r1 r2 r3 r4)) =>
@@ -1169,7 +1174,7 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
     | Inst(Arith (LongMul r1 r2 r3 r4)) =>
        if (c.ISA = ARMv6) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
-       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Tiny) then
+       else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Ag32) then
          (if r1=r3 then [] else [(r1,r3)]) ++
          (if r1=r4 then [] else [(r1,r4)]) ++
          acc
@@ -1189,8 +1194,8 @@ val get_forced_pmatch = Q.store_thm("get_forced_pmatch",`!c prog acc.
       get_forced c ret_handler acc
     | Call (SOME (v,cutset,ret_handler,l1,l2)) dest args (SOME (_,prog,_,_)) =>
       get_forced c prog (get_forced c ret_handler acc)
-    | _ => acc)`,
-  rpt strip_tac
+    | _ => acc)`
+  (rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> every_case_tac
@@ -1306,6 +1311,13 @@ val get_heuristics_def = Define`
     let moves = get_prefs prog [] in
     (moves,NONE)`
 
+val select_reg_alloc_def = Define`
+  select_reg_alloc alg spillcosts k heu_moves tree forced =
+    if 4 <= alg then
+      linear_scan$linear_scan_reg_alloc k heu_moves tree forced
+    else
+      reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced`
+
 (*
   fc is the current prog number
   alg is the allocation algorithm,
@@ -1313,6 +1325,7 @@ val get_heuristics_def = Define`
     1: simple allocator + spill heuristics
     2: IRC allocator, no spill heuristics (default)
     3: IRC allocator + spill heuristics
+  >=4: linear scan register allocator
   k is the number of registers
   prog is the program to be colored
   col_opt is an optional oracle colour
@@ -1325,7 +1338,7 @@ val word_alloc_def = Define`
   dtcase oracle_colour_ok k col_opt tree prog forced of
     NONE =>
       let (heu_moves,spillcosts) = get_heuristics alg fc prog in
-      (dtcase reg_alloc (if alg <= 1n then Simple else IRC) spillcosts k heu_moves tree forced of
+      (dtcase select_reg_alloc alg spillcosts k heu_moves tree forced of
         Success col =>
           apply_colour (total_colour col) prog
       | Failure _ => prog (*cannot happen*))

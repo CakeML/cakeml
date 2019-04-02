@@ -19,33 +19,110 @@ val wc_lines_def = Define`
 val res = translate splitwords_def;
 val res = translate wc_lines_def;
 
+(* TODO: move *)
+val inputLinesFromAny = process_topdecs`
+  fun inputLinesFromAny fnameopt =
+    case fnameopt of
+      None => Some (TextIO.inputLines (TextIO.stdIn))
+    | Some fname => TextIO.inputLinesFrom fname`;
+
+val () = append_prog inputLinesFromAny;
+
+Theorem inputLinesFromAny_spec
+  `OPTION_TYPE FILENAME fo fov ∧ (IS_SOME fo ⇒ hasFreeFD fs) ∧
+  (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"),ReadMode,0)))
+   ⇒
+   app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFromAny" (get_ml_prog_state()))
+    [fov] (STDIO fs)
+    (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
+      (if IS_SOME fo ⇒ inFS_fname fs (File (THE fo))
+       then SOME (all_lines fs (case fo of NONE => IOStream(strlit"stdin") | SOME f => File f))
+       else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))`
+  (xcf"inputLinesFromAny"(get_ml_prog_state())
+  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
+  \\ reverse(Cases_on`∃ll. wfFS (fs with numchars := ll)`) >- (fs[STDIO_def,IOFS_def] \\ xpull)
+  \\ xmatch
+  \\ Cases_on`fo` \\ fs[OPTION_TYPE_def]
+  \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
+  >- (
+    `∃cnt. get_file_content fs 0 = SOME (cnt,0)`
+    by (
+      simp[get_file_content_def, PULL_EXISTS]
+      \\ fs[STD_streams_def]
+      \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
+      \\ simp[] \\ strip_tac
+      \\ fs[wfFS_def]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ first_x_assum(qspec_then`0`mp_tac)
+      \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
+      \\ disch_then drule \\ strip_tac
+      \\ qmatch_goalsub_abbrev_tac`ALOOKUP aa bb = SOME _`
+      \\ Cases_on`ALOOKUP aa bb` \\ fs[Abbr`aa`,Abbr`bb`]
+      \\ imp_res_tac ALOOKUP_FAILS \\ fs[])
+    \\ reverse xlet_auto
+    >- (
+      xcon
+      \\ xsimpl
+      \\ simp[all_lines_def]
+      \\ fs[get_file_content_def]
+      \\ fs[STD_streams_def]
+      \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
+      \\ rw[]
+      \\ pairarg_tac \\ fs[]
+      \\ fs[lines_of_def] )
+    \\ qexists_tac`emp`
+    \\ xsimpl
+    \\ mp_tac stdin_v_thm
+    \\ drule STD_streams_get_mode
+    \\ simp[stdIn_def]
+    \\ EVAL_TAC )
+  \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
+  \\ xapp
+  \\ fs[]);
+(* -- *)
+
 val wordcount = process_topdecs`
   fun wordcount u =
-    case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
-    of SOME lines =>
-      (TextIO.print (Int.toString (wc_lines lines)); TextIO.output1 TextIO.stdOut #" ";
-       TextIO.print (Int.toString (List.length lines)); TextIO.output1 TextIO.stdOut #"\n")`;
+      case inputLinesFromAny
+             (case CommandLine.arguments() of [fname] => Some fname | _ => None)
+      of Some lines =>
+        (TextIO.print (Int.toString (wc_lines lines)); TextIO.output1 TextIO.stdOut #" ";
+         TextIO.print (Int.toString (List.length lines)); TextIO.output1 TextIO.stdOut #"\n")`;
 val _ = append_prog wordcount;
 
-val wordcount_spec = Q.store_thm("wordcount_spec",
-  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
-   cl = [pname; fname] ∧
-   contents = THE (ALOOKUP fs.files (File fname))
+val wordcount_precond_def = Define`
+  wordcount_precond cl fs contents fs' ⇔
+    case cl of
+      [_; fname] =>
+        hasFreeFD fs ∧
+        ALOOKUP fs.files (File fname) = SOME contents ∧
+        fs' = fs
+    | _ =>
+      ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"),ReadMode,0) ∧
+      ALOOKUP fs.files (IOStream (strlit"stdin")) = SOME contents ∧
+      fs' = fastForwardFD fs 0`;
+
+Theorem wordcount_precond_numchars
+  `wordcount_precond cl fs contens fs' ⇒ fs'.numchars = fs.numchars`
+  (rw[wordcount_precond_def]
+  \\ every_case_tac \\ fs[]);
+
+Theorem wordcount_spec
+  `wordcount_precond cl fs contents fs'
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordcount" (get_ml_prog_state()))
      [uv] (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv *
-                 STDIO (add_stdout fs
+                 STDIO (add_stdout fs'
                    (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
                             strlit " ";
                             mlint$toString (&(LENGTH (splitlines contents)));
                             strlit "\n"]))
-                * COMMANDLINE cl)`,
-  simp [concat_def] \\
+                * COMMANDLINE cl)`
+  (simp [concat_def] \\
   strip_tac \\
   xcf "wordcount" (get_ml_prog_state()) \\
   xlet_auto >- (xcon \\ xsimpl) \\
-  xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   (* we will need to know wfcl cl to prove that fname is a valid filename.
      this comes from the COMMANDLINE precondition.
@@ -53,32 +130,82 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   reverse(Cases_on`wfcl cl`) >- (rfs[COMMANDLINE_def] \\ xpull) \\
   (* similarly we will later want to know STD_streams fs *)
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
-  (* TODO: xlet_auto doesn't work *)
-  xlet_auto_spec(SOME inputLinesFrom_spec) >- (
-    xsimpl \\
-    rfs[wfcl_def,validArg_def,EVERY_MEM] ) \\
-  xmatch \\ fs[OPTION_TYPE_def] \\
+  xlet`POSTv fov. &OPTION_TYPE FILENAME (case TL cl of [fname] => SOME fname | _ => NONE) fov * COMMANDLINE cl * STDIO fs`
+  >- (
+    xmatch
+    \\ fs[wfcl_def]
+    \\ Cases_on`cl` \\ fs[]
+    \\ Cases_on`t` \\ fs[LIST_TYPE_def]
+    >- (
+      reverse conj_tac >- (EVAL_TAC \\ rw[])
+      \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+      \\ xcon \\ xsimpl
+      \\ EVAL_TAC )
+    \\ Cases_on`t'` \\ fs[LIST_TYPE_def]
+    >- (
+      reverse conj_tac >- (EVAL_TAC \\ rw[])
+      \\ xcon
+      \\ xsimpl
+      \\ rw[OPTION_TYPE_def]
+      \\ rw[FILENAME_def]
+      \\ fs[validArg_def] )
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
+    \\ xcon
+    \\ xsimpl
+    \\ rw[OPTION_TYPE_def] )
+  \\ xlet_auto
+  >- (
+    xsimpl
+    \\ fs[wordcount_precond_def, wfcl_def]
+    \\ Cases_on`cl` \\ fs[]
+    \\ Cases_on`t` \\ fs[]
+    \\ Cases_on`t'` \\ fs[] )
+  \\ qmatch_asmsub_abbrev_tac`OPTION_TYPE _ fo fov`
+  \\ qmatch_asmsub_abbrev_tac`OPTION_TYPE _ so sv`
+  \\ `∃lines. so = SOME lines`
+  by (
+    fs[wordcount_precond_def, wfcl_def]
+    \\ Cases_on`cl` \\ fs[]
+    \\ simp[Abbr`so`]
+    \\ simp[IS_SOME_EXISTS]
+    \\ simp[Abbr`fo`]
+    \\ simp[CaseEq"list"]
+    \\ strip_tac \\ fs[]
+    \\ simp[inFS_fname_def]
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ simp[MEM_MAP, EXISTS_PROD]
+    \\ asm_exists_tac \\ rw[] )
+  \\ fs[Abbr`so`]
+  \\ xmatch \\ fs[OPTION_TYPE_def] \\
   reverse conj_tac >- (EVAL_TAC \\ fs[]) \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   (* TODO: xlet_auto fails *)
-  qmatch_goalsub_abbrev_tac`STDIO fs'` \\
-  xlet_auto_spec(SOME (Q.SPEC`fs'` (Q.GEN`fs`output1_stdout_spec))) >- xsimpl \\
+  qmatch_goalsub_abbrev_tac`STDIO fs''` \\
+  xlet_auto_spec(SOME (Q.SPEC`fs''` (Q.GEN`fs`output1_stdout_spec))) >- xsimpl \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   xlet_auto >- xsimpl \\
   xapp_spec output1_stdout_spec \\ xsimpl \\
   (* TODO: STDIO prevents xapp/xsimpl instantiating this already *)
-  qunabbrev_tac`fs'` \\
+  qunabbrev_tac`fs''` \\
   CONV_TAC SWAP_EXISTS_CONV \\
-  qmatch_goalsub_abbrev_tac`STDIO fs'` \\
-  qexists_tac`fs'` \\ xsimpl \\
-  simp[Abbr`fs'`] \\
+  qmatch_goalsub_abbrev_tac`STDIO fs''` \\
+  qexists_tac`fs''` \\ xsimpl \\
+  simp[Abbr`fs''`] \\
   DEP_REWRITE_TAC[GEN_ALL add_stdo_o] \\
-  rpt(conj_tac >- metis_tac[STD_streams_add_stdout,STD_streams_stdout]) \\
+  rpt(conj_tac >-
+    metis_tac[STD_streams_add_stdout,STD_streams_stdout,
+              STD_streams_fastForwardFD,DECIDE``0n ≠ 1 ∧0n ≠ 2``]) \\
   qmatch_goalsub_abbrev_tac`STDIO (_ output) ==>> STDIO (_ output') * GC` \\
-  `output = output'` suffices_by xsimpl \\
+  `output = output'` suffices_by (
+    fs[wordcount_precond_def, Abbr`fo`,IS_SOME_EXISTS,CaseEq"list"]
+    \\ Cases_on`cl` \\ fs[wfcl_def]
+    \\ rw[] \\ fs[] \\ rveq \\ xsimpl
+    \\ Cases_on`t` \\ fs[] \\ xsimpl
+    \\ Cases_on`t'` \\ fs[] \\ xsimpl ) \\
   simp[Abbr`output`,Abbr`output'`] \\
   fs [mlintTheory.toString_thm,implode_def,strcat_def,concat_def] \\
   simp[wc_lines_def,str_def,implode_def] \\
@@ -86,23 +213,35 @@ val wordcount_spec = Q.store_thm("wordcount_spec",
   `s1 = t1 ∧ s2 = t2` suffices_by rw[] \\
   simp[Abbr`s1`,Abbr`t1`,Abbr`s2`,Abbr`t2`] \\
   simp[mlintTheory.toString_thm,integerTheory.INT_ABS_NUM] \\
-  reverse conj_tac >- simp[all_lines_def,lines_of_def] \\
-  simp[GSYM MAP_MAP_o,GSYM LENGTH_FLAT,splitwords_all_lines] \\
-  simp[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym]);
+  rveq \\
+  reverse conj_tac >- (
+    simp[all_lines_def,lines_of_def] \\
+    fs[Abbr`fo`]
+    \\ fs[wordcount_precond_def]
+    \\ Cases_on`cl` \\ fs[wfcl_def]
+    \\ Cases_on`t` \\ fs[]
+    \\ Cases_on`t'` \\ fs[] )
+  \\ simp[GSYM MAP_MAP_o,GSYM LENGTH_FLAT,splitwords_all_lines] \\
+  simp[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym]
+  \\ fs[Abbr`fo`]
+  \\ fs[wordcount_precond_def]
+  \\ Cases_on`cl` \\ fs[wfcl_def]
+  \\ Cases_on`t` \\ fs[]
+  \\ Cases_on`t'` \\ fs[]);
 
-val wordcount_whole_prog_spec = Q.store_thm("wordcount_whole_prog_spec",
-  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
-   cl = [pname; fname] ∧
-   contents = THE (ALOOKUP fs.files (File fname))
+Theorem wordcount_whole_prog_spec
+  `wordcount_precond cl fs contents fs'
    ⇒
-   whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs
+   whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs NONE
    ((=)
-     (add_stdout fs
+     (add_stdout fs'
        (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
                 strlit " ";
                 mlint$toString (&(LENGTH (splitlines contents)));
-                strlit "\n"])))`,
-  disch_then assume_tac
+                strlit "\n"])))`
+  (disch_then assume_tac
+  \\ imp_res_tac wordcount_precond_numchars
+  \\ pop_assum(assume_tac o SYM)
   \\ simp[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`

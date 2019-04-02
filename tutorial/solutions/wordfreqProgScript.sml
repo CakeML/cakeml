@@ -4,7 +4,7 @@
 *)
 
 open preamble basis
-     splitwordsTheory balanced_mapTheory
+     splitwordsTheory balanced_mapTheory mlmapTheory
 
 (* note: opening all these theories/libraries can take a while
    and it will print many warning messages which can be ignored *)
@@ -19,14 +19,14 @@ val _ = Globals.max_print_depth := 20
 (* Pure functions for word frequency counting *)
 
 val lookup0_def = Define`
-  lookup0 w t = case lookup compare w t of NONE => 0n | SOME n => n`;
+  lookup0 w t = case mlmap$lookup t w of NONE => 0n | SOME n => n`;
 
-val lookup0_empty = Q.store_thm("lookup0_empty[simp]",
-  `lookup0 w empty = 0`, EVAL_TAC);
+Theorem lookup0_empty[simp]
+  `!w cmp. lookup0 w (empty cmp) = 0` (EVAL_TAC \\ fs []);
 
 val insert_word_def = Define`
   insert_word t w =
-    insert compare w (lookup0 w t + 1) t`;
+    insert t w (lookup0 w t + 1)`;
 
 val insert_line_def = Define`
   insert_line t s =
@@ -34,52 +34,42 @@ val insert_line_def = Define`
 
 (* and their verification *)
 
-val key_set_compare_unique = Q.store_thm("key_set_compare_unique[simp]",
-  `key_set compare k = {k}`,
-  rw[key_set_def,EXTENSION] \\
-  metis_tac[TotOrd_compare,totoTheory.TotOrd]);
+Theorem lookup0_insert
+  `map_ok t ⇒
+   lookup0 k (insert t k' v) =
+   if k = k' then v else lookup0 k t`
+  (rw [lookup0_def,lookup_insert]);
 
-val IMAGE_key_set_compare_inj = Q.store_thm("IMAGE_key_set_compare_inj[simp]",
-  `IMAGE (key_set compare) s1 = IMAGE (key_set compare) s2 ⇔ s1 = s2`,
-  rw[EQ_IMP_THM]
-  \\ fs[Once EXTENSION]
-  \\ fs[EQ_IMP_THM] \\ rw[]
-  \\ res_tac \\ fs[]);
-
-val lookup0_insert = Q.store_thm("lookup0_insert",
-  `invariant compare t ⇒
-   lookup0 k (insert compare k' v t) =
-   if k = k' then v else lookup0 k t`,
-  rw[lookup0_def,lookup_insert,good_cmp_compare] \\
-  metis_tac[TotOrd_compare,totoTheory.TotOrd]);
-
-val insert_line_thm = Q.store_thm("insert_line_thm",
-  `invariant compare t ∧
+Theorem insert_line_thm
+  `map_ok t ∧
    insert_line t s = t'
    ⇒
-   invariant compare t' ∧
+   map_ok t' ∧
    (∀w. lookup0 w t' =
         lookup0 w t + frequency s w) ∧
-   FDOM (to_fmap compare t') = FDOM (to_fmap compare t) ∪ (IMAGE (key_set compare) (set (splitwords s)))`,
-  strip_tac \\ rveq \\
+   cmp_of t' = cmp_of t ∧
+   FDOM (to_fmap t') =
+   FDOM (to_fmap t) ∪ set (splitwords s)`
+  (strip_tac \\ rveq \\
   simp[insert_line_def,splitwords_def,frequency_def] \\
   Q.SPEC_TAC(`tokens isSpace s`,`ls`) \\
   ho_match_mp_tac SNOC_INDUCT \\ simp[] \\
   ntac 3 strip_tac \\
   simp[MAP_SNOC,FOLDL_SNOC,insert_word_def] \\
-  rw[good_cmp_compare,insert_thm,FILTER_SNOC,lookup0_insert] \\
-  rw[EXTENSION] \\ metis_tac[]);
+  rw [insert_thm,lookup0_insert,FILTER_SNOC] \\
+  rw [EXTENSION] \\ metis_tac []);
 
-val FOLDL_insert_line = Q.store_thm("FOLDL_insert_line",
+Theorem FOLDL_insert_line
   `∀ls t t' s.
-    invariant compare t ∧ t' = FOLDL insert_line t ls ∧
+    map_ok t ∧ t' = FOLDL insert_line t ls ∧
     EVERY (λw. ∃x. w = strcat x (strlit "\n")) ls ∧
     s = concat ls
     ⇒
-    invariant compare t' ∧
+    map_ok t' ∧
+    cmp_of t' = cmp_of t /\
     (∀w. lookup0 w t' = lookup0 w t + frequency s w) ∧
-    FDOM (to_fmap compare t') = FDOM (to_fmap compare t) ∪ IMAGE (key_set compare) (set (splitwords s))`,
-  Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
+    FDOM (to_fmap t') = FDOM (to_fmap t) ∪ set (splitwords s)`
+  (Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
   `strlit "\n" = str #"\n"` by EVAL_TAC \\
@@ -99,10 +89,14 @@ val format_output_def = Define`
 
 val res = translate format_output_def;
 
+val empty_def = Define `
+  empty = mlmap$empty compare`;
+
 val compute_wordfreq_output_def = Define `
   compute_wordfreq_output input_lines =
     MAP format_output (toAscList (FOLDL insert_line empty input_lines))`
 
+val res = translate empty_def;
 val res = translate compute_wordfreq_output_def;
 
 (* Main wordfreq implementation *)
@@ -110,7 +104,7 @@ val res = translate compute_wordfreq_output_def;
 val wordfreq = process_topdecs`
   fun wordfreq u =
     case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
-    of SOME lines =>
+    of Some lines =>
       TextIO.print_list (compute_wordfreq_output lines)`;
 
 val () = append_prog wordfreq;
@@ -136,9 +130,9 @@ val valid_wordfreq_output_def = Define`
    file_contents and output, it is actually functional (there is only one correct
    output). We prove this below: existence and uniqueness. *)
 
-val valid_wordfreq_output_exists = Q.store_thm("valid_wordfreq_output_exists",
-  `∃output. valid_wordfreq_output file_chars output`,
-  rw[valid_wordfreq_output_def] \\
+Theorem valid_wordfreq_output_exists
+  `∃output. valid_wordfreq_output file_chars output`
+  (rw[valid_wordfreq_output_def] \\
   qexists_tac`QSORT $<= (nub (splitwords file_chars))` \\
   qmatch_goalsub_abbrev_tac`set l1 = LIST_TO_SET l2` \\
   `PERM (nub l2) l1` by metis_tac[QSORT_PERM] \\
@@ -151,9 +145,9 @@ val valid_wordfreq_output_exists = Q.store_thm("valid_wordfreq_output_exists",
   simp[transitive_def,total_def] \\
   metis_tac[mlstring_lt_trans,mlstring_lt_cases]);
 
-val valid_wordfreq_output_unique = Q.store_thm("valid_wordfreq_output_unique",
-  `∀out1 out2. valid_wordfreq_output s out1 ∧ valid_wordfreq_output s out2 ⇒ out1 = out2`,
-  rw[valid_wordfreq_output_def] \\
+Theorem valid_wordfreq_output_unique
+  `∀out1 out2. valid_wordfreq_output s out1 ∧ valid_wordfreq_output s out2 ⇒ out1 = out2`
+  (rw[valid_wordfreq_output_def] \\
   rpt AP_TERM_TAC \\
   match_mp_tac (MP_CANON SORTED_PERM_EQ) \\
   instantiate \\
@@ -186,11 +180,11 @@ val wordfreq_output_spec_def =
    you like.)
 *)
 
-val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
+Theorem wordfreq_output_valid
   `!file_contents.
      valid_wordfreq_output file_contents
-       (concat (compute_wordfreq_output (lines_of file_contents)))`,
-  rw[valid_wordfreq_output_def,compute_wordfreq_output_def] \\
+       (concat (compute_wordfreq_output (lines_of file_contents)))`
+  (rw[valid_wordfreq_output_def,compute_wordfreq_output_def] \\
   qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
   (* EXERCISE: what is the list of words to use here? *)
   (* hint: toAscList returns a list of pairs, and you can use
@@ -201,15 +195,15 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   qexists_tac `MAP FST ls` \\
   (* ex*)
   (* Now we use the theorem about insert_line proved earlier *)
-  qspecl_then[`lines_of file_contents`,`empty`]mp_tac FOLDL_insert_line \\
-  simp[empty_thm] \\
+  qspecl_then[`lines_of file_contents`,`empty compare`]mp_tac FOLDL_insert_line \\
+  simp[empty_thm,mlstringTheory.TotOrd_compare] \\
   impl_tac >- (
     simp[lines_of_def,EVERY_MAP,implode_def,strcat_def] \\
     simp[EVERY_MEM] \\ metis_tac[explode_implode] ) \\
   strip_tac \\
-  assume_tac good_cmp_compare \\ simp[Abbr`ls`] \\
+  simp[Abbr`ls`] \\
   (* simplify the remaining goal using properties of toAscList etc. *)
-  simp[MAP_FST_toAscList,mlstring_lt_def] \\
+  simp[MAP_FST_toAscList,mlstring_lt_def,empty_def] \\
   simp[MAP_MAP_o,o_DEF] \\
   imp_res_tac MAP_FST_toAscList \\ fs[empty_thm] \\
   qmatch_goalsub_abbrev_tac`set (splitwords w1) = set (splitwords w2)` \\
@@ -219,6 +213,7 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
     \\ `isSpace #"\n"` by EVAL_TAC
     \\ simp[splitwords_concat_space] ) \\
   simp[] \\
+  rfs [] \\
   AP_TERM_TAC \\
   simp[MAP_EQ_f] \\
   simp[FORALL_PROD] \\ rw[] \\
@@ -235,10 +230,10 @@ val wordfreq_output_valid = Q.store_thm("wordfreq_output_valid",
   (* ex*)
 );
 
-val wordfreq_output_spec_unique = Q.store_thm("wordfreq_output_spec_unique",
+Theorem wordfreq_output_spec_unique
   `valid_wordfreq_output file_chars output ⇒
-   wordfreq_output_spec file_chars = output`,
-  (* EXERCISE: prove this *)
+   wordfreq_output_spec file_chars = output`
+  ((* EXERCISE: prove this *)
   (* hint: it's a one-liner *)
   (*ex *)
   metis_tac[valid_wordfreq_output_unique,wordfreq_output_spec_def]
@@ -339,14 +334,14 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 
 (* Finally, we package the verified program up with the following boilerplate *)
 
-val wordfreq_whole_prog_spec = Q.store_thm("wordfreq_whole_prog_spec",
+Theorem wordfreq_whole_prog_spec
   `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
    cl = [pname; fname] ∧
    contents = implode (THE (ALOOKUP fs.files (File fname)))
    ⇒
-   whole_prog_spec ^(fetch_v "wordfreq" (get_ml_prog_state())) cl fs
-         ((=) (add_stdout fs (wordfreq_output_spec contents)))`,
-  disch_then assume_tac
+   whole_prog_spec ^(fetch_v "wordfreq" (get_ml_prog_state())) cl fs NONE
+         ((=) (add_stdout fs (wordfreq_output_spec contents)))`
+  (disch_then assume_tac
   \\ simp[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`

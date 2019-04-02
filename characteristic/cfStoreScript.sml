@@ -1,3 +1,6 @@
+(*
+  Conversion from semantic stores to heaps.
+*)
 open preamble
 open set_sepTheory helperLib ConseqConv
 open semanticPrimitivesTheory ml_translatorTheory
@@ -5,8 +8,6 @@ open cfHeapsTheory cfHeapsBaseLib
 
 val _ = new_theory "cfStore"
 
-(*------------------------------------------------------------------*)
-(** Conversion from semantic stores to heaps *)
 
 (* Definitions *)
 
@@ -27,9 +28,13 @@ val parts_ok_def = Define `
     (!ns u.
        MEM (ns,u) parts ==>
        ?s. !n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s) /\
+    (!x conf bytes m ns u.
+       MEM (ns,u) parts /\ MEM m ns /\
+       u m conf bytes (proj x ' m) = SOME FFIdiverge ==>
+        st.oracle m x conf bytes = Oracle_final(FFI_diverged)) /\
     !x conf bytes w new_bytes m ns u.
       MEM (ns,u) parts /\ MEM m ns /\
-      u m conf bytes (proj x ' m) = SOME (new_bytes,w) ==>
+      u m conf bytes (proj x ' m) = SOME(FFIreturn new_bytes w) ==>
       LENGTH new_bytes = LENGTH bytes /\
       ?y.
         st.oracle m x conf bytes = Oracle_return y new_bytes /\
@@ -53,24 +58,24 @@ val st2heap_def = Define `
 
 (* Lemmas *)
 
-val store2heap_aux_append = Q.store_thm ("store2heap_aux_append",
+Theorem store2heap_aux_append
   `!s n x.
       store2heap_aux n (s ++ [x]) =
-      (Mem (LENGTH s + n) x) INSERT store2heap_aux n s`,
-  Induct THENL [all_tac, Cases] \\ fs [store2heap_aux_def, INSERT_COMM]
+      (Mem (LENGTH s + n) x) INSERT store2heap_aux n s`
+  (Induct THENL [all_tac, Cases] \\ fs [store2heap_aux_def, INSERT_COMM]
   \\ fs [DECIDE ``(LENGTH s + 1) = SUC (LENGTH s)``]
 )
 
-val store2heap_append = Q.store_thm ("store2heap_append",
-  `!s x. store2heap (s ++ [x]) = Mem (LENGTH s) x INSERT store2heap s`,
-  fs [store2heap_def, store2heap_aux_append]
+Theorem store2heap_append
+  `!s x. store2heap (s ++ [x]) = Mem (LENGTH s) x INSERT store2heap s`
+  (fs [store2heap_def, store2heap_aux_append]
 )
 
-val store2heap_aux_suc = Q.store_thm ("store2heap_aux_suc",
+Theorem store2heap_aux_suc
   `!s n u v.
       (Mem u v IN store2heap_aux n s) =
-      (Mem (SUC u) v IN store2heap_aux (SUC n) s)`,
-  Induct
+      (Mem (SUC u) v IN store2heap_aux (SUC n) s)`
+  (Induct
   THEN1 (strip_tac \\ fs [store2heap_def, store2heap_aux_def])
   THEN1 (
     Cases \\
@@ -80,16 +85,16 @@ val store2heap_aux_suc = Q.store_thm ("store2heap_aux_suc",
   )
 )
 
-val store2heap_aux_IN_bound = Q.store_thm ("store2heap_aux_IN_bound",
-  `!s n u v. Mem u v IN store2heap_aux n s ==> (u >= n)`,
-  Induct THENL [all_tac, Cases] \\ fs [store2heap_aux_def] \\
+Theorem store2heap_aux_IN_bound
+  `!s n u v. Mem u v IN store2heap_aux n s ==> (u >= n)`
+  (Induct THENL [all_tac, Cases] \\ fs [store2heap_aux_def] \\
   rpt strip_tac \\ fs [] \\ first_assum (qspecl_then [`n+1`, `u`, `v`] drule) \\
   rw_tac arith_ss []
 )
 
-val store2heap_alloc_disjoint = Q.store_thm ("store2heap_alloc_disjoint",
-  `!s x. ~ (Mem (LENGTH s) x IN (store2heap s))`,
-  Induct
+Theorem store2heap_alloc_disjoint
+  `!s x. ~ (Mem (LENGTH s) x IN (store2heap s))`
+  (Induct
   THEN1 (strip_tac \\ fs [store2heap_def, store2heap_aux_def])
   THEN1 (
     Cases \\ fs [store2heap_def, store2heap_aux_def] \\
@@ -98,9 +103,9 @@ val store2heap_alloc_disjoint = Q.store_thm ("store2heap_alloc_disjoint",
   )
 )
 
-val store2heap_IN_LENGTH = Q.store_thm ("store2heap_IN_LENGTH",
-  `!s r x. Mem r x IN (store2heap s) ==> r < LENGTH s`,
-  Induct THENL [all_tac, Cases] \\
+Theorem store2heap_IN_LENGTH
+  `!s r x. Mem r x IN (store2heap s) ==> r < LENGTH s`
+  (Induct THENL [all_tac, Cases] \\
   fs [store2heap_def, store2heap_aux_def] \\
   Cases_on `r` \\ fs [] \\ rewrite_tac [ONE] \\
   rpt strip_tac \\ fs [GSYM store2heap_aux_suc] \\ metis_tac []
@@ -114,46 +119,46 @@ val tac_store2heap_IN =
   qspecl_then [`s`, `1`, `0`, `x'`] drule store2heap_aux_IN_bound \\
   rw_tac arith_ss []
 
-val store2heap_IN_EL = Q.store_thm ("store2heap_IN_EL",
-  `!s r x. Mem r x IN (store2heap s) ==> EL r s = x`,
-  tac_store2heap_IN
+Theorem store2heap_IN_EL
+  `!s r x. Mem r x IN (store2heap s) ==> EL r s = x`
+  (tac_store2heap_IN
 )
 
-val store2heap_IN_unique_key = Q.store_thm ("store2heap_IN_unique_key",
+Theorem store2heap_IN_unique_key
   `!s r x.
       Mem r x IN (store2heap s) ==>
-      !x'. Mem r x' IN (store2heap s) ==> x = x'`,
-  tac_store2heap_IN
+      !x'. Mem r x' IN (store2heap s) ==> x = x'`
+  (tac_store2heap_IN
 )
 
-val Mem_NOT_IN_ffi2heap = Q.store_thm("Mem_NOT_IN_ffi2heap",
-  `~(Mem rv x IN ffi2heap (p:'ffi ffi_proj) f)`,
-  PairCases_on `p` \\ fs [ffi2heap_def] \\ rw []);
+Theorem Mem_NOT_IN_ffi2heap
+  `~(Mem rv x IN ffi2heap (p:'ffi ffi_proj) f)`
+  (PairCases_on `p` \\ fs [ffi2heap_def] \\ rw []);
 
-val FFI_split_NOT_IN_store2heap_aux = Q.store_thm("FFI_split_NOT_IN_store2heap_aux",
-  `∀n s. FFI_split ∉ store2heap_aux n s`,
-  Induct_on `s` \\ fs [store2heap_aux_def]);
+Theorem FFI_split_NOT_IN_store2heap_aux
+  `∀n s. FFI_split ∉ store2heap_aux n s`
+  (Induct_on `s` \\ fs [store2heap_aux_def]);
 
-val FFI_part_NOT_IN_store2heap_aux = Q.store_thm("FFI_part_NOT_IN_store2heap_aux",
-  `∀n s. FFI_part x1 x2 x3 x4 ∉ store2heap_aux n s`,
-  Induct_on `s` \\ fs [store2heap_aux_def]);
+Theorem FFI_part_NOT_IN_store2heap_aux
+  `∀n s. FFI_part x1 x2 x3 x4 ∉ store2heap_aux n s`
+  (Induct_on `s` \\ fs [store2heap_aux_def]);
 
-val FFI_full_NOT_IN_store2heap_aux = Q.store_thm("FFI_full_NOT_IN_store2heap_aux",
-  `∀n s. FFI_full x1 ∉ store2heap_aux n s`,
-  Induct_on `s` \\ fs [store2heap_aux_def]);
+Theorem FFI_full_NOT_IN_store2heap_aux
+  `∀n s. FFI_full x1 ∉ store2heap_aux n s`
+  (Induct_on `s` \\ fs [store2heap_aux_def]);
 
-val FFI_part_NOT_IN_store2heap = Q.store_thm("FFI_part_NOT_IN_store2heap",
+Theorem FFI_part_NOT_IN_store2heap
   `!s. ~(FFI_split ∈ store2heap s) /\
         ~(FFI_part x1 x2 x3 x4 ∈ store2heap s) /\
-        ~(FFI_full y2 ∈ store2heap s)`,
-  fs [store2heap_def,FFI_part_NOT_IN_store2heap_aux,
+        ~(FFI_full y2 ∈ store2heap s)`
+  (fs [store2heap_def,FFI_part_NOT_IN_store2heap_aux,
       FFI_full_NOT_IN_store2heap_aux,FFI_split_NOT_IN_store2heap_aux]);
 
-val store2heap_LUPDATE = Q.store_thm ("store2heap_LUPDATE",
+Theorem store2heap_LUPDATE
   `!s r x y.
       Mem r y IN (store2heap s) ==>
-      store2heap (LUPDATE x r s) = Mem r x INSERT ((store2heap s) DELETE Mem r y)`,
-  Induct \\
+      store2heap (LUPDATE x r s) = Mem r x INSERT ((store2heap s) DELETE Mem r y)`
+  (Induct \\
   fs [store2heap_def, store2heap_aux_def] \\
   Cases_on `r` \\ qx_genl_tac [`v`, `x`, `y`] \\
   qspecl_then [`s`, `1`, `0`, `y`] assume_tac store2heap_aux_IN_bound \\
@@ -178,9 +183,9 @@ val store2heap_LUPDATE = Q.store_thm ("store2heap_LUPDATE",
     first_assum drule \\
     disch_then (qspecl_then [`x`, `Mem n'' s'`] assume_tac) \\ fs []));
 
-val st2heap_clock = Q.store_thm ("st2heap_clock",
-  `!st ck. st2heap (p:'ffi ffi_proj) (st with clock := ck) = st2heap p st`,
-  fs [st2heap_def]
+Theorem st2heap_clock
+  `!st ck. st2heap (p:'ffi ffi_proj) (st with clock := ck) = st2heap p st`
+  (fs [st2heap_def]
 );
 
 val _ = export_theory ()

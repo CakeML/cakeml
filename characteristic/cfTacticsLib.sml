@@ -1,3 +1,6 @@
+(*
+  Various tactics for reasoning about CF-based goals in HOL.
+*)
 structure cfTacticsLib (*:> cfTacticsLib*) =
 struct
 
@@ -6,6 +9,8 @@ open ConseqConv
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
 open cfAppLib cfSyntax semanticPrimitivesSyntax
+
+val ERR = mk_HOL_ERR "cfTacticsLib";
 
 fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
   let
@@ -39,6 +44,9 @@ val () = ml_progComputeLib.add_env_compset cs
 val () = cfComputeLib.add_cf_aux_compset cs
 val () = computeLib.extend_compset [
   computeLib.Defs [
+(*  TS: it's quite unclear to me why CF does this, when ml_progScript is so
+    careful to ensure that these definitions aren't in the compset. I've tried
+    adjusting it, but it results in far too much work. *)
     ml_progTheory.merge_env_def,
     ml_progTheory.write_def,
     ml_progTheory.write_mod_def,
@@ -60,7 +68,7 @@ local
 
   fun stateful f ssfl thm =
     let
-      val	ss = List.foldl	(simpLib.++ o Lib.swap)	(srw_ss()) ssfl
+      val       ss = List.foldl (simpLib.++ o Lib.swap) (srw_ss()) ssfl
     in
       f ss thm
     end
@@ -93,6 +101,8 @@ val reducible_pats = [
   ``do_con_check _ _ _``,
   ``build_conv _ _ _``,
   ``nsLookup _ _``,
+  ``nsLookup_Short _ _``,
+  ``nsLookup_Mod1 _ _``,
   ``Fun_body _``
 ]
 
@@ -123,8 +133,27 @@ val cf_defs =
    cf_raise_def, cf_handle_def]
 
 val cleanup_exn_side_cond =
-  simp [cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
-        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTe_left]
+  simp [cfHeapsBaseTheory.SEP_IMPPOSTv_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTf_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_POSTed_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTf_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_POSTvd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTve_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTvd_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTf_POSTed_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTe_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTf_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTd_POSTve_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left,
+        cfHeapsBaseTheory.SEP_IMPPOSTe_inv_POSTe_left
+       ]
 
 val xlocal =
   FIRST [
@@ -154,7 +183,7 @@ val sep_imp_instantiate_tac =
   simp [SEP_IMP_REFL, cfHeapsBaseTheory.hsimpl_gc]
 
 val xsimpl =
-  simp [PULL_EXISTS] \\
+  simp [PULL_EXISTS,BOOL_T,BOOL_F] \\
   CHANGED_TAC (rpt (hsimpl \\ sep_imp_instantiate_tac))
   ORELSE sep_imp_instantiate_tac
 
@@ -176,14 +205,14 @@ fun naryFun_repack_conv tm =
 val naryClosure_repack_conv =
   (RAND_CONV naryFun_repack_conv) THENC (REWR_CONV (GSYM naryClosure_def))
 
-fun xcf name st =
+fun xcf_with_def name f_def =
   let
-    val f_def = fetch_def name st
     val Closure_tac =
       CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
       irule app_of_cf THEN
       CONJ_TAC THEN1 eval_tac THEN
       CONJ_TAC THEN1 eval_tac THEN simp [cf_def]
+
     val Recclosure_tac =
       CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
       irule app_rec_of_cf THEN
@@ -206,7 +235,14 @@ fun xcf name st =
              err_tac "xcf" "goal is not an app" g
   in
     rpt strip_tac \\ simp [f_def] \\ closure_tac \\ reduce_tac
-  end
+  end;
+
+fun xcf name st =
+  let
+    val f_def = fetch_def name st
+  in
+    xcf_with_def name f_def
+  end;
 
 (* [xlet] *)
 
@@ -216,11 +252,9 @@ fun xlet_core cont0 cont1 cont2 =
   irule local_elim \\ hnf \\
   simp [namespaceTheory.nsOptBind_def] \\
   cont0 \\
-  CONJ_TAC THENL [
-    CONJ_TAC THENL [
-      all_tac,
-      TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTe_POSTv_left)
-    ],
+  rpt CONJ_TAC THENL [
+    all_tac,
+    TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left),
     cont1 \\ cont2
   ]
 

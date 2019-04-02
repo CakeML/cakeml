@@ -1,4 +1,6 @@
-(* Stuff used for manual inlining of encoders *)
+(*
+  Stuff used for manual inlining of encoders
+*)
 
 structure inliningLib =
 struct
@@ -13,7 +15,7 @@ struct
       |  _ => Redblackmap.insert (d,t,1)) (Redblackmap.mkDict Term.compare) tlist
 
   fun is_subterm x y =
-    patternMatchesSyntax.has_subterm (fn t => t = x) y
+    patternMatchesSyntax.has_subterm (aconv x) y
 
   fun mostgen x [] acc = (x,acc)
   |   mostgen x (y::ys) acc =
@@ -37,8 +39,8 @@ struct
     let val fvt = free_vars t
         val foo = count_terms (find_terms (fn tt =>
           let val fvs = free_vars tt in
-            all (fn v => mem v fvt) fvs andalso
-            fvs <> [] andalso
+            all (fn v => tmem v fvt) fvs andalso
+            not(List.null fvs) andalso
             not(is_fun_type tt) andalso
             not(is_var tt)
           end) t)
@@ -69,7 +71,7 @@ struct
                 (fn t => if type_of t <> ``:bool``orelse avoidp t then NO_CONV t else ALL_CONV t)
                 THENC blastLib.BBLAST_CONV
                 THENC (if print then PRINT_CONV else ALL_CONV)
-                THENC (fn t => if t = boolSyntax.T orelse t = boolSyntax.F then
+                THENC (fn t => if Teq t orelse Feq t then
                                   ALL_CONV t
                                else
                                   NO_CONV t))) |>

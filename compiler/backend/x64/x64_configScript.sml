@@ -1,3 +1,6 @@
+(*
+  Define the compiler configuration for x64
+*)
 open preamble backendTheory x64_targetTheory x64_targetLib
 
 val _ = new_theory"x64_config";
@@ -33,7 +36,6 @@ val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)
-val mod_conf = rconc(EVAL``prim_config.mod_conf``)
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=2; col_oracle := λn. NONE |>``
@@ -46,14 +48,14 @@ val x64_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;asm_conf:=x64_config;in
 val x64_backend_config_def = Define`
   x64_backend_config =
              <|source_conf:=^(source_conf);
-               mod_conf:=^(mod_conf);
                clos_conf:=^(clos_conf);
                bvl_conf:=^(bvl_conf);
                data_conf:=^(x64_data_conf);
                word_to_word_conf:=^(word_to_word_conf);
                word_conf:=^(x64_word_conf);
                stack_conf:=^(x64_stack_conf);
-               lab_conf:=^(x64_lab_conf)
+               lab_conf:=^(x64_lab_conf);
+               tap_conf:=default_tap_config
                |>`;
 
 val _ = export_theory();

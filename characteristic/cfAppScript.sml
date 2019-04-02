@@ -1,3 +1,8 @@
+(*
+  App: [app] is used to give a specification for the application of a
+  value to one or multiple value arguments. It is in particular used
+  in cf to abstract from the concrete representation of closures.
+*)
 open preamble
 open set_sepTheory helperLib semanticPrimitivesTheory
 open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormaliseTheory
@@ -7,28 +12,43 @@ val _ = new_theory "cfApp"
 
 val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
-(*------------------------------------------------------------------*)
-(** App: [app] is used to give a specification for the application of
-    a value to one or multiple value arguments. It is in particular
-    used in cf to abstract from the concrete representation of
-    closures.
-*)
 
 val evaluate_ck_def = Define `
   evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)`
 
+val io_prefix_def = Define `
+  io_prefix (s1:'ffi semanticPrimitives$state) (s2:'ffi semanticPrimitives$state) ⇔
+    (* TODO: update io_events to an llist and use LPREFIX instead of ≼ *)
+    s1.ffi.io_events ≼ s2.ffi.io_events`;
+
+val evaluate_to_heap_def = Define `
+  evaluate_to_heap st env exp p heap (r:res) <=>
+    case r of
+    | Val v => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rval [v]) /\
+                         st2heap p st' = heap)
+    | Exn e => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)) /\
+                         st2heap p st' = heap)
+    | FFIDiv name conf bytes => (∃ck st'.
+      evaluate_ck ck st env [exp]
+      = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
+      st2heap p st' = heap)
+    | Div io => (* all clocks produce timeout *)
+                (∀ck. ∃st'. evaluate_ck ck st env [exp] =
+                      (st', Rerr (Rabort Rtimeout_error))) /\
+                (* io is the limit of the io_events of all states *)
+                lprefix_lub (IMAGE (λck. fromList (FST(evaluate_ck ck st env [exp])).ffi.io_events)
+                                   UNIV)
+                              io`
+
 (* [app_basic]: application with one argument *)
 val app_basic_def = Define `
   app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
-    !(h_i: heap) (h_k: heap) (st: 'ffi state).
+    !(h_i: heap) (h_k: heap) (st: 'ffi semanticPrimitives$state).
       SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
-      ?env exp (r: res) (h_f: heap) (h_g: heap) (st': 'ffi state) ck.
-        SPLIT3 (st2heap p st') (h_f, h_k, h_g) /\
-        Q r h_f /\
+      ?env exp (r: res) (h_f: heap) (h_g: heap) heap.
+        SPLIT3 heap (h_f, h_k, h_g) /\
         do_opapp [f;x] = SOME (env, exp) /\
-        case r of
-          | Val v => evaluate_ck ck st env [exp] = (st', Rval [v])
-          | Exn e => evaluate_ck ck st env [exp] = (st', Rerr (Rraise e))`
+        Q r h_f /\ evaluate_to_heap st env exp p heap r`;
 
 val app_basic_local = Q.prove (
   `!f x. is_local (app_basic p f x)`,
@@ -62,58 +82,58 @@ val app_def = Define `
     app_basic p f x H
       (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))`
 
-val app_alt_ind = Q.store_thm ("app_alt_ind",
+Theorem app_alt_ind
   `!f xs x H Q.
      xs <> [] ==>
      app (p:'ffi ffi_proj) f (xs ++ [x]) H Q =
      app (p:'ffi ffi_proj) f xs H
-       (POSTv g. SEP_EXISTS H'. H' * cond (app_basic p g x H' Q))`,
-  Induct_on `xs` \\ fs [] \\ rpt strip_tac \\
+       (POSTv g. SEP_EXISTS H'. H' * cond (app_basic p g x H' Q))`
+  (Induct_on `xs` \\ fs [] \\ rpt strip_tac \\
   Cases_on `xs` \\ fs [app_def]
 );
 
-val app_alt_ind_w = Q.store_thm ("app_alt_ind_w",
+Theorem app_alt_ind_w
   `!f xs x H Q.
      app (p:'ffi ffi_proj) f (xs ++ [x]) H Q ==> xs <> [] ==>
      app (p:'ffi ffi_proj) f xs H
-       (POSTv g. SEP_EXISTS H'. H' * cond (app_basic (p:'ffi ffi_proj) g x H' Q))`,
-  rpt strip_tac \\ fs [app_alt_ind]
+       (POSTv g. SEP_EXISTS H'. H' * cond (app_basic (p:'ffi ffi_proj) g x H' Q))`
+  (rpt strip_tac \\ fs [app_alt_ind]
 )
 
-val app_ge_2_unfold = Q.store_thm ("app_ge_2_unfold",
+Theorem app_ge_2_unfold
   `!f x xs H Q.
       xs <> [] ==>
       app (p:'ffi ffi_proj) f (x::xs) H Q =
-      app_basic p f x H (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))`,
-  rpt strip_tac \\ Cases_on `xs` \\ fs [app_def]
+      app_basic p f x H (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))`
+  (rpt strip_tac \\ Cases_on `xs` \\ fs [app_def]
 );
 
-val app_ge_2_unfold_extens = Q.store_thm ("app_ge_2_unfold_extens",
+Theorem app_ge_2_unfold_extens
   `!f x xs.
       xs <> [] ==>
       app (p:'ffi ffi_proj) f (x::xs) =
-      \H Q. app_basic p f x H (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))`,
-  rpt strip_tac \\ NTAC 2 (irule EQ_EXT \\ gen_tac) \\ fs [app_ge_2_unfold]
+      \H Q. app_basic p f x H (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))`
+  (rpt strip_tac \\ NTAC 2 (irule EQ_EXT \\ gen_tac) \\ fs [app_ge_2_unfold]
 );
 
 (* Weaken-frame-gc for [app]; auxiliary lemma for [app_local] *)
 
-val app_wgframe = Q.store_thm ("app_wgframe",
+Theorem app_wgframe
   `!f xs H H1 H2 Q1 Q.
       app (p:'ffi ffi_proj) f xs H1 Q1 ==>
       H ==>> (H1 * H2) ==>
       (Q1 *+ H2) ==+> (Q *+ GC) ==>
-      app p f xs H Q`,
-  NTAC 2 gen_tac \\ Q.SPEC_TAC (`f`, `f`) \\
+      app p f xs H Q`
+  (NTAC 2 gen_tac \\ Q.SPEC_TAC (`f`, `f`) \\
   Induct_on `xs` THEN1 (fs [app_def]) \\ rpt strip_tac \\ rename1 `x::xs` \\
   Cases_on `xs = []`
   THEN1 (
-    fs [app_def] \\ irule local_frame_gc \\ conj_tac
+    fs [app_def] \\ irule local_frame_gc \\ rpt conj_tac
     THEN1 fs [app_basic_local] \\
     instantiate
   )
   THEN1 (
-    fs [app_ge_2_unfold] \\ irule local_frame \\ conj_tac
+    fs [app_ge_2_unfold] \\ irule local_frame \\ rpt conj_tac
     THEN1 (fs [app_basic_local]) \\
     instantiate \\ simp [SEP_IMPPOST_def, STARPOST_def] \\ qx_gen_tac `r` \\
     Cases_on `r` \\ simp [POSTv_def] \\ hpull \\ hsimpl \\
@@ -122,19 +142,19 @@ val app_wgframe = Q.store_thm ("app_wgframe",
   )
 );
 
-val app_weaken = Q.store_thm ("app_weaken",
+Theorem app_weaken
   `!f xs H Q Q'.
       app (p:'ffi ffi_proj) f xs H Q ==>
       Q ==+> Q' ==>
-      app p f xs H Q'`,
-  rpt strip_tac \\ irule app_wgframe \\ instantiate \\ fs [SEP_IMPPOST_def] \\
+      app p f xs H Q'`
+  (rpt strip_tac \\ irule app_wgframe \\ instantiate \\ fs [SEP_IMPPOST_def] \\
   rpt (hsimpl \\ TRY hinst) \\ simp [GC_def] \\ hsimpl \\
   gen_tac \\ qexists_tac `emp` \\ hsimpl \\ fs []
 );
 
-val app_local = Q.store_thm ("app_local",
-  `!f xs. xs <> [] ==> is_local (app (p:'ffi ffi_proj) f xs)`,
-  rpt strip_tac \\ irule is_local_prove \\ rpt strip_tac \\
+Theorem app_local
+  `!f xs. xs <> [] ==> is_local (app (p:'ffi ffi_proj) f xs)`
+  (rpt strip_tac \\ irule is_local_prove \\ rpt strip_tac \\
   Cases_on `xs` \\ fs [] \\ rename1 `x1::xs` \\
   Cases_on `xs` \\ fs []
   THEN1 (
@@ -168,7 +188,7 @@ val curried_def = Define `
                     app (p:'ffi ffi_proj) f (x::xs) H Q ==>
                     app (p:'ffi ffi_proj) g xs H Q))`;
 
-val curried_ge_2_unfold = Q.store_thm ("curried_ge_2_unfold",
+Theorem curried_ge_2_unfold
   `!n f.
       n > 1 ==>
       curried (p:'ffi ffi_proj) n f =
@@ -176,8 +196,8 @@ val curried_ge_2_unfold = Q.store_thm ("curried_ge_2_unfold",
             (POSTv g. cond (curried p (PRE n) g /\
                  !xs H Q.
                    LENGTH xs = PRE n ==>
-                   app p f (x::xs) H Q ==> app p g xs H Q))`,
-  rpt strip_tac \\ Cases_on `n` \\ fs [] \\ rename1 `SUC n > 1` \\
+                   app p f (x::xs) H Q ==> app p g xs H Q))`
+  (rpt strip_tac \\ Cases_on `n` \\ fs [] \\ rename1 `SUC n > 1` \\
   Cases_on `n` \\ fs [Once curried_def]
 );
 
@@ -225,12 +245,13 @@ val spec_def = Define `
 (*------------------------------------------------------------------*)
 (* Relating [app] to [_ --> _] from the translator *)
 
-val app_basic_weaken = Q.store_thm("app_basic_weaken",
+Theorem app_basic_weaken
   `(!x v. P x v ==> Q x v) ==>
     (app_basic p v v1 x P ==>
-     app_basic p v v1 x Q)`,
-  fs [app_basic_def] \\ metis_tac []);
+     app_basic p v v1 x Q)`
+  (fs [app_basic_def] \\ metis_tac []);
 
+(*
 val evaluate_list_SING = Q.prove(
   `bigStep$evaluate_list b env st [exp] (st', Rval [v]) <=>
     bigStep$evaluate b env st exp (st', Rval v)`,
@@ -247,7 +268,7 @@ val evaluate_list_raise_SING = Q.prove(
                 SIMP_RULE std_ss [Once bigStepTheory.evaluate_cases])
   \\ fs []);
 
-val app_basic_rel = Q.store_thm("app_basic_rel",
+Theorem app_basic_rel
   `app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
     !(h_i: heap) (h_k: heap) (st: 'ffi state).
       SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
@@ -257,8 +278,8 @@ val app_basic_rel = Q.store_thm("app_basic_rel",
         do_opapp [f;x] = SOME (env, exp) /\
         case r of
           | Val v' => bigStep$evaluate F env st exp (st', Rval v')
-          | Exn e  => bigStep$evaluate F env st exp (st', Rerr (Rraise e))`,
-  fs [app_basic_def,evaluate_ck_def,evaluate_list_SING,evaluate_list_raise_SING,
+          | Exn e  => bigStep$evaluate F env st exp (st', Rerr (Rraise e))`
+  (fs [app_basic_def,evaluate_ck_def,evaluate_list_SING,evaluate_list_raise_SING,
       funBigStepEquivTheory.functional_evaluate_list,
       bigClockTheory.big_clocked_unclocked_equiv,PULL_EXISTS]
   \\ rw [] \\ eq_tac \\ rw []
@@ -277,67 +298,69 @@ val app_basic_rel = Q.store_thm("app_basic_rel",
    (rewrite_tac [CONJ_ASSOC] \\ once_rewrite_tac [CONJ_COMM]
     \\ asm_exists_tac \\ fs []
     \\ fs [st2heap_def] \\ asm_exists_tac \\ fs []));
+*)
 
 (* TODO: move to appropriate locations *)
 
-val FFI_part_NOT_IN_store2heap = Q.store_thm("FFI_part_NOT_IN_store2heap",
-  `FFI_part x1 x2 x3 x4 ∉ store2heap refs`,
-  rw[store2heap_def,FFI_part_NOT_IN_store2heap_aux]);
+Theorem FFI_part_NOT_IN_store2heap
+  `FFI_part x1 x2 x3 x4 ∉ store2heap refs`
+  (rw[store2heap_def,FFI_part_NOT_IN_store2heap_aux]);
 
-val FFI_full_NOT_IN_store2heap = Q.store_thm("FFI_full_NOT_IN_store2heap",
-  `FFI_full x1 ∉ store2heap refs`,
-  rw[store2heap_def,FFI_full_NOT_IN_store2heap_aux]);
+Theorem FFI_full_NOT_IN_store2heap
+  `FFI_full x1 ∉ store2heap refs`
+  (rw[store2heap_def,FFI_full_NOT_IN_store2heap_aux]);
 
-val FFI_split_NOT_IN_store2heap = Q.store_thm("FFI_split_NOT_IN_store2heap",
-  `FFI_split ∉ store2heap refs`,
-  rw[store2heap_def,FFI_split_NOT_IN_store2heap_aux]);
+Theorem FFI_split_NOT_IN_store2heap
+  `FFI_split ∉ store2heap refs`
+  (rw[store2heap_def,FFI_split_NOT_IN_store2heap_aux]);
 
-val store2heap_aux_MAPi = Q.store_thm("store2heap_aux_MAPi",
-  `∀n s. store2heap_aux n s = set (MAPi (λi v. Mem (n+i) v) s)`,
-  Induct_on`s`
+Theorem store2heap_aux_MAPi
+  `∀n s. store2heap_aux n s = set (MAPi (λi v. Mem (n+i) v) s)`
+  (Induct_on`s`
   \\ rw[store2heap_aux_def,o_DEF,ADD1]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ rw[FUN_EQ_THM]);
 
-val store2heap_MAPi = Q.store_thm("store2heap_MAPi",
-  `store2heap s = set (MAPi Mem s)`,
-  rw[store2heap_def,store2heap_aux_MAPi]
+Theorem store2heap_MAPi
+  `store2heap s = set (MAPi Mem s)`
+  (rw[store2heap_def,store2heap_aux_MAPi]
   \\ srw_tac[ETA_ss][]);
 
-val store2heap_aux_append_many = Q.store_thm("store2heap_aux_append_many",
+Theorem store2heap_aux_append_many
   `∀s n x.
     store2heap_aux n (s ++ x) =
-    store2heap_aux (n + LENGTH s) x ∪ store2heap_aux n s`,
-  Induct \\ rw[store2heap_aux_def,ADD1,EXTENSION]
+    store2heap_aux (n + LENGTH s) x ∪ store2heap_aux n s`
+  (Induct \\ rw[store2heap_aux_def,ADD1,EXTENSION]
   \\ metis_tac[]);
 
-val store2heap_append_many = Q.store_thm("store2heap_append_many",
+Theorem store2heap_append_many
   `∀s x.
-    store2heap (s ++ x) = store2heap s ∪ store2heap_aux (LENGTH s) x`,
-  rw[store2heap_def,store2heap_aux_append_many,UNION_COMM]);
+    store2heap (s ++ x) = store2heap s ∪ store2heap_aux (LENGTH s) x`
+  (rw[store2heap_def,store2heap_aux_append_many,UNION_COMM]);
 
-val st2heap_with_refs_append = Q.store_thm("st2heap_with_refs_append",
+Theorem st2heap_with_refs_append
   `st2heap p (st with refs := r1 ++ r2) =
-   st2heap p (st with refs := r1) ∪ store2heap_aux (LENGTH r1) r2`,
-  rw[st2heap_def,store2heap_append_many]
+   st2heap p (st with refs := r1) ∪ store2heap_aux (LENGTH r1) r2`
+  (rw[st2heap_def,store2heap_append_many]
   \\ metis_tac[UNION_COMM,UNION_ASSOC]);
 
-val POSTv_cond = Q.store_thm("POSTv_cond",
-  `(POSTv v. &f v) r h ⇔ ∃v. r = Val v ∧ f v ∧ h = ∅`,
-  rw[POSTv_def]
+Theorem POSTv_cond
+  `(POSTv v. &f v) r h ⇔ ∃v. r = Val v ∧ f v ∧ h = ∅`
+  (rw[POSTv_def]
   \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]);
 
 open terminationTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 
-val big_remove_clock = Q.store_thm("big_remove_clock",
+(*
+Theorem big_remove_clock
   `∀c ck env s e s' r.
      evaluate ck env s e (s',r) ∧
      r ≠ Rerr (Rabort Rtimeout_error)
      ⇒
-     evaluate F env (s with clock := c) e (s' with clock := c,r)`,
-  gen_tac \\ reverse Cases
+     evaluate F env (s with clock := c) e (s' with clock := c,r)`
+  (gen_tac \\ reverse Cases
   >- (
     rw[] \\
     imp_res_tac bigClockTheory.big_unclocked \\
@@ -345,13 +368,14 @@ val big_remove_clock = Q.store_thm("big_remove_clock",
     metis_tac[bigClockTheory.big_unclocked] ) \\
   rw[bigClockTheory.big_clocked_unclocked_equiv] \\
   metis_tac[bigClockTheory.clocked_min_counter]);
+*)
 
-val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",`
+Theorem evaluate_refs_length_mono `
   (∀(s:'a state) env e s' r.
      evaluate s env e = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs) ∧
   (∀(s:'a state) env v pes errv s' r.
-     evaluate_match s env v pes errv = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs)`,
-  ho_match_mp_tac evaluate_ind
+     evaluate_match s env v pes errv = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs)`
+  (ho_match_mp_tac evaluate_ind
   \\ rw[] \\ fs[evaluate_def]
   \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
   \\ fs[dec_clock_def]
@@ -360,19 +384,21 @@ val evaluate_refs_length_mono = Q.store_thm("evaluate_refs_length_mono",`
   \\ rw[]
   \\ every_case_tac >> fs[] >> rveq >> fs[]);
 
-val big_refs_length_mono = Q.store_thm("big_refs_length_mono",
-  `evaluate ck env s exp (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs`,
-  Cases_on`ck`
+(*
+Theorem big_refs_length_mono
+  `evaluate ck env s exp (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs`
+  (Cases_on`ck`
   \\ rw[funBigStepEquivTheory.functional_evaluate]
   \\ fs[bigClockTheory.big_clocked_unclocked_equiv,funBigStepEquivTheory.functional_evaluate]
   \\ imp_res_tac evaluate_refs_length_mono
   \\ fs[]);
+*)
 
-val SPLIT_st2heap_length_leq = Q.store_thm("SPLIT_st2heap_length_leq",
+Theorem SPLIT_st2heap_length_leq
   `SPLIT (st2heap p s') (st2heap p s, h_g) ∧
    LENGTH s.refs ≤ LENGTH s'.refs ∧ s'.ffi = s.ffi ⇒
-   s.refs ≼ s'.refs`,
-  rw[SPLIT_def,st2heap_def]
+   s.refs ≼ s'.refs`
+  (rw[SPLIT_def,st2heap_def]
   \\ `store2heap s'.refs = store2heap s.refs ∪ h_g` by (
     fs[EXTENSION]
     \\ reverse Cases \\ fs[FFI_part_NOT_IN_store2heap]
@@ -493,11 +519,11 @@ val FFI_part_11 = Q.prove(
   \\ Cases_on `x3` \\ fs [] \\ fs [parts_ok_def]
   \\ imp_res_tac ALL_DISTINCT_FLAT_MEM_IMP \\ fs []);
 
-val SPLIT_st2heap_ffi = Q.store_thm("SPLIT_st2heap_ffi",
+Theorem SPLIT_st2heap_ffi
   `SPLIT (st2heap p st') (st2heap p st, h_g) ⇒
    !n. FILTER (ffi_has_index_in [n]) st'.ffi.io_events =
-       FILTER (ffi_has_index_in [n]) st.ffi.io_events`,
-  PairCases_on `p` \\ strip_tac
+       FILTER (ffi_has_index_in [n]) st.ffi.io_events`
+  (PairCases_on `p` \\ strip_tac
   \\ reverse (Cases_on `parts_ok st.ffi (p0,p1) = parts_ok st'.ffi (p0,p1)`)
   THEN1
    (reverse (Cases_on `parts_ok st.ffi (p0,p1)`)
@@ -519,7 +545,7 @@ val SPLIT_st2heap_ffi = Q.store_thm("SPLIT_st2heap_ffi",
     \\ fs [])
   \\ rw []
   \\ qpat_x_assum `!x1 x2. _ <=> _` kall_tac
-  \\ qpat_x_assum `!x1. _ <=> _` kall_tac  
+  \\ qpat_x_assum `!x1. _ <=> _` kall_tac
   \\ qpat_x_assum `_ <=> _` kall_tac
   \\ `∀x3 x4 x2 x1.
         FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) st'.ffi ⇔
@@ -551,11 +577,12 @@ val SPLIT_st2heap_ffi = Q.store_thm("SPLIT_st2heap_ffi",
   \\ match_mp_tac FILTER_ffi_has_index_in_MEM
   \\ fs [] \\ asm_exists_tac \\ fs [])
 
-val SPLIT_st2heap_evaluate_ffi_same = Q.store_thm("SPLIT_st2heap_evaluate_ffi_same",
+(*
+Theorem SPLIT_st2heap_evaluate_ffi_same
   `evaluate F env st exp (st',Rval res) ∧
    SPLIT (st2heap p st') (st2heap p st, h_g) ⇒
-   st'.ffi = st.ffi`,
-  rw[] \\ imp_res_tac SPLIT_st2heap_ffi
+   st'.ffi = st.ffi`
+  (rw[] \\ imp_res_tac SPLIT_st2heap_ffi
   \\ fs[bigClockTheory.big_clocked_unclocked_equiv]
   \\ fs[funBigStepEquivTheory.functional_evaluate]
   \\ imp_res_tac evaluate_io_events_mono_imp
@@ -563,14 +590,16 @@ val SPLIT_st2heap_evaluate_ffi_same = Q.store_thm("SPLIT_st2heap_evaluate_ffi_sa
   \\ `LENGTH st.ffi.io_events = LENGTH st'.ffi.io_events`
         by metis_tac [LENGTH_FILTER_EQ_IMP_LENGTH_EQ]
   \\ metis_tac [IS_PREFIX_LENGTH_ANTI]);
+*)
 
-val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty_state",
+(*
+Theorem evaluate_imp_evaluate_empty_state
   `evaluate F env s es (s',Rval r) ∧ s.refs ≼ s'.refs ∧ s'.ffi = s.ffi ∧
    t = empty_state with <| refs := s.refs |> ∧
    t' = empty_state with <| refs := s'.refs |>
    ⇒
-   evaluate F env t es (t',Rval r)`,
-  rw[Once bigClockTheory.big_clocked_unclocked_equiv]
+   evaluate F env t es (t',Rval r)`
+  (rw[Once bigClockTheory.big_clocked_unclocked_equiv]
   \\ fs[funBigStepEquivTheory.functional_evaluate]
   \\ drule (REWRITE_RULE[GSYM AND_IMP_INTRO](
               INST_TYPE[beta|->oneSyntax.one_ty](
@@ -583,24 +612,22 @@ val evaluate_imp_evaluate_empty_state = Q.store_thm("evaluate_imp_evaluate_empty
   \\ fs[GSYM funBigStepEquivTheory.functional_evaluate]
   \\ simp[bigClockTheory.big_clocked_unclocked_equiv]
   \\ asm_exists_tac \\ fs[]);
+*)
 
-val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
+Theorem Arrow_IMP_app_basic
   `(Arrow a b) f v ==>
     !x v1.
       a x v1 ==>
-      app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. &b (f x) v)`,
-  fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
+      app_basic (p:'ffi ffi_proj) v v1 emp (POSTv v. &b (f x) v)`
+  (fs [app_basic_def,emp_def,cfHeapsBaseTheory.SPLIT_emp1,
       ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,PULL_EXISTS]
-  \\ fs [evaluate_ck_def, funBigStepEquivTheory.functional_evaluate_list]
-  \\ rw []
+  \\ fs [evaluate_ck_def, evaluate_to_heap_def] \\ rw []
   \\ first_x_assum drule \\ strip_tac
   \\ first_x_assum (qspec_then`st.refs`strip_assume_tac)
   \\ instantiate
-  \\ simp [Once bigStepTheory.evaluate_cases, PULL_EXISTS]
-  \\ simp [Once (CONJUNCT2 bigStepTheory.evaluate_cases)]
   \\ drule evaluate_empty_state_IMP \\ strip_tac
-  \\ fs [bigClockTheory.big_clocked_unclocked_equiv]
-  \\ rename1 `evaluate _ _ (st with clock := ck) _ _`
+  \\ fs [ml_progTheory.eval_rel_def]
+  \\ rename1 `evaluate (st with clock := ck) _ _ = _`
   \\ simp[POSTv_cond,PULL_EXISTS]
   \\ instantiate
   \\ fs[st2heap_clock]
@@ -620,29 +647,42 @@ val Arrow_IMP_app_basic = Q.store_thm("Arrow_IMP_app_basic",
   \\ imp_res_tac store2heap_aux_IN_bound
   \\ decide_tac);
 
-val app_basic_IMP_Arrow = Q.store_thm("app_basic_IMP_Arrow",
-  `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒ Arrow a b f v`,
-  rw[app_basic_def,ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1] \\
-  first_x_assum drule \\
-  fs[evaluate_ck_def,funBigStepEquivTheory.functional_evaluate_list] \\
-  fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS] \\
-  disch_then( qspec_then`ARB with <| refs := refs |>` mp_tac) \\
-  rw[] \\ instantiate \\
-  fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\
-  fs[Once (CONJUNCT2 bigStepTheory.evaluate_cases)] \\ rw[] \\
-  drule big_remove_clock \\ rw[] \\
-  first_x_assum(qspec_then`0`strip_assume_tac) \\
-  drule SPLIT_st2heap_evaluate_ffi_same \\
-  fs[st2heap_clock] \\ strip_tac \\
-  drule SPLIT_st2heap_length_leq \\ simp[] \\
-  imp_res_tac big_refs_length_mono \\ fs[] \\
-  rw[IS_PREFIX_APPEND] \\
-  qexists_tac`l` \\
-  match_mp_tac (INST_TYPE[alpha|->beta](GEN_ALL evaluate_imp_evaluate_empty_state)) \\
-  instantiate);
+Theorem app_basic_IMP_Arrow
+  `(∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒
+   Arrow a b f v`
+  (rw[app_basic_def,ml_translatorTheory.Arrow_def,
+     ml_translatorTheory.AppReturns_def,emp_def,SPLIT_emp1,evaluate_to_heap_def]
+  \\ first_x_assum drule
+  \\ fs[evaluate_ck_def]
+  \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
+  \\ disch_then( qspec_then`ARB with
+        <| refs := refs; |>` mp_tac)
+  \\ rw [] \\ instantiate
+  \\ rename1 `SPLIT (st2heap p st1) _`
+  \\ drule (CONJUNCT1 evaluate_ffi_intro |> INST_TYPE [beta|->``:unit``]) \\ fs []
+  \\ disch_then (qspec_then
+       `empty_state with <| clock := ck ;refs := refs |>` mp_tac) \\ fs []
+  \\ qsuff_tac `?refs1. st1.refs = refs ++ refs1 /\
+                        st1.ffi = ARB.ffi`
+  THEN1
+   (fs [ml_progTheory.eval_rel_def] \\ rw []
+    \\ qexists_tac `refs1`
+    \\ qexists_tac `ck` \\ fs [state_component_equality])
+  \\ imp_res_tac evaluate_refs_length_mono \\ fs []
+  \\ imp_res_tac evaluate_io_events_mono_imp
+  \\ fs[io_events_mono_def]
+  \\ simp [GSYM PULL_EXISTS]
+  \\ conj_asm2_tac
+  THEN1 (drule SPLIT_st2heap_length_leq \\ fs [IS_PREFIX_APPEND])
+  \\ imp_res_tac SPLIT_st2heap_ffi \\ fs []
+  \\ qmatch_assum_rename_tac `!n. FILTER (ffi_has_index_in [n]) _ =
+                                  FILTER (ffi_has_index_in [n]) st2.io_events`
+  \\ `LENGTH st1.ffi.io_events = LENGTH st2.io_events`
+        by metis_tac [LENGTH_FILTER_EQ_IMP_LENGTH_EQ]
+  \\ metis_tac [IS_PREFIX_LENGTH_ANTI]);
 
-val Arrow_eq_app_basic = Q.store_thm("Arrow_eq_app_basic",
-  `Arrow a b f fv ⇔ (∀x xv. a x xv ⇒ app_basic p fv xv emp (POSTv v'. &b (f x) v'))`,
-  metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]);
+Theorem Arrow_eq_app_basic
+  `Arrow a b f fv ⇔ (∀x xv. a x xv ⇒ app_basic p fv xv emp (POSTv v'. &b (f x) v'))`
+  (metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]);
 
 val _ = export_theory ()

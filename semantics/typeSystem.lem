@@ -1,8 +1,61 @@
+(*
+  Specification of CakeML's type system.
+*)
 open import Pervasives_extra
 open import Lib
 open import Ast
 open import Namespace
 open import SemanticPrimitives
+
+
+type type_ident = nat
+
+(* Types *)
+type t =
+  (* Type variables that the user writes down ('a, 'b, etc.) *)
+  | Tvar of tvarN
+  (* deBruijn indexed type variables. *)
+  | Tvar_db of nat
+  (* The two numbers represent the identity of the type constructor. The first
+     is the identity of the compilation unit that it was defined in, and the
+     second is its identity inside of that unit *)
+  | Tapp of list t * type_ident
+
+(* Some abbreviations *)
+let Tarray_num : type_ident = 0
+let Tbool_num : type_ident = 1
+let Tchar_num : type_ident = 2
+let Texn_num : type_ident = 3
+let Tfn_num : type_ident = 4
+let Tint_num : type_ident = 5
+let Tlist_num : type_ident = 6
+let Tref_num : type_ident = 7
+let Tstring_num : type_ident = 8
+let Ttup_num : type_ident = 9
+let Tvector_num : type_ident = 10
+let Tword64_num : type_ident = 11
+let Tword8_num : type_ident = 12
+let Tword8array_num : type_ident = 13
+
+(* The numbers for the primitive types *)
+let prim_type_nums =
+  [Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
+   Tvector_num; Tword64_num; Tword8_num; Tword8array_num]
+
+let Tarray t = Tapp [t] Tarray_num
+let Tbool = Tapp [] Tbool_num
+let Tchar = Tapp [] Tchar_num
+let Texn = Tapp [] Texn_num
+let Tfn t1 t2 = Tapp [t1;t2] Tfn_num
+let Tint = Tapp [] Tint_num
+let Tlist t = Tapp [t] Tlist_num
+let Tref t = Tapp [t] Tref_num
+let Tstring = Tapp [] Tstring_num
+let Ttup ts = Tapp ts Ttup_num
+let Tvector t = Tapp [t] Tvector_num
+let Tword64 = Tapp [] Tword64_num
+let Tword8 = Tapp [] Tword8_num
+let Tword8array = Tapp [] Tword8array_num
 
 (* Check that the free type variables are in the given list. Every deBruijn
  * variable must be smaller than the first argument. So if it is 0, no deBruijn
@@ -16,6 +69,21 @@ check_freevars dbmax tvs (Tapp ts tn) =
   List.all (check_freevars dbmax tvs) ts
 and
 check_freevars dbmax tvs (Tvar_db n) = n < dbmax
+
+val check_freevars_ast : list tvarN -> ast_t -> bool
+let rec
+check_freevars_ast tvs (Atvar tv) =
+  elem tv tvs
+and
+check_freevars_ast tvs (Attup ts) =
+  List.all (check_freevars_ast tvs) ts
+and
+check_freevars_ast tvs (Atfun t1 t2) =
+  check_freevars_ast tvs t1 && check_freevars_ast tvs t2
+and
+check_freevars_ast tvs (Atapp ts tn) =
+  List.all (check_freevars_ast tvs) ts
+
 
 (* Simultaneous substitution of types for type variables in a type *)
 val type_subst : Map.map tvarN t -> t -> t
@@ -93,7 +161,7 @@ tveLookup n inc (Bind_name n' tvs t tenvE) =
 declare termination_argument tveLookup = automatic
 
 type tenv_abbrev = namespace modN typeN (list tvarN * t)
-type tenv_ctor = namespace modN conN (list tvarN * list t * tid_or_exn)
+type tenv_ctor = namespace modN conN (list tvarN * list t * type_ident)
 type tenv_val = namespace modN varN (nat * t)
 
 type type_env =
@@ -157,155 +225,134 @@ val type_es : type_env -> tenv_val_exp -> list exp -> list t -> bool
  * represents the functions *)
 val type_funs : type_env -> tenv_val_exp -> list (varN * varN * exp) -> list (varN * t) -> bool
 
-type decls =
-  <| defined_mods : set (list modN);
-     defined_types : set (id modN typeN);
-     defined_exns : set (id modN conN) |>
-
-val empty_decls : decls
-let empty_decls = <|defined_mods = {}; defined_types = {}; defined_exns = {}|>
-
-val union_decls : decls -> decls -> decls
-let union_decls d1 d2 =
-  <| defined_mods = d1.defined_mods union d2.defined_mods;
-     defined_types = d1.defined_types union d2.defined_types;
-     defined_exns = d1.defined_exns union d2.defined_exns |>
-
 (* Check a declaration and update the top-level environments
  * The arguments are in order:
- * - the module that the declaration is in
- * - the set of all modules, and types, and exceptions that have been previously declared
+ * - whether to do extra checks
  * - the type environment
  * - the declaration
- * - the set of all modules, and types, and exceptions that are declared here
+ * - the set of type identity stamps defined here
  * - the environment of new stuff declared here *)
 
-val type_d : bool -> list modN -> decls -> type_env -> dec -> decls -> type_env -> bool
-
-val type_ds : bool -> list modN -> decls -> type_env -> list dec -> decls -> type_env -> bool
-val check_signature : list modN -> tenv_abbrev -> decls -> type_env -> maybe specs -> decls -> type_env -> bool
-val type_specs : list modN -> tenv_abbrev -> specs -> decls -> type_env -> bool
-val type_prog : bool -> decls -> type_env -> list top -> decls -> type_env -> bool
+val type_d : bool -> type_env -> dec -> set nat -> type_env -> bool
+val type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 val type_op : op -> list t -> t -> bool
 let type_op op ts t =
   match (op,ts) with
-    | (Opapp, [Tapp [t2'; t3'] TC_fn; t2]) -> (t2 = t2') && (t = t3')
-    | (Opn _, [Tapp [] TC_int; Tapp [] TC_int]) -> (t = Tint)
-    | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) -> (t = Tapp [] (TC_name (Short "bool")))
-    | (Opw W8 _, [Tapp [] TC_word8; Tapp [] TC_word8]) -> (t = Tapp [] TC_word8)
-    | (Opw W64 _, [Tapp [] TC_word64; Tapp [] TC_word64]) -> (t = Tapp [] TC_word64)
-    | (FP_bop _, [Tapp [] TC_word64; Tapp [] TC_word64] ) -> (t = Tapp [] TC_word64)
-    | (FP_uop _, [Tapp [] TC_word64] ) -> (t = Tapp [] TC_word64)
-    | (FP_cmp _, [Tapp [] TC_word64; Tapp [] TC_word64] ) -> (t = Tapp [] (TC_name (Short "bool")))
-    | (Shift W8 _ _, [Tapp [] TC_word8]) -> (t = Tapp [] TC_word8)
-    | (Shift W64 _ _, [Tapp [] TC_word64]) -> (t = Tapp [] TC_word64)
-    | (Equality, [t1; t2]) -> (t1 = t2) && (t = Tapp [] (TC_name (Short "bool")))
-    | (Opassign, [Tapp [t1] TC_ref; t2]) -> (t1 = t2) && (t = Tapp [] TC_tup)
-    | (Opref, [t1]) -> (t = Tapp [t1] TC_ref)
-    | (Opderef, [Tapp [t1] TC_ref]) -> (t = t1)
-    | (Aw8alloc, [Tapp [] TC_int; Tapp [] TC_word8]) -> (t = Tapp [] TC_word8array)
-    | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) -> (t = Tapp [] TC_word8)
-    | (Aw8length, [Tapp [] TC_word8array]) -> (t = Tapp [] TC_int)
-    | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) -> t = Tapp [] TC_tup
-    | (WordFromInt W8, [Tapp [] TC_int]) -> t = Tapp [] TC_word8
-    | (WordToInt W8, [Tapp [] TC_word8]) -> t = Tapp [] TC_int
-    | (WordFromInt W64, [Tapp [] TC_int]) -> t = Tapp [] TC_word64
-    | (WordToInt W64, [Tapp [] TC_word64]) -> t = Tapp [] TC_int
-    | (CopyStrStr, [Tapp [] TC_string; Tapp [] TC_int; Tapp [] TC_int]) -> t = Tapp [] TC_string
-    | (CopyStrAw8, [Tapp [] TC_string; Tapp [] TC_int; Tapp [] TC_int; Tapp [] TC_word8array; Tapp [] TC_int]) -> t = Tapp [] TC_tup
-    | (CopyAw8Str, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_int]) -> t = Tapp [] TC_string
-    | (CopyAw8Aw8, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_int; Tapp [] TC_word8array; Tapp [] TC_int]) -> t = Tapp [] TC_tup
-    | (Chr, [Tapp [] TC_int]) -> (t = Tchar)
-    | (Ord, [Tapp [] TC_char]) -> (t = Tint)
-    | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) -> (t = Tapp [] (TC_name (Short "bool")))
-    | (Implode, [Tapp [Tapp [] TC_char] (TC_name (Short "list"))]) -> t = Tapp [] TC_string
-    | (Strsub, [Tapp [] TC_string; Tapp [] TC_int]) -> t = Tchar
-    | (Strlen, [Tapp [] TC_string]) -> t = Tint
-    | (Strcat, [Tapp [Tapp [] TC_string] (TC_name (Short "list"))]) -> t = Tapp [] TC_string
-    | (ListAppend, [Tapp [t1] (TC_name (Short "list")); Tapp [t2] (TC_name (Short "list"))]) -> (t1 = t2) && t = Tapp [t1] (TC_name (Short "list"))
-    | (VfromList, [Tapp [t1] (TC_name (Short "list"))]) -> t = Tapp [t1] TC_vector
-    | (Vsub, [Tapp [t1] TC_vector; Tapp [] TC_int]) -> t = t1
-    | (Vlength, [Tapp [t1] TC_vector]) -> (t = Tapp [] TC_int)
-    | (Aalloc, [Tapp [] TC_int; t1]) -> t = Tapp [t1] TC_array
-    | (AallocEmpty, [Tapp [] TC_tup]) -> exists t1. t = Tapp [t1] TC_array
-    | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) -> t = t1
-    | (Alength, [Tapp [t1] TC_array]) -> t = Tapp [] TC_int
-    | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) -> t1 = t2 && t = Tapp [] TC_tup
-    | (ConfigGC, [Tapp [] TC_int; Tapp [] TC_int]) -> t = Tapp [] TC_tup
-    | (FFI n, [Tapp [] TC_string; Tapp [] TC_word8array]) -> t = Tapp [] TC_tup
+    | (Opapp, [t1; t2]) -> t1 = Tfn t2 t
+    | (Opn _, [t1; t2]) -> t1 = Tint && t2 = Tint && t = Tint
+    | (Opb _, [t1; t2]) -> t1 = Tint && t2 = Tint && t = Tbool
+    | (Opw W8 _, [t1; t2]) -> t1 = Tword8 && t2 = Tword8 && t = Tword8
+    | (Opw W64 _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
+    | (FP_bop _, [t1; t2]) -> t1 = Tword64 && t2 = Tword64 && t = Tword64
+    | (FP_uop _, [t1]) ->  t1 = Tword64 && t = Tword64
+    | (FP_cmp _, [t1; t2]) ->  t1 = Tword64 && t2 = Tword64 && t = Tbool
+    | (Shift W8 _ _, [t1]) -> t1 = Tword8 && t = Tword8
+    | (Shift W64 _ _, [t1]) -> t1 = Tword64 && t = Tword64
+    | (Equality, [t1; t2]) -> t1 = t2 && t = Tbool
+    | (Opassign, [t1; t2]) -> t1 = Tref t2 && t = Ttup []
+    | (Opref, [t1]) -> t = Tref t1
+    | (Opderef, [t1]) -> t1 = Tref t
+    | (Aw8alloc, [t1; t2]) -> t1 = Tint && t2 = Tword8 && t = Tword8array
+    | (Aw8sub, [t1; t2]) -> t1 = Tword8array && t2 = Tint && t = Tword8
+    | (Aw8length, [t1]) -> t1 = Tword8array && t = Tint
+    | (Aw8update, [t1; t2; t3]) -> t1 = Tword8array && t2 = Tint && t3 = Tword8 && t = Ttup []
+    | (WordFromInt W8, [t1]) -> t1 = Tint && t = Tword8
+    | (WordToInt W8, [t1]) -> t1 = Tword8 && t = Tint
+    | (WordFromInt W64, [t1]) -> t1 = Tint && t = Tword64
+    | (WordToInt W64, [t1]) -> t1 = Tword64 && t = Tint
+    | (CopyStrStr, [t1; t2; t3]) -> t1 = Tstring && t2 = Tint && t3 = Tint && t = Tstring
+    | (CopyStrAw8, [t1; t2; t3; t4; t5]) ->
+      t1 = Tstring && t2 = Tint && t3 = Tint && t4 = Tword8array && t5 = Tint && t = Ttup []
+    | (CopyAw8Str, [t1; t2; t3]) -> t1 = Tword8array && t2 = Tint && t3 = Tint && t = Tstring
+    | (CopyAw8Aw8, [t1; t2; t3; t4; t5]) ->
+      t1 = Tword8array && t2 = Tint && t3 = Tint && t4 = Tword8array && t5 = Tint && t = Ttup []
+    | (Chr, [t1]) -> t1 = Tint && t = Tchar
+    | (Ord, [t1]) -> t1 = Tchar && t = Tint
+    | (Chopb _, [t1; t2]) -> t1 = Tchar && t2 = Tchar && t = Tbool
+    | (Implode, [t1]) -> t1 = Tlist Tchar && t = Tstring
+    | (Strsub, [t1; t2]) -> t1 = Tstring && t2 = Tint && t = Tchar
+    | (Strlen, [t1]) -> t1 = Tstring && t = Tint
+    | (Strcat, [t1]) -> t1 = Tlist Tstring && t = Tstring
+    | (VfromList, [Tapp [t1] ctor]) -> ctor = Tlist_num && t = Tvector t1
+    | (Vsub, [t1; t2]) -> t2 = Tint && Tvector t = t1
+    | (Vlength, [Tapp [t1] ctor]) -> ctor = Tvector_num && t = Tint
+    | (Aalloc, [t1; t2]) -> t1 = Tint && t = Tarray t2
+    | (AallocEmpty, [t1]) -> t1 = Ttup [] && exists t2. t = Tarray t2
+    | (Asub, [t1; t2]) -> t2 = Tint && Tarray t = t1
+    | (Alength, [Tapp [t1] ctor]) -> ctor = Tarray_num && t = Tint
+    | (Aupdate, [t1; t2; t3]) -> t1 = Tarray t3 && t2 = Tint && t = Ttup []
+    | (ConfigGC, [t1;t2]) -> t1 = Tint && t2 = Tint && t = Ttup []
+    | (FFI n, [t1;t2]) -> t1 = Tstring && t2 = Tword8array && t = Ttup []
+    | (ListAppend, [Tapp [t1] ctor; t2]) -> ctor = Tlist_num && t2 = Tapp [t1] ctor && t = t2
     | _ -> false
   end
 
-val check_type_names : tenv_abbrev -> t -> bool
+val check_type_names : tenv_abbrev -> ast_t -> bool
 let rec
-check_type_names tenvT (Tvar tv) =
+check_type_names tenvT (Atvar tv) =
   true
 and
-check_type_names tenvT (Tapp ts tn) =
-  match tn with
-     TC_name tn ->
-       match nsLookup tenvT tn with
-         | Just (tvs, t) -> List.length tvs = List.length ts
-         | Nothing -> false
-       end
-   | _ -> true
-  end &&
+check_type_names tenvT (Attup ts) =
   List.all (check_type_names tenvT) ts
 and
-check_type_names tenvT (Tvar_db n) =
-  true
+check_type_names tenvT (Atfun t1 t2) =
+  check_type_names tenvT t1 && check_type_names tenvT t2
+and
+check_type_names tenvT (Atapp ts tn) =
+  match nsLookup tenvT tn with
+  | Just (tvs, _) -> List.length tvs = List.length ts
+  | Nothing -> false
+  end &&
+  List.all (check_type_names tenvT) ts
 
 (* Substitution of type names for the type they abbreviate *)
-val type_name_subst : tenv_abbrev -> t -> t
+val type_name_subst : tenv_abbrev -> ast_t -> t
 let rec
-type_name_subst tenvT (Tvar tv) = Tvar tv
+type_name_subst tenvT (Atvar tv) = Tvar tv
 and
-type_name_subst tenvT (Tapp ts tc) =
+type_name_subst tenvT (Attup ts) =
+  Ttup (List.map (type_name_subst tenvT) ts)
+and
+type_name_subst tenvT (Atfun t1 t2) =
+  Tfn (type_name_subst tenvT t1) (type_name_subst tenvT t2)
+and
+type_name_subst tenvT (Atapp ts tc) =
   let args = List.map (type_name_subst tenvT) ts in
-    match tc with
-      | TC_name tn ->
-          match nsLookup tenvT tn with
-            | Just (tvs, t) -> type_subst (alistToFmap (List_extra.zipSameLength tvs args)) t
-            | Nothing -> Tapp args tc
-          end
-      | _ -> Tapp args tc
-    end
-and
-type_name_subst tenvT (Tvar_db n) = Tvar_db n
+  match nsLookup tenvT tc with
+  | Just (tvs, t) -> type_subst (alistToFmap (List_extra.zipSameLength tvs args)) t
+  | Nothing -> Ttup args (* can't happen, for a type that passes the check *)
+  end
 
 (* Check that a type definition defines no already defined types or duplicate
  * constructors, and that the free type variables of each constructor argument
  * type are included in the type's type parameters. Also check that all of the
  * types mentioned are in scope. *)
-val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list t)) -> bool
-let check_ctor_tenv tenvT tds =
-  check_dup_ctors tds &&
+val check_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> bool
+let rec check_ctor_tenv tenvT [] = true
+and check_ctor_tenv tenvT ((tvs,tn,ctors)::tds) =
+  check_dup_ctors (tvs,tn,ctors) &&
+  List.allDistinct tvs &&
   List.all
-    (fun (tvs,tn,ctors) ->
-       List.allDistinct tvs &&
-       List.all
-         (fun (cn,ts) -> List.all (check_freevars 0 tvs) ts && List.all (check_type_names tenvT) ts)
-         ctors)
-    tds &&
-  List.allDistinct (List.map (fun (_,tn,_) -> tn) tds)
+    (fun (cn,ts) -> List.all (check_freevars_ast tvs) ts && List.all (check_type_names tenvT) ts)
+    ctors &&
+  not (List.elem tn (List.map (fun (_,tn,_) -> tn) tds)) &&
+  check_ctor_tenv tenvT tds
+declare termination_argument check_ctor_tenv = automatic
 
-val build_ctor_tenv : list modN -> tenv_abbrev -> list (list tvarN * typeN * list (conN * list t)) -> tenv_ctor
-let build_ctor_tenv mn tenvT tds =
-  alist_to_ns
-    (List.reverse
-      (List.concat
+val build_ctor_tenv : tenv_abbrev -> list (list tvarN * typeN * list (conN * list ast_t)) -> list nat -> tenv_ctor
+let rec build_ctor_tenv tenvT [] [] = alist_to_ns []
+and build_ctor_tenv tenvT ((tvs,tn,ctors)::tds) (id::ids) =
+  nsAppend
+    (build_ctor_tenv tenvT tds ids)
+    (alist_to_ns
+      (List.reverse
         (List.map
-           (fun (tvs,tn,ctors) ->
-              List.map (fun (cn,ts) -> (cn,(tvs,List.map (type_name_subst tenvT) ts, TypeId (mk_id mn tn)))) ctors)
-           tds)))
-
-(* Check that an exception definition defines no already defined (or duplicate)
- * constructors, and that the arguments have no free type variables. *)
-val check_exn_tenv : list modN -> conN -> list t -> bool
-let check_exn_tenv mn cn ts =
-  List.all (check_freevars 0 []) ts
+          (fun (cn,ts) -> (cn,(tvs,List.map (type_name_subst tenvT) ts, id)))
+          ctors)))
+and build_ctor_tenv tenvT _ _ = alist_to_ns []
+declare termination_argument build_ctor_tenv = automatic
 
 (* For the value restriction on let-based polymorphism *)
 val is_value : exp -> bool
@@ -323,13 +370,6 @@ and
 is_value (Lannot e _) = is_value e
 and
 is_value _ = false
-
-val tid_exn_to_tc : tid_or_exn -> tctor
-let tid_exn_to_tc t =
-  match t with
-    | TypeId tid -> TC_name tid
-    | TypeExn _ -> TC_exn
-  end
 
 indreln [type_p : nat -> type_env -> pat -> t -> list (varN * t) -> bool]
 and [type_ps : nat -> type_env -> list pat -> list t -> list (varN * t) -> bool]
@@ -389,14 +429,14 @@ List.length ts' = List.length tvs' &&
 type_ps tvs tenv ps (List.map (type_subst (alistToFmap (List_extra.zipSameLength tvs' ts'))) ts) bindings &&
 nsLookup tenv.c cn = Just (tvs', ts, tn)
 ==>
-type_p tvs tenv (Pcon (Just cn) ps) (Tapp ts' (tid_exn_to_tc tn)) bindings
+type_p tvs tenv (Pcon (Just cn) ps) (Tapp ts' tn) bindings
 
 and
 
 pcon_none : forall tvs tenv ps ts bindings.
 type_ps tvs tenv ps ts bindings
 ==>
-type_p tvs tenv (Pcon Nothing ps) (Tapp ts TC_tup) bindings
+type_p tvs tenv (Pcon Nothing ps) (Ttup ts) bindings
 
 and
 
@@ -408,7 +448,7 @@ type_p tvs tenv (Pref p) (Tref t) bindings
 and
 
 ptypeannot : forall tvs tenv p t bindings.
-check_freevars 0 [] t &&
+check_freevars_ast [] t &&
 check_type_names tenv.t t &&
 type_p tvs tenv p (type_name_subst tenv.t t) bindings
 ==>
@@ -495,14 +535,14 @@ List.length tvs = List.length ts' &&
 type_es tenv tenvE es (List.map (type_subst (alistToFmap (List_extra.zipSameLength tvs ts'))) ts) &&
 nsLookup tenv.c cn = Just (tvs, ts, tn)
 ==>
-type_e tenv tenvE (Con (Just cn) es) (Tapp ts' (tid_exn_to_tc tn))
+type_e tenv tenvE (Con (Just cn) es) (Tapp ts' tn)
 
 and
 
 con_none : forall tenv tenvE es ts.
 type_es tenv tenvE es ts
 ==>
-type_e tenv tenvE (Con Nothing es) (Tapp ts TC_tup)
+type_e tenv tenvE (Con Nothing es) (Ttup ts)
 
 and
 
@@ -533,15 +573,15 @@ type_e tenv tenvE (App op es) t
 and
 
 log : forall tenv tenvE l e1 e2.
-type_e tenv tenvE e1 (Tapp [] (TC_name (Short "bool"))) &&
-type_e tenv tenvE e2 (Tapp [] (TC_name (Short "bool")))
+type_e tenv tenvE e1 Tbool &&
+type_e tenv tenvE e2 Tbool
 ==>
-type_e tenv tenvE (Log l e1 e2) (Tapp [] (TC_name (Short "bool")))
+type_e tenv tenvE (Log l e1 e2) Tbool
 
 and
 
 if' : forall tenv tenvE e1 e2 e3 t.
-type_e tenv tenvE e1 (Tapp [] (TC_name (Short "bool"))) &&
+type_e tenv tenvE e1 Tbool &&
 type_e tenv tenvE e2 t &&
 type_e tenv tenvE e3 t
 ==>
@@ -599,7 +639,7 @@ type_e tenv tenvE (Letrec funs e) t
 and
 
 typeannot: forall tenv tenvE e t.
-check_freevars 0 [] t &&
+check_freevars_ast [] t &&
 check_type_names tenv.t t &&
 type_e tenv tenvE e (type_name_subst tenv.t t)
 ==>
@@ -664,9 +704,13 @@ let tscheme_inst (tvs_spec, t_spec) (tvs_impl, t_impl) =
     List.all (check_freevars tvs_spec []) subst &&
     deBruijn_subst 0 subst t_impl = t_spec
 
-indreln [type_d : bool -> list modN -> decls -> type_env -> dec -> decls -> type_env -> bool]
+let tenvLift mn tenv =
+  <| v = nsLift mn tenv.v; c = nsLift mn tenv.c; t = nsLift mn tenv.t; |>
 
-dlet_poly : forall extra_checks tvs mn tenv p e t bindings decls locs.
+indreln [type_d : bool -> type_env -> dec -> set nat -> type_env -> bool] and
+        [type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool]
+
+dlet_poly : forall extra_checks tvs tenv p e t bindings locs.
 is_value e &&
 List.allDistinct (pat_bindings p []) &&
 type_p tvs tenv p t bindings &&
@@ -677,12 +721,13 @@ type_e tenv (bind_tvar tvs Empty) e t &&
     type_e tenv (bind_tvar tvs' Empty) e t' -->
       all2 tscheme_inst (List.map snd (tenv_add_tvs tvs' bindings')) (List.map snd (tenv_add_tvs tvs bindings)))
 ==>
-type_d extra_checks mn decls tenv (Dlet locs p e)
-  empty_decls <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
+type_d extra_checks tenv (Dlet locs p e)
+  {}
+  <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
-dlet_mono : forall extra_checks mn tenv p e t bindings decls locs.
+dlet_mono : forall extra_checks tenv p e t bindings locs.
 (* The following line makes sure that when the value restriction prohibits
    generalisation, a type error is given rather than picking an arbitrary
    instantiation. However, we should only do the check when the extra_checks
@@ -692,74 +737,98 @@ List.allDistinct (pat_bindings p []) &&
 type_p 0 tenv p t bindings &&
 type_e tenv Empty e t
 ==>
-type_d extra_checks mn decls tenv (Dlet locs p e)
-  empty_decls <| v = alist_to_ns (tenv_add_tvs 0 bindings); c = nsEmpty; t = nsEmpty |>
+type_d extra_checks tenv (Dlet locs p e)
+  {} <| v = alist_to_ns (tenv_add_tvs 0 bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
-dletrec : forall extra_checks mn tenv funs bindings tvs decls locs.
+dletrec : forall extra_checks tenv funs bindings tvs locs.
 type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings &&
 (extra_checks -->
   forall tvs' bindings'.
     type_funs tenv (bind_var_list 0 bindings' (bind_tvar tvs' Empty)) funs bindings' -->
       all2 tscheme_inst (List.map snd (tenv_add_tvs tvs' bindings')) (List.map snd (tenv_add_tvs tvs bindings)))
 ==>
-type_d extra_checks mn decls tenv (Dletrec locs funs)
-  empty_decls <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
+type_d extra_checks tenv (Dletrec locs funs)
+  {} <| v = alist_to_ns (tenv_add_tvs tvs bindings); c = nsEmpty; t = nsEmpty |>
 
 and
 
-dtype : forall extra_checks mn tenv tdefs decls defined_types' decls' tenvT locs.
+dtype : forall extra_checks tenv tdefs type_identities tenvT locs.
+List.allDistinct type_identities &&
+disjoint (Set.fromList type_identities)
+         (Set.fromList (Tlist_num :: Tbool_num :: prim_type_nums)) &&
 check_ctor_tenv (nsAppend tenvT tenv.t) tdefs &&
-defined_types' = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) tdefs) &&
-disjoint defined_types' decls.defined_types &&
-tenvT = alist_to_ns (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) tdefs) &&
-decls' = <| defined_mods = {}; defined_types = defined_types'; defined_exns = {} |>
+List.length type_identities = List.length tdefs &&
+tenvT = alist_to_ns (Lib.map2
+                      (fun (tvs,tn,ctors) i ->
+                        (tn, (tvs, Tapp (List.map Tvar tvs) i)))
+                      tdefs type_identities)
 ==>
-type_d extra_checks mn decls tenv (Dtype locs tdefs)
-  decls' <| v = nsEmpty; c = build_ctor_tenv mn (nsAppend tenvT tenv.t) tdefs; t = tenvT |>
+type_d extra_checks tenv (Dtype locs tdefs)
+  (Set.fromList type_identities)
+  <| v = nsEmpty; c = build_ctor_tenv (nsAppend tenvT tenv.t) tdefs type_identities; t = tenvT |>
 
 and
 
-dtabbrev : forall extra_checks mn decls tenv tvs tn t locs.
-check_freevars 0 tvs t &&
+dtabbrev : forall extra_checks tenv tvs tn t locs.
+check_freevars_ast tvs t &&
 check_type_names tenv.t t &&
 List.allDistinct tvs
 ==>
-type_d extra_checks mn decls tenv (Dtabbrev locs tvs tn t)
-  empty_decls <| v = nsEmpty; c = nsEmpty;
-                 t = nsSing tn (tvs,type_name_subst tenv.t t) |>
+type_d extra_checks tenv (Dtabbrev locs tvs tn t)
+  {}
+  <| v = nsEmpty; c = nsEmpty; t = nsSing tn (tvs,type_name_subst tenv.t t) |>
 
 and
 
-dexn : forall extra_checks mn tenv cn ts decls decls' locs.
-check_exn_tenv mn cn ts &&
-not (mk_id mn cn IN decls.defined_exns) &&
-List.all (check_type_names tenv.t) ts &&
-decls' = <| defined_mods = {}; defined_types = {}; defined_exns = {mk_id mn cn} |>
+dexn : forall extra_checks tenv cn ts locs.
+List.all (check_freevars_ast []) ts &&
+List.all (check_type_names tenv.t) ts
 ==>
-type_d extra_checks mn decls tenv (Dexn locs cn ts)
-  decls' <| v = nsEmpty;
-            c = nsSing cn ([], List.map (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn));
-            t = nsEmpty |>
+type_d extra_checks tenv (Dexn locs cn ts)
+  {}
+  <| v = nsEmpty;
+     c = nsSing cn ([], List.map (type_name_subst tenv.t) ts, Texn_num);
+     t = nsEmpty |>
 
-indreln [ type_ds : bool -> list modN -> decls -> type_env -> list dec -> decls -> type_env -> bool]
+and
 
-empty : forall extra_checks mn tenv decls.
+dmod : forall extra_checks tenv mn ds decls tenv'.
+type_ds extra_checks tenv ds decls tenv'
+==>
+type_d extra_checks tenv (Dmod mn ds) decls (tenvLift mn tenv')
+
+and
+
+dlocal : forall extra_checks tenv lds ds tenv1 tenv2 decls1 decls2.
+type_ds extra_checks tenv lds decls1 tenv1 &&
+type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 &&
+disjoint decls1 decls2
+==>
+type_d extra_checks tenv (Dlocal lds ds) (decls1 union decls2) tenv2
+
+
+and
+
+empty : forall extra_checks tenv.
 true
 ==>
-type_ds extra_checks mn decls tenv []
-  empty_decls <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
+type_ds extra_checks tenv []
+  {}
+  <| v = nsEmpty; c = nsEmpty; t = nsEmpty |>
 
 and
 
-cons : forall extra_checks mn tenv d ds tenv1 tenv2 decls decls1 decls2.
-type_d extra_checks mn decls tenv d decls1 tenv1 &&
-type_ds extra_checks mn (union_decls decls1 decls) (extend_dec_tenv tenv1 tenv) ds decls2 tenv2
+cons : forall extra_checks tenv d ds tenv1 tenv2 decls1 decls2.
+type_d extra_checks tenv d decls1 tenv1 &&
+type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 &&
+disjoint decls1 decls2
 ==>
-type_ds extra_checks mn decls tenv (d::ds)
-  (union_decls decls2 decls1) (extend_dec_tenv tenv2 tenv1)
+type_ds extra_checks tenv (d::ds)
+  (decls1 union decls2) (extend_dec_tenv tenv2 tenv1)
 
+(*
 indreln [type_specs : list modN -> tenv_abbrev -> specs -> decls -> type_env -> bool]
 
 empty : forall mn tenvT.
@@ -842,7 +911,9 @@ let weak_decls decls_impl decls_spec =
   decls_impl.defined_mods = decls_spec.defined_mods &&
   decls_spec.defined_types subset decls_impl.defined_types &&
   decls_spec.defined_exns subset decls_impl.defined_exns
+   *)
 
+(*
 val weak_tenvT : id modN typeN -> (list tvarN * t) -> (list tvarN * t) -> bool
 let weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl) =
   (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
@@ -850,15 +921,17 @@ let weak_tenvT n (tvs_spec, t_spec) (tvs_impl, t_impl) =
   (t_spec = t_impl ||
    (* The specified type is opaque *)
    t_spec = Tapp (List.map Tvar tvs_spec) (TC_name n))
+   *)
 
 let tscheme_inst2 _ ts1 ts2 = tscheme_inst ts1 ts2
 
 val weak_tenv : type_env -> type_env -> bool
 let weak_tenv tenv_impl tenv_spec =
   nsSub tscheme_inst2 tenv_spec.v tenv_impl.v &&
-  nsSub (fun _ x y -> x = y) tenv_spec.c tenv_impl.c &&
-  nsSub weak_tenvT tenv_spec.t tenv_impl.t
+  nsSub (fun _ x y -> x = y) tenv_spec.c tenv_impl.c(* &&
+  nsSub weak_tenvT tenv_spec.t tenv_impl.t*)
 
+(*
 indreln [check_signature : list modN -> tenv_abbrev -> decls -> type_env -> maybe specs -> decls -> type_env -> bool]
 
 none : forall mn tenvT decls tenv.
@@ -911,3 +984,4 @@ type_prog extra_checks (union_decls decls1 decls) (extend_dec_tenv tenv1 tenv) t
 ==>
 type_prog extra_checks decls tenv (top :: tops)
   (union_decls decls2 decls1) (extend_dec_tenv tenv2 tenv1)
+  *)

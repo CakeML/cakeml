@@ -1,9 +1,14 @@
+(*
+  Various tactics for reasoning about CF-based goals in HOL.
+*)
 structure cfTacticsBaseLib :> cfTacticsBaseLib =
 struct
 
 open preamble
 open set_sepTheory helperLib ConseqConv
 open quantHeuristicsTools
+
+val ERR = mk_HOL_ERR "cfTacticsBaseLib";
 
 structure Parse =
 struct
@@ -194,7 +199,7 @@ infixr 3 ORELSE_DCC
 
 fun CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir thm t =
 let
-   val thm_term	= concl	thm;
+   val thm_term = concl thm;
 in
    if (aconv thm_term t) then
       CONSEQ_CONV_WRAPPER___CONVERT_RESULT dir (EQT_INTRO thm) t

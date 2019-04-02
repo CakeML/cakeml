@@ -1,6 +1,8 @@
-(* Prove that the small step semantics never gets stuck if there is still work
- * to do (i.e., it must detect all type errors).  Thus, it either diverges or
- * gives a result, and it can't do both. *)
+(*
+  Prove that the small step semantics never gets stuck if there is
+  still work to do (i.e., it must detect all type errors).  Thus, it
+  either diverges or gives a result, and it can't do both.
+*)
 
 open preamble;
 open libTheory astTheory bigStepTheory smallStepTheory semanticPrimitivesTheory
@@ -58,78 +60,74 @@ val small_exp_safety2 = Q.prove (
      rw [small_eval_def] >>
      metis_tac []));
 
-val untyped_safety_exp = Q.store_thm ("untyped_safety_exp",
-`!s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e`,
-metis_tac [small_exp_safety2, small_exp_safety1]);
+Theorem untyped_safety_exp
+`!s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e`
+(metis_tac [small_exp_safety2, small_exp_safety1]);
 
 val to_small_st_surj = Q.prove(
   `∀s. ∃y. s = to_small_st y`,
   srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][to_small_st_def]);
 
-val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
-  `!mn s env d. (∃r. evaluate_dec F mn env s d r) = ~dec_diverges env s d`,
-  rw [] >>
-  rw [Once evaluate_dec_cases, dec_diverges_def] >>
-  cases_on `d` >>
-  rw [] >>
-  TRY(metis_tac[]) >>
-  eq_tac >>
-  rw [GSYM untyped_safety_exp] >>
-  TRY(metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked]) >>
-  `?s. (?err. r = (s,Rerr err)) ∨ (?v. r = (s,Rval v))` 
-        by metis_tac [pair_CASES, result_nchotomy] >>
-  rw [] >>
-  qmatch_goalsub_abbrev_tac`ALL_DISTINCT (pat_bindings p [])` >>
+Theorem untyped_safety_decs
+  `(!d (s:'a state) env. (∃r. evaluate_dec F env s d r) = ~dec_diverges env s d) ∧
+   (!ds (s:'a state) env. (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)`
+ (ho_match_mp_tac dec_induction >>
+ rw [] >>
+ rw [Once evaluate_dec_cases, Once dec_diverges_cases] >>
+ rw [GSYM untyped_safety_exp]
+ >- (
   cases_on `ALL_DISTINCT (pat_bindings p [])` >>
-  fs []
-  >- (qexists_tac `(s with <| ffi := SND s'; refs := FST s' |>, Rerr err)` >>
-      rw [] >>
-      fs [GSYM small_big_exp_equiv, to_small_st_def])
-  >- (cases_on `pmatch env.c (FST s') p v []` >> fs []
-  >- (MAP_EVERY qexists_tac [`(s with <| ffi := SND s'; refs := FST s' |>, Rerr (Rraise Bindv))`] >>
-      fs [GSYM small_big_exp_equiv, to_small_st_def] >>
-      metis_tac [])
-  >- (MAP_EVERY qexists_tac [`(s with <| ffi := SND s'; refs := FST s' |>, Rerr (Rabort Rtype_error))`] >>
-      fs [GSYM small_big_exp_equiv, to_small_st_def] >>
-      metis_tac [])
-  >- (fs [] >>
-      rw [GSYM small_big_exp_equiv, to_small_st_def] >>
-      qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>, 
-                    Rval <|v := alist_to_ns a; c := nsEmpty|>)` >>
-      rw [] >>
-      metis_tac []))
-      );
+  fs [GSYM small_big_exp_equiv, to_small_st_def] >>
+  eq_tac
+  >- metis_tac [] >>
+  rw [] >>
+  `?s. (?err. r = (s,Rerr err)) ∨ (?v. r = (s,Rval v))`
+        by metis_tac [pair_CASES, result_nchotomy] >>
+  rw []
+  >- (
+    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rerr err)` >>
+    rw []) >>
+  Cases_on `pmatch env.c (FST s') p v []` >>
+  rw []
+  >- (
+    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rerr (Rraise bind_exn_v))` >>
+    rw [] >>
+    metis_tac [])
+  >- (
+    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rerr (Rabort Rtype_error))` >>
+    rw [] >>
+    metis_tac [])
+  >- (
+    qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>,Rval <|v := alist_to_ns a; c := nsEmpty|>)` >>
+    rw [] >>
+    metis_tac []))
+  >- metis_tac []
+  >- metis_tac [NOT_EVERY]
+  >- (
+    qpat_x_assum `!x. P x` (mp_tac o GSYM) >>
+    rw [] >>
+    eq_tac >>
+    rw [] >>
+    metis_tac [pair_CASES, result_nchotomy])
+  >- (
+    fs [EXISTS_PROD, FORALL_PROD]
+    >> metis_tac [result_nchotomy, decs_determ, PAIR_EQ,
+        result_11, result_distinct]
+  )
+  >- (
+    pop_assum (mp_tac o GSYM) >>
+    pop_assum (mp_tac o GSYM) >>
+    rw [] >>
+    eq_tac >>
+    rw [] >>
+    metis_tac [pair_CASES, result_nchotomy, result_distinct, decs_determ,
+               PAIR_EQ, result_11]));
 
-val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
-`!mn s env ds. (?r. evaluate_decs F mn env s ds r) = ~decs_diverges mn env s ds`,
- induct_on `ds` >>
- rw [] >-
- rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
- rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
- eq_tac
- >- (rw [] >>
-     rw [] >>
-     CCONTR_TAC >>
-     fs [] >>
-     imp_res_tac dec_determ >>
-     fs [] >>
-     rw [] >>
-     pop_assum mp_tac >>
-     rw []
-     >- metis_tac [untyped_safety_dec]
-     >- metis_tac [untyped_safety_dec]
-     >- metis_tac [dec_unclocked, result_distinct, dec_determ, PAIR_EQ, pair_CASES])
- >- (rw [] >>
-     imp_res_tac (GSYM untyped_safety_dec) >>
-     pop_assum (qspecl_then [`mn`] strip_assume_tac) >>
-     `?s. (?err. r = (s,Rerr err)) ∨ (?env'. r = (s,Rval env'))` by metis_tac [pair_CASES, result_nchotomy] >>
-     rw []
-     >- metis_tac []
-     >- metis_tac [PAIR_EQ, result_11, pair_CASES, dec_determ, dec_unclocked]));
+     (*
 
-val untyped_safety_top = Q.store_thm ("untyped_safety_top",
-`!s env top. (?r. evaluate_top F env s top r) = ~top_diverges env s top`,
-rw [evaluate_top_cases, top_diverges_cases] >>
+Theorem untyped_safety_top
+`!s env top. (?r. evaluate_top F env s top r) = ~top_diverges env s top`
+(rw [evaluate_top_cases, top_diverges_cases] >>
 eq_tac >>
 rw [] >>
 rw [] >>
@@ -138,9 +136,9 @@ fs [] >>
 rw [] >>
 metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
 
-val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
-`!s env tops. (?r. evaluate_prog F env s tops r) = ~prog_diverges env s tops`,
- induct_on `tops` >>
+Theorem untyped_safety_prog
+`!s env tops. (?r. evaluate_prog F env s tops r) = ~prog_diverges env s tops`
+ (induct_on `tops` >>
  rw [] >-
  rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
  rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
@@ -161,5 +159,6 @@ val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
      rw []
      >- metis_tac []
      >- metis_tac [PAIR_EQ, result_11, pair_CASES, top_determ, top_unclocked]));
+     *)
 
 val _ = export_theory ();
