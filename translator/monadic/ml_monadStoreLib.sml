@@ -415,17 +415,9 @@ fun create_store_X_hprop refs_manip_list
 
         val hprop =
           list_mk_ucomb(``RARRAY_REL``, [ref_inv, rarray_ref_loc, get_term])
-(*
-       val hprop = mk_RARRAY_REL ref_inv rarray_ref_loc get_term*)
-        (*
-        val hprop = mk_RARRAY_REL ref_inv rarray_ref_loc ``(state : 'a state_refs).arr``
-        *)
       in
         hprop
       end
-    (*
-      val rarrays_hprops = [hprop]
-    *)
     val rarrays_hprops = List.map create_rarray_hprop create_rarray_hprop_params
 
     (* ARRAYS *)
@@ -445,17 +437,9 @@ fun create_store_X_hprop refs_manip_list
                        BETA_CONV |> concl |> dest_eq |> snd
 
         val hprop = list_mk_ucomb(``ARRAY_REL``, [ref_inv, farray_loc, get_term])
-
-        (* val hprop = mk_ARRAY_REL ref_inv farray_loc get_term *)
-        (*
-        val hprop = mk_ARRAY_REL ref_inv farray_loc ``(state : 'a state_refs).farr``
-        *)
       in
         hprop
       end
-    (*
-      val farrays_hprops = [hprop]
-    *)
     val farrays_hprops = List.map create_farray_hprop create_farray_hprop_params
 
     (* extra hprops e.g. for I/O *)
@@ -485,28 +469,16 @@ fun create_store_X_hprop refs_manip_list
         | (x::_) => x)
 
     val store_hprop = mk_abs(store_hprop_state_var, store_hprop)
-    (*
-      val store_hprop = mk_abs(``state:'a state_refs``, store_hprop)
 
-    *)
-    (*
-      val free_vars_store_hprop =
-        List.filter (fn x => not (x ~~ ``state:'a state_refs``)) (free_vars store_hprop)
-      val store_hprop = mk_comb(store_hprop, ``x : heap_part -> bool``)
-      val store_hprop = List.foldl mk_forall store_hprop free_vars_store_hprop
-      val store_hprop = mk_abs(``x : heap_part -> bool``, store_hprop);
-      val store_hprop = mk_abs(``state:'a state_refs``, store_hprop);
-    *)
     (* Create the constant for the store predicate *)
     val loc_vars = List.filter is_var (refs_locs @ rarrays_refs_locs @ farrays_locs)
     val num_vars = List.length loc_vars
 
     val store_hprop_type = (type_of store_hprop_state_var) --> hprop_ty
-    (*
-    val store_hprop_type = mk_type("fun", [``:'a state_refs``, hprop_ty])
-    *)
+
     fun mk_hprop_type n t = if n = 0 then t else mk_type("fun", [v_ty, mk_hprop_type (n-1) t])
     val store_hprop_type = mk_hprop_type num_vars store_hprop_type
+
     val free_type_vars = type_vars store_hprop_type
     val tyvars_ref_invs = List.map get_type_inv free_type_vars
 

@@ -13,10 +13,7 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `
-  state_refs = <|
-                 arr : 'a list ;
-                 farr : unit list
-                |>`;
+  state_refs = <| arr : 'a list |>`;
 
 val state_type = ``:'state state_refs``;
 
@@ -28,10 +25,7 @@ val config =  local_state_config |>
               with_state state_type |>
               with_exception ``:state_exn`` |>
               with_resizeable_arrays [
-                ("arr", ``[] : 'a list``, ``Subscript``, ``Subscript``)
-              ] |>
-              with_fixed_arrays [
-                ("farr", ``() : unit``, 0, ``Subscript``, ``Subscript``)
+                ("arr", ``[] : 'state list``, ``Subscript``, ``Subscript``)
               ];
 
 val _ = start_translation config;
@@ -117,11 +111,11 @@ val LENGTH_v_thm = translate LENGTH;
 val fast_binary_search_v_thm = m_translate fast_binary_search_def;
 
 val run_init_state_def =
-  define_run state_type ["farr"] "init_state";
+  define_run state_type [] "init_state";
 
 val run_fast_binary_search_def = Define `
   run_fast_binary_search l cmp value =
-    run_init_state (fast_binary_search l cmp value) (init_state [] (0, ()))
+    run_init_state (fast_binary_search l cmp value) (init_state [])
 `;
 
 val run_fast_binary_search_v_thm = m_translate_run run_fast_binary_search_def;
