@@ -43,7 +43,7 @@ val add_reg_alloc_compset = extend_compset
     reg_allocTheory.unspill_def,
     reg_allocTheory.do_simplify_def,
     reg_allocTheory.inc_deg_def,
-    reg_allocTheory.pair_rename_def,
+    (* reg_allocTheory.pair_rename_def, *)
     reg_allocTheory.do_coalesce_real_def,
     reg_allocTheory.bg_ok_def,
     reg_allocTheory.is_Fixed_def,

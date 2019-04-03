@@ -1,4 +1,4 @@
-Two benchmark suites for the CakeML compiler
+Two benchmark suites for the CakeML compiler.
 
 [cakeml_benchmarks](cakeml_benchmarks):
 This directory contains benchmark programs that we use to measure the
