@@ -410,7 +410,7 @@ fun get_m_type_inv ty =
   let val RI = get_type_inv (dest_monad_type ty |> #2)
       val MONAD_tm = Term.inst [c_ty |-> gen1] MONAD_const
       val MONAD_comb =
-        list_mk_icomb(MONAD_tm, [RI, !(#EXN_TYPE translator_state)])
+        my_list_mk_comb(MONAD_tm, [RI, !(#EXN_TYPE translator_state)])
   in Term.inst [gen1 |-> !(#refs_type translator_state)] MONAD_comb end
 
 fun get_arrow_type_inv ty =
@@ -2033,7 +2033,7 @@ and m2deep tm =
     val inv = get_arrow_type_inv ty
               |> ONCE_REWRITE_CONV [ArrowM_def] |> concl |> rand |> rand
     val str = stringSyntax.fromMLstring name
-    val result = ISPECL_TM [str,mk_comb(inv,tm)] Eval_name_RI_abs |> ASSUME
+    val result = ISPECL_TM [str,mk_ucomb(inv,tm)] Eval_name_RI_abs |> ASSUME
                  |> MY_MATCH_MP (SPEC_ALL (ISPEC_EvalM Eval_IMP_PURE)) |>
                  REWRITE_RULE [GSYM ArrowM_def]
     in check_inv "var" tm result end else
@@ -2909,14 +2909,7 @@ fun m_translate_main def =
     val msg = comma (List.map (fn (fname,_,_,_,_) => fname) info)
     (* val (fname,ml_fname,lhs,tm,def) = List.hd info *)
     (* derive deep embedding *)
-    fun compute_deep_embedding info =
-      let
-        val _ = List.map (fn (fname,ml_fname,lhs,_,_) =>
-                             install_rec_pattern lhs fname ml_fname) info
-        val thms = List.map (fn (fname,ml_fname,lhs,rhs,def) =>
-                                (fname,ml_fname,m2deep rhs,def)) info
-        val _ = uninstall_rec_patterns ()
-      in thms end
+
     val _ = print ("Translating " ^ msg ^ "\n")
     val _ = List.map (fn (fname,ml_fname,lhs,_,_) =>
                          install_rec_pattern lhs fname ml_fname) info
