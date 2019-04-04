@@ -64,6 +64,11 @@ val heap_to_bag_def = Define `
   (heap_to_bag (t::ts) = BAG_UNION (tree_to_bag t) (heap_to_bag ts))
 `;
 
+val is_heap_ordered_def = Define `
+  (is_heap_ordered geq [] = T) /\
+  (is_heap_ordered geq (t::ts) = ((is_tree_ordered geq t) /\ (is_heap_ordered geq ts)))
+`;
+
 (* Insertion *)
 val insert_def = Define `
   (insert geq x (y::y'::ys) =
@@ -73,10 +78,6 @@ val insert_def = Define `
   (insert _ x ys = (leaf x)::ys)
 `;
 
-(*
-fun insertList (_, [], h) = h
-  | insertList (geq, (e::es),h) = insert(geq, e, insertList(geq, es,h))
-*)
 val insert_list_def = Define `
   (insert_list _ [] h = h) /\
   (insert_list geq (e::es) h =
@@ -232,7 +233,10 @@ Proof
   metis_tac[transitive_def, reflexive_def, antisymmetric_def, trichotomous]
 QED;
 
-(* Inserting an element effectively inserts the element to the collection *)
+(*
+Inserting an element effectively inserts the element to the collection
+and preserves the ordering.
+*)
 Theorem binomial_insert_bag:
   !geq t h. heap_to_bag (binomial_insert geq t h) = BAG_UNION (tree_to_bag t) (heap_to_bag h)
 Proof
@@ -260,6 +264,21 @@ Proof
         >- rw[BAG_INSERT_UNION]))
 QED;
 
+Theorem insert_order:
+  `!geq e h. ((WeakLinearOrder geq) /\
+             (is_heap_ordered geq h)) ==> (is_heap_ordered geq (insert geq e h))`
+Proof
+  Cases_on `h`
+  >- rw[is_heap_ordered_def, insert_def,leaf_def,
+        is_tree_ordered_def, BAG_EVERY, list_to_bag_def]
+  >- (Cases_on `t` \\
+      rw[is_heap_ordered_def, insert_def,leaf_def,
+         is_tree_ordered_def, BAG_EVERY, list_to_bag_def,
+	 skew_link_order])
+QED;
+
+(* Merging two heaps creates a heap containing the elements of both heaps *)
+
 Theorem normalize_bag:
   !geq h. (heap_to_bag h) = heap_to_bag (normalize geq h)
 Proof
@@ -277,7 +296,6 @@ Proof
 	            binomial_insert_bag, tree_link_bag]
 QED;
 
-(* Merging two heaps creates a heap containing the elements of both heaps *)
 Theorem merge_bag:
   !geq h1 h2. BAG_UNION (heap_to_bag h1) (heap_to_bag h2) =
                heap_to_bag (merge geq h1 h2)
@@ -287,6 +305,9 @@ Proof
   rw[heap_to_bag_def, merge_def, merge_tree_bag,
      normalize_def, normalize_bag, binomial_insert_bag]
 QED;
+
+(* findMin returns the smallest element of the heap *)
+Theorem find_min_correct:
 
 (* Translations *)
 val _ = translate leaf_def;
