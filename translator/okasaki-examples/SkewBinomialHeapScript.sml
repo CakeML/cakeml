@@ -57,7 +57,7 @@ val is_tree_ordered_def = Define `
 
 val _ = type_abbrev("sbHeap", ``:'a sbTree list``);
 
-val is_empty_def = Define `is_empty h = null h`;
+val is_empty_def = Define `is_empty h = (h = [])`;
 
 val heap_to_bag_def = Define `
   (heap_to_bag [] = {||}) /\
@@ -141,18 +141,24 @@ val delete_min_def = Define `
     in SOME (insert_list geq (aux min) (merge_tree geq (REVERSE (children min)) (normalize geq ts'))))
 `;
 
+(* Useful lemmas *)
+Theorem rank_irrelevance_bag:
+  !root r1 r2 aux ch. tree_to_bag (Sbnode root r1 aux ch) = tree_to_bag (Sbnode root r2 aux ch)
+Proof
+  Induct_on `ch` \\ rw[tree_to_bag_def]
+QED;
+
 (* For both kinds of links, linking preserve the elements in the trees *)
 Theorem tree_link_bag:
-  !geq t1 t2. BAG_UNION (tree_to_bag t1) (tree_to_bag t2) =
-              tree_to_bag (tree_link geq t1 t2)
+  !geq t1 t2. tree_to_bag (tree_link geq t1 t2) = BAG_UNION (tree_to_bag t1) (tree_to_bag t2)
 Proof
   strip_tac \\
   rpt Cases \\
   rw[tree_link_def,tree_to_bag_def] \\
   Induct_on `l'` \\
-  rw[tree_to_bag_def, COMM_BAG_UNION, BAG_UNION_LEFT_CANCEL] \\
+  srw_tac [BAG_ss] [tree_to_bag_def] \\
   Induct_on `l` \\
-  metis_tac[tree_to_bag_def,BAG_UNION_LEFT_CANCEL,COMM_BAG_UNION,ASSOC_BAG_UNION]
+  srw_tac [BAG_ss] [tree_to_bag_def]
 QED;
 
 Theorem skew_link_bag:
@@ -227,6 +233,17 @@ Proof
 QED;
 
 (* Inserting an element effectively inserts the element to the collection *)
+Theorem binomial_insert_bag:
+  !geq t h. heap_to_bag (binomial_insert geq t h) = BAG_UNION (tree_to_bag t) (heap_to_bag h)
+Proof
+  Induct_on `h`
+  >- rw [heap_to_bag_def, binomial_insert_def, tree_link_def]
+  >- (Cases_on `t` \\ Cases_on `h'` \\
+      srw_tac [BAG_ss] [heap_to_bag_def, tree_link_def,
+			binomial_insert_def, tree_to_bag_def, BAG_INSERT_UNION] \\
+      rw[rank_irrelevance_bag])
+QED;
+
 Theorem insert_bag:
   !geq e h. BAG_INSERT e (heap_to_bag h) = heap_to_bag (insert geq e h)
 Proof
@@ -243,8 +260,33 @@ Proof
         >- rw[BAG_INSERT_UNION]))
 QED;
 
-(* Merging two heaps creates a heap containing the elements of both heaps *)
+Theorem normalize_bag:
+  !geq h. (heap_to_bag h) = heap_to_bag (normalize geq h)
+Proof
+  Induct_on `h` \\ rw[normalize_def, heap_to_bag_def, binomial_insert_bag]
+QED;
 
+Theorem merge_tree_bag:
+  !geq t1 t2. heap_to_bag (merge_tree geq t1 t2) =
+              BAG_UNION (heap_to_bag t1) (heap_to_bag t2)
+Proof
+  Induct_on `t2` \\
+  rw[merge_tree_def, heap_to_bag_def] \\
+  Induct_on `t1` \\
+  srw_tac [BAG_ss] [merge_tree_def, heap_to_bag_def,
+	            binomial_insert_bag, tree_link_bag]
+QED;
+
+(* Merging two heaps creates a heap containing the elements of both heaps *)
+Theorem merge_bag:
+  !geq h1 h2. BAG_UNION (heap_to_bag h1) (heap_to_bag h2) =
+               heap_to_bag (merge geq h1 h2)
+Proof
+  rpt strip_tac \\
+  Induct_on `h2` \\
+  rw[heap_to_bag_def, merge_def, merge_tree_bag,
+     normalize_def, normalize_bag, binomial_insert_bag]
+QED;
 
 (* Translations *)
 val _ = translate leaf_def;
@@ -252,7 +294,7 @@ val _ = translate root_def;
 val _ = translate rank_def;
 val _ = translate aux_def;
 val _ = translate children_def;
-val _ = translate link_def;
+val _ = translate tree_link_def;
 val _ = translate skew_link_def;
 val _ = translate is_empty_def;
 val _ = translate insert_def;
