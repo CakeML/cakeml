@@ -357,17 +357,33 @@ Proof
 QED;
 
 Theorem merge_order:
-  `!geq h1 h2. ((WeakLinearOrder geq) /\
+  !geq h1 h2. ((WeakLinearOrder geq) /\
                (is_heap_ordered geq h1) /\
                (is_heap_ordered geq h2)) ==>
-              (is_heap_ordered geq (merge geq h1 h2))`
+              (is_heap_ordered geq (merge geq h1 h2))
 Proof
-  Cases_on `h2` \\
+  Cases_on `h2`
   >- rw[is_heap_ordered_def, merge_def, normalize_def,
 	merge_tree_def, normalize_order]
+  >- (rw[is_heap_ordered_def, merge_def, normalize_def,
+	merge_tree_def, normalize_def] \\
+      `is_heap_ordered geq (normalize geq h1)`
+       by rw[normalize_order] \\
+      `is_heap_ordered geq (binomial_insert geq h t)`
+       by rw[binomial_insert_order] \\
+       rw[merge_tree_order])
+QED;
 
-(* findMin returns the smallest element of the heap *)
+(* find_min returns the smallest element of the heap *)
 Theorem find_min_correct:
+  `!geq h. ((WeakLinearOrder geq) /\
+            (h <> []) /\
+	    (is_heap_ordered geq h)) ==>
+           (BAG_IN (find_min geq h) (heap_to_bag h)) /\
+           (!y. (BAG_IN y (heap_to_bag h)) ==> (geq y (find_min geq h)))`
+Proof
+
+QED;
 
 (* Translations *)
 val _ = translate leaf_def;
