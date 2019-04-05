@@ -191,11 +191,11 @@ val do_app_aux_def = Define `
          | _ => Error)
     | (RefByte f, xs) =>
         (case xs of
-          | [Number i; Number b] =>
-            if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
+          | [Number i; Word b] =>
+            if 0 ≤ i ∧ (LENGTH b=8) then
               let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
                 Rval (RefPtr ptr, s with refs := s.refs |+
-                  (ptr, ByteArray f (REPLICATE (Num i) (i2w b))))
+                  (ptr, ByteArray f (REPLICATE (Num i) (v2w b))))
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
     | (Global n, _)      => Rerr (Rabort Rtype_error)
@@ -204,7 +204,6 @@ val do_app_aux_def = Define `
     | (String _, _)      => Rerr (Rabort Rtype_error)
     | (FromListByte, _)  => Rerr (Rabort Rtype_error)
     | (ConcatByteVec, _) => Rerr (Rabort Rtype_error)
-    | (CopyByte T, _)    => Rerr (Rabort Rtype_error)
     (* bvl part *)
     | (Cons tag,xs) => (if xs = []
                         then Rval (Block 0 tag [],s)
@@ -264,6 +263,16 @@ val do_app_aux_def = Define `
             | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds))
             | NONE => Error)
          | _ => Error)
+    | (CopyByte T,[RefPtr src; Number srcoff; Number len]) =>
+       (case (FLOOKUP s.refs src) of
+        | SOME (ByteArray _ ws) =>
+           (case copy_array (ws,srcoff) len NONE of
+            | SOME ds =>
+              let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+              Rval (RefPtr ptr, s with
+                    refs := s.refs |+ (ptr, ByteArray T ds))
+            | _ => Error)
+        | _ => Error)
     | (TagEq n,[Block _ tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (TagLenEq n l,[Block _ tag xs]) =>
