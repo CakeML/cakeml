@@ -279,7 +279,11 @@ val exn_functions = [
 val refs_manip_list = [] : (string * thm * thm) list;
 val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
 val farrays_manip_list = [
-    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def)
+    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def),
+    ("int_beg", get_int_beg_def, set_int_beg_def, int_beg_length_def, int_beg_sub_def, update_int_beg_def),
+    ("int_end", get_int_end_def, set_int_end_def, int_end_length_def, int_end_sub_def, update_int_end_def),
+    ("sorted_regs", get_sorted_regs_def, set_sorted_regs_def, sorted_regs_length_def, sorted_regs_sub_def, update_sorted_regs_def),
+    ("sorted_moves", get_sorted_moves_def, set_sorted_moves_def, sorted_moves_length_def, sorted_moves_sub_def, update_sorted_moves_def)
 ];
 
 val add_type_theories  = ([] : string list);
@@ -302,6 +306,7 @@ val _ = start_dynamic_init_fixed_store_translation
 
 val res = translate the_def;
 val res = translate numset_list_delete_def;
+val res = translate numset_list_insert_def;
 val res = translate is_stack_var_def;
 val res = translate is_phy_var_def;
 val res = translate pairTheory.LEX_DEF;
@@ -344,30 +349,48 @@ val res = m_translate (linear_reg_alloc_step_pass2_def
 
 val res = m_translate find_reg_exchange_def;
 val res = m_translate apply_reg_exchange_def;
-val res = translate edges_to_adjlist_impl_def;
+
+val res = m_translate list_to_sorted_regs_def;
+
+val res = m_translate swap_regs_def;
+val res = m_translate partition_regs_def;
+
+val res = m_translate qsort_regs_def;
+val res = m_translate sorted_regs_to_list_def;
+val res = m_translate list_to_sorted_moves_def;
+
+val res = m_translate swap_moves_def;
+val res = m_translate partition_moves_def;
+val res = m_translate qsort_moves_def;
+val res = m_translate sorted_moves_to_list_def;
+
+val res = m_translate edges_to_adjlist_def;
 val res = m_translate st_ex_FILTER_good_def;
 
-val res = translate sort_moves_rev_def;
-
-val res = m_translate (linear_reg_alloc_intervals_def
-                       |> REWRITE_RULE [edges_to_adjlist_impl_thm]);
+val res = m_translate (linear_reg_alloc_intervals_def)
 
 val res = m_translate extract_coloration_def;
 val res = translate find_bijection_init_def;
 val res = translate find_bijection_step_def;
 val res = translate apply_bijection_def;
 
-val res = m_translate linear_reg_alloc_intervals_and_extract_coloration_def;
+val res = m_translate numset_list_add_if_lt_monad_def;
+val res = m_translate numset_list_add_if_gt_monad_def;
+val res = m_translate get_intervals_ct_monad_aux_def;
+val res = m_translate get_intervals_ct_monad_def;
+val res = m_translate linear_reg_alloc_and_extract_coloration_def;
 val res = m_translate_run run_linear_reg_alloc_intervals_def;
 
 val res = translate get_live_tree_def;
-val res = translate numset_list_insert_def;
 val res = translate get_live_backward_def;
 val res = translate fix_domination_def;
 val res = translate numset_list_add_if_def;
 val res = translate numset_list_add_if_lt_def;
 val res = translate numset_list_add_if_gt_def;
 val res = translate get_intervals_def;
+val res = translate find_bijection_clash_tree_def;
+val res = translate apply_bij_on_clash_tree_def;
+val res = translate size_of_clash_tree_def;
 val res = translate linear_scan_reg_alloc_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;

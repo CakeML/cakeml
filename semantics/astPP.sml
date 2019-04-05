@@ -190,9 +190,9 @@ val _=add_astPP("tcnameshortprint", ``TC_name (Short x)``,genPrint tcnameshortPr
 fun tappPrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
       val args = #1(listSyntax.dest_list (strip l))
-      val sep = if aconv r ``TC_tup`` then " * " else
-                if aconv r ``TC_fn``  then " -> " else " , "
-      val spa = if aconv r ``TC_tup`` then "" else " "
+      val sep = " , "
+                (* if aconv r ``TC_fn``  then " -> " else " , " *)
+      val spa = " "
   in
     (case args of [] => str"" | (_::_::_) => str"(">>printTuple sep (sys (pg,pg,pg) d) str args >>str ")" >>str spa
      | _ => printTuple sep (sys (pg,pg,pg) d) str args >>str spa)
@@ -700,6 +700,9 @@ val _=add_astPP ("ltrealcharprint", ``App (Chopb Lt) [x;y]``,genPrint (infixreal
 val _=add_astPP ("stringimploderealprint", ``App Implode ls``,genPrint (prefixargsPrint "String.implode"));
 (*Confusing name??*)
 val _=add_astPP ("stringstrlenrealprint", ``App Strlen ls``,genPrint (prefixargsPrint "String.size"));
+val _=add_astPP ("stringstrsubrealprint", ``App Strsub ls``,genPrint (prefixargsPrint "String.sub"));
+val _=add_astPP ("stringconcatsubrealprint", ``App Strcat ls``,genPrint (prefixargsPrint "String.concat"));
+
 
 (*Vector curried, not checking arity*)
 val _=add_astPP ("vectorvfromlistrealprint", ``App VfromList ls``,genPrint (prefixargsPrint "Vector.fromList"));
@@ -824,7 +827,6 @@ fun enable_astPP_verbose () = map temp_add_user_printer (!astPrettyPrinters);
 fun enable_astPP () = (enable_astPP_verbose();())
 fun disable_astPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!astPrettyPrinters);
 fun disable_astPP () = (disable_astPP_verbose();())
-
 (*
 enable_astPP_verbose();
 disable_astPP_verbose();
