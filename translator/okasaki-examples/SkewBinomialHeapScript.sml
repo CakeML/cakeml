@@ -248,6 +248,23 @@ Proof
       rw[rank_irrelevance_bag])
 QED;
 
+Theorem binomial_insert_order:
+  !geq t h. ((WeakLinearOrder geq) /\
+             (is_heap_ordered geq h) /\
+             (is_tree_ordered geq t)) ==>
+             (is_heap_ordered geq (binomial_insert geq t h))
+Proof
+  Induct_on `h`
+  >- rw[is_heap_ordered_def, is_tree_ordered_def, binomial_insert_def]
+  >- (Induct_on `h`
+      >- (rw[is_heap_ordered_def, is_tree_ordered_def, binomial_insert_def] \\
+          Cases_on `rank t < rank h` \\
+          rw[is_heap_ordered_def, tree_link_order])
+      >- (rw[is_heap_ordered_def, is_tree_ordered_def, binomial_insert_def] \\
+          Cases_on `rank t < rank h''` \\
+          rw[is_heap_ordered_def, tree_link_order]))
+QED;
+
 Theorem insert_bag:
   !geq e h. BAG_INSERT e (heap_to_bag h) = heap_to_bag (insert geq e h)
 Proof
@@ -265,8 +282,8 @@ Proof
 QED;
 
 Theorem insert_order:
-  `!geq e h. ((WeakLinearOrder geq) /\
-             (is_heap_ordered geq h)) ==> (is_heap_ordered geq (insert geq e h))`
+  !geq e h. ((WeakLinearOrder geq) /\
+             (is_heap_ordered geq h)) ==> (is_heap_ordered geq (insert geq e h))
 Proof
   Cases_on `h`
   >- rw[is_heap_ordered_def, insert_def,leaf_def,
@@ -277,12 +294,24 @@ Proof
 	 skew_link_order])
 QED;
 
-(* Merging two heaps creates a heap containing the elements of both heaps *)
+(*
+Merging two heaps creates a heap containing the elements of both heaps
+which is ordered if the two merged heaps are ordered.
+*)
 
 Theorem normalize_bag:
   !geq h. (heap_to_bag h) = heap_to_bag (normalize geq h)
 Proof
   Induct_on `h` \\ rw[normalize_def, heap_to_bag_def, binomial_insert_bag]
+QED;
+
+Theorem normalize_order:
+  !geq h. ((WeakLinearOrder geq) /\
+           (is_heap_ordered geq h)) ==>
+           (is_heap_ordered geq (normalize geq h))
+Proof
+  Cases_on `h` \\
+  rw[is_heap_ordered_def, normalize_def, binomial_insert_order]
 QED;
 
 Theorem merge_tree_bag:
@@ -296,6 +325,27 @@ Proof
 	            binomial_insert_bag, tree_link_bag]
 QED;
 
+Theorem merge_tree_order:
+  !geq t1 t2. ((WeakLinearOrder geq) /\
+               (is_heap_ordered geq t1) /\
+               (is_heap_ordered geq t2)) ==>
+               (is_heap_ordered geq (merge_tree geq t1 t2))
+Proof
+  Induct_on `t2`
+  >- rw[is_heap_ordered_def, merge_tree_def]
+  >- (Induct_on `t1`
+      >- rw[is_heap_ordered_def, merge_tree_def]
+      >- (rw[merge_tree_def]
+	  >- fs[is_heap_ordered_def]
+	  >- fs[is_heap_ordered_def]
+	  >- (fs[is_heap_ordered_def] \\
+              `is_tree_ordered geq (tree_link geq h h')`
+               by rw[tree_link_order] \\
+              `is_heap_ordered geq (merge_tree geq t1 t2)`
+               by rw[] \\
+              rw[binomial_insert_order])))
+QED;
+
 Theorem merge_bag:
   !geq h1 h2. BAG_UNION (heap_to_bag h1) (heap_to_bag h2) =
                heap_to_bag (merge geq h1 h2)
@@ -305,6 +355,16 @@ Proof
   rw[heap_to_bag_def, merge_def, merge_tree_bag,
      normalize_def, normalize_bag, binomial_insert_bag]
 QED;
+
+Theorem merge_order:
+  `!geq h1 h2. ((WeakLinearOrder geq) /\
+               (is_heap_ordered geq h1) /\
+               (is_heap_ordered geq h2)) ==>
+              (is_heap_ordered geq (merge geq h1 h2))`
+Proof
+  Cases_on `h2` \\
+  >- rw[is_heap_ordered_def, merge_def, normalize_def,
+	merge_tree_def, normalize_order]
 
 (* findMin returns the smallest element of the heap *)
 Theorem find_min_correct:
