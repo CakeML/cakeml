@@ -14,8 +14,8 @@ open preamble;
 val _ = new_theory "ml_monad_translator";
 
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_unitbind", ``st_ex_ignore_bind``);
+val _ = temp_overload_on ("monad_ignore_bind", ``st_ex_ignore_bind``);
 val _ = temp_overload_on ("ex_bind", ``st_ex_bind``);
 val _ = temp_overload_on ("ex_return", ``st_ex_return``);
 

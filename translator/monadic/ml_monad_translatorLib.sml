@@ -3147,7 +3147,12 @@ fun update_local_precondition new_pre = let
 
 fun m_translate def =
   let
-      val (is_rec,is_fun,results) = m_translate_main (* m_translate *) def
+    val st_ex_ignore_bind = Q.prove(
+      `st_ex_ignore_bind = (\ x y . st_ex_bind x (\ z . y))`,
+      rpt (match_mp_tac EQ_EXT >> rw[]) >>
+      fs[st_ex_ignore_bind_def, st_ex_bind_def]);
+    val def = REWRITE_RULE [st_ex_ignore_bind] def |> BETA_RULE
+    val (is_rec,is_fun,results) = m_translate_main (* m_translate *) def
   in
     if is_rec then
     let

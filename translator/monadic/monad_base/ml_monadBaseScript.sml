@@ -34,12 +34,35 @@ val st_ex_bind_def = Define `
         (Success y,s) => f y s
       | (Failure x,s) => (Failure x,s)`;
 
+val st_ex_ignore_bind_def = Define `
+  (st_ex_ignore_bind : (α, β, γ) M -> (α, δ, γ) M -> (α, δ, γ) M) x f =
+    λ s .
+      dtcase x s of
+        (Success y, s) => f s
+      | (Failure x, s) => (Failure x, s)`;
+
+
 (*
- * Congruence theorem for st_ex_bind.
+ * Congruence theorems for st_ex_bind / st_ex_ignore_bind.
  * Used by TFL rewriters when deriving termination conditions.
  * Ensures that intermediate values of the monad bind (y, s'')
  * are captured.
  *)
+
+Theorem st_ex_ignore_bind_CONG:
+  ∀ x s x' s' f f'.
+    (x = x') ∧ (s = s') ∧
+    (∀ y s''. (x' s' = (Success y, s'')) ⇒ (f s'' = f' s''))
+  ⇒ (st_ex_ignore_bind x f s =
+      st_ex_ignore_bind x' f' s')
+Proof
+  rw[st_ex_ignore_bind_def] >>
+  Cases_on `x s` >>
+  rw[] >>
+  Cases_on `q` >> fs[]
+QED
+DefnBase.export_cong "st_ex_ignore_bind_CONG";
+
 Theorem st_ex_bind_CONG:
   ∀ x s x' s' f f'.
     (x = x') ∧ (s = s') ∧
@@ -53,13 +76,14 @@ Proof
 QED
 DefnBase.export_cong "st_ex_bind_CONG";
 
+
 val st_ex_return_def = Define `
   (st_ex_return (*: α -> (β, α, γ) M*)) x =
     λs. (Success x, s)`;
 
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_unitbind", ``st_ex_ignore_bind``);
+val _ = temp_overload_on ("monad_ignore_bind", ``st_ex_ignore_bind``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = add_infix ("otherwise", 400, HOLgrammars.RIGHT);
@@ -348,10 +372,11 @@ val otherwise_eq = Q.prove(
 
 val can_success = Q.prove(
   `can f x s = (Failure e, s') <=> F`,
-  rw[can_def, otherwise_def, st_ex_bind_def]
+  rw[can_def, otherwise_def, st_ex_ignore_bind_def]
   \\ Cases_on `f x s`
   \\ Cases_on `q`
-  \\ fs[st_ex_return_def]);
+  \\ fs[st_ex_return_def]
+);
 
 val Marray_length_success = Q.prove(
   `!get_arr s r s'.
