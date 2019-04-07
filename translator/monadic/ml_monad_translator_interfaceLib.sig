@@ -120,6 +120,7 @@ sig
   (* From ml_translatorLib *)
   val translation_extends : string -> unit
   val update_precondition : thm -> thm
+  val update_local_precondition : thm -> thm
 
   (* Resume prior monadic translation.
    * Loads the state specific to the monadic translation from the specified

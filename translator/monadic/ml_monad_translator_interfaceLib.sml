@@ -497,6 +497,8 @@ val update_precondition = ml_translatorLib.update_precondition;
 
 (* Translation functions from ml_monad_translatorLib *)
 val register_type = ml_monad_translatorLib.register_type;
+val update_local_precondition =
+  ml_monad_translatorLib.update_local_precondition;
 val m_translate = ml_monad_translatorLib.m_translate;
 val m_translate_run = ml_monad_translatorLib.m_translate_run;
 
