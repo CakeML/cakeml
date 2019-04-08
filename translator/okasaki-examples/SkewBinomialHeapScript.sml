@@ -149,6 +149,32 @@ Proof
   Induct_on `ch` \\ rw[tree_to_bag_def]
 QED;
 
+Theorem root_in_tree_bag:
+  !t. BAG_IN (root t) (tree_to_bag t)
+Proof
+  Cases_on `t` \\
+  Induct_on `l`
+  >- rw[tree_to_bag_def, root_def]
+  >- (rw[tree_to_bag_def, root_def] \\
+      DISJ2_TAC \\
+      fs[root_def])
+QED;
+
+Theorem root_smallest:
+  !geq t y. ((WeakLinearOrder geq) /\
+             (is_tree_ordered geq t) /\
+             (BAG_IN y (tree_to_bag t)))==>
+            (geq y (root t))
+Proof
+  rpt strip_tac \\
+  fs[WeakLinearOrder, WeakOrder] \\
+  Cases_on `t` \\
+  Induct_on `l` \\
+  rw[is_tree_ordered_def, tree_to_bag_def, root_def, BAG_EVERY] \\
+  fs[root_def] \\
+  metis_tac[reflexive_def]
+QED;
+
 (* For both kinds of links, linking preserve the elements in the trees *)
 Theorem tree_link_bag:
   !geq t1 t2. tree_to_bag (tree_link geq t1 t2) = BAG_UNION (tree_to_bag t1) (tree_to_bag t2)
@@ -375,17 +401,91 @@ Proof
 QED;
 
 (* find_min returns the smallest element of the heap *)
+Theorem find_min_exists:
+  !geq h. ((WeakLinearOrder geq) /\
+           (h <> [])) ==>
+          ((find_min geq h) <> NONE)
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (Cases_on `h` \\
+     rw[find_min_def] \\
+     res_tac \\
+     Cases_on `find_min geq (h'::t)` \\
+     rw[])
+QED;
+
+Theorem find_min_bag:
+  !geq h. ((WeakLinearOrder geq) /\
+            (h <> []) /\
+	    (is_heap_ordered geq h)) ==>
+           (BAG_IN (THE (find_min geq h)) (heap_to_bag h))
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (rw[is_heap_ordered_def, heap_to_bag_def, find_min_def] \\
+      Cases_on `h`
+      >- (DISJ1_TAC \\
+          rw[THE_DEF, tree_to_bag_def, find_min_def, root_in_tree_bag])
+      >- (rw[find_min_def] \\
+          Cases_on `find_min geq (h''::t)`
+          >- `find_min geq (h''::t) <> NONE`
+             by rw[find_min_exists]
+	  >- (rw[]
+              >- (DISJ1_TAC \\
+                  rw[root_in_tree_bag])
+              >- (DISJ2_TAC \\
+                  fs[is_heap_ordered_def] \\
+                  res_tac \\
+                  metis_tac[THE_DEF]))))
+QED;
+
 Theorem find_min_correct:
   `!geq h. ((WeakLinearOrder geq) /\
             (h <> []) /\
 	    (is_heap_ordered geq h)) ==>
-           (BAG_IN (find_min geq h) (heap_to_bag h)) /\
-           (!y. (BAG_IN y (heap_to_bag h)) ==> (geq y (find_min geq h)))`
+           (!y. (BAG_IN y (heap_to_bag h)) ==> (geq y (THE (find_min geq h))))`
 Proof
-
+  Induct_on `h`
+  >- rw[]
+  >- (rpt strip_tac \\
+      rw[heap_to_bag_def] \\
+      Cases_on `h`
+      >- (Cases_on `h'` \\
+          Induct_on `l`
+          >- (rw[is_heap_ordered_def, heap_to_bag_def, find_min_def,
+		THE_DEF, root_def, tree_to_bag_def, is_tree_ordered_def] \\
+              fs[WeakLinearOrder, WeakOrder, reflexive_def, BAG_EVERY])
+	  >- (rw[is_heap_ordered_def, heap_to_bag_def, find_min_def,
+		THE_DEF, root_def, tree_to_bag_def, is_tree_ordered_def,
+	        BAG_EVERY] \\
+              fs[is_heap_ordered_def, heap_to_bag_def, find_min_def, root_def]))
+      >- (rw[find_min_def] \\
+          Cases_on `find_min geq (h''::t)`
+          >- `find_min geq (h''::t) <> NONE`
+             by rw[find_min_exists]
+	  >- (rw[]
+	      >- (fs[heap_to_bag_def, is_heap_ordered_def]
+	          >- metis_tac[root_smallest]
+		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
+                      fs[THE_DEF, WeakOrder, WeakLinearOrder] \\
+                      metis_tac[transitive_def])
+		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
+                      fs[THE_DEF, WeakOrder, WeakLinearOrder] \\
+                      metis_tac[transitive_def]))
+	      >- (fs[heap_to_bag_def, is_heap_ordered_def]
+		  >- (`geq y (root h')` by rw[root_smallest] \\
+                      fs[WeakOrder, WeakLinearOrder] \\
+                      metis_tac[transitive_def, trichotomous])
+		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
+                      fs[THE_DEF, WeakOrder, WeakLinearOrder] \\
+                      metis_tac[transitive_def])
+		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
+                      fs[THE_DEF, WeakOrder, WeakLinearOrder] \\
+                      metis_tac[transitive_def])))))
 QED;
 
-(* Translations *)
+ (* Translations *)
 val _ = translate leaf_def;
 val _ = translate root_def;
 val _ = translate rank_def;
