@@ -102,7 +102,6 @@ Theorem buckets_ok_empty
 
 Theorem list_union_cmp_of
   `!cmp h t.
-    (h::t) <> [] /\
     EVERY (\t. cmp_of t = cmp) (h::t) /\
     EVERY map_ok (h::t) ==>
       cmp_of (list_union (h::t)) = cmp`
@@ -119,7 +118,6 @@ Theorem list_union_cmp_of
 
 Theorem list_union_map_ok
   `!cmp h t.
-    (h::t) <> [] /\
     EVERY (\t. cmp_of t = cmp) (h::t) /\
     EVERY map_ok (h::t) ==>
       map_ok (list_union (h::t))`
@@ -140,7 +138,6 @@ Theorem list_union_map_ok
 
 Theorem list_union_thm
   `!cmp.
-    (h::t) <> [] /\
     EVERY (\t. cmp_of t = cmp) (h::t) /\
     EVERY map_ok (h::t) ==>
       map_ok (list_union (h::t)) /\
@@ -155,17 +152,15 @@ Theorem list_union_thm
   \\ Cases_on `t`
      >-(fs[])
      >-(simp[list_union_def]
+       \\ `EVERY map_ok (h'::t')` by (imp_res_tac EVERY_DEF \\ rfs[])
+       \\ `EVERY (\t. cmp_of t = cmp) (h'::t')` by (imp_res_tac EVERY_DEF \\ rfs[])
        \\ imp_res_tac list_union_cmp_of
        \\ imp_res_tac list_union_map_ok
        \\ imp_res_tac mlmapTheory.union_thm
-       \\ rfs[]
-       \\ Cases_on `h`
-       \\ Cases_on `list_union (h'::t')`
-       \\ rfs[mlmapTheory.union_thm]));
+       \\ rfs[]));
 
 Theorem list_union_empty_maps
   `!cmp.
-    (h::t) <> [] /\
     EVERY ($=(mlmap$empty cmp)) (h::t) /\
     EVERY (\t. cmp_of t = cmp) (h::t) /\
     EVERY map_ok (h::t) ==>
