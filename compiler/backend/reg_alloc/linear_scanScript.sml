@@ -1080,7 +1080,7 @@ val size_of_clash_tree_def = Define`
   )`
 
 val run_linear_reg_alloc_intervals_def = Define`
-    run_linear_reg_alloc_intervals ct k forced moves reglist_unsorted invbij nmax szct =
+    run_linear_reg_alloc_intervals ct k forced moves reglist_unsorted invbij nmax =
         run_i_linear_scan_hidden_state
           (linear_reg_alloc_and_extract_coloration ct k forced moves reglist_unsorted invbij nmax)
           <| colors := (nmax+1, 0)
@@ -1115,7 +1115,7 @@ val linear_scan_reg_alloc_def = Define`
         let forced' = MAP (\r1,r2. (the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij))) forced in
         let moves' = MAP (\p,(r1,r2). (p,(the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij)))) moves in
         let reglist_unsorted = (MAP SND (toAList bijstate.bij)) in
-        run_linear_reg_alloc_intervals ct' k forced' moves' reglist_unsorted bijstate.invbij bijstate.nmax (0i-((size_of_clash_tree ct') + 1))
+        run_linear_reg_alloc_intervals ct' k forced' moves' reglist_unsorted bijstate.invbij bijstate.nmax (* (0i-((size_of_clash_tree ct') + 1)) *)
 `
 
 (*
