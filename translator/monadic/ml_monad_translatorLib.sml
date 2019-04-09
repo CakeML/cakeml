@@ -3885,6 +3885,7 @@ local
      (pack_list (pack_5tuple
                  pack_thm pack_thm pack_thm
                  pack_thm pack_thm))            (!(#farrays_functions_defs st)),
+     (pack_term (if !(#local_state_init_H st) then T else F)),
      (pack_option pack_thm)                     (!(#store_pinv_def st)),
      (pack_list
         (pack_pair pack_term pack_term))        (!(#dynamic_refs_bindings st)),
@@ -3953,6 +3954,7 @@ local
         #farrays_functions_defs st := (farrays_functions_defs |>
             (unpack_list (unpack_5tuple unpack_thm unpack_thm unpack_thm
                                         unpack_thm unpack_thm)));
+        #local_state_init_H st := (unpack_term local_state_init_H ~~ T);
         #store_pinv_def st := (store_pinv_def |> (unpack_option unpack_thm));
         #dynamic_refs_bindings st := (dynamic_refs_bindings |>
             (unpack_list (unpack_pair unpack_term unpack_term)));
