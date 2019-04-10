@@ -39,8 +39,14 @@ val FRAME_THMS = ref [REF_HPROP_INJ,
 fun add_frame_thms thms = FRAME_THMS := (thms  @ !FRAME_THMS);
 fun get_frame_thms () = !FRAME_THMS;
 
-val {mk,dest,export} = ThmSetData.new_exporter "hprop_inj"
-                                               (mk_export_f add_frame_thms);
+fun new_exporter nm add =
+    ThmSetData.new_exporter {
+      efns = {add = fn {named_thms,...} => add (map #2 named_thms),
+              remove = fn _ => ()},
+      settype = nm
+    } |> #export
+
+val export = new_exporter "hprop_inj" (mk_export_f add_frame_thms);
 
 fun export_frame_thms slist = List.app export slist;
 
@@ -153,7 +159,7 @@ fun export_equality_type_thms_aux thms =
       (* ; add_intro_rewrite_thms unicity_thms *)
   end;
 
-val {mk,dest,export} = ThmSetData.new_exporter "equality_types"
+val export = new_exporter "equality_types"
                         (mk_export_f export_equality_type_thms_aux);
 
 fun export_equality_type_thms slist = List.app export slist;
@@ -226,8 +232,8 @@ fun add_refinement_invariants ri_defs =
       add_expand_retract_thms (expandThms @ ri_defs) (invertDefs @ retractThms)
   end;
 
-val {mk,dest,export} = ThmSetData.new_exporter "refinement_invariants"
-                                (mk_export_f add_refinement_invariants);
+val export = new_exporter "refinement_invariants"
+                          (mk_export_f add_refinement_invariants);
 
 fun export_refinement_invariants slist = List.app export slist;
 
@@ -264,8 +270,8 @@ fun add_match_thms thms =
       add_rewrite_thms rws
   end;
 
-val {mk,dest,export} = ThmSetData.new_exporter "xlet_auto_match"
-                                               (mk_export_f add_match_thms);
+val export = new_exporter "xlet_auto_match"
+                                    (mk_export_f add_match_thms);
 
 fun export_match_thms slist = List.app export slist;
 
