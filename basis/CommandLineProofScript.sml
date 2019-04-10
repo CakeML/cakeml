@@ -110,19 +110,24 @@ Theorem CommandLine_cloop_spec
      app (p:'ffi ffi_proj) CommandLine_cloop_v [av; nv; cv]
       (COMMANDLINE cl * W8ARRAY av a)
       (POSTv v. & LIST_TYPE STRING_TYPE cl v * COMMANDLINE cl)`
-  (Induct \\ rw []
+  (rw [] \\ qpat_abbrev_tac `Q = $POSTv _`
+  \\ simp [COMMANDLINE_def, cl_ffi_part_def, IOx_def, IO_def]
+  \\ xpull \\ qunabbrev_tac `Q`
+  \\ rpt (pop_assum mp_tac)
+  \\ MAP_EVERY qid_spec_tac [`events`, `a`, `cv`, `av`, `nv`, `n`]
+  \\ Induct \\ rw []
   THEN1
    (xcf_with_def "CommandLine.cloop" CommandLine_cloop_v_def
     \\ xlet_auto THEN1 xsimpl
     \\ xif \\ asm_exists_tac \\ fs []
-    \\ xvar \\ xsimpl)
+    \\ xvar \\ fs [COMMANDLINE_def, cl_ffi_part_def, IOx_def, IO_def]
+    \\ xsimpl \\ qexists_tac `events` \\ xsimpl)
   \\ xcf_with_def "CommandLine.cloop" CommandLine_cloop_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ asm_exists_tac \\ fs []
   \\ rpt (xlet_auto THEN1 xsimpl)
   \\ fs [ADD1,intLib.COOPER_PROVE ``& (n+1) - 1 = (& n):int``,GSYM NUM_def]
   \\ qabbrev_tac `x = EL n cl`
-  \\ fs [COMMANDLINE_def] \\ xpull
   \\ `(n DIV 256) * 256 + n MOD 256 = n` by metis_tac [DIVISION,EVAL ``0 < 256n``]
   \\ `(n DIV 256) MOD 256 = n DIV 256` by
         (match_mp_tac LESS_MOD \\ fs [DIV_LT_X,wfcl_def])
@@ -130,15 +135,17 @@ Theorem CommandLine_cloop_spec
        W8ARRAY av (n2w (strlen x)::n2w (strlen x DIV 256)::[]) * COMMANDLINE cl`
   THEN1
    (xffi
-    \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def]
+    \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def,IO_def]
     \\ xsimpl
-    \\ qmatch_goalsub_abbrev_tac`IO s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`]
+    \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
+    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_length_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
-    \\ fs [wfcl_def] \\ xsimpl)
+    \\ fs [wfcl_def] \\ xsimpl
+    \\ qpat_abbrev_tac `new_events = events ++ _`
+    \\ qexists_tac `new_events` \\ xsimpl)
   \\ rpt (xlet_auto THEN1 xsimpl)
   \\ qmatch_goalsub_abbrev_tac`W8ARRAY av1 bytes`
   \\ `strlen x < 65536` by
@@ -146,21 +153,31 @@ Theorem CommandLine_cloop_spec
         \\ fs [EVERY_EL] \\ first_x_assum drule \\ fs [validArg_def])
   \\ xlet `POSTv v. W8ARRAY av1 (MAP (n2w o ORD) (explode x) ++ DROP (strlen x) bytes) *
        W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)] * COMMANDLINE cl`
-  THEN1 (xffi
-    \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def]
+  THEN1
+   (qpat_abbrev_tac `Q = $POSTv _`
+    \\ simp [COMMANDLINE_def,cl_ffi_part_def,IOx_def,IO_def]
+    \\ xpull \\ qunabbrev_tac `Q`
+    \\ xffi
+    \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def,IO_def]
     \\ qabbrev_tac `extra = W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)]`
     \\ xsimpl
-    \\ qmatch_goalsub_abbrev_tac`IO s u ns`
-    \\ map_every qexists_tac [`extra`, `s`, `u`, `ns`]
+    \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
+    \\ map_every qexists_tac [`extra`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
-    \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum] \\ xsimpl)
+    \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum] \\ xsimpl
+    \\ qpat_abbrev_tac `new_events = events ++ _`
+    \\ qexists_tac `new_events` \\ xsimpl)
   \\ xlet_auto
   THEN1 (xsimpl \\ fs [SUC_SUC_LENGTH,two_byte_sum,mlstringTheory.LENGTH_explode])
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
+  \\ qpat_abbrev_tac `Q = $POSTv _`
+  \\ simp [COMMANDLINE_def,cl_ffi_part_def,IOx_def,IO_def]
+  \\ xpull \\ qunabbrev_tac `Q`
   \\ xapp
+  \\ GEN_EXISTS_TAC "events'" `events`
   \\ fs [COMMANDLINE_def] \\ xsimpl
   \\ fs [LENGTH_EQ_NUM_compute]
   \\ rveq \\ fs []
@@ -183,7 +200,10 @@ Theorem CommandLine_cline_spec
    app (p:'ffi ffi_proj) CommandLine_cline_v [uv]
     (COMMANDLINE cl)
     (POSTv v. & LIST_TYPE STRING_TYPE cl v * COMMANDLINE cl)`
-  (xcf_with_def "CommandLine.cline" CommandLine_cline_v_def
+  (rw [] \\ qpat_abbrev_tac `Q = $POSTv _`
+  \\ simp [COMMANDLINE_def,cl_ffi_part_def,IOx_def,IO_def]
+  \\ xpull \\ qunabbrev_tac `Q`
+  \\ xcf_with_def "CommandLine.cline" CommandLine_cline_v_def
   \\ fs [UNIT_TYPE_def] \\ rveq
   \\ xmatch
   \\ xlet_auto >- xsimpl
@@ -191,30 +211,36 @@ Theorem CommandLine_cline_spec
   \\ qmatch_goalsub_rename_tac `W8ARRAY av`
   \\ fs [EVAL ``REPLICATE 2 x``]
   \\ fs [COMMANDLINE_def]
-  \\ xpull
   \\ xlet `POSTv v.
        (W8ARRAY av [n2w (LENGTH cl); n2w (LENGTH cl DIV 256)] * IOx cl_ffi_part cl)`
   THEN1
    (xffi
-    \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def]
+    \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,IO_def]
     \\ xsimpl
-    \\ qmatch_goalsub_abbrev_tac`IO s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`]
+    \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
+    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_count_def,
            GSYM cfHeapsBaseTheory.encode_list_def]
-    \\ fs [wfcl_def] \\ xsimpl)
+    \\ fs [wfcl_def] \\ xsimpl
+    \\ qpat_abbrev_tac `new_events = events ++ _`
+    \\ qexists_tac `new_events` \\ xsimpl)
   \\ xlet_auto >- xsimpl
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
+  \\ qpat_abbrev_tac `Q = $POSTv _`
+  \\ simp [cl_ffi_part_def,IOx_def,IO_def]
+  \\ xpull \\ qunabbrev_tac `Q`
   \\ xapp
-  \\ fs [COMMANDLINE_def]
-  \\ xsimpl
+  \\ fs [COMMANDLINE_def, cl_ffi_part_def, IOx_def, IO_def]
+  \\ xsimpl \\ fs [PULL_EXISTS]
+  \\ GEN_EXISTS_TAC "x" `events` \\ xsimpl
   \\ `LENGTH cl <= LENGTH cl` by fs []
   \\ asm_exists_tac \\ fs [] \\ xsimpl
   \\ `DROP (LENGTH cl) cl = []` by fs [DROP_NIL]
   \\ fs [LIST_TYPE_def]
-  \\ fs [wfcl_def] \\ rfs [two_byte_sum]);
+  \\ fs [wfcl_def] \\ rfs [two_byte_sum]
+  \\ rw [] \\ qexists_tac `x` \\ xsimpl);
 
 val hd_v_thm = fetch "ListProg" "hd_v_thm";
 val mlstring_hd_v_thm = hd_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
