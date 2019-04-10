@@ -2434,11 +2434,14 @@ fun single_line_def def = let
   val lemma  = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
   val def_tm = (subst [const|->mk_comb(v,oneSyntax.one_tm)] (concl lemma))
   val _ = Pmatch.with_classic_heuristic quietDefine [ANTIQUOTE def_tm]
-  val curried = fetch "-" "generated_definition_curried_def"
+  fun find_def name =
+    Theory.current_definitions ()
+    |> first (fn (s,_) => s = name) |> snd
+  val curried = find_def "generated_definition_curried_def"
   val c = curried |> SPEC_ALL |> concl |> dest_eq |> snd |> rand
   val c2 = curried |> SPEC_ALL |> concl |> dest_eq |> fst
   val c1 = curried |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-  val tupled = fetch "-" "generated_definition_tupled_primitive_def"
+  val tupled = find_def "generated_definition_tupled_primitive_def"
   val ind = fetch "-" "generated_definition_ind"
   val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
   val vv = mk_var("very unlikely name",el 2 tys)
