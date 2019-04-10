@@ -177,10 +177,10 @@ val ffi_open_in_def = Define`
     do
       assert(9 <= LENGTH bytes);
       fname <- getNullTermStr conf;
-      do
-        (fd, fs') <- openFile (implode fname) fs ReadMode 0;
-        return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes), fs')
-      od ++
+      (fd, fs') <- openFile (implode fname) fs ReadMode 0;
+      return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes) fs')
+    od ++
+    do
       assert(0 < LENGTH bytes);
       return (FFIreturn (LUPDATE 1w 0 bytes) fs)
     od`;
@@ -215,8 +215,6 @@ val ffi_open_out_def = Define`
 *  ssize_t read(int fd, void *buf, size_t count) *)
 val ffi_read_def = Define`
   ffi_read (conf: word8 list) bytes fs =
-  case bytes of
-  | (n1 :: n0 :: pad1 :: pad2 :: tll) =>
     (* the buffer contains at least the number of requested bytes *)
     case bytes of
        | (n1 :: n0 :: pad1 :: pad2 :: tll) =>

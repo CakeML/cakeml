@@ -262,6 +262,10 @@ Theorem up_stdo_MAP_FST_files[simp]
   `MAP FST (up_stdo fd fs out).files = MAP FST fs.files`
   (rw[up_stdo_def]);
 
+Theorem up_stdo_MAP_FST_inode_tbl[simp]
+  `MAP FST (up_stdo fd fs out).inode_tbl = MAP FST fs.inode_tbl`
+  (rw[up_stdo_def]);
+
 Theorem add_stdo_MAP_FST_inode_tbl[simp]
   `MAP FST (add_stdo fd nm fs out).inode_tbl = MAP FST fs.inode_tbl`
   (rw[add_stdo_def]);
@@ -497,6 +501,7 @@ Theorem FILTER_File_add_stderr
 
 val stdin_def = Define
 `stdin fs inp pos = (ALOOKUP fs.infds 0 = SOME(UStream(strlit"stdin"),ReadMode,pos) /\
+                     ALOOKUP fs.inode_tbl (UStream(strlit"stdin"))= SOME inp)`
 
 val up_stdin_def = Define
 `up_stdin inp pos fs = fsupdate fs 0 0 pos inp`
@@ -544,7 +549,7 @@ Theorem get_stdin_forwardFD
 
 Theorem linesFD_splitlines_get_stdin
   `stdin fs inp pos ⇒
-   MAP (λl. l ++ "\n") (splitlines (get_stdin fs)) = linesFD fs 0`
+    MAP (λl. l ++ "\n") (splitlines (get_stdin fs)) = linesFD fs 0`
   (rw[linesFD_def]
   \\ imp_res_tac stdin_get_stdin
   \\ fs[stdin_def,get_file_content_def]);
@@ -1253,7 +1258,7 @@ Theorem EvalM_print_err
   \\ xsimpl);
 
 Theorem read_spec
-  `!fs fd fdv n nv. wfFS fs ⇒ FD fd fdv ⇒ NUM n nv ⇒
+  `!fs fd fdv n nv rest h1 h2 h3 h4. wfFS fs ⇒ FD fd fdv ⇒ NUM n nv ⇒
    n < 256**2 ⇒ MAX n 2048 <= LENGTH rest ⇒
    app (p:'ffi ffi_proj) TextIO_read_v [fdv;nv]
    (W8ARRAY iobuff_loc (h1::h2::h3::h4::rest) * IOx fs_ffi_part fs)
@@ -2049,16 +2054,17 @@ Theorem inputLinesFrom_spec
     xsimpl
     \\ rw[inFS_fname_numchars]
     \\ qexists_tac`ll` \\ xsimpl )
-  \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
   \\ imp_res_tac nextFD_ltX
-  \\ disch_then(qspec_then`0`mp_tac) \\ rw[]
+  \\ progress inFS_fname_ALOOKUP_EXISTS
+  \\ progress ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ rfs[]
+  \\ pop_assum(qspec_then`0`strip_assume_tac)
   \\ qmatch_assum_abbrev_tac`validFD fd fso`
+  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ res_tac
   \\ `∃c. get_file_content fso fd = SOME (c,0)`
-  by (
-    fs[get_file_content_def,validFD_def,Abbr`fso`,openFileFS_inode_tbl]
-    \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[] )
+    by (fs[get_file_content_def,validFD_def,Abbr`fso`,openFileFS_inode_tbl])
   \\ `get_mode fso fd = SOME ReadMode`
-  by ( simp[Abbr`fso`, openFileFS_def, get_mode_def] )
+  by ( fs[Abbr`fso`, openFileFS_def, get_mode_def,get_file_content_fsupdate] )
   \\ xlet_auto >- xsimpl
   \\ qmatch_goalsub_abbrev_tac`STDIO fsob`
   \\ rename1 `INSTREAM fd fdv`
@@ -2291,5 +2297,118 @@ Theorem print_list_spec
   \\ simp[concat_cons]
   \\ map_every qexists_tac [`emp`,`add_stdout fs s`]
   \\ xsimpl);
+
+(* input and output file descriptors need to bind to different inodes to ensure termination *)
+Theorem copy_spec
+  `∀ ino1 ino2 content1 inp out pos content2 fs inpv outv.
+      INSTREAM inp inpv /\ OUTSTREAM out outv /\ ino1 <> ino2 /\
+      ALOOKUP fs.infds inp = SOME (ino1,ReadMode,pos) /\
+      ALOOKUP fs.infds out = SOME (ino2,WriteMode,LENGTH content2) /\
+      ALOOKUP fs.inode_tbl ino1 = SOME content1 /\
+      ALOOKUP fs.inode_tbl ino2 = SOME content2 /\
+      pos <= STRLEN content1 ⇒
+      app (p:'ffi ffi_proj) TextIO_copy_v [inpv;outv]
+       (STDIO fs)
+       (POSTv u. &UNIT_TYPE () u *
+              STDIO (fsupdate (fastForwardFD fs inp)
+                              out 0
+                              (LENGTH content2 + (LENGTH content1) - pos)
+                              (content2 ++ (DROP pos content1))))`
+  (
+  NTAC 6 strip_tac >>
+  `?N. STRLEN content1 - pos <= N`
+    by (qexists_tac`STRLEN content1 - pos` >> fs[]) >>
+  FIRST_X_ASSUM MP_TAC >> qid_spec_tac`pos` >>
+  Induct_on`N` >> rw[] >>
+  xcf_with_def "TextIO.copy" TextIO_copy_v_def >>
+  fs[STDIO_def,IOFS_def,IOFS_iobuff_def] >> xpull >>
+  rename [`W8ARRAY _ bdef`] >>
+  Cases_on `bdef` >> fs[] >> qmatch_goalsub_rename_tac`h1::t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::h3::t` >>
+  Cases_on `t` >> fs[] >> qmatch_goalsub_abbrev_tac`h1::h2::h3::h4::t` >>
+  PURE_REWRITE_TAC[GSYM iobuff_loc_def] >>
+  `inp <> out` by (strip_tac >> fs[]) >>
+  (fs[INSTREAM_def] >> xlet_auto >- xsimpl >> fs[get_in_def] >>
+  xlet_auto_spec (SOME (Q.SPECL[`fs with numchars := ll`,`inp`] read_spec))
+   >-(rw[FD_def,get_file_content_def] >> xsimpl >> rw[]  >> instantiate  >> xsimpl)
+   >-(rw[get_file_content_def,get_mode_def] >> xsimpl)
+   >>(rw[get_file_content_def] >> xsimpl) >>
+   xlet_auto >- xsimpl) >>
+  (xif
+    >-(xcon >>
+       fs[eof_def] >> pairarg_tac >> fs[] >> rfs[] >> rw[] >>
+       `pos >= LENGTH content1` by fs[]  >> imp_res_tac DROP_NIL >> xsimpl >>
+       `get_file_content fs inp = SOME(content1,pos)`
+       by (fs[get_file_content_def] >> pairarg_tac >> fs[] >> rfs[]) >>
+       `get_file_content fs out = SOME(content2,LENGTH content2)`
+       by (fs[get_file_content_def] >> pairarg_tac >> fs[]) >>
+       fs[fastForwardFD_0,fsupdate_unchanged,bumpFD_0] >>
+       qexists_tac`THE (LTL ll)` >> xsimpl >> fs[wfFS_LTL]))
+   >-(fs[GSYM get_file_content_numchars] >>
+      `get_file_content fs inp = SOME(content1,pos)`
+     by (fs[get_file_content_def] >> pairarg_tac >> fs[] >> rfs[]) >> fs[]) >>
+   fs[OUTSTREAM_def] >> xlet_auto >- xsimpl >> fs[get_out_def] >>
+   `content = content1 /\ pos' = pos`
+     by (fs[GSYM get_file_content_numchars,get_file_content_def] >>
+         rfs[] >> pairarg_tac >> rw[] >> fs[]) >>
+   NTAC 2 (first_x_assum (fn x => fs [x])) >>
+   qmatch_goalsub_abbrev_tac`IOx _ fs'` >>
+   `get_file_content fs' out = SOME(content2,LENGTH content2)`
+     by (fs[get_file_content_def,Abbr`fs'`,bumpFD_def,ALIST_FUPDKEY_ALOOKUP]) >>
+   xlet_auto
+   >-(fs[FD_def,iobuff_loc_def,Abbr`fs'`,liveFS_bumpFD,liveFS_def,validFD_bumpFD,
+         validFD_numchars,ALOOKUP_validFD,get_mode_def] >> xsimpl) >>
+   fs[MAP_MAP_o, CHR_w2n_n2w_ORD,TAKE_APPEND1,TAKE_TAKE,insert_atI_end] >>
+   qmatch_goalsub_abbrev_tac`IOFS fs''` >>
+   xapp >> fs[IOFS_def,IOFS_iobuff_def] >> xsimpl >>
+   fs[ALIST_FUPDKEY_ALOOKUP,insert_atI_def] >>
+   map_every qexists_tac [`emp`, `pos + nr`,`fs''`,`content2 ++ TAKE nr (DROP pos content1)`] >>
+   xsimpl >> rw[Abbr`fs''`, Abbr`fs'`]
+   >-(fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,bumpFD_def])
+   >-(qexists_tac`THE (LDROP k (THE (LTL ll)))` >> rw[]
+      >-(fs[fsupdate_numchars] >> irule wfFS_fsupdate >> conj_tac
+         >-(
+            `(bumpFD inp (fs with numchars := ll) nr).numchars = THE (LTL ll)`
+               by fs[bumpFD_numchars] >>
+             first_x_assum (fn x => rw[GSYM x]) >>
+            fs[wfFS_bumpFD,wfFS_LDROP ])
+         >-(fs[bumpFD_def,MAP_FST_ALIST_FUPDKEY] >> simp[MEM_MAP] >>
+            imp_res_tac ALOOKUP_MEM >>
+            qexists_tac`(out,ino2,WriteMode,STRLEN content2)` >> fs[]))
+      >-(irule STD_streams_fsupdate >> rw[] >>
+         `inp <> 1 /\ inp <> 2` by (
+           fs[STD_streams_def] >>
+           first_x_assum(assume_tac o Q.SPECL [`inp`,`WriteMode`,`STRLEN err`]) >>
+           first_x_assum(assume_tac o Q.SPECL [`inp`,`WriteMode`,`STRLEN out'`]) >>
+           rfs[]) >>
+         fs[GEN_ALL STD_streams_bumpFD,GSYM STD_streams_numchars])
+      >-(qmatch_abbrev_tac`IOx fs_ffi_part fs1 ==>> IOx fs_ffi_part fs2` >>
+         `fs2 = fs1` suffices_by xsimpl >> unabbrev_all_tac >>
+         fs[ALIST_FUPDKEY_ALOOKUP,insert_atI_end,TAKE_APPEND,TAKE_TAKE, fsupdate_def,
+            bumpFD_def,ALIST_FUPDKEY_unchanged] >> rw[IO_fs_component_equality]))
+   >-(qexists_tac`x` >>
+      qmatch_goalsub_abbrev_tac`IOx fs_ffi_part (fs1 with numchars := x)
+                           ==>> IOx fs_ffi_part (fs2 with numchars := x) * GC` >>
+      fs[bumpFD_forwardFD,fsupdate_numchars,fastForwardFD_with_numchars] >>
+      `fs1 with numchars := x = fs2 with numchars := x` by (
+         unabbrev_all_tac >>
+         qmatch_goalsub_abbrev_tac`fsupdate fs' out k _ _` >>
+         `ALOOKUP fs'.infds inp = SOME (ino1,ReadMode,nr + pos) ∧
+          ALOOKUP fs'.infds out = SOME (ino2,WriteMode,STRLEN content2) ∧
+          ALOOKUP fs'.inode_tbl ino1 = SOME content1 ∧
+          ALOOKUP fs'.inode_tbl ino2 = SOME content2`
+           by fs[Abbr`fs'`,forwardFD_def,ALIST_FUPDKEY_ALOOKUP] >>
+         fs[GSYM fsupdate_fastForwardFD_comm,fsupdate_numchars] >>
+         fs[Abbr`fs'`,fastForwardFD_with_numchars,fastForwardFD_forwardFD] >>
+         fs[GSYM DROP_DROP] >>
+         PURE_REWRITE_TAC[Once (GSYM STRCAT_ASSOC),TAKE_DROP] >> simp[]) >>
+         xsimpl >> fs[] >>
+         first_x_assum (fn z => PURE_REWRITE_TAC
+            [Once (Q.SPECL [`fs`,`x`] STD_streams_numchars),GSYM z]) >>
+         fs[GSYM STD_streams_numchars]));
 
 val _ = export_theory();

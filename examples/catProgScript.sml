@@ -50,7 +50,7 @@ Theorem do_onefile_spec
               &(ALOOKUP fs.inode_tbl (File ino) = SOME content) *
               STDIO (add_stdout fs (implode content)))
          (\e. &BadFileName_exn e *
-              &(~inFS_fname fs File fnm) *
+              &(~inFS_fname fs fnm) *
               STDIO fs))`
   (rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
@@ -60,12 +60,12 @@ Theorem do_onefile_spec
   >- xsimpl
   >- xsimpl
   \\ imp_res_tac nextFD_ltX
+  \\ progress inFS_fname_ALOOKUP_EXISTS
+  \\ progress ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ rfs[]
+  \\ pop_assum(qspec_then`0`strip_assume_tac)
   \\ imp_res_tac STD_streams_nextFD
-  \\ qabbrev_tac`fd = nextFD fs`
-  \\ progress (Q.GEN`fname` inFS_fname_ALOOKUP_EXISTS)
-  \\ drule (Q.SPEC `fnm` ALOOKUP_inFS_fname_openFileFS_nextFD)
-  \\ rw[]
-  \\ pop_assum(qspec_then`0`strip_assume_tac) \\
+  \\ qabbrev_tac`fd = nextFD fs` \\
   xfun_spec `recurse`
     `!m n fs00 uv.
        UNIT_TYPE () uv ∧ m = LENGTH content - n ∧ n ≤ LENGTH content ∧
@@ -228,7 +228,7 @@ Theorem cat1_spec
   (xcf "cat1" (get_ml_prog_state()) >>
   xhandle `POSTve
              (\u. SEP_EXISTS content ino. &UNIT_TYPE () u *
-               &(ALOOKUP fs.files (File fnm) = SOME ino) *
+               &(ALOOKUP fs.files fnm = SOME ino) *
                &(ALOOKUP fs.inode_tbl (File ino) = SOME content) *
                STDIO (add_stdout fs (implode content)))
              (\e. &BadFileName_exn e * &(~inFS_fname fs fnm) *

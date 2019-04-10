@@ -30,16 +30,17 @@ val () = append_prog inputLinesFromAny;
 
 Theorem inputLinesFromAny_spec
   `OPTION_TYPE FILENAME fo fov ∧ (IS_SOME fo ⇒ hasFreeFD fs) ∧
-  (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"),ReadMode,0)))
+  (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0)))
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFromAny" (get_ml_prog_state()))
     [fov] (STDIO fs)
     (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-      (if IS_SOME fo ⇒ inFS_fname fs (File (THE fo))
-       then SOME (all_lines fs (case fo of NONE => IOStream(strlit"stdin") | SOME f => File f))
+      (if IS_SOME fo ⇒ inFS_fname fs (THE fo)
+       then SOME (case fo of NONE => all_lines_inode fs (UStream(strlit"stdin"))
+                           | SOME f => all_lines fs f)
        else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))`
   (xcf"inputLinesFromAny"(get_ml_prog_state())
-  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
+  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull )
   \\ reverse(Cases_on`∃ll. wfFS (fs with numchars := ll)`) >- (fs[STDIO_def,IOFS_def] \\ xpull)
   \\ xmatch
   \\ Cases_on`fo` \\ fs[OPTION_TYPE_def]
@@ -95,8 +96,8 @@ val wordcount_precond_def = Define`
     case cl of
       [_; fname] =>
         hasFreeFD fs ∧
-        ALOOKUP fs.files fname = SOME ino ∧
-        ALOOKUP fs.inode_tbl (File ino) = SOME contents
+        ∃ ino. ALOOKUP fs.files fname = SOME ino ∧
+        ALOOKUP fs.inode_tbl (File ino) = SOME contents ∧
         fs' = fs
     | _ =>
       ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0) ∧
@@ -122,7 +123,6 @@ Theorem wordcount_spec
                 * COMMANDLINE cl)`
   (simp [concat_def] \\
   strip_tac \\
-  `inFS_fname fs fname` by fs[inFS_fname_def] >>
   xcf "wordcount" (get_ml_prog_state()) \\
   xlet_auto >- (xcon \\ xsimpl) \\
   xlet_auto >- xsimpl \\
@@ -223,13 +223,14 @@ Theorem wordcount_spec
     \\ Cases_on`cl` \\ fs[wfcl_def]
     \\ Cases_on`t` \\ fs[]
     \\ Cases_on`t'` \\ fs[] )
-  \\ simp[GSYM MAP_MAP_o,GSYM LENGTH_FLAT,splitwords_all_lines] \\
-  simp[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym]
+
+  \\ simp[GSYM MAP_MAP_o,GSYM LENGTH_FLAT]
   \\ fs[Abbr`fo`]
   \\ fs[wordcount_precond_def]
   \\ Cases_on`cl` \\ fs[wfcl_def]
   \\ Cases_on`t` \\ fs[]
-  \\ Cases_on`t'` \\ fs[]);
+  \\ TRY (Cases_on`t'` \\ fs[])
+  \\ simp[all_lines_def,splitwords_lines_of,splitwords_def, mlstringTheory.TOKENS_eq_tokens_sym]);
 
 Theorem wordcount_whole_prog_spec
   `wordcount_precond cl fs contents fs'

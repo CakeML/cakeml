@@ -199,7 +199,8 @@ Theorem get_files_contents_spec
   >- xsimpl >>
   qmatch_assum_abbrev_tac `validFD fd fs'` >>
   imp_res_tac nextFD_ltX \\
-  imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[] \\
+  progress inFS_fname_ALOOKUP_EXISTS\\
+  progress IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[] \\
   pop_assum(qspecl_then[`0`,`ReadMode`]strip_assume_tac) \\ rfs[] \\
   xlet_auto >- (
     fs[Abbr`fs'`]
@@ -332,7 +333,7 @@ Theorem sort_spec
               EVERY (inFS_fname fs) fnames) *
             STDIO (sort_sem cl fs) * COMMANDLINE cl)
       (\e.  &(BadFileName_exn e ∧
-              ¬EVERY (inFS_fname fs) inodes) *
+              ¬EVERY (inFS_fname fs) fnames) *
             STDIO fs * COMMANDLINE cl)`) >>
   xsimpl
   >- (
@@ -364,7 +365,7 @@ Theorem sort_spec
        (\e.
           COMMANDLINE cl * STDIO fs *
           &(BadFileName_exn e ∧
-          ¬EVERY (inFS_fname fs) inodes))` >>
+          ¬EVERY (inFS_fname fs) fnames))` >>
   xsimpl
   >- (
     `?command args. cl = command::args`

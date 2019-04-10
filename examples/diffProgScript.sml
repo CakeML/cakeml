@@ -107,7 +107,7 @@ Theorem diff'_spec
   (xcf"diff'"(get_ml_prog_state())
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1)`)
+  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
   >- (fs[OPTION_TYPE_def]
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
