@@ -41,7 +41,7 @@ fun get_frame_thms () = !FRAME_THMS;
 
 fun new_exporter nm add =
     ThmSetData.new_exporter {
-      efns = {add = fn {named_thms,...} => add (map #2 named_thms),
+      efns = {add = fn {named_thms,thy} => add thy named_thms,
               remove = fn _ => ()},
       settype = nm
     } |> #export
