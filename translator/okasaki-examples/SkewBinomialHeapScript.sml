@@ -1,6 +1,6 @@
 (*
   Bootstraped Skew Binomial Heaps, based on Purely Functional Data Structures
-  sections 9.3.2 and 10.2.2
+  sections 9.3.2 and 10.2.2 (Chris Okasaki)
 *)
 
 open preamble
@@ -161,10 +161,10 @@ Proof
 QED;
 
 Theorem root_smallest:
-  !geq t y. ((WeakLinearOrder geq) /\
-             (is_tree_ordered geq t) /\
-             (BAG_IN y (tree_to_bag t)))==>
-            (geq y (root t))
+  !geq t y. WeakLinearOrder geq /\
+            is_tree_ordered geq t /\
+            BAG_IN y (tree_to_bag t)==>
+            geq y (root t)
 Proof
   rpt strip_tac \\
   fs[WeakLinearOrder, WeakOrder] \\
@@ -173,6 +173,64 @@ Proof
   rw[is_tree_ordered_def, tree_to_bag_def, root_def, BAG_EVERY] \\
   fs[root_def] \\
   metis_tac[reflexive_def]
+QED;
+
+Theorem children_order:
+  !geq t. WeakLinearOrder geq /\
+          is_tree_ordered geq t ==>
+          is_heap_ordered geq (children t)
+Proof
+  rpt strip_tac \\
+  Cases_on `t` \\
+  Induct_on `l` \\
+  fs[children_def,is_heap_ordered_def, is_tree_ordered_def]
+QED;
+
+Theorem app_heap_order:
+  !geq h1 h2. WeakLinearOrder geq /\
+              is_heap_ordered geq h1 /\
+              is_heap_ordered geq h2 ==>
+              is_heap_ordered geq (APPEND h1 h2)
+Proof
+  rpt strip_tac \\
+  Induct_on `h1` \\
+  rw[APPEND_NIL, is_heap_ordered_def]
+QED;
+
+Theorem reverse_heap_order:
+  !geq h. WeakLinearOrder geq /\
+          is_heap_ordered geq h ==>
+          is_heap_ordered geq (REVERSE h)
+Proof
+  rpt strip_tac \\
+  Induct_on `h` \\
+  rw[REVERSE_DEF,is_heap_ordered_def, app_heap_order]
+QED;
+
+Theorem heap_to_bag_app:
+  !l1 l2. heap_to_bag (l1++l2) = BAG_UNION (heap_to_bag l1)
+					  (heap_to_bag l2)
+Proof
+  Induct_on `l1`
+  >- rw[APPEND, heap_to_bag_def]
+  >- metis_tac [APPEND, heap_to_bag_def, COMM_BAG_UNION, ASSOC_BAG_UNION]
+QED;
+
+Theorem tree_to_bag_general:
+  !r n l0 l. tree_to_bag (Sbnode r n l0 l) = {|r|} ⊎ (list_to_bag l0) ⊎ (heap_to_bag l)
+Proof
+  Induct_on `l`
+  >- rw[tree_to_bag_def, heap_to_bag_def, BAG_INSERT_UNION]
+  >- (rw[tree_to_bag_def, heap_to_bag_def] \\
+      metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
+QED;
+
+Theorem reverse_bag:
+  !h. heap_to_bag (REVERSE h) = heap_to_bag h
+Proof
+  Induct_on `h`
+  >- rw[REVERSE, heap_to_bag_def]
+  >- rw[REVERSE_DEF, heap_to_bag_def, heap_to_bag_app, COMM_BAG_UNION]
 QED;
 
 (* For both kinds of links, linking preserve the elements in the trees *)
@@ -218,9 +276,10 @@ QED;
 (* for both kinds of links, linking preserve the ordering of the elements *)
 Theorem tree_link_order:
   !geq t1 t2.
-    ((WeakLinearOrder geq) /\
-     (is_tree_ordered geq t1) /\
-     (is_tree_ordered geq t2)) ==> (is_tree_ordered geq (tree_link geq t1 t2))
+    WeakLinearOrder geq /\
+    is_tree_ordered geq t1 /\
+    is_tree_ordered geq t2 ==>
+    is_tree_ordered geq (tree_link geq t1 t2)
 Proof
   strip_tac \\
   ntac 2 Cases \\
@@ -242,10 +301,10 @@ Proof
 QED;
 
 Theorem skew_link_order:
-  !geq x t1 t2.
-    ((WeakLinearOrder geq) /\
-     (is_tree_ordered geq t1) /\
-     (is_tree_ordered geq t2)) ==> (is_tree_ordered geq (skew_link geq x t1 t2))
+  !geq x t1 t2. WeakLinearOrder geq /\
+                is_tree_ordered geq t1 /\
+                is_tree_ordered geq t2 ==>
+                is_tree_ordered geq (skew_link geq x t1 t2)
 Proof
   ntac 2 strip_tac \\
   ntac 2 Cases \\
@@ -275,10 +334,10 @@ Proof
 QED;
 
 Theorem binomial_insert_order:
-  !geq t h. ((WeakLinearOrder geq) /\
-             (is_heap_ordered geq h) /\
-             (is_tree_ordered geq t)) ==>
-             (is_heap_ordered geq (binomial_insert geq t h))
+  !geq t h. WeakLinearOrder geq /\
+            is_heap_ordered geq h /\
+            is_tree_ordered geq t ==>
+            is_heap_ordered geq (binomial_insert geq t h)
 Proof
   Induct_on `h`
   >- rw[is_heap_ordered_def, is_tree_ordered_def, binomial_insert_def]
@@ -298,18 +357,19 @@ Proof
   Cases_on `h`
   >- rw[insert_def, heap_to_bag_def, leaf_def, tree_to_bag_def, list_to_bag_def]
   >- (Cases_on `t`
-    >- rw[insert_def, heap_to_bag_def, leaf_def,
-	  tree_to_bag_def, list_to_bag_def, BAG_INSERT_UNION]
-    >- (rw[insert_def, heap_to_bag_def, leaf_def,
-	  tree_to_bag_def, list_to_bag_def, skew_link_bag]
-        >- metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION,
+      >- rw[insert_def, heap_to_bag_def, leaf_def,
+	    tree_to_bag_def, list_to_bag_def, BAG_INSERT_UNION]
+      >- (rw[insert_def, heap_to_bag_def, leaf_def,
+	     tree_to_bag_def, list_to_bag_def, skew_link_bag]
+          >- metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION,
                 (GSYM BAG_UNION_INSERT), BAG_UNION_LEFT_CANCEL]
-        >- rw[BAG_INSERT_UNION]))
+          >- rw[BAG_INSERT_UNION]))
 QED;
 
 Theorem insert_order:
-  !geq e h. ((WeakLinearOrder geq) /\
-             (is_heap_ordered geq h)) ==> (is_heap_ordered geq (insert geq e h))
+  !geq e h. WeakLinearOrder geq /\
+            is_heap_ordered geq h ==>
+            is_heap_ordered geq (insert geq e h)
 Proof
   Cases_on `h`
   >- rw[is_heap_ordered_def, insert_def,leaf_def,
@@ -318,6 +378,43 @@ Proof
       rw[is_heap_ordered_def, insert_def,leaf_def,
          is_tree_ordered_def, BAG_EVERY, list_to_bag_def,
 	 skew_link_order])
+QED;
+
+Theorem insert_list_order:
+  !geq es h. WeakLinearOrder geq /\
+             is_heap_ordered geq h ==>
+             is_heap_ordered geq (insert_list geq es h)
+Proof
+  rpt strip_tac \\
+  Induct_on `es` \\
+  rw[insert_list_def, insert_order]
+QED;
+
+Theorem insert_list_bag:
+  !geq es h. heap_to_bag (insert_list geq es h) =
+             BAG_UNION (list_to_bag es) (heap_to_bag h)
+Proof
+  Induct_on `es`
+  >- rw[insert_list_def, list_to_bag_def]
+  >- metis_tac [insert_list_def, list_to_bag_def, (GSYM insert_bag),
+                ASSOC_BAG_UNION, COMM_BAG_UNION, BAG_UNION_INSERT]
+QED;
+
+
+Theorem insert_list_empty_heap_bag:
+  !geq l. heap_to_bag (insert_list geq l []) = list_to_bag l
+Proof
+  Induct_on `l` \\
+  rw[insert_list_def, heap_to_bag_def, list_to_bag_def, (GSYM insert_bag)]
+QED;
+
+Theorem insert_list_app_bag:
+  !geq l l1 l2. heap_to_bag (insert_list geq l (l1++l2)) =
+                BAG_UNION (heap_to_bag l2) (heap_to_bag (insert_list geq l l1))
+Proof
+  rpt strip_tac \\
+  rw[insert_list_bag, heap_to_bag_app] \\
+  metis_tac [COMM_BAG_UNION, ASSOC_BAG_UNION]
 QED;
 
 (*
@@ -332,9 +429,9 @@ Proof
 QED;
 
 Theorem normalize_order:
-  !geq h. ((WeakLinearOrder geq) /\
-           (is_heap_ordered geq h)) ==>
-           (is_heap_ordered geq (normalize geq h))
+  !geq h. WeakLinearOrder geq /\
+          is_heap_ordered geq h ==>
+          is_heap_ordered geq (normalize geq h)
 Proof
   Cases_on `h` \\
   rw[is_heap_ordered_def, normalize_def, binomial_insert_order]
@@ -352,10 +449,10 @@ Proof
 QED;
 
 Theorem merge_tree_order:
-  !geq t1 t2. ((WeakLinearOrder geq) /\
-               (is_heap_ordered geq t1) /\
-               (is_heap_ordered geq t2)) ==>
-               (is_heap_ordered geq (merge_tree geq t1 t2))
+  !geq t1 t2. WeakLinearOrder geq /\
+              is_heap_ordered geq t1 /\
+              is_heap_ordered geq t2 ==>
+              is_heap_ordered geq (merge_tree geq t1 t2)
 Proof
   Induct_on `t2`
   >- rw[is_heap_ordered_def, merge_tree_def]
@@ -383,10 +480,10 @@ Proof
 QED;
 
 Theorem merge_order:
-  !geq h1 h2. ((WeakLinearOrder geq) /\
-               (is_heap_ordered geq h1) /\
-               (is_heap_ordered geq h2)) ==>
-              (is_heap_ordered geq (merge geq h1 h2))
+  !geq h1 h2. WeakLinearOrder geq /\
+              is_heap_ordered geq h1 /\
+              is_heap_ordered geq h2 ==>
+              is_heap_ordered geq (merge geq h1 h2)
 Proof
   Cases_on `h2`
   >- rw[is_heap_ordered_def, merge_def, normalize_def,
@@ -400,11 +497,14 @@ Proof
        rw[merge_tree_order])
 QED;
 
-(* find_min returns the smallest element of the heap *)
+(*
+find_min returns the smallest element with the highest
+priority of the heap.
+*)
 Theorem find_min_exists:
-  !geq h. ((WeakLinearOrder geq) /\
-           (h <> [])) ==>
-          ((find_min geq h) <> NONE)
+  !geq h. WeakLinearOrder geq /\
+          h <> [] ==>
+          (find_min geq h) <> NONE
 Proof
   Induct_on `h`
   >- rw[]
@@ -416,10 +516,10 @@ Proof
 QED;
 
 Theorem find_min_bag:
-  !geq h. ((WeakLinearOrder geq) /\
-            (h <> []) /\
-	    (is_heap_ordered geq h)) ==>
-           (BAG_IN (THE (find_min geq h)) (heap_to_bag h))
+  !geq h. WeakLinearOrder geq /\
+          h <> [] /\
+	  is_heap_ordered geq h ==>
+          BAG_IN (THE (find_min geq h)) (heap_to_bag h)
 Proof
   Induct_on `h`
   >- rw[]
@@ -441,10 +541,10 @@ Proof
 QED;
 
 Theorem find_min_correct:
-  `!geq h. ((WeakLinearOrder geq) /\
-            (h <> []) /\
-	    (is_heap_ordered geq h)) ==>
-           (!y. (BAG_IN y (heap_to_bag h)) ==> (geq y (THE (find_min geq h))))`
+  !geq h. WeakLinearOrder geq /\
+          h <> [] /\
+	  is_heap_ordered geq h ==>
+          !y. (BAG_IN y (heap_to_bag h)) ==> (geq y (THE (find_min geq h)))
 Proof
   Induct_on `h`
   >- rw[]
@@ -485,7 +585,131 @@ Proof
                       metis_tac[transitive_def])))))
 QED;
 
- (* Translations *)
+(*
+delete_min deletes the smallest element with
+the highest priority of the heap
+*)
+Theorem get_min_bag:
+  !geq smallest rest h. h <> [] /\
+          (smallest,rest) = get_min geq h ==>
+          (heap_to_bag h) = BAG_UNION
+                             (tree_to_bag smallest)
+                             (heap_to_bag rest)
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (Cases_on `h`
+      >- rw[get_min_def, heap_to_bag_def, tree_to_bag_def]
+      >- (rw[get_min_def, heap_to_bag_def, tree_to_bag_def] \\
+          Cases_on `get_min geq (h'::t)` \\
+          fs[] \\
+	  Cases_on `geq (root q) (root h)`
+          >- fs[heap_to_bag_def]
+          >- (fs[heap_to_bag_def] \\
+              `(q,r) = get_min geq (h'::t)` by
+              rw[] \\
+              res_tac \\
+              metis_tac [ASSOC_BAG_UNION, COMM_BAG_UNION])))
+QED;
+
+Theorem get_min_order:
+  !geq h smallest rest. WeakLinearOrder geq /\
+                         h <> [] /\
+                         is_heap_ordered geq h /\
+                         (smallest, rest) = get_min geq h ==>
+                         is_tree_ordered geq smallest /\
+                         is_heap_ordered geq rest
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (Cases_on `h`
+      >- rw[is_heap_ordered_def, get_min_def]
+      >- (rw[is_heap_ordered_def, get_min_def] \\
+          Cases_on `get_min geq (h'::t)` \\
+          fs[] \\
+          `(q,r) = get_min geq (h'::t)` by rw[]
+          >- (Cases_on `geq (root q) (root h)`
+              >- fs[]
+              >- (fs[] \\
+                  res_tac))
+          >- (Cases_on `geq (root q) (root h)`
+              >- fs[is_heap_ordered_def]
+              >- (res_tac \\
+                  fs[is_heap_ordered_def]))))
+QED;
+
+Theorem get_min_correct:
+  !geq h smallest rest. WeakLinearOrder geq /\
+                        h <> [] /\
+                        is_heap_ordered geq h /\
+                        (smallest,rest) = get_min geq h ==>
+			(root smallest) = THE (find_min geq h)
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (Cases_on `h`
+      >- (rw[find_min_def] \\
+          fs[get_min_def])
+      >- (rw[find_min_def] \\
+          `find_min geq (h'::t) <> NONE` by rw[find_min_exists] \\
+      	  Cases_on `find_min geq (h'::t)`
+	  >- rw[]
+	  >- (rw[] \\
+              fs[get_min_def] \\
+              Cases_on `get_min geq (h'::t)` \\
+              fs[] \\
+              `(q,r) = get_min geq (h'::t)` by rw[] \\
+              fs[is_heap_ordered_def] \\
+	      `is_heap_ordered geq (h'::t)` by rw[is_heap_ordered_def] \\
+              res_tac \\
+              fs[])))
+QED;
+
+Theorem delete_min_order:
+  !geq h. WeakLinearOrder geq /\
+           h <> [] /\
+           is_heap_ordered geq h ==>
+           is_heap_ordered geq (THE (delete_min geq h))
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (rw[delete_min_def] \\
+      Cases_on `get_min geq (h'::h)` \\
+      `(q,r) = get_min geq (h'::h)` by rw[] \\
+      `(h'::h) <> []` by rw[] \\
+      imp_res_tac get_min_order \\
+      simp[] \\
+      metis_tac [normalize_order, children_order, reverse_heap_order,
+		 merge_tree_order, insert_list_order])
+QED;
+
+Theorem delete_min_correct:
+  !geq h. WeakLinearOrder geq /\
+           h <> [] /\
+           is_heap_ordered geq h ==>
+	   heap_to_bag h = BAG_UNION
+                            (heap_to_bag (THE (delete_min geq h)))
+                            {| THE (find_min geq h) |}
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (rw[delete_min_def] \\
+      Cases_on `get_min geq (h'::h)` \\
+      rw[] \\
+      `(q,r) = get_min geq (h'::h)` by rw[] \\
+      `(h'::h) <> []` by rw[] \\
+      imp_res_tac get_min_correct \\
+      imp_res_tac get_min_bag \\
+      rw[insert_list_bag, merge_tree_bag, reverse_heap_order,
+	 (GSYM normalize_bag)] \\
+      Cases_on `q` \\
+      fs[root_def, children_def, aux_def] \\
+      rw[tree_to_bag_general] \\
+      metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION, reverse_bag])
+QED;
+
+
+(* Translations *)
 val _ = translate leaf_def;
 val _ = translate root_def;
 val _ = translate rank_def;
