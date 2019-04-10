@@ -142,6 +142,59 @@ val delete_min_def = Define `
     in SOME (insert_list geq (aux min) (merge_tree geq (REVERSE (children min)) (normalize geq ts'))))
 `;
 
+(* Bootstraping Skew Binomial Heaps *)
+Datatype `bsbHeap = Bsbempty | Bsbheap 'a (bsbHeap sbHeap)`;
+
+val b_root_def = Define `
+  (b_root (Bsbheap r _) = r)
+`;
+
+val b_children_def = Define `
+  (b_children (Bsbheap _ c) = c)
+`;
+
+val b_is_empty_def = Define `
+  (b_is_empty Bsbempty = T) /\
+  (b_is_empty _ = F)
+`;
+
+(*
+Create a comparison function for bootstraped binomial heaps
+from a comparison function for their roots
+*)
+val b_heap_comparison = Define `
+  (b_heap_comparison geq (Bsbheap r1 _) (Bsbheap r2 _) = geq r1 r2)
+`;
+
+val b_merge_def = Define `
+  (b_merge _ Bsbempty h = h) /\
+  (b_merge _ h Bsbempty = h) /\
+  (b_merge geq (Bsbheap r1 c1) (Bsbheap r2 c2) =
+    if geq r1 r2
+    then (Bsbheap r2 (insert (b_heap_comparison geq) (Bsbheap r1 c1) c2))
+    else (Bsbheap r1 (insert (b_heap_comparison geq) (Bsbheap r2 c2) c1)))
+`;
+
+val b_insert_def = Define `
+  (b_insert geq e h = b_merge (Bsbheap e []) h)
+`;
+
+val b_find_min_def = Define `
+  (b_find_min Bsbempty = NONE) /\
+  (b_find_min (Bsbheap r _) = SOME r)
+`;
+
+val b_delete_min_def = Define `
+  (b_delete_min _ Bsbempty = NONE) /\
+  (b_delete_min geq (Bsbheap _ c) =
+    if c = [] then (SOME Bsbempty) else
+    let min = THE (find_min (b_heap_comparison geq) c) in
+    let rest = THE (delete_min (b_heap_comparison geq) c) in
+    let smallest_root = b_root min in
+    let smallest_children = b_children min in
+    SOME (Bsbheap smallest_root (merge (b_heap_comparison geq) rest smallest_children)))
+`;
+
 (* Useful lemmas *)
 Theorem rank_irrelevance_bag:
   !root r1 r2 aux ch. tree_to_bag (Sbnode root r1 aux ch) = tree_to_bag (Sbnode root r2 aux ch)
