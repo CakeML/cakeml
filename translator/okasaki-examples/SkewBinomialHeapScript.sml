@@ -176,7 +176,7 @@ val b_merge_def = Define `
 `;
 
 val b_insert_def = Define `
-  (b_insert geq e h = b_merge (Bsbheap e []) h)
+  (b_insert geq e h = b_merge (b_heap_comparison geq) (Bsbheap e []) h)
 `;
 
 val b_find_min_def = Define `
@@ -761,7 +761,6 @@ Proof
       metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION, reverse_bag])
 QED;
 
-
 (* Translations *)
 val _ = translate leaf_def;
 val _ = translate root_def;
@@ -780,5 +779,13 @@ val _ = translate merge_tree_def;
 val _ = translate merge_def;
 val _ = translate get_min_def;
 val _ = translate delete_min_def;
+val _ = translate b_root_def;
+val _ = translate b_children_def;
+val _ = translate b_is_empty_def;
+val _ = translate b_heap_comparison_def;
+val _ = translate b_merge_def;
+val _ = translate b_insert_def;
+val _ = translate b_find_min_def;
+val _ = translate b_delete_min_def;
 
 val _ = export_theory ();
