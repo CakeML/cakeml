@@ -720,13 +720,13 @@ Theorem target_state_rel_ag32_init
 val stdin_fs_def = Define`
   stdin_fs inp =
     <| files :=
-       [(IOStream (strlit "stdout"), "")
-       ;(IOStream (strlit "stderr"), "")
-       ;(IOStream (strlit "stdin"), inp)]
+       [(UStream (strlit "stdout"), "")
+       ;(UStream (strlit "stderr"), "")
+       ;(UStream (strlit "stdin"), inp)]
      ; infds :=
-       [(0, IOStream(strlit"stdin"), ReadMode, 0)
-       ;(1, IOStream(strlit"stdout"), WriteMode, 0)
-       ;(2, IOStream(strlit"stderr"), WriteMode, 0)]
+       [(0, UStream(strlit"stdin"), ReadMode, 0)
+       ;(1, UStream(strlit"stdout"), WriteMode, 0)
+       ;(2, UStream(strlit"stderr"), WriteMode, 0)]
      ; numchars := LGENLIST (K output_buffer_size) NONE
      ; maxFD := 2
      |>`;
@@ -768,8 +768,8 @@ val ag32_fs_ok_def = Define`
 val ag32_stdin_implemented_def = Define`
   ag32_stdin_implemented fs m ⇔
     ∃off inp.
-      (ALOOKUP fs.infds 0 = SOME (IOStream(strlit"stdin"), ReadMode, off)) ∧
-      (ALOOKUP fs.files (IOStream(strlit"stdin")) = SOME inp) ∧
+      (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"), ReadMode, off)) ∧
+      (ALOOKUP fs.files (UStream(strlit"stdin")) = SOME inp) ∧
       (get_mem_word m (n2w stdin_offset) = n2w off) ∧
       (get_mem_word m (n2w (stdin_offset + 4)) = n2w (LENGTH inp)) ∧
       off ≤ LENGTH inp ∧ LENGTH inp ≤ stdin_size ∧
@@ -812,24 +812,24 @@ Theorem extract_fs_extract_writes
    (extract_fs fs ls = SOME fs') ∧
    (* can only read/write up to output_buffer_size - this could be made more nuanced *)
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
-   (* IOStream of interest exists at the start *)
-   (ALOOKUP fs.infds fd = SOME (IOStream nam, WriteMode, LENGTH out)) ∧
-   (ALOOKUP fs.files (IOStream nam) = SOME out) ∧
-   (* no non-IOStream files *)
+   (* UStream of interest exists at the start *)
+   (ALOOKUP fs.infds fd = SOME (UStream nam, WriteMode, LENGTH out)) ∧
+   (ALOOKUP fs.files (UStream nam) = SOME out) ∧
+   (* no non-UStream files *)
    (∀nm. ¬inFS_fname fs (File nm)) ∧
    (* well-formedness invariants for the filesystem *)
    (∀fd fnm md off. (ALOOKUP fs'.infds fd = SOME (fnm, md, off)) ⇒ inFS_fname fs' fnm) ∧
-   (∀fd1 nm md1 off1 fd2 md2 off2. (* this one depends on us not being able to open IOStreams *)
-     (ALOOKUP fs'.infds fd1 = SOME (IOStream nm, md1, off1)) ∧
-     (ALOOKUP fs'.infds fd2 = SOME (IOStream nm, md2, off2))
+   (∀fd1 nm md1 off1 fd2 md2 off2. (* this one depends on us not being able to open UStreams *)
+     (ALOOKUP fs'.infds fd1 = SOME (UStream nm, md1, off1)) ∧
+     (ALOOKUP fs'.infds fd2 = SOME (UStream nm, md2, off2))
      ⇒ (fd1 = fd2)) ∧
    (* -- *)
-   (* nothing has changed except the IOStream of interest -- is this actually necessary? *)
+   (* nothing has changed except the UStream of interest -- is this actually necessary? *)
    (∀x. x ≠ fd ⇒ (OPTREL (inv_image (=) FST) (ALOOKUP fs'.infds x) (ALOOKUP fs.infds x))) ∧
    (∀fnm. inFS_fname fs' fnm = inFS_fname fs fnm) ∧
    (* and it has only changed by appending *)
-   (ALOOKUP fs'.infds fd = SOME (IOStream nam, WriteMode, LENGTH out + LENGTH rest)) ∧
-   (ALOOKUP fs'.files (IOStream nam) = SOME (out ++ rest))
+   (ALOOKUP fs'.infds fd = SOME (UStream nam, WriteMode, LENGTH out + LENGTH rest)) ∧
+   (ALOOKUP fs'.files (UStream nam) = SOME (out ++ rest))
    ⇒
    (extract_writes fd (MAP get_output_io_event ls) = rest)`
   (Induct
@@ -6798,9 +6798,9 @@ Theorem ag32_interference_implemented
     \\ last_assum(qspec_then`0`mp_tac)
     \\ simp_tac(srw_ss())[IS_SOME_EXISTS, EXISTS_PROD, PULL_EXISTS]
     \\ rw[ag32_stdin_implemented_def]
-    \\ qmatch_goalsub_rename_tac`fnm = IOStream _`
-    \\ Cases_on`fnm = IOStream (strlit"stdin")` \\ simp[]
-    \\ Cases_on`ALOOKUP (SND x.ffi_state).files (IOStream(strlit"stdin"))` \\ simp[]
+    \\ qmatch_goalsub_rename_tac`fnm = UStream _`
+    \\ Cases_on`fnm = UStream (strlit"stdin")` \\ simp[]
+    \\ Cases_on`ALOOKUP (SND x.ffi_state).files (UStream(strlit"stdin"))` \\ simp[]
     \\ qmatch_goalsub_rename_tac`off ≤ LENGTH input`
     \\ Cases_on`off ≤ LENGTH input ∧ LENGTH input ≤ stdin_size` \\ fs[] \\ rveq
     \\ `∀i. i < 8 + LENGTH cnt ⇒ ((Next ms1).MEM (n2w (stdin_offset + i)) = m (n2w (stdin_offset + i)))`

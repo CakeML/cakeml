@@ -1725,7 +1725,7 @@ val process_list_def = Define `
 val read_stdin_def = Define `
   read_stdin fs refs =
     let fs' = fastForwardFD fs 0 in
-      case readLines (all_lines fs (IOStream (strlit"stdin"))) init_state refs of
+      case readLines (all_lines fs (UStream (strlit"stdin"))) init_state refs of
         (Success (s, _), refs) =>
           (add_stdout fs' (msg_success s refs.the_context), refs, SOME s)
       | (Failure (Fail e), refs) => (add_stderr fs' e, refs, NONE)`;

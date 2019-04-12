@@ -162,7 +162,7 @@ Theorem FST_ALOOKUP_add_stdo_infds
 Theorem ALOOKUP_add_stdout_files
   `STD_streams fs ⇒ (
    ALOOKUP (add_stdout fs out).files fnm =
-   if fnm = IOStream(strlit"stdout") then
+   if fnm = UStream(strlit"stdout") then
      SOME (THE (ALOOKUP fs.files fnm) ++ explode out)
    else ALOOKUP fs.files fnm)`
   (strip_tac
@@ -183,7 +183,7 @@ Theorem ALOOKUP_add_stdout_files
 Theorem ALOOKUP_add_stderr_files
   `STD_streams fs ⇒ (
    ALOOKUP (add_stderr fs err).files fnm =
-   if fnm = IOStream(strlit"stderr") then
+   if fnm = UStream(strlit"stderr") then
      SOME (THE (ALOOKUP fs.files fnm) ++ explode err)
    else ALOOKUP fs.files fnm)`
   (strip_tac
