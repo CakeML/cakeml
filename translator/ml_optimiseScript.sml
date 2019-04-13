@@ -74,7 +74,7 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
                   | INR (INR x) => (exp3_size o SND) x)`
    \\ rw [exp6_size_REVERSE]);
 
-val BOTTOM_UP_OPT_def = save_thm("BOTTOM_UP_OPT_def",
+val BOTTOM_UP_OPT_def = save_thm("BOTTOM_UP_OPT_def[compute]",
   BOTTOM_UP_OPT_def |> SIMP_RULE std_ss [LET_THM]);
 
 val LENGTH_BOTTOM_UP_OPT_LIST = prove(
