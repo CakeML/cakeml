@@ -8,7 +8,7 @@ val _ = new_theory"ag32_config";
 val ag32_names_def = Define `
   ag32_names = LN:num num_map`
 
-val ag32_names_def = save_thm("ag32_names_def",
+val ag32_names_def = save_thm("ag32_names_def[compute]",
   CONV_RULE (RAND_CONV EVAL) ag32_names_def);
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)

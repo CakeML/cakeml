@@ -29,7 +29,7 @@ val mips_names_def = Define `
      insert 24 0 o
      insert 31 1) LN:num num_map`
 
-val mips_names_def = save_thm("mips_names_def",
+val mips_names_def = save_thm("mips_names_def[compute]",
   CONV_RULE (RAND_CONV EVAL) mips_names_def);
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)
