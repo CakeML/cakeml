@@ -719,7 +719,7 @@ Theorem target_state_rel_ag32_init
 
 val stdin_fs_def = Define`
   stdin_fs inp =
-    <| files :=
+    <| inode_tbl :=
        [(UStream (strlit "stdout"), "")
        ;(UStream (strlit "stderr"), "")
        ;(UStream (strlit "stdin"), inp)]
@@ -727,6 +727,7 @@ val stdin_fs_def = Define`
        [(0, UStream(strlit"stdin"), ReadMode, 0)
        ;(1, UStream(strlit"stdout"), WriteMode, 0)
        ;(2, UStream(strlit"stderr"), WriteMode, 0)]
+     ; files := []
      ; numchars := LGENLIST (K output_buffer_size) NONE
      ; maxFD := 2
      |>`;
@@ -734,7 +735,7 @@ val stdin_fs_def = Define`
 Theorem wfFS_stdin_fs
   `wfFS (stdin_fs inp)`
   (rw[stdin_fs_def, fsFFIPropsTheory.wfFS_def] \\ rw[]
-  \\ rw[fsFFIPropsTheory.liveFS_def]
+  \\ rw[fsFFIPropsTheory.liveFS_def,fsFFIPropsTheory.consistentFS_def]
   \\ rw[fsFFIPropsTheory.live_numchars_def]
   \\ qmatch_goalsub_abbrev_tac`always P ll`
   \\ `∀x. (x = ll) ⇒ always P x` suffices_by rw[]
@@ -758,10 +759,10 @@ val ag32_fs_ok_def = Define`
   ag32_fs_ok fs ⇔
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
    (∀fd. IS_SOME (ALOOKUP fs.infds fd) ⇔ fd < 3) ∧ (* this needs to change for close *)
-   (∀fd fnm md off.
-     (ALOOKUP fs.infds fd = SOME (fnm,md,off)) ⇒
-     ∃cnt. (ALOOKUP fs.files fnm = SOME cnt) ∧ (fd ∈ {1;2} ⇒ (off = LENGTH cnt))) ∧
-   (∀fnm. ALOOKUP fs.files (File fnm) = NONE) ∧
+   (∀fd ino md off.
+     (ALOOKUP fs.infds fd = SOME (ino,md,off)) ⇒
+     ∃cnt. (ALOOKUP fs.inode_tbl ino = SOME cnt) ∧ (fd ∈ {1;2} ⇒ (off = LENGTH cnt))) ∧
+   (∀fnm. ALOOKUP fs.inode_tbl (File fnm) = NONE) ∧
    (* maybe *) fs.maxFD ≤ 2 ∧
    STD_streams fs`;
 
@@ -769,7 +770,7 @@ val ag32_stdin_implemented_def = Define`
   ag32_stdin_implemented fs m ⇔
     ∃off inp.
       (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"), ReadMode, off)) ∧
-      (ALOOKUP fs.files (UStream(strlit"stdin")) = SOME inp) ∧
+      (ALOOKUP fs.inode_tbl (UStream(strlit"stdin")) = SOME inp) ∧
       (get_mem_word m (n2w stdin_offset) = n2w off) ∧
       (get_mem_word m (n2w (stdin_offset + 4)) = n2w (LENGTH inp)) ∧
       off ≤ LENGTH inp ∧ LENGTH inp ≤ stdin_size ∧
@@ -814,11 +815,11 @@ Theorem extract_fs_extract_writes
    (fs.numchars = LGENLIST (K output_buffer_size) NONE) ∧
    (* UStream of interest exists at the start *)
    (ALOOKUP fs.infds fd = SOME (UStream nam, WriteMode, LENGTH out)) ∧
-   (ALOOKUP fs.files (UStream nam) = SOME out) ∧
+   (ALOOKUP fs.inode_tbl (UStream nam)  = SOME out) ∧
    (* no non-UStream files *)
-   (∀nm. ¬inFS_fname fs (File nm)) ∧
+   (∀ino. ALOOKUP fs.inode_tbl (File ino) = NONE) ∧
    (* well-formedness invariants for the filesystem *)
-   (∀fd fnm md off. (ALOOKUP fs'.infds fd = SOME (fnm, md, off)) ⇒ inFS_fname fs' fnm) ∧
+   (∀fd fnm md off. ¬ (ALOOKUP fs'.infds fd = SOME (File fnm, md, off))) ∧
    (∀fd1 nm md1 off1 fd2 md2 off2. (* this one depends on us not being able to open UStreams *)
      (ALOOKUP fs'.infds fd1 = SOME (UStream nm, md1, off1)) ∧
      (ALOOKUP fs'.infds fd2 = SOME (UStream nm, md2, off2))
@@ -829,10 +830,11 @@ Theorem extract_fs_extract_writes
    (∀fnm. inFS_fname fs' fnm = inFS_fname fs fnm) ∧
    (* and it has only changed by appending *)
    (ALOOKUP fs'.infds fd = SOME (UStream nam, WriteMode, LENGTH out + LENGTH rest)) ∧
-   (ALOOKUP fs'.files (UStream nam) = SOME (out ++ rest))
+   (ALOOKUP fs'.inode_tbl (UStream nam) = SOME (out ++ rest))
    ⇒
    (extract_writes fd (MAP get_output_io_event ls) = rest)`
-  (Induct
+  (
+  Induct
   >- (
     rw[basis_ffiTheory.extract_fs_def, extract_writes_def]
     \\ fs[basis_ffiTheory.extract_fs_with_numchars_def]
@@ -887,25 +889,11 @@ Theorem extract_fs_extract_writes
       \\ TRY PURE_CASE_TAC \\ fs[]
       \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
       \\ rveq \\ fs[] \\ rfs[]
-      >- metis_tac[]
       >- ( first_x_assum drule \\ simp[OPTREL_def] )
       >- metis_tac[]
-      >- metis_tac[]
-      (*
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ reverse(Cases_on`fnm`)
-      >- ( fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] \\ metis_tac[] )
-      \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
-      \\ simp[ALIST_FUPDKEY_ALOOKUP]
-      \\ first_x_assum drule
-      \\ simp[]
-      \\ strip_tac
-      \\ disch_then drule
-      \\ simp[] *))
+      >- metis_tac[])
     >- (
       reverse(fs[fsFFITheory.ffi_close_def, OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[])
-      >- metis_tac[]
-      >- metis_tac[]
       \\ pairarg_tac \\ fs[] \\ rveq
       \\ fs[fsFFITheory.closeFD_def]
       \\ pairarg_tac \\ fs[]
@@ -915,18 +903,22 @@ Theorem extract_fs_extract_writes
       \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_closes_iostreams)
       \\ simp[ALOOKUP_ADELKEY]
       \\ Cases_on`w82n l = fd` \\ fs[]
-      \\ rw[] >- metis_tac[]
       \\ rw[]
       \\ fs[DISJ_EQ_IMP]
       \\ simp[OPTREL_def, FORALL_PROD]
-      \\ Cases_on`ALOOKUP z.infds (w82n l)` \\ fs[]
-      \\ PairCases_on`x`
-      \\ reverse(Cases_on`x0` \\ fs[]) >- metis_tac[]
+      \\ first_x_assum drule
+      \\ simp[OPTREL_def]
+      \\ rpt strip_tac
+      \\ fs[] \\ rveq \\ fs[]
+      \\ qpat_assum `ALOOKUP z.infds x = SOME x0` (K (PairCases_on`x0`))
+      \\ qpat_assum `ALOOKUP z.infds x = SOME (x00,_,_)`
+            (K(reverse(Cases_on`x00` \\ fs[]) >- metis_tac[]))
       \\ pop_assum mp_tac \\ simp[]
       \\ first_x_assum drule
       \\ simp[OPTREL_def]
       \\ rpt strip_tac
-      \\ fs[] \\ rveq \\ fs[])
+      \\ fs[] \\ rveq \\ fs[]
+      )
     )
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ fs[CaseEq"option",CaseEq"ffi_result"]
@@ -970,13 +962,8 @@ Theorem extract_fs_extract_writes
       \\ first_x_assum drule
       \\ simp[Once OPTREL_def, EXISTS_PROD]
       \\ metis_tac[] )
-    \\ `inFS_fname fs fnm`
-    by (
-      simp[fsFFIPropsTheory.inFS_fname_def]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ simp[MEM_MAP, EXISTS_PROD]
-      \\ asm_exists_tac \\ rw[] )
-    \\ Cases_on`fnm` \\ rfs[]
+    \\ reverse(Cases_on`fnm` \\ rfs[])
+    >- metis_tac[NOT_SOME_NONE]
     \\ first_assum(qspec_then`w82n l`mp_tac)
     \\ impl_tac >- fs[]
     \\ qpat_x_assum`ALOOKUP fs.infds (w82n l) = _`mp_tac
@@ -990,16 +977,12 @@ Theorem extract_fs_extract_writes
     \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
     \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
     \\ strip_tac
-    \\ reverse conj_tac
-    >- (
-      fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ conj_tac >- metis_tac[]
-      \\ rw[]
-      \\ fs[OPTREL_def, FORALL_PROD]
-      \\ PURE_CASE_TAC \\ fs[]
-      \\ PURE_CASE_TAC \\ fs[]
-      \\ metis_tac[NOT_SOME_NONE,SOME_11] )
-    \\ fs[fsFFIPropsTheory.inFS_fname_def])
+    \\ fs[fsFFIPropsTheory.inFS_fname_def]
+    \\ rw[]
+    \\ fs[OPTREL_def, FORALL_PROD]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ PURE_CASE_TAC \\ fs[]
+    \\ metis_tac[NOT_SOME_NONE,SOME_11])
   \\ fs[MAP_TAKE]
   \\ qmatch_goalsub_abbrev_tac`written ++ _`
   \\ rveq \\ fs[]
@@ -1016,7 +999,6 @@ Theorem extract_fs_extract_writes
     simp[Abbr`written`, LENGTH_TAKE_EQ]
     \\ rw[] \\ fs[Abbr`nw`] )
   \\ fs[Abbr`off`, DROP_LENGTH_TOO_LONG]
-  \\ qmatch_asmsub_abbrev_tac`¬inFS_fname fs' (File _)`
   \\ `nw ≤ LENGTH rest` by fs[Abbr`nw`]
   \\ rfs[] \\ fs[]
   \\ qpat_x_assum`_ ⇒ _`mp_tac
@@ -1033,8 +1015,6 @@ Theorem extract_fs_extract_writes
   \\ rveq \\ fs[]
   \\ first_x_assum irule
   \\ fs[fsFFIPropsTheory.inFS_fname_def]
-  \\ simp[Abbr`fs'`]
-  \\ conj_tac >- metis_tac[]
   \\ rw[] \\ PURE_CASE_TAC \\ fs[]
   \\ metis_tac[]);
 
@@ -1052,7 +1032,8 @@ Theorem ag32_ffi_write_thm
    (s.PC = n2w (ffi_code_start_offset + THE (ALOOKUP ffi_entrypoints "write")))
    ⇒
    (ag32_ffi_write s = ag32_ffi_interfer ffi_names md (index, new_bytes, s))`
-  (simp[ag32_ffi_interfer_def]
+  (
+     simp[ag32_ffi_interfer_def]
   \\ strip_tac
   \\ drule INDEX_OF_IMP_EL \\ strip_tac
   \\ simp[ag32_ffi_write_def]
@@ -1155,7 +1136,7 @@ Theorem ag32_ffi_write_thm
       \\ strip_tac \\ simp[]
       \\ PairCases_on`x` \\ simp[]
       \\ CCONTR_TAC \\ fs[]
-      \\ Cases_on`ALOOKUP fs.files x0` \\ fs[]
+      \\ Cases_on`ALOOKUP fs.inode_tbl x0` \\ fs[]
       \\ fs[markerTheory.Abbrev_def]
       \\ fs[fsFFIPropsTheory.STD_streams_def]
       \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
@@ -2748,7 +2729,7 @@ Theorem ag32_ffi_rel_write_mem_update
   >- ( rveq \\ fs[LUPDATE_def] )
   \\ pairarg_tac \\ fs[]
   \\ fs[ag32_fs_ok_def]
-  \\ `∃cnt. (ALOOKUP fs.files fnm = SOME cnt)` by metis_tac[]
+  \\ `∃cnt. (ALOOKUP fs.inode_tbl ino = SOME cnt)` by metis_tac[]
   \\ reverse(fs[OPTION_CHOICE_EQUALS_OPTION])
   >- ( rveq \\ fs[LUPDATE_def] )
   >- ( rveq \\ fs[LUPDATE_def] )
@@ -2844,11 +2825,11 @@ Theorem ag32_fs_ok_ffi_write
   >- (
     first_x_assum drule
     \\ rw[] \\ rw[]
-    \\ Cases_on`fnm = fnm'` \\ fs[]
+    \\ Cases_on`ino = ino'` \\ fs[]
     \\ strip_tac \\ fs[] )
   \\ first_assum drule
   \\ strip_tac \\ fs[]
-  \\ Cases_on`fnm = fnm'` \\ fs[]
+  \\ Cases_on`ino = ino'` \\ fs[]
   \\ fs[LENGTH_TAKE_EQ]
   \\ qmatch_goalsub_abbrev_tac`f12 ⇒ _`
   \\ strip_tac \\ fs[] \\ rveq
@@ -3090,7 +3071,7 @@ Theorem ag32_ffi_rel_read_mem_update
   >- ( rveq \\ fs[LUPDATE_def] \\ rveq \\ simp[] \\ EVAL_TAC)
   \\ pairarg_tac \\ fs[]
   \\ fs[ag32_fs_ok_def]
-  \\ `IS_SOME (ALOOKUP fs.files fnm)` by metis_tac[IS_SOME_EXISTS]
+  \\ `IS_SOME (ALOOKUP fs.inode_tbl ino)` by metis_tac[IS_SOME_EXISTS]
   \\ fs[IS_SOME_EXISTS, PULL_EXISTS, EXISTS_PROD] \\ fs[]
   \\ rveq \\ fs[]
   \\ reverse(Cases_on`md` \\ fs[LUPDATE_def]) \\ rveq \\ fs[]
@@ -3131,8 +3112,7 @@ Theorem ag32_fs_ok_ffi_read
   >- (
     first_x_assum drule
     \\ rw[] \\ rw[]
-    \\ Cases_on`fnm = fnm'` \\ fs[]
-    \\ strip_tac \\ fs[] ));
+    \\ Cases_on`ino = ino'` \\ fs[]));
 
 Theorem ag32_stdin_implemented_ffi_read
   `ag32_fs_ok fs ∧
@@ -3167,6 +3147,7 @@ Theorem ag32_stdin_implemented_ffi_read
     fs[word_add_n2w]>>
     qmatch_goalsub_abbrev_tac`ls MOD _`>>
     qexists_tac`ls`>>simp[]>>
+    qexists_tac`inp`>>simp[]>>
     rw[]
     >-
       (simp[fsFFITheory.bumpFD_def,ALIST_FUPDKEY_ALOOKUP]>>
@@ -3187,6 +3168,8 @@ Theorem ag32_stdin_implemented_ffi_read
       `SUC strm = output_buffer_size + 1` by rfs[ag32_fs_ok_def, ADD1] >>
       `nn ≤ output_buffer_size + 1` by simp[Abbr`nn`, MIN_DEF] >>
       fs[EVAL``output_buffer_size``])
+    >-
+      (EVAL_TAC \\fs[])
     >-
       (pop_assum mp_tac>>EVAL_TAC)
     >- (
@@ -6798,9 +6781,9 @@ Theorem ag32_interference_implemented
     \\ last_assum(qspec_then`0`mp_tac)
     \\ simp_tac(srw_ss())[IS_SOME_EXISTS, EXISTS_PROD, PULL_EXISTS]
     \\ rw[ag32_stdin_implemented_def]
-    \\ qmatch_goalsub_rename_tac`fnm = UStream _`
-    \\ Cases_on`fnm = UStream (strlit"stdin")` \\ simp[]
-    \\ Cases_on`ALOOKUP (SND x.ffi_state).files (UStream(strlit"stdin"))` \\ simp[]
+    \\ qmatch_goalsub_rename_tac`ino = UStream _`
+    \\ Cases_on`ino = UStream (strlit"stdin")` \\ simp[]
+    \\ Cases_on`ALOOKUP (SND x.ffi_state).inode_tbl (UStream(strlit"stdin"))` \\ simp[]
     \\ qmatch_goalsub_rename_tac`off ≤ LENGTH input`
     \\ Cases_on`off ≤ LENGTH input ∧ LENGTH input ≤ stdin_size` \\ fs[] \\ rveq
     \\ `∀i. i < 8 + LENGTH cnt ⇒ ((Next ms1).MEM (n2w (stdin_offset + i)) = m (n2w (stdin_offset + i)))`
