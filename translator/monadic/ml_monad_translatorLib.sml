@@ -2572,7 +2572,9 @@ fun apply_ind thms ind = let
         \\ FIRST (List.map MATCH_MP_TAC (List.map (fst o snd) goals))
         \\ REPEAT STRIP_TAC
         \\ last_x_assum match_mp_tac
-        \\ fs[st_ex_return_def]
+        \\ fs[FST_EQ_EQUIV]
+        \\ imp_res_tac SND_EQ_EQUIV
+        \\ fs[]
         \\ metis_tac[])
 
     fun store_helper_theorems fname index [] = ()

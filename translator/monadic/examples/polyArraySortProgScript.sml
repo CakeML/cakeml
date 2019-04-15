@@ -1281,82 +1281,11 @@ QED
 *******************************************************************************)
 
 val scan_lower_v_thm = m_translate scan_lower_def;
-
-val scan_lower_v_thm_precond =
-  let val goal = first is_forall (hyp scan_lower_v_thm)
-      val imps = List.filter (fn t => not (aconv t goal)) (hyp scan_lower_v_thm)
-      val conj_imps = list_mk_conj imps
-  in mk_imp(conj_imps, goal) end;
-
-val scan_lower_v_thm_precond_thm = Q.prove(
-  `^(scan_lower_v_thm_precond)`,
-  strip_tac >>
-  ho_match_mp_tac (theorem "scan_lower_ind") >>
-  rpt strip_tac >>
-  match_mp_tac
-    (theorem "scan_lower_helper_0" |> UNDISCH |> UNDISCH |> UNDISCH) >>
-  rpt strip_tac >>
-  last_x_assum match_mp_tac >>
-  fs[fetch "-" "arr_sub_def"] >>
-  fs[fetch "ml_monadBase" "Marray_sub_def"]
-) |>
-UNDISCH_ALL |>
-update_local_precondition;
-
 val scan_upper_v_thm = m_translate scan_upper_def;
 
 val partition_helper_v_thm = m_translate partition_helper_def;
 
-val partition_helper_v_thm_precond =
-  let val goal = first is_forall (hyp partition_helper_v_thm)
-      val imps = List.filter (fn t => not (aconv t goal))
-                  (hyp partition_helper_v_thm)
-      val conj_imps = list_mk_conj imps
-  in mk_imp(conj_imps, goal) end;
-
-val partition_helper_v_thm_precond_thm = Q.prove(
-  `^(partition_helper_v_thm_precond)`,
-  strip_tac >>
-  ho_match_mp_tac (theorem "partition_helper_ind") >>
-  rpt strip_tac >>
-  match_mp_tac
-    (theorem "partition_helper_helper_0" |> UNDISCH |> UNDISCH |> UNDISCH |>
-      UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH) >>
-  rpt strip_tac >>
-  last_x_assum match_mp_tac >>
-  fs[FST_EQ_EQUIV] >>
-  imp_res_tac SND_EQ_EQUIV >>
-  fs[]
-) |>
-UNDISCH_ALL |>
-update_local_precondition;
-
 val quicksort_aux_v_thm = m_translate quicksort_aux_def;
-
-val quicksort_aux_v_thm_precond =
-  let val goal = first is_forall (hyp quicksort_aux_v_thm)
-      val imps = List.filter (fn t => not (aconv t goal))
-                  (hyp quicksort_aux_v_thm)
-      val conj_imps = list_mk_conj imps
-  in mk_imp(conj_imps, goal) end
-
-val quicksort_aux_v_thm_precond_thm = Q.prove(
-  `^(quicksort_aux_v_thm_precond)`,
-  strip_tac >>
-  ho_match_mp_tac (theorem "quicksort_aux_ind") >>
-  rpt strip_tac >>
-  match_mp_tac
-    (theorem "quicksort_aux_helper_0" |> UNDISCH |> UNDISCH |> UNDISCH |>
-      UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH |> UNDISCH |>
-      UNDISCH |> UNDISCH |> UNDISCH) >>
-  rpt strip_tac >>
-  last_x_assum match_mp_tac >>
-  fs[FST_EQ_EQUIV] >>
-  imp_res_tac SND_EQ_EQUIV >>
-  fs[]
-) |>
-UNDISCH_ALL |>
-update_local_precondition;
 
 val array_get_aux_v_thm = m_translate array_get_aux_def;
 val array_get_v_thm = m_translate array_get_def;
@@ -1396,7 +1325,7 @@ val _ = save_thm("qsort_v_thm", qsort_v_thm)
 *******************************************************************************)
 
 Theorem qsort_thm:
-  ∀ cmp l . strict_weak_order cmp ∧ (qsort cmp l = l')
+  ∀ cmp l l' . strict_weak_order cmp ∧ (qsort cmp l = l')
   ⇒ PERM l l' ∧ SORTED (λ x y . ¬ cmp y x) l'
 Proof
   rw[] >>

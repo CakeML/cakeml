@@ -86,26 +86,6 @@ val binary_search_def = Define `
 (* Monadic translation *)
 
 val linear_search_aux_v_thm = m_translate linear_search_aux_def
-
-val linear_search_aux_helper = theorem "linear_search_aux_helper_0"
-val linear_search_aux_ind = theorem "linear_search_aux_ind"
-
-val linear_search_precond = Q.prove (
-  `^(first is_forall (hyp linear_search_aux_v_thm))`,
-  ho_match_mp_tac linear_search_aux_ind >>
-  rw[] >>
-  match_mp_tac linear_search_aux_helper >>
-  rpt strip_tac >>
-  last_x_assum match_mp_tac >>
-  fs[definition "arr_length_def", definition "arr_sub_def"] >>
-  fs[fetch "ml_monadBase" "Marray_length_def"] >>
-  fs[fetch "ml_monadBase" "Marray_sub_def"]
-);
-
-val _ = linear_search_precond |> update_precondition
-val _ = (fetch "ml_translator" "EqualityType_NUM_BOOL") |> update_precondition
-
-val linear_search_aux_v_thm = theorem "linear_search_aux_v_thm"
 val linear_search_v_thm = m_translate linear_search_def;
 
 val binary_search_aux_v_thm = m_translate binary_search_aux_def;
