@@ -217,6 +217,17 @@ val b_heap_to_bag_defn = Hol_defn "b_heap_to_bag" `
     BAG_UNION (b_heap_to_bag geq min) (b_heap_to_bag geq (Bsbheap r rest)))
 `;
 
+val is_b_heap_ordered_defn = Hol_defn "is_b_heap_ordered" `
+  (is_b_heap_ordered geq Bsbempty = T) /\
+  (is_b_heap_ordered geq (Bsbheap r c) =
+    if c = [] then T else
+    let min = THE (find_min (b_heap_comparison geq) c) in
+    let rest = THE (delete_min (b_heap_comparison geq) c) in
+      (is_b_heap_ordered geq min) /\
+      (BAG_EVERY (\y. geq y r) (b_heap_to_bag geq min)) /\
+      (is_b_heap_ordered geq (Bsbheap r rest)))
+`;
+
 (* Useful lemmas *)
 Theorem rank_irrelevance_bag:
   !root r1 r2 aux ch. tree_to_bag (Sbnode root r1 aux ch) = tree_to_bag (Sbnode root r2 aux ch)
@@ -971,6 +982,16 @@ Proof
 QED;
 
 val (b_heap_to_bag_def, b_heap_to_bag_ind) =
+  Defn.tprove (b_heap_to_bag_defn,
+    WF_REL_TAC `measure (\ (_, h). b_heap_size (\x.0) h)` \\
+    rpt strip_tac
+    >- (imp_res_tac find_min_size \\
+        rw[b_heap_size_def] \\
+        rw[ADD_1_SUC, LESS_EQ_IMP_LESS_SUC])
+    >- (imp_res_tac delete_min_size \\
+        rw[b_heap_size_def]));
+
+val (is_b_heap_ordered_def, is_b_heap_ordered_ind) =
   Defn.tprove (b_heap_to_bag_defn,
     WF_REL_TAC `measure (\ (_, h). b_heap_size (\x.0) h)` \\
     rpt strip_tac
