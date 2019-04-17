@@ -169,25 +169,33 @@ val small_int_def = Define `
 *)
 
 val v_inv_def = tDefine "v_inv" `
-  (v_inv (Number i) (x,f,heap:'a ml_heap) <=>
+  (* v_inv v (x,f,tf,heap)
+     v    : the dataSem value
+     x    : the abstract gc value
+     f    : reference values in dataLang to gc address (sort of like the content of the pointer)
+     tf   : time-stamps in dataLang to gc addresses
+     heap : is the gc abstract heap
+   *)
+  (v_inv (Number i) (x,f,tf,heap:'a ml_heap) <=>
      if small_int (:'a) i then (x = Data (Word (Smallnum i))) else
        ?ptr. (x = Pointer ptr (Word 0w)) /\
              (heap_lookup ptr heap = SOME (Bignum i))) /\
-  (v_inv (Word64 w) (x,f,heap) <=>
+  (v_inv (Word64 w) (x,f,tf,heap) <=>
     ?ptr. (x = Pointer ptr (Word 0w)) /\
           (heap_lookup ptr heap = SOME (Word64Rep (:'a) w))) /\
-  (v_inv (CodePtr n) (x,f,heap) <=>
+  (v_inv (CodePtr n) (x,f,tf,heap) <=>
      (x = Data (Loc n 0))) /\
-  (v_inv (RefPtr n) (x,f,heap) <=>
+  (v_inv (RefPtr n) (x,f,tf,heap) <=>
      (x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) /\
-  (v_inv (Block ts n vs) (x,f,heap) <=>
+  (v_inv (Block ts n vs) (x,f,tf,heap) <=>
      if vs = []
      then (x = Data (Word (BlockNil n))) /\
           n < dimword(:'a) DIV 16 /\
           ts = 0
      else
        ?ptr xs.
-         EVERY2 (\v x. v_inv v (x,f,heap)) vs xs /\
+         EVERY2 (\v x. v_inv v (x,f,tf,heap)) vs xs /\
+         FLOOKUP tf ts = SOME ptr ∧
          (x = Pointer ptr (Word (ptr_bits conf n (LENGTH xs)))) /\
          (heap_lookup ptr heap = SOME (BlockRep n xs)))`
  (WF_REL_TAC `measure (v_size o FST)` \\ rpt strip_tac
@@ -216,23 +224,40 @@ val RefBlock_def = Define `
   RefBlock xs = DataElement xs (LENGTH xs) (RefTag,[])`;
 
 val bc_ref_inv_def = Define `
-  bc_ref_inv conf n refs (f,heap,be) =
+  bc_ref_inv conf n refs (f,tf,heap,be) =
     case (FLOOKUP f n, FLOOKUP refs n) of
     | (SOME x, SOME (ValueArray ys)) =>
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
-              EVERY2 (\z y. v_inv conf y (z,f,heap)) zs ys)
+              EVERY2 (\z y. v_inv conf y (z,f,tf,heap)) zs ys)
     | (SOME x, SOME (ByteArray flag bs)) =>
         ?ws. LENGTH bs ≤ ws * (dimindex (:α) DIV 8) /\
              ws ≤ LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
             (heap_lookup x heap = SOME (Bytes be flag bs (REPLICATE ws (0w:'a word))))
     | _ => F`;
 
+(* TODO: MOVE *)
+val isBlock = Define `isBlock (Block ts _ _) = T ∧ isBlock _ = F`;
+val v_get_ts = Define `
+  v_get_ts (Block ts _ _) = SOME ts
+∧ v_get_ts _ = NONE`;
+
+(* TODO: MOVE *)
+val all_ts_def = Define `
+  all_ts refs stack =
+    let refsΩ = {v | (∃y l. y ∈ FRANGE refs ∧ y = ValueArray l ∧ MEM v l)}
+    in {ts | ∃x. (x ∈ refsΩ ∨ MEM x stack) ∧ v_get_ts x = SOME ts}
+`
+
+(* THIS IS IMPORTANT *)
 val bc_stack_ref_inv_def = Define `
   bc_stack_ref_inv conf stack refs (roots, heap, be) =
-    ?f. INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap) } /\
-        FDOM f SUBSET FDOM refs /\
-        EVERY2 (\v x. v_inv conf v (x,f,heap)) stack roots /\
-        !n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,heap,be)`;
+    ?f tf.
+      INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap) } /\
+      FDOM f SUBSET FDOM refs /\
+      INJ (FAPPLY tf) (FDOM tf) UNIV /\
+      FDOM tf SUBSET (all_ts refs stack) /\
+      EVERY2 (\v x. v_inv conf v (x,f,tf,heap)) stack roots /\
+      !n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)`;
 
 val data_up_to_def = Define `
   data_up_to a heap =
@@ -406,39 +431,39 @@ val EL_ADDR_MAP = Q.prove(
 val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
 val v_inv_related = Q.prove(
-  `!w x f.
-      gc_shared$gc_related g heap1 (heap2:'a ml_heap) /\
+  `!w x f tf.
+        gc_shared$gc_related g heap1 (heap2:'a ml_heap) /\
       (!ptr u. (x = Pointer ptr u) ==> ptr IN FDOM g) /\
-      v_inv conf w (x,f,heap1) ==>
-      v_inv conf w (ADDR_APPLY (FAPPLY g) x,g f_o_f f,heap2) /\
+      v_inv conf w (x,f,tf,heap1) ==>
+      v_inv conf w (ADDR_APPLY (FAPPLY g) x,g f_o_f f,g f_o_f tf,heap2) /\
       EVERY (\n. f ' n IN FDOM g) (get_refs w)`,
-  completeInduct_on `v_size w` \\ NTAC 5 strip_tac
-  \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
-   (full_simp_tac std_ss [v_inv_def,get_refs_def,EVERY_DEF]
+  completeInduct_on `v_size w` \\ NTAC 6 strip_tac
+  \\ fs[PULL_FORALL] \\ Cases_on `w` THEN1
+   (fs[v_inv_def,get_refs_def,EVERY_DEF]
     \\ Cases_on `small_int (:'a) i` \\ fs [] THEN1
      (full_simp_tac (srw_ss()) [ADDR_APPLY_def,Bignum_def]
-      \\ full_simp_tac std_ss [gc_related_def] \\ res_tac
-      \\ full_simp_tac std_ss [ADDR_MAP_def] \\ fs [])
+      \\ fs[gc_related_def] \\ res_tac
+      \\ fs[ADDR_MAP_def] \\ fs [])
     \\ fs [gc_related_def,ADDR_APPLY_def,Bignum_def]
     \\ pairarg_tac \\ fs [] \\ res_tac \\ fs [ADDR_MAP_def])
   THEN1
-   (full_simp_tac std_ss [v_inv_def,get_refs_def,EVERY_DEF]
+   (fs[v_inv_def,get_refs_def,EVERY_DEF]
     \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def]
-    \\ full_simp_tac std_ss [gc_related_def]
+    \\ fs[gc_related_def]
     \\ first_x_assum drule
     \\ qspecl_then[`:'a`,`c`]strip_assume_tac Word64Rep_DataElement
     \\ fs[ADDR_MAP_def])
   THEN1
    (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
-    \\ Cases_on `l = []` \\ full_simp_tac std_ss []
+    \\ Cases_on `l = []` \\ fs[]
     THEN1 (full_simp_tac (srw_ss()) [get_refs_def,ADDR_APPLY_def])
     \\ full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
-    \\ full_simp_tac std_ss [gc_related_def] \\ res_tac
+    \\ fs[gc_related_def] \\ res_tac
     \\ full_simp_tac (srw_ss()) [] \\ NTAC 2 (POP_ASSUM MP_TAC)
-    \\ full_simp_tac std_ss [LENGTH_ADDR_MAP] \\ strip_tac
+    \\ fs[LENGTH_ADDR_MAP] \\ strip_tac
     \\ reverse strip_tac THEN1
-     (full_simp_tac std_ss [get_refs_def,EVERY_MEM,MEM_FLAT,PULL_EXISTS,MEM_MAP]
-      \\ full_simp_tac std_ss [v_size_def] \\ rpt strip_tac
+     (fs[get_refs_def,EVERY_MEM,MEM_FLAT,PULL_EXISTS,MEM_MAP]
+      \\ fs[v_size_def] \\ rpt strip_tac
       \\ Q.MATCH_ASSUM_RENAME_TAC `MEM k (get_f a)`
       \\ imp_res_tac MEM_IMP_v_size
       \\ `v_size a < 1 + (n0 + (n + v1_size l))` by DECIDE_TAC
@@ -446,18 +471,20 @@ val v_inv_related = Q.prove(
       \\ full_simp_tac std_ss [] \\ imp_res_tac LIST_REL_SPLIT1
       \\ fs[] \\ rw[] \\ fs[]
       \\ res_tac \\ metis_tac [])
-    \\ full_simp_tac std_ss [EVERY2_EVERY,LENGTH_ADDR_MAP,EVERY_MEM,FORALL_PROD]
+    \\ fs[EVERY2_EVERY,LENGTH_ADDR_MAP,EVERY_MEM,FORALL_PROD]
     \\ qpat_x_assum `LENGTH l = LENGTH xs` ASSUME_TAC
-    \\ full_simp_tac std_ss [MEM_ZIP,LENGTH_ADDR_MAP,PULL_EXISTS]
+    \\ fs[MEM_ZIP,LENGTH_ADDR_MAP,PULL_EXISTS]
+    \\ reverse strip_tac
+    THEN1 (fs [f_o_f_DEF,FLOOKUP_DEF])
     \\ strip_tac \\ strip_tac
     \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
-    \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-    \\ `MEM (EL t xs) xs` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
+    \\ `MEM (EL t l) l` by (fs[MEM_EL] \\ metis_tac [])
+    \\ `MEM (EL t xs) xs` by (fs[MEM_EL] \\ metis_tac [])
     \\ `(!ptr u. (EL t xs = Pointer ptr u) ==> ptr IN FDOM g)` by metis_tac []
     \\ `v_size (EL t l)  < v_size (Block n0 n l)` by
-     (full_simp_tac std_ss [v_size_def]
+     (fs[v_size_def]
       \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC)
-    \\ res_tac \\ full_simp_tac std_ss [EL_ADDR_MAP]
+    \\ res_tac \\ fs[EL_ADDR_MAP]
     \\ first_assum match_mp_tac \\ fs [])
   THEN1
     (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,get_refs_def])
@@ -475,8 +502,8 @@ val EVERY2_ADDR_MAP = Q.prove(
 
 val bc_ref_inv_related = Q.prove(
   `gc_shared$gc_related g heap1 heap2 /\
-    bc_ref_inv conf n refs (f,heap1,be) /\ (f ' n) IN FDOM g ==>
-    bc_ref_inv conf n refs (g f_o_f f,heap2,be)`,
+    bc_ref_inv conf n refs (f,tf,heap1,be) /\ (f ' n) IN FDOM g ==>
+    bc_ref_inv conf n refs (g f_o_f f,g f_o_f tf,heap2,be)`,
   full_simp_tac std_ss [bc_ref_inv_def] \\ strip_tac \\ full_simp_tac std_ss []
   \\ MP_TAC v_inv_related \\ asm_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [f_o_f_DEF,gc_related_def,RefBlock_def] \\ res_tac
@@ -494,7 +521,7 @@ val bc_ref_inv_related = Q.prove(
 
 val RTC_lemma = Q.prove(
   `!r n. RTC (ref_edge refs) r n ==>
-          (!m. RTC (ref_edge refs) r m ==> bc_ref_inv conf m refs (f,heap,be)) /\
+          (!m. RTC (ref_edge refs) r m ==> bc_ref_inv conf m refs (f,tf,heap,be)) /\
           gc_shared$gc_related g heap heap2 /\
           f ' r IN FDOM g ==> f ' n IN FDOM g`,
   ho_match_mp_tac RTC_INDUCT \\ full_simp_tac std_ss [] \\ rpt strip_tac
@@ -528,8 +555,8 @@ val RTC_lemma = Q.prove(
 
 val reachable_refs_lemma = Q.prove(
   `gc_related g heap heap2 /\
-    EVERY2 (\v x. v_inv conf v (x,f,heap)) stack roots /\
-    (!n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,heap,be)) /\
+    EVERY2 (\v x. v_inv conf v (x,f,tf,heap)) stack roots /\
+    (!n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)) /\
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
     (!n. reachable_refs stack refs n ==> n IN FDOM f /\ (f ' n) IN FDOM g)`,
   NTAC 3 strip_tac \\ full_simp_tac std_ss [reachable_refs_def,PULL_EXISTS]
@@ -542,9 +569,9 @@ val reachable_refs_lemma = Q.prove(
   \\ `n IN FDOM f` by (CCONTR_TAC
     \\ full_simp_tac (srw_ss()) [bc_ref_inv_def,FLOOKUP_DEF])
   \\ full_simp_tac std_ss []
-  \\ `bc_ref_inv conf r refs (f,heap,be)` by metis_tac [RTC_REFL]
+  \\ `bc_ref_inv conf r refs (f,tf,heap,be)` by metis_tac [RTC_REFL]
   \\ `(!m. RTC (ref_edge refs) r m ==>
-           bc_ref_inv conf m refs (f,heap,be))` by metis_tac [] \\ imp_res_tac RTC_lemma);
+           bc_ref_inv conf m refs (f,tf,heap,be))` by metis_tac [] \\ imp_res_tac RTC_lemma);
 
 val bc_stack_ref_inv_related = Q.prove(
   `gc_related g heap1 heap2 /\
@@ -552,7 +579,11 @@ val bc_stack_ref_inv_related = Q.prove(
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
     bc_stack_ref_inv conf stack refs (ADDR_MAP (FAPPLY g) roots,heap2,be)`,
   rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
-  \\ qexists_tac `g f_o_f f` \\ rpt strip_tac
+  \\ qexists_tac `g f_o_f f`
+  \\ qexists_tac `g f_o_f tf`
+  \\ rpt strip_tac
+  THEN1 (full_simp_tac (srw_ss()) [INJ_DEF,gc_related_def,f_o_f_DEF])
+  THEN1 (full_simp_tac (srw_ss()) [f_o_f_DEF,SUBSET_DEF])
   THEN1 (full_simp_tac (srw_ss()) [INJ_DEF,gc_related_def,f_o_f_DEF])
   THEN1 (full_simp_tac (srw_ss()) [f_o_f_DEF,SUBSET_DEF])
   THEN1
@@ -1268,9 +1299,10 @@ val heap_store_rel_lemma = Q.prove(
 
 val v_inv_SUBMAP = Q.prove(
   `!w x.
-      f SUBMAP f1 /\ heap_store_rel heap heap1 /\
-      v_inv conf w (x,f,heap) ==>
-      v_inv conf w (x,f1,heap1) `,
+      f SUBMAP f1 /\ tf SUBMAP tf1 /\
+      heap_store_rel heap heap1 /\
+      v_inv conf w (x,f,tf,heap) ==>
+      v_inv conf w (x,f1,tf1,heap1) `,
   completeInduct_on `v_size w` \\ NTAC 3 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
    (full_simp_tac std_ss [v_inv_def,Bignum_def] \\ srw_tac [] []
@@ -1289,7 +1321,8 @@ val v_inv_SUBMAP = Q.prove(
     \\ full_simp_tac (srw_ss()) [MEM_ZIP,LENGTH_ADDR_MAP,PULL_EXISTS]
     \\ imp_res_tac heap_store_rel_lemma \\ full_simp_tac (srw_ss()) []
     \\ full_simp_tac (srw_ss()) [MEM_ZIP,LENGTH_ADDR_MAP,PULL_EXISTS]
-    \\ rpt strip_tac
+    \\ reverse (rpt strip_tac)
+    THEN1 (drule_then (drule_then (fn t => fs [t])) FLOOKUP_SUBMAP)
     \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
     \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
     \\ `v_size (EL t l) < v_size (Block n0 n l)` by
@@ -1509,11 +1542,11 @@ Theorem list_to_v_alt_get_refs
   \\ fs [get_refs_def] \\ metis_tac []);
 
 Theorem v_inv_lemma
-  `!v x f hs ha hb sp.
+  `!v x f tf hs ha hb sp.
    0 < heap_length hs /\
    heap_length hs <= sp /\
-   v_inv conf v (x,f,ha++heap_expand sp++hb) ==>
-   v_inv conf v (x,f,ha++hs++heap_expand (sp - heap_length hs)++hb)`
+   v_inv conf v (x,f,tf,ha++heap_expand sp++hb) ==>
+   v_inv conf v (x,f,tf,ha++hs++heap_expand (sp - heap_length hs)++hb)`
   (recInduct (theorem"v_inv_ind") \\ rw [v_inv_def]
   \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND, heap_expand_def]
   \\ fs [case_eq_thms]
@@ -1537,10 +1570,10 @@ Theorem v_inv_LIST_REL
      0 < heap_length hs /\
      heap_length hs <= sp /\
      LIST_REL (\z y. v_inv conf y
-       (z, f, ha ++ heap_expand sp ++ hb)) l1 l2
+       (z, f, tf, ha ++ heap_expand sp ++ hb)) l1 l2
      ==>
      LIST_REL (\z y. v_inv conf y
-       (z, f, ha ++ hs ++ heap_expand (sp - heap_length hs) ++ hb)) l1 l2`
+       (z, f, tf, ha ++ hs ++ heap_expand (sp - heap_length hs) ++ hb)) l1 l2`
   (rw [LIST_REL_EL_EQN]
   \\ metis_tac [v_inv_lemma]);
 
