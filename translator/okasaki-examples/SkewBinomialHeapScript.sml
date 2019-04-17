@@ -73,8 +73,8 @@ val is_heap_ordered_def = Define `
 val insert_def = Define `
   (insert geq x (y::y'::ys) =
     (if (rank y) = (rank y')
-    then (skew_link geq x y y')::ys
-    else (leaf x)::y::y'::ys)) /\
+     then (skew_link geq x y y')::ys
+     else (leaf x)::y::y'::ys)) /\
   (insert _ x ys = (leaf x)::ys)
 `;
 
@@ -176,7 +176,7 @@ val b_merge_def = Define `
 `;
 
 val b_insert_def = Define `
-  (b_insert geq e h = b_merge (b_heap_comparison geq) (Bsbheap e []) h)
+  (b_insert geq e h = b_merge geq (Bsbheap e []) h)
 `;
 
 val b_find_min_def = Define `
@@ -195,37 +195,17 @@ val b_delete_min_def = Define `
     SOME (Bsbheap smallest_root (merge (b_heap_comparison geq) rest smallest_children)))
 `;
 
-val b_heap_size_def = Define `
-  (b_heap_size f Bsbempty = (1:num)) /\
-  (b_heap_size f (Bsbheap e c) = 1 + (f e + b_heap1_size f c)) /\
-  (b_heap1_size f [] = 0) /\
-  (b_heap1_size f (t::ts) = (b_heap2_size f t) + (b_heap1_size f ts)) /\
-  (b_heap2_size f (Sbnode x r a c) =
-     (b_heap_size f x) + (b_heap3_size f a) + (b_heap4_size f c)) /\
-  (b_heap3_size f [] = 0) /\
-  (b_heap3_size f (e::es) = (b_heap_size f e) + (b_heap3_size f es)) /\
-  (b_heap4_size f [] = 0) /\
-  (b_heap4_size f (t::ts) = (b_heap2_size f t) + (b_heap4_size f ts))
-`;
-
-val b_heap_to_bag_defn = Hol_defn "b_heap_to_bag" `
+val b_heap_to_bag_def = Define `
   (b_heap_to_bag _ Bsbempty = {||}) /\
-  (b_heap_to_bag geq (Bsbheap r c) =
-    if c = [] then {|r|} else
-    let min = THE (find_min (b_heap_comparison geq) c) in
-    let rest = THE (delete_min (b_heap_comparison geq) c) in
-    BAG_UNION (b_heap_to_bag geq min) (b_heap_to_bag geq (Bsbheap r rest)))
-`;
-
-val is_b_heap_ordered_defn = Hol_defn "is_b_heap_ordered" `
-  (is_b_heap_ordered geq Bsbempty = T) /\
-  (is_b_heap_ordered geq (Bsbheap r c) =
-    if c = [] then T else
-    let min = THE (find_min (b_heap_comparison geq) c) in
-    let rest = THE (delete_min (b_heap_comparison geq) c) in
-      (is_b_heap_ordered geq min) /\
-      (BAG_EVERY (\y. geq y r) (b_heap_to_bag geq min)) /\
-      (is_b_heap_ordered geq (Bsbheap r rest)))
+  (b_heap_to_bag geq (Bsbheap r c) = BAG_INSERT r (b_heap_to_bag1 geq c)) /\
+  (b_heap_to_bag1 geq [] = {||}) /\
+  (b_heap_to_bag1 geq (t::ts) = BAG_UNION (b_heap_to_bag2 geq t) (b_heap_to_bag1 geq ts)) /\
+  (b_heap_to_bag2 geq (Sbnode x r a c) =
+     BAG_UNION (b_heap_to_bag geq x) (BAG_UNION (b_heap_to_bag3 geq a) (b_heap_to_bag4 geq c))) /\
+  (b_heap_to_bag3 geq [] = {||}) /\
+  (b_heap_to_bag3 geq (e::es) = BAG_UNION (b_heap_to_bag geq e) (b_heap_to_bag3 geq es)) /\
+  (b_heap_to_bag4 geq [] = {||}) /\
+  (b_heap_to_bag4 geq (t::ts) = BAG_UNION (b_heap_to_bag2 geq t) (b_heap_to_bag4 geq ts))
 `;
 
 (* Useful lemmas *)
@@ -317,6 +297,27 @@ Proof
   Induct_on `h`
   >- rw[REVERSE, heap_to_bag_def]
   >- rw[REVERSE_DEF, heap_to_bag_def, heap_to_bag_app, COMM_BAG_UNION]
+QED;
+
+Theorem merge_tree_left_cancel:
+  !geq h. merge_tree geq [] h = h
+Proof
+  Cases_on `h` \\
+  rw[merge_tree_def]
+QED;
+
+Theorem merge_left_cancel:
+  !geq h. merge geq [] h = (normalize geq h)
+Proof
+  Cases_on `h` \\
+  rw[merge_def, normalize_def, merge_tree_left_cancel]
+QED;
+
+Theorem merge_right_cancel:
+  !geq h. merge geq h [] = (normalize geq h)
+Proof
+  Cases_on `h` \\
+  rw[merge_def, normalize_def, merge_tree_def]
 QED;
 
 (* For both kinds of links, linking preserve the elements in the trees *)
@@ -437,7 +438,7 @@ Proof
 QED;
 
 Theorem insert_bag:
-  !geq e h. BAG_INSERT e (heap_to_bag h) = heap_to_bag (insert geq e h)
+  !geq e h. heap_to_bag (insert geq e h) = BAG_INSERT e (heap_to_bag h)
 Proof
   rpt strip_tac \\
   Cases_on `h`
@@ -491,7 +492,7 @@ Theorem insert_list_empty_heap_bag:
   !geq l. heap_to_bag (insert_list geq l []) = list_to_bag l
 Proof
   Induct_on `l` \\
-  rw[insert_list_def, heap_to_bag_def, list_to_bag_def, (GSYM insert_bag)]
+  rw[insert_list_def, heap_to_bag_def, list_to_bag_def, insert_bag]
 QED;
 
 Theorem insert_list_app_bag:
@@ -509,7 +510,7 @@ which is ordered if the two merged heaps are ordered.
 *)
 
 Theorem normalize_bag:
-  !geq h. (heap_to_bag h) = heap_to_bag (normalize geq h)
+  !geq h. heap_to_bag (normalize geq h) = heap_to_bag h
 Proof
   Induct_on `h` \\ rw[normalize_def, heap_to_bag_def, binomial_insert_bag]
 QED;
@@ -556,8 +557,7 @@ Proof
 QED;
 
 Theorem merge_bag:
-  !geq h1 h2. BAG_UNION (heap_to_bag h1) (heap_to_bag h2) =
-               heap_to_bag (merge geq h1 h2)
+  !geq h1 h2. heap_to_bag (merge geq h1 h2) = BAG_UNION (heap_to_bag h1) (heap_to_bag h2)
 Proof
   rpt strip_tac \\
   Induct_on `h2` \\
@@ -786,220 +786,79 @@ Proof
       imp_res_tac get_min_correct \\
       imp_res_tac get_min_bag \\
       rw[insert_list_bag, merge_tree_bag, reverse_heap_order,
-	 (GSYM normalize_bag)] \\
+	 normalize_bag] \\
       Cases_on `q` \\
       fs[root_def, children_def, aux_def] \\
       rw[tree_to_bag_general] \\
       metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION, reverse_bag])
 QED;
 
-(* Proof that b_heap_to_bag is terminating *)
-Theorem root_size:
-  !f t. b_heap_size f (root t) <= b_heap2_size f t
+(*
+  Equivalences between ops on bootstraped skew binomial heaps
+  and regular skew binomial heaps
+ *)
+Theorem b_bag_of_link:
+  !geq t t1 t2. tree_link (b_heap_comparison geq) t1 t2 = t ==>
+                b_heap_to_bag2 geq t = BAG_UNION (b_heap_to_bag2 geq t1) (b_heap_to_bag2 geq t2)
 Proof
-  Cases_on `t` \\
-  rw[root_def, b_heap_size_def]
-QED;
-
-Theorem find_min_size:
-  !geq c f. c <> [] ==> b_heap_size f (THE (find_min geq c)) <= b_heap1_size f c
-Proof
-  rpt strip_tac \\
-  Induct_on `c`
-  >- rw[]
-  >- (rpt strip_tac \\
-      Cases_on `c`
-      >- (rw[find_min_def, b_heap_size_def] \\
-          `b_heap_size f (root h) <= b_heap2_size f h`
-          by rw[root_size] \\
-	  rw[])
-      >- (rw[find_min_def, b_heap_size_def] \\
-          Cases_on `find_min geq (h'::t)`
-          >- fs[find_min_exists]
-	  >- (rw[]
-              >- (`b_heap_size f (root h) <= b_heap2_size f h`
-                  by rw[root_size] \\
-                  rw[])
-	      >- fs[THE_DEF])))
-QED;
-
-Theorem equiv_size1_size4:
-  !h f. b_heap1_size f h = b_heap4_size f h
-Proof
-  Induct_on `h` \\
-  rw[b_heap_size_def]
-QED;
-
-Theorem app_size:
-  !f h1 h2. b_heap4_size f (h1 ++ h2) = b_heap4_size f h1 + b_heap4_size f h2
-Proof
-  Induct_on `h1`
-  >- rw[APPEND_NIL, b_heap_size_def]
-  >- rw[APPEND, b_heap_size_def]
-QED;
-
-Theorem rev_size:
-  !f h. b_heap4_size f (REVERSE h) = b_heap4_size f h
-Proof
-  Induct_on `h`
-  >- rw[REVERSE, b_heap_size_def]
-  >- rw[REVERSE_DEF, app_size, b_heap_size_def]
-QED;
-
-Theorem link_size:
-  !geq f h1 h2. b_heap2_size f (tree_link geq h1 h2) = b_heap2_size f h1 + b_heap2_size f h2
-Proof
-  Cases_on `h1` \\
-  Cases_on `h2` \\
+  rw[] \\
+  Cases_on `t1` \\
+  Cases_on `t2` \\
   rw[tree_link_def] \\
-  rw[b_heap_size_def]
+  srw_tac [BAG_ss] [b_heap_to_bag_def]
 QED;
 
-Theorem skew_link_size:
-  !geq f e h1 h2.
-    b_heap2_size f (skew_link geq e h1 h2) =
-    b_heap_size f e + b_heap2_size f h1 + b_heap2_size f h2
+Theorem b_bag_of_skew:
+  !geq x t1 t2. b_heap_to_bag2 geq (skew_link (b_heap_comparison geq) x t1 t2) =
+                BAG_UNION (b_heap_to_bag geq x)
+                          (BAG_UNION (b_heap_to_bag2 geq t1)
+                                     (b_heap_to_bag2 geq t2))
 Proof
-  rw[skew_link_def, b_heap_size_def] \\
-  Cases_on `h1` \\
-  Cases_on `h2` \\
-  rw[root_def, rank_def, children_def, aux_def, tree_link_def, b_heap_size_def]
+  Cases_on `t1` \\
+  Cases_on `t2` \\
+  rw[skew_link_def] \\
+  Cases_on `tree_link (b_heap_comparison geq) (Sbnode a n l0 l) (Sbnode a' n' l0' l')` \\
+  rw[root_def, rank_def, aux_def, children_def, b_heap_to_bag_def] \\
+  imp_res_tac b_bag_of_link \\
+  fs[b_heap_to_bag_def] \\
+  metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION]
 QED;
 
-Theorem insert_size:
-  !f e h geq. b_heap1_size f (insert geq e h) = (b_heap_size f e) + (b_heap1_size f h)
+Theorem b_bag_of_insert:
+  !geq h l. b_heap_to_bag1 geq (insert (b_heap_comparison geq) h l) =
+            BAG_UNION (b_heap_to_bag geq h)
+                      (b_heap_to_bag1 geq l)
 Proof
-  Cases_on `h`
-  >- rw[insert_def, leaf_def, b_heap_size_def]
+  Cases_on `l`
+  >- rw[insert_def, b_heap_to_bag_def, leaf_def]
   >- (Cases_on `t`
-      >- rw[insert_def, leaf_def, b_heap_size_def]
-      >- (rw[insert_def, b_heap_size_def] \\
-          rw[skew_link_size, leaf_def, b_heap_size_def]))
+      >- rw[insert_def, b_heap_to_bag_def, leaf_def]
+      >- (rw[insert_def]
+          >- (rw[b_heap_to_bag_def, b_bag_of_skew] \\ metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
+          >- (rw[b_heap_to_bag_def, leaf_def])))
 QED;
 
-Theorem insert_list_size:
-  !geq f l1 l2. b_heap1_size f (insert_list geq l1 l2) = (b_heap3_size f l1) + (b_heap1_size f l2)
+Theorem b_merge_bag:
+  !geq h1 h2. b_heap_to_bag geq (b_merge geq h1 h2) =
+              BAG_UNION (b_heap_to_bag geq h1) (b_heap_to_bag geq h2)
 Proof
-  Induct_on `l1`
-  >- rw[insert_list_def, b_heap_size_def]
-  >- rw[insert_list_def, b_heap_size_def, insert_size]
+  Cases_on `h1` \\
+  Cases_on `h2`
+  >- rw[b_heap_to_bag_def, b_merge_def]
+  >- rw[b_heap_to_bag_def, b_merge_def]
+  >- rw[b_heap_to_bag_def, b_merge_def]
+  >- (rw[b_heap_to_bag_def, b_merge_def]
+      >- (rw[b_bag_of_insert, BAG_INSERT_UNION, b_heap_to_bag_def] \\
+          metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
+      >- (rw[b_bag_of_insert, BAG_INSERT_UNION, b_heap_to_bag_def] \\
+          metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION]))
 QED;
 
-Theorem bheap_size_not_zero:
-  !f h. 0 < b_heap_size f h
+Theorem b_insert_bag:
+  !geq e h. b_heap_to_bag geq (b_insert geq e h) = BAG_INSERT e (b_heap_to_bag geq h)
 Proof
-  Cases_on `h`
-  >- rw[b_heap_size_def]
-  >- rw[b_heap_size_def]
+  rw[b_insert_def, b_merge_bag, BAG_INSERT_UNION, b_heap_to_bag_def]
 QED;
-
-Theorem insert_aux_rev_children_size:
-  !geq h f. b_heap1_size f (insert_list geq (aux h) (REVERSE (children h)))
-             <  b_heap2_size f h
-Proof
-  Cases_on `h` \\
-  rw[aux_def, children_def] \\
-  Induct_on `l0`
-  >- (rw[insert_list_def, b_heap_size_def] \\
-      Cases_on `l`
-      >- rw[REVERSE, b_heap_size_def, bheap_size_not_zero]
-      >- rw[equiv_size1_size4, app_size, rev_size,
-	    b_heap_size_def, bheap_size_not_zero])
-  >- (rw[insert_size,insert_list_def, b_heap_size_def, insert_list_size,
-         rev_size, equiv_size1_size4, bheap_size_not_zero])
-QED;
-
-Theorem get_min_size:
-  !geq q r f h. h <> [] /\ get_min geq h = (q,r) ==>
-          b_heap1_size f h = b_heap2_size f q + b_heap1_size f r
-Proof
-  Induct_on `h`
-  >- rw[]
-  >- (Cases_on `h`
-      >- (rw[get_min_def, b_heap_size_def] \\ rw[b_heap_size_def])
-      >- (Cases_on `get_min geq (h'::t)` \\
-          `h'::t <> []` by rw[] \\
-	  res_tac \\
-          rw[get_min_def] \\
-          Cases_on `get_min geq' (h'::t)` \\
-          fs[] \\
-          Cases_on `geq' (root q'') (root h)`
-          >- (fs[] \\
-              rw[b_heap_size_def])
-	  >- (fs[] \\
-              res_tac \\
-              rw[b_heap_size_def])))
-QED;
-
-Theorem binomial_insert_size:
-  !geq f t h. b_heap1_size f (binomial_insert geq t h) = (b_heap2_size f t) + (b_heap1_size f h)
-Proof
-  Induct_on `h`
-  >- rw[binomial_insert_def, b_heap_size_def]
-  >- (rw[binomial_insert_def, b_heap_size_def] \\
-      rw[link_size])
-QED;
-
-Theorem normalize_size:
-  !geq f h. b_heap1_size f (normalize geq h) = b_heap1_size f h
-Proof
-  Cases_on `h`
-  >- rw[normalize_def, b_heap_size_def]
-  >- rw[normalize_def, b_heap_size_def, binomial_insert_size]
-QED;
-
-Theorem merge_tree_size:
-  !geq f h1 h2. b_heap1_size f (merge_tree geq h1 h2) = (b_heap1_size f h1) + (b_heap1_size f h2)
-Proof
-  Induct_on `h1` \\
-  Induct_on `h2`
-  >- rw[merge_tree_def, b_heap_size_def]
-  >- rw[merge_tree_def, b_heap_size_def]
-  >- rw[merge_tree_def, b_heap_size_def]
-  >- rw[merge_tree_def, b_heap_size_def,
-        binomial_insert_size, link_size]
-QED;
-
-Theorem delete_min_size:
-  !geq c f. c <> [] ==> b_heap1_size f (THE (delete_min geq c)) < b_heap1_size f c
-Proof
-  Cases_on `c` \\
-  rpt strip_tac
-  >- rw[]
-  >- (rpt strip_tac \\
-      Cases_on `t`
-      >- (rw[delete_min_def, get_min_def, b_heap_size_def,
-	     normalize_def, merge_tree_def, insert_aux_rev_children_size])
-      >- (rw[delete_min_def, b_heap_size_def] \\
-          Cases_on `get_min geq (h::h'::t')` \\
-          `h::h'::t' <> []` by rw[] \\
-          imp_res_tac get_min_size \\
-          fs[b_heap_size_def] \\
-          rw[insert_list_size, merge_tree_size, normalize_size] \\
-          rw[equiv_size1_size4, rev_size, normalize_size] \\
-	  Cases_on `q` \\
-          rw[aux_def, children_def, b_heap_size_def, bheap_size_not_zero]))
-QED;
-
-val (b_heap_to_bag_def, b_heap_to_bag_ind) =
-  Defn.tprove (b_heap_to_bag_defn,
-    WF_REL_TAC `measure (\ (_, h). b_heap_size (\x.0) h)` \\
-    rpt strip_tac
-    >- (imp_res_tac find_min_size \\
-        rw[b_heap_size_def] \\
-        rw[ADD_1_SUC, LESS_EQ_IMP_LESS_SUC])
-    >- (imp_res_tac delete_min_size \\
-        rw[b_heap_size_def]));
-
-val (is_b_heap_ordered_def, is_b_heap_ordered_ind) =
-  Defn.tprove (b_heap_to_bag_defn,
-    WF_REL_TAC `measure (\ (_, h). b_heap_size (\x.0) h)` \\
-    rpt strip_tac
-    >- (imp_res_tac find_min_size \\
-        rw[b_heap_size_def] \\
-        rw[ADD_1_SUC, LESS_EQ_IMP_LESS_SUC])
-    >- (imp_res_tac delete_min_size \\
-        rw[b_heap_size_def]));
 
 (* Translations *)
 val _ = translate leaf_def;
