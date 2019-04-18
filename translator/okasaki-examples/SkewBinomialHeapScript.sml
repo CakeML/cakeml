@@ -162,7 +162,9 @@ val b_is_empty_def = Define `
 Create a comparison function for bootstraped binomial heaps
 from a comparison function for their roots
 *)
-val b_heap_comparison = Define `
+val b_heap_comparison_def = Define `
+  (b_heap_comparison geq Bsbempty _ = T) /\
+  (b_heap_comparison geq _ Bsbempty = F) /\
   (b_heap_comparison geq (Bsbheap r1 _) (Bsbheap r2 _) = geq r1 r2)
 `;
 
@@ -211,6 +213,7 @@ val b_heap_to_bag_def = Define `
 val is_b_heap_ordered_def = Define `
   (is_b_heap_ordered geq Bsbempty = T) /\
   (is_b_heap_ordered geq (Bsbheap r c) = ((BAG_EVERY (\y. geq y r) (b_heap_to_bag1 geq c)) /\
+                                          (is_heap_ordered (b_heap_comparison geq) c) /\
                                           (is_b_heap_ordered1 geq c))) /\
   (is_b_heap_ordered1 geq [] = T) /\
   (is_b_heap_ordered1 geq (t::ts) = (is_b_heap_ordered2 geq t /\ is_b_heap_ordered1 geq ts)) /\
@@ -220,6 +223,11 @@ val is_b_heap_ordered_def = Define `
   (is_b_heap_ordered3 geq (e::es) = (is_b_heap_ordered geq e /\ is_b_heap_ordered3 geq es)) /\
   (is_b_heap_ordered4 geq [] = T) /\
   (is_b_heap_ordered4 geq (t::ts) = (is_b_heap_ordered2 geq t /\ is_b_heap_ordered4 geq ts))
+`;
+
+(* Requirements for the relation between elements *)
+val TotalPreOrder = Define `
+  TotalPreOrder R = (PreOrder R /\ total R)
 `;
 
 (* Useful lemmas *)
@@ -241,13 +249,13 @@ Proof
 QED;
 
 Theorem root_smallest:
-  !geq t y. WeakLinearOrder geq /\
+  !geq t y. TotalPreOrder geq /\
             is_tree_ordered geq t /\
             BAG_IN y (tree_to_bag t)==>
             geq y (root t)
 Proof
   rpt strip_tac \\
-  fs[WeakLinearOrder, WeakOrder] \\
+  fs[TotalPreOrder, PreOrder] \\
   Cases_on `t` \\
   Induct_on `l` \\
   rw[is_tree_ordered_def, tree_to_bag_def, root_def, BAG_EVERY] \\
@@ -256,8 +264,7 @@ Proof
 QED;
 
 Theorem children_order:
-  !geq t. WeakLinearOrder geq /\
-          is_tree_ordered geq t ==>
+  !geq t. is_tree_ordered geq t ==>
           is_heap_ordered geq (children t)
 Proof
   rpt strip_tac \\
@@ -267,8 +274,7 @@ Proof
 QED;
 
 Theorem app_heap_order:
-  !geq h1 h2. WeakLinearOrder geq /\
-              is_heap_ordered geq h1 /\
+  !geq h1 h2. is_heap_ordered geq h1 /\
               is_heap_ordered geq h2 ==>
               is_heap_ordered geq (APPEND h1 h2)
 Proof
@@ -278,8 +284,7 @@ Proof
 QED;
 
 Theorem reverse_heap_order:
-  !geq h. WeakLinearOrder geq /\
-          is_heap_ordered geq h ==>
+  !geq h. is_heap_ordered geq h ==>
           is_heap_ordered geq (REVERSE h)
 Proof
   rpt strip_tac \\
@@ -334,6 +339,32 @@ Proof
   rw[merge_def, normalize_def, merge_tree_def]
 QED;
 
+Theorem b_comparison_total_pre_order:
+  !geq. TotalPreOrder geq ==> TotalPreOrder (b_heap_comparison geq)
+Proof
+  rw[TotalPreOrder, PreOrder, reflexive_def,
+     transitive_def, total_def]
+  >- (Cases_on `x`
+      >- rw[b_heap_comparison_def]
+      >- rw[b_heap_comparison_def])
+  >- (Cases_on `x` \\ Cases_on `z`
+      >- rw[b_heap_comparison_def]
+      >- rw[b_heap_comparison_def]
+      >- (Cases_on `y`
+          >- rw[]
+          >- fs[b_heap_comparison_def])
+      >- (rw[b_heap_comparison_def] \\
+          Cases_on `y`
+          >- fs[b_heap_comparison_def]
+	  >- (fs[b_heap_comparison_def] \\
+              metis_tac[transitive_def])))
+  >- (Cases_on `x` \\ Cases_on `y`
+      >- (DISJ1_TAC \\ rw[b_heap_comparison_def])
+      >- (DISJ1_TAC \\ rw[b_heap_comparison_def])
+      >- (DISJ2_TAC \\ rw[b_heap_comparison_def])
+      >- (rw[b_heap_comparison_def]))
+QED;
+
 (* For both kinds of links, linking preserve the elements in the trees *)
 Theorem tree_link_bag:
   !geq t1 t2. tree_to_bag (tree_link geq t1 t2) = BAG_UNION (tree_to_bag t1) (tree_to_bag t2)
@@ -377,14 +408,14 @@ QED;
 (* for both kinds of links, linking preserve the ordering of the elements *)
 Theorem tree_link_order:
   !geq t1 t2.
-    WeakLinearOrder geq /\
+    TotalPreOrder geq /\
     is_tree_ordered geq t1 /\
     is_tree_ordered geq t2 ==>
     is_tree_ordered geq (tree_link geq t1 t2)
 Proof
   strip_tac \\
   ntac 2 Cases \\
-  rw[WeakLinearOrder, WeakOrder, tree_link_def,
+  rw[TotalPreOrder, PreOrder, tree_link_def,
      is_tree_ordered_def, BAG_EVERY, tree_to_bag_def]
   >- (Induct_on `l` \\
       rw[tree_to_bag_def, list_to_bag_def, is_tree_ordered_def, BAG_EVERY] \\
@@ -397,26 +428,26 @@ Proof
       fs[is_tree_ordered_def, BAG_EVERY] \\
       Induct_on `l'` \\
       rw[tree_to_bag_def, is_tree_ordered_def, BAG_EVERY] \\
-      metis_tac[transitive_def, reflexive_def,antisymmetric_def, trichotomous])
+      metis_tac[transitive_def, reflexive_def, total_def])
   >- (Induct_on `l` \\ rw[is_tree_ordered_def])
 QED;
 
 Theorem skew_link_order:
-  !geq x t1 t2. WeakLinearOrder geq /\
+  !geq x t1 t2. TotalPreOrder geq /\
                 is_tree_ordered geq t1 /\
                 is_tree_ordered geq t2 ==>
                 is_tree_ordered geq (skew_link geq x t1 t2)
 Proof
   ntac 2 strip_tac \\
   ntac 2 Cases \\
-  rw[WeakLinearOrder, WeakOrder, skew_link_def, tree_link_def,
+  rw[TotalPreOrder, PreOrder, skew_link_def, tree_link_def,
      is_tree_ordered_def, BAG_EVERY, tree_to_bag_def] \\
   fs[root_def, aux_def, children_def, rank_def] \\
   Induct_on `l` \\
   Induct_on `l'` \\
   rw[is_tree_ordered_def, BAG_EVERY, tree_to_bag_def, list_to_bag_def] \\
   fs[tree_to_bag_def, is_tree_ordered_def, BAG_EVERY] \\
-  metis_tac[transitive_def, reflexive_def, antisymmetric_def, trichotomous]
+  metis_tac[transitive_def, reflexive_def, total_def]
 QED;
 
 (*
@@ -435,7 +466,7 @@ Proof
 QED;
 
 Theorem binomial_insert_order:
-  !geq t h. WeakLinearOrder geq /\
+  !geq t h. TotalPreOrder geq /\
             is_heap_ordered geq h /\
             is_tree_ordered geq t ==>
             is_heap_ordered geq (binomial_insert geq t h)
@@ -468,7 +499,7 @@ Proof
 QED;
 
 Theorem insert_order:
-  !geq e h. WeakLinearOrder geq /\
+  !geq e h. TotalPreOrder geq /\
             is_heap_ordered geq h ==>
             is_heap_ordered geq (insert geq e h)
 Proof
@@ -482,7 +513,7 @@ Proof
 QED;
 
 Theorem insert_list_order:
-  !geq es h. WeakLinearOrder geq /\
+  !geq es h. TotalPreOrder geq /\
              is_heap_ordered geq h ==>
              is_heap_ordered geq (insert_list geq es h)
 Proof
@@ -530,7 +561,7 @@ Proof
 QED;
 
 Theorem normalize_order:
-  !geq h. WeakLinearOrder geq /\
+  !geq h. TotalPreOrder geq /\
           is_heap_ordered geq h ==>
           is_heap_ordered geq (normalize geq h)
 Proof
@@ -550,7 +581,7 @@ Proof
 QED;
 
 Theorem merge_tree_order:
-  !geq t1 t2. WeakLinearOrder geq /\
+  !geq t1 t2. TotalPreOrder geq /\
               is_heap_ordered geq t1 /\
               is_heap_ordered geq t2 ==>
               is_heap_ordered geq (merge_tree geq t1 t2)
@@ -580,7 +611,7 @@ Proof
 QED;
 
 Theorem merge_order:
-  !geq h1 h2. WeakLinearOrder geq /\
+  !geq h1 h2. TotalPreOrder geq /\
               is_heap_ordered geq h1 /\
               is_heap_ordered geq h2 ==>
               is_heap_ordered geq (merge geq h1 h2)
@@ -615,7 +646,7 @@ Proof
 QED;
 
 Theorem find_min_bag:
-  !geq h. WeakLinearOrder geq /\
+  !geq h. TotalPreOrder geq /\
           h <> [] /\
 	  is_heap_ordered geq h ==>
           BAG_IN (THE (find_min geq h)) (heap_to_bag h)
@@ -640,7 +671,7 @@ Proof
 QED;
 
 Theorem find_min_correct:
-  !geq h. WeakLinearOrder geq /\
+  !geq h. TotalPreOrder geq /\
           h <> [] /\
 	  is_heap_ordered geq h ==>
           !y. (BAG_IN y (heap_to_bag h)) ==> (geq y (THE (find_min geq h)))
@@ -654,7 +685,7 @@ Proof
           Induct_on `l`
           >- (rw[is_heap_ordered_def, heap_to_bag_def, find_min_def,
 		THE_DEF, root_def, tree_to_bag_def, is_tree_ordered_def] \\
-              fs[WeakLinearOrder, WeakOrder, reflexive_def, BAG_EVERY])
+              fs[TotalPreOrder, PreOrder, reflexive_def, BAG_EVERY])
 	  >- (rw[is_heap_ordered_def, heap_to_bag_def, find_min_def,
 		THE_DEF, root_def, tree_to_bag_def, is_tree_ordered_def,
 	        BAG_EVERY] \\
@@ -667,20 +698,20 @@ Proof
 	      >- (fs[heap_to_bag_def, is_heap_ordered_def]
 	          >- metis_tac[root_smallest]
 		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
-                      fs[THE_DEF, WeakOrder, WeakLinearOrder] \\
+                      fs[THE_DEF, PreOrder, TotalPreOrder] \\
                       metis_tac[transitive_def])
 		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
-                      fs[THE_DEF, WeakOrder, WeakLinearOrder] \\
+                      fs[THE_DEF, PreOrder, TotalPreOrder] \\
                       metis_tac[transitive_def]))
 	      >- (fs[heap_to_bag_def, is_heap_ordered_def]
 		  >- (`geq y (root h')` by rw[root_smallest] \\
-                      fs[WeakOrder, WeakLinearOrder] \\
-                      metis_tac[transitive_def, trichotomous])
+                      fs[PreOrder, TotalPreOrder] \\
+                      metis_tac[transitive_def, total_def])
 		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
-                      fs[THE_DEF, WeakOrder, WeakLinearOrder] \\
+                      fs[THE_DEF, PreOrder, TotalPreOrder] \\
                       metis_tac[transitive_def])
 		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
-                      fs[THE_DEF, WeakOrder, WeakLinearOrder] \\
+                      fs[THE_DEF, PreOrder, TotalPreOrder] \\
                       metis_tac[transitive_def])))))
 QED;
 
@@ -712,7 +743,7 @@ Proof
 QED;
 
 Theorem get_min_order:
-  !geq h smallest rest. WeakLinearOrder geq /\
+  !geq h smallest rest. TotalPreOrder geq /\
                          h <> [] /\
                          is_heap_ordered geq h /\
                          (smallest, rest) = get_min geq h ==>
@@ -738,7 +769,7 @@ Proof
 QED;
 
 Theorem get_min_correct:
-  !geq h smallest rest. WeakLinearOrder geq /\
+  !geq h smallest rest. TotalPreOrder geq /\
                         h <> [] /\
                         is_heap_ordered geq h /\
                         (smallest,rest) = get_min geq h ==>
@@ -765,7 +796,7 @@ Proof
 QED;
 
 Theorem delete_min_order:
-  !geq h. WeakLinearOrder geq /\
+  !geq h. TotalPreOrder geq /\
            h <> [] /\
            is_heap_ordered geq h ==>
            is_heap_ordered geq (THE (delete_min geq h))
@@ -783,7 +814,7 @@ Proof
 QED;
 
 Theorem delete_min_correct:
-  !geq h. WeakLinearOrder geq /\
+  !geq h. TotalPreOrder geq /\
            h <> [] /\
            is_heap_ordered geq h ==>
 	   heap_to_bag h = BAG_UNION
@@ -878,8 +909,7 @@ Proof
 QED;
 
 Theorem skew_b_order:
-  !geq b t1 t2. WeakLinearOrder geq /\
-                is_b_heap_ordered2 geq t1 /\
+  !geq b t1 t2. is_b_heap_ordered2 geq t1 /\
                 is_b_heap_ordered2 geq t2 /\
                 is_b_heap_ordered geq b ==>
                 is_b_heap_ordered2 geq (skew_link (b_heap_comparison geq) b t1 t2)
@@ -894,8 +924,7 @@ Proof
 QED;
 
 Theorem insert_b_order:
-  !geq b h. WeakLinearOrder geq /\
-            is_b_heap_ordered1 geq h /\
+  !geq b h. is_b_heap_ordered1 geq h /\
             is_b_heap_ordered geq b ==>
             is_b_heap_ordered1 geq (insert (b_heap_comparison geq) b h)
 Proof
@@ -911,7 +940,7 @@ Proof
 QED;
 
 Theorem b_merge_order:
-!geq h1 h2. WeakLinearOrder geq /\
+  !geq h1 h2. TotalPreOrder geq /\
               is_b_heap_ordered geq h1 /\
               is_b_heap_ordered geq h2 ==>
               is_b_heap_ordered geq (b_merge geq h1 h2)
@@ -926,18 +955,27 @@ Proof
       >- (fs[b_heap_to_bag_def, is_b_heap_ordered_def, BAG_EVERY] \\
           rw[] \\
           res_tac \\
-          fs[WeakLinearOrder, WeakOrder] \\
-          metis_tac[transitive_def, reflexive_def, trichotomous])
+          fs[TotalPreOrder, PreOrder] \\
+          metis_tac[transitive_def, reflexive_def, total_def])
       >- (fs[is_b_heap_ordered_def, BAG_EVERY])
+      >- (fs[is_b_heap_ordered_def] \\
+          imp_res_tac b_comparison_total_pre_order \\
+          imp_res_tac insert_order \\
+          rw[insert_b_order])
       >- (`is_b_heap_ordered1 geq l'` by fs[is_b_heap_ordered_def] \\
-          imp_res_tac insert_b_order))
+          imp_res_tac insert_b_order \\
+          rw[]))
     >- (rw[is_b_heap_ordered_def, b_bag_of_insert]
       >- (fs[b_heap_to_bag_def, is_b_heap_ordered_def, BAG_EVERY] \\
           rw[] \\
           res_tac \\
-          fs[WeakLinearOrder, WeakOrder] \\
-          metis_tac[transitive_def, reflexive_def, trichotomous])
+          fs[TotalPreOrder, PreOrder] \\
+          metis_tac[transitive_def, reflexive_def, total_def])
       >- (fs[is_b_heap_ordered_def, BAG_EVERY])
+      >- (fs[is_b_heap_ordered_def] \\
+          imp_res_tac insert_order \\
+          imp_res_tac b_comparison_total_pre_order \\
+          rw[insert_b_order])
       >- (`is_b_heap_ordered1 geq l` by fs[is_b_heap_ordered_def] \\
           imp_res_tac insert_b_order)))
 QED;
@@ -950,14 +988,14 @@ Proof
 QED;
 
 Theorem b_insert_order:
-  !geq e h. WeakLinearOrder geq /\
+  !geq e h. TotalPreOrder geq /\
             is_b_heap_ordered geq h ==>
             is_b_heap_ordered geq (b_insert geq e h)
 Proof
   rw[b_insert_def] \\
-  `is_b_heap_ordered geq (Bsbheap e [])`
-  by rw[is_b_heap_ordered_def, BAG_EVERY, b_heap_to_bag_def] \\
-  imp_res_tac b_merge_order
+  sg `is_b_heap_ordered geq (Bsbheap e [])`
+  >- rw[is_b_heap_ordered_def, is_heap_ordered_def, BAG_EVERY, b_heap_to_bag_def]
+  >- imp_res_tac b_merge_order
 QED;
 
 (* functional correctness of finding minimal element *)
@@ -971,7 +1009,7 @@ Proof
 QED;
 
 Theorem b_find_min_correct:
-  !geq h. WeakLinearOrder geq /\
+  !geq h. TotalPreOrder geq /\
           h <> Bsbempty /\
           is_b_heap_ordered geq h ==>
           BAG_EVERY (\y. geq y (THE (b_find_min h))) (b_heap_to_bag geq h)
@@ -982,7 +1020,7 @@ Proof
   >- rw[]
   >- (rw[b_find_min_def, THE_DEF] \\
       fs[is_b_heap_ordered_def, BAG_EVERY, b_heap_to_bag_def,
-	 WeakLinearOrder, WeakOrder] \\
+	 TotalPreOrder, PreOrder] \\
       metis_tac[reflexive_def])
 QED;
 
