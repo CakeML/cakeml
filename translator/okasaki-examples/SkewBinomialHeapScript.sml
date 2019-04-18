@@ -208,6 +208,20 @@ val b_heap_to_bag_def = Define `
   (b_heap_to_bag4 geq (t::ts) = BAG_UNION (b_heap_to_bag2 geq t) (b_heap_to_bag4 geq ts))
 `;
 
+val is_b_heap_ordered_def = Define `
+  (is_b_heap_ordered geq Bsbempty = T) /\
+  (is_b_heap_ordered geq (Bsbheap r c) = ((BAG_EVERY (\y. geq y r) (b_heap_to_bag1 geq c)) /\
+                                          (is_b_heap_ordered1 geq c))) /\
+  (is_b_heap_ordered1 geq [] = T) /\
+  (is_b_heap_ordered1 geq (t::ts) = (is_b_heap_ordered2 geq t /\ is_b_heap_ordered1 geq ts)) /\
+  (is_b_heap_ordered2 geq (Sbnode x r a c) =
+    (is_b_heap_ordered geq x /\ is_b_heap_ordered3 geq a /\ is_b_heap_ordered4 geq c)) /\
+  (is_b_heap_ordered3 geq [] = T) /\
+  (is_b_heap_ordered3 geq (e::es) = (is_b_heap_ordered geq e /\ is_b_heap_ordered3 geq es)) /\
+  (is_b_heap_ordered4 geq [] = T) /\
+  (is_b_heap_ordered4 geq (t::ts) = (is_b_heap_ordered2 geq t /\ is_b_heap_ordered4 geq ts))
+`;
+
 (* Useful lemmas *)
 Theorem rank_irrelevance_bag:
   !root r1 r2 aux ch. tree_to_bag (Sbnode root r1 aux ch) = tree_to_bag (Sbnode root r2 aux ch)
@@ -793,10 +807,7 @@ Proof
       metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION, reverse_bag])
 QED;
 
-(*
-  Equivalences between ops on bootstraped skew binomial heaps
-  and regular skew binomial heaps
- *)
+(* Functional correctness of merge *)
 Theorem b_bag_of_link:
   !geq t t1 t2. tree_link (b_heap_comparison geq) t1 t2 = t ==>
                 b_heap_to_bag2 geq t = BAG_UNION (b_heap_to_bag2 geq t1) (b_heap_to_bag2 geq t2)
@@ -854,10 +865,99 @@ Proof
           metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION]))
 QED;
 
+Theorem link_b_order:
+  !geq t t1 t2. tree_link (b_heap_comparison geq) t1 t2 = t ==>
+                (is_b_heap_ordered2 geq t1 /\ is_b_heap_ordered2 geq t2 ==> is_b_heap_ordered2 geq t)
+Proof
+  rw[] \\
+  Cases_on `t1` \\
+  Cases_on `t2` \\
+  rw[tree_link_def]
+  >- fs[is_b_heap_ordered_def]
+  >- fs[is_b_heap_ordered_def]
+QED;
+
+Theorem skew_b_order:
+  !geq b t1 t2. WeakLinearOrder geq /\
+                is_b_heap_ordered2 geq t1 /\
+                is_b_heap_ordered2 geq t2 /\
+                is_b_heap_ordered geq b ==>
+                is_b_heap_ordered2 geq (skew_link (b_heap_comparison geq) b t1 t2)
+Proof
+  Cases_on `t1` \\
+  Cases_on `t2` \\
+  rw[skew_link_def] \\
+  Cases_on `tree_link (b_heap_comparison geq) (Sbnode a n l0 l) (Sbnode a' n' l0' l')` \\
+  rw[root_def, rank_def, aux_def, children_def, is_b_heap_ordered_def] \\
+  imp_res_tac link_b_order \\
+  fs[is_b_heap_ordered_def]
+QED;
+
+Theorem insert_b_order:
+  !geq b h. WeakLinearOrder geq /\
+            is_b_heap_ordered1 geq h /\
+            is_b_heap_ordered geq b ==>
+            is_b_heap_ordered1 geq (insert (b_heap_comparison geq) b h)
+Proof
+  rpt strip_tac \\
+  Cases_on `h`
+  >- rw[insert_def, leaf_def, is_b_heap_ordered_def]
+  >- (Cases_on `t`
+      >- rw[insert_def, leaf_def, is_b_heap_ordered_def]
+      >- (fs[insert_def, is_b_heap_ordered_def] \\
+          rw[]
+          >- rw[is_b_heap_ordered_def, skew_b_order]
+          >- rw[leaf_def, is_b_heap_ordered_def]))
+QED;
+
+Theorem b_merge_order:
+!geq h1 h2. WeakLinearOrder geq /\
+              is_b_heap_ordered geq h1 /\
+              is_b_heap_ordered geq h2 ==>
+              is_b_heap_ordered geq (b_merge geq h1 h2)
+Proof
+  Cases_on `h1` \\
+  Cases_on `h2`
+  >- rw[is_b_heap_ordered_def, b_merge_def]
+  >- rw[is_b_heap_ordered_def, b_merge_def]
+  >- rw[is_b_heap_ordered_def, b_merge_def]
+  >- (rw[b_merge_def]
+    >- (rw[is_b_heap_ordered_def, b_bag_of_insert]
+      >- (fs[b_heap_to_bag_def, is_b_heap_ordered_def, BAG_EVERY] \\
+          rw[] \\
+          res_tac \\
+          fs[WeakLinearOrder, WeakOrder] \\
+          metis_tac[transitive_def, reflexive_def, trichotomous])
+      >- (fs[is_b_heap_ordered_def, BAG_EVERY])
+      >- (`is_b_heap_ordered1 geq l'` by fs[is_b_heap_ordered_def] \\
+          imp_res_tac insert_b_order))
+    >- (rw[is_b_heap_ordered_def, b_bag_of_insert]
+      >- (fs[b_heap_to_bag_def, is_b_heap_ordered_def, BAG_EVERY] \\
+          rw[] \\
+          res_tac \\
+          fs[WeakLinearOrder, WeakOrder] \\
+          metis_tac[transitive_def, reflexive_def, trichotomous])
+      >- (fs[is_b_heap_ordered_def, BAG_EVERY])
+      >- (`is_b_heap_ordered1 geq l` by fs[is_b_heap_ordered_def] \\
+          imp_res_tac insert_b_order)))
+QED;
+
+(* functional correctness of insertion *)
 Theorem b_insert_bag:
   !geq e h. b_heap_to_bag geq (b_insert geq e h) = BAG_INSERT e (b_heap_to_bag geq h)
 Proof
   rw[b_insert_def, b_merge_bag, BAG_INSERT_UNION, b_heap_to_bag_def]
+QED;
+
+Theorem b_insert_order:
+  !geq e h. WeakLinearOrder geq /\
+            is_b_heap_ordered geq h ==>
+            is_b_heap_ordered geq (b_insert geq e h)
+Proof
+  rw[b_insert_def] \\
+  `is_b_heap_ordered geq (Bsbheap e [])`
+  by rw[is_b_heap_ordered_def, BAG_EVERY, b_heap_to_bag_def] \\
+  imp_res_tac b_merge_order
 QED;
 
 (* Translations *)
