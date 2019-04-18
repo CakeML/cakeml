@@ -960,6 +960,32 @@ Proof
   imp_res_tac b_merge_order
 QED;
 
+(* functional correctness of finding minimal element *)
+Theorem b_find_min_bag:
+  !geq h. h <> Bsbempty ==>
+          BAG_IN (THE (b_find_min h)) (b_heap_to_bag geq h)
+Proof
+  Cases_on `h`
+  >- rw[]
+  >- rw[b_find_min_def, THE_DEF, b_heap_to_bag_def]
+QED;
+
+Theorem b_find_min_correct:
+  !geq h. WeakLinearOrder geq /\
+          h <> Bsbempty /\
+          is_b_heap_ordered geq h ==>
+          BAG_EVERY (\y. geq y (THE (b_find_min h))) (b_heap_to_bag geq h)
+Proof
+  rpt strip_tac \\
+  rw[BAG_EVERY] \\
+  Cases_on `h`
+  >- rw[]
+  >- (rw[b_find_min_def, THE_DEF] \\
+      fs[is_b_heap_ordered_def, BAG_EVERY, b_heap_to_bag_def,
+	 WeakLinearOrder, WeakOrder] \\
+      metis_tac[reflexive_def])
+QED;
+
 (* Translations *)
 val _ = translate leaf_def;
 val _ = translate root_def;
