@@ -910,7 +910,7 @@ val infer_sp_def = Define`
   (infer_sp ienv (Sval x t) =
   do
     fvs <- return (nub (find_freevars_ast t));
-    () <- guard (check_type_names ienv.inf_t t) NONE (implode "Bad type annotation");
+    () <- guard (check_type_names ienv.inf_t t) <| loc := NONE; err := ienv.inf_t |> (implode "Bad type annotation");
     subst <- return (ZIP (fvs, (MAP Infer_Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))));
     return ([],[],
       <| inf_v := (nsSing x (LENGTH fvs, infer_type_subst subst (type_name_subst ienv.inf_t t)));
@@ -923,7 +923,7 @@ val infer_sp_def = Define`
      tids <- n_fresh_id (LENGTH tdefs);
      ienvT1 <- return (alist_to_ns (MAP2 (\ (tvs,tn,ctors) i . (tn, (tvs, Tapp (MAP Tvar tvs) i))) tdefs tids));
      ienvT2 <- return (nsAppend ienvT1 ienv.inf_t);
-     check_type_definition NONE ienvT2 tdefs;
+     check_type_definition <| loc := NONE; err := ienv.inf_t |> ienvT2 tdefs;
      return
        (tids, [] ,
         <| inf_v := nsEmpty;
@@ -943,11 +943,11 @@ val infer_sp_def = Define`
   od) ∧
   (infer_sp ienv (Stabbrev tvs tn t) =
   do
-    check_dups NONE (\n. concat [implode "Duplicate type variable bindings for ";
+    check_dups <| loc := NONE; err := ienv.inf_t |> (\n. concat [implode "Duplicate type variable bindings for ";
                                         implode n; implode " in type abbreviation ";
                                         implode tn])
               tvs;
-    t' <- type_name_check_subst NONE
+    t' <- type_name_check_subst <| loc := NONE; err := ienv.inf_t |>
             (\tv. concat [implode "Unbound type variable "; implode tv; implode " in type abbreviation ";
                           implode tn])
             ienv.inf_t tvs t;
@@ -959,7 +959,7 @@ val infer_sp_def = Define`
   od) ∧
   (infer_sp ienv (Sexn cn ts) =
   do
-    ts' <- type_name_check_subst_list NONE
+    ts' <- type_name_check_subst_list <| loc := NONE; err := ienv.inf_t |>
             (\tv. concat [implode "Type variable "; implode tv; implode " found in declaration of exception "; implode cn;
                           implode ". Type variables are not allowed in exception declarations."])
             ienv.inf_t [] ts;
@@ -971,7 +971,7 @@ val infer_sp_def = Define`
   od) ∧
   (infer_sp ienv (Smod mn sn) =
   do
-    (dids,oids,ienv_sig) <- (lookup_st_ex NONE "signature" sn ienv.inf_s);
+    (dids,oids,ienv_sig) <- (lookup_st_ex <| loc := NONE; err := ienv.inf_t |> "signature" sn ienv.inf_s);
     (dids',oids',ienv_sig') <- inf_sig_rename_tids dids oids ienv_sig;
     return (dids',oids', lift_ienv mn ienv_sig')
   od) ∧
@@ -999,7 +999,7 @@ val check_tscheme_inst_def = Define `
     do () <- init_state;
        uvs <- n_fresh_uvar tvs_impl;
        t <- return (infer_deBruijn_subst uvs t_impl);
-       () <- add_constraint NONE t_spec t
+       () <- add_constraint <| loc := NONE; err := ARB |> t_spec t
     od
     in
     (* TODO: I think it doesn't matter what the initial state is here *)
@@ -1023,7 +1023,7 @@ val check_inf_sig_def = Define`
   (check_inf_sig ienv NONE ienv' = return ienv') ∧
   (check_inf_sig ienv (SOME sn) ienv' =
   do
-    (dids,oids,ienv_sig) <- lookup_st_ex NONE "signature" sn ienv.inf_s;
+    (dids,oids,ienv_sig) <- lookup_st_ex <| loc := NONE; err := ienv.inf_t |> "signature" sn ienv.inf_s;
     (*
       TODO: ienv_sig1 should be the result of
       unifying type identifiers in ienv_sig with ienv'
