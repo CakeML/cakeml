@@ -64,13 +64,12 @@ val hashtable_delete = (append_prog o process_topdecs)
       val newBucket = Map.delete bucket k
     in
       Array.update buckets index newBucket;
-      if not (Map.null bucket) andalso Map.null newBucket then (
+      if not (Map.null bucket) andalso Map.null newBucket
+            andalso (0 < (!usedRef)) then (
         usedRef := (!usedRef)-1 )
       else
         ()
     end`;
-
-
 
 val hashtable_lookup = (append_prog o process_topdecs)
 `fun lookup ht k =
@@ -111,7 +110,7 @@ val hashtable_clear = (append_prog o process_topdecs)
 `fun clear ht =
   case ht of Hashtable usedRef bucketsRef _ cmp =>
     (bucketsRef := initBuckets (Array.length (!bucketsRef)) cmp;
-    usedRef := 0)`;
+    usedRef := (!usedRef)*0)`;
 
 val _ = ml_prog_update open_local_block;
 
@@ -133,15 +132,20 @@ val hashtable_staticInsert = (append_prog o process_topdecs)
 val _ = ml_prog_update open_local_in_block;
 val _ = ml_prog_update open_local_block;
 
+val hashtable_insertList = (append_prog o process_topdecs)
+`fun insertList ht l = List.app (fn (k,v) => staticInsert ht k v) l`;
+
 val hashtable_doubleCapacity = (append_prog o process_topdecs)
 `fun doubleCapacity ht =
   case ht of Hashtable usedRef bucketsRef _ cmp =>
     let
       val oldArr = !bucketsRef
+      val newLen = Array.length oldArr * 2
+      val oldList = toAscList ht
     in
       usedRef := 0;
-      bucketsRef := initBuckets (Array.length oldArr * 2) cmp;
-      Array.app (fn b=>List.app (fn (k,v) => staticInsert ht k v) (Map.toAscList b)) (oldArr)
+      bucketsRef := initBuckets newLen cmp;
+      insertList ht oldList
     end`;
 
 

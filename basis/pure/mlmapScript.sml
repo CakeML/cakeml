@@ -76,9 +76,43 @@ Theorem lookup_insert
          comparisonTheory.TotOrder_imp_good_cmp]
   \\ metis_tac [totoTheory.TotOrd]);
 
+Theorem lookup_delete:
+  map_ok t ==>
+  lookup (delete t k1) k2 = if k1 = k2 then NONE else lookup t k2
+Proof
+  Cases_on `t`
+  \\ fs[delete_def, map_ok_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\SUBGOAL_THEN ``!cmp. good_cmp cmp ∧ invariant cmp b ⇒
+                  balanced_map$lookup cmp k2 (balanced_map$delete cmp k1 b) =
+                  if cmp k1 k2 = Equal then NONE else balanced_map$lookup cmp k2 b``
+                      assume_tac
+  >-(rw[]
+    >-(imp_res_tac balanced_mapTheory.delete_thm
+      \\fs[balanced_mapTheory.lookup_thm]
+      \\ rfs[GSYM DRESTRICT_DOMSUB]
+      \\ rfs[DRESTRICT_FDOM]
+      \\ fs[DOMSUB_FLOOKUP_THM]
+      \\ metis_tac[balanced_mapTheory.key_set_eq,comparisonTheory.cmp_thms])
+    >-(imp_res_tac balanced_mapTheory.delete_thm
+      \\fs[balanced_mapTheory.lookup_thm]
+      \\ rfs[GSYM DRESTRICT_DOMSUB]
+      \\ rfs[DRESTRICT_FDOM]
+      \\ fs[DOMSUB_FLOOKUP_THM]
+      \\ metis_tac[balanced_mapTheory.key_set_eq,comparisonTheory.cmp_thms]))
+  \\ res_tac
+  \\ fs [lookup_def]
+  \\ metis_tac [totoTheory.TotOrd]
+QED;
+
 Theorem cmp_of_insert[simp]
   `cmp_of (insert t k v) = cmp_of t`
   (Cases_on `t` \\ fs [insert_def,cmp_of_def]);
+
+Theorem cmp_of_delete[simp]
+  `cmp_of (delete t k) = cmp_of t`
+  (Cases_on `t` \\ fs [delete_def,cmp_of_def]);
 
 Theorem cmp_of_empty[simp]
   `cmp_of (empty cmp) = cmp`
@@ -146,6 +180,20 @@ Theorem MAP_KEYS_sing_set_UPDATE
   \\ rewrite_tac [GSYM (METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``)]
   \\ Cases_on `y ∈ FDOM f` \\ fs [FLOOKUP_UPDATE]);
 
+Theorem MAP_KEYS_sing_set_DOMSUB
+  `MAP_KEYS (λx. {x}) f \\ {k} = MAP_KEYS (λx. {x}) (f \\ k)`
+  (fs [finite_mapTheory.fmap_eq_flookup]
+  \\ qmatch_goalsub_abbrev_tac `MAP_KEYS ff`
+  \\ `!x. INJ ff x UNIV` by fs [INJ_DEF,Abbr`ff`]
+  \\ simp [FUN_EQ_THM] \\ simp [FLOOKUP_MAP_KEYS,DOMSUB_FLOOKUP_THM]
+  \\ fs [Abbr `ff`] \\ rw [] \\ fs []
+  \\ `!f1 v. k = v /\ f1 v <=> k = v /\ f1 k` by metis_tac [] \\ fs []
+  \\ Cases_on `?y. x = {y}` \\ fs [] \\ rveq \\ fs []
+  \\ once_rewrite_tac [METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``]
+  \\ simp []
+  \\ rewrite_tac [GSYM (METIS_PROVE [] ``x = y /\ p <=> x = y /\ (y = x ==> p)``)]
+  \\ Cases_on `y ∈ FDOM f` \\ fs [DOMSUB_FLOOKUP_THM]);
+
 Theorem MAP_KEYS_sing_set_FUNION
   `MAP_KEYS (λx. {x}) f1 ⊌ MAP_KEYS (λx. {x}) f2 =
    MAP_KEYS (λx. {x}) (f1 ⊌ f2)`
@@ -180,6 +228,24 @@ Theorem insert_thm
   \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
   \\ imp_res_tac balanced_mapTheory.insert_thm
   \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_UPDATE,MAP_KEYS_sing_set]);
+
+Theorem delete_thm
+  `map_ok t ==>
+   map_ok (delete t k) /\
+   to_fmap (delete t k) = (to_fmap t \\ k)`
+  (Cases_on `t`
+  \\ strip_tac
+  \\ conj_asm1_tac
+  THEN1
+   (fs [map_ok_def,delete_def]
+    \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+    \\ fs [balanced_mapTheory.delete_thm])
+  \\ fs [map_ok_def,delete_def]
+  \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
+  \\ imp_res_tac balanced_mapTheory.delete_thm
+  \\ rfs[GSYM DRESTRICT_DOMSUB]
+  \\ rfs[DRESTRICT_FDOM]
+  \\ rfs [to_fmap_thm,MAP_KEYS_sing_set_DOMSUB,MAP_KEYS_sing_set]);
 
 Theorem union_thm
   `map_ok t1 /\ map_ok t2 /\ cmp_of t1 = cmp_of t2 ==>
@@ -223,6 +289,7 @@ Theorem lookup_thm
 Theorem MAP_FST_toAscList
   `map_ok t ⇒
    SORTED (λx y. cmp_of t x y = Less) (MAP FST (toAscList t)) ∧
+   ALL_DISTINCT (MAP FST (toAscList t)) ∧
    FDOM (to_fmap t) = set (MAP FST (toAscList t))`
   (Cases_on `t` \\ fs [map_ok_def,lookup_def] \\ strip_tac
   \\ imp_res_tac comparisonTheory.TotOrder_imp_good_cmp
@@ -231,7 +298,11 @@ Theorem MAP_FST_toAscList
   \\ `(λx. {x}) = key_set f` by fs [FUN_EQ_THM] \\ fs []
   \\ `(∀x y. key_set f x = key_set f y ⇔ x = y)` by fs []
   \\ drule (GEN_ALL pred_setTheory.IMAGE_11)
-  \\ strip_tac \\ fs []);
+  \\ strip_tac \\ fs []
+  \\ match_mp_tac (MP_CANON sortingTheory.SORTED_ALL_DISTINCT |> GEN_ALL)
+  \\ goal_assum (first_assum o mp_then Any mp_tac)
+  \\ fs [irreflexive_def,transitive_def]
+  \\ metis_tac [totoTheory.TotOrd,EVAL ``Equal = Less``]);
 
 Theorem MEM_toAscList
   `map_ok t /\ MEM (k,v) (toAscList t) ==> FLOOKUP (to_fmap t) k = SOME v`
