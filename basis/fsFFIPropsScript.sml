@@ -808,7 +808,7 @@ val lines_of_def = Define `
     MAP (\x. strcat (implode x) (implode "\n"))
           (splitlines (explode str))`
 
-(* all_lines: get all the lines based on an inode *)
+(* all_lines_inode: get all the lines based on an inode *)
 
 val _ = overload_on("all_lines_inode",
   ``λfs ino. lines_of (implode (THE (ALOOKUP fs.inode_tbl ino)))``)
