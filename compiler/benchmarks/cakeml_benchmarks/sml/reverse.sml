@@ -17,3 +17,7 @@ fun main ()=
     else (n::(mk_list (n - 1)));
   val test = reverse (mk_list 50000);
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

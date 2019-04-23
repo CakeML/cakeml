@@ -12,7 +12,6 @@ local open tokenUtilsTheory in end
 val _ = new_theory "cmlPEG"
 val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]
 
-val _ = new_storage_attribute "cakeml/parsing"
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = overload_on ("monad_bind", “OPTION_BIND”)
@@ -70,9 +69,6 @@ val peg_linfix_def = Define`
                    [] => []
                   | h::_ => [mk_linfix tgtnt (mkNd tgtnt [h]) b])
 `;
-val _ = ThmSetData.store_attribute {
-  attribute = "cakeml/parsing", thm_name = "peg_linfix_def"
-}
 
 (* have to use these versions of choicel and pegf below because the
    "built-in" versions from HOL/examples/ use ARB in their definitions.
@@ -576,7 +572,7 @@ val spec0 =
 val mkNT = ``mkNT``
 
 val cmlPEG_exec_thm = save_thm(
-  "cmlPEG_exec_thm[cakeml/parsing]",
+  "cmlPEG_exec_thm",
   TypeBase.constructors_of ``:MMLnonT``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
     |> map (SIMP_RULE bool_ss (cmlpeg_rules_applied @ distinct_ths @

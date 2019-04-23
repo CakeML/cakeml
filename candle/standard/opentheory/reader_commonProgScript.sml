@@ -4,12 +4,15 @@
   do not translate more than once.
 *)
 open preamble basis
-     ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory cfMonadLib
+     ml_monadBaseTheory ml_monad_translator_interfaceLib
+     cfMonadTheory cfMonadLib
      holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory readerTheory
      readerProofTheory reader_initTheory prettyTheory
 
 val _ = new_theory "reader_commonProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
+
+val _ = use_full_type_names := true;
 
 (* ------------------------------------------------------------------------- *)
 (* Translate prettyTheory                                                    *)

@@ -17,20 +17,19 @@ val _ = Parse.overload_on("Bool",``Tyapp (strlit "bool") []``)
 val domain_raw = Define `
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty`;
 
-Theorem domain_def
+Theorem domain_def[compute,simp]
   `!t s. domain (Fun s t) = s`
   (REPEAT STRIP_TAC \\ EVAL_TAC);
 
 val codomain_raw = Define `
   codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty`;
 
-Theorem codomain_def
+Theorem codomain_def[compute,simp]
   `!t s. codomain (Fun s t) = t`
   (REPEAT STRIP_TAC \\ EVAL_TAC);
 
 val _ = save_thm("domain_raw",domain_raw);
 val _ = save_thm("codomain_raw",codomain_raw);
-val _ = export_rewrites["domain_def","codomain_def"]
 
 fun type_rec_tac proj =
 (WF_REL_TAC(`measure (type_size o `@[QUOTE proj]@`)`) >> simp[] >>

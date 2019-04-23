@@ -135,3 +135,7 @@ end;
 
 val test = harness 40000;
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

@@ -355,7 +355,7 @@ Theorem compile_correct
         val d2 = get_data (lhs tms2,[])
         fun get_pair (k,cn) =
           let
-            val (arity, stamp) = pairSyntax.dest_pair (assoc k d1)
+            val (arity, stamp) = pairSyntax.dest_pair (tassoc k d1)
           in
             pairSyntax.mk_pair(pairSyntax.mk_pair(cn, arity), stamp)
           end

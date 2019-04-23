@@ -15,6 +15,9 @@
 # Generated assembly
 *.S
 
+# Generated tarball
+cake-x64-64.tar.gz
+
 # Developer generated executables
 developers/readme_gen
 semantics/addancs

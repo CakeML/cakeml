@@ -1167,50 +1167,6 @@ Theorem PERM_ZIP
   metis_tac[PERM_TRANS])
 
 (* TODO - candidate for move to HOL *)
-Theorem PERM_BIJ
-  `∀l1 l2. PERM l1 l2 ⇒ ∃f. (BIJ f (count(LENGTH l1)) (count(LENGTH l1)) ∧ (l2 = GENLIST (λi. EL (f i) l1) (LENGTH l1)))`
-  (ho_match_mp_tac PERM_IND >> simp[BIJ_EMPTY] >>
-  conj_tac >- (
-    simp[GENLIST_CONS] >>
-    srw_tac[][combinTheory.o_DEF] >>
-    qexists_tac`λi. case i of 0 => 0 | SUC i => SUC(f i)` >>
-    simp[EL_CONS,PRE_SUB1] >>
-    full_simp_tac(srw_ss())[BIJ_IFF_INV] >>
-    conj_tac >- ( Cases >> simp[] ) >>
-    qexists_tac`λi. case i of 0 => 0 | SUC i => SUC(g i)` >>
-    conj_tac >- ( Cases >> simp[] ) >>
-    conj_tac >- ( Cases >> simp[] ) >>
-    ( Cases >> simp[] )) >>
-  conj_tac >- (
-    simp[GENLIST_CONS] >>
-    srw_tac[][combinTheory.o_DEF] >>
-    qexists_tac`λi. case i of 0 => 1 | SUC 0 => 0 | SUC(SUC n) => SUC(SUC(f n))` >>
-    simp[PRE_SUB1,EL_CONS] >>
-    REWRITE_TAC[ONE] >> simp[] >>
-    full_simp_tac(srw_ss())[BIJ_IFF_INV] >>
-    conj_tac >- (Cases >> simp[]>> Cases_on`n`>>simp[]) >>
-    qexists_tac`λi. case i of 0 => 1 | SUC 0 => 0 | SUC(SUC n) => SUC(SUC(g n))` >>
-    simp[] >>
-    conj_tac >- (Cases >> simp[]>> Cases_on`n`>>simp[]) >>
-    conj_tac >- (Cases >> simp[]>> TRY(Cases_on`n`)>>simp[] >> REWRITE_TAC[ONE]>>simp[]) >>
-    (Cases >> simp[]>> TRY(Cases_on`n`)>>simp[] >> REWRITE_TAC[ONE]>>simp[])) >>
-  ntac 2 (srw_tac[][LENGTH_GENLIST]) >>
-  simp[LIST_EQ_REWRITE,EL_GENLIST] >>
-  full_simp_tac(srw_ss())[LENGTH_GENLIST] >>
-  qexists_tac`f o f'` >>
-  simp[combinTheory.o_DEF] >>
-  full_simp_tac(srw_ss())[BIJ_IFF_INV] >>
-  qexists_tac`g' o g` >>
-  simp[combinTheory.o_DEF] )
-
-(* TODO - candidate for move to HOL *)
-Theorem PERM_EVERY
-`∀ls ls'.
-  PERM ls ls' ⇒
-  (EVERY P ls ⇔ EVERY P ls')`
-  (ho_match_mp_tac PERM_STRONG_IND>>srw_tac[][]>>metis_tac[])
-
-(* TODO - candidate for move to HOL *)
 Theorem RTC_RINTER
   `!R1 R2 x y. RTC (R1 RINTER R2) x y ⇒ ((RTC R1) RINTER (RTC R2)) x y`
   (ntac 2 gen_tac >>
@@ -2828,55 +2784,16 @@ Theorem INJ_UPDATE
   (simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
   \\ metis_tac []);
 
-(* TODO - candidate for move to HOL *)
-Theorem subspt_union `
-  subspt s (union s t)`
-  (fs[subspt_lookup,lookup_union]);
-
-(* TODO - candidate for move to HOL *)
-Theorem subspt_FOLDL_union
-  `∀ls t. subspt t (FOLDL union t ls)`
-  (Induct \\ rw[] \\ metis_tac[subspt_union,subspt_trans]);
-
-(* TODO - candidate for move to HOL *)
-Theorem lookup_FOLDL_union
-  `lookup k (FOLDL union t ls) =
-   FOLDL OPTION_CHOICE (lookup k t) (MAP (lookup k) ls)`
-  (qid_spec_tac`t` \\ Induct_on`ls` \\ rw[lookup_union] \\
-  BasicProvers.TOP_CASE_TAC \\ simp[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem map_union
-  `∀t1 t2. map f (union t1 t2) = union (map f t1) (map f t2)`
-  (Induct
-  \\ rw[map_def,union_def]
-  \\ BasicProvers.TOP_CASE_TAC
-  \\ rw[map_def,union_def]);
-
 (* exists in HOL as subspt_lookup *)
 Theorem subspt_alt
   `subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v`
   (fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
   \\ res_tac \\ fs []);
 
-(* TODO - candidate for move to HOL *)
+(* TODO - exists as an IFF in HOL already (subspt_domain) *)
 Theorem subspt_domain_SUBSET
   `subspt t1 t2 ==> domain t1 SUBSET domain t2`
   (fs [subspt_def,SUBSET_DEF]);
-
-(* TODO - candidate for move to HOL *)
-Theorem domain_eq
-  `!t1 t2. domain t1 = domain t2 <=>
-            !k. lookup k t1 = NONE <=> lookup k t2 = NONE`
-  (rw [domain_lookup,EXTENSION] \\ eq_tac \\ rw []
-  THEN1
-   (pop_assum (qspec_then `k` mp_tac)
-    \\ Cases_on `lookup k t1` \\ fs []
-    \\ Cases_on `lookup k t2` \\ fs [])
-  THEN1
-   (pop_assum (qspec_then `x` mp_tac)
-    \\ Cases_on `lookup x t1` \\ fs []
-    \\ Cases_on `lookup x t2` \\ fs []));
 
 (* Some temporal logic definitions based on lazy lists *)
 (* move into llistTheory? *)
@@ -3144,17 +3061,6 @@ Theorem LESS_LENGTH
   \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
   \\ srw_tac [] [ADD1]);
 
-(* TODO - candidate for move to HOL *)
-Theorem BAG_ALL_DISTINCT_SUB_BAG
-  `∀s t.  s ≤ t ∧ BAG_ALL_DISTINCT t ⇒ BAG_ALL_DISTINCT s`
-  (fs[bagTheory.BAG_ALL_DISTINCT,bagTheory.SUB_BAG,bagTheory.BAG_INN]>>
-  rw[]>>
-  CCONTR_TAC>>
-  `s e ≥ 2` by fs[]>>
-  res_tac>>
-  first_x_assum(qspec_then`e` assume_tac)>>
-  DECIDE_TAC);
-
 val IN_EVEN =
   save_thm("IN_EVEN", SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``);
 
@@ -3162,28 +3068,6 @@ Theorem FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM
   `FOLDL OPTION_CHOICE x ls = SOME y ⇒ MEM (SOME y) (x::ls)`
   (qid_spec_tac`x` \\ Induct_on`ls` \\ rw[] \\
   res_tac \\ fs[] \\ Cases_on`x` \\ fs[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem BAG_DISJOINT_SUB_BAG
-  `!b1 b2 b3. b1 ≤ b2 /\ BAG_DISJOINT b2 b3 ==> BAG_DISJOINT b1 b3`
-  (rw [BAG_DISJOINT_BAG_IN] \\ metis_tac [SUB_BAG, BAG_IN]);
-
-(* TODO - candidate for move to HOL *)
-Theorem BAG_DISJOINT_SYM
-  `!b1 b2. BAG_DISJOINT b1 b2 <=> BAG_DISJOINT b2 b1`
-  (simp [BAG_DISJOINT, DISJOINT_SYM]);
-
-(* TODO - candidate for move to HOL *)
-Theorem MONOID_BAG_UNION_EMPTY_BAG
-  `MONOID $⊎ {||}`
-  (simp [MONOID_DEF, RIGHT_ID_DEF, LEFT_ID_DEF, ASSOC_DEF, ASSOC_BAG_UNION]);
-
-(* TODO - candidate for move to HOL *)
-Theorem BAG_DISJOINT_FOLDR_BAG_UNION
-  `∀ls b0 b1.
-    BAG_DISJOINT b1 (FOLDR BAG_UNION b0 ls) ⇔
-    EVERY (BAG_DISJOINT b1) (b0::ls)`
-  (Induct \\ rw[] \\ metis_tac[]);
 
 Theorem BAG_ALL_DISTINCT_FOLDR_BAG_UNION
   `∀ls b0.
@@ -3202,20 +3086,6 @@ Theorem BAG_ALL_DISTINCT_FOLDR_BAG_UNION
   \\ simp[]
   \\ rw[EQ_IMP_THM] \\ fs[]
   \\ metis_tac[BAG_DISJOINT_SYM]);
-
-(* TODO - candidate for move to HOL *)
-Theorem LIST_TO_BAG_SUB_BAG_FLAT_suff
-  `!ls1 ls2. LIST_REL (\l1 l2. LIST_TO_BAG l1 ≤ LIST_TO_BAG l2) ls1 ls2 ==>
-     LIST_TO_BAG (FLAT ls1) ≤ LIST_TO_BAG (FLAT ls2)`
-  (ho_match_mp_tac LIST_REL_ind
-  \\ srw_tac [bagLib.SBAG_SOLVE_ss] [LIST_TO_BAG_APPEND]);
-
-(* TODO - candidate for move to HOL *)
-Theorem LIST_TO_BAG_SUBSET
-  `∀l1 l2. LIST_TO_BAG l1 ≤ LIST_TO_BAG l2 ⇒ set l1 ⊆ set l2`
-  (Induct \\ rw[LIST_TO_BAG_def]
-  \\ imp_res_tac BAG_INSERT_SUB_BAG_E
-  \\ imp_res_tac IN_LIST_TO_BAG \\ fs[]);
 
 (* TODO - candidate for move to HOL *)
 val is_subseq_def = Define`
@@ -3894,11 +3764,6 @@ Theorem lookup_copy_shape
   `!t1 t2 n. lookup n (copy_shape t1 t2) = lookup n t1`
   (Induct \\ Cases_on `t2` \\ fs [copy_shape_def,lookup_def] \\ rw []
   \\ fs [lookup_def,lookup_copy_shape_LN,domain_EMPTY_lookup]);
-
-(* TODO - candidate for move to HOL *)
-Theorem domain_mapi[simp]
-  `domain (mapi f x) = domain x`
-  (fs [domain_lookup,EXTENSION,sptreeTheory.lookup_mapi]);
 
 (* / TODO *)
 

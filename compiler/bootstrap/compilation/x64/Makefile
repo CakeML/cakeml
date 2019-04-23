@@ -31,6 +31,12 @@ ifeq ($(OS),Darwin)
 	LDFLAGS += -Wl,-no_pie
 endif
 
+CMLS = $(wildcard *.cml)
+CML_PROGS = $(patsubst %.cml,%.cake$(SUFF),$(CMLS))
+
+# Links the CakeML compiler and compiles all the .cml files in this directory
+all: cake$(SUFF) $(CML_PROGS)
+
 # Linking the CakeML compiler
 
 cake$(SUFF): cake.o basis_ffi.o

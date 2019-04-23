@@ -383,7 +383,7 @@ in
       val (v_tm', mods') = lookup_cons_name key
                             handle HOL_ERR _ => (v_tm, mods)
     in
-      if v_tm' = v_tm andalso mods = mods' then
+      if aconv v_tm' v_tm andalso mods = mods' then
         key before cons_name_state := (key, (v_tm, mods)) :: (!cons_name_state)
       else
         raise ERR "enter_cons_name"
@@ -1056,7 +1056,7 @@ fun mk_EqType_size_prop size_op = let
 fun get_size_rec_Type_insts size_def = let
     val eqs = concl size_def |> strip_conj
         |> map (dest_eq o snd o strip_forall)
-    val lhs_szs = map (rator o fst) eqs |> mk_set
+    val lhs_szs = map (rator o fst) eqs |> op_mk_set aconv
     val lhs_sz_typs = map (fst o dom_rng o type_of) lhs_szs
     val lhs_var_typs = map (snd o strip_comb o rand o fst) eqs
         |> List.concat |> map type_of |> mk_set
@@ -1160,7 +1160,7 @@ fun mk_EqualityType_proof_via_measure typ = let
     val (mrec, other_tyinvs) = get_size_rec_Type_insts size_def
     val goal = map (mk_EqType_size_prop o fst) mrec |> list_mk_conj
     val assum_eqtys = map ml_translatorSyntax.mk_EqualityType
-        (mk_set other_tyinvs)
+        (op_mk_set aconv other_tyinvs)
     val assums = if null assum_eqtys then [] else [list_mk_conj assum_eqtys]
     val defs = size_def :: map (guess_const_def o fst o strip_comb o snd) mrec
     val datatypes = map (fst o dom_rng o type_of o fst) mrec
@@ -1347,7 +1347,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val _ = if is_list_type then inv_def else
           if is_pair_type then inv_def else
           if is_unit_type then inv_def else
-            save_thm(name ^ "_def",inv_def |> REWRITE_RULE [K_THM])
+            save_thm(name ^ "_def[compute]",inv_def |> REWRITE_RULE [K_THM])
   val ind = fetch "-" (name ^ "_ind") |> clean_rule
             handle HOL_ERR _ => TypeBase.induction_of (hd tys) |> clean_rule
 (*
@@ -2434,11 +2434,14 @@ fun single_line_def def = let
   val lemma  = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
   val def_tm = (subst [const|->mk_comb(v,oneSyntax.one_tm)] (concl lemma))
   val _ = Pmatch.with_classic_heuristic quietDefine [ANTIQUOTE def_tm]
-  val curried = fetch "-" "generated_definition_curried_def"
+  fun find_def name =
+    Theory.current_definitions ()
+    |> first (fn (s,_) => s = name) |> snd
+  val curried = find_def "generated_definition_curried_def"
   val c = curried |> SPEC_ALL |> concl |> dest_eq |> snd |> rand
   val c2 = curried |> SPEC_ALL |> concl |> dest_eq |> fst
   val c1 = curried |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-  val tupled = fetch "-" "generated_definition_tupled_primitive_def"
+  val tupled = find_def "generated_definition_tupled_primitive_def"
   val ind = fetch "-" "generated_definition_ind"
   val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
   val vv = mk_var("very unlikely name",el 2 tys)
@@ -2955,7 +2958,7 @@ fun clean_assumptions th = let
                                     orelse can (match_term pattern2) tm) (concl th)
   val lemmas = map prove_lookup_cons_eq lookup_assums
                |> filter (fn th => th |> concl |> rand |> is_const)
-  val _ = case List.find (fn l => (l |> concl |> rand) = F) lemmas of
+  val _ = case List.find (fn l => Feq (l |> concl |> rand)) lemmas of
       NONE => ()
     | SOME t => (print "clean_assumptions: false assumption\n\n";
         print_thm t; print "\n\n"; failwith ("clean_assumptions: false"
@@ -3336,7 +3339,7 @@ fun hol2deep tm =
     val h = lemma |> concl |> dest_imp |> fst
     val h_thm = EVAL h
     val lemma = REWRITE_RULE [h_thm] lemma
-    val _ = (rand (concl h_thm) = T) orelse failwith "false pre for w2w"
+    val _ = Teq (rand (concl h_thm)) orelse failwith "false pre for w2w"
     val result =
         MATCH_MP (lemma |> SIMP_RULE std_ss [LET_THM]
                         |> CONV_RULE (RAND_CONV (RATOR_CONV wordsLib.WORD_CONV)))
@@ -3879,18 +3882,19 @@ fun instantiate_cons_name th =
       lookup_cons_def
       |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
     val is_lcons = can (match_term lcons_tm o repeat rator o fst o dest_eq)
-    fun get_lcons acc tm =
+    fun get_lcons (tm,acc) =
       if is_lcons tm then
-        mlibUseful.insert tm acc
+        HOLset.add(acc, tm)
       else if can dest_comb tm then
-        get_lcons (mlibUseful.union (get_lcons acc (rator tm)) acc) (rand tm)
+        get_lcons (rand tm, get_lcons (rator tm, acc))
       else if can dest_abs tm then
-        get_lcons acc (snd (dest_abs tm))
+        get_lcons (snd (dest_abs tm), acc)
       else
         acc
-    val lcs = List.concat (List.map (get_lcons []) hyps)
+    val lcs = List.foldl get_lcons Term.empty_tmset hyps
     val vars = List.filter (can dest_var)
-                           (List.map (rand o rator o fst o dest_eq) lcs)
+                           (List.map (rand o rator o fst o dest_eq)
+                                     (HOLset.listItems lcs))
     fun inst_var tm =
       let
         val (nm, mods) = lookup_cons_name (fst (dest_var tm))

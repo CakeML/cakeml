@@ -287,7 +287,7 @@ val compile_v_def = tDefine"compile_v"`
                                       | INR vs => v3_size vs)` >>
  simp[] >> conj_tac >> rpt gen_tac >> Induct_on`env` >> simp[] >>
  Cases >> simp[flatSemTheory.v_size_def] >> srw_tac[][] >> res_tac >> simp[])
-val compile_v_def = save_thm("compile_v_def",
+val compile_v_def = save_thm("compile_v_def[compute]",
   compile_v_def |> SIMP_RULE (srw_ss()++ETA_ss) [MAP_MAP_o])
 val _ = export_rewrites["compile_v_def"]
 

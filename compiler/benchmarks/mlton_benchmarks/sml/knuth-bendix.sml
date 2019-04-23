@@ -20,8 +20,8 @@ signature KB =
       ('a * ('b * (term * term))) list -> unit;
     include BMARK
   end;
-  
-structure Main : KB = 
+
+structure Main : KB =
   struct
 
     val name = "Knuth-Bendix"
@@ -88,7 +88,7 @@ fun for_all p =
   in for_all_rec
   end
 
-fun rev_append   []    L  = L 
+fun rev_append   []    L  = L
   | rev_append (x::L1) L2 = rev_append L1 (x::L2)
 
 fun try_find f =
@@ -175,7 +175,7 @@ fun change f =
   end
 
 (* Term replacement replace M u N => M[u<-N] *)
-fun replace M u N = 
+fun replace M u N =
   let fun reprec (_, []) = N
         | reprec (Term(oper,sons), (n::u)) =
              Term(oper, change (fn P => reprec(P,u)) sons n)
@@ -199,7 +199,7 @@ fun matching term1 term2 =
 
 (* A naive unification algorithm *)
 
-fun compsubst subst1 subst2 = 
+fun compsubst subst1 subst2 =
   (map (fn (v,t) => (v, substitute subst1 t)) subst2) @ subst1
 
 fun occurs n =
@@ -216,7 +216,7 @@ fun unify ((term1 as (Var n1)), term2) =
       if occurs n2 term1 then failwith "unify"
       else [(n2,term1)]
   | unify (Term(op1,sons1), Term(op2,sons2)) =
-      if op1 = op2 then 
+      if op1 = op2 then
         it_list2 (fn s => fn (t1,t2) => compsubst (unify(substitute s t1,
                                                          substitute s t2)) s)
                  [] sons1 sons2
@@ -364,10 +364,10 @@ fun lex_ext order ((M as Term(_,sons1)), (N as Term(_,sons2))) =
             | lexrec ( _ , []) = Greater
             | lexrec (x1::l1, x2::l2) =
                 case order (x1,x2) of
-                  Greater => if for_all (fn N' => gt_ord order (M,N')) l2 
+                  Greater => if for_all (fn N' => gt_ord order (M,N')) l2
                              then Greater else NotGE
                 | Equal => lexrec (l1,l2)
-                | NotGE => if exists (fn M' => ge_ord order (M',N)) l1 
+                | NotGE => if exists (fn M' => ge_ord order (M',N)) l1
                            then Greater else NotGE
       in lexrec (sons1, sons2)
       end
@@ -377,7 +377,7 @@ fun lex_ext order ((M as Term(_,sons1)), (N as Term(_,sons2))) =
 
 fun rpo op_order ext =
   let fun rporec (M,N) =
-    if M=N then Equal else 
+    if M=N then Equal else
       case M of
           Var m => NotGE
         | Term(op1,sons1) =>
@@ -414,7 +414,7 @@ fun super M =
   in suprec end
 
 (* Ex :
-let (M,_) = <<F(A,B)>> 
+let (M,_) = <<F(A,B)>>
 and (N,_) = <<H(F(A,x),F(x,y))>> in super M N;;
 ==> [[1],[2,Term ("B",[])];                      x <- B
      [2],[2,Term ("A",[]); 1,Term ("B",[])]]     x <- A  y <- B
@@ -491,7 +491,7 @@ fun kb_completion greater =
                       let fun left_reducible (_,(_,(L,_))) = reducible left L;
                           val (redl,irredl) = partition left_reducible rules
                       in (app deletion_message redl;
-                          let fun right_reduce (m,(_,(L,R))) = 
+                          let fun right_reduce (m,(_,(L,R))) =
                               (m,mk_rule L (mrewrite_all (new_rule::rules) R));
                               val irreds = map right_reduce irredl;
                               val eqs' = map (fn (_,(_,pair)) => pair) redl
@@ -512,7 +512,7 @@ fun kb_completion greater =
                if k=l then
                  processf (k,l) (strict_critical_pairs el (rename v el))
                else
-                (let val (_,ek) = get_rule k in 
+                (let val (_,ek) = get_rule k in
                     processf (k,l) (mutual_critical_pairs el (rename v ek))
                  end
                  handle Failure "find" (*rule k deleted*) =>
@@ -580,7 +580,7 @@ fun Group_precedence op1 op2 =
     if r1 > r2 then Greater else NotGE
   end
 
-    val Group_order = rpo Group_precedence lex_ext 
+    val Group_order = rpo Group_precedence lex_ext
 
     fun greater pair = (case Group_order pair of Greater => true | _ => false)
 
@@ -596,9 +596,12 @@ fun Group_precedence op1 op2 =
                    loop(n-1))
        in loop size
        end
-    
+
     fun testit _ = ()
 
   end (* Main *)
 
-val foo = Main.doit 200;
+val foo = Main.doit 150;
+
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

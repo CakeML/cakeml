@@ -12,7 +12,7 @@ open decompilerLib
 
 fun calculate_length_and_jump th =
   let val q = rand(concl th) in
-  let val v = find_term (fn t => t = ``aPC (p + 4w)``) q in (th,4,SOME 4) end
+  let val v = find_term (aconv ``aPC (p + 4w)``) q in (th,4,SOME 4) end
   handle e =>
   let val v = find_term (can (match_term ``aPC (p + n2w n)``)) q
   in (th,4,SOME (0 + (numSyntax.int_of_term o rand o rand o rand) v)) end

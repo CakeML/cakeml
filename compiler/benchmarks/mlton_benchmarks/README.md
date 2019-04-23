@@ -1,2 +1,2 @@
-This diretory contains benchmark programs from the MLton benchmark
+This directory contains benchmark programs from the MLton benchmark
 suite.
