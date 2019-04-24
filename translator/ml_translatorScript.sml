@@ -1479,7 +1479,7 @@ Theorem Eval_length
    to an unused argument. *)
 val force_unit_type_def = Define `
   force_unit_type (u:unit) x = x`
-  |> curry save_thm "force_unit_type_def[simp]";
+  |> curry save_thm "force_unit_type_def[simp,compute]";
 
 Theorem Eval_force_unit_type
    `Eval env x1 (UNIT_TYPE u) ==>

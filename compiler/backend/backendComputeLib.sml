@@ -17,6 +17,9 @@ end
 
 open Parse
 
+fun theory_computes thy
+  = ThmSetData.theory_data {settype = "compute", thy = thy}
+    |> ThmSetData.added_thms
 in
 
 val add_backend_compset = computeLib.extend_compset
@@ -70,11 +73,9 @@ val add_backend_compset = computeLib.extend_compset
      flatLangTheory.bool_id_def
     ,flatLangTheory.Bool_def
     ]
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="source_to_flat"}))
+  ,computeLib.Defs (theory_computes "source_to_flat")
       (* ---- flat_elim ---- *)
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_elim"}))
+  ,computeLib.Defs (theory_computes "flat_elim")
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``
@@ -85,14 +86,11 @@ val add_backend_compset = computeLib.extend_compset
     ,``:source_to_flat$config``
     ]
 
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_reorder_match"}))
+  ,computeLib.Defs (theory_computes "flat_reorder_match")
 
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_exh_match"}))
+  ,computeLib.Defs (theory_computes "flat_exh_match")
 
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_uncheck_ctors"}))
+  ,computeLib.Defs (theory_computes "flat_uncheck_ctors")
 
   ,computeLib.Tys
     [ (* ---- patLang ---- *)
@@ -188,10 +186,8 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_letopTheory.dest_op_def
     ,clos_letopTheory.let_op_def
     ]
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="clos_fvs"}))
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="clos_labels"}))
+  ,computeLib.Defs (theory_computes "clos_fvs")
+  ,computeLib.Defs (theory_computes "clos_labels")
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
      ``:bvl$exp``
@@ -875,7 +871,7 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.compile_def
     ]
       (* ---- Everything in backend theory ---- *)
-  ,computeLib.Defs (List.map #2 (ThmSetData.theory_data{settype="compute",thy="backend"}))
+  ,computeLib.Defs (theory_computes "backend")
   ,computeLib.Tys
     [
      ``:architecture``

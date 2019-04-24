@@ -522,7 +522,7 @@ Theorem fix_clock_evaluate
 
 (* Finally, we remove fix_clock from the induction and definition theorems. *)
 
-val evaluate_def = save_thm("evaluate_def",
+val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 val evaluate_ind = save_thm("evaluate_ind",

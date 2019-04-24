@@ -3998,7 +3998,7 @@ val state_rel_thm = Define `
 
 val state_rel_thm = save_thm("state_rel_thm",state_rel_thm);
 
-val state_rel_def = save_thm("state_rel_def",
+val state_rel_def = save_thm("state_rel_def[compute]",
   state_rel_thm |> REWRITE_RULE [memory_rel_def]);
 
 Theorem state_rel_with_clock

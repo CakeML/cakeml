@@ -2167,7 +2167,7 @@ val v_rel_def = tDefine "v_rel" `
   (WF_REL_TAC `measure (v_size o FST o SND o SND)` \\ simp [v1_size_append, v_size_def]
    \\ rpt strip_tac \\ imp_res_tac v_size_lemma \\ simp []);
 
-val v_rel_def = save_thm("v_rel_def[simp]",
+val v_rel_def = save_thm("v_rel_def[simp,compute]",
   v_rel_def |> SIMP_RULE (bool_ss ++ ETA_ss) []);
 
 val v_rel_ind = theorem "v_rel_ind";
@@ -5040,7 +5040,7 @@ val val_approx_bodies_def = tDefine"val_approx_bodies_def"`
 val val_approx_bodies_def =
   val_approx_bodies_def
   |> SIMP_RULE(srw_ss()++ETA_ss)[]
-  |> curry save_thm "val_approx_bodies_def[simp]";
+  |> curry save_thm "val_approx_bodies_def[simp,compute]";
 
 Theorem val_approx_bodies_cons
   `val_approx_bodies (x::ys) = val_approx_bodies [x] ++ val_approx_bodies ys`
@@ -5098,7 +5098,7 @@ val val_approx_dests_def = tDefine"val_approx_dests_def"`
 val val_approx_dests_def =
   val_approx_dests_def
   |> SIMP_RULE(srw_ss()++ETA_ss)[]
-  |> curry save_thm "val_approx_dests_def[simp]";
+  |> curry save_thm "val_approx_dests_def[simp,compute]";
 
 Theorem val_approx_dests_cons
   `val_approx_dests a (x::ys) = val_approx_dests a [x] ∪ val_approx_dests a ys`

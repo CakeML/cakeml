@@ -735,7 +735,7 @@ val get_code_labels_def = tDefine"get_code_labels"
    \\ Induct_on`es`
    \\ rw[bvlTheory.exp_size_def]
    \\ simp[] \\ res_tac \\ simp[]);
-val get_code_labels_def = get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp]"
+val get_code_labels_def = get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute]"
 
 Theorem mk_tick_code_labels[simp]
   `!n x. get_code_labels (mk_tick n x) = get_code_labels x`
