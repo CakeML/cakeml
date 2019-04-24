@@ -1,15 +1,15 @@
 This directory contains example applications of the monadic translator.
 These examples serve as test cases of the monadic translator.
 
-[arrayGlobalStateProgScript.sml](arrayGlobalStateProgScript.sml):
+[array_global_stateProgScript.sml](array_global_stateProgScript.sml):
 An example showing how to use the monadic translator with
 references, arrays and exceptions.
 
-[arrayLocalStateProgScript.sml](arrayLocalStateProgScript.sml):
+[array_local_stateProgScript.sml](array_local_stateProgScript.sml):
 An example showing how to use the monadic translator with
 references, arrays and exceptions.
 
-[arraySearchProgScript.sml](arraySearchProgScript.sml):
+[array_searchProgScript.sml](array_searchProgScript.sml):
 An example showing how to use the monadic translator to translate monadic
 array search functions, including exceptions.
 
@@ -17,12 +17,12 @@ array search functions, including exceptions.
 An example showing how to use the monadic translator to translate monadic
 doubling functions, including using references (no arrays, no exceptions).
 
-[exceptionArityTestProgScript.sml](exceptionArityTestProgScript.sml):
-A test file for the support of exceptions
-
 [exceptionProgScript.sml](exceptionProgScript.sml):
 An example showing how to use the monadic translator to translate
 monadic functions using exceptions (no references, no arrays).
+
+[exception_arity_testProgScript.sml](exception_arity_testProgScript.sml):
+A test file for the support of exceptions
 
 [fibProgScript.sml](fibProgScript.sml):
 An example showing how to use the monadic translator to translate
@@ -36,23 +36,23 @@ The Floyd-Warshall algorithm - testing the monadic translator
 An example showing how to use the monadic translator to translate
 monadic functions using IO primitives from the basis library.
 
-[polyArraySortProgScript.sml](polyArraySortProgScript.sml):
+[poly_array_sortProgScript.sml](poly_array_sortProgScript.sml):
 An example showing how to use the monadic translator to translate polymorphic
 monadic array quicksort, including exceptions.
 
-[refStateProgScript.sml](refStateProgScript.sml):
+[ref_stateProgScript.sml](ref_stateProgScript.sml):
 An example showing how to use the monadic translator to translate
 monadic functions using references (no arrays, no exceptions).
 
 [runProgScript.sml](runProgScript.sml):
 An example of how to translate `run`
 
-[testAssumScript.sml](testAssumScript.sml):
+[test_assumProgScript.sml](test_assumProgScript.sml):
 Test the monadic translator's handling of assumptions
 
-[testPrecondProgScript.sml](testPrecondProgScript.sml):
+[test_precondProgScript.sml](test_precondProgScript.sml):
 An example showing how to use the monadic translator with
 references, arrays and exceptions.
 
-[testRunScript.sml](testRunScript.sml):
+[test_runScript.sml](test_runScript.sml):
 An example showing how to make use of m_translate_run

@@ -5,7 +5,7 @@
 
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "polyArraySortProg"
+val _ = new_theory "poly_array_sortProg"
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 (* TODO still some problems with type variables - if 'a not used below,

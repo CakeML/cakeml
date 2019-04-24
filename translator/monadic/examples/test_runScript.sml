@@ -4,7 +4,7 @@
 
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "testRun"
+val _ = new_theory "test_run"
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 

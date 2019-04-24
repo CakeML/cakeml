@@ -5,7 +5,7 @@
 
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "arrayLocalStateProg"
+val _ = new_theory "array_local_stateProg"
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
