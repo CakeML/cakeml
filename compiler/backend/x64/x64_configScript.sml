@@ -32,7 +32,7 @@ val x64_names_def = Define `
      insert 14 4 o
      insert 15 5) LN:num num_map`;
 
-val x64_names_def = save_thm("x64_names_def",
+val x64_names_def = save_thm("x64_names_def[compute]",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)

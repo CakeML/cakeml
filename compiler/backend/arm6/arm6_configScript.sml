@@ -26,7 +26,7 @@ val arm6_names_def = Define `
      insert 10 12 o
      insert 14 13) LN:num num_map`
 
-val arm6_names_def = save_thm("arm6_names_def",
+val arm6_names_def = save_thm("arm6_names_def[compute]",
   CONV_RULE (RAND_CONV EVAL) arm6_names_def);
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)

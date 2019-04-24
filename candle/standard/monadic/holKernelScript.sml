@@ -699,8 +699,6 @@ val inst_aux_def = tDefine "inst_aux" `
    THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
    THEN DECIDE_TAC)
 
-val _ = save_thm("inst_aux_def",inst_aux_def);
-
 val _ = Define `
   inst tyin tm = if tyin = [] then return tm else inst_aux [] tyin tm`;
 

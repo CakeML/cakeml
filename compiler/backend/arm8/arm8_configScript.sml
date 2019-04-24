@@ -22,7 +22,7 @@ val arm8_names_def = Define `
      (* Next one is for well-formedness only *)
      insert 30 26) LN:num num_map`
 
-val arm8_names_def = save_thm("arm8_names_def",
+val arm8_names_def = save_thm("arm8_names_def[compute]",
   CONV_RULE (RAND_CONV EVAL) arm8_names_def);
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)

@@ -1347,7 +1347,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val _ = if is_list_type then inv_def else
           if is_pair_type then inv_def else
           if is_unit_type then inv_def else
-            save_thm(name ^ "_def",inv_def |> REWRITE_RULE [K_THM])
+            save_thm(name ^ "_def[compute]",inv_def |> REWRITE_RULE [K_THM])
   val ind = fetch "-" (name ^ "_ind") |> clean_rule
             handle HOL_ERR _ => TypeBase.induction_of (hd tys) |> clean_rule
 (*

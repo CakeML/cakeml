@@ -37,7 +37,7 @@ val riscv_names_def = Define `
    insert 29 2 o
    insert 30 3) LN:num num_map`;
 
-val riscv_names_def = save_thm("riscv_names_def",
+val riscv_names_def = save_thm("riscv_names_def[compute]",
   CONV_RULE (RAND_CONV EVAL) riscv_names_def);
 
 val source_conf = rconc(EVAL``prim_config.source_conf``)
