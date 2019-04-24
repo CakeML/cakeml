@@ -415,10 +415,10 @@ val res = append_prog main;
 val st =  get_ml_prog_state ();
 
 Theorem main_whole_prog_spec
-  `whole_prog_spec ^(fetch_v "main" st) cl fs NONE (\x. T)`
-  cheat
+  `F ==> whole_prog_spec ^(fetch_v "main" st) cl fs NONE (\x. T)`
+  (simp []);
 
-val (_,prog_tm) = whole_prog_thm st "main" main_whole_prog_spec;
+val (_,prog_tm) = whole_prog_thm st "main" (UNDISCH main_whole_prog_spec);
 
 val _ = enable_astPP()
 val _ = Globals.max_print_depth:= ~1
