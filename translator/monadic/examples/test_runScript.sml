@@ -81,7 +81,7 @@ val f11_def = Define `
       []    => return (0 : num)
     | x::xs => (do l <- f11 xs; return (1 + l) od)`;
 val f11_v_thm = m_translate f11_def;
-val f11_side_def = fetch "testRun" "f11_side_def"
+val f11_side_def = fetch "-" "f11_side_def"
 val f11_side_true = Q.prove(
     `!xs st. f11_side st xs`,
     Induct \\ rw[Once f11_side_def]
