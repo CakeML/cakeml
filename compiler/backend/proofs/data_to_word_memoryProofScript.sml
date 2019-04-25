@@ -7771,7 +7771,7 @@ val fix_clock_word_eq = prove(
   \\ PairCases_on `x` \\ fs [] \\ fs [fix_clock_def] \\ rw []
   \\ imp_res_tac word_eq_LESS_EQ \\ fs []);
 
-val word_eq_def = save_thm("word_eq_def",
+val word_eq_def = save_thm("word_eq_def[compute]",
   word_eq_def |> REWRITE_RULE [fix_clock_word_eq]);
 
 val word_eq_ind = save_thm("word_eq_ind",

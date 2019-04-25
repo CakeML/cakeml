@@ -587,7 +587,7 @@ Theorem fix_clock_evaluate
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,theorem "state_component_equality"]);
 
-val evaluate_def = save_thm("evaluate_def",
+val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 val evaluate_ind = save_thm("evaluate_ind",

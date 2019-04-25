@@ -283,7 +283,8 @@ val merge_def = tDefine "merge" `
    impl_tac >> simp[] >> Cases_on `ys` >> fs[] >> Cases_on `xs` >> fs[] >>
    rename1 `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[])
 val merge_def =
-    save_thm("merge_def[simp]", SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
+    save_thm("merge_def[simp,compute]",
+             SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def)
 
 (* Avoid MAP2 *)
 val merge_tup_def = tDefine "merge_tup" `
