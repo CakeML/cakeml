@@ -195,8 +195,7 @@ val _ = register "is_value" is_value_def is_value_ind;
 val (do_eq_def,do_eq_ind) =
   tprove_no_defn ((do_eq_def,do_eq_ind),
 wf_rel_tac `inv_image $< (λx. case x of INL (v1,v2) => v_size v1
-                                      | INR (vs1,vs2) => vs_size vs1)` >>
-srw_tac [ARITH_ss] [size_abbrevs, v_size_def]);
+                                      | INR (vs1,vs2) => v1_size vs1)`);
 val _ = register "do_eq" do_eq_def do_eq_ind;
 
 val (v_to_list_def,v_to_list_ind) =
@@ -246,49 +245,101 @@ val fix_clock_IMP = Q.prove(
 
 val (evaluate_def, evaluate_ind) =
   tprove_no_defn ((evaluateTheory.evaluate_def,evaluateTheory.evaluate_ind),
-  wf_rel_tac`inv_image ($< LEX $<)
+  WF_REL_TAC`inv_image ($< LEX $<)
     (λx. case x of
          | INL(s,_,es) => (s.clock,exps_size es)
-         | INR(s,_,_,pes,_) => (s.clock,pes_size pes))` >>
-  rw[size_abbrevs,exp_size_def,
-  dec_clock_def,LESS_OR_EQ,
-  do_if_def,do_log_def] >>
+         | INR(INL (s,_,_,pes,_)) => (s.clock,pes_size pes)
+         | INR(INR (s,_,ds)) => (s.clock,dec1_size ds))` >>
+  rw[size_abbrevs,exp_size_def,dec_clock_def,LESS_OR_EQ,
+     do_if_def,do_log_def] >>
   imp_res_tac fix_clock_IMP >>
-  simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
+  simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE] >>
+  (* TODO: sort out this mess *)
+  (fn (asm,g) => (List.app print_term asm; print "-----\n"; print_term g; print "\n\n"; ALL_TAC (asm,g))) >>
+  cheat);
+
+(* tidy up evalute_def and evaluate_ind *)
 
 Theorem evaluate_clock
   `(∀(s1:'ffi state) env e r s2. evaluate s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`
+   (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀(s1:'ffi state) env ds r s2. evaluate_decs s1 env ds = (s2,r) ⇒ s2.clock ≤ s1.clock)`
   (ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
   fs[dec_clock_def,fix_clock_def] >> simp[] >>
   imp_res_tac fix_clock_IMP >> fs[]);
 
 Theorem fix_clock_evaluate
-  `fix_clock s1 (evaluate s1 env e) = evaluate s1 env e`
+  `fix_clock s1 (evaluate s1 env e) = evaluate s1 env e /\
+   fix_clock s1 (evaluate_decs s1 env ds) = evaluate_decs s1 env ds`
   (Cases_on `evaluate s1 env e` \\ fs [fix_clock_def]
+  \\ Cases_on `evaluate_decs s1 env ds` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
   \\ fs [MIN_DEF,state_component_equality]);
 
-val evaluate_def = save_thm("evaluate_def",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
+val evaluate_def =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def
+  |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *);
+
+val evaluate_ind =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind
+  |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *);
+
+(* store evaluate_def and evaluate_ind in full and in parts *)
+
+val full_evaluate_def = save_thm("full_evaluate_def",evaluate_def);
+val full_evaluate_ind = save_thm("full_evaluate_ind",evaluate_ind);
+
+val eval_pat = ``evaluate$evaluate _ _ _``
+val evaluate_conjs =
+  CONJUNCTS full_evaluate_def
+  |> filter (fn th => (th |> SPEC_ALL |> concl |> dest_eq |> fst
+                          |> can (match_term eval_pat)));
+
+val match_pat = ``evaluate$evaluate_match _ _ _ _ _``
+val evaluate_match_conjs =
+  CONJUNCTS full_evaluate_def
+  |> filter (fn th => (th |> SPEC_ALL |> concl |> dest_eq |> fst
+                          |> can (match_term match_pat)));
+
+val decs_pat = ``evaluate$evaluate_decs _ _ _``
+val evaluate_decs_conjs =
+  CONJUNCTS full_evaluate_def
+  |> filter (fn th => (th |> SPEC_ALL |> concl |> dest_eq |> fst
+                          |> can (match_term decs_pat)));
+
+val evaluate_def = LIST_CONJ (evaluate_conjs @ evaluate_match_conjs);
+
+val evaluate_match_def = LIST_CONJ evaluate_match_conjs;
+
+val evaluate_decs_def = LIST_CONJ evaluate_decs_conjs;
 
 val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
+  full_evaluate_ind
+  |> Q.SPECL [`P1`,`P2`,`\v1 v2 v3. T`]
+  |> SIMP_RULE std_ss []
+  |> Q.GENL [`P1`,`P2`]);
+
+val evaluate_match_ind = save_thm("evaluate_match_ind",
+  full_evaluate_ind
+  |> Q.SPECL [`\v1 v2 v3. T`,`P2`,`\v1 v2 v3. T`]
+  |> SIMP_RULE std_ss []
+  |> Q.GEN `P2`);
+
+val evaluate_decs_ind = save_thm("evaluate_decs_ind",
+  full_evaluate_ind
+  |> Q.SPECL [`\v1 v2 v3. T`,`\v1 v2 v3 v4 v5. T`, `P`]
+  |> SIMP_RULE std_ss []
+  |> Q.GEN `P`);
 
 val _ = register "evaluate" evaluate_def evaluate_ind
+val _ = register "evaluate_match" evaluate_match_def evaluate_match_ind
+val _ = register "evaluate_decs" evaluate_decs_def evaluate_decs_ind
 
 val _ = export_rewrites["evaluate.list_result_def"];
 
 Theorem dec1_size_eq
   `dec1_size xs = list_size dec_size xs`
   (Induct_on `xs` \\ fs [dec_size_def, list_size_def]);
-
-val (evaluate_decs_def,evaluate_decs_ind) =
-  tprove_no_defn ((evaluate_decs_def,evaluate_decs_ind),
-  wf_rel_tac `measure (list_size dec_size o SND o SND)` >>
-  rw [dec1_size_eq]);
-
-val _ = register "evaluate_decs" evaluate_decs_def evaluate_decs_ind
 
 val _ = export_theory ();
