@@ -4,7 +4,7 @@
 *)
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "refStateProg"
+val _ = new_theory "ref_stateProg"
 
 (* Pattern matching
  * Note that `dtcase` has to be used from now on in the function definitions (and not `case`)

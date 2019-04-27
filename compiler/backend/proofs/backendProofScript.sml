@@ -1444,7 +1444,7 @@ Theorem compile_correct
     \\ match_mp_tac SUBSET_TRANS
     \\ asm_exists_tac
     \\ simp[Abbr`AA`,Abbr`BB`,Abbr`CC`]
-    \\ simp[linear_scanProofTheory.set_MAP_FST_toAList]
+    \\ simp[linear_scanProofTheory.set_MAP_FST_toAList_eq_domain]
     \\ conj_tac >- (
       reverse conj_tac
       >- (

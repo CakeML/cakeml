@@ -5,7 +5,7 @@
 
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "arrayLocalStateProg"
+val _ = new_theory "array_local_stateProg"
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -82,9 +82,7 @@ val test6_v_thm = test6_def |> m_translate;
 (* run translations *)
 (* test 1 *)
 val run_init_state_def =
-  ml_monadBaseLib.define_run ``:state_refs``
-                             ["farray1", "farray2"]
-                             "init_state"
+  define_run ``:state_refs`` ["farray1", "farray2"] "init_state"
 
 val run_test1_def = Define `
   run_test1 x state = run_init_state (test1 x) state`;
