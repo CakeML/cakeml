@@ -3,7 +3,7 @@
 *)
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "testAssum";
+val _ = new_theory "test_assumProg";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
