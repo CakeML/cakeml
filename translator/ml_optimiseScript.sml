@@ -160,6 +160,21 @@ in
       \\ disch_then (qspec_then `st1.clock+1` assume_tac)
       \\ asm_exists_tac \\ fs []
       \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
+    THEN1 (* App Eval *)
+     (rename1 `_ = (st1,Rval vs)`
+      \\ qpat_x_assum `(_,_) = _` (strip_assume_tac o GSYM)
+      \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
+      \\ rveq \\ fs [PULL_EXISTS]
+      \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+            ((st1 with clock := s.clock) with clock := st1.clock,Rval [envv; dsv])`
+               by fs [state_component_equality]
+      \\ first_x_assum drule \\ fs []
+      \\ strip_tac
+      \\ drule evaluate_set_clock
+      \\ disch_then (qspec_then `st1.clock` mp_tac) \\ fs []
+      \\ strip_tac \\ fs []
+      \\ qexists_tac `ck1''` \\ fs []
+      \\ fs [state_component_equality])
     THEN1 (* App other *)
      (rename1 `_ = (st1,Rval vs)`
       \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
