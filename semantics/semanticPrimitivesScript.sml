@@ -60,7 +60,9 @@ val _ = Hol_datatype `
    * recursive bundle this closure value represents *)
   | Recclosure of v sem_env => (varN # varN # exp) list => varN
   | Loc of num
-  | Vectorv of v list`;
+  | Vectorv of v list
+  (* Environment value for Eval *)
+  | Env of ( v sem_env)`;
 
 
 val _ = type_abbrev( "env_ctor" , ``: (modN, conN, (num # stamp)) namespace``);
@@ -386,6 +388,8 @@ val _ = Hol_datatype `
 ((do_eq:v -> v -> eq_result) (Recclosure _ _ _) (Closure _ _ _)=  (Eq_val T))
 /\
 ((do_eq:v -> v -> eq_result) (Recclosure _ _ _) (Recclosure _ _ _)=  (Eq_val T))
+/\
+((do_eq:v -> v -> eq_result) (Env _) (Env _)=  (Eq_val T))
 /\
 ((do_eq:v -> v -> eq_result) _ _=  Eq_type_error)
 /\
@@ -913,6 +917,20 @@ val _ = Define `
 val _ = Define `
  ((extend_dec_env:(v)sem_env ->(v)sem_env ->(v)sem_env) new_env env=
    (<| c := (nsAppend new_env.c env.c); v := (nsAppend new_env.v env.v) |>))`;
+
+
+(*val v_to_decs : v -> maybe (list dec)*)
+val _ = Define `
+ ((v_to_decs:v ->((dec)list)option) v=  NONE)`;
+
+
+(*val v_to_env : v -> maybe (sem_env v)*)
+val _ = Define `
+ ((v_to_env:v ->((v)sem_env)option) v=
+   ((case v of
+    Env env => SOME env
+  | _ => NONE
+  )))`;
 
 
 (*

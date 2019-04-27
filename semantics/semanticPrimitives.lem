@@ -46,6 +46,8 @@ type v =
   | Recclosure of sem_env v * list (varN * varN * exp) * varN
   | Loc of nat
   | Vectorv of list v
+  (* Environment value for Eval *)
+  | Env of (sem_env v)
 
 type env_ctor = namespace modN conN (nat * stamp)
 type env_val = namespace modN varN v
@@ -308,6 +310,8 @@ and
 do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_val true
 and
 do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_val true
+and
+do_eq (Env _) (Env _) = Eq_val true
 and
 do_eq _ _ = Eq_type_error
 and
@@ -782,6 +786,16 @@ let combine_dec_result env r =
 val extend_dec_env : sem_env v -> sem_env v -> sem_env v
 let extend_dec_env new_env env =
   <| c = nsAppend new_env.c env.c; v = nsAppend new_env.v env.v |>
+
+val v_to_decs : v -> maybe (list dec)
+let v_to_decs v = Nothing
+
+val v_to_env : v -> maybe (sem_env v)
+let v_to_env v =
+  match v with
+  | Env env -> Just env
+  | _ -> Nothing
+  end
 
 (*
 val decs_to_types : list dec -> list typeN
