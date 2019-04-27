@@ -148,6 +148,8 @@ val is_clock_io_mono_def = Define
   `is_clock_io_mono f s = (case f s of (s', r) =>
         io_events_mono s.ffi s'.ffi
         /\ s'.clock <= s.clock
+        /\ s.next_type_stamp <= s'.next_type_stamp
+        /\ s.next_exn_stamp <= s'.next_exn_stamp
         /\ (!clk. case f (s with clock := clk) of (s'', r') =>
             (~ (r' = Rerr (Rabort Rtimeout_error))
                 ==> ~ (r = Rerr (Rabort Rtimeout_error))
@@ -546,6 +548,96 @@ val option_CASE_fst_cong = Q.prove(
    (c, option_CASE r f (λb. g b))`,
   Cases_on`r` \\ fs[]);
 
+Theorem evaluate_next_type_stamp_mono
+  `(evaluate (s:'ffi state) env es = (s',res1) ==>
+    s.next_type_stamp ≤ s'.next_type_stamp) /\
+   (evaluate_match (s:'ffi state) env v pes err_v = (s',res2) ==>
+    s.next_type_stamp ≤ s'.next_type_stamp) /\
+   (evaluate_decs (s:'ffi state) env ds = (s',res3) ==>
+    s.next_type_stamp ≤ s'.next_type_stamp)`
+ (rpt conj_tac \\ strip_tac
+  \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT1 |> SPEC_ALL)
+  \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT2 |> CONJUNCT1 |> SPEC_ALL)
+  \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT2 |> CONJUNCT2 |> SPEC_ALL)
+  \\ fs [is_clock_io_mono_def] \\ rfs []);
+
+Theorem evaluate_next_exn_stamp_mono
+  `(evaluate (s:'ffi state) env es = (s',res1) ==>
+    s.next_exn_stamp ≤ s'.next_exn_stamp) /\
+   (evaluate_match (s:'ffi state) env v pes err_v = (s',res2) ==>
+    s.next_exn_stamp ≤ s'.next_exn_stamp) /\
+   (evaluate_decs (s:'ffi state) env ds = (s',res3) ==>
+    s.next_exn_stamp ≤ s'.next_exn_stamp)`
+ (rpt conj_tac \\ strip_tac
+  \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT1 |> SPEC_ALL)
+  \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT2 |> CONJUNCT1 |> SPEC_ALL)
+  \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT2 |> CONJUNCT2 |> SPEC_ALL)
+  \\ fs [is_clock_io_mono_def] \\ rfs []);
+
+val evaluate_next_type_stamp_sandwich = Q.prove(
+  `evaluate s env exp = (s',r) ∧
+   evaluate s''' env' exp' = (s'',r') ∧
+   s'''.next_type_stamp = s'.next_type_stamp ∧
+   s''.next_type_stamp = s.next_type_stamp
+   ⇒ s'.next_type_stamp = s.next_type_stamp`,
+  rw[] \\ imp_res_tac evaluate_next_type_stamp_mono \\ fs []);
+
+val evaluate_match_next_type_stamp_sandwich = Q.prove(
+  `evaluate s env exp = (s',r) ∧
+   evaluate_match s''' env' x1 x2 x3 = (s'',r') ∧
+   s'''.next_type_stamp = s'.next_type_stamp ∧
+   s''.next_type_stamp = s.next_type_stamp
+   ⇒ s'.next_type_stamp = s.next_type_stamp`,
+  rw[] \\ imp_res_tac evaluate_next_type_stamp_mono \\ fs []);
+
+val evaluate_decs_next_type_stamp_sandwich = Q.prove(
+  `evaluate s env exp = (s',r) ∧
+   evaluate_decs s''' env' ds = (s'',r') ∧
+   s'''.next_type_stamp = s'.next_type_stamp ∧
+   s''.next_type_stamp = s.next_type_stamp
+   ⇒ s'.next_type_stamp = s.next_type_stamp`,
+  rw[] \\ imp_res_tac evaluate_next_type_stamp_mono \\ fs []);
+
+val evaluate_decs_decs_next_type_stamp_sandwich = Q.prove(
+  `evaluate_decs s env exp = (s',r) ∧
+   evaluate_decs s''' env' ds = (s'',r') ∧
+   s'''.next_type_stamp = s'.next_type_stamp ∧
+   s''.next_type_stamp = s.next_type_stamp
+   ⇒ s'.next_type_stamp = s.next_type_stamp`,
+  rw[] \\ imp_res_tac evaluate_next_type_stamp_mono \\ fs []);
+
+val evaluate_next_exn_stamp_sandwich = Q.prove(
+  `evaluate s env exp = (s',r) ∧
+   evaluate s''' env' exp' = (s'',r') ∧
+   s'''.next_exn_stamp = s'.next_exn_stamp ∧
+   s''.next_exn_stamp = s.next_exn_stamp
+   ⇒ s'.next_exn_stamp = s.next_exn_stamp`,
+  rw[] \\ imp_res_tac evaluate_next_exn_stamp_mono \\ fs []);
+
+val evaluate_match_next_exn_stamp_sandwich = Q.prove(
+  `evaluate s env exp = (s',r) ∧
+   evaluate_match s''' env' x1 x2 x3 = (s'',r') ∧
+   s'''.next_exn_stamp = s'.next_exn_stamp ∧
+   s''.next_exn_stamp = s.next_exn_stamp
+   ⇒ s'.next_exn_stamp = s.next_exn_stamp`,
+  rw[] \\ imp_res_tac evaluate_next_exn_stamp_mono \\ fs []);
+
+val evaluate_decs_next_exn_stamp_sandwich = Q.prove(
+  `evaluate s env exp = (s',r) ∧
+   evaluate_decs s''' env' ds = (s'',r') ∧
+   s'''.next_exn_stamp = s'.next_exn_stamp ∧
+   s''.next_exn_stamp = s.next_exn_stamp
+   ⇒ s'.next_exn_stamp = s.next_exn_stamp`,
+  rw[] \\ imp_res_tac evaluate_next_exn_stamp_mono \\ fs []);
+
+val evaluate_decs_decs_next_exn_stamp_sandwich = Q.prove(
+  `evaluate_decs s env exp = (s',r) ∧
+   evaluate_decs s''' env' ds = (s'',r') ∧
+   s'''.next_exn_stamp = s'.next_exn_stamp ∧
+   s''.next_exn_stamp = s.next_exn_stamp
+   ⇒ s'.next_exn_stamp = s.next_exn_stamp`,
+  rw[] \\ imp_res_tac evaluate_next_exn_stamp_mono \\ fs []);
+
 Theorem evaluate_ffi_intro `
   (∀(s:'a state) env e s' r.
      evaluate s env e = (s',r) ∧
@@ -808,6 +900,278 @@ Theorem evaluate_ffi_intro `
     >- (rveq \\ fs [])
     \\ `q.ffi = s.ffi` by metis_tac[evaluate_decs_ffi_sandwich]
     \\ fs [] ));
+
+Theorem evaluate_set_next_type_stamp `
+  (∀(s0:'a state) env xs s1 res k.
+     evaluate s0 env xs = (s1,res) /\
+     s1.next_type_stamp = s0.next_type_stamp ==>
+     evaluate (s0 with next_type_stamp := k) env xs =
+              (s1 with next_type_stamp := k,res)) ∧
+  (∀(s0:'a state) env v pes errv s1 res k.
+     evaluate_match s0 env v pes errv = (s1,res) ∧
+     s1.next_type_stamp = s0.next_type_stamp ==>
+     evaluate_match (s0 with next_type_stamp := k) env v pes errv =
+                    (s1 with next_type_stamp := k,res)) ∧
+  (∀(s0:'a state) env ds s1 res k.
+     evaluate_decs s0 env ds = (s1,res) ∧
+     s1.next_type_stamp = s0.next_type_stamp ==>
+     evaluate_decs (s0 with next_type_stamp := k) env ds =
+                   (s1 with next_type_stamp := k,res))`
+  (ho_match_mp_tac full_evaluate_ind
+  \\ fs [full_evaluate_def]
+  \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC
+    \\ rw [] \\ sg `s0.next_type_stamp = q.next_type_stamp` \\ fs []
+    \\ metis_tac [evaluate_next_type_stamp_sandwich])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC \\ rw [] \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ rw [] \\ rfs []
+    \\ sg `s0.next_type_stamp = q.next_type_stamp` \\ fs []
+    \\ metis_tac [evaluate_match_next_type_stamp_sandwich])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ rw [] \\ rfs [])
+  >- (
+    TOP_CASE_TAC \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ Cases_on `op = Opapp` \\ fs []
+    >- (
+      TOP_CASE_TAC \\ fs [] \\ TOP_CASE_TAC \\ fs []
+      \\ TOP_CASE_TAC \\ fs [] >- (rw [] \\ fs [])
+      \\ strip_tac
+      \\ `(dec_clock q).next_type_stamp = q.next_type_stamp` by EVAL_TAC
+      \\ `q.next_type_stamp = s0.next_type_stamp` by
+           metis_tac [evaluate_next_type_stamp_sandwich] \\ fs []
+      \\ fs [dec_clock_def])
+    \\ Cases_on `op = Eval` \\ fs []
+    >- (
+      reverse (Cases_on `?a1 a2. a = [a1;a2]`)
+      >-
+       (Cases_on `a` \\ fs [] \\ rename [`a = [_]`]
+        \\ Cases_on `a` \\ fs [] \\ rename [`a <> []`]
+        \\ Cases_on `a` \\ fs [])
+      \\ fs [] \\ rveq \\ fs []
+      \\ TOP_CASE_TAC \\ fs []
+      \\ TOP_CASE_TAC \\ fs []
+      \\ TOP_CASE_TAC \\ fs []
+      >- (rw [] \\ fs [])
+      \\ TOP_CASE_TAC \\ fs [] \\ fs [dec_clock_def]
+      \\ Cases_on `r` \\ fs []
+      \\ rw [] \\ fs []
+      \\ `(q with clock := q.clock − 1).next_type_stamp =
+          q.next_type_stamp` by EVAL_TAC
+      \\ `q.next_type_stamp = s0.next_type_stamp`
+            by metis_tac [evaluate_decs_next_type_stamp_sandwich]
+      \\ fs [])
+    \\ TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ PairCases_on `x` \\ fs [] \\ rw [] \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_type_stamp = q.next_type_stamp` \\ fs []
+    \\ metis_tac [evaluate_next_type_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_type_stamp = q.next_type_stamp` \\ fs []
+    \\ metis_tac [evaluate_next_type_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_type_stamp = q.next_type_stamp` \\ fs []
+    \\ metis_tac [evaluate_match_next_type_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_type_stamp = q.next_type_stamp` \\ fs []
+    \\ metis_tac [evaluate_next_type_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ TOP_CASE_TAC \\ fs []
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_type_stamp = q.next_type_stamp` \\ fs []
+    \\ metis_tac [evaluate_decs_decs_next_type_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ TOP_CASE_TAC \\ fs []
+    \\ fs [] \\ rw [] \\ fs [] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ fs [] \\ rw [] \\ fs [] \\ EVAL_TAC )
+  >- (
+    TOP_CASE_TAC \\ fs [] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_type_stamp = q.next_type_stamp` \\ fs []
+    \\ metis_tac [evaluate_decs_decs_next_type_stamp_sandwich] ));
+
+Theorem evaluate_set_next_exn_stamp `
+  (∀(s0:'a state) env xs s1 res k.
+     evaluate s0 env xs = (s1,res) /\
+     s1.next_exn_stamp = s0.next_exn_stamp ==>
+     evaluate (s0 with next_exn_stamp := k) env xs =
+              (s1 with next_exn_stamp := k,res)) ∧
+  (∀(s0:'a state) env v pes errv s1 res k.
+     evaluate_match s0 env v pes errv = (s1,res) ∧
+     s1.next_exn_stamp = s0.next_exn_stamp ==>
+     evaluate_match (s0 with next_exn_stamp := k) env v pes errv =
+                    (s1 with next_exn_stamp := k,res)) ∧
+  (∀(s0:'a state) env ds s1 res k.
+     evaluate_decs s0 env ds = (s1,res) ∧
+     s1.next_exn_stamp = s0.next_exn_stamp ==>
+     evaluate_decs (s0 with next_exn_stamp := k) env ds =
+                   (s1 with next_exn_stamp := k,res))`
+  (ho_match_mp_tac full_evaluate_ind
+  \\ fs [full_evaluate_def]
+  \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC
+    \\ rw [] \\ sg `s0.next_exn_stamp = q.next_exn_stamp` \\ fs []
+    \\ metis_tac [evaluate_next_exn_stamp_sandwich])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC \\ rw [] \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ rw [] \\ rfs []
+    \\ sg `s0.next_exn_stamp = q.next_exn_stamp` \\ fs []
+    \\ metis_tac [evaluate_match_next_exn_stamp_sandwich])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ rw [] \\ rfs [])
+  >- (
+    TOP_CASE_TAC \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ Cases_on `op = Opapp` \\ fs []
+    >- (
+      TOP_CASE_TAC \\ fs [] \\ TOP_CASE_TAC \\ fs []
+      \\ TOP_CASE_TAC \\ fs [] >- (rw [] \\ fs [])
+      \\ strip_tac
+      \\ `(dec_clock q).next_exn_stamp = q.next_exn_stamp` by EVAL_TAC
+      \\ `q.next_exn_stamp = s0.next_exn_stamp` by
+           metis_tac [evaluate_next_exn_stamp_sandwich] \\ fs []
+      \\ fs [dec_clock_def])
+    \\ Cases_on `op = Eval` \\ fs []
+    >- (
+      reverse (Cases_on `?a1 a2. a = [a1;a2]`)
+      >-
+       (Cases_on `a` \\ fs [] \\ rename [`a = [_]`]
+        \\ Cases_on `a` \\ fs [] \\ rename [`a <> []`]
+        \\ Cases_on `a` \\ fs [])
+      \\ fs [] \\ rveq \\ fs []
+      \\ TOP_CASE_TAC \\ fs []
+      \\ TOP_CASE_TAC \\ fs []
+      \\ TOP_CASE_TAC \\ fs []
+      >- (rw [] \\ fs [])
+      \\ TOP_CASE_TAC \\ fs [] \\ fs [dec_clock_def]
+      \\ Cases_on `r` \\ fs []
+      \\ rw [] \\ fs []
+      \\ `(q with clock := q.clock − 1).next_exn_stamp =
+          q.next_exn_stamp` by EVAL_TAC
+      \\ `q.next_exn_stamp = s0.next_exn_stamp`
+            by metis_tac [evaluate_decs_next_exn_stamp_sandwich]
+      \\ fs [])
+    \\ TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ PairCases_on `x` \\ fs [] \\ rw [] \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_exn_stamp = q.next_exn_stamp` \\ fs []
+    \\ metis_tac [evaluate_next_exn_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_exn_stamp = q.next_exn_stamp` \\ fs []
+    \\ metis_tac [evaluate_next_exn_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_exn_stamp = q.next_exn_stamp` \\ fs []
+    \\ metis_tac [evaluate_match_next_exn_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_exn_stamp = q.next_exn_stamp` \\ fs []
+    \\ metis_tac [evaluate_next_exn_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC \\ fs [])
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ TOP_CASE_TAC \\ fs []
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_exn_stamp = q.next_exn_stamp` \\ fs []
+    \\ metis_tac [evaluate_decs_decs_next_exn_stamp_sandwich] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ TOP_CASE_TAC \\ fs []
+    \\ fs [] \\ rw [] \\ fs [] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ fs [] \\ rw [] \\ fs [] \\ EVAL_TAC )
+  >- (
+    TOP_CASE_TAC \\ fs [] )
+  >- (
+    TOP_CASE_TAC \\ fs []
+    \\ reverse TOP_CASE_TAC >- (rw [] \\ fs [])
+    \\ fs [] \\ rw [] \\ fs []
+    \\ sg `s0.next_exn_stamp = q.next_exn_stamp` \\ fs []
+    \\ metis_tac [evaluate_decs_decs_next_exn_stamp_sandwich] ));
 
 Theorem is_clock_io_mono_set_clock
   `is_clock_io_mono f s
