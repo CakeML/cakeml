@@ -663,6 +663,9 @@ Theorem infer_d_sound
     >> fs [set_ids_def,EXTENSION,DISJOINT_DEF]
   )
   >- (
+    rename [`Denv`]
+    >> fs [infer_d_def,failwith_def])
+  >- (
     (* infer_ds [] *)
     fs[infer_d_def,success_eqns,env_rel_def]>>
     rw[] >> EVAL_TAC)

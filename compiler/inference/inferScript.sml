@@ -397,6 +397,7 @@ val op_to_string_def = Define `
 (op_to_string Alength = (implode "Alength", 1)) ∧
 (op_to_string Aupdate = (implode "Aupdate", 3)) ∧
 (op_to_string ConfigGC = (implode "ConfigGC", 2)) ∧
+(op_to_string Eval = (implode "Eval", 2)) ∧
 (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
 (op_to_string (FFI _) = (implode "FFI", 2))`;
 
@@ -602,6 +603,8 @@ constrain_op l op ts =
           () <- add_constraint l t2 (Infer_Tapp [] Tword8array_num);
           return (Infer_Tapp [] Ttup_num)
        od
+   | (Eval, [t1;t2]) =>
+       failwith l (strlit "Type mismatch: Eval unsupported")
    | _ =>
          failwith l (
          let (ops, args) = op_to_string op in
@@ -635,7 +638,8 @@ Theorem constrain_op_error_msg_sanity
  every_case_tac >>
  fs [] >>
  rw [] >>
- fs [mlstringTheory.concat_thm, Abbr `m`]);
+ fs [mlstringTheory.concat_thm, Abbr `m`] >>
+ fs [failwith_def] >> rw [] >> fs []);
 
 val infer_e_def = tDefine "infer_e" `
 (infer_e l ienv (Raise e) =
@@ -892,6 +896,9 @@ val infer_d_def = Define `
               inf_c := nsSing cn ([], ts', Texn_num);
               inf_t := nsEmpty |>
   od) ∧
+(infer_d ienv (Denv n) =
+  failwith <| loc := NONE; err := ienv.inf_t |>
+    (strlit "Env declaration (Denv) is not supported.")) ∧
 (infer_d ienv (Dmod mn ds) =
   do ienv' <- infer_ds ienv ds;
      return (lift_ienv mn ienv')
