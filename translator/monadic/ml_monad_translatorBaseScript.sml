@@ -52,6 +52,8 @@ val VALID_REFS_PRED_def = Define `
 val REFS_PRED_FRAME_def = Define `
   REFS_PRED_FRAME ro (h,p:'ffi ffi_proj) (refs1, s1) (refs2, s2) <=>
     (ro ==> ?refs. s2 = s1 with refs := refs) /\
+    s2.next_type_stamp = s1.next_type_stamp /\
+    s2.next_exn_stamp = s1.next_exn_stamp /\
     !F. (h refs1 * F) (st2heap p s1) ==> (h refs2 * F * GC) (st2heap p s2)`;
 
 Theorem EMP_STAR_GC
