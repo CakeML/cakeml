@@ -620,7 +620,8 @@ val sexpop_def = Define`
   if s = "Asub" then SOME Asub else
   if s = "Alength" then SOME Alength else
   if s = "Aupdate" then SOME Aupdate else
-  if s = "ConfigGC" then SOME ConfigGC else NONE) ∧
+  if s = "ConfigGC" then SOME ConfigGC else
+  if s = "Eval" then SOME Eval else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_STR s')) =
      if s = "FFI" then OPTION_MAP FFI (decode_control s') else NONE
    ) ∧
@@ -930,6 +931,8 @@ val sexpdec_def = tDefine"sexpdec"`
                            (odestSEXSTR (EL 2 args)) <*>
                            (sexptype (EL 3 args)))
                             ++
+      guard (nm = "Denv" ∧ LENGTH args = 1)
+            (lift Denv (odestSEXSTR (EL 0 args))) ++
       guard (nm = "Dexn" ∧ LENGTH args = 3)
             (lift Dexn (sexplocn (EL 0 args)) <*>
                        (odestSEXSTR (EL 1 args)) <*>
@@ -965,6 +968,8 @@ val sexpdec_alt_def = tDefine"sexpdec_alt"`
                            (sexplist odestSEXSTR (EL 1 args)) <*>
                            (odestSEXSTR (EL 2 args)) <*>
                            (sexptype_alt (EL 3 args))) else
+      if nm = "Denv" ∧ LENGTH args = 1 then
+            (lift Denv (odestSEXSTR (EL 0 args))) else
       if nm = "Dexn" ∧ LENGTH args = 3 then
             (lift Dexn (sexplocn (EL 0 args)) <*>
                        (odestSEXSTR (EL 1 args)) <*>
@@ -1003,7 +1008,7 @@ Theorem sexpdec_alt_intro
     rw[Once sexpdec_def,Once sexpdec_alt_def,sexppat_alt_intro1,sexpexp_alt_intro1,sexptype_alt_intro1]
     \\ TOP_CASE_TAC \\ fs[]
     \\ TOP_CASE_TAC \\ fs[]
-    \\ rw[] \\ rfs[] \\ fsrw_tac[ETA_ss][] )
+    \\ rw[] \\ rfs[] \\ fsrw_tac[ETA_ss][])
   >- (
     rw[Once sexplist_def,Once (CONJUNCT2 sexpdec_alt_def)] \\
     TOP_CASE_TAC \\ fs[] \\
@@ -1185,6 +1190,7 @@ val opsexp_def = Define`
   (opsexp Alength = SX_SYM "Alength") ∧
   (opsexp Aupdate = SX_SYM "Aupdate") ∧
   (opsexp ConfigGC = SX_SYM "ConfigGC") ∧
+  (opsexp Eval = SX_SYM "Eval") ∧
   (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s))`;
 
 Theorem sexpop_opsexp[simp]
@@ -1295,6 +1301,7 @@ val decsexp_def = tDefine "decsexp"`
                listsexp (MAP (λ(f,x,e). SX_CONS (SEXSTR f) (SX_CONS (SEXSTR x) (expsexp e))) funs)]) ∧
   (decsexp (Dtype locs td) = listsexp [SX_SYM "Dtype"; locnsexp locs; type_defsexp td]) ∧
   (decsexp (Dtabbrev locs ns x t) = listsexp [SX_SYM "Dtabbrev"; locnsexp locs; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t]) ∧
+  (decsexp (Denv name) = listsexp [SX_SYM "Denv"; SEXSTR name]) ∧
   (decsexp (Dexn locs x ts) = listsexp [SX_SYM "Dexn"; locnsexp locs; SEXSTR x; listsexp (MAP typesexp ts)]) ∧
   (decsexp (Dmod name decs) = listsexp [SX_SYM "Dmod"; SEXSTR name; listsexp (MAP decsexp decs)]) ∧
   decsexp (Dlocal ldecs decs) = listsexp [SX_SYM "Dlocal";
@@ -1777,7 +1784,7 @@ Theorem decsexp_sexpdec
   \\ fs[dstrip_sexp_SOME]
   \\ rpt var_eq_tac
   \\ rename1 `guard (nm = _ ∧ _) _`
-  \\ Cases_on `nm ∈ {"Dlet"; "Dletrec"; "Dtype"; "Dtabbrev"; "Dexn"; "Dmod"}`
+  \\ Cases_on `nm ∈ {"Dlet"; "Dletrec"; "Dtype"; "Dtabbrev"; "Denv"; "Dexn"; "Dmod"}`
   \\ fs[]
   \\ fs[decsexp_def, LENGTH_EQ_NUM_compute, listsexp_def]
   \\ rveq \\ fs[OPTION_APPLY_MAP3,OPTION_APPLY_MAP4]
