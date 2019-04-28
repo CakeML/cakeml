@@ -2062,14 +2062,20 @@ val cf_cases_evaluate_match = Q.prove (
         | Val v' => ?ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rval [v']) /\
+          st'.next_type_stamp = st.next_type_stamp /\
+          st'.next_exn_stamp = st.next_exn_stamp /\
           st2heap p st' = heap
         | Exn e => ?ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rerr (Rraise e)) /\
+          st'.next_type_stamp = st.next_type_stamp /\
+          st'.next_exn_stamp = st.next_exn_stamp /\
           st2heap p st' = heap
         | FFIDiv name conf bytes => ∃ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+          st'.next_type_stamp = st.next_type_stamp /\
+          st'.next_exn_stamp = st.next_exn_stamp /\
           st2heap p st' = heap
         | Div io =>
           (∀ck. ?st'. evaluate_match (st with clock := ck) env v rows nomatch_exn =
@@ -2092,7 +2098,6 @@ val cf_cases_evaluate_match = Q.prove (
   rename1 `H1 h1` \\ rename1 `H2 h2` \\
   fs [STARPOST_def, SEP_IMPPOST_def, SEP_IMP_def, STAR_def] \\
   `SPLIT (st2heap p st) (h1, h2 UNION h_k)` by SPLIT_TAC \\
-
   rename1 `v_of_pat_norest _ (FST row) _` \\ Cases_on `row` \\ fs [] \\
   rename1 `v_of_pat_norest _ pat _` \\ rename1 `sound _ row_cf _` \\
   first_assum (qspec_then `st.refs` assume_tac) \\
@@ -2100,7 +2105,6 @@ val cf_cases_evaluate_match = Q.prove (
     (strip_assume_tac o REWRITE_RULE [validate_pat_def]) \\
   simp [terminationTheory.evaluate_def] \\
   full_case_tac \\ fs []
-
   THEN1 ((* No_match *)
     every_case_tac \\ fs []
     THEN1 (progress v_of_pat_norest_pmatch \\ fs [])
@@ -2554,7 +2558,6 @@ Theorem cf_sound
       )
     )
   )
-
   THEN1 (
     (* Letrec; the bulk of the proof is done in [cf_letrec_sound] *)
     HO_MATCH_MP_TAC sound_local \\ simp [MAP_MAP_o, o_DEF, LAMBDA_PROD] \\
@@ -2575,6 +2578,8 @@ Theorem cf_sound
       (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
       irule cf_ffi_sound
     ) \\
+    Cases_on `op = Eval` \\ fs [] THEN1
+      (fs [sound_def,local_def] \\ rw [] \\ fs [htriple_valid_def]) \\
     Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
     (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
     cf_strip_sound_tac \\
@@ -2590,7 +2595,7 @@ Theorem cf_sound
       fs [state_component_equality]
     )
     THEN1 (
-      (* Equality *)
+      rename [`Equality`] \\
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\ fs [do_app_def, app_equality_def] \\
@@ -2601,7 +2606,7 @@ Theorem cf_sound
     THEN1 (
       (* Opapp *)
       rename1 `dest_opapp _ = SOME (f, xs)` \\
-      schneiderUtils.UNDISCH_ALL_TAC \\ SPEC_ALL_TAC \\
+      rpt (pop_assum mp_tac) \\ SPEC_ALL_TAC \\
       CONV_TAC (RESORT_FORALL_CONV (fn l =>
         (op @) (partition (fn v => fst (dest_var v) = "xs") l))) \\
       gen_tac \\ completeInduct_on `LENGTH xs` \\ rpt strip_tac \\
@@ -2747,8 +2752,8 @@ Theorem cf_sound
           (* res = Val _ || res = Exn _ *)
           rename1 `SPLIT3 (st2heap _ st2) (h_f', _, h_g')` \\
           `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f', h_k, h_g' UNION h_g)`
-            by SPLIT_TAC \\
-          instantiate \\
+            by SPLIT_TAC \\ rfs [] \\
+          asm_exists_tac \\ fs [] \\
           NTAC 2 (simp [Once terminationTheory.evaluate_def]) \\
           (* Instantiate the clock, cleanup *)
           cf_exp2v_evaluate_tac `st with clock := ck + ck' + 1` \\
@@ -3202,7 +3207,8 @@ Theorem cf_sound
         \\ qexists_tac `fromList st2.ffi.io_events` \\ rw []
         THEN1 (qexists_tac `ck2` \\ rw [])
         \\ `st'.ffi.io_events ≼ st2.ffi.io_events` by (
-          drule (CONJUNCT2 evaluatePropsTheory.evaluate_io_events_mono_imp)
+          drule (CONJUNCT2 evaluatePropsTheory.evaluate_io_events_mono_imp
+                 |> CONJUNCT1)
           \\ rw [evaluatePropsTheory.io_events_mono_def])
         \\ rw [LPREFIX_fromList_fromList]
         \\ irule isPREFIX_TRANS
@@ -3269,13 +3275,19 @@ Theorem cf_sound'
        case r of
           | Val v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
+            st'.next_type_stamp = st.next_type_stamp ∧
+            st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap
           | Exn v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
+            st'.next_type_stamp = st.next_type_stamp ∧
+            st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
             (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+            st'.next_type_stamp = st.next_type_stamp ∧
+            st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap
           | Div io =>
             (∀ck. ?st'. evaluate (st with clock := ck) env [e] =
@@ -3298,13 +3310,19 @@ Theorem cf_sound_local
        case r of
           | Val v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
+            st'.next_type_stamp = st.next_type_stamp ∧
+            st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap
           | Exn v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
+            st'.next_type_stamp = st.next_type_stamp ∧
+            st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
             (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+            st'.next_type_stamp = st.next_type_stamp ∧
+            st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap
           | Div io =>
             (∀ck. ?st'. evaluate (st with clock := ck) env [e] =
