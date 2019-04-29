@@ -1,5 +1,5 @@
 (*
-  Define the compiler configuration for ARMv6
+  Define the compiler configuration for ARMv7
 *)
 open preamble backendTheory arm7_targetTheory arm7_targetLib
 

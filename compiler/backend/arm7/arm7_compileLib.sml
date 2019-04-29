@@ -1,5 +1,5 @@
 (*
-  Provides a compset for the ARMv6-specific parts of the backend
+  Provides a compset for the ARMv7-specific parts of the backend
 *)
 structure arm7_compileLib =
 struct

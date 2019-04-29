@@ -1,5 +1,5 @@
 (*
-  Define the format of the compiler-generated .S file for ARMv6
+  Define the format of the compiler-generated .S file for ARMv7
 *)
 open preamble exportTheory
 
