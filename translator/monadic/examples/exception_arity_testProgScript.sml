@@ -4,7 +4,7 @@
 
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "exceptionArityTestProg"
+val _ = new_theory "exception_arity_testProg"
 
 (* Data type for the exceptions *)
 val _ = Hol_datatype`

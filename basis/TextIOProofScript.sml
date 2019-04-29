@@ -1236,15 +1236,14 @@ Theorem EvalM_print
     EvalM F env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE exc_ty (print x))
       (MONAD_IO,p:'ffi ffi_proj)`
-  (ho_match_mp_tac EvalM_from_app \\ rw [print_def]
-  \\ fs [MONAD_IO_def]
-  \\ xpull
-  \\ fs [SEP_CLAUSES]
-  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
-  \\ drule (GEN_ALL print_spec)
-  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
-  \\ asm_exists_tac \\ fs []
-  \\ xsimpl);
+  (
+    ho_match_mp_tac EvalM_from_app \\ rw [print_def]
+    \\ fs [MONAD_IO_def]
+    \\ xpull
+    \\ fs [SEP_CLAUSES]
+    \\ xapp_spec print_spec
+    \\ fs[]
+  );
 
 Theorem output_stderr_spec
   `!fs sv s fdv.
@@ -1277,15 +1276,14 @@ Theorem EvalM_print_err
     EvalM F env st (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
       (MONAD UNIT_TYPE exc_ty (print_err x))
       (MONAD_IO,p:'ffi ffi_proj)`
-  (ho_match_mp_tac EvalM_from_app \\ rw [print_err_def]
-  \\ fs [MONAD_IO_def]
-  \\ xpull
-  \\ fs [SEP_CLAUSES]
-  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
-  \\ drule (GEN_ALL print_err_spec)
-  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
-  \\ asm_exists_tac \\ fs []
-  \\ xsimpl);
+  (
+    ho_match_mp_tac EvalM_from_app \\ rw [print_err_def]
+    \\ fs [MONAD_IO_def]
+    \\ xpull
+    \\ fs [SEP_CLAUSES]
+    \\ xapp_spec print_err_spec
+    \\ fs[]
+  );
 
 Theorem read_spec
   `!fs fd fdv n nv rest h1 h2 h3 h4. wfFS fs ⇒ FD fd fdv ⇒ NUM n nv ⇒
@@ -2164,18 +2162,14 @@ Theorem EvalM_inputLinesFrom
       (MONAD (OPTION_TYPE (LIST_TYPE STRING_TYPE)) exc_ty (inputLinesFrom f))
       (MONAD_IO,p:'ffi ffi_proj)`
   (ho_match_mp_tac EvalM_from_app
-  \\ conj_tac >- rw [inputLinesFrom_def]
-  \\ rw [MONAD_IO_def]
-  \\ REVERSE(Cases_on`consistentFS s`)
-  >-(fs[STDIO_def, IOFS_def,wfFS_def,consistentFS_def] >> xpull >> res_tac)
-  \\ xpull
-  \\ fs [SEP_CLAUSES]
-  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
-  \\ drule (GEN_ALL inputLinesFrom_spec)
-  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
-  \\ rfs [inputLinesFrom_def]
-  \\ asm_exists_tac \\ fs []
-  \\ xsimpl);
+    \\ rw[inputLinesFrom_def]
+    \\ rw[MONAD_IO_def]
+    \\ xpull
+    \\ fs[SEP_CLAUSES]
+    \\ xapp_spec inputLinesFrom_spec
+    \\ fs[]
+    \\ rpt (xsimpl \\ asm_exists_tac)
+  );
 
 Theorem inputAll_spec
   `INSTREAM fd fdv ∧

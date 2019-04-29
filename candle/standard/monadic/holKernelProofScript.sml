@@ -39,15 +39,9 @@ val _ = temp_overload_on("impossible_term",``holSyntax$Comb (Var (strlit "x") Bo
 (* case_eq theorems                                                          *)
 (* ------------------------------------------------------------------------- *)
 
-fun get_thms ty =
-  { case_def = TypeBase.case_def_of ty
-  , nchotomy = TypeBase.nchotomy_of ty }
-
 val case_eq_thms =
-  LIST_CONJ (pair_case_eq::map (prove_case_eq_thm o get_thms)
-    [ ``:'a list`` , ``:'a option``
-    , ``:type``, ``:term``, ``:thm``, ``:update``
-    , ``:hol_exn``, ``:('a, 'b) exc`` ])
+  CaseEqs ["prod", "list", "option", "type", "term", "thm", "update",
+           "hol_exn", "exc"];
 
 (* ------------------------------------------------------------------------- *)
 (* Refinement invariants                                                     *)
@@ -285,7 +279,7 @@ Theorem the_term_constants_TYPE
 val can_thm = Q.prove(
   `can f x s = case f x s of (Success _,s) => (Success T,s) |
                               (_,s) => (Success F,s)`,
-  SIMP_TAC std_ss [can_def,st_ex_bind_def,otherwise_def]
+  SIMP_TAC std_ss [can_def,st_ex_ignore_bind_def,otherwise_def]
   \\ Cases_on `f x s` \\ Cases_on `q`
   \\ FULL_SIMP_TAC (srw_ss()) [st_ex_return_def]);
 
@@ -2318,8 +2312,11 @@ Theorem new_basic_type_definition_thm
             STATE (ds++defs) s' /\
             !th. THM defs th ==> THM (ds++defs) th)`
   (Cases_on `th` \\ SIMP_TAC (srw_ss())
-     [new_basic_type_definition_def,Once st_ex_bind_def,st_ex_return_def,raise_Fail_def,
-      can_def |> SIMP_RULE std_ss [otherwise_def,st_ex_bind_def,st_ex_return_def]] >>
+     [new_basic_type_definition_def, Once st_ex_bind_def, st_ex_return_def,
+      Once st_ex_ignore_bind_def,
+      raise_Fail_def,
+      can_def |> SIMP_RULE std_ss [otherwise_def,st_ex_ignore_bind_def,
+                                   st_ex_bind_def, st_ex_return_def]] >>
   strip_tac >>
   qspecl_then[`tyname`,`s`]mp_tac get_type_arity_thm >>
   Cases_on`get_type_arity tyname s`>>simp[]>>strip_tac>>
@@ -2346,6 +2343,7 @@ Theorem new_basic_type_definition_thm
   ntac 2 (simp[Once st_ex_bind_def]) >>
   simp[Once st_ex_bind_def,get_the_type_constants_def] >>
   simp[Once st_ex_bind_def,set_the_type_constants_def] >>
+  simp[Once st_ex_ignore_bind_def] >>
   Q.PAT_ABBREV_TAC `s1 = (s with
       <|the_type_constants := Y::s.the_type_constants|>)` >>
   `get_type_arity tyname s1 = (Success (LENGTH vs), s1)` by (
@@ -2603,8 +2601,9 @@ Theorem new_type_thm
     | (Failure exn, s') => (s' = s)
     | (Success (), s') => (?d. STATE (d::defs) s' /\
                                !th. THM defs th ==> THM (d::defs) th)`
-  (rw[new_type_def,st_ex_bind_def,add_type_def,can_def,get_type_arity_def,get_the_type_constants_def
-    ,otherwise_def,st_ex_return_def,raise_Fail_def] >>
+  (rw[new_type_def,st_ex_bind_def,add_type_def,can_def,get_type_arity_def,
+      get_the_type_constants_def,otherwise_def,st_ex_return_def,raise_Fail_def,
+      st_ex_ignore_bind_def] >>
   BasicProvers.CASE_TAC >>
   BasicProvers.CASE_TAC >>
   imp_res_tac assoc_thm >>
