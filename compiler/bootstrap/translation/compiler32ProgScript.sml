@@ -165,6 +165,7 @@ val res = translate parse_gc_def;
 val res = translate parse_data_conf_def;
 val res = translate parse_stack_conf_def;
 val res = translate parse_tap_conf_def;
+val res = translate (parse_lab_conf_def |> spec32)
 
 val res = translate (parse_top_config_def |> SIMP_RULE (srw_ss()) [default_heap_sz_def,default_stack_sz_def]);
 

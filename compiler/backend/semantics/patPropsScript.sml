@@ -327,7 +327,7 @@ val esgc_free_def = tDefine "esgc_free" `
   (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
    imp_res_tac exp_size_MEM >> simp[])
 
-val esgc_free_def = save_thm("esgc_free_def[simp]",
+val esgc_free_def = save_thm("esgc_free_def[simp,compute]",
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
 
 val _ = export_theory()

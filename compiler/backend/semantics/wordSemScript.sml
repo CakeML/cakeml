@@ -899,7 +899,7 @@ val fix_clock_evaluate = Q.prove(
 val evaluate_ind = save_thm("evaluate_ind",
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
-val evaluate_def = save_thm("evaluate_def",
+val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 (* observational semantics *)

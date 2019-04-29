@@ -112,7 +112,7 @@ decide_tac);
 (* Remove the size constraints *)
 
 val merge_def = SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] merge_def;
-val _ = save_thm ("merge_def",merge_def);
+val _ = save_thm ("merge_def[compute]",merge_def);
 
 val merge_ind =
   SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] (fetch "-" "merge_ind");
