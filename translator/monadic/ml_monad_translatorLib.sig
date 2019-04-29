@@ -43,6 +43,9 @@ sig
     val m_translate_run : thm -> thm
     val m2deep : term -> thm
 
+    (* Update precondition for dynamic specifications *)
+    val update_local_precondition : thm -> thm
+
     (* Resume prior monadic translation.
 
        Loads the state specific to the monadic translation from the specified

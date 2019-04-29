@@ -13,6 +13,7 @@ sig
     val mk_fun_type : hol_type list * hol_type -> hol_type
     val mk_list_vars : string -> hol_type list -> term list
     val mk_list_vars_same : string -> hol_type -> int -> term list
+    val my_list_mk_comb : term * term list -> term
 
     (*
      * Functions used to mechanically define the manipulation functions for

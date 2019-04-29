@@ -582,10 +582,13 @@ Theorem openIn_spec
                   inFS_fname fs (File s)) *
                 IOFS (openFileFS s fs ReadMode 0))
           (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s)) * IOFS fs))`
-  (xcf_with_def "TextIO.openIn" TextIO_openIn_v_def >>
+  (rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
+  simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >>
+  xpull >> qunabbrev_tac `Q` >>
+  xcf_with_def "TextIO.openIn" TextIO_openIn_v_def >>
   fs[FILENAME_def, strlen_def, IOFS_def, IOFS_iobuff_def] >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
-  qmatch_goalsub_abbrev_tac`catfs fs` >>
+  qmatch_goalsub_abbrev_tac`catfs fs * _` >>
   rpt(xlet_auto >- xsimpl) >>
   qmatch_goalsub_abbrev_tac`W8ARRAY _ fd0` >>
   qmatch_goalsub_rename_tac`W8ARRAY loc fd0` >>
@@ -601,10 +604,10 @@ Theorem openIn_spec
         xffi >> xsimpl >>
         qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
         fs[strcat_thm,implode_def] >>
-        simp[fsFFITheory.fs_ffi_part_def,IOx_def] >>
-        qmatch_goalsub_abbrev_tac`IO st f ns` >>
+        simp[fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
+        qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-        map_every qexists_tac[`ns`,`f`,`st`]
+        map_every qexists_tac[`events`,`ns`,`f`,`st`]
         >> xsimpl >>
         simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
              ffi_open_in_def, (* decode_encode_FS, *) Abbr`fd0`,
@@ -617,7 +620,9 @@ Theorem openIn_spec
              (* fs[DROP_LENGTH_TOO_LONG,LENGTH_REPLICATE] *)
         imp_res_tac nextFD_ltX >>
         csimp[openFileFS_def, openFile_def, validFD_def] >>
-        fs[STRING_TYPE_def] \\ xsimpl) >>
+        fs[STRING_TYPE_def] \\ xsimpl >>
+        qpat_abbrev_tac `new_events = events ++ _` >>
+        qexists_tac `new_events` >> xsimpl) >>
     xlet_auto >- xsimpl >>
     xlet_auto >- xsimpl >>
     xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R >> fs[])
@@ -633,10 +638,10 @@ Theorem openIn_spec
             &UNIT_TYPE () u2 * catfs fs * W8ARRAY iobuff_loc fnm0 *
             W8ARRAY loc (LUPDATE 1w 0 fd0)`
   >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> xsimpl >>
-      simp[fsFFITheory.fs_ffi_part_def,IOx_def] >>
-      qmatch_goalsub_abbrev_tac`IO st f ns` >>
+      simp[fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
+      qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-      map_every qexists_tac[`ns`,`f`,`st`] >> xsimpl >>
+      map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
       qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
       fs[strcat_thm,implode_def] >>
       simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
@@ -644,7 +649,9 @@ Theorem openIn_spec
            getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
            dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
            implode_explode, LENGTH_explode] >>
-      fs[not_inFS_fname_openFile,STRING_TYPE_def] \\ xsimpl) >>
+      fs[not_inFS_fname_openFile,STRING_TYPE_def] \\ xsimpl >>
+      qpat_abbrev_tac `new_events = events ++ _` >>
+      qexists_tac `new_events` >> xsimpl) >>
   xlet_auto >-(xsimpl) >> fs[] >>
   xlet_auto >- xsimpl >>
   xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R) >>
@@ -683,7 +690,10 @@ Theorem closeIn_spec
           (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
                IOFS (fs with infds updated_by A_DELKEY fdw))
           (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs))`
-  (xcf_with_def "TextIO.closeIn" TextIO_closeIn_v_def >>
+  (rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
+  simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >>
+  xpull >> qunabbrev_tac `Q` >>
+  xcf_with_def "TextIO.closeIn" TextIO_closeIn_v_def >>
   fs[IOFS_def, IOFS_iobuff_def,INSTREAM_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
   xlet_auto >- xsimpl >> fs [get_in_def] >>
@@ -692,11 +702,11 @@ Theorem closeIn_spec
         IOx fs_ffi_part (if validFileFD fdw fs.infds then
                             (fs with infds updated_by A_DELKEY fdw)
                          else fs)`
-  >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def] >>
-     qmatch_goalsub_abbrev_tac`IO st f ns` >> xsimpl >>
-     qmatch_goalsub_abbrev_tac`IO (_ fs') f ns` >>
+  >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
+     qmatch_goalsub_abbrev_tac`FFI_part st f ns` >> xsimpl >>
+     qmatch_goalsub_abbrev_tac`FFI_part (_ fs') f ns` >>
      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-     map_every qexists_tac[`ns`,`f`,`st`] >> xsimpl >>
+     map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
      qexists_tac`n2w8 fdw` >> fs[FD_def] >>
      unabbrev_all_tac >>
      simp[validFileFD_def] >>
@@ -708,7 +718,9 @@ Theorem closeIn_spec
         implode_explode, LENGTH_explode,closeFD_def,LUPDATE_def] >>
      cases_on`fs` >> fs[IO_fs_infds_fupd] >>
      imp_res_tac ALOOKUP_NONE >> rw[] \\
-     fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl) >>
+     fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl >>
+     qpat_abbrev_tac `new_events = events ++ _` >>
+     qexists_tac `new_events` >> xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
   CASE_TAC >> xif >> instantiate
   >-(xcon >> fs[IOFS_def,liveFS_def] >> xsimpl) >>
@@ -724,7 +736,10 @@ Theorem closeOut_spec
          (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
               IOFS (fs with infds updated_by A_DELKEY fdw))
          (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs))`
-  (xcf_with_def "TextIO.closeOut" TextIO_closeOut_v_def >>
+  (rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
+  simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >>
+  xpull >> qunabbrev_tac `Q` >>
+  xcf_with_def "TextIO.closeOut" TextIO_closeOut_v_def >>
   fs[IOFS_def, IOFS_iobuff_def,OUTSTREAM_def] >> xpull >>
   rename [`W8ARRAY _ buf`] >> cases_on`buf` >> fs[LUPDATE_def] >>
   xlet_auto >- xsimpl >> fs [get_out_def] >>
@@ -733,11 +748,11 @@ Theorem closeOut_spec
         IOx fs_ffi_part (if validFileFD fdw fs.infds then
                             (fs with infds updated_by A_DELKEY fdw)
                          else fs)`
-  >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def] >>
-     qmatch_goalsub_abbrev_tac`IO st f ns` >> xsimpl >>
-     qmatch_goalsub_abbrev_tac`IO (_ fs') f ns` >>
+  >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
+     qmatch_goalsub_abbrev_tac `FFI_part st f ns` >> xsimpl >>
+     qmatch_goalsub_abbrev_tac `FFI_part (_ fs') f ns` >>
      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-     map_every qexists_tac[`ns`,`f`,`st`] >> xsimpl >>
+     map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
      qexists_tac`n2w8 fdw` >> fs[FD_def] >>
      unabbrev_all_tac >>
      simp[validFileFD_def] >>
@@ -749,7 +764,9 @@ Theorem closeOut_spec
         implode_explode, LENGTH_explode,closeFD_def,LUPDATE_def] >>
      cases_on`fs` >> fs[IO_fs_infds_fupd] >>
      imp_res_tac ALOOKUP_NONE >> rw[] \\
-     fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl) >>
+     fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl >>
+     qpat_abbrev_tac `new_events = events ++ _` >>
+     qexists_tac `new_events` >> xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
   CASE_TAC >> xif >> instantiate
   >-(xcon >> fs[IOFS_def,liveFS_def] >> xsimpl) >>
@@ -834,12 +851,16 @@ Theorem writei_spec
                           (TAKE pos content ++
                            TAKE (MIN n k) (MAP (CHR o w2n) (DROP i rest)) ++
                            DROP (MIN n k + pos) content))`
-     >-(qmatch_goalsub_abbrev_tac` _ * _ * IOx _ fs'` >> xffi >> xsimpl >>
+     >-(qmatch_goalsub_abbrev_tac` _ * _ * IOx _ fs'` >>
+        qpat_abbrev_tac `Q = $POSTv _` >>
+        simp [fs_ffi_part_def, IOx_def, IO_def] >>
+        xpull >> qunabbrev_tac `Q` >>
+        xffi >> xsimpl >>
         fs[IOFS_def,IOx_def,fs_ffi_part_def,
-               mk_ffi_next_def] >>
-        qmatch_goalsub_abbrev_tac`IO st f ns` >>
+               mk_ffi_next_def, IO_def] >>
+        qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-        map_every qexists_tac[`ns`,`f`,`st`] >> xsimpl >>
+        map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
         qexists_tac`n2w8 fd` >>
         fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,w82n_n2w8,LENGTH_n2w8,
            ffi_write_def,(* decode_encode_FS, *)MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
@@ -856,7 +877,9 @@ Theorem writei_spec
         rw[] >> rfs[]
         \\ Cases_on`md` \\ fs[]
         >- rfs[get_mode_def]
-        \\ xsimpl \\ simp[n2w2_def]) >>
+        \\ xsimpl \\ simp[n2w2_def] >>
+        qpat_abbrev_tac `new_events = events ++ _` >>
+        qexists_tac `new_events` >> xsimpl) >>
      qmatch_goalsub_abbrev_tac` _ * IOx _ fs'` >>
      qmatch_goalsub_abbrev_tac`W8ARRAY _ (_::m1 :: m0 :: n2w i :: rest)` >>
      fs[] >>
@@ -876,12 +899,16 @@ Theorem writei_spec
                           (TAKE pos content ++
                            TAKE 0 (MAP (CHR o w2n) (DROP i rest)) ++
                            DROP pos content))`
-  >-(qmatch_goalsub_abbrev_tac` _ * _ * IOx _ fs'` >> xffi >> xsimpl >>
+  >-(qmatch_goalsub_abbrev_tac` _ * _ * IOx _ fs'` >>
+     qpat_abbrev_tac `Q = $POSTv _` >>
+     simp [fs_ffi_part_def, IOx_def, IO_def] >>
+     xpull >> qunabbrev_tac `Q` >>
+     xffi >> xsimpl >>
      fs[IOFS_def,IOx_def,fs_ffi_part_def,
-            mk_ffi_next_def] >>
-     qmatch_goalsub_abbrev_tac`IO st f ns` >>
+            mk_ffi_next_def,IO_def] >>
+     qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-     map_every qexists_tac[`ns`,`f`,`st`] >> xsimpl >>
+     map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
      qexists_tac`n2w8 fd` >>
      fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
         ffi_write_def,(* decode_encode_FS, *)MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
@@ -898,7 +925,9 @@ Theorem writei_spec
      rw[] >> rfs[]
      \\ Cases_on`md` \\ fs[]
      >- rfs[get_mode_def]
-     \\ xsimpl) >>
+     \\ xsimpl >>
+     qpat_abbrev_tac `new_events = events ++ _` >>
+     qexists_tac `new_events` >> xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
   xif >> fs[FALSE_def] >> instantiate >>
   NTAC 2 (xlet_auto >- xsimpl) >>
@@ -1196,15 +1225,14 @@ Theorem EvalM_print
     EvalM F env st (App Opapp [Var (Short "print"); exp])
       (MONAD UNIT_TYPE exc_ty (print x))
       (MONAD_IO,p:'ffi ffi_proj)`
-  (ho_match_mp_tac EvalM_from_app \\ rw [print_def]
-  \\ fs [MONAD_IO_def]
-  \\ xpull
-  \\ fs [SEP_CLAUSES]
-  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
-  \\ drule (GEN_ALL print_spec)
-  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
-  \\ asm_exists_tac \\ fs []
-  \\ xsimpl);
+  (
+    ho_match_mp_tac EvalM_from_app \\ rw [print_def]
+    \\ fs [MONAD_IO_def]
+    \\ xpull
+    \\ fs [SEP_CLAUSES]
+    \\ xapp_spec print_spec
+    \\ fs[]
+  );
 
 Theorem output_stderr_spec
   `!fs sv s fdv.
@@ -1237,15 +1265,14 @@ Theorem EvalM_print_err
     EvalM F env st (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
       (MONAD UNIT_TYPE exc_ty (print_err x))
       (MONAD_IO,p:'ffi ffi_proj)`
-  (ho_match_mp_tac EvalM_from_app \\ rw [print_err_def]
-  \\ fs [MONAD_IO_def]
-  \\ xpull
-  \\ fs [SEP_CLAUSES]
-  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
-  \\ drule (GEN_ALL print_err_spec)
-  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
-  \\ asm_exists_tac \\ fs []
-  \\ xsimpl);
+  (
+    ho_match_mp_tac EvalM_from_app \\ rw [print_err_def]
+    \\ fs [MONAD_IO_def]
+    \\ xpull
+    \\ fs [SEP_CLAUSES]
+    \\ xapp_spec print_err_spec
+    \\ fs[]
+  );
 
 Theorem read_spec
   `!fs fd fdv n nv. wfFS fs ⇒ FD fd fdv ⇒ NUM n nv ⇒
@@ -1270,11 +1297,14 @@ Theorem read_spec
    simp[insert_atI_def,n2w2_def] >>
    cases_on`get_file_content fs fd`
    >-(xlet`POSTv v. W8ARRAY iobuff_loc (1w::n2w n::h3::h4::rest) * IOx fs_ffi_part fs`
-      >-(xffi >> xsimpl >>
-         fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
-         qmatch_goalsub_abbrev_tac`IO st f ns` >>
+      >-(qpat_abbrev_tac `Q = $POSTv _` >>
+         simp [fs_ffi_part_def, IOx_def, IO_def] >>
+         xpull >> qunabbrev_tac `Q` >>
+         xffi >> xsimpl >>
+         fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def,IO_def] >>
+         qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
          CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-         map_every qexists_tac[`ns`,`f`] >>
+         map_every qexists_tac[`events`,`ns`,`f`, `st`] >>
          xsimpl >> qexists_tac`n2w8 fd` >>
          fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def, ffi_read_def,
             w82n_n2w8,LENGTH_n2w8,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
@@ -1283,8 +1313,10 @@ Theorem read_spec
             get_file_content_def,n2w_w2n,w2n_n2w,FD_def,STRING_TYPE_def] >> rfs[] >>
          `n < 2 ** (2 * 8)` by fs[] >> imp_res_tac w22n_n2w2 >>
          fs[n2w2_def] >> xsimpl >>
-         pairarg_tac >> fs[] >>
-         TRY(Cases_on`md`) >> fs[] >> xsimpl) >>
+         TRY (pairarg_tac >> fs[] >>
+              TRY(Cases_on`md`) >> fs[] >> xsimpl) >>
+         qpat_abbrev_tac `new_events = events ++ _` >>
+         qexists_tac `new_events` >> xsimpl) >>
       rpt(xlet_auto >- xsimpl) >> xif >> instantiate >>
       xlet_auto >-(xcon >> xsimpl >> instantiate >> xsimpl) >>
       xraise >> xsimpl >> fs[InvalidFD_exn_def] >> xsimpl) >>
@@ -1293,11 +1325,14 @@ Theorem read_spec
    >- fs[get_mode_def, get_file_content_def] >>
    reverse(cases_on`x` >> fs[])
    >-(xlet`POSTv v. W8ARRAY iobuff_loc (1w::n2w n::h3::h4::rest) * IOx fs_ffi_part fs`
-      >-(xffi >> xsimpl >>
-         fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
-         qmatch_goalsub_abbrev_tac`IO st f ns` >>
+      >-(qpat_abbrev_tac `Q = $POSTv _` >>
+         simp [fs_ffi_part_def, IOx_def, IO_def] >>
+         xpull >> qunabbrev_tac `Q` >>
+         xffi >> xsimpl >>
+         fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def,IO_def] >>
+         qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
          CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-         map_every qexists_tac[`ns`,`f`] >>
+         map_every qexists_tac[`events`,`ns`,`f`,`st`] >>
          xsimpl >> qexists_tac`n2w8 fd` >>
          fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def, ffi_read_def,
             w82n_n2w8,LENGTH_n2w8,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
@@ -1307,7 +1342,9 @@ Theorem read_spec
          `n < 2 ** (2 * 8)` by fs[] >> imp_res_tac w22n_n2w2 >>
          rfs[get_mode_def] >>
          fs[n2w2_def] >> xsimpl >>
-         pairarg_tac >> fs[] >> xsimpl) >>
+         pairarg_tac >> fs[] >> xsimpl >>
+         qpat_abbrev_tac `new_events = events ++ _` >>
+         qexists_tac `new_events` >> xsimpl) >>
       rpt(xlet_auto >- xsimpl) >> xif >> instantiate >>
       xlet_auto >-(xcon >> xsimpl >> instantiate >> xsimpl) >>
       xraise >> xsimpl >> fs[InvalidFD_exn_def] >> xsimpl) >>
@@ -1320,11 +1357,14 @@ Theorem read_spec
         W8ARRAY iobuff_loc (0w :: n2w (nr DIV 256) :: n2w nr :: h4 ::
           (MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest)))
           (\e. &(get_file_content fs fd = NONE))` >> xsimpl
-   >-(xffi >> xsimpl >>
-      fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
-      qmatch_goalsub_abbrev_tac`IO st f ns` >>
+   >-(qpat_abbrev_tac `Q = POSTve _ _` >>
+      simp [fs_ffi_part_def, IOx_def, IO_def] >>
+      xpull >> qunabbrev_tac `Q` >>
+      xffi >> xsimpl >>
+      fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def,IO_def] >>
+      qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-      map_every qexists_tac[`ns`,`f`] >>
+      map_every qexists_tac[`events`,`ns`,`f`,`st`] >>
       xsimpl >> qexists_tac`n2w8 fd` >>
       fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
          ffi_read_def,w82n_n2w8,LENGTH_n2w8,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
@@ -1336,7 +1376,9 @@ Theorem read_spec
       cases_on`fs.numchars` >> fs[wfFS_def,liveFS_def,live_numchars_def] >>
       fs[n2w2_def,DIV_MOD_MOD_DIV,DIV_DIV_DIV_MULT] >> xsimpl >>
       qmatch_goalsub_abbrev_tac`(k DIV 256) MOD 256 = _ MOD 256` >> qexists_tac`k` >>
-      xsimpl >> fs[MIN_LE,eof_def,Abbr`k`,NUM_def,INT_def]) >>
+      xsimpl >> fs[MIN_LE,eof_def,Abbr`k`,NUM_def,INT_def] >>
+      qpat_abbrev_tac `new_events = events ++ _` >>
+      qexists_tac `new_events` >> xsimpl) >>
    rpt(xlet_auto >- xsimpl) >>
    xif >> instantiate >> xapp >> xsimpl >> rw[] >> instantiate >>
    simp[GSYM n2w2_def,w22n_n2w2] >> xsimpl);
@@ -2102,17 +2144,16 @@ Theorem EvalM_inputLinesFrom
     EvalM F env st (App Opapp [Var (Long "TextIO" (Short "inputLinesFrom")); exp])
       (MONAD (OPTION_TYPE (LIST_TYPE STRING_TYPE)) exc_ty (inputLinesFrom f))
       (MONAD_IO,p:'ffi ffi_proj)`
-  (ho_match_mp_tac EvalM_from_app
-  \\ conj_tac >- rw [inputLinesFrom_def]
-  \\ rw [MONAD_IO_def]
-  \\ xpull
-  \\ fs [SEP_CLAUSES]
-  \\ match_mp_tac (app_weaken |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO])
-  \\ drule (GEN_ALL inputLinesFrom_spec)
-  \\ disch_then (qspecl_then [`p`,`s`] assume_tac)
-  \\ rfs [inputLinesFrom_def]
-  \\ asm_exists_tac \\ fs []
-  \\ xsimpl);
+  (
+    ho_match_mp_tac EvalM_from_app
+    \\ rw[inputLinesFrom_def]
+    \\ rw[MONAD_IO_def]
+    \\ xpull
+    \\ fs[SEP_CLAUSES]
+    \\ xapp_spec inputLinesFrom_spec
+    \\ fs[]
+    \\ rpt (xsimpl \\ asm_exists_tac)
+  );
 
 Theorem inputAll_spec
   `INSTREAM fd fdv ∧

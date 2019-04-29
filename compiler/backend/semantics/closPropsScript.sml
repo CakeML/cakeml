@@ -1614,7 +1614,7 @@ val esgc_free_def = tDefine "esgc_free" `
   (esgc_free (Op _ _ args) ⇔ EVERY esgc_free args)
 ` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
    imp_res_tac exp_size_MEM >> simp[])
-val esgc_free_def = save_thm("esgc_free_def[simp]",
+val esgc_free_def = save_thm("esgc_free_def[simp,compute]",
   SIMP_RULE (bool_ss ++ ETA_ss) [] esgc_free_def)
 
 (* state is setglobal-closure free *)
@@ -2831,7 +2831,7 @@ val obeys_max_app_def = tDefine"obeys_max_app"`
 val obeys_max_app_def =
   obeys_max_app_def
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "obeys_max_app_def[simp]"
+  |> curry save_thm "obeys_max_app_def[simp,compute]"
 
 val no_Labels_def = tDefine"no_Labels"`
   (no_Labels (Var _ _) ⇔ T) ∧
@@ -2855,7 +2855,7 @@ val no_Labels_def = tDefine"no_Labels"`
 val no_Labels_def =
   no_Labels_def
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "no_Labels_def[simp]"
+  |> curry save_thm "no_Labels_def[simp,compute]"
 
 val app_call_dests_def = tDefine "app_call_dests" `
   (app_call_dests opt [] = {}) /\
@@ -2906,7 +2906,7 @@ val app_call_dests_def = tDefine "app_call_dests" `
    full_simp_tac(srw_ss())[closLangTheory.exp_size_def] >>
    decide_tac);
 
-val _ = save_thm("app_call_dests_def[simp]",app_call_dests_def);
+val _ = save_thm("app_call_dests_def[simp,compute]",app_call_dests_def);
 
 val _ = overload_on("call_dests",``app_call_dests (SOME T)``);
 val _ = overload_on("app_dests",``app_call_dests (SOME F)``);
@@ -2996,7 +2996,7 @@ val get_code_labels_def = tDefine"get_code_labels" `
 val get_code_labels_def =
   get_code_labels_def
   |> SIMP_RULE (srw_ss()++ETA_ss)[MAP_MAP_o]
-  |> curry save_thm "get_code_labels_def[simp]"
+  |> curry save_thm "get_code_labels_def[simp,compute]"
 
 val code_locs_ind = theorem"code_locs_ind";
 
