@@ -31,14 +31,13 @@ val _ = register_type ``:instream``;
 val _ = register_type ``:outstream``;
 val _ = (use_full_type_names := true);
 
-val instream_buffered_def = (append_prog o process_topdecs)
+val instreamBuffered_def = (append_prog o process_topdecs)
   `datatype instreambuffered =
   InstreamBuffered
-    instream     (* stream name *)
+    TextIO.instream     (* stream name *)
     (int ref)    (* read index *)
     (int ref)   (* write index *)
-    byte_array
-    (bool ref)`;
+    byte_array`;
 
 
 val _ = (next_ml_names := ["get_out"]);
@@ -56,7 +55,8 @@ val _ = ml_prog_update (add_dec
 val _ = process_topdecs `
   exception BadFileName;
   exception InvalidFD;
-  exception EndOfFile
+  exception EndOfFile;
+  exception IllegalArgument
 ` |> append_prog
 
 val _ = ml_prog_update open_local_block;
@@ -223,87 +223,95 @@ val _ = ml_prog_update open_local_in_block;
    byte array *)
 
 val _ = (append_prog o process_topdecs)`
-  fun consume_data_aux is buff off n =
-    case is of InstreamBuffered fd rref wref surplus full =>
+  fun b_refillBuffer is =
+    case is of InstreamBuffered fd rref wref surplus =>
+      ((*TextIO.print "\nRefilling buffer with ";*)
+      wref := TextIO.input fd surplus 0 (Word8Array.length surplus);
+      rref := 0;
+      (*TextIO.print (String.strcat (Int.toString (!wref)) " bytes\n");*)
+      (!wref))`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_input is buff off len =
+    case is of InstreamBuffered fd rref wref surplus =>
       let
         val readat = !rref
         val writeat = !wref
-        val cap = Word8Array.length surplus
-        val ntoread = min n (cap - readat)
+        val nBuffered = writeat - readat
       in
-        Word8Array.copy surplus readat ntoread buff off;
-        rref := (readat + ntoread) mod cap;
-        ntoread
-      end`;
-
-val _ = (append_prog o process_topdecs)`
-      fun consume_data is buff off n =
-        case is of InstreamBuffered fd rref wref surplus full =>
-          let
-            val readat = !rref
-            val writeat = !wref
-          in
-          if (not (!full) andalso readat=writeat orelse n = 0) then 0 else (
-            full := False;
-            if readat < writeat then
-              (consume_data_aux is buff off (min n (writeat-readat)))
-            else
-              let
-                val nread = consume_data_aux is buff off n
-                val ntoread = n - nread
-              in
-                (if ntoread <> 0 then
-                  (consume_data_aux is buff (off+nread) (min ntoread writeat))
-                else n)
-              end
-          )end`;
-
-val _ = (append_prog o process_topdecs)`
-    fun fetch_data is =
-      case is of InstreamBuffered fd rref wref surplus full =>
-        let
-          val writeat = !wref
-          val readat  = !rref
-        in
-          if writeat = readat andalso !full then () else (
-            if writeat < readat then
-              (wref := writeat + input fd surplus writeat (readat-writeat);
-              full := True)
-            else
-              let
-                val spaceright = Word8Array.length surplus - writeat
-                val nread = input fd surplus writeat spaceright
-              in
-                if nread = spaceright then
-                  (wref := input fd surplus 0 readat;
-                   full := readat = (!wref))
-                else (wref := writeat + nread)
-              end)
+        if Word8Array.length surplus < len then raise IllegalArgument
+        else
+          (*If there arent enough bytes in the buffer: copy all of the bytes
+          in the buffer and then refill it, and copy the remaining bytes *)
+          if len > nBuffered then
+            (Word8Array.copy surplus readat nBuffered buff off;
+            wref := TextIO.input fd surplus 0 (Word8Array.length surplus);
+            let
+              val leftover = min (len-nBuffered) (!wref)
+            in
+              Word8Array.copy surplus 0 leftover buff (off+nBuffered);
+              TextIO.print(Word8Array.substring surplus 0 (Word8Array.length surplus));
+              rref := leftover;
+              nBuffered+leftover
+            end)
+          (*If there are enough bytes in the buffer, just copy them*)
+          else
+            (Word8Array.copy surplus readat len buff off;
+            rref := readat + len;
+            len)
         end`;
 
+val _ = (append_prog o process_topdecs)`
+  fun b_input1 is =
+    case is of InstreamBuffered fd rref wref surplus =>
+         (*Fill upp buffer if needed*)
+        ((if (!wref) = (!rref)
+        then (b_refillBuffer is; ())
+        else ());
+        if (!wref) = 0 then None
+        else
+          let val readat = (!rref) in
+            rref := (!rref) + 1;
+            Some (Char.chr (Word8.toInt (Word8Array.sub surplus readat)))
+          end)`;
 
 val _ = (append_prog o process_topdecs)`
-  fun input_buffered is buff off len =
-    case is of InstreamBuffered fd rref wref surplus full =>
-      let
-        val readat = !rref
-        val writeat = !wref
-        val cap = Word8Array.length surplus
-        val nleftover = if not (!full) andalso readat = writeat then 0
-                        else ((cap + writeat - readat) mod cap)
-      in
-        if cap < len then
-          let
-            val c = consume_data is buff off cap
-          in
-            input fd buff (off + c) (len - c)
-          end
-        else(
-          if nleftover < len then
-            (fetch_data is) else ();
-          consume_data is buff off len)
-      end`;
+  fun b_inputUntil_aux is chr =
+   case is of InstreamBuffered fd rref wref surplus =>
+     (*Fill upp buffer if needed*)
+     (if (!wref) = (!rref) then (b_refillBuffer is ; ()) else ();
+     if (!wref) = 0 then [] else (
+       let
+         val readat = (!rref)
+         val writeat = (!wref)
+         val (lstr,rstr) = String.split (fn c => not (c = chr))
+           (Word8Array.substring surplus readat (writeat-readat))
+       in
+         (*If right half is empty, the character was not found: try to refill buffer
+         and recurse if there are some new bytes in the buffer. If right half not empty,
+         we found the character so just return the list so far with lstr added.*)
+         rref := readat + String.size lstr;
+         case rstr of
+           "" => (lstr :: (b_inputUntil_aux is chr))
+          |_  => (rref := !rref + 1; lstr :: [String.str chr])
+       end))`;
 
+val _ = (append_prog o process_topdecs)`
+  fun b_inputUntil is chr =
+     case is of InstreamBuffered fd rref wref surplus =>
+     String.concat (b_inputUntil_aux is chr)`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLine is =
+     case b_inputUntil is #"\n" of
+       "" => None
+       |l => Some l`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_inputLines is =
+     case b_inputLine is of
+       None => []
+       |Some l => (l :: b_inputLines is)`;
 
 val _ = (append_prog o process_topdecs)`
   fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
