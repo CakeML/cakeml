@@ -171,7 +171,7 @@ and
 evaluate_decs st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
 evaluate_decs st env (d1::d2::ds) =
-  match evaluate_decs st env [d1] with
+  match fix_clock st (evaluate_decs st env [d1]) with
   | (st1, Rval env1) ->
     match evaluate_decs st1 (extend_dec_env env1 env) (d2::ds) with
     | (st2,r) -> (st2, combine_dec_result env1 r)
@@ -229,7 +229,7 @@ evaluate_decs st env [Dmod mn ds] =
   end
 and
 evaluate_decs st env [Dlocal lds ds] =
-  match evaluate_decs st env lds with
+  match fix_clock st (evaluate_decs st env lds) with
   | (st1, Rval env1) ->
     evaluate_decs st1 (extend_dec_env env1 env) ds
   | res -> res

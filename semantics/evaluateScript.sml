@@ -188,7 +188,7 @@ val _ = Define `
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env []=  (st, Rval <| v := nsEmpty; c := nsEmpty |>))
 /\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env (d1::d2::ds)=
-   ((case evaluate_decs st env [d1] of
+   ((case fix_clock st (evaluate_decs st env [d1]) of
     (st1, Rval env1) =>
     (case evaluate_decs st1 (extend_dec_env env1 env) (d2::ds) of
       (st2,r) => (st2, combine_dec_result env1 r)
@@ -246,7 +246,7 @@ val _ = Define `
   )))
 /\
 ((evaluate_decs:'ffi state ->(v)sem_env ->(dec)list -> 'ffi state#(((v)sem_env),(v))result) st env [Dlocal lds ds]=
-   ((case evaluate_decs st env lds of
+   ((case fix_clock st (evaluate_decs st env lds) of
     (st1, Rval env1) =>
     evaluate_decs st1 (extend_dec_env env1 env) ds
   | res => res

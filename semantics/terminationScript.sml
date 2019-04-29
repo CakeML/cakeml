@@ -253,10 +253,7 @@ val (evaluate_def, evaluate_ind) =
   rw[size_abbrevs,exp_size_def,dec_clock_def,LESS_OR_EQ,
      do_if_def,do_log_def] >>
   imp_res_tac fix_clock_IMP >>
-  simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE] >>
-  (* TODO: sort out this mess *)
-  (fn (asm,g) => (List.app print_term asm; print "-----\n"; print_term g; print "\n\n"; ALL_TAC (asm,g))) >>
-  cheat);
+  simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
 (* tidy up evalute_def and evaluate_ind *)
 
