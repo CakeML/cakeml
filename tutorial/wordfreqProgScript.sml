@@ -285,10 +285,9 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 (* Finally, we package the verified program up with the following boilerplate *)
 
 Theorem wordfreq_whole_prog_spec
-  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
+  `hasFreeFD fs ∧ inFS_fname fs fname ∧
    cl = [pname; fname] ∧
-   contents = implode (THE (ALOOKUP fs.inode_tbl (File fname)))
-   ⇒
+   contents = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname)))))   ⇒
    whole_prog_spec ^(fetch_v "wordfreq" (get_ml_prog_state())) cl fs NONE
          ((=) (add_stdout fs (wordfreq_output_spec contents)))`
   (disch_then assume_tac
