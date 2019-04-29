@@ -1593,6 +1593,50 @@ Proof
   >- (rw[merge_def, b_merge_tree_bag1, b_normalize_bag1])
 QED;
 
+Theorem b_find_delete_min:
+  !geq h. TotalPreOrder geq /\
+          is_b_heap_ordered1 geq h /\
+          h <> [] ==>
+          BAG_EVERY (\y. geq y (b_root (THE (find_min (b_heap_comparison geq) h))))
+                    (b_heap_to_bag1 geq (THE (delete_min (b_heap_comparison geq) h)))
+Proof
+  Cases_on `h`
+  >- rw[]
+  >- (rw[is_b_heap_ordered_def] \\
+      Cases_on `t`
+      >- (rw[find_min_def, delete_min_def, get_min_def,
+	     normalize_def, merge_tree_def] \\
+          Cases_on `h'` \\
+          rw[root_def, aux_def, children_def] \\
+          fs[is_b_heap_ordered_def] \\
+          Induct_on `l`
+          >- (fs[is_tree_ordered_def] \\
+              rw[b_bag_of_insert_list] \\
+              imp_res_tac b_list_bag3)
+          >- fs[b_bag_of_insert_list, b_bag_of_app, b_bag_of_reverse])
+     >- (rw[BAG_EVERY, find_min_def] \\
+         Cases_on `find_min (b_heap_comparison geq) (h::t')`
+         >- (`(h::t') <> []` by rw[] \\
+             imp_res_tac find_min_exists)
+         >- (rw[]
+             >- (fs[delete_min_def, get_min_def]
+
+Theorem b_delete_min_order:
+  !geq h. TotalPreOrder geq /\
+          h <> Bsbempty /\
+          is_b_heap_ordered geq h ==>
+          is_b_heap_ordered geq (THE (b_delete_min geq h))
+Proof
+  rpt strip_tac \\
+  Cases_on `h`
+  >- rw[]
+  >- (fs[is_b_heap_ordered_def] \\
+      rw[b_delete_min_def]
+      >- rw[is_b_heap_ordered_def]
+      >- (rw[is_b_heap_ordered_def]
+	  >- (rw[b_merge_bag1]
+QED;
+
 (* Translations *)
 val _ = translate leaf_def;
 val _ = translate root_def;
