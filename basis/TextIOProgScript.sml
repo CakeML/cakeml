@@ -225,10 +225,8 @@ val _ = ml_prog_update open_local_in_block;
 val _ = (append_prog o process_topdecs)`
   fun b_refillBuffer is =
     case is of InstreamBuffered fd rref wref surplus =>
-      ((*TextIO.print "\nRefilling buffer with ";*)
-      wref := TextIO.input fd surplus 0 (Word8Array.length surplus);
+      (wref := input fd surplus 0 (Word8Array.length surplus);
       rref := 0;
-      (*TextIO.print (String.strcat (Int.toString (!wref)) " bytes\n");*)
       (!wref))`;
 
 val _ = (append_prog o process_topdecs)`
@@ -245,12 +243,12 @@ val _ = (append_prog o process_topdecs)`
           in the buffer and then refill it, and copy the remaining bytes *)
           if len > nBuffered then
             (Word8Array.copy surplus readat nBuffered buff off;
-            wref := TextIO.input fd surplus 0 (Word8Array.length surplus);
+            wref := input fd surplus 0 (Word8Array.length surplus);
             let
               val leftover = min (len-nBuffered) (!wref)
             in
               Word8Array.copy surplus 0 leftover buff (off+nBuffered);
-              TextIO.print(Word8Array.substring surplus 0 (Word8Array.length surplus));
+              print(Word8Array.substring surplus 0 (Word8Array.length surplus));
               rref := leftover;
               nBuffered+leftover
             end)

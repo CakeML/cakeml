@@ -1642,42 +1642,6 @@ Theorem input_IOFS_spec
   simp[ALIST_FUPDKEY_unchanged])
   \\ xapp \\ instantiate \\ xsimpl);
 
-Theorem insert_buffered_spec
-  `!fd fdv fs content pos off offv len lenv buf bufv surp surpv.
-    len + off <= LENGTH buf ∧
-    NUM ri riv /\ NUM wi wiv /\
-    INSTREAM fd fdv ∧ NUM off offv ∧ NUM len lenv ∧
-    get_file_content fs fd = SOME (content, pos) ⇒
-    get_mode fs fd = SOME ReadMode ⇒
-    app (p:'ffi ffi_proj) TextIO_input_buffered_v [fdv; bufv; offv; lenv]
-    (STDIO fs * W8ARRAY bufv buf * W8ARRAY surpv surp)
-    (POSTv nv. &(NUM (MIN len (LENGTH content - pos)) nv) *
-      W8ARRAY bufv (insert_atI (TAKE len (DROP pos (MAP (n2w o ORD) content)))
-                                 off buf) *
-        STDIO (fsupdate fs fd 0 (MIN (len + pos) (MAX pos (LENGTH content))) content))`
-
-
-(* & (UNIT_TYPE () r) * *)
-
-Theorem fetch_data_spec
-  `INSTREAM fd fdv /\
-    is = (Conv (SOME (TypeStamp "InstreamBuffered" 9)) [fdv; ir; jr; buff; full]) /\
-    get_file_content fs fd = SOME (content, pos) ⇒
-    get_mode fs fd = SOME ReadMode ⇒
-      app (p:'ffi ffi_proj) TextIO_fetch_data_v [is]
-      (STDIO fs * W8ARRAY bufv buf * REF_NUM ir i * REF_NUM jr j
-        * W8ARRAY surp surpc * REF_BOOL full fullv)
-      (POSTv r. STDIO fs * W8ARRAY bufv buf * REF_NUM ir i * REF_NUM jr j
-        * W8ARRAY surp surpc * REF_BOOL full fullv)`
-    (xcf_with_def "TextIO.fetch_data" TextIO_fetch_data_v_def
-    \\fs[INSTREAM_BUFFERED_def, INSTREAM_def]
-    \\xpull
-    \\xmatch
-    \\xsimpl
-    \\fs[INSTREAM_TYPE_def])
-TextIO_extend_array_v_def
-
-
 Theorem input_spec
   `!fd fdv fs content pos off offv len lenv buf bufv.
     len + off <= LENGTH buf ∧
