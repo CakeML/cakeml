@@ -4173,58 +4173,7 @@ Proof
   rw[parts_ok_def] >> metis_tac[]
 QED
 
-Theorem do_app_ffi_mono:
-  do_app (refs,ffi:'ffi ffi_state) op args = SOME ((refs',ffi'),r)
-   ⇒
-   ?l. ffi'.io_events = ffi.io_events ++ l
-Proof
-  rw[]
-  \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
-  \\ rw[] \\ fs[]
-  \\ fs[ffiTheory.call_FFI_def]
-  \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
-  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
-  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
-QED
-
-Theorem do_app_SOME_ffi_same_oracle_state
-  `do_app (refs,ffi:'ffi ffi_state) op args = SOME ((refs',ffi'),r)
-   ⇒
-   do_app (refs,ffi with io_events := l) op args =
-   SOME ((refs',ffi' with io_events := l ++ DROP (LENGTH ffi.io_events) ffi'.io_events),r)`
-  (rw[]
-  \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
-  \\ rw[] \\ fs[]
-  \\ fs[ffiTheory.call_FFI_def]
-  \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
-  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
-  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
-  \\ fs[DROP_APPEND,DROP_LENGTH_NIL]);
-
-Theorem evaluate_add_history:
-  (!(st:'ffi semanticPrimitives$state) env exp st' res. evaluate (st with ffi := st.ffi with io_events := []) env exp = (st',res)
-  ==> evaluate st env exp = (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res)) /\
-  (!(st:'ffi semanticPrimitives$state) env v pes err_v st' res.
-   evaluate_match (st with ffi := st.ffi with io_events := []) env v pes err_v = (st',res)
-  ==> evaluate_match st env v pes err_v = (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res))
-Proof
-  strip_assume_tac evaluatePropsTheory.evaluate_history_irrelevance >>
-  rpt(pop_assum(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev))) >>
-  rpt(disch_then(qspec_then `[]` strip_assume_tac)) >>
-  fs[]
-QED
-
-Theorem evaluate_add_history2:
-  (!(st:'ffi semanticPrimitives$state) env ck exp st' res. evaluate_ck ck (st with ffi := st.ffi with io_events := []) env exp = (st',res)
-  ==> evaluate_ck ck st env exp = (st' with ffi := st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res))
-Proof
-  rw[evaluate_ck_def] >>
-  mp_tac(CONJUNCT1 evaluate_add_history) >>
-  disch_then(qspecl_then [`st with clock := ck`,`env`,`exp`,`st'`,`res`] mp_tac) >>
-  rw[]
-QED
-
-Theorem evaluate_history_irrelevance_2:
+Theorem evaluate_ck_history_irrelevance:
   (!(st:'ffi semanticPrimitives$state) env ck exp st' res l. evaluate_ck ck (st with ffi := st.ffi with io_events := l) env exp = (st',res)
   ==> evaluate_ck ck st env exp = (st' with ffi := st'.ffi with io_events := st.ffi.io_events ++ DROP (LENGTH l) st'.ffi.io_events, res))
 Proof
@@ -4597,7 +4546,7 @@ val repeat_POSTd_one_FFI_part_FLATTEN = store_thm("repeat_POSTd_one_FFI_part_FLA
         qexists_tac `u2` >> fs[] >>
         fs[SPLIT_def,SPLIT3_def] >>
         metis_tac[IN_UNION,IN_INSERT,limited_parts_unique_part]) >>
-     drule(GEN_ALL evaluate_history_irrelevance_2) >>
+     drule(GEN_ALL evaluate_ck_history_irrelevance) >>
      strip_tac >> asm_exists_tac >>
      simp[] >>
      `FFI_part (ss (SUC i)) u ns (events (SUC i)) ∈ st2heap p st'`

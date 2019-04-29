@@ -150,6 +150,7 @@ val is_clock_io_mono_def = Define
         /\ s'.clock <= s.clock
         /\ s.next_type_stamp <= s'.next_type_stamp
         /\ s.next_exn_stamp <= s'.next_exn_stamp
+        /\ LENGTH s.refs <= LENGTH s'.refs
         /\ (!clk. case f (s with clock := clk) of (s'', r') =>
             (~ (r' = Rerr (Rabort Rtimeout_error))
                 ==> ~ (r = Rerr (Rabort Rtimeout_error))
@@ -224,7 +225,10 @@ Theorem is_clock_io_mono_do_app
         list_result r)) st`
   (fs [is_clock_io_mono_def]
   \\ rpt (CASE_TAC ORELSE CHANGED_TAC (fs []) ORELSE strip_tac)
-  \\ metis_tac [do_app_io_events_mono]);
+  >- metis_tac [do_app_io_events_mono]
+  \\ Cases_on `op` \\ fs [do_app_def]
+  \\ every_case_tac \\ fs []
+  \\ fs [store_assign_def,store_alloc_def] \\ rveq \\ fs []);
 
 Theorem is_clock_io_mono_evaluate
   `(!(s : 'ffi state) env es. is_clock_io_mono (\s. evaluate s env es) s) /\
@@ -1267,22 +1271,46 @@ Theorem evaluate_set_init_clock
   \\ rw [] \\ fs []);
 
 Theorem evaluate_refs_length_mono `
-  (∀(s:'a state) env e s' r.
-     evaluate s env e = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs) ∧
-  (∀(s:'a state) env v pes errv s' r.
-     evaluate_match s env v pes errv = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs)`
-  cheat (*
-  (ho_match_mp_tac evaluate_ind
-  \\ rw[] \\ fs[evaluate_def]
-  \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
-  \\ fs[dec_clock_def]
-  \\ fs[semanticPrimitivesPropsTheory.do_app_cases] \\ rw[]
-  \\ fs[semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
-  \\ rw[]
-  \\ every_case_tac >> fs[] >> rveq >> fs[]) *);
+  (∀(s:'ffi state) env es s' r.
+     evaluate s env es = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs) ∧
+  (∀(s:'ffi state) env v pes err_v s' r.
+     evaluate_match s env v pes err_v = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs)`
+ (rpt strip_tac
+  \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT1 |> SPEC_ALL)
+  \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT2 |> CONJUNCT1 |> SPEC_ALL)
+  \\ assume_tac (is_clock_io_mono_evaluate |> CONJUNCT2 |> CONJUNCT2 |> SPEC_ALL)
+  \\ rfs [is_clock_io_mono_def]);
+
+Theorem do_app_ffi_mono:
+  do_app (refs,ffi:'ffi ffi_state) op args = SOME ((refs',ffi'),r)
+   ⇒
+   ?l. ffi'.io_events = ffi.io_events ++ l
+Proof
+  rw[]
+  \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
+  \\ rw[] \\ fs[]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
+QED
+
+Theorem do_app_SOME_ffi_same_oracle_state
+  `do_app (refs,ffi:'ffi ffi_state) op args = SOME ((refs',ffi'),r)
+   ⇒
+   do_app (refs,ffi with io_events := l) op args =
+   SOME ((refs',ffi' with io_events := l ++ DROP (LENGTH ffi.io_events) ffi'.io_events),r)`
+  (rw[]
+  \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
+  \\ rw[] \\ fs[]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
+  \\ fs[DROP_APPEND,DROP_LENGTH_NIL]);
 
 Theorem evaluate_history_irrelevance:
-    (!(st1:'ffi semanticPrimitives$state) env exp st st' res l.
+  (!(st1:'ffi semanticPrimitives$state) env exp st st' res l.
     evaluate st1 env exp = (st',res) ==>
     st1 = (st with ffi := st.ffi with io_events := l)
     ==>
@@ -1294,91 +1322,130 @@ Theorem evaluate_history_irrelevance:
     st1 = (st with ffi := st.ffi with io_events := l)
     ==>
     evaluate_match st env v pes err_v =
+    (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ DROP (LENGTH l) st'.ffi.io_events, res)) /\
+  (!(st1:'ffi semanticPrimitives$state) env ds st st' res l.
+    evaluate_decs st1 env ds = (st',res) ==>
+    st1 = (st with ffi := st.ffi with io_events := l)
+    ==>
+    evaluate_decs st env ds =
     (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ DROP (LENGTH l) st'.ffi.io_events, res))
 Proof
-  cheat (*
-       ho_match_mp_tac terminationTheory.evaluate_ind >>
-       rw[terminationTheory.evaluate_def] >>
-       every_case_tac >> fs[DROP_LENGTH_NIL] >> rveq >>
-       TRY(simp[semanticPrimitivesTheory.state_component_equality,
-                ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL] >>
-           NO_TAC) >>
-       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
+  ho_match_mp_tac terminationTheory.full_evaluate_ind
+  \\ rw[terminationTheory.full_evaluate_def]
+  \\ simp[semanticPrimitivesTheory.state_component_equality,
+          ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+  \\ fs [error_result_case_eq,option_case_eq,
+         exp_or_val_case_eq,list_case_eq,match_result_case_eq,
+         pair_case_eq,result_case_eq,bool_case_eq] \\ rveq \\ fs []
+  \\ simp[semanticPrimitivesTheory.state_component_equality,
+          ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+  \\ fs [PULL_EXISTS]
+  \\ TRY (
+    first_x_assum(qspecl_then [`st`,`l`] mp_tac)
+    \\ impl_tac >- simp[]
+    \\ strip_tac \\ fs[]
+    \\ first_x_assum (qspecl_then [`(st'' with
+           ffi :=
+             st''.ffi with
+             io_events :=
+               st.ffi.io_events ++ DROP (LENGTH l) st''.ffi.io_events)`,
+          `st''.ffi.io_events`] mp_tac) \\ fs []
+    \\ impl_tac THEN1
+      simp[semanticPrimitivesTheory.state_component_equality,
+         ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+    \\ fs []
+    \\ simp[semanticPrimitivesTheory.state_component_equality,
+            ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+    \\ rw []
+    \\ imp_res_tac evaluate_io_events_mono_imp
+    \\ fs[io_events_mono_def]
+    \\ fs[IS_PREFIX_APPEND]
+    \\ fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,
+         DECIDE ``!a b. a - (a + b:num) = 0``] \\ NO_TAC)
+  \\ TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
            impl_tac >- simp[] >>
            strip_tac >> fs[] >>
            rveq >> fs[] >>
-           NO_TAC) >>
-       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
-           impl_tac >- simp[] >>
-           strip_tac >> fs[] >>
-           first_x_assum drule >>
-           rename1 `st1 with ffi:= _ = st2` >>
-           disch_then(qspecl_then [`st2`,`st1.ffi.io_events`] mp_tac) >>
-           impl_tac >- fs[semanticPrimitivesTheory.state_component_equality,
-                            ffiTheory.ffi_state_component_equality] >>
-           strip_tac >> fs[] >> rveq >>
-           fs[semanticPrimitivesTheory.state_component_equality,
-              ffiTheory.ffi_state_component_equality] >>
-           imp_res_tac evaluate_io_events_mono_imp >>
-           fs[io_events_mono_def] >>
-           fs[IS_PREFIX_APPEND] >>
-           fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``] >>
-           NO_TAC) >>
-       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
-           impl_tac >- simp[] >>
-           strip_tac >> fs[] >>
-           rveq >> fs[] >>
-           drule(GEN_ALL do_app_SOME_ffi_same_oracle_state) >>
-           strip_tac >>
-           fs[] >>
-           rveq >>
-           fs[state_component_equality,ffiTheory.ffi_state_component_equality] >>
-           imp_res_tac do_app_ffi_mono >>
-           fs[DROP_APPEND,DROP_LENGTH_NIL] >>
-           imp_res_tac evaluate_io_events_mono_imp >>
-           fs[io_events_mono_def] >>
-           fs[IS_PREFIX_APPEND] >>
-           fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``] >>
-           NO_TAC) >>
-       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
-           impl_tac >- simp[] >>
-           strip_tac >> fs[] >>
-           rveq >> fs[] >>
-           imp_res_tac
+           NO_TAC)
+  \\ TRY (
+    first_x_assum(qspecl_then [`st`,`l`] mp_tac)
+    \\ impl_tac >- simp[]
+    \\ strip_tac \\ fs[]
+    \\ rpt (qpat_x_assum `(st',res) = _` (assume_tac o GSYM))
+    \\ fs []
+    \\ first_x_assum (qspecl_then [`dec_clock (st'' with
+           ffi :=
+             st''.ffi with
+             io_events :=
+               st.ffi.io_events ++ DROP (LENGTH l) st''.ffi.io_events)`,
+          `st''.ffi.io_events`] mp_tac) \\ fs [dec_clock_def]
+    \\ impl_tac THEN1
+      simp[semanticPrimitivesTheory.state_component_equality,
+         ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+    \\ fs []
+    \\ simp[semanticPrimitivesTheory.state_component_equality,
+            ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+    \\ rw []
+    \\ imp_res_tac evaluate_io_events_mono_imp
+    \\ fs[io_events_mono_def]
+    \\ fs[IS_PREFIX_APPEND]
+    \\ fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,
+         DECIDE ``!a b. a - (a + b:num) = 0``] \\ NO_TAC)
+  \\ TRY (
+    first_x_assum(qspecl_then [`st`,`l`] mp_tac)
+    \\ impl_tac >- simp[]
+    \\ strip_tac \\ fs[]
+    \\ first_x_assum (qspecl_then [`(st1 with
+           ffi :=
+             st1.ffi with
+             io_events :=
+               st.ffi.io_events ++ DROP (LENGTH l) st1.ffi.io_events)`,
+          `st1.ffi.io_events`] mp_tac) \\ fs []
+    \\ impl_tac THEN1
+      simp[semanticPrimitivesTheory.state_component_equality,
+         ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+    \\ fs []
+    \\ simp[semanticPrimitivesTheory.state_component_equality,
+            ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
+    \\ rw []
+    \\ imp_res_tac evaluate_io_events_mono_imp
+    \\ fs[io_events_mono_def]
+    \\ fs[IS_PREFIX_APPEND]
+    \\ fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,
+         DECIDE ``!a b. a - (a + b:num) = 0``] \\ NO_TAC)
+  \\ TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac)
+    \\ impl_tac >- simp[]
+    \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+    \\ imp_res_tac
              (semanticPrimitivesPropsTheory.do_app_NONE_ffi
-              |> INST_TYPE [beta |-> alpha]) >>
-           fs[] >> NO_TAC) >>
-       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
-           impl_tac >- simp[] >>
-           strip_tac >> fs[] >>
-           rveq >> fs[] >> rveq >> fs[] >>
-           qmatch_goalsub_abbrev_tac `st1.ffi with io_events := events` >>
-           first_x_assum(qspecl_then [`st1 with ffi := st1.ffi with io_events := events`,`st1.ffi.io_events`] mp_tac) >>
-           impl_tac >- simp[state_component_equality,ffiTheory.ffi_state_component_equality] >>
-           rw[state_component_equality,ffiTheory.ffi_state_component_equality,Abbr `events`] >>
-           imp_res_tac evaluate_io_events_mono_imp >>
-           fs[io_events_mono_def] >>
-           fs[IS_PREFIX_APPEND] >>
-           fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``] >>
-           NO_TAC) >>
-       TRY(rename1 `dec_clock` >>
-           first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
-           impl_tac >- simp[] >>
-           strip_tac >> fs[] >>
-           rveq >> fs[] >> rveq >> fs[] >>
-           qmatch_goalsub_abbrev_tac `dec_clock(_ with ffi:= st1.ffi with io_events := events)` >>
-           first_x_assum drule >>
-           disch_then(qspecl_then [`dec_clock(st1 with ffi := st1.ffi with io_events := events)`,`st1.ffi.io_events`] mp_tac) >>
-           impl_tac >- simp[evaluateTheory.dec_clock_def,state_component_equality,
-                            ffiTheory.ffi_state_component_equality] >>
-           rw[evaluateTheory.dec_clock_def,state_component_equality,
-                ffiTheory.ffi_state_component_equality,Abbr `events`] >>
-           imp_res_tac evaluate_io_events_mono_imp >>
-           fs[io_events_mono_def] >>
-           fs[IS_PREFIX_APPEND] >>
-           fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``,
-              evaluateTheory.dec_clock_def]) >>
-      cheat *)
+              |> INST_TYPE [beta |-> alpha])
+    \\ fs[] \\ NO_TAC)
+  \\ TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac)
+    \\ impl_tac >- simp[]
+    \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+    \\ drule(GEN_ALL do_app_SOME_ffi_same_oracle_state)
+    \\ strip_tac \\ fs[] \\ rveq
+    \\ fs[state_component_equality,ffiTheory.ffi_state_component_equality]
+    \\ imp_res_tac do_app_ffi_mono
+    \\ fs[DROP_APPEND,DROP_LENGTH_NIL]
+    \\ imp_res_tac evaluate_io_events_mono_imp
+    \\ fs[io_events_mono_def]
+    \\ fs[IS_PREFIX_APPEND]
+    \\ fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``]
+    \\ NO_TAC)
+QED
+
+Theorem evaluate_add_history:
+  (!(st:'ffi semanticPrimitives$state) env exp st' res. evaluate (st with ffi := st.ffi with io_events := []) env exp = (st',res)
+  ==> evaluate st env exp = (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res)) /\
+  (!(st:'ffi semanticPrimitives$state) env v pes err_v st' res.
+   evaluate_match (st with ffi := st.ffi with io_events := []) env v pes err_v = (st',res)
+  ==> evaluate_match st env v pes err_v = (st' with ffi:= st'.ffi with io_events := st.ffi.io_events ++ st'.ffi.io_events, res))
+Proof
+  strip_assume_tac evaluate_history_irrelevance >>
+  rpt(pop_assum(mp_tac o CONV_RULE(RESORT_FORALL_CONV rev))) >>
+  rpt(disch_then(qspec_then `[]` strip_assume_tac)) >>
+  fs[]
 QED
 
 val _ = export_theory();
