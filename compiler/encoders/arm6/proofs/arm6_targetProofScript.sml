@@ -1125,6 +1125,7 @@ Theorem arm6_encoder_correct
          >- (print_tac "FPSub"  \\ next_tac)
          >- (print_tac "FPMul"  \\ next_tac)
          >- (print_tac "FPDiv"  \\ next_tac)
+         >- (print_tac "FPFma"  \\ next_tac)
          >- (print_tac "FPMov"  \\ next_tac)
          >- (print_tac "FPMovToReg"   \\ next_tac)
          >- (print_tac "FPMovFromReg" \\ next_tac)
