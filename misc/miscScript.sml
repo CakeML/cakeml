@@ -1561,11 +1561,6 @@ Theorem EVERY_LAST
   (rw [LAST_EL, EVERY_EL, NOT_NIL_EQ_LENGTH_NOT_0]);
 
 (* TODO - candidate for move to HOL *)
-Theorem isHexDigit_isPrint
-  `∀x. isHexDigit x ⇒ isPrint x`
-  (EVAL_TAC \\ rw[]);
-
-(* TODO - candidate for move to HOL *)
 Theorem num_to_hex_string_length_1
   `∀x. x < 16 ⇒ (LENGTH (num_to_hex_string x) = 1)`
   (REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
