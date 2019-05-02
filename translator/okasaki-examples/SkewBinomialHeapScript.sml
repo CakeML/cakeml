@@ -39,7 +39,7 @@ val skew_link_def = Define `
         (if geq x' x
          then (Sbnode x r (x'::a) c)
          else (Sbnode x' r (x::a) c))
-  `;
+`;
 
 val tree_to_bag_def = Define `
   (tree_to_bag (Sbnode x r a []) = (BAG_INSERT x (list_to_bag a))) /\
@@ -192,7 +192,7 @@ val b_delete_min_def = Define `
   (b_delete_min _ Bsbempty = NONE) /\
   (b_delete_min geq (Bsbheap _ c) =
     if c = [] then (SOME Bsbempty) else
-co    let min = THE (find_min (b_heap_comparison geq) c) in
+    let min = THE (find_min (b_heap_comparison geq) c) in
     let rest = THE (delete_min (b_heap_comparison geq) c) in
     let smallest_root = b_root min in
     let smallest_children = b_children min in
@@ -229,7 +229,10 @@ val is_b_heap_ordered_def = Define `
      is_b_heap_ordered3 geq a /\
      is_b_heap_ordered4 geq c)) /\
   (is_b_heap_ordered3 geq [] = T) /\
-  (is_b_heap_ordered3 geq (e::es) = (is_b_heap_ordered geq e /\ is_b_heap_ordered3 geq es)) /\
+  (is_b_heap_ordered3 geq (e::es) = (
+     e <> Bsbempty /\
+     is_b_heap_ordered geq e /\
+     is_b_heap_ordered3 geq es)) /\
   (is_b_heap_ordered4 geq [] = T) /\
   (is_b_heap_ordered4 geq (t::ts) = (is_tree_ordered (b_heap_comparison geq) t /\
                                      is_b_heap_ordered2 geq t /\
@@ -243,7 +246,7 @@ val TotalPreOrder = Define `
 
 (* Useful lemmas *)
 Theorem rank_irrelevance_bag:
-  !root r1 r2 aux ch. tree_to_bag (Sbnode root r1 aux ch) = tree_to_bag (Sbnode root r2 aux ch)
+ !root r1 r2 aux ch. tree_to_bag (Sbnode root r1 aux ch) = tree_to_bag (Sbnode root r2 aux ch)
 Proof
   Induct_on `ch` \\ rw[tree_to_bag_def]
 QED;
@@ -388,6 +391,13 @@ Proof
   Induct_on `h`
   >- rw[b_heap_to_bag_def]
   >- rw[b_heap_to_bag_def]
+QED;
+
+Theorem equiv_order4_order1:
+  !geq h. is_b_heap_ordered4 geq h = is_b_heap_ordered1 geq h
+Proof
+  Induct_on `h` \\
+  rw[is_b_heap_ordered_def]
 QED;
 
 Theorem tree_link_choice:
@@ -1396,10 +1406,11 @@ Proof
                      metis_tac[transitive_def]))))
      >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def])
      >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def])
+     >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def])
      >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def]))
   >- (rw[root_def, rank_def, aux_def, children_def, is_b_heap_ordered_def]
-      >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def] )
-      >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def] )
+      >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def])
+      >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def])
       >- (imp_res_tac link_b_order \\
           fs[is_b_heap_ordered_def] \\
           rw[b_heap_to_bag_def] \\
@@ -1441,6 +1452,44 @@ Proof
               rw[])
           >- rw[leaf_def, is_b_heap_ordered_def, is_tree_ordered_def,
 	        list_to_bag_def, b_heap_to_bag_def]))
+QED;
+
+Theorem insert_list_b_order:
+  !geq l h. TotalPreOrder geq /\
+            is_b_heap_ordered1 geq h /\
+            is_b_heap_ordered3 geq l ==>
+            is_b_heap_ordered1 geq (insert_list (b_heap_comparison geq) l h)
+Proof
+  Induct_on `l`
+  >- rw[insert_list_def]
+  >- (rw[insert_list_def] \\
+      fs[is_b_heap_ordered_def] \\
+      res_tac \\
+      imp_res_tac insert_b_order)
+QED;
+
+Theorem app_b_order:
+  !geq l1 l2. TotalPreOrder geq /\
+              is_b_heap_ordered1 geq l1 /\
+              is_b_heap_ordered1 geq l2 ==>
+              is_b_heap_ordered1 geq (l1 ++ l2)
+Proof
+  Induct_on `l1`
+  >- rw[]
+  >- rw[is_b_heap_ordered_def]
+QED;
+
+Theorem reverse_b_order:
+  !geq l. TotalPreOrder geq /\
+          is_b_heap_ordered1 geq l ==>
+          is_b_heap_ordered1 geq (REVERSE l)
+Proof
+  Induct_on `l`
+  >- rw[]
+  >- (rw[] \\
+      fs[is_b_heap_ordered_def] \\
+      `is_b_heap_ordered1 geq [h]` by rw[is_b_heap_ordered_def] \\
+      rw[app_b_order])
 QED;
 
 Theorem b_merge_order:
@@ -1593,8 +1642,254 @@ Proof
   >- (rw[merge_def, b_merge_tree_bag1, b_normalize_bag1])
 QED;
 
+Theorem get_min_b_order:
+  !geq h smallest rest. TotalPreOrder geq /\
+                        h <> [] /\
+                        is_b_heap_ordered1 geq h /\
+                        (smallest, rest) = get_min (b_heap_comparison geq) h ==>
+                        is_b_heap_ordered2 geq smallest /\
+                        is_b_heap_ordered1 geq rest
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (Cases_on `h`
+      >- rw[is_b_heap_ordered_def, get_min_def]
+      >- (rw[is_b_heap_ordered_def, get_min_def] \\
+          Cases_on `get_min (b_heap_comparison geq) (h'::t)` \\
+          fs[] \\
+          `(q,r) = get_min (b_heap_comparison geq) (h'::t)` by rw[]
+	  >- (Cases_on `(b_heap_comparison geq) (root q) (root h)`
+              >- fs[]
+	      >- (fs[] \\
+                  res_tac))
+          >- (Cases_on `(b_heap_comparison geq) (root q) (root h)`
+              >- fs[is_b_heap_ordered_def]
+	      >- (res_tac \\
+                  fs[is_b_heap_ordered_def]))))
+QED;
+
+Theorem binomial_insert_b_order:
+  !geq t h. TotalPreOrder geq /\
+            is_b_heap_ordered1 geq h /\
+            is_b_heap_ordered2 geq t ==>
+            is_b_heap_ordered1 geq (binomial_insert (b_heap_comparison geq) t h)
+Proof
+  Induct_on `h`
+  >- rw[is_b_heap_ordered_def, is_tree_ordered_def, binomial_insert_def,
+     tree_b_ordered_is_ordered]
+  >- (Induct_on `h`
+      >- (rw[is_b_heap_ordered_def, is_tree_ordered_def, binomial_insert_def] \\
+          Cases_on `rank t < rank h`
+          >- rw[is_b_heap_ordered_def]
+	  >- (rw[] \\
+              Cases_on `tree_link (b_heap_comparison geq) t h` \\
+              imp_res_tac link_b_order \\
+              rw[is_b_heap_ordered_def]))
+      >- (rw[is_b_heap_ordered_def] \\
+          rw[binomial_insert_def, is_b_heap_ordered_def]
+          >- fs[tree_b_ordered_is_ordered]
+          >- (imp_res_tac tree_b_ordered_is_ordered \\
+              imp_res_tac b_comparison_total_pre_order \\
+              rw[tree_link_order])
+          >- (Cases_on `tree_link (b_heap_comparison geq) t h''` \\
+              imp_res_tac link_b_order)
+          >- (Cases_on `tree_link (b_heap_comparison geq) t h''` \\
+              imp_res_tac link_b_order \\
+              imp_res_tac tree_b_ordered_is_ordered \\
+              res_tac \\
+	      fs[binomial_insert_def] \\
+              fs[rank_def] \\
+              rfs[])))
+QED;
+
+Theorem normalize_b_order:
+  !geq h. TotalPreOrder geq /\
+          is_b_heap_ordered1 geq h ==>
+          is_b_heap_ordered1 geq (normalize (b_heap_comparison geq) h)
+Proof
+  Cases_on `h` \\
+  rw[is_b_heap_ordered_def, normalize_def, binomial_insert_b_order]
+QED;
+
+Theorem merge_tree_b_order:
+  !geq h1 h2. TotalPreOrder geq /\
+              is_b_heap_ordered1 geq h1 /\
+              is_b_heap_ordered1 geq h2 ==>
+              is_b_heap_ordered1 geq (merge_tree (b_heap_comparison geq) h1 h2)
+Proof
+  Induct_on `h2`
+  >- rw[merge_tree_def, is_b_heap_ordered_def]
+  >- (Induct_on `h1`
+      >- rw[merge_tree_left_cancel, is_b_heap_ordered_def]
+      >- (rw[merge_tree_def]
+	  >- (rw[is_b_heap_ordered_def]
+	      >- fs[is_b_heap_ordered_def]
+	      >- fs[is_b_heap_ordered_def]
+	      >- fs[is_b_heap_ordered_def])
+          >- (rw[is_b_heap_ordered_def]
+              >- fs[is_b_heap_ordered_def, tree_b_ordered_is_ordered]
+	      >- fs[is_b_heap_ordered_def]
+	      >- fs[is_b_heap_ordered_def])
+          >- (fs[is_b_heap_ordered_def] \\
+              `is_b_heap_ordered1 geq (merge_tree (b_heap_comparison geq) h1 h2)`
+              by res_tac \\
+              Cases_on `tree_link (b_heap_comparison geq) h h'` \\
+              imp_res_tac link_b_order \\
+              rw[binomial_insert_b_order])))
+QED;
+
+Theorem merge_b_order:
+  !geq h1 h2. TotalPreOrder geq /\
+              is_b_heap_ordered1 geq h1 /\
+              is_b_heap_ordered1 geq h2 ==>
+              is_b_heap_ordered1 geq (merge (b_heap_comparison geq) h1 h2)
+Proof
+  Cases_on `h2`
+  >- rw[is_b_heap_ordered_def, merge_def, normalize_def,
+        merge_tree_def, normalize_b_order]
+  >- rw[is_b_heap_ordered_def, merge_def, normalize_def,
+	 merge_tree_def, normalize_b_order, binomial_insert_b_order,
+	 normalize_b_order, merge_tree_b_order]
+QED;
+
+Theorem delete_b_order:
+  !geq h. TotalPreOrder geq /\
+           h <> [] /\
+           is_b_heap_ordered1 geq h ==>
+           is_b_heap_ordered1 geq (THE (delete_min (b_heap_comparison geq) h))
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (rw[delete_min_def] \\
+      Cases_on `get_min (b_heap_comparison geq) (h'::h)` \\
+      `(q,r) = get_min (b_heap_comparison geq) (h'::h)` by rw[] \\
+      `(h'::h) <> []` by rw[] \\
+      imp_res_tac get_min_b_order \\
+      simp[] \\
+      Cases_on `q` \\
+      fs[is_b_heap_ordered_def] \\
+      rw[aux_def, children_def] \\
+      fs[equiv_order4_order1] \\
+      rw[normalize_b_order, reverse_b_order, merge_tree_b_order,
+	 insert_list_b_order])
+QED;
+
+Theorem find_min_b_order:
+  !geq h. is_b_heap_ordered1 geq h /\
+          h <> [] ==>
+          is_b_heap_ordered geq (THE (find_min (b_heap_comparison geq) h))
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (Cases_on `h`
+      >- (rw[is_b_heap_ordered_def, find_min_def] \\
+          Cases_on `h` \\
+          fs[root_def, is_b_heap_ordered_def])
+      >- (rw[find_min_def, is_b_heap_ordered_def] \\
+          Cases_on `find_min (b_heap_comparison geq) (h'::t)`
+          >- (`(h'::t) <> []` by rw[] \\
+              imp_res_tac find_min_exists)
+          >- (rw[]
+	      >- (Cases_on `h` \\
+                  fs[root_def, is_b_heap_ordered_def])
+              >- (res_tac \\
+                  metis_tac[THE_DEF]))))
+QED;
+
+Theorem find_min_b_non_empty:
+  !geq h. is_b_heap_ordered1 geq h /\
+          h <> [] ==>
+          THE (find_min (b_heap_comparison geq) h) <> Bsbempty
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (Cases_on `h`
+      >- (rw[find_min_def, is_b_heap_ordered_def] \\
+          Cases_on `h` \\
+          fs[root_def, is_b_heap_ordered_def])
+      >- (rw[find_min_def, is_b_heap_ordered_def] \\
+          Cases_on `find_min (b_heap_comparison geq) (h'::t)`
+          >- (`h'::t <> []` by rw[] \\
+              imp_res_tac find_min_exists)
+          >- (rw[]
+              >- (Cases_on `h` \\
+                  fs[root_def, is_b_heap_ordered_def])
+              >- (res_tac \\
+                  metis_tac[THE_DEF]))))
+QED;
+
+Theorem b_find_delete_min:
+  !geq h. TotalPreOrder geq /\
+          is_b_heap_ordered1 geq h /\
+          h <> [] ==>
+          BAG_EVERY (\y. geq y (b_root (THE (find_min (b_heap_comparison geq) h))))
+                    (b_heap_to_bag1 geq (THE (delete_min (b_heap_comparison geq) h)))
+Proof
+  rw[] \\
+  imp_res_tac heap_b_ordered_is_ordered \\
+  imp_res_tac b_comparison_total_pre_order \\
+  imp_res_tac find_min_correct' \\
+  rpt (WEAKEN_TAC is_forall) \\
+  imp_res_tac delete_min_order \\
+  rpt (WEAKEN_TAC is_forall) \\
+  imp_res_tac delete_min_correct \\
+  rpt (WEAKEN_TAC is_forall) \\
+  fs[] \\
+  imp_res_tac find_min_b_order \\
+  imp_res_tac find_min_b_non_empty \\
+  imp_res_tac b_heap_bag1 \\
+  imp_res_tac delete_b_order \\
+  res_tac
+QED;
+
+Theorem b_delete_min_order:
+  !geq h. TotalPreOrder geq /\
+          h <> Bsbempty /\
+          is_b_heap_ordered geq h ==>
+          is_b_heap_ordered geq (THE (b_delete_min geq h))
+Proof
+  rpt strip_tac \\
+  Cases_on `h`
+  >- rw[]
+  >- (fs[is_b_heap_ordered_def] \\
+      rw[b_delete_min_def]
+      >- rw[is_b_heap_ordered_def]
+      >- (rw[is_b_heap_ordered_def]
+	  >- (rw[b_merge_bag1, b_find_delete_min] \\
+              Cases_on `find_min (b_heap_comparison geq) l`
+              >- imp_res_tac find_min_exists
+	      >- (Cases_on `x`
+                  >- (imp_res_tac find_min_b_non_empty \\
+                      rfs[THE_DEF])
+                  >- (rw[THE_DEF, b_root_def, b_children_def] \\
+                      imp_res_tac find_min_b_order \\
+                      rfs[is_b_heap_ordered_def])))
+          >- (Cases_on `find_min (b_heap_comparison geq) l`
+              >- imp_res_tac find_min_exists
+	      >- (Cases_on `x`
+                  >- (imp_res_tac find_min_b_non_empty \\
+                      rfs[THE_DEF])
+                  >- (rw[THE_DEF, b_root_def, b_children_def] \\
+                      imp_res_tac find_min_b_order \\
+                      rfs[is_b_heap_ordered_def] \\
+                      imp_res_tac heap_b_ordered_is_ordered \\
+		      imp_res_tac b_comparison_total_pre_order \\
+                      rw[merge_order, delete_min_order])))
+          >- (imp_res_tac delete_b_order \\
+              Cases_on `find_min (b_heap_comparison geq) l`
+              >- imp_res_tac find_min_exists
+	      >- (Cases_on `x`
+                  >- (imp_res_tac find_min_b_non_empty \\
+                      rfs[THE_DEF])
+                  >- (rw[THE_DEF, b_children_def] \\
+                      imp_res_tac find_min_b_order \\
+                      rfs[is_b_heap_ordered_def] \\
+                      imp_res_tac b_comparison_total_pre_order \\
+                      rw[merge_b_order])))))
+QED;
+
 (* Translations *)
-val _ = translate leaf_def;
+val _ = translate leaf_def;b_f
 val _ = translate root_def;
 val _ = translate rank_def;
 val _ = translate aux_def;
