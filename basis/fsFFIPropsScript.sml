@@ -866,7 +866,7 @@ Theorem linesFD_cons_imp
     \\ pairarg_tac \\ fs[]
     \\ every_case_tac \\ fs[] \\ rw[]
     \\ fs[NULL_EQ]
-    \\ imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[]
+    \\ imp_res_tac SPLITP_NIL_FST_IMP \\ fs[] \\ rw[]
     >- ( Cases_on`FIELDS ($= #"\n") t` \\ fs[] )
     >- ( Cases_on`FIELDS ($= #"\n") (TL r)` \\ fs[] ))
   \\ reverse IF_CASES_TAC \\ fs[DROP_LENGTH_TOO_LONG]

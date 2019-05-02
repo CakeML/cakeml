@@ -2,6 +2,7 @@
    Miscellaneous definitions and minor lemmas used throughout the
    development.
 *)
+
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory mp_then
 open bitstringTheory bagTheory byteTheory optionTheory combinTheory dep_rewrite
      containerTheory listTheory pred_setTheory finite_mapTheory alistTheory
@@ -1921,15 +1922,6 @@ val option_fold_def = Define `
   (option_fold f x NONE = x) ∧
   (option_fold f x (SOME y) = f y x)`;
 
-Theorem SPLITP_NIL_IMP
-  `∀ls r. (SPLITP P ls = ([],r)) ==> (r = ls) /\ ((ls <> "") ==> (P (HD ls)))`
-  (Induct \\ rw[SPLITP]);
-
-
-Theorem SPLIT_NIL_SND_EQ
-  `!ls r. (SPLITP P ls = (r, [])) ==> (r = ls)`
-    (rw[] \\ imp_res_tac SPLITP_JOIN \\ fs[]);
-
 Theorem SPLITP_CONS_IMP
   `∀ls l' r. (SPLITP P ls = (l', r)) /\ (r <> []) ==> (EXISTS P ls)`
   (rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN
@@ -1940,21 +1932,6 @@ Theorem LAST_CONS_alt
   `P x ==> ((ls <> [] ==> P (LAST ls)) <=> (P (LAST (CONS x ls))))`
   (Cases_on`ls` \\ rw[]);
 
-Theorem SPLITP_APPEND
-  `!l1 l2.
-   SPLITP P (l1 ++ l2) =
-    if EXISTS P l1 then
-      (FST (SPLITP P l1), SND (SPLITP P l1) ++ l2)
-    else
-      (l1 ++ FST(SPLITP P l2), SND (SPLITP P l2))`
-  (Induct \\ rw[SPLITP] \\ fs[]);
-
-
-Theorem SPLITP_LENGTH
-  `!l.
-    LENGTH l = (LENGTH (FST (SPLITP P l)) + LENGTH (SND (SPLITP P l)))`
-    (Induct \\ rw[SPLITP, LENGTH]
-);
 
 Theorem EVERY_TOKENS
   `∀P ls. EVERY (EVERY ($~ o P)) (TOKENS P ls)`
@@ -1964,42 +1941,18 @@ Theorem EVERY_TOKENS
   \\ IF_CASES_TAC \\ fs[]
   \\ imp_res_tac SPLITP_IMP);
 
-(* TODO - candidate for move to HOL *)
-Theorem TOKENS_APPEND
-  `∀P l1 x l2.
-    P x ==>
-    (TOKENS P (l1 ++ x::l2) = TOKENS P l1 ++ TOKENS P l2)`
-  (ho_match_mp_tac TOKENS_ind
-  \\ rw[TOKENS_def] >- (fs[SPLITP])
-  \\ pairarg_tac  \\ fs[]
-  \\ pairarg_tac  \\ fs[]
-  \\ fs[NULL_EQ, SPLITP]
-  \\ Cases_on `P h` \\ full_simp_tac bool_ss []
-  \\ rw[]
-  \\ fs[TL]
-  \\ Cases_on `EXISTS P t` \\ rw[SPLITP_APPEND, SPLITP]
-  \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]
-  \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]);
-
-
-(* TODO - candidate for move to HOL *)
-Theorem TOKENS_NIL
-  `!ls. (TOKENS f ls = []) <=> EVERY f ls`
-  (Induct \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
-  \\ every_case_tac \\ fs[] \\ rw[]);
-
-
-Theorem TOKENS_START
-  `!l a.
-      TOKENS (\x. x = a) (a::l) = TOKENS (\x. x = a) l`
-    (gen_tac \\ Induct_on `l` \\ rw[TOKENS_def] \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
-    >-(imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[TOKENS_def])
-    >-(fs[SPLITP])
-    >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[]
-      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[]
-      \\ simp[TOKENS_def] \\ rw[NULL_EQ])
-    >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP])
-);
+Theorem TOKENS_START:
+  !l a. TOKENS (\x. x = a) (a::l) = TOKENS (\x. x = a) l
+Proof
+  gen_tac \\ Induct_on `l` \\ rw[TOKENS_def] \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
+  >-(imp_res_tac SPLITP_NIL_FST_IMP \\ fs[] \\ rw[TOKENS_def])
+  >-(fs[SPLITP])
+  >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[]
+    \\ imp_res_tac SPLITP_NIL_FST_IMP
+    \\ imp_res_tac SPLITP_IMP \\ rfs[]
+    \\ simp[TOKENS_def] \\ rw[NULL_EQ])
+  >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP])
+QED
 
 Theorem TOKENS_END
   `!l a.
@@ -2386,7 +2339,7 @@ Theorem LENGTH_FIELDS
   \\ pairarg_tac \\ fs[]
   \\ rw[] \\ fs[] \\ rw[ADD1]
   \\ fs[NULL_EQ]
-  \\ imp_res_tac SPLITP_NIL_IMP
+  \\ imp_res_tac SPLITP_NIL_FST_IMP
   \\ imp_res_tac SPLITP_NIL_SND_EVERY
   \\ imp_res_tac SPLITP_IMP
   \\ fs[NULL_EQ]
@@ -2439,7 +2392,7 @@ Theorem FIELDS_next
   \\ rw[FIELDS_def]
   \\ pairarg_tac \\ fs[]
   \\ every_case_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[]
-  \\ imp_res_tac SPLITP_NIL_IMP \\ fs[]
+  \\ imp_res_tac SPLITP_NIL_FST_IMP \\ fs[]
   \\ imp_res_tac SPLITP_IMP \\ fs[]
   \\ imp_res_tac SPLITP_NIL_SND_EVERY \\ fs[]
   \\ rfs[PULL_FORALL,NULL_EQ]
@@ -2481,7 +2434,7 @@ Theorem FIELDS_full
     \\ imp_res_tac SPLITP_NIL_SND_EVERY )
   \\ simp_tac(srw_ss())[]
   \\ strip_tac \\ rveq
-  \\ Q.ISPEC_THEN`h::t`mp_tac SPLITP_LENGTH
+  \\ Q.ISPEC_THEN`h::t`mp_tac(GSYM SPLITP_LENGTH)
   \\ last_x_assum kall_tac
   \\ simp[]
   \\ strip_tac \\ fs[]
@@ -2829,49 +2782,18 @@ Theorem LAST_FLAT
   \\ fs[FLAT_SNOC,FILTER_SNOC]
   \\ Cases_on`x` \\ fs[]);
 
-(* TODO - candidate for move to HOL *)
-Theorem TOKENS_FRONT
-  `¬NULL ls ∧ P (LAST ls) ⇒
-   TOKENS P (FRONT ls) = TOKENS P ls`
-  (Induct_on`ls` \\ rw[]
-  \\ Cases_on`ls` \\ fs[]
-  >- rw[TOKENS_def,SPLITP]
-  \\ rw[TOKENS_def]
-  \\ pairarg_tac
-  \\ simp[Once SPLITP]
-  \\ CASE_TAC \\ fs[NULL_EQ]
-  >- (
-    imp_res_tac SPLITP_NIL_IMP
-    \\ fs[] )
-  \\ imp_res_tac SPLITP_JOIN
-  \\ Cases_on`l` \\ fs[] \\ rveq
-  \\ imp_res_tac SPLITP_IMP
-  \\ CASE_TAC \\ fs[]
-  \\ qmatch_goalsub_rename_tac`SPLITP P (x::xs)`
-  \\ `∃y ys. x::xs = SNOC y ys` by metis_tac[SNOC_CASES,list_distinct]
-  \\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC] \\ rveq
-  \\ qmatch_goalsub_rename_tac`SPLITP P (SNOC y (w ++ z))`
-  \\ Cases_on`NULL z` \\ fs[NULL_EQ]
-  >- (
-    simp[SPLITP_APPEND]
-    \\ full_simp_tac std_ss [GSYM NOT_EXISTS]
-    \\ simp[SPLITP,TOKENS_def] )
-  \\ Cases_on`z` \\ fs[]
-  \\ simp[SPLITP_APPEND]
-  \\ full_simp_tac std_ss [GSYM NOT_EXISTS]
-  \\ simp[SPLITP,TOKENS_def]
-  \\ simp[TOKENS_APPEND,TOKENS_NIL]);
-
-Theorem TOKENS_unchanged
-  `EVERY ($~ o P) ls ==> TOKENS P ls = if NULL ls then [] else [ls]`
-  (Induct_on`ls` \\ rw[TOKENS_def] \\ fs[]
+Theorem TOKENS_unchanged:
+  EVERY ($~ o P) ls ==> TOKENS P ls = if NULL ls then [] else [ls]
+Proof
+  Induct_on`ls` \\ rw[TOKENS_def] \\ fs[]
   \\ pairarg_tac \\ fs[NULL_EQ]
   \\ imp_res_tac SPLITP_JOIN
   \\ Cases_on`r=[]` \\ fs[]
-  >- ( imp_res_tac SPLITP_NIL_IMP \\ rveq \\ fs[TOKENS_NIL] )
+  >- ( imp_res_tac SPLITP_NIL_FST_IMP \\ rveq \\ fs[TOKENS_NIL] )
   \\ rw[]
   >- (
-    imp_res_tac SPLITP_NIL_IMP
+    imp_res_tac SPLITP_NIL_FST_IMP
+    \\ imp_res_tac SPLITP_IMP
     \\ rfs[] \\ rveq \\ fs[] )
   \\ imp_res_tac SPLITP_IMP
   \\ rfs[NULL_EQ]
@@ -2879,7 +2801,8 @@ Theorem TOKENS_unchanged
   \\ `MEM (HD r) (l ++ r)` by (Cases_on`r` \\ fs[])
   \\ Cases_on`MEM (HD r) l` \\ fs[] >- metis_tac[]
   \\ `MEM (HD r) (h::ls)` by metis_tac[MEM_APPEND]
-  \\ fs[] \\ rw[] \\ metis_tac[]);
+  \\ fs[] \\ rw[] \\ metis_tac[]
+QED
 
 Theorem TOKENS_FLAT_MAP_SNOC
   `EVERY (EVERY ((<>) x)) ls ∧ EVERY ($~ o NULL) ls ==>

@@ -772,7 +772,7 @@ Theorem diff_with_lcs_headers_within
   >- (fs[headers_within_def,diff_single_def]
       >> fs[parse_header_cancel]
       >> rw[]
-      >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)
+      >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL (GSYM SPLITP_LENGTH))
       >> fs[]
       >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma)
       >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma2)
@@ -786,7 +786,7 @@ Theorem diff_with_lcs_headers_within
   >> disch_then(qspecl_then [`n + (LENGTH ll + 1)`,`m + (LENGTH l'l + 1)`] assume_tac)
   >> drule0(GEN_ALL headers_within_grow)
   >> disch_then match_mp_tac
-  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)
+  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL (GSYM SPLITP_LENGTH))
   >> fs[]);
 
 val highly_specific_implication = Q.prove(
