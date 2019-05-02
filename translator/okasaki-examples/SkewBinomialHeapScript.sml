@@ -889,12 +889,12 @@ Proof
       `(h'::h) <> []` by rw[] \\
       imp_res_tac get_min_correct \\
       imp_res_tac get_min_bag \\
-      rw[insert_list_bag, merge_tree_bag, reverse_heap_order,
+      rw[insert_list_bag, merge_tree_bag, reverse_bag,
 	 normalize_bag] \\
       Cases_on `q` \\
       fs[root_def, children_def, aux_def] \\
       rw[tree_to_bag_general] \\
-      metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION, reverse_bag])
+      metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
 QED;
 
 (* Functional correctness of merge *)
@@ -1887,6 +1887,105 @@ Proof
                       imp_res_tac b_comparison_total_pre_order \\
                       rw[merge_b_order])))))
 QED;
+
+Theorem get_min_bag1:
+  !geq smallest rest h. h <> [] /\
+          (smallest, rest) = get_min (b_heap_comparison geq) h ==>
+          (b_heap_to_bag1 geq h) = BAG_UNION
+                                   (b_heap_to_bag2 geq smallest)
+                                   (b_heap_to_bag1 geq rest)
+Proof
+  Induct_on `h`
+  >- rw[]
+  >- (Cases_on `h`
+      >- rw[get_min_def, b_heap_to_bag_def]
+      >- (rw[get_min_def, b_heap_to_bag_def] \\
+          Cases_on `get_min (b_heap_comparison geq) (h'::t)`  \\
+          fs[] \\
+          Cases_on `(b_heap_comparison geq) (root q) (root h)`
+          >- fs[b_heap_to_bag_def]
+	  >- (fs[b_heap_to_bag_def] \\
+              `(q,r) = get_min (b_heap_comparison geq) (h'::t)` by rw[] \\
+	      res_tac \\
+              metis_tac [ASSOC_BAG_UNION, COMM_BAG_UNION])))
+QED;
+
+Theorem tree_to_bag1_general:
+  !geq r n l0 l. b_heap_to_bag2 geq (Sbnode r n l0 l) =
+                 (b_heap_to_bag geq r) ⊎ (b_heap_to_bag3 geq l0) ⊎ (b_heap_to_bag1 geq l)
+Proof
+  Induct_on `l`
+  >- rw[b_heap_to_bag_def, BAG_INSERT_UNION]
+  >- (rw[b_heap_to_bag_def, equiv_bag4_bag1] \\
+      metis_tac[ASSOC_BAG_UNION, COMM_BAG_UNION])
+QED;
+
+Theorem delete_min_bag1:
+  !geq h. TotalPreOrder geq /\
+          h <> [] /\
+          is_b_heap_ordered1 geq h ==>
+          b_heap_to_bag1 geq h =
+            BAG_UNION
+            (b_heap_to_bag1 geq (THE (delete_min (b_heap_comparison geq) h)))
+            (b_heap_to_bag geq (THE (find_min (b_heap_comparison geq) h)))
+Proof
+  Cases_on `h`
+  >- rw[]
+  >- (rw[delete_min_def] \\
+      Cases_on `get_min (b_heap_comparison geq) (h'::t)` \\
+      rw[] \\
+      `(q,r) = get_min (b_heap_comparison geq) (h'::t)` by rw[] \\
+      `(h'::t) <> []` by rw[] \\
+      imp_res_tac heap_b_ordered_is_ordered \\
+      imp_res_tac b_comparison_total_pre_order \\
+      imp_res_tac get_min_correct \\
+      rpt (WEAKEN_TAC is_forall) \\
+      imp_res_tac get_min_bag1 \\
+      rw[b_bag_of_insert_list, b_merge_tree_bag1, b_normalize_bag1,
+	 b_bag_of_reverse] \\
+      Cases_on `q` \\
+      fs[root_def, children_def, aux_def] \\
+      rw[tree_to_bag1_general] \\
+      metis_tac[ASSOC_BAG_UNION, COMM_BAG_UNION])
+QED;
+
+Theorem b_root_children_bag:
+  !geq h. h <> Bsbempty ==>
+          BAG_UNION {| b_root h |} (b_heap_to_bag1 geq (b_children h)) =
+          b_heap_to_bag geq h
+Proof
+  Cases_on `h`
+  >- rw[]
+  >- rw[b_heap_to_bag_def, b_root_def, b_children_def, BAG_INSERT_UNION]
+QED;
+
+Theorem b_delete_min_correct:
+  !geq h. TotalPreOrder geq /\
+          h <> Bsbempty /\
+          is_b_heap_ordered geq h ==>
+          b_heap_to_bag geq h = BAG_UNION
+                            (b_heap_to_bag geq (THE (b_delete_min geq h)))
+                            {| THE (b_find_min h)|}
+Proof
+  Cases_on `h`
+  >- rw[]
+  >- (rw[b_delete_min_def, b_find_min_def, b_heap_to_bag_def, b_merge_bag1] \\
+      rw[BAG_INSERT_UNION] \\
+      fs[is_b_heap_ordered_def] \\
+      `[] <> l` by rw[] \\
+      imp_res_tac (GSYM delete_min_bag1) \\
+      Cases_on `find_min (b_heap_comparison geq) l`
+      >- imp_res_tac find_min_exists
+      >- (fs[THE_DEF] \\
+          Cases_on `x` \\
+          >- (`l <> []` by rw[] \\
+              imp_res_tac find_min_b_non_empty \\
+              rfs[THE_DEF])
+          >- (rw[b_children_def, b_root_def] \\
+              fs[b_heap_to_bag_def, BAG_INSERT_UNION] \\
+              metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])))
+QED;
+
 
 (* Translations *)
 val _ = translate leaf_def;b_f
