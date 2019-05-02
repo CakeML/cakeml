@@ -1560,14 +1560,6 @@ Theorem EVERY_LAST
   `!P l. l ≠ [] /\ EVERY P l ==> P (LAST l)`
   (rw [LAST_EL, EVERY_EL, NOT_NIL_EQ_LENGTH_NOT_0]);
 
-(* TODO - candidate for move to HOL *)
-Theorem num_to_dec_string_nil
-  `¬(num_to_dec_string n = [])`
-  (rw[ASCIInumbersTheory.num_to_dec_string_def]
-  \\ rw[ASCIInumbersTheory.n2s_def]
-  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.LENGTH_n2l
-  \\ rw[] \\ CCONTR_TAC \\ fs[]);
-
 Theorem isDigit_HEX
   `∀n. n < 10 ⇒ isDigit (HEX n)`
   (REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
