@@ -1560,49 +1560,6 @@ Theorem EVERY_LAST
   `!P l. l ≠ [] /\ EVERY P l ==> P (LAST l)`
   (rw [LAST_EL, EVERY_EL, NOT_NIL_EQ_LENGTH_NOT_0]);
 
-Theorem isDigit_HEX
-  `∀n. n < 10 ⇒ isDigit (HEX n)`
-  (REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
-  \\ gen_tac
-  \\ CONV_TAC(LAND_CONV EVAL)
-  \\ simp[]
-  \\ strip_tac \\ var_eq_tac
-  \\ EVAL_TAC);
-
-Theorem isHexDigit_HEX
-  `∀n. n < 16 ⇒ isHexDigit (HEX n) ∧ (isAlpha (HEX n) ⇒ isUpper (HEX n))`
-  (REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
-  \\ gen_tac
-  \\ CONV_TAC(LAND_CONV EVAL)
-  \\ strip_tac \\ var_eq_tac
-  \\ EVAL_TAC);
-
-(* TODO - candidate for move to HOL *)
-Theorem EVERY_isDigit_num_to_dec_string
-  `∀n. EVERY isDigit (num_to_dec_string n)`
-  (rw[ASCIInumbersTheory.num_to_dec_string_def,ASCIInumbersTheory.n2s_def]
-  \\ rw[rich_listTheory.EVERY_REVERSE,listTheory.EVERY_MAP]
-  \\ simp[EVERY_MEM]
-  \\ gen_tac\\ strip_tac
-  \\ match_mp_tac isDigit_HEX
-  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.n2l_BOUND
-  \\ rw[EVERY_MEM]
-  \\ res_tac
-  \\ decide_tac);
-
-(* TODO - candidate for move to HOL *)
-Theorem EVERY_isHexDigit_num_to_hex_string
-  `∀n. EVERY (λc. isHexDigit c ∧ (isAlpha c ⇒ isUpper c)) (num_to_hex_string n)`
-  (rw[ASCIInumbersTheory.num_to_hex_string_def,ASCIInumbersTheory.n2s_def]
-  \\ rw[rich_listTheory.EVERY_REVERSE,listTheory.EVERY_MAP]
-  \\ simp[EVERY_MEM]
-  \\ gen_tac\\ strip_tac
-  \\ match_mp_tac isHexDigit_HEX
-  \\ qspecl_then[`16`,`n`]mp_tac numposrepTheory.n2l_BOUND
-  \\ rw[EVERY_MEM]
-  \\ res_tac
-  \\ decide_tac);
-
 (* TODO - candidate for move to HOL *)
 Theorem isHexDigit_isPrint
   `∀x. isHexDigit x ⇒ isPrint x`
