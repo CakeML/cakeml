@@ -2085,16 +2085,16 @@ Theorem FILTER_EL_EQ
   \\ first_x_assum match_mp_tac \\ rw[]
   \\ first_x_assum(qspec_then`SUC n`mp_tac) \\ rw[]);
 
-Theorem FST_EL_ALIST_FUPDKEY
-  `∀n. n < LENGTH ls ⇒ FST (EL n (ALIST_FUPDKEY k f ls)) = FST (EL n ls)`
+Theorem FST_EL_AFUPDKEY
+  `∀n. n < LENGTH ls ⇒ FST (EL n (AFUPDKEY k f ls)) = FST (EL n ls)`
   (Induct_on`ls` \\ simp[]
-  \\ Cases \\ rw[ALIST_FUPDKEY_def]
+  \\ Cases \\ rw[AFUPDKEY_def]
   \\ Cases_on`n` \\ fs[]);
 
-Theorem EL_ALIST_FUPDKEY_unchanged
-  `∀n. n < LENGTH ls ∧ FST (EL n ls) ≠ k ⇒ EL n (ALIST_FUPDKEY k f ls) = EL n ls`
+Theorem EL_AFUPDKEY_unchanged
+  `∀n. n < LENGTH ls ∧ FST (EL n ls) ≠ k ⇒ EL n (AFUPDKEY k f ls) = EL n ls`
   (Induct_on`ls` \\ simp[]
-  \\ Cases \\ simp[ALIST_FUPDKEY_def]
+  \\ Cases \\ simp[AFUPDKEY_def]
   \\ Cases \\ simp[]
   \\ IF_CASES_TAC \\ rveq \\ rw[]);
 

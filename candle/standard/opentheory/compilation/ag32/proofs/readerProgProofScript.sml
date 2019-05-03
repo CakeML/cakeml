@@ -161,12 +161,12 @@ Theorem reader_extract_writes
     \\ simp [stdin_fs_def]
     \\ simp [fsFFIPropsTheory.fastForwardFD_def]
     \\ simp [libTheory.the_def]
-    \\ simp [ALIST_FUPDKEY_ALOOKUP]
+    \\ simp [AFUPDKEY_ALOOKUP]
     \\ (conj_tac >- (qexists_tac `implode ""` \\ fs []))
     \\ Cases
     \\ strip_tac \\ fs [] \\ rveq
     \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
-    \\ simp [ALIST_FUPDKEY_ALOOKUP]
+    \\ simp [AFUPDKEY_ALOOKUP]
     \\ simp [fsFFIPropsTheory.inFS_fname_def]
     \\ rw [OPTREL_def]
     \\ CCONTR_TAC \\ fs [] \\ rw [])
@@ -202,12 +202,12 @@ Theorem reader_extract_writes
   \\ simp [stdin_fs_def]
   \\ simp [fsFFIPropsTheory.fastForwardFD_def]
   \\ simp [libTheory.the_def]
-  \\ simp [ALIST_FUPDKEY_ALOOKUP]
+  \\ simp [AFUPDKEY_ALOOKUP]
   \\ (conj_tac >- (qexists_tac `implode ""` \\ fs []))
   \\ Cases
   \\ strip_tac \\ fs [] \\ rveq
   \\ simp [TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
-  \\ simp [ALIST_FUPDKEY_ALOOKUP]
+  \\ simp [AFUPDKEY_ALOOKUP]
   \\ simp [fsFFIPropsTheory.inFS_fname_def]
   \\ rw [OPTREL_def]
   \\ CCONTR_TAC \\ fs [] \\ rw []);

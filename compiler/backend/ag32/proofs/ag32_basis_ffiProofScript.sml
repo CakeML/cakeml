@@ -882,7 +882,7 @@ Theorem extract_fs_extract_writes
       \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
       \\ fs[fsFFITheory.bumpFD_def]
       \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ fs[fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
+      \\ fs[fsFFIPropsTheory.forwardFD_def, AFUPDKEY_ALOOKUP]
       \\ rw[]
       \\ TRY PURE_CASE_TAC \\ fs[]
       \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
@@ -896,7 +896,7 @@ Theorem extract_fs_extract_writes
       \\ reverse(Cases_on`fnm`)
       >- ( fs[MEM_MAP, PULL_EXISTS, EXISTS_PROD] \\ metis_tac[] )
       \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
-      \\ simp[ALIST_FUPDKEY_ALOOKUP]
+      \\ simp[AFUPDKEY_ALOOKUP]
       \\ first_x_assum drule
       \\ simp[]
       \\ strip_tac
@@ -910,10 +910,10 @@ Theorem extract_fs_extract_writes
       \\ fs[fsFFITheory.closeFD_def]
       \\ pairarg_tac \\ fs[]
       \\ rveq \\ fs[]
-      \\ fs[ALOOKUP_ALIST_DELKEY]
+      \\ fs[ALOOKUP_ADELKEY]
       \\ fs[fsFFIPropsTheory.inFS_fname_def]
       \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_closes_iostreams)
-      \\ simp[ALOOKUP_ALIST_DELKEY]
+      \\ simp[ALOOKUP_ADELKEY]
       \\ Cases_on`w82n l = fd` \\ fs[]
       \\ rw[] >- metis_tac[]
       \\ rw[]
@@ -952,10 +952,10 @@ Theorem extract_fs_extract_writes
   \\ fs[fsFFITheory.write_def]
   \\ pairarg_tac \\ fs[]
   \\ rfs[fsFFITheory.fsupdate_def]
-  \\ rveq \\ fs[ALIST_FUPDKEY_ALOOKUP, LDROP1_THM]
+  \\ rveq \\ fs[AFUPDKEY_ALOOKUP, LDROP1_THM]
   \\ rfs[]
   \\ qmatch_asmsub_abbrev_tac`extract_fs_with_numchars fs'`
-  \\ qmatch_asmsub_abbrev_tac`ALIST_FUPDKEY fnm (K new_content)`
+  \\ qmatch_asmsub_abbrev_tac`AFUPDKEY fnm (K new_content)`
   \\ fs[extract_writes_def, extract_write_def]
   \\ simp[TAKE_APPEND]
   \\ simp[DROP_APPEND, DROP_LENGTH_TOO_LONG]
@@ -987,7 +987,7 @@ Theorem extract_fs_extract_writes
     \\ strip_tac
     \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
     \\ disch_then drule
-    \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
+    \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
     \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
     \\ strip_tac
     \\ reverse conj_tac
@@ -1006,7 +1006,7 @@ Theorem extract_fs_extract_writes
   \\ rveq \\ fs[]
   \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
   \\ disch_then drule
-  \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
   \\ simp[data_to_word_assignProofTheory.IMP]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`off + nw`
@@ -2831,12 +2831,12 @@ Theorem ag32_fs_ok_ffi_write
     fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
     \\ pairarg_tac \\ fs[fsFFITheory.write_def]
     \\ pairarg_tac \\ fs[]
-    \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
+    \\ rw[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
     \\ PURE_TOP_CASE_TAC \\ simp[] \\ rw[]
     \\ metis_tac[NOT_SOME_NONE, IS_SOME_EXISTS] )
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, fsFFITheory.write_def]
   \\ rpt(pairarg_tac \\ fs[])
-  \\ rveq \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP, LDROP1_THM]
+  \\ rveq \\ fs[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP, LDROP1_THM]
   \\ rw[]
   \\ fs[CaseEq"option"]
   \\ PairCases_on`v` \\ fs[]
@@ -2899,7 +2899,7 @@ Theorem ag32_stdin_implemented_ffi_write
     rpt(pairarg_tac>>fs[])>>
     fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[] \\
     fs[fsFFITheory.fsupdate_def]>>
-    simp[ALIST_FUPDKEY_ALOOKUP]>>
+    simp[AFUPDKEY_ALOOKUP]>>
     rw[]>>fs[])
   \\ CONJ_TAC>- (
     fs[fsFFITheory.ffi_write_def,fsFFITheory.write_def]>>
@@ -2908,7 +2908,7 @@ Theorem ag32_stdin_implemented_ffi_write
     rpt(pairarg_tac>>fs[])>>
     fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[] \\
     fs[fsFFITheory.fsupdate_def]>>
-    simp[ALIST_FUPDKEY_ALOOKUP]>>
+    simp[AFUPDKEY_ALOOKUP]>>
     rw[]>>fs[]>>
     fs[fsFFIPropsTheory.STD_streams_def]>>
     rfs[])
@@ -3118,7 +3118,7 @@ Theorem ag32_fs_ok_ffi_read
     \\ fs[] )
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, fsFFITheory.read_def]
   \\ rpt(pairarg_tac \\ fs[])
-  \\ rveq \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP, LDROP1_THM,
+  \\ rveq \\ fs[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP, LDROP1_THM,
                 fsFFITheory.bumpFD_def]
   \\ conj_tac
   >- (
@@ -3169,7 +3169,7 @@ Theorem ag32_stdin_implemented_ffi_read
     qexists_tac`ls`>>simp[]>>
     rw[]
     >-
-      (simp[fsFFITheory.bumpFD_def,ALIST_FUPDKEY_ALOOKUP]>>
+      (simp[fsFFITheory.bumpFD_def,AFUPDKEY_ALOOKUP]>>
       reverse IF_CASES_TAC
       >- (
         fs[ag32_fs_ok_def]
@@ -3360,7 +3360,7 @@ Theorem ag32_fs_ok_ffi_close
   \\ rveq \\ fs[]
   \\ fs[fsFFITheory.closeFD_def]
   \\ rveq \\ fs[]
-  \\ simp[ALOOKUP_ALIST_DELKEY]
+  \\ simp[ALOOKUP_ADELKEY]
   \\ pairarg_tac \\ fs[]
   \\ metis_tac[NOT_SOME_NONE]);
 
@@ -3594,7 +3594,7 @@ Theorem ag32_stdin_implemented_ffi_close
   \\ fs[fsFFITheory.closeFD_def]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ simp[ALOOKUP_ALIST_DELKEY]
+  \\ simp[ALOOKUP_ADELKEY]
   \\ fs[ag32_fs_ok_def]
   \\ res_tac
   \\ rfs[]);
