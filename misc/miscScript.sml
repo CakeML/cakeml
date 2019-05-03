@@ -4,14 +4,13 @@
 *)
 
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory mp_then
-open bitstringTheory bagTheory byteTheory optionTheory combinTheory dep_rewrite
-     containerTheory listTheory pred_setTheory finite_mapTheory alistTheory
-     rich_listTheory llistTheory arithmeticTheory pairTheory
-     sortingTheory relationTheory totoTheory comparisonTheory
+open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
+     byteTheory combinTheory dep_rewrite containerTheory listTheory
+     pred_setTheory finite_mapTheory rich_listTheory llistTheory optionTheory
+     pairTheory sortingTheory relationTheory totoTheory comparisonTheory
      bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory
-     indexedListsTheory stringTheory ASCIInumbersLib
-     machine_ieeeTheory
-local open bagLib alignmentTheory addressTheory blastLib in end
+     indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
+local open bagLib addressTheory blastLib in end
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -2434,10 +2433,6 @@ Theorem splitlines_CONS_FST_SPLITP
   \\ qmatch_assum_abbrev_tac`FRONT (x::y) = _`
   \\ Cases_on`y` \\ fs[]);
 
-Theorem DIV_EQ_0
-  `1 < b ==> ((n DIV b = 0) = (n < b))`
-  (metis_tac[numposrepTheory.DIV_0_IMP_LT,LESS_DIV_EQ_ZERO]);
-
 Theorem n2l_DIV_MOD
   `!b n k. 1 < b /\ 0 < k /\ b ** k <= n ==>
    (n2l b (n MOD (b ** k)) ++ REPLICATE (k - LENGTH (n2l b (n MOD (b ** k)))) 0 ++
@@ -2806,6 +2801,7 @@ Theorem BAG_ALL_DISTINCT_FOLDR_BAG_UNION
   \\ metis_tac[BAG_DISJOINT_SYM]);
 
 (* TODO - candidate for move to HOL *)
+(* N.B.: there is a different is_subsequence defined in lcsTheory; these should be merged *)
 val is_subseq_def = Define`
   (is_subseq ls [] ⇔ T) ∧
   (is_subseq [] (x::xs) ⇔ F) ∧
@@ -2959,21 +2955,6 @@ Theorem FUNPOW_refl_trans_chain
   \\ qexists_tac`FUNPOW f n x`
   \\ simp[]);
 
-(* TODO - candidate for move to HOL *)
-Theorem ALIGNED_eq_aligned
-  `ALIGNED = aligned 2`
-  (rw[addressTheory.ALIGNED_def,FUN_EQ_THM,alignmentTheory.aligned_bitwise_and]);
-
-(* TODO - candidate for move to HOL *)
-Theorem imp_align_eq_0
-  `w2n a < 2 ** p ⇒ (align p a= 0w)`
-  (Cases_on`a` \\ fs[]
-  \\ rw[alignmentTheory.align_w2n]
-  \\ Cases_on`p = 0` \\ fs[]
-  \\ `1 < 2 ** p` by fs[arithmeticTheory.ONE_LT_EXP]
-  \\ `n DIV 2 ** p = 0` by fs[DIV_EQ_0]
-  \\ fs[] );
-
 Theorem byte_align_extract
   `byte_align (x:word32) = (((31 >< 2) x):word30) @@ (0w:word2)`
   (rw[alignmentTheory.byte_align_def]
@@ -3060,42 +3041,11 @@ Theorem byte_align_IN_IMP_IN_range
   \\ asm_exists_tac
   \\ fs[alignmentTheory.byte_align_def]);
 
-(* TODO - candidate for move to HOL *)
-Theorem aligned_or
-  `aligned n (w || v) <=> aligned n w /\ aligned n v`
-  (Cases_on `n = 0`
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [alignmentTheory.aligned_extract]
-  \\ metis_tac [])
-
-(* TODO - candidate for move to HOL *)
-Theorem aligned_w2n
-  `aligned k w <=> w2n (w:'a word) MOD 2 ** k = 0`
-  (Cases_on `w`
-  \\ fs [alignmentTheory.aligned_def,alignmentTheory.align_w2n]
-  \\ `0n < 2 ** k` by simp []
-  \\ drule DIVISION
-  \\ disch_then (qspec_then `n` assume_tac)
-  \\ `(n DIV 2 ** k * 2 ** k) < dimword (:α)` by decide_tac
-  \\ asm_simp_tac std_ss [] \\ decide_tac);
-
-Theorem pow_eq_0
-  `dimindex (:'a) <= k ==> (n2w (2 ** k) = 0w:'a word)`
-  (fs [dimword_def] \\ fs [LESS_EQ_EXISTS]
-  \\ rw [] \\ fs [EXP_ADD,MOD_EQ_0]);
-
-(* TODO - candidate for move to HOL *)
-Theorem aligned_pow
-  `aligned k (n2w (2 ** k))`
-  (Cases_on `k < dimindex (:'a)`
-  \\ fs [NOT_LESS,pow_eq_0,alignmentTheory.aligned_0]
-  \\ `2 ** k < dimword (:'a)` by fs [dimword_def]
-  \\ fs [alignmentTheory.aligned_def,alignmentTheory.align_w2n])
-
 local
   open alignmentTheory
   val aligned_add_mult_lemma = Q.prove(
     `aligned k (w + n2w (2 ** k)) = aligned k w`,
-    fs [aligned_add_sub,aligned_pow]) |> GEN_ALL
+    fs [aligned_add_sub,aligned_pow2]) |> GEN_ALL
   val aligned_add_mult_any = Q.prove(
     `!n w. aligned k (w + n2w (n * 2 ** k)) = aligned k w`,
     Induct \\ fs [MULT_CLAUSES,GSYM word_add_n2w] \\ rw []
@@ -3113,7 +3063,7 @@ Theorem align_add_aligned_gen
   \\ Cases_on`w2n b < 2 ** p`
   >- (
     simp[alignmentTheory.align_add_aligned]
-    \\ `align p b = 0w` by simp[imp_align_eq_0]
+    \\ `align p b = 0w` by simp[lt_align_eq_0]
     \\ simp[] )
   \\ fs[NOT_LESS]
   \\ Cases_on`w2n b = 2 ** p`
@@ -3139,29 +3089,6 @@ Theorem align_add_aligned_gen
   \\ first_x_assum(qspec_then`n2w (2**p)`mp_tac)
   \\ impl_tac >- fs[aligned_w2n]
   \\ simp[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem MOD_IMP_aligned
-  `!n p. n MOD 2 ** p = 0 ==> aligned p (n2w n)`
-  (fs [alignmentTheory.aligned_bitwise_and]
-  \\ once_rewrite_tac [WORD_AND_COMM]
-  \\ fs [WORD_AND_EXP_SUB1]);
-
-Theorem aligned_lsl_leq
-  `k <= l ==> aligned k (w << l)`
-  (fs [alignmentTheory.aligned_def,alignmentTheory.align_def]
-  \\ fs [fcpTheory.CART_EQ,word_lsl_def,word_slice_def,fcpTheory.FCP_BETA]
-  \\ rw [] \\ eq_tac \\ fs []);
-
-(* TODO - candidate for move to HOL *)
-Theorem aligned_lsl[simp]
-  `aligned k (w << k)`
-  (match_mp_tac aligned_lsl_leq \\ fs []);
-
-Theorem align_align_MAX
-  `!k l w. align k (align l w) = align (MAX k l) w`
-  (fs [alignmentTheory.align_def,fcpTheory.CART_EQ,word_slice_def,
-      fcpTheory.FCP_BETA] \\ rw [] \\ eq_tac \\ fs []);
 
 Theorem MULT_DIV_MULT_LEMMA
   `!m l k. 0 < m /\ 0 < l ==> (m * k) DIV (l * m) = k DIV l`

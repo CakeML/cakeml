@@ -51,7 +51,7 @@ Theorem get_byte_EL_words_of_bytes
     `byte_align (n2w i) = 0w`
     by(
       simp[alignmentTheory.byte_align_def]
-      \\ irule imp_align_eq_0
+      \\ irule lt_align_eq_0
       \\ fs[labPropsTheory.good_dimindex_def,Abbr`bw`]
       \\ rfs[bytes_in_word_def,dimword_def] )
     \\ simp[ZERO_DIV]
