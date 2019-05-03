@@ -131,7 +131,9 @@ Theorem hello_extract_writes_stdout
   \\ simp[ALIST_FUPDKEY_ALOOKUP]
   \\ disch_then match_mp_tac
   \\ rw[fsFFIPropsTheory.inFS_fname_def]
-  >- (fs[CaseEq"option",CaseEq"bool"] \\ rveq \\ fs[])
+  >- (fs[CaseEq"option",CaseEq"bool"] \\ rveq \\ fs[] \\
+      Cases_on`v` >> qmatch_goalsub_abbrev_tac`(q,r)` >>
+      Cases_on`r` >> rfs[] >> Cases_on`q = File fnm` >> rw[])
   >- (
     pop_assum mp_tac
     \\ rw[] \\ fs[] \\ rw[]
