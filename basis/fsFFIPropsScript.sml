@@ -164,10 +164,10 @@ Theorem wfFS_openFile
   fs[liveFS_def] >> imp_res_tac ALOOKUP_EXISTS_IFF >>
   metis_tac[]);
 
-Theorem wfFS_DELKEY[simp]
-  `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`
+Theorem wfFS_ALIST_DELKEY[simp]
+  `wfFS fs ⇒ wfFS (fs with infds updated_by ALIST_DELKEY k)`
   (simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
-       ALOOKUP_ADELKEY,liveFS_def] >>
+       ALOOKUP_ALIST_DELKEY,liveFS_def] >>
        metis_tac[]);
 
 Theorem wfFS_LDROP
@@ -359,22 +359,22 @@ Theorem fastForwardFD_files[simp]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
-Theorem A_DELKEY_fastForwardFD_elim[simp]
-  `A_DELKEY fd (fastForwardFD fs fd).infds = A_DELKEY fd fs.infds`
+Theorem ALIST_DELKEY_fastForwardFD_elim[simp]
+  `ALIST_DELKEY fd (fastForwardFD fs fd).infds = ALIST_DELKEY fd fs.infds`
   (rw[fastForwardFD_def,bumpFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
-Theorem fastForwardFD_A_DELKEY_same[simp]
-  `fastForwardFD fs fd with infds updated_by A_DELKEY fd =
-   fs with infds updated_by A_DELKEY fd`
+Theorem fastForwardFD_ALIST_DELKEY_same[simp]
+  `fastForwardFD fs fd with infds updated_by ALIST_DELKEY fd =
+   fs with infds updated_by ALIST_DELKEY fd`
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[libTheory.the_def]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
-  \\ fs[IO_fs_component_equality,A_DELKEY_I])
+  \\ fs[IO_fs_component_equality,ALIST_DELKEY_unchanged])
 
 Theorem fastForwardFD_0
   `(∀content pos. get_file_content fs fd = SOME (content,pos) ⇒ LENGTH content ≤ pos) ⇒
@@ -490,13 +490,13 @@ Theorem fsupdate_numchars
                     fsupdate (fs with numchars := ll) fd 0 p c`
   (rw[fsupdate_def] \\ CASE_TAC \\ CASE_TAC \\ rw[]);
 
-Theorem fsupdate_A_DELKEY
+Theorem fsupdate_ALIST_DELKEY
   `fd ≠ fd' ⇒
-   fsupdate (fs with infds updated_by A_DELKEY fd') fd k pos content =
-   fsupdate fs fd k pos content with infds updated_by A_DELKEY fd'`
-  (rw[fsupdate_def,ALOOKUP_ADELKEY]
+   fsupdate (fs with infds updated_by ALIST_DELKEY fd') fd k pos content =
+   fsupdate fs fd k pos content with infds updated_by ALIST_DELKEY fd'`
+  (rw[fsupdate_def,ALOOKUP_ALIST_DELKEY]
   \\ CASE_TAC \\ CASE_TAC
-  \\ rw[A_DELKEY_ALIST_FUPDKEY_comm]);
+  \\ rw[ALIST_DELKEY_ALIST_FUPDKEY]);
 
 Theorem fsupdate_0_numchars
   `IS_SOME (ALOOKUP fs.infds fd) ⇒
@@ -619,20 +619,20 @@ Theorem IS_SOME_get_file_content_openFileFS_nextFD
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]);
 
-Theorem A_DELKEY_nextFD_openFileFS[simp]
+Theorem ALIST_DELKEY_nextFD_openFileFS[simp]
   `nextFD fs <= fs.maxFD ⇒
-   A_DELKEY (nextFD fs) (openFileFS f fs md off).infds = fs.infds`
+   ALIST_DELKEY (nextFD fs) (openFileFS f fs md off).infds = fs.infds`
   (rw[openFileFS_def]
   \\ CASE_TAC
   \\ TRY CASE_TAC
-  \\ simp[A_DELKEY_I,nextFD_NOT_MEM,MEM_MAP,EXISTS_PROD]
+  \\ simp[ALIST_DELKEY_unchanged,nextFD_NOT_MEM,MEM_MAP,EXISTS_PROD]
   \\ fs[openFile_def] \\ rw[]
-  \\ rw[A_DELKEY_def,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD,nextFD_NOT_MEM]);
+  \\ rw[ALIST_DELKEY_def,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD,nextFD_NOT_MEM]);
 
-Theorem openFileFS_A_DELKEY_nextFD
+Theorem openFileFS_ALIST_DELKEY_nextFD
   `nextFD fs ≤ fs.maxFD ⇒
-   openFileFS f fs md off with infds updated_by A_DELKEY (nextFD fs) = fs`
-  (rw[IO_fs_component_equality,openFileFS_numchars,A_DELKEY_nextFD_openFileFS]);
+   openFileFS f fs md off with infds updated_by ALIST_DELKEY (nextFD fs) = fs`
+  (rw[IO_fs_component_equality,openFileFS_numchars,ALIST_DELKEY_nextFD_openFileFS]);
 
 (* forwardFD: like bumpFD but leave numchars *)
 
@@ -709,8 +709,8 @@ Theorem fastForwardFD_forwardFD
   \\ match_mp_tac ALIST_FUPDKEY_eq
   \\ simp[MAX_DEF]);
 
-Theorem forwardFD_A_DELKEY_same
-  `forwardFD fs fd n with infds updated_by A_DELKEY fd = fs with infds updated_by A_DELKEY fd`
+Theorem forwardFD_ALIST_DELKEY_same
+  `forwardFD fs fd n with infds updated_by ALIST_DELKEY fd = fs with infds updated_by ALIST_DELKEY fd`
   (rw[forwardFD_def,IO_fs_component_equality]);
 
 (* lineFD: the next line *)

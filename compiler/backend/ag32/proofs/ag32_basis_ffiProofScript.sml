@@ -910,10 +910,10 @@ Theorem extract_fs_extract_writes
       \\ fs[fsFFITheory.closeFD_def]
       \\ pairarg_tac \\ fs[]
       \\ rveq \\ fs[]
-      \\ fs[ALOOKUP_ADELKEY]
+      \\ fs[ALOOKUP_ALIST_DELKEY]
       \\ fs[fsFFIPropsTheory.inFS_fname_def]
       \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_closes_iostreams)
-      \\ simp[ALOOKUP_ADELKEY]
+      \\ simp[ALOOKUP_ALIST_DELKEY]
       \\ Cases_on`w82n l = fd` \\ fs[]
       \\ rw[] >- metis_tac[]
       \\ rw[]
@@ -3360,7 +3360,7 @@ Theorem ag32_fs_ok_ffi_close
   \\ rveq \\ fs[]
   \\ fs[fsFFITheory.closeFD_def]
   \\ rveq \\ fs[]
-  \\ simp[ALOOKUP_ADELKEY]
+  \\ simp[ALOOKUP_ALIST_DELKEY]
   \\ pairarg_tac \\ fs[]
   \\ metis_tac[NOT_SOME_NONE]);
 
@@ -3594,7 +3594,7 @@ Theorem ag32_stdin_implemented_ffi_close
   \\ fs[fsFFITheory.closeFD_def]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ simp[ALOOKUP_ADELKEY]
+  \\ simp[ALOOKUP_ALIST_DELKEY]
   \\ fs[ag32_fs_ok_def]
   \\ res_tac
   \\ rfs[]);

@@ -140,7 +140,7 @@ Theorem do_onefile_spec
   CONV_TAC SWAP_EXISTS_CONV >>
   qexists_tac`fs0` \\ xsimpl \\
   simp[Abbr`fs0`,UNIT_TYPE_def,add_stdout_fastForwardFD,STD_streams_openFileFS] \\
-  simp[GSYM add_stdo_A_DELKEY,Abbr`fd`,openFileFS_A_DELKEY_nextFD] \\
+  simp[GSYM add_stdo_ALIST_DELKEY,Abbr`fd`,openFileFS_ALIST_DELKEY_nextFD] \\
   xsimpl \\
   simp[validFileFD_def]);
 

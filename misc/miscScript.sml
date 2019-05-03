@@ -2098,36 +2098,6 @@ Theorem EL_ALIST_FUPDKEY_unchanged
   \\ Cases \\ simp[]
   \\ IF_CASES_TAC \\ rveq \\ rw[]);
 
-val A_DELKEY_def = Define`
-  A_DELKEY k alist = FILTER (λp. FST p <> k) alist
-`;
-
-Theorem MEM_DELKEY[simp]
-  `∀al. MEM (k1,v) (A_DELKEY k2 al) ⇔ k1 ≠ k2 ∧ MEM (k1,v) al`
-  (Induct >> simp[A_DELKEY_def, FORALL_PROD] >> rw[MEM_FILTER] >>
-  metis_tac[]);
-
-Theorem ALOOKUP_ADELKEY
-  `∀al. ALOOKUP (A_DELKEY k1 al) k2 = if k1 = k2 then NONE else ALOOKUP al k2`
-  (simp[A_DELKEY_def] >> Induct >> simp[FORALL_PROD] >> rw[] >> simp[]);
-
-Theorem A_DELKEY_ALIST_FUPDKEY[simp]
-  `∀fd f ls. A_DELKEY fd (ALIST_FUPDKEY fd f ls) = A_DELKEY fd ls`
-  (ho_match_mp_tac ALIST_FUPDKEY_ind
-  \\ rw[ALIST_FUPDKEY_def,A_DELKEY_def]);
-
-Theorem A_DELKEY_I
-  `∀x ls. (A_DELKEY x ls = ls ⇔ ¬MEM x (MAP FST ls))`
-  (Induct_on`ls`
-  \\ rw[A_DELKEY_def,FILTER_EQ_ID,MEM_MAP,EVERY_MEM]
-  >- metis_tac[]
-  \\ rw[EQ_IMP_THM]
-  >- (
-    `LENGTH (h::ls) ≤ LENGTH ls` by metis_tac[LENGTH_FILTER_LEQ]
-    \\ fs[] )
-  \\ first_x_assum(qspec_then`h`mp_tac)
-  \\ simp[]);
-
 Theorem findi_APPEND
   `∀l1 l2 x.
       findi x (l1 ++ l2) =
@@ -2793,13 +2763,6 @@ Theorem LUPDATE_insert_commute
      insert_atI ws pos1 (LUPDATE w pos2 a) =
        LUPDATE w pos2 (insert_atI ws pos1 a)`
   (Induct >> simp[insert_atI_NIL,insert_atI_CONS, LUPDATE_commutes]);
-
-(* TODO - candidate for move to HOL *)
-Theorem A_DELKEY_ALIST_FUPDKEY_comm
-  `!ls f x y. x <> y ==>
-  A_DELKEY x (ALIST_FUPDKEY y f ls) = (ALIST_FUPDKEY y f (A_DELKEY x ls))`
-  (Induct >>  rw[A_DELKEY_def,ALIST_FUPDKEY_def] >>
-  Cases_on`h` >> fs[ALIST_FUPDKEY_def] >> TRY CASE_TAC >> fs[A_DELKEY_def]);
 
 Theorem LESS_EQ_LENGTH
   `!xs k. k <= LENGTH xs ==> ?ys1 ys2. (xs = ys1 ++ ys2) /\ (LENGTH ys1 = k)`

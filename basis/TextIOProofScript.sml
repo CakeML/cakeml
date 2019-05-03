@@ -306,22 +306,22 @@ Theorem validFileFD_add_stdo[simp]
   `validFileFD fd (add_stdo fd' nm fs out).infds ⇔ validFileFD fd fs.infds`
   (rw[add_stdo_def]);
 
-Theorem up_stdo_A_DELKEY
+Theorem up_stdo_ALIST_DELKEY
   `fd ≠ fd' ⇒
-   up_stdo fd (fs with infds updated_by A_DELKEY fd') out =
-   up_stdo fd fs out with infds updated_by A_DELKEY fd'`
-  (rw[up_stdo_def,fsupdate_A_DELKEY]);
+   up_stdo fd (fs with infds updated_by ALIST_DELKEY fd') out =
+   up_stdo fd fs out with infds updated_by ALIST_DELKEY fd'`
+  (rw[up_stdo_def,fsupdate_ALIST_DELKEY]);
 
-Theorem stdo_A_DELKEY
+Theorem stdo_ALIST_DELKEY
   `fd ≠ fd' ⇒
-   stdo fd nm (fs with infds updated_by A_DELKEY fd') = stdo fd nm fs`
-  (rw[stdo_def,FUN_EQ_THM,ALOOKUP_ADELKEY]);
+   stdo fd nm (fs with infds updated_by ALIST_DELKEY fd') = stdo fd nm fs`
+  (rw[stdo_def,FUN_EQ_THM,ALOOKUP_ALIST_DELKEY]);
 
-Theorem add_stdo_A_DELKEY
+Theorem add_stdo_ALIST_DELKEY
   `fd ≠ fd' ⇒
-   add_stdo fd nm (fs with infds updated_by A_DELKEY fd') out =
-   add_stdo fd nm fs out with infds updated_by A_DELKEY fd'`
-  (rw[add_stdo_def,up_stdo_A_DELKEY,stdo_A_DELKEY]);
+   add_stdo fd nm (fs with infds updated_by ALIST_DELKEY fd') out =
+   add_stdo fd nm fs out with infds updated_by ALIST_DELKEY fd'`
+  (rw[add_stdo_def,up_stdo_ALIST_DELKEY,stdo_ALIST_DELKEY]);
 
 Theorem get_file_content_add_stdout
   `STD_streams fs ∧ fd ≠ 1 ⇒
@@ -688,7 +688,7 @@ Theorem closeIn_spec
        (IOFS fs)
        (POSTve
           (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
-               IOFS (fs with infds updated_by A_DELKEY fdw))
+               IOFS (fs with infds updated_by ALIST_DELKEY fdw))
           (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs))`
   (rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
   simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >>
@@ -700,7 +700,7 @@ Theorem closeIn_spec
   xlet`POSTv uv. &(UNIT_TYPE () uv) *
         W8ARRAY iobuff_loc ((if validFileFD fdw fs.infds then 0w else 1w) ::t) *
         IOx fs_ffi_part (if validFileFD fdw fs.infds then
-                            (fs with infds updated_by A_DELKEY fdw)
+                            (fs with infds updated_by ALIST_DELKEY fdw)
                          else fs)`
   >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
      qmatch_goalsub_abbrev_tac`FFI_part st f ns` >> xsimpl >>
@@ -734,7 +734,7 @@ Theorem closeOut_spec
        (IOFS fs)
        (POSTve
          (\u. &(UNIT_TYPE () u /\ validFileFD fdw fs.infds) *
-              IOFS (fs with infds updated_by A_DELKEY fdw))
+              IOFS (fs with infds updated_by ALIST_DELKEY fdw))
          (\e. &(InvalidFD_exn e /\ ¬ validFileFD fdw fs.infds) * IOFS fs))`
   (rw [] >> qpat_abbrev_tac `Q = POSTve _ _` >>
   simp [IOFS_def, fs_ffi_part_def, IOx_def, IO_def] >>
@@ -746,7 +746,7 @@ Theorem closeOut_spec
   xlet`POSTv uv. &(UNIT_TYPE () uv) *
         W8ARRAY iobuff_loc ((if validFileFD fdw fs.infds then 0w else 1w) ::t) *
         IOx fs_ffi_part (if validFileFD fdw fs.infds then
-                            (fs with infds updated_by A_DELKEY fdw)
+                            (fs with infds updated_by ALIST_DELKEY fdw)
                          else fs)`
   >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
      qmatch_goalsub_abbrev_tac `FFI_part st f ns` >> xsimpl >>
@@ -780,12 +780,12 @@ Theorem closeIn_STDIO_spec
        (STDIO fs)
        (POSTve
           (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
-               STDIO (fs with infds updated_by A_DELKEY fd))
+               STDIO (fs with infds updated_by ALIST_DELKEY fd))
           (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs))`
   (rw[STDIO_def] >> xpull >> xapp_spec closeIn_spec >>
   map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`] >>
   xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFileFD_def] >> xsimpl >>
-  fs[STD_streams_def,ALOOKUP_ADELKEY] \\
+  fs[STD_streams_def,ALOOKUP_ALIST_DELKEY] \\
   Cases_on`fd = 0` \\ fs[]
   \\ Cases_on`fd = 1` \\ fs[]
   \\ Cases_on`fd = 2` \\ fs[]
@@ -798,12 +798,12 @@ Theorem closeOut_STDIO_spec
        (STDIO fs)
        (POSTve
           (\u. &(UNIT_TYPE () u /\ validFileFD fd fs.infds) *
-               STDIO (fs with infds updated_by A_DELKEY fd))
+               STDIO (fs with infds updated_by ALIST_DELKEY fd))
           (\e. &(InvalidFD_exn e /\ ¬ validFileFD fd fs.infds) * STDIO fs))`
   (rw[STDIO_def] >> xpull >> xapp_spec closeOut_spec >>
   map_every qexists_tac [`emp`,`fs with numchars := ll`,`fd`] >>
   xsimpl >> rw[] >> qexists_tac`ll` >> fs[validFileFD_def] >> xsimpl >>
-  fs[STD_streams_def,ALOOKUP_ADELKEY] \\
+  fs[STD_streams_def,ALOOKUP_ALIST_DELKEY] \\
   Cases_on`fd = 0` \\ fs[]
   \\ Cases_on`fd = 1` \\ fs[]
   \\ Cases_on`fd = 2` \\ fs[]
@@ -2127,7 +2127,7 @@ Theorem inputLinesFrom_spec
   \\ first_x_assum(qspec_then`ReadMode`mp_tac) \\ strip_tac \\ fs[]
   \\ `fs' = fs` suffices_by ( rw[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
   \\ unabbrev_all_tac
-  \\ simp[fastForwardFD_def,A_DELKEY_ALIST_FUPDKEY,o_DEF,
+  \\ simp[fastForwardFD_def,ALIST_DELKEY_ALIST_FUPDKEY,o_DEF,
           libTheory.the_def, openFileFS_numchars,
           IO_fs_component_equality,openFileFS_files]);
 

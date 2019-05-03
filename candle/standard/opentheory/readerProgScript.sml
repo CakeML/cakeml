@@ -12,9 +12,9 @@ val _ = new_theory "readerProg"
 val _ = m_translation_extends "reader_commonProg"
 
 (* TODO: move *)
-Theorem fastForwardFD_A_DELKEY_same[simp]
-  `forwardFD fs fd n with infds updated_by A_DELKEY fd =
-   fs with infds updated_by A_DELKEY fd`
+Theorem fastForwardFD_ALIST_DELKEY_same[simp]
+  `forwardFD fs fd n with infds updated_by ALIST_DELKEY fd =
+   fs with infds updated_by ALIST_DELKEY fd`
   (fs [forwardFD_def, IO_fs_component_equality]);
 
 (* TODO: move *)
@@ -485,11 +485,11 @@ Theorem read_file_spec
     \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
     \\ qexists_tac `fs'`
     \\ simp [Abbr `fs'`, add_stdout_fastForwardFD]
-    \\ drule (GEN_ALL openFileFS_A_DELKEY_nextFD)
+    \\ drule (GEN_ALL openFileFS_ALIST_DELKEY_nextFD)
     \\ disch_then (qspecl_then [`0`,`ReadMode`,`fnm`] mp_tac) \\ rw []
     \\ qmatch_goalsub_abbrev_tac `add_stdout _ str1`
     \\ `1 <> nextFD fs` by fs []
-    \\ drule (GEN_ALL add_stdo_A_DELKEY)
+    \\ drule (GEN_ALL add_stdo_ALIST_DELKEY)
     \\ disch_then
       (qspecl_then [`str1`,`"stdout"`,`openFileFS fnm fs ReadMode 0`] mp_tac)
     \\ rw []
@@ -503,10 +503,10 @@ Theorem read_file_spec
   \\ qexists_tac`fs'` \\ xsimpl
   \\ simp[Abbr`fs'`, add_stdo_forwardFD]
   \\ `2 <> nextFD fs` by fs [] \\ fs []
-  \\ drule (GEN_ALL openFileFS_A_DELKEY_nextFD)
+  \\ drule (GEN_ALL openFileFS_ALIST_DELKEY_nextFD)
   \\ disch_then (qspecl_then [`0`,`ReadMode`,`fnm`] mp_tac)
   \\ strip_tac \\ fs []
-  \\ imp_res_tac add_stdo_A_DELKEY
+  \\ imp_res_tac add_stdo_ALIST_DELKEY
   \\ qmatch_goalsub_abbrev_tac `add_stderr _ str1`
   \\ first_x_assum
     (qspecl_then [`str1`,`"stderr"`,`openFileFS fnm fs ReadMode 0`] mp_tac)

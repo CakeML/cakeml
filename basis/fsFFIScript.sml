@@ -139,7 +139,7 @@ val closeFD_def = Define`
     do
        (fnm, md, off) <- ALOOKUP fsys.infds fd ;
        assert (isFile fnm) ;
-       return ((), fsys with infds := A_DELKEY fd fsys.infds)
+       return ((), fsys with infds := ALIST_DELKEY fd fsys.infds)
     od
 `;
 

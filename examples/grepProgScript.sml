@@ -563,7 +563,7 @@ Theorem print_matching_lines_in_file_spec
   \\ srw_tac[ETA_ss][FILTER_MAP,o_DEF]
   \\ simp[MAP_MAP_o,o_DEF]
   \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM CONS_APPEND]
-  \\ simp[GSYM add_stdo_A_DELKEY,openFileFS_A_DELKEY_nextFD]
+  \\ simp[GSYM add_stdo_ALIST_DELKEY,openFileFS_ALIST_DELKEY_nextFD]
   \\ xsimpl);
 
 val usage_string_def = Define`

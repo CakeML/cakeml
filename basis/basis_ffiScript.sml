@@ -144,7 +144,7 @@ Theorem extract_fs_with_numchars_keeps_iostreams
         fsFFITheory.openFile_def,
         fsFFITheory.write_def]
   \\ TRY pairarg_tac \\ fs[]
-  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFIPropsTheory.bumpFD_forwardFD]
+  \\ rveq \\ fs[ALOOKUP_ALIST_DELKEY, fsFFIPropsTheory.bumpFD_forwardFD]
   \\ fs[CaseEq"bool"]
   \\ rfs[fsFFITheory.fsupdate_def, fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
   \\ fs[CaseEq"option"]
@@ -192,7 +192,7 @@ Theorem extract_fs_with_numchars_closes_iostreams
         fsFFITheory.openFile_def,
         fsFFITheory.write_def]
   \\ TRY pairarg_tac \\ fs[]
-  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFITheory.bumpFD_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ rveq \\ fs[ALOOKUP_ALIST_DELKEY, fsFFITheory.bumpFD_def, ALIST_FUPDKEY_ALOOKUP]
   \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
   \\ PURE_CASE_TAC \\ fs[CaseEq"option"]
   \\ CCONTR_TAC \\ fs[]);
