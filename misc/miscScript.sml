@@ -4009,28 +4009,4 @@ Theorem WORD_LS_IMP
   \\ eq_tac \\ rw [] \\ fs []
   \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
 
-Theorem SUM_SET_count_2
-  `∀n. 2 * SUM_SET (count (SUC n)) = n * (n + 1)`
-  (Induct \\ rw[Once COUNT_SUC, SUM_SET_THM, LEFT_ADD_DISTRIB, SUM_SET_DELETE]
-  \\ rewrite_tac[EXP, ONE, TWO, MULT, ADD, LEFT_ADD_DISTRIB, RIGHT_ADD_DISTRIB]
-  \\ rw[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem SUM_SET_count
-  `∀n. n ≠ 0 ⇒ SUM_SET (count n) = n * (n - 1) DIV 2`
-  (Cases \\ simp[]
-  \\ qmatch_goalsub_abbrev_tac`a = b`
-  \\ qspecl_then[`2`,`a`,`b`]mp_tac EQ_MULT_LCANCEL
-  \\ disch_then(mp_tac o #1 o EQ_IMP_RULE)
-  \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
-  \\ disch_then irule
-  \\ unabbrev_all_tac
-  \\ rewrite_tac[SUM_SET_count_2]
-  \\ simp[ADD1, LEFT_ADD_DISTRIB, bitTheory.DIV_MULT_THM2]
-  \\ qmatch_goalsub_abbrev_tac`a = a - a MOD 2`
-  \\ `a MOD 2 = 0` suffices_by simp[]
-  \\ simp[Abbr`a`,GSYM EVEN_MOD2]
-  \\ simp[EVEN_ADD]
-  \\ rw[EVEN_EXP_IFF]);
-
 val _ = export_theory()
