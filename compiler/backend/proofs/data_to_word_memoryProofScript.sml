@@ -1859,6 +1859,22 @@ Theorem cons_multi_thm
   \\ match_mp_tac (Q.INST [`sp`|->`sp+sp1`] (SPEC_ALL v_inv_list_to_v_alt))
   \\ unlength_tac [heap_expand_def]);
 
+Theorem all_ts_cons
+  `∀refs stack ts tag xs.
+    all_ts refs (Block ts tag xs::stack) = ts INSERT all_ts refs (xs++stack)`
+  (rw [all_ts_def, FUN_EQ_THM]
+  \\ EQ_TAC
+  >- (rw [] \\ fs [v_all_ts_def,MEM_FLAT,MEM_MAP]
+      \\ metis_tac [v_all_ts_def])
+  >- (rw [] \\ fs [v_all_ts_def,MEM_FLAT,MEM_MAP]
+     >- (Q.EXISTS_TAC `Block ts tag xs`
+        \\ fs [v_all_ts_def,MEM_FLAT,MEM_MAP])
+     >- metis_tac [v_all_ts_def]
+     >- (Q.EXISTS_TAC `Block ts tag xs`
+        \\ fs [v_all_ts_def,MEM_FLAT,MEM_MAP]
+        \\ metis_tac [])
+     >- metis_tac [v_all_ts_def]));
+
 val v_all_vs_def = tDefine"v_all_vs"`
   v_all_vs (Block ts tag l :: xs) = Block ts tag l :: v_all_vs l ++ v_all_vs xs
 ∧ v_all_vs (x::xs)                = x :: v_all_vs xs
@@ -1868,6 +1884,211 @@ val v_all_vs_def = tDefine"v_all_vs"`
 val all_vs_def = Define`
   all_vs refs stack = { v | ∃(n:num) l.  FLOOKUP refs n = SOME (ValueArray l) ∧ MEM v (v_all_vs l)} ∪
                       { v | MEM v (v_all_vs stack)}`
+
+Theorem v_all_vs_MEM
+  `∀l ts tag xs. MEM (Block ts tag xs) (v_all_vs l)
+    ⇒ ∃x y. v_all_vs l =  x ++ Block ts tag xs :: v_all_vs xs ++ y`
+  (ho_match_mp_tac (theorem "v_all_vs_ind")
+  \\ rw [v_all_vs_def]
+  >- (map_every qexists_tac [`[]`,`v_all_vs l'`] \\ rw [])
+  >- (first_x_assum drule \\ rw []
+     \\ map_every qexists_tac [`Block ts tag l::x`,`y ++ v_all_vs l'`]
+     \\ rw [])
+  >- (first_x_assum drule \\ rw []
+     \\ map_every qexists_tac [`Block ts tag l::v_all_vs l ++ x`,`y`]
+     \\ rw [])
+  \\ first_x_assum  drule \\ rw [] \\ rw []
+  \\ qmatch_goalsub_abbrev_tac `z::(_ ++ _)`
+  \\ map_every qexists_tac [`z::x`,`y`] \\ EVAL_TAC);
+
+Theorem v_in_all_vs
+  `∀x y stack refs.
+    x ∈ all_vs refs stack ∧ MEM y (v_all_vs [x])
+    ⇒ y ∈ all_vs refs stack`
+  (rw [all_vs_def]
+  >- (disj1_tac
+     \\ cases_on `x` \\ fs [v_all_vs_def]
+     \\ map_every qexists_tac [`n`,`l`]
+     \\ rw []
+     \\ drule_then ASSUME_TAC v_all_vs_MEM
+     \\ fs [])
+  >- (disj2_tac
+     \\ cases_on `x` \\ fs [v_all_vs_def]
+     \\ drule_then ASSUME_TAC v_all_vs_MEM
+     \\ fs []));
+
+Theorem v_all_vs_MEM2
+  `∀l ts tag xs. MEM (Block ts tag xs) (v_all_vs l)
+    ⇒ ∃x. MEM x l ∧ MEM (Block ts tag xs) (v_all_vs [x])`
+  (Induct \\ rw [v_all_vs_def]
+  \\ Cases_on `h` \\ fs [v_all_vs_def]
+  >- metis_tac []
+  >- metis_tac []
+  >- (qexists_tac `Block n0 n l'` \\ rw [v_all_vs_def])
+  >- (qexists_tac `Block n0 n l'` \\ rw [v_all_vs_def])
+  >- (first_x_assum drule \\ rw [] \\ metis_tac [])
+  \\ metis_tac []);
+
+Theorem v_all_vs_ts
+  `∀x ts tag xs. MEM (Block ts tag xs) (v_all_vs [x]) ⇒ MEM ts (v_all_ts x)`
+  (ho_match_mp_tac (theorem "v_all_ts_ind")
+  \\ rw [v_all_vs_def,v_all_ts_def]
+  \\ disj2_tac \\ drule_then ASSUME_TAC v_all_vs_MEM2
+  \\ fs [] \\ first_x_assum (drule_then ASSUME_TAC)
+  \\ first_x_assum (drule_then ASSUME_TAC)
+  \\ rw [MEM_FLAT,MEM_MAP] \\ metis_tac []);
+
+Theorem MEM_v_all_vs
+  `∀l v. MEM v l ⇒ MEM v (v_all_vs l)`
+  (ho_match_mp_tac (theorem "v_all_vs_ind")
+  \\ rw [v_all_vs_def]
+  \\ metis_tac [])
+
+Theorem v_all_vs_ts_MEM
+  `∀x y ts. MEM ts (v_all_ts x) ∧ MEM x (v_all_vs [y]) ⇒ MEM ts (v_all_ts y)`
+  (ho_match_mp_tac (theorem "v_all_ts_ind")
+  \\ rw [v_all_vs_def,v_all_ts_def]
+  >- (ho_match_mp_tac v_all_vs_ts \\ metis_tac [])
+  >- (fs [MEM_FLAT,MEM_MAP]
+     \\ first_x_assum drule \\ rveq
+     \\ disch_then drule
+     \\ disch_then ho_match_mp_tac
+     \\ drule_then ASSUME_TAC v_all_vs_MEM \\ fs []
+     \\ metis_tac [MEM_v_all_vs]));
+
+Theorem v_all_vs_trans
+  `∀x y z. MEM y (v_all_vs x) ∧ MEM z (v_all_vs [y]) ⇒ MEM z (v_all_vs x)`
+  (rw [] \\ Cases_on `y` \\ fs [v_all_vs_def] \\ rveq \\ fs [v_all_vs_def]
+  \\ drule_then ASSUME_TAC v_all_vs_MEM \\ fs []);
+
+Theorem MEM_in_all_ts
+  `∀x ts stack refs.
+    x ∈ all_vs refs stack ∧ MEM ts (v_all_ts x)
+    ⇒ ts ∈ all_ts refs stack`
+  (Cases \\  rw [all_vs_def,all_ts_def,v_all_ts_def]
+  >- (drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
+     \\ drule_then ASSUME_TAC v_all_vs_ts \\ fs []
+     \\ metis_tac [FRANGE_FLOOKUP])
+  >- (fs [MEM_FLAT,MEM_MAP] \\ rveq
+     \\ `MEM a (v_all_vs l')`
+        by (drule_then ASSUME_TAC v_all_vs_MEM \\ fs [MEM_v_all_vs])
+     \\ drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
+     \\ drule_then ASSUME_TAC v_all_vs_ts \\ fs []
+     \\ `MEM a (v_all_vs [Block n0 n l])` by rw [v_all_vs_def,MEM_v_all_vs]
+     \\ `MEM a (v_all_vs [x])`            by metis_tac [v_all_vs_trans]
+     \\ `MEM ts (v_all_ts x)`             by metis_tac [v_all_vs_ts_MEM]
+     \\ qexists_tac `x` \\ rw [] \\ disj1_tac
+     \\ qexists_tac `l'` \\ metis_tac [FRANGE_FLOOKUP])
+  >- (drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
+     \\ drule_then ASSUME_TAC v_all_vs_ts
+     \\ metis_tac [])
+  >- (fs [MEM_FLAT,MEM_MAP] \\ rveq
+     \\ drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
+     \\ `MEM a (v_all_vs [Block n0 n l])` by rw [v_all_vs_def,MEM_v_all_vs]
+     \\ `MEM a (v_all_vs [x])`            by metis_tac [v_all_vs_trans]
+     \\ `MEM ts (v_all_ts x)`             by metis_tac [v_all_vs_ts_MEM]
+     \\ metis_tac []));
+
+Theorem MEM_in_all_vs
+  `∀x y refs stack. x ∈ all_vs refs stack ∧ MEM y (v_all_vs [x]) ⇒ y ∈ all_vs refs stack`
+  (rw [all_vs_def]
+  \\ metis_tac [v_all_vs_trans]);
+
+(* NOT USED *)
+Theorem v_all_vs_ts_list
+  `∀x y ts. MEM x (v_all_vs y) ∧ MEM ts (v_all_ts x) ⇒ MEM ts (FLAT (MAP v_all_ts y))`
+  (ho_match_mp_tac (theorem "v_all_ts_ind")
+  \\ rw [v_all_vs_def,v_all_ts_def]
+  >- (fs [MEM_FLAT,MEM_MAP]
+     \\ drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs []
+     \\ drule_then ASSUME_TAC v_all_vs_ts \\ fs []
+     \\ metis_tac [])
+  >- (fs [MEM_FLAT,MEM_MAP]
+     \\ drule_then ASSUME_TAC v_all_vs_MEM2 \\ fs [] \\ rveq
+     \\ drule_then ASSUME_TAC v_all_vs_ts \\ fs []
+     \\ first_x_assum drule \\ rveq \\ rw []
+     \\ qpat_assum `MEM a _` (mp_then Any ASSUME_TAC MEM_v_all_vs)
+     \\ first_x_assum drule \\ rveq \\ rw []
+     \\ first_x_assum drule \\ rveq \\ rw []
+     \\ `MEM ts' (v_all_ts (Block ts v0 xs))`
+        by (rw [v_all_ts_def] \\ disj2_tac
+           \\ fs [MEM_MAP,MEM_FLAT] \\ metis_tac [])
+     \\ drule_then ASSUME_TAC v_all_vs_ts_MEM \\ fs []
+     \\ metis_tac []));
+
+(* NOT USED *)
+Theorem all_vs_FINITE
+  `FINITE (all_vs refs stack)`
+   (rw [all_vs_def]
+   \\ Induct_on `refs`
+   \\ rw []
+   \\ qmatch_goalsub_abbrev_tac `FINITE P`
+   \\ qmatch_asmsub_abbrev_tac `FINITE Q`
+   \\ `P = Q ∪ {v | ∃l. y = ValueArray l ∧ MEM v (v_all_vs l)}`
+      by (UNABBREV_ALL_TAC
+         \\ rw [FUN_EQ_THM]
+         \\ EQ_TAC
+         \\ rw []
+         >- (Cases_on `n = x` \\ fs [FLOOKUP_UPDATE]
+            \\ disj1_tac \\ metis_tac [])
+         >- (map_every qexists_tac [`n`,`l`] \\ fs []
+            \\ Cases_on `n = x` \\ fs [FLOOKUP_UPDATE]
+            \\ `x ∈ FDOM refs` by fs [FDOM_FLOOKUP])
+         >- (map_every qexists_tac [`x`,`l`] \\ fs [FLOOKUP_UPDATE]))
+   \\ rw [] \\ Cases_on `y` \\ fs []);
+
+(* NOT USED *)
+Theorem all_ts_alt
+  `all_ts refs stack = { ts | ∃x. x ∈ all_vs refs stack ∧ MEM ts (v_all_ts x)}`
+  (rw [FUN_EQ_THM]
+  \\ EQ_TAC
+  \\ rw []
+  >- (fs [all_ts_def,all_vs_def] \\ metis_tac [FRANGE_FLOOKUP,MEM_v_all_vs])
+  >- (drule MEM_in_all_ts \\ disch_then drule \\ fs [IN_DEF]));
+
+(* NOT USED *)
+Theorem all_ts_FINITE
+  `FINITE (all_ts (refs : num |-> v ref) stack)`
+  (`∀l. FINITE {ts | (∃x. MEM x (v_all_vs l) ∧ MEM ts (v_all_ts x))}`
+   by (Induct \\ rw [v_all_vs_def]
+      \\ qmatch_goalsub_abbrev_tac `FINITE P`
+      \\ qmatch_asmsub_abbrev_tac `FINITE Q`
+      \\ `P = Q ∪ {ts | MEM ts (v_all_ts h)}`
+         by (UNABBREV_ALL_TAC \\ rw [FUN_EQ_THM] \\ EQ_TAC
+            >- (rw [] \\ Cases_on `h` \\ fs [v_all_ts_def,v_all_vs_def]
+               \\ rveq \\ fs [v_all_ts_def]
+               \\ metis_tac [v_all_vs_ts_list])
+            >- (rw []
+               >- (qexists_tac `x'` \\ rw [] \\ Cases_on `h` \\ rw [v_all_vs_def])
+               >- (qexists_tac `h` \\ rw []  \\ Cases_on `h` \\ rw [v_all_vs_def])))
+      \\ UNABBREV_ALL_TAC \\ rw [])
+  \\ rw [all_ts_alt,all_vs_def]
+  \\ qmatch_goalsub_abbrev_tac `FINITE P`
+  \\ `P = { ts | ∃x. ((∃n l.
+                      FLOOKUP refs n = SOME (ValueArray l) ∧
+                      MEM x (v_all_vs l))) ∧ MEM ts (v_all_ts x)} ∪
+          { ts | ∃x. MEM x (v_all_vs stack) ∧ MEM ts (v_all_ts x)}`
+  by (UNABBREV_ALL_TAC \\ rw [GSYM GSPEC_OR,FUN_EQ_THM]
+     \\ EQ_TAC \\ rw [] \\ metis_tac [])
+  \\ fs [] \\ UNABBREV_ALL_TAC \\ rveq
+  \\ rw []
+  >- (Induct_on `refs` \\ rw []
+     \\ qmatch_goalsub_abbrev_tac `FINITE P`
+     \\ qmatch_asmsub_abbrev_tac `FINITE Q`
+     \\ `P = Q ∪ {ts | ∃x. (∃l. y = ValueArray l ∧
+                                MEM x (v_all_vs l)) ∧
+                           MEM ts (v_all_ts x)}`
+        by (UNABBREV_ALL_TAC \\ rw [FUN_EQ_THM] \\ EQ_TAC \\ rw []
+           >- (Cases_on `n = x` \\ fs [FLOOKUP_UPDATE]
+              \\ rveq \\ metis_tac [])
+           >- (qexists_tac `x''` \\ rw []
+              \\ map_every qexists_tac [`n`,`l`]
+              \\ Cases_on `n = x` \\ fs [FLOOKUP_UPDATE]
+              \\ `x ∈ FDOM refs` by fs [FDOM_FLOOKUP])
+           >- (qexists_tac `x''` \\ rw []
+              \\ map_every qexists_tac [`x`,`l`] \\ fs [FLOOKUP_UPDATE]))
+        \\ UNABBREV_ALL_TAC \\ fs []
+        \\ Cases_on `y` \\ fs []));
 
 Theorem cons_thm_alt
   `abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
