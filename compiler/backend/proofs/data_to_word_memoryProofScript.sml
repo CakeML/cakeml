@@ -255,7 +255,7 @@ val bc_stack_ref_inv_def = Define `
     ?f tf.
       INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap) } /\
       FDOM f SUBSET FDOM refs /\
-      INJ (FAPPLY tf) (FDOM tf) UNIV /\
+      INJ (FAPPLY tf) (FDOM tf) { a | isSomeDataElement (heap_lookup a heap) } /\
       FDOM tf SUBSET (all_ts refs stack) /\
       EVERY2 (\v x. v_inv conf v (x,f,tf,heap)) stack roots /\
       !n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)`;
