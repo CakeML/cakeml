@@ -275,29 +275,12 @@ val _ = (append_prog o process_topdecs)`
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputUntil_aux is chr =
-   case is of InstreamBuffered fd rref wref surplus =>
-     (*Fill upp buffer if needed*)
-     (if (!wref) = (!rref) then (b_refillBuffer is ; ()) else ();
-     if (!wref) = 0 then [] else (
-       let
-         val readat = (!rref)
-         val writeat = (!wref)
-         val (lstr,rstr) = String.split (fn c => not (c = chr))
-           (Word8Array.substring surplus readat (writeat-readat))
-       in
-         (*If right half is empty, the character was not found: try to refill buffer
-         and recurse if there are some new bytes in the buffer. If right half not empty,
-         we found the character so just return the list so far with lstr added.*)
-         rref := readat + String.size lstr;
-         case rstr of
-           "" => (lstr :: (b_inputUntil_aux is chr))
-          |_  => (rref := !rref + 1; lstr :: [String.str chr])
-       end))`;
+    case b_input1 is of
+      Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else [chr])
+      |None => []`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputUntil is chr =
-     case is of InstreamBuffered fd rref wref surplus =>
-     String.concat (b_inputUntil_aux is chr)`;
+  fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLine is =
