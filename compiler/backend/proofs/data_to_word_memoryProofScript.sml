@@ -2149,6 +2149,7 @@ Theorem v_inv_ts_eq
 
 Theorem cons_thm_alt
   `abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
+    ts ∉ (all_ts refs (xs ++ stack)) /\
     LENGTH xs < sp /\ xs <> [] ==>
     ?rs roots2 heap2.
       (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
@@ -2198,23 +2199,39 @@ Theorem cons_thm_alt
     \\ fs [heap_split_def]
     \\ EVAL_TAC \\ rw [] \\ EVAL_TAC)
   \\ strip_tac THEN1 (full_simp_tac std_ss [el_length_def,BlockRep_def] \\ fs [])
-  \\ qexists_tac `f` \\ full_simp_tac std_ss []
+  \\ qexists_tac `f`
+  \\ qexists_tac `tf |+ (ts, a)`
+  \\ full_simp_tac std_ss []
   \\ strip_tac THEN1
    (match_mp_tac INJ_SUBSET
     \\ FIRST_ASSUM (match_exists_tac o concl)
     \\ full_simp_tac (srw_ss()) [isDataElement_def,BlockRep_def]
     \\ fs [SUBSET_DEF])
-  \\ rpt strip_tac THEN1
+  \\ rpt strip_tac
+  THEN1
+   (fs [INJ_DEF] \\ rw []
+    \\ fs [FAPPLY_FUPDATE_THM]
+    \\ metis_tac [] (* Slow *))
+  THEN1 (rw [FDOM_FUPDATE,SUBSET_INSERT_RIGHT,all_ts_cons])
+  THEN1
    (full_simp_tac (srw_ss()) [v_inv_def]
     \\ full_simp_tac std_ss [BlockRep_def,el_length_def]
     \\ qexists_tac `ys1` \\ full_simp_tac std_ss []
     \\ full_simp_tac std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS]
-    \\ `f SUBMAP f` by full_simp_tac std_ss [SUBMAP_REFL]
-    \\ rpt strip_tac \\ res_tac \\ imp_res_tac v_inv_SUBMAP)
+    \\ rpt strip_tac
+    >- (`MEM (EL n xs) (xs ++ stack)` by rw [EL_MEM]
+       \\ ho_match_mp_tac v_inv_ts_eq
+       \\ map_every qexists_tac [`heap`,`xs ++ stack`,`refs`]
+       \\ rw [all_vs_def,MEM_v_all_vs])
+    >- rw [FLOOKUP_UPDATE])
   THEN1
    (full_simp_tac std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS]
     \\ `f SUBMAP f` by full_simp_tac std_ss [SUBMAP_REFL]
-    \\ rpt strip_tac \\ res_tac \\ imp_res_tac v_inv_SUBMAP)
+    \\ rpt strip_tac \\ res_tac
+    \\ `MEM (EL n stack) (xs ++ stack)` by (rw [EL_MEM])
+    \\ ho_match_mp_tac v_inv_ts_eq
+    \\ map_every qexists_tac [`heap`,`xs ++ stack`,`refs`]
+    \\ rw [all_vs_def,MEM_v_all_vs])
   \\ `reachable_refs (xs++stack) refs n` by
    (POP_ASSUM MP_TAC \\ simp_tac std_ss [reachable_refs_def]
     \\ rpt strip_tac \\ full_simp_tac std_ss [MEM] THEN1
@@ -2231,8 +2248,11 @@ Theorem cons_thm_alt
     imp_res_tac heap_store_rel_lemma \\ full_simp_tac (srw_ss()) []
     \\ qpat_x_assum `EVERY2 PP zs l` MP_TAC
     \\ match_mp_tac EVERY2_IMP_EVERY2 \\ full_simp_tac (srw_ss()) []
-    \\ rpt strip_tac \\ res_tac \\ imp_res_tac v_inv_SUBMAP
-    \\ `f SUBMAP f` by full_simp_tac std_ss [SUBMAP_REFL] \\ res_tac)
+    \\ rpt strip_tac \\ res_tac
+    \\ ho_match_mp_tac v_inv_ts_eq
+    \\ map_every qexists_tac [`heap`,`xs++stack`,`refs`]
+    \\ rw [all_vs_def]
+    \\ metis_tac [all_vs_def,MEM_v_all_vs])
   \\ fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma
   \\ metis_tac []);
 
