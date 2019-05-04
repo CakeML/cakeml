@@ -1859,6 +1859,16 @@ Theorem cons_multi_thm
   \\ match_mp_tac (Q.INST [`sp`|->`sp+sp1`] (SPEC_ALL v_inv_list_to_v_alt))
   \\ unlength_tac [heap_expand_def]);
 
+val v_all_vs_def = tDefine"v_all_vs"`
+  v_all_vs (Block ts tag l :: xs) = Block ts tag l :: v_all_vs l ++ v_all_vs xs
+∧ v_all_vs (x::xs)                = x :: v_all_vs xs
+∧ v_all_vs [] = []`
+  (WF_REL_TAC `measure (v1_size)`);
+
+val all_vs_def = Define`
+  all_vs refs stack = { v | ∃(n:num) l.  FLOOKUP refs n = SOME (ValueArray l) ∧ MEM v (v_all_vs l)} ∪
+                      { v | MEM v (v_all_vs stack)}`
+
 Theorem cons_thm_alt
   `abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
     LENGTH xs < sp /\ xs <> [] ==>
