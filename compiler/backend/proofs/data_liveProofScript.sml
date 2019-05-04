@@ -20,6 +20,7 @@ val state_rel_def = Define `
     s1.compile = t1.compile /\ s1.compile_oracle = t1.compile_oracle /\
     s1.tstamps = t1.tstamps /\
     s1.limits  = t1.limits /\
+    (* s1.safe_for_space = t1.safe_for_space /\ *) (* ASK: Probably don't need it *)
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
 
 val state_rel_ID = Q.prove(
@@ -295,6 +296,7 @@ val evaluate_compile = Q.prove(
       \\ `LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t1.stack`) \\ fs []
       \\ SRW_TAC [] [state_rel_def]
+      (* ASK: This is disturbingly cumbersome *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
       \\ drule_all_then (qspec_then `t1.safe_for_space` ASSUME_TAC) evaluate_safe_swap
@@ -321,6 +323,7 @@ val evaluate_compile = Q.prove(
           LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ ASM_SIMP_TAC (srw_ss()) [Once jump_exc_def]
       \\ REPEAT STRIP_TAC \\ fs [] \\ fs [state_rel_def]
+      (* ASK: This is disturbingly cumbersome *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
       \\ drule_all_then (qspec_then `t1.safe_for_space` ASSUME_TAC) evaluate_safe_swap
@@ -334,6 +337,7 @@ val evaluate_compile = Q.prove(
       \\ `LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t1.stack`) \\ fs []
       \\ SRW_TAC [] [state_rel_def]
+      (* ASK: This is disturbingly cumbersome *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
       \\ drule_all_then (qspec_then `t1.safe_for_space` ASSUME_TAC) evaluate_safe_swap
@@ -382,6 +386,7 @@ val evaluate_compile = Q.prove(
       \\ REPEAT STRIP_TAC \\ fs [] \\ SIMP_TAC (srw_ss()) [pop_env_def]
       \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
       \\ fs [pop_env_def] \\ fs [state_rel_def,set_var_def]
+      (* ASK: Terrible things were done here *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
       \\ drule_all_then (qspec_then `(dec_clock t1).safe_for_space` ASSUME_TAC) evaluate_safe_swap
@@ -390,6 +395,7 @@ val evaluate_compile = Q.prove(
       \\ UNABBREV_ALL_TAC
       \\ ONCE_ASM_REWRITE_TAC []
       \\ fs []
+      (* ASK: END *)
       \\ fs [lookup_insert,lookup_inter_alt,domain_list_insert,
              domain_inter,domain_delete] \\ REPEAT STRIP_TAC
       \\ Cases_on `x' = v` \\ fs []
@@ -425,6 +431,7 @@ val evaluate_compile = Q.prove(
                     locals := fromList q; stack := env::t1.stack;
                     clock := s.clock - 1|>` by
                 fs [state_component_equality,state_rel_def]
+      (* ASK: Terrible things were done here *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
       \\ drule_all_then (qspec_then `t1.safe_for_space` ASSUME_TAC) evaluate_safe_swap
@@ -433,12 +440,14 @@ val evaluate_compile = Q.prove(
       \\ UNABBREV_ALL_TAC
       \\ ONCE_ASM_REWRITE_TAC []
       \\ fs []
+      (* ASK: END *)
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ fs [state_rel_def] \\ SRW_TAC [] [] \\ fs [])
     THEN Cases_on`a`>>fs[] THEN
      (REPEAT STRIP_TAC
      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
      \\ REPEAT STRIP_TAC
+     (* ASK: Terrible things were done here *)
      \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
      \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
      \\ drule_all_then (qspec_then `t5.safe_for_space` ASSUME_TAC) evaluate_safe_swap
@@ -447,6 +456,7 @@ val evaluate_compile = Q.prove(
      \\ UNABBREV_ALL_TAC
      \\ ONCE_ASM_REWRITE_TAC []
      \\ fs [state_rel_def]))
+     (* END *)
   (* Call with SOME handler *)
   \\ `?var handle. x = (var,handle)` by METIS_TAC [PAIR]
   \\ POP_ASSUM (fn th => fs [th])
@@ -485,12 +495,14 @@ val evaluate_compile = Q.prove(
    (REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
     \\ REPEAT STRIP_TAC
+    (* ASK: Terrible things were done here *)
     \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
     \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
     \\ drule_all_then (qspec_then `t5.safe_for_space` ASSUME_TAC) evaluate_safe_swap
     \\ `ss' = p with safe_for_space := t5.safe_for_space`
        by (UNABBREV_ALL_TAC \\ rfs [])
     \\ rw [] \\ UNABBREV_ALL_TAC
+    (* END *)
     \\ fs [] \\ SIMP_TAC (srw_ss()) [pop_env_def]
     \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
     \\ fs [pop_env_def] \\ fs [state_rel_def,set_var_def]
@@ -504,12 +516,14 @@ val evaluate_compile = Q.prove(
     REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
     \\ REPEAT STRIP_TAC
+    (* ASK: Terrible things were done here *)
     \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
     \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
     \\ drule_all_then (qspec_then `t5.safe_for_space` ASSUME_TAC) evaluate_safe_swap
     \\ `ss' = p with safe_for_space := t5.safe_for_space`
        by (UNABBREV_ALL_TAC \\ rfs [])
     \\ rw [] \\ UNABBREV_ALL_TAC
+    (* END *)
     \\ fs [state_rel_def] \\ NO_TAC))
   \\ REPEAT STRIP_TAC
   \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
@@ -530,6 +544,7 @@ val evaluate_compile = Q.prove(
                        t1.handler::t1.stack|> = s0`
      by (fs [call_env_def,push_env_def,dec_clock_def])
   \\ fs [] \\ REPEAT STRIP_TAC
+  (* ASK: Terrible things were done here *)
   \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
   \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
   \\ drule_all_then (qspec_then `ss'.safe_for_space` ASSUME_TAC) evaluate_safe_swap
@@ -538,6 +553,7 @@ val evaluate_compile = Q.prove(
   \\ ONCE_ASM_REWRITE_TAC []
   \\ UNABBREV_ALL_TAC
   \\ rw []
+  (* END *)
   \\ NTAC 4 (POP_ASSUM (K ALL_TAC))
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
   \\ STRIP_TAC THEN1
