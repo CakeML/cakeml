@@ -236,16 +236,17 @@ val bc_ref_inv_def = Define `
     | _ => F`;
 
 (* TODO: MOVE *)
-val isBlock = Define `isBlock (Block ts _ _) = T ∧ isBlock _ = F`;
-val v_get_ts = Define `
-  v_get_ts (Block ts _ _) = SOME ts
-∧ v_get_ts _ = NONE`;
+val v_all_ts_def = tDefine"v_all_ts" `
+  v_all_ts (Block ts _ xs) = ts :: FLAT (MAP v_all_ts xs)
+∧ v_all_ts _ = []`
+  (WF_REL_TAC `measure (v_size)` \\ rpt strip_tac \\ Induct_on `xs`
+  \\ srw_tac [] [v_size_def] \\ res_tac \\ DECIDE_TAC);
 
 (* TODO: MOVE *)
-val all_ts_def = Define `
+val all_ts_def = Define`
   all_ts refs stack =
-    let refsΩ = {v | (∃y l. y ∈ FRANGE refs ∧ y = ValueArray l ∧ MEM v l)}
-    in {ts | ∃x. (x ∈ refsΩ ∨ MEM x stack) ∧ v_get_ts x = SOME ts}
+    let refs_v = {x | ∃y l. y ∈ FRANGE refs ∧ y = ValueArray l ∧ MEM x l}
+    in {ts | ∃x. (x ∈ refs_v ∨ MEM x stack) ∧ MEM ts (v_all_ts x)}
 `
 
 (* THIS IS IMPORTANT *)
@@ -1330,6 +1331,13 @@ val v_inv_SUBMAP = Q.prove(
       \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac)
   THEN1 (full_simp_tac std_ss [v_inv_def] \\ metis_tac [])
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF] \\ rw []));
+
+Theorem heap_store_rel_v_inv
+  `!w x.
+      heap_store_rel heap heap1 /\
+      v_inv conf w (x,f,tf,heap) ==>
+      v_inv conf w (x,f,tf,heap1) `
+  (rw [] \\ ho_match_mp_tac v_inv_SUBMAP \\ rw []);
 
 val heap_store_unused_alt_thm = prove(
   ``!a n heap h1 h2 heap2 x.
