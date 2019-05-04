@@ -2090,6 +2090,63 @@ Theorem all_ts_FINITE
         \\ UNABBREV_ALL_TAC \\ fs []
         \\ Cases_on `y` \\ fs []));
 
+Theorem v_inv_tf_update
+  `∀y f tf heap heap1 a stack conf ts ts' tag xs refs.
+     (Block ts tag xs) ∈ (all_vs refs stack) ∧
+     ts' ∉ all_ts refs stack ∧
+     v_inv conf (Block ts tag xs) (y,f,tf,heap)
+     ⇒ v_inv conf ((Block ts tag xs)) (y,f, tf |+ (ts', a),heap)`
+  (`∀x y f tf heap heap1 a stack conf ts ts' tag xs refs.
+     x = Block ts tag xs ∧ (Block ts tag xs) ∈ (all_vs refs stack) ∧
+      ts' ∉ all_ts refs stack ∧
+      v_inv conf (Block ts tag xs) (y,f,tf,heap)
+      ⇒ v_inv conf ((Block ts tag xs)) (y,f, tf |+ (ts', a),heap)`
+  suffices_by metis_tac []
+  \\ let val ind = theorem "v_inv_ind" |> Q.SPEC `λv (x,f,tf,heap). P v x f tf heap`
+                                       |> SIMP_RULE std_ss []
+                                       |> Q.GEN `P`
+     in ho_match_mp_tac ind end
+  \\ rw [v_inv_def,BlockRep_def]
+  \\ every_case_tac \\ rfs []
+  \\ `ts ∈ all_ts refs stack`
+     by (ho_match_mp_tac MEM_in_all_ts
+        \\ qexists_tac `Block ts n vs` \\ fs [v_all_ts_def])
+  \\ conj_tac
+  >- (qpat_x_assum `LIST_REL _ _ _` mp_tac
+     \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
+     \\ ho_match_mp_tac  LIST_REL_mono
+     \\ rw [] \\ fs []
+     \\ Cases_on `x` \\ fs [v_inv_def,BlockRep_def]
+     \\ first_x_assum drule
+     \\ disch_then drule
+     \\ rw [] \\ fs []
+     \\ `MEM (Block n0 n' l) (v_all_vs [Block ts n vs])` by rw [v_all_vs_def,MEM_v_all_vs]
+     \\ `Block n0 n' l ∈ all_vs refs stack` by metis_tac [MEM_in_all_vs]
+     \\ first_x_assum drule \\ rw []
+     \\ first_x_assum drule \\ rw []
+     \\ first_x_assum drule \\ rw [])
+  >- (fs [FLOOKUP_UPDATE]
+     \\ every_case_tac
+     \\ rveq \\ fs []));
+
+Theorem v_inv_ts_eq
+  `∀x y f tf ts heap heap1 a stack conf refs.
+    x ∈ all_vs refs stack ∧
+    ts ∉ all_ts refs stack ∧
+    heap_store_rel heap heap1 ∧
+    v_inv conf x (y,f,tf,heap)
+    ⇒ v_inv conf x (y,f, tf |+ (ts, a),heap1)`
+  (rw [] \\ Cases_on `∃ts' tag xs. x = Block ts' tag xs`
+  >- (fs [] \\ rveq
+     \\ ho_match_mp_tac heap_store_rel_v_inv \\ rw []
+     \\ drule_then (drule_then drule) v_inv_tf_update \\ rw [])
+  >- (Cases_on `x`
+     \\ fs [ v_inv_def,heap_store_rel_def
+           , isSomeDataElement_def
+           , Bignum_def,Word64Rep_def]
+     \\ TRY (pairarg_tac \\ fs [])
+     \\ every_case_tac \\ fs []));
+
 Theorem cons_thm_alt
   `abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
     LENGTH xs < sp /\ xs <> [] ==>
