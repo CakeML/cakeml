@@ -1814,14 +1814,12 @@ val v_rel_to_list_ByteVector = prove(
   \\ Cases_on `h` \\ fs [] \\ rfs []
   \\ res_tac \\ fs []);
 
-val v_rel_to_list_byte = prove(
+val v_rel_to_list_byte1 = prove(
   ``simple_val_rel vr ==>
     !y x.
       vr x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns) ∧
-            EVERY (λn. n < 256) ns) <=>
-           (v_to_list y = SOME (MAP (Number ∘ $&) ns) ∧
-            EVERY (λn. n < 256) ns)``,
+      !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns)) <=>
+           (v_to_list y = SOME (MAP (Number ∘ $&) ns))``,
   strip_tac \\ fs [simple_val_rel_def]
   \\ ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def] \\ res_tac
@@ -1835,7 +1833,17 @@ val v_rel_to_list_byte = prove(
   \\ Cases_on `h` \\ rfs []
   \\ res_tac \\ fs []);
 
-val v_to_list_SOME = prove(
+val v_rel_to_list_byte2 = prove(
+  ``simple_val_rel vr ==>
+    !y x.
+      vr x y ==>
+      !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns) ∧
+            EVERY (λn. n < 256) ns) <=>
+           (v_to_list y = SOME (MAP (Number ∘ $&) ns) ∧
+            EVERY (λn. n < 256) ns)``,
+  metis_tac [v_rel_to_list_byte1]);
+
+ val v_to_list_SOME = prove(
   ``simple_val_rel vr ==>
     !y ys x.
       vr x y /\ v_to_list y = SOME ys ==>
@@ -2014,7 +2022,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ drule v_rel_to_list_byte \\ fs []
+    \\ drule v_rel_to_list_byte2 \\ fs []
     \\ disch_then drule
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
   \\ Cases_on `?b. opp = FromList b` THEN1
@@ -2124,6 +2132,107 @@ Theorem simple_val_rel_do_app
   \\ Cases_on `do_app opp ys t` \\ fs []
   \\ TRY (PairCases_on `a` \\ fs [])
   \\ TRY (PairCases_on `a'` \\ fs []));
+
+(* generic do_install compile proof *)
+val simple_compile_state_rel_def = Define `
+  simple_compile_state_rel vr sr comp cr <=>
+    simple_state_rel vr sr /\
+    (! p exps res. comp p = (exps, res) ==> res = [] /\
+        LENGTH exps = LENGTH (FST p) /\ cr (FST p) exps) /\
+    (! (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state).
+        sr s t ==>
+        t.clock = s.clock /\ s.compile = pure_cc comp t.compile /\
+        t.compile_oracle = pure_co comp o s.compile_oracle /\
+        (!n. SND (SND (s.compile_oracle n)) = []) /\
+        (! n. sr (s with <| clock := n; compile_oracle :=
+                        shift_seq 1 s.compile_oracle; code := s.code |>)
+             (t with <| clock := n; compile_oracle :=
+                        shift_seq 1 t.compile_oracle; code := t.code |>)))
+`;
+
+Theorem simple_val_rel_v_to_bytes
+  `simple_val_rel vr /\ vr x y ==> v_to_bytes x = v_to_bytes y`
+  (rw [v_to_bytes_def]
+  \\ imp_res_tac v_rel_to_list_byte1
+  \\ rfs [listTheory.MAP_o]);
+
+Theorem simple_val_rel_Word64_left:
+  simple_val_rel vr ==> !x w. vr (Word64 w) x = (x = Word64 w)
+Proof
+  strip_tac \\ Cases_on `x` \\ rfs [simple_val_rel_alt] \\ rw []
+  \\ metis_tac [isClos_def]
+QED
+
+Theorem val_rel_to_words_lemma:
+  simple_val_rel vr ==> (!xs ys. LIST_REL vr xs ys ==>
+    !ns. (xs = MAP Word64 ns) = (ys = MAP Word64 ns))
+Proof
+  disch_tac \\ ho_match_mp_tac LIST_REL_ind
+  \\ rw []
+  \\ Cases_on `ns` \\ fs []
+  \\ imp_res_tac simple_val_rel_Word64_left
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ rfs [simple_val_rel_alt]
+QED
+
+Theorem simple_val_rel_v_to_words:
+  !x y. simple_val_rel vr /\ vr x y ==> v_to_words x = v_to_words y
+Proof
+  rw [] \\ Cases_on `v_to_list y` \\ rw [v_to_words_def]
+  \\ imp_res_tac v_to_list_NONE \\ fs []
+  \\ imp_res_tac v_to_list_SOME
+  \\ imp_res_tac val_rel_to_words_lemma
+  \\ fs []
+QED
+
+fun first_term f tm = f (find_term (can f) tm);
+
+fun TYPE_CASE_TAC nm (g as (_, tm)) =
+  (* CASE_TAC restricted to a particular type. Works in the proof below,
+     but needs more code from BasicProvers to be robust. *)
+  let
+    val ERR = mk_HOL_ERR "TYPE_CASE_TAC"
+    fun m (_, x, _) = if fst (dest_type (type_of x)) = nm
+        then x else raise ERR "TYPE_CASE_TAC" "no match"
+    val t = first_term (m o TypeBase.dest_case) tm
+  in CHANGED_TAC (Cases_on `^t`) end g;
+
+Theorem simple_val_rel_do_install:
+  !comp. simple_val_rel vr /\ simple_compile_state_rel vr sr comp cr ==>
+    sr s (t:('c,'ffi) closSem$state) /\ LIST_REL vr xs ys ==>
+    case do_install xs s of
+      | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
+                            exc_rel vr err1 err2 /\ sr s1 t1
+      | (Rval exps1, s1) => ?exps2 t1. sr s1 t1 /\ (~ (exps1 = [])) /\
+                               cr exps1 exps2 /\
+                               do_install ys t = (Rval exps2, t1)
+Proof
+  fs [simple_compile_state_rel_def] \\ rw []
+  \\ FIRST_X_ASSUM drule \\ rw []
+  \\ qpat_assum `!n. v = []` (ASSUME_TAC o Q.SPEC `0`)
+  \\ Cases_on `s.compile_oracle 0` \\ Cases_on `SND (s.compile_oracle 0)`
+  \\ rfs [] \\ fs [] \\ rveq
+  \\ simp [do_install_def]
+  \\ fs [pure_co_def]
+  \\ rpt (TYPE_CASE_TAC "list" \\ fs [])
+  \\ imp_res_tac simple_val_rel_v_to_bytes
+  \\ imp_res_tac simple_val_rel_v_to_words
+  \\ FIRST_X_ASSUM (qspec_then `SND (s.compile_oracle 0)` ASSUME_TAC)
+  \\ rfs [pure_co_def, EVAL ``shift_seq k s 0``, pure_cc_def]
+  \\ EVERY_CASE_TAC \\ rfs [] \\ fs [finite_mapTheory.FUPDATE_LIST_THM]
+QED
+
+(* after do_install evaluate uses the LAST element, and this helps *)
+(* FIXME move *)
+Theorem LIST_REL_LAST:
+  !P. LIST_REL P xs ys /\ (~ (xs = [])) ==> P (LAST xs) (LAST ys)
+Proof
+  Q.ISPEC_THEN `xs` ASSUME_TAC SNOC_CASES
+  \\ Q.ISPEC_THEN `ys` ASSUME_TAC SNOC_CASES
+  \\ fs []
+QED
+
+
 
 (* a generic semantics preservation lemma *)
 

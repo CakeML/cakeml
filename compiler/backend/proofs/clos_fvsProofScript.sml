@@ -2,6 +2,7 @@
   Correctness proof for clos_fvs
 *)
 open preamble closLangTheory clos_fvsTheory closSemTheory closPropsTheory;
+local open backendPropsTheory in end;
 
 val _ = new_theory "clos_fvsProof";
 
@@ -203,6 +204,14 @@ Theorem dest_closure_SOME_Full_app
    \\ irule EVERY2_DROP
    \\ irule EVERY2_APPEND_suff \\ simp []);
 
+val simple_state_rel = prove(
+  ``simple_state_rel v_rel state_rel``,
+  fs [simple_state_rel_def, state_rel_def]
+  \\ rw [] \\ fs [fmap_rel_def, FLOOKUP_DEF] \\ rfs []
+  \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ rw [] \\ fs [ref_rel_cases]);
+
 val do_app_lemma = prove(
   ``state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_app opp xs s of
@@ -211,12 +220,23 @@ val do_app_lemma = prove(
       | Rval (x, s1) => ?y t1. v_rel x y /\ state_rel s1 t1 /\
                                do_app opp ys t = Rval (y, t1)``,
   match_mp_tac simple_val_rel_do_app
-  \\ conj_tac THEN1 (fs [simple_val_rel_def] \\ rw [] \\ fs [v_rel_cases])
-  \\ fs [simple_state_rel_def, state_rel_def]
-  \\ rw [] \\ fs [fmap_rel_def, FLOOKUP_DEF] \\ rfs []
-  \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
-  \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [ref_rel_cases]);
+  \\ fs [simple_state_rel, simple_val_rel_def] \\ rw [] \\ fs [v_rel_cases]);
+
+val do_install_lemma = prove(
+  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+    case do_install xs s of
+      | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
+                            exc_rel v_rel err1 err2 /\ state_rel s1 t1
+      | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
+                               code_rel 0 exps1 exps2 /\
+                               do_install ys t = (Rval exps2, t1)``,
+  ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
+  \\ fs [simple_compile_state_rel_def, simple_state_rel]
+  \\ fs [compile_inc_def, pairTheory.FORALL_PROD, compile_def,
+            LENGTH_remove_fvs, code_rel_def, state_rel_def]
+  \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM,
+            simple_val_rel_def]
+  \\ fs [v_rel_cases]);
 
 (* evaluate level correctness *)
 
@@ -331,7 +351,20 @@ Theorem evaluate_remove_fvs
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ IF_CASES_TAC \\ rveq \\ fs []
     THEN1 (* Op = Install *)
-      (rveq \\ fs[])
+    (drule EVERY2_REVERSE \\ disch_tac
+      \\ drule (GEN_ALL do_install_lemma)
+      \\ disch_then drule
+      \\ fs [CaseEq "prod"]
+      \\ TOP_CASE_TAC \\ rw [] \\ fs [] \\ rveq \\ fs []
+      \\ fs [CaseEq "prod"] \\ rfs []
+      \\ fs [code_rel_def]
+      \\ FIRST_X_ASSUM drule
+      \\ rw [] \\ fs []
+      \\ fs [CaseEq "prod", CaseEq "result"] \\ rveq \\ fs []
+      \\ ho_match_mp_tac LIST_REL_LAST
+      \\ fs []
+      \\ CCONTR_TAC
+      \\ fs [])
     (* op <> Install *)
     \\ drule EVERY2_REVERSE \\ disch_tac
     \\ drule (GEN_ALL do_app_lemma)

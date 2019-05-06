@@ -512,6 +512,32 @@ val v_rel_opt_thm = prove(
   ``v_rel_opt m = OPTREL (v_rel m)``,
   fs [FUN_EQ_THM] \\ Cases  \\ Cases \\ fs [OPTREL_def,v_rel_opt_def]);
 
+Theorem simple_val_rel:
+  simple_val_rel (v_rel m)
+Proof
+  fs [simple_val_rel_def] \\ rpt strip_tac \\ fs []
+QED
+
+Theorem simple_state_rel:
+  simple_state_rel (val_rel max_app_n) state_rel
+Proof
+  fs [simple_state_rel_def,state_rel_def] \\ rw []
+  \\ fs [FMAP_REL_def,FLOOKUP_DEF] \\ rfs []
+  \\ res_tac \\ fs [v_rel_opt_thm]
+  THEN1
+   (Cases_on `s.refs ' ptr` \\ fs []
+    \\ Cases_on `t.refs ' ptr` \\ fs [ref_rel_cases]
+    \\ fs [] \\ rveq \\ fs [])
+  THEN1
+   (Cases_on `s'.refs ' ptr` \\ fs []
+    \\ Cases_on `t.refs ' ptr` \\ fs [ref_rel_cases]
+    \\ fs [] \\ rveq \\ fs [])
+  THEN
+   (rpt gen_tac \\ Cases_on `k = p` \\ fs []
+    THEN1 (fs [ref_rel_cases])
+    \\ fs [FAPPLY_FUPDATE_THM])
+QED
+
 Theorem do_app_lemma
   `state_rel s (t:('c,'ffi) closSem$state) /\ LIST_REL (v_rel s.max_app) xs ys ==>
     case do_app opp ys t of
@@ -556,24 +582,59 @@ val v_rel_IMP_v_to_bytes_lemma = prove(
 
 val v_rel_IMP_v_to_bytes = prove(
   ``v_rel max_app x y ==> v_to_bytes y = v_to_bytes x``,
-  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
-
-val v_rel_IMP_v_to_words_lemma = prove(
-  ``!y x.
-      v_rel max_app x y ==>
-      !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+  rw [] \\ 
+  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_bytes]);
 
 val v_rel_IMP_v_to_words = prove(
   ``v_rel max_app x y ==> v_to_words y = v_to_words x``,
-  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_words]);
+
+fun first_term f tm = f (find_term (can f) tm);
+
+fun TYPE_CASE_TAC nm (g as (_, tm)) =
+  (* CASE_TAC restricted to a particular type. Works in the proof below,
+     but needs more code from BasicProvers to be robust. *)
+  let
+    val ERR = mk_HOL_ERR "TYPE_CASE_TAC"
+    fun m (_, x, _) = if fst (dest_type (type_of x)) = nm
+        then x else raise ERR "TYPE_CASE_TAC" "no match"
+    val t = first_term (m o TypeBase.dest_case) tm
+  in CHANGED_TAC (Cases_on `^t`) end g;
+
+
+val do_install_lemma = prove(
+  ``state_rel s t /\ LIST_REL (v_rel s.max_app) xs ys ==>
+    case do_install xs s of
+      | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
+                            exc_rel (v_rel s.max_app) err1 err2 /\
+                            state_rel s1 t1
+      | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
+                               code_rel s1.max_app exps1 exps2 /\
+                               do_install ys t = (Rval exps2, t1)``,
+
+  fs [simple_compile_state_rel_def] \\ rw []
+  \\ fs [pure_co_def, do_install_def, state_rel_def]
+  \\ rpt (TYPE_CASE_TAC "list" \\ fs [])
+  \\ imp_res_tac simple_val_rel_v_to_bytes
+  \\ imp_res_tac simple_val_rel_v_to_words
+  \\ FIRST_X_ASSUM (qspec_then `SND (s.compile_oracle 0)` ASSUME_TAC)
+  \\ rfs [simple_val_rel, pure_co_def, EVAL ``shift_seq k s 0``, pure_cc_def]
+  \\ pairarg_tac \\ fs []
+  \\ EVERY_CASE_TAC \\ rfs [] \\ fs [finite_mapTheory.FUPDATE_LIST_THM]
+
+LENGTH_compile_inc
+
+  \\ fs [compile_inc_def] \\ rveq \\ fs []
+
+  ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
+  \\ fs [simple_compile_state_rel_def, simple_state_rel]
+  \\ fs [compile_inc_def, pairTheory.FORALL_PROD, compile_def,
+            LENGTH_remove_fvs, code_rel_def, state_rel_def]
+  \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM,
+            simple_val_rel_def]
+  \\ fs [v_rel_cases]);
+
+
 
 Theorem intro_multi_EQ_NIL[simp]
   `∀max_app es. intro_multi max_app es = [] ⇔ es = []`
