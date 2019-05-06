@@ -619,7 +619,6 @@ val evaluate_code_lemma = prove(
     \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
     \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
     \\ metis_tac[])
-  (*
   >-
    (fs [do_install_def]
     \\ fs [case_eq_thms, pair_case_eq, UNCURRY, bool_case_eq] \\ TRY (metis_tac [])
@@ -633,7 +632,6 @@ val evaluate_code_lemma = prove(
     \\ rfs []
     \\ fs [FDOM_FUPDATE_LIST]
     \\ metis_tac [])
-  *)
   \\ qmatch_goalsub_rename_tac`(n1 + (n2 + (n3 + _)))`
   \\ qexists_tac `n1+n2+n3` \\ fs []
   \\ sg `GENLIST r.compile_oracle n1 = GENLIST (\x. s.compile_oracle (n2 + x)) n1`
@@ -2647,36 +2645,32 @@ Theorem find_code_SUBMAP_rel
   (rw[SUBMAP_rel_def]
   \\ imp_res_tac find_code_SUBMAP);
 
-(*
+Theorem SUBMAP_rel_EX:
+  SUBMAP_rel z1 z2 ==> ?code. z2 = z1 with code := code /\ z1.code ⊑ code
+Proof
+  Cases_on `z2` \\ fs [SUBMAP_rel_def] \\ metis_tac []
+QED
+
+(* This is not true, and probably can't be rescued.
+   FIXME: lots of work required around here. *)
 Theorem do_install_SUBMAP
   `do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
    SUBMAP_rel z1 z2 ⇒
    ∃s2.
      do_install xs z2 = (r,s2) ∧
      SUBMAP_rel s1 s2`
-  (rw[closSemTheory.do_install_def]
+  (
+  rw[closSemTheory.do_install_def]
   \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac SUBMAP_rel_def
-  \\ imp_res_tac closSemTheory.state_component_equality
+  \\ imp_res_tac SUBMAP_rel_EX
+  \\ fs[CaseEq"bool",CaseEq"option",CaseEq"prod"]
+  \\ rveq
+  \\ fs[SUBMAP_rel_def]
   \\ fs[] \\ rveq
-  \\ reverse IF_CASES_TAC \\ fs[] \\ fs[]
-  >- ( last_x_assum(qspec_then`0`mp_tac) \\ simp[] )
-  \\ fs[bool_case_eq,CaseEq"option",CaseEq"prod"]
-  \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality,shift_seq_def]
-  \\ rveq \\ fs[]
-  \\ (
-    conj_tac >- (
-      irule SUBMAP_mono_FUPDATE_LIST
-      \\ fs[SUBMAP_FLOOKUP_EQN, FLOOKUP_DRESTRICT] ))
-  \\ gen_tac
-  \\ first_x_assum(qspec_then`n+1`mp_tac)
-  \\ fs[IN_DISJOINT, FDOM_FUPDATE_LIST]
-  \\ CCONTR_TAC \\ fs[]
-  \\ first_x_assum(qspec_then`0`mp_tac) \\ simp[]
-  \\ metis_tac[]);
-*)
+  \\ cheat
+  );
 
 val do_app_lemma_simp = prove(
   ``(exc_rel $= err1 err2 <=> err1 = err2) /\
@@ -2794,7 +2788,6 @@ Theorem evaluate_code_SUBMAP
   \\ Cases_on`op = Install`
   \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
   \\ rveq \\ fs[]
-  (*
   \\ TRY (
     drule (GEN_ALL do_install_SUBMAP)
     \\ simp[]
@@ -2803,7 +2796,6 @@ Theorem evaluate_code_SUBMAP
     \\ fs[PULL_EXISTS]
     \\ res_tac \\ fs[]
     \\ NO_TAC )
-  *)
   \\ imp_res_tac do_app_SUBMAP_Rval
   \\ fs[]
   \\ imp_res_tac do_app_SUBMAP_Rerr);

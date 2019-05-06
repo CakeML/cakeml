@@ -549,14 +549,12 @@ val evaluate_def = tDefine "evaluate" `
      case fix_clock s (evaluate (xs,env,s)) of
      | (Rval vs,s) =>
        if op = Install then
-       (*
        (case do_install (REVERSE vs) s of
         | (Rval es,s) =>
             (case evaluate (es,[],s) of
              | (Rval vs,s) => (Rval [LAST vs],s)
              | res => res)
         | (Rerr err,s) => (Rerr err,s))
-       *) (Rerr (Rabort Rtype_error), s)
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)
