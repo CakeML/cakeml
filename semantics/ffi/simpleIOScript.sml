@@ -19,54 +19,61 @@ val _ = new_theory "simpleIO"
 val _ = Hol_datatype `
  simpleIO = <| input :  word8 llist; output :  word8 llist |>`;
 
+val _ = Define `simpleSigs =
+  [<| mlname := "isEof"; 
+      cname  := "ffiisEof";
+      retty  := SOME C_bool;
+      args := [] |>;
+   <| mlname := "getChar"; 
+      cname  := "ffigetChar";
+      retty  := SOME C_int;
+      args := [] |>;
+   <| mlname := "putChar"; 
+      cname  := "ffiputChar";
+      retty  := NONE;
+      args := [C_array <| mutable := F ; with_length := F|> ] |>;
+   <| mlname := "exit"; 
+      cname  := "ffiexit";
+      retty  := NONE;
+      args := []|> ]`
 
 (*val isEof : oracle_function simpleIO*)
 val _ = Define `
- ((isEof:simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) st conf input=
-   ((case input of
-    [] => Oracle_final FFI_failed
-  | x::xs => Oracle_return st ((if st.input = LNIL then n2w (( 1 : num)) else n2w (( 0 : num)))::xs)
-  )))`;
-
+ (isEof st input=
+ (Oracle_return st [] (SOME (C_boolv (st.input = LNIL)))))`;
 
 (*val getChar : oracle_function simpleIO*)
 val _ = Define `
- ((getChar:simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) st conf input=
-   ((case input of
-    [] => Oracle_final FFI_failed
-  | x::xs =>
-      (case LHD st.input of
-        SOME y => Oracle_return (( st with<| input := (THE (LTL st.input)) |>)) (y::xs)
+ (getChar st input=  
+ (case LHD st.input of
+      SOME y => Oracle_return (( st with<| input := (THE (LTL st.input)) |>)) []
+                              (SOME (C_intv (w2i y)))
       | _ => Oracle_final FFI_failed
-      )
-  )))`;
-
+      ))`;
 
 (*val putChar : oracle_function simpleIO*)
 val _ = Define `
- ((putChar:simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) st conf input=
-   ((case input of
+ (putChar st [C_arrayv input] =  
+ ((case input of
     [] => Oracle_final FFI_failed
-  | x::_ => Oracle_return (( st with<| output := (LCONS x st.output) |>)) input
-  )))`;
-
+    | x::_ => Oracle_return (( st with<| output := (LCONS x st.output) |>)) [] NONE)))
+/\ (putChar st _ = Oracle_final FFI_failed)`;
 
 (*val exit : oracle_function simpleIO*)
 val _ = Define `
- ((exit:simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) st conf input=  (Oracle_final FFI_diverged))`;
-
+ (exit st input=  Oracle_final FFI_diverged)`;
 
 (*val simpleIO_oracle : oracle simpleIO*)
 val _ = Define `
- ((simpleIO_oracle:string -> simpleIO ->(word8)list ->(word8)list ->(simpleIO)oracle_result) s st conf input=
+ ((simpleIO_oracle:string -> simpleIO ->(c_value)list ->(simpleIO)oracle_result) s st input=
    (if s = "isEof" then
-    isEof st conf input
+    isEof st input
   else if s = "getChar" then
-    getChar st conf input
+    getChar st input
   else if s = "putChar" then
-    putChar st conf input
+    putChar st input
   else if s = "exit" then
-    exit st conf input
+    exit st input
   else
     Oracle_final FFI_failed))`;
 

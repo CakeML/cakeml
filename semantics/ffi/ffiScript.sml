@@ -16,27 +16,90 @@ val _ = new_theory "ffi"
 (*open import Pervasives_extra*)
 (*open import Lib*)
 
+val _ = Hol_datatype `
+ c_primv = C_boolv of bool | C_intv of int`;
+
+val _ = Hol_datatype `
+c_array_conf =
+<| mutable     : bool
+ ; with_length : bool
+ |>`
+
+val _ = Hol_datatype `
+ c_type = C_bool | C_int | C_array of c_array_conf`;
+
+val _ = Hol_datatype `
+ c_value = C_primv of c_primv | C_arrayv of word8 list`;
+
+val _ = Hol_datatype `
+c_funsig =
+<| mlname      : string
+ ; cname       : string
+ ; retty       : c_type option
+ ; args        : c_type list
+|>`
+
+val _ = Define `arg_ok t v =
+  case v of
+    C_arrayv _ => (case t of C_array _ => T | _ => F)
+  | C_primv(C_boolv _) => (t = C_bool)
+  | C_primv(C_intv _) => (t = C_int)
+`
+
+val _ = Define `args_ok sig args = LIST_REL arg_ok sig.args args`
+
+val _ = Define `ret_ok t v =
+ ((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T)`
+
+val is_mutty = Define `
+ is_mutty ty =
+  (case ty of C_array c => c.mutable
+   | _ => F)
+ `
+
+val _ = Define `(mutargs [] _ = [])
+ /\ (mutargs _ [] = [])
+ /\ (mutargs (ty::tys) (v::vs) =
+     (case v of
+        C_arrayv v => 
+        (case ty of C_array c => if c.mutable then v::mutargs tys vs
+                                else mutargs tys vs
+                  | _ => mutargs tys vs)
+      | _ => mutargs tys vs))`
+
+val _ = Define `
+   (upd_args [] _ _ = [])
+/\ (upd_args _ [] _ = [])
+/\ (upd_args _ vs [] = vs)
+/\ (upd_args (ty::tys) (v::vs) (a::as) =
+    (case ty of C_array c =>
+       (if c.mutable then
+         C_arrayv a::upd_args tys vs as
+        else upd_args tys vs as)
+     | _ => upd_args tys vs as))`
+(*val _ = type_abbrev("c_array" , ``: word8 list # c_array_conf``);*)
 
 val _ = Hol_datatype `
  ffi_outcome = FFI_failed | FFI_diverged`;
 
 
 val _ = Hol_datatype `
- oracle_result = Oracle_return of 'ffi => word8 list | Oracle_final of ffi_outcome`;
+ oracle_result = Oracle_return of 'ffi => word8 list list => c_primv option | Oracle_final of ffi_outcome`;
 
-val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> word8 list -> word8 list -> 'ffi oracle_result``);
+(* TODO: reinstate num list list when we want to treat aliasing *)
+val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> c_value list (*-> num list list*) -> 'ffi oracle_result``);
 val _ = type_abbrev((*  'ffi *) "oracle" , ``: string -> 'ffi oracle_function``);
 
 (* An I/O event, IO_event s bytes bytes2, represents the call of FFI function s with
 * immutable input bytes and mutable input map fst bytes2,
-* returning map snd bytes2 in the mutable array. *)
+* returning map snd bytes2 in the mutable array. TODO: update *)
 
 val _ = Hol_datatype `
- io_event = IO_event of string => word8 list => ( (word8 # word8)list)`;
+ io_event = IO_event of string => c_value list => word8 list list => c_primv option`;
 
 
 val _ = Hol_datatype `
- final_event = Final_event of string => word8 list => word8 list => ffi_outcome`;
+ final_event = Final_event of string => c_value list => ffi_outcome`;
 
 
 val _ = Hol_datatype `
@@ -44,41 +107,58 @@ val _ = Hol_datatype `
 <| oracle      : 'ffi oracle
  ; ffi_state   : 'ffi
  ; io_events   : io_event list
+ ; signatures  : c_funsig list
  |>`;
 
 
 (*val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi*)
 val _ = Define `
- ((initial_ffi_state:(string -> 'ffi oracle_function) -> 'ffi -> 'ffi ffi_state) oc ffi=
+ ((initial_ffi_state:(string -> 'ffi oracle_function) -> 'ffi -> c_funsig list -> 'ffi ffi_state) oc ffi sigs =
  (<| oracle      := oc
  ; ffi_state   := ffi
  ; io_events   := ([])
+ ; signatures  := sigs
  |>))`;
 
+val _ = Define `
+  ffi_oracle_ok st =
+  (!s sign args ffi' newargs retv.
+           (FIND (λx. x.mlname = s) st.signatures = SOME sign)
+           /\ args_ok sign args
+           /\ (st.oracle s st.ffi_state args = Oracle_return ffi' newargs retv)
+           ==> ret_ok sign.retty retv
+               /\ LIST_REL (λx y. LENGTH x = LENGTH y) (mutargs sign.args args) newargs
+  )`
 
 val _ = Hol_datatype `
- ffi_result = FFI_return of 'ffi ffi_state => word8 list | FFI_final of final_event`;
+ ffi_result = FFI_return of 'ffi ffi_state => word8 list list => c_primv option | FFI_final of final_event`;
 
 
 (*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_result 'ffi*)
 val _ = Define `
- ((call_FFI:'ffi ffi_state -> string ->(word8)list ->(word8)list -> 'ffi ffi_result) st s conf bytes=
+ ((call_FFI:'ffi ffi_state -> string ->(c_value)list -> 'ffi ffi_result) st s args=
    (if ~ (s = "") then
-    (case st.oracle s st.ffi_state conf bytes of
-      Oracle_return ffi' bytes' =>
-        if LENGTH bytes' = LENGTH bytes then
-          (FFI_return
-            ( st with<| ffi_state := ffi'
-                    ; io_events :=
-                        (st.io_events ++
-                          [IO_event s conf (ZIP (bytes, bytes'))])
-            |>)
-            bytes')
-        else FFI_final(Final_event s conf bytes FFI_failed)
-    | Oracle_final outcome =>
-          FFI_final(Final_event s conf bytes outcome)
+    (case FIND (λx. x.mlname = s) st.signatures of
+      SOME sign => 
+      (if args_ok sign args then
+       (case st.oracle s st.ffi_state args of
+         Oracle_return ffi' newargs retv =>
+           if ret_ok sign.retty retv then
+              FFI_return
+               ( st with<| ffi_state := ffi'
+                       ; io_events :=
+                           (st.io_events ++
+                             [IO_event s args newargs retv])
+               |>)
+               newargs retv
+           else ARB (* TODO: should this be specified? Is so to what? *)
+        | Oracle_final outcome =>
+             FFI_final(Final_event s args outcome)
+       )
+       else ARB (* TODO: should this be specified? If so to what? *)
+      )
     )
-  else FFI_return st bytes))`;
+  else FFI_return st [] NONE))`;
 
 
 val _ = Hol_datatype `
@@ -108,11 +188,11 @@ val _ = Hol_datatype `
 
 (*val trace_oracle : oracle (llist io_event)*)
 val _ = Define `
- ((trace_oracle:string ->(io_event)llist ->(word8)list ->(word8)list ->((io_event)llist)oracle_result) s io_trace conf input=
+ ((trace_oracle:string ->(io_event)llist ->(c_value)list ->((io_event)llist)oracle_result) s io_trace args=
    ((case LHD io_trace of
-    SOME (IO_event s' conf' bytes2) =>
-      if (s = s') /\ (MAP FST bytes2 = input) /\ (conf = conf') then
-        Oracle_return (THE (LTL io_trace)) (MAP SND bytes2)
+    SOME (IO_event s' args' newargs retv) =>
+      if (s = s') /\ (args = args') then
+        Oracle_return (THE (LTL io_trace)) newargs retv
       else Oracle_final FFI_failed
   | _ => Oracle_final FFI_failed
   )))`;

@@ -585,6 +585,80 @@ val _ = Hol_datatype `
 
 val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_state``);
 
+val _ = Define `
+   (get_ffi_arg _ (C_array conf) (Litv(StrLit s)) =
+    if conf.mutable then
+      NONE
+    else
+      SOME (C_arrayv(MAP (\ c .  n2w(ORD c)) (EXPLODE s))))
+/\ (get_ffi_arg st (C_array conf) (Loc lnum) =
+    if conf.mutable then
+      (case store_lookup lnum st of
+         | SOME (W8array ws) => SOME(C_arrayv ws)
+         | _ => NONE)
+    else NONE)
+/\ (get_ffi_arg _ C_bool v =
+    if v = Boolv T then
+      SOME(C_primv(C_boolv T))
+    else if v = Boolv F then
+      SOME(C_primv(C_boolv F))
+    else NONE)
+/\ (get_ffi_arg _ C_int (Litv(IntLit n)) =
+    SOME(C_primv(C_intv n)))
+/\ (get_ffi_arg _ _ _ = NONE)`
+
+val _ = Define
+  `(get_ffi_args s [] [] = SOME [])
+/\ (get_ffi_args s (ty::tys) (arg::args) =
+    OPTION_MAP2 CONS (get_ffi_arg s ty arg) (get_ffi_args s tys args))
+/\ (get_ffi_args _ _ _ = NONE)
+`
+
+val _ = Define `
+   (assign_ffi_arg (C_array conf) ws (Loc lnum) s =
+    if conf.mutable then
+      store_assign lnum (W8array ws) s
+    else
+      NONE)
+/\ (assign_ffi_arg _ _ _ s = SOME s)`
+
+val _ = Define
+  `(assign_ffi_args [] [] [] s = s)
+/\ (assign_ffi_args (ty::tys) (carg::cargs) (arg::args) s =
+    assign_ffi_args tys cargs args (OPTION_BIND s (assign_ffi_arg ty carg arg)))
+/\ (assign_ffi_args _ _ _ _ = NONE)
+  `
+
+val _ = Define
+`(get_ret_val (SOME(C_boolv b)) = Boolv b)
+/\ (get_ret_val (SOME(C_intv i)) = Litv(IntLit i))
+/\ (get_ret_val _ = Conv NONE [])
+  `
+
+val _ = Define
+`get_mut_args sign cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(sign.args,cargs)))
+`
+
+val _ = Define
+  `do_ffi s t n args =
+   case FIND (λx. x.mlname = n) t.signatures of
+     SOME sign =>
+     (case get_ffi_args s sign.args args of
+          SOME cargs =>
+           (case call_FFI t n cargs of
+              FFI_return t' newargs retv =>
+                (case assign_ffi_args sign.args newargs (get_mut_args sign args) (SOME s) of
+                   NONE => NONE
+                 | SOME s' =>
+                   if ret_ok sign.retty retv then
+                     SOME ((s', t'), Rval (get_ret_val retv))
+                   else NONE)
+            | FFI_final outcome =>
+              SOME ((s, t), Rerr (Rabort (Rffi_error outcome))))
+        | NONE => NONE)
+   | NONE => NONE
+  `
+
 (*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
 val _ = Define `
  ((do_app:((v)store_v)list#'ffi ffi_state -> op ->(v)list ->((((v)store_v)list#'ffi ffi_state)#((v),(v))result)option) ((s: v store),(t: 'ffi ffi_state)) op vs=
@@ -838,20 +912,8 @@ val _ = Define `
       )
     | (ConfigGC, [Litv (IntLit i); Litv (IntLit j)]) =>
         SOME ((s,t), Rval (Conv NONE []))
-    | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
-        (case store_lookup lnum s of
-          SOME (W8array ws) =>
-            (case call_FFI t n (MAP (\ c .  n2w(ORD c)) (EXPLODE conf)) ws of
-              FFI_return t' ws' =>
-               (case store_assign lnum (W8array ws') s of
-                 SOME s' => SOME ((s', t'), Rval (Conv NONE []))
-               | NONE => NONE
-               )
-            | FFI_final outcome =>
-               SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
-            )
-        | _ => NONE
-        )
+    | (FFI n, args) =>
+        do_ffi s t n args
     | _ => NONE
   )))`;
 
