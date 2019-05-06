@@ -187,10 +187,8 @@ val state_rel_def = Define `
     t.compile_oracle = state_co (ignore_table compile_inc) s.compile_oracle /\
     fmap_rel (ref_rel (v_rel s.max_app)) s.refs t.refs ∧
     EVERY2 (OPTREL (v_rel s.max_app)) s.globals t.globals /\
-    (*
     (∀n. SND (SND (s.compile_oracle n )) = [] ∧
          ¬contains_App_SOME s.max_app (FST(SND(s.compile_oracle n)))) /\
-    *)
     s.code = FEMPTY ∧ t.code = FEMPTY`
 
 val state_rel_max_app = Q.prove (
@@ -397,6 +395,30 @@ val v_to_list = Q.prove(
   first_x_assum(fn th => first_x_assum(STRIP_ASSUME_TAC o MATCH_MP th)) >>
   full_simp_tac(srw_ss())[optionTheory.OPTREL_def])
 
+Theorem simple_val_rel:
+  simple_val_rel (v_rel max_app_n)
+Proof
+  fs [simple_val_rel_def] \\ rpt strip_tac \\ fs [v_rel_simp]
+QED
+
+Theorem simple_state_rel:
+   simple_state_rel (v_rel max_app_n)
+     (\s t. s.max_app = max_app_n ∧ state_rel s t)
+Proof
+  fs [simple_state_rel_def,state_rel_def] \\ rw []
+  \\ fs [FLOOKUP_DEF,fmap_rel_def] \\ TRY (rfs [] \\ NO_TAC)
+  THEN1
+   (`ref_rel (v_rel s.max_app) (s.refs ' ptr) (t.refs ' ptr)` by fs[]
+    \\ rpt (qpat_x_assum `!x._` kall_tac)
+    \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
+  THEN1
+   (`ref_rel (v_rel s.max_app) (s.refs ' ptr) (t.refs ' ptr)` by fs[]
+    \\ rpt (qpat_x_assum `!x._` kall_tac)
+    \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
+  \\ rpt gen_tac \\ fs [] \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]
+  \\ metis_tac []
+QED
+
 val do_app_inst =
   simple_val_rel_do_app
   |> Q.INST [`vr`|->`v_rel s.max_app`]
@@ -416,23 +438,7 @@ Theorem do_app_lemma
         ∃err2.
           do_app opp ys t = Rerr err2 ∧
           exc_rel (v_rel s.max_app) err1 err2`
-  (match_mp_tac do_app_inst
-  \\ conj_tac THEN1
-   (fs [simple_val_rel_def]
-    \\ once_rewrite_tac [v_rel_cases] \\ fs []
-    \\ rw [] \\ fs [])
-  \\ fs [simple_state_rel_def,state_rel_def] \\ rw []
-  \\ fs [FLOOKUP_DEF,fmap_rel_def] \\ TRY (rfs [] \\ NO_TAC)
-  THEN1
-   (`ref_rel (v_rel r.max_app) (r.refs ' ptr) (t.refs ' ptr)` by fs[]
-    \\ rpt (qpat_x_assum `!x._` kall_tac)
-    \\ rfs [] \\ Cases_on `r.refs ' ptr` \\ fs [ref_rel_def])
-  THEN1
-   (`ref_rel (v_rel r.max_app) (r.refs ' ptr) (t.refs ' ptr)` by fs[]
-    \\ rpt (qpat_x_assum `!x._` kall_tac)
-    \\ rfs [] \\ Cases_on `r.refs ' ptr` \\ fs [ref_rel_def])
-  \\ rpt gen_tac \\ fs [] \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]
-  \\ metis_tac []);
+  (match_mp_tac do_app_inst \\ fs [simple_val_rel, simple_state_rel])
 
 Theorem list_to_v_v_rel
   `!xs ys.
@@ -463,37 +469,21 @@ val do_app = Q.prove(
 
 val v_to_bytes = Q.prove(
   `v_rel m v w ⇒ v_to_bytes v = v_to_bytes w`,
-  rw[v_to_bytes_def]
-  \\ imp_res_tac v_to_list
-  \\ fs[OPTREL_def]
-  \\ DEEP_INTRO_TAC some_intro
-  \\ DEEP_INTRO_TAC some_intro
-  \\ rw[] \\ fs[]
-  \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
-  \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
-  \\ rw[]
-  >- ( qexists_tac`x` \\ simp[EL_MAP] )
-  \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
-  \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
-  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
+  metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]);
 
 val v_to_words = Q.prove(
   `v_rel m v w ⇒ v_to_words v = v_to_words w`,
-  rw[v_to_words_def]
-  \\ imp_res_tac v_to_list
-  \\ fs[OPTREL_def]
-  \\ DEEP_INTRO_TAC some_intro
-  \\ DEEP_INTRO_TAC some_intro
-  \\ rw[] \\ fs[]
-  \\ fs[LIST_EQ_REWRITE,LIST_REL_EL_EQN,EL_MAP,v_rel_simp]
-  \\ rfs[EL_MAP,v_rel_simp,PULL_FORALL,METIS_PROVE[]``¬P ∨ Q ⇔ P ⇒ Q``]
-  \\ rw[]
-  >- ( qexists_tac`x` \\ simp[EL_MAP] )
-  \\ first_x_assum(qspec_then`x`mp_tac) \\ rw[]
-  \\ asm_exists_tac \\ rw[EL_MAP] \\ fs[]
-  \\ res_tac \\ strip_tac \\ fs[v_rel_simp] \\ rfs[EL_MAP]);
+  metis_tac [simple_val_rel, simple_val_rel_v_to_words]);
 
-(*
+fun DFOCUS_PAT pat thm = let
+    fun UN Ps thm = let
+        val (P, Q) = dest_imp (concl thm)
+      in if can (match_term pat) P then (UNDISCH thm, P, Ps)
+        else UN (P :: Ps) (UNDISCH thm)
+      end
+    val (thm, P, Ps) = UN [] thm
+  in DISCH P (List.foldl (uncurry DISCH) thm Ps) end
+
 val do_install = Q.prove(
   `state_rel s1 s2 ∧
    LIST_REL (v_rel s1.max_app) x1 x2 ⇒
@@ -539,8 +529,9 @@ val do_install = Q.prove(
   \\ `code1 <> []` by
     (fs [compile_inc_def] \\ pairarg_tac \\ fs [] \\ rveq \\ fs [])
   \\ fs[state_rel_def,state_co_def,ignore_table_def]
-  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``,LENGTH_NIL] );
-*)
+  \\ fs[FUPDATE_LIST_THM]
+  \\ metis_tac[FUPDATE_LIST_THM,FST,SND,DECIDE``(n+1n)+1 = n+2``,LENGTH_NIL]
+);
 
 (* compiler correctness *)
 
@@ -689,14 +680,6 @@ Theorem renumber_code_locs_correct
       fs[]
       \\ first_x_assum drule
       \\ disch_then drule
-      \\ disch_then(qspec_then`n`mp_tac)
-      \\ rw[] \\ rw[]
-      \\ fs[case_eq_thms]
-      \\ rw[] \\ simp[PULL_EXISTS] \\ fs[] )
-    (*
-      fs[]
-      \\ first_x_assum drule
-      \\ disch_then drule
       \\ disch_then(qspec_then`n`strip_assume_tac) \\ rfs[]
       \\ Cases_on`r1` \\ fs[] \\ rveq \\ fs[]
       \\ imp_res_tac state_rel_max_app
@@ -744,7 +727,8 @@ Theorem renumber_code_locs_correct
       \\ rveq \\ fs [] \\ rveq \\ fs []
       \\ fs [do_install_def,case_eq_thms]
       \\ rpt (pairarg_tac \\ fs [])
-      \\ fs [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq]*) >>
+      \\ fs [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq]
+    ) >>
     srw_tac[][] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
@@ -1228,10 +1212,10 @@ Theorem renumber_code_locs_any_dests
 Theorem semantics_number
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co
      (state_cc (ignore_table compile_inc) cc) xs <> Fail ==>
-   ¬contains_App_SOME max_app xs (* /\
+   ¬contains_App_SOME max_app xs /\
    (∀n.
       SND (SND (co n)) = [] ∧
-      ¬contains_App_SOME max_app (FST (SND (co n)))) *) ==>
+      ¬contains_App_SOME max_app (FST (SND (co n)))) ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (state_co (ignore_table compile_inc) co) cc
         (SND (renumber_code_locs_list n xs)) =

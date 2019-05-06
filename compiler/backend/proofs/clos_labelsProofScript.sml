@@ -222,7 +222,29 @@ val do_app_lemma = prove(
   \\ fs [FAPPLY_FUPDATE_THM]
   \\ rw [] \\ fs [ref_rel_cases]);
 
+val do_install_lemma = prove(
+  ``state_rel ds s t /\ LIST_REL (v_rel ds) xs ys ==>
+    case do_install xs s of
+      | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
+                            exc_rel (v_rel ds) err1 err2 /\ state_rel ds s1 t1
+      | (Rval exps1, s1) => ?exps2 t1. state_rel ds s1 t1 /\ (~ (exps1 = [])) /\
+                               code_rel ds exps1 exps2 /\
+                               do_install ys t = (Rval exps2, t1)``,
+  ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
+  \\ fs [simple_compile_state_rel_def, simple_state_rel]
+  \\ fs [compile_inc_def, pairTheory.FORALL_PROD, compile_def,
+            LENGTH_remove_fvs, code_rel_def, state_rel_def]
+  \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM,
+            simple_val_rel_def]
+  \\ fs [v_rel_cases]);
+
+
 (* evaluate level correctness *)
+
+(* FIXME: in the presence of Install/do_install this simply isn't true.
+   it's not clear how to fix up this proof at all really. there might be
+   no current reference to a given code label, but how do we know that
+   Install might not cause the compile oracle to cook one up? *)
 
 val evaluate_code_const_ind =
   evaluate_ind
@@ -372,6 +394,12 @@ Theorem evaluate_remove_dests
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ IF_CASES_TAC \\ rveq \\ fs []
     THEN1 (* Op = Install *)
+    (drule EVERY2_REVERSE \\ disch_tac
+      \\ drule (GEN_ALL do_install_lemma)
+      \\ disch_then drule
+      \\ fs [CaseEq "prod"]
+
+       (
       (rveq \\ fs[])
     (* op <> Install *)
     \\ drule EVERY2_REVERSE \\ disch_tac

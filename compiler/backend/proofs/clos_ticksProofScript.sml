@@ -224,6 +224,24 @@ Theorem evaluate_mk_Ticks
   THEN1 (IF_CASES_TAC \\ simp [state_component_equality])
   \\ fs [ADD1]);
 
+Theorem simple_val_rel:
+  simple_val_rel v_rel
+Proof
+  fs [simple_val_rel_def] \\ rw [] \\ fs []
+QED
+
+Theorem simple_state_rel:
+  simple_state_rel v_rel state_rel
+Proof
+  fs [simple_state_rel_def, state_rel_def]
+  \\ rw []
+  \\ fs [FMAP_REL_def, FLOOKUP_DEF]
+  \\ rfs []
+  \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ rw [] \\ fs [ref_rel_cases]
+QED
+
 val do_app_lemma = prove(
   ``state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_app opp ys t of
@@ -232,14 +250,23 @@ val do_app_lemma = prove(
       | Rval (y, t1) => ?x s1. v_rel x y /\ state_rel s1 t1 /\
                                do_app opp xs s = Rval (x, s1)``,
   match_mp_tac simple_val_rel_do_app_rev
-  \\ conj_tac THEN1 (fs [simple_val_rel_def] \\ rw [] \\ fs [])
-  \\ fs [simple_state_rel_def, state_rel_def]
-  \\ rw []
-  \\ fs [FMAP_REL_def, FLOOKUP_DEF]
-  \\ rfs []
-  \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
-  \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [ref_rel_cases]);
+  \\ fs [simple_val_rel, simple_state_rel]);
+
+val do_install_lemma = prove(
+  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+    case do_install xs s of
+      | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
+                            exc_rel v_rel err1 err2 /\ state_rel s1 t1
+      | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
+                               code_rel exps1 exps2 /\
+                               do_install ys t = (Rval exps2, t1)``,
+  ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
+  \\ fs [simple_val_rel, simple_state_rel, simple_compile_state_rel_def]
+  \\ fs [compile_inc_def]
+  \\ fs [compile_inc_def, pairTheory.FORALL_PROD,
+            code_rel_def, state_rel_def]
+  \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM]
+  \\ metis_tac [remove_ticks_IMP_LENGTH]);
 
 Theorem lookup_vars_lemma
   `!vs env1 env2. LIST_REL v_rel env1 env2 ==>
@@ -274,40 +301,13 @@ Theorem dest_closure_SOME_IMP
     (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)`
   (fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
 
-val v_rel_IMP_v_to_bytes_lemma = prove(
-  ``!y x.
-      v_rel x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
-
 val v_rel_IMP_v_to_bytes = prove(
   ``v_rel x y ==> v_to_bytes y = v_to_bytes x``,
-  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
-
-val v_rel_IMP_v_to_words_lemma = prove(
-  ``!y x.
-      v_rel x y ==>
-      !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_bytes]);
 
 val v_rel_IMP_v_to_words = prove(
   ``v_rel x y ==> v_to_words y = v_to_words x``,
-  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
-
+  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_words]);
 
 Theorem evaluate_remove_ticks
   `(!ys env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1 xs.
@@ -498,88 +498,35 @@ Theorem evaluate_remove_ticks
       \\ PairCases_on `v1`
       \\ fs []
       \\ metis_tac [])
-    \\ qexists_tac`ck + LENGTH ts` \\ rw[]
-    (*
     (* op = Install *)
-    \\ qpat_x_assum `_ = (res2, t2)` mp_tac
-    \\ simp [Once do_install_def]
-    \\ drule EVERY2_REVERSE
-    \\ qabbrev_tac `a1 = REVERSE a`
-    \\ qabbrev_tac `v1 = REVERSE vs`
-    \\ strip_tac
-    \\ Cases_on `a1` \\ fs [] \\ rveq
-    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw [])
-    \\ Cases_on `t` \\ fs [] \\ rveq
-    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw [])
-    \\ reverse (Cases_on `t'`) \\ fs [] \\ rveq
-    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw [])
-    \\ rename1 `v_rel x2 y2` \\ pop_assum mp_tac
-    \\ drule v_rel_IMP_v_to_bytes \\ strip_tac
-    \\ rename1 `v_rel x1 y1` \\ strip_tac
-    \\ drule v_rel_IMP_v_to_words \\ strip_tac \\ fs []
-    \\ Cases_on `v_to_bytes x1` \\ fs []
-    THEN1 (fs [do_install_def] \\ rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [])
-    \\ Cases_on `v_to_words x2` \\ fs []
-    THEN1 (fs [do_install_def] \\ rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [])
-    \\ pairarg_tac \\ fs []
-    \\ PairCases_on `progs`
-    \\ Cases_on `s2.compile_oracle 0`
-    \\ PairCases_on `r`
-    \\ `r1 = [] /\ progs1 = []` by
-       (fs [state_rel_def] \\ rfs [pure_co_def] \\ fs [compile_inc_def]
-        \\ rveq \\ fs [] \\ metis_tac [SND])
-    \\ rveq \\ fs []
-    \\ Cases_on `s'.compile cfg (progs0,[])` \\ fs []
-    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
-           \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-           \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def])
-    \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ fs []
-    \\ reverse IF_CASES_TAC
-    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
-           \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-           \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-           \\ IF_CASES_TAC \\ fs [shift_seq_def]
-           \\ metis_tac[LENGTH_remove_ticks, LENGTH_NIL])
-    \\ IF_CASES_TAC
-    THEN1 (rw [] \\ qexists_tac `ck + LENGTH ts` \\ fs [do_install_def] \\ rw []
-           \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-           \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-           \\ IF_CASES_TAC \\ fs [shift_seq_def]
-           \\ fs [FUPDATE_LIST, o_DEF]
-           \\ metis_tac[LENGTH_remove_ticks, LENGTH_NIL])
-    \\ fs [] \\ rveq \\ fs []
-    \\ strip_tac
-    \\ qpat_x_assum `!x. _` mp_tac
-    \\ simp [Once do_install_def]
-    \\ fs[CaseEq"prod"]
-    \\ disch_then (qspec_then `s2 with
-                               <|clock := s'.clock − 1;
-                                 compile_oracle := (λi. s2.compile_oracle (i + 1));
-                                 code := s2.code |++ []|>` mp_tac)
-    \\ disch_then (qspec_then `r0` mp_tac)
-    \\ impl_tac
-    THEN1 (rfs [state_rel_def] \\ fs [pure_co_def, compile_inc_def]
-           \\ rveq \\ fs [shift_seq_def, FUPDATE_LIST, o_DEF])
-    \\ fs [] \\ strip_tac
-    \\ qexists_tac `ck + ck' + LENGTH ts` \\ fs []
-    \\ imp_res_tac evaluate_clock
-    \\ bump_assum `evalulate (es, _, _) = _`
-    \\ drule evaluate_add_clock \\ fs []
-    \\ disch_then kall_tac
-    \\ `s2.clock = s'.clock /\
-        s2.compile = pure_cc compile_inc s'.compile /\
-        s'.compile_oracle = pure_co compile_inc ∘ s2.compile_oracle`
-          by fs [state_rel_def]
-    \\ fs [do_install_def]
-    \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def]
-    \\ reverse IF_CASES_TAC >- metis_tac[LENGTH_remove_ticks, LENGTH_NIL]
-    \\ fs[]
-    \\ rveq
-    \\ CASE_TAC \\ fs[] \\ rveq \\ fs[] \\ rveq \\ fs[]
-    \\ imp_res_tac evaluate_IMP_LENGTH
-    \\ Q.ISPEC_THEN`a'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[LIST_REL_SNOC]
-    *)
+    \\ drule EVERY2_REVERSE \\ disch_tac
+    \\ drule (GEN_ALL do_install_lemma)
+    \\ disch_then drule
+    \\ fs [CaseEq "prod"]
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC
+    >- (
+      rw [] \\ qexists_tac`ck + LENGTH ts` \\ rw []
+      \\ fs [] \\ rveq \\ fs [] \\ rfs []
     )
+    \\ rw [] \\ fs [CaseEq "prod"] \\ rfs []
+    \\ FIRST_X_ASSUM drule
+    \\ disch_then drule
+    \\ disch_then (drule o SIMP_RULE bool_ss [GSYM code_rel_def])
+    \\ fs [code_rel_def]
+    \\ rw []
+    \\ qexists_tac `ck' + ck + LENGTH ts` \\ rw[]
+    \\ imp_res_tac evaluate_clock
+    \\ imp_res_tac evaluate_add_clock \\ fs []
+    \\ imp_res_tac do_install_add_to_clock
+    \\ imp_res_tac evaluate_length_imp
+    \\ fs []
+    \\ CASE_TAC \\ fs [] \\ rveq \\ fs [] \\ rveq \\ fs []
+    \\ irule LIST_REL_LAST
+    \\ rw []
+    \\ CCONTR_TAC
+    \\ fs []
+  )
   THEN1 (* Fn *)
    (fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [code_rel_def]

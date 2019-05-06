@@ -724,7 +724,6 @@ val shift_correct = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    (*
     >- ( (* Install case *)
       pop_assum mp_tac
       \\ simp[case_eq_thms,pair_case_eq,PULL_EXISTS]
@@ -776,7 +775,6 @@ val shift_correct = Q.prove(
       \\ fs[shift_LENGTH_LEMMA, LENGTH_FST_alt_free]
       \\ Q.ISPEC_THEN`vs'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[]
       \\ fs[LIST_REL_SNOC] )
-    *)
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >>
     last_x_assum mp_tac >>
     reverse BasicProvers.CASE_TAC >- (
