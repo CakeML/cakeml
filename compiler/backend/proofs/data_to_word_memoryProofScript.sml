@@ -1886,6 +1886,21 @@ Theorem all_ts_cons
         \\ metis_tac [])
      >- metis_tac [v_all_ts_def]));
 
+Theorem all_ts_cons_no_block
+  `∀refs stack v.
+    (∀ ts tag xs. v ≠ Block ts tag xs) ⇒ all_ts refs  (v::stack) = all_ts refs stack`
+  (rw [all_ts_def, FUN_EQ_THM]
+  \\ EQ_TAC \\ Cases_on `v`
+  \\ rw [] \\ fs [v_all_ts_def,MEM_FLAT,MEM_MAP]
+  \\ metis_tac [v_all_ts_def]);
+
+Theorem all_ts_append
+  `∀refs x y. all_ts refs (x ++ y) = all_ts refs x ∪ all_ts refs y`
+  (rw [all_ts_def, FUN_EQ_THM]
+  \\ EQ_TAC
+  \\ rw [] \\ fs [v_all_ts_def,MEM_FLAT,MEM_MAP]
+  \\ metis_tac [v_all_ts_def]);
+
 val v_all_vs_def = tDefine"v_all_vs"`
   v_all_vs (Block ts tag l :: xs) = Block ts tag l :: v_all_vs l ++ v_all_vs xs
 ∧ v_all_vs (x::xs)                = x :: v_all_vs xs
@@ -1954,6 +1969,10 @@ Theorem MEM_v_all_vs
   (ho_match_mp_tac (theorem "v_all_vs_ind")
   \\ rw [v_all_vs_def]
   \\ metis_tac [])
+
+Theorem MEM_stack_all_vs
+  `∀v stack refs. MEM v stack ⇒ v ∈ all_vs refs stack`
+  (rw [all_vs_def,MEM_v_all_vs]);
 
 Theorem v_all_vs_ts_MEM
   `∀x y ts. MEM ts (v_all_ts x) ∧ MEM x (v_all_vs [y]) ⇒ MEM ts (v_all_ts y)`
@@ -2139,6 +2158,33 @@ Theorem v_inv_tf_update
   >- (fs [FLOOKUP_UPDATE]
      \\ every_case_tac
      \\ rveq \\ fs []));
+
+
+Theorem v_inv_tf_restrict
+  `∀v y f tf heap conf P.
+     v_inv conf v (y,f,tf,heap) ∧ (∀x. MEM x (v_all_ts v) ⇒ x ∈ P)
+     ⇒ v_inv conf v (y,f, DRESTRICT tf P,heap)`
+  (let val ind = theorem "v_inv_ind" |> Q.SPEC `λv (x,f,tf,heap). P v x f tf heap`
+                                    |> SIMP_RULE std_ss []
+                                    |> Q.GEN `P`
+  in ho_match_mp_tac ind end
+  \\ rw [v_inv_def]
+  \\ every_case_tac \\ fs []
+  \\ qexists_tac `xs` \\ rw []
+  >- (qpat_x_assum `LIST_REL _ _ _` mp_tac
+     \\ ONCE_REWRITE_TAC [LIST_REL_MEM]
+     \\ ho_match_mp_tac  LIST_REL_mono
+     \\ rw [] \\ fs []
+     \\ first_x_assum (drule_then (drule_then drule))
+     \\ disch_then ho_match_mp_tac \\ rw []
+     \\ first_x_assum ho_match_mp_tac \\ rw [v_all_ts_def]
+     \\ Cases_on `x' = ts` \\ rw []
+     \\ drule_then ASSUME_TAC MEM_v_all_vs
+     \\ metis_tac [v_all_vs_ts_list])
+  >- (fs [v_all_ts_def]
+     \\ first_x_assum (qspec_then `ts` ASSUME_TAC)
+     \\ fs []
+     \\ fs [FLOOKUP_DRESTRICT]));
 
 Theorem v_inv_ts_eq
   `∀x y f tf ts heap heap1 a stack conf refs.
