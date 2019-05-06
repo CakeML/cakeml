@@ -2323,6 +2323,8 @@ Theorem cons_thm_EMPTY
   \\ full_simp_tac (srw_ss()) [roots_ok_def,MEM]
   THEN1 (rw [] \\ fs [] \\ res_tac \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
+  \\ qexists_tac `tf` \\ full_simp_tac std_ss []
+  \\ fs [all_ts_cons,SUBSET_INSERT_RIGHT]
   \\ full_simp_tac (srw_ss()) [v_inv_def]
   \\ rpt strip_tac \\ sg `reachable_refs stack refs n` \\ res_tac
   \\ full_simp_tac std_ss [reachable_refs_def]
@@ -2396,9 +2398,14 @@ Theorem word64_alt_thm
     \\ fs [heap_split_def]
     \\ EVAL_TAC \\ rw [] \\ EVAL_TAC)
   \\ qexists_tac`f` \\ fs[]
+  \\ qexists_tac `DRESTRICT tf (all_ts refs stack)` \\ fs []
   \\ fs[isDataElement_def]
   \\ conj_tac
   >- fs[INJ_DEF]
+  \\ conj_tac
+  >- fs[INJ_DEF,DRESTRICT_DEF]
+  \\ conj_tac
+  >- (fs [all_ts_cons_no_block,DRESTRICT_DEF])
   \\ conj_tac
   >- (
     simp[v_inv_def]
@@ -2406,8 +2413,14 @@ Theorem word64_alt_thm
     \\ imp_res_tac LIST_REL_APPEND_IMP
     \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
     \\ simp[FORALL_PROD] \\ rw[]
-    \\ match_mp_tac v_inv_SUBMAP
-    \\ simp[] )
+    \\ ho_match_mp_tac v_inv_tf_restrict
+    \\ conj_tac
+    >- (match_mp_tac v_inv_SUBMAP \\ simp[])
+    >- (rw [] \\ ho_match_mp_tac MEM_in_all_ts
+       \\ qexists_tac `p_1` \\ rw []
+       \\ ho_match_mp_tac MEM_stack_all_vs
+       \\ drule MEM_ZIP2 \\ rw []
+       \\ rw [EL_MEM]))
   \\ fs[reachable_refs_def,PULL_EXISTS]
   \\ rw[]
   >- fs[get_refs_def]
@@ -2424,8 +2437,16 @@ Theorem word64_alt_thm
   \\ match_mp_tac EVERY2_MEM_MONO
   \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
   \\ simp[FORALL_PROD] \\ rw[]
-  \\ match_mp_tac v_inv_SUBMAP
-  \\ simp[]);
+  \\ ho_match_mp_tac v_inv_tf_restrict
+  \\ conj_tac
+  >- (match_mp_tac v_inv_SUBMAP \\ simp[])
+  >- (rw [] \\ ho_match_mp_tac MEM_in_all_ts
+       \\ qexists_tac `p_2` \\ rw []
+       \\ rw [all_vs_def] \\ disj1_tac
+       \\ map_every qexists_tac [`n`,`l`] \\ rw []
+       \\ ho_match_mp_tac MEM_v_all_vs
+       \\ drule MEM_ZIP2 \\ rw []
+       \\ rw [EL_MEM]));
 
 (* bignum *)
 
