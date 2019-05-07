@@ -6334,7 +6334,7 @@ Theorem ag32_good_init_state
     by (
       simp[alignmentTheory.byte_align_def]
       \\ simp[GSYM alignmentTheory.aligned_def]
-      \\ simp[GSYM ALIGNED_eq_aligned,addressTheory.ALIGNED_n2w] )
+      \\ simp[GSYM addressTheory.ALIGNED_eq_aligned,addressTheory.ALIGNED_n2w] )
     \\ pop_assum(CONV_TAC o PATH_CONV"rllrr" o REWR_CONV)
     \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
     \\ conj_tac >- EVAL_TAC
@@ -6450,7 +6450,7 @@ Theorem ag32_installed
       \\ irule byte_aligned_add
       \\ simp [byte_aligned_code_start_offset])
     \\ simp [alignmentTheory.byte_aligned_def, GSYM word_mul_n2w,
-             GSYM ALIGNED_eq_aligned]
+             GSYM addressTheory.ALIGNED_eq_aligned]
     \\ qspecl_then [`0w`, `n2w k`] mp_tac addressTheory.ALIGNED_MULT
     \\ simp [EVAL ``ALIGNED 0w``])
   \\ `byte_aligned (n2w (code_start_offset (LENGTH ffi_names)) : word32)`
@@ -6465,7 +6465,7 @@ Theorem ag32_installed
     \\ qmatch_goalsub_abbrev_tac `word_of_bytes _ _ ls`
     \\ `low MOD 4 = 0`
       by (fs [Abbr `low`, alignmentTheory.byte_aligned_def,
-              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
               MOD_EQ_0_DIVISOR, GSYM LEFT_ADD_DISTRIB])
     \\ `4 * (low DIV 4) = low` by fs [MULT_EQ_DIV]
     \\ `ls = GENLIST (λi.
@@ -6484,7 +6484,7 @@ Theorem ag32_installed
   \\ simp [LESS_EQ_EXISTS] \\ strip_tac
   \\ `∃d. p = 4 * d`
     by (fs [IN_DEF, alignmentTheory.byte_aligned_def,
-            GSYM ALIGNED_eq_aligned,
+            GSYM addressTheory.ALIGNED_eq_aligned,
             addressTheory.ALIGNED_n2w]
         \\ fs [MOD_EQ_0_DIVISOR] \\ rfs []
         \\ fs [Abbr `l`] \\ rveq
@@ -6512,7 +6512,7 @@ Theorem ag32_installed
   \\ qmatch_goalsub_abbrev_tac `word_of_bytes _ _ ls`
   \\ `low MOD 4 = 0`
     by (fs [Abbr `low`, alignmentTheory.byte_aligned_def,
-            GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+            GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
             MOD_EQ_0_DIVISOR, GSYM LEFT_ADD_DISTRIB])
   \\ `4 * (low DIV 4) = low` by fs [MULT_EQ_DIV]
   \\ `ls = GENLIST (λi.
@@ -6553,7 +6553,7 @@ Theorem ag32_halted
     \\ simp[lab_to_targetTheory.ffi_offset_def, GSYM word_add_n2w]
     \\ irule byte_aligned_add
     \\ conj_tac >- EVAL_TAC
-    \\ simp[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+    \\ simp[alignmentTheory.byte_aligned_def, GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
     \\ EVAL_TAC )
   \\ `pc = pc'`
   by (
@@ -6891,7 +6891,7 @@ Theorem ag32_interference_implemented
             |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
             |> irule)
         \\ conj_tac >- EVAL_TAC
-        \\ simp[GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+        \\ simp[GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
         \\ EVAL_TAC \\ simp[] )
       \\ `pc = pc'`
       by (
