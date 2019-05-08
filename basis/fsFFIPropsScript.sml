@@ -440,7 +440,7 @@ Theorem wfFS_fastForwardFD[simp]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[]
-  >-(res_tac \\ simp[ALIST_FUPDKEY_ALOOKUP] \\ CASE_TAC \\ fs[])
+  >-(res_tac \\ simp[AFUPDKEY_ALOOKUP] \\ CASE_TAC \\ fs[])
   >-(fs[consistentFS_def] \\ rw[] \\ res_tac)
   >-(fs[liveFS_def]))
 
@@ -453,8 +453,8 @@ Theorem fsupdate_fastForwardFD_comm
      ino1 ≠ ino2 ⇒
          fsupdate (fastForwardFD fs fd1) fd2 k p c =
          fastForwardFD (fsupdate fs fd2 k p c) fd1`
- (rw[fsupdate_def,fastForwardFD_def,ALIST_FUPDKEY_ALOOKUP] >> EVAL_TAC >>
-  fs[ALIST_FUPDKEY_ALOOKUP,IO_fs_component_equality,ALIST_FUPDKEY_comm]);
+ (rw[fsupdate_def,fastForwardFD_def,AFUPDKEY_ALOOKUP] >> EVAL_TAC >>
+  fs[AFUPDKEY_ALOOKUP,IO_fs_component_equality,AFUPDKEY_comm]);
 
 (* fsupdate *)
 

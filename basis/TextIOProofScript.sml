@@ -2394,20 +2394,20 @@ Theorem copy_spec
    NTAC 2 (first_x_assum (fn x => fs [x])) >>
    qmatch_goalsub_abbrev_tac`IOx _ fs'` >>
    `get_file_content fs' out = SOME(content2,LENGTH content2)`
-     by (fs[get_file_content_def,Abbr`fs'`,bumpFD_def,ALIST_FUPDKEY_ALOOKUP]) >>
+     by (fs[get_file_content_def,Abbr`fs'`,bumpFD_def,AFUPDKEY_ALOOKUP]) >>
    xlet_auto
    >-(fs[FD_def,iobuff_loc_def,Abbr`fs'`,liveFS_bumpFD,liveFS_def,validFD_bumpFD,
          validFD_numchars,ALOOKUP_validFD,get_mode_def] >> xsimpl) >>
    fs[MAP_MAP_o, CHR_w2n_n2w_ORD,TAKE_APPEND1,TAKE_TAKE,insert_atI_end] >>
    qmatch_goalsub_abbrev_tac`IOFS fs''` >>
    xapp >> fs[IOFS_def,IOFS_iobuff_def] >> xsimpl >>
-   fs[ALIST_FUPDKEY_ALOOKUP,insert_atI_def] >>
+   fs[AFUPDKEY_ALOOKUP,insert_atI_def] >>
    map_every qexists_tac [`emp`, `pos + nr`,`fs''`,`content2 ++ TAKE nr (DROP pos content1)`] >>
    xsimpl >> rw[Abbr`fs''`, Abbr`fs'`]
-   >-(fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,bumpFD_def])
-   >-(fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,bumpFD_def])
-   >-(fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,bumpFD_def])
-   >-(fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,AFUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,AFUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,AFUPDKEY_ALOOKUP,bumpFD_def])
+   >-(fs[fsupdate_def,AFUPDKEY_ALOOKUP,bumpFD_def])
    >-(qexists_tac`THE (LDROP k (THE (LTL ll)))` >> rw[]
       >-(fs[fsupdate_numchars] >> irule wfFS_fsupdate >> conj_tac
          >-(
@@ -2415,7 +2415,7 @@ Theorem copy_spec
                by fs[bumpFD_numchars] >>
              first_x_assum (fn x => rw[GSYM x]) >>
             fs[wfFS_bumpFD,wfFS_LDROP ])
-         >-(fs[bumpFD_def,MAP_FST_ALIST_FUPDKEY] >> simp[MEM_MAP] >>
+         >-(fs[bumpFD_def,MAP_FST_AFUPDKEY] >> simp[MEM_MAP] >>
             imp_res_tac ALOOKUP_MEM >>
             qexists_tac`(out,ino2,WriteMode,STRLEN content2)` >> fs[]))
       >-(irule STD_streams_fsupdate >> rw[] >>
@@ -2427,8 +2427,8 @@ Theorem copy_spec
          fs[GEN_ALL STD_streams_bumpFD,GSYM STD_streams_numchars])
       >-(qmatch_abbrev_tac`IOx fs_ffi_part fs1 ==>> IOx fs_ffi_part fs2` >>
          `fs2 = fs1` suffices_by xsimpl >> unabbrev_all_tac >>
-         fs[ALIST_FUPDKEY_ALOOKUP,insert_atI_end,TAKE_APPEND,TAKE_TAKE, fsupdate_def,
-            bumpFD_def,ALIST_FUPDKEY_unchanged] >> rw[IO_fs_component_equality]))
+         fs[AFUPDKEY_ALOOKUP,insert_atI_end,TAKE_APPEND,TAKE_TAKE, fsupdate_def,
+            bumpFD_def,AFUPDKEY_unchanged] >> rw[IO_fs_component_equality]))
    >-(qexists_tac`x` >>
       qmatch_goalsub_abbrev_tac`IOx fs_ffi_part (fs1 with numchars := x)
                            ==>> IOx fs_ffi_part (fs2 with numchars := x) * GC` >>
@@ -2440,7 +2440,7 @@ Theorem copy_spec
           ALOOKUP fs'.infds out = SOME (ino2,WriteMode,STRLEN content2) ∧
           ALOOKUP fs'.inode_tbl ino1 = SOME content1 ∧
           ALOOKUP fs'.inode_tbl ino2 = SOME content2`
-           by fs[Abbr`fs'`,forwardFD_def,ALIST_FUPDKEY_ALOOKUP] >>
+           by fs[Abbr`fs'`,forwardFD_def,AFUPDKEY_ALOOKUP] >>
          fs[GSYM fsupdate_fastForwardFD_comm,fsupdate_numchars] >>
          fs[Abbr`fs'`,fastForwardFD_with_numchars,fastForwardFD_forwardFD] >>
          fs[GSYM DROP_DROP] >>

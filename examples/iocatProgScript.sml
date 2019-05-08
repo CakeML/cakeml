@@ -90,10 +90,10 @@ val cat_spec0 = Q.prove(
           >- res_tac
           >-(fs[MEM_FST_ALOOKUP_SOME])
           >- res_tac) >> fs[] >> rw[]
-    >- fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,openFileFS_files,A_DELKEY_nextFD_openFileFS,
-         A_DELKEY_ALIST_FUPDKEY_comm,ALOOKUP_inFS_fname_openFileFS_nextFD,A_DELKEY_fastForwardFD_elim]
-    >- fs[fsupdate_def,ALIST_FUPDKEY_ALOOKUP,openFileFS_files,A_DELKEY_nextFD_openFileFS,
-         A_DELKEY_ALIST_FUPDKEY_comm,ALOOKUP_inFS_fname_openFileFS_nextFD,A_DELKEY_fastForwardFD_elim]
+    >- fs[fsupdate_def,AFUPDKEY_ALOOKUP,openFileFS_files,ADELKEY_nextFD_openFileFS,
+         ADELKEY_AFUPDKEY_comm,ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_fastForwardFD_elim]
+    >- fs[fsupdate_def,AFUPDKEY_ALOOKUP,openFileFS_files,ADELKEY_nextFD_openFileFS,
+         ADELKEY_AFUPDKEY_comm,ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_fastForwardFD_elim]
     >-(qmatch_goalsub_abbrev_tac`inFS_fname fs1` >>
        `consistentFS fs1`
         by (unabbrev_all_tac >> fs[consistentFS_def,fsupdate_def,openFileFS_def] >>
@@ -103,16 +103,16 @@ val cat_spec0 = Q.prove(
   \\ `fs' = up_stdout fs (implode (out ++ content))`
   by (
     fs[Abbr`fs'`,up_stdo_def,IO_fs_component_equality,fsupdate_def,
-       openFileFS_numchars,openFileFS_inode_tbl,ALIST_FUPDKEY_ALOOKUP,openFileFS_files,
-       ALOOKUP_inFS_fname_openFileFS_nextFD,A_DELKEY_ALIST_FUPDKEY_comm,
-       A_DELKEY_nextFD_openFileFS,ALIST_FUPDKEY_unchanged] ) \\
+       openFileFS_numchars,openFileFS_inode_tbl,AFUPDKEY_ALOOKUP,openFileFS_files,
+       ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_AFUPDKEY_comm,
+       ADELKEY_nextFD_openFileFS,AFUPDKEY_unchanged] ) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
   qmatch_goalsub_abbrev_tac`ALOOKUP fs'.inode_tbl _` \\
-  `fs'.inode_tbl = ALIST_FUPDKEY (UStream (strlit "stdout")) (λ_. out++content) fs.inode_tbl` by (
+  `fs'.inode_tbl = AFUPDKEY (UStream (strlit "stdout")) (λ_. out++content) fs.inode_tbl` by (
     fs[Abbr`fs'`,up_stdo_def,fsupdate_def,ALOOKUP_inFS_fname_openFileFS_nextFD,
-       ALIST_FUPDKEY_ALOOKUP,K_DEF,ALIST_FUPDKEY_unchanged]) \\
+       AFUPDKEY_ALOOKUP,K_DEF,AFUPDKEY_unchanged]) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
-  simp[ALIST_FUPDKEY_ALOOKUP] \\
+  simp[AFUPDKEY_ALOOKUP] \\
   qmatch_goalsub_abbrev_tac`MAP f` \\
   qmatch_goalsub_abbrev_tac`_::(MAP f' _)` \\
   `f = f'` by (
