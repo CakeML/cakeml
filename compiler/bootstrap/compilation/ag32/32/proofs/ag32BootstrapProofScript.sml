@@ -132,7 +132,7 @@ Theorem ALOOKUP_fastForwardFD_infds_neq
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ simp[]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ CASE_TAC);
 
 Theorem FST_ALOOKUP_fastForwardFD_infds
@@ -141,7 +141,7 @@ Theorem FST_ALOOKUP_fastForwardFD_infds
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ simp[]
   \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ simp[]
   \\ CASE_TAC \\ simp[]);
 
@@ -156,7 +156,7 @@ Theorem FST_ALOOKUP_add_stdo_infds
   \\ fs[TextIOProofTheory.add_stdo_def, TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
   \\ pop_assum mp_tac \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ rw[] \\ Cases_on`x` \\ rw[]);
 
 Theorem ALOOKUP_add_stdout_files
@@ -175,7 +175,7 @@ Theorem ALOOKUP_add_stdout_files
   \\ simp[fsFFITheory.fsupdate_def]
   \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
   \\ rveq
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
   \\ fs[]);
@@ -196,7 +196,7 @@ Theorem ALOOKUP_add_stderr_files
   \\ simp[fsFFITheory.fsupdate_def]
   \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
   \\ rveq
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
   \\ fs[]);
@@ -217,7 +217,7 @@ Theorem ALOOKUP_add_stdout_infds
   \\ simp[fsFFITheory.fsupdate_def]
   \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
   \\ rveq
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]
   >- ( strip_tac \\ fs[] )
   \\ PairCases_on`x`
@@ -239,7 +239,7 @@ Theorem ALOOKUP_add_stderr_infds
   \\ simp[fsFFITheory.fsupdate_def]
   \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
   \\ rveq
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]
   >- ( strip_tac \\ fs[] )
   \\ PairCases_on`x`
@@ -274,7 +274,7 @@ Theorem cake_extract_writes
       simp[stdin_fs_def]
       \\ qexists_tac`implode""`
       \\ simp[] )
-    \\ simp[Once stdin_fs_def, ALIST_FUPDKEY_def]
+    \\ simp[Once stdin_fs_def, AFUPDKEY_def]
     \\ Cases \\ simp[] \\ strip_tac \\ rveq
     \\ pop_assum mp_tac
     \\ simp[TextIOProofTheory.up_stdo_def]
@@ -283,7 +283,7 @@ Theorem cake_extract_writes
     \\ rw[]
     \\ (
       drule (GEN_ALL extract_fs_extract_writes)
-      \\ simp[ALIST_FUPDKEY_ALOOKUP]
+      \\ simp[AFUPDKEY_ALOOKUP]
       \\ disch_then match_mp_tac
       \\ rw[fsFFIPropsTheory.inFS_fname_def]
       >- (fs[CaseEq"option",CaseEq"bool"] \\ rveq \\ fs[])

@@ -1,6 +1,7 @@
 (*
    Implementation and verification of diff and patch algorithms
 *)
+
 open preamble lcsTheory mlintTheory mlstringTheory;
 
 val _ = new_theory "diff";
@@ -330,11 +331,6 @@ val SPLITP_int_toString = Q.prove(
 val TOKENS_tostring = Q.prove(
 `TOKENS (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString(n:num)) = [toString n]`,
   Cases_on `num_toString n` >> fs[TOKENS_def]
-  >-
-   (pop_assum mp_tac
-    >> fs[ASCIInumbersTheory.num_to_dec_string_def]
-    >> fs[ASCIInumbersTheory.n2s_def]
-    >> PURE_ONCE_REWRITE_TAC[numposrepTheory.n2l_def] >> rw[])
   >> qpat_x_assum `_ = STRING _ _` (assume_tac o GSYM) >> fs[]
   >> pairarg_tac >> pop_assum (assume_tac o GSYM)
   >> fs[SPLITP_num_toString,TOKENS_def]
@@ -402,13 +398,6 @@ Theorem toString_isDigit
   >> fs[ASCIInumbersTheory.n2s_def]
   >> PURE_ONCE_REWRITE_TAC[numposrepTheory.n2l_def]
   >> rw[] >> fs[HEX_isDigit]);
-
-Theorem num_to_dec_string_not_nil
-  `num_to_dec_string n ≠ []`
-  (rw[ASCIInumbersTheory.num_to_dec_string_def]
-  \\ rw[ASCIInumbersTheory.n2s_def]
-  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.LENGTH_n2l
-  \\ simp[] \\ rw[] \\ strip_tac \\ fs[]);
 (* -- *)
 
 (*`!n. explode (toString n) = toString n`*)
@@ -455,7 +444,7 @@ Theorem tokens_eq_sing
 val tokens_toString_comma =
     Q.prove(`tokens ($= #",") (toString (n:num)) = [toString n]`,
   rw [] \\ match_mp_tac tokens_eq_sing
-  \\ fs [num_to_str_thm,implode_def,num_to_dec_string_nil]
+  \\ fs [num_to_str_thm,implode_def]
   \\ fs [num_to_str_def]
   \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
   \\ qexists_tac `isDigit`
@@ -475,7 +464,7 @@ val tokens_comma_lemma = Q.prove(
    (match_mp_tac (MP_CANON EVERY_MONOTONIC)
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
     \\ fs [] \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs [isDigit_def])
-  \\ rw [line_numbers_def,num_to_str_thm,implode_def,num_to_dec_string_nil]
+  \\ rw [line_numbers_def,num_to_str_thm,implode_def]
   \\ fs [strcat_def,concat_def]);
 
 Theorem parse_header_cancel
@@ -783,7 +772,7 @@ Theorem diff_with_lcs_headers_within
   >- (fs[headers_within_def,diff_single_def]
       >> fs[parse_header_cancel]
       >> rw[]
-      >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)
+      >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL (GSYM SPLITP_LENGTH))
       >> fs[]
       >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma)
       >> TRY(MATCH_ACCEPT_TAC parse_nonheader_lemma2)
@@ -797,7 +786,7 @@ Theorem diff_with_lcs_headers_within
   >> disch_then(qspecl_then [`n + (LENGTH ll + 1)`,`m + (LENGTH l'l + 1)`] assume_tac)
   >> drule0(GEN_ALL headers_within_grow)
   >> disch_then match_mp_tac
-  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL SPLITP_LENGTH)
+  >> Q.ISPECL_THEN [`($= h)`,`r`] assume_tac (GEN_ALL (GSYM SPLITP_LENGTH))
   >> fs[]);
 
 val highly_specific_implication = Q.prove(
@@ -1141,7 +1130,6 @@ val toString_obtain_digits = Q.prove(
   `!n. ?f r. toString (n:num) = strlit(f::r) /\ isDigit f /\ EVERY isDigit r`,
   strip_tac >> fs[num_to_str_thm,implode_def]
   >> qspec_then `n` assume_tac toString_isDigit
-  >> qspec_then `n` assume_tac (GEN_ALL num_to_dec_string_not_nil)
   >> Cases_on `num_toString n` >> fs[]);
 
 val diff_single_patch_length = Q.prove(

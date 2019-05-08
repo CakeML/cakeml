@@ -76,7 +76,7 @@ val openFile_truncate_def = Define`
         assert (fd <= fsys.maxFD) ;
         ALOOKUP fsys.files (File fnm);
         return (fd, (fsys with infds := (nextFD fsys, (File fnm, md, 0)) :: fsys.infds)
-                          with files updated_by (ALIST_FUPDKEY (File fnm) (\x."")))
+                          with files updated_by (AFUPDKEY (File fnm) (\x."")))
       od `;
 
 (* checks if a descriptor index is in infds *)
@@ -86,7 +86,7 @@ val validFD_def = Define`
 
 (* increase by n the position in file descriptor and dump numchar's head *)
 val bumpFD_def = Define`
-  bumpFD fd fs n = (fs with infds updated_by (ALIST_FUPDKEY fd (I ## I ## ((+) n))))
+  bumpFD fd fs n = (fs with infds updated_by (AFUPDKEY fd (I ## I ## ((+) n))))
                        with numchars := THE(LTL fs.numchars)`
 
 (* reads several chars and update position *)
@@ -106,9 +106,9 @@ val read_def = Define`
 val fsupdate_def = Define`
   fsupdate fs fd k pos content =
     case ALOOKUP fs.infds fd of NONE => fs | SOME (fnm,_) =>
-    (fs with <| files := ALIST_FUPDKEY fnm (K content) fs.files;
+    (fs with <| files := AFUPDKEY fnm (K content) fs.files;
                 numchars := THE (LDROP k fs.numchars);
-                infds := (ALIST_FUPDKEY fd (I ## I ## (K pos))) fs.infds|>)`;
+                infds := (AFUPDKEY fd (I ## I ## (K pos))) fs.infds|>)`;
 
 (* "The write function returns the number of bytes successfully written into the
 *  array, which may at times be less than the specified nbytes. It returns -1 if
@@ -139,7 +139,7 @@ val closeFD_def = Define`
     do
        (fnm, md, off) <- ALOOKUP fsys.infds fd ;
        assert (isFile fnm) ;
-       return ((), fsys with infds := A_DELKEY fd fsys.infds)
+       return ((), fsys with infds := ADELKEY fd fsys.infds)
     od
 `;
 
