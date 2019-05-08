@@ -81,12 +81,12 @@ Theorem bumpFD_o
     bumpFD fd (bumpFD fd fs n1) n2 =
     bumpFD fd fs (n1 + n2) with numchars := THE (LTL (THE (LTL fs.numchars)))`
  (rw[bumpFD_def] >> cases_on`fs` >> fs[IO_fs_component_equality] >>
- fs[ALIST_FUPDKEY_o] >> irule ALIST_FUPDKEY_eq >> rw[] >> PairCases_on `v` >> fs[])
+ fs[AFUPDKEY_o] >> irule AFUPDKEY_eq >> rw[] >> PairCases_on `v` >> fs[])
 
 Theorem bumpFD_0
   `bumpFD fd fs 0 = fs with numchars := THE (LTL fs.numchars)`
   (rw[bumpFD_def,IO_fs_component_equality] \\
-  match_mp_tac ALIST_FUPDKEY_unchanged \\
+  match_mp_tac AFUPDKEY_unchanged \\
   simp[FORALL_PROD]);
 
 (* validFD lemmas *)
@@ -177,8 +177,8 @@ Theorem wfFS_openFile
   fs[liveFS_def] >> imp_res_tac ALOOKUP_EXISTS_IFF >>
   metis_tac[]);
 
-Theorem wfFS_DELKEY[simp]
-  `wfFS fs ⇒ wfFS (fs with infds updated_by A_DELKEY k)`
+Theorem wfFS_ADELKEY[simp]
+  `wfFS fs ⇒ wfFS (fs with infds updated_by ADELKEY k)`
   (simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
        ALOOKUP_ADELKEY,liveFS_def,consistentFS_def] >>
        metis_tac[]);
@@ -193,7 +193,7 @@ Theorem wfFS_LDROP
 Theorem wfFS_bumpFD[simp]
   `wfFS fs ⇒ wfFS (bumpFD fd fs n)`
   (simp[bumpFD_def] >>
-  dsimp[wfFS_def, ALIST_FUPDKEY_ALOOKUP, option_case_eq, bool_case_eq,
+  dsimp[wfFS_def, AFUPDKEY_ALOOKUP, option_case_eq, bool_case_eq,
         EXISTS_PROD,consistentFS_def] >>
   rw[] >- metis_tac[] >>
   cases_on`fs.numchars` >> fs[liveFS_def,live_numchars_def] >>
@@ -229,7 +229,7 @@ Theorem eof_read
  qexists_tac `x` >> rw[] >>
  pairarg_tac >> fs[bumpFD_def,wfFS_def] >>
  cases_on`fs.numchars` >> fs[IO_fs_component_equality,liveFS_def,live_numchars_def] >>
- irule ALIST_FUPDKEY_unchanged >> cases_on`v` >> rw[]);
+ irule AFUPDKEY_unchanged >> cases_on`v` >> rw[]);
 *)
 
 Theorem eof_read
@@ -346,7 +346,7 @@ val fastForwardFD_def = Define`
     the fs (do
       (ino,md,off) <- ALOOKUP fs.infds fd;
       content <- ALOOKUP fs.inode_tbl ino;
-      SOME (fs with infds updated_by ALIST_FUPDKEY fd (I ## I ## MAX (LENGTH content)))
+      SOME (fs with infds updated_by AFUPDKEY fd (I ## I ## MAX (LENGTH content)))
     od)`;
 
 Theorem validFD_fastForwardFD[simp]
@@ -363,7 +363,7 @@ Theorem validFileFD_fastForwardFD[simp]
   \\ Cases_on`ALOOKUP fs.infds x` \\ rw[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ simp[]
   \\ rw[PAIR_MAP, FST_EQ_EQUIV, PULL_EXISTS, SND_EQ_EQUIV]
   \\ rw[EQ_IMP_THM]);
@@ -383,22 +383,22 @@ Theorem fastForwardFD_files[simp]
   pairarg_tac >> fs[] >>
   Cases_on`ALOOKUP fs.inode_tbl ino` >> fs[libTheory.the_def])
 
-Theorem A_DELKEY_fastForwardFD_elim[simp]
-  `A_DELKEY fd (fastForwardFD fs fd).infds = A_DELKEY fd fs.infds`
+Theorem ADELKEY_fastForwardFD_elim[simp]
+  `ADELKEY fd (fastForwardFD fs fd).infds = ADELKEY fd fs.infds`
   (rw[fastForwardFD_def,bumpFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
-Theorem fastForwardFD_A_DELKEY_same[simp]
-  `fastForwardFD fs fd with infds updated_by A_DELKEY fd =
-   fs with infds updated_by A_DELKEY fd`
+Theorem fastForwardFD_ADELKEY_same[simp]
+  `fastForwardFD fs fd with infds updated_by ADELKEY fd =
+   fs with infds updated_by ADELKEY fd`
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[libTheory.the_def]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
-  \\ fs[IO_fs_component_equality,A_DELKEY_I])
+  \\ fs[IO_fs_component_equality,ADELKEY_unchanged])
 
 Theorem fastForwardFD_0
   `(∀content pos. get_file_content fs fd = SOME (content,pos) ⇒ LENGTH content ≤ pos) ⇒
@@ -408,7 +408,7 @@ Theorem fastForwardFD_0
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ fs[IO_fs_component_equality]
-  \\ match_mp_tac ALIST_FUPDKEY_unchanged
+  \\ match_mp_tac AFUPDKEY_unchanged
   \\ rw[] \\ rw[PAIR_MAP_THM]
   \\ rw[MAX_DEF]);
 
@@ -465,7 +465,7 @@ Theorem wfFS_fsupdate
 
   >- (res_tac \\ fs[])
   >- (CASE_TAC \\ fs[] \\
-      CASE_TAC \\ fs[ALIST_FUPDKEY_ALOOKUP] \\
+      CASE_TAC \\ fs[AFUPDKEY_ALOOKUP] \\
       res_tac \\ fs[] \\ rw[])
   >-(res_tac >> fs[] >> res_tac)
   >-( CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] \\
@@ -477,7 +477,7 @@ Theorem fsupdate_unchanged
  `get_file_content fs fd = SOME(content, pos) ==>
     fsupdate fs fd 0 pos content = fs`
     (fs[fsupdate_def,get_file_content_def,validFD_def,IO_fs_component_equality]>>
-    rw[] >> pairarg_tac >> fs[ALIST_FUPDKEY_unchanged] >> rw[]);
+    rw[] >> pairarg_tac >> fs[AFUPDKEY_unchanged] >> rw[]);
 
 Theorem fsupdate_o
   `liveFS fs ==>
@@ -487,7 +487,7 @@ Theorem fsupdate_o
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
   \\ fs[IO_fs_component_equality]
-  \\ fs[ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq] \\
+  \\ fs[AFUPDKEY_ALOOKUP,AFUPDKEY_o,AFUPDKEY_eq] \\
   fs[LDROP_ADD,liveFS_def,live_numchars_def] >> imp_res_tac NOT_LFINITE_DROP >>
   FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`k1`) >> fs[]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
@@ -497,7 +497,7 @@ Theorem fsupdate_o_0[simp]
   `fsupdate (fsupdate fs fd 0 pos1 c1) fd 0 pos2 c2 =
    fsupdate fs fd 0 pos2 c2`
   (rw[fsupdate_def] \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] \\
-  rw[IO_fs_component_equality,ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o]
+  rw[IO_fs_component_equality,AFUPDKEY_ALOOKUP,AFUPDKEY_o]
   \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ simp[FUN_EQ_THM, FORALL_PROD]);
 
@@ -508,8 +508,8 @@ Theorem fsupdate_comm
   fnm1 <> fnm2 /\ fd1 <> fd2 /\ ¬ LFINITE fs.numchars ==>
   fsupdate (fsupdate fs fd1 k1 p1 c1) fd2 k2 p2 c2 =
   fsupdate (fsupdate fs fd2 k2 p2 c2) fd1 k1 p1 c1`
-  (fs[fsupdate_def] >> rw[] >> fs[ALIST_FUPDKEY_ALOOKUP] >>
-  rpt CASE_TAC >> fs[ALIST_FUPDKEY_comm,LDROP_LDROP]);
+  (fs[fsupdate_def] >> rw[] >> fs[AFUPDKEY_ALOOKUP] >>
+  rpt CASE_TAC >> fs[AFUPDKEY_comm,LDROP_LDROP]);
 
 Theorem fsupdate_MAP_FST_infds[simp]
   `MAP FST (fsupdate fs fd k pos c).infds = MAP FST fs.infds`
@@ -532,7 +532,7 @@ Theorem validFileFD_fsupdate[simp]
   (rw[fsupdate_def,validFileFD_def]
   \\ TOP_CASE_TAC \\ simp[]
   \\ TOP_CASE_TAC \\ simp[]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ simp[]
   \\ rw[]
   \\ PairCases_on`x`
@@ -543,13 +543,13 @@ Theorem fsupdate_numchars
                     fsupdate (fs with numchars := ll) fd 0 p c`
   (rw[fsupdate_def] \\ CASE_TAC \\ CASE_TAC \\ rw[]);
 
-Theorem fsupdate_A_DELKEY
+Theorem fsupdate_ADELKEY
   `fd ≠ fd' ⇒
-   fsupdate (fs with infds updated_by A_DELKEY fd') fd k pos content =
-   fsupdate fs fd k pos content with infds updated_by A_DELKEY fd'`
+   fsupdate (fs with infds updated_by ADELKEY fd') fd k pos content =
+   fsupdate fs fd k pos content with infds updated_by ADELKEY fd'`
   (rw[fsupdate_def,ALOOKUP_ADELKEY]
   \\ CASE_TAC \\ CASE_TAC
-  \\ rw[A_DELKEY_ALIST_FUPDKEY_comm]);
+  \\ rw[ADELKEY_AFUPDKEY]);
 
 Theorem fsupdate_0_numchars
   `IS_SOME (ALOOKUP fs.infds fd) ⇒
@@ -579,7 +579,7 @@ Theorem get_file_content_fsupdate
   `!fs fd x i c u. get_file_content fs fd = SOME u ⇒
   get_file_content (fsupdate fs fd x i c) fd = SOME(c,i)`
   (rw[get_file_content_def, fsupdate_def] >>
-  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP]);
+  pairarg_tac >> fs[AFUPDKEY_ALOOKUP]);
 
 Theorem get_file_content_fsupdate_unchanged
   `!fs fd u fnm pos fd' fnm' pos' x i c.
@@ -588,14 +588,14 @@ Theorem get_file_content_fsupdate_unchanged
    ALOOKUP fs.infds fd' = SOME (fnm',pos') ⇒ fnm ≠ fnm' ⇒
   get_file_content (fsupdate fs fd' x i c) fd = SOME u`
   (rw[get_file_content_def, fsupdate_def] >>
-  pairarg_tac >> fs[ALIST_FUPDKEY_ALOOKUP] >>
+  pairarg_tac >> fs[AFUPDKEY_ALOOKUP] >>
   rpt(CASE_TAC >> fs[]));
 
 Theorem get_file_content_bumpFD[simp]
  `!fs fd c pos n.
    get_file_content (bumpFD fd fs n) fd =
    OPTION_MAP (I ## (+) n) (get_file_content fs fd)`
- (rw[get_file_content_def,bumpFD_def,ALIST_FUPDKEY_ALOOKUP]
+ (rw[get_file_content_def,bumpFD_def,AFUPDKEY_ALOOKUP]
  \\ CASE_TAC \\ fs[]
  \\ pairarg_tac \\ fs[]
  \\ pairarg_tac \\ fs[] \\ rw[]
@@ -681,26 +681,26 @@ Theorem IS_SOME_get_file_content_openFileFS_nextFD
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[]);
 
-Theorem A_DELKEY_nextFD_openFileFS[simp]
+Theorem ADELKEY_nextFD_openFileFS[simp]
   `nextFD fs <= fs.maxFD ⇒
-   A_DELKEY (nextFD fs) (openFileFS f fs md off).infds = fs.infds`
+   ADELKEY (nextFD fs) (openFileFS f fs md off).infds = fs.infds`
   (rw[openFileFS_def]
   \\ CASE_TAC
   \\ TRY CASE_TAC
-  \\ simp[A_DELKEY_I,nextFD_NOT_MEM,MEM_MAP,EXISTS_PROD]
+  \\ simp[ADELKEY_unchanged,nextFD_NOT_MEM,MEM_MAP,EXISTS_PROD]
   \\ fs[openFile_def] \\ rw[]
-  \\ rw[A_DELKEY_def,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD,nextFD_NOT_MEM]);
+  \\ rw[ADELKEY_def,FILTER_EQ_ID,EVERY_MEM,FORALL_PROD,nextFD_NOT_MEM]);
 
-Theorem openFileFS_A_DELKEY_nextFD
+Theorem openFileFS_ADELKEY_nextFD
   `nextFD fs ≤ fs.maxFD ⇒
-   openFileFS f fs md off with infds updated_by A_DELKEY (nextFD fs) = fs`
-  (rw[IO_fs_component_equality,A_DELKEY_nextFD_openFileFS]);
+   openFileFS f fs md off with infds updated_by ADELKEY (nextFD fs) = fs`
+  (rw[IO_fs_component_equality,ADELKEY_nextFD_openFileFS]);
 
 (* forwardFD: like bumpFD but leave numchars *)
 
 val forwardFD_def = Define`
   forwardFD fs fd n =
-    fs with infds updated_by ALIST_FUPDKEY fd (I ## I ## (+) n)`;
+    fs with infds updated_by AFUPDKEY fd (I ## I ## (+) n)`;
 
 Theorem forwardFD_const[simp]
   `(forwardFD fs fd n).files = fs.files ∧
@@ -711,14 +711,14 @@ Theorem forwardFD_const[simp]
 
 Theorem forwardFD_o
   `forwardFD (forwardFD fs fd n) fd m = forwardFD fs fd (n+m)`
-  (rw[forwardFD_def,IO_fs_component_equality,ALIST_FUPDKEY_o]
+  (rw[forwardFD_def,IO_fs_component_equality,AFUPDKEY_o]
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ simp[FUN_EQ_THM,FORALL_PROD]);
 
 Theorem forwardFD_0[simp]
   `forwardFD fs fd 0 = fs`
   (rw[forwardFD_def,IO_fs_component_equality]
-  \\ match_mp_tac ALIST_FUPDKEY_unchanged
+  \\ match_mp_tac AFUPDKEY_unchanged
   \\ simp[FORALL_PROD]);
 
 Theorem forwardFD_numchars
@@ -740,7 +740,7 @@ Theorem validFD_forwardFD[simp]
 Theorem wfFS_forwardFD[simp]
   `wfFS (forwardFD fs fd n) = wfFS fs`
   (rw[wfFS_def,consistentFS_def]
-  \\ rw[forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ rw[forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ rw[EQ_IMP_THM]
   \\ res_tac \\ fs[]
   \\ FULL_CASE_TAC \\ fs[]
@@ -751,7 +751,7 @@ Theorem get_file_content_forwardFD[simp]
   `!fs fd c pos n.
     get_file_content (forwardFD fs fd n) fd =
     OPTION_MAP (I ## (+) n) (get_file_content fs fd)`
-  (rw[get_file_content_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  (rw[get_file_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[] \\ rw[]
@@ -764,16 +764,16 @@ Theorem bumpFD_forwardFD
 Theorem fastForwardFD_forwardFD
   `get_file_content fs fd = SOME (content,pos) ∧ pos + n ≤ LENGTH content ⇒
    fastForwardFD (forwardFD fs fd n) fd = fastForwardFD fs fd`
-  (rw[fastForwardFD_def,get_file_content_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  (rw[fastForwardFD_def,get_file_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[libTheory.the_def]
-  \\ fs[IO_fs_component_equality,ALIST_FUPDKEY_o]
-  \\ match_mp_tac ALIST_FUPDKEY_eq
+  \\ fs[IO_fs_component_equality,AFUPDKEY_o]
+  \\ match_mp_tac AFUPDKEY_eq
   \\ simp[MAX_DEF]);
 
-Theorem forwardFD_A_DELKEY_same
-  `forwardFD fs fd n with infds updated_by A_DELKEY fd = fs with infds updated_by A_DELKEY fd`
+Theorem forwardFD_ADELKEY_same
+  `forwardFD fs fd n with infds updated_by ADELKEY fd = fs with infds updated_by ADELKEY fd`
   (rw[forwardFD_def,IO_fs_component_equality]);
 
 (* lineFD: the next line *)
@@ -885,11 +885,11 @@ Theorem fastForwardFD_lineForwardFD[simp]
   \\ TOP_CASE_TAC \\ fs[libTheory.the_def]
   \\ TOP_CASE_TAC \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ fs[forwardFD_def,ALIST_FUPDKEY_ALOOKUP,get_file_content_def]
+  \\ fs[forwardFD_def,AFUPDKEY_ALOOKUP,get_file_content_def]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[libTheory.the_def]
-  \\ fs[IO_fs_component_equality,ALIST_FUPDKEY_o]
-  \\ match_mp_tac ALIST_FUPDKEY_eq
+  \\ fs[IO_fs_component_equality,AFUPDKEY_o]
+  \\ match_mp_tac AFUPDKEY_eq
   \\ simp[] \\ rveq
   \\ imp_res_tac SPLITP_JOIN
   \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`)
@@ -914,7 +914,7 @@ Theorem lineFD_NONE_lineForwardFD_fastForwardFD
   \\ rveq \\ fs[libTheory.the_def]
   \\ rw[] \\ TRY (
     simp[IO_fs_component_equality]
-    \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+    \\ match_mp_tac (GSYM AFUPDKEY_unchanged)
     \\ simp[MAX_DEF] )
   \\ rw[] \\ fs[forwardFD_def,libTheory.the_def]
   \\ pairarg_tac \\ fs[]);
@@ -937,7 +937,7 @@ Theorem linesFD_cons_imp
     \\ pairarg_tac \\ fs[]
     \\ every_case_tac \\ fs[] \\ rw[]
     \\ fs[NULL_EQ]
-    \\ imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[]
+    \\ imp_res_tac SPLITP_NIL_FST_IMP \\ fs[] \\ rw[]
     >- ( Cases_on`FIELDS ($= #"\n") t` \\ fs[] )
     >- ( Cases_on`FIELDS ($= #"\n") (TL r)` \\ fs[] ))
   \\ reverse IF_CASES_TAC \\ fs[DROP_LENGTH_TOO_LONG]
@@ -977,7 +977,7 @@ Theorem linesFD_lineForwardFD
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ simp[get_file_content_def]
-  \\ simp[forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ fs[]);
 
 Theorem lineForwardFD_forwardFD
@@ -987,7 +987,7 @@ Theorem lineForwardFD_forwardFD
   >- (
     qexists_tac`0`
     \\ simp[IO_fs_component_equality]
-    \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+    \\ match_mp_tac (GSYM AFUPDKEY_unchanged)
     \\ simp[FORALL_PROD] )
   \\ CASE_TAC
   \\ pairarg_tac \\ fs[]
@@ -997,7 +997,7 @@ Theorem lineForwardFD_forwardFD
   >- (
     qexists_tac`0`
     \\ simp[IO_fs_component_equality]
-    \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+    \\ match_mp_tac (GSYM AFUPDKEY_unchanged)
     \\ simp[FORALL_PROD] ));
 
 Theorem get_file_content_lineForwardFD_forwardFD
@@ -1009,7 +1009,7 @@ Theorem get_file_content_lineForwardFD_forwardFD
   \\ pairarg_tac \\ fs[]
   \\ reverse IF_CASES_TAC \\ fs[DROP_LENGTH_TOO_LONG,SPLITP]
   \\ rw[IO_fs_component_equality]
-  \\ match_mp_tac (GSYM ALIST_FUPDKEY_unchanged)
+  \\ match_mp_tac (GSYM AFUPDKEY_unchanged)
   \\ simp[FORALL_PROD] );
 
 (* Property ensuring that standard streams are correctly opened *)
@@ -1032,7 +1032,7 @@ Theorem STD_streams_fsupdate
     STD_streams (fsupdate fs fd k pos c)`
   (rw[STD_streams_def,fsupdate_def]
   \\ CASE_TAC \\ fs[] >- metis_tac[]
-  \\ CASE_TAC \\ fs[ALIST_FUPDKEY_ALOOKUP]
+  \\ CASE_TAC \\ fs[AFUPDKEY_ALOOKUP]
   \\ qmatch_goalsub_abbrev_tac`out' = SOME _ ∧ (err' = SOME _ ∧ _)`
   \\ qmatch_assum_rename_tac`_ = SOME (fnm,_)`
   \\ map_every qexists_tac[`if fnm = UStream(strlit"stdin") then pos else inp`,`THE out'`,`THE err'`]
@@ -1064,7 +1064,7 @@ val lemma = Q.prove(
 Theorem STD_streams_forwardFD
   `fd ≠ 1 ∧ fd ≠ 2 ⇒
    (STD_streams (forwardFD fs fd n) = STD_streams fs)`
-  (rw[STD_streams_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  (rw[STD_streams_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ Cases_on`fd = 0`
   >- (
     EQ_TAC \\ rw[]
@@ -1126,7 +1126,7 @@ Theorem STD_streams_fastForwardFD
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
-  \\ EQ_TAC \\ rw[STD_streams_def,option_case_eq,ALIST_FUPDKEY_ALOOKUP,PAIR_MAP] \\ rw[]
+  \\ EQ_TAC \\ rw[STD_streams_def,option_case_eq,AFUPDKEY_ALOOKUP,PAIR_MAP] \\ rw[]
   >- (
     qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\
     qexists_tac`if fd = 0 then off else inp` \\ rw[] \\
@@ -1149,7 +1149,7 @@ Theorem get_mode_with_files
 
 Theorem get_mode_forwardFD[simp]
   `get_mode (forwardFD fs fd n) fd' = get_mode fs fd'`
-  (rw[get_mode_def,forwardFD_def,ALIST_FUPDKEY_ALOOKUP]
+  (rw[get_mode_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]);
 
 Theorem get_mode_lineForwardFD[simp]

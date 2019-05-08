@@ -143,7 +143,7 @@ Theorem do_onefile_spec
   CONV_TAC SWAP_EXISTS_CONV >>
   qexists_tac`fs0` \\ xsimpl \\
   simp[Abbr`fs0`,UNIT_TYPE_def,add_stdout_fastForwardFD,STD_streams_openFileFS] \\
-  simp[GSYM add_stdo_A_DELKEY,Abbr`fd`,openFileFS_A_DELKEY_nextFD] \\
+  simp[GSYM add_stdo_ADELKEY,Abbr`fd`,openFileFS_ADELKEY_nextFD] \\
   xsimpl \\
   simp[validFileFD_def]);
 
@@ -156,7 +156,7 @@ Theorem file_contents_add_stdout
    file_contents fnm (add_stdout fs out) = file_contents fnm fs`
   (rw[file_contents_def,add_stdo_def,up_stdo_def,fsFFITheory.fsupdate_def]
   \\ CASE_TAC \\ CASE_TAC
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]
   \\ metis_tac[STD_streams_def,SOME_11,PAIR,FST,fsFFITheory.inode_distinct]);
 

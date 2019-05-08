@@ -3892,7 +3892,7 @@ Theorem mk_jump_ag32_code_thm
        \\ simp[GSYM word_add_n2w]
        \\ irule byte_aligned_add
        \\ conj_tac >- EVAL_TAC
-       \\ simp[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+       \\ simp[alignmentTheory.byte_aligned_def, GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
        \\ EVAL_TAC \\ simp[])
   \\ strip_tac \\ fs[Abbr`pc`]
   \\ disch_then kall_tac

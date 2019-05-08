@@ -146,7 +146,7 @@ Theorem extract_fs_with_numchars_keeps_iostreams
   \\ TRY pairarg_tac \\ fs[]
   \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFIPropsTheory.bumpFD_forwardFD]
   \\ fs[CaseEq"bool"]
-  \\ rfs[fsFFITheory.fsupdate_def, fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ rfs[fsFFITheory.fsupdate_def, fsFFIPropsTheory.forwardFD_def, AFUPDKEY_ALOOKUP]
   \\ fs[CaseEq"option"]
   \\ fs[CaseEq"bool"]
   \\ Cases_on`v` \\ fs[]
@@ -192,8 +192,8 @@ Theorem extract_fs_with_numchars_closes_iostreams
         fsFFITheory.openFile_def,
         fsFFITheory.write_def]
   \\ TRY pairarg_tac \\ fs[]
-  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFITheory.bumpFD_def, ALIST_FUPDKEY_ALOOKUP]
-  \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFITheory.bumpFD_def, AFUPDKEY_ALOOKUP]
+  \\ rw[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
   \\ PURE_CASE_TAC \\ fs[CaseEq"option"]
   \\ CCONTR_TAC \\ fs[]);
 
@@ -230,7 +230,7 @@ Theorem extract_stdo_extract_fs
     \\ rw[IO_fs_component_equality]
     \\ qpat_assum`ALOOKUP fs.inode_tbl _ = _`mp_tac
     \\ qpat_assum`fs.inode_tbl = _`SUBST1_TAC
-    \\ simp[ALIST_FUPDKEY_ALOOKUP] )
+    \\ simp[AFUPDKEY_ALOOKUP] )
   \\ Cases
   \\ rw[extract_fs_def,extract_stdo_def]
   >- (
@@ -253,7 +253,7 @@ Theorem extract_stdo_extract_fs
     \\ fs[stdo_def]
     \\ simp[Abbr`fs'`,fsupdate_def]
     \\ CASE_TAC \\ fs[]
-    \\ simp[ALIST_FUPDKEY_ALOOKUP]
+    \\ simp[AFUPDKEY_ALOOKUP]
 
     \\ ...)
   \\ qpat_x_assum`_ = SOME _`mp_tac

@@ -218,7 +218,7 @@ Theorem get_files_contents_spec
     \\ rfs[] ) >>
   xapp >>
   xsimpl >>
-  simp[Abbr`fs'`,Abbr`fd`,openFileFS_A_DELKEY_nextFD] >>
+  simp[Abbr`fs'`,Abbr`fd`,openFileFS_ADELKEY_nextFD] >>
   full_simp_tac std_ss [GSYM MAP_APPEND] >>
   instantiate >> xsimpl >>
   simp[REVERSE_APPEND,MAP_REVERSE,linesFD_openFileFS_nextFD,MAP_MAP_o,o_DEF]);

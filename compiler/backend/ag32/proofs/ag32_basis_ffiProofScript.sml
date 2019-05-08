@@ -884,7 +884,7 @@ Theorem extract_fs_extract_writes
       \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
       \\ fs[fsFFITheory.bumpFD_def]
       \\ fs[fsFFIPropsTheory.inFS_fname_def]
-      \\ fs[fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
+      \\ fs[fsFFIPropsTheory.forwardFD_def, AFUPDKEY_ALOOKUP]
       \\ rw[]
       \\ TRY PURE_CASE_TAC \\ fs[]
       \\ TRY PURE_CASE_TAC \\ fs[CaseEq"option"]
@@ -944,10 +944,10 @@ Theorem extract_fs_extract_writes
   \\ fs[fsFFITheory.write_def]
   \\ pairarg_tac \\ fs[]
   \\ rfs[fsFFITheory.fsupdate_def]
-  \\ rveq \\ fs[ALIST_FUPDKEY_ALOOKUP, LDROP1_THM]
+  \\ rveq \\ fs[AFUPDKEY_ALOOKUP, LDROP1_THM]
   \\ rfs[]
   \\ qmatch_asmsub_abbrev_tac`extract_fs_with_numchars fs'`
-  \\ qmatch_asmsub_abbrev_tac`ALIST_FUPDKEY fnm (K new_content)`
+  \\ qmatch_asmsub_abbrev_tac`AFUPDKEY fnm (K new_content)`
   \\ fs[extract_writes_def, extract_write_def]
   \\ simp[TAKE_APPEND]
   \\ simp[DROP_APPEND, DROP_LENGTH_TOO_LONG]
@@ -974,7 +974,7 @@ Theorem extract_fs_extract_writes
     \\ strip_tac
     \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
     \\ disch_then drule
-    \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
+    \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
     \\ qmatch_goalsub_abbrev_tac`_ + zz ≤ _`
     \\ strip_tac
     \\ fs[fsFFIPropsTheory.inFS_fname_def]
@@ -989,7 +989,7 @@ Theorem extract_fs_extract_writes
   \\ rveq \\ fs[]
   \\ drule (GEN_ALL basis_ffiTheory.extract_fs_with_numchars_keeps_iostreams)
   \\ disch_then drule
-  \\ simp[Abbr`fs'`, ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[Abbr`fs'`, AFUPDKEY_ALOOKUP]
   \\ simp[data_to_word_assignProofTheory.IMP]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`off + nw`
@@ -2812,12 +2812,12 @@ Theorem ag32_fs_ok_ffi_write
     fs[OPTION_CHOICE_EQUALS_OPTION] \\ rveq \\ fs[]
     \\ pairarg_tac \\ fs[fsFFITheory.write_def]
     \\ pairarg_tac \\ fs[]
-    \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
+    \\ rw[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
     \\ PURE_TOP_CASE_TAC \\ simp[] \\ rw[]
     \\ metis_tac[NOT_SOME_NONE, IS_SOME_EXISTS] )
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, fsFFITheory.write_def]
   \\ rpt(pairarg_tac \\ fs[])
-  \\ rveq \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP, LDROP1_THM]
+  \\ rveq \\ fs[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP, LDROP1_THM]
   \\ rw[]
   \\ fs[CaseEq"option"]
   \\ PairCases_on`v` \\ fs[]
@@ -2880,7 +2880,7 @@ Theorem ag32_stdin_implemented_ffi_write
     rpt(pairarg_tac>>fs[])>>
     fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[] \\
     fs[fsFFITheory.fsupdate_def]>>
-    simp[ALIST_FUPDKEY_ALOOKUP]>>
+    simp[AFUPDKEY_ALOOKUP]>>
     rw[]>>fs[])
   \\ CONJ_TAC>- (
     fs[fsFFITheory.ffi_write_def,fsFFITheory.write_def]>>
@@ -2889,7 +2889,7 @@ Theorem ag32_stdin_implemented_ffi_write
     rpt(pairarg_tac>>fs[])>>
     fs[OPTION_CHOICE_EQUALS_OPTION, LUPDATE_def] \\ rveq \\ fs[] \\
     fs[fsFFITheory.fsupdate_def]>>
-    simp[ALIST_FUPDKEY_ALOOKUP]>>
+    simp[AFUPDKEY_ALOOKUP]>>
     rw[]>>fs[]>>
     fs[fsFFIPropsTheory.STD_streams_def]>>
     rfs[])
@@ -3099,7 +3099,7 @@ Theorem ag32_fs_ok_ffi_read
     \\ fs[] )
   \\ fs[OPTION_CHOICE_EQUALS_OPTION, fsFFITheory.read_def]
   \\ rpt(pairarg_tac \\ fs[])
-  \\ rveq \\ fs[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP, LDROP1_THM,
+  \\ rveq \\ fs[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP, LDROP1_THM,
                 fsFFITheory.bumpFD_def]
   \\ conj_tac
   >- (
@@ -3150,7 +3150,7 @@ Theorem ag32_stdin_implemented_ffi_read
     qexists_tac`inp`>>simp[]>>
     rw[]
     >-
-      (simp[fsFFITheory.bumpFD_def,ALIST_FUPDKEY_ALOOKUP]>>
+      (simp[fsFFITheory.bumpFD_def,AFUPDKEY_ALOOKUP]>>
       reverse IF_CASES_TAC
       >- (
         fs[ag32_fs_ok_def]
@@ -6317,7 +6317,7 @@ Theorem ag32_good_init_state
     by (
       simp[alignmentTheory.byte_align_def]
       \\ simp[GSYM alignmentTheory.aligned_def]
-      \\ simp[GSYM ALIGNED_eq_aligned,addressTheory.ALIGNED_n2w] )
+      \\ simp[GSYM addressTheory.ALIGNED_eq_aligned,addressTheory.ALIGNED_n2w] )
     \\ pop_assum(CONV_TAC o PATH_CONV"rllrr" o REWR_CONV)
     \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_byte_align]
     \\ conj_tac >- EVAL_TAC
@@ -6433,7 +6433,7 @@ Theorem ag32_installed
       \\ irule byte_aligned_add
       \\ simp [byte_aligned_code_start_offset])
     \\ simp [alignmentTheory.byte_aligned_def, GSYM word_mul_n2w,
-             GSYM ALIGNED_eq_aligned]
+             GSYM addressTheory.ALIGNED_eq_aligned]
     \\ qspecl_then [`0w`, `n2w k`] mp_tac addressTheory.ALIGNED_MULT
     \\ simp [EVAL ``ALIGNED 0w``])
   \\ `byte_aligned (n2w (code_start_offset (LENGTH ffi_names)) : word32)`
@@ -6448,7 +6448,7 @@ Theorem ag32_installed
     \\ qmatch_goalsub_abbrev_tac `word_of_bytes _ _ ls`
     \\ `low MOD 4 = 0`
       by (fs [Abbr `low`, alignmentTheory.byte_aligned_def,
-              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
               MOD_EQ_0_DIVISOR, GSYM LEFT_ADD_DISTRIB])
     \\ `4 * (low DIV 4) = low` by fs [MULT_EQ_DIV]
     \\ `ls = GENLIST (λi.
@@ -6467,7 +6467,7 @@ Theorem ag32_installed
   \\ simp [LESS_EQ_EXISTS] \\ strip_tac
   \\ `∃d. p = 4 * d`
     by (fs [IN_DEF, alignmentTheory.byte_aligned_def,
-            GSYM ALIGNED_eq_aligned,
+            GSYM addressTheory.ALIGNED_eq_aligned,
             addressTheory.ALIGNED_n2w]
         \\ fs [MOD_EQ_0_DIVISOR] \\ rfs []
         \\ fs [Abbr `l`] \\ rveq
@@ -6495,7 +6495,7 @@ Theorem ag32_installed
   \\ qmatch_goalsub_abbrev_tac `word_of_bytes _ _ ls`
   \\ `low MOD 4 = 0`
     by (fs [Abbr `low`, alignmentTheory.byte_aligned_def,
-            GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+            GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
             MOD_EQ_0_DIVISOR, GSYM LEFT_ADD_DISTRIB])
   \\ `4 * (low DIV 4) = low` by fs [MULT_EQ_DIV]
   \\ `ls = GENLIST (λi.
@@ -6536,7 +6536,7 @@ Theorem ag32_halted
     \\ simp[lab_to_targetTheory.ffi_offset_def, GSYM word_add_n2w]
     \\ irule byte_aligned_add
     \\ conj_tac >- EVAL_TAC
-    \\ simp[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+    \\ simp[alignmentTheory.byte_aligned_def, GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
     \\ EVAL_TAC )
   \\ `pc = pc'`
   by (
@@ -6874,7 +6874,7 @@ Theorem ag32_interference_implemented
             |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
             |> irule)
         \\ conj_tac >- EVAL_TAC
-        \\ simp[GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
+        \\ simp[GSYM addressTheory.ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w]
         \\ EVAL_TAC \\ simp[] )
       \\ `pc = pc'`
       by (

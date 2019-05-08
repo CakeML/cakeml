@@ -4863,7 +4863,7 @@ Theorem all_enc_ok_aligned_pos_val
    (has_odd_inst code2 ==> mc_conf.target.config.code_alignment = 0) /\
    encoder_correct mc_conf.target ==>
    aligned mc_conf.target.config.code_alignment (n2w (pos_val pc 0 code2):'a word)`
-  (metis_tac [MOD_IMP_aligned,pos_val_MOD_0]);
+  (metis_tac [MOD_0_aligned,pos_val_MOD_0]);
 
 Theorem read_ffi_bytearrays_with_next_interfer[simp]
   `read_ffi_bytearrays (mc with next_interfer := foo) =

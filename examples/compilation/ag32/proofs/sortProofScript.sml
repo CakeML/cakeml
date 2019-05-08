@@ -144,15 +144,15 @@ Theorem sort_extract_writes_stdout
     simp[stdin_fs_def]
     \\ qexists_tac`implode""`
     \\ simp[] )
-  \\ simp[Once stdin_fs_def, ALIST_FUPDKEY_def]
+  \\ simp[Once stdin_fs_def, AFUPDKEY_def]
   \\ Cases \\ simp[] \\ strip_tac \\ rveq
   \\ pop_assum mp_tac
   \\ simp[TextIOProofTheory.up_stdo_def]
   \\ simp[fsFFITheory.fsupdate_def, fsFFIPropsTheory.fastForwardFD_def]
-  \\ simp[stdin_fs_def, ALIST_FUPDKEY_ALOOKUP, libTheory.the_def]
+  \\ simp[stdin_fs_def, AFUPDKEY_ALOOKUP, libTheory.the_def]
   \\ rw[]
   \\ drule (GEN_ALL extract_fs_extract_writes)
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ disch_then match_mp_tac
   \\ rw[fsFFIPropsTheory.inFS_fname_def]
   >- (fs[CaseEq"option",CaseEq"bool"] \\ rveq \\ fs[] \\
