@@ -4,9 +4,6 @@ The CakeML compiler backend.
 This directory contains the Silver-specific part of the compiler
 backend and associated proofs.
 
-[arm6](arm6):
-This directory contains the ARMv6-specific part of the compiler backend.
-
 [arm7](arm7):
 This directory contains the ARMv7-specific part of the compiler backend.
 

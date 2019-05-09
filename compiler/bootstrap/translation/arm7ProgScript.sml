@@ -7,11 +7,11 @@ open ml_translatorLib ml_translatorTheory;
 open to_target32ProgTheory
 open arm7_targetTheory armTheory;
 open inliningLib;
-local open arm6ProgTheory in end;
+local open to_target32ProgTheory in end;
 
 val _ = new_theory "arm7Prog"
 
-val _ = translation_extends "arm6Prog";
+val _ = translation_extends "to_target32Prog";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "arm7Prog");
 
