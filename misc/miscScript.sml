@@ -2573,13 +2573,8 @@ Theorem INJ_UPDATE
   (simp_tac std_ss [BIJ_DEF,SURJ_DEF,INJ_DEF,IN_INSERT,APPLY_UPDATE_THM]
   \\ metis_tac []);
 
-(* exists in HOL as subspt_lookup *)
-Theorem subspt_alt
-  `subspt t1 t2 <=> !k v. lookup k t1 = SOME v ==> lookup k t2 = SOME v`
-  (fs [subspt_def,domain_lookup] \\ rw [] \\ eq_tac \\ rw []
-  \\ res_tac \\ fs []);
-
-(* TODO - exists as an IFF in HOL already (subspt_domain) *)
+(* TODO: candidate for move to HOL;
+         subspt_domain exists already but is specialised to unit *)
 Theorem subspt_domain_SUBSET
   `subspt t1 t2 ==> domain t1 SUBSET domain t2`
   (fs [subspt_def,SUBSET_DEF]);
@@ -3413,108 +3408,6 @@ Theorem lookup_copy_shape
 (* / TODO *)
 
 (* BEGIN TODO: move to sptreeTheory *)
-
-val mk_BN_thm = prove(
-  ``!t1 t2. mk_BN t1 t2 =
-            if isEmpty t1 /\ isEmpty t2 then LN else BN t1 t2``,
-  REPEAT Cases >> EVAL_TAC);
-
-val mk_BS_thm = prove(
-  ``!t1 t2. mk_BS t1 x t2 =
-            if isEmpty t1 /\ isEmpty t2 then LS x else BS t1 x t2``,
-  REPEAT Cases >> EVAL_TAC);
-
-val oddevenlemma = prove(
-  ``2n * y + 1 <> 2 * x + 2``,
-  disch_then (mp_tac o AP_TERM ``EVEN``) >>
-  simp[EVEN_ADD, EVEN_MULT]);
-
-Theorem size_domain
-    `∀ t . size t = CARD (domain t)`
-    (Induct_on `t`
-    >- rw[size_def, domain_def]
-    >- rw[size_def, domain_def]
-    >> rw[pred_setTheory.CARD_UNION_EQN, pred_setTheory.CARD_INJ_IMAGE]
-    >| [
-    `IMAGE (λn. 2 * n + 2) (domain t) ∩ IMAGE (λn. 2 * n + 1) (domain t') = {}`
-        by (rw[GSYM pred_setTheory.DISJOINT_DEF, pred_setTheory.IN_DISJOINT]
-        >> Cases_on `ODD x`
-        >> fs[ODD_EXISTS, ADD1, oddevenlemma]
-           )
-        >> simp[] ,
-    `(({0} ∩ IMAGE (λn. 2 * n + 2) (domain t)) = {}) /\
-     (({0} UNION (IMAGE (\n. 2 * n + 2) (domain t)))
-          INTER (IMAGE (\n. 2 * n + 1) (domain t')) = {})`
-    by (rw[GSYM pred_setTheory.DISJOINT_DEF, pred_setTheory.IN_DISJOINT]
-        >> Cases_on `ODD x`
-        >> fs[ODD_EXISTS, ADD1, oddevenlemma]
-           )
-        >> simp[]
-    ]
-);
-
-Theorem num_set_domain_eq
-    `∀ t1 t2:num_set . wf t1 ∧ wf t2 ⇒
-        (domain t1 = domain t2 ⇔ t1 = t2)`
-    (rw[] >> EQ_TAC >> rw[spt_eq_thm] >> fs[EXTENSION, domain_lookup] >>
-    pop_assum (qspec_then `n` mp_tac) >> strip_tac >>
-    Cases_on `lookup n t1` >> fs[] >> Cases_on `lookup n t2` >> fs[]
-);
-
-Theorem union_num_set_sym
-    `∀ t1:num_set t2 . union t1 t2 = union t2 t1`
-    (Induct >> fs[union_def] >> rw[] >> CASE_TAC >> fs[union_def]
-);
-
-Theorem mk_wf_union
-    `∀ t1 t2 . mk_wf (union t1 t2) = union (mk_wf t1) (mk_wf t2)`
-    (rw[] >> `wf(union (mk_wf t1) (mk_wf t2)) ∧ wf(mk_wf (union t1 t2))` by
-        metis_tac[wf_mk_wf, wf_union] >>
-    rw[spt_eq_thm] >> fs[lookup_union, lookup_mk_wf]
-);
-
-Theorem domain_difference
-    `∀ t1 t2 . domain (difference t1 t2) = (domain t1) DIFF (domain t2)`
-    (simp[pred_setTheory.EXTENSION, domain_lookup, lookup_difference] >>
-    rw [] >> Cases_on `lookup x t1`
-    >- fs[]
-    >> fs[] >> Cases_on `lookup x t2`
-        >- rw[] >- rw[]
-);
-
-Theorem difference_sub
-    `(difference a b = LN) ⇒ (domain a ⊆ domain b)`
-    (rw[] >>
-    `(domain (difference a b) = {})` by rw[domain_def] >>
-    fs[EXTENSION, domain_difference, SUBSET_DEF] >>
-    metis_tac[]
-);
-
-Theorem wf_difference
-    `∀ t1 t2 . (wf t1 ∧ wf t2) ⇒ wf (difference t1 t2)`
-    (Induct >> rw[difference_def, wf_def] >> CASE_TAC >> fs[wf_def]
-    >> rw[wf_def, wf_mk_BN, wf_mk_BS]
-);
-
-Theorem delete_fail
-    `∀ n t . (wf t) ⇒ (n ∉  domain t ⇔ (delete n t = t))`
-    (simp[domain_lookup] >>
-    recInduct lookup_ind >>
-    rw[lookup_def, wf_def, delete_def, mk_BN_thm, mk_BS_thm]
-);
-
-Theorem size_delete
-    `∀ n t . (size (delete n t) =
-        if (lookup n t = NONE) then (size t) else (size t - 1))`
-    (rw[size_def] >>
-    fs[lookup_NONE_domain] >>
-    TRY (qpat_assum `n NOTIN d` (qspecl_then [] mp_tac)) >>
-    rfs[delete_fail, size_def] >>
-    fs[lookup_NONE_domain] >>
-    fs[size_domain] >>
-    fs[lookup_NONE_domain] >>
-    fs[size_domain]
-);
 
 Theorem lookup_zero
   `∀ n t x. (lookup n t = SOME x) ==> (size t <> 0)`

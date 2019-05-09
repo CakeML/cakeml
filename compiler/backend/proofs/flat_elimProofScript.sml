@@ -948,7 +948,7 @@ Theorem close_spt_thm
                     mp_tac subspt_domain_spt_fold_union >>
                 rw[] >> fs[SUBSET_DEF] >>
                 first_x_assum mp_tac >> impl_tac >> fs[] >>
-                fs[subspt_alt, lookup_inter, domain_difference] >> rw[] >>
+                fs[subspt_lookup, lookup_inter, domain_difference] >> rw[] >>
                 EVERY_CASE_TAC >> fs[])
             )
         >- (
