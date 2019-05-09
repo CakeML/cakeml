@@ -3501,8 +3501,6 @@ Theorem new_ref_thm
        \\ rw [all_vs_def] \\ disj2_tac
        \\ ho_match_mp_tac MEM_v_all_vs
        \\ rw [MEM_APPEND,EL_MEM]))
-
-
   \\ rpt strip_tac
   \\ Cases_on `n = ptr` THEN1
    (Q.UNABBREV_TAC `f1` \\ asm_simp_tac (srw_ss()) [bc_ref_inv_def,FDOM_FUPDATE,
@@ -3662,7 +3660,25 @@ Theorem el_thm
     \\ full_simp_tac std_ss [BlockRep_def]
     \\ sg `?u'. MEM (Pointer ptr' u') xs'` \\ res_tac
     \\ full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-  \\ qexists_tac `f` \\ full_simp_tac std_ss []
+  \\ qexists_tac `f`  \\ full_simp_tac std_ss []
+  \\ qexists_tac `tf` \\ full_simp_tac std_ss []
+  \\ conj_tac
+  THEN1 (
+    `∀x y. FDOM tf ⊆ y ∧ x = y ⇒ FDOM tf ⊆ x` by metis_tac []
+    \\ pop_assum drule
+    \\ disch_then ho_match_mp_tac
+    \\ rw [FUN_EQ_THM,all_ts_def]
+    \\ EQ_TAC
+    >- (rw []
+       >- metis_tac []
+       >- (qexists_tac `Block ts n xs` \\ rw [v_all_ts_def]
+          \\ disj2_tac \\ rw [ETA_THM]
+          \\ ho_match_mp_tac v_all_vs_ts_list
+          \\ qexists_tac `EL i xs` \\ rw []
+          \\ ho_match_mp_tac MEM_v_all_vs
+          \\ rw [EL_MEM])
+       \\ metis_tac [])
+    \\ metis_tac [])
   \\ strip_tac THEN1 (full_simp_tac std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS])
   \\ rpt strip_tac
   \\ qpat_x_assum `!xx.bbb` match_mp_tac
@@ -3732,6 +3748,7 @@ Theorem new_byte_alt_thm
   \\ `unused_space_inv (a + ws + 1) (sp + sp1 - (ws + 1)) heap2` by fs [Bytes_def,el_length_def] \\ fs []
   \\ `~(ptr IN FDOM f)` by (full_simp_tac (srw_ss()) [SUBSET_DEF] \\ metis_tac [])
   \\ qexists_tac `f |+ (ptr,a)`
+  \\ qexists_tac `tf`
   \\ strip_tac THEN1
    (full_simp_tac (srw_ss()) [FDOM_FUPDATE]
     \\ `(FAPPLY (f |+ (ptr,a))) =
@@ -3749,10 +3766,23 @@ Theorem new_byte_alt_thm
     \\ fs [isDataElement_def])
   \\ strip_tac THEN1
      (full_simp_tac (srw_ss()) [SUBSET_DEF,FDOM_FUPDATE] \\ metis_tac [])
+  \\ strip_tac THEN1 fs [INJ_DEF]
+  \\ strip_tac THEN1
+      (`∀x y. FDOM tf ⊆ y ∧ x = y ⇒ FDOM tf ⊆ x` by metis_tac []
+      \\ pop_assum drule
+      \\ disch_then ho_match_mp_tac
+      \\ rw [FUN_EQ_THM,all_ts_def]
+      \\ EQ_TAC
+      >- (rw []
+         >- metis_tac [DOMSUB_NOT_IN_DOM]
+         >- fs [v_all_ts_def]
+         >- metis_tac [])
+      \\ metis_tac [DOMSUB_NOT_IN_DOM])
   \\ Q.ABBREV_TAC `f1 = f |+ (ptr,a)`
   \\ `f SUBMAP f1` by
    (Q.UNABBREV_TAC `f1` \\ full_simp_tac (srw_ss()) [SUBMAP_DEF,FAPPLY_FUPDATE_THM]
     \\ metis_tac [])
+  \\ `tf SUBMAP tf` by rw []
   \\ strip_tac THEN1
    (full_simp_tac std_ss [LIST_REL_def]
     \\ strip_tac THEN1 (UNABBREV_ALL_TAC \\ fs [v_inv_def])
