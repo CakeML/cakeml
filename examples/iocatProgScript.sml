@@ -91,9 +91,9 @@ val cat_spec0 = Q.prove(
           >-(fs[MEM_FST_ALOOKUP_SOME])
           >- res_tac) >> fs[] >> rw[]
     >- fs[fsupdate_def,AFUPDKEY_ALOOKUP,openFileFS_files,ADELKEY_nextFD_openFileFS,
-         ADELKEY_AFUPDKEY_comm,ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_fastForwardFD_elim]
+         ADELKEY_AFUPDKEY,ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_fastForwardFD_elim]
     >- fs[fsupdate_def,AFUPDKEY_ALOOKUP,openFileFS_files,ADELKEY_nextFD_openFileFS,
-         ADELKEY_AFUPDKEY_comm,ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_fastForwardFD_elim]
+         ADELKEY_AFUPDKEY,ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_fastForwardFD_elim]
     >-(qmatch_goalsub_abbrev_tac`inFS_fname fs1` >>
        `consistentFS fs1`
         by (unabbrev_all_tac >> fs[consistentFS_def,fsupdate_def,openFileFS_def] >>
@@ -104,7 +104,7 @@ val cat_spec0 = Q.prove(
   by (
     fs[Abbr`fs'`,up_stdo_def,IO_fs_component_equality,fsupdate_def,
        openFileFS_numchars,openFileFS_inode_tbl,AFUPDKEY_ALOOKUP,openFileFS_files,
-       ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_AFUPDKEY_comm,
+       ALOOKUP_inFS_fname_openFileFS_nextFD,ADELKEY_AFUPDKEY,
        ADELKEY_nextFD_openFileFS,AFUPDKEY_unchanged] ) \\
   qunabbrev_tac`fs'` \\ pop_assum SUBST_ALL_TAC \\
   qmatch_goalsub_abbrev_tac`ALOOKUP fs'.inode_tbl _` \\
