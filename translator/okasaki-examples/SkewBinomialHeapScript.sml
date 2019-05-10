@@ -13,8 +13,6 @@ val _ = translation_extends "ListProg";
 (* Definition of a Skew Binomial Tree *)
 Datatype `sbTree = Sbnode 'a num ('a list) (sbTree list)`;
 
-fetch "-" "sbTree_induction";
-
 val leaf_def = Define `leaf x = (Sbnode x 0 [] [])`;
 val root_def = Define `root (Sbnode x r a c) = x`;
 val rank_def = Define `rank (Sbnode _ r _ _) = r`;
@@ -64,6 +62,13 @@ val is_empty_def = Define `is_empty h = (h = [])`;
 val heap_to_bag_def = Define `
   (heap_to_bag [] = {||}) /\
   (heap_to_bag (t::ts) = BAG_UNION (tree_to_bag t) (heap_to_bag ts))
+`;
+
+val tree_to_bag2_def = Define `
+  (tree_to_bag2 (Sbnode x r a cs) =
+    (BAG_UNION (BAG_INSERT x (list_to_bag a)) (heap_to_bag2 cs))) /\
+  (heap_to_bag2 [] = {||}) /\
+  (heap_to_bag2 (t::ts) = BAG_UNION (tree_to_bag2 t) (heap_to_bag2 ts))
 `;
 
 val is_heap_ordered_def = Define `
@@ -145,11 +150,9 @@ val delete_min_def = Define `
 `;
 
 (* Bootstraping Skew Binomial Heaps *)
- Datatype `bsbHeap = Bsbempty | Bsbheap 'a (bsbHeap sbHeap)`;
+Datatype `bsbHeap = Bsbempty | Bsbheap 'a (bsbHeap sbHeap)`;
 
-val b_root_def = Define `
-  (b_root (Bsbheap r _) = r)
-`;
+val b_root_def = Define `(b_root (Bsbheap r _) = r)`;
 
 val b_children_def = Define `
   (b_children (Bsbheap _ c) = c)
@@ -169,6 +172,7 @@ val b_heap_comparison_def = Define `
   (b_heap_comparison geq _ Bsbempty = F) /\
   (b_heap_comparison geq (Bsbheap r1 _) (Bsbheap r2 _) = geq r1 r2)
 `;
+
 
 val b_merge_def = Define `
   (b_merge _ Bsbempty h = h) /\
@@ -324,6 +328,25 @@ Proof
       metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
 QED;
 
+val bsbHeap_size_def = fetch "-" "bsbHeap_size_def";
+
+Theorem equiv_size1_size4:
+  !f h. bsbHeap4_size f h = bsbHeap1_size f h
+Proof
+  Induct_on `h`
+  >- rw[bsbHeap_size_def]
+  >- rw[bsbHeap_size_def]
+QED;
+
+Theorem tree_size_general:
+  !f r n l0 l. bsbHeap2_size f (Sbnode r n l0 l) =
+                             1 + n + (bsbHeap_size f r) + (bsbHeap3_size f l0) + (bsbHeap1_size f l)
+Proof
+  Induct_on `l`
+  >- rw[bsbHeap_size_def]
+  >- rw[bsbHeap_size_def, equiv_size1_size4]
+QED;
+
 Theorem reverse_bag:
   !h. heap_to_bag (REVERSE h) = heap_to_bag h
 Proof
@@ -410,6 +433,50 @@ Proof
   Cases_on `geq r r'`
   >- fs[]
   >- fs[]
+QED;
+
+
+Theorem elem_list_size:
+  !f x l. BAG_IN x (list_to_bag l) ==> bsbHeap_size f x < 1 + (bsbHeap3_size f l)
+Proof
+  Induct_on `l`
+  >- rw[list_to_bag_def]
+  >- (rw[list_to_bag_def, bsbHeap_size_def]
+      >- decide_tac
+      >- (res_tac \\
+          pop_assum (qspecl_then [`f`] mp_tac) \\
+          decide_tac))
+QED;
+
+Theorem head_heap_size:
+  !f t h. bsbHeap2_size f t < bsbHeap1_size f (t::h)
+Proof
+  rw[bsbHeap_size_def]
+QED;
+
+Theorem tree_first_child_size:
+  !f a n l c cs. bsbHeap2_size f c < bsbHeap2_size f (Sbnode a n l (c::cs))
+Proof
+  rw[bsbHeap_size_def]
+QED;
+
+Theorem elem_tree_size:
+  !f .(!t x. BAG_IN x (tree_to_bag2 t) ==> bsbHeap_size f x < 1 + (bsbHeap2_size f t)) /\
+      (!ts x. BAG_IN x (heap_to_bag2 ts) ==> bsbHeap_size f x < 1 + (bsbHeap4_size f ts))
+Proof
+  strip_tac \\
+  ho_match_mp_tac (fetch "-" "sbTree_induction") \\
+  rw[]
+  >- (fs[tree_to_bag2_def] \\
+      EVAL_TAC \\ fs[]
+      >- (imp_res_tac elem_list_size \\
+          pop_assum (qspecl_then [`f`] mp_tac) \\
+          rw[])
+      >- (res_tac \\
+          rw[]))
+  >- fs[tree_to_bag2_def]
+  >- (fs[tree_to_bag2_def] \\
+      EVAL_TAC \\ res_tac \\ fs[])
 QED;
 
 (* For both kinds of links, linking preserve the elements in the trees *)
@@ -897,7 +964,7 @@ Proof
       metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])
 QED;
 
-(* Functional correctness of merge *)
+(* Functional correctness of bootstraped heaps *)
 Theorem b_bag_of_link:
   !geq t t1 t2. tree_link (b_heap_comparison geq) t1 t2 = t ==>
                 b_heap_to_bag2 geq t = BAG_UNION (b_heap_to_bag2 geq t1) (b_heap_to_bag2 geq t2)
@@ -1977,7 +2044,7 @@ Proof
       Cases_on `find_min (b_heap_comparison geq) l`
       >- imp_res_tac find_min_exists
       >- (fs[THE_DEF] \\
-          Cases_on `x` \\
+          Cases_on `x`
           >- (`l <> []` by rw[] \\
               imp_res_tac find_min_b_non_empty \\
               rfs[THE_DEF])
@@ -1986,9 +2053,11 @@ Proof
               metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])))
 QED;
 
-
 (* Translations *)
-val _ = translate leaf_def;b_f
+val _ = register_type ``:'a sbTree``;
+val _ = register_type ``:'a sbHeap``;
+
+val _ = translate leaf_def;
 val _ = translate root_def;
 val _ = translate rank_def;
 val _ = translate aux_def;
@@ -2005,6 +2074,65 @@ val _ = translate merge_tree_def;
 val _ = translate merge_def;
 val _ = translate get_min_def;
 val _ = translate delete_min_def;
+
+(* WIP
+The translator can't register the type bsbHeap for two reasons :
+  1. the refinement invariant generated for bsbHeap causes tDefine
+     (or Hold_defn) to crash.
+     To solve this, we modifie the invariant generated (by eta-expanding)
+     (ML_TRANSLATOR_BSBHEAP_TYPE a) to (\y z. ML_TRANSLATOR_BSBHEAP_TYPE a y z)
+
+  2. the tactic used in the translator to prove that the refinement
+     invariant always terminates doesn't work for our refinement invariant.
+
+Currently the idea is :
+
+- prove that the refinement invariant terminates (eventually modify it)
+- execute the rest of the register_type function manually
+*)
+val SKEWBINOMIALHEAP_SBTREE_TYPE_def = fetch "-" "SKEWBINOMIALHEAP_SBTREE_TYPE_def";
+
+val SKEWBINOMIALHEAP_BSBHEAP_TYPE_defn = Hol_defn "SKEWBINOMIALHEAP_BSBHEAP_TYPE" `
+(SKEWBINOMIALHEAP_BSBHEAP_TYPE a (Bsbheap x_2 x_1) foo ⇔
+        ∃v2_1 v2_2.
+            foo =
+            Conv (SOME (TypeStamp "Bsbheap" 4)) [v2_1; v2_2] ∧ a x_2 v2_1 ∧
+            CONTAINER LIST_TYPE
+              (λx v.
+                   if MEM x x_1 then
+                     SKEWBINOMIALHEAP_SBTREE_TYPE
+                       (\y v'.
+			 if BAG_IN y (tree_to_bag2 x) then
+			    SKEWBINOMIALHEAP_BSBHEAP_TYPE a y v'
+			 else
+		            ARB) x v
+                   else
+                     ARB) x_1 v2_2) ∧
+       (SKEWBINOMIALHEAP_BSBHEAP_TYPE a Bsbempty foo ⇔
+        foo = Conv (SOME (TypeStamp "Bsbempty" 4)) [])`;
+
+Defn.tgoal SKEWBINOMIALHEAP_BSBHEAP_TYPE_defn;
+
+val tac =
+  (WF_REL_TAC `measure ((bsbHeap_size (K 0)) o FST o SND)`
+   \\ REPEAT STRIP_TAC
+   (*TODO: \\ IMP_RES_TAC v_size_lemmas*)
+   \\ TRY DECIDE_TAC
+   \\ TRY (PAT_X_ASSUM MEM_pat (fn th =>
+           ASSUME_TAC th THEN Induct_on [ANTIQUOTE (rand (rand (concl th)))]))
+   \\ FULL_SIMP_TAC std_ss [MEM,FORALL_PROD,size_def] \\ REPEAT STRIP_TAC
+   \\ FULL_SIMP_TAC std_ss [] \\ RES_TAC \\ TRY DECIDE_TAC \\
+   imp_res_tac elem_tree_size \\
+   pop_assum (qspecl_then [`(K 0)`] mp_tac) \\
+   rw[]);
+
+val (SKEWBINOMIALHEAP_BSBHEAP_TYPE_def, SKEWBINOMIALHEAP_BSBHEAP_TYPE_ind) =
+    Defn.tprove (SKEWBINOMIALHEAP_BSBHEAP_TYPE_defn,tac);
+
+(* val _ = register_type ``:'a bsbHeap``; *)
+
+
+
 val _ = translate b_root_def;
 val _ = translate b_children_def;
 val _ = translate b_is_empty_def;
