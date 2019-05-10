@@ -173,18 +173,20 @@ Theorem get_files_contents_spec
         (\strings_v.
           STDIO fs *
           &(LIST_TYPE STRING_TYPE
-            (REVERSE (FLAT (MAP (all_lines fs o File) fnames))
+            (REVERSE (FLAT (MAP (all_lines fs) fnames))
               ++ (MAP implode acc))
              strings_v ∧
-            EVERY (inFS_fname fs o File) fnames))
+            EVERY (inFS_fname fs) fnames))
         (\e.
           STDIO fs *
           &(BadFileName_exn e ∧
-          ¬EVERY (inFS_fname fs o File) fnames)))`
+          ¬EVERY (inFS_fname fs) fnames)))`
   (Induct_on `fnames` >>
   rw [] >>
   xcf "get_files_contents" (get_ml_prog_state ()) >>
-  fs [LIST_TYPE_def] >>
+  (reverse(Cases_on`consistentFS fs`)
+  >-(fs[STDIO_def,IOFS_def] >> xpull >> fs[wfFS_def,consistentFS_def] >> res_tac))
+  \\ fs [LIST_TYPE_def] >>
   xmatch >>
   rw []
   >- (
@@ -197,7 +199,8 @@ Theorem get_files_contents_spec
   >- xsimpl >>
   qmatch_assum_abbrev_tac `validFD fd fs'` >>
   imp_res_tac nextFD_ltX \\
-  imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[] \\
+  progress inFS_fname_ALOOKUP_EXISTS\\
+  progress IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[] \\
   pop_assum(qspecl_then[`0`,`ReadMode`]strip_assume_tac) \\ rfs[] \\
   xlet_auto >- (
     fs[Abbr`fs'`]
@@ -236,13 +239,15 @@ val _ = (append_prog o process_topdecs) `
 
 val valid_sort_result_def = Define`
   valid_sort_result cl init_fs result_fs ⇔
-    let inodes = if LENGTH cl > 1
-                 then MAP File (TL cl)
-                 else [IOStream(strlit"stdin")] in
-    if LENGTH cl ≤ 1 ∨ EVERY (inFS_fname init_fs) inodes then
-      let lines = FLAT (MAP (all_lines init_fs) inodes) in
-      let fs = if LENGTH cl ≤ 1 then fastForwardFD init_fs 0 else init_fs in
-      ∃output.
+    if LENGTH cl ≤ 1 ∨ EVERY (inFS_fname init_fs) (TL cl) then
+      let (lines, fs) =
+        if LENGTH cl ≤ 1 then
+          (lines_of (implode (THE(ALOOKUP init_fs.inode_tbl (UStream(strlit"stdin"))))),
+           fastForwardFD init_fs 0)
+        else
+          (FLAT (MAP (all_lines init_fs) (TL cl)), init_fs)
+      in
+        ∃output.
         PERM output lines ∧
         SORTED mlstring_le output ∧
         result_fs = add_stdout fs (concat output)
@@ -305,10 +310,12 @@ Theorem sort_spec
   (xcf "sort" (get_ml_prog_state ()) >>
   xmatch >>
   qabbrev_tac `fnames = TL cl` >>
-  qabbrev_tac `inodes = if LENGTH cl > 1 then MAP File fnames else [IOStream(strlit"stdin")]` >>
+  qabbrev_tac `lines = if LENGTH cl ≤ 1 then
+    lines_of (implode (THE (ALOOKUP fs.inode_tbl (UStream (strlit "stdin")))))
+    else FLAT (MAP (all_lines fs) fnames)` >>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) >>
   fs[wfcl_def] >>
-  reverse(Cases_on`MEM (IOStream(strlit"stdin")) (MAP FST fs.files)`)
+  reverse(Cases_on`MEM (UStream(strlit"stdin")) (MAP FST fs.inode_tbl)`)
   >- (
     fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull
     \\ fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD]
@@ -323,10 +330,10 @@ Theorem sort_spec
   reverse (xhandle
     `POSTve
       (\uv. &(UNIT_TYPE () uv ∧
-              EVERY (inFS_fname fs) inodes) *
+              EVERY (inFS_fname fs) fnames) *
             STDIO (sort_sem cl fs) * COMMANDLINE cl)
       (\e.  &(BadFileName_exn e ∧
-              ¬EVERY (inFS_fname fs) inodes) *
+              ¬EVERY (inFS_fname fs) fnames) *
             STDIO fs * COMMANDLINE cl)`) >>
   xsimpl
   >- (
@@ -343,8 +350,8 @@ Theorem sort_spec
       CONV_TAC SWAP_EXISTS_CONV \\
       qexists_tac`fs` \\
       xsimpl ) \\
-    fs[Abbr`inodes`] \\
-    fs[inFS_fname_def,MEM_MAP,EXISTS_PROD] ) >>
+    fs[inFS_fname_def,MEM_MAP,EXISTS_PROD,Abbr`fnames`] >>
+    Cases_on`cl` >> fs[] >> Cases_on`t` >> fs[]) >>
   xlet_auto
   >- (xret >> xsimpl) >>
   xlet_auto >- xsimpl >>
@@ -353,12 +360,12 @@ Theorem sort_spec
        (\strings_v.
           COMMANDLINE cl * STDIO (if LENGTH cl ≤ 1 then fastForwardFD fs 0 else fs) *
           &(LIST_TYPE STRING_TYPE
-             (REVERSE (FLAT (MAP (all_lines fs) inodes))) strings_v ∧
-            EVERY (inFS_fname fs) inodes))
+             (REVERSE lines) strings_v ∧
+            EVERY (inFS_fname fs) fnames))
        (\e.
           COMMANDLINE cl * STDIO fs *
           &(BadFileName_exn e ∧
-          ¬EVERY (inFS_fname fs) inodes))` >>
+          ¬EVERY (inFS_fname fs) fnames))` >>
   xsimpl
   >- (
     `?command args. cl = command::args`
@@ -375,15 +382,17 @@ Theorem sort_spec
       simp[IS_SOME_EXISTS,PULL_EXISTS,EXISTS_PROD] \\
       instantiate \\
       CONV_TAC(RESORT_EXISTS_CONV List.rev) \\ qexists_tac`[]` \\
-      simp[LIST_TYPE_def,Abbr`inodes`] \\
+      simp[LIST_TYPE_def] \\
       xsimpl \\
       simp[linesFD_def,inFS_fname_def,INSTREAM_def,
            FD_def,stdin_v_thm,GSYM stdIn_def] \\
       rw[STD_streams_get_mode] \\
-      fs[get_file_content_def,all_lines_def,lines_of_def] \\
+      fs[get_file_content_def,all_lines_def,lines_of_def,Abbr`lines`] \\
       pairarg_tac \\ fs[] \\
-      `fnm = IOStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
-      fs[mlstringTheory.strcat_thm,MAP_MAP_o,MAP_REVERSE,o_DEF])
+      `ino = UStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
+      rw[] \\
+      fs[mlstringTheory.strcat_thm,MAP_MAP_o,MAP_REVERSE,o_DEF]
+      )
     \\ fs[LIST_TYPE_def]
     \\ xmatch
     \\ xlet_auto >- (xcon \\ xsimpl)
@@ -404,9 +413,8 @@ Theorem sort_spec
       match_mp_tac LIST_TYPE_mono \\
       asm_exists_tac \\
       fs[FILENAME_def,MEM_MAP,PULL_EXISTS] )
-    \\ `inodes = MAP File args` by simp[Abbr`inodes`,Abbr`args`]
-    \\ qunabbrev_tac`inodes` \\ pop_assum SUBST_ALL_TAC
-    \\ simp[MAP_MAP_o,EVERY_MAP,o_DEF,EXISTS_MAP] ) >>
+    \\ simp[Abbr`args`]
+ ) >>
   qmatch_assum_abbrev_tac `LIST_TYPE STRING_TYPE strings strings_v` >>
   imp_res_tac list_type_v_to_list \\
   (* TODO: This let should be solvable by xlet_auto *)
@@ -465,6 +473,7 @@ Theorem sort_spec
     DEEP_INTRO_TAC sort_sem_intro \\
     rw[valid_sort_result_def] \\
     qmatch_abbrev_tac`STDIO (add_stdout _ s1) * _ ==>> STDIO (add_stdout _ s2) *_` \\
+    fs[add_stdo_def] >>
     `s1 = s2` suffices_by xsimpl \\
     simp[Abbr`s1`,Abbr`s2`] \\
     simp [concat_def] \\

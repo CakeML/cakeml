@@ -504,18 +504,20 @@ Theorem print_matching_lines_in_file_spec
      [mv; fv]
      (STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
-                STDIO (if inFS_fname fs (File f)
+                STDIO (if inFS_fname fs f
                    then add_stdout fs
                       (concat
                           (MAP (strcat f o strcat (strlit":"))
-                            (FILTER m (all_lines fs (File f)))))
+                            (FILTER m (all_lines fs f))))
                    else add_stderr fs (notfound_string f)))`
   (xcf"print_matching_lines_in_file"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
+  \\ reverse(Cases_on`consistentFS fs`)
+  >-(fs[STDIO_def,IOFS_def] >> xpull >> fs[wfFS_def,consistentFS_def] >> res_tac)
   \\ qmatch_goalsub_abbrev_tac`_ * STDIO fs'`
   \\ reverse(xhandle`POSTve
        (λv. &UNIT_TYPE () v * STDIO fs')
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs (File f)) * STDIO fs)`)
+       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs)`)
   >- (
     xcases
     \\ fs[BadFileName_exn_def]
@@ -540,7 +542,8 @@ Theorem print_matching_lines_in_file_spec
   \\ xlet_auto >- xsimpl
   \\ qmatch_asmsub_abbrev_tac`add_stdout fs out`
   \\ imp_res_tac nextFD_ltX
-  \\ imp_res_tac IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[]
+  \\ progress inFS_fname_ALOOKUP_EXISTS
+  \\ progress IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[]
   \\ imp_res_tac STD_streams_nextFD
   \\ rpt(first_x_assum(qspecl_then[`0`,`ReadMode`]strip_assume_tac))
   \\ xlet_auto >- (
@@ -644,26 +647,29 @@ val _ = temp_overload_on("addout",``combin$C add_stdout``);
 val _ = temp_overload_on("adderr",``combin$C add_stderr``);
 
 val grep_sem_file_def = Define`
-  grep_sem_file L files filename =
-    case ALOOKUP files (File filename) of
-    | NONE => adderr (notfound_string filename)
-    | SOME contents => addout
+  grep_sem_file L filename fs =
+    case ALOOKUP fs.files filename of
+    | NONE => adderr (notfound_string filename) fs
+    | SOME ino =>
+        case ALOOKUP fs.inode_tbl (File ino) of
+        | SOME contents =>
+        addout
           (concat
             (MAP (λmatching_line. concat [filename;strlit":";implode matching_line;strlit"\n"])
-               (FILTER (λline. line ∈ L) (splitlines contents))))`;
+               (FILTER (λline. line ∈ L) (splitlines contents)))) fs`;
 
 val grep_sem_def = Define`
-  (grep_sem (_::regexp::filenames) files =
-   if NULL filenames then adderr usage_string else
+  (grep_sem (_::regexp::filenames) (fs : fsFFI$IO_fs) =
+   if NULL filenames then adderr usage_string fs else
    case parse_regexp (explode regexp) of
-   | NONE => adderr (parse_failure_string regexp)
+   | NONE => adderr (parse_failure_string regexp) fs
    | SOME r =>
        FOLDL
          (λaction filename.
-           grep_sem_file (regexp_lang r) files filename
+           grep_sem_file (regexp_lang r) filename
              o action)
-         I filenames) ∧
-  (grep_sem _ _ = adderr usage_string)`;
+         I filenames fs) ∧
+  (grep_sem _ fs = adderr usage_string fs)`;
 
 val grep_sem_ind = theorem"grep_sem_ind";
 
@@ -675,59 +681,80 @@ val grep_sem_ind = theorem"grep_sem_ind";
 *)
 
 Theorem grep_sem_file_MAP_FST_infds[simp]
-  `MAP FST (grep_sem_file L ls nm fs).infds = MAP FST fs.infds`
-  (rw[grep_sem_file_def] \\ CASE_TAC \\ simp[]);
+  `consistentFS fs ⇒ MAP FST (grep_sem_file L nm fs).infds = MAP FST fs.infds`
+  (rw[grep_sem_file_def] \\ CASE_TAC \\ simp[] \\ CASE_TAC \\ simp[]
+  \\ fs[consistentFS_def] \\ res_tac \\ fs[ALOOKUP_NONE]);
 
 Theorem grep_sem_file_maxFD[simp]
-  `(grep_sem_file L ls nm fs).maxFD = fs.maxFD`
-  (rw[grep_sem_file_def] \\ CASE_TAC \\ simp[]);
+  `consistentFS fs ⇒ (grep_sem_file L nm fs).maxFD = fs.maxFD`
+  (rw[grep_sem_file_def,consistentFS_def] \\ CASE_TAC \\ simp[] \\ res_tac \\
+  CASE_TAC \\ fs[ALOOKUP_NONE]);
 
 Theorem STD_streams_grep_sem_file
-  `STD_streams fs ⇒ STD_streams (grep_sem_file L fls fn fs)`
-  (rw[grep_sem_file_def]
-  \\ CASE_TAC \\ simp[STD_streams_add_stderr,STD_streams_add_stdout]);
+  `consistentFS fs /\ STD_streams fs ⇒ STD_streams (grep_sem_file L fn fs)`
+  (rw[grep_sem_file_def,consistentFS_def]
+  \\ rpt CASE_TAC \\ simp[STD_streams_add_stderr,STD_streams_add_stdout]
+  \\ res_tac >> fs[ALOOKUP_NONE]);
 
-Theorem grep_sem_file_FILTER_File[simp]
-  `grep_sem_file L (FILTER (isFile o FST) ls) = grep_sem_file L ls`
-  (rw[grep_sem_file_def,FUN_EQ_THM,ALOOKUP_FILTER,o_DEF,LAMBDA_PROD]);
-
-Theorem grep_sem_FILTER_File[simp]
-  `∀cl ls. grep_sem cl (FILTER (isFile o FST) ls) = grep_sem cl ls`
-  (ho_match_mp_tac grep_sem_ind
-  \\ rw[grep_sem_def]);
+Theorem consistentFS_grep_sem_file[simp]
+  `consistentFS fs ⇒
+    consistentFS (grep_sem_file L fn fs)`
+ (rw[grep_sem_file_def,consistentFS_def]
+  \\ rpt CASE_TAC
+  \\ fs[up_stdo_files,add_stdo_def] \\
+  res_tac >> fs[ALOOKUP_NONE]);
 
 Theorem grep_sem_file_lemma
-  `STD_streams fs ⇒
-   let fs' = FOLDL (λa f. grep_sem_file L fls f o a) I ls fs in
-     STD_streams fs' ∧ (hasFreeFD fs ⇒ hasFreeFD fs') ∧
-     FILTER (isFile o FST) fs'.files = FILTER (isFile o FST) fs.files`
+  `consistentFS fs /\ STD_streams fs ⇒
+   let fs' = FOLDL (λa f. grep_sem_file L f o a) I ls fs in
+     STD_streams fs'∧ consistentFS fs' ∧ (hasFreeFD fs ⇒ hasFreeFD fs') ∧
+     FILTER (isFile o FST) fs'.inode_tbl = FILTER (isFile o FST) fs.inode_tbl ∧
+     fs'.files = fs.files`
   (simp[]
   \\ qid_spec_tac`fs`
   \\ qid_spec_tac`ls`
   \\ ho_match_mp_tac SNOC_INDUCT
-  \\ rw[FOLDL_SNOC,STD_streams_grep_sem_file,FOLDL_APPEND]
+  \\ rw[FOLDL_SNOC,STD_streams_grep_sem_file,consistentFS_grep_sem_file,FOLDL_APPEND]
   \\ rw[Once grep_sem_file_def]
-  \\ CASE_TAC
-  \\ simp[FILTER_File_add_stderr,FILTER_File_add_stdout]);
+  >-(NTAC 2 (CASE_TAC \\
+       simp[FILTER_File_add_stderr,FILTER_File_add_stdout])
+     \\ res_tac \\ fs[consistentFS_def] \\ res_tac \\ fs[ALOOKUP_NONE])
+  >-(rpt (CASE_TAC \\
+       simp[FILTER_File_add_stderr,FILTER_File_add_stdout,add_stdo_def,up_stdo_def,fsupdate_def])
+     \\ res_tac \\ fs[consistentFS_def] \\ res_tac \\ fs[ALOOKUP_NONE])
+  );
+
+Theorem grep_sem_file_lemma'
+  `consistentFS fs ⇒
+     consistentFS (FOLDL (λa f. grep_sem_file L f o a) I ls fs)`
+ (simp[]
+  \\ qid_spec_tac`fs`
+  \\ qid_spec_tac`ls`
+  \\ ho_match_mp_tac SNOC_INDUCT
+  \\ rw[FOLDL_SNOC,consistentFS_grep_sem_file,FOLDL_APPEND]);
 
 Theorem grep_sem_file_with_numchars
-  `grep_sem_file L file filename (fs with numchars := ns) =
-   grep_sem_file L file filename fs with numchars := ns`
-  (rw[grep_sem_file_def] \\ CASE_TAC \\ rw[add_stdo_with_numchars]);
+  `consistentFS fs ⇒
+   grep_sem_file L filename (fs with numchars := ns) =
+   grep_sem_file L filename fs with numchars := ns`
+  (rw[grep_sem_file_def,consistentFS_def] \\ CASE_TAC \\ rw[add_stdo_with_numchars]
+  \\ CASE_TAC \\ res_tac \\ fs[ALOOKUP_NONE]);
 
 Theorem grep_sem_with_numchars
-  `∀cl fls fs.
-   grep_sem cl fls (fs with numchars := ns) =
-   grep_sem cl fls fs with numchars := ns`
+  `∀cl fs. consistentFS fs ⇒
+   grep_sem cl (fs with numchars := ns) =
+   grep_sem cl fs with numchars := ns`
   (recInduct grep_sem_ind
   \\ rw[grep_sem_def,add_stdo_with_numchars]
   \\ CASE_TAC \\ rw[add_stdo_with_numchars]
-  \\ rpt(pop_assum kall_tac)
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ pop_assum kall_tac
   \\ qid_spec_tac`fs`
   \\ qid_spec_tac`filenames`
   \\ ho_match_mp_tac SNOC_INDUCT
   \\ rw[FOLDL_SNOC,FOLDL_APPEND]
-  \\ rw[grep_sem_file_with_numchars]);
+  \\ rw[grep_sem_file_with_numchars,grep_sem_file_lemma']);
 
 val grep_termination_assum_def = Define`
   (grep_termination_assum (_::regexp::filenames) ⇔
@@ -744,11 +771,13 @@ Theorem grep_spec
    app (p:'ffi ffi_proj) ^(fetch_v"grep"(get_ml_prog_state()))
     [Conv NONE []]
     (STDIO fs * COMMANDLINE cl)
-    (POSTv v. &UNIT_TYPE () v * STDIO (grep_sem cl fs.files fs) * COMMANDLINE cl)`
+    (POSTv v. &UNIT_TYPE () v * STDIO (grep_sem cl fs) * COMMANDLINE cl)`
   (strip_tac
   \\ xcf"grep"(get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`)>-(fs[COMMANDLINE_def] \\ xpull)
+  \\ reverse(Cases_on`consistentFS fs`)
+  >-(fs[STDIO_def,IOFS_def,wfFS_def,consistentFS_def] >> xpull >> res_tac)
   \\ xlet_auto >- xsimpl
   \\ Cases_on`cl` \\ fs[wfcl_def]
   \\ Cases_on`t` \\ fs[LIST_TYPE_def]
@@ -802,14 +831,15 @@ Theorem grep_spec
   \\ simp[Abbr`a0`]
   \\ xmatch
   \\ rename1`parse_regexp _ = SOME r`
-  \\ qabbrev_tac`fcs = fs.files`
+  \\ qabbrev_tac`fcs = fs.inode_tbl`
   \\ xfun_spec`appthis`
-     `∀f fv fs.
-      FILENAME f fv ∧ hasFreeFD fs ∧
-      FILTER (isFile o FST) fcs = FILTER (isFile o FST) fs.files ⇒
-      app p appthis [fv] (STDIO fs)
+     `∀f fv fs'.
+      FILENAME f fv ∧ hasFreeFD fs' ∧ consistentFS fs' ∧
+      FILTER (isFile o FST) fs'.inode_tbl = FILTER (isFile o FST) fs.inode_tbl ∧
+      fs'.files = fs.files ⇒
+      app p appthis [fv] (STDIO fs')
         (POSTv v. &UNIT_TYPE () v
-                  * STDIO (grep_sem_file (regexp_lang r) fcs f fs))`
+                  * STDIO (grep_sem_file (regexp_lang r) f fs'))`
   >- (
     rw[]
     \\ first_x_assum match_mp_tac
@@ -818,16 +848,18 @@ Theorem grep_spec
     \\ instantiate
     \\ xsimpl
     \\ simp[grep_sem_file_def]
-    \\ `ALOOKUP fcs (File f) = ALOOKUP fs'.files (File f)`
+    \\ `ALOOKUP fs.inode_tbl (File f) = ALOOKUP fs'.inode_tbl (File f)`
     by (
-      first_x_assum(mp_tac o Q.AP_TERM`ALOOKUP`)
+      last_x_assum(mp_tac o Q.AP_TERM`ALOOKUP`)
       \\ disch_then(mp_tac o C Q.AP_THM`File f`)
       \\ simp[ALOOKUP_FILTER,o_DEF,LAMBDA_PROD] )
     \\ fs[]
     \\ reverse IF_CASES_TAC
-    >- ( CASE_TAC \\ xsimpl \\ imp_res_tac ALOOKUP_SOME_inFS_fname )
+    >- ( CASE_TAC \\ xsimpl \\ imp_res_tac ALOOKUP_SOME_inFS_fname \\
+         fs[inFS_fname_def] >> rfs[])
+    \\ CASE_TAC >-(fs[inFS_fname_def] \\ rfs[])
     \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
-    \\ simp[]
+    \\ rfs[]
     \\ qmatch_goalsub_abbrev_tac`add_stdout _ s1`
     \\ qmatch_goalsub_abbrev_tac`_ (add_stdout _ s2) * _`
     \\ `s1 = s2` suffices_by xsimpl
@@ -851,6 +883,8 @@ Theorem grep_spec
     \\ imp_res_tac regexp_matcher_with_limit_sound
     \\ rveq \\ fs[])
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
+  \\ reverse(Cases_on`consistentFS fs`)
+  >-(fs[STDIO_def,IOFS_def] >> xpull >> fs[wfFS_def,consistentFS_def] >> res_tac)
   \\ xapp_spec (INST_TYPE[alpha|->``:mlstring``]app_spec)
   \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
   \\ qexists_tac`λn. STDIO (FOLDL ff I (TAKE n fls) fs)`
@@ -872,7 +906,7 @@ Theorem grep_spec
     \\ fs[EVERY_MEM] )
   \\ first_x_assum drule
   \\ `TAKE (n+1) fls = (TAKE n fls) ++ [EL n fls]` by ( simp[TAKE_EL_SNOC] )
-  \\ simp[FOLDL_APPEND,Abbr`ff`,Abbr`fcs`]
+  \\ simp[FOLDL_APPEND,Abbr`ff`]
   \\ disch_then match_mp_tac
   \\ imp_res_tac grep_sem_file_lemma
   \\ fs[]);
@@ -880,12 +914,12 @@ Theorem grep_spec
 val st = get_ml_prog_state()
 
 Theorem grep_whole_prog_spec
-  `hasFreeFD fs ∧ grep_termination_assum cl ⇒
+  `consistentFS fs ⇒
    whole_prog_spec ^(fetch_v "grep" st) cl fs NONE
-     ((=) (grep_sem cl fs.files fs))`
+     ((=) (grep_sem cl fs))`
   (disch_then assume_tac
   \\ simp[whole_prog_spec_def]
-  \\ qexists_tac`grep_sem cl fs.files fs`
+  \\ qexists_tac`grep_sem cl fs`
   \\ simp[GSYM grep_sem_with_numchars,with_same_numchars]
   \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH grep_spec)))
   \\ xsimpl);

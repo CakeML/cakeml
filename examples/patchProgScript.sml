@@ -117,16 +117,16 @@ Theorem patch'_spec
      (STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
        STDIO
-       (if inFS_fname fs (File f1) then
-        if inFS_fname fs (File f2) then
-        case patch_alg (all_lines fs (File f2)) (all_lines fs (File f1)) of
+       (if inFS_fname fs f1 then
+        if inFS_fname fs f2 then
+        case patch_alg (all_lines fs f2) (all_lines fs f1) of
         | NONE => add_stderr fs rejected_patch_string
         | SOME s => add_stdout fs (concat s)
         else add_stderr fs (notfound_string f2)
         else add_stderr fs (notfound_string f1)))`
   (xcf"patch'"(get_ml_prog_state())
   \\ xlet_auto >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
+  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
   \\ fs[OPTION_TYPE_def]
   >- (reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
@@ -135,7 +135,7 @@ Theorem patch'_spec
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f2)`)
+  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f2`)
   \\ fs[OPTION_TYPE_def]
   >- (reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
@@ -159,10 +159,10 @@ val _ = (append_prog o process_topdecs) `
 val patch_sem_def = Define`
   patch_sem cl fs =
     if (LENGTH cl = 3) then
-    if inFS_fname fs (File (EL 1 cl)) then
-    if inFS_fname fs (File (EL 2 cl)) then
-     case patch_alg (all_lines fs (File (EL 2 cl)))
-                    (all_lines fs (File (EL 1 cl))) of
+    if inFS_fname fs (EL 1 cl) then
+    if inFS_fname fs (EL 2 cl) then
+     case patch_alg (all_lines fs (EL 2 cl))
+                    (all_lines fs (EL 1 cl)) of
        NONE => add_stderr fs (rejected_patch_string)
      | SOME s => add_stdout fs (concat s)
     else add_stderr fs (notfound_string (EL 2 cl))

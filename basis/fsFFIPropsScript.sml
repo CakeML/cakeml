@@ -69,9 +69,12 @@ Theorem bumpFD_numchars
         (bumpFD fd fs n) with numchars := THE (LTL ll)`
     (fs[bumpFD_def]);
 
+Theorem bumpFD_inode_tbl[simp]
+  `(bumpFD fd fs n).inode_tbl = fs.inode_tbl`
+
 Theorem bumpFD_files[simp]
   `(bumpFD fd fs n).files = fs.files`
-  (EVAL_TAC \\ CASE_TAC \\ rw[]);
+  (EVAL_TAC); (EVAL_TAC);
 
 Theorem bumpFD_o
  `!fs fd n1 n2.
@@ -131,6 +134,11 @@ val live_numchars_def = Define`
 val liveFS_def = Define`
   liveFS fs ⇔ live_numchars fs.numchars`;
 
+(* each inode refered to by a filename has a content *)
+val consistentFS_def = Define`
+  consistentFS fs = (∀fname ino. ALOOKUP fs.files fname = SOME ino ⇒
+        (File ino) ∈ FDOM (alist_to_fmap fs.inode_tbl))`
+
 (* well formed file descriptor: all descriptors are <= maxFD
 *  and correspond to file names in files *)
 
@@ -138,41 +146,46 @@ val wfFS_def = Define`
   wfFS fs =
     ((∀fd. fd ∈ FDOM (alist_to_fmap fs.infds) ⇒
          fd <= fs.maxFD ∧
-         ∃fnm off. ALOOKUP fs.infds fd = SOME (fnm,off) ∧
-                   fnm ∈ FDOM (alist_to_fmap fs.files))∧
-    liveFS fs)
+         ∃ino off. ALOOKUP fs.infds fd = SOME (ino,off) ∧
+                   ino ∈ FDOM (alist_to_fmap fs.inode_tbl))∧
+     consistentFS fs ∧ liveFS fs)
 `;
+
+Theorem consistentFS_with_numchars[simp]
+ `!fs ll. consistentFS fs ⇒ consistentFS (fs with numchars := ll)`
+ (fs[consistentFS_def]);
 
 Theorem wfFS_numchars
  `!fs ll. wfFS fs ==> ¬LFINITE ll ==>
           always (eventually (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0)) ll ==>
           wfFS (fs with numchars := ll)`
- (fs[wfFS_def,liveFS_def,live_numchars_def]);
+ (rw[wfFS_def,liveFS_def,live_numchars_def]);
 
 Theorem wfFS_LTL
  `!fs ll. wfFS (fs with numchars := ll) ==>
           wfFS (fs with numchars := THE (LTL ll))`
- (rw[wfFS_def,liveFS_def,live_numchars_def] >> cases_on `ll` >> fs[LDROP_1] >>
- imp_res_tac always_thm);
+ (rw[wfFS_def,liveFS_def,live_numchars_def,consistentFS_def] >>
+  cases_on `ll` >> fs[LDROP_1] >> imp_res_tac always_thm >> metis_tac[]);
 
 Theorem wfFS_openFile
   `wfFS fs ⇒ wfFS (openFileFS fnm fs md off)`
   (simp[openFileFS_def, openFile_def] >>
   Cases_on `nextFD fs <= fs.maxFD` >> simp[] >>
-  Cases_on `ALOOKUP fs.files (File fnm)` >> simp[] >>
-  dsimp[wfFS_def, MEM_MAP, EXISTS_PROD, FORALL_PROD] >> rw[] >>
+  Cases_on`ALOOKUP fs.files fnm` >> simp[] >>
+  Cases_on `ALOOKUP fs.inode_tbl (File x)` >> simp[] >>
+  dsimp[wfFS_def,consistentFS_def, MEM_MAP, EXISTS_PROD, FORALL_PROD] >> rw[] >>
   fs[liveFS_def] >> imp_res_tac ALOOKUP_EXISTS_IFF >>
   metis_tac[]);
 
 Theorem wfFS_ADELKEY[simp]
   `wfFS fs ⇒ wfFS (fs with infds updated_by ADELKEY k)`
   (simp[wfFS_def, MEM_MAP, PULL_EXISTS, FORALL_PROD, EXISTS_PROD,
-       ALOOKUP_ADELKEY,liveFS_def] >>
+       ALOOKUP_ADELKEY,liveFS_def,consistentFS_def] >>
        metis_tac[]);
 
 Theorem wfFS_LDROP
   `wfFS fs ==> wfFS (fs with numchars := (THE (LDROP k fs.numchars)))`
-  (rw[wfFS_def,liveFS_def,live_numchars_def,always_DROP] >>
+  (rw[wfFS_def,liveFS_def,live_numchars_def,always_DROP,consistentFS_def] >>
   imp_res_tac NOT_LFINITE_DROP >>
   first_x_assum (assume_tac o Q.SPEC `k`) >> fs[] >>
   metis_tac[NOT_LFINITE_DROP_LFINITE]);
@@ -181,17 +194,18 @@ Theorem wfFS_bumpFD[simp]
   `wfFS fs ⇒ wfFS (bumpFD fd fs n)`
   (simp[bumpFD_def] >>
   dsimp[wfFS_def, AFUPDKEY_ALOOKUP, option_case_eq, bool_case_eq,
-        EXISTS_PROD] >>
+        EXISTS_PROD,consistentFS_def] >>
   rw[] >- metis_tac[] >>
-  cases_on`fs.numchars` >> fs[liveFS_def,live_numchars_def] >> imp_res_tac always_thm);
+  cases_on`fs.numchars` >> fs[liveFS_def,live_numchars_def] >>
+  imp_res_tac always_thm >> metis_tac[]);
 
 (* end of file is reached when the position index is the length of the file *)
 
 val eof_def = Define`
   eof fd fsys =
     do
-      (fnm,md,pos) <- ALOOKUP fsys.infds fd ;
-      contents <- ALOOKUP fsys.files fnm ;
+      (ino,md,pos) <- ALOOKUP fsys.infds fd ;
+      contents <- ALOOKUP fsys.inode_tbl ino ;
       return (LENGTH contents <= pos)
     od
 `;
@@ -233,8 +247,8 @@ Theorem neof_read
   (mp_tac (Q.SPECL [`fd`, `fs`, `n`] read_def) >>
   rw[wfFS_def,liveFS_def,live_numchars_def] >>
   cases_on `ALOOKUP fs.infds fd` >> fs[eof_def] >>
-  PairCases_on `x` >> fs[] >>
-  cases_on `ALOOKUP fs.files x0` >> fs[eof_def] >>
+  cases_on `x` >> fs[] >>
+  cases_on `ALOOKUP fs.inode_tbl q` >> fs[eof_def] >>
   cases_on `fs.numchars` >> fs[] >>
   cases_on `DROP x2 contents` >> fs[] >>
   `x2 ≥ LENGTH contents` by fs[DROP_EMPTY] >>
@@ -249,39 +263,42 @@ Theorem get_file_content_eof
 (* inFS_fname *)
 
 val inFS_fname_def = Define `
-  inFS_fname fs s = (s ∈ FDOM (alist_to_fmap fs.files))`
+  inFS_fname fs s = (?ino. ALOOKUP fs.files s = SOME ino)`
 
 Theorem not_inFS_fname_openFile
-  `~inFS_fname fs (File fname) ⇒ openFile fname fs md off = NONE`
-  (fs [inFS_fname_def, openFile_def, ALOOKUP_NONE]
-  );
+  `~inFS_fname fs iname ⇒ openFile iname fs md off = NONE`
+  (rw[inFS_fname_def, openFile_def] >>
+  Cases_on`ALOOKUP fs.files iname` >> fs[]);
 
 Theorem inFS_fname_ALOOKUP_EXISTS
-  `inFS_fname fs fname ⇒ ∃content. ALOOKUP fs.files fname = SOME content`
-  (fs [inFS_fname_def, MEM_MAP] >> rpt strip_tac >> fs[] >>
-  rename1 `fname = FST p` >> Cases_on `p` >>
-  fs[ALOOKUP_EXISTS_IFF] >> metis_tac[]);
+  `! fs fname. consistentFS fs /\  inFS_fname fs fname ⇒
+    ∃ino content.
+      ALOOKUP fs.files fname = SOME ino /\
+      ALOOKUP fs.inode_tbl (File ino) = SOME content`
+ (fs [inFS_fname_def] >> rpt strip_tac >> fs[] >>
+  Cases_on`ALOOKUP fs.files fname` >> fs[ALOOKUP_NONE,wfFS_def] >>
+  rename1 `File ino` >>
+  Cases_on`ALOOKUP fs.inode_tbl (File ino)` >> fs[ALOOKUP_NONE,consistentFS_def] >>
+  rw[] >> res_tac >> fs[MEM_MAP]);
 
 Theorem ALOOKUP_SOME_inFS_fname
-  `ALOOKUP fs.files fnm = SOME contents ==> inFS_fname fs fnm`
-  (Induct_on `fs.files` >> rpt strip_tac >>
-  qpat_x_assum `_ = fs.files` (assume_tac o GSYM) >> rw[] >>
-  fs [inFS_fname_def] >> rename1 `fs.files = p::ps` >>
-  Cases_on `p` >> fs [ALOOKUP_def] >> every_case_tac >> fs[] >> rw[] >>
-  first_assum (qspec_then `fs with files := ps` assume_tac) >> fs []
-);
+  `ALOOKUP fs.files fnm = SOME ino ==> inFS_fname fs fnm`
+  (rw[openFileFS_def,openFile_def] \\ imp_res_tac inFS_fname_def);
 
 Theorem ALOOKUP_inFS_fname_openFileFS_nextFD
-  `inFS_fname fs (File f) ∧ nextFD fs <= fs.maxFD
+  `!fs f ino off md. consistentFS fs /\ inFS_fname fs f ∧ nextFD fs <= fs.maxFD ∧
+   ALOOKUP fs.files f = SOME ino
    ⇒
-   ALOOKUP (openFileFS f fs md off).infds (nextFD fs) = SOME (File f,md,off)`
-  (rw[openFileFS_def,openFile_def]
+   ALOOKUP (openFileFS f fs md off).infds (nextFD fs) = SOME (File ino,md,off)`
+  (
+  rw[openFileFS_def,openFile_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
-  \\ rw[]);
+  \\ rfs[]);
+
 
 Theorem inFS_fname_numchars
  `!s fs ll. inFS_fname (fs with numchars := ll) s = inFS_fname fs s`
-  (rw[] >> EVAL_TAC >> rpt(CASE_TAC >> fs[]));
+  (EVAL_TAC >> rw[]);
 
 (* ffi lengths *)
 
@@ -327,8 +344,8 @@ Theorem ffi_close_length
 val fastForwardFD_def = Define`
   fastForwardFD fs fd =
     the fs (do
-      (fnm,md,off) <- ALOOKUP fs.infds fd;
-      content <- ALOOKUP fs.files fnm;
+      (ino,md,off) <- ALOOKUP fs.infds fd;
+      content <- ALOOKUP fs.inode_tbl ino;
       SOME (fs with infds updated_by AFUPDKEY fd (I ## I ## MAX (LENGTH content)))
     od)`;
 
@@ -337,7 +354,7 @@ Theorem validFD_fastForwardFD[simp]
   (rw[validFD_def,fastForwardFD_def,bumpFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
 Theorem validFileFD_fastForwardFD[simp]
@@ -345,26 +362,33 @@ Theorem validFileFD_fastForwardFD[simp]
   (rw[validFileFD_def, fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds x` \\ rw[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ simp[]
   \\ rw[PAIR_MAP, FST_EQ_EQUIV, PULL_EXISTS, SND_EQ_EQUIV]
   \\ rw[EQ_IMP_THM]);
 
-Theorem fastForwardFD_files[simp]
-  `(fastForwardFD fs fd).files = fs.files`
+Theorem fastForwardFD_inode_tbl[simp]
+  `(fastForwardFD fs fd).inode_tbl = fs.inode_tbl`
   (EVAL_TAC
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
+
+Theorem fastForwardFD_files[simp]
+  `!fs fd. (fastForwardFD fs fd).files = fs.files`
+ (rw[fastForwardFD_def] >>
+  Cases_on`ALOOKUP fs.infds fd` >> fs[libTheory.the_def] >>
+  pairarg_tac >> fs[] >>
+  Cases_on`ALOOKUP fs.inode_tbl ino` >> fs[libTheory.the_def])
 
 Theorem ADELKEY_fastForwardFD_elim[simp]
   `ADELKEY fd (fastForwardFD fs fd).infds = ADELKEY fd fs.infds`
   (rw[fastForwardFD_def,bumpFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ rw[OPTION_GUARD_COND,libTheory.the_def]);
 
 Theorem fastForwardFD_ADELKEY_same[simp]
@@ -373,7 +397,7 @@ Theorem fastForwardFD_ADELKEY_same[simp]
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[libTheory.the_def]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ fs[IO_fs_component_equality,ADELKEY_unchanged])
 
 Theorem fastForwardFD_0
@@ -382,7 +406,7 @@ Theorem fastForwardFD_0
   (rw[fastForwardFD_def,get_file_content_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ fs[IO_fs_component_equality]
   \\ match_mp_tac AFUPDKEY_unchanged
   \\ rw[] \\ rw[PAIR_MAP_THM]
@@ -393,33 +417,57 @@ Theorem fastForwardFD_with_numchars
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]);
 
 Theorem fastForwardFD_numchars[simp]
   `(fastForwardFD fs fd).numchars = fs.numchars`
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]);
 
 Theorem fastForwardFD_maxFD[simp]
   `(fastForwardFD fs fd).maxFD = fs.maxFD`
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]);
+
+Theorem wfFS_fastForwardFD[simp]
+  `!fs fd. validFD fd fs /\ wfFS fs ==> wfFS (fastForwardFD fs fd)`
+ (rw[wfFS_def,fastForwardFD_def,validFD_def]
+  \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
+  \\ pairarg_tac \\ fs[]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
+  \\ rw[]
+  >-(res_tac \\ simp[AFUPDKEY_ALOOKUP] \\ CASE_TAC \\ fs[])
+  >-(fs[consistentFS_def] \\ rw[] \\ res_tac)
+  >-(fs[liveFS_def]))
+
+Theorem fsupdate_fastForwardFD_comm
+  `∀fs fd1 fd2 k p c .
+     ALOOKUP fs.infds fd1 = SOME(ino1,r,pos1) /\
+     ALOOKUP fs.infds fd2 = SOME(ino2,r',pos2) /\
+     ALOOKUP fs.inode_tbl ino1 = SOME content1 /\
+     ALOOKUP fs.inode_tbl ino2 = SOME content2 /\
+     ino1 ≠ ino2 ⇒
+         fsupdate (fastForwardFD fs fd1) fd2 k p c =
+         fastForwardFD (fsupdate fs fd2 k p c) fd1`
+ (rw[fsupdate_def,fastForwardFD_def,AFUPDKEY_ALOOKUP] >> EVAL_TAC >>
+  fs[AFUPDKEY_ALOOKUP,IO_fs_component_equality,AFUPDKEY_comm]);
 
 (* fsupdate *)
 
 Theorem wfFS_fsupdate
     `! fs fd content pos k. wfFS fs ==> MEM fd (MAP FST fs.infds) ==>
                             wfFS (fsupdate fs fd k pos content)`
-  (rw[wfFS_def,fsupdate_def]
+  (rw[wfFS_def,fsupdate_def,consistentFS_def]
+
   >- (res_tac \\ fs[])
-  >- (
-    CASE_TAC \\ fs[] \\
-    CASE_TAC \\ fs[AFUPDKEY_ALOOKUP] \\
-    res_tac \\ fs[] \\ rw[] )
+  >- (CASE_TAC \\ fs[] \\
+      CASE_TAC \\ fs[AFUPDKEY_ALOOKUP] \\
+      res_tac \\ fs[] \\ rw[])
+  >-(res_tac >> fs[] >> res_tac)
   >-( CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] \\
       fs[liveFS_def,live_numchars_def,always_DROP] >>
      `∃y. LDROP k fs.numchars = SOME y` by(fs[NOT_LFINITE_DROP]) >>
@@ -438,7 +486,8 @@ Theorem fsupdate_o
   (rw[fsupdate_def]
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
-  \\ fs[AFUPDKEY_ALOOKUP,AFUPDKEY_o] \\
+  \\ fs[IO_fs_component_equality]
+  \\ fs[AFUPDKEY_ALOOKUP,AFUPDKEY_o,AFUPDKEY_eq] \\
   fs[LDROP_ADD,liveFS_def,live_numchars_def] >> imp_res_tac NOT_LFINITE_DROP >>
   FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`k1`) >> fs[]
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
@@ -448,7 +497,7 @@ Theorem fsupdate_o_0[simp]
   `fsupdate (fsupdate fs fd 0 pos1 c1) fd 0 pos2 c2 =
    fsupdate fs fd 0 pos2 c2`
   (rw[fsupdate_def] \\ CASE_TAC \\ fs[] \\ CASE_TAC \\ fs[] \\
-  rw[AFUPDKEY_ALOOKUP,AFUPDKEY_o]
+  rw[IO_fs_component_equality,AFUPDKEY_ALOOKUP,AFUPDKEY_o]
   \\ rpt(AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ simp[FUN_EQ_THM, FORALL_PROD]);
 
@@ -464,6 +513,10 @@ Theorem fsupdate_comm
 
 Theorem fsupdate_MAP_FST_infds[simp]
   `MAP FST (fsupdate fs fd k pos c).infds = MAP FST fs.infds`
+  (rw[fsupdate_def] \\ every_case_tac \\ rw[]);
+
+Theorem fsupdate_MAP_FST_inode_tbl[simp]
+  `MAP FST (fsupdate fs fd k pos c).inode_tbl = MAP FST fs.inode_tbl`
   (rw[fsupdate_def] \\ every_case_tac \\ rw[]);
 
 Theorem fsupdate_MAP_FST_files[simp]
@@ -546,7 +599,7 @@ Theorem get_file_content_bumpFD[simp]
  \\ CASE_TAC \\ fs[]
  \\ pairarg_tac \\ fs[]
  \\ pairarg_tac \\ fs[] \\ rw[]
- \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[]);
+ \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]);
 
 (* liveFS *)
 
@@ -579,23 +632,32 @@ Theorem openFile_fupd_numchars
   (rw[openFile_def,nextFD_def] >> rpt(CASE_TAC >> fs[]) >>
   rfs[IO_fs_component_equality]);
 
-Theorem openFileFS_numchars
+Theorem openFileFS_numchars[simp]
   `!s fs k. (openFileFS s fs md k).numchars = fs.numchars`
    (rw[openFileFS_def] \\ CASE_TAC \\ CASE_TAC
    \\ fs[openFile_def] \\ rw[]);
 
+Theorem openFileFS_inode_tbl[simp]
+  `!s fs k md. (openFileFS s fs md k).inode_tbl = fs.inode_tbl`
+ (rw[openFileFS_def] \\ CASE_TAC \\ CASE_TAC \\ fs[openFile_def] \\ rw[]);
+
+ Theorem openFileFS_files[simp]
+  `!s fs k md. (openFileFS s fs md k).files = fs.files`
+ (rw[openFileFS_def] \\ CASE_TAC \\ CASE_TAC \\ fs[openFile_def] \\ rw[]);
+
 Theorem wfFS_openFileFS
-  `!f fs k.CARD (FDOM (alist_to_fmap fs.infds)) <= fs.maxFD /\ wfFS fs ==>
+  `!f fs k md. CARD (FDOM (alist_to_fmap fs.infds)) <= fs.maxFD /\ wfFS fs ==>
                    wfFS (openFileFS f fs md k)`
   (rw[wfFS_def,openFileFS_def,liveFS_def] >> full_case_tac >> fs[openFile_def] >>
   cases_on`x` >> rw[] >> fs[MEM_MAP] >> res_tac >> fs[]
-  >-(imp_res_tac ALOOKUP_MEM >-(qexists_tac`(File f,x')` >> fs[])) >>
-  CASE_TAC
-  >-(cases_on`y` >> fs[] >> PairCases_on`r` >> fs[] >> metis_tac[nextFD_NOT_MEM])
-  >> metis_tac[])
+  >-(imp_res_tac ALOOKUP_MEM >-(qexists_tac`(File iname,x')` >> fs[]))
+  >-(CASE_TAC
+     >-(cases_on`y` >> fs[] >> PairCases_on`r` >> fs[] >> metis_tac[nextFD_NOT_MEM])
+     >-(metis_tac[]))
+  >-(fs[consistentFS_def,MEM_MAP] >> rw[] >> res_tac >> metis_tac[]));
 
-Theorem openFileFS_files[simp]
- `!f fs pos. (openFileFS f fs md pos).files = fs.files`
+Theorem openFileFS_inode_tbl[simp]
+ `!f fs pos. (openFileFS f fs md pos).inode_tbl = fs.inode_tbl`
   (rw[openFileFS_def] >> CASE_TAC >> cases_on`x` >>
   fs[IO_fs_component_equality,openFile_def]);
 
@@ -613,11 +675,11 @@ Theorem openFileFS_fupd_numchars
   (rw[openFileFS_def,openFile_fupd_numchars] >> rpt CASE_TAC);
 
 Theorem IS_SOME_get_file_content_openFileFS_nextFD
-  `inFS_fname fs (File f) ∧ nextFD fs ≤ fs.maxFD
+  `!fs f off md. consistentFS fs ∧ inFS_fname fs f ∧ nextFD fs ≤ fs.maxFD
    ⇒ IS_SOME (get_file_content (openFileFS f fs md off) (nextFD fs)) `
-  (rw[get_file_content_def]
-  \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[]
-  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]);
+   (rw[get_file_content_def]
+  \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS \\ fs[]
+  \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD \\ simp[]);
 
 Theorem ADELKEY_nextFD_openFileFS[simp]
   `nextFD fs <= fs.maxFD ⇒
@@ -632,7 +694,7 @@ Theorem ADELKEY_nextFD_openFileFS[simp]
 Theorem openFileFS_ADELKEY_nextFD
   `nextFD fs ≤ fs.maxFD ⇒
    openFileFS f fs md off with infds updated_by ADELKEY (nextFD fs) = fs`
-  (rw[IO_fs_component_equality,openFileFS_numchars,ADELKEY_nextFD_openFileFS]);
+  (rw[IO_fs_component_equality,ADELKEY_nextFD_openFileFS]);
 
 (* forwardFD: like bumpFD but leave numchars *)
 
@@ -642,6 +704,7 @@ val forwardFD_def = Define`
 
 Theorem forwardFD_const[simp]
   `(forwardFD fs fd n).files = fs.files ∧
+   (forwardFD fs fd n).inode_tbl = fs.inode_tbl ∧
    (forwardFD fs fd n).numchars = fs.numchars ∧
    (forwardFD fs fd n).maxFD = fs.maxFD`
   (rw[forwardFD_def]);
@@ -676,7 +739,7 @@ Theorem validFD_forwardFD[simp]
 
 Theorem wfFS_forwardFD[simp]
   `wfFS (forwardFD fs fd n) = wfFS fs`
-  (rw[wfFS_def]
+  (rw[wfFS_def,consistentFS_def]
   \\ rw[forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ rw[EQ_IMP_THM]
   \\ res_tac \\ fs[]
@@ -692,7 +755,7 @@ Theorem get_file_content_forwardFD[simp]
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[] \\ rw[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[]);
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]);
 
 Theorem bumpFD_forwardFD
   `bumpFD fd fs n = forwardFD fs fd n with numchars := THE (LTL fs.numchars)`
@@ -739,15 +802,22 @@ Theorem linesFD_nil_lineFD_NONE
   \\ CASE_TAC \\ fs[]
   \\ pairarg_tac \\ fs[DROP_NIL]);
 
-(* all_lines: get all the lines based on filename *)
 
 val lines_of_def = Define `
   lines_of str =
     MAP (\x. strcat (implode x) (implode "\n"))
           (splitlines (explode str))`
 
+(* all_lines_inode: get all the lines based on an inode *)
+
+val _ = overload_on("all_lines_inode",
+  ``λfs ino. lines_of (implode (THE (ALOOKUP fs.inode_tbl ino)))``)
+
+(* all_lines: get all the lines based on filename *)
+
 val all_lines_def = Define `
-  all_lines fs fname = lines_of (implode (THE (ALOOKUP fs.files fname)))`
+  all_lines fs fname =
+    all_lines_inode fs (File (THE(ALOOKUP fs.files fname)))`
 
 Theorem concat_lines_of
   `!s. concat (lines_of s) = s ∨
@@ -779,8 +849,8 @@ Theorem concat_lines_of
     qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC ));
 
 Theorem concat_all_lines
-  `concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ∨
-   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.files fname)) ^ str #"\n"`
+  `concat (all_lines fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ∨
+   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ str #"\n"`
   (fs [all_lines_def,concat_lines_of]);
 
 Theorem all_lines_with_numchars
@@ -788,11 +858,12 @@ Theorem all_lines_with_numchars
   (rw[FUN_EQ_THM,all_lines_def]);
 
 Theorem linesFD_openFileFS_nextFD
-  `inFS_fname fs (File f) ∧ nextFD fs ≤ fs.maxFD ⇒
-   linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines fs (File f))`
+  `consistentFS fs ∧ inFS_fname fs f ∧ nextFD fs ≤ fs.maxFD ⇒
+   linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines fs f)`
   (rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
   \\ rw[all_lines_def,lines_of_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
+  \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
   \\ fs[MAP_MAP_o,o_DEF,GSYM mlstringTheory.implode_STRCAT]);
 
 (* lineForwardFD: seek past the next line *)
@@ -944,18 +1015,18 @@ Theorem get_file_content_lineForwardFD_forwardFD
 (* Property ensuring that standard streams are correctly opened *)
 val STD_streams_def = Define
   `STD_streams fs = ?inp out err.
-    (ALOOKUP fs.files (IOStream(strlit "stdout")) = SOME out) ∧
-    (ALOOKUP fs.files (IOStream(strlit "stderr")) = SOME err) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (IOStream(strlit "stdin"),md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (IOStream(strlit "stdout"),md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
-    (∀fd md off. ALOOKUP fs.infds fd = SOME (IOStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)`;
+    (ALOOKUP fs.inode_tbl (UStream(strlit "stdout")) = SOME out) ∧
+    (ALOOKUP fs.inode_tbl (UStream(strlit "stderr")) = SOME err) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdin"),md,off) ⇔ fd = 0 ∧ md = ReadMode ∧ off = inp) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stdout"),md,off) ⇔ fd = 1 ∧ md = WriteMode ∧ off = LENGTH out) ∧
+    (∀fd md off. ALOOKUP fs.infds fd = SOME (UStream(strlit "stderr"),md,off) ⇔ fd = 2 ∧ md = WriteMode ∧ off = LENGTH err)`;
 
 Theorem STD_streams_fsupdate
   `! fs fd k pos c.
    ((fd = 1 \/ fd = 2) ==> LENGTH c = pos) /\
    (*
-   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> IOStream(strlit "stdout") /\
-                 FST(THE (ALOOKUP fs.infds fd)) <> IOStream(strlit "stderr"))) /\
+   (fd >= 3 ==> (FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stdout") /\
+                 FST(THE (ALOOKUP fs.infds fd)) <> UStream(strlit "stderr"))) /\
    *)
     STD_streams fs ==>
     STD_streams (fsupdate fs fd k pos c)`
@@ -964,7 +1035,7 @@ Theorem STD_streams_fsupdate
   \\ CASE_TAC \\ fs[AFUPDKEY_ALOOKUP]
   \\ qmatch_goalsub_abbrev_tac`out' = SOME _ ∧ (err' = SOME _ ∧ _)`
   \\ qmatch_assum_rename_tac`_ = SOME (fnm,_)`
-  \\ map_every qexists_tac[`if fnm = IOStream(strlit"stdin") then pos else inp`,`THE out'`,`THE err'`]
+  \\ map_every qexists_tac[`if fnm = UStream(strlit"stdin") then pos else inp`,`THE out'`,`THE err'`]
   \\ conj_tac >- rw[Abbr`out'`]
   \\ conj_tac >- rw[Abbr`err'`]
   \\ unabbrev_all_tac
@@ -986,9 +1057,9 @@ Theorem STD_streams_numchars
  (fs[STD_streams_def]);
 
 val lemma = Q.prove(
-  `IOStream (strlit "stdin") ≠ IOStream (strlit "stdout") ∧
-   IOStream (strlit "stdin") ≠ IOStream (strlit "stderr") ∧
-   IOStream (strlit "stdout") ≠ IOStream (strlit "stderr")`,rw[]);
+  `UStream (strlit "stdin") ≠ UStream (strlit "stdout") ∧
+   UStream (strlit "stdin") ≠ UStream (strlit "stderr") ∧
+   UStream (strlit "stdout") ≠ UStream (strlit "stderr")`,rw[]);
 
 Theorem STD_streams_forwardFD
   `fd ≠ 1 ∧ fd ≠ 2 ⇒
@@ -1054,13 +1125,13 @@ Theorem STD_streams_fastForwardFD
   (rw[fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ fs[libTheory.the_def]
   \\ pairarg_tac \\ fs[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ fs[libTheory.the_def]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[libTheory.the_def]
   \\ EQ_TAC \\ rw[STD_streams_def,option_case_eq,AFUPDKEY_ALOOKUP,PAIR_MAP] \\ rw[]
   >- (
-    qmatch_assum_rename_tac`ALOOKUP _ fnm = SOME r` \\
+    qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\
     qexists_tac`if fd = 0 then off else inp` \\ rw[] \\
     metis_tac[SOME_11,PAIR,FST,SND,lemma] ) \\
-  qmatch_assum_rename_tac`ALOOKUP _ fnm = SOME r` \\
+  qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\
   qexists_tac`if fd = 0 then MAX (LENGTH r) off else inp` \\ rw[EXISTS_PROD] \\
   metis_tac[SOME_11,PAIR,FST,SND,lemma] );
 
@@ -1093,5 +1164,14 @@ Theorem STD_streams_get_mode
    (get_mode fs 2 = SOME WriteMode)`
   (rw[STD_streams_def, get_mode_def, EXISTS_PROD]
   \\ metis_tac[]);
+
+val _ = overload_on("hard_link",
+       ``λfs fn1 fn2. ∃ino.  ALOOKUP fs.files fn1 = SOME ino ∧
+                             ALOOKUP fs.files fn2 = SOME ino``);
+val pipe_def = Define`
+  pipe fs (fdin, fdout) c =
+    (∃ ino ipos. ALOOKUP fs.infds fdin = SOME (UStream ino, ReadMode, ipos) ∧
+            ALOOKUP fs.infds fdout = SOME (UStream ino, WriteMode, LENGTH c) ∧
+            ALOOKUP fs.inode_tbl (UStream ino) = SOME c)`
 
 val _ = export_theory();

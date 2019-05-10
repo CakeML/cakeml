@@ -421,12 +421,14 @@ Theorem read_file_spec
   (xcf "read_file" (get_ml_prog_state())
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
+  \\ reverse (Cases_on`consistentFS fs`)
+  >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[])
   \\ simp[read_file_def]
   \\ reverse IF_CASES_TAC \\ fs[]
   >- (
     xhandle`POSTe ev.
       &BadFileName_exn ev *
-      &(~inFS_fname fs (File fnm)) *
+      &(~inFS_fname fs fnm) *
       STDIO fs * HOL_STORE refs`
     >- ( xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl )
     \\ fs[BadFileName_exn_def]
@@ -454,8 +456,10 @@ Theorem read_file_spec
   \\ xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl
   \\ qspecl_then [`fs.maxFD`,`fs`] mp_tac (GEN_ALL nextFD_leX)
   \\ impl_tac \\ fs [] \\ rw []
-  \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
-  \\ disch_then (qspecl_then [`0`,`ReadMode`] mp_tac) \\ rw []
+  \\ progress inFS_fname_ALOOKUP_EXISTS
+  \\ drule ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ qmatch_assum_rename_tac`ALOOKUP _.files _ = SOME ino`
+  \\ disch_then (qspecl_then [`fnm`,`ino`, `0`,`ReadMode`] mp_tac) \\ rw []
   \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds fd`
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ `get_file_content fs' fd = SOME (content,0)`
