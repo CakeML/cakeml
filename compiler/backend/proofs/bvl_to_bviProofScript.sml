@@ -2257,7 +2257,7 @@ val compile_exps_correct = Q.prove(
           \\ fs [lookup_fromAList] \\ imp_res_tac ALOOKUP_MEM
           \\ fs [domain_lookup]
           \\ Cases_on `lookup kk t2.code` \\ fs []
-          \\ fs [MEM_MAP,FORALL_PROD] \\ PairCases_on `v` \\ metis_tac [])
+          \\ fs [MEM_MAP,FORALL_PROD] \\ PairCases_on `y` \\ metis_tac [])
         \\ match_mp_tac aux_code_installed_sublist \\ fs [])
       \\ imp_res_tac ALOOKUP_MEM
       \\ fs [names_ok_def]
