@@ -66,7 +66,7 @@ val find_min_def = Define `
     let firstroot = (root x)
     in
       case (find_min geq xs) of
-	NONE => NONE
+  NONE => NONE
       | (SOME minrest) => SOME (if (geq minrest firstroot) then firstroot else minrest))
 `;
 
@@ -196,7 +196,7 @@ val is_tree_ordered_def = Define `
    (is_tree_ordered geq (Sbnode x r a (c::cs)) =
       ((is_tree_ordered geq c) /\
       (BAG_EVERY (\y. geq y x) (tree_to_bag c)) /\
-	 (is_tree_ordered geq (Sbnode x r a cs))))
+   (is_tree_ordered geq (Sbnode x r a cs))))
 `;
 
 val is_heap_ordered_def = Define `
@@ -293,7 +293,7 @@ QED;
 
 Theorem heap_to_bag_app:
   !l1 l2. heap_to_bag (l1++l2) = BAG_UNION (heap_to_bag l1)
-					  (heap_to_bag l2)
+            (heap_to_bag l2)
 Proof
   Induct_on `l1` >> rw[tree_to_bag_def] >>
   metis_tac [APPEND, COMM_BAG_UNION, ASSOC_BAG_UNION]
@@ -378,7 +378,7 @@ Proof
       >- (rw[b_heap_comparison_def] \\
           Cases_on `y`
           >- fs[b_heap_comparison_def]
-	  >- (fs[b_heap_comparison_def] \\
+    >- (fs[b_heap_comparison_def] \\
               metis_tac[transitive_def])))
   >- (Cases_on `x` \\ Cases_on `y`
       >- (DISJ1_TAC \\ rw[b_heap_comparison_def])
@@ -553,7 +553,7 @@ Proof
   >- rw [tree_to_bag_def, binomial_insert_def, tree_link_def]
   >- (Cases_on `t` \\ Cases_on `h'` \\
       srw_tac [BAG_ss] [tree_to_bag_def, tree_link_def,
-			binomial_insert_def, tree_to_bag_def, BAG_INSERT_UNION] \\
+      binomial_insert_def, tree_to_bag_def, BAG_INSERT_UNION] \\
       rw[rank_irrelevance_bag])
 QED;
 
@@ -582,9 +582,9 @@ Proof
   >- rw[insert_def, tree_to_bag_def, leaf_def, tree_to_bag_def, LIST_TO_BAG_def]
   >- (Cases_on `t`
       >- rw[insert_def, tree_to_bag_def, leaf_def,
-	    tree_to_bag_def, LIST_TO_BAG_def, BAG_INSERT_UNION]
+      tree_to_bag_def, LIST_TO_BAG_def, BAG_INSERT_UNION]
       >- (rw[insert_def, tree_to_bag_def, leaf_def,
-	     tree_to_bag_def, LIST_TO_BAG_def, skew_link_bag]
+       tree_to_bag_def, LIST_TO_BAG_def, skew_link_bag]
           >- metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION,
                 (GSYM BAG_UNION_INSERT), BAG_UNION_LEFT_CANCEL]
           >- rw[BAG_INSERT_UNION]))
@@ -601,7 +601,7 @@ Proof
   >- (Cases_on `t` \\
       rw[is_heap_ordered_def, insert_def,leaf_def,
          is_tree_ordered_def, BAG_EVERY, LIST_TO_BAG_def,
-	 skew_link_order])
+   skew_link_order])
 QED;
 
 Theorem insert_list_order:
@@ -669,7 +669,7 @@ Proof
   rw[merge_tree_def, tree_to_bag_def] \\
   Induct_on `t1` \\
   srw_tac [BAG_ss] [merge_tree_def, tree_to_bag_def,
-	            binomial_insert_bag, tree_link_bag]
+              binomial_insert_bag, tree_link_bag]
 QED;
 
 Theorem merge_tree_order:
@@ -683,9 +683,9 @@ Proof
   >- (Induct_on `t1`
       >- rw[is_heap_ordered_def, merge_tree_def]
       >- (rw[merge_tree_def]
-	  >- fs[is_heap_ordered_def]
-	  >- fs[is_heap_ordered_def]
-	  >- (fs[is_heap_ordered_def] \\
+    >- fs[is_heap_ordered_def]
+    >- fs[is_heap_ordered_def]
+    >- (fs[is_heap_ordered_def] \\
               `is_tree_ordered geq (tree_link geq h h')`
                by rw[tree_link_order] \\
               `is_heap_ordered geq (merge_tree geq t1 t2)`
@@ -710,9 +710,9 @@ Theorem merge_order:
 Proof
   Cases_on `h2`
   >- rw[is_heap_ordered_def, merge_def, normalize_def,
-	merge_tree_def, normalize_order]
+  merge_tree_def, normalize_order]
   >- (rw[is_heap_ordered_def, merge_def, normalize_def,
-	merge_tree_def, normalize_def] \\
+  merge_tree_def, normalize_def] \\
       `is_heap_ordered geq (normalize geq h1)`
        by rw[normalize_order] \\
       `is_heap_ordered geq (binomial_insert geq h t)`
@@ -740,7 +740,7 @@ QED;
 Theorem find_min_bag:
   !geq h. TotalPreOrder geq /\
           h <> [] /\
-	  is_heap_ordered geq h ==>
+    is_heap_ordered geq h ==>
           BAG_IN (THE (find_min geq h)) (heap_to_bag h)
 Proof
   Induct_on `h`
@@ -753,7 +753,7 @@ Proof
           Cases_on `find_min geq (h''::t)`
           >- `find_min geq (h''::t) <> NONE`
              by rw[find_min_exists]
-	  >- (rw[]
+    >- (rw[]
               >- (DISJ1_TAC \\
                   rw[root_in_tree_bag])
               >- (DISJ2_TAC \\
@@ -765,7 +765,7 @@ QED;
 Theorem find_min_correct:
   !geq h. TotalPreOrder geq /\
           h <> [] /\
-	  is_heap_ordered geq h ==>
+    is_heap_ordered geq h ==>
           !y. (BAG_IN y (heap_to_bag h)) ==> (geq y (THE (find_min geq h)))
 Proof
   Induct_on `h`
@@ -776,33 +776,33 @@ Proof
       >- (Cases_on `h'` \\
           Induct_on `l`
           >- (rw[is_heap_ordered_def, tree_to_bag_def, find_min_def,
-		THE_DEF, root_def, tree_to_bag_def, is_tree_ordered_def] \\
+    THE_DEF, root_def, tree_to_bag_def, is_tree_ordered_def] \\
               fs[TotalPreOrder, PreOrder, reflexive_def, BAG_EVERY])
-	  >- (rw[is_heap_ordered_def, tree_to_bag_def, find_min_def,
-		THE_DEF, root_def, tree_to_bag_def, is_tree_ordered_def,
-	        BAG_EVERY] \\
+    >- (rw[is_heap_ordered_def, tree_to_bag_def, find_min_def,
+    THE_DEF, root_def, tree_to_bag_def, is_tree_ordered_def,
+          BAG_EVERY] \\
               fs[is_heap_ordered_def, tree_to_bag_def, find_min_def, root_def]))
       >- (rw[find_min_def] \\
           Cases_on `find_min geq (h''::t)`
           >- `find_min geq (h''::t) <> NONE`
              by rw[find_min_exists]
-	  >- (rw[]
-	      >- (fs[tree_to_bag_def, is_heap_ordered_def]
-	          >- metis_tac[root_smallest]
-		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
+    >- (rw[]
+        >- (fs[tree_to_bag_def, is_heap_ordered_def]
+            >- metis_tac[root_smallest]
+      >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
                       fs[THE_DEF, PreOrder, TotalPreOrder] \\
                       metis_tac[transitive_def])
-		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
+      >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
                       fs[THE_DEF, PreOrder, TotalPreOrder] \\
                       metis_tac[transitive_def]))
-	      >- (fs[tree_to_bag_def, is_heap_ordered_def]
-		  >- (`geq y (root h')` by rw[root_smallest] \\
+        >- (fs[tree_to_bag_def, is_heap_ordered_def]
+      >- (`geq y (root h')` by rw[root_smallest] \\
                       fs[PreOrder, TotalPreOrder] \\
                       metis_tac[transitive_def, total_def])
-		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
+      >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
                       fs[THE_DEF, PreOrder, TotalPreOrder] \\
                       metis_tac[transitive_def])
-		  >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
+      >- (res_tac \\ `geq y (THE (SOME x))` by metis_tac[] \\
                       fs[THE_DEF, PreOrder, TotalPreOrder] \\
                       metis_tac[transitive_def])))))
 QED;
@@ -812,7 +812,7 @@ Theorem find_min_correct':
           h <> [] /\
           is_heap_ordered geq h ==>
           BAG_EVERY (\y. geq y (THE (find_min geq h)))
-	            (heap_to_bag h)
+              (heap_to_bag h)
 Proof
   rpt strip_tac \\
   imp_res_tac find_min_correct \\
@@ -837,7 +837,7 @@ Proof
       >- (rw[get_min_def, tree_to_bag_def, tree_to_bag_def] \\
           Cases_on `get_min geq (h'::t)` \\
           fs[] \\
-	  Cases_on `geq (root q) (root h)`
+    Cases_on `geq (root q) (root h)`
           >- fs[tree_to_bag_def]
           >- (fs[tree_to_bag_def] \\
               `(q,r) = get_min geq (h'::t)` by
@@ -877,7 +877,7 @@ Theorem get_min_correct:
                         h <> [] /\
                         is_heap_ordered geq h /\
                         (smallest,rest) = get_min geq h ==>
-			(root smallest) = THE (find_min geq h)
+      (root smallest) = THE (find_min geq h)
 Proof
   Induct_on `h`
   >- rw[]
@@ -886,15 +886,15 @@ Proof
           fs[get_min_def])
       >- (rw[find_min_def] \\
           `find_min geq (h'::t) <> NONE` by rw[find_min_exists] \\
-      	  Cases_on `find_min geq (h'::t)`
-	  >- rw[]
-	  >- (rw[] \\
+          Cases_on `find_min geq (h'::t)`
+    >- rw[]
+    >- (rw[] \\
               fs[get_min_def] \\
               Cases_on `get_min geq (h'::t)` \\
               fs[] \\
               `(q,r) = get_min geq (h'::t)` by rw[] \\
               fs[is_heap_ordered_def] \\
-	      `is_heap_ordered geq (h'::t)` by rw[is_heap_ordered_def] \\
+        `is_heap_ordered geq (h'::t)` by rw[is_heap_ordered_def] \\
               res_tac \\
               fs[])))
 QED;
@@ -914,14 +914,14 @@ Proof
       imp_res_tac get_min_order \\
       simp[] \\
       metis_tac [normalize_order, children_order, reverse_heap_order,
-		 merge_tree_order, insert_list_order])
+     merge_tree_order, insert_list_order])
 QED;
 
 Theorem delete_min_correct:
   !geq h. TotalPreOrder geq /\
            h <> [] /\
            is_heap_ordered geq h ==>
-	   heap_to_bag h = BAG_UNION
+     heap_to_bag h = BAG_UNION
                             (heap_to_bag (THE (delete_min geq h)))
                             {| THE (find_min geq h) |}
 Proof
@@ -935,7 +935,7 @@ Proof
       imp_res_tac get_min_correct \\
       imp_res_tac get_min_bag \\
       rw[insert_list_bag, merge_tree_bag, reverse_bag,
-	 normalize_bag] \\
+   normalize_bag] \\
       Cases_on `q` \\
       fs[root_def, children_def, aux_def] \\
       rw[tree_to_bag_general] \\
@@ -1057,16 +1057,16 @@ Proof
       >- (fs[is_b_heap_ordered_def, TotalPreOrder, PreOrder] \\
           Cases_on `h`
           >- rw[b_heap_to_bag_def]
-	  >- (rw[b_heap_to_bag_def]
+    >- (rw[b_heap_to_bag_def]
               >- (Cases_on `min`
                   >- fs[b_heap_comparison_def]
-		  >- fs[b_heap_comparison_def, b_root_def])
+      >- fs[b_heap_comparison_def, b_root_def])
               >- (fs[is_b_heap_ordered_def, BAG_EVERY] \\
                   rw[] \\
                   res_tac \\
                   Cases_on `min`
                   >- fs[b_heap_comparison_def]
-		  >- (fs[b_heap_comparison_def, b_root_def] \\
+      >- (fs[b_heap_comparison_def, b_root_def] \\
                       metis_tac[transitive_def]))))
       >- fs[is_b_heap_ordered_def])
 QED;
@@ -1085,9 +1085,9 @@ Proof
   >- (rw[LIST_TO_BAG_def, b_heap_to_bag_def]
       >- (Cases_on `h`
           >- rw[b_heap_comparison_def]
-	  >- (Cases_on `min`
+    >- (Cases_on `min`
               >- fs[]
-	      >- (fs[b_heap_comparison_def, b_root_def, b_heap_to_bag_def])))
+        >- (fs[b_heap_comparison_def, b_root_def, b_heap_to_bag_def])))
       >- fs[is_b_heap_ordered_def])
 QED;
 
@@ -1138,7 +1138,7 @@ Proof
       >- (rw[tree_to_bag_def] \\
           fs[is_b_heap_ordered_def] \\
           `is_b_heap_ordered3 geq (h::l0')` by rw[is_b_heap_ordered_def] \\
-	  imp_res_tac b_list_bag3 \\
+    imp_res_tac b_list_bag3 \\
           fs[b_root_def])
       >- (rw[tree_to_bag_def] \\
           sg `is_b_heap_ordered2 geq (Sbnode a' n' (h'::l0') l')`
@@ -1169,7 +1169,7 @@ Proof
           >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def] \\
               Cases_on `a'`
               >- fs[]
-	      >- (fs[b_root_def, b_heap_comparison_def] \\
+        >- (fs[b_root_def, b_heap_comparison_def] \\
                   fs[BAG_EVERY, TotalPreOrder, PreOrder] \\ rw[] \\ res_tac \\
                   metis_tac[transitive_def])))
       >- (`is_b_heap_ordered2 geq (Sbnode a' n' l0' l')`
@@ -1186,7 +1186,7 @@ Theorem b_tree_bag2:
                 is_b_heap_ordered geq min /\
                 is_b_heap_ordered2 geq t ==>
                 BAG_EVERY (\y. geq y (b_root min))
-		          (b_heap_to_bag2 geq t)
+              (b_heap_to_bag2 geq t)
 Proof
   Cases_on `t` \\
   Induct_on `l`
@@ -1197,11 +1197,11 @@ Proof
           >- (rw[b_heap_to_bag_def]
               >- (Cases_on `min`
                   >- fs[b_heap_comparison_def]
-	          >- fs[b_heap_comparison_def, b_root_def])
+            >- fs[b_heap_comparison_def, b_root_def])
               >- (fs[is_b_heap_ordered_def] \\
                   Cases_on `min`
                   >- fs[b_heap_comparison_def]
-	          >- (fs[b_heap_comparison_def, b_root_def, BAG_EVERY] \\
+            >- (fs[b_heap_comparison_def, b_root_def, BAG_EVERY] \\
                       rw[] \\
                       res_tac \\
                       metis_tac[transitive_def]))))
@@ -1209,18 +1209,18 @@ Proof
   >- (rw[b_heap_to_bag_def]
       >- (Cases_on `min`
           >- fs[]
-	  >- (imp_res_tac b_tree_root_comp_bag \\ rw[b_root_def]))
+    >- (imp_res_tac b_tree_root_comp_bag \\ rw[b_root_def]))
       >- (Cases_on `min`
           >- fs[]
           >- (imp_res_tac b_tree_aux_comp_bag \\ rw[b_root_def]))
       >- (Cases_on `min`
           >- fs[]
-	  >- (imp_res_tac b_tree_children_comp_bag \\
+    >- (imp_res_tac b_tree_children_comp_bag \\
               rw[b_root_def] \\
               fs[b_heap_to_bag_def]))
       >- (Cases_on `min`
           >- fs[]
-	  >- (imp_res_tac b_tree_children_comp_bag \\
+    >- (imp_res_tac b_tree_children_comp_bag \\
               rw[b_root_def, equiv_bag4_bag1] \\
               fs[b_heap_to_bag_def])))
 QED;
@@ -1238,7 +1238,7 @@ Theorem b_bag2_tree:
   !geq e t min. TotalPreOrder geq /\
                 min <> Bsbempty /\
                 (BAG_EVERY (\y. geq y (b_root min))
-		          (b_heap_to_bag2 geq t)) /\
+              (b_heap_to_bag2 geq t)) /\
                 is_b_heap_ordered geq min /\
                 is_b_heap_ordered2 geq t ==>
                 BAG_EVERY (\y. (b_heap_comparison geq) y min)
@@ -1250,10 +1250,10 @@ Proof
   >- (rw[tree_to_bag_def]
       >- (Cases_on `min`
           >- fs[]
-	  >- (fs[b_heap_to_bag_def, b_root_def] \\
+    >- (fs[b_heap_to_bag_def, b_root_def] \\
               Cases_on `a`
               >- fs[is_b_heap_ordered_def]
-	      >- (fs[b_heap_to_bag_def] \\
+        >- (fs[b_heap_to_bag_def] \\
                   rw[b_heap_comparison_def])))
       >- (fs[b_heap_to_bag_def, is_b_heap_ordered_def] \\
           imp_res_tac b_bag3_list))
@@ -1264,21 +1264,21 @@ Proof
               rw[tree_to_bag_def]
               >- (Cases_on `a`
                   >- fs[]
-	          >- (Cases_on `min`
+            >- (Cases_on `min`
                       >- fs[]
-	              >- (Cases_on `a'`
+                >- (Cases_on `a'`
                           >- fs[]
-		          >- fs[b_heap_comparison_def, b_root_def, b_heap_to_bag_def])))
+              >- fs[b_heap_comparison_def, b_root_def, b_heap_to_bag_def])))
               >- imp_res_tac b_bag3_list)
           >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def] \\
               rw[tree_to_bag_def] \\
               WEAKEN_TAC is_forall
-	      >- (fs[is_tree_ordered_def] \\
+        >- (fs[is_tree_ordered_def] \\
                   imp_res_tac b_heap_root_comp \\
                   fs[BAG_EVERY] \\ rw[] \\ res_tac \\
                   imp_res_tac b_comparison_total_pre_order \\
                   fs[TotalPreOrder, PreOrder] \\
-		  metis_tac[transitive_def])
+      metis_tac[transitive_def])
               >- fs[is_tree_ordered_def]))
        >- fs[is_b_heap_ordered_def, b_heap_to_bag_def])
   *)
@@ -1359,22 +1359,22 @@ Proof
            >- fs[]
            >- (fs[b_heap_comparison_def] \\
                rw[b_heap_to_bag_def]
-	       >- (rw[b_root_def] \\ metis_tac[total_def])
-	       >- (fs[b_root_def, is_b_heap_ordered_def, BAG_EVERY] \\
+         >- (rw[b_root_def] \\ metis_tac[total_def])
+         >- (fs[b_root_def, is_b_heap_ordered_def, BAG_EVERY] \\
                    rw[] \\ res_tac \\ metis_tac[transitive_def, total_def]))))
    >- (fs[BAG_EVERY] \\ rw[] \\ res_tac \\
        Cases_on `a'`
        >- fs[b_heap_comparison_def]
        >- (Cases_on `a`
            >- fs[b_heap_comparison_def]
-	   >- (fs[b_heap_comparison_def, b_root_def] \\
+     >- (fs[b_heap_comparison_def, b_root_def] \\
                metis_tac[transitive_def, total_def])))
    >- (fs[BAG_EVERY] \\ rw[] \\ res_tac \\
        Cases_on `a'`
        >- fs[b_heap_comparison_def]
        >- (Cases_on `a`
            >- fs[b_heap_comparison_def]
-	   >- (fs[b_heap_comparison_def, b_root_def] \\
+     >- (fs[b_heap_comparison_def, b_root_def] \\
                fs[equiv_bag4_bag1] \\
                res_tac \\
                metis_tac[transitive_def, total_def]))))
@@ -1385,7 +1385,7 @@ Proof
           imp_res_tac b_bag3_list)
       >- (rw[is_tree_ordered_def]
           >- fs[is_b_heap_ordered_def]
-	  >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def] \\
+    >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def] \\
               `TotalPreOrder geq` by rw[TotalPreOrder, PreOrder] \\
               imp_res_tac b_bag2_tree)
           >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def])))
@@ -1396,7 +1396,7 @@ Proof
           imp_res_tac b_bag3_list)
       >- (rw[is_tree_ordered_def]
           >- fs[is_b_heap_ordered_def]
-	  >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def] \\
+    >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def] \\
               `TotalPreOrder geq` by rw[TotalPreOrder, PreOrder] \\
               imp_res_tac b_bag2_tree)
           >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def])))
@@ -1419,7 +1419,7 @@ Proof
           fs[is_b_heap_ordered_def, root_def] \\
           Cases_on `b`
           >- fs[b_heap_comparison_def]
-	  >- (fs[BAG_EVERY] \\
+    >- (fs[BAG_EVERY] \\
               rw[] \\ res_tac \\
               Cases_on `a''`
               >- (imp_res_tac tree_link_choice \\ fs[])
@@ -1431,9 +1431,9 @@ Proof
          >- (fs[root_def] \\
              Cases_on `a''`
              >- fs[]
-	     >- (Cases_on `b`
+       >- (Cases_on `b`
                  >- fs[]
-		 >- (fs[TotalPreOrder, PreOrder, b_heap_comparison_def] \\
+     >- (fs[TotalPreOrder, PreOrder, b_heap_comparison_def] \\
                      rw[b_root_def, b_heap_to_bag_def] \\
                      fs[is_b_heap_ordered_def, BAG_EVERY] \\
                      rw[] \\ res_tac \\
@@ -1442,11 +1442,11 @@ Proof
              rw[] \\ res_tac \\
              Cases_on `b`
              >- fs[]
-	     >- (rw[b_root_def] \\
+       >- (rw[b_root_def] \\
                  Cases_on `a''`
                  >- fs[is_b_heap_ordered_def]
-		 >- (fs[b_root_def, b_heap_comparison_def, TotalPreOrder,
-		        PreOrder] \\
+     >- (fs[b_root_def, b_heap_comparison_def, TotalPreOrder,
+            PreOrder] \\
                      metis_tac[transitive_def]))))
      >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def])
      >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def])
@@ -1461,13 +1461,13 @@ Proof
           fs[root_def] \\
           Cases_on `a''`
           >- fs[]
-	  >- (Cases_on `b`
+    >- (Cases_on `b`
               >- fs[]
-	      >- (rw[b_root_def, b_heap_to_bag_def]
+        >- (rw[b_root_def, b_heap_to_bag_def]
                   >- (fs[b_heap_comparison_def, TotalPreOrder, PreOrder] \\
                       metis_tac[total_def])
                   >- (fs[is_b_heap_ordered_def, BAG_EVERY, TotalPreOrder,
-			 PreOrder, b_heap_comparison_def] \\
+       PreOrder, b_heap_comparison_def] \\
                       rw[] \\ res_tac \\ metis_tac[total_def, transitive_def]))))
       >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def])
       >- (imp_res_tac link_b_order \\ fs[is_b_heap_ordered_def])
@@ -1487,7 +1487,7 @@ Proof
         LIST_TO_BAG_def, b_heap_to_bag_def]
   >- (Cases_on `t`
       >- rw[insert_def, leaf_def, is_b_heap_ordered_def, is_tree_ordered_def,
-	    LIST_TO_BAG_def, b_heap_to_bag_def]
+      LIST_TO_BAG_def, b_heap_to_bag_def]
       >- (fs[insert_def, is_b_heap_ordered_def] \\
           rw[]
           >- (rw[is_b_heap_ordered_def, skew_b_order] \\
@@ -1495,7 +1495,7 @@ Proof
               imp_res_tac skew_link_order \\
               rw[])
           >- rw[leaf_def, is_b_heap_ordered_def, is_tree_ordered_def,
-	        LIST_TO_BAG_def, b_heap_to_bag_def]))
+          LIST_TO_BAG_def, b_heap_to_bag_def]))
 QED;
 
 Theorem insert_list_b_order:
@@ -1621,7 +1621,7 @@ Proof
   >- rw[]
   >- (rw[b_find_min_def, THE_DEF] \\
       fs[is_b_heap_ordered_def, BAG_EVERY, b_heap_to_bag_def,
-	 TotalPreOrder, PreOrder] \\
+   TotalPreOrder, PreOrder] \\
       metis_tac[reflexive_def])
 QED;
 
@@ -1667,8 +1667,8 @@ Proof
       >- rw[b_heap_to_bag_def, merge_tree_left_cancel]
       >- (rw[b_heap_to_bag_def, merge_tree_def]
           >- metis_tac[ASSOC_BAG_UNION, COMM_BAG_UNION]
-	  >- metis_tac[ASSOC_BAG_UNION, COMM_BAG_UNION]
-	  >- (rw[b_binomial_insert_bag1, b_link_bag2] \\
+    >- metis_tac[ASSOC_BAG_UNION, COMM_BAG_UNION]
+    >- (rw[b_binomial_insert_bag1, b_link_bag2] \\
               metis_tac[ASSOC_BAG_UNION, COMM_BAG_UNION])))
 QED;
 
@@ -1680,9 +1680,9 @@ Proof
   Cases_on `h2`
   >- rw[merge_def, b_heap_to_bag_def, normalize_def, merge_tree_def]
   >- (rw[merge_def, b_heap_to_bag_def, normalize_def, merge_tree_left_cancel,
-	 b_binomial_insert_bag1])
+   b_binomial_insert_bag1])
   >- (rw[merge_def, b_heap_to_bag_def, normalize_def, merge_tree_def,
-	 b_binomial_insert_bag1])
+   b_binomial_insert_bag1])
   >- (rw[merge_def, b_merge_tree_bag1, b_normalize_bag1])
 QED;
 
@@ -1702,13 +1702,13 @@ Proof
           Cases_on `get_min (b_heap_comparison geq) (h'::t)` \\
           fs[] \\
           `(q,r) = get_min (b_heap_comparison geq) (h'::t)` by rw[]
-	  >- (Cases_on `(b_heap_comparison geq) (root q) (root h)`
+    >- (Cases_on `(b_heap_comparison geq) (root q) (root h)`
               >- fs[]
-	      >- (fs[] \\
+        >- (fs[] \\
                   res_tac))
           >- (Cases_on `(b_heap_comparison geq) (root q) (root h)`
               >- fs[is_b_heap_ordered_def]
-	      >- (res_tac \\
+        >- (res_tac \\
                   fs[is_b_heap_ordered_def]))))
 QED;
 
@@ -1725,7 +1725,7 @@ Proof
       >- (rw[is_b_heap_ordered_def, is_tree_ordered_def, binomial_insert_def] \\
           Cases_on `rank t < rank h`
           >- rw[is_b_heap_ordered_def]
-	  >- (rw[] \\
+    >- (rw[] \\
               Cases_on `tree_link (b_heap_comparison geq) t h` \\
               imp_res_tac link_b_order \\
               rw[is_b_heap_ordered_def]))
@@ -1741,7 +1741,7 @@ Proof
               imp_res_tac link_b_order \\
               imp_res_tac tree_b_ordered_is_ordered \\
               res_tac \\
-	      fs[binomial_insert_def] \\
+        fs[binomial_insert_def] \\
               fs[rank_def] \\
               rfs[])))
 QED;
@@ -1766,14 +1766,14 @@ Proof
   >- (Induct_on `h1`
       >- rw[merge_tree_left_cancel, is_b_heap_ordered_def]
       >- (rw[merge_tree_def]
-	  >- (rw[is_b_heap_ordered_def]
-	      >- fs[is_b_heap_ordered_def]
-	      >- fs[is_b_heap_ordered_def]
-	      >- fs[is_b_heap_ordered_def])
+    >- (rw[is_b_heap_ordered_def]
+        >- fs[is_b_heap_ordered_def]
+        >- fs[is_b_heap_ordered_def]
+        >- fs[is_b_heap_ordered_def])
           >- (rw[is_b_heap_ordered_def]
               >- fs[is_b_heap_ordered_def, tree_b_ordered_is_ordered]
-	      >- fs[is_b_heap_ordered_def]
-	      >- fs[is_b_heap_ordered_def])
+        >- fs[is_b_heap_ordered_def]
+        >- fs[is_b_heap_ordered_def])
           >- (fs[is_b_heap_ordered_def] \\
               `is_b_heap_ordered1 geq (merge_tree (b_heap_comparison geq) h1 h2)`
               by res_tac \\
@@ -1792,8 +1792,8 @@ Proof
   >- rw[is_b_heap_ordered_def, merge_def, normalize_def,
         merge_tree_def, normalize_b_order]
   >- rw[is_b_heap_ordered_def, merge_def, normalize_def,
-	 merge_tree_def, normalize_b_order, binomial_insert_b_order,
-	 normalize_b_order, merge_tree_b_order]
+   merge_tree_def, normalize_b_order, binomial_insert_b_order,
+   normalize_b_order, merge_tree_b_order]
 QED;
 
 Theorem delete_b_order:
@@ -1815,7 +1815,7 @@ Proof
       rw[aux_def, children_def] \\
       fs[equiv_order4_order1] \\
       rw[normalize_b_order, reverse_b_order, merge_tree_b_order,
-	 insert_list_b_order])
+   insert_list_b_order])
 QED;
 
 Theorem find_min_b_order:
@@ -1834,7 +1834,7 @@ Proof
           >- (`(h'::t) <> []` by rw[] \\
               imp_res_tac find_min_exists)
           >- (rw[]
-	      >- (Cases_on `h` \\
+        >- (Cases_on `h` \\
                   fs[root_def, is_b_heap_ordered_def])
               >- (res_tac \\
                   metis_tac[THE_DEF]))))
@@ -1899,10 +1899,10 @@ Proof
       rw[b_delete_min_def]
       >- rw[is_b_heap_ordered_def]
       >- (rw[is_b_heap_ordered_def]
-	  >- (rw[b_merge_bag1, b_find_delete_min] \\
+    >- (rw[b_merge_bag1, b_find_delete_min] \\
               Cases_on `find_min (b_heap_comparison geq) l`
               >- imp_res_tac find_min_exists
-	      >- (Cases_on `x`
+        >- (Cases_on `x`
                   >- (imp_res_tac find_min_b_non_empty \\
                       rfs[THE_DEF])
                   >- (rw[THE_DEF, b_root_def, b_children_def] \\
@@ -1910,19 +1910,19 @@ Proof
                       rfs[is_b_heap_ordered_def])))
           >- (Cases_on `find_min (b_heap_comparison geq) l`
               >- imp_res_tac find_min_exists
-	      >- (Cases_on `x`
+        >- (Cases_on `x`
                   >- (imp_res_tac find_min_b_non_empty \\
                       rfs[THE_DEF])
                   >- (rw[THE_DEF, b_root_def, b_children_def] \\
                       imp_res_tac find_min_b_order \\
                       rfs[is_b_heap_ordered_def] \\
                       imp_res_tac heap_b_ordered_is_ordered \\
-		      imp_res_tac b_comparison_total_pre_order \\
+          imp_res_tac b_comparison_total_pre_order \\
                       rw[merge_order, delete_min_order])))
           >- (imp_res_tac delete_b_order \\
               Cases_on `find_min (b_heap_comparison geq) l`
               >- imp_res_tac find_min_exists
-	      >- (Cases_on `x`
+        >- (Cases_on `x`
                   >- (imp_res_tac find_min_b_non_empty \\
                       rfs[THE_DEF])
                   >- (rw[THE_DEF, b_children_def] \\
@@ -1948,9 +1948,9 @@ Proof
           fs[] \\
           Cases_on `(b_heap_comparison geq) (root q) (root h)`
           >- fs[b_heap_to_bag_def]
-	  >- (fs[b_heap_to_bag_def] \\
+    >- (fs[b_heap_to_bag_def] \\
               `(q,r) = get_min (b_heap_comparison geq) (h'::t)` by rw[] \\
-	      res_tac \\
+        res_tac \\
               metis_tac [ASSOC_BAG_UNION, COMM_BAG_UNION])))
 QED;
 
@@ -1986,7 +1986,7 @@ Proof
       rpt (WEAKEN_TAC is_forall) \\
       imp_res_tac get_min_bag1 \\
       rw[b_bag_of_insert_list, b_merge_tree_bag1, b_normalize_bag1,
-	 b_bag_of_reverse] \\
+   b_bag_of_reverse] \\
       Cases_on `q` \\
       fs[root_def, children_def, aux_def] \\
       rw[tree_to_bag1_general] \\
@@ -2030,7 +2030,8 @@ Proof
               metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])))
 QED;
 
-open ml_translatorLib ListProgTheory ml_translatorTheory;
+open ListProgTheory ml_translatorTheory;
+open ml_translatorLib;
 
 val _ = translation_extends "ListProg";
 
@@ -2053,7 +2054,6 @@ val _ = translate normalize_def;
 val _ = translate merge_tree_def;
 val _ = translate merge_def;
 val _ = translate get_min_def;
-val _ = translate REVERSE_DEF
 val _ = translate delete_min_def;
 
 val SKEWBINOMIALHEAP_SBTREE_TYPE_def = fetch "-" "SKEWBINOMIALHEAP_SBTREE_TYPE_def";
@@ -2062,7 +2062,7 @@ val SKEWBINOMIALHEAP_BSBHEAP_TYPE_def = tDefine "SKEWBINOMIALHEAP_BSBHEAP_TYPE" 
   (SKEWBINOMIALHEAP_BSBHEAP_TYPE a (Bsbheap x_2 x_1) v ⇔
           ∃v2_1 v2_2.
               v =
-              Conv (SOME (TypeStamp "Bsbheap" 4)) [v2_1; v2_2] ∧ a x_2 v2_1 ∧
+              Conv (SOME (TypeStamp "Bsbheap" 6)) [v2_1; v2_2] ∧ a x_2 v2_1 ∧
               CONTAINER LIST_TYPE
                 (λx v.
                      if MEM x x_1 then
@@ -2075,7 +2075,7 @@ val SKEWBINOMIALHEAP_BSBHEAP_TYPE_def = tDefine "SKEWBINOMIALHEAP_BSBHEAP_TYPE" 
                      else
                        ARB) x_1 v2_2) ∧
   (SKEWBINOMIALHEAP_BSBHEAP_TYPE a Bsbempty v ⇔
-    v = Conv (SOME (TypeStamp "Bsbempty" 4)) [])`
+    v = Conv (SOME (TypeStamp "Bsbempty" 6)) [])`
   (WF_REL_TAC `measure ((bsbHeap_size (K 0)) o FST o SND)`
    \\ REPEAT STRIP_TAC
    \\ TRY (PAT_X_ASSUM (MEM |> CONJUNCT2 |> SPEC_ALL |> concl |> rand |> rand) (fn th =>
@@ -2134,14 +2134,14 @@ val SKEWBINOMIALHEAP_BSBHEAP_TYPE_thm = Q.prove(`
   (∀x_2 x_1 v (a:'a -> v -> bool).
   SKEWBINOMIALHEAP_BSBHEAP_TYPE a (Bsbheap x_2 x_1) v ⇔
   ∃v2_1 v2_2.
-      v = Conv (SOME (TypeStamp "Bsbheap" 4)) [v2_1; v2_2] ∧
+      v = Conv (SOME (TypeStamp "Bsbheap" 6)) [v2_1; v2_2] ∧
       a x_2 v2_1 ∧
       LIST_TYPE
         (SKEWBINOMIALHEAP_SBTREE_TYPE (SKEWBINOMIALHEAP_BSBHEAP_TYPE a))
         x_1 v2_2) ∧
   ∀v (a:'a -> v -> bool).
   (SKEWBINOMIALHEAP_BSBHEAP_TYPE a Bsbempty v ⇔
-    v = Conv (SOME (TypeStamp "Bsbempty" 4)) [])`,
+    v = Conv (SOME (TypeStamp "Bsbempty" 6)) [])`,
   simp[SKEWBINOMIALHEAP_BSBHEAP_TYPE_def]>>
   simp[lem |> CONJUNCT1 |> Q.SPECL [`x`,`v`,`P`,`\x.F`] |> SIMP_RULE std_ss [], GSYM LIST_TYPE_SIMP]>>
   REWRITE_TAC [eta_ax2]);
