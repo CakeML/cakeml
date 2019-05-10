@@ -141,6 +141,8 @@ fun normalise_assums th =
 
 val clean_on_exit = ref false;
 
+val next_ty_inv = ref (NONE : thm option);
+
 (* make the qualified identifier for some item, where "base" is its base name
    (parameter of Short) in its local scope, mods is the module scope it was
    defined in, and curr_mods is the current module scope. *)
@@ -1336,7 +1338,13 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val inv_def = if is_list_type then LIST_TYPE_def else
                 if is_pair_type then PAIR_TYPE_def else
                 if is_unit_type then UNIT_TYPE_def else
-                  tDefine name [ANTIQUOTE (get_def_tm ())] tac
+                case !next_ty_inv of
+                  SOME tinv => (next_ty_inv:=NONE; tinv)
+                | NONE => tDefine name [ANTIQUOTE (get_def_tm ())] tac
+                handle HOL_ERR e =>
+                (print ("tDefine failed on:\n"^term_to_string (get_def_tm ())^"\n");
+                print ("measure used: \n"^build_measure tys^"\n");
+                raise HOL_ERR e)
   val clean_rule = CONV_RULE (DEPTH_CONV (fn tm =>
                    if not (is_abs tm) then NO_CONV tm else
                    if fst (dest_abs tm) ~~ tmp_v_var then ALPHA_CONV real_v_var tm

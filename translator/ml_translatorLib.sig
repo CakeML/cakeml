@@ -72,6 +72,7 @@ sig
     val use_long_names       : bool ref
     val use_mem_intro        : bool ref
     val next_ml_names        : (string list) ref
+    val next_ty_inv          : thm ref
     val print_asts           : bool ref
     val use_full_type_names  : bool ref
     val add_preferred_thy    : string -> unit
