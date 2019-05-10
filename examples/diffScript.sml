@@ -9,7 +9,6 @@ val _ = new_theory "diff";
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
-
 (* Diff algorithm definition *)
 
 val line_numbers_def = Define `
@@ -421,7 +420,7 @@ val depatch_lines_strcat_cancel = Q.prove(
   Induct >> fs[depatch_lines_def,depatch_line_def,strlen_strcat,substring_adhoc_simps])
 
 Theorem depatch_lines_diff_add_prefix_cancel
-  `!l. depatch_lines (diff_add_prefix l (strlit "> ")) = SOME l`
+  `depatch_lines (diff_add_prefix l (strlit "> ")) = SOME l`
   (fs[diff_add_prefix_def,depatch_lines_strcat_cancel]);
 
 val patch_aux_nil = Q.prove(`patch_aux [] file remfl n = SOME file`,fs[patch_aux_def]);
@@ -514,7 +513,7 @@ Theorem diff_add_prefix_DROP
   (fs[diff_add_prefix_def,MAP_DROP]);
 
 Theorem diff_add_prefix_nil
-  `!l n s. (diff_add_prefix [] s) = []`
+  `!s. (diff_add_prefix [] s) = []`
   (fs[diff_add_prefix_def]);
 
 val ONE_MINUS_SUCC = Q.prove(`1 - SUC x = 0`,intLib.COOPER_TAC);
@@ -522,14 +521,14 @@ val ONE_MINUS_SUCC = Q.prove(`1 - SUC x = 0`,intLib.COOPER_TAC);
 val SUCC_LE_ONE = Q.prove(`(SUC n ≤ 1) = (n = 0)`,intLib.COOPER_TAC);
 
 val patch_aux_keep_init = Q.prove(
-`!l p t n t' n h t m.
+`!l p t n t' m.
  common_subsequence l t t' ==>
  patch_aux (diff_with_lcs l t (n + LENGTH p) t' (m + LENGTH p)) (p ++ t) (LENGTH t + LENGTH p) n
  =
  case patch_aux (diff_with_lcs l t (n + LENGTH p) t' (m + LENGTH p)) t (LENGTH t) (n+LENGTH p) of
    SOME r => SOME(p++r)
  | NONE => NONE`,
-  Induct_on `l` >> rpt strip_tac
+  Induct >> rpt strip_tac
   >- (fs[patch_aux_cancel_base_case]
       >> fs[diff_with_lcs_def,diff_single_def,diff_add_prefix_def] >> rw[]
       >> fs[patch_aux_def,parse_header_cancel] >> rw[]
@@ -543,8 +542,8 @@ val patch_aux_keep_init = Q.prove(
   >- (fs[SPLITP_NIL_FST] >> rveq
       >> Cases_on `lr` >> fs[common_subsequence_empty']
       >> Cases_on `l'r` >> fs[common_subsequence_empty']
-      >> rveq >> first_assum(qspecl_then [`p++[h]`,`t'`,`n`,`t`,`n`] mp_tac)
-      >> first_x_assum(qspecl_then [`[h]`,`t'`,`n+LENGTH p`,`t`,`n+LENGTH p`] mp_tac)
+      >> rveq >> first_assum(qspecl_then [`p++[h]`,`t`,`n`,`t'`,`n`] mp_tac)
+      >> first_x_assum(qspecl_then [`[h]`,`t`,`n+LENGTH p`,`t'`,`n+LENGTH p`] mp_tac)
       >> fs[cons_common_subsequence]
       >> full_simp_tac pure_ss [GSYM APPEND_ASSOC,APPEND,ADD1]
       >> rpt strip_tac >> fs[] >> TOP_CASE_TAC)
@@ -559,8 +558,8 @@ val patch_aux_keep_init = Q.prove(
         DROP_LENGTH_NIL,DROP_LENGTH_TOO_LONG]
   >> TOP_CASE_TAC >> fs[]);
 
-val patch_aux_keep_init_cons = Q.prove(
-  `!l t n t' n h t m.
+val patch_aux_keep_init_cons = Q.prove(`
+   !l t n t' h m.
    common_subsequence l t t' ==>
    patch_aux (diff_with_lcs l t (n + 1) t' (m + 1)) (h::t) (SUC (LENGTH t)) n
    =
@@ -581,7 +580,7 @@ val minus_add_too_large = Q.prove(`a - ((a:num) + n) = 0`,intLib.COOPER_TAC);
 val minus_add_too_large' = Q.prove(`(a + 1) - ((a:num) + 2) = 0`,intLib.COOPER_TAC);
 
 Theorem patch_aux_diff_cancel
-`!l r n r' m z.
+`!l r n r' m.
 common_subsequence l r r' ==>
 (patch_aux (diff_with_lcs l r n r' m) r (LENGTH r) n = SOME r')`
 (Induct
@@ -745,7 +744,7 @@ val parse_nonheader_lemma3 = Q.prove(
   >> fs[TOKENS_def,pairTheory.ELIM_UNCURRY,SPLITP] >> rveq);
 
 Theorem diff_with_lcs_headers_within
-  `!l r n r' n' m. common_subsequence l r r' ==>
+  `!l r n r' m. common_subsequence l r r' ==>
     headers_within n (n + LENGTH r) (diff_with_lcs l r n r' m)`
   (Induct
   >> rpt strip_tac
