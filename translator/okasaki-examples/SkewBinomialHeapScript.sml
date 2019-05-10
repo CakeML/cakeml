@@ -6,7 +6,7 @@
 open preamble;
 open bagTheory bagLib;
 
-val _ = new_theory "skewBinomialHeap";
+val _ = new_theory "SkewBinomialHeap";
 
 (* Definition of a Skew Binomial Tree *)
 Datatype `sbTree = Sbnode 'a num ('a list) (sbTree list)`;

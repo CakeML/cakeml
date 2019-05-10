@@ -53,6 +53,10 @@ Heap algorithm from Chris Okasaki's book.
 This is an example of applying the translator to the Red-Black
 Set algorithm from Chris Okasaki's book.
 
+[SkewBinomialHeapScript.sml](SkewBinomialHeapScript.sml):
+Bootstrapped Skew Binomial Heaps, based on Purely Functional Data Structures
+sections 9.3.2 and 10.2.2 (Chris Okasaki)
+
 [SplayHeapScript.sml](SplayHeapScript.sml):
 This is an example of applying the translator to the Splay
 Heap algorithm from Chris Okasaki's book.
