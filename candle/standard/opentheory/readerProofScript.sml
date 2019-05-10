@@ -1725,15 +1725,15 @@ val process_list_def = Define `
 val read_stdin_def = Define `
   read_stdin fs refs =
     let fs' = fastForwardFD fs 0 in
-      case readLines (all_lines fs (IOStream (strlit"stdin"))) init_state refs of
+      case readLines (all_lines_inode fs (UStream (strlit"stdin"))) init_state refs of
         (Success (s, _), refs) =>
           (add_stdout fs' (msg_success s refs.the_context), refs, SOME s)
       | (Failure (Fail e), refs) => (add_stderr fs' e, refs, NONE)`;
 
 val read_file_def = Define`
   read_file fs refs fnm =
-    (if inFS_fname fs (File fnm) then
-       (case readLines (all_lines fs (File fnm)) init_state refs of
+    (if inFS_fname fs fnm then
+       (case readLines (all_lines fs fnm) init_state refs of
         | (Success (s,_), refs) =>
             (add_stdout fs (msg_success s refs.the_context), refs, SOME s)
         | (Failure (Fail e), refs) => (add_stderr fs e, refs, NONE))
@@ -1848,7 +1848,7 @@ Theorem reader_success_stderr
          TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def,
          fsFFITheory.get_file_content_def,
          fsFFIPropsTheory.fastForwardFD_def, TextIOProofTheory.stdin_def]
-  \\ fs [libTheory.the_def, UNCURRY, ALIST_FUPDKEY_ALOOKUP, case_eq_thms,
+  \\ fs [libTheory.the_def, UNCURRY, AFUPDKEY_ALOOKUP, case_eq_thms,
          bool_case_eq]
   \\ fs [mlstringTheory.concat_thm, msg_bad_name_def]
   \\ SELECT_ELIM_TAC \\ fs []

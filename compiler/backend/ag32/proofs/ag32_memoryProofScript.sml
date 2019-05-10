@@ -51,7 +51,7 @@ Theorem get_byte_EL_words_of_bytes
     `byte_align (n2w i) = 0w`
     by(
       simp[alignmentTheory.byte_align_def]
-      \\ irule imp_align_eq_0
+      \\ irule lt_align_eq_0
       \\ fs[labPropsTheory.good_dimindex_def,Abbr`bw`]
       \\ rfs[bytes_in_word_def,dimword_def] )
     \\ simp[ZERO_DIV]
@@ -138,7 +138,7 @@ Theorem get_mem_word_get_byte_gen
         |> SPEC_ALL |> UNDISCH |> CONJUNCT1 |> DISCH_ALL
         |> irule)
     \\ simp[]
-    \\ simp[GSYM ALIGNED_eq_aligned]
+    \\ simp[GSYM addressTheory.ALIGNED_eq_aligned]
     \\ simp[addressTheory.ALIGNED_n2w])
   \\ simp[align_add_aligned_gen]
   \\ simp[Abbr`pc`]
@@ -217,7 +217,7 @@ Theorem bytes_in_memory_get_byte_words
   \\ `byte_aligned x` by (
     simp[Abbr`x`]
     \\ simp[alignmentTheory.byte_aligned_def]
-    \\ simp[GSYM ALIGNED_eq_aligned]
+    \\ simp[GSYM addressTheory.ALIGNED_eq_aligned]
     \\ simp[addressTheory.ALIGNED_n2w] )
   \\ `byte_align (n2w i + x) = x + byte_align (n2w i)`
   by (
@@ -542,7 +542,8 @@ Theorem init_memory_data
               alignmentTheory.align_w2n,
               LENGTH_ag32_ffi_jumps,
               alignmentTheory.byte_aligned_def,
-              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              GSYM addressTheory.ALIGNED_eq_aligned,
+              addressTheory.ALIGNED_n2w,
               LENGTH_words_of_bytes, bytes_in_word_def]
           \\ intLib.ARITH_TAC)))
   \\ simp [word_of_bytes_def, Abbr `cc`, LENGTH_ag32_ffi_jumps]
@@ -551,7 +552,9 @@ Theorem init_memory_data
     by (
       rw[FUN_EQ_THM]
       \\ `byte_aligned ((n2w (4 * x)):word32)` by (
-        fs[alignmentTheory.byte_aligned_def, GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w] )
+        fs[alignmentTheory.byte_aligned_def,
+           GSYM addressTheory.ALIGNED_eq_aligned,
+           addressTheory.ALIGNED_n2w] )
       \\ `n2w (4 * x) : word32 = byte_align (n2w (4 * x))`
       by ( fs[alignmentTheory.byte_aligned_def, alignmentTheory.byte_align_def, alignmentTheory.aligned_def] )
       \\ pop_assum SUBST1_TAC
@@ -569,7 +572,8 @@ Theorem init_memory_data
               alignmentTheory.align_w2n,
               LENGTH_ag32_ffi_jumps,
               alignmentTheory.byte_aligned_def,
-              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              GSYM addressTheory.ALIGNED_eq_aligned,
+              addressTheory.ALIGNED_n2w,
               LENGTH_words_of_bytes, bytes_in_word_def]
           \\ intLib.ARITH_TAC)
   \\ pop_assum (SUBST_ALL_TAC)
@@ -581,7 +585,8 @@ Theorem init_memory_data
               alignmentTheory.align_w2n,
               LENGTH_ag32_ffi_jumps,
               alignmentTheory.byte_aligned_def,
-              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              GSYM addressTheory.ALIGNED_eq_aligned,
+              addressTheory.ALIGNED_n2w,
               LENGTH_words_of_bytes, bytes_in_word_def]
           \\ fs [word_add_n2w, word_mul_n2w]
           \\ intLib.ARITH_TAC)
@@ -594,7 +599,8 @@ Theorem init_memory_data
               alignmentTheory.align_w2n,
               LENGTH_ag32_ffi_jumps,
               alignmentTheory.byte_aligned_def,
-              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              GSYM addressTheory.ALIGNED_eq_aligned,
+              addressTheory.ALIGNED_n2w,
               LENGTH_words_of_bytes, bytes_in_word_def]
           \\ fs [word_add_n2w, word_mul_n2w]
           \\ intLib.ARITH_TAC)
@@ -607,7 +613,8 @@ Theorem init_memory_data
               alignmentTheory.align_w2n,
               LENGTH_ag32_ffi_jumps,
               alignmentTheory.byte_aligned_def,
-              GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+              GSYM addressTheory.ALIGNED_eq_aligned,
+              addressTheory.ALIGNED_n2w,
               LENGTH_words_of_bytes, bytes_in_word_def]
           \\ fs [word_add_n2w, word_mul_n2w]
           \\ intLib.ARITH_TAC)
@@ -890,7 +897,8 @@ val mem_ok_tac =
   fs[word_ls_n2w,word_add_n2w,word_lo_n2w,
      alignmentTheory.byte_aligned_def,
      word_extract_n2w, memory_size_def,
-     GSYM ALIGNED_eq_aligned, addressTheory.ALIGNED_n2w,
+     GSYM addressTheory.ALIGNED_eq_aligned,
+     addressTheory.ALIGNED_n2w,
      bitTheory.BITS_ZERO3 ]
 
 val bounded_bits = Q.prove(`

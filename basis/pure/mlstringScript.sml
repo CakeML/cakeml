@@ -324,7 +324,7 @@ Theorem TOKENS_eq_tokens_aux
     \\ fs[strsub_def, DROP_LENGTH_TOO_LONG, TOKENS_def]
     >-(rw[EQ_SYM_EQ, Once DROP_EL_CONS] \\ rw[TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[]
-      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[SPLITP] \\ rfs[])
+      \\ imp_res_tac SPLITP_NIL_FST_IMP \\ fs[SPLITP] \\ rfs[])
      >-(rw[EQ_SYM_EQ, Once DROP_EL_CONS]
       \\ rw[TOKENS_def]
       \\ pairarg_tac  \\ fs[NULL_EQ] \\ rw[]
