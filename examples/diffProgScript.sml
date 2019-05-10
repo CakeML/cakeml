@@ -97,17 +97,17 @@ Theorem diff'_spec
      (POSTv uv.
        &UNIT_TYPE () uv *
        STDIO (
-         if inFS_fname fs (File f1) then
-         if inFS_fname fs (File f2) then
+         if inFS_fname fs f1 then
+         if inFS_fname fs f2 then
            add_stdout fs (
-              concat ((diff_alg2 (all_lines fs (File f1))
-                                 (all_lines fs (File f2)))))
+              concat ((diff_alg2 (all_lines fs f1)
+                                 (all_lines fs f2))))
          else add_stderr fs (notfound_string f2)
          else add_stderr fs (notfound_string f1)))`
   (xcf"diff'"(get_ml_prog_state())
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f1)`)
+  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
   >- (fs[OPTION_TYPE_def]
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
@@ -118,7 +118,7 @@ Theorem diff'_spec
   >- (EVAL_TAC \\ rw[])
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
-  \\ xmatch \\ reverse(Cases_on `inFS_fname fs (File f2)`)
+  \\ xmatch \\ reverse(Cases_on `inFS_fname fs f2`)
   >- (fs[OPTION_TYPE_def]
       \\ reverse strip_tac
       >- (strip_tac >> EVAL_TAC)
@@ -139,13 +139,13 @@ val _ = (append_prog o process_topdecs) `
 val diff_sem_def = Define`
   diff_sem cl fs =
     if (LENGTH cl = 3) then
-    if inFS_fname fs (File (EL 1 cl)) then
-    if inFS_fname fs (File (EL 2 cl)) then
+    if inFS_fname fs (EL 1 cl) then
+    if inFS_fname fs (EL 2 cl) then
     add_stdout fs (
       concat
         (diff_alg2
-           (all_lines fs (File (EL 1 cl)))
-           (all_lines fs (File (EL 2 cl)))))
+           (all_lines fs (EL 1 cl))
+           (all_lines fs (EL 2 cl))))
     else add_stderr fs (notfound_string (EL 2 cl))
     else add_stderr fs (notfound_string (EL 1 cl))
     else add_stderr fs usage_string`;

@@ -122,17 +122,22 @@ Theorem inFS_fname_fastForwardFD[simp]
   `inFS_fname (fastForwardFD fs fd) fnm ⇔ inFS_fname fs fnm`
   (rw[fsFFIPropsTheory.inFS_fname_def]);
 
-Theorem File_NOTIN_stdin_fs[simp]
-  `∀nm. ¬ inFS_fname (stdin_fs inp) (File nm)`
+Theorem not_inFS_fname_stdin_fs[simp]
+  `∀nm. ¬ inFS_fname (stdin_fs inp) nm`
   (rw[stdin_fs_def,fsFFIPropsTheory.inFS_fname_def]);
+
+Theorem ALOOKUP_stdin_fs_File_NONE[simp]:
+  ALOOKUP (stdin_fs inp).inode_tbl (File ino) = NONE
+Proof rw[stdin_fs_def]
+QED
 
 Theorem ALOOKUP_fastForwardFD_infds_neq
   `fd ≠ fd' ⇒ (ALOOKUP (fastForwardFD fs fd).infds fd' = ALOOKUP fs.infds fd')`
   (rw[fsFFIPropsTheory.fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ simp[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ CASE_TAC);
 
 Theorem FST_ALOOKUP_fastForwardFD_infds
@@ -140,8 +145,8 @@ Theorem FST_ALOOKUP_fastForwardFD_infds
   (rw[fsFFIPropsTheory.fastForwardFD_def]
   \\ Cases_on`ALOOKUP fs.infds fd` \\ simp[libTheory.the_def]
   \\ pairarg_tac \\ simp[]
-  \\ Cases_on`ALOOKUP fs.files fnm` \\ simp[libTheory.the_def]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ simp[libTheory.the_def]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ simp[]
   \\ CASE_TAC \\ simp[]);
 
@@ -156,15 +161,15 @@ Theorem FST_ALOOKUP_add_stdo_infds
   \\ fs[TextIOProofTheory.add_stdo_def, TextIOProofTheory.up_stdo_def, fsFFITheory.fsupdate_def]
   \\ pop_assum mp_tac \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ rw[] \\ Cases_on`x` \\ rw[]);
 
-Theorem ALOOKUP_add_stdout_files
+Theorem ALOOKUP_add_stdout_inode_tbl
   `STD_streams fs ⇒ (
-   ALOOKUP (add_stdout fs out).files fnm =
-   if fnm = IOStream(strlit"stdout") then
-     SOME (THE (ALOOKUP fs.files fnm) ++ explode out)
-   else ALOOKUP fs.files fnm)`
+   ALOOKUP (add_stdout fs out).inode_tbl fnm =
+   if fnm = UStream(strlit"stdout") then
+     SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode out)
+   else ALOOKUP fs.inode_tbl fnm)`
   (strip_tac
   \\ imp_res_tac TextIOProofTheory.STD_streams_stdout
   \\ simp[TextIOProofTheory.add_stdo_def]
@@ -175,17 +180,17 @@ Theorem ALOOKUP_add_stdout_files
   \\ simp[fsFFITheory.fsupdate_def]
   \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
   \\ rveq
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
   \\ fs[]);
 
-Theorem ALOOKUP_add_stderr_files
+Theorem ALOOKUP_add_stderr_inode_tbl
   `STD_streams fs ⇒ (
-   ALOOKUP (add_stderr fs err).files fnm =
-   if fnm = IOStream(strlit"stderr") then
-     SOME (THE (ALOOKUP fs.files fnm) ++ explode err)
-   else ALOOKUP fs.files fnm)`
+   ALOOKUP (add_stderr fs err).inode_tbl fnm =
+   if fnm = UStream(strlit"stderr") then
+     SOME (THE (ALOOKUP fs.inode_tbl fnm) ++ explode err)
+   else ALOOKUP fs.inode_tbl fnm)`
   (strip_tac
   \\ imp_res_tac TextIOProofTheory.STD_streams_stderr
   \\ simp[TextIOProofTheory.add_stdo_def]
@@ -196,7 +201,7 @@ Theorem ALOOKUP_add_stderr_files
   \\ simp[fsFFITheory.fsupdate_def]
   \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
   \\ rveq
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC
   \\ TOP_CASE_TAC
   \\ fs[]);
@@ -217,7 +222,7 @@ Theorem ALOOKUP_add_stdout_infds
   \\ simp[fsFFITheory.fsupdate_def]
   \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
   \\ rveq
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]
   >- ( strip_tac \\ fs[] )
   \\ PairCases_on`x`
@@ -239,7 +244,7 @@ Theorem ALOOKUP_add_stderr_infds
   \\ simp[fsFFITheory.fsupdate_def]
   \\ fs[fsFFIPropsTheory.STD_streams_def, TextIOProofTheory.stdo_def]
   \\ rveq
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]
   >- ( strip_tac \\ fs[] )
   \\ PairCases_on`x`
@@ -274,7 +279,7 @@ Theorem cake_extract_writes
       simp[stdin_fs_def]
       \\ qexists_tac`implode""`
       \\ simp[] )
-    \\ simp[Once stdin_fs_def, ALIST_FUPDKEY_def]
+    \\ simp[Once stdin_fs_def, AFUPDKEY_def]
     \\ Cases \\ simp[] \\ strip_tac \\ rveq
     \\ pop_assum mp_tac
     \\ simp[TextIOProofTheory.up_stdo_def]
@@ -283,10 +288,13 @@ Theorem cake_extract_writes
     \\ rw[]
     \\ (
       drule (GEN_ALL extract_fs_extract_writes)
-      \\ simp[ALIST_FUPDKEY_ALOOKUP]
+      \\ simp[AFUPDKEY_ALOOKUP]
       \\ disch_then match_mp_tac
       \\ rw[fsFFIPropsTheory.inFS_fname_def]
-      >- (fs[CaseEq"option",CaseEq"bool"] \\ rveq \\ fs[])
+      >- (
+        fs[CaseEq"option",CaseEq"bool",FORALL_PROD]
+        \\ rw[] \\ CCONTR_TAC \\ fs[]
+        \\ rveq \\ fs[] )
       >- (
         pop_assum mp_tac
         \\ rw[] \\ fs[] \\ rw[]
@@ -307,23 +315,33 @@ Theorem cake_extract_writes
     \\ conj_tac
     >- (
       rw[]
-      \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds fd = _`
-      \\ `OPTION_MAP FST (ALOOKUP fs'.infds fd) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds fd)`
+      \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds _ = _`
+      \\ `OPTION_MAP FST (ALOOKUP fs'.infds fd1) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds fd1)`
       by( simp_tac(srw_ss())[Abbr`fs'`, FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds] )
       \\ rfs[]
+      \\ `OPTION_MAP FST (ALOOKUP fs'.infds fd2) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds fd2)`
+      by( simp_tac(srw_ss())[Abbr`fs'`, FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds] )
+      \\ rfs[]
+      \\ qmatch_assum_abbrev_tac`FST z = FST z'`
+      \\ Cases_on`z` \\ Cases_on`z'`
+      \\ rfs[]
+      \\ fs[stdin_fs_def]
+      \\ rw[]
+      \\ ntac 2 (pop_assum mp_tac)
+      \\ rw[fsFFIPropsTheory.inFS_fname_def] \\ fs[] \\ rw[]
+      )
+    \\ conj_tac
+    >-(
+      rw[]
+      \\ qmatch_goalsub_abbrev_tac`ALOOKUP fs' x`
+      \\ `OPTION_MAP FST (ALOOKUP fs' x) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds x)`
+      by ( simp[FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds, Abbr`fs'`] )
       \\ fs[stdin_fs_def]
       \\ pop_assum mp_tac
-      \\ rw[fsFFIPropsTheory.inFS_fname_def] \\ fs[] )
-    \\ conj_tac
-    >- (
-      rw[]
-      \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs' fd1 = _`
-      \\ `OPTION_MAP FST (ALOOKUP fs' fd1) = OPTION_MAP FST (ALOOKUP fs' fd2)` by simp[]
-      \\ `IS_SOME (OPTION_MAP FST (ALOOKUP fs' fd1))` by simp[]
-      \\ ntac 2 (pop_assum mp_tac)
-      \\ simp_tac(srw_ss())[Abbr`fs'`,FST_ALOOKUP_fastForwardFD_infds,FST_ALOOKUP_add_stdo_infds]
-      \\ simp[stdin_fs_def]
-      \\ rw[] )
+      \\ rw[]
+      \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs' _ = SOME z`
+      \\ Cases_on`z` \\ fs[] \\ rw[]
+    )
     \\ conj_tac
     >- (
       rw[]
@@ -334,11 +352,11 @@ Theorem cake_extract_writes
       \\ Cases_on`ALOOKUP fs' x` \\ fs[] )
     \\ simp[EVAL``(stdin_fs inp).infds``]
     \\ simp[Once stdin_fs_def]
-    \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_files]
+    \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_inode_tbl]
     \\ simp[]
     \\ DEP_REWRITE_TAC[TextIOProofTheory.STD_streams_add_stdout]
     \\ simp[STD_streams_stdin_fs]
-    \\ DEP_REWRITE_TAC[ALOOKUP_add_stdout_files]
+    \\ DEP_REWRITE_TAC[ALOOKUP_add_stdout_inode_tbl]
     \\ simp[STD_streams_stdin_fs]
     \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_infds]
     \\ DEP_REWRITE_TAC[TextIOProofTheory.STD_streams_add_stdout]
@@ -351,23 +369,32 @@ Theorem cake_extract_writes
   \\ conj_tac
   >- (
     rw[]
-    \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds fd = _`
-    \\ `OPTION_MAP FST (ALOOKUP fs'.infds fd) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds fd)`
+    \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds _ = _`
+    \\ `OPTION_MAP FST (ALOOKUP fs'.infds fd1) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds fd1)`
     by( simp_tac(srw_ss())[Abbr`fs'`, FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds] )
     \\ rfs[]
+    \\ `OPTION_MAP FST (ALOOKUP fs'.infds fd2) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds fd2)`
+    by( simp_tac(srw_ss())[Abbr`fs'`, FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds] )
+    \\ rfs[]
+    \\ qmatch_assum_abbrev_tac`FST z = FST z'`
+    \\ Cases_on`z` \\ Cases_on`z'`
+    \\ rfs[]
     \\ fs[stdin_fs_def]
-    \\ pop_assum mp_tac
+    \\ rw[]
+    \\ ntac 2 (pop_assum mp_tac)
     \\ rw[fsFFIPropsTheory.inFS_fname_def] \\ fs[] )
   \\ conj_tac
-  >- (
+  >-(
     rw[]
-    \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs' fd1 = _`
-    \\ `OPTION_MAP FST (ALOOKUP fs' fd1) = OPTION_MAP FST (ALOOKUP fs' fd2)` by simp[]
-    \\ `IS_SOME (OPTION_MAP FST (ALOOKUP fs' fd1))` by simp[]
-    \\ ntac 2 (pop_assum mp_tac)
-    \\ simp_tac(srw_ss())[Abbr`fs'`,FST_ALOOKUP_fastForwardFD_infds,FST_ALOOKUP_add_stdo_infds]
-    \\ simp[stdin_fs_def]
-    \\ rw[] )
+    \\ qmatch_goalsub_abbrev_tac`ALOOKUP fs' x`
+    \\ `OPTION_MAP FST (ALOOKUP fs' x) = OPTION_MAP FST (ALOOKUP (stdin_fs inp).infds x)`
+    by ( simp[FST_ALOOKUP_fastForwardFD_infds, FST_ALOOKUP_add_stdo_infds, Abbr`fs'`] )
+    \\ fs[stdin_fs_def]
+    \\ pop_assum mp_tac
+    \\ rw[]
+    \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs' _ = SOME z`
+    \\ Cases_on`z` \\ fs[] \\ rw[]
+  )
   \\ conj_tac
   >- (
     rw[]
@@ -378,11 +405,11 @@ Theorem cake_extract_writes
     \\ Cases_on`ALOOKUP fs' x` \\ fs[] )
   \\ simp[EVAL``(stdin_fs inp).infds``]
   \\ simp[Once stdin_fs_def]
-  \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_files]
+  \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_inode_tbl]
   \\ simp[]
   \\ DEP_REWRITE_TAC[TextIOProofTheory.STD_streams_add_stdout]
   \\ simp[STD_streams_stdin_fs]
-  \\ DEP_REWRITE_TAC[ALOOKUP_add_stdout_files]
+  \\ DEP_REWRITE_TAC[ALOOKUP_add_stdout_inode_tbl]
   \\ simp[STD_streams_stdin_fs]
   \\ DEP_REWRITE_TAC[ALOOKUP_add_stderr_infds]
   \\ DEP_REWRITE_TAC[TextIOProofTheory.STD_streams_add_stdout]

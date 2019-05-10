@@ -278,6 +278,7 @@ val _ = Datatype`
             ; asm_conf : 'a asm_config
             ; init_clock : num
             ; ffi_names : string list option
+            ; hash_size : num
             |>`;
 
 val list_add_if_fresh_def = Define `
