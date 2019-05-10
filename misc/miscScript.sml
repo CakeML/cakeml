@@ -2,15 +2,15 @@
    Miscellaneous definitions and minor lemmas used throughout the
    development.
 *)
+
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse libTheory mp_then
-open bitstringTheory bagTheory byteTheory optionTheory combinTheory dep_rewrite
-     containerTheory listTheory pred_setTheory finite_mapTheory alistTheory
-     rich_listTheory llistTheory arithmeticTheory pairTheory
-     sortingTheory relationTheory totoTheory comparisonTheory
+open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
+     byteTheory combinTheory dep_rewrite containerTheory listTheory
+     pred_setTheory finite_mapTheory rich_listTheory llistTheory optionTheory
+     pairTheory sortingTheory relationTheory totoTheory comparisonTheory
      bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory
-     indexedListsTheory stringTheory ASCIInumbersLib
-     machine_ieeeTheory
-local open bagLib alignmentTheory addressTheory blastLib in end
+     indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
+local open bagLib addressTheory blastLib in end
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -1166,14 +1166,6 @@ Theorem PERM_ZIP
   simp[] >> strip_tac >>
   metis_tac[PERM_TRANS])
 
-(* TODO - candidate for move to HOL *)
-Theorem RTC_RINTER
-  `!R1 R2 x y. RTC (R1 RINTER R2) x y ⇒ ((RTC R1) RINTER (RTC R2)) x y`
-  (ntac 2 gen_tac >>
-  match_mp_tac RTC_INDUCT >>
-  simp[RINTER] >>
-  metis_tac[RTC_CASES1] )
-
 (* never used *)
 Theorem RTC_invariant
   `!R P. (!x y. P x /\ R x y ==> P y) ==> !x y. RTC R x y ==> P x ==> RTC (R RINTER (\x y. P x /\ P y)) x y`
@@ -1314,20 +1306,6 @@ Theorem has_fmap_linv_inj
 Theorem fmap_linv_FAPPLY
   `fmap_linv f g /\ x IN FDOM f ==> (g ' (f ' x) = x)`
   (SRW_TAC[][fmap_linv_def,FLOOKUP_DEF])
-
-(* TODO - candidate for move to HOL *)
-Theorem o_f_cong
-  `!f fm f' fm'.
-    (fm = fm') /\
-    (!v. v IN FRANGE fm ==> (f v = f' v))
-    ==> (f o_f fm = f' o_f fm')`
-  (SRW_TAC[DNF_ss][GSYM fmap_EQ_THM,FRANGE_DEF])
-val _ = DefnBase.export_cong"o_f_cong"
-
-(* TODO - candidate for move to HOL *)
-Theorem o_f_id
-`!m. (\x.x) o_f m = m`
-(rw [fmap_EXT]);
 
 (* TODO - candidate for move to HOL *)
 Theorem plus_compose
@@ -1581,62 +1559,6 @@ Theorem EVERY_lookup_vars
 Theorem EVERY_LAST
   `!P l. l ≠ [] /\ EVERY P l ==> P (LAST l)`
   (rw [LAST_EL, EVERY_EL, NOT_NIL_EQ_LENGTH_NOT_0]);
-
-(* TODO - candidate for move to HOL *)
-Theorem num_to_dec_string_nil
-  `¬(num_to_dec_string n = [])`
-  (rw[ASCIInumbersTheory.num_to_dec_string_def]
-  \\ rw[ASCIInumbersTheory.n2s_def]
-  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.LENGTH_n2l
-  \\ rw[] \\ CCONTR_TAC \\ fs[]);
-
-Theorem isDigit_HEX
-  `∀n. n < 10 ⇒ isDigit (HEX n)`
-  (REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
-  \\ gen_tac
-  \\ CONV_TAC(LAND_CONV EVAL)
-  \\ simp[]
-  \\ strip_tac \\ var_eq_tac
-  \\ EVAL_TAC);
-
-Theorem isHexDigit_HEX
-  `∀n. n < 16 ⇒ isHexDigit (HEX n) ∧ (isAlpha (HEX n) ⇒ isUpper (HEX n))`
-  (REWRITE_TAC[GSYM rich_listTheory.MEM_COUNT_LIST]
-  \\ gen_tac
-  \\ CONV_TAC(LAND_CONV EVAL)
-  \\ strip_tac \\ var_eq_tac
-  \\ EVAL_TAC);
-
-(* TODO - candidate for move to HOL *)
-Theorem EVERY_isDigit_num_to_dec_string
-  `∀n. EVERY isDigit (num_to_dec_string n)`
-  (rw[ASCIInumbersTheory.num_to_dec_string_def,ASCIInumbersTheory.n2s_def]
-  \\ rw[rich_listTheory.EVERY_REVERSE,listTheory.EVERY_MAP]
-  \\ simp[EVERY_MEM]
-  \\ gen_tac\\ strip_tac
-  \\ match_mp_tac isDigit_HEX
-  \\ qspecl_then[`10`,`n`]mp_tac numposrepTheory.n2l_BOUND
-  \\ rw[EVERY_MEM]
-  \\ res_tac
-  \\ decide_tac);
-
-(* TODO - candidate for move to HOL *)
-Theorem EVERY_isHexDigit_num_to_hex_string
-  `∀n. EVERY (λc. isHexDigit c ∧ (isAlpha c ⇒ isUpper c)) (num_to_hex_string n)`
-  (rw[ASCIInumbersTheory.num_to_hex_string_def,ASCIInumbersTheory.n2s_def]
-  \\ rw[rich_listTheory.EVERY_REVERSE,listTheory.EVERY_MAP]
-  \\ simp[EVERY_MEM]
-  \\ gen_tac\\ strip_tac
-  \\ match_mp_tac isHexDigit_HEX
-  \\ qspecl_then[`16`,`n`]mp_tac numposrepTheory.n2l_BOUND
-  \\ rw[EVERY_MEM]
-  \\ res_tac
-  \\ decide_tac);
-
-(* TODO - candidate for move to HOL *)
-Theorem isHexDigit_isPrint
-  `∀x. isHexDigit x ⇒ isPrint x`
-  (EVAL_TAC \\ rw[]);
 
 (* TODO - candidate for move to HOL *)
 Theorem num_to_hex_string_length_1
@@ -1999,15 +1921,6 @@ val option_fold_def = Define `
   (option_fold f x NONE = x) ∧
   (option_fold f x (SOME y) = f y x)`;
 
-Theorem SPLITP_NIL_IMP
-  `∀ls r. (SPLITP P ls = ([],r)) ==> (r = ls) /\ ((ls <> "") ==> (P (HD ls)))`
-  (Induct \\ rw[SPLITP]);
-
-
-Theorem SPLIT_NIL_SND_EQ
-  `!ls r. (SPLITP P ls = (r, [])) ==> (r = ls)`
-    (rw[] \\ imp_res_tac SPLITP_JOIN \\ fs[]);
-
 Theorem SPLITP_CONS_IMP
   `∀ls l' r. (SPLITP P ls = (l', r)) /\ (r <> []) ==> (EXISTS P ls)`
   (rw[] \\ imp_res_tac SPLITP_IMP \\ imp_res_tac SPLITP_JOIN
@@ -2018,21 +1931,6 @@ Theorem LAST_CONS_alt
   `P x ==> ((ls <> [] ==> P (LAST ls)) <=> (P (LAST (CONS x ls))))`
   (Cases_on`ls` \\ rw[]);
 
-Theorem SPLITP_APPEND
-  `!l1 l2.
-   SPLITP P (l1 ++ l2) =
-    if EXISTS P l1 then
-      (FST (SPLITP P l1), SND (SPLITP P l1) ++ l2)
-    else
-      (l1 ++ FST(SPLITP P l2), SND (SPLITP P l2))`
-  (Induct \\ rw[SPLITP] \\ fs[]);
-
-
-Theorem SPLITP_LENGTH
-  `!l.
-    LENGTH l = (LENGTH (FST (SPLITP P l)) + LENGTH (SND (SPLITP P l)))`
-    (Induct \\ rw[SPLITP, LENGTH]
-);
 
 Theorem EVERY_TOKENS
   `∀P ls. EVERY (EVERY ($~ o P)) (TOKENS P ls)`
@@ -2042,42 +1940,18 @@ Theorem EVERY_TOKENS
   \\ IF_CASES_TAC \\ fs[]
   \\ imp_res_tac SPLITP_IMP);
 
-(* TODO - candidate for move to HOL *)
-Theorem TOKENS_APPEND
-  `∀P l1 x l2.
-    P x ==>
-    (TOKENS P (l1 ++ x::l2) = TOKENS P l1 ++ TOKENS P l2)`
-  (ho_match_mp_tac TOKENS_ind
-  \\ rw[TOKENS_def] >- (fs[SPLITP])
-  \\ pairarg_tac  \\ fs[]
-  \\ pairarg_tac  \\ fs[]
-  \\ fs[NULL_EQ, SPLITP]
-  \\ Cases_on `P h` \\ full_simp_tac bool_ss []
-  \\ rw[]
-  \\ fs[TL]
-  \\ Cases_on `EXISTS P t` \\ rw[SPLITP_APPEND, SPLITP]
-  \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]
-  \\ fs[NOT_EXISTS] \\ imp_res_tac (GSYM SPLITP_NIL_SND_EVERY) \\ rw[]);
-
-
-(* TODO - candidate for move to HOL *)
-Theorem TOKENS_NIL
-  `!ls. (TOKENS f ls = []) <=> EVERY f ls`
-  (Induct \\ rw[TOKENS_def]  \\ pairarg_tac  \\ fs[NULL_EQ, SPLITP]
-  \\ every_case_tac \\ fs[] \\ rw[]);
-
-
-Theorem TOKENS_START
-  `!l a.
-      TOKENS (\x. x = a) (a::l) = TOKENS (\x. x = a) l`
-    (gen_tac \\ Induct_on `l` \\ rw[TOKENS_def] \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
-    >-(imp_res_tac SPLITP_NIL_IMP \\ fs[] \\ rw[TOKENS_def])
-    >-(fs[SPLITP])
-    >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[]
-      \\ imp_res_tac SPLITP_NIL_IMP \\ fs[]
-      \\ simp[TOKENS_def] \\ rw[NULL_EQ])
-    >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP])
-);
+Theorem TOKENS_START:
+  !l a. TOKENS (\x. x = a) (a::l) = TOKENS (\x. x = a) l
+Proof
+  gen_tac \\ Induct_on `l` \\ rw[TOKENS_def] \\ pairarg_tac \\ fs[NULL_EQ] \\ rw[]
+  >-(imp_res_tac SPLITP_NIL_FST_IMP \\ fs[] \\ rw[TOKENS_def])
+  >-(fs[SPLITP])
+  >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[]
+    \\ imp_res_tac SPLITP_NIL_FST_IMP
+    \\ imp_res_tac SPLITP_IMP \\ rfs[]
+    \\ simp[TOKENS_def] \\ rw[NULL_EQ])
+  >-(pairarg_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[SPLITP])
+QED
 
 Theorem TOKENS_END
   `!l a.
@@ -2198,52 +2072,6 @@ Theorem LUPDATE_APPEND
                        else xs ++ LUPDATE x (n - LENGTH xs) ys`
   (Induct \\ fs [] \\ Cases_on `n` \\ fs [LUPDATE_def] \\ rw [] \\ fs []);
 
-val ALIST_FUPDKEY_def = Define`
-  (ALIST_FUPDKEY k f [] = []) ∧
-  (ALIST_FUPDKEY k f ((k',v)::rest) =
-     if k = k' then (k,f v)::rest
-     else (k',v) :: ALIST_FUPDKEY k f rest)
-`;
-
-val ALIST_FUPDKEY_ind = theorem"ALIST_FUPDKEY_ind";
-
-Theorem ALIST_FUPDKEY_ALOOKUP
-  `ALOOKUP (ALIST_FUPDKEY k2 f al) k1 =
-     case ALOOKUP al k1 of
-         NONE => NONE
-       | SOME v => if k1 = k2 then SOME (f v) else SOME v`
-  (Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]
-  >- (Cases_on `ALOOKUP al k1` >> simp[]) >>
-  simp[]);
-
-Theorem MAP_FST_ALIST_FUPDKEY[simp]
-  `MAP FST (ALIST_FUPDKEY f k alist) = MAP FST alist`
-  (Induct_on `alist` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >> rw[]);
-
-Theorem ALIST_FUPDKEY_unchanged
-  `∀k f alist.
-   (∀v. ALOOKUP alist k = SOME v ⇒ f v = v)
-   ==> ALIST_FUPDKEY k f alist = alist`
-  (ho_match_mp_tac ALIST_FUPDKEY_ind
-  \\ rw[ALIST_FUPDKEY_def]);
-
-Theorem ALIST_FUPDKEY_o
-  `ALIST_FUPDKEY k f1 (ALIST_FUPDKEY k f2 al) = ALIST_FUPDKEY k (f1 o f2) al`
-  (Induct_on `al` >> simp[ALIST_FUPDKEY_def, FORALL_PROD] >>
-  rw[ALIST_FUPDKEY_def]);
-
-Theorem ALIST_FUPDKEY_eq
-  `∀k f1 l f2.
-   (∀v. ALOOKUP l k = SOME v ⇒ f1 v = f2 v) ⇒
-   ALIST_FUPDKEY k f1 l = ALIST_FUPDKEY k f2 l`
-  (ho_match_mp_tac ALIST_FUPDKEY_ind \\ rw[ALIST_FUPDKEY_def]);
-
-Theorem ALIST_FUPDKEY_I
-  `ALIST_FUPDKEY n I = I`
-  (simp[FUN_EQ_THM]
-  \\ Induct
-  \\ simp[ALIST_FUPDKEY_def,FORALL_PROD]);
-
 Theorem FILTER_EL_EQ
   `∀l1 l2. LENGTH l1 = LENGTH l2 ∧
    (∀n. n < LENGTH l1 ∧ (P (EL n l1) ∨ P (EL n l2)) ⇒ (EL n l1 = EL n l2))
@@ -2256,53 +2084,18 @@ Theorem FILTER_EL_EQ
   \\ first_x_assum match_mp_tac \\ rw[]
   \\ first_x_assum(qspec_then`SUC n`mp_tac) \\ rw[]);
 
-Theorem LENGTH_ALIST_FUPDKEY[simp]
-  `∀ls. LENGTH (ALIST_FUPDKEY k f ls) = LENGTH ls`
-  (Induct \\ simp[ALIST_FUPDKEY_def]
-  \\ Cases \\ rw[ALIST_FUPDKEY_def]);
-
-Theorem FST_EL_ALIST_FUPDKEY
-  `∀n. n < LENGTH ls ⇒ FST (EL n (ALIST_FUPDKEY k f ls)) = FST (EL n ls)`
+Theorem FST_EL_AFUPDKEY
+  `∀n. n < LENGTH ls ⇒ FST (EL n (AFUPDKEY k f ls)) = FST (EL n ls)`
   (Induct_on`ls` \\ simp[]
-  \\ Cases \\ rw[ALIST_FUPDKEY_def]
+  \\ Cases \\ rw[AFUPDKEY_def]
   \\ Cases_on`n` \\ fs[]);
 
-Theorem EL_ALIST_FUPDKEY_unchanged
-  `∀n. n < LENGTH ls ∧ FST (EL n ls) ≠ k ⇒ EL n (ALIST_FUPDKEY k f ls) = EL n ls`
+Theorem EL_AFUPDKEY_unchanged
+  `∀n. n < LENGTH ls ∧ FST (EL n ls) ≠ k ⇒ EL n (AFUPDKEY k f ls) = EL n ls`
   (Induct_on`ls` \\ simp[]
-  \\ Cases \\ simp[ALIST_FUPDKEY_def]
+  \\ Cases \\ simp[AFUPDKEY_def]
   \\ Cases \\ simp[]
   \\ IF_CASES_TAC \\ rveq \\ rw[]);
-
-val A_DELKEY_def = Define`
-  A_DELKEY k alist = FILTER (λp. FST p <> k) alist
-`;
-
-Theorem MEM_DELKEY[simp]
-  `∀al. MEM (k1,v) (A_DELKEY k2 al) ⇔ k1 ≠ k2 ∧ MEM (k1,v) al`
-  (Induct >> simp[A_DELKEY_def, FORALL_PROD] >> rw[MEM_FILTER] >>
-  metis_tac[]);
-
-Theorem ALOOKUP_ADELKEY
-  `∀al. ALOOKUP (A_DELKEY k1 al) k2 = if k1 = k2 then NONE else ALOOKUP al k2`
-  (simp[A_DELKEY_def] >> Induct >> simp[FORALL_PROD] >> rw[] >> simp[]);
-
-Theorem A_DELKEY_ALIST_FUPDKEY[simp]
-  `∀fd f ls. A_DELKEY fd (ALIST_FUPDKEY fd f ls) = A_DELKEY fd ls`
-  (ho_match_mp_tac ALIST_FUPDKEY_ind
-  \\ rw[ALIST_FUPDKEY_def,A_DELKEY_def]);
-
-Theorem A_DELKEY_I
-  `∀x ls. (A_DELKEY x ls = ls ⇔ ¬MEM x (MAP FST ls))`
-  (Induct_on`ls`
-  \\ rw[A_DELKEY_def,FILTER_EQ_ID,MEM_MAP,EVERY_MEM]
-  >- metis_tac[]
-  \\ rw[EQ_IMP_THM]
-  >- (
-    `LENGTH (h::ls) ≤ LENGTH ls` by metis_tac[LENGTH_FILTER_LEQ]
-    \\ fs[] )
-  \\ first_x_assum(qspec_then`h`mp_tac)
-  \\ simp[]);
 
 Theorem findi_APPEND
   `∀l1 l2 x.
@@ -2464,7 +2257,7 @@ Theorem LENGTH_FIELDS
   \\ pairarg_tac \\ fs[]
   \\ rw[] \\ fs[] \\ rw[ADD1]
   \\ fs[NULL_EQ]
-  \\ imp_res_tac SPLITP_NIL_IMP
+  \\ imp_res_tac SPLITP_NIL_FST_IMP
   \\ imp_res_tac SPLITP_NIL_SND_EVERY
   \\ imp_res_tac SPLITP_IMP
   \\ fs[NULL_EQ]
@@ -2517,7 +2310,7 @@ Theorem FIELDS_next
   \\ rw[FIELDS_def]
   \\ pairarg_tac \\ fs[]
   \\ every_case_tac \\ fs[NULL_EQ] \\ rw[] \\ fs[]
-  \\ imp_res_tac SPLITP_NIL_IMP \\ fs[]
+  \\ imp_res_tac SPLITP_NIL_FST_IMP \\ fs[]
   \\ imp_res_tac SPLITP_IMP \\ fs[]
   \\ imp_res_tac SPLITP_NIL_SND_EVERY \\ fs[]
   \\ rfs[PULL_FORALL,NULL_EQ]
@@ -2559,7 +2352,7 @@ Theorem FIELDS_full
     \\ imp_res_tac SPLITP_NIL_SND_EVERY )
   \\ simp_tac(srw_ss())[]
   \\ strip_tac \\ rveq
-  \\ Q.ISPEC_THEN`h::t`mp_tac SPLITP_LENGTH
+  \\ Q.ISPEC_THEN`h::t`mp_tac(GSYM SPLITP_LENGTH)
   \\ last_x_assum kall_tac
   \\ simp[]
   \\ strip_tac \\ fs[]
@@ -2639,10 +2432,6 @@ Theorem splitlines_CONS_FST_SPLITP
   \\ every_case_tac \\ fs[] \\ rw[] \\ fs[NULL_EQ]
   \\ qmatch_assum_abbrev_tac`FRONT (x::y) = _`
   \\ Cases_on`y` \\ fs[]);
-
-Theorem DIV_EQ_0
-  `1 < b ==> ((n DIV b = 0) = (n < b))`
-  (metis_tac[numposrepTheory.DIV_0_IMP_LT,LESS_DIV_EQ_ZERO]);
 
 Theorem n2l_DIV_MOD
   `!b n k. 1 < b /\ 0 < k /\ b ** k <= n ==>
@@ -2874,35 +2663,6 @@ Theorem DISTINCT_FUPDATE_LIST_UNION
   (rw[FUPDATE_LIST_alist_to_fmap,ALL_DISTINCT_alist_to_fmap_REVERSE]
   \\ match_mp_tac FUNION_COMM \\ rw[DISJOINT_SYM]);
 
-(* TODO - candidate for move to HOL *)
-Theorem FEVERY_alist_to_fmap
-  `EVERY P ls ==> FEVERY P (alist_to_fmap ls)`
-  (Induct_on`ls` \\ simp[FORALL_PROD]
-  \\ rw[FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE]
-  \\ pop_assum mp_tac \\ rw[] \\ fs[]
-  \\ imp_res_tac ALOOKUP_MEM \\ fs[EVERY_MEM]);
-
-(* TODO - candidate for move to HOL *)
-Theorem ALL_DISTINCT_FEVERY_alist_to_fmap
-  `ALL_DISTINCT (MAP FST ls) ⇒
-   (FEVERY P (alist_to_fmap ls) ⇔ EVERY P ls)`
-  (Induct_on`ls` \\ simp[FORALL_PROD]
-  \\ rw[FEVERY_ALL_FLOOKUP,FLOOKUP_UPDATE] \\ fs[FEVERY_ALL_FLOOKUP]
-  \\ rw[EQ_IMP_THM]
-  \\ pop_assum mp_tac \\ rw[] \\ fs[MEM_MAP,EXISTS_PROD]
-  \\ metis_tac[ALOOKUP_MEM]);
-
-(* TODO - candidate for move to HOL *)
-Theorem DISJOINT_FEVERY_FUNION
-  `DISJOINT (FDOM m1) (FDOM m2) ⇒
-   (FEVERY P (FUNION m1 m2) <=> FEVERY P m1 /\ FEVERY P m2)`
-  (rw[EQ_IMP_THM,fevery_funion]
-  \\ fs[FEVERY_ALL_FLOOKUP,FLOOKUP_FUNION,IN_DISJOINT] \\ rw[]
-  \\ first_x_assum match_mp_tac
-  \\ CASE_TAC
-  \\ fs[FLOOKUP_DEF]
-  \\ metis_tac[]);
-
 Theorem fevery_to_drestrict
 `!P m s.
   FEVERY P m ⇒ FEVERY P (DRESTRICT m s)`
@@ -2918,49 +2678,18 @@ Theorem LAST_FLAT
   \\ fs[FLAT_SNOC,FILTER_SNOC]
   \\ Cases_on`x` \\ fs[]);
 
-(* TODO - candidate for move to HOL *)
-Theorem TOKENS_FRONT
-  `¬NULL ls ∧ P (LAST ls) ⇒
-   TOKENS P (FRONT ls) = TOKENS P ls`
-  (Induct_on`ls` \\ rw[]
-  \\ Cases_on`ls` \\ fs[]
-  >- rw[TOKENS_def,SPLITP]
-  \\ rw[TOKENS_def]
-  \\ pairarg_tac
-  \\ simp[Once SPLITP]
-  \\ CASE_TAC \\ fs[NULL_EQ]
-  >- (
-    imp_res_tac SPLITP_NIL_IMP
-    \\ fs[] )
-  \\ imp_res_tac SPLITP_JOIN
-  \\ Cases_on`l` \\ fs[] \\ rveq
-  \\ imp_res_tac SPLITP_IMP
-  \\ CASE_TAC \\ fs[]
-  \\ qmatch_goalsub_rename_tac`SPLITP P (x::xs)`
-  \\ `∃y ys. x::xs = SNOC y ys` by metis_tac[SNOC_CASES,list_distinct]
-  \\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC] \\ rveq
-  \\ qmatch_goalsub_rename_tac`SPLITP P (SNOC y (w ++ z))`
-  \\ Cases_on`NULL z` \\ fs[NULL_EQ]
-  >- (
-    simp[SPLITP_APPEND]
-    \\ full_simp_tac std_ss [GSYM NOT_EXISTS]
-    \\ simp[SPLITP,TOKENS_def] )
-  \\ Cases_on`z` \\ fs[]
-  \\ simp[SPLITP_APPEND]
-  \\ full_simp_tac std_ss [GSYM NOT_EXISTS]
-  \\ simp[SPLITP,TOKENS_def]
-  \\ simp[TOKENS_APPEND,TOKENS_NIL]);
-
-Theorem TOKENS_unchanged
-  `EVERY ($~ o P) ls ==> TOKENS P ls = if NULL ls then [] else [ls]`
-  (Induct_on`ls` \\ rw[TOKENS_def] \\ fs[]
+Theorem TOKENS_unchanged:
+  EVERY ($~ o P) ls ==> TOKENS P ls = if NULL ls then [] else [ls]
+Proof
+  Induct_on`ls` \\ rw[TOKENS_def] \\ fs[]
   \\ pairarg_tac \\ fs[NULL_EQ]
   \\ imp_res_tac SPLITP_JOIN
   \\ Cases_on`r=[]` \\ fs[]
-  >- ( imp_res_tac SPLITP_NIL_IMP \\ rveq \\ fs[TOKENS_NIL] )
+  >- ( imp_res_tac SPLITP_NIL_FST_IMP \\ rveq \\ fs[TOKENS_NIL] )
   \\ rw[]
   >- (
-    imp_res_tac SPLITP_NIL_IMP
+    imp_res_tac SPLITP_NIL_FST_IMP
+    \\ imp_res_tac SPLITP_IMP
     \\ rfs[] \\ rveq \\ fs[] )
   \\ imp_res_tac SPLITP_IMP
   \\ rfs[NULL_EQ]
@@ -2968,7 +2697,8 @@ Theorem TOKENS_unchanged
   \\ `MEM (HD r) (l ++ r)` by (Cases_on`r` \\ fs[])
   \\ Cases_on`MEM (HD r) l` \\ fs[] >- metis_tac[]
   \\ `MEM (HD r) (h::ls)` by metis_tac[MEM_APPEND]
-  \\ fs[] \\ rw[] \\ metis_tac[]);
+  \\ fs[] \\ rw[] \\ metis_tac[]
+QED
 
 Theorem TOKENS_FLAT_MAP_SNOC
   `EVERY (EVERY ((<>) x)) ls ∧ EVERY ($~ o NULL) ls ==>
@@ -3029,23 +2759,6 @@ Theorem LUPDATE_insert_commute
        LUPDATE w pos2 (insert_atI ws pos1 a)`
   (Induct >> simp[insert_atI_NIL,insert_atI_CONS, LUPDATE_commutes]);
 
-(* TODO - candidate for move to HOL *)
-Theorem ALIST_FUPDKEY_comm
- `!k1 k2 f1 f2 l. k1 <> k2 ==>
-  ALIST_FUPDKEY k2 f2 (ALIST_FUPDKEY k1 f1 l) =
-  ALIST_FUPDKEY k1 f1 (ALIST_FUPDKEY k2 f2 l)`
-  (Induct_on`l` >> rw[] >> fs[ALIST_FUPDKEY_def] >>
-  Cases_on`h`>> fs[ALIST_FUPDKEY_def] >>
-  CASE_TAC >> fs[ALIST_FUPDKEY_def] >>
-  CASE_TAC >> fs[ALIST_FUPDKEY_def]);
-
-(* TODO - candidate for move to HOL *)
-Theorem A_DELKEY_ALIST_FUPDKEY_comm
-  `!ls f x y. x <> y ==>
-  A_DELKEY x (ALIST_FUPDKEY y f ls) = (ALIST_FUPDKEY y f (A_DELKEY x ls))`
-  (Induct >>  rw[A_DELKEY_def,ALIST_FUPDKEY_def] >>
-  Cases_on`h` >> fs[ALIST_FUPDKEY_def] >> TRY CASE_TAC >> fs[A_DELKEY_def]);
-
 Theorem LESS_EQ_LENGTH
   `!xs k. k <= LENGTH xs ==> ?ys1 ys2. (xs = ys1 ++ ys2) /\ (LENGTH ys1 = k)`
   (Induct \\ Cases_on `k` \\ full_simp_tac std_ss [LENGTH,ADD1,LENGTH_NIL,APPEND]
@@ -3088,6 +2801,7 @@ Theorem BAG_ALL_DISTINCT_FOLDR_BAG_UNION
   \\ metis_tac[BAG_DISJOINT_SYM]);
 
 (* TODO - candidate for move to HOL *)
+(* N.B.: there is a different is_subsequence defined in lcsTheory; these should be merged *)
 val is_subseq_def = Define`
   (is_subseq ls [] ⇔ T) ∧
   (is_subseq [] (x::xs) ⇔ F) ∧
@@ -3241,21 +2955,6 @@ Theorem FUNPOW_refl_trans_chain
   \\ qexists_tac`FUNPOW f n x`
   \\ simp[]);
 
-(* TODO - candidate for move to HOL *)
-Theorem ALIGNED_eq_aligned
-  `ALIGNED = aligned 2`
-  (rw[addressTheory.ALIGNED_def,FUN_EQ_THM,alignmentTheory.aligned_bitwise_and]);
-
-(* TODO - candidate for move to HOL *)
-Theorem imp_align_eq_0
-  `w2n a < 2 ** p ⇒ (align p a= 0w)`
-  (Cases_on`a` \\ fs[]
-  \\ rw[alignmentTheory.align_w2n]
-  \\ Cases_on`p = 0` \\ fs[]
-  \\ `1 < 2 ** p` by fs[arithmeticTheory.ONE_LT_EXP]
-  \\ `n DIV 2 ** p = 0` by fs[DIV_EQ_0]
-  \\ fs[] );
-
 Theorem byte_align_extract
   `byte_align (x:word32) = (((31 >< 2) x):word30) @@ (0w:word2)`
   (rw[alignmentTheory.byte_align_def]
@@ -3342,42 +3041,11 @@ Theorem byte_align_IN_IMP_IN_range
   \\ asm_exists_tac
   \\ fs[alignmentTheory.byte_align_def]);
 
-(* TODO - candidate for move to HOL *)
-Theorem aligned_or
-  `aligned n (w || v) <=> aligned n w /\ aligned n v`
-  (Cases_on `n = 0`
-  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [alignmentTheory.aligned_extract]
-  \\ metis_tac [])
-
-(* TODO - candidate for move to HOL *)
-Theorem aligned_w2n
-  `aligned k w <=> w2n (w:'a word) MOD 2 ** k = 0`
-  (Cases_on `w`
-  \\ fs [alignmentTheory.aligned_def,alignmentTheory.align_w2n]
-  \\ `0n < 2 ** k` by simp []
-  \\ drule DIVISION
-  \\ disch_then (qspec_then `n` assume_tac)
-  \\ `(n DIV 2 ** k * 2 ** k) < dimword (:α)` by decide_tac
-  \\ asm_simp_tac std_ss [] \\ decide_tac);
-
-Theorem pow_eq_0
-  `dimindex (:'a) <= k ==> (n2w (2 ** k) = 0w:'a word)`
-  (fs [dimword_def] \\ fs [LESS_EQ_EXISTS]
-  \\ rw [] \\ fs [EXP_ADD,MOD_EQ_0]);
-
-(* TODO - candidate for move to HOL *)
-Theorem aligned_pow
-  `aligned k (n2w (2 ** k))`
-  (Cases_on `k < dimindex (:'a)`
-  \\ fs [NOT_LESS,pow_eq_0,alignmentTheory.aligned_0]
-  \\ `2 ** k < dimword (:'a)` by fs [dimword_def]
-  \\ fs [alignmentTheory.aligned_def,alignmentTheory.align_w2n])
-
 local
   open alignmentTheory
   val aligned_add_mult_lemma = Q.prove(
     `aligned k (w + n2w (2 ** k)) = aligned k w`,
-    fs [aligned_add_sub,aligned_pow]) |> GEN_ALL
+    fs [aligned_add_sub,aligned_pow2]) |> GEN_ALL
   val aligned_add_mult_any = Q.prove(
     `!n w. aligned k (w + n2w (n * 2 ** k)) = aligned k w`,
     Induct \\ fs [MULT_CLAUSES,GSYM word_add_n2w] \\ rw []
@@ -3395,7 +3063,7 @@ Theorem align_add_aligned_gen
   \\ Cases_on`w2n b < 2 ** p`
   >- (
     simp[alignmentTheory.align_add_aligned]
-    \\ `align p b = 0w` by simp[imp_align_eq_0]
+    \\ `align p b = 0w` by simp[lt_align_eq_0]
     \\ simp[] )
   \\ fs[NOT_LESS]
   \\ Cases_on`w2n b = 2 ** p`
@@ -3421,29 +3089,6 @@ Theorem align_add_aligned_gen
   \\ first_x_assum(qspec_then`n2w (2**p)`mp_tac)
   \\ impl_tac >- fs[aligned_w2n]
   \\ simp[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem MOD_IMP_aligned
-  `!n p. n MOD 2 ** p = 0 ==> aligned p (n2w n)`
-  (fs [alignmentTheory.aligned_bitwise_and]
-  \\ once_rewrite_tac [WORD_AND_COMM]
-  \\ fs [WORD_AND_EXP_SUB1]);
-
-Theorem aligned_lsl_leq
-  `k <= l ==> aligned k (w << l)`
-  (fs [alignmentTheory.aligned_def,alignmentTheory.align_def]
-  \\ fs [fcpTheory.CART_EQ,word_lsl_def,word_slice_def,fcpTheory.FCP_BETA]
-  \\ rw [] \\ eq_tac \\ fs []);
-
-(* TODO - candidate for move to HOL *)
-Theorem aligned_lsl[simp]
-  `aligned k (w << k)`
-  (match_mp_tac aligned_lsl_leq \\ fs []);
-
-Theorem align_align_MAX
-  `!k l w. align k (align l w) = align (MAX k l) w`
-  (fs [alignmentTheory.align_def,fcpTheory.CART_EQ,word_slice_def,
-      fcpTheory.FCP_BETA] \\ rw [] \\ eq_tac \\ fs []);
 
 Theorem MULT_DIV_MULT_LEMMA
   `!m l k. 0 < m /\ 0 < l ==> (m * k) DIV (l * m) = k DIV l`
@@ -4290,29 +3935,5 @@ Theorem WORD_LS_IMP
   \\ Cases_on `w` \\ fs [WORD_LO,word_add_n2w]
   \\ eq_tac \\ rw [] \\ fs []
   \\ rename1 `k < m:num` \\ qexists_tac `k - n` \\ fs [])
-
-Theorem SUM_SET_count_2
-  `∀n. 2 * SUM_SET (count (SUC n)) = n * (n + 1)`
-  (Induct \\ rw[Once COUNT_SUC, SUM_SET_THM, LEFT_ADD_DISTRIB, SUM_SET_DELETE]
-  \\ rewrite_tac[EXP, ONE, TWO, MULT, ADD, LEFT_ADD_DISTRIB, RIGHT_ADD_DISTRIB]
-  \\ rw[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem SUM_SET_count
-  `∀n. n ≠ 0 ⇒ SUM_SET (count n) = n * (n - 1) DIV 2`
-  (Cases \\ simp[]
-  \\ qmatch_goalsub_abbrev_tac`a = b`
-  \\ qspecl_then[`2`,`a`,`b`]mp_tac EQ_MULT_LCANCEL
-  \\ disch_then(mp_tac o #1 o EQ_IMP_RULE)
-  \\ CONV_TAC(LAND_CONV(RAND_CONV(SIMP_CONV(srw_ss())[])))
-  \\ disch_then irule
-  \\ unabbrev_all_tac
-  \\ rewrite_tac[SUM_SET_count_2]
-  \\ simp[ADD1, LEFT_ADD_DISTRIB, bitTheory.DIV_MULT_THM2]
-  \\ qmatch_goalsub_abbrev_tac`a = a - a MOD 2`
-  \\ `a MOD 2 = 0` suffices_by simp[]
-  \\ simp[Abbr`a`,GSYM EVEN_MOD2]
-  \\ simp[EVEN_ADD]
-  \\ rw[EVEN_EXP_IFF]);
 
 val _ = export_theory()

@@ -831,6 +831,9 @@ val arm8_target_ok = Q.prove (
         set_sepTheory.fun2set_eq, arm8_encoding] @ enc_ok_rwts)
    >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, all_tac]
    \\ lfs enc_rwts
+   \\ rw[]
+   \\ lfs enc_rwts
+   \\ blastLib.FULL_BBLAST_TAC
    )
 
 (* -------------------------------------------------------------------------
@@ -1176,13 +1179,32 @@ Theorem arm8_encoder_correct
       (*--------------
           Loc
         --------------*)
-      print_tac "Loc"
-      \\ next_tac `0`
+      print_tac "Loc">>
+      Cases_on`sw2sw (INT_MINw: word20) ≤ c ∧ c ≤ sw2sw (INT_MAXw: word20)`
+      >- (
+        next_tac`0`
+        \\ enc_rwts_tac
+        \\ next_state_tac01
+        \\ state_tac [alignmentTheory.aligned_extract]
+        \\ blastLib.FULL_BBLAST_TAC)
+      \\ next_tac `5`
       \\ enc_rwts_tac
+      \\ qpat_x_assum`A ∨ B` kall_tac
+      \\ `n2w n ≠ 26w:word5` by simp[lem1]
+      \\ asmLib.split_bytes_in_memory_tac 4
       \\ next_state_tac01
+      \\ asmLib.split_bytes_in_memory_tac 4
+      \\ next_state_tacN (`4w`, 1) filter_reg_31
+      \\ asmLib.split_bytes_in_memory_tac 4
+      \\ next_state_tacN (`8w`, 1) filter_reg_31
+      \\ asmLib.split_bytes_in_memory_tac 4
+      \\ next_state_tacN (`12w`, 1) filter_reg_31
+      \\ asmLib.split_bytes_in_memory_tac 4
+      \\ next_state_tacN (`16w`, 1) filter_reg_31
+      \\ asmLib.split_bytes_in_memory_tac 4
+      \\ next_state_tacN (`20w`, 1) filter_reg_31
       \\ state_tac [alignmentTheory.aligned_extract]
-      \\ blastLib.FULL_BBLAST_TAC
-      )
+      \\ blastLib.FULL_BBLAST_TAC)
    )
 
 val () = export_theory ()

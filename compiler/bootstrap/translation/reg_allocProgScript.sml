@@ -6,9 +6,16 @@ open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
 open parserProgTheory;
 
+(*
+open basisProgTheory
+*)
+
 val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "parserProg";
+(*
+val _ = translation_extends "basisProg";
+*)
 
 val _ = monadsyntax.temp_add_monadsyntax()
 
@@ -134,15 +141,17 @@ val rewrite_subs = Q.prove(`
   (st_ex_MAP (deg_or_inf kk) xs = st_ex_MAP (\x. deg_or_inf kk x) xs)`,
   metis_tac[ETA_AX]);
 
-val _ = m_translate (revive_moves_def |> REWRITE_RULE[MEMBER_INTRO,rewrite_subs]);
+val _ = translate sorted_mem_def;
+
+val _ = m_translate (revive_moves_def |> REWRITE_RULE[rewrite_subs]);
 
 val _ = m_translate (unspill_def |> REWRITE_RULE [rewrite_subs]);
 
 val _ = m_translate do_simplify_def;
 val _ = m_translate inc_deg_def;
 
-val _ = translate pair_rename_def;
-val _ = m_translate (insert_edge_def |> REWRITE_RULE [MEMBER_INTRO])
+val _ = translate sorted_insert_def;
+val _ = m_translate (insert_edge_def)
 val _ = m_translate list_insert_edge_def
 
 val _ = m_translate is_Fixed_def;
@@ -162,8 +171,9 @@ val _ = m_translate  (bg_ok_def |> REWRITE_RULE [MEMBER_INTRO,rewrite_subs])
 
 val _ = m_translate (consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
                            METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
-val _ = m_translate canonize_move_def;
 
+val _ = m_translate coalesce_parent_def;
+val _ = m_translate canonize_move_def;
 val _ = m_translate st_ex_FIRST_def;
 val _ = m_translate (respill_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate do_coalesce_def;
@@ -198,6 +208,7 @@ val _ = m_translate (mk_graph_def |> REWRITE_RULE [MEMBER_INTRO]);
 val _ = m_translate extend_graph_def;
 val _ = m_translate mk_tags_def;
 val _ = m_translate init_ra_state_def;
+val _ = m_translate do_upd_coalesce_def;
 val _ = m_translate (init_alloc1_heu_def |> REWRITE_RULE [rewrite_subs]);
 val _ = m_translate do_alloc1_def;
 val _ = m_translate extract_color_def;
@@ -209,6 +220,7 @@ val _ = translate resort_moves_def;
 
 val _ = m_translate (full_consistency_ok_def |> REWRITE_RULE [MEMBER_INTRO,
                            METIS_PROVE [] ``~(b1 /\ b2) <=> ~b1 \/ ~b2``]);
+val _ = translate update_move_def;
 val _ = m_translate do_reg_alloc_def;
 
 (* Finish the monadic translation *)
@@ -226,7 +238,7 @@ val reg_alloc_aux_trans_def = Q.prove(
          freeze_wl := [];
          avail_moves_wl := [];
          unavail_moves_wl := [];
-         coalesced := (SND(SND x),NONE);
+         coalesced := (SND(SND x),0);
          move_related := (SND(SND x),F);
          stack := []|>`,
  Cases_on `x` >> Cases_on `r` >> fs[reg_alloc_aux_def]);
@@ -267,7 +279,11 @@ val exn_functions = [
 val refs_manip_list = [] : (string * thm * thm) list;
 val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
 val farrays_manip_list = [
-    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def)
+    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def),
+    ("int_beg", get_int_beg_def, set_int_beg_def, int_beg_length_def, int_beg_sub_def, update_int_beg_def),
+    ("int_end", get_int_end_def, set_int_end_def, int_end_length_def, int_end_sub_def, update_int_end_def),
+    ("sorted_regs", get_sorted_regs_def, set_sorted_regs_def, sorted_regs_length_def, sorted_regs_sub_def, update_sorted_regs_def),
+    ("sorted_moves", get_sorted_moves_def, set_sorted_moves_def, sorted_moves_length_def, sorted_moves_sub_def, update_sorted_moves_def)
 ];
 
 val add_type_theories  = ([] : string list);
@@ -290,6 +306,7 @@ val _ = start_dynamic_init_fixed_store_translation
 
 val res = translate the_def;
 val res = translate numset_list_delete_def;
+val res = translate numset_list_insert_def;
 val res = translate is_stack_var_def;
 val res = translate is_phy_var_def;
 val res = translate pairTheory.LEX_DEF;
@@ -332,30 +349,48 @@ val res = m_translate (linear_reg_alloc_step_pass2_def
 
 val res = m_translate find_reg_exchange_def;
 val res = m_translate apply_reg_exchange_def;
-val res = translate edges_to_adjlist_impl_def;
+
+val res = m_translate list_to_sorted_regs_def;
+
+val res = m_translate swap_regs_def;
+val res = m_translate partition_regs_def;
+
+val res = m_translate qsort_regs_def;
+val res = m_translate sorted_regs_to_list_def;
+val res = m_translate list_to_sorted_moves_def;
+
+val res = m_translate swap_moves_def;
+val res = m_translate partition_moves_def;
+val res = m_translate qsort_moves_def;
+val res = m_translate sorted_moves_to_list_def;
+
+val res = m_translate edges_to_adjlist_def;
 val res = m_translate st_ex_FILTER_good_def;
 
-val res = translate sort_moves_rev_def;
-
-val res = m_translate (linear_reg_alloc_intervals_def
-                       |> REWRITE_RULE [edges_to_adjlist_impl_thm]);
+val res = m_translate (linear_reg_alloc_intervals_def)
 
 val res = m_translate extract_coloration_def;
 val res = translate find_bijection_init_def;
 val res = translate find_bijection_step_def;
 val res = translate apply_bijection_def;
 
-val res = m_translate linear_reg_alloc_intervals_and_extract_coloration_def;
+val res = m_translate numset_list_add_if_lt_monad_def;
+val res = m_translate numset_list_add_if_gt_monad_def;
+val res = m_translate get_intervals_ct_monad_aux_def;
+val res = m_translate get_intervals_ct_monad_def;
+val res = m_translate linear_reg_alloc_and_extract_coloration_def;
 val res = m_translate_run run_linear_reg_alloc_intervals_def;
 
 val res = translate get_live_tree_def;
-val res = translate numset_list_insert_def;
 val res = translate get_live_backward_def;
 val res = translate fix_domination_def;
 val res = translate numset_list_add_if_def;
 val res = translate numset_list_add_if_lt_def;
 val res = translate numset_list_add_if_gt_def;
 val res = translate get_intervals_def;
+val res = translate find_bijection_clash_tree_def;
+val res = translate apply_bij_on_clash_tree_def;
+val res = translate size_of_clash_tree_def;
 val res = translate linear_scan_reg_alloc_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
@@ -365,18 +400,34 @@ TODO: update the following code (comes from the non-monadic register allocator
 
 misc code to generate the unverified register allocator in SML
 
-open ml_progLib astPP
+(* Not sure where this gets overwritten *)
+val implode = String.implode;
+val explode = String.explode;
 
-val prog =
-  get_ml_prog_state ()
-  |> clean_state |> remove_snocs
-  |> ml_progLib.get_prog
+open ml_progLib cfLib basis
+open astPP
+
+val main = process_topdecs`
+  fun main u = ()`
+
+val res = append_prog main;
+
+val st =  get_ml_prog_state ();
+
+Theorem main_whole_prog_spec
+  `F ==> whole_prog_spec ^(fetch_v "main" st) cl fs NONE (\x. T)`
+  (simp []);
+
+val (_,prog_tm) = whole_prog_thm st "main" (UNDISCH main_whole_prog_spec);
 
 val _ = enable_astPP()
+val _ = Globals.max_print_depth:= ~1
 val _ = trace("pp_avoids_symbol_merges",0)
 val t = TextIO.openOut("reg_alloc.sml")
-val _ = TextIO.output(t,term_to_string prog)
+val _ = TextIO.output(t,term_to_string prog_tm)
 val _ = TextIO.closeOut(t)
+val _ = Globals.max_print_depth:= 20
+val _ = disable_astPP()
 
 *)
 

@@ -4,7 +4,7 @@
 *)
 open preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "arrayGlobalStateProg"
+val _ = new_theory "array_global_stateProg"
 
 (* Create the data type to handle the references *)
 val _ = Hol_datatype `

@@ -250,10 +250,9 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (* hint: it should be very similar to wordcount_spec (in wordcountProgScript.sml) *)
   (* hint: use wordfreq_output_spec to produce the desired output *)
   (*ex *)
-  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
+  `hasFreeFD fs ∧ inFS_fname fs fname ∧
    cl = [pname; fname] ∧
-   contents = implode (THE (ALOOKUP fs.files (File fname)))
-⇒
+   contents = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" (get_ml_prog_state()))
      [uv] (COMMANDLINE cl * STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
@@ -285,14 +284,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   xlet_auto >- (xsimpl) \\
   (* trying xlet_auto shows (TODO: in an obscure way) we need a FILENAME assumption *)
   `FILENAME fname fnamev` by (fs[FILENAME_def,EVERY_MEM,wfcl_def,validArg_def]) \\
-
-  (* TODO: xlet_auto needs to be made to work with STDIO better *)
-  (* TODO: inventing this is too hard for the tutorial *)
-  xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
-           (if inFS_fname fs (File fname) then SOME (all_lines fs (File fname))
-              else NONE) sv * STDIO fs *
-              COMMANDLINE [pname; fname])`
-  >-(xapp \\ instantiate \\ xsimpl) \\
+  xlet_auto >- xsimpl >>
   (* ex*)
 
   (* To get through the pattern match, try this: *)
@@ -308,7 +300,6 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 
   xapp \\ xsimpl \\
   instantiate \\
-  xsimpl \\
   (* TODO: more STDIO problems? *)
   CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`fs` \\ xsimpl \\
   (* ex*)
@@ -327,18 +318,16 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 
   (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_def *)
   (*ex *)
-  metis_tac[all_lines_def,
-            wordfreq_output_valid,wordfreq_output_spec_def,valid_wordfreq_output_unique]
+  metis_tac[all_lines_def,wordfreq_output_valid,wordfreq_output_spec_def,valid_wordfreq_output_unique]
   (* ex*)
 );
 
 (* Finally, we package the verified program up with the following boilerplate *)
 
 Theorem wordfreq_whole_prog_spec
-  `hasFreeFD fs ∧ inFS_fname fs (File fname) ∧
+  `hasFreeFD fs ∧ inFS_fname fs fname ∧
    cl = [pname; fname] ∧
-   contents = implode (THE (ALOOKUP fs.files (File fname)))
-   ⇒
+   contents = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname)))))   ⇒
    whole_prog_spec ^(fetch_v "wordfreq" (get_ml_prog_state())) cl fs NONE
          ((=) (add_stdout fs (wordfreq_output_spec contents)))`
   (disch_then assume_tac

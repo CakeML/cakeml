@@ -12,15 +12,15 @@ val _ = new_theory "readerProg"
 val _ = m_translation_extends "reader_commonProg"
 
 (* TODO: move *)
-Theorem fastForwardFD_A_DELKEY_same[simp]
-  `forwardFD fs fd n with infds updated_by A_DELKEY fd =
-   fs with infds updated_by A_DELKEY fd`
+Theorem fastForwardFD_ADELKEY_same[simp]
+  `forwardFD fs fd n with infds updated_by ADELKEY fd =
+   fs with infds updated_by ADELKEY fd`
   (fs [forwardFD_def, IO_fs_component_equality]);
 
 (* TODO: move *)
 Theorem validFileFD_forwardFD
   `validFileFD fd (forwardFD fs x y).infds <=> validFileFD fd fs.infds`
-  (rw [forwardFD_def, validFileFD_def, ALIST_FUPDKEY_ALOOKUP]
+  (rw [forwardFD_def, validFileFD_def, AFUPDKEY_ALOOKUP]
   \\ PURE_TOP_CASE_TAC \\ fs []
   \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ rw []);
 
@@ -421,12 +421,14 @@ Theorem read_file_spec
   (xcf "read_file" (get_ml_prog_state())
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull)
+  \\ reverse (Cases_on`consistentFS fs`)
+  >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[])
   \\ simp[read_file_def]
   \\ reverse IF_CASES_TAC \\ fs[]
   >- (
     xhandle`POSTe ev.
       &BadFileName_exn ev *
-      &(~inFS_fname fs (File fnm)) *
+      &(~inFS_fname fs fnm) *
       STDIO fs * HOL_STORE refs`
     >- ( xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl )
     \\ fs[BadFileName_exn_def]
@@ -454,8 +456,10 @@ Theorem read_file_spec
   \\ xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl
   \\ qspecl_then [`fs.maxFD`,`fs`] mp_tac (GEN_ALL nextFD_leX)
   \\ impl_tac \\ fs [] \\ rw []
-  \\ drule (GEN_ALL ALOOKUP_inFS_fname_openFileFS_nextFD)
-  \\ disch_then (qspecl_then [`0`,`ReadMode`] mp_tac) \\ rw []
+  \\ progress inFS_fname_ALOOKUP_EXISTS
+  \\ drule ALOOKUP_inFS_fname_openFileFS_nextFD
+  \\ qmatch_assum_rename_tac`ALOOKUP _.files _ = SOME ino`
+  \\ disch_then (qspecl_then [`fnm`,`ino`, `0`,`ReadMode`] mp_tac) \\ rw []
   \\ qmatch_asmsub_abbrev_tac`ALOOKUP fs'.infds fd`
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ `get_file_content fs' fd = SOME (content,0)`
@@ -485,11 +489,11 @@ Theorem read_file_spec
     \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
     \\ qexists_tac `fs'`
     \\ simp [Abbr `fs'`, add_stdout_fastForwardFD]
-    \\ drule (GEN_ALL openFileFS_A_DELKEY_nextFD)
+    \\ drule (GEN_ALL openFileFS_ADELKEY_nextFD)
     \\ disch_then (qspecl_then [`0`,`ReadMode`,`fnm`] mp_tac) \\ rw []
     \\ qmatch_goalsub_abbrev_tac `add_stdout _ str1`
     \\ `1 <> nextFD fs` by fs []
-    \\ drule (GEN_ALL add_stdo_A_DELKEY)
+    \\ drule (GEN_ALL add_stdo_ADELKEY)
     \\ disch_then
       (qspecl_then [`str1`,`"stdout"`,`openFileFS fnm fs ReadMode 0`] mp_tac)
     \\ rw []
@@ -503,10 +507,10 @@ Theorem read_file_spec
   \\ qexists_tac`fs'` \\ xsimpl
   \\ simp[Abbr`fs'`, add_stdo_forwardFD]
   \\ `2 <> nextFD fs` by fs [] \\ fs []
-  \\ drule (GEN_ALL openFileFS_A_DELKEY_nextFD)
+  \\ drule (GEN_ALL openFileFS_ADELKEY_nextFD)
   \\ disch_then (qspecl_then [`0`,`ReadMode`,`fnm`] mp_tac)
   \\ strip_tac \\ fs []
-  \\ imp_res_tac add_stdo_A_DELKEY
+  \\ imp_res_tac add_stdo_ADELKEY
   \\ qmatch_goalsub_abbrev_tac `add_stderr _ str1`
   \\ first_x_assum
     (qspecl_then [`str1`,`"stderr"`,`openFileFS fnm fs ReadMode 0`] mp_tac)
