@@ -231,6 +231,14 @@ val is_b_heap_ordered_def = Define `
                                      is_b_heap_ordered4 geq ts))
 `;
 
+val tree_to_bag_alt = Q.prove(`
+  (tree_to_bag (Sbnode x r a []) = (BAG_INSERT x (LIST_TO_BAG a))) /\
+  (tree_to_bag (Sbnode x r a (c::cs)) =
+    (BAG_UNION (tree_to_bag c) (tree_to_bag (Sbnode x r a cs))))
+`,
+  simp[tree_to_bag_def,BAG_INSERT_UNION]>>
+  metis_tac[COMM_BAG_UNION,ASSOC_BAG_UNION]);
+
 (* Requirements for the relation between elements *)
 val TotalPreOrder = Define `
   TotalPreOrder R = (PreOrder R /\ total R)
@@ -1122,6 +1130,12 @@ Proof
           metis_tac[transitive_def]))
 QED;
 
+val BAG_EVERY_mono = Q.prove(`
+  (∀x. P x ⇒ Q x) ==>
+  (BAG_EVERY P b ⇒
+  BAG_EVERY Q b)`,
+  fs[BAG_EVERY])
+
 Theorem b_tree_aux_comp_bag:
 !geq a l a' n' l0' l'. TotalPreOrder geq /\
                          is_b_heap_ordered geq (Bsbheap a l) /\
@@ -1130,22 +1144,21 @@ Theorem b_tree_aux_comp_bag:
                                         (tree_to_bag (Sbnode a' n' l0' l')) ==>
                          BAG_EVERY (\y. geq y a) (b_heap_to_bag3 geq l0')
 Proof
-  cheat
-  (*
   Induct_on `l0'`
-  >- rw[b_heap_to_bag_def]
-  >- (Induct_on `l'`
-      >- (rw[tree_to_bag_def] \\
-          fs[is_b_heap_ordered_def] \\
-          `is_b_heap_ordered3 geq (h::l0')` by rw[is_b_heap_ordered_def] \\
+  >-
+    rw[b_heap_to_bag_def]
+  >>
+    rw[tree_to_bag_def] \\
+    fs[is_b_heap_ordered_def] \\
+    `is_b_heap_ordered3 geq (h::l0')` by rw[is_b_heap_ordered_def] \\
     imp_res_tac b_list_bag3 \\
-          fs[b_root_def])
-      >- (rw[tree_to_bag_def] \\
-          sg `is_b_heap_ordered2 geq (Sbnode a' n' (h'::l0') l')`
-          >- (rw [is_b_heap_ordered_def] \\
-              fs[is_b_heap_ordered_def, b_heap_to_bag_def])
-          >- res_tac))
-  *)
+    fs[b_root_def,b_heap_to_bag_def] \\
+    Cases_on`h`>>
+    fs[b_heap_to_bag_def,b_heap_comparison_def]>>
+    fs[is_b_heap_ordered_def]>>
+    qpat_x_assum`BAG_EVERY _ (_ _ l'')` mp_tac>>
+    match_mp_tac BAG_EVERY_mono>>
+    metis_tac[total_def,PreOrder,reflexive_def,transitive_def,TotalPreOrder]
 QED;
 
 Theorem b_tree_children_comp_bag:
@@ -1156,11 +1169,9 @@ Theorem b_tree_children_comp_bag:
                                         (tree_to_bag (Sbnode a' n' l0' l')) ==>
                          BAG_EVERY (\y. geq y a) (b_heap_to_bag1 geq l')
 Proof
-  cheat
-  (*
   Induct_on `l'`
   >- rw[b_heap_to_bag_def]
-  >- (rw[b_heap_to_bag_def, tree_to_bag_def]
+  >- (rw[b_heap_to_bag_def, tree_to_bag_alt]
       >- (WEAKEN_TAC is_forall \\
           sg `(b_heap_comparison geq) a' (Bsbheap a l)`
           >- (`is_b_heap_ordered2 geq (Sbnode a' n' l0' l')`
@@ -1175,7 +1186,6 @@ Proof
       >- (`is_b_heap_ordered2 geq (Sbnode a' n' l0' l')`
               by (fs[is_b_heap_ordered_def, b_heap_to_bag_def]) \\
           res_tac))
-  *)
 QED;
 
 Theorem b_tree_bag2:
@@ -1244,8 +1254,7 @@ Theorem b_bag2_tree:
                 BAG_EVERY (\y. (b_heap_comparison geq) y min)
                            (tree_to_bag t)
 Proof
-  cheat
-  (*Cases_on `t` \\
+  Cases_on `t` \\
   Induct_on `l`
   >- (rw[tree_to_bag_def]
       >- (Cases_on `min`
@@ -1257,11 +1266,11 @@ Proof
                   rw[b_heap_comparison_def])))
       >- (fs[b_heap_to_bag_def, is_b_heap_ordered_def] \\
           imp_res_tac b_bag3_list))
-  >- (rw[tree_to_bag_def]
+  >- (rw[tree_to_bag_alt]
       >- (Cases_on `h` \\
           Induct_on `l'`
           >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def] \\
-              rw[tree_to_bag_def]
+              rw[tree_to_bag_alt]
               >- (Cases_on `a`
                   >- fs[]
             >- (Cases_on `min`
@@ -1271,7 +1280,7 @@ Proof
               >- fs[b_heap_comparison_def, b_root_def, b_heap_to_bag_def])))
               >- imp_res_tac b_bag3_list)
           >- (fs[is_b_heap_ordered_def, b_heap_to_bag_def] \\
-              rw[tree_to_bag_def] \\
+              rw[tree_to_bag_alt] \\
               WEAKEN_TAC is_forall
         >- (fs[is_tree_ordered_def] \\
                   imp_res_tac b_heap_root_comp \\
@@ -1281,7 +1290,6 @@ Proof
       metis_tac[transitive_def])
               >- fs[is_tree_ordered_def]))
        >- fs[is_b_heap_ordered_def, b_heap_to_bag_def])
-  *)
 QED;
 
 Theorem b_heap_bag1:
