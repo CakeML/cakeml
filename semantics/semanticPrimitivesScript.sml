@@ -587,6 +587,11 @@ val _ = Hol_datatype `
   | Val of v`;
 
 
+(*val v_to_id : v -> maybe (id modN varN)*)
+val _ = Define `
+ ((v_to_id:v ->(((modN),(varN))id)option) v=  NONE)`;
+
+
 val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_state``);
 
 (*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
@@ -847,6 +852,14 @@ val _ = Define `
                SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
             )
         | _ => NONE
+        )
+    | (EnvLookup, [Env env; id]) =>
+        (case v_to_id id of
+          NONE => NONE
+        | SOME n => (case nsLookup env.v n of
+                      NONE => NONE
+                    | SOME v => SOME ((s, t), Rval v)
+                    )
         )
     | _ => NONE
   )))`;

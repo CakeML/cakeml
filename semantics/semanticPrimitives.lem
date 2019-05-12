@@ -471,6 +471,9 @@ type exp_or_val =
   | Exp of exp
   | Val of v
 
+val v_to_id : v -> maybe (id modN varN)
+let v_to_id v = Nothing
+
 type store_ffi 'ffi 'v = store 'v * ffi_state 'ffi
 
 val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)
@@ -730,6 +733,14 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
                Just ((s, t), Rerr (Rabort (Rffi_error outcome)))
             end
         | _ -> Nothing
+        end
+    | (EnvLookup, [Env env; id]) ->
+        match v_to_id id with
+        | Nothing -> Nothing
+        | Just n -> match nsLookup env.v n with
+                    | Nothing -> Nothing
+                    | Just v -> Just ((s, t), Rval v)
+                    end
         end
     | _ -> Nothing
   end

@@ -97,6 +97,8 @@ type op =
   | FFI of string
   (* Evaluate new code in a given env *)
   | Eval
+  (* Lookup a value in an env *)
+  | EnvLookup
 
 (* Logical operations *)
 type lop =
