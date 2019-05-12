@@ -805,11 +805,6 @@ Theorem BIT_num_from_bin_list_leading
   qexists_tac`2 ** LENGTH l` >>
   simp[numposrepTheory.l2n_lt] )
 
-Theorem word_bit_test
-  `word_bit n w <=> ((w && n2w (2 ** n)) <> 0w:'a word)`
-  (srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
-    [wordsTheory.word_index, DECIDE ``0n < d ==> (n <= d - 1) = (n < d)``])
-
 val least_from_def = Define`
   least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P`
 
@@ -2956,44 +2951,6 @@ Theorem byte_align_extract
   \\ rw[alignmentTheory.align_def]
   \\ blastLib.BBLAST_TAC);
 
-(* TODO - candidate for move to HOL *)
-Theorem byte_align_aligned
-  `byte_aligned x ⇔ (byte_align x = x)` (EVAL_TAC);
-
-(* TODO - candidate for move to HOL *)
-Theorem byte_aligned_add
-  `byte_aligned x ∧ byte_aligned y ⇒ byte_aligned (x+y)`
-  (rw[alignmentTheory.byte_aligned_def]
-  \\ metis_tac[alignmentTheory.aligned_add_sub_cor]);
-
-(* TODO - candidate for move to HOL *)
-Theorem align_ls
-  `align p n <=+ n`
-  (simp[WORD_LS]
-  \\ Cases_on`n`
-  \\ fs[alignmentTheory.align_w2n]
-  \\ qmatch_asmsub_rename_tac`n < _`
-  \\ DEP_REWRITE_TAC[LESS_MOD]
-  \\ conj_asm2_tac >- fs[]
-  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
-  \\ simp[]);
-
-(* TODO - candidate for move to HOL *)
-Theorem align_lo
-  `¬aligned p n ⇒ align p n <+ n`
-  (simp[WORD_LO]
-  \\ Cases_on`n`
-  \\ fs[alignmentTheory.align_w2n, alignmentTheory.aligned_def]
-  \\ strip_tac
-  \\ qmatch_goalsub_abbrev_tac`a < b`
-  \\ `a ≤ b` suffices_by fs[]
-  \\ qmatch_asmsub_rename_tac`n < _`
-  \\ simp[Abbr`a`]
-  \\ DEP_REWRITE_TAC[LESS_MOD]
-  \\ conj_asm2_tac >- fs[]
-  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
-  \\ simp[]);
-
 Theorem aligned_between
   `¬aligned p n ∧ aligned p m ∧ align p n <+ m ⇒ n <+ m`
   (rw[WORD_LO]
@@ -3278,44 +3235,6 @@ Theorem asm_write_bytearray_EL
   \\ first_x_assum drule
   \\ simp[ADD1,GSYM word_add_n2w]
   \\ metis_tac[WORD_ADD_ASSOC,WORD_ADD_COMM]);
-
-(* TODO - candidate for move to HOL *)
-Theorem word_bit_thm
-  `!n w:'a word. word_bit n w <=> n < dimindex (:'a) /\ w ' n`
-  (fs [word_bit_def,LESS_EQ] \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ Cases_on `dimindex (:α)` \\ fs [LESS_EQ]);
-
-(* TODO - candidate for move to HOL *)
-Theorem word_bit_and
-  `word_bit n (w1 && w2) <=> word_bit n w1 /\ word_bit n w2`
-  (fs [word_bit_def,word_and_def] \\ eq_tac \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ `n < dimindex (:'a)` by decide_tac
-  \\ fs [fcpTheory.FCP_BETA]);
-
-(* TODO - candidate for move to HOL *)
-Theorem word_bit_or
-  `word_bit n (w1 || w2) <=> word_bit n w1 \/ word_bit n w2`
-  (fs [word_bit_def,word_or_def] \\ eq_tac \\ rw []
-  \\ assume_tac DIMINDEX_GT_0
-  \\ `n < dimindex (:'a)` by decide_tac
-  \\ fs [fcpTheory.FCP_BETA]);
-
-(* TODO - candidate for move to HOL *)
-Theorem word_bit_lsl
-  `word_bit n (w << i) <=>
-    word_bit (n - i) (w:'a word) /\ n < dimindex (:'a) /\ i <= n`
-  (fs [word_bit_thm,word_lsl_def] \\ eq_tac \\ fs []
-  \\ rw [] \\ rfs [fcpTheory.FCP_BETA]);
-
-(* TODO - candidate for move to HOL *)
-Theorem word_msb_align
-  `p < dimindex(:'a) ⇒ (word_msb (align p w) = word_msb (w:'a word))`
-  (rw[alignmentTheory.align_bitwise_and,word_msb]
-  \\ rw[word_bit_and]
-  \\ rw[word_bit_lsl]
-  \\ rw[word_bit_test, MOD_EQ_0_DIVISOR, dimword_def]);
 
 (* TODO: move to sptTheory *)
 
