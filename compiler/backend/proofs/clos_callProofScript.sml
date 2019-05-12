@@ -4254,6 +4254,7 @@ Theorem FST_THE_make_gs
   \\ rpt (pairarg_tac \\ fs []) \\ fs [shift_seq_def,ADD1]);
 
 (*
+
 Theorem IMP_co_ok
   `!code co2 k.
       (!i. let (cfg,exp,aux) = co2 i in
@@ -4334,6 +4335,7 @@ Theorem IMP_co_ok
   \\ fs [compile_inc_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
   \\ imp_res_tac calls_subspt \\ fs []);
+
 *)
 
 (* Preservation of some label properties
