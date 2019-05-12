@@ -621,7 +621,8 @@ val sexpop_def = Define`
   if s = "Alength" then SOME Alength else
   if s = "Aupdate" then SOME Aupdate else
   if s = "ConfigGC" then SOME ConfigGC else
-  if s = "Eval" then SOME Eval else NONE) ∧
+  if s = "Eval" then SOME Eval else
+  if s = "EnvLookup" then SOME EnvLookup else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_STR s')) =
      if s = "FFI" then OPTION_MAP FFI (decode_control s') else NONE
    ) ∧
@@ -1191,6 +1192,7 @@ val opsexp_def = Define`
   (opsexp Aupdate = SX_SYM "Aupdate") ∧
   (opsexp ConfigGC = SX_SYM "ConfigGC") ∧
   (opsexp Eval = SX_SYM "Eval") ∧
+  (opsexp EnvLookup = SX_SYM "EnvLookup") ∧
   (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s))`;
 
 Theorem sexpop_opsexp[simp]
