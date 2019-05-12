@@ -150,6 +150,12 @@ val test_def = Define`test ids = D (F ids.f) (V ids.v)`;
 
 val res = translate test_def;
 
+(* Test floating-point support *)
+
+val test_def = Define `test f = fp64_add roundTiesToEven f f`
+
+val res = translate test_def;
+
 (* tricky datatype *)
 
 val _ = register_type ``:'a option``;
