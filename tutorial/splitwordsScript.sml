@@ -30,16 +30,16 @@ Theorem splitwords_concat_space
   (rw[] \\ qspec_then`implode ""`mp_tac(Q.GEN`s2`splitwords_concat) \\
   fs[mlstringTheory.strcat_thm]);
 
-Theorem splitwords_all_lines
-  `FLAT (MAP splitwords (all_lines fs fname)) =
-   splitwords (implode (THE (ALOOKUP fs.files fname)))`
+Theorem splitwords_lines_of
+  `FLAT (MAP splitwords (lines_of content)) =
+   splitwords content`
   (`isSpace #"\n"` by EVAL_TAC \\
   rw[all_lines_def,lines_of_def,MAP_MAP_o,o_DEF,
      GSYM mlstringTheory.str_def,splitwords_concat_space] \\
   rw[splitwords_def,mlstringTheory.TOKENS_eq_tokens_sym] \\
   srw_tac[ETA_ss][GSYM o_DEF,GSYM MAP_MAP_o] \\
   simp[GSYM MAP_FLAT] \\ AP_TERM_TAC \\
-  qspec_tac(`THE (ALOOKUP fs.files fname)`,`ls`) \\
+  qmatch_goalsub_rename_tac `splitlines ls` \\
   rw[splitlines_def]
   >- (
     qmatch_asmsub_abbrev_tac`NULL (LAST l)` \\

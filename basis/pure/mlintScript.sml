@@ -354,7 +354,7 @@ Theorem fromString_toString_Num
   (strip_tac
   \\ DEP_REWRITE_TAC[fromString_thm]
   \\ qspec_then`Num n`assume_tac EVERY_isDigit_num_to_dec_string
-  \\ Cases_on`num_to_dec_string (Num n)` \\ fs[num_to_dec_string_nil]
+  \\ Cases_on`num_to_dec_string (Num n)` \\ fs[]
   \\ rw[]
   \\ TRY ( qhdtm_x_assum`isDigit`mp_tac \\ EVAL_TAC \\ NO_TAC )
   \\ mp_tac ASCIInumbersTheory.num_dec_string
@@ -372,14 +372,14 @@ Theorem fromString_toString[simp]
    (reverse impl_tac THEN1
      (fs [Abbr`sss`,toString_thm,ASCIInumbersTheory.toNum_toString]
       \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC)
-    \\ fs [Abbr `sss`,miscTheory.EVERY_isDigit_num_to_dec_string])
+    \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string])
   \\ `HD sss ≠ #"~" ∧ HD sss ≠ #"-" ∧ HD sss ≠ #"+"` by
    (fs [Abbr `sss`]
-    \\ qspec_then `Num (ABS i)` mp_tac miscTheory.EVERY_isDigit_num_to_dec_string
+    \\ qspec_then `Num (ABS i)` mp_tac EVERY_isDigit_num_to_dec_string
     \\ Cases_on `num_to_dec_string (Num (ABS i))`
-    \\ fs [miscTheory.num_to_dec_string_nil]
+    \\ fs []
     \\ CCONTR_TAC \\ fs [] \\ rveq  \\ fs [isDigit_def])
-  \\ fs [Abbr `sss`,miscTheory.EVERY_isDigit_num_to_dec_string]
+  \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string]
   \\ fs [toString_thm,ASCIInumbersTheory.toNum_toString]
   \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC);
 

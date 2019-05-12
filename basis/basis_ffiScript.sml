@@ -111,15 +111,15 @@ val extract_fs_def = Define`
 Theorem extract_fs_with_numchars_keeps_iostreams
   `∀ls fs fs' off.
    (extract_fs_with_numchars fs ls = SOME fs') ∧
-   (ALOOKUP fs'.infds fd = SOME(IOStream nm, md, off)) ⇒
+   (ALOOKUP fs'.infds fd = SOME(UStream nm, md, off)) ⇒
    ∃off'.
-     (ALOOKUP fs.infds fd = SOME (IOStream nm, md, off')) ∧ off' ≤ off ∧
+     (ALOOKUP fs.infds fd = SOME (UStream nm, md, off')) ∧ off' ≤ off ∧
      (∀content.
-       (ALOOKUP fs.files (IOStream nm) = SOME content) ∧ (off' = LENGTH content) ∧
-       (∀fd' md' off'. (ALOOKUP fs.infds fd' = SOME (IOStream nm, md', off')) ⇒ (fd = fd'))
+       (ALOOKUP fs.inode_tbl (UStream nm) = SOME content) ∧ (off' = LENGTH content) ∧
+       (∀fd' md' off'. (ALOOKUP fs.infds fd' = SOME (UStream nm, md', off')) ⇒ (fd = fd'))
        ⇒
        ∃written.
-         (ALOOKUP fs'.files (IOStream nm) = SOME (content ++ written)) ∧
+         (ALOOKUP fs'.inode_tbl (UStream nm) = SOME (content ++ written)) ∧
          (off = off' + LENGTH written))`
   (Induct
   >- ( rw[extract_fs_with_numchars_def])
@@ -146,7 +146,7 @@ Theorem extract_fs_with_numchars_keeps_iostreams
   \\ TRY pairarg_tac \\ fs[]
   \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFIPropsTheory.bumpFD_forwardFD]
   \\ fs[CaseEq"bool"]
-  \\ rfs[fsFFITheory.fsupdate_def, fsFFIPropsTheory.forwardFD_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ rfs[fsFFITheory.fsupdate_def, fsFFIPropsTheory.forwardFD_def, AFUPDKEY_ALOOKUP]
   \\ fs[CaseEq"option"]
   \\ fs[CaseEq"bool"]
   \\ Cases_on`v` \\ fs[]
@@ -156,7 +156,7 @@ Theorem extract_fs_with_numchars_keeps_iostreams
     fsrw_tac[DNF_ss][] \\ fs[DISJ_EQ_IMP]
     \\ NO_TAC)
   >- (
-    Cases_on`fnm = IOStream nm` \\ fsrw_tac[DNF_ss][]
+    Cases_on`fnm = UStream nm` \\ fsrw_tac[DNF_ss][]
     \\ fs[FORALL_PROD] \\ rveq \\ fs[] \\ rfs[]
     \\ metis_tac[] )
   \\ fsrw_tac[DNF_ss][FORALL_PROD]);
@@ -164,9 +164,9 @@ Theorem extract_fs_with_numchars_keeps_iostreams
 Theorem extract_fs_with_numchars_closes_iostreams
   `∀ls fs fs' fd nm off.
    (extract_fs_with_numchars fs ls = SOME fs') ∧
-   (∀fd off. ALOOKUP fs.infds fd ≠ SOME(IOStream nm, md, off))
+   (∀fd off. ALOOKUP fs.infds fd ≠ SOME(UStream nm, md, off))
    ⇒
-   (ALOOKUP fs'.infds fd ≠ SOME(IOStream nm, md, off))`
+   (ALOOKUP fs'.infds fd ≠ SOME(UStream nm, md, off))`
   (Induct
   >- (
     rw[extract_fs_with_numchars_def]
@@ -192,8 +192,8 @@ Theorem extract_fs_with_numchars_closes_iostreams
         fsFFITheory.openFile_def,
         fsFFITheory.write_def]
   \\ TRY pairarg_tac \\ fs[]
-  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFITheory.bumpFD_def, ALIST_FUPDKEY_ALOOKUP]
-  \\ rw[fsFFITheory.fsupdate_def, ALIST_FUPDKEY_ALOOKUP]
+  \\ rveq \\ fs[ALOOKUP_ADELKEY, fsFFITheory.bumpFD_def, AFUPDKEY_ALOOKUP]
+  \\ rw[fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
   \\ PURE_CASE_TAC \\ fs[CaseEq"option"]
   \\ CCONTR_TAC \\ fs[]);
 
@@ -228,9 +228,9 @@ Theorem extract_stdo_extract_fs
     \\ simp[fsupdate_numchars]
     \\ simp[fsupdate_def]
     \\ rw[IO_fs_component_equality]
-    \\ qpat_assum`ALOOKUP fs.files _ = _`mp_tac
-    \\ qpat_assum`fs.files = _`SUBST1_TAC
-    \\ simp[ALIST_FUPDKEY_ALOOKUP] )
+    \\ qpat_assum`ALOOKUP fs.inode_tbl _ = _`mp_tac
+    \\ qpat_assum`fs.inode_tbl = _`SUBST1_TAC
+    \\ simp[AFUPDKEY_ALOOKUP] )
   \\ Cases
   \\ rw[extract_fs_def,extract_stdo_def]
   >- (
@@ -253,7 +253,7 @@ Theorem extract_stdo_extract_fs
     \\ fs[stdo_def]
     \\ simp[Abbr`fs'`,fsupdate_def]
     \\ CASE_TAC \\ fs[]
-    \\ simp[ALIST_FUPDKEY_ALOOKUP]
+    \\ simp[AFUPDKEY_ALOOKUP]
 
     \\ ...)
   \\ qpat_x_assum`_ = SOME _`mp_tac

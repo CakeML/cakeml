@@ -678,7 +678,7 @@ Theorem tick_compile_prog_res_range
     THEN1
      (fs [domain_union,EXTENSION]
       \\ reverse conj_tac THEN1 metis_tac []
-      \\ fs [subspt_alt,lookup_insert] \\ rw []
+      \\ fs [subspt_lookup,lookup_insert] \\ rw []
       \\ fs [lookup_union,lookup_insert,lookup_def,case_eq_thms]
       \\ metis_tac [lookup_NONE_domain])
     \\ fs [GSYM union_assoc]
@@ -699,7 +699,7 @@ Theorem tick_compile_prog_res_range
     \\ fs [SUBSET_DEF] \\ res_tac
     \\ imp_res_tac subspt_domain_SUBSET
     \\ fs [EXTENSION,SUBSET_DEF] \\ metis_tac [])
-  \\ fs [subspt_alt]
+  \\ fs [subspt_lookup]
   \\ fs [lookup_union,fromAList_def,lookup_insert]
   \\ rw [] \\ fs[domain_lookup]
   \\ rw [] \\ fs []);
@@ -769,7 +769,7 @@ val tick_compile_prog_IMP_exp_rel = prove(
   THEN1
    (match_mp_tac subspt_exp_rel
     \\ qexists_tac `src_code`
-    \\ conj_tac THEN1 fs [subspt_alt,lookup_union]
+    \\ conj_tac THEN1 fs [subspt_lookup,lookup_union]
     \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
   \\ first_x_assum drule
   \\ disch_then (qspec_then `k` mp_tac) \\ fs []
@@ -784,7 +784,7 @@ val tick_compile_prog_IMP_exp_rel = prove(
      (first_x_assum drule \\ strip_tac \\ fs []
       \\ match_mp_tac (subspt_exp_rel |> ONCE_REWRITE_RULE [CONJ_COMM])
       \\ asm_exists_tac \\ fs []
-      \\ fs [subspt_alt,lookup_union])
+      \\ fs [subspt_lookup,lookup_union])
     \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
   \\ reverse (rw [])
   THEN1 (fs [DISJOINT_DEF,domain_union,EXTENSION] \\ metis_tac [])
@@ -794,14 +794,14 @@ val tick_compile_prog_IMP_exp_rel = prove(
     \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain]
     \\ match_mp_tac subspt_exp_rel
     \\ qexists_tac `src_code`
-    \\ conj_tac THEN1 fs [subspt_alt,lookup_union]
+    \\ conj_tac THEN1 fs [subspt_lookup,lookup_union]
     \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
   \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain,lookup_insert,lookup_def]
   \\ pop_assum (assume_tac o GSYM)
   \\ first_x_assum drule \\ strip_tac \\ fs []
   \\ match_mp_tac (subspt_exp_rel |> ONCE_REWRITE_RULE [CONJ_COMM])
   \\ asm_exists_tac \\ fs []
-  \\ fs [subspt_alt,lookup_union]);
+  \\ fs [subspt_lookup,lookup_union]);
 
 val in_do_app_lemma = prove(
   ``in_state_rel limit s1 t1 ==>
@@ -846,7 +846,7 @@ val in_do_app_lemma = prove(
       \\ asm_exists_tac \\ fs []
       \\ reverse conj_tac
       THEN1 (unabbrev_all_tac \\ fs [DISJOINT_DEF,EXTENSION] \\ metis_tac [])
-      \\ rw [] \\ fs [subspt_alt]
+      \\ rw [] \\ fs [subspt_lookup]
       \\ first_x_assum drule \\ strip_tac
       \\ rename1 `lookup k2 t1.code = SOME (arity2,v)`
       \\ Cases_on `lookup k2 s1.code`

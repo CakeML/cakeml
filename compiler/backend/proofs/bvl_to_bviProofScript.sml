@@ -62,7 +62,7 @@ val aux_code_installed_APPEND = Q.prove(
 Theorem aux_code_installed_subspt
   `!x c1 c2. aux_code_installed x c1 /\ subspt c1 c2 ==>
               aux_code_installed x c2`
-  (Induct \\ fs [aux_code_installed_def,subspt_alt,FORALL_PROD]
+  (Induct \\ fs [aux_code_installed_def,subspt_lookup,FORALL_PROD]
   \\ rw [] \\ fs [] \\ res_tac \\ fs []);
 
 val _ = temp_overload_on("in_ns_0",``λn. n MOD bvl_to_bvi_namespaces = 0``);
@@ -1907,7 +1907,7 @@ val compile_exps_correct = Q.prove(
     \\ drule bvi_letProofTheory.evaluate_compile_exp
     \\ impl_tac THEN1 (Cases_on `res` \\ fs [semanticPrimitivesPropsTheory.map_result_def])
     \\ strip_tac \\ fs []
-    \\ imp_res_tac evaluate_code_mono \\ fs [subspt_alt]
+    \\ imp_res_tac evaluate_code_mono \\ fs [subspt_lookup]
     \\ res_tac \\ fs []
     \\ `dec_clock 1 (inc_clock (c' + 1) t2) = inc_clock c' t2` by
            (EVAL_TAC \\ fs [] \\ NO_TAC)
@@ -1978,7 +1978,7 @@ val compile_exps_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[aux_code_installed_def,
            iEval_def,find_code_def,compile_aux_def]
       \\ IMP_RES_TAC (GEN_ALL evaluate_MAP_Var) \\ full_simp_tac(srw_ss())[]
-      \\ imp_res_tac bviPropsTheory.evaluate_code_mono \\ fs [subspt_alt]
+      \\ imp_res_tac bviPropsTheory.evaluate_code_mono \\ fs [subspt_lookup]
       \\ `evaluate ([d2],MAP (adjust_bv b2) vs ++ MAP (adjust_bv b2) env,
             inc_clock c t1) =
           evaluate ([d2],MAP (adjust_bv b2) vs,inc_clock c t1)` by
@@ -2235,7 +2235,7 @@ val compile_exps_correct = Q.prove(
         \\ qexists_tac `n6` \\ fs []
         \\ match_mp_tac aux_code_installed_subspt
         \\ asm_exists_tac \\ fs []
-        \\ fs [subspt_alt,lookup_union])
+        \\ fs [subspt_lookup,lookup_union])
       \\ `lookup (num_stubs + name * nss) t2.code = NONE` by
        (fs [names_ok_def,domain_lookup,PULL_EXISTS]
         \\ Cases_on `lookup (num_stubs + name * nss) t2.code` \\ fs []
@@ -2250,14 +2250,14 @@ val compile_exps_correct = Q.prove(
        (match_mp_tac aux_code_installed_subspt
         \\ qexists_tac `(fromAList (append p1))`
         \\ reverse conj_tac THEN1
-         (fs [subspt_alt,lookup_union] \\ rw [] \\ simp [case_eq_thms]
+         (fs [subspt_lookup,lookup_union] \\ rw [] \\ simp [case_eq_thms]
           \\ fs [IN_DISJOINT]
           \\ rename1 `lookup kk _ = _`
           \\ first_x_assum (qspec_then `kk` mp_tac)
           \\ fs [lookup_fromAList] \\ imp_res_tac ALOOKUP_MEM
           \\ fs [domain_lookup]
           \\ Cases_on `lookup kk t2.code` \\ fs []
-          \\ fs [MEM_MAP,FORALL_PROD] \\ PairCases_on `v` \\ metis_tac [])
+          \\ fs [MEM_MAP,FORALL_PROD] \\ PairCases_on `y` \\ metis_tac [])
         \\ match_mp_tac aux_code_installed_sublist \\ fs [])
       \\ imp_res_tac ALOOKUP_MEM
       \\ fs [names_ok_def]
@@ -2280,7 +2280,7 @@ val compile_exps_correct = Q.prove(
       CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`c` \\ simp[] \\ rveq \\
       simp[adjust_bv_def]
       \\ fs[state_rel_def,domain_lookup]
-      \\ imp_res_tac evaluate_mono \\ fs [subspt_alt,domain_lookup]
+      \\ imp_res_tac evaluate_mono \\ fs [subspt_lookup,domain_lookup]
       \\ res_tac \\ fs []
       \\ Cases_on`v` \\ res_tac
       \\ pairarg_tac \\ fs[])
