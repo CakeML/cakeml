@@ -214,6 +214,11 @@ val next_sym_alt_def = tDefine "next_sym_alt" `
              read_FFIcall (TL str) "" (loc with col := loc.col + 2)
        in
          SOME (t, Locs loc loc', rest)
+     else if isPREFIX "#{" (c::str) then
+       let (t, loc', rest) =
+             read_REPLcommand (TL str) "" (loc with col := loc.col + 2)
+       in
+         SOME (t, Locs loc loc', rest)
      else if isPREFIX "(*" (c::str) then
        case skip_comment (TL str) (0:num) (loc with col := loc.col + 2) of
        | NONE => SOME (ErrorS, Locs loc (loc with col := loc.col + 2), "")

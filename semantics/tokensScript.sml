@@ -35,7 +35,8 @@ val _ = Hol_datatype `
 | AlphaT of string
 | SymbolT of string
 | LongidT of string => string
-| FFIT of string`;
+| FFIT of string
+| REPLIDT of string`;
 
 val _ = export_theory()
 
