@@ -2,6 +2,7 @@
   Translations of various useful HOL functions and datatypes, to serve as a
   starting point for further translations.
 *)
+
 open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
 open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib;
 
@@ -13,6 +14,7 @@ val translate = abs_translate;
 (* type registration *)
 
 val _ = (use_full_type_names := false)
+
 val _ = register_type ``:ordering``;
 val _ = register_type ``:'a option``;
 val _ = register_type ``:'a list``;
@@ -119,6 +121,9 @@ val least_side_thm = Q.prove(
 *)
 
 val _ = concretise_all () (* needs to be done before module below *)
+
+(* TODO: move the AST generated here into the primitive type program *)
+val _ = register_type ``:dec``;
 
 val _ = (print_asts := true);
 

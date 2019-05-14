@@ -4,7 +4,7 @@
 
 open preamble basis
 (*
-  TODO: add this to INCLUDES as necessary
+  TODO: add this to INCLUDES as necessary, depending where this file ends up
   val () = loadPath := "../compiler/inference/" :: !loadPath;
   val () = loadPath := "../compiler/parsing/" :: !loadPath;
 *)
@@ -17,8 +17,11 @@ val _ = new_theory"replProg";
 val _ = set_grammar_ancestry[
   "infer_t","infer",
   "tokenUtils","cmlPtreeConversion","cmlParse",
-  "lexer_fun"];
+  "lexer_fun",
+  "ml_translator", "std_prelude"];
 val _ = temp_tight_equality();
+
+val () = ml_translatorLib.translation_extends"basisProg";
 
 val welcome_message_def = Define`
   welcome_message = strlit"CakeML\n"`;
@@ -36,15 +39,67 @@ val add_magic_eval =
     ``unknown_loc`` ``"magic_eval"``
     ``"env"`` magic_eval_exp "magic_eval_v";
 
-val magic_lookup_exp =
+val envlookup_exp =
   ``Fun "id" (App EnvLookup [Var(Short"env"); Var(Short"id")])``;
-val add_magic_lookup =
+val add_envlookup =
   ml_progLib.add_Dlet_Fun
-    ``unknown_loc`` ``"magic_lookup"``
-    ``"env"`` magic_lookup_exp "magic_lookup_v";
+    ``unknown_loc`` ``"envlookup"``
+    ``"env"`` envlookup_exp "envlookup_v";
 
 val () = ml_translatorLib.ml_prog_update add_magic_eval;
-val () = ml_translatorLib.ml_prog_update add_magic_lookup;
+val () = ml_translatorLib.ml_prog_update add_envlookup;
+
+val SEM_ENV_def = Define`
+  SEM_ENV env ⇔ (λv. v = Env env)`;
+
+val () = ml_translatorLib.register_type ``:('a,'b) id``;
+
+val envlookup_def = Define`
+  envlookup (env:v sem_env) id = nsLookup env.v id`;
+
+val envlookup_v_def = definition"envlookup_v_def";
+
+(*
+val (v_to_id_def, v_to_id_ind) =
+  tprove_no_defn
+  ((semanticPrimitivesTheory.v_to_id_def,
+    semanticPrimitivesTheory.v_to_id_ind),
+  cheat)
+
+Theorem ID_TYPE_v_to_id:
+  ∀v x.
+  ID_TYPE STRING_TYPE STRING_TYPE x v
+  ⇔ v_to_id v = SOME x
+Proof
+  recInduct v_to_id_ind
+  \\ rw[v_to_id_def, CaseEq"option", ID_TYPE_def]
+  \\ Cases_on`x` \\ fs[ID_TYPE_def, semanticPrimitivesTheory.id_type_num_def]
+*)
+
+(*
+Theorem envlookup_cert:
+  (SEM_ENV
+   --> ID_TYPE (LIST_TYPE CHAR) (LIST_TYPE CHAR)
+   --> OPTION_TYPE (=)) envlookup envlookup_v
+Proof
+  rw[PRECONDITION_def, IS_SOME_EXISTS, Arrow_def, AppReturns_def,
+     envlookup_v_def, do_opapp_def, eval_rel_def]
+  \\ rw[Once evaluate_def]
+  \\ qexists_tac`[]`
+  \\ rw[PULL_EXISTS]
+  \\ rpt (qexists_tac `ARB`)
+  \\ rw[]
+  \\ rw[Once evaluate_def]
+  \\ rw[Once evaluate_def]
+  \\ rw[Once evaluate_def]
+  \\ rw[Once evaluate_def]
+  \\ rw[do_app_def]
+  \\ fs[SEM_ENV_def]
+
+  \\ Cases_on`x`
+  \\ fs[SEMANTICPRIMITIVES_SEM_ENV_TYPE_def]
+  f"SEM_ENV_TYPE"
+*)
 
 val exn_infer_t_def = Define`
   exn_infer_t = Infer_Tapp [] Texn_num`;
@@ -109,6 +164,14 @@ val repl_extend_inf_state_def = Define`
     <| ienv := extend_dec_ienv new_stuff.ienv inf_state.ienv
      ; next_id := new_stuff.next_id |>`;
 
+val repl_get_pp_type_key_def = Define`
+  repl_get_pp_type_key new_stuff =
+    nsLookup new_stuff.ienv.inf_v (Short repl_printer_name)`;
+
+val repl_extend_pp_map_def = Define`
+  repl_extend_pp_map pp_map key v =
+    (key, v) :: pp_map`;
+
 val dummy_printer_def = Define`
   dummy_printer _ = strlit"?"`;
 
@@ -118,23 +181,20 @@ val val_string_def = Define`
             strlit": "; FST(inf_type_to_string inf_state.ienv.inf_t inf_type);
             strlit" = "; ppd_value; strlit"\n"]`;
 
-(* TODO: Can this actually work? What is the type of pp_map?
-         It can't have a type, so it can't come from the translator...
 val repl_pp_fun_def = Define`
-  repl_pp_fun pp_map inf_type v =
+  repl_pp_fun pp_map inf_type =
     case ALOOKUP pp_map inf_type of
-    | NONE => dummy_printer v
-    | SOME pp_fun => pp_fun v`;
-*)
+    | NONE => dummy_printer
+    | SOME pp_fun => pp_fun`;
 
-(*
-  fun repl_build_and_format_output inf_state pp_map env bindings =
-    String.concatWith "\n"
-      (List.map (fn (name, inf_type) =>
-                  val_string inf_state name inf_type
-                    (repl_pp_fun pp_map inf_type (magic_lookup env name)))
-                bindings)
-*)
+val repl_build_and_format_output
+
+fun repl_build_and_format_output inf_state pp_map env bindings =
+  String.concatWith "\n"
+    (List.map (fn (name, inf_type) =>
+                val_string inf_state name inf_type
+                  (repl_pp_fun pp_map inf_type (envlookup env name)))
+              bindings)
 
 (* REP -- the L is to come later... *)
 val rep_ast = process_topdecs`
@@ -154,7 +214,7 @@ val rep_ast = process_topdecs`
                   case Some (magic_eval env prog)
                         handle e =>
                           (TextIO.print_err "Exception raised: ";
-                           TextIO.print_err (CakeML.repl_pp_fun pp_map CakeML.exn_infer_t e);
+                           TextIO.print_err (repl_pp_fun pp_map exn_infer_t e);
                            TextIO.print_err ("\n");
                            None)
                   of
@@ -176,20 +236,20 @@ val rep_ast = process_topdecs`
                     (TextIO.print_err "Printer does not typecheck: ";
                      TextIO.print_err msg;
                      Some state)
-                | Success new_inf_state =>
+                | Success new_stuff =>
                     case Some (magic_eval env prog)
                          handle _ => None
                     of
                       None => (TextIO.print_err "Printer expression raised exception\n"; Some state)
                       Some pp_env =>
                         Some
-                        (case CakeML.repl_get_pp_type_key new_inf_state of
+                        (case repl_get_pp_type_key new_stuff of
                            None => (TextIO.print_err "Printer does not have a reasonable type\n";
                                     state)
                          | Some key =>
                             (inf_state, env,
-                             CakeML.repl_extend_pp_map key
-                               (magic_lookup pp_env repl_printer_name)))
+                             repl_extend_pp_map pp_map key
+                               (envlookup pp_env repl_printer_name)))
               end
           | _ => (TextIO.print_err "Cannot understand input\n";
                   Some state)`;
@@ -199,5 +259,4 @@ val main_ast = process_topdecs`
     let
       val u = TextIO.print welcome_banner
       val u = TextIO.print prompt
-
 

@@ -101,6 +101,13 @@ val _ = Define `
  ((list_type_num:num) : num= (( 1 : num)))`;
 
 
+val _ = Define `
+ ((option_type_num:num) : num= (( 2 : num)))`;
+
+val _ = Define `
+ ((id_type_num:num) : num= (( 7 : num)))`;
+
+
 (* The result of evaluation *)
 val _ = Hol_datatype `
  abort =
@@ -486,6 +493,65 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) vs_to_string_defn;
 
+(*val maybe_to_v : maybe v -> v*)
+ val _ = Define `
+ ((maybe_to_v:(v)option -> v) NONE=
+   (Conv (SOME (TypeStamp "None" option_type_num)) []))
+/\ ((maybe_to_v:(v)option -> v) (SOME v)=
+   (Conv (SOME (TypeStamp "Some" option_type_num)) [v]))`;
+
+
+(*val v_to_id : v -> maybe (id modN varN)*)
+ val v_to_id_defn = Defn.Hol_multi_defns `
+ ((v_to_id:v ->(((string),(string))id)option) (Conv (SOME stamp) [Litv (StrLit s)])=
+   (if stamp = TypeStamp "Short" id_type_num then
+    SOME (Short s)
+  else
+    NONE))
+/\ ((v_to_id:v ->(((string),(string))id)option) (Conv (SOME stamp) [Litv (StrLit s); v])=
+   (if stamp = TypeStamp "Long" id_type_num then
+    (case v_to_id v of
+        SOME id => SOME (Long s id)
+      | NONE => NONE
+    )
+  else
+    NONE))
+/\ ((v_to_id:v ->(((string),(string))id)option) _=  NONE)`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) v_to_id_defn;
+
+(*val v_to_dec : v -> maybe dec*)
+val _ = Define `
+ ((v_to_dec:v ->(dec)option) v=  NONE)`;
+ (* TODO *)
+
+(*val v_to_decs : v -> maybe (list dec)*)
+ val v_to_decs_defn = Defn.Hol_multi_defns `
+ ((v_to_decs:v ->((dec)list)option) (Conv (SOME stamp) [])=
+   (if stamp = TypeStamp "[]" list_type_num then
+    SOME []
+  else
+    NONE))
+/\ ((v_to_decs:v ->((dec)list)option) (Conv (SOME stamp) [v1; v2])=
+   (if stamp = TypeStamp "::" list_type_num then
+    (case (v_to_dec v1, v_to_decs v2) of
+      (SOME d, SOME ds) => SOME (d::ds)
+    | _ => NONE
+    )
+  else
+    NONE))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) v_to_decs_defn;
+
+(*val v_to_env : v -> maybe (sem_env v)*)
+val _ = Define `
+ ((v_to_env:v ->((v)sem_env)option) v=
+   ((case v of
+    Env env => SOME env
+  | _ => NONE
+  )))`;
+
+
 (*val copy_array : forall 'a. list 'a * integer -> integer -> maybe (list 'a * integer) -> maybe (list 'a)*)
 val _ = Define `
  ((copy_array:'a list#int -> int ->('a list#int)option ->('a list)option) (src,srcoff) len d=
@@ -585,11 +651,6 @@ val _ = Hol_datatype `
  exp_or_val =
     Exp of exp
   | Val of v`;
-
-
-(*val v_to_id : v -> maybe (id modN varN)*)
-val _ = Define `
- ((v_to_id:v ->(((modN),(varN))id)option) v=  NONE)`;
 
 
 val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_state``);
@@ -856,10 +917,7 @@ val _ = Define `
     | (EnvLookup, [Env env; id]) =>
         (case v_to_id id of
           NONE => NONE
-        | SOME n => (case nsLookup env.v n of
-                      NONE => NONE
-                    | SOME v => SOME ((s, t), Rval v)
-                    )
+        | SOME n => SOME ((s, t), Rval (maybe_to_v (nsLookup env.v n)))
         )
     | _ => NONE
   )))`;
@@ -930,20 +988,6 @@ val _ = Define `
 val _ = Define `
  ((extend_dec_env:(v)sem_env ->(v)sem_env ->(v)sem_env) new_env env=
    (<| c := (nsAppend new_env.c env.c); v := (nsAppend new_env.v env.v) |>))`;
-
-
-(*val v_to_decs : v -> maybe (list dec)*)
-val _ = Define `
- ((v_to_decs:v ->((dec)list)option) v=  NONE)`;
-
-
-(*val v_to_env : v -> maybe (sem_env v)*)
-val _ = Define `
- ((v_to_env:v ->((v)sem_env)option) v=
-   ((case v of
-    Env env => SOME env
-  | _ => NONE
-  )))`;
 
 
 (*

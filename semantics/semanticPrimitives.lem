@@ -65,6 +65,9 @@ let sub_exn_v = Conv (Just subscript_stamp) []
 let bool_type_num : nat = 0
 let list_type_num : nat = 1
 
+let option_type_num : nat = 2
+let id_type_num : nat = 7
+
 (* The result of evaluation *)
 type abort =
   | Rtype_error
@@ -392,6 +395,53 @@ and vs_to_string (Litv(StrLit s1)::vs) =
   end
 and vs_to_string _ = Nothing
 
+val maybe_to_v : maybe v -> v
+let rec maybe_to_v Nothing =
+  Conv (Just (TypeStamp "None" option_type_num)) []
+and maybe_to_v (Just v) =
+  Conv (Just (TypeStamp "Some" option_type_num)) [v]
+
+val v_to_id : v -> maybe (id modN varN)
+let rec v_to_id (Conv (Just stamp) [Litv (StrLit s)]) =
+  if stamp = TypeStamp "Short" id_type_num then
+    Just (Short s)
+  else
+    Nothing
+and v_to_id (Conv (Just stamp) [Litv (StrLit s); v]) =
+  if stamp = TypeStamp "Long" id_type_num then
+    match v_to_id v with
+      | Just id -> Just (Long s id)
+      | Nothing -> Nothing
+    end
+  else
+    Nothing
+and v_to_id _ = Nothing
+
+val v_to_dec : v -> maybe dec
+let v_to_dec v = Nothing (* TODO *)
+
+val v_to_decs : v -> maybe (list dec)
+let rec v_to_decs (Conv (Just stamp) []) =
+  if stamp = TypeStamp "[]" list_type_num then
+    Just []
+  else
+    Nothing
+and v_to_decs (Conv (Just stamp) [v1; v2]) =
+  if stamp = TypeStamp "::" list_type_num then
+    match (v_to_dec v1, v_to_decs v2) with
+    | (Just d, Just ds) -> Just (d::ds)
+    | _ -> Nothing
+    end
+  else
+    Nothing
+
+val v_to_env : v -> maybe (sem_env v)
+let v_to_env v =
+  match v with
+  | Env env -> Just env
+  | _ -> Nothing
+  end
+
 val copy_array : forall 'a. list 'a * integer -> integer -> maybe (list 'a * integer) -> maybe (list 'a)
 let copy_array (src,srcoff) len d =
   if srcoff < 0 || len < 0 || List.length src < natFromInteger(srcoff + len) then Nothing else
@@ -470,9 +520,6 @@ let Boolv b = if b
 type exp_or_val =
   | Exp of exp
   | Val of v
-
-val v_to_id : v -> maybe (id modN varN)
-let v_to_id v = Nothing
 
 type store_ffi 'ffi 'v = store 'v * ffi_state 'ffi
 
@@ -737,10 +784,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
     | (EnvLookup, [Env env; id]) ->
         match v_to_id id with
         | Nothing -> Nothing
-        | Just n -> match nsLookup env.v n with
-                    | Nothing -> Nothing
-                    | Just v -> Just ((s, t), Rval v)
-                    end
+        | Just n -> Just ((s, t), Rval (maybe_to_v (nsLookup env.v n)))
         end
     | _ -> Nothing
   end
@@ -797,16 +841,6 @@ let combine_dec_result env r =
 val extend_dec_env : sem_env v -> sem_env v -> sem_env v
 let extend_dec_env new_env env =
   <| c = nsAppend new_env.c env.c; v = nsAppend new_env.v env.v |>
-
-val v_to_decs : v -> maybe (list dec)
-let v_to_decs v = Nothing
-
-val v_to_env : v -> maybe (sem_env v)
-let v_to_env v =
-  match v with
-  | Env env -> Just env
-  | _ -> Nothing
-  end
 
 (*
 val decs_to_types : list dec -> list typeN
