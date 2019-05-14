@@ -1339,12 +1339,23 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                 if is_pair_type then PAIR_TYPE_def else
                 if is_unit_type then UNIT_TYPE_def else
                 case !next_ty_inv of
-                  SOME tinv => (next_ty_inv:=NONE; tinv)
-                | NONE => tDefine name [ANTIQUOTE (get_def_tm ())] tac
-                handle HOL_ERR e =>
-                (print ("tDefine failed on:\n"^term_to_string (get_def_tm ())^"\n");
-                print ("measure used: \n"^build_measure tys^"\n");
-                raise HOL_ERR e)
+                SOME tinv =>
+                 (* Sanity check that the right stamps are used *)
+                 let val stamps = (map ( numSyntax.int_of_term o snd o dest_TypeStamp) (find_terms is_TypeStamp (concl tinv)))
+                 in
+                   if List.all (curry op= stamp) stamps
+                   then (next_ty_inv:=NONE; tinv)
+                   else
+                     failwith
+                     ("Incorrect stamps in provided type invariant: [" ^
+                     String.concatWith " , " (map Int.toString stamps)^ "]")
+                 end
+                | NONE =>
+                  (tDefine name [ANTIQUOTE (get_def_tm ())] tac
+                  handle HOL_ERR e =>
+                  (print ("tDefine failed on:\n"^term_to_string (get_def_tm ())^"\n");
+                  print ("measure used: \n"^build_measure tys^"\n");
+                  raise HOL_ERR e))
   val clean_rule = CONV_RULE (DEPTH_CONV (fn tm =>
                    if not (is_abs tm) then NO_CONV tm else
                    if fst (dest_abs tm) ~~ tmp_v_var then ALPHA_CONV real_v_var tm
