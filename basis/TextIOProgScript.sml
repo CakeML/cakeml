@@ -34,7 +34,7 @@ val _ = (use_full_type_names := true);
 val instreamBuffered_def = (append_prog o process_topdecs)
   `datatype instreambuffered =
   InstreamBuffered
-    TextIO.instream     (* stream name *)
+    instream     (* stream name *)
     (int ref)    (* read index *)
     (int ref)   (* write index *)
     byte_array`;
@@ -216,14 +216,38 @@ fun read_byte fd =
     else Word8Array.sub iobuff 4
 ` |> append_prog
 
+
+(* val input : in_channel -> bytes -> int -> int -> int
+* input ic buf pos len reads up to len characters from the given channel ic,
+* storing them in byte sequence buf, starting at character number pos. *)
+(* TODO: input0 as local fun *)
+val _ =
+  process_topdecs`
+fun input fd buff off len =
+let fun input0 off len count =
+    let val nread = read (get_in fd) (min len 2048) in
+        if nread = 0 then count else
+          (Word8Array.copy iobuff 4 nread buff off;
+           input0 (off + nread) (len - nread) (count + nread))
+    end
+in input0 off len 0 end
+` |> append_prog
+
+val _ =
+  process_topdecs`
+fun b_openIn fname bsize =
+  InstreamBuffered (openIn fname) (Ref 0) (Ref 0)
+  (Word8Array.array (if bsize <= 0 then raise IllegalArgument else bsize) (Word8.fromInt 48))
+` |> append_prog
+
 val _ = ml_prog_update open_local_in_block;
 
 val _ = (append_prog o process_topdecs)`
   fun b_refillBuffer is =
     case is of InstreamBuffered fd rref wref surplus =>
-      (wref := input fd surplus 0 (Word8Array.length surplus);
-      rref := 0;
-      (!wref))`;
+        (wref := input fd surplus 0 (Word8Array.length surplus);
+        rref := 0;
+        (!wref))`;
 
 (*b_input helper function for the case when there are not
   enough bytes in instream buffer*)
@@ -231,7 +255,7 @@ val _ = (append_prog o process_topdecs)`
   fun b_input_aux is buff off len nBuffered =
     case is of InstreamBuffered fd rref wref surplus =>
       (Word8Array.copy surplus (!rref) nBuffered buff off;
-      wref := TextIO.input fd surplus 0 (Word8Array.length surplus);
+      wref := input fd surplus 0 (Word8Array.length surplus);
       let
         val leftover = min (len-nBuffered) (!wref)
       in
@@ -307,22 +331,6 @@ val _ = (append_prog o process_topdecs)`
 
 val _ = (append_prog o process_topdecs)`
   fun input1 fd = Some (Char.chr(Word8.toInt(read_byte (get_in fd)))) handle EndOfFile => None`
-
-(* val input : in_channel -> bytes -> int -> int -> int
-* input ic buf pos len reads up to len characters from the given channel ic,
-* storing them in byte sequence buf, starting at character number pos. *)
-(* TODO: input0 as local fun *)
-val _ =
-  process_topdecs`
-fun input fd buff off len =
-let fun input0 off len count =
-    let val nread = read (get_in fd) (min len 2048) in
-        if nread = 0 then count else
-          (Word8Array.copy iobuff 4 nread buff off;
-           input0 (off + nread) (len - nread) (count + nread))
-    end
-in input0 off len 0 end
-` |> append_prog
 
 val _ = ml_prog_update open_local_block;
 

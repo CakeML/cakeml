@@ -565,32 +565,18 @@ val REF_NUM_def = Define `
     SEP_EXISTS v. REF loc v * & (NUM n v)`;
 
 val instream_buffered_inv_def = Define `
-  instream_buffered_inv r w fs fd bcontent content =
-    ?pos.
-      get_file_content fs fd = SOME (content,pos) /\
-      r < LENGTH bcontent /\
+  instream_buffered_inv r w bcontent bactive =
+      (r < LENGTH bcontent /\
       w < LENGTH bcontent /\
-      ~(r>w) /\
-      bcontent = TAKE (w-r) (DROP (pos-(w-r)) (MAP (n2w o ORD) content))`;
+      r <= w /\
+      bactive = TAKE (w-r) (DROP r bcontent))`;
 
 val INSTREAM_BUFFERED_def = Define `
-  INSTREAM_BUFFERED fs fd  is =
-    SEP_EXISTS rr r wr w buff bcontent fdv.
+  INSTREAM_BUFFERED bactive is =
+    SEP_EXISTS rr r wr w buff bcontent fd fdv.
       & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff])) *
       & (INSTREAM fd fdv) *
-      & (instream_buffered_inv r w fs fd bcontent) *
-      STDIO fs *
-      REF_NUM rr r *
-      REF_NUM wr w *
-      W8ARRAY buff bcontent`;
-
-val INSTREAM_BUFFERED_def = Define `
-  INSTREAM_BUFFERED fs fd r w is =
-    SEP_EXISTS rr wr buff bcontent fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff])) *
-      & (INSTREAM fd fdv) *
-      & (instream_buffered_inv r w fs fd bcontent) *
-      STDIO fs *
+      & (instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
       REF_NUM wr w *
       W8ARRAY buff bcontent`;
@@ -1693,56 +1679,40 @@ Theorem input_spec
   \\ fs[get_file_content_def]
   \\ xsimpl);
 
+Theorem take_drop_append
+  `x < LENGTH l /\ y < LENGTH l /\ z < LENGTH l  /\ ~(y<x) ==>
+   TAKE x (DROP z l) ++ TAKE (y - x) (DROP (x+z) l) =
+   TAKE y (DROP z l)`
+  (fs[take_drop_partition,GSYM DROP_DROP_T]);
+
 (*
-Theorem b_input_aux1_spec
-  `!fd fdv fs off offv len lenv buf bufv is iswr isrr isbuf isbufv.
-    len + off <= LENGTH buf ∧ len <= w - r /\
-    NUM off offv ∧ NUM len lenv /\
+Theorem b_refillBuffer_spec
+  `!fd fdv fs content pos.
+    INSTREAM fd fdv  ∧
     is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
-    get_file_content fs fd = SOME(content, pos) ==>
-    get_mode fs fd = SOME ReadMode ==>
-    app (p:'ffi ffi_proj) TextIO_b_input_aux1_v [is; bufv; offv; lenv]
-    (STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_R_W is r w)
-    (POSTv nv. SEP_EXISTS content. &(NUM (MIN len (LENGTH content-pos)) nv) *
-       W8ARRAY bufv (insert_atI (TAKE len content)
-                                 off buf) *
-        STDIO fs * INSTREAM_BUFFERED is)`
-  (xcf_with_def "TextIO.b_input_aux1" TextIO_b_input_aux1_v_def
-  \\rw[STDIO_def,INSTREAM_BUFFERED_def, INSTREAM_BUFFERED_R_W_def, REF_NUM_def]
-  \\ xpull
-  \\ xmatch
-  \\ xlet_auto >- xsimpl
-  \\ fs[instream_buffered_inv_def]
-  \\ xlet_auto >- (xsimpl >- fs[LENGTH_TAKE])
-  \\ xlet_auto >- xsimpl
-  \\ xlet_auto >- xsimpl
-  \\ xvar \\ xsimpl \\ fs[PULL_EXISTS]
-  \\ map_every qexists_tac [`bcontent`, `r`,`w`, `fd'`,`ll`,`content`,`pos`]
-  \\ xsimpl
-  \\ rw[]
-
-  )
-
-  (
-  \\ `fd = 1 ∨ fd = 2 ⇒ pos = LENGTH content`
-  by (
-    fs[STD_streams_def]
-    \\ fs[get_file_content_def]
-    \\ pairarg_tac \\ fs[]
-    \\ rpt(first_x_assum(qspec_then`fd`mp_tac))
-    \\ rw[] \\ fs[]
-    \\ metis_tac[SOME_11] )
-  \\ `pos = LENGTH content ⇒ MIN (len + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
-  \\ simp[STD_streams_fsupdate]
-  \\ xapp
-  \\ mp_tac(SYM (SPEC_ALL get_file_content_numchars)) \\ rw[]
-  \\ mp_tac(get_mode_with_numchars) \\ rw[]
-  \\ instantiate \\ xsimpl
-  \\ simp[fsupdate_numchars] \\ rw[]
-  \\ qexists_tac`THE (LDROP x ll)`
-  \\ simp[fsupdate_def]
-  \\ fs[get_file_content_def]
-  \\ xsimpl);
+    get_file_content fs fd = SOME(content, pos) ⇒
+    get_mode fs fd = SOME ReadMode ⇒
+    app (p:'ffi ffi_proj) TextIO_b_refillBuffer_v [is;]
+    (STDIO fs * INSTREAM_BUFFERED bactive is )
+    (POSTv uv. SEP_EXISTS bsize.
+                  INSTREAM_BUFFERED (TAKE (MIN bsize (LENGTH content - pos))
+                                      (MAP (n2w o ORD) content)) is *
+        STDIO (fsupdate fs fd 0 (MIN (bsize + pos) (MAX pos (LENGTH content))) content))`
+  (xcf_with_def "TextIO.b_refillBuffer" TextIO_b_refillBuffer_v_def
+  \\fs[INSTREAM_BUFFERED_def, REF_NUM_def]
+  \\xpull
+  \\xmatch
+  \\xlet_auto >- xsimpl
+  \\fs[instream_buffered_inv_def]
+  \\xlet_auto_spec (SOME input_spec) >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\`pos = LENGTH content ⇒ MIN (LENGTH bcontent + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
+  \\xapp \\ xsimpl
+  \\map_every qexists_tac [`LENGTH bcontent`,`(MIN bsize (STRLEN content − pos))`,`fd`]
+  \\fs[MAX_DEF,MIN_DEF] \\ xsimpl
+  \\rpt strip_tac
+  >-(Cases_on `bcontent`
 *)
 
 Theorem extend_array_spec
