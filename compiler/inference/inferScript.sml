@@ -398,6 +398,7 @@ val op_to_string_def = Define `
 (op_to_string Aupdate = (implode "Aupdate", 3)) ∧
 (op_to_string ConfigGC = (implode "ConfigGC", 2)) ∧
 (op_to_string Eval = (implode "Eval", 2)) ∧
+(op_to_string EnvLookup = (implode "EnvLookup", 2)) ∧
 (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
 (op_to_string (FFI _) = (implode "FFI", 2))`;
 
@@ -605,6 +606,8 @@ constrain_op l op ts =
        od
    | (Eval, [t1;t2]) =>
        failwith l (strlit "Type mismatch: Eval unsupported")
+   | (EnvLookup, [t1;t2]) =>
+       failwith l (strlit "Type mismatch: EnvLookup unsupported")
    | _ =>
          failwith l (
          let (ops, args) = op_to_string op in
