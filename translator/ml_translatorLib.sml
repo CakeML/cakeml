@@ -1522,7 +1522,7 @@ val th = inv_defs |> map #2 |> hd
   (* cons assumption *)
   fun mk_assum tm =
     if not is_exn_type then let
-      val x = find_term is_TypeStamp tm
+      val x = find_term is_TypeStamp (rhs tm)
       val (n,k) = dest_TypeStamp x
       val l = tm |> dest_eq |> fst |> rator |> rand |> list_dest dest_comb
                  |> tl |> length |> numSyntax.term_of_int
