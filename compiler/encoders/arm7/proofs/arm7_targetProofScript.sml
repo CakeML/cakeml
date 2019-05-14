@@ -611,7 +611,7 @@ val bytes_in_memory_thm = Q.prove(
       target_state_rel arm7_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
-      (state.Architecture = ARMv7_A) /\
+      (state.Architecture = ARMv7_R) /\
       ~state.Extensions Extension_Security /\
       (state.VFPExtension = VFPv4) /\
       (state.FP.FPSCR.RMode = 0w) /\
@@ -658,7 +658,7 @@ local
    fun boolify n tm =
       List.tabulate (n, fn i => bool1 (tm, numLib.term_of_int (n - 1 - i)))
    val bytes = List.concat o List.rev o List.map (boolify 8)
-   val step6 = arm_stepLib.arm_eval "v7, vfpv4"
+   val step6 = arm_stepLib.arm_eval "v7-r, vfpv4"
    fun step state x l =
       let
          val v = listSyntax.mk_list (bytes l, Type.bool)
