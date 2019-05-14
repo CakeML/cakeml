@@ -3832,11 +3832,45 @@ Theorem pop_thm
   \\ full_simp_tac std_ss [roots_ok_def,MEM_APPEND]
   THEN1 (rw [] \\ res_tac \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ imp_res_tac LIST_REL_SPLIT2
-  \\ imp_res_tac LIST_REL_LENGTH
-  \\ fs[APPEND_EQ_APPEND]
-  \\ rveq \\ fs[] \\ rveq \\ rfs[] \\ rveq \\ fs[]
-  \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []);
+  \\ qexists_tac `DRESTRICT tf (all_ts refs stack)` \\ full_simp_tac std_ss []
+  \\ conj_tac
+  >- fs [INJ_DEF,DRESTRICT_DEF]
+  \\ conj_tac
+  >- fs [SUBSET_DEF,DRESTRICT_DEF]
+  \\ conj_tac
+  >- (match_mp_tac EVERY2_MEM_MONO
+     \\ imp_res_tac LIST_REL_APPEND_IMP
+     \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
+     \\ simp[FORALL_PROD] \\ rw[]
+     \\ ho_match_mp_tac v_inv_tf_restrict
+     \\ rw []
+     \\ ho_match_mp_tac MEM_in_all_ts
+     \\ qexists_tac `p_1` \\ rw []
+     \\ ho_match_mp_tac MEM_stack_all_vs
+     \\ drule MEM_ZIP2 \\ rw []
+     \\ rw [EL_MEM])
+  \\ fs[reachable_refs_def,PULL_EXISTS]
+  \\ rw[]
+  \\ fs[bc_ref_inv_def]
+  \\ fsrw_tac[boolSimps.DNF_ss][]
+  \\ first_x_assum rpt_drule
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[] \\ rw[]
+  \\ fs[RefBlock_def,Bytes_def]
+  \\ match_mp_tac EVERY2_MEM_MONO
+  \\ imp_res_tac LIST_REL_APPEND_IMP
+  \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
+  \\ simp[FORALL_PROD] \\ rw[]
+  \\ ho_match_mp_tac v_inv_tf_restrict
+  \\ rw []
+  \\ ho_match_mp_tac MEM_in_all_ts
+  \\ qexists_tac `p_2` \\ rw []
+  \\ rw [all_vs_def] \\ disj1_tac
+  \\ map_every qexists_tac [`n`,`l`] \\ rw []
+  \\ ho_match_mp_tac MEM_v_all_vs
+  \\ drule MEM_ZIP2 \\ rw []
+  \\ rw [EL_MEM]);
 
 (* equality *)
 
@@ -3887,6 +3921,10 @@ Theorem num_less_thm
   \\ intLib.COOPER_TAC);
 
 (* permute stack *)
+
+Theorem all_ts_permute
+  `∀refs stack stack'. PERM stack stack' ⇒ all_ts refs stack = all_ts refs stack`
+  (rw [all_ts_def]);
 
 Theorem abs_ml_inv_stack_permute
   `!xs ys.
