@@ -622,15 +622,15 @@ Theorem evaluate_ListLength_code
   \\ fs [] \\ pop_assum kall_tac
   \\ `(1 + &n) = (&(n + 1)):int` by intLib.COOPER_TAC \\ fs []);
 
-(*
 Theorem evaluate_FromListByte_code
   `∀lv vs n bs (s:('c,'ffi) bviSem$state).
     v_to_list lv = SOME (MAP Word vs) ∧ LENGTH vs ≤ LENGTH bs ∧
+    EVERY (λn. LENGTH n = 8) vs ∧
     lookup FromListByte_location s.code = SOME (3,SND FromListByte_code) ∧
     FLOOKUP s.refs p = SOME (ByteArray fl bs) ∧ n = LENGTH bs - LENGTH vs
     ⇒
     ∃c.
-      evaluate ([SND FromListByte_code],[lv;Word (n2v n);RefPtr p],inc_clock c s) =
+      evaluate ([SND FromListByte_code],[lv;Number &n;RefPtr p],inc_clock c s) =
         (Rval [RefPtr p], s with refs := s.refs |+ (p,ByteArray fl (TAKE n bs ++ (MAP v2w vs))))`
   (ho_match_mp_tac v_to_list_ind \\ rw[] \\ fs[v_to_list_def] \\ rveq
   \\ rfs[FromListByte_code_def]
@@ -648,17 +648,14 @@ Theorem evaluate_FromListByte_code
   \\ simp[bvl_to_bvi_id]
   \\ simp[Once bEvalOp_def]
   \\ rveq \\ fs []
-  \\ reverse CASE_TAC \\ fs[]
-  >- ( first_x_assum(qspec_then`n2v h'`mp_tac) \\ fs[] )
-  \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,backend_commonTheory.small_enough_int_def,
-          bvl_to_bvi_with_refs,bvl_to_bvi_id]
+  \\ simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,backend_commonTheory.small_enough_int_def,bvl_to_bvi_with_refs,bvl_to_bvi_id]
   \\ simp[find_code_def]
   \\ qmatch_goalsub_abbrev_tac`inc_clock _ _ with refs := refs`
   \\ qmatch_asmsub_abbrev_tac`ByteArray fl (h1::t1)`
-  \\ qmatch_asmsub_abbrev_tac`h2 = w2n w`
   \\ qmatch_asmsub_abbrev_tac `LENGTH t ≤ LENGTH t1` (* fix *)
-  \\ first_x_assum(qspecl_then[`t`,`LUPDATE w (LENGTH t1 - LENGTH t) (h1::t1)`,`s with refs := refs`]mp_tac)
-  \\ impl_tac >- simp[Abbr`refs`,FLOOKUP_UPDATE] \\ strip_tac
+  \\ first_x_assum(qspecl_then[`t`,`LUPDATE (v2w h') (LENGTH t1 - LENGTH t) (h1::t1)`,`s with refs := refs`]mp_tac)
+  \\ impl_tac >- simp[Abbr`refs`,FLOOKUP_UPDATE]
+  \\ strip_tac
   \\ qexists_tac`c+1`
   \\ simp[] \\ fs[ADD1]
   \\ fs[dec_clock_def,inc_clock_def]
@@ -669,7 +666,6 @@ Theorem evaluate_FromListByte_code
   \\ simp[Abbr`refs`,fmap_eq_flookup,FLOOKUP_UPDATE] \\ rw[]
   \\ rw[LIST_EQ_REWRITE,EL_TAKE,EL_LUPDATE]
   \\ rw[EL_TAKE,EL_APPEND1,EL_APPEND2]);
-*)
 
 Theorem evaluate_SumListLength_code
   `∀lv ps wss n.
@@ -2889,7 +2885,7 @@ val compile_exps_correct = Q.prove(
       \\ fs[state_ok_def,EVERY_MEM]
       \\ res_tac \\ fs[] \\ rw[]
       \\ fs[Abbr`a`,LEAST_NOTIN_FDOM])
-    \\ Cases_on`∃str. op = FromListByte` \\ fs[] >- cheat (*
+    \\ Cases_on`∃str. op = FromListByte` \\ fs[] >- (
       note_tac "Op: FromListByte" \\ fs[compile_op_def,bEvalOp_def]
       \\ `∃lv. REVERSE a = [lv]` by (every_case_tac \\ fs[]) \\ fs[]
       \\ qpat_x_assum`_ = Rval _`mp_tac
@@ -2913,7 +2909,7 @@ val compile_exps_correct = Q.prove(
         \\ simp[Abbr`b2'`,Abbr`ptr`,APPLY_UPDATE_THM]
         \\ rw[] \\ fs[LEAST_NOTIN_FDOM] \\ NO_TAC)
       \\ `v_to_list (adjust_bv b2 lv) = v_to_list lv`
-      by (simp[v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def])
+      by (simp[v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def,ETA_AX])
       \\ rfs[]
       \\ drule evaluate_ListLength_code
       \\ disch_then drule \\ simp[]
@@ -2922,7 +2918,8 @@ val compile_exps_correct = Q.prove(
       \\ qabbrev_tac`bs = REPLICATE (LENGTH x) (0w:word8)`
       \\ disch_then(qspecl_then[`p`,`T`,`0`,`bs`,`t2 with refs := t2.refs |+ (p,ByteArray T bs)`]mp_tac)
       \\ simp[LENGTH_REPLICATE,Abbr`bs`,FLOOKUP_UPDATE]
-      \\ impl_keep_tac >- fs[state_rel_def,FromListByte_code_def]
+      \\ impl_keep_tac >-
+        fs[state_rel_def,FromListByte_code_def,LENGTH_EQ_NUM_compute]
       \\ disch_then(qx_choose_then`cf`strip_assume_tac)
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2'`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `(cf+1) + (cl+1) + c`
@@ -2957,9 +2954,7 @@ val compile_exps_correct = Q.prove(
       \\ simp[inc_clock_def]
       \\ disch_then kall_tac
       \\ simp[iEvalOp_def,do_app_aux_def]
-      \\ reverse IF_CASES_TAC \\ fs[]
-      >- ( first_x_assum(qspec_then`0w`mp_tac) \\ simp[] )
-      \\ Cases_on`w` \\ fs[] \\ rveq \\ fs[]
+      \\ `v2w (fixwidth 8 []) = 0w:word8` by EVAL_TAC
       \\ fs[inc_clock_def,adjust_bv_def,Abbr`b2'`,APPLY_UPDATE_THM]
       \\ reverse conj_tac
       >- (
@@ -3007,7 +3002,7 @@ val compile_exps_correct = Q.prove(
       \\ imp_res_tac evaluate_ok
       \\ fs[state_ok_def,EVERY_MEM]
       \\ res_tac \\ fs[] \\ rw[]
-      \\ fs[Abbr`a`,LEAST_NOTIN_FDOM,Abbr`p`] *)
+      \\ fs[Abbr`a`,LEAST_NOTIN_FDOM,Abbr`p`])
     \\ Cases_on`op = ConcatByteVec` \\ fs[] >- (
       note_tac "Op: ConcatByteVec" \\
       fs[compile_op_def,bEvalOp_def,case_eq_thms]

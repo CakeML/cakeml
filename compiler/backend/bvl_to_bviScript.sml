@@ -218,7 +218,7 @@ local val compile_op_quotation = `
              [Var 0;
               Op (Const 0) [];
               Op (RefByte T)
-                [Op (Const 0) [];
+                [Op (WordConst (fixwidth 8 [])) [];
                  Call 0 (SOME ListLength_location)
                    [Var 0; Op (Const 0) []] NONE]]
              NONE)
