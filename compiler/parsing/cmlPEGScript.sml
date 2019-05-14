@@ -6,8 +6,8 @@
 open HolKernel Parse boolLib bossLib
      gramTheory pegexecTheory pegTheory
 
+local open tokenUtilsTheory monadsyntax finite_mapSyntax in end
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
-local open tokenUtilsTheory in end
 
 val _ = new_theory "cmlPEG"
 val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]
@@ -498,7 +498,13 @@ val cmlPEG_def = zDefine`
                       (bindNT nNonETopLevelDecs);
                  seql [tokeq SemicolonT; pnt nTopLevelDecs]
                       (bindNT nNonETopLevelDecs);
-                 pegf (empty []) (bindNT nNonETopLevelDecs)])
+                 pegf (empty []) (bindNT nNonETopLevelDecs)]);
+              (mkNT nREPLCommand,
+                 seql [tok (IS_SOME o destREPLIDT) mktokLf; pnt nEbase]
+                      (bindNT nREPLCommand));
+              (mkNT nTopLevel,
+                 pegf (choicel [pnt nREPLCommand; pnt nTopLevelDecs])
+                      (bindNT nTopLevel))
              ] |>
 `;
 
@@ -678,7 +684,8 @@ val npeg0_rwts =
                 “nEbefore”,
                 “nEtyped”, “nElogicAND”, “nElogicOR”, “nEhandle”,
                 “nE”, “nE'”, “nElist1”,
-                “nSpecLine”, “nStructure”, “nTopLevelDec”]
+                “nSpecLine”, “nStructure”, “nTopLevelDec”,
+                ``nREPLCommand``]
 
 fun wfnt(t,acc) = let
   val th =
@@ -715,7 +722,8 @@ val topo_nts = [“nV”, “nTyvarN”, “nTypeDec”, “nTypeAbbrevDec”, �
                 “nDecls”, “nDconstructor”, “nAndFDecls”, “nSpecLine”,
                 “nSpecLineList”, “nSignatureValue”,
                 “nOptionalSignatureAscription”, “nStructure”,
-                “nTopLevelDec”, “nTopLevelDecs”, “nNonETopLevelDecs”]
+                “nTopLevelDec”, “nTopLevelDecs”, “nNonETopLevelDecs”,
+                ``nREPLCommand``, ``nTopLevel``]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
@@ -800,7 +808,8 @@ val NTS_in_PEG_exprs = let
   in
     CONV_RULE (RAND_CONV (K (SYM exprs_th'))) th0
   end
-  val th = LIST_CONJ (map p nts)
+  val nts' = Lib.op_set_diff aconv nts [``mkNT nTopLevel``]
+  val th = LIST_CONJ (map p nts')
 in
   save_thm("NTS_in_PEG_exprs", th) before export_rewrites ["NTS_in_PEG_exprs"]
 end

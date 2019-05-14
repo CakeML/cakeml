@@ -135,4 +135,10 @@ val destFFIT_def = Define`
 `;
 val _ = export_rewrites ["destFFIT_def"]
 
+val destREPLIDT_def = Define`
+  (destREPLIDT (REPLIDT s) = SOME s) ∧
+  (destREPLIDT _ = NONE)
+`;
+val _ = export_rewrites ["destREPLIDT_def"]
+
 val _ = export_theory()
