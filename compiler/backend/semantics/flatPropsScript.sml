@@ -25,12 +25,12 @@ Theorem pat_bindings_accum
   metis_tac [APPEND, APPEND_ASSOC]);
 
 Theorem pmatch_extend
-  `(!cenv s p v env env' env''.
-    pmatch cenv s p v env = Match env'
+  `(!(s:'a state) p v env env' env''.
+    pmatch s p v env = Match env'
     ⇒
     ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p []) ∧
-   (!cenv s ps vs env env' env''.
-    pmatch_list cenv s ps vs env = Match env'
+   (!(s:'a state) ps vs env env' env''.
+    pmatch_list s ps vs env = Match env'
     ⇒
     ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps [])`
   (ho_match_mp_tac pmatch_ind >>
@@ -44,12 +44,12 @@ Theorem pmatch_extend
   metis_tac [pat_bindings_accum]);
 
 Theorem pmatch_bindings
-  `(∀cenv s p v env r.
-      flatSem$pmatch cenv s p v env = Match r
+  `(∀(s:'a state) p v env r.
+      flatSem$pmatch s p v env = Match r
       ⇒
       MAP FST r = pat_bindings p [] ++ MAP FST env) ∧
-   ∀cenv s ps vs env r.
-     flatSem$pmatch_list cenv s ps vs env = Match r
+   ∀(s:'a state) ps vs env r.
+     flatSem$pmatch_list s ps vs env = Match r
      ⇒
      MAP FST r = pats_bindings ps [] ++ MAP FST env`
   (ho_match_mp_tac flatSemTheory.pmatch_ind >>
@@ -60,8 +60,8 @@ Theorem pmatch_bindings
   prove_tac [pat_bindings_accum]);
 
 Theorem pmatch_length
-  `∀cenv s p v env r.
-      flatSem$pmatch cenv s p v env = Match r
+  `∀(s:'a state) p v env r.
+      flatSem$pmatch s p v env = Match r
       ⇒
       LENGTH r = LENGTH (pat_bindings p []) + LENGTH env`
   (rw [] >>
@@ -69,10 +69,10 @@ Theorem pmatch_length
   metis_tac [LENGTH_APPEND, LENGTH_MAP]);
 
 Theorem pmatch_any_match
-  `(∀cenv s p v env env'. pmatch cenv s p v env = Match env' ⇒
-       ∀env. ∃env'. pmatch cenv s p v env = Match env') ∧
-    (∀cenv s ps vs env env'. pmatch_list cenv s ps vs env = Match env' ⇒
-       ∀env. ∃env'. pmatch_list cenv s ps vs env = Match env')`
+  `(∀(s:'a state) p v env env'. pmatch s p v env = Match env' ⇒
+       ∀env. ∃env'. pmatch s p v env = Match env') ∧
+    (∀(s:'a state) ps vs env env'. pmatch_list s ps vs env = Match env' ⇒
+       ∀env. ∃env'. pmatch_list s ps vs env = Match env')`
   (ho_match_mp_tac pmatch_ind >>
   srw_tac[][pmatch_def] >> fs[] >>
   pop_assum mp_tac >>
@@ -82,10 +82,10 @@ Theorem pmatch_any_match
   metis_tac[semanticPrimitivesTheory.match_result_distinct])
 
 Theorem pmatch_any_no_match
-  `(∀cenv s p v env. pmatch cenv s p v env = No_match ⇒
-       ∀env. pmatch cenv s p v env = No_match) ∧
-    (∀cenv s ps vs env. pmatch_list cenv s ps vs env = No_match ⇒
-       ∀env. pmatch_list cenv s ps vs env = No_match)`
+  `(∀(s:'a state) p v env. pmatch s p v env = No_match ⇒
+       ∀env. pmatch s p v env = No_match) ∧
+    (∀(s:'a state) ps vs env. pmatch_list s ps vs env = No_match ⇒
+       ∀env. pmatch_list s ps vs env = No_match)`
   (ho_match_mp_tac pmatch_ind >>
   srw_tac[][pmatch_def] >> fs[] >>
   pop_assum mp_tac >>
@@ -96,51 +96,51 @@ Theorem pmatch_any_no_match
   metis_tac[semanticPrimitivesTheory.match_result_distinct])
 
 Theorem pmatch_any_match_error
-  `(∀cenv s p v env. pmatch cenv s p v env = Match_type_error ⇒
-       ∀env. pmatch cenv s p v env = Match_type_error) ∧
-    (∀cenv s ps vs env. pmatch_list cenv s ps vs env = Match_type_error ⇒
-       ∀env. pmatch_list cenv s ps vs env = Match_type_error)`
+  `(∀(s:'a state) p v env. pmatch s p v env = Match_type_error ⇒
+       ∀env. pmatch s p v env = Match_type_error) ∧
+    (∀(s:'a state) ps vs env. pmatch_list s ps vs env = Match_type_error ⇒
+       ∀env. pmatch_list s ps vs env = Match_type_error)`
   (srw_tac[][] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct
            ,pmatch_any_no_match,pmatch_any_match]);
 
 Theorem pmatch_list_pairwise
-  `∀ps vs cenv s env env'. pmatch_list cenv s ps vs env = Match env' ⇒
-      EVERY2 (λp v. ∀env. ∃env'. pmatch cenv s p v env = Match env') ps vs`
+  `∀ps vs s env env'. pmatch_list s ps vs env = Match env' ⇒
+      EVERY2 (λp v. ∀env. ∃env'. pmatch s p v env = Match env') ps vs`
   (Induct >> Cases_on`vs` >> simp[pmatch_def] >>
   rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
   res_tac >> simp[] >> metis_tac[pmatch_any_match])
 
 Theorem pmatch_list_snoc_nil[simp]
-  `∀p ps v vs cenv s env.
-      (pmatch_list cenv s [] (SNOC v vs) env = Match_type_error) ∧
-      (pmatch_list cenv s (SNOC p ps) [] env = Match_type_error)`
+  `∀p ps v vs s env.
+      (pmatch_list s [] (SNOC v vs) env = Match_type_error) ∧
+      (pmatch_list s (SNOC p ps) [] env = Match_type_error)`
   (Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_def]);
 
 Theorem pmatch_list_snoc
-  `∀ps vs p v cenv s env. LENGTH ps = LENGTH vs ⇒
-      pmatch_list cenv s (SNOC p ps) (SNOC v vs) env =
-      case pmatch_list cenv s ps vs env of
-      | Match env' => pmatch cenv s p v env'
+  `∀ps vs p v s env. LENGTH ps = LENGTH vs ⇒
+      pmatch_list s (SNOC p ps) (SNOC v vs) env =
+      case pmatch_list s ps vs env of
+      | Match env' => pmatch s p v env'
       | res => res`
   (Induct >> Cases_on`vs` >> simp[pmatch_def] >> srw_tac[][] >>
   BasicProvers.CASE_TAC);
 
 Theorem pmatch_append
-  `(∀cenv s p v env n.
-      (pmatch cenv s p v env =
-       map_match (combin$C APPEND (DROP n env)) (pmatch cenv s p v (TAKE n env)))) ∧
-    (∀cenv s ps vs env n.
-      (pmatch_list cenv s ps vs env =
-       map_match (combin$C APPEND (DROP n env)) (pmatch_list cenv s ps vs (TAKE n env))))`
+  `(∀(s:'a state) p v env n.
+      (pmatch s p v env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch s p v (TAKE n env)))) ∧
+    (∀(s:'a state) ps vs env n.
+      (pmatch_list s ps vs env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_list s ps vs (TAKE n env))))`
   (ho_match_mp_tac pmatch_ind >>
   srw_tac[][pmatch_def] \\ fs[]
   >- ( BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
        BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]) >>
   pop_assum (qspec_then`n`mp_tac) >>
-  Cases_on `pmatch cenv s p v (TAKE n env)`>>full_simp_tac(srw_ss())[] >>
+  Cases_on `pmatch s p v (TAKE n env)`>>full_simp_tac(srw_ss())[] >>
   strip_tac >> res_tac >>
-  qmatch_assum_rename_tac`pmatch cenv s p v (TAKE n env) = Match env1` >>
+  qmatch_assum_rename_tac`pmatch s p v (TAKE n env) = Match env1` >>
   pop_assum(qspec_then`LENGTH env1`mp_tac) >>
   simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND]);
 
@@ -148,14 +148,27 @@ val pmatch_nil = save_thm("pmatch_nil",
   LIST_CONJ [
     pmatch_append
     |> CONJUNCT1
-    |> Q.SPECL[`cenv`,`s`,`p`,`v`,`env`,`0`]
+    |> Q.SPECL[`s`,`p`,`v`,`env`,`0`]
     |> SIMP_RULE(srw_ss())[]
   ,
     pmatch_append
     |> CONJUNCT2
-    |> Q.SPECL[`cenv`,`s`,`ps`,`vs`,`env`,`0`]
+    |> Q.SPECL[`s`,`ps`,`vs`,`env`,`0`]
     |> SIMP_RULE(srw_ss())[]
   ]);
+
+Theorem pmatch_ignore_clock:
+  (∀(s:'a state) p v env n s'.
+    pmatch (s with clock := s') p v env = pmatch s p v env) ∧
+  (∀(s:'a state) ps vs env n s'.
+    pmatch_list (s with clock := s') ps vs env = pmatch_list s ps vs env)
+Proof
+  ho_match_mp_tac pmatch_ind >>
+  rw [pmatch_def] >>
+  fs [] >>
+  every_case_tac >>
+  rw []
+QED
 
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
@@ -225,6 +238,7 @@ Theorem evaluate_append
   Cases_on`r`>>full_simp_tac(srw_ss())[] >>
   every_case_tac  >> full_simp_tac(srw_ss())[]);
 
+  (*
 val c_updated_by = Q.prove (
   `((env:flatSem$environment) with c updated_by f) = (env with c := f env.c)`,
   rw [environment_component_equality]);
@@ -232,31 +246,24 @@ val c_updated_by = Q.prove (
 val env_lemma = Q.prove (
   `((env:flatSem$environment) with c := env.c) = env`,
   rw [environment_component_equality]);
+  *)
 
 Theorem evaluate_decs_append
-  `!env s ds1 s1 cenv1 s2 cenv2 r ds2.
-    evaluate_decs env s ds1 = (s1,cenv1,NONE) ∧
-    evaluate_decs (env with c updated_by $UNION cenv1) s1 ds2 =
-      (s2,cenv2,r)
+  `!env s ds1 s1 s2 r ds2.
+    evaluate_decs s ds1 = (s1,NONE) ∧
+    evaluate_decs s1 ds2 = (s2,r)
     ⇒
-    evaluate_decs env s (ds1++ds2) = (s2,cenv2 ∪ cenv1,r)`
+    evaluate_decs s (ds1++ds2) = (s2,r)`
   (induct_on `ds1` >>
   rw [evaluate_decs_def] >>
-  fs [Once c_updated_by, env_lemma] >>
   every_case_tac >>
-  fs [] >>
-  rpt var_eq_tac >>
-  first_x_assum drule >>
-  simp [] >>
-  fs [UNION_ASSOC] >>
-  disch_then drule >>
-  fs [Once c_updated_by]);
+  fs []);
 
 Theorem evaluate_decs_append_err
-  `!env s d s' cenv' err_i1 ds.
-    evaluate_decs env s d = (s',cenv',SOME err_i1)
+  `!s d s' err_i1 ds.
+    evaluate_decs s d = (s',SOME err_i1)
     ⇒
-    evaluate_decs env s (d++ds) = (s',cenv',SOME err_i1)`
+    evaluate_decs s (d++ds) = (s',SOME err_i1)`
   (induct_on `d` >>
   rw [evaluate_decs_def] >>
   every_case_tac >>
@@ -293,7 +300,7 @@ Theorem evaluate_add_to_clock
          (s' with clock := s'.clock + extra,r))`
   (ho_match_mp_tac evaluate_ind \\ rw [evaluate_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
-  \\ rw [] \\ fs []
+  \\ rw [] \\ fs [pmatch_ignore_clock]
   \\ fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw []
   \\ fs [dec_clock_def]
   \\ rw [METIS_PROVE [] ``a \/ b <=> ~a ==> b``]
@@ -303,11 +310,11 @@ Theorem evaluate_add_to_clock
   \\ every_case_tac \\ fs []);
 
 val evaluate_dec_add_to_clock = Q.prove(
-  `∀d env s s' r.
+  `∀d s s' r.
     r ≠ SOME (Rabort Rtimeout_error) ∧
-    evaluate_dec env s d = (s',c,r) ⇒
-    evaluate_dec env (s with clock := s.clock + extra) d =
-      (s' with clock := s'.clock + extra,c,r)`,
+    evaluate_dec s d = (s',r) ⇒
+    evaluate_dec (s with clock := s.clock + extra) d =
+      (s' with clock := s'.clock + extra,r)`,
   Cases \\ rw [evaluate_dec_def]
   \\ fs [case_eq_thms, pair_case_eq]
   \\ imp_res_tac evaluate_add_to_clock \\ fs []
@@ -315,11 +322,11 @@ val evaluate_dec_add_to_clock = Q.prove(
   fs []);
 
 Theorem evaluate_decs_add_to_clock
-  `∀decs env s s' c r.
+  `∀decs s s' r.
    r ≠ SOME (Rabort Rtimeout_error) ∧
-   evaluate_decs env s decs = (s',c,r) ⇒
-   evaluate_decs env (s with clock := s.clock + extra) decs =
-   (s' with clock := s'.clock + extra,c,r)`
+   evaluate_decs s decs = (s',r) ⇒
+   evaluate_decs (s with clock := s.clock + extra) decs =
+   (s' with clock := s'.clock + extra,r)`
   (Induct \\ rw [evaluate_decs_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
   \\ imp_res_tac evaluate_dec_add_to_clock \\ fs []
@@ -412,23 +419,23 @@ Theorem evaluate_add_to_clock_io_events_mono
                             evaluate_io_events_mono,
                             do_app_add_to_clock_NONE,
                             do_app_add_to_clock]
-  \\ fs [dec_clock_def]
+  \\ fs [dec_clock_def, pmatch_ignore_clock]
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
   \\ metis_tac [IS_PREFIX_TRANS, FST, PAIR,
                 evaluate_io_events_mono,
                 with_clock_ffi,
-                do_app_io_events_mono]);
+                do_app_io_events_mono])
 
 Theorem evaluate_dec_io_events_mono
-  `∀z x y.
-     y.ffi.io_events ≼ (FST (evaluate_dec x y z)).ffi.io_events`
+  `∀z y.
+     y.ffi.io_events ≼ (FST (evaluate_dec y z)).ffi.io_events`
   (Cases \\ rw [evaluate_dec_def] \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [evaluate_io_events_mono, FST]);
 
 Theorem evaluate_dec_add_to_clock_io_events_mono
-  `∀prog env (s:'ffi flatSem$state) extra.
-   (FST (evaluate_dec env s prog)).ffi.io_events ≼
-   (FST (evaluate_dec env (s with clock := s.clock + extra) prog)).ffi.io_events`
+  `∀prog (s:'ffi flatSem$state) extra.
+   (FST (evaluate_dec s prog)).ffi.io_events ≼
+   (FST (evaluate_dec (s with clock := s.clock + extra) prog)).ffi.io_events`
   (Cases \\ rw [evaluate_dec_def] \\ fs []
   \\ split_pair_case_tac \\ fs []
   \\ split_pair_case_tac \\ fs []
@@ -440,7 +447,7 @@ Theorem evaluate_dec_add_to_clock_io_events_mono
   \\ every_case_tac \\ fs [])
 
 Theorem evaluate_decs_io_events_mono
-  `∀prog env s s' x y. evaluate_decs env s prog = (s',x,y) ⇒
+  `∀prog s s' y. evaluate_decs s prog = (s',y) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events`
   (Induct \\ rw [evaluate_decs_def]
   \\ every_case_tac \\ fs [] \\ rw []
@@ -448,19 +455,18 @@ Theorem evaluate_decs_io_events_mono
   \\ metis_tac [IS_PREFIX_TRANS, FST, evaluate_dec_io_events_mono]);
 
 Theorem evaluate_decs_add_to_clock_io_events_mono
-  `∀prog env s extra.
-   (FST (evaluate_decs env s prog)).ffi.io_events ≼
-   (FST (evaluate_decs env (s with clock := s.clock + extra) prog)).ffi.io_events`
+  `∀prog s extra.
+   (FST (evaluate_decs s prog)).ffi.io_events ≼
+   (FST (evaluate_decs (s with clock := s.clock + extra) prog)).ffi.io_events`
   (Induct \\ rw [evaluate_decs_def] \\ every_case_tac \\ fs []
   \\ qmatch_assum_abbrev_tac
-         `evaluate_dec ee (ss with clock := extra + _) pp = _`
+         `evaluate_dec (ss with clock := extra + _) pp = _`
   \\ qispl_then
-         [`pp`,`ee`,`ss`,`extra`] mp_tac
+         [`pp`,`ss`,`extra`] mp_tac
          evaluate_dec_add_to_clock_io_events_mono
   \\ rw [] \\ fs []
   \\ imp_res_tac evaluate_dec_add_to_clock \\ fs []
-  \\ imp_res_tac evaluate_decs_io_events_mono \\ fs []
-  \\ metis_tac [IS_PREFIX_TRANS, FST]);
+  \\ metis_tac [IS_PREFIX_TRANS, FST, pair_CASES, evaluate_decs_io_events_mono]);
 
 (*
 Theorem evaluate_prompt_io_events_mono
@@ -557,16 +563,14 @@ Theorem with_same_v[simp]
   *)
 
 Theorem pmatch_evaluate_vars
-  `(!env refs p v evs env' ts.
-    refs = s.refs ∧
-    flatSem$pmatch env s.refs p v evs = Match env' ∧
+  `(!(s:'a state) p v evs env' ts.
+    flatSem$pmatch s p v evs = Match env' ∧
     ALL_DISTINCT (pat_bindings p (MAP FST evs)) ∧
     LENGTH ts = LENGTH (pat_bindings p (MAP FST evs))
     ⇒
     flatSem$evaluate (env with v := env') s (bind_locals_list ts (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
-   (!env refs ps vs evs env' ts.
-    refs = s.refs ∧
-    flatSem$pmatch_list env s.refs ps vs evs = Match env' ∧
+   (!(s:'a state) ps vs evs env' ts.
+    flatSem$pmatch_list s ps vs evs = Match env' ∧
     ALL_DISTINCT (pats_bindings ps (MAP FST evs)) ∧
     LENGTH ts = LENGTH (pats_bindings ps (MAP FST evs))
     ⇒
@@ -604,7 +608,7 @@ Theorem pmatch_evaluate_vars
 
 Theorem pmatch_evaluate_vars_lem
   `∀p v bindings env s ts.
-    pmatch env s.refs p v [] = Match bindings ∧
+    pmatch s p v [] = Match bindings ∧
     ALL_DISTINCT (pat_bindings p []) ∧
     LENGTH ts = LENGTH (pat_bindings p [])
     ⇒
@@ -803,43 +807,43 @@ Theorem evaluate_decs_globals
 
 val evaluate_decs_add_to_clock_initial_state = Q.prove(
   `r ≠ SOME (Rabort Rtimeout_error) ∧
-   evaluate_decs env (initial_state ffi k) decs = (s',c,r) ⇒
-   evaluate_decs env (initial_state ffi (ck + k)) decs =
-   (s' with clock := s'.clock + ck,c,r)`,
+   evaluate_decs (initial_state ffi k x y) decs = (s',r) ⇒
+   evaluate_decs (initial_state ffi (ck + k) x y) decs =
+   (s' with clock := s'.clock + ck,r)`,
   rw [initial_state_def]
   \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []);
 
 val evaluate_decs_add_to_clock_initial_state_io_events_mono = Q.prove (
-  `evaluate_decs env (initial_state ffi k) prog = (s',c,r) ==>
+  `evaluate_decs (initial_state ffi k x y) prog = (s',r) ==>
    s'.ffi.io_events ≼
-   (FST (evaluate_decs env (initial_state ffi (k+ck)) prog)).ffi.io_events`,
+   (FST (evaluate_decs (initial_state ffi (k+ck) x y) prog)).ffi.io_events`,
   rw [initial_state_def]
-  \\ qmatch_assum_abbrev_tac `evaluate_decs _ s1 _ = _`
+  \\ qmatch_assum_abbrev_tac `evaluate_decs s1 _ = _`
   \\ qispl_then
-         [`prog`,`env`,`s1`,`ck`] mp_tac
+         [`prog`,`s1`,`ck`] mp_tac
          (GEN_ALL evaluate_decs_add_to_clock_io_events_mono)
   \\ fs [Abbr`s1`]);
 
 val initial_state_with_clock = Q.prove (
-  `(initial_state ffi k with clock := (initial_state ffi k).clock + ck) =
-   initial_state ffi (k + ck)`,
+  `(initial_state ffi k x y with clock := (initial_state ffi k x y).clock + ck) =
+   initial_state ffi (k + ck) x y`,
   rw [initial_state_def]);
 
 val SND_SND_lemma = prove(
-  ``SND (SND x) = y <=> ?y1 y2. x = (y1, y2, y)``,
+  ``(SND x) = y <=> ?y1. x = (y1, y)``,
   PairCases_on `x` \\ fs []);
 
 val eval_sim_def = Define `
   eval_sim ffi exh1 ctor1 ds1 exh2 ctor2 ds2 rel allow_fail =
-    !k res1 s2 c1.
-      evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k) ds1 =
-        (s2, c1, res1) /\
+    !k res1 s2.
+      evaluate_decs (initial_state ffi k exh1 ctor1) ds1 =
+        (s2, res1) /\
       (allow_fail \/ res1 <> SOME (Rabort Rtype_error)) /\
       rel ds1 ds2
       ==>
-      ?ck res2 t2 c2.
-        evaluate_decs (initial_env exh2 ctor2) (initial_state ffi (k + ck)) ds2 =
-          (t2, c2, res2) /\
+      ?ck res2 t2.
+        evaluate_decs (initial_state ffi (k + ck) exh2 ctor2) ds2 =
+          (t2, res2) /\
         s2.ffi = t2.ffi /\
         (res1 = NONE ==> res2 = NONE) /\
         (!v. res1 = SOME (Rraise v) ==> ?v1. res2 = SOME (Rraise v1)) /\
@@ -863,10 +867,8 @@ Theorem IMP_semantics_eq
     \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
     \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
     \\ fs [eval_sim_def]
-    \\ Cases_on
-         `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k') ds1`
-    \\ rename1 `(q,rr)` \\ PairCases_on `rr`
-    \\ `rr1 <> SOME (Rabort Rtype_error)` by metis_tac []
+    \\ Cases_on `evaluate_decs (initial_state ffi k' exh1 ctor1) ds1`
+    \\ `r' <> SOME (Rabort Rtype_error)` by metis_tac []
     \\ last_x_assum drule \\ strip_tac \\ rfs [])
   \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
   >- (
@@ -912,11 +914,10 @@ Theorem IMP_semantics_eq
   \\ simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
   >-
-   (Cases_on `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k) ds1`
-    \\ rename1 `(q,rr)` \\ PairCases_on `rr`
+   (Cases_on `evaluate_decs (initial_state ffi k exh1 ctor1) ds1`
     \\ first_x_assum (qspec_then `k` mp_tac)
-    \\ disch_then (qspecl_then [`q`,`rr1`] mp_tac)
-    \\ disch_then (qspec_then `rr0` mp_tac o CONV_RULE SWAP_FORALL_CONV)
+    \\ disch_then (qspec_then `q` mp_tac)
+    \\ disch_then (qspec_then `r` mp_tac)
     \\ strip_tac \\ rfs []
     \\ fs [eval_sim_def]
     \\ last_x_assum drule
@@ -924,15 +925,13 @@ Theorem IMP_semantics_eq
     \\ strip_tac \\ fs []
     \\ imp_res_tac evaluate_decs_add_to_clock_initial_state \\ fs []
     \\ rveq \\ fs []
-    \\ Cases_on `rr1` \\ fs [] \\ rveq
+    \\ Cases_on `r` \\ fs [] \\ rveq
     \\ Cases_on `x` \\ fs [])
   \\ DEEP_INTRO_TAC some_intro
   \\ fs [] \\ rw []
   >-
-   (Cases_on `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k) ds1`
-    \\ rename1 `(q, rr)` \\ PairCases_on `rr`
-    \\ last_x_assum (qspecl_then [`k`, `q`, `rr1`] mp_tac)
-    \\ disch_then (qspec_then `rr0` mp_tac o CONV_RULE SWAP_FORALL_CONV)
+   (Cases_on `evaluate_decs (initial_state ffi k exh1 ctor1) ds1`
+    \\ last_x_assum (qspecl_then [`k`, `q`, `r'`] mp_tac)
     \\ strip_tac \\ rfs []
     \\ fs [eval_sim_def]
     \\ last_x_assum drule
@@ -966,8 +965,7 @@ Theorem IMP_semantics_eq
   \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac
-  \\ Cases_on `evaluate_decs (initial_env exh1 ctor1) (initial_state ffi k) ds1`
-  \\ rename1 `(q,rr)` \\ PairCases_on `rr`
+  \\ Cases_on `evaluate_decs (initial_state ffi k exh1 ctor1) ds1`
   \\ fs [eval_sim_def]
   \\ first_x_assum drule
   \\ impl_keep_tac >- metis_tac []

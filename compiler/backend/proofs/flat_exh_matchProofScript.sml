@@ -165,21 +165,11 @@ val ctor_rel_def = Define `
       ?ars max.
         FLOOKUP ctors ty = SOME ars /\
         lookup arity ars = SOME max /\
-        id < max`
+        id < max`;
 
 val env_rel_def = Define `
   env_rel ctors env1 env2 <=>
-    (* Constructors *)
-    initial_ctors SUBSET env1.c /\
-    init_ctors SUBMAP ctors /\
-    ctor_rel ctors env1.c /\
-    (* Flags *)
-    env1.check_ctor /\
-    env2.check_ctor /\
-    env1.c = env2.c /\
-    ~env1.exh_pat /\
-    env2.exh_pat /\
-    (* Value relation *)
+   (* Value relation *)
     nv_rel ctors env1.v env2.v`;
 
 val state_rel_def = Define `
@@ -187,7 +177,17 @@ val state_rel_def = Define `
     s1.clock = s2.clock /\
     LIST_REL (sv_rel (v_rel ctors)) s1.refs s2.refs /\
     s1.ffi = s2.ffi /\
-    LIST_REL (OPTREL (v_rel ctors)) s1.globals s2.globals`;
+    LIST_REL (OPTREL (v_rel ctors)) s1.globals s2.globals ∧
+    (* Constructors *)
+    initial_ctors SUBSET s1.c /\
+    init_ctors SUBMAP ctors /\
+    ctor_rel ctors s1.c /\
+    (* Flags *)
+    s1.check_ctor /\
+    s2.check_ctor /\
+    s1.c = s2.c /\
+    ~s1.exh_pat /\
+    s2.exh_pat`;
 
 val result_rel_def = Define `
   (result_rel R ctors (Rval v1) (Rval v2) <=>
@@ -332,36 +332,34 @@ Theorem do_eq_thm
   \\ every_case_tac \\ fs [] \\ res_tac \\ fs []);
 
 Theorem pmatch_thm
-  `(!env refs p v vs r ctors refs1 v1 env1 vs1.
-     pmatch env refs p v vs = r /\
+  `(!(s:'ffi state) p v vs r ctors s1 v1 vs1.
+     pmatch s p v vs = r /\
      r <> Match_type_error /\
-     LIST_REL (sv_rel (v_rel ctors)) refs refs1 /\
+     state_rel ctors s s1 ∧
      v_rel ctors v v1 /\
-     nv_rel ctors vs vs1 /\
-     env_rel ctors env env1
+     nv_rel ctors vs vs1
      ==>
      ?r1.
-       pmatch env1 refs1 p v1 vs1 = r1 /\
+       pmatch s1 p v1 vs1 = r1 /\
        match_rel ctors r r1) /\
-  (!env refs ps v vs r ctors refs1 v1 env1 vs1.
-     pmatch_list env refs ps v vs = r /\
+  (!(s:'ffi state) ps v vs r ctors s1 v1 vs1.
+     pmatch_list s ps v vs = r /\
      r <> Match_type_error /\
-     LIST_REL (sv_rel (v_rel ctors)) refs refs1 /\
+     state_rel ctors s s1 ∧
      LIST_REL (v_rel ctors) v v1 /\
-     nv_rel ctors vs vs1 /\
-     env_rel ctors env env1
+     nv_rel ctors vs vs1
      ==>
      ?r1.
-       pmatch_list env1 refs1 ps v1 vs1 = r1 /\
+       pmatch_list s1 ps v1 vs1 = r1 /\
        match_rel ctors r r1)`
   (ho_match_mp_tac pmatch_ind \\ rw [pmatch_def]
   \\ rw [match_rel_def, Once v_rel_cases]
   \\ fsrw_tac [DNF_ss] [] \\ rfs [] \\ rw [pmatch_def]
   \\ rfs [] \\ fs []
-  \\ TRY (metis_tac [env_rel_def, same_ctor_def, ctor_same_type_def])
+  \\ TRY (metis_tac [state_rel_def, same_ctor_def, ctor_same_type_def])
   \\ imp_res_tac LIST_REL_LENGTH \\ fs []
   >-
-   (every_case_tac \\ fs [store_lookup_def]
+   (every_case_tac \\ fs [state_rel_def, store_lookup_def]
     \\ fs [LIST_REL_EL_EQN]
     \\ metis_tac [sv_rel_def])
   \\ every_case_tac \\ fs [] \\ rfs []
@@ -628,7 +626,7 @@ Theorem is_unconditional_thm
   `!p env refs v vs.
      is_unconditional p
      ==>
-     pmatch env refs p v vs <> No_match`
+     pmatch s p v vs <> No_match`
   (ho_match_mp_tac is_unconditional_ind \\ rw []
   \\ pop_assum mp_tac
   \\ once_rewrite_tac [is_unconditional_def]
@@ -647,18 +645,18 @@ Theorem is_unconditional_thm
   \\ res_tac \\ fs []);
 
 Theorem is_unconditional_list_thm
-  `!vs1 vs2 a b c.
+  `!vs1 vs2 a c.
    EVERY is_unconditional vs1
    ==>
-   pmatch_list a b vs1 vs2 c <> No_match`
+   pmatch_list a vs1 vs2 c <> No_match`
   (Induct >- (Cases \\ rw [pmatch_def])
   \\ gen_tac \\ Cases \\ rw [pmatch_def]
   \\ every_case_tac \\ fs []
   \\ metis_tac [is_unconditional_thm])
 
 val exists_match_def = Define `
-  exists_match env refs ps v <=>
-    !vs. ?p. MEM p ps /\ pmatch env refs p v vs <> No_match`
+  exists_match s ps v <=>
+    !vs. ?p. MEM p ps /\ pmatch s p v vs <> No_match`
 
 Theorem get_dty_tags_thm
   `!pats tags res.
@@ -699,13 +697,13 @@ Theorem get_dty_tags_thm
   \\ metis_tac []);
 
 val pmatch_Pcon_No_match = Q.prove(
-  `env.check_ctor /\
+  `s.check_ctor /\
    EVERY is_unconditional ps
    ==>
-   ((pmatch env s (Pcon (SOME (c1,t)) ps) v bindings = No_match) <=>
+   ((pmatch s (Pcon (SOME (c1,t)) ps) v bindings = No_match) <=>
      ?c2 vs.
        v = Conv (SOME (c2,t)) vs /\
-       ((c1,t), LENGTH ps) IN env.c /\
+       ((c1,t), LENGTH ps) IN s.c /\
        (LENGTH ps = LENGTH vs ==> c1 <> c2))`,
   Cases_on `v` \\ fs [pmatch_def]
   \\ Cases_on `o'` \\ fs [pmatch_def]
@@ -714,12 +712,12 @@ val pmatch_Pcon_No_match = Q.prove(
   \\ metis_tac [is_unconditional_list_thm]);
 
 Theorem exhaustive_exists_match
-  `!ctors ps env.
+  `!ctors ps s.
      exhaustive_match ctors ps /\
-     env.check_ctor /\
+     s.check_ctor /\
      ctor_rel ctors env.c
      ==>
-     !refs v. ok_ctor ctors v ==> exists_match env refs ps v`
+     !refs v. ok_ctor ctors v ==> exists_match s ps v`
   (rw [exhaustive_match_def, exists_match_def]
   >- (fs [EXISTS_MEM] \\ metis_tac [is_unconditional_thm])
   \\ every_case_tac \\ fs [get_dty_tags_def, case_eq_thms]
@@ -784,7 +782,7 @@ Theorem compile_exps_evaluate:
       (is_handle  ==> err_v = v) /\
       (~is_handle ==> err_v = bind_exn_v) /\
       (ps2 = add_default tr is_handle F ps \/
-       exists_match env1 s1.refs (MAP FST ps) v /\
+       exists_match s1 (MAP FST ps) v /\
        ps2 = add_default tr is_handle T ps)
       ==>
       ?t2 r2.
@@ -808,7 +806,7 @@ Proof
   >- (* Handle *)
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs []
-    \\ last_x_assum match_mp_tac \\ fs [add_default_def, env_rel_def]
+    \\ last_x_assum match_mp_tac \\ fs [add_default_def, state_rel_def]
     \\ qexists_tac `T` \\ rw []
     \\ metis_tac [exhaustive_exists_match, exhaustive_SUBMAP, v_rel_ok_ctor])
   >-
@@ -816,14 +814,14 @@ Proof
     \\ fs [case_eq_thms, pair_case_eq, PULL_EXISTS]
     \\ first_x_assum drule
     \\ rpt (disch_then drule) \\ rw [] \\ fs []
-    \\ fsrw_tac [DNF_ss] [env_rel_def, ok_ctor_def])
-  >- fs [env_rel_def]
+    \\ fsrw_tac [DNF_ss] [state_rel_def, ok_ctor_def])
+  >- fs [state_rel_def]
   >- (* Con *)
    (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qpat_x_assum `_ ==> _` mp_tac
-    \\ (impl_keep_tac >- fs [env_rel_def])
+    \\ (impl_keep_tac >- fs [state_rel_def])
     \\ rpt (disch_then drule) \\ rfs [] \\ fs [compile_exps_LENGTH]
-    \\ fsrw_tac [DNF_ss] [env_rel_def] \\ rw []
+    \\ fsrw_tac [DNF_ss] [state_rel_def] \\ rw []
     \\ rw [ok_ctor_def]
     \\ metis_tac [LIST_REL_LENGTH, evaluate_length, LENGTH_REVERSE, ctor_rel_def])
   >-
@@ -849,6 +847,7 @@ Proof
     \\ disch_then (qspecl_then [`REVERSE v2`,`t2`,`ctors`] mp_tac)
     \\ fs [env_rel_def] \\ rw [] \\ fs []
     \\ Cases_on `r` \\ Cases_on `r2` \\ fs [evaluateTheory.list_result_def])
+
   >- (* If *)
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs []
@@ -863,7 +862,7 @@ Proof
     \\ disch_then match_mp_tac
     \\ qexists_tac `F` \\ rw [add_default_def] \\ fs [bind_exn_v_def]
     \\ rw [ok_ctor_def]
-    \\ metis_tac [exhaustive_exists_match, env_rel_def, exhaustive_SUBMAP,
+    \\ metis_tac [exhaustive_exists_match, state_rel_def, exhaustive_SUBMAP,
                   v_rel_ok_ctor])
   >- (* Let *)
    (fs [case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
@@ -885,7 +884,7 @@ Proof
   >-
    (fs [add_default_def] \\ fs [PULL_EXISTS]
     \\ rw [evaluate_def, pat_bindings_def, pmatch_def, compile_exps_def,
-           exists_match_def] \\ fs [env_rel_def]
+           exists_match_def] \\ fs [state_rel_def]
     \\ rw [] \\ fs [] \\ EVAL_TAC
     \\ fs [initial_ctors_def, SUBSET_DEF] \\ rfs [])
   >- fs [exists_match_def]
