@@ -1125,7 +1125,7 @@ val get_forced_def = Define`
           acc
        else acc
     | Arith (LongMul r1 r2 r3 r4) =>
-       if (c.ISA = ARMv6) then
+       if (c.ISA = ARMv7) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
        else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Ag32) then
          (if r1=r3 then [] else [(r1,r3)]) ++
@@ -1172,7 +1172,7 @@ Theorem get_forced_pmatch `!c prog acc.
           acc
        else acc
     | Inst(Arith (LongMul r1 r2 r3 r4)) =>
-       if (c.ISA = ARMv6) then
+       if (c.ISA = ARMv7) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
        else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Ag32) then
          (if r1=r3 then [] else [(r1,r3)]) ++

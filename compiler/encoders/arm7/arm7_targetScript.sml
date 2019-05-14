@@ -29,7 +29,7 @@ val arm7_ok_def = Define`
    ~ms.FP.FPSCR.IXE /\ ~ms.FP.FPSCR.UFE /\ ~ms.FP.FPSCR.OFE /\
    ~ms.FP.FPSCR.DZE /\ ~ms.FP.FPSCR.IOE /\ (* Disable FP exception traps *)
   (* TODO: Potentially change to ARMv7_A *)
-   (ms.Architecture = ARMv7_R) /\ ~ms.Extensions Extension_Security /\
+   (ms.Architecture = ARMv7_A) /\ ~ms.Extensions Extension_Security /\
    (ms.VFPExtension = VFPv4) /\ (ms.exception = NoException) /\
    aligned 2 (ms.REG RName_PC)`
 

@@ -1,5 +1,5 @@
 (*
-  A compset for evaluating the ARMv6 instruction encoder and config.
+  A compset for evaluating the ARMv7 instruction encoder and config.
 *)
 structure arm7_targetLib :> arm7_targetLib =
 struct

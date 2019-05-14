@@ -1,8 +1,9 @@
 (*
-  Prove `encoder_correct` for ARMv6
+  Prove `encoder_correct` for ARMv7
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib arm7_targetTheory arm_stepLib;
+open HolKernel Parse boolLib bossLib;
+open arm_stepLib;
+open asmLib arm7_targetTheory;
 
 val () = new_theory "arm7_targetProof"
 
@@ -610,9 +611,9 @@ val bytes_in_memory_thm = Q.prove(
       target_state_rel arm7_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
-      (state.Architecture = ARMv6) /\
+      (state.Architecture = ARMv7_A) /\
       ~state.Extensions Extension_Security /\
-      (state.VFPExtension = VFPv2) /\
+      (state.VFPExtension = VFPv4) /\
       (state.FP.FPSCR.RMode = 0w) /\
       ~state.CPSR.T /\
       ~state.CPSR.J /\
@@ -657,7 +658,7 @@ local
    fun boolify n tm =
       List.tabulate (n, fn i => bool1 (tm, numLib.term_of_int (n - 1 - i)))
    val bytes = List.concat o List.rev o List.map (boolify 8)
-   val step6 = arm_stepLib.arm_eval "v6, vfp"
+   val step6 = arm_stepLib.arm_eval "v7, vfpv4"
    fun step state x l =
       let
          val v = listSyntax.mk_list (bytes l, Type.bool)

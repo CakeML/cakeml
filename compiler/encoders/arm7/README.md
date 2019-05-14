@@ -5,7 +5,7 @@ compiler configuration for ARMv7.
 Pre-evaluate encoder (to help speed up EVAL)
 
 [arm7_targetLib.sml](arm7_targetLib.sml):
-A compset for evaluating the ARMv6 instruction encoder and config.
+A compset for evaluating the ARMv7 instruction encoder and config.
 
 [arm7_targetScript.sml](arm7_targetScript.sml):
 Define the target compiler configuration for ARMv7.
