@@ -382,6 +382,20 @@ Theorem peg_sound
   simp[peg_eval_NT_SOME, cmlPEGTheory.FDOM_cmlPEG] >>
   disch_then (CONJUNCTS_THEN2 strip_assume_tac mp_tac) >> rveq >>
   simp[cmlPEGTheory.cmlpeg_rules_applied, ptree_list_loc_def]
+  >- (print_tac "nTopLevel" >>
+      strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied]
+      >- (‘NT_rank (mkNT nREPLCommand) < NT_rank (mkNT nTopLevel)’
+            by simp[NT_rank_def] >>
+          first_x_assum drule_all >> strip_tac >> rveq >> simp[])
+      >- (‘NT_rank (mkNT nTopLevelDecs) < NT_rank (mkNT nTopLevel)’
+            by simp[NT_rank_def] >>
+          first_x_assum drule_all >> strip_tac >> rveq >> simp[]))
+  >- (print_tac "nREPLCommand" >>
+      strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM] >>
+      first_x_assum (first_assum o mp_then (Pos (el 2)) mp_tac) >> simp[] >>
+      strip_tac >> rveq >> simp[DISJ_IMP_THM, FORALL_AND_THM] >>
+      rename [‘FST tokish = REPLIDT _’] >> Cases_on ‘tokish’ >> fs[] >>
+      rename [‘tokish' = REPLIDT _’] >> Cases_on ‘tokish'’ >> fs[])
   >- (print_tac "nNonETopLevelDecs" >>
       `NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nNonETopLevelDecs)`
         by simp[NT_rank_def] >>
