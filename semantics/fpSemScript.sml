@@ -81,12 +81,15 @@ val _ = Define `
 )))`;
 
 
+val _ = Define `
+ ((fpfma:word64 -> word64 -> word64 -> word64) v1 v2 v3=  (fp64_mul_add roundTiesToEven v2 v3 v1))`;
+
+
 (*val fp_top : fp_top -> word64 -> word64 -> word64 -> word64*)
 val _ = Define `
  ((fp_top:fp_top -> word64 -> word64 -> word64 -> word64) fop=  ((case fop of
-    FP_Fma => fp64_mul_add roundTiesToEven
+    FP_Fma => fpfma
 )))`;
-
 
 val _ = export_theory()
 

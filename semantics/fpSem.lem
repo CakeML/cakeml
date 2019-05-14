@@ -91,8 +91,9 @@ let fp_bop fop = match fop with
   | FP_Div -> fp64_div roundTiesToEven
 end
 
+let fpfma v1 v2 v3 = fp64_mul_add roundTiesToEven v2 v3 v1
+
 val fp_top : fp_top -> word64 -> word64 -> word64 -> word64
 let fp_top fop = match fop with
-  | FP_Fma -> fp64_mul_add roundTiesToEven
+  | FP_Fma -> fpfma
 end
-

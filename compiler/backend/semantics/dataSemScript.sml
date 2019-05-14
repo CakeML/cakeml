@@ -343,7 +343,7 @@ val do_app_aux_def = Define `
          | _ => Error)
     | (FP_top top, ws) =>
         (case ws of
-         | [Word64 w1; Word64 w2; Word64 w3] => (Rval (Word64 (fp_top top w1 w2 w3),s))
+         | [Word64 w1; Word64 w2; Word64 w3] => (Rval (Word64 (fp_top top w2 w3 w1),s))
          | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
