@@ -2951,29 +2951,6 @@ Theorem byte_align_extract
   \\ rw[alignmentTheory.align_def]
   \\ blastLib.BBLAST_TAC);
 
-Theorem aligned_between
-  `¬aligned p n ∧ aligned p m ∧ align p n <+ m ⇒ n <+ m`
-  (rw[WORD_LO]
-  \\ fs[alignmentTheory.align_w2n, alignmentTheory.aligned_def]
-  \\ Cases_on`n` \\ Cases_on`m` \\ fs[]
-  \\ CCONTR_TAC \\ fs[NOT_LESS]
-  \\ qmatch_asmsub_abbrev_tac`n DIV d * d`
-  \\ `n DIV d * d <= n` by (
-    DEP_REWRITE_TAC[GSYM X_LE_DIV] \\ fs[Abbr`d`] )
-  \\ fs[]
-  \\ qmatch_asmsub_rename_tac`(d * (m DIV d)) MOD _`
-  \\ `m DIV d * d <= m` by (
-    DEP_REWRITE_TAC[GSYM X_LE_DIV] \\ fs[Abbr`d`] )
-  \\ fs[]
-  \\ `d * (n DIV d) <= m` by metis_tac[]
-  \\ pop_assum mp_tac
-  \\ simp_tac pure_ss [Once MULT_COMM]
-  \\ DEP_REWRITE_TAC[GSYM X_LE_DIV]
-  \\ conj_tac >- simp[Abbr`d`]
-  \\ simp[NOT_LESS_EQUAL]
-  \\ `d * (m DIV d) < d * (n DIV d)` suffices_by fs[]
-  \\ metis_tac[])
-
 Theorem byte_align_IN_IMP_IN_range
   `byte_align a ∈ dm ∧
    (dm = { w | low <=+ w ∧ w <+ hi }) ∧
@@ -2992,55 +2969,6 @@ Theorem byte_align_IN_IMP_IN_range
   \\ fs[alignmentTheory.byte_aligned_def]
   \\ asm_exists_tac
   \\ fs[alignmentTheory.byte_align_def]);
-
-local
-  open alignmentTheory
-  val aligned_add_mult_lemma = Q.prove(
-    `aligned k (w + n2w (2 ** k)) = aligned k w`,
-    fs [aligned_add_sub,aligned_pow2]) |> GEN_ALL
-  val aligned_add_mult_any = Q.prove(
-    `!n w. aligned k (w + n2w (n * 2 ** k)) = aligned k w`,
-    Induct \\ fs [MULT_CLAUSES,GSYM word_add_n2w] \\ rw []
-    \\ pop_assum (qspec_then `w + n2w (2 ** k)` mp_tac)
-    \\ fs [aligned_add_mult_lemma]) |> GEN_ALL
-in
-  val aligned_add_pow = save_thm("aligned_add_pow[simp]",
-    CONJ aligned_add_mult_lemma aligned_add_mult_any)
-end
-
-Theorem align_add_aligned_gen
-  `∀a. aligned p a ⇒ (align p (a + b) = a + align p b)`
-  (completeInduct_on`w2n b`
-  \\ rw[]
-  \\ Cases_on`w2n b < 2 ** p`
-  >- (
-    simp[alignmentTheory.align_add_aligned]
-    \\ `align p b = 0w` by simp[lt_align_eq_0]
-    \\ simp[] )
-  \\ fs[NOT_LESS]
-  \\ Cases_on`w2n b = 2 ** p`
-  >- (
-    `aligned p b` by(
-      simp[alignmentTheory.aligned_def,alignmentTheory.align_w2n]
-      \\ metis_tac[n2w_w2n] )
-    \\ `aligned p (a + b)` by metis_tac[alignmentTheory.aligned_add_sub_cor]
-    \\ fs[alignmentTheory.aligned_def])
-  \\ fs[LESS_EQ_EXISTS]
-  \\ qmatch_asmsub_rename_tac`w2n b = z + _`
-  \\ first_x_assum(qspec_then`z`mp_tac)
-  \\ impl_keep_tac >- fs[]
-  \\ `z < dimword(:'a)` by metis_tac[w2n_lt, LESS_TRANS]
-  \\ disch_then(qspec_then`n2w z`mp_tac)
-  \\ impl_tac >- simp[]
-  \\ strip_tac
-  \\ first_assum(qspec_then`a + n2w (2 ** p)`mp_tac)
-  \\ impl_tac >- fs[]
-  \\ rewrite_tac[word_add_n2w, GSYM WORD_ADD_ASSOC]
-  \\ Cases_on`b` \\ fs[GSYM word_add_n2w]
-  \\ strip_tac
-  \\ first_x_assum(qspec_then`n2w (2**p)`mp_tac)
-  \\ impl_tac >- fs[aligned_w2n]
-  \\ simp[]);
 
 Theorem MULT_DIV_MULT_LEMMA
   `!m l k. 0 < m /\ 0 < l ==> (m * k) DIV (l * m) = k DIV l`
