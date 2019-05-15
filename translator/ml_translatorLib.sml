@@ -54,13 +54,18 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
+fun reraise fname message r = raise (ERR fname (message ^ ": " ^ #message r))
+
 fun auto_prove_asms name ((asms,goal),tac) = let
   val (rest,validation) = tac (asms,goal)
+    handle HOL_ERR r => reraise "auto_prove_asms" "tactic failure" r
   in if length rest = 0 then validation [] else let
   in failwith ("auto_prove_asms failed for " ^ name) end end
 
 fun auto_prove proof_name (goal,tac:tactic) = let
-  val (rest,validation) = tac ([],goal) handle Empty => fail()
+  val (rest,validation) = tac ([],goal)
+    handle HOL_ERR r => reraise "auto_prove" "tactic failure" r
+      | Empty => raise (ERR "auto_prove" "tactic raised Empty")
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
@@ -1172,17 +1177,18 @@ fun mk_EqualityType_proof_via_measure typ = let
         TAC_PROOF ((assums, goal), prove_EqualityType_tac simps defs)])
   end
 
-fun mk_EqualityType_proof is_exn_type typ = let
+fun mk_EqualityType_thm is_exn_type typ = let
     val final_goal = ml_translatorSyntax.mk_EqualityType (get_type_inv typ)
+    val _ = print "Attempting proof of: "
+    val _ = print_term final_goal
     val (assums, get_thms) = if can get_type_n2typ_onto_thm typ
-      then ([], fn () => [EqualityType_via_n2typ is_exn_type typ])
-      else mk_EqualityType_proof_via_measure typ
-  in (list_mk_imp (assums, final_goal),
-    ASSUM_LIST (fn _ => let
-        val _ = print "Doing proof of: "
-        val _ = print_term final_goal
-      in simp_tac bool_ss (get_thms ()) end))
-  end
+          then ([], fn () => [EqualityType_via_n2typ is_exn_type typ])
+          else Option.valOf (total mk_EqualityType_proof_via_measure typ)
+    val thms = get_thms ()
+  in
+    prove (list_mk_imp (assums, final_goal), simp_tac bool_ss thms)
+    before print ".. done EqualityType proof.\n"
+  end handle Option => (print ".. cannot do EqualityType proof.\n"; TRUTH)
 
 local open ConseqConv in
 
@@ -1365,9 +1371,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
   (* equality type *)
-  val eq_lemmas = map (fn ty => mk_EqualityType_proof is_exn_type ty
-        handle HOL_ERR _ => (T, simp_tac bool_ss [])) tys
-    |> map prove
+  val eq_lemmas = map (fn ty => mk_EqualityType_thm is_exn_type ty) tys
   val res = map (fn ((th,inv_def),eq_lemma) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
   in (name,res) end;
