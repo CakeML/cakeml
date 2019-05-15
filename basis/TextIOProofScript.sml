@@ -161,6 +161,10 @@ Theorem EndOfFile_UNICITY[xlet_auto_match]
 `!v1 v2. EndOfFile_exn v1 ==> (EndOfFile_exn v2 <=> v2 = v1)`
   (fs[EndOfFile_exn_def]);
 
+Theorem IllegalArgument_UNICITY[xlet_auto_match]
+`!v1 v2. IllegalArgument_exn v1 ==> (IllegalArgument_exn v2 <=> v2 = v1)`
+  (fs[IllegalArgument_exn_def]);
+
 (* convenient functions for standard output/error
  * n.b. numchars is ignored *)
 
@@ -1684,6 +1688,26 @@ Theorem take_drop_append
    TAKE x (DROP z l) ++ TAKE (y - x) (DROP (x+z) l) =
    TAKE y (DROP z l)`
   (fs[take_drop_partition,GSYM DROP_DROP_T]);
+
+Theorem b_openIn_spec
+  `∀s sv fs bsize bsizev bactive is rr wr isbuff.
+     FILENAME s sv ∧
+     NUM bsize bsizev /\
+     is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
+     hasFreeFD fs ⇒
+     app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv;bsizev]
+       (IOFS fs)
+       (POSTve
+          (\fdv. &(INSTREAM (nextFD fs) fdv ∧
+                  validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
+                  inFS_fname fs (File s) /\
+                  bsize > 0) *
+                INSTREAM_BUFFERED bactive is *
+                IOFS (openFileFS s fs ReadMode 0))
+          (\e. &((BadFileName_exn e ∧ ~inFS_fname fs (File s)) \/
+                  (IllegalArgument_exn e ∧ 0 = bsize)) * IOFS fs))`
+  (cheat)
+
 
 (*
 Theorem b_refillBuffer_spec

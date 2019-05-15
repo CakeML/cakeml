@@ -68,6 +68,7 @@ fun get_exn_conv name =
 val BadFileName = get_exn_conv ``"BadFileName"``
 val InvalidFD = get_exn_conv ``"InvalidFD"``
 val EndOfFile = get_exn_conv ``"EndOfFile"``
+val IllegalArgument = get_exn_conv ``"IllegalArgument"``
 
 val BadFileName_exn_def = Define `
   BadFileName_exn v = (v = Conv (SOME ^BadFileName) [])`
@@ -77,6 +78,9 @@ val InvalidFD_exn_def = Define `
 
 val EndOfFile_exn_def = Define `
   EndOfFile_exn v = (v = Conv (SOME ^EndOfFile) [])`
+
+val IllegalArgument_exn_def = Define `
+  IllegalArgument_exn v = (v = Conv (SOME ^IllegalArgument) [])`
 
 val iobuff_e = ``(App Aw8alloc [Lit (IntLit 2052); Lit (Word8 0w)])``
 val eval_thm = let
@@ -237,7 +241,9 @@ val _ =
   process_topdecs`
 fun b_openIn fname bsize =
   InstreamBuffered (openIn fname) (Ref 0) (Ref 0)
-  (Word8Array.array (if bsize <= 0 then raise IllegalArgument else bsize) (Word8.fromInt 48))
+  (Word8Array.array
+    (if bsize > 0 then bsize else raise IllegalArgument)
+    (Word8.fromInt 48))
 ` |> append_prog
 
 val _ = ml_prog_update open_local_in_block;
