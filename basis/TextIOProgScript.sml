@@ -240,10 +240,14 @@ in input0 off len 0 end
 val _ =
   process_topdecs`
 fun b_openIn fname bsize =
-  InstreamBuffered (openIn fname) (Ref 0) (Ref 0)
-  (Word8Array.array
-    (if bsize > 0 then bsize else raise IllegalArgument)
-    (Word8.fromInt 48))
+  let
+    val is = openIn fname
+  in
+    if bsize > 0 then
+      InstreamBuffered is (Ref 0) (Ref 0)
+        (Word8Array.array bsize (Word8.fromInt 48))
+    else raise IllegalArgument
+  end
 ` |> append_prog
 
 val _ = ml_prog_update open_local_in_block;

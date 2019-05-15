@@ -578,9 +578,9 @@ val instream_buffered_inv_def = Define `
 val INSTREAM_BUFFERED_def = Define `
   INSTREAM_BUFFERED bactive is =
     SEP_EXISTS rr r wr w buff bcontent fd fdv.
-      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff])) *
-      & (INSTREAM fd fdv) *
-      & (instream_buffered_inv r w bcontent bactive) *
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff]) /\
+        INSTREAM fd fdv /\
+        instream_buffered_inv r w bcontent bactive) *
       REF_NUM rr r *
       REF_NUM wr w *
       W8ARRAY buff bcontent`;
@@ -1690,24 +1690,41 @@ Theorem take_drop_append
   (fs[take_drop_partition,GSYM DROP_DROP_T]);
 
 Theorem b_openIn_spec
-  `∀s sv fs bsize bsizev bactive is rr wr isbuff.
+  `∀s sv fs bsize bsizev bactive.
      FILENAME s sv ∧
      NUM bsize bsizev /\
-     is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
      hasFreeFD fs ⇒
      app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv;bsizev]
        (IOFS fs)
        (POSTve
-          (\fdv. &(INSTREAM (nextFD fs) fdv ∧
+          (\is. &(
                   validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
                   inFS_fname fs (File s) /\
                   bsize > 0) *
-                INSTREAM_BUFFERED bactive is *
+                INSTREAM_BUFFERED [] is *
                 IOFS (openFileFS s fs ReadMode 0))
-          (\e. &((BadFileName_exn e ∧ ~inFS_fname fs (File s)) \/
-                  (IllegalArgument_exn e ∧ 0 = bsize)) * IOFS fs))`
-  (cheat)
-
+          (\e. SEP_EXISTS efs. &((BadFileName_exn e ∧ ~inFS_fname fs (File s) /\ efs = fs) \/
+                  (IllegalArgument_exn e ∧ 0 = bsize) /\ efs = openFileFS s fs ReadMode 0) * IOFS efs))`
+  (xcf_with_def "TextIO.b_openIn" TextIO_b_openIn_v_def
+  \\xlet_auto >- xsimpl >- (xsimpl \\ rpt strip_tac \\ qexists_tac `fs` \\ xsimpl)
+  \\xlet_auto >- xsimpl
+  \\xif
+  >-(xlet_auto >- xsimpl
+    \\xlet_auto >- xsimpl
+    \\xlet `POSTv wr1. REF_NUM wr1 0 *
+                      (W8ARRAY v'' (REPLICATE bsize 48w)) *
+                      IOFS (openFileFS s fs ReadMode 0)`
+    >-(xref \\ fs[REF_NUM_def] \\ xsimpl)
+      \\xlet `POSTv rr1. REF_NUM rr1 0 *
+                        REF_NUM wr1 0 *
+                        (W8ARRAY v'' (REPLICATE bsize 48w)) *
+                        IOFS (openFileFS s fs ReadMode 0)`
+    >-(xref \\ fs[REF_NUM_def] \\ xsimpl)
+    \\xcon \\ fs[INSTREAM_BUFFERED_def] \\ xsimpl
+    \\map_every qexists_tac [`0`, `0`,`nextFD fs`] \\ xsimpl
+    \\simp[instream_buffered_inv_def])
+  >-(xlet_auto >- (xcon \\ xsimpl)
+  \\xraise \\ xsimpl \\ simp[IllegalArgument_exn_def]));
 
 (*
 Theorem b_refillBuffer_spec
