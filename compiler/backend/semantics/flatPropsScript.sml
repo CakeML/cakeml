@@ -238,6 +238,35 @@ Theorem evaluate_append
   Cases_on`r`>>full_simp_tac(srw_ss())[] >>
   every_case_tac  >> full_simp_tac(srw_ss())[]);
 
+Theorem do_app_state_unchanged:
+  !s op vs s' r. do_app s.check_ctor s op vs = SOME (s', r) ⇒
+     s.c = s'.c ∧
+     s.exh_pat = s'.exh_pat ∧
+     s.check_ctor = s'.check_ctor
+Proof
+  rw [do_app_cases] >>
+  fs [semanticPrimitivesTheory.store_assign_def] >>
+  rfs []
+QED
+
+Theorem evaluate_state_unchanged:
+  (!env (s:'ffi state) e s' r. evaluate env s e = (s', r) ⇒
+     s.c = s'.c ∧
+     s.exh_pat = s'.exh_pat ∧
+     s.check_ctor = s'.check_ctor) ∧
+  (!env (s:'ffi state) v pes ev s' r. evaluate_match env s v pes ev = (s', r) ⇒
+     s.c = s'.c ∧
+     s.exh_pat = s'.exh_pat ∧
+     s.check_ctor = s'.check_ctor)
+Proof
+  ho_match_mp_tac evaluate_ind >>
+  rw [evaluate_def] >>
+  every_case_tac >>
+  fs [] >>
+  rfs [dec_clock_def] >>
+  metis_tac [do_app_state_unchanged]
+QED
+
   (*
 val c_updated_by = Q.prove (
   `((env:flatSem$environment) with c updated_by f) = (env with c := f env.c)`,

@@ -97,7 +97,9 @@ val compile_state_def = Define `
     <| clock := s.clock;
        refs := MAP compile_store_v s.refs;
        ffi := s.ffi;
-       globals := MAP (OPTION_MAP compile_v) s.globals
+       globals := MAP (OPTION_MAP compile_v) s.globals;
+       check_ctor := s.check_ctor;
+       c := s.c
     |>`;
 
 Theorem dec_clock_compile_state
@@ -162,17 +164,17 @@ Theorem compile_reverse
 (* alternative characterisation of pattern matching *)
 
 val find_match_def = Define`
-    find_match env s v [] = No_match /\
-    find_match env s v (pe::pes) =
+    find_match s v [] = No_match /\
+    find_match s v (pe::pes) =
         if ALL_DISTINCT (pat_bindings (FST pe) []) then
-            case pmatch env s (FST pe) v [] of
+            case pmatch s (FST pe) v [] of
             | Match env' => Match (env', SND pe)
             | Match_type_error => Match_type_error
-            | _ => find_match env s v pes
-        else Match_type_error `
+            | _ => find_match s v pes
+        else Match_type_error `;
 
 Theorem evaluate_match_find_match_none
-  `env.exh_pat ∧ (!r. find_match env ^s.refs v pes ≠ Match r) ==>
+  `s.exh_pat ∧ (!r. find_match s v pes ≠ Match r) ==>
           evaluate_match env s v pes errv = (s, Rerr (Rabort Rtype_error))`
   (Induct_on `pes`
   \\ fs [find_match_def, evaluate_def]
@@ -180,10 +182,10 @@ Theorem evaluate_match_find_match_none
   \\ fs [evaluate_def]
   \\ IF_CASES_TAC \\ fs[]
   \\ TOP_CASE_TAC
-  \\ rw [])
+  \\ rw []);
 
 Theorem evaluate_match_find_match_some
-  ` find_match env s.refs v pes = Match (env',e) ==>
+  ` find_match s v pes = Match (env',e) ==>
       evaluate_match env s v pes errv = evaluate (env with v := env' ++ env.v) s [e] `
   (Induct_on `pes`
   \\ fs [find_match_def,evaluate_def]
@@ -196,8 +198,8 @@ Theorem evaluate_match_find_match_some
 (* reordering operations are allowed *)
 
 Theorem pmatch_same_match
-  `pmatch env refs c1 v [] = Match a /\ is_const_con c1 /\
-   pmatch env refs c2 v [] = Match b /\ ~isPvar c2
+  `pmatch s c1 v [] = Match a /\ is_const_con c1 /\
+   pmatch s c2 v [] = Match b /\ ~isPvar c2
       ==> same_con c1 c2`
   (rw[is_const_con_thm]
   \\ Cases_on`v` \\ fs[pmatch_def]
@@ -211,9 +213,9 @@ Theorem pmatch_same_match
   \\ Cases_on`x` \\ fs[]);
 
 Theorem pmatch_match_match
-  `¬env.check_ctor ∧
-   is_const_con x /\ isPcon y /\ pmatch env refs x v [] = Match_type_error ==>
-   pmatch env refs y v [] = Match_type_error`
+  `¬s.check_ctor ∧
+   is_const_con x /\ isPcon y /\ pmatch s x v [] = Match_type_error ==>
+   pmatch s y v [] = Match_type_error`
   (rw[is_const_con_thm,is_Pcon_thm]
   \\ Cases_on`v` \\ fs[pmatch_def]
   \\ rename1`Conv tt _` \\ Cases_on`tt`
@@ -221,8 +223,8 @@ Theorem pmatch_match_match
   \\ pop_assum mp_tac \\ simp[bool_case_eq]);
 
 Theorem pmatch_no_match
-  `¬env.check_ctor ∧ pmatch env refs x v [] = No_match ∧ same_con y x ⇒
-   pmatch env refs y v [] = No_match`
+  `¬s.check_ctor ∧ pmatch s x v [] = No_match ∧ same_con y x ⇒
+   pmatch s y v [] = No_match`
   (Cases_on`x` \\ Cases_on`y` \\ fs[pmatch_def]
   \\ rename1`same_con (Pcon o1 _) (Pcon o2 _)`
   \\ Cases_on`o1` \\ Cases_on`o2` \\ fs[pmatch_def]
@@ -235,16 +237,16 @@ Theorem pmatch_no_match
   \\ rw[] \\ rfs[]);
 
 Theorem find_match_drop_no_match
-    `! a b. pmatch env s (FST b) v [] = No_match /\ (is_const_con (FST b)) ==>
-     ((find_match env s v ( a++ [b] ++c)) = find_match env s v (a++c))`
+    `! a b. pmatch s (FST b) v [] = No_match /\ (is_const_con (FST b)) ==>
+     ((find_match s v ( a++ [b] ++c)) = find_match s v (a++c))`
      (Induct
      \\ rw [find_match_def, is_const_con_pat_bindings_empty]
 )
 
 Theorem find_match_may_drop_dup
-    `¬env.check_ctor ⇒
+    `¬s.check_ctor ⇒
      ! a b. ((is_const_con (FST b)) /\ (EXISTS (same_con (FST b) o FST) a)) ==>
-     ((find_match env s v ( a++ [b] ++c)) = find_match env s v (a++c))`
+     ((find_match s v ( a++ [b] ++c)) = find_match s v (a++c))`
      (strip_tac \\ Induct
      \\ rw [find_match_def]
      \\ CASE_TAC \\ fs[]
@@ -254,12 +256,12 @@ Theorem find_match_may_drop_dup
 );
 
 Theorem find_match_may_reord
-    `¬env.check_ctor ⇒
+    `¬s.check_ctor ⇒
      ! a b. is_const_con (FST b) /\ ¬(EXISTS (same_con (FST b) o FST) a)
             /\ EVERY isPcon (MAP FST a) /\
-            find_match env s v (a ++ [b] ++ c) ≠ Match_type_error
+            find_match s v (a ++ [b] ++ c) ≠ Match_type_error
             ==>
-        find_match env s v (a ++ [b] ++ c) = find_match env s v (b::a++c) `
+        find_match s v (a ++ [b] ++ c) = find_match s v (b::a++c) `
     (strip_tac \\
     Induct \\ fs []
     \\ rw [find_match_def]
@@ -279,7 +281,7 @@ Theorem find_match_may_reord
 
 Theorem find_match_drop_after_pvar
     `! a. isPvar (FST b) ==>
-        find_match env refs v (a ++ [b] ++ c) = find_match env refs v (a ++ [b])
+        find_match s v (a ++ [b] ++ c) = find_match s v (a ++ [b])
     `
     (Induct \\ fs [find_match_def]
     \\ rw []
@@ -348,13 +350,13 @@ Theorem const_cons_fst_reord
     (fs [const_cons_fst_def]
     \\ pairarg_tac
     \\ fs []
-    \\ imp_res_tac const_cons_sep_reord \\ fs[])
+    \\ imp_res_tac const_cons_sep_reord \\ fs[]);
 
 Theorem find_match_preserved_reord
-    `¬env.check_ctor ⇒
+    `¬s.check_ctor ⇒
      ! pes pes'. reord pes pes' ==>
-        find_match env refs v pes <> Match_type_error ==>
-            find_match env refs v pes = find_match env refs v pes'`
+        find_match s v pes <> Match_type_error ==>
+            find_match s v pes = find_match s v pes'`
     (strip_tac \\
     ho_match_mp_tac reord_ind
     \\ strip_tac
@@ -366,39 +368,35 @@ Theorem find_match_preserved_reord
         METIS_TAC [find_match_may_drop_dup]
     )
     \\ METIS_TAC [find_match_may_reord, APPEND_ASSOC, CONS_APPEND]
-)
+);
 
 Theorem find_match_preserved_reord_RTC
-    `¬env.check_ctor ⇒ ! pes pes'. reord^* pes pes' ==>
-        find_match env refs v pes <> Match_type_error ==>
-            find_match env refs v pes = find_match env refs v pes'`
+    `¬s.check_ctor ⇒ ! pes pes'. reord^* pes pes' ==>
+        find_match s v pes <> Match_type_error ==>
+            find_match s v pes = find_match s v pes'`
     (strip_tac \\ ho_match_mp_tac RTC_INDUCT
     \\ METIS_TAC [find_match_preserved_reord]
-    )
+    );
 
 (* main lemma: find_match semantics preserved by compilation *)
 
 Theorem const_cons_fst_find_match
-    `¬env.check_ctor ∧ find_match env refs v pes <> Match_type_error ==>
-        find_match env refs v pes = find_match env refs v (const_cons_fst pes)`
+    `¬s.check_ctor ∧ find_match s v pes <> Match_type_error ==>
+        find_match s v pes = find_match s v (const_cons_fst pes)`
     (METIS_TAC [find_match_preserved_reord_RTC, const_cons_fst_reord])
 
 (* semantic auxiliaries respect transformation of values *)
 
 Theorem pmatch_compile
-  `(!env refs p err_v acc.
-     pmatch (env with v := compile_env env.v)
-            (MAP compile_store_v refs) p
-            (compile_v err_v) (compile_env acc) =
-     map_match (compile_env) (pmatch env refs p err_v acc)) /\
-   (! env refs ps vs acc.
-      pmatch_list (env with v := compile_env env.v)
-                  (MAP compile_store_v refs) ps
-                  (MAP compile_v vs) (compile_env acc) =
-      map_match (compile_env) (pmatch_list env refs ps vs acc)) `
-  (ho_match_mp_tac pmatch_ind \\ rw [pmatch_def]
-  >- (fs [ETA_AX])
-  >- (fs [ETA_AX])
+  `(!(s:'ffi state) p err_v acc.
+     pmatch (compile_state s) p (compile_v err_v) (compile_env acc) =
+     map_match compile_env (pmatch s p err_v acc)) /\
+   (!(s:'ffi state) ps vs acc.
+      pmatch_list (compile_state s) ps (MAP compile_v vs) (compile_env acc) =
+      map_match compile_env (pmatch_list s ps vs acc)) `
+  (ho_match_mp_tac pmatch_ind \\ rw [pmatch_def, compile_state_def]
+  >- (fs [ETA_AX] >> rfs [])
+  >- (fs [ETA_AX] >> rfs [])
   >- (
     fs [semanticPrimitivesTheory.store_lookup_def]
     \\ rw [EL_MAP]
@@ -417,10 +415,9 @@ val pmatch_compile_nil = pmatch_compile |> CONJUNCT1
     |> SIMP_RULE (srw_ss())[]
 
 Theorem find_match_compile
-  `find_match (env with v := compile_env env.v)
-              (MAP compile_store_v refs)
+  `find_match (compile_state s)
               (compile_v v) (MAP (I ## f) pes) =
-   map_match (compile_env ## f) (find_match env refs v pes)`
+   map_match (compile_env ## f) (find_match s v pes)`
    (Induct_on `pes`
    \\ fs [find_match_def]
    \\ rw []
@@ -428,14 +425,13 @@ Theorem find_match_compile
    \\ every_case_tac \\ fs [])
 
 Theorem find_match_imp_compile
-  `find_match env s.refs v pes = Match (env',e) ==>
-   find_match (env with v := compile_env env.v)
-              (compile_state s).refs (compile_v v)
+  `find_match s v pes = Match (env',e) ==>
+   find_match (compile_state s) (compile_v v)
        (MAP (\(p,e). (p,HD(compile[e]))) pes) =
            Match (compile_env env', HD(compile[e]))`
   (strip_tac \\
-  (Q.GENL[`f`,`refs`,`v`,`pes`]find_match_compile
-   |> Q.ISPECL_THEN[`\e. HD(compile[e])`,`s.refs`,`v`,`pes`]mp_tac) \\
+  (Q.GENL[`f`,`s`,`v`,`pes`]find_match_compile
+   |> Q.ISPECL_THEN[`\e. HD(compile[e])`,`s`,`v`,`pes`]mp_tac) \\
   simp[] \\
   disch_then(SUBST1_TAC o SYM) \\
   rpt(AP_TERM_TAC ORELSE AP_THM_TAC) \\
@@ -501,7 +497,7 @@ Theorem do_app_compile[simp]
     \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND])
   \\ Cases_on `do_app cc s op as` \\ Cases_on `op`
   \\ pop_assum mp_tac
-  \\ fs[do_app_def,
+  \\ fs[do_app_def, compile_state_def,
         semanticPrimitivesTheory.store_assign_def,
         semanticPrimitivesTheory.store_alloc_def,
         semanticPrimitivesTheory.store_lookup_def,
@@ -519,8 +515,8 @@ Theorem compile_evaluate
   `(!env ^s es s1 r1.
      evaluate env s es = (s1, r1) /\
      r1 <> Rerr (Rabort Rtype_error) /\
-     env.exh_pat /\
-     ~env.check_ctor
+     s.exh_pat /\
+     ~s.check_ctor
      ==>
      evaluate (env with v := compile_env env.v)
               (compile_state s)
@@ -529,8 +525,8 @@ Theorem compile_evaluate
    (!env ^s v pes err_v s1 r1.
      evaluate_match env ^s v pes err_v = (s1,r1) /\
      r1 <> Rerr (Rabort Rtype_error) /\
-     env.exh_pat /\
-     ~env.check_ctor
+     s.exh_pat /\
+     ~s.check_ctor
      ==>
      evaluate_match (env with v := compile_env env.v)
                     (compile_state s)
@@ -544,11 +540,15 @@ Theorem compile_evaluate
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
     \\ once_rewrite_tac [evaluate_append] \\ fs []
-    \\ imp_res_tac evaluate_sing \\ fs [])
+    \\ imp_res_tac evaluate_sing \\ fs [] >>
+    imp_res_tac evaluate_state_unchanged >>
+    fs [])
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
-    \\ imp_res_tac evaluate_sing \\ fs [])
+    \\ imp_res_tac evaluate_sing \\ fs [] >>
+    imp_res_tac evaluate_state_unchanged >>
+    fs [])
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
