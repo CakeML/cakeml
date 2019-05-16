@@ -585,6 +585,17 @@ val INSTREAM_BUFFERED_def = Define `
       REF_NUM wr w *
       W8ARRAY buff bcontent`;
 
+val INSTREAM_BUFFERED_FD_def = Define `
+  INSTREAM_BUFFERED_FD bactive fd is =
+    SEP_EXISTS rr r wr w buff bcontent fdv.
+      & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff]) /\
+        INSTREAM fd fdv /\
+        instream_buffered_inv r w bcontent bactive) *
+      REF_NUM rr r *
+      REF_NUM wr w *
+      W8ARRAY buff bcontent`;
+
+
 val OUTSTREAM_def = Define `
   OUTSTREAM fd fdv <=>
     OUTSTREAM_TYPE (Outstream (strlit(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
@@ -1701,10 +1712,11 @@ Theorem b_openIn_spec
                   validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
                   inFS_fname fs (File s) /\
                   bsize > 0) *
-                INSTREAM_BUFFERED [] is *
+                INSTREAM_BUFFERED_FD [] (nextFD fs) is *
                 IOFS (openFileFS s fs ReadMode 0))
           (\e. SEP_EXISTS efs. &((BadFileName_exn e ∧ ~inFS_fname fs (File s) /\ efs = fs) \/
-                  (IllegalArgument_exn e ∧ 0 = bsize) /\ efs = openFileFS s fs ReadMode 0) * IOFS efs))`
+                  (IllegalArgument_exn e ∧ 0 = bsize) /\ efs = openFileFS s fs ReadMode 0) *
+                  IOFS efs))`
   (xcf_with_def "TextIO.b_openIn" TextIO_b_openIn_v_def
   \\xlet_auto >- xsimpl >- (xsimpl \\ rpt strip_tac \\ qexists_tac `fs` \\ xsimpl)
   \\xlet_auto >- xsimpl
@@ -1720,9 +1732,9 @@ Theorem b_openIn_spec
                         (W8ARRAY v'' (REPLICATE bsize 48w)) *
                         IOFS (openFileFS s fs ReadMode 0)`
     >-(xref \\ fs[REF_NUM_def] \\ xsimpl)
-    \\xcon \\ fs[INSTREAM_BUFFERED_def] \\ xsimpl
-    \\map_every qexists_tac [`0`, `0`,`nextFD fs`] \\ xsimpl
-    \\simp[instream_buffered_inv_def])
+    \\xcon \\ fs[INSTREAM_BUFFERED_FD_def] \\ xsimpl
+    \\map_every qexists_tac [`0`, `0`] \\ xsimpl
+    \\simp[instream_buffered_inv_def]) \\xsimpl
   >-(xlet_auto >- (xcon \\ xsimpl)
   \\xraise \\ xsimpl \\ simp[IllegalArgument_exn_def]));
 
