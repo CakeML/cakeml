@@ -571,8 +571,8 @@ val REF_NUM_def = Define `
 val instream_buffered_inv_def = Define `
   instream_buffered_inv r w bcontent bactive =
       (LENGTH bcontent > 0 /\
-      r < LENGTH bcontent /\
-      w < LENGTH bcontent /\
+      r <= LENGTH bcontent /\
+      w <= LENGTH bcontent /\
       r <= w /\
       bactive = TAKE (w-r) (DROP r bcontent))`;
 
@@ -1739,7 +1739,7 @@ Theorem b_openIn_spec
   >-(xlet_auto >- (xcon \\ xsimpl)
   \\xraise \\ xsimpl \\ simp[IllegalArgument_exn_def]));
 
-(*
+
 Theorem b_refillBuffer_spec
   `!fd fdv fs content pos.
     INSTREAM fd fdv  ∧
@@ -1748,11 +1748,13 @@ Theorem b_refillBuffer_spec
     get_mode fs fd = SOME ReadMode ⇒
     app (p:'ffi ffi_proj) TextIO_b_refillBuffer_v [is;]
     (STDIO fs * INSTREAM_BUFFERED bactive is )
-    (POSTv uv. SEP_EXISTS bsize.
+    (POSTv wv. SEP_EXISTS bsize.
+                  &(NUM (MIN bsize (LENGTH content - pos)) wv) *
                   INSTREAM_BUFFERED (TAKE (MIN bsize (LENGTH content - pos))
-                                      (MAP (n2w o ORD) content)) is *
+                                      (DROP pos (MAP (n2w o ORD) content))) is *
         STDIO (fsupdate fs fd 0 (MIN (bsize + pos) (MAX pos (LENGTH content))) content))`
   (xcf_with_def "TextIO.b_refillBuffer" TextIO_b_refillBuffer_v_def
+  \\qpat_abbrev_tac`fcontent = (MAP (n2w o ORD) content)`
   \\fs[INSTREAM_BUFFERED_def, REF_NUM_def]
   \\xpull
   \\xmatch
@@ -1763,11 +1765,28 @@ Theorem b_refillBuffer_spec
   \\xlet_auto >- xsimpl
   \\`pos = LENGTH content ⇒ MIN (LENGTH bcontent + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
   \\xapp \\ xsimpl
-  \\map_every qexists_tac [`LENGTH bcontent`,`(MIN bsize (STRLEN content − pos))`,`fd`]
-  \\fs[MAX_DEF,MIN_DEF] \\ xsimpl
-  \\rpt strip_tac
-  >-(Cases_on `bcontent`
-*)
+  \\map_every qexists_tac [`LENGTH bcontent`,`(MIN (LENGTH bcontent) (STRLEN content − pos))`,`fd`]
+  \\simp[MAX_DEF,MIN_DEF] \\ xsimpl
+  \\qpat_abbrev_tac`take_fcontent = (TAKE (LENGTH bcontent) (DROP pos fcontent))`
+  \\`LENGTH take_fcontent <= LENGTH bcontent` by
+      fs[Abbr`take_fcontent`,Abbr`fcontent`,LENGTH_TAKE_EQ_MIN,LENGTH_TAKE,MIN_DEF]
+  \\fs[LENGTH_insert_atI]
+  \\CASE_TAC
+  >-(rw[Abbr`take_fcontent`,insert_atI_def,TAKE_APPEND]
+    \\`LENGTH (TAKE (LENGTH bcontent) (DROP pos fcontent)) = LENGTH bcontent`
+            by fs[Abbr`fcontent`,LENGTH_TAKE]
+    \\fs[Abbr`fcontent`,TAKE_0,TAKE_TAKE])
+  >-(rw[Abbr`take_fcontent`,insert_atI_def,TAKE_APPEND]
+    \\`LENGTH (TAKE (LENGTH bcontent) (DROP pos fcontent)) =
+          MIN (LENGTH bcontent) (LENGTH fcontent - pos)`
+            by fs[Abbr`fcontent`,LENGTH_TAKE_EQ_MIN, LENGTH_DROP]
+    \\fs[MIN_DEF] \\ CASE_TAC
+    >-(fs[Abbr`fcontent`,take_drop_append])
+    >-(fs[Abbr`fcontent`,take_drop_append, TAKE_TAKE_MIN]
+      >-(fs[MIN_DEF] \\ CASE_TAC
+        >-(`STRLEN content - pos = LENGTH bcontent` by fs[]
+          \\fs[])))));
+
 
 Theorem extend_array_spec
     `∀arrv arr.
