@@ -596,7 +596,6 @@ val INSTREAM_BUFFERED_FD_def = Define `
       REF_NUM wr w *
       W8ARRAY buff bcontent`;
 
-
 val OUTSTREAM_def = Define `
   OUTSTREAM fd fdv <=>
     OUTSTREAM_TYPE (Outstream (strlit(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
@@ -1739,7 +1738,6 @@ Theorem b_openIn_spec
   >-(xlet_auto >- (xcon \\ xsimpl)
   \\xraise \\ xsimpl \\ simp[IllegalArgument_exn_def]));
 
-
 Theorem b_refillBuffer_spec
   `!fd fdv fs content pos.
     INSTREAM fd fdv  ∧
@@ -1787,6 +1785,20 @@ Theorem b_refillBuffer_spec
         >-(`STRLEN content - pos = LENGTH bcontent` by fs[]
           \\fs[])))));
 
+Theorem b_input_aux_spec
+  `!len lenv outbuf outbufc is pre suff write r w.
+    NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH outbufc /\
+    len <= LENGTH bactive ==>
+    app (p:'ffi ffi_proj) TextIO_b_input_aux_v [is;outbuf;offv;lenv]
+    (W8ARRAY outbuf (pre++write++suff) * INSTREAM_BUFFERED bactive r w is)
+    (POSTv nReadv. &(NUM len nReadv) *
+                  W8ARRAY outbuf (pre ++ TAKE len bactive ++ suff) *
+                  INSTREAM_BUFFERED (DROP len bactive) (r+len) w is)`
+  (xcf_with_def "TextIO.b_input_aux" TextIO_b_input_aux_v_def
+  \\fs[INSTREAM_BUFFERED_R_W_def, REF_NUM_def] \\ xpull
+  \\xmatch \\ xlet_auto >- xsimpl
+  \\fs[instream_buffered_inv_def]
+  \\xlet_auto >- xsimpl
 
 Theorem extend_array_spec
     `∀arrv arr.
