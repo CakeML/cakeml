@@ -570,7 +570,8 @@ val REF_NUM_def = Define `
 
 val instream_buffered_inv_def = Define `
   instream_buffered_inv r w bcontent bactive =
-      (r < LENGTH bcontent /\
+      (LENGTH bcontent > 0 /\
+      r < LENGTH bcontent /\
       w < LENGTH bcontent /\
       r <= w /\
       bactive = TAKE (w-r) (DROP r bcontent))`;
