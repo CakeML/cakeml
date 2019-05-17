@@ -278,17 +278,17 @@ val _ = (append_prog o process_topdecs)`
       let
         val nBuffered = (!wref) - (!rref)
       in
-        if Word8Array.length buff < len + off then raise IllegalArgument;
+        if Word8Array.length buff < len + off then raise IllegalArgument
         else
           if Word8Array.length surplus < len then
-            b_input_aux is buff off nBuffered;
-            input fd buff (off+nBuffered) (len - nBuffered);
+            (b_input_aux is buff off nBuffered;
+            TextIO.input fd buff (off+nBuffered) (len - nBuffered) + nBuffered)
           else
             (*If there arent enough bytes in the buffer: copy all of the bytes
             in the buffer and then refill it, and copy the remaining bytes *)
             if len > nBuffered then
               (b_input_aux is buff off nBuffered;
-              (b_input_aux is buff (off+nBuffered) (min (b_refillBuffer ()) (len-nBuffered))) + nBuffered)
+              (b_input_aux is buff (off+nBuffered) (min (b_refillBuffer is) (len-nBuffered))) + nBuffered)
             (*If there are enough bytes in the buffer, just copy them*)
             else
               b_input_aux is buff off len

@@ -1786,19 +1786,34 @@ Theorem b_refillBuffer_spec
           \\fs[])))));
 
 Theorem b_input_aux_spec
-  `!len lenv outbuf outbufc is pre suff write r w.
-    NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH outbufc /\
+  `!len lenv outbuf is pre suff write r w.
+    NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH (pre++write++suff) /\
+    off = LENGTH pre /\ len = LENGTH write /\
     len <= LENGTH bactive ==>
     app (p:'ffi ffi_proj) TextIO_b_input_aux_v [is;outbuf;offv;lenv]
-    (W8ARRAY outbuf (pre++write++suff) * INSTREAM_BUFFERED bactive r w is)
+    (W8ARRAY outbuf (pre++write++suff) * INSTREAM_BUFFERED bactive is)
     (POSTv nReadv. &(NUM len nReadv) *
                   W8ARRAY outbuf (pre ++ TAKE len bactive ++ suff) *
-                  INSTREAM_BUFFERED (DROP len bactive) (r+len) w is)`
+                  INSTREAM_BUFFERED (DROP len bactive) is)`
   (xcf_with_def "TextIO.b_input_aux" TextIO_b_input_aux_v_def
-  \\fs[INSTREAM_BUFFERED_R_W_def, REF_NUM_def] \\ xpull
+  \\fs[INSTREAM_BUFFERED_def, REF_NUM_def] \\ xpull
   \\xmatch \\ xlet_auto >- xsimpl
   \\fs[instream_buffered_inv_def]
-  \\xlet_auto >- xsimpl
+  \\xlet_auto >-xsimpl
+  \\xlet_auto >-xsimpl
+  \\xlet_auto >-xsimpl
+  \\xvar \\ xsimpl
+  \\map_every qexists_tac [`len+r`, `w`, `fd`] \\fs[]
+  \\conj_tac
+  >-(`w-r <= LENGTH (DROP r bcontent)` by fs[LENGTH_DROP, LENGTH_TAKE]
+    \\simp[DROP_SEG, TAKE_SEG]
+    \\simp[SEG_SEG])
+  >-(`LENGTH pre <= LENGTH (pre ++ write' ++ suff)` by fs[LENGTH_APPEND]
+    \\`TAKE (LENGTH pre) (pre ++ write' ++ suff) = pre` by fs[TAKE_APPEND1]
+    \\`LENGTH pre + LENGTH write' <= LENGTH (pre ++ write')` by fs[LENGTH_APPEND]
+    \\`DROP (LENGTH pre + LENGTH write') (pre ++ write' ++ suff) = suff`
+          by fs[DROP_APPEND2,DROP_LENGTH_NIL]
+    \\fs[DROP_SEG, TAKE_SEG, SEG_SEG]));
 
 Theorem extend_array_spec
     `∀arrv arr.
