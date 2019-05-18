@@ -1786,14 +1786,14 @@ Theorem b_refillBuffer_spec
           \\fs[])))));
 
 Theorem b_input_aux_spec
-  `!len lenv outbuf is pre suff write r w.
-    NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH (pre++write++suff) /\
-    off = LENGTH pre /\ len = LENGTH write /\
+  `!len lenv outbuf is.
+    NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH outcont /\
     len <= LENGTH bactive ==>
     app (p:'ffi ffi_proj) TextIO_b_input_aux_v [is;outbuf;offv;lenv]
-    (W8ARRAY outbuf (pre++write++suff) * INSTREAM_BUFFERED bactive is)
+    (W8ARRAY outbuf outcont * INSTREAM_BUFFERED bactive is)
     (POSTv nReadv. &(NUM len nReadv) *
-                  W8ARRAY outbuf (pre ++ TAKE len bactive ++ suff) *
+                  W8ARRAY outbuf
+                    (insert_atI (TAKE len bactive) off outcont) *
                   INSTREAM_BUFFERED (DROP len bactive) is)`
   (xcf_with_def "TextIO.b_input_aux" TextIO_b_input_aux_v_def
   \\fs[INSTREAM_BUFFERED_def, REF_NUM_def] \\ xpull
@@ -1808,12 +1808,52 @@ Theorem b_input_aux_spec
   >-(`w-r <= LENGTH (DROP r bcontent)` by fs[LENGTH_DROP, LENGTH_TAKE]
     \\simp[DROP_SEG, TAKE_SEG]
     \\simp[SEG_SEG])
-  >-(`LENGTH pre <= LENGTH (pre ++ write' ++ suff)` by fs[LENGTH_APPEND]
-    \\`TAKE (LENGTH pre) (pre ++ write' ++ suff) = pre` by fs[TAKE_APPEND1]
-    \\`LENGTH pre + LENGTH write' <= LENGTH (pre ++ write')` by fs[LENGTH_APPEND]
-    \\`DROP (LENGTH pre + LENGTH write') (pre ++ write' ++ suff) = suff`
-          by fs[DROP_APPEND2,DROP_LENGTH_NIL]
-    \\fs[DROP_SEG, TAKE_SEG, SEG_SEG]));
+  >-(fs[insert_atI_def]
+    \\simp[DROP_SEG, TAKE_SEG]
+    \\simp[SEG_SEG]));
+
+Theorem b_input_spec
+  `!fd fdv fs content pos off offv len lenv buf bufv bactive pbactive.
+    NUM off offv ∧ NUM len lenv ∧
+    get_file_content fs fd = SOME(content, pos) ⇒
+    get_mode fs fd = SOME ReadMode ⇒
+    app (p:'ffi ffi_proj) TextIO_b_input_v [is; bufv; offv; lenv]
+    (STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is)
+    (POSTve
+      (\nv. &(NUM (MIN len (LENGTH content - pos)) nv /\
+              (pbactive = DROP len bactive \/
+              ?bsize. pbactive = DROP (len - LENGTH bactive)
+                         (TAKE bsize (DROP (LENGTH bactive)
+                           (MAP (n2w o ORD) content))))) *
+       INSTREAM_BUFFERED_FD pbactive fd is *
+       W8ARRAY bufv (insert_atI (TAKE len (DROP pos (MAP (n2w o ORD) content)))
+                                 off buf) *
+        STDIO (fsupdate fs fd 0 (MIN (len + pos) (MAX pos (LENGTH content))) content))
+    (\e. &(IllegalArgument_exn e /\ LENGTH buf < len + off) *
+          STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is))`
+  (xcf_with_def "TextIO.b_input" TextIO_b_input_v_def
+  \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def]
+  \\ xpull \\ xmatch
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\fs[NUM_def] \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- (xsimpl \\ qexists_tac `buf` \\ xsimpl)
+  \\xlet_auto >- xsimpl \\ fs[GSYM NUM_def]
+  \\xif
+  >-(xlet_auto >- (xcon >- xsimpl)
+    \\ xraise
+    \\ conj_tac
+    >- (xsimpl \\ map_every qexists_tac [`r`,`w`] \\
+        simp[IllegalArgument_exn_def])
+    >-(xsimpl \\ rpt strip_tac)
+
+
+\\xlet_auto >- xsimpl
+\\xlet_auto >- xsimpl
+\\fs[instream_buffered_inv_def]
+\\xif
+>-(xlet_auto >- xsimpl)
 
 Theorem extend_array_spec
     `∀arrv arr.
