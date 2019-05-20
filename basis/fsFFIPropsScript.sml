@@ -81,14 +81,17 @@ Proof
     fs[bumpFD_def]
 QED
 
-Theorem bumpFD_inode_tbl[simp]
-  `(bumpFD fd fs n).inode_tbl = fs.inode_tbl`
+Theorem bumpFD_inode_tbl[simp]:
+  (bumpFD fd fs n).inode_tbl = fs.inode_tbl
+Proof
+  EVAL_TAC
+QED
 
 Theorem bumpFD_files[simp]:
    (bumpFD fd fs n).files = fs.files
 Proof
   EVAL_TAC
-QED (EVAL_TAC);
+QED
 
 Theorem bumpFD_o:
   !fs fd n1 n2.
