@@ -14,11 +14,12 @@ val _ = new_theory"ag32_memoryProof";
 
 (* TODO: move *)
 
-Theorem get_byte_word_of_bytes
-  `good_dimindex(:'a) ⇒
+Theorem get_byte_word_of_bytes:
+   good_dimindex(:'a) ⇒
    i < LENGTH ls ∧ LENGTH ls ≤ w2n (bytes_in_word:'a word) ⇒
-  (get_byte (n2w i) (word_of_bytes be (0w:'a word) ls) be = EL i ls)`
-  (strip_tac
+  (get_byte (n2w i) (word_of_bytes be (0w:'a word) ls) be = EL i ls)
+Proof
+  strip_tac
   \\ `∃k. dimindex(:'a) DIV 8 = 2 ** k` by(
     fs[labPropsTheory.good_dimindex_def]
     \\ TRY(qexists_tac`2` \\ EVAL_TAC \\ NO_TAC)
@@ -30,15 +31,17 @@ Theorem get_byte_word_of_bytes
     \\ fs[labPropsTheory.good_dimindex_def] \\ rfs[])
   \\ rw[]
   \\ DEP_REWRITE_TAC[data_to_word_memoryProofTheory.get_byte_bytes_to_word]
-  \\ rw[]);
+  \\ rw[]
+QED
 
-Theorem get_byte_EL_words_of_bytes
-  `∀be ls.
+Theorem get_byte_EL_words_of_bytes:
+   ∀be ls.
    i < LENGTH ls ∧ w2n (bytes_in_word:'a word) * LENGTH ls ≤ dimword(:'a) ∧ good_dimindex(:'a) ⇒
    (get_byte (n2w i : α word)
       (EL (w2n (byte_align ((n2w i):α word)) DIV (w2n (bytes_in_word:α word)))
-        (words_of_bytes be ls)) be = EL i ls)`
-  (completeInduct_on`i`
+        (words_of_bytes be ls)) be = EL i ls)
+Proof
+  completeInduct_on`i`
   \\ Cases_on`ls`
   \\ rw[words_of_bytes_def]
   \\ qmatch_goalsub_abbrev_tac`MAX 1 bw`
@@ -108,16 +111,18 @@ Theorem get_byte_EL_words_of_bytes
   \\ simp[]
   \\ disch_then(qspecl_then[`be`,`DROP (bw-1)t`]mp_tac)
   \\ impl_tac >- fs[ADD1]
-  \\ simp[EL_DROP]);
+  \\ simp[EL_DROP]
+QED
 
-Theorem get_mem_word_get_byte_gen
-  `(∀x. r0 + n2w (4 * (LENGTH ll + k)) <=+ x ∧ x <+ r0 + n2w (4 * (LENGTH ll + k) + 4)
+Theorem get_mem_word_get_byte_gen:
+   (∀x. r0 + n2w (4 * (LENGTH ll + k)) <=+ x ∧ x <+ r0 + n2w (4 * (LENGTH ll + k) + 4)
       ⇒ (m x = get_byte x (EL (w2n (byte_align x - r0) DIV 4) (ll ++ ls ++ lr)) F)) ∧
    (LENGTH ll = off) ∧
    k < LENGTH ls ∧ byte_aligned r0 ∧ (4 * (off + k)) < dimword(:31) ∧
    w2n r0 + (4 * (off + k) + 4) < dimword(:32)
-   ⇒ (get_mem_word m (r0 + n2w (4 * (off + k))) = EL k ls)`
-  (rw[get_mem_word_def]
+   ⇒ (get_mem_word m (r0 + n2w (4 * (off + k))) = EL k ls)
+Proof
+  rw[get_mem_word_def]
   \\ ntac 4 (
     qmatch_goalsub_abbrev_tac`m x`
     \\ first_assum(qspec_then`x`mp_tac)
@@ -173,16 +178,18 @@ Theorem get_mem_word_get_byte_gen
     \\ strip_tac \\ simp[Abbr`a`] )
   \\ simp[EL_APPEND_EQN]
   \\ simp[get_byte_def, byte_index_def]
-  \\ blastLib.BBLAST_TAC);
+  \\ blastLib.BBLAST_TAC
+QED
 
 val get_mem_word_get_byte =
   get_mem_word_get_byte_gen
   |> Q.GEN`r0` |> Q.SPEC`0w` |> SIMP_RULE(srw_ss())[EVAL``byte_aligned 0w``]
   |> curry save_thm "get_mem_word_get_byte";
 
-Theorem ag32_enc_lengths
-  `LENGTH (ag32_enc istr) ∈ {4;8;12;16}`
-  (Cases_on`istr`
+Theorem ag32_enc_lengths:
+   LENGTH (ag32_enc istr) ∈ {4;8;12;16}
+Proof
+  Cases_on`istr`
   \\ TRY(rename1`JumpCmp _ _ ri _` \\ Cases_on`ri`)
   \\ TRY(rename1`Inst i ` \\ Cases_on`i`)
   \\ TRY(rename1`Inst (Mem m _ ri) ` \\ Cases_on`m` \\ Cases_on`ri`)
@@ -192,17 +199,19 @@ Theorem ag32_enc_lengths
          ag32_targetTheory.ag32_constant_def,
          ag32_targetTheory.ag32_jump_constant_def,
          ag32_targetTheory.ag32_encode_def,
-         ag32_targetTheory.ag32_encode1_def]);
+         ag32_targetTheory.ag32_encode1_def]
+QED
 
-Theorem bytes_in_memory_get_byte_words
-  `∀ls ll a.
+Theorem bytes_in_memory_get_byte_words:
+   ∀ls ll a.
    (∀k. k ∈ all_words a (LENGTH ls) ⇒
         (m k = get_byte k (EL (w2n (byte_align k) DIV 4) (ll ++ words_of_bytes be ls ++ lr)) be)) ∧
    (a = n2w (4 * LENGTH ll)) ∧ (all_words a (LENGTH ls) ⊆ md)
    ∧ 4 * (LENGTH ll) < dimword(:31) ∧ 4 * LENGTH ls ≤ dimword(:32)
    ⇒
-   bytes_in_memory (a:word32) ls m md`
-  (rw[]
+   bytes_in_memory (a:word32) ls m md
+Proof
+  rw[]
   \\ irule asmPropsTheory.read_bytearray_IMP_bytes_in_memory
   \\ simp[] \\ fs[SUBSET_DEF]
   \\ qexists_tac`SOME o m`
@@ -270,7 +279,8 @@ Theorem bytes_in_memory_get_byte_words
   \\ qspecl_then[`be`,`ls`]mp_tac(INST_TYPE[alpha|->``:32``]get_byte_EL_words_of_bytes)
   \\ simp[bytes_in_word_def]
   \\ impl_tac >- EVAL_TAC
-  \\ rw[]);
+  \\ rw[]
+QED
 
 val get_byte_repl = Q.prove(`
   n+m < dimword(:32) ∧
@@ -284,9 +294,10 @@ val get_byte_repl = Q.prove(`
 
 (* -- *)
 
-Theorem byte_aligned_code_start_offset
-  `byte_aligned (n2w(code_start_offset num_ffis) : word32)`
-  (rw[code_start_offset_def]
+Theorem byte_aligned_code_start_offset:
+   byte_aligned (n2w(code_start_offset num_ffis) : word32)
+Proof
+  rw[code_start_offset_def]
   \\ `ffi_offset = 4 * w2n (bytes_in_word:word32)` by EVAL_TAC
   \\ pop_assum SUBST1_TAC
   \\ simp[GSYM word_add_n2w]
@@ -295,11 +306,13 @@ Theorem byte_aligned_code_start_offset
   \\ impl_tac >- EVAL_TAC
   \\ simp[GSYM word_add_n2w, GSYM word_mul_n2w]
   \\ rw[Abbr`a`]
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem LENGTH_startup_code `
-  LENGTH (startup_code f c d) ≤ startup_code_size`
-  (simp[startup_code_def,LENGTH_FLAT,SUM_MAP_K,MAP_MAP_o,o_DEF]>>
+Theorem LENGTH_startup_code:
+    LENGTH (startup_code f c d) ≤ startup_code_size
+Proof
+  simp[startup_code_def,LENGTH_FLAT,SUM_MAP_K,MAP_MAP_o,o_DEF]>>
   `15*16 ≤ startup_code_size` by EVAL_TAC>>
   match_mp_tac LESS_EQ_TRANS>>
   HINT_EXISTS_TAC>>
@@ -309,16 +322,20 @@ Theorem LENGTH_startup_code `
     match_mp_tac SUM_MAP_BOUND>>
     rw[]>>qspec_then`x`mp_tac (Q.GEN`istr`ag32_enc_lengths)>>
     rw[]>>fs[]) >>
-  simp[]);
+  simp[]
+QED
 
-Theorem LENGTH_ag32_enc_MOD_4
-  `LENGTH (ag32_enc i) MOD 4 = 0`
-  (qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
-  \\ rw[] \\ rw[]);
+Theorem LENGTH_ag32_enc_MOD_4:
+   LENGTH (ag32_enc i) MOD 4 = 0
+Proof
+  qspec_then`i`mp_tac(Q.GEN`istr`ag32_enc_lengths)
+  \\ rw[] \\ rw[]
+QED
 
-Theorem LENGTH_startup_code_MOD_4 `
-  LENGTH (startup_code f c d) MOD 4 = 0`
-  (simp[startup_code_def,LENGTH_FLAT,SUM_MAP_K,MAP_MAP_o,o_DEF]>>
+Theorem LENGTH_startup_code_MOD_4:
+    LENGTH (startup_code f c d) MOD 4 = 0
+Proof
+  simp[startup_code_def,LENGTH_FLAT,SUM_MAP_K,MAP_MAP_o,o_DEF]>>
   DEP_ONCE_REWRITE_TAC [SUM_MOD]>>
   simp[MAP_MAP_o,o_DEF]>>
   qmatch_goalsub_abbrev_tac`MAP ff _`>>
@@ -326,17 +343,20 @@ Theorem LENGTH_startup_code_MOD_4 `
     (fs[Abbr`ff`,FUN_EQ_THM]>>
     rw[]>>qspec_then`x`mp_tac (Q.GEN`istr`ag32_enc_lengths)>>
     rw[]>>fs[])>>
-  simp[Q.ISPEC`λx. 0n`SUM_MAP_K  |> SIMP_RULE (srw_ss())[]]);
+  simp[Q.ISPEC`λx. 0n`SUM_MAP_K  |> SIMP_RULE (srw_ss())[]]
+QED
 
 val sz = (rconc (EVAL``LENGTH ag32_ffi_code + cline_size DIV 4 + stdin_size DIV 4 + heap_size DIV 4 + startup_code_size DIV 4 + (output_buffer_size + 16) DIV 4 + 3``));
 
-Theorem LENGTH_init_memory_words
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ⇒
+Theorem LENGTH_init_memory_words:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ⇒
    (LENGTH (init_memory_words c d f cl inp) =
    LENGTH d +
    LENGTH (ag32_ffi_jumps f) +
    LENGTH c DIV 4 + MIN 1 (LENGTH c MOD 4) +
-   ^(sz))` ((* adjust as necessary *)
+   ^(sz))
+Proof
+(* adjust as necessary *)
   simp[init_memory_words_def] >>
   strip_tac>>
   simp[LENGTH_ag32_ffi_code]>>
@@ -365,17 +385,19 @@ Theorem LENGTH_init_memory_words
     match_mp_tac (DECIDE``a ≤ b ⇒ (a+(b-a) = b:num)``)>>
     simp[LENGTH_startup_code])>>
   pop_assum mp_tac>>simp[]>>EVAL_TAC>>
-  simp[Abbr`codel`]);
+  simp[Abbr`codel`]
+QED
 
 val lem = Q.prove(`
   (m MOD 4 = 0) ∧ n < m ⇒ n DIV 4 < m DIV 4`,
   intLib.ARITH_TAC);
 
-Theorem init_memory_startup
-  `∀code data ffis n.
+Theorem init_memory_startup:
+   ∀code data ffis n.
    n < LENGTH (startup_code (LENGTH ffis) (LENGTH code) (LENGTH data)) ⇒
-   (init_memory code data ffis inputs (n2w n) = EL n (startup_code (LENGTH ffis) (LENGTH code) (LENGTH data)))`
-  (Cases_on`inputs`
+   (init_memory code data ffis inputs (n2w n) = EL n (startup_code (LENGTH ffis) (LENGTH code) (LENGTH data)))
+Proof
+  Cases_on`inputs`
   \\ ntac 5 strip_tac
   \\ simp[init_memory_def]
   \\ qmatch_goalsub_abbrev_tac`EL n sc`
@@ -404,15 +426,17 @@ Theorem init_memory_startup
     \\ fs[] )
   >>
     match_mp_tac lem>>
-    fs[LENGTH_startup_code_MOD_4]);
+    fs[LENGTH_startup_code_MOD_4]
+QED
 
-Theorem init_memory_code
-  `∀code data ffis n.
+Theorem init_memory_code:
+   ∀code data ffis n.
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size ∧
    code_start_offset (LENGTH ffis) + (LENGTH code) + 4 * LENGTH data < memory_size  ∧
    n < LENGTH code ⇒
-   (init_memory code data ffis (cl,inp) (n2w n + n2w (code_start_offset (LENGTH ffis))) = EL n code)`
-  (ntac 5 strip_tac
+   (init_memory code data ffis (cl,inp) (n2w n + n2w (code_start_offset (LENGTH ffis))) = EL n code)
+Proof
+  ntac 5 strip_tac
   \\ simp[init_memory_def]
   \\ simp[word_add_n2w]
   \\ simp[init_memory_words_def] >>
@@ -475,11 +499,12 @@ Theorem init_memory_code
     fs[EVAL``code_start_offset f``]>>
     fs[memory_size_def])>>
   DEP_REWRITE_TAC [get_byte_EL_words_of_bytes |> INST_TYPE [alpha|->``:32``] |> SIMP_RULE (srw_ss()) [bytes_in_word_def]]>>
-  EVAL_TAC>>fs[memory_size_def]);
+  EVAL_TAC>>fs[memory_size_def]
+QED
 
 (* TODO - clean it up a bit (it repeats a lot) *)
-Theorem init_memory_data
-  `SUM (MAP strlen cl) + LENGTH cl <= cline_size /\
+Theorem init_memory_data:
+   SUM (MAP strlen cl) + LENGTH cl <= cline_size /\
    LENGTH inp <= stdin_size /\
    code_start_offset (LENGTH ffis) + (LENGTH code) +
      4 * LENGTH data < memory_size /\
@@ -492,8 +517,9 @@ Theorem init_memory_data
       init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)) + 1w);
       init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)) + 2w);
       init_memory code data ffis (cl,inp) (n2w (4 * (k + low DIV 4)) + 3w)] =
-    EL k data`
-  (rw []
+    EL k data
+Proof
+  rw []
   \\ qabbrev_tac `low = LENGTH code + code_start_offset (LENGTH ffis)`
   \\ simp [init_memory_def]
   \\ simp [word_add_n2w]
@@ -620,16 +646,18 @@ Theorem init_memory_data
           \\ intLib.ARITH_TAC)
   \\ pop_assum (SUBST_ALL_TAC)
   \\ simp[set_byte_def,get_byte_def,byte_index_def,word_slice_alt_def]
-  \\ blastLib.FULL_BBLAST_TAC);
+  \\ blastLib.FULL_BBLAST_TAC
+QED
 
-Theorem init_memory_halt
-  `(pc = n2w (ffi_jumps_offset + (LENGTH f + 1) * ffi_offset)) ∧
+Theorem init_memory_halt:
+   (pc = n2w (ffi_jumps_offset + (LENGTH f + 1) * ffi_offset)) ∧
    LENGTH f ≤ LENGTH FFI_codes ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
   ⇒
   (get_mem_word (init_memory c d f (cl,inp)) pc =
-    Encode (Jump (fAdd, 0w, Imm 0w)))`
-  (simp[FFI_codes_def]
+    Encode (Jump (fAdd, 0w, Imm 0w)))
+Proof
+  simp[FFI_codes_def]
   \\ strip_tac
   \\ qpat_x_assum`pc = _`(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
   \\ qspecl_then[`c`,`d`,`f`,`cl`,`inp`]mp_tac init_memory_words_def
@@ -682,16 +710,18 @@ Theorem init_memory_halt
     \\ simp[Abbr`pc`]
     \\ EVAL_TAC
     \\ simp[] )
-  \\ simp[Abbr`ls`, halt_jump_ag32_code_def]);
+  \\ simp[Abbr`ls`, halt_jump_ag32_code_def]
+QED
 
-Theorem init_memory_ccache
-  `(pc = n2w (ffi_jumps_offset + (LENGTH f + 0) * ffi_offset)) ∧
+Theorem init_memory_ccache:
+   (pc = n2w (ffi_jumps_offset + (LENGTH f + 0) * ffi_offset)) ∧
    LENGTH f ≤ LENGTH FFI_codes ∧
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ LENGTH inp ≤ stdin_size
   ⇒
    (get_mem_word (init_memory c d f (cl,inp)) pc =
-    Encode (Jump (fSnd, 0w, Reg 0w)))`
-  (simp[FFI_codes_def]
+    Encode (Jump (fSnd, 0w, Reg 0w)))
+Proof
+  simp[FFI_codes_def]
   \\ strip_tac
   \\ qpat_x_assum`pc = _`(assume_tac o ONCE_REWRITE_RULE[GSYM markerTheory.Abbrev_def])
   \\ qspecl_then[`c`,`d`,`f`,`cl`,`inp`]mp_tac init_memory_words_def
@@ -744,14 +774,16 @@ Theorem init_memory_ccache
     \\ simp[Abbr`pc`]
     \\ EVAL_TAC
     \\ simp[] )
-  \\ simp[Abbr`ls`, ccache_jump_ag32_code_def]);
+  \\ simp[Abbr`ls`, ccache_jump_ag32_code_def]
+QED
 
-Theorem init_memory_startup_bytes_in_memory
-  `i < LENGTH sc  ∧
+Theorem init_memory_startup_bytes_in_memory:
+   i < LENGTH sc  ∧
    (sc = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * (LENGTH data)))) ⇒
    bytes_in_memory (n2w (SUM (MAP (LENGTH o ag32_enc) (TAKE i sc)))) (ag32_enc (EL i sc))
-     (init_memory code data ffis inputs) ag32_startup_addresses`
-  (rw[]
+     (init_memory code data ffis inputs) ag32_startup_addresses
+Proof
+  rw[]
   \\ qmatch_asmsub_abbrev_tac`i < LENGTH sc`
   \\ qmatch_goalsub_abbrev_tac`bytes_in_memory a _ m`
   \\ `∃ll lr.
@@ -840,7 +872,8 @@ Theorem init_memory_startup_bytes_in_memory
           word_ls_n2w, word_lo_n2w]
   \\ simp[EVAL``heap_start_offset``, EVAL``startup_code_size``]
   \\ fs[Abbr`ls`, LENGTH_TAKE_EQ] \\ rfs[]
-  \\ fs[Abbr`sc`, LENGTH_startup_asm_code]);
+  \\ fs[Abbr`sc`, LENGTH_startup_asm_code]
+QED
 
 val init_asm_state_def = Define`
   init_asm_state code data ffis input =
@@ -1010,8 +1043,8 @@ val hide_def = Define`
   hide x = x`
 *)
 
-Theorem init_asm_state_asm_step
-  `∀code data ffis cl inp.
+Theorem init_asm_state_asm_step:
+   ∀code data ffis cl inp.
   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
   LENGTH inp ≤ stdin_size ∧
   LENGTH ffis ≤ LENGTH FFI_codes ∧
@@ -1053,8 +1086,9 @@ Theorem init_asm_state_asm_step
      ds) ∧
     (∀k. k < 4 * LENGTH data + 4 ⇒
          (final_st.mem (ds + n2w k) =
-          (im (cl,inp)) (ds + n2w k)))`
-  (ntac 6 strip_tac
+          (im (cl,inp)) (ds + n2w k)))
+Proof
+  ntac 6 strip_tac
   \\ qho_match_abbrev_tac`LET (λtr. (_ tr) ∧ P (_ tr)) _`
   \\ rewrite_tac[startup_asm_code_def]
   \\ simp[]
@@ -1204,10 +1238,11 @@ Theorem init_asm_state_asm_step
     fs[memory_size_def])
   \\ rpt (IF_CASES_TAC >-
     (rveq>>fs[WORD_LO]))
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem init_asm_state_RTC_asm_step
-  `∀code data ffis cl inp.
+Theorem init_asm_state_RTC_asm_step:
+   ∀code data ffis cl inp.
   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size  ∧
   LENGTH ffis ≤ LENGTH FFI_codes ∧
@@ -1243,8 +1278,9 @@ Theorem init_asm_state_RTC_asm_step
      = ds) ∧
     (∀k. k < 4 * LENGTH data + 4 ⇒
       (iasmstate.mem (ds + n2w k) =
-       im (cl,inp) (ds + n2w k)))`
-  (ntac 5 strip_tac>>
+       im (cl,inp) (ds + n2w k)))
+Proof
+  ntac 5 strip_tac>>
   disch_then assume_tac>>
   qspecl_then [`code`,`data`,`ffis`,`cl`,`inp`] mp_tac init_asm_state_asm_step>>
   simp[]>>
@@ -1257,6 +1293,7 @@ Theorem init_asm_state_RTC_asm_step
   \\ drule NRC_RTC
   \\ fs[LAST_MAP_SND_steps_FOLDL, init_asm_state_def]
   \\ fs[ag32_targetTheory.ag32_target_def]
-  \\ rfs[]);
+  \\ rfs[]
+QED
 
 val _ = export_theory();

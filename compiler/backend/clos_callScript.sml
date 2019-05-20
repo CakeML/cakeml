@@ -71,30 +71,40 @@ val free_LENGTH_LEMMA = Q.prove(
   \\ SRW_TAC [] [] \\ DECIDE_TAC)
   |> SIMP_RULE std_ss [] |> SPEC_ALL;
 
-Theorem free_LENGTH
-  `!xs ys l. (free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)`
-  (REPEAT STRIP_TAC \\ MP_TAC free_LENGTH_LEMMA \\ fs []);
+Theorem free_LENGTH:
+   !xs ys l. (free xs = (ys,l)) ==> (LENGTH ys = LENGTH xs)
+Proof
+  REPEAT STRIP_TAC \\ MP_TAC free_LENGTH_LEMMA \\ fs []
+QED
 
-Theorem free_SING
-  `(free [x] = (ys,l)) ==> ?y. ys = [y]`
-  (REPEAT STRIP_TAC \\ IMP_RES_TAC free_LENGTH
-  \\ Cases_on `ys` \\ fs [LENGTH_NIL]);
+Theorem free_SING:
+   (free [x] = (ys,l)) ==> ?y. ys = [y]
+Proof
+  REPEAT STRIP_TAC \\ IMP_RES_TAC free_LENGTH
+  \\ Cases_on `ys` \\ fs [LENGTH_NIL]
+QED
 
-Theorem LENGTH_FST_free
-  `LENGTH (FST (free fns)) = LENGTH fns`
-  (Cases_on `free fns` \\ fs [] \\ IMP_RES_TAC free_LENGTH);
+Theorem LENGTH_FST_free:
+   LENGTH (FST (free fns)) = LENGTH fns
+Proof
+  Cases_on `free fns` \\ fs [] \\ IMP_RES_TAC free_LENGTH
+QED
 
-Theorem HD_FST_free
-  `[HD (FST (free [x1]))] = FST (free [x1])`
-  (Cases_on `free [x1]` \\ fs []
-  \\ imp_res_tac free_SING \\ fs[]);
+Theorem HD_FST_free:
+   [HD (FST (free [x1]))] = FST (free [x1])
+Proof
+  Cases_on `free [x1]` \\ fs []
+  \\ imp_res_tac free_SING \\ fs[]
+QED
 
-Theorem free_CONS
-  `FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)`
-  (Cases_on `xs` \\ fs [free_def,SING_HD,LENGTH_FST_free,LET_DEF]
+Theorem free_CONS:
+   FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)
+Proof
+  Cases_on `xs` \\ fs [free_def,SING_HD,LENGTH_FST_free,LET_DEF]
   \\ Cases_on `free [x]` \\ fs []
   \\ Cases_on `free (h::t)` \\ fs [SING_HD]
-\\ IMP_RES_TAC free_SING \\ fs []);
+\\ IMP_RES_TAC free_SING \\ fs []
+QED
 val closed_def = Define `
   closed x = isEmpty (db_to_set (SND (free [x])))`
 
@@ -215,27 +225,35 @@ val compile_def = Define `
   compile F x = (x,(LN,[])) /\
   compile T x = let (xs,g) = calls x (LN,[]) in (xs,g)`
 
-Theorem calls_length
-  `∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ LENGTH ys = LENGTH xs`
-  (ho_match_mp_tac (fetch "-" "calls_ind")
+Theorem calls_length:
+   ∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ LENGTH ys = LENGTH xs
+Proof
+  ho_match_mp_tac (fetch "-" "calls_ind")
   \\ rw[calls_def] \\ rw[]
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ every_case_tac \\ fs[] \\ rw[]);
+  \\ every_case_tac \\ fs[] \\ rw[]
+QED
 
-Theorem calls_sing
-  `∀x g0 ys g. calls [x] g0 = (ys,g) ⇒ ?y. ys = [y]`
-  (rw [] \\ imp_res_tac calls_length \\ fs []
-  \\ Cases_on `ys` \\ fs [LENGTH_NIL] );
+Theorem calls_sing:
+   ∀x g0 ys g. calls [x] g0 = (ys,g) ⇒ ?y. ys = [y]
+Proof
+  rw [] \\ imp_res_tac calls_length \\ fs []
+  \\ Cases_on `ys` \\ fs [LENGTH_NIL]
+QED
 
-Theorem compile_LENGTH
-  `compile x y = (a,b) ⇒ LENGTH y = LENGTH a`
-  (Cases_on`x` \\ rw[compile_def] \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac calls_length \\ rw[]);
+Theorem compile_LENGTH:
+   compile x y = (a,b) ⇒ LENGTH y = LENGTH a
+Proof
+  Cases_on`x` \\ rw[compile_def] \\ pairarg_tac \\ fs[]
+  \\ imp_res_tac calls_length \\ rw[]
+QED
 
-Theorem compile_nil
-  `clos_call$compile x [] = (a,g,b) ⇒ a =[] ∧ g = LN ∧ b = []`
-  (Cases_on`x` \\ rw[compile_def]
-  \\ pairarg_tac \\ fs[] \\ fs[calls_def] \\ rw[]);
+Theorem compile_nil:
+   clos_call$compile x [] = (a,g,b) ⇒ a =[] ∧ g = LN ∧ b = []
+Proof
+  Cases_on`x` \\ rw[compile_def]
+  \\ pairarg_tac \\ fs[] \\ fs[calls_def] \\ rw[]
+QED
 
 val selftest = let
   (* example code *)

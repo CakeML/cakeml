@@ -49,51 +49,66 @@ val compile_state_def = Define`
        max_app := max_app
     |>`;
 
-Theorem compile_state_const[simp]
-  `(compile_state max_app cc s).clock = s.clock ∧
+Theorem compile_state_const[simp]:
+   (compile_state max_app cc s).clock = s.clock ∧
    (compile_state max_app cc s).ffi = s.ffi ∧
    (compile_state max_app cc s).compile = cc ∧
    (compile_state max_app cc s).max_app = max_app ∧
-   (compile_state max_app cc s).compile_oracle = pure_co (λe. (MAP compile e,[])) o s.compile_oracle`
-  (EVAL_TAC);
+   (compile_state max_app cc s).compile_oracle = pure_co (λe. (MAP compile e,[])) o s.compile_oracle
+Proof
+  EVAL_TAC
+QED
 
-Theorem compile_state_dec_clock[simp]
-  `compile_state max_app cc (dec_clock y) = dec_clock 1 (compile_state max_app cc y)`
-  (EVAL_TAC >> simp[])
+Theorem compile_state_dec_clock[simp]:
+   compile_state max_app cc (dec_clock y) = dec_clock 1 (compile_state max_app cc y)
+Proof
+  EVAL_TAC >> simp[]
+QED
 
-Theorem compile_state_with_clock[simp]
-  `compile_state max_app cc (s with clock := k) = compile_state max_app cc s with clock := k`
-  (EVAL_TAC >> simp[])
+Theorem compile_state_with_clock[simp]:
+   compile_state max_app cc (s with clock := k) = compile_state max_app cc s with clock := k
+Proof
+  EVAL_TAC >> simp[]
+QED
 
-Theorem compile_state_with_refs_const[simp]
-  `(compile_state w cc (s with refs := r)).globals = (compile_state w cc s).globals ∧
-   (compile_state w cc (s with refs := r)).code = (compile_state w cc s).code`
-  (EVAL_TAC);
+Theorem compile_state_with_refs_const[simp]:
+   (compile_state w cc (s with refs := r)).globals = (compile_state w cc s).globals ∧
+   (compile_state w cc (s with refs := r)).code = (compile_state w cc s).code
+Proof
+  EVAL_TAC
+QED
 
-Theorem FLOOKUP_compile_state_refs
-  `FLOOKUP (compile_state w cc s).refs =
-   OPTION_MAP compile_sv o (combin$C store_lookup s.refs) `
-  (rw[FUN_EQ_THM,compile_state_def,ALOOKUP_GENLIST,store_lookup_def] \\ rw[]);
+Theorem FLOOKUP_compile_state_refs:
+   FLOOKUP (compile_state w cc s).refs =
+   OPTION_MAP compile_sv o (combin$C store_lookup s.refs)
+Proof
+  rw[FUN_EQ_THM,compile_state_def,ALOOKUP_GENLIST,store_lookup_def] \\ rw[]
+QED
 
-Theorem FDOM_compile_state_refs[simp]
-  `FDOM (compile_state w cc s).refs = count (LENGTH s.refs)`
-  (rw[compile_state_def,MAP_GENLIST,o_DEF,LIST_TO_SET_GENLIST]);
+Theorem FDOM_compile_state_refs[simp]:
+   FDOM (compile_state w cc s).refs = count (LENGTH s.refs)
+Proof
+  rw[compile_state_def,MAP_GENLIST,o_DEF,LIST_TO_SET_GENLIST]
+QED
 
-Theorem compile_state_with_refs_snoc
-  `compile_state w cc (s with refs := s.refs ++ [x]) =
+Theorem compile_state_with_refs_snoc:
+   compile_state w cc (s with refs := s.refs ++ [x]) =
    compile_state w cc s with refs :=
-     (compile_state w cc s).refs |+ (LENGTH s.refs, compile_sv x)`
-  (rw[compile_state_def,fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST]
-  \\ rw[EL_APPEND1,EL_APPEND2]);
+     (compile_state w cc s).refs |+ (LENGTH s.refs, compile_sv x)
+Proof
+  rw[compile_state_def,fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST]
+  \\ rw[EL_APPEND1,EL_APPEND2]
+QED
 
 (* semantic functions respect translation *)
 
-Theorem do_eq
-  `(∀v1 v2. do_eq v1 v2 ≠ Eq_type_error ⇒
+Theorem do_eq:
+   (∀v1 v2. do_eq v1 v2 ≠ Eq_type_error ⇒
       (do_eq v1 v2 = do_eq (compile_v v1) (compile_v v2))) ∧
     (∀vs1 vs2. do_eq_list vs1 vs2 ≠ Eq_type_error ⇒
-      (do_eq_list vs1 vs2 = do_eq_list (MAP compile_v vs1) (MAP compile_v vs2)))`
-  (ho_match_mp_tac patSemTheory.do_eq_ind >>
+      (do_eq_list vs1 vs2 = do_eq_list (MAP compile_v vs1) (MAP compile_v vs2)))
+Proof
+  ho_match_mp_tac patSemTheory.do_eq_ind >>
   simp[patSemTheory.do_eq_def,closSemTheory.do_eq_def] >>
   conj_tac >- (
     Cases >> Cases >> simp[lit_same_type_def,closSemTheory.do_eq_def] >>
@@ -108,14 +123,16 @@ Theorem do_eq
   rw[]>>fs[]>>rfs[ETA_AX]>>
   BasicProvers.CASE_TAC>>fs[]>>
   rw[]>>fs[]>>
-  BasicProvers.CASE_TAC>>fs[]);
+  BasicProvers.CASE_TAC>>fs[]
+QED
 
 val v_to_list_def = closSemTheory.v_to_list_def;
 
-Theorem v_to_char_list
-  `∀v ls. (v_to_char_list v = SOME ls) ⇒
-           (v_to_list (compile_v v) = SOME (MAP (Number o $& o ORD) ls))`
-  (ho_match_mp_tac v_to_char_list_ind >>
+Theorem v_to_char_list:
+   ∀v ls. (v_to_char_list v = SOME ls) ⇒
+           (v_to_list (compile_v v) = SOME (MAP (Number o $& o ORD) ls))
+Proof
+  ho_match_mp_tac v_to_char_list_ind >>
   simp[v_to_char_list_def,v_to_list_def] >>
   rw[] >>
   Cases_on`v`>>fs[v_to_char_list_def] >>
@@ -126,57 +143,69 @@ Theorem v_to_char_list
   Cases_on`t`>>fs[v_to_char_list_def,v_to_list_def] >>
   Cases_on`t'`>>fs[v_to_char_list_def,v_to_list_def] >>
   rw[]>>fs[]>>
-  Cases_on`v_to_char_list h`>>fs[]>> rw[])
+  Cases_on`v_to_char_list h`>>fs[]>> rw[]
+QED
 
-Theorem v_to_list
-  `∀v ls. (v_to_list v = SOME ls) ⇒
-           (v_to_list (compile_v v) = SOME (MAP compile_v ls))`
-  (ho_match_mp_tac patSemTheory.v_to_list_ind >>
+Theorem v_to_list:
+   ∀v ls. (v_to_list v = SOME ls) ⇒
+           (v_to_list (compile_v v) = SOME (MAP compile_v ls))
+Proof
+  ho_match_mp_tac patSemTheory.v_to_list_ind >>
   simp[patSemTheory.v_to_list_def,v_to_list_def] >>
-  rw[] >> Cases_on`v_to_list v`>>fs[]>> rw[])
+  rw[] >> Cases_on`v_to_list v`>>fs[]>> rw[]
+QED
 
-Theorem vs_to_string
-  `∀vs ws. vs_to_string vs = SOME ws ⇒
+Theorem vs_to_string:
+   ∀vs ws. vs_to_string vs = SOME ws ⇒
     ∃wss. MAP compile_v vs = MAP ByteVector wss ∧
-      FLAT wss = MAP (n2w o ORD) ws`
-  (ho_match_mp_tac vs_to_string_ind
+      FLAT wss = MAP (n2w o ORD) ws
+Proof
+  ho_match_mp_tac vs_to_string_ind
   \\ rw[vs_to_string_def]
   \\ every_case_tac \\ fs[] \\ rveq
   \\ qmatch_goalsub_abbrev_tac`ByteVector ws1`
-  \\ qexists_tac`ws1::wss` \\ simp[]);
+  \\ qexists_tac`ws1::wss` \\ simp[]
+QED
 
-Theorem Boolv[simp]
-  `compile_v (Boolv b) = Boolv b`
-  (Cases_on`b`>>EVAL_TAC)
+Theorem Boolv[simp]:
+   compile_v (Boolv b) = Boolv b
+Proof
+  Cases_on`b`>>EVAL_TAC
+QED
 
-Theorem v_to_bytes
-  `v_to_bytes v = SOME ls ==> v_to_bytes (compile_v v) = SOME ls`
-  (simp[patSemTheory.v_to_bytes_def,v_to_bytes_def]
+Theorem v_to_bytes:
+   v_to_bytes v = SOME ls ==> v_to_bytes (compile_v v) = SOME ls
+Proof
+  simp[patSemTheory.v_to_bytes_def,v_to_bytes_def]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
   \\ imp_res_tac v_to_list
   \\ rw[MAP_MAP_o,o_DEF]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
   \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem v_to_words
-  `v_to_words v = SOME ls ==> v_to_words (compile_v v) = SOME ls`
-  (simp[patSemTheory.v_to_words_def,v_to_words_def]
+Theorem v_to_words:
+   v_to_words v = SOME ls ==> v_to_words (compile_v v) = SOME ls
+Proof
+  simp[patSemTheory.v_to_words_def,v_to_words_def]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
   \\ imp_res_tac v_to_list
   \\ rw[MAP_MAP_o,o_DEF]
   \\ DEEP_INTRO_TAC some_intro \\ rw[ETA_AX]
   \\ imp_res_tac INJ_MAP_EQ \\ fs[INJ_DEF]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem do_install
-  `patSem$do_install vs s = SOME (v1,v2) ∧
+Theorem do_install:
+   patSem$do_install vs s = SOME (v1,v2) ∧
    s.compile = pure_cc (λe. (MAP compile e,[])) cc
    ==>
    closSem$do_install (MAP compile_v vs) (compile_state max_app cc s) =
      if s.clock = 0 then (Rerr (Rabort Rtimeout_error),compile_state max_app cc v2)
-     else (Rval (MAP compile v1),dec_clock 1(compile_state max_app cc v2))`
-  (simp[do_install_def,patSemTheory.do_install_def,case_eq_thms]
+     else (Rval (MAP compile v1),dec_clock 1(compile_state max_app cc v2))
+Proof
+  simp[do_install_def,patSemTheory.do_install_def,case_eq_thms]
   \\ simp[] \\ strip_tac \\ rveq \\ fs[]
   \\ imp_res_tac v_to_bytes \\ imp_res_tac v_to_words
   \\ rpt(pairarg_tac \\ fs[])
@@ -184,7 +213,8 @@ Theorem do_install
   \\ rfs[pure_cc_def]
   \\ fs[case_eq_thms,pair_case_eq,shift_seq_def,FUPDATE_LIST_THM] \\ rveq
   \\ fs[bool_case_eq,dec_clock_def]
-  \\ fs[state_component_equality,compile_state_def,pure_co_def,FUN_EQ_THM]);
+  \\ fs[state_component_equality,compile_state_def,pure_co_def,FUN_EQ_THM]
+QED
 
 (* compiler correctness *)
 
@@ -213,30 +243,36 @@ val LENGTH_eq = Q.prove(
    (2 = LENGTH ls ⇔ LENGTH ls = 2)`,
   Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL]);
 
-Theorem list_to_v_compile
-  `!x xs.
+Theorem list_to_v_compile:
+   !x xs.
    v_to_list x = SOME xs /\
    v_to_list (compile_v x) = SOME (MAP compile_v xs) ==>
-     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)`
-  (ho_match_mp_tac patSemTheory.v_to_list_ind
+     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)
+Proof
+  ho_match_mp_tac patSemTheory.v_to_list_ind
   \\ rw [patSemTheory.v_to_list_def] \\ fs []
   \\ fs [list_to_v_def, patSemTheory.list_to_v_def, case_eq_thms] \\ rveq
-  \\ fs [v_to_list_def, case_eq_thms, list_to_v_def, patSemTheory.list_to_v_def]);
+  \\ fs [v_to_list_def, case_eq_thms, list_to_v_def, patSemTheory.list_to_v_def]
+QED
 
-Theorem list_to_v_compile_APPEND
-  `!xs ys.
+Theorem list_to_v_compile_APPEND:
+   !xs ys.
      list_to_v (MAP compile_v xs) = compile_v (list_to_v xs) /\
      list_to_v (MAP compile_v ys) = compile_v (list_to_v ys) ==>
        list_to_v (MAP compile_v (xs ++ ys)) =
-       compile_v (list_to_v (xs ++ ys))`
-  (Induct \\ rw [patSemTheory.list_to_v_def]
-  \\ fs [list_to_v_def, patSemTheory.list_to_v_def]);
+       compile_v (list_to_v (xs ++ ys))
+Proof
+  Induct \\ rw [patSemTheory.list_to_v_def]
+  \\ fs [list_to_v_def, patSemTheory.list_to_v_def]
+QED
 
-Theorem dest_WordToInt_SOME
-  `!w es x. dest_WordToInt w es = SOME x <=>
-             ?tra. es = [App tra (Op (WordToInt w)) [x]]`
-  (ho_match_mp_tac dest_WordToInt_ind
-  \\ fs [dest_WordToInt_def]);
+Theorem dest_WordToInt_SOME:
+   !w es x. dest_WordToInt w es = SOME x <=>
+             ?tra. es = [App tra (Op (WordToInt w)) [x]]
+Proof
+  ho_match_mp_tac dest_WordToInt_ind
+  \\ fs [dest_WordToInt_def]
+QED
 
 val Rabort_Rtype_error_map_error = prove(
   ``Rabort Rtype_error = map_error_result compile_v e <=>
@@ -247,15 +283,16 @@ val do_app_WordToInt_Rerr_IMP = prove(
   ``closSem$do_app WordToInt ws x = Rerr e ==> e = Rabort Rtype_error``,
   fs [do_app_def,case_eq_thms,pair_case_eq] \\ rw [] \\ fs []);
 
-Theorem compile_evaluate
-  `0 < max_app ⇒
+Theorem compile_evaluate:
+   0 < max_app ⇒
    (∀env ^s es s' r.
       evaluate env s es = (s',r) ∧
       s.compile = pure_cc (λe. (MAP pat_to_clos$compile e,[])) cc ∧
       r ≠ Rerr (Rabort Rtype_error) ⇒
       evaluate (MAP compile es,MAP compile_v env,compile_state max_app cc s) =
-        (map_result (MAP compile_v) compile_v r, compile_state max_app cc s'))`
-  (strip_tac >>
+        (map_result (MAP compile_v) compile_v r, compile_state max_app cc s'))
+Proof
+  strip_tac >>
   ho_match_mp_tac patSemTheory.evaluate_ind >>
   strip_tac >- (rw[evaluate_pat_def,evaluate_def]>>rw[]) >>
   strip_tac >- (
@@ -587,14 +624,16 @@ Theorem compile_evaluate
     rw[] >> fs[EXISTS_MAP] >>
     fs[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,
        combinTheory.o_DEF,ETA_AX,MAP_MAP_o,clos_env_def] >>
-    fsrw_tac[ETA_ss][] ));
+    fsrw_tac[ETA_ss][] )
+QED
 
-Theorem compile_semantics
-  `0 < max_app ∧ st.compile = pure_cc (λe. (MAP compile e,[])) cc ∧ st.globals = [] ∧ st.refs = [] ⇒
+Theorem compile_semantics:
+   0 < max_app ∧ st.compile = pure_cc (λe. (MAP compile e,[])) cc ∧ st.globals = [] ∧ st.refs = [] ⇒
    semantics [] (st:('c,'ffi)patSem$state) es ≠ Fail ⇒
    semantics st.ffi max_app FEMPTY (pure_co (λe. (MAP compile e,[])) o st.compile_oracle) cc (MAP compile es) =
-   semantics [] st es`
-  (strip_tac >>
+   semantics [] st es
+Proof
+  strip_tac >>
   simp[patSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -672,13 +711,15 @@ Theorem compile_semantics
   qpat_abbrev_tac`s1 = compile_state _ _ _` \\
   `s1 = s0 k` by (
     simp[Abbr`s1`,Abbr`s0`,initial_state_def,compile_state_def] ) \\
-  srw_tac[QI_ss][])
+  srw_tac[QI_ss][]
+QED
 
 (* more correctness properties *)
 
-Theorem compile_contains_App_SOME
-  `0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]`
-  (strip_tac >>
+Theorem compile_contains_App_SOME:
+   0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]
+Proof
+  strip_tac >>
   ho_match_mp_tac compile_ind >>
   simp[compile_def,contains_App_SOME_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[] >> srw_tac[ETA_ss][] >>
@@ -690,11 +731,13 @@ Theorem compile_contains_App_SOME
   rw[contains_App_SOME_def] >>
   TOP_CASE_TAC >> fs[contains_App_SOME_def] >>
   rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
-  fs[contains_App_SOME_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]);
+  fs[contains_App_SOME_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+QED
 
-Theorem compile_every_Fn_vs_NONE
-  `∀e. every_Fn_vs_NONE[compile e]`
-  (ho_match_mp_tac compile_ind >>
+Theorem compile_every_Fn_vs_NONE:
+   ∀e. every_Fn_vs_NONE[compile e]
+Proof
+  ho_match_mp_tac compile_ind >>
   rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[Once every_Fn_vs_NONE_EVERY] >>
   simp[EVERY_REVERSE,EVERY_MAP] >>
@@ -702,11 +745,13 @@ Theorem compile_every_Fn_vs_NONE
   rw[] >> rw[] >>
   TOP_CASE_TAC >> fs[] >>
   rw[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,GSYM MAP_REVERSE] >>
-  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]);
+  fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]
+QED
 
-Theorem set_globals_eq
-  `∀e. set_globals e = set_globals (compile e)`
-  (ho_match_mp_tac compile_ind >>
+Theorem set_globals_eq:
+   ∀e. set_globals e = set_globals (compile e)
+Proof
+  ho_match_mp_tac compile_ind >>
   rw[compile_def,patPropsTheory.op_gbag_def,op_gbag_def,elist_globals_reverse,CopyByteStr_def,CopyByteAw8_def]
   >>
     TRY
@@ -728,11 +773,13 @@ Theorem set_globals_eq
     fs[LENGTH_eq,ETA_AX]>>
     TRY(pop_assum SUBST_ALL_TAC>>fs[bagTheory.COMM_BAG_UNION])>>
     Induct_on`n`>>fs[REPLICATE,op_gbag_def] >>
-  Induct_on`es`>>fs[]);
+  Induct_on`es`>>fs[]
+QED
 
-Theorem compile_esgc_free
-  `∀e. esgc_free e ⇒ esgc_free (compile e)`
-  (ho_match_mp_tac compile_ind >>
+Theorem compile_esgc_free:
+   ∀e. esgc_free e ⇒ esgc_free (compile e)
+Proof
+  ho_match_mp_tac compile_ind >>
   rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   fs[EVERY_REVERSE,EVERY_MAP,EVERY_MEM]>>
   fs[set_globals_eq,LENGTH_eq,REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS]
@@ -743,21 +790,26 @@ Theorem compile_esgc_free
     fs [dest_WordToInt_SOME] >> rw [] >>
     fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
     fs [])
-  >- (Induct_on`es`>>fs[set_globals_eq]));
+  >- (Induct_on`es`>>fs[set_globals_eq])
+QED
 
-Theorem compile_distinct_setglobals
-  `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
-       BAG_ALL_DISTINCT (set_globals (compile e))`
-  (fs[set_globals_eq]);
+Theorem compile_distinct_setglobals:
+   ∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
+       BAG_ALL_DISTINCT (set_globals (compile e))
+Proof
+  fs[set_globals_eq]
+QED
 
-Theorem compile_no_Labels
-  `!e. no_Labels (compile e)`
-  (ho_match_mp_tac compile_ind \\ rw [compile_def]
+Theorem compile_no_Labels:
+   !e. no_Labels (compile e)
+Proof
+  ho_match_mp_tac compile_ind \\ rw [compile_def]
   \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
   \\ TRY (fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ NO_TAC)
   \\ every_case_tac \\ fs []
   \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
   \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
-  \\ EVAL_TAC \\ fs []);
+  \\ EVAL_TAC \\ fs []
+QED
 
 val _ = export_theory()

@@ -620,13 +620,14 @@ Theorem constrain_op_pmatch
    >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
    >> fs[constrain_op_def]);
 
-Theorem constrain_op_error_msg_sanity
-`!l op args s l' s' msg.
+Theorem constrain_op_error_msg_sanity:
+ !l op args s l' s' msg.
   LENGTH args = SND (op_to_string op) ∧
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
-  IS_PREFIX (explode msg) "Type mismatch"`
- (rpt strip_tac >>
+  IS_PREFIX (explode msg) "Type mismatch"
+Proof
+ rpt strip_tac >>
  qmatch_abbrev_tac `IS_PREFIX _ m` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_def] >>
@@ -635,7 +636,8 @@ Theorem constrain_op_error_msg_sanity
  every_case_tac >>
  fs [] >>
  rw [] >>
- fs [mlstringTheory.concat_thm, Abbr `m`]);
+ fs [mlstringTheory.concat_thm, Abbr `m`]
+QED
 
 val infer_e_def = tDefine "infer_e" `
 (infer_e l ienv (Raise e) =
