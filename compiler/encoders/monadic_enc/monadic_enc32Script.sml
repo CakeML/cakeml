@@ -246,10 +246,10 @@ val enc_sec_hash_32_ls_correct = Q.prove(`
   first_x_assum drule>>rw[]>>
   simp[enc_sec_def]);
 
-Theorem enc_secs_32_correct`
+Theorem enc_secs_32_correct:
   enc_secs_32 enc n xs =
-  (enc_sec_list enc xs)`
-  (
+  (enc_sec_list enc xs)
+Proof
   fs[enc_secs_32_def,enc_secs_32_aux_def]>>
   fs[fetch "-" "run_ienc_state_32_def",run_def]>>
   simp[enc_sec_hash_32_ls_full_def]>>
@@ -258,6 +258,7 @@ Theorem enc_secs_32_correct`
   impl_tac>-
     (unabbrev_all_tac>>fs[good_table_32_def,EVERY_REPLICATE])>>
   rw[]>>
-  fs[enc_sec_list_def]);
+  fs[enc_sec_list_def]
+QED
 
 val _ = export_theory();

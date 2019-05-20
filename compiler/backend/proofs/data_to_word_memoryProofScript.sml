@@ -6117,8 +6117,8 @@ Proof
           \\ AP_THM_TAC \\ AP_TERM_TAC)
 QED
 
-Theorem heap_in_memory_store_UpdateByte
-  `heap_in_memory_store heap a sp sp1 gens c s m dm limit ∧
+Theorem heap_in_memory_store_UpdateByte:
+   heap_in_memory_store heap a sp sp1 gens c s m dm limit ∧
    heap = ha ++ [Bytes be fl bs ws] ++ hb ∧ i < LENGTH bs ∧
    ad = curr + bytes_in_word + n2w i + (bytes_in_word:'a word) * n2w (heap_length ha) ∧
    FLOOKUP s CurrHeap = SOME (Word curr) ∧
@@ -6126,8 +6126,9 @@ Theorem heap_in_memory_store_UpdateByte
    ⇒
    heap_in_memory_store (ha ++ [Bytes be fl (LUPDATE b i bs) ws] ++ hb)
    a sp sp1 gens c s
-   ((byte_align ad =+ Word (set_byte ad b w be)) m) dm limit`
-  (rw[heap_in_memory_store_def]
+   ((byte_align ad =+ Word (set_byte ad b w be)) m) dm limit
+Proof
+  rw[heap_in_memory_store_def]
   \\ fs[heap_length_Bytes,heap_length_APPEND]
   \\ clean_tac
   \\ fs[byte_aligned_def,byte_align_def]
@@ -6322,7 +6323,8 @@ Theorem heap_in_memory_store_UpdateByte
     by ( simp[] )
     \\ pop_assum SUBST1_TAC
     \\ simp[lupdate_append2] )
-  \\ fsrw_tac[star_ss][]);
+  \\ fsrw_tac[star_ss][]
+QED
 
 val hide_memory_rel_def = Define`
   hide_memory_rel = memory_rel`;
