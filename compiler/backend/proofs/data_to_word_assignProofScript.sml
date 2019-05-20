@@ -3141,7 +3141,7 @@ val eq_upto_ts_def = tDefine"eq_upto_ts"`
 ∧ eq_upto_ts (Block _ tag1 (x1::xs1)) (Block _ tag2 (x2::xs2)) =
     (tag1 = tag2 ∧ x1 = x2 ∧ EVERY2 eq_upto_ts xs1 xs2)
 ∧ eq_upto_ts x y = (x = y)`
-(wf_rel_tac `measure (\(x,y). v_size x + v_size y)`
+(wf_rel_tac `measure (\ (x,y). v_size x + v_size y)`
 \\ rw [v1_size_map]
 \\ ho_match_mp_tac LESS_TRANS
 \\ Q.EXISTS_TAC `SUM (MAP v_size xs1) + SUM (MAP v_size xs2) + 1`
@@ -8607,8 +8607,9 @@ Theorem assign_FP_cmp
   \\ TRY (match_mp_tac memory_rel_Boolv_F)
   \\ fs []);
 
-val th = Q.store_thm("assign_FP_top",
-  `(?fpt. op = FP_top fpt) ==> ^assign_thm_goal`,
+Theorem assign_FP_top:
+  (?fpt. op = FP_top fpt) ==> ^assign_thm_goal
+Proof
   rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
@@ -8670,9 +8671,8 @@ val th = Q.store_thm("assign_FP_top",
     \\ fs[lookup_insert,good_dimindex_def,consume_space_def]
     \\ strip_tac
     \\ clean_tac \\ fs[]
-    \\ fs[]
     \\ conj_tac \\ TRY (rw [] \\ NO_TAC)
-    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64]
+    \\ fs [FAPPLY_FUPDATE_THM] \\ rfs [w2w_w2w_64, fpSemTheory.fpfma_def]
     \\ rpt_drule0 memory_rel_less_space
     \\ disch_then match_mp_tac \\ fs [])
   \\ TOP_CASE_TAC \\ fs []
@@ -8719,12 +8719,12 @@ val th = Q.store_thm("assign_FP_top",
   \\ simp[wordSemTheory.get_var_def]
   \\ fs[lookup_insert,good_dimindex_def,consume_space_def]
   \\ rfs [extract_append_id]
-  \\ (qpat_abbrev_tac `ww = fp64_mul_add _ _ _ _`
-      ORELSE qpat_abbrev_tac `ww = fp64_mul_sub _ _ _ _`)
+  \\ (qpat_abbrev_tac `ww = fpSem$fpfma _ _ _`)
   \\ disch_then (qspec_then `ww` mp_tac) \\ fs []
   \\ TRY impl_tac \\ TRY (rw [] \\ NO_TAC)
   \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rveq \\ fs [] \\ rw []);
+  \\ rveq \\ fs [] \\ rw []
+QED
 
 Theorem assign_FP_bop
   `(?fpb. op = FP_bop fpb) ==> ^assign_thm_goal`

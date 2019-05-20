@@ -979,7 +979,7 @@ val fp_cmp_inst_def = Define `
   fp_cmp_inst FP_Equal = FPEqual 3 0 1`;
 
 val fp_top_inst_def_def = Define `
-  fp_top_inst FP_Fma = FPFma 1 2 0`;
+  fp_top_inst FP_Fma = FPFma 0 1 2`;
 
 val fp_bop_inst_def = Define `
   fp_bop_inst FP_Add = FPAdd 0 0 1 /\
@@ -1855,7 +1855,7 @@ val def = assign_Define `
                Inst (FP (FPMovFromReg 1 23 21));
                Inst (FP (FPMovFromReg 2 33 31));
                Inst (FP (fp_top_inst fpt));
-               Inst (FP (FPMovToReg 5 3 2));
+               Inst (FP (FPMovToReg 5 3 0));
                WriteWord64_on_32 c header dest 5 3],l)))
       : 'a wordLang$prog # num`;
 

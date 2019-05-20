@@ -551,7 +551,7 @@ val inst_def = Define `
     | FP (FPFma d1 d2 d3) =>
       (case (get_fp_var d1 s, get_fp_var d2 s, get_fp_var d3 s) of
       | (SOME f1, SOME f2, SOME f3) =>
-        SOME (set_fp_var d1 (fp64_mul_add roundTiesToEven f2 f3 f1) s)
+        SOME (set_fp_var d1 (fpSem$fpfma f1 f2 f3) s)
       | _ => NONE)
     | FP (FPMovToReg r1 r2 d) =>
       (case get_fp_var d s of
