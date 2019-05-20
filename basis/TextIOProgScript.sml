@@ -282,7 +282,7 @@ val _ = (append_prog o process_topdecs)`
         else
           if Word8Array.length surplus < len then
             (b_input_aux is buff off nBuffered;
-            TextIO.input fd buff (off+nBuffered) (len - nBuffered) + nBuffered)
+            input fd buff (off+nBuffered) (len - nBuffered) + nBuffered)
           else
             (*If there arent enough bytes in the buffer: copy all of the bytes
             in the buffer and then refill it, and copy the remaining bytes *)

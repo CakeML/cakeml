@@ -13,7 +13,8 @@
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
      mlstringTheory fsFFITheory fsFFIPropsTheory Word8ProgTheory cfMonadLib
-     Word8ArrayProofTheory TextIOProgTheory MarshallingProgTheory MarshallingTheory;
+     Word8ArrayProofTheory TextIOProgTheory MarshallingProgTheory MarshallingTheory
+     integerTheory int_arithTheory;
 
 val _ = new_theory"TextIOProof";
 
@@ -1820,15 +1821,13 @@ Theorem b_input_spec
     app (p:'ffi ffi_proj) TextIO_b_input_v [is; bufv; offv; lenv]
     (STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is)
     (POSTve
-      (\nv. &(NUM (MIN len (LENGTH content - pos)) nv /\
-              (pbactive = DROP len bactive \/
-              ?bsize. pbactive = DROP (len - LENGTH bactive)
-                         (TAKE bsize (DROP (LENGTH bactive)
-                           (MAP (n2w o ORD) content))))) *
+      (\nv. SEP_EXISTS pbactive. &(NUM (MIN len (LENGTH content - pos)) nv) *
        INSTREAM_BUFFERED_FD pbactive fd is *
-       W8ARRAY bufv (insert_atI (TAKE len (DROP pos (MAP (n2w o ORD) content)))
+       W8ARRAY bufv (insert_atI (TAKE len bactive ++ TAKE (len - LENGTH bactive)
+                                             (DROP pos (MAP (n2w o ORD) content)))
                                  off buf) *
-        STDIO (fsupdate fs fd 0 (MIN (len + pos) (MAX pos (LENGTH content))) content))
+        STDIO (fsupdate fs fd 0 (MIN (len - (LENGTH bactive) + pos)
+                                  (MAX pos (LENGTH content))) content))
     (\e. &(IllegalArgument_exn e /\ LENGTH buf < len + off) *
           STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is))`
   (xcf_with_def "TextIO.b_input" TextIO_b_input_v_def
@@ -1846,14 +1845,63 @@ Theorem b_input_spec
     \\ conj_tac
     >- (xsimpl \\ map_every qexists_tac [`r`,`w`] \\
         simp[IllegalArgument_exn_def])
-    >-(xsimpl \\ rpt strip_tac)
-
-
-\\xlet_auto >- xsimpl
-\\xlet_auto >- xsimpl
-\\fs[instream_buffered_inv_def]
-\\xif
->-(xlet_auto >- xsimpl)
+    >-(xsimpl \\ rpt strip_tac \\ cheat))
+  >-(xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\fs[instream_buffered_inv_def]
+  \\xif
+    >-(`w-r <= LENGTH bactive` by fs[LENGTH_TAKE]
+      \\`LENGTH bactive <= LENGTH bcontent` by fs[LENGTH_TAKE]
+      \\` w ≤ r + LENGTH (TAKE (w − r) (DROP r bcontent))` by fs[LENGTH_TAKE]
+      \\`w-r <= len` by fs[] \\ `w-r + off <= LENGTH buf` by fs[]
+      \\ xlet `POSTv dc. W8ARRAY bufv
+               (insert_atI (TAKE (w-r) bactive)
+                  off buf) * INSTREAM_BUFFERED_FD (DROP (w-r) bactive) fd is *
+               STDIO fs`
+      >-(xapp \\fs[INSTREAM_BUFFERED_def,INSTREAM_BUFFERED_FD_def,
+                    instream_buffered_inv_def] \\xsimpl
+        \\fs[PULL_EXISTS] \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+        \\map_every qexists_tac [`fd`, `w`, `r`, `(w-r)`,`off`]
+        \\fs[PULL_EXISTS, REF_NUM_def, NUM_def, INT_def, INT_OF_NUM_SUBS_2] \\ xsimpl)
+      \\xlet_auto >- xsimpl
+      \\xlet_auto >- xsimpl
+      \\xlet_auto_spec (SOME input_spec) >-(fs[insert_atI_def] \\ xsimpl)
+      \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def,instream_buffered_inv_def]
+      \\xpull \\xapp \\ xsimpl \\ fs[NUM_def] \\ qexists_tac `&w-&r`
+      \\fs[MIN_DEF,MAX_DEF]
+      \\Cases_on `len < w - r + (STRLEN content - pos) /\ 0 < STRLEN content - pos`
+      >-(fs[]
+        \\asm_exists_tac \\ fs[]
+        \\rpt strip_tac
+        \\Cases_on `len < STRLEN content - pos`
+        >-(fs[] \\ `INT (&len) v'4'` by
+                      (fs[INT_NUM_SUB]
+                      \\Cases_on `len + r < w`
+                      >-(fs[])
+                      >-(fs[]
+                      \\fs[INT_SUB_CALCULATE]
+                      \\fs[INT_ADD_ASSOC]
+                      \\fs[INT_ADD_CALCULATE]))
+          \\map_every qexists_tac [`r'`,`w'`]
+          \\ xsimpl \\fs[TAKE_TAKE, insert_atI_def, LENGTH_TAKE, TAKE_APPEND2] \\
+          \\ fs[TAKE_SEG, DROP_SEG]
+          \\`pos < LENGTH (MAP (n2w ∘ ORD) content)` by fs[]
+          \\`w-r <= len` by fs[]
+          \\`w-r <= LENGTH bcontent` by fs[]
+          \\fs[TAKE_TAKE_MIN, MIN_DEF]
+          \\fs[DROP_NIL,LENGTH_TAKE, LENGTH_DROP, LENGTH_APPEND, TAKE_APPEND,
+                    TAKE_APPEND1, TAKE_APPEND2, DROP_APPEND, DROP_APPEND1, DROP_APPEND2,
+                    DROP_DROP])
+        >-(fs[]
+          \\`LENGTH content - pos <= len` by fs[]
+          \\`w-r <= len` by fs[]
+          \\`w-r > 0` by fs[]
+          \\`w − r + (STRLEN content − pos) >= STRLEN content - pos` by fs[]
+          \\`len - (w-r) < STRLEN content - pos` by fs[LESS_ADD]
+          \\cheat
+          ))
+      >-(cheat))
+    >-(cheat)));
 
 Theorem extend_array_spec
     `∀arrv arr.
