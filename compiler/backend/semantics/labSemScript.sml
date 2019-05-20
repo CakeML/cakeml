@@ -174,7 +174,7 @@ val fp_upd_def = Define `
        (fp64_div roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
   (fp_upd (FPFma d1 d2 d3) s =
      upd_fp_reg d1
-       (fpSem$fpfma (read_fp_reg d2 s) (read_fp_reg d3 s) (read_fp_reg d1 s)) s) /\
+       (fpSem$fpfma (read_fp_reg d1 s) (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
   (fp_upd (FPMovToReg r1 r2 d) s =
      if dimindex(:'a) = 64 then
        upd_reg r1 (Word (w2w (read_fp_reg d s))) s
