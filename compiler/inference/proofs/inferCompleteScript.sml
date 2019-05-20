@@ -1368,8 +1368,8 @@ Proof
     metis_tac[env_rel_extend]
 QED
 
-Theorem infer_ds_complete
-  `type_ds T tenv ds ids tenv' ∧
+Theorem infer_ds_complete:
+   type_ds T tenv ds ids tenv' ∧
    env_rel tenv ienv ∧
    (* do you need both of these? *)
    inf_set_tids_ienv (count st1.next_id) ienv ∧
@@ -1384,8 +1384,9 @@ Theorem infer_ds_complete
      *)
      tenv_equiv (remap_tenv g tenv') mapped_tenv' ∧
      env_rel mapped_tenv' ienv' ∧
-     st2.next_id = st1.next_id + CARD ids`
-  (rw[]
+     st2.next_id = st1.next_id + CARD ids
+Proof
+  rw[]
   \\ drule(CONJUNCT2 type_d_type_d_canon)
   \\ simp[]
   \\ disch_then drule
@@ -1434,7 +1435,8 @@ Theorem infer_ds_complete
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   (*
   \\ imp_res_tac DISJOINT_SYM
-  \\ drule (GEN_ALL BIJ_extend_bij) \\ fs[]*));
+  \\ drule (GEN_ALL BIJ_extend_bij) \\ fs[]*)
+QED
 
 (*
 Theorem check_specs_complete:
