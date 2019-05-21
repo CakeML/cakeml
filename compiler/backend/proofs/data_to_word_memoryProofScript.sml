@@ -4009,6 +4009,8 @@ Theorem duplicate_thm
   (full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def] THEN1 metis_tac [MEM_APPEND]
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
+  \\ qexists_tac `tf` \\ full_simp_tac std_ss []
+  \\ conj_tac >- fs [all_ts_def]
   \\ imp_res_tac LIST_REL_APPEND_EQ \\ full_simp_tac std_ss []
   \\ full_simp_tac std_ss [APPEND_ASSOC]
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []);
@@ -4032,6 +4034,8 @@ Theorem move_thm
   \\ full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def] THEN1 metis_tac [MEM_APPEND]
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
+  \\ qexists_tac `tf` \\ full_simp_tac std_ss []
+  \\ conj_tac >- (fs [all_ts_def,SUBSET_DEF] \\ metis_tac [])
   \\ strip_tac THEN1 fs[LIST_REL_APPEND_EQ]
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []);
 
@@ -4066,6 +4070,8 @@ Theorem abs_ml_inv_Num
   \\ fs [reachable_refs_def]
   \\ rw [] \\ fs [] \\ res_tac \\ fs []
   \\ qexists_tac `f` \\ fs []
+  \\ qexists_tac `tf` \\ fs []
+  \\ conj_tac >- (fs [all_ts_def,SUBSET_DEF] \\ metis_tac [])
   \\ rw [] \\ fs [get_refs_def] \\ metis_tac []);
 
 Theorem heap_store_unused_IMP_length
