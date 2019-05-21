@@ -3926,6 +3926,14 @@ Theorem all_ts_permute
   `∀refs stack stack'. PERM stack stack' ⇒ all_ts refs stack = all_ts refs stack`
   (rw [all_ts_def]);
 
+Theorem reachable_refs_stack_subset
+  `∀x y refs n. reachable_refs y refs n ∧ set y ⊆ set x ⇒ reachable_refs x refs n`
+  (rw [reachable_refs_def]
+  \\ qexists_tac `x'`
+  \\ qexists_tac `r`
+  \\ rw []
+  \\ fs [SUBSET_DEF,LIST_TO_SET_DEF,MEM]);
+
 Theorem abs_ml_inv_stack_permute
   `!xs ys.
       abs_ml_inv conf (MAP FST xs ++ stack) refs
@@ -3937,11 +3945,60 @@ Theorem abs_ml_inv_stack_permute
   \\ full_simp_tac std_ss [roots_ok_def]
   THEN1 (full_simp_tac std_ss [MEM_APPEND,SUBSET_DEF,MEM_MAP] \\ metis_tac [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ full_simp_tac std_ss [LIST_REL_APPEND_EQ,LENGTH_MAP]
-  \\ full_simp_tac std_ss [EVERY2_MAP_FST_SND]
-  \\ full_simp_tac std_ss [EVERY_MEM,SUBSET_DEF]
-  \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND,MEM_MAP]
-  \\ metis_tac []);
+  \\ qexists_tac `DRESTRICT tf (all_ts refs (MAP FST ys ++ stack))` \\ full_simp_tac std_ss []
+  \\ conj_tac
+  >- fs[INJ_DEF,DRESTRICT_DEF]
+  \\ conj_tac
+  >- fs[SUBSET_DEF,DRESTRICT_DEF]
+  \\ conj_tac
+  >- (full_simp_tac std_ss [LIST_REL_APPEND_EQ,LENGTH_MAP]
+     \\ conj_tac
+     >- (full_simp_tac std_ss [EVERY2_MAP_FST_SND]
+        \\ full_simp_tac std_ss [EVERY_MEM,SUBSET_DEF]
+        \\ rw [] \\ pairarg_tac \\ rw []
+        \\ ho_match_mp_tac v_inv_tf_restrict
+        \\ rw []
+        >- (pop_assum (fn t => first_assum (fn t' => mp_then Any ASSUME_TAC t' t))
+           \\ pop_assum (fn t => first_assum (fn t' => mp_then Any ASSUME_TAC t' t))
+           \\ fs [])
+        >- (rw [all_ts_def] \\ qexists_tac `v`
+           \\ rw [] \\ disj2_tac \\ disj1_tac
+           \\ drule mem_exists_set
+           \\ rw [MEM,MEM_MAP]
+           \\ metis_tac []))
+     >- (match_mp_tac EVERY2_MEM_MONO
+        \\ imp_res_tac LIST_REL_APPEND_IMP
+        \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
+        \\ simp[FORALL_PROD] \\ rw[]
+        \\ ho_match_mp_tac v_inv_tf_restrict
+        \\ rw [] \\ ho_match_mp_tac MEM_in_all_ts
+        \\ qexists_tac `p_1` \\ rw []
+        \\ ho_match_mp_tac MEM_stack_all_vs
+        \\ drule MEM_ZIP2 \\ rw []
+        \\ rw [EL_MEM]))
+  \\ rw []
+  \\ drule_then (qspec_then `MAP FST xs ++ stack` mp_tac) reachable_refs_stack_subset
+  \\ impl_tac
+  >- (fs [SUBSET_DEF,LIST_TO_SET_DEF,MEM_MAP] \\ metis_tac [])
+  (* TODO: lookup for flip combinator *)
+  \\ disch_then (fn t1 => first_x_assum (fn t2 => mp_then Any mp_tac t2 t1))
+  \\ fs[bc_ref_inv_def]
+  \\ Cases_on `FLOOKUP f n` \\ fs []
+  \\ Cases_on `FLOOKUP refs n` \\ fs []
+  \\ Cases_on `x'` \\ rw []
+  \\ qexists_tac `zs` \\ rw []
+  \\ match_mp_tac EVERY2_MEM_MONO
+  \\ imp_res_tac LIST_REL_APPEND_IMP
+  \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
+  \\ simp[FORALL_PROD] \\ rw[]
+  \\ ho_match_mp_tac v_inv_tf_restrict
+  \\ rw [] \\ ho_match_mp_tac MEM_in_all_ts
+  \\ qexists_tac `p_2` \\ rw []
+  \\ rw [all_vs_def] \\ disj1_tac
+  \\ map_every qexists_tac [`n`,`l`] \\ rw []
+  \\ ho_match_mp_tac MEM_v_all_vs
+  \\ drule MEM_ZIP2 \\ rw []
+  \\ rw [EL_MEM]);
 
 (* duplicate *)
 
