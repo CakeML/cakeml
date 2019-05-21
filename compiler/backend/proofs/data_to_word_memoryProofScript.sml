@@ -4238,12 +4238,17 @@ Theorem IMP_THE_EQ
   `x = SOME w ==> THE x = w`
   (full_simp_tac(srw_ss())[]);
 
+val timestamps_ok_def = Define`
+  timestamps_ok (refs : num |-> v ref) stack ts =
+    ∀t. t ∈ all_ts refs stack ⇒ t < ts`
+
 val memory_rel_def = Define `
-  memory_rel c be refs space st (m:'a word -> 'a word_loc) dm vars <=>
+  memory_rel c be ts refs space st (m:'a word -> 'a word_loc) dm vars <=>
     ∃heap limit a sp sp1 gens.
        heap_in_memory_store heap a sp sp1 gens c st m dm limit ∧
        word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs vars ∧
-       (limit+3) * (dimindex (:α) DIV 8) + 1 < dimword (:α) ∧ space ≤ sp`
+       (limit+3) * (dimindex (:α) DIV 8) + 1 < dimword (:α) ∧ space ≤ sp ∧
+       timestamps_ok refs (MAP FST vars) ts`
 
 Theorem EVERY2_MAP_MAP
   `!xs. EVERY2 P (MAP f xs) (MAP g xs) = EVERY (\x. P (f x) (g x)) xs`
