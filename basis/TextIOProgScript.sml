@@ -273,7 +273,7 @@ val _ = (append_prog o process_topdecs)`
     case is of InstreamBuffered fd rref wref surplus =>
         (wref := 4 + (read_into (get_in fd) surplus ((Word8Array.length surplus)-4));
         rref := 4;
-        (!wref))`;
+        (!wref) - 4)`;
 
 (*b_input helper function for the case when there are
   enough bytes in instream buffer*)

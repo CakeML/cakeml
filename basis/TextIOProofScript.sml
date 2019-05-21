@@ -1855,19 +1855,18 @@ Theorem b_openIn_spec
   (xcf_with_def "TextIO.b_openIn" TextIO_b_openIn_v_def
   \\xapp \\ fs[INT_NUM_EXISTS]);
 
-
 Theorem b_refillBuffer_spec
-  `!fd fdv fs content pos.
-    is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
-    get_file_content fs fd = SOME(content, pos) ⇒
-    get_mode fs fd = SOME ReadMode ⇒
-    app (p:'ffi ffi_proj) TextIO_b_refillBuffer_v [is;]
-    (IOFS_WO_iobuff fs * INSTREAM_BUFFERED_FD bactive fd is )
-    (POSTv wv. SEP_EXISTS bsize.
-                  &(NUM (MIN bsize (LENGTH content - pos)) wv) *
-                  INSTREAM_BUFFERED_FD (TAKE (MIN bsize (LENGTH content - pos))
-                                      (DROP pos (MAP (n2w o ORD) content))) fd is *
-        SEP_EXISTS k. IOFS_WO_iobuff (fsupdate fs fd k (MIN (bsize + pos) (MAX pos (LENGTH content))) content))`
+ `!fd fdv fs content pos.
+   is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
+   get_file_content fs fd = SOME(content, pos) ⇒
+   get_mode fs fd = SOME ReadMode ⇒
+   app (p:'ffi ffi_proj) TextIO_b_refillBuffer_v [is;]
+   (IOFS_WO_iobuff fs * INSTREAM_BUFFERED_FD bactive fd is )
+   (POSTv wv. SEP_EXISTS (nr:num) buff.
+                 &(NUM nr wv /\
+                   buff = (0w::n2w (nr DIV 256)::n2w nr::h4'::rest)) *
+                 INSTREAM_BUFFERED_FD (TAKE nr (DROP pos (MAP (n2w o ORD) content))) fd is *
+       SEP_EXISTS k. IOFS_WO_iobuff (fsupdate fs fd k (nr+pos) content))`
   (xcf_with_def "TextIO.b_refillBuffer" TextIO_b_refillBuffer_v_def
   \\reverse(Cases_on`pos ≤ LENGTH content`)
     >-(imp_res_tac get_file_content_eof \\ rfs[]
@@ -1882,75 +1881,77 @@ Theorem b_refillBuffer_spec
       \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t`
       \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t`
       \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t`
-      \\xlet_auto>- xsimpl
-      \\xsimpl
+      \\xlet_auto>- xsimpl \\ xsimpl \\ xsimpl
+      \\fs[REF_NUM_def] \\ xpull
+      \\xlet_auto >- xsimpl
+      \\xlet_auto >- xsimpl
+      \\xlet_auto >- xsimpl
+      \\xlet_auto >- xsimpl
+      \\xapp \\ xsimpl
+      \\qexists_tac `4` \\ rpt strip_tac >- fs[NUM_def]
+      \\fs[NUM_def]
+      \\map_every qexists_tac [`0`,`1`,`4`] \\ fs[]
+      \\`LENGTH content' - pos' = 0` by decide_tac \\fs[INT_def]
+      \\ conj_tac
+      >-(fs[get_file_content_def]
+        \\imp_res_tac ALOOKUP_MEM
+        \\`fd = FST (fd,x)` by fs[FST]
+        \\`MEM fd (MAP FST fs.infds)` by (imp_res_tac (GSYM MEM_MAP))
+        \\fs[wfFS_fsupdate])
+      >-(`bumpFD fd fs 0 = fsupdate fs fd 1 (nr+pos') content'` by
+            (simp[fsupdate_def,bumpFD_def]
+            \\ fs[get_file_content_def]
+            \\ pairarg_tac \\ fs[] \\ rw[]
+            \\ fs[wfFS_def,liveFS_def,live_numchars_def]
+            \\ Cases_on`fs.numchars` >- fs[]
+            \\ simp[LDROP_1]
+            \\ simp[IO_fs_component_equality]
+            \\ simp[ALIST_FUPDKEY_unchanged]
+            \\ xsimpl) \\ xsimpl))
+    >-(imp_res_tac get_file_content_eof \\ rfs[]
+      \\fs[IOFS_WO_iobuff_def,
+            INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def]
+      \\xpull \\ xmatch
+      \\xlet_auto >- xsimpl
+      \\xlet_auto >- xsimpl
+      \\fs[INSTREAM_def] \\ xlet_auto >- xsimpl
+      \\fs[get_in_def] \\ `FD fd sv` by fs[FD_def]
+      \\Cases_on `bcontent` >> fs[] >> qmatch_goalsub_rename_tac`h1::t`
+      \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t`
+      \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t`
+      \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t`
+      \\xlet_auto
+      >-(xsimpl \\ rpt strip_tac \\qexists_tac `x` \\ xsimpl) \\xsimpl
       \\xlet_auto >- xsimpl
       \\fs[REF_NUM_def] \\ xpull
       \\xlet_auto >- xsimpl
       \\xlet_auto >- xsimpl
-      \\`LENGTH content' - pos' = 0` by decide_tac
-    \\ xapp
-    \\ xsimpl
-    \\ simp[DROP_LENGTH_TOO_LONG,insert_atI_NIL]
-    \\ simp[fsupdate_def,bumpFD_def]
-    \\ fs[get_file_content_def]
-    \\ pairarg_tac \\ fs[] \\ rw[]
-    \\ fs[wfFS_def,liveFS_def,live_numchars_def]
-    \\ qexists_tac`1`
-    \\ Cases_on`fs.numchars` >- fs[]
-    \\ simp[LDROP_1]
-    \\ qmatch_abbrev_tac`IOFS f1 ==>> IOFS f2 * _`
-    \\ `f1 = f2` by (
-      simp[Abbr`f1`,Abbr`f2`,IO_fs_component_equality]
-      \\ simp[ALIST_FUPDKEY_unchanged] )
-    \\ xsimpl
-      \\xapp \\ xsimpl \\ qexists_tac `pos` \\ qexists_tac `4`
-      \\simp[fsupdate_def, bumpFD_def] \\xsimpl)
-
-
-  \\qpat_abbrev_tac`fcontent = (MAP (n2w o ORD) content)`
-  \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def,IOFS_WO_iobuff_def]
-  \\xpull
-  \\xmatch
-  \\xlet_auto >- xsimpl
-  \\xlet_auto >- xsimpl
-  \\fs[instream_buffered_inv_def]
-  \\Cases_on `bcontent` >> fs[] >> qmatch_goalsub_rename_tac`h1::t`
-  \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t`
-  \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t`
-  \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t`
-  \\fs[INSTREAM_def, INSTREAM_TYPE_def]
-  \\`fd < 256 ** 8` by fs[]
-  \\imp_res_tac FD_def
-  \\xlet_auto
-
-
-  \\xlet_auto_spec (SOME (SIMP_RULE (srw_ss()) [IOFS_WO_iobuff_def] read_into_spec)) >- xsimpl
-  \\xlet_auto >- xsimpl
-  \\xlet_auto >- xsimpl
-  \\`pos = LENGTH content ⇒ MIN (LENGTH bcontent + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
-  \\xapp \\ xsimpl
-  \\map_every qexists_tac [`LENGTH bcontent`,`(MIN (LENGTH bcontent) (STRLEN content − pos))`,`fd`]
-  \\simp[MAX_DEF,MIN_DEF] \\ xsimpl
-  \\qpat_abbrev_tac`take_fcontent = (TAKE (LENGTH bcontent) (DROP pos fcontent))`
-  \\`LENGTH take_fcontent <= LENGTH bcontent` by
-      fs[Abbr`take_fcontent`,Abbr`fcontent`,LENGTH_TAKE_EQ_MIN,LENGTH_TAKE,MIN_DEF]
-  \\fs[LENGTH_insert_atI]
-  \\CASE_TAC
-  >-(rw[Abbr`take_fcontent`,insert_atI_def,TAKE_APPEND]
-    \\`LENGTH (TAKE (LENGTH bcontent) (DROP pos fcontent)) = LENGTH bcontent`
-            by fs[Abbr`fcontent`,LENGTH_TAKE]
-    \\fs[Abbr`fcontent`,TAKE_0,TAKE_TAKE])
-  >-(rw[Abbr`take_fcontent`,insert_atI_def,TAKE_APPEND]
-    \\`LENGTH (TAKE (LENGTH bcontent) (DROP pos fcontent)) =
-          MIN (LENGTH bcontent) (LENGTH fcontent - pos)`
-            by fs[Abbr`fcontent`,LENGTH_TAKE_EQ_MIN, LENGTH_DROP]
-    \\fs[MIN_DEF] \\ CASE_TAC
-    >-(fs[Abbr`fcontent`,take_drop_append])
-    >-(fs[Abbr`fcontent`,take_drop_append, TAKE_TAKE_MIN]
-      >-(fs[MIN_DEF] \\ CASE_TAC
-        >-(`STRLEN content - pos = LENGTH bcontent` by fs[]
-          \\fs[])))));*)
+      \\xlet_auto >- xsimpl
+      \\xapp \\ xsimpl \\ fs[NUM_def]
+      \\qexists_tac `&(nr + 4)` \\ fs[] \\ rpt strip_tac
+      \\qabbrev_tac `buff_size = SUC (SUC (SUC (SUC (LENGTH t))))`
+      \\map_every qexists_tac [`nr`,`1`, `&(nr+4)`] \\ xsimpl
+      \\fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE]
+      \\rpt conj_tac
+      >-(fs[MAP_TAKE, TAKE_APPEND1, MAP_DROP, TAKE_TAKE])
+      >-(fs[get_file_content_def]
+        \\imp_res_tac ALOOKUP_MEM
+        \\`fd = FST (fd,x)` by fs[FST]
+        \\`MEM fd (MAP FST fs.infds)` by (imp_res_tac (GSYM MEM_MAP))
+        \\fs[wfFS_fsupdate])
+      >-(`bumpFD fd fs nr = fsupdate fs fd 1 (nr + pos') content'`
+            by (simp[fsupdate_def,bumpFD_def]
+                \\ fs[get_file_content_def]
+                \\ pairarg_tac \\ fs[] \\ rw[]
+                \\ fs[wfFS_def,liveFS_def,live_numchars_def]
+                \\ Cases_on`fs.numchars` >- fs[]
+                \\ simp[LDROP_1]
+                \\ fs[IO_fs_component_equality]
+                >-(simp[ALIST_FUPDKEY_unchanged]
+                  \\ fs[ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq])
+                >-(simp[ALIST_FUPDKEY_unchanged]
+                  \\ fs[ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq]))
+        \\xsimpl)));
 
 Theorem b_input_aux_spec
   `!len lenv outbuf is.
