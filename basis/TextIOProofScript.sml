@@ -1822,23 +1822,20 @@ Theorem b_openInSetBufferSize_spec
   \\xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
-  \\xlet `POSTv ev. &NUM 65535 ev * IOFS (openFileFS s fs ReadMode 0)`
-  >-(xapp \\)
   \\xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
   \\xlet `POSTv wr1. REF_NUM wr1 4 *
-                      (W8ARRAY v'' (REPLICATE (MAX (bsize+4) 1028) 48w)) *
+                      (W8ARRAY v'' (REPLICATE (MIN 65535 (MAX (bsize+4) 1028)) 48w)) *
                       IOFS (openFileFS s fs ReadMode 0)`
-  >-(xref \\ fs[REF_NUM_def] \\ xsimpl)
+  >-(xref \\ fs[REF_NUM_def, MIN_DEF] \\ xsimpl)
   \\xlet `POSTv rr1. REF_NUM rr1 4 *
                         REF_NUM wr1 4 *
-                        (W8ARRAY v'' (REPLICATE (MAX (bsize+4) 1028) 48w)) *
+                        (W8ARRAY v'' (REPLICATE (MIN 65535 (MAX (bsize+4) 1028)) 48w)) *
                         IOFS (openFileFS s fs ReadMode 0)`
-  >-(xref \\ fs[REF_NUM_def] \\ xsimpl)
+  >-(xref \\ fs[REF_NUM_def,MIN_DEF] \\ xsimpl)
     \\xcon \\ fs[INSTREAM_BUFFERED_FD_def] \\ xsimpl
     \\map_every qexists_tac [`4`, `4`]
-    \\fs[instream_buffered_inv_def, MAX_DEF] \\ xsimpl
-    \\xsimpl);
+    \\fs[instream_buffered_inv_def, MAX_DEF] \\ xsimpl);
 
 
 Theorem b_openIn_spec
@@ -1857,6 +1854,7 @@ Theorem b_openIn_spec
                    * IOFS fs))`
   (xcf_with_def "TextIO.b_openIn" TextIO_b_openIn_v_def
   \\xapp \\ fs[INT_NUM_EXISTS]);
+
 
 Theorem b_refillBuffer_spec
   `!fd fdv fs content pos.
@@ -1878,9 +1876,8 @@ Theorem b_refillBuffer_spec
       \\xpull \\ xmatch
       \\xlet_auto >- xsimpl
       \\xlet_auto >- xsimpl
-      \\xlet_auto >- xsimpl
-      \\fs[INSTREAM_def, get_in_def]
-      \\`FD fd sv` by fs[FD_def]
+      \\fs[INSTREAM_def] \\ xlet_auto >- xsimpl
+      \\fs[get_in_def] \\ `FD fd sv` by fs[FD_def]
       \\Cases_on `bcontent` >> fs[] >> qmatch_goalsub_rename_tac`h1::t`
       \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t`
       \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t`
@@ -1888,7 +1885,27 @@ Theorem b_refillBuffer_spec
       \\xlet_auto>- xsimpl
       \\xsimpl
       \\xlet_auto >- xsimpl
+      \\fs[REF_NUM_def] \\ xpull
       \\xlet_auto >- xsimpl
+      \\xlet_auto >- xsimpl
+      \\`LENGTH content' - pos' = 0` by decide_tac
+    \\ xapp
+    \\ xsimpl
+    \\ simp[DROP_LENGTH_TOO_LONG,insert_atI_NIL]
+    \\ simp[fsupdate_def,bumpFD_def]
+    \\ fs[get_file_content_def]
+    \\ pairarg_tac \\ fs[] \\ rw[]
+    \\ fs[wfFS_def,liveFS_def,live_numchars_def]
+    \\ qexists_tac`1`
+    \\ Cases_on`fs.numchars` >- fs[]
+    \\ simp[LDROP_1]
+    \\ qmatch_abbrev_tac`IOFS f1 ==>> IOFS f2 * _`
+    \\ `f1 = f2` by (
+      simp[Abbr`f1`,Abbr`f2`,IO_fs_component_equality]
+      \\ simp[ALIST_FUPDKEY_unchanged] )
+    \\ xsimpl
+      \\xapp \\ xsimpl \\ qexists_tac `pos` \\ qexists_tac `4`
+      \\simp[fsupdate_def, bumpFD_def] \\xsimpl)
 
 
   \\qpat_abbrev_tac`fcontent = (MAP (n2w o ORD) content)`
@@ -1933,7 +1950,7 @@ Theorem b_refillBuffer_spec
     >-(fs[Abbr`fcontent`,take_drop_append, TAKE_TAKE_MIN]
       >-(fs[MIN_DEF] \\ CASE_TAC
         >-(`STRLEN content - pos = LENGTH bcontent` by fs[]
-          \\fs[])))));
+          \\fs[])))));*)
 
 Theorem b_input_aux_spec
   `!len lenv outbuf is.
