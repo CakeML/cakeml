@@ -30,6 +30,10 @@ val IOFS_iobuff_def = Define`
 val IOFS_def = Define `
   IOFS fs = IOx (fs_ffi_part) fs * IOFS_iobuff * &wfFS fs`
 
+(*Used for read_into where the target buffer is specified*)
+val IOFS_WO_iobuff_def = Define `
+  IOFS_WO_iobuff fs = IOx (fs_ffi_part) fs * &wfFS fs`;
+
 Theorem UNIQUE_IOFS
 `!s. VALID_HEAP s ==> !fs1 fs2 H1 H2. (IOFS fs1 * H1) s /\
                                       (IOFS fs2 * H2) s ==> fs1 = fs2`
@@ -571,7 +575,10 @@ val REF_NUM_def = Define `
 
 val instream_buffered_inv_def = Define `
   instream_buffered_inv r w bcontent bactive =
-      (LENGTH bcontent > 0 /\
+      (1028 <= LENGTH bcontent  /\
+       LENGTH bcontent < 256**2 /\
+      4 <= w /\
+      4 <= r /\
       r <= LENGTH bcontent /\
       w <= LENGTH bcontent /\
       r <= w /\
@@ -1387,6 +1394,100 @@ Theorem read_spec
    xif >> instantiate >> xapp >> xsimpl >> rw[] >> instantiate >>
    simp[GSYM n2w2_def,w22n_n2w2] >> xsimpl);
 
+Theorem read_into_spec
+  `!fs fd fdv n nv buf. wfFS fs ⇒ FD fd fdv ⇒ NUM n nv ⇒
+   n < 256**2 ⇒ MAX n 1024 <= LENGTH rest ⇒
+   app (p:'ffi ffi_proj) TextIO_read_into_v [fdv;buf;nv]
+   (W8ARRAY buf (h1::h2::h3::h4::rest) * IOx fs_ffi_part fs)
+   (POSTve
+     (\nrv. SEP_EXISTS (nr : num).
+      &(NUM nr nrv) *
+      SEP_EXISTS content pos.
+        &(get_file_content fs fd = SOME(content, pos) /\
+          get_mode fs fd = SOME ReadMode /\
+          (nr <= MIN n (LENGTH content - pos)) /\
+          (nr = 0 ⇔ eof fd fs = SOME T ∨ n = 0)) *
+      IOx fs_ffi_part (bumpFD fd fs nr) *
+      W8ARRAY buf (0w :: n2w (nr DIV 256) :: n2w nr :: h4::
+        MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest))
+     (\e. &InvalidFD_exn e * &(get_file_content fs fd = NONE ∨ get_mode fs fd ≠ SOME ReadMode) * IOFS_WO_iobuff fs))`
+   (xcf_with_def "TextIO.read_into" TextIO_read_into_v_def >>
+   fs[IOFS_WO_iobuff_def] >>
+   xlet_auto >- xsimpl >>
+   simp[insert_atI_def,n2w2_def] >>
+   cases_on`get_file_content fs fd`
+   >-(xlet`POSTv v. W8ARRAY buf (1w::n2w n::h3::h4::rest) * IOx fs_ffi_part fs`
+      >-(xffi >> xsimpl >>
+         fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
+         qmatch_goalsub_abbrev_tac`IO st f ns` >>
+         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+         map_every qexists_tac[`ns`,`f`] >>
+         xsimpl >> qexists_tac`n2w8 fd` >>
+         fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def, ffi_read_def,
+            w82n_n2w8,LENGTH_n2w8,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
+            dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
+            HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
+            get_file_content_def,n2w_w2n,w2n_n2w,FD_def,STRING_TYPE_def] >> rfs[] >>
+         `n < 2 ** (2 * 8)` by fs[] >> imp_res_tac w22n_n2w2 >>
+         fs[n2w2_def] >> xsimpl >>
+         pairarg_tac >> fs[] >>
+         TRY(Cases_on`md`) >> fs[] >> xsimpl) >>
+      rpt(xlet_auto >- xsimpl) >> xif >> instantiate >>
+      xlet_auto >-(xcon >> xsimpl >> instantiate >> xsimpl) >>
+      xraise >> xsimpl >> fs[InvalidFD_exn_def] >> xsimpl) >>
+   cases_on`x` >> fs[] >>
+   cases_on`get_mode fs fd`
+   >- fs[get_mode_def, get_file_content_def] >>
+   reverse(cases_on`x` >> fs[])
+   >-(xlet`POSTv v. W8ARRAY buf (1w::n2w n::h3::h4::rest) * IOx fs_ffi_part fs`
+      >-(xffi >> xsimpl >>
+         fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
+         qmatch_goalsub_abbrev_tac`IO st f ns` >>
+         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+         map_every qexists_tac[`ns`,`f`] >>
+         xsimpl >> qexists_tac`n2w8 fd` >>
+         fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def, ffi_read_def,
+            w82n_n2w8,LENGTH_n2w8,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
+            dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
+            HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
+            get_file_content_def,n2w_w2n,w2n_n2w,FD_def,STRING_TYPE_def] >> rfs[] >>
+         `n < 2 ** (2 * 8)` by fs[] >> imp_res_tac w22n_n2w2 >>
+         rfs[get_mode_def] >>
+         fs[n2w2_def] >> xsimpl >>
+         pairarg_tac >> fs[] >> xsimpl) >>
+      rpt(xlet_auto >- xsimpl) >> xif >> instantiate >>
+      xlet_auto >-(xcon >> xsimpl >> instantiate >> xsimpl) >>
+      xraise >> xsimpl >> fs[InvalidFD_exn_def] >> xsimpl) >>
+   xlet `POSTve (\uv. SEP_EXISTS nr nrv . &(NUM nr nrv) *
+      SEP_EXISTS content pos.  &(get_file_content fs fd = SOME(content, pos) /\
+          get_mode fs fd = SOME ReadMode /\
+          (nr <= MIN n (LENGTH content - pos)) /\
+          (nr = 0 ⇔ eof fd fs = SOME T ∨ n = 0)) *
+        IOx fs_ffi_part (bumpFD fd fs nr) *
+        W8ARRAY buf (0w :: n2w (nr DIV 256) :: n2w nr :: h4 ::
+          (MAP (n2w o ORD) (TAKE nr (DROP pos content))++DROP nr rest)))
+          (\e. &(get_file_content fs fd = NONE))` >> xsimpl
+   >-(xffi >> xsimpl >>
+      fs[IOFS_WO_iobuff_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def] >>
+      qmatch_goalsub_abbrev_tac`IO st f ns` >>
+      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
+      map_every qexists_tac[`ns`,`f`] >>
+      xsimpl >> qexists_tac`n2w8 fd` >>
+      fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
+         ffi_read_def,w82n_n2w8,LENGTH_n2w8,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
+         dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
+         HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
+         get_file_content_def,FD_def,STRING_TYPE_def] >> rfs[get_mode_def] >>
+      simp[GSYM n2w2_def,w22n_n2w2] >>
+      pairarg_tac >> xsimpl >> fs[] >> rw[] >>
+      cases_on`fs.numchars` >> fs[wfFS_def,liveFS_def,live_numchars_def] >>
+      fs[n2w2_def,DIV_MOD_MOD_DIV,DIV_DIV_DIV_MULT] >> xsimpl >>
+      qmatch_goalsub_abbrev_tac`(k DIV 256) MOD 256 = _ MOD 256` >> qexists_tac`k` >>
+      xsimpl >> fs[MIN_LE,eof_def,Abbr`k`,NUM_def,INT_def]) >>
+   rpt(xlet_auto >- xsimpl) >>
+   xif >> instantiate >> xapp >> xsimpl >> rw[] >> instantiate >>
+   simp[GSYM n2w2_def,w22n_n2w2] >> xsimpl);
+
 Theorem read_byte_spec
   `!fd fdv content pos.
     FD fd fdv ⇒
@@ -1701,65 +1802,113 @@ Theorem take_drop_append
    TAKE y (DROP z l)`
   (fs[take_drop_partition,GSYM DROP_DROP_T]);
 
-Theorem b_openIn_spec
+Theorem b_openInSetBufferSize_spec
   `∀s sv fs bsize bsizev bactive.
      FILENAME s sv ∧
      NUM bsize bsizev /\
      hasFreeFD fs ⇒
-     app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv;bsizev]
+     app (p:'ffi ffi_proj) TextIO_b_openInSetBufferSize_v [sv;bsizev]
        (IOFS fs)
        (POSTve
           (\is. &(
                   validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
-                  inFS_fname fs (File s) /\
-                  bsize > 0) *
+                  inFS_fname fs (File s)) *
                 INSTREAM_BUFFERED_FD [] (nextFD fs) is *
                 IOFS (openFileFS s fs ReadMode 0))
-          (\e. SEP_EXISTS efs. &((BadFileName_exn e ∧ ~inFS_fname fs (File s) /\ efs = fs) \/
-                  (IllegalArgument_exn e ∧ 0 = bsize) /\ efs = openFileFS s fs ReadMode 0) *
-                  IOFS efs))`
-  (xcf_with_def "TextIO.b_openIn" TextIO_b_openIn_v_def
-  \\xlet_auto >- xsimpl >- (xsimpl \\ rpt strip_tac \\ qexists_tac `fs` \\ xsimpl)
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s))
+                   * IOFS fs))`
+  (xcf_with_def "TextIO.b_openInSetBufferSize_v_def" TextIO_b_openInSetBufferSize_v_def
+  \\xlet_auto >- xsimpl >- (xsimpl)
   \\xlet_auto >- xsimpl
-  \\xif
-  >-(xlet_auto >- xsimpl
-    \\xlet_auto >- xsimpl
-    \\xlet `POSTv wr1. REF_NUM wr1 0 *
-                      (W8ARRAY v'' (REPLICATE bsize 48w)) *
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet `POSTv ev. &NUM 65535 ev * IOFS (openFileFS s fs ReadMode 0)`
+  >-(xapp \\)
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet `POSTv wr1. REF_NUM wr1 4 *
+                      (W8ARRAY v'' (REPLICATE (MAX (bsize+4) 1028) 48w)) *
                       IOFS (openFileFS s fs ReadMode 0)`
-    >-(xref \\ fs[REF_NUM_def] \\ xsimpl)
-      \\xlet `POSTv rr1. REF_NUM rr1 0 *
-                        REF_NUM wr1 0 *
-                        (W8ARRAY v'' (REPLICATE bsize 48w)) *
+  >-(xref \\ fs[REF_NUM_def] \\ xsimpl)
+  \\xlet `POSTv rr1. REF_NUM rr1 4 *
+                        REF_NUM wr1 4 *
+                        (W8ARRAY v'' (REPLICATE (MAX (bsize+4) 1028) 48w)) *
                         IOFS (openFileFS s fs ReadMode 0)`
-    >-(xref \\ fs[REF_NUM_def] \\ xsimpl)
+  >-(xref \\ fs[REF_NUM_def] \\ xsimpl)
     \\xcon \\ fs[INSTREAM_BUFFERED_FD_def] \\ xsimpl
-    \\map_every qexists_tac [`0`, `0`] \\ xsimpl
-    \\simp[instream_buffered_inv_def]) \\xsimpl
-  >-(xlet_auto >- (xcon \\ xsimpl)
-  \\xraise \\ xsimpl \\ simp[IllegalArgument_exn_def]));
+    \\map_every qexists_tac [`4`, `4`]
+    \\fs[instream_buffered_inv_def, MAX_DEF] \\ xsimpl
+    \\xsimpl);
+
+
+Theorem b_openIn_spec
+  `∀s sv fs bactive.
+     FILENAME s sv ∧
+     hasFreeFD fs ⇒
+     app (p:'ffi ffi_proj) TextIO_b_openIn_v [sv]
+       (IOFS fs)
+       (POSTve
+          (\is. &(
+                  validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
+                  inFS_fname fs (File s)) *
+                INSTREAM_BUFFERED_FD [] (nextFD fs) is *
+                IOFS (openFileFS s fs ReadMode 0))
+          (\e. &(BadFileName_exn e ∧ ~inFS_fname fs (File s))
+                   * IOFS fs))`
+  (xcf_with_def "TextIO.b_openIn" TextIO_b_openIn_v_def
+  \\xapp \\ fs[INT_NUM_EXISTS]);
 
 Theorem b_refillBuffer_spec
   `!fd fdv fs content pos.
-    INSTREAM fd fdv  ∧
     is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
     get_file_content fs fd = SOME(content, pos) ⇒
     get_mode fs fd = SOME ReadMode ⇒
     app (p:'ffi ffi_proj) TextIO_b_refillBuffer_v [is;]
-    (STDIO fs * INSTREAM_BUFFERED bactive is )
+    (IOFS_WO_iobuff fs * INSTREAM_BUFFERED_FD bactive fd is )
     (POSTv wv. SEP_EXISTS bsize.
                   &(NUM (MIN bsize (LENGTH content - pos)) wv) *
-                  INSTREAM_BUFFERED (TAKE (MIN bsize (LENGTH content - pos))
-                                      (DROP pos (MAP (n2w o ORD) content))) is *
-        STDIO (fsupdate fs fd 0 (MIN (bsize + pos) (MAX pos (LENGTH content))) content))`
+                  INSTREAM_BUFFERED_FD (TAKE (MIN bsize (LENGTH content - pos))
+                                      (DROP pos (MAP (n2w o ORD) content))) fd is *
+        SEP_EXISTS k. IOFS_WO_iobuff (fsupdate fs fd k (MIN (bsize + pos) (MAX pos (LENGTH content))) content))`
   (xcf_with_def "TextIO.b_refillBuffer" TextIO_b_refillBuffer_v_def
+  \\reverse(Cases_on`pos ≤ LENGTH content`)
+    >-(imp_res_tac get_file_content_eof \\ rfs[]
+      \\fs[MAX_DEF, MIN_DEF, IOFS_WO_iobuff_def,
+            INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def]
+      \\xpull \\ xmatch
+      \\xlet_auto >- xsimpl
+      \\xlet_auto >- xsimpl
+      \\xlet_auto >- xsimpl
+      \\fs[INSTREAM_def, get_in_def]
+      \\`FD fd sv` by fs[FD_def]
+      \\Cases_on `bcontent` >> fs[] >> qmatch_goalsub_rename_tac`h1::t`
+      \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t`
+      \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t`
+      \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t`
+      \\xlet_auto>- xsimpl
+      \\xsimpl
+      \\xlet_auto >- xsimpl
+      \\xlet_auto >- xsimpl
+
+
   \\qpat_abbrev_tac`fcontent = (MAP (n2w o ORD) content)`
-  \\fs[INSTREAM_BUFFERED_def, REF_NUM_def]
+  \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def,IOFS_WO_iobuff_def]
   \\xpull
   \\xmatch
   \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
   \\fs[instream_buffered_inv_def]
-  \\xlet_auto_spec (SOME input_spec) >- xsimpl
+  \\Cases_on `bcontent` >> fs[] >> qmatch_goalsub_rename_tac`h1::t`
+  \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::t`
+  \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::t`
+  \\Cases_on `t` >> fs[] >> qmatch_goalsub_rename_tac`h1::h2::h3::h4::t`
+  \\fs[INSTREAM_def, INSTREAM_TYPE_def]
+  \\`fd < 256 ** 8` by fs[]
+  \\imp_res_tac FD_def
+  \\xlet_auto
+
+
+  \\xlet_auto_spec (SOME (SIMP_RULE (srw_ss()) [IOFS_WO_iobuff_def] read_into_spec)) >- xsimpl
   \\xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
   \\`pos = LENGTH content ⇒ MIN (LENGTH bcontent + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]

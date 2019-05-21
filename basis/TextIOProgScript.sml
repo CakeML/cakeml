@@ -237,26 +237,42 @@ let fun input0 off len count =
 in input0 off len 0 end
 ` |> append_prog
 
+(*Open a buffered instream with a buffer size of bsize.
+  Force 1028 <= size < 256^2*)
 val _ =
   process_topdecs`
-fun b_openIn fname bsize =
+fun b_openInSetBufferSize fname bsize =
   let
     val is = openIn fname
   in
-    if bsize > 0 then
-      InstreamBuffered is (Ref 0) (Ref 0)
-        (Word8Array.array bsize (Word8.fromInt 48))
-    else raise IllegalArgument
+      InstreamBuffered is (Ref 4) (Ref 4)
+        (Word8Array.array (min 65535 (max (bsize+4) 1028))
+          (Word8.fromInt 48))
   end
+` |> append_prog
+
+val _ =
+  process_topdecs`
+fun b_openIn fname = b_openInSetBufferSize fname 4096
 ` |> append_prog
 
 val _ = ml_prog_update open_local_in_block;
 
+(* wrapper for ffi call *)
+val _ = process_topdecs`
+  fun read_into fd buff n =
+    let val a = Marshalling.n2w2 n buff 0 in
+          (#(read) fd buff;
+          if Word8.toInt (Word8Array.sub buff 0) <> 1
+          then Marshalling.w22n buff 1
+          else raise InvalidFD)
+    end` |> append_prog
+
 val _ = (append_prog o process_topdecs)`
   fun b_refillBuffer is =
     case is of InstreamBuffered fd rref wref surplus =>
-        (wref := input fd surplus 0 (Word8Array.length surplus);
-        rref := 0;
+        (wref := 4 + (read_into (get_in fd) surplus ((Word8Array.length surplus)-4));
+        rref := 4;
         (!wref))`;
 
 (*b_input helper function for the case when there are
@@ -278,7 +294,7 @@ val _ = (append_prog o process_topdecs)`
       let
         val nBuffered = (!wref) - (!rref)
       in
-        if Word8Array.length buff < len + off then raise IllegalArgument
+        if (Word8Array.length buff-4) < len + off then raise IllegalArgument
         else
           if Word8Array.length surplus < len then
             (b_input_aux is buff off nBuffered;
@@ -301,7 +317,7 @@ val _ = (append_prog o process_topdecs)`
         ((if (!wref) = (!rref)
         then (b_refillBuffer is; ())
         else ());
-        if (!wref) = 0 then None
+        if (!wref) = 4 then None
         else
           let val readat = (!rref) in
             rref := (!rref) + 1;
