@@ -16,8 +16,13 @@ val _ = new_theory "ffi"
 (*open import Pervasives_extra*)
 (*open import Lib*)
 
+
+(* supported prmitive C values  *)
+
 val _ = Hol_datatype `
  c_primv = C_boolv of bool | C_intv of int`;
+
+(* configuration of byte array arguments, mutable/immutable and with_length: information for C-code  *)
 
 val _ = Hol_datatype `
 c_array_conf =
@@ -25,9 +30,11 @@ c_array_conf =
  ; with_length : bool
  |>`
 
+(* supported c_types as the input/output arguments *)
 val _ = Hol_datatype `
  c_type = C_bool | C_int | C_array of c_array_conf`;
 
+(* supported values for c_types *)
 val _ = Hol_datatype `
  c_value = C_primv of c_primv | C_arrayv of word8 list`;
 
@@ -35,10 +42,11 @@ val _ = Hol_datatype `
 c_funsig =
 <| mlname      : string
  ; cname       : string
- ; retty       : c_type option
- ; args        : c_type list
+ ; retty       : c_type option (* None represents unit *)
+ ; args        : c_type list   (* list of the arguments *)
 |>`
 
+(*  arg_ok :: "c_type ⇒ c_value ⇒ bool" *)
 val _ = Define `arg_ok t v =
   case v of
     C_arrayv _ => (case t of C_array _ => T | _ => F)
@@ -46,8 +54,13 @@ val _ = Define `arg_ok t v =
   | C_primv(C_intv _) => (t = C_int)
 `
 
+(*   args_ok :: "c_funsig ⇒ c_value list ⇒ bool" *)
+(* values should be passed in sequence of their signature *)
+
 val _ = Define `args_ok sig args = LIST_REL arg_ok sig.args args`
 
+(* ret_ok :: "c_type option ⇒ c_value option ⇒ bool" *)
+(*  talks only about the primitive c types *)
 val _ = Define `ret_ok t v =
  ((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T)`
 
@@ -56,7 +69,7 @@ val is_mutty = Define `
   (case ty of C_array c => c.mutable
    | _ => F)
  `
-
+(* given lists of types and values, mutargs returns the list of mutable array-values only *)
 val _ = Define `(mutargs [] _ = [])
  /\ (mutargs _ [] = [])
  /\ (mutargs (ty::tys) (v::vs) =
@@ -67,24 +80,18 @@ val _ = Define `(mutargs [] _ = [])
                   | _ => mutargs tys vs)
       | _ => mutargs tys vs))`
 
-val _ = Define `
-   (upd_args [] _ _ = [])
-/\ (upd_args _ [] _ = [])
-/\ (upd_args _ vs [] = vs)
-/\ (upd_args (ty::tys) (v::vs) (a::as) =
-    (case ty of C_array c =>
-       (if c.mutable then
-         C_arrayv a::upd_args tys vs as
-        else upd_args tys vs as)
-     | _ => upd_args tys vs as))`
-(*val _ = type_abbrev("c_array" , ``: word8 list # c_array_conf``);*)
 
 val _ = Hol_datatype `
  ffi_outcome = FFI_failed | FFI_diverged`;
 
-
+(* Oracle_return encodes the new state, list of word8 list of the output, and the return value *)
 val _ = Hol_datatype `
- oracle_result = Oracle_return of 'ffi => word8 list list => c_primv option | Oracle_final of ffi_outcome`;
+ oracle_result = Oracle_return of 'ffi => word8 list list  => c_primv option 
+               | Oracle_final of ffi_outcome`;
+
+
+
+
 
 (* TODO: reinstate num list list when we want to treat aliasing *)
 val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> c_value list (*-> num list list*) -> 'ffi oracle_result``);
@@ -107,7 +114,7 @@ val _ = Hol_datatype `
 <| oracle      : 'ffi oracle
  ; ffi_state   : 'ffi
  ; io_events   : io_event list
- ; signatures  : c_funsig list
+ ; signatures  : c_funsig list (* new *)
  |>`;
 
 
@@ -131,7 +138,7 @@ val _ = Define `
   )`
 
 val _ = Hol_datatype `
- ffi_result = FFI_return of 'ffi ffi_state => word8 list list => c_primv option | FFI_final of final_event`;
+ ffi_result = FFI_return of 'ffi ffi_state => word8 list list (* again the output argements *) => c_primv option (* return value *) | FFI_final of final_event`;
 
 
 (*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_result 'ffi*)
@@ -141,7 +148,7 @@ val _ = Define `
     (case FIND (λx. x.mlname = s) st.signatures of
       SOME sign => 
       (if args_ok sign args then
-       (case st.oracle s st.ffi_state args of
+       (case st.oracle s st.ffi_state args (* add the aliasing information here *) of
          Oracle_return ffi' newargs retv =>
            if ret_ok sign.retty retv then
               FFI_return

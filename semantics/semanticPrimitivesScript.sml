@@ -585,27 +585,50 @@ val _ = Hol_datatype `
 
 val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_state``);
 
+(* get_ffi_arg “:α store_v list -> c_type -> v -> c_value option” *)
+(*  can I change this name to get_carg? *)
+
 val _ = Define `
+
+
    (get_ffi_arg _ (C_array conf) (Litv(StrLit s)) =
     if conf.mutable then
       NONE
     else
       SOME (C_arrayv(MAP (\ c .  n2w(ORD c)) (EXPLODE s))))
+
+
+
+
+
 /\ (get_ffi_arg st (C_array conf) (Loc lnum) =
     if conf.mutable then
       (case store_lookup lnum st of
          | SOME (W8array ws) => SOME(C_arrayv ws)
          | _ => NONE)
     else NONE)
+
+
+
+
 /\ (get_ffi_arg _ C_bool v =
     if v = Boolv T then
       SOME(C_primv(C_boolv T))
     else if v = Boolv F then
       SOME(C_primv(C_boolv F))
     else NONE)
+
+
+
 /\ (get_ffi_arg _ C_int (Litv(IntLit n)) =
     SOME(C_primv(C_intv n)))
+
+
 /\ (get_ffi_arg _ _ _ = NONE)`
+
+
+(*  can I change this name to get_cargs? *)
+(* is the last clause correct? *)
 
 val _ = Define
   `(get_ffi_args s [] [] = SOME [])
@@ -614,38 +637,166 @@ val _ = Define
 /\ (get_ffi_args _ _ _ = NONE)
 `
 
+
+(*TOASK: should we add LENGTH ctl = LENGTH vl check here? *)
+
+(*  “:c_type list -> v list -> num -> (num # c_type # v) list” *)
+val _ = Define  `
+   (ctypes_vals_idx_prs [] _ _ = []) /\
+   (ctypes_vals_idx_prs _ [] _ = []) /\
+   (ctypes_vals_idx_prs (ct::cts) (v::vs) count = 
+    (count, ct, v) :: (ctypes_vals_idx_prs cts vs (count+1)))
+  `
+
+(*  “:(α # c_type # v) list -> c_type -> v -> α list” *)
+
+(*TOASK: should we add the last two gaurd cases? *)
+val _ = Define `
+  (aliased_list [] _ _ = []) /\ 
+  (aliased_list ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) = 
+          if conf.mutable /\  conf'.mutable /\ (lc = lc') 
+          then id::aliased_list prl (C_array conf) (Loc lc)
+          else aliased_list prl (C_array conf) (Loc lc)) /\
+  (aliased_list _ (C_bool) _ = []) /\ 
+  (aliased_list _ (C_int)  _ = [])
+`
+
+
+val _ = Define `
+  aliased_list' (idx, ct, v) prl =
+    case ct of C_array conf => if conf.mutable 
+                               then (case v of Loc lc => idx :: aliased_list prl ct v 
+					     | _ => [])
+                               else []
+	    | _ => []  
+`
+(* we can do optimisation in the aliased list', to take only lc *)
+
+
+
+val _ = Define `
+  (pr_lst_fst_lst _ = []) /\
+  (pr_lst_fst_lst (pr::prs) = FST pr::pr_lst_fst_lst prs)  
+`
+
+
+val _ = Define `
+  (matched_num_pr_lst (_:num) [] = []) /\
+  (matched_num_pr_lst n (pr::prs) = if (FST pr = n) 
+                                    then pr::matched_num_pr_lst n prs 
+                                    else matched_num_pr_lst n prs)  
+`
+
+val _ = Define `
+  (matched_loc [] _ = []) /\
+  (matched_loc _ [] = []) /\
+  (matched_loc (n::ns) prl = if  IS_EL n (pr_lst_fst_lst prl) 
+                             then matched_num_pr_lst n prl ++ matched_loc (ns) prl
+			     else matched_loc ns prl ) 
+`
+
+
+val _ = Define `
+  (list_minus _ [] = []) /\ 
+  (list_minus [] _ = []) /\
+  (list_minus  (m::ms) ns = if IS_EL m ns 
+                            then list_minus ms ns 
+                            else  m::list_minus ms ns)
+`
+
+
+(*  type: num list -> (num#c_type#val) list -> (num#c_type#val) list *)
+(*  take the first element of all pairs, then remove the matcing numbers of the num list 
+    from the pair list*)
+
+val _ = Define `
+  remove_loc nl prl = list_minus prl (matched_loc nl prl)
+`
+
+val _ = Define `
+  (aliased_args [] = []) /\
+  (aliased_args (pr::prs) = 
+    aliased_list' pr prs :: aliased_args (remove_loc (aliased_list' pr prs) prs))
+`
+
+
+(* we should filter empty lists in the end  *)
+
+val _ = Define `
+  (empty_filter [] = []) /\
+  (empty_filter (hdl :: tll) = if hdl = [] then empty_filter tll else hdl :: empty_filter tll)
+`
+
+
+val _ = Define `
+  (aliased_args_final prl  = empty_filter (aliased_args prl))
+`
+(*  to call
+(ctypes_vals_idx_prs (ctl:ctls) (vl:vls) 0)
+*)
+
+
+
+
+
+
+(* assign_ffi_arg  “:c_type -> word8 list -> v -> α store_v list -> α store_v list option”  *)
+(*  can I change this name to get_arg? *)
+
 val _ = Define `
    (assign_ffi_arg (C_array conf) ws (Loc lnum) s =
     if conf.mutable then
       store_assign lnum (W8array ws) s
     else
       NONE)
+
+
 /\ (assign_ffi_arg _ _ _ s = SOME s)`
+
+
+
+
+(*  assign_ffi_args  “:c_type list ->
+    word8 list list ->
+    v list -> α store_v list option -> α store_v list option” *)
+(*  can I change this name to get_args? *)
 
 val _ = Define
   `(assign_ffi_args [] [] [] s = s)
+
 /\ (assign_ffi_args (ty::tys) (carg::cargs) (arg::args) s =
     assign_ffi_args tys cargs args (OPTION_BIND s (assign_ffi_arg ty carg arg)))
+
 /\ (assign_ffi_args _ _ _ _ = NONE)
   `
 
+(* get_ret_val ::c_primv option -> v *)
+
 val _ = Define
 `(get_ret_val (SOME(C_boolv b)) = Boolv b)
+
 /\ (get_ret_val (SOME(C_intv i)) = Litv(IntLit i))
+
 /\ (get_ret_val _ = Conv NONE [])
   `
+(*  “:c_funsig -> α list -> α list” *)
 
 val _ = Define
 `get_mut_args sign cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(sign.args,cargs)))
 `
+(*   “:α store_v list ->
+    β ffi_state ->
+    string ->
+    v list -> ((α store_v list # β ffi_state) # (v, γ) result) option” *)
 
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) t.signatures of
      SOME sign =>
-     (case get_ffi_args s sign.args args of
+     (case get_ffi_args (* get_cargs *) s sign.args args of
           SOME cargs =>
-           (case call_FFI t n cargs of
+           (case call_FFI t n cargs (aliased_args_final (ctypes_vals_idx_prs sign.args args 0)) of 
+              (* here the aliasing information should be passed *)
               FFI_return t' newargs retv =>
                 (case assign_ffi_args sign.args newargs (get_mut_args sign args) (SOME s) of
                    NONE => NONE
@@ -658,6 +809,11 @@ val _ = Define
         | NONE => NONE)
    | NONE => NONE
   `
+
+(*  
+do_app :: v store_v list # α ffi_state ->
+    op -> v list -> ((v store_v list # α ffi_state) # (v, v) result) option”
+*)
 
 (*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
 val _ = Define `
@@ -916,6 +1072,16 @@ val _ = Define `
         do_ffi s t n args
     | _ => NONE
   )))`;
+
+
+
+(*  
+its a pair type
+do_app :: v store_v list # α ffi_state ->
+    op -> v list -> ((v store_v list # α ffi_state) # (v, v) result) option”
+*)
+
+
 
 
 (* Do a logical operation *)
