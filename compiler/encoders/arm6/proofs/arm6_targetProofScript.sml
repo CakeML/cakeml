@@ -981,9 +981,10 @@ val arm6_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-Theorem arm6_encoder_correct
-   `encoder_correct arm6_target`
-   (simp [asmPropsTheory.encoder_correct_def, arm6_target_ok]
+Theorem arm6_encoder_correct:
+    encoder_correct arm6_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, arm6_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm6_target`
    \\ rw [arm6_target_def, arm6_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
@@ -1215,6 +1216,6 @@ Theorem arm6_encoder_correct
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
       \\ blastLib.FULL_BBLAST_TAC
       )
-   )
+QED
 
 val () = export_theory ()

@@ -146,8 +146,8 @@ val t = mk_sum t t
 *)
 
 (*
-Theorem inf_type_to_string_pmatch
- `(∀t. inf_type_to_string t =
+Theorem inf_type_to_string_pmatch:
+  (∀t. inf_type_to_string t =
     case t of
       Infer_Tuvar n =>
       concat [implode "<unification variable "; mlint$toString (&n); implode ">"]
@@ -167,10 +167,12 @@ Theorem inf_type_to_string_pmatch
     case ts of
       [] => implode ""
     | [t] => inf_type_to_string t
-    | t::ts => concat [inf_type_to_string t; implode ", "; inf_types_to_string ts])`
-  (rpt strip_tac
+    | t::ts => concat [inf_type_to_string t; implode ", "; inf_types_to_string ts])
+Proof
+  rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[inf_type_to_string_def]);
+  >> fs[inf_type_to_string_def]
+QED
   *)
 
 val _ = export_theory ();

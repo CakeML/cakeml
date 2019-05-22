@@ -16,11 +16,13 @@ val env_rel_def = Define `
      v_rel a x y (x::e1) (y::e2) /\ env_rel rest d e1 e2) /\
   (env_rel _ _ _ _ = F)`
 
-Theorem env_rel_length
-  `!ax env env2. env_rel ax d env env2 ==> LENGTH env <= LENGTH env2`
-  (Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
+Theorem env_rel_length:
+   !ax env env2. env_rel ax d env env2 ==> LENGTH env <= LENGTH env2
+Proof
+  Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ rw [] \\ Cases_on `d` \\ fs []
-  \\ imp_res_tac (METIS_PROVE [] ``x=y ==> LENGTH x = LENGTH y``) \\ fs []);
+  \\ imp_res_tac (METIS_PROVE [] ``x=y ==> LENGTH x = LENGTH y``) \\ fs []
+QED
 
 val env_rel_LLOOKUP_NONE = Q.prove(
   `!ax env env2 n d.
@@ -45,14 +47,16 @@ val env_rel_LOOKUP_SOME = Q.prove(
   \\ first_x_assum match_mp_tac
   \\ Cases_on `h'` \\ fs [env_rel_def]);
 
-Theorem evaluate_delete_var_Rerr_SING
-  `!x s r e env2.
+Theorem evaluate_delete_var_Rerr_SING:
+   !x s r e env2.
       evaluate ([x],env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
-      evaluate ([delete_var x],env2,s) = (Rerr e,r)`
-  (Cases \\ fs [delete_var_def]
+      evaluate ([delete_var x],env2,s) = (Rerr e,r)
+Proof
+  Cases \\ fs [delete_var_def]
   \\ fs [evaluate_def,do_app_def] \\ rw []
-  \\ CCONTR_TAC \\ fs [] \\ rw []);
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+QED
 
 val evaluate_delete_var_Rerr = Q.prove(
   `!xs s r e env2.
@@ -95,39 +99,50 @@ val evaluate_delete_var_Rval = Q.prove(
   \\ imp_res_tac evaluate_SING_IMP \\ rw [] \\ fs []
   \\ fs [v_rel_def,env_rel_def,LLOOKUP_def]);
 
-Theorem evaluate_SNOC_Rval
-  `evaluate (SNOC x y,env,s) = (Rval a,r) ==>
+Theorem evaluate_SNOC_Rval:
+   evaluate (SNOC x y,env,s) = (Rval a,r) ==>
     ?a1 a2 r1.
       a = SNOC a1 a2 /\ LENGTH y = LENGTH a2 /\
       evaluate (y,env,s) = (Rval a2,r1) /\
-      evaluate ([x],env,r1) = (Rval [a1],r)`
-  (fs [evaluate_SNOC]
+      evaluate ([x],env,r1) = (Rval [a1],r)
+Proof
+  fs [evaluate_SNOC]
   \\ every_case_tac \\ fs []
   \\ imp_res_tac evaluate_SING_IMP \\ rw []
-  \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []);
+  \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+QED
 
-Theorem compile_CONS
-  `compile ax d (x::xs) = compile ax d [x] ++ compile ax d xs`
-  (Cases_on `xs` \\ fs [compile_def]);
+Theorem compile_CONS:
+   compile ax d (x::xs) = compile ax d [x] ++ compile ax d xs
+Proof
+  Cases_on `xs` \\ fs [compile_def]
+QED
 
-Theorem compile_APPEND
-  `!xs ys ax d. compile ax d (xs ++ ys) = compile ax d xs ++ compile ax d ys`
-  (Induct \\ fs [compile_def]
-  \\ once_rewrite_tac [compile_CONS] \\ fs []);
+Theorem compile_APPEND:
+   !xs ys ax d. compile ax d (xs ++ ys) = compile ax d xs ++ compile ax d ys
+Proof
+  Induct \\ fs [compile_def]
+  \\ once_rewrite_tac [compile_CONS] \\ fs []
+QED
 
-Theorem IMP_COMM
-  `(b1 ==> b2 ==> b3) <=> (b2 ==> b1 ==> b3)`
-  (metis_tac []);
+Theorem IMP_COMM:
+   (b1 ==> b2 ==> b3) <=> (b2 ==> b1 ==> b3)
+Proof
+  metis_tac []
+QED
 
-Theorem exp_size_APPEND
-  `!xs ys. exp2_size (xs ++ ys) = exp2_size xs + exp2_size ys`
-  (Induct \\ fs [bviTheory.exp_size_def]);
+Theorem exp_size_APPEND:
+   !xs ys. exp2_size (xs ++ ys) = exp2_size xs + exp2_size ys
+Proof
+  Induct \\ fs [bviTheory.exp_size_def]
+QED
 
-Theorem env_rel_MAP
-  `!ax env1 env2 d a.
+Theorem env_rel_MAP:
+   !ax env1 env2 d a.
       env_rel ax d env1 env2 ==>
-      env_rel (MAP ($+ (LENGTH a)) ax) (d + LENGTH a) env1 (a ++ env2)`
-  (Induct \\ fs [env_rel_def]
+      env_rel (MAP ($+ (LENGTH a)) ax) (d + LENGTH a) env1 (a ++ env2)
+Proof
+  Induct \\ fs [env_rel_def]
   THEN1 (once_rewrite_tac [EQ_SYM_EQ] \\ Induct_on `a` \\ fs [ADD1])
   \\ Cases_on `env1` \\ Cases_on `env2` \\ fs [env_rel_def]
   \\ fs [v_rel_def] \\ rw [env_rel_def] \\ Cases_on `a`
@@ -140,15 +155,17 @@ Theorem env_rel_MAP
     \\ first_x_assum match_mp_tac \\ fs [])
   \\ fs [LLOOKUP_EQ_EL,ADD_CLAUSES]
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [EL_APPEND2]);
+  \\ fs [EL_APPEND2]
+QED
 
-Theorem evaluate_env_rel
-  `!xs env1 (s1:('c,'ffi) bviSem$state) ax env2 res s2 ys d.
+Theorem evaluate_env_rel:
+   !xs env1 (s1:('c,'ffi) bviSem$state) ax env2 res s2 ys d.
       (evaluate (xs,env1,s1) = (res,s2)) /\
       env_rel ax d env1 env2 /\
       res <> Rerr (Rabort Rtype_error) ==>
-      (evaluate (compile ax d xs,env2,s1) = (res,s2))`
-  (strip_tac \\ completeInduct_on `exp2_size xs`
+      (evaluate (compile ax d xs,env2,s1) = (res,s2))
+Proof
+  strip_tac \\ completeInduct_on `exp2_size xs`
   \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `xs` \\ fs[compile_def,evaluate_def]
   \\ reverse (Cases_on `t`) \\ fs [] THEN1
@@ -272,32 +289,38 @@ Theorem evaluate_env_rel
   \\ fs [] \\ drule evaluate_delete_var_Rval
   \\ rpt (disch_then drule) \\ strip_tac \\ fs [] \\ fs [AND_IMP_INTRO]
   \\ first_x_assum match_mp_tac \\ fs [bviTheory.exp_size_def]
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+QED
 
 val compile_thm = save_thm("compile_thm",
   evaluate_env_rel
   |> Q.SPECL [`xs`,`env`,`s1`,`[]`,`env`,`res`,`s2`,`ys`,`0`] |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [env_rel_def])
 
-Theorem evaluate_compile_exp
-  `evaluate ([d],env,s) = (r,t) /\
+Theorem evaluate_compile_exp:
+   evaluate ([d],env,s) = (r,t) /\
     r <> Rerr (Rabort Rtype_error) ==>
-    evaluate ([bvi_let$compile_exp d],env,s) = (r,t)`
-  (fs [compile_exp_def]
+    evaluate ([bvi_let$compile_exp d],env,s) = (r,t)
+Proof
+  fs [compile_exp_def]
   \\ `LENGTH (compile [] 0 [d]) = LENGTH [d]` by fs [compile_length]
   \\ Cases_on `compile [] 0 [d]` \\ fs [LENGTH_NIL] \\ rw []
-  \\ imp_res_tac compile_thm \\ rfs []);
+  \\ imp_res_tac compile_thm \\ rfs []
+QED
 
-Theorem dest_var_code_labels[simp]
-  `∀x. get_code_labels (delete_var x) = get_code_labels x`
-  (recInduct bvi_letTheory.delete_var_ind
+Theorem dest_var_code_labels[simp]:
+   ∀x. get_code_labels (delete_var x) = get_code_labels x
+Proof
+  recInduct bvi_letTheory.delete_var_ind
   \\ rw[bvi_letTheory.delete_var_def]
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem compile_code_labels
-  `∀x y z. BIGUNION (set (MAP get_code_labels (bvi_let$compile x y z))) =
-           BIGUNION (set (MAP get_code_labels z)) `
-  (recInduct bvi_letTheory.compile_ind
+Theorem compile_code_labels:
+   ∀x y z. BIGUNION (set (MAP get_code_labels (bvi_let$compile x y z))) =
+           BIGUNION (set (MAP get_code_labels z))
+Proof
+  recInduct bvi_letTheory.compile_ind
   \\ rw[bvi_letTheory.compile_def]
   \\ TRY PURE_CASE_TAC \\ fs[]
   \\ TRY PURE_CASE_TAC \\ fs[]
@@ -305,14 +328,17 @@ Theorem compile_code_labels
   \\ fsrw_tac[ETA_ss][MAP_MAP_o, o_DEF]
   \\ drule APPEND_FRONT_LAST
   \\ disch_then(fn th => CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM th])))
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem compile_exp_code_labels[simp]
-  `∀x. get_code_labels (bvi_let$compile_exp x) = get_code_labels x`
-  (rw[bvi_letTheory.compile_exp_def]
+Theorem compile_exp_code_labels[simp]:
+   ∀x. get_code_labels (bvi_let$compile_exp x) = get_code_labels x
+Proof
+  rw[bvi_letTheory.compile_exp_def]
   \\ simp[Once(GSYM bvi_letTheory.compile_HD_SING)]
   \\ specl_args_of_then``bvi_let$compile``compile_code_labels mp_tac
   \\ simp[]
-  \\ simp[Once(GSYM bvi_letTheory.compile_HD_SING)]);
+  \\ simp[Once(GSYM bvi_letTheory.compile_HD_SING)]
+QED
 
 val _ = export_theory();

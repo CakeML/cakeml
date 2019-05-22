@@ -1239,10 +1239,12 @@ val map_colors_sub_def = Define `
   (map_colors_sub (x::xs) =
      do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)`
 
-Theorem map_colors_sub_eq
-  `map_colors_sub = st_ex_MAP colors_sub`
-  (once_rewrite_tac [FUN_EQ_THM]
-  \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]);
+Theorem map_colors_sub_eq:
+   map_colors_sub = st_ex_MAP colors_sub
+Proof
+  once_rewrite_tac [FUN_EQ_THM]
+  \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]
+QED
 
 val res = m_translate spill_register_def;
 val res = m_translate MAP_colors_def;

@@ -92,15 +92,19 @@ val case_eq_thms = pair_case_eq::
   List.map (prove_case_eq_thm o get_thms) [``:('a,'b) exc``,``:tag``,``:'a list``,``:'a option``]
   |> LIST_CONJ |> curry save_thm "case_eq_thms"
 
-Theorem tag_case_st `
-  !t.
-  (tag_CASE t a b c) f = (tag_CASE t (λn. a n f) (b f) (c f))`
-  (Cases>>fs[]);
+Theorem tag_case_st:
+    !t.
+  (tag_CASE t a b c) f = (tag_CASE t (λn. a n f) (b f) (c f))
+Proof
+  Cases>>fs[]
+QED
 
-Theorem list_case_st `
-  !t.
-  (list_CASE t a b) f = (list_CASE t (a f) (λx y.b x y f))`
-  (Cases>>fs[]);
+Theorem list_case_st:
+    !t.
+  (list_CASE t a b) f = (list_CASE t (a f) (λx y.b x y f))
+Proof
+  Cases>>fs[]
+QED
 
 (* ---
   TODO: These lemmas should be automatically generated for each array used!
@@ -113,118 +117,142 @@ Theorem list_case_st `
   ---*)
 
 (* Rewriting lemmas for array "sub" *)
-Theorem Msub_eqn[simp] `
-  ∀e n ls v.
+Theorem Msub_eqn[simp]:
+    ∀e n ls v.
   Msub e n ls =
   if n < LENGTH ls then Success (EL n ls)
-                   else Failure e`
-  (ho_match_mp_tac Msub_ind>>rw[]>>
+                   else Failure e
+Proof
+  ho_match_mp_tac Msub_ind>>rw[]>>
   simp[Once Msub_def]>>
   Cases_on`ls`>>fs[]>>
   IF_CASES_TAC>>fs[]>>
-  Cases_on`n`>>fs[]);
+  Cases_on`n`>>fs[]
+QED
 
-Theorem adj_ls_sub_eqn[simp] `
-  adj_ls_sub n s =
+Theorem adj_ls_sub_eqn[simp]:
+    adj_ls_sub n s =
   if n < LENGTH s.adj_ls then
     (Success (EL n s.adj_ls),s)
   else
-    (Failure (Subscript),s)`
-  (rw[adj_ls_sub_def]>>
-  fs[Marray_sub_def]);
+    (Failure (Subscript),s)
+Proof
+  rw[adj_ls_sub_def]>>
+  fs[Marray_sub_def]
+QED
 
-Theorem node_tag_sub_eqn[simp] `
-  node_tag_sub n s =
+Theorem node_tag_sub_eqn[simp]:
+    node_tag_sub n s =
   if n < LENGTH s.node_tag then
     (Success (EL n s.node_tag),s)
   else
-    (Failure (Subscript),s)`
-  (rw[node_tag_sub_def]>>
-  fs[Marray_sub_def]);
+    (Failure (Subscript),s)
+Proof
+  rw[node_tag_sub_def]>>
+  fs[Marray_sub_def]
+QED
 
-Theorem degrees_sub_eqn[simp] `
-  degrees_sub n s =
+Theorem degrees_sub_eqn[simp]:
+    degrees_sub n s =
   if n < LENGTH s.degrees then
     (Success (EL n s.degrees),s)
   else
-    (Failure (Subscript),s)`
-  (rw[degrees_sub_def]>>
-  fs[Marray_sub_def]);
+    (Failure (Subscript),s)
+Proof
+  rw[degrees_sub_def]>>
+  fs[Marray_sub_def]
+QED
 
-Theorem coalesced_sub[simp] `
-  coalesced_sub n s =
+Theorem coalesced_sub[simp]:
+    coalesced_sub n s =
   if n < LENGTH s.coalesced then
     (Success (EL n s.coalesced),s)
   else
-    (Failure Subscript,s)`
-  (rw[coalesced_sub_def]>>fs[Marray_sub_def]);
+    (Failure Subscript,s)
+Proof
+  rw[coalesced_sub_def]>>fs[Marray_sub_def]
+QED
 
-Theorem move_related_sub[simp] `
-  move_related_sub n s =
+Theorem move_related_sub[simp]:
+    move_related_sub n s =
   if n < LENGTH s.move_related then
     (Success (EL n s.move_related),s)
   else
-    (Failure Subscript,s)`
-  (rw[move_related_sub_def]>>fs[Marray_sub_def]);
+    (Failure Subscript,s)
+Proof
+  rw[move_related_sub_def]>>fs[Marray_sub_def]
+QED
 
 (* Rewriting lemmas for array "update" *)
-Theorem Mupdate_eqn[simp] `
-  ∀e x n ls.
+Theorem Mupdate_eqn[simp]:
+    ∀e x n ls.
   Mupdate e x n ls =
   if n < LENGTH ls then
     Success (LUPDATE x n ls)
   else
-    Failure e`
-  (ho_match_mp_tac Mupdate_ind>>rw[]>>
+    Failure e
+Proof
+  ho_match_mp_tac Mupdate_ind>>rw[]>>
   simp[Once Mupdate_def]>>
   Cases_on`ls`>>fs[]>>
   IF_CASES_TAC>>fs[LUPDATE_def]>>
-  Cases_on`n`>>fs[LUPDATE_def]);
+  Cases_on`n`>>fs[LUPDATE_def]
+QED
 
-Theorem update_adj_ls_eqn[simp] `
-  update_adj_ls n t s =
+Theorem update_adj_ls_eqn[simp]:
+    update_adj_ls n t s =
   if n < LENGTH s.adj_ls then
      (Success (),s with adj_ls := LUPDATE t n s.adj_ls)
   else
-     (Failure (Subscript),s)`
-  (rw[update_adj_ls_def]>>
-  fs[Marray_update_def]);
+     (Failure (Subscript),s)
+Proof
+  rw[update_adj_ls_def]>>
+  fs[Marray_update_def]
+QED
 
-Theorem update_node_tag_eqn[simp] `
-  update_node_tag n t s =
+Theorem update_node_tag_eqn[simp]:
+    update_node_tag n t s =
   if n < LENGTH s.node_tag then
      (Success (),s with node_tag := LUPDATE t n s.node_tag)
   else
-     (Failure (Subscript),s)`
-  (rw[update_node_tag_def]>>
-  fs[Marray_update_def]);
+     (Failure (Subscript),s)
+Proof
+  rw[update_node_tag_def]>>
+  fs[Marray_update_def]
+QED
 
-Theorem update_degrees_eqn[simp] `
-  update_degrees n t s =
+Theorem update_degrees_eqn[simp]:
+    update_degrees n t s =
   if n < LENGTH s.degrees then
      (Success (),s with degrees := LUPDATE t n s.degrees)
   else
-     (Failure (Subscript),s)`
-  (rw[update_degrees_def]>>
-  fs[Marray_update_def]);
+     (Failure (Subscript),s)
+Proof
+  rw[update_degrees_def]>>
+  fs[Marray_update_def]
+QED
 
-Theorem update_coalesced_eqn[simp] `
-  update_coalesced n t s =
+Theorem update_coalesced_eqn[simp]:
+    update_coalesced n t s =
   if n < LENGTH s.coalesced then
      (Success (),s with coalesced := LUPDATE t n s.coalesced)
   else
-     (Failure (Subscript),s)`
-  (rw[update_coalesced_def]>>
-  fs[Marray_update_def]);
+     (Failure (Subscript),s)
+Proof
+  rw[update_coalesced_def]>>
+  fs[Marray_update_def]
+QED
 
-Theorem update_move_related_eqn[simp] `
-  update_move_related n t s =
+Theorem update_move_related_eqn[simp]:
+    update_move_related n t s =
   if n < LENGTH s.move_related then
      (Success (),s with move_related := LUPDATE t n s.move_related)
   else
-     (Failure (Subscript),s)`
-  (rw[update_move_related_def]>>
-  fs[Marray_update_def]);
+     (Failure (Subscript),s)
+Proof
+  rw[update_move_related_def]>>
+  fs[Marray_update_def]
+QED
 
 (* --- *)
 
@@ -233,46 +261,55 @@ Theorem update_move_related_eqn[simp] `
 
 (* This asserts, e.g. that the monadic map of (\i.node_tag_sub i) returns
    success if the input list were all within range *)
-Theorem st_ex_MAP_node_tag_sub `
-  ∀ls s.
+Theorem st_ex_MAP_node_tag_sub:
+    ∀ls s.
   EVERY (λv. v < LENGTH s.node_tag) ls ⇒
-  st_ex_MAP node_tag_sub ls s = (Success (MAP (λi. EL i s.node_tag) ls),s)`
-  (Induct>>fs[st_ex_MAP_def]>>fs msimps);
+  st_ex_MAP node_tag_sub ls s = (Success (MAP (λi. EL i s.node_tag) ls),s)
+Proof
+  Induct>>fs[st_ex_MAP_def]>>fs msimps
+QED
 
-Theorem st_ex_MAP_adj_ls_sub `
-  ∀ls s.
+Theorem st_ex_MAP_adj_ls_sub:
+    ∀ls s.
   EVERY (λv. v < LENGTH s.adj_ls) ls ⇒
-  st_ex_MAP adj_ls_sub ls s = (Success (MAP (λi. EL i s.adj_ls) ls),s)`
-  (Induct>>fs[st_ex_MAP_def]>>fs msimps);
+  st_ex_MAP adj_ls_sub ls s = (Success (MAP (λi. EL i s.adj_ls) ls),s)
+Proof
+  Induct>>fs[st_ex_MAP_def]>>fs msimps
+QED
 
-Theorem st_ex_MAP_degrees_sub `
-  ∀ls s.
+Theorem st_ex_MAP_degrees_sub:
+    ∀ls s.
   EVERY (λv. v < LENGTH s.degrees) ls ⇒
-  st_ex_MAP degrees_sub ls s = (Success (MAP (λi. EL i s.degrees) ls),s)`
-  (Induct>>fs[st_ex_MAP_def]>>fs msimps);
+  st_ex_MAP degrees_sub ls s = (Success (MAP (λi. EL i s.degrees) ls),s)
+Proof
+  Induct>>fs[st_ex_MAP_def]>>fs msimps
+QED
 (* --- *)
 
 (* --- the main (core) correctness proofs start here --- *)
-Theorem remove_colours_frame `
-  ∀adjs ks s res s'.
+Theorem remove_colours_frame:
+    ∀adjs ks s res s'.
   remove_colours adjs ks s = (res,s') ⇒
-  s = s'`
-  (ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
+  s = s'
+Proof
+  ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
   fs msimps>>
   pop_assum mp_tac >> IF_CASES_TAC>> simp[]>>
   rw[]>>fs [case_eq_thms,tag_case_st]>>
   rw[]>>fs[]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-Theorem remove_colours_success `
-  ∀adjs ks s ls s'.
+Theorem remove_colours_success:
+    ∀adjs ks s ls s'.
   remove_colours adjs ks s = (Success ls,s') ⇒
   Abbrev(set ls ⊆ set ks ∧
   ∀n. MEM n adjs ∧ n < LENGTH s'.node_tag ⇒
     case EL n s.node_tag of
       Fixed c => ¬MEM c ls
-    | _ => T)`
-  (ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
+    | _ => T)
+Proof
+  ho_match_mp_tac remove_colours_ind>>rw[remove_colours_def]>>
   fs msimps
   >-
     (rw[markerTheory.Abbrev_def]>>TOP_CASE_TAC>>fs[])
@@ -294,7 +331,8 @@ Theorem remove_colours_success `
     CCONTR_TAC>>
     fs[SUBSET_DEF]>>
     first_x_assum drule>>
-    IF_CASES_TAC>>rw[]>>fs[MEM_FILTER]);
+    IF_CASES_TAC>>rw[]>>fs[MEM_FILTER]
+QED
 
 val no_clash_LUPDATE_Stemp = Q.prove(`
   no_clash adjls tags ⇒
@@ -350,8 +388,8 @@ val remove_colours_succeeds = Q.prove(`
   first_x_assum(qspec_then`n` assume_tac)>>fs[]>>
   rfs[]);
 
-Theorem assign_Atemp_tag_correct `
-  good_ra_state s ∧
+Theorem assign_Atemp_tag_correct:
+    good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ∧
   good_pref pref ∧
   n < s.dim ⇒
@@ -363,8 +401,9 @@ Theorem assign_Atemp_tag_correct `
       else EL m s'.node_tag = EL m s.node_tag) ∧
   no_clash s'.adj_ls s'.node_tag ∧
   good_ra_state s' ∧
-  s' = s with node_tag := s'.node_tag`
-  (rw[assign_Atemp_tag_def]>>
+  s' = s with node_tag := s'.node_tag
+Proof
+  rw[assign_Atemp_tag_def]>>
   pop_assum mp_tac>>
   simp msimps>>
   fs[good_ra_state_def]>>
@@ -392,7 +431,8 @@ Theorem assign_Atemp_tag_correct `
   rw[]>>first_x_assum drule>>
   fs[]>>
   TOP_CASE_TAC>>fs[]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 val assign_Atemps_FOREACH_lem = Q.prove(`
   ∀ls s ks prefs.
@@ -434,8 +474,8 @@ val assign_Atemps_FOREACH_lem = Q.prove(`
     strip_tac>>IF_CASES_TAC>>fs[]>>
     metis_tac[]));
 
-Theorem assign_Atemps_correct `
-  ∀k ls prefs s.
+Theorem assign_Atemps_correct:
+    ∀k ls prefs s.
   good_ra_state s ∧
   good_pref prefs ∧
   no_clash s.adj_ls s.node_tag ==>
@@ -448,8 +488,9 @@ Theorem assign_Atemps_correct `
   (* The next one is probably necessary for coloring correctness *)
   !m.
     m < LENGTH s.node_tag ∧ EL m s.node_tag ≠ Atemp ⇒
-    EL m s'.node_tag = EL m s.node_tag`
-  (rw[assign_Atemps_def,get_dim_def]>>
+    EL m s'.node_tag = EL m s.node_tag
+Proof
+  rw[assign_Atemps_def,get_dim_def]>>
   simp msimps>>
   qmatch_goalsub_abbrev_tac`st_ex_FOREACH lsf`>>
   qpat_abbrev_tac`ks = (GENLIST _ k)`>>
@@ -477,7 +518,8 @@ Theorem assign_Atemps_correct `
     rw[]>>
     rpt(first_x_assum(qspec_then`m` assume_tac))>>rfs[]>>
     fs[ra_state_component_equality]>>
-    rfs[]);
+    rfs[]
+QED
 
 val SORTED_HEAD_LT = Q.prove(`
   ∀ls.
@@ -491,12 +533,13 @@ val SORTED_HEAD_LT = Q.prove(`
     Cases_on`ls`>>full_simp_tac(srw_ss())[SORTED_DEF]>>DECIDE_TAC);
 
 (* Correctness for the second step *)
-Theorem unbound_colour_correct `
-  ∀ls k k'.
+Theorem unbound_colour_correct:
+    ∀ls k k'.
   SORTED (λx y.x ≤ y) ls  ==>
   k ≤ unbound_colour k ls ∧
-  ~MEM (unbound_colour k ls) ls`
-  (Induct>>fs[unbound_colour_def]>>rw[]>>
+  ~MEM (unbound_colour k ls) ls
+Proof
+  Induct>>fs[unbound_colour_def]>>rw[]>>
   fs[]>>
   imp_res_tac SORTED_TL>>
   first_x_assum drule>>rw[]
@@ -507,10 +550,11 @@ Theorem unbound_colour_correct `
   >-
     (first_x_assum(qspec_then`h+1` assume_tac)>>fs[])
   >>
-    first_x_assum(qspec_then`k` assume_tac)>>fs[]);
+    first_x_assum(qspec_then`k` assume_tac)>>fs[]
+QED
 
-Theorem assign_Stemp_tag_correct `
-  good_ra_state s ∧
+Theorem assign_Stemp_tag_correct:
+    good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ∧
   n < s.dim ⇒
   ∃s'.
@@ -521,8 +565,9 @@ Theorem assign_Stemp_tag_correct `
       else EL m s'.node_tag = EL m s.node_tag) ∧
   no_clash s'.adj_ls s'.node_tag ∧
   good_ra_state s' ∧
-  s' = s with node_tag := s'.node_tag`
-  (rw[assign_Stemp_tag_def]>>simp msimps>>
+  s' = s with node_tag := s'.node_tag
+Proof
+  rw[assign_Stemp_tag_def]>>simp msimps>>
   reverse IF_CASES_TAC >- fs[good_ra_state_def]>>
   simp[]>>
   TOP_CASE_TAC>>simp msimps>>
@@ -550,7 +595,8 @@ Theorem assign_Stemp_tag_correct `
   fs[Abbr`ls`,QSORT_MEM,MEM_MAP]>>
   first_x_assum(qspec_then`Fixed k'` assume_tac)>>fs[tag_col_def]>>
   pop_assum(qspec_then`EL n' (EL n s.adj_ls)` assume_tac)>>fs[]>>
-  metis_tac[MEM_EL]);
+  metis_tac[MEM_EL]
+QED
 
 (* Almost exactly the same as the FOREACH for Atemps *)
 val assign_Stemps_FOREACH_lem = Q.prove(`
@@ -591,8 +637,8 @@ val assign_Stemps_FOREACH_lem = Q.prove(`
     strip_tac>>IF_CASES_TAC>>fs[]>>
     metis_tac[]));
 
-Theorem assign_Stemps_correct `
-  good_ra_state s ∧
+Theorem assign_Stemps_correct:
+    good_ra_state s ∧
   no_clash s.adj_ls s.node_tag ⇒
   ∃s'.
     assign_Stemps k s = (Success (),s') ∧
@@ -604,8 +650,9 @@ Theorem assign_Stemps_correct `
       if EL m s.node_tag = Stemp then
         ∃k'. EL m s'.node_tag = Fixed k' ∧ k ≤ k'
       else
-      EL m s'.node_tag = EL m s.node_tag`
-  (rw[assign_Stemps_def]>>
+      EL m s'.node_tag = EL m s.node_tag
+Proof
+  rw[assign_Stemps_def]>>
   simp msimps>>
   simp [get_dim_def]>>
   drule assign_Stemps_FOREACH_lem>>
@@ -617,7 +664,8 @@ Theorem assign_Stemps_correct `
   strip_tac>>
   fs[Abbr`ls`,MEM_GENLIST]>>
   fs[good_ra_state_def]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 (* --  Random sanity checks that will be needed at some point -- *)
 
@@ -634,16 +682,18 @@ val first_match_col_correct = Q.prove(`
   TOP_CASE_TAC>>fs[]>>
   IF_CASES_TAC>>fs[]);
 
-Theorem good_pref_biased_pref `
-  ∀t. good_pref (biased_pref t)`
-  (rw[good_pref_def,biased_pref_def]>>
+Theorem good_pref_biased_pref:
+    ∀t. good_pref (biased_pref t)
+Proof
+  rw[good_pref_def,biased_pref_def]>>
   fs[get_dim_def]>>simp msimps>>
   IF_CASES_TAC>>fs[good_ra_state_def]>>
   TOP_CASE_TAC>>fs[handle_Subscript_def]>>
   cases_on`lookup n t`>>fs[]>>
   qmatch_goalsub_abbrev_tac`first_match_col _ ls _`>>
   Q.ISPECL_THEN [`ls`,`ks`,`s`] assume_tac first_match_col_correct>>fs[]>>
-  EVERY_CASE_TAC>>fs[]);
+  EVERY_CASE_TAC>>fs[]
+QED
 
 (* Checking that the bijection produced is correct *)
 
@@ -665,15 +715,17 @@ val sp_inverts_def = Define`
     lookup m f = SOME fm ⇒
     lookup fm g = SOME m`
 
-Theorem sp_inverts_insert `
-  sp_inverts f g ∧
+Theorem sp_inverts_insert:
+    sp_inverts f g ∧
   x ∉ domain f ∧
   y ∉ domain g ⇒
-  sp_inverts (insert x y f) (insert y x g)`
-  (rw[sp_inverts_def,lookup_insert]>>
+  sp_inverts (insert x y f) (insert y x g)
+Proof
+  rw[sp_inverts_def,lookup_insert]>>
   pop_assum mp_tac>> IF_CASES_TAC>> rw[]>>
   CCONTR_TAC >> fs[]>> first_x_assum drule>>
-  fs[domain_lookup]);
+  fs[domain_lookup]
+QED
 
 val list_remap_domain = Q.prove(`
   ∀ls ta fa n ta' fa' n'.
@@ -802,12 +854,13 @@ val list_remap_wf = Q.prove(`
   rpt (disch_then drule)>>
   fs[wf_insert]);
 
-Theorem mk_bij_aux_wf `
-  ∀ct ta fa n ta' fa' n'.
+Theorem mk_bij_aux_wf:
+    ∀ct ta fa n ta' fa' n'.
   mk_bij_aux ct (ta,fa,n) = (ta',fa',n') /\
   wf ta ∧ wf fa ⇒
-  Abbrev(wf ta' ∧ wf fa')`
-  (Induct>>rw[mk_bij_aux_def]
+  Abbrev(wf ta' ∧ wf fa')
+Proof
+  Induct>>rw[mk_bij_aux_def]
   >-
     (Cases_on`list_remap l0 (ta,fa,n)`>>Cases_on`r`>>
     simp[markerTheory.Abbrev_def]>>
@@ -838,7 +891,8 @@ Theorem mk_bij_aux_wf `
     fs[]>>
     last_x_assum drule>> simp[markerTheory.Abbrev_def]>>
     strip_tac>>
-    last_x_assum drule >> simp[markerTheory.Abbrev_def]);
+    last_x_assum drule >> simp[markerTheory.Abbrev_def]
+QED
 
 (* Properties of the graph manipulating functions
    All of these simultaneously prove success
@@ -862,11 +916,13 @@ val is_subgraph_refl= Q.store_thm("is_subgraph_refl",`
   is_subgraph s s`,
   rw[is_subgraph_def]);
 
-Theorem is_subgraph_trans `
-  is_subgraph s s' ∧
+Theorem is_subgraph_trans:
+    is_subgraph s s' ∧
   is_subgraph s' s'' ==>
-  is_subgraph s s''`
-  (rw[is_subgraph_def]);
+  is_subgraph s s''
+Proof
+  rw[is_subgraph_def]
+QED
 
 (* TODO quick sanity check: move to proof file when done *)
 val hide_def = Define`
@@ -928,28 +984,32 @@ val sorted_insert_correct_lem = Q.prove(`
     simp[hide_def]>>
     metis_tac[]);
 
-Theorem sorted_insert_correct `
-  ∀ls.
+Theorem sorted_insert_correct:
+    ∀ls.
   SORTED $> ls ⇒
     SORTED $> (sorted_insert x [] ls) ∧
     ∀z.
-    MEM z (sorted_insert x [] ls) ⇔ x = z ∨ MEM z ls`
-  (ntac 2 strip_tac>>
+    MEM z (sorted_insert x [] ls) ⇔ x = z ∨ MEM z ls
+Proof
+  ntac 2 strip_tac>>
   drule sorted_insert_correct_lem>>
-  disch_then(qspec_then `[]` assume_tac)>>rfs[hide_def]);
+  disch_then(qspec_then `[]` assume_tac)>>rfs[hide_def]
+QED
 
-Theorem sorted_mem_correct `
-  ∀ls.
+Theorem sorted_mem_correct:
+    ∀ls.
   SORTED $> ls ⇒
-  (sorted_mem x ls ⇔ MEM x ls)`
-  (Induct>>rw[sorted_mem_def]>>
+  (sorted_mem x ls ⇔ MEM x ls)
+Proof
+  Induct>>rw[sorted_mem_def]>>
   fs[GT_sorted_eq]>>
   rw[EQ_IMP_THM]>>
   simp[NOT_GREATER]>>
-  first_x_assum drule>>fs[]);
+  first_x_assum drule>>fs[]
+QED
 
-Theorem insert_edge_succeeds `
-  good_ra_state s ∧
+Theorem insert_edge_succeeds:
+    good_ra_state s ∧
   y < s.dim ∧
   x < s.dim ⇒
   ∃s'. insert_edge x y s = (Success (),s') ∧
@@ -957,8 +1017,8 @@ Theorem insert_edge_succeeds `
   s' = s with adj_ls := s'.adj_ls ∧
   ∀a b.
   (has_edge s'.adj_ls a b ⇔
-    (a = x ∧ b = y) ∨ (a = y ∧ b = x) ∨ (has_edge s.adj_ls a b))`
-  (
+    (a = x ∧ b = y) ∨ (a = y ∧ b = x) ∨ (has_edge s.adj_ls a b))
+Proof
   rw[good_ra_state_def,insert_edge_def]>>fs msimps>>
   CONJ_TAC>- (
     match_mp_tac IMP_EVERY_LUPDATE>>
@@ -986,10 +1046,11 @@ Theorem insert_edge_succeeds `
   rw[has_edge_def]>>
   simp[EL_LUPDATE]>>
   fs[EVERY_MEM]>>
-  rw[]>>metis_tac[sorted_insert_correct,MEM_EL])
+  rw[]>>metis_tac[sorted_insert_correct,MEM_EL]
+QED
 
-Theorem list_insert_edge_succeeds `
-  ∀ys x s.
+Theorem list_insert_edge_succeeds:
+    ∀ys x s.
   good_ra_state s ∧
   x < s.dim ∧
   EVERY ( λy. y < s.dim) ys ⇒
@@ -1000,8 +1061,9 @@ Theorem list_insert_edge_succeeds `
   (has_edge s'.adj_ls a b ⇔
     (a = x ∧ MEM b ys) ∨
     (b = x ∧ MEM a ys) ∨
-    (has_edge s.adj_ls a b))`
-  (Induct>>rw[list_insert_edge_def]>>fs msimps
+    (has_edge s.adj_ls a b))
+Proof
+  Induct>>rw[list_insert_edge_def]>>fs msimps
   >-
     fs[ra_state_component_equality]>>
   drule (GEN_ALL insert_edge_succeeds)>>
@@ -1009,21 +1071,23 @@ Theorem list_insert_edge_succeeds `
   last_x_assum drule>>
   qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
   disch_then (qspec_then`x` strip_assume_tac)>>rfs[]>>
-  rw[]>>metis_tac[]);
+  rw[]>>metis_tac[]
+QED
 
 (* From here onwards we stop characterizing s'.adj_ls exactly
    although it could be done
  *)
-Theorem clique_insert_edge_succeeds `
-  ∀ls s.
+Theorem clique_insert_edge_succeeds:
+    ∀ls s.
   good_ra_state s ∧
   EVERY ( λy. y < s.dim) ls ==>
   ∃s'. clique_insert_edge ls s = (Success (),s') ∧
   good_ra_state s' ∧
   s' = s with adj_ls := s'.adj_ls ∧
   is_clique ls s'.adj_ls ∧
-  is_subgraph s.adj_ls s'.adj_ls`
-  (Induct>>rw[clique_insert_edge_def]>>fs msimps
+  is_subgraph s.adj_ls s'.adj_ls
+Proof
+  Induct>>rw[clique_insert_edge_def]>>fs msimps
   >-
     fs[ra_state_component_equality,is_subgraph_def,is_clique_def]>>
   drule list_insert_edge_succeeds>>
@@ -1038,10 +1102,11 @@ Theorem clique_insert_edge_succeeds `
     fs[EVERY_MEM])
   >>
   match_mp_tac (GEN_ALL is_subgraph_trans)>>
-  qexists_tac`s'.adj_ls`>>fs[is_subgraph_def]);
+  qexists_tac`s'.adj_ls`>>fs[is_subgraph_def]
+QED
 
-Theorem extend_clique_succeeds `
-  ∀ls cli s.
+Theorem extend_clique_succeeds:
+    ∀ls cli s.
   good_ra_state s ∧
   is_clique cli s.adj_ls ∧
   EVERY ( λy. y < s.dim) ls ∧
@@ -1053,8 +1118,9 @@ Theorem extend_clique_succeeds `
   s' = s with adj_ls := s'.adj_ls ∧
   set cli' = set (cli++ls) ∧
   is_clique cli' s'.adj_ls ∧
-  is_subgraph s.adj_ls s'.adj_ls`
-  (Induct>>rw[extend_clique_def]>>fs msimps
+  is_subgraph s.adj_ls s'.adj_ls
+Proof
+  Induct>>rw[extend_clique_def]>>fs msimps
   >-
     simp[ra_state_component_equality,is_subgraph_def]
   >-
@@ -1073,7 +1139,8 @@ Theorem extend_clique_succeeds `
     fs[]>>
     CONJ_TAC>-
       (simp[EXTENSION]>>metis_tac[])>>
-    fs[is_subgraph_def]);
+    fs[is_subgraph_def]
+QED
 
 (* The col needed to get colouring satisfactory can be generated
    from the node tags
@@ -1092,15 +1159,16 @@ val INJ_less = Q.prove(`
   INJ f s t`,
   metis_tac[INJ_DEF,SUBSET_DEF]);
 
-Theorem check_partial_col_success `
-  ∀ls live flive col.
+Theorem check_partial_col_success:
+    ∀ls live flive col.
   domain flive = IMAGE col (domain live) ∧
   INJ col (set ls ∪ domain live) UNIV
   ⇒
   ∃livein flivein.
   check_partial_col col ls live flive = SOME (livein,flivein) ∧
-  domain flivein = IMAGE col (domain livein)`
-  (Induct>>fs[check_partial_col_def]>>rw[]>>
+  domain flivein = IMAGE col (domain livein)
+Proof
+  Induct>>fs[check_partial_col_def]>>rw[]>>
   TOP_CASE_TAC>>fs[]
   >-
     (`h ∉ domain live` by fs[domain_lookup]>>
@@ -1131,25 +1199,29 @@ Theorem check_partial_col_success `
   impl_tac>-
     (match_mp_tac INJ_less>>
     HINT_EXISTS_TAC>>fs[SUBSET_DEF])>>
-  rw[]>>fs[EXTENSION]);
+  rw[]>>fs[EXTENSION]
+QED
 
-Theorem INJ_COMPOSE_IMAGE `
-  ∀a b u.
+Theorem INJ_COMPOSE_IMAGE:
+    ∀a b u.
   INJ f a b ∧
   INJ g (IMAGE f a) u ⇒
-  INJ (g o f) a u`
-  (rw[]>>
+  INJ (g o f) a u
+Proof
+  rw[]>>
   match_mp_tac INJ_COMPOSE>>
-  metis_tac[INJ_IMAGE]);
+  metis_tac[INJ_IMAGE]
+QED
 
-Theorem colouring_satisfactory_cliques `
-  ∀ls g (f:num->num).
+Theorem colouring_satisfactory_cliques:
+    ∀ls g (f:num->num).
   ALL_DISTINCT ls ∧
   EVERY (λx. x < LENGTH g) ls ∧
   colouring_satisfactory f g ∧ is_clique ls g
   ⇒
-  ALL_DISTINCT (MAP f ls)`
-  (Induct>>fs[is_clique_def,colouring_satisfactory_def]>>
+  ALL_DISTINCT (MAP f ls)
+Proof
+  Induct>>fs[is_clique_def,colouring_satisfactory_def]>>
   rw[]
   >-
     (fs[MEM_MAP]>>rw[]>>
@@ -1158,7 +1230,8 @@ Theorem colouring_satisfactory_cliques `
     fs[has_edge_def]>>
     metis_tac[])
   >>
-    first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rev_full_simp_tac(srw_ss())[]);
+    first_x_assum(qspecl_then [`g`,`f`] mp_tac)>>rev_full_simp_tac(srw_ss())[]
+QED
 
 val domain_eq_IMAGE = Q.prove(`
   domain s = IMAGE FST (set(toAList s))`,
@@ -1181,17 +1254,19 @@ val is_clique_subgraph = Q.prove(`
   is_clique ls s'`,
   fs[is_clique_def,is_subgraph_def]);
 
-Theorem domain_numset_list_delete `
-  ∀l live.
+Theorem domain_numset_list_delete:
+    ∀l live.
   domain (numset_list_delete l live) =
-  domain live DIFF set l`
-  (Induct>>fs[numset_list_delete_def]>>rw[]>>
+  domain live DIFF set l
+Proof
+  Induct>>fs[numset_list_delete_def]>>rw[]>>
   fs[EXTENSION]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 (* The success theorem is separated here *)
-Theorem mk_graph_succeeds `
-  ∀ct ta liveout s.
+Theorem mk_graph_succeeds:
+    ∀ct ta liveout s.
   good_ra_state s ∧
   (∀x. in_clash_tree ct x ⇒ ta x < s.dim) ∧
   INJ ta ({x | in_clash_tree ct x}) (count (LENGTH s.adj_ls)) ∧
@@ -1205,8 +1280,9 @@ Theorem mk_graph_succeeds `
   (EVERY (λy.y < s.dim) livein) ∧
   ALL_DISTINCT livein ∧
   set livein SUBSET set liveout ∪ IMAGE ta {x | in_clash_tree ct x} ∧
-  is_subgraph s.adj_ls s'.adj_ls`
-  (Induct>>
+  is_subgraph s.adj_ls s'.adj_ls
+Proof
+  Induct>>
   rw[in_clash_tree_def,mk_graph_def]>>fs msimps
   >-
     (drule extend_clique_succeeds>>
@@ -1304,15 +1380,18 @@ Theorem mk_graph_succeeds `
     qpat_x_assum`s' = _` SUBST_ALL_TAC>>fs[]>>
     CONJ_TAC>-
       (fs[SUBSET_DEF]>>metis_tac[])>>
-    metis_tac[is_subgraph_trans]);
+    metis_tac[is_subgraph_trans]
+QED
 
-Theorem colouring_satisfactory_subgraph `
-  colouring_satisfactory f h ∧
+Theorem colouring_satisfactory_subgraph:
+    colouring_satisfactory f h ∧
   is_subgraph g h ⇒
-  colouring_satisfactory f g`
-  (fs[colouring_satisfactory_def,is_subgraph_def]>>rw[]>>
+  colouring_satisfactory f g
+Proof
+  fs[colouring_satisfactory_def,is_subgraph_def]>>rw[]>>
   fs[has_edge_def]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 val ALL_DISTINCT_set_INJ = Q.prove(`
   ∀ls col.
@@ -1350,28 +1429,32 @@ val UNION_DIFF_3 = Q.prove(`
  rw[EXTENSION]>>
  metis_tac[]);
 
-Theorem check_partial_col_domain `
-  ∀ls f live flive v.
+Theorem check_partial_col_domain:
+    ∀ls f live flive v.
   check_partial_col f ls live flive = SOME v ⇒
-  domain (FST v) = set ls ∪ domain live`
-  (Induct>>fs[check_partial_col_def]>>rw[]>>EVERY_CASE_TAC>>fs[]>>
+  domain (FST v) = set ls ∪ domain live
+Proof
+  Induct>>fs[check_partial_col_def]>>rw[]>>EVERY_CASE_TAC>>fs[]>>
   first_x_assum drule>>
   fs[EXTENSION]>>
-  metis_tac[domain_lookup]);
+  metis_tac[domain_lookup]
+QED
 
-Theorem check_clash_tree_domain `
-  ∀ct f live flive live' flive'.
+Theorem check_clash_tree_domain:
+    ∀ct f live flive live' flive'.
   check_clash_tree f ct live flive = SOME (live',flive') ⇒
-  domain live' ⊆ domain live ∪ {x | in_clash_tree ct x}`
-  (Induct>>fs[check_clash_tree_def,in_clash_tree_def]>>
+  domain live' ⊆ domain live ∪ {x | in_clash_tree ct x}
+Proof
+  Induct>>fs[check_clash_tree_def,in_clash_tree_def]>>
   rw[]>>fs[case_eq_thms,FORALL_PROD,check_col_def]>>
   rw[]>>imp_res_tac check_partial_col_domain>>
   fs[SUBSET_DEF,domain_numset_list_delete,toAList_domain,domain_difference]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 (* the correctness theorem for mk_graph *)
-Theorem mk_graph_check_clash_tree `
-  ∀ct ta livelist s livelist' s' col live flive.
+Theorem mk_graph_check_clash_tree:
+    ∀ct ta livelist s livelist' s' col live flive.
   mk_graph ta ct livelist s = (Success livelist',s') ∧
   colouring_satisfactory col s'.adj_ls ∧
   INJ ta ({x | in_clash_tree ct x} ∪ domain live) (count (LENGTH s.adj_ls)) ∧
@@ -1384,8 +1467,9 @@ Theorem mk_graph_check_clash_tree `
   ∃livein flivein.
   check_clash_tree (col o ta) ct live flive = SOME (livein,flivein) ∧
   IMAGE ta (domain livein) = set livelist' ∧
-  domain flivein = IMAGE (col o ta) (domain livein)`
-  (Induct>>rw[mk_graph_def,check_clash_tree_def]>>fs msimps>>
+  domain flivein = IMAGE (col o ta) (domain livein)
+Proof
+  Induct>>rw[mk_graph_def,check_clash_tree_def]>>fs msimps>>
   fs[case_eq_thms,in_clash_tree_def]>>rw[]
   >- (
     drule extend_clique_succeeds>> disch_then drule>>
@@ -1723,12 +1807,13 @@ Theorem mk_graph_check_clash_tree `
         fs[EVERY_MEM,SUBSET_DEF,good_ra_state_def]>>
         qpat_x_assum`s''=_` SUBST_ALL_TAC>>fs[])>>
     strip_tac>>fs[SUBSET_DEF]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
 (* This precise characterization is needed to show that the forced edges
    correctly force any two to be distinct *)
-Theorem extend_graph_succeeds `
-  ∀forced:(num,num)alist f s.
+Theorem extend_graph_succeeds:
+    ∀forced:(num,num)alist f s.
   good_ra_state s ∧
   EVERY (λx,y.f x < s.dim ∧ f y < s.dim) forced ==>
   ∃s'.
@@ -1738,8 +1823,9 @@ Theorem extend_graph_succeeds `
     ∀a b.
     (has_edge s'.adj_ls a b ⇔
     (∃x y. f x = a ∧ f y = b ∧ MEM (y,x) forced) ∨
-    (∃x y. f x = a ∧ f y = b ∧ MEM (x,y) forced) ∨ (has_edge s.adj_ls a b))`
-  (Induct>>fs[extend_graph_def]>>fs msimps
+    (∃x y. f x = a ∧ f y = b ∧ MEM (x,y) forced) ∨ (has_edge s.adj_ls a b))
+Proof
+  Induct>>fs[extend_graph_def]>>fs msimps
   >-
     rw[ra_state_component_equality]
   >>
@@ -1750,7 +1836,8 @@ Theorem extend_graph_succeeds `
     first_x_assum (qspecl_then [`f`,`s'`] assume_tac)>>rfs[]>>
     fs[ra_state_component_equality]>>rfs[]>>
     fs[good_ra_state_def]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
 (* Again, this characterization is only needed for the conventions,
    but not for the correctness theorem *)
@@ -1799,8 +1886,8 @@ val mk_tags_st_ex_FOREACH_lem = Q.prove(`
     (`¬is_alloc_var (fa h) ∧ ¬ is_stack_var (fa h)` by fs[is_stack_var_def,is_alloc_var_def]>>
     metis_tac[convention_partitions]));
 
-Theorem mk_tags_succeeds `
-  good_ra_state s ∧
+Theorem mk_tags_succeeds:
+    good_ra_state s ∧
   n = s.dim ⇒
   ∃s'.
     mk_tags n fa s = (Success (),s') ∧
@@ -1810,19 +1897,23 @@ Theorem mk_tags_succeeds `
     x < n ∧ y = fa x ⇒
     if is_phy_var y then EL x s'.node_tag = Fixed (y DIV 2)
     else if is_stack_var y then EL x s'.node_tag = Stemp
-    else EL x s'.node_tag = Atemp`
-  (rw[mk_tags_def]>>fs msimps>>
+    else EL x s'.node_tag = Atemp
+Proof
+  rw[mk_tags_def]>>fs msimps>>
   drule mk_tags_st_ex_FOREACH_lem>>
   qpat_abbrev_tac`ls = GENLIST _ _`>>
   disch_then(qspecl_then[`ls`,`fa`] mp_tac)>>impl_tac>>
   unabbrev_all_tac>>fs[EVERY_GENLIST]>>rw[]>>simp[]>>
-  fs[MEM_GENLIST]);
+  fs[MEM_GENLIST]
+QED
 
 (* copied from word-to-stack proof*)
-Theorem TWOxDIV2
-  `2 * x DIV 2 = x`
-  (ONCE_REWRITE_TAC[MULT_COMM]
-  \\ simp[MULT_DIV]);
+Theorem TWOxDIV2:
+   2 * x DIV 2 = x
+Proof
+  ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]
+QED
 
 val extract_color_st_ex_MAP_lem = Q.prove(`
   ∀ls s.
@@ -1832,13 +1923,14 @@ val extract_color_st_ex_MAP_lem = Q.prove(`
   Induct>>fs[st_ex_MAP_def]>>fs msimps>>rw[]>>
   Cases_on`h`>>fs[]);
 
-Theorem extract_color_succeeds `
-  good_ra_state s ∧
+Theorem extract_color_succeeds:
+    good_ra_state s ∧
   (∀x y. lookup x ta = SOME y ==> y < s.dim) /\
   wf ta ==>
   extract_color ta s =
-  (Success (map (λv. extract_tag (EL v s.node_tag)) ta ),s)`
-  (rw[extract_color_def]>>
+  (Success (map (λv. extract_tag (EL v s.node_tag)) ta ),s)
+Proof
+  rw[extract_color_def]>>
   simp[Once st_ex_bind_def,Once st_ex_return_def]>>
   simp[Once st_ex_bind_def]>>
   Q.ISPECL_THEN [`toAList ta`,`s`] mp_tac extract_color_st_ex_MAP_lem>>
@@ -1848,7 +1940,8 @@ Theorem extract_color_succeeds `
   rw[]>>simp msimps>>
   simp[GSYM map_fromAList]>>
   drule fromAList_toAList>>
-  simp[]);
+  simp[]
+QED
 
 (* Here are the proofs about the "heuristic steps" *)
 
@@ -2733,36 +2826,41 @@ val do_alloc1_success = Q.prove(`
   rw[]>>simp[get_stack_def]>>
   fs[Abbr`sss`,Abbr`ss`]);
 
-Theorem no_clash_colouring_satisfactory `
-  no_clash adjls node_tag ∧
+Theorem no_clash_colouring_satisfactory:
+    no_clash adjls node_tag ∧
   LENGTH adjls = LENGTH node_tag ∧
   EVERY (λn. n ≠ Stemp ∧ n ≠ Atemp) node_tag
   ⇒
   colouring_satisfactory
     (λf. if f < LENGTH node_tag
     then extract_tag (EL f node_tag)
-    else 0) adjls`
-  (rw[no_clash_def,colouring_satisfactory_def]>>
+    else 0) adjls
+Proof
+  rw[no_clash_def,colouring_satisfactory_def]>>
   fs[has_edge_def]>>
   first_x_assum (qspecl_then[`f`,`f'`] mp_tac)>>simp[]>>
   fs[EVERY_EL]>>
   TOP_CASE_TAC>>rfs[]>>
   TOP_CASE_TAC>>rfs[]>>
-  fs[extract_tag_def]);
+  fs[extract_tag_def]
+QED
 
-Theorem check_partial_col_same_dom `
-  ∀ls f g t ft.
+Theorem check_partial_col_same_dom:
+    ∀ls f g t ft.
   (∀x. MEM x ls ⇒ f x = g x) ⇒
-  check_partial_col f ls t ft = check_partial_col g ls t ft`
-  (Induct>>fs[check_partial_col_def]>>rw[]>>
-  metis_tac[]);
+  check_partial_col f ls t ft = check_partial_col g ls t ft
+Proof
+  Induct>>fs[check_partial_col_def]>>rw[]>>
+  metis_tac[]
+QED
 
-Theorem check_clash_tree_same_dom `
-  ∀ct f g live flive.
+Theorem check_clash_tree_same_dom:
+    ∀ct f g live flive.
   (∀x. in_clash_tree ct x ∨ x ∈ domain live ⇒ f x = g x) ⇒
   check_clash_tree f ct live flive =
-  check_clash_tree g ct live flive`
-  (Induct>>fs[in_clash_tree_def,check_clash_tree_def]>>rw[]
+  check_clash_tree g ct live flive
+Proof
+  Induct>>fs[in_clash_tree_def,check_clash_tree_def]>>rw[]
   >-
     metis_tac[check_partial_col_same_dom,MAP_EQ_f]
   >-
@@ -2795,43 +2893,49 @@ Theorem check_clash_tree_same_dom `
     first_x_assum match_mp_tac>>
     drule check_clash_tree_domain>>
     fs[SUBSET_DEF]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
 val opt_split = Q.prove(`
   a ≠ NONE ⇔ a = SOME ()`,
   Cases_on`a`>>fs[]);
 
-Theorem INJ_IMG_lookup `
-  ∀x. INJ g UNIV UNIV ∧
+Theorem INJ_IMG_lookup:
+    ∀x. INJ g UNIV UNIV ∧
   domain (gt:num_set) = IMAGE g (domain ft) ⇒
-  lookup (g x) gt = lookup x ft`
-  (fs[EXTENSION,domain_lookup,INJ_DEF]>>rw[]>>
+  lookup (g x) gt = lookup x ft
+Proof
+  fs[EXTENSION,domain_lookup,INJ_DEF]>>rw[]>>
   Cases_on`lookup x ft`>>
   CCONTR_TAC>>fs[opt_split]>>
-  metis_tac[NOT_SOME_NONE])
+  metis_tac[NOT_SOME_NONE]
+QED
 
-Theorem check_partial_col_INJ `
-  ∀ls t ft gt.
+Theorem check_partial_col_INJ:
+    ∀ls t ft gt.
   INJ g UNIV UNIV ∧
   domain gt = IMAGE g (domain ft) ⇒
   case check_partial_col f ls t ft of
     NONE => check_partial_col (g o f) ls t gt = NONE
   | SOME (tt,ftt) =>
     ∃gtt. check_partial_col (g o f) ls t gt = SOME(tt,gtt) ∧
-    domain gtt = IMAGE g (domain ftt)`
-  (Induct>>fs[check_partial_col_def]>>rw[]>>
+    domain gtt = IMAGE g (domain ftt)
+Proof
+  Induct>>fs[check_partial_col_def]>>rw[]>>
   Cases_on`lookup h t`>>fs[]>>
   drule INJ_IMG_lookup>>rfs[]>>
-  FULL_CASE_TAC>>fs[]);
+  FULL_CASE_TAC>>fs[]
+QED
 
-Theorem check_col_INJ `
-  INJ g UNIV UNIV ==>
+Theorem check_col_INJ:
+    INJ g UNIV UNIV ==>
   case check_col f (s:num_set) of
     NONE => check_col (g o f) s = NONE
   | SOME (t,ft) =>
     ∃gt. check_col (g o f) s = SOME (t,gt) ∧
-    domain gt = IMAGE g (domain ft)`
-  (fs[check_col_def]>>
+    domain gt = IMAGE g (domain ft)
+Proof
+  fs[check_col_def]>>
   strip_tac>>
   fs[GSYM MAP_MAP_o]>>
   qpat_abbrev_tac`ls = MAP f _`>>
@@ -2845,10 +2949,11 @@ Theorem check_col_INJ `
   simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
   AP_THM_TAC>>
   AP_TERM_TAC>>
-  simp[FUN_EQ_THM]);
+  simp[FUN_EQ_THM]
+QED
 
-Theorem check_clash_tree_INJ `
-  ∀ct f g live flive glive.
+Theorem check_clash_tree_INJ:
+    ∀ct f g live flive glive.
   INJ g UNIV UNIV ∧
   domain glive = IMAGE g (domain flive)
   ==>
@@ -2857,8 +2962,9 @@ Theorem check_clash_tree_INJ `
   | SOME (liveout,fliveout) =>
     ∃gliveout.
     check_clash_tree (g o f) ct live glive = SOME(liveout,gliveout) ∧
-    domain gliveout = IMAGE g (domain fliveout)`
-  (Induct>>fs[check_clash_tree_def]>>rw[]
+    domain gliveout = IMAGE g (domain fliveout)
+Proof
+  Induct>>fs[check_clash_tree_def]>>rw[]
   >-
     (drule check_partial_col_INJ>> disch_then drule>>
     disch_then(qspecl_then[`l`,`live`] mp_tac)>>
@@ -2898,11 +3004,12 @@ Theorem check_clash_tree_INJ `
     first_x_assum drule>>
     disch_then drule>>
     disch_then (qspecl_then[`f`,`q`] mp_tac)>>
-    TOP_CASE_TAC>>simp[]);
+    TOP_CASE_TAC>>simp[]
+QED
 
 (* The top-most correctness theorem *)
-Theorem do_reg_alloc_correct `
-  ∀alg sc k moves ct forced st ta fa n.
+Theorem do_reg_alloc_correct:
+    ∀alg sc k moves ct forced st ta fa n.
   mk_bij ct = (ta,fa,n)==>
   st.adj_ls = REPLICATE n [] ==>
   st.node_tag = REPLICATE n Atemp ==>
@@ -2929,8 +3036,9 @@ Theorem do_reg_alloc_correct `
     else
       T) ∧
     (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
-    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced`
-  (rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
+    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced
+Proof
+  rw[do_reg_alloc_def,init_ra_state_def,mk_bij_def]>>fs msimps>>
   `(λ(ta,fa,n). (ta,fa,n)) (mk_bij_aux ct (LN,LN,0)) = (mk_bij_aux ct (LN,LN,0))` by (Cases_on `mk_bij_aux ct (LN,LN,0)`>>Cases_on `r`>>fs[])>>
   first_x_assum(fn x => fs[x])>>
   drule mk_bij_aux_domain>>rw[]>>
@@ -3115,15 +3223,16 @@ Theorem do_reg_alloc_correct `
   qpat_x_assum`extract_tag _ = _ ` mp_tac>>
   rpt(pop_assum kall_tac)>>
   fs[extract_tag_def]>>
-  every_case_tac>>simp[]);
+  every_case_tac>>simp[]
+QED
 
 fun first_prove_imp thms =
   (first_assum(fn x => sg `^(fst(dest_imp(concl x)))`) >- (fs thms) >>
   POP_ASSUM(fn x  => fs[x]));
 
 (* The top-most correctness theorem *)
-Theorem reg_alloc_correct `
-  ∀alg sc k moves ct forced.
+Theorem reg_alloc_correct:
+    ∀alg sc k moves ct forced.
   (* Needs to be proved in wordLang *)
   EVERY (λx,y.in_clash_tree ct x ∧ in_clash_tree ct y) forced ==>
   ∃spcol livein flivein.
@@ -3138,8 +3247,9 @@ Theorem reg_alloc_correct `
     else
       T) ∧
     (!x. x ∈ domain spcol ⇒ in_clash_tree ct x) ∧
-    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced`
-  (rw[reg_alloc_def]>>
+    EVERY (λ(x,y). (sp_default spcol) x = (sp_default spcol) y ⇒ x=y) forced
+Proof
+  rw[reg_alloc_def]>>
   Cases_on `mk_bij ct`>>Cases_on`r`>>rw[]>>
   rw[reg_alloc_aux_def,run_ira_state_def,run_def]>>
   qmatch_goalsub_abbrev_tac `do_reg_alloc _ _ _ _ _ _ _ st` >>
@@ -3150,7 +3260,8 @@ Theorem reg_alloc_correct `
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
   first_prove_imp [Abbr `st`,ra_state_component_equality] >>
-  first_x_assum drule);
+  first_x_assum drule
+QED
 (* --- --- *)
 
 val _ = export_theory ();
