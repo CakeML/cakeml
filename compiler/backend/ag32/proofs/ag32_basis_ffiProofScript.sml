@@ -3231,7 +3231,6 @@ Proof
     fs[word_add_n2w]>>
     qmatch_goalsub_abbrev_tac`ls MOD _`>>
     qexists_tac`ls`>>simp[]>>
-    qexists_tac`inp`>>simp[]>>
     rw[]
     >-
       (simp[fsFFITheory.bumpFD_def,AFUPDKEY_ALOOKUP]>>
@@ -3252,8 +3251,6 @@ Proof
       `SUC strm = output_buffer_size + 1` by rfs[ag32_fs_ok_def, ADD1] >>
       `nn ≤ output_buffer_size + 1` by simp[Abbr`nn`, MIN_DEF] >>
       fs[EVAL``output_buffer_size``])
-    >-
-      (EVAL_TAC \\fs[])
     >-
       (pop_assum mp_tac>>EVAL_TAC)
     >- (
