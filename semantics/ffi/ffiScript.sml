@@ -65,7 +65,7 @@ val _ = Define `ret_ok t v =
  ((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T)`
 
 
-
+(*
 (* access this function with 0 *)
 (* c_type list -> num -> (num#c_type) list*)
 
@@ -73,6 +73,7 @@ val _ = Define `
   (ctype_idx_pr [] count = []) /\
   (ctype_idx_pr (ct::cts) count = (count, ct) :: ctype_idx_pr cts (count+1) )
 `
+
 
 (* byte list list -> (num#c_type) list -> (num#byte list) list *)
 
@@ -90,12 +91,7 @@ val _ = Define `
 (* have a function alias_ok for checking about the consistency of the returned aliases  *)
 (* v list -> num list list -> bool *)
 
-
-
-
-
-
-
+*)
 
 
 val is_mutty = Define `
@@ -168,10 +164,10 @@ included in the  call_ffi*)
 
 val _ = Define `
   ffi_oracle_ok st =
-  (!s sign args ffi' newargs retv.
+  (!s sign args ffi' newargs retv als.
            (FIND (λx. x.mlname = s) st.signatures = SOME sign)
            /\ args_ok sign args
-           /\ (st.oracle s st.ffi_state args = Oracle_return ffi' newargs retv)
+           /\ (st.oracle s st.ffi_state args als = Oracle_return ffi' newargs retv)
            ==> ret_ok sign.retty retv
                /\ LIST_REL (λx y. LENGTH x = LENGTH y) (mutargs sign.args args) newargs
   )`

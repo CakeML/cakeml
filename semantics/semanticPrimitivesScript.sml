@@ -758,8 +758,8 @@ val _ = Define
      (case get_ffi_args (* get_cargs *) s sign.args args of
           SOME cargs =>
            (case call_FFI t n cargs (aliased_args_final (loc_typ_val sign.args args)) of 
-              (* here the aliasing information should be passed *)
               FFI_return t' newargs retv =>
+                 (* have to check assign_args  *)
                 (case assign_ffi_args newargs (get_mut_args sign args) (SOME s) of
                    NONE => NONE
                  | SOME s' =>
