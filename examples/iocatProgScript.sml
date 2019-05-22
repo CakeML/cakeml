@@ -140,15 +140,16 @@ val cat_main = process_topdecs`
   fun cat_main _ = cat (CommandLine.arguments())`;
 val _ = append_prog cat_main;
 
-Theorem cat_main_spec
-  `EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs
+Theorem cat_main_spec:
+   EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main" (st())) [Conv NONE []]
      (STDIO fs * COMMANDLINE cl )
      (POSTv uv. &UNIT_TYPE () uv *
        (STDIO (add_stdout fs (catfiles_string fs (TL cl))))
-       * COMMANDLINE cl)`
-  (strip_tac
+       * COMMANDLINE cl)
+Proof
+  strip_tac
   \\ xcf "cat_main" (st())
   \\ xmatch
   \\ xlet_auto >-(xcon >> xsimpl)
@@ -162,21 +163,24 @@ Theorem cat_main_spec
   \\ instantiate
   \\ simp[FILENAME_def]
   \\ fs[EVERY_MEM,validArg_def]
-  \\ Cases_on`cl` \\ fs[]);
+  \\ Cases_on`cl` \\ fs[]
+QED
 
 val st = st();
 
-Theorem cat_whole_prog_spec
-  `EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs ⇒
+Theorem cat_whole_prog_spec:
+   EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
-    ((=) (add_stdout fs (catfiles_string fs (TL cl))))`
-  (disch_then assume_tac
+    ((=) (add_stdout fs (catfiles_string fs (TL cl))))
+Proof
+  disch_then assume_tac
   \\ simp[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
   \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH cat_main_spec)))
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
 val name = "cat_main"
 val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)

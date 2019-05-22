@@ -43,8 +43,8 @@ val Eval_Var_lemma = Q.prove(
   `(lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P`,
   fs[Eval_Var]);
 
-Theorem ML_QSORT_CORRECT
-  `!env tys a ord R l xs refs.
+Theorem ML_QSORT_CORRECT:
+   !env tys a ord R l xs refs.
       nsLookup env.v (Short "qsort") = SOME qsort_v /\
       LIST_TYPE a l xs /\ (lookup_var "xs" env = SOME xs) /\
       (a --> a --> BOOL) ord R /\ (lookup_var "R" env = SOME R) /\
@@ -55,11 +55,13 @@ Theorem ML_QSORT_CORRECT
           [App Opapp [App Opapp [Var (Short "qsort");
              Var (Short "R")]; Var (Short "xs")]] =
           (empty_state with <| clock := ck2; refs := refs ++ refs' |>,Rval [xs']) /\
-        (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'`
-  (rw [] \\ imp_res_tac Eval_Var_lemma
+        (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'
+Proof
+  rw [] \\ imp_res_tac Eval_Var_lemma
   \\ imp_res_tac (DISCH_ALL (hol2deep ``QSORT R xs``))
   \\ fs [Eval_def,ml_progTheory.eval_rel_def]
-  \\ metis_tac [sortingTheory.QSORT_PERM,sortingTheory.QSORT_SORTED]);
+  \\ metis_tac [sortingTheory.QSORT_PERM,sortingTheory.QSORT_SORTED]
+QED
 
 
 val _ = export_theory();

@@ -880,9 +880,10 @@ val x64_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "";
 
-Theorem x64_encoder_correct
-   `encoder_correct x64_target`
-   (simp [asmPropsTheory.encoder_correct_def, x64_target_ok]
+Theorem x64_encoder_correct:
+    encoder_correct x64_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, x64_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel x64_target`
    \\ rw [x64_target_def, x64_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
@@ -1244,6 +1245,6 @@ Theorem x64_encoder_correct
       print_tac "Loc"
       \\ next_tac []
       )
-   )
+QED
 
 val () = export_theory ()

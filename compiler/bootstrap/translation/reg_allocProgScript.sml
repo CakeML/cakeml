@@ -320,10 +320,12 @@ val map_colors_sub_def = Define `
        (\fx. st_ex_bind (map_colors_sub xs)
                (\fxs. st_ex_return (fx::fxs))))`
 
-Theorem map_colors_sub_eq
-  `map_colors_sub = st_ex_MAP colors_sub`
-  (once_rewrite_tac [FUN_EQ_THM]
-  \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]);
+Theorem map_colors_sub_eq:
+   map_colors_sub = st_ex_MAP colors_sub
+Proof
+  once_rewrite_tac [FUN_EQ_THM]
+  \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]
+QED
 
 val res = m_translate spill_register_def;
 val res = m_translate MAP_colors_def;
@@ -414,9 +416,11 @@ val res = append_prog main;
 
 val st =  get_ml_prog_state ();
 
-Theorem main_whole_prog_spec
-  `F ==> whole_prog_spec ^(fetch_v "main" st) cl fs NONE (\x. T)`
-  (simp []);
+Theorem main_whole_prog_spec:
+   F ==> whole_prog_spec ^(fetch_v "main" st) cl fs NONE (\x. T)
+Proof
+  simp []
+QED
 
 val (_,prog_tm) = whole_prog_thm st "main" (UNDISCH main_whole_prog_spec);
 

@@ -982,9 +982,10 @@ val arm7_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-Theorem arm7_encoder_correct
-   `encoder_correct arm7_target`
-   (simp [asmPropsTheory.encoder_correct_def, arm7_target_ok]
+Theorem arm7_encoder_correct:
+   encoder_correct arm7_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, arm7_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm7_target`
    \\ rw [arm7_target_def, arm7_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
@@ -1217,6 +1218,6 @@ Theorem arm7_encoder_correct
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
       \\ blastLib.FULL_BBLAST_TAC
       )
-   )
+QED
 
 val () = export_theory ()

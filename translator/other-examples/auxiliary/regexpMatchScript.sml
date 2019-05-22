@@ -835,11 +835,13 @@ val sem_implies_match = Q.prove
 (* match correctly implements the semantics.                                 *)
 (*---------------------------------------------------------------------------*)
 
-Theorem match_is_correct
-`!r w. sem r w = match [r] w NONE`
- (REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
+Theorem match_is_correct:
+ !r w. sem r w = match [r] w NONE
+Proof
+ REPEAT (STRIP_TAC ORELSE EQ_TAC) THENL
    [RW_TAC list_ss [sem_implies_match],
-    IMP_RES_TAC match_implies_sem THEN FULL_SIMP_TAC list_ss [FOLDR,sem_def]]);
+    IMP_RES_TAC match_implies_sem THEN FULL_SIMP_TAC list_ss [FOLDR,sem_def]]
+QED
 
 val _ = export_theory ();
 

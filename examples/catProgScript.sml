@@ -28,17 +28,21 @@ val _ = process_topdecs `
 ` |> append_prog
 
 (* TODO: move *)
-Theorem SEP_EXISTS_UNWIND1
-  `(SEP_EXISTS x. &(a = x) * P x) = P a`
-  (rw[Once FUN_EQ_THM,SEP_EXISTS_THM,STAR_def,Once EQ_IMP_THM,cond_def,SPLIT_def]);
+Theorem SEP_EXISTS_UNWIND1:
+   (SEP_EXISTS x. &(a = x) * P x) = P a
+Proof
+  rw[Once FUN_EQ_THM,SEP_EXISTS_THM,STAR_def,Once EQ_IMP_THM,cond_def,SPLIT_def]
+QED
 
-Theorem SEP_EXISTS_UNWIND2
-  `(SEP_EXISTS x. &(x = a) * P x) = P a`
-  (rw[Once FUN_EQ_THM,SEP_EXISTS_THM,STAR_def,Once EQ_IMP_THM,cond_def,SPLIT_def]);
+Theorem SEP_EXISTS_UNWIND2:
+   (SEP_EXISTS x. &(x = a) * P x) = P a
+Proof
+  rw[Once FUN_EQ_THM,SEP_EXISTS_THM,STAR_def,Once EQ_IMP_THM,cond_def,SPLIT_def]
+QED
 (* -- *)
 
-Theorem do_onefile_spec
-  `∀fnm fnv fs.
+Theorem do_onefile_spec:
+   ∀fnm fnv fs.
       FILENAME fnm fnv ∧ hasFreeFD fs
     ⇒
       app (p:'ffi ffi_proj) ^(fetch_v "do_onefile" (get_ml_prog_state())) [fnv]
@@ -51,8 +55,9 @@ Theorem do_onefile_spec
               STDIO (add_stdout fs (implode content)))
          (\e. &BadFileName_exn e *
               &(~inFS_fname fs fnm) *
-              STDIO fs))`
-  (rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
+              STDIO fs))
+Proof
+  rpt strip_tac >> xcf "do_onefile" (get_ml_prog_state()) >>
   reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull) \\
   reverse(Cases_on`consistentFS fs`)
   >-(fs[STDIO_def,IOFS_def,wfFS_def] \\ xpull \\ fs[consistentFS_def] \\ res_tac)
@@ -145,20 +150,23 @@ Theorem do_onefile_spec
   simp[Abbr`fs0`,UNIT_TYPE_def,add_stdout_fastForwardFD,STD_streams_openFileFS] \\
   simp[GSYM add_stdo_ADELKEY,Abbr`fd`,openFileFS_ADELKEY_nextFD] \\
   xsimpl \\
-  simp[validFileFD_def]);
+  simp[validFileFD_def]
+QED
 
 val file_contents_def = Define `
   file_contents fnm fs =
     implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fnm)))))`
 
-Theorem file_contents_add_stdout
-  `STD_streams fs ⇒
-   file_contents fnm (add_stdout fs out) = file_contents fnm fs`
-  (rw[file_contents_def,add_stdo_def,up_stdo_def,fsFFITheory.fsupdate_def]
+Theorem file_contents_add_stdout:
+   STD_streams fs ⇒
+   file_contents fnm (add_stdout fs out) = file_contents fnm fs
+Proof
+  rw[file_contents_def,add_stdo_def,up_stdo_def,fsFFITheory.fsupdate_def]
   \\ CASE_TAC \\ CASE_TAC
   \\ simp[AFUPDKEY_ALOOKUP]
   \\ TOP_CASE_TAC \\ rw[]
-  \\ metis_tac[STD_streams_def,SOME_11,PAIR,FST,fsFFITheory.inode_distinct]);
+  \\ metis_tac[STD_streams_def,SOME_11,PAIR,FST,fsFFITheory.inode_distinct]
+QED
 
 val catfiles_string_def = Define`
   catfiles_string fs fns =
@@ -217,15 +225,16 @@ val catfile_string_def = Define `
     if inFS_fname fs fnm then file_contents fnm fs
     else (strlit"")`
 
-Theorem cat1_spec
-  `!fnm fnmv.
+Theorem cat1_spec:
+   !fnm fnmv.
      FILENAME fnm fnmv /\ hasFreeFD fs ==>
      app (p:'ffi ffi_proj) ^(fetch_v "cat1" (get_ml_prog_state())) [fnmv]
        (STDIO fs)
        (POSTv u.
           &UNIT_TYPE () u *
-          STDIO (add_stdout fs (catfile_string fs fnm)))`
-  (xcf "cat1" (get_ml_prog_state()) >>
+          STDIO (add_stdout fs (catfile_string fs fnm)))
+Proof
+  xcf "cat1" (get_ml_prog_state()) >>
   xhandle `POSTve
              (\u. SEP_EXISTS content ino. &UNIT_TYPE () u *
                &(ALOOKUP fs.files fnm = SOME ino) *
@@ -244,7 +253,7 @@ Theorem cat1_spec
   imp_res_tac STD_streams_stdout >>
   imp_res_tac add_stdo_nil >>
   xsimpl
-);
+QED
 
 val cat_main = process_topdecs`
   fun cat_main _ = cat (CommandLine.arguments())`;
@@ -252,14 +261,15 @@ val _ = append_prog cat_main;
 
 val st = get_ml_prog_state();
 
-Theorem cat_main_spec
-  `EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs
+Theorem cat_main_spec:
+   EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"cat_main"st) [Conv NONE []]
      (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv * (STDIO (add_stdout fs (catfiles_string fs (TL cl)))
-                                    * (COMMANDLINE cl)))`
-  (strip_tac
+                                    * (COMMANDLINE cl)))
+Proof
+  strip_tac
   \\ xcf "cat_main" st
   \\ xmatch
   \\ xlet_auto >- (xcon \\ xsimpl)
@@ -275,19 +285,22 @@ Theorem cat_main_spec
   \\ instantiate
   \\ Cases_on`cl` \\ fs[]
   \\ simp[MEM_MAP,FILENAME_def,PULL_EXISTS]
-  \\ fs[validArg_def,EVERY_MEM]);
+  \\ fs[validArg_def,EVERY_MEM]
+QED
 
-Theorem cat_whole_prog_spec
-  `EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs ⇒
+Theorem cat_whole_prog_spec:
+   EVERY (inFS_fname fs) (TL cl) ∧ hasFreeFD fs ⇒
    whole_prog_spec ^(fetch_v"cat_main"st) cl fs NONE
-    ((=) (add_stdout fs (catfiles_string fs (TL cl))))`
-  (disch_then assume_tac
+    ((=) (add_stdout fs (catfiles_string fs (TL cl))))
+Proof
+  disch_then assume_tac
   \\ simp[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
   \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH cat_main_spec)))
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
 val name = "cat_main"
 val (semantics_thm,prog_tm) = whole_prog_thm st name (UNDISCH cat_whole_prog_spec)

@@ -21,9 +21,10 @@ val names_tac =
   \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
-Theorem ag32_backend_config_ok `
-  backend_config_ok ag32_backend_config`
-  (simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+Theorem ag32_backend_config_ok:
+    backend_config_ok ag32_backend_config
+Proof
+  simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   \\ fs[ag32_backend_config_def,asmTheory.offset_ok_def,
         alignmentTheory.aligned_0,tlookup_bij_iff]
   \\ fs[ag32_backend_config_def,ag32_targetTheory.ag32_config_def,asmTheory.offset_ok_def,
@@ -39,11 +40,13 @@ Theorem ag32_backend_config_ok `
     \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
   \\ EVAL_TAC>>fs[]
-  \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO]);
+  \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO]
+QED
 
-Theorem ag32_machine_config_ok
-  `is_ag32_machine_config mc ⇒ mc_conf_ok mc`
-  (rw[lab_to_targetProofTheory.mc_conf_ok_def,is_ag32_machine_config_def]
+Theorem ag32_machine_config_ok:
+   is_ag32_machine_config mc ⇒ mc_conf_ok mc
+Proof
+  rw[lab_to_targetProofTheory.mc_conf_ok_def,is_ag32_machine_config_def]
   >- EVAL_TAC
   >- simp[ag32_encoder_correct]
   >- EVAL_TAC
@@ -52,14 +55,17 @@ Theorem ag32_machine_config_ok
   >- EVAL_TAC
   >- EVAL_TAC
   >- metis_tac[asmPropsTheory.encoder_correct_def,
-       asmPropsTheory.target_ok_def,ag32_encoder_correct]);
+       asmPropsTheory.target_ok_def,ag32_encoder_correct]
+QED
 
-Theorem ag32_init_ok
-  `is_ag32_machine_config mc ⇒
-    mc_init_ok ag32_backend_config mc`
-  (rw[mc_init_ok_def]
+Theorem ag32_init_ok:
+   is_ag32_machine_config mc ⇒
+    mc_init_ok ag32_backend_config mc
+Proof
+  rw[mc_init_ok_def]
   \\ fs[is_ag32_machine_config_def]
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
 val is_ag32_machine_config_mc = ag32_init_ok |> concl |> dest_imp |> #1
 
