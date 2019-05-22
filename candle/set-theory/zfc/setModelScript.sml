@@ -116,9 +116,10 @@ val FINITE_SET_THEORY_IMAGE = TAC_PROOF(([],
   first_assum (mp_tac o REFORM_RULE o SPECL[``(INR x):'a+num``,``(INR y):'a+num``,``(INR y'):'a+num``]) >>
   simp[])
 
-Theorem l_model_exists
-  `∃(P : α+num -> bool) (mem : α+num -> α+num -> bool). is_set_theory_pred P mem`
-  (qexists_tac`ISR` >>
+Theorem l_model_exists:
+   ∃(P : α+num -> bool) (mem : α+num -> α+num -> bool). is_set_theory_pred P mem
+Proof
+  qexists_tac`ISR` >>
   REWRITE_TAC[is_set_theory_pred_def] >>
   qexists_tac`λl1 l2. BIT (OUTR l1) (OUTR l2)` >>
   conj_tac >- (qexists_tac`INR 0` >> simp[]) >>
@@ -330,7 +331,7 @@ Theorem l_model_exists
     qexists_tac`INR 0` >> simp[] ) >>
   qexists_tac`INR (LOG2 (OUTR x))` >>
   simp[BIT_LOG2,EVERY_GENLIST]
-  )
+QED
 
 val is_V_def = new_specification("is_V_def",["is_V"],REWRITE_RULE[is_set_theory_pred_def]l_model_exists)
 
@@ -346,9 +347,10 @@ val V_mem_rep_def =
 val V_mem_def = Define`V_mem x y = V_mem_rep (dest_V x) (dest_V y)`
 
 
-Theorem is_set_theory_V
-  `is_set_theory V_mem`
-  (simp[is_set_theory_def] >>
+Theorem is_set_theory_V:
+   is_set_theory V_mem
+Proof
+  simp[is_set_theory_def] >>
   conj_tac >- (
     simp[extensional_def] >>
     simp[V_mem_def] >>
@@ -408,7 +410,8 @@ Theorem is_set_theory_V
     y = z` by metis_tac[V_bij] >>
   asm_rewrite_tac[] >>
   disch_then (strip_assume_tac o REWRITE_RULE[V_bij] o Q.SPEC`dest_V d`) >>
-  metis_tac[V_bij] )
+  metis_tac[V_bij]
+QED
 
 val V_choice_exists = Q.prove(
   `∃ch. is_choice V_mem ch`,
@@ -426,10 +429,12 @@ val V_indset_def =
   new_specification("V_indset_def",["V_indset"],
     METIS_PROVE[]``∃i:α V. (∃x:α V. is_inductive V_mem x) ⇒ is_inductive V_mem i``)
 
-Theorem is_model_V
-  `(∃I:α V. is_inductive V_mem I) ⇒
-    is_model (V_mem,V_indset:α V,V_choice)`
-  (simp[is_model_def,is_set_theory_V,V_choice_def,V_indset_def])
+Theorem is_model_V:
+   (∃I:α V. is_inductive V_mem I) ⇒
+    is_model (V_mem,V_indset:α V,V_choice)
+Proof
+  simp[is_model_def,is_set_theory_V,V_choice_def,V_indset_def]
+QED
 
 val _ = print_theory_to_file "-" "setModel";
 

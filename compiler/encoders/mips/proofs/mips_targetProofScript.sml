@@ -477,9 +477,10 @@ val mips_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-Theorem mips_encoder_correct
-   `encoder_correct mips_target`
-   (simp [asmPropsTheory.encoder_correct_def, mips_target_ok]
+Theorem mips_encoder_correct:
+    encoder_correct mips_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, mips_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel mips_target`
    \\ rw [mips_target_def, mips_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
@@ -696,6 +697,6 @@ Theorem mips_encoder_correct
          ]
       \\ next_tac
       )
-   )
+QED
 
 val () = export_theory ()

@@ -26,24 +26,29 @@ val w82n_def = Define`
   256 * ( 256 * ( 256 * ( 256 * ( 256 * ( 256 * ( 256 *
   w2n b7 + w2n b6) + w2n b5) + w2n b4) + w2n b3) + w2n b2) + w2n b1) + w2n b0`
 
-Theorem w22n_n2w2
-  `!i. i < 2**(2*8) ==> w22n (n2w2 i) = i`
-  (rw[w22n_def,n2w2_def] >>
+Theorem w22n_n2w2:
+   !i. i < 2**(2*8) ==> w22n (n2w2 i) = i
+Proof
+  rw[w22n_def,n2w2_def] >>
   `0 < (256 : num)` by fs[] >> imp_res_tac DIVISION >> fs[] >>
-  first_x_assum (assume_tac o Q.SPEC`i`) >> fs[]);
+  first_x_assum (assume_tac o Q.SPEC`i`) >> fs[]
+QED
 
-Theorem n2w2_w22n
-  `!b. LENGTH b = 2 ==> n2w2 (w22n b) = b`
-  (Cases_on`b` >> fs[] >> Cases_on`t` >> rw[w22n_def,n2w2_def]
+Theorem n2w2_w22n:
+   !b. LENGTH b = 2 ==> n2w2 (w22n b) = b
+Proof
+  Cases_on`b` >> fs[] >> Cases_on`t` >> rw[w22n_def,n2w2_def]
   >-(PURE_REWRITE_TAC[Once MULT_COMM] >> fs[ADD_DIV_ADD_DIV] >>
      fs[LESS_DIV_EQ_ZERO,w2n_lt_256]) >>
   fs[GSYM word_add_n2w,GSYM word_mul_n2w] >>
   `256w : word8 = 0w` by fs[GSYM n2w_dimword] >>
-  first_x_assum (fn x => PURE_REWRITE_TAC[x]) >> fs[]);
+  first_x_assum (fn x => PURE_REWRITE_TAC[x]) >> fs[]
+QED
 
-Theorem w82n_n2w8
-  `!i. i <= 256**8 - 1 ==> w82n (n2w8 i) = i`
-  (rw[w82n_def,n2w8_def] >>
+Theorem w82n_n2w8:
+   !i. i <= 256**8 - 1 ==> w82n (n2w8 i) = i
+Proof
+  rw[w82n_def,n2w8_def] >>
   `0 < (256 : num)` by fs[] >> imp_res_tac DIVISION >> fs[] >> rw[] >>
   NTAC 6(qmatch_abbrev_tac`256* i0 + x MOD 256 = x` >>
       `i0 = x DIV 256` suffices_by fs[] >>
@@ -53,12 +58,14 @@ Theorem w82n_n2w8
   `i0 = x DIV 256` suffices_by fs[] >>
   unabbrev_all_tac >> fs[DIV_DIV_DIV_MULT] >>
   `i DIV 256**7 <= 255` suffices_by fs[] >>
-  fs[DIV_LE_X]);
+  fs[DIV_LE_X]
+QED
 
 
-Theorem nw8_w8n
-  `!b. LENGTH b = 8 ==> n2w8 (w82n b) = b`
-  (Cases_on`b` >> fs[] >>
+Theorem nw8_w8n:
+   !b. LENGTH b = 8 ==> n2w8 (w82n b) = b
+Proof
+  Cases_on`b` >> fs[] >>
   NTAC 4 (Cases_on`t` >> fs[] >> Cases_on`t'` >> fs[]) >>
   fs[w82n_def,n2w8_def] >> rpt (TRY strip_tac
   >-(rpt(qmatch_goalsub_abbrev_tac`(a + 256 * b) DIV m` >>
@@ -74,13 +81,18 @@ Theorem nw8_w8n
      rw[LESS_DIV_EQ_ZERO,w2n_lt_256] >>
      fs[GSYM word_add_n2w,GSYM word_mul_n2w] >>
      `256w : word8 = 0w` by fs[GSYM n2w_dimword] >>
-     first_x_assum (fn x => PURE_REWRITE_TAC[x]) >> fs[])));
+     first_x_assum (fn x => PURE_REWRITE_TAC[x]) >> fs[]))
+QED
 
-Theorem LENGTH_n2w2
-  `!n. LENGTH(n2w2 n) = 2`
-  (fs[n2w2_def]);
+Theorem LENGTH_n2w2:
+   !n. LENGTH(n2w2 n) = 2
+Proof
+  fs[n2w2_def]
+QED
 
-Theorem LENGTH_n2w8
-  `!n. LENGTH(n2w8 n) = 8`
-  (fs[n2w8_def])
+Theorem LENGTH_n2w8:
+   !n. LENGTH(n2w8 n) = 8
+Proof
+  fs[n2w8_def]
+QED
 val _ = export_theory()

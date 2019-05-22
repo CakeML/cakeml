@@ -19,11 +19,13 @@ val isBool_def = Define`
   dtcase e of Con _ t [] => (b ⇒ t = true_tag) ∧ (¬b ⇒ t = false_tag) | _ => F`;
 val _ = export_rewrites["isBool_def"];
 
-Theorem isBool_pmatch
-  `isBool b e =
-   case e of Con _ t [] => (b ⇒ t = true_tag) ∧ (¬b ⇒ t = false_tag) | _ => F`
-  (CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
-  CASE_TAC \\ simp[]);
+Theorem isBool_pmatch:
+   isBool b e =
+   case e of Con _ t [] => (b ⇒ t = true_tag) ∧ (¬b ⇒ t = false_tag) | _ => F
+Proof
+  CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
+  CASE_TAC \\ simp[]
+QED
 
 val sIf_def = Define `
   sIf tra e1 e2 e3 =
@@ -34,18 +36,21 @@ val sIf_def = Define `
      | Con _ t [] => if t = true_tag then e2 else e3
      | _ => If tra e1 e2 e3)`;
 
-Theorem sIf_pmatch `!e1 e2 e3.
+Theorem sIf_pmatch:
+  !e1 e2 e3.
   sIf t e1 e2 e3 =
   if isBool T e2 ∧ isBool F e3
     then e1
   else
     (case e1 of
      | Con _ t [] => if t = true_tag then e2 else e3
-     | _ => If t e1 e2 e3)`
-  (rpt strip_tac
+     | _ => If t e1 e2 e3)
+Proof
+  rpt strip_tac
   >> every_case_tac
   >- fs[sIf_def]
-  >- (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >> fs[sIf_def]));
+  >- (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >> fs[sIf_def])
+QED
 
 val _ = Define `
   pure_op_op op ⇔
@@ -107,9 +112,11 @@ val pure_def = Define `
   ∧
   (pure_list (e::es) ⇔ pure e ∧ pure_list es)`;
 
-Theorem pure_list_EVERY
-  `∀ls. pure_list ls ⇔ EVERY pure ls`
-  (Induct >> simp[pure_def])
+Theorem pure_list_EVERY:
+   ∀ls. pure_list ls ⇔ EVERY pure ls
+Proof
+  Induct >> simp[pure_def]
+QED
 val _ = export_rewrites["pure_list_EVERY"]
 
 val ground_def = Define `
@@ -141,13 +148,15 @@ val ground_def = Define `
 
 val _ = export_rewrites["pure_op_op_def","pure_op_def","pure_def","ground_def"];
 
-Theorem ground_list_EVERY
-  `∀n ls. ground_list n ls ⇔ EVERY (ground n) ls`
-  (gen_tac >> Induct >> simp[])
+Theorem ground_list_EVERY:
+   ∀n ls. ground_list n ls ⇔ EVERY (ground n) ls
+Proof
+  gen_tac >> Induct >> simp[]
+QED
 val _ = export_rewrites["ground_list_EVERY"]
 
-Theorem pure_op_op_eqn `
-  pure_op_op op =
+Theorem pure_op_op_eqn:
+    pure_op_op op =
   dtcase op of
     Opref => F
   | Opapp => F
@@ -170,12 +179,14 @@ Theorem pure_op_op_eqn `
   | GlobalVarAlloc _ => F
   | GlobalVarInit _ => F
   | FFI _ => F
-  | _ => T`
-  (Cases_on`op`>>fs[]>>
-  Cases_on`o'`>>fs[])
+  | _ => T
+Proof
+  Cases_on`op`>>fs[]>>
+  Cases_on`o'`>>fs[]
+QED
 
-Theorem pure_op_op_pmatch `
-  pure_op_op op =
+Theorem pure_op_op_pmatch:
+    pure_op_op op =
   case op of
     Opref => F
   | Opapp => F
@@ -198,10 +209,12 @@ Theorem pure_op_op_pmatch `
   | GlobalVarAlloc _ => F
   | GlobalVarInit _ => F
   | FFI _ => F
-  | _ => T`
-  (PURE_ONCE_REWRITE_TAC [pure_op_op_eqn]
+  | _ => T
+Proof
+  PURE_ONCE_REWRITE_TAC [pure_op_op_eqn]
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  >> REFL_TAC)
+  >> REFL_TAC
+QED
 
 val sLet_def = Define `
   sLet t e1 e2 =
@@ -213,17 +226,19 @@ val sLet_def = Define `
            else Seq t e1 e2
          else Let t e1 e2`;
 
-Theorem sLet_pmatch
-  `sLet t e1 e2 =
+Theorem sLet_pmatch:
+   sLet t e1 e2 =
    case e2 of
      | Var_local _ 0 => e1
      | _ =>
          if ground 0 e2 then
            if pure e1 then e2
            else Seq t e1 e2
-         else Let t e1 e2`
-  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
-  CASE_TAC \\ rw[sLet_def]);
+         else Let t e1 e2
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\
+  CASE_TAC \\ rw[sLet_def]
+QED
 
 (* bind elements 0..k of the variable n in reverse order above e (first element
  * becomes most recently bound) *)
@@ -371,16 +386,22 @@ val compile_def = Define`
     compile_exp [] exp :: compile decs ∧
   compile (_::decs) = compile decs`;
 
-Theorem compile_funs_map
-  `∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs`
-  (Induct>>simp[pairTheory.FORALL_PROD])
+Theorem compile_funs_map:
+   ∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs
+Proof
+  Induct>>simp[pairTheory.FORALL_PROD]
+QED
 
-Theorem compile_exps_map
-  `∀es. compile_exps a es = MAP (compile_exp a) es`
-  (Induct >> simp[compile_exp_def])
+Theorem compile_exps_map:
+   ∀es. compile_exps a es = MAP (compile_exp a) es
+Proof
+  Induct >> simp[compile_exp_def]
+QED
 
-Theorem compile_exps_reverse
-  `compile_exps a (REVERSE ls) = REVERSE (compile_exps a ls)`
-  (rw[compile_exps_map,rich_listTheory.MAP_REVERSE])
+Theorem compile_exps_reverse:
+   compile_exps a (REVERSE ls) = REVERSE (compile_exps a ls)
+Proof
+  rw[compile_exps_map,rich_listTheory.MAP_REVERSE]
+QED
 
 val _ = export_theory()

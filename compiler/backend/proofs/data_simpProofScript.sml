@@ -33,15 +33,19 @@ val evaluate_simp = Q.prove(
   \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
   \\ every_case_tac >> fs[evaluate_def]);
 
-Theorem simp_correct
-  `!c s. evaluate (simp c Skip,s) = evaluate (c,s)`
-  (SIMP_TAC std_ss [evaluate_simp,evaluate_Seq_Skip]);
+Theorem simp_correct:
+   !c s. evaluate (simp c Skip,s) = evaluate (c,s)
+Proof
+  SIMP_TAC std_ss [evaluate_simp,evaluate_Seq_Skip]
+QED
 
-Theorem get_code_labels_simp
-  `∀x y. get_code_labels (simp x y) ⊆ get_code_labels x ∪ get_code_labels y`
-  (recInduct data_simpTheory.simp_ind
+Theorem get_code_labels_simp:
+   ∀x y. get_code_labels (simp x y) ⊆ get_code_labels x ∪ get_code_labels y
+Proof
+  recInduct data_simpTheory.simp_ind
   \\ rw[data_simpTheory.simp_def]
   \\ fs[SUBSET_DEF, data_simpTheory.pSeq_def] \\ rw[]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 val _ = export_theory();

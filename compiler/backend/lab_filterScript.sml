@@ -14,8 +14,10 @@ val filter_skip_def = Define `
   (filter_skip (Section n xs :: rest) =
      Section n (FILTER not_skip xs) :: filter_skip rest)`;
 
-Theorem filter_skip_MAP
-  `∀ls. filter_skip ls = MAP (λx. case x of Section n xs => Section n (FILTER not_skip xs)) ls`
-  (Induct \\ simp[filter_skip_def] \\ Cases \\ simp[filter_skip_def]);
+Theorem filter_skip_MAP:
+   ∀ls. filter_skip ls = MAP (λx. case x of Section n xs => Section n (FILTER not_skip xs)) ls
+Proof
+  Induct \\ simp[filter_skip_def] \\ Cases \\ simp[filter_skip_def]
+QED
 
 val _ = export_theory();

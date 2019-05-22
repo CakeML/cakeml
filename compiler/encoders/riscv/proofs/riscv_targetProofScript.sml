@@ -149,9 +149,11 @@ val ror = Q.prove(
 
 (* appears to not be relevant
 
-Theorem DecodeAny_encode[simp]
-  `!encode x. DecodeAny (Word (encode x)) = Decode (encode x)`
-  (rw [riscv_stepTheory.Decode_IMP_DecodeAny]);
+Theorem DecodeAny_encode[simp]:
+   !encode x. DecodeAny (Word (encode x)) = Decode (encode x)
+Proof
+  rw [riscv_stepTheory.Decode_IMP_DecodeAny]
+QED
 
 *)
 
@@ -478,9 +480,10 @@ val riscv_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-Theorem riscv_encoder_correct
-   `encoder_correct riscv_target`
-   (simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
+Theorem riscv_encoder_correct:
+    encoder_correct riscv_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel riscv_target`
    \\ rw [riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
@@ -657,6 +660,6 @@ Theorem riscv_encoder_correct
       print_tac "Loc"
       \\ next_tac
       )
-   )
+QED
 
 val () = export_theory ()

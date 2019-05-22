@@ -14,9 +14,11 @@ val _ = new_theory"wordcountProof";
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
 (* TODO: move *)
-Theorem int_toString_num
-  `mlint$toString ((&(n:num)):int) = toString n`
-  (rw[mlintTheory.num_to_str_def]);
+Theorem int_toString_num:
+   mlint$toString ((&(n:num)):int) = toString n
+Proof
+  rw[mlintTheory.num_to_str_def]
+QED
 (* -- *)
 
 val wordcount_stdin_semantics = Q.prove(
@@ -60,15 +62,16 @@ val LENGTH_data =
 val _ = overload_on("wordcount_machine_config",
     ``ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)``);
 
-Theorem target_state_rel_wordcount_start_asm_state
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem target_state_rel_wordcount_start_asm_state:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms ⇒
    ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
-         ((FUNPOW Next n ms).MEM x = ms.MEM x))`
-  (strip_tac
+         ((FUNPOW Next n ms).MEM x = ms.MEM x))
+Proof
+  strip_tac
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
@@ -80,7 +83,8 @@ Theorem target_state_rel_wordcount_start_asm_state
   \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
   \\ disch_then(qspec_then`md`assume_tac)
   \\ drule (GEN_ALL RTC_asm_step_ag32_target_state_rel_io_events)
-  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]);
+  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]
+QED
 
 val wordcount_startup_clock_def =
   new_specification("wordcount_startup_clock_def",["wordcount_startup_clock"],
@@ -101,14 +105,15 @@ val wordcount_compile_correct_applied =
   |> Q.GEN`data_sp` |> Q.SPEC`0`
   |> curry save_thm "wordcount_compile_correct_applied";
 
-Theorem wordcount_installed
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem wordcount_installed:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.ffi_names (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (wordcount_machine_config) (FUNPOW Next (wordcount_startup_clock ms0 inp cl) ms0)`
-  (rewrite_tac[ffi_names, THE_DEF]
+     (wordcount_machine_config) (FUNPOW Next (wordcount_startup_clock ms0 inp cl) ms0)
+Proof
+  rewrite_tac[ffi_names, THE_DEF]
   \\ strip_tac
   \\ irule ag32_installed
   \\ drule wordcount_startup_clock_def
@@ -122,7 +127,8 @@ Theorem wordcount_installed
   \\ conj_tac >- (EVAL_TAC)
   \\ asm_exists_tac
   \\ simp[]
-  \\ fs[ffi_names]);
+  \\ fs[ffi_names]
+QED
 
 val wordcount_machine_sem =
   wordcount_compile_correct_applied
@@ -135,12 +141,13 @@ val wordcount_machine_sem =
   |> DISCH_ALL
   |> curry save_thm "wordcount_machine_sem";
 
-Theorem wordcount_extract_writes_stdout
-  `(extract_writes 1 (MAP get_output_io_event (wordcount_io_events input)) =
+Theorem wordcount_extract_writes_stdout:
+   (extract_writes 1 (MAP get_output_io_event (wordcount_io_events input)) =
     explode (
       concat [toString (LENGTH (TOKENS isSpace input)); strlit" ";
-              toString (LENGTH (splitlines input)); strlit "\n"]))`
-  (qspec_then`input`mp_tac(GEN_ALL(DISCH_ALL wordcount_output))
+              toString (LENGTH (splitlines input)); strlit "\n"]))
+Proof
+  qspec_then`input`mp_tac(GEN_ALL(DISCH_ALL wordcount_output))
   \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stdout_fastForwardFD]
   \\ simp[STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
@@ -171,10 +178,11 @@ Theorem wordcount_extract_writes_stdout
     pop_assum mp_tac
     \\ rw[] \\ fs[] \\ rw[]
     \\ pop_assum mp_tac \\ rw[])
-  >- rw[OPTREL_def]);
+  >- rw[OPTREL_def]
+QED
 
-Theorem wordcount_ag32_next
-  `LENGTH inp ≤ stdin_size ∧
+Theorem wordcount_ag32_next:
+   LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) ([strlit"wordcount"],inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
@@ -184,8 +192,9 @@ Theorem wordcount_ag32_next
        (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
        outs ≼ MAP get_output_io_event (wordcount_io_events inp) ∧
        ((ms.R (n2w (wordcount_machine_config).ptr_reg) = 0w) ⇒
-        (outs = MAP get_output_io_event (wordcount_io_events inp)))`
-  (strip_tac
+        (outs = MAP get_output_io_event (wordcount_io_events inp)))
+Proof
+  strip_tac
   \\ drule (GEN_ALL wordcount_machine_sem)
   \\ disch_then drule
   \\ strip_tac
@@ -205,6 +214,7 @@ Theorem wordcount_ag32_next
   \\ qmatch_goalsub_abbrev_tac`FUNPOW Next clk`
   \\ qexists_tac`clk` \\ simp[]
   \\ EVAL_TAC
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 val _ = export_theory();
