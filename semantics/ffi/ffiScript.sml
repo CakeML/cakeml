@@ -64,6 +64,40 @@ val _ = Define `args_ok sig args = LIST_REL arg_ok sig.args args`
 val _ = Define `ret_ok t v =
  ((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T)`
 
+
+
+(* access this function with 0 *)
+(* c_type list -> num -> (num#c_type) list*)
+
+val _ = Define `
+  (ctype_idx_pr [] count = []) /\
+  (ctype_idx_pr (ct::cts) count = (count, ct) :: ctype_idx_pr cts (count+1) )
+`
+
+(* byte list list -> (num#c_type) list -> (num#byte list) list *)
+
+val _ = Define `
+  (cargs_sign_tag_retr [] _ = []) /\ 
+  (cargs_sign_tag_retr _ [] = []) /\ 
+  (cargs_sign_tag_retr (btl::btls) (ict::icts) = 
+         case SDN ict of C_array conf => if conf.mutable 
+                                         then (FST ict, btl) :: cargs_sign_tag_retr btls icts)
+			                 else cargs_sign_tag_retr (btl:btls) icts
+			 | _ =>  cargs_sign_tag_retr (btl:btls) icts
+`
+
+
+(* have a function alias_ok for checking about the consistency of the returned aliases  *)
+(* v list -> num list list -> bool *)
+
+
+
+
+
+
+
+
+
 val is_mutty = Define `
  is_mutty ty =
   (case ty of C_array c => c.mutable
@@ -93,8 +127,8 @@ val _ = Hol_datatype `
 
 
 
-(* TODO: reinstate num list list when we want to treat aliasing *)
-val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> c_value list (*-> num list list*) -> 'ffi oracle_result``);
+(* reinstating num list list because we want to treat aliasing *)
+val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> c_value list -> num list list -> 'ffi oracle_result``);
 val _ = type_abbrev((*  'ffi *) "oracle" , ``: string -> 'ffi oracle_function``);
 
 (* An I/O event, IO_event s bytes bytes2, represents the call of FFI function s with
@@ -127,6 +161,11 @@ val _ = Define `
  ; signatures  := sigs
  |>))`;
 
+
+
+(*  its a precondition for theorems about the correctness of the FFI, doesn't have to be 
+included in the  call_ffi*)
+
 val _ = Define `
   ffi_oracle_ok st =
   (!s sign args ffi' newargs retv.
@@ -138,17 +177,26 @@ val _ = Define `
   )`
 
 val _ = Hol_datatype `
- ffi_result = FFI_return of 'ffi ffi_state => word8 list list (* again the output argements *) => c_primv option (* return value *) | FFI_final of final_event`;
+ ffi_result = FFI_return of 'ffi ffi_state => word8 list list (* again the output argements *) => c_primv option (* return value *) 
+            | FFI_final of final_event`;
+
+
+
+(* call_FFI can either check that the returned aliases values are consistent or it 
+can assume that they are as in ffi_oracle_ok *)
 
 
 (*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_result 'ffi*)
+(* we are not required to do the LENGTH check on the returned mutable arguments because 
+we are not using ZIP anymore in the io_event log*)
+
 val _ = Define `
- ((call_FFI:'ffi ffi_state -> string ->(c_value)list -> 'ffi ffi_result) st s args=
+ ((call_FFI:'ffi ffi_state -> string ->(c_value)list -> num list list -> 'ffi ffi_result) st s args als =
    (if ~ (s = "") then
     (case FIND (λx. x.mlname = s) st.signatures of
       SOME sign => 
       (if args_ok sign args then
-       (case st.oracle s st.ffi_state args (* add the aliasing information here *) of
+       (case st.oracle s st.ffi_state args als of
          Oracle_return ffi' newargs retv =>
            if ret_ok sign.retty retv then
               FFI_return
