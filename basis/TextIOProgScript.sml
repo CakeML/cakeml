@@ -268,8 +268,16 @@ val _ = process_topdecs`
           else raise InvalidFD)
     end` |> append_prog
 
+
 val _ = (append_prog o process_topdecs)`
-  fun b_refillBuffer is =
+  fun b_refillBuffer_with_input is =
+    case is of InstreamBuffered fd rref wref surplus =>
+        (wref := 4 + input fd surplus 4 ((Word8Array.length surplus)-4);
+        rref := 4;
+        (!wref) - 4)`;
+
+val _ = (append_prog o process_topdecs)`
+  fun b_refillBuffer_with_read is =
     case is of InstreamBuffered fd rref wref surplus =>
         (wref := 4 + (read_into (get_in fd) surplus ((Word8Array.length surplus)-4));
         rref := 4;
@@ -304,7 +312,7 @@ val _ = (append_prog o process_topdecs)`
             in the buffer and then refill it, and copy the remaining bytes *)
             if len > nBuffered then
               (b_input_aux is buff off nBuffered;
-              (b_input_aux is buff (off+nBuffered) (min (b_refillBuffer is) (len-nBuffered))) + nBuffered)
+              (b_input_aux is buff (off+nBuffered) (min (b_refillBuffer_with_input is) (len-nBuffered))) + nBuffered)
             (*If there are enough bytes in the buffer, just copy them*)
             else
               b_input_aux is buff off len
@@ -315,7 +323,7 @@ val _ = (append_prog o process_topdecs)`
     case is of InstreamBuffered fd rref wref surplus =>
          (*Fill upp buffer if needed*)
         ((if (!wref) = (!rref)
-        then (b_refillBuffer is; ())
+        then (b_refillBuffer_with_read is; ())
         else ());
         if (!wref) = 4 then None
         else

@@ -574,7 +574,7 @@ val REF_NUM_def = Define `
     SEP_EXISTS v. REF loc v * & (NUM n v)`;
 
 val instream_buffered_inv_def = Define `
-  instream_buffered_inv r w bcontent bactive =
+  instream_buffered_inv r w bcontent wrarea bactive =
       (1028 <= LENGTH bcontent  /\
        LENGTH bcontent < 256**2 /\
       4 <= w /\
@@ -582,14 +582,15 @@ val instream_buffered_inv_def = Define `
       r <= LENGTH bcontent /\
       w <= LENGTH bcontent /\
       r <= w /\
+      wrarea = DROP 4 bcontent /\
       bactive = TAKE (w-r) (DROP r bcontent))`;
 
 val INSTREAM_BUFFERED_def = Define `
   INSTREAM_BUFFERED bactive is =
-    SEP_EXISTS rr r wr w buff bcontent fd fdv.
+    SEP_EXISTS rr r wr w buff bcontent wrarea fd fdv.
       & (is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; buff]) /\
         INSTREAM fd fdv /\
-        instream_buffered_inv r w bcontent bactive) *
+        instream_buffered_inv r w bcontent wrarea bactive) *
       REF_NUM rr r *
       REF_NUM wr w *
       W8ARRAY buff bcontent`;
@@ -1855,19 +1856,83 @@ Theorem b_openIn_spec
   (xcf_with_def "TextIO.b_openIn" TextIO_b_openIn_v_def
   \\xapp \\ fs[INT_NUM_EXISTS]);
 
-Theorem b_refillBuffer_spec
+Theorem b_refillBuffer_with_input_spec
+  `!fd fdv fs content pos.
+    INSTREAM fd fdv  ∧
+    is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
+    get_file_content fs fd = SOME(content, pos) ⇒
+    get_mode fs fd = SOME ReadMode ⇒
+    app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_input_v [is;]
+    (STDIO fs * INSTREAM_BUFFERED bactive is )
+    (POSTv wv. SEP_EXISTS wrAreaSize.
+                  &(NUM (MIN wrAreaSize (LENGTH content - pos)) wv) *
+                  INSTREAM_BUFFERED (TAKE (MIN wrAreaSize (LENGTH content - pos))
+                                      (DROP pos (MAP (n2w o ORD) content))) is *
+        STDIO (fsupdate fs fd 0 (MIN (wrAreaSize + pos) (MAX pos (LENGTH content))) content))`
+  (xcf_with_def "TextIO.b_refillBuffer_with_input" TextIO_b_refillBuffer_with_input_v_def
+  \\qpat_abbrev_tac`fcontent = (MAP (n2w o ORD) content)`
+  \\fs[INSTREAM_BUFFERED_def, REF_NUM_def]
+  \\xpull
+  \\xmatch
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\fs[instream_buffered_inv_def]
+  \\xlet_auto_spec (SOME input_spec) >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\`pos = LENGTH content ⇒ MIN (LENGTH bcontent + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
+  \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
+  \\xapp \\ xsimpl
+  \\qexists_tac `&((MIN (LENGTH bcontent - 4) (STRLEN content − pos)) + 4)`  \\fs[NUM_def, MIN_DEF]
+  \\rpt strip_tac
+  \\map_every qexists_tac [`LENGTH bcontent-4`,`(MIN (LENGTH bcontent-4) (STRLEN content − pos))`,`fd`]
+  \\simp[MAX_DEF,MIN_DEF] \\ fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE] \\ xsimpl
+  \\qpat_abbrev_tac`take_fcontent = (TAKE (LENGTH bcontent - 4) (DROP pos fcontent))`
+  \\`LENGTH take_fcontent <= LENGTH bcontent` by
+      fs[Abbr`take_fcontent`,Abbr`fcontent`,LENGTH_TAKE_EQ_MIN,LENGTH_TAKE,MIN_DEF]
+  `1028 ≤ LENGTH (insert_atI take_fcontent 4 bcontent)` by fs[insert_atI_def] \\ simp[]
+   `LENGTH (insert_atI take_fcontent 4 bcontent) < 65536` by fs[LENGTH_insert_atI] \\ simp[]
+  \\fs[LENGTH_insert_atI]
+  \\CASE_TAC
+  >-(rw[Abbr`take_fcontent`,insert_atI_def,TAKE_APPEND]
+    \\`LENGTH (TAKE (LENGTH bcontent) (DROP pos fcontent)) = LENGTH bcontent`
+            by fs[Abbr`fcontent`,LENGTH_TAKE]
+    \\fs[Abbr`fcontent`,TAKE_0,TAKE_TAKE])
+  >-(rw[Abbr`take_fcontent`,insert_atI_def,TAKE_APPEND]
+    \\`LENGTH (TAKE (LENGTH bcontent) (DROP pos fcontent)) =
+          MIN (LENGTH bcontent) (LENGTH fcontent - pos)`
+            by fs[Abbr`fcontent`,LENGTH_TAKE_EQ_MIN, LENGTH_DROP]
+    \\fs[MIN_DEF] \\ CASE_TAC
+    >-(fs[Abbr`fcontent`,take_drop_append])
+    >-(fs[Abbr`fcontent`,take_drop_append, TAKE_TAKE_MIN]
+      >-(fs[MIN_DEF] \\ CASE_TAC
+        >-(`STRLEN content - pos = LENGTH bcontent` by fs[]
+\\fs[])))));
+
+SUBGOAL_THEN ``LENGTH (insert_atI (take_fcontent:word8 list) 4 (bcontent:word8 list)) < 65536`` assume_tac
+fs[insert_atI_def]
+Cases_on `LENGTH take_fcontent + 4` >- fs[]
+>-(Cases_on `LENGTH bcontent` >- fs[]
+  \\fs[GSYM SUC_ADD_SYM]
+  \\fs[SUC_ONE_ADD]
+  \\fs[SUB_EQUAL_0]
+  `n' - n + n = 0` by intLib.ARITH_TAC
+  `SUC n + (SUC n' − SUC n) =  SUC n + SUC n' − SUC n` by fs[SUB_LEFT_ADD])
+
+Theorem b_refillBuffer_with_read_spec
  `!fd fdv fs content pos.
    is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
    get_file_content fs fd = SOME(content, pos) ⇒
    get_mode fs fd = SOME ReadMode ⇒
-   app (p:'ffi ffi_proj) TextIO_b_refillBuffer_v [is;]
+   app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_read_v [is;]
    (IOFS_WO_iobuff fs * INSTREAM_BUFFERED_FD bactive fd is )
    (POSTv wv. SEP_EXISTS (nr:num) buff.
                  &(NUM nr wv /\
                    buff = (0w::n2w (nr DIV 256)::n2w nr::h4'::rest)) *
                  INSTREAM_BUFFERED_FD (TAKE nr (DROP pos (MAP (n2w o ORD) content))) fd is *
        SEP_EXISTS k. IOFS_WO_iobuff (fsupdate fs fd k (nr+pos) content))`
-  (xcf_with_def "TextIO.b_refillBuffer" TextIO_b_refillBuffer_v_def
+  (xcf_with_def "TextIO.b_refillBuffer" TextIO_b_refillBuffer_with_read_v_def
   \\reverse(Cases_on`pos ≤ LENGTH content`)
     >-(imp_res_tac get_file_content_eof \\ rfs[]
       \\fs[MAX_DEF, MIN_DEF, IOFS_WO_iobuff_def,
