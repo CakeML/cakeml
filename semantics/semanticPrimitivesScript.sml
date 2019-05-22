@@ -648,6 +648,19 @@ val _ = Define  `
     (count, ct, v) :: (ctypes_vals_idx_prs cts vs (count+1)))
   `
 
+Theorem ctypes_vals_idx_prs_eq:
+ ctypes_vals_idx_prs cts vs 0 = MAPi $, (ZIP(cts,vs))
+Proof
+ `!cts vs n. ctypes_vals_idx_prs cts vs n =
+  MAPi (\m x. n + m, x) (ZIP(cts,vs))`
+ by(recInduct(fetch "-" "ctypes_vals_idx_prs_ind") >>
+    rw[fetch "-" "ctypes_vals_idx_prs_def",listTheory.ZIP_def,combinTheory.o_DEF,
+       arithmeticTheory.ADD1]) >>
+ first_x_assum(qspecl_then[`cts`,`vs`,`0`] mp_tac) >>
+ rw[] >>
+ match_mp_tac indexedListsTheory.MAPi_CONG >> rw[]
+QED
+
 (*  “:(α # c_type # v) list -> c_type -> v -> α list” *)
 
 (*TOASK: should we add the last two gaurd cases? *)
@@ -675,10 +688,16 @@ val _ = Define `
 
 
 val _ = Define `
-  (pr_lst_fst_lst _ = []) /\
+(*  (pr_lst_fst_lst _ = []) /\*)
+  (pr_lst_fst_lst [] = []) /\
   (pr_lst_fst_lst (pr::prs) = FST pr::pr_lst_fst_lst prs)  
 `
 
+Theorem pr_lst_fst_lst_eq:
+  pr_lst_fst_lst l = MAP FST l
+Proof
+  Induct_on `l` >> rw[fetch "-" "pr_lst_fst_lst_def"]
+QED
 
 val _ = Define `
   (matched_num_pr_lst (_:num) [] = []) /\
@@ -687,22 +706,44 @@ val _ = Define `
                                     else matched_num_pr_lst n prs)  
 `
 
+Theorem matched_num_pr_lst_eq:
+  matched_num_pr_lst n prs = FILTER ($= n o FST) prs
+Proof
+  Induct_on `prs` >> rw[] >>
+  PURE_ONCE_REWRITE_TAC[fetch "-" "matched_num_pr_lst_def"] >>
+  rw[]
+QED
+
 val _ = Define `
   (matched_loc [] _ = []) /\
   (matched_loc _ [] = []) /\
-  (matched_loc (n::ns) prl = if  IS_EL n (pr_lst_fst_lst prl) 
+  (matched_loc (n::ns) prl = if  IS_EL n (MAP FST prl)
                              then matched_num_pr_lst n prl ++ matched_loc (ns) prl
 			     else matched_loc ns prl ) 
 `
 
 
 val _ = Define `
-  (list_minus _ [] = []) /\ 
+(*  (list_minus _ [] = []) /\ *)
   (list_minus [] _ = []) /\
   (list_minus  (m::ms) ns = if IS_EL m ns 
                             then list_minus ms ns 
                             else  m::list_minus ms ns)
 `
+
+Theorem list_minus_nil:
+  list_minus l [] = l
+Proof
+  Induct_on `l` >> rw[fetch "-" "list_minus_def"]
+QED
+
+Theorem list_minus_filter:
+ !l1 l2.
+     list_minus l1 l2 = FILTER (λ e. ~(MEM e l2)) l1
+Proof
+ recInduct(fetch "-" "list_minus_ind") >>
+ rw[fetch "-" "list_minus_def",list_minus_nil] >> fs[] >> rfs[]
+QED
 
 
 (*  type: num list -> (num#c_type#val) list -> (num#c_type#val) list *)
@@ -718,6 +759,16 @@ val _ = Define `
   (aliased_args (pr::prs) = 
     aliased_list' pr prs :: aliased_args (remove_loc (aliased_list' pr prs) prs))
 `
+
+val _ = tDefine "aliased_args"
+  `
+  (aliased_args [] = []) /\
+  (aliased_args (pr::prs) = 
+    aliased_list' pr prs :: aliased_args (remove_loc (aliased_list' pr prs) prs))
+  `
+  (WF_REL_TAC `inv_image $< LENGTH` >>
+   rw[fetch "-" "remove_loc_def",list_minus_filter,arithmeticTheory.LESS_EQ,
+      rich_listTheory.LENGTH_FILTER_LEQ])
 
 
 (* we should filter empty lists in the end  *)
@@ -752,6 +803,7 @@ val _ = Define `
 
 
 /\ (assign_ffi_arg _ _ _ s = SOME s)`
+
 
 
 
@@ -798,7 +850,7 @@ val _ = Define
            (case call_FFI t n cargs (aliased_args_final (ctypes_vals_idx_prs sign.args args 0)) of 
               (* here the aliasing information should be passed *)
               FFI_return t' newargs retv =>
-                (case assign_ffi_args sign.args newargs (get_mut_args sign args) (SOME s) of
+                (case assign_ffi_args newargs (get_mut_args sign args) (SOME s) of
                    NONE => NONE
                  | SOME s' =>
                    if ret_ok sign.retty retv then
