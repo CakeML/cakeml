@@ -17,8 +17,10 @@ val is_arm7_machine_config_def = Define`
   mc.ptr2_reg = 2 ∧
   mc.callee_saved_regs = [8;10;11]`;
 
+val _ = computeLib.add_funs [arm7_names_def];
+
 val names_tac =
-  simp[tlookup_bij_iff] \\ EVAL_TAC
+  simp[tlookup_bij_iff, arm7_names_def] \\ EVAL_TAC
   \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
@@ -28,7 +30,10 @@ Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >> TRY(fs[arm7_backend_config_def]>>NO_TAC)
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
-  >> TRY(EVAL_TAC >> fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def]>>NO_TAC)
+  >- (EVAL_TAC >> fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def])
+  >- (EVAL_TAC >> fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def])
+  >- (EVAL_TAC >> fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def])
+  >- (EVAL_TAC >> fs[armTheory.EncodeARMImmediate_def,Once armTheory.EncodeARMImmediate_aux_def])
   >- names_tac
   >- (
     fs [stack_removeTheory.store_offset_def,
