@@ -60,38 +60,58 @@ val _ = Define `arg_ok t v =
 val _ = Define `args_ok sig args = LIST_REL arg_ok sig.args args`
 
 (* ret_ok :: "c_type option ⇒ c_value option ⇒ bool" *)
-(*  talks only about the primitive c types *)
+(*  only about the primitive c types *)
 val _ = Define `ret_ok t v =
  ((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T)`
 
 
-(*
-(* access this function with 0 *)
-(* c_type list -> num -> (num#c_type) list*)
+
+
+(* c_type list  -> (num#c_type) list*)
 
 val _ = Define `
-  (ctype_idx_pr [] count = []) /\
-  (ctype_idx_pr (ct::cts) count = (count, ct) :: ctype_idx_pr cts (count+1) )
+  loc_typ ctl = MAPi $, ctl
 `
 
 
 (* byte list list -> (num#c_type) list -> (num#byte list) list *)
 
 val _ = Define `
-  (cargs_sign_tag_retr [] _ = []) /\ 
-  (cargs_sign_tag_retr _ [] = []) /\ 
-  (cargs_sign_tag_retr (btl::btls) (ict::icts) = 
-         case SDN ict of C_array conf => if conf.mutable 
-                                         then (FST ict, btl) :: cargs_sign_tag_retr btls icts)
-			                 else cargs_sign_tag_retr (btl:btls) icts
-			 | _ =>  cargs_sign_tag_retr (btl:btls) icts
+  (mut_tag_retr [] _ = []) /\ 
+  (mut_tag_retr _ [] = []) /\ 
+  (mut_tag_retr (btl::btls) (ict::icts) = 
+         case SND ict of C_array conf => if conf.mutable 
+                                         then (FST ict, btl) :: mut_tag_retr btls icts
+			                 else mut_tag_retr (btl::btls) icts 
+			 | _ =>   mut_tag_retr (btl::btls) icts) 
+`
+
+(* (num#byte list) list -> num list -> (num#byte list) list *)
+val _ = Define `
+  (match_cargs btl [] = []) /\
+  (match_cargs btl (n::ns) = FILTER (\x. FST x = n) btl ++ match_cargs btl ns)
 `
 
 
-(* have a function alias_ok for checking about the consistency of the returned aliases  *)
-(* v list -> num list list -> bool *)
 
-*)
+val _ = Define `
+  ident_elems l = if CARD (set l) = 1 then T else F 
+`
+(* c_type list -> byte list list -> num list -> byte list list  *)
+val _ = Define `
+  als_vals ctl btl als = MAP (\x. SND x) (match_cargs (mut_tag_retr btl (loc_typ ctl)) als) 
+`
+
+
+val _ = Define `
+  als_vals_ok ctl btl als =  ident_elems (als_vals ctl btl als)
+`
+
+(*  “:c_type list -> α list -> num list list -> bool” *)
+
+val _ = Define `
+  als_ok ctl btl alsl =  (FILTER (\b. b = F) (MAP (\nl. ident_elems (als_vals ctl btl nl) ) alsl) = [])
+`
 
 
 val is_mutty = Define `
@@ -168,12 +188,12 @@ val _ = Define `
            (FIND (λx. x.mlname = s) st.signatures = SOME sign)
            /\ args_ok sign args
            /\ (st.oracle s st.ffi_state args als = Oracle_return ffi' newargs retv)
-           ==> ret_ok sign.retty retv
+           ==> ret_ok sign.retty retv /\ als_ok sign.args newargs als  
                /\ LIST_REL (λx y. LENGTH x = LENGTH y) (mutargs sign.args args) newargs
   )`
 
 val _ = Hol_datatype `
- ffi_result = FFI_return of 'ffi ffi_state => word8 list list (* again the output argements *) => c_primv option (* return value *) 
+ ffi_result = FFI_return of 'ffi ffi_state => word8 list list  => c_primv option 
             | FFI_final of final_event`;
 
 
