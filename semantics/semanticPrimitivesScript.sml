@@ -759,8 +759,7 @@ val _ = Define
           SOME cargs =>
            (case call_FFI t n cargs (aliased_args_final (loc_typ_val sign.args args)) of 
               FFI_return t' newargs retv =>
-                 (* have to check assign_args  *)
-                (case assign_ffi_args newargs (get_mut_args sign args) (SOME s) of
+                (case assign_ffi_args sign.args newargs (get_mut_args sign args) (SOME s) of
                    NONE => NONE
                  | SOME s' =>
                    if ret_ok sign.retty retv then
