@@ -12,27 +12,35 @@ val _ = new_theory "clos_letopProof";
 val _ = temp_overload_on("let_op",``clos_letop$let_op``);
 val _ = temp_overload_on("var_list",``clos_letop$var_list``);
 
-Theorem let_op_SING
-  `!x. ?y. let_op [x] = [y]`
-  (Induct \\ fs [let_op_def] \\ CASE_TAC);
+Theorem let_op_SING:
+   !x. ?y. let_op [x] = [y]
+Proof
+  Induct \\ fs [let_op_def] \\ CASE_TAC
+QED
 
-Theorem HD_let_op_SING[simp]
-  `!x. [HD (let_op [x])] = let_op [x] ∧
-       LENGTH (let_op [x]) = 1`
-  (strip_tac \\ strip_assume_tac (Q.SPEC `x` let_op_SING) \\ simp []);
+Theorem HD_let_op_SING[simp]:
+   !x. [HD (let_op [x])] = let_op [x] ∧
+       LENGTH (let_op [x]) = 1
+Proof
+  strip_tac \\ strip_assume_tac (Q.SPEC `x` let_op_SING) \\ simp []
+QED
 
 val code_rel_def = Define `
   code_rel e1 e2 <=>
     e2 = let_op e1`;
 
-Theorem code_rel_IMP_LENGTH
-  `!xs ys. code_rel xs ys ==> LENGTH xs = LENGTH ys`
-  (fs [code_rel_def, LENGTH_let_op]);
+Theorem code_rel_IMP_LENGTH:
+   !xs ys. code_rel xs ys ==> LENGTH xs = LENGTH ys
+Proof
+  fs [code_rel_def, LENGTH_let_op]
+QED
 
-Theorem code_rel_CONS_CONS
-  `code_rel (x1::x2::xs) (y1::y2::ys) ==>
-      code_rel [x1] [y1] /\ code_rel (x2::xs) (y2::ys)`
-  (simp [code_rel_def, let_op_def]);
+Theorem code_rel_CONS_CONS:
+   code_rel (x1::x2::xs) (y1::y2::ys) ==>
+      code_rel [x1] [y1] /\ code_rel (x2::xs) (y2::ys)
+Proof
+  simp [code_rel_def, let_op_def]
+QED
 
 (* value relation *)
 
@@ -140,20 +148,24 @@ val v_rel_IMP_v_to_words = prove(
 
 (* *)
 
-Theorem dest_op_SOME_IMP
-  `!x args opp. dest_op x args = SOME opp ==>
+Theorem dest_op_SOME_IMP:
+   !x args opp. dest_op x args = SOME opp ==>
       ?t xs. x = Op t opp xs /\
-             var_list 0 xs args`
-  (Cases \\ fs [dest_op_def]);
+             var_list 0 xs args
+Proof
+  Cases \\ fs [dest_op_def]
+QED
 
 
-Theorem var_list_IMP_LENGTH
-  `!n xs ys. var_list n xs ys ==> LENGTH xs = LENGTH ys`
-  (Induct_on `xs` \\ Cases_on `ys` \\ fs [var_list_def]
+Theorem var_list_IMP_LENGTH:
+   !n xs ys. var_list n xs ys ==> LENGTH xs = LENGTH ys
+Proof
+  Induct_on `xs` \\ Cases_on `ys` \\ fs [var_list_def]
   THEN1 (Cases_on `h` \\ fs [var_list_def])
   \\ rw []
   \\ Cases_on `h'` \\ fs [var_list_def]
-  \\ res_tac);
+  \\ res_tac
+QED
 
 val var_list_IMP_evaluate = prove(
   ``!a2 a1 xs (ys:closLang$exp list) (s:('c,'ffi) closSem$state) env.
@@ -180,41 +192,48 @@ val var_list_IMP_evaluate = prove(
        |> SIMP_RULE std_ss [APPEND,LENGTH])
   \\ asm_exists_tac \\ fs []);
 
-Theorem lookup_vars_lemma
-  `!vs env1 env2. LIST_REL v_rel env1 env2 ==>
+Theorem lookup_vars_lemma:
+   !vs env1 env2. LIST_REL v_rel env1 env2 ==>
     case lookup_vars vs env1 of
       | NONE => lookup_vars vs env2 = NONE
-      | SOME l1 => ?l2. LIST_REL v_rel l1 l2 /\ lookup_vars vs env2 = SOME l2`
-  (Induct_on `vs` \\ fs [lookup_vars_def]
+      | SOME l1 => ?l2. LIST_REL v_rel l1 l2 /\ lookup_vars vs env2 = SOME l2
+Proof
+  Induct_on `vs` \\ fs [lookup_vars_def]
   \\ rpt strip_tac
   \\ imp_res_tac LIST_REL_LENGTH
   \\ rw []
   \\ res_tac
   \\ Cases_on `lookup_vars vs env1`
   \\ fs []
-  \\ fs [LIST_REL_EL_EQN]);
+  \\ fs [LIST_REL_EL_EQN]
+QED
 
-Theorem find_code_lemma
-  `!s t p args. state_rel s t ==>
+Theorem find_code_lemma:
+   !s t p args. state_rel s t ==>
       find_code p args s.code = NONE /\
-      find_code p args t.code = NONE`
-  (fs [state_rel_def, find_code_def]);
+      find_code p args t.code = NONE
+Proof
+  fs [state_rel_def, find_code_def]
+QED
 
-Theorem dest_closure_SOME_IMP
-  `dest_closure max_app loc_opt f2 xs = SOME x ==>
+Theorem dest_closure_SOME_IMP:
+   dest_closure max_app loc_opt f2 xs = SOME x ==>
     (?loc arg_env clo_env num_args e. f2 = Closure loc arg_env clo_env num_args e) \/
-    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)`
-  (fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
+    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)
+Proof
+  fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []
+QED
 
-Theorem dest_closure_SOME_Full_app
-  `v_rel f1 f2 /\ v_rel a1 a2 /\ LIST_REL v_rel args1 args2 /\
+Theorem dest_closure_SOME_Full_app:
+   v_rel f1 f2 /\ v_rel a1 a2 /\ LIST_REL v_rel args1 args2 /\
     dest_closure max_app loc_opt f1 (a1::args1) = SOME (Full_app exp1 env1 rest_args1) ==>
       ?exp2 env2 rest_args2.
       code_rel [exp1] [exp2] /\
       LIST_REL v_rel env1 env2 /\
       LIST_REL v_rel rest_args1 rest_args2 /\
-      dest_closure max_app loc_opt f2 (a2::args2) = SOME (Full_app exp2 env2 rest_args2)`
-   (rpt strip_tac
+      dest_closure max_app loc_opt f2 (a2::args2) = SOME (Full_app exp2 env2 rest_args2)
+Proof
+   rpt strip_tac
    \\ imp_res_tac dest_closure_SOME_IMP
    \\ rveq \\ fs [] \\ rveq
    \\ imp_res_tac LIST_REL_LENGTH
@@ -247,7 +266,8 @@ Theorem dest_closure_SOME_Full_app
           \\ irule EVERY2_TAKE
           \\ irule EVERY2_APPEND_suff \\ simp [])
    \\ irule EVERY2_DROP
-   \\ irule EVERY2_APPEND_suff \\ simp []);
+   \\ irule EVERY2_APPEND_suff \\ simp []
+QED
 
 val do_app_lemma = prove(
   ``state_rel s t /\ LIST_REL v_rel xs ys ==>
@@ -615,27 +635,30 @@ Proof
   \\ fs [case_eq_thms] \\ rveq \\ fs []
 QED
 
-Theorem let_op_correct
-  `!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t1.
+Theorem let_op_correct:
+   !xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t1.
        evaluate (xs, env1, s1) = (res1, s2) /\
        LIST_REL v_rel env1 env2 /\ state_rel s1 t1 ==>
        ?res2 t2.
          evaluate (let_op xs, env2, t1) = (res2, t2) /\
          result_rel (LIST_REL v_rel) v_rel res1 res2 /\
-         state_rel s2 t2`
-  (rpt strip_tac \\ drule (CONJUNCT1 evaluate_let_op) \\ simp [code_rel_def])
+         state_rel s2 t2
+Proof
+  rpt strip_tac \\ drule (CONJUNCT1 evaluate_let_op) \\ simp [code_rel_def]
+QED
 
 (* preservation of observational semantics *)
 
-Theorem semantics_let_op
-  `semantics (ffi:'ffi ffi_state) max_app FEMPTY
+Theorem semantics_let_op:
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc compile_inc cc) xs <> Fail ==>
    (!n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co compile_inc o co) cc (let_op xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc compile_inc cc) xs`
-  (strip_tac
+     co (pure_cc compile_inc cc) xs
+Proof
+  strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
   \\ drule let_op_correct
@@ -648,7 +671,8 @@ Theorem semantics_let_op
   \\ qexists_tac `0` \\ simp []
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
-  \\ Cases_on `e` \\ fs [])
+  \\ Cases_on `e` \\ fs []
+QED
 
 (* syntactic properties *)
 
@@ -669,9 +693,10 @@ val var_list_let_op_IMP_code_locs = prove(
   \\ Cases_on `l` \\ fs [let_op_def,var_list_def,code_locs_def]
   \\ every_case_tac \\ fs [var_list_def]);
 
-Theorem code_locs_let_op
-  `!xs. code_locs (let_op xs) = code_locs xs`
-  (ho_match_mp_tac let_op_ind \\ rw []
+Theorem code_locs_let_op:
+   !xs. code_locs (let_op xs) = code_locs xs
+Proof
+  ho_match_mp_tac let_op_ind \\ rw []
   \\ fs [code_locs_def,let_op_def]
   THEN1
    (`?y. let_op [x] = [y]` by metis_tac [let_op_SING]
@@ -688,11 +713,13 @@ Theorem code_locs_let_op
   \\ Induct_on `fns` \\ fs [FORALL_PROD]
   \\ rw [] \\ fs []
   \\ once_rewrite_tac [code_locs_cons] \\ fs []
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-Theorem let_op_every_Fn_SOME[simp]
-  `∀es. every_Fn_SOME (let_op es) ⇔ every_Fn_SOME es`
-  (recInduct clos_letopTheory.let_op_ind
+Theorem let_op_every_Fn_SOME[simp]:
+   ∀es. every_Fn_SOME (let_op es) ⇔ every_Fn_SOME es
+Proof
+  recInduct clos_letopTheory.let_op_ind
   \\ rw[clos_letopTheory.let_op_def]
   >- (
     fs[Once every_Fn_SOME_EVERY]
@@ -719,11 +746,13 @@ Theorem let_op_every_Fn_SOME[simp]
     \\ fs[EVERY_MEM,UNCURRY,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ simp[Once every_Fn_SOME_EVERY, SimpRHS]
     \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-    \\ metis_tac[]));
+    \\ metis_tac[])
+QED
 
-Theorem let_op_every_Fn_vs_NONE[simp]
-  `∀es. every_Fn_vs_NONE (let_op es) ⇔ every_Fn_vs_NONE es`
-  (recInduct clos_letopTheory.let_op_ind
+Theorem let_op_every_Fn_vs_NONE[simp]:
+   ∀es. every_Fn_vs_NONE (let_op es) ⇔ every_Fn_vs_NONE es
+Proof
+  recInduct clos_letopTheory.let_op_ind
   \\ rw[clos_letopTheory.let_op_def]
   >- (
     fs[Once every_Fn_vs_NONE_EVERY]
@@ -750,20 +779,26 @@ Theorem let_op_every_Fn_vs_NONE[simp]
     \\ fs[EVERY_MEM,UNCURRY,MEM_MAP,PULL_EXISTS,FORALL_PROD]
     \\ simp[Once every_Fn_vs_NONE_EVERY, SimpRHS]
     \\ simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-    \\ metis_tac[]));
+    \\ metis_tac[])
+QED
 
-Theorem EVERY_let_op_sing
-  `EVERY f (let_op [x]) = f (HD (let_op [x]))`
-  (qspec_then`x`strip_assume_tac let_op_SING \\ fs []);
+Theorem EVERY_let_op_sing:
+   EVERY f (let_op [x]) = f (HD (let_op [x]))
+Proof
+  qspec_then`x`strip_assume_tac let_op_SING \\ fs []
+QED
 
-Theorem var_list_no_Labels
-  `!n l m. var_list n l m ==> EVERY no_Labels l /\ EVERY (obeys_max_app k) l`
-  (Induct_on `l` \\ Cases_on `m` \\ fs [var_list_def]
-  \\ Cases \\ fs [var_list_def] \\ rw [] \\ res_tac \\ fs []);
+Theorem var_list_no_Labels:
+   !n l m. var_list n l m ==> EVERY no_Labels l /\ EVERY (obeys_max_app k) l
+Proof
+  Induct_on `l` \\ Cases_on `m` \\ fs [var_list_def]
+  \\ Cases \\ fs [var_list_def] \\ rw [] \\ res_tac \\ fs []
+QED
 
-Theorem let_op_obeys_max_app
-  `∀es. EVERY (obeys_max_app k) (let_op es) ⇔ EVERY (obeys_max_app k) es`
-  (recInduct clos_letopTheory.let_op_ind
+Theorem let_op_obeys_max_app:
+   ∀es. EVERY (obeys_max_app k) (let_op es) ⇔ EVERY (obeys_max_app k) es
+Proof
+  recInduct clos_letopTheory.let_op_ind
   \\ rw[clos_letopTheory.let_op_def] \\ fs [EVERY_let_op_sing]
   \\ TRY CASE_TAC \\ fs [LENGTH_let_op]
   THEN1
@@ -773,11 +808,13 @@ Theorem let_op_obeys_max_app
     \\ metis_tac [var_list_no_Labels])
   \\ eq_tac \\ rw[]
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-Theorem let_op_no_Labels
-  `∀es. EVERY no_Labels (let_op es) ⇔ EVERY no_Labels es`
-  (recInduct clos_letopTheory.let_op_ind
+Theorem let_op_no_Labels:
+   ∀es. EVERY no_Labels (let_op es) ⇔ EVERY no_Labels es
+Proof
+  recInduct clos_letopTheory.let_op_ind
   \\ rw[clos_letopTheory.let_op_def] \\ fs [EVERY_let_op_sing]
   \\ TRY CASE_TAC \\ fs []
   THEN1
@@ -786,17 +823,21 @@ Theorem let_op_no_Labels
     \\ qsuff_tac `EVERY no_Labels l` THEN1 metis_tac []
     \\ metis_tac [var_list_no_Labels])
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-Theorem var_list_app_call_dests
-  `∀x y z. var_list x y z ⇒ app_call_dests a y = {}`
-  (recInduct clos_letopTheory.var_list_ind
+Theorem var_list_app_call_dests:
+   ∀x y z. var_list x y z ⇒ app_call_dests a y = {}
+Proof
+  recInduct clos_letopTheory.var_list_ind
   \\ rw[clos_letopTheory.var_list_def]
-  \\ rw[Once app_call_dests_cons]);
+  \\ rw[Once app_call_dests_cons]
+QED
 
-Theorem let_op_app_call_dests[simp]
-  `∀es. app_call_dests x (let_op es) = app_call_dests x es`
-  (recInduct clos_letopTheory.let_op_ind
+Theorem let_op_app_call_dests[simp]:
+   ∀es. app_call_dests x (let_op es) = app_call_dests x es
+Proof
+  recInduct clos_letopTheory.let_op_ind
   \\ rw[clos_letopTheory.let_op_def]
   >- rw[Once closPropsTheory.app_call_dests_cons]
   >- (
@@ -810,16 +851,20 @@ Theorem let_op_app_call_dests[simp]
   \\ simp[app_call_dests_map]
   \\ AP_TERM_TAC \\ AP_TERM_TAC
   \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
-  \\ first_x_assum drule \\ rw[]);
+  \\ first_x_assum drule \\ rw[]
+QED
 
-Theorem var_list_code_labels_imp
-  `∀n x y. var_list n x y ⇒ BIGUNION (set (MAP get_code_labels x)) = {}`
-  (recInduct clos_letopTheory.var_list_ind
-  \\ rw[clos_letopTheory.var_list_def] \\ fs[]);
+Theorem var_list_code_labels_imp:
+   ∀n x y. var_list n x y ⇒ BIGUNION (set (MAP get_code_labels x)) = {}
+Proof
+  recInduct clos_letopTheory.var_list_ind
+  \\ rw[clos_letopTheory.var_list_def] \\ fs[]
+QED
 
-Theorem let_op_get_code_labels[simp]
-  `∀es. MAP get_code_labels (clos_letop$let_op es) = MAP get_code_labels es`
-  (recInduct clos_letopTheory.let_op_ind
+Theorem let_op_get_code_labels[simp]:
+   ∀es. MAP get_code_labels (clos_letop$let_op es) = MAP get_code_labels es
+Proof
+  recInduct clos_letopTheory.let_op_ind
   \\ rw[clos_letopTheory.let_op_def] \\ fs[]
   >- (
     PURE_TOP_CASE_TAC \\ fs[]
@@ -829,6 +874,7 @@ Theorem let_op_get_code_labels[simp]
   \\ fs[MAP_MAP_o, UNCURRY, o_DEF]
   \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
   \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
-  \\ res_tac \\ fs[]);
+  \\ res_tac \\ fs[]
+QED
 
 val _ = export_theory();

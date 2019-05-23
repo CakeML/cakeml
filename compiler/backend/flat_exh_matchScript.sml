@@ -135,14 +135,18 @@ val compile_exps_def = tDefine "compile_exps" `
 val _ = map delete_const ["e2sz","p2sz","l2sz","f2sz","e2sz_UNION"]
 val _ = delete_binding "e2sz_ind"
 
-Theorem compile_exps_LENGTH
-  `!ctors xs. LENGTH (compile_exps ctors xs) = LENGTH xs`
-  (ho_match_mp_tac (theorem "compile_exps_ind") \\ rw [compile_exps_def]);
+Theorem compile_exps_LENGTH:
+   !ctors xs. LENGTH (compile_exps ctors xs) = LENGTH xs
+Proof
+  ho_match_mp_tac (theorem "compile_exps_ind") \\ rw [compile_exps_def]
+QED
 
-Theorem compile_exps_SING[simp]
-  `compile_exps ctors [x] <> []`
-  (strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
-  \\ fs [compile_exps_LENGTH]);
+Theorem compile_exps_SING[simp]:
+   compile_exps ctors [x] <> []
+Proof
+  strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [compile_exps_LENGTH]
+QED
 
 val compile_exp_def = Define `
   compile_exp ctors exp = HD (compile_exps ctors [exp])`;

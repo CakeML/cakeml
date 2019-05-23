@@ -53,9 +53,9 @@ val r = translate pp_seq_def
 val r = translate interleave_def
 val r = translate pp_term_def
 
-Theorem pp_term_side
-  `!x y. pp_term_side x y <=> T`
-  (recInduct pp_term_ind \\ rw []
+Theorem pp_term_side = Q.prove(`
+  !x y. pp_term_side x y <=> T`,
+  recInduct pp_term_ind \\ rw []
   \\ rw [Once (fetch "-" "pp_term_side_def")]
   \\ TRY strip_tac \\ rw []
   \\ fs [is_binop_def, is_binder_def, is_cond_def])
@@ -129,9 +129,9 @@ val r = translate state_to_string_def
 val r = translate s2i_def
 val r = m_translate readLine_def
 
-Theorem readline_side
-  `!st1 l s. readline_side st1 l s <=> T`
-  (rw [fetch "-" "readline_side_def"] \\ intLib.COOPER_TAC)
+Theorem readline_side = Q.prove(`
+  !st1 l s. readline_side st1 l s <=> T`,
+  rw [fetch "-" "readline_side_def"] \\ intLib.COOPER_TAC)
   |> update_precondition;
 
 val readline_spec = save_thm ("readline_spec",
@@ -194,8 +194,8 @@ val _ = Q.prove (
 (* Things needed by whole_prog_spec                                          *)
 (* ------------------------------------------------------------------------- *)
 
-Theorem HOL_STORE_init_precond
-  `HOL_STORE init_refs
+Theorem HOL_STORE_init_precond:
+   HOL_STORE init_refs
    {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
                              ++stderr_refs++init_type_constants_refs)))
         (Refv init_type_constants_v);
@@ -211,8 +211,9 @@ Theorem HOL_STORE_init_precond
                              ++stderr_refs++init_type_constants_refs
                              ++init_term_constants_refs++init_axioms_refs
                              ++init_context_refs)))
-        (Refv init_context_v)}`
-  (qmatch_goalsub_abbrev_tac`1 + l1`
+        (Refv init_context_v)}
+Proof
+  qmatch_goalsub_abbrev_tac`1 + l1`
   \\ qmatch_goalsub_abbrev_tac`2 + l2`
   \\ qmatch_goalsub_abbrev_tac`3 + l3`
   \\ qmatch_goalsub_abbrev_tac`4 + l4`
@@ -267,7 +268,8 @@ Theorem HOL_STORE_init_precond
   \\ qexists_tac`init_type_constants_v`
   \\ simp[init_type_constants_v_thm]
   \\ unabbrev_all_tac
-  \\ SPLIT_TAC );
+  \\ SPLIT_TAC
+QED
 
 (* ------------------------------------------------------------------------- *)
 (* Generate app theorem for 'context'.                                       *)

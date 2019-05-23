@@ -23,8 +23,7 @@ val res = translate LENGTH_AUX_def;
 val _ = ml_prog_update open_local_in_block;
 
 val result = next_ml_names := ["length"]
-val res = translate
-  (LENGTH_AUX_THM |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [] |> GSYM);
+val res = translate LENGTH_AUX_THM;
 
 val _ = ml_prog_update open_local_block;
 val res = translate REV_DEF;
@@ -78,10 +77,12 @@ val MAP_let = prove(
     | (y::ys) => let z = f y in z :: MAP f ys``,
   Cases_on `xs` \\ fs []);
 
-Theorem MAP_ind
-  `∀P. (∀f xs. (∀y ys z. xs = y::ys ∧ z = f y ⇒ P f ys) ⇒ P f xs) ⇒
-       ∀f xs. P f xs`
-  (ntac 2 strip_tac \\ Induct_on `xs` \\ fs []);
+Theorem MAP_ind:
+   ∀P. (∀f xs. (∀y ys z. xs = y::ys ∧ z = f y ⇒ P f ys) ⇒ P f xs) ⇒
+       ∀f xs. P f xs
+Proof
+  ntac 2 strip_tac \\ Induct_on `xs` \\ fs []
+QED
 
 val _ = add_preferred_thy "-"; (* so that the translator finds MAP_ind above *)
 

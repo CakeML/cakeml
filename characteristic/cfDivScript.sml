@@ -4187,19 +4187,21 @@ Proof
   \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
 QED
 
-Theorem do_app_SOME_ffi_same_oracle_state
-  `do_app (refs,ffi:'ffi ffi_state) op args = SOME ((refs',ffi'),r)
+Theorem do_app_SOME_ffi_same_oracle_state:
+   do_app (refs,ffi:'ffi ffi_state) op args = SOME ((refs',ffi'),r)
    ⇒
    do_app (refs,ffi with io_events := l) op args =
-   SOME ((refs',ffi' with io_events := l ++ DROP (LENGTH ffi.io_events) ffi'.io_events),r)`
-  (rw[]
+   SOME ((refs',ffi' with io_events := l ++ DROP (LENGTH ffi.io_events) ffi'.io_events),r)
+Proof
+  rw[]
   \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
   \\ rw[] \\ fs[]
   \\ fs[ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
   \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
   \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
-  \\ fs[DROP_APPEND,DROP_LENGTH_NIL]);
+  \\ fs[DROP_APPEND,DROP_LENGTH_NIL]
+QED
 
 Theorem evaluate_history_irrelevance:
     (!(st1:'ffi semanticPrimitives$state) env exp st st' res l.

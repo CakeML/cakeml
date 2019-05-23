@@ -45,9 +45,11 @@ val _ = overload_on("\226\150\183*",``RTC $▷``);
 val windmill_def = Define `
   windmill (moves:('a # 'a) list) = ALL_DISTINCT (MAP FST moves)`;
 
-Theorem windmill_cons
-  `windmill (x::ls) ⇔ ¬MEM (FST x) (MAP FST ls) ∧ windmill ls`
-  (rw[windmill_def])
+Theorem windmill_cons:
+   windmill (x::ls) ⇔ ¬MEM (FST x) (MAP FST ls) ∧ windmill ls
+Proof
+  rw[windmill_def]
+QED
 
 val path_def = Define`
   (path [] ⇔ T) ∧ (path [_] ⇔ T) ∧
@@ -55,19 +57,23 @@ val path_def = Define`
      (b = b') ∧ path ((b,a)::p))`;
 val _ = export_rewrites["path_def"];
 
-Theorem path_change_start
-  `∀y z x. path (SNOC x y) ∧ FST x = FST z ⇒ path (SNOC z y)`
-  (simp[SNOC_APPEND] >>
+Theorem path_change_start:
+   ∀y z x. path (SNOC x y) ∧ FST x = FST z ⇒ path (SNOC z y)
+Proof
+  simp[SNOC_APPEND] >>
   Induct >> simp[] >>
   Cases >> simp[] >>
   Cases_on`y`>>fs[] >- (
     Cases >> Cases >> simp[] >> rw[] ) >>
-  Cases_on`h`>>simp[] >> rw[] >> metis_tac[])
+  Cases_on`h`>>simp[] >> rw[] >> metis_tac[]
+QED
 
-Theorem path_tail
-  `∀t h. path (h::t) ⇒ path t`
-  (Induct >> simp[] >>
-  Cases >> Cases >> simp[])
+Theorem path_tail:
+   ∀t h. path (h::t) ⇒ path t
+Proof
+  Induct >> simp[] >>
+  Cases >> Cases >> simp[]
+QED
 
 val path_imp_mem = Q.prove(
   `path (x::y) ⇒
@@ -112,51 +118,62 @@ val wf_def = Define`
     path σ`;
 val _ = overload_on(UnicodeChars.turnstile,``wf``);
 
-Theorem wf_init
-  `windmill μ ∧
+Theorem wf_init:
+   windmill μ ∧
    EVERY IS_SOME (MAP FST μ) ∧
    EVERY IS_SOME (MAP SND μ) ⇒
-   ⊢ (μ,[],[])`
-  (rw[wf_def,path_def])
+   ⊢ (μ,[],[])
+Proof
+  rw[wf_def,path_def]
+QED
 
 (* The invariant is preserved *)
 
-Theorem wf_step
-  `∀s1 s2. s1 ▷ s2 ⇒ ⊢ s1 ⇒ ⊢ s2`
-  (ho_match_mp_tac step_ind >> rw[] >>
+Theorem wf_step:
+   ∀s1 s2. s1 ▷ s2 ⇒ ⊢ s1 ⇒ ⊢ s2
+Proof
+  ho_match_mp_tac step_ind >> rw[] >>
   fs[wf_def,windmill_def,ALL_DISTINCT_APPEND] >>
   fs[GSYM SNOC_APPEND,FRONT_DEF] >>
   TRY (match_mp_tac path_change_start) >>
-  metis_tac[FST,path_tail]);
+  metis_tac[FST,path_tail]
+QED
 
-Theorem wf_steps
-  `∀s1 s2. ⊢ s1 ∧ s1 ▷* s2 ⇒ ⊢ s2`
-  (ho_match_mp_tac RTC_lifts_invariants >>
-  metis_tac[wf_step])
+Theorem wf_steps:
+   ∀s1 s2. ⊢ s1 ∧ s1 ▷* s2 ⇒ ⊢ s2
+Proof
+  ho_match_mp_tac RTC_lifts_invariants >>
+  metis_tac[wf_step]
+QED
 
 (* semantics of moves *)
 
 val parsem_def = Define`
   parsem μ ρ = ρ =++ (ZIP(MAP FST μ, MAP (ρ o SND) μ))`;
 
-Theorem parsem_nil[simp]
-  `parsem [] = I`
-  (rw[parsem_def,FUN_EQ_THM,UPDATE_LIST_THM]);
+Theorem parsem_nil[simp]:
+   parsem [] = I
+Proof
+  rw[parsem_def,FUN_EQ_THM,UPDATE_LIST_THM]
+QED
 
-Theorem parsem_cons
-  `¬MEM x (MAP FST μ) ⇒
-   parsem ((x,y)::μ) ρ = (x =+ ρ y) (parsem μ ρ)`
-  (rw[parsem_def,UPDATE_LIST_THM] >>
+Theorem parsem_cons:
+   ¬MEM x (MAP FST μ) ⇒
+   parsem ((x,y)::μ) ρ = (x =+ ρ y) (parsem μ ρ)
+Proof
+  rw[parsem_def,UPDATE_LIST_THM] >>
   simp[FUN_EQ_THM,APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
   rw[] >> BasicProvers.CASE_TAC >>
   imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,MEM_ZIP,FORALL_PROD] >>
-  rw[] >> fs[MEM_EL,EL_MAP] >> metis_tac[PAIR,FST]);
+  rw[] >> fs[MEM_EL,EL_MAP] >> metis_tac[PAIR,FST]
+QED
 
-Theorem independence
-  `∀μ1 s d μ2 μ.
+Theorem independence:
+   ∀μ1 s d μ2 μ.
       windmill μ ∧ μ = μ1 ++ [(d,s)] ++ μ2 ⇒
-      parsem μ = parsem ([(d,s)]++μ1++μ2)`
-  (Induct >> simp[] >> Cases >> rw[] >>
+      parsem μ = parsem ([(d,s)]++μ1++μ2)
+Proof
+  Induct >> simp[] >> Cases >> rw[] >>
   full_simp_tac std_ss [windmill_cons] >>
   simp[parsem_cons,FUN_EQ_THM] >>
   `¬MEM d (MAP FST ((q,r)::(μ1 ++ μ2)))` by (
@@ -164,11 +181,13 @@ Theorem independence
   simp[parsem_cons] >>
   full_simp_tac std_ss [MAP,MEM] >>
   `¬MEM q (MAP FST (μ1 ++ μ2))` by fs[] >>
-  simp[parsem_cons,APPLY_UPDATE_THM] >> rw[]);
+  simp[parsem_cons,APPLY_UPDATE_THM] >> rw[]
+QED
 
-Theorem parsem_perm
-  `windmill l1 ∧ PERM l1 l2 ⇒ parsem l1 = parsem l2`
-  (rw[] >>
+Theorem parsem_perm:
+   windmill l1 ∧ PERM l1 l2 ⇒ parsem l1 = parsem l2
+Proof
+  rw[] >>
   Q.ISPEC_THEN`λl. if windmill l then parsem l else ARB`mp_tac
     PERM_lifts_equalities >>
   simp[] >>
@@ -208,31 +227,37 @@ Theorem parsem_perm
     metis_tac[PERM_APPEND,APPEND_ASSOC,PERM_APPEND_IFF,ALL_DISTINCT_PERM]) >>
   `windmill l2` by metis_tac[windmill_def,ALL_DISTINCT_PERM,PERM_MAP] >>
   disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-  simp[])
+  simp[]
+QED
 
-Theorem parsem_untouched
-  `∀ρ μ x. windmill μ ∧ ¬MEM x (MAP FST μ) ⇒ parsem μ ρ x = ρ x`
-  (gen_tac >> Induct >> simp[] >>
+Theorem parsem_untouched:
+   ∀ρ μ x. windmill μ ∧ ¬MEM x (MAP FST μ) ⇒ parsem μ ρ x = ρ x
+Proof
+  gen_tac >> Induct >> simp[] >>
   Cases >> rw[] >>
   `¬MEM q (MAP FST μ)` by fs[windmill_def] >>
   simp[parsem_cons,APPLY_UPDATE_THM] >>
   first_x_assum match_mp_tac >>
-  fs[windmill_def])
+  fs[windmill_def]
+QED
 
-Theorem parsem_change_env
-  `(¬MEM x (MAP FST μ) ⇒ ρ1 x = ρ2 x) ∧
+Theorem parsem_change_env:
+   (¬MEM x (MAP FST μ) ⇒ ρ1 x = ρ2 x) ∧
    MAP (ρ1 o SND) μ = MAP (ρ2 o SND) μ ⇒
-   parsem μ ρ1 x = parsem μ ρ2 x`
-  (rw[parsem_def,APPLY_UPDATE_LIST_ALOOKUP] >>
+   parsem μ ρ1 x = parsem μ ρ2 x
+Proof
+  rw[parsem_def,APPLY_UPDATE_LIST_ALOOKUP] >>
   BasicProvers.CASE_TAC >> first_x_assum match_mp_tac >>
   imp_res_tac ALOOKUP_FAILS >>
   fs[MEM_MAP,FORALL_PROD,MEM_ZIP,MEM_EL] >>
-  metis_tac[EL_MAP,FST])
+  metis_tac[EL_MAP,FST]
+QED
 
-Theorem parsem_NoRead
-  `NoRead μ x ⇒
-   parsem ((x,y)::μ) ρ = parsem μ ((x =+ ρ y) ρ)`
-  (rw[parsem_def,APPLY_UPDATE_LIST_ALOOKUP,FUN_EQ_THM,ALOOKUP_APPEND,APPLY_UPDATE_THM,REVERSE_ZIP] >>
+Theorem parsem_NoRead:
+   NoRead μ x ⇒
+   parsem ((x,y)::μ) ρ = parsem μ ((x =+ ρ y) ρ)
+Proof
+  rw[parsem_def,APPLY_UPDATE_LIST_ALOOKUP,FUN_EQ_THM,ALOOKUP_APPEND,APPLY_UPDATE_THM,REVERSE_ZIP] >>
   simp[GSYM MAP_REVERSE,ALOOKUP_ZIP_MAP_SND] >>
   qpat_abbrev_tac`z = ALOOKUP X Y` >>
   Cases_on`z`>>rw[APPLY_UPDATE_THM] >>
@@ -243,13 +268,15 @@ Theorem parsem_NoRead
   Cases_on`p`>>fs[]>>
   fs[MAP_REVERSE,GSYM REVERSE_ZIP] >>
   fs[MEM_ZIP,MEM_MAP,MEM_EL,EXISTS_PROD] >>
-  metis_tac[])
+  metis_tac[]
+QED
 
-Theorem parsem_MAP_INJ
-  `∀ms. windmill ms ∧
+Theorem parsem_MAP_INJ:
+   ∀ms. windmill ms ∧
         INJ f (set (MAP FST ms ++ MAP SND ms)) UNIV ⇒
-        ∀x. MEM x (MAP FST ms) ⇒ parsem (MAP (f ## f) ms) r (f x) = parsem ms (r o f) x`
-  (simp[windmill_def]
+        ∀x. MEM x (MAP FST ms) ⇒ parsem (MAP (f ## f) ms) r (f x) = parsem ms (r o f) x
+Proof
+  simp[windmill_def]
   \\ Induct \\ simp[]
   \\ Cases \\ strip_tac \\ fs[]
   \\ qmatch_assum_rename_tac`¬MEM x (MAP FST ms)`
@@ -275,7 +302,8 @@ Theorem parsem_MAP_INJ
   \\ simp[]
   \\ qhdtm_x_assum`INJ`mp_tac
   \\ REWRITE_TAC[INJ_DEF,IN_INSERT,IN_UNION]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 val seqsem_def = Define`
   (seqsem [] ρ = ρ) ∧
@@ -283,27 +311,35 @@ val seqsem_def = Define`
 
 val seqsem_ind = theorem"seqsem_ind";
 
-Theorem seqsem_append
-  `∀l1 l2. seqsem (l1 ++ l2) = seqsem l2 o seqsem l1`
-  (Induct >> fs[FUN_EQ_THM,seqsem_def] >> Cases >> simp[seqsem_def])
+Theorem seqsem_append:
+   ∀l1 l2. seqsem (l1 ++ l2) = seqsem l2 o seqsem l1
+Proof
+  Induct >> fs[FUN_EQ_THM,seqsem_def] >> Cases >> simp[seqsem_def]
+QED
 
-Theorem seqsem_move_unchanged
-  `∀ms r. ¬MEM k (MAP FST ms) ⇒ seqsem ms r k = r k`
-  (ho_match_mp_tac seqsem_ind
-  \\ rw[seqsem_def,APPLY_UPDATE_THM]);
+Theorem seqsem_move_unchanged:
+   ∀ms r. ¬MEM k (MAP FST ms) ⇒ seqsem ms r k = r k
+Proof
+  ho_match_mp_tac seqsem_ind
+  \\ rw[seqsem_def,APPLY_UPDATE_THM]
+QED
 
 (* semantics of the state *)
 
 val sem_def = Define`
   sem (μ,σ,τ) ρ = parsem (μ++σ) (seqsem (REVERSE τ) ρ)`;
 
-Theorem sem_init
-  `sem (μ,[],[]) = parsem μ`
-  (rw[FUN_EQ_THM,sem_def,seqsem_def])
+Theorem sem_init:
+   sem (μ,[],[]) = parsem μ
+Proof
+  rw[FUN_EQ_THM,sem_def,seqsem_def]
+QED
 
-Theorem sem_final
-  `sem ([],[],τ) = seqsem (REVERSE τ)`
-  (rw[sem_def,FUN_EQ_THM,parsem_def,UPDATE_LIST_THM])
+Theorem sem_final:
+   sem ([],[],τ) = seqsem (REVERSE τ)
+Proof
+  rw[sem_def,FUN_EQ_THM,parsem_def,UPDATE_LIST_THM]
+QED
 
 (* semantic preservation *)
 
@@ -390,28 +426,32 @@ val step_sem = Q.prove(
   match_mp_tac parsem_NoRead >>
   rw[]);
 
-Theorem steps_sem
-  `∀s1 s2. s1 ▷* s2 ∧ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)`
-  (simp[GSYM AND_IMP_INTRO] >>
+Theorem steps_sem:
+   ∀s1 s2. s1 ▷* s2 ∧ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)
+Proof
+  simp[GSYM AND_IMP_INTRO] >>
   ho_match_mp_tac RTC_INDUCT >>
   conj_tac >- simp[eqenv_def] >>
   rw[] >>
   imp_res_tac wf_step >> fs[] >>
   imp_res_tac step_sem >>
-  fs[eqenv_def] );
+  fs[eqenv_def]
+QED
 
-Theorem steps_correct
-  `windmill μ ∧
+Theorem steps_correct:
+   windmill μ ∧
    EVERY IS_SOME (MAP FST μ) ∧
    EVERY IS_SOME (MAP SND μ) ∧
    (μ,[],[]) ▷* ([],[],τ)
    ⇒
-   ∀ρ. parsem μ ρ ≡ seqsem (REVERSE τ) ρ`
-  (rw[] >>
+   ∀ρ. parsem μ ρ ≡ seqsem (REVERSE τ) ρ
+Proof
+  rw[] >>
   imp_res_tac steps_sem >>
   pop_assum mp_tac >>
   impl_tac >- simp[wf_def] >>
-  simp[sem_def,seqsem_def]);
+  simp[sem_def,seqsem_def]
+QED
 
 (* deterministic algorithm *)
 
@@ -454,10 +494,12 @@ val dstep_step = Q.prove(
   match_mp_tac RTC_SUBSET >> rw[step_cases] >>
   metis_tac[CONS_APPEND,APPEND] );
 
-Theorem dsteps_steps
-  `∀s1 s2. s1 ↪* s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2`
-  (ho_match_mp_tac RTC_INDUCT >> rw[] >>
-  metis_tac[dstep_step,wf_steps,RTC_CASES_RTC_TWICE])
+Theorem dsteps_steps:
+   ∀s1 s2. s1 ↪* s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2
+Proof
+  ho_match_mp_tac RTC_INDUCT >> rw[] >>
+  metis_tac[dstep_step,wf_steps,RTC_CASES_RTC_TWICE]
+QED
 
 (* functional algorithm *)
 
@@ -523,9 +565,10 @@ val tac =
   res_tac >> fsrw_tac[ARITH_ss][] >>
   metis_tac[SND,PAIR])
 
-Theorem fstep_dstep
-  `(∀τ. s ≠ ([],[],τ)) ⇒ s ↪ fstep s`
-  (rw[fstep_def] >>
+Theorem fstep_dstep:
+   (∀τ. s ≠ ([],[],τ)) ⇒ s ↪ fstep s
+Proof
+  rw[fstep_def] >>
   every_case_tac >> fs[NULL_LENGTH,LENGTH_NIL] >>
   simp[splitAtPki_def]
   >- ( simp[UNCURRY] >> simp[dstep_cases] )
@@ -536,7 +579,8 @@ Theorem fstep_dstep
     Q.ISPEC_THEN`t`FULL_STRUCT_CASES_TAC SNOC_CASES >> fs[] >>
     Cases_on`x`>>fs[] )
   >> TRY (rw[dstep_cases]>>NO_TAC)
-  >> tac)
+  >> tac
+QED
 
 val pmov_def = tDefine"pmov"`
   pmov s = case s of
@@ -572,23 +616,27 @@ val pmov_def = tDefine"pmov"`
 
 val pmov_ind = theorem"pmov_ind";
 
-Theorem pmov_dsteps
-  `∀s. s ↪* pmov s`
-  (ho_match_mp_tac pmov_ind >>
+Theorem pmov_dsteps:
+   ∀s. s ↪* pmov s
+Proof
+  ho_match_mp_tac pmov_ind >>
   rw[] >> PairCases_on`s` >>
   ONCE_REWRITE_TAC[pmov_def] >>
   every_case_tac >> simp[] >> rw[] >> fs[] >>
   simp[Once RTC_CASES1] >> disj2_tac >>
   ONCE_REWRITE_TAC[CONJ_COMM] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  match_mp_tac fstep_dstep >> simp[])
+  match_mp_tac fstep_dstep >> simp[]
+QED
 
-Theorem pmov_final
-  `∀s. ∃τ. pmov s = ([],[],τ)`
-  (ho_match_mp_tac pmov_ind >>
+Theorem pmov_final:
+   ∀s. ∃τ. pmov s = ([],[],τ)
+Proof
+  ho_match_mp_tac pmov_ind >>
   rw[] >> PairCases_on`s` >>
   ONCE_REWRITE_TAC[pmov_def] >>
-  every_case_tac >> simp[]);
+  every_case_tac >> simp[]
+QED
 
 (* The top-level parallel move compiler *)
 
@@ -596,11 +644,12 @@ val parmove_def = Define `
   parmove (xs:('a # 'a) list) =
     REVERSE(SND(SND(pmov (MAP (\(x,y). (SOME x, SOME y)) xs, [],[]))))`;
 
-Theorem parmove_correct
-  `windmill xs ⇒
+Theorem parmove_correct:
+   windmill xs ⇒
    ∀ρ. seqsem (parmove xs) ρ ≡
-       parsem (MAP (\(x,y). (SOME x, SOME y)) xs) ρ`
-  (rw[parmove_def] >>
+       parsem (MAP (\(x,y). (SOME x, SOME y)) xs) ρ
+Proof
+  rw[parmove_def] >>
   qpat_abbrev_tac`μ = MAP _ xs` >>
   `∃τ. pmov (μ,[],[]) = ([],[],τ)` by metis_tac[pmov_final] >>
   simp[] >>
@@ -618,15 +667,17 @@ Theorem parmove_correct
   strip_tac >>
   match_mp_tac eqenv_sym >>
   match_mp_tac steps_correct >>
-  fs[wf_def]);
+  fs[wf_def]
+QED
 
 (* the compiler does not invent new moves *)
 
-Theorem MEM_MAP_FST_SND_SND_pmov
-  `∀p x.
+Theorem MEM_MAP_FST_SND_SND_pmov:
+   ∀p x.
     MEM (SOME x) (MAP FST (SND(SND(pmov p)))) ⇒
-    MEM (SOME x) (MAP FST (FST p ++ FST(SND p) ++ SND(SND p)))`
-  (ho_match_mp_tac pmov_ind
+    MEM (SOME x) (MAP FST (FST p ++ FST(SND p) ++ SND(SND p)))
+Proof
+  ho_match_mp_tac pmov_ind
   \\ simp[]
   \\ gen_tac
   \\ PairCases_on`p`
@@ -672,22 +723,26 @@ Theorem MEM_MAP_FST_SND_SND_pmov
   \\ qmatch_assum_rename_tac`¬ NULL ls`
   \\ Q.ISPEC_THEN`ls`FULL_STRUCT_CASES_TAC SNOC_CASES
   \\ fs[]
-  \\ fs[MAP_SNOC] )
+  \\ fs[MAP_SNOC]
+QED
 
-Theorem MEM_MAP_FST_parmove
-  `MEM (SOME x) (MAP FST (parmove mvs)) ⇒ MEM x (MAP FST mvs)`
-  (rw[parmove_def]
+Theorem MEM_MAP_FST_parmove:
+   MEM (SOME x) (MAP FST (parmove mvs)) ⇒ MEM x (MAP FST mvs)
+Proof
+  rw[parmove_def]
   \\ fs[MEM_MAP]
   \\ imp_res_tac(SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_FST_SND_SND_pmov)
   \\ fs[MEM_MAP,UNCURRY]
   \\ rw[] \\ fs[]
-  \\ metis_tac[])
+  \\ metis_tac[]
+QED
 
-Theorem MEM_MAP_SND_SND_SND_pmov
-  `∀p x.
+Theorem MEM_MAP_SND_SND_SND_pmov:
+   ∀p x.
     MEM (SOME x) (MAP SND (SND(SND(pmov p)))) ⇒
-    MEM (SOME x) (MAP SND (FST p ++ FST(SND p) ++ SND(SND p)))`
-  (ho_match_mp_tac pmov_ind
+    MEM (SOME x) (MAP SND (FST p ++ FST(SND p) ++ SND(SND p)))
+Proof
+  ho_match_mp_tac pmov_ind
   \\ simp[]
   \\ gen_tac
   \\ PairCases_on`p`
@@ -733,16 +788,19 @@ Theorem MEM_MAP_SND_SND_SND_pmov
   \\ qmatch_assum_rename_tac`¬ NULL ls`
   \\ Q.ISPEC_THEN`ls`FULL_STRUCT_CASES_TAC SNOC_CASES
   \\ fs[]
-  \\ fs[MAP_SNOC] )
+  \\ fs[MAP_SNOC]
+QED
 
-Theorem MEM_MAP_SND_parmove
-  `MEM (SOME x) (MAP SND (parmove mvs)) ⇒ MEM x (MAP SND mvs)`
-  (rw[parmove_def]
+Theorem MEM_MAP_SND_parmove:
+   MEM (SOME x) (MAP SND (parmove mvs)) ⇒ MEM x (MAP SND mvs)
+Proof
+  rw[parmove_def]
   \\ fs[MEM_MAP]
   \\ imp_res_tac(SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_SND_SND_SND_pmov)
   \\ fs[MEM_MAP,UNCURRY]
   \\ rw[] \\ fs[]
-  \\ metis_tac[])
+  \\ metis_tac[]
+QED
 
 (* the compiler does not use uninitialised temporaries *)
 
@@ -755,24 +813,29 @@ val _ = export_rewrites["not_use_temp_before_assign_def"];
 
 val not_use_temp_before_assign_ind = theorem"not_use_temp_before_assign_ind";
 
-Theorem not_use_temp_before_assign_append
-  `∀l1 l2.
+Theorem not_use_temp_before_assign_append:
+   ∀l1 l2.
    (not_use_temp_before_assign (l1 ++ l2) ⇔
     not_use_temp_before_assign l1 ∧
-    (EVERY IS_SOME (MAP FST l1) ⇒ not_use_temp_before_assign l2))`
-  (ho_match_mp_tac not_use_temp_before_assign_ind \\ simp[]);
+    (EVERY IS_SOME (MAP FST l1) ⇒ not_use_temp_before_assign l2))
+Proof
+  ho_match_mp_tac not_use_temp_before_assign_ind \\ simp[]
+QED
 
-Theorem not_use_temp_before_assign_insert
-  `∀l1 l2.
+Theorem not_use_temp_before_assign_insert:
+   ∀l1 l2.
    not_use_temp_before_assign (l1 ++ l2) ⇒
-   not_use_temp_before_assign (l1 ++ [(SOME x, SOME y)] ++ l2)`
-  (ho_match_mp_tac not_use_temp_before_assign_ind \\ simp[]);
+   not_use_temp_before_assign (l1 ++ [(SOME x, SOME y)] ++ l2)
+Proof
+  ho_match_mp_tac not_use_temp_before_assign_ind \\ simp[]
+QED
 
-Theorem not_use_temp_before_assign_thm
-  `∀ls. not_use_temp_before_assign ls =
+Theorem not_use_temp_before_assign_thm:
+   ∀ls. not_use_temp_before_assign ls =
     ∀i. find_index NONE (MAP SND ls) 0 = SOME i ⇒
-      ∃j. find_index NONE (MAP FST ls) 0 = SOME j ∧ j < i`
-  (ho_match_mp_tac not_use_temp_before_assign_ind
+      ∃j. find_index NONE (MAP FST ls) 0 = SOME j ∧ j < i
+Proof
+  ho_match_mp_tac not_use_temp_before_assign_ind
   \\ simp[]
   \\ simp[find_index_def]
   \\ rw[find_index_APPEND]
@@ -787,15 +850,17 @@ Theorem not_use_temp_before_assign_thm
   \\ Q.ISPECL_THEN[`l2`]mp_tac find_index_shift_0
   \\ disch_then(qspecl_then[`NONE`,`1`]mp_tac)
   \\ disch_then SUBST_ALL_TAC
-  \\ rw[EQ_IMP_THM,PULL_EXISTS]);
+  \\ rw[EQ_IMP_THM,PULL_EXISTS]
+QED
 
-Theorem step_not_use_temp_before_assign
-  `∀s1 s2. s1 ▷ s2 ⇒
+Theorem step_not_use_temp_before_assign:
+   ∀s1 s2. s1 ▷ s2 ⇒
     ⊢ s1 ∧
     not_use_temp_before_assign (REVERSE(FST(SND s1) ++ SND(SND s1)))
     ⇒
-    not_use_temp_before_assign (REVERSE(FST(SND s2) ++ SND(SND s2)))`
-  (ho_match_mp_tac step_ind
+    not_use_temp_before_assign (REVERSE(FST(SND s2) ++ SND(SND s2)))
+Proof
+  ho_match_mp_tac step_ind
   \\ simp[not_use_temp_before_assign_append]
   \\ simp[MAP_REVERSE,EVERY_REVERSE,REVERSE_APPEND]
   \\ conj_tac
@@ -813,37 +878,43 @@ Theorem step_not_use_temp_before_assign
   \\ fs[not_use_temp_before_assign_append]
   \\ rfs[]
   \\ rw[]
-  \\ fs[MAP_REVERSE,EVERY_REVERSE]);
+  \\ fs[MAP_REVERSE,EVERY_REVERSE]
+QED
 
-Theorem steps_not_use_temp_before_assign
-  `∀s1 s2.
+Theorem steps_not_use_temp_before_assign:
+   ∀s1 s2.
     (λs1. ⊢ s1 ∧ not_use_temp_before_assign (REVERSE (FST (SND s1) ++ SND (SND s1)))) s1 ∧
     s1 ▷* s2
     ⇒
-    (λs1. ⊢ s1 ∧ not_use_temp_before_assign (REVERSE (FST (SND s1) ++ SND (SND s1)))) s2`
-  (match_mp_tac RTC_lifts_invariants
+    (λs1. ⊢ s1 ∧ not_use_temp_before_assign (REVERSE (FST (SND s1) ++ SND (SND s1)))) s2
+Proof
+  match_mp_tac RTC_lifts_invariants
   \\ simp[]
-  \\ metis_tac[wf_step,step_not_use_temp_before_assign]);
+  \\ metis_tac[wf_step,step_not_use_temp_before_assign]
+QED
 
-Theorem pmov_not_use_temp_before_assign
-  `∀p i. ⊢ p ∧ not_use_temp_before_assign (REVERSE (FST (SND p) ++ SND (SND p)))
-    ⇒ not_use_temp_before_assign (REVERSE (FST (SND (pmov p)) ++ SND (SND (pmov p))))`
-  (rw[]
+Theorem pmov_not_use_temp_before_assign:
+   ∀p i. ⊢ p ∧ not_use_temp_before_assign (REVERSE (FST (SND p) ++ SND (SND p)))
+    ⇒ not_use_temp_before_assign (REVERSE (FST (SND (pmov p)) ++ SND (SND (pmov p))))
+Proof
+  rw[]
   \\ qspec_then`p`assume_tac pmov_dsteps
   \\ drule dsteps_steps
   \\ simp[] \\ strip_tac
   \\ drule (ONCE_REWRITE_RULE[CONJ_COMM] steps_not_use_temp_before_assign)
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem parmove_not_use_temp_before_assign
-  `windmill mvs ⇒
+Theorem parmove_not_use_temp_before_assign:
+   windmill mvs ⇒
    case find_index NONE (MAP SND (parmove mvs)) 0 of
       NONE => T
     | SOME i =>
       case find_index NONE (MAP FST (parmove mvs)) 0 of
         NONE => F
-      | SOME j => ¬(i ≤ j)`
-  (strip_tac
+      | SOME j => ¬(i ≤ j)
+Proof
+  strip_tac
   \\ simp[parmove_def]
   \\ qpat_abbrev_tac`ls = REVERSE _`
   \\ `not_use_temp_before_assign ls`
@@ -863,45 +934,53 @@ Theorem parmove_not_use_temp_before_assign
   \\ simp[MAP_MAP_o,o_DEF,UNCURRY]
   \\ simp[GSYM MAP_MAP_o,GSYM o_DEF]
   \\ match_mp_tac ALL_DISTINCT_MAP_INJ
-  \\ simp[] );
+  \\ simp[]
+QED
 
 (* the compiler preserves all-distinct variables *)
 
-Theorem ALL_DISTINCT_step
-  `∀s1 s2. s1 ▷ s2 ⇒
+Theorem ALL_DISTINCT_step:
+   ∀s1 s2. s1 ▷ s2 ⇒
     ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s1 ++ FST (SND s1) ++ (SND (SND s1))))) ⇒
-    ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s2 ++ FST (SND s2) ++ (SND (SND s2)))))`
-  (ho_match_mp_tac step_ind
+    ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s2 ++ FST (SND s2) ++ (SND (SND s2)))))
+Proof
+  ho_match_mp_tac step_ind
   \\ simp[]
   \\ rpt conj_tac
   \\ simp[FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER]
   \\ rw[] \\ fs[ALL_DISTINCT_APPEND,MEM_FILTER]
-  \\ metis_tac[IS_SOME_DEF]);
+  \\ metis_tac[IS_SOME_DEF]
+QED
 
-Theorem ALL_DISTINCT_steps
-  `∀s1 s2.
+Theorem ALL_DISTINCT_steps:
+   ∀s1 s2.
     (λs1. ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s1 ++ FST (SND s1) ++ (SND (SND s1)))))) s1 ∧
     s1 ▷* s2
     ⇒
-    (λs1. ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s1 ++ FST (SND s1) ++ (SND (SND s1)))))) s2`
-  (match_mp_tac RTC_lifts_invariants
+    (λs1. ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s1 ++ FST (SND s1) ++ (SND (SND s1)))))) s2
+Proof
+  match_mp_tac RTC_lifts_invariants
   \\ simp[]
-  \\ PROVE_TAC[ALL_DISTINCT_step,MAP_APPEND]);
+  \\ PROVE_TAC[ALL_DISTINCT_step,MAP_APPEND]
+QED
 
-Theorem ALL_DISTINCT_pmov
-  `∀p. ⊢p ∧ ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST p ++ FST (SND p) ++ SND (SND p)))) ⇒
-       ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST (pmov p) ++ FST (SND (pmov p)) ++ SND (SND (pmov p)))))`
-  (rw[]
+Theorem ALL_DISTINCT_pmov:
+   ∀p. ⊢p ∧ ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST p ++ FST (SND p) ++ SND (SND p)))) ⇒
+       ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST (pmov p) ++ FST (SND (pmov p)) ++ SND (SND (pmov p)))))
+Proof
+  rw[]
   \\ qspec_then`p`assume_tac pmov_dsteps
   \\ drule dsteps_steps
   \\ simp[] \\ strip_tac
   \\ drule (ONCE_REWRITE_RULE[CONJ_COMM] ALL_DISTINCT_steps)
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem ALL_DISTINCT_parmove
-  `ALL_DISTINCT (MAP FST mvs) ⇒
-   ALL_DISTINCT (FILTER IS_SOME (MAP FST (parmove mvs)))`
-  (rw[parmove_def,
+Theorem ALL_DISTINCT_parmove:
+   ALL_DISTINCT (MAP FST mvs) ⇒
+   ALL_DISTINCT (FILTER IS_SOME (MAP FST (parmove mvs)))
+Proof
+  rw[parmove_def,
      FILTER_REVERSE,MAP_REVERSE,ALL_DISTINCT_REVERSE]
   \\ qmatch_goalsub_abbrev_tac`pmov p`
   \\ qspec_then`p`mp_tac ALL_DISTINCT_pmov
@@ -915,43 +994,51 @@ Theorem ALL_DISTINCT_parmove
     \\ match_mp_tac ALL_DISTINCT_MAP_INJ
     \\ simp[] )
   \\ qspec_then`p`strip_assume_tac pmov_final
-  \\ simp[]);
+  \\ simp[]
+QED
 
 (* the compiler retains all non-trivial moves *)
 
 val state_to_list_def = Define`
   state_to_list p = APPEND (FST p) (FST(SND p)) ++ SND(SND p)`;
 
-Theorem step_preserves_moves
-  `∀s1 s2. s1 ▷ s2 ⇒
+Theorem step_preserves_moves:
+   ∀s1 s2. s1 ▷ s2 ⇒
     ∀x. (∃y. MEM (x,y) (state_to_list s1) ∧ x ≠ y) ⇒
-        (∃y. MEM (x,y) (state_to_list s2) ∧ x ≠ y)`
-  (ho_match_mp_tac step_ind
-  \\ rw[state_to_list_def] \\ metis_tac[]);
+        (∃y. MEM (x,y) (state_to_list s2) ∧ x ≠ y)
+Proof
+  ho_match_mp_tac step_ind
+  \\ rw[state_to_list_def] \\ metis_tac[]
+QED
 
-Theorem steps_preserves_moves
-  `∀s1 s2.
+Theorem steps_preserves_moves:
+   ∀s1 s2.
     (λs1. (∃y. MEM (x,y) (state_to_list s1) ∧ x ≠ y)) s1 ∧
     s1 ▷* s2
     ⇒
-    (λs1. (∃y. MEM (x,y) (state_to_list s1) ∧ x ≠ y)) s2`
-  (match_mp_tac RTC_lifts_invariants \\ simp[]
-  \\ PROVE_TAC[step_preserves_moves]);
+    (λs1. (∃y. MEM (x,y) (state_to_list s1) ∧ x ≠ y)) s2
+Proof
+  match_mp_tac RTC_lifts_invariants \\ simp[]
+  \\ PROVE_TAC[step_preserves_moves]
+QED
 
-Theorem pmov_preserves_moves
-  `∀p. ⊢p ∧ MEM (x,y) (state_to_list p) ∧ x ≠ y ⇒
-    MEM x (MAP FST (state_to_list (pmov p)))`
-  (rw[]
+Theorem pmov_preserves_moves:
+   ∀p. ⊢p ∧ MEM (x,y) (state_to_list p) ∧ x ≠ y ⇒
+    MEM x (MAP FST (state_to_list (pmov p)))
+Proof
+  rw[]
   \\ qspec_then`p`assume_tac pmov_dsteps
   \\ drule dsteps_steps
   \\ simp[] \\ strip_tac
   \\ drule (ONCE_REWRITE_RULE[CONJ_COMM] steps_preserves_moves)
   \\ simp[MEM_MAP,EXISTS_PROD]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem parmove_preserves_moves
-  `windmill moves ∧ MEM (x,y) moves ∧ x ≠ y ⇒ MEM (SOME x) (MAP FST (parmove moves))`
-  (rw[parmove_def,MAP_REVERSE]
+Theorem parmove_preserves_moves:
+   windmill moves ∧ MEM (x,y) moves ∧ x ≠ y ⇒ MEM (SOME x) (MAP FST (parmove moves))
+Proof
+  rw[parmove_def,MAP_REVERSE]
   \\ qmatch_goalsub_abbrev_tac`pmov p`
   \\ qspec_then`p`(mp_tac o Q.GENL[`x`,`y`]) pmov_preserves_moves
   \\ qspec_then`p`strip_assume_tac pmov_final
@@ -966,7 +1053,8 @@ Theorem parmove_preserves_moves
     \\ simp[GSYM o_DEF,GSYM MAP_MAP_o]
     \\ match_mp_tac ALL_DISTINCT_MAP_INJ
     \\ simp[] )
-  \\ simp[]);
+  \\ simp[]
+QED
 
 (* mapping an injective function over compiled moves *)
 
@@ -980,9 +1068,10 @@ val inj_on_state_def = Define`
      (∀x y. MEM x ls ∧ MEM y ls ∧ f x = f y ⇒ x = y) ∧
      (∀x. f x = NONE ⇔ x = NONE)`;
 
-Theorem step_inj_on_state
-  `∀s1 s2. s1 ▷ s2 ⇒ inj_on_state f s1 ⇒ inj_on_state f s2`
-  (ho_match_mp_tac step_ind
+Theorem step_inj_on_state:
+   ∀s1 s2. s1 ▷ s2 ⇒ inj_on_state f s1 ⇒ inj_on_state f s2
+Proof
+  ho_match_mp_tac step_ind
   \\ rpt conj_tac
   \\ simp[inj_on_state_def]
   \\ rw[]
@@ -993,15 +1082,19 @@ Theorem step_inj_on_state
   \\ (Cases_on`x=NONE` >- metis_tac[])
   \\ (Cases_on`y=NONE` >- metis_tac[])
   \\ first_x_assum match_mp_tac
-  \\ fs[state_to_list_def]);
+  \\ fs[state_to_list_def]
+QED
 
-Theorem steps_inj_on_state
-  `∀s1 s2. inj_on_state f s1 ∧ s1 ▷* s2 ⇒ inj_on_state f s2`
-  (match_mp_tac RTC_lifts_invariants \\ metis_tac[step_inj_on_state]);
+Theorem steps_inj_on_state:
+   ∀s1 s2. inj_on_state f s1 ∧ s1 ▷* s2 ⇒ inj_on_state f s2
+Proof
+  match_mp_tac RTC_lifts_invariants \\ metis_tac[step_inj_on_state]
+QED
 
-Theorem step_MAP_INJ
-  `∀s1 s2. s1 ▷ s2 ⇒ inj_on_state f s1 ⇒ map_state f s1 ▷ map_state f s2`
-  (ho_match_mp_tac step_ind
+Theorem step_MAP_INJ:
+   ∀s1 s2. s1 ▷ s2 ⇒ inj_on_state f s1 ⇒ map_state f s1 ▷ map_state f s2
+Proof
+  ho_match_mp_tac step_ind
   \\ simp[map_state_def]
   \\ conj_tac
   >- (
@@ -1053,7 +1146,8 @@ Theorem step_MAP_INJ
   \\ simp[]
   \\ simp[state_to_list_def]
   \\ simp[MEM_MAP,EXISTS_PROD]
-  \\ metis_tac[] )
+  \\ metis_tac[]
+QED
 
 val steps_MAP_INJ = Q.prove(
   `∀s1 s2. s1 ▷* s2 ⇒
@@ -1065,9 +1159,10 @@ val steps_MAP_INJ = Q.prove(
   \\ fs[]
   \\ metis_tac[step_MAP_INJ,RTC_RULES]);
 
-Theorem fstep_MAP_INJ
-  `∀p. inj_on_state f p ⇒ fstep (map_state f p) = map_state f (fstep p)`
-  (gen_tac \\ strip_tac
+Theorem fstep_MAP_INJ:
+   ∀p. inj_on_state f p ⇒ fstep (map_state f p) = map_state f (fstep p)
+Proof
+  gen_tac \\ strip_tac
   \\ PairCases_on`p`
   \\ simp[fstep_def]
   \\ match_mp_tac EQ_SYM
@@ -1127,12 +1222,14 @@ Theorem fstep_MAP_INJ
   \\ qmatch_goalsub_rename_tac`LAST (h::t)`
   \\ `MEM (LAST (h::t)) (h::t)` by simp[MEM_LAST]
   \\ fs[]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem pmov_MAP_INJ
-  `∀p. ⊢ p ∧ inj_on_state f p
-  ⇒ pmov (map_state f p) = map_state f (pmov p)`
-  (ho_match_mp_tac pmov_ind
+Theorem pmov_MAP_INJ:
+   ∀p. ⊢ p ∧ inj_on_state f p
+  ⇒ pmov (map_state f p) = map_state f (pmov p)
+Proof
+  ho_match_mp_tac pmov_ind
   \\ gen_tac
   \\ PairCases_on`p`
   \\ simp[]
@@ -1162,14 +1259,16 @@ Theorem pmov_MAP_INJ
   \\ fs[map_state_def,LET_THM,Abbr`p`]
   \\ match_mp_tac EQ_SYM
   \\ first_x_assum match_mp_tac
-  \\ metis_tac[steps_inj_on_state,wf_steps] )
+  \\ metis_tac[steps_inj_on_state,wf_steps]
+QED
 
-Theorem parmove_MAP_INJ
-  `(let ls1 = MAP FST ls ++ MAP SND ls in (∀x y. MEM x ls1 ∧ MEM y ls1 ∧ f x = f y ⇒ x = y)) ∧
+Theorem parmove_MAP_INJ:
+   (let ls1 = MAP FST ls ++ MAP SND ls in (∀x y. MEM x ls1 ∧ MEM y ls1 ∧ f x = f y ⇒ x = y)) ∧
    windmill ls
    ⇒
-   parmove (MAP (f ## f) ls) = MAP (OPTION_MAP f ## OPTION_MAP f) (parmove ls)`
-  (rw[parmove_def,MAP_REVERSE]
+   parmove (MAP (f ## f) ls) = MAP (OPTION_MAP f ## OPTION_MAP f) (parmove ls)
+Proof
+  rw[parmove_def,MAP_REVERSE]
   \\ match_mp_tac EQ_SYM
   \\ qmatch_goalsub_abbrev_tac`pmov p`
   \\ match_mp_tac EQ_SYM
@@ -1200,6 +1299,7 @@ Theorem parmove_MAP_INJ
   \\ simp[]
   \\ qspec_then`p`strip_assume_tac pmov_final
   \\ fs[]
-  \\ simp[map_state_def]);
+  \\ simp[map_state_def]
+QED
 
 val _ = export_theory();

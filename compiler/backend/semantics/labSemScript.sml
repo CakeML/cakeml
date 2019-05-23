@@ -308,8 +308,8 @@ val loc_to_pc_def = Define `
              | NONE => NONE
              | SOME pos => SOME (pos + 1:num))`;
 
-Theorem asm_inst_consts
-  `((asm_inst i s).pc = s.pc) /\
+Theorem asm_inst_consts:
+   ((asm_inst i s).pc = s.pc) /\
    ((asm_inst i s).code = s.code) /\
    ((asm_inst i s).clock = s.clock) /\
    ((asm_inst i s).ffi = s.ffi) ∧
@@ -317,8 +317,9 @@ Theorem asm_inst_consts
    ((asm_inst i s).len_reg = s.len_reg) ∧
    ((asm_inst i s).ptr2_reg = s.ptr2_reg) ∧
    ((asm_inst i s).len2_reg = s.len2_reg) ∧
-   ((asm_inst i s).link_reg = s.link_reg)`
-  (Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
+   ((asm_inst i s).link_reg = s.link_reg)
+Proof
+  Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   >-
     (Cases_on `a`
     \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
@@ -333,7 +334,8 @@ Theorem asm_inst_consts
   >>
     Cases_on`f`
     \\ fs[fp_upd_def,upd_reg_def,upd_fp_reg_def,assert_def]
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]) ;
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]
+QED ;
 
 val get_pc_value_def = Define `
   get_pc_value lab (s:('a,'c,'ffi) labSem$state) =

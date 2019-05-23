@@ -123,9 +123,9 @@ val res = translate holKernelTheory.type_subst_def;
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
 
-Theorem raconv_side
-  `!x y z. raconv_side x y z`
-  (ho_match_mp_tac holKernelTheory.raconv_ind
+Theorem raconv_side = Q.prove(`
+  !x y z. raconv_side x y z`,
+  ho_match_mp_tac holKernelTheory.raconv_ind
   \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
   |> update_precondition;
 

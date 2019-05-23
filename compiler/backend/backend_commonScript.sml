@@ -99,8 +99,11 @@ val bvl_num_stubs_def = Define`
 val bvl_to_bvi_namespaces_def = Define`
   bvl_to_bvi_namespaces = 3n`;
 
-Theorem bvl_num_stub_MOD
-  `bvl_num_stubs MOD bvl_to_bvi_namespaces = 0` (EVAL_TAC);
+Theorem bvl_num_stub_MOD:
+   bvl_num_stubs MOD bvl_to_bvi_namespaces = 0
+Proof
+EVAL_TAC
+QED
 
 (* shift values, per dimindex(:α) *)
 val word_shift_def = Define `
