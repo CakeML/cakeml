@@ -2083,7 +2083,7 @@ Theorem b_input_spec
     >-(`w-r <= LENGTH bactive` by fs[LENGTH_TAKE]
       \\`LENGTH bactive <= LENGTH bcontent - 4` by fs[LENGTH_TAKE]
       \\` w ≤ r + LENGTH (TAKE (w − r) (DROP r bcontent))` by fs[LENGTH_TAKE]
-      \\`w-r <= LENGTH bcontent - 4` by fs[] \\
+      \\`w-r <= LENGTH bcontent - 4` by fs[]
       \\`LENGTH bcontent - 4 < len`
           by (fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE] \\rfs[])
       \\`w-r <= len` by fs[] \\ `w-r + off <= LENGTH buf` by fs[]
@@ -2100,13 +2100,13 @@ Theorem b_input_spec
       \\xlet_auto >- xsimpl
       \\xlet_auto_spec (SOME input_spec)
       >-(fs[insert_atI_def] \\ xsimpl \\fs[INT_SUB_CALCULATE,
-                                            INT_ADD_CALCULATE] \\ rfs[]]
+                                            INT_ADD_CALCULATE] \\ rfs[])
       \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def,instream_buffered_inv_def]
       \\xpull \\xapp \\ xsimpl \\ fs[NUM_def] \\ qexists_tac `&w-&r`
+      \\asm_exists_tac \\fs[]
       \\fs[MIN_DEF,MAX_DEF]
       \\Cases_on `len < w - r + (STRLEN content - pos) /\ 0 < STRLEN content - pos`
       >-(fs[]
-        \\asm_exists_tac \\ fs[]
         \\rpt strip_tac
         \\Cases_on `len < STRLEN content - pos`
         >-(fs[] \\ `INT (&len) v'4'` by
@@ -2127,18 +2127,29 @@ Theorem b_input_spec
                     DROP_DROP])
         >-(fs[]
           \\`LENGTH content - pos <= len` by fs[]
+          \\`LENGTH bcontent - 4 < len`
+                 by (fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE] \\rfs[])
           \\`w-r <= len` by fs[]
           \\`w-r > 0` by fs[]
           \\`w − r + (STRLEN content − pos) >= STRLEN content - pos` by fs[]
           \\`len - (w-r) < STRLEN content - pos` by fs[LESS_ADD]
+          \\map_every qexists_tac [`r'`,`w'`]
+          \\xsimpl \\fs[TAKE_TAKE, insert_atI_def, LENGTH_TAKE, TAKE_APPEND2]
+          \\fs[TAKE_TAKE_MIN, MIN_DEF]
+          \\fs[DROP_NIL,LENGTH_TAKE, LENGTH_DROP, LENGTH_APPEND, TAKE_APPEND,
+                    TAKE_APPEND1, TAKE_APPEND2, DROP_APPEND, DROP_APPEND1, DROP_APPEND2,
+                    DROP_DROP]
           \\cheat
           ))
       >-(cheat))
     >-(cheat)));
 
-SUBGOAL_THEN ``INT (&len) v'4'`` assume_tac
-fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE]
-\\rfs[]
+SUBGOAL_THEN ``INT
+     (&(if
+         len < w − r + (STRLEN content − pos) ∧ 0 < STRLEN content − pos
+       then
+         len + r − w
+a<
 
 Theorem extend_array_spec
     `∀arrv arr.
