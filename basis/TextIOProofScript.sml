@@ -2077,11 +2077,15 @@ Theorem b_input_spec
     >-(xsimpl \\ rpt strip_tac \\ cheat))
   >-(xlet_auto >- xsimpl
   \\xlet_auto >- xsimpl
+  \\xlet_auto >- xsimpl
   \\fs[instream_buffered_inv_def]
   \\xif
     >-(`w-r <= LENGTH bactive` by fs[LENGTH_TAKE]
-      \\`LENGTH bactive <= LENGTH bcontent` by fs[LENGTH_TAKE]
+      \\`LENGTH bactive <= LENGTH bcontent - 4` by fs[LENGTH_TAKE]
       \\` w ≤ r + LENGTH (TAKE (w − r) (DROP r bcontent))` by fs[LENGTH_TAKE]
+      \\`w-r <= LENGTH bcontent - 4` by fs[] \\
+      \\`LENGTH bcontent - 4 < len`
+          by (fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE] \\rfs[])
       \\`w-r <= len` by fs[] \\ `w-r + off <= LENGTH buf` by fs[]
       \\ xlet `POSTv dc. W8ARRAY bufv
                (insert_atI (TAKE (w-r) bactive)
@@ -2094,7 +2098,9 @@ Theorem b_input_spec
         \\fs[PULL_EXISTS, REF_NUM_def, NUM_def, INT_def, INT_OF_NUM_SUBS_2] \\ xsimpl)
       \\xlet_auto >- xsimpl
       \\xlet_auto >- xsimpl
-      \\xlet_auto_spec (SOME input_spec) >-(fs[insert_atI_def] \\ xsimpl)
+      \\xlet_auto_spec (SOME input_spec)
+      >-(fs[insert_atI_def] \\ xsimpl \\fs[INT_SUB_CALCULATE,
+                                            INT_ADD_CALCULATE] \\ rfs[]]
       \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def,instream_buffered_inv_def]
       \\xpull \\xapp \\ xsimpl \\ fs[NUM_def] \\ qexists_tac `&w-&r`
       \\fs[MIN_DEF,MAX_DEF]
@@ -2104,19 +2110,17 @@ Theorem b_input_spec
         \\rpt strip_tac
         \\Cases_on `len < STRLEN content - pos`
         >-(fs[] \\ `INT (&len) v'4'` by
-                      (fs[INT_NUM_SUB]
-                      \\Cases_on `len + r < w`
-                      >-(fs[])
-                      >-(fs[]
-                      \\fs[INT_SUB_CALCULATE]
+                      (fs[INT_SUB_CALCULATE]
                       \\fs[INT_ADD_ASSOC]
-                      \\fs[INT_ADD_CALCULATE]))
+                      \\fs[INT_ADD_CALCULATE]
+                      \\rfs[])
           \\map_every qexists_tac [`r'`,`w'`]
           \\ xsimpl \\fs[TAKE_TAKE, insert_atI_def, LENGTH_TAKE, TAKE_APPEND2] \\
-          \\ fs[TAKE_SEG, DROP_SEG]
           \\`pos < LENGTH (MAP (n2w ∘ ORD) content)` by fs[]
+          \\`LENGTH bcontent - 4 < len`
+                by (fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE] \\rfs[])
           \\`w-r <= len` by fs[]
-          \\`w-r <= LENGTH bcontent` by fs[]
+          \\`w-r <= LENGTH bcontent - 4` by fs[]
           \\fs[TAKE_TAKE_MIN, MIN_DEF]
           \\fs[DROP_NIL,LENGTH_TAKE, LENGTH_DROP, LENGTH_APPEND, TAKE_APPEND,
                     TAKE_APPEND1, TAKE_APPEND2, DROP_APPEND, DROP_APPEND1, DROP_APPEND2,
@@ -2131,6 +2135,10 @@ Theorem b_input_spec
           ))
       >-(cheat))
     >-(cheat)));
+
+SUBGOAL_THEN ``INT (&len) v'4'`` assume_tac
+fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE]
+\\rfs[]
 
 Theorem extend_array_spec
     `∀arrv arr.

@@ -302,9 +302,9 @@ val _ = (append_prog o process_topdecs)`
       let
         val nBuffered = (!wref) - (!rref)
       in
-        if (Word8Array.length buff-4) < len + off then raise IllegalArgument
+        if Word8Array.length buff < len + off then raise IllegalArgument
         else
-          if Word8Array.length surplus < len then
+          if (Word8Array.length surplus - 4) < len then
             (b_input_aux is buff off nBuffered;
             input fd buff (off+nBuffered) (len - nBuffered) + nBuffered)
           else
