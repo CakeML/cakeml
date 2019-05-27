@@ -282,7 +282,7 @@ val def = new_constant_def |> m_translate
 val def = add_type_def |> m_translate
 val def = new_type_def |> m_translate
 
-val _ = next_ml_names := ["eq_mp_rule", "assume_conv"];
+val _ = next_ml_names := ["eq_mp_rule", "assume"];
 val def = holKernelPmatchTheory.EQ_MP_def |> m_translate
 val def = ASSUME_def |> m_translate
 
