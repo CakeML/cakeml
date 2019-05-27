@@ -489,18 +489,6 @@ val Eval2_tac =
   \\ disch_then (qspec_then `ck1'` strip_assume_tac)
   \\ fs [] \\ qexists_tac `ck1+ck1'` \\ fs [];
 
-val Eval3_tac =
-  first_x_assum (qspec_then `refs` strip_assume_tac)
-  \\ drule evaluate_add_to_clock
-  \\ first_x_assum (qspec_then `refs++refs'` strip_assume_tac)
-  \\ drule evaluate_add_to_clock
-  \\ first_x_assum (qspec_then `refs++refs'++refs''` strip_assume_tac)
-  \\ drule evaluate_add_to_clock
-  \\ disch_then (qspec_then `ck3` strip_assume_tac)
-  \\ disch_then (qspec_then `ck2` strip_assume_tac)
-  \\ disch_then (qspec_then `ck1'` strip_assume_tac)
-  \\ fs [] \\ qexists_tac `ck1+ck1'+ck1''` \\ fs [];
-
 Theorem Eval_Equality:
    Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
     EqualityType a ==>
@@ -1360,19 +1348,36 @@ Proof
 QED
 
 (* arithmetic for doubles (word64) *)
-
-(* FIXME: FP_top from master *)
-  (*
-val Eval_FP_top = Q.prove (
- `!f w1 w2 w3.
-        Eval env x1 (WORD (w1:64 word)) ==>
+Theorem Eval_FP_top:
+  ! f w1 w2 w3.
         Eval env x2 (WORD (w2:64 word)) ==>
         Eval env x3 (WORD (w3:64 word)) ==>
-        Eval env (App (FP_top f) [x1;x2;x3]) (WORD (fp_top f w1 w2 w3))`,
+        Eval env x1 (WORD (w1:64 word)) ==>
+        Eval env (App (FP_top f) [x1;x2;x3]) (WORD (fp_top f w1 w2 w3))
+Proof
   rw[Eval_rw,WORD_def]
-  \\ Eval3_tac \\ fs [do_app_def] \\ rw []
-  \\ fs [state_component_equality]);
-  *)
+  \\ first_x_assum mp_tac
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ strip_tac
+  \\ drule evaluate_add_to_clock
+  \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ first_x_assum (qspec_then `refs++refs'++refs''` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ rpt (disch_then assume_tac)
+  \\ pop_assum (qspec_then `ck1' + ck1''` strip_assume_tac)
+  \\ fs[] \\ qexists_tac `ck1 + ck1' + ck1''` \\ fs[]
+  \\ fs [do_app_def] \\ rw []
+  \\ fs [state_component_equality]
+QED
+
+local
+  fun f name q =
+    save_thm("Eval_" ^ name,SIMP_RULE (srw_ss()) [fp_top_def, fpfma_def]
+              (Q.SPEC q Eval_FP_top))
+in
+  val Eval_FLOAT_FMA = f "FLOAT_FMA" `FP_Fma`
+end;
 
 val Eval_FP_bop = Q.prove(
   `!f w1 w2.

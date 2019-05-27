@@ -2683,7 +2683,8 @@ fun mutual_to_single_line_def def = let
   in ([def],ind) end
 
 val builtin_terops =
-  [Eval_substring]
+  [Eval_substring,
+   Eval_FLOAT_FMA]
   |> map SPEC_ALL
   |> map (fn th =>
       (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
