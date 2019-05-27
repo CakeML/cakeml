@@ -2659,7 +2659,7 @@ val inst_ok_less_def = Define`
   (inst_ok_less c (Arith (Div r1 r2 r3)) ⇔
     (c.ISA ∈ {ARMv8; MIPS; RISC_V})) ∧
   (inst_ok_less c (Arith (LongMul r1 r2 r3 r4)) ⇔
-    ((c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
+    ((c.ISA = ARMv7 ⇒ r1 ≠ r2) ∧
     (c.ISA = ARMv8 ∨ c.ISA = RISC_V ∨ c.ISA = Ag32 ⇒ r1 ≠ r3 ∧ r1 ≠ r4))) ∧
   (inst_ok_less c (Arith (LongDiv r1 r2 r3 r4 r5)) =
     (c.ISA = x86_64)) ∧
@@ -2691,6 +2691,10 @@ val inst_ok_less_def = Define`
   (inst_ok_less c (FP (FPDiv d1 d2 d3)) ⇔
     (c.two_reg_arith ==> (d1 = d2)) ∧
     fp_reg_ok d1 c  ∧ fp_reg_ok d2 c  ∧ fp_reg_ok d3 c) ∧
+  (inst_ok_less c (FP (FPFma d1 d2 d3)) <=>
+    (c.ISA = ARMv7) /\
+    2 < c.fp_reg_count /\
+    fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (inst_ok_less c (FP (FPMov d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPMovToReg r1 r2 d)) ⇔
       ((dimindex(:'a) = 32) ==> r1 <> r2) ∧ fp_reg_ok d c) ∧

@@ -96,40 +96,43 @@ val hash_fp_def = Define`
   (hash_fp (FPDiv f1 f2 f3) =
     roll_hash [f1;f2;f3] 38n) ∧
 
+  (hash_fp (FPFma f1 f2 f3) =
+    roll_hash [f1;f2;f3] 39n) /\
+
   (hash_fp (FPMov f1 f2) =
-    roll_hash [f1;f2] 39n) ∧
+    roll_hash [f1;f2] 40n) ∧
   (hash_fp (FPMovToReg r1 r2 f) =
-    roll_hash [r1;r2;f] 40n) ∧
+    roll_hash [r1;r2;f] 41n) ∧
   (hash_fp (FPMovFromReg f r1 r2) =
-    roll_hash [f;r1;r2] 41n) ∧
+    roll_hash [f;r1;r2] 42n) ∧
   (hash_fp (FPToInt f1 f2) =
-    roll_hash [f1;f2] 42n) ∧
+    roll_hash [f1;f2] 43n) ∧
   (hash_fp (FPFromInt f1 f2) =
-    roll_hash [f1;f2] 43n)`
+    roll_hash [f1;f2] 44n)`
 
 val hash_inst_def = Define`
-  (hash_inst m Skip = 44n) ∧
+  (hash_inst m Skip = 45n) ∧
   (hash_inst m (Const r w) =
-    roll_hash [r;w2n w MOD m] 45n) ∧
+    roll_hash [r;w2n w MOD m] 46n) ∧
   (hash_inst m (Arith a) =
-    roll_hash [hash_arith m a] 46n) ∧
+    roll_hash [hash_arith m a] 47n) ∧
   (hash_inst m (Mem mop r (Addr rr w)) =
-    roll_hash [hash_memop mop; r; rr; w2n w MOD m] 47n) ∧
+    roll_hash [hash_memop mop; r; rr; w2n w MOD m] 48n) ∧
   (hash_inst m (FP fp) =
-    roll_hash [hash_fp fp] 48n)`
+    roll_hash [hash_fp fp] 49n)`
 
 val hash_asm_def = Define`
   (hash_asm m (Inst i) =
-    roll_hash [hash_inst m i] 49n) ∧
+    roll_hash [hash_inst m i] 50n) ∧
   (hash_asm m (Jump w) =
-    roll_hash [w2n w MOD m] 50n) ∧
+    roll_hash [w2n w MOD m] 51n) ∧
   (hash_asm m (JumpCmp c r ri w) =
-    roll_hash [hash_cmp c; r; hash_reg_imm m ri; w2n w MOD m] 51n) ∧
+    roll_hash [hash_cmp c; r; hash_reg_imm m ri; w2n w MOD m] 52n) ∧
   (hash_asm m (Call w) =
-    roll_hash [w2n w MOD m] 52n) ∧
+    roll_hash [w2n w MOD m] 53n) ∧
   (hash_asm m (JumpReg r) =
-    roll_hash [r] 53n) ∧
+    roll_hash [r] 54n) ∧
   (hash_asm m (Loc r w) =
-    roll_hash [r; w2n w MOD m] 54n)`
+    roll_hash [r; w2n w MOD m] 55n)`
 
 val _ = export_theory();

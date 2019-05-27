@@ -637,6 +637,7 @@ val sexpop_def = Define`
   if s = "FPbopFPSub" then SOME (FP_bop FP_Sub) else
   if s = "FPbopFPMul" then SOME (FP_bop FP_Mul) else
   if s = "FPbopFPDiv" then SOME (FP_bop FP_Div) else
+  if s = "FPtopFPFma" then SOME (FP_top FP_Fma) else
   if s = "Opapp" then SOME Opapp else
   if s = "Opassign" then SOME Opassign else
   if s = "Opref" then SOME Opref else
@@ -1223,6 +1224,7 @@ val opsexp_def = Define`
   (opsexp (FP_bop FP_Sub) = SX_SYM "FPbopFPSub") ∧
   (opsexp (FP_bop FP_Mul) = SX_SYM "FPbopFPMul") ∧
   (opsexp (FP_bop FP_Div) = SX_SYM "FPbopFPDiv") ∧
+  (opsexp (FP_top FP_Fma) = SX_SYM "FPtopFPFma") ∧
   (opsexp Opapp = SX_SYM "Opapp") ∧
   (opsexp Opassign = SX_SYM "Opassign") ∧
   (opsexp Opref = SX_SYM "Opref") ∧
@@ -1267,7 +1269,7 @@ Proof
   Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
   TRY(MAP_FIRST rename1 [
         ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
-        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, ‘WordFromInt c1’,
+        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`, ‘WordFromInt c1’,
         ‘WordToInt c1’
       ] >>
       Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>

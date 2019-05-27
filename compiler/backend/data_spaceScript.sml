@@ -20,6 +20,7 @@ val op_space_req_def = Define `
   (op_space_req (WordFromWord F) _ = 3) /\
   (op_space_req (FP_uop _) v9 = 3) /\
   (op_space_req (FP_bop _) v9 = 3) /\
+  (op_space_req (FP_top _) v9 = 3) /\
   (op_space_req _ _ = 0)`;
 
 (*

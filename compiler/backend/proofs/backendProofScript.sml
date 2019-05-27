@@ -439,7 +439,9 @@ Proof
                          (compile_word_to_stack ((c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3))-2) progs bm0))
                             cfg (MAP (λp. full_compile_single mc.target.config.two_reg_arith (mc.target.config.reg_count - (LENGTH mc.target.config.avoid_regs + 5))
                             aa (mc:('a,'b,'c)machine_config).target.config (p,NONE)) progs)) o
-                            MAP (compile_part (c.data_conf with has_fp_ops := (1 < mc.target.config.fp_reg_count))))))))``
+                            MAP (compile_part (c.data_conf with
+                                                <| has_fp_ops := (1 < mc.target.config.fp_reg_count);
+                                                   has_fp_tern := (mc.target.config.ISA = ARMv7 /\ 2 < mc.target.config.fp_reg_count) |>)))))))``
      |> ISPEC)
    |> Q.GEN`co`
    |> Q.GEN`k0`
@@ -467,7 +469,10 @@ Proof
                            let code = FST(SND(bvl_to_bvi$compile_prog strt 0 p2)) in
                            let p3 = SND (bvi_tailrec$compile_prog (bvl_num_stubs + 2) code) in
                            let p4 = bvi_to_data$compile_prog p3 in
-                           let c4_data_conf = c.data_conf with has_fp_ops := (1 < c.lab_conf.asm_conf.fp_reg_count) in
+                           let c4_data_conf =
+                                c.data_conf with
+                                  <| has_fp_ops := (1 < c.lab_conf.asm_conf.fp_reg_count);
+                                     has_fp_tern := (c.lab_conf.asm_conf.ISA = ARMv7 /\ 2 < c.lab_conf.asm_conf.fp_reg_count) |>  in
                            let t_code = stubs (:'a) c4_data_conf ++ MAP (compile_part c4_data_conf) p4 in
                            let p5 = SND (compile c.word_to_word_conf c.lab_conf.asm_conf t_code) in
                            let p6 = SND (compile c.lab_conf.asm_conf p5) in
@@ -758,7 +763,8 @@ Proof
   qabbrev_tac`kkk = stk - 2`>>
   qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ data_oracle` \\
 
-  qabbrev_tac `c4_data_conf = (c4.data_conf with has_fp_ops := (1 < c4.lab_conf.asm_conf.fp_reg_count))` \\
+  qabbrev_tac `c4_data_conf = (c4.data_conf with <| has_fp_ops := (1 < c4.lab_conf.asm_conf.fp_reg_count);
+                                                    has_fp_tern := (c4.lab_conf.asm_conf.ISA = ARMv7 /\ 2 < c4.lab_conf.asm_conf.fp_reg_count) |>)` \\
   qabbrev_tac`word_oracle =
     (I ## MAP (λp. full_compile_single mc.target.config.two_reg_arith kkk aa c4.lab_conf.asm_conf (p,NONE))) o
     (I ## MAP (compile_part c4_data_conf)) o

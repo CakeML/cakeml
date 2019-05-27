@@ -37,6 +37,7 @@ val _ = Datatype `
   | FP_cmp fp_cmp
   | FP_uop fp_uop
   | FP_bop fp_bop
+  | FP_top fp_top
   (* Function application *)
   | Opapp
   (* Reference operations *)

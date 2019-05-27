@@ -62,6 +62,7 @@ val astOp_to_flatOp_def = Define `
   | FP_cmp cmp => flatLang$FP_cmp cmp
   | FP_uop uop => flatLang$FP_uop uop
   | FP_bop bop => flatLang$FP_bop bop
+  | FP_top top => flatLang$FP_top top
   | Equality => flatLang$Equality
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign

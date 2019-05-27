@@ -3,6 +3,7 @@
 *)
 open preamble;
 local open ag32ProgTheory in end;
+local open arm7ProgTheory in end;
 open compilerTheory
      exportTheory
      ml_translatorLib ml_translatorTheory;
@@ -181,12 +182,12 @@ val res = translate
   (ag32_configTheory.ag32_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
 
-(* arm6 *)
-val res = translate arm6_configTheory.arm6_names_def;
-val res = translate export_arm6Theory.ffi_asm_def;
-val res = translate export_arm6Theory.arm6_export_def;
+(* arm7 *)
+val res = translate arm7_configTheory.arm7_names_def;
+val res = translate export_arm7Theory.ffi_asm_def;
+val res = translate export_arm7Theory.arm7_export_def;
 val res = translate
-  (arm6_configTheory.arm6_backend_config_def
+  (arm7_configTheory.arm7_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
 
 (* Leave the module now, so that key things are available in the toplevel

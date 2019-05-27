@@ -40,6 +40,7 @@ val is_pure_def = Define `
   (is_pure (WordFromWord b) = F) /\
   (is_pure (FP_uop _) = F) /\
   (is_pure (FP_bop _) = F) /\
+  (is_pure (FP_top _) = F) /\
   (is_pure ConfigGC = F) /\
   (is_pure _ = T)`
 
@@ -77,6 +78,7 @@ Theorem is_pure_pmatch:
     | WordFromWord b => F
     | FP_uop _ => F
     | FP_bop _ => F
+    | FP_top _ => F
     | ConfigGC => F
     | _ => T
 Proof
