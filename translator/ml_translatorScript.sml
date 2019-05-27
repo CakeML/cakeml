@@ -502,7 +502,7 @@ val Eval3_tac =
   \\ fs [] \\ qexists_tac `ck1+ck1'+ck1''` \\ fs [];
 
 Theorem Eval_Equality:
-    Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
+   Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
     EqualityType a ==>
     Eval env (App Equality [x1;x2]) (BOOL (y1 = y2))
 Proof
