@@ -53,8 +53,7 @@ Theorem st_ex_ignore_bind_CONG:
   ∀ x s x' s' f f'.
     (x = x') ∧ (s = s') ∧
     (∀ y s''. (x' s' = (Success y, s'')) ⇒ (f s'' = f' s''))
-  ⇒ (st_ex_ignore_bind x f s =
-      st_ex_ignore_bind x' f' s')
+  ⇒ (st_ex_ignore_bind x f s = st_ex_ignore_bind x' f' s')
 Proof
   rw[st_ex_ignore_bind_def] >>
   Cases_on `x s` >>
@@ -93,6 +92,19 @@ val otherwise_def = Define `
     λs. dtcase ((x : ('a, 'b, 'c) M) s) of
           (Success y, s) => (Success y, s)
         | (Failure e, s) => (y : ('a, 'b, 'c) M) s`;
+
+Theorem st_ex_otherwise_CONG:
+  ∀ x s x' s' y y'.
+    (x = x') ∧ (s = s') ∧
+    (∀ e s'' . (x' s' = (Failure e, s'')) ⇒ (y s'' = y' s''))
+  ⇒ ((x otherwise y) s = (x' otherwise y') s')
+Proof
+  rw[otherwise_def] >>
+  Cases_on `x s` >>
+  rw[] >>
+  Cases_on `q` >> fs[]
+QED
+DefnBase.export_cong "st_ex_otherwise_CONG";
 
 val can_def = Define `
   can f x = (do f x ; return T od

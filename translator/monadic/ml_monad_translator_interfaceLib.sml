@@ -40,15 +40,15 @@ val _ = (use_full_type_names := false);
 fun toUppers(str) = String.implode (map Char.toUpper (String.explode str));
 val unit_ty = type_of ``()``;
 
-
-datatype translator_mode = GLOBAL | LOCAL;
-
+val ERR = mk_HOL_ERR "ml_monad_translator_interfaceLib"
 
 (******************************************************************************
 
   Define the state of the translation interface
 
 ******************************************************************************)
+
+datatype translator_mode = GLOBAL | LOCAL;
 
 (* Type definition of the internal state *)
 type state = {
@@ -141,12 +141,14 @@ fun with_state state_type (translator_config : config) =
       (state_type |> dest_type |> fst |> toUppers);
     #state_access_funs internal_state := accessors;
     translator_config
-  end;
+  end
+  handle _ => raise ERR "with_state" "Could not set the state type!";
 
 (*
  *  Register the exception type and return the type definition
  *)
 fun register_exception_type exn_type =
+  (* not visible to user *)
   let val exn_name = (exn_type |> dest_type |> fst |> toUppers)
       val exn_type_def_name = exn_name ^ "_TYPE_def"
   in (
@@ -173,7 +175,8 @@ fun with_exception exn_type (translator_config : config) =
     #exn_access_funs translator_config := map to_named_tuple exn_access_funs;
     #exn_type_def internal_state := (register_exception_type exn_type);
     translator_config
-  end;
+  end
+  handle _ => raise ERR "with_exception" "Could not set the exception type!";
 
 (*
  *  Mark state fields as references.
@@ -197,6 +200,7 @@ fun with_refs refs (translator_config : config) =
     #refs translator_config := refs_init_list;
     translator_config
   end
+  handle _ => raise ERR "with_refs" "Could not set the references!";
 
 (*
  *  Mark state fields as fixed arrays.
@@ -222,7 +226,8 @@ fun with_fixed_arrays farrays (translator_config : config) =
   in
     #fixed_arrays translator_config := farrays_init_list;
     translator_config
-  end;
+  end
+  handle _ => raise ERR "with_fixed_arrays" "Could not set the fixed arrays!";
 
 (*
  *  Mark state fields as resizeable arrays.
@@ -251,7 +256,9 @@ fun with_resizeable_arrays rarrays (translator_config : config) =
   in
     #resizeable_arrays translator_config := rarrays_init_list;
     translator_config
-  end;
+  end
+  handle _ =>
+    raise ERR "with_resizeable_arrays" "Could not set the resizeable arrays!";
 
 (*
  * Use user-defined additional heap proposition(s)
@@ -287,7 +294,8 @@ fun with_heap_propositions hprop_field_names (translator_config : config) =
     #extra_hprop translator_config :=
       foldl (uncurry mk_star_hprop) (!(#extra_hprop translator_config)) hprops;
     translator_config
-  end;
+  end
+  handle _ => raise ERR "with_heap_propositions" "Could not set heap props!";
 
 (*
  *  Mark state fields as stdio.
@@ -311,7 +319,8 @@ fun with_state_invariant inv_def inv_valid (translator_config : config) =
   in
     #extra_state_inv translator_config := extra_state_inv;
     translator_config
-  end;
+  end
+  handle _ => raise ERR "with_state_invariant" "Could not set state invariant!";
 
 
 (******************************************************************************
@@ -402,6 +411,11 @@ in
         fs[HPROP_COMB_STAR_COMM, set_sepTheory.STAR_ASSOC] >>
         metis_tac[set_sepTheory.STAR_ASSOC]
       )
+    handle _ =>
+      raise ERR "add_access_patterns"
+        ("Could not prove intro theorem for "^(term_to_string hprop_comb)^
+         " with field name "^field_name^"!")
+
     val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
     val state_exn_ty = ( !(#exn_type internal_state) )
     val state_exn_predicate =
@@ -410,7 +424,7 @@ in
 
     val access_thm_list = mapfilter
       (fn ((_, name), (thm, Thm)) => (name^"_"^field_name, thm)
-        | _ => raise Fail "")
+        | _ => raise Fail "") (* just to remove pattern match warnings *)
       (apropos ``EvalM _ _ _ _ _ (^hprop_comb,_)``)
 
     fun create_access_thm access_thm =
@@ -434,6 +448,10 @@ in
         add_access_pattern access_thm;
         print("Added access patterns for "^field_name^": "^name^".\n\n")
       end
+      handle _ =>
+        raise ERR "add_access_patterns"
+          ("Could not prove and add access pattern for field name "^name^
+           " using base theorem:\n"^(thm_to_string thm)^"\n")
   in
     save_thm(field_name^"_INTRO", hprop_comb_intro);
     print ("Saved intro theorem for "^field_name^": "^field_name^"_INTRO.\n\n");
@@ -463,11 +481,18 @@ fun start_translation (translator_config : config) =
           ( !(#additional_type_theories s) )
           ( !(#extra_state_inv          c) )
           ( !(#extra_hprop              c) )
+          handle _ =>
+            raise ERR "start_translation" "Could not start global translation!"
         in
           #monad_translation_params s := SOME monad_trans_params;
           #store_trans_result       s := SOME store_trans_result;
           #exn_specs                s := exn_specs;
-          add_access_patterns (); ()
+          add_access_patterns ()
+          handle
+            (HOL_ERR {origin_function="add_access_patterns", message=m, ...}) =>
+            raise ERR "start_translation"
+              ("Could not add access patterns:\n"^m);
+          ()
         end
   | LOCAL => let val (monad_trans_params, exn_specs) =
       start_dynamic_init_fixed_store_translation
@@ -487,7 +512,10 @@ fun start_translation (translator_config : config) =
           #monad_translation_params s := SOME monad_trans_params;
           #exn_specs                s := exn_specs
         end
-) end;
+        handle _ =>
+          raise ERR "start_translation" "Could not start local translation!"
+  ); print "\n\nDone.\n"
+end;
 
 
 (* Translation functions from ml_translatorLib *)
@@ -555,11 +583,9 @@ local
                    ]
   val pull_thms = List.map GSYM push_thms
 
-  val st_ex_bind_term = (fetch "ml_monadBase" "st_ex_bind_def" |> concl |>
-    dest_forall |> snd |> dest_forall |> snd |> lhs |> strip_comb |> fst)
-  val st_ex_ignore_bind_term = (fetch "ml_monadBase" "st_ex_ignore_bind_def") |>
-    concl |> dest_forall |> snd |> dest_forall |> snd |> lhs |>
-    strip_comb |> fst
+  val st_ex_bind_term = prim_mk_const{Name="st_ex_bind", Thy="ml_monadBase"}
+  val st_ex_ignore_bind_term =
+    prim_mk_const{Name="st_ex_ignore_bind", Thy="ml_monadBase"}
 
   (*
    *  Find all ``st_ex_bind x (λ ret . f ret)`` and eta-expand to include the
@@ -570,9 +596,14 @@ local
    *  Needed so that TotalDefn gives correct termination conditions.
    *)
   fun expand_term tm =
-    let val bind_terms =
+    let val tm' = tm |> (* eliminate tuples *)
+                  QCONV (REWRITE_CONV [ml_translatorTheory.UNCURRY_SIMP] THENC
+                  DEPTH_CONV BETA_CONV) |>
+                  concl |> rhs
+        val bind_terms =
           find_terms
-            (fn t => can (match_term ``^st_ex_bind_term x f``) t) tm
+            (fn t => can (match_term ``^st_ex_bind_term x f``) t) tm'
+
         fun get_bvar_name tm = strip_comb tm |> snd |> last |> bvar |>
                                dest_var |> fst
         val bvar_names = List.map get_bvar_name bind_terms
@@ -592,7 +623,7 @@ local
 
         val ignore_bind_terms =
           find_terms
-            (fn t => can (match_term ``^st_ex_ignore_bind_term x f``) t) tm
+            (fn t => can (match_term ``^st_ex_ignore_bind_term x f``) t) tm'
         val ignore_bind_indexes = List.tabulate(length ignore_bind_terms, I)
         val indexes_ignore_binds = Lib.zip ignore_bind_indexes ignore_bind_terms
         val ignore_bind_terms' = indexes_ignore_binds |>
@@ -606,47 +637,54 @@ local
               )
             )
     in tm |> (
-        REWRITE_CONV (bind_terms' @ ignore_bind_terms')
+        REWRITE_CONV[ml_translatorTheory.UNCURRY_SIMP]
+        THENC DEPTH_CONV BETA_CONV
+        THENC REWRITE_CONV (bind_terms' @ ignore_bind_terms')
         THENC RAND_CONV (ONCE_REWRITE_CONV [GSYM ETA_THM])
         THENC REWRITE_CONV [GSYM remove_state_arg]
         THENC REWRITE_CONV push_thms
-      ) |> concl |> rhs |> dest_forall |> snd
+      )
     end
+    handle _ => raise ERR "m{t}Define" "Could not automatically expand term!"
 
-  (*
-   *  Remove all eta-expansions and so on, to give a pretty definition to
-   *  return to the user. Should in fact give a definition which looks exactly
-   *  like the quotation from user input.
-   *)
-  fun contract_def def =
-    let val state_arg =
-          def |> concl |> strip_forall |> snd |> lhs |>
-          strip_comb |> snd |> List.last
+  fun contract_def def expand_thm =
+    let val state_arg = def |> SPEC_ALL |> concl |> dest_eq |> fst |>
+                        strip_comb |> snd |> List.last
     in
       def |>
-      REWRITE_RULE pull_thms |>
-      CONV_RULE (DEPTH_CONV ETA_CONV) |>
       SPEC_ALL |> GEN state_arg |>
-      REWRITE_RULE [remove_state_arg] |>
-      GEN_ALL |>
-      REWRITE_RULE [ETA_THM]
+      CONV_RULE (CHANGED_CONV (REWRITE_CONV [GSYM expand_thm])) |>
+      GEN_ALL
+      handle _ =>
+        (* TODO should be able to remove this -
+           Define adds an odd eta-expansion it seems
+           (may also explain other problems) *)
+        def |>
+        REWRITE_RULE pull_thms |>
+        CONV_RULE (DEPTH_CONV ETA_CONV) |>
+        SPEC_ALL |> GEN state_arg |>
+        REWRITE_RULE [remove_state_arg] |>
+        GEN_ALL |>
+        REWRITE_RULE [ETA_THM]
     end
+    handle _ => raise ERR "m{t}Define" "Could not automatically contract term!"
 
   fun delete_defn name = (
-    delete_binding (name ^ (!Defn.def_suffix));
-    delete_binding (name ^ (!Defn.ind_suffix));
-    delete_const name
+    (delete_binding (name ^ (!Defn.def_suffix)) handle _ => ());
+    (delete_binding (name ^ (!Defn.ind_suffix)) handle _ => ());
+    (delete_const name handle _ => ())
   )
-  handle _ => ()
 
 in
 
   fun mDefine name quotation =
     let val _ = delete_defn name
         val term = Term quotation
-        val expanded_term = expand_term term
-        val def = Define `^expanded_term` (* check for term entry point *)
-        val contracted_def = contract_def def
+        val expanded_term_thm = expand_term term
+        val expanded_term = expanded_term_thm |>
+                            concl |> rhs |> dest_forall |> snd
+        val def = Define `^expanded_term` (* TODO check for term entry point *)
+        val contracted_def = contract_def def expanded_term_thm
     in
       save_thm(name ^ (!Defn.def_suffix), contracted_def);
       contracted_def
@@ -655,9 +693,11 @@ in
   fun mtDefine name quotation tactic =
     let val _ = delete_defn name
         val term = Term quotation
-        val expanded_term = expand_term term
+        val expanded_term_thm = expand_term term
+        val expanded_term = expanded_term_thm |>
+                            concl |> rhs |> dest_forall |> snd
         val def = tDefine name `^expanded_term` tactic
-        val contracted_def = contract_def def
+        val contracted_def = contract_def def expanded_term_thm
     in
       save_thm(name ^ (!Defn.def_suffix), contracted_def);
       contracted_def
