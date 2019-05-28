@@ -244,62 +244,62 @@ val store_cargs_flat_def = Define
 `
 
 
-val als_lst_def = Define `
-  (als_lst ([]:('s # c_type # flatSem$v) list)  _ _ = []) /\ 
-  (als_lst ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) = 
+val als_lst_flat_def = Define `
+  (als_lst_flat ([]:('s # c_type # flatSem$v) list)  _ _ = []) /\ 
+  (als_lst_flat ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) = 
           if conf.mutable /\  conf'.mutable /\ (lc = lc') 
-          then id::als_lst prl (C_array conf) (Loc lc)
-          else als_lst prl (C_array conf) (Loc lc)) /\
-  (als_lst _ (C_bool) _ = []) /\ 
-  (als_lst _ (C_int)  _ = [])
+          then id::als_lst_flat prl (C_array conf) (Loc lc)
+          else als_lst_flat prl (C_array conf) (Loc lc)) /\
+  (als_lst_flat _ (C_bool) _ = []) /\ 
+  (als_lst_flat _ (C_int)  _ = [])
 `
 
 
 
-
-val als_lst'_def = Define `
-  als_lst' (idx, ct, v) prl =
+val als_lst'_flat_def = Define `
+  als_lst'_flat (idx, ct, v) prl =
     case ct of C_array conf => if conf.mutable 
-                               then (case v of Loc lc => idx :: als_lst prl ct v 
+                               then (case v of Loc lc => idx :: als_lst_flat prl ct v 
 					     | _ => [])
                                else []
 	    | _ => []  
 `
 
-val als_args_def = tDefine "als_args"
+val als_args_flat_def = tDefine "als_args_flat"
   `
-  (als_args [] = []) /\
-  (als_args (pr::prs) = 
-    als_lst' pr prs :: als_args (remove_loc (als_lst' pr prs) prs))
+  (als_args_flat [] = []) /\
+  (als_args_flat (pr::prs) = 
+    als_lst'_flat pr prs :: als_args_flat (remove_loc (als_lst'_flat pr prs) prs))
   `
   (WF_REL_TAC `inv_image $< LENGTH` >>
    rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
       rich_listTheory.LENGTH_FILTER_LEQ])
 
 
-val als_args_final_def = Define `
-  (als_args_final prl  = emp_filt (als_args prl))
+val als_args_final_flat_def = Define `
+  (als_args_final_flat prl  = emp_filt (als_args_flat prl))
 `
 
+(* Unitv determines the representation of unit constructor in flatLang using check_ctor *)
 
 val ret_val_flat_def = Define
-`(ret_val_flat (SOME(C_boolv b)) = Boolv b)
-/\ (ret_val_flat (SOME(C_intv i)) = Litv(IntLit i))
-/\ (ret_val_flat _ = Conv NONE [])
+`(ret_val_flat (SOME(C_boolv b)) _ = Boolv b)
+/\ (ret_val_flat (SOME(C_intv i)) _ = Litv(IntLit i))
+/\ (ret_val_flat _ check_ctor = Unitv check_ctor )
   `
 
 val do_ffi_flat_def = Define `
-  do_ffi_flat (t:'a flatSem$state) n args =
+  do_ffi_flat (t:'a flatSem$state) check_ctor n args =
    case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
      (case get_cargs_flat t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final (loc_typ_val sign.args args)) of
+           (case call_FFI t.ffi n cargs (als_args_final_flat (loc_typ_val sign.args args)) of
               FFI_return t' (* ffi state *) newargs retv =>
                 (case store_cargs_flat sign.args newargs (get_mut_args sign args) (SOME t.refs) of
                    NONE => NONE
                  | SOME s' (* v store  *) =>
                    if ret_ok sign.retty retv then
-                      SOME (t with <| refs := s'; ffi := t'|>, Rval (ret_val_flat retv))
+                      SOME (t with <| refs := s'; ffi := t'|>, Rval (ret_val_flat retv check_ctor))
                    else NONE)
             | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
         | NONE => NONE)
@@ -528,7 +528,7 @@ val do_app_def = Define `
      | _ => NONE)
   | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
        SOME (s, Rval (Unitv check_ctor))
-  | (FFI n, args) => do_ffi_flat s (* state *) n args
+  | (FFI n, args) => do_ffi_flat s (* state *) check_ctor n args
   (*
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s.refs of
