@@ -162,7 +162,6 @@ val do_install_def = Define `
 
 
 
-(* get_carg_pat “v store  -> c_type -> v -> c_value option” *)
 val get_carg_clos_def = Define `
    (get_carg_clos st (C_array conf) (ByteVector ws) =
     if conf.mutable then
@@ -200,7 +199,7 @@ val store_carg_clos_def = Define `
     if conf.mutable then
      (case FLOOKUP st ptr of
          | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
-         | _ => NONE) 
+         | _ => NONE)
     else
       NONE)
 /\ (store_carg_clos _ _ _ st = SOME st)`
@@ -216,29 +215,29 @@ val store_cargs_clos_def = Define
 
 
 val als_lst_clos_def = Define `
-  (als_lst_clos ([]:('s # c_type # closSem$v) list)  _ _ = []) /\ 
-  (als_lst_clos ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) = 
-          if conf.mutable /\  conf'.mutable /\ (n = n') 
+  (als_lst_clos ([]:('s # c_type # closSem$v) list)  _ _ = []) /\
+  (als_lst_clos ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
+          if conf.mutable /\  conf'.mutable /\ (n = n')
           then id::als_lst_clos prl (C_array conf) (RefPtr n)
           else als_lst_clos prl (C_array conf) (RefPtr n)) /\
-  (als_lst_clos _ (C_bool) _ = []) /\ 
+  (als_lst_clos _ (C_bool) _ = []) /\
   (als_lst_clos _ (C_int)  _ = [])
 `
 
 
 val als_lst'_clos_def = Define `
   als_lst'_clos (idx, ct, v) prl =
-    case ct of C_array conf => if conf.mutable 
-                               then (case v of RefPtr n => idx :: als_lst_clos prl ct v 
-					     | _ => [])
+    case ct of C_array conf => if conf.mutable
+                               then (case v of RefPtr n => idx :: als_lst_clos prl ct v
+                                             | _ => [])
                                else []
-	    | _ => []  
+            | _ => []
 `
 
 val als_args_clos_def = tDefine "als_args_clos"
   `
   (als_args_clos [] = []) /\
-  (als_args_clos (pr::prs) = 
+  (als_args_clos (pr::prs) =
     als_lst'_clos pr prs :: als_args_clos (remove_loc (als_lst'_clos pr prs) prs))
   `
   (WF_REL_TAC `inv_image $< LENGTH` >>
@@ -457,8 +456,8 @@ val do_app_def = Define `
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, args) => (case do_ffi_clos s n args of SOME r => r 
-							   | NONE => Error)
+    | (FFI n, args) => (case do_ffi_clos s n args of SOME r => r
+                                                           | NONE => Error)
 
  (* | (FFI n, [ByteVector conf; RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of

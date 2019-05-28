@@ -245,12 +245,12 @@ val store_cargs_flat_def = Define
 
 
 val als_lst_flat_def = Define `
-  (als_lst_flat ([]:('s # c_type # flatSem$v) list)  _ _ = []) /\ 
-  (als_lst_flat ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) = 
-          if conf.mutable /\  conf'.mutable /\ (lc = lc') 
+  (als_lst_flat ([]:('s # c_type # flatSem$v) list)  _ _ = []) /\
+  (als_lst_flat ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) =
+          if conf.mutable /\  conf'.mutable /\ (lc = lc')
           then id::als_lst_flat prl (C_array conf) (Loc lc)
           else als_lst_flat prl (C_array conf) (Loc lc)) /\
-  (als_lst_flat _ (C_bool) _ = []) /\ 
+  (als_lst_flat _ (C_bool) _ = []) /\
   (als_lst_flat _ (C_int)  _ = [])
 `
 
@@ -258,17 +258,17 @@ val als_lst_flat_def = Define `
 
 val als_lst'_flat_def = Define `
   als_lst'_flat (idx, ct, v) prl =
-    case ct of C_array conf => if conf.mutable 
-                               then (case v of Loc lc => idx :: als_lst_flat prl ct v 
-					     | _ => [])
+    case ct of C_array conf => if conf.mutable
+                               then (case v of Loc lc => idx :: als_lst_flat prl ct v
+                                             | _ => [])
                                else []
-	    | _ => []  
+            | _ => []
 `
 
 val als_args_flat_def = tDefine "als_args_flat"
   `
   (als_args_flat [] = []) /\
-  (als_args_flat (pr::prs) = 
+  (als_args_flat (pr::prs) =
     als_lst'_flat pr prs :: als_args_flat (remove_loc (als_lst'_flat pr prs) prs))
   `
   (WF_REL_TAC `inv_image $< LENGTH` >>
@@ -772,7 +772,7 @@ val do_app_cases = save_thm ("do_app_cases",
 Theorem do_app_const:
    do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock
 Proof
-  rw [do_app_cases] >> 
+  rw [do_app_cases] >>
   rw[] >>
   rfs []
 QED
