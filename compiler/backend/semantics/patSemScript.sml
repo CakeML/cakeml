@@ -146,6 +146,124 @@ val _ = Datatype`
      ; compile_oracle : num -> 'c # patLang$exp list
      |>`;
 
+
+
+
+(*  v store and v store_v list are same types *)
+
+(* get_carg_pat “v store  -> c_type -> v -> c_value option” *)
+val get_carg_pat_def = Define `
+   (get_carg_pat (_:patSem$v store) (C_array conf) (Litv(StrLit s)) =
+    if conf.mutable then
+      NONE
+    else SOME (C_arrayv(MAP (\ c .  n2w(ORD c)) (EXPLODE s))))
+         (* for convertying character list (= string) of cakeml to word8 list for c*)
+/\ (get_carg_pat st (C_array conf) (Loc lnum) =
+    if conf.mutable then
+      (case store_lookup lnum st of
+         | SOME (W8array ws) => SOME(C_arrayv ws)
+         | _ => NONE)
+    else NONE)
+/\ (get_carg_pat _ C_bool v =
+    if v = Boolv T then
+      SOME(C_primv(C_boolv T))
+    else if v = Boolv F then
+      SOME(C_primv(C_boolv F))
+    else NONE)
+/\ (get_carg_pat _ C_int (Litv(IntLit n)) =
+    SOME(C_primv(C_intv n)))
+/\ (get_carg_pat _ _ _ = NONE)`
+
+
+
+val get_cargs_pat_def = Define
+  `(get_cargs_pat s [] [] = SOME [])
+/\ (get_cargs_pat s (ty::tys) (arg::args) =
+    OPTION_MAP2 CONS (get_carg_pat s ty arg) (get_cargs_pat s tys args))
+/\ (get_cargs_pat _ _ _ = NONE)
+`
+
+
+
+val store_carg_pat_def = Define `
+   (store_carg_pat (C_array conf) ws (Loc lnum) (s:patSem$v store) =
+    if conf.mutable then
+      store_assign lnum (W8array ws) s
+    else
+      NONE)
+/\ (store_carg_pat _ _ _ s = SOME s)`
+
+
+
+val store_cargs_pat_def = Define
+  `(store_cargs_pat [] [] [] s = s)
+/\ (store_cargs_pat (ty::tys) (carg::cargs) (arg::args) s =
+    store_cargs_pat tys cargs args (OPTION_BIND s (store_carg_pat ty carg arg)))
+/\ (store_cargs_pat _ _ _ _ = NONE)
+`
+
+
+val als_lst_pat_def = Define `
+  (als_lst_pat ([]:('s # c_type # patSem$v) list)  _ _ = []) /\ 
+  (als_lst_pat ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) = 
+          if conf.mutable /\  conf'.mutable /\ (lc = lc') 
+          then id::als_lst_pat prl (C_array conf) (Loc lc)
+          else als_lst_pat prl (C_array conf) (Loc lc)) /\
+  (als_lst_pat _ (C_bool) _ = []) /\ 
+  (als_lst_pat _ (C_int)  _ = [])
+`
+
+
+val als_lst'_pat_def = Define `
+  als_lst'_pat (idx, ct, v) prl =
+    case ct of C_array conf => if conf.mutable 
+                               then (case v of Loc lc => idx :: als_lst_pat prl ct v 
+					     | _ => [])
+                               else []
+	    | _ => []  
+`
+
+val als_args_pat_def = tDefine "als_args_pat"
+  `
+  (als_args_pat [] = []) /\
+  (als_args_pat (pr::prs) = 
+    als_lst'_pat pr prs :: als_args_pat (remove_loc (als_lst'_pat pr prs) prs))
+  `
+  (WF_REL_TAC `inv_image $< LENGTH` >>
+   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
+      rich_listTheory.LENGTH_FILTER_LEQ])
+
+
+val als_args_final_pat_def = Define `
+  (als_args_final_pat prl  = emp_filt (als_args_pat prl))
+`
+
+
+val ret_val_pat_def = Define
+`(ret_val_pat (SOME(C_boolv b)) = Boolv b)
+/\ (ret_val_pat (SOME(C_intv i)) = Litv(IntLit i))
+/\ (ret_val_pat _ = Conv 0 []) (* void constructor representation *)
+  `
+
+val do_ffi_pat_def = Define `
+  do_ffi_pat (t:('ffi, 'c) patSem$state) n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_pat t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final_pat (loc_typ_val sign.args args)) of
+              FFI_return t' (* ffi state *) newargs retv =>
+                (case store_cargs_pat sign.args newargs (get_mut_args sign args) (SOME t.refs) of
+                   NONE => NONE
+                 | SOME s' (* v store  *) =>
+                   if ret_ok sign.retty retv then
+                      SOME (t with <| refs := s'; ffi := t'|>, Rval (ret_val_pat retv))
+                   else NONE)
+            | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
+        | NONE => NONE)
+   | NONE => NONE
+  `
+
+
 val do_app_def = Define `
  (do_app s (op : patLang$op) vs =
 ((case (op,vs) of
@@ -386,6 +504,8 @@ val do_app_def = Define `
       )
     | (Op ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
          SOME (s, Rval (Conv tuple_tag []))
+    | (Op (FFI n), args) => do_ffi_pat s (* state *) n args
+(*
     | (Op (FFI n), [Litv (StrLit conf); Loc lnum]) =>
         (case store_lookup lnum s.refs of
           SOME (W8array ws) =>
@@ -395,7 +515,8 @@ val do_app_def = Define `
                  SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))
                | NONE => NONE)
              | FFI_final outcome => SOME (s, Rerr (Rabort (Rffi_error outcome))))
-        | _ => NONE)
+        | _ => NONE) *)
+
     | (Op (GlobalVarAlloc n), []) =>
       SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval (Conv tuple_tag []))
     | (Op (GlobalVarLookup n), []) =>
