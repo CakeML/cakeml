@@ -9,15 +9,18 @@ open terminationTheory
 
 val _ = new_theory"evaluateProps";
 
+(*TODO: restate, assume oracle_ok *)
 Theorem call_FFI_LENGTH:
-   (call_FFI st index conf x = FFI_return new_st new_bytes) ==>
+   (call_FFI st index args alias = FFI_return new_st new_args retv) ==>
     (LENGTH x = LENGTH new_bytes)
 Proof
   fs[ffiTheory.call_FFI_def] \\ every_case_tac \\ rw[] \\ fs[LENGTH_MAP]
 QED
 
+(* TODO: assume args_ok *)
 val call_FFI_rel_def = Define `
-  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = FFI_return s2 t`;
+  call_FFI_rel s1 s2 <=>
+    ?n args alias new_args retv. call_FFI s1 n args alias = FFI_return s2 new_args retv`;
 
 Theorem call_FFI_rel_consts:
    call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)
@@ -37,7 +40,7 @@ Proof
 QED
 
 val dest_IO_event_def = Define`
-  dest_IO_event (IO_event s c b) = (s,c,b)`;
+  dest_IO_event (IO_event s c b r) = (s,c,b,r)`;
 val _ = export_rewrites["dest_IO_event_def"];
 
 val io_events_mono_def = Define`
