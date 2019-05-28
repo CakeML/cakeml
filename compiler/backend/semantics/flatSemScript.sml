@@ -189,6 +189,127 @@ val vs_to_string_def = Define`
    | _ => NONE) ∧
   (vs_to_string _ = NONE)`;
 
+
+(*  v store and v store_v list are same types *)
+
+(* get_carg_flat “v store  -> c_type -> v -> c_value option” *)
+val get_carg_flat_def = Define `
+   (get_carg_flat (_:flatSem$v store) (C_array conf) (Litv(StrLit s)) =
+    if conf.mutable then
+      NONE
+    else SOME (C_arrayv(MAP (\ c .  n2w(ORD c)) (EXPLODE s))))
+         (* for convertying character list (= string) of cakeml to word8 list for c*)
+/\ (get_carg_flat st (C_array conf) (Loc lnum) =
+    if conf.mutable then
+      (case store_lookup lnum st of
+         | SOME (W8array ws) => SOME(C_arrayv ws)
+         | _ => NONE)
+    else NONE)
+/\ (get_carg_flat _ C_bool v =
+    if v = Boolv T then
+      SOME(C_primv(C_boolv T))
+    else if v = Boolv F then
+      SOME(C_primv(C_boolv F))
+    else NONE)
+/\ (get_carg_flat _ C_int (Litv(IntLit n)) =
+    SOME(C_primv(C_intv n)))
+/\ (get_carg_flat _ _ _ = NONE)`
+
+
+
+val get_cargs_flat_def = Define
+  `(get_cargs_flat s [] [] = SOME [])
+/\ (get_cargs_flat s (ty::tys) (arg::args) =
+    OPTION_MAP2 CONS (get_carg_flat s ty arg) (get_cargs_flat s tys args))
+/\ (get_cargs_flat _ _ _ = NONE)
+`
+
+
+
+val store_carg_flat_def = Define `
+   (store_carg_flat (C_array conf) ws (Loc lnum) (s:flatSem$v store) =
+    if conf.mutable then
+      store_assign lnum (W8array ws) s
+    else
+      NONE)
+/\ (store_carg_flat _ _ _ s = SOME s)`
+
+
+
+val store_cargs_flat_def = Define
+  `(store_cargs_flat [] [] [] s = s)
+/\ (store_cargs_flat (ty::tys) (carg::cargs) (arg::args) s =
+    store_cargs_flat tys cargs args (OPTION_BIND s (store_carg_flat ty carg arg)))
+/\ (store_cargs_flat _ _ _ _ = NONE)
+`
+
+
+val als_lst_def = Define `
+  (als_lst ([]:('s # c_type # flatSem$v) list)  _ _ = []) /\ 
+  (als_lst ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) = 
+          if conf.mutable /\  conf'.mutable /\ (lc = lc') 
+          then id::als_lst prl (C_array conf) (Loc lc)
+          else als_lst prl (C_array conf) (Loc lc)) /\
+  (als_lst _ (C_bool) _ = []) /\ 
+  (als_lst _ (C_int)  _ = [])
+`
+
+
+
+
+val als_lst'_def = Define `
+  als_lst' (idx, ct, v) prl =
+    case ct of C_array conf => if conf.mutable 
+                               then (case v of Loc lc => idx :: als_lst prl ct v 
+					     | _ => [])
+                               else []
+	    | _ => []  
+`
+
+val als_args_def = tDefine "als_args"
+  `
+  (als_args [] = []) /\
+  (als_args (pr::prs) = 
+    als_lst' pr prs :: als_args (remove_loc (als_lst' pr prs) prs))
+  `
+  (WF_REL_TAC `inv_image $< LENGTH` >>
+   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
+      rich_listTheory.LENGTH_FILTER_LEQ])
+
+
+val als_args_final_def = Define `
+  (als_args_final prl  = emp_filt (als_args prl))
+`
+
+
+val ret_val_flat_def = Define
+`(ret_val_flat (SOME(C_boolv b)) = Boolv b)
+/\ (ret_val_flat (SOME(C_intv i)) = Litv(IntLit i))
+/\ (ret_val_flat _ = Conv NONE [])
+  `
+
+val do_ffi_flat_def = Define `
+  do_ffi_flat (t:'a flatSem$state) n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_flat t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final (loc_typ_val sign.args args)) of
+              FFI_return t' (* ffi state *) newargs retv =>
+                (case store_cargs_flat sign.args newargs (get_mut_args sign args) (SOME t.refs) of
+                   NONE => NONE
+                 | SOME s' (* v store  *) =>
+                   if ret_ok sign.retty retv then
+                      SOME (t with <| refs := s'; ffi := t'|>, Rval (ret_val_flat retv))
+                   else NONE)
+            | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
+        | NONE => NONE)
+   | NONE => NONE
+  `
+
+
+
+(* bool -> state -> op -> flatSem$v list *)
+
 val do_app_def = Define `
   do_app check_ctor s op (vs:flatSem$v list) =
   case (op, vs) of
@@ -407,6 +528,8 @@ val do_app_def = Define `
      | _ => NONE)
   | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
        SOME (s, Rval (Unitv check_ctor))
+  | (FFI n, args) => do_ffi_flat s (* state *) n args
+  (*
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
@@ -417,6 +540,7 @@ val do_app_def = Define `
            | SOME s' => SOME (s with <| refs := s'; ffi := t'|>, Rval (Unitv check_ctor))
            | NONE => NONE))
      | _ => NONE)
+*)
   | (GlobalVarAlloc n, []) =>
     SOME (s with globals := s.globals ++ REPLICATE n NONE, Rval (Unitv check_ctor))
   | (GlobalVarInit n, [v]) =>
@@ -648,8 +772,8 @@ val do_app_cases = save_thm ("do_app_cases",
 Theorem do_app_const:
    do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock
 Proof
-  rw [do_app_cases] >>
-  rw [] >>
+  rw [do_app_cases] >> 
+  rw[] >>
   rfs []
 QED
 
