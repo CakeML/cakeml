@@ -127,6 +127,147 @@ val do_install_def = Define `
             | _ => Rerr(Rabort Rtype_error))
        | _ => Rerr(Rabort Rtype_error))`;
 
+
+
+(*
+val _ = Datatype `
+  v =
+    Number int          (* integer *)
+  | Word64 word64
+  | Block num (v list)  (* cons block: tag and payload *)
+  | CodePtr num         (* code pointer *)
+  | RefPtr num          (* pointer to ref cell *)`;
+*)
+
+
+val get_carg_bvl_def = Define `
+  (*( (get_carg_bvl st (C_array conf) (ByteVector ws) =
+    if conf.mutable then
+      NONE
+    else SOME (C_arrayv ws))
+/\ *)(get_carg_bvl st (C_array conf) (RefPtr ptr) =
+    if conf.mutable then
+      (case FLOOKUP st ptr of
+         | SOME (ByteArray F ws) => SOME(C_arrayv ws)
+         | _ => NONE)
+    else NONE)
+/\ (get_carg_bvl _ C_bool v =
+    if v = Boolv T then
+      SOME(C_primv(C_boolv T))
+    else if v = Boolv F then
+      SOME(C_primv(C_boolv F))
+    else NONE)
+/\ (get_carg_bvl _ C_int (Number n) =
+    SOME(C_primv(C_intv n)))
+/\ (get_carg_bvl _ _ _ = NONE)`
+
+
+
+val get_cargs_bvl_def = Define
+  `(get_cargs_bvl s [] [] = SOME [])
+/\ (get_cargs_bvl s (ty::tys) (arg::args) =
+    OPTION_MAP2 CONS (get_carg_bvl s ty arg) (get_cargs_bvl s tys args))
+/\ (get_cargs_bvl _ _ _ = NONE)
+`
+
+
+val store_carg_bvl_def = Define `
+   (store_carg_bvl (C_array conf) ws (RefPtr ptr) (st: num |-> bvlSem$v ref) =
+    if conf.mutable then
+     (case FLOOKUP st ptr of
+         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
+         | _ => NONE)
+    else
+      NONE)
+/\ (store_carg_bvl _ _ _ st = SOME st)`
+
+
+
+val store_cargs_bvl_def = Define
+  `(store_cargs_bvl [] [] [] st = st)
+/\ (store_cargs_bvl (ty::tys) (carg::cargs) (arg::args) st =
+    store_cargs_bvl tys cargs args (OPTION_BIND st (store_carg_bvl ty carg arg)))
+/\ (store_cargs_bvl _ _ _ _ = NONE)
+`
+
+
+val als_lst_bvl_def = Define `
+  (als_lst_bvl ([]:('s # c_type # bvlSem$v) list)  _ _ = []) /\
+  (als_lst_bvl ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
+          if conf.mutable /\  conf'.mutable /\ (n = n')
+          then id::als_lst_bvl prl (C_array conf) (RefPtr n)
+          else als_lst_bvl prl (C_array conf) (RefPtr n)) /\
+  (als_lst_bvl _ (C_bool) _ = []) /\
+  (als_lst_bvl _ (C_int)  _ = [])
+`
+
+
+val als_lst'_bvl_def = Define `
+  als_lst'_bvl (idx, ct, v) prl =
+    case ct of C_array conf => if conf.mutable
+                               then (case v of RefPtr n => idx :: als_lst_bvl prl ct v
+                                             | _ => [])
+                               else []
+            | _ => []
+`
+
+val als_args_bvl_def = tDefine "als_args_bvl"
+  `
+  (als_args_bvl [] = []) /\
+  (als_args_bvl (pr::prs) =
+    als_lst'_bvl pr prs :: als_args_bvl (remove_loc (als_lst'_bvl pr prs) prs))
+  `
+  (WF_REL_TAC `inv_image $< LENGTH` >>
+   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
+      rich_listTheory.LENGTH_FILTER_LEQ])
+
+
+val als_args_final_bvl_def = Define `
+  (als_args_final_bvl prl  = emp_filt (als_args_bvl prl))
+`
+
+
+val ret_val_bvl_def = Define
+`(ret_val_bvl (SOME(C_boolv b)) = Boolv b)
+/\ (ret_val_bvl (SOME(C_intv i)) = Number i)
+/\ (ret_val_bvl _ = Unit) (* void constructor representation *)
+  `
+
+(*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
+
+(* | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
+        (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
+         | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
+           (case call_FFI s.ffi n cws ws of
+            | FFI_return ffi' ws' =>
+                Rval (Unit,
+                      s with <| refs := s.refs |+ (ptr,ByteArray F ws')
+                              ; ffi   := ffi'|>)
+            | FFI_final outcome =>
+                Rerr (Rabort (Rffi_error outcome)))
+         | _ => Error)
+*)
+
+val do_ffi_bvl_def = Define `
+  do_ffi_bvl t n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_bvl t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final_bvl (loc_typ_val sign.args args))  of
+              FFI_return t' (* ffi state *) newargs retv =>
+                (case store_cargs_bvl sign.args newargs (get_mut_args sign args) (SOME t.refs) of
+                   NONE => NONE
+                 | SOME s' (* finite map of num to v ref *) =>
+                   if ret_ok sign.retty retv then
+                      SOME (Rval (ret_val_bvl retv, t with <| refs := s'; ffi := t'|>))
+                   else NONE)
+                 | FFI_final outcome =>
+                   SOME (Rerr (Rabort (Rffi_error outcome))) )
+        | NONE => NONE)
+   | NONE => NONE
+  `
+
+
 (* same as closSem$do_app, except:
     - LengthByteVec and DerefByteVec are removed
     - FromListByte, ToListByte, String, ConcatByteVec, and
@@ -318,7 +459,9 @@ val do_app_def = Define `
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
+    | (FFI n, args) => (case do_ffi_bvl s n args of SOME r => r
+                                                           | NONE => Error)
+   (* | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n cws ws of
@@ -329,6 +472,7 @@ val do_app_def = Define `
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
+*)
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>
