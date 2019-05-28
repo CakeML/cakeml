@@ -115,6 +115,7 @@ val list_to_v_def = Define `
   list_to_v (x::xs) = Block cons_tag [x; list_to_v xs]
   `;
 
+
 val Unit_def = Define`
   Unit = Block tuple_tag []`
 
@@ -159,8 +160,127 @@ val do_install_def = Define `
             | _ => (Rerr(Rabort Rtype_error),s))
        | _ => (Rerr(Rabort Rtype_error),s))`;
 
+
+
+(* get_carg_pat “v store  -> c_type -> v -> c_value option” *)
+val get_carg_clos_def = Define `
+   (get_carg_clos st (C_array conf) (ByteVector ws) =
+    if conf.mutable then
+      NONE
+    else SOME (C_arrayv ws))
+         (* for convertying character list (= string) of cakeml to word8 list for c*)
+/\ (get_carg_clos st (C_array conf) (RefPtr ptr) =
+    if conf.mutable then
+      (case FLOOKUP st ptr of
+         | SOME (ByteArray F ws) => SOME(C_arrayv ws)
+         | _ => NONE)
+    else NONE)
+/\ (get_carg_clos _ C_bool v =
+    if v = Boolv T then
+      SOME(C_primv(C_boolv T))
+    else if v = Boolv F then
+      SOME(C_primv(C_boolv F))
+    else NONE)
+/\ (get_carg_clos _ C_int (Number n) =
+    SOME(C_primv(C_intv n)))
+/\ (get_carg_clos _ _ _ = NONE)`
+
+
+
+val get_cargs_clos_def = Define
+  `(get_cargs_clos s [] [] = SOME [])
+/\ (get_cargs_clos s (ty::tys) (arg::args) =
+    OPTION_MAP2 CONS (get_carg_clos s ty arg) (get_cargs_clos s tys args))
+/\ (get_cargs_clos _ _ _ = NONE)
+`
+
+
+val store_carg_clos_def = Define `
+   (store_carg_clos (C_array conf) ws (RefPtr ptr) (st: num |-> closSem$v ref) =
+    if conf.mutable then
+     (case FLOOKUP st ptr of
+         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
+         | _ => NONE) 
+    else
+      NONE)
+/\ (store_carg_clos _ _ _ st = SOME st)`
+
+
+
+val store_cargs_clos_def = Define
+  `(store_cargs_clos [] [] [] st = st)
+/\ (store_cargs_clos (ty::tys) (carg::cargs) (arg::args) st =
+    store_cargs_clos tys cargs args (OPTION_BIND st (store_carg_clos ty carg arg)))
+/\ (store_cargs_clos _ _ _ _ = NONE)
+`
+
+
+val als_lst_clos_def = Define `
+  (als_lst_clos ([]:('s # c_type # closSem$v) list)  _ _ = []) /\ 
+  (als_lst_clos ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) = 
+          if conf.mutable /\  conf'.mutable /\ (n = n') 
+          then id::als_lst_clos prl (C_array conf) (RefPtr n)
+          else als_lst_clos prl (C_array conf) (RefPtr n)) /\
+  (als_lst_clos _ (C_bool) _ = []) /\ 
+  (als_lst_clos _ (C_int)  _ = [])
+`
+
+
+val als_lst'_clos_def = Define `
+  als_lst'_clos (idx, ct, v) prl =
+    case ct of C_array conf => if conf.mutable 
+                               then (case v of RefPtr n => idx :: als_lst_clos prl ct v 
+					     | _ => [])
+                               else []
+	    | _ => []  
+`
+
+val als_args_clos_def = tDefine "als_args_clos"
+  `
+  (als_args_clos [] = []) /\
+  (als_args_clos (pr::prs) = 
+    als_lst'_clos pr prs :: als_args_clos (remove_loc (als_lst'_clos pr prs) prs))
+  `
+  (WF_REL_TAC `inv_image $< LENGTH` >>
+   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
+      rich_listTheory.LENGTH_FILTER_LEQ])
+
+
+val als_args_final_clos_def = Define `
+  (als_args_final_clos prl  = emp_filt (als_args_clos prl))
+`
+
+
+val ret_val_clos_def = Define
+`(ret_val_clos (SOME(C_boolv b)) = Boolv b)
+/\ (ret_val_clos (SOME(C_intv i)) = Number i)
+/\ (ret_val_clos _ = Unit) (* void constructor representation *)
+  `
+
+(*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
+
+val do_ffi_clos_def = Define `
+  do_ffi_clos t n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_clos t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final_clos (loc_typ_val sign.args args)) of
+              FFI_return t' (* ffi state *) newargs retv =>
+                (case store_cargs_clos sign.args newargs (get_mut_args sign args) (SOME t.refs) of
+                   NONE => NONE
+                 | SOME s' (* finit map of num to v ref *) =>
+                   if ret_ok sign.retty retv then
+                      SOME (Rval (ret_val_clos retv, t with <| refs := s'; ffi := t'|>))
+                   else NONE)
+                 | FFI_final outcome =>
+                   SOME (Rerr (Rabort (Rffi_error outcome))) )
+        | NONE => NONE)
+   | NONE => NONE
+  `
+
+(*   “:closLang$op -> v list -> (α, β) state -> (v # (α, β) state, v) result” *)
 val do_app_def = Define `
-  do_app (op:closLang$op) (vs:closSem$v list) ^s =
+  do_app (op:closLang$op) (vs:closSem$v list) ^s = (* ANTI-QUOTATION poly-ML binding  -> HOL value *)
     case (op,vs) of
     | (Global n,[]:closSem$v list) =>
         (case get_global n s.globals of
@@ -337,7 +457,10 @@ val do_app_def = Define `
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, [ByteVector conf; RefPtr ptr]) =>
+    | (FFI n, args) => (case do_ffi_clos s n args of SOME r => r 
+							   | NONE => Error)
+
+ (* | (FFI n, [ByteVector conf; RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n conf ws of
@@ -347,7 +470,7 @@ val do_app_def = Define `
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
-         | _ => Error)
+         | _ => Error) *)
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>

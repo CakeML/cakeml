@@ -183,7 +183,7 @@ val get_cargs_pat_def = Define
 /\ (get_cargs_pat _ _ _ = NONE)
 `
 
-
+(*  “:c_type -> word8 list -> v -> v store_v list -> v store_v list option”*)
 
 val store_carg_pat_def = Define `
    (store_carg_pat (C_array conf) ws (Loc lnum) (s:patSem$v store) =
@@ -194,6 +194,10 @@ val store_carg_pat_def = Define `
 /\ (store_carg_pat _ _ _ s = SOME s)`
 
 
+(*
+   “:c_type list ->
+    word8 list list ->
+    v list -> v store_v list option -> v store_v list option” *)
 
 val store_cargs_pat_def = Define
   `(store_cargs_pat [] [] [] s = s)
