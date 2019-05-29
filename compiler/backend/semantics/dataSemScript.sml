@@ -154,6 +154,140 @@ val with_fresh_ts_def = Define`
                         | NONE    => f 0 s
 `;
 
+(*
+
+val _ = Datatype `
+  v = Number int              (* integer *)
+    | Word64 word64
+    | Block num num (v list)  (* cons block: timestamp, tag and payload *)
+    | CodePtr num             (* code pointer *)
+    | RefPtr num              (* pointer to ref cell *)`;
+
+val _ = Datatype `
+  state =
+    <| locals  : v num_map
+     ; stack   : stack list
+     ; global  : num option
+     ; handler : num
+     ; refs    : num |-> v ref
+     ; compile : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
+     ; compile_oracle : num -> 'c # (num # num # dataLang$prog) list
+     ; clock   : num
+     ; code    : (num # dataLang$prog) num_map
+     ; ffi     : 'ffi ffi_state
+     ; space   : num
+     ; tstamps : num option |> `
+*)
+
+
+val get_carg_data_def = Define `
+  (get_carg_data st (C_array conf) (RefPtr ptr) =
+    if conf.mutable then
+      (case FLOOKUP st ptr of
+         | SOME (ByteArray F ws) => SOME(C_arrayv ws)
+         | _ => NONE)
+    else NONE)
+/\ (get_carg_data _ C_bool v =
+    if v = Boolv T then
+      SOME(C_primv(C_boolv T))
+    else if v = Boolv F then
+      SOME(C_primv(C_boolv F))
+    else NONE)
+/\ (get_carg_data _ C_int (Number n) =
+    SOME(C_primv(C_intv n)))
+/\ (get_carg_data _ _ _ = NONE)`
+
+
+
+val get_cargs_data_def = Define
+  `(get_cargs_data s [] [] = SOME [])
+/\ (get_cargs_data s (ty::tys) (arg::args) =
+    OPTION_MAP2 CONS (get_carg_data s ty arg) (get_cargs_data s tys args))
+/\ (get_cargs_data _ _ _ = NONE)
+`
+
+
+val store_carg_data_def = Define `
+   (store_carg_data (C_array conf) ws (RefPtr ptr) (st: num |-> dataSem$v ref) =
+    if conf.mutable then
+     (case FLOOKUP st ptr of
+         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
+         | _ => NONE)
+    else
+      NONE)
+/\ (store_carg_data _ _ _ st = SOME st)`
+
+
+
+val store_cargs_data_def = Define
+  `(store_cargs_data [] [] [] st = st)
+/\ (store_cargs_data (ty::tys) (carg::cargs) (arg::args) st =
+    store_cargs_data tys cargs args (OPTION_BIND st (store_carg_data ty carg arg)))
+/\ (store_cargs_data _ _ _ _ = NONE)
+`
+
+
+val als_lst_data_def = Define `
+  (als_lst_data ([]:('s # c_type # dataSem$v) list)  _ _ = []) /\
+  (als_lst_data ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
+          if conf.mutable /\  conf'.mutable /\ (n = n')
+          then id::als_lst_data prl (C_array conf) (RefPtr n)
+          else als_lst_data prl (C_array conf) (RefPtr n)) /\
+  (als_lst_data _ (C_bool) _ = []) /\
+  (als_lst_data _ (C_int)  _ = [])
+`
+
+
+val als_lst'_data_def = Define `
+  als_lst'_data (idx, ct, v) prl =
+    case ct of C_array conf => if conf.mutable
+                               then (case v of RefPtr n => idx :: als_lst_data prl ct v
+                                             | _ => [])
+                               else []
+            | _ => []
+`
+
+val als_args_data_def = tDefine "als_args_data"
+  `
+  (als_args_data [] = []) /\
+  (als_args_data (pr::prs) =
+    als_lst'_data pr prs :: als_args_data (remove_loc (als_lst'_data pr prs) prs))
+  `
+  (WF_REL_TAC `inv_image $< LENGTH` >>
+   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
+      rich_listTheory.LENGTH_FILTER_LEQ])
+
+
+val als_args_final_data_def = Define `
+  (als_args_final_data prl  = emp_filt (als_args_data prl))
+`
+
+
+val ret_val_data_def = Define
+`(ret_val_data (SOME(C_boolv b)) = Boolv b)
+/\ (ret_val_data (SOME(C_intv i)) = Number i)
+/\ (ret_val_data _ = Unit) (* void constructor representation *)
+  `
+
+val do_ffi_data_def = Define `
+  do_ffi_data t n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_data t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final_data (loc_typ_val sign.args args))  of
+              FFI_return t' (* ffi state *) newargs retv =>
+                (case store_cargs_data sign.args newargs (get_mut_args sign args) (SOME t.refs) of
+                   NONE => NONE
+                 | SOME s' (* finite map of num to v ref *) =>
+                   if ret_ok sign.retty retv then
+                      SOME (Rval (ret_val_data retv, t with <| refs := s'; ffi := t'|>))
+                   else NONE)
+                 | FFI_final outcome =>
+                   SOME (Rerr (Rabort (Rffi_error outcome))) )
+        | NONE => NONE)
+   | NONE => NONE
+  `
+
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
     case (op,vs) of
@@ -330,7 +464,9 @@ val do_app_aux_def = Define `
        (case some (w:word8). n = &(w2n w) of
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
-    | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
+    | (FFI n, args) => (case do_ffi_data s n args of SOME r => r
+                                                           | NONE => Error)
+ (* | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
         (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n cws ws of
@@ -340,7 +476,7 @@ val do_app_aux_def = Define `
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
-         | _ => Error)
+         | _ => Error) *)
     | (FP_top top, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2; Word64 w3] =>

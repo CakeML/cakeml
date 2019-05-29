@@ -128,18 +128,6 @@ val do_install_def = Define `
        | _ => Rerr(Rabort Rtype_error))`;
 
 
-
-(*
-val _ = Datatype `
-  v =
-    Number int          (* integer *)
-  | Word64 word64
-  | Block num (v list)  (* cons block: tag and payload *)
-  | CodePtr num         (* code pointer *)
-  | RefPtr num          (* pointer to ref cell *)`;
-*)
-
-
 val get_carg_bvl_def = Define `
   (*( (get_carg_bvl st (C_array conf) (ByteVector ws) =
     if conf.mutable then
