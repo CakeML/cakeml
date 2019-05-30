@@ -584,8 +584,8 @@ val instream_buffered_inv_def = Define `
       r <= w /\
       LENGTH bactive = w - r /\
       LENGTH bactive < LENGTH bcontent /\
-      bactive = TAKE (w-r) (DROP r bcontent) /\
-      (bactive = [] <=> r = w))`;
+      bactive = TAKE (w-r) (DROP r bcontent))`;
+      (*(bactive = [] <=> r = w))*)
 
 val INSTREAM_BUFFERED_def = Define `
   INSTREAM_BUFFERED bactive is =
@@ -1838,7 +1838,7 @@ Theorem b_openInSetBufferSize_spec
   >-(xref \\ fs[REF_NUM_def,MIN_DEF] \\ xsimpl)
     \\xcon \\ fs[INSTREAM_BUFFERED_FD_def] \\ xsimpl
     \\map_every qexists_tac [`4`, `4`]
-    \\fs[instream_buffered_inv_def, MAX_DEF] \\ xsimpl);
+    \\fs[instream_buffered_inv_def,MAX_DEF] \\ xsimpl);
 
 Theorem b_openIn_spec
   `∀s sv fs bactive.
@@ -1919,9 +1919,7 @@ Theorem b_refillBuffer_with_input_spec
     \\`(DROP pos fcontent = [] ⇔ 4 = STRLEN content − pos + 4)`
         by fs[Abbr`fcontent`, DROP_NIL]
     \\simp[Abbr`take_fcontent`,insert_atI_def,TAKE_APPEND, DROP_APPEND]
-    \\simp[DROP_SEG, SEG]
-    \\simp[TAKE_TAKE_T, LENGTH_TAKE]
-    \\fs[Abbr`fcontent`, LENGTH_TAKE, LENGTH_SEG])
+    \\simp[DROP_SEG, SEG])
   >-(fs[LENGTH_insert_atI, LENGTH_TAKE, LENGTH_DROP,LENGTH_MAP, NOT_NIL_EQ_LENGTH_NOT_0,
         DROP_LENGTH_TOO_LONG, TAKE_LENGTH_TOO_LONG]
     \\`(DROP pos (MAP (n2w ∘ ORD) content)  = [] ⇔ 4 = STRLEN content − pos + 4)`
@@ -1932,10 +1930,7 @@ Theorem b_refillBuffer_with_input_spec
             by fs[Abbr`fcontent`,LENGTH_TAKE_EQ_MIN, LENGTH_DROP]
     \\simp[DROP_APPEND]
     \\fs[MIN_DEF] \\ simp[DROP_APPEND, DROP_SEG, SEG, TAKE_APPEND,
-                              TAKE_TAKE_T,TAKE_LENGTH_TOO_LONG]
-    \\Cases_on `0 < LENGTH fcontent - pos`
-    >-(rfs[Abbr`fcontent`, DROP_NIL])
-    >-(rfs[Abbr`fcontent`, DROP_NIL])));
+                              TAKE_TAKE_T,TAKE_LENGTH_TOO_LONG]));
 
 Theorem b_refillBuffer_with_read_spec
  `!fd fdv fs content pos.
@@ -2122,7 +2117,7 @@ Theorem b_input_spec
         \\fs[REF_NUM_def] \\ xsimpl
         \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
         \\rpt strip_tac \\ xsimpl \\ qexists_tac `x'3'` \\ `x'3' = x'` by fs[]
-        \\rveq \\ xsimpl)
+        \\rveq \\ xsimpl \\ qexists_tac `x'` \\ xsimpl)
       \\xlet_auto >- xsimpl
       \\xlet_auto >- xsimpl
       \\xlet_auto_spec (SOME input_spec)
@@ -2187,7 +2182,7 @@ Theorem b_input_spec
       >-(xlet `POSTv dc.
                W8ARRAY bufv
                 (insert_atI (TAKE (w-r) bactive) off buf) *
-               INSTREAM_BUFFERED_FD [] fd is *
+               INSTREAM_BUFFERED_FD (DROP (w-r) bactive) fd is *
                STDIO fs`
          >-(xapp \\xsimpl
             \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
@@ -2198,54 +2193,49 @@ Theorem b_input_spec
             \\rpt strip_tac \\ fs[DROP_LENGTH_TOO_LONG, LENGTH_TAKE]
             \\simp[INSTREAM_BUFFERED_FD_def, INSTREAM_BUFFERED_def] \\ xsimpl
             \\rpt strip_tac \\ asm_exists_tac \\ xsimpl)
-        \\xlet_auto >- xsimpl
         \\fs[Once INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
         \\xpull
-        \\xlet `POSTv ov. SEP_EXISTS  refillN wrAreaSize.
-               &(NUM refillN ov /\
-                 refillN = MIN wrAreaSize (STRLEN content − pos) /\
-                 LENGTH (take_fromI_n2w2c refillN content pos) <= wrAreaSize /\
-                 1024 <= wrAreaSize /\
-                 wrAreaSize < 65532) *
-               W8ARRAY bufv
-                  (insert_atI bactive off buf) *
-               INSTREAM_BUFFERED_FD
-                  (take_fromI_n2w2c refillN content pos) fd is *
-               STDIO
-                  (fsupdate fs fd 0
-                    (MIN (wrAreaSize + pos) (MAX pos (STRLEN content)))
-                      content)`
-        >-(xapp \\ xsimpl
-          \\fs[Once INSTREAM_BUFFERED_FD_def,
-                                    REF_NUM_def, instream_buffered_inv_def] \\ xsimpl
-          \\fs[PULL_EXISTS] \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-          \\asm_exists_tac
-          \\map_every qexists_tac
-              [`r'`, `w'`,
-                `content`,`pos`] \\ xsimpl \\ rveq \\ fs[]
-          \\rpt strip_tac \\ qexists_tac `x` \\ fs[take_fromI_n2w2c_def] \\ xsimpl
-          \\fs[TAKE_TAKE, LENGTH_take_fromI] \\ simp[take_fromI_def, MIN_DEF]
-          \\CASE_TAC >- xsimpl  >- (fs[TAKE_LENGTH_TOO_LONG] \\ xsimpl))
+        \\xlet_auto >- xsimpl
+
+        \\xlet_auto >- xsimpl
+        \\xlet_auto_spec (SOME input_spec) >- xsimpl
+        \\xlet_auto >- xsimpl
+        \\xlet_auto >- xsimpl
+        \\`pos = LENGTH content ⇒ MIN (LENGTH bcontent + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
+        \\xlet_auto >- xsimpl
+        \\xlet_auto >- xsimpl
+        \\xlet_auto >- xsimpl
+        \\rveq \\ xlet_auto >- xsimpl
+        \\xlet_auto >- xsimpl
         \\xlet_auto >- xsimpl
         \\rfs[GSYM MIN_DEF]
-        \\qabbrev_tac `take_n = (MIN refillN (r + req − w))`
+        \\qabbrev_tac `take_n = (MIN (MIN (LENGTH bcontent - 4) (LENGTH content - pos))
+                                    (r + req − w))`
         \\xlet `POSTv rv.
                &(NUM take_n rv) *
                W8ARRAY bufv
-                (insert_atI (TAKE take_n (take_fromI_n2w2c wrAreaSize content pos)) (off+w-r)
+                (insert_atI
+                    (TAKE take_n (take_fromI_n2w2c (LENGTH bcontent - 4)
+                         content pos)) (off+w-r)
                     (insert_atI bactive off buf)) *
-               INSTREAM_BUFFERED_FD (DROP take_n (take_fromI_n2w2c wrAreaSize content pos)) fd is *
+               INSTREAM_BUFFERED_FD
+                (DROP take_n (take_fromI_n2w2c (LENGTH bcontent - 4) content pos)) fd is *
                STDIO (fsupdate fs fd 0 (refillN + pos)
            content)`
-        >-(simp[Once INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
-          \\xpull \\ xapp \\ xsimpl \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-          \\map_every qexists_tac [`(take_fromI_n2w2c refillN content pos)`, `take_n`, `off + w − r`]
+        >-(xapp \\ xsimpl \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+          \\map_every qexists_tac
+              [`(take_fromI_n2w2c (LENGTH bcontent - 4) content pos)`,
+                  `take_n`, `off + w − r`]
           \\xsimpl \\fs[Abbr`take_n`, LENGTH_take_fromI_n2w2c, LENGTH_insert_atI]
           \\fs[take_fromI_n2w2c_def, take_fromI_def, LENGTH_TAKE_EQ_MIN]
           \\fs[Once MIN_DEF] \\ fs[Once INSTREAM_BUFFERED_def, REF_NUM_def, instream_buffered_inv_def]
           \\xsimpl \\ fs[PULL_EXISTS] \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-          \\asm_exists_tac
-          \\map_every qexists_tac [`w''`, `r''`] \\ xsimpl \\rfs[GSYM MIN_DEF]
+          \\map_every qexists_tac [`fd`, `w''`] \\ xsimpl \\ ntac 2 (simp[Once MIN_DEF])
+          \\`LENGTH bcontent - 4 < r + req - w` by fs[]
+          \\`NUM (MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos)) (r + req − w)) nv7`
+                by (ntac 3 (fs[MIN_DEF]))
+
+
           \\fs[LENGTH_TAKE_EQ_MIN, TAKE_LENGTH_TOO_LONG,DROP_NIL]
           \\`(MIN (w'' − r'') wrAreaSize) = w'' - r''` by fs[MIN_DEF]
           \\strip_tac \\ conj_tac
@@ -2258,7 +2248,6 @@ Theorem b_input_spec
                       (DROP r'' bcontent''))` by fs[GSYM TAKE_TAKE_T]
               \\`(MIN (r + req − w) wrAreaSize) = r + req - w` by fs[MIN_DEF]
               \\rveq \\ rfs[TAKE_TAKE_T, TAKE_TAKE_MIN]))
-
           >-(strip_tac \\fs[MIN_DEF]
           \\Cases_on `w'' - r'' < r + req - w`
           >-(Cases_on `wrAreaSize < LENGTH content - pos`
@@ -2286,12 +2275,67 @@ Theorem b_input_spec
               \\fs[INSTREAM_BUFFERED_FD_def, INSTREAM_BUFFERED_def]
               \\xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`x'`, `x'3'`]
               \\xsimpl)))
-        \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
+                    >-(simp[MIN_DEF] \\ CASE_TAC
+            >-(fs[TAKE_TAKE_T, TAKE_TAKE_MIN])
+            >-(`(MIN (r + req − w) wrAreaSize) = r + req - w` by fs[MIN_DEF]
+              \\ `TAKE (r + req - w) (TAKE (w'' − r'')
+                  (DROP pos (MAP (n2w ∘ ORD) content))) =
+                    TAKE (r + req - w) (TAKE (w'' − r'')
+                      (DROP r'' bcontent''))` by fs[GSYM TAKE_TAKE_T]
+              \\`(MIN (r + req − w) wrAreaSize) = r + req - w` by fs[MIN_DEF]
+              \\rveq \\ rfs[TAKE_TAKE_T, TAKE_TAKE_MIN]))
+          >-(strip_tac \\fs[MIN_DEF]
+          \\Cases_on `w'' - r'' < r + req - w`
+          >-(Cases_on `wrAreaSize < LENGTH content - pos`
+            >-(fs[] \\ fs[INSTREAM_BUFFERED_FD_def, INSTREAM_BUFFERED_def]
+              \\xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`x'`, `x'3'`]
+              \\xsimpl)
+            >-(fs[] \\ fs[TAKE_LENGTH_TOO_LONG, DROP_LENGTH_TOO_LONG]
+              \\`MAX pos (STRLEN content) = pos + w'' - r''`
+                    by fs[MIN_DEF, MAX_DEF]
+              \\fs[INSTREAM_BUFFERED_FD_def, INSTREAM_BUFFERED_def]
+              \\xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`x'`, `x'3'`]
+              \\xsimpl))
+          >-(Cases_on `wrAreaSize < LENGTH content - pos`
+            >-(fs[] \\fs[DROP_LENGTH_TOO_LONG, LENGTH_TAKE]
+              \\fs[INSTREAM_BUFFERED_FD_def, INSTREAM_BUFFERED_def]
+              \\xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`x'`, `x'3'`]
+              \\xsimpl)
+            >-(fs[] \\ `w'' - r'' = LENGTH (DROP pos (MAP (n2w ∘ ORD) content))`
+                      by fs[]
+              \\fs[TAKE_LENGTH_ID,TAKE_LENGTH_TOO_LONG, DROP_LENGTH_TOO_LONG,
+                          LENGTH_TAKE, LENGTH_DROP, LENGTH_DROP, LENGTH_MAP,
+                           TAKE_LENGTH_ID_rwt]
+              \\`MAX pos (STRLEN content) = pos + w'' - r''`
+                    by fs[MIN_DEF, MAX_DEF]
+              \\fs[INSTREAM_BUFFERED_FD_def, INSTREAM_BUFFERED_def]
+              \\xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`x'`, `x'3'`]
+              \\xsimpl))))
+        \\fs[INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def]
         \\xpull \\ xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
         \\fs[NUM_def] \\ asm_exists_tac \\ qexists_tac `&w − &r`
         \\xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`r''`,`w''`]
-        \\ fs[Once MIN_DEF, Abbr`take_n`]
-        \\CASE_TAC
+        \\\fs[] \\ rw[]
+        \\Cases_on `MIN wrAreaSize (STRLEN content − pos) = wrAreaSize`
+        >-(rfs[]
+          \\Cases_on `wrAreaSize < r + req - w`
+          \\fs[MIN_DEF]
+          \\`wrAreaSize = wr'' - r''` by fs[MIN_DEF,LENGTH_take_fromI_n2w2c, LENGTH_TAKE] )
+
+
+        >-(`LENGTH content - pos <= wrAreaSize` by fs[MIN_DEFLENGTH_take_fromI_n2w2c])
+
+        >-(fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE]
+          \\Cases_on `r <= w`
+          >-(fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE]
+            \\rfs[GSYM NUM_def]
+            \\fs[Once MIN_DEF]
+            \\CASE_TAC
+            >-(CASE_TAC
+              \\Cases_on `STRLEN content < pos + (r + req − w) ∧ 0 < r + req − w`
+              >-(fs[MIN_DEF])
+              >-(Cases_on `wrAreaSize < r + req − w`
+                >-(fs[MIN_DEF]))
 
 
 
