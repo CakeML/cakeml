@@ -424,9 +424,9 @@ val basic_theories =
    ["alist", "arithmetic", "bag", "bitstring", "bit", "bool",
     "combin", "container", "divides", "fcp", "finite_map", "float",
     "fmaptree", "frac", "gcdset", "gcd", "ind_type", "integer_word",
-    "integer", "integral", "list", "llist", "marker", "measure",
-    "numeral_bit", "numeral", "numpair", "numposrep", "num", "one",
-    "operator", "option", "pair", "path", "patricia_casts",
+    "integer", "integral", "list", "llist", "marker", "machine_ieee",
+    "measure", "numeral_bit", "numeral", "numpair", "numposrep", "num",
+    "one", "operator", "option", "pair", "path", "patricia_casts",
     "patricia", "poly", "poset", "powser", "pred_set", "prelim",
     "prim_rec", "quote", "quotient_list", "quotient_option",
     "quotient_pair", "quotient_pred_set", "quotient_sum", "quotient",
@@ -2683,7 +2683,8 @@ fun mutual_to_single_line_def def = let
   in ([def],ind) end
 
 val builtin_terops =
-  [Eval_substring]
+  [Eval_substring,
+   Eval_FLOAT_FMA]
   |> map SPEC_ALL
   |> map (fn th =>
       (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
@@ -2712,6 +2713,15 @@ val builtin_binops =
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
+   Eval_FLOAT_ADD,
+   Eval_FLOAT_SUB,
+   Eval_FLOAT_MULT,
+   Eval_FLOAT_DIV,
+   Eval_FLOAT_LESS,
+   Eval_FLOAT_LESS_EQ,
+   Eval_FLOAT_GREATER,
+   Eval_FLOAT_GREATER_EQ,
+   Eval_FLOAT_EQ,
    Eval_force_gc_to_run,
    Eval_force_unit_type,
    Eval_strsub,
@@ -2732,6 +2742,9 @@ val builtin_monops =
    Eval_vector,
    Eval_int_of_num,
    Eval_num_of_int,
+   Eval_FLOAT_ABS,
+   Eval_FLOAT_SQRT,
+   Eval_FLOAT_NEG,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
    Eval_Chr,

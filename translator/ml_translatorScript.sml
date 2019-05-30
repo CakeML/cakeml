@@ -5,7 +5,8 @@
 *)
 open integerTheory ml_progTheory
      astTheory libTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
+     semanticPrimitivesPropsTheory evaluatePropsTheory
+     fpSemTheory;
 open mlvectorTheory mlstringTheory packLib;
 open integer_wordSyntax
 open terminationTheory
@@ -489,7 +490,7 @@ val Eval2_tac =
   \\ fs [] \\ qexists_tac `ck1+ck1'` \\ fs [];
 
 Theorem Eval_Equality:
-    Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
+   Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
     EqualityType a ==>
     Eval env (App Equality [x1;x2]) (BOOL (y1 = y2))
 Proof
@@ -1345,6 +1346,99 @@ Proof
   \\ fs [do_app_def,shift8_lookup_def,shift64_lookup_def]
   \\ fs [fcpTheory.CART_EQ,word_ror_def,fcpTheory.FCP_BETA,w2w] \\ rw []
 QED
+
+(* arithmetic for doubles (word64) *)
+Theorem Eval_FP_top:
+  ! f w1 w2 w3.
+        Eval env x2 (WORD (w2:64 word)) ==>
+        Eval env x3 (WORD (w3:64 word)) ==>
+        Eval env x1 (WORD (w1:64 word)) ==>
+        Eval env (App (FP_top f) [x1;x2;x3]) (WORD (fp_top f w1 w2 w3))
+Proof
+  rw[Eval_rw,WORD_def]
+  \\ first_x_assum mp_tac
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ strip_tac
+  \\ drule evaluate_add_to_clock
+  \\ last_x_assum (qspec_then `refs++refs'` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ first_x_assum (qspec_then `refs++refs'++refs''` strip_assume_tac)
+  \\ drule evaluate_add_to_clock
+  \\ rpt (disch_then assume_tac)
+  \\ pop_assum (qspec_then `ck1' + ck1''` strip_assume_tac)
+  \\ fs[] \\ qexists_tac `ck1 + ck1' + ck1''` \\ fs[]
+  \\ fs [do_app_def] \\ rw []
+  \\ fs [state_component_equality]
+QED
+
+local
+  fun f name q =
+    save_thm("Eval_" ^ name,SIMP_RULE (srw_ss()) [fp_top_def, fpfma_def]
+              (Q.SPEC q Eval_FP_top))
+in
+  val Eval_FLOAT_FMA = f "FLOAT_FMA" `FP_Fma`
+end;
+
+val Eval_FP_bop = Q.prove(
+  `!f w1 w2.
+        Eval env x1 (WORD (w1:64 word)) ==>
+        Eval env x2 (WORD (w2:64 word)) ==>
+        Eval env (App (FP_bop f) [x1;x2]) (WORD (fp_bop f w1 w2))`,
+  rw[Eval_rw,WORD_def]
+  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
+  \\ fs [state_component_equality]);
+
+local
+  fun f name q =
+    save_thm("Eval_" ^ name,SIMP_RULE (srw_ss()) [fp_bop_def]
+              (Q.SPEC q Eval_FP_bop))
+in
+  val Eval_FLOAT_ADD  = f "FLOAT_ADD" `FP_Add`
+  val Eval_FLOAT_SUB  = f "FLOAT_SUB" `FP_Sub`
+  val Eval_FLOAT_MULT = f "FLOAT_MULT" `FP_Mul`
+  val Eval_FLOAT_DIV  = f "FLOAT_DIV" `FP_Div`
+end;
+
+val Eval_FP_cmp = Q.prove(
+  `!f w1 w2.
+        Eval env x1 (WORD (w1:64 word)) ==>
+        Eval env x2 (WORD (w2:64 word)) ==>
+        Eval env (App (FP_cmp f) [x1;x2]) (BOOL (fp_cmp f w1 w2))`,
+  rw[Eval_rw,WORD_def,BOOL_def]
+  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
+  \\ fs [state_component_equality]);
+
+local
+  fun f name q = let
+    val th = SIMP_RULE (srw_ss()) [fp_cmp_def] (Q.SPEC q Eval_FP_cmp)
+    val _ = save_thm("Eval_" ^ name,SPEC_ALL th)
+   in th end
+in
+  val Eval_FLOAT_LESS = f "FLOAT_LESS" `FP_Less`
+  val Eval_FLOAT_LESS_EQ = f "FLOAT_LESS_EQ" `FP_LessEqual`
+  val Eval_FLOAT_GREATER = f "FLOAT_GREATER" `FP_Greater`
+  val Eval_FLOAT_GREATER_EQ = f "FLOAT_GREATER_EQ" `FP_GreaterEqual`
+  val Eval_FLOAT_EQ = f "FLOAT_EQ" `FP_Equal`
+end;
+
+val Eval_FP_uop = Q.prove(
+  `!f w1 w2.
+        Eval env x1 (WORD (w1:64 word)) ==>
+        Eval env (App (FP_uop f) [x1]) (WORD (fp_uop f w1))`,
+  rw[Eval_rw,WORD_def,BOOL_def]
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ qexists_tac `ck1` \\ fs[do_app_def, state_component_equality]);
+
+local
+  fun f name q = let
+    val th = SIMP_RULE (srw_ss()) [fp_uop_def] (Q.SPEC q Eval_FP_uop)
+    val _ = save_thm("Eval_" ^ name,SPEC_ALL th)
+   in th end
+in
+  val Eval_FLOAT_ABS = f "FLOAT_ABS" `FP_Abs`
+  val Eval_FLOAT_NEG = f "FLOAT_NEG" `FP_Neg`
+  val Eval_FLOAT_SQRT = f "FLOAT_SQRT" `FP_Sqrt`
+end;
 
 (* list definition *)
 
