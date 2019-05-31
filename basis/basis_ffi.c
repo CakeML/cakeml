@@ -203,3 +203,27 @@ void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
   }
   #endif
 }
+
+typedef union {
+  double d;
+  char words[8];
+} doubleWords;
+
+// FFI calls for floating-point parsing
+void ffidoube_fromString (unsigned char *c, long clen, unsigned char *a, long alen) {
+  doubleWords d;
+  sscanf(c, "%lf",&d.d);
+  assert (8 = alen);
+  for (int i = 0; i < 8; i++){
+    a[i] = d.words[i];
+  }
+}
+
+void ffidouble_toString (unsigned char *c, long clen, unsigned char *a, long alen) {
+  doubleWords d;
+  assert (255 + 8 = alen);
+  for (int i = 0; i < 8; i++){
+    d.words[i] = a[i];
+  }
+  sprintf(&a[8];"%.255f",d.d);
+}
