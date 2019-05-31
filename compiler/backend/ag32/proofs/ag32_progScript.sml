@@ -157,12 +157,13 @@ val lemma =
   ``p (ag32_proj' y s) ==>
     (?u v. SPLIT (ag32_proj s) (u,v) /\ p u /\ (\v. v = ag32_proj'' y s) v)``;
 
-Theorem AG32_SPEC_SEMANTICS
-  `SPEC AG32_MODEL p {} q =
+Theorem AG32_SPEC_SEMANTICS:
+   SPEC AG32_MODEL p {} q =
     !y s seq. p (ag32_proj' y s) /\ rel_sequence (λx y. y = Next x) seq s ==>
               ?k. q (ag32_proj' y (seq k)) /\
-                  (ag32_proj'' y s = ag32_proj'' y (seq k))`
-  (simp_tac std_ss [GSYM RUN_EQ_SPEC,RUN_def,AG32_MODEL_def,STAR_def,SEP_REFINE_def]
+                  (ag32_proj'' y s = ag32_proj'' y (seq k))
+Proof
+  simp_tac std_ss [GSYM RUN_EQ_SPEC,RUN_def,AG32_MODEL_def,STAR_def,SEP_REFINE_def]
   \\ rpt strip_tac \\ reverse eq_tac \\ rpt strip_tac
   THEN1 (full_simp_tac bool_ss [SPLIT_ag32_proj_EXISTS] \\ metis_tac [])
   \\ fs [PULL_EXISTS]
@@ -172,12 +173,14 @@ Theorem AG32_SPEC_SEMANTICS
   \\ disch_then (qspec_then `(\v. v = ag32_proj'' y s)` mp_tac)
   \\ fs [] \\ rw []
   \\ full_simp_tac bool_ss [SPLIT_ag32_proj_EXISTS]
-  \\ imp_res_tac ag32_proj''_11 \\ qexists_tac `i` \\ metis_tac []);
+  \\ imp_res_tac ag32_proj''_11 \\ qexists_tac `i` \\ metis_tac []
+QED
 
-Theorem aD_STAR_ag32_proj
-  `(aD md * p) (ag32_proj' (fs,ms,pc) s) <=>
-      md SUBSET ms /\ p (ag32_proj' (fs,ms DIFF md,pc) s)`
-  (simp_tac std_ss [aS_def,aM_def,aP_def,aB_def,EQ_STAR,INSERT_SUBSET,cond_STAR,
+Theorem aD_STAR_ag32_proj:
+   (aD md * p) (ag32_proj' (fs,ms,pc) s) <=>
+      md SUBSET ms /\ p (ag32_proj' (fs,ms DIFF md,pc) s)
+Proof
+  simp_tac std_ss [aS_def,aM_def,aP_def,aB_def,EQ_STAR,INSERT_SUBSET,cond_STAR,
     EMPTY_SUBSET,IN_ag32_proj,GSYM DELETE_DEF,aD_def,SEP_CLAUSES,SEP_EXISTS_THM]
   \\ eq_tac \\ rw []
   THEN1
@@ -198,10 +201,11 @@ Theorem aD_STAR_ag32_proj
     \\ Cases \\ fs [] \\ rw [] \\ fs [SUBSET_DEF,PULL_EXISTS]
     \\ Cases_on `c IN md` \\ fs [])
   \\ fs [SUBSET_DEF] \\ rw [] \\ fs [PULL_EXISTS]
-  \\ res_tac \\ fs [IN_ag32_proj]);
+  \\ res_tac \\ fs [IN_ag32_proj]
+QED
 
-Theorem STAR_ag32_proj
-  `((aS t * p) (ag32_proj' (fs,ms,pc) s) <=>
+Theorem STAR_ag32_proj:
+   ((aS t * p) (ag32_proj' (fs,ms,pc) s) <=>
       (t = s) /\ fs /\ p (ag32_proj' (F,ms,pc) s)) /\
     ((aM b y * p) (ag32_proj' (fs,ms,pc) s) <=>
       (y = s.MEM b) /\ b IN ms /\ p (ag32_proj' (fs,ms DELETE b,pc) s)) /\
@@ -210,14 +214,16 @@ Theorem STAR_ag32_proj
     ((aP q * p) (ag32_proj' (fs,ms,pc) s) <=>
       (q = s.PC) /\ pc /\ p (ag32_proj' (fs,ms,F) s)) /\
     ((cond g * p) (ag32_proj' (fs,ms,pc) s) <=>
-      g /\ p (ag32_proj' (fs,ms,pc) s))`
-  (simp [aD_STAR_ag32_proj]
+      g /\ p (ag32_proj' (fs,ms,pc) s))
+Proof
+  simp [aD_STAR_ag32_proj]
   \\ simp_tac std_ss [aS_def,aM_def,aP_def,aB_def,EQ_STAR,INSERT_SUBSET,cond_STAR,
        EMPTY_SUBSET,IN_ag32_proj,GSYM DELETE_DEF,aD_def,SEP_CLAUSES,SEP_EXISTS_THM]
   \\ Cases_on `t = s` \\ asm_simp_tac bool_ss [DELETE_ag32_proj]
   \\ Cases_on `y = s.MEM b` \\ asm_simp_tac bool_ss [DELETE_ag32_proj]
   \\ Cases_on `q = s.PC` \\ asm_simp_tac bool_ss [DELETE_ag32_proj]
-  \\ asm_simp_tac std_ss [AC CONJ_COMM CONJ_ASSOC]);
+  \\ asm_simp_tac std_ss [AC CONJ_COMM CONJ_ASSOC]
+QED
 
 val CODE_POOL_ag32_proj_LEMMA = prove(
   ``!x y z. (x = (z INSERT y)) <=> (z INSERT y) SUBSET x /\
@@ -260,9 +266,11 @@ val IMP_AG32_SPEC_LEMMA = prove(
   \\ qexists_tac `SUC 0` \\ metis_tac [PAIR,optionTheory.SOME_11]);
 
 val _ = wordsLib.guess_lengths();
-Theorem BYTES_TO_WORD_LEMMA
-  `!w. (31 >< 24) w @@ (23 >< 16) w @@ (15 >< 8) w @@ (7 >< 0) w = w`
-  (SRW_TAC [wordsLib.WORD_EXTRACT_ss] []);
+Theorem BYTES_TO_WORD_LEMMA:
+   !w. (31 >< 24) w @@ (23 >< 16) w @@ (15 >< 8) w @@ (7 >< 0) w = w
+Proof
+  SRW_TAC [wordsLib.WORD_EXTRACT_ss] []
+QED
 
 val IMP_AG32_SPEC = save_thm("IMP_AG32_SPEC",
   (ONCE_REWRITE_RULE [STAR_COMM] o REWRITE_RULE [AG32_SPEC_CODE] o
@@ -272,19 +280,22 @@ val IMP_AG32_SPEC = save_thm("IMP_AG32_SPEC",
 val mem_unchanged_def = Define `
   mem_unchanged md m1 m2 = (!a. ~(a IN md) ==> m1 a = m2 a)`;
 
-Theorem mem_unchanged_same[simp]
-  `mem_unchanged md m m`
-  (fs [mem_unchanged_def]);
+Theorem mem_unchanged_same[simp]:
+   mem_unchanged md m m
+Proof
+  fs [mem_unchanged_def]
+QED
 
-Theorem ANY_AG32_SPEC_LEMMA
-  `!w ast.
+Theorem ANY_AG32_SPEC_LEMMA:
+   !w ast.
       ast = Decode w ==>
       mem_unchanged md (Run ast s).MEM s.MEM ==>
       SPEC AG32_MODEL
         (aS s * aD md * aPC p)
         {(p,w)}
-        (aS (Run ast s) * aD md * aP (Run ast s).PC)`
-  (fs [Next_def,mem_unchanged_def]
+        (aS (Run ast s) * aD md * aP (Run ast s).PC)
+Proof
+  fs [Next_def,mem_unchanged_def]
   \\ rw [aPC_def]
   \\ match_mp_tac IMP_AG32_SPEC
   \\ simp [SEP_CLAUSES,SEP_EXISTS_THM]
@@ -307,18 +318,20 @@ Theorem ANY_AG32_SPEC_LEMMA
   \\ rveq \\ fs [Next_def]
   \\ Cases \\ fs [IN_ag32_proj]
   \\ Cases_on `c IN ms` \\ fs []
-  \\ metis_tac [SUBSET_DEF]);
+  \\ metis_tac [SUBSET_DEF]
+QED
 
-Theorem ANY_AG32_SPEC
-  `!w ast.
+Theorem ANY_AG32_SPEC:
+   !w ast.
       ast = Decode w ==>
       (aligned 2 s.PC ==> aligned 2 (Run ast s).PC) /\
       mem_unchanged md (Run ast s).MEM s.MEM ==>
       SPEC AG32_MODEL
         (aS s * aD md * aPC p)
         {(p,w)}
-        (aS (Run ast s) * aD md * aPC (Run ast s).PC)`
-  (rw []
+        (aS (Run ast s) * aD md * aPC (Run ast s).PC)
+Proof
+  rw []
   \\ drule (SIMP_RULE std_ss [] ANY_AG32_SPEC_LEMMA)
   \\ fs [aPC_def,STAR_ASSOC,SPEC_MOVE_COND]
   \\ Cases_on `aligned 2 (Run (Decode w) s).PC` \\ fs [SEP_CLAUSES]
@@ -327,16 +340,19 @@ Theorem ANY_AG32_SPEC
   \\ once_rewrite_tac [GSYM AG32_SPEC_CODE]
   \\ once_rewrite_tac [STAR_COMM]
   \\ fs [AG32_SPEC_SEMANTICS,FORALL_PROD]
-  \\ fs [STAR_ag32_proj,GSYM STAR_ASSOC,aPC_def]);
+  \\ fs [STAR_ag32_proj,GSYM STAR_ASSOC,aPC_def]
+QED
 
-Theorem SPEC_AG32_FIX_POST_PC
-  `SPEC AG32_MODEL (aS s * aD md * aPC p) c (post s.PC) ==>
-    SPEC AG32_MODEL (aS s * aD md * aPC p) c (post p)`
-  (Cases_on `p = s.PC` \\ fs []
+Theorem SPEC_AG32_FIX_POST_PC:
+   SPEC AG32_MODEL (aS s * aD md * aPC p) c (post s.PC) ==>
+    SPEC AG32_MODEL (aS s * aD md * aPC p) c (post p)
+Proof
+  Cases_on `p = s.PC` \\ fs []
   \\ once_rewrite_tac [GSYM AG32_SPEC_CODE]
   \\ once_rewrite_tac [STAR_COMM]
   \\ fs [AG32_SPEC_SEMANTICS,FORALL_PROD]
-  \\ fs [STAR_ag32_proj,GSYM STAR_ASSOC,aPC_def]);
+  \\ fs [STAR_ag32_proj,GSYM STAR_ASSOC,aPC_def]
+QED
 
 (* SPEC implies FUNPOW Next *)
 
@@ -344,12 +360,13 @@ val code_set_def = Define `
   code_set a [] = {} /\
   code_set a (i::is) = (a:word32,i) INSERT code_set (a+4w) is`;
 
-Theorem IN_code_set
-  `!a xs p x.
+Theorem IN_code_set:
+   !a xs p x.
       LENGTH xs < 2**30 ==>
       ((p,x) IN code_set a xs <=>
-       ?i. p = a + n2w (4 * i) /\ x = EL i xs /\ i < LENGTH xs)`
-  (Induct_on `xs` \\ fs [code_set_def] \\ rw []
+       ?i. p = a + n2w (4 * i) /\ x = EL i xs /\ i < LENGTH xs)
+Proof
+  Induct_on `xs` \\ fs [code_set_def] \\ rw []
   \\ reverse (Cases_on `p = a`) \\ fs [] THEN1
    (eq_tac \\ rw []
     THEN1 (qexists_tac `i+1`
@@ -363,12 +380,13 @@ Theorem IN_code_set
   \\ Cases_on `x = h` \\ fs []
   THEN1 (qexists_tac `0` \\ fs [])
   \\ eq_tac \\ rw []
-  \\ `(4 * i + 4) < 4294967296` by fs [] \\ fs []);
+  \\ `(4 * i + 4) < 4294967296` by fs [] \\ fs []
+QED
 
 val get_mem_word_def = ag32_memoryTheory.get_mem_word_def
 
-Theorem SPEC_IMP_FUNPOW_Next
-  `SPEC AG32_MODEL
+Theorem SPEC_IMP_FUNPOW_Next:
+   SPEC AG32_MODEL
       (aS s * aD md * aPC s.PC)
       (code_set a (MAP Encode instr_list))
       (aS s1 * aD md1 * other)
@@ -379,8 +397,9 @@ Theorem SPEC_IMP_FUNPOW_Next
           Encode (EL k instr_list))) /\
     byte_aligned s.PC /\
     DISJOINT md { a + n2w k | k | k DIV 4 < LENGTH instr_list } ==>
-    ∃k. FUNPOW Next k s = s1`
-  (fs [alignmentTheory.byte_aligned_def]
+    ∃k. FUNPOW Next k s = s1
+Proof
+  fs [alignmentTheory.byte_aligned_def]
   \\ once_rewrite_tac [GSYM AG32_SPEC_CODE]
   \\ once_rewrite_tac [STAR_COMM]
   \\ fs [AG32_SPEC_SEMANTICS,FORALL_PROD]
@@ -438,6 +457,7 @@ Theorem SPEC_IMP_FUNPOW_Next
   \\ strip_tac
   \\ fs [get_mem_word_def,addressTheory.word_arith_lemma1]
   \\ rpt (pop_assum kall_tac)
-  \\ blastLib.BBLAST_TAC);
+  \\ blastLib.BBLAST_TAC
+QED
 
 val () = export_theory()

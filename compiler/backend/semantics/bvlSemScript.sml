@@ -323,6 +323,11 @@ val do_app_def = Define `
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
+    | (FP_top top, ws) =>
+        (case ws of
+         | [Word64 w1; Word64 w2; Word64 w3] =>
+             (Rval (Word64 (fp_top top w1 w2 w3),s))
+         | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s))
@@ -477,39 +482,49 @@ val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_e
    ffi_result_thms]))
   |> curry save_thm"case_eq_thms";
 
-Theorem do_app_const
-  `(bvlSem$do_app op args s1 = Rval (res,s2)) ==>
+Theorem do_app_const:
+   (bvlSem$do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\
     (op <> Install ==> s2.code = s1.code /\
                        s2.compile = s1.compile /\
-                       s2.compile_oracle = s1.compile_oracle)`
-  (rw[do_app_def,case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]);
+                       s2.compile_oracle = s1.compile_oracle)
+Proof
+  rw[do_app_def,case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]
+QED
 
-Theorem bvl_do_app_Ref[simp]
-  `do_app Ref vs s = Rval
+Theorem bvl_do_app_Ref[simp]:
+   do_app Ref vs s = Rval
      (RefPtr (LEAST ptr. ptr ∉ FDOM s.refs),
       s with refs :=
-        s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))`
-  (fs [do_app_def,LET_THM] \\ every_case_tac \\ fs []);
+        s.refs |+ ((LEAST ptr. ptr ∉ FDOM s.refs),ValueArray vs))
+Proof
+  fs [do_app_def,LET_THM] \\ every_case_tac \\ fs []
+QED
 
-Theorem bvl_do_app_Cons[simp]
-  `do_app (Cons tag) vs s = Rval (Block tag vs,s)`
-  (fs [do_app_def,LET_THM] \\ every_case_tac \\ fs []);
+Theorem bvl_do_app_Cons[simp]:
+   do_app (Cons tag) vs s = Rval (Block tag vs,s)
+Proof
+  fs [do_app_def,LET_THM] \\ every_case_tac \\ fs []
+QED
 
-Theorem evaluate_clock
-  `!xs env s1 vs s2.
-     (evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock`
-  (recInduct evaluate_ind >> rw[evaluate_def] >>
+Theorem evaluate_clock:
+   !xs env s1 vs s2.
+     (evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock
+Proof
+  recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[dec_clock_def] >> rw[] >> rfs[] >>
   imp_res_tac fix_clock_IMP >> fs[] >>
-  imp_res_tac do_app_const >> fs[]);
+  imp_res_tac do_app_const >> fs[]
+QED
 
-Theorem fix_clock_evaluate
-  `fix_clock s (evaluate (xs,env,s)) = evaluate (xs,env,s)`
-  (Cases_on `evaluate (xs,env,s)` \\ fs [fix_clock_def]
+Theorem fix_clock_evaluate:
+   fix_clock s (evaluate (xs,env,s)) = evaluate (xs,env,s)
+Proof
+  Cases_on `evaluate (xs,env,s)` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
-  \\ fs [MIN_DEF,theorem "state_component_equality"]);
+  \\ fs [MIN_DEF,theorem "state_component_equality"]
+QED
 
 (* Finally, we remove fix_clock from the induction and definition theorems. *)
 

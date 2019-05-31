@@ -7,9 +7,11 @@ val _ = new_theory"bvl_handleProof";
 
 val _ = set_grammar_ancestry["bvlSem","bvl_handle","bvlProps"];
 
-Theorem evaluate_SmartLet[simp]
-  `bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)`
-  (rw [SmartLet_def] \\ fs [NULL_EQ,evaluate_def]);
+Theorem evaluate_SmartLet[simp]:
+   bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)
+Proof
+  rw [SmartLet_def] \\ fs [NULL_EQ,evaluate_def]
+QED
 
 val let_ok_def = Define `
   (let_ok (Let xs b) <=> EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
@@ -50,47 +52,58 @@ val env_rel_def = Define `
   env_rel l env env1 =
     LIST_RELi (\i v1 v2. has_var i l ==> v1 = v2) env env1`
 
-Theorem env_rel_mk_Union
-  `!env env1. env_rel (mk_Union lx ly) env env1 <=>
-               env_rel lx env env1 /\ env_rel ly env env1`
-  (fs [LIST_RELi_EL_EQN,env_rel_def] \\ metis_tac []);
+Theorem env_rel_mk_Union:
+   !env env1. env_rel (mk_Union lx ly) env env1 <=>
+               env_rel lx env env1 /\ env_rel ly env env1
+Proof
+  fs [LIST_RELi_EL_EQN,env_rel_def] \\ metis_tac []
+QED
 
-Theorem env_rel_length
-  `env_rel l env env1 ==> LENGTH env1 = LENGTH env`
-  (fs [LIST_RELi_EL_EQN,env_rel_def]);
+Theorem env_rel_length:
+   env_rel l env env1 ==> LENGTH env1 = LENGTH env
+Proof
+  fs [LIST_RELi_EL_EQN,env_rel_def]
+QED
 
-Theorem env_rel_MAPi
-  `env_rel l1 env (MAPi (\i v. if has_var i l1 then v else Number 0) env)`
-  (fs [LIST_RELi_EL_EQN,env_rel_def]);
+Theorem env_rel_MAPi:
+   env_rel l1 env (MAPi (\i v. if has_var i l1 then v else Number 0) env)
+Proof
+  fs [LIST_RELi_EL_EQN,env_rel_def]
+QED
 
-Theorem IMP_EL_SING
-  `k = LENGTH xs ==> EL k (xs ++ [x] ++ ys) = x`
-  (rw [] \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [EL_APPEND2]);
+Theorem IMP_EL_SING:
+   k = LENGTH xs ==> EL k (xs ++ [x] ++ ys) = x
+Proof
+  rw [] \\ fs [] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_APPEND2]
+QED
 
-Theorem ALOOKUP_MAPi_SWAP
-  `!z n k xs.
+Theorem ALOOKUP_MAPi_SWAP = Q.prove(`
+  !z n k xs.
       n <> k ==>
       ALOOKUP (MAPi (λi x. (x,i+z)) (xs ++ [k])) n =
-      ALOOKUP (MAPi (λi x. (x,i+z)) xs) n`
-  (Induct_on `xs` \\ fs [o_DEF,ADD1]) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
+      ALOOKUP (MAPi (λi x. (x,i+z)) xs) n`,
+  Induct_on `xs` \\ fs [o_DEF,ADD1]) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
 
-Theorem ALOOKUP_MAPi_APPEND2
-  `!z xs k.
+Theorem ALOOKUP_MAPi_APPEND2 = Q.prove(`
+  !z xs k.
       ~MEM k xs ==>
-      ALOOKUP (MAPi (λi x. (x,i+z)) (xs ++ [k])) k = SOME (LENGTH xs + z)`
-  (Induct_on `xs` \\ fs [o_DEF,ADD1]) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
+      ALOOKUP (MAPi (λi x. (x,i+z)) (xs ++ [k])) k = SOME (LENGTH xs + z)`,
+  Induct_on `xs` \\ fs [o_DEF,ADD1]) |> Q.SPEC `0` |> SIMP_RULE std_ss [];
 
-Theorem IS_SOME_lookup_db_to_set
-  `!n. IS_SOME (lookup n (db_to_set l)) = has_var n l`
-  (fs [db_varsTheory.lookup_db_to_set,IS_SOME_EXISTS]);
+Theorem IS_SOME_lookup_db_to_set:
+   !n. IS_SOME (lookup n (db_to_set l)) = has_var n l
+Proof
+  fs [db_varsTheory.lookup_db_to_set,IS_SOME_EXISTS]
+QED
 
-Theorem evaluate_LetLet
-  `(∀env2 extra.
+Theorem evaluate_LetLet:
+   (∀env2 extra.
        env_rel l1 env env2 ==> evaluate ([y],env2 ++ extra,s1) = res) /\
     env_rel l1 env env1 ==>
-    evaluate ([LetLet (LENGTH env) (db_to_set l1) y],env1 ++ extra,s1) = res`
-  (fs [LetLet_def] \\ rw [o_DEF] \\ fs [Once evaluate_def]
+    evaluate ([LetLet (LENGTH env) (db_to_set l1) y],env1 ++ extra,s1) = res
+Proof
+  fs [LetLet_def] \\ rw [o_DEF] \\ fs [Once evaluate_def]
   \\ qabbrev_tac `qs = (FILTER (λn. has_var n l1) (GENLIST I (LENGTH env)))`
   \\ `evaluate
         (MAP Var qs,env1 ++ extra,s1) =
@@ -141,11 +154,14 @@ Theorem evaluate_LetLet
     \\ fs [MEM_FILTER,MEM_GENLIST,ALOOKUP_NONE,o_DEF,MAPi_ID] \\ NO_TAC)
   \\ fs [] \\ reverse (Cases_on `has_var (LENGTH env) l1`) \\ fs []
   \\ fs [evaluate_def,do_app_def,MAPi_def,MAPi_APPEND]
-  \\ fs [EL_APPEND2] \\ match_mp_tac IMP_EL_SING \\ fs []);
+  \\ fs [EL_APPEND2] \\ match_mp_tac IMP_EL_SING \\ fs []
+QED
 
-Theorem env_rel_refl
-  `env_rel l env env`
-  (fs [LIST_RELi_EL_EQN,env_rel_def]);
+Theorem env_rel_refl:
+   env_rel l env env
+Proof
+  fs [LIST_RELi_EL_EQN,env_rel_def]
+QED
 
 val opt_lemma = Q.prove(
   `x = y <=> (x = SOME () <=> y = SOME ())`,
@@ -166,25 +182,29 @@ val OptionalLetLet_IMP = Q.prove(
   \\ rewrite_tac [GSYM db_varsTheory.lookup_db_to_set]
   \\ fs []);
 
-Theorem OptionalLetLet_limit
-  `(ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr /\
-    env_rel l env env1 ==> env_rel lx env env1`
-  (rw [OptionalLetLet_def,GSYM db_varsTheory.vars_to_list_def,
-      GSYM db_varsTheory.vars_flatten_def,env_rel_def] \\ fs []);
+Theorem OptionalLetLet_limit:
+   (ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr /\
+    env_rel l env env1 ==> env_rel lx env env1
+Proof
+  rw [OptionalLetLet_def,GSYM db_varsTheory.vars_to_list_def,
+      GSYM db_varsTheory.vars_flatten_def,env_rel_def] \\ fs []
+QED
 
-Theorem OptionalLetLet_nr
-  `(ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr ==>
-    nr' = nr`
-  (rw [OptionalLetLet_def,GSYM db_varsTheory.vars_to_list_def,
-      GSYM db_varsTheory.vars_flatten_def,env_rel_def] \\ fs []);
+Theorem OptionalLetLet_nr:
+   (ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr ==>
+    nr' = nr
+Proof
+  rw [OptionalLetLet_def,GSYM db_varsTheory.vars_to_list_def,
+      GSYM db_varsTheory.vars_flatten_def,env_rel_def] \\ fs []
+QED
 
-Theorem compile_correct
-  `!xs env s1 ys env1 res s2 extra l s nr.
+Theorem compile_correct = Q.prove(`
+  !xs env s1 ys env1 res s2 extra l s nr.
       compile limit (LENGTH env) xs = (ys,l,s,nr) /\ env_rel l env env1 /\
       (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) ==>
       (evaluate (ys,env1 ++ extra,s1) = (res,s2)) /\
-      (nr ==> !e. res <> Rerr (Rraise e))`
-  (SIMP_TAC std_ss [Once EQ_SYM_EQ]
+      (nr ==> !e. res <> Rerr (Rraise e))`,
+  SIMP_TAC std_ss [Once EQ_SYM_EQ]
   \\ recInduct evaluate_ind \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
   \\ FULL_SIMP_TAC std_ss [compile_def,evaluate_def]
   \\ fs [LET_THM] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [env_rel_mk_Union]
@@ -292,25 +312,29 @@ Theorem compile_correct
 
 val _ = save_thm("compile_correct",compile_correct);
 
-Theorem compile_correct
-  `(evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
+Theorem compile_correct:
+   (evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
     k = LENGTH env ==>
-    (evaluate ([compile_exp l k x],env,s1) = (res,s2))`
-  (fs [compile_exp_def]
+    (evaluate ([compile_exp l k x],env,s1) = (res,s2))
+Proof
+  fs [compile_exp_def]
   \\ Cases_on `compile l (LENGTH env) [bvl_const$compile_exp x]`
   \\ PairCases_on `r` \\ rw []
   \\ drule bvl_constProofTheory.evaluate_compile_exp \\ fs [] \\ rw []
   \\ drule compile_sing \\ rw []
-  \\ drule compile_correct \\ fs []);
+  \\ drule compile_correct \\ fs []
+QED
 
-Theorem dest_Seq_thm
-  `!x. dest_Seq x = SOME (y0,y1) <=>
-        x = Let [y0;y1] (Var 1)`
-  (ho_match_mp_tac dest_Seq_ind \\ fs [] \\ rw [] \\ EVAL_TAC
-  \\ rw [] \\ eq_tac \\ rw []);
+Theorem dest_Seq_thm:
+   !x. dest_Seq x = SOME (y0,y1) <=>
+        x = Let [y0;y1] (Var 1)
+Proof
+  ho_match_mp_tac dest_Seq_ind \\ fs [] \\ rw [] \\ EVAL_TAC
+  \\ rw [] \\ eq_tac \\ rw []
+QED
 
-Theorem compile_seqs_correct
-  `!l x acc s1 s2 s3 res res3.
+Theorem compile_seqs_correct:
+   !l x acc s1 s2 s3 res res3.
       evaluate ([x],[],s1) = (res,s2) /\
       (!y r. acc = SOME y /\ res = Rval r ==>
              res3 <> Rerr (Rabort Rtype_error) /\
@@ -318,8 +342,9 @@ Theorem compile_seqs_correct
       res <> Rerr (Rabort Rtype_error) ==>
       evaluate ([compile_seqs l x acc],[],s1) =
         if acc = NONE then (res,s2) else
-          case res of Rval _ => (res3,s3) | _ => (res,s2)`
-  (HO_MATCH_MP_TAC compile_seqs_ind \\ rpt strip_tac
+          case res of Rval _ => (res3,s3) | _ => (res,s2)
+Proof
+  HO_MATCH_MP_TAC compile_seqs_ind \\ rpt strip_tac
   \\ once_rewrite_tac [compile_seqs_def]
   \\ Cases_on `dest_Seq x` \\ fs []
   THEN1
@@ -348,93 +373,121 @@ Theorem compile_seqs_correct
   \\ strip_tac \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ qpat_x_assum `!x1 x2 x3 x4. _` kall_tac
   \\ first_x_assum drule \\ fs []
-  \\ Cases_on `acc` \\ fs []);
+  \\ Cases_on `acc` \\ fs []
+QED
 
-Theorem compile_any_correct
-  `(evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
+Theorem compile_any_correct:
+   (evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
     k = LENGTH env ==>
-    (evaluate ([compile_any split_seq l k x],env,s1) = (res,s2))`
-  (rw [compile_any_def,compile_correct] \\ fs [LENGTH_NIL] \\ rw []
+    (evaluate ([compile_any split_seq l k x],env,s1) = (res,s2))
+Proof
+  rw [compile_any_def,compile_correct] \\ fs [LENGTH_NIL] \\ rw []
   \\ drule compile_seqs_correct
-  \\ disch_then (qspecl_then [`l`,`NONE`] mp_tac) \\ fs []);
+  \\ disch_then (qspecl_then [`l`,`NONE`] mp_tac) \\ fs []
+QED
 
-Theorem compile_IMP_LENGTH
-  `compile l n xs = (ys,l1,s1) ==> LENGTH ys = LENGTH xs`
-  (rw [] \\ mp_tac (SPEC_ALL compile_length) \\ asm_simp_tac std_ss []);
+Theorem compile_IMP_LENGTH:
+   compile l n xs = (ys,l1,s1) ==> LENGTH ys = LENGTH xs
+Proof
+  rw [] \\ mp_tac (SPEC_ALL compile_length) \\ asm_simp_tac std_ss []
+QED
 
-Theorem bVarBound_CONS
-  `bVarBound m [x] /\ bVarBound m xs ==> bVarBound m (x::xs)`
-  (Cases_on `xs` \\ fs []);
+Theorem bVarBound_CONS:
+   bVarBound m [x] /\ bVarBound m xs ==> bVarBound m (x::xs)
+Proof
+  Cases_on `xs` \\ fs []
+QED
 
-Theorem bVarBound_MEM
-  `bVarBound n xs <=> !x. MEM x xs ==> bVarBound n [x]`
-  (fs [Once bVarBound_EVERY,EVERY_MEM]);
+Theorem bVarBound_MEM:
+   bVarBound n xs <=> !x. MEM x xs ==> bVarBound n [x]
+Proof
+  fs [Once bVarBound_EVERY,EVERY_MEM]
+QED
 
-Theorem bEvery_MEM
-  `bEvery p xs = !x. MEM x xs ==> bEvery p [x]`
-  (fs [Once bEvery_EVERY,EVERY_MEM]);
+Theorem bEvery_MEM:
+   bEvery p xs = !x. MEM x xs ==> bEvery p [x]
+Proof
+  fs [Once bEvery_EVERY,EVERY_MEM]
+QED
 
-Theorem bVarBound_LESS_EQ
-  `!m xs n. bVarBound m xs /\ m <= n ==> bVarBound n xs`
-  (HO_MATCH_MP_TAC bVarBound_ind \\ rw [] \\ fs []);
+Theorem bVarBound_LESS_EQ:
+   !m xs n. bVarBound m xs /\ m <= n ==> bVarBound n xs
+Proof
+  HO_MATCH_MP_TAC bVarBound_ind \\ rw [] \\ fs []
+QED
 
-Theorem ALOOKUP_MAPi
-  `!xs i x.
-      ALOOKUP (MAPi (λi x. (x,i)) xs) n = SOME x ==> x < LENGTH xs`
-  (HO_MATCH_MP_TAC SNOC_INDUCT \\ rw []
+Theorem ALOOKUP_MAPi:
+   !xs i x.
+      ALOOKUP (MAPi (λi x. (x,i)) xs) n = SOME x ==> x < LENGTH xs
+Proof
+  HO_MATCH_MP_TAC SNOC_INDUCT \\ rw []
   \\ fs [SNOC_APPEND,MAPi_APPEND,ALOOKUP_APPEND]
-  \\ every_case_tac \\ fs []);
+  \\ every_case_tac \\ fs []
+QED
 
-Theorem bVarBound_SmartLet[simp]
-  `bVarBound m [SmartLet x xs] = bVarBound m [Let x xs]`
-  (rw [SmartLet_def] \\ fs [NULL_EQ]);
+Theorem bVarBound_SmartLet[simp]:
+   bVarBound m [SmartLet x xs] = bVarBound m [Let x xs]
+Proof
+  rw [SmartLet_def] \\ fs [NULL_EQ]
+QED
 
-Theorem bVarBound_LetLet
-  `bVarBound m [y] /\ n <= m ==> bVarBound m [LetLet n (l1:num_set) y]`
-  (fs [LetLet_def] \\ strip_tac
+Theorem bVarBound_LetLet:
+   bVarBound m [y] /\ n <= m ==> bVarBound m [LetLet n (l1:num_set) y]
+Proof
+  fs [LetLet_def] \\ strip_tac
   \\ once_rewrite_tac [bVarBound_MEM]
   \\ fs [MEM_MAP,MEM_GENLIST,PULL_EXISTS,MEM_FILTER]
   \\ reverse conj_tac
   THEN1 (match_mp_tac bVarBound_LESS_EQ \\ asm_exists_tac \\ fs [])
   \\ rw [] \\ every_case_tac \\ fs []
   \\ qabbrev_tac `xs = FILTER (λn. IS_SOME (lookup n l1)) (GENLIST I n)`
-  \\ imp_res_tac ALOOKUP_MAPi \\ fs []);
+  \\ imp_res_tac ALOOKUP_MAPi \\ fs []
+QED
 
-Theorem bVarBound_OptionalLetLet
-  `bVarBound m [e] /\ n <= m ==>
-    bVarBound m (FST (OptionalLetLet e n l s limit nr))`
-  (rw [OptionalLetLet_def,bVarBound_LetLet]);
+Theorem bVarBound_OptionalLetLet:
+   bVarBound m [e] /\ n <= m ==>
+    bVarBound m (FST (OptionalLetLet e n l s limit nr))
+Proof
+  rw [OptionalLetLet_def,bVarBound_LetLet]
+QED
 
-Theorem bVarBound_compile
-  `∀l n xs m. n ≤ m ⇒ bVarBound m (FST (compile l n xs))`
-  (ho_match_mp_tac compile_ind \\ rw [] \\ fs [compile_def]
+Theorem bVarBound_compile:
+   ∀l n xs m. n ≤ m ⇒ bVarBound m (FST (compile l n xs))
+Proof
+  ho_match_mp_tac compile_ind \\ rw [] \\ fs [compile_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ imp_res_tac compile_sing \\ rw [] \\ res_tac
   \\ imp_res_tac bVarBound_CONS \\ fs []
   \\ TRY (first_x_assum match_mp_tac) \\ fs []
   \\ imp_res_tac compile_IMP_LENGTH \\ fs []
   \\ imp_res_tac bVarBound_LetLet \\ fs []
-  \\ match_mp_tac bVarBound_OptionalLetLet \\ fs []);
+  \\ match_mp_tac bVarBound_OptionalLetLet \\ fs []
+QED
 
-Theorem compile_IMP_bVarBound
-  `compile l n xs = (ys,l2,s2) ==> bVarBound n ys`
-  (rw [] \\ mp_tac (Q.INST [`m`|->`n`] (SPEC_ALL bVarBound_compile)) \\ fs []);
+Theorem compile_IMP_bVarBound:
+   compile l n xs = (ys,l2,s2) ==> bVarBound n ys
+Proof
+  rw [] \\ mp_tac (Q.INST [`m`|->`n`] (SPEC_ALL bVarBound_compile)) \\ fs []
+QED
 
-Theorem compile_exp_bVarBound
-  `bVarBound n [compile_exp l n x]`
-  (fs [compile_exp_def]
+Theorem compile_exp_bVarBound:
+   bVarBound n [compile_exp l n x]
+Proof
+  fs [compile_exp_def]
   \\ Cases_on `compile l n [bvl_const$compile_exp x]`
   \\ Cases_on `r` \\ fs []
   \\ drule compile_IMP_bVarBound
   \\ drule compile_IMP_LENGTH
   \\ Cases_on `q` \\ fs []
-  \\ Cases_on `t` \\ fs []);
+  \\ Cases_on `t` \\ fs []
+QED
 
-Theorem compile_seqs_bVarBound
-  `!l x acc.
+Theorem compile_seqs_bVarBound:
+   !l x acc.
       (!y. acc = SOME y ==> bVarBound 0 [y]) ==>
-      bVarBound 0 [compile_seqs l x acc]`
-  (HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
+      bVarBound 0 [compile_seqs l x acc]
+Proof
+  HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
   \\ once_rewrite_tac [compile_seqs_def]
   \\ Cases_on `dest_Seq x` \\ fs []
   THEN1
@@ -442,25 +495,33 @@ Theorem compile_seqs_bVarBound
     \\ match_mp_tac bVarBound_LESS_EQ
     \\ asm_exists_tac \\ fs [])
   \\ rename1 `dest_Seq x = SOME y` \\ PairCases_on `y`
-  \\ fs [] \\ first_x_assum match_mp_tac \\ fs []);
+  \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
+QED
 
-Theorem bEvery_CONS
-  `bEvery p [x] /\ bEvery p xs ==> bEvery p (x::xs)`
-  (Cases_on `xs` \\ fs []);
+Theorem bEvery_CONS:
+   bEvery p [x] /\ bEvery p xs ==> bEvery p (x::xs)
+Proof
+  Cases_on `xs` \\ fs []
+QED
 
-Theorem handle_ok_Var_Const_list
-  `EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs`
-  (Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
-  \\ Cases_on `xs` \\ fs [handle_ok_def]);
+Theorem handle_ok_Var_Const_list:
+   EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs
+Proof
+  Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
+  \\ Cases_on `xs` \\ fs [handle_ok_def]
+QED
 
-Theorem handle_ok_SmartLet
-  `handle_ok [SmartLet xs x] <=> handle_ok xs /\ handle_ok [x]`
-  (rw [SmartLet_def,handle_ok_def] \\ fs [NULL_EQ,LENGTH_NIL,handle_ok_def]);
+Theorem handle_ok_SmartLet:
+   handle_ok [SmartLet xs x] <=> handle_ok xs /\ handle_ok [x]
+Proof
+  rw [SmartLet_def,handle_ok_def] \\ fs [NULL_EQ,LENGTH_NIL,handle_ok_def]
+QED
 
-Theorem handle_ok_OptionalLetLet
-  `handle_ok [e] /\ bVarBound n [e] ==>
-    handle_ok (FST (OptionalLetLet e n lx s l nr))`
-  (rw [OptionalLetLet_def] \\ fs [handle_ok_def]
+Theorem handle_ok_OptionalLetLet:
+   handle_ok [e] /\ bVarBound n [e] ==>
+    handle_ok (FST (OptionalLetLet e n lx s l nr))
+Proof
+  rw [OptionalLetLet_def] \\ fs [handle_ok_def]
   \\ reverse conj_tac THEN1
    (fs [LetLet_def,handle_ok_SmartLet]
     \\ match_mp_tac handle_ok_Var_Const_list
@@ -472,11 +533,13 @@ Theorem handle_ok_OptionalLetLet
       \\ fs [MEM_GENLIST,PULL_EXISTS] \\ rw []
       \\ every_case_tac \\ fs []
       \\ imp_res_tac ALOOKUP_MAPi \\ fs [])
-  \\ match_mp_tac bVarBound_LESS_EQ \\ asm_exists_tac \\ fs []);
+  \\ match_mp_tac bVarBound_LESS_EQ \\ asm_exists_tac \\ fs []
+QED
 
-Theorem compile_handle_ok
-  `∀l n xs. handle_ok (FST (compile l n xs))`
-  (ho_match_mp_tac compile_ind \\ rw []
+Theorem compile_handle_ok:
+   ∀l n xs. handle_ok (FST (compile l n xs))
+Proof
+  ho_match_mp_tac compile_ind \\ rw []
   \\ fs [compile_def,handle_ok_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ imp_res_tac compile_sing \\ rw [] \\ res_tac
@@ -503,22 +566,26 @@ Theorem compile_handle_ok
   \\ rpt (pop_assum kall_tac)
   \\ match_mp_tac handle_ok_Var_Const_list
   \\ fs [EVERY_GENLIST]
-  \\ rw [] \\ every_case_tac \\ fs []);
+  \\ rw [] \\ every_case_tac \\ fs []
+QED
 
-Theorem compile_exp_handle_ok
-  `handle_ok [compile_exp l n x]`
-  (fs [bvl_handleTheory.compile_exp_def]
+Theorem compile_exp_handle_ok:
+   handle_ok [compile_exp l n x]
+Proof
+  fs [bvl_handleTheory.compile_exp_def]
   \\ Cases_on `compile l n [bvl_const$compile_exp x]`
   \\ fs [] \\ PairCases_on `r`
   \\ imp_res_tac bvl_handleTheory.compile_sing \\ fs []
   \\ qspecl_then [`l`,`n`,`[bvl_const$compile_exp x]`] mp_tac compile_handle_ok
-  \\ fs []);
+  \\ fs []
+QED
 
-Theorem compile_seqs_handle_ok
-  `!l x acc.
+Theorem compile_seqs_handle_ok:
+   !l x acc.
       (!y. acc = SOME y ==> handle_ok [y] /\ bVarBound 0 [y]) ==>
-      handle_ok [compile_seqs l x acc]`
-  (HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
+      handle_ok [compile_seqs l x acc]
+Proof
+  HO_MATCH_MP_TAC compile_seqs_ind \\ rw []
   \\ once_rewrite_tac [compile_seqs_def]
   \\ Cases_on `dest_Seq x` \\ fs []
   THEN1
@@ -527,63 +594,78 @@ Theorem compile_seqs_handle_ok
     \\ fs [let_ok_def])
   \\ rename1 `dest_Seq x = SOME y` \\ PairCases_on `y`
   \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
-  \\ match_mp_tac compile_seqs_bVarBound \\ fs []);
+  \\ match_mp_tac compile_seqs_bVarBound \\ fs []
+QED
 
-Theorem compile_any_handle_ok
-  `handle_ok [compile_any split_seq l n x]`
-  (rw [compile_any_def,compile_exp_handle_ok]
-  \\ match_mp_tac compile_seqs_handle_ok \\ fs []);
+Theorem compile_any_handle_ok:
+   handle_ok [compile_any split_seq l n x]
+Proof
+  rw [compile_any_def,compile_exp_handle_ok]
+  \\ match_mp_tac compile_seqs_handle_ok \\ fs []
+QED
 
-Theorem handle_ok_CONS
-  `!x xs. handle_ok (x::xs) <=> handle_ok [x] /\ handle_ok xs`
-  (Cases_on `xs` \\ fs [handle_ok_def]);
+Theorem handle_ok_CONS:
+   !x xs. handle_ok (x::xs) <=> handle_ok [x] /\ handle_ok xs
+Proof
+  Cases_on `xs` \\ fs [handle_ok_def]
+QED
 
-Theorem handle_ok_EVERY
-  `!xs. handle_ok xs <=> EVERY (\x. handle_ok [x]) xs`
-  (Induct \\ fs [handle_ok_def] \\ simp [Once handle_ok_CONS] \\ fs []);
+Theorem handle_ok_EVERY:
+   !xs. handle_ok xs <=> EVERY (\x. handle_ok [x]) xs
+Proof
+  Induct \\ fs [handle_ok_def] \\ simp [Once handle_ok_CONS] \\ fs []
+QED
 
-Theorem LetLet_code_labels[simp]
-  `get_code_labels (LetLet x y z) = get_code_labels z`
-  (rw[bvl_handleTheory.LetLet_def]
+Theorem LetLet_code_labels[simp]:
+   get_code_labels (LetLet x y z) = get_code_labels z
+Proof
+  rw[bvl_handleTheory.LetLet_def]
   \\ rw[bvl_handleTheory.SmartLet_def, MAP_MAP_o, o_DEF, MAP_GENLIST]
   \\ rw[Once EXTENSION, MEM_FILTER, MEM_MAP, MEM_GENLIST, PULL_EXISTS, PULL_FORALL]
   \\ rw[EQ_IMP_THM]
   \\ rpt(pop_assum mp_tac)
   \\ TOP_CASE_TAC \\ fs[]
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem compile_code_labels
-  `∀a b c. BIGUNION (set (MAP get_code_labels (FST (bvl_handle$compile a b c)))) ⊆
-           BIGUNION (set (MAP get_code_labels c))`
-  (recInduct bvl_handleTheory.compile_ind
+Theorem compile_code_labels:
+   ∀a b c. BIGUNION (set (MAP get_code_labels (FST (bvl_handle$compile a b c)))) ⊆
+           BIGUNION (set (MAP get_code_labels c))
+Proof
+  recInduct bvl_handleTheory.compile_ind
   \\ rw[bvl_handleTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs[])
   \\ imp_res_tac bvl_handleTheory.compile_sing
   \\ rveq \\ fs[NULL_EQ] \\ rw[bvl_handleTheory.OptionalLetLet_def]
   \\ fs[]
   \\ fsrw_tac[DNF_ss][SUBSET_DEF]
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem compile_exp_code_labels
-  `∀a b c. get_code_labels (compile_exp a b c) ⊆ get_code_labels c `
-  (rw[bvl_handleTheory.compile_exp_def]
+Theorem compile_exp_code_labels:
+   ∀a b c. get_code_labels (compile_exp a b c) ⊆ get_code_labels c
+Proof
+  rw[bvl_handleTheory.compile_exp_def]
   \\ Cases_on`bvl_handle$compile a b [compile_exp c]`
   \\ PairCases_on`r`
   \\ imp_res_tac bvl_handleTheory.compile_sing \\ rveq \\ fs[]
   \\ pop_assum mp_tac
   \\ specl_args_of_then``bvl_handle$compile``compile_code_labels mp_tac
   \\ rw[] \\ fs[]
-  \\ metis_tac[bvl_constProofTheory.compile_exp_code_labels, SUBSET_TRANS]);
+  \\ metis_tac[bvl_constProofTheory.compile_exp_code_labels, SUBSET_TRANS]
+QED
 
-Theorem compile_seqs_code_labels
-  `!cut e acc.
+Theorem compile_seqs_code_labels:
+   !cut e acc.
      get_code_labels (compile_seqs cut e acc) SUBSET
      get_code_labels e UNION
-     (case acc of NONE => {} | SOME r => get_code_labels r)`
-  (ho_match_mp_tac bvl_handleTheory.compile_seqs_ind \\ rw []
+     (case acc of NONE => {} | SOME r => get_code_labels r)
+Proof
+  ho_match_mp_tac bvl_handleTheory.compile_seqs_ind \\ rw []
   \\ rw [Once bvl_handleTheory.compile_seqs_def]
   \\ rpt (PURE_TOP_CASE_TAC \\ fs []) \\ rw []
   \\ fs [dest_Seq_thm] \\ rw []
-  \\ metis_tac [compile_exp_code_labels, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]);
+  \\ metis_tac [compile_exp_code_labels, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]
+QED
 
 val _ = export_theory();

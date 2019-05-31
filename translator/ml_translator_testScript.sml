@@ -232,11 +232,13 @@ val a_c_inv_num = get_type_inv ``:(num, num) a_c_type``;
 val st_inv = get_type_inv ``:simple_type``;
 val st2_inv = get_type_inv ``:simple_type2``;
 
-Theorem EqTyp_test_lemmas
-  `EqualityType (^a_inv) /\ EqualityType (^a_b_inv)
+Theorem EqTyp_test_lemmas:
+   EqualityType (^a_inv) /\ EqualityType (^a_b_inv)
     /\ EqualityType (^a_c_inv_num) /\ EqualityType (^st_inv)
-    /\ EqualityType (^st2_inv)`
-  (fs (eq_lemmas ()));
+    /\ EqualityType (^st2_inv)
+Proof
+  fs (eq_lemmas ())
+QED
 
 (* translating within nested local blocks and modules *)
 

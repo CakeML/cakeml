@@ -42,11 +42,12 @@ val MAPI_thm_gen = Q.prove (
   match_mp_tac MAPi_CONG \\ rw[]
 );
 
-Theorem MAPI_thm
-  `!f l. MAPi f l = mapi f 0 l`
-  (rw [(MAPI_thm_gen |> Q.SPECL[`f`,`l`,`0`]
+Theorem MAPI_thm:
+   !f l. MAPi f l = mapi f 0 l
+Proof
+  rw [(MAPI_thm_gen |> Q.SPECL[`f`,`l`,`0`]
   |> SIMP_RULE (srw_ss()++ETA_ss) [])]
-);
+QED
 
 val mapPartial_def = Define`
   (mapPartial f [] = []) /\
@@ -54,21 +55,24 @@ val mapPartial_def = Define`
     NONE => mapPartial f t
     |(SOME x) => x::mapPartial f t)`;
 
-Theorem mapPartial_thm
-  `!f l. mapPartial f l = MAP THE (FILTER IS_SOME (MAP f l))`
-  (Induct_on `l` \\ rw [mapPartial_def] \\ Cases_on `f h` \\ rw [THE_DEF] \\ fs [IS_SOME_DEF]
-);
+Theorem mapPartial_thm:
+   !f l. mapPartial f l = MAP THE (FILTER IS_SOME (MAP f l))
+Proof
+  Induct_on `l` \\ rw [mapPartial_def] \\ Cases_on `f h` \\ rw [THE_DEF] \\ fs [IS_SOME_DEF]
+QED
 
-Theorem index_find_thm
-  `!x y. OPTION_MAP SND (INDEX_FIND x f l) = OPTION_MAP SND (INDEX_FIND y f l)`
-  (Induct_on`l` \\ rw[INDEX_FIND_def]
-);
+Theorem index_find_thm:
+   !x y. OPTION_MAP SND (INDEX_FIND x f l) = OPTION_MAP SND (INDEX_FIND y f l)
+Proof
+  Induct_on`l` \\ rw[INDEX_FIND_def]
+QED
 
-Theorem FIND_thm
-  `(FIND f [] = NONE) ∧
-   (∀h t. FIND f (h::t) = if f h then SOME h else FIND f t)`
-  (rw[FIND_def,INDEX_FIND_def,index_find_thm]
-);
+Theorem FIND_thm:
+   (FIND f [] = NONE) ∧
+   (∀h t. FIND f (h::t) = if f h then SOME h else FIND f t)
+Proof
+  rw[FIND_def,INDEX_FIND_def,index_find_thm]
+QED
 
 val partition_aux_def = Define`
   (partition_aux f [] pos neg =
@@ -86,15 +90,17 @@ val partition_aux_thm = Q.prove(
   rw [partition_aux_def]
 );
 
-Theorem partition_pos_thm
-  `!f l. FST (partition f l) = FILTER f l`
-  (rw [partition_def, FILTER, partition_aux_thm]
-);
+Theorem partition_pos_thm:
+   !f l. FST (partition f l) = FILTER f l
+Proof
+  rw [partition_def, FILTER, partition_aux_thm]
+QED
 
-Theorem partition_neg_thm
-  `!f l. SND (partition f l) = FILTER ($~ o f) l`
-  (rw [partition_def, FILTER, partition_aux_thm]
-);
+Theorem partition_neg_thm:
+   !f l. SND (partition f l) = FILTER ($~ o f) l
+Proof
+  rw [partition_def, FILTER, partition_aux_thm]
+QED
 
 val foldl_aux_def = Define`
   (foldl_aux f e n [] = e) /\
@@ -118,10 +124,11 @@ val foldli_aux_thm = Q.prove (
   rw [ADD1]
 );
 
-Theorem foldli_thm
-  `!f e l. foldli f e l = FOLDRi (\n. f (LENGTH l - (SUC n))) e (REVERSE l)`
-  (rw [foldli_def, foldli_aux_thm]
-);
+Theorem foldli_thm:
+   !f e l. foldli f e l = FOLDRi (\n. f (LENGTH l - (SUC n))) e (REVERSE l)
+Proof
+  rw [foldli_def, foldli_aux_thm]
+QED
 
 (* these definitions are in A normal form in
    order to be able to prove CF specs about them
@@ -142,19 +149,23 @@ val tabulate_aux_def = tDefine"tabulate_aux"`
 val tabulate_def = Define
   `tabulate n f = let l = [] in tabulate_aux 0 n f l`;
 
-Theorem tabulate_aux_GENLIST
-  `∀n m f acc. tabulate_aux n m f acc = REVERSE acc ++ GENLIST (f o FUNPOW SUC n) (m-n)`
-  (recInduct(theorem"tabulate_aux_ind") \\ rw[]
+Theorem tabulate_aux_GENLIST:
+   ∀n m f acc. tabulate_aux n m f acc = REVERSE acc ++ GENLIST (f o FUNPOW SUC n) (m-n)
+Proof
+  recInduct(theorem"tabulate_aux_ind") \\ rw[]
   \\ rw[Once tabulate_aux_def]
   >- ( `m - n = 0` by simp[] \\ rw[] )
   \\ Cases_on`m` \\ fs[]
   \\ rename1`SUC m - n` \\ `SUC m - n = SUC (m - n)` by simp[]
   \\ simp[GENLIST_CONS,FUNPOW,o_DEF,FUNPOW_SUC_PLUS]
-  \\ simp[ADD1]);
+  \\ simp[ADD1]
+QED
 
-Theorem tabulate_GENLIST
-  `!n. tabulate n f = GENLIST f n`
-  (rw[tabulate_def,tabulate_aux_GENLIST,FUNPOW_SUC_PLUS,o_DEF,ETA_AX]);
+Theorem tabulate_GENLIST:
+   !n. tabulate n f = GENLIST f n
+Proof
+  rw[tabulate_def,tabulate_aux_GENLIST,FUNPOW_SUC_PLUS,o_DEF,ETA_AX]
+QED
 
 val collate_def = Define`
   (collate f [] [] = EQUAL) /\
@@ -167,44 +178,48 @@ val collate_def = Define`
 
 val collate_ind = theorem"collate_ind";
 
-Theorem collate_equal_thm
-  `!l. (!x. MEM x l ==> (f x x = EQUAL)) ==> (collate f l l = EQUAL)`
-  (Induct_on `l` \\ rw [collate_def] \\ rw [collate_def]
-);
+Theorem collate_equal_thm:
+   !l. (!x. MEM x l ==> (f x x = EQUAL)) ==> (collate f l l = EQUAL)
+Proof
+  Induct_on `l` \\ rw [collate_def] \\ rw [collate_def]
+QED
 
-Theorem collate_short_thm
-  `!f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l1 ≼ l2) ==>
-        (collate f l1 l2 = LESS)`
-  (ho_match_mp_tac collate_ind
+Theorem collate_short_thm:
+   !f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l1 ≼ l2) ==>
+        (collate f l1 l2 = LESS)
+Proof
+  ho_match_mp_tac collate_ind
   \\ rw[collate_def] \\ fs[]
-);
+QED
 
-Theorem collate_long_thm
-  `!f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l2 ≼ l1) ==>
-        (collate f l1 l2 = GREATER)`
-  (ho_match_mp_tac collate_ind
+Theorem collate_long_thm:
+   !f l1 l2. (!x. f x x = EQUAL) ∧ (l1 ≠ l2) /\ (l2 ≼ l1) ==>
+        (collate f l1 l2 = GREATER)
+Proof
+  ho_match_mp_tac collate_ind
   \\ rw[collate_def] \\ fs[]
-);
+QED
 
 val cpn_to_reln_def = Define`
   cpn_to_reln f x1 x2 = (f x1 x2 = LESS)`;
 
-Theorem collate_cpn_reln_thm
-  `!f l1 l2. (!x1 x2. (f x1 x2 = EQUAL) <=>
-    (x1 = x2)) ==> (cpn_to_reln (collate f) l1 l2 = LLEX (cpn_to_reln f) l1 l2)`
-  (ho_match_mp_tac collate_ind \\ rw [collate_def, cpn_to_reln_def, LLEX_def] \\
+Theorem collate_cpn_reln_thm:
+   !f l1 l2. (!x1 x2. (f x1 x2 = EQUAL) <=>
+    (x1 = x2)) ==> (cpn_to_reln (collate f) l1 l2 = LLEX (cpn_to_reln f) l1 l2)
+Proof
+  ho_match_mp_tac collate_ind \\ rw [collate_def, cpn_to_reln_def, LLEX_def] \\
   first_assum (qspecl_then [`h1`, `h1`] (fn th => assume_tac (GSYM th))) \\
   `(h1 = h1) = T` by DECIDE_TAC \\ rw[] \\`EQUAL ≠ LESS` by fs[] \\ rw[]
-);
+QED
 
 (* from std_preludeLib *)
 val LENGTH_AUX_def = Define `
   (LENGTH_AUX [] n = (n:num)) /\
   (LENGTH_AUX (x::xs) n = LENGTH_AUX xs (n+1))`;
 
-Theorem LENGTH_AUX_THM
-  `!xs n. LENGTH_AUX xs n = LENGTH xs + n`
-  (Induct THEN ASM_SIMP_TAC std_ss [LENGTH_AUX_def,LENGTH,ADD1,AC ADD_COMM ADD_ASSOC])
+Theorem LENGTH_AUX_THM = Q.prove(`
+  !xs n. LENGTH_AUX xs n = LENGTH xs + n`,
+  Induct THEN ASM_SIMP_TAC std_ss [LENGTH_AUX_def,LENGTH,ADD1,AC ADD_COMM ADD_ASSOC])
   |> Q.SPECL [`xs`,`0`] |> GSYM |> SIMP_RULE std_ss [];
 
 val _ = save_thm("list_compare_def",

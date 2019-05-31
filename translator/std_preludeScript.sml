@@ -77,17 +77,19 @@ val IS_SOME_OWHILE_THM = Q.prove(
   THEN ASM_SIMP_TAC std_ss [] THEN REPEAT STRIP_TAC
   THEN IMP_RES_TAC LESS_LEAST THEN FULL_SIMP_TAC std_ss []);
 
-Theorem WHILE_ind
-  `!P. (!p g x. (p x ==> P p g (g x)) ==> P p g x) ==>
-        !p g x. IS_SOME (OWHILE p g x) ==> P p g x`
-  (SIMP_TAC std_ss [IS_SOME_OWHILE_THM,PULL_EXISTS,PULL_FORALL]
+Theorem WHILE_ind:
+   !P. (!p g x. (p x ==> P p g (g x)) ==> P p g x) ==>
+        !p g x. IS_SOME (OWHILE p g x) ==> P p g x
+Proof
+  SIMP_TAC std_ss [IS_SOME_OWHILE_THM,PULL_EXISTS,PULL_FORALL]
   THEN Induct_on `n` THEN SRW_TAC [] []
   THEN FIRST_ASSUM MATCH_MP_TAC
   THEN SRW_TAC [] [] THEN FULL_SIMP_TAC std_ss [AND_IMP_INTRO]
   THEN Q.PAT_X_ASSUM `!x1 x2 x3 x4. bbb` MATCH_MP_TAC
   THEN SRW_TAC [] [] THEN FULL_SIMP_TAC std_ss [FUNPOW]
   THEN `SUC m < SUC n` by DECIDE_TAC
-  THEN METIS_TAC [FUNPOW]);
+  THEN METIS_TAC [FUNPOW]
+QED
 
 val OWHILE_ind = save_thm("OWHILE_ind",WHILE_ind);
 
@@ -97,7 +99,11 @@ val _ = next_ml_names := ["while"];
 val res = translate WHILE;
 val res = translate OWHILE_THM;
 
-Theorem SUC_LEMMA `SUC = \x. x+1` (SIMP_TAC std_ss [FUN_EQ_THM,ADD1]);
+Theorem SUC_LEMMA:
+  SUC = \x. x+1
+Proof
+SIMP_TAC std_ss [FUN_EQ_THM,ADD1]
+QED
 
 val LEAST_LEMMA = Q.prove(
   `$LEAST P = WHILE (\x. ~(P x)) (\x. x + 1) 0`,

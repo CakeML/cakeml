@@ -145,13 +145,13 @@ val _ = Define `
 
 (*val nsDom : forall 'v 'm 'n. Eq 'm, Eq 'n, Eq 'v, SetType 'v => namespace 'm 'n 'v -> set (id 'm 'n)*)
 val _ = Define `
- ((nsDom:('m,'n,'v)namespace ->(('m,'n)id)set) env= 
+ ((nsDom:('m,'n,'v)namespace ->(('m,'n)id)set) env=
   ({ n | v,n | (v IN UNIV) /\ (n IN UNIV) /\ (nsLookup env n = SOME v) }))`;
 
 
 (*val nsDomMod : forall 'v 'm 'n. SetType 'm, Eq 'm, Eq 'n, Eq 'v => namespace 'm 'n 'v -> set (list 'm)*)
 val _ = Define `
- ((nsDomMod:('m,'n,'v)namespace ->('m list)set) env= 
+ ((nsDomMod:('m,'n,'v)namespace ->('m list)set) env=
   ({ n | v,n | (v IN UNIV) /\ (n IN UNIV) /\ (nsLookupMod env n = SOME v) }))`;
 
 
@@ -163,4 +163,3 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn nsMap_defn;
 val _ = export_theory()
-

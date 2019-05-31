@@ -41,7 +41,7 @@ local
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
            "load", (* "load32", *) "load8", "store", (* "store32", *) "store8",
            "fp less", "fp less eq", "fp eq", "fp mov", "fp abs", "fp neg",
-           "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp to reg",
+           "fp sqrt", "fp add", "fp sub", "fp mul", "fp div", "fp fma", "fp to reg",
            "fp from reg", "fp to int", "fp from int",
            "jump", "cjump reg", "cjump imm", "call", "jump reg", "loc"]
   val l = ListPair.zip (n, Drule.CONJUNCTS x64_ast_def)
@@ -202,6 +202,7 @@ in
   val fp_sub = enc_thm "fp sub" rwts
   val fp_mul = enc_thm "fp mul" rwts
   val fp_div = enc_thm "fp div" rwts
+  val fp_fma = enc_thm "fp fma" rwts
   val fp_to_reg = enc_thm "fp to reg" rwts
   val fp_from_reg = enc_thm "fp from reg" rwts
   val fp_to_int = enc_thm "fp to int" rwts
@@ -216,6 +217,6 @@ val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
      (* store32_rwt, *) store8_rwt, jump_rwt, jump_cmp_rwt,
      jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt,
      fp_less, fp_leq, fp_eq, fp_mov, fp_abs, fp_neg, fp_sqrt, fp_add, fp_sub,
-     fp_mul, fp_div, fp_to_reg, fp_from_reg, fp_to_int, fp_from_int])
+     fp_mul, fp_div, fp_fma, fp_to_reg, fp_from_reg, fp_to_int, fp_from_int])
 
 val () = export_theory ()

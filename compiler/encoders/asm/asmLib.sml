@@ -90,6 +90,7 @@ local
      `Inst (FP (FPSub d1 d2 d3)) : 'a asm`,
      `Inst (FP (FPMul d1 d2 d3)) : 'a asm`,
      `Inst (FP (FPDiv d1 d2 d3)) : 'a asm`,
+     `Inst (FP (FPFma d1 d2 d3)) : 'a asm`,
      `Jump w : 'a asm`,
      `JumpCmp x r1 (Reg r2) w : 'a asm`,
      `JumpCmp x r1 (Imm i) w : 'a asm`,

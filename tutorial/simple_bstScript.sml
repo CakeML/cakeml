@@ -84,30 +84,32 @@ val key_set_def = Define`
   Let's prove this.
 *)
 
-Theorem key_set_equiv
-  `∀cmp.
+Theorem key_set_equiv:
+   ∀cmp.
     good_cmp cmp
     ⇒
     (∀k. k ∈ key_set cmp k) ∧
     (∀k1 k2. k1 ∈ key_set cmp k2 ⇒ k2 ∈ key_set cmp k1) ∧
-    (∀k1 k2 k3. k1 ∈ key_set cmp k2 ∧ k2 ∈ key_set cmp k3 ⇒ k1 ∈ key_set cmp k3)`
-  (rw [key_set_def] >>
-  metis_tac [good_cmp_def]);
+    (∀k1 k2 k3. k1 ∈ key_set cmp k2 ∧ k2 ∈ key_set cmp k3 ⇒ k1 ∈ key_set cmp k3)
+Proof
+  rw [key_set_def] >>
+  metis_tac [good_cmp_def]
+QED
 
 (* A corollary of this: if two keys have the same key_set, they must be
    equivalent *)
 
-Theorem key_set_eq
-  `∀cmp k1 k2.
+Theorem key_set_eq:
+   ∀cmp k1 k2.
     good_cmp cmp
     ⇒
-    (key_set cmp k1 = key_set cmp k2 ⇔ cmp k1 k2 = Equal)`
-  ((* EXERCISE: prove this *)
+    (key_set cmp k1 = key_set cmp k2 ⇔ cmp k1 k2 = Equal)
+Proof
+  (* EXERCISE: prove this *)
   (* hint: consider the tactics used above *)
   (* hint: remember DB.match and DB.find to find useful theorems *)
   (* hint: set extensionality theorem is called EXTENSION *)
-
-);
+QED
 
 (* A helper theorem, expanding out the definition of key_set, for use with
    metis_tac later. *)
@@ -125,13 +127,14 @@ val to_fmap_def = Define`
   to_fmap cmp (Node k v l r) =
   to_fmap cmp l ⊌ to_fmap cmp r |+ (key_set cmp k, v)`;
 
-Theorem to_fmap_key_set
-  `∀ks t.
-    ks ∈ FDOM (to_fmap cmp t) ⇒ ∃k. ks = key_set cmp k`
-   (Induct_on `t` >>
+Theorem to_fmap_key_set:
+   ∀ks t.
+    ks ∈ FDOM (to_fmap cmp t) ⇒ ∃k. ks = key_set cmp k
+Proof
+   Induct_on `t` >>
    (* EXERCISE: finish this proof *)
    (* hint: the same tactic probably works for both subgoals *)
-);
+QED
 
 (*
   Now some proofs about the basic tree operations.
@@ -171,8 +174,11 @@ val wf_tree_def = Define`
 *)
 
 
-Theorem wf_tree_singleton[simp]
-  `wf_tree cmp (singleton k v)` (EVAL_TAC);
+Theorem wf_tree_singleton[simp]:
+   wf_tree cmp (singleton k v)
+Proof
+EVAL_TAC
+QED
 
 (* The [simp] annotation above is equivalent to calling
    export_rewrites["wf_tree_singleton"] after storing this theorem. *)
@@ -190,10 +196,11 @@ val key_ordered_insert = Q.store_thm("key_ordered_insert[simp]",
   (* hint: this lemma might need induction *)
 );
 
-Theorem wf_tree_insert[simp]
-  `good_cmp cmp ⇒
-   ∀t k v. wf_tree cmp t ⇒ wf_tree cmp (insert cmp k v t)`
-  (strip_tac \\
+Theorem wf_tree_insert[simp]:
+   good_cmp cmp ⇒
+   ∀t k v. wf_tree cmp t ⇒ wf_tree cmp (insert cmp k v t)
+Proof
+  strip_tac \\
   Induct \\
   rw[insert_def] \\
   CASE_TAC \\ fs[wf_tree_def] \\
@@ -202,40 +209,44 @@ Theorem wf_tree_insert[simp]
      then you can continue with:
     match_mp_tac key_ordered_insert
     ( or: match_mp_tac (MP_CANON key_ordered_insert) )*)
-
-);
+QED
 
 (*
   Correctness of lookup
 *)
 
-Theorem key_ordered_to_fmap
-  `good_cmp cmp ⇒
+Theorem key_ordered_to_fmap:
+   good_cmp cmp ⇒
    ∀t k res. key_ordered cmp k t res ⇔
-       (∀ks k'. ks ∈ FDOM (to_fmap cmp t) ∧ k' ∈ ks ⇒ cmp k k' = res)`
-  (strip_tac \\
+       (∀ks k'. ks ∈ FDOM (to_fmap cmp t) ∧ k' ∈ ks ⇒ cmp k k' = res)
+Proof
+  strip_tac \\
   Induct \\
   rw[to_fmap_def] \\
   eq_tac \\ rw[] \\
-  metis_tac[IN_key_set,cmp_thms]);
+  metis_tac[IN_key_set,cmp_thms]
+QED
 
-Theorem wf_tree_Node_imp
-  `good_cmp cmp ∧
+Theorem wf_tree_Node_imp:
+   good_cmp cmp ∧
    wf_tree cmp (Node k v l r) ⇒
    DISJOINT (FDOM (to_fmap cmp l)) (FDOM (to_fmap cmp r)) ∧
    (∀x. key_set cmp x ∈ FDOM (to_fmap cmp l) ⇒ cmp k x = Greater) ∧
-   (∀x. key_set cmp x ∈ FDOM (to_fmap cmp r) ⇒ cmp k x = Less)`
-  (rw[IN_DISJOINT,wf_tree_def] \\
+   (∀x. key_set cmp x ∈ FDOM (to_fmap cmp r) ⇒ cmp k x = Less)
+Proof
+  rw[IN_DISJOINT,wf_tree_def] \\
   spose_not_then strip_assume_tac \\
   imp_res_tac to_fmap_key_set \\
   imp_res_tac key_ordered_to_fmap \\
-  metis_tac[cmp_thms,IN_key_set]);
+  metis_tac[cmp_thms,IN_key_set]
+QED
 
-Theorem lookup_to_fmap
-  `good_cmp cmp ⇒
+Theorem lookup_to_fmap:
+   good_cmp cmp ⇒
    ∀t k. wf_tree cmp t ⇒
-     lookup cmp k t = FLOOKUP (to_fmap cmp t) (key_set cmp k)`
-  (strip_tac \\
+     lookup cmp k t = FLOOKUP (to_fmap cmp t) (key_set cmp k)
+Proof
+  strip_tac \\
   Induct \\
   rw[lookup_def,to_fmap_def] \\
   fs[] \\
@@ -245,7 +256,6 @@ Theorem lookup_to_fmap
     DB.match[] ``FLOOKUP (_ ⊌ _)``;
   *)
   (* EXERCISE: fill in the rest of this proof *)
-
-);
+QED
 
 val _ = export_theory();

@@ -94,17 +94,17 @@ val r = translate bvi_tailrecTheory.arg_ty_PMATCH;
 val r = translate bvi_tailrecTheory.op_ty_PMATCH;
 val r = translate bvi_tailrecTheory.scan_expr_def;
 
-Theorem bvi_tailrec_scan_expr_side
-  `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2`
-  (recInduct bvi_tailrecTheory.scan_expr_ind \\ rw []
+Theorem bvi_tailrec_scan_expr_side = Q.prove(`
+  !a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2`,
+  recInduct bvi_tailrecTheory.scan_expr_ind \\ rw []
   \\ once_rewrite_tac [fetch "-" "bvi_tailrec_scan_expr_side_def"] \\ fs []
   \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
 
 val r = translate bvi_tailrecTheory.rewrite_PMATCH;
 
-Theorem bvi_tailrec_rewrite_side
-  `!v58 v59 v60 v56 v61 v57. bvi_tailrec_rewrite_side v58 v59 v60 v56 v61 v57`
-  (recInduct bvi_tailrecTheory.rewrite_ind \\ rw []
+Theorem bvi_tailrec_rewrite_side = Q.prove(`
+  !v58 v59 v60 v56 v61 v57. bvi_tailrec_rewrite_side v58 v59 v60 v56 v61 v57`,
+  recInduct bvi_tailrecTheory.rewrite_ind \\ rw []
   \\ once_rewrite_tac [fetch "-" "bvi_tailrec_rewrite_side_def"] \\ fs []
   \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
 

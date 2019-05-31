@@ -138,39 +138,46 @@ rw [is_heap_ordered_def] >>
 fs [is_heap_ordered_def, BAG_EVERY, heap_to_bag_def] >>
 metis_tac [WeakLinearOrder, WeakOrder, transitive_def, WeakLinearOrder_neg]);
 
-Theorem insert_bag
-`!get_key leq s h.
-  heap_to_bag (insert get_key leq s h) = BAG_INSERT s (heap_to_bag h)`
-(rw [insert_def, ins_bag, heap_to_bag_def, BAG_INSERT_UNION]);
+Theorem insert_bag:
+ !get_key leq s h.
+  heap_to_bag (insert get_key leq s h) = BAG_INSERT s (heap_to_bag h)
+Proof
+rw [insert_def, ins_bag, heap_to_bag_def, BAG_INSERT_UNION]
+QED
 
-Theorem insert_heap_ordered
-`!get_key leq x h.
+Theorem insert_heap_ordered:
+ !get_key leq x h.
   WeakLinearOrder leq ∧
   is_heap_ordered get_key leq h
   ⇒
-  is_heap_ordered get_key leq (insert get_key leq x h)`
-(rw [insert_def, is_heap_ordered_def] >>
+  is_heap_ordered get_key leq (insert get_key leq x h)
+Proof
+rw [insert_def, is_heap_ordered_def] >>
 match_mp_tac ins_heap_ordered >>
-rw [is_heap_ordered_def, BAG_EVERY, heap_to_bag_def]);
+rw [is_heap_ordered_def, BAG_EVERY, heap_to_bag_def]
+QED
 
-Theorem merge_bag
-`!get_key leq h1 h2.
+Theorem merge_bag:
+ !get_key leq h1 h2.
   heap_to_bag (merge get_key leq h1 h2) =
-  BAG_UNION (heap_to_bag h1) (heap_to_bag h2)`
-(HO_MATCH_MP_TAC merge_ind >>
+  BAG_UNION (heap_to_bag h1) (heap_to_bag h2)
+Proof
+HO_MATCH_MP_TAC merge_ind >>
 srw_tac [BAG_ss] [merge_def, heap_to_bag_def, BAG_INSERT_UNION, ins_bag] >>
 cases_on `t1` >>
 cases_on `t2` >>
-srw_tac [BAG_ss] [link_def, heap_to_bag_def, BAG_INSERT_UNION]);
+srw_tac [BAG_ss] [link_def, heap_to_bag_def, BAG_INSERT_UNION]
+QED
 
-Theorem merge_heap_ordered
-`!get_key leq h1 h2.
+Theorem merge_heap_ordered:
+ !get_key leq h1 h2.
   WeakLinearOrder leq ∧
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2
   ⇒
-  is_heap_ordered get_key leq (merge get_key leq h1 h2)`
-(HO_MATCH_MP_TAC merge_ind >>
+  is_heap_ordered get_key leq (merge get_key leq h1 h2)
+Proof
+HO_MATCH_MP_TAC merge_ind >>
 rw [merge_def, is_heap_ordered_def, heap_to_bag_def] >>
 fs [] >>
 match_mp_tac ins_heap_ordered >>
@@ -179,7 +186,8 @@ cases_on `t1` >>
 cases_on `t2` >>
 rw [link_def, is_heap_ordered_def, BAG_EVERY] >>
 fs [is_heap_ordered_def, BAG_EVERY, heap_to_bag_def] >>
-metis_tac [WeakLinearOrder, WeakOrder, transitive_def, WeakLinearOrder_neg]);
+metis_tac [WeakLinearOrder, WeakOrder, transitive_def, WeakLinearOrder_neg]
+QED
 
 val remove_min_tree = Q.prove (
 `∀get_key leq h t h'.
@@ -251,22 +259,24 @@ full_simp_tac (srw_ss()++BAG_ss)
             transitive_def]
 ]);
 
-Theorem find_min_correct
-`!h get_key leq.
+Theorem find_min_correct:
+ !h get_key leq.
   WeakLinearOrder leq ∧ (h ≠ []) ∧ is_heap_ordered get_key leq h
   ⇒
   BAG_IN (find_min get_key leq h) (heap_to_bag h) ∧
   (!y. BAG_IN y (heap_to_bag h)
        ⇒
-       leq (get_key (find_min get_key leq h)) (get_key y))`
-(rw [find_min_def] >>
+       leq (get_key (find_min get_key leq h)) (get_key y))
+Proof
+rw [find_min_def] >>
 `(heap_to_bag h = BAG_UNION (heap_to_bag ts') (tree_to_bag t)) ∧
  (∀y. y ⋲ heap_to_bag ts' ⇒ leq (get_key (root t)) (get_key y)) ∧
  (is_heap_ordered_tree get_key leq t)`
         by metis_tac [remove_min_tree] >>
 cases_on `t` >>
 fs [BAG_EVERY, heap_to_bag_def, root_def, is_heap_ordered_def] >>
-metis_tac [WeakLinearOrder, WeakOrder, reflexive_def]);
+metis_tac [WeakLinearOrder, WeakOrder, reflexive_def]
+QED
 
 val reverse_heap_ordered = Q.prove (
 `!get_key leq l.
@@ -290,14 +300,15 @@ val reverse_bag = Q.prove (
 induct_on `l` >>
 srw_tac [BAG_ss] [append_bag, heap_to_bag_def]);
 
-Theorem delete_min_correct
-`!h get_key leq.
+Theorem delete_min_correct:
+ !h get_key leq.
   WeakLinearOrder leq ∧ (h ≠ []) ∧ is_heap_ordered get_key leq h
   ⇒
   is_heap_ordered get_key leq (delete_min get_key leq h) ∧
   (heap_to_bag (delete_min get_key leq h) =
-   BAG_DIFF (heap_to_bag h) (EL_BAG (find_min get_key leq h)))`
-(rw [delete_min_def] >>
+   BAG_DIFF (heap_to_bag h) (EL_BAG (find_min get_key leq h)))
+Proof
+rw [delete_min_def] >>
 every_case_tac >>
 rw [merge_bag, reverse_bag] >-
 metis_tac [reverse_heap_ordered, merge_heap_ordered, remove_min_tree,
@@ -309,7 +320,8 @@ rw [root_def] >>
 rw [heap_to_bag_def, BAG_DIFF, BAG_INSERT, EL_BAG, FUN_EQ_THM, EMPTY_BAG,
     BAG_UNION] >>
 cases_on `x = a` >>
-srw_tac [ARITH_ss] []);
+srw_tac [ARITH_ss] []
+QED
 
 
 (* Verify size and shape invariants *)
@@ -341,9 +353,10 @@ cases_on `x = 0`>>
 fs [arithmeticTheory.ADD1, arithmeticTheory.EXP_ADD,
     arithmeticTheory.MOD_EQ_0]);
 
-Theorem is_binomial_tree_size
-`!t. is_binomial_tree t ⇒ (heap_tree_size t = 2 ** rank t)`
-(recInduct is_binomial_tree_ind >>
+Theorem is_binomial_tree_size:
+ !t. is_binomial_tree t ⇒ (heap_tree_size t = 2 ** rank t)
+Proof
+recInduct is_binomial_tree_ind >>
 rw [heap_size_def, rank_def, is_binomial_tree_def] >>
 fs [] >>
 `1 + (2 ** (r − 1) + heap_size ts) = 2 ** (r − 1) + (1 + heap_size ts)`
@@ -351,7 +364,8 @@ fs [] >>
 rw [] >>
 `1 ≤ r` by decide_tac >>
 rw [arithmeticTheory.EXP_SUB, GSYM arithmeticTheory.TIMES2,
-    bitTheory.DIV_MULT_THM2, exp2_mod2]);
+    bitTheory.DIV_MULT_THM2, exp2_mod2]
+QED
 
 val is_binomial_heap_def = Define `
 is_binomial_heap h <=>
@@ -405,16 +419,17 @@ fs [is_binomial_heap_def, MEM_MAP] >>
 metis_tac [DECIDE ``!(x:num) y . x < y ==> x < y + 1``,
            DECIDE ``!(x:num) y . x < y ==> x + 1 ≤ y``]);
 
-Theorem merge_binomial_heap
-`!get_key leq h1 h2.
+Theorem merge_binomial_heap:
+ !get_key leq h1 h2.
   is_binomial_heap h1 ∧ is_binomial_heap h2
   ⇒
   is_binomial_heap (merge get_key leq h1 h2) ∧
   (!r.
     EVERY (\t. r < rank t) h1 ∧ EVERY (\t. r < rank t) h2
     ⇒
-    EVERY (\t. r < rank t) (merge get_key leq h1 h2))`
-(recInduct merge_ind >>
+    EVERY (\t. r < rank t) (merge get_key leq h1 h2))
+Proof
+recInduct merge_ind >>
 rw [is_binomial_heap_def, merge_def, trans_less, SORTED_EQ,
     is_binomial_tree_def] >>
 fs [MEM_MAP, EVERY_MEM] >>
@@ -438,14 +453,17 @@ metis_tac [is_binomial_heap_def, EVERY_MEM, ins_binomial_heap] >>
            (merge get_key leq ts1 ts2))`
      by metis_tac [ins_binomial_heap] >>
 fs [EVERY_MEM] >>
-metis_tac [DECIDE ``!(x:num) y . x < y ==> x < y + 1``]);
+metis_tac [DECIDE ``!(x:num) y . x < y ==> x < y + 1``]
+QED
 
-Theorem insert_binomial_heap
-`!get_key leq x h.
-  is_binomial_heap h ⇒ is_binomial_heap (insert get_key leq x h)`
-(rw [insert_def] >>
+Theorem insert_binomial_heap:
+ !get_key leq x h.
+  is_binomial_heap h ⇒ is_binomial_heap (insert get_key leq x h)
+Proof
+rw [insert_def] >>
 `is_binomial_tree (Node 0 x [])` by rw [is_binomial_tree_def] >>
-metis_tac [ins_binomial_heap, rank_def, DECIDE ``!(x:num). 0 ≤ x``]);
+metis_tac [ins_binomial_heap, rank_def, DECIDE ``!(x:num). 0 ≤ x``]
+QED
 
 val remove_min_binomial_heap = Q.prove (
 `!get_key leq h t h'.
@@ -484,17 +502,19 @@ rw [trans_less, SORTED_DEF, sorted_reverse, rich_listTheory.MAP_REVERSE,
 `(\(x:num) y. x > y) = $>` by metis_tac [] >>
 rw []);
 
-Theorem delete_min_binomial_heap
-`!get_key leq h.
+Theorem delete_min_binomial_heap:
+ !get_key leq h.
   (h ≠ []) ∧ is_binomial_heap h
   ⇒
-  is_binomial_heap (delete_min get_key leq h)`
-(rw [delete_min_def] >>
+  is_binomial_heap (delete_min get_key leq h)
+Proof
+rw [delete_min_def] >>
 cases_on `remove_min_tree get_key leq h` >>
 rw [] >>
 cases_on `q` >>
 rw [] >>
-metis_tac [delete_lem, merge_binomial_heap, remove_min_binomial_heap]);
+metis_tac [delete_lem, merge_binomial_heap, remove_min_binomial_heap]
+QED
 
 
 (* Simplify the side conditions on the generated certificate theorems *)

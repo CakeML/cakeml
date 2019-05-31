@@ -17,8 +17,8 @@ val tac =
  rw [get_token_def, processIdent_def, isAlphaNum_def, isAlpha_def, isDigit_def,
      isLower_def, isUpper_def];
 
-Theorem get_token_eqn
-`!s.
+Theorem get_token_eqn:
+ !s.
   get_token s =
     case s of
          [] => LexErrorT
@@ -136,8 +136,9 @@ Theorem get_token_eqn
                    if s = "withtype" then WithtypeT else
                    AlphaT s
            else
-             SymbolT s`
- (strip_tac >>
+             SymbolT s
+Proof
+ strip_tac >>
  Cases_on `s` >>
  simp_tac (srw_ss()) []
  >- srw_tac [] [processIdent_def, get_token_def] >>
@@ -155,7 +156,8 @@ Theorem get_token_eqn
      isLower_def, isUpper_def] >>
  full_simp_tac (srw_ss()++ARITH_ss) [char_le_def, char_lt_def] >>
  Cases_on `t` >>
- rw []);
+ rw []
+QED
 
 val _ = computeLib.add_persistent_funs(["get_token_eqn"]);
 
@@ -312,9 +314,10 @@ val read_while_P = Q.prove(`
   rw[]>>ho_match_mp_tac read_while_P_lem>>
   MAP_EVERY qexists_tac [`ls`,`""`,`y`]>>fs[])
 
-Theorem next_sym_eq
-  `∀x l. next_sym x l = next_sym_alt x l`
-  (ho_match_mp_tac next_sym_ind>>fs[next_sym_def,next_sym_alt_def]>>rw[]>>
+Theorem next_sym_eq:
+   ∀x l. next_sym x l = next_sym_alt x l
+Proof
+  ho_match_mp_tac next_sym_ind>>fs[next_sym_def,next_sym_alt_def]>>rw[]>>
   TRY(BasicProvers.TOP_CASE_TAC>>fs[]>>NO_TAC)>>
   TRY(rpt(pop_assum mp_tac)>> EVAL_TAC>> simp[]>>NO_TAC)>>
   TRY(pairarg_tac) >>fs[]>>
@@ -324,7 +327,8 @@ Theorem next_sym_eq
   TRY(fs[]>>
       ho_match_mp_tac read_while_P>>
       metis_tac[]) >>
-  every_case_tac >> metis_tac[]);
+  every_case_tac >> metis_tac[]
+QED
 
 (* lex_until_toplevel_semicolon *)
 
@@ -372,12 +376,14 @@ val lex_aux_LESS = Q.prove(
   THEN IMP_RES_TAC (DECIDE ``n < m ==> n <= m:num``)
   THEN DECIDE_TAC);
 
-Theorem lex_until_toplevel_semicolon_LESS
-  `(lex_until_toplevel_semicolon input l = SOME (ts, l', rest)) ==>
-    LENGTH rest < LENGTH input`
-  (SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
+Theorem lex_until_toplevel_semicolon_LESS:
+   (lex_until_toplevel_semicolon input l = SOME (ts, l', rest)) ==>
+    LENGTH rest < LENGTH input
+Proof
+  SIMP_TAC std_ss [lex_until_toplevel_semicolon_def]
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC lex_aux_LESS
-  THEN FULL_SIMP_TAC std_ss []);
+  THEN FULL_SIMP_TAC std_ss []
+QED
 
 (* lex_until_toplevel_semicolon_alt *)
 
@@ -424,12 +430,14 @@ val lex_aux_alt_LESS = Q.prove(
   THEN IMP_RES_TAC (DECIDE ``n < m ==> n <= m:num``)
   THEN DECIDE_TAC);
 
-Theorem lex_until_top_semicolon_alt_LESS
-  `(lex_until_top_semicolon_alt input l = SOME (ts, l', rest)) ==>
-    LENGTH rest < LENGTH input`
-  (SIMP_TAC std_ss [lex_until_top_semicolon_alt_def]
+Theorem lex_until_top_semicolon_alt_LESS:
+   (lex_until_top_semicolon_alt input l = SOME (ts, l', rest)) ==>
+    LENGTH rest < LENGTH input
+Proof
+  SIMP_TAC std_ss [lex_until_top_semicolon_alt_def]
   THEN REPEAT STRIP_TAC THEN IMP_RES_TAC lex_aux_alt_LESS
-  THEN FULL_SIMP_TAC std_ss []);
+  THEN FULL_SIMP_TAC std_ss []
+QED
 
 val token_of_sym_EQ_LEMMA = Q.prove(
   `((token_of_sym q = LetT) = (q = OtherS "let")) /\
@@ -466,13 +474,15 @@ val lex_aux_alt_thm = Q.prove(
   THEN FULL_SIMP_TAC (srw_ss()) [token_of_sym_loc_def,token_of_sym_def,get_token_def])
   |> Q.SPECL [`[]`,`0`] |> SIMP_RULE std_ss [MAP] ;
 
-Theorem lex_until_top_semicolon_alt_thm
-  `case lex_until_top_semicolon_alt input l of
+Theorem lex_until_top_semicolon_alt_thm:
+   case lex_until_top_semicolon_alt input l of
     | NONE => (lex_until_toplevel_semicolon input l = NONE)
     | SOME (ts,rest) =>
-        (lex_until_toplevel_semicolon input l = SOME (MAP token_of_sym_loc ts,rest))`
-  (SIMP_TAC std_ss [lex_until_top_semicolon_alt_def,
-    lex_until_toplevel_semicolon_def,lex_aux_alt_thm]);
+        (lex_until_toplevel_semicolon input l = SOME (MAP token_of_sym_loc ts,rest))
+Proof
+  SIMP_TAC std_ss [lex_until_top_semicolon_alt_def,
+    lex_until_toplevel_semicolon_def,lex_aux_alt_thm]
+QED
 
 (* lex_impl_all *)
 
@@ -605,8 +615,10 @@ val split_top_level_semi_thm = Q.prove(
   >> STRIP_TAC >> RES_TAC >> POP_ASSUM MP_TAC
   >> FULL_SIMP_TAC std_ss [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]);
 
-Theorem lexer_correct
-  `!input. split_top_level_semi (lexer_fun_aux input l) = lex_impl_all input l`
-  (SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]);
+Theorem lexer_correct:
+   !input. split_top_level_semi (lexer_fun_aux input l) = lex_impl_all input l
+Proof
+  SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]
+QED
 
 val _ = export_theory();

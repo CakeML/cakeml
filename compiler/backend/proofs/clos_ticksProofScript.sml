@@ -12,18 +12,24 @@ val _ = new_theory "clos_ticksProof";
 
 val _ = temp_overload_on("remove_ticks",``clos_ticks$remove_ticks``);
 
-Theorem remove_ticks_IMP_LENGTH
-  `!(es:closLang$exp list) xs. xs = remove_ticks es ==> LENGTH es = LENGTH xs`
-  (fs [LENGTH_remove_ticks]);
+Theorem remove_ticks_IMP_LENGTH:
+   !(es:closLang$exp list) xs. xs = remove_ticks es ==> LENGTH es = LENGTH xs
+Proof
+  fs [LENGTH_remove_ticks]
+QED
 
-Theorem remove_ticks_SING
-  `!e. ?e'. remove_ticks [e] = [e']`
-  (Induct \\ fs [remove_ticks_def]);
+Theorem remove_ticks_SING:
+   !e. ?e'. remove_ticks [e] = [e']
+Proof
+  Induct \\ fs [remove_ticks_def]
+QED
 
-Theorem HD_remove_ticks_SING[simp]
-  `!x. [HD (remove_ticks [x])] = remove_ticks [x] ∧
-       LENGTH (remove_ticks [x]) = 1`
-  (gen_tac \\ strip_assume_tac (Q.SPEC `x` remove_ticks_SING) \\ fs []);
+Theorem HD_remove_ticks_SING[simp]:
+   !x. [HD (remove_ticks [x])] = remove_ticks [x] ∧
+       LENGTH (remove_ticks [x]) = 1
+Proof
+  gen_tac \\ strip_assume_tac (Q.SPEC `x` remove_ticks_SING) \\ fs []
+QED
 
 (* code relation *)
 
@@ -31,22 +37,28 @@ val code_rel_def = Define `
   code_rel e1 e2 <=>
     e2 = remove_ticks e1`;
 
-Theorem code_rel_IMP_LENGTH
-  `!xs ys. code_rel xs ys ==> LENGTH xs = LENGTH ys`
-  (fs [code_rel_def, LENGTH_remove_ticks]);
+Theorem code_rel_IMP_LENGTH:
+   !xs ys. code_rel xs ys ==> LENGTH xs = LENGTH ys
+Proof
+  fs [code_rel_def, LENGTH_remove_ticks]
+QED
 
-Theorem remove_ticks_CONS
-  `!es e. remove_ticks (e::es) = HD (remove_ticks [e])::remove_ticks es`
-  (Induct_on `es` \\ Induct_on `e` \\ fs [remove_ticks_def]);
+Theorem remove_ticks_CONS:
+   !es e. remove_ticks (e::es) = HD (remove_ticks [e])::remove_ticks es
+Proof
+  Induct_on `es` \\ Induct_on `e` \\ fs [remove_ticks_def]
+QED
 
-Theorem code_rel_CONS_CONS
-  `!x1 x2 xs y1 y2 ys. code_rel (x1::x2::xs) (y1::y2::ys) <=>
-                        code_rel [x1] [y1] /\ code_rel (x2::xs) (y2::ys)`
-  (fs [code_rel_def]
+Theorem code_rel_CONS_CONS:
+   !x1 x2 xs y1 y2 ys. code_rel (x1::x2::xs) (y1::y2::ys) <=>
+                        code_rel [x1] [y1] /\ code_rel (x2::xs) (y2::ys)
+Proof
+  fs [code_rel_def]
   \\ rpt strip_tac
   \\ `?t1. remove_ticks [x1] = [t1]` by metis_tac [remove_ticks_SING]
   \\ `?t2. remove_ticks [x2] = [t2]` by metis_tac [remove_ticks_SING]
-  \\ rw [remove_ticks_CONS]);
+  \\ rw [remove_ticks_CONS]
+QED
 
 (* value relation *)
 
@@ -121,108 +133,134 @@ val mk_Ticks_def = Define `
   (mk_Ticks [] (e : closLang$exp) = e) /\
   (mk_Ticks (t::tr) e = Tick t (mk_Ticks tr e))`;
 
-Theorem remove_ticks_Tick
-  `!x t e. ~([Tick t e] = remove_ticks [x])`
-  (Induct \\ fs [remove_ticks_def]);
+Theorem remove_ticks_Tick:
+   !x t e. ~([Tick t e] = remove_ticks [x])
+Proof
+  Induct \\ fs [remove_ticks_def]
+QED
 
-Theorem remove_ticks_Var_IMP_mk_Ticks
-  `(!x tr n. [Var tr n] = remove_ticks [x] ==> ?ts. x = mk_Ticks ts (Var tr n))`
-  (Induct \\ fs [remove_ticks_def] \\ metis_tac [mk_Ticks_def]);
+Theorem remove_ticks_Var_IMP_mk_Ticks:
+   (!x tr n. [Var tr n] = remove_ticks [x] ==> ?ts. x = mk_Ticks ts (Var tr n))
+Proof
+  Induct \\ fs [remove_ticks_def] \\ metis_tac [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_If_IMP_mk_Ticks
-  `!x tr e1' e2' e3'.
+Theorem remove_ticks_If_IMP_mk_Ticks:
+   !x tr e1' e2' e3'.
       [If tr e1' e2' e3'] = remove_ticks [x] ==>
         ?ts e1 e2 e3. x = mk_Ticks ts (If tr e1 e2 e3) /\
                       e1' = HD (remove_ticks [e1]) /\
                       e2' = HD (remove_ticks [e2]) /\
-                      e3' = HD (remove_ticks [e3])`
-  (Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
+                      e3' = HD (remove_ticks [e3])
+Proof
+  Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
   THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
-  \\ res_tac \\ qexists_tac `t::ts` \\ metis_tac [mk_Ticks_def]);
+  \\ res_tac \\ qexists_tac `t::ts` \\ metis_tac [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_Let_IMP_mk_Ticks
-  `!x t l e. [Let t l e] = remove_ticks [x] ==>
+Theorem remove_ticks_Let_IMP_mk_Ticks:
+   !x t l e. [Let t l e] = remove_ticks [x] ==>
               (?ts l' e'. x = mk_Ticks ts (Let t l' e') /\
                l = remove_ticks l' /\
-               [e] = remove_ticks [e'])`
-  (Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
+               [e] = remove_ticks [e'])
+Proof
+  Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
   THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
-  \\ res_tac  \\ qexistsl_tac [`t::ts`, `l'`, `e'`] \\ fs [mk_Ticks_def]);
+  \\ res_tac  \\ qexistsl_tac [`t::ts`, `l'`, `e'`] \\ fs [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_Raise_IMP_mk_Ticks
-  `!x t e. [Raise t e] = remove_ticks [x] ==>
-            (?ts e'. x = mk_Ticks ts (Raise t e') /\ [e] = remove_ticks [e'])`
-  (Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
+Theorem remove_ticks_Raise_IMP_mk_Ticks:
+   !x t e. [Raise t e] = remove_ticks [x] ==>
+            (?ts e'. x = mk_Ticks ts (Raise t e') /\ [e] = remove_ticks [e'])
+Proof
+  Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
   THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
-  \\ res_tac \\ qexistsl_tac [`t::ts`, `e'`] \\ fs [mk_Ticks_def]);
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `e'`] \\ fs [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_Handle_IMP_mk_Ticks
-  `!x t e1' e2'. [Handle t e1' e2'] = remove_ticks [x] ==>
+Theorem remove_ticks_Handle_IMP_mk_Ticks:
+   !x t e1' e2'. [Handle t e1' e2'] = remove_ticks [x] ==>
                   (?ts e1 e2. x = mk_Ticks ts (Handle t e1 e2) /\
-                   [e1'] = remove_ticks [e1] /\ [e2'] = remove_ticks [e2])`
-  (Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
+                   [e1'] = remove_ticks [e1] /\ [e2'] = remove_ticks [e2])
+Proof
+  Induct \\ fs [remove_ticks_def] \\ rpt strip_tac
   THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
-  \\ res_tac \\ qexistsl_tac [`t::ts`, `e1`, `e2`] \\ fs [mk_Ticks_def]);
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `e1`, `e2`] \\ fs [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_Op_IMP_mk_Ticks
-  `!x tr op es'. [Op tr op es'] = remove_ticks [x] ==>
-      ?ts es. x = mk_Ticks ts (Op tr op es) /\ es' = remove_ticks es`
-  (reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
+Theorem remove_ticks_Op_IMP_mk_Ticks:
+   !x tr op es'. [Op tr op es'] = remove_ticks [x] ==>
+      ?ts es. x = mk_Ticks ts (Op tr op es) /\ es' = remove_ticks es
+Proof
+  reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
   THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
-  \\ res_tac \\ qexistsl_tac [`t::ts`, `es`] \\ fs [mk_Ticks_def]);
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `es`] \\ fs [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_Fn_IMP_mk_Ticks
-  `!x tr loc vsopt num_args e'.
+Theorem remove_ticks_Fn_IMP_mk_Ticks:
+   !x tr loc vsopt num_args e'.
       [Fn tr loc vsopt num_args e'] = remove_ticks [x] ==>
-        ?ts e. x = mk_Ticks ts (Fn tr loc vsopt num_args e) /\ [e'] = remove_ticks [e]`
-  (reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
+        ?ts e. x = mk_Ticks ts (Fn tr loc vsopt num_args e) /\ [e'] = remove_ticks [e]
+Proof
+  reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
   THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
-  \\ res_tac \\ qexistsl_tac [`t::ts`, `e`] \\ fs [mk_Ticks_def]);
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `e`] \\ fs [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_Letrec_IMP_mk_Ticks
-  `!x tr loc vsopt fns' e'.
+Theorem remove_ticks_Letrec_IMP_mk_Ticks:
+   !x tr loc vsopt fns' e'.
       [Letrec tr loc vsopt fns' e'] = remove_ticks [x] ==>
         ?ts fns e. x = mk_Ticks ts (Letrec tr loc vsopt fns e) /\
                    e' = HD (remove_ticks [e]) /\
-                   fns' = MAP (\(num_args, x). (num_args, HD (remove_ticks [x]))) fns`
-  (reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
+                   fns' = MAP (\(num_args, x). (num_args, HD (remove_ticks [x]))) fns
+Proof
+  reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
   THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
-  \\ res_tac \\ qexistsl_tac [`t::ts`, `fns`, `e`] \\ fs [mk_Ticks_def]);
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `fns`, `e`] \\ fs [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_App_IMP_mk_Ticks
-  `!x tr loc_opt e1' es'.
+Theorem remove_ticks_App_IMP_mk_Ticks:
+   !x tr loc_opt e1' es'.
       [App tr loc_opt e1' es'] = remove_ticks [x] ==>
         ?ts e1 es. x = mk_Ticks ts (App tr loc_opt e1 es) /\
                    e1' = HD (remove_ticks [e1]) /\
-                   es' = remove_ticks es`
-  (reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
+                   es' = remove_ticks es
+Proof
+  reverse (Induct \\ fs [remove_ticks_def]) \\ rpt strip_tac
   THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
-  \\ res_tac \\ qexistsl_tac [`t::ts`, `e1`, `es`] \\ fs [mk_Ticks_def]);
+  \\ res_tac \\ qexistsl_tac [`t::ts`, `e1`, `es`] \\ fs [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_Call_IMP_mk_Ticks
-  `!x tr ticks' dest es'. [Call tr ticks' dest es'] = remove_ticks [x] ==>
+Theorem remove_ticks_Call_IMP_mk_Ticks:
+   !x tr ticks' dest es'. [Call tr ticks' dest es'] = remove_ticks [x] ==>
       ticks' = 0 /\
       ?ts ticks es. x = mk_Ticks ts (Call tr ticks dest es) /\
-                    es' = remove_ticks es`
-  (reverse (Induct \\ rw [remove_ticks_def])
+                    es' = remove_ticks es
+Proof
+  reverse (Induct \\ rw [remove_ticks_def])
   THEN1 (qexists_tac `[]` \\ fs [mk_Ticks_def])
   \\ rpt strip_tac \\ res_tac
-  \\ qexistsl_tac [`t::ts`, `ticks`, `es`] \\ fs [mk_Ticks_def])
+  \\ qexistsl_tac [`t::ts`, `ticks`, `es`] \\ fs [mk_Ticks_def]
+QED
 
-Theorem remove_ticks_mk_Ticks
-  `!tr e. remove_ticks [mk_Ticks tr e] = remove_ticks [e]`
-  (Induct_on `tr` \\ fs [mk_Ticks_def, remove_ticks_def]);
+Theorem remove_ticks_mk_Ticks:
+   !tr e. remove_ticks [mk_Ticks tr e] = remove_ticks [e]
+Proof
+  Induct_on `tr` \\ fs [mk_Ticks_def, remove_ticks_def]
+QED
 
-Theorem evaluate_mk_Ticks
-  `!tr e env s1.
+Theorem evaluate_mk_Ticks:
+   !tr e env s1.
       evaluate ([mk_Ticks tr e], env, s1) =
         if s1.clock < LENGTH tr then (Rerr (Rabort Rtimeout_error), s1 with clock := 0)
-                                else evaluate ([e], env, dec_clock (LENGTH tr) s1)`
-  (Induct THEN1 simp [mk_Ticks_def, dec_clock_def]
+                                else evaluate ([e], env, dec_clock (LENGTH tr) s1)
+Proof
+  Induct THEN1 simp [mk_Ticks_def, dec_clock_def]
   \\ rw []
   \\ fs [mk_Ticks_def, evaluate_def, dec_clock_def]
   THEN1 (IF_CASES_TAC \\ simp [state_component_equality])
-  \\ fs [ADD1]);
+  \\ fs [ADD1]
+QED
 
 val do_app_lemma = prove(
   ``state_rel s t /\ LIST_REL v_rel xs ys ==>
@@ -241,38 +279,46 @@ val do_app_lemma = prove(
   \\ fs [FAPPLY_FUPDATE_THM]
   \\ rw [] \\ fs [ref_rel_cases]);
 
-Theorem lookup_vars_lemma
-  `!vs env1 env2. LIST_REL v_rel env1 env2 ==>
+Theorem lookup_vars_lemma:
+   !vs env1 env2. LIST_REL v_rel env1 env2 ==>
     case lookup_vars vs env2 of
       | NONE => lookup_vars vs env1 = NONE
-      | SOME l2 => ?l1. LIST_REL v_rel l1 l2 /\ lookup_vars vs env1 = SOME l1`
-  (Induct_on `vs` \\ fs [lookup_vars_def]
+      | SOME l2 => ?l1. LIST_REL v_rel l1 l2 /\ lookup_vars vs env1 = SOME l1
+Proof
+  Induct_on `vs` \\ fs [lookup_vars_def]
   \\ rpt strip_tac
   \\ imp_res_tac LIST_REL_LENGTH
   \\ rw []
   \\ res_tac
   \\ Cases_on `lookup_vars vs env2`
   \\ fs []
-  \\ fs [LIST_REL_EL_EQN]);
+  \\ fs [LIST_REL_EL_EQN]
+QED
 
-Theorem state_rel_IMP_max_app_EQ
-  `!s t. state_rel s t ==> s.max_app = t.max_app`
-  (fs [state_rel_def]);
+Theorem state_rel_IMP_max_app_EQ:
+   !s t. state_rel s t ==> s.max_app = t.max_app
+Proof
+  fs [state_rel_def]
+QED
 
 val state_rel_IMP_code_FEMPTY = prove(
   ``!s t. state_rel s t ==> s.code = FEMPTY /\ t.code = FEMPTY``,
   fs [state_rel_def]);
 
-Theorem state_rel_clock
-  `!s t k. state_rel (s with clock := k) (t with clock := k) <=> state_rel s (t with clock := s.clock)`
-  (rw [] \\ eq_tac \\ rw [state_rel_def]);
+Theorem state_rel_clock:
+   !s t k. state_rel (s with clock := k) (t with clock := k) <=> state_rel s (t with clock := s.clock)
+Proof
+  rw [] \\ eq_tac \\ rw [state_rel_def]
+QED
 
 
-Theorem dest_closure_SOME_IMP
-  `dest_closure max_app loc_opt f2 xs = SOME x ==>
+Theorem dest_closure_SOME_IMP:
+   dest_closure max_app loc_opt f2 xs = SOME x ==>
     (?loc arg_env clo_env num_args e. f2 = Closure loc arg_env clo_env num_args e) \/
-    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)`
-  (fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
+    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)
+Proof
+  fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []
+QED
 
 val v_rel_IMP_v_to_bytes_lemma = prove(
   ``!y x.
@@ -309,8 +355,8 @@ val v_rel_IMP_v_to_words = prove(
   rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
 
 
-Theorem evaluate_remove_ticks
-  `(!ys env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1 xs.
+Theorem evaluate_remove_ticks:
+   (!ys env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1 xs.
      (evaluate (ys,env2,t1) = (res2,t2)) /\
      LIST_REL v_rel env1 env2 /\
      state_rel s1 t1 /\ code_rel xs ys ==>
@@ -325,8 +371,9 @@ Theorem evaluate_remove_ticks
      ?ck res1 s2.
        (evaluate_app loc_opt f1 args1 (s1 with clock := s1.clock + ck) = (res1,s2)) /\
        result_rel (LIST_REL v_rel) v_rel res1 res2 /\
-       state_rel s2 t2)`
-  ((**)
+       state_rel s2 t2)
+Proof
+  (**)
   ho_match_mp_tac (evaluate_ind |> Q.SPEC `λ(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt strip_tac
@@ -892,30 +939,34 @@ Theorem evaluate_remove_ticks
       \\ disch_then drule
       \\ strip_tac
       \\ Cases_on `res1` \\ fs [] \\ rveq
-      \\ qexists_tac `ck` \\ fs [])))
+      \\ qexists_tac `ck` \\ fs []))
+QED
 
-Theorem remove_ticks_correct
-  `(!xs env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1.
+Theorem remove_ticks_correct:
+   (!xs env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1.
      (evaluate (remove_ticks xs,env2,t1) = (res2,t2)) /\
      LIST_REL v_rel env1 env2 /\ state_rel s1 t1 ==>
      ?ck res1 s2.
         (evaluate (xs,env1,s1 with clock := s1.clock + ck) = (res1,s2)) /\
         result_rel (LIST_REL v_rel) v_rel res1 res2 /\
-        state_rel s2 t2)`
-  (rpt strip_tac \\ drule (CONJUNCT1 evaluate_remove_ticks) \\ simp [code_rel_def]);
+        state_rel s2 t2)
+Proof
+  rpt strip_tac \\ drule (CONJUNCT1 evaluate_remove_ticks) \\ simp [code_rel_def]
+QED
 
 (* preservation of observable semantics *)
 
-Theorem semantics_remove_ticks
-  `semantics (ffi:'ffi ffi_state) max_app FEMPTY
+Theorem semantics_remove_ticks:
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc compile_inc cc) xs <> Fail ==>
    (∀n. SND (SND (co n)) = []) /\ 1 <= max_app ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc compile_inc cc) xs =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co compile_inc ∘ co) cc
-     (remove_ticks xs)`
-  ((**)
+     (remove_ticks xs)
+Proof
+  (**)
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq_no_fail
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
@@ -931,13 +982,15 @@ Theorem semantics_remove_ticks
   \\ rename1 `result_rel _ v_rel res2 _`
   \\ Cases_on `res2` \\ fs []
   \\ TRY (Cases_on `e` \\ fs [])
-  \\ fs [state_rel_def])
+  \\ fs [state_rel_def]
+QED
 
 (* syntactic properties *)
 
-Theorem code_locs_remove_ticks
-  `!xs. code_locs (remove_ticks xs) = code_locs xs`
-  (ho_match_mp_tac clos_ticksTheory.remove_ticks_ind \\ rw []
+Theorem code_locs_remove_ticks:
+   !xs. code_locs (remove_ticks xs) = code_locs xs
+Proof
+  ho_match_mp_tac clos_ticksTheory.remove_ticks_ind \\ rw []
   \\ fs [code_locs_def,clos_ticksTheory.remove_ticks_def]
   THEN1
    (`?y. remove_ticks [x] = [y]` by metis_tac [remove_ticks_SING]
@@ -945,53 +998,65 @@ Theorem code_locs_remove_ticks
   \\ Induct_on `fns` \\ fs [FORALL_PROD]
   \\ rw [] \\ fs []
   \\ once_rewrite_tac [code_locs_cons] \\ fs []
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-Theorem remove_ticks_every_Fn_SOME[simp]
-  `∀ls. every_Fn_SOME (remove_ticks ls) ⇔ every_Fn_SOME ls`
-  (recInduct clos_ticksTheory.remove_ticks_ind
+Theorem remove_ticks_every_Fn_SOME[simp]:
+   ∀ls. every_Fn_SOME (remove_ticks ls) ⇔ every_Fn_SOME ls
+Proof
+  recInduct clos_ticksTheory.remove_ticks_ind
   \\ rw[clos_ticksTheory.remove_ticks_def]
   >- (
     qspec_then`x`strip_assume_tac remove_ticks_SING
     \\ fs[] \\ fs[Once every_Fn_SOME_EVERY] )
   \\ simp[Once every_Fn_SOME_EVERY,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
   \\ simp[Once every_Fn_SOME_EVERY,SimpRHS,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem remove_ticks_every_Fn_vs_NONE[simp]
-  `∀ls. every_Fn_vs_NONE (remove_ticks ls) ⇔ every_Fn_vs_NONE ls`
-  (recInduct clos_ticksTheory.remove_ticks_ind
+Theorem remove_ticks_every_Fn_vs_NONE[simp]:
+   ∀ls. every_Fn_vs_NONE (remove_ticks ls) ⇔ every_Fn_vs_NONE ls
+Proof
+  recInduct clos_ticksTheory.remove_ticks_ind
   \\ rw[clos_ticksTheory.remove_ticks_def]
   >- (
     qspec_then`x`strip_assume_tac remove_ticks_SING
     \\ fs[] \\ fs[Once every_Fn_vs_NONE_EVERY] )
   \\ simp[Once every_Fn_vs_NONE_EVERY,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
   \\ simp[Once every_Fn_vs_NONE_EVERY,SimpRHS,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem EVERY_remove_ticks_sing
-  `EVERY f (remove_ticks [x]) = f (HD (remove_ticks [x]))`
-  (qspec_then`x`strip_assume_tac remove_ticks_SING \\ fs []);
+Theorem EVERY_remove_ticks_sing:
+   EVERY f (remove_ticks [x]) = f (HD (remove_ticks [x]))
+Proof
+  qspec_then`x`strip_assume_tac remove_ticks_SING \\ fs []
+QED
 
-Theorem remove_ticks_obeys_max_app
-  `!xs. EVERY (obeys_max_app m) xs ==> EVERY (obeys_max_app m) (remove_ticks xs)`
-  (recInduct clos_ticksTheory.remove_ticks_ind
+Theorem remove_ticks_obeys_max_app:
+   !xs. EVERY (obeys_max_app m) xs ==> EVERY (obeys_max_app m) (remove_ticks xs)
+Proof
+  recInduct clos_ticksTheory.remove_ticks_ind
   \\ rw[clos_ticksTheory.remove_ticks_def]
   \\ fs [EVERY_remove_ticks_sing,LENGTH_remove_ticks]
   \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
-  \\ rw [] \\ res_tac);
+  \\ rw [] \\ res_tac
+QED
 
-Theorem remove_ticks_no_Labels
-  `!xs. EVERY no_Labels xs ==> EVERY no_Labels (remove_ticks xs)`
-  (recInduct clos_ticksTheory.remove_ticks_ind
+Theorem remove_ticks_no_Labels:
+   !xs. EVERY no_Labels xs ==> EVERY no_Labels (remove_ticks xs)
+Proof
+  recInduct clos_ticksTheory.remove_ticks_ind
   \\ rw[clos_ticksTheory.remove_ticks_def]
   \\ fs [EVERY_remove_ticks_sing]
   \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
-  \\ rw [] \\ res_tac);
+  \\ rw [] \\ res_tac
+QED
 
-Theorem remove_ticks_app_call_dests[simp]
-  `∀es. app_call_dests x (remove_ticks es) = app_call_dests x es`
-  (recInduct clos_ticksTheory.remove_ticks_ind
+Theorem remove_ticks_app_call_dests[simp]:
+   ∀es. app_call_dests x (remove_ticks es) = app_call_dests x es
+Proof
+  recInduct clos_ticksTheory.remove_ticks_ind
   \\ rw[clos_ticksTheory.remove_ticks_def]
   >- rw[Once closPropsTheory.app_call_dests_cons]
   \\ AP_THM_TAC \\ AP_TERM_TAC
@@ -999,15 +1064,18 @@ Theorem remove_ticks_app_call_dests[simp]
   \\ simp[app_call_dests_map]
   \\ AP_TERM_TAC \\ AP_TERM_TAC
   \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
-  \\ first_x_assum drule \\ rw[]);
+  \\ first_x_assum drule \\ rw[]
+QED
 
-Theorem remove_ticks_code_labels[simp]
-  `∀es. MAP get_code_labels (clos_ticks$remove_ticks es) = MAP get_code_labels es`
-  (recInduct clos_ticksTheory.remove_ticks_ind
+Theorem remove_ticks_code_labels[simp]:
+   ∀es. MAP get_code_labels (clos_ticks$remove_ticks es) = MAP get_code_labels es
+Proof
+  recInduct clos_ticksTheory.remove_ticks_ind
   \\ rw[clos_ticksTheory.remove_ticks_def] \\ fs[]
   \\ fs[MAP_MAP_o, UNCURRY, o_DEF]
   \\ AP_TERM_TAC \\ AP_TERM_TAC \\ AP_TERM_TAC
   \\ simp[MAP_EQ_f, FORALL_PROD] \\ rw[]
-  \\ res_tac \\ fs[]);
+  \\ res_tac \\ fs[]
+QED
 
 val _ = export_theory();

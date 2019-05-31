@@ -385,6 +385,15 @@ in
 end;
 ```
 
+However, CakeML supports polymorphism and `local` which means that the
+following version works:
+
+    local
+      val x = []
+    in
+      val y = (1::x, "hi"::x)
+    end;
+
 What next?
 ----------
 
