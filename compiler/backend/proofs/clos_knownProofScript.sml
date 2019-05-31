@@ -1600,6 +1600,39 @@ Theorem oracle_gapprox_disjoint_lemma
    (rw [] \\ imp_res_tac evaluate_IMP_shift_seq
    \\ metis_tac [oracle_gapprox_disjoint_shift_seq_unique_set_globals]);
 
+val is_state_oracle_def = Define`
+  is_state_oracle compile_inc_f co init_state =
+    ((FST (FST (co 0)) = init_state) /\ (!n. FST (FST (co (SUC n)))
+        = FST (compile_inc_f (FST (FST (co n))) (SND (co n)))))`;
+
+Theorem is_state_oracle_shift:
+  is_state_oracle compile_inc_f co st =
+  (FST (FST (co 0)) = st /\ is_state_oracle compile_inc_f (shift_seq 1 co)
+        (FST (compile_inc_f st (SND (co 0)))))
+Proof
+  fs [is_state_oracle_def, shift_seq_def]
+  \\ EQ_TAC \\ rw [] \\ fs [sptreeTheory.ADD_1_SUC]
+  \\ full_simp_tac bool_ss [arithmeticTheory.ONE]
+  \\ Cases_on `n`
+  \\ fs []
+QED
+
+val oracle_monotonic_def = Define`
+  oracle_monotonic (f : 'a -> 'b set) (R : 'b -> 'b -> bool) (S : 'b set)
+    (orac : num -> 'a) =
+    ((!i j x y. i < j /\ x IN f (orac i) /\ y IN f (orac j) ==> R x y)
+        /\ (! i x y. x IN S /\ y IN f (orac i) ==> R x y))`;
+
+val conjs = MATCH_MP quotientTheory.EQ_IMPLIES (SPEC_ALL oracle_monotonic_def)
+  |> UNDISCH_ALL |> CONJUNCTS |> map DISCH_ALL
+
+Theorem oracle_monotonic_step = hd conjs;
+Theorem oracle_monotonic_init = hd (tl conjs);
+
+val compile_inc_def = Define `
+  compile_inc c g (es,xs) =
+    let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)`;
+
 val say = say0 "known_correct_approx";
 
 Theorem known_correct_approx
@@ -2105,6 +2138,86 @@ Theorem known_correct_approx
     \\ irule EVERY2_APPEND_suff \\ simp []
     \\ fs [case_eq_thms] \\ rveq \\ simp [LIST_REL_GENLIST]));
 
+Theorem monotonic_gapprox_disjoint:
+  known c xs aenv LN = (ys, g) ==>
+  oracle_monotonic (SET_OF_BAG o elist_globals o FST o SND)
+      (<) (SET_OF_BAG b) co ==>
+  b = elist_globals xs ==>
+  oracle_gapprox_disjoint g co
+Proof
+  fs [oracle_gapprox_disjoint_def]
+  \\ rw []
+  \\ first_x_assum (ASSUME_TAC o Q.SPEC `n` o HO_MATCH_MP oracle_monotonic_init)
+  \\ imp_res_tac known_changed_globals
+  \\ rw [gapprox_disjoint_def, pred_setTheory.IN_DISJOINT]
+  \\ fs []
+  \\ metis_tac [prim_recTheory.LESS_REFL]
+QED
+
+Theorem elist_globals_FLAT_APPEND_FOLDR:
+  elist_globals (xs ++ FLAT ys) = FOLDR $⊎ {||} (MAP elist_globals (xs :: ys))
+Proof
+  Induct_on `ys`
+  \\ fs [elist_globals_append, ASSOC_BAG_UNION]
+QED
+
+Theorem elist_globals_FLAT_FOLDR = (Q.INST [`xs` |-> `[]`]
+    elist_globals_FLAT_APPEND_FOLDR |> SIMP_RULE list_ss []);
+
+Theorem monotonic_unique_set_globals:
+  oracle_monotonic (SET_OF_BAG o elist_globals o FST o SND) (<)
+      (SET_OF_BAG (elist_globals xs)) co ==>
+  BAG_ALL_DISTINCT (elist_globals xs) /\
+  (!n. BAG_ALL_DISTINCT (elist_globals (FST (SND (co n))))) ==>
+  unique_set_globals xs co
+Proof
+  rw [unique_set_globals_def, elist_globals_FLAT_APPEND_FOLDR]
+  \\ fs [BAG_ALL_DISTINCT_BAG_UNION, BAG_ALL_DISTINCT_FOLDR_BAG_UNION,
+    BAG_DISJOINT_FOLDR_BAG_UNION, first_n_exps_def, EL_MAP]
+  \\ rw []
+  >- (
+    rw [BAG_DISJOINT_BAG_IN]
+    \\ drule oracle_monotonic_step
+    \\ fs []
+    \\ metis_tac [prim_recTheory.LESS_REFL]
+  )
+  \\ rw [EVERY_EL, EL_MAP, BAG_DISJOINT_BAG_IN]
+  \\ drule oracle_monotonic_init
+  \\ fs []
+  \\ metis_tac [prim_recTheory.LESS_REFL]
+QED
+
+Theorem pure_co_oracle_props:
+  oracle_gapprox_subspt (pure_co f ∘ co) = oracle_gapprox_subspt co /\
+  oracle_state_sgc_free (pure_co f ∘ co) = oracle_state_sgc_free co
+Proof
+  fs [oracle_gapprox_subspt_def, oracle_state_sgc_free_def]
+QED
+
+Theorem state_oracle_domain:
+  is_state_oracle (compile_inc c) co g ==>
+  BAG_OF_SET (domain (FST (FST (co n)))) <= BAG_UNION
+    (BAG_OF_SET (domain g)) (elist_globals (FLAT (first_n_exps co n)))
+Proof
+  rw []
+  \\ Induct_on `n` \\ fs [is_state_oracle_def]
+  \\ Cases_on `SND (co n)` \\ fs [compile_inc_def]
+  \\ pairarg_tac \\ fs []
+  \\ drule known_changed_globals_alt
+  \\ fs [first_n_exps_def, GENLIST, FLAT_SNOC, elist_globals_append]
+  \\ rw []
+  \\ irule SUB_BAG_TRANS
+  \\ goal_assum drule
+  \\ metis_tac [SUB_BAG_UNION_eliminate, ASSOC_BAG_UNION]
+QED
+
+(* FIXME: move *)
+Theorem DISJOINT_BAG_DISJOINT:
+  DISJOINT (SET_OF_BAG b) (SET_OF_BAG b') ==> BAG_DISJOINT b b'
+Proof
+  fs [BAG_DISJOINT]
+QED
+
 (* code relation *)
 
 val exp_rel_def = Define `
@@ -2286,10 +2399,6 @@ val ref_rel_simps = save_thm("ref_rel_simps[simp]",LIST_CONJ [
 Theorem ref_rel_upd_inline_factor
   `ref_rel (c with inline_factor := k) = ref_rel c`
   (simp [FUN_EQ_THM, ref_rel_cases, v_rel_upd_inline_factor]);
-
-val compile_inc_def = Define `
-  compile_inc c g (es,xs) =
-    let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)`;
 
 val state_rel_def = Define `
   state_rel c g (s:(val_approx num_map#'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
@@ -4291,19 +4400,29 @@ Theorem compile_LENGTH
 
 val syntax_ok_def = Define`
   syntax_ok xs ⇔
-    every_Fn_vs_NONE xs ∧
+    every_Fn_vs_NONE xs /\
+    BAG_ALL_DISTINCT (elist_globals xs) /\
     EVERY esgc_free xs`;
 
+val _ = temp_overload_on("fvs_compile",``clos_fvs$compile``);
+
+val fvs_inc_def = Define`
+  (fvs_inc : exp list # 'a list -> exp list # 'a list)
+    = clos_fvsProof$compile_inc`;
+
+Theorem fvs_inc_unfold:
+  fvs_inc x = (remove_fvs 0 (FST x), [])
+Proof
+  Cases_on `x` \\ EVAL_TAC
+QED
+
 val syntax_oracle_ok_def = Define`
-  syntax_oracle_ok xs co ⇔
-    syntax_ok xs ∧
-    co_every_Fn_vs_NONE co ∧
-    oracle_state_sgc_free co ∧
-    oracle_gapprox_subspt co ∧
-    oracle_gapprox_disjoint (FST (FST (co 0))) co ∧
-    unique_set_globals xs co ∧
-    (∀n. SND(SND(co n)) = [] ∧
-         syntax_ok (FST (SND (co n))))`;
+  syntax_oracle_ok c xs co conf ⇔
+    syntax_ok xs /\
+    is_state_oracle (compile_inc c) (pure_co fvs_inc o co) conf /\
+    oracle_monotonic (SET_OF_BAG o elist_globals o FST o SND) (<)
+      (SET_OF_BAG (elist_globals xs)) co /\
+    (!n. syntax_ok (FST (SND (co n))) /\ SND (SND (co n)) = [])`
 
 val known_cc_def = Define `
   known_cc known_conf cc =
@@ -4331,18 +4450,88 @@ Theorem FST_known_co
   (rw[known_co_def] \\ CASE_TAC
   \\ simp[backendPropsTheory.FST_state_co]);
 
+Theorem syntax_oracle_ok_state_sgc_free:
+  syntax_oracle_ok c xs co g ==>
+  known c (fvs_compile xs) [] LN = (ys, g) ==>
+  oracle_state_sgc_free co
+Proof
+  fs [oracle_state_sgc_free_def, syntax_oracle_ok_def]
+  \\ rw []
+  \\ Induct_on `n`
+  >- (
+    fs [is_state_oracle_def, clos_fvsTheory.compile_def]
+    \\ drule known_preserves_esgc_free
+    \\ fs [syntax_ok_def]
+    \\ impl_tac \\ fs []
+    \\ fs [globals_approx_sgc_free_def, lookup_def]
+  )
+  \\ fs [is_state_oracle_def, fvs_inc_unfold]
+  \\ Cases_on `SND (co n)` \\ fs [compile_inc_def]
+  \\ pairarg_tac \\ fs []
+  \\ drule (Q.SPEC `reset_inline_factor foo` known_preserves_esgc_free)
+  \\ impl_tac \\ fs []
+  \\ fs [PAIR_FST_SND_EQ] \\ rveq
+  \\ fs [syntax_ok_def, clos_fvsTheory.compile_def]
+QED
+
+Theorem syntax_oracle_ok_gapprox_subspt:
+  syntax_oracle_ok c xs co g ==>
+  known c (fvs_compile xs) [] LN = (ys, g) ==>
+  oracle_gapprox_subspt co
+Proof
+  rw []
+  \\ imp_res_tac (GEN_ALL syntax_oracle_ok_state_sgc_free)
+  \\ fs [oracle_gapprox_subspt_def, syntax_oracle_ok_def]
+  \\ imp_res_tac state_oracle_domain
+  \\ drule monotonic_unique_set_globals
+  \\ impl_tac >- fs [syntax_ok_def]
+  \\ fs []
+  \\ imp_res_tac monotonic_gapprox_disjoint
+  \\ fs [is_state_oracle_def]
+  \\ rw []
+  \\ Cases_on `SND (co n)` \\ fs [fvs_inc_unfold, compile_inc_def]
+  \\ pairarg_tac \\ fs []
+  \\ drule (Q.SPECL [`c`, `xs`, `[]`] known_subspt)
+  \\ fs [clos_fvsTheory.compile_def]
+  \\ impl_tac \\ fs []
+  \\ fs [BAG_ALL_DISTINCT_BAG_UNION]
+  \\ fs [oracle_gapprox_disjoint_def, gapprox_disjoint_def]
+  \\ rpt (first_x_assum (assume_tac o Q.SPEC `n`))
+  \\ rfs []
+  \\ fs [syntax_ok_def, oracle_state_sgc_free_def]
+  \\ drule BAG_DISJOINT_SUB_BAG
+  \\ disch_then irule
+  \\ fs [unique_set_globals_def]
+  \\ fs [PAIR_FST_SND_EQ] \\ rveq
+  \\ fs [DISJOINT_BAG_DISJOINT]
+  \\ rpt (first_x_assum (assume_tac o Q.SPEC `SUC n`))
+  \\ fs [first_n_exps_def, GENLIST, FLAT_SNOC, elist_globals_append,
+        BAG_ALL_DISTINCT_BAG_UNION]
+  \\ fs [elist_globals_FLAT_FOLDR, MAP_GENLIST, o_DEF, fvs_inc_unfold]
+QED
+
+Theorem oracle_monotonic_subset:
+  ((St' SUBSET St) /\ (!n. f' (co' n) SUBSET f (co n))) ==>
+  oracle_monotonic f R St co ==>
+  oracle_monotonic f' R St' co'
+Proof
+  fs [oracle_monotonic_def, SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 Theorem semantics_compile
   `closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    (cc1 = known_cc known_conf cc) ∧
    (co1 = known_co known_conf co) ∧
    (compile known_conf xs = (known_conf', es)) ∧
    (IS_SOME known_conf ⇒
-      syntax_oracle_ok xs co ∧ 1 ≤ max_app ∧
-      FST (FST (co 0)) = (THE known_conf').val_approx_spt)
+      syntax_oracle_ok (THE known_conf) xs co (THE known_conf').val_approx_spt ∧
+      1 ≤ max_app)
    ⇒
    semantics ffi max_app FEMPTY co1 cc es =
    semantics ffi max_app FEMPTY co cc1 xs`
-  (simp [known_co_def,known_cc_def]
+  (
+  simp [known_co_def,known_cc_def]
   \\ strip_tac
   \\ Cases_on`known_conf` \\ fs[compile_def]
   >- ( match_mp_tac semantics_CURRY_I \\ fs[] )
@@ -4352,8 +4541,10 @@ Theorem semantics_compile
   >- ( fs[syntax_oracle_ok_def] )
   \\ disch_then (fn th => fs [GSYM th])
   \\ drule (GEN_ALL semantics_known) \\ fs []
-  \\ impl_keep_tac THEN1
-   (fs[syntax_ok_def,syntax_oracle_ok_def]
+  \\ impl_keep_tac THEN1 (
+    imp_res_tac syntax_oracle_ok_gapprox_subspt
+    \\ imp_res_tac syntax_oracle_ok_state_sgc_free
+    \\ fs[syntax_ok_def,syntax_oracle_ok_def]
     \\ simp[clos_fvsTheory.compile_def]
     \\ conj_tac
     >- ( gen_tac \\ Cases_on`SND (co n)` \\ EVAL_TAC )
@@ -4379,35 +4570,22 @@ Theorem semantics_compile
       \\ rw[] \\ rw[]
       \\ first_x_assum(qspec_then`n`mp_tac)
       \\ rw[] )
-    \\ fs[oracle_gapprox_subspt_def]
-    \\ fs[oracle_state_sgc_free_def]
+    \\ fs[pure_co_oracle_props]
     \\ conj_tac
     >- (
-      fs[unique_set_globals_def, elist_globals_append, first_n_exps_def]
-      \\ fs[elist_globals_FOLDR, MAP_FLAT, MAP_GENLIST]
-      \\ fs[o_DEF]
-      \\ gen_tac
-      \\ qmatch_goalsub_abbrev_tac`FLAT (GENLIST X n)`
-      \\ qmatch_asmsub_abbrev_tac`GENLIST Y`
-      \\ `X =Y`
-      by (
-        simp[Abbr`X`,Abbr`Y`, FUN_EQ_THM]
-        \\ qx_gen_tac`m` \\ Cases_on`SND (co m)` \\ EVAL_TAC
-        \\ simp[])
-      \\ fs[] )
-    \\ fs[oracle_gapprox_disjoint_def]
+      irule monotonic_unique_set_globals
+      \\ fs [syntax_ok_def, GSYM fvs_inc_def, fvs_inc_unfold, o_DEF]
+      \\ first_assum (fn t => mp_tac t \\ match_mp_tac oracle_monotonic_subset)
+      \\ fs [fvs_inc_unfold])
     \\ conj_tac
     >- (
       drule clos_fvsProofTheory.fv_max_remove_fvs
       \\ disch_then(qspec_then`0`mp_tac)
       \\ rw[fv_max_def] )
-    \\ fs[gapprox_disjoint_def]
-    \\ gen_tac
-    \\ Cases_on`SND (co n)`
-    \\ simp[clos_fvsProofTheory.compile_inc_def]
-    \\ first_x_assum(qspec_then`n`mp_tac) \\ simp[]
-    \\ first_x_assum(qspec_then`n`mp_tac) \\ simp[]
-    \\ simp[clos_fvsTheory.compile_def] )
+    \\ imp_res_tac monotonic_gapprox_disjoint
+    \\ fs [clos_fvsTheory.compile_def]
+    \\ fs[oracle_gapprox_disjoint_def, gapprox_disjoint_def, GSYM fvs_inc_def, fvs_inc_unfold, is_state_oracle_def]
+  )
   \\ disch_then (fn th => fs [GSYM th])
   \\ drule (GEN_ALL clos_ticksProofTheory.semantics_remove_ticks)
   \\ impl_keep_tac THEN1

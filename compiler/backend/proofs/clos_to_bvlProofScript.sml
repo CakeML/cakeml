@@ -6383,7 +6383,7 @@ Theorem semantics_cond_call_compile_inc:
     (!k. clos_callProof$syntax_ok (FST (SND (co k)))
         /\ SND (SND (co k)) = []) /\
     (do_call ==> FST (FST (co 0)) = x /\
-        clos_callProof$extra_code_assum es x co 
+        clos_callProof$extra_code_assum es x co
 (*        clos_callProof$code_inv NONE FEMPTY
             (state_cc clos_callProof$compile_inc cc) co code cc
             (state_co clos_callProof$compile_inc co)
@@ -6688,7 +6688,6 @@ qsubgoal_pat `IS_SOME _ ==> _`
       rw[clos_mtiTheory.compile_def, clos_mtiProofTheory.intro_multi_preserves_elist_globals]
       \\ fs[o_DEF, mcompile_inc_uncurry]
       \\ fs[clos_mtiProofTheory.intro_multi_preserves_elist_globals]))
- 
 
 
 \\ drule (REWRITE_RULE [ASSUME ``renumber_code_locs_list n xs = r``]
