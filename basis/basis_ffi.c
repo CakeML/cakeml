@@ -213,7 +213,7 @@ typedef union {
 void ffidoube_fromString (unsigned char *c, long clen, unsigned char *a, long alen) {
   doubleWords d;
   sscanf(c, "%lf",&d.d);
-  assert (8 = alen);
+  assert (8 == alen);
   for (int i = 0; i < 8; i++){
     a[i] = d.words[i];
   }
@@ -221,9 +221,9 @@ void ffidoube_fromString (unsigned char *c, long clen, unsigned char *a, long al
 
 void ffidouble_toString (unsigned char *c, long clen, unsigned char *a, long alen) {
   doubleWords d;
-  assert (255 + 8 = alen);
+  assert (255 + 8 == alen);
   for (int i = 0; i < 8; i++){
     d.words[i] = a[i];
   }
-  sprintf(&a[8];"%.255f",d.d);
+  sprintf(&a[8],"%.255f",d.d);
 }
