@@ -2105,7 +2105,7 @@ Theorem b_input_spec
        W8ARRAY bufv (insert_atI (TAKE req bactive ++ TAKE (req - LENGTH bactive)
                                              (DROP pos (MAP (n2w o ORD) content)))
                                  off buf) *
-        STDIO (fsupdate fs fd 0 (MIN (req - (LENGTH bactive) + pos)
+        STDIO (fsupdate fs fd 0 (MIN (req - (LENGTH bactive) + LENGTH pbactive + pos)
                                   (MAX pos (LENGTH content))) content))
     (\e. &(IllegalArgument_exn e /\ LENGTH buf < req + off) *
           STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is))`
@@ -2278,7 +2278,7 @@ Theorem b_input_spec
                           (r + req − w)) nv6`  by fs[] \\fs[]
           \\simp[Once INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
           \\xsimpl \\ fs[PULL_EXISTS] \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
-          \\qexists_tac `(MIN (LENGTH bcontent − 4) (STRLEN content − pos) + 4) `
+          \\qexists_tac `(MIN (LENGTH bcontent − 4) (STRLEN content − pos) + 4)`
           \\ xsimpl \\ simp[LENGTH_take_fromI_n2w2c, LENGTH_insert_atI, Abbr`bactive`]
           \\`off +
             (w + MIN (MIN (LENGTH bcontent − 4) (STRLEN content − pos))
@@ -2349,6 +2349,53 @@ Theorem b_input_spec
           \\simp[MIN_DEF, TAKE_LENGTH_TOO_LONG]
           \\CASE_TAC
           >-(simp[TAKE_LENGTH_TOO_LONG]))
+        \\qpat_x_assum `r <= w` mp_tac
+        \\qpat_x_assum `r'' <= w''` mp_tac
+        \\qpat_x_assum `req > w-r` mp_tac
+        \\qpat_x_assum `r + req ≤ w + (LENGTH bcontent − 4)` mp_tac
+        \\qpat_x_assum `req ≤ LENGTH bcontent − 4` mp_tac
+        \\qpat_x_assum `1028 <= LENGTH bcontent` mp_tac
+        \\qpat_x_assum ` _ = w'' - r''` mp_tac
+        \\rpt (pop_assum kall_tac) \\ rpt strip_tac
+        \\Cases_on `LENGTH bcontent - 4 <= LENGTH content - pos`
+        >-(Cases_on `LENGTH content - pos <= req`
+          >-(`LENGTH bcontent - 4 = req - (w-r) + (w''-r'')`
+                  by (qpat_x_assum ` _ = w'' - r''` mp_tac
+                      \\simp[MIN_DEF, LENGTH_take_fromI_n2w2c])
+            \\qpat_x_assum ` _ = w'' - r''` mp_tac
+            \\`LENGTH bcontent − 4 = (r + (req + w'')) − (r'' + w)`
+              by decide_tac
+            \\`pos + (LENGTH bcontent − 4) = pos + (r + (req + w'') − (r'' + w))`
+                by simp[]
+            \\`(MIN (pos + (r + (req + w'')) − (r'' + w)) (MAX pos (STRLEN content))) =
+              (MIN (pos + LENGTH bcontent − 4) (MAX pos (STRLEN content)))` by simp[MIN_DEF]
+            \\rw[] \\ xsimpl)
+          >-(`LENGTH bcontent - 4 = req - (w-r) + (w''-r'')`
+                  by (qpat_x_assum ` _ = w'' - r''` mp_tac
+                      \\simp[MIN_DEF, LENGTH_take_fromI_n2w2c])
+            \\qpat_x_assum ` _ = w'' - r''` mp_tac
+            \\`LENGTH bcontent − 4 = (r + (req + w'')) − (r'' + w)`
+              by decide_tac
+            \\`pos + (LENGTH bcontent − 4) = pos + (r + (req + w'') − (r'' + w))`
+                by simp[]
+            \\`(MIN (pos + (r + (req + w'')) − (r'' + w)) (MAX pos (STRLEN content))) =
+              (MIN (pos + LENGTH bcontent − 4) (MAX pos (STRLEN content)))` by simp[MIN_DEF]
+            \\rw[] \\ xsimpl))
+        >-(Cases_on `LENGTH content - pos < req - (w - r)`
+          >-(qpat_x_assum ` _ = w'' - r''` mp_tac
+            \\simp[MIN_DEF, MAX_DEF, LENGTH_take_fromI_n2w2c]
+            \\strip_tac \\ xsimpl)
+        >-(qpat_x_assum ` _ = w'' - r''` mp_tac
+            \\simp[MIN_DEF, MAX_DEF, LENGTH_take_fromI_n2w2c]
+            \\strip_tac \\ xsimpl)
+
+
+`LENGTH (bcontent:word8 list) - 4 = req - (w-r) + (w''-r'')`
+    by (qpat_x_assum ` _ = w'' - r''` mp_tac
+        \\simp[MIN_DEF, LENGTH_take_fromI_n2w2c])
+
+SUBGOAL_THEN ``0 = w'':num - r'':num`` assume_tac
+        \\simp[MIN_DEF, MAX_DEF, LENGTH_take_fromI_n2w2c])
 
 
 Theorem extend_array_spec
