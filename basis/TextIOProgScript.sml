@@ -270,11 +270,11 @@ val _ = process_topdecs`
 
 
 val _ = (append_prog o process_topdecs)`
-  fun b_refillBuffer_with_input is =
-    case is of InstreamBuffered fd rref wref surplus =>
-        (wref := 4 + input fd surplus 4 ((Word8Array.length surplus)-4);
-        rref := 4;
-        (!wref) - 4)`;
+ fun b_refillBuffer_with_read is =
+   case is of InstreamBuffered fd rref wref surplus =>
+       (wref := 4 + (read_into (get_in fd) surplus ((Word8Array.length surplus)-4));
+       rref := 4;
+       (!wref) - 4)`;
 
 (*b_input helper function for the case when there are
   enough bytes in instream buffer*)
@@ -290,28 +290,28 @@ val _ = (append_prog o process_topdecs)`
       end`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_input is buff off len =
-    case is of InstreamBuffered fd rref wref surplus =>
-      let
-        val nBuffered = (!wref) - (!rref)
-      in
-        if Word8Array.length buff < len + off then raise IllegalArgument
-        else
-          if (Word8Array.length surplus - 4) < len then
-            (b_input_aux is buff off nBuffered;
-            input fd buff (off+nBuffered) (len - nBuffered) + nBuffered)
-          else
-            (*If there arent enough bytes in the buffer: copy all of the bytes
-            in the buffer and then refill it, and copy the remaining bytes *)
-            if len > nBuffered then
-              (b_input_aux is buff off nBuffered;
-              wref := 4 + input fd surplus 4 ((Word8Array.length surplus)-4);
-              rref := 4;
-              (b_input_aux is buff (off+nBuffered) (min ((!wref) - 4) (len-nBuffered))) + nBuffered)
-            (*If there are enough bytes in the buffer, just copy them*)
-            else
-              b_input_aux is buff off len
-      end`;
+ fun b_input is buff off len =
+   case is of InstreamBuffered fd rref wref surplus =>
+     let
+       val nBuffered = (!wref) - (!rref)
+     in
+       if Word8Array.length buff < len + off then raise IllegalArgument
+       else
+         if (Word8Array.length surplus - 4) < len then
+           (b_input_aux is buff off nBuffered;
+           input fd buff (off+nBuffered) (len - nBuffered) + nBuffered)
+         else
+           (*If there arent enough bytes in the buffer: copy all of the bytes
+           in the buffer and then refill it, and copy the remaining bytes *)
+           if len > nBuffered then
+             (b_input_aux is buff off nBuffered;
+             wref := 4 + input fd surplus 4 ((Word8Array.length surplus)-4);
+             rref := 4;
+             (b_input_aux is buff (off+nBuffered) (min ((!wref) - 4) (len-nBuffered))) + nBuffered)
+           (*If there are enough bytes in the buffer, just copy them*)
+           else
+             b_input_aux is buff off len
+     end`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_input1 is =
