@@ -4072,22 +4072,58 @@ Theorem calls_code_locs_ALL_DISTINCT
   rw[]>>
   metis_tac[]);
 
-val extra_code_assum_def = Define `
-  extra_code_assum prog g0 co =
-    ∀n m. MEM n (code_locs prog) ∧ n ∉ domain g0 ⇒
-          n ∉ domain (FST (FST (co m)))`;
+(* using is_state_oracle from clos_knownProof, FIXME move to backendProps
+   or similar, but then I have to rebuild everything. *)
+
+Theorem is_state_oracle_0:
+  is_state_oracle compile_inc co st ==> FST (FST (co 0)) = st
+Proof
+  fs [is_state_oracle_def]
+QED
+
+Theorem is_state_oracle_extra_code:
+  is_state_oracle compile_inc co g0 ==>
+  oracle_monotonic (set o code_locs o FST o SND) (<)
+    (set (code_locs prog)) co ==>
+  compile T prog = (y, g0, aux) ==>
+  ∀n m. MEM n (code_locs prog) ∧ n ∉ domain g0 ==> n ∉ domain (FST (FST (co m)))
+Proof
+  fs [compile_def]
+  \\ pairarg_tac
+  \\ rw []
+  \\ Induct_on `m` \\ fs [is_state_oracle_def]
+  \\ Cases_on `SND (co m)`
+  \\ fs [compile_inc_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ drule calls_add_SUC_code_locs
+  \\ drule calls_domain
+  \\ fs []
+  \\ CCONTR_TAC
+  \\ fs []
+  \\ drule_then drule (GEN_ALL SUBSET_IMP)
+  \\ strip_tac \\ fs [] \\ fs []
+  \\ drule_then drule (GEN_ALL SUBSET_IMP)
+  \\ strip_tac \\ fs [] \\ fs []
+  \\ drule oracle_monotonic_init
+  \\ disch_then drule
+  \\ fs []
+  \\ metis_tac [prim_recTheory.LESS_REFL, FST]
+QED
 
 Theorem semantics_calls
   `semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
    compile T x = (y,g0,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
-   ALL_DISTINCT (code_locs x) /\ FST (FST (co 0)) = g0 /\
-   extra_code_assum x g0 co /\
+   ALL_DISTINCT (code_locs x) /\
+   is_state_oracle compile_inc co g0 /\
+   oracle_monotonic (set o code_locs o FST o SND) (<) (set (code_locs x)) co /\
    code_inv NONE FEMPTY cc co (FEMPTY |++ aux) cc1 co1 ==>
    semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 y =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x`
-  (strip_tac
+  (
+  strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
+  \\ imp_res_tac is_state_oracle_0
   \\ fs [compile_def]
   \\ rveq \\ fs [FUPDATE_LIST]
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
@@ -4143,7 +4179,9 @@ Theorem semantics_calls
   \\ conj_tac THEN1
    (fs [SUBSET_DEF]
     \\ drule evaluate_code \\ strip_tac
-    \\ fs [shift_seq_def,extra_code_assum_def]
+    \\ fs [shift_seq_def]
+    \\ imp_res_tac (GEN_ALL is_state_oracle_extra_code)
+    \\ fs [compile_def] \\ rfs []
     \\ metis_tac [])
   \\ conj_tac THEN1 (fs [IN_DISJOINT,IN_DIFF,shift_seq_def])
   \\ conj_tac THEN1 (metis_tac [co_ok_IMP_wfg_full_gs])
@@ -4163,8 +4201,8 @@ Theorem semantics_compile
   `semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
    compile do_call x = (y,g1,aux) ∧
    (if do_call then
-    syntax_ok x ∧ FST (FST (co 0)) = g1 ∧
-    extra_code_assum x g1 co /\
+    syntax_ok x ∧ is_state_oracle compile_inc co g1 ∧
+    oracle_monotonic (set o code_locs o FST o SND) (<) (set (code_locs x)) co ∧
     code_inv NONE FEMPTY cc co (FEMPTY |++ aux) cc1 co1
     else cc = state_cc (CURRY I) cc1 ∧
          co1 = state_co (CURRY I) co) ⇒
