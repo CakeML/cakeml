@@ -2347,16 +2347,6 @@ Theorem b_input_spec
         \\rw[] \\ simp[MIN_DEF, MAX_DEF]
         \\simp[fsupdate_unchanged] \\ xsimpl))));
 
-
-`LENGTH (bcontent:word8 list) - 4 = req - (w-r) + (w''-r'')`
-    by (qpat_x_assum ` _ = w'' - r''` mp_tac
-        \\simp[MIN_DEF, LENGTH_take_fromI_n2w2c])
-
-SUBGOAL_THEN ``MIN req (STRLEN content − pos + (w − r)) = req`` assume_tac
-        Cases_on `req <= STRLEN  content - pos + (w - r)`
-        >-(simp[MIN_DEF])
-        >-(simp[MIN_DEF, NOT_LESS])
-
 Theorem extend_array_spec
     `∀arrv arr.
      app (p:'ffi ffi_proj) TextIO_extend_array_v [arrv] (W8ARRAY arrv arr)
