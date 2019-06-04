@@ -1600,35 +1600,6 @@ Theorem oracle_gapprox_disjoint_lemma
    (rw [] \\ imp_res_tac evaluate_IMP_shift_seq
    \\ metis_tac [oracle_gapprox_disjoint_shift_seq_unique_set_globals]);
 
-val is_state_oracle_def = Define`
-  is_state_oracle compile_inc_f co init_state =
-    ((FST (FST (co 0)) = init_state) /\ (!n. FST (FST (co (SUC n)))
-        = FST (compile_inc_f (FST (FST (co n))) (SND (co n)))))`;
-
-Theorem is_state_oracle_shift:
-  is_state_oracle compile_inc_f co st =
-  (FST (FST (co 0)) = st /\ is_state_oracle compile_inc_f (shift_seq 1 co)
-        (FST (compile_inc_f st (SND (co 0)))))
-Proof
-  fs [is_state_oracle_def, shift_seq_def]
-  \\ EQ_TAC \\ rw [] \\ fs [sptreeTheory.ADD_1_SUC]
-  \\ full_simp_tac bool_ss [arithmeticTheory.ONE]
-  \\ Cases_on `n`
-  \\ fs []
-QED
-
-val oracle_monotonic_def = Define`
-  oracle_monotonic (f : 'a -> 'b set) (R : 'b -> 'b -> bool) (S : 'b set)
-    (orac : num -> 'a) =
-    ((!i j x y. i < j /\ x IN f (orac i) /\ y IN f (orac j) ==> R x y)
-        /\ (! i x y. x IN S /\ y IN f (orac i) ==> R x y))`;
-
-val conjs = MATCH_MP quotientTheory.EQ_IMPLIES (SPEC_ALL oracle_monotonic_def)
-  |> UNDISCH_ALL |> CONJUNCTS |> map DISCH_ALL
-
-Theorem oracle_monotonic_step = hd conjs;
-Theorem oracle_monotonic_init = hd (tl conjs);
-
 val compile_inc_def = Define `
   compile_inc c g (es,xs) =
     let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)`;
@@ -4508,15 +4479,6 @@ Proof
   \\ fs [first_n_exps_def, GENLIST, FLAT_SNOC, elist_globals_append,
         BAG_ALL_DISTINCT_BAG_UNION]
   \\ fs [elist_globals_FLAT_FOLDR, MAP_GENLIST, o_DEF, fvs_inc_unfold]
-QED
-
-Theorem oracle_monotonic_subset:
-  ((St' SUBSET St) /\ (!n. f' (co' n) SUBSET f (co n))) ==>
-  oracle_monotonic f R St co ==>
-  oracle_monotonic f' R St' co'
-Proof
-  fs [oracle_monotonic_def, SUBSET_DEF]
-  \\ metis_tac []
 QED
 
 Theorem semantics_compile
