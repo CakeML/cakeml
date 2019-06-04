@@ -1983,6 +1983,88 @@ Theorem b_refillBuffer_with_read_spec
                   \\ fs[ALIST_FUPDKEY_ALOOKUP,ALIST_FUPDKEY_o,ALIST_FUPDKEY_eq]))
         \\xsimpl)));
 
+val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm";
+val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1);
+
+Theorem b_input1_spec
+  `!fd fdv fs content pos bactive.
+    get_file_content fs fd = SOME(content, pos) ⇒
+    get_mode fs fd = SOME ReadMode ⇒
+    app (p:'ffi ffi_proj) TextIO_b_input1_v [is]
+    (IOFS_WO_iobuff fs * INSTREAM_BUFFERED_FD bactive fd is)
+    (POSTv chv. SEP_EXISTS len.
+      case eof fd fs of
+        | SOME F =>
+          (case bactive of
+            | [] =>
+              &OPTION_TYPE CHAR (SOME (EL pos content)) chv *
+              INSTREAM_BUFFERED_FD (TAKE len (DROP pos (MAP (n2w o ORD) content))) fd is *
+              STDIO (bumpFD fd fs 1)
+            | (c::cs) =>
+              &OPTION_TYPE CHAR (chr c) chv *
+              INSTREAM_BUFFERED_FD cs fd is *
+              STDIO (bumpFD fd fs 0))
+        | SOME T =>
+          (case bactive of
+            | [] =>
+              &OPTION_TYPE CHAR NONE chv *
+              INSTREAM_BUFFERED_FD [] fd is *
+              STDIO (bumpFD fd fs 0)
+            | (c::cs) =>
+              &OPTION_TYPE CHAR (chr c) chv *
+              INSTREAM_BUFFERED_FD cs fd is *
+              STDIO (bumpFD fd fs 0))
+        | _ => &F)`
+    (xcf_with_def "TextIO.b_input1" TextIO_b_input1_v_def
+    \\ simp[INSTREAM_BUFFERED_FD_def, REF_NUM_def]
+    \\ xpull
+    \\ xmatch
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xlet `POSTv bool. & (BOOL (v' = v) bool) * IOFS_WO_iobuff fs
+              * INSTREAM_BUFFERED_FD bactive fd is`
+      >- ( xapp_spec eq_num_v_thm
+        \\ xsimpl
+        \\ qexists_tac `r` \\ qexists_tac `w`
+        \\ `NUM w yv' /\ NUM r yv` by fs[]
+        \\ simp[]
+        \\ fs[INSTREAM_BUFFERED_FD_def,NUM_def, INT_def, BOOL_def, REF_NUM_def]
+        \\ xsimpl)
+    \\xlet `POSTv _. IOFS_WO_iobuff fs * INSTREAM_BUFFERED_FD bactive fd is`
+    \\ xif
+      >- (
+        xlet `POSTv nfv. SEP_EXISTS nfilled. & (NUM nfilled nfv) * IOFS_WO_iobuff (fsupdate fs fd 0 nfilled content)
+              * INSTREAM_BUFFERED_FD bactive fd is`
+        >- ( simp[REF_NUM_def,INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def]
+          \\ xpull
+          \\ xapp
+          \\ asm_exists_tac
+          \\ xsimpl
+          \\ qexists_tac `emp` \\ qexists_tac `bactive`
+          (* \\ qexists_tac `& T * REF_NUM rr r * REF_NUM wr w * W8ARRAY buff bcontent` *)
+          (* \\ map_every qexists_tac [`pos` , `content`, `bactive`] *)
+          (* \\ simp[Once INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def] *)
+          \\ simp[REF_NUM_def,INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def]
+          \\ fs[REF_NUM_def,INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def]
+          \\ xsimpl
+          (* \\ rpt strip_tac *)
+          (* \\ qexists_tac `x` *)
+          \\ conj_tac
+            >- (qexists_tac `r'` \\ qexists_tac `w'`
+              \\ xsimpl)
+    (* \\ map_every qexists_tac [`x` , `bactive`] *)
+    \\ rpt strip_tac
+    \\ xsimpl
+    \\ asm_exists_tac \\ simp[]
+    (* \\ qexists_tac `r'` \\ qexists_tac `w'` *)
+    \\ qexists_tac `bcontent'`
+    \\ qexists_tac `v''` \\ qexists_tac `v'3'`
+    \\ xsimpl
+    \\ rpt strip_tac
+    \\ fs[NUM_def]
+    \\ rw[]
+
+
 Theorem b_input_aux_w_content_spec
   `!len lenv outbuf is.
     NUM len lenv /\ NUM off offv  /\ len + off <= LENGTH outcont /\
