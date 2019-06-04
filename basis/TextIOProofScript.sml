@@ -2320,7 +2320,7 @@ Theorem b_input_spec
             >-xsimpl
             >-xsimpl))
         \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
-        \\xpull \\ xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+        \\fs[NUM_def] \\ xpull \\ xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
         \\fs[NUM_def] \\ asm_exists_tac \\ qexists_tac `&w − &r`
         \\xsimpl \\ rpt strip_tac \\ map_every qexists_tac [`r''`,`w''`]
         \\fs[] \\ fs[Abbr`take_n`]
@@ -2362,9 +2362,9 @@ Theorem b_input_spec
           >-(`LENGTH bcontent - 4 = req - (w-r) + (w''-r'')`
                   by (qpat_x_assum ` _ = w'' - r''` mp_tac
                       \\simp[MIN_DEF, LENGTH_take_fromI_n2w2c])
-            \\qpat_x_assum ` _ = w'' - r''` mp_tac
+            \\qpat_x_assum ` _ = w'' - r''` kall_tac
             \\`LENGTH bcontent − 4 = (r + (req + w'')) − (r'' + w)`
-              by decide_tac
+              by simp[]
             \\`pos + (LENGTH bcontent − 4) = pos + (r + (req + w'') − (r'' + w))`
                 by simp[]
             \\`(MIN (pos + (r + (req + w'')) − (r'' + w)) (MAX pos (STRLEN content))) =
@@ -2373,9 +2373,9 @@ Theorem b_input_spec
           >-(`LENGTH bcontent - 4 = req - (w-r) + (w''-r'')`
                   by (qpat_x_assum ` _ = w'' - r''` mp_tac
                       \\simp[MIN_DEF, LENGTH_take_fromI_n2w2c])
-            \\qpat_x_assum ` _ = w'' - r''` mp_tac
+            \\qpat_x_assum ` _ = w'' - r''` kall_tac
             \\`LENGTH bcontent − 4 = (r + (req + w'')) − (r'' + w)`
-              by decide_tac
+              by simp[]
             \\`pos + (LENGTH bcontent − 4) = pos + (r + (req + w'') − (r'' + w))`
                 by simp[]
             \\`(MIN (pos + (r + (req + w'')) − (r'' + w)) (MAX pos (STRLEN content))) =
@@ -2387,16 +2387,28 @@ Theorem b_input_spec
             \\strip_tac \\ xsimpl)
         >-(qpat_x_assum ` _ = w'' - r''` mp_tac
             \\simp[MIN_DEF, MAX_DEF, LENGTH_take_fromI_n2w2c]
-            \\strip_tac \\ xsimpl)
+            \\strip_tac \\ xsimpl)))
+      >-(xapp \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
+        \\map_every qexists_tac [`bactive`,`fd`, `req`, `off`, `buf`] \\simp[]
+        \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def] \\ xsimpl
+        \\fs[PULL_EXISTS] \\  CONV_TAC(RESORT_EXISTS_CONV List.rev)
+        \\map_every qexists_tac [`w`, `r`] \\ xsimpl
+        \\rpt strip_tac
+        \\`MIN req (STRLEN content − pos + (w − r)) = req` by simp[MIN_DEF, NOT_LESS]
+        \\simp[] \\ map_every qexists_tac [`x'`,`x'3'`] \\ simp[]
+        \\simp[TAKE_TAKE_T] \\ `r + req - w = 0` by fs[NOT_LESS]
+        \\simp[TAKE_0]
+        \\`x'3' - x' = 0` by fs[]
 
 
 `LENGTH (bcontent:word8 list) - 4 = req - (w-r) + (w''-r'')`
     by (qpat_x_assum ` _ = w'' - r''` mp_tac
         \\simp[MIN_DEF, LENGTH_take_fromI_n2w2c])
 
-SUBGOAL_THEN ``0 = w'':num - r'':num`` assume_tac
-        \\simp[MIN_DEF, MAX_DEF, LENGTH_take_fromI_n2w2c])
-
+SUBGOAL_THEN ``MIN req (STRLEN content − pos + (w − r)) = req`` assume_tac
+        Cases_on `req <= STRLEN  content - pos + (w - r)`
+        >-(simp[MIN_DEF])
+        >-(simp[MIN_DEF, NOT_LESS])
 
 Theorem extend_array_spec
     `∀arrv arr.
