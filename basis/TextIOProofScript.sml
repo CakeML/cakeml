@@ -1885,61 +1885,6 @@ Theorem LENGTH_take_fromI_n2w2c
    (LENGTH l - i <= n ==> LENGTH (take_fromI_n2w2c n l i) = LENGTH l - i)`
   (fs[take_fromI_n2w2c_def, LENGTH_take_fromI]);
 
-Theorem b_refillBuffer_with_input_spec
-  `!fd fs content pos is.
-    get_file_content fs fd = SOME(content, pos) ⇒
-    get_mode fs fd = SOME ReadMode ⇒
-    app (p:'ffi ffi_proj) TextIO_b_refillBuffer_with_input_v [is;]
-    (STDIO fs * INSTREAM_BUFFERED_BL_FD bcontent bactive fd is )
-    (POSTv wv. &(NUM (MIN wrAreaSize (LENGTH content - pos)) wv) *
-                INSTREAM_BUFFERED_BL_FD rfl_bcontent (take_fromI_n2w2c wrAreaSize content pos) fd is *
-        STDIO (fsupdate fs fd 0 (MIN (wrAreaSize + pos) (MAX pos (LENGTH content))) content))`
-  (xcf_with_def "TextIO.b_refillBuffer_with_input" TextIO_b_refillBuffer_with_input_v_def
-  \\rw[take_fromI_n2w2c_def, take_fromI_def]
-  \\qpat_abbrev_tac`fcontent = (MAP (n2w o ORD) content)`
-  \\fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def]
-  \\xpull
-  \\xmatch
-  \\xlet_auto >- xsimpl
-  \\xlet_auto >- xsimpl
-  \\fs[instream_buffered_inv_def]
-  \\xlet_auto_spec (SOME input_spec) >- xsimpl
-  \\xlet_auto >- xsimpl
-  \\xlet_auto >- xsimpl
-  \\`pos = LENGTH content ⇒ MIN (LENGTH bcontent + pos) (MAX pos (LENGTH content)) = LENGTH content` by simp[MAX_DEF,MIN_DEF]
-  \\xlet_auto >- xsimpl
-  \\xlet_auto >- xsimpl
-  \\xapp \\ xsimpl
-  \\qexists_tac `&((MIN (LENGTH bcontent - 4) (STRLEN content − pos)) + 4)`  \\fs[NUM_def, MIN_DEF]
-  \\rpt strip_tac \\ map_every qexists_tac
-                  [`LENGTH bcontent - 4`,
-                  `(MIN (LENGTH bcontent - 4) (STRLEN content − pos)) + 4`]
-  \\fs[INT_SUB_CALCULATE, INT_ADD_CALCULATE] \\simp[MAX_DEF,MIN_DEF] \\ xsimpl
-  \\qpat_abbrev_tac`take_fcontent = (TAKE (LENGTH bcontent - 4) (DROP pos fcontent))`
-  \\`LENGTH take_fcontent <= LENGTH bcontent` by
-      fs[Abbr`take_fcontent`,Abbr`fcontent`,LENGTH_TAKE_EQ_MIN,LENGTH_TAKE,MIN_DEF]
-  \\`LENGTH take_fcontent <= LENGTH bcontent - 4` by
-      fs[Abbr`take_fcontent`,Abbr`fcontent`,LENGTH_TAKE_EQ_MIN,LENGTH_TAKE,MIN_DEF]
-  \\`LENGTH take_fcontent + 4 <= LENGTH bcontent` by fs[INT_LE_SUB_LADD]
-  \\CASE_TAC
-  >-(fs[LENGTH_insert_atI, LENGTH_TAKE, LENGTH_DROP,LENGTH_MAP, NOT_NIL_EQ_LENGTH_NOT_0,
-        DROP_LENGTH_TOO_LONG, TAKE_LENGTH_TOO_LONG]
-    \\`(DROP pos fcontent = [] ⇔ 4 = STRLEN content − pos + 4)`
-        by fs[Abbr`fcontent`, DROP_NIL]
-    \\simp[Abbr`take_fcontent`,insert_atI_def,TAKE_APPEND, DROP_APPEND]
-    \\simp[DROP_SEG, SEG])
-  >-(fs[LENGTH_insert_atI, LENGTH_TAKE, LENGTH_DROP,LENGTH_MAP, NOT_NIL_EQ_LENGTH_NOT_0,
-        DROP_LENGTH_TOO_LONG, TAKE_LENGTH_TOO_LONG]
-    \\`(DROP pos (MAP (n2w ∘ ORD) content)  = [] ⇔ 4 = STRLEN content − pos + 4)`
-        by fs[Abbr`fcontent`, DROP_NIL]
-    \\simp[Abbr`take_fcontent`,insert_atI_def,TAKE_APPEND]
-    \\`LENGTH (TAKE (LENGTH bcontent-4) (DROP pos fcontent)) =
-          MIN (LENGTH bcontent-4) (LENGTH fcontent - pos)`
-            by fs[Abbr`fcontent`,LENGTH_TAKE_EQ_MIN, LENGTH_DROP]
-    \\simp[DROP_APPEND]
-    \\fs[MIN_DEF] \\ simp[DROP_APPEND, DROP_SEG, SEG, TAKE_APPEND,
-                              TAKE_TAKE_T,TAKE_LENGTH_TOO_LONG]));
-
 Theorem b_refillBuffer_with_read_spec
  `!fd fdv fs content pos.
    is = (Conv (SOME (TypeStamp "InstreamBuffered" 11)) [fdv; rr; wr; isbuff]) /\
@@ -2105,7 +2050,7 @@ Theorem b_input_spec
        W8ARRAY bufv (insert_atI (TAKE req bactive ++ TAKE (req - LENGTH bactive)
                                              (DROP pos (MAP (n2w o ORD) content)))
                                  off buf) *
-        STDIO (fsupdate fs fd 0 (MIN (req - (LENGTH bactive) + LENGTH pbactive + pos)
+        STDIO (fsupdate fs fd 0 (MIN (req + LENGTH pbactive - LENGTH bactive + pos)
                                   (MAX pos (LENGTH content))) content))
     (\e. &(IllegalArgument_exn e /\ LENGTH buf < req + off) *
           STDIO fs * W8ARRAY bufv buf * INSTREAM_BUFFERED_FD bactive fd is))`
@@ -2398,7 +2343,9 @@ Theorem b_input_spec
         \\simp[] \\ map_every qexists_tac [`x'`,`x'3'`] \\ simp[]
         \\simp[TAKE_TAKE_T] \\ `r + req - w = 0` by fs[NOT_LESS]
         \\simp[TAKE_0]
-        \\`x'3' - x' = 0` by fs[]
+        \\`pos + (r + (req + x'³')) − (w + x') = pos` by fs[]
+        \\rw[] \\ simp[MIN_DEF, MAX_DEF]
+        \\simp[fsupdate_unchanged] \\ xsimpl))));
 
 
 `LENGTH (bcontent:word8 list) - 4 = req - (w-r) + (w''-r'')`
