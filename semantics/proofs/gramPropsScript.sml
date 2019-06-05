@@ -285,10 +285,11 @@ val fringe_lengths_def = Define`
 `
 
 val RTC_R_I = relationTheory.RTC_RULES |> SPEC_ALL |> CONJUNCT2 |> GEN_ALL
-Theorem fringe_length_ptree
-  `∀G i pt. ptree_fringe pt = MAP TOK i ∧ valid_ptree G pt ⇒
-           LENGTH i ∈ fringe_lengths G [ptree_head pt]`
-  (ntac 2 gen_tac >>
+Theorem fringe_length_ptree:
+   ∀G i pt. ptree_fringe pt = MAP TOK i ∧ valid_ptree G pt ⇒
+           LENGTH i ∈ fringe_lengths G [ptree_head pt]
+Proof
+  ntac 2 gen_tac >>
   HO_MATCH_MP_TAC grammarTheory.ptree_ind >> dsimp[MAP_EQ_SING] >>
   conj_tac
   >- ( simp[fringe_lengths_def] >> rpt strip_tac >>
@@ -298,32 +299,39 @@ Theorem fringe_length_ptree
   qabbrev_tac `pt = Nd N subs` >> Cases_on `N` >>
   `NT q = ptree_head pt` by simp[Abbr`pt`] >>
   `MAP TOK i = ptree_fringe pt` by simp[Abbr`pt`] >> simp[] >>
-  match_mp_tac grammarTheory.valid_ptree_derive >> simp[Abbr`pt`]);
+  match_mp_tac grammarTheory.valid_ptree_derive >> simp[Abbr`pt`]
+QED
 
-Theorem fringe_length_not_nullable
-  `∀G s. ¬nullable G [s] ⇒
+Theorem fringe_length_not_nullable:
+   ∀G s. ¬nullable G [s] ⇒
           ∀pt. ptree_head pt = s ⇒ valid_ptree G pt ⇒
-               0 < LENGTH (ptree_fringe pt)`
-  (spose_not_then strip_assume_tac >>
+               0 < LENGTH (ptree_fringe pt)
+Proof
+  spose_not_then strip_assume_tac >>
   `LENGTH (ptree_fringe pt) = 0` by decide_tac >>
   fs[listTheory.LENGTH_NIL] >>
   erule mp_tac grammarTheory.valid_ptree_derive >>
-  fs[NTpropertiesTheory.nullable_def]);
+  fs[NTpropertiesTheory.nullable_def]
+QED
 
-Theorem derives_singleTOK
-  `derives G [TOK t] l ⇔ (l = [TOK t])`
-  (simp[Once relationTheory.RTC_CASES1, grammarTheory.derive_def] >>
-  metis_tac[]);
+Theorem derives_singleTOK:
+   derives G [TOK t] l ⇔ (l = [TOK t])
+Proof
+  simp[Once relationTheory.RTC_CASES1, grammarTheory.derive_def] >>
+  metis_tac[]
+QED
 val _ = export_rewrites ["derives_singleTOK"]
 
-Theorem fringe_lengths_V
-  `fringe_lengths cmlG [NT (mkNT nV)] = {1}`
-  (simp[fringe_lengths_def] >>
+Theorem fringe_lengths_V:
+   fringe_lengths cmlG [NT (mkNT nV)] = {1}
+Proof
+  simp[fringe_lengths_def] >>
   simp[Once relationTheory.RTC_CASES1, MAP_EQ_SING, cmlG_FDOM] >>
   dsimp[MAP_EQ_SING,cmlG_applied] >>
   simp[EXTENSION, EQ_IMP_THM] >> qx_gen_tac `t` >> rpt strip_tac >>
   fs[] >> qexists_tac `[AlphaT "foo"]` >>
-  simp[stringTheory.isUpper_def]);
+  simp[stringTheory.isUpper_def]
+QED
 
 val parsing_ind = save_thm(
   "parsing_ind",

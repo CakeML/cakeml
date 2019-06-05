@@ -30,23 +30,27 @@ val type_ok_subst = Q.prove (
   qspec_tac(`tyvars ty`,`ls`) >>
   Induct >> simp[REV_ASSOCD] >> rw[]);
 
-Theorem term_image_term_union
-`!f h1 h2.
+Theorem term_image_term_union:
+ !f h1 h2.
   (!t1 t2. ACONV t1 t2 ⇒ ACONV (f t1) (f t2)) ∧
   hypset_ok h1 ∧
   hypset_ok h2
   ⇒
-  term_image f (term_union h1 h2) = term_union (term_image f h1) (term_image f h2)`
- (...);
+  term_image f (term_union h1 h2) = term_union (term_image f h1) (term_image f h2)
+Proof
+ ...
+QED
 
-Theorem term_image_term_image
-`!f g h.
-  term_image f (term_image g h) = term_image (f o g) h`
-  (gen_tac >> ho_match_mp_tac term_image_ind >> rw[] >>
+Theorem term_image_term_image:
+ !f g h.
+  term_image f (term_image g h) = term_image (f o g) h
+Proof
+  gen_tac >> ho_match_mp_tac term_image_ind >> rw[] >>
   simp[Once term_image_def,SimpRHS] >>
   BasicProvers.CASE_TAC >- simp[] >> fs[] >> rw[] >>
   (* likely not true without some hypset_ok hypotheses *)
-  ...)
+  ...
+QED
 
 val term_image_term_remove = Q.prove (
 `!x f tm tms.

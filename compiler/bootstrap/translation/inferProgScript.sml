@@ -31,9 +31,11 @@ val _ = register_type ``:lexer_fun$symbol``;
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Theorem NOT_NIL_AND_LEMMA
-  `(b <> [] /\ x) = if b = [] then F else x`
-  (Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Theorem NOT_NIL_AND_LEMMA:
+   (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -64,26 +66,28 @@ val PRECONDITION_INTRO = Q.prove(
   `(b ==> (x = y)) ==> (x = if PRECONDITION b then y else x)`,
   Cases_on `b` THEN SIMP_TAC std_ss [PRECONDITION_def]);
 
-Theorem t_vwalk_ind
-  `!P.
+Theorem t_vwalk_ind:
+   !P.
       (!s v.
         (!v1 u. FLOOKUP s v = SOME v1 /\ v1 = Infer_Tuvar u ==> P s u) ==>
         P s v) ==>
-      (!s v. t_wfs s ==> P s v)`
-  (NTAC 3 STRIP_TAC
+      (!s v. t_wfs s ==> P s v)
+Proof
+  NTAC 3 STRIP_TAC
   THEN Cases_on `t_wfs s` THEN FULL_SIMP_TAC std_ss []
   THEN HO_MATCH_MP_TAC (unifyTheory.t_vwalk_ind |> Q.SPEC `P (s:num |-> infer_t)`
        |> DISCH_ALL |> RW [AND_IMP_INTRO])
-  THEN FULL_SIMP_TAC std_ss []);
+  THEN FULL_SIMP_TAC std_ss []
+QED
 
 val _ = translate
   (unifyTheory.t_vwalk_eqn
     |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
     |> MATCH_MP PRECONDITION_INTRO);
 
-Theorem t_vwalk_side_def
-  `!s v. t_vwalk_side s v <=> t_wfs s`
-  (STRIP_TAC THEN reverse (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
+Theorem t_vwalk_side_def = Q.prove(`
+  !s v. t_vwalk_side s v <=> t_wfs s`,
+  STRIP_TAC THEN reverse (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
   THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_vwalk_side_def"]
          THEN FULL_SIMP_TAC std_ss [])
   THEN STRIP_TAC THEN POP_ASSUM (fn th => MP_TAC th THEN MP_TAC th)
@@ -96,13 +100,15 @@ Theorem t_vwalk_side_def
 
 val _ = translate unifyTheory.t_walk_eqn;
 
-Theorem t_walkstar_ind
-  `!P.
+Theorem t_walkstar_ind:
+   !P.
       (!s t.
          (!ts tc0 a. t_walk s t = Infer_Tapp ts tc0 /\ MEM a ts ==> P s a) ==>
          P s t) ==>
-      !s t. t_wfs s ==> P s t`
-  (METIS_TAC [unifyTheory.t_walkstar_ind]);
+      !s t. t_wfs s ==> P s t
+Proof
+  METIS_TAC [unifyTheory.t_walkstar_ind]
+QED
 
 val expand_lemma = Q.prove(
   `t_walkstar s = \x. t_walkstar s x`,
@@ -113,9 +119,9 @@ val _ = translate
     |> RW1 [expand_lemma] |> SIMP_RULE std_ss [PULL_FORALL]
     |> SPEC_ALL |> MATCH_MP PRECONDITION_INTRO)
 
-Theorem t_walkstar_side_def
-  `!s v. t_walkstar_side s v <=> t_wfs s`
-  (STRIP_TAC THEN reverse (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
+Theorem t_walkstar_side_def = Q.prove(`
+  !s v. t_walkstar_side s v <=> t_wfs s`,
+  STRIP_TAC THEN reverse (Cases_on `t_wfs s`) THEN FULL_SIMP_TAC std_ss []
   THEN1 (ONCE_REWRITE_TAC [fetch "-" "t_walkstar_side_def"]
          THEN FULL_SIMP_TAC std_ss [])
   THEN STRIP_TAC THEN POP_ASSUM (fn th => MP_TAC th THEN MP_TAC th)
@@ -126,15 +132,17 @@ Theorem t_walkstar_side_def
   THEN METIS_TAC [])
   |> update_precondition;
 
-Theorem t_oc_ind
-  `!P.
+Theorem t_oc_ind:
+   !P.
       (!s t v.
         (!ts tt a. t_walk s t = Infer_Tapp ts tt /\ MEM a ts ==> P s a v) ==>
         P s t v) ==>
-      (!s t v. t_wfs s ==> P (s:num |-> infer_t) (t:infer_t) (v:num))`
-  (REPEAT STRIP_TAC THEN Q.SPEC_TAC (`t`,`t`)
+      (!s t v. t_wfs s ==> P (s:num |-> infer_t) (t:infer_t) (v:num))
+Proof
+  REPEAT STRIP_TAC THEN Q.SPEC_TAC (`t`,`t`)
   THEN IMP_RES_TAC unifyTheory.t_walkstar_ind
-  THEN POP_ASSUM HO_MATCH_MP_TAC THEN METIS_TAC []);
+  THEN POP_ASSUM HO_MATCH_MP_TAC THEN METIS_TAC []
+QED
 
 val EXISTS_LEMMA = Q.prove(
   `!xs P. EXISTS P xs = EXISTS I (MAP P xs)`,
@@ -154,9 +162,9 @@ val t_oc_side_lemma = Q.prove(
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) [])
   |> SIMP_RULE std_ss [];
 
-Theorem t_oc_side_def
-  `!s t v. t_oc_side s t v <=> t_wfs s`
-  (STRIP_TAC THEN Cases_on `t_wfs s`
+Theorem t_oc_side_def = Q.prove(`
+  !s t v. t_oc_side s t v <=> t_wfs s`,
+  STRIP_TAC THEN Cases_on `t_wfs s`
   THEN FULL_SIMP_TAC std_ss [t_oc_side_lemma]
   THEN ONCE_REWRITE_TAC [fetch "-" "t_oc_side_def"]
   THEN FULL_SIMP_TAC std_ss [])
@@ -213,17 +221,17 @@ val t_unify_side_lemma = Q.prove(
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC (srw_ss()) []
   THEN METIS_TAC [unifyTheory.t_unify_unifier]) |> SIMP_RULE std_ss [];
 
-Theorem t_unify_side_def
-  `!s t v. t_unify_side s t v <=> t_wfs s`
-  (STRIP_TAC THEN Cases_on `t_wfs s`
+Theorem t_unify_side_def = Q.prove(`
+  !s t v. t_unify_side s t v <=> t_wfs s`,
+  STRIP_TAC THEN Cases_on `t_wfs s`
   THEN FULL_SIMP_TAC std_ss [t_unify_side_lemma]
   THEN ONCE_REWRITE_TAC [t_unify_side_rw]
   THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
-Theorem ts_unify_side_def
-  `!s t v. ts_unify_side s t v <=> t_wfs s`
-  (STRIP_TAC THEN Cases_on `t_wfs s`
+Theorem ts_unify_side_def = Q.prove(`
+  !s t v. ts_unify_side s t v <=> t_wfs s`,
+  STRIP_TAC THEN Cases_on `t_wfs s`
   THEN FULL_SIMP_TAC std_ss [t_unify_side_lemma]
   THEN ONCE_REWRITE_TAC [t_unify_side_rw]
   THEN FULL_SIMP_TAC std_ss [])
@@ -297,7 +305,7 @@ val pr_CASE = Q.prove(
   SRW_TAC [] []);
 
 val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40) y =
+  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41) y =
          (ast$op_CASE op
             (* Opn 1 *)
             (\z. x1 z y)
@@ -315,70 +323,72 @@ val op_apply = Q.prove(
             (\z. x7 z y)
             (* FP_bop 1 *)
             (\z. x8 z y)
+            (* FP_top 1 *)
+            (\z. x9 z y)
             (* Opapp 0 *)
-            (x9 y)
-            (* Opassign 0 *)
             (x10 y)
-            (* Opref 0 *)
+            (* Opassign 0 *)
             (x11 y)
-            (* Opderef 0 *)
+            (* Opref 0 *)
             (x12 y)
-            (* Aw8alloc *)
+            (* Opderef 0 *)
             (x13 y)
-            (* Aw8sub *)
+            (* Aw8alloc *)
             (x14 y)
-            (* Aw8length*)
+            (* Aw8sub *)
             (x15 y)
-            (* Aw8update *)
+            (* Aw8length*)
             (x16 y)
+            (* Aw8update *)
+            (x17 y)
             (* WfI 1 *)
-            (\z. x17 z y)
-            (* WtI 1 *)
             (\z. x18 z y)
+            (* WtI 1 *)
+            (\z. x19 z y)
             (* CopyStrStr *)
-            (x19 y)
-            (* CopyStrAw8 *)
             (x20 y)
-            (* CopyAw8Str *)
+            (* CopyStrAw8 *)
             (x21 y)
-            (* CopyAw8Aw8 *)
+            (* CopyAw8Str *)
             (x22 y)
-            (* Ord *)
+            (* CopyAw8Aw8 *)
             (x23 y)
-            (* Chr *)
+            (* Ord *)
             (x24 y)
+            (* Chr *)
+            (x25 y)
             (* Chopb 1 *)
-            (\z. x25 z y)
+            (\z. x26 z y)
             (* Implode *)
-            (x26 y)
-            (* Strsub*)
             (x27 y)
-            (* Strlen *)
+            (* Strsub*)
             (x28 y)
-            (* Strcat *)
+            (* Strlen *)
             (x29 y)
-            (* Vfromlist *)
+            (* Strcat *)
             (x30 y)
-            (* Vsub *)
+            (* Vfromlist *)
             (x31 y)
-            (* Vlength *)
+            (* Vsub *)
             (x32 y)
-            (* Aalloc *)
+            (* Vlength *)
             (x33 y)
-            (* AallocEmpty *)
+            (* Aalloc *)
             (x34 y)
-            (* Asub *)
+            (* AallocEmpty *)
             (x35 y)
-            (* Alength*)
+            (* Asub *)
             (x36 y)
-            (* Aupdate *)
+            (* Alength*)
             (x37 y)
-            (* ListAppend *)
+            (* Aupdate *)
             (x38 y)
-            (* ConfigGC *)
+            (* ListAppend *)
             (x39 y)
+            (* ConfigGC *)
+            (x40 y)
             (* FFI *)
-            (\z. x40 z y))`,
+            (\z. x41 z y))`,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = Q.prove(
@@ -517,20 +527,24 @@ val add_constraint_side_def = definition"add_constraint_side_def"
 
 val _ = translate (infer_def ``add_constraints``);
 
-Theorem add_constraint_side_thm
-  `∀l x y z. t_wfs z.subst ⇒ add_constraint_side l x y z`
-  (rw[add_constraint_side_def]);
+Theorem add_constraint_side_thm:
+   ∀l x y z. t_wfs z.subst ⇒ add_constraint_side l x y z
+Proof
+  rw[add_constraint_side_def]
+QED
 
-Theorem add_constraints_side_thm
-  `∀l x y z. t_wfs z.subst ⇒ add_constraints_side l x y z`
-  (recInduct add_constraints_ind
+Theorem add_constraints_side_thm:
+   ∀l x y z. t_wfs z.subst ⇒ add_constraints_side l x y z
+Proof
+  recInduct add_constraints_ind
   \\ rw[Once(theorem"add_constraints_side_def")]
   \\ rw[Once(theorem"add_constraints_side_def")]
   \\ rw[add_constraint_side_def]
   \\ first_x_assum match_mp_tac
   \\ fs[add_constraint_def]
   \\ every_case_tac \\ fs[] \\ rw[]
-  \\ metis_tac[unifyTheory.t_unify_wfs]);
+  \\ metis_tac[unifyTheory.t_unify_wfs]
+QED
 
 val def = infer_def ``constrain_op``
 (*
@@ -598,10 +612,11 @@ val res = translate inter_p_lemma1;
 
 val infer_p_side_def = theorem"infer_p_side_def";
 
-Theorem infer_p_side_thm
-  `(!l cenv p st. t_wfs st.subst ⇒ infer_p_side l cenv p st) ∧
-   (!l cenv ps st. t_wfs st.subst ⇒ infer_ps_side l cenv ps st)`
-  (ho_match_mp_tac infer_p_ind >>
+Theorem infer_p_side_thm:
+   (!l cenv p st. t_wfs st.subst ⇒ infer_p_side l cenv p st) ∧
+   (!l cenv ps st. t_wfs st.subst ⇒ infer_ps_side l cenv ps st)
+Proof
+  ho_match_mp_tac infer_p_ind >>
   rw [] >>
   rw [Once infer_p_side_def] >>
   fs [success_eqns, rich_listTheory.LENGTH_COUNT_LIST] >>
@@ -609,7 +624,8 @@ Theorem infer_p_side_thm
   TRY(qmatch_goalsub_rename_tac`FST pp` >> PairCases_on`pp`) >> fs[] >>
   TRY(match_mp_tac add_constraints_side_thm >> fs[]) >>
   every_case_tac >> fs[] >> rw[] >>
-  metis_tac[infer_p_wfs,PAIR]);
+  metis_tac[infer_p_wfs,PAIR]
+QED
 
 val infer_e_lemma = infer_def ``infer_e``;
 
@@ -646,12 +662,13 @@ val constrain_op_side_def = definition"constrain_op_side_def";
 val infer_e_side_def = theorem"infer_e_side_def"
   |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
 
-Theorem infer_e_side_thm
-  `(!l menv e st. t_wfs st.subst ⇒ infer_e_side l menv e st) /\
+Theorem infer_e_side_thm:
+   (!l menv e st. t_wfs st.subst ⇒ infer_e_side l menv e st) /\
    (!l menv es st. t_wfs st.subst ⇒ infer_es_side l menv es st) /\
    (!l menv pes t1 t2 st. t_wfs st.subst ⇒ infer_pes_side l menv pes t1 t2 st) /\
-   (!l menv funs st. t_wfs st.subst ⇒ infer_funs_side l menv funs st)`
-  (ho_match_mp_tac infer_e_ind >>
+   (!l menv funs st. t_wfs st.subst ⇒ infer_funs_side l menv funs st)
+Proof
+  ho_match_mp_tac infer_e_ind >>
   rw [] >>
   rw [Once infer_e_side_def] >>
   TRY (irule add_constraint_side_thm) >>
@@ -692,7 +709,8 @@ Theorem infer_e_side_thm
          PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac infer_e_wfs >>
-         imp_res_tac unifyTheory.t_unify_wfs >> fs []));
+         imp_res_tac unifyTheory.t_unify_wfs >> fs [])
+QED
 
 val _ = translate (infer_def ``infer_d``)
 val _ = print "Translated infer_d\n";
@@ -721,10 +739,11 @@ val infer_p_wfs_dest = infer_p_wfs |> BODY_CONJUNCTS
 val unify_t_wfs_dest = unifyTheory.t_unify_wfs
     |> CONV_RULE (ONCE_DEPTH_CONV (REWR_CONV CONJ_COMM))
 
-Theorem infer_d_side_thm
-  `(!d ienv s. t_wfs s.subst ==> infer_d_side ienv d s) /\
-   (!ds ienv s. t_wfs s.subst ==> infer_ds_side ienv ds s)`
-  (ho_match_mp_tac (fetch "-" "gen_d_ind_ind")
+Theorem infer_d_side_thm:
+   (!d ienv s. t_wfs s.subst ==> infer_d_side ienv d s) /\
+   (!ds ienv s. t_wfs s.subst ==> infer_ds_side ienv ds s)
+Proof
+  ho_match_mp_tac (fetch "-" "gen_d_ind_ind")
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac >>
   once_rewrite_tac [infer_d_side_def] >> rw [FORALL_PROD] >>
   fs [init_state_def, success_eqns] >>
@@ -735,7 +754,8 @@ Theorem infer_d_side_thm
   EVERY (map (TRY o drule) (infer_p_wfs_dest @ BODY_CONJUNCTS infer_e_wfs
     @ BODY_CONJUNCTS infer_d_wfs
     @ [unify_t_wfs_dest, pure_add_constraints_wfs])) >>
-  fs []);
+  fs []
+QED
 
 val MEM_anub = prove(``
   ∀e1M ls k v1.
@@ -798,9 +818,9 @@ val nsSub_thm = prove(``
 
 val res = translate infertype_prog_def;
 
-Theorem infertype_prog_side_thm
-  `infertype_prog_side x y`
-  (fs [fetch "-" "infertype_prog_side_def"]
+Theorem infertype_prog_side_thm = Q.prove(`
+  infertype_prog_side x y`,
+  fs [fetch "-" "infertype_prog_side_def"]
   \\ match_mp_tac (CONJUNCT2 infer_d_side_thm) \\ fs [])
   |> update_precondition;
 

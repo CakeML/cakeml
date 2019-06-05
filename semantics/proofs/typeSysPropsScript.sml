@@ -36,57 +36,77 @@ val _ = export_rewrites [
 
 (* ----------- Basic stuff ----------- *)
 
-Theorem unchanged_tenv[simp]
- `!(tenv : type_env).
-  <| v := tenv.v; c := tenv.c; t := tenv.t |> = tenv`
- (rw [type_env_component_equality]);
+Theorem unchanged_tenv[simp]:
+  !(tenv : type_env).
+  <| v := tenv.v; c := tenv.c; t := tenv.t |> = tenv
+Proof
+ rw [type_env_component_equality]
+QED
 
  (*
-Theorem union_decls_assoc[simp]
-`!decls1 decls2 decls3.
+Theorem union_decls_assoc[simp]:
+ !decls1 decls2 decls3.
   union_decls decls1 (union_decls decls2 decls3)
   =
-  union_decls (union_decls decls1 decls2) decls3`
- (srw_tac[][] >>
+  union_decls (union_decls decls1 decls2) decls3
+Proof
+ srw_tac[][] >>
  srw_tac[][union_decls_def] >>
- metis_tac [UNION_ASSOC]);
+ metis_tac [UNION_ASSOC]
+QED
 
-Theorem union_decls_sym
-`!decls1 decls2. union_decls decls1 decls2 = union_decls decls2 decls1`
- (rw [union_decls_def] >>
- rw [UNION_COMM]);
+Theorem union_decls_sym:
+ !decls1 decls2. union_decls decls1 decls2 = union_decls decls2 decls1
+Proof
+ rw [union_decls_def] >>
+ rw [UNION_COMM]
+QED
 
-Theorem union_decls_mods[simp]
- `(union_decls d1 d2).defined_mods = d1.defined_mods ∪ d2.defined_mods`
- (rw [union_decls_def]);
+Theorem union_decls_mods[simp]:
+  (union_decls d1 d2).defined_mods = d1.defined_mods ∪ d2.defined_mods
+Proof
+ rw [union_decls_def]
+QED
 
-Theorem union_decls_empty[simp]
-  `!d. union_decls empty_decls d = d ∧ union_decls d empty_decls = d`
- (rw [union_decls_def, decls_component_equality, empty_decls_def]);
+Theorem union_decls_empty[simp]:
+   !d. union_decls empty_decls d = d ∧ union_decls d empty_decls = d
+Proof
+ rw [union_decls_def, decls_component_equality, empty_decls_def]
+QED
  *)
 
-Theorem extend_dec_tenv_assoc[simp]
-  `!tenv1 tenv2 tenv3.
+Theorem extend_dec_tenv_assoc[simp]:
+   !tenv1 tenv2 tenv3.
     extend_dec_tenv tenv1 (extend_dec_tenv tenv2 tenv3)
     =
-    extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3`
- (rw [extend_dec_tenv_def]);
+    extend_dec_tenv (extend_dec_tenv tenv1 tenv2) tenv3
+Proof
+ rw [extend_dec_tenv_def]
+QED
 
-Theorem tenv_val_ok_nsEmpty[simp]
-  `tenv_val_ok nsEmpty`
- (rw [tenv_val_ok_def]);
+Theorem tenv_val_ok_nsEmpty[simp]:
+   tenv_val_ok nsEmpty
+Proof
+ rw [tenv_val_ok_def]
+QED
 
-Theorem tenv_ctor_ok_nsEmpty[simp]
-  `tenv_ctor_ok nsEmpty`
- (rw [tenv_ctor_ok_def]);
+Theorem tenv_ctor_ok_nsEmpty[simp]:
+   tenv_ctor_ok nsEmpty
+Proof
+ rw [tenv_ctor_ok_def]
+QED
 
-Theorem tenv_abbrev_ok_nsEmpty[simp]
-  `tenv_abbrev_ok nsEmpty`
- (rw [tenv_abbrev_ok_def]);
+Theorem tenv_abbrev_ok_nsEmpty[simp]:
+   tenv_abbrev_ok nsEmpty
+Proof
+ rw [tenv_abbrev_ok_def]
+QED
 
-Theorem tenv_ok_empty[simp]
-  `tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>`
- (rw [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]);
+Theorem tenv_ok_empty[simp]:
+   tenv_ok <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
+Proof
+ rw [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
+QED
 
 val type_pes_def = Define `
   type_pes tvs tvs' tenv tenvE pes t1 t2 ⇔
@@ -96,15 +116,16 @@ val type_pes_def = Define `
         type_p tvs tenv p t1 bindings ∧
         type_e tenv (bind_var_list tvs' bindings tenvE) e t2)`;
 
-Theorem type_pes_cons
-  `!tvs tvs' tenv tenvE p e pes t1 t2.
+Theorem type_pes_cons:
+   !tvs tvs' tenv tenvE p e pes t1 t2.
     type_pes tvs tvs' tenv tenvE ((p,e)::pes) t1 t2 ⇔
     (ALL_DISTINCT (pat_bindings p []) ∧
      (?bindings.
          type_p tvs tenv p t1 bindings ∧
          type_e tenv (bind_var_list tvs' bindings tenvE) e t2) ∧
-     type_pes tvs tvs' tenv tenvE pes t1 t2)`
- (rw [type_pes_def, RES_FORALL] >>
+     type_pes tvs tvs' tenv tenvE pes t1 t2)
+Proof
+ rw [type_pes_def, RES_FORALL] >>
  eq_tac >>
  rw [] >>
  rw []
@@ -115,28 +136,32 @@ Theorem type_pes_cons
    pop_assum (qspec_then `(p,e)` mp_tac)
    >> rw []
    >> metis_tac [])
- >> metis_tac []);
+ >> metis_tac []
+QED
 
 (* ---------- check_freevars ---------- *)
 
-Theorem check_freevars_add
-`(!tvs tvs' t. check_freevars tvs tvs' t ⇒
-  !tvs''. tvs'' ≥ tvs ⇒ check_freevars tvs'' tvs' t)`
-(ho_match_mp_tac check_freevars_ind >>
+Theorem check_freevars_add:
+ (!tvs tvs' t. check_freevars tvs tvs' t ⇒
+  !tvs''. tvs'' ≥ tvs ⇒ check_freevars tvs'' tvs' t)
+Proof
+ho_match_mp_tac check_freevars_ind >>
 srw_tac[][check_freevars_def] >-
 metis_tac [MEM_EL, EVERY_MEM] >>
-decide_tac);
+decide_tac
+QED
 
 (* ---------- type_subst ---------- *)
 
-Theorem check_freevars_subst_single
-`!dbmax tvs t tvs' ts.
+Theorem check_freevars_subst_single:
+ !dbmax tvs t tvs' ts.
   LENGTH tvs = LENGTH ts ∧
   check_freevars dbmax tvs t ∧
   EVERY (check_freevars dbmax tvs') ts
   ⇒
-  check_freevars dbmax tvs' (type_subst (alist_to_fmap (ZIP (tvs,ts))) t)`
- (recInduct check_freevars_ind >>
+  check_freevars dbmax tvs' (type_subst (alist_to_fmap (ZIP (tvs,ts))) t)
+Proof
+ recInduct check_freevars_ind >>
  srw_tac[][check_freevars_def, type_subst_def, EVERY_MAP]
  >- (every_case_tac >>
      full_simp_tac(srw_ss())[check_freevars_def, ALOOKUP_FAILS]
@@ -148,38 +173,45 @@ Theorem check_freevars_subst_single
          full_simp_tac(srw_ss())[MEM_EL, EVERY_MEM] >>
          srw_tac[][] >>
          metis_tac []))
- >- full_simp_tac(srw_ss())[EVERY_MEM]);
+ >- full_simp_tac(srw_ss())[EVERY_MEM]
+QED
 
-Theorem check_freevars_subst_list
-`!dbmax tvs tvs' ts ts'.
+Theorem check_freevars_subst_list:
+ !dbmax tvs tvs' ts ts'.
   (LENGTH tvs = LENGTH ts) ∧
   EVERY (check_freevars dbmax tvs) ts' ∧
   EVERY (check_freevars dbmax tvs') ts
   ⇒
-  EVERY (check_freevars dbmax tvs') (MAP (type_subst (alist_to_fmap (ZIP (tvs,ts)))) ts')`
-(induct_on `ts'` >>
+  EVERY (check_freevars dbmax tvs') (MAP (type_subst (alist_to_fmap (ZIP (tvs,ts)))) ts')
+Proof
+induct_on `ts'` >>
 srw_tac[][] >>
-metis_tac [check_freevars_subst_single]);
+metis_tac [check_freevars_subst_single]
+QED
 
 (* ---------- deBruijn_inc ---------- *)
 
-Theorem deBruijn_inc0
-`(!t sk. deBruijn_inc sk 0 t = t) ∧
- (!ts sk. MAP (deBruijn_inc sk 0) ts = ts)`
-(ho_match_mp_tac t_induction >>
+Theorem deBruijn_inc0:
+ (!t sk. deBruijn_inc sk 0 t = t) ∧
+ (!ts sk. MAP (deBruijn_inc sk 0) ts = ts)
+Proof
+ho_match_mp_tac t_induction >>
 srw_tac[][deBruijn_inc_def] >>
-metis_tac []);
+metis_tac []
+QED
 
-Theorem deBruijn_inc_deBruijn_inc
-`!sk i2 t i1.
-  deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t`
-(ho_match_mp_tac deBruijn_inc_ind >>
+Theorem deBruijn_inc_deBruijn_inc:
+ !sk i2 t i1.
+  deBruijn_inc sk i1 (deBruijn_inc sk i2 t) = deBruijn_inc sk (i1 + i2) t
+Proof
+ho_match_mp_tac deBruijn_inc_ind >>
 srw_tac[][deBruijn_inc_def] >>
 srw_tac[][] >-
 decide_tac >-
 decide_tac >>
 induct_on `ts` >>
-full_simp_tac(srw_ss())[]);
+full_simp_tac(srw_ss())[]
+QED
 
 val deBuijn_inc_lem1 = Q.prove (
 `!sk i2 t i1.
@@ -216,15 +248,17 @@ val type_subst_deBruijn_inc_single = Q.prove (
      full_simp_tac(srw_ss())[EVERY_MEM] >>
      metis_tac []));
 
-Theorem type_subst_deBruijn_inc_list
-`!ts' ts tvs inc sk.
+Theorem type_subst_deBruijn_inc_list:
+ !ts' ts tvs inc sk.
   (LENGTH tvs = LENGTH ts) ∧
   EVERY (check_freevars 0 tvs) ts' ⇒
   (MAP (deBruijn_inc sk inc) (MAP (type_subst (alist_to_fmap (ZIP (tvs,ts)))) ts') =
-   MAP (type_subst (alist_to_fmap (ZIP (tvs, MAP (\t. deBruijn_inc sk inc t) ts)))) ts')`
- (induct_on `ts'` >>
+   MAP (type_subst (alist_to_fmap (ZIP (tvs, MAP (\t. deBruijn_inc sk inc t) ts)))) ts')
+Proof
+ induct_on `ts'` >>
  srw_tac[][] >>
- metis_tac [type_subst_deBruijn_inc_single]);
+ metis_tac [type_subst_deBruijn_inc_single]
+QED
 
 val check_freevars_deBruijn_inc = Q.prove (
 `!tvs tvs' t. check_freevars tvs tvs' t ⇒
@@ -235,12 +269,13 @@ full_simp_tac(srw_ss())[EVERY_MAP, EVERY_MEM] >>
 srw_tac[][check_freevars_def] >>
 decide_tac);
 
-Theorem nil_deBruijn_inc
-`∀skip tvs t.
+Theorem nil_deBruijn_inc:
+ ∀skip tvs t.
   (check_freevars skip [] t ∨ check_freevars skip [] (deBruijn_inc skip tvs t))
   ⇒
-  (deBruijn_inc skip tvs t = t)`
-(ho_match_mp_tac deBruijn_inc_ind >>
+  (deBruijn_inc skip tvs t = t)
+Proof
+ho_match_mp_tac deBruijn_inc_ind >>
 srw_tac[][deBruijn_inc_def, check_freevars_def] >-
 decide_tac >-
 (induct_on `ts` >>
@@ -249,46 +284,52 @@ decide_tac >-
 (induct_on `ts` >>
      srw_tac[][] >>
      metis_tac []) >>
-metis_tac []);
+metis_tac []
+QED
 
 (* ---------- deBruijn_subst ---------- *)
 
-Theorem deBruijn_subst_check_freevars
-`!tvs tvs' t ts n.
+Theorem deBruijn_subst_check_freevars:
+ !tvs tvs' t ts n.
   check_freevars tvs tvs' t ∧
   EVERY (check_freevars tvs tvs') ts
   ⇒
-  check_freevars tvs tvs' (deBruijn_subst 0 ts t)`
-(ho_match_mp_tac check_freevars_ind >>
+  check_freevars tvs tvs' (deBruijn_subst 0 ts t)
+Proof
+ho_match_mp_tac check_freevars_ind >>
 srw_tac[][check_freevars_def, deBruijn_subst_def, EVERY_MAP] >>
 full_simp_tac(srw_ss())[EVERY_MEM] >>
 full_simp_tac(srw_ss())[MEM_EL] >-
 metis_tac [] >>
-decide_tac);
+decide_tac
+QED
 
-Theorem deBruijn_subst_check_freevars2
-`!tvs tvs' t ts n tvs''.
+Theorem deBruijn_subst_check_freevars2:
+ !tvs tvs' t ts n tvs''.
   check_freevars (LENGTH ts) tvs' t ∧
   EVERY (check_freevars tvs tvs') ts
   ⇒
-  check_freevars tvs tvs' (deBruijn_subst 0 ts t)`
-(ho_match_mp_tac check_freevars_ind >>
+  check_freevars tvs tvs' (deBruijn_subst 0 ts t)
+Proof
+ho_match_mp_tac check_freevars_ind >>
 srw_tac[][check_freevars_def, deBruijn_subst_def, EVERY_MAP] >>
 full_simp_tac(srw_ss())[EVERY_MEM] >>
 full_simp_tac(srw_ss())[MEM_EL] >>
 srw_tac[][] >>
-metis_tac []);
+metis_tac []
+QED
 
-Theorem check_freevars_subst_inc
-`∀tvs tvs2 t.
+Theorem check_freevars_subst_inc:
+ ∀tvs tvs2 t.
   check_freevars tvs tvs2 t ⇒
   ∀tvs' targs tvs1.
   tvs = LENGTH targs + tvs' ∧
   EVERY (check_freevars (tvs1 + tvs') tvs2) targs
   ⇒
   check_freevars (tvs1 + tvs') tvs2
-     (deBruijn_subst 0 targs (deBruijn_inc (LENGTH targs) tvs1 t))`
-(ho_match_mp_tac check_freevars_ind >>
+     (deBruijn_subst 0 targs (deBruijn_inc (LENGTH targs) tvs1 t))
+Proof
+ho_match_mp_tac check_freevars_ind >>
 srw_tac[][check_freevars_def, deBruijn_inc_def, deBruijn_subst_def, EVERY_MAP] >>
 full_simp_tac(srw_ss())[EVERY_MEM] >>
 cases_on `n < LENGTH targs` >>
@@ -296,17 +337,19 @@ srw_tac[][deBruijn_subst_def, check_freevars_def] >>
 full_simp_tac(srw_ss())[MEM_EL] >-
 metis_tac [] >-
 metis_tac [] >>
-decide_tac);
+decide_tac
+QED
 
-Theorem check_freevars_subst
-`∀tvs tvs2 t.
+Theorem check_freevars_subst:
+ ∀tvs tvs2 t.
   check_freevars tvs tvs2 t ⇒
   ∀tvs' targs tvs1.
   tvs = LENGTH targs + tvs' ∧
   EVERY (check_freevars (tvs1 + tvs') tvs2) targs
   ⇒
-  check_freevars (tvs1 + tvs') tvs2 (deBruijn_subst 0 targs t)`
-(ho_match_mp_tac check_freevars_ind >>
+  check_freevars (tvs1 + tvs') tvs2 (deBruijn_subst 0 targs t)
+Proof
+ho_match_mp_tac check_freevars_ind >>
 srw_tac[][check_freevars_def, deBruijn_inc_def, deBruijn_subst_def, EVERY_MAP] >>
 full_simp_tac(srw_ss())[EVERY_MEM] >>
 cases_on `n < LENGTH targs` >>
@@ -314,7 +357,8 @@ srw_tac[][deBruijn_subst_def, check_freevars_def] >>
 full_simp_tac(srw_ss())[MEM_EL] >-
 metis_tac [] >-
 decide_tac >>
-decide_tac);
+decide_tac
+QED
 
 val type_subst_deBruijn_subst_single = Q.prove (
 `!s t tvs tvs' ts ts' inc.
@@ -333,15 +377,17 @@ val type_subst_deBruijn_subst_single = Q.prove (
      full_simp_tac(srw_ss())[EVERY_MEM] >>
      metis_tac []));
 
-Theorem type_subst_deBruijn_subst_list
-`!t tvs tvs' ts ts' ts'' inc.
+Theorem type_subst_deBruijn_subst_list:
+ !t tvs tvs' ts ts' ts'' inc.
   (LENGTH tvs = LENGTH ts) ∧
   EVERY (check_freevars 0 tvs) ts'' ⇒
   (MAP (deBruijn_subst inc ts') (MAP (type_subst (alist_to_fmap (ZIP (tvs,ts)))) ts'') =
-   MAP (type_subst (alist_to_fmap (ZIP (tvs,MAP (\t. deBruijn_subst inc ts' t) ts)))) ts'')`
-(induct_on `ts''` >>
+   MAP (type_subst (alist_to_fmap (ZIP (tvs,MAP (\t. deBruijn_subst inc ts' t) ts)))) ts'')
+Proof
+induct_on `ts''` >>
 srw_tac[][] >>
-metis_tac [type_subst_deBruijn_subst_single]);
+metis_tac [type_subst_deBruijn_subst_single]
+QED
 
 val check_freevars_lem = Q.prove (
 `!l tvs' t.
@@ -366,45 +412,51 @@ srw_tac[][deBruijn_inc_def, deBruijn_subst_def, check_freevars_def] >|
       decide_tac,
       decide_tac]]);
 
-Theorem nil_deBruijn_subst
-`∀skip tvs t. check_freevars skip [] t ⇒ (deBruijn_subst skip tvs t = t)`
-(ho_match_mp_tac deBruijn_subst_ind >>
+Theorem nil_deBruijn_subst:
+ ∀skip tvs t. check_freevars skip [] t ⇒ (deBruijn_subst skip tvs t = t)
+Proof
+ho_match_mp_tac deBruijn_subst_ind >>
 srw_tac[][deBruijn_subst_def, check_freevars_def] >>
 induct_on `ts'` >>
-srw_tac[][]);
+srw_tac[][]
+QED
 
-Theorem deBruijn_subst2
-`(!t sk targs targs' tvs'.
+Theorem deBruijn_subst2:
+ (!t sk targs targs' tvs'.
   check_freevars (LENGTH targs) [] t ⇒
   (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs') (deBruijn_subst 0 targs t) =
    deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs) t)) ∧
  (!ts sk targs targs' tvs'.
   EVERY (check_freevars (LENGTH targs) []) ts ⇒
   (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) (MAP (deBruijn_subst 0 targs) ts) =
-  (MAP (deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs)) ts)))`
-(ho_match_mp_tac t_induction >>
+  (MAP (deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs)) ts)))
+Proof
+ho_match_mp_tac t_induction >>
 srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
 full_simp_tac(srw_ss())[EL_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
 srw_tac[][] >>
 full_simp_tac (srw_ss()++ARITH_ss) [deBruijn_subst_def, check_freevars_def] >>
-metis_tac []);
+metis_tac []
+QED
 
-Theorem type_e_subst_lem3
-`∀tvs tvs2 t.
+Theorem type_e_subst_lem3:
+ ∀tvs tvs2 t.
   check_freevars tvs tvs2 t ⇒
   ∀tvs' targs n.
   (tvs = n + LENGTH targs) ∧
   EVERY (check_freevars tvs' tvs2) targs
   ⇒
   check_freevars (n + tvs') tvs2
-     (deBruijn_subst n (MAP (deBruijn_inc 0 n) targs) t)`
-(ho_match_mp_tac check_freevars_ind >>
+     (deBruijn_subst n (MAP (deBruijn_inc 0 n) targs) t)
+Proof
+ho_match_mp_tac check_freevars_ind >>
 srw_tac[][check_freevars_def, deBruijn_inc_def, deBruijn_subst_def, EVERY_MAP] >>
 full_simp_tac(srw_ss())[EVERY_MEM] >>
 srw_tac[][] >>
 full_simp_tac (srw_ss()++ARITH_ss) [check_freevars_def, EL_MAP, MEM_EL] >>
 `n - n' < LENGTH targs` by decide_tac >>
-metis_tac [check_freevars_deBruijn_inc]);
+metis_tac [check_freevars_deBruijn_inc]
+QED
 
 val type_e_subst_lem5 = Q.prove (
 `(!t n inc n' targs.
@@ -423,19 +475,21 @@ srw_tac[][] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP] >>
 metis_tac [deBuijn_inc_lem1]);
 
-Theorem subst_inc_cancel
-`(!t ts inc.
+Theorem subst_inc_cancel:
+ (!t ts inc.
   deBruijn_subst 0 ts (deBruijn_inc 0 (inc + LENGTH ts) t)
   =
   deBruijn_inc 0 inc t) ∧
  (!ts' ts inc.
   MAP (deBruijn_subst 0 ts) (MAP (deBruijn_inc 0 (inc + LENGTH ts)) ts')
   =
-  MAP (deBruijn_inc 0 inc) ts')`
-(ho_match_mp_tac t_induction >>
+  MAP (deBruijn_inc 0 inc) ts')
+Proof
+ho_match_mp_tac t_induction >>
 srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
 full_simp_tac (srw_ss()++ARITH_ss) [] >>
-metis_tac []);
+metis_tac []
+QED
 
 val type_e_subst_lem7 = Q.prove (
 `(!t sk targs targs' tvs' tvs''.
@@ -454,47 +508,54 @@ full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP, deBruijn_subst_def, check_freevars_d
 rw[] >> fs[] >>
 metis_tac [subst_inc_cancel, LENGTH_MAP]);
 
-Theorem deBruijn_subst_id
-`(!t n. check_freevars n [] t ⇒ (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n)) t = t)) ∧
- (!ts n. EVERY (check_freevars n []) ts ⇒ (MAP (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n))) ts = ts))`
-(Induct >>
+Theorem deBruijn_subst_id:
+ (!t n. check_freevars n [] t ⇒ (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n)) t = t)) ∧
+ (!ts n. EVERY (check_freevars n []) ts ⇒ (MAP (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n))) ts = ts))
+Proof
+Induct >>
 srw_tac[][deBruijn_subst_def, LENGTH_COUNT_LIST, EL_MAP, EL_COUNT_LIST,
     check_freevars_def] >>
-metis_tac []);
+metis_tac []
+QED
 
-Theorem deBruijn_subst_freevars
-`!skip targs t tvs.
+Theorem deBruijn_subst_freevars:
+ !skip targs t tvs.
   skip = 0 ∧
   EVERY (check_freevars tvs []) targs ∧
   check_freevars (LENGTH targs) [] t
   ⇒
-  check_freevars tvs [] (deBruijn_subst skip targs t)`
-(ho_match_mp_tac deBruijn_subst_ind >>
+  check_freevars tvs [] (deBruijn_subst skip targs t)
+Proof
+ho_match_mp_tac deBruijn_subst_ind >>
 srw_tac[][check_freevars_def, deBruijn_subst_def, EVERY_MAP] >>
 full_simp_tac(srw_ss())[EVERY_MEM, MEM_EL] >>
-metis_tac []);
+metis_tac []
+QED
 
 (* ---------- tenv_abbrev stuff ---------- *)
 
-Theorem tenv_abbrev_ok_lookup
-`!tenvT tn tvs t.
+Theorem tenv_abbrev_ok_lookup:
+ !tenvT tn tvs t.
   tenv_abbrev_ok tenvT ∧
   nsLookup tenvT tn = SOME (tvs,t)
   ⇒
-  check_freevars 0 tvs t`
- (rw [tenv_abbrev_ok_def]
+  check_freevars 0 tvs t
+Proof
+ rw [tenv_abbrev_ok_def]
  >> drule nsLookup_nsAll
  >> disch_then drule
- >> simp []);
+ >> simp []
+QED
 
-Theorem check_freevars_type_name_subst
-`!tvs t dbmax tenvT.
+Theorem check_freevars_type_name_subst:
+ !tvs t dbmax tenvT.
   tenv_abbrev_ok tenvT ∧
   check_type_names tenvT t ∧
   check_freevars_ast tvs t
   ⇒
-  check_freevars dbmax tvs (type_name_subst tenvT t)`
- (recInduct check_freevars_ast_ind >>
+  check_freevars dbmax tvs (type_name_subst tenvT t)
+Proof
+ recInduct check_freevars_ast_ind >>
  srw_tac[][type_name_subst_def, LET_THM] >>
  every_case_tac >>
  fs [check_type_names_def, check_freevars_def, check_freevars_ast_def, EVERY_MAP] >>
@@ -503,44 +564,53 @@ Theorem check_freevars_type_name_subst
  srw_tac[][EVERY_MAP] >>
  srw_tac[][EVERY_MEM] >>
  imp_res_tac tenv_abbrev_ok_lookup >>
- metis_tac [check_freevars_add, numeralTheory.numeral_distrib]);
+ metis_tac [check_freevars_add, numeralTheory.numeral_distrib]
+QED
 
-Theorem tenv_abbrev_ok_merge
-`!tenvT1 tenvT2.
+Theorem tenv_abbrev_ok_merge:
+ !tenvT1 tenvT2.
   tenv_abbrev_ok tenvT1 ∧ tenv_abbrev_ok tenvT2
   ⇒
-  tenv_abbrev_ok (nsAppend tenvT1 tenvT2)`
- (rw [tenv_abbrev_ok_def]
+  tenv_abbrev_ok (nsAppend tenvT1 tenvT2)
+Proof
+ rw [tenv_abbrev_ok_def]
  >> irule nsAll_nsAppend
- >> rw []);
+ >> rw []
+QED
 
 (* ---------- tenv_ctor stuff ----------*)
 
-Theorem type_ctor_long
-  `!ctMap mn id. type_ctor ctMap (Long mn id) = type_ctor ctMap id`
- (rw [FUN_EQ_THM]
+Theorem type_ctor_long:
+   !ctMap mn id. type_ctor ctMap (Long mn id) = type_ctor ctMap id
+Proof
+ rw [FUN_EQ_THM]
  >> PairCases_on `x`
  >> PairCases_on `x'`
- >> simp [type_ctor_def, id_to_n_def]);
+ >> simp [type_ctor_def, id_to_n_def]
+QED
 
-Theorem tenv_ctor_ok_merge[simp]
-  `!tenvC1 tenvC2.
+Theorem tenv_ctor_ok_merge[simp]:
+   !tenvC1 tenvC2.
     tenv_ctor_ok tenvC1 ∧ tenv_ctor_ok tenvC2
     ⇒
-    tenv_ctor_ok (nsAppend tenvC1 tenvC2)`
- (rw [tenv_ctor_ok_def]
+    tenv_ctor_ok (nsAppend tenvC1 tenvC2)
+Proof
+ rw [tenv_ctor_ok_def]
  >> irule nsAll_nsAppend
- >> rw []);
+ >> rw []
+QED
 
-Theorem tenv_ctor_ok_lookup
-  `!tenvC cn tvs ts tn.
+Theorem tenv_ctor_ok_lookup:
+   !tenvC cn tvs ts tn.
     tenv_ctor_ok tenvC ∧ nsLookup tenvC cn = SOME (tvs,ts,tn)
     ⇒
-    EVERY (check_freevars 0 tvs) ts`
- (rw [tenv_ctor_ok_def]
+    EVERY (check_freevars 0 tvs) ts
+Proof
+ rw [tenv_ctor_ok_def]
  >> drule nsLookup_nsAll
  >> disch_then drule
- >> simp []);
+ >> simp []
+QED
 
 (* ---------- tenv_val_exp stuff ---------- *)
 
@@ -559,8 +629,8 @@ val db_merge_def = Define `
 (db_merge (Bind_tvar tvs e1) e2 = Bind_tvar tvs (db_merge e1 e2)) ∧
 (db_merge (Bind_name x tvs t e1) e2 = Bind_name x tvs t (db_merge e1 e2))`;
 
-Theorem bind_tvar_rewrites[simp]
-  `(!tvs e1 e2. db_merge (bind_tvar tvs e1) e2 = bind_tvar tvs (db_merge e1 e2)) ∧
+Theorem bind_tvar_rewrites[simp]:
+   (!tvs e1 e2. db_merge (bind_tvar tvs e1) e2 = bind_tvar tvs (db_merge e1 e2)) ∧
    (!tvs e. num_tvs (bind_tvar tvs e) = tvs + num_tvs e) ∧
    (!tvs e. num_tvs (Bind_tvar tvs e) = tvs + num_tvs e) ∧
    (!tvs n t e. num_tvs (Bind_name n tvs t e) = num_tvs e) ∧
@@ -569,146 +639,180 @@ Theorem bind_tvar_rewrites[simp]
    (!tvs e. tenv_val_exp_ok (bind_tvar tvs e) ⇔ tenv_val_exp_ok e) ∧
    (!targs tvs e.
      deBruijn_subst_tenvE targs (bind_tvar tvs e) =
-     bind_tvar tvs (deBruijn_subst_tenvE targs e))`
- (srw_tac[][bind_tvar_def, deBruijn_subst_tenvE_def, db_merge_def, num_tvs_def,
-    tveLookup_def, tenv_val_exp_ok_def]);
+     bind_tvar tvs (deBruijn_subst_tenvE targs e))
+Proof
+ srw_tac[][bind_tvar_def, deBruijn_subst_tenvE_def, db_merge_def, num_tvs_def,
+    tveLookup_def, tenv_val_exp_ok_def]
+QED
 
-Theorem bind_tvar0[simp]
-`!x. bind_tvar 0 x = x`
-  (Cases_on `x`
-  >> rw [bind_tvar_def]);
+Theorem bind_tvar0[simp]:
+ !x. bind_tvar 0 x = x
+Proof
+  Cases_on `x`
+  >> rw [bind_tvar_def]
+QED
 
-Theorem tveLookup_subst_none
-`!n inc e.
+Theorem tveLookup_subst_none:
+ !n inc e.
  tveLookup n inc (deBruijn_subst_tenvE targs e) = NONE ⇔
- tveLookup n inc e = NONE`
-(induct_on `e` >>
-srw_tac[][deBruijn_subst_tenvE_def, tveLookup_def]);
+ tveLookup n inc e = NONE
+Proof
+induct_on `e` >>
+srw_tac[][deBruijn_subst_tenvE_def, tveLookup_def]
+QED
 
-Theorem tveLookup_db_merge_none
-`!n inc e1 e2.
+Theorem tveLookup_db_merge_none:
+ !n inc e1 e2.
   tveLookup n inc (db_merge e1 e2) = NONE
   ⇔
-  tveLookup n inc e1 = NONE ∧ tveLookup n (num_tvs e1 + inc) e2 = NONE`
- (Induct_on `e1`
- >> rw [tveLookup_def, db_merge_def]);
+  tveLookup n inc e1 = NONE ∧ tveLookup n (num_tvs e1 + inc) e2 = NONE
+Proof
+ Induct_on `e1`
+ >> rw [tveLookup_def, db_merge_def]
+QED
 
-Theorem tveLookup_inc_none
-`!n inc e.
+Theorem tveLookup_inc_none:
+ !n inc e.
   tveLookup n inc e = NONE
   ⇔
-  tveLookup n 0 e = NONE`
- (Induct_on `e`
- >> rw [tveLookup_def]);
+  tveLookup n 0 e = NONE
+Proof
+ Induct_on `e`
+ >> rw [tveLookup_def]
+QED
 
-Theorem tveLookup_freevars
-  `!n tvs tenvE tvs' t.
+Theorem tveLookup_freevars:
+   !n tvs tenvE tvs' t.
     tenv_val_exp_ok tenvE ∧
     num_tvs tenvE = 0 ∧
     tveLookup n tvs tenvE = SOME (tvs',t)
     ⇒
-    check_freevars tvs' [] t`
- (Induct_on `tenvE`
+    check_freevars tvs' [] t
+Proof
+ Induct_on `tenvE`
  >> rw [tveLookup_def, tenv_val_exp_ok_def]
  >> fs []
- >> metis_tac [nil_deBruijn_inc]);
+ >> metis_tac [nil_deBruijn_inc]
+QED
 
-Theorem tveLookup_bvl
-  `!x tvs tvs' bindings tenvE.
+Theorem tveLookup_bvl:
+   !x tvs tvs' bindings tenvE.
     tveLookup x tvs (bind_var_list tvs' bindings tenvE)
     =
     case ALOOKUP bindings x of
     | SOME t => SOME (tvs',deBruijn_inc tvs' tvs t)
-    | NONE => tveLookup x tvs tenvE`
- (Induct_on `bindings`
+    | NONE => tveLookup x tvs tenvE
+Proof
+ Induct_on `bindings`
  >> rw [bind_var_list_def]
  >> PairCases_on `h`
- >> rw [bind_var_list_def, tveLookup_def]);
+ >> rw [bind_var_list_def, tveLookup_def]
+QED
 
-Theorem bind_var_list_append
-`!n te1 te2 te3.
-  bind_var_list n (te1++te2) te3 = bind_var_list n te1 (bind_var_list n te2 te3)`
-(induct_on `te1` >>
+Theorem bind_var_list_append:
+ !n te1 te2 te3.
+  bind_var_list n (te1++te2) te3 = bind_var_list n te1 (bind_var_list n te2 te3)
+Proof
+induct_on `te1` >>
 srw_tac[][bind_var_list_def] >>
 PairCases_on `h` >>
-srw_tac[][bind_var_list_def]);
+srw_tac[][bind_var_list_def]
+QED
 
-Theorem num_tvs_bind_var_list[simp]
-`!tvs env tenvE. num_tvs (bind_var_list tvs env tenvE) = num_tvs tenvE`
-(induct_on `env` >>
+Theorem num_tvs_bind_var_list[simp]:
+ !tvs env tenvE. num_tvs (bind_var_list tvs env tenvE) = num_tvs tenvE
+Proof
+induct_on `env` >>
 srw_tac[][num_tvs_def, bind_var_list_def] >>
 PairCases_on `h` >>
-srw_tac[][bind_var_list_def, num_tvs_def]);
+srw_tac[][bind_var_list_def, num_tvs_def]
+QED
 
-Theorem tenv_val_exp_ok_bvl
-`!tenvE env.
+Theorem tenv_val_exp_ok_bvl:
+ !tenvE env.
   tenv_val_exp_ok tenvE ∧ EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env)
   ⇒
-  tenv_val_exp_ok (bind_var_list 0 env tenvE)`
- (Induct_on `env` >>
+  tenv_val_exp_ok (bind_var_list 0 env tenvE)
+Proof
+ Induct_on `env` >>
  srw_tac[][tenv_val_exp_ok_def, bind_var_list_def] >>
  PairCases_on `h` >>
  srw_tac[][tenv_val_exp_ok_def, bind_var_list_def]
- >> fs []);
+ >> fs []
+QED
 
-Theorem tveLookup_subst_some
-  `∀n e targs tvs t inc.
+Theorem tveLookup_subst_some:
+   ∀n e targs tvs t inc.
     tveLookup n inc e = SOME (tvs,t)
     ⇒
     tveLookup n inc (deBruijn_subst_tenvE targs e) =
-      SOME (tvs, deBruijn_subst (tvs+inc+num_tvs e) (MAP (deBruijn_inc 0 (tvs+inc+num_tvs e)) targs) t)`
- (induct_on `e` >>
+      SOME (tvs, deBruijn_subst (tvs+inc+num_tvs e) (MAP (deBruijn_inc 0 (tvs+inc+num_tvs e)) targs) t)
+Proof
+ induct_on `e` >>
  srw_tac[][tveLookup_def,deBruijn_subst_tenvE_def, deBruijn_inc_def, num_tvs_def, type_e_subst_lem5]
- >> metis_tac [arithmeticTheory.ADD_ASSOC]);
+ >> metis_tac [arithmeticTheory.ADD_ASSOC]
+QED
 
-Theorem num_tvs_db_merge[simp]
-`!e1 e2. num_tvs (db_merge e1 e2) = num_tvs e1 + num_tvs e2`
-(induct_on `e1` >>
+Theorem num_tvs_db_merge[simp]:
+ !e1 e2. num_tvs (db_merge e1 e2) = num_tvs e1 + num_tvs e2
+Proof
+induct_on `e1` >>
 srw_tac[][num_tvs_def, db_merge_def] >>
-decide_tac);
+decide_tac
+QED
 
-Theorem num_tvs_deBruijn_subst_tenvE[simp]
-`!targs tenvE. num_tvs (deBruijn_subst_tenvE targs tenvE) = num_tvs tenvE`
-(induct_on `tenvE` >>
-srw_tac[][deBruijn_subst_tenvE_def, num_tvs_def]);
+Theorem num_tvs_deBruijn_subst_tenvE[simp]:
+ !targs tenvE. num_tvs (deBruijn_subst_tenvE targs tenvE) = num_tvs tenvE
+Proof
+induct_on `tenvE` >>
+srw_tac[][deBruijn_subst_tenvE_def, num_tvs_def]
+QED
 
-Theorem tveLookup_inc_some
-`!n inc e tvs t inc2.
+Theorem tveLookup_inc_some:
+ !n inc e tvs t inc2.
    tveLookup n inc e = SOME (tvs, t)
    ⇒
    ?t'. (t = deBruijn_inc tvs inc t') ∧
-        (tveLookup n inc2 e = SOME (tvs, deBruijn_inc tvs inc2 t'))`
-(induct_on `e` >>
+        (tveLookup n inc2 e = SOME (tvs, deBruijn_inc tvs inc2 t'))
+Proof
+induct_on `e` >>
 srw_tac[][deBruijn_inc_def, tveLookup_def] >>
 srw_tac[][] >>
-metis_tac [deBruijn_inc_deBruijn_inc]);
+metis_tac [deBruijn_inc_deBruijn_inc]
+QED
 
-Theorem tveLookup_add_inc
-`!x inc tenv tvs t inc2.
+Theorem tveLookup_add_inc:
+ !x inc tenv tvs t inc2.
   (tveLookup x inc tenv = SOME (tvs,t))
   ⇒
-  (tveLookup x (inc2 + inc) tenv = SOME (tvs, deBruijn_inc tvs inc2 t))`
-(induct_on `tenv` >>
+  (tveLookup x (inc2 + inc) tenv = SOME (tvs, deBruijn_inc tvs inc2 t))
+Proof
+induct_on `tenv` >>
 srw_tac[][tveLookup_def] >>
 srw_tac[][deBruijn_inc_deBruijn_inc] >>
-metis_tac [arithmeticTheory.ADD_ASSOC]);
+metis_tac [arithmeticTheory.ADD_ASSOC]
+QED
 
-Theorem tveLookup_freevars_subst
-  `!tenvE targs n t inc.
+Theorem tveLookup_freevars_subst:
+   !tenvE targs n t inc.
     EVERY (check_freevars (inc + num_tvs tenvE) []) targs ∧
     tveLookup n inc tenvE = SOME (LENGTH targs,t) ∧
     tenv_val_exp_ok tenvE
     ⇒
-    check_freevars (inc + num_tvs tenvE) [] (deBruijn_subst 0 targs t)`
- (induct_on `tenvE` >>
+    check_freevars (inc + num_tvs tenvE) [] (deBruijn_subst 0 targs t)
+Proof
+ induct_on `tenvE` >>
  rw [check_freevars_def, num_tvs_def, tveLookup_def, tenv_val_exp_ok_def] >>
  metis_tac [deBruijn_subst_check_freevars, arithmeticTheory.ADD_ASSOC,
-            check_freevars_subst_inc]);
+            check_freevars_subst_inc]
+QED
 
-Theorem tenv_val_exp_ok_db_merge
-`!e1 e2. tenv_val_exp_ok (db_merge e1 e2) ⇒ tenv_val_exp_ok e2`
-(induct_on `e1` >>
-srw_tac[][tenv_val_exp_ok_def, db_merge_def]);
+Theorem tenv_val_exp_ok_db_merge:
+ !e1 e2. tenv_val_exp_ok (db_merge e1 e2) ⇒ tenv_val_exp_ok e2
+Proof
+induct_on `e1` >>
+srw_tac[][tenv_val_exp_ok_def, db_merge_def]
+QED
 
 val tveLookup_freevars = Q.prove (
 `!e n inc t tvs.
@@ -723,52 +827,60 @@ val tveLookup_freevars = Q.prove (
       metis_tac [arithmeticTheory.ADD_ASSOC, arithmeticTheory.ADD_COMM],
   metis_tac []]);
 
-Theorem tveLookup_no_tvs
-`!tvs l tenv n t.
+Theorem tveLookup_no_tvs:
+ !tvs l tenv n t.
   tenv_val_exp_ok tenv ∧
   num_tvs tenv = 0
   ⇒
   (tveLookup n tvs tenv = SOME (l,t)
    ⇔
-   tveLookup n 0 tenv = SOME (l,t))`
-(induct_on `tenv` >>
+   tveLookup n 0 tenv = SOME (l,t))
+Proof
+induct_on `tenv` >>
 srw_tac[][tveLookup_def, num_tvs_def, tenv_val_exp_ok_def] >>
 eq_tac >>
 srw_tac[][] >>
 full_simp_tac(srw_ss())[] >>
-metis_tac [nil_deBruijn_inc, deBruijn_inc0]);
+metis_tac [nil_deBruijn_inc, deBruijn_inc0]
+QED
 
-Theorem deBruijn_subst_E_bvl
-`!tenv1 tenv2 tvs.
+Theorem deBruijn_subst_E_bvl:
+ !tenv1 tenv2 tvs.
   deBruijn_subst_tenvE targs (bind_var_list tvs tenv1 tenv2)
   =
   bind_var_list tvs
           (MAP (\(x,t). (x, deBruijn_subst (tvs + num_tvs tenv2) (MAP (deBruijn_inc 0 (tvs + num_tvs tenv2)) targs) t)) tenv1)
-          (deBruijn_subst_tenvE targs tenv2)`
-(induct_on `tenv1` >>
+          (deBruijn_subst_tenvE targs tenv2)
+Proof
+induct_on `tenv1` >>
 srw_tac[][bind_var_list_def] >>
 PairCases_on `h` >>
-srw_tac[][bind_var_list_def, deBruijn_subst_tenvE_def]);
+srw_tac[][bind_var_list_def, deBruijn_subst_tenvE_def]
+QED
 
-Theorem db_merge_bvl
-`!tenv1 tenv2 tenv3 tvs.
+Theorem db_merge_bvl:
+ !tenv1 tenv2 tenv3 tvs.
   db_merge (bind_var_list tvs tenv1 tenv2) tenv3
   =
-  bind_var_list tvs tenv1 (db_merge tenv2 tenv3)`
-(induct_on `tenv1` >>
+  bind_var_list tvs tenv1 (db_merge tenv2 tenv3)
+Proof
+induct_on `tenv1` >>
 srw_tac[][bind_var_list_def] >>
 PairCases_on `h` >>
-srw_tac[][bind_var_list_def, db_merge_def]);
+srw_tac[][bind_var_list_def, db_merge_def]
+QED
 
-Theorem tveLookup_db_merge_some
-  `!n inc tenvE1 tenvE2 tvs t.
+Theorem tveLookup_db_merge_some:
+   !n inc tenvE1 tenvE2 tvs t.
     tveLookup n inc (db_merge tenvE1 tenvE2) = SOME (tvs,t)
     ⇔
     tveLookup n inc tenvE1 = SOME (tvs,t) ∨
     (tveLookup n inc tenvE1 = NONE ∧
-     tveLookup n (num_tvs tenvE1 + inc) tenvE2 = SOME (tvs, t))`
- (Induct_on `tenvE1`
- >> rw [db_merge_def, tveLookup_def]);
+     tveLookup n (num_tvs tenvE1 + inc) tenvE2 = SOME (tvs, t))
+Proof
+ Induct_on `tenvE1`
+ >> rw [db_merge_def, tveLookup_def]
+QED
 
 (* ---------- type_op ---------- *)
 
@@ -789,29 +901,33 @@ val type_op_cases = save_thm("type_op_cases",
 
 (* ---------- type_p ---------- *)
 
-Theorem type_ps_length
-`∀tvs tenvC ps ts tenv.
-  type_ps tvs tenvC ps ts tenv ⇒ (LENGTH ps = LENGTH ts)`
-(induct_on `ps` >>
+Theorem type_ps_length:
+ ∀tvs tenvC ps ts tenv.
+  type_ps tvs tenvC ps ts tenv ⇒ (LENGTH ps = LENGTH ts)
+Proof
+induct_on `ps` >>
 srw_tac[][Once type_p_cases] >>
 srw_tac[][] >>
-metis_tac []);
+metis_tac []
+QED
 
-Theorem type_p_freevars
-`(!tvs tenvC p t env'.
+Theorem type_p_freevars:
+ (!tvs tenvC p t env'.
    type_p tvs tenvC p t env' ⇒
    check_freevars tvs [] t ∧
    EVERY (check_freevars tvs []) (MAP SND env')) ∧
  (!tvs tenvC ps ts env'.
    type_ps tvs tenvC ps ts env' ⇒
    EVERY (check_freevars tvs []) ts ∧
-   EVERY (check_freevars tvs []) (MAP SND env'))`
-(ho_match_mp_tac type_p_ind >>
+   EVERY (check_freevars tvs []) (MAP SND env'))
+Proof
+ho_match_mp_tac type_p_ind >>
 srw_tac[][check_freevars_def, bind_tvar_def, bind_var_list_def] >>
-metis_tac []);
+metis_tac []
+QED
 
-Theorem type_p_subst
-`(!n tenv p t new_bindings. type_p n tenv p t new_bindings ⇒
+Theorem type_p_subst:
+ (!n tenv p t new_bindings. type_p n tenv p t new_bindings ⇒
     !targs' inc tvs targs.
     tenv_abbrev_ok tenv.t ∧
     tenv_ctor_ok tenv.c ∧
@@ -834,8 +950,9 @@ Theorem type_p_subst
     type_ps (inc +  tvs) tenv
            ps
            (MAP (deBruijn_subst inc targs') ts)
-           (MAP (\(x,t). (x, deBruijn_subst inc targs' t)) new_bindings))`
- (ho_match_mp_tac type_p_strongind >>
+           (MAP (\(x,t). (x, deBruijn_subst inc targs' t)) new_bindings))
+Proof
+ ho_match_mp_tac type_p_strongind >>
  srw_tac[][] >>
  ONCE_REWRITE_TAC [type_p_cases] >>
  simp [deBruijn_subst_def, OPTION_MAP_DEF]
@@ -854,83 +971,98 @@ Theorem type_p_subst
          `! n:num . n ≥ 0` by decide_tac >>
          rw []) >>
      metis_tac [])
- >- metis_tac []);
+ >- metis_tac []
+QED
 
-Theorem type_p_bvl
-  `(!tvs tenvC p t bindings. type_p tvs tenvC p t bindings ⇒
+Theorem type_p_bvl:
+   (!tvs tenvC p t bindings. type_p tvs tenvC p t bindings ⇒
     !tenv'. tenv_val_exp_ok tenv' ⇒ tenv_val_exp_ok (bind_var_list tvs bindings tenv')) ∧
    (!tvs tenvC ps ts bindings. type_ps tvs tenvC ps ts bindings ⇒
-    !tenv'. tenv_val_exp_ok tenv' ⇒ tenv_val_exp_ok (bind_var_list tvs bindings tenv'))`
- (ho_match_mp_tac type_p_ind >>
+    !tenv'. tenv_val_exp_ok tenv' ⇒ tenv_val_exp_ok (bind_var_list tvs bindings tenv'))
+Proof
+ ho_match_mp_tac type_p_ind >>
  srw_tac[][bind_var_list_def, tenv_val_exp_ok_def, num_tvs_def, bind_var_list_append] >>
  `tvs + num_tvs tenv' ≥ tvs` by decide_tac >>
- metis_tac [check_freevars_add]);
+ metis_tac [check_freevars_add]
+QED
 
-Theorem type_p_tenvV_indep
-`(!p tvs tenv t bindings tenvV.
+Theorem type_p_tenvV_indep:
+ (!p tvs tenv t bindings tenvV.
   type_p tvs tenv p t bindings = type_p tvs (tenv with v := tenvV) p t bindings) ∧
  (!ps tvs tenv t bindings tenvV.
-  type_ps tvs tenv ps t bindings = type_ps tvs (tenv with v := tenvV) ps t bindings)`
- (Induct >>
+  type_ps tvs tenv ps t bindings = type_ps tvs (tenv with v := tenvV) ps t bindings)
+Proof
+ Induct >>
  rw [] >>
  ONCE_REWRITE_TAC [type_p_cases] >>
  simp [] >>
- metis_tac []);
+ metis_tac []
+QED
 
 (* ---------- type_e, type_es, type_funs ---------- *)
 
-Theorem type_es_list_rel
-`!es ts tenv tenvE. type_es tenv tenvE es ts = LIST_REL (type_e tenv tenvE) es ts`
- (induct_on `es` >>
+Theorem type_es_list_rel:
+ !es ts tenv tenvE. type_es tenv tenvE es ts = LIST_REL (type_e tenv tenvE) es ts
+Proof
+ induct_on `es` >>
  srw_tac[][] >>
- srw_tac[][Once type_e_cases]);
+ srw_tac[][Once type_e_cases]
+QED
 
-Theorem type_es_length
-`∀tenv tenvE es ts.
-  type_es tenv tenvE es ts ⇒ (LENGTH es = LENGTH ts)`
-(induct_on `es` >>
+Theorem type_es_length:
+ ∀tenv tenvE es ts.
+  type_es tenv tenvE es ts ⇒ (LENGTH es = LENGTH ts)
+Proof
+induct_on `es` >>
 srw_tac[][Once type_e_cases] >>
 srw_tac[][] >>
-metis_tac []);
+metis_tac []
+QED
 
-Theorem type_funs_MAP_FST
-`!funs tenv tenvE env.
+Theorem type_funs_MAP_FST:
+ !funs tenv tenvE env.
   type_funs tenv tenvE funs env ⇒
-  MAP FST funs = MAP FST env`
-  (Induct>>srw_tac[][]>>
+  MAP FST funs = MAP FST env
+Proof
+  Induct>>srw_tac[][]>>
   pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
-  full_simp_tac(srw_ss())[]>>metis_tac[])
+  full_simp_tac(srw_ss())[]>>metis_tac[]
+QED
 
-Theorem tenv_val_exp_ok_bvl_tvs
-  `!funs tenv env tvs bindings tenvE.
+Theorem tenv_val_exp_ok_bvl_tvs:
+   !funs tenv env tvs bindings tenvE.
     type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs env ∧
     tenv_val_exp_ok tenvE
     ⇒
-    tenv_val_exp_ok (bind_var_list tvs env tenvE)`
- (induct_on `funs`
+    tenv_val_exp_ok (bind_var_list tvs env tenvE)
+Proof
+ induct_on `funs`
  >> rw []
  >> qpat_x_assum `type_funs _ _ _ _` mp_tac
  >> simp [Once type_e_cases]
  >> rw [check_freevars_def]
  >> rw [check_freevars_def, bind_var_list_def, tenv_val_exp_ok_def]
- >> metis_tac []);
+ >> metis_tac []
+QED
 
-Theorem tenv_val_exp_ok_bvl_funs
-  `!funs env tenv bindings tenv_val tenvE.
+Theorem tenv_val_exp_ok_bvl_funs:
+   !funs env tenv bindings tenv_val tenvE.
     type_funs tenv (bind_var_list 0 bindings tenvE) funs env ∧
     tenv_val_exp_ok tenvE
     ⇒
-    tenv_val_exp_ok (bind_var_list 0 env tenvE)`
- (induct_on `funs`
+    tenv_val_exp_ok (bind_var_list 0 env tenvE)
+Proof
+ induct_on `funs`
  >> rw []
  >> qpat_x_assum `type_funs _ _ _ _` mp_tac
  >> simp [Once type_e_cases]
  >> rw [check_freevars_def]
  >> rw [check_freevars_def, bind_var_list_def, tenv_val_exp_ok_def]
- >> metis_tac []);
+ >> metis_tac []
+QED
 
-Theorem type_e_freevars
-`(!tenv tenvE e t.
+Theorem type_e_freevars:
+ (!tenv tenvE e t.
    type_e tenv tenvE e t ⇒
    tenv_val_exp_ok tenvE ∧ tenv_val_ok tenv.v ⇒
    check_freevars (num_tvs tenvE) [] t) ∧
@@ -941,8 +1073,9 @@ Theorem type_e_freevars
  (!tenv tenvE funs env.
    type_funs tenv tenvE funs env ⇒
    tenv_val_exp_ok tenvE ∧ tenv_val_ok tenv.v ⇒
-   EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env))`
- (ho_match_mp_tac type_e_strongind >>
+   EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env))
+Proof
+ ho_match_mp_tac type_e_strongind >>
  srw_tac[][check_freevars_def, num_tvs_def, type_op_cases,
      tenv_val_ok_def, bind_tvar_def, bind_var_list_def, opt_bind_name_def] >>
  full_simp_tac(srw_ss())[check_freevars_def]
@@ -975,10 +1108,11 @@ Theorem type_e_freevars
      >> metis_tac [pair_CASES, type_p_freevars, tenv_val_exp_ok_bvl])
  >- (every_case_tac >>
      fs [num_tvs_def, tenv_val_exp_ok_def])
- >- metis_tac [tenv_val_exp_ok_bvl_funs, num_tvs_bind_var_list]);
+ >- metis_tac [tenv_val_exp_ok_bvl_funs, num_tvs_bind_var_list]
+QED
 
-Theorem type_e_subst
-`(!tenv tenvE e t. type_e tenv tenvE e t ⇒
+Theorem type_e_subst:
+ (!tenv tenvE e t. type_e tenv tenvE e t ⇒
     !tenvE1 targs tvs targs'.
       num_tvs tenvE2 = 0 ∧
       tenv_abbrev_ok tenv.t ∧
@@ -1019,8 +1153,9 @@ Theorem type_e_subst
       ⇒
       type_funs tenv (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
                       funs
-                      (MAP (\(x,t). (x, deBruijn_subst (num_tvs tenvE1) targs' t)) env))`
- (ho_match_mp_tac type_e_strongind >>
+                      (MAP (\(x,t). (x, deBruijn_subst (num_tvs tenvE1) targs' t)) env))
+Proof
+ ho_match_mp_tac type_e_strongind >>
  srw_tac[][] >>
  ONCE_REWRITE_TAC [type_e_cases] >>
  srw_tac[][deBruijn_subst_def, deBruijn_subst_tenvE_def, opt_bind_name_def,
@@ -1335,16 +1470,18 @@ Theorem type_e_subst
      full_simp_tac(srw_ss())[] >>
      srw_tac[][] >>
      full_simp_tac(srw_ss())[] >>
-     metis_tac [mem_exists_set]));
+     metis_tac [mem_exists_set])
+QED
 
 (* Recursive functions have function type *)
-Theorem type_funs_Tfn
-  `∀tenv tenvE funs bindings tvs t n.
+Theorem type_funs_Tfn:
+   ∀tenv tenvE funs bindings tvs t n.
     type_funs tenv tenvE funs bindings ∧
     ALOOKUP bindings n = SOME t
     ⇒
-    ∃t1 t2. (t = Tfn t1 t2) ∧ check_freevars (num_tvs tenvE) [] (Tfn t1 t2)`
- (induct_on `funs`
+    ∃t1 t2. (t = Tfn t1 t2) ∧ check_freevars (num_tvs tenvE) [] (Tfn t1 t2)
+Proof
+ induct_on `funs`
  >> rw []
  >> qpat_x_assum `type_funs _ _ _ _` mp_tac
  >> simp [Once type_e_cases]
@@ -1352,47 +1489,53 @@ Theorem type_funs_Tfn
  >> fs []
  >> every_case_tac
  >> fs [deBruijn_subst_def, check_freevars_def]
- >>metis_tac [type_e_freevars, num_tvs_def]);
+ >>metis_tac [type_e_freevars, num_tvs_def]
+QED
 
 (* Recursive functions can be looked up in the execution environment. *)
-Theorem type_funs_lookup
-`∀fn tenvE funs bindings n e tenv.
+Theorem type_funs_lookup:
+ ∀fn tenvE funs bindings n e tenv.
   MEM (fn,n,e) funs ∧
   type_funs tenv tenvE funs bindings
   ⇒
-  (∃t. ALOOKUP bindings fn = SOME t)`
-(Induct_on `funs` >>
+  (∃t. ALOOKUP bindings fn = SOME t)
+Proof
+Induct_on `funs` >>
 srw_tac[][] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
 full_simp_tac(srw_ss())[] >>
 full_simp_tac(srw_ss())[] >>
 srw_tac[][] >>
-metis_tac []);
+metis_tac []
+QED
 
 (* Functions in the type environment can be found *)
-Theorem type_funs_find_recfun
-`∀fn env funs bindings e tenv tenvE t.
+Theorem type_funs_find_recfun:
+ ∀fn env funs bindings e tenv tenvE t.
   ALOOKUP bindings fn = SOME t ∧
   type_funs tenv tenvE funs bindings
   ⇒
-  (∃n e. find_recfun fn funs = SOME (n,e))`
-(Induct_on `funs` >>
+  (∃n e. find_recfun fn funs = SOME (n,e))
+Proof
+Induct_on `funs` >>
 srw_tac[][] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
 full_simp_tac(srw_ss())[] >>
 full_simp_tac(srw_ss())[] >>
 srw_tac[][Once find_recfun_def] >>
-metis_tac []);
+metis_tac []
+QED
 
-Theorem type_recfun_lookup
-  `∀fn funs n e tenv tenvE bindings tvs t1 t2.
+Theorem type_recfun_lookup:
+   ∀fn funs n e tenv tenvE bindings tvs t1 t2.
     find_recfun fn funs = SOME (n,e) ∧
     type_funs tenv tenvE funs bindings ∧
     ALOOKUP bindings fn = SOME (Tfn t1 t2)
     ⇒
     type_e tenv (Bind_name n 0 t1 tenvE) e t2 ∧
-    check_freevars (num_tvs tenvE) [] (Tfn t1 t2)`
- (induct_on `funs`
+    check_freevars (num_tvs tenvE) [] (Tfn t1 t2)
+Proof
+ induct_on `funs`
  >> rw [Once find_recfun_def]
  >> qpat_x_assum `type_funs _ _ _ _` mp_tac
  >> simp [Once type_e_cases]
@@ -1401,15 +1544,17 @@ Theorem type_recfun_lookup
  >> every_case_tac
  >> fs []
  >> rw []
- >> metis_tac []);
+ >> metis_tac []
+QED
 
 (* No duplicate function definitions in a single let rec *)
-Theorem type_funs_distinct
-`∀tenv tenvE funs bindings .
+Theorem type_funs_distinct:
+ ∀tenv tenvE funs bindings .
   type_funs tenv tenvE funs bindings
   ⇒
-  ALL_DISTINCT (MAP (λ(x,y,z). x) funs)`
-(induct_on `funs` >>
+  ALL_DISTINCT (MAP (λ(x,y,z). x) funs)
+Proof
+induct_on `funs` >>
 srw_tac[][] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
 full_simp_tac(srw_ss())[] >>
@@ -1420,22 +1565,25 @@ srw_tac[][MEM_MAP] >|
      full_simp_tac(srw_ss())[] >>
      srw_tac[][] >>
      metis_tac [type_funs_lookup, optionTheory.NOT_SOME_NONE],
- metis_tac []]);
+ metis_tac []]
+QED
 
-Theorem type_funs_tenv_exp_ok
-  `!funs env tenv tenvE tvs bindings.
+Theorem type_funs_tenv_exp_ok:
+   !funs env tenv tenvE tvs bindings.
     num_tvs tenvE = 0 ∧
     type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs env
     ⇒
-    tenv_val_exp_ok (bind_var_list tvs env Empty)`
- (induct_on `funs`
+    tenv_val_exp_ok (bind_var_list tvs env Empty)
+Proof
+ induct_on `funs`
  >> rw []
  >> pop_assum mp_tac
  >> simp [Once type_e_cases]
  >> rw [bind_var_list_def, tenv_val_exp_ok_def]
  >> rw [bind_var_list_def, tenv_val_exp_ok_def]
  >> first_x_assum irule
- >> metis_tac []);
+ >> metis_tac []
+QED
 
 val type_e_subst_lem = Q.prove (
 `∀tenv tenvE e t targs tvs targs'.
@@ -1459,14 +1607,16 @@ val type_e_subst_lem = Q.prove (
  (*
 (* ---------- tid_exn_to_tc ---------- *)
 
-Theorem tid_exn_to_tc_11
-`!x y. (tid_exn_to_tc x = tid_exn_to_tc y) = same_tid x y`
-(cases_on `x` >>
+Theorem tid_exn_to_tc_11:
+ !x y. (tid_exn_to_tc x = tid_exn_to_tc y) = same_tid x y
+Proof
+cases_on `x` >>
 cases_on `y` >>
-srw_tac[][tid_exn_to_tc_def, same_tid_def]);
+srw_tac[][tid_exn_to_tc_def, same_tid_def]
+QED
 
-Theorem tid_exn_not
-`(!tn. tid_exn_to_tc tn ≠ TC_int) ∧
+Theorem tid_exn_not:
+ (!tn. tid_exn_to_tc tn ≠ TC_int) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_char) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_string) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_ref) ∧
@@ -1477,12 +1627,14 @@ Theorem tid_exn_not
  (!tn wz. tid_exn_to_tc tn ≠ TC_word wz) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_word8array) ∧
  (!tn. tid_exn_to_tc tn ≠ TC_vector) ∧
- (!tn. tid_exn_to_tc tn ≠ TC_array)`
- (srw_tac[][] >>
+ (!tn. tid_exn_to_tc tn ≠ TC_array)
+Proof
+ srw_tac[][] >>
  cases_on `tn` >>
  full_simp_tac(srw_ss())[tid_exn_to_tc_def] >>
  Cases_on`wz` \\ EVAL_TAC >>
- metis_tac []);
+ metis_tac []
+QED
  *)
 
 (* ---------- ctMap stuff ---------- *)
@@ -1497,32 +1649,35 @@ val type_def_to_ctMap_def = Define `
         (TypeStamp cn next_stamp, (tvs, MAP (type_name_subst tenvT) ts, id)))
         ctors))`;
 
-Theorem mem_type_def_to_ctMap
-  `!tenvT next tds ids stamp x.
+Theorem mem_type_def_to_ctMap:
+   !tenvT next tds ids stamp x.
     MEM (stamp,x) (type_def_to_ctMap tenvT next tds ids) ∧
     LENGTH tds = LENGTH ids
     ⇒
-    ?cn i. stamp = TypeStamp cn i ∧ next ≤ i ∧ i < next + LENGTH tds`
-  (ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
+    ?cn i. stamp = TypeStamp cn i ∧ next ≤ i ∧ i < next + LENGTH tds
+Proof
+  ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
   rw [type_def_to_ctMap_def] >>
   fs [] >>
   res_tac >>
   rw [] >>
   fs [MEM_MAP] >>
   pairarg_tac >>
-  fs []);
+  fs []
+QED
 
 val o_f_FRANGE2 = Q.prove (
   `(?x. y = f x ∧ x ∈ FRANGE g) ⇒ y ∈ FRANGE (f o_f g)`,
   rw [FRANGE_DEF] >>
   metis_tac [o_f_FAPPLY]);
 
-Theorem ctMap_ok_merge_imp
-  `!ctMap1 ctMap2.
+Theorem ctMap_ok_merge_imp:
+   !ctMap1 ctMap2.
     DISJOINT (FRANGE ((SND o SND) o_f ctMap1)) (FRANGE ((SND o SND) o_f ctMap2)) ∧
     ctMap_ok ctMap1 ∧ ctMap_ok ctMap2 ⇒
-    ctMap_ok (FUNION ctMap1 ctMap2)`
- (REWRITE_TAC [ctMap_ok_def] >>
+    ctMap_ok (FUNION ctMap1 ctMap2)
+Proof
+ REWRITE_TAC [ctMap_ok_def] >>
  rpt gen_tac >>
  strip_tac >>
  rpt conj_tac
@@ -1567,24 +1722,28 @@ Theorem ctMap_ok_merge_imp
        simp []) >>
      fs [DISJOINT_DEF, EXTENSION] >>
      metis_tac [])
-   >- metis_tac []));
+   >- metis_tac [])
+QED
 
-Theorem ctMap_ok_lookup
-`!ctMap cn tvs ts ti tn.
+Theorem ctMap_ok_lookup:
+ !ctMap cn tvs ts ti tn.
   ctMap_ok ctMap ∧ (FLOOKUP ctMap tn = SOME (tvs,ts,ti))
   ⇒
-  EVERY (check_freevars 0 tvs) ts`
- (srw_tac[][ctMap_ok_def, FEVERY_ALL_FLOOKUP] >>
+  EVERY (check_freevars 0 tvs) ts
+Proof
+ srw_tac[][ctMap_ok_def, FEVERY_ALL_FLOOKUP] >>
  res_tac >>
- full_simp_tac(srw_ss())[]);
+ full_simp_tac(srw_ss())[]
+QED
 
-Theorem type_def_to_ctMap_mem
-  `!tenvT next tds tids.
+Theorem type_def_to_ctMap_mem:
+   !tenvT next tds tids.
     ALOOKUP (type_def_to_ctMap tenvT next tds tids) k = SOME x ∧
     LENGTH tds = LENGTH tids
     ⇒
-    MEM (SND (SND x)) tids`
-  (ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
+    MEM (SND (SND x)) tids
+Proof
+  ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
   rw [type_def_to_ctMap_def] >>
   fs [ALOOKUP_APPEND] >>
   every_case_tac >>
@@ -1592,15 +1751,16 @@ Theorem type_def_to_ctMap_mem
   drule ALOOKUP_MEM >>
   rw [MEM_MAP] >>
   pairarg_tac >>
-  fs []);
+  fs []
+QED
 
 val fupdate2_union = Q.prove (
   `!m a1 a2. m |++ a1 |++ a2 = FEMPTY |++ a2 ⊌ (m |++ a1)`,
   rw [FLOOKUP_EXT, FUN_EQ_THM, FLOOKUP_FUNION, flookup_fupdate_list] >>
   every_case_tac);
 
-Theorem ctMap_ok_type_defs
-  `!tenvT next tds tids.
+Theorem ctMap_ok_type_defs:
+   !tenvT next tds tids.
     ALL_DISTINCT tids ∧
     DISJOINT (set tids) (set prim_type_nums) ∧
     LENGTH tds = LENGTH tids ∧
@@ -1609,8 +1769,9 @@ Theorem ctMap_ok_type_defs
     ⇒
     ctMap_ok
       (FEMPTY |++
-        REVERSE (type_def_to_ctMap tenvT next tds tids))`
-  (ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
+        REVERSE (type_def_to_ctMap tenvT next tds tids))
+Proof
+  ho_match_mp_tac (theorem "type_def_to_ctMap_ind") >>
   rw [type_def_to_ctMap_def, check_ctor_tenv_def]
   >- rw [ctMap_ok_def, flookup_fupdate_list, FEVERY_FUPDATE_LIST, FEVERY_FEMPTY] >>
   fs [REVERSE_APPEND, FUPDATE_LIST_APPEND, fupdate2_union] >>
@@ -1673,13 +1834,15 @@ Theorem ctMap_ok_type_defs
     imp_res_tac ALOOKUP_MEM >>
     fs [MEM_MAP] >>
     pairarg_tac >>
-    fs []));
+    fs [])
+QED
 
 
  (*
-Theorem ctMap_ok_type_decs
- `!mn tds. tenv_abbrev_ok tenvT ∧ check_ctor_tenv tenvT tds ⇒ ctMap_ok (type_decs_to_ctMap mn tenvT tds)`
- (rw [check_ctor_tenv_def, ctMap_ok_def, type_decs_to_ctMap_def, FEVERY_ALL_FLOOKUP, FUPDATE_LIST_alist_to_fmap]
+Theorem ctMap_ok_type_decs:
+  !mn tds. tenv_abbrev_ok tenvT ∧ check_ctor_tenv tenvT tds ⇒ ctMap_ok (type_decs_to_ctMap mn tenvT tds)
+Proof
+ rw [check_ctor_tenv_def, ctMap_ok_def, type_decs_to_ctMap_def, FEVERY_ALL_FLOOKUP, FUPDATE_LIST_alist_to_fmap]
  >> drule ALOOKUP_MEM
  >> simp [MEM_FLAT, MEM_MAP]
  >> pairarg_tac
@@ -1702,42 +1865,48 @@ Theorem ctMap_ok_type_decs
  >> fs []
  >> rw []
  >> fs [MEM_MAP]
- >> metis_tac [check_freevars_type_name_subst]);
+ >> metis_tac [check_freevars_type_name_subst]
+QED
 
-Theorem consistent_ctMap_union
- `!tdecs1 tdecs2 ctMap1 ctMap2.
+Theorem consistent_ctMap_union:
+  !tdecs1 tdecs2 ctMap1 ctMap2.
   consistent_ctMap tdecs1 ctMap1 ∧
   consistent_ctMap tdecs2 ctMap2
   ⇒
-  consistent_ctMap (union_decls tdecs1 tdecs2) (FUNION ctMap1 ctMap2)`
- (rw [consistent_ctMap_def, RES_FORALL]
+  consistent_ctMap (union_decls tdecs1 tdecs2) (FUNION ctMap1 ctMap2)
+Proof
+ rw [consistent_ctMap_def, RES_FORALL]
  >> pairarg_tac
  >> fs []
  >> CASE_TAC
  >> fs [union_decls_def]
  >> first_x_assum drule
- >> simp []);
+ >> simp []
+QED
 
-Theorem consistent_ctMap_union2
- `!tdecs1 tdecs2 ctMap.
+Theorem consistent_ctMap_union2:
+  !tdecs1 tdecs2 ctMap.
   consistent_ctMap tdecs2 ctMap
   ⇒
-  consistent_ctMap (union_decls tdecs1 tdecs2) ctMap`
- (rw [consistent_ctMap_def, RES_FORALL]
+  consistent_ctMap (union_decls tdecs1 tdecs2) ctMap
+Proof
+ rw [consistent_ctMap_def, RES_FORALL]
  >> pairarg_tac
  >> fs []
  >> CASE_TAC
  >> fs [union_decls_def]
  >> first_x_assum drule
- >> simp []);
+ >> simp []
+QED
 
-Theorem consistent_ctMap_disjoint
-`!mn (tds:type_def) (ctMap:ctMap) tdecs tabbrev.
+Theorem consistent_ctMap_disjoint:
+ !mn (tds:type_def) (ctMap:ctMap) tdecs tabbrev.
   DISJOINT (set (MAP (λ(tvs,tn,ctors). mk_id mn tn) tds)) tdecs.defined_types ∧
   consistent_ctMap tdecs ctMap
   ⇒
-  DISJOINT (IMAGE SND (FDOM (type_decs_to_ctMap mn tabbrev tds))) (IMAGE SND (FDOM ctMap))`
- (rw [consistent_ctMap_def,
+  DISJOINT (IMAGE SND (FDOM (type_decs_to_ctMap mn tabbrev tds))) (IMAGE SND (FDOM ctMap))
+Proof
+ rw [consistent_ctMap_def,
      type_decs_to_ctMap_def, RES_FORALL, FUPDATE_LIST_alist_to_fmap, DISJOINT_DEF,
      EXTENSION, MEM_MAP]
  >> rw [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``]
@@ -1756,7 +1925,8 @@ Theorem consistent_ctMap_disjoint
  >> rw []
  >> fs [METIS_PROVE [] ``y ∨ x ⇔ ~y ⇒ x``, PULL_EXISTS]
  >> first_x_assum drule
- >> simp []);
+ >> simp []
+QED
  *)
 
 val all_distinct_map_fst_lemma = Q.prove (
@@ -1815,147 +1985,172 @@ val check_ctor_tenv_type_decs_to_ctMap_lemma = Q.prove (
    >> pairarg_tac
    >> fs []));
 
-Theorem check_ctor_tenv_type_decs_to_ctMap
-  `!tenvT tds mn tvs tn c cn ts.
+Theorem check_ctor_tenv_type_decs_to_ctMap:
+   !tenvT tds mn tvs tn c cn ts.
     check_ctor_tenv tenvT tds ∧
     MEM (tvs,tn,c) tds ∧
     MEM (cn,ts) c
     ⇒
-    FLOOKUP (type_decs_to_ctMap mn tenvT tds) (cn, TypeId (mk_id mn tn)) = SOME (tvs, MAP (type_name_subst tenvT) ts)`
- (metis_tac [REVERSE_REVERSE, check_ctor_tenv_type_decs_to_ctMap_lemma]);
+    FLOOKUP (type_decs_to_ctMap mn tenvT tds) (cn, TypeId (mk_id mn tn)) = SOME (tvs, MAP (type_name_subst tenvT) ts)
+Proof
+ metis_tac [REVERSE_REVERSE, check_ctor_tenv_type_decs_to_ctMap_lemma]
+QED
  *)
 
-Theorem check_ctor_tenv_change_tenvT
-  `∀tenvT1 env tenvT2.
+Theorem check_ctor_tenv_change_tenvT:
+   ∀tenvT1 env tenvT2.
    EVERY (λ(cn,ts). EVERY (check_type_names tenvT1) ts ⇒
                     EVERY (check_type_names tenvT2) ts)
          (FLAT (MAP (SND o SND) env)) ∧
    check_ctor_tenv tenvT1 env ⇒
-   check_ctor_tenv tenvT2 env`
-  (recInduct check_ctor_tenv_ind
+   check_ctor_tenv tenvT2 env
+Proof
+  recInduct check_ctor_tenv_ind
   \\ rw[check_ctor_tenv_def]
   \\ fs[EVERY_MEM, UNCURRY, MEM_FLAT, MEM_MAP, PULL_EXISTS]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem check_ctor_tenv_EVERY
-  `∀tenvT tds.
+Theorem check_ctor_tenv_EVERY:
+   ∀tenvT tds.
      check_ctor_tenv tenvT tds ⇔
      EVERY check_dup_ctors tds ∧
      EVERY (ALL_DISTINCT o FST) tds ∧
      EVERY (λ(tvs,tn,ctors).
        EVERY (λ(cn,ts). EVERY (check_freevars_ast tvs) ts ∧
                         EVERY (check_type_names tenvT) ts) ctors) tds ∧
-    ALL_DISTINCT (MAP (FST o SND) tds)`
-  (recInduct check_ctor_tenv_ind
+    ALL_DISTINCT (MAP (FST o SND) tds)
+Proof
+  recInduct check_ctor_tenv_ind
   \\ rw[check_ctor_tenv_def,LAMBDA_PROD]
   \\ rw[EQ_IMP_THM]
-  \\ fs[MEM_MAP,EXISTS_PROD]);
+  \\ fs[MEM_MAP,EXISTS_PROD]
+QED
 
 (* ---------- consistent_decls ---------- *)
 
 (*
-Theorem consistent_decls_union
- `!defined_types1 defined_types2 tdecs1 tdecs2.
+Theorem consistent_decls_union:
+  !defined_types1 defined_types2 tdecs1 tdecs2.
   consistent_decls defined_types1 tdecs1 ∧
   consistent_decls defined_types2 tdecs2
   ⇒
-  consistent_decls (defined_types1 ∪ defined_types2) (union_decls tdecs1 tdecs2)`
- (rw [consistent_decls_def, union_decls_def, RES_FORALL]
+  consistent_decls (defined_types1 ∪ defined_types2) (union_decls tdecs1 tdecs2)
+Proof
+ rw [consistent_decls_def, union_decls_def, RES_FORALL]
  >> CASE_TAC
  >> fs []
  >> first_x_assum drule
  >> rw []
- >> metis_tac []);
+ >> metis_tac []
+QED
 
-Theorem consistent_decls_union2
- `!defined_types tdecs1 tdecs2.
+Theorem consistent_decls_union2:
+  !defined_types tdecs1 tdecs2.
   consistent_decls defined_types tdecs2
   ⇒
-  consistent_decls defined_types (union_decls tdecs1 tdecs2)`
- (rw [consistent_decls_def, union_decls_def, RES_FORALL]
+  consistent_decls defined_types (union_decls tdecs1 tdecs2)
+Proof
+ rw [consistent_decls_def, union_decls_def, RES_FORALL]
  >> CASE_TAC
  >> fs []
  >> first_x_assum drule
  >> rw []
- >> metis_tac []);
+ >> metis_tac []
+QED
 
-Theorem consistent_decls_add_mod
-`!decls d mn.
+Theorem consistent_decls_add_mod:
+ !decls d mn.
   consistent_decls decls d
   ⇒
-  consistent_decls decls (d with defined_mods := {mn} ∪ d.defined_mods)`
- (srw_tac[][consistent_decls_def, RES_FORALL] >>
+  consistent_decls decls (d with defined_mods := {mn} ∪ d.defined_mods)
+Proof
+ srw_tac[][consistent_decls_def, RES_FORALL] >>
  every_case_tac >>
  full_simp_tac(srw_ss())[] >>
  res_tac >>
- full_simp_tac(srw_ss())[]);
+ full_simp_tac(srw_ss())[]
+QED
  *)
 
 (* ---------- type_v  ---------- *)
 
-Theorem nsLookup_add_tenvE1
-  `!tenvE tenvV n tvs t tvs2.
+Theorem nsLookup_add_tenvE1:
+   !tenvE tenvV n tvs t tvs2.
     check_freevars tvs2 [] t ∧
     tveLookup n tvs tenvE = SOME (tvs2,t) ⇒
-    nsLookup (add_tenvE tenvE tenvV) (Short n) = SOME (tvs2,t)`
-  (Induct_on `tenvE`
+    nsLookup (add_tenvE tenvE tenvV) (Short n) = SOME (tvs2,t)
+Proof
+  Induct_on `tenvE`
   >> rw [tveLookup_def, add_tenvE_def]
   >> fs []
-  >> metis_tac [nil_deBruijn_inc]);
+  >> metis_tac [nil_deBruijn_inc]
+QED
 
-Theorem nsLookup_add_tenvE2
-  `!tenvE tenvV n tvs t tvs2.
+Theorem nsLookup_add_tenvE2:
+   !tenvE tenvV n tvs t tvs2.
     tveLookup n tvs tenvE = NONE ∧
     nsLookup tenvV (Short n) = SOME (tvs2,t) ⇒
-    nsLookup (add_tenvE tenvE tenvV) (Short n) = SOME (tvs2,t)`
-  (Induct_on `tenvE`
+    nsLookup (add_tenvE tenvE tenvV) (Short n) = SOME (tvs2,t)
+Proof
+  Induct_on `tenvE`
   >> rw [tveLookup_def, add_tenvE_def]
   >> fs []
-  >> metis_tac []);
+  >> metis_tac []
+QED
 
-Theorem nsLookup_add_tenvE3
-  `!tenvE tenvV n t tvs2 mn.
+Theorem nsLookup_add_tenvE3:
+   !tenvE tenvV n t tvs2 mn.
     nsLookup tenvV (Long mn n) = SOME (tvs2,t) ⇒
-    nsLookup (add_tenvE tenvE tenvV) (Long mn n) = SOME (tvs2,t)`
-  (Induct_on `tenvE`
+    nsLookup (add_tenvE tenvE tenvV) (Long mn n) = SOME (tvs2,t)
+Proof
+  Induct_on `tenvE`
   >> rw [tveLookup_def, add_tenvE_def]
   >> fs []
-  >> metis_tac []);
+  >> metis_tac []
+QED
 
-Theorem tenv_val_ok_add_tenvE
-  `!tenvE tenvV.
+Theorem tenv_val_ok_add_tenvE:
+   !tenvE tenvV.
     num_tvs tenvE = 0 ∧
     tenv_val_exp_ok tenvE ∧
     tenv_val_ok tenvV
     ⇒
-    tenv_val_ok (add_tenvE tenvE tenvV)`
- (Induct_on `tenvE`
+    tenv_val_ok (add_tenvE tenvE tenvV)
+Proof
+ Induct_on `tenvE`
  >> rw [add_tenvE_def, tenv_val_exp_ok_def]
  >> fs [tenv_val_ok_def]
  >> irule nsAll_nsBind
  >> rw []
- >> rfs []);
+ >> rfs []
+QED
 
-Theorem add_tenvE_nsAppend
-  `!tenvE tenvV. nsAppend (add_tenvE tenvE nsEmpty) tenvV = add_tenvE tenvE tenvV`
- (Induct_on `tenvE`
- >> rw [add_tenvE_def]);
+Theorem add_tenvE_nsAppend:
+   !tenvE tenvV. nsAppend (add_tenvE tenvE nsEmpty) tenvV = add_tenvE tenvE tenvV
+Proof
+ Induct_on `tenvE`
+ >> rw [add_tenvE_def]
+QED
 
-Theorem add_tenvE_bvl
-  `!n bindings tenvE tenvV.
+Theorem add_tenvE_bvl:
+   !n bindings tenvE tenvV.
     add_tenvE (bind_var_list n bindings tenvE) tenvV =
-    nsBindList (MAP (\(x,t). (x, (n, t))) bindings) (add_tenvE tenvE tenvV)`
- (Induct_on `bindings`
+    nsBindList (MAP (\(x,t). (x, (n, t))) bindings) (add_tenvE tenvE tenvV)
+Proof
+ Induct_on `bindings`
  >> rw [bind_var_list_def, nsBindList_def]
  >> pairarg_tac
  >> rw []
  >> pairarg_tac
  >> fs []
- >> rw [bind_var_list_def, add_tenvE_def, nsBindList_def]);
+ >> rw [bind_var_list_def, add_tenvE_def, nsBindList_def]
+QED
 
-Theorem type_v_freevars
-`!tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒ check_freevars tvs [] t`
- (ho_match_mp_tac type_v_strongind >>
+Theorem type_v_freevars:
+ !tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒ check_freevars tvs [] t
+Proof
+ ho_match_mp_tac type_v_strongind >>
  srw_tac[][check_freevars_def, tenv_val_ok_def, num_tvs_def, bind_tvar_def, Tchar_def]
  >- metis_tac [] >>
  res_tac
@@ -1989,7 +2184,8 @@ Theorem type_v_freevars
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
                arithmeticTheory.GREATER_EQ]
  >- metis_tac [check_freevars_add, arithmeticTheory.ZERO_LESS_EQ,
-               arithmeticTheory.GREATER_EQ]);
+               arithmeticTheory.GREATER_EQ]
+QED
 
 val remove_lambda_prod = Q.prove (
 `(\(x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
@@ -2004,16 +2200,17 @@ val type_subst_lem1 =
  SIMP_RULE (srw_ss()) [GSYM RIGHT_FORALL_IMP_THM])
 check_freevars_subst;
 
-Theorem type_subst
-  `!tvs ctMap tenvS v t.
+Theorem type_subst:
+   !tvs ctMap tenvS v t.
      type_v tvs ctMap tenvS v t ⇒
      tvs = LENGTH targs ∧
      ctMap_ok ctMap ∧
      EVERY (check_freevars tvs' []) targs ∧
      check_freevars (LENGTH targs) [] t
      ⇒
-     type_v tvs' ctMap tenvS v (deBruijn_subst 0 targs t)`
- (ho_match_mp_tac type_v_strongind
+     type_v tvs' ctMap tenvS v (deBruijn_subst 0 targs t)
+Proof
+ ho_match_mp_tac type_v_strongind
  >> rw []
  >> simp [Once type_v_cases, deBruijn_inc_def, deBruijn_subst_def]
  >> fs [check_freevars_def]
@@ -2090,16 +2287,18 @@ Theorem type_subst
  >- simp [nil_deBruijn_subst, nil_deBruijn_inc]
  >- (
    fs [EVERY_MEM]
-   >> simp [nil_deBruijn_subst, nil_deBruijn_inc]));
+   >> simp [nil_deBruijn_subst, nil_deBruijn_inc])
+QED
 
-Theorem check_ctor_tenv_ok
-`!tenvT tds tis.
+Theorem check_ctor_tenv_ok:
+ !tenvT tds tis.
  LENGTH tds = LENGTH tis ∧
  check_ctor_tenv tenvT tds ∧
  tenv_abbrev_ok tenvT
  ⇒
- tenv_ctor_ok (build_ctor_tenv tenvT tds tis)`
- (ho_match_mp_tac build_ctor_tenv_ind >>
+ tenv_ctor_ok (build_ctor_tenv tenvT tds tis)
+Proof
+ ho_match_mp_tac build_ctor_tenv_ind >>
  rw [build_ctor_tenv_def, tenv_ctor_ok_def, check_ctor_tenv_def]
  >> irule nsAll_nsAppend
  >> simp []
@@ -2120,17 +2319,19 @@ Theorem check_ctor_tenv_ok
  rw [] >>
  fs [MEM_MAP]
  >> irule check_freevars_type_name_subst
- >> simp []);
+ >> simp []
+QED
 
-Theorem nsMap_build_ctor_tenv
-  `∀ga g h tenvT tds ids.
+Theorem nsMap_build_ctor_tenv:
+   ∀ga g h tenvT tds ids.
   LENGTH tds = LENGTH ids
   ∧ (∀x. MEM x (MAP SND (FLAT (MAP (SND o SND) tds))) ⇒
          MAP (type_name_subst tenvT) (ga x) = (g (MAP (type_name_subst tenvT) x)))
   ⇒
   nsMap (λ(tvs,ts,tid). (tvs, g ts, h tid)) (build_ctor_tenv tenvT tds ids) =
-  build_ctor_tenv tenvT (MAP (I ## I ## MAP (I ## ga)) tds) (MAP h ids)`
-  (ntac 3 gen_tac
+  build_ctor_tenv tenvT (MAP (I ## I ## MAP (I ## ga)) tds) (MAP h ids)
+Proof
+  ntac 3 gen_tac
   \\ recInduct build_ctor_tenv_ind
   \\ rw[build_ctor_tenv_def]
   \\ rw[nsMap_nsAppend, MAP_REVERSE, MAP_MAP_o, o_DEF, UNCURRY, LAMBDA_PROD]
@@ -2142,51 +2343,58 @@ Theorem nsMap_build_ctor_tenv
   \\ match_mp_tac EQ_SYM
   \\ first_x_assum irule
   \\ rw[MEM_MAP,EXISTS_PROD]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
   (*
 (* --------- decls_ok ------------ *)
 
-Theorem decls_ok_union
- `∀d1 d2.
+Theorem decls_ok_union:
+  ∀d1 d2.
   decls_ok d1 ∧
   decls_ok d2
   ⇒
-  decls_ok (union_decls d1 d2)`
- (rw [decls_ok_def, union_decls_def, SUBSET_DEF, decls_to_mods_def, GSPECIFICATION]
+  decls_ok (union_decls d1 d2)
+Proof
+ rw [decls_ok_def, union_decls_def, SUBSET_DEF, decls_to_mods_def, GSPECIFICATION]
  >> full_simp_tac (srw_ss()++DNF_ss) []
- >> metis_tac []);
+ >> metis_tac []
+QED
  *)
 
 (* ---------- type_d ---------- *)
 
-Theorem type_d_check_uniq
-`(!check tenv d tdecs new_tenv.
+Theorem type_d_check_uniq:
+ (!check tenv d tdecs new_tenv.
   type_d check tenv d tdecs new_tenv
   ⇒
   type_d F tenv d tdecs new_tenv) ∧
  (!check tenv d tdecs new_tenv.
   type_ds check tenv d tdecs new_tenv
   ⇒
-  type_ds F tenv d tdecs new_tenv)`
- (ho_match_mp_tac type_d_ind >>
+  type_ds F tenv d tdecs new_tenv)
+Proof
+ ho_match_mp_tac type_d_ind >>
  rw [] >>
  simp [Once type_d_cases] >>
- metis_tac []);
+ metis_tac []
+QED
 
-Theorem extend_dec_tenv_ok
-  `!tenv tenv'. tenv_ok tenv ∧ tenv_ok tenv' ⇒ tenv_ok (extend_dec_tenv tenv tenv')`
- (rw [extend_dec_tenv_def, tenv_ok_def]
+Theorem extend_dec_tenv_ok:
+   !tenv tenv'. tenv_ok tenv ∧ tenv_ok tenv' ⇒ tenv_ok (extend_dec_tenv tenv tenv')
+Proof
+ rw [extend_dec_tenv_def, tenv_ok_def]
  >- (
    fs [tenv_val_ok_def]
    >> irule nsAll_nsAppend
    >> simp [])
  >> fs [tenv_abbrev_ok_def]
  >> irule nsAll_nsAppend
- >> simp []);
+ >> simp []
+QED
 
-Theorem type_d_tenv_ok_helper
- `(∀check tenv d tdecs tenv'.
+Theorem type_d_tenv_ok_helper:
+  (∀check tenv d tdecs tenv'.
    type_d check tenv d tdecs tenv' ⇒
    tenv_ok tenv
    ⇒
@@ -2195,8 +2403,9 @@ Theorem type_d_tenv_ok_helper
    type_ds check tenv d tdecs tenv' ⇒
    tenv_ok tenv
    ⇒
-   tenv_ok tenv')`
- (ho_match_mp_tac type_d_ind >>
+   tenv_ok tenv')
+Proof
+ ho_match_mp_tac type_d_ind >>
  rw [tenv_ctor_ok_def, tenvLift_def]
  >- (
    fs [tenv_ok_def] >>
@@ -2271,24 +2480,28 @@ Theorem type_d_tenv_ok_helper
    >> simp [tenv_abbrev_ok_def])
  >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
  >- metis_tac [extend_dec_tenv_ok]
- >- metis_tac [extend_dec_tenv_ok]);
+ >- metis_tac [extend_dec_tenv_ok]
+QED
 
-Theorem type_d_tenv_ok
- `∀check tenv d tdecs tenv'.
+Theorem type_d_tenv_ok:
+  ∀check tenv d tdecs tenv'.
    type_d check tenv d tdecs tenv' ∧
    tenv_ok tenv
    ⇒
-   tenv_ok (extend_dec_tenv tenv' tenv)`
- (metis_tac [extend_dec_tenv_ok, type_d_tenv_ok_helper]);
+   tenv_ok (extend_dec_tenv tenv' tenv)
+Proof
+ metis_tac [extend_dec_tenv_ok, type_d_tenv_ok_helper]
+QED
 
  (*
-Theorem type_d_mod
-`!uniq mn tdecs tenv d tdecs' new_tenv.
+Theorem type_d_mod:
+ !uniq mn tdecs tenv d tdecs' new_tenv.
   type_d uniq mn tdecs tenv d tdecs' new_tenv
   ⇒
   tdecs'.defined_mods = {} ∧
-  decls_to_mods tdecs' ⊆ { mn }`
- (srw_tac[][type_d_cases, decls_to_mods_def, SUBSET_DEF, FDOM_FUPDATE_LIST] >>
+  decls_to_mods tdecs' ⊆ { mn }
+Proof
+ srw_tac[][type_d_cases, decls_to_mods_def, SUBSET_DEF, FDOM_FUPDATE_LIST] >>
  full_simp_tac(srw_ss())[build_ctor_tenv_def, MEM_FLAT, MEM_MAP] >>
  srw_tac[][empty_decls_def] >>
  every_case_tac >>
@@ -2296,34 +2509,40 @@ Theorem type_d_mod
  every_case_tac >>
  full_simp_tac(srw_ss())[GSPECIFICATION] >>
  TRY (PairCases_on `y`) >>
- full_simp_tac(srw_ss())[]);
+ full_simp_tac(srw_ss())[]
+QED
  *)
 
 (* ---------- type_ds ---------- *)
 
-Theorem type_ds_empty[simp]
- `!check tenv decls r.
+Theorem type_ds_empty[simp]:
+  !check tenv decls r.
   type_ds check tenv [] decls r ⇔
-  decls = {} ∧ r = <| v := nsEmpty; c:= nsEmpty; t := nsEmpty |>`
- (rw [Once type_d_cases]);
+  decls = {} ∧ r = <| v := nsEmpty; c:= nsEmpty; t := nsEmpty |>
+Proof
+ rw [Once type_d_cases]
+QED
 
-Theorem type_ds_sing[simp]
- `!check tenv d decls r.
-  type_ds check tenv [d] decls r ⇔ type_d check tenv d decls r`
- (simp [Once type_d_cases]
+Theorem type_ds_sing[simp]:
+  !check tenv d decls r.
+  type_ds check tenv [d] decls r ⇔ type_d check tenv d decls r
+Proof
+ simp [Once type_d_cases]
  >> rw [extend_dec_tenv_def, type_env_component_equality]
  >> eq_tac
  >> rw []
- >> metis_tac [type_env_component_equality]);
+ >> metis_tac [type_env_component_equality]
+QED
 
  (*
-Theorem type_ds_mod
-`!uniq mn tdecs tenv ds tdecs' new_tenv.
+Theorem type_ds_mod:
+ !uniq mn tdecs tenv ds tdecs' new_tenv.
   type_ds uniq mn tdecs tenv ds tdecs' new_tenv
   ⇒
   tdecs'.defined_mods = {} ∧
-  decls_to_mods tdecs' ⊆ {mn}`
- (induct_on `ds` >>
+  decls_to_mods tdecs' ⊆ {mn}
+Proof
+ induct_on `ds` >>
  srw_tac[][Once type_ds_cases]
  >- srw_tac[][decls_to_mods_def, empty_decls_def, SUBSET_DEF, FDOM_FUPDATE_LIST, MEM_MAP]
  >- srw_tac[][decls_to_mods_def, empty_decls_def, SUBSET_DEF, FDOM_FUPDATE_LIST, MEM_MAP] >>
@@ -2335,7 +2554,8 @@ Theorem type_ds_mod
  ONCE_REWRITE_TAC [SUBSET_DEF] >>
  REWRITE_TAC [GSPECIFICATION] >>
  rw_tac (bool_ss) [] >>
- metis_tac []);
+ metis_tac []
+QED
  *)
 
  (*
@@ -2371,12 +2591,13 @@ val type_ds_no_dup_types_helper = Q.prove (
  full_simp_tac(srw_ss())[DISJOINT_DEF, EXTENSION] >>
  metis_tac []);
 
-Theorem type_ds_no_dup_types
-`!uniq mn decls tenv ds decls' tenv'.
+Theorem type_ds_no_dup_types:
+ !uniq mn decls tenv ds decls' tenv'.
   type_ds uniq mn decls tenv ds decls' tenv'
   ⇒
-  no_dup_types ds`
- (induct_on `ds` >>
+  no_dup_types ds
+Proof
+ induct_on `ds` >>
  srw_tac[][no_dup_types_def, decs_to_types_def] >>
  pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases]) >>
  full_simp_tac(srw_ss())[EXISTS_PROD,extend_dec_tenv_def] >>
@@ -2420,31 +2641,35 @@ Theorem type_ds_no_dup_types
          full_simp_tac(srw_ss())[] >>
          metis_tac []))
  >- metis_tac []
- >- metis_tac []);
+ >- metis_tac []
+QED
 
-Theorem type_ds_decls_ok
- `!mn tenv decls' tenv' ds tdecs_no_sig.
+Theorem type_ds_decls_ok:
+  !mn tenv decls' tenv' ds tdecs_no_sig.
   type_ds F mn tdecs_no_sig tenv ds decls' tenv' ∧
   mn ≠ []
   ⇒
-  decls_ok (union_decls <|defined_mods := {mn}; defined_types := ∅; defined_exns := ∅ |> decls')`
- (rw [decls_ok_def, union_decls_def]
+  decls_ok (union_decls <|defined_mods := {mn}; defined_types := ∅; defined_exns := ∅ |> decls')
+Proof
+ rw [decls_ok_def, union_decls_def]
  >> imp_res_tac type_ds_mod
  >> full_simp_tac (srw_ss()++DNF_ss) [decls_to_mods_def, SUBSET_DEF, GSPECIFICATION]
  >> rw []
- >> fs [weak_decls_def, SUBSET_DEF]);
+ >> fs [weak_decls_def, SUBSET_DEF]
+QED
  *)
 
 (* ---------- type_specs ---------- *)
 
 (*
-Theorem type_specs_tenv_ok
-  `!mn tenvT specs decls' tenv'.
+Theorem type_specs_tenv_ok:
+   !mn tenvT specs decls' tenv'.
     type_specs mn tenvT specs decls' tenv' ⇒
     tenv_abbrev_ok tenvT
     ⇒
-    tenv_ok tenv'`
- (ho_match_mp_tac type_specs_ind
+    tenv_ok tenv'
+Proof
+ ho_match_mp_tac type_specs_ind
  >> rw []
  >- (
    irule extend_dec_tenv_ok
@@ -2518,26 +2743,30 @@ Theorem type_specs_tenv_ok
      >> simp [check_freevars_def, EVERY_MAP, EVERY_MEM]
      >> fs [tenv_abbrev_ok_def])
    >> simp [tenv_ok_def]
-   >> fs [tenv_abbrev_ok_def]));
+   >> fs [tenv_abbrev_ok_def])
+QED
 
-Theorem type_specs_no_mod
-`!mn tenvT specs decls' new_tenv.
+Theorem type_specs_no_mod:
+ !mn tenvT specs decls' new_tenv.
   type_specs mn tenvT specs decls' new_tenv ⇒
-  decls'.defined_mods = {}`
- (ho_match_mp_tac type_specs_strongind >>
+  decls'.defined_mods = {}
+Proof
+ ho_match_mp_tac type_specs_strongind >>
  srw_tac[][empty_decls_def] >>
  imp_res_tac type_d_mod >>
- full_simp_tac(srw_ss())[union_decls_def]);
+ full_simp_tac(srw_ss())[union_decls_def]
+QED
 
-Theorem check_signature_tenv_ok
- `!mn tenv decls tenv' specs decls' tenv'' ds tdecs1 tenvT''.
+Theorem check_signature_tenv_ok:
+  !mn tenv decls tenv' specs decls' tenv'' ds tdecs1 tenvT''.
    check_signature [mn] tenvT'' decls tenv' specs decls' tenv'' ∧
    type_ds F [mn] tdecs1 tenv ds decls tenv' ∧
    tenv_ok tenv ∧
    tenvT'' = tenv.t
    ⇒
-   tenv_ok (extend_dec_tenv <| v := nsLift mn tenv''.v; c := nsLift mn tenv''.c; t := nsLift mn tenv''.t |> tenv)`
- (rw [check_signature_cases]
+   tenv_ok (extend_dec_tenv <| v := nsLift mn tenv''.v; c := nsLift mn tenv''.c; t := nsLift mn tenv''.t |> tenv)
+Proof
+ rw [check_signature_cases]
  >- (
    drule type_ds_tenv_ok_helper
    >> rw []
@@ -2549,49 +2778,59 @@ Theorem check_signature_tenv_ok
    >> rw []
    >> irule extend_dec_tenv_ok
    >> simp []
-   >> fs [tenv_ok_def, tenv_ctor_ok_def, tenv_val_ok_def, tenv_abbrev_ok_def]));
+   >> fs [tenv_ok_def, tenv_ctor_ok_def, tenv_val_ok_def, tenv_abbrev_ok_def])
+QED
    *)
 
 (* ---------------- type_top, type_prog ---------- *)
 (*
 
-Theorem type_prog_empty[simp]
- `!u mn decls tenv decls' r.
-  type_prog u decls tenv [] decls' r ⇔ decls' = empty_decls ∧ r = <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>`
- (rw [Once type_prog_cases]);
+Theorem type_prog_empty[simp]:
+  !u mn decls tenv decls' r.
+  type_prog u decls tenv [] decls' r ⇔ decls' = empty_decls ∧ r = <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>
+Proof
+ rw [Once type_prog_cases]
+QED
 
-Theorem type_prog_sing[simp]
- `!u mn decls tenv d decls' r.
-  type_prog u decls tenv [d] decls' r ⇔ type_top u decls tenv d decls' r`
- (simp [Once type_prog_cases] >>
+Theorem type_prog_sing[simp]:
+  !u mn decls tenv d decls' r.
+  type_prog u decls tenv [d] decls' r ⇔ type_top u decls tenv d decls' r
+Proof
+ simp [Once type_prog_cases] >>
  rw [] >>
  eq_tac >>
- rw [extend_dec_tenv_def]);
+ rw [extend_dec_tenv_def]
+QED
 
-Theorem type_top_check_uniq
-`!uniq tdecs tenv top tdecs' new_tenv.
+Theorem type_top_check_uniq:
+ !uniq tdecs tenv top tdecs' new_tenv.
   type_top uniq tdecs tenv top tdecs' new_tenv
   ⇒
-  type_top F tdecs tenv top tdecs' new_tenv`
- (srw_tac[][type_top_cases] >>
- metis_tac [type_d_check_uniq, type_ds_check_uniq]);
+  type_top F tdecs tenv top tdecs' new_tenv
+Proof
+ srw_tac[][type_top_cases] >>
+ metis_tac [type_d_check_uniq, type_ds_check_uniq]
+QED
 
-Theorem type_prog_check_uniq
-`!uniq tdecs tenv prog tdecs' new_tenv.
+Theorem type_prog_check_uniq:
+ !uniq tdecs tenv prog tdecs' new_tenv.
   type_prog uniq tdecs tenv prog tdecs' new_tenv
   ⇒
-  type_prog F tdecs tenv prog tdecs' new_tenv`
- (ho_match_mp_tac type_prog_ind >>
+  type_prog F tdecs tenv prog tdecs' new_tenv
+Proof
+ ho_match_mp_tac type_prog_ind >>
  srw_tac[][] >>
  srw_tac[][Once type_prog_cases] >>
- metis_tac [type_top_check_uniq]);
+ metis_tac [type_top_check_uniq]
+QED
 
-Theorem type_top_decls_ok
-`!uniq tdecs tenv top tdecs' new_tenv.
+Theorem type_top_decls_ok:
+ !uniq tdecs tenv top tdecs' new_tenv.
   type_top uniq tdecs tenv top tdecs' new_tenv
   ⇒
-  decls_ok tdecs'`
- (rw [type_top_cases]
+  decls_ok tdecs'
+Proof
+ rw [type_top_cases]
  >> simp [decls_ok_def]
  >- (
    drule type_d_mod
@@ -2604,20 +2843,23 @@ Theorem type_top_decls_ok
    >> TRY (drule type_specs_no_mod)
    >> simp_tac (srw_ss()++DNF_ss) [SUBSET_DEF, decls_to_mods_def, SUBSET_DEF, GSPECIFICATION]
    >> rw []
-   >> fs [weak_decls_def, SUBSET_DEF]));
+   >> fs [weak_decls_def, SUBSET_DEF])
+QED
 
-Theorem type_prog_decls_ok
-`!uniq tdecs tenv prog tdecs' new_tenv.
+Theorem type_prog_decls_ok:
+ !uniq tdecs tenv prog tdecs' new_tenv.
   type_prog uniq tdecs tenv prog tdecs' new_tenv
   ⇒
-  decls_ok tdecs'`
- (ho_match_mp_tac type_prog_ind >>
+  decls_ok tdecs'
+Proof
+ ho_match_mp_tac type_prog_ind >>
  srw_tac[][] >>
  srw_tac[][Once type_prog_cases]
  >- simp [decls_ok_def, empty_decls_def, decls_to_mods_def]
  >> irule decls_ok_union
  >> simp []
- >> metis_tac [type_top_decls_ok]);
+ >> metis_tac [type_top_decls_ok]
+QED
 
 val type_no_dup_top_types_lem = Q.prove (
 `!uniq decls1 tenv prog decls1' res.
@@ -2676,14 +2918,15 @@ val type_no_dup_top_types_lem2 = Q.prove (
  full_simp_tac(srw_ss())[mk_id_def] >>
  metis_tac []);
 
-Theorem type_no_dup_top_types
-`!decls1 tenv prog decls1' tenv' uniq decls2 decls_no_sig.
+Theorem type_no_dup_top_types:
+ !decls1 tenv prog decls1' tenv' uniq decls2 decls_no_sig.
   type_prog uniq decls1 tenv prog decls1' tenv' ∧
   consistent_decls decls2 decls_no_sig ∧
   weak_decls_only_mods decls_no_sig decls1
   ⇒
-  no_dup_top_types prog decls2`
- (srw_tac[][] >>
+  no_dup_top_types prog decls2
+Proof
+ srw_tac[][] >>
  `no_dup_top_types prog (IMAGE TypeId decls1.defined_types)`
          by metis_tac [type_no_dup_top_types_lem2] >>
  full_simp_tac(srw_ss())[semanticPrimitivesTheory.no_dup_top_types_def] >>
@@ -2695,7 +2938,8 @@ Theorem type_no_dup_top_types
  every_case_tac >>
  full_simp_tac(srw_ss())[MEM_MAP] >>
  srw_tac[][] >>
- metis_tac []);
+ metis_tac []
+QED
 
 val type_no_dup_mods_lem = Q.prove (
 `!uniq decls1 tenv prog decls1' res.
@@ -2716,13 +2960,15 @@ val type_no_dup_mods_lem = Q.prove (
  >- (full_simp_tac(srw_ss())[union_decls_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac []));
 
-Theorem type_no_dup_mods
-`!uniq decls1 tenv prog decls1' tenv'.
+Theorem type_no_dup_mods:
+ !uniq decls1 tenv prog decls1' tenv'.
   type_prog uniq decls1 tenv prog decls1' tenv'
   ⇒
-  no_dup_mods prog decls1.defined_mods`
- (srw_tac[][semanticPrimitivesTheory.no_dup_mods_def] >>
- metis_tac [type_no_dup_mods_lem, DISJOINT_SYM]);
+  no_dup_mods prog decls1.defined_mods
+Proof
+ srw_tac[][semanticPrimitivesTheory.no_dup_mods_def] >>
+ metis_tac [type_no_dup_mods_lem, DISJOINT_SYM]
+QED
 
  *)
  (*
@@ -2739,20 +2985,26 @@ val tenv_names_def = Define`
   (tenv_names (Bind_name n _ _ e) = n INSERT tenv_names e)`
 val _ = export_rewrites["tenv_names_def"]
 
-Theorem lookup_tenv_names
-  `∀tenv n inc x. lookup_tenv_val n inc tenv = SOME x ⇒ n ∈ tenv_names tenv`
-  (Induct >> simp[lookup_tenv_val_def] >> metis_tac[])
+Theorem lookup_tenv_names:
+   ∀tenv n inc x. lookup_tenv_val n inc tenv = SOME x ⇒ n ∈ tenv_names tenv
+Proof
+  Induct >> simp[lookup_tenv_val_def] >> metis_tac[]
+QED
 
-Theorem tenv_names_bind_var_list
-  `∀n l1 l2. tenv_names (bind_var_list n l1 l2) = set (MAP FST l1) ∪ tenv_names l2`
-  (ho_match_mp_tac bind_var_list_ind >>
+Theorem tenv_names_bind_var_list:
+   ∀n l1 l2. tenv_names (bind_var_list n l1 l2) = set (MAP FST l1) ∪ tenv_names l2
+Proof
+  ho_match_mp_tac bind_var_list_ind >>
   simp[bind_var_list_def,EXTENSION] >>
-  metis_tac[])
+  metis_tac[]
+QED
 
-Theorem tenv_names_bind_var_list2
-  `∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv`
-  (Induct >> TRY(qx_gen_tac`p`>>PairCases_on`p`) >> simp[bind_var_list2_def] >>
-  simp[EXTENSION] >> metis_tac[])
+Theorem tenv_names_bind_var_list2:
+   ∀l1 tenv. tenv_names (bind_var_list2 l1 tenv) = set (MAP FST l1) ∪ tenv_names tenv
+Proof
+  Induct >> TRY(qx_gen_tac`p`>>PairCases_on`p`) >> simp[bind_var_list2_def] >>
+  simp[EXTENSION] >> metis_tac[]
+QED
 
 val type_p_closed = Q.prove(
   `(∀tvs tcenv p t tenv.
@@ -2954,12 +3206,13 @@ val type_ds_closed = Q.prove(
   *)
 
   (*
-Theorem type_top_closed
-  `∀uniq decls tenv top decls' new_tenv.
+Theorem type_top_closed:
+   ∀uniq decls tenv top decls' new_tenv.
       type_top uniq decls tenv top decls' new_tenv
       ⇒
-      FV_top top ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)`
-  (ho_match_mp_tac type_top_ind >>
+      FV_top top ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)
+Proof
+  ho_match_mp_tac type_top_ind >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
@@ -2967,7 +3220,8 @@ Theorem type_top_closed
   simp[] >>
   rpt gen_tac >> strip_tac >>
   imp_res_tac type_ds_closed >>
-  full_simp_tac(srw_ss())[]);
+  full_simp_tac(srw_ss())[]
+QED
   *)
 
 val type_env_dom = Q.prove (
@@ -3042,13 +3296,14 @@ val consistent_mod_env_dom = Q.prove (
    *)
 
    (*
-Theorem type_sound_inv_closed
-  `∀uniq top rs new_tenvM new_tenvC new_tenv new_decls new_tenvT decls' store.
+Theorem type_sound_inv_closed:
+   ∀uniq top rs new_tenvM new_tenvC new_tenv new_decls new_tenvT decls' store.
     type_top uniq rs.tdecs rs.tenvT rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvT new_tenvM new_tenvC new_tenv ∧
     type_sound_invariants NONE (rs.tdecs,rs.tenvT,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.sem_env,store)
     ⇒
-    FV_top top ⊆ all_env_dom (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE)`
-  (srw_tac[][] >>
+    FV_top top ⊆ all_env_dom (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE)
+Proof
+  srw_tac[][] >>
   imp_res_tac type_top_closed >>
   `(?err. r = Rerr err) ∨ (?menv env. r = Rval (menv,env))`
           by (cases_on `r` >>
@@ -3062,7 +3317,8 @@ Theorem type_sound_inv_closed
   imp_res_tac (GSYM consistent_mod_env_dom) >>
   full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[SUBSET_DEF] >>
-  metis_tac []);
+  metis_tac []
+QED
   *)
 
 val _ = export_theory ();

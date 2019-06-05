@@ -62,6 +62,7 @@ val astOp_to_flatOp_def = Define `
   | FP_cmp cmp => flatLang$FP_cmp cmp
   | FP_uop uop => flatLang$FP_uop uop
   | FP_bop bop => flatLang$FP_bop bop
+  | FP_top top => flatLang$FP_top top
   | Equality => flatLang$Equality
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign
@@ -180,46 +181,54 @@ val compile_exp_def = tDefine"compile_exp"`
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-Theorem compile_exps_append
-  `!env es es'.
+Theorem compile_exps_append:
+   !env es es'.
     compile_exps t env (es ++ es') =
-    compile_exps t env es ++ compile_exps t env es'`
-  (Induct_on `es` >>
-  fs [compile_exp_def]);
+    compile_exps t env es ++ compile_exps t env es'
+Proof
+  Induct_on `es` >>
+  fs [compile_exp_def]
+QED
 
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-Theorem compile_exps_reverse
-  `!env es.
-    compile_exps t env (REVERSE es) = REVERSE (compile_exps t env es)`
-  (Induct_on `es` >>
-  rw [compile_exp_def, compile_exps_append]);
+Theorem compile_exps_reverse:
+   !env es.
+    compile_exps t env (REVERSE es) = REVERSE (compile_exps t env es)
+Proof
+  Induct_on `es` >>
+  rw [compile_exp_def, compile_exps_append]
+QED
 
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-Theorem compile_funs_map
-  `!env funs.
+Theorem compile_funs_map:
+   !env funs.
     compile_funs t env funs =
-      MAP (\(f,x,e). (f,x,compile_exp t (env with v := nsBind x (Var_local t x) env.v) e)) funs`
-  (induct_on `funs` >>
+      MAP (\(f,x,e). (f,x,compile_exp t (env with v := nsBind x (Var_local t x) env.v) e)) funs
+Proof
+  induct_on `funs` >>
   rw [compile_exp_def] >>
   PairCases_on `h` >>
-  rw [compile_exp_def]);
+  rw [compile_exp_def]
+QED
 
 (*
  * EXPLORER: Again, the `t` is for position information.
  *)
-Theorem compile_funs_dom
-  `!funs.
+Theorem compile_funs_dom:
+   !funs.
     (MAP (λ(x,y,z). x) funs)
     =
-    (MAP (λ(x,y,z). x) (compile_funs t env funs))`
-   (induct_on `funs` >>
+    (MAP (λ(x,y,z). x) (compile_funs t env funs))
+Proof
+   induct_on `funs` >>
    rw [compile_exp_def] >>
    PairCases_on `h` >>
-   rw [compile_exp_def]);
+   rw [compile_exp_def]
+QED
 
 (* We use om_tra as a basis trace for all orphan traces created here. *)
 val om_tra_def = Define`
@@ -230,15 +239,19 @@ val alloc_defs_def = Define `
   (alloc_defs n next (x::xs) =
     (x, App (Cons om_tra n) (GlobalVarLookup next) []) :: alloc_defs (n + 1) (next + 1) xs)`;
 
-Theorem fst_alloc_defs
-  `!n next l. MAP FST (alloc_defs n next l) = l`
-  (induct_on `l` >>
-  rw [alloc_defs_def]);
+Theorem fst_alloc_defs:
+   !n next l. MAP FST (alloc_defs n next l) = l
+Proof
+  induct_on `l` >>
+  rw [alloc_defs_def]
+QED
 
-Theorem alloc_defs_append
-  `!m n l1 l2. alloc_defs m n (l1++l2) = alloc_defs m n l1 ++ alloc_defs (m + LENGTH l1) (n + LENGTH l1) l2`
-  (induct_on `l1` >>
-  srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]);
+Theorem alloc_defs_append:
+   !m n l1 l2. alloc_defs m n (l1++l2) = alloc_defs m n l1 ++ alloc_defs (m + LENGTH l1) (n + LENGTH l1) l2
+Proof
+  induct_on `l1` >>
+  srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]
+QED
 
 val make_varls_def = Define`
   (make_varls n t idx [] = Con t NONE []) ∧

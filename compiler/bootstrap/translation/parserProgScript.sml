@@ -29,9 +29,11 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Theorem NOT_NIL_AND_LEMMA
-  `(b <> [] /\ x) = if b = [] then F else x`
-  (Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Theorem NOT_NIL_AND_LEMMA:
+   (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -65,14 +67,16 @@ val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
 
 val _ = translate (def_of_const ``cmlPEG``);
 
-Theorem INTRO_FLOOKUP
-  `(if n IN FDOM G.rules
+Theorem INTRO_FLOOKUP:
+   (if n IN FDOM G.rules
      then EV (G.rules ' n) i r y fk
      else Result xx) =
     (case FLOOKUP G.rules n of
        NONE => Result xx
-     | SOME x => EV x i r y fk)`
-  (SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]);
+     | SOME x => EV x i r y fk)
+Proof
+  SRW_TAC [] [finite_mapTheory.FLOOKUP_DEF]
+QED
 
 val _ = translate (def_of_const ``coreloop`` |> RW [INTRO_FLOOKUP]
                    |> SPEC_ALL |> RW1 [FUN_EQ_THM]);
@@ -89,9 +93,11 @@ val _ = translate grammarTheory.ptree_head_def
 
 (* parsing: ptree converstion *)
 
-Theorem OPTION_BIND_THM
-  `!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i`
-  (Cases THEN SRW_TAC [] []);
+Theorem OPTION_BIND_THM:
+   !x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i
+Proof
+  Cases THEN SRW_TAC [] []
+QED
 
 val _ = (extra_preprocessing :=
   [MEMBER_INTRO,MAP,OPTION_BIND_THM,monad_unitbind_assert]);
@@ -106,9 +112,9 @@ val _ = translate (def_of_const ``ptree_TopLevelDecs``);
 
 val _ = translate (RW [monad_unitbind_assert] parse_prog_def);
 
-Theorem parse_prog_side_lemma
-  `!x. parse_prog_side x = T`
-  (SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
+Theorem parse_prog_side_lemma = Q.prove(`
+  !x. parse_prog_side x = T`,
+  SIMP_TAC std_ss [fetch "-" "parse_prog_side_def",
     fetch "-" "peg_exec_side_def", fetch "-" "coreloop_side_def"]
   THEN REPEAT STRIP_TAC
   THEN STRIP_ASSUME_TAC (Q.SPEC `x` owhile_TopLevelDecs_total)

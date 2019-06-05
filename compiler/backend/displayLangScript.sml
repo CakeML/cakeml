@@ -35,9 +35,11 @@ val trace_to_json_def = Define`
   * the top level of a trace. *)
   (trace_to_json None = Null)`;
 
-Theorem MEM_sExp_size
-  `!es a. MEM a es ==> sExp_size a < sExp1_size es`
-  (Induct \\ fs [] \\ rw [sExp_size_def] \\ fs [] \\ res_tac \\ fs []);
+Theorem MEM_sExp_size:
+   !es a. MEM a es ==> sExp_size a < sExp1_size es
+Proof
+  Induct \\ fs [] \\ rw [sExp_size_def] \\ fs [] \\ res_tac \\ fs []
+QED
 
 (* Converts a display expression to JSON *)
 val display_to_json_def = tDefine"display_to_json" `

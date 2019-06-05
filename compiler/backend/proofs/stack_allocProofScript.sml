@@ -23,9 +23,10 @@ val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
 
 (* TODO: move and join with stack_remove *)
 
-Theorem lsl_lsr
-  `w2n ((n:'a word)) * 2 ** a < dimword (:'a) ⇒ n << a >>> a = n`
-  (Cases_on`n` \\ simp[]
+Theorem lsl_lsr:
+   w2n ((n:'a word)) * 2 ** a < dimword (:'a) ⇒ n << a >>> a = n
+Proof
+  Cases_on`n` \\ simp[]
   \\ qmatch_assum_rename_tac`n < dimword _`
   \\ srw_tac[][]
   \\ REWRITE_TAC[GSYM wordsTheory.w2n_11]
@@ -42,18 +43,21 @@ Theorem lsl_lsr
     \\ qmatch_asmsub_rename_tac`SUC n * 2 ** a`
     \\ qspecl_then[`a`,`2`,`SUC n`]mp_tac logrootTheory.LOG_EXP
     \\ simp[] )
-  \\ simp[MULT_DIV]);
+  \\ simp[MULT_DIV]
+QED
 
-Theorem bytes_in_word_word_shift
-  `good_dimindex(:'a) ∧ w2n (bytes_in_word:'a word) * w2n n < dimword(:'a) ⇒
-   (bytes_in_word:'a word * n) >>> word_shift (:'a) = n`
-  (EVAL_TAC \\ srw_tac[][] \\ pop_assum mp_tac
+Theorem bytes_in_word_word_shift:
+   good_dimindex(:'a) ∧ w2n (bytes_in_word:'a word) * w2n n < dimword(:'a) ⇒
+   (bytes_in_word:'a word * n) >>> word_shift (:'a) = n
+Proof
+  EVAL_TAC \\ srw_tac[][] \\ pop_assum mp_tac
   \\ blastLib.BBLAST_TAC \\ simp[]
   \\ blastLib.BBLAST_TAC \\ srw_tac[][]
   \\ match_mp_tac lsl_lsr
   \\ simp[]
   \\ Cases_on`n`\\full_simp_tac(srw_ss())[word_lsl_n2w]
-  \\ full_simp_tac(srw_ss())[dimword_def]);
+  \\ full_simp_tac(srw_ss())[dimword_def]
+QED
 
 (* ---- *)
 
@@ -68,9 +72,11 @@ val prog_comp_lemma = Q.prove(
   `prog_comp = \(n,p). (n,FST (comp n (next_lab p 1) p))`,
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]);
 
-Theorem FST_prog_comp[simp]
-  `FST (prog_comp pp) = FST pp`
-  (Cases_on`pp` \\ EVAL_TAC);
+Theorem FST_prog_comp[simp]:
+   FST (prog_comp pp) = FST pp
+Proof
+  Cases_on`pp` \\ EVAL_TAC
+QED
 
 val lookup_IMP_lookup_compile = Q.prove(
   `lookup dest s.code = SOME x /\ dest ≠ gc_stub_location ==>
@@ -99,13 +105,14 @@ val map_bitmap_APPEND = Q.prove(
   \\ Cases \\ full_simp_tac(srw_ss())[map_bitmap_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
 
-Theorem filter_bitmap_map_bitmap
-  `!x t q xs xs1 z ys ys1.
+Theorem filter_bitmap_map_bitmap:
+   !x t q xs xs1 z ys ys1.
       filter_bitmap x t = SOME (xs,xs1) /\
       LENGTH q = LENGTH xs /\
       map_bitmap x q t = SOME (ys,z,ys1) ==>
-      z = [] /\ ys1 = xs1`
-  (Induct
+      z = [] /\ ys1 = xs1
+Proof
+  Induct
   THEN1 ( fs[filter_bitmap_def,map_bitmap_def] )
   \\ Cases_on `t` \\ Cases_on `q` \\ Cases
   \\ rewrite_tac [filter_bitmap_def] \\ simp_tac std_ss [map_bitmap_def]
@@ -126,40 +133,47 @@ Theorem filter_bitmap_map_bitmap
   \\ rpt gen_tac \\ strip_tac
   \\ first_x_assum match_mp_tac
   \\ qexists_tac `t'` \\ full_simp_tac(srw_ss())[]
-  \\ qexists_tac `h'::t` \\ full_simp_tac(srw_ss())[]);
+  \\ qexists_tac `h'::t` \\ full_simp_tac(srw_ss())[]
+QED
 
 val get_bits_def = Define `
   get_bits w = GENLIST (\i. w ' i) (bit_length w − 1)`
 
-Theorem bit_length_thm
-  `!w. ((w >>> bit_length w) = 0w) /\ !n. n < bit_length w ==> (w >>> n) <> 0w`
-  (HO_MATCH_MP_TAC bit_length_ind \\ srw_tac[][]
+Theorem bit_length_thm:
+   !w. ((w >>> bit_length w) = 0w) /\ !n. n < bit_length w ==> (w >>> n) <> 0w
+Proof
+  HO_MATCH_MP_TAC bit_length_ind \\ srw_tac[][]
   \\ once_rewrite_tac [bit_length_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
   \\ Cases_on `w = 0w` \\ full_simp_tac(srw_ss())[EVAL ``bit_length 0w``]
   \\ Cases_on `n` \\ full_simp_tac(srw_ss())[]
   \\ ntac 2 (pop_assum mp_tac)
   \\ once_rewrite_tac [bit_length_def]
-  \\ full_simp_tac(srw_ss())[ADD1] \\ srw_tac[][]);
+  \\ full_simp_tac(srw_ss())[ADD1] \\ srw_tac[][]
+QED
 
 val word_lsr_dimindex = Q.prove(
   `(w:'a word) >>> dimindex (:'a) = 0w`,
   full_simp_tac(srw_ss())[]);
 
-Theorem bit_length_LESS_EQ_dimindex
-  `bit_length (w:'a word) <= dimindex (:'a)`
-  (CCONTR_TAC \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
+Theorem bit_length_LESS_EQ_dimindex:
+   bit_length (w:'a word) <= dimindex (:'a)
+Proof
+  CCONTR_TAC \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
   \\ imp_res_tac bit_length_thm
-  \\ full_simp_tac(srw_ss())[word_lsr_dimindex]);
+  \\ full_simp_tac(srw_ss())[word_lsr_dimindex]
+QED
 
-Theorem shift_to_zero_word_msb
-  `(w:'a word) >>> n = 0w /\ word_msb w ==> dimindex (:'a) <= n`
-  (srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+Theorem shift_to_zero_word_msb:
+   (w:'a word) >>> n = 0w /\ word_msb w ==> dimindex (:'a) <= n
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
   \\ CCONTR_TAC
   \\ qpat_x_assum `!xx.bb` mp_tac
   \\ fs [GSYM NOT_LESS]
   \\ qexists_tac `dimindex (:α) - 1 - n`
-  \\ simp [])
+  \\ simp []
+QED
 
 val word_msb_IMP_bit_length = Q.prove(
   `!h. word_msb (h:'a word) ==> (bit_length h = dimindex (:'a))`,
@@ -189,13 +203,16 @@ val filter_bitmap_APPEND = Q.prove(
   \\ Cases \\ full_simp_tac(srw_ss())[filter_bitmap_def] \\ srw_tac[][]
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
 
-Theorem bit_length_minus_1
-  `w <> 0w ==> bit_length w − 1 = bit_length (w >>> 1)`
-  (simp [Once bit_length_def]);
+Theorem bit_length_minus_1:
+   w <> 0w ==> bit_length w − 1 = bit_length (w >>> 1)
+Proof
+  simp [Once bit_length_def]
+QED
 
-Theorem bit_length_eq_1
-  `bit_length w = 1 <=> w = 1w`
-  (Cases_on `w = 1w` \\ full_simp_tac(srw_ss())[] THEN1 (EVAL_TAC \\ full_simp_tac(srw_ss())[])
+Theorem bit_length_eq_1:
+   bit_length w = 1 <=> w = 1w
+Proof
+  Cases_on `w = 1w` \\ full_simp_tac(srw_ss())[] THEN1 (EVAL_TAC \\ full_simp_tac(srw_ss())[])
   \\ once_rewrite_tac [bit_length_def] \\ srw_tac[][]
   \\ once_rewrite_tac [bit_length_def] \\ srw_tac[][]
   \\ pop_assum mp_tac
@@ -203,11 +220,14 @@ Theorem bit_length_eq_1
   \\ Cases_on `w` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `n` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `n'` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[DIV_EQ_X] \\ decide_tac);
+  \\ full_simp_tac(srw_ss())[DIV_EQ_X] \\ decide_tac
+QED
 
-Theorem word_and_one_eq_0_iff
-  `!w. ((w && 1w) = 0w) <=> ~(w ' 0)`
-  (srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
+Theorem word_and_one_eq_0_iff:
+   !w. ((w && 1w) = 0w) <=> ~(w ' 0)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
+QED
 
 val split_num_forall_to_10 = Q.prove(
   `($! P) <=> P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\
@@ -223,19 +243,25 @@ val nine_less = DECIDE
   ``9 < n ==> n <> 0 /\ n <> 1 /\ n <> 2 /\ n <> 3 /\ n <> 4 /\
               n <> 5 /\ n <> 6 /\ n <> 7 /\ n <> 8 /\ n <> 9n``
 
-Theorem word_shift_not_0
-  `word_shift (:'a) <> 0`
-  (srw_tac[][word_shift_def] \\ full_simp_tac(srw_ss())[]);
+Theorem word_shift_not_0:
+   word_shift (:'a) <> 0
+Proof
+  srw_tac[][word_shift_def] \\ full_simp_tac(srw_ss())[]
+QED
 
-Theorem select_lower_lemma
-  `(n -- 0) w = ((w:'a word) << (dimindex(:'a)-n-1)) >>> (dimindex(:'a)-n-1)`
-  (srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [wordsTheory.word_index]
+Theorem select_lower_lemma:
+   (n -- 0) w = ((w:'a word) << (dimindex(:'a)-n-1)) >>> (dimindex(:'a)-n-1)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [wordsTheory.word_index]
   \\ Cases_on `i + (dimindex (:α) - n - 1) < dimindex (:α)`
-  \\ fs []);
+  \\ fs []
+QED
 
-Theorem select_eq_select_0
-  `k <= n ==> (n -- k) w = (n - k -- 0) (w >>> k)`
-  (srw_tac [wordsLib.WORD_BIT_EQ_ss] [] \\ eq_tac \\ rw [])
+Theorem select_eq_select_0:
+   k <= n ==> (n -- k) w = (n - k -- 0) (w >>> k)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [] \\ eq_tac \\ rw []
+QED
 
 val is_fwd_ptr_iff = Q.prove(
   `!w. is_fwd_ptr w <=> ?v. w = Word v /\ (v && 3w) = 0w`,
@@ -260,38 +286,46 @@ val LUPDATE_LENGTH_ADD_LEMMA = Q.prove(
        init ++ old ++ [w] ++ st1`,
   mp_tac (LUPDATE_LENGTH |> Q.SPECL [`init++old`]) \\ fs []);
 
-Theorem word_msb_IFF_lsr_EQ_0
-  `word_msb h <=> (h >>> (dimindex (:'a) - 1) <> 0w:'a word)`
-  (srw_tac [wordsLib.WORD_BIT_EQ_ss] [])
+Theorem word_msb_IFF_lsr_EQ_0:
+   word_msb h <=> (h >>> (dimindex (:'a) - 1) <> 0w:'a word)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+QED
 
-Theorem map_bitmap_IMP_LENGTH
-  `!x wl stack xs ys.
+Theorem map_bitmap_IMP_LENGTH:
+   !x wl stack xs ys.
       map_bitmap x wl stack = SOME (xs,ys) ==>
-      LENGTH xs = LENGTH x`
-  (recInduct map_bitmap_ind \\ fs [map_bitmap_def]
+      LENGTH xs = LENGTH x
+Proof
+  recInduct map_bitmap_ind \\ fs [map_bitmap_def]
   \\ rw [] \\ res_tac \\ fs []
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []);
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+QED
 
-Theorem filter_bitmap_IMP_LENGTH
-  `!x stack q r.
+Theorem filter_bitmap_IMP_LENGTH:
+   !x stack q r.
       filter_bitmap x stack = SOME (q,r) ==>
-      LENGTH stack = LENGTH x + LENGTH r`
-  (recInduct filter_bitmap_ind \\ fs [filter_bitmap_def]
+      LENGTH stack = LENGTH x + LENGTH r
+Proof
+  recInduct filter_bitmap_ind \\ fs [filter_bitmap_def]
   \\ rw [] \\ res_tac \\ fs []
-  \\ every_case_tac \\ fs []);
+  \\ every_case_tac \\ fs []
+QED
 
 val EL_LENGTH_ADD_LEMMA = Q.prove(
   `!n xs y ys. LENGTH xs = n ==> EL n (xs ++ y::ys) = y`,
   fs [EL_LENGTH_APPEND]);
 
-Theorem bytes_in_word_word_shift_n2w
-  `good_dimindex (:α) ∧ (dimindex(:'a) DIV 8) * n < dimword (:α) ⇒
-    (bytes_in_word * n2w n) ⋙ word_shift (:α) = (n2w n):'a word`
-  (strip_tac \\ match_mp_tac bytes_in_word_word_shift
+Theorem bytes_in_word_word_shift_n2w:
+   good_dimindex (:α) ∧ (dimindex(:'a) DIV 8) * n < dimword (:α) ⇒
+    (bytes_in_word * n2w n) ⋙ word_shift (:α) = (n2w n):'a word
+Proof
+  strip_tac \\ match_mp_tac bytes_in_word_word_shift
   \\ fs [bytes_in_word_def]
   \\ `(dimindex (:α) DIV 8) < dimword (:α) /\ n < dimword (:α)` by
        (rfs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [])
-  \\ fs []);
+  \\ fs []
+QED
 
 val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
@@ -364,8 +398,8 @@ val memcpy_code_thm = Q.prove(
   \\ once_rewrite_tac [split_num_forall_to_10] \\ full_simp_tac(srw_ss())[nine_less]
   \\ full_simp_tac(srw_ss())[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
 
-Theorem memcpy_code_thm
-  `!w a b m dm b1 m1 (s:('a,'c,'b)stackSem$state).
+Theorem memcpy_code_thm:
+   !w a b m dm b1 m1 (s:('a,'c,'b)stackSem$state).
       memcpy (w:'a word) a b m dm = (b1:'a word,m1,T) /\
       s.memory = m /\ s.mdomain = dm /\
       get_var 0 s = SOME (Word w) /\
@@ -378,12 +412,14 @@ Theorem memcpy_code_thm
                           regs := s.regs |++ [(0,Word 0w);
                                               (1,r1);
                                               (2,Word (a + w * bytes_in_word));
-                                              (3,Word b1)] |>)`
-  (Cases \\ full_simp_tac(srw_ss())[]
+                                              (3,Word b1)] |>)
+Proof
+  Cases \\ full_simp_tac(srw_ss())[]
   \\ pop_assum mp_tac \\ qspec_tac (`n`,`n`)
   \\ full_simp_tac(srw_ss())[PULL_FORALL] \\ rpt strip_tac
   \\ match_mp_tac (memcpy_code_thm |> SIMP_RULE (srw_ss()) [])
-  \\ metis_tac [])
+  \\ metis_tac []
+QED
 
 (* gc_kind = Simple *)
 
@@ -452,17 +488,21 @@ val word_gc_move_roots_bitmaps_def = Define `
           | NONE => (ARB,ARB,ARB,ARB,F)
           | SOME stack => (stack,i2,pa2,m2,c2)`
 
-Theorem word_gc_move_loop_F
-  `!k conf pb i pa old m dm i1 pa1 m1 c1.
-      word_gc_move_loop k conf (pb,i,pa,old,m,dm,F) = (i1,pa1,m1,c1) ==> ~c1`
-  (Induct \\ once_rewrite_tac [word_gc_move_loop_def] \\ fs [] \\ rw []
+Theorem word_gc_move_loop_F:
+   !k conf pb i pa old m dm i1 pa1 m1 c1.
+      word_gc_move_loop k conf (pb,i,pa,old,m,dm,F) = (i1,pa1,m1,c1) ==> ~c1
+Proof
+  Induct \\ once_rewrite_tac [word_gc_move_loop_def] \\ fs [] \\ rw []
   \\ pairarg_tac \\ fs []
   \\ IF_CASES_TAC \\ fs []
-  \\ pairarg_tac \\ fs []);
+  \\ pairarg_tac \\ fs []
+QED
 
-Theorem word_gc_move_loop_ok
-  `word_gc_move_loop k conf (pb,i,pa,old,m,dm,c) = (i1,pa1,m1,c1) ==> c1 ==> c`
-  (Cases_on `c` \\ fs [] \\ rw [] \\ imp_res_tac word_gc_move_loop_F \\ fs []);
+Theorem word_gc_move_loop_ok:
+   word_gc_move_loop k conf (pb,i,pa,old,m,dm,c) = (i1,pa1,m1,c1) ==> c1 ==> c
+Proof
+  Cases_on `c` \\ fs [] \\ rw [] \\ imp_res_tac word_gc_move_loop_F \\ fs []
+QED
 
 val gc_thm = Q.prove(
   `s.gc_fun = word_gc_fun conf /\ conf.gc_kind = Simple ==>
@@ -550,13 +590,15 @@ val word_gc_move_roots_APPEND = Q.prove(
   \\ rveq \\ fs[]
   \\ EQ_TAC \\ fs[] \\ rw[]);
 
-Theorem word_gc_move_roots_IMP_LENGTH
-  `!xs r0 r1 curr r2 dm ys i2 pa2 m2 c conf.
+Theorem word_gc_move_roots_IMP_LENGTH:
+   !xs r0 r1 curr r2 dm ys i2 pa2 m2 c conf.
       word_gc_move_roots conf (xs,r0,r1,curr,r2,dm) = (ys,i2,pa2,m2,c) ==>
-      LENGTH ys = LENGTH xs`
-  (Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM] \\ srw_tac[][]
+      LENGTH ys = LENGTH xs
+Proof
+  Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM] \\ srw_tac[][]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac);
+  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac
+QED
 
 val word_gc_move_roots_bitmaps = Q.prove(
   `!stack i1 pa1 m stack2 i2 pa2 m2.
@@ -770,8 +812,8 @@ val word_gc_move_bitmap_unroll = Q.prove(
   \\ full_simp_tac(srw_ss())[map_bitmap_def]
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
 
-Theorem word_gc_move_code_thm
-  `word_gc_move conf (w,i,pa,old,m,dm) = (w1,i1,pa1,m1,T) /\
+Theorem word_gc_move_code_thm:
+   word_gc_move conf (w,i,pa,old,m,dm) = (w1,i1,pa1,m1,T) /\
     shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
     2 < dimindex (:'a) /\ conf.len_size <> 0 /\
     (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
@@ -793,8 +835,9 @@ Theorem word_gc_move_code_thm
                                             (3,Word pa1);
                                             (4,Word i1);
                                             (5,w1);
-                                            (6,r6)] |>)`
-  (reverse (Cases_on `w`) \\ full_simp_tac(srw_ss())[word_gc_move_def] THEN1
+                                            (6,r6)] |>)
+Proof
+  reverse (Cases_on `w`) \\ full_simp_tac(srw_ss())[word_gc_move_def] THEN1
    (srw_tac[][word_gc_move_code_def,evaluate_def]
     \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
     \\ full_simp_tac(srw_ss())[state_component_equality]
@@ -854,10 +897,11 @@ Theorem word_gc_move_code_thm
   \\ full_simp_tac(srw_ss())[nine_less]
   \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
-        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
+        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
+QED
 
-Theorem word_gc_move_list_code_thm
-  `!l a (s:('a,'c,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1.
+Theorem word_gc_move_list_code_thm:
+   !l a (s:('a,'c,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1.
       word_gc_move_list conf (a:'a word,l,i,pa,old,m,dm) = (a1,i1,pa1,m1,T) /\
       shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
@@ -884,8 +928,9 @@ Theorem word_gc_move_list_code_thm
                                               (5,r5);
                                               (6,r6);
                                               (7,Word 0w);
-                                              (8,Word a1)] |>)`
-  (Cases \\ Induct_on `n` \\ simp [] THEN1
+                                              (8,Word a1)] |>)
+Proof
+  Cases \\ Induct_on `n` \\ simp [] THEN1
    (fs [Once word_gc_move_list_def] \\ rw []
     \\ qexists_tac `0`
     \\ fs [word_gc_move_list_code_def,get_var_def] \\ tac
@@ -939,7 +984,8 @@ Theorem word_gc_move_list_code_thm
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
-  \\ full_simp_tac(srw_ss())[nine_less])
+  \\ full_simp_tac(srw_ss())[nine_less]
+QED
 
 val word_gc_move_loop_code_thm = Q.prove(
   `!k pb1 i1 pa1 old1 m1 dm1 c1 i2 pa2 m2 (s:('a,'c,'b)stackSem$state).
@@ -1055,8 +1101,8 @@ val word_gc_move_loop_code_thm = Q.prove(
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less]);
 
-Theorem word_gc_move_bitmap_code_thm
-  `!w stack (s:('a,'c,'b)stackSem$state) i pa curr m dm new stack1 a1 i1 pa1 m1 old.
+Theorem word_gc_move_bitmap_code_thm:
+   !w stack (s:('a,'c,'b)stackSem$state) i pa curr m dm new stack1 a1 i1 pa1 m1 old.
       word_gc_move_bitmap conf (w,stack,i,pa,curr,m,dm) =
         SOME (new,stack1,i1,pa1,m1,T) /\
       shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
@@ -1088,8 +1134,9 @@ Theorem word_gc_move_bitmap_code_thm
                                               (5,r5);
                                               (6,r6);
                                               (7,r7);
-                      (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))))] |>)`
-  (recInduct bit_length_ind \\ rpt strip_tac \\ fs []
+                      (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))))] |>)
+Proof
+  recInduct bit_length_ind \\ rpt strip_tac \\ fs []
   \\ qpat_x_assum `word_gc_move_bitmap _ _ = _` mp_tac
   \\ once_rewrite_tac [word_gc_move_bitmap_unroll]
   \\ Cases_on `w = 0w` \\ fs [] THEN1
@@ -1196,20 +1243,23 @@ Theorem word_gc_move_bitmap_code_thm
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
-  \\ full_simp_tac(srw_ss())[nine_less]);
+  \\ full_simp_tac(srw_ss())[nine_less]
+QED
 
-Theorem word_gc_move_bitmaps_LENGTH
-  `word_gc_move_bitmaps conf (w,stack,bitmaps,i,pa,curr,m,dm) =
+Theorem word_gc_move_bitmaps_LENGTH:
+   word_gc_move_bitmaps conf (w,stack,bitmaps,i,pa,curr,m,dm) =
        SOME (xs,stack1,i1,pa1,m1,T) ==>
-    LENGTH stack = LENGTH xs + LENGTH stack1`
-  (fs [word_gc_move_bitmaps_def]
+    LENGTH stack = LENGTH xs + LENGTH stack1
+Proof
+  fs [word_gc_move_bitmaps_def]
   \\ every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
   \\ every_case_tac \\ fs [] \\ rw []
   \\ imp_res_tac map_bitmap_IMP_LENGTH \\ fs []
-  \\ imp_res_tac filter_bitmap_IMP_LENGTH \\ fs []);
+  \\ imp_res_tac filter_bitmap_IMP_LENGTH \\ fs []
+QED
 
-Theorem word_gc_move_bitmaps_code_thm
-  `!w bitmaps z stack (s:('a,'c,'b)stackSem$state) i pa curr m dm new
+Theorem word_gc_move_bitmaps_code_thm:
+   !w bitmaps z stack (s:('a,'c,'b)stackSem$state) i pa curr m dm new
          stack1 a1 i1 pa1 m1 old.
       word_gc_move_bitmaps conf (Word w,stack,bitmaps,i,pa,curr,m,dm) =
         SOME (new,stack1,i1,pa1,m1,T) /\
@@ -1246,8 +1296,9 @@ Theorem word_gc_move_bitmaps_code_thm
                                               (6,r6);
                                               (7,r7);
                       (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))));
-                                              (9,r9)] |>)`
-  (ntac 2 strip_tac \\ completeInduct_on `LENGTH bitmaps - w2n (w - 1w)`
+                                              (9,r9)] |>)
+Proof
+  ntac 2 strip_tac \\ completeInduct_on `LENGTH bitmaps - w2n (w - 1w)`
   \\ rpt strip_tac \\ fs [] \\ rpt var_eq_tac \\ fs [PULL_FORALL]
   \\ qpat_x_assum `word_gc_move_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
@@ -1320,10 +1371,11 @@ Theorem word_gc_move_bitmaps_code_thm
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
-  \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
+  \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
+QED
 
-Theorem word_gc_move_roots_bitmaps_code_thm
-  `!bitmaps (s:('a,'c,'b)stackSem$state) i pa curr m dm new
+Theorem word_gc_move_roots_bitmaps_code_thm:
+   !bitmaps (s:('a,'c,'b)stackSem$state) i pa curr m dm new
          stack1 a1 i1 pa1 m1 old.
       word_gc_move_roots_bitmaps conf (stack,bitmaps,i,pa,curr,m,dm) =
         (stack1,i1,pa1,m1,T) /\
@@ -1361,8 +1413,9 @@ Theorem word_gc_move_roots_bitmaps_code_thm
                                               (6,r6);
                                               (7,r7);
                                               (8,r8);
-                                              (9,Word 0w)] |>)`
-  (completeInduct_on `LENGTH stack`
+                                              (9,Word 0w)] |>)
+Proof
+  completeInduct_on `LENGTH stack`
   \\ rpt strip_tac \\ fs [PULL_FORALL]
   \\ rpt var_eq_tac \\ fs []
   \\ qpat_x_assum `word_gc_move_roots_bitmaps _ _ = _`
@@ -1455,10 +1508,11 @@ Theorem word_gc_move_roots_bitmaps_code_thm
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
-  \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
+  \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
+QED
 
-Theorem alloc_correct_lemma_Simple
-  `alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
+Theorem alloc_correct_lemma_Simple:
+   alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = Simple /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
@@ -1478,8 +1532,9 @@ Theorem alloc_correct_lemma_Simple
               regs := l2; gc_fun := anything |>) /\
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
-       (r = NONE ==> FLOOKUP l2 0 = SOME ret)`
-  (Cases_on `conf.gc_kind = Simple` \\ fs []
+       (r = NONE ==> FLOOKUP l2 0 = SOME ret)
+Proof
+  Cases_on `conf.gc_kind = Simple` \\ fs []
   \\ Cases_on `s.gc_fun = word_gc_fun conf` \\ fs [] \\ fs [alloc_def]
   \\ `(set_store AllocSize (Word w) s).gc_fun = word_gc_fun conf` by
         (fs [set_store_def] \\ NO_TAC)
@@ -1583,7 +1638,8 @@ Theorem alloc_correct_lemma_Simple
   \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
   \\ fs [fmap_EXT,EXTENSION]
   \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
-  \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs []);
+  \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs []
+QED
 
 (* gc_kind = Generational *)
 
@@ -1919,25 +1975,29 @@ val word_gen_gc_partial_move_roots_APPEND = Q.prove(
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[] \\ EQ_TAC \\ fs[] \\ rw[]);
 
-Theorem word_gen_gc_move_roots_IMP_LENGTH
-  `!xs r0 r1 r3 r4 curr r2 dm ys i2 pa2 m2 c conf ib2 pb2.
+Theorem word_gen_gc_move_roots_IMP_LENGTH:
+   !xs r0 r1 r3 r4 curr r2 dm ys i2 pa2 m2 c conf ib2 pb2.
       word_gen_gc_move_roots conf (xs,r0,r1,r3,r4,curr,r2,dm) =
          (ys,i2,pa2,ib2,pb2,m2,c) ==>
-      LENGTH ys = LENGTH xs`
-  (Induct \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def,LET_THM]
+      LENGTH ys = LENGTH xs
+Proof
+  Induct \\ full_simp_tac(srw_ss())[word_gen_gc_move_roots_def,LET_THM]
   \\ srw_tac[][]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac);
+  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac
+QED
 
-Theorem word_gen_gc_partial_move_roots_IMP_LENGTH
-  `!xs r0 r1 r3 r4 curr r2 dm ys i2 pa2 m2 c conf.
+Theorem word_gen_gc_partial_move_roots_IMP_LENGTH:
+   !xs r0 r1 r3 r4 curr r2 dm ys i2 pa2 m2 c conf.
       word_gen_gc_partial_move_roots conf (xs,r0,r1,curr,r2,dm,r3,r4) =
          (ys,i2,pa2,m2,c) ==>
-      LENGTH ys = LENGTH xs`
-  (Induct \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_roots_def,LET_THM]
+      LENGTH ys = LENGTH xs
+Proof
+  Induct \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_roots_def,LET_THM]
   \\ srw_tac[][]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac);
+  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac
+QED
 
 val word_gen_gc_move_roots_bitmaps = Q.prove(
   `!stack i1 pa1 m stack2 i2 pa2 m2.
@@ -2360,8 +2420,8 @@ val word_gen_gc_partial_move_bitmap_unroll = Q.prove(
   \\ full_simp_tac(srw_ss())[map_bitmap_def]
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
 
-Theorem word_gen_gc_move_code_thm
-  `word_gen_gc_move conf (w,i,pa,ib,pb,old,m,dm) = (w1,i1,pa1,ib1,pb1,m1,T) /\
+Theorem word_gen_gc_move_code_thm:
+   word_gen_gc_move conf (w,i,pa,ib,pb,old,m,dm) = (w1,i1,pa1,ib1,pb1,m1,T) /\
     shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
     2 < dimindex (:'a) /\ conf.len_size <> 0 /\
     (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
@@ -2393,8 +2453,9 @@ Theorem word_gen_gc_move_code_thm
                                             (3,Word pa1);
                                             (4,Word i1);
                                             (5,w1);
-                                            (6,r6)] |>)`
-  (reverse (Cases_on `w`) \\ full_simp_tac(srw_ss())[word_gen_gc_move_def] THEN1
+                                            (6,r6)] |>)
+Proof
+  reverse (Cases_on `w`) \\ full_simp_tac(srw_ss())[word_gen_gc_move_def] THEN1
    (srw_tac[][word_gen_gc_move_code_def,evaluate_def]
     \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
     \\ full_simp_tac(srw_ss())[state_component_equality]
@@ -2510,10 +2571,11 @@ Theorem word_gen_gc_move_code_thm
         DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
   \\ qexists_tac `s.store ' (Temp 0w)`
   \\ qexists_tac `s.store ' (Temp 1w)`
-  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
+  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
+QED
 
-Theorem word_gen_gc_partial_move_code_thm
-  `word_gen_gc_partial_move conf (w,i,pa,old,m,dm,gs,rs) = (w1,i1,pa1,m1,T) /\
+Theorem word_gen_gc_partial_move_code_thm:
+   word_gen_gc_partial_move conf (w,i,pa,old,m,dm,gs,rs) = (w1,i1,pa1,m1,T) /\
     shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
     2 < dimindex (:'a) /\ conf.len_size <> 0 /\
     (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
@@ -2539,8 +2601,9 @@ Theorem word_gen_gc_partial_move_code_thm
                                             (3,Word pa1);
                                             (4,Word i1);
                                             (5,w1);
-                                            (6,r6)] |>)`
-  (reverse (Cases_on `w`)
+                                            (6,r6)] |>)
+Proof
+  reverse (Cases_on `w`)
   \\ full_simp_tac(srw_ss())[word_gen_gc_partial_move_def] THEN1
    (srw_tac[][word_gen_gc_partial_move_code_def,evaluate_def]
     \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
@@ -2633,10 +2696,11 @@ Theorem word_gen_gc_partial_move_code_thm
   \\ full_simp_tac(srw_ss())[nine_less]
   \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
-        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
+        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
+QED
 
-Theorem word_gen_gc_move_bitmap_code_thm
-  `!w stack (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new stack1
+Theorem word_gen_gc_move_bitmap_code_thm:
+   !w stack (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new stack1
     a1 i1 pa1 ib1 pb1 m1 old.
       word_gen_gc_move_bitmap conf (w,stack,i,pa,ib,pb,curr,m,dm) =
         SOME (new,stack1,i1,pa1,ib1,pb1,m1,T) /\
@@ -2677,8 +2741,9 @@ Theorem word_gen_gc_move_bitmap_code_thm
                                               (5,r5);
                                               (6,r6);
                                               (7,r7);
-                      (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))))] |>)`
-  (recInduct bit_length_ind \\ rpt strip_tac \\ fs []
+                      (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))))] |>)
+Proof
+  recInduct bit_length_ind \\ rpt strip_tac \\ fs []
   \\ qpat_x_assum `word_gen_gc_move_bitmap _ _ = _` mp_tac
   \\ once_rewrite_tac [word_gen_gc_move_bitmap_unroll]
   \\ Cases_on `w = 0w` \\ fs [] THEN1
@@ -2804,10 +2869,11 @@ Theorem word_gen_gc_move_bitmap_code_thm
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
   \\ qexists_tac `t0'` \\ qexists_tac `t1'`
-  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
+  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
+QED
 
-Theorem word_gen_gc_partial_move_bitmap_code_thm
-  `!w stack (s:('a,'c,'b)stackSem$state) i pa curr m dm new stack1 a1 i1 pa1 m1 old.
+Theorem word_gen_gc_partial_move_bitmap_code_thm:
+   !w stack (s:('a,'c,'b)stackSem$state) i pa curr m dm new stack1 a1 i1 pa1 m1 old.
       word_gen_gc_partial_move_bitmap conf (w,stack,i,pa,curr,m,dm,gs,rs) =
         SOME (new,stack1,i1,pa1,m1,T) /\
       shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
@@ -2842,8 +2908,9 @@ Theorem word_gen_gc_partial_move_bitmap_code_thm
                                               (5,r5);
                                               (6,r6);
                                               (7,r7);
-                      (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))))] |>)`
-  (recInduct bit_length_ind \\ rpt strip_tac \\ fs []
+                      (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))))] |>)
+Proof
+  recInduct bit_length_ind \\ rpt strip_tac \\ fs []
   \\ qpat_x_assum `word_gen_gc_partial_move_bitmap _ _ = _` mp_tac
   \\ once_rewrite_tac [word_gen_gc_partial_move_bitmap_unroll]
   \\ Cases_on `w = 0w` \\ fs [] THEN1
@@ -2958,30 +3025,35 @@ Theorem word_gen_gc_partial_move_bitmap_code_thm
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
-  \\ full_simp_tac(srw_ss())[nine_less]);
+  \\ full_simp_tac(srw_ss())[nine_less]
+QED
 
-Theorem word_gen_gc_move_bitmaps_LENGTH
-  `word_gen_gc_move_bitmaps conf (w,stack,bitmaps,i,pa,ib,pb,curr,m,dm) =
+Theorem word_gen_gc_move_bitmaps_LENGTH:
+   word_gen_gc_move_bitmaps conf (w,stack,bitmaps,i,pa,ib,pb,curr,m,dm) =
        SOME (xs,stack1,i1,pa1,ib1,pb1,m1,T) ==>
-    LENGTH stack = LENGTH xs + LENGTH stack1`
-  (fs [word_gen_gc_move_bitmaps_def]
+    LENGTH stack = LENGTH xs + LENGTH stack1
+Proof
+  fs [word_gen_gc_move_bitmaps_def]
   \\ every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
   \\ every_case_tac \\ fs [] \\ rw []
   \\ imp_res_tac map_bitmap_IMP_LENGTH \\ fs []
-  \\ imp_res_tac filter_bitmap_IMP_LENGTH \\ fs []);
+  \\ imp_res_tac filter_bitmap_IMP_LENGTH \\ fs []
+QED
 
-Theorem word_gen_gc_partial_move_bitmaps_LENGTH
-  `word_gen_gc_partial_move_bitmaps conf (w,stack,bitmaps,i,pa,curr,m,dm,gs,rs) =
+Theorem word_gen_gc_partial_move_bitmaps_LENGTH:
+   word_gen_gc_partial_move_bitmaps conf (w,stack,bitmaps,i,pa,curr,m,dm,gs,rs) =
        SOME (xs,stack1,i1,pa1,m1,T) ==>
-    LENGTH stack = LENGTH xs + LENGTH stack1`
-  (fs [word_gen_gc_partial_move_bitmaps_def]
+    LENGTH stack = LENGTH xs + LENGTH stack1
+Proof
+  fs [word_gen_gc_partial_move_bitmaps_def]
   \\ every_case_tac \\ fs [] \\ pairarg_tac \\ fs []
   \\ every_case_tac \\ fs [] \\ rw []
   \\ imp_res_tac map_bitmap_IMP_LENGTH \\ fs []
-  \\ imp_res_tac filter_bitmap_IMP_LENGTH \\ fs []);
+  \\ imp_res_tac filter_bitmap_IMP_LENGTH \\ fs []
+QED
 
-Theorem word_gen_gc_move_bitmaps_code_thm
-  `!w bitmaps z stack (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new
+Theorem word_gen_gc_move_bitmaps_code_thm:
+   !w bitmaps z stack (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new
          stack1 a1 i1 pa1 ib1 pb1 m1 old.
       word_gen_gc_move_bitmaps conf (Word w,stack,bitmaps,i,pa,ib,pb,curr,m,dm) =
         SOME (new,stack1,i1,pa1,ib1,pb1,m1,T) /\
@@ -3026,8 +3098,9 @@ Theorem word_gen_gc_move_bitmaps_code_thm
                                               (6,r6);
                                               (7,r7);
                       (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))));
-                                              (9,r9)] |>)`
-  (ntac 2 strip_tac \\ completeInduct_on `LENGTH bitmaps - w2n (w - 1w)`
+                                              (9,r9)] |>)
+Proof
+  ntac 2 strip_tac \\ completeInduct_on `LENGTH bitmaps - w2n (w - 1w)`
   \\ rpt strip_tac \\ fs [] \\ rpt var_eq_tac \\ fs [PULL_FORALL]
   \\ qpat_x_assum `word_gen_gc_move_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
@@ -3109,10 +3182,11 @@ Theorem word_gen_gc_move_bitmaps_code_thm
   \\ qexists_tac `t0'`
   \\ qexists_tac `t1'`
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
-  \\ eq_tac \\ rw[] \\ fs []);
+  \\ eq_tac \\ rw[] \\ fs []
+QED
 
-Theorem word_gen_gc_partial_move_bitmaps_code_thm
-  `!w bitmaps z stack (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new
+Theorem word_gen_gc_partial_move_bitmaps_code_thm:
+   !w bitmaps z stack (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new
          stack1 a1 i1 pa1 ib1 pb1 m1 old.
       word_gen_gc_partial_move_bitmaps conf
           (Word w,stack,bitmaps,i,pa,curr,m,dm,gs,rs) =
@@ -3152,8 +3226,9 @@ Theorem word_gen_gc_partial_move_bitmaps_code_thm
                                               (6,r6);
                                               (7,r7);
                       (8,Word (bytes_in_word * n2w (LENGTH (old ++ new))));
-                                              (9,r9)] |>)`
-  (ntac 2 strip_tac \\ completeInduct_on `LENGTH bitmaps - w2n (w - 1w)`
+                                              (9,r9)] |>)
+Proof
+  ntac 2 strip_tac \\ completeInduct_on `LENGTH bitmaps - w2n (w - 1w)`
   \\ rpt strip_tac \\ fs [] \\ rpt var_eq_tac \\ fs [PULL_FORALL]
   \\ qpat_x_assum `word_gen_gc_partial_move_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
@@ -3228,10 +3303,11 @@ Theorem word_gen_gc_partial_move_bitmaps_code_thm
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
-  \\ full_simp_tac(srw_ss())[nine_less] \\ fs []);
+  \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
+QED
 
-Theorem word_gen_gc_move_roots_bitmaps_code_thm
-  `!bitmaps (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new
+Theorem word_gen_gc_move_roots_bitmaps_code_thm:
+   !bitmaps (s:('a,'c,'b)stackSem$state) i pa ib pb curr m dm new
          stack1 a1 i1 pa1 ib1 pb1 m1 old.
       word_gen_gc_move_roots_bitmaps conf (stack,bitmaps,i,pa,ib,pb,curr,m,dm) =
         (stack1,i1,pa1,ib1,pb1,m1,T) /\
@@ -3277,8 +3353,9 @@ Theorem word_gen_gc_move_roots_bitmaps_code_thm
                                               (6,r6);
                                               (7,r7);
                                               (8,r8);
-                                              (9,Word 0w)] |>)`
-  (completeInduct_on `LENGTH stack`
+                                              (9,Word 0w)] |>)
+Proof
+  completeInduct_on `LENGTH stack`
   \\ rpt strip_tac \\ fs [PULL_FORALL]
   \\ rpt var_eq_tac \\ fs []
   \\ qpat_x_assum `word_gen_gc_move_roots_bitmaps _ _ = _`
@@ -3380,10 +3457,11 @@ Theorem word_gen_gc_move_roots_bitmaps_code_thm
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
   \\ qexists_tac `t0'` \\ qexists_tac `t1'`
-  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []);
+  \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
+QED
 
-Theorem word_gen_gc_partial_move_roots_bitmaps_code_thm
-  `!bitmaps (s:('a,'c,'b)stackSem$state) i pa curr m dm new
+Theorem word_gen_gc_partial_move_roots_bitmaps_code_thm:
+   !bitmaps (s:('a,'c,'b)stackSem$state) i pa curr m dm new
          stack1 a1 i1 pa1 m1 old.
       word_gen_gc_partial_move_roots_bitmaps conf (stack,bitmaps,i,pa,curr,m,dm,gs,rs) =
         (stack1,i1,pa1,m1,T) /\
@@ -3423,8 +3501,9 @@ Theorem word_gen_gc_partial_move_roots_bitmaps_code_thm
                                               (6,r6);
                                               (7,r7);
                                               (8,r8);
-                                              (9,Word 0w)] |>)`
-  (completeInduct_on `LENGTH stack`
+                                              (9,Word 0w)] |>)
+Proof
+  completeInduct_on `LENGTH stack`
   \\ rpt strip_tac \\ fs [PULL_FORALL]
   \\ rpt var_eq_tac \\ fs []
   \\ qpat_x_assum `word_gen_gc_partial_move_roots_bitmaps _ _ = _`
@@ -3517,10 +3596,11 @@ Theorem word_gen_gc_partial_move_roots_bitmaps_code_thm
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
-  \\ full_simp_tac(srw_ss())[nine_less] \\ fs []);
+  \\ full_simp_tac(srw_ss())[nine_less] \\ fs []
+QED
 
-Theorem word_gen_gc_move_list_code_thm
-  `!l a (s:('a,'c,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1 ib ib1 pb pb1.
+Theorem word_gen_gc_move_list_code_thm:
+   !l a (s:('a,'c,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1 ib ib1 pb pb1.
       word_gen_gc_move_list conf (a:'a word,l,i,pa,ib,pb,old,m,dm) =
          (a1,i1,pa1,ib1,pb1,m1,T) /\
       shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
@@ -3556,8 +3636,9 @@ Theorem word_gen_gc_move_list_code_thm
                                               (5,r5);
                                               (6,r6);
                                               (7,Word 0w);
-                                              (8,Word a1)] |>)`
-  (Cases \\ Induct_on `n` \\ simp [] THEN1
+                                              (8,Word a1)] |>)
+Proof
+  Cases \\ Induct_on `n` \\ simp [] THEN1
    (fs [Once word_gen_gc_move_list_def] \\ rw []
     \\ qexists_tac `0`
     \\ fs [word_gen_gc_move_list_code_def,get_var_def] \\ tac
@@ -3619,10 +3700,11 @@ Theorem word_gen_gc_move_list_code_thm
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less]
   \\ qexists_tac `t0'` \\ qexists_tac `t1'`
-  \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
 
-Theorem word_gen_gc_partial_move_list_code_thm
-  `!l a (s:('a,'c,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1 gs rs.
+Theorem word_gen_gc_partial_move_list_code_thm:
+   !l a (s:('a,'c,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1 gs rs.
       word_gen_gc_partial_move_list conf (a:'a word,l,i,pa,old,m,dm,gs,rs) =
          (a1,i1,pa1,m1,T) /\
       shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
@@ -3652,8 +3734,9 @@ Theorem word_gen_gc_partial_move_list_code_thm
                                               (5,r5);
                                               (6,r6);
                                               (7,Word 0w);
-                                              (8,Word a1)] |>)`
-  (Cases \\ Induct_on `n` \\ simp [] THEN1
+                                              (8,Word a1)] |>)
+Proof
+  Cases \\ Induct_on `n` \\ simp [] THEN1
    (fs [Once word_gen_gc_partial_move_list_def] \\ rw []
     \\ qexists_tac `0`
     \\ fs [word_gen_gc_partial_move_list_code_def,get_var_def] \\ tac
@@ -3707,7 +3790,8 @@ Theorem word_gen_gc_partial_move_list_code_thm
   \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
-  \\ full_simp_tac(srw_ss())[nine_less]);
+  \\ full_simp_tac(srw_ss())[nine_less]
+QED
 
 val word_gen_gc_partial_move_ref_list_code_thm = Q.prove(
   `!k r2a1 r1a1 r2a2 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'c,'b)stackSem$state).
@@ -4342,12 +4426,14 @@ val word_sub_0_eq = prove(
   once_rewrite_tac [GSYM wordsTheory.WORD_EQ_NEG]
   \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs []);
 
-Theorem good_dimindex_byte_aligned_eq
-  `good_dimindex (:'a) ==>
+Theorem good_dimindex_byte_aligned_eq:
+   good_dimindex (:'a) ==>
     (byte_aligned (w:'a word) <=>
-     ((w && (if dimindex (:'a) = 32 then 3w else 7w)) = 0w))`
-  (rw [labPropsTheory.good_dimindex_def]
-  \\ fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_bitwise_and]);
+     ((w && (if dimindex (:'a) = 32 then 3w else 7w)) = 0w))
+Proof
+  rw [labPropsTheory.good_dimindex_def]
+  \\ fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_bitwise_and]
+QED
 
 val evaluate_SetNewTrigger = prove(
   ``evaluate (SetNewTrigger endh_reg ib_reg gen_sizes,s5) = (res,new_s) ==>
@@ -4386,8 +4472,8 @@ val evaluate_SetNewTrigger = prove(
   \\ fs [GSYM PULL_EXISTS]
   \\ fs [FAPPLY_FUPDATE_THM] \\ metis_tac []);
 
-Theorem alloc_correct_lemma_Generational
-  `alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
+Theorem alloc_correct_lemma_Generational:
+   alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = ^kind /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
@@ -4407,8 +4493,9 @@ Theorem alloc_correct_lemma_Generational
               regs := l2; gc_fun := anything |>) /\
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
-       (r = NONE ==> FLOOKUP l2 0 = SOME ret)`
-  (qspec_tac (`gen_sizes`,`gen_sizes`)
+       (r = NONE ==> FLOOKUP l2 0 = SOME ret)
+Proof
+  qspec_tac (`gen_sizes`,`gen_sizes`)
   \\ Cases_on `?gen_sizes. conf.gc_kind = Generational gen_sizes` \\ fs []
   \\ Cases_on `s.gc_fun = word_gc_fun conf` \\ fs [] \\ fs [alloc_def]
   \\ `(set_store AllocSize (Word w) s).gc_fun = word_gc_fun conf` by
@@ -4750,7 +4837,8 @@ Theorem alloc_correct_lemma_Generational
   \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
   \\ fs [fmap_EXT,EXTENSION]
   \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
-  \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs []);
+  \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs []
+QED
 
 (* gc_kind = None *)
 
@@ -4784,8 +4872,8 @@ val enc_dec_stack = prove(
   \\ pop_assum drule \\ fs [] \\ rw []
   \\ res_tac \\ rveq \\ fs []);
 
-Theorem alloc_correct_lemma_None
-  `alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
+Theorem alloc_correct_lemma_None:
+   alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\ conf.gc_kind = None /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
@@ -4805,8 +4893,9 @@ Theorem alloc_correct_lemma_None
               regs := l2; gc_fun := anything |>) /\
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
-       (r = NONE ==> FLOOKUP l2 0 = SOME ret)`
-  (Cases_on `conf.gc_kind = None` \\ fs []
+       (r = NONE ==> FLOOKUP l2 0 = SOME ret)
+Proof
+  Cases_on `conf.gc_kind = None` \\ fs []
   \\ fs [word_gc_fun_def,word_gc_code_def] \\ rw []
   \\ qpat_x_assum `alloc w s = (r,t)` mp_tac
   \\ fs [alloc_def,gc_def,set_store_def]
@@ -4838,12 +4927,13 @@ Theorem alloc_correct_lemma_None
   \\ strip_tac \\ fs []
   \\ pop_assum (assume_tac o GSYM) \\ fs []
   \\ fs [TAKE_LENGTH_APPEND,DROP_LENGTH_APPEND]
-  \\ imp_res_tac enc_dec_stack \\ fs []);
+  \\ imp_res_tac enc_dec_stack \\ fs []
+QED
 
 (* --- *)
 
-Theorem alloc_correct_lemma
-  `alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
+Theorem alloc_correct_lemma:
+   alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
@@ -4863,11 +4953,13 @@ Theorem alloc_correct_lemma
               regs := l2; gc_fun := anything |>) /\
        (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
        t.regs SUBMAP l2 /\
-       (r = NONE ==> FLOOKUP l2 0 = SOME ret)`
-  (Cases_on `conf.gc_kind`
+       (r = NONE ==> FLOOKUP l2 0 = SOME ret)
+Proof
+  Cases_on `conf.gc_kind`
   THEN1 metis_tac [alloc_correct_lemma_None]
   THEN1 metis_tac [alloc_correct_lemma_Simple]
-  THEN1 metis_tac [alloc_correct_lemma_Generational]);
+  THEN1 metis_tac [alloc_correct_lemma_Generational]
+QED
 
 val alloc_correct = Q.prove(
   `alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
@@ -4904,41 +4996,48 @@ val find_code_IMP_lookup = Q.prove(
   Cases_on `dest` \\ full_simp_tac(srw_ss())[find_code_def,FUN_EQ_THM]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ metis_tac []);
 
-Theorem alloc_length_stack
-  `alloc c s = (r,t) /\ s.gc_fun = word_gc_fun conf /\
+Theorem alloc_length_stack:
+   alloc c s = (r,t) /\ s.gc_fun = word_gc_fun conf /\
    (!w. r <> SOME (Halt w)) ==>
-   LENGTH t.stack = LENGTH s.stack`
-  (fs [alloc_def,gc_def,set_store_def] \\ rw [] \\ fs []
+   LENGTH t.stack = LENGTH s.stack
+Proof
+  fs [alloc_def,gc_def,set_store_def] \\ rw [] \\ fs []
   \\ every_case_tac \\ fs []
   \\ rw [] \\ drule word_gc_fun_LENGTH \\ rw [] \\ fs [NOT_LESS]
   \\ drule LESS_EQ_LENGTH \\ strip_tac \\ fs []
   \\ pop_assum (fn th => fs [GSYM th]) \\ fs [DROP_LENGTH_APPEND]
-  \\ metis_tac [dec_stack_length]);
+  \\ metis_tac [dec_stack_length]
+QED
 
-Theorem find_code_regs_SUBMAP
-  `r1 ⊑ r2 ∧
+Theorem find_code_regs_SUBMAP:
+   r1 ⊑ r2 ∧
    find_code dest r1 c = SOME x ⇒
-   find_code dest r2 c = SOME x`
-  (Cases_on`dest` \\ EVAL_TAC \\ rw[]
+   find_code dest r2 c = SOME x
+Proof
+  Cases_on`dest` \\ EVAL_TAC \\ rw[]
   \\ imp_res_tac FLOOKUP_SUBMAP
   \\ every_case_tac \\ fs[] \\ res_tac \\ fs[]
-  \\ rw[] );
+  \\ rw[]
+QED
 
-Theorem get_labels_comp
-  `!n p e. get_labels e SUBSET get_labels (FST (comp n p e))`
-  (recInduct comp_ind \\ rw []
+Theorem get_labels_comp:
+   !n p e. get_labels e SUBSET get_labels (FST (comp n p e))
+Proof
+  recInduct comp_ind \\ rw []
   \\ Cases_on `p` \\ fs []
   \\ once_rewrite_tac [comp_def] \\ fs []
   \\ every_case_tac \\ fs []
   \\ TRY pairarg_tac \\ fs [get_labels_def,SUBSET_DEF]
   \\ TRY pairarg_tac \\ fs [get_labels_def,SUBSET_DEF]
-  \\ rw [] \\ fs []);
+  \\ rw [] \\ fs []
+QED
 
-Theorem loc_check_compile
-  `loc_check s.code (l1,l2) /\
+Theorem loc_check_compile:
+   loc_check s.code (l1,l2) /\
     (!k prog. lookup k s.code = SOME prog ==> k ≠ gc_stub_location) ==>
-    loc_check (fromAList (compile c (toAList s.code))) (l1,l2)`
-  (fs [loc_check_def,domain_lookup] \\ rw [] \\ fs []
+    loc_check (fromAList (compile c (toAList s.code))) (l1,l2)
+Proof
+  fs [loc_check_def,domain_lookup] \\ rw [] \\ fs []
   \\ fs [compile_def,lookup_fromAList,ALOOKUP_def,stubs_def]
   THEN1
    (CASE_TAC \\ fs [ALOOKUP_MAP]
@@ -4954,7 +5053,8 @@ Theorem loc_check_compile
   \\ pop_assum mp_tac
   \\ qspec_tac (`toAList s.code`,`xs`)
   \\ Induct \\ fs [FORALL_PROD,ALOOKUP_def,prog_comp_def]
-  \\ rw [] \\ metis_tac [get_labels_comp,SUBSET_DEF]);
+  \\ rw [] \\ metis_tac [get_labels_comp,SUBSET_DEF]
+QED
 
 val SUBMAP_DOMSUB_both = Q.prove(`
   A SUBMAP B ⇒
@@ -5022,8 +5122,8 @@ val inst_correct = Q.prove(`
     fs[set_var_def,state_component_equality]>>
     metis_tac[SUBMAP_FUPDATE_both]));
 
-Theorem comp_correct
-  `!p (s:('a,'c,'b)stackSem$state) r t m n c regs.
+Theorem comp_correct:
+   !p (s:('a,'c,'b)stackSem$state) r t m n c regs.
      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ alloc_arg p /\
      (!k prog. lookup k s.code = SOME prog ==> k ≠ gc_stub_location /\ alloc_arg prog) /\
      (∀n k p. MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒ k ≠ gc_stub_location ∧ alloc_arg p) /\
@@ -5050,8 +5150,9 @@ Theorem comp_correct
                 code := fromAList (stack_alloc$compile c (toAList t.code)) |>) /\
        t.regs SUBMAP regs1 ∧
        LENGTH t.bitmaps + LENGTH t.data_buffer.buffer + t.data_buffer.space_left < dimword(:'a) - 1 /\
-       ((∀w. r ≠ SOME (Halt w)) ⇒ LENGTH t.stack * (dimindex (:'a) DIV 8) < dimword (:'a))`
-  (recInduct evaluate_ind
+       ((∀w. r ≠ SOME (Halt w)) ⇒ LENGTH t.stack * (dimindex (:'a) DIV 8) < dimword (:'a))
+Proof
+  recInduct evaluate_ind
   \\ conj_tac THEN1 (* Skip *)
    (full_simp_tac(srw_ss())[Once comp_def,evaluate_def]
     \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_component_equality])
@@ -5543,7 +5644,8 @@ Theorem comp_correct
   \\ rw[state_component_equality]
   \\ match_mp_tac SUBMAP_mono_FUPDATE
   \\ rw[GSYM SUBMAP_DOMSUB_gen]
-  \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB]);
+  \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB]
+QED
 
 val comp_correct_thm =
   comp_correct |> SPEC_ALL
@@ -5556,8 +5658,8 @@ val with_same_regs_lemma = Q.prove(
   simp[state_component_equality])
 val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
-Theorem compile_semantics
-  `(!k prog. lookup k s.code = SOME prog ==> k <> gc_stub_location /\ alloc_arg prog) /\
+Theorem compile_semantics:
+   (!k prog. lookup k s.code = SOME prog ==> k <> gc_stub_location /\ alloc_arg prog) /\
     (∀n k p.  MEM (k,p) (FST (SND (s.compile_oracle n))) ⇒ k ≠ gc_stub_location ∧ alloc_arg p) /\
    (s:('a,'c,'b)stackSem$state).gc_fun = (word_gc_fun c:α gc_fun_type) /\
    LENGTH s.bitmaps + LENGTH s.data_buffer.buffer + s.data_buffer.space_left < dimword (:α) − 1 ∧
@@ -5574,8 +5676,9 @@ Theorem compile_semantics
                       use_store := T;
                       use_stack := T;
                       use_alloc := F |>) =
-   semantics start s`
-  (simp[GSYM AND_IMP_INTRO] >> ntac 6 strip_tac >>
+   semantics start s
+Proof
+  simp[GSYM AND_IMP_INTRO] >> ntac 6 strip_tac >>
   simp[semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
@@ -5708,7 +5811,8 @@ Theorem compile_semantics
   simp[Abbr`ss`] >>
   ntac 3 strip_tac >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >>
-  simp[EL_APPEND1]);
+  simp[EL_APPEND1]
+QED
 
 (* TODO: does this have to initialize the data_buffer to empty? *)
 val make_init_def = Define `
@@ -5717,12 +5821,14 @@ val make_init_def = Define `
             ; compile := λc. s.compile c o (MAP prog_comp)
             ; compile_oracle := oracle |>`;
 
-Theorem prog_comp_lambda
-  `prog_comp = λ(n,p). ^(rhs (concl (SPEC_ALL prog_comp_def)))`
-  (srw_tac[][FUN_EQ_THM,prog_comp_def,LAMBDA_PROD,FORALL_PROD]);
+Theorem prog_comp_lambda:
+   prog_comp = λ(n,p). ^(rhs (concl (SPEC_ALL prog_comp_def)))
+Proof
+  srw_tac[][FUN_EQ_THM,prog_comp_def,LAMBDA_PROD,FORALL_PROD]
+QED
 
-Theorem make_init_semantics
-  `(!k prog. ALOOKUP code k = SOME prog ==> k <> gc_stub_location /\ alloc_arg prog) /\
+Theorem make_init_semantics:
+   (!k prog. ALOOKUP code k = SOME prog ==> k <> gc_stub_location /\ alloc_arg prog) /\
    (∀n k p.  MEM (k,p) (FST (SND (oracle n))) ⇒ k ≠ gc_stub_location ∧ alloc_arg p) /\
    s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile c code) /\
    s.compile_oracle = (I ## MAP prog_comp ## I) o oracle /\
@@ -5731,8 +5837,9 @@ Theorem make_init_semantics
    ALL_DISTINCT (MAP FST code) /\
    semantics start (make_init c (fromAList code) oracle s) <> Fail ==>
    semantics start (s:('a,'c,'ffi) stackSem$state) =
-   semantics start (make_init c (fromAList code) oracle s)`
-  (srw_tac[][]
+   semantics start (make_init c (fromAList code) oracle s)
+Proof
+  srw_tac[][]
   \\ drule (CONV_RULE(LAND_CONV(move_conj_left(can dest_neg)))compile_semantics
             |> GEN_ALL)
   \\ disch_then (qspecl_then [`s.compile`,`c`,`s.gc_fun`] mp_tac)
@@ -5745,11 +5852,12 @@ Theorem make_init_semantics
   \\ srw_tac[][]
   \\ srw_tac[][ALOOKUP_APPEND] \\ BasicProvers.CASE_TAC
   \\ simp[prog_comp_lambda,ALOOKUP_MAP_2]
-  \\ simp[ALOOKUP_toAList,lookup_fromAList]);
+  \\ simp[ALOOKUP_toAList,lookup_fromAList]
+QED
 
-Theorem next_lab_EQ_MAX
-  `!q (n:num) aux. next_lab q aux = MAX aux (next_lab q 0)`
-  (ho_match_mp_tac next_lab_ind>>Cases_on`q`>>rw[]>>
+Theorem next_lab_EQ_MAX = Q.prove(`
+  !q (n:num) aux. next_lab q aux = MAX aux (next_lab q 0)`,
+  ho_match_mp_tac next_lab_ind>>Cases_on`q`>>rw[]>>
   once_rewrite_tac [next_lab_def]>>
   simp_tac (srw_ss()) [] >>
   every_case_tac >>
@@ -5763,8 +5871,8 @@ val MAX_SIMP = prove(
   ``MAX n (MAX n m) = MAX n m``,
   fs [MAX_DEF]);
 
-Theorem next_lab_thm
-  `!p.
+Theorem next_lab_thm:
+   !p.
       next_lab (p:'a stackLang$prog) 1 =
       case p of
       | Seq p1 p2 => MAX (next_lab p1 1) (next_lab p2 1)
@@ -5775,8 +5883,9 @@ Theorem next_lab_thm
       | Call (SOME (p,_,_,l2)) _ NONE => MAX (next_lab p 1) (l2 + 1)
       | Call (SOME (p,_,_,l2)) _ (SOME (p',_,l3)) =>
            MAX (MAX (next_lab p 1) (next_lab p' 1)) (MAX l2 l3 + 1)
-      | _ => 1`
-  (Induct \\ simp [Once next_lab_def] \\ fs []
+      | _ => 1
+Proof
+  Induct \\ simp [Once next_lab_def] \\ fs []
   \\ once_rewrite_tac [next_lab_EQ_MAX]
   \\ once_rewrite_tac [next_lab_EQ_MAX]
   \\ once_rewrite_tac [next_lab_EQ_MAX]
@@ -5786,19 +5895,22 @@ Theorem next_lab_thm
   \\ once_rewrite_tac [next_lab_EQ_MAX]
   \\ once_rewrite_tac [next_lab_EQ_MAX]
   \\ fs [AC MAX_ASSOC MAX_COMM,MAX_SIMP]
-  \\ fs [MAX_DEF]);
+  \\ fs [MAX_DEF]
+QED
 
-Theorem extract_labels_next_lab `
-  ∀p (aux:num) e.
+Theorem extract_labels_next_lab:
+    ∀p (aux:num) e.
     MEM e (extract_labels p) ⇒
-    SND e < next_lab p 1`
-  (ho_match_mp_tac next_lab_ind>>Cases_on`p`>>rw[]>>
+    SND e < next_lab p 1
+Proof
+  ho_match_mp_tac next_lab_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac [next_lab_thm]>>fs[extract_labels_def]>>
   fs[extract_labels_def]>>
-  BasicProvers.EVERY_CASE_TAC>>fs []>>fs[MAX_DEF]);
+  BasicProvers.EVERY_CASE_TAC>>fs []>>fs[MAX_DEF]
+QED
 
-Theorem stack_alloc_lab_pres `
-  ∀n nl p aux.
+Theorem stack_alloc_lab_pres:
+    ∀n nl p aux.
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p) ∧
   ALL_DISTINCT (extract_labels p) ∧
   next_lab p 1 ≤ nl ⇒
@@ -5806,8 +5918,9 @@ Theorem stack_alloc_lab_pres `
   EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels cp) ∧
   ALL_DISTINCT (extract_labels cp) ∧
   (∀lab. MEM lab (extract_labels cp) ⇒ MEM lab (extract_labels p) ∨ (nl ≤ SND lab ∧ SND lab < nl')) ∧
-  nl ≤ nl'`
-  (HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
+  nl ≤ nl'
+Proof
+  HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac [comp_def]>>fs[extract_labels_def]
   >-
     (BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[extract_labels_def]>>
@@ -5843,14 +5956,16 @@ Theorem stack_alloc_lab_pres `
     imp_res_tac extract_labels_next_lab>>
     fs[])
   >>
-    res_tac>>fs[]));
+    res_tac>>fs[])
+QED
 
-Theorem stack_alloc_comp_stack_asm_name `
-  ∀n m p.
+Theorem stack_alloc_comp_stack_asm_name:
+    ∀n m p.
   stack_asm_name c p ∧ stack_asm_remove (c:'a asm_config) p ⇒
   let (p',m') = comp n m p in
-  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'`
-  (ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  stack_asm_name c p' ∧ stack_asm_remove (c:'a asm_config) p'
+Proof
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
   simp[Once comp_def]
   >-
     (Cases_on`o'`>-
@@ -5863,10 +5978,11 @@ Theorem stack_alloc_comp_stack_asm_name `
     fs[stack_asm_name_def,stack_asm_remove_def])
   >>
     rpt(pairarg_tac>>fs[])>>rw[]>>
-    fs[stack_asm_name_def,stack_asm_remove_def]);
+    fs[stack_asm_name_def,stack_asm_remove_def]
+QED
 
-Theorem stack_alloc_stack_asm_convs `
-  EVERY (λ(n,p). stack_asm_name c p) prog ∧
+Theorem stack_alloc_stack_asm_convs:
+    EVERY (λ(n,p). stack_asm_name c p) prog ∧
   EVERY (λ(n,p). (stack_asm_remove (c:'a asm_config) p)) prog ∧
   (* conf_ok is too strong, but we already have it anyway *)
   conf_ok (:'a) conf ∧
@@ -5878,8 +5994,9 @@ Theorem stack_alloc_stack_asm_convs `
   c.valid_imm (INL Sub) 1w
   ⇒
   EVERY (λ(n,p). stack_asm_name c p) (compile conf prog) ∧
-  EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)`
-  (fs[compile_def]>>rw[]>>
+  EVERY (λ(n,p). stack_asm_remove c p) (compile conf prog)
+Proof
+  fs[compile_def]>>rw[]>>
     TRY (EVAL_TAC>>every_case_tac >>
          EVAL_TAC>>every_case_tac >>
          fs [] >> EVAL_TAC >>
@@ -5892,15 +6009,17 @@ Theorem stack_alloc_stack_asm_convs `
   rw[]>>res_tac>>
   drule stack_alloc_comp_stack_asm_name>>fs[]>>
   disch_then(qspecl_then[`p_1`,`next_lab p_2 1`] assume_tac)>>
-  pairarg_tac>>fs[]);
+  pairarg_tac>>fs[]
+QED
 
-Theorem stack_alloc_reg_bound
-  `10 ≤ sp ∧
+Theorem stack_alloc_reg_bound:
+   10 ≤ sp ∧
     EVERY (\p. reg_bound p sp)
        (MAP SND prog1) ==>
     EVERY (\p. reg_bound p sp)
-       (MAP SND (compile dc prog1))`
-  (fs[stack_allocTheory.compile_def]>>
+       (MAP SND (compile dc prog1))
+Proof
+  fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
   >-
     (EVAL_TAC>>TOP_CASE_TAC>>EVAL_TAC>>fs[]>>
@@ -5924,12 +6043,14 @@ Theorem stack_alloc_reg_bound
   TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
     Cases_on`o'`>>TRY(PairCases_on`x`)>>fs[reg_bound_def]>>
     BasicProvers.EVERY_CASE_TAC)>>
-  rpt(pairarg_tac>>fs[reg_bound_def]));
+  rpt(pairarg_tac>>fs[reg_bound_def])
+QED
 
-Theorem stack_alloc_call_args
-  `EVERY (λp. call_args p 1 2 3 4 0) (MAP SND prog1) ==>
-   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile dc prog1))`
-  (fs[stack_allocTheory.compile_def]>>
+Theorem stack_alloc_call_args:
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND prog1) ==>
+   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND (compile dc prog1))
+Proof
+  fs[stack_allocTheory.compile_def]>>
   strip_tac>>CONJ_TAC
   >-
     (EVAL_TAC>>TOP_CASE_TAC>>EVAL_TAC>>fs[]>>
@@ -5951,11 +6072,13 @@ Theorem stack_alloc_call_args
   TRY(ONCE_REWRITE_TAC [stack_allocTheory.comp_def]>>
     Cases_on`o'`>>TRY(PairCases_on`x`)>>fs[call_args_def]>>
     BasicProvers.EVERY_CASE_TAC)>>
-  rpt(pairarg_tac>>fs[call_args_def]));
+  rpt(pairarg_tac>>fs[call_args_def])
+QED
 
-Theorem compile_has_fp_ops[simp]
-  `compile (dconf with has_fp_ops := b) code = compile dconf code`
-  (fs [compile_def,stubs_def,word_gc_code_def]
+Theorem compile_has_fp_ops[simp]:
+  compile (dconf with <| has_fp_ops := b1; has_fp_tern := b2 |>) code = compile dconf code
+Proof
+  fs [compile_def,stubs_def,word_gc_code_def]
   \\ every_case_tac \\ fs []
   \\ fs [data_to_wordTheory.small_shift_length_def,
          word_gc_move_code_def,
@@ -5978,6 +6101,7 @@ Theorem compile_has_fp_ops[simp]
          word_gen_gc_partial_move_bitmaps_code_def,
          word_gen_gc_partial_move_bitmap_code_def,
          word_gen_gc_partial_move_data_code_def,
-         word_gen_gc_partial_move_ref_list_code_def]);
+         word_gen_gc_partial_move_ref_list_code_def]
+QED
 
 val _ = export_theory();

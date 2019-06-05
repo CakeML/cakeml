@@ -25,7 +25,8 @@ val remove_must_terminate_def = Define`
       Call ret dest args h) ∧
   (remove_must_terminate prog = prog)`
 
-Theorem remove_must_terminate_pmatch `!prog.
+Theorem remove_must_terminate_pmatch:
+  !prog.
   remove_must_terminate prog =
   case prog of
   | (Seq p0 p1) => Seq (remove_must_terminate p0) (remove_must_terminate p1)
@@ -39,10 +40,12 @@ Theorem remove_must_terminate_pmatch `!prog.
     let h = case h of NONE => NONE
                     | SOME (v,prog,l1,l2) => SOME (v,remove_must_terminate prog,l1,l2) in
       Call ret dest args h)
-  | prog => prog`
-  (rpt(
+  | prog => prog
+Proof
+  rpt(
     rpt strip_tac
     >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
-    >> fs[remove_must_terminate_def]));
+    >> fs[remove_must_terminate_def])
+QED
 val _ = export_theory();

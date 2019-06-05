@@ -28,6 +28,7 @@ val _ = Datatype `
             ; has_div : bool (* Div available in target *)
             ; has_longdiv : bool (* LongDiv available in target *)
             ; has_fp_ops : bool (* can compile floating-point ops *)
+            ; has_fp_tern : bool (* can compile FMA *)
             ; call_empty_ffi : bool (* emit (T) / omit (F) calls to FFI "" *)
             ; gc_kind : gc_kind (* GC settings *) |>`
 
@@ -977,6 +978,9 @@ val fp_cmp_inst_def = Define `
   fp_cmp_inst FP_GreaterEqual = FPLessEqual 3 1 0 /\
   fp_cmp_inst FP_Equal = FPEqual 3 0 1`;
 
+val fp_top_inst_def_def = Define `
+  fp_top_inst FP_Fma = FPFma 0 1 2`;
+
 val fp_bop_inst_def = Define `
   fp_bop_inst FP_Add = FPAdd 0 0 1 /\
   fp_bop_inst FP_Sub = FPSub 0 0 1 /\
@@ -1000,17 +1004,23 @@ val arg3_def = Define `
 val arg4_def = Define `
   arg4 vs f x = dtcase vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x`;
 
-Theorem arg2_pmatch
-  `arg2 vs f x = case vs of | [v1;v2] => f v1 v2 | _ => x`
-  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg2_def]);
+Theorem arg2_pmatch:
+   arg2 vs f x = case vs of | [v1;v2] => f v1 v2 | _ => x
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg2_def]
+QED
 
-Theorem arg3_pmatch
-  `arg3 vs f x = case vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x`
-  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg3_def]);
+Theorem arg3_pmatch:
+   arg3 vs f x = case vs of | [v1;v2;v3] => f v1 v2 v3 | _ => x
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg3_def]
+QED
 
-Theorem arg4_pmatch
-  `arg4 vs f x = case vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x`
-  (CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg4_def]);
+Theorem arg4_pmatch:
+   arg4 vs f x = case vs of | [v1;v2;v3;v4] => f v1 v2 v3 v4 | _ => x
+Proof
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) \\ fs [arg4_def]
+QED
 
 val assign_defs = ref ([]:thm list);
 fun assign_Define q = let
@@ -1812,6 +1822,49 @@ val def = assign_Define `
                Assign (adjust_var dest) (Op Add [ShiftVar Lsl 3 4; Const 2w])],l)))
       : 'a wordLang$prog # num`;
 
+  val def = assign_Define `
+    assign_FP_top fpt (c:data_to_word$config) (secn:num)
+              (l:num) (dest:num) (names:num_set option) v1 v2 v3 =
+       (if ~c.has_fp_ops \/ ~c.has_fp_tern then (GiveUp,l) else
+        if dimindex(:'a) = 64 then
+         (dtcase encode_header c 3 1 of
+          | NONE => (GiveUp,l)
+          | SOME (header:'a word) =>
+            (list_Seq [
+               Assign 3 (Load (Op Add
+                           [real_addr c (adjust_var v1); Const bytes_in_word]));
+               Assign 5 (Load (Op Add
+                           [real_addr c (adjust_var v2); Const bytes_in_word]));
+               Assign 7 (Load (Op Add
+                           [real_addr c (adjust_var v3); Const bytes_in_word]));
+               Inst (FP (FPMovFromReg 0 3 3));
+               Inst (FP (FPMovFromReg 1 5 5));
+               Inst (FP (FPMovFromReg 2 7 7));
+               Inst (FP (fp_top_inst fpt));
+               Inst (FP (FPMovToReg 3 5 0));
+               WriteWord64 c header dest 3],l))
+        else
+         (dtcase encode_header c 3 2 of
+          | NONE => (GiveUp,l)
+          | SOME header =>
+            (list_Seq [
+               Assign 15 (real_addr c (adjust_var v1));
+               Assign 17 (real_addr c (adjust_var v2));
+               Assign 19 (real_addr c (adjust_var v3));
+               Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
+               Assign 13 (Load (Op Add [Var 15; Const (2w * bytes_in_word)]));
+               Assign 21 (Load (Op Add [Var 17; Const bytes_in_word]));
+               Assign 23 (Load (Op Add [Var 17; Const (2w * bytes_in_word)]));
+               Assign 31 (Load (Op Add [Var 19; Const bytes_in_word]));
+               Assign 33 (Load (Op Add [Var 19; Const (2w * bytes_in_word)]));
+               Inst (FP (FPMovFromReg 0 13 11));
+               Inst (FP (FPMovFromReg 1 23 21));
+               Inst (FP (FPMovFromReg 2 33 31));
+               Inst (FP (fp_top_inst fpt));
+               Inst (FP (FPMovToReg 5 3 0));
+               WriteWord64_on_32 c header dest 5 3],l)))
+      : 'a wordLang$prog # num`;
+
 val def = assign_Define `
   assign_FP_bop fpb (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
@@ -1933,6 +1986,7 @@ val assign_def = Define `
     | EqualInt i => arg1 args (assign_EqualInt i c secn l dest names) (Skip,l)
     | Install => arg4 args (assign_Install c secn l dest names) (Skip,l)
     | FP_cmp fpc => arg2 args (assign_FP_cmp fpc c secn l dest names) (Skip,l)
+    | FP_top fpt => arg3 args (assign_FP_top fpt c secn l dest names) (Skip,l)
     | FP_bop fpb => arg2 args (assign_FP_bop fpb c secn l dest names) (Skip,l)
     | FP_uop fpu => arg1 args (assign_FP_uop fpu c secn l dest names) (Skip,l)
     | _ => (Skip,l)`;
@@ -2140,17 +2194,23 @@ val stubs_def = Define`
     (Dummy_location,0,Skip)
   ] ++ generated_bignum_stubs Bignum_location`;
 
-Theorem check_stubs_length
-  `word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs`
-  (EVAL_TAC);
+Theorem check_stubs_length:
+   word_num_stubs + LENGTH (stubs (:α) c) = data_num_stubs
+Proof
+  EVAL_TAC
+QED
 
-Theorem check_LongDiv_location
-  `LongDiv_location = word_bignum$div_location`
-  (EVAL_TAC);
+Theorem check_LongDiv_location:
+   LongDiv_location = word_bignum$div_location
+Proof
+  EVAL_TAC
+QED
 
 val compile_def = Define `
   compile data_conf word_conf asm_conf prog =
-    let data_conf = (data_conf with has_fp_ops := (1 < asm_conf.fp_reg_count)) in
+    let data_conf =
+      (data_conf with <| has_fp_ops := (1 < asm_conf.fp_reg_count);
+                      has_fp_tern := (asm_conf.ISA = ARMv7 /\ 2 < asm_conf.fp_reg_count) |>) in
     let p = stubs (:α) data_conf ++ MAP (compile_part data_conf) prog in
       word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 

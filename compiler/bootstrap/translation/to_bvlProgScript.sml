@@ -230,10 +230,12 @@ val bvl_inline_tick_inline_all_side = Q.prove (
 
 val r = translate bvl_inlineTheory.let_op_def;
 
-Theorem let_op_SING_NOT_NIL[simp]
-  `let_op [x] <> []`
-  (Cases_on `x` \\ fs [bvl_inlineTheory.let_op_def]
-  \\ CASE_TAC \\ fs []);
+Theorem let_op_SING_NOT_NIL[simp]:
+   let_op [x] <> []
+Proof
+  Cases_on `x` \\ fs [bvl_inlineTheory.let_op_def]
+  \\ CASE_TAC \\ fs []
+QED
 
 val bvl_inline_let_op_side = Q.prove(`
   ∀a. bvl_inline_let_op_side a ⇔ T`,
@@ -243,9 +245,9 @@ val bvl_inline_let_op_side = Q.prove(`
 
 val r = translate bvl_inlineTheory.remove_ticks_def;
 
-Theorem bvl_inline_remove_ticks_side
-  `!a. bvl_inline_remove_ticks_side a`
-  (ho_match_mp_tac bvl_inlineTheory.remove_ticks_ind
+Theorem bvl_inline_remove_ticks_side = Q.prove(`
+  !a. bvl_inline_remove_ticks_side a`,
+  ho_match_mp_tac bvl_inlineTheory.remove_ticks_ind
   \\ sg `!x. remove_ticks [x] <> []`
   >-
    (CCONTR_TAC \\ fs []
@@ -256,9 +258,9 @@ Theorem bvl_inline_remove_ticks_side
 
 val r = translate bvl_inlineTheory.compile_prog_def;
 
-Theorem bvl_inline_compile_prog_side
-  `!a b c d. bvl_inline_compile_prog_side a b c d`
-  (rw [Once (fetch "-" "bvl_inline_compile_prog_side_def"),
+Theorem bvl_inline_compile_prog_side = Q.prove(`
+  !a b c d. bvl_inline_compile_prog_side a b c d`,
+  rw [Once (fetch "-" "bvl_inline_compile_prog_side_def"),
       Once (fetch "-" "bvl_inline_compile_inc_side_def"),
       Once (fetch "-" "bvl_inline_optimise_side_def")]
   \\ strip_tac

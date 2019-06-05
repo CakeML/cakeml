@@ -60,18 +60,21 @@ val small_exp_safety2 = Q.prove (
      rw [small_eval_def] >>
      metis_tac []));
 
-Theorem untyped_safety_exp
-`!s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e`
-(metis_tac [small_exp_safety2, small_exp_safety1]);
+Theorem untyped_safety_exp:
+ !s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e
+Proof
+metis_tac [small_exp_safety2, small_exp_safety1]
+QED
 
 val to_small_st_surj = Q.prove(
   `∀s. ∃y. s = to_small_st y`,
   srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][to_small_st_def]);
 
-Theorem untyped_safety_decs
-  `(!d (s:'a state) env. (∃r. evaluate_dec F env s d r) = ~dec_diverges env s d) ∧
-   (!ds (s:'a state) env. (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)`
- (ho_match_mp_tac dec_induction >>
+Theorem untyped_safety_decs:
+   (!d (s:'a state) env. (∃r. evaluate_dec F env s d r) = ~dec_diverges env s d) ∧
+   (!ds (s:'a state) env. (?r. evaluate_decs F env s ds r) = ~decs_diverges env s ds)
+Proof
+ ho_match_mp_tac dec_induction >>
  rw [] >>
  rw [Once evaluate_dec_cases, Once dec_diverges_cases] >>
  rw [GSYM untyped_safety_exp]
@@ -121,24 +124,28 @@ Theorem untyped_safety_decs
     eq_tac >>
     rw [] >>
     metis_tac [pair_CASES, result_nchotomy, result_distinct, decs_determ,
-               PAIR_EQ, result_11]));
+               PAIR_EQ, result_11])
+QED
 
      (*
 
-Theorem untyped_safety_top
-`!s env top. (?r. evaluate_top F env s top r) = ~top_diverges env s top`
-(rw [evaluate_top_cases, top_diverges_cases] >>
+Theorem untyped_safety_top:
+ !s env top. (?r. evaluate_top F env s top r) = ~top_diverges env s top
+Proof
+rw [evaluate_top_cases, top_diverges_cases] >>
 eq_tac >>
 rw [] >>
 rw [] >>
 CCONTR_TAC >>
 fs [] >>
 rw [] >>
-metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
+metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]
+QED
 
-Theorem untyped_safety_prog
-`!s env tops. (?r. evaluate_prog F env s tops r) = ~prog_diverges env s tops`
- (induct_on `tops` >>
+Theorem untyped_safety_prog:
+ !s env tops. (?r. evaluate_prog F env s tops r) = ~prog_diverges env s tops
+Proof
+ induct_on `tops` >>
  rw [] >-
  rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
  rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
@@ -158,7 +165,8 @@ Theorem untyped_safety_prog
      `?s. (?err. r = (s,Rerr err)) ∨ (?env'. r = (s,Rval env'))` by metis_tac [pair_CASES, result_nchotomy] >>
      rw []
      >- metis_tac []
-     >- metis_tac [PAIR_EQ, result_11, pair_CASES, top_determ, top_unclocked]));
+     >- metis_tac [PAIR_EQ, result_11, pair_CASES, top_determ, top_unclocked])
+QED
      *)
 
 val _ = export_theory ();

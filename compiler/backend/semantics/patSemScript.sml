@@ -160,6 +160,9 @@ val do_app_def = Define `
        (case do_word_op op wz w1 w2 of
             | NONE => NONE
             | SOME w => SOME (s, Rval (Litv w)))
+    | (Op (FP_top top),
+        [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) =>
+      SOME (s, Rval (Litv (Word64 (fp_top top w1 w2 w3))))
     | (Op (FP_bop bop), [Litv (Word64 w1); Litv (Word64 w2)]) =>
       SOME (s,Rval (Litv (Word64 (fp_bop bop w1 w2))))
     | (Op (FP_uop uop), [Litv (Word64 w)]) =>
@@ -444,9 +447,11 @@ val eqs = LIST_CONJ (map prove_case_eq_thm
 
 val case_eq_thms = save_thm("case_eq_thms",eqs);
 
-Theorem do_install_clock
-  `do_install vs s = SOME (e,s') ⇒ s'.clock = s.clock`
-  (rw[do_install_def,UNCURRY,eqs,pair_case_eq] \\ rw[]);
+Theorem do_install_clock:
+   do_install vs s = SOME (e,s') ⇒ s'.clock = s.clock
+Proof
+  rw[do_install_def,UNCURRY,eqs,pair_case_eq] \\ rw[]
+QED
 
 val do_app_cases = save_thm("do_app_cases",
   ``patSem$do_app s op vs = SOME x`` |>
@@ -468,12 +473,14 @@ val do_if_def = Define `
     if v = Boolv T then SOME e1 else
     if v = Boolv F then SOME e2 else NONE`;
 
-Theorem do_if_either_or
-  `do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2`
-  (simp [do_if_def]
+Theorem do_if_either_or:
+   do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2
+Proof
+  simp [do_if_def]
   THEN1 (Cases_on `v = Boolv T`
   THENL [simp [],
-    Cases_on `v = Boolv F` THEN simp []]))
+    Cases_on `v = Boolv F` THEN simp []])
+QED
 
 val dec_clock_def = Define`
 dec_clock s = s with clock := s.clock -1`;
@@ -565,27 +572,32 @@ val evaluate_def = tDefine "evaluate"`
 
 val evaluate_ind = theorem"evaluate_ind"
 
-Theorem do_app_clock
-  `patSem$do_app s op vs = SOME(s',r) ==> s.clock = s'.clock`
-  (rpt strip_tac THEN fs[do_app_cases] >> rw[] \\
+Theorem do_app_clock:
+   patSem$do_app s op vs = SOME(s',r) ==> s.clock = s'.clock
+Proof
+  rpt strip_tac THEN fs[do_app_cases] >> rw[] \\
   fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
-  \\ rw[] \\ rfs[]);
+  \\ rw[] \\ rfs[]
+QED
 
-Theorem evaluate_clock
-  `(∀env s1 e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)`
-  (ho_match_mp_tac evaluate_ind >> rw[evaluate_def,eqs,pair_case_eq,bool_case_eq] >>
+Theorem evaluate_clock:
+   (∀env s1 e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock)
+Proof
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def,eqs,pair_case_eq,bool_case_eq] >>
   fs[dec_clock_def] >> rw[] >> rfs[] >>
   imp_res_tac fix_clock_IMP >>
   imp_res_tac do_app_clock >>
   imp_res_tac do_install_clock >>
   fs[EQ_SYM_EQ] >> res_tac >> rfs[]
-);
+QED
 
-Theorem fix_clock_evaluate
-  `fix_clock s (evaluate env s e) = evaluate env s e`
-  (Cases_on `evaluate env s e` \\ fs [fix_clock_def]
+Theorem fix_clock_evaluate:
+   fix_clock s (evaluate env s e) = evaluate env s e
+Proof
+  Cases_on `evaluate env s e` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
-  \\ fs [MIN_DEF,theorem "state_component_equality"]);
+  \\ fs [MIN_DEF,theorem "state_component_equality"]
+QED
 
 val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);

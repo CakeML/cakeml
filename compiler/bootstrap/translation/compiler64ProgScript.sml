@@ -31,9 +31,11 @@ val max_heap_limit_64_def = Define`
 
 val res = translate max_heap_limit_64_def
 
-Theorem max_heap_limit_64_thm
-  `max_heap_limit (:64) = max_heap_limit_64`
-  (rw[FUN_EQ_THM] \\ EVAL_TAC);
+Theorem max_heap_limit_64_thm:
+   max_heap_limit (:64) = max_heap_limit_64
+Proof
+  rw[FUN_EQ_THM] \\ EVAL_TAC
+QED
 
 (*
 
@@ -253,14 +255,15 @@ val res = append_prog main;
 
 val st = get_ml_prog_state()
 
-Theorem main_spec
-  `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
+Theorem main_spec:
+   app (p:'ffi ffi_proj) ^(fetch_v "main" st)
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
        &UNIT_TYPE () uv
        * STDIO (full_compile_64 (TL cl) (get_stdin fs) fs)
-       * COMMANDLINE cl)`
-  (xcf "main" st
+       * COMMANDLINE cl)
+Proof
+  xcf "main" st
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (
@@ -316,12 +319,14 @@ Theorem main_spec
     \\ asm_exists_tac \\ xsimpl
     \\ qexists_tac `fs'` \\ xsimpl)
   \\ xapp
-  \\ asm_exists_tac \\ simp [] \\ xsimpl);
+  \\ asm_exists_tac \\ simp [] \\ xsimpl
+QED
 
-Theorem main_whole_prog_spec
-  `whole_prog_spec ^(fetch_v "main" st) cl fs NONE
-    ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))`
-  (simp[whole_prog_spec_def,UNCURRY]
+Theorem main_whole_prog_spec:
+   whole_prog_spec ^(fetch_v "main" st) cl fs NONE
+    ((=) (full_compile_64 (TL cl) (get_stdin fs) fs))
+Proof
+  simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
@@ -330,7 +335,8 @@ Theorem main_whole_prog_spec
        GSYM add_stdo_with_numchars, with_same_numchars]
   \\ simp [SEP_CLAUSES]
   \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
 val (semantics_thm,prog_tm) = whole_prog_thm st "main" main_whole_prog_spec;
 

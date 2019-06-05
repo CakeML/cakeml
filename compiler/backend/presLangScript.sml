@@ -45,19 +45,23 @@ val num_to_hex_def = Define `
 (* num_to_hex "implements" words$word_to_hex_string in a
    simple way that the translator can handle. these lemmas
    check that is true. *)
-Theorem num_to_hex_digit_eq
-  `!i. i < 16 ==> num_to_hex_digit i = [HEX i]`
-  (CONV_TAC (REPEATC (numLib.BOUNDED_FORALL_CONV EVAL))
-  \\ simp []);
+Theorem num_to_hex_digit_eq:
+   !i. i < 16 ==> num_to_hex_digit i = [HEX i]
+Proof
+  CONV_TAC (REPEATC (numLib.BOUNDED_FORALL_CONV EVAL))
+  \\ simp []
+QED
 
-Theorem num_to_hex_eq
-  `num_to_hex (w2n w) = words$word_to_hex_string w`
-  (simp [wordsTheory.word_to_hex_string_def, wordsTheory.w2s_def]
+Theorem num_to_hex_eq:
+   num_to_hex (w2n w) = words$word_to_hex_string w
+Proof
+  simp [wordsTheory.word_to_hex_string_def, wordsTheory.w2s_def]
   \\ Q.SPEC_TAC (`w2n w`, `n`)
   \\ measureInduct_on `I n`
   \\ simp [Once numposrepTheory.n2l_def, ASCIInumbersTheory.n2s_def]
   \\ simp [Once num_to_hex_def, num_to_hex_digit_eq]
-  \\ (PURE_CASE_TAC \\ simp[ASCIInumbersTheory.n2s_def]));
+  \\ (PURE_CASE_TAC \\ simp[ASCIInumbersTheory.n2s_def])
+QED
 
 val display_word_to_hex_string_def = Define `
   display_word_to_hex_string w =
@@ -109,6 +113,11 @@ val fp_bop_to_display_def = Define `
     | FP_Sub => empty_item (strlit "FP_Sub")
     | FP_Mul => empty_item (strlit "FP_Mul")
     | FP_Div => empty_item (strlit "FP_Div")`
+
+val fp_top_to_display_def = Define `
+  fp_top_to_display op =
+    case op of
+      |FP_Fma => empty_item (strlit "FP_Fma")`
 
 val word_size_to_display_def = Define`
   (word_size_to_display W8 = empty_item (strlit "W8"))
@@ -196,6 +205,7 @@ val flat_op_to_display_def = Define `
     | FP_cmp cmp => fp_cmp_to_display cmp
     | FP_uop op => fp_uop_to_display op
     | FP_bop op => fp_bop_to_display op
+    | FP_top op => fp_top_to_display op
     | Opapp => empty_item (strlit "Opapp")
     | Opassign => empty_item (strlit "Opassign")
     | Opref => empty_item (strlit "Opref")
@@ -449,6 +459,7 @@ val clos_op_to_display_def = Define `
     | FP_cmp cmp => fp_cmp_to_display cmp
     | FP_uop op => fp_uop_to_display op
     | FP_bop op => fp_bop_to_display op
+    | FP_top op => fp_top_to_display op
     | BoundsCheckBlock => empty_item (strlit "BoundsCheckBlock")
     | BoundsCheckArray => empty_item (strlit "BoundsCheckArray")
     | BoundsCheckByte b => Item NONE (strlit "BoundsCheckByte") [bool_to_display b]
@@ -596,6 +607,7 @@ val asm_fp_to_display_def = Define `
     | FPSub n1 n2 n3 => item_with_nums (strlit "FPSub") [n1; n2; n3]
     | FPMul n1 n2 n3 => item_with_nums (strlit "FPMul") [n1; n2; n3]
     | FPDiv n1 n2 n3 => item_with_nums (strlit "FPDiv") [n1; n2; n3]
+    | FPFma n1 n2 n3 => item_with_nums (strlit "FPFma") [n1; n2; n3]
     | FPMov n1 n2 => item_with_nums (strlit "FPMov") [n1; n2]
     | FPMovToReg n1 n2 n3 => item_with_nums (strlit "FPMovToReg") [n1; n2; n3]
     | FPMovFromReg n1 n2 n3 => item_with_nums (strlit "FPMovFromReg") [n1; n2; n3]

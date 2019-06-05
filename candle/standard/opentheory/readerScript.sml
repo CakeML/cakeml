@@ -687,94 +687,116 @@ val readLines_def = Define `
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
-Theorem getNum_PMATCH
-  `!obj.
+Theorem getNum_PMATCH:
+   !obj.
      getNum obj =
        case obj of
          Num n => return n
-       | _ => failwith (strlit"getNum")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getNum_def]);
+       | _ => failwith (strlit"getNum")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getNum_def]
+QED
 
-Theorem getName_PMATCH
-  `!obj.
+Theorem getName_PMATCH:
+   !obj.
      getName obj =
        case obj of
          Name n => return n
-       | _ => failwith (strlit"getName")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getName_def]);
+       | _ => failwith (strlit"getName")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getName_def]
+QED
 
-Theorem getList_PMATCH
-  `!obj.
+Theorem getList_PMATCH:
+   !obj.
      getList obj =
        case obj of
          List n => return n
-       | _ => failwith (strlit"getList")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getList_def]);
+       | _ => failwith (strlit"getList")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getList_def]
+QED
 
-Theorem getTypeOp_PMATCH
-  `!obj.
+Theorem getTypeOp_PMATCH:
+   !obj.
      getTypeOp obj =
        case obj of
          TypeOp n => return n
-       | _ => failwith (strlit"getTypeOp")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getTypeOp_def]);
+       | _ => failwith (strlit"getTypeOp")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getTypeOp_def]
+QED
 
-Theorem getType_PMATCH
-  `!obj.
+Theorem getType_PMATCH:
+   !obj.
      getType obj =
        case obj of
          Type n => return n
-       | _ => failwith (strlit"getType")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getType_def]);
+       | _ => failwith (strlit"getType")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getType_def]
+QED
 
-Theorem getConst_PMATCH
-  `!obj.
+Theorem getConst_PMATCH:
+   !obj.
      getConst obj =
        case obj of
          Const n => return n
-       | _ => failwith (strlit"getConst")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getConst_def]);
+       | _ => failwith (strlit"getConst")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getConst_def]
+QED
 
-Theorem getVar_PMATCH
-  `!obj.
+Theorem getVar_PMATCH:
+   !obj.
      getVar obj =
        case obj of
          Var n => return n
-       | _ => failwith (strlit"getVar")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getVar_def]);
+       | _ => failwith (strlit"getVar")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getVar_def]
+QED
 
-Theorem getTerm_PMATCH
-  `!obj.
+Theorem getTerm_PMATCH:
+   !obj.
      getTerm obj =
        case obj of
          Term n => return n
-       | _ => failwith (strlit"getTerm")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getTerm_def]);
+       | _ => failwith (strlit"getTerm")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getTerm_def]
+QED
 
-Theorem getThm_PMATCH
-  `!obj.
+Theorem getThm_PMATCH:
+   !obj.
      getThm obj =
        case obj of
          Thm n => return n
-       | _ => failwith (strlit"getThm")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getThm_def]);
+       | _ => failwith (strlit"getThm")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [getThm_def]
+QED
 
-Theorem getPair_PMATCH
-  `!obj.
+Theorem getPair_PMATCH:
+   !obj.
      getPair obj =
        case obj of
          List [x;y] => return (x,y)
-       | _ => failwith (strlit"getPair")`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ fs [getPair_def]
-  \\ rpt (PURE_CASE_TAC \\ fs [getPair_def]));
+       | _ => failwith (strlit"getPair")
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ fs [getPair_def]
+  \\ rpt (PURE_CASE_TAC \\ fs [getPair_def])
+QED
 
-Theorem unescape_PMATCH
-  `!str.
+Theorem unescape_PMATCH:
+   !str.
      unescape str =
        case str of
          #"\\":: #"\\" ::cs => #"\\"::unescape cs
        | c1::c::cs    => c1::unescape (c::cs)
-       | cs           => cs`
-  (CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [Once unescape_def]);
+       | cs           => cs
+Proof
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [Once unescape_def]
+QED
 
 val _ = export_theory()

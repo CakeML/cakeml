@@ -22,17 +22,19 @@ val list_rel_perm_help = Q.prove (
   ho_match_mp_tac PERM_IND >>
   rw []);
 
-Theorem list_rel_perm
-  `!r l1 l2 l3 l4.
+Theorem list_rel_perm:
+   !r l1 l2 l3 l4.
     LENGTH l3 = LENGTH l4 ∧
     LIST_REL r l1 l2 ∧
     PERM (ZIP (l1,l2)) (ZIP (l3,l4))
     ⇒
-    LIST_REL r l3 l4`
-  (rw [] >>
+    LIST_REL r l3 l4
+Proof
+  rw [] >>
   drule list_rel_perm_help >>
   imp_res_tac LIST_REL_LENGTH >>
-  rw [MAP_ZIP]);
+  rw [MAP_ZIP]
+QED
 
 val split_list = Q.prove (
   `!l x. x < LENGTH l ⇒ ?l1 l2. x = LENGTH l1 ∧ l = l1++[EL x l]++l2`,
@@ -81,26 +83,30 @@ val perm_swap_help = Q.prove (
   fs [] >>
   rw [FILTER_APPEND]);
 
-Theorem perm_swap
-  `!l x y.
+Theorem perm_swap:
+   !l x y.
     x < LENGTH l ∧ y < LENGTH l
     ⇒
-    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))`
-  (rw [] >>
+    PERM l (LUPDATE (EL x l) y (LUPDATE (EL y l) x l))
+Proof
+  rw [] >>
   `x < y ∨ y < x ∨ x = y` by decide_tac >>
   rw [] >>
-  metis_tac [perm_swap_help, LUPDATE_commutes , PERM_REFL, LUPDATE_SAME]);
+  metis_tac [perm_swap_help, LUPDATE_commutes , PERM_REFL, LUPDATE_SAME]
+QED
 
-Theorem lupdate_zip
-  `!l1 l2 x y n.
+Theorem lupdate_zip:
+   !l1 l2 x y n.
     LENGTH l1 = LENGTH l2 ∧ n < LENGTH l1 ⇒
     LUPDATE (x,y) n (ZIP (l1,l2)) =
-    ZIP (LUPDATE x n l1, LUPDATE y n l2)`
-  (induct_on `n` >>
+    ZIP (LUPDATE x n l1, LUPDATE y n l2)
+Proof
+  induct_on `n` >>
   rw [] >>
   Cases_on `l1` >>
   Cases_on `l2` >>
-  fs [LUPDATE_def]);
+  fs [LUPDATE_def]
+QED
 
 val el_append_length1 = Q.prove (
   `!n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2`,
@@ -109,11 +115,12 @@ val el_append_length1 = Q.prove (
   `PRE (n + SUC (LENGTH l1)) = n + LENGTH l1` by decide_tac >>
   metis_tac []);
 
-Theorem front_zip
-  `!l1 l2.
+Theorem front_zip:
+   !l1 l2.
     l1 ≠ [] ∧ LENGTH l1 = LENGTH l2 ⇒
-    FRONT (ZIP (l1,l2)) = ZIP (FRONT l1, FRONT l2)`
-  (Induct_on `l1` >>
+    FRONT (ZIP (l1,l2)) = ZIP (FRONT l1, FRONT l2)
+Proof
+  Induct_on `l1` >>
   rw [] >>
   Cases_on `l2` >>
   fs [] >>
@@ -121,7 +128,8 @@ Theorem front_zip
   Cases_on `t` >>
   fs [] >>
   first_x_assum (qspec_then `h'''::t''` mp_tac) >>
-  rw []);
+  rw []
+QED
 
 val strict_weak_order_def = Define `
   strict_weak_order r ⇔
@@ -129,24 +137,30 @@ val strict_weak_order_def = Define `
     (!x y. r x y ⇒ ~r y x) ∧
     transitive (\x y. ~r x y ∧ ¬r y x)`;
 
-Theorem strict_weak_order_alt
-  `strict_weak_order r ⇔
+Theorem strict_weak_order_alt:
+   strict_weak_order r ⇔
     (!x y. r x y ⇒ ~r y x) ∧
-    transitive (\x y. ~r y x)`
-  (rw [strict_weak_order_def, transitive_def] >>
-  metis_tac []);
+    transitive (\x y. ~r y x)
+Proof
+  rw [strict_weak_order_def, transitive_def] >>
+  metis_tac []
+QED
 
-Theorem sing_length1
-  `!l. LENGTH l = 1 ⇔ ?x. l = [x]`
-  (Cases >>
-  rw [LENGTH_NIL]);
+Theorem sing_length1:
+   !l. LENGTH l = 1 ⇔ ?x. l = [x]
+Proof
+  Cases >>
+  rw [LENGTH_NIL]
+QED
 
-Theorem length_gt1
-  `!l. LENGTH l > 1 ⇒ ?x y z. l = x::y::z`
-  (Cases >>
+Theorem length_gt1:
+   !l. LENGTH l > 1 ⇒ ?x y z. l = x::y::z
+Proof
+  Cases >>
   rw [] >>
   Cases_on `t` >>
-  fs []);
+  fs []
+QED
 
 (* -- *)
 
@@ -219,8 +233,8 @@ val perm_helper = Q.prove(
   `!a b c. PERM b c ∧ PERM a b ⇒ PERM a c`,
   metis_tac [PERM_SYM, PERM_TRANS]);
 
-Theorem partition_spec
-  `!a ffi_p cmp cmp_v arr_v pivot pivot_v lower_v upper_v elem_vs1 elem_vs2 elem_vs3 elems2.
+Theorem partition_spec:
+   !a ffi_p cmp cmp_v arr_v pivot pivot_v lower_v upper_v elem_vs1 elem_vs2 elem_vs3 elems2.
     strict_weak_order cmp ∧
     (a --> a --> BOOL) cmp cmp_v ∧
     (* We split the array into 3 parts. The second must have elements of type
@@ -245,8 +259,9 @@ Theorem partition_spec
       (POSTv p_v. SEP_EXISTS part1 part2.
         (* The array is still in the heap, with the middle part partitioned. *)
         ARRAY arr_v (elem_vs1 ++ part1 ++ part2 ++ elem_vs3) *
-        &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))`
-  (xcf "partition" (basis_st()) >>
+        &(partition_pred cmp (LENGTH elem_vs1) p_v pivot elems2 elem_vs2 part1 part2))
+Proof
+  xcf "partition" (basis_st()) >>
   qmatch_assum_abbrev_tac `INT (&lower) lower_v` >>
   qmatch_assum_abbrev_tac `INT (&upper) upper_v` >>
   `a pivot pivot_v`
@@ -964,7 +979,8 @@ Theorem partition_spec
     rw [] >>
     metis_tac [strict_weak_order_def])
   >- fs [INT_def, NUM_def]
-  >- metis_tac []);
+  >- metis_tac []
+QED
 
 val quicksort = process_topdecs `
 fun quicksort cmp a =
@@ -992,8 +1008,8 @@ val eq_int_v_thm =
     (DISCH_ALL mlbasicsProgTheory.eq_v_thm)
     (ml_translatorTheory.EqualityType_NUM_BOOL |> CONJUNCT2 |> CONJUNCT1)
 
-Theorem quicksort_spec
-  `!ffi_p cmp cmp_v arr_v elem_vs elems.
+Theorem quicksort_spec:
+   !ffi_p cmp cmp_v arr_v elem_vs elems.
     strict_weak_order cmp ∧
     (a --> a --> BOOL) cmp cmp_v ∧
     (* The elements of the array are all of "semantic type" a *)
@@ -1015,8 +1031,9 @@ Theorem quicksort_spec
               LIST_REL a elems' elem_vs' ∧
               PERM (ZIP (elems',elem_vs')) (ZIP (elems,elem_vs)) ∧
               (* We use "not greater than" as equivalent to "less or equal" *)
-              SORTED (\x y. ¬(cmp y x)) elems'))`
-  (xcf "quicksort" (basis_st()) >>
+              SORTED (\x y. ¬(cmp y x)) elems'))
+Proof
+  xcf "quicksort" (basis_st()) >>
   (* The loop invariant for the main loop. Note that we have to quantify over
    * what's in the array because it changes on the recursive calls. *)
   xfun_spec `quicksort_help`
@@ -1186,6 +1203,7 @@ Theorem quicksort_spec
   rw [] >>
   irule list_rel_perm >>
   rw [] >>
-  metis_tac [PERM_SYM]);
+  metis_tac [PERM_SYM]
+QED
 
 val _ = export_theory ();

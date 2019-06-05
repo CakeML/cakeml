@@ -743,15 +743,17 @@ val PEG_exprs = save_thm(
           pred_setTheory.INSERT_UNION_EQ
          ])
 
-Theorem PEG_wellformed
-  `wfG cmlPEG`
-  (simp[wfG_def, Gexprs_def, subexprs_def,
+Theorem PEG_wellformed:
+   wfG cmlPEG
+Proof
+  simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
        peg_V_def, peg_EbaseParen_def,
        peg_longV_def, peg_StructName_def] >>
-  simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
+  simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
+QED
 val _ = export_rewrites ["PEG_wellformed"]
 
 val parse_TopLevelDecs_total = save_thm(
