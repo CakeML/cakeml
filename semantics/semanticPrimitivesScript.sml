@@ -585,74 +585,69 @@ val _ = Hol_datatype `
 
 val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_state``);
 
-(* get_ffi_arg “:α store_v list -> c_type -> v -> c_value option” *)
-(*  can I change this name to get_carg? *)
+(* get_carg_sem “:α store_v list -> c_type -> v -> c_value option” *)
 
 val _ = Define `
-   (get_ffi_arg _ (C_array conf) (Litv(StrLit s)) =
+   (get_carg_sem _ (C_array conf) (Litv(StrLit s)) =
     if conf.mutable then
       NONE
     else
       SOME (C_arrayv(MAP (\ c .  n2w(ORD c)) (EXPLODE s))))
-/\ (get_ffi_arg st (C_array conf) (Loc lnum) =
+/\ (get_carg_sem st (C_array conf) (Loc lnum) =
     if conf.mutable then
       (case store_lookup lnum st of
          | SOME (W8array ws) => SOME(C_arrayv ws)
          | _ => NONE)
     else NONE)
-/\ (get_ffi_arg _ C_bool v =
+/\ (get_carg_sem _ C_bool v =
     if v = Boolv T then
       SOME(C_primv(C_boolv T))
     else if v = Boolv F then
       SOME(C_primv(C_boolv F))
     else NONE)
-/\ (get_ffi_arg _ C_int (Litv(IntLit n)) =
+/\ (get_carg_sem _ C_int (Litv(IntLit n)) =
     SOME(C_primv(C_intv n)))
-/\ (get_ffi_arg _ _ _ = NONE)`
+/\ (get_carg_sem _ _ _ = NONE)`
 
-
-(*  can I change this name to get_cargs? *)
-(* is the last clause correct? *)
 
 val _ = Define
-  `(get_ffi_args s [] [] = SOME [])
-/\ (get_ffi_args s (ty::tys) (arg::args) =
-    OPTION_MAP2 CONS (get_ffi_arg s ty arg) (get_ffi_args s tys args))
-/\ (get_ffi_args _ _ _ = NONE)
+  `(get_cargs_sem s [] [] = SOME [])
+/\ (get_cargs_sem s (ty::tys) (arg::args) =
+    OPTION_MAP2 CONS (get_carg_sem s ty arg) (get_cargs_sem s tys args))
+/\ (get_cargs_sem _ _ _ = NONE)
 `
 
 
-(*  “:c_type list -> v list -> (num # c_type # v) list” *)
+(*  “:'a list -> 'b list -> (num # 'a # 'b) list” *)
 val _ = Define  `
   loc_typ_val  cts vs = MAPi $, (ZIP(cts,vs))
-` 
+`
 
 
 (*  “:(α # c_type # v) list -> c_type -> v -> α list” *)
 
-(*TOASK: should we add the last two gaurd cases? *)
 val _ = Define `
-  (aliased_list [] _ _ = []) /\ 
-  (aliased_list ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) = 
-          if conf.mutable /\  conf'.mutable /\ (lc = lc') 
-          then id::aliased_list prl (C_array conf) (Loc lc)
-          else aliased_list prl (C_array conf) (Loc lc)) /\
-  (aliased_list _ (C_bool) _ = []) /\ 
-  (aliased_list _ (C_int)  _ = [])
+  (als_lst_sem [] _ _ = []) /\
+  (als_lst_sem  ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) =
+          if conf.mutable /\  conf'.mutable /\ (lc = lc')
+          then id::als_lst_sem prl (C_array conf) (Loc lc)
+          else als_lst_sem  prl (C_array conf) (Loc lc)) /\
+  (als_lst_sem  _ (C_bool) _ = []) /\
+  (als_lst_sem  _ (C_int)  _ = [])
 `
 
 
 val _ = Define `
-  aliased_list' (idx, ct, v) prl =
-    case ct of C_array conf => if conf.mutable 
-                               then (case v of Loc lc => idx :: aliased_list prl ct v 
-					     | _ => [])
+  als_lst'_sem  (idx, ct, v) prl =
+    case ct of C_array conf => if conf.mutable
+                               then (case v of Loc lc => idx :: als_lst_sem prl ct v
+                                             | _ => [])
                                else []
-	    | _ => []  
+            | _ => []
 `
 
 val _ = Define `
-  matched_num_pr_lst n prs = FILTER ($= n o FST) prs 
+  matched_num_pr_lst n prs = FILTER ($= n o FST) prs
 `
 
 
@@ -661,7 +656,7 @@ val _ = Define `
   (matched_loc _ [] = []) /\
   (matched_loc (n::ns) prl = if  IS_EL n (MAP FST prl)
                              then matched_num_pr_lst n prl ++ matched_loc (ns) prl
-			     else matched_loc ns prl ) 
+                             else matched_loc ns prl )
 `
 
 
@@ -670,8 +665,8 @@ val _ = Define `
 `
 
 
-(*  type: num list -> (num#c_type#val) list -> (num#c_type#val) list *)
-(*  take the first element of all pairs, then remove the matcing numbers of the num list 
+(*  type: 'a list -> ('a # 'b) list -> ('a # 'b) list *)
+(*  take the first element of all pairs, then remove the matcing numbers of the num list
     from the pair list*)
 
 val _ = Define `
@@ -680,11 +675,11 @@ val _ = Define `
 
 
 
-val _ = tDefine "aliased_args"
+val _ = tDefine "als_args_sem"
   `
-  (aliased_args [] = []) /\
-  (aliased_args (pr::prs) = 
-    aliased_list' pr prs :: aliased_args (remove_loc (aliased_list' pr prs) prs))
+  (als_args_sem [] = []) /\
+  (als_args_sem (pr::prs) =
+    als_lst'_sem pr prs :: als_args_sem (remove_loc (als_lst'_sem pr prs) prs))
   `
   (WF_REL_TAC `inv_image $< LENGTH` >>
    rw[fetch "-" "remove_loc_def",fetch "-" "list_minus_def",arithmeticTheory.LESS_EQ,
@@ -694,43 +689,9 @@ val _ = Define `
   emp_filt nll = FILTER (\nl. ~(nl = [])) nll
 `
 
-
-
-
 val _ = Define `
-  (aliased_args_final prl  = emp_filt (aliased_args prl))
+  (als_args_final_sem prl  = emp_filt (als_args_sem prl))
 `
-
-
-
-(* assign_ffi_arg  “:c_type -> word8 list -> v -> α store_v list -> α store_v list option”  *)
-(*  can I change this name to get_arg? *)
-
-val _ = Define `
-   (assign_ffi_arg (C_array conf) ws (Loc lnum) s =
-    if conf.mutable then
-      store_assign lnum (W8array ws) s
-    else
-      NONE)
-/\ (assign_ffi_arg _ _ _ s = SOME s)`
-
-
-
-
-
-(*  assign_ffi_args  “:c_type list ->
-    word8 list list ->
-    v list -> α store_v list option -> α store_v list option” *)
-(*  can I change this name to get_args? *)
-
-val _ = Define
-  `(assign_ffi_args [] [] [] s = s)
-
-/\ (assign_ffi_args (ty::tys) (carg::cargs) (arg::args) s =
-    assign_ffi_args tys cargs args (OPTION_BIND s (assign_ffi_arg ty carg arg)))
-
-/\ (assign_ffi_args _ _ _ _ = NONE)
-  `
 
 (* get_ret_val ::c_primv option -> v *)
 
@@ -741,23 +702,86 @@ val _ = Define
 
 /\ (get_ret_val _ = Conv NONE [])
   `
-(*  “:c_funsig -> α list -> α list” *)
 
 val _ = Define
 `get_mut_args sign cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(sign.args,cargs)))
 `
+
+
+(*  “:c_funsig -> α list -> α list” *)
+
+(*
+(* assign_ffi_arg  “:c_type -> word8 list -> v -> α store_v list -> α store_v list option”  *)
+
+val _ = Define `
+   (assign_ffi_arg (C_array conf) ws (Loc lnum) s =
+    if conf.mutable then
+      store_assign lnum (W8array ws) s
+    else
+      NONE)
+/\ (assign_ffi_arg _ _ _ s = SOME s)`
+
+
+(*  assign_ffi_args  “:c_type list ->
+    word8 list list ->
+    v list -> α store_v list option -> α store_v list option” *)
+
+val _ = Define
+  `(assign_ffi_args [] [] [] s = s)
+
+/\ (assign_ffi_args (ty::tys) (carg::cargs) (arg::args) s =
+    assign_ffi_args tys cargs args (OPTION_BIND s (assign_ffi_arg ty carg arg)))
+
+/\ (assign_ffi_args _ _ _ _ = NONE)
+  `
+*)
+
+
+val _ = Define `
+   (store_carg_sem (Loc lnum) ws s = THE (store_assign lnum (W8array ws) s)) (* to-ask *)
+/\ (store_carg_sem  _ _ s = s)`
+
+
+val _ = Define
+  `(store_cargs_sem [] [] s = s)
+
+/\ (store_cargs_sem (marg::margs) (w::ws) s =
+    store_cargs_sem margs ws (store_carg_sem marg w s))
+
+/\ (store_cargs_sem _ _ s = s)
+  `
+
+
 (*   “:α store_v list ->
     β ffi_state ->
     string ->
     v list -> ((α store_v list # β ffi_state) # (v, γ) result) option” *)
 
+
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) t.signatures of
      SOME sign =>
-     (case get_ffi_args (* get_cargs *) s sign.args args of
+     (case get_cargs_sem s sign.args args of
           SOME cargs =>
-           (case call_FFI t n cargs (aliased_args_final (loc_typ_val sign.args args)) of 
+           (case call_FFI t n cargs (als_args_final_sem (loc_typ_val sign.args args)) of
+              FFI_return t' newargs retv =>
+                if ret_ok sign.retty retv then
+                    SOME (((store_cargs_sem (get_mut_args sign args) newargs s), t'), Rval (get_ret_val retv))
+                   else NONE
+            | FFI_final outcome =>
+              SOME ((s, t), Rerr (Rabort (Rffi_error outcome))))
+        | NONE => NONE)
+   | NONE => NONE
+  `
+(*
+val _ = Define
+  `do_ffi s t n args =
+   case FIND (λx. x.mlname = n) t.signatures of
+     SOME sign =>
+     (case get_cargs_sem s sign.args args of
+          SOME cargs =>
+           (case call_FFI t n cargs (als_args_final_sem (loc_typ_val sign.args args)) of
               FFI_return t' newargs retv =>
                 (case assign_ffi_args sign.args newargs (get_mut_args sign args) (SOME s) of
                    NONE => NONE
@@ -770,8 +794,9 @@ val _ = Define
         | NONE => NONE)
    | NONE => NONE
   `
+*)
 
-(*  
+(*
 do_app :: v store_v list # α ffi_state ->
     op -> v list -> ((v store_v list # α ffi_state) # (v, v) result) option”
 *)
@@ -1036,7 +1061,7 @@ val _ = Define `
 
 
 
-(*  
+(*
 its a pair type
 do_app :: v store_v list # α ffi_state ->
     op -> v list -> ((v store_v list # α ffi_state) # (v, v) result) option”
@@ -1074,7 +1099,7 @@ val _ = Define `
 val _ = Define `
  ((build_constrs:num ->(string#'a list)list ->(string#(num#stamp))list) stamp condefs=
    (MAP
-    (\ (conN, ts) . 
+    (\ (conN, ts) .
       (conN, (LENGTH ts, TypeStamp conN stamp)))
     condefs))`;
 
@@ -1093,7 +1118,7 @@ val _ = Define `
 (*val check_dup_ctors : list tvarN * typeN * list (conN * list ast_t) -> bool*)
 val _ = Define `
  ((check_dup_ctors:(tvarN)list#string#(string#(ast_t)list)list -> bool) (tvs, tn, condefs)=
-   (ALL_DISTINCT (let x2 = 
+   (ALL_DISTINCT (let x2 =
   ([]) in  FOLDR (\(n, ts) x2 .  if T then n :: x2 else x2) x2 condefs)))`;
 
 
@@ -1152,4 +1177,3 @@ let no_dup_top_types tops defined_types =
   disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) defined_types
   *)
 val _ = export_theory()
-
