@@ -25,6 +25,17 @@ Proof
   \\ RES_TAC \\ DECIDE_TAC
 QED
 
+
+(* introducing a new datatype is not a very good idea *)
+
+(*
+val _ = Datatype `
+  fval_typ = Bl bool
+           | In int
+           | PtrLen (num # num)
+           | Ptr num`;
+*)
+
 val _ = Datatype `
   prog = Skip
        | Move num ((num # num) list)
@@ -51,7 +62,8 @@ val _ = Datatype `
                                       data buffer start, length of new data, cut-set *)
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
-       | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *) `;
+       | FFI string (num list) num_set (* num_set? *)
+      (* | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)*) `;
 
 val raise_stub_location_def = Define`
   raise_stub_location = word_num_stubs - 1`;
@@ -108,6 +120,18 @@ val every_name_def = Define`
   every_name P t ⇔
   EVERY P (MAP FST (toAList t))`
 
+(*
+val fval_num_lst = Define `
+  (fval_num_lst [] = []) /\
+  (fval_num_lst (h::tl) = case h of PtrLen np => [FST np; SND np] ++ fval_num_lst tl
+                                | _ => fval_num_lst tl)
+`
+*)
+
+val P_num_lst = Define `
+  P_num_lst P l = EVERY (\x.x) (MAP P l)
+`
+
 val every_var_def = Define `
   (every_var P (Skip:'a prog) ⇔ T) ∧
   (every_var P (Move pri ls) = (EVERY P (MAP FST ls) ∧ EVERY P (MAP SND ls))) ∧
@@ -119,8 +143,10 @@ val every_var_def = Define `
   (every_var P (Install r1 r2 r3 r4 names) = (P r1 ∧ P r2 ∧ P r3 ∧ P r4 ∧ every_name P names)) ∧
   (every_var P (CodeBufferWrite r1 r2) = (P r1 ∧ P r2)) ∧
   (every_var P (DataBufferWrite r1 r2) = (P r1 ∧ P r2)) ∧
-  (every_var P (FFI ffi_index cptr clen ptr len names) =
-    (P cptr ∧ P clen ∧ P ptr ∧ P len ∧ every_name P names)) ∧
+  (every_var P (FFI ffi_index fval names) =
+    (P_num_lst P fval /\ every_name P names)) /\
+(*(every_var P (FFI ffi_index cptr clen ptr len names) =
+    (P cptr ∧ P clen ∧ P ptr ∧ P len ∧ every_name P names)) ∧ *)
   (every_var P (MustTerminate s1) = every_var P s1) ∧
   (every_var P (Call ret dest args h) =
     ((EVERY P args) ∧
@@ -147,8 +173,10 @@ val every_var_def = Define `
 
 (*Recursor for stack variables*)
 val every_stack_var_def = Define `
-  (every_stack_var P (FFI ffi_index cptr clen ptr len names) =
+  (every_stack_var P (FFI ffi_index fval names) =
     every_name P names) ∧
+(*(every_stack_var P (FFI ffi_index cptr clen ptr len names) =
+    every_name P names) ∧*)
   (every_stack_var P (Install _ _ _ _ names) =
     every_name P names) ∧
   (every_stack_var P (Call ret dest args h) =
@@ -242,8 +270,10 @@ val max_var_def = Define `
     MAX r1 r2) ∧
   (max_var (DataBufferWrite r1 r2) =
     MAX r1 r2) ∧
-  (max_var (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
-    list_max (ptr1::len1::ptr2::len2::MAP FST (toAList numset))) ∧
+  (max_var (FFI ffi_index fval numset) =
+    list_max (fval++MAP FST (toAList numset))) ∧
+(*(max_var (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
+    list_max (ptr1::len1::ptr2::len2::MAP FST (toAList numset))) ∧ *)
   (max_var (Raise num) = num) ∧
   (max_var (Return num1 num2) = MAX num1 num2) ∧
   (max_var Tick = 0) ∧

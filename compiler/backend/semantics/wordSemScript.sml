@@ -32,12 +32,13 @@ val buffer_write_def = Define`
     else NONE`;
 
 val _ = Datatype `
-  word_loc = Word ('a word) | Loc num num `;
+  word_loc = Word ('a word) (* data *)| Loc num num (* code pointer *)`;
 
 
 val is_fwd_ptr_def = Define `
   (is_fwd_ptr (Word w) = ((w && 3w) = 0w)) /\
   (is_fwd_ptr _ = F)`;
+
 
 val theWord_def = Define `
   theWord (Word w) = w`
@@ -637,6 +638,229 @@ val MustTerminate_limit_def = zDefine `
     dimword (:'a) ** dimword (:'a) +
     dimword (:'a) ** dimword (:'a) ** dimword (:'a)`;
 
+
+
+
+(*  
+val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
+val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
+*)
+
+
+val len_args = Define `
+   (len_args [] _ = []) 
+/\ (len_args (ty::tys) (n::ns) = case ty of 
+			      | C_array conf => if conf.with_length then  
+                                                SOME (HD ns) :: len_args tys (TL ns)
+                                                else NONE :: len_args tys ns
+			      | _ => NONE :: len_args tys ns)
+`
+val len_filter = Define `
+  (len_filter [] _ = [])
+/\
+  (len_filter (ty::tys) (n::ns)  = case ty of 
+				     | (C_array conf) => if conf.with_length then n :: len_filter tys (TL ns)
+                                                         else n :: len_filter tys ns
+				     | _ =>  n :: len_filter tys ns)
+`
+
+val get_carg_word_def = Define `
+  (get_carg_word s names (C_array conf) n (SOME n') = (* with_length *)
+    if conf.mutable then
+      (case (get_var n s, get_var n' s) of 
+          | SOME (Word w),SOME (Word w') => 
+      (case cut_env names s.locals of
+      | NONE => NONE (* (SOME Error,s) *)
+      | SOME env =>
+        (case (read_bytearray w (w2n w') (mem_load_byte_aux s.memory s.mdomain s.be))
+               of
+                       | SOME bytes => SOME(C_arrayv bytes)
+		       | NONE => NONE))
+           | res => NONE)
+    else NONE)
+
+/\  (get_carg_word s names (C_array conf) n NONE = (* fixed-length *)
+    if conf.mutable then
+      (case (get_var n s) of 
+          | SOME (Word w) => 
+      (case cut_env names s.locals of
+      | NONE => NONE (* (SOME Error,s) *)
+      | SOME env =>
+        (case (read_bytearray w 8 (*read until null terminator*) (mem_load_byte_aux s.memory s.mdomain s.be))
+               of
+                       | SOME bytes => SOME(C_arrayv bytes)
+		       | NONE => NONE))
+           | res => NONE)
+    else NONE) 
+
+/\ (get_carg_word s  _ C_bool n NONE =
+    case get_var n s of 
+      | SOME (Word w) =>  if w = n2w 2 then
+      SOME(C_primv(C_boolv T))
+    else if w = n2w 18 then
+      SOME(C_primv(C_boolv F))
+    else NONE
+      | _ => NONE)
+/\ (get_carg_word s  _ C_int n NONE =
+    case get_var n s of 
+      | SOME (Word w) => if word_lsb w then NONE (* big num *)
+                         else SOME(C_primv(C_intv (w2i (w >>2))))
+      | _ => NONE)
+/\ (get_carg_word _ _ _ _ _ = NONE)`
+
+
+
+val get_cargs_word_def = Define
+  `(get_cargs_word s names [] [] [] = SOME [])
+/\ (get_cargs_word s names (ty::tys) (arg::args) (len::lens) =
+    OPTION_MAP2 CONS (get_carg_word s names ty arg len) (get_cargs_word s names tys args lens))
+/\ (get_cargs_word _ _ _ _ _ = NONE)
+`
+
+
+
+val store_carg_word_def = Define `
+   (store_carg_word (C_array conf) vs w s =
+    if conf.mutable then 
+        SOME (s with <| memory := write_bytearray w vs s.memory s.mdomain s.be |>)
+    else NONE)
+/\ (store_carg_word _ _ _ s = SOME s)`
+
+
+
+val store_cargs_word_def = Define`
+   (store_cargs_word [] [] [] st = st)
+/\ (store_cargs_word (ty::tys) (v::vs) (w::ws) st =
+    store_cargs_word tys vs ws (OPTION_BIND st (store_carg_word ty v w)))
+/\ (store_cargs_word _ _ _ _ = NONE)
+`
+
+
+(* do we have to check lengths here, I think no, because cakeML will make sure  *)
+val als_lst_word_def = Define `
+  (als_lst_word ([]:('s # c_type # 'a word) list)  _ _ = []) /\
+  (als_lst_word ((id, (C_array conf'), w')::prl) (C_array conf) w =
+          if conf.mutable /\  conf'.mutable /\ (w = w')
+          then id::als_lst_word prl (C_array conf) w
+          else als_lst_word prl (C_array conf) w) /\
+  (als_lst_word _ (C_bool) _ = []) /\
+  (als_lst_word _ (C_int)  _ = [])
+`
+
+
+val als_lst'_word_def = Define `
+  als_lst'_word (idx, ct, w) prl =
+    case ct of C_array conf => if conf.mutable
+                               then idx :: als_lst_word prl ct w
+                               else []
+            | _ => []
+`
+
+val matched_num_pr_lst_def = Define `
+  matched_num_pr_lst n prs = FILTER ($= n o FST) prs 
+`
+
+
+val matched_loc_def = Define `
+  (matched_loc [] _ = []) /\
+  (matched_loc _ [] = []) /\
+  (matched_loc (n::ns) prl = if  IS_EL n (MAP FST prl)
+                             then matched_num_pr_lst n prl ++ matched_loc (ns) prl
+			     else matched_loc ns prl) 
+`
+val list_minus_def  = Define `
+  list_minus ms ns = FILTER (λ e. ~(MEM e ns)) ms
+`
+val remove_loc_def = Define `
+  remove_loc nl prl = list_minus prl (matched_loc nl prl)
+`
+
+
+val als_args_word_def = tDefine "als_args_word"
+  `
+  (als_args_word [] = []) /\
+  (als_args_word (pr::prs) =
+    als_lst'_word pr prs :: als_args_word (remove_loc (als_lst'_word pr prs) prs))
+  `
+  (WF_REL_TAC `inv_image $< LENGTH` >>
+   rw[remove_loc_def,list_minus_def,arithmeticTheory.LESS_EQ,
+      rich_listTheory.LENGTH_FILTER_LEQ])
+
+
+val emp_filt_def = Define `
+  emp_filt nll = FILTER (\nl. ~(nl = [])) nll
+`
+
+val als_args_final_word_def = Define `
+  (als_args_final_word prl  = emp_filt (als_args_word prl))
+`
+
+val get_mut_args_def = Define
+`get_mut_args sign cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(sign.args,cargs)))
+`
+
+val _ = Define  `
+  loc_typ_val  cts vs = MAPi $, (ZIP(cts,vs))
+`
+
+
+
+(* have to update *)
+val ret_val_word_def = Define
+`(ret_val_word (SOME(C_boolv b)) = if b then ARB else ARB)
+/\ (ret_val_word (SOME(C_intv i)) = ARB) (* add as a word  *)
+/\ (ret_val_word _ = Unit) (* void constructor representation *)
+  `
+
+val evaluate_ffi_def = Define `
+  evaluate_ffi_def t ffi_index ns names =
+   case FIND (\x.x.mlname = ffi_index) t.ffi.signatures of 
+     | SOME sign =>
+     (case get_cargs_word t names sign.args (len_filter sign.args ns) (len_arg ns) of
+          SOME cargs =>
+           (case call_FFI t.ffi ffi_index cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args ns))) of
+            FFI_return t' vs retv =>
+               (case store_cargs_word sign.args vs (get_mut_args sign (len_filter sign.args ns)) t' of
+                   NONE => (SOME Error,t)
+                 | SOME t''  =>
+                   if ret_ok sign.retty retv then (* how to output the return values  *)
+                        (NONE, t'' with <|locals := env ;
+                                   ffi := new_ffi |>)
+                   else (SOME Error,t))
+                  | FFI_final outcome => (SOME (FinalFFI outcome),
+                                      call_env [] t with stack := []))
+	  | NONE => (SOME Error,t))
+       | NONE => (SOME Error,t)
+  `
+
+            
+
+(*(evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
+    case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
+    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
+      (case cut_env names s.locals of
+      | NONE => (SOME Error,s)
+      | SOME env =>
+        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
+               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
+               of
+          | SOME bytes,SOME bytes2 =>
+             (case call_FFI s.ffi ffi_index bytes bytes2 of
+              | FFI_final outcome => (SOME (FinalFFI outcome),
+                                      call_env [] s with stack := [])
+              | FFI_return new_ffi new_bytes =>
+                let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
+                  (NONE, s with <| memory := new_m ;
+                                   locals := env ;
+                                   ffi := new_ffi |>))
+          | _ => (SOME Error,s)))
+    | res => (SOME Error,s)) /\ *)
+
+
+
+
+
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
@@ -752,7 +976,10 @@ val evaluate_def = tDefine "evaluate" `
             (NONE,s with data_buffer:=new_db)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))) /\
-  (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
+
+  (evaluate (FFI ffi_index fval names,s) = ARB) /\
+
+(*(evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
     case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
       (case cut_env names s.locals of
@@ -771,7 +998,7 @@ val evaluate_def = tDefine "evaluate" `
                                    locals := env ;
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s)))
-    | res => (SOME Error,s)) /\
+    | res => (SOME Error,s)) /\ *)
   (evaluate (Call ret dest args handler,s) =
     case get_vars args s of
     | NONE => (SOME Error,s)
