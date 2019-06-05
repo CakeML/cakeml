@@ -22,7 +22,7 @@ val _ = new_theory "ffi"
 val _ = Hol_datatype `
  c_primv = C_boolv of bool | C_intv of int`;
 
-(* configuration of byte array arguments, mutable/immutable and with_length: information for C-code  *)
+
 
 val _ = Hol_datatype `
 c_array_conf =
@@ -30,11 +30,11 @@ c_array_conf =
  ; with_length : bool
  |>`
 
-(* supported c_types as the input/output arguments *)
+(* C types for input/output arguments *)
 val _ = Hol_datatype `
  c_type = C_bool | C_int | C_array of c_array_conf`;
 
-(* supported values for c_types *)
+(* C values *)
 val _ = Hol_datatype `
  c_value = C_primv of c_primv | C_arrayv of word8 list`;
 
@@ -42,8 +42,8 @@ val _ = Hol_datatype `
 c_funsig =
 <| mlname      : string
  ; cname       : string
- ; retty       : c_type option (* None represents unit *)
- ; args        : c_type list   (* list of the arguments *)
+ ; retty       : c_type option (* NONE represents unit *)
+ ; args        : c_type list  
 |>`
 
 (*  arg_ok :: "c_type ⇒ c_value ⇒ bool" *)
@@ -55,19 +55,16 @@ val _ = Define `arg_ok t v =
 `
 
 (*   args_ok :: "c_funsig ⇒ c_value list ⇒ bool" *)
-(* values should be passed in sequence of their signature *)
+(* args to be passed in the signature's sequence *)
 
 val _ = Define `args_ok sig args = LIST_REL arg_ok sig.args args`
 
 (* ret_ok :: "c_type option ⇒ c_value option ⇒ bool" *)
-(*  only about the primitive c types *)
 val _ = Define `ret_ok t v =
  ((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T)`
 
 
-
-
-(* c_type list  -> (num#c_type) list*)
+(* 'a list  -> (num # 'a) list *)
 
 val _ = Define `
   loc_typ ctl = MAPi $, ctl
@@ -86,7 +83,7 @@ val _ = Define `
 			 | _ =>   mut_tag_retr (btl::btls) icts) 
 `
 
-(* (num#byte list) list -> num list -> (num#byte list) list *)
+(* ('a # 'b list) list -> 'a list -> ('a # 'b list) list *)
 val _ = Define `
   (match_cargs btl [] = []) /\
   (match_cargs btl (n::ns) = FILTER (\x. FST x = n) btl ++ match_cargs btl ns)
@@ -97,7 +94,7 @@ val _ = Define `
 val _ = Define `
   ident_elems l = if CARD (set l) = 1 then T else F 
 `
-(* c_type list -> byte list list -> num list -> byte list list  *)
+(* c_type list -> 'a list -> num list -> 'a list  *)
 val _ = Define `
   als_vals ctl btl als = MAP (\x. SND x) (match_cargs (mut_tag_retr btl (loc_typ ctl)) als) 
 `
@@ -119,7 +116,7 @@ val is_mutty = Define `
   (case ty of C_array c => c.mutable
    | _ => F)
  `
-(* given lists of types and values, mutargs returns the list of mutable array-values only *)
+
 val _ = Define `(mutargs [] _ = [])
  /\ (mutargs _ [] = [])
  /\ (mutargs (ty::tys) (v::vs) =
@@ -141,9 +138,7 @@ val _ = Hol_datatype `
 
 
 
-
-
-(* reinstating num list list because we want to treat aliasing *)
+(* reinstating num list list to treat aliasing *)
 val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> c_value list -> num list list -> 'ffi oracle_result``);
 val _ = type_abbrev((*  'ffi *) "oracle" , ``: string -> 'ffi oracle_function``);
 
