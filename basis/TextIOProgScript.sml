@@ -314,18 +314,21 @@ val _ = (append_prog o process_topdecs)`
      end`;
 
 val _ = (append_prog o process_topdecs)`
+ fun b_input1_aux is =
+   case is of InstreamBuffered fd rref wref surplus =>
+          if (!wref) = (!rref) then None
+          else
+            let val readat = (!rref) in
+              rref := (!rref) + 1;
+              Some (Char.chr (Word8.toInt (Word8Array.sub surplus readat)))
+            end`;
+
+val _ = (append_prog o process_topdecs)`
   fun b_input1 is =
     case is of InstreamBuffered fd rref wref surplus =>
-         (*Fill upp buffer if needed*)
-        ((if (!wref) = (!rref)
-        then (b_refillBuffer_with_read is; ())
-        else ());
-        if (!wref) = 4 then None
-        else
-          let val readat = (!rref) in
-            rref := (!rref) + 1;
-            Some (Char.chr (Word8.toInt (Word8Array.sub surplus readat)))
-          end)`;
+        if (!wref) = (!rref)
+        then (b_refillBuffer_with_read is; b_input1_aux is)
+        else b_input1_aux is`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputUntil_aux is chr =
