@@ -158,7 +158,7 @@ Defn.tgoal dijkstra_step_defn;
 
 val (dijkstra_step_def, dijkstra_step_ind) =
   Defn.tprove (dijkstra_step_defn,
-	       cheat)
+               cheat)
 ;
 
 val dijkstra_def = Define `
