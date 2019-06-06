@@ -2396,17 +2396,17 @@ Theorem b_input1_spec
     (POSTv chv. SEP_EXISTS len.
       case bactive of
         [] =>
-          (case eof fd fs of
-            SOME F =>
+          (case take_fromI_n2w2c_def len content pos of
+            (c::cs) =>
               &OPTION_TYPE CHAR (SOME (EL pos content)) chv *
               INSTREAM_BUFFERED_FD
                 (DROP 1 (take_fromI_n2w2c_def len content pos)) fd is *
-              IOFS_WO_iobuff (bumpFD fd fs len)
-            |SOME T =>
+              IOFS_WO_iobuff (bumpFD fd fs
+                  (LENGTH ((take_fromI_n2w2c_def len content pos))))
+            |[] =>
               &OPTION_TYPE CHAR NONE chv *
               INSTREAM_BUFFERED_FD [] fd is *
-              IOFS_WO_iobuff fs
-            |_ => &F)
+              IOFS_WO_iobuff fs)
         | (c::cs) =>
           &OPTION_TYPE CHAR (chr c) chv *
           INSTREAM_BUFFERED_FD cs fd is *
@@ -2415,10 +2415,9 @@ Theorem b_input1_spec
     \\ simp[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
     \\ xpull
     \\ xmatch
-    \\ xfun `f`
     \\ xlet_auto >- xsimpl
     \\ xlet_auto >- xsimpl
-    \\ xlet `POSTv bool. & (BOOL (v' = v) bool) * IOFS_WO_iobuff fs
+    \\ xlet `POSTv bv. & (BOOL (w = r) bv) * IOFS_WO_iobuff fs
               * INSTREAM_BUFFERED_FD bactive fd is`
       >- ( xapp_spec eq_num_v_thm
         \\ xsimpl
@@ -2441,53 +2440,21 @@ Theorem b_input1_spec
         \\map_every qexists_tac [`w'`,`r'`] \\ xsimpl
         \\rpt strip_tac \\qexists_tac `x` \\ simp[GSYM take_fromI_def]
         \\simp[GSYM take_fromI_n2w2c_def] \\ xsimpl)
-      \\xlet_auto
+      \\simp[INSTREAM_BUFFERED_FD_def, REF_NUM_def] \\ xpull
+      \\xapp \\ xsimpl
       \\xcon \\ xsimpl \\simp[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
-      \\xpull \\ xapp \\ xsimpl
-      \\qexists_tac
-          `INSTREAM_BUFFERED_FD (take_fromI_n2w2c len content pos) fd is`
-      \\CONV_TAC (RESORT_EXISTS_CONV List.rev)
-      \\qexists_tac
-          `POSTv chv.
-              &OPTION_TYPE CHAR (SOME (TAKE 1 (take_fromI_n2w2c len content pos))) chv *
-              INSTREAM_BUFFERED_FD (DROP 1 (take_fromI_n2w2c len content pos)) fd is`
+      \\xpull \\ xapp \\ xsimpl \\ CONV_TAC (RESORT_EXISTS_CONV List.rev)
+      \\map_every qexists_tac [`take_fromI_n2w2c len content pos`, `fd`]
+      \\simp[INSTREAM_BUFFERED_FD_def, REF_NUM_def] \\ xsimpl \\fs[PULL_EXISTS]
+      \\asm_exists_tac \\ xsimpl \\ rpt strip_tac \\ qexists_tac `len`
+      \\fs[take_fromI_n2w2c_def, take_fromI_def, instream_buffered_inv_def]
+      \\CASE_TAC
+      >-(CASE_TAC
+        >-(CASE_TAC
+          >-(xsimpl \\ rpt strip_tac \\ fs[DROP_NIL, LENGTH_TAKE, LENGTH_DROP]
+          >-()))
 
-    >-()
 
-
-    \\xlet `POSTv _. IOFS_WO_iobuff fs * INSTREAM_BUFFERED_FD bactive fd is`
-    \\ xif
-      >- (
-        xlet `POSTv nfv. SEP_EXISTS nfilled. & (NUM nfilled nfv) * IOFS_WO_iobuff (fsupdate fs fd 0 nfilled content)
-              * INSTREAM_BUFFERED_FD bactive fd is`
-        >- ( simp[REF_NUM_def,INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def]
-          \\ xpull
-          \\ xapp
-          \\ asm_exists_tac
-          \\ xsimpl
-          \\ qexists_tac `emp` \\ qexists_tac `bactive`
-          (* \\ qexists_tac `& T * REF_NUM rr r * REF_NUM wr w * W8ARRAY buff bcontent` *)
-          (* \\ map_every qexists_tac [`pos` , `content`, `bactive`] *)
-          (* \\ simp[Once INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def] *)
-          \\ simp[REF_NUM_def,INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def]
-          \\ fs[REF_NUM_def,INSTREAM_BUFFERED_FD_def, instream_buffered_inv_def]
-          \\ xsimpl
-          (* \\ rpt strip_tac *)
-          (* \\ qexists_tac `x` *)
-          \\ conj_tac
-            >- (qexists_tac `r'` \\ qexists_tac `w'`
-              \\ xsimpl)
-    (* \\ map_every qexists_tac [`x` , `bactive`] *)
-    \\ rpt strip_tac
-    \\ xsimpl
-    \\ asm_exists_tac \\ simp[]
-    \\ qexists_tac `r'` \\ qexists_tac `w'` *)
-    \\ qexists_tac `bcontent'`
-    \\ qexists_tac `v''` \\ qexists_tac `v'3'`
-    \\ xsimpl
-    \\ rpt strip_tac
-    \\ fs[NUM_def]
-    \\ rw[]
 
 Theorem extend_array_spec
     `∀arrv arr.
