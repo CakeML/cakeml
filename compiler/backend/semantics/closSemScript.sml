@@ -194,26 +194,6 @@ val get_cargs_clos_def = Define
 `
 
 
-val store_carg_clos_def = Define `
-   (store_carg_clos (C_array conf) ws (RefPtr ptr) (st: num |-> closSem$v ref) =
-    if conf.mutable then
-     (case FLOOKUP st ptr of
-         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
-         | _ => NONE)
-    else
-      NONE)
-/\ (store_carg_clos _ _ _ st = SOME st)`
-
-
-
-val store_cargs_clos_def = Define
-  `(store_cargs_clos [] [] [] st = st)
-/\ (store_cargs_clos (ty::tys) (carg::cargs) (arg::args) st =
-    store_cargs_clos tys cargs args (OPTION_BIND st (store_carg_clos ty carg arg)))
-/\ (store_cargs_clos _ _ _ _ = NONE)
-`
-
-
 val als_lst_clos_def = Define `
   (als_lst_clos ([]:('s # c_type # closSem$v) list)  _ _ = []) /\
   (als_lst_clos ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
@@ -255,6 +235,26 @@ val ret_val_clos_def = Define
 /\ (ret_val_clos (SOME(C_intv i)) = Number i)
 /\ (ret_val_clos _ = Unit) (* void constructor representation *)
   `
+(*
+val store_carg_clos_def = Define `
+   (store_carg_clos (C_array conf) ws (RefPtr ptr) (st: num |-> closSem$v ref) =
+    if conf.mutable then
+     (case FLOOKUP st ptr of
+         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
+         | _ => NONE)
+    else
+      NONE)
+/\ (store_carg_clos _ _ _ st = SOME st)`
+
+
+
+val store_cargs_clos_def = Define
+  `(store_cargs_clos [] [] [] st = st)
+/\ (store_cargs_clos (ty::tys) (carg::cargs) (arg::args) st =
+    store_cargs_clos tys cargs args (OPTION_BIND st (store_carg_clos ty carg arg)))
+/\ (store_cargs_clos _ _ _ _ = NONE)
+`
+
 
 (*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
 
@@ -276,6 +276,44 @@ val do_ffi_clos_def = Define `
         | NONE => NONE)
    | NONE => NONE
   `
+*)
+
+
+val store_carg_clos_def = Define `
+   (store_carg_clos (RefPtr ptr) ws (st: num |-> closSem$v ref) =
+     (case FLOOKUP st ptr of
+         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws))
+         | _ => NONE))
+/\ (store_carg_clos _ _ st = SOME st)`
+
+
+
+val store_cargs_clos_def = Define
+  `(store_cargs_clos [] [] st = st)
+/\ (store_cargs_clos (marg::margs) (w::ws) st =
+      store_cargs_clos margs ws (THE(store_carg_clos marg w st)))
+/\ (store_cargs_clos  _ _ st = st)
+`
+
+
+(*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
+
+val do_ffi_clos_def = Define `
+  do_ffi_clos t n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_clos t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final_clos (loc_typ_val sign.args args)) of
+              FFI_return t' (* ffi state *) newargs retv =>
+                if ret_ok sign.retty retv then
+                      SOME (Rval (ret_val_clos retv, t with <| refs := store_cargs_clos (get_mut_args sign args) newargs (t.refs);
+                                                                ffi := t'|>))
+                   else NONE
+                 | FFI_final outcome => SOME (Rerr (Rabort (Rffi_error outcome))) )
+        | NONE => NONE)
+   | NONE => NONE
+`
+
 
 (*   “:closLang$op -> v list -> (α, β) state -> (v # (α, β) state, v) result” *)
 val do_app_def = Define `
