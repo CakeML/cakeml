@@ -158,27 +158,6 @@ val get_cargs_bvl_def = Define
 /\ (get_cargs_bvl _ _ _ = NONE)
 `
 
-
-val store_carg_bvl_def = Define `
-   (store_carg_bvl (C_array conf) ws (RefPtr ptr) (st: num |-> bvlSem$v ref) =
-    if conf.mutable then
-     (case FLOOKUP st ptr of
-         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
-         | _ => NONE)
-    else
-      NONE)
-/\ (store_carg_bvl _ _ _ st = SOME st)`
-
-
-
-val store_cargs_bvl_def = Define
-  `(store_cargs_bvl [] [] [] st = st)
-/\ (store_cargs_bvl (ty::tys) (carg::cargs) (arg::args) st =
-    store_cargs_bvl tys cargs args (OPTION_BIND st (store_carg_bvl ty carg arg)))
-/\ (store_cargs_bvl _ _ _ _ = NONE)
-`
-
-
 val als_lst_bvl_def = Define `
   (als_lst_bvl ([]:('s # c_type # bvlSem$v) list)  _ _ = []) /\
   (als_lst_bvl ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
@@ -220,21 +199,27 @@ val ret_val_bvl_def = Define
 /\ (ret_val_bvl (SOME(C_intv i)) = Number i)
 /\ (ret_val_bvl _ = Unit) (* void constructor representation *)
   `
+(*
+val store_carg_bvl_def = Define `
+   (store_carg_bvl (C_array conf) ws (RefPtr ptr) (st: num |-> bvlSem$v ref) =
+    if conf.mutable then
+     (case FLOOKUP st ptr of
+         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
+         | _ => NONE)
+    else
+      NONE)
+/\ (store_carg_bvl _ _ _ st = SOME st)`
+
+
+
+val store_cargs_bvl_def = Define
+  `(store_cargs_bvl [] [] [] st = st)
+/\ (store_cargs_bvl (ty::tys) (carg::cargs) (arg::args) st =
+    store_cargs_bvl tys cargs args (OPTION_BIND st (store_carg_bvl ty carg arg)))
+/\ (store_cargs_bvl _ _ _ _ = NONE)
+`
 
 (*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
-
-(* | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
-        (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
-         | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
-           (case call_FFI s.ffi n cws ws of
-            | FFI_return ffi' ws' =>
-                Rval (Unit,
-                      s with <| refs := s.refs |+ (ptr,ByteArray F ws')
-                              ; ffi   := ffi'|>)
-            | FFI_final outcome =>
-                Rerr (Rabort (Rffi_error outcome)))
-         | _ => Error)
-*)
 
 val do_ffi_bvl_def = Define `
   do_ffi_bvl t n args =
@@ -249,6 +234,43 @@ val do_ffi_bvl_def = Define `
                    if ret_ok sign.retty retv then
                       SOME (Rval (ret_val_bvl retv, t with <| refs := s'; ffi := t'|>))
                    else NONE)
+                 | FFI_final outcome =>
+                   SOME (Rerr (Rabort (Rffi_error outcome))) )
+        | NONE => NONE)
+   | NONE => NONE
+  `
+*)
+
+
+val store_carg_bvl_def = Define `
+   (store_carg_bvl (RefPtr ptr) ws (st: num |-> bvlSem$v ref) =
+     (case FLOOKUP st ptr of
+         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws))
+         | _ => NONE))
+/\ (store_carg_bvl  _ _ st = SOME st)`
+
+
+
+val store_cargs_bvl_def = Define
+  `(store_cargs_bvl [] [] st = st)
+/\ (store_cargs_bvl (marg::margs) (w::ws) st =
+    store_cargs_bvl margs ws (THE(store_carg_bvl marg w st)))
+/\ (store_cargs_bvl  _ _ st = st)
+`
+
+(*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
+
+val do_ffi_bvl_def = Define `
+  do_ffi_bvl t n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_bvl t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final_bvl (loc_typ_val sign.args args))  of
+              FFI_return t' (* ffi state *) newargs retv =>
+                   if ret_ok sign.retty retv then
+                      SOME (Rval (ret_val_bvl retv, t with <| refs := store_cargs_bvl (get_mut_args sign args) newargs (t.refs); 
+                                                              ffi := t'|>))
+                   else NONE
                  | FFI_final outcome =>
                    SOME (Rerr (Rabort (Rffi_error outcome))) )
         | NONE => NONE)
