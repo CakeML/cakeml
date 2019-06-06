@@ -206,27 +206,6 @@ val get_cargs_data_def = Define
 /\ (get_cargs_data _ _ _ = NONE)
 `
 
-
-val store_carg_data_def = Define `
-   (store_carg_data (C_array conf) ws (RefPtr ptr) (st: num |-> dataSem$v ref) =
-    if conf.mutable then
-     (case FLOOKUP st ptr of
-         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
-         | _ => NONE)
-    else
-      NONE)
-/\ (store_carg_data _ _ _ st = SOME st)`
-
-
-
-val store_cargs_data_def = Define
-  `(store_cargs_data [] [] [] st = st)
-/\ (store_cargs_data (ty::tys) (carg::cargs) (arg::args) st =
-    store_cargs_data tys cargs args (OPTION_BIND st (store_carg_data ty carg arg)))
-/\ (store_cargs_data _ _ _ _ = NONE)
-`
-
-
 val als_lst_data_def = Define `
   (als_lst_data ([]:('s # c_type # dataSem$v) list)  _ _ = []) /\
   (als_lst_data ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
@@ -269,6 +248,26 @@ val ret_val_data_def = Define
 /\ (ret_val_data _ = Unit) (* void constructor representation *)
   `
 
+(*
+val store_carg_data_def = Define `
+   (store_carg_data (C_array conf) ws (RefPtr ptr) (st: num |-> dataSem$v ref) =
+    if conf.mutable then
+     (case FLOOKUP st ptr of
+         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
+         | _ => NONE)
+    else
+      NONE)
+/\ (store_carg_data _ _ _ st = SOME st)`
+
+
+
+val store_cargs_data_def = Define
+  `(store_cargs_data [] [] [] st = st)
+/\ (store_cargs_data (ty::tys) (carg::cargs) (arg::args) st =
+    store_cargs_data tys cargs args (OPTION_BIND st (store_carg_data ty carg arg)))
+/\ (store_cargs_data _ _ _ _ = NONE)
+`
+
 val do_ffi_data_def = Define `
   do_ffi_data t n args =
    case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
@@ -287,6 +286,41 @@ val do_ffi_data_def = Define `
         | NONE => NONE)
    | NONE => NONE
   `
+*)
+
+val store_carg_data_def = Define `
+   (store_carg_data (RefPtr ptr) ws (st: num |-> dataSem$v ref) =
+     (case FLOOKUP st ptr of
+         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws))
+         | _ => NONE)
+/\ (store_carg_data _ _ st = SOME st)`
+
+
+
+val store_cargs_data_def = Define
+  `(store_cargs_data [] [] st = st)
+/\ (store_cargs_data (ty::tys) (carg::cargs) (arg::args) st =
+     store_cargs_data margs ws (THE(store_carg_data marg w st)))
+/\ (store_cargs_data _ _ st = st)
+`
+
+val do_ffi_data_def = Define `
+  do_ffi_data t n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_data t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final_data (loc_typ_val sign.args args))  of
+              FFI_return t' (* ffi state *) newargs retv =>
+                   if ret_ok sign.retty retv then
+                      SOME (Rval (ret_val_data retv, t with <| refs := store_cargs_data (get_mut_args sign args) newargs (t.refs); 
+                                                               ffi := t'|>))
+                   else NONE
+                 | FFI_final outcome =>
+                   SOME (Rerr (Rabort (Rffi_error outcome))) )
+        | NONE => NONE)
+   | NONE => NONE
+  `
+
 
 val do_app_aux_def = Define `
   do_app_aux op ^vs ^s =
