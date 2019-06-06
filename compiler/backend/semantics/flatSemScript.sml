@@ -226,24 +226,6 @@ val get_cargs_flat_def = Define
 
 
 
-val store_carg_flat_def = Define `
-   (store_carg_flat (C_array conf) ws (Loc lnum) (s:flatSem$v store) =
-    if conf.mutable then
-      store_assign lnum (W8array ws) s
-    else
-      NONE)
-/\ (store_carg_flat _ _ _ s = SOME s)`
-
-
-
-val store_cargs_flat_def = Define
-  `(store_cargs_flat [] [] [] s = s)
-/\ (store_cargs_flat (ty::tys) (carg::cargs) (arg::args) s =
-    store_cargs_flat tys cargs args (OPTION_BIND s (store_carg_flat ty carg arg)))
-/\ (store_cargs_flat _ _ _ _ = NONE)
-`
-
-
 val als_lst_flat_def = Define `
   (als_lst_flat ([]:('s # c_type # flatSem$v) list)  _ _ = []) /\
   (als_lst_flat ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) =
@@ -288,6 +270,24 @@ val ret_val_flat_def = Define
 /\ (ret_val_flat _ check_ctor = Unitv check_ctor )
   `
 
+(*
+val store_carg_flat_def = Define `
+   (store_carg_flat (C_array conf) ws (Loc lnum) (s:flatSem$v store) =
+    if conf.mutable then
+      store_assign lnum (W8array ws) s
+    else
+      NONE)
+/\ (store_carg_flat _ _ _ s = SOME s)`
+
+
+
+val store_cargs_flat_def = Define
+  `(store_cargs_flat [] [] [] s = s)
+/\ (store_cargs_flat (ty::tys) (carg::cargs) (arg::args) s =
+    store_cargs_flat tys cargs args (OPTION_BIND s (store_carg_flat ty carg arg)))
+/\ (store_cargs_flat _ _ _ _ = NONE)
+`
+
 val do_ffi_flat_def = Define `
   do_ffi_flat (t:'a flatSem$state) check_ctor n args =
    case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
@@ -305,8 +305,38 @@ val do_ffi_flat_def = Define `
         | NONE => NONE)
    | NONE => NONE
   `
+*)
 
 
+val store_carg_flat_def = Define `
+   (store_carg_flat (Loc lnum) ws (s:flatSem$v store) =
+       THE (store_assign lnum (W8array ws) s)) (* to-ask about store_assign and THE*)
+/\ (store_carg_flat _ _ s = s)`
+
+
+
+val store_cargs_flat_def = Define
+  `(store_cargs_flat [] [] s = s)
+/\ (store_cargs_flat (marg::margs) (w::ws) s =
+    store_cargs_flat margs ws (store_carg_flat marg w s))
+/\ (store_cargs_flat _ _ s = s)
+`
+
+val do_ffi_flat_def = Define `
+  do_ffi_flat (t:'a flatSem$state) check_ctor n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_flat t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final_flat (loc_typ_val sign.args args)) of
+              FFI_return t' (* ffi state *) newargs retv =>
+                if ret_ok sign.retty retv then
+                 SOME (t with <| refs := store_cargs_flat (get_mut_args sign args) newargs (t.refs); 
+                                 ffi := t'|>, Rval (ret_val_flat retv check_ctor))
+                  else NONE
+            | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
+        | NONE => NONE)
+   | NONE => NONE
+  `
 
 (* bool -> state -> op -> flatSem$v list *)
 
