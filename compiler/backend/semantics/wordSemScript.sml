@@ -692,7 +692,6 @@ val get_carg_word_def = Define `
 		       | NONE => NONE))
            | res => NONE)
     else NONE) 
-
 /\ (get_carg_word s  _ C_bool n NONE =
     case get_var n s of 
       | SOME (Word w) =>  if w = n2w 2 then
@@ -718,27 +717,8 @@ val get_cargs_word_def = Define
 `
 
 
-
-val store_carg_word_def = Define `
-   (store_carg_word (C_array conf) vs w s =
-    if conf.mutable then 
-        SOME (s with <| memory := write_bytearray w vs s.memory s.mdomain s.be |>)
-    else NONE)
-/\ (store_carg_word _ _ _ s = SOME s)`
-
-
-
-val store_cargs_word_def = Define`
-   (store_cargs_word [] [] [] st = st)
-/\ (store_cargs_word (ty::tys) (v::vs) (w::ws) st =
-    store_cargs_word tys vs ws (OPTION_BIND st (store_carg_word ty v w)))
-/\ (store_cargs_word _ _ _ _ = NONE)
-`
-
-
-(* do we have to check lengths here, I think no, because cakeML will make sure  *)
 val als_lst_word_def = Define `
-  (als_lst_word ([]:('s # c_type # 'a word) list)  _ _ = []) /\
+  (als_lst_word ([]:('s # c_type # num) list)  _ _ = []) /\
   (als_lst_word ((id, (C_array conf'), w')::prl) (C_array conf) w =
           if conf.mutable /\  conf'.mutable /\ (w = w')
           then id::als_lst_word prl (C_array conf) w
@@ -804,62 +784,77 @@ val _ = Define  `
 `
 
 
+val Smallnum'_def = Define `
+  Smallnum' i =
+    if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
 
-(* have to update *)
+
 val ret_val_word_def = Define
-`(ret_val_word (SOME(C_boolv b)) = if b then ARB else ARB)
-/\ (ret_val_word (SOME(C_intv i)) = ARB) (* add as a word  *)
-/\ (ret_val_word _ = Unit) (* void constructor representation *)
+`(ret_val_word (SOME(C_boolv b)) = if b then SOME (Word (n2w 2)) else SOME (Word (n2w 18)))
+/\ (ret_val_word (SOME(C_intv i)) = SOME (Word (Smallnum' i)))
+/\ (ret_val_word _ = NONE)
   `
+
+
+val store_carg_word_def = Define `
+  store_carg_word w vs s = s with <| memory := write_bytearray w vs s.memory s.mdomain s.be |>
+ `
+
+val store_cargs_word_def = Define`
+   (store_cargs_word  [] [] st = st)
+/\ (store_cargs_word  (marg::margs) (w::ws) st =
+    store_cargs_word margs ws (store_carg_word marg w st))
+/\ (store_cargs_word _ _ st = st)
+`
+
+
+val num_word_lst = Define `
+  (num_word_lst [] s = [])
+/\
+  (num_word_lst (n::ns) s = (case (get_var n s) of 
+                                 | SOME (Word w) => SOME w :: num_word_lst ns s
+				 | NONE => NONE :: num_word_lst ns s))
+`
+
+val store_cargs_nums = Define `
+  store_cargs_nums margs vs st = if (MEM NONE (num_word_lst margs st)) then NONE 
+                                       else SOME (store_cargs_word (MAP THE (num_word_lst margs st)) vs st)
+`
+
+val store_cargs_num'_def = Define `
+  store_cargs_num' margs vs n v st = 
+    case (get_var n st) of 
+      | SOME (Word w) => (case  mem_store w v st of
+			    | SOME st' => store_cargs_nums margs vs st'
+			    | NONE => NONE)
+      | _ => NONE
+  ` 
+
 
 val evaluate_ffi_def = Define `
-  evaluate_ffi_def t ffi_index ns names =
-   case FIND (\x.x.mlname = ffi_index) t.ffi.signatures of 
+  evaluate_ffi_def s ffi_index n ns names =
+   case FIND (\x.x.mlname = ffi_index) s.ffi.signatures of 
      | SOME sign =>
-     (case get_cargs_word t names sign.args (len_filter sign.args ns) (len_arg ns) of
+     (case get_cargs_word s names sign.args (len_filter sign.args ns) (len_args sign.args ns) of
           SOME cargs =>
-           (case call_FFI t.ffi ffi_index cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args ns))) of
-            FFI_return t' vs retv =>
-               (case store_cargs_word sign.args vs (get_mut_args sign (len_filter sign.args ns)) t' of
-                   NONE => (SOME Error,t)
-                 | SOME t''  =>
-                   if ret_ok sign.retty retv then (* how to output the return values  *)
-                        (NONE, t'' with <|locals := env ;
-                                   ffi := new_ffi |>)
-                   else (SOME Error,t))
-                  | FFI_final outcome => (SOME (FinalFFI outcome),
-                                      call_env [] t with stack := []))
-	  | NONE => (SOME Error,t))
-       | NONE => (SOME Error,t)
-  `
-
-            
-
-(*(evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
-    case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of
-    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
-      (case cut_env names s.locals of
-      | NONE => (SOME Error,s)
-      | SOME env =>
-        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
-               read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
-               of
-          | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),
-                                      call_env [] s with stack := [])
-              | FFI_return new_ffi new_bytes =>
-                let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
-                  (NONE, s with <| memory := new_m ;
-                                   locals := env ;
-                                   ffi := new_ffi |>))
-          | _ => (SOME Error,s)))
-    | res => (SOME Error,s)) /\ *)
-
-
-
-
-
+           (case call_FFI s.ffi ffi_index cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args ns))) of
+            FFI_return new_ffi vs retv =>
+             if ret_ok sign.retty retv then 
+              (case cut_env names s.locals of
+                | NONE => (SOME Error,s)
+                | SOME env => (case ret_val_word retv of 
+				| SOME v => case store_cargs_num' (get_mut_args sign (len_filter sign.args ns)) vs n v s of
+					      | NONE => (SOME Error,s) 
+					      | SOME s' =>  (NONE, s' with <|locals := env ; ffi := new_ffi |>)
+				| NONE => case store_cargs_nums (get_mut_args sign (len_filter sign.args ns)) vs s of
+					     | NONE => (SOME Error,s) 
+					     | SOME s' =>  (NONE, s' with <|locals := env ; ffi := new_ffi |>)))
+             else (SOME Error,s)
+	| FFI_final outcome => (SOME (FinalFFI outcome),
+                                      call_env [] s with stack := []))
+	  | NONE => (SOME Error,s))
+       | NONE => (SOME Error,s)
+`
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
@@ -977,7 +972,7 @@ val evaluate_def = tDefine "evaluate" `
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))) /\
 
-  (evaluate (FFI ffi_index fval names,s) = ARB) /\
+  (evaluate (FFI ffi_index n ns names,s) = evaluate_ffi s ffi_index n ns names) /\
 
 (*(evaluate (FFI ffi_index ptr1 len1 ptr2 len2 names,s) =
     case (get_var len1 s, get_var ptr1 s, get_var len2 s, get_var ptr2 s) of

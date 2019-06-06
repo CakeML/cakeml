@@ -346,7 +346,8 @@ val const_fp_loop_def = Define `
             (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler, cs''))
          else
            (Call ret dest args handler, LN))) /\
-  (const_fp_loop (FFI x0 x1 x2 x3 x4 names) cs = (FFI x0 x1 x2 x3 x4 names, inter cs names)) /\
+  (const_fp_loop (FFI ffi_index arg args names) cs = (FFI ffi_index arg args names, inter cs names)) /\ 
+  (*(const_fp_loop (FFI x0 x1 x2 x3 x4 names) cs = (FFI x0 x1 x2 x3 x4 names, inter cs names)) /\ *)
   (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
   (const_fp_loop (Alloc n names) cs = (Alloc n names, filter_v is_gc_const (inter cs names))) /\
   (const_fp_loop (Install r1 r2 r3 r4 names) cs = (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))) /\
@@ -387,7 +388,7 @@ Theorem const_fp_loop_pmatch:
             (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler, cs''))
          else
            (Call ret dest args handler, LN)))
-  | (FFI x0 x1 x2 x3 x4 names) => (FFI x0 x1 x2 x3 x4 names, inter cs names)
+  | (FFI ffi_index arg args names) => (FFI ffi_index arg args names, inter cs names)
   | (LocValue v x3) => (LocValue v x3, delete v cs)
   | (Alloc n names) => (Alloc n names, filter_v is_gc_const (inter cs names))
   | (Install r1 r2 r3 r4 names) => (Install r1 r2 r3 r4 names, delete r1 (filter_v is_gc_const (inter cs names)))
