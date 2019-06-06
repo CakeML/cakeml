@@ -183,30 +183,6 @@ val get_cargs_pat_def = Define
 /\ (get_cargs_pat _ _ _ = NONE)
 `
 
-(*  “:c_type -> word8 list -> v -> v store_v list -> v store_v list option”*)
-
-val store_carg_pat_def = Define `
-   (store_carg_pat (C_array conf) ws (Loc lnum) (s:patSem$v store) =
-    if conf.mutable then
-      store_assign lnum (W8array ws) s
-    else
-      NONE)
-/\ (store_carg_pat _ _ _ s = SOME s)`
-
-
-(*
-   “:c_type list ->
-    word8 list list ->
-    v list -> v store_v list option -> v store_v list option” *)
-
-val store_cargs_pat_def = Define
-  `(store_cargs_pat [] [] [] s = s)
-/\ (store_cargs_pat (ty::tys) (carg::cargs) (arg::args) s =
-    store_cargs_pat tys cargs args (OPTION_BIND s (store_carg_pat ty carg arg)))
-/\ (store_cargs_pat _ _ _ _ = NONE)
-`
-
-
 val als_lst_pat_def = Define `
   (als_lst_pat ([]:('s # c_type # patSem$v) list)  _ _ = []) /\
   (als_lst_pat ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) =
@@ -249,6 +225,30 @@ val ret_val_pat_def = Define
 /\ (ret_val_pat _ = Conv 0 []) (* void constructor representation *)
   `
 
+(*
+(*  “:c_type -> word8 list -> v -> v store_v list -> v store_v list option”*)
+
+val store_carg_pat_def = Define `
+   (store_carg_pat (C_array conf) ws (Loc lnum) (s:patSem$v store) =
+    if conf.mutable then
+      store_assign lnum (W8array ws) s
+    else
+      NONE)
+/\ (store_carg_pat _ _ _ s = SOME s)`
+
+
+(*
+   “:c_type list ->
+    word8 list list ->
+    v list -> v store_v list option -> v store_v list option” *)
+
+val store_cargs_pat_def = Define
+  `(store_cargs_pat [] [] [] s = s)
+/\ (store_cargs_pat (ty::tys) (carg::cargs) (arg::args) s =
+    store_cargs_pat tys cargs args (OPTION_BIND s (store_carg_pat ty carg arg)))
+/\ (store_cargs_pat _ _ _ _ = NONE)
+`
+
 val do_ffi_pat_def = Define `
   do_ffi_pat (t:('ffi, 'c) patSem$state) n args =
    case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
@@ -262,6 +262,44 @@ val do_ffi_pat_def = Define `
                    if ret_ok sign.retty retv then
                       SOME (t with <| refs := s'; ffi := t'|>, Rval (ret_val_pat retv))
                    else NONE)
+            | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
+        | NONE => NONE)
+   | NONE => NONE
+  `
+*)
+
+
+(*  “:c_type -> word8 list -> v -> v store_v list -> v store_v list option”*)
+
+val store_carg_pat_def = Define `
+   (store_carg_pat (Loc lnum) ws (s:patSem$v store) =
+      THE(store_assign lnum (W8array ws) s))
+/\ (store_carg_pat _ _ s = s)`
+
+
+(*
+   “:c_type list ->
+    word8 list list ->
+    v list -> v store_v list option -> v store_v list option” *)
+
+val store_cargs_pat_def = Define
+  `(store_cargs_pat [] [] s = s)
+/\ (store_cargs_pat (marg::margs) (w::ws) s =
+      store_cargs_pat margs ws (store_carg_pat marg w s))
+/\ (store_cargs_pat _ _ s = s)
+`
+
+val do_ffi_pat_def = Define `
+  do_ffi_pat (t:('ffi, 'c) patSem$state) n args =
+   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+     (case get_cargs_pat t.refs sign.args args of
+          SOME cargs =>
+           (case call_FFI t.ffi n cargs (als_args_final_pat (loc_typ_val sign.args args)) of
+              FFI_return t' (* ffi state *) newargs retv =>
+                   if ret_ok sign.retty retv then
+                      SOME (t with <| refs := store_cargs_pat (get_mut_args sign args) newargs (t.refs);
+                                      ffi := t'|>, Rval (ret_val_pat retv))
+                   else NONE
             | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
         | NONE => NONE)
    | NONE => NONE
