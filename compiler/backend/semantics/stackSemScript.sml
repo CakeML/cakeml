@@ -517,6 +517,109 @@ val loc_check_def = Define `
     (l2 = 0 /\ l1 ∈ domain code) \/
     ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`;
 
+
+val get_carg_stack_def = Define `
+  (get_carg_stack s (C_array conf) n (SOME n') = (* with_length *)
+    if conf.mutable then
+      (case (get_var n s, get_var n' s) of
+          | SOME (Word w),SOME (Word w') =>
+        (case (read_bytearray w (w2n w') (mem_load_byte_aux s.memory s.mdomain s.be))
+               of
+                       | SOME bytes => SOME(C_arrayv bytes)
+                       | NONE => NONE)
+           | res => NONE)
+    else NONE)
+/\  (get_carg_word s (C_array conf) n NONE = (* fixed-length *)
+    if conf.mutable then
+      (case (get_var n s) of
+          | SOME (Word w) =>
+        (case (read_bytearray w 8 (*read until null terminator*) (mem_load_byte_aux s.memory s.mdomain s.be))
+               of
+                       | SOME bytes => SOME(C_arrayv bytes)
+                       | NONE => NONE)
+           | res => NONE)
+    else NONE)
+/\ (get_carg_word s  C_bool n NONE =
+    case get_var n s of
+      | SOME (Word w) =>  if w = n2w 2 then
+      SOME(C_primv(C_boolv T))
+    else if w = n2w 18 then
+      SOME(C_primv(C_boolv F))
+    else NONE
+      | _ => NONE)
+/\ (get_carg_word s C_int n NONE =
+    case get_var n s of
+      | SOME (Word w) => if word_lsb w then NONE (* big num *)
+                         else SOME(C_primv(C_intv (w2i (w >>2))))
+      | _ => NONE)
+/\ (get_carg_word _ _ _ _ = NONE)`
+
+
+
+val get_cargs_word_def = Define
+  `(get_cargs_word s [] [] [] = SOME [])
+/\ (get_cargs_word s (ty::tys) (arg::args) (len::lens) =
+    OPTION_MAP2 CONS (get_carg_word s ty arg len) (get_cargs_word s tys args lens))
+/\ (get_cargs_word _ _ _ _ = NONE)
+`
+
+val store_carg_stack_def = Define `
+  store_carg_stack w vs s = s with <| memory := write_bytearray w vs s.memory s.mdomain s.be |>
+ `
+
+val store_cargs_stack_def = Define`
+   (store_cargs_stack [] [] st = st)
+/\ (store_cargs_stack (marg::margs) (w::ws) st =
+    store_cargs_stack margs ws (store_carg_stack marg w st))
+/\ (store_cargs_stack _ _ st = st)
+`
+
+
+val num_word_lst_def = Define `
+  (num_word_lst_stack [] s = [])
+/\
+  (num_word_lst_stack (n::ns) s = (case (get_var n s) of
+                                 | SOME (Word w) => SOME w :: num_word_lst ns s
+                                 | NONE => NONE :: num_word_lst ns s))
+`
+
+val store_cargs_nums_stack_def = Define `
+  store_cargs_nums_stack margs vs st = if (MEM NONE (num_word_lst_stack margs st)) then NONE
+                                       else SOME (store_cargs_stack (MAP THE (num_word_lst_stack margs st)) vs st)
+`
+
+val store_cargs_num'_stack_def = Define `
+  store_cargs_num'_stack margs vs n v st =
+    case (get_var n st) of
+      | SOME (Word w) => (case  mem_store w v st of
+                            | SOME st' => store_cargs_nums_stack margs vs st'
+                            | NONE => NONE)
+      | _ => NONE
+  `
+
+
+val evaluate_ffi_def = Define `
+  evaluate_ffi s ffi_index n ns ret =
+   case FIND (\x.x.mlname = ffi_index) s.ffi.signatures of
+     | SOME sign =>
+     (case get_cargs_word s sign.args (len_filter sign.args ns) (len_args sign.args ns) of
+          SOME cargs =>
+           (case call_FFI s.ffi ffi_index cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args ns))) of
+            FFI_return new_ffi vs retv =>
+             if ret_ok sign.retty retv then
+                (case ret_val_word retv of
+                                | SOME v => case store_cargs_num'_stack (get_mut_args sign (len_filter sign.args ns)) vs n v s of
+                                              | NONE => (SOME Error,s)
+                                              | SOME s' =>  (NONE, s' with <|regs := DRESTRICT s.regs s.ffi_save_regs; ffi := new_ffi |>)
+                                | NONE => case store_cargs_nums_stack (get_mut_args sign (len_filter sign.args ns)) vs s of
+                                             | NONE => (SOME Error,s)
+                                             | SOME s' =>  (NONE, s' with <|regs := DRESTRICT s.regs s.ffi_save_regs; ffi := new_ffi |>))
+             else (SOME Error,s)
+        | FFI_final outcome => (SOME (FinalFFI outcome),s))
+          | NONE => (SOME Error,s))
+       | NONE => (SOME Error,s)
+`
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
@@ -663,7 +766,9 @@ val evaluate_def = tDefine "evaluate" `
             (NONE,s with data_buffer:=new_db)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))) /\
-  (evaluate (FFI ffi_index ptr len ptr2 len2 ret,s) =
+  (evaluate (FFI ffi_index n ns ret,s) = evaluate_ffi s ffi_index n ns ret) /\
+
+ (* (evaluate (FFI ffi_index ptr len ptr2 len2 ret,s) =
     case (get_var len s, get_var ptr s,get_var len2 s, get_var ptr2 s) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
          (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
@@ -677,7 +782,8 @@ val evaluate_def = tDefine "evaluate" `
                                      regs := DRESTRICT s.regs s.ffi_save_regs;
                                      ffi := new_ffi |>))
           | _ => (SOME Error,s))
-    | res => (SOME Error,s)) /\
+    | res => (SOME Error,s)) /\ *)
+
   (evaluate (LocValue r l1 l2,s) =
      if loc_check s.code (l1,l2) then
        (NONE,set_var r (Loc l1 l2) s)
