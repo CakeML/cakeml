@@ -268,7 +268,7 @@ val do_ffi_bvl_def = Define `
            (case call_FFI t.ffi n cargs (als_args_final_bvl (loc_typ_val sign.args args))  of
               FFI_return t' (* ffi state *) newargs retv =>
                    if ret_ok sign.retty retv then
-                      SOME (Rval (ret_val_bvl retv, t with <| refs := store_cargs_bvl (get_mut_args sign args) newargs (t.refs); 
+                      SOME (Rval (ret_val_bvl retv, t with <| refs := store_cargs_bvl (get_mut_args sign args) newargs (t.refs);
                                                               ffi := t'|>))
                    else NONE
                  | FFI_final outcome =>

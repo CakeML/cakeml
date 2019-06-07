@@ -2781,7 +2781,8 @@ val wf_cutsets_def = Define`
         NONE => T
       | SOME (v,prog,l1,l2) =>
         wf_cutsets prog))) ∧
-  (wf_cutsets (FFI x1 y1 x2 y2 z args) = wf args) ∧
+  (wf_cutsets (FFI fv n ns args) = wf args) ∧
+ (* (wf_cutsets (FFI x1 y1 x2 y2 z args) = wf args) ∧ *)
   (wf_cutsets (MustTerminate s) = wf_cutsets s) ∧
   (wf_cutsets (Seq s1 s2) =
     (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
@@ -2806,8 +2807,9 @@ val call_arg_convention_def = Define`
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
   (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
-  (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
-                                                         ptr2 = 6 ∧ len2 = 8)) ∧
+  (call_arg_convention (FFI fval n ns args) = ARB) ∧
+ (* (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
+                                                         ptr2 = 6 ∧ len2 = 8)) ∧ *)
   (call_arg_convention (Alloc n s) = (n=2)) ∧
   (call_arg_convention (Call ret dest args h) =
     (case ret of

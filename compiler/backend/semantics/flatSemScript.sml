@@ -310,7 +310,7 @@ val do_ffi_flat_def = Define `
 
 val store_carg_flat_def = Define `
    (store_carg_flat (Loc lnum) ws (s:flatSem$v store) =
-       THE (store_assign lnum (W8array ws) s)) (* to-ask about store_assign and THE*)
+       THE (store_assign lnum (W8array ws) s))
 /\ (store_carg_flat _ _ s = s)`
 
 
@@ -330,7 +330,7 @@ val do_ffi_flat_def = Define `
            (case call_FFI t.ffi n cargs (als_args_final_flat (loc_typ_val sign.args args)) of
               FFI_return t' (* ffi state *) newargs retv =>
                 if ret_ok sign.retty retv then
-                 SOME (t with <| refs := store_cargs_flat (get_mut_args sign args) newargs (t.refs); 
+                 SOME (t with <| refs := store_cargs_flat (get_mut_args sign args) newargs (t.refs);
                                  ffi := t'|>, Rval (ret_val_flat retv check_ctor))
                   else NONE
             | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))

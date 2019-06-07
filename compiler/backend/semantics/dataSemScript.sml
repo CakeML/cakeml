@@ -292,14 +292,14 @@ val store_carg_data_def = Define `
    (store_carg_data (RefPtr ptr) ws (st: num |-> dataSem$v ref) =
      (case FLOOKUP st ptr of
          | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws))
-         | _ => NONE)
+         | _ => NONE))
 /\ (store_carg_data _ _ st = SOME st)`
 
 
 
 val store_cargs_data_def = Define
   `(store_cargs_data [] [] st = st)
-/\ (store_cargs_data (ty::tys) (carg::cargs) (arg::args) st =
+/\ (store_cargs_data  (marg::margs) (w::ws) st =
      store_cargs_data margs ws (THE(store_carg_data marg w st)))
 /\ (store_cargs_data _ _ st = st)
 `
@@ -312,7 +312,7 @@ val do_ffi_data_def = Define `
            (case call_FFI t.ffi n cargs (als_args_final_data (loc_typ_val sign.args args))  of
               FFI_return t' (* ffi state *) newargs retv =>
                    if ret_ok sign.retty retv then
-                      SOME (Rval (ret_val_data retv, t with <| refs := store_cargs_data (get_mut_args sign args) newargs (t.refs); 
+                      SOME (Rval (ret_val_data retv, t with <| refs := store_cargs_data (get_mut_args sign args) newargs (t.refs);
                                                                ffi := t'|>))
                    else NONE
                  | FFI_final outcome =>

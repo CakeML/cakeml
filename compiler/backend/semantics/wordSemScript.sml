@@ -641,59 +641,59 @@ val MustTerminate_limit_def = zDefine `
 
 
 
-(*  
+(*
 val _ = temp_overload_on("FALSE_CONST",``Const (n2w 2:'a word)``)
 val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 *)
 
 
 val len_args = Define `
-   (len_args [] _ = []) 
-/\ (len_args (ty::tys) (n::ns) = case ty of 
-			      | C_array conf => if conf.with_length then  
+   (len_args [] _ = [])
+/\ (len_args (ty::tys) (n::ns) = case ty of
+                              | C_array conf => if conf.with_length then
                                                 SOME (HD ns) :: len_args tys (TL ns)
                                                 else NONE :: len_args tys ns
-			      | _ => NONE :: len_args tys ns)
+                              | _ => NONE :: len_args tys ns)
 `
 val len_filter = Define `
   (len_filter [] _ = [])
 /\
-  (len_filter (ty::tys) (n::ns)  = case ty of 
-				     | (C_array conf) => if conf.with_length then n :: len_filter tys (TL ns)
+  (len_filter (ty::tys) (n::ns)  = case ty of
+                                     | (C_array conf) => if conf.with_length then n :: len_filter tys (TL ns)
                                                          else n :: len_filter tys ns
-				     | _ =>  n :: len_filter tys ns)
+                                     | _ =>  n :: len_filter tys ns)
 `
 
 val get_carg_word_def = Define `
   (get_carg_word s names (C_array conf) n (SOME n') = (* with_length *)
     if conf.mutable then
-      (case (get_var n s, get_var n' s) of 
-          | SOME (Word w),SOME (Word w') => 
+      (case (get_var n s, get_var n' s) of
+          | SOME (Word w),SOME (Word w') =>
       (case cut_env names s.locals of
       | NONE => NONE (* (SOME Error,s) *)
       | SOME env =>
         (case (read_bytearray w (w2n w') (mem_load_byte_aux s.memory s.mdomain s.be))
                of
                        | SOME bytes => SOME(C_arrayv bytes)
-		       | NONE => NONE))
+                       | NONE => NONE))
            | res => NONE)
     else NONE)
 
 /\  (get_carg_word s names (C_array conf) n NONE = (* fixed-length *)
     if conf.mutable then
-      (case (get_var n s) of 
-          | SOME (Word w) => 
+      (case (get_var n s) of
+          | SOME (Word w) =>
       (case cut_env names s.locals of
       | NONE => NONE (* (SOME Error,s) *)
       | SOME env =>
         (case (read_bytearray w 8 (*read until null terminator*) (mem_load_byte_aux s.memory s.mdomain s.be))
                of
                        | SOME bytes => SOME(C_arrayv bytes)
-		       | NONE => NONE))
+                       | NONE => NONE))
            | res => NONE)
-    else NONE) 
+    else NONE)
 /\ (get_carg_word s  _ C_bool n NONE =
-    case get_var n s of 
+    case get_var n s of
       | SOME (Word w) =>  if w = n2w 2 then
       SOME(C_primv(C_boolv T))
     else if w = n2w 18 then
@@ -701,7 +701,7 @@ val get_carg_word_def = Define `
     else NONE
       | _ => NONE)
 /\ (get_carg_word s  _ C_int n NONE =
-    case get_var n s of 
+    case get_var n s of
       | SOME (Word w) => if word_lsb w then NONE (* big num *)
                          else SOME(C_primv(C_intv (w2i (w >>2))))
       | _ => NONE)
@@ -737,7 +737,7 @@ val als_lst'_word_def = Define `
 `
 
 val matched_num_pr_lst_def = Define `
-  matched_num_pr_lst n prs = FILTER ($= n o FST) prs 
+  matched_num_pr_lst n prs = FILTER ($= n o FST) prs
 `
 
 
@@ -746,7 +746,7 @@ val matched_loc_def = Define `
   (matched_loc _ [] = []) /\
   (matched_loc (n::ns) prl = if  IS_EL n (MAP FST prl)
                              then matched_num_pr_lst n prl ++ matched_loc (ns) prl
-			     else matched_loc ns prl) 
+                             else matched_loc ns prl)
 `
 val list_minus_def  = Define `
   list_minus ms ns = FILTER (λ e. ~(MEM e ns)) ms
@@ -808,53 +808,54 @@ val store_cargs_word_def = Define`
 `
 
 
-val num_word_lst = Define `
+val num_word_lst_def = Define `
   (num_word_lst [] s = [])
 /\
-  (num_word_lst (n::ns) s = (case (get_var n s) of 
+  (num_word_lst (n::ns) s = (case (get_var n s) of
                                  | SOME (Word w) => SOME w :: num_word_lst ns s
-				 | NONE => NONE :: num_word_lst ns s))
+                                 | NONE => NONE :: num_word_lst ns s))
 `
 
-val store_cargs_nums = Define `
-  store_cargs_nums margs vs st = if (MEM NONE (num_word_lst margs st)) then NONE 
+val store_cargs_nums_def = Define `
+  store_cargs_nums margs vs st = if (MEM NONE (num_word_lst margs st)) then NONE
                                        else SOME (store_cargs_word (MAP THE (num_word_lst margs st)) vs st)
 `
 
 val store_cargs_num'_def = Define `
-  store_cargs_num' margs vs n v st = 
-    case (get_var n st) of 
+  store_cargs_num' margs vs n v st =
+    case (get_var n st) of
       | SOME (Word w) => (case  mem_store w v st of
-			    | SOME st' => store_cargs_nums margs vs st'
-			    | NONE => NONE)
+                            | SOME st' => store_cargs_nums margs vs st'
+                            | NONE => NONE)
       | _ => NONE
-  ` 
+  `
 
 
 val evaluate_ffi_def = Define `
-  evaluate_ffi_def s ffi_index n ns names =
-   case FIND (\x.x.mlname = ffi_index) s.ffi.signatures of 
+  evaluate_ffi s ffi_index n ns names =
+   case FIND (\x.x.mlname = ffi_index) s.ffi.signatures of
      | SOME sign =>
      (case get_cargs_word s names sign.args (len_filter sign.args ns) (len_args sign.args ns) of
           SOME cargs =>
            (case call_FFI s.ffi ffi_index cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args ns))) of
             FFI_return new_ffi vs retv =>
-             if ret_ok sign.retty retv then 
+             if ret_ok sign.retty retv then
               (case cut_env names s.locals of
                 | NONE => (SOME Error,s)
-                | SOME env => (case ret_val_word retv of 
-				| SOME v => case store_cargs_num' (get_mut_args sign (len_filter sign.args ns)) vs n v s of
-					      | NONE => (SOME Error,s) 
-					      | SOME s' =>  (NONE, s' with <|locals := env ; ffi := new_ffi |>)
-				| NONE => case store_cargs_nums (get_mut_args sign (len_filter sign.args ns)) vs s of
-					     | NONE => (SOME Error,s) 
-					     | SOME s' =>  (NONE, s' with <|locals := env ; ffi := new_ffi |>)))
+                | SOME env => (case ret_val_word retv of
+                                | SOME v => case store_cargs_num' (get_mut_args sign (len_filter sign.args ns)) vs n v s of
+                                              | NONE => (SOME Error,s)
+                                              | SOME s' =>  (NONE, s' with <|locals := env ; ffi := new_ffi |>)
+                                | NONE => case store_cargs_nums (get_mut_args sign (len_filter sign.args ns)) vs s of
+                                             | NONE => (SOME Error,s)
+                                             | SOME s' =>  (NONE, s' with <|locals := env ; ffi := new_ffi |>)))
              else (SOME Error,s)
-	| FFI_final outcome => (SOME (FinalFFI outcome),
+        | FFI_final outcome => (SOME (FinalFFI outcome),
                                       call_env [] s with stack := []))
-	  | NONE => (SOME Error,s))
+          | NONE => (SOME Error,s))
        | NONE => (SOME Error,s)
 `
+
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
@@ -1079,13 +1080,24 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
 QED
 
-val inst_clock = Q.prove(
+Theorem inst_clock:
+  !i s s2. inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep
+Proof
+cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
+  \\ every_case_tac
+  \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []
+  \\ EVAL_TAC \\ fs[]
+QED
+
+(*val inst_clock = Q.prove(
   `inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep`,
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []
   \\ EVAL_TAC \\ fs[]);
+*)
 
 Theorem evaluate_clock:
    !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==>
@@ -1118,11 +1130,22 @@ Proof
   \\ decide_tac
 QED
 
+
+Theorem fix_clock_evaluate:
+   !s c1. fix_clock s (evaluate (c1,s)) = evaluate (c1,s)
+Proof
+ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[fix_clock_def]
+  \\ imp_res_tac evaluate_clock \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+QED
+
+(*
 val fix_clock_evaluate = Q.prove(
   `fix_clock s (evaluate (c1,s)) = evaluate (c1,s)`,
   Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[fix_clock_def]
   \\ imp_res_tac evaluate_clock \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
   \\ full_simp_tac(srw_ss())[state_component_equality]);
+*)
 
 (* We store the theorems without fix_clock *)
 
