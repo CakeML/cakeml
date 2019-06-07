@@ -38,8 +38,9 @@ val _ = Datatype `
        | Alloc num
        | Raise num
        | Return num num
-       | FFI string num num num num num (* FFI index, conf_ptr, conf_len,
-                                           array_ptr, array_len, ret_addr *)
+       | FFI string num (num list) num (* FFI index, ret_ptr, arg_ptrs, ret_addr *)
+      (* | FFI string num num num num num (* FFI index, conf_ptr, conf_len,
+                                           array_ptr, array_len, ret_addr *) *)
        | Tick
        | LocValue num num num   (* assign v1 := Loc v2 v3 *)
        | Install num num num num num (* code buffer start, length of new code,

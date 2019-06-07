@@ -696,9 +696,10 @@ val word_prog_to_display_def = tDefine "word_prog_to_display" `
     item_with_nums (strlit "CodeBufferWrite") [n1; n2]) /\
   (word_prog_to_display (DataBufferWrite n1 n2) =
     item_with_nums (strlit "DataBufferWrite") [n1; n2]) /\
-  (word_prog_to_display (FFI nm n1 n2 n3 n4 ns) =
+  (word_prog_to_display (FFI nm n nss ns) = ARB) /\
+(*  (word_prog_to_display (FFI nm n1 n2 n3 n4 ns) =
     Item NONE (strlit "FFI") (string_to_display2 nm :: MAP num_to_display [n1; n2; n3; n4]
-        ++ [num_set_to_display ns])) /\
+        ++ [num_set_to_display ns])) /\ *)
   (word_prog_to_display_ret NONE = empty_item (strlit "NONE")) /\
   (word_prog_to_display_ret (SOME (n1, ns, prog, n2, n3)) =
     Item NONE (strlit "SOME") [Tuple [num_to_display n1; num_set_to_display ns;

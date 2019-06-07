@@ -265,12 +265,17 @@ val AppendLenLoop_location_eq = save_thm("AppendLenLoop_location_eq",
 val AppendFastLoop_location_eq = save_thm("AppendFastLoop_location_eq",
   ``AppendFastLoop_location`` |> EVAL);
 
+
+val SilentFFI_def = Define `
+  SilentFFI c n names = ARB`;
+
+(*
 val SilentFFI_def = Define `
   SilentFFI c n names =
     if c.call_empty_ffi then
       Seq (Assign n (Const 0w)) (FFI "" n n n n names)
     else Skip`;
-
+*)
 val AllocVar_def = Define `
   AllocVar c (limit:num) (names:num_set) =
     list_Seq [Assign 1 (Shift Lsr (Var 1) 2);
@@ -1726,6 +1731,12 @@ val def = assign_Define `
                         (WriteWord32_on_32 c header1 dest 11)])],l)))
       : 'a wordLang$prog # num`;
 
+
+val def = assign_Define `
+  assign_FFI ffi_index (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) v1 v2 = ARB`;
+
+(*
 val def = assign_Define `
   assign_FFI ffi_index (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
@@ -1746,6 +1757,7 @@ val def = assign_Define `
           Assign (adjust_var dest) Unit]
         , l)
       : 'a wordLang$prog # num`;
+*)
 
 val def = assign_Define `
   assign_EqualInt i (c:data_to_word$config) (secn:num)

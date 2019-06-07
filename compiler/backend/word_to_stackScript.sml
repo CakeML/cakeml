@@ -309,8 +309,9 @@ val comp_def = Define `
     let (l1,r1) = wReg1 r1 kf in
     let (l2,r2) = wReg2 r2 kf in
       (wStackLoad (l1++l2) (DataBufferWrite r1 r2),bs)) /\
-  (comp (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
-                                                (r3 DIV 2) (r4 DIV 2) 0,bs)) /\
+    (comp (FFI i n ns live) bs kf = ARB) /\
+  (* (comp (FFI i r1 r2 r3 r4 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2)
+                                                (r3 DIV 2) (r4 DIV 2) 0,bs)) /\ *)
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 
 val raise_stub_def = Define `

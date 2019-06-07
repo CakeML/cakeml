@@ -9,7 +9,6 @@
 open preamble wordLangTheory;
 open linear_scanTheory;
 open reg_allocTheory;
-
 val _ = new_theory "word_alloc";
 val _ = set_grammar_ancestry [
   "asm" (* for arity-2 Const *),
@@ -335,7 +334,8 @@ val ssa_cc_trans_def = Define`
     let r1' = option_lookup ssa r1 in
     let r2' = option_lookup ssa r2 in
     (DataBufferWrite r1' r2',ssa,na)) ∧
-  (ssa_cc_trans (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na =
+  (ssa_cc_trans (FFI ffi_index n ns numset) ssa na = ARB) ∧
+ (* (ssa_cc_trans (FFI ffi_index ptr1 len1 ptr2 len2 numset) ssa na =
     let ls = MAP FST (toAList numset) in
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
@@ -349,7 +349,7 @@ val ssa_cc_trans_def = Define`
     let prog = (Seq (stack_mov)
                (Seq (Move 0 [(2,cptr1);(4,clen1);(6,cptr2);(8,clen2)])
                (Seq (FFI ffi_index 2 4 6 8 stack_set) (ret_mov)))) in
-    (prog,ssa'',na'')) ∧
+    (prog,ssa'',na''))  ∧ *)
   (ssa_cc_trans (Call NONE dest args h) ssa na =
     let names = MAP (option_lookup ssa) args in
     let conv_args = GENLIST (\x.2*x) (LENGTH names) in
@@ -473,8 +473,9 @@ val apply_colour_def = Define `
     CodeBufferWrite (f r1) (f r2)) ∧
   (apply_colour f (DataBufferWrite r1 r2) =
     DataBufferWrite (f r1) (f r2)) ∧
-  (apply_colour f (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
-    FFI ffi_index (f ptr1) (f len1) (f ptr2) (f len2) (apply_nummap_key f numset)) ∧
+  (apply_colour f (FFI ffi_index n ns numset) = ARB) ∧
+ (* (apply_colour f (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
+    FFI ffi_index (f ptr1) (f len1) (f ptr2) (f len2) (apply_nummap_key f numset)) ∧ *)
   (apply_colour f (LocValue r l1) =
     LocValue (f r) l1) ∧
   (apply_colour f (Alloc num numset) =
@@ -614,9 +615,10 @@ val get_live_def = Define`
     list_insert [r1;r2] live) ∧
   (get_live (DataBufferWrite r1 r2) live =
     list_insert [r1;r2] live) ∧
-  (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live =
+  (get_live (FFI ffi_index n ns numset) live = ARB ) ∧
+ (* (get_live (FFI ffi_index ptr1 len1 ptr2 len2 numset) live =
    insert ptr1 () (insert len1 ()
-     (insert ptr2 () (insert len2 () numset)))) ∧
+     (insert ptr2 () (insert len2 () numset)))) ∧ *)
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
   (get_live Tick live = live) ∧
@@ -856,8 +858,9 @@ val get_clash_tree_def = Define`
     Delta [] [r2;r1]) ∧
   (get_clash_tree (DataBufferWrite r1 r2) =
     Delta [] [r2;r1]) ∧
-  (get_clash_tree (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
-    Seq (Delta [] [ptr1;len1;ptr2;len2]) (Set numset)) ∧
+  (get_clash_tree (FFI ffi_index n ns numset) = ARB) ∧
+ (* (get_clash_tree (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
+    Seq (Delta [] [ptr1;len1;ptr2;len2]) (Set numset)) ∧ *)
   (get_clash_tree (Raise num) = Delta [] [num]) ∧
   (get_clash_tree (Return num1 num2) = Delta [] [num1;num2]) ∧
   (get_clash_tree Tick = Delta [] []) ∧

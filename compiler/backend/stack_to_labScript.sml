@@ -80,9 +80,10 @@ local val flatten_quotation = `
               ys ++ List [Label n m 0]), nr1 ∧ nr2, m+1))
     | JumpLower r1 r2 target =>
         (List [LabAsm (JumpCmp Lower r1 (Reg r2) (Lab target 0)) 0w [] 0],F,m)
-    | FFI ffi_index _ _ _ _ lr => (List [LabAsm (LocValue lr (Lab n m)) 0w [] 0;
+    | FFI ffi_index _ _ lr => ARB
+   (* | FFI ffi_index _ _ _ _ lr => (List [LabAsm (LocValue lr (Lab n m)) 0w [] 0;
                                          LabAsm (CallFFI ffi_index) 0w [] 0;
-                                         Label n m 0],F,m+1)
+                                         Label n m 0],F,m+1) *)
     | LocValue i l1 l2 => (List [LabAsm (LocValue i (Lab l1 l2)) 0w [] 0],F,m)
     | Install _ _ _ _ ret =>
       (List [LabAsm (LocValue ret (Lab n m)) 0w [] 0;

@@ -650,7 +650,6 @@ val _ = Define `
   matched_num_pr_lst n prs = FILTER ($= n o FST) prs
 `
 
-
 val _ = Define `
   (matched_loc [] _ = []) /\
   (matched_loc _ [] = []) /\
@@ -717,8 +716,7 @@ val _ = Define `
    (assign_ffi_arg (C_array conf) ws (Loc lnum) s =
     if conf.mutable then
       store_assign lnum (W8array ws) s
-    else
-      NONE)
+    else NONE)
 /\ (assign_ffi_arg _ _ _ s = SOME s)`
 
 
@@ -728,53 +726,11 @@ val _ = Define `
 
 val _ = Define
   `(assign_ffi_args [] [] [] s = s)
-
 /\ (assign_ffi_args (ty::tys) (carg::cargs) (arg::args) s =
     assign_ffi_args tys cargs args (OPTION_BIND s (assign_ffi_arg ty carg arg)))
-
 /\ (assign_ffi_args _ _ _ _ = NONE)
   `
-*)
 
-
-val _ = Define `
-   (store_carg_sem (Loc lnum) ws s = THE (store_assign lnum (W8array ws) s)) (* to-ask *)
-/\ (store_carg_sem  _ _ s = s)`
-
-
-val _ = Define
-  `(store_cargs_sem [] [] s = s)
-
-/\ (store_cargs_sem (marg::margs) (w::ws) s =
-    store_cargs_sem margs ws (store_carg_sem marg w s))
-
-/\ (store_cargs_sem _ _ s = s)
-  `
-
-
-(*   “:α store_v list ->
-    β ffi_state ->
-    string ->
-    v list -> ((α store_v list # β ffi_state) # (v, γ) result) option” *)
-
-
-val _ = Define
-  `do_ffi s t n args =
-   case FIND (λx. x.mlname = n) t.signatures of
-     SOME sign =>
-     (case get_cargs_sem s sign.args args of
-          SOME cargs =>
-           (case call_FFI t n cargs (als_args_final_sem (loc_typ_val sign.args args)) of
-              FFI_return t' newargs retv =>
-                if ret_ok sign.retty retv then
-                    SOME (((store_cargs_sem (get_mut_args sign args) newargs s), t'), Rval (get_ret_val retv))
-                   else NONE
-            | FFI_final outcome =>
-              SOME ((s, t), Rerr (Rabort (Rffi_error outcome))))
-        | NONE => NONE)
-   | NONE => NONE
-  `
-(*
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) t.signatures of
@@ -795,6 +751,45 @@ val _ = Define
    | NONE => NONE
   `
 *)
+
+
+val _ = Define `
+   (store_carg_sem (Loc lnum) ws s = THE (store_assign lnum (W8array ws) s))
+       (* to-ask about store_assign and THE*)
+/\ (store_carg_sem  _ _ s = s)`
+
+
+val _ = Define
+  `(store_cargs_sem [] [] s = s)
+/\ (store_cargs_sem (marg::margs) (w::ws) s =
+    store_cargs_sem margs ws (store_carg_sem marg w s))
+/\ (store_cargs_sem _ _ s = s)
+  `
+
+
+(*   “:α store_v list ->
+    β ffi_state ->
+    string ->
+    v list -> ((α store_v list # β ffi_state) # (v, γ) result) option” *)
+
+
+val _ = Define
+  `do_ffi s t n args =
+   case FIND (λx. x.mlname = n) t.signatures of
+     SOME sign =>
+     (case get_cargs_sem s sign.args args of
+          SOME cargs =>
+           (case call_FFI t n cargs (als_args_final_sem (loc_typ_val sign.args args)) of
+              FFI_return t' newargs retv =>
+                if ret_ok sign.retty retv then
+                    SOME (((store_cargs_sem (get_mut_args sign args) newargs s), t'),
+                            Rval (get_ret_val retv))
+                   else NONE
+            | FFI_final outcome => SOME ((s, t), Rerr (Rabort (Rffi_error outcome))))
+        | NONE => NONE)
+   | NONE => NONE
+  `
+
 
 (*
 do_app :: v store_v list # α ffi_state ->
