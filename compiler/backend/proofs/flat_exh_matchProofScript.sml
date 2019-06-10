@@ -173,7 +173,7 @@ val env_rel_def = Define `
     nv_rel ctors env1.v env2.v`;
 
 val state_rel_def = Define `
-  state_rel ctors s1 s2 <=>
+  state_rel check_ctor_rel ctors s1 s2 <=>
     s1.clock = s2.clock /\
     LIST_REL (sv_rel (v_rel ctors)) s1.refs s2.refs /\
     s1.ffi = s2.ffi /\
@@ -181,7 +181,7 @@ val state_rel_def = Define `
     (* Constructors *)
     initial_ctors SUBSET s1.c /\
     init_ctors SUBMAP ctors /\
-    ctor_rel ctors s1.c /\
+    (check_ctor_rel ⇒ ctor_rel ctors s1.c) /\
     (* Flags *)
     s1.check_ctor /\
     s2.check_ctor /\
@@ -335,7 +335,7 @@ Theorem pmatch_thm
   `(!(s:'ffi state) p v vs r ctors s1 v1 vs1.
      pmatch s p v vs = r /\
      r <> Match_type_error /\
-     state_rel ctors s s1 ∧
+     state_rel T ctors s s1 ∧
      v_rel ctors v v1 /\
      nv_rel ctors vs vs1
      ==>
@@ -345,7 +345,7 @@ Theorem pmatch_thm
   (!(s:'ffi state) ps v vs r ctors s1 v1 vs1.
      pmatch_list s ps v vs = r /\
      r <> Match_type_error /\
-     state_rel ctors s s1 ∧
+     state_rel T ctors s s1 ∧
      LIST_REL (v_rel ctors) v v1 /\
      nv_rel ctors vs vs1
      ==>
@@ -418,12 +418,12 @@ val store_v_same_type_cases = Q.prove (
 Theorem do_app_thm
   `do_app cc s1 op vs1 = SOME (t1, r1) /\
    init_ctors SUBMAP ctors /\
-   state_rel ctors s1 s2 /\
+   state_rel T ctors s1 s2 /\
    LIST_REL (v_rel ctors) vs1 vs2
    ==>
    ?t2 r2.
      result_rel v_rel ctors r1 r2 /\
-     state_rel ctors t1 t2 /\
+     state_rel T ctors t1 t2 /\
      do_app cc s2 op vs2 = SOME (t2, r2)`
   (rpt strip_tac \\ qhdtm_x_assum `do_app` mp_tac
   \\ Cases_on `op = Opb Lt \/ op = Opb Gt \/ op = Opb Leq \/ op = Opb Geq \/
@@ -762,12 +762,12 @@ Theorem compile_exps_evaluate:
     ==>
     !ctors env2 s2 ctors_pre.
       env_rel ctors env1 env2 /\
-      state_rel ctors s1 s2 /\
+      state_rel T ctors s1 s2 /\
       ctors_pre SUBMAP ctors
       ==>
       ?t2 r2.
         result_rel (LIST_REL o v_rel) ctors r1 r2 /\
-        state_rel ctors t1 t2 /\
+        state_rel T ctors t1 t2 /\
         evaluate env2 s2 (compile_exps ctors_pre xs) = (t2, r2)) /\
   (!env1 ^s1 v ps err_v t1 r1.
     evaluate_match env1 s1 v ps err_v = (t1, r1) /\
@@ -775,7 +775,7 @@ Theorem compile_exps_evaluate:
     ==>
     !ps2 is_handle ctors env2 s2 v2 tr err_v2 ctors_pre.
       env_rel ctors env1 env2 /\
-      state_rel ctors s1 s2 /\
+      state_rel T ctors s1 s2 /\
       ctors_pre SUBMAP ctors /\
       v_rel ctors v v2 /\
       v_rel ctors err_v err_v2 /\
@@ -787,7 +787,7 @@ Theorem compile_exps_evaluate:
       ==>
       ?t2 r2.
         result_rel (LIST_REL o v_rel) ctors r1 r2 /\
-        state_rel ctors t1 t2 /\
+        state_rel T ctors t1 t2 /\
         evaluate_match env2 s2 v2
           (MAP (\(p,e). (p, HD (compile_exps ctors_pre [e]))) ps2)
           err_v2 = (t2, r2))
@@ -837,17 +837,19 @@ Proof
     >- metis_tac [do_opapp_thm, state_rel_def]
     >-
      (drule (GEN_ALL do_opapp_thm) \\ disch_then drule \\ rw [] \\ fs []
-      \\ sg `env_rel ctors (env1 with v := env') (env2 with v := nvs2)`
-      >- (fs [env_rel_def] \\ rfs [] \\ fs [])
-      \\ sg `state_rel ctors (dec_clock s') (dec_clock t2)`
-      >- fs [state_rel_def, dec_clock_def]
+      \\ `env_rel ctors (env1 with v := env') (env2 with v := nvs2)`
+        by (fs [env_rel_def] \\ rfs [] \\ fs [])
+      \\ `state_rel T ctors (dec_clock s') (dec_clock t2)`
+        by (fs [state_rel_def, dec_clock_def] >> metis_tac [])
       \\ first_x_assum drule \\ rpt (disch_then drule) \\ fs [] \\ rw []
-      \\ fs [state_rel_def])
+      \\ fs [state_rel_def] >> metis_tac [])
     \\ drule (GEN_ALL do_app_thm)
     \\ disch_then (qspecl_then [`REVERSE v2`,`t2`,`ctors`] mp_tac)
-    \\ fs [env_rel_def] \\ rw [] \\ fs []
-    \\ Cases_on `r` \\ Cases_on `r2` \\ fs [evaluateTheory.list_result_def])
-
+    \\ fs [env_rel_def] \\ rw [] \\ fs [] >>
+    `init_ctors ⊑ ctors` by fs [state_rel_def] >>
+    fs [] >>
+    Cases_on `r` \\ Cases_on `r2` \\ fs [evaluateTheory.list_result_def] >>
+    fs [PULL_EXISTS, state_rel_def] >> rfs [])
   >- (* If *)
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs []
@@ -893,16 +895,13 @@ Proof
     \\ reverse every_case_tac \\ fs []
     \\ drule (CONJUNCT1 pmatch_thm) \\ fs []
     \\ rpt (disch_then drule)
-    \\ disch_then (qspecl_then [`env2`, `[]`] mp_tac)
+    \\ disch_then (qspecl_then [`[]`] mp_tac)
     \\ (impl_tac >- simp [Once v_rel_cases])
     \\ rw []
     >-
-     (Cases_on `pmatch env2 s2.refs p v2 []` \\ fs [match_rel_def]
-      \\ `env_rel ctors (env1 with v := a ++ env1.v)
-                        (env2 with v := a' ++ env2.v)` by
+     (Cases_on `pmatch s2 p v2 []` \\ fs [match_rel_def]
+      \\ `env_rel ctors <|v := a ++ env1.v|> <|v := a' ++ env2.v|>` by
        (fs [env_rel_def, nv_rel_LIST_REL]
-        \\ conj_tac >- metis_tac []
-        \\ conj_tac >- metis_tac []
         \\ match_mp_tac EVERY2_APPEND_suff \\ fs [])
       \\ first_x_assum drule
       \\ rpt (disch_then drule)
@@ -924,16 +923,13 @@ Proof
   \\ reverse every_case_tac \\ fs []
   \\ drule (CONJUNCT1 pmatch_thm) \\ fs []
   \\ rpt (disch_then drule)
-  \\ disch_then (qspecl_then [`env2`, `[]`] mp_tac)
+  \\ disch_then (qspecl_then [`[]`] mp_tac)
   \\ (impl_tac >- simp [Once v_rel_cases])
   \\ rw []
   >-
-   (Cases_on `pmatch env2 s2.refs p v2 []` \\ fs [match_rel_def]
-    \\ `env_rel ctors (env1 with v := a ++ env1.v)
-                      (env2 with v := a' ++ env2.v)` by
+   (Cases_on `pmatch s2 p v2 []` \\ fs [match_rel_def]
+    \\ `env_rel ctors <|v := a ++ env1.v|> <|v := a' ++ env2.v|>` by
      (fs [env_rel_def, nv_rel_LIST_REL]
-      \\ conj_tac >- metis_tac []
-      \\ conj_tac >- metis_tac []
       \\ match_mp_tac EVERY2_APPEND_suff \\ fs [])
     \\ first_x_assum drule
     \\ rpt (disch_then drule)
@@ -990,6 +986,7 @@ val sv_rel_v_rel_SUBMAP = Q.prove (
   \\ qexists_tac `v_rel pre` \\ rw []
   \\ imp_res_tac v_rel_SUBMAP);
 
+(* TODO, not true anymore
 val state_rel_SUBMAP = Q.prove (
   `state_rel pre s1 s2 /\
    pre SUBMAP post
@@ -999,7 +996,13 @@ val state_rel_SUBMAP = Q.prove (
   >- metis_tac [sv_rel_v_rel_SUBMAP]
   \\ first_x_assum (qspec_then `n` mp_tac)
   \\ rw [OPTREL_def] \\ fs []
-  \\ metis_tac [v_rel_SUBMAP]);
+  >- metis_tac [v_rel_SUBMAP]
+  >- metis_tac [SUBMAP_TRANS]
+  >- (
+    fs [ctor_rel_def, SUBMAP_DEF, FLOOKUP_DEF] >>
+    rw [] >> eq_tac >> rw [GSYM PULL_EXISTS]
+    metis_tac []
+    *)
 
 val dec_res_rel_def = Define `
   (dec_res_rel ctors NONE NONE <=> T) /\
@@ -1065,6 +1068,7 @@ val compile_decs_SUBMAP = Q.prove (
         \\ metis_tac [])
   \\ metis_tac [SUBMAP_TRANS]);
 
+  (* TODO: probably false now
 Theorem compile_dec_ctor_rel
   `evaluate_dec env s d1 = (t, c1, r) /\
    r <> SOME (Rabort Rtype_error) /\
@@ -1085,85 +1089,92 @@ Theorem compile_dec_ctor_rel
     \\ `ty <> n` by metis_tac [flookup_thm] \\ fs [NOT_EQ_FAPPLY])
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ fs [compile_dec_def, is_fresh_exn_def, ctor_rel_def]);
+  *)
 
+  (*
 val env_updated_by_UNION = Q.prove (
   `env with c updated_by $UNION c1 = env with c := env.c UNION c1 /\
    env with c updated_by $UNION c1 o $UNION c2 =
    env with c := env.c UNION c1 UNION c2`,
   fs [environment_component_equality, AC UNION_COMM UNION_ASSOC]);
+  *)
 
 Theorem compile_dec_evaluate
-  `!d1 env1 s1 t1 c1 r1.
-     evaluate_dec env1 s1 d1 = (t1, c1, r1) /\
+  `!d1 s1 t1 c1 r1.
+     evaluate_dec s1 d1 = (t1, r1) /\
      r1 <> SOME (Rabort Rtype_error)
      ==>
-     !ctors env2 s2.
-       env_rel ctors env1 env2 /\
-       state_rel ctors s1 s2 /\
+     !ctors s2.
+       state_rel T ctors s1 s2 /\
        is_new_type ctors d1
        ==>
        ?t2 r2 d2 ctors_post c2.
          ctors SUBMAP ctors_post /\
          compile_dec ctors d1 = (ctors_post, d2) /\
-         env_rel ctors_post (env1 with c updated_by $UNION c1)
-                            (env2 with c updated_by $UNION c2) /\
-         state_rel ctors_post t1 t2 /\
+         state_rel T ctors_post t1 t2 /\
          dec_res_rel ctors_post r1 r2 /\
-         evaluate_dec env2 s2 d2 = (t2, c2, r2) /\
-         c1 = c2`
+         evaluate_dec s2 d2 = (t2, r2)`
   (Cases \\ rw []
   >- (* Dlet *)
-   (`env_rel ctors (env1 with v := []) (env2 with v := [])`
-      by (fs [env_rel_def] \\ metis_tac [])
-    \\ fs [compile_dec_def, evaluate_dec_def, pair_case_eq, case_eq_thms]
+   (
+    fs [compile_dec_def, evaluate_dec_def, pair_case_eq, case_eq_thms]
     \\ rveq \\ fs [PULL_EXISTS]
-    \\ drule compile_exps_lemma \\ fs []
-    \\ rpt (disch_then drule) \\ rw []
-    \\ fs [compile_exp_def, env_rel_def]
-    \\ every_case_tac \\ fs [] \\ rw []
-    \\ metis_tac [])
+    \\ drule compile_exps_lemma \\ fs [] >>
+    disch_then (qspecl_then [`s2`, `<|v:=[]|>`] mp_tac) >>
+    simp [env_rel_def] >> disch_then drule >> rw [] >>
+    fs [compile_exp_def]
+    \\ every_case_tac \\ fs [] \\ rw [] >>
+    fs [Once v_rel_cases, Unitv_def, state_rel_def] >>
+    metis_tac [])
   >- (* Dtype *)
-   (`env1.check_ctor /\ ctor_rel ctors env1.c` by fs [env_rel_def]
-    \\ Cases_on `compile_dec ctors (Dtype n s)`
-    \\ drule (GEN_ALL compile_dec_ctor_rel)
-    \\ rpt (disch_then drule) \\ strip_tac
-    \\ `init_ctors SUBMAP q` by metis_tac [SUBMAP_TRANS, env_rel_def]
-    \\ fs [env_updated_by_UNION] \\ fs [env_rel_def]
-    \\ fs [SUBSET_DEF]
-    \\ simp [RIGHT_EXISTS_AND_THM]
-    \\ conj_tac >- metis_tac [v_rel_SUBMAP]
-    \\ qhdtm_x_assum `compile_dec` mp_tac \\ simp [compile_dec_def]
-    \\ strip_tac \\ rveq
-    \\ qmatch_asmsub_abbrev_tac `ctors |+ new`
-    \\ fs [evaluate_dec_def, env_rel_def, is_fresh_type_def]
-    \\ every_case_tac \\ fs []
-    \\ metis_tac [state_rel_SUBMAP])
-     (* Dexn *)
+   (
+     fs [compile_dec_def, evaluate_dec_def] >>
+     Cases_on `is_fresh_type n s1.c` >> fs [] >>
+     `s1.check_ctor ∧ s1.c = s2.c` by fs [state_rel_def] >>
+     fs [] >> rw []
+     >- fs [is_new_type_def]
+     >- (
+       fs [state_rel_def, LIST_REL_EL_EQN] >> rw []
+       >- (
+         irule sv_rel_v_rel_SUBMAP >>
+         qexists_tac `ctors` >>
+         rw [] >> fs [is_new_type_def])
+       >- (
+         irule OPTREL_MONO >>
+         qexists_tac `v_rel ctors` >>
+         rw [] >>
+         irule (CONJUNCT1 v_rel_SUBMAP) >>
+         qexists_tac `ctors` >>
+         fs [is_new_type_def])
+       >- fs [SUBSET_DEF]
+       >- (fs [SUBMAP_DEF, FAPPLY_FUPDATE_THM, is_new_type_def] >> metis_tac [])
+       >- (
+         fs [ctor_rel_def, is_new_type_def, is_fresh_type_def] >> rw [] >>
+         Cases_on `ty = n` >> simp [FLOOKUP_UPDATE] >>
+         eq_tac >> rw [] >> metis_tac []))
+     >- fs [is_new_type_def]
+     >- fs [state_rel_def])
+  (* Dexn *)
   \\ fs [evaluate_dec_def, env_rel_def, is_fresh_exn_def, compile_dec_def]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [ctor_rel_def, FORALL_PROD]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [ctor_rel_def, FORALL_PROD, state_rel_def]
   \\ metis_tac [SUBSET_DEF, SUBSET_UNION]);
 
 Theorem compile_decs_evaluate
-  `!ds1 env1 s1 t1 c1 r1.
-     evaluate_decs env1 s1 ds1 = (t1, c1, r1) /\
+  `!ds1 s1 t1 c1 r1.
+     evaluate_decs s1 ds1 = (t1, r1) /\
      r1 <> SOME (Rabort Rtype_error)
      ==>
-     !ctors env2 s2 ds2 ctors_post.
+     !ctors s2 ds2 ctors_post.
        compile_decs ctors ds1 = (ctors_post, ds2) /\
-       env_rel ctors env1 env2 /\
-       state_rel ctors s1 s2 /\
+       state_rel T ctors s1 s2 /\
        EVERY (is_new_type ctors) ds1 /\
        ALL_DISTINCT (get_tdecs ds1)
        ==>
-       ?t2 r2 c2.
+       ?t2 r2.
          ctors SUBMAP ctors_post /\
-         (r1 = NONE ==>
-           env_rel ctors_post (env1 with c updated_by $UNION c1)
-                              (env2 with c updated_by $UNION c2)) /\
-         state_rel ctors_post t1 t2 /\
+         state_rel (r1 = NONE) ctors_post t1 t2 /\
          dec_res_rel ctors_post r1 r2 /\
-         evaluate_decs env2 s2 ds2 = (t2, c2, r2) /\
-         c1 = c2`
+         evaluate_decs s2 ds2 = (t2, r2)`
   (Induct \\ rw []
   >-
    (fs [evaluate_decs_def, compile_decs_def, env_rel_def, get_tdecs_def,
@@ -1185,17 +1196,28 @@ Theorem compile_decs_evaluate
     \\ rpt (disch_then drule) \\ rw []
     \\ simp [RIGHT_EXISTS_AND_THM]
     \\ conj_tac >- metis_tac [SUBMAP_TRANS]
-    \\ fs [env_updated_by_UNION, AC UNION_ASSOC UNION_COMM, evaluate_decs_def])
-  \\ fs [env_updated_by_UNION] \\ rw [] \\ fs [evaluate_decs_def]
-  \\ metis_tac [v_rel_SUBMAP, state_rel_SUBMAP, SUBMAP_TRANS, compile_decs_SUBMAP]);
+    \\ fs [AC UNION_ASSOC UNION_COMM, evaluate_decs_def])
+  \\ fs [] \\ rw [] \\ fs [evaluate_decs_def] >>
+  rw []
+  >- metis_tac [SUBMAP_TRANS, compile_decs_SUBMAP]
+  >- (
+    `ctor1 SUBMAP ctor2` by metis_tac [compile_decs_SUBMAP] >>
+    fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >>
+    metis_tac [OPTREL_MONO,sv_rel_v_rel_SUBMAP,v_rel_SUBMAP, SUBMAP_TRANS])
+  >- metis_tac [v_rel_SUBMAP, compile_decs_SUBMAP]
+  >- metis_tac [SUBMAP_TRANS, compile_decs_SUBMAP]
+  >- (
+    `ctor1 SUBMAP ctor2` by metis_tac [compile_decs_SUBMAP] >>
+    fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >>
+    metis_tac [OPTREL_MONO,sv_rel_v_rel_SUBMAP,v_rel_SUBMAP, SUBMAP_TRANS]))
 
 (* ------------------------------------------------------------------------- *)
 (* Top-level semantics theorem                                               *)
 (* ------------------------------------------------------------------------- *)
 
 val ctor_rel_initial_ctor = Q.prove (
-  `ctor_rel init_ctors (initial_env exh ctors).c`,
-  rw [ctor_rel_def, init_ctors_def, initial_env_def, flookup_fupdate_list] \\ rw []
+  `ctor_rel init_ctors (initial_state a b c d).c`,
+  rw [ctor_rel_def, init_ctors_def, initial_state_def, flookup_fupdate_list] \\ rw []
   \\ fs [lookup_insert] \\ every_case_tac \\ fs [lookup_def] \\ EVAL_TAC \\ rw []);
 
 Theorem compile_decs_eval_sim
@@ -1208,12 +1230,11 @@ Theorem compile_decs_eval_sim
      (\p1 p2. p2 = SND (compile p1)) F`
   (rw [eval_sim_def] \\ qexists_tac `0` \\ fs []
   \\ Cases_on `compile ds1` \\ fs [compile_def]
-  \\ `env_rel init_ctors (initial_env F T) (initial_env T T)`
-    by (rw [env_rel_def, ctor_rel_initial_ctor]
-        \\ EVAL_TAC \\ fs []
-        \\ fs [lookup_def] \\ rw [])
-  \\ `state_rel init_ctors (initial_state ffi k) (initial_state ffi k)`
-    by (EVAL_TAC \\ fs [])
+  \\ `state_rel T init_ctors (initial_state ffi k F T) (initial_state ffi k T T)`
+    by (EVAL_TAC \\ fs [] >> rw [] >> eq_tac >> rw [] >> CCONTR_TAC >>
+        fs [lookup_def] >> fs [] >>
+        every_case_tac >> fs [lookup_def, EVEN_EXISTS] >>
+        intLib.COOPER_TAC)
   \\ drule compile_decs_evaluate \\ fs []
   \\ rpt (disch_then drule) \\ rw []
   \\ fs [state_rel_def] \\ rw [dec_res_rel_def] \\ fs []);
