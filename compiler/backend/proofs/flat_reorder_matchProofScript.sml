@@ -552,50 +552,66 @@ Theorem compile_evaluate
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
-    \\ qmatch_asmsub_rename_tac `(compile_state s2, _)`
-    \\ `?m. find_match env s2.refs v pes = Match m`
+    \\ qmatch_asmsub_rename_tac `(compile_state s2, _)` >>
+    drule (CONJUNCT1 evaluate_state_unchanged) >> rw []
+    \\ `?m. find_match s2 v pes = Match m`
       by (CCONTR_TAC \\ fs []
           \\ imp_res_tac evaluate_match_find_match_none \\ fs [])
-    \\ PairCases_on `m`
+    \\ PairCases_on `m` >>
+    fs []
     \\ first_x_assum (CHANGED_TAC o (SUBST1_TAC o SYM))
     \\ qmatch_assum_rename_tac`_ = Match (env1,e1)`
-    \\ `find_match env s2.refs v (const_cons_fst pes) = Match (env1, e1)`
+    \\ `find_match s2 v (const_cons_fst pes) = Match (env1, e1)`
       by metis_tac [const_cons_fst_find_match,
                     semanticPrimitivesTheory.match_result_distinct]
     \\ imp_res_tac find_match_imp_compile
     \\ imp_res_tac evaluate_match_find_match_some \\ fs [])
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
-    \\ rfs [compile_reverse, MAP_REVERSE, ETA_AX])
-  >- (every_case_tac \\ fs [ALOOKUP_compile_env, PULL_EXISTS])
+    \\ rfs [compile_reverse, MAP_REVERSE, ETA_AX, compile_state_def])
+  >- (
+    fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ rfs [compile_reverse, MAP_REVERSE, ETA_AX, compile_state_def] >>
+    fs [])
+  >- (
+    fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
+    \\ rfs [compile_reverse, MAP_REVERSE, ETA_AX, compile_state_def] >>
+    fs [])
+  >- (every_case_tac \\ fs [ALOOKUP_compile_env, PULL_EXISTS, compile_state_def])
+
+  >- cheat
+  (*
   >-
    (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw []
     \\ fs [compile_reverse, PULL_EXISTS, GSYM MAP_REVERSE]
-    \\ fs [list_result_map_result]
+    \\ fs [list_result_map_result] >>
+    imp_res_tac evaluate_state_unchanged >> rw []
     \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs []
     \\ qspec_then `e` strip_assume_tac compile_sing
     \\ fs [dec_clock_compile_state]
     \\ rfs [] \\ fs [])
+    *)
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qspec_then `e1` strip_assume_tac compile_sing \\ fs []
     \\ imp_res_tac evaluate_sing \\ rw [] \\ fs []
     \\ fs [do_if_def]
     \\ rfs [case_eq_thms, bool_case_eq]
-    \\ rw [] \\ fs [compile_v_def, Boolv_def]
+    \\ rw [] \\ fs [compile_v_def, Boolv_def] >>
+    imp_res_tac (CONJUNCT1 evaluate_state_unchanged) >> rw []
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs [])
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
     \\ imp_res_tac evaluate_sing \\ fs [] \\ rw []
-    \\ qmatch_asmsub_rename_tac `(compile_state s2, _)`
-    \\ `?m. find_match env s2.refs x0 pes = Match m`
+    \\ qmatch_asmsub_rename_tac `(compile_state s2, _)` >>
+    imp_res_tac (CONJUNCT1 evaluate_state_unchanged) >> rw []
+    \\ `?m. find_match s2 x0 pes = Match m`
       by (CCONTR_TAC \\ fs []
           \\ imp_res_tac evaluate_match_find_match_none \\ fs [])
     \\ PairCases_on `m`
-    \\ first_x_assum (CHANGED_TAC o (SUBST1_TAC o SYM))
     \\ qmatch_assum_rename_tac`_ = Match (env1,e1)`
-    \\ `find_match env s2.refs x0 (const_cons_fst pes) = Match (env1, e1)`
+    \\ `find_match s2 x0 (const_cons_fst pes) = Match (env1, e1)`
       by metis_tac [const_cons_fst_find_match,
                     semanticPrimitivesTheory.match_result_distinct]
     \\ imp_res_tac find_match_imp_compile
@@ -611,7 +627,9 @@ Theorem compile_evaluate
       by fs [environment_component_equality]
     \\ pop_assum SUBST1_TAC
     \\ fs [libTheory.opt_bind_def]
-    \\ PURE_CASE_TAC \\ fs [])
+    \\ PURE_CASE_TAC \\ fs [] >>
+    imp_res_tac (CONJUNCT1 evaluate_state_unchanged) >> rw [] >>
+    metis_tac [])
   >-
    (fs [build_rec_env_merge, MAP_MAP_o, o_DEF, UNCURRY]
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs [])

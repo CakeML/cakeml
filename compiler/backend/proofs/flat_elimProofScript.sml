@@ -753,27 +753,25 @@ Theorem flat_state_rel_trans
 (**************************** FLATLANG LEMMAS *****************************)
 
 Theorem pmatch_Match_reachable
-    `(∀ env refs p v l a reachable:num_set . pmatch env refs p v l = Match a ∧
-        domain (find_v_globalsL (MAP SND env.v)) ⊆ domain reachable ∧
+    `(∀(s:'ffi state) p v l a reachable:num_set . pmatch s p v l = Match a ∧
         domain (find_v_globals v) ⊆ domain reachable ∧
         domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
-        domain (find_refs_globals refs) ⊆ domain reachable
+        domain (find_refs_globals s.refs) ⊆ domain reachable
     ⇒ domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)
   ∧
-    (∀ env refs p vs l a reachable:num_set .
-        pmatch_list env refs p vs l = Match a ∧
-        domain (find_v_globalsL (MAP SND env.v)) ⊆ domain reachable ∧
+    (∀(s:'ffi state) p vs l a reachable:num_set .
+        pmatch_list s p vs l = Match a ∧
         domain (find_v_globalsL vs) ⊆ domain reachable ∧
         domain (find_v_globalsL (MAP SND l)) ⊆ domain reachable ∧
-        domain (find_refs_globals refs) ⊆ domain reachable
+        domain (find_refs_globals s.refs) ⊆ domain reachable
     ⇒ domain (find_v_globalsL (MAP SND a)) ⊆ domain reachable)`
     (ho_match_mp_tac pmatch_ind >> rw[pmatch_def] >>
     fs[find_v_globals_def, domain_union]
-    >- (Cases_on `store_lookup lnum refs` >> fs[] >> Cases_on `x` >> fs[] >>
+    >- (Cases_on `store_lookup lnum s.refs` >> fs[] >> Cases_on `x` >> fs[] >>
         fs[semanticPrimitivesTheory.store_lookup_def] >>
         first_x_assum (qspec_then `reachable` match_mp_tac) >> rw[] >>
         imp_res_tac find_refs_globals_EL >> metis_tac[SUBSET_TRANS])
-    >- (Cases_on `pmatch env refs p v l` >> fs[domain_union])
+    >- (Cases_on `pmatch s p v l` >> fs[domain_union])
 );
 
 
@@ -1048,7 +1046,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq_lemma
         result reachable:num_set removed_state .
         flatSem$evaluate env state exprL = (new_state, result) ∧
         domain (find_lookupsL exprL) ⊆ domain reachable ∧
-        env.exh_pat ∧
+        s.exh_pat ∧
         flat_state_rel reachable state removed_state ∧
         domain (find_env_globals env) ⊆ domain reachable ∧
         result ≠ Rerr (Rabort Rtype_error)
@@ -1061,7 +1059,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq_lemma
         reachable:num_set removed_state .
         evaluate_match env state v patExp_list err_v = (new_state, result) ∧
         domain (find_lookupsL (MAP SND patExp_list)) ⊆ domain reachable ∧
-        env.exh_pat ∧
+        s.exh_pat ∧
         domain (find_v_globals v) ⊆ domain reachable ∧
         flat_state_rel reachable state removed_state ∧
         domain (find_env_globals env) ⊆ domain reachable ∧
@@ -1130,7 +1128,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq_lemma
         >- (rpt gen_tac >> strip_tac >>
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> fs[find_lookups_def] >>
-            Cases_on `env.check_ctor` >> fs[] >>
+            Cases_on `s.check_ctor` >> fs[] >>
             Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
             first_x_assum (
                 qspecl_then [`reachable`, `removed_state`] mp_tac) >>
@@ -1143,7 +1141,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq_lemma
             qpat_x_assum `evaluate _ _ _ = _` mp_tac >>
             simp[evaluate_def] >> fs[find_lookups_def] >>
             Cases_on `evaluate env state' (REVERSE es)` >> fs[] >>
-            Cases_on `env.check_ctor ∧ (cn, LENGTH es) ∉ env.c` >> fs[] >>
+            Cases_on `s.check_ctor ∧ (cn, LENGTH es) ∉ s.c` >> fs[] >>
             first_x_assum (
                 qspecl_then [`reachable`, `removed_state`] mp_tac) >>
             simp[Once find_lookupsL_REVERSE] >> fs[] >>
@@ -1239,12 +1237,12 @@ Theorem evaluate_sing_keep_flat_state_rel_eq_lemma
                             metis_tac[find_v_globals_MAP_Recclosure] >>
                         fs[SUBSET_DEF, EXTENSION] >> metis_tac[]))
                 )
-            >- (Cases_on `do_app env.check_ctor q op (REVERSE a)` >> fs[] >>
+            >- (Cases_on `do_app s.check_ctor q op (REVERSE a)` >> fs[] >>
                 PairCases_on `x` >> fs[] >> rveq >>
                 drule (GEN_ALL do_app_SOME_flat_state_rel) >>
                 fs[find_lookups_def] >> disch_then drule >> strip_tac >>
                 pop_assum (qspecl_then [
-                    `env.check_ctor`, `REVERSE a`, `new_state`, `x1`] mp_tac) >>
+                    `s.check_ctor`, `REVERSE a`, `new_state`, `x1`] mp_tac) >>
                     simp[Once find_v_globalsL_REVERSE] >>
                 fs[] >> strip_tac >>
                 `domain (case dest_GlobalVarLookup op of
@@ -1330,7 +1328,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq_lemma
             strip_tac >>
             `state'.refs = removed_state.refs` by fs[flat_state_rel_def] >>
             fs[] >>
-            Cases_on `pmatch env removed_state.refs p v []` >> fs[] >>
+            Cases_on `pmatch removed_state p v []` >> fs[] >>
             first_x_assum (qspecl_then [`reachable`, `removed_state`]
                 match_mp_tac) >> fs[] >>
             fs[find_env_globals_def, find_v_globalsL_APPEND, domain_union] >>
