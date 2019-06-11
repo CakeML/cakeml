@@ -2647,6 +2647,10 @@ Theorem compile_exp_evaluate
       full_simp_tac(srw_ss())[compile_exps_reverse] >>
       split_pair_case_tac >> full_simp_tac(srw_ss())[] ) >>
     qmatch_assum_rename_tac`_ = (s',Rval vs)` >>
+    `¬(dec_clock s').check_ctor ∧ (dec_clock s').exh_pat`
+    by (
+      imp_res_tac evaluate_state_unchanged >>
+      fs [flatSemTheory.dec_clock_def]) >>
     Cases_on`op = Opapp` >> full_simp_tac(srw_ss())[] >- (
       Cases_on`do_opapp (REVERSE vs)`>>simp[] >>
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -2708,7 +2712,10 @@ Theorem compile_exp_evaluate
       \\ imp_res_tac evaluate_flat_sing
       \\ imp_res_tac evaluate_sing
       \\ fs[bool_case_eq]
-      \\ rveq \\ fs[flatSemTheory.Boolv_def,v_rel_cases,patSemTheory.Boolv_def] )
+      \\ rveq \\ fs[flatSemTheory.Boolv_def,v_rel_cases,patSemTheory.Boolv_def]) >>
+    `¬q.check_ctor ∧ q.exh_pat`
+    by (imp_res_tac evaluate_state_unchanged >> fs []) >>
+    fs []
     \\ qhdtm_x_assum`state_rel`mp_tac
     \\ specl_args_of_then ``patSem$evaluate``evaluate_exp_rel mp_tac
     \\ simp[compile_state_NoRun,compile_exp_NoRun,compile_env_aux]
@@ -2743,6 +2750,9 @@ Theorem compile_exp_evaluate
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
     reverse(Cases_on`r`)>>full_simp_tac(srw_ss())[] >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     rename1`compile_pes (tr § 2) _ pes` \\
+    `¬s'.check_ctor ∧ s'.exh_pat`
+    by (imp_res_tac evaluate_state_unchanged >> fs []) >>
+    fs [] >>
     first_x_assum(qspec_then`tr§2`strip_assume_tac) \\
     qhdtm_x_assum`result_rel`mp_tac >>
     specl_args_of_then``patSem$evaluate``evaluate_exp_rel mp_tac >>
@@ -2773,6 +2783,9 @@ Theorem compile_exp_evaluate
     rpt gen_tac >> ntac 2 strip_tac >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
+    `¬s'.check_ctor ∧ s'.exh_pat`
+    by (imp_res_tac evaluate_state_unchanged >> fs []) >>
+    fs [] >>
     Cases_on`n`>>full_simp_tac(srw_ss())[libTheory.opt_bind_def] >- (
       simp[patSemTheory.evaluate_def] >>
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -2859,7 +2872,7 @@ Theorem compile_exp_evaluate
         split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
         Q.ISPECL_THEN[`co`,`cc`]mp_tac
           (Q.GENL[`co`,`cc`](CONJUNCT1 compile_pat_correct)) >>
-        disch_then(qspecl_then[`t § 2`,`p`,`v`,`env`,`s`,`[]`]mp_tac) >> simp[] >>
+        disch_then(qspecl_then[`t § 2`,`p`,`v`,`s`,`[]`]mp_tac) >> simp[] >>
         strip_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> pop_assum kall_tac >>
         simp[patSemTheory.do_if_def] >>
         qspec_tac(`t§3`,`t`) \\ gen_tac]
@@ -2867,13 +2880,13 @@ Theorem compile_exp_evaluate
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
       qmatch_assum_rename_tac `_ = (bvs,_,f)` >>
       full_simp_tac(srw_ss())[Once(CONJUNCT1 flatPropsTheory.pmatch_nil)] >>
-      Cases_on`pmatch env s.refs p v []`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`pmatch s p v []`>>full_simp_tac(srw_ss())[]>>
       rveq >> qmatch_asmsub_rename_tac`menv ++ env.v` >>
       qmatch_assum_abbrev_tac`compile_row t (NONE::bvs0) p = X` >>
       (compile_row_correct
        |> CONJUNCT1
        |> SIMP_RULE (srw_ss())[]
-       |> Q.SPECL[`t`,`p`,`bvs0`,`env`,`s`,`v`]
+       |> Q.SPECL[`t`,`p`,`bvs0`,`s`,`v`]
        |> Q.GENL[`any_cc`,`any_co`]
        |> mp_tac) >>
       simp[Abbr`X`] >>
@@ -2964,22 +2977,22 @@ Theorem compile_exp_evaluate
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     Q.ISPECL_THEN[`co`,`cc`]mp_tac
       (Q.GENL[`co`,`cc`](CONJUNCT1 compile_pat_correct)) >>
-    disch_then(qspecl_then[`t§2`,`p`,`v`,`env`,`s`,`[]`]mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`t§2`,`p`,`v`,`s`,`[]`]mp_tac) >> simp[] >>
     strip_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> pop_assum kall_tac >>
     simp[patSemTheory.do_if_def] >>
     first_x_assum(qspec_then`t§4`strip_assume_tac) \\
-    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]))
+    spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]));
 
 Theorem compile_evaluate_decs
-  `flatSem$evaluate_decs env ^s prog = res ∧ ¬env.check_ctor ∧ env.exh_pat ∧
-   SND (SND res) ≠ SOME (Rabort Rtype_error) ⇒
+  `flatSem$evaluate_decs ^s prog = res ∧ ¬s.check_ctor ∧ s.exh_pat ∧
+   SND res ≠ SOME (Rabort Rtype_error) ⇒
    ∃res4.
    patSem$evaluate [] (compile_state co cc ^s) (compile prog) = res4 ∧
    state_rel (compile_state co cc (FST res)) (FST res4) ∧
    OPTREL (exc_rel v_rel)
-     (OPTION_MAP (map_error_result compile_v) (SND (SND res)))
+     (OPTION_MAP (map_error_result compile_v) (SND res))
      (case (SND res4) of Rval _ => NONE | Rerr e => SOME e)`
-  (map_every qid_spec_tac[`res`,`env`,`s`]
+  (map_every qid_spec_tac[`res`,`s`]
   \\ Induct_on`prog`
   >- (
     rw[flatSemTheory.evaluate_decs_def, compile_def]
@@ -3030,6 +3043,7 @@ Theorem compile_evaluate_decs
     \\ strip_tac \\ rveq
     \\ simp[Once evaluate_cons]
     \\ simp[OPTREL_def] )
+
   \\ ntac 2 (pop_assum mp_tac)
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
@@ -3037,11 +3051,13 @@ Theorem compile_evaluate_decs
   \\ TOP_CASE_TAC \\ fs[]
   \\ simp[Once evaluate_cons]
   \\ strip_tac
+  (*
   \\ qmatch_asmsub_abbrev_tac`evaluate_decs env1`
   \\ `env1 = env` by simp[Abbr`env1`,flatSemTheory.environment_component_equality]
   \\ fs[Abbr`env1`]
-  \\ qmatch_asmsub_rename_tac`evaluate_decs env s1 prog`
-  \\ first_x_assum(qspecl_then[`s1`,`env`]mp_tac)
+  *)
+  \\ qmatch_asmsub_rename_tac`evaluate_decs s1 prog`
+  \\ first_x_assum(qspecl_then[`s1`]mp_tac)
   \\ simp[]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`SND p`
@@ -3052,7 +3068,9 @@ Theorem compile_evaluate_decs
   \\ qmatch_assum_rename_tac`state_rel (_ _ s1) s2`
   \\ disch_then(qspecl_then[`[]`,`s2`,`compile prog`]mp_tac)
   \\ simp[CONJUNCT2 exp_rel_refl]
-  \\ strip_tac
+  \\ strip_tac >>
+  `¬s1.check_ctor ∧ s1.exh_pat` by metis_tac [evaluate_state_unchanged] >>
+  fs []
   \\ qhdtm_x_assum`OPTREL`mp_tac
   \\ CASE_TAC \\ fs[OPTREL_def]
   >- metis_tac[state_rel_trans]
