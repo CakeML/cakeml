@@ -30,9 +30,11 @@ val _ = Datatype `
      ; failed     : bool
      ; ptr_reg    : num
      ; len_reg    : num
-     ; ptr2_reg    : num
-     ; len2_reg    : num
+     ; ptr2_reg   : num
+     ; len2_reg   : num
      ; link_reg   : num
+     ; ffi_regs   : num list  (* should we keep ptr_reg etc intact? *)
+     ; ffi_rval   : num  
      |>`
 
 val is_Label_def = Define `
@@ -320,6 +322,8 @@ Theorem asm_inst_consts:
    ((asm_inst i s).len_reg = s.len_reg) ∧
    ((asm_inst i s).ptr2_reg = s.ptr2_reg) ∧
    ((asm_inst i s).len2_reg = s.len2_reg) ∧
+   ((asm_inst i s).ffi_regs = s.ffi_regs) /\
+   ((asm_inst i s).ffi_rval = s.ffi_rval) /\
    ((asm_inst i s).link_reg = s.link_reg)
 Proof
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
@@ -363,6 +367,137 @@ val get_lab_after_pos_def = Define `
 
 val get_ret_Loc_def = Define `
   get_ret_Loc s = get_lab_after s.pc s.code`;
+
+
+
+val get_carg_lab_def = Define `
+  (get_carg_lab s (C_array conf) n (SOME n') = (* with_length *)
+    if conf.mutable then
+     (case (s.regs n,s.regs s.n') of 
+       | (Word w, Word w') => 
+        (case (read_bytearray w (w2n w') (mem_load_byte_aux s.mem s.mem_domain s.be)) of 
+	   | SOME bytes => SOME(C_arrayv bytes)
+	   | NONE => NONE)
+       |res => NONE)
+    else NONE)
+
+/\  (get_carg_lab s (C_array conf) n NONE = (* fixed-length *)
+    if conf.mutable then
+      (case (s.regs n) of
+          | SOME (Word w) =>
+        (case (read_bytearray w 8 (*read until null terminator*) (mem_load_byte_aux s.memory s.mdomain s.be))
+               of
+                       | SOME bytes => SOME(C_arrayv bytes)
+                       | NONE => NONE)
+           | res => NONE)
+    else NONE)
+
+/\ (get_carg_lab s  C_bool n NONE =
+    case s.regs n of
+      | SOME (Word w) =>  if w = n2w 2 then
+      SOME(C_primv(C_boolv T))
+    else if w = n2w 18 then
+      SOME(C_primv(C_boolv F))
+    else NONE
+      | _ => NONE)
+
+/\ (get_carg_lab s C_int n NONE =
+    case s.regs n of
+      | SOME (Word w) => if word_lsb w then NONE (* big num *)
+                         else SOME(C_primv(C_intv (w2i (w >>2))))
+      | _ => NONE)
+/\ (get_carg_lab _ _ _ _ = NONE)`
+
+
+
+val get_cargs_lab_def = Define
+  `(get_cargs_lab s [] [] [] = SOME [])
+/\ (get_cargs_lab s (ty::tys) (arg::args) (len::lens) =
+    OPTION_MAP2 CONS (get_carg_lab s ty arg len) (get_cargs_lab s tys args lens))
+/\ (get_cargs_lab _ _ _ _ = NONE)
+`
+
+
+
+val store_carg_lab_def = Define `
+  store_carg_lab w vs s = s with <| memory := write_bytearray w vs s.mem s.mem_domain s.be |>
+ `
+
+val store_cargs_lab_def = Define`
+   (store_cargs_lab [] [] st = st)
+/\ (store_cargs_lab (marg::margs) (w::ws) st =
+    store_cargs_lab margs ws (store_carg_lab marg w st))
+/\ (store_cargs_lab _ _ st = st)
+`
+
+
+
+val num_word_lst_lab_def = Define `
+  (num_word_lst_lab [] s = [])
+/\
+  (num_word_lst_lab (n::ns) s = (case s.regs n of
+                                 | SOME (Word w) => SOME w :: num_word_lst_lab ns s
+                                 | NONE => NONE :: num_word_lst_stack ns s))
+`
+ 
+val store_cargs_nums_lab_def = Define `
+  store_cargs_nums_lab margs vs st = if (MEM NONE (num_word_lst_lab margs st)) then NONE
+                                       else SOME (store_cargs_lab (MAP THE (num_word_lst_lab margs st)) vs st)
+`
+
+val store_cargs_num'_lab_def = Define `
+  store_cargs_num'_lab margs vs n v st =
+    case (s.regs n) of
+      | SOME (Word w) => (case  mem_store w v st of
+                            | SOME st' => store_cargs_nums_lab margs vs st'
+                            | NONE => NONE)
+      | _ => NONE
+  `
+
+
+
+
+val evaluate_ffi_def = Define `
+  evaluate_ffi s ffi_index =
+   case FIND (\x.x.mlname = ffi_index) s.ffi.signatures of
+     | SOME sign => if len_repl_ctypes sign.args <= LENGTH (s.ffi_regs) then 
+       case (s.regs s.link_reg) of 
+	 |  Loc n1 n2 => case loc_to_pc n1 n2 s.code of
+                        | SOME new_pc =>
+          (case get_cargs_lab s sign.args (len_filter sign.args s.ffi_regs) (len_args sign.args s.ffi_regs) of
+          SOME cargs =>
+           (case call_FFI s.ffi ffi_index cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args s.ffi_regs))) of
+            FFI_return new_ffi vs retv =>
+             if ret_ok sign.retty retv then
+                (case ret_val_word retv of
+                                | SOME v => case store_cargs_num'_lab (get_mut_args sign (len_filter sign.args s.ffi_regs)) vs s.ffi_rval v s of
+                                              | NONE => (Error,s)
+                                              | SOME s' =>  let new_io_regs = shift_seq 1 s.io_regs in
+                                                  evaluate (s' with <|
+                                                  ffi := new_ffi ;
+                                                  io_regs := new_io_regs ;
+                                                  regs := (\a. get_reg_value (s.io_regs 0 ffi_index a)
+                                                           (s.regs a) Word);
+                                                  pc := new_pc ;
+                                                  clock := s.clock - 1 |>)
+                                | NONE   => case store_cargs_num_lab (get_mut_args sign (len_filter sign.args s.ffi_regs)) vs s of
+                                              | NONE => (Error,s)
+                                              | SOME s' =>  let new_io_regs = shift_seq 1 s.io_regs in
+                                                  evaluate (s' with <|
+                                                  ffi := new_ffi ;
+                                                  io_regs := new_io_regs ;
+                                                  regs := (\a. get_reg_value (s.io_regs 0 ffi_index a)
+                                                           (s.regs a) Word);
+                                                  pc := new_pc ;
+                                                  clock := s.clock - 1 |>))
+             else (Error,s)
+        | FFI_final outcome => (Halt (FFI_outcome outcome),s))
+          | NONE => (Error,s))
+			| _  =>  (Error,s)
+	 | _ => (Error,s) 
+     else (Error,s)
+     | NONE  => (Error,s)
+`
 
 val evaluate_def = tDefine "evaluate" `
   evaluate (s:('a,'c,'ffi) labSem$state) =
@@ -448,7 +583,10 @@ val evaluate_def = tDefine "evaluate" `
                  | _ => (Error, s))
                  | _ => (Error, s))
         | _ => (Error, s))
-    | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
+    | SOME (LabAsm (CallFFI ffi_index) _ _ _) => evaluate_ffi s ffi_index  
+
+
+(*
        (case (s.regs s.len_reg,s.regs s.ptr_reg,
               s.regs s.len2_reg,s.regs s.ptr2_reg,s.regs s.link_reg) of
         | (Word w, Word w2, Word w3, Word w4, Loc n1 n2) =>
@@ -471,6 +609,9 @@ val evaluate_def = tDefine "evaluate" `
                                    clock := s.clock - 1 |>))
           | _ => (Error,s))
         | _ => (Error,s))
+
+*)
+
     | _ => (Error,s)`
  (WF_REL_TAC `measure (\s. s.clock)`
   \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
