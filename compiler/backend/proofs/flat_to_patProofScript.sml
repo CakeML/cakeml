@@ -3,7 +3,7 @@
 *)
 open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     flatLangTheory flat_to_patTheory backendPropsTheory
+     flatLangTheory flatPropsTheory flat_to_patTheory backendPropsTheory
      patLangTheory patPropsTheory
 
 val _ = new_theory"flat_to_patProof"
@@ -13,6 +13,7 @@ val _ = temp_bring_to_front_overload"Loc"{Name="Loc",Thy="patSem"};
 
 val _ = set_grammar_ancestry ["misc","ffi","bag","flatProps","patProps",
                               "flat_to_pat","backendProps","backend_common"];
+
 val _ = Parse.hide"U";
 
 val pmatch_flat_def = flatSemTheory.pmatch_def
@@ -622,7 +623,8 @@ val Let_Els_correct = Q.prove(
     metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
   srw_tac[][] >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> simp[] >>
-  metis_tac[SNOC_APPEND,SNOC_EL_TAKE])
+  metis_tac[SNOC_APPEND,SNOC_EL_TAKE]);
+
 val Let_Els_correct = Q.prove(
   `∀t n k e tag vs env ^s res us enve.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
@@ -637,17 +639,17 @@ val s = mk_var("s",
   |> type_subst[alpha |-> ``:'ffi``])
 
 val compile_pat_correct = Q.prove(
-  `(∀t p v cenv ^s env res env4.
-       pmatch cenv s.refs p v env = res ∧ ¬cenv.check_ctor ∧ res ≠ Match_type_error ⇒
+  `(∀t p v ^s env res env4.
+       pmatch s p v env = res ∧ ¬s.check_ctor ∧ res ≠ Match_type_error ⇒
        evaluate
          (compile_v v::env4)
          (compile_state co cc s)
          [compile_pat t p] =
          (compile_state co cc s
          ,Rval [Boolv (∃env'. res = Match env')])) ∧
-    (∀t n ps qs vs cenv ^s env env' res env4.
-       pmatch_list cenv s.refs qs (TAKE n vs) env = Match env' ∧
-       pmatch_list cenv s.refs ps (DROP n vs) env = res ∧ ¬cenv.check_ctor ∧ res ≠ Match_type_error ∧
+    (∀t n ps qs vs ^s env env' res env4.
+       pmatch_list s qs (TAKE n vs) env = Match env' ∧
+       pmatch_list s ps (DROP n vs) env = res ∧ ¬s.check_ctor ∧ res ≠ Match_type_error ∧
        (n = LENGTH qs) ∧ n ≤ LENGTH vs ⇒
        evaluate
          (compile_vs vs ++ env4)
@@ -726,34 +728,34 @@ val compile_pat_correct = Q.prove(
   Q.PAT_ABBREV_TAC`env5 = X ++ env4` >>
   `LENGTH qs < LENGTH vs` by simp[] >>
   full_simp_tac(srw_ss())[rich_listTheory.DROP_EL_CONS] >>
-  first_x_assum(qspecl_then[`v`,`cenv`,`s`,`env`,`env5`]mp_tac) >>
-  Cases_on`pmatch cenv s.refs p v env`>>full_simp_tac(srw_ss())[] >- (
+  first_x_assum(qspecl_then[`v`,`s`,`env`,`env5`]mp_tac) >>
+  Cases_on`pmatch s p v env`>>full_simp_tac(srw_ss())[] >- (
     strip_tac >>
     simp[patSemTheory.do_if_def,patPropsTheory.Boolv_disjoint] >>
     simp[patSemTheory.Boolv_def,patSemTheory.evaluate_def]) >>
   strip_tac >>
   simp[patSemTheory.do_if_def] >>
   simp[Abbr`env5`] >>
-  first_x_assum(qspecl_then[`qs++[p]`,`vs`,`cenv`,`s`,`env`]mp_tac) >>
+  first_x_assum(qspecl_then[`qs++[p]`,`vs`,`s`,`env`]mp_tac) >>
   simp[] >>
   simp[rich_listTheory.TAKE_EL_SNOC,GSYM SNOC_APPEND] >>
   simp[flatPropsTheory.pmatch_list_snoc] >>
   imp_res_tac flatPropsTheory.pmatch_any_match >>
-  qmatch_assum_rename_tac`pmatch_list cenv s.refs qs _ env = Match env2` >>
+  qmatch_assum_rename_tac`pmatch_list s qs _ env = Match env2` >>
   last_x_assum(qspec_then`env2`strip_assume_tac)>>simp[]>>
-  qmatch_assum_rename_tac`pmatch cenv s.refs p v env = Match env3`>>
-  Cases_on`pmatch_list cenv s.refs ps ws env`>>simp[]>>
-  Cases_on`pmatch_list cenv s.refs ps ws env3`>>full_simp_tac(srw_ss())[]>>
+  qmatch_assum_rename_tac`pmatch s p v env = Match env3`>>
+  Cases_on`pmatch_list s ps ws env`>>simp[]>>
+  Cases_on`pmatch_list s ps ws env3`>>full_simp_tac(srw_ss())[]>>
   metis_tac[flatPropsTheory.pmatch_any_match_error
            ,flatPropsTheory.pmatch_any_match
            ,flatPropsTheory.pmatch_any_no_match
            ,match_result_distinct])
 
 val compile_row_correct = Q.prove(
-  `(∀t Nbvs0 p bvs0 cenv ^s v menv bvs1 n f.
+  `(∀t Nbvs0 p bvs0 ^s v menv bvs1 n f.
       (Nbvs0 = NONE::bvs0) ∧
-      (pmatch cenv s.refs p v [] = Match menv) ∧
-      ¬cenv.check_ctor ∧
+      (pmatch s p v [] = Match menv) ∧
+      ¬s.check_ctor ∧
       (compile_row t Nbvs0 p = (bvs1,n,f))
     ⇒ ∃menv4 bvs.
        EVERY NoRun_v menv4 /\
@@ -777,10 +779,10 @@ val compile_row_correct = Q.prove(
               compile := any_cc;
               compile_oracle := any_co
               |> [f e] = res) ∧
-   (∀t bvsk0 nk k ps tag cenv ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
-     (pmatch_list cenv s.refs qs (TAKE k vs) [] = Match menvk) ∧
-     (pmatch_list cenv s.refs ps (DROP k vs) [] = Match menv) ∧
-      ¬cenv.check_ctor ∧
+   (∀t bvsk0 nk k ps tag ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
+     (pmatch_list s qs (TAKE k vs) [] = Match menvk) ∧
+     (pmatch_list s ps (DROP k vs) [] = Match menv) ∧
+      ¬s.check_ctor ∧
      (compile_cols t bvsk0 nk k ps = (bvs1,n1,f)) ∧
      (bvsk0 = bvsk ++ NONE::bvs0) ∧
      (k = LENGTH qs) ∧ k ≤ LENGTH vs ∧ (LENGTH bvsk = nk) ∧
@@ -823,14 +825,14 @@ val compile_row_correct = Q.prove(
     srw_tac[][pmatch_flat_def,compile_row_def] >> full_simp_tac(srw_ss())[] >>
     Cases_on`v`>>full_simp_tac(srw_ss())[pmatch_flat_def] >>
     qpat_x_assum`X = Match menv`mp_tac >> srw_tac[][] >>
-    rename1`pmatch _ _ (Pcon xx _) (Conv yy _) [] = _`
+    rename1`pmatch _ (Pcon xx _) (Conv yy _) [] = _`
     \\ Cases_on`xx` \\ Cases_on`yy` \\ rfs[pmatch_flat_def]
     \\ pop_assum mp_tac \\ rw[] >>
-    qmatch_assum_rename_tac`pmatch_list cenv s.refs ps vs [] = Match menv` >>
+    qmatch_assum_rename_tac`pmatch_list s ps vs [] = Match menv` >>
     full_simp_tac(srw_ss())[LENGTH_NIL,pmatch_flat_def,LENGTH_NIL_SYM] >>
     Q.PAT_ABBREV_TAC`w = Conv X Y` >>
     qmatch_assum_rename_tac`Abbrev(w = Conv tag (MAP compile_v vs))` >>
-    first_x_assum(qspecl_then[`tag`,`cenv`,`s`,`vs`]mp_tac) >> srw_tac[][] >> srw_tac[][] >>
+    first_x_assum(qspecl_then[`tag`,`s`,`vs`]mp_tac) >> srw_tac[][] >> srw_tac[][] >>
     simp[] >>
     qexists_tac`menv4++[w]` >>
     simp[GSYM rich_listTheory.ZIP_APPEND,rich_listTheory.FILTER_APPEND] >>
@@ -844,8 +846,8 @@ val compile_row_correct = Q.prove(
     qpat_x_assum`X = Match menv`mp_tac >> BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     srw_tac[][] >> full_simp_tac(srw_ss())[UNCURRY,LET_THM] >> srw_tac[][] >>
-    qmatch_assum_rename_tac`pmatch cenv s.refs p v [] = Match menv` >>
-    first_x_assum(qspecl_then[`cenv`,`s`,`v`]mp_tac) >> simp[] >>
+    qmatch_assum_rename_tac`pmatch s p v [] = Match menv` >>
+    first_x_assum(qspecl_then[`s`,`v`]mp_tac) >> simp[] >>
     Q.PAT_ABBREV_TAC`tt = compile_row _ X Y` >>
     `∃bvs1 n f. tt = (bvs1,n,f)` by simp[GSYM EXISTS_PROD] >>
     qunabbrev_tac`tt` >> simp[] >> srw_tac[][] >> simp[] >>
@@ -877,10 +879,10 @@ val compile_row_correct = Q.prove(
   srw_tac[][] >>
   Cases_on`DROP (LENGTH qs) vs`>>full_simp_tac(srw_ss())[pmatch_flat_def] >>
   qmatch_assum_rename_tac`DROP (LENGTH qs) vs = v::ws` >>
-  Cases_on`pmatch cenv s.refs p v []`>>full_simp_tac(srw_ss())[] >>
-  first_x_assum(qspecl_then[`cenv`,`s`,`v`]mp_tac) >> simp[] >>
+  Cases_on`pmatch s p v []`>>full_simp_tac(srw_ss())[] >>
+  first_x_assum(qspecl_then[`s`,`v`]mp_tac) >> simp[] >>
   strip_tac >> srw_tac[][] >>
-  first_x_assum(qspecl_then[`tag`,`cenv`,`s`,`qs++[p]`,`vs`]mp_tac) >>
+  first_x_assum(qspecl_then[`tag`,`s`,`qs++[p]`,`vs`]mp_tac) >>
   Cases_on`LENGTH vs = LENGTH qs`>>full_simp_tac(srw_ss())[rich_listTheory.DROP_LENGTH_NIL_rwt] >>
   `LENGTH qs < LENGTH vs` by simp[] >>
   full_simp_tac(srw_ss())[rich_listTheory.DROP_EL_CONS] >>
@@ -898,7 +900,7 @@ val compile_row_correct = Q.prove(
   disch_then(qspec_then`menv4 ++ menv4k`mp_tac) >>
   simp[rich_listTheory.FILTER_APPEND,GSYM(rich_listTheory.ZIP_APPEND)] >>
   impl_tac >- (
-    qpat_x_assum`pmatch cenv s.refs p v menvk = X`mp_tac >>
+    qpat_x_assum`pmatch s p v menvk = X`mp_tac >>
     simp[Once (CONJUNCT1 flatPropsTheory.pmatch_nil)] >>
     REWRITE_TAC[GSYM MAP_APPEND] >> PROVE_TAC[] ) >>
   srw_tac[][] >> srw_tac[][] >> simp[] >>
@@ -906,7 +908,7 @@ val compile_row_correct = Q.prove(
   qexists_tac`menv3 ++ menv4` >> simp[] >>
   simp[rich_listTheory.FILTER_APPEND,GSYM(rich_listTheory.ZIP_APPEND)] >>
   conj_tac >- (
-    qpat_x_assum`pmatch_list cenv s.refs ps ww env2 = X`mp_tac >>
+    qpat_x_assum`pmatch_list s ps ww env2 = X`mp_tac >>
     simp[Once (CONJUNCT2 flatPropsTheory.pmatch_nil)] >>
     REWRITE_TAC[GSYM MAP_APPEND] >> PROVE_TAC[] ) >>
   srw_tac[][] >>
@@ -914,7 +916,7 @@ val compile_row_correct = Q.prove(
   simp[patSemTheory.evaluate_def] >>
   simp[patSemTheory.do_app_def] >>
   simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>
-  simp[EL_MAP])
+  simp[EL_MAP]);
 
 (* value relation *)
 
@@ -2504,7 +2506,7 @@ val compile_env_aux = Q.prove (
 
 Theorem compile_exp_evaluate
   `(∀env ^s exps ress. flatSem$evaluate env s exps = ress ⇒
-    ¬env.check_ctor ∧ env.exh_pat ∧
+    ¬s.check_ctor ∧ s.exh_pat ∧
     (SND ress ≠ Rerr (Rabort Rtype_error)) ⇒
     ∃ress4.
       evaluate
@@ -2514,7 +2516,7 @@ Theorem compile_exp_evaluate
       state_rel (compile_state co cc (FST ress)) (FST ress4) ∧
       result_rel (LIST_REL v_rel) v_rel (map_result compile_vs compile_v (SND ress)) (SND ress4)) ∧
    (∀env ^s v pes err_v res t. evaluate_match env s v pes err_v = res ⇒
-    ¬env.check_ctor ∧ env.exh_pat ∧
+    ¬s.check_ctor ∧ s.exh_pat ∧
     (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
     ∃res4.
       patSem$evaluate
@@ -2539,6 +2541,7 @@ Theorem compile_exp_evaluate
       simp[Once evaluate_cons] >>
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
       simp[Once evaluate_cons] ) >>
+    imp_res_tac evaluate_state_unchanged >> fs [] >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
     Cases_on`r = Rerr (Rabort Rtype_error)`>>full_simp_tac(srw_ss())[] >>
     qpat_x_assum`flatSem$evaluate _ _ (_::_::_) = _`kall_tac >>
@@ -2578,6 +2581,7 @@ Theorem compile_exp_evaluate
     ntac 2 strip_tac >> full_simp_tac(srw_ss())[] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
+    imp_res_tac evaluate_state_unchanged >> fs [] >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
     Cases_on`r`>>full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`er ≠ Rabort Rtype_error ⇒ _` >>
