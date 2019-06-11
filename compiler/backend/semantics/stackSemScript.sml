@@ -529,7 +529,7 @@ val get_carg_stack_def = Define `
                        | NONE => NONE)
            | res => NONE)
     else NONE)
-/\  (get_carg_word s (C_array conf) n NONE = (* fixed-length *)
+/\  (get_carg_stack s (C_array conf) n NONE = (* fixed-length *)
     if conf.mutable then
       (case (get_var n s) of
           | SOME (Word w) =>
@@ -539,7 +539,7 @@ val get_carg_stack_def = Define `
                        | NONE => NONE)
            | res => NONE)
     else NONE)
-/\ (get_carg_word s  C_bool n NONE =
+/\ (get_carg_stack s  C_bool n NONE =
     case get_var n s of
       | SOME (Word w) =>  if w = n2w 2 then
       SOME(C_primv(C_boolv T))
@@ -547,20 +547,20 @@ val get_carg_stack_def = Define `
       SOME(C_primv(C_boolv F))
     else NONE
       | _ => NONE)
-/\ (get_carg_word s C_int n NONE =
+/\ (get_carg_stack s C_int n NONE =
     case get_var n s of
       | SOME (Word w) => if word_lsb w then NONE (* big num *)
                          else SOME(C_primv(C_intv (w2i (w >>2))))
       | _ => NONE)
-/\ (get_carg_word _ _ _ _ = NONE)`
+/\ (get_carg_stack _ _ _ _ = NONE)`
 
 
 
-val get_cargs_word_def = Define
-  `(get_cargs_word s [] [] [] = SOME [])
-/\ (get_cargs_word s (ty::tys) (arg::args) (len::lens) =
-    OPTION_MAP2 CONS (get_carg_word s ty arg len) (get_cargs_word s tys args lens))
-/\ (get_cargs_word _ _ _ _ = NONE)
+val get_cargs_stack_def = Define
+  `(get_cargs_stack s [] [] [] = SOME [])
+/\ (get_cargs_stack s (ty::tys) (arg::args) (len::lens) =
+    OPTION_MAP2 CONS (get_carg_stack s ty arg len) (get_cargs_stack s tys args lens))
+/\ (get_cargs_stack _ _ _ _ = NONE)
 `
 
 val store_carg_stack_def = Define `
@@ -575,12 +575,12 @@ val store_cargs_stack_def = Define`
 `
 
 
-val num_word_lst_def = Define `
+val num_word_lst_stack_def = Define `
   (num_word_lst_stack [] s = [])
 /\
   (num_word_lst_stack (n::ns) s = (case (get_var n s) of
-                                 | SOME (Word w) => SOME w :: num_word_lst ns s
-                                 | NONE => NONE :: num_word_lst ns s))
+                                 | SOME (Word w) => SOME w :: num_word_lst_stack ns s
+                                 | NONE => NONE :: num_word_lst_stack ns s))
 `
 
 val store_cargs_nums_stack_def = Define `
@@ -602,7 +602,7 @@ val evaluate_ffi_def = Define `
   evaluate_ffi s ffi_index n ns ret =
    case FIND (\x.x.mlname = ffi_index) s.ffi.signatures of
      | SOME sign =>
-     (case get_cargs_word s sign.args (len_filter sign.args ns) (len_args sign.args ns) of
+     (case get_cargs_stack s sign.args (len_filter sign.args ns) (len_args sign.args ns) of
           SOME cargs =>
            (case call_FFI s.ffi ffi_index cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args ns))) of
             FFI_return new_ffi vs retv =>
