@@ -99,6 +99,7 @@ val compile_state_def = Define `
        ffi := s.ffi;
        globals := MAP (OPTION_MAP compile_v) s.globals;
        check_ctor := s.check_ctor;
+       exh_pat := s.exh_pat;
        c := s.c
     |>`;
 
@@ -578,19 +579,19 @@ Theorem compile_evaluate
     \\ rfs [compile_reverse, MAP_REVERSE, ETA_AX, compile_state_def] >>
     fs [])
   >- (every_case_tac \\ fs [ALOOKUP_compile_env, PULL_EXISTS, compile_state_def])
-
-  >- cheat
-  (*
   >-
    (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw []
     \\ fs [compile_reverse, PULL_EXISTS, GSYM MAP_REVERSE]
-    \\ fs [list_result_map_result] >>
-    imp_res_tac evaluate_state_unchanged >> rw []
-    \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs []
-    \\ qspec_then `e` strip_assume_tac compile_sing
-    \\ fs [dec_clock_compile_state]
-    \\ rfs [] \\ fs [])
-    *)
+    \\ fs [list_result_map_result, dec_clock_compile_state]
+    >- (
+      first_x_assum drule >>
+      disch_then drule >> simp [] >>
+      qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs [] >>
+      fs [dec_clock_def] >>
+      imp_res_tac evaluate_state_unchanged >> fs [] >> rw [] >>
+      qspec_then `e` strip_assume_tac compile_sing >> fs [])
+    >- (
+      simp [compile_state_def, list_result_map_result]))
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qspec_then `e1` strip_assume_tac compile_sing \\ fs []
@@ -638,27 +639,26 @@ Theorem compile_evaluate
   \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []);
 
 Theorem compile_dec_evaluate
-  `!d env s t c r.
-     evaluate_dec env s d = (t, c, r) /\
-     env.exh_pat /\
-     ~env.check_ctor /\
+  `!d env s t r.
+     evaluate_dec s d = (t, r) /\
+     s.exh_pat /\
+     ~s.check_ctor /\
      r <> SOME (Rabort Rtype_error)
      ==>
      ?r2.
-       evaluate_dec (env with v := compile_env env.v)
-                    (compile_state s)
-                    (HD (compile_decs [d])) =
-         (compile_state t, c, r2) /\
+       evaluate_dec (compile_state s) (HD (compile_decs [d])) =
+         (compile_state t, r2) /\
        r2 = OPTION_MAP (map_error_result compile_v) r`
   (Cases \\ rw [evaluate_dec_def]
   \\ fs [evaluate_dec_def, compile_decs_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
-  \\ qispl_then [`env with v := []`,`s`] mp_tac (CONJUNCT1 compile_evaluate)
+  \\ TRY (fs [compile_state_def] >> NO_TAC)
+  \\ qispl_then [`<| v := [] |>`,`s`] mp_tac (CONJUNCT1 compile_evaluate)
   \\ disch_then drule
   \\ rw [evaluate_dec_def] >>
   every_case_tac >>
-  fs [] >>
+  fs [compile_state_def, Unitv_def] >>
   rw []);
 
 Theorem compile_decs_CONS
@@ -670,24 +670,24 @@ Theorem compile_decs_SING
   (Cases \\ rw [compile_decs_def] \\ fs []);
 
 Theorem compile_decs_evaluate
-  `!ds env s t c r.
-     evaluate_decs env s ds = (t, c, r) /\
-     env.exh_pat /\
-     ~env.check_ctor /\
+  `!ds s t r.
+     evaluate_decs s ds = (t, r) /\
+     s.exh_pat /\
+     ~s.check_ctor /\
      r <> SOME (Rabort Rtype_error)
      ==>
      ?r2.
-       evaluate_decs (env with v := compile_env env.v)
-                     (compile_state s)
-                     (compile_decs ds) =
-         (compile_state t, c, r2) /\
+       evaluate_decs (compile_state s) (compile_decs ds) = (compile_state t, r2) /\
          r2 = OPTION_MAP (map_error_result compile_v) r`
   (Induct >- (rw [evaluate_decs_def, compile_decs_def] \\ rw []) \\ rw[]
   \\ fs [evaluate_decs_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ once_rewrite_tac [compile_decs_CONS]
   \\ drule compile_dec_evaluate \\ rw [] \\ fs []
   \\ qspec_then `h` strip_assume_tac compile_decs_SING \\ fs []
-  >- (last_x_assum drule \\ rw [evaluate_decs_def] \\ fs [])
+  >- (
+    last_x_assum drule \\ rw [evaluate_decs_def] \\ fs [] >>
+    imp_res_tac evaluate_dec_state_unchanged >> fs []
+  )
   \\ simp [evaluate_decs_def]
   \\ every_case_tac \\ fs []
   \\ Cases_on `e` \\ Cases_on `a` \\ fs []);
@@ -700,10 +700,10 @@ Theorem compile_decs_eval_sim
   (rw [eval_sim_def]
   \\ qexists_tac `0`
   \\ CONV_TAC (RESORT_EXISTS_CONV rev)
-  \\ Q.LIST_EXISTS_TAC [`c1`,`compile_state s2`]
+  \\ Q.LIST_EXISTS_TAC [`compile_state s2`]
   \\ drule compile_decs_evaluate
-  \\ impl_tac >- fs [initial_env_def] \\ rw []
-  \\ fs[initial_env_def, initial_state_def, compile_state_def]);
+  \\ impl_tac >- fs [initial_state_def] \\ rw []
+  \\ fs[initial_state_def, compile_state_def]);
 
 val compile_decs_semantics = save_thm ("compile_decs_semantics",
   MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)

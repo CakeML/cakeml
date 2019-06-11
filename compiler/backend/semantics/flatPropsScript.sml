@@ -267,6 +267,27 @@ Proof
   metis_tac [do_app_state_unchanged]
 QED
 
+Theorem evaluate_dec_state_unchanged:
+  !(s:'ffi state) d s' r. evaluate_dec s d = (s', r) ⇒
+     s.exh_pat = s'.exh_pat ∧
+     s.check_ctor = s'.check_ctor
+Proof
+  Cases_on `d` >> rw [evaluate_dec_def] >>
+  every_case_tac >> fs [] >>
+  metis_tac [evaluate_state_unchanged]
+QED
+
+Theorem evaluate_decs_state_unchanged:
+  !(s:'ffi state) ds s' r. evaluate_decs s ds = (s', r) ⇒
+     s.exh_pat = s'.exh_pat ∧
+     s.check_ctor = s'.check_ctor
+Proof
+  Induct_on `ds` >> rw [evaluate_decs_def] >>
+  every_case_tac >> fs [] >>
+  metis_tac [evaluate_dec_state_unchanged]
+QED
+
+
   (*
 val c_updated_by = Q.prove (
   `((env:flatSem$environment) with c updated_by f) = (env with c := f env.c)`,

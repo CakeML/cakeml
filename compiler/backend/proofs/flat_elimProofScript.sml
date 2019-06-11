@@ -1046,7 +1046,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq_lemma
         result reachable:num_set removed_state .
         flatSem$evaluate env state exprL = (new_state, result) ∧
         domain (find_lookupsL exprL) ⊆ domain reachable ∧
-        s.exh_pat ∧
+        state.exh_pat ∧
         flat_state_rel reachable state removed_state ∧
         domain (find_env_globals env) ⊆ domain reachable ∧
         result ≠ Rerr (Rabort Rtype_error)
@@ -1059,7 +1059,7 @@ Theorem evaluate_sing_keep_flat_state_rel_eq_lemma
         reachable:num_set removed_state .
         evaluate_match env state v patExp_list err_v = (new_state, result) ∧
         domain (find_lookupsL (MAP SND patExp_list)) ⊆ domain reachable ∧
-        s.exh_pat ∧
+        state.exh_pat ∧
         domain (find_v_globals v) ⊆ domain reachable ∧
         flat_state_rel reachable state removed_state ∧
         domain (find_env_globals env) ⊆ domain reachable ∧
