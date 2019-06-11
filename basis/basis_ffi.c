@@ -99,7 +99,7 @@ void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
-  assert(clen = 8);
+  assert(clen == 8);
   int fd = byte8_to_int(c);
   int n = byte2_to_int(a);
   assert(alen >= n + 4);
@@ -114,7 +114,7 @@ void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
-  assert(clen = 8);
+  assert(clen == 8);
   int fd = byte8_to_int(c);
   int n = byte2_to_int(a);
   int off = byte2_to_int(&a[2]);
@@ -131,7 +131,7 @@ void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
 
 void fficlose (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(alen >= 1);
-  assert(clen = 8);
+  assert(clen == 8);
   int fd = byte8_to_int(c);
   if (close(fd) == 0) a[0] = 0;
   else a[0] = 1;
