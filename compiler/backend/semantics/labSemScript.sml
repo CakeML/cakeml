@@ -34,7 +34,7 @@ val _ = Datatype `
      ; len2_reg   : num
      ; link_reg   : num
      ; ffi_regs   : num list  (* should we keep ptr_reg etc intact? *)
-     ; ffi_rval   : num  
+     ; ffi_rval   : num
      |>`
 
 val is_Label_def = Define `
@@ -373,11 +373,11 @@ val get_ret_Loc_def = Define `
 val get_carg_lab_def = Define `
   (get_carg_lab s (C_array conf) n (SOME n') = (* with_length *)
     if conf.mutable then
-     (case (s.regs n,s.regs s.n') of 
-       | (Word w, Word w') => 
-        (case (read_bytearray w (w2n w') (mem_load_byte_aux s.mem s.mem_domain s.be)) of 
-	   | SOME bytes => SOME(C_arrayv bytes)
-	   | NONE => NONE)
+     (case (s.regs n,s.regs s.n') of
+       | (Word w, Word w') =>
+        (case (read_bytearray w (w2n w') (mem_load_byte_aux s.mem s.mem_domain s.be)) of
+           | SOME bytes => SOME(C_arrayv bytes)
+           | NONE => NONE)
        |res => NONE)
     else NONE)
 
@@ -439,7 +439,7 @@ val num_word_lst_lab_def = Define `
                                  | SOME (Word w) => SOME w :: num_word_lst_lab ns s
                                  | NONE => NONE :: num_word_lst_stack ns s))
 `
- 
+
 val store_cargs_nums_lab_def = Define `
   store_cargs_nums_lab margs vs st = if (MEM NONE (num_word_lst_lab margs st)) then NONE
                                        else SOME (store_cargs_lab (MAP THE (num_word_lst_lab margs st)) vs st)
@@ -460,9 +460,9 @@ val store_cargs_num'_lab_def = Define `
 val evaluate_ffi_def = Define `
   evaluate_ffi s ffi_index =
    case FIND (\x.x.mlname = ffi_index) s.ffi.signatures of
-     | SOME sign => if len_repl_ctypes sign.args <= LENGTH (s.ffi_regs) then 
-       case (s.regs s.link_reg) of 
-	 |  Loc n1 n2 => case loc_to_pc n1 n2 s.code of
+     | SOME sign => if len_repl_ctypes sign.args <= LENGTH (s.ffi_regs) then
+       case (s.regs s.link_reg) of
+         |  Loc n1 n2 => case loc_to_pc n1 n2 s.code of
                         | SOME new_pc =>
           (case get_cargs_lab s sign.args (len_filter sign.args s.ffi_regs) (len_args sign.args s.ffi_regs) of
           SOME cargs =>
@@ -493,8 +493,8 @@ val evaluate_ffi_def = Define `
              else (Error,s)
         | FFI_final outcome => (Halt (FFI_outcome outcome),s))
           | NONE => (Error,s))
-			| _  =>  (Error,s)
-	 | _ => (Error,s) 
+                        | _  =>  (Error,s)
+         | _ => (Error,s)
      else (Error,s)
      | NONE  => (Error,s)
 `
@@ -583,7 +583,7 @@ val evaluate_def = tDefine "evaluate" `
                  | _ => (Error, s))
                  | _ => (Error, s))
         | _ => (Error, s))
-    | SOME (LabAsm (CallFFI ffi_index) _ _ _) => evaluate_ffi s ffi_index  
+    | SOME (LabAsm (CallFFI ffi_index) _ _ _) => evaluate_ffi s ffi_index
 
 
 (*

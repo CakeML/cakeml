@@ -24,9 +24,10 @@ val _ = Datatype `
     ; ptr2_reg : num
     ; len2_reg : num
     ; ffi_regs : num list  (* should we keep ptr_reg etc intact? *)
-    ; ffi_rval : num  
+    ; ffi_rval : num
     (* major interference by FFI calls *)
-    ; ffi_interfer : num -> num # word8 list # 'b -> 'b
+    ; ffi_interfer : num -> num # word8 list list # 'b -> 'b
+    (*; ffi_interfer : num -> num # word8 list # 'b -> 'b *)
     ; callee_saved_regs : num list
     (* minor interference during execution *)
     ; next_interfer : num -> 'b -> 'b
@@ -60,7 +61,7 @@ val get_carg_tar_def = Define `
       (λa.
         if a ∈ mc.prog_addresses then
           SOME (mc.target.get_byte ms a)
-        else NONE) of 
+        else NONE) of
                        | SOME bytes => SOME(C_arrayv bytes)
                        | NONE => NONE)
     else NONE)
@@ -103,28 +104,6 @@ val get_cargs_tar_def = Define
 val len_repl_ctypes = Define `
   len_repl_ctypes tys = LENGTH tys + LENGTH (FILTER (\x. ?conf. x = C_array conf /\ conf.with_length) tys)
 `
-(*
-
-val evaluate_ffi_def = Define `
-   evaluate_ffi ffi mc ms ms1 ffi_index = 
-    case FIND (\x.x.mlname = (EL ffi_index mc.ffi_names)) ffi.signatures of
-     | SOME sign => if len_repl_ctypes sign.args <= LENGTH (mc.ffi_regs) then 
-                      case get_cargs_tar mc sign.args (len_filter sign.args mc.ffi_regs) (len_args sign.args mc.ffi_regs) ms of
-		       | SOME cargs => 
-
-
-            (case call_FFI ffi (EL ffi_index mc.ffi_names) cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args mc.ffi_regs))) of
-             | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
-             | FFI_return new_ffi vs retv =>
-               let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
-                  (ffi_index,new_bytes,ms) in
-                let mc = mc with ffi_interfer := new_oracle in
-                  evaluate mc new_ffi (k - 1:num) ms1)
-            | NONE => (Error,ms,ffi)
-                    else (Error,ms,ffi)
-     | NONE  => (Error,ms,ffi) `
-
-*)
 
 val read_ffi_bytearray_def = Define`
   read_ffi_bytearray mc ptr_reg len_reg ms =
@@ -139,6 +118,8 @@ val read_ffi_bytearrays_def = Define`
   read_ffi_bytearrays mc ms =
     (read_ffi_bytearray mc mc.ptr_reg mc.len_reg ms,
      read_ffi_bytearray mc mc.ptr2_reg mc.len2_reg ms)`;
+
+
 
 val evaluate_def = Define `
   evaluate mc (ffi:'ffi ffi_state) k (ms:'a) =
@@ -174,23 +155,24 @@ val evaluate_def = Define `
       else
         case find_index (mc.target.get_pc ms) mc.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
-        | SOME ffi_index => 
+        | SOME ffi_index =>
     (*  ms or ms1 ?*)
       case FIND (\x.x.mlname = (EL ffi_index mc.ffi_names)) ffi.signatures of
-     | SOME sign => if len_repl_ctypes sign.args <= LENGTH (mc.ffi_regs) then 
+     | SOME sign => if len_repl_ctypes sign.args <= LENGTH (mc.ffi_regs) then
                       case get_cargs_tar mc sign.args (len_filter sign.args mc.ffi_regs) (len_args sign.args mc.ffi_regs) ms of
-		       | SOME cargs => 
+                       | SOME cargs =>
             (case call_FFI ffi (EL ffi_index mc.ffi_names) cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args mc.ffi_regs))) of
              | FFI_final outcome => (Halt (FFI_outcome outcome),ms,ffi)
              | FFI_return new_ffi vs retv =>
-               let (ms1,new_oracle) = apply_oracle mc.ffi_interfer
-                  (ffi_index,vs (*new_bytes*),ms) in
+               let (ms1,new_oracle) = apply_oracle mc.ffi_interfer (* ffi_interfer is an oracle *)
+                  (ffi_index, vs (*new_bytes*),ms) in  (* new_bytes: word8 list   vs : word8 list list *)
                 let mc = mc with ffi_interfer := new_oracle in
                   evaluate mc new_ffi (k - 1:num) ms1)
             | NONE => (Error,ms,ffi)
                     else (Error,ms,ffi)
      | NONE  => (Error,ms,ffi)
 `
+
 
 (*
           case read_ffi_bytearrays mc ms of
