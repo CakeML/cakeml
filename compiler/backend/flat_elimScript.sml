@@ -84,21 +84,23 @@ val dest_GlobalVarLookup_def = Define `
     dest_GlobalVarLookup _ = NONE
 `
 
-Theorem exp_size_map_snd
-    `∀ p_es . exp6_size (MAP SND p_es) ≤ exp3_size p_es`
-    (Induct >> rw[exp_size_def] >>
+Theorem exp_size_map_snd:
+     ∀ p_es . exp6_size (MAP SND p_es) ≤ exp3_size p_es
+Proof
+    Induct >> rw[exp_size_def] >>
     Cases_on `exp6_size (MAP SND p_es) = exp3_size p_es` >>
     `exp_size (SND h) ≤ exp5_size h` by (Cases_on `h` >> rw[exp_size_def]) >>
     rw[]
-);
+QED
 
-Theorem exp_size_map_snd_snd
-    `∀ vv_es . exp6_size (MAP (λ x . SND (SND x)) vv_es) ≤ exp1_size vv_es`
-    (Induct >> rw[exp_size_def] >>
+Theorem exp_size_map_snd_snd:
+     ∀ vv_es . exp6_size (MAP (λ x . SND (SND x)) vv_es) ≤ exp1_size vv_es
+Proof
+    Induct >> rw[exp_size_def] >>
     Cases_on `exp6_size (MAP (λ x . SND (SND x)) vv_es) = exp1_size vv_es` >>
     `exp_size (SND (SND h)) ≤ exp2_size h` by
         (Cases_on `h` >> Cases_on `r` >> rw[exp_size_def]) >> rw[]
-);
+QED
 
 val find_loc_def = tDefine "find_loc" `
     (find_loc ((Raise _ er):flatLang$exp) = find_loc er) ∧

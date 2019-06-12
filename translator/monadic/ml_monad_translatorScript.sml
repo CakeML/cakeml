@@ -24,9 +24,11 @@ val _ = temp_overload_on ("CONTAINER", ``ml_translator$CONTAINER``);
 val _ = hide "state";
 
 (* TODO: move *)
-Theorem s_with_same_clock[simp]
-  `!s. (s with clock := s.clock) = s`
-  (fs [state_component_equality]);
+Theorem s_with_same_clock[simp]:
+   !s. (s with clock := s.clock) = s
+Proof
+  fs [state_component_equality]
+QED
 (* -- *)
 
 val GC_ABSORB_L = Q.prove(`!A B s. (A * B * GC) s ==> (A * GC) s`,
@@ -146,10 +148,11 @@ val MONAD_def = Define `
 val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 
 (* return *)
-Theorem EvalM_return
-  `!H b. Eval env exp (a x) ==>
-         EvalM ro env st exp (MONAD a b (ex_return x)) ^H`
-  (rw[Eval_def,EvalM_def,st_ex_return_def,MONAD_def]
+Theorem EvalM_return:
+   !H b. Eval env exp (a x) ==>
+         EvalM ro env st exp (MONAD a b (ex_return x)) ^H
+Proof
+  rw[Eval_def,EvalM_def,st_ex_return_def,MONAD_def]
   \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
   \\ imp_res_tac (evaluate_empty_state_IMP)
   \\ fs [eval_rel_def,PULL_EXISTS]
@@ -159,18 +162,20 @@ Theorem EvalM_return
   \\ asm_exists_tac \\ simp []
   \\ `(s with <|clock := s.clock; refs := s.refs ⧺ refs'|>) =
       (s with <|refs := s.refs ⧺ refs'|>)` by fs [state_component_equality]
-  \\ fs [REFS_PRED_FRAME_append]);
+  \\ fs [REFS_PRED_FRAME_append]
+QED
 
 (* bind *)
-Theorem EvalM_bind
-  `(a1 ==> EvalM ro env st e1 (MONAD b c (x:('refs, 'b, 'c) M))
+Theorem EvalM_bind:
+   (a1 ==> EvalM ro env st e1 (MONAD b c (x:('refs, 'b, 'c) M))
              (H:('refs -> hprop) # 'ffi ffi_proj)) /\
    (!z v. b z v ==> a2 z ==>
       EvalM ro (write name v env) (SND (x st)) e2
         (MONAD a c ((f z):('refs, 'a, 'c) M)) H) ==>
    (a1 /\ !z. (CONTAINER(FST(x st) = Success z) ==> a2 z)) ==>
-   EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H`
-  (rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
+   EvalM ro env st (Let (SOME name) e1 e2) (MONAD a c (ex_bind x f)) H
+Proof
+  rw[EvalM_def,MONAD_def,st_ex_return_def,PULL_EXISTS, CONTAINER_def] \\ fs[]
   \\ last_x_assum drule \\ rw[]
   \\ imp_res_tac REFS_PRED_FRAME_imp
   \\ Cases_on `x st` \\ fs []
@@ -199,7 +204,8 @@ Theorem EvalM_bind
   \\ Cases_on `res'` \\ fs []
   \\ TRY (Cases_on `e`) \\ fs []
   \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
-  \\ imp_res_tac REFS_PRED_FRAME_trans);
+  \\ imp_res_tac REFS_PRED_FRAME_trans
+QED
 
 (* lift ro refinement invariants *)
 
@@ -213,25 +219,31 @@ val PURE_def = Define `
 val EqSt_def = Define `
   EqSt abs st = \x st1 (st2, res). st = st1 /\ abs x st1 (st2, res)`;
 
-Theorem state_update_clock_id[simp]
-  `(s with <|clock := s.clock; refs := refs'|>) =
-    s with <| refs := refs'|>`
-  (fs [state_component_equality]);
+Theorem state_update_clock_id[simp]:
+   (s with <|clock := s.clock; refs := refs'|>) =
+    s with <| refs := refs'|>
+Proof
+  fs [state_component_equality]
+QED
 
-Theorem Eval_IMP_PURE
-  `!H env exp P x. Eval env exp (P x) ==> EvalM ro env st exp (PURE P x) ^H`
-  (rw[Eval_def,EvalM_def,PURE_def,PULL_EXISTS]
+Theorem Eval_IMP_PURE:
+   !H env exp P x. Eval env exp (P x) ==> EvalM ro env st exp (PURE P x) ^H
+Proof
+  rw[Eval_def,EvalM_def,PURE_def,PULL_EXISTS]
   \\ first_x_assum(qspec_then`s.refs`strip_assume_tac)
   \\ imp_res_tac evaluate_empty_state_IMP
   \\ fs[eval_rel_def]
   \\ drule evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `s.clock` mp_tac)
   \\ strip_tac \\ fs [] \\ asm_exists_tac
-  \\ fs [REFS_PRED_FRAME_append]);
+  \\ fs [REFS_PRED_FRAME_append]
+QED
 
-Theorem Eval_IMP_PURE_EvalM_T
-  `!H env exp P x. Eval env exp (P x) ==> EvalM T env st exp (PURE P x) ^H`
-  (rw[Eval_IMP_PURE]);
+Theorem Eval_IMP_PURE_EvalM_T:
+   !H env exp P x. Eval env exp (P x) ==> EvalM T env st exp (PURE P x) ^H
+Proof
+  rw[Eval_IMP_PURE]
+QED
 
 (* function abstraction and application *)
 
@@ -281,34 +293,43 @@ val EvalM_Arrow_tac =
       s2' with <|clock := ck''|>` by fs [state_component_equality]
   \\ fs [dec_clock_def];
 
-Theorem EvalM_ArrowM
-   `EvalM ro env st x1 ((ArrowM ro H (PURE a) b) f) H ==>
+Theorem EvalM_ArrowM:
+    EvalM ro env st x1 ((ArrowM ro H (PURE a) b) f) H ==>
     EvalM ro env st x2 (PURE a x) H ==>
-    EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H`
-  (EvalM_Arrow_tac);
+    EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H
+Proof
+  EvalM_Arrow_tac
+QED
 
-Theorem EvalM_ArrowM_EqSt
-   `EvalM ro env st x1 ((ArrowM ro H (EqSt (PURE a) st) b) f) H ==>
+Theorem EvalM_ArrowM_EqSt:
+    EvalM ro env st x1 ((ArrowM ro H (EqSt (PURE a) st) b) f) H ==>
     EvalM ro env st x2 (PURE a x) H ==>
-    EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H`
-  (EvalM_Arrow_tac);
+    EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H
+Proof
+  EvalM_Arrow_tac
+QED
 
-Theorem EvalM_ArrowM_Eq
-   `EvalM ro env st x1 ((ArrowM ro H (PURE (Eq a x)) b) f) H ==>
+Theorem EvalM_ArrowM_Eq:
+    EvalM ro env st x1 ((ArrowM ro H (PURE (Eq a x)) b) f) H ==>
     EvalM ro env st x2 (PURE a x) H ==>
-    EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H`
-  (EvalM_Arrow_tac);
+    EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H
+Proof
+  EvalM_Arrow_tac
+QED
 
-Theorem EvalM_ArrowM_EqSt_Eq
-  `EvalM ro env st x1 ((ArrowM ro H (EqSt (PURE (Eq a x)) st) b) f) H ==>
+Theorem EvalM_ArrowM_EqSt_Eq:
+   EvalM ro env st x1 ((ArrowM ro H (EqSt (PURE (Eq a x)) st) b) f) H ==>
     EvalM ro env st x2 (PURE a x) H ==>
-    EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H`
-  (EvalM_Arrow_tac);
+    EvalM ro env st (App Opapp [x1;x2]) (b (f x)) ^H
+Proof
+  EvalM_Arrow_tac
+QED
 
-Theorem EvalM_Fun
-  `(!v x. a x v ==> EvalM ro (write name v env) n_st body (b (f x)) H) ==>
-    EvalM ro env st (Fun name body) (ArrowM ro H (EqSt (PURE a) n_st) b f) ^H`
-  (rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def,evaluate_def,
+Theorem EvalM_Fun:
+   (!v x. a x v ==> EvalM ro (write name v env) n_st body (b (f x)) H) ==>
+    EvalM ro env st (Fun name body) (ArrowM ro H (EqSt (PURE a) n_st) b f) ^H
+Proof
+  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def,evaluate_def,
      EqSt_def,PULL_EXISTS] \\ fs [PULL_FORALL]
   \\ qexists_tac `s.clock`
   \\ fs [REFS_PRED_FRAME_same] \\ rw []
@@ -321,20 +342,24 @@ Theorem EvalM_Fun
   \\ strip_tac \\ fs [write_def]
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ drule REFS_PRED_FRAME_remove_junk \\ fs[]);
+  \\ drule REFS_PRED_FRAME_remove_junk \\ fs[]
+QED
 
-Theorem EvalM_Fun_Var_intro
-  `EvalM ro cl_env st (Fun n exp) (PURE P f) H ==>
+Theorem EvalM_Fun_Var_intro:
+   EvalM ro cl_env st (Fun n exp) (PURE P f) H ==>
    ∀name. LOOKUP_VAR name env (Closure cl_env n exp) ==>
-          EvalM ro env st (Var (Short name)) (PURE P f) ^H`
-  (fs[EvalM_def, PURE_def, LOOKUP_VAR_def, evaluate_def,
-     PULL_EXISTS, lookup_var_def]);
+          EvalM ro env st (Var (Short name)) (PURE P f) ^H
+Proof
+  fs[EvalM_def, PURE_def, LOOKUP_VAR_def, evaluate_def,
+     PULL_EXISTS, lookup_var_def]
+QED
 
-Theorem EvalM_Fun_Eq
-  `(!v. a x v ==> EvalM ro (write name v env) n_st body (b (f x)) H) ==>
+Theorem EvalM_Fun_Eq:
+   (!v. a x v ==> EvalM ro (write name v env) n_st body (b (f x)) H) ==>
    EvalM ro env st (Fun name body)
-     ((ArrowM ro H (EqSt (PURE (Eq a x)) n_st) b) f) ^H`
-  (rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def, evaluate_def,EqSt_def]
+     ((ArrowM ro H (EqSt (PURE (Eq a x)) n_st) b) f) ^H
+Proof
+  rw[EvalM_def,ArrowM_def,ArrowP_def,PURE_def,Eq_def, evaluate_def,EqSt_def]
   \\ qexists_tac `s.clock` \\ fs []
   \\ `(s with clock := s.clock) = s` by simp [state_component_equality]
   \\ fs [REFS_PRED_FRAME_same,PULL_EXISTS] \\ rw []
@@ -346,36 +371,42 @@ Theorem EvalM_Fun_Eq
   \\ strip_tac \\ fs [write_def]
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ drule REFS_PRED_FRAME_remove_junk \\ fs[]);
+  \\ drule REFS_PRED_FRAME_remove_junk \\ fs[]
+QED
 
 
 (* More proofs *)
 
-Theorem LOOKUP_VAR_EvalM_ArrowM_IMP
-  `(!st env. LOOKUP_VAR n env v ==>
+Theorem LOOKUP_VAR_EvalM_ArrowM_IMP:
+   (!st env. LOOKUP_VAR n env v ==>
              EvalM ro env st (Var (Short n)) (ArrowM ro H a b f) H) ==>
-    ArrowP ro ^H a b f v`
-  (fs [LOOKUP_VAR_def,lookup_var_def,EvalM_def,ArrowP_def,
+    ArrowP ro ^H a b f v
+Proof
+  fs [LOOKUP_VAR_def,lookup_var_def,EvalM_def,ArrowP_def,
       ArrowM_def,PURE_def,AND_IMP_INTRO,
       evaluate_def, PULL_EXISTS, VALID_REFS_PRED_def]
   \\ `nsLookup (<|v := nsBind n v nsEmpty|>).v (Short n) = SOME v` by EVAL_TAC
   \\ rw[] \\ first_x_assum drule \\ rw[]
   \\ drule REFS_PRED_append \\ rw[]
   \\ first_x_assum drule \\ rw[]
-  \\ first_x_assum drule \\ rw[]);
+  \\ first_x_assum drule \\ rw[]
+QED
 
-Theorem EvalM_Var_SIMP
-  `EvalM ro (write n x env) st (Var (Short y)) P ^H =
+Theorem EvalM_Var_SIMP:
+   EvalM ro (write n x env) st (Var (Short y)) P ^H =
     if n = y then EvalM ro (write n x env) st (Var (Short y)) P H
-             else EvalM ro env st (Var (Short y)) P H`
-  (SIMP_TAC std_ss [EvalM_def] \\ SRW_TAC [] []
-  \\ ASM_SIMP_TAC (srw_ss()) [evaluate_def,write_def]);
+             else EvalM ro env st (Var (Short y)) P H
+Proof
+  SIMP_TAC std_ss [EvalM_def] \\ SRW_TAC [] []
+  \\ ASM_SIMP_TAC (srw_ss()) [evaluate_def,write_def]
+QED
 
-Theorem EvalM_Var_SIMP_ArrowM
-  `(!st. EvalM ro (write nv v env) st (Var (Short n)) (ArrowM ro H a b x) H) =
+Theorem EvalM_Var_SIMP_ArrowM:
+   (!st. EvalM ro (write nv v env) st (Var (Short n)) (ArrowM ro H a b x) H) =
     if nv = n then ArrowP ro H a b x v
-    else (!st. EvalM ro env st (Var (Short n)) (ArrowM ro H a b x) ^H)`
-  (SIMP_TAC std_ss [EvalM_def, ArrowM_def, VALID_REFS_PRED_def]
+    else (!st. EvalM ro env st (Var (Short n)) (ArrowM ro H a b x) ^H)
+Proof
+  SIMP_TAC std_ss [EvalM_def, ArrowM_def, VALID_REFS_PRED_def]
   \\ reverse (SRW_TAC [] [])
   THEN1 fs [evaluate_def,write_def]
   \\ simp [PURE_def, evaluate_def,write_def]
@@ -383,18 +414,20 @@ Theorem EvalM_Var_SIMP_ArrowM
   \\ EQ_TAC THEN1 metis_tac []
   \\ rw []
   \\ qexists_tac `s.clock`
-  \\ fs [REFS_PRED_FRAME_same]);
+  \\ fs [REFS_PRED_FRAME_same]
+QED
 
-Theorem EvalM_Recclosure_ALT
-  `!H funs fname name body.
+Theorem EvalM_Recclosure_ALT:
+   !H funs fname name body.
      ALL_DISTINCT (MAP (λ(f,x,e). f) funs) ==>
      (∀st v.
         a n v ==>
         EvalM ro (write name v (write_rec funs env2 env2)) st body (b (f n)) H) ==>
      LOOKUP_VAR fname env (Recclosure env2 funs fname) ==>
      find_recfun fname funs = SOME (name,body) ==>
-     EvalM ro env st (Var (Short fname)) ((ArrowM ro H (PURE (Eq a n)) b) f) ^H`
-  (rw[write_rec_thm,write_def]
+     EvalM ro env st (Var (Short fname)) ((ArrowM ro H (PURE (Eq a n)) b) f) ^H
+Proof
+  rw[write_rec_thm,write_def]
   \\ imp_res_tac LOOKUP_VAR_THM
   \\ fs[Eval_def, EvalM_def,ArrowM_def, ArrowP_def, PURE_def] \\ rpt strip_tac
   \\ first_x_assum(qspec_then`s.refs` STRIP_ASSUME_TAC)
@@ -410,10 +443,11 @@ Theorem EvalM_Recclosure_ALT
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ metis_tac[REFS_PRED_FRAME_remove_junk]);
+  \\ metis_tac[REFS_PRED_FRAME_remove_junk]
+QED
 
-Theorem EvalM_Recclosure_ALT2
-  `!H funs fname.
+Theorem EvalM_Recclosure_ALT2:
+   !H funs fname.
      A n_st ==>
      !name body.
      ALL_DISTINCT (MAP (λ(f,x,e). f) funs) ==>
@@ -424,8 +458,9 @@ Theorem EvalM_Recclosure_ALT2
      LOOKUP_VAR fname env (Recclosure env2 funs fname) ==>
      find_recfun fname funs = SOME (name,body) ==>
      EvalM ro env st (Var (Short fname))
-       ((ArrowM ro H (EqSt (PURE (Eq a n)) n_st) b) f) ^H`
-  (rw[write_rec_thm,write_def]
+       ((ArrowM ro H (EqSt (PURE (Eq a n)) n_st) b) f) ^H
+Proof
+  rw[write_rec_thm,write_def]
   \\ imp_res_tac LOOKUP_VAR_THM
   \\ fs[Eval_def, EvalM_def,ArrowM_def, ArrowP_def, PURE_def] \\ rpt strip_tac
   \\ first_x_assum(qspec_then`s.refs` STRIP_ASSUME_TAC)
@@ -443,10 +478,11 @@ Theorem EvalM_Recclosure_ALT2
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ metis_tac[REFS_PRED_FRAME_remove_junk]);
+  \\ metis_tac[REFS_PRED_FRAME_remove_junk]
+QED
 
-Theorem EvalM_Recclosure_ALT3
-  `!H funs fname name body.
+Theorem EvalM_Recclosure_ALT3:
+   !H funs fname name body.
      (∀st v.
         A st ==>
         a n v ==>
@@ -456,8 +492,9 @@ Theorem EvalM_Recclosure_ALT3
      LOOKUP_VAR fname env (Recclosure env2 funs fname) ==>
      find_recfun fname funs = SOME (name,body) ==>
      EvalM ro env st (Var (Short fname))
-       ((ArrowM ro H (EqSt (PURE (Eq a n)) n_st) b) f) ^H`
-  (rw[write_rec_thm,write_def]
+       ((ArrowM ro H (EqSt (PURE (Eq a n)) n_st) b) f) ^H
+Proof
+  rw[write_rec_thm,write_def]
   \\ imp_res_tac LOOKUP_VAR_THM
   \\ fs[Eval_def, EvalM_def,ArrowM_def, ArrowP_def, PURE_def] \\ rpt strip_tac
   \\ first_x_assum(qspec_then`s.refs` STRIP_ASSUME_TAC)
@@ -475,15 +512,17 @@ Theorem EvalM_Recclosure_ALT3
   \\ first_x_assum drule \\ strip_tac
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ metis_tac[REFS_PRED_FRAME_remove_junk]);
+  \\ metis_tac[REFS_PRED_FRAME_remove_junk]
+QED
 
-Theorem EvalM_Recclosure
-  `!H. (!st v. a n v ==>
+Theorem EvalM_Recclosure:
+   !H. (!st v. a n v ==>
          EvalM ro (write name v (write_rec [(fname,name,body)] env2 env2))
                st body (b (f n)) H) ==>
     LOOKUP_VAR fname env (Recclosure env2 [(fname,name,body)] fname) ==>
-    EvalM ro env st (Var (Short fname)) ((ArrowM ro H (PURE (Eq a n)) b) f) ^H`
-  (gen_tac \\ NTAC 2 strip_tac \\ imp_res_tac LOOKUP_VAR_THM
+    EvalM ro env st (Var (Short fname)) ((ArrowM ro H (PURE (Eq a n)) b) f) ^H
+Proof
+  gen_tac \\ NTAC 2 strip_tac \\ imp_res_tac LOOKUP_VAR_THM
   \\ pop_assum mp_tac \\ pop_assum (K ALL_TAC) \\ pop_assum mp_tac
   \\ rw[Eval_def,Arrow_def,EvalM_def,ArrowM_def,PURE_def,
         ArrowP_def,Eq_def,PULL_EXISTS]
@@ -498,13 +537,15 @@ Theorem EvalM_Recclosure
   \\ first_x_assum drule \\ rw[] \\ fs [write_def,write_rec_def,build_rec_env_def]
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ metis_tac[REFS_PRED_FRAME_remove_junk]);
+  \\ metis_tac[REFS_PRED_FRAME_remove_junk]
+QED
 
-Theorem EvalM_Eq_Recclosure
-  `LOOKUP_VAR name env (Recclosure x1 x2 x3) ==>
+Theorem EvalM_Eq_Recclosure:
+   LOOKUP_VAR name env (Recclosure x1 x2 x3) ==>
     (ArrowP ro H a b f (Recclosure x1 x2 x3) =
-     (!st. EvalM ro env st (Var (Short name)) (ArrowM ro H a b f) ^H))`
-  (rw[EvalM_Var_SIMP, EvalM_def, ArrowM_def, LOOKUP_VAR_def, lookup_var_def,
+     (!st. EvalM ro env st (Var (Short name)) (ArrowM ro H a b f) ^H))
+Proof
+  rw[EvalM_Var_SIMP, EvalM_def, ArrowM_def, LOOKUP_VAR_def, lookup_var_def,
      PURE_def, PULL_EXISTS, evaluate_def]
   \\ eq_tac
   THEN1 (rw[] \\ qexists_tac `s.clock` \\ fs [REFS_PRED_FRAME_same])
@@ -512,39 +553,45 @@ Theorem EvalM_Eq_Recclosure
   \\ simp[ArrowP_def,PULL_EXISTS]
   \\ rpt gen_tac \\ strip_tac
   \\ first_x_assum drule \\ strip_tac
-  \\ fs [ArrowP_def]);
+  \\ fs [ArrowP_def]
+QED
 
-Theorem EvalM_Var_ArrowP
-  `(!st. EvalM ro env st (Var (Short n)) (ArrowM ro H (PURE a) b x) H) ==>
+Theorem EvalM_Var_ArrowP:
+   (!st. EvalM ro env st (Var (Short n)) (ArrowM ro H (PURE a) b x) H) ==>
    LOOKUP_VAR n env v ==>
-   ArrowP ro ^H (PURE a) b x v`
-  (rw[EvalM_def,evaluate_def]
+   ArrowP ro ^H (PURE a) b x v
+Proof
+  rw[EvalM_def,evaluate_def]
   \\ fs[ArrowP_def, ArrowM_def,PURE_def,PULL_EXISTS,evaluate_def,option_case_eq]
   \\ rw [] \\ fs [LOOKUP_VAR_def,lookup_var_def]
   \\ first_x_assum drule \\ strip_tac
   \\ first_x_assum drule
   \\ disch_then drule
-  \\ strip_tac \\ fs []);
+  \\ strip_tac \\ fs []
+QED
 
-Theorem EvalM_Var_ArrowP_EqSt
-  `(!st. EvalM ro env st (Var (Short n)) (ArrowM ro H (EqSt (PURE a) n_st) b x) H) ==>
+Theorem EvalM_Var_ArrowP_EqSt:
+   (!st. EvalM ro env st (Var (Short n)) (ArrowM ro H (EqSt (PURE a) n_st) b x) H) ==>
    LOOKUP_VAR n env v ==>
-   ArrowP ro ^H (EqSt (PURE a) n_st) b x v`
-  (rw[EvalM_def,evaluate_def]
+   ArrowP ro ^H (EqSt (PURE a) n_st) b x v
+Proof
+  rw[EvalM_def,evaluate_def]
   \\ fs[ArrowP_def, ArrowM_def,PURE_def,PULL_EXISTS,evaluate_def,
         option_case_eq,EqSt_def]
   \\ rw [] \\ fs [LOOKUP_VAR_def,lookup_var_def]
   \\ first_x_assum drule \\ strip_tac
   \\ first_x_assum drule
   \\ disch_then drule
-  \\ strip_tac \\ fs []);
+  \\ strip_tac \\ fs []
+QED
 
 (* Eq simps *)
 
-Theorem EvalM_FUN_FORALL
-  `(!x. EvalM ro env st exp (PURE (P x) f) H) ==>
-    EvalM ro env st exp (PURE (FUN_FORALL x. P x) f) ^H`
-  (rw[EvalM_def,PURE_def,PULL_EXISTS]
+Theorem EvalM_FUN_FORALL:
+   (!x. EvalM ro env st exp (PURE (P x) f) H) ==>
+    EvalM ro env st exp (PURE (FUN_FORALL x. P x) f) ^H
+Proof
+  rw[EvalM_def,PURE_def,PULL_EXISTS]
   \\ first_x_assum drule
   \\ simp[PULL_EXISTS,FUN_FORALL]
   \\ strip_tac
@@ -557,13 +604,16 @@ Theorem EvalM_FUN_FORALL
   \\ drule evaluate_add_to_clock \\ fs []
   \\ disch_then (qspec_then `ck'` strip_assume_tac)
   \\ disch_then (qspec_then `ck` strip_assume_tac)
-  \\ fs []);
+  \\ fs []
+QED
 
-Theorem EvalM_FUN_FORALL_EQ
-  `(!x. EvalM ro env st exp (PURE (P x) f) H) =
-    EvalM ro env st exp (PURE (FUN_FORALL x. P x) f) ^H`
-  (REPEAT strip_tac \\ EQ_TAC \\ FULL_SIMP_TAC std_ss [EvalM_FUN_FORALL]
-  \\ fs [EvalM_def,PURE_def,PULL_EXISTS,FUN_FORALL] \\ METIS_TAC []);
+Theorem EvalM_FUN_FORALL_EQ:
+   (!x. EvalM ro env st exp (PURE (P x) f) H) =
+    EvalM ro env st exp (PURE (FUN_FORALL x. P x) f) ^H
+Proof
+  REPEAT strip_tac \\ EQ_TAC \\ FULL_SIMP_TAC std_ss [EvalM_FUN_FORALL]
+  \\ fs [EvalM_def,PURE_def,PULL_EXISTS,FUN_FORALL] \\ METIS_TAC []
+QED
 
 val M_FUN_FORALL_PUSH1 = Q.prove(
   `(FUN_FORALL x. ArrowP ro ^H a (PURE (b x))) =
@@ -611,14 +661,17 @@ val FUN_EXISTS_Eq = Q.prove(
 val M_FUN_QUANT_SIMP = save_thm("M_FUN_QUANT_SIMP",
   LIST_CONJ [FUN_EXISTS_Eq,M_FUN_FORALL_PUSH1,M_FUN_FORALL_PUSH2,M_FUN_FORALL_PUSH3]);
 
-Theorem EvalM_Eq
-  `EvalM ro env st exp (PURE a x) H ==> EvalM ro env st exp (PURE (Eq a x) x) ^H`
-  (fs[EvalM_def, PURE_def, Eq_def]);
+Theorem EvalM_Eq:
+   EvalM ro env st exp (PURE a x) H ==> EvalM ro env st exp (PURE (Eq a x) x) ^H
+Proof
+  fs[EvalM_def, PURE_def, Eq_def]
+QED
 
-Theorem ArrowM_EqSt_elim
-  `(!st_v. EvalM ro env st exp (ArrowM ro H (EqSt a st_v) b f) H) ==>
-   EvalM ro env st exp (ArrowM ro H a b f) ^H`
-  (fs[EvalM_def, ArrowP_def, ArrowM_def]
+Theorem ArrowM_EqSt_elim:
+   (!st_v. EvalM ro env st exp (ArrowM ro H (EqSt a st_v) b f) H) ==>
+   EvalM ro env st exp (ArrowM ro H a b f) ^H
+Proof
+  fs[EvalM_def, ArrowP_def, ArrowM_def]
   \\ rw[]
   \\ first_x_assum drule \\ rw[]
   \\ first_assum (qspec_then `st` strip_assume_tac)
@@ -637,22 +690,26 @@ Theorem ArrowM_EqSt_elim
     \\ fs [] \\ rveq \\ fs [])
   \\ rveq \\ fs []
   \\ qpat_x_assum `ArrowP ro H _ b f v` mp_tac
-  \\ rw [ArrowP_def,EqSt_def]);
+  \\ rw [ArrowP_def,EqSt_def]
+QED
 
-Theorem ArrowP_EqSt_elim
-  `(!st_v. ArrowP ro H (EqSt a st_v) b f v) ==> ArrowP ro ^H a b f v`
-  (fs[EqSt_def, ArrowP_def, ArrowM_def] \\ metis_tac[]);
+Theorem ArrowP_EqSt_elim:
+   (!st_v. ArrowP ro H (EqSt a st_v) b f v) ==> ArrowP ro ^H a b f v
+Proof
+  fs[EqSt_def, ArrowP_def, ArrowM_def] \\ metis_tac[]
+QED
 
 (* otherwise *)
 
-Theorem EvalM_otherwise
-  `!H b n.
+Theorem EvalM_otherwise:
+   !H b n.
      ((a1 ==> EvalM ro env st exp1 (MONAD a b x1) H) /\
      (!st i. a2 st ==> EvalM ro (write n i env) st exp2 (MONAD a b x2) H)) ==>
      (a1 /\ !st'. (CONTAINER(SND(x1 st) = st') ==> a2 st')) ==>
      EvalM ro env st (Handle exp1 [(Pvar n,exp2)])
-       (MONAD a b (x1 otherwise x2)) ^H`
-  (simp [EvalM_def, EvalM_def, evaluate_def] \\ rpt strip_tac
+       (MONAD a b (x1 otherwise x2)) ^H
+Proof
+  simp [EvalM_def, EvalM_def, evaluate_def] \\ rpt strip_tac
   \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS,PULL_EXISTS]
   \\ last_x_assum drule \\ rw[]
   \\ Cases_on `x1 st` \\ fs [CONTAINER_def]
@@ -682,18 +739,20 @@ Theorem EvalM_otherwise
   \\ fs[MONAD_def]
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
-  \\ asm_exists_tac \\ fs[]);
+  \\ asm_exists_tac \\ fs[]
+QED
 
 (* if *)
 
-Theorem EvalM_If
-  `!H.
+Theorem EvalM_If:
+   !H.
      (a1 ==> Eval env x1 (BOOL b1)) /\
      (a2 ==> EvalM ro env st x2 (a b2) H) /\
      (a3 ==> EvalM ro env st x3 (a b3) H) ==>
      (a1 /\ (CONTAINER b1 ==> a2) /\ (~CONTAINER b1 ==> a3) ==>
-     EvalM ro env st (If x1 x2 x3) (a (if b1 then b2 else b3)) ^H)`
-  (rpt strip_tac \\ fs[]
+     EvalM ro env st (If x1 x2 x3) (a (if b1 then b2 else b3)) ^H)
+Proof
+  rpt strip_tac \\ fs[]
   \\ `∀H. EvalM ro env st x1 (PURE BOOL b1) ^H` by metis_tac[Eval_IMP_PURE]
   \\ fs[EvalM_def,PURE_def, BOOL_def,PULL_EXISTS]
   \\ rpt strip_tac
@@ -712,16 +771,18 @@ Theorem EvalM_If
   \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [do_if_def]
   \\ asm_exists_tac \\ fs []
-  \\ metis_tac[REFS_PRED_FRAME_trans]);
+  \\ metis_tac[REFS_PRED_FRAME_trans]
+QED
 
 (* Let *)
 
-Theorem EvalM_Let
-  `!H.
+Theorem EvalM_Let:
+   !H.
     Eval env exp (a res) /\
     (!v. a res v ==> EvalM ro (write name v env) st body (b (f res)) H) ==>
-    EvalM ro env st (Let (SOME name) exp body) (b (LET f res)) ^H`
-  (rw[]
+    EvalM ro env st (Let (SOME name) exp body) (b (LET f res)) ^H
+Proof
+  rw[]
   \\ drule Eval_IMP_PURE \\ rw[]
   \\ fs[EvalM_def]
   \\ rpt strip_tac
@@ -739,19 +800,22 @@ Theorem EvalM_Let
   \\ disch_then (qspec_then `ck0` strip_assume_tac)
   \\ rw [] \\ asm_exists_tac \\ fs []
   \\ rw [] \\ asm_exists_tac \\ fs []
-  \\ metis_tac[REFS_PRED_FRAME_trans]);
+  \\ metis_tac[REFS_PRED_FRAME_trans]
+QED
 
 (* PMATCH *)
 
-Theorem EvalM_PMATCH_NIL
-  `!H b x xv a.
+Theorem EvalM_PMATCH_NIL:
+   !H b x xv a.
       Eval env x (a xv) ==>
       CONTAINER F ==>
-      EvalM ro env st (Mat x []) (b (PMATCH xv [])) ^H`
-  (rw[ml_translatorTheory.CONTAINER_def]);
+      EvalM ro env st (Mat x []) (b (PMATCH xv [])) ^H
+Proof
+  rw[ml_translatorTheory.CONTAINER_def]
+QED
 
-Theorem EvalM_PMATCH
-  `!H b a x xv.
+Theorem EvalM_PMATCH:
+   !H b a x xv.
       ALL_DISTINCT (pat_bindings pt []) ⇒
       (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
       Eval env x (a xv) ⇒
@@ -763,8 +827,9 @@ Theorem EvalM_PMATCH
       (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ pt2 vars) ∧
       ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ pt1 xv) ⇒
       EvalM ro env st (Mat x ((pt,e)::ys))
-        (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs))) ^H`
-  (rw[EvalM_def]
+        (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs))) ^H
+Proof
+  rw[EvalM_def]
   \\ drule Eval_IMP_PURE \\ rw[]
   \\ fs[EvalM_def]
   \\ rw[evaluate_def,PULL_EXISTS] \\ fs[]
@@ -832,7 +897,8 @@ Theorem EvalM_PMATCH
   \\ disch_then (qspec_then `ck'` strip_assume_tac)
   \\ asm_exists_tac \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ metis_tac[REFS_PRED_FRAME_trans]);
+  \\ metis_tac[REFS_PRED_FRAME_trans]
+QED
 
 (* Exception handling *)
 val write_list_def = Define `
@@ -886,8 +952,8 @@ val nsAppend_write_list_eq = Q.prove(
   \\ rw[sem_env_component_equality]
   \\ rw[namespaceTheory.nsAppend_def]);
 
-Theorem EvalM_handle
- `!cons_name stamp CORRECT_CONS PARAMS_CONDITIONS EXN_TYPE
+Theorem EvalM_handle:
+  !cons_name stamp CORRECT_CONS PARAMS_CONDITIONS EXN_TYPE
    handle_fun x1 x2 arity a2 bind_names a H.
   (!s E s1.
      CORRECT_CONS E ==>
@@ -929,8 +995,9 @@ Theorem EvalM_handle
       EvalM ro env st
         (Handle exp1 [(Pcon (SOME cons_name)
                             (MAP (\x. Pvar x) bind_names),exp2)])
-        (MONAD a EXN_TYPE (handle_fun x1 x2)) H`
-  (rw [EvalM_def]
+        (MONAD a EXN_TYPE (handle_fun x1 x2)) H
+Proof
+  rw [EvalM_def]
   \\ rw[evaluate_def]
   \\ `a1` by fs []
   \\ first_x_assum drule
@@ -991,7 +1058,8 @@ Theorem EvalM_handle
   \\ fs [pat_bindings_def]
   \\ drule ALL_DISTINCT_pats_bindings \\ rw []
   \\ fs [pmatch_def]
-  \\ fs [lookup_cons_def, same_type_def, same_ctor_def]);
+  \\ fs [lookup_cons_def, same_type_def, same_ctor_def]
+QED
 
 val ZIP3_def = Define `
   ZIP3 ([],[],[]) = [] /\
@@ -1038,16 +1106,18 @@ val LIST_CONJ_Eval = prove(
   \\ qexists_tac `ck1'''` \\ once_rewrite_tac [evaluate_cons]
   \\ fs [state_component_equality]);
 
-Theorem LIST_REL_EQ_LIST_CONJ_MAP
-  `!xs ys.
+Theorem LIST_REL_EQ_LIST_CONJ_MAP:
+   !xs ys.
       LENGTH xs = LENGTH ys ⇒
       LIST_REL (λf x. f x) xs ys =
-      LIST_CONJ (MAP (λ(P,v). P v) (ZIP (xs,ys)))`
-  (Induct \\ fs [LIST_CONJ_def]
-  \\ Cases_on `ys` \\ fs [LIST_CONJ_def]);
+      LIST_CONJ (MAP (λ(P,v). P v) (ZIP (xs,ys)))
+Proof
+  Induct \\ fs [LIST_CONJ_def]
+  \\ Cases_on `ys` \\ fs [LIST_CONJ_def]
+QED
 
-Theorem EvalM_raise
- `!cons_name stamp EXN_TYPE EVAL_CONDS arity E exprs f a H.
+Theorem EvalM_raise:
+  !cons_name stamp EXN_TYPE EVAL_CONDS arity E exprs f a H.
   (!values.
      LENGTH values = arity ==>
      LIST_CONJ (MAP (\(P,v). P v) (ZIP(EVAL_CONDS,values))) ==>
@@ -1059,8 +1129,9 @@ Theorem EvalM_raise
   lookup_cons cons_name env = SOME (arity, ExnStamp stamp) ==>
   LIST_CONJ (MAP (\(exp,P). Eval env exp P) (ZIP (exprs,EVAL_CONDS))) ==>
   EvalM ro env st (Raise (Con (SOME cons_name) exprs))
-    (MONAD a EXN_TYPE f) H`
-  (rw [EvalM_def]
+    (MONAD a EXN_TYPE f) H
+Proof
+  rw [EvalM_def]
   \\ rw [evaluate_def, do_con_check_def, build_conv_def]
   \\ fs [lookup_cons_def]
   \\ qpat_x_assum `LIST_CONJ _` mp_tac
@@ -1081,17 +1152,19 @@ Theorem EvalM_raise
   \\ imp_res_tac evaluate_length \\ fs []
   \\ `LENGTH EVAL_CONDS = LENGTH (REVERSE vs)` by fs []
   \\ drule LIST_REL_EQ_LIST_CONJ_MAP
-  \\ fs [GSYM EVERY2_REVERSE1]);
+  \\ fs [GSYM EVERY2_REVERSE1]
+QED
 
 (* read and update refs *)
 
-Theorem EvalM_read_heap
-  `!vname loc TYPE EXC_TYPE H get_var.
+Theorem EvalM_read_heap:
+   !vname loc TYPE EXC_TYPE H get_var.
     (nsLookup env.v (Short vname) = SOME loc) ==>
     EvalM ro env st (App Opderef [Var (Short vname)])
     (MONAD TYPE EXC_TYPE (λrefs. (Success (get_var refs), refs)))
-    ((λrefs. REF_REL TYPE loc (get_var refs) * H refs), (p:'ffi ffi_proj))`
-  (rw[EvalM_def, REF_REL_def]
+    ((λrefs. REF_REL TYPE loc (get_var refs) * H refs), (p:'ffi ffi_proj))
+Proof
+  rw[EvalM_def, REF_REL_def]
   \\ rw[evaluate_def,PULL_EXISTS]
   \\ fs[REFS_PRED_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
@@ -1110,10 +1183,11 @@ Theorem EvalM_read_heap
       \\ fs [state_component_equality]) >>
   imp_res_tac st2heap_REF_MEM
   \\ imp_res_tac store2heap_IN_LENGTH
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem EvalM_write_heap
-  `!vname loc TYPE PINV EXC_TYPE H get_var set_var x exp env.
+Theorem EvalM_write_heap:
+   !vname loc TYPE PINV EXC_TYPE H get_var set_var x exp env.
   (!refs x. get_var (set_var x refs) = x) ==>
   (!refs x. H (set_var x refs) = H refs) ==>
   nsLookup env.v (Short vname) = SOME loc ==>
@@ -1121,8 +1195,9 @@ Theorem EvalM_write_heap
   Eval env exp (TYPE x) ==>
   EvalM ro env st (App Opassign [Var (Short vname); exp])
   ((MONAD UNIT_TYPE EXC_TYPE) (λrefs. (Success (), set_var x refs)))
-  ((λrefs. REF_REL TYPE loc (get_var refs) * H refs * &PINV refs), p:'ffi ffi_proj)`
-  (rw[REF_REL_def]
+  ((λrefs. REF_REL TYPE loc (get_var refs) * H refs * &PINV refs), p:'ffi ffi_proj)
+Proof
+  rw[REF_REL_def]
   \\ ASSUME_TAC (Thm.INST_TYPE [``:'a``|->``:'b``,``:'b``|->``:'a``]Eval_IMP_PURE)
   \\ pop_assum imp_res_tac
   \\ fs[EvalM_def] \\ rw[]
@@ -1180,7 +1255,8 @@ Theorem EvalM_write_heap
   \\ fs[LUPDATE_APPEND1,LUPDATE_APPEND2,LUPDATE_def]
   \\ imp_res_tac STATE_UPDATE_HPROP_REF
   \\ last_x_assum(qspec_then `res` ASSUME_TAC)
-  \\ fs[with_same_ffi] \\ rfs [st2heap_def]);
+  \\ fs[with_same_ffi] \\ rfs [st2heap_def]
+QED
 
 (* Dynamic allocation of references *)
 
@@ -1277,16 +1353,17 @@ val valid_state_refs_reduction = Q.prove(
 
 (* Validity of ref_bind *)
 
-Theorem EvalM_ref_bind
-  `Eval env xexpr (A (cons x)) ==>
+Theorem EvalM_ref_bind:
+   Eval env xexpr (A (cons x)) ==>
    (!rv r.
       EvalM ro (write rname rv env) ((cons x)::st) exp
         (MONAD TYPE MON_EXN_TYPE (f r))
         (STATE_REFS A (rv::ptrs),p:'ffi ffi_proj)) ==>
    EvalM ro env st (Let (SOME rname) (App Opref [xexpr]) exp)
      (MONAD TYPE MON_EXN_TYPE (ref_bind (Mref cons x) f (Mpop_ref e)))
-     (STATE_REFS A ptrs,p)`
-  (rw[]
+     (STATE_REFS A ptrs,p)
+Proof
+  rw[]
   \\ fs[Eval_def]
   \\ rw[EvalM_def]
   \\ fs [evaluate_def]
@@ -1356,7 +1433,8 @@ Theorem EvalM_ref_bind
   \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
   \\ fs[STAR_ASSOC]
   \\ irule valid_state_refs_reduction
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 (* Validity of a deref operation *)
 val STATE_REFS_EXTRACT = Q.prove(
@@ -1442,15 +1520,16 @@ val STATE_REFS_RECONSTRUCT = Q.prove(
   \\ first_x_assum (fn x => PURE_ONCE_REWRITE_RULE[GSYM STAR_ASSOC] x |> ASSUME_TAC)
   \\ rw[Once (GSYM STAR_ASSOC)]);
 
-Theorem STATE_REFS_DECOMPOSE
-  `!ptrs1 r ptrs2 refs TYPE H (p:'ffi ffi_proj) s. ((STATE_REFS TYPE (ptrs1 ++ [r] ++ ptrs2) refs) * H) (st2heap p s) <=>
+Theorem STATE_REFS_DECOMPOSE:
+   !ptrs1 r ptrs2 refs TYPE H (p:'ffi ffi_proj) s. ((STATE_REFS TYPE (ptrs1 ++ [r] ++ ptrs2) refs) * H) (st2heap p s) <=>
   ?refs1 y refs2.
   refs = refs1 ++ [y] ++ refs2 /\
   ((STATE_REFS TYPE ptrs1 refs1 *
   (STATE_REF TYPE r y) *
   (STATE_REFS TYPE ptrs2 refs2) *
-  H)) (st2heap p s)`
-  (rpt strip_tac
+  H)) (st2heap p s)
+Proof
+  rpt strip_tac
   \\ EQ_TAC
   >-(
       rw[]
@@ -1494,66 +1573,78 @@ Theorem STATE_REFS_DECOMPOSE
       >> imp_res_tac STATE_REFS_EXTRACT
       >> metis_tac[])
   \\ rw[]
-  \\ fs[STATE_REFS_RECONSTRUCT]);
+  \\ fs[STATE_REFS_RECONSTRUCT]
+QED
 
-Theorem STATE_REFS_DECOMPOSE_2
-  `!ptrs1 r ptrs2 refs1 x refs2 TYPE H (p:'ffi ffi_proj) s.
+Theorem STATE_REFS_DECOMPOSE_2:
+   !ptrs1 r ptrs2 refs1 x refs2 TYPE H (p:'ffi ffi_proj) s.
   LENGTH ptrs1 = LENGTH refs1 ==>
   LENGTH ptrs2 = LENGTH refs2 ==>
   (((STATE_REFS TYPE (ptrs1 ++ [r] ++ ptrs2) (refs1 ++ [x] ++ refs2)) * H) (st2heap p s) <=>
   ((STATE_REFS TYPE ptrs1 refs1 *
   (STATE_REF TYPE r x) *
   (STATE_REFS TYPE ptrs2 refs2) *
-  H)) (st2heap p s))`
-  (rpt strip_tac
+  H)) (st2heap p s))
+Proof
+  rpt strip_tac
   \\ EQ_TAC
   >-(
       rw[]
       >> fs[STATE_REFS_EXTRACT_2])
   \\ rw[]
-  \\ fs[STATE_REFS_RECONSTRUCT]);
+  \\ fs[STATE_REFS_RECONSTRUCT]
+QED
 
-Theorem store_lookup_CELL_st2heap
-  `(l ~~>> res * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l (s.refs ++ junk) = SOME res`
-  (rw[]
+Theorem store_lookup_CELL_st2heap:
+   (l ~~>> res * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l (s.refs ++ junk) = SOME res
+Proof
+  rw[]
   \\ imp_res_tac STATE_EXTRACT_FROM_HPROP
   \\ imp_res_tac st2heap_CELL_MEM
   \\ imp_res_tac store2heap_IN_LENGTH
-  \\ fs[store_lookup_def]);
+  \\ fs[store_lookup_def]
+QED
 
-Theorem store_lookup_REF_st2heap
-  `(Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Refv v)`
-  (rw[]
+Theorem store_lookup_REF_st2heap:
+   (Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Refv v)
+Proof
+  rw[]
   \\ imp_res_tac STATE_EXTRACT_FROM_HPROP_REF
   \\ imp_res_tac st2heap_REF_MEM
   \\ imp_res_tac store2heap_IN_LENGTH
   \\ first_x_assum (qspec_then `[]` assume_tac)
-  \\ fs[store_lookup_def]);
+  \\ fs[store_lookup_def]
+QED
 
-Theorem store_lookup_REF_st2heap_junk
-  `(Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l (s.refs ++ junk) = SOME (Refv v)`
-  (rw[]
+Theorem store_lookup_REF_st2heap_junk:
+   (Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l (s.refs ++ junk) = SOME (Refv v)
+Proof
+  rw[]
   \\ imp_res_tac STATE_EXTRACT_FROM_HPROP_REF
   \\ imp_res_tac st2heap_REF_MEM
   \\ imp_res_tac store2heap_IN_LENGTH
-  \\ fs[store_lookup_def]);
+  \\ fs[store_lookup_def]
+QED
 
-Theorem store_lookup_ARRAY_st2heap
-  `(ARRAY (Loc l) av * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Varray av)`
-  (rw[]
+Theorem store_lookup_ARRAY_st2heap:
+   (ARRAY (Loc l) av * H) (st2heap (p:'ffi ffi_proj) s) ==> store_lookup l s.refs = SOME (Varray av)
+Proof
+  rw[]
   \\ imp_res_tac STATE_EXTRACT_FROM_HPROP_ARRAY
   \\ imp_res_tac st2heap_ARRAY_MEM
   \\ imp_res_tac store2heap_IN_LENGTH
   \\ first_x_assum (qspec_then `[]` assume_tac)
-  \\ fs[store_lookup_def]);
+  \\ fs[store_lookup_def]
+QED
 
-Theorem EvalM_Mdref
-  `nsLookup env.v (Short rname) = SOME rv ==>
+Theorem EvalM_Mdref:
+   nsLookup env.v (Short rname) = SOME rv ==>
   r = LENGTH ptrs2 ==>
   EvalM ro env st (App Opderef [Var (Short rname)])
   (MONAD TYPE (\x v. F) (Mdref e (StoreRef r)))
-    (STATE_REFS TYPE (ptrs1 ++ [rv] ++ ptrs2),p:'ffi ffi_proj)`
-  (rw[]
+    (STATE_REFS TYPE (ptrs1 ++ [rv] ++ ptrs2),p:'ffi ffi_proj)
+Proof
+  rw[]
   \\ fs[EvalM_def]
   \\ rw[evaluate_def]
   \\ rw[do_app_def]
@@ -1581,19 +1672,22 @@ Theorem EvalM_Mdref
   \\ fs[REFS_PRED_FRAME_def]
   \\ rw[state_component_equality]
   \\ fs[Once (GSYM with_same_refs)]
-  \\ irule H_STAR_GC_SAT_IMP \\ fs[]);
+  \\ irule H_STAR_GC_SAT_IMP \\ fs[]
+QED
 
 (* Validity of an assigment operation *)
-Theorem store_assign_REF_st2heap
-  `(Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==>
-  store_assign l (Refv res) (s.refs ++ junk) = SOME (LUPDATE (Refv res) l (s.refs ++ junk))`
-  (rw[]
+Theorem store_assign_REF_st2heap:
+   (Loc l ~~> v * H) (st2heap (p:'ffi ffi_proj) s) ==>
+  store_assign l (Refv res) (s.refs ++ junk) = SOME (LUPDATE (Refv res) l (s.refs ++ junk))
+Proof
+  rw[]
   \\ simp[store_assign_def]
   \\ imp_res_tac st2heap_REF_MEM
   \\ imp_res_tac store2heap_IN_LENGTH
   \\ fs[store_v_same_type_def]
   \\ imp_res_tac store2heap_IN_EL
-  \\ fs[EL_APPEND1]);
+  \\ fs[EL_APPEND1]
+QED
 
 val UPDATE_STATE_REFS = Q.prove(
   `!ptrs2 l ptrs1 x res TYPE junk refs p s.
@@ -1632,13 +1726,14 @@ val UPDATE_STATE_REFS = Q.prove(
   \\ fs[LUPDATE_APPEND1]
   \\ metis_tac[STAR_ASSOC, STAR_COMM]);
 
-Theorem EvalM_Mref_assign
-  `nsLookup env.v (Short rname) = SOME rv ==>
+Theorem EvalM_Mref_assign:
+   nsLookup env.v (Short rname) = SOME rv ==>
   r = LENGTH ptrs2 ==>
   Eval env xexpr (TYPE x) ==>
   EvalM ro env st (App Opassign [Var (Short rname); xexpr])
-  (MONAD UNIT_TYPE (\x v. F) (Mref_assign e (StoreRef r) x)) (STATE_REFS TYPE (ptrs1 ++ [rv] ++ ptrs2),p:'ffi ffi_proj)`
-  (rw[]
+  (MONAD UNIT_TYPE (\x v. F) (Mref_assign e (StoreRef r) x)) (STATE_REFS TYPE (ptrs1 ++ [rv] ++ ptrs2),p:'ffi ffi_proj)
+Proof
+  rw[]
   \\ fs[EvalM_def,evaluate_def]
   \\ fs[Eval_def] \\ rw []
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
@@ -1666,14 +1761,16 @@ Theorem EvalM_Mref_assign
   \\ fs[UPDATE_STATE_REFS,with_same_ffi]
   \\ fs[MONAD_def]
   \\ imp_res_tac STATE_REFS_LENGTH
-  \\ fs[Mref_assign_eq]);
+  \\ fs[Mref_assign_eq]
+QED
 
 (* Allocation of the initial store for dynamic references *)
-Theorem STATE_REFS_EXTEND
-  `!H s refs. (STATE_REFS A ptrs refs * H) (st2heap (p:'ffi ffi_proj) s) ==>
+Theorem STATE_REFS_EXTEND:
+   !H s refs. (STATE_REFS A ptrs refs * H) (st2heap (p:'ffi ffi_proj) s) ==>
   !x xv. A x xv ==>
-  (STATE_REFS A (Loc (LENGTH s.refs)::ptrs) (x::refs) * H)(st2heap p (s with refs := s.refs ++ [Refv xv]))`
-  (rw[]
+  (STATE_REFS A (Loc (LENGTH s.refs)::ptrs) (x::refs) * H)(st2heap p (s with refs := s.refs ++ [Refv xv]))
+Proof
+  rw[]
   \\ rw[STATE_REFS_def]
   \\ rw[GSYM STAR_ASSOC]
   \\ rw[Once STAR_def]
@@ -1688,7 +1785,8 @@ Theorem STATE_REFS_EXTEND
   \\ simp[SEP_EXISTS_THM]
   \\ qexists_tac `xv`
   \\ EXTRACT_PURE_FACTS_TAC
-  \\ simp[REF_def, cell_def, one_def, SEP_EXISTS_THM, HCOND_EXTRACT]);
+  \\ simp[REF_def, cell_def, one_def, SEP_EXISTS_THM, HCOND_EXTRACT]
+QED
 
 (* Resizable arrays *)
 val ABS_NUM_EQ = Q.prove(`Num(ABS(&n))=n`,
@@ -1713,13 +1811,14 @@ val do_app_Alength_ARRAY = Q.prove(
   \\ first_x_assum(qspec_then `[]` ASSUME_TAC)
   \\ fs[]);
 
-Theorem EvalM_R_Marray_length
-  `!vname loc TYPE EXC_TYPE H get_arr x env.
+Theorem EvalM_R_Marray_length:
+   !vname loc TYPE EXC_TYPE H get_arr x env.
     nsLookup env.v (Short vname) = SOME loc ==>
     EvalM ro env st (App Alength [App Opderef [Var (Short vname)]])
     ((MONAD NUM EXC_TYPE) (Marray_length get_arr))
-    ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+    ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ fs[REFS_PRED_def, RARRAY_REL_def, RARRAY_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
   \\ EXTRACT_PURE_FACTS_TAC
@@ -1744,7 +1843,8 @@ Theorem EvalM_R_Marray_length
   \\ drule do_app_Alength_ARRAY \\ rw[]
   \\ fs[state_component_equality]
   \\ imp_res_tac LIST_REL_LENGTH
-  \\ fs[REFS_PRED_FRAME_same]);
+  \\ fs[REFS_PRED_FRAME_same]
+QED
 
 val Conv_Subscript = EVAL ``sub_exn_v`` |> concl |> rand
 val Stamp_Subscript = Conv_Subscript |> rator |> rand |> rand
@@ -1771,16 +1871,17 @@ val evaluate_empty_state_IMP_3 =
   |> Q.GEN`s` |> Q.SPEC`s with refs := s.refs ++ more ++ more2`
   |> SIMP_RULE(srw_ss())[]
 
-Theorem EvalM_R_Marray_sub_subscript
-  `!vname loc TYPE EXC_TYPE H get_arr e env n nexp.
+Theorem EvalM_R_Marray_sub_subscript:
+   !vname loc TYPE EXC_TYPE H get_arr e env n nexp.
      EXC_TYPE e ^Conv_Subscript ==>
      nsLookup env.v (Short vname) = SOME loc ==>
      lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
      Eval env nexp (NUM n) ==>
      EvalM ro env st (App Asub [App Opderef [Var (Short vname)]; nexp])
      ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
-     ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+     ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ rw[evaluate_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
@@ -1819,10 +1920,11 @@ Theorem EvalM_R_Marray_sub_subscript
   \\ fs[with_same_ffi]
   \\ qexists_tac `st`
   \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq]
-  \\ fs[REFS_PRED_FRAME_append]);
+  \\ fs[REFS_PRED_FRAME_append]
+QED
 
-Theorem EvalM_R_Marray_sub_handle
-  `!vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
+Theorem EvalM_R_Marray_sub_handle:
+   !vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
      nsLookup env.v (Short vname) = SOME loc ==>
      lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
      Eval env nexp (NUM n) ==>
@@ -1830,8 +1932,9 @@ Theorem EvalM_R_Marray_sub_handle
      EvalM ro env st (Handle (App Asub [App Opderef [Var (Short vname)]; nexp])
                 [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
      ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
-     ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+     ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ rw[evaluate_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
@@ -1881,10 +1984,11 @@ Theorem EvalM_R_Marray_sub_handle
   \\ fs[with_same_ffi]
   \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq]
   \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
-  \\ rw[REFS_PRED_FRAME_append]);
+  \\ rw[REFS_PRED_FRAME_append]
+QED
 
-Theorem EvalM_R_Marray_update_subscript
-  `!vname loc TYPE EXC_TYPE H get_arr set_arr e env n x xexp nexp.
+Theorem EvalM_R_Marray_update_subscript:
+   !vname loc TYPE EXC_TYPE H get_arr set_arr e env n x xexp nexp.
      nsLookup env.v (Short vname) = SOME loc ==>
      lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
      EXC_TYPE e ^Conv_Subscript ==>
@@ -1894,8 +1998,9 @@ Theorem EvalM_R_Marray_update_subscript
      Eval env xexp (TYPE x) ==>
      EvalM ro env st (App Aupdate [App Opderef [Var (Short vname)]; nexp; xexp])
      ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
-     ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+     ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ rw[evaluate_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
@@ -1987,10 +2092,11 @@ Theorem EvalM_R_Marray_update_subscript
   \\ fs [with_same_refs, with_same_ffi] \\ rw [do_app_def]
   \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq]
   \\ rw[with_same_ffi,EVAL ``sub_exn_v``]
-  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]);
+  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]
+QED
 
-Theorem EvalM_R_Marray_update_handle
-  `!vname loc TYPE EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
+Theorem EvalM_R_Marray_update_handle:
+   !vname loc TYPE EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
    lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
    (!refs x. get_arr (set_arr x refs) = x) ==>
@@ -2001,8 +2107,9 @@ Theorem EvalM_R_Marray_update_handle
    EvalM ro env st (Handle (App Aupdate [App Opderef [Var (Short vname)]; nexp; xexp])
               [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
    ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
-   ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+   ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ rw[evaluate_def]
   \\ first_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, RARRAY_def, RARRAY_REL_def] x |> ASSUME_TAC)
@@ -2108,7 +2215,8 @@ Theorem EvalM_R_Marray_update_handle
   \\ fs[same_type_def,namespaceTheory.id_to_n_def,same_ctor_def]
   \\ fs[with_same_ffi]
   \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq]
-  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append]);
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append]
+QED
 
 val HPROP_TO_GC_R = Q.prove(`(A * B) s ==> (A * GC) s`,
   rw[STAR_def]
@@ -2122,8 +2230,8 @@ val HPROP_TO_GC_L = Q.prove(`(A * B) s ==> (GC * B) s`,
   \\ qexists_tac `v`
   \\ fs[SAT_GC]);
 
-Theorem EvalM_R_Marray_alloc
-  `!vname loc TYPE EXC_TYPE H get_arr set_arr n x env nexp xexp.
+Theorem EvalM_R_Marray_alloc:
+   !vname loc TYPE EXC_TYPE H get_arr set_arr n x env nexp xexp.
    nsLookup env.v (Short vname) = SOME loc ==>
    (!refs x. get_arr (set_arr x refs) = x) ==>
    (!refs x. H (set_arr x refs) = H refs) ==>
@@ -2131,8 +2239,9 @@ Theorem EvalM_R_Marray_alloc
    Eval env xexp (TYPE x) ==>
    EvalM ro env st (App Opassign [Var (Short vname); App Aalloc [nexp; xexp]])
    ((MONAD UNIT_TYPE EXC_TYPE) (Marray_alloc set_arr n x))
-   ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+   ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ rw[evaluate_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
@@ -2203,16 +2312,18 @@ Theorem EvalM_R_Marray_alloc
   \\ fs[Once (GSYM with_same_refs)]
   \\ first_x_assum(fn x => MATCH_MP STATE_APPEND_JUNK x |> ASSUME_TAC)
   \\ pop_assum(qspec_then `refs' ++ refs''` ASSUME_TAC)
-  \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]);
+  \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
+QED
 
 (* Fixed-size arrays *)
-Theorem EvalM_F_Marray_length
-  `!vname loc TYPE EXC_TYPE H get_arr x env.
+Theorem EvalM_F_Marray_length:
+   !vname loc TYPE EXC_TYPE H get_arr x env.
     nsLookup env.v (Short vname) = SOME loc ==>
     EvalM ro env st (App Alength [Var (Short vname)])
     ((MONAD NUM EXC_TYPE) (Marray_length get_arr))
-    ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+    ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ fs [evaluate_def]
   \\ fs[REFS_PRED_def, ARRAY_REL_def]
   \\ fs[SEP_CLAUSES, SEP_EXISTS_THM]
@@ -2225,18 +2336,20 @@ Theorem EvalM_F_Marray_length
   \\ pop_assum (fn x => fs[x])
   \\ fs[MONAD_def, Marray_length_def]
   \\ imp_res_tac LIST_REL_LENGTH
-  \\ fs[REFS_PRED_FRAME_same]);
+  \\ fs[REFS_PRED_FRAME_same]
+QED
 
-Theorem EvalM_F_Marray_sub_subscript
-  `!vname loc TYPE EXC_TYPE H get_arr e env n nexp.
+Theorem EvalM_F_Marray_sub_subscript:
+   !vname loc TYPE EXC_TYPE H get_arr e env n nexp.
    EXC_TYPE e ^Conv_Subscript ==>
    nsLookup env.v (Short vname) = SOME loc ==>
    lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
    Eval env nexp (NUM n) ==>
    EvalM ro env st (App Asub [Var (Short vname); nexp])
    ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
-   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_x_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
@@ -2264,10 +2377,11 @@ Theorem EvalM_F_Marray_sub_subscript
      \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append])
   \\ rw[with_same_ffi]
   \\ qexists_tac `st`
-  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, REFS_PRED_FRAME_append]);
+  \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq, REFS_PRED_FRAME_append]
+QED
 
-Theorem EvalM_F_Marray_sub_handle
-  `!vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
+Theorem EvalM_F_Marray_sub_handle:
+   !vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
    lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
    Eval env nexp (NUM n) ==>
@@ -2275,8 +2389,9 @@ Theorem EvalM_F_Marray_sub_handle
    EvalM ro env st (Handle (App Asub [Var (Short vname); nexp])
               [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
    ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
-   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ first_x_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
   \\ fs[SEP_EXISTS_THM, SEP_CLAUSES]
@@ -2323,10 +2438,11 @@ Theorem EvalM_F_Marray_sub_handle
   \\ fs[with_same_ffi]
   \\ fs[MONAD_def, Marray_sub_def, Msub_exn_eq]
   \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC]
-  \\ rw[REFS_PRED_FRAME_append]);
+  \\ rw[REFS_PRED_FRAME_append]
+QED
 
-Theorem EvalM_F_Marray_update_subscript
-  `!vname loc TYPE EXC_TYPE H get_arr set_arr e env n x xexp nexp.
+Theorem EvalM_F_Marray_update_subscript:
+   !vname loc TYPE EXC_TYPE H get_arr set_arr e env n x xexp nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
    lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
    EXC_TYPE e ^Conv_Subscript ==>
@@ -2336,8 +2452,9 @@ Theorem EvalM_F_Marray_update_subscript
    Eval env xexp (TYPE x) ==>
    EvalM ro env st (App Aupdate [Var (Short vname); nexp; xexp])
    ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
-   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ rw[evaluate_def]
   \\ pop_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
@@ -2404,10 +2521,11 @@ Theorem EvalM_F_Marray_update_subscript
   \\ fs[with_same_ffi]
   \\ qexists_tac `st`
   \\ fs[MONAD_def,Marray_update_def,Mupdate_exn_eq,EVAL ``sub_exn_v``]
-  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]);
+  \\ metis_tac[REFS_PRED_FRAME_append, GSYM APPEND_ASSOC]
+QED
 
-Theorem EvalM_F_Marray_update_handle
-  `!vname loc TYPE EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
+Theorem EvalM_F_Marray_update_handle:
+   !vname loc TYPE EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
    lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
    (!refs x. get_arr (set_arr x refs) = x) ==>
@@ -2418,8 +2536,9 @@ Theorem EvalM_F_Marray_update_handle
    EvalM ro env st (Handle (App Aupdate [Var (Short vname); nexp; xexp])
               [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
    ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
-   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)`
-  (rw[EvalM_def]
+   ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
+Proof
+  rw[EvalM_def]
   \\ fs[Eval_def, NUM_def, INT_def]
   \\ rw[evaluate_def]
   \\ pop_assum(fn x => SIMP_RULE bool_ss [REFS_PRED_def, ARRAY_REL_def] x |> ASSUME_TAC)
@@ -2493,7 +2612,8 @@ Theorem EvalM_F_Marray_update_handle
   \\ rw[pat_bindings_def]
   \\ rw[pmatch_def]
   \\ fs[MONAD_def, Marray_update_def, Mupdate_exn_eq]
-  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append]);
+  \\ PURE_REWRITE_TAC[GSYM APPEND_ASSOC, REFS_PRED_FRAME_append]
+QED
 
 (* TODO: implement support for 2d arrays *)
 val ARRAY2D_def = Define `
@@ -2506,8 +2626,8 @@ val RARRAY2D_def = Define `
 
 (* translation of cases and cons terms *)
 
-Theorem IMP_EvalM_Mat_cases
-  `!st a (r1:'b) env exp r2 y.
+Theorem IMP_EvalM_Mat_cases:
+   !st a (r1:'b) env exp r2 y.
       Eval env exp (a r1) /\
       (case y of
        | INL (vars,exp) =>
@@ -2526,8 +2646,9 @@ Theorem IMP_EvalM_Mat_cases
                           LENGTH vals = LENGTH vars /\
                           EvalM ro (write_list (ZIP (vars,vals)) env) st exp r2 H))
       ==>
-      EvalM ro env st (Mat exp (Mat_cases y)) r2 H`
-  (rpt gen_tac \\ Cases_on `y`
+      EvalM ro env st (Mat exp (Mat_cases y)) r2 H
+Proof
+  rpt gen_tac \\ Cases_on `y`
   THEN1
    (Cases_on `x`
     \\ fs [EvalM_def,EXISTS_MEM,EXISTS_PROD,Eval_def]
@@ -2592,7 +2713,8 @@ Theorem IMP_EvalM_Mat_cases
   \\ `same_type t t /\ same_ctor t t` by (Cases_on `t` \\ EVAL_TAC) \\ fs []
   \\ drule pmatch_list_MAP_Pvar
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
-  \\ fs [GSYM write_list_thm]);
+  \\ fs [GSYM write_list_thm]
+QED
 
 (*
  * Run
@@ -2661,9 +2783,10 @@ val REFS_PRED_FRAME_partial_frame_rule = Q.prove(
   \\ imp_res_tac IS_PREFIX_APPEND
   \\ rw[]);
 
-Theorem EvalSt_to_Eval
-  `EvalSt env st exp P ((\s. emp),p) ==> Eval env exp P`
-  (rw[EvalSt_def, Eval_def]
+Theorem EvalSt_to_Eval:
+   EvalSt env st exp P ((\s. emp),p) ==> Eval env exp P
+Proof
+  rw[EvalSt_def, Eval_def]
   \\ fs[REFS_PRED_def, SEP_CLAUSES, SAT_GC]
   \\ first_x_assum(qspecl_then [`empty_state with refs := refs`]
         STRIP_ASSUME_TAC)
@@ -2677,7 +2800,8 @@ Theorem EvalSt_to_Eval
   \\ qexists_tac `res` \\ fs []
   \\ qexists_tac `junk` \\ fs []
   \\ qexists_tac `ck` \\ fs []
-  \\ fs[state_component_equality]);
+  \\ fs[state_component_equality]
+QED
 
 val handle_mult_def = Define `
   handle_mult [] exp1 ename = exp1 /\
@@ -2759,15 +2883,16 @@ val EXC_TYPE_aux_def = Define `
         ∃v1_1. v = Conv (SOME (TypeStamp "Success" stamp)) [v1_1]
                         ∧ a x_1 v1_1)`;
 
-Theorem EvalM_to_EvalSt `
-  ∀exc_stamp TYPE EXN_TYPE x exp H init_state env.
+Theorem EvalM_to_EvalSt:
+    ∀exc_stamp TYPE EXN_TYPE x exp H init_state env.
    EvalM T env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
    lookup_cons (Short "Success") env = SOME (1, TypeStamp "Success" exc_stamp) ⇒
    lookup_cons (Short "Failure") env = SOME (1, TypeStamp "Failure" exc_stamp) ⇒
    EvalSt env init_state
      (handle_all (Con (SOME (Short "Success")) [exp]) "Failure")
-     (EXC_TYPE_aux exc_stamp TYPE EXN_TYPE (run x init_state)) H`
-  (rw[EvalM_def, EvalSt_def]
+     (EXC_TYPE_aux exc_stamp TYPE EXN_TYPE (run x init_state)) H
+Proof
+  rw[EvalM_def, EvalSt_def]
   \\ first_x_assum drule \\ rw[]
   \\ Cases_on `res`
   (* res is an Rval *)
@@ -2805,17 +2930,20 @@ Theorem EvalM_to_EvalSt `
   \\ fs[do_con_check_def, build_conv_def, namespaceTheory.nsOptBind_def,
           write_def,lookup_cons_def,PULL_EXISTS,pat_bindings_def,pmatch_def]
   \\ every_case_tac \\ fs []
-  \\ rw[EXC_TYPE_aux_def, run_def]);
+  \\ rw[EXC_TYPE_aux_def, run_def]
+QED
 
-Theorem EvalSt_Let_Fun
-  `EvalSt (write vname (Closure env xv fexp) env) st exp P H ==>
-   EvalSt env st (Let (SOME vname) (Fun xv fexp) exp) P H`
-  (rw[EvalSt_def]
+Theorem EvalSt_Let_Fun:
+   EvalSt (write vname (Closure env xv fexp) env) st exp P H ==>
+   EvalSt env st (Let (SOME vname) (Fun xv fexp) exp) P H
+Proof
+  rw[EvalSt_def]
   \\ last_x_assum imp_res_tac
   \\ rw[evaluate_def]
   \\ rw[namespaceTheory.nsOptBind_def]
   \\ fs[write_def, merge_env_def]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 val nsAppend_build_rec_env_eq_lemma = Q.prove(
   `!funs funs0 cl_env v0 v1.
@@ -2845,35 +2973,41 @@ val merge_build_rec_env = Q.prove(
         build_rec_env funs (merge_env env1 env0) (merge_env env1 env0).v`,
   fs[merge_env_def, nsAppend_build_rec_env_eq]);
 
-Theorem EvalSt_Letrec_Fun
-  `!funs env exp st P H.
+Theorem EvalSt_Letrec_Fun:
+   !funs env exp st P H.
   (ALL_DISTINCT (MAP (\(x,y,z). x) funs)) ==>
   EvalSt <|v := (build_rec_env funs env env.v); c := env.c|> st exp P H ==>
-  EvalSt env st (Letrec funs exp) P H`
-  (rw[EvalSt_def]
+  EvalSt env st (Letrec funs exp) P H
+Proof
+  rw[EvalSt_def]
   \\ qpat_x_assum `!s. A` imp_res_tac
   \\ rw[evaluate_def]
   \\ `<|v := build_rec_env funs env env.v; c := env.c|> =
       env with v := build_rec_env funs env env.v` by fs[sem_env_component_equality]
   \\ fs[]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem merge_env_bind_empty
-  `merge_env <| v := Bind [] []; c := Bind [] [] |> env  = env`
-  (rw[merge_env_def]
+Theorem merge_env_bind_empty:
+   merge_env <| v := Bind [] []; c := Bind [] [] |> env  = env
+Proof
+  rw[merge_env_def]
   \\ Cases_on `env`
   \\ Cases_on `n`
   \\ Cases_on `n0`
-  \\ rw[namespaceTheory.nsAppend_def, sem_env_component_equality]);
+  \\ rw[namespaceTheory.nsAppend_def, sem_env_component_equality]
+QED
 
-Theorem Bind_list_to_write
-  `merge_env <|v := Bind ((vname, v)::binds) []; c := Bind [] []|> env =
-  write vname v (merge_env <|v := Bind binds []; c := Bind [] []|> env)`
-  (rw[merge_env_def, write_def]
+Theorem Bind_list_to_write:
+   merge_env <|v := Bind ((vname, v)::binds) []; c := Bind [] []|> env =
+  write vname v (merge_env <|v := Bind binds []; c := Bind [] []|> env)
+Proof
+  rw[merge_env_def, write_def]
   \\ Cases_on `env`
   \\ rw[]
   \\ Cases_on `n`
-  \\ rw[namespaceTheory.nsAppend_def, namespaceTheory.nsBind_def]);
+  \\ rw[namespaceTheory.nsAppend_def, namespaceTheory.nsBind_def]
+QED
 
 val evaluate_Var_IMP = Q.prove(
  `evaluate s1 env [Var (Short name)] = (s2, Rval [v]) ==>
@@ -2885,14 +3019,15 @@ val evaluate_Var_same_state = Q.prove(
   evaluate s1 env [Var (Short name)] = (s2, res) /\ s2 = s1`,
   EQ_TAC \\ rw[evaluate_def] \\ every_case_tac \\ fs []);
 
-Theorem EvalSt_Opref
-  `!exp get_ref_exp get_ref loc_name TYPE st_name env H P st.
+Theorem EvalSt_Opref:
+   !exp get_ref_exp get_ref loc_name TYPE st_name env H P st.
     Eval env get_ref_exp (TYPE (get_ref st)) ==>
     (!loc. EvalSt (write loc_name loc env) st exp P
       ((\st. REF_REL TYPE loc (get_ref st) * H st),p)) ==>
     EvalSt env st
-      (Let (SOME loc_name) (App Opref [get_ref_exp]) exp) P (H,p)`
-  (rw[EvalSt_def]
+      (Let (SOME loc_name) (App Opref [get_ref_exp]) exp) P (H,p)
+Proof
+  rw[EvalSt_def]
   \\ rw[evaluate_def]
   \\ fs[Eval_def]
   \\ fs[PULL_EXISTS]
@@ -2963,20 +3098,22 @@ Theorem EvalSt_Opref
   \\ first_x_assum(fn x => PURE_ONCE_REWRITE_RULE[STAR_COMM] x |> ASSUME_TAC)
   \\ fs[STAR_ASSOC]
   \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
-  \\ fs[]);
+  \\ fs[]
+QED
 
 val EQ_def = Define `EQ x y <=> x = y`;
 
-Theorem EvalSt_AllocEmpty
-  `!exp get_ref loc_name TYPE st_name env H P st.
+Theorem EvalSt_AllocEmpty:
+   !exp get_ref loc_name TYPE st_name env H P st.
      EQ (get_ref st) [] ==>
      (!loc.
        EvalSt (write loc_name loc env) st exp P
          ((\st. RARRAY_REL TYPE loc (get_ref st) * H st),p)) ==>
      EvalSt env st
        (Let (SOME loc_name) (App Opref [App AallocEmpty [Con NONE []]]) exp)
-         P (H,p)`
-  (rw[EvalSt_def,evaluate_def]
+         P (H,p)
+Proof
+  rw[EvalSt_def,evaluate_def]
   \\ fs[PULL_EXISTS]
   \\ fs[do_con_check_def, build_conv_def]
   \\ rw[do_app_def,store_alloc_def,namespaceTheory.nsOptBind_def]
@@ -3031,18 +3168,20 @@ Theorem EvalSt_AllocEmpty
   \\ first_x_assum(fn x => PURE_ONCE_REWRITE_RULE[STAR_COMM] x |> ASSUME_TAC)
   \\ fs[STAR_ASSOC]
   \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem EvalSt_Alloc
-  `!exp nexp n xexp x get_farray loc_name TYPE env H P st.
+Theorem EvalSt_Alloc:
+   !exp nexp n xexp x get_farray loc_name TYPE env H P st.
      EQ (get_farray st) (REPLICATE n x) ==>
      Eval env nexp (\v. v = Litv (IntLit (&n))) ==>
      Eval env xexp (TYPE x) ==>
      (!loc.
         EvalSt (write loc_name loc env) st exp P
           ((\st. ARRAY_REL TYPE loc (get_farray st) * H st),p)) ==>
-     EvalSt env st (Let (SOME loc_name) (App Aalloc [nexp; xexp]) exp) P (H,p)`
-  (rw[EvalSt_def,evaluate_def]
+     EvalSt env st (Let (SOME loc_name) (App Aalloc [nexp; xexp]) exp) P (H,p)
+Proof
+  rw[EvalSt_def,evaluate_def]
   \\ fs[PULL_EXISTS]
   \\ fs[Eval_def]
   \\ first_x_assum(qspec_then `s.refs` STRIP_ASSUME_TAC)
@@ -3111,12 +3250,15 @@ Theorem EvalSt_Alloc
   \\ first_x_assum(fn x => REWRITE_RULE[Once STAR_COMM] x |> ASSUME_TAC)
   \\ fs[STAR_ASSOC]
   \\ first_x_assum(fn x => MATCH_MP GC_ABSORB_R x |> ASSUME_TAC)
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem Eval_lookup_var
-  `!env vname xv x TYPE. nsLookup env.v (Short vname) = SOME xv ==>
-  (Eval env (Var (Short vname)) (TYPE x) <=> TYPE x xv)`
-  (rw[Eval_def,eval_rel_def,evaluate_def,state_component_equality]);
+Theorem Eval_lookup_var:
+   !env vname xv x TYPE. nsLookup env.v (Short vname) = SOME xv ==>
+  (Eval env (Var (Short vname)) (TYPE x) <=> TYPE x xv)
+Proof
+  rw[Eval_def,eval_rel_def,evaluate_def,state_component_equality]
+QED
 
 val nsBind_to_write = Q.prove(
   `<|v := nsBind name v env1; c := env2|> =
@@ -3156,23 +3298,47 @@ val EVAL_T_F = save_thm("EVAL_T_F",
 val EVAL_PRECONDITION_T = save_thm("EVAL_PRECONDITION_T",
   EVAL (``ml_translator$PRECONDITION T``));
 
-Theorem H_STAR_emp
-  `H * emp = H` (simp[SEP_CLAUSES]);
+Theorem H_STAR_emp:
+   H * emp = H
+Proof
+simp[SEP_CLAUSES]
+QED
 
-Theorem H_STAR_TRUE
-  `(H * &T = H) /\ (&T * H = H)` (fs[SEP_CLAUSES]);
+Theorem H_STAR_TRUE:
+   (H * &T = H) /\ (&T * H = H)
+Proof
+fs[SEP_CLAUSES]
+QED
 
-Theorem PreImp_PRECONDITION_T_SIMP
-  `PreImp T a /\ PRECONDITION T <=> a`
-  (fs[PreImp_def, PRECONDITION_def]);
+Theorem PreImp_PRECONDITION_T_SIMP:
+   PreImp T a /\ PRECONDITION T <=> a
+Proof
+  fs[PreImp_def, PRECONDITION_def]
+QED
 
-Theorem IF_T `(if T then x else y) = x:'a` (SIMP_TAC std_ss []);
+Theorem IF_T:
+  (if T then x else y) = x:'a
+Proof
+SIMP_TAC std_ss []
+QED
 
-Theorem IF_F `(if F then x else y) = y:'a` (SIMP_TAC std_ss []);
+Theorem IF_F:
+  (if F then x else y) = y:'a
+Proof
+SIMP_TAC std_ss []
+QED
 
-Theorem IMP_EQ_T `a ==> (a <=> T)` (fs []);
+Theorem IMP_EQ_T:
+  a ==> (a <=> T)
+Proof
+fs []
+QED
 
-Theorem BETA_PAIR_THM `(\(x, y). f x y) (x, y) = (\x y. f x y) x y` (fs[]);
+Theorem BETA_PAIR_THM:
+  (\(x, y). f x y) (x, y) = (\x y. f x y) x y
+Proof
+fs[]
+QED
 
 (* Terms used by the ml_monad_translatorLib *)
 val parsed_terms = save_thm("parsed_terms",

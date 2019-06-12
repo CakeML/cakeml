@@ -1,9 +1,9 @@
 (*
-  Define the format of the compiler-generated .S file for ARMv6
+  Define the format of the compiler-generated .S file for ARMv7
 *)
 open preamble exportTheory
 
-val () = new_theory "export_arm6";
+val () = new_theory "export_arm7";
 
 val startup =
   ``(MAP (\n. strlit(n ++ "\n"))
@@ -61,8 +61,8 @@ val ffi_code =
        "/* Generated machine code follows */";
        ""])))`` |> EVAL |> concl |> rand
 
-val arm6_export_def = Define `
-  arm6_export ffi_names heap_space stack_space bytes (data:word32 list) =
+val arm7_export_def = Define `
+  arm7_export ffi_names heap_space stack_space bytes (data:word32 list) =
     SmartAppend
       (SmartAppend (List preamble)
       (SmartAppend (List (data_section ".long" heap_space stack_space))

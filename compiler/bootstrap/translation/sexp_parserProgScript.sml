@@ -14,9 +14,11 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg
 val monad_unitbind_assert = Q.prove(
   `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
-Theorem OPTION_BIND_THM
-  `!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i`
-  (Cases THEN SRW_TAC [] []);
+Theorem OPTION_BIND_THM:
+   !x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i
+Proof
+  Cases THEN SRW_TAC [] []
+QED
 (* -- *)
 
 val r = translate simpleSexpPEGTheory.pnt_def
@@ -81,12 +83,13 @@ val r = translate simpleSexpTheory.dstrip_sexp_def
 
 
 (* TODO: move (used?) *)
-Theorem isHexDigit_cases
-  `isHexDigit c ⇔
+Theorem isHexDigit_cases:
+   isHexDigit c ⇔
    isDigit c ∨
    c ∈ {#"a";#"b";#"c";#"d";#"e";#"f"} ∨
-   c ∈ {#"A";#"B";#"C";#"D";#"E";#"F"}`
-  (rw[isHexDigit_def,isDigit_def]
+   c ∈ {#"A";#"B";#"C";#"D";#"E";#"F"}
+Proof
+  rw[isHexDigit_def,isDigit_def]
   \\ EQ_TAC \\ strip_tac \\ simp[]
   >- (
     `ORD c = 97 ∨
@@ -103,37 +106,44 @@ Theorem isHexDigit_cases
      ORD c = 68 ∨
      ORD c = 69 ∨
      ORD c = 70` by decide_tac \\
-    pop_assum(assume_tac o Q.AP_TERM`CHR`) \\ fs[CHR_ORD] ));
+    pop_assum(assume_tac o Q.AP_TERM`CHR`) \\ fs[CHR_ORD] )
+QED
 
-Theorem isHexDigit_UNHEX_LESS
-  `isHexDigit c ⇒ UNHEX c < 16`
-  (rw[isHexDigit_cases] \\ EVAL_TAC \\
+Theorem isHexDigit_UNHEX_LESS:
+   isHexDigit c ⇒ UNHEX c < 16
+Proof
+  rw[isHexDigit_cases] \\ EVAL_TAC \\
   rw[GSYM simpleSexpParseTheory.isDigit_UNHEX_alt] \\
-  fs[isDigit_def]);
+  fs[isDigit_def]
+QED
 
-Theorem num_from_hex_string_alt_length_2
-  `num_from_hex_string_alt [d1;d2] < 256`
-  (rw[lexer_implTheory.num_from_hex_string_alt_def,
+Theorem num_from_hex_string_alt_length_2:
+   num_from_hex_string_alt [d1;d2] < 256
+Proof
+  rw[lexer_implTheory.num_from_hex_string_alt_def,
      ASCIInumbersTheory.s2n_def,
      numposrepTheory.l2n_def]
   \\ qspecl_then[`unhex_alt d1`,`16`]mp_tac MOD_LESS
   \\ impl_tac >- rw[]
   \\ qspecl_then[`unhex_alt d2`,`16`]mp_tac MOD_LESS
   \\ impl_tac >- rw[]
-  \\ decide_tac);
+  \\ decide_tac
+QED
 (* -- *)
 
-Theorem num_from_hex_string_alt_intro
-  `EVERY isHexDigit ls ⇒
+Theorem num_from_hex_string_alt_intro:
+   EVERY isHexDigit ls ⇒
    num_from_hex_string ls =
-   num_from_hex_string_alt ls`
-  (rw[ASCIInumbersTheory.num_from_hex_string_def,
+   num_from_hex_string_alt ls
+Proof
+  rw[ASCIInumbersTheory.num_from_hex_string_def,
      lexer_implTheory.num_from_hex_string_alt_def,
      ASCIInumbersTheory.s2n_def,
      numposrepTheory.l2n_def] \\
   AP_TERM_TAC \\
   simp[MAP_EQ_f] \\
-  fs[EVERY_MEM,lexer_implTheory.unhex_alt_def]);
+  fs[EVERY_MEM,lexer_implTheory.unhex_alt_def]
+QED
 
 val lemma = Q.prove(`
   isHexDigit x ∧ isHexDigit y ∧ A ∧ B ∧ ¬isPrint (CHR (num_from_hex_string[x;y])) ⇔

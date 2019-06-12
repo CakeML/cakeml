@@ -6,11 +6,11 @@ open terminationTheory
 open ml_translatorLib ml_translatorTheory;
 open ag32_targetTheory ag32Theory;
 open inliningLib;
-local open arm6ProgTheory in end;
+local open arm7ProgTheory in end;
 
 val _ = new_theory "ag32Prog"
 
-val _ = translation_extends "arm6Prog";
+val _ = translation_extends "arm7Prog";
 
 val ri2bits_eq = prove(
   ``ri2bits ri = case ri of Imm v => (64w:word7 || w2w v) | Reg i => w2w i``,
@@ -82,7 +82,7 @@ fun format_def def = def
                        wordsTheory.word_bits_mask,wordsTheory.WORD_MUL_LSL,
                        wordsTheory.word_mul_n2w,addressTheory.word_arith_lemma2,
                        wordsTheory.WORD_LT,word_msb_word_bit,ag32_constant_def,
-                       EVAL ``dimindex (:32)``,miscTheory.word_bit_test]
+                       EVAL ``dimindex (:32)``,wordsTheory.word_bit_test]
   |> REWRITE_RULE [word_neg];
 
 val r = translate (format_def ag32_jump_constant_def);

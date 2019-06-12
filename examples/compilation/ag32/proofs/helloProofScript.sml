@@ -35,15 +35,16 @@ val LENGTH_data =
 val _ = overload_on("hello_machine_config",
     ``ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)``);
 
-Theorem target_state_rel_hello_start_asm_state
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem target_state_rel_hello_start_asm_state:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms ⇒
    ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
-         ((FUNPOW Next n ms).MEM x = ms.MEM x))`
-  (strip_tac
+         ((FUNPOW Next n ms).MEM x = ms.MEM x))
+Proof
+  strip_tac
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
@@ -55,7 +56,8 @@ Theorem target_state_rel_hello_start_asm_state
   \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
   \\ disch_then(qspec_then`md`assume_tac)
   \\ drule (GEN_ALL RTC_asm_step_ag32_target_state_rel_io_events)
-  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]);
+  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]
+QED
 
 val hello_startup_clock_def =
   new_specification("hello_startup_clock_def",["hello_startup_clock"],
@@ -75,14 +77,15 @@ val compile_correct_applied =
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
 
-Theorem hello_installed
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem hello_installed:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0 ⇒
    installed code 0 data 0 config.ffi_names (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (hello_machine_config) (FUNPOW Next (hello_startup_clock ms0 inp cl) ms0)`
-  (rewrite_tac[ffi_names, THE_DEF]
+     (hello_machine_config) (FUNPOW Next (hello_startup_clock ms0 inp cl) ms0)
+Proof
+  rewrite_tac[ffi_names, THE_DEF]
   \\ strip_tac
   \\ irule ag32_installed
   \\ drule hello_startup_clock_def
@@ -96,7 +99,8 @@ Theorem hello_installed
   \\ conj_tac >- (EVAL_TAC)
   \\ asm_exists_tac
   \\ simp[]
-  \\ fs[ffi_names]);
+  \\ fs[ffi_names]
+QED
 
 val hello_machine_sem =
   compile_correct_applied
@@ -104,11 +108,12 @@ val hello_machine_sem =
   |> DISCH_ALL
   |> curry save_thm "hello_machine_sem";
 
-Theorem hello_extract_writes_stdout
-  `wfcl cl ⇒
+Theorem hello_extract_writes_stdout:
+   wfcl cl ⇒
    (extract_writes 1 (MAP get_output_io_event (hello_io_events cl (stdin_fs inp))) =
-    "Hello World!\n")`
-  (strip_tac
+    "Hello World!\n")
+Proof
+  strip_tac
   \\ drule(GEN_ALL(DISCH_ALL hello_output))
   \\ disch_then(qspec_then`stdin_fs inp`mp_tac)
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
@@ -138,10 +143,11 @@ Theorem hello_extract_writes_stdout
     pop_assum mp_tac
     \\ rw[] \\ fs[] \\ rw[]
     \\ pop_assum mp_tac \\ rw[])
-  >- rw[]);
+  >- rw[]
+QED
 
-Theorem hello_ag32_next
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
+Theorem hello_ag32_next:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧ wfcl cl ∧
    LENGTH inp ≤ stdin_size ∧
    is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0
   ⇒
@@ -152,8 +158,9 @@ Theorem hello_ag32_next
        (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
        outs ≼ MAP get_output_io_event (hello_io_events cl (stdin_fs inp)) ∧
        ((ms.R (n2w (hello_machine_config).ptr_reg) = 0w) ⇒
-        (outs = MAP get_output_io_event (hello_io_events cl (stdin_fs inp))))`
-  (strip_tac
+        (outs = MAP get_output_io_event (hello_io_events cl (stdin_fs inp))))
+Proof
+  strip_tac
   \\ drule (GEN_ALL hello_machine_sem)
   \\ disch_then drule
   \\ disch_then drule
@@ -175,6 +182,7 @@ Theorem hello_ag32_next
   \\ strip_tac
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ goal_assum(first_assum o mp_then Any mp_tac)
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 val _ = export_theory();

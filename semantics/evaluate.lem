@@ -221,3 +221,4 @@ evaluate_decs st env [Dlocal lds ds] =
   | res -> res
   end
 
+declare {isabelle} rename function evaluate_decs = fun_evaluate_decs

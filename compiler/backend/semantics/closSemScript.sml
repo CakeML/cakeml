@@ -346,6 +346,11 @@ val do_app_def = Define `
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
+    | (FP_top top, ws) =>
+        (case ws of
+         | [Word64 w1; Word64 w2; Word64 w3] =>
+             (Rval (Word64 (fp_top top w1 w2 w3),s))
+         | _ => Error)
     | (FP_bop bop, ws) =>
         (case ws of
          | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop bop w1 w2),s))
@@ -505,15 +510,19 @@ val case_eq_thms = LIST_CONJ (map prove_case_eq_thm
 
 val _ = save_thm ("case_eq_thms", case_eq_thms);
 
-Theorem do_install_clock
-  `do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1`
-  (rw[do_install_def,case_eq_thms]
-  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]);
+Theorem do_install_clock:
+   do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1
+Proof
+  rw[do_install_def,case_eq_thms]
+  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
+QED
 
-Theorem do_install_clock_less_eq
-  `do_install vs s = (res,s') ⇒ s'.clock <= s.clock`
-  (rw[do_install_def,case_eq_thms] \\ fs []
-  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]);
+Theorem do_install_clock_less_eq:
+   do_install vs s = (res,s') ⇒ s'.clock <= s.clock
+Proof
+  rw[do_install_def,case_eq_thms] \\ fs []
+  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
+QED
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate ([],env:closSem$v list,^s) = (Rval [],s)) /\
@@ -645,16 +654,18 @@ val evaluate_app_NIL = save_thm(
 
 (* We prove that the clock never increases. *)
 
-Theorem do_app_const
-  `(do_app op args s1 = Rval (res,s2)) ==>
+Theorem do_app_const:
+   (do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\
     (s2.max_app = s1.max_app) /\
     (s2.code = s1.code) /\
     (s2.compile_oracle = s1.compile_oracle) /\
-    (s2.compile = s1.compile)`
-  (simp[do_app_def,case_eq_thms]
+    (s2.compile = s1.compile)
+Proof
+  simp[do_app_def,case_eq_thms]
   \\ strip_tac \\ fs[] \\ rveq \\ fs[]
-  \\ every_case_tac \\ fs[] \\ rveq \\ fs[]);
+  \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
+QED
 
 val evaluate_ind = theorem"evaluate_ind";
 
@@ -674,18 +685,22 @@ val evaluate_clock_help = Q.prove (
   \\ IMP_RES_TAC do_install_clock_less_eq
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def] \\ TRY DECIDE_TAC);
 
-Theorem evaluate_clock
-`(!xs env s1 vs s2.
+Theorem evaluate_clock:
+ (!xs env s1 vs s2.
       (evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock) ∧
     (!loc_opt f args s1 vs s2.
-      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)`
-(metis_tac [evaluate_clock_help, SND]);
+      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)
+Proof
+metis_tac [evaluate_clock_help, SND]
+QED
 
-Theorem fix_clock_evaluate
-  `fix_clock s (evaluate (xs,env,s)) = evaluate (xs,env,s)`
-  (Cases_on `evaluate (xs,env,s)` \\ fs [fix_clock_def]
+Theorem fix_clock_evaluate:
+   fix_clock s (evaluate (xs,env,s)) = evaluate (xs,env,s)
+Proof
+  Cases_on `evaluate (xs,env,s)` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
-  \\ fs [MIN_DEF,theorem "state_component_equality"]);
+  \\ fs [MIN_DEF,theorem "state_component_equality"]
+QED
 
 (* Finally, we remove fix_clock from the induction and definition theorems. *)
 

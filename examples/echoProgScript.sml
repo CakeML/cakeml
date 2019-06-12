@@ -19,13 +19,14 @@ val () = append_prog echo;
 
 val st = get_ml_prog_state()
 
-Theorem echo_spec
-  `app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
+Theorem echo_spec:
+   app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
    (STDIO fs * COMMANDLINE cl)
    (POSTv uv. &UNIT_TYPE () uv *
       (STDIO (add_stdout fs (concatWith (strlit" ") (TL cl) ^ (strlit"\n")))) *
-      COMMANDLINE cl)`
-  (xcf "echo" st \\
+      COMMANDLINE cl)
+Proof
+  xcf "echo" st \\
   cases_on`¬ STD_streams fs` >-(fs[STDIO_def] >> xpull) >>
   xlet_auto >- (xcon \\ xsimpl) \\
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) \\
@@ -45,17 +46,20 @@ Theorem echo_spec
   xsimpl >> fs[] >>
   imp_res_tac STD_streams_stdout >>
   simp[str_def,implode_def] >>
-  imp_res_tac add_stdo_o >> xsimpl);
+  imp_res_tac add_stdo_o >> xsimpl
+QED
 
-Theorem echo_whole_prog_spec
-  `whole_prog_spec ^(fetch_v "echo" st) cl fs NONE
-    ((=) (add_stdout fs (concatWith (strlit" ") (TL cl) ^ (strlit"\n"))))`
-  (rw[whole_prog_spec_def]
+Theorem echo_whole_prog_spec:
+   whole_prog_spec ^(fetch_v "echo" st) cl fs NONE
+    ((=) (add_stdout fs (concatWith (strlit" ") (TL cl) ^ (strlit"\n"))))
+Proof
+  rw[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
   \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe echo_spec))
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
 val (call_thm_echo, echo_prog_tm) = whole_prog_thm st "echo" echo_whole_prog_spec;
 val echo_prog_def = Define`echo_prog = ^echo_prog_tm`;

@@ -38,13 +38,17 @@ val adjust_bv_def = tDefine "adjust_bv" `
 
 val adjust_bv_ind = theorem"adjust_bv_ind";
 
-Theorem adjust_bv_Unit[simp]
-  `adjust_bv x Unit = Unit`
-  (EVAL_TAC);
+Theorem adjust_bv_Unit[simp]:
+   adjust_bv x Unit = Unit
+Proof
+  EVAL_TAC
+QED
 
-Theorem adjust_bv_Boolv[simp]
-  `adjust_bv x (Boolv b) = Boolv b`
-  (Cases_on`b`>>EVAL_TAC)
+Theorem adjust_bv_Boolv[simp]:
+   adjust_bv x (Boolv b) = Boolv b
+Proof
+  Cases_on`b`>>EVAL_TAC
+QED
 
 val aux_code_installed_def = Define `
   (aux_code_installed [] t <=> T) /\
@@ -59,11 +63,13 @@ val aux_code_installed_APPEND = Q.prove(
       aux_code_installed ys code`,
   Induct \\ fs[APPEND,aux_code_installed_def,FORALL_PROD] \\ METIS_TAC []);
 
-Theorem aux_code_installed_subspt
-  `!x c1 c2. aux_code_installed x c1 /\ subspt c1 c2 ==>
-              aux_code_installed x c2`
-  (Induct \\ fs [aux_code_installed_def,subspt_lookup,FORALL_PROD]
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []);
+Theorem aux_code_installed_subspt:
+   !x c1 c2. aux_code_installed x c1 /\ subspt c1 c2 ==>
+              aux_code_installed x c2
+Proof
+  Induct \\ fs [aux_code_installed_def,subspt_lookup,FORALL_PROD]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+QED
 
 val _ = temp_overload_on("in_ns_0",``λn. n MOD bvl_to_bvi_namespaces = 0``);
 val _ = temp_overload_on("in_ns_1",``λn. n MOD bvl_to_bvi_namespaces = 1``);
@@ -114,12 +120,14 @@ val state_rel_def = Define `
              aux_code_installed (append aux1) t.code /\
              handle_ok [exp])`;
 
-Theorem state_rel_FLOOKUP_byteArray
-  `!b s t m l n. state_rel b s t /\ FLOOKUP s.refs n = SOME (ByteArray m l)
-  ==> FLOOKUP t.refs (b n) = SOME (ByteArray m l)`
-  (rpt strip_tac >> fs[state_rel_def]
+Theorem state_rel_FLOOKUP_byteArray:
+   !b s t m l n. state_rel b s t /\ FLOOKUP s.refs n = SOME (ByteArray m l)
+  ==> FLOOKUP t.refs (b n) = SOME (ByteArray m l)
+Proof
+  rpt strip_tac >> fs[state_rel_def]
   >> rpt(first_x_assum(qspec_then `n` assume_tac))
-  >> rfs[]);
+  >> rfs[]
+QED
 
 val bv_ok_def = tDefine "bv_ok" `
   (bv_ok (refs: num |-> v ref) (RefPtr r) <=> r IN FDOM refs) /\
@@ -137,13 +145,17 @@ val bv_ok_SUBSET_IMP = Q.prove(
   HO_MATCH_MP_TAC bv_ok_ind \\ full_simp_tac(srw_ss())[bv_ok_def]
   \\ full_simp_tac(srw_ss())[SUBSET_DEF,EVERY_MEM]);
 
-Theorem bv_ok_Unit[simp]
-  `bv_ok refs Unit`
-  (EVAL_TAC)
+Theorem bv_ok_Unit[simp]:
+   bv_ok refs Unit
+Proof
+  EVAL_TAC
+QED
 
-Theorem bv_ok_Boolv[simp]
-  `bv_ok refs (Boolv b)`
-  (EVAL_TAC)
+Theorem bv_ok_Boolv[simp]:
+   bv_ok refs (Boolv b)
+Proof
+  EVAL_TAC
+QED
 
 val bv_ok_IMP_adjust_bv_eq = Q.prove(
   `!b2 a1 b3.
@@ -184,16 +196,20 @@ val v_to_list_ok = Q.prove(
   simp[v_to_list_def,bv_ok_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
-Theorem list_to_v_ok
-  `!xs. EVERY (bv_ok refs) xs ==> bv_ok refs (list_to_v xs)`
-  (Induct \\ rw [list_to_v_def, bv_ok_def]);
+Theorem list_to_v_ok:
+   !xs. EVERY (bv_ok refs) xs ==> bv_ok refs (list_to_v xs)
+Proof
+  Induct \\ rw [list_to_v_def, bv_ok_def]
+QED
 
-Theorem list_to_v_ok_APPEND
-  `!xs ys.
+Theorem list_to_v_ok_APPEND:
+   !xs ys.
      bv_ok refs (list_to_v xs) /\
      bv_ok refs (list_to_v ys) ==>
-       bv_ok refs (list_to_v (xs ++ ys))`
-  (Induct \\ rw [list_to_v_def, bv_ok_def]);
+       bv_ok refs (list_to_v (xs ++ ys))
+Proof
+  Induct \\ rw [list_to_v_def, bv_ok_def]
+QED
 
 val do_app_ok_lemma = Q.prove(
   `state_ok r /\ EVERY (bv_ok r.refs) a /\
@@ -380,15 +396,17 @@ val do_app_ok_lemma = Q.prove(
     \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
     \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,FLOOKUP_DEF]));
 
-Theorem do_app_ok
-  `state_ok r /\ EVERY (bv_ok r.refs) a /\
+Theorem do_app_ok:
+   state_ok r /\ EVERY (bv_ok r.refs) a /\
     (do_app op a r = Rval (q,t)) ==>
     state_ok t /\ bv_ok t.refs q /\
-    (EVERY (bv_ok r.refs) env ==> EVERY (bv_ok t.refs) env)`
-  (STRIP_TAC \\ IMP_RES_TAC do_app_ok_lemma \\ full_simp_tac(srw_ss())[]
+    (EVERY (bv_ok r.refs) env ==> EVERY (bv_ok t.refs) env)
+Proof
+  STRIP_TAC \\ IMP_RES_TAC do_app_ok_lemma \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[EVERY_MEM] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ IMP_RES_TAC do_app_refs_SUBSET
-  \\ IMP_RES_TAC bv_ok_SUBSET_IMP);
+  \\ IMP_RES_TAC bv_ok_SUBSET_IMP
+QED
 val _ = print "Proved do_app_ok_lemma\n"
 
 val dec_clock_inc_clock = prove(
@@ -396,17 +414,19 @@ val dec_clock_inc_clock = prove(
                inc_clock (c-1) (t: ('c,'ffi) bviSem$state)``,
   EVAL_TAC \\ fs [bviSemTheory.state_component_equality]);
 
-Theorem find_code_bv_ok
-  `bvlSem$find_code dest vs s = SOME (args,e2) /\
-    EVERY (bv_ok (refs : num |-> bvlSem$v ref)) vs ==> EVERY (bv_ok refs) args`
-  (Cases_on `dest` \\ fs [bvlSemTheory.find_code_def]
+Theorem find_code_bv_ok:
+   bvlSem$find_code dest vs s = SOME (args,e2) /\
+    EVERY (bv_ok (refs : num |-> bvlSem$v ref)) vs ==> EVERY (bv_ok refs) args
+Proof
+  Cases_on `dest` \\ fs [bvlSemTheory.find_code_def]
   \\ fs [case_eq_thms] \\ rw [] \\ fs []
   \\ `?v xs. vs = SNOC v xs` by metis_tac [SNOC_CASES]
   \\ full_simp_tac std_ss [FRONT_SNOC,LAST_SNOC]
-  \\ fs [SNOC_APPEND,EVERY_APPEND]);
+  \\ fs [SNOC_APPEND,EVERY_APPEND]
+QED
 
-Theorem evaluate_ok
-  `!xs env s res t.
+Theorem evaluate_ok:
+   !xs env s res t.
       (evaluate (xs,env,s) = (res,t)) /\
       state_ok s /\ EVERY (bv_ok s.refs) env ==>
       state_ok t /\
@@ -414,8 +434,9 @@ Theorem evaluate_ok
        | Rval vs => EVERY (bv_ok t.refs) vs
        | Rerr(Rraise v) => bv_ok t.refs v
        | _ => T) /\
-      EVERY (bv_ok t.refs) env`
-  (recInduct bvlSemTheory.evaluate_ind \\ rpt strip_tac
+      EVERY (bv_ok t.refs) env
+Proof
+  recInduct bvlSemTheory.evaluate_ind \\ rpt strip_tac
   \\ fs[bvlSemTheory.evaluate_def] \\ rw [] \\ fs []
   \\ fs [case_eq_thms] \\ rveq \\ fs []
   \\ imp_res_tac evaluate_SING \\ fs[] \\ rveq \\ fs []
@@ -433,7 +454,8 @@ Theorem evaluate_ok
   \\ rfs []
   \\ drule (GEN_ALL find_code_bv_ok) \\ fs []
   \\ disch_then drule \\ rw [] \\ fs [] \\ rfs []
-  \\ drule (GEN_ALL evaluate_IMP_bv_ok) \\ fs [dec_clock_def]);
+  \\ drule (GEN_ALL evaluate_IMP_bv_ok) \\ fs [dec_clock_def]
+QED
 
 (* semantics lemmas *)
 
@@ -593,14 +615,15 @@ val evaluate_AllocGlobal_code = Q.prove(
   \\ AP_THM_TAC \\ AP_TERM_TAC
   \\ intLib.COOPER_TAC);
 
-Theorem evaluate_ListLength_code
-  `!lv vs n.
+Theorem evaluate_ListLength_code:
+   !lv vs n.
       lookup ListLength_location s.code = SOME (2,SND ListLength_code) /\
       v_to_list lv = SOME vs ==>
       ∃p1 c.
         evaluate ([SND ListLength_code],[lv;Number (&n)],inc_clock c s) =
-          (Rval [Number (&(n + LENGTH vs))],s)`
-  (HO_MATCH_MP_TAC v_to_list_ind \\ rw [] \\ fs [v_to_list_def] \\ rveq
+          (Rval [Number (&(n + LENGTH vs))],s)
+Proof
+  HO_MATCH_MP_TAC v_to_list_ind \\ rw [] \\ fs [v_to_list_def] \\ rveq
   \\ fs [ListLength_code_def] THEN1
    (fs [bviSemTheory.evaluate_def,EVAL ``Boolv T``,
         EVAL ``bviSem$do_app (TagLenEq nil_tag 0) [Block nil_tag []] s``]
@@ -620,10 +643,11 @@ Theorem evaluate_ListLength_code
    (unabbrev_all_tac \\ fs [bviSemTheory.state_component_equality,
        bviSemTheory.dec_clock_def] \\ fs [inc_clock_def])
   \\ fs [] \\ pop_assum kall_tac
-  \\ `(1 + &n) = (&(n + 1)):int` by intLib.COOPER_TAC \\ fs []);
+  \\ `(1 + &n) = (&(n + 1)):int` by intLib.COOPER_TAC \\ fs []
+QED
 
-Theorem evaluate_FromListByte_code
-  `∀lv vs n bs (s:('c,'ffi) bviSem$state).
+Theorem evaluate_FromListByte_code:
+   ∀lv vs n bs (s:('c,'ffi) bviSem$state).
     v_to_list lv = SOME (MAP (Number o $&) vs) ∧ LENGTH vs ≤ LENGTH bs ∧
     lookup FromListByte_location s.code = SOME (3,SND FromListByte_code) ∧
     EVERY (λn. n < 256) vs ∧
@@ -631,8 +655,9 @@ Theorem evaluate_FromListByte_code
     ⇒
     ∃c.
       evaluate ([SND FromListByte_code],[lv;Number (&n);RefPtr p],inc_clock c s) =
-        (Rval [RefPtr p], s with refs := s.refs |+ (p,ByteArray fl (TAKE n bs ++ (MAP n2w vs))))`
-  (ho_match_mp_tac v_to_list_ind \\ rw[] \\ fs[v_to_list_def] \\ rveq
+        (Rval [RefPtr p], s with refs := s.refs |+ (p,ByteArray fl (TAKE n bs ++ (MAP n2w vs))))
+Proof
+  ho_match_mp_tac v_to_list_ind \\ rw[] \\ fs[v_to_list_def] \\ rveq
   \\ rfs[FromListByte_code_def]
   >- (
     simp[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,
@@ -664,10 +689,11 @@ Theorem evaluate_FromListByte_code
   \\ fs[Abbr`n1`,Abbr`n2`,state_component_equality]
   \\ simp[Abbr`refs`,fmap_eq_flookup,FLOOKUP_UPDATE] \\ rw[]
   \\ rw[LIST_EQ_REWRITE,EL_TAKE,EL_LUPDATE]
-  \\ rw[EL_TAKE,EL_APPEND1,EL_APPEND2]);
+  \\ rw[EL_TAKE,EL_APPEND1,EL_APPEND2]
+QED
 
-Theorem evaluate_SumListLength_code
-  `∀lv ps wss n.
+Theorem evaluate_SumListLength_code:
+   ∀lv ps wss n.
    lookup SumListLength_location s.code = SOME (2,SND SumListLength_code) ∧
    v_to_list lv = SOME (MAP RefPtr ps) ∧
    MAP (FLOOKUP s.refs) ps = MAP (SOME o ByteArray T) wss
@@ -675,8 +701,9 @@ Theorem evaluate_SumListLength_code
    ∃c.
      evaluate
        ([SND SumListLength_code],[lv;Number(&n)],inc_clock c s) =
-       (Rval [Number (&(n + LENGTH (FLAT wss)))],s)`
-  (recInduct v_to_list_ind \\ rw[v_to_list_def]
+       (Rval [Number (&(n + LENGTH (FLAT wss)))],s)
+Proof
+  recInduct v_to_list_ind \\ rw[v_to_list_def]
   \\ fs[SumListLength_code_def]
   >- (
     rw[evaluate_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id]
@@ -702,10 +729,11 @@ Theorem evaluate_SumListLength_code
   \\ rename1`&LENGTH ls + &n`
   \\ disch_then(qspec_then`LENGTH ls + n`(qx_choose_then`c`strip_assume_tac))
   \\ qexists_tac`c+1`
-  \\ fs[inc_clock_def,dec_clock_def,integerTheory.INT_ADD]);
+  \\ fs[inc_clock_def,dec_clock_def,integerTheory.INT_ADD]
+QED
 
-Theorem evaluate_ConcatByte_code
-  `∀lv ps wss (s:('c,'ffi) bviSem$state) ds1 ds2 n.
+Theorem evaluate_ConcatByte_code:
+   ∀lv ps wss (s:('c,'ffi) bviSem$state) ds1 ds2 n.
    lookup SumListLength_location s.code = SOME (2,SND SumListLength_code) ∧
    lookup ConcatByte_location s.code = SOME (3,SND ConcatByte_code) ∧
    v_to_list lv = SOME (MAP RefPtr ps) ∧ dst ∉ set ps ∧
@@ -716,8 +744,9 @@ Theorem evaluate_ConcatByte_code
    ∃c.
      evaluate
        ([SND ConcatByte_code],[lv;Number(&n);RefPtr dst],inc_clock c s) =
-       (Rval [RefPtr dst], s with refs := s.refs |+ (dst, ByteArray T (ds1++FLAT wss)))`
-  (recInduct v_to_list_ind
+       (Rval [RefPtr dst], s with refs := s.refs |+ (dst, ByteArray T (ds1++FLAT wss)))
+Proof
+  recInduct v_to_list_ind
   \\ rw[v_to_list_def]
   \\ rw[ConcatByte_code_def]
   >- (
@@ -753,7 +782,8 @@ Theorem evaluate_ConcatByte_code
   \\ disch_then(qspec_then`ds1 ++ ws`mp_tac)
   \\ simp[] \\ disch_then(qx_choose_then`c`strip_assume_tac)
   \\ qexists_tac`c+1`
-  \\ fs[inc_clock_def,dec_clock_def,state_component_equality,Abbr`refs`]);
+  \\ fs[inc_clock_def,dec_clock_def,state_component_equality,Abbr`refs`]
+QED
 
 (* compiler correctness *)
 
@@ -821,10 +851,12 @@ val compile_string_thm = Q.prove(
   |> Q.GENL[`str`,`ls`,`ptr`,`s`,`env`]
   |> INST_TYPE[alpha|->``:'c``,beta|->``:'ffi``];
 
-Theorem HD_APPEND3
-  `0 < LENGTH (l1 ++ l2) ⇒ HD (l1 ++ l2 ++ l3) = HD (l1 ++ l2)`
-  (Cases_on`l1` \\ simp[] \\
-  Cases_on`l2` \\ simp[]);
+Theorem HD_APPEND3:
+   0 < LENGTH (l1 ++ l2) ⇒ HD (l1 ++ l2 ++ l3) = HD (l1 ++ l2)
+Proof
+  Cases_on`l1` \\ simp[] \\
+  Cases_on`l2` \\ simp[]
+QED
 
 val iEval_bVarBound = Q.prove(
   `!(n:num) xs n vs (s:('c,'ffi) bviSem$state) env.
@@ -1034,20 +1066,24 @@ val do_eq_adjust = Q.prove(
    do_eq t2.refs (adjust_bv b2 x1) (adjust_bv b2 x2) = Eq_val b`,
   metis_tac [do_eq_adjust_lemma]);
 
-Theorem list_to_v_adjust
-  `!xs.
-   list_to_v (MAP (adjust_bv b) xs) = adjust_bv b (list_to_v xs)`
-   (Induct \\ rw [list_to_v_def, adjust_bv_def]);
+Theorem list_to_v_adjust:
+   !xs.
+   list_to_v (MAP (adjust_bv b) xs) = adjust_bv b (list_to_v xs)
+Proof
+   Induct \\ rw [list_to_v_def, adjust_bv_def]
+QED
 
-Theorem list_to_v_adjust_APPEND
-  `!xs ys.
+Theorem list_to_v_adjust_APPEND:
+   !xs ys.
      list_to_v (MAP (adjust_bv b) xs) = adjust_bv b (list_to_v xs) /\
      list_to_v (MAP (adjust_bv b) xs) = adjust_bv b (list_to_v xs) ==>
       list_to_v (MAP (adjust_bv b) (xs ++ ys)) =
-      adjust_bv b (list_to_v (xs ++ ys))`
-  (Induct
+      adjust_bv b (list_to_v (xs ++ ys))
+Proof
+  Induct
   >- (Induct_on `ys` \\ rw [] \\ fs [adjust_bv_def, list_to_v_def])
-  \\ rw [list_to_v_def, adjust_bv_def] \\ fs []);
+  \\ rw [list_to_v_def, adjust_bv_def] \\ fs []
+QED
 
 val do_app_adjust = Q.prove(
   `state_rel b2 s5 t2 /\
@@ -1280,8 +1316,8 @@ val do_app_adjust = Q.prove(
           \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id] \\ rveq \\ rw []
           \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id] \\ NO_TAC));
 
-Theorem eval_ind_alt
-  `∀P.
+Theorem eval_ind_alt:
+   ∀P.
      (∀env s. P ([],env,s)) ∧
      (∀x y xs env s.
         (∀v3 s1 v1.
@@ -1327,8 +1363,9 @@ Theorem eval_ind_alt
            ¬(s.clock < ticks + 1) ⇒
            P ([exp],args,dec_clock (ticks + 1) s)) ∧ P (xs,env,s1) ⇒
         P ([Call ticks dest xs],env,s1)) ⇒
-     ∀v v1 v2. P (v,v1,v2:('c,'ffi) bvlSem$state)`
-  (rpt strip_tac
+     ∀v v1 v2. P (v,v1,v2:('c,'ffi) bvlSem$state)
+Proof
+  rpt strip_tac
   \\ HO_MATCH_MP_TAC (MP_CANON WF_INDUCTION_THM)
   \\ WF_REL_TAC `(inv_image (measure I LEX measure exp1_size)
                               (\(xs,env,s). (s.clock,xs)))`
@@ -1343,17 +1380,20 @@ Theorem eval_ind_alt
   \\ rw [] \\ first_x_assum match_mp_tac \\ fs []
   \\ imp_res_tac bvlSemTheory.evaluate_clock
   \\ fs [LESS_OR_EQ,bvlTheory.exp_size_def]
-  \\ fs [bvlSemTheory.dec_clock_def]);
+  \\ fs [bvlSemTheory.dec_clock_def]
+QED
 
-Theorem EVERY_isVar_evaluate_Rval_MEM
-  `!l env a s r.
+Theorem EVERY_isVar_evaluate_Rval_MEM:
+   !l env a s r.
       EVERY isVar l /\ bvlSem$evaluate (l,env,s) = (Rval a,r) ==>
-      EVERY (\x. MEM x env) a /\ s = r`
-  (Induct \\ fs [bvlSemTheory.evaluate_def]
+      EVERY (\x. MEM x env) a /\ s = r
+Proof
+  Induct \\ fs [bvlSemTheory.evaluate_def]
   \\ Cases_on `h` \\ fs[isVar_def]
   \\ Cases_on `l` \\ fs [bvlSemTheory.evaluate_def] \\ rw []
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [] \\ res_tac \\ fs [] \\ rveq
-  \\ fs [MEM_EL] \\ asm_exists_tac \\ fs []);
+  \\ fs [MEM_EL] \\ asm_exists_tac \\ fs []
+QED
 
 val do_app_Ref = Q.prove(
   `do_app Ref vs s =
@@ -1366,15 +1406,16 @@ val do_app_Ref = Q.prove(
   fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_THM]
   \\ every_case_tac \\ fs []);
 
-Theorem state_rel_add_bytearray
-  `state_rel b2 s5 (t2:('c,'ffi) bviSem$state) ∧
+Theorem state_rel_add_bytearray:
+   state_rel b2 s5 (t2:('c,'ffi) bviSem$state) ∧
    state_ok s5 ∧
    pp ∉ FDOM s5.refs ∧
    qq ∉ FDOM t2.refs ⇒
    state_rel ((pp =+ qq) b2)
      (s5 with refs := s5.refs |+ (pp,ByteArray fl ws))
-     (t2 with refs := t2.refs |+ (qq,ByteArray fl ws))`
-  (strip_tac
+     (t2 with refs := t2.refs |+ (qq,ByteArray fl ws))
+Proof
+  strip_tac
   \\ fs[state_rel_def,FLOOKUP_UPDATE]
   \\ conj_tac >- ( match_mp_tac INJ_EXTEND \\ fs[] )
   \\ conj_tac
@@ -1412,7 +1453,8 @@ Theorem state_rel_add_bytearray
   \\ fs[state_ok_def,EVERY_MEM]
   \\ res_tac \\ fs[]
   \\ rw[]
-  \\ metis_tac[INJ_DEF] );
+  \\ metis_tac[INJ_DEF]
+QED
 
 val iEval_bVarBound_extra = prove(
   ``∀n xs n vs s env d.
@@ -1430,28 +1472,33 @@ val MAP_Word_11 = prove(
   ``!ns ns'. MAP Word64 ns = MAP Word64 ns' <=> ns' = ns``,
   Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []);
 
-Theorem IMP_v_to_bytes
-  `!v1 ns.
+Theorem IMP_v_to_bytes:
+   !v1 ns.
       v_to_list v1 = SOME (MAP (Number ∘ $& ∘ w2n) ns) ==>
-      v_to_bytes (adjust_bv b2 v1) = SOME ns`
-  (fs [v_to_bytes_def,v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def,MAP_Num_11]);
+      v_to_bytes (adjust_bv b2 v1) = SOME ns
+Proof
+  fs [v_to_bytes_def,v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def,MAP_Num_11]
+QED
 
-Theorem IMP_v_to_words
-  `v_to_list v2 = SOME (MAP Word64 ns') ==>
-    v_to_words (adjust_bv b2 v2) = SOME ns'`
-  (fs [v_to_words_def,v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def,MAP_Word_11]
-  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [MAP_Word_11]);
+Theorem IMP_v_to_words:
+   v_to_list v2 = SOME (MAP Word64 ns') ==>
+    v_to_words (adjust_bv b2 v2) = SOME ns'
+Proof
+  fs [v_to_words_def,v_to_list_adjust,MAP_MAP_o,o_DEF,adjust_bv_def,MAP_Word_11]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [MAP_Word_11]
+QED
 
 val sorted_lt_append =
   Q.ISPEC`prim_rec$<`SORTED_APPEND
   |> SIMP_RULE std_ss [transitive_LESS]
 
-Theorem aux_code_installed_sublist
-  `∀aux ls.
+Theorem aux_code_installed_sublist:
+   ∀aux ls.
     IS_SUBLIST ls aux ∧
     ALL_DISTINCT (MAP FST ls) ⇒
-    aux_code_installed aux (fromAList ls)`
-  (Induct >> simp[aux_code_installed_def] >>
+    aux_code_installed aux (fromAList ls)
+Proof
+  Induct >> simp[aux_code_installed_def] >>
   qx_gen_tac`p`>>PairCases_on`p`>>
   Cases >> simp[IS_SUBLIST] >> strip_tac >- (
     simp[aux_code_installed_def,lookup_fromAList] >>
@@ -1474,51 +1521,66 @@ Theorem aux_code_installed_sublist
   BasicProvers.CASE_TAC >>
   imp_res_tac ALOOKUP_MEM >>
   full_simp_tac(srw_ss())[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
-  METIS_TAC[PAIR]);
+  METIS_TAC[PAIR]
+QED
 
-Theorem compile_exps_aux_sorted
-  `∀n es c aux n1. compile_exps n es = (c,aux,n1) ⇒
+Theorem compile_exps_aux_sorted:
+   ∀n es c aux n1. compile_exps n es = (c,aux,n1) ⇒
    SORTED $< (MAP FST (append aux)) ∧
    EVERY (λx. ∃n. x = num_stubs + nss * n + 1) (MAP FST (append aux)) ∧
-   EVERY (between (num_stubs + nss * n) (num_stubs + nss * n1)) (MAP FST (append aux)) ∧ n ≤ n1`
-   (ho_match_mp_tac compile_exps_ind >>
+   EVERY (between (num_stubs + nss * n) (num_stubs + nss * n1)) (MAP FST (append aux)) ∧ n ≤ n1
+Proof
+   ho_match_mp_tac compile_exps_ind >>
    simp[compile_exps_def] >> srw_tac[][] >>
    rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >> srw_tac[][compile_aux_def] >>
    rpt ((sorted_lt_append |> match_mp_tac) >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
    fs[EVERY_MEM,between_def,backend_commonTheory.bvl_to_bvi_namespaces_def] >>
-   srw_tac[][] >> res_tac >> (decide_tac ORELSE metis_tac[ADD_COMM,ADD_ASSOC]));
+   srw_tac[][] >> res_tac >> (decide_tac ORELSE metis_tac[ADD_COMM,ADD_ASSOC])
+QED
 
 val in_ns_def = Define`in_ns k n ⇔ n MOD nss = k`;
 
-Theorem nss_in_ns[simp]
-  `in_ns k nss ⇔ k = 0`
-  (rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]);
+Theorem nss_in_ns[simp]:
+   in_ns k nss ⇔ k = 0
+Proof
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]
+QED
 
-Theorem mult_nss_in_ns[simp]
-  `in_ns k (m * nss) ⇔ k = 0`
-  (rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]);
+Theorem mult_nss_in_ns[simp]:
+   in_ns k (m * nss) ⇔ k = 0
+Proof
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]
+QED
 
-Theorem mult_nss_in_ns_1[simp]
-  `in_ns k (m * nss + 1) ⇔ k = 1`
-  (rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]);
+Theorem mult_nss_in_ns_1[simp]:
+   in_ns k (m * nss + 1) ⇔ k = 1
+Proof
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]
+QED
 
-Theorem mult_nss_in_ns_2[simp]
-  `in_ns k (m * nss + 2) ⇔ k = 2`
-  (rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]);
+Theorem mult_nss_in_ns_2[simp]:
+   in_ns k (m * nss + 2) ⇔ k = 2
+Proof
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]
+QED
 
-Theorem in_ns_1_add_1
-  `in_ns 0 x ⇒ in_ns 1 (x + 1)`
-  (rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]
+Theorem in_ns_1_add_1:
+   in_ns 0 x ⇒ in_ns 1 (x + 1)
+Proof
+  rw[in_ns_def,backend_commonTheory.bvl_to_bvi_namespaces_def]
   \\ qspecl_then[`3`,`x`,`1`]mp_tac(Q.GENL[`n`,`x`,`k`]MOD_LIFT_PLUS_IFF)
-  \\ simp[]);
+  \\ simp[]
+QED
 
 val ODD_num_stubs = EVAL``in_ns 0 num_stubs``;
 
-Theorem in_ns_add_num_stubs[simp]
-  `in_ns k (num_stubs + x) ⇔ in_ns k x`
-  (assume_tac ODD_num_stubs \\ fs[in_ns_def] \\
+Theorem in_ns_add_num_stubs[simp]:
+   in_ns k (num_stubs + x) ⇔ in_ns k x
+Proof
+  assume_tac ODD_num_stubs \\ fs[in_ns_def] \\
   qspecl_then[`nss`,`num_stubs`,`num_stubs MOD nss`,`x`]mp_tac ADD_MOD \\
-  impl_keep_tac >- EVAL_TAC \\ simp[]);
+  impl_keep_tac >- EVAL_TAC \\ simp[]
+QED
 
 val compile_list_imp = Q.prove(
   `∀n prog code n' name arity exp.
@@ -1574,8 +1636,8 @@ val in_ns_0_simp = prove(
   fs [in_ns_def] \\ EVAL_TAC
   \\ `0 < nss` by EVAL_TAC \\ fs [EVAL ``nss``]);
 
-Theorem compile_inc_lemma
-  `compile_inc next1 prog1 = (next2,prog2) ==>
+Theorem compile_inc_lemma:
+   compile_inc next1 prog1 = (next2,prog2) ==>
     (ALL_DISTINCT (MAP FST prog1) ==>
     ALL_DISTINCT (MAP FST prog2)) /\ next1 <= next2 /\
     (!p. MEM (num_stubs + p * nss) (MAP FST prog2) ==>
@@ -1583,8 +1645,9 @@ Theorem compile_inc_lemma
     (!p. MEM p (MAP FST prog2) ==>
          if in_ns 0 p then (?q. num_stubs + q * nss = p) else
          in_ns 1 p /\ num_stubs + nss * next1 <= p /\
-                      p < num_stubs + nss * next2)`
-  (fs [compile_inc_def]
+                      p < num_stubs + nss * next2)
+Proof
+  fs [compile_inc_def]
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
   \\ rpt (pop_assum mp_tac)
   \\ qid_spec_tac `next1`
@@ -1616,32 +1679,39 @@ Theorem compile_inc_lemma
   \\ fs [EVERY_MEM] \\ res_tac \\ fs [between_def]
   \\ rveq \\ fs [EVAL ``nss``]
   \\ rw [] \\ fs []
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+QED
 
-Theorem compile_inc_next
-  `compile_inc next1 prog1 = (next2,prog2) ==>
-    next1 <= next2`
-  (rw [] \\ drule compile_inc_lemma \\ rw []);
+Theorem compile_inc_next:
+   compile_inc next1 prog1 = (next2,prog2) ==>
+    next1 <= next2
+Proof
+  rw [] \\ drule compile_inc_lemma \\ rw []
+QED
 
-Theorem compile_inc_DISTINCT
-  `compile_inc next1 prog1 = (next2,prog2) /\
+Theorem compile_inc_DISTINCT:
+   compile_inc next1 prog1 = (next2,prog2) /\
     ALL_DISTINCT (MAP FST prog1) ==>
-    ALL_DISTINCT (MAP FST prog2)`
-  (rw [] \\ drule compile_inc_lemma \\ rw []);
+    ALL_DISTINCT (MAP FST prog2)
+Proof
+  rw [] \\ drule compile_inc_lemma \\ rw []
+QED
 
-Theorem compile_inc_next_range
-  `compile_inc next1 prog1 = (next2,prog2) /\
+Theorem compile_inc_next_range:
+   compile_inc next1 prog1 = (next2,prog2) /\
     MEM x (MAP FST prog2) ==>
     if in_ns_1 x then num_stubs + nss * next1 <= x /\ x < num_stubs + nss * next2
-    else in_ns_0 x /\ num_stubs <= x /\ MEM ((x - num_stubs) DIV nss) (MAP FST prog1)`
-  (rpt strip_tac
+    else in_ns_0 x /\ num_stubs <= x /\ MEM ((x - num_stubs) DIV nss) (MAP FST prog1)
+Proof
+  rpt strip_tac
   \\ drule (GEN_ALL compile_inc_lemma)
   \\ rpt strip_tac
   \\ first_x_assum drule
   \\ Cases_on `in_ns 1 x` \\ fs [in_ns_def]
   \\ rw []
   \\ first_x_assum match_mp_tac
-  \\ fs [EVAL ``nss``,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
+  \\ fs [EVAL ``nss``,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+QED
 
 val not_in_ns_1 = prove(
   ``~(in_ns_1 (num_stubs + name * nss))``,
@@ -3265,16 +3335,17 @@ val _ = save_thm("compile_exps_correct",compile_exps_correct);
 
 (* composed compiler correctness *)
 
-Theorem compile_single_evaluate
-  `evaluate ([Call 0 (SOME start) []],[],s1) = (res,s2) ∧
+Theorem compile_single_evaluate:
+   evaluate ([Call 0 (SOME start) []],[],s1) = (res,s2) ∧
    state_rel b1 s1 t1 ∧ IS_SOME t1.global ∧ state_ok s1 ∧
    res ≠ Rerr (Rabort Rtype_error)
    ⇒
    ∃ck b2 t2.
      evaluate ([Call 0 (SOME (num_stubs + nss * start))[] NONE],[],inc_clock ck t1) =
        (map_result (MAP (adjust_bv b2)) (adjust_bv b2) res,t2) ∧
-     state_rel b2 s2 (t2:('c,'ffi) bviSem$state)`
-  (srw_tac[][] >>
+     state_rel b2 s2 (t2:('c,'ffi) bviSem$state)
+Proof
+  srw_tac[][] >>
   full_simp_tac(srw_ss())[bvlSemTheory.evaluate_def] >>
   full_simp_tac(srw_ss())[find_code_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -3304,7 +3375,8 @@ Theorem compile_single_evaluate
   simp[] >>
   imp_res_tac bvi_letProofTheory.evaluate_compile_exp >> rfs[] >>
   Cases_on`res`>>simp[] >- METIS_TAC[] >>
-  Cases_on`e`>>simp[] >> METIS_TAC[]);
+  Cases_on`e`>>simp[] >> METIS_TAC[]
+QED
 
 val evaluate_REPLICATE_0 = Q.prove(
   `!n. evaluate (REPLICATE n (Op (Const 0) []),env,s) =
@@ -3314,8 +3386,8 @@ val evaluate_REPLICATE_0 = Q.prove(
   \\ fs [evaluate_def,REPLICATE,do_app_def,do_app_aux_def]
   \\ fs [EVAL ``small_enough_int 0``]);
 
-Theorem bvi_stubs_evaluate
-  `∀kk start ffi0 code k.
+Theorem bvi_stubs_evaluate:
+   ∀kk start ffi0 code k.
      0 < k ∧ num_stubs ≤ start ⇒
   let t0 = <| global := SOME 0
             ; ffi := ffi0
@@ -3330,8 +3402,9 @@ Theorem bvi_stubs_evaluate
       evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],
         initial_state ffi0 (fromAList (stubs start kk ++ code)) co cc (k+1)) =
    let (r,s) = evaluate ([Call 0 (SOME start) [] NONE],[],t0) in
-     ((case r of Rerr(Rraise v) => Rval [v] | _ => r), s)`
-  (srw_tac[][bviSemTheory.evaluate_def,find_code_def,
+     ((case r of Rerr(Rraise v) => Rval [v] | _ => r), s)
+Proof
+  srw_tac[][bviSemTheory.evaluate_def,find_code_def,
             lookup_fromAList,ALOOKUP_APPEND] >>
   srw_tac[][Once stubs_def] >>
   TRY (pop_assum(assume_tac o CONV_RULE EVAL)>>full_simp_tac(srw_ss())[]>>NO_TAC) >>
@@ -3360,10 +3433,11 @@ Theorem bvi_stubs_evaluate
   \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
   \\ CASE_TAC \\ fs []
   \\ CASE_TAC \\ fs [] \\ rveq \\ fs []
-  \\ CASE_TAC \\ fs [] \\ rveq \\ fs []);
+  \\ CASE_TAC \\ fs [] \\ rveq \\ fs []
+QED
 
-Theorem compile_list_distinct_locs
-  `∀n prog code_app code n'.
+Theorem compile_list_distinct_locs:
+   ∀n prog code_app code n'.
      ALL_DISTINCT (MAP FST prog) ∧
      compile_list n prog = (code_app,n') ∧
      code = append code_app
@@ -3375,8 +3449,9 @@ Theorem compile_list_distinct_locs
        MAP (λn. num_stubs + nss * n) (MAP FST prog) ∧
      (*  redundant, but useful *) EVERY ($<= num_stubs) (MAP FST code) ∧
      EVERY (λn. ¬ in_ns 2 (n - num_stubs)) (MAP FST code) ∧
-     n ≤ n'`
-  (Induct_on`prog`>>simp[compile_list_def]>>
+     n ≤ n'
+Proof
+  Induct_on`prog`>>simp[compile_list_def]>>
   qx_gen_tac`p`>>PairCases_on`p`>>
   rpt gen_tac >> strip_tac >>
   pairarg_tac >> full_simp_tac(srw_ss())[] >>
@@ -3428,10 +3503,11 @@ Theorem compile_list_distinct_locs
   `MEM (FST x) l2` by METIS_TAC[] >>
   pop_assum mp_tac >>
   unabbrev_all_tac >> simp[MEM_MAP,EXISTS_PROD] >>
-  fs[backend_commonTheory.bvl_to_bvi_namespaces_def]);
+  fs[backend_commonTheory.bvl_to_bvi_namespaces_def]
+QED
 
-Theorem compile_prog_evaluate
-  `compile_prog start n prog = (start', prog', n') ∧
+Theorem compile_prog_evaluate:
+   compile_prog start n prog = (start', prog', n') ∧
    evaluate ([Call 0 (SOME start) []],[],
              initial_state ffi0 (fromAList prog) co (state_cc compile_inc cc) k) = (r,s) ∧
    0 < k ∧
@@ -3446,8 +3522,9 @@ Theorem compile_prog_evaluate
              initial_state ffi0 (fromAList prog') (state_co compile_inc co) cc (k+ck)) =
      (map_result (MAP (adjust_bv b2)) (adjust_bv b2)
        (case r of Rerr(Rraise v) => Rval [v] | _ => r),s2) ∧
-   state_rel b2 s (s2:('c,'ffi) bviSem$state)`
-((*
+   state_rel b2 s (s2:('c,'ffi) bviSem$state)
+Proof
+(*
   theorems to compose:
     bvi_stubs_evaluate
     compile_single_evaluate
@@ -3576,10 +3653,11 @@ Theorem compile_prog_evaluate
   fsrw_tac[ARITH_ss][inc_clock_def] >>
   Cases_on`r`>>full_simp_tac(srw_ss())[]>>
   TRY(Cases_on`e`)>>full_simp_tac(srw_ss())[] >>
-  PROVE_TAC[ADD_ASSOC,ADD_COMM]);
+  PROVE_TAC[ADD_ASSOC,ADD_COMM]
+QED
 
-Theorem compile_prog_semantics
-  `compile_prog start n prog = (start', prog', n') ∧
+Theorem compile_prog_semantics:
+   compile_prog start n prog = (start', prog', n') ∧
    ALL_DISTINCT (MAP FST prog) ∧
    handle_ok (MAP (SND o SND) prog) ∧
    (∀n. EVERY ((λe. handle_ok [e]) o SND o SND) (SND (co n))) ∧
@@ -3587,8 +3665,9 @@ Theorem compile_prog_semantics
    semantics (ffi0:'ffi ffi_state) (fromAList prog) co (state_cc compile_inc cc) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') (state_co compile_inc co) cc start' =
-   semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) start`
-  (simp[GSYM AND_IMP_INTRO] >> ntac 5 strip_tac >>
+   semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) start
+Proof
+  simp[GSYM AND_IMP_INTRO] >> ntac 5 strip_tac >>
   simp[bvlSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -3773,15 +3852,17 @@ Theorem compile_prog_semantics
         |> Q.SPEC`s with clock := k`
         |> SIMP_RULE(srw_ss())[bviPropsTheory.inc_clock_def],
       SND,ADD_SYM]) >>
-  full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
+  full_simp_tac(srw_ss())[IS_PREFIX_APPEND] >> simp[EL_APPEND1]
+QED
 
-Theorem compile_prog_distinct_locs
-  `compile_prog start n prog = (k,prog1,n1) /\ ALL_DISTINCT (MAP FST prog) ==>
+Theorem compile_prog_distinct_locs:
+   compile_prog start n prog = (k,prog1,n1) /\ ALL_DISTINCT (MAP FST prog) ==>
     ALL_DISTINCT (MAP FST prog1) /\
     EVERY (between (nss * n + num_stubs) (nss * n1 + num_stubs))
       (FILTER (λn. in_ns 1 (n − num_stubs)) (MAP FST prog1)) /\
-    EVERY (λn. ¬in_ns 2 (n - num_stubs)) (MAP FST prog1)`
-  (fs [compile_prog_def] \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
+    EVERY (λn. ¬in_ns 2 (n - num_stubs)) (MAP FST prog1)
+Proof
+  fs [compile_prog_def] \\ pairarg_tac \\ fs [] \\ strip_tac \\ rveq
   \\ drule (compile_list_distinct_locs |> SIMP_RULE std_ss [])
   \\ disch_then drule
   \\ fs [ALL_DISTINCT_APPEND] \\ rw [] THEN1 EVAL_TAC
@@ -3791,7 +3872,8 @@ Theorem compile_prog_distinct_locs
     \\ CCONTR_TAC \\ fs []
     \\ fs [EVERY_MEM] \\ res_tac \\ rveq
     \\ pop_assum mp_tac \\ EVAL_TAC)
-  \\ fs [FILTER_APPEND] \\ EVAL_TAC);
+  \\ fs [FILTER_APPEND] \\ EVAL_TAC
+QED
 
 val ODD_lemma = prove(
   ``ODD (2 * n + k) = ODD k``,
@@ -3811,12 +3893,13 @@ val full_co_def = Define `
     let cut = c.exp_cut in
       bvi_tailrecProof$mk_co (state_co compile_inc (state_co (compile_inc limit split cut) co))`
 
-Theorem compile_prog_avoids_nss_2
-  `compile_prog start f prog = (loc,code,new_state) /\
+Theorem compile_prog_avoids_nss_2:
+   compile_prog start f prog = (loc,code,new_state) /\
     ALL_DISTINCT (MAP FST prog) /\
     k MOD nss = 2 /\ MEM k (MAP FST code) ==>
-    k ≤ num_stubs`
-  (fs [compile_prog_def] \\ pairarg_tac \\ fs []
+    k ≤ num_stubs
+Proof
+  fs [compile_prog_def] \\ pairarg_tac \\ fs []
   \\ rw [] \\ fs []
   THEN1 (pop_assum mp_tac \\ EVAL_TAC \\ rw [])
   \\ imp_res_tac (compile_list_distinct_locs |> SIMP_RULE std_ss [])
@@ -3829,10 +3912,11 @@ Theorem compile_prog_avoids_nss_2
   \\ `(p MOD nss + num_stubs MOD nss) MOD nss = (p + num_stubs) MOD nss` by
        (match_mp_tac MOD_PLUS \\ EVAL_TAC)
   \\ fs [EVAL ``num_stubs MOD nss``]
-  \\ `0 < nss` by EVAL_TAC \\ fs []);
+  \\ `0 < nss` by EVAL_TAC \\ fs []
+QED
 
-Theorem compile_semantics
-  `compile start c prog = (start', prog', inlines, n1, n2) ∧
+Theorem compile_semantics:
+   compile start c prog = (start', prog', inlines, n1, n2) ∧
    FST (FST (co 0)) = inlines /\
    FST (SND (FST (co 0))) = n1 /\
    FST (SND (SND (FST (co 0)))) = n2 /\
@@ -3842,8 +3926,9 @@ Theorem compile_semantics
    semantics (ffi0:'ffi ffi_state) (fromAList prog) co (full_cc c cc) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') (full_co c co) cc start' =
-   semantics ffi0 (fromAList prog) co (full_cc c cc) start`
-  (rw [full_cc_def,full_co_def]
+   semantics ffi0 (fromAList prog) co (full_cc c cc) start
+Proof
+  rw [full_cc_def,full_co_def]
   \\ drule (bvl_inlineProofTheory.compile_prog_semantics
           |> ONCE_REWRITE_RULE [bvi_letProofTheory.IMP_COMM] |> GEN_ALL)
   \\ fs [] \\ fs [compile_def]
@@ -3928,11 +4013,12 @@ Theorem compile_semantics
   \\ IF_CASES_TAC
   >- ( ntac 2 (pop_assum mp_tac) \\ EVAL_TAC \\ rw[] )
   \\ strip_tac
-  \\ rpt(qpat_x_assum`in_ns _ _`mp_tac) \\ EVAL_TAC \\ rw[]);
+  \\ rpt(qpat_x_assum`in_ns _ _`mp_tac) \\ EVAL_TAC \\ rw[]
+QED
 
 (* -- old version of the above proof --
-Theorem compile_semantics
-  `compile start c prog = (start', prog', n1, n2) ∧
+Theorem compile_semantics:
+   compile start c prog = (start', prog', n1, n2) ∧
    ALL_DISTINCT (MAP FST prog) ∧
    c.next_name2 = num_stubs + 2 + x * nss ∧
    (∀n. EVERY ((λe. handle_ok [e]) o SND o SND) (SND (co n))) ∧
@@ -3940,8 +4026,9 @@ Theorem compile_semantics
    semantics (ffi0:'ffi ffi_state) romAList prog) co (state_cc compile_inc cc) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') (state_co compile_inc co) cc start' =
-   semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) start`
-  (srw_tac[][compile_def]
+   semantics ffi0 (fromAList prog) co (state_cc compile_inc cc) start
+Proof
+  srw_tac[][compile_def]
   \\ fs [LET_THM]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ drule (GEN_ALL compile_prog_semantics)
@@ -3974,17 +4061,19 @@ Theorem compile_semantics
   \\ disch_then drule
   \\ simp [bvi_tailrecTheory.compile_prog_def]
   \\ disch_then (qspecl_then [`loc`,`ffi0`] mp_tac)
-  \\ metis_tac [bvl_inlineProofTheory.compile_prog_semantics,PAIR,FST,SND]);
+  \\ metis_tac [bvl_inlineProofTheory.compile_prog_semantics,PAIR,FST,SND]
+QED
 *)
 
-Theorem compile_distinct_names
-  ` bvl_to_bvi$compile n0 c p2 = (k,p3,n1,n2) /\
+Theorem compile_distinct_names:
+    bvl_to_bvi$compile n0 c p2 = (k,p3,n1,n2) /\
    ALL_DISTINCT (MAP FST p2) /\
    c.next_name2 = bvl_num_stubs + 2 + n02 * nss
    ==>
    EVERY (λn. data_num_stubs ≤ n) (MAP FST p3) /\
-   ALL_DISTINCT (MAP FST p3)`
-  (fs[bvl_to_bviTheory.compile_def]>>
+   ALL_DISTINCT (MAP FST p3)
+Proof
+  fs[bvl_to_bviTheory.compile_def]>>
   strip_tac>>
   rpt (pairarg_tac>>fs[]>>rveq>>fs[])>>
   drule (GEN_ALL compile_prog_distinct_locs) >>
@@ -4033,14 +4122,16 @@ Theorem compile_distinct_names
   \\ fs[GSYM append_def]
   \\ res_tac
   \\ pop_assum mp_tac
-  \\ EVAL_TAC \\ rw[]);
+  \\ EVAL_TAC \\ rw[]
+QED
 
-Theorem ALL_DISTINCT_MAP_FST_SND_full_co
-  `ALL_DISTINCT (MAP FST (SND (co n))) ∧
+Theorem ALL_DISTINCT_MAP_FST_SND_full_co:
+   ALL_DISTINCT (MAP FST (SND (co n))) ∧
    (FST (SND (SND (FST (co n)))) MOD bvl_to_bvi_namespaces = 2)
   ⇒
-   ALL_DISTINCT (MAP FST (SND (full_co c co n)))`
-  (rw[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co]
+   ALL_DISTINCT (MAP FST (SND (full_co c co n)))
+Proof
+  rw[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co]
   \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m xs`
   \\ Cases_on`bvi_tailrec$compile_prog m xs`
   \\ drule bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT
@@ -4067,41 +4158,49 @@ Theorem ALL_DISTINCT_MAP_FST_SND_full_co
     \\ qpat_x_assum`_ MOD _ = _`mp_tac
     \\ qpat_x_assum`_ MOD _ = _`mp_tac
     \\ EVAL_TAC \\ simp[] )
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem destLet_code_labels
-  `destLet x = (y,z) ⇒
-    BIGUNION (set (MAP get_code_labels y)) ∪ get_code_labels z ⊆ get_code_labels x`
- (Cases_on`x`
+Theorem destLet_code_labels:
+   destLet x = (y,z) ⇒
+    BIGUNION (set (MAP get_code_labels y)) ∪ get_code_labels z ⊆ get_code_labels x
+Proof
+ Cases_on`x`
  \\ rw[bvl_to_bviTheory.destLet_def]
- \\ fs[bvl_to_bviTheory.destLet_def]);
+ \\ fs[bvl_to_bviTheory.destLet_def]
+QED
 
-Theorem compile_int_code_labels[simp]
-  `∀i. get_code_labels (compile_int i) = {}`
-  (recInduct bvl_to_bviTheory.compile_int_ind
+Theorem compile_int_code_labels[simp]:
+   ∀i. get_code_labels (compile_int i) = {}
+Proof
+  recInduct bvl_to_bviTheory.compile_int_ind
   \\ rw[]
   \\ rw[Once bvl_to_bviTheory.compile_int_def]
-  \\ rw[closLangTheory.assign_get_code_label_def]);
+  \\ rw[closLangTheory.assign_get_code_label_def]
+QED
 
-Theorem compile_op_code_labels
-  `get_code_labels (compile_op op c) ⊆
+Theorem compile_op_code_labels:
+   get_code_labels (compile_op op c) ⊆
     BIGUNION (set (MAP get_code_labels c)) ∪
     IMAGE (λn. bvl_num_stubs + n * bvl_to_bvi_namespaces) (closLang$assign_get_code_label op) ∪
-    set (MAP FST (bvl_to_bvi$stubs x y))`
-  (simp[bvl_to_bviTheory.compile_op_def, bvl_to_bviTheory.stubs_def, SUBSET_DEF]
+    set (MAP FST (bvl_to_bvi$stubs x y))
+Proof
+  simp[bvl_to_bviTheory.compile_op_def, bvl_to_bviTheory.stubs_def, SUBSET_DEF]
   \\ every_case_tac \\ fs[closLangTheory.assign_get_code_label_def, REPLICATE_GENLIST, PULL_EXISTS, MAPi_GENLIST, MEM_GENLIST]
-  \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS] \\ metis_tac[]);
+  \\ rw[] \\ fsrw_tac[DNF_ss][PULL_EXISTS] \\ metis_tac[]
+QED
 
-Theorem compile_exps_get_code_labels
-  `∀n xs ys aux m.
+Theorem compile_exps_get_code_labels:
+   ∀n xs ys aux m.
     bvl_to_bvi$compile_exps n xs = (ys,aux,m) ⇒
      BIGUNION (set (MAP get_code_labels ys)) ∪
      BIGUNION (set (MAP (get_code_labels o SND o SND) (append aux)))
      ⊆
      IMAGE (λk. bvl_num_stubs + (k * bvl_to_bvi_namespaces)) (BIGUNION (set (MAP get_code_labels xs))) ∪
      { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < m } ∪
-     set (MAP FST (bvl_to_bvi$stubs x y))`
-  (recInduct bvl_to_bviTheory.compile_exps_ind
+     set (MAP FST (bvl_to_bvi$stubs x y))
+Proof
+  recInduct bvl_to_bviTheory.compile_exps_ind
   \\ rw[bvl_to_bviTheory.compile_exps_def]
   \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
   \\ imp_res_tac destLet_code_labels \\ fs[NULL_EQ]
@@ -4162,12 +4261,14 @@ Theorem compile_exps_get_code_labels
     \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
   >- (
     Cases_on`dest` \\ fs[] \\ rw[] \\ res_tac \\ fs[]
-    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``]));
+    \\ metis_tac[LESS_LESS_EQ_TRANS, LESS_TRANS, LESS_EQ_TRANS, LESS_EQ_LESS_TRANS, DECIDE``n < n+1n``])
+QED
 
-Theorem compile_exps_aux_contains
-  `∀n es c aux n1. compile_exps n es = (c,aux,n1) ⇒
-    { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < n1 } ⊆ set (MAP FST (append aux))`
-  (ho_match_mp_tac bvl_to_bviTheory.compile_exps_ind
+Theorem compile_exps_aux_contains:
+   ∀n es c aux n1. compile_exps n es = (c,aux,n1) ⇒
+    { bvl_num_stubs + (k * bvl_to_bvi_namespaces + 1) | k | n ≤ k ∧ k < n1 } ⊆ set (MAP FST (append aux))
+Proof
+  ho_match_mp_tac bvl_to_bviTheory.compile_exps_ind
   \\ rw[bvl_to_bviTheory.compile_exps_def]
   \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
   \\ fs[SUBSET_DEF, PULL_EXISTS] \\ rw[]
@@ -4202,15 +4303,17 @@ Theorem compile_exps_aux_contains
     \\ Cases_on`k < n3` >- metis_tac[]
     \\ fs[NOT_LESS]
     \\ `k = n3` by decide_tac \\ rveq \\ fs[]
-    \\ fs[bvl_to_bviTheory.compile_aux_def] ));
+    \\ fs[bvl_to_bviTheory.compile_aux_def] )
+QED
 
-Theorem compile_single_get_code_labels
-  `∀n p code m. compile_single n p = (code, m) ⇒
+Theorem compile_single_get_code_labels:
+   ∀n p code m. compile_single n p = (code, m) ⇒
       BIGUNION (set (MAP (get_code_labels o SND o SND) (append code))) ⊆
       IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces) (get_code_labels (SND(SND p))) ∪
       set (MAP FST (append code)) ∪
-      set (MAP FST (bvl_to_bvi$stubs x y))`
-  (rw[]
+      set (MAP FST (bvl_to_bvi$stubs x y))
+Proof
+  rw[]
   \\ PairCases_on`p`
   \\ fs[bvl_to_bviTheory.compile_single_def]
   \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
@@ -4222,17 +4325,19 @@ Theorem compile_single_get_code_labels
   \\ fs[SUBSET_DEF, PULL_EXISTS] \\ strip_tac
   \\ drule compile_exps_aux_contains
   \\ fsrw_tac[DNF_ss][SUBSET_DEF] \\ rw[]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem compile_list_get_code_labels
-    `∀n p code m. compile_list n p = (code,m) ⇒
+Theorem compile_list_get_code_labels:
+     ∀n p code m. compile_list n p = (code,m) ⇒
      n ≤ m ∧
      BIGUNION (set (MAP (get_code_labels o SND o SND) (append code))) ⊆
      set (MAP FST (append code)) ∪
      IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces)
        (BIGUNION (set (MAP (get_code_labels o SND o SND) p))) ∪
-     set (MAP FST (bvl_to_bvi$stubs x y))`
-  (Induct_on`p`
+     set (MAP FST (bvl_to_bvi$stubs x y))
+Proof
+  Induct_on`p`
   \\ rw[bvl_to_bviTheory.compile_list_def]
   >- (EVAL_TAC \\ rw[])
   \\ pairarg_tac \\ fs[]
@@ -4262,16 +4367,18 @@ Theorem compile_list_get_code_labels
     \\ fs[bvl_to_bviTheory.compile_single_def]
     \\ pairarg_tac \\ fs[]
     \\ imp_res_tac compile_exps_aux_sorted
-    \\ metis_tac[LESS_LESS_EQ_TRANS,LESS_EQ_LESS_TRANS,LESS_TRANS,LESS_EQ_TRANS] ));
+    \\ metis_tac[LESS_LESS_EQ_TRANS,LESS_EQ_LESS_TRANS,LESS_TRANS,LESS_EQ_TRANS] )
+QED
 
-Theorem compile_prog_get_code_labels
-  `∀s n p t q m.
+Theorem compile_prog_get_code_labels:
+   ∀s n p t q m.
    bvl_to_bvi$compile_prog s n p = (t,q,m) ⇒
    BIGUNION (set (MAP (get_code_labels o SND o SND) q)) ⊆
      bvl_num_stubs + s * bvl_to_bvi_namespaces INSERT
      set (MAP FST q) ∪
-     IMAGE (λk. bvl_num_stubs + (k * bvl_to_bvi_namespaces)) (BIGUNION (set (MAP (get_code_labels o SND o SND) p))) `
-  (rw[bvl_to_bviTheory.compile_prog_def]
+     IMAGE (λk. bvl_num_stubs + (k * bvl_to_bvi_namespaces)) (BIGUNION (set (MAP (get_code_labels o SND o SND) p)))
+Proof
+  rw[bvl_to_bviTheory.compile_prog_def]
   \\ pairarg_tac \\ fs[] \\ rveq
   \\ simp[]
   \\ drule (GEN_ALL compile_list_get_code_labels)
@@ -4284,15 +4391,17 @@ Theorem compile_prog_get_code_labels
   \\ simp[bvl_to_bviTheory.stubs_def]
   \\ rpt conj_tac
   \\ CONV_TAC(LAND_CONV EVAL) \\ simp[] \\ EVAL_TAC
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem compile_list_code_labels_domain
-  `∀n p code m. compile_list n p = (code,m) ⇒
+Theorem compile_list_code_labels_domain:
+   ∀n p code m. compile_list n p = (code,m) ⇒
      n ≤ m ∧
      set (MAP FST (append code)) =
      IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces) (set (MAP FST p)) ∪
-     { bvl_num_stubs + k * bvl_to_bvi_namespaces + 1 | k | n ≤ k ∧ k < m }`
-  (Induct_on`p`
+     { bvl_num_stubs + k * bvl_to_bvi_namespaces + 1 | k | n ≤ k ∧ k < m }
+Proof
+  Induct_on`p`
   \\ rw[bvl_to_bviTheory.compile_list_def]
   >- (EVAL_TAC \\ rw[])
   \\ pairarg_tac \\ fs[]
@@ -4316,20 +4425,23 @@ Theorem compile_list_code_labels_domain
   \\ rw[EQ_IMP_THM] \\ fs[between_def]
   \\ res_tac \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def] \\ rveq
   \\ fs[EVAL``bvl_num_stubs``] \\ rw[]
-  \\ Cases_on`n1 ≤ k` \\ fs[]);
+  \\ Cases_on`n1 ≤ k` \\ fs[]
+QED
 
-Theorem compile_prog_code_labels_domain
-  `∀s n p t q m.
+Theorem compile_prog_code_labels_domain:
+   ∀s n p t q m.
    bvl_to_bvi$compile_prog s n p = (t,q,m) ⇒
    set (MAP FST q) =
      IMAGE (λk. bvl_num_stubs + k * bvl_to_bvi_namespaces) (set (MAP FST p)) ∪
      { bvl_num_stubs + k * bvl_to_bvi_namespaces + 1 | k | n ≤ k ∧ k < m } ∪
-     set (MAP FST (bvl_to_bvi$stubs x y))`
-  (rw[bvl_to_bviTheory.compile_prog_def]
+     set (MAP FST (bvl_to_bvi$stubs x y))
+Proof
+  rw[bvl_to_bviTheory.compile_prog_def]
   \\ pairarg_tac \\ fs[] \\ rveq
   \\ simp[]
   \\ drule compile_list_code_labels_domain \\ rw[]
   \\ rw[bvl_to_bviTheory.stubs_def]
-  \\ metis_tac[UNION_ASSOC, UNION_COMM]);
+  \\ metis_tac[UNION_ASSOC, UNION_COMM]
+QED
 
 val _ = export_theory();

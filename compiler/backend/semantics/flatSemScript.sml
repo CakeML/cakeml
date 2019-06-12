@@ -193,6 +193,8 @@ val do_app_def = Define `
       SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
+  | (FP_top top, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)] =>
+      SOME (s,Rval (Litv (Word64 (fp_top top w1 w2 w3)))))
   | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
       SOME (s,Rval (Litv (Word64 (fp_bop bop w1 w2))))
   | (FP_uop uop, [Litv (Word64 w)]) =>
@@ -430,12 +432,14 @@ val do_if_def = Define `
   else
       NONE)`;
 
-Theorem do_if_either_or
-  `do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2`
-  (simp [do_if_def]
+Theorem do_if_either_or:
+   do_if v e1 e2 = SOME e ⇒ e = e1 ∨ e = e2
+Proof
+  simp [do_if_def]
   THEN1 (Cases_on `v = Boolv T`
   THENL [simp [],
-    Cases_on `v = Boolv F` THEN simp []]))
+    Cases_on `v = Boolv F` THEN simp []])
+QED
 
 val pat_bindings_def = Define `
   (pat_bindings Pany already_bound = already_bound) ∧
@@ -633,24 +637,30 @@ val do_app_cases = save_thm ("do_app_cases",
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
-Theorem do_app_const
-  `do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock`
-  (rw [do_app_cases] >>
+Theorem do_app_const:
+   do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock
+Proof
+  rw [do_app_cases] >>
   rw [] >>
-  rfs []);
+  rfs []
+QED
 
-Theorem evaluate_clock
-  `(∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`
-  (ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+Theorem evaluate_clock:
+   (∀env (s1:'a state) e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀env (s1:'a state) v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)
+Proof
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
-  imp_res_tac fix_clock_IMP >> imp_res_tac do_app_const >> fs[]);
+  imp_res_tac fix_clock_IMP >> imp_res_tac do_app_const >> fs[]
+QED
 
-Theorem fix_clock_evaluate
-  `fix_clock s (evaluate env s e) = evaluate env s e`
-  (Cases_on `evaluate env s e` \\ fs [fix_clock_def]
+Theorem fix_clock_evaluate:
+   fix_clock s (evaluate env s e) = evaluate env s e
+Proof
+  Cases_on `evaluate env s e` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
-  \\ fs [MIN_DEF,theorem "state_component_equality"]);
+  \\ fs [MIN_DEF,theorem "state_component_equality"]
+QED
 
 val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
