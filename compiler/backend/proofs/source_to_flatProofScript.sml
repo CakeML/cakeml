@@ -581,10 +581,15 @@ val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
   (!genv_c s s'.
     LIST_REL (sv_rel <| v := s'.globals; c := genv_c |>) s.refs s'.refs ∧
     s.clock = s'.clock ∧
-    s.ffi = s'.ffi
+    s.ffi = s'.ffi ∧
+    ¬s'.exh_pat ∧
+    s'.check_ctor ∧
+    s'.c = FDOM genv.c
     ⇒
     s_rel genv_c s s')`;
 
+    (*
+TODO: remove?
 val s_rel_weak = Q.prove (
   `!genv_c s s' genv_c'.
    s_rel genv_c s s' ∧
@@ -601,6 +606,7 @@ val s_rel_weak = Q.prove (
   pop_assum (qspec_then `<|v := s'.globals; c := genv_c'|>` mp_tac) >>
   rw [] >>
   metis_tac [subglobals_refl]);
+  *)
 
 val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
   (!genv map env_v_local env env' locals.
@@ -610,7 +616,7 @@ val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
     ⇒
     env_all_rel genv map
       <| c := env.c; v := nsAppend env_v_local env.v |>
-      <| c := FDOM genv.c; v := env'; exh_pat := F; check_ctor := T |>
+      <| v := env' |>
       locals)`;
 
 val env_all_rel_weak = Q.prove (
@@ -1167,7 +1173,7 @@ val do_opapp = Q.prove (
     LIST_REL (v_rel genv) vs vs_i1
     ⇒
      ∃comp_map env_i1 locals t1 ts.
-       env_all_rel genv comp_map env <| c := FDOM genv.c; v := env_i1; exh_pat := F; check_ctor := T |> locals ∧
+       env_all_rel genv comp_map env <| v := env_i1 |> locals ∧
        LENGTH ts = LENGTH locals ∧
        flatSem$do_opapp vs_i1 = SOME (env_i1, compile_exp t1 (comp_map with v := bind_locals ts locals comp_map.v) e)`,
    srw_tac[][do_opapp_cases, flatSemTheory.do_opapp_def] >>
