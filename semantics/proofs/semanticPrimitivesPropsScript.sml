@@ -396,8 +396,58 @@ Proof
   every_case_tac >> metis_tac []
 QED
 
+Theorem get_cargs_sem_SOME_IMP_args_ok:
+  get_cargs_sem s sigs.args args = SOME cargs ==>
+  args_ok sigs cargs
+Proof
+  `!s sigargs args cargs.
+  get_cargs_sem s sigargs args = SOME cargs ==>
+  LIST_REL arg_ok sigargs cargs
+  `
+  by(ho_match_mp_tac get_cargs_sem_ind \\
+     rw[get_cargs_sem_def,ffiTheory.args_ok_def] \\
+     Cases_on `ty` \\ Cases_on `arg` \\
+     fs[get_carg_sem_def,ffiTheory.arg_ok_def] \\
+     rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\
+     rename1 `Litv v` \\
+     Cases_on `v` \\ fs[get_carg_sem_def]) \\
+  strip_tac \\
+  first_x_assum dxrule \\
+  rw[ffiTheory.args_ok_def]
+QED
+
+Theorem do_ffi_NONE_ffi:
+   do_ffi s t n args = NONE /\
+   t.signatures = t'.signatures /\
+   ffi_oracle_ok t /\
+   ffi_oracle_ok t'
+   ⇒
+   do_ffi s t' n args = NONE
+Proof
+  rw[do_ffi_def]
+  \\ PURE_TOP_CASE_TAC
+  \\ fs[]
+  \\ rename1 `sigs.args`
+  \\ PURE_TOP_CASE_TAC
+  \\ fs[]
+  \\ fs[ffiTheory.call_FFI_def]
+  \\ IF_CASES_TAC
+  \\ fs[]
+  \\ reverse(IF_CASES_TAC)
+  >- (fs[] \\
+      rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\
+      metis_tac[get_cargs_sem_SOME_IMP_args_ok]
+     )  
+  \\ fs[]
+  \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+  \\ metis_tac[ffiTheory.ffi_oracle_ok_def]
+QED
+
 Theorem do_app_NONE_ffi:
-   do_app (refs,ffi) op args = NONE ⇒
+   do_app (refs,ffi) op args = NONE /\
+   t.signatures = t'.signatures /\
+   ffi_oracle_ok t /\
+   ffi_oracle_ok t' ⇒
    do_app (refs,ffi') op args = NONE
 Proof
   rw[do_app_def]
@@ -405,7 +455,7 @@ Proof
   \\ TRY pairarg_tac \\ fs[]
   \\ fs[store_assign_def,store_v_same_type_def]
   \\ every_case_tac \\ fs[]
-  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
+  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def,do_ffi_NONE_ffi]
 QED
 
 Theorem do_app_SOME_ffi_same:
