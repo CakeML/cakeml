@@ -28,6 +28,25 @@ Proof
   metis_tac [APPEND, APPEND_ASSOC]
 QED
 
+Theorem pmatch_state:
+  (∀ (st:'ffi state) p v l (st':'ffi state) res .
+    pmatch st p v l = res ∧
+    st.check_ctor = st'.check_ctor ∧
+    st.refs = st'.refs ∧
+    st.c = st'.c
+  ⇒ pmatch st' p v l = res) ∧
+  (∀ (st:'ffi state) p vs l (st':'ffi state) res .
+    pmatch_list st p vs l = res ∧
+    st.check_ctor = st'.check_ctor ∧
+    st.refs = st'.refs ∧
+    st.c = st'.c
+  ⇒ pmatch_list st' p vs l = res)
+Proof
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def] >>
+  EVERY_CASE_TAC >> fs[]
+QED
+
 Theorem pmatch_extend:
    (!(s:'a state) p v env env' env''.
     pmatch s p v env = Match env'
