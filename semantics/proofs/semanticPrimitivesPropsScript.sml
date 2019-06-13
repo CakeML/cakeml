@@ -396,6 +396,8 @@ Proof
   every_case_tac >> metis_tac []
 QED
 
+
+
 Theorem get_cargs_sem_SOME_IMP_args_ok:
   get_cargs_sem s sigs.args args = SOME cargs ==>
   args_ok sigs cargs
@@ -416,6 +418,8 @@ Proof
   rw[ffiTheory.args_ok_def]
 QED
 
+
+
 Theorem do_ffi_NONE_ffi:
    do_ffi s t n args = NONE /\
    t.signatures = t'.signatures /\
@@ -433,43 +437,65 @@ Proof
   \\ fs[ffiTheory.call_FFI_def]
   \\ IF_CASES_TAC
   \\ fs[]
-  \\ reverse(IF_CASES_TAC)
+  \\ reverse(IF_CASES_TAC)ol
   >- (fs[] \\
       rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\
       metis_tac[get_cargs_sem_SOME_IMP_args_ok]
-     )  
+     )
   \\ fs[]
   \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
   \\ metis_tac[ffiTheory.ffi_oracle_ok_def]
 QED
 
+
 Theorem do_app_NONE_ffi:
    do_app (refs,ffi) op args = NONE /\
-   t.signatures = t'.signatures /\
-   ffi_oracle_ok t /\
-   ffi_oracle_ok t' ⇒
+   ffi.signatures = ffi'.signatures /\
+   ffi_oracle_ok ffi /\
+   ffi_oracle_ok ffi' ⇒
    do_app (refs,ffi') op args = NONE
 Proof
-  rw[do_app_def]
-  \\ every_case_tac \\ fs[]
-  \\ TRY pairarg_tac \\ fs[]
-  \\ fs[store_assign_def,store_v_same_type_def]
-  \\ every_case_tac \\ fs[]
-  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def,do_ffi_NONE_ffi]
+  rw[do_app_cases]
+  \\ Cases_on `op` \\ Cases_on `args`
+  \\ fs [do_app_def]
+  \\ (every_case_tac \\ rfs [store_alloc_def] \\ rveq)
+  \\ metis_tac [do_ffi_NONE_ffi]
 QED
+
+
+
+Theorem do_ffi_SOME_ffi_same:
+   do_ffi refs ffi n args = SOME ((refs',ffi),r)
+   ∧ (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome)))
+    /\ ffi.signatures = ffi'.signatures
+    /\ ffi_oracle_ok ffi
+    /\ ffi_oracle_ok ffi'
+      ⇒
+   do_ffi refs ffi' n args = SOME ((refs',ffi'),r)
+Proof
+  rw [do_ffi_def, ffiTheory.ffi_oracle_ok_def, ffiTheory.call_FFI_def]
+  \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+  \\ rfs[ffiTheory.ffi_state_component_equality]
+  \\ metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok]
+QED
+ (* how to execute QED  *)
+
+(* how \\ is associated to right/left?, nested \\ *)
+
 
 Theorem do_app_SOME_ffi_same:
    do_app (refs,ffi) op args = SOME ((refs',ffi),r)
-   ∧ (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome))) ⇒
+   ∧ (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome)))
+   /\ ffi.signatures = ffi'.signatures
+   /\ ffi_oracle_ok ffi
+   /\ ffi_oracle_ok ffi'
+    ⇒
    do_app (refs,ffi') op args = SOME ((refs',ffi'),r)
 Proof
   rw[]
   \\ fs[do_app_cases]
   \\ rw[] \\ fs[]
-  \\ fs[ffiTheory.call_FFI_def]
-  \\ every_case_tac \\ fs[]
-  \\ rveq \\ fs[ffiTheory.ffi_state_component_equality]
-  \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
+  \\ metis_tac [do_ffi_SOME_ffi_same]
 QED
 
 val build_rec_env_help_lem = Q.prove (
