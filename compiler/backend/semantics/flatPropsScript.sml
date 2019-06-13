@@ -8,6 +8,8 @@ local
 in end
 
 val _ = new_theory"flatProps"
+val _ = set_grammar_ancestry ["flatLang", "flatSem"];
+val _ = temp_tight_equality ();
 
 Theorem ctor_same_type_OPTREL:
    ∀c1 c2. ctor_same_type c1 c2 ⇔ OPTREL (inv_image $= SND) c1 c2

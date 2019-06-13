@@ -15,9 +15,11 @@ open preamble astTheory terminationTheory flatLangTheory;
 open flat_elimTheory flat_exh_matchTheory flat_uncheck_ctorsTheory
      flat_reorder_matchTheory
 
-val _ = numLib.prefer_num();
 
 val _ = new_theory"source_to_flat";
+val _ = set_grammar_ancestry ["ast", "flatLang", "termination"];
+val _ = numLib.prefer_num();
+val _ = temp_tight_equality ();
 
 val _ = Datatype `
   environment =

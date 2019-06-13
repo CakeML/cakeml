@@ -21,6 +21,10 @@ val _ = new_theory "flatSem";
  * bindings that the let will bind.
  *)
 
+val _ = set_grammar_ancestry ["flatLang", "semanticPrimitives",
+          "semanticPrimitivesProps", "fpSem"];
+val _ = temp_tight_equality();
+
 val _ = Datatype`
   v =
     | Litv lit

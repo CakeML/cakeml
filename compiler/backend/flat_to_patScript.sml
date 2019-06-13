@@ -5,6 +5,8 @@ open preamble flatLangTheory patLangTheory
 open backend_commonTheory
 
 val _ = new_theory"flat_to_pat"
+val _ = set_grammar_ancestry ["flatLang", "patLang", "misc"];
+val _ = temp_tight_equality ();
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 val Bool_def = Define `
