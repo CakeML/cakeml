@@ -43,7 +43,7 @@ c_funsig =
 <| mlname      : string
  ; cname       : string
  ; retty       : c_type option (* NONE represents unit *)
- ; args        : c_type list  
+ ; args        : c_type list
 |>`
 
 (*  arg_ok :: "c_type ⇒ c_value ⇒ bool" *)
@@ -70,17 +70,16 @@ val _ = Define `
   loc_typ ctl = MAPi $, ctl
 `
 
-
 (* byte list list -> (num#c_type) list -> (num#byte list) list *)
 
 val _ = Define `
-  (mut_tag_retr [] _ = []) /\ 
-  (mut_tag_retr _ [] = []) /\ 
-  (mut_tag_retr (btl::btls) (ict::icts) = 
-         case SND ict of C_array conf => if conf.mutable 
+  (mut_tag_retr [] _ = []) /\
+  (mut_tag_retr _ [] = []) /\
+  (mut_tag_retr (btl::btls) (ict::icts) =
+         case SND ict of C_array conf => if conf.mutable
                                          then (FST ict, btl) :: mut_tag_retr btls icts
-			                 else mut_tag_retr (btl::btls) icts 
-			 | _ =>   mut_tag_retr (btl::btls) icts) 
+                                         else mut_tag_retr (btl::btls) icts
+                         | _ =>   mut_tag_retr (btl::btls) icts)
 `
 
 (* ('a # 'b list) list -> 'a list -> ('a # 'b list) list *)
@@ -89,14 +88,12 @@ val _ = Define `
   (match_cargs btl (n::ns) = FILTER (\x. FST x = n) btl ++ match_cargs btl ns)
 `
 
-
-
 val _ = Define `
-  ident_elems l = if CARD (set l) = 1 then T else F 
+  ident_elems l = if CARD (set l) = 1 then T else F
 `
 (* c_type list -> 'a list -> num list -> 'a list  *)
 val _ = Define `
-  als_vals ctl btl als = MAP (\x. SND x) (match_cargs (mut_tag_retr btl (loc_typ ctl)) als) 
+  als_vals ctl btl als = MAP (\x. SND x) (match_cargs (mut_tag_retr btl (loc_typ ctl)) als)
 `
 
 
@@ -121,7 +118,7 @@ val _ = Define `(mutargs [] _ = [])
  /\ (mutargs _ [] = [])
  /\ (mutargs (ty::tys) (v::vs) =
      (case v of
-        C_arrayv v => 
+        C_arrayv v =>
         (case ty of C_array c => if c.mutable then v::mutargs tys vs
                                 else mutargs tys vs
                   | _ => mutargs tys vs)
@@ -133,7 +130,7 @@ val _ = Hol_datatype `
 
 (* Oracle_return encodes the new state, list of word8 list of the output, and the return value *)
 val _ = Hol_datatype `
- oracle_result = Oracle_return of 'ffi => word8 list list  => c_primv option 
+ oracle_result = Oracle_return of 'ffi => word8 list list  => c_primv option
                | Oracle_final of ffi_outcome`;
 
 
@@ -173,58 +170,33 @@ val _ = Define `
  |>))`;
 
 
-
-(*  its a precondition for theorems about the correctness of the FFI, doesn't have to be 
-included in the  call_ffi*)
-
 val _ = Define `
   ffi_oracle_ok st =
   (!s sign args ffi' newargs retv als.
            (FIND (λx. x.mlname = s) st.signatures = SOME sign)
            /\ args_ok sign args
            /\ (st.oracle s st.ffi_state args als = Oracle_return ffi' newargs retv)
-           ==> ret_ok sign.retty retv /\ als_ok sign.args newargs als  
+           ==> ret_ok sign.retty retv /\ als_ok sign.args newargs als
                /\ LIST_REL (λx y. LENGTH x = LENGTH y) (mutargs sign.args args) newargs
   )`
 
 val _ = Hol_datatype `
- ffi_result = FFI_return of 'ffi ffi_state => word8 list list  => c_primv option 
+ ffi_result = FFI_return of 'ffi ffi_state => word8 list list  => c_primv option
             | FFI_final of final_event`;
 
 
-
-(* call_FFI can either check that the returned aliases values are consistent or it 
-can assume that they are as in ffi_oracle_ok *)
-
-
-(*val call_FFI : forall 'ffi. ffi_state 'ffi -> string -> list word8 -> list word8 -> ffi_result 'ffi*)
-(* we are not required to do the LENGTH check on the returned mutable arguments because 
-we are not using ZIP anymore in the io_event log*)
-
 val _ = Define `
- ((call_FFI:'ffi ffi_state -> string ->(c_value)list -> num list list -> 'ffi ffi_result) st s args als =
-   (if ~ (s = "") then
-    (case FIND (λx. x.mlname = s) st.signatures of
-      SOME sign => 
-      (if args_ok sign args then
-       (case st.oracle s st.ffi_state args als of
+ call_FFI st n sign args als =
+   if ~ (n = "") then
+     case st.oracle n st.ffi_state args als of
          Oracle_return ffi' newargs retv =>
            if ret_ok sign.retty retv then
-              FFI_return
-               ( st with<| ffi_state := ffi'
-                       ; io_events :=
-                           (st.io_events ++
-                             [IO_event s args newargs retv])
-               |>)
-               newargs retv
-           else ARB (* TODO: should this be specified? Is so to what? *)
-        | Oracle_final outcome =>
-             FFI_final(Final_event s args outcome)
-       )
-       else ARB (* TODO: should this be specified? If so to what? *)
-      )
-    )
-  else FFI_return st [] NONE))`;
+              FFI_return (st with<| ffi_state := ffi'
+                                   ; io_events := st.io_events ++ [IO_event n args newargs retv]
+                         |>) newargs retv
+           else ARB
+        | Oracle_final outcome => FFI_final (Final_event n args outcome)
+  else FFI_return st [] NONE`;
 
 
 val _ = Hol_datatype `
@@ -264,4 +236,3 @@ val _ = Define `
   )))`;
 
 val _ = export_theory()
-
