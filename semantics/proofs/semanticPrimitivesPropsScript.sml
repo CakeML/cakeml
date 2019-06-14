@@ -437,12 +437,6 @@ Proof
   \\ fs[ffiTheory.call_FFI_def]
   \\ IF_CASES_TAC
   \\ fs[]
-  \\ reverse(IF_CASES_TAC)ol
-  >- (fs[] \\
-      rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\
-      metis_tac[get_cargs_sem_SOME_IMP_args_ok]
-     )
-  \\ fs[]
   \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
   \\ metis_tac[ffiTheory.ffi_oracle_ok_def]
 QED
@@ -478,10 +472,7 @@ Proof
   \\ rfs[ffiTheory.ffi_state_component_equality]
   \\ metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok]
 QED
- (* how to execute QED  *)
-
 (* how \\ is associated to right/left?, nested \\ *)
-
 
 Theorem do_app_SOME_ffi_same:
    do_app (refs,ffi) op args = SOME ((refs',ffi),r)
