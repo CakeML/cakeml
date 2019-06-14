@@ -706,56 +706,8 @@ val _ = Define
 `get_mut_args sign cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(sign.args,cargs)))
 `
 
-
-(*  “:c_funsig -> α list -> α list” *)
-
-(*
-(* assign_ffi_arg  “:c_type -> word8 list -> v -> α store_v list -> α store_v list option”  *)
-
-val _ = Define `
-   (assign_ffi_arg (C_array conf) ws (Loc lnum) s =
-    if conf.mutable then
-      store_assign lnum (W8array ws) s
-    else NONE)
-/\ (assign_ffi_arg _ _ _ s = SOME s)`
-
-
-(*  assign_ffi_args  “:c_type list ->
-    word8 list list ->
-    v list -> α store_v list option -> α store_v list option” *)
-
-val _ = Define
-  `(assign_ffi_args [] [] [] s = s)
-/\ (assign_ffi_args (ty::tys) (carg::cargs) (arg::args) s =
-    assign_ffi_args tys cargs args (OPTION_BIND s (assign_ffi_arg ty carg arg)))
-/\ (assign_ffi_args _ _ _ _ = NONE)
-  `
-
-val _ = Define
-  `do_ffi s t n args =
-   case FIND (λx. x.mlname = n) t.signatures of
-     SOME sign =>
-     (case get_cargs_sem s sign.args args of
-          SOME cargs =>
-           (case call_FFI t n cargs (als_args_final_sem (loc_typ_val sign.args args)) of
-              FFI_return t' newargs retv =>
-                (case assign_ffi_args sign.args newargs (get_mut_args sign args) (SOME s) of
-                   NONE => NONE
-                 | SOME s' =>
-                   if ret_ok sign.retty retv then
-                     SOME ((s', t'), Rval (get_ret_val retv))
-                   else NONE)
-            | FFI_final outcome =>
-              SOME ((s, t), Rerr (Rabort (Rffi_error outcome))))
-        | NONE => NONE)
-   | NONE => NONE
-  `
-*)
-
-
 val _ = Define `
    (store_carg_sem (Loc lnum) ws s = THE (store_assign lnum (W8array ws) s))
-       (* to-ask about store_assign and THE*)
 /\ (store_carg_sem  _ _ s = s)`
 
 
@@ -767,19 +719,26 @@ val _ = Define
   `
 
 
-(*   “:α store_v list ->
-    β ffi_state ->
-    string ->
-    v list -> ((α store_v list # β ffi_state) # (v, γ) result) option” *)
-
-
+val _ = Define
+  `do_ffi s t n args =
+   case FIND (λx. x.mlname = n) t.signatures of
+     SOME sign => (case get_cargs_sem s sign.args args of
+		    | SOME cargs => (case call_FFI t n sign cargs (als_args_final_sem (loc_typ_val sign.args args)) of
+				      | FFI_return t' newargs retv =>
+                                          SOME ((store_cargs_sem (get_mut_args sign args) newargs s, t'),
+                                                Rval (get_ret_val retv))
+				      | FFI_final outcome => SOME ((s, t), Rerr (Rabort (Rffi_error outcome))) )
+                    | NONE => NONE)
+   | NONE => NONE
+  `
+(*
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) t.signatures of
      SOME sign =>
      (case get_cargs_sem s sign.args args of
           SOME cargs =>
-           (case call_FFI t n cargs (als_args_final_sem (loc_typ_val sign.args args)) of
+           (case call_FFI t n sign cargs (als_args_final_sem (loc_typ_val sign.args args)) of
               FFI_return t' newargs retv =>
                 if ret_ok sign.retty retv then
                     SOME (((store_cargs_sem (get_mut_args sign args) newargs s), t'),
@@ -789,14 +748,9 @@ val _ = Define
         | NONE => NONE)
    | NONE => NONE
   `
-
-
-(*
-do_app :: v store_v list # α ffi_state ->
-    op -> v list -> ((v store_v list # α ffi_state) # (v, v) result) option”
 *)
 
-(*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
+
 val _ = Define `
  ((do_app:((v)store_v)list#'ffi ffi_state -> op ->(v)list ->((((v)store_v)list#'ffi ffi_state)#((v),(v))result)option) ((s: v store),(t: 'ffi ffi_state)) op vs=
    ((case (op, vs) of
@@ -1053,16 +1007,6 @@ val _ = Define `
         do_ffi s t n args
     | _ => NONE
   )))`;
-
-
-
-(*
-its a pair type
-do_app :: v store_v list # α ffi_state ->
-    op -> v list -> ((v store_v list # α ffi_state) # (v, v) result) option”
-*)
-
-
 
 
 (* Do a logical operation *)
