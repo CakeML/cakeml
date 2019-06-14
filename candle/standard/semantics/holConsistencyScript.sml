@@ -38,7 +38,7 @@ Theorem proves_consistent
   simp[tyvars_def] >>
   conj_tac >- (
     imp_res_tac theory_ok_sig >>
-    imp_res_tac term_ok_welltyped >>    
+    imp_res_tac term_ok_welltyped >>
     imp_res_tac term_ok_type_ok >>
     rfs[typeof_equation] >>
     fs[ground_terms_uninst_def] >>
@@ -47,7 +47,7 @@ Theorem proves_consistent
                        if (x,ty) = (strlit"y",Bool) then False else
                        @v. v <: ext_type_frag_builtins δ (TYPE_SUBSTf (K Bool) ty)` >>
   conj_asm1_tac >- (
-    reverse conj_asm2_tac >- 
+    reverse conj_asm2_tac >-
       (match_mp_tac terms_of_frag_uninst_term_ok >> simp[tyvars_def] >>
        imp_res_tac theory_ok_sig >> fs[term_ok_clauses]) >>
     simp[valuates_frag_builtins] >> rw[valuates_frag_def] >>
@@ -81,18 +81,10 @@ Theorem proves_consistent
   simp[termsem_ext_def] >> disch_then kall_tac >>
   simp[boolean_eq_true,termsem_def,true_neq_false]);
 
-(* TODO: change definition in holSyntaxScript *)
-val is_builtin_type_def = Q.prove(
-  `(∀v0. is_builtin_type (Tyvar v0) ⇔ F) ∧
-     ∀m ty. is_builtin_type (Tyapp m ty) ⇔
-        ((m = strlit "fun" /\ LENGTH ty = 2) \/
-         (m = strlit "bool" /\ LENGTH ty = 0))`,
-  cheat);
-
 val init_ctxt_builtin = Q.store_thm("init_ctxt_builtin",
   `!ty. type_ok (tysof init_ctxt) ty /\ tyvars ty = [] ==> is_builtin_type ty`,
   Cases >> rw[init_ctxt_def,type_ok_def,tyvars_def,is_builtin_type_def]);
- 
+
 val init_ctxt_no_ground = Q.store_thm("init_ctxt_no_ground",
 `!ty. ty ∈ ground_types (sigof init_ctxt) ∩ nonbuiltin_types ==> F`,
   ho_match_mp_tac type_ind >> rpt strip_tac

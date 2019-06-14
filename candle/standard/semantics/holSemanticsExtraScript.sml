@@ -9,14 +9,6 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-(* TODO: change definition in holSyntaxScript *)
-val is_builtin_type_def = Q.prove(
-  `(∀v0. is_builtin_type (Tyvar v0) ⇔ F) ∧
-     ∀m ty. is_builtin_type (Tyapp m ty) ⇔
-        ((m = strlit "fun" /\ LENGTH ty = 2) \/
-         (m = strlit "bool" /\ LENGTH ty = 0))`,
-  cheat);
-
 val consts_of_term_RACONV = Q.prove(
   `!env tt.
      RACONV env tt /\ welltyped(FST tt) /\ welltyped(SND tt)
@@ -441,7 +433,7 @@ val TYPE_SUBSTf_TYPE_SUBST = Q.store_thm("TYPE_SUBSTf_TYPE_SUBST",
   rpt strip_tac
   >> qexists_tac `MAP (λx. (sigma x,Tyvar x)) (tyvars ty)`
   >> match_mp_tac TYPE_SUBSTf_lemma
-  >> rw[] >> fs[REV_ASSOCD_ALOOKUP,ALOOKUP_MAP_gen,o_DEF]
+  >> rw[] >> fs[REV_ASSOCD_ALOOKUP,o_DEF]
   >> CASE_TAC
   >- fs[ALOOKUP_NONE,MEM_MAP,PULL_FORALL,GSYM RIGHT_FORALL_OR_THM]
   >> imp_res_tac ALOOKUP_MEM
@@ -467,7 +459,7 @@ val FOLDR_LIST_UNION_empty' = Q.store_thm("FOLDR_LIST_UNION_empty'",
   last_x_assum kall_tac >>
   fs[MEM_FOLDR_LIST_UNION] >> rw[] >>
   rename1 `MEM ty tys` >>
-  fs[GSYM IMP_DISJ_THM] >>  
+  fs[GSYM IMP_DISJ_THM] >>
   first_x_assum(assume_tac o CONV_RULE SWAP_FORALL_CONV) >>
   fs[GSYM PULL_FORALL] >>
   first_x_assum drule >>

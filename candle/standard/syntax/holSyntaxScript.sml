@@ -626,9 +626,12 @@ val nonbuiltin_ctxt_def = Define`
 val is_builtin_name_def = Define`
   (is_builtin_name m = MEM m (MAP strlit ["bool";"fun"]))
 `
+
 val is_builtin_type_def = Define`
   (is_builtin_type (Tyvar _) = F)
-  /\ (is_builtin_type (Tyapp m ty) = is_builtin_name m)
+  /\ (is_builtin_type (Tyapp m ty) =
+      ((m = strlit "fun" /\ LENGTH ty = 2) \/
+       (m = strlit "bool" /\ LENGTH ty = 0)))
 `
 
 val type1_size_append = Q.prove(
@@ -697,13 +700,13 @@ val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
   (!ctxt t1 t2 name pred abs rep.
        MEM (TypeDefn name pred abs rep) ctxt
        /\ MEM t2 (allTypes pred)
-       /\ t1 = Tyapp name (MAP Tyvar (tvars pred))
+       /\ t1 = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
        ==>
        dependency ctxt (INL t1) (INL t2)) /\
   (!ctxt t c name pred abs rep.
        MEM (TypeDefn name pred abs rep) ctxt
        /\ MEM c (allCInsts pred)
-       /\ t = Tyapp name (MAP Tyvar (tvars pred))
+       /\ t = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
        ==>
        dependency ctxt (INL t) (INR c)) /\
   (!ctxt name t1 t2.
@@ -857,8 +860,7 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
   (* new_type_definition *)
   ((thyof ctxt, []) |- Comb pred witness ∧
    CLOSED pred ∧
-   (* the resulting theory has to be orthogonal *)
-   ~cyclic (TypeDefn name pred abs rep::ctxt) ∧
+   name ∉ (FDOM (tysof ctxt)) ∧
    abs ∉ (FDOM (tmsof ctxt)) ∧
    rep ∉ (FDOM (tmsof ctxt)) ∧
    abs ≠ rep

@@ -21,15 +21,6 @@ val terminating_descending_nats = Q.store_thm("terminating_descending_nats",
   >> MAP_EVERY PURE_ONCE_REWRITE_TAC [[ADD1],[ADD_SYM],[NRC_ADD_EQN]]
   >> fs[GSYM ADD1]);
 
- `~WF (\x y. x = SUC y)`
-  rw[WF_DEF,PULL_EXISTS]
-  >> qexists_tac `\n. n <> 0`
-  >> qexists_tac `1`
-  >> simp[]
-
->> simp[Once NRC_SUC_RECURSE_LEFT]
->> simp[Once NRC_SUC_RECURSE_LEFT]
-
 val terminating_IMP_wellfounded_INV = Q.store_thm("terminating_IMP_wellfounded_INV",
   `terminating R ==> WF(Rᵀ)`,
   rw[terminating_def,prim_recTheory.WF_IFF_WELLFOUNDED,prim_recTheory.wellfounded_def,inv_DEF] >>
@@ -54,7 +45,7 @@ val type_matches_def = Define `
              SOME(pred,name,ZIP(tyargs,MAP Tyvar tyvars))
            else
              NONE)
-  | _ => NONE  
+  | _ => NONE
   `
 
 val ZIP_swap = Q.store_thm("ZIP_swap",
@@ -65,7 +56,7 @@ val ZIP_swap = Q.store_thm("ZIP_swap",
   `,
   Induct >- rw[] >>
   strip_tac >> Cases >> rw[]);
-                                       
+
 val type_matches_depends = Q.store_thm("type_matches_depends",
   `type_matches ty defn = SOME (pred,name,sigma) /\
    MEM defn ctxt /\
@@ -101,15 +92,13 @@ val type_matches_depends = Q.store_thm("type_matches_depends",
     ) >>
   rename1 `TypeDefn _ pred abs rep` >>
   MAP_EVERY qexists_tac [`pred`,`abs`,`rep`] >>
-  simp[] >>
-  cheat (* requires changing definition of dependency *));  
+  simp[]);
 
-tDefine "interpretation_of" `
+
+Hol_defn "interpretation_of" `
   (type_interpretation_of0
-   ^mem thy ctxt ty =
-   (*if ~is_set_theory ^mem then
-     ARB
-   else *)if ~terminating(subst_clos (dependency ctxt)) then
+   ^mem ctxt ty =
+   if ~terminating(subst_clos (dependency ctxt)) then
      ARB
    else if ~orth_ctxt ctxt then
      ARB
@@ -118,32 +107,108 @@ tDefine "interpretation_of" `
      | [] => One
      | [(pred,ty',sigma)] =>
        let t = INST sigma pred;
-           pty = domain pred;
-           ptysem = ARB pty
+           pty = domain(typeof pred);
+           ptysem = type_interpretation_of0 ^mem ctxt pty;
+           consts = allCInsts
        in
          ptysem suchthat
-           (term_interpretation_of0 ^mem
-              ctxt 
-           )
+           (ARB(term_interpretation_of0 ^mem
+            (*thy*) ctxt ARB ARB
+           ))
      | _ => ARB
+  )`
+
+Hol_defn "interpretation_of" `
+  (type_interpretation_of0
+   ^mem ctxt ty =
+   if ~terminating(subst_clos (dependency ctxt)) then
+     ARB:'U
+   else if ~orth_ctxt ctxt then
+     ARB:'U
+   else
+     case mapPartial (type_matches ty) ctxt of
+     | [] => One
+     | [(pred,ty',sigma)] =>
+       let t = INST sigma pred;
+           pty = domain(typeof pred);
+           ptysem = type_interpretation_of0 ^mem ctxt pty;
+           consts = consts_of_term pred ∩ nonbuiltin_constinsts;
+           inst_consts = {(c,ty) | ?ty'. ty = TYPE_SUBST sigma ty' /\ (c,ty') ∈ consts};
+           sigma' = (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x));
+           γ = (λ(c,ty).
+                 if (c,ty) ∈ inst_consts then
+                   term_interpretation_of0 ^mem ctxt c ty
+                 else ARB);
+           atys = MAP (TYPE_SUBST sigma) (allTypes pred);
+           δ = (λty.
+                  if MEM ty atys then
+                    type_interpretation_of0 ^mem ctxt ty
+                  else ARB);
+           tst = termsem (ext_type_frag_builtins δ)
+                         (ext_term_frag_builtins
+                           (ext_type_frag_builtins δ)
+                           γ)
+                         empty_valuation
+                         sigma'
+                         pred
+       in
+         ext_type_frag_builtins δ pty
+           suchthat (λtm. tst ' tm = True)
+     | _ => ARB:'U
   ) /\
   (term_interpretation_of0
-   ^mem thy ctxt name ty =
-   (*if ~is_set_theory ^mem then
-     ARB
-   else *)if ~terminating(subst_clos (dependency ctxt)) then
-     ARB
-   else if ~orth_ctxt ctxt then
-     ARB
-   else
-     case u of
-     | (INL ty) =>
-       ARB
-     | (INR tm) => ARB)
+   ^mem ctxt (name:mlstring) ty =
+   type_interpretation_of0 ^mem ctxt ARB)
   `
 
+val ctxt_of_def = Define `
+  ctxt_of = SUM_ALL (FST o SND) (FST o SND)`
+
+qexists_tac
+  `\x y.
+  if ctxt_of x = ctxt_of y then
   `
- 
+
+Define `
+  common_ctxt
+    (INL (_,ctxt,_)) (INL(_,ctxt',_))
+
+ (
+  
+ )
+
+Hol_defn "interpretation_of" `
+  (type_interpretation_of0
+   ^mem ctxt ty =
+   if ~terminating(subst_clos (dependency ctxt)) then
+     ARB:'U
+   else if ~orth_ctxt ctxt then
+     ARB:'U
+   else
+     case mapPartial (type_matches ty) ctxt of
+     | [] => One
+     | [(pred,ty',sigma)] =>
+       let t = INST sigma pred;
+           pty = domain(typeof pred);
+           ptysem = type_interpretation_of0 ^mem ctxt pty;
+           consts = allCInsts
+       in
+         ptysem suchthat
+           (ARB(term_interpretation_of0 ^mem
+            (*thy*) ctxt ARB ARB
+           ))
+     | _ => ARB:'U
+  ) /\
+  (term_interpretation_of0
+   ^mem ctxt (name:mlstring) ty =
+   if ~terminating(subst_clos (dependency ctxt)) then
+     ARB:'U
+   else if ~orth_ctxt ctxt then
+     ARB:'U
+   else
+       type_interpretation_of0 ^mem ctxt ARB)
+  `
+
 val extends_consistent = Q.store_thm("extends_consistent",
   `is_set_theory ^mem ⇒
     ∀ctxt. ctxt extends init_ctxt /\
@@ -156,14 +221,14 @@ val extends_consistent = Q.store_thm("extends_consistent",
   disch_then (strip_assume_tac o REWRITE_RULE[wf_ctxt_def]) >>
   imp_res_tac terminating_IMP_wellfounded_INV >>
   simp[models_def,satisfies_t_def,satisfies_def] >>
+  cheat)
+(*  drule WF_REC
 
-  drule WF_REC
-  
   drule WF_INDUCTION_THM >> strip_tac
-  
-  
-  strip_tac
-  
+
+
+  strip_tac*)
+
 val extends_consistent = Q.store_thm("extends_consistent",
   `is_set_theory ^mem ⇒
     ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒
@@ -172,7 +237,7 @@ val extends_consistent = Q.store_thm("extends_consistent",
         ⇒
         ∃i'. equal_on (sigof ctxt1) i i' ∧ i' models (thyof ctxt2)`,
 
- 
+
 val LRC2_def = Define
   `(LRC2 R [e1;e2] = R e1 e2) /\
    (LRC2 R (e1::e2::l)= (R e1 e2 /\ LRC2 R (e2::l)))`
@@ -194,7 +259,7 @@ val LRC_LRC2' = Q.store_thm("LRC_LRC2'",
   `!x y n ls. (LRC R ls x y /\ LENGTH ls = SUC n) =
    (?ls'. ls = x::ls' /\ LENGTH ls' = n /\ LRC2 R (x::ls' ++ [y]))`,
   Cases_on `ls` >> fs[LRC_LRC2] >> metis_tac[]);
-           
+
   >- (rw[LRC_def,LRC2_def] >> metis_tac[])
   >> rw[LRC_def,LRC2_def,EQ_IMP_THM]
   >- (first_x_assum(qspecl_then [`h`,`y`,`h`] (mp_tac o GSYM))
@@ -219,8 +284,8 @@ val LRC_LRC2' = Q.store_thm("LRC_LRC2'",
      fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
      rveq >> fs[LRC_def,inv_DEF]
      fs[LRC_def]
-  
-  
+
+
   qexists_tac `\n. if n = 0 then x else f(n-1)` >>
   Induct >-
     (fs[] >> first_x_assum(qspec_then `0` assume_tac) >> fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
@@ -229,12 +294,12 @@ val LRC_LRC2' = Q.store_thm("LRC_LRC2'",
   PURE_FULL_CASE_TAC >-
     (first_x_assum(qspec_then `1` assume_tac) >> fs[quantHeuristicsTheory.LIST_LENGTH_2] >>
      rveq >> fs[LRC_def,inv_DEF] >> rveq >> )
-    
+
   fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
   pop_assum(fn thm => fs[thm,LRC_def]) >> fs[inv_DEF] >> rveq
-  
-  
-  
+
+
+
   fs[SKOLEM_THM]
 
   first_x_assum(qspec_then `\n. FUNPOW (\x. @y. R y x)  n x` assume_tac) >>
@@ -244,13 +309,13 @@ val LRC_LRC2' = Q.store_thm("LRC_LRC2'",
   >> pop_assum mp_tac >>
   qid_spec_tac `x` >>
   Induct_on `n`
-  
+
 
   if n = 0 then x else `
-    
+
   spose_not_then strip_assume_tac >>
 
-  
+
   last_x_assum mp_tac >> rw[] >>
   fs[SKOLEM_THM] >> fs[NRC_LRC] >>
   qexists_tac `\n. if n = 0 then x else f(n-1)` >>
@@ -263,8 +328,8 @@ val LRC_LRC2' = Q.store_thm("LRC_LRC2'",
      PURE_ONCE_REWRITE_TAC[NRC_SUC_RECURSE_LEFT] >>
      fs[INV_def]
   fs[NRC_SUC_RECURSE_LEFT]
-  
-  
+
+
   first_x_assum(qspec_then `\n. FUNPOW (\x. @y. R y x) n x` strip_assume_tac) >>
   qexists_tac `n` >> fs[]
   SIMP_TAC pure_ss [GSYM NOT_FORALL_THM,GSYM NOT_EXISTS_THM]
@@ -272,37 +337,37 @@ val LRC_LRC2' = Q.store_thm("LRC_LRC2'",
   W (curry Q.SPEC_TAC) `x` >>
   Induct_on `n` >-
     (rw[] >> qexists_tac `0` >> rw[])
-  
+
   SIMP_TAC pure_ss [GSYM NOT_FORALL_THM,GSYM NOT_EXISTS_THM]
-    
+
   CCONTR_TAC >> fs[] >>
-  
-  
+
+
   `!n. NRC R n (f 0) (f n)`
    by(last_x_assum kall_tac >>
       Induct >- simp[] >>
       simp[NRC_SUC_RECURSE_LEFT] >>
       metis_tac[]) >>
   metis_tac[]);
- 
+
       MAP_EVERY PURE_ONCE_REWRITE_TAC [[ADD1],[ADD_SYM],[NRC_ADD_EQN]] >>
       fs[GSYM ADD1] >> metis_tac[])
-  
+
       )
                                             ]
-  
-  
+
+
   CCONTR_TAC >> fs[]
-  
+
   FULL_SIMP_TAC pure_ss [GSYM NOT_EXISTS_THM,GSYM NOT_FORALL_THM]
-  
+
   metis_tac[]
-  
+
       HINT_EXISTS_TAC >> simp[] >>
       qexists_tac `
       PURE_ONCE_REWRITE_TAC [NRC_ADD_EQN] >>
       simp[PULL_EXISTS]
-      
+
   first_x_assum(qspec_then `w` strip_assume_tac)
   rename1 `B w` >>
   )
@@ -329,9 +394,9 @@ Theorem new_constant_correct
                 @v. v <: ext_type_frag_builtins δ ty
              else
                 γ(x,ty)` >>
-  conj_asm1_tac >-
+(*  conj_asm1_tac >-
     ()
- ` >>
+ ` >>*)
   qexists_tac`(tyaof i,
     (name =+ λl. @v. v <: typesem (tyaof i) ((K boolset) =++
       (REVERSE(ZIP((MAP implode (STRING_SORT (MAP explode (tyvars ty))),l))))) ty)

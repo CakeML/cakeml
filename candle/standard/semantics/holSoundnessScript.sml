@@ -175,18 +175,21 @@ Theorem ABS_correct
     (rw[valuates_frag_def,combinTheory.UPDATE_def] >> rw[] >> simp[] >> fs[valuates_frag_def]) >>
   simp[termsem_ext_def,boolean_eq_true]);
 
-Theorem ASSUME_correct
-  `∀thy p.
+Theorem ASSUME_correct:
+  ∀thy p.
       theory_ok thy ∧ p has_type Bool ∧ term_ok (sigof thy) p
-      ⇒ (thy,[p]) |= p`,
-  rw[entails_def,satisfies_t_def,satisfies_def])
+      ⇒ (thy,[p]) |= p
+Proof
+  rw[entails_def,satisfies_t_def,satisfies_def]
+QED
 
-Theorem BETA_correct
-  `is_set_theory ^mem ⇒
+Theorem BETA_correct:
+  is_set_theory ^mem ⇒
     ∀thy x ty t.
       theory_ok thy ∧ type_ok (tysof thy) ty ∧ term_ok (sigof thy) t ⇒
-      (thy,[]) |= Comb (Abs (Var x ty) t) (Var x ty) === t`
-  (rw[] >> simp[entails_def] >>
+      (thy,[]) |= Comb (Abs (Var x ty) t) (Var x ty) === t
+Proof
+  rw[] >> simp[entails_def] >>
   imp_res_tac theory_ok_sig >>
   imp_res_tac term_ok_welltyped >>
   conj_asm1_tac >- ( simp[term_ok_equation,term_ok_def] ) >>
@@ -219,17 +222,19 @@ Theorem BETA_correct
       >> fs[]
      )
   >> conj_tac >- simp[]
-  >> simp[APPLY_UPDATE_ID]);
+  >> simp[APPLY_UPDATE_ID]
+QED
 
-Theorem DEDUCT_ANTISYM_correct
-  `is_set_theory ^mem ⇒
+Theorem DEDUCT_ANTISYM_correct:
+  is_set_theory ^mem ⇒
     ∀thy h1 p1 h2 p2.
       (thy,h1) |= p1 ∧ (thy,h2) |= p2 ⇒
       (thy,
        term_union (term_remove p2 h1)
                   (term_remove p1 h2))
-      |= p1 === p2`
-  (rw[] >> fs[entails_def] >>
+      |= p1 === p2
+Proof
+  rw[] >> fs[entails_def] >>
   imp_res_tac theory_ok_sig >>
   conj_asm1_tac >- (
     simp[term_ok_equation] >>
@@ -448,13 +453,15 @@ Theorem DEDUCT_ANTISYM_correct
   >> disch_then drule
   >> disch_then(qspec_then `e` mp_tac) >> simp[]
   >> strip_tac
-  >> metis_tac[termsem_aconv,term_ok_welltyped]);
+  >> metis_tac[termsem_aconv,term_ok_welltyped]
+QED
 
-Theorem EQ_MP_correct
-  `is_set_theory ^mem ⇒
+Theorem EQ_MP_correct:
+  is_set_theory ^mem ⇒
     ∀thy h1 h2 p q p'.
       (thy,h1) |= p === q ∧ (thy,h2) |= p' ∧ ACONV p p' ⇒
-      (thy,term_union h1 h2) |= q`,
+      (thy,term_union h1 h2) |= q
+Proof
   rw[] >>
   match_mp_tac (UNDISCH binary_inference_rule) >>
   map_every qexists_tac[`p === q`,`p'`] >>
@@ -470,15 +477,17 @@ Theorem EQ_MP_correct
   disch_then(qspecl_then [`p`,`q`] mp_tac) >>
   impl_tac >- (simp[] >> conj_tac >> match_mp_tac terms_of_frag_uninst_term_ok >> fs[]) >>
   rfs[boolean_eq_true] >>
-  metis_tac[termsem_aconv,term_ok_welltyped,termsem_ext_def]);
+  metis_tac[termsem_aconv,term_ok_welltyped,termsem_ext_def]
+QED
 
-Theorem INST_correct
-  `is_set_theory ^mem ⇒
+Theorem INST_correct:
+  is_set_theory ^mem ⇒
     ∀thy h c.
       (∀s s'. MEM (s',s) ilist ⇒
               ∃x ty. (s = Var x ty) ∧ s' has_type ty ∧ term_ok (sigof thy) s') ∧
       (thy, h) |= c
-    ⇒ (thy, term_image (VSUBST ilist) h) |= VSUBST ilist c`
+    ⇒ (thy, term_image (VSUBST ilist) h) |= VSUBST ilist c
+Proof
   rw[entails_def,EVERY_MEM,satisfies_t_def] >>
   TRY ( imp_res_tac MEM_term_image_imp >> rw[] ) >>
   TRY ( match_mp_tac term_ok_VSUBST >> metis_tac[] ) >>
@@ -545,14 +554,16 @@ Theorem INST_correct
   disch_then(qspecl_then [`ext_type_frag_builtins δ`,
                           `ext_term_frag_builtins (ext_type_frag_builtins δ) γ`,
                           `v`] SUBST1_TAC) >>
-  fs[EVERY_MEM]);
+  fs[EVERY_MEM]
+QED
 
-Theorem INST_TYPE_correct
-  `is_set_theory ^mem ⇒
+Theorem INST_TYPE_correct:
+  is_set_theory ^mem ⇒
     ∀thy h c.
       EVERY (type_ok (tysof thy)) (MAP FST tyin) ∧
       (thy, h) |= c
-    ⇒ (thy, term_image (INST tyin) h) |= INST tyin c`
+    ⇒ (thy, term_image (INST tyin) h) |= INST tyin c
+Proof
   rw[entails_def,EVERY_MAP,EVERY_MEM] >>
   TRY ( match_mp_tac hypset_ok_term_image >> rw[] ) >>
   TRY ( imp_res_tac MEM_term_image_imp >> rw[] ) >>
@@ -619,15 +630,17 @@ Theorem INST_TYPE_correct
   simp[] >> disch_then kall_tac >>
   drule termsem_aconv >> simp[GSYM PULL_FORALL] >>
   impl_tac >- metis_tac[welltyped_def,INST_WELLTYPED] >>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-Theorem MK_COMB_correct
-  `is_set_theory ^mem ⇒
+Theorem MK_COMB_correct:
+  is_set_theory ^mem ⇒
     ∀thy h1 h2 l1 r1 l2 r2.
       (thy,h1) |= l1 === r1 ∧ (thy,h2) |= l2 === r2 ∧
       welltyped (Comb l1 l2)
-      ⇒ (thy,term_union h1 h2) |= Comb l1 l2 === Comb r1 r2`
-  (rw[] >>
+      ⇒ (thy,term_union h1 h2) |= Comb l1 l2 === Comb r1 r2
+Proof
+  rw[] >>
   match_mp_tac (UNDISCH binary_inference_rule) >>
   map_every qexists_tac[`l1 === r1`,`l2 === r2`] >>
   fs[entails_def] >>
@@ -662,14 +675,16 @@ Theorem MK_COMB_correct
                fs[term_ok_equation] >> fs[term_ok_def] >> metis_tac[term_ok_welltyped]) >>
   simp[] >> rpt strip_tac >>
   rfs[boolean_eq_true] >>
-  fs[termsem_def,termsem_ext_def]);
+  fs[termsem_def,termsem_ext_def]
+QED
 
-Theorem REFL_correct
-  `is_set_theory ^mem ⇒
+Theorem REFL_correct:
+  is_set_theory ^mem ⇒
     ∀thy t.
       theory_ok thy ∧ term_ok (sigof thy) t ⇒
-      (thy,[]) |= t === t`
-  (rw[] >>
+      (thy,[]) |= t === t
+Proof
+  rw[] >>
   simp[entails_def,EQUATION_HAS_TYPE_BOOL] >>
   imp_res_tac theory_ok_sig >>
   imp_res_tac term_ok_welltyped >>
@@ -683,11 +698,13 @@ Theorem REFL_correct
   >- (fs[] >> drule terms_of_frag_uninst_equationE >> disch_then drule >>
       fs[] >> disch_then match_mp_tac >>
       simp[welltyped_equation,EQUATION_HAS_TYPE_BOOL]) >>
-  rw[termsem_ext_def] >> simp[boolean_eq_true]);
+  rw[termsem_ext_def] >> simp[boolean_eq_true]
+QED
 
-Theorem proves_sound
-  `is_set_theory ^mem ⇒ ∀thyh c. thyh |- c ⇒ thyh |= c`
-  (strip_tac >> match_mp_tac proves_ind >>
+Theorem proves_sound:
+  is_set_theory ^mem ⇒ ∀thyh c. thyh |- c ⇒ thyh |= c
+Proof
+  strip_tac >> match_mp_tac proves_ind >>
   conj_tac >- metis_tac[ABS_correct] >>
   conj_tac >- metis_tac[ASSUME_correct] >>
   conj_tac >- metis_tac[BETA_correct] >>
@@ -697,6 +714,7 @@ Theorem proves_sound
   conj_tac >- metis_tac[INST_TYPE_correct] >>
   conj_tac >- metis_tac[MK_COMB_correct] >>
   conj_tac >- metis_tac[REFL_correct] >>
-  rw[entails_def,theory_ok_def,models_def])
+  rw[entails_def,theory_ok_def,models_def]
+QED
 
 val _ = export_theory()

@@ -29,14 +29,6 @@ val [builtin_closure_inj,builtin_closure_bool,builtin_closure_fun] =
          ["builtin_closure_inj","builtin_closure_bool","builtin_closure_fun"]
          (CONJUNCTS builtin_closure_rules);
 
-(* TODO: change definition in holSyntaxScript *)
-val is_builtin_type_def = Q.prove(
-  `(∀v0. is_builtin_type (Tyvar v0) ⇔ F) ∧
-     ∀m ty. is_builtin_type (Tyapp m ty) ⇔
-        ((m = strlit "fun" /\ LENGTH ty = 2) \/
-         (m = strlit "bool" /\ LENGTH ty = 0))`,
-  cheat);
-
 val ground_types_def = Define `
   ground_types (sig:sig) =
   {ty | tyvars ty = [] /\ type_ok (tysof sig) ty}

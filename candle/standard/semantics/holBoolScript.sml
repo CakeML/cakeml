@@ -25,6 +25,8 @@ val _ = Parse.temp_overload_on("FAx",``Forall (strlit "x") A``)
 
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
+
+(*
 Theorem bool_sig_instances
   `is_bool_sig sig ⇒
     instance (tmsof sig) (i:'U interpretation) (strlit "T") Bool = (K (tmaof i (strlit "T") [])) ∧
@@ -37,7 +39,7 @@ Theorem bool_sig_instances
     instance (tmsof sig) i (strlit "?") (Fun (Fun A Bool) Bool) = (λτ. tmaof i (strlit "?") [τ (strlit "A")])`
   (rw[is_bool_sig_def] >> fs sigs >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
   rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def] >> EVAL_TAC >> metis_tac[])
-
+*)
 (* TODO: move *)
 val ext_type_frag_builtins_simps = Q.store_thm("ext_type_frag_builtins_simps",
   `(!δ. ext_type_frag_builtins δ Bool = boolset) /\
@@ -232,15 +234,6 @@ val builtins_std_assignment = Q.prove(
   rw[is_std_type_assignment_def]
   >> CONV_TAC(RATOR_CONV(PURE_ONCE_REWRITE_CONV [ext_type_frag_builtins_def]))
   >> rw[]);
-
-(* TODO: change definition in holSyntaxScript *)
-val is_builtin_type_def = Q.prove(
-  `(∀v0. is_builtin_type (Tyvar v0) ⇔ F) ∧
-     ∀m ty. is_builtin_type (Tyapp m ty) ⇔
-        ((m = strlit "fun" /\ LENGTH ty = 2) \/
-         (m = strlit "bool" /\ LENGTH ty = 0))`,
-  cheat);
-
 
 (* TODO: move *)
 val is_std_interpretation_total_fragment = Q.store_thm("is_std_interpretation_total_fragment",
@@ -922,8 +915,8 @@ val extends_is_bool_interpretation = Q.store_thm("extends_is_bool_interpretation
       ntac 7 (pop_assum kall_tac) >>
       metis_tac[mem_boolset,true_neq_false])));
 
-Theorem termsem_implies
-  `is_set_theory ^mem ⇒
+Theorem termsem_implies:
+  is_set_theory ^mem ⇒
   ∀δ γ sigma v s p1 p2.
     is_frag_interpretation (total_fragment s) δ γ ∧
     valuates_frag(total_fragment s) δ v sigma ∧
@@ -935,7 +928,8 @@ Theorem termsem_implies
     is_implies_interpretation(ext_term_frag_builtins (ext_type_frag_builtins δ) γ) ⇒
     termsem_ext δ γ v sigma (Implies p1 p2) =
     Boolean (termsem_ext δ γ v sigma p1 = True ⇒
-             termsem_ext δ γ v sigma p2 = True)`,
+             termsem_ext δ γ v sigma p2 = True)
+Proof
   rw[termsem_def,termsem_ext_def,is_implies_sig_def,is_implies_interpretation_def] >>
   qmatch_goalsub_abbrev_tac `Boolrel _ ' tm1 ' tm2` >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
@@ -959,10 +953,11 @@ Theorem termsem_implies
        simp[]) >>
   ntac 2 (pop_assum mp_tac) >>
   simp[] >> PURE_ONCE_REWRITE_TAC[ext_type_frag_builtins_def] >> rw[] >>
-  simp[apply_boolrel_rw]);
+  simp[apply_boolrel_rw]
+QED
 
-Theorem termsem_forall
-  `is_set_theory ^mem ⇒
+Theorem termsem_forall:
+  is_set_theory ^mem ⇒
   ∀δ γ sigma v s f y b.
     is_frag_interpretation (total_fragment s) δ γ ∧
     valuates_frag(total_fragment s) δ v sigma ∧
@@ -973,7 +968,8 @@ Theorem termsem_forall
     is_forall_interpretation (ext_term_frag_builtins (ext_type_frag_builtins δ) γ) (ext_type_frag_builtins δ) (TYPE_SUBSTf sigma y) ⇒
     termsem_ext δ γ v sigma (Forall f y b) =
     Boolean (∀x. x <: ext_type_frag_builtins δ (TYPE_SUBSTf sigma y) ⇒
-                 termsem_ext δ γ (((f,y) =+ x) v) sigma b = True)`,
+                 termsem_ext δ γ (((f,y) =+ x) v) sigma b = True)
+Proof
   rw[termsem_def,termsem_ext_def,is_implies_sig_def,is_forall_interpretation_def,
      ext_type_frag_builtins_simps] >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
@@ -1019,10 +1015,11 @@ Theorem termsem_forall
       drule term_frag_uninst_in_type_frag >> disch_then drule >>
       simp[]) >>
     simp[ext_type_frag_builtins_simps]) >>
-  simp[]);
+  simp[]
+QED
 
-Theorem termsem_exists
-  `is_set_theory ^mem ⇒
+Theorem termsem_exists:
+  is_set_theory ^mem ⇒
   ∀δ γ sigma v s f y b.
     is_frag_interpretation (total_fragment s) δ γ ∧
     valuates_frag(total_fragment s) δ v sigma ∧
@@ -1033,7 +1030,8 @@ Theorem termsem_exists
     is_exists_interpretation (ext_term_frag_builtins (ext_type_frag_builtins δ) γ) (ext_type_frag_builtins δ) (TYPE_SUBSTf sigma y) ⇒
     termsem_ext δ γ v sigma (Exists f y b) =
     Boolean (∃x. x <: ext_type_frag_builtins δ (TYPE_SUBSTf sigma y) /\
-                 termsem_ext δ γ (((f,y) =+ x) v) sigma b = True)`,
+                 termsem_ext δ γ (((f,y) =+ x) v) sigma b = True)
+Proof
   rw[termsem_def,termsem_ext_def,is_implies_sig_def,is_exists_interpretation_def,
      ext_type_frag_builtins_simps] >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
@@ -1078,10 +1076,11 @@ Theorem termsem_exists
          drule term_frag_uninst_in_type_frag >> disch_then drule >>
          simp[]) >>
        simp[ext_type_frag_builtins_simps]) >>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-Theorem termsem_and
-  `is_set_theory ^mem ⇒
+Theorem termsem_and:
+  is_set_theory ^mem ⇒
   ∀δ γ sigma v s p1 p2.
     is_frag_interpretation (total_fragment s) δ γ ∧
     valuates_frag(total_fragment s) δ v sigma ∧
@@ -1093,7 +1092,8 @@ Theorem termsem_and
     is_and_interpretation(ext_term_frag_builtins (ext_type_frag_builtins δ) γ) ⇒
     termsem_ext δ γ v sigma (And p1 p2) =
     Boolean (termsem_ext δ γ v sigma p1 = True /\
-             termsem_ext δ γ v sigma p2 = True)`,
+             termsem_ext δ γ v sigma p2 = True)
+Proof
   rw[termsem_def,termsem_ext_def,is_and_sig_def,is_and_interpretation_def] >>
   qmatch_goalsub_abbrev_tac `Boolrel _ ' tm1 ' tm2` >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
@@ -1117,10 +1117,11 @@ Theorem termsem_and
        simp[]) >>
   ntac 2 (pop_assum mp_tac) >>
   simp[] >> PURE_ONCE_REWRITE_TAC[ext_type_frag_builtins_def] >> rw[] >>
-  simp[apply_boolrel_rw]);
+  simp[apply_boolrel_rw]
+QED
 
-val termsem_or = Q.store_thm("termsem_or",
-  `is_set_theory ^mem ⇒
+Theorem termsem_or:
+  is_set_theory ^mem ⇒
   ∀δ γ sigma v s p1 p2.
     is_frag_interpretation (total_fragment s) δ γ ∧
     valuates_frag(total_fragment s) δ v sigma ∧
@@ -1132,7 +1133,8 @@ val termsem_or = Q.store_thm("termsem_or",
     is_or_interpretation(ext_term_frag_builtins (ext_type_frag_builtins δ) γ) ⇒
     termsem_ext δ γ v sigma (Or p1 p2) =
     Boolean (termsem_ext δ γ v sigma p1 = True \/
-             termsem_ext δ γ v sigma p2 = True)`,
+             termsem_ext δ γ v sigma p2 = True)
+Proof
   rw[termsem_def,termsem_ext_def,is_or_sig_def,is_or_interpretation_def] >>
   qmatch_goalsub_abbrev_tac `Boolrel _ ' tm1 ' tm2` >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
@@ -1156,10 +1158,11 @@ val termsem_or = Q.store_thm("termsem_or",
        simp[]) >>
   ntac 2 (pop_assum mp_tac) >>
   simp[] >> PURE_ONCE_REWRITE_TAC[ext_type_frag_builtins_def] >> rw[] >>
-  simp[apply_boolrel_rw]);
+  simp[apply_boolrel_rw]
+QED
 
-Theorem termsem_not
-  `is_set_theory ^mem ⇒
+Theorem termsem_not:
+  is_set_theory ^mem ⇒
   ∀δ γ sigma v s p1 p2.
     is_frag_interpretation (total_fragment s) δ γ ∧
     valuates_frag(total_fragment s) δ v sigma ∧
@@ -1170,7 +1173,8 @@ Theorem termsem_not
     is_not_sig (tmsof s) ∧
     is_not_interpretation(ext_term_frag_builtins (ext_type_frag_builtins δ) γ) ⇒
     termsem_ext δ γ v sigma (Not p1) =
-    Boolean (termsem_ext δ γ v sigma p1 ≠ True)`,
+    Boolean (termsem_ext δ γ v sigma p1 ≠ True)
+Proof
   rw[termsem_def,termsem_ext_def,is_not_sig_def,is_not_interpretation_def] >>
   qmatch_goalsub_abbrev_tac `_ ' tm1` >>
   qspec_then `s` assume_tac total_fragment_is_fragment >>
@@ -1185,6 +1189,7 @@ Theorem termsem_not
        simp[]) >>
   ntac 2 (pop_assum mp_tac) >>
   simp[] >> PURE_ONCE_REWRITE_TAC[ext_type_frag_builtins_def] >> rw[] >>
-  simp[apply_abstract,boolean_in_boolset]);
+  simp[apply_abstract,boolean_in_boolset]
+QED
 
 val _ = export_theory()
