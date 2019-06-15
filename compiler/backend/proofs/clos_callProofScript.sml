@@ -4270,35 +4270,6 @@ Theorem calls_code_locs_ALL_DISTINCT
   rw[]>>
   metis_tac[]);
 
-Theorem is_state_oracle_extra_code:
-  is_state_oracle compile_inc co g0 ==>
-  oracle_monotonic (set o code_locs o FST o SND) (<)
-    (set (code_locs prog)) co ==>
-  compile T prog = (y, g0, aux) ==>
-  ∀n m. MEM n (code_locs prog) ∧ n ∉ domain g0 ==> n ∉ domain (FST (FST (co m)))
-Proof
-  fs [compile_def]
-  \\ pairarg_tac
-  \\ rw []
-  \\ Induct_on `m` \\ fs [is_state_oracle_def]
-  \\ Cases_on `SND (co m)`
-  \\ fs [compile_inc_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ drule calls_add_SUC_code_locs
-  \\ drule calls_domain
-  \\ fs []
-  \\ CCONTR_TAC
-  \\ fs []
-  \\ drule_then drule (GEN_ALL SUBSET_IMP)
-  \\ strip_tac \\ fs [] \\ fs []
-  \\ drule_then drule (GEN_ALL SUBSET_IMP)
-  \\ strip_tac \\ fs [] \\ fs []
-  \\ drule oracle_monotonic_init
-  \\ disch_then drule
-  \\ fs []
-  \\ metis_tac [prim_recTheory.LESS_REFL, FST]
-QED
-
 Theorem oracle_monotonic_init_UNION:
   oracle_monotonic f R (A UNION B) co <=>
     oracle_monotonic f R A co /\ oracle_monotonic f R B co
