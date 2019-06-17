@@ -6492,47 +6492,69 @@ Proof
   fs [backendPropsTheory.is_state_oracle_def]
 QED
 
-(* sigh. it's a lot of work. *)
-Theorem known_co_oracle_every_Fns:
-  !k. known cfg (remove_fvs 0 (FST (SND (co k)))) []
-           (FST (FST (co k))) = (k_exps, spt) /\
-    is_state_oracle (clos_knownProof$compile_inc cfg)
-        (pure_co clos_knownProof$fvs_inc ∘ co) conf ==>
-    every_Fn_SOME (MAP FST k_exps) ∧ every_Fn_vs_NONE (MAP FST k_exps)
-Proof
-  Induct \\ rpt (gen_tac ORELSE disch_tac) \\ fs []
-  >- (
-    drule is_state_oracle_0
-    \\ disch_tac \\ fs []
-    \\ fs [PAIR_FST_SND_EQ] \\ rveq
+val is_state_oracle_k = clos_callProofTheory.is_state_oracle_k
 
+Theorem known_state_oracle_globals_approx:
+    is_state_oracle (clos_knownProof$compile_inc cfg')
+        (pure_co clos_knownProof$fvs_inc ∘ co) spt /\
+    known cfg exps [] LN = (k_exps, spt) /\
+    every_Fn_vs_NONE exps /\ every_Fn_SOME exps /\
+    (!k. every_Fn_vs_NONE (FST (SND (co k))) /\
+        every_Fn_SOME (FST (SND (co k)))) ==>
+    !k. clos_knownProof$globals_approx_every_Fn_vs_NONE (FST (FST (co k))) /\
+        clos_knownProof$globals_approx_every_Fn_SOME (FST (FST (co k)))
+Proof
+  rpt disch_tac \\ Induct
+  >- (
+    fs []
+    \\ drule_then assume_tac is_state_oracle_0
+    \\ fs []
+    \\ fs [PAIR_FST_SND_EQ]
+    \\ qpat_x_assum `SND _ = _` assume_tac
+    \\ rveq
+    \\ ConseqConv.CONSEQ_REWRITE_TAC
+        (map (REWRITE_RULE [boolTheory.IMP_CONJ_THM])
+            [clos_knownProofTheory.known_every_Fn_SOME,
+             clos_knownProofTheory.known_every_Fn_vs_NONE], [], [])
+    \\ fs [clos_knownProofTheory.globals_approx_every_Fn_vs_NONE_def,
+           sptreeTheory.lookup_def,
+           clos_knownProofTheory.globals_approx_every_Fn_SOME_def]
+  )
+  \\ fs []
+  \\ drule_then (qspec_then `k` assume_tac) is_state_oracle_k
+  \\ fs [clos_knownProofTheory.fvs_inc_def]
+  \\ Cases_on `co k` \\ fs [backendPropsTheory.pure_co_def]
+  \\ fs [clos_knownProofTheory.compile_inc_def, fcompile_inc_uncurry]
+  \\ rveq \\ fs []
+  \\ fs [clos_fvsTheory.compile_def, kcompile_inc_uncurry]
   \\ ConseqConv.CONSEQ_REWRITE_TAC
     (map (REWRITE_RULE [boolTheory.IMP_CONJ_THM])
         [clos_knownProofTheory.known_every_Fn_SOME,
          clos_knownProofTheory.known_every_Fn_vs_NONE], [], [])
-
   \\ fs []
-
- clos_knownProofTheory.known_every_Fn_SOME
-
-
+  \\ first_x_assum (qspec_then `k` assume_tac)
+  \\ rfs []
+QED
 
 Theorem known_co_facts:
-
-    let co2 = clos_knownProof$known_co c.known_conf co in
-    compile c.known_conf es = (kc,es') ==>
-    (oracle_monotonic (set ∘ code_locs ∘ FST ∘ SND) $<
-            (set (code_locs es)) co ==>
+    !kc co exps kc' exps' cfg'. let co2 = clos_knownProof$known_co kc co in
+    compile kc exps = (kc',exps') /\
+    (IS_SOME kc ==>
+        is_state_oracle (clos_knownProof$compile_inc cfg')
+            (pure_co clos_knownProof$fvs_inc ∘ co) (THE kc').val_approx_spt /\
+        every_Fn_vs_NONE exps /\ every_Fn_SOME exps /\
+        (!k. every_Fn_vs_NONE (FST (SND (co k))) /\
+            every_Fn_SOME (FST (SND (co k))))) ==>
+     (oracle_monotonic (set ∘ code_locs ∘ FST ∘ SND) $<
+            (set (code_locs exps)) co ==>
         oracle_monotonic (set ∘ code_locs ∘ FST ∘ SND) $<
-            (set (code_locs es')) co2) /\
+            (set (code_locs exps')) co2) /\
     (∀k. clos_callProof$syntax_ok (FST (SND (co k))) ==>
         clos_callProof$syntax_ok (FST (SND (co2 k)))) /\
     (∀k. SND (SND (co k)) = [] ==> SND (SND (co2 k)) = [])
-
 Proof
-
   fs []
-  \\ disch_tac
+  \\ rpt (gen_tac ORELSE disch_tac)
   \\ fs [clos_knownProofTheory.known_co_def]
   \\ ConseqConv.CONSEQ_REWRITE_TAC
     ([backendPropsTheory.oracle_monotonic_subset], [], [])
@@ -6555,7 +6577,6 @@ Proof
   \\ rpt disch_tac
   \\ qpat_x_assum `known _ _ _ _ = _` mp_tac
   \\ specl_args_of_then``known``clos_knownProofTheory.known_every_Fn_SOME mp_tac
-  \\ specl_args_of_then``known``clos_knownProofTheory.known_every_Fn_SOME mp_tac
   \\ specl_args_of_then``known``clos_knownProofTheory.known_every_Fn_vs_NONE mp_tac
   \\ rpt disch_tac \\ fs []
   \\ rfs []
@@ -6564,36 +6585,13 @@ Proof
   \\ drule bagTheory.BAG_ALL_DISTINCT_SUB_BAG
   \\ fs [containerTheory.LIST_TO_BAG_DISTINCT]
   \\ strip_tac
-
-
-
-bagTheory.BAG_ALL_DISTINCT_SUB_BAG
-containerTheory.LIST_TO_BAG_DISTINCT
-
-
-
-  \\ rw[] \\ fs[]
-  \\ `clos_knownProof$globals_approx_every_Fn_SOME LN /\
-      clos_knownProof$globals_approx_every_Fn_vs_NONE LN` by
-   (fs [clos_knownProofTheory.globals_approx_every_Fn_SOME_def,lookup_def,
-        clos_knownProofTheory.globals_approx_every_Fn_vs_NONE_def]) \\ fs []
-  \\ simp[clos_letopProofTheory.code_locs_let_op]
-  \\ simp[clos_ticksProofTheory.code_locs_remove_ticks]
-  \\ simp[GSYM LIST_TO_BAG_DISTINCT]
-  \\ match_mp_tac BAG_ALL_DISTINCT_SUB_BAG
-  \\ asm_exists_tac \\ fs[LIST_TO_BAG_DISTINCT]);
-
-
-  \\ fs [
-
-
-  >- (
-    match_mp_tac backendPropsTheory.oracle_monotonic_subset
-    \\ fs [backendPropsTheory.SND_state_co]
-    \\ imp_res_tac clos_knownProofTheory.compile_code_locs_bag
-    \\ imp_res_tac containerTheory.LIST_TO_BAG_SUBSET \\ fs []
-  )
-
+  \\ fs [clos_knownTheory.compile_def]
+  \\ pairarg_tac \\ fs []
+  \\ drule (GEN_ALL known_state_oracle_globals_approx)
+  \\ rveq \\ fs []
+  \\ disch_then drule
+  \\ fs[clos_fvsTheory.compile_def]
+QED
 
 fun promote_bool pat thm = let
     val term = find_term (can (match_term pat)) (concl thm)
@@ -6636,13 +6634,17 @@ Theorem compile_common_semantics
 *)
           orac_code_inv_prems_TBA) ∧
    (IS_SOME c.known_conf ⇒
-     1 ≤ c.max_app ∧
-     FST (SND (FST (co1 0))) =
-     (THE (FST (compile c.known_conf
+        1 ≤ c.max_app ∧
+        (let kco = pure_co clos_knownProof$fvs_inc ∘
+            state_co (ignore_table clos_numberProof$compile_inc)
+                (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1);
+            cfg = (THE (FST (compile c.known_conf
                  (SND (renumber_code_locs_list (make_even (LENGTH es1 + c.next_loc))
-                                               (compile c.do_mti c.max_app es1)))))).val_approx_spt) ∧
-   ¬contains_App_SOME c.max_app es1 ∧ clos_knownProof$syntax_ok es1 ∧
-    BAG_ALL_DISTINCT (elist_globals es1)
+                                               (compile c.do_mti c.max_app es1)))))).val_approx_spt
+            in ?cfg'. is_state_oracle (clos_knownProof$compile_inc cfg')
+                kco cfg)
+   ) ∧
+   ¬contains_App_SOME c.max_app es1 ∧ clos_knownProof$syntax_ok es1 
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
      (pure_co clos_labelsProof$compile_inc o
@@ -6710,9 +6712,10 @@ drule renumber_code_locs_list_csyntax_ok
 (* saved *)
 
 \\ fs [UNCURRY]
-
 \\ sel_conjuncts_tac (can (find_term (can (match_term ``x.do_call``))))
->- (reverse (Cases_on `c.do_call`)
+
+>- (
+  reverse (Cases_on `c.do_call`)
   >- (fs [clos_callTheory.compile_def] \\ rveq \\ fs[FUPDATE_LIST])
   \\ fs [clos_callProofTheory.syntax_ok_def]
   \\ drule_then drule clos_callProofTheory.compile_ALL_DISTINCT
@@ -6721,8 +6724,30 @@ drule renumber_code_locs_list_csyntax_ok
   \\ fs [clos_callProofTheory.code_inv_def]
   \\ fs [UNCURRY, clos_callProofTheory.syntax_ok_def]
 
-\\ ConseqConv.CONSEQ_REWRITE_TAC ([every_Fn_vs_NONE_cond_call_compile_inc,
-    every_Fn_vs_NONE_known_co], [], [])
+  \\ specl_args_of_then ``clos_knownProof$known_co`` known_co_facts mp_tac
+  \\ fs []
+  \\ disch_then drule
+  \\ fs [PULL_EXISTS, GSYM boolTheory.RIGHT_EXISTS_IMP_THM,
+        make_even_def, arithmeticTheory.EVEN_MOD2,
+        Q.SPEC `IS_SOME x` IMP_CONJ_THM]
+  \\ disch_then drule
+
+  \\ disch_then (qspec_then `state_co (ignore_table clos_numberProof$compile_inc)
+             (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1)` mp_tac)
+
+\\ ConseqConv.CONSEQ_REWRITE_TAC ([every_Fn_vs_NONE_cond_call_compile_inc]
+  @ (known_co_facts |> SIMP_RULE bool_ss [LET_DEF, IMP_CONJ_THM]
+    |> BODY_CONJUNCTS |> map IRULE_CANON), [], [])
+
+
+SND
+              (SND
+                 (clos_knownProof$known_co c.known_conf
+                    (state_co (ignore_table clos_numberProof$compile_inc)
+                       (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘
+                        co1)) k)) = []
+
+
 \\ fs []
 
 
