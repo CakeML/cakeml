@@ -6603,20 +6603,6 @@ val known_co_facts2 = known_co_facts
   |> map DISCH_ALL
   |> map GEN_ALL
 
-fun promote_bool pat thm = let
-    val term = find_term (can (match_term pat)) (concl thm)
-  in REWRITE_RULE [ASSUME term] thm |> DISCH_ALL end
-
-val semantics_kcompile = clos_knownProofTheory.semantics_compile
-  |> promote_bool ``_ = clos_knownProof$known_cc _ _``
-  |> promote_bool ``_ = clos_knownProof$known_co _ _``
-  |> promote_bool ``clos_known$compile _ _ = _``;
-
-(*
-val ok_renumber = syntax_oracle_ok_renumber_code_locs
-  |> promote_bool ``renumber_code_locs_list _ _ = _``;
-*)
-
 Theorem MEM_number_compile_inc_locs:
     MEM x (code_locs (SND (clos_numberProof$compile_inc n exps))) ==>
     n < x /\ x < FST (clos_numberProof$compile_inc n exps)
@@ -6732,6 +6718,8 @@ Proof
   \\ metis_tac [SUBSET_TRANS, IMAGE_SUBSET]
 QED
 
+Theorem renumber_disjoint:
+
 Theorem number_compile_inc_esgc_free:
   EVERY esgc_free y ==>
   EVERY esgc_free (SND (clos_numberProof$compile_inc x y))
@@ -6773,10 +6761,28 @@ Proof
   fs [backendPropsTheory.is_state_oracle_def] \\ metis_tac []
 QED
 
+Theorem DISJOINT_LE_GT:
+  (!x. x IN A ==> x <= (n : num)) /\ (!x. x IN B ==> n < x) ==>
+  DISJOINT A B
+Proof
+  rw [] \\ CCONTR_TAC \\ fs [IN_DISJOINT]
+  \\ rpt (first_x_assum drule)
+  \\ fs []
+QED
+
 val compile_inc_post_kcompile_def = Define `
   compile_inc_post_kcompile c exps = compile c.known_conf
     (SND (renumber_code_locs_list (make_even (LENGTH exps + c.next_loc))
         (compile c.do_mti c.max_app exps)))`;
+
+fun promote_bool pat thm = let
+    val term = find_term (can (match_term pat)) (concl thm)
+  in REWRITE_RULE [ASSUME term] thm |> DISCH_ALL end
+
+val semantics_kcompile = clos_knownProofTheory.semantics_compile
+  |> promote_bool ``_ = clos_knownProof$known_cc _ _``
+  |> promote_bool ``_ = clos_knownProof$known_co _ _``
+  |> promote_bool ``clos_known$compile _ _ = _``;
 
 fun PICK_CONJUNCTS_CONV sel tm = let
     val conjs = strip_conj tm
@@ -6817,7 +6823,7 @@ Theorem compile_common_semantics
        (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1)
        (FST (FST (co1 0))) ∧
    FST (FST (co1 0)) >= FST (renumber_code_locs_list (make_even
-       (LENGTH es1 + c.next_loc)) (compile c.do_mti c.max_app exps))
+       (LENGTH es1 + c.next_loc)) (compile c.do_mti c.max_app es1))
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
      (pure_co clos_labelsProof$compile_inc o
@@ -6873,23 +6879,6 @@ drule renumber_code_locs_list_csyntax_ok
 \\ fs [compile_common_inc_def, clos_state_cc_def]
 \\ csimp []
 (* down to syntactic conditions *)
-(* worrying part: I don't understand why the next_loc bit is true.
-   the renumbering takes some of the right parameters, but the thms don't
-   seem to prove anything relevant. *)
-(*
-\\ sel_conjuncts_tac (can (match_term ``DISJOINT (IMAGE ($+ c.next_loc) _) _``))
->- (
-  drule ccompile_aux_subset
-  \\ match_mp_tac (REWRITE_RULE [GSYM AND_IMP_INTRO] DISJOINT_SUBSET)
-  \\ drule clos_knownProofTheory.compile_code_locs_bag
-  \\ disch_then (assume_tac o MATCH_MP containerTheory.LIST_TO_BAG_SUBSET)
-  \\ fs [Q.ISPEC `renumber_code_locs_list x y` PAIR_FST_SND_EQ]
-  \\ rveq \\ fs []
-  \\ CCONTR_TAC \\ fs [IN_DISJOINT, SUBSET_DEF]
-  \\ first_x_assum drule
-  \\
-use clos_numberProofTheory.renumber_code_locs_list_distinct
-  .. look at the proof later in this file? *)
 (* dealing with known_co and things passed across it *)
 \\ fs [UNCURRY, clos_callProofTheory.syntax_ok_def]
 \\ qpat_assum `compile c.known_conf _ = _`
@@ -6914,9 +6903,27 @@ use clos_numberProofTheory.renumber_code_locs_list_distinct
    (Q.prove (`compile c.do_call x = y ==> c.do_call ==> compile T x = y`,
        rw [] \\ fs []))
 (* time to deal with renumber stuff *)
+\\ sel_conjuncts_tac (can (match_term ``DISJOINT (IMAGE ($+ c.next_loc) _) _``))
+>- (
+  (* handle the DISJOINT bit separately, it's a bit messy *)
+  IMP_RES_THEN (assume_tac o GSYM) clos_callTheory.compile_LENGTH
+  \\ imp_res_tac clos_knownProofTheory.compile_LENGTH
+  \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
+  \\ fs []
+  \\ drule ccompile_aux_subset
+  \\ match_mp_tac (REWRITE_RULE [GSYM AND_IMP_INTRO] DISJOINT_SUBSET)
+  \\ drule clos_knownProofTheory.compile_code_locs_bag
+  \\ disch_then (assume_tac o MATCH_MP containerTheory.LIST_TO_BAG_SUBSET)
+  \\ CCONTR_TAC \\ fs [IN_DISJOINT]
+  \\ imp_res_tac SUBSET_IMP
+  \\ qpat_x_assum `renumber_code_locs_list _ _ = _` mp_tac
+  \\ specl_args_of_then ``renumber_code_locs_list``
+    clos_numberProofTheory.renumber_code_locs_list_distinct assume_tac
+  \\ disch_tac \\ fs [EVERY_MEM]
+  \\ rpt (first_x_assum drule)
+  \\ CASE_TAC \\ fs []
+  )
 (* saved *)
-
-
 \\ drule_then assume_tac
     (hd (BODY_CONJUNCTS clos_numberProofTheory.renumber_code_locs_esgc_free))
 \\ rfs [clos_mtiProofTheory.compile_preserves_esgc_free]
@@ -6929,10 +6936,11 @@ use clos_numberProofTheory.renumber_code_locs_list_distinct
 \\ csimp []
 \\ fs []
 \\ drule_then (fn t => simp [t]) is_state_oracle_IMP_EQ
+\\ fs []
 
-
-
-(* more to do *)
+\\ Cases_on `~ c.do_mti`
+  \\ fs [cond_mti_compile_inc_def, clos_mtiTheory.compile_def]
+  (* looks like these things need to be assumed ? *)
 
 );
 
