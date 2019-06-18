@@ -397,7 +397,6 @@ Proof
 QED
 
 
-
 Theorem get_cargs_sem_SOME_IMP_args_ok:
   get_cargs_sem s sigs.args args = SOME cargs ==>
   args_ok sigs cargs
@@ -419,27 +418,20 @@ Proof
 QED
 
 
-
 Theorem do_ffi_NONE_ffi:
    do_ffi s t n args = NONE /\
    t.signatures = t'.signatures /\
    ffi_oracle_ok t /\
-   ffi_oracle_ok t'
+   ffi_oracgle_ok t'
    ⇒
    do_ffi s t' n args = NONE
 Proof
   rw[do_ffi_def]
-  \\ PURE_TOP_CASE_TAC
-  \\ fs[]
-  \\ rename1 `sigs.args`
-  \\ PURE_TOP_CASE_TAC
-  \\ fs[]
   \\ fs[ffiTheory.call_FFI_def]
-  \\ IF_CASES_TAC
-  \\ fs[]
   \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-  \\ metis_tac[ffiTheory.ffi_oracle_ok_def]
+  \\ metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok]
 QED
+
 
 
 Theorem do_app_NONE_ffi:
@@ -467,7 +459,7 @@ Theorem do_ffi_SOME_ffi_same:
       ⇒
    do_ffi refs ffi' n args = SOME ((refs',ffi'),r)
 Proof
-  rw [do_ffi_def, ffiTheory.ffi_oracle_ok_def, ffiTheory.call_FFI_def]
+  rw [do_ffi_def, ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
   \\ rfs[ffiTheory.ffi_state_component_equality]
   \\ metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok]
