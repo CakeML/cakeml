@@ -9,35 +9,53 @@ open terminationTheory
 
 val _ = new_theory"evaluateProps";
 
-(*TODO: restate, assume oracle_ok *)
+
+
 Theorem call_FFI_LENGTH:
-   (call_FFI st index args alias = FFI_return new_st new_args retv) ==>
-    (LENGTH x = LENGTH new_bytes)
+   ffi_oracle_ok st /\ valid_ffi_name n sign st /\ args_ok sign args /\
+   (call_FFI st n sign args als = FFI_return nst nargs retv) ==>
+       LIST_REL (λm v. LENGTH m = LENGTH v) (mutargs sign.args args) nargs
 Proof
-  fs[ffiTheory.call_FFI_def] \\ every_case_tac \\ rw[] \\ fs[LENGTH_MAP]
+  fs[ffiTheory.call_FFI_def, ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, ffiTheory.debug_ffi_ok_def]
+  \\ every_case_tac \\ rw[]
+  >- metis_tac []
+  >- (rw [LIST_REL_def]
+     \\ `sign = sign'` by fs []
+     \\ fs [])
+  >- metis_tac []
+  >- metis_tac []
+  >- (rw [LIST_REL_def]
+     \\ `sign = sign'` by fs []
+     \\ fs [])
 QED
 
-(* TODO: assume args_ok *)
 val call_FFI_rel_def = Define `
-  call_FFI_rel s1 s2 <=>
-    ?n args alias new_args retv. call_FFI s1 n args alias = FFI_return s2 new_args retv`;
+  call_FFI_rel sign s s' <=> ?n args als nargs retv.
+    call_FFI s n sign args als = FFI_return s' nargs retv /\
+    valid_ffi_name n sign s /\
+    args_ok sign args /\
+    ffi_oracle_ok s /\
+    ret_ok sign.retty retv`;
+
 
 Theorem call_FFI_rel_consts:
-   call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)
+   call_FFI_rel sign s s' ⇒ (s.oracle = s'.oracle)
 Proof
   rw[call_FFI_rel_def]
-  \\ fs[ffiTheory.call_FFI_def]
+  \\ fs[ffiTheory.call_FFI_def, ffiTheory.ffi_oracle_ok_def]
   \\ fs[CaseEq"bool",CaseEq"oracle_result"]
   \\ rw[]
+  \\ metis_tac []
 QED
 
 Theorem RTC_call_FFI_rel_consts:
-   ∀s1 s2. RTC call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)
+   ∀s1 s2. RTC (call_FFI_rel sign) s1 s2 ⇒ (s2.oracle = s1.oracle)
 Proof
   once_rewrite_tac[EQ_SYM_EQ]
   \\ match_mp_tac RTC_lifts_equalities
-  \\ rw[call_FFI_rel_consts]
+  \\ metis_tac[call_FFI_rel_consts]
 QED
+
 
 val dest_IO_event_def = Define`
   dest_IO_event (IO_event s c b r) = (s,c,b,r)`;
@@ -70,29 +88,53 @@ Proof
   \\ rfs[]
 QED
 
+
 Theorem call_FFI_rel_io_events_mono:
    ∀s1 s2.
-   RTC call_FFI_rel s1 s2 ⇒ io_events_mono s1 s2
+   RTC (call_FFI_rel sign) s1 s2 ⇒ io_events_mono s1 s2
 Proof
   REWRITE_TAC[io_events_mono_def] \\
   ho_match_mp_tac RTC_INDUCT
-  \\ simp[call_FFI_rel_def,ffiTheory.call_FFI_def]
+  \\ simp[call_FFI_rel_def,ffiTheory.call_FFI_def, ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
   \\ rpt gen_tac \\ strip_tac
-  \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
-  \\ fs[IS_PREFIX_APPEND]
+  \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC
+  >- (TOP_CASE_TAC >> TOP_CASE_TAC
+      >- (fs[IS_PREFIX_APPEND] >> rw [] >> rfs[])
+      >- metis_tac [])
+  >- (fs[IS_PREFIX_APPEND] >> rw [] >> rfs[])
 QED
+
 
 Theorem do_app_call_FFI_rel:
-   do_app (r,ffi) op vs = SOME ((r',ffi'),res) ⇒
-   call_FFI_rel^* ffi ffi'
+   do_app (r,ffi) op vs = SOME ((r',ffi'),res)
+   /\ ffi_oracle_ok ffi ⇒
+   ?sign. (call_FFI_rel sign)^* ffi ffi'
 Proof
-  srw_tac[][do_app_cases] >> rw[] >>
-  FULL_CASE_TAC
-  >- (match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >> fs[] >> every_case_tac
-      >> fs[] >> metis_tac[])
-  >- fs[]
+  srw_tac[][do_app_cases] >> rw[]
+  >> fs [do_ffi_def]
+  >> fs[CaseEq"option"]
+  >> qexists_tac `sign`
+  >> fs [CaseEq"ffi_result"]
+  >> match_mp_tac RTC_SUBSET
+  >> rw [call_FFI_rel_def]
+  >> fs [ffiTheory.valid_ffi_name_def, ffiTheory.ffi_oracle_ok_def]
+  >> rename1 `FIND (λx. x.mlname = n) ffi.signatures = SOME sign`
+  >> qabbrev_tac `als = als_args_final_sem (loc_typ_val sign.args vs)`
+  >> MAP_EVERY qexists_tac [`n`, `cargs`, `als`, `newargs`, `retv`]
+  >> simp []
+  >> conj_tac
+  >- metis_tac [get_cargs_sem_SOME_IMP_args_ok]
+  >- (fs [ffiTheory.call_FFI_def]
+      >> (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC \\ rw[])
+      >- (fs [CaseEq"oracle_result"]
+          >> (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC \\ rw[])
+          >> metis_tac [get_cargs_sem_SOME_IMP_args_ok, ffiTheory.valid_ffi_name_def])
+      >- (fs[ffiTheory.debug_ffi_ok_def]
+          >> `sign = sign'` by (fs [FIND_def] \\ fs [INDEX_FIND_def])
+          >> metis_tac [ffiTheory.ret_ok_def]) )
 QED
 
+(* from here *)
 Theorem evaluate_call_FFI_rel:
    (∀(s:'ffi state) e exp.
       RTC call_FFI_rel s.ffi (FST (evaluate s e exp)).ffi) ∧
