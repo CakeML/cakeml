@@ -171,14 +171,22 @@ val _ = Define `
 
 
 val _ = Define `
+   debug_ffi_ok st = ?sign. (FIND (λsg. sg.mlname = "") st.signatures = SOME sign) /\
+                            (!args. mutargs sign.args args = []) /\ (sign.retty = NONE)
+`
+val valid_ffi_name_def = Define `
+  valid_ffi_name n sign st = (FIND (λsg. sg.mlname = n) st.signatures = SOME sign)
+`
+
+val _ = Define `
   ffi_oracle_ok st =
-  (!s sign args ffi' newargs retv als.
-           (FIND (λx. x.mlname = s) st.signatures = SOME sign)
+  (debug_ffi_ok st /\ (!n sign args st' newargs retv als.
+           valid_ffi_name n sign st 
            /\ args_ok sign args
-           /\ (st.oracle s st.ffi_state args als = Oracle_return ffi' newargs retv)
+           /\ (st.oracle n st.ffi_state args als = Oracle_return st' newargs retv)
            ==> ret_ok sign.retty retv /\ als_ok sign.args newargs als
-               /\ LIST_REL (λx y. LENGTH x = LENGTH y) (mutargs sign.args args) newargs
-  )`
+               /\ LIST_REL (λx y. LENGTH x = LENGTH y) (mutargs sign.args args) newargs)
+    )`
 
 val _ = Hol_datatype `
  ffi_result = FFI_return of 'ffi ffi_state => word8 list list  => c_primv option
