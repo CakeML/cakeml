@@ -722,33 +722,16 @@ val _ = Define
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) t.signatures of
-     SOME sign => (case get_cargs_sem s sign.args args of
-		    | SOME cargs => (case call_FFI t n sign cargs (als_args_final_sem (loc_typ_val sign.args args)) of
-				      | FFI_return t' newargs retv =>
-                                          SOME ((store_cargs_sem (get_mut_args sign args) newargs s, t'),
-                                                Rval (get_ret_val retv))
-				      | FFI_final outcome => SOME ((s, t), Rerr (Rabort (Rffi_error outcome))) )
-                    | NONE => NONE)
-   | NONE => NONE
-  `
-(*
-val _ = Define
-  `do_ffi s t n args =
-   case FIND (λx. x.mlname = n) t.signatures of
      SOME sign =>
-     (case get_cargs_sem s sign.args args of
-          SOME cargs =>
-           (case call_FFI t n sign cargs (als_args_final_sem (loc_typ_val sign.args args)) of
-              FFI_return t' newargs retv =>
-                if ret_ok sign.retty retv then
-                    SOME (((store_cargs_sem (get_mut_args sign args) newargs s), t'),
-                            Rval (get_ret_val retv))
-                   else NONE
-            | FFI_final outcome => SOME ((s, t), Rerr (Rabort (Rffi_error outcome))))
+       (case get_cargs_sem s sign.args args of
+        | SOME cargs =>
+          (case call_FFI t n sign cargs (als_args_final_sem (loc_typ_val sign.args args)) of
+	   | FFI_return t' newargs retv =>
+             SOME ((store_cargs_sem (get_mut_args sign args) newargs s, t'), Rval (get_ret_val retv))
+	   | FFI_final outcome => SOME ((s, t), Rerr (Rabort (Rffi_error outcome))))
         | NONE => NONE)
-   | NONE => NONE
+    | NONE => NONE
   `
-*)
 
 
 val _ = Define `
