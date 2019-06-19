@@ -6813,12 +6813,18 @@ Theorem compile_common_semantics
                (compile_inc_post_kcompile c es1)))))) ∧
    (IS_SOME c.known_conf ⇒
        1 ≤ c.max_app ∧
+       oracle_monotonic (SET_OF_BAG ∘ elist_globals ∘ FST ∘ SND) $<
+           (SET_OF_BAG (elist_globals es1)) co1 ∧
        is_state_oracle (clos_knownProof$compile_inc (THE c.known_conf))
            (pure_co clos_knownProof$fvs_inc ∘
                state_co (ignore_table clos_numberProof$compile_inc)
                    (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1))
-           (THE (FST (compile_inc_post_kcompile c es1))).val_approx_spt) ∧
+           (THE (FST (compile_inc_post_kcompile c es1))).val_approx_spt ∧
+       (∀n'. BAG_ALL_DISTINCT (elist_globals (FST (SND (co1 n')))) ∧
+               EVERY esgc_free (FST (SND (co1 n'))))) ∧
    ¬contains_App_SOME c.max_app es1 ∧ clos_knownProof$syntax_ok es1 ∧
+   (∀n. ¬contains_App_SOME c.max_app (FST(SND(co1 n))) ∧
+           every_Fn_vs_NONE (FST (SND (co1 n)))) ∧
    is_state_oracle (ignore_table clos_numberProof$compile_inc)
        (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1)
        (FST (FST (co1 0))) ∧
@@ -6902,10 +6908,9 @@ drule renumber_code_locs_list_csyntax_ok
 \\ drule_then (fn t => fs [t])
    (Q.prove (`compile c.do_call x = y ==> c.do_call ==> compile T x = y`,
        rw [] \\ fs []))
-(* time to deal with renumber stuff *)
-\\ sel_conjuncts_tac (can (match_term ``DISJOINT (IMAGE ($+ c.next_loc) _) _``))
+(* handle the DISJOINT bit separately, it's a bit messy *)
+\\ sel_conjuncts_tac (can (match_term ``DISJOINT (IMAGE _ _) _``))
 >- (
-  (* handle the DISJOINT bit separately, it's a bit messy *)
   IMP_RES_THEN (assume_tac o GSYM) clos_callTheory.compile_LENGTH
   \\ imp_res_tac clos_knownProofTheory.compile_LENGTH
   \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
@@ -6923,7 +6928,7 @@ drule renumber_code_locs_list_csyntax_ok
   \\ rpt (first_x_assum drule)
   \\ CASE_TAC \\ fs []
   )
-(* saved *)
+(* time to deal with renumber stuff *)
 \\ drule_then assume_tac
     (hd (BODY_CONJUNCTS clos_numberProofTheory.renumber_code_locs_esgc_free))
 \\ rfs [clos_mtiProofTheory.compile_preserves_esgc_free]
