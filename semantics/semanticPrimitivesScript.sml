@@ -726,9 +726,10 @@ val _ = Define
        (case get_cargs_sem s sign.args args of
         | SOME cargs =>
           (case call_FFI t n sign cargs (als_args_final_sem (loc_typ_val sign.args args)) of
-	   | FFI_return t' newargs retv =>
+	   | SOME (FFI_return t' newargs retv) =>
              SOME ((store_cargs_sem (get_mut_args sign args) newargs s, t'), Rval (get_ret_val retv))
-	   | FFI_final outcome => SOME ((s, t), Rerr (Rabort (Rffi_error outcome))))
+	   | SOME (FFI_final outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
+           | NONE => NONE) (* return type mismatch error  *)
         | NONE => NONE)
     | NONE => NONE
   `

@@ -199,12 +199,12 @@ val _ = Define `
      case st.oracle n st.ffi_state args als of
          Oracle_return ffi' newargs retv =>
            if ret_ok sign.retty retv then
-              FFI_return (st with<| ffi_state := ffi'
+              SOME (FFI_return (st with<| ffi_state := ffi'
                                    ; io_events := st.io_events ++ [IO_event n args newargs retv]
-                         |>) newargs retv
-           else ARB
-        | Oracle_final outcome => FFI_final (Final_event n args outcome)
-  else FFI_return st [] NONE`;
+                         |>) newargs retv)
+           else NONE
+        | Oracle_final outcome => SOME (FFI_final (Final_event n args outcome))
+  else SOME (FFI_return st [] NONE)`;
 
 
 val _ = Hol_datatype `

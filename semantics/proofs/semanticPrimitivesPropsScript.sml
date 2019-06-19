@@ -422,14 +422,15 @@ Theorem do_ffi_NONE_ffi:
    do_ffi s t n args = NONE /\
    t.signatures = t'.signatures /\
    ffi_oracle_ok t /\
-   ffi_oracgle_ok t'
+   ffi_oracle_ok t'
    ⇒
    do_ffi s t' n args = NONE
 Proof
   rw[do_ffi_def]
   \\ fs[ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-  \\ metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok]
+  >> metis_tac[ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, get_cargs_sem_SOME_IMP_args_ok]
+ (* metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok] *)
 QED
 
 

@@ -13,43 +13,43 @@ val _ = new_theory"evaluateProps";
 
 Theorem call_FFI_LENGTH:
    ffi_oracle_ok st /\ valid_ffi_name n sign st /\ args_ok sign args /\
-   (call_FFI st n sign args als = FFI_return nst nargs retv) ==>
+   (call_FFI st n sign args als = SOME (FFI_return nst nargs retv)) ==>
        LIST_REL (λm v. LENGTH m = LENGTH v) (mutargs sign.args args) nargs
 Proof
-  fs[ffiTheory.call_FFI_def, ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, ffiTheory.debug_ffi_ok_def]
+  fs[ffiTheory.call_FFI_def, ffiTheory.ffi_oracle_ok_def,
+      ffiTheory.valid_ffi_name_def, ffiTheory.debug_ffi_ok_def]
   \\ every_case_tac \\ rw[]
   >- metis_tac []
   >- (rw [LIST_REL_def]
      \\ `sign = sign'` by fs []
      \\ fs [])
   >- metis_tac []
-  >- metis_tac []
+ (* >- metis_tac [] *)
   >- (rw [LIST_REL_def]
      \\ `sign = sign'` by fs []
      \\ fs [])
 QED
 
+
+
 val call_FFI_rel_def = Define `
-  call_FFI_rel sign s s' <=> ?n args als nargs retv.
-    call_FFI s n sign args als = FFI_return s' nargs retv /\
-    valid_ffi_name n sign s /\
-    args_ok sign args /\
-    ffi_oracle_ok s /\
-    ret_ok sign.retty retv`;
+  call_FFI_rel s s' <=> ?n sign args als nargs retv.
+    call_FFI s n sign args als = SOME (FFI_return s' nargs retv) `;
+
 
 
 Theorem call_FFI_rel_consts:
-   call_FFI_rel sign s s' ⇒ (s.oracle = s'.oracle)
+   call_FFI_rel s s' ⇒ (s.oracle = s'.oracle)
 Proof
   rw[call_FFI_rel_def]
-  \\ fs[ffiTheory.call_FFI_def, ffiTheory.ffi_oracle_ok_def]
+  \\ fs[ffiTheory.call_FFI_def(*, ffiTheory.ffi_oracle_ok_def*)]
   \\ fs[CaseEq"bool",CaseEq"oracle_result"]
   \\ rw[]
   \\ metis_tac []
 QED
 
 Theorem RTC_call_FFI_rel_consts:
-   ∀s1 s2. RTC (call_FFI_rel sign) s1 s2 ⇒ (s2.oracle = s1.oracle)
+   ∀s1 s2. RTC call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)
 Proof
   once_rewrite_tac[EQ_SYM_EQ]
   \\ match_mp_tac RTC_lifts_equalities
@@ -91,41 +91,101 @@ QED
 
 Theorem call_FFI_rel_io_events_mono:
    ∀s1 s2.
-   RTC (call_FFI_rel sign) s1 s2 ⇒ io_events_mono s1 s2
+   RTC call_FFI_rel s1 s2 ⇒ io_events_mono s1 s2
 Proof
   REWRITE_TAC[io_events_mono_def] \\
   ho_match_mp_tac RTC_INDUCT
-  \\ simp[call_FFI_rel_def,ffiTheory.call_FFI_def, ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
+  \\ simp[call_FFI_rel_def,ffiTheory.call_FFI_def, ffiTheory.debug_ffi_ok_def]
   \\ rpt gen_tac \\ strip_tac
   \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC
   >- (TOP_CASE_TAC >> TOP_CASE_TAC
-      >- (fs[IS_PREFIX_APPEND] >> rw [] >> rfs[])
-      >- metis_tac [])
+      >>(fs[IS_PREFIX_APPEND] >> rw [] >> rfs[]))
   >- (fs[IS_PREFIX_APPEND] >> rw [] >> rfs[])
 QED
 
 
 Theorem do_app_call_FFI_rel:
+   do_app (r,ffi) op vs = SOME ((r',ffi'),res) ==>
+   call_FFI_rel^* ffi ffi'
+Proof
+  srw_tac[][do_app_cases] \\ rw[]
+  \\ fs [do_ffi_def]
+  \\ fs[CaseEq"option"]
+  \\ fs [CaseEq"ffi_result"]
+  \\ match_mp_tac RTC_SUBSET
+  \\ rw [call_FFI_rel_def]
+  \\ metis_tac []
+QED
+
+
+(*
+Theorem do_app_call_FFI_rel:
+   do_app (r,ffi) op vs = SOME ((r',ffi'),res) /\
+   ffi_oracle_ok ffi  ⇒
+   call_FFI_rel^* ffi ffi'
+Proof
+  srw_tac[][do_app_cases] \\ rw[]
+  \\ fs [do_ffi_def]
+  \\ fs[CaseEq"option"]
+  (*\\ qexists_tac `sign` *)
+  \\ fs [CaseEq"ffi_result"]
+  \\ match_mp_tac RTC_SUBSET
+  \\ rename1 `FIND (λx. x.mlname = n) ffi.signatures = SOME sign`
+  \\ qabbrev_tac `als = als_args_final_sem (loc_typ_val sign.args vs)`
+  \\ rw [call_FFI_rel_def]
+  \\ MAP_EVERY qexists_tac [`n`, `sign`, `cargs`, `als`, `newargs`, `retv`]
+  \\ simp[]
+  \\ conj_tac
+  >- rw [ffiTheory.valid_ffi_name_def]
+  \\ conj_tac
+  >- metis_tac [get_cargs_sem_SOME_IMP_args_ok]
+  \\ conj_tac
+  >- (fs [ffiTheory.call_FFI_def]
+      \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
+      >- fs [CaseEq"oracle_result"]
+      >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
+          \\ `sign = sign'` by (fs [FIND_def] \\ fs[INDEX_FIND_def])
+          \\ fs [ffiTheory.ret_ok_def]))
+  \\ conj_tac
+  >- (fs [ffiTheory.call_FFI_def]
+      \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
+      >- (fs [CaseEq"oracle_result"] \\
+          metis_tac [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def,
+                     get_cargs_sem_SOME_IMP_args_ok])
+      >- (rw [ffiTheory.als_ok_def, ffiTheory.ident_elems_def,
+             ffiTheory.als_vals_def, ffiTheory.mut_tag_retr_def,
+             ffiTheory.match_cargs_def] \\ cheat))
+  >- (fs [ffiTheory.call_FFI_def]
+      \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
+      >- (fs [CaseEq"oracle_result"] \\
+          metis_tac [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def,
+                     get_cargs_sem_SOME_IMP_args_ok])
+      >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
+          \\ `sign = sign'` by (fs [FIND_def] \\ fs[INDEX_FIND_def])
+          \\ metis_tac []))
+QED
+
+Theorem do_app_call_FFI_rel:
    do_app (r,ffi) op vs = SOME ((r',ffi'),res)
    /\ ffi_oracle_ok ffi ⇒
-   ?sign. (call_FFI_rel sign)^* ffi ffi'
+   call_FFI_rel^* ffi ffi'
 Proof
-  srw_tac[][do_app_cases] >> rw[]
-  >> fs [do_ffi_def]
-  >> fs[CaseEq"option"]
-  >> qexists_tac `sign`
-  >> fs [CaseEq"ffi_result"]
-  >> match_mp_tac RTC_SUBSET
-  >> rw [call_FFI_rel_def]
-  >> fs [ffiTheory.valid_ffi_name_def, ffiTheory.ffi_oracle_ok_def]
-  >> rename1 `FIND (λx. x.mlname = n) ffi.signatures = SOME sign`
-  >> qabbrev_tac `als = als_args_final_sem (loc_typ_val sign.args vs)`
-  >> MAP_EVERY qexists_tac [`n`, `cargs`, `als`, `newargs`, `retv`]
-  >> simp []
-  >> conj_tac
+  srw_tac[][do_app_cases] \\ rw[]
+  \\ fs [do_ffi_def]
+  \\ fs[CaseEq"option"]
+  (*\\ qexists_tac `sign` *)
+  \\ fs [CaseEq"ffi_result"]
+  \\ match_mp_tac RTC_SUBSET
+  \\ rw [call_FFI_rel_def]
+  \\ fs [ffiTheory.valid_ffi_name_def, ffiTheory.ffi_oracle_ok_def]
+  \\ rename1 `FIND (λx. x.mlname = n) ffi.signatures = SOME sign`
+  \\ qabbrev_tac `als = als_args_final_sem (loc_typ_val sign.args vs)`
+  \\ MAP_EVERY qexists_tac [`n`, `sign`, `cargs`, `als`, `newargs`, `retv`]
+  \\ simp []
+  \\ conj_tac
   >- metis_tac [get_cargs_sem_SOME_IMP_args_ok]
   >- (fs [ffiTheory.call_FFI_def]
-      >> (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC \\ rw[])
+      \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC \\ rw[])
       >- (fs [CaseEq"oracle_result"]
           >> (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC \\ rw[])
           >> metis_tac [get_cargs_sem_SOME_IMP_args_ok, ffiTheory.valid_ffi_name_def])
@@ -134,7 +194,38 @@ Proof
           >> metis_tac [ffiTheory.ret_ok_def]) )
 QED
 
-(* from here *)
+*)
+
+
+Theorem call_ffi_sign_eq:
+  call_FFI_rel s s' ==>
+   s.signatures = s'.signatures
+Proof
+  rw [call_FFI_rel_def, ffiTheory.call_FFI_def]
+  \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
+  \\ fs [CaseEq"oracle_result"]
+  \\ rw []
+QED
+
+
+Theorem ffi_valid_ffi_name:
+  call_FFI_rel s s' /\ valid_ffi_name n sign s ==>
+  valid_ffi_name n sign s'
+Proof
+  rw [ffiTheory.valid_ffi_name_def]
+  \\ metis_tac [call_ffi_sign_eq]
+QED
+
+
+Theorem ffi_valid_ffi_name_rev:
+  call_FFI_rel s s' /\ valid_ffi_name n sign s' ==>
+  valid_ffi_name n sign s
+Proof
+  rw [ffiTheory.valid_ffi_name_def]
+  \\ metis_tac [call_ffi_sign_eq]
+QED
+
+
 Theorem evaluate_call_FFI_rel:
    (∀(s:'ffi state) e exp.
       RTC call_FFI_rel s.ffi (FST (evaluate s e exp)).ffi) ∧
@@ -154,6 +245,7 @@ Proof
     metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
   metis_tac[RTC_TRANSITIVE,transitive_def,FST]
 QED
+
 
 Theorem evaluate_call_FFI_rel_imp:
    (∀s e p s' r.
@@ -804,6 +896,19 @@ val option_CASE_fst_cong = Q.prove(
 
 val evaluate_state_const = CONJUNCT1 evaluate_state_unchanged;
 
+Theorem do_app_NONE_not_ffi:
+   !refs ffi op args ffi'. do_app (refs,ffi) op args = NONE /\
+   (∀n. op ≠ FFI n) ⇒
+   do_app (refs,ffi') op args = NONE
+Proof
+  rw[do_app_cases]
+  \\ Cases_on `op` \\ Cases_on `args`
+  \\ fs [do_app_def]
+  \\ (every_case_tac \\ rfs [store_alloc_def] \\ rveq)
+QED
+
+
+
 Theorem evaluate_ffi_intro:
     (∀(s:'a state) env e s' r.
      evaluate s env e = (s',r) ∧
@@ -811,7 +916,8 @@ Theorem evaluate_ffi_intro:
      (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome)))
      ⇒
      ∀(t:'b state).
-       t.clock = s.clock ∧ t.refs = s.refs
+       t.clock = s.clock ∧ t.refs = s.refs  (* /\ t.ffi.signatures = s.ffi.signatures /\
+       ffi_oracle_ok s.ffi /\ ffi_oracle_ok t.ffi *)
        ⇒
        evaluate t env e = (t with <| clock := s'.clock; refs := s'.refs |>, r)) ∧
   (∀(s:'a state) env v pes errv s' r.
@@ -820,13 +926,14 @@ Theorem evaluate_ffi_intro:
      (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome)))
      ⇒
      ∀(t:'b state).
-       t.clock = s.clock ∧ t.refs = s.refs
+       t.clock = s.clock ∧ t.refs = s.refs (* /\ t.ffi.signatures = s.ffi.signatures /\
+       ffi_oracle_ok s.ffi /\ ffi_oracle_ok t.ffi *)
        ⇒
        evaluate_match t env v pes errv = (t with <| clock := s'.clock; refs := s'.refs |>, r))
 Proof
   ho_match_mp_tac evaluate_ind
-  \\ rw[]
-  >- ( rfs[evaluate_def] \\ rw[state_component_equality] )
+  \\ rw [] (*rpt strip_tac *)
+  >- (rfs[evaluate_def] \\ rw[state_component_equality])
   >- (
     rfs[evaluate_def]
     \\ qpat_x_assum`_ = (_,_)`mp_tac
@@ -887,6 +994,10 @@ Proof
   >- (
     rfs[evaluate_def]
     \\ fs[state_component_equality] )
+
+
+(* from here  *)
+
   >- (
     rfs[evaluate_def]
     \\ qpat_x_assum`_ = (_,_)`mp_tac
@@ -913,10 +1024,15 @@ Proof
       \\ fs[Abbr`t1`]
       \\ imp_res_tac evaluate_state_const \\ fs[]*) )
     \\ TOP_CASE_TAC \\ fs[]
+
+
+
     >- (
       strip_tac \\ rveq \\ rfs[]
-      \\ imp_res_tac do_app_NONE_ffi
-      \\ fs[] )
+      \\ TOP_CASE_TAC \\ TOP_CASE_TAC \\ TOP_CASE_TAC
+      \\ Cases_on `?s'. op = FFI s'`
+      >- (fs[]  \\ cheat )
+      >- (fs [] \\ drule do_app_NONE_not_ffi \\ rw [] >> fs []))
     \\ TOP_CASE_TAC \\ fs[]
     \\ TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ rveq \\ fs[]
@@ -924,8 +1040,12 @@ Proof
     \\ imp_res_tac do_app_io_events_mono
     \\ imp_res_tac evaluate_io_events_mono_imp
     \\ imp_res_tac io_events_mono_antisym \\ fs[]
-    \\ imp_res_tac do_app_SOME_ffi_same \\ fs[]
-    \\ rw[state_component_equality] )
+    \\ TOP_CASE_TAC
+    \\ cheat
+    \\ TOP_CASE_TAC \\ TOP_CASE_TAC
+
+    \\ imp_res_tac do_app_SOME_ffi_same \\ rfs[]
+    \\ rw[state_component_equality]  cheat )
   >- (
     rfs[evaluate_def]
     \\ qpat_x_assum`_ = (_,_)`mp_tac
@@ -1011,6 +1131,8 @@ Proof
     >- rw[state_component_equality]
     \\ TOP_CASE_TAC \\ fs[]
     \\ rw[state_component_equality] )
+ *)
+cheat
 QED
 
 Theorem is_clock_io_mono_set_clock:
