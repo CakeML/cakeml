@@ -6796,9 +6796,10 @@ val test = PICK_CONJUNCTS_CONV (fn t => total (fst o dest_var) t = SOME "B")
 
 fun sel_conjuncts_tac sel = CONV_TAC (PICK_CONJUNCTS_CONV sel) \\ conj_tac
 
-Theorem compile_common_semantics
+fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 
-  `closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1
+Theorem compile_common_semantics:
+   closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1
     (compile_common_inc c cc) es1 ≠ Fail ∧
    compile_common c es1 = (c', code2) ∧
    (∀n. SND (SND (co1 n)) = []) ∧
@@ -6839,115 +6840,113 @@ Theorem compile_common_semantics
            (state_co (ignore_table clos_numberProof$compile_inc)
              (pure_co (cond_mti_compile_inc c.do_mti c.max_app) o co1))))
      cc ([Call None 0 c'.start []]) =
-   closSem$semantics ffi c.max_app FEMPTY co1 (compile_common_inc c cc) es1`
-
-  (
-
-rpt strip_tac
-\\ fs [compile_common_def]
-\\ rpt (pairarg_tac \\ fs [])
-\\ rveq \\ fs []
-\\ DEP_REWRITE_TAC [IRULE_CANON semantics_labels_Call]
-\\ DEP_REWRITE_TAC [ IRULE_CANON (
-clos_annotateProofTheory.semantics_annotate |> Q.GEN `xs`
-  |> SPEC ``[^c0]``
-  |> REWRITE_RULE [EVAL ``annotate 0 [^c0]``]
-) ]
-\\ fs [chain_exps_every_Fn_vs_NONE, backendPropsTheory.SND_state_co,
-    MAP_FST_chain_exps_any]
-\\ fs [MEM_MAP, obvious_12, rich_listTheory.MEM_COUNT_LIST]
-\\ ConseqConv.CONSEQ_REWRITE_TAC ([every_Fn_vs_NONE_cond_call_compile_inc], [], [])
-\\ fs [backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
-    SND_SND_ignore_table, FST_SND_ignore_table]
-\\ drule kcompile_csyntax_ok
-\\ impl_keep_tac
->- (
-drule renumber_code_locs_list_csyntax_ok
-\\ impl_keep_tac \\ fs [clos_knownProofTheory.syntax_ok_def]
-)
-\\ rpt disch_tac
-\\ imp_res_tac calls_compile_csyntax_ok
-\\ fs []
-\\ csimp []
-\\ DEP_REWRITE_TAC [chain_exps_semantics_call]
-\\ DEP_REWRITE_TAC [IRULE_CANON (Q.INST [`es'` |-> `es''`, `es` |-> `es'`] semantics_cond_call_compile_inc)]
-\\ fs []
-\\ csimp []
-\\ FIRST_ASSUM (fn t => DEP_REWRITE_TAC [IRULE_CANON (MATCH_MP semantics_kcompile t)])
-\\ fs []
-\\ fs [backendPropsTheory.FST_state_co]
-\\ csimp []
-\\ drule (Q.prove (`renumber_code_locs_list n xs = (m, ys)
-    ==> ys = SND (renumber_code_locs_list n xs)`, fs[]))
-\\ disch_then (fn t => simp_tac bool_ss [t])
-\\ DEP_REWRITE_TAC [IRULE_CANON clos_numberProofTheory.semantics_number]
-\\ DEP_REWRITE_TAC [IRULE_CANON semantics_cond_mti_compile_inc]
-\\ fs [compile_common_inc_def, clos_state_cc_def]
-\\ csimp []
-(* down to syntactic conditions *)
-(* dealing with known_co and things passed across it *)
-\\ fs [UNCURRY, clos_callProofTheory.syntax_ok_def]
-\\ qpat_assum `compile c.known_conf _ = _`
-    (fn t => ConseqConv.CONSEQ_REWRITE_TAC
-        (map (fn t2 => MATCH_MP t2 t) known_co_facts2, [], []))
-\\ simp [backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
-    closPropsTheory.FST_SND_ignore_table, closPropsTheory.SND_SND_ignore_table]
-\\ csimp []
-\\ fs [clos_knownProofTheory.syntax_oracle_ok_def,
-    clos_knownProofTheory.syntax_ok_def]
-\\ csimp [FORALL_AND_THM, GSYM PULL_FORALL,
-       Q.SPEC `IS_SOME x` IMP_CONJ_THM]
-\\ ConseqConv.CONSEQ_REWRITE_TAC
-    (tl (BODY_CONJUNCTS every_Fn_vs_NONE_known_co), [], [])
-\\ fs [backendPropsTheory.SND_state_co, closPropsTheory.SND_SND_ignore_table,
-    SND_cond_mti_compile_inc]
-\\ fs [closPropsTheory.FST_SND_ignore_table, compile_inc_post_kcompile_def]
-\\ fs [PULL_EXISTS, GSYM boolTheory.RIGHT_EXISTS_IMP_THM,
-       make_even_def, arithmeticTheory.EVEN_MOD2,
-       Q.SPEC `IS_SOME x` IMP_CONJ_THM]
-\\ drule_then (fn t => fs [t])
-   (Q.prove (`compile c.do_call x = y ==> c.do_call ==> compile T x = y`,
-       rw [] \\ fs []))
-(* handle the DISJOINT bit separately, it's a bit messy *)
-\\ sel_conjuncts_tac (can (match_term ``DISJOINT (IMAGE _ _) _``))
->- (
-  IMP_RES_THEN (assume_tac o GSYM) clos_callTheory.compile_LENGTH
-  \\ imp_res_tac clos_knownProofTheory.compile_LENGTH
-  \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
-  \\ fs []
-  \\ drule ccompile_aux_subset
-  \\ match_mp_tac (REWRITE_RULE [GSYM AND_IMP_INTRO] DISJOINT_SUBSET)
-  \\ drule clos_knownProofTheory.compile_code_locs_bag
-  \\ disch_then (assume_tac o MATCH_MP containerTheory.LIST_TO_BAG_SUBSET)
-  \\ CCONTR_TAC \\ fs [IN_DISJOINT]
-  \\ imp_res_tac SUBSET_IMP
-  \\ qpat_x_assum `renumber_code_locs_list _ _ = _` mp_tac
-  \\ specl_args_of_then ``renumber_code_locs_list``
-    clos_numberProofTheory.renumber_code_locs_list_distinct assume_tac
-  \\ disch_tac \\ fs [EVERY_MEM]
-  \\ rpt (first_x_assum drule)
-  \\ CASE_TAC \\ fs []
+   closSem$semantics ffi c.max_app FEMPTY co1 (compile_common_inc c cc) es1
+Proof
+  strip_tac
+  \\ fs [compile_common_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ DEP_REWRITE_TAC [IRULE_CANON semantics_labels_Call]
+  \\ DEP_REWRITE_TAC [clos_annotateProofTheory.semantics_annotate
+        |> Q.GEN `xs` |> SPEC ``[^c0]``
+        |> REWRITE_RULE [EVAL ``annotate 0 [^c0]``]
+        |> IRULE_CANON ]
+  \\ fs [chain_exps_every_Fn_vs_NONE, backendPropsTheory.SND_state_co,
+        MAP_FST_chain_exps_any]
+  \\ fs [MEM_MAP, obvious_12, rich_listTheory.MEM_COUNT_LIST]
+  \\ conseq [every_Fn_vs_NONE_cond_call_compile_inc]
+  \\ fs [backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
+        SND_SND_ignore_table, FST_SND_ignore_table]
+  \\ drule kcompile_csyntax_ok
+  \\ impl_keep_tac
+  >- (
+    drule renumber_code_locs_list_csyntax_ok
+    \\ impl_keep_tac \\ fs [clos_knownProofTheory.syntax_ok_def]
   )
-(* time to deal with renumber stuff *)
-\\ drule_then assume_tac
+  \\ rpt disch_tac
+  \\ imp_res_tac calls_compile_csyntax_ok
+  \\ fs []
+  \\ csimp []
+  \\ DEP_REWRITE_TAC [chain_exps_semantics_call]
+  \\ DEP_REWRITE_TAC [IRULE_CANON (Q.INST [`es'` |-> `es''`, `es` |-> `es'`]
+        semantics_cond_call_compile_inc)]
+  \\ fs []
+  \\ csimp []
+  \\ FIRST_ASSUM (fn t => DEP_REWRITE_TAC [IRULE_CANON
+        (MATCH_MP semantics_kcompile t)])
+  \\ fs [backendPropsTheory.FST_state_co]
+  \\ csimp []
+  \\ drule (Q.prove (`renumber_code_locs_list n xs = (m, ys)
+        ==> ys = SND (renumber_code_locs_list n xs)`, fs[]))
+  \\ disch_then (fn t => simp_tac bool_ss [t])
+  \\ DEP_REWRITE_TAC [IRULE_CANON clos_numberProofTheory.semantics_number]
+  \\ DEP_REWRITE_TAC [IRULE_CANON semantics_cond_mti_compile_inc]
+  \\ fs [compile_common_inc_def, clos_state_cc_def]
+  \\ csimp []
+  (* down to syntactic conditions *)
+  (* dealing with known_co and things passed across it *)
+  \\ fs [UNCURRY, clos_callProofTheory.syntax_ok_def]
+  \\ qpat_assum `compile c.known_conf _ = _`
+    (fn t => conseq (map (fn t2 => MATCH_MP t2 t) known_co_facts2))
+  \\ simp [backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
+        closPropsTheory.FST_SND_ignore_table,
+        closPropsTheory.SND_SND_ignore_table]
+  \\ csimp []
+  \\ fs [clos_knownProofTheory.syntax_oracle_ok_def,
+        clos_knownProofTheory.syntax_ok_def]
+  \\ csimp [FORALL_AND_THM, GSYM PULL_FORALL,
+        Q.SPEC `IS_SOME x` IMP_CONJ_THM]
+  \\ conseq (tl (BODY_CONJUNCTS every_Fn_vs_NONE_known_co))
+  \\ fs [backendPropsTheory.SND_state_co, closPropsTheory.SND_SND_ignore_table,
+        SND_cond_mti_compile_inc]
+  \\ fs [closPropsTheory.FST_SND_ignore_table, compile_inc_post_kcompile_def]
+  \\ fs [PULL_EXISTS, GSYM boolTheory.RIGHT_EXISTS_IMP_THM,
+        make_even_def, arithmeticTheory.EVEN_MOD2,
+        Q.SPEC `IS_SOME x` IMP_CONJ_THM]
+  \\ drule_then (fn t => fs [t]) (Q.prove
+        (`compile c.do_call x = y ==> c.do_call ==> compile T x = y`,
+            rw [] \\ fs []))
+  (* handle the DISJOINT bit separately, it's a bit messy *)
+  \\ qmatch_goalsub_abbrev_tac`DISJOINT A B`
+  \\ `DISJOINT A B` by (
+    unabbrev_all_tac
+    \\ IMP_RES_THEN (assume_tac o GSYM) clos_callTheory.compile_LENGTH
+    \\ imp_res_tac clos_knownProofTheory.compile_LENGTH
+    \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
+    \\ fs []
+    \\ drule ccompile_aux_subset
+    \\ match_mp_tac (REWRITE_RULE [GSYM AND_IMP_INTRO] DISJOINT_SUBSET)
+    \\ drule clos_knownProofTheory.compile_code_locs_bag
+    \\ disch_then (assume_tac o MATCH_MP containerTheory.LIST_TO_BAG_SUBSET)
+    \\ CCONTR_TAC \\ fs [IN_DISJOINT]
+    \\ imp_res_tac SUBSET_IMP
+    \\ qpat_x_assum `renumber_code_locs_list _ _ = _` mp_tac
+    \\ specl_args_of_then ``renumber_code_locs_list``
+        clos_numberProofTheory.renumber_code_locs_list_distinct assume_tac
+    \\ disch_tac \\ fs [EVERY_MEM]
+    \\ rpt (first_x_assum drule)
+    \\ CASE_TAC \\ fs []
+    )
+  (* deal with the renumber phase *)
+  \\ drule_then assume_tac
     (hd (BODY_CONJUNCTS clos_numberProofTheory.renumber_code_locs_esgc_free))
-\\ rfs [clos_mtiProofTheory.compile_preserves_esgc_free]
-\\ fs [Q.ISPEC `renumber_code_locs_list x y` PAIR_FST_SND_EQ]
-\\ rveq \\ fs []
-\\ fs [elist_globals_SND_renumber_code_locs_list]
-\\ ConseqConv.CONSEQ_REWRITE_TAC ([number_compile_inc_esgc_free,
-  number_monotonic_elist_globals, cond_mti_monotonic_elist_globals,
-  renumber_code_locs_monotonic], [], [])
-\\ csimp []
-\\ fs []
-\\ drule_then (fn t => simp [t]) is_state_oracle_IMP_EQ
-\\ fs []
-
-\\ Cases_on `~ c.do_mti`
-  \\ fs [cond_mti_compile_inc_def, clos_mtiTheory.compile_def]
-  (* looks like these things need to be assumed ? *)
-
-);
+  \\ rfs [clos_mtiProofTheory.compile_preserves_esgc_free]
+  \\ fs [Q.ISPEC `renumber_code_locs_list x y` PAIR_FST_SND_EQ]
+  \\ rveq \\ fs []
+  \\ fs [elist_globals_SND_renumber_code_locs_list]
+  \\ conseq [number_compile_inc_esgc_free,
+        number_monotonic_elist_globals, cond_mti_monotonic_elist_globals,
+        renumber_code_locs_monotonic]
+  \\ csimp []
+  \\ fs []
+  \\ drule_then (fn t => simp [t]) is_state_oracle_IMP_EQ
+  \\ fs []
+  \\ Cases_on `c.do_mti`
+  \\ fs [cond_mti_compile_inc_def, clos_mtiTheory.compile_def,
+        mcompile_inc_uncurry,
+        clos_mtiProofTheory.intro_multi_preserves_elist_globals,
+        clos_mtiProofTheory.intro_multi_preserves_esgc_free]
+QED
 
 Theorem compile_prog_semantics
   `semantics (ffi:'ffi ffi_state) max_app code1 co1 cc1 [Call None 0 start []] ≠ Fail ∧
