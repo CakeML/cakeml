@@ -1987,6 +1987,18 @@ Proof
   \\ metis_tac [v_all_ts_def]
 QED
 
+(* NOT USED *)
+Theorem all_ts_in_no_block:
+     ∀refs stack v t.
+       (∀ts tag xs. v ≠ Block ts tag xs) ∧
+       t ∈ all_ts refs (v::stack)
+       ⇒ t ∈ all_ts refs stack
+Proof
+  rw []
+  \\ drule all_ts_cons_no_block
+  \\ rw [] \\ fs []
+QED
+
 Theorem all_ts_append:
   ∀refs x y. all_ts refs (x ++ y) = all_ts refs x ∪ all_ts refs y
 Proof
@@ -4534,19 +4546,34 @@ Proof
   \\ match_mp_tac ALOOKUP_ZIP_EL \\ full_simp_tac(srw_ss())[]
 QED
 
+Theorem timestamps_ok_rearrange:
+     (∀x. MEM x ys ⇒ MEM x xs) ⇒
+     timestamps_ok refs xs ts ⇒
+     timestamps_ok refs ys ts
+Proof
+  rw [timestamps_ok_def]
+  \\ first_assum ho_match_mp_tac
+  \\ fs [all_ts_def]
+  \\ metis_tac []
+QED
+
 Theorem memory_rel_rearrange:
    (∀x. MEM x ys ⇒ MEM x xs) ⇒
-   memory_rel c be refs sp st m dm xs ==>
-   memory_rel c be refs sp st m dm ys
+   memory_rel c be ts refs sp st m dm xs ==>
+   memory_rel c be ts refs sp st m dm ys
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
-  \\ qpat_x_assum `word_ml_inv _ _ _ _ _` mp_tac
-  \\ match_mp_tac word_ml_inv_rearrange \\ fs []
+  \\ conj_tac
+  >- (qpat_x_assum `word_ml_inv _ _ _ _ _` mp_tac
+     \\ match_mp_tac word_ml_inv_rearrange \\ fs [])
+  >- (qpat_x_assum `timestamps_ok _ _ _` mp_tac
+     \\ match_mp_tac timestamps_ok_rearrange
+     \\ metis_tac [MEM_MAP])
 QED
 
 Theorem memory_rel_tl:
-   memory_rel c be refs sp st m dm (x::xs) ==>
-   memory_rel c be refs sp st m dm xs
+   memory_rel c be ts refs sp st m dm (x::xs) ==>
+   memory_rel c be ts refs sp st m dm xs
 Proof
   match_mp_tac memory_rel_rearrange \\ fs []
 QED
@@ -4568,11 +4595,14 @@ Proof
 QED
 
 Theorem memory_rel_Unit:
-   memory_rel c be refs sp st m dm xs /\ good_dimindex (:'a) ==>
-    memory_rel c be refs sp st m dm ((Unit,Word (2w:'a word))::xs)
+   memory_rel c be ts refs sp st m dm xs /\ good_dimindex (:'a) /\ 0 < ts ==>
+   memory_rel c be ts refs sp st m dm ((Unit,Word (2w:'a word))::xs)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
-  \\ match_mp_tac word_ml_inv_Unit \\ fs []
+  \\ conj_tac
+  >- (match_mp_tac word_ml_inv_Unit \\ fs [])
+  \\ fs[timestamps_ok_def,dataSemTheory.Unit_def]
+  \\ rw[] \\ fs [all_ts_cons]
 QED
 
 Theorem get_lowerbits_LSL_shift_length:
