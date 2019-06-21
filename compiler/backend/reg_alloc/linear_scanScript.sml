@@ -2,7 +2,6 @@
   A linear-scan register allocator.
 *)
 open preamble sptreeTheory reg_allocTheory libTheory
-open mergesortTheory sortingTheory
 open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
 
 val _ = new_theory "linear_scan"
@@ -279,6 +278,33 @@ val check_intervals_def = Define`
       r1 = r2
 `
 
+val get_intervals_ct_aux_def = Define`
+    (
+      get_intervals_ct_aux (reg_alloc$Delta wr rd) (n : int) int_beg int_end live =
+        (n-2, numset_list_add_if_lt wr n int_beg, numset_list_add_if_gt rd (n-1) (numset_list_add_if_gt wr n int_end), numset_list_insert rd (numset_list_delete wr live))
+    ) /\ (
+      get_intervals_ct_aux (reg_alloc$Set cutset) (n : int) int_beg int_end live =
+        (n-1, int_beg, numset_list_add_if_gt (MAP FST (toAList cutset)) n int_end, union cutset live)
+    ) /\ (
+      get_intervals_ct_aux (reg_alloc$Branch optcutset ct1 ct2) (n : int) int_beg int_end live =
+        let (n2, int_beg2, int_end2, live2) = get_intervals_ct_aux ct2 n int_beg int_end live in
+        let (n1, int_beg1, int_end1, live1) = get_intervals_ct_aux ct1 n2 int_beg2 int_end2 live in
+        case optcutset of
+        | NONE => (n1, int_beg1, int_end1, union live1 live2)
+        | SOME cutset => (n1-1, int_beg1, numset_list_add_if_gt (MAP FST (toAList cutset)) n1 int_end1, union cutset (union live1 live2))
+    ) /\ (
+      get_intervals_ct_aux (reg_alloc$Seq ct1 ct2) (n : int) int_beg int_end live =
+        let (n2, int_beg2, int_end2, live2) = get_intervals_ct_aux ct2 n int_beg int_end live in
+        get_intervals_ct_aux ct1 n2 int_beg2 int_end2 live2
+    )
+`
+
+val get_intervals_ct_def = Define`
+    get_intervals_ct ct =
+        let (n, int_beg, int_end, live) = get_intervals_ct_aux ct 0 LN LN LN in
+        let listlive = MAP FST (toAList live) in
+        (n-1, numset_list_add_if_lt listlive n int_beg, numset_list_add_if_gt listlive n int_end)
+`
 
 val _ = Datatype `
   linear_scan_state =
@@ -293,13 +319,25 @@ val _ = Datatype `
 val _ = Datatype `
   linear_scan_hidden_state =
     <| colors : num list
+     ; int_beg : int list
+     ; int_end : int list
+     ; sorted_regs : num list
+     ; sorted_moves : (num # (num # num)) list
      |>`
 
 val accessors = define_monad_access_funs ``:linear_scan_hidden_state``;
 
 val colors_accessors = el 1 accessors;
+val int_beg_accessors = el 2 accessors;
+val int_end_accessors = el 3 accessors;
+val sorted_regs_accessors = el 4 accessors;
+val sorted_moves_accessors = el 5 accessors;
 
 val (colors,get_colors_def,set_colors_def) = colors_accessors;
+val (int_beg,get_int_beg_def,set_int_beg_def) = int_beg_accessors;
+val (int_end,get_int_end_def,set_int_end_def) = int_end_accessors;
+val (sorted_regs,get_sorted_regs_def,set_sorted_regs_def) = sorted_regs_accessors;
+val (sorted_moves,get_sorted_moves_def,set_sorted_moves_def) = sorted_moves_accessors;
 
 (*
 val _ = Hol_datatype`
@@ -312,17 +350,136 @@ val _ = temp_overload_on ("failwith", ``raise_Fail``);
 val sub_exn = ``Subscript``;
 val update_exn = ``Subscript``;
 
-val arr_manip = define_MFarray_manip_funs [colors_accessors] sub_exn update_exn;
+val arr_manip = define_MFarray_manip_funs [colors_accessors, int_beg_accessors, int_end_accessors, sorted_regs_accessors, sorted_moves_accessors] sub_exn update_exn;
 
 fun accessor_thm (a,b,c,d,e,f) = LIST_CONJ [b,c,d,e,f]
 
 val colors_manip = el 1 arr_manip;
+val int_beg_manip = el 2 arr_manip;
+val int_end_manip = el 3 arr_manip;
+val sorted_regs_manip = el 4 arr_manip;
+val sorted_moves_manip = el 5 arr_manip;
 
 val colors_accessor = save_thm("colors_accessor",accessor_thm colors_manip);
+val int_beg_accessor = save_thm("int_beg_accessor",accessor_thm int_beg_manip);
+val int_end_accessor = save_thm("int_end_accessor",accessor_thm int_end_manip);
+val sorted_regs_accessor = save_thm("sorted_regs_accessor",accessor_thm sorted_regs_manip);
+val sorted_moves_accessor = save_thm("sorted_moves_accessor",accessor_thm sorted_moves_manip);
 
 val colors_length_def = fetch "-" "colors_length_def";
 val colors_sub_def    = fetch "-" "colors_sub_def";
 val update_colors_def = fetch "-" "update_colors_def";
+
+val int_beg_length_def = fetch "-" "int_beg_length_def";
+val int_beg_sub_def    = fetch "-" "int_beg_sub_def";
+val update_int_beg_def = fetch "-" "update_int_beg_def";
+
+val int_end_length_def = fetch "-" "int_end_length_def";
+val int_end_sub_def    = fetch "-" "int_end_sub_def";
+val update_int_end_def = fetch "-" "update_int_end_def";
+
+val sorted_regs_length_def = fetch "-" "sorted_regs_length_def";
+val sorted_regs_sub_def    = fetch "-" "sorted_regs_sub_def";
+val update_sorted_regs_def = fetch "-" "update_sorted_regs_def";
+
+val sorted_moves_length_def = fetch "-" "sorted_moves_length_def";
+val sorted_moves_sub_def    = fetch "-" "sorted_moves_sub_def";
+val update_sorted_moves_def = fetch "-" "update_sorted_moves_def";
+
+val numset_list_add_if_lt_monad_def = Define`
+  (
+    numset_list_add_if_lt_monad [] v =
+      return ()
+  ) /\ (
+    numset_list_add_if_lt_monad (r::rs) v =
+      do
+        begr <- int_beg_sub r;
+        if 0 < begr then
+          do
+            update_int_beg r v;
+            numset_list_add_if_lt_monad rs v;
+          od
+        else if v <= begr then
+          do
+            update_int_beg r v;
+            numset_list_add_if_lt_monad rs v;
+          od
+        else
+          numset_list_add_if_lt_monad rs v
+      od
+  )
+`
+
+val numset_list_add_if_gt_monad_def = Define`
+  (
+    numset_list_add_if_gt_monad [] v =
+      return ()
+  ) /\ (
+    numset_list_add_if_gt_monad (r::rs) v =
+      do
+        begr <- int_end_sub r;
+        if 0 < begr then
+          do
+            update_int_end r v;
+            numset_list_add_if_gt_monad rs v;
+          od
+        else if begr <= v then
+          do
+            update_int_end r v;
+            numset_list_add_if_gt_monad rs v;
+          od
+        else
+          numset_list_add_if_gt_monad rs v
+      od
+  )
+`
+
+val get_intervals_ct_monad_aux_def = Define`
+    (
+      get_intervals_ct_monad_aux (reg_alloc$Delta wr rd) (n : int) live =
+        do
+          numset_list_add_if_lt_monad wr n;
+          numset_list_add_if_gt_monad wr n;
+          numset_list_add_if_gt_monad rd (n-1);
+          return (n-2, numset_list_insert rd (numset_list_delete wr live));
+        od
+    ) /\ (
+      get_intervals_ct_monad_aux (reg_alloc$Set cutset) (n : int) live =
+        do
+          numset_list_add_if_gt_monad (MAP FST (toAList cutset)) n;
+          return (n-1, union cutset live);
+        od
+    ) /\ (
+      get_intervals_ct_monad_aux (reg_alloc$Branch optcutset ct1 ct2) (n : int) live =
+        do
+          (n2, live2) <- get_intervals_ct_monad_aux ct2 n live;
+          (n1, live1) <- get_intervals_ct_monad_aux ct1 n2 live;
+          case optcutset of
+          | NONE => return (n1, union live1 live2)
+          | SOME cutset =>
+            do
+              numset_list_add_if_gt_monad (MAP FST (toAList cutset)) n1;
+              return (n1-1, union cutset (union live1 live2));
+            od
+        od
+    ) /\ (
+      get_intervals_ct_monad_aux (reg_alloc$Seq ct1 ct2) (n : int) live =
+        do
+          (n2, live2) <- get_intervals_ct_monad_aux ct2 n live;
+          get_intervals_ct_monad_aux ct1 n2 live2;
+        od
+    )
+`
+
+val get_intervals_ct_monad_def = Define`
+    get_intervals_ct_monad ct =
+      do
+        (n, live) <- get_intervals_ct_monad_aux ct 0 LN;
+        numset_list_add_if_lt_monad (MAP FST (toAList live)) n;
+        numset_list_add_if_gt_monad (MAP FST (toAList live)) n;
+        return (n-1)
+      od
+`
 
 val remove_inactive_intervals_def = tDefine "remove_inactive_intervals" `
     remove_inactive_intervals beg st =
@@ -465,10 +622,10 @@ val linear_reg_alloc_step_aux_def = Define`
 `
 
 val linear_reg_alloc_step_pass1_def = Define`
-    linear_reg_alloc_step_pass1 int_beg int_end forced moves st reg =
-      let rbeg = the 0 (lookup reg int_beg) in
-      let rend = the 0 (lookup reg int_end) in
+    linear_reg_alloc_step_pass1 forced moves st reg =
       do
+        rbeg <- int_beg_sub reg;
+        rend <- int_end_sub reg;
         st' <- remove_inactive_intervals rbeg st;
         if is_stack_var reg then
           spill_register st' reg
@@ -492,22 +649,22 @@ val linear_reg_alloc_step_pass1_def = Define`
 `
 
 val linear_reg_alloc_step_pass2_def = Define`
-    linear_reg_alloc_step_pass2 int_beg int_end forced moves st reg =
-      let rbeg = the 0 (lookup reg int_beg) in
-      let rend = the 0 (lookup reg int_end) in
-        do
-          st' <- remove_inactive_intervals rbeg st;
-          forced_forbidden_list <- st_ex_MAP colors_sub (the [] (lookup reg forced));
-          forced_forbidden <- return (fromAList (MAP (\c. (c,())) forced_forbidden_list));
-          moves_preferred <- st_ex_MAP colors_sub (the [] (lookup reg moves));
-          if is_phy_var reg then
-            let forbidden = union st'.phyregs forced_forbidden in
-            do
-              linear_reg_alloc_step_aux st' forbidden [] reg rend F;
-            od
-          else
-            linear_reg_alloc_step_aux st' forced_forbidden moves_preferred reg rend F;
-        od
+    linear_reg_alloc_step_pass2 forced moves st reg =
+      do
+        rbeg <- int_beg_sub reg;
+        rend <- int_end_sub reg;
+        st' <- remove_inactive_intervals rbeg st;
+        forced_forbidden_list <- st_ex_MAP colors_sub (the [] (lookup reg forced));
+        forced_forbidden <- return (fromAList (MAP (\c. (c,())) forced_forbidden_list));
+        moves_preferred <- st_ex_MAP colors_sub (the [] (lookup reg moves));
+        if is_phy_var reg then
+          let forbidden = union st'.phyregs forced_forbidden in
+          do
+            linear_reg_alloc_step_aux st' forbidden [] reg rend F;
+          od
+        else
+          linear_reg_alloc_step_aux st' forced_forbidden moves_preferred reg rend F;
+      od
 `
 
 
@@ -598,57 +755,202 @@ val st_ex_FILTER_good_def = Define`
 
 val edges_to_adjlist_def = Define`
   (
-    edges_to_adjlist [] (int_beg : int num_map) acc = acc
+    edges_to_adjlist [] acc = return acc
   ) /\ (
-    edges_to_adjlist ((a,b)::abs) int_beg acc =
+    edges_to_adjlist ((a,b)::abs) acc =
       if a = b then
-        edges_to_adjlist abs int_beg acc
-      else if ($< LEX $<=) (the 0 (lookup a int_beg), a) (the 0 (lookup b int_beg), b) then
-        edges_to_adjlist abs int_beg (insert b (a::(the [] (lookup b acc))) acc)
+        edges_to_adjlist abs acc
       else
-        edges_to_adjlist abs int_beg (insert a (b::(the [] (lookup a acc))) acc)
+        do
+          bega <- int_beg_sub a;
+          begb <- int_beg_sub b;
+          if bega < begb \/ (bega = begb /\ a <= b) then
+            edges_to_adjlist abs (insert b (a::(the [] (lookup b acc))) acc)
+          else
+            edges_to_adjlist abs (insert a (b::(the [] (lookup a acc))) acc)
+        od
   )
 `
-
-(* this is a version that is slightly better for the translator *)
-val edges_to_adjlist_impl_def = Define `
-  edges_to_adjlist_impl abs (int_beg : int num_map) acc =
-    case abs of
-    | [] => acc
-    | ((a,b)::abs) =>
-        if a = b then
-          edges_to_adjlist_impl abs int_beg acc
-        else
-          let a1 = the 0i (lookup a int_beg) in
-          let b1 = the 0i (lookup b int_beg) in
-            if a1 < b1 \/ (a1 = b1 /\ a <= b) then
-              edges_to_adjlist_impl abs int_beg
-                (insert b (a::(the [] (lookup b acc))) acc)
-            else
-              edges_to_adjlist_impl abs int_beg
-                (insert a (b::(the [] (lookup a acc))) acc)`
 
 val sort_moves_rev_def = Define`
   sort_moves_rev ls =
     QSORT (\p:num,x p',x'. p<p') ls`
 
-Theorem edges_to_adjlist_impl_thm
-  `edges_to_adjlist = edges_to_adjlist_impl`
-  (fs [FUN_EQ_THM] \\ Induct
-  \\ once_rewrite_tac [edges_to_adjlist_impl_def]
-  \\ simp [FORALL_PROD,edges_to_adjlist_def,pairTheory.LEX_DEF]);
+val swap_regs_def = Define`
+    swap_regs i1 i2 =
+      do
+        r1 <- sorted_regs_sub i1;
+        r2 <- sorted_regs_sub i2;
+        update_sorted_regs i1 r2;
+        update_sorted_regs i2 r1;
+      od
+`
+
+val partition_regs_def = tDefine "partition_regs" `
+    partition_regs l rpiv begrpiv r =
+      if r <= l then
+        return l
+      else
+        do
+          reg <- sorted_regs_sub l;
+          begreg <- int_beg_sub reg;
+          if begreg < begrpiv \/ (begreg = begrpiv /\ reg <= rpiv) then
+              partition_regs (l+1) rpiv begrpiv r
+          else
+            do
+              swap_regs l (r-1);
+              partition_regs l rpiv begrpiv (r-1);
+            od
+        od
+` (
+  WF_REL_TAC `measure (\l,rpiv,begrpiv,r. r-l)`
+);
+
+val qsort_regs_def = tDefine "qsort_regs" `
+    qsort_regs l r =
+      if r <= l+1 then
+        return ()
+      else
+        do
+          rpiv <- sorted_regs_sub l;
+          begrpiv <- int_beg_sub rpiv;
+          m <- partition_regs (l+1) rpiv begrpiv r;
+          swap_regs l (m-1);
+          (* TODO: this condition is necessary for the termination argument, but useless in practice *)
+          if m <= l \/ r < m then
+            return ()
+          else
+            do
+              qsort_regs l (m-1);
+              qsort_regs m r;
+            od
+        od
+`(
+    WF_REL_TAC `measure (\l,r. r-l)`
+)
+
+val list_to_sorted_regs_def = Define`
+  (
+    list_to_sorted_regs [] n =
+        return ()
+  ) /\ (
+    list_to_sorted_regs (r::rs) n =
+      do
+        update_sorted_regs n r;
+        list_to_sorted_regs rs (n+1);
+      od
+  )`
+
+val sorted_regs_to_list_def = tDefine "sorted_regs_to_list" `
+    sorted_regs_to_list n last =
+      if last <= n then
+        return []
+      else
+        do
+          r <- sorted_regs_sub n;
+          l <- sorted_regs_to_list (n+1) last;
+          return (r::l);
+        od
+` (
+  WF_REL_TAC `measure (\n,last. last-n)`
+);
+
+val swap_moves_def = Define`
+    swap_moves i1 i2 =
+      do
+        r1 <- sorted_moves_sub i1;
+        r2 <- sorted_moves_sub i2;
+        update_sorted_moves i1 r2;
+        update_sorted_moves i2 r1;
+      od
+`
+
+val partition_moves_def = tDefine "partition_moves" `
+    partition_moves l ppiv r =
+      if r <= l then
+        return l
+      else
+        do
+          move <- sorted_moves_sub l;
+          if FST move < ppiv  then
+            partition_moves (l+1) ppiv r
+          else
+            do
+              swap_moves l (r-1);
+              partition_moves l ppiv (r-1);
+            od
+        od
+` (
+  WF_REL_TAC `measure (\l,piv,r. r-l)`
+);
+
+val qsort_moves_def = tDefine "qsort_moves" `
+    qsort_moves l r =
+      if r <= l+1 then
+        return ()
+      else
+        do
+          piv <- sorted_moves_sub l;
+          m <- partition_moves (l+1) (FST piv) r;
+          swap_moves l (m-1);
+          (* TODO: this condition is necessary for the termination argument, but useless in practice *)
+          if m <= l \/ r < m then
+            return ()
+          else
+            do
+              qsort_moves l (m-1);
+              qsort_moves m r;
+            od
+        od
+`(
+    WF_REL_TAC `measure (\l,r. r-l)`
+)
+
+
+val list_to_sorted_moves_def = Define`
+  (
+    list_to_sorted_moves [] n =
+        return ()
+  ) /\ (
+    list_to_sorted_moves (r::rs) n =
+      do
+        update_sorted_moves n r;
+        list_to_sorted_moves rs (n+1);
+      od
+  )`
+
+val sorted_moves_to_list_def = tDefine "sorted_moves_to_list" `
+    sorted_moves_to_list n len =
+      if len <= n then
+        return []
+      else
+        do
+          r <- sorted_moves_sub n;
+          l <- sorted_moves_to_list (n+1) len;
+          return (r::l);
+        od
+` (
+  WF_REL_TAC `measure (\n,len. len-n)`
+);
 
 val linear_reg_alloc_intervals_def = Define`
-    linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted =
-        let moves_adjlist = edges_to_adjlist (MAP SND (sort_moves_rev moves)) int_beg LN in
-        let forced_adjlist = edges_to_adjlist forced int_beg LN in
-        let reglist = QSORT (\r1 r2. ($< LEX $<=) (the 0 (lookup r1 int_beg), r1) (the 0 (lookup r2 int_beg), r2)) reglist_unsorted in
-        let phyregs = FILTER is_phy_var reglist in
-        let phyphyregs = FILTER (\r. r < 2*k) phyregs in
-        let stackphyregs = FILTER (\r. 2*k <= r) phyregs in
+    linear_reg_alloc_intervals k forced moves reglist_unsorted =
+        let lenreg = LENGTH reglist_unsorted in
+        let lenmoves = LENGTH moves in
         let st_init_pass1 = linear_reg_alloc_pass1_initial_state k in
         do
-          st_end_pass1 <- st_ex_FOLDL (linear_reg_alloc_step_pass1 int_beg int_end forced_adjlist moves_adjlist) st_init_pass1 reglist;
+          list_to_sorted_regs reglist_unsorted 0;
+          qsort_regs 0 lenreg;
+          reglist <- sorted_regs_to_list 0 lenreg;
+          phyregs <- return (FILTER is_phy_var reglist);
+          phyphyregs <- return (FILTER (\r. r < 2*k) phyregs);
+          stackphyregs <- return (FILTER (\r. 2*k <= r) phyregs);
+          list_to_sorted_moves moves 0;
+          qsort_moves 0 lenmoves;
+          smoves <- sorted_moves_to_list 0 lenmoves;
+          moves_adjlist <- edges_to_adjlist (MAP SND smoves) LN;
+          forced_adjlist <- edges_to_adjlist forced LN;
+          st_end_pass1 <- st_ex_FOLDL (linear_reg_alloc_step_pass1 forced_adjlist moves_adjlist) st_init_pass1 reglist;
           apply_reg_exchange phyphyregs;
           stacklist <- st_ex_FILTER_good (\r.
             do
@@ -660,7 +962,7 @@ val linear_reg_alloc_intervals_def = Define`
           stackset <- return (fromAList (MAP (\r. (r,())) stacklist));
           forced_adjlist' <- return (map (FILTER (\r. lookup r stackset <> NONE)) forced_adjlist);
           moves_adjlist' <- return (map (FILTER (\r. lookup r stackset <> NONE)) moves_adjlist);
-          st_end_pass2 <- st_ex_FOLDL (linear_reg_alloc_step_pass2 int_beg int_end forced_adjlist' moves_adjlist') st_init_pass2 stacklist;
+          st_end_pass2 <- st_ex_FOLDL (linear_reg_alloc_step_pass2 forced_adjlist' moves_adjlist') st_init_pass2 stacklist;
           apply_reg_exchange stackphyregs;
         od
 `
@@ -697,7 +999,9 @@ val find_bijection_init_def = Define`
 
 val find_bijection_step_def = Define`
     find_bijection_step state r =
-      if is_phy_var r then
+      if lookup r state.bij <> NONE then
+        state
+      else if is_phy_var r then
         state with
           <| bij := insert r r state.bij
            ; invbij := insert r r state.invbij
@@ -719,43 +1023,99 @@ val find_bijection_step_def = Define`
            |>
 `
 
+val find_bijection_clash_tree_def = Define`
+  (
+    find_bijection_clash_tree state (Delta wr rd) =
+      FOLDL find_bijection_step (FOLDL find_bijection_step state rd) wr
+  ) /\ (
+    find_bijection_clash_tree state (Set cutset) =
+      foldi (\r v acc. find_bijection_step acc r) 0 state cutset
+  ) /\ (
+    find_bijection_clash_tree state (Branch optcutset ct1 ct2) =
+      let state1 = find_bijection_clash_tree state ct1 in
+      let state2 = find_bijection_clash_tree state1 ct2 in
+        case optcutset of
+        | NONE => state2
+        | SOME cutset =>
+          foldi (\r v acc. find_bijection_step acc r) 0 state2 cutset
+  ) /\ (
+    find_bijection_clash_tree state (Seq ct1 ct2) =
+      let state1 = find_bijection_clash_tree state ct1 in
+      find_bijection_clash_tree state1 ct2
+  )`
+
 val apply_bijection_def = Define`
     apply_bijection bij (interval : int num_map) =
         foldi (\r i acc. insert (the 0 (lookup r bij)) i acc) 0 LN interval
 `
 
-val array_fields_names = ["colors"];
+val array_fields_names = ["colors", "int_beg", "int_end", "sorted_regs", "sorted_moves"];
 val run_i_linear_scan_hidden_state_def =
   define_run ``:linear_scan_hidden_state``
   array_fields_names
   "i_linear_scan_hidden_state";
 
-val linear_reg_alloc_intervals_and_extract_coloration_def = Define`
-    linear_reg_alloc_intervals_and_extract_coloration int_beg int_end k forced moves reglist_unsorted invbij nmax =
+val linear_reg_alloc_and_extract_coloration_def = Define`
+    linear_reg_alloc_and_extract_coloration ct k forced moves reglist_unsorted invbij nmax =
       do
-        linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted;
+        get_intervals_ct_monad ct;
+        linear_reg_alloc_intervals k forced moves reglist_unsorted;
         extract_coloration invbij reglist_unsorted LN;
       od
 `
 
+val size_of_clash_tree_def = Define`
+  (
+    size_of_clash_tree (Delta wr rd) =
+      2i
+  ) /\ (
+    size_of_clash_tree (Set cutset) =
+      1i
+  ) /\ (
+    size_of_clash_tree (Branch optcutset ct1 ct2) =
+      (if IS_SOME optcutset then 1 else 0) + size_of_clash_tree ct1 + size_of_clash_tree ct2
+  ) /\ (
+    size_of_clash_tree (Seq ct1 ct2) =
+      size_of_clash_tree ct1 + size_of_clash_tree ct2
+  )`
+
 val run_linear_reg_alloc_intervals_def = Define`
-    run_linear_reg_alloc_intervals int_beg int_end k forced moves reglist_unsorted invbij nmax =
+    run_linear_reg_alloc_intervals ct k forced moves reglist_unsorted invbij nmax =
         run_i_linear_scan_hidden_state
-          (linear_reg_alloc_intervals_and_extract_coloration int_beg int_end k forced moves reglist_unsorted invbij nmax)
-          <| colors := (nmax+1, 0) |>
+          (linear_reg_alloc_and_extract_coloration ct k forced moves reglist_unsorted invbij nmax)
+          <| colors := (nmax+1, 0)
+           ; int_beg := (nmax+1, 1)
+           ; int_end := (nmax+1, 1)
+           ; sorted_regs := (nmax+1, 0)
+           ; sorted_moves := (LENGTH moves, (0,(0,0)))
+           |>
 `
+
+val apply_bij_on_clash_tree_def = Define`
+  (
+    apply_bij_on_clash_tree (Delta wr rd) bij =
+      Delta (MAP (\r. the 0n (lookup r bij)) wr) (MAP (\r. the 0n (lookup r bij)) rd)
+  ) /\ (
+    apply_bij_on_clash_tree (Set cutset) bij =
+      Set (foldi (\r _ acc. insert (the 0n (lookup r bij)) () acc) 0 LN cutset)
+  ) /\ (
+    apply_bij_on_clash_tree (Branch optcutset ct1 ct2) bij =
+      Branch (OPTION_MAP (foldi (\r _ acc. insert (the 0n (lookup r bij)) () acc) 0 LN) optcutset) (apply_bij_on_clash_tree ct1 bij) (apply_bij_on_clash_tree ct2 bij)
+  ) /\ (
+    apply_bij_on_clash_tree (Seq ct1 ct2) bij =
+      Seq (apply_bij_on_clash_tree ct1 bij) (apply_bij_on_clash_tree ct2 bij)
+  )`
+
+
 
 val linear_scan_reg_alloc_def = Define`
     linear_scan_reg_alloc k moves ct forced =
-        let livetree = fix_domination (get_live_tree ct) in
-        let (int_n, int_beg, int_end) = get_intervals livetree 0 LN LN in
-        let bijstate = FOLDL find_bijection_step find_bijection_init (MAP FST (toAList int_beg)) in
+        let bijstate = find_bijection_clash_tree find_bijection_init ct in
+        let ct' = apply_bij_on_clash_tree ct bijstate.bij in
         let forced' = MAP (\r1,r2. (the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij))) forced in
         let moves' = MAP (\p,(r1,r2). (p,(the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij)))) moves in
-        let int_beg' = apply_bijection bijstate.bij int_beg in
-        let int_end' = apply_bijection bijstate.bij int_end in
-        let reglist_unsorted = (MAP FST (toAList int_beg')) in
-        run_linear_reg_alloc_intervals int_beg' int_end' k forced' moves' reglist_unsorted bijstate.invbij bijstate.nmax
+        let reglist_unsorted = (MAP SND (toAList bijstate.bij)) in
+        run_linear_reg_alloc_intervals ct' k forced' moves' reglist_unsorted bijstate.invbij bijstate.nmax (* (0i-((size_of_clash_tree ct') + 1)) *)
 `
 
 (*
@@ -789,7 +1149,11 @@ val exn_functions = [
 val refs_manip_list = [] : (string * thm * thm) list;
 val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
 val farrays_manip_list = [
-    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def)
+    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def),
+    ("int_beg", get_int_beg_def, set_int_beg_def, int_beg_length_def, int_beg_sub_def, update_int_beg_def),
+    ("int_end", get_int_end_def, set_int_end_def, int_end_length_def, int_end_sub_def, update_int_end_def),
+    ("sorted_regs", get_sorted_regs_def, set_sorted_regs_def, sorted_regs_length_def, sorted_regs_sub_def, update_sorted_regs_def),
+    ("sorted_moves", get_sorted_moves_def, set_sorted_moves_def, sorted_moves_length_def, sorted_moves_sub_def, update_sorted_moves_def)
 ];
 
 val add_type_theories  = ([] : string list);
@@ -875,10 +1239,12 @@ val map_colors_sub_def = Define `
   (map_colors_sub (x::xs) =
      do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)`
 
-Theorem map_colors_sub_eq
-  `map_colors_sub = st_ex_MAP colors_sub`
-  (once_rewrite_tac [FUN_EQ_THM]
-  \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]);
+Theorem map_colors_sub_eq:
+   map_colors_sub = st_ex_MAP colors_sub
+Proof
+  once_rewrite_tac [FUN_EQ_THM]
+  \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]
+QED
 
 val res = m_translate spill_register_def;
 val res = m_translate MAP_colors_def;

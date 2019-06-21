@@ -85,12 +85,6 @@ fun dmodsomePrint sys d t pg str brk blk =
 val _=add_astPP ("dmodsomeprint", ``Dmod y xs``,genPrint dmodsomePrint);
 *)
 
-(*TDec*)
-fun tdecPrint sys d t pg str brk blk =
-  sys (pg,pg,pg) d (strip t);
-
-val _=add_astPP("tdecprint", ``Tdec x``,genPrint tdecPrint);
-
 (*Top level exception decl*)
 fun dexnPrint modn sys d t pg str brk blk =
   let
@@ -192,21 +186,30 @@ fun tcnameshortPrint sys d t pg str brk blk =
 val _=add_astPP("tcnameshortprint", ``TC_name (Short x)``,genPrint tcnameshortPrint);
 
 (*Atapp*)
+*)
 fun tappPrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
       val args = #1(listSyntax.dest_list (strip l))
-      val sep = if aconv r ``TC_tup`` then " * " else
-                if aconv r ``TC_fn``  then " -> " else " , "
-      val spa = if aconv r ``TC_tup`` then "" else " "
+      val sep = " , "
+                (* if aconv r ``TC_fn``  then " -> " else " , " *)
+      val spa = " "
   in
     (case args of [] => str"" | (_::_::_) => str"(">>printTuple sep (sys (pg,pg,pg) d) str args >>str ")" >>str spa
      | _ => printTuple sep (sys (pg,pg,pg) d) str args >>str spa)
      >> sys (pg,pg,pg) d r
   end;
 
-val _=add_astPP("tappnone",``Atapp [] TC_tup``,genPrint (deftypePrint "unit"));
+fun ttupPrint sys d t pg str brk blk =
+  let val args = #1(listSyntax.dest_list (strip t))
+  in
+    (case args of
+      [] => str"unit"
+    | (_::_::_) => str"(">>printTuple " * " (sys (pg,pg,pg) d) str args >>str ")"
+    | _ => printTuple " * " (sys (pg,pg,pg) d) str args)
+  end;
+
+val _=add_astPP("ttupprint",``Attup xs``,genPrint ttupPrint);
 val _=add_astPP("tappprint", ``Atapp x y``,genPrint tappPrint);
-*)
 
 (*Tfn*)
 
@@ -300,7 +303,11 @@ fun lambdaPrint sys d t pg str brk blk =
 
 val _=add_astPP ("lambdaprint", ``Fun x y``,genPrint lambdaPrint);
 
-(*Toplevel declaration of a function *)
+(*Toplevel declaration of a function
+  TODO: this is a heuristic that might fail if there's a backreference e.g.
+  fun exp ... = ...
+  val exp = fn x => ... exp ...
+*)
 fun dletfunPrint sys d t pg str brk blk =
   let
     open Portable smpp
@@ -498,7 +505,7 @@ val _=add_astPP ("punitprint", ``Pcon NONE []``,genPrint unitPrint);
 fun varShortPrint sys d t pg str brk blk=
     str (toString (strip t));
 
-val _=add_astPP ("varshortprint", ``Short x``,genPrint varShortPrint);
+val _=add_astPP ("varshortprint", ``(Short x)``,genPrint varShortPrint);
 
 (*Long Var name*)
 fun varLongPrint sys d t pg str brk blk =
@@ -508,7 +515,24 @@ fun varLongPrint sys d t pg str brk blk =
     str (toString l)>> str".">>str(toString r)
   end;
 
-val _=add_astPP ("varlongprint", ``Long x y``,genPrint varLongPrint);
+val _=add_astPP ("varlongprint", ``(Long x y)``,genPrint varLongPrint);
+
+fun varPrint sys d t pg str brk blk =
+  sys (pg,pg,pg) d (strip t)
+
+val _=add_astPP ("varprint", ``Var x``,genPrint varPrint);
+
+(*Long Var name*)
+fun varLongPrint sys d t pg str brk blk =
+  let val t = rand t
+      val (_,[l,sr]) = strip_comb t
+      val r = rand sr;
+  in
+    str (toString l)>> str".">>str(toString r)
+  end;
+
+val _=add_astPP ("varlongprint", ``(Long x y)``,genPrint varLongPrint);
+
 
 (*Matching*)
 fun matPrint sys d t pg str brk blk=
@@ -606,9 +630,10 @@ fun prefixargsPrint uop sys d t pg str brk blk =
     val (_,ls) = dest_comb t
     val ls = #1(listSyntax.dest_list ls)
     fun printList [] = str ""
-      | printList (x::xs) = str " " >> sys (Prec(0,"app"),pg,pg) d x >> printList xs
+      | printList [x] = str " " >> sys (Prec(0,"app"),pg,pg) d x
+      | printList (x::xs) = str " " >> sys (Prec(0,"app"),pg,pg) d x >>str",">> printList xs
   in
-    m_brack str pg ( str uop >> printList ls)
+    m_brack str pg ( str uop >> str"(" >>printList ls>> str")")
   end;
 
 (*Assignment & References*)
@@ -675,6 +700,9 @@ val _=add_astPP ("ltrealcharprint", ``App (Chopb Lt) [x;y]``,genPrint (infixreal
 val _=add_astPP ("stringimploderealprint", ``App Implode ls``,genPrint (prefixargsPrint "String.implode"));
 (*Confusing name??*)
 val _=add_astPP ("stringstrlenrealprint", ``App Strlen ls``,genPrint (prefixargsPrint "String.size"));
+val _=add_astPP ("stringstrsubrealprint", ``App Strsub ls``,genPrint (prefixargsPrint "String.sub"));
+val _=add_astPP ("stringconcatsubrealprint", ``App Strcat ls``,genPrint (prefixargsPrint "String.concat"));
+
 
 (*Vector curried, not checking arity*)
 val _=add_astPP ("vectorvfromlistrealprint", ``App VfromList ls``,genPrint (prefixargsPrint "Vector.fromList"));
@@ -686,6 +714,8 @@ val _=add_astPP ("arrayAallocrealprint", ``App Aalloc ls``,genPrint (prefixargsP
 val _=add_astPP ("arrayAsubrealprint", ``App Asub ls``,genPrint (prefixargsPrint "Array.sub"));
 val _=add_astPP ("arrayAlengthrealprint", ``App Alength ls``,genPrint (prefixargsPrint "Array.length"));
 val _=add_astPP ("arrayAupdaterealprint", ``App Aupdate ls``,genPrint (prefixargsPrint "Array.update"));
+
+val _=add_astPP ("addappendprint", ``App ListAppend [x;y]``,genPrint (infixrealPrint "@"));
 
 (*End Apps*)
 
@@ -791,7 +821,7 @@ fun astlistPrint sys d t pg str brk blk =
     printterms ls
   end;
 
-(* val _=add_astPP("astlistprint",``x:ast$prog``,genPrint astlistPrint); *)
+val _=add_astPP("astlistprint",``x:ast$dec list``,genPrint astlistPrint);
 
 fun enable_astPP_verbose () = map temp_add_user_printer (!astPrettyPrinters);
 fun enable_astPP () = (enable_astPP_verbose();())
@@ -807,7 +837,7 @@ val t = ``Dlet a b c``
 ``Dlet a (App Opref [App (Aw8update) [x;y;z]])``
 ``App Vsub [v1;v2]``
 ``App Vlength [v1]``
-``App VfromList [as]``
+``[App VfromList [as]]``
 disable_astPP_verbose();
 ``Dlet x (App Ord [App Chr [a;b];z])``
 *)

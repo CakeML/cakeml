@@ -199,23 +199,26 @@ metis_tac [partition_heap_ordered_lem] >-
 (fs [BAG_EVERY] >>
  metis_tac [transitive_def, WeakLinearOrder, WeakOrder]));
 
-Theorem insert_bag
-`!h get_key leq x.
+Theorem insert_bag:
+ !h get_key leq x.
   heap_to_bag (insert get_key leq x h) =
-  BAG_INSERT x (heap_to_bag h)`
-(induct_on `h` >>
+  BAG_INSERT x (heap_to_bag h)
+Proof
+induct_on `h` >>
 rw [heap_to_bag_def, insert_def] >>
 rw [heap_to_bag_def] >>
 fs [insert_def] >>
 imp_res_tac (GSYM partition_bags) >>
-fs [heap_to_bag_def]);
+fs [heap_to_bag_def]
+QED
 
-Theorem insert_heap_ordered
-`!get_key leq x h.
+Theorem insert_heap_ordered:
+ !get_key leq x h.
   WeakLinearOrder leq ∧ is_heap_ordered get_key leq h
   ⇒
-  is_heap_ordered get_key leq (insert get_key leq x h)`
-(rw [insert_def, is_heap_ordered_def] >>
+  is_heap_ordered get_key leq (insert get_key leq x h)
+Proof
+rw [insert_def, is_heap_ordered_def] >>
 rw [is_heap_ordered_def] >-
 metis_tac [partition_heap_ordered] >-
 metis_tac [partition_heap_ordered] >-
@@ -223,26 +226,30 @@ metis_tac [WeakLinearOrder, WeakOrder, partition_split] >-
 (`BAG_EVERY (\y. ¬leq (get_key y) (get_key x)) (heap_to_bag b)`
            by metis_tac [partition_split, WeakLinearOrder, WeakOrder] >>
  fs [BAG_EVERY] >>
- metis_tac [WeakLinearOrder_neg]));
+ metis_tac [WeakLinearOrder_neg])
+QED
 
-Theorem merge_bag
-`!get_key leq h1 h2.
+Theorem merge_bag:
+ !get_key leq h1 h2.
   (heap_to_bag (merge get_key leq h1 h2) =
-    BAG_UNION (heap_to_bag h1) (heap_to_bag h2))`
-(recInduct merge_ind >>
+    BAG_UNION (heap_to_bag h1) (heap_to_bag h2))
+Proof
+recInduct merge_ind >>
 rw [merge_def, heap_to_bag_def] >>
 cases_on `partition get_key leq x h2` >>
 fs [] >>
 imp_res_tac (GSYM partition_bags) >>
 rw [heap_to_bag_def, BAG_UNION_INSERT] >>
-metis_tac [ASSOC_BAG_UNION, COMM_BAG_UNION, BAG_INSERT_commutes]);
+metis_tac [ASSOC_BAG_UNION, COMM_BAG_UNION, BAG_INSERT_commutes]
+QED
 
-Theorem merge_heap_ordered
-`!get_key leq h1 h2.
+Theorem merge_heap_ordered:
+ !get_key leq h1 h2.
   WeakLinearOrder leq ∧ is_heap_ordered get_key leq h1 ∧ is_heap_ordered get_key leq h2
   ⇒
-  is_heap_ordered get_key leq (merge get_key leq h1 h2)`
-(recInduct merge_ind >>
+  is_heap_ordered get_key leq (merge get_key leq h1 h2)
+Proof
+recInduct merge_ind >>
 rw [merge_def, is_heap_ordered_def] >>
 rw [is_heap_ordered_def, merge_bag] >-
 metis_tac [partition_heap_ordered] >-
@@ -251,30 +258,34 @@ metis_tac [partition_split, WeakLinearOrder, WeakOrder] >-
 (`BAG_EVERY (\y. ¬leq (get_key y) (get_key x)) (heap_to_bag tb)`
            by metis_tac [partition_split, WeakLinearOrder, WeakOrder] >>
  fs [BAG_EVERY] >>
- metis_tac [WeakLinearOrder_neg]));
+ metis_tac [WeakLinearOrder_neg])
+QED
 
-Theorem find_min_correct
-`!h get_key leq.
+Theorem find_min_correct:
+ !h get_key leq.
   WeakLinearOrder leq ∧ (h ≠ Empty) ∧ is_heap_ordered get_key leq h
   ⇒
   BAG_IN (find_min h) (heap_to_bag h) ∧
   (!y. BAG_IN y (heap_to_bag h) ⇒
-       leq (get_key (find_min h)) (get_key y))`
-(recInduct find_min_ind >>
+       leq (get_key (find_min h)) (get_key y))
+Proof
+recInduct find_min_ind >>
 rw [heap_to_bag_def, find_min_def] >>
 fs [is_heap_ordered_def, heap_to_bag_def, BAG_EVERY] >>
-metis_tac [WeakLinearOrder, WeakOrder, transitive_def, reflexive_def]);
+metis_tac [WeakLinearOrder, WeakOrder, transitive_def, reflexive_def]
+QED
 
-Theorem delete_min_correct
-`!h get_key leq.
+Theorem delete_min_correct:
+ !h get_key leq.
   WeakLinearOrder leq ∧
   (h ≠ Empty) ∧
   is_heap_ordered get_key leq h
   ⇒
   is_heap_ordered get_key leq (delete_min h) ∧
   (heap_to_bag (delete_min h) =
-   BAG_DIFF (heap_to_bag h) (EL_BAG (find_min h)))`
-(HO_MATCH_MP_TAC delete_min_ind >>
+   BAG_DIFF (heap_to_bag h) (EL_BAG (find_min h)))
+Proof
+HO_MATCH_MP_TAC delete_min_ind >>
 srw_tac [bagLib.BAG_ss]
         [delete_min_def, is_heap_ordered_def, heap_to_bag_def,
          find_min_def, BAG_INSERT_UNION] >|
@@ -296,7 +307,8 @@ srw_tac [bagLib.BAG_ss]
               (EL_BAG v7 ⊎ (heap_to_bag v6 ⊎ heap_to_bag v8))`
                 by rw [SUB_BAG_EL_BAG] >>
      rw [BAG_UNION_DIFF, SUB_BAG_UNION] >>
-     srw_tac [BAG_AC_ss] []]);
+     srw_tac [BAG_AC_ss] []]
+QED
 
 
 (* Simplify the side conditions on the generated certificate theorems *)

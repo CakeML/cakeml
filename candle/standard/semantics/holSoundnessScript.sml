@@ -10,8 +10,8 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U-> bool``
 
-Theorem binary_inference_rule
-  `is_set_theory ^mem ⇒
+Theorem binary_inference_rule:
+   is_set_theory ^mem ⇒
     ∀thy h1 h2 p1 p2 q.
     q has_type Bool ∧ term_ok (sigof thy) q ∧
     (∀δ γ v sigma. is_frag_interpretation (total_fragment (sigof thy)) δ γ ∧
@@ -24,8 +24,9 @@ Theorem binary_inference_rule
            termsem_ext δ γ v sigma p2 = True ⇒
            termsem_ext δ γ v sigma q = True) ∧
     (thy,h1) |= p1 ∧ (thy,h2) |= p2
-    ⇒ (thy, term_union h1 h2) |= q`
-  (strip_tac >>
+    ⇒ (thy, term_union h1 h2) |= q
+Proof
+  strip_tac >>
   rpt gen_tac >> strip_tac >>
   fs[entails_def,EVERY_term_union] >> rw[] >>
   rpt (first_x_assum(qspecl_then[`δ`,`γ`]mp_tac)>>rw[]) >>
@@ -86,15 +87,25 @@ Theorem binary_inference_rule
       rpt(first_x_assum drule) >> rpt strip_tac >>
       `welltyped t` by metis_tac[welltyped_def] >>
       `welltyped y` by metis_tac[terms_of_frag_uninst_welltyped] >>
-      metis_tac[termsem_aconv]));
+      metis_tac[termsem_aconv])
+QED
+(*=======
+  conj_tac >- ( rw[is_structure_def] >> Cases_on`thy` >> fs[models_def,theory_ok_def] ) >>
+  rw[] >> first_x_assum match_mp_tac >> rw[] >>
+  fs[EVERY_MEM] >> rw[] >>
+  qmatch_assum_abbrev_tac`MEM t h` >>
+  qspecl_then[`h1`,`h2`,`t`]mp_tac MEM_term_union >> simp[] >> strip_tac >>
+  metis_tac[MEM_term_union_imp,termsem_aconv,term_ok_welltyped]
+QED*)
 
-Theorem ABS_correct
-  `is_set_theory ^mem ⇒
+Theorem ABS_correct:
+   is_set_theory ^mem ⇒
     ∀thy x ty h l r.
     ¬EXISTS (VFREE_IN (Var x ty)) h ∧ type_ok (tysof thy) ty ∧
     (thy,h) |= l === r
-    ⇒ (thy,h) |= Abs (Var x ty) l === Abs (Var x ty) r`
-  (rw[] >> fs[entails_def] >>
+    ⇒ (thy,h) |= Abs (Var x ty) l === Abs (Var x ty) r
+Proof
+  rw[] >> fs[entails_def] >>
   imp_res_tac theory_ok_sig >>
   conj_asm1_tac >- fs[term_ok_equation,term_ok_def] >>
   conj_asm1_tac >- fs[EQUATION_HAS_TYPE_BOOL] >> rw[] >>
@@ -173,7 +184,8 @@ Theorem ABS_correct
   disch_then(qspecl_then [`((x,ty) =+ x2) v`,`l`,`r`] mp_tac) >>
   impl_tac >-
     (rw[valuates_frag_def,combinTheory.UPDATE_def] >> rw[] >> simp[] >> fs[valuates_frag_def]) >>
-  simp[termsem_ext_def,boolean_eq_true]);
+  simp[termsem_ext_def,boolean_eq_true]
+QED
 
 Theorem ASSUME_correct:
   ∀thy p.

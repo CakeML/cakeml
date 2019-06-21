@@ -27,8 +27,8 @@ val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_de
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
 
 (*
-Theorem bool_sig_instances
-  `is_bool_sig sig ⇒
+Theorem bool_sig_instances:
+   is_bool_sig sig ⇒
     instance (tmsof sig) (i:'U interpretation) (strlit "T") Bool = (K (tmaof i (strlit "T") [])) ∧
     instance (tmsof sig) i (strlit "F") Bool = (K (tmaof i (strlit "F") [])) ∧
     instance (tmsof sig) i (strlit "==>") (Fun Bool (Fun Bool Bool)) = (K (tmaof i (strlit "==>") [])) ∧
@@ -36,9 +36,11 @@ Theorem bool_sig_instances
     instance (tmsof sig) i (strlit "\\/") (Fun Bool (Fun Bool Bool)) = (K (tmaof i (strlit "\\/") [])) ∧
     instance (tmsof sig) i (strlit "~") (Fun Bool Bool) = (K (tmaof i (strlit "~") [])) ∧
     instance (tmsof sig) i (strlit "!") (Fun (Fun A Bool) Bool) = (λτ. tmaof i (strlit "!") [τ (strlit "A")]) ∧
-    instance (tmsof sig) i (strlit "?") (Fun (Fun A Bool) Bool) = (λτ. tmaof i (strlit "?") [τ (strlit "A")])`
-  (rw[is_bool_sig_def] >> fs sigs >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
-  rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def] >> EVAL_TAC >> metis_tac[])
+    instance (tmsof sig) i (strlit "?") (Fun (Fun A Bool) Bool) = (λτ. tmaof i (strlit "?") [τ (strlit "A")])
+Proof
+  rw[is_bool_sig_def] >> fs sigs >> imp_res_tac identity_instance >> rw[FUN_EQ_THM] >>
+  rpt AP_TERM_TAC >> rw[FUN_EQ_THM,tyvars_def] >> EVAL_TAC >> metis_tac[]
+QED
 *)
 (* TODO: move *)
 val ext_type_frag_builtins_simps = Q.store_thm("ext_type_frag_builtins_simps",
@@ -116,10 +118,13 @@ val is_bool_interpretation_ext_def = xDefine"is_bool_interpretation_ext"`
     (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)`
 val _ = Parse.overload_on("is_bool_interpretation_ext",``is_bool_interpretation_ext0 ^mem``)
 
-Theorem boolrel_in_funspace
-  `is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)`
-  (rw[Boolrel_def] >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
-  match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset] )
+Theorem boolrel_in_funspace:
+  is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)
+Proof
+  rw[Boolrel_def] >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
+  match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset]
+QED
+
 val _ = export_rewrites["boolrel_in_funspace"]
 
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
@@ -207,11 +212,12 @@ val boolean_eq_boolean = Q.store_thm("boolean_eq_boolean",
   `is_set_theory ^mem ==> !a b. Boolean a = Boolean b <=> a = b`,
   rw[boolean_def] >> rw[true_neq_false]);
 
-Theorem apply_boolrel
-  `is_set_theory ^mem ⇒
+Theorem apply_boolrel:
+   is_set_theory ^mem ⇒
     ∀b1 b2 b3. b1 <: boolset ∧ b2 <: boolset ∧ (b3 = Boolean (R (b1 = True) (b2 = True))) ⇒
-      Boolrel R ' b1 ' b2 = b3 `
-  (rw[] >>
+      Boolrel R ' b1 ' b2 = b3
+Proof
+  rw[] >>
   `Boolrel R ' b1 = Abstract boolset boolset (λb2. Boolean (R (b1 = True) (b2 = True)))` by (
     rw[Boolrel_def] >>
     match_mp_tac apply_abstract_matchable >>
@@ -220,7 +226,8 @@ Theorem apply_boolrel
     rw[boolean_in_boolset] ) >>
   rw[] >>
   match_mp_tac apply_abstract_matchable >>
-  rw[boolean_in_boolset] )
+  rw[boolean_in_boolset]
+QED
 
 val apply_boolrel_rw = Q.store_thm("apply_boolrel_rw",
   `is_set_theory ^mem ⇒

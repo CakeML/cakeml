@@ -20,13 +20,15 @@ val is_phy_var_tac =
 
 val rmd_thms = (remove_dead_conventions |>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
 
-Theorem FST_compile_single[simp]
-  `FST (compile_single a b c d e) = FST (FST e)`
-  (PairCases_on`e` \\ EVAL_TAC);
+Theorem FST_compile_single[simp]:
+   FST (compile_single a b c d e) = FST (FST e)
+Proof
+  PairCases_on`e` \\ EVAL_TAC
+QED
 
 (*Chains up compile_single theorems*)
-Theorem compile_single_lem `
-  ∀prog n st.
+Theorem compile_single_lem:
+    ∀prog n st.
   domain st.locals = set(even_list n) ∧
   gc_fun_const_ok st.gc_fun
   ⇒
@@ -39,8 +41,9 @@ Theorem compile_single_lem `
     word_state_eq_rel rst rcst ∧
     case res of
       SOME _ => rst.locals = rcst.locals
-    | _ => T`
-  (full_simp_tac(srw_ss())[compile_single_def,LET_DEF]>>srw_tac[][]>>
+    | _ => T
+Proof
+  full_simp_tac(srw_ss())[compile_single_def,LET_DEF]>>srw_tac[][]>>
   qpat_abbrev_tac`p1 = inst_select A B C`>>
   qpat_abbrev_tac`p2 = full_ssa_cc_trans n p1`>>
   TRY(
@@ -93,7 +96,8 @@ Theorem compile_single_lem `
     Cases_on`res`>>full_simp_tac(srw_ss())[])
   >>
     pairarg_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,state_component_equality]>>
-    FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]);
+    FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]
+QED
 
 val tac =
     fs[evaluate_def,state_component_equality]>>
@@ -582,9 +586,8 @@ val compile_single_correct = Q.prove(`
     (tac>>
      Cases_on`call_FFI st.ffi s x'' x'`>>simp[]));
 
-Theorem compile_word_to_word_thm
-  `
-  code_rel (st:('a,'c,'ffi) wordSem$state).code l ∧
+Theorem compile_word_to_word_thm:
+     code_rel (st:('a,'c,'ffi) wordSem$state).code l ∧
   (domain st.code = domain l) ∧
   (st.compile = λconf progs.
     cc conf (MAP (λp. full_compile_single tt kk aa co (p,NONE)) progs)) ∧
@@ -602,8 +605,9 @@ Theorem compile_word_to_word_thm
                   compile_oracle := coracle
                   |>)
       in
-        res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi`
-  (simp[]>>rw[]>>
+        res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi
+Proof
+  simp[]>>rw[]>>
   qpat_abbrev_tac`prog = Call _ _ _ _`>>
   drule compile_single_correct>>fs[]>>
   disch_then(qspecl_then[`prog`,`λconf. cc conf o ((MAP (I ## I ## remove_must_terminate)))`] mp_tac)>>
@@ -627,13 +631,14 @@ Theorem compile_word_to_word_thm
     Cases_on`st.compile_oracle x`>>
     fs[MAP_MAP_o,o_DEF,LAMBDA_PROD,full_compile_single_def]>>
     rw[MAP_EQ_f,FORALL_PROD]>>pairarg_tac>>fs[])>>
-  fs[]>>fs[state_component_equality]);
+  fs[]>>fs[state_component_equality]
+QED
 
 val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
 
 (* syntax going into stackLang *)
-Theorem compile_to_word_conventions `
-  let (_,progs) = compile wc ac p in
+Theorem compile_to_word_conventions:
+    let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
   EVERY2 labels_rel (MAP (extract_labels o SND o SND) p)
                     (MAP (extract_labels o SND o SND) progs) ∧
@@ -642,8 +647,9 @@ Theorem compile_to_word_conventions `
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
      addr_offset_ok ac 0w ⇒ full_inst_ok_less ac prog) ∧
-    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs`
-  (fs[compile_def]>>pairarg_tac>>fs[]>>
+    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs
+Proof
+  fs[compile_def]>>pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>rveq>>rw[]>>
   `LENGTH n_oracles = LENGTH p` by
     (fs[next_n_oracle_def]>>metis_tac[LENGTH_GENLIST])
@@ -697,6 +703,7 @@ Theorem compile_to_word_conventions `
   rw[]>>
   match_mp_tac (el 4 rmt_thms)>>
   match_mp_tac word_alloc_two_reg_inst>>
-  fs[three_to_two_reg_two_reg_inst])
+  fs[three_to_two_reg_two_reg_inst]
+QED
 
 val _ = export_theory();

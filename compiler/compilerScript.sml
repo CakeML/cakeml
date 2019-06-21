@@ -16,7 +16,7 @@ open x64_configTheory export_x64Theory
 open arm8_configTheory export_arm8Theory
 open riscv_configTheory export_riscvTheory
 open mips_configTheory export_mipsTheory
-open arm6_configTheory export_arm6Theory
+open arm7_configTheory export_arm7Theory
 open ag32_configTheory export_ag32Theory
 
 val _ = new_theory"compiler";
@@ -361,6 +361,14 @@ val parse_tap_conf_def = Define`
   let fname = find_str (strlit"--tapfname=") ls in
   INL (mk_tap_config fname (tap_all_star ++ taps))`
 
+(* lab *)
+val parse_lab_conf_def = Define`
+  parse_lab_conf ls lab =
+    let hs = find_num (strlit "--hash_size=") ls lab.hash_size in
+      case hs of
+        INL r => INL (lab with <|hash_size := r |>)
+      | INR s => INR s`
+
 val extend_conf_def = Define`
   extend_conf ls conf =
   let clos = parse_clos_conf ls conf.clos_conf in
@@ -369,22 +377,25 @@ val extend_conf_def = Define`
   let data = parse_data_conf ls conf.data_conf in
   let stack = parse_stack_conf ls conf.stack_conf in
   let tap = parse_tap_conf ls conf.tap_conf in
-  case (clos,bvl,wtw,data,stack,tap) of
-    (INL clos,INL bvl,INL wtw,INL data,INL stack,INL tap) =>
+  let lab = parse_lab_conf ls conf.lab_conf in
+  case (clos,bvl,wtw,data,stack,tap,lab) of
+    (INL clos,INL bvl,INL wtw,INL data,INL stack,INL tap, INL lab) =>
       INL (conf with
         <|clos_conf         := clos;
           bvl_conf          := bvl;
           word_to_word_conf := wtw;
           data_conf         := data;
           stack_conf        := stack;
-          tap_conf          := tap|>)
+          tap_conf          := tap;
+          lab_conf          := lab|>)
     | _ =>
       INR (concat [get_err_str clos;
                get_err_str bvl;
                get_err_str wtw;
                get_err_str data;
                get_err_str stack;
-               get_err_str tap]) `
+               get_err_str tap;
+               get_err_str lab]) `
 
 (* Defaults to x64 if no target given *)
 val parse_target_64_def = Define`
@@ -398,13 +409,13 @@ val parse_target_64_def = Define`
     else if rest = strlit"riscv" then INL (riscv_backend_config,riscv_export)
     else INR (concat [strlit"Unrecognized 64-bit target option: ";rest])`
 
-(* Defaults to arm6 if no target given *)
+(* Defaults to arm7 if no target given *)
 val parse_target_32_def = Define`
   parse_target_32 ls =
   case find_str (strlit"--target=") ls of
-    NONE => INL (arm6_backend_config,arm6_export)
+    NONE => INL (arm7_backend_config,arm7_export)
   | SOME rest =>
-    if rest = strlit"arm6" then INL (arm6_backend_config,arm6_export)
+    if rest = strlit"arm7" then INL (arm7_backend_config,arm7_export)
     else if rest = strlit"ag32" then INL (ag32_backend_config,ag32_export)
     else INR (concat [strlit"Unrecognized 32-bit target option: ";rest])`
 

@@ -63,11 +63,13 @@ val renumber_code_locs_def = tDefine "renumber_code_locs" `
 
 val renumber_code_locs_ind = theorem"renumber_code_locs_ind";
 
-Theorem renumber_code_locs_length
-  `(∀x y. LENGTH (SND (renumber_code_locs_list x y)) = LENGTH y) ∧
-    (∀(x:num)(y:closLang$exp). T)`
-    (ho_match_mp_tac renumber_code_locs_ind >>
+Theorem renumber_code_locs_length:
+   (∀x y. LENGTH (SND (renumber_code_locs_list x y)) = LENGTH y) ∧
+    (∀(x:num)(y:closLang$exp). T)
+Proof
+    ho_match_mp_tac renumber_code_locs_ind >>
     simp[renumber_code_locs_def,UNCURRY] >> rw[] >>
-    METIS_TAC[PAIR,FST,SND]);
+    METIS_TAC[PAIR,FST,SND]
+QED
 
 val _ = export_theory()

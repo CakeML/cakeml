@@ -8,6 +8,8 @@ developers/bin
 semantics/ffi
 semantics
 semantics/proofs
+semantics/alt_semantics
+semantics/alt_semantics/proofs
 
 # translator
 basis/pure
@@ -30,13 +32,13 @@ compiler/backend/gc
 compiler/backend
 compiler/encoders/asm
 compiler/encoders/x64
-compiler/encoders/arm6
+compiler/encoders/arm7
 compiler/encoders/arm8
 compiler/encoders/mips
 compiler/encoders/riscv
 compiler/encoders/ag32
 compiler/backend/x64
-compiler/backend/arm6
+compiler/backend/arm7
 compiler/backend/arm8
 compiler/backend/mips
 compiler/backend/riscv
@@ -49,13 +51,13 @@ compiler/backend/semantics
 compiler/backend/reg_alloc/proofs
 compiler/backend/proofs
 compiler/encoders/x64/proofs
-compiler/encoders/arm6/proofs
+compiler/encoders/arm7/proofs
 compiler/encoders/arm8/proofs
 compiler/encoders/mips/proofs
 compiler/encoders/riscv/proofs
 compiler/encoders/ag32/proofs
 compiler/backend/x64/proofs
-compiler/backend/arm6/proofs
+compiler/backend/arm7/proofs
 compiler/backend/arm8/proofs
 compiler/backend/mips/proofs
 compiler/backend/riscv/proofs

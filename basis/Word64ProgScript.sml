@@ -50,12 +50,14 @@ val var_word_lsl_def = Define `
     else if n < 7 then w << 6
     else w << 7 else var_word_lsl (w << 8) (n − 8)`
 
-Theorem var_word_lsl_thm[simp]
-  `var_word_lsl w n = word_lsl w n`
-  (ntac 32 (
+Theorem var_word_lsl_thm[simp]:
+   var_word_lsl w n = word_lsl w n
+Proof
+  ntac 32 (
     Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD])
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSL_ADD]))
-  \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs []));
+  \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs [])
+QED
 
 val var_word_lsr_def = Define `
   var_word_lsr (w:word64) (n:num) = if 64 < n then 0w
@@ -68,12 +70,14 @@ val var_word_lsr_def = Define `
     else if n < 7 then w >>> 6
     else w >>> 7 else var_word_lsr (w >>> 8) (n − 8)`
 
-Theorem var_word_lsr_thm[simp]
-  `var_word_lsr w n = word_lsr w n`
-  (ntac 32 (
+Theorem var_word_lsr_thm[simp]:
+   var_word_lsr w n = word_lsr w n
+Proof
+  ntac 32 (
     Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD])
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [LSR_ADD]))
-  \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs []));
+  \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs [])
+QED
 
 val var_word_asr_def = Define `
   var_word_asr (w:word64) (n:num) = if 64 < n then w >> 64
@@ -86,12 +90,14 @@ val var_word_asr_def = Define `
     else if n < 7 then w >> 6
     else w >> 7 else var_word_asr (w >> 8) (n − 8)`
 
-Theorem var_word_asr_thm[simp]
-  `var_word_asr w n = word_asr w n`
-  (ntac 32 (
+Theorem var_word_asr_thm[simp]:
+   var_word_asr w n = word_asr w n
+Proof
+  ntac 32 (
     Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD])
     \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD]))
-  \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs []));
+  \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs [])
+QED
 
 val _ = (next_ml_names := ["<<"]);
 val _ = translate var_word_lsl_def;

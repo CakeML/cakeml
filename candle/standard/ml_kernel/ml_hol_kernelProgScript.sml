@@ -13,6 +13,7 @@ open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_tran
 open holKernelTheory
 open basisProgTheory
 open holAxiomsSyntaxTheory (* for setting up the context *)
+local open holKernelPmatchTheory in end
 
 val _ = new_theory "ml_hol_kernelProg";
 val _ = translation_extends "basisProg"
@@ -123,9 +124,9 @@ val res = translate holKernelTheory.type_subst_def;
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
 
-Theorem raconv_side
-  `!x y z. raconv_side x y z`
-  (ho_match_mp_tac holKernelTheory.raconv_ind
+Theorem raconv_side = Q.prove(`
+  !x y z. raconv_side x y z`,
+  ho_match_mp_tac holKernelTheory.raconv_ind
   \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
   |> update_precondition;
 
@@ -280,13 +281,19 @@ val def = add_def_def |> m_translate
 val def = new_constant_def |> m_translate
 val def = add_type_def |> m_translate
 val def = new_type_def |> m_translate
+
+val _ = next_ml_names := ["eq_mp_rule", "assume"];
 val def = holKernelPmatchTheory.EQ_MP_def |> m_translate
 val def = ASSUME_def |> m_translate
+
 val def = new_axiom_def |> m_translate
 val def = vsubst_def |> m_translate
 val def = inst_aux_def (* rec *) |> m_translate
 val def = inst_def |> m_translate
 val def = mk_eq_def |> m_translate
+
+val _ = next_ml_names :=
+  ["refl_conv", "trans_rule", "mk_comb_rule", "abs_rule", "beta_conv"];
 val def = REFL_def |> m_translate
 val def = holKernelPmatchTheory.TRANS_def |> m_translate
 
@@ -302,9 +309,13 @@ val def = holKernelPmatchTheory.BETA_def |> m_translate
 val def = DEDUCT_ANTISYM_RULE_def |> m_translate
 val def = new_specification_def |> m_translate
 val def = new_basic_definition_def |> m_translate
+
+val _ = next_ml_names := ["inst_type_rule", "inst_rule"];
 val def = (INST_TYPE_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate
 val def = (INST_def |> SIMP_RULE std_ss [LET_DEF]) |> m_translate
 val def = new_basic_type_definition_def |> m_translate
+
+val _ = next_ml_names := ["sym_rule"];
 val def = holKernelPmatchTheory.SYM_def |> m_translate
 val def = PROVE_HYP_def |> m_translate
 val def = list_to_hypset_def |> translate

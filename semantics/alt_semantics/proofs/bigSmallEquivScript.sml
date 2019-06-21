@@ -1693,13 +1693,14 @@ val evaluate_change_state = Q.prove(
    evaluate a b c' d (e',f)`,
    srw_tac[][] >> srw_tac[][]) |> GEN_ALL;
 
-Theorem small_big_exp_equiv
-`!env s e s' r.
+Theorem small_big_exp_equiv:
+ !env s e s' r.
   (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧
    s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧ s.next_exn_stamp= s'.next_exn_stamp)
   ⇔
-  evaluate F env s e (s',r)`
- (srw_tac[][] >>
+  evaluate F env s e (s',r)
+Proof
+ srw_tac[][] >>
  eq_tac
  >- (srw_tac[][] >>
      cases_on `r` >|
@@ -1733,16 +1734,18 @@ Theorem small_big_exp_equiv
  >- (srw_tac[][] >>
      imp_res_tac big_exp_to_small_exp >>
      full_simp_tac(srw_ss())[small_eval_def, to_small_res_def] >>
-     metis_tac [evaluate_no_new_types_exns, FST, big_unclocked]));
+     metis_tac [evaluate_no_new_types_exns, FST, big_unclocked])
+QED
 
 (* ---------------------- Small step determinacy ------------------------- *)
 
-Theorem small_exp_determ
-`!env s e r1 r2.
+Theorem small_exp_determ:
+ !env s e r1 r2.
   small_eval env s e [] r1 ∧ small_eval env s e [] r2
   ⇒
-  (r1 = r2)`
- (srw_tac[][] >>
+  (r1 = r2)
+Proof
+ srw_tac[][] >>
  assume_tac small_big_exp_equiv >>
  full_simp_tac(srw_ss())[to_small_st_def] >>
  PairCases_on `r1` >>
@@ -1759,6 +1762,7 @@ Theorem small_exp_determ
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
  imp_res_tac big_exp_determ >>
- full_simp_tac(srw_ss())[]);
+ full_simp_tac(srw_ss())[]
+QED
 
 val _ = export_theory ();
