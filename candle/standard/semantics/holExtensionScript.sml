@@ -174,7 +174,7 @@ Define `
     (INL (_,ctxt,_)) (INL(_,ctxt',_))
 
  (
-  
+
  )
 
 Hol_defn "interpretation_of" `
