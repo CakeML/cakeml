@@ -5033,7 +5033,8 @@ Theorem init_code_ok
       tot < max_app ∧ n < tot ⇒
         lookup (partial_app_fn_location max_app tot n) (init_code max_app) =
           SOME (tot - n + 1, generate_partial_app_closure_fn tot n))`
-  (srw_tac[][init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def,
+  (srw_tac[][clos_to_bvlTheory.init_code_def, lookup_fromList,
+            EL_APPEND1, partial_app_fn_location_def,
             generic_app_fn_location_def]
   >- decide_tac
   >- (
@@ -5051,7 +5052,8 @@ Theorem init_code_ok
 
 Theorem domain_init_code_lt_num_stubs
   `∀max_app x. x ∈ domain (init_code max_app) ⇒ x < (num_stubs max_app)`
-  (simp[init_code_def,num_stubs_def,domain_fromList,LENGTH_FLAT,MAP_GENLIST,o_DEF]
+  (simp[clos_to_bvlTheory.init_code_def,num_stubs_def,domain_fromList,
+        LENGTH_FLAT,MAP_GENLIST,o_DEF]
   \\ simp[GSYM(SIMP_RULE(srw_ss())[K_DEF]REPLICATE_GENLIST),SUM_REPLICATE]
   \\ simp [sum_genlist_triangle]);
 
@@ -6151,13 +6153,11 @@ Theorem ccompile_inc_uncurry
   (Cases_on`p` \\ EVAL_TAC
   \\ pairarg_tac \\ simp[]);
 
-(* not true and probably not helpful
 Theorem compile_inc_uncurry
-  `compile_inc max_app p = [] (*
-   compile_prog max_app ((chain_exps (FST (extract_name (FST p))) (SND (extract_name (FST p)))) ++ SND p)*)`
+  `compile_inc max_app p =
+   compile_prog max_app ((chain_exps (FST (extract_name (FST p))) (SND (extract_name (FST p)))) ++ SND p)`
   (Cases_on`p` \\ rw[compile_inc_def]
   \\ pairarg_tac \\ rw[]);
-*)
 
 Theorem fcompile_inc_uncurry
   `clos_fvsProof$compile_inc p = (compile (FST p), [])`
@@ -6474,8 +6474,6 @@ Proof
     miscTheory.ALL_DISTINCT_alist_to_fmap_REVERSE]
 QED
 
-val c0 = ``Call None 0 loc []``;
-
 Theorem obvious_12
   `((a : num) = b + a) = (b = 0)`
   (Cases_on `b` \\ fs []);
@@ -6718,8 +6716,6 @@ Proof
   \\ metis_tac [SUBSET_TRANS, IMAGE_SUBSET]
 QED
 
-Theorem renumber_disjoint:
-
 Theorem number_compile_inc_esgc_free:
   EVERY esgc_free y ==>
   EVERY esgc_free (SND (clos_numberProof$compile_inc x y))
@@ -6797,6 +6793,8 @@ val test = PICK_CONJUNCTS_CONV (fn t => total (fst o dest_var) t = SOME "B")
 fun sel_conjuncts_tac sel = CONV_TAC (PICK_CONJUNCTS_CONV sel) \\ conj_tac
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
+
+val c0 = ``Call None 0 loc []``;
 
 Theorem compile_common_semantics:
    closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1
@@ -7077,6 +7075,171 @@ val syntax_oracle_ok_def = Define`
     ¬contains_App_SOME c.max_app es ∧
     clos_knownProof$syntax_ok es`;
 
+Theorem compile_exps_IMP_acc:
+  compile_exps max_app xs aux = (c,aux1) ==>
+  LENGTH c = LENGTH xs ∧ ∃ys. aux1 = ys ++ aux
+Proof
+  specl_args_of_then ``compile_exps`` compile_exps_acc assume_tac
+  \\ rw [] \\ fs []
+QED
+
+Theorem compile_exps_eq_append:
+  compile_exps max_app xs aux =
+    ((\(ys, aux2). (ys, aux2 ++ aux)) (I compile_exps max_app xs []))
+Proof
+  cheat
+QED
+
+val compile_exps_code_locs2 = compile_exps_code_locs |> SPEC_ALL
+  |> Q.GEN `aux` |> Q.SPEC `[]` |> SIMP_RULE list_ss [] |> GEN_ALL
+
+Theorem extract_name_case:
+  extract_name exps = (case (some n. LENGTH exps > 1
+        /\ (?t. HD exps = Op t (Const (& n)) []))
+    of SOME n => (n, TL exps) | NONE => (0, exps))
+Proof
+  Cases_on `TL exps` \\ Cases_on `exps` \\ fs [extract_name_def]
+QED
+
+Theorem extract_name_code_locs:
+  extract_name exps = (n, real_es) ==>
+  code_locs real_es = code_locs exps
+Proof
+  Cases_on `TL exps` \\ Cases_on `exps` \\ fs [extract_name_def]
+  \\ EVERY_CASE_TAC \\ fs [some_def]
+  \\ fs [Once code_locs_cons]
+  \\ rw [] \\ fs [code_locs_def]
+QED
+
+val extracted_addrs_def = Define `
+  extracted_addrs exps = (if exps = [] then [0]
+    else (case extract_name exps of
+        (n, real_es) => MAP ($+ n) (COUNT_LIST (MAX 1 (LENGTH real_es)))))`;
+
+val req_compile_inc_addrs_def = Define `
+  req_compile_inc_addrs (exps, code) = extracted_addrs exps ++
+    code_locs exps ++ MAP FST code ++ code_locs (MAP (SND o SND) code)`;
+
+Theorem extract_name_MAP_FST_addrs:
+  extract_name exps = (n, real_es) ==>
+  MAP FST (chain_exps n real_es) = extracted_addrs exps
+Proof
+  fs [extracted_addrs_def]
+  \\ CASE_TAC \\ fs [extract_name_def] \\ rw []
+  \\ fs [chain_exps_def, rich_listTheory.COUNT_LIST_def]
+  \\ fs [MAP_FST_chain_exps_any]
+QED
+
+Theorem compile_inc_ALL_DISTINCT:
+  ALL_DISTINCT (req_compile_inc_addrs prog) ==>
+  ALL_DISTINCT (MAP FST (compile_inc max_app prog))
+Proof
+  Cases_on `prog`
+  \\ fs [compile_inc_def, req_compile_inc_addrs_def]
+  \\ pairarg_tac \\ fs []
+  \\ fs [compile_prog_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw [] \\ rveq \\ fs []
+  \\ fs [compile_exps_APPEND]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ imp_res_tac compile_exps_LENGTH
+  \\ fs [MAP2_MAP, GSYM ZIP_APPEND, MAP_MAP_o]
+  \\ simp [Q.prove (`FST ∘ (λ((loc,args,_),exp). (loc + num_stubs n,args,exp))
+        = (($+) (num_stubs n)) ∘ FST ∘ FST`, simp [UNCURRY, o_DEF])]
+  \\ fs [GSYM MAP_MAP_o, MAP_ZIP]
+  \\ full_simp_tac bool_ss [compile_exps_eq_append]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ imp_res_tac compile_exps_code_locs2
+  \\ fs []
+  \\ rewrite_tac [GSYM MAP_MAP_o, GSYM MAP_APPEND]
+  \\ irule ALL_DISTINCT_MAP_INJ
+  \\ fs [MAP_MAP_o]
+  \\ imp_res_tac extract_name_code_locs
+  \\ imp_res_tac extract_name_MAP_FST_addrs
+  \\ fs []
+  \\ fs [ALL_DISTINCT_APPEND]
+  \\ metis_tac []
+QED
+
+Theorem labels_compile_inc_ALL_DISTINCT:
+  ALL_DISTINCT (req_compile_inc_addrs prog) ==>
+  ALL_DISTINCT (req_compile_inc_addrs (clos_labelsProof$compile_inc prog))
+Proof
+  PairCases_on `prog`
+  \\ fs [clos_labelsProofTheory.compile_inc_def, req_compile_inc_addrs_def]
+  \\ fs [clos_labelsProofTheory.MAP_FST_compile]
+  \\ disch_tac \\ irule clos_labels_distinct_locs
+
+
+
+clos_labelsProofTheory.code_locs_remove_dests (THEOREM)
+
+
+clos_labelsProofTheory.code_locs_remove_dests_distinct (THEOREM)
+
+
+
+Theorem syntax_oracle_ok_to_oracle_inv:
+
+  ∀cc es co c. syntax_oracle_ok c es co ==>
+  let (c'', prog') = compile_common c es;
+    co' = pure_co clos_labelsProof$compile_inc ∘
+        pure_co clos_annotateProof$compile_inc ∘
+        state_co (cond_call_compile_inc c.do_call)
+          (clos_knownProof$known_co c.known_conf
+             (state_co (ignore_table clos_numberProof$compile_inc)
+                (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co))) in
+  compile_oracle_inv c.max_app (alist_to_fmap prog')
+    (pure_cc (compile_inc c.max_app) cc) co'
+    (fromAList
+       (toAList (init_code c.max_app) ++
+        [(num_stubs c.max_app - 1,0,
+          init_globals c.max_app (c''.start + num_stubs c.max_app))] ++
+        compile_prog c.max_app prog')) cc
+    (pure_co (compile_inc c.max_app) ∘ co')
+
+Proof
+
+  rpt (gen_tac ORELSE disch_tac) 
+  \\ Cases_on `compile_common c es`
+  \\ simp_tac bool_ss [Once boolTheory.LET_THM, pairTheory.UNCURRY_DEF]
+
+
+  fs [compile_oracle_inv_def]
+  \\ simp [Q.SPECL [`x`, `(y, z)`] PAIR_FST_SND_EQ]
+  \\ conseq [GEN_ALL compile_inc_ALL_DISTINCT]
+
+  \\ pairarg_tac \\ fs []
+  \\ fs [compile_inc_def]
+  \\ rw []
+
+  >-
+
+print_match [] ``SND (pure_co _ _)``;
+
+  fs []
+
+
+  \\ fs [Q.ISPEC `pure_co f x` PAIR_FST_SND_EQ]
+  \\ rveq \\ fs []
+  \\ fs [MAP_FST_compile_inc]
+  \\ fs [ALL_DISTINCT_APPEND]
+  \\ conseq [Q.ISPECL [`xs : num list`, `$+ (n : num)`] ALL_DISTINCT_MAP_INJ]
+  \\ fs []
+
+
+  fs [backendPropsTheory.state_co_def]
+  \\ pop_assum mp_tac
+  \\ rpt (pairarg_tac \\ fs [])
+
+
+print_find "state_co_def"
+
+  cheat
+QED
+
 Theorem compile_every_Fn_SOME
   `every_Fn_SOME (MAP (SND o SND) es) ⇒
    every_Fn_SOME (MAP (SND o SND) (clos_annotate$compile es))`
@@ -7255,7 +7418,7 @@ Theorem MAP_FST_compile_prog
   \\ rw[] \\ fs[]);
 
 Theorem MAP_FST_compile_inc
-  `MAP FST (compile_inc max_app p) = [] (*
+  `MAP FST (compile_inc max_app p) =
    MAP ((+)(num_stubs max_app))
      (MAP ((+)(FST(extract_name (FST p))))
        (COUNT_LIST (MAX 1 (LENGTH (SND (extract_name (FST p))))))
@@ -7264,7 +7427,7 @@ Theorem MAP_FST_compile_inc
          (code_locs
            (MAP (SND o SND)
              (chain_exps (FST (extract_name (FST p)))
-               (SND (extract_name (FST p))) ++ SND p))))) *)`
+               (SND (extract_name (FST p))) ++ SND p)))))`
   (rw[compile_inc_uncurry, MAP_FST_compile_prog, MAP_FST_chain_exps_any]);
 
 Theorem calls_Op_Const
@@ -7393,14 +7556,16 @@ Theorem compile_semantics
      (pure_co (compile_inc c.max_app) o
       pure_co clos_labelsProof$compile_inc o
       pure_co clos_annotateProof$compile_inc o
-      state_co (if c.do_call then clos_callProof$compile_inc else CURRY I)
+      state_co (cond_call_compile_inc c.do_call)
         (clos_knownProof$known_co c.known_conf
           (state_co (ignore_table clos_numberProof$compile_inc)
-            ((if c.do_mti then pure_co (clos_mtiProof$compile_inc c.max_app) else I) o co))))
+            (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co))))
        cc c'.start =
    semantics ffi c.max_app FEMPTY co
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es`
-  (strip_tac
+  (
+
+strip_tac
   \\ imp_res_tac compile_all_distinct_locs
   \\ fs[compile_def]
   \\ pairarg_tac \\ fs[] \\ rveq
@@ -7409,10 +7574,15 @@ Theorem compile_semantics
   \\ first_assum(mp_then (Pat`closSem$semantics`) mp_tac (GEN_ALL compile_common_semantics))
   \\ simp[]
   \\ impl_tac >- (
+
+cheat
+(* oracle ok ..
     fs[syntax_oracle_ok_def]
     \\ fs[BAG_ALL_DISTINCT_BAG_UNION]
     \\ fs[elist_globals_FLAT, BAG_DISJOINT_FOLDR_BAG_UNION, MAP_GENLIST, EVERY_GENLIST]
-    \\ metis_tac[prim_recTheory.LESS_SUC_REFL])
+    \\ metis_tac[prim_recTheory.LESS_SUC_REFL]
+*)
+)
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ irule compile_prog_semantics
   \\ simp[lookup_fromAList]
@@ -7510,8 +7680,16 @@ Theorem compile_semantics
     \\ res_tac
     \\ imp_res_tac ALOOKUP_MEM
     \\ metis_tac[] )
+
+  \\ Q.ISPEC_THEN `cc` drule syntax_oracle_ok_to_oracle_inv
+  \\ rw []
+
+GEN_ALL syntax_oracle_ok_to_oracle_inv
   \\ simp[compile_oracle_inv_def]
-  (*
+
+  \\ fs []
+  \\ simp[clos_knownProofTheory.known_co_def]
+
   \\ simp[GSYM FORALL_AND_THM]
   \\ gen_tac
   \\ qmatch_goalsub_abbrev_tac`ff pp = (_,_)`
@@ -7528,7 +7706,9 @@ Theorem compile_semantics
     \\ simp[acompile_inc_uncurry]
     \\ simp[clos_annotateTheory.compile_def]
     \\ simp[EVERY_MAP, UNCURRY]
-    \\ simp[clos_annotateProofTheory.HD_annotate_SING] )
+    \\ simp[clos_annotateProofTheory.HD_annotate_SING]
+
+ )
   \\ reverse conj_asm2_tac
   >- (
     simp[Abbr`pp`]
