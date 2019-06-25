@@ -11216,6 +11216,140 @@ val instance_subst_completeness = Q.store_thm("instance_subst_completeness",
 );
 
 
+(* acyclicity check of transitive closure of a dependency relation *)
+
+val is_acyclic_def = Define `
+  is_acyclic dep =
+    ((!nx ny tx ty. MEM (INR (Const nx tx),INR (Const ny ty)) dep
+     ==> ~is_instance tx ty)
+    /\ (!tx ty. MEM (INL tx,INL ty) dep ==> ~is_instance tx ty))
+`;
+
+val is_acyclic_computable_def = Define `
+  is_acyclic_computable dep =
+    EVERY (λ(x:type+term,y:type+term).
+      if (ISL x /\ ISL y)
+      then ~IS_SOME (instance_subst [(OUTL y,OUTL x)] [] [])
+      else if (ISR x /\ ISR y)
+        then
+          case (x,y) of
+            | (INR (Const nx tx),INR (Const ny ty)) =>
+              ~IS_SOME (instance_subst [(ty,tx)] [] [])
+            | (_,_) => T
+      else T
+    ) dep
+`;
+
+val is_acyclic_computable_equiv = Q.store_thm("is_acyclic_computable_equiv",
+  `!dep. is_acyclic_computable dep = is_acyclic dep`,
+  REWRITE_TAC[is_acyclic_computable_def,is_acyclic_def,instance_subst_completeness,EVERY_MEM]
+  >> Cases >> fs[]
+  >> rw[EQ_IMP_THM]
+  >- fs[DISJ_IMP_THM,FORALL_AND_THM]
+  >- (
+    res_tac >> fs[ELIM_UNCURRY]
+  )
+  >- fs[DISJ_IMP_THM]
+  >- (res_tac >> fs[ELIM_UNCURRY])
+  >> (
+    rename1 `_ e`
+    >> Cases_on `e`
+    >> rename1 `_ (q,r)`
+    >> Cases_on `q`
+    >> Cases_on `r`
+    >> fs[DISJ_IMP_THM]
+    >- (
+      rpt(strip_tac)
+      >> rpt(PURE_TOP_CASE_TAC >> fs[] >> rveq)
+      >> res_tac
+    )
+  )
+);
+
+val has_common_instance_compute_def = Define`
+  (has_common_instance_compute ((INL c1):term+type) ((INL c2):term+type) =
+    ?m ty1 ty2. c1 = Const m ty1 /\ c2 = Const m ty2 /\ IS_SOME (unify ty1 ty2))
+  /\ (has_common_instance_compute (INR ty1) (INR ty2) = IS_SOME (unify ty1 ty2))
+  /\ (has_common_instance_compute _ _ = F)
+`;
+
+val has_common_instance_def = Define`
+  (has_common_instance ((INL c1):term+type) ((INL c2:term+type)) =
+    ?m ty1 ty2. c1 = Const m ty1 /\ c2 = Const m ty2 /\ ~(ty1 # ty2))
+  /\ (has_common_instance (INR ty1) (INR ty2) = ~(ty1 # ty2))
+  /\ (has_common_instance _ _ = F)
+`;
+
+val has_common_instance_equiv = Q.store_thm("has_common_instance_equiv",
+  `!ty1 ty2. has_common_instance ty1 ty2 = has_common_instance_compute ty1 ty2`,
+  rpt Cases
+  >> REWRITE_TAC[has_common_instance_def,has_common_instance_compute_def,unify_complete]
+);
+
+val is_orthogonal_def = Define`
+  is_orthogonal dep = EVERY (λ(x,y). EVERY (λ(z,_). ~has_common_instance x z) (FILTER (λz. z <> (x,y)) dep)) dep
+`;
+
+(* TODO improve computable version: avoid double checking *)
+val is_orthogonal_compute_def = Define`
+  is_orthogonal_compute dep = EVERY (λ(x,y). EVERY (λ(z,_). ~has_common_instance_compute x z) (FILTER (λz. z <> (x,y)) dep)) dep
+`;
+
+val is_orthogonal_equiv = Q.store_thm("is_orthogonal_equiv",
+  `!dep. is_orthogonal dep = is_orthogonal_compute dep`,
+  REWRITE_TAC[is_orthogonal_compute_def,is_orthogonal_def,has_common_instance_equiv]
+);
+
+(* monotonicity: monotone_def
+ * This definition is computable *)
+val is_monotone_def = Define`
+  is_monotone =
+    EVERY (λ(x,y).
+      let tys_x = if ISL x then tyvars (OUTL x) else tvars (OUTR x)
+      in let tys_y = if ISL y then tyvars (OUTL y) else tvars (OUTR y)
+      in list_subset tys_x tys_y
+    )`;
+
+val is_instance_LR_compute_def = Define`
+  (is_instance_LR_compute ((INL c1):term+type) ((INL c2:term+type)) =
+    ?m ty1 ty2. c1 = Const m ty1 /\ c2 = Const m ty2 /\ IS_SOME (instance_subst [(ty2,ty1)] [] []))
+  /\ (is_instance_LR_compute (INR ty1) (INR ty2) = IS_SOME (instance_subst [(ty2,ty1)] [] []))
+  /\ (is_instance_LR_compute _ _ = F)
+`;
+
+val is_instance_LR_def = Define`
+  (is_instance_LR ((INL c1):term+type) ((INL c2:term+type)) =
+    ?m ty1 ty2. c1 = Const m ty1 /\ c2 = Const m ty2 /\ is_instance ty1 ty2)
+  /\ (is_instance_LR (INR ty1) (INR ty2) = is_instance ty1 ty2)
+  /\ (is_instance_LR _ _ = F)
+`;
+
+val is_instance_LR_equiv = Q.store_thm("is_instance_LR_equiv",
+  `is_instance_LR = is_instance_LR_compute`,
+  fs[FUN_EQ_THM]
+  >> rpt Cases
+  >> REWRITE_TAC[is_instance_LR_def,is_instance_LR_compute_def,instance_subst_completeness]
+);
+
+val is_composable_compute_def = Define`
+  is_composable_compute q dep = EVERY (λ(x,y).
+    has_common_instance_compute q x ==> is_instance_LR_compute q x)
+`;
+
+val is_composable_def = Define`
+  is_composable q dep = EVERY (λ(x,y).
+    has_common_instance q x ==> is_instance_LR q x)
+`;
+
+val is_composable_equiv = Q.store_thm("is_composable_equiv",
+  `is_composable = is_composable_compute`,
+  fs[FUN_EQ_THM]
+  >> REWRITE_TAC[is_composable_def,is_composable_compute_def,is_instance_LR_equiv,has_common_instance_equiv]
+);
+
+
+
+
 
 (* TODO: lemmas that should maybe go elsewhere *)
 val MEM_PAIR_FST = Q.prove(`!a b l. MEM (a,b) l ==> MEM a (MAP FST l)`,
