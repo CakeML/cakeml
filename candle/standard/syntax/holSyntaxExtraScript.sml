@@ -7315,6 +7315,12 @@ val instance_subst_inv_def = Define`
       \/ subtype_at x p = subtype_at y p
     )
     /\ (
+      !x y p a. MEM (x,y) orig_l /\ subtype_at y p = SOME (Tyapp a []) ==>
+      (?q r. p = q++r /\ IS_SOME (subtype_at x q) /\
+        MEM (THE (subtype_at x q),THE (subtype_at y q)) l)
+      \/ subtype_at x p = SOME (Tyapp a [])
+    )
+    /\ (
       !x y p a. MEM (x,y) orig_l /\ subtype_at x p = SOME (Tyvar a)
         /\ subtype_at y p = SOME (Tyvar a) ==>
         MEM a e
@@ -7325,6 +7331,15 @@ val instance_subst_inv_def = Define`
     /\ (
       !x y p. MEM (x,y) orig_l /\ subtype_at x p <> subtype_at (TYPE_SUBST sigma y) p
       /\ is_subtype_leaf x p
+      ==> (
+        ?q r. p = q ++ r /\ IS_SOME (subtype_at x q) /\ IS_SOME (subtype_at y q)
+        /\ MEM (THE (subtype_at x q),THE (subtype_at y q)) l
+      )
+    )
+    /\ (
+      !x y p a b. MEM (x,y) orig_l /\ subtype_at x p = SOME a
+        /\ subtype_at y p = SOME (Tyvar b)
+        /\ a <> (Tyvar b) /\ ~MEM (Tyvar b) (MAP SND sigma)
       ==> (
         ?q r. p = q ++ r /\ IS_SOME (subtype_at x q) /\ IS_SOME (subtype_at y q)
         /\ MEM (THE (subtype_at x q),THE (subtype_at y q)) l
@@ -7447,9 +7462,9 @@ val instance_subst_inv_pres2 = Q.prove(
   (* 3 subgoals *)
   >- (
     rw[]
-    (* 6 subgoals *)
+    (* 7 subgoals *)
     >- (
-      qpat_x_assum `!x y p. MEM (x,y) orig_l /\ IS_SOME _ /\ IS_SOME _ ⇒ _` 
+      qpat_x_assum `!x y p. MEM (x,y) orig_l /\ IS_SOME _ /\ IS_SOME _ ⇒ _`
         (qspecl_then [`x`,`y`,`p`] assume_tac)
       >> rfs[]
       >- (
@@ -7496,7 +7511,7 @@ val instance_subst_inv_pres2 = Q.prove(
       >> fs[]
     )
     >- (
-      qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+      qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
       >> rfs[]
       (* 2 subgoals *)
       >- (
@@ -7518,6 +7533,21 @@ val instance_subst_inv_pres2 = Q.prove(
         >> qexists_tac `q`
         >> fs[EXISTS_OR_THM]
       )
+    )
+    >- (
+      qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyapp _ _) ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE [IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`y`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM])
     )
     >- (
       qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = _ /\ subtype_at _ _ = _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
@@ -7556,7 +7586,7 @@ val instance_subst_inv_pres2 = Q.prove(
       )
     )
     >- (
-      qpat_x_assum `!x y p. _ /\ _ /\ _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
+      qpat_x_assum `!x y p. _ /\ _ /\ is_subtype_leaf _ _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
       >> rfs[]
       (* 2 subgoals *)
       >- (
@@ -7575,13 +7605,28 @@ val instance_subst_inv_pres2 = Q.prove(
       )
       >- (qexists_tac `q` >> qexists_tac `r` >> fs[])
     )
+    >- (
+      qpat_x_assum `!x y p a b. _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`,`b'`] assume_tac)
+      >> rfs[]
+      >- (
+        imp_res_tac IS_SOME_THE
+        >> rveq
+        >> qspecl_then [`x`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> imp_res_tac (Q.ISPEC `SND:type#type->type` MEM_MAP_f)
+        >> fs[NULL_EQ]
+        >> rveq
+        >> fs[]
+      )
+      >- (qexists_tac `q` >> fs[EXISTS_OR_THM])
+    )
   )
   >- (
     rw[]
     >> fs[]
-    (* 5 subgoals *)
+    (* 7 subgoals *)
     >- (
-      qpat_x_assum `!x y p. MEM (x,y) orig_l /\ IS_SOME _ /\ IS_SOME _ ⇒ _` 
+      qpat_x_assum `!x y p. MEM (x,y) orig_l /\ IS_SOME _ /\ IS_SOME _ ⇒ _`
           (qspecl_then [`x`,`y`,`p`] assume_tac)
       >> rfs[]
       (* 8 subgoals *)
@@ -7635,7 +7680,7 @@ val instance_subst_inv_pres2 = Q.prove(
     )
     (* 3rd subgoal *)
     >- (
-      qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+      qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
       >> rfs[]
       >- (
         rveq
@@ -7653,6 +7698,21 @@ val instance_subst_inv_pres2 = Q.prove(
         >> qexists_tac `q`
         >> fs[EXISTS_OR_THM]
       )
+    )
+    >- (
+      qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyapp _ _) ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`y`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM])
     )
     (* 2 subgoals*)
     >- (
@@ -7685,7 +7745,7 @@ val instance_subst_inv_pres2 = Q.prove(
       )
     )
     >- (
-      qpat_x_assum `!x y p. _ /\ _ /\ _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
+      qpat_x_assum `!x y p. _ /\ _ /\ is_subtype_leaf _ _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
       >> rfs[]
       (* 2 subgoals *)
       >- (
@@ -7703,12 +7763,24 @@ val instance_subst_inv_pres2 = Q.prove(
         >> pop_assum imp_res_tac
         >> fs[]
       )
-      >- (qexists_tac `q` >> qexists_tac `r` >> fs[])
+      >- (qexists_tac `q` >> fs[EXISTS_OR_THM])
+    )
+    >- (
+      qpat_x_assum `!x y p a b. _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`,`b`] assume_tac)
+      >> rfs[]
+      >- (
+        imp_res_tac IS_SOME_THE
+        >> qspecl_then [`x`,`q`,`r`,`a`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (qexists_tac `q` >> fs[EXISTS_OR_THM])
     )
   )
   (* last subgoal *)
   >> rw[]
-  (* 10 subgoals *)
+  (* 12 subgoals *)
   >- (
     qpat_x_assum `!a b p. MEM (x,y) orig_l /\ IS_SOME _ /\ IS_SOME _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
     >> rfs[]
@@ -7745,7 +7817,6 @@ val instance_subst_inv_pres2 = Q.prove(
       >> qexists_tac `q` >> qexists_tac `r` >> qexists_tac `a'`
       >> fs[]
     )
-    (* 2 subgoals remaining *)
     >> (
       DISJ2_TAC >> DISJ2_TAC
       >> qexists_tac `q` >> qexists_tac `r` >> qexists_tac `a'`
@@ -7762,13 +7833,11 @@ val instance_subst_inv_pres2 = Q.prove(
     >> fs[REV_ASSOCD_def]
   )
   >- (
-    first_x_assum ho_match_mp_tac
-    >> fs[]
+    first_x_assum ho_match_mp_tac >> fs[]
   )
   >- fs[]
   >- (
-    first_x_assum ho_match_mp_tac
-    >> fs[]
+    first_x_assum ho_match_mp_tac >> fs[]
   )
   >- (
     qpat_x_assum `!a b. _ = _ /\ _ = _ \/ _ ==> _` (qspecl_then [`Tyvar a`,`Tyvar b`] assume_tac)
@@ -7782,7 +7851,7 @@ val instance_subst_inv_pres2 = Q.prove(
     >> fs[]
   )
   >- (
-    qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+    qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
     >> rfs[]
     (* 2 subgoals *)
     >- (
@@ -7800,6 +7869,21 @@ val instance_subst_inv_pres2 = Q.prove(
       >> qexists_tac `q`
       >> fs[EXISTS_OR_THM]
     )
+  )
+  >- (
+    qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyapp _ _) ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+    >> rfs[]
+    >- (
+      rveq
+      >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+      >> fs[IS_SOME_EXISTS]
+      >> fs[option_CLAUSES]
+      >> rveq
+      >> qspecl_then [`y`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+      >> pop_assum imp_res_tac
+      >> fs[NULL_EQ]
+    )
+    >- (DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM])
   )
   >- (
     qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = _ /\ subtype_at _ _ = _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
@@ -7835,7 +7919,7 @@ val instance_subst_inv_pres2 = Q.prove(
     >> fs[]
     (* 2 subgoals *)
     >- (
-      qpat_x_assum `!x y p. _ /\ _ <> _ /\ _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
+      qpat_x_assum `!x y p. _ /\ _ <> _ /\ is_subtype_leaf _ _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
       >> rfs[]
       (* 2 subgoals *)
       >- (
@@ -7881,8 +7965,7 @@ val instance_subst_inv_pres2 = Q.prove(
       >> fs[option_CLAUSES]
     )
     >- (
-      qexists_tac `q` >> qexists_tac `r`
-      >> fs[]
+      qexists_tac `q` >> fs[EXISTS_OR_THM]
     )
     >- (
       rveq
@@ -8013,6 +8096,18 @@ val instance_subst_inv_pres2 = Q.prove(
       >> fs[TYPE_SUBST_def,REV_ASSOCD_def]
     )
   )
+  >- (
+    qpat_x_assum `!x y p a b. _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`,`b'`] assume_tac)
+    >> rfs[]
+    >- (
+      rveq
+      >> imp_res_tac IS_SOME_THE
+      >> qspecl_then [`x`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+      >> pop_assum imp_res_tac
+      >> fs[NULL_EQ]
+    )
+    >- (qexists_tac `q` >> fs[EXISTS_OR_THM])
+  )
 );
 
 val instance_subst_inv_pres3 = Q.prove(
@@ -8032,7 +8127,7 @@ val instance_subst_inv_pres3 = Q.prove(
   >> first_x_assum ho_match_mp_tac
   >> fs[instance_subst_inv_def]
   >> rw[]
-  (* 7 subgoals *)
+  (* 9 subgoals *)
   >- (
     last_x_assum (qspecl_then [`Tyapp m l`,`Tyapp m l'`] assume_tac)
     >> fs[]
@@ -8147,7 +8242,7 @@ val instance_subst_inv_pres3 = Q.prove(
     >> fs[MEM_MAP]
   )
   >- (
-    qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = _ ==> _` imp_res_tac
+    qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyvar _) ==> _` imp_res_tac
     >> fs[]
     (* 4 subgoals *)
     >- (
@@ -8159,21 +8254,28 @@ val instance_subst_inv_pres3 = Q.prove(
       >> DISJ1_TAC
       >> qexists_tac `q++[HD r]`
       >> qexists_tac `TL r`
-      >> qspecl_then [`x`,`q`,`[HD r]`,`Tyapp m l`] assume_tac subtype_at_decomp_path
+      >> rpt (PRED_ASSUM (exists (curry op = "q'" o fst o dest_var) o free_vars) kall_tac)
+      >> drule_then strip_assume_tac (Ho_Rewrite.REWRITE_RULE[IS_SOME_EXISTS,PULL_EXISTS] subtype_at_IS_SOME_parent)
+      >> qspecl_then [`y`,`q++[HD r]`,`TL r`] mp_tac subtype_at_IS_SOME_parent
+      >> fs[IS_SOME_EXISTS]
+      >> rfs[option_CLAUSES]
+      >> NTAC 2 (dxrule_then (qspec_then `[HD r]` strip_assume_tac) subtype_at_decomp_path)
+      >> impl_tac
+      >- (
+        PURE_REWRITE_TAC[GSYM APPEND_ASSOC,GSYM CONS_APPEND]
+        >> fs[CONS]
+      )
+      (* >> qspecl_then [`x`,`q`,`[HD r]`,`Tyapp m l`] assume_tac subtype_at_decomp_path
       >> qspecl_then [`y`,`q`,`[HD r]`,`Tyapp m l'`] assume_tac subtype_at_decomp_path
       >> qspecl_then [`y`,`q`,`r`] assume_tac subtype_at_IS_SOME_parent
-      >> qspecl_then [`y`,`q++[HD r]`,`TL r`] assume_tac subtype_at_IS_SOME_parent
       >> fs[IS_SOME_EXISTS]
-      >> rfs[]
-      >> rveq
-      >> pop_assum (assume_tac o REWRITE_RULE[GSYM APPEND_ASSOC,GSYM CONS_APPEND])
-      >> imp_res_tac CONS
-      >> fs[]
-      >> rfs[]
+      *)
+      >> rpt (dxrule_all_then strip_assume_tac (Ho_Rewrite.REWRITE_RULE[IS_SOME_EXISTS,PULL_EXISTS] subtype_at_IS_SOME_parent))
+      >> strip_tac
       >> Cases_on `HD r`
-      >> Cases_on `q'' = m /\ r'' < LENGTH l`
       >> fs[subtype_at_def]
-      >> rfs[]
+      >> FULL_CASE_TAC
+      >> fs[]
       >> fs[MEM_ZIP]
       >> DISJ1_TAC
       >> asm_exists_tac
@@ -8189,6 +8291,46 @@ val instance_subst_inv_pres3 = Q.prove(
       >> qexists_tac `q` >> qexists_tac `r`
       >> fs[]
     )
+  )
+  >- (
+    qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyapp _ _) ==> _`
+      (qspecl_then [`x`,`y`,`p`,`a`] assume_tac)
+    >> rfs[]
+    >- (
+      rveq
+      >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+      >> fs[IS_SOME_EXISTS]
+      >> fs[option_CLAUSES]
+      >> rveq
+      >> Cases_on `NULL l`
+      >- (
+        fs[NULL_EQ]
+        >> rveq
+        >> qspecl_then [`y`,`q`] assume_tac (CONJUNCT2 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >> Cases_on `r`
+      >- fs[NULL_EQ]
+      >> Cases_on `h`
+      >> qpat_x_assum `subtype_at _ _ = SOME (Tyapp _ [])` (assume_tac o REWRITE_RULE[Once CONS_APPEND,APPEND_ASSOC])
+      >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+      >> DISJ1_TAC
+      >> qexists_tac `q++[(q',r)]`
+      >> fs[EXISTS_OR_THM]
+      >> qspecl_then [`y`,`q`,`[(q',r)]`,`Tyapp m l'`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`x`,`q`,`[(q',r)]`,`Tyapp m l`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> fs[subtype_at_def]
+      >> FULL_CASE_TAC
+      >> rfs[]
+      >> fs[MEM_ZIP]
+      >> DISJ1_TAC
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >- (DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM])
   )
   >- (
     qpat_x_assum `!x y p a. _ /\ _ /\ _ ==> _` (qspecl_then [`x`,`y`,`p`,`a`] assume_tac)
@@ -8250,7 +8392,7 @@ val instance_subst_inv_pres3 = Q.prove(
     )
   )
   >- (
-    qpat_x_assum `!x y p. _` (qspecl_then [`x`,`y`,`p`] assume_tac)
+    qpat_x_assum `!x y p. _ /\ _ /\ is_subtype_leaf _ _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
     >> rfs[]
     >- (
       Cases_on `NULL l`
@@ -8301,6 +8443,35 @@ val instance_subst_inv_pres3 = Q.prove(
     >- (
       qexists_tac `q` >> qexists_tac `r`
       >> fs[]
+    )
+  )
+  >- (
+    qpat_x_assum `!x y p a b. _ ==> _` (qspecl_then [`x`,`y`,`p`,`a`,`b`] assume_tac)
+    >> rfs[]
+    >- (
+      imp_res_tac IS_SOME_THE
+      >> Cases_on `r`
+      >> fs[]
+      >> qspecl_then [`x`,`q`,`[h]++t`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`y`,`q`,`[h]++t`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`x`,`q`,`[h]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`y`,`q`,`[h]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> Cases_on `h`
+      >> fs[subtype_at_def]
+      >> FULL_CASE_TAC
+      >> rfs[subtype_at_def]
+      >> qexists_tac `q++[(q',r)]`
+      >> fs[EXISTS_OR_THM,MEM_ZIP]
+      >> DISJ1_TAC
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >- (
+      qexists_tac `q` >> fs[EXISTS_OR_THM]
     )
   )
 );
@@ -8461,10 +8632,11 @@ val instance_subst_inv_pres5 = Q.prove(
   >> first_x_assum ho_match_mp_tac
   >> fs[instance_subst_inv_def]
   >- (
-    rw[]
-    (* 5 subgoals *)
+    strip_tac
+    (* 7 subgoals *)
     >- (
-      qpat_x_assum `!x y p. MEM _ _ /\ IS_SOME _ /\ IS_SOME _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
+      rw[]
+      >> qpat_x_assum `!x y p. MEM _ _ /\ IS_SOME _ /\ IS_SOME _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
       >> rfs[IS_SOME_EXISTS]
       >> fs[]
       >> imp_res_tac subtype_at_decomp_path
@@ -8505,13 +8677,17 @@ val instance_subst_inv_pres5 = Q.prove(
         >> fs[]
       )
     )
+    >> strip_tac
     >- (
-      qpat_x_assum `(?s. _) ==> _` imp_res_tac
+      rw[]
+      >> qpat_x_assum `(?s. _) ==> _` imp_res_tac
       >> asm_exists_tac
       >> fs[]
     )
+    >> strip_tac
     >- (
-      qpat_x_assum `!x y p a. _ /\ subtype_at _ _ = SOME _ ==> _` imp_res_tac
+      rw[]
+      >> qpat_x_assum `!x y p a. _ /\ subtype_at _ _ = SOME (Tyvar _) ==> _` imp_res_tac
       >> fs[]
       (* 4 subgoals *)
       >- (
@@ -8540,8 +8716,29 @@ val instance_subst_inv_pres5 = Q.prove(
         >> fs[]
       )
     )
+    >> strip_tac
     >- (
-      qpat_x_assum `!x y p a. _ ==> MEM _ _ \/ _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+      rw[]
+      >> qpat_x_assum `!x y p a. _ /\ subtype_at _ _ = SOME (Tyapp _ _) ==> _`
+        (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+      >> rfs[]
+      (* 2 subgoals *)
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`y`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM])
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!x y p a. _ ==> MEM _ _ \/ _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
       >> rfs[]
       >- (
         imp_res_tac IS_SOME_THE
@@ -8570,8 +8767,10 @@ val instance_subst_inv_pres5 = Q.prove(
         >> fs[EXISTS_OR_THM]
       )
     )
+    >> strip_tac
     >- (
-      qpat_x_assum `!x y p. _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
+      rw[]
+      >> qpat_x_assum `!x y p. _ /\ _ /\ _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
       >> rfs[]
       >- (
         imp_res_tac TYPE_SUBST_MEM'
@@ -8586,15 +8785,32 @@ val instance_subst_inv_pres5 = Q.prove(
         >> fs[]
       )
       >- (
-        qexists_tac `q` >> qexists_tac `r` >> fs[]
+        qexists_tac `q` >> fs[EXISTS_OR_THM]
       )
+    )
+    >- (
+      rw[]
+      >> qpat_x_assum `!x y p a b. _ /\ _ /\ _ /\ _ /\ _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`,`b`] assume_tac)
+      >> rfs[]
+      >- (
+        imp_res_tac IS_SOME_THE
+        >> qspecl_then [`y`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> rveq
+        >> fs[NULL_EQ]
+        >> Q.ISPEC_THEN `SND:type#type->type` imp_res_tac MEM_MAP_f
+        >> fs[]
+      )
+      >- (qexists_tac `q` >> fs[EXISTS_OR_THM])
     )
   )
   >- (
-    rw[]
-    (* 10 subgoals *)
+    strip_tac
+    (* 12 subgoals *)
     >- (
-      qpat_x_assum `!x y p. MEM _ _ /\ IS_SOME _ /\ IS_SOME _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
+      rw[]
+      >> qpat_x_assum `!x y p. MEM _ _ /\ IS_SOME _ /\ IS_SOME _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
       >> rfs[IS_SOME_EXISTS]
       >> fs[]
       >> imp_res_tac subtype_at_decomp_path
@@ -8635,50 +8851,66 @@ val instance_subst_inv_pres5 = Q.prove(
         >> fs[]
       )
     )
+    >> strip_tac
     >- (
-      qpat_x_assum `(?s. _) ==> _` imp_res_tac
+      rw[]
+      >> qpat_x_assum `(?s. _) ==> (?s._)` imp_res_tac
       >> qexists_tac `s'`
-      >> fs[EVERY_MEM,ELIM_UNCURRY,TYPE_SUBST_compose,TYPE_SUBST_tyvars]
+      >> fs[EVERY_MEM,ELIM_UNCURRY,TYPE_SUBST_tyvars]
       >> rw[]
       >> qpat_x_assum `!e. _ ==> _` imp_res_tac
       >> Cases_on `x = a`
       >> fs[REV_ASSOCD_def]
     )
-    >- (first_x_assum ho_match_mp_tac >> fs[])
-    >> fs[]
-    (* remaining 3 subgoals *)
+    >> strip_tac
+    >- (rw[] >> rw[])
+    >> strip_tac
+    >- (rw[] >> rw[])
+    >> strip_tac
+    >- (rw[] >> fs[])
+    >> strip_tac
     >- (
-      qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME _ ==> _` imp_res_tac
-      >> fs[]
-      (* 4 subgoals *)
+      rw[]
+      >> qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+      >> rfs[]
       >- (
-        Cases_on `NULL r`
-        >- (
-          fs[NULL_EQ,IS_SOME_EXISTS]
-          >> rfs[]
-        )
-        >> qspecl_then [`y`,`q`,`r`] assume_tac subtype_at_IS_SOME_parent
-        >> fs[IS_SOME_EXISTS]
-        >> rfs[]
+        rveq
+        >> qspecl_then [`y`,`q`,`r`] imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> imp_res_tac IS_SOME_THE
         >> fs[option_CLAUSES]
         >> rveq
-        >> imp_res_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> qspecl_then [`y`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
       )
       >- (
         DISJ1_TAC
-        >> qexists_tac `q'`
-        >> qexists_tac `r'`
-        >> fs[]
-      )
-      >> (
-        DISJ1_TAC
         >> qexists_tac `q`
-        >> qexists_tac `r`
-        >> fs[]
+        >> fs[EXISTS_OR_THM]
       )
     )
+    >> strip_tac
     >- (
-      qpat_x_assum `!x y p a. _ /\ subtype_at _ _ = SOME _ /\ subtype_at _ _ = SOME _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+      rw[]
+      >> qpat_x_assum `!x y p a. MEM _ _ /\ subtype_at _ _ = SOME (Tyapp _ _) ==> _` 
+        (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`y`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM])
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!x y p a. _ /\ subtype_at _ _ = SOME _ /\ subtype_at _ _ = SOME _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`] assume_tac)
       >> rfs[]
       >- (
         rveq
@@ -8705,12 +8937,14 @@ val instance_subst_inv_pres5 = Q.prove(
         >> fs[EXISTS_OR_THM]
       )
     )
+    >> strip_tac
     >- (
-      Cases_on `subtype_at (TYPE_SUBST ((Tyapp m l,Tyvar a)::sigma) y) p = subtype_at (TYPE_SUBST sigma y) p`
+      rw[]
+      >> Cases_on `subtype_at (TYPE_SUBST ((Tyapp m l,Tyvar a)::sigma) y) p = subtype_at (TYPE_SUBST sigma y) p`
       >> fs[]
       (* 2 subgoals *)
       >- (
-        qpat_x_assum `!x y p. _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
+        qpat_x_assum `!x y p. _ /\ _ /\ is_subtype_leaf _ _ ==> _` (qspecl_then [`x`,`y`,`p`] assume_tac)
         >> rfs[]
         (* 2 subgoals *)
         >- (
@@ -8741,7 +8975,7 @@ val instance_subst_inv_pres5 = Q.prove(
       )
       (* 2 subgoals *)
       >- (
-        qpat_x_assum `!x y p a'. MEM _ _ /\ subtype_at _ _ = SOME _ ==> _` (qspecl_then [`x`,`y`,`q`,`a`] assume_tac)
+        qpat_x_assum `!x y p a'. MEM _ _ /\ subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`x`,`y`,`q`,`a`] assume_tac)
         >> rfs[]
         (* 4 subgoals *)
         >- (
@@ -8869,7 +9103,7 @@ val instance_subst_inv_pres5 = Q.prove(
       )
       (* last subgoal *)
       >- (
-        qpat_x_assum `!x y p a'. MEM _ _ /\ subtype_at _ _ = SOME _ ==> _` (qspecl_then [`x`,`y`,`q`,`a`] assume_tac)
+        qpat_x_assum `!x y p a'. MEM _ _ /\ subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`x`,`y`,`q`,`a`] assume_tac)
         >> rfs[]
         (* 4 subgoals *)
         >- (
@@ -8943,6 +9177,19 @@ val instance_subst_inv_pres5 = Q.prove(
         )
       )
     )
+    >- (
+      rw[]
+      >> qpat_x_assum `!x y p a b. _ ==> _` (qspecl_then [`x`,`y`,`p`,`a'`,`b`] assume_tac)
+      >> rfs[]
+      >- (
+        imp_res_tac IS_SOME_THE
+        >> qspecl_then [`y`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (qexists_tac `q` >> fs[EXISTS_OR_THM])
+    )
   )
 );
 
@@ -8984,7 +9231,8 @@ val instance_subst_inv_pres = Q.store_thm("instance_subst_inv_pres",
 );
 
 val instance_subst_inv_imp = Q.store_thm("instance_subst_inv_imp",
-  `!l sigma e. instance_subst l [] [] = SOME (sigma,e) ==> instance_subst_inv l [] sigma e`,
+  `!l sigma e. instance_subst l [] [] = SOME (sigma,e)
+  ==> instance_subst_inv l [] sigma e`,
   rw[]
   >> match_mp_tac instance_subst_inv_pres
   >> fs[Once CONJ_COMM]
@@ -9037,26 +9285,26 @@ val is_subtype_leaf_TYPE_SUBST_parent = Q.prove(
 );
 
 val instance_subst_soundness = Q.store_thm("instance_subst_soundness",
-  `!t t' s. instance_subst [(t',t)] [] [] = SOME (s,e) ==> (t' = TYPE_SUBST s t)`,
+  `!t t' s e. instance_subst [(t',t)] [] [] = SOME (s,e) ==> (t' = TYPE_SUBST s t)`,
   rw[]
   >> imp_res_tac instance_subst_inv_imp
   >> fs[instance_subst_inv_def]
   >> rw[is_subtype_leaf_eq']
   >- (
     imp_res_tac is_subtype_leaf_TYPE_SUBST_parent
-    >> first_x_assum (qspec_then `p` assume_tac)
+    >> qpat_x_assum `!p. _ \/ _` (qspec_then `p` assume_tac)
     >> fs[]
     >> fs[]
   )
   >- (
-    first_assum (qspec_then `p` assume_tac)
+    qpat_x_assum `!p. _ \/ _` (qspec_then `p` assume_tac)
     >> fs[]
     >> imp_res_tac is_subtype_leaf_TYPE_SUBST_parent
     >> pop_assum (assume_tac o REWRITE_RULE[is_subtype_leaf_eq])
     >> fs[]
     (* 2 subgoals *)
     >- (
-      qpat_x_assum `!p a. subtype_at _ _ = SOME _ ==> _` (qspecl_then [`q`,`a`] assume_tac)
+      qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`q`,`a`] assume_tac)
       >> rfs[]
       >- (
         imp_res_tac TYPE_SUBST_MEM'
@@ -9075,139 +9323,24 @@ val instance_subst_soundness = Q.store_thm("instance_subst_soundness",
       )
     )
     >- (
-      imp_res_tac subtype_at_TYPE_SUBST
-      >> pop_assum (qspec_then `s` assume_tac)
-      >> qspec_then `TYPE_SUBST s t` assume_tac subtype_at_decomp_path
+      qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyapp _ _) ==> _` (qspecl_then [`q`,`a`] assume_tac)
+      >> rfs[]
+      >> qspecl_then [`q`,`t'`,`TYPE_SUBST s t`] assume_tac subtype_at_eq'
+      >> qspecl_then [`t`,`q`,`s`] assume_tac subtype_at_TYPE_SUBST
       >> pop_assum imp_res_tac
       >> fs[TYPE_SUBST_def]
-      >> first_x_assum (qspec_then `r` assume_tac)
-      >> Cases_on `r`
-      >- (
-        fs[subtype_at_def]
-        >> rveq
-
-        >> imp_res_tac (CONJUNCT2 subtype_at_leaf_imp)
-        >> fs[NULL_EQ,subtype_at_def]
-        qpat_x_assum `!p. IS_SOME _ /\ IS_SOME _ ==> _` (qspec_then `p` assume_tac) 
-        >> imp_res_tac subtype_at_Tyapp 
-        >> qpat_x_assum `is_subtype_leaf _ _` ()
-
-      )
-      >> Cases_on `h`
-      >> fs[subtype_at_def,is_subtype_leaf_def']
-      >> first_x_assum (qspec_then `[]` assume_tac)
-      >> fs[NULL_EQ]
-      >> rfs[option_CLAUSES]
     )
   )
+);
 
-
-    >> `IS_SOME (subtype_at t' q)` by (
-    )
-    `IS_SOME (subtype_at (TYPE_SUBST s t) p)`
-    is_instance_subtype_leaf_imp
-    is_subtype_leaf_TYPE_SUBST_parent
-    subtype_at_TYPE_SUBST
-    >> qspecl_then [`t`,`TYPE_SUBST s t`] assume_tac is_instance_subtype_leaf_imp
-    >> fs[]
-  )
-
-  (* is_subtype_leaf (TYPE_SUBST s t) p *)
-  >- (
-    imp_res_tac is_subtype_leaf_TYPE_SUBST_parent
-    >> pop_assum (assume_tac o REWRITE_RULE[is_subtype_leaf_eq])
-    >> fs[]
-    >- (
-      qpat_x_assum `!p a. _ ==> _` imp_res_tac
-      >> imp_res_tac TYPE_SUBST_MEM'
-      >> imp_res_tac subtype_at_TYPE_SUBST
-      >> pop_assum (qspec_then `s` assume_tac)
-      >> rfs[IS_SOME_EXISTS]
-      >> imp_res_tac subtype_at_decomp_path
-      >> fs[]
-    )
-    (* subtype_at t q = SOME (Tyvar a) |-
-     * subtype_at t' (q ⧺ r) = subtype_at (TYPE_SUBST s t) (q ⧺ r) *)
-    >- (
-      qpat_x_assum `!p. IS_SOME _ /\ IS_SOME _ ==> _` (qspec_then `q` assume_tac)
-      >> rfs[IS_SOME_EXISTS]
-      (* 6 subgoals *)
-      >- (
-        rveq
-        >> qspecl_then [`t`,`q'`,`r'`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
-        >> pop_assum imp_res_tac
-        >> fs[NULL_EQ]
-        >> imp_res_tac TYPE_SUBST_MEM'
-        >> qspecl_then [`t`,`q'`,`s`,`Tyvar a'`] assume_tac subtype_at_TYPE_SUBST
-        >> rfs[IS_SOME_EXISTS]
-        >> imp_res_tac subtype_at_decomp_path
-        >> fs[]
-      )
-      >- (
-        rveq
-        >> qspecl_then [`t`,`q`,`r'`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
-        >> pop_assum imp_res_tac
-        >> fs[NULL_EQ]
-        >> imp_res_tac TYPE_SUBST_MEM'
-        >> qspecl_then [`t`,`q`,`s`,`Tyvar a'`] assume_tac subtype_at_TYPE_SUBST
-        >> rfs[IS_SOME_EXISTS]
-        >> imp_res_tac subtype_at_decomp_path
-        >> fs[]
-      )
-      >- (
-        rveq
-        >> imp_res_tac (CONJUNCT2 subtype_at_leaf_imp)
-        >> fs[NULL_EQ]
-        >> qpat_x_assum `!a. MEM _ e ==> ~MEM _ _` imp_res_tac
-        >> imp_res_tac TYPE_SUBST_drop_prefix
-      )
-      >- (
-        rveq
-        >> qpat_x_assum `!a. MEM _ e ==> ~MEM _ _` imp_res_tac
-        >> imp_res_tac TYPE_SUBST_drop_prefix
-        >> pop_assum (qspec_then `[]` assume_tac)
-        >> qspecl_then [`t`,`q'`,`s`,`Tyvar a'`] assume_tac subtype_at_TYPE_SUBST
-        >> rfs[]
-        >> qspecl_then [`t'`,`q'`,`r'++r`,`Tyvar a'`] assume_tac subtype_at_decomp_path
-        >> qspecl_then [`TYPE_SUBST s t`,`q'`,`r'++r`,`Tyvar a'`] assume_tac subtype_at_decomp_path
-        >> rfs[]
-      )
-      >- (
-        rveq
-        >> qspecl_then [`t'`,`q`,`r'`,`a`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
-        >> pop_assum imp_res_tac
-        >> fs[NULL_EQ]
-      )
-      >- (
-        rveq
-        >> qspecl_then [`t'`,`q`,`r'`,`a`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
-        >> pop_assum imp_res_tac
-        >> fs[NULL_EQ]
-        >> qpat_x_assum `!a. MEM _ e ==> ~MEM _ _` imp_res_tac
-        >> imp_res_tac TYPE_SUBST_drop_prefix
-        >> pop_assum (qspec_then `[]` assume_tac)
-        >> qspecl_then [`t`,`q`,`s`,`Tyvar a'`] assume_tac subtype_at_TYPE_SUBST
-        >> rfs[]
-        >> qspecl_then [`t'`,`q`,`r`,`Tyvar a'`] assume_tac subtype_at_decomp_path
-        >> qspecl_then [`TYPE_SUBST s t`,`q`,`r`,`Tyvar a'`] assume_tac subtype_at_decomp_path
-        >> rfs[]
-      )
-    )
-    (* subtype_at t q = SOME (Tyapp a []) |-
-     * subtype_at t' (q ⧺ r) = subtype_at (TYPE_SUBST s t) (q ⧺ r) *)
-    >- (
-      imp_res_tac subtype_at_TYPE_SUBST
-      >> pop_assum (qspec_then `s` assume_tac)
-      >> fs[is_subtype_leaf_eq]
-      >> imp_res_tac (CONJUNCT2 subtype_at_leaf_imp)
-      >- fs[NULL_EQ]
-      >- (
-        NTAC 2 (pop_assum kall_tac)
-        >> fs[NULL_EQ]
-        >> cheat
-      )
-    )
-  )
+val instance_subst_soundness_list = Q.store_thm("instance_subst_soundness_list",
+  `!l s e. instance_subst l [] [] = SOME (s,e)
+  ==> EVERY (λ(t,t'). t = TYPE_SUBST s t') l`,
+  rw[]
+  >> qspecl_then [`Tyapp m (MAP SND l)`,`Tyapp m (MAP FST l)`,`s`,`e`] assume_tac instance_subst_soundness
+  >> rfs[instance_subst_def,ZIP_MAP_FST_SND_EQ]
+  >> rw[EVERY_MEM,ELIM_UNCURRY]
+  >> fs[MAP_MAP_o,MAP_EQ_f]
 );
 
 (* Instantiation fails: ~(ty1 <= ty2)
@@ -9277,16 +9410,1812 @@ val instance_subst_complete_Tyvar_Tyapp_no_instance = Q.store_thm("instance_subs
   >> rw[]
 );
 
+val TYPE_SUBST_Tyvar_no_fixpoint = Q.store_thm("TYPE_SUBST_Tyvar_no_fixpoint",
+  `!s m. TYPE_SUBST s (Tyvar m) <> (Tyvar m)
+  ==> MEM (Tyvar m) (MAP SND s)`,
+  rw[]
+  >> CCONTR_TAC
+  >> imp_res_tac TYPE_SUBST_drop_prefix
+  >> first_x_assum (qspec_then `[]` assume_tac)
+  >> fs[]
+);
+
+val is_subtype_leaf_EL = Q.store_thm("is_subtype_leaf_EL",
+  `!m l t n. n < LENGTH l ==> is_subtype_leaf (Tyapp m l) ((m,n)::t)
+  = is_subtype_leaf (EL n l) t`,
+  rw[is_subtype_leaf_def',subtype_at_def]
+  >> rfs[]
+);
+
+val EQ_LIST_EL = Q.store_thm("EQ_LIST_EL",
+  `!l1 l2. (l1 = l2) = (LENGTH l1 = LENGTH l2 /\ !n. n < LENGTH l1 ==> EL n l1 = EL n l2)`,
+  Induct >> rw[EQ_IMP_THM]
+  >> fs[]
+  >> first_assum (qspec_then `0` assume_tac)
+  >> last_x_assum (qspec_then `TL l2` assume_tac)
+  >> Cases_on `l2`
+  >> rfs[EL]
+  >> rw[]
+  >> first_assum (qspec_then `SUC n` assume_tac)
+  >> rfs[prim_recTheory.LESS_SUC]
+);
+
+val is_subtype_leaf_TYPE_SUBST = Q.store_thm("is_subtype_leaf_TYPE_SUBST",
+  `!t s p. is_subtype_leaf (TYPE_SUBST s t) p
+  ==> ?q r. p = q ++ r /\ is_subtype_leaf t q`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  >- (
+    rpt strip_tac
+    >> qexists_tac `[]`
+    >> fs[EXISTS_OR_THM,is_subtype_leaf_eq,subtype_at_def]
+  )
+  >> rpt strip_tac
+  >> fs[EVERY_MEM]
+  >> Cases_on `p`
+  >- fs[is_subtype_leaf_eq,subtype_at_def]
+  >> Cases_on `h`
+  >> Cases_on `q = m /\ r < LENGTH l`
+  >- (
+    qspecl_then [`m`,`MAP (λx. TYPE_SUBST s x) l`,`t`,`r`] assume_tac is_subtype_leaf_EL
+    >> rfs[LENGTH_MAP]
+    >> imp_res_tac MEM_EL
+    >> fs[PULL_FORALL]
+    >> first_x_assum (qspecl_then [`EL r l`,`s`,`t`] assume_tac)
+    >> rfs[TYPE_SUBST_EL]
+    >> qexists_tac `(m,r)::q'`
+    >> fs[EXISTS_OR_THM,is_subtype_leaf_EL]
+  )
+  >> fs[is_subtype_leaf_eq,subtype_at_def]
+  >> fs[]
+);
+
+
+val is_instance_eq = Q.store_thm("is_instance_eq",
+  `!t ti s. ALL_DISTINCT (MAP SND s) /\ EVERY (UNCURRY $<>) s
+  ==> (ti = TYPE_SUBST s t) =
+  ((!p. is_subtype_leaf t p
+  ==> (
+    (subtype_at t p <> subtype_at ti p)
+    = (
+      ?a. subtype_at t p = SOME (Tyvar a)
+      /\ TYPE_SUBST s (Tyvar a) = THE (subtype_at ti p)
+      /\ MEM (THE (subtype_at ti p),Tyvar a) s
+    )
+    /\ !a. subtype_at t p = SOME (Tyvar a) ==> (
+      (subtype_at ti p = subtype_at t p) = ~MEM (Tyvar a) (MAP SND s)
+    )
+  ))
+  /\ !p m l. subtype_at t p = SOME (Tyapp m l)
+    ==> ?l'. subtype_at ti p = SOME (Tyapp m l') /\ LENGTH l' = LENGTH l
+  )`,
+  ho_match_mp_tac type_ind
+  >> strip_tac
+  (* 2 subgoals *)
+  >- (
+    rw[EQ_IMP_THM]
+    (* 6 subgoals *)
+    >- (
+      fs[is_subtype_leaf_Tyvar,NULL_EQ,subtype_at_def]
+      >> rveq
+      >> fs[subtype_at_def]
+      >> Cases_on `MEM (Tyvar m) (MAP SND s)`
+      >- (
+        fs[MEM_MAP]
+        >> Cases_on `y`
+        >> fs[]
+        >> rveq
+        >> imp_res_tac TYPE_SUBST_MEM'
+        >> fs[]
+      )
+      >> imp_res_tac TYPE_SUBST_drop_prefix
+      >> pop_assum (qspec_then `[]` assume_tac)
+      >> fs[]
+    )
+    >- (
+      fs[is_subtype_leaf_Tyvar,NULL_EQ,subtype_at_def,EVERY_MEM]
+      >> rveq
+      >> NTAC 5 (last_x_assum (assume_tac o REWRITE_RULE[subtype_at_def,option_CLAUSES]))
+      >> qpat_x_assum `REV_ASSOCD _ _ _ = _` kall_tac
+      >> rw[]
+      >> qpat_x_assum `!e. _` imp_res_tac
+      >> fs[ELIM_UNCURRY]
+    )
+    >- (
+      CCONTR_TAC
+      >> fs[MEM_MAP,is_subtype_leaf_Tyvar,NULL_EQ]
+      >> qpat_assum `EVERY _ _` (imp_res_tac o REWRITE_RULE[EVERY_MEM])
+      >> Cases_on `y`
+      >> rveq
+      >> fs[ELIM_UNCURRY,subtype_at_def]
+      >> rw[]
+      >> imp_res_tac TYPE_SUBST_MEM'
+      >> fs[]
+    )
+    >- (
+      fs[is_subtype_leaf_Tyvar,NULL_EQ]
+      >> rveq
+      >> fs[subtype_at_def]
+      >> rveq
+      >> imp_res_tac TYPE_SUBST_drop_prefix
+      >> pop_assum (qspec_then `[]` assume_tac)
+      >> fs[]
+    )
+    >- (
+      imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_Tyvar)
+      >> fs[NULL_EQ,subtype_at_def]
+    )
+    >- (
+      qpat_x_assum `!p. is_subtype_leaf _ _ ==> _` (qspec_then `[]` assume_tac)
+      >> fs[is_subtype_leaf_Tyvar,NULL_EQ,subtype_at_def]
+      >> Cases_on `Tyvar m <> ti`
+      >> fs[]
+      >- (
+        rveq
+        >> imp_res_tac TYPE_SUBST_drop_prefix
+        >> pop_assum (qspec_then `[]` assume_tac)
+        >> fs[]
+      )
+      >> rveq
+      >> imp_res_tac TYPE_SUBST_drop_prefix
+      >> pop_assum (qspec_then `[]` assume_tac)
+      >> fs[]
+    )
+  )
+  >> rw[]
+  >> Cases_on `NULL l`
+  >> rw[Once EQ_IMP_THM]
+  >> imp_res_tac is_subtype_leaf_Tyapp
+  >> fs[NULL_EQ,subtype_at_def]
+  >> rveq
+  (* 6 subgoals *)
+  >- (
+    asm_exists_tac >> fs[]
+  )
+  >- (
+    first_x_assum (qspecl_then [`[]`] assume_tac)
+    >> fs[subtype_at_def]
+  (*  qpat_x_assum `!p. is_subtype_leaf _ _ ==> _` (qspec_then `[]` assume_tac)
+    >> fs[is_subtype_leaf_eq,subtype_at_def] *)
+  )
+  >- (
+    Cases_on `p`
+    >> fs[]
+    >> Cases_on `h`
+    >> Cases_on `m = q /\ r < LENGTH l`
+    >> fs[]
+    >> qpat_x_assum `EVERY _ l` ((qspec_then `EL r l` assume_tac) o REWRITE_RULE[EVERY_MEM])
+    >> fs[subtype_at_def,EL_MAP,EVERY_MEM]
+    >> `MEM (EL r l) l` by (rw[MEM_EL] >> asm_exists_tac >> fs[])
+    >> fs[]
+    >> first_x_assum (qspecl_then [`TYPE_SUBST s (EL r l)`,`s`] assume_tac)
+    >> rfs[]
+    >> imp_res_tac is_subtype_leaf_EL
+    >> first_x_assum (qspec_then `t` assume_tac)
+    >> rw[EQ_IMP_THM]
+  )
+  >- (
+    Cases_on `p`
+    >> fs[]
+    >> Cases_on `h`
+    >> Cases_on `m = q /\ r < LENGTH l`
+    >> fs[subtype_at_def,EL_MAP]
+    >> rfs[]
+    >> imp_res_tac subtype_at_TYPE_SUBST
+    >> pop_assum (qspec_then `s` assume_tac)
+    >> rw[EQ_IMP_THM]
+    >- (
+      CCONTR_TAC
+      >> fs[MEM_MAP,EVERY_MEM]
+      >> qpat_x_assum `!e. _` imp_res_tac
+      >> Cases_on `y`
+      >> fs[ELIM_UNCURRY]
+      >> rveq
+      >> imp_res_tac TYPE_SUBST_MEM'
+      >> fs[]
+    )
+    >> imp_res_tac TYPE_SUBST_drop_prefix
+    >> pop_assum (qspec_then `[]` assume_tac)
+    >> fs[]
+  )
+  >- (
+    imp_res_tac subtype_at_TYPE_SUBST
+    >> first_x_assum (qspec_then `s` assume_tac)
+    >> fs[]
+  )
+  >- (
+    first_assum (qspecl_then [`[]`,`m`,`l`] assume_tac)
+    >> fs[subtype_at_def]
+    >> rw[EQ_LIST_EL]
+    >> fs[EVERY_MEM,PULL_FORALL]
+    >> last_x_assum (qspecl_then [`EL n l`,`EL n l'`,`s`] assume_tac)
+    >> imp_res_tac MEM_EL
+    >> imp_res_tac (GSYM TYPE_SUBST_EL)
+    >> fs[GSYM PULL_FORALL]
+    >> rfs[]
+    >> rw[]
+    (* 3 subgoals *)
+    >> (
+      qpat_x_assum `!p. is_subtype_leaf _ _ ==> _` (qspec_then `(m,n)::p` assume_tac)
+      >> fs[is_subtype_leaf_def',subtype_at_def]
+      >> rfs[]
+    )
+    >> qpat_x_assum `!p m l. _ ==> _` (qspec_then `(m,n)::p'` assume_tac)
+    >> fs[subtype_at_def]
+    >> rfs[]
+  )
+);
+
+val NOT_MEM_MAP_SND = Q.store_thm("NOT_MEM_MAP_SND",
+  `!s y. ALL_DISTINCT (MAP SND s) ==> (!x. ~MEM (x,y) s) = ~MEM y (MAP SND s)`,
+  rw[EQ_IMP_THM]
+  >- (
+    CCONTR_TAC
+    >> fs[MEM_MAP]
+    >> first_x_assum (qspec_then `FST y'` assume_tac)
+    >> rveq
+    >> fs[PAIR]
+  )
+  >> fs[MEM_MAP]
+  >> first_x_assum (qspec_then `(x,y)` assume_tac)
+  >> fs[]
+);
+
+val FUN_EXISTS_REFL = Q.prove(
+  `!A x. ?a. A x = A a`,
+  rpt strip_tac >> qexists_tac `x` >> fs[]
+);
+
+val instance_subst_complete_step1 = Q.prove(
+  `∀a b l sigma e.
+       (¬MEM (Tyvar a,Tyvar b) sigma ∧ ¬MEM (Tyvar b) (MAP SND sigma) ∧
+        a ≠ b ∧ ¬MEM b e ⇒
+        ∀t ti.
+            (∃s. ti = TYPE_SUBST ((Tyvar a,Tyvar b)::sigma ++ s) t) ∧
+            instance_subst_inv [(ti,t)] l ((Tyvar a,Tyvar b)::sigma) e ⇒
+            IS_SOME (instance_subst l ((Tyvar a,Tyvar b)::sigma) e)) ∧
+       (¬MEM (Tyvar a,Tyvar b) sigma ∧ ¬MEM (Tyvar b) (MAP SND sigma) ∧ a = b ⇒
+        ∀t ti.
+            (∃s. ti = TYPE_SUBST (sigma ++ s) t) ∧
+            instance_subst_inv [(ti,t)] l sigma (a::e) ⇒
+            IS_SOME (instance_subst l sigma (a::e))) ∧
+       (MEM (Tyvar a,Tyvar b) sigma ⇒
+        ∀t ti.
+            (∃s. ti = TYPE_SUBST (sigma ++ s) t) ∧
+            instance_subst_inv [(ti,t)] l sigma e ⇒
+            IS_SOME (instance_subst l sigma e)) ⇒
+       ∀t ti.
+           (∃s. ti = TYPE_SUBST (sigma ++ s) t) ∧
+           instance_subst_inv [(ti,t)] ((Tyvar a,Tyvar b)::l) sigma e ⇒
+           IS_SOME (instance_subst ((Tyvar a,Tyvar b)::l) sigma e)`,
+  rw[instance_subst_def]
+  (* 5 subgoals *)
+  >- (
+    first_x_assum ho_match_mp_tac
+    >> qexists_tac `t`
+    >> qexists_tac `TYPE_SUBST (sigma++s) t`
+    >> fs[instance_subst_inv_def]
+    >> strip_tac
+    >- (
+      qexists_tac `s` >> fs[]
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p. IS_SOME _ /\ IS_SOME _ ==> _` (qspec_then `p` assume_tac)
+      >> rfs[]
+      (* 10 subgoals *)
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM,IS_SOME_THE,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+        >> qexists_tac `b`
+        >> fs[IS_SOME_THE]
+      )
+      >- (
+        DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM,IS_SOME_THE,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+        >> qexists_tac `b`
+        >> fs[IS_SOME_THE]
+      )
+      >- (
+        DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> qexists_tac `r`
+        >> qexists_tac `a'`
+        >> fs[IS_SOME_THE]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> qexists_tac `r`
+        >> qexists_tac `a'`
+        >> fs[IS_SOME_THE]
+      )
+      >> (
+        DISJ2_TAC >> DISJ2_TAC
+        >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `is_instance _ _ ==> _` (imp_res_tac o REWRITE_RULE[TYPE_SUBST_compose])
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyvar _) ==> _` imp_res_tac
+      (* 4 subgoals *)
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_THE]
+        >> rveq
+        >> qspecl_then [`t`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM]
+      )
+      >> (
+        DISJ2_TAC >> fs[]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyapp _ _) ==> _` imp_res_tac
+      (* 3 subgoals *)
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_THE]
+        >> rveq
+        >> qspecl_then [`t`,`q`,`r`] assume_tac (REWRITE_RULE[is_subtype_leaf_eq] is_subtype_leafs_imp)
+        >> fs[EXISTS_OR_THM]
+        >> pop_assum imp_res_tac
+        >> fs[]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        fs[]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME _ /\ subtype_at _ _ = SOME _ ==> _` 
+        (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >> fs[]
+      (* 4 subgoals *)
+      >- (
+        imp_res_tac IS_SOME_THE
+        >> fs[]
+        >> qspecl_then [`t`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+        >> qpat_x_assum `EVERY _ _` (imp_res_tac o (REWRITE_RULE[EVERY_MEM]))
+        >> fs[ELIM_UNCURRY]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        fs[IS_SOME_EXISTS]
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_THE]
+        >> rveq
+        >> qspecl_then [`t`,`p`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+        >> qpat_x_assum `EVERY _ _` (imp_res_tac o (REWRITE_RULE[EVERY_MEM]))
+        >> fs[ELIM_UNCURRY]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p. (_ <> _) /\ is_subtype_leaf _ _ ==> _` (qspec_then `p` assume_tac)
+      >> rfs[]
+      (* 2 subgoals *)
+      >- (
+        rveq
+        >> imp_res_tac subtype_at_IS_SOME_parent
+        >> imp_res_tac IS_SOME_THE
+        >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`q`,`r`] assume_tac is_subtype_leafs_imp
+        >> rfs[]
+        >> pop_assum (assume_tac o REWRITE_RULE[is_subtype_leaf_eq])
+        >> fs[EXISTS_OR_THM]
+        >> pop_assum imp_res_tac
+        >> imp_res_tac TYPE_SUBST_MEM'
+        >> qspecl_then [`t`,`q`] assume_tac subtype_at_TYPE_SUBST
+        >> pop_assum imp_res_tac
+        >> fs[]
+      )
+      >- (
+        qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a b. _ /\ _ /\ (_ <> _) /\ _ ==> _` (qspecl_then [`p`,`a'`,`b'`] assume_tac)
+      >> rfs[]
+      (* 2 subgoals *)
+      >- (
+        imp_res_tac IS_SOME_THE
+        >> rveq
+        >> qspecl_then [`t`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+        >> rveq
+        >> imp_res_tac (Q.ISPEC `SND` MEM_MAP_f)
+        >> fs[]
+      )
+      >- (
+        qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+  )
+  (* 4 subgoals remaining *)
+  >- (
+    (* different assignment for a variable *)
+    CCONTR_TAC
+    >> fs[instance_subst_inv_def]
+    >> qpat_x_assum `is_instance _ _ ==> _` imp_res_tac
+    >> imp_res_tac TYPE_SUBST_drop_suffix
+    >> fs[MEM_MAP]
+    >> Cases_on `y`
+    >> fs[ELIM_UNCURRY]
+    >> rveq
+    >> imp_res_tac TYPE_SUBST_MEM'
+    >> rveq
+    >> fs[]
+  )
+  >- (
+    first_x_assum ho_match_mp_tac
+    >> qexists_tac `t`
+    >> qexists_tac `TYPE_SUBST (sigma++s) t`
+    >> fs[instance_subst_inv_def]
+    >> strip_tac
+    >- (
+      qexists_tac `s` >> fs[]
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p. IS_SOME _ /\ IS_SOME _ ==> _` (qspec_then `p` assume_tac)
+      >> rfs[]
+      >> fs[]
+      (* 10 subgoals *)
+      >- (
+        DISJ2_TAC >> DISJ2_TAC >> qexists_tac `q` >> imp_res_tac IS_SOME_THE >> fs[option_CLAUSES,EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ2_TAC
+        >> qexists_tac `q`
+        >> imp_res_tac IS_SOME_THE
+        >> fs[option_CLAUSES,EXISTS_OR_THM,RIGHT_EXISTS_AND_THM,LEFT_EXISTS_AND_THM]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >> (
+        DISJ2_TAC >> DISJ2_TAC
+        >> qexists_tac `q`
+        >> fs[option_CLAUSES,EXISTS_OR_THM,RIGHT_EXISTS_AND_THM,LEFT_EXISTS_AND_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      fs[TYPE_SUBST_compose]
+      >> strip_tac
+      >> qpat_x_assum `is_instance _ _ ==> _` imp_res_tac
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >> strip_tac
+    >- (
+      rw[] >> fs[]
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >- (
+        qpat_x_assum `!a b. _ /\ _ \/ _==>_` (qspecl_then [`Tyvar a`,`Tyvar a`] assume_tac)
+        >> fs[]
+        >> asm_exists_tac
+        >> fs[]
+      )
+      >- (
+        qpat_x_assum `!a. MEM _ e ==> ?p. _` imp_res_tac
+        >> asm_exists_tac
+        >> fs[]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[IS_SOME_EXISTS,option_CLAUSES,NULL_EQ]
+        >> rveq
+        >> fs[]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyapp _ _) ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> qspecl_then [`t`,`q`,`r`] assume_tac (REWRITE_RULE[is_subtype_leaf_eq] is_subtype_leafs_imp)
+        >> fs[option_CLAUSES,EXISTS_OR_THM]
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[]
+      )
+      >> DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME _ /\ subtype_at _ _ = SOME _ ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`p`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p. (_ <> _) /\ _ ==> _` (qspecl_then [`p`] assume_tac)
+      >> rfs[]
+      >- (
+        qspecl_then [`TYPE_SUBST (sigma++s) t`,`q`,`r`] assume_tac is_subtype_leafs_imp
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> pop_assum (assume_tac o REWRITE_RULE[is_subtype_leaf_eq])
+        >> fs[EXISTS_OR_THM,IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> imp_res_tac TYPE_SUBST_drop_prefix
+        >> qexists_tac `q`
+        >> pop_assum (qspec_then `[]` assume_tac)
+        >> qspecl_then [`t`,`q`] assume_tac subtype_at_TYPE_SUBST
+        >> pop_assum imp_res_tac
+        >> fs[]
+      )
+      >> qexists_tac `q`
+      >> fs[EXISTS_OR_THM]
+    )
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a b. _ /\ _ /\ _ ==> _` (qspecl_then [`p`,`a'`,`b`] assume_tac)
+      >> rfs[]
+      >- (
+        imp_res_tac IS_SOME_THE
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        qexists_tac `q`
+        >> fs[EXISTS_OR_THM]
+      )
+    )
+  )
+  (* 2 subgoals remaining *)
+  >-(
+    first_x_assum ho_match_mp_tac
+    >> qexists_tac `t`
+    >> qexists_tac `TYPE_SUBST (sigma++s) t`
+    >> fs[instance_subst_inv_def]
+    >> strip_tac
+    >- (
+      qpat_x_assum `!a b. _ /\ _\/ _ ==> _` (qspecl_then [`Tyvar a`,`Tyvar b`] assume_tac)
+      >> qmatch_asmsub_abbrev_tac `subtype_at (TYPE_SUBST comp _) _ = SOME _`
+      >> fs[]
+      >> qspecl_then [`t`,`p`,`comp`] assume_tac subtype_at_TYPE_SUBST
+      >> pop_assum imp_res_tac
+      >> pop_assum (assume_tac o GSYM)
+      >> rfs[]
+      >> qexists_tac `s`
+      >> imp_res_tac TYPE_SUBST_drop_prefix
+      >> pop_assum (qspec_then `s` assume_tac)
+      >> rw[TYPE_SUBST_tyvars]
+      >> REWRITE_TAC[GSYM TYPE_SUBST_def]
+      >> Cases_on `x = b`
+      >> fs[REV_ASSOCD_def]
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p. IS_SOME _ /\ IS_SOME _ ==> _` (qspec_then `p` assume_tac)
+      >> rfs[]
+      >> fs[]
+      (* 10 subgoals *)
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> imp_res_tac IS_SOME_THE
+        >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> imp_res_tac IS_SOME_THE
+        >> fs[option_CLAUSES,EXISTS_OR_THM,RIGHT_EXISTS_AND_THM,LEFT_EXISTS_AND_THM]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >> (
+        DISJ2_TAC >> DISJ2_TAC
+        >> qexists_tac `q`
+        >> fs[option_CLAUSES,EXISTS_OR_THM,RIGHT_EXISTS_AND_THM,LEFT_EXISTS_AND_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      fs[]
+      >> strip_tac
+      >> qpat_x_assum `is_instance _ _ ==> _` imp_res_tac
+      >> qpat_x_assum `!a b. _ /\ _\/ _ ==> _` (qspecl_then [`Tyvar a`,`Tyvar b`] assume_tac)
+      >> qmatch_asmsub_abbrev_tac `subtype_at (TYPE_SUBST comp _) _ = SOME _`
+      >> fs[]
+      >> qspecl_then [`t`,`p`,`comp`] assume_tac subtype_at_TYPE_SUBST
+      >> pop_assum imp_res_tac
+      >> pop_assum (assume_tac o GSYM)
+      >> rfs[]
+      >> pop_assum (assume_tac o GSYM)
+      >> qexists_tac `s''`
+      >> fs[EVERY_MEM]
+      >> rw[ELIM_UNCURRY]
+      >> qpat_x_assum `!e. MEM _ _ ==> _` imp_res_tac
+      >> fs[ELIM_UNCURRY]
+      >> rw[TYPE_SUBST_tyvars]
+      >> fs[GSYM subtype_at_tyvars]
+      >> Cases_on `x=b`
+      >> fs[REV_ASSOCD_def]
+    )
+    >> strip_tac
+    >- (
+      rw[] >> fs[]
+    )
+    >> strip_tac
+    >- (
+      rw[] >> fs[]
+    )
+    >> strip_tac
+    >- (rw[] >> rw[])
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[IS_SOME_EXISTS,option_CLAUSES,NULL_EQ]
+        >> rveq
+        >> fs[]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyapp _ _) ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> qspecl_then [`t`,`q`,`r`] assume_tac (REWRITE_RULE[is_subtype_leaf_eq] is_subtype_leafs_imp)
+        >> fs[option_CLAUSES,EXISTS_OR_THM]
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[]
+      )
+      >> DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME _ /\ subtype_at _ _ = SOME _ ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`p`,`r`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      qpat_x_assum `!a b. _ /\ _ \/ _ ==> _` (qspecl_then [`Tyvar a`,`Tyvar b`] assume_tac)
+      >> fs[]
+      >> qspecl_then [`t`] assume_tac subtype_at_TYPE_SUBST
+      >> pop_assum imp_res_tac
+      >> pop_assum (qspec_then `sigma ++ s` (assume_tac o GSYM))
+      >> rfs[]
+      >> rpt (qpat_x_assum `subtype_at _ p = _` kall_tac)
+      >> rw[]
+      >> imp_res_tac is_subtype_leaf_TYPE_SUBST_parent
+      >> qpat_assum `is_subtype_leaf _ _` (assume_tac o REWRITE_RULE[is_subtype_leaf_eq])
+      >> rveq
+      >> fs[]
+      (* >> qpat_x_assum `is_subtype_leaf _ _` (assume_tac o REWRITE_RULE[is_subtype_leaf_def'])
+       *)
+      >- (
+      (* Tyvar a' *)
+        `a' <> b` by (
+          CCONTR_TAC
+          >> imp_res_tac subtype_at_TYPE_SUBST
+          >> first_assum (qspec_then `(Tyvar a,Tyvar b)::sigma` assume_tac)
+          >> first_x_assum (qspec_then `sigma++s` assume_tac)
+          >> imp_res_tac (GEN_ALL (CONTRAPOS (SPEC_ALL subtype_at_eqs_imp)))
+          >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`q`,`r`] assume_tac subtype_at_decomp_path
+          >> pop_assum imp_res_tac
+          >> qspecl_then [`TYPE_SUBST ((Tyvar a,Tyvar b)::sigma) t`,`q`,`r`] assume_tac subtype_at_decomp_path
+          >> pop_assum imp_res_tac
+          >> rveq
+          >> fs[]
+          >> rfs[REV_ASSOCD_def]
+        )
+        >> `~MEM (Tyvar a') (MAP SND sigma)` by (
+          CCONTR_TAC
+          >> fs[]
+          >> imp_res_tac (GEN_ALL (CONTRAPOS (SPEC_ALL subtype_at_eqs_imp)))
+          >> imp_res_tac TYPE_SUBST_drop_suffix
+          >> imp_res_tac subtype_at_TYPE_SUBST
+          >> first_assum (qspec_then `(Tyvar a,Tyvar b)::sigma` assume_tac)
+          >> first_x_assum (qspec_then `sigma++s` assume_tac)
+          >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`q`,`r`] assume_tac subtype_at_decomp_path
+          >> pop_assum imp_res_tac
+          >> qspecl_then [`TYPE_SUBST ((Tyvar a,Tyvar b)::sigma) t`,`q`,`r`] assume_tac subtype_at_decomp_path
+          >> pop_assum imp_res_tac
+          >> fs[]
+          >> fs[REV_ASSOCD_def]
+        )
+        >> imp_res_tac is_subtype_leaf_IS_SOME_subtype
+        >> imp_res_tac subtype_at_IS_SOME_parent
+        >> Cases_on `subtype_at (TYPE_SUBST ((Tyvar a,Tyvar b)::sigma) t) (q++r)=subtype_at (TYPE_SUBST sigma t) (q++r)`
+        >> fs[]
+        >- (
+          qpat_x_assum `!p. _ /\ _ ==> _` (qspec_then `q++r` assume_tac)
+          >> rfs[]
+          >- (
+            qspecl_then [`t`,`q`,`r`,`q'`,`r'`] assume_tac (REWRITE_RULE[is_subtype_leaf_eq] is_subtype_leafs_init)
+            >> rfs[IS_PREFIX_APPEND,IS_SOME_EXISTS]
+            >> rveq
+            >> fs[option_CLAUSES]
+            >> qspecl_then [`t`,`q'`,`l'`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+            >> rveq
+            >> pop_assum imp_res_tac
+            >> fs[NULL_EQ]
+          )
+          >> qexists_tac `q'`
+          >> fs[EXISTS_OR_THM]
+        )
+        >> imp_res_tac subtype_at_TYPE_SUBST
+        >> first_assum (qspec_then `(Tyvar a,Tyvar b)::sigma` assume_tac)
+        >> first_x_assum (qspec_then `sigma` assume_tac)
+        >> imp_res_tac TYPE_SUBST_drop_prefix
+        >> NTAC 2 (first_x_assum (qspec_then `[]` assume_tac))
+        >> fs[REV_ASSOCD_def]
+        >> FULL_CASE_TAC
+        >> fs[]
+        >> qspecl_then [`TYPE_SUBST sigma t`,`q`,`r`] assume_tac subtype_at_decomp_path
+        >> pop_assum imp_res_tac
+        >> qspecl_then [`TYPE_SUBST ((Tyvar a,Tyvar b)::sigma) t`,`q`,`r`] assume_tac subtype_at_decomp_path
+        >> pop_assum imp_res_tac
+        >> fs[]
+      )
+      (* Tyapp a' [] *)
+      >- (
+        imp_res_tac subtype_at_TYPE_SUBST
+        >> first_assum (qspec_then `(Tyvar a,Tyvar b)::sigma` assume_tac)
+        >> first_x_assum (qspec_then `sigma++s` assume_tac)
+        >> imp_res_tac (GEN_ALL (CONTRAPOS (SPEC_ALL subtype_at_eqs_imp)))
+        >> fs[TYPE_SUBST_def]
+        >> rfs[]
+      )
+    )
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a b. _ /\ _ /\ _ ==> _` (qspecl_then [`p`,`a'`,`b'`] assume_tac)
+      >> rfs[]
+      >- (
+        imp_res_tac IS_SOME_THE
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        qexists_tac `q`
+        >> fs[EXISTS_OR_THM]
+      )
+    )
+  )
+  >- (
+    CCONTR_TAC
+    >> fs[instance_subst_inv_def,TYPE_SUBST_compose]
+    >> qmatch_asmsub_abbrev_tac `_ = TYPE_SUBST comb t`
+    >> rpt (qpat_x_assum `!a. MEM _ e ==> _` imp_res_tac)
+    >> qpat_x_assum `!a b. _ /\ _\/ _ ==> _` (qspecl_then [`Tyvar a`,`Tyvar b`] assume_tac)
+    >> fs[]
+    >> qspecl_then [`t`,`p`,`comb`] assume_tac subtype_at_TYPE_SUBST
+    >> pop_assum imp_res_tac
+    >> qspecl_then [`t`,`p'`,`comb`] assume_tac subtype_at_TYPE_SUBST
+    >> pop_assum imp_res_tac
+    >> rveq
+    >> fs[]
+  )
+);
+
+val instance_subst_complete_step2 = Q.prove(
+   `∀m l n l' x sigma e.
+       (m = n ∧ LENGTH l = LENGTH l' ⇒
+        ∀t ti.
+            (∃s. ti = TYPE_SUBST (sigma ++ s) t) ∧
+            instance_subst_inv [(ti,t)] (ZIP (l,l') ++ x) sigma e ⇒
+            IS_SOME (instance_subst (ZIP (l,l') ++ x) sigma e)) ⇒
+       ∀t ti.
+           (∃s. ti = TYPE_SUBST (sigma ++ s) t) ∧
+           instance_subst_inv [(ti,t)] ((Tyapp m l,Tyapp n l')::x) sigma e ⇒
+           IS_SOME (instance_subst ((Tyapp m l,Tyapp n l')::x) sigma e)`,
+  rw[]
+  >> `m = n /\ LENGTH l = LENGTH l'` by (
+    pop_assum (assume_tac o REWRITE_RULE[instance_subst_inv_def])
+    >> fs[]
+    >> `TYPE_SUBST (sigma ++ s) t = TYPE_SUBST (sigma ++ s) t` by fs[]
+    >> qpat_x_assum `is_instance _ _ ==> _` imp_res_tac
+    >> rveq
+    >> fs[LENGTH_MAP]
+  )
+  >> fs[instance_subst_def]
+  >> last_x_assum ho_match_mp_tac
+  >> qexists_tac `t`
+  >> qexists_tac `TYPE_SUBST (sigma++s) t`
+  >> rw[]
+  >- (
+    qexists_tac `s`
+    >> fs[]
+  )
+  >> fs[instance_subst_inv_def]
+  >> strip_tac
+  >- (
+    rw[MEM_ZIP]
+    >- (
+      qpat_x_assum `!a b. _ /\ _ \/ _ ==> _` (qspecl_then [`Tyapp m l`,`Tyapp m l'`] assume_tac)
+      >> fs[]
+      >> qexists_tac `p++[(m,n)]`
+      >> imp_res_tac subtype_at_decomp_path
+      >> NTAC 2 (first_x_assum (qspecl_then [`[(m,n)]`] assume_tac))
+      >> fs[subtype_at_def]
+    )
+    >> qpat_x_assum `!a b. _ /\ _ \/ _ ==> _` (qspecl_then [`a`,`b`] assume_tac)
+    >> fs[]
+  )
+  >> strip_tac
+  >- (
+    rw[]
+    >> qpat_x_assum `!p. IS_SOME _ /\ _ ==> _` (qspecl_then [`p`] assume_tac)
+    >> rfs[]
+    (* 10 subgoals *)
+    >- (
+      rveq
+      >> imp_res_tac subtype_at_IS_SOME_parent
+      >> fs[IS_SOME_EXISTS]
+      >> fs[option_CLAUSES]
+      >> rveq
+      >> Cases_on `NULL l` >> fs[NULL_EQ]
+      >- (
+        DISJ2_TAC >> DISJ2_TAC
+        >> qexists_tac `q` >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      )
+      >> Cases_on `NULL r`
+      >- (
+        fs[NULL_EQ]
+        >> DISJ1_TAC >> qexists_tac `q++[(m,0)]`
+        >> imp_res_tac subtype_at_decomp_path
+        >> NTAC 2 (first_x_assum (qspec_then `[(m,0)]` assume_tac))
+        >> fs[subtype_at_def,EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+        >> FULL_CASE_TAC
+        >> rfs[] >> fs[MEM_ZIP]
+        >> DISJ1_TAC >> asm_exists_tac
+        >> fs[]
+      )
+      >> Cases_on `r` >> fs[] >> Cases_on `h`
+      >> DISJ1_TAC
+      >> qexists_tac `q++[(q',r)]`
+      >> qspecl_then [`t`,`q`,`[(q',r)]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`q`,`[(q',r)]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> fs[subtype_at_def,EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      >> qspecl_then [`t`,`q++[(q',r)]`,`t'`] assume_tac subtype_at_IS_SOME_parent
+      >> pop_assum (assume_tac o REWRITE_RULE[Once (GSYM APPEND_ASSOC),GSYM CONS_APPEND])
+      >> rfs[option_CLAUSES]
+      >> FULL_CASE_TAC
+      >> fs[]
+      >> DISJ1_TAC
+      >> fs[MEM_ZIP,EL_ZIP]
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >- (
+      DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+    >- (
+      Cases_on `NULL l` >> fs[NULL_EQ]
+      >- (
+        DISJ2_TAC >> DISJ2_TAC
+        >> qexists_tac `q`
+        >> rveq
+        >> imp_res_tac subtype_at_IS_SOME_parent
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+        >> rfs[]
+      )
+      >> rveq
+      >> imp_res_tac subtype_at_IS_SOME_parent
+      >> fs[IS_SOME_EXISTS]
+      >> fs[option_CLAUSES]
+      >> rveq
+      >> fs[]
+      >> DISJ1_TAC
+      >> qspecl_then [`t`,`p++r`,`[(m,0)]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`p++r`,`[(m,0)]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qexists_tac `p++r++[(m,0)]`
+      >> fs[subtype_at_def,EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      >> FULL_CASE_TAC
+      >> fs[]
+      >> rfs[MEM_ZIP]
+      >> DISJ1_TAC
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >- (
+      DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+    >- (
+      DISJ2_TAC >> DISJ1_TAC
+      >> qexists_tac `q`
+      >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+    )
+    >- (
+      DISJ2_TAC >> DISJ1_TAC
+      >> qexists_tac `q`
+      >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+    )
+    >> (
+      DISJ2_TAC >> DISJ2_TAC
+      >> qexists_tac `q`
+      >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+    )
+  )
+  >> strip_tac
+  >- (
+    rw[]
+    >> qpat_x_assum `is_instance _ _ ==> _` imp_res_tac
+    >> qexists_tac `s''`
+    >> fs[ZIP_MAP,EVERY_MAP]
+  )
+  >> strip_tac
+  >- (
+    rw[]
+    >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`p`,`a`] assume_tac)
+    >> rfs[]
+    >- (
+      rveq
+      >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+      >> fs[IS_SOME_EXISTS]
+      >> fs[option_CLAUSES]
+      >> rveq
+      >> Cases_on `NULL r` >- fs[NULL_EQ]
+      >> Cases_on `NULL l'`
+      >- (
+        fs[NULL_EQ]
+        >> imp_res_tac subtype_at_leaf_imp
+        >> fs[NULL_EQ]
+      )
+      >> DISJ1_TAC
+      >> qexists_tac `q++[HD r]`
+      >> qexists_tac `TL r`
+      >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM,IS_SOME_EXISTS]
+      >> imp_res_tac CONS
+      >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`q`,`[HD r]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`t`,`q`,`[HD r]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`t`,`q++[HD r]`,`TL r`] assume_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+      >> pop_assum (assume_tac o REWRITE_RULE[GSYM APPEND_ASSOC,Once (GSYM CONS_APPEND)])
+      >> rfs[]
+      >> Cases_on `HD r`
+      >> fs[subtype_at_def,MEM_ZIP]
+      >> rveq
+      >> DISJ1_TAC
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >- (
+      DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+  )
+  >> strip_tac
+  >- (
+    rw[]
+    >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyapp _ _) ==> _` (qspecl_then [`p`,`a`] assume_tac)
+    >> rfs[]
+    >- (
+      imp_res_tac subtype_at_TYPE_SUBST
+      >> first_x_assum (qspec_then `sigma++s` assume_tac)
+      >> rveq
+      >> fs[]
+    )
+    >- (
+      DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+  )
+  >> strip_tac
+  >- (
+    rw[]
+    >> qpat_x_assum `!p a. subtype_at (TYPE_SUBST _ _) _ = SOME _ /\ _ ==> _` (qspecl_then [`p`,`a`] assume_tac)
+    >> rfs[]
+    >- (
+      Cases_on `NULL l`
+      >- (
+        fs[NULL_EQ,IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> imp_res_tac (CONJUNCT2 subtype_at_leaf_imp)
+        >> fs[NULL_EQ]
+      )
+      >> Cases_on `NULL r`
+      >- (
+        fs[NULL_EQ,IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+      )
+      >> imp_res_tac CONS
+      >> DISJ2_TAC
+      >> qexists_tac `q++[HD r]`
+      >> qexists_tac `TL r`
+      >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM,IS_SOME_EXISTS]
+      >> fs[option_CLAUSES]
+      >> rveq
+      >> qspecl_then [`t`,`q`,`[HD r]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`q`,`[HD r]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`t`,`q++[HD r]`,`TL r`] assume_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+      >> pop_assum (assume_tac o REWRITE_RULE[GSYM APPEND_ASSOC,Once (GSYM CONS_APPEND)])
+      >> rfs[]
+      >> Cases_on `HD r`
+      >> fs[subtype_at_def,MEM_ZIP]
+      >> DISJ1_TAC
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >- (
+      DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+    >- (
+      qspecl_then [`t`,`p`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+      >> fs[IS_SOME_EXISTS]
+      >> rveq
+      >> pop_assum imp_res_tac
+      >> fs[option_CLAUSES,NULL_EQ]
+    )
+    >- (
+      DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+  )
+  >> strip_tac
+  >- (
+    rw[]
+    >> qpat_x_assum `!p. (_ <> _) /\ is_subtype_leaf _ _ ==> _` (qspecl_then [`p`] assume_tac)
+    >> rfs[]
+    >- (
+      Cases_on `NULL l`
+      >- (
+        fs[NULL_EQ,IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> imp_res_tac (GEN_ALL (CONTRAPOS (SPEC_ALL subtype_at_eqs_imp)))
+        >> qspecl_then [`t`,`q`,`sigma`] assume_tac subtype_at_TYPE_SUBST
+        >> pop_assum imp_res_tac
+        >> fs[]
+      )
+      >> Cases_on `NULL r`
+      >- (
+        fs[NULL_EQ,IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> fs[is_subtype_leaf_eq]
+        >> fs[NULL_EQ]
+      )
+      >> imp_res_tac CONS
+      >> qexists_tac `q++[HD r]`
+      >> qexists_tac `TL r`
+      >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM,IS_SOME_EXISTS]
+      >> fs[option_CLAUSES]
+      >> rveq
+      >> qspecl_then [`t`,`q`,`[HD r]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`q`,`[HD r]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] is_subtype_leaf_IS_SOME_subtype)
+      >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`q++[HD r]`,`TL r`] assume_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+      >> pop_assum (assume_tac o REWRITE_RULE[GSYM APPEND_ASSOC,Once (GSYM CONS_APPEND)])
+      >> rfs[]
+      >> Cases_on `HD r`
+      >> fs[subtype_at_def,MEM_ZIP]
+      >> DISJ1_TAC
+      >> qexists_tac `r'`
+      >> fs[]
+    )
+    >- (
+      qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+  )
+  >- (
+    rw[]
+    >> qpat_x_assum `!p a b. _ /\ _ /\ (_ <> _) /\ _ ==> _` (qspecl_then [`p`,`a`,`b`] assume_tac)
+    >> rfs[]
+    >- (
+      fs[IS_SOME_EXISTS]
+      >> fs[option_CLAUSES]
+      >> rveq
+      >> Cases_on `NULL l`
+      >- (
+        fs[NULL_EQ]
+        >> rveq
+        >> imp_res_tac (CONJUNCT2 subtype_at_leaf_imp)
+        >> fs[NULL_EQ]
+      )
+      >> Cases_on `NULL r`
+      >- fs[NULL_EQ]
+      >> imp_res_tac CONS
+      >> qexists_tac `q++[HD r]`
+      >> qexists_tac `TL r`
+      >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM,IS_SOME_EXISTS]
+      >> qspecl_then [`t`,`q`,`[HD r]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`TYPE_SUBST (sigma++s) t`,`q`,`[HD r]`] assume_tac subtype_at_decomp_path
+      >> pop_assum imp_res_tac
+      >> qspecl_then [`t`,`q++[HD r]`,`TL r`] assume_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+      >> pop_assum (assume_tac o REWRITE_RULE[GSYM APPEND_ASSOC,Once (GSYM CONS_APPEND)])
+      >> rfs[]
+      >> Cases_on `HD r`
+      >> fs[subtype_at_def,MEM_ZIP]
+      >> DISJ1_TAC
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >- (
+      qexists_tac `q` >> fs[EXISTS_OR_THM]
+    )
+  )
+);
+
+val instance_subst_complete_step3 = Q.prove(
+  `∀m l a l' sigma e.
+       (¬MEM (Tyapp m l,Tyvar a) sigma ∧ ¬MEM (Tyvar a) (MAP SND sigma) ∧
+        ¬MEM a e ⇒
+        ∀t ti.
+            (∃s. ti = TYPE_SUBST ((Tyapp m l,Tyvar a)::sigma ++ s) t) ∧
+            instance_subst_inv [(ti,t)] l' ((Tyapp m l,Tyvar a)::sigma) e ⇒
+            IS_SOME (instance_subst l' ((Tyapp m l,Tyvar a)::sigma) e)) ∧
+       (MEM (Tyapp m l,Tyvar a) sigma ⇒
+        ∀t ti.
+            (∃s. ti = TYPE_SUBST (sigma ++ s) t) ∧
+            instance_subst_inv [(ti,t)] l' sigma e ⇒
+            IS_SOME (instance_subst l' sigma e)) ⇒
+       ∀t ti.
+           (∃s. ti = TYPE_SUBST (sigma ++ s) t) ∧
+           instance_subst_inv [(ti,t)] ((Tyapp m l,Tyvar a)::l') sigma e ⇒
+           IS_SOME (instance_subst ((Tyapp m l,Tyvar a)::l') sigma e)`,
+  rw[instance_subst_def]
+  (* 3 subgoals *)
+  >- (
+    first_x_assum ho_match_mp_tac
+    >> qexists_tac `t`
+    >> qexists_tac `TYPE_SUBST (sigma++s) t`
+    >> strip_tac
+    >- (
+      qexists_tac `s`
+      >> fs[]
+    )
+    >> fs[instance_subst_inv_def]
+    >> imp_res_tac TYPE_SUBST_MEM'
+    >> imp_res_tac (Q.ISPEC `SND:type#type->type` MEM_MAP_f)
+    >> fs[]
+    >> imp_res_tac TYPE_SUBST_drop_suffix
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p. IS_SOME _ /\ _ ==> _` (qspecl_then [`p`] assume_tac)
+      >> rfs[]
+      (* 10 subgoals *)
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> rveq
+        >> fs[IS_SOME_EXISTS,EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+        >> fs[option_CLAUSES]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> rveq
+        >> fs[IS_SOME_EXISTS,EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+        >> fs[option_CLAUSES]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      )
+      >> (
+        DISJ2_TAC >> DISJ2_TAC
+        >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `is_instance _ _ ==> _` imp_res_tac
+      >> asm_exists_tac
+      >> fs[]
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyapp _ _) ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        imp_res_tac subtype_at_TYPE_SUBST
+        >> first_x_assum (qspec_then `sigma++s` assume_tac)
+        >> rveq
+        >> fs[]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at (TYPE_SUBST _ _) _ = SOME _ /\ _ ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        qspecl_then [`t`,`p`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> fs[IS_SOME_EXISTS]
+        >> rveq
+        >> pop_assum imp_res_tac
+        >> fs[option_CLAUSES,NULL_EQ]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p. (_ <> _) /\ is_subtype_leaf _ _ ==> _` (qspecl_then [`p`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (GEN_ALL (CONTRAPOS (SPEC_ALL subtype_at_eqs_imp)))
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`,`sigma`] assume_tac subtype_at_TYPE_SUBST
+        >> pop_assum imp_res_tac
+        >> rfs[]
+      )
+      >- (
+        qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a b. _ /\ _ /\ (_ <> _) /\ _ ==> _` (qspecl_then [`p`,`a'`,`b`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+  )
+  >- (
+    first_x_assum ho_match_mp_tac
+    >> qexists_tac `t`
+    >> qexists_tac `TYPE_SUBST (sigma++s) t`
+    >> strip_tac
+    >- (
+      qexists_tac `s`
+      >> fs[instance_subst_inv_def]
+      >> qpat_x_assum `!a b. _ /\ _ \/ _ ==> _` (qspecl_then [`Tyapp m l`,`Tyvar a`] assume_tac)
+      >> fs[]
+      >> qspecl_then[`t`,`p`] assume_tac subtype_at_TYPE_SUBST
+      >> pop_assum imp_res_tac
+      >> pop_assum (qspec_then `sigma++s` (assume_tac o GSYM))
+      >> rfs[]
+      >> rw[TYPE_SUBST_tyvars]
+      >> Cases_on `x = a`
+      >> fs[REV_ASSOCD_def]
+    )
+    >> fs[instance_subst_inv_def]
+    >> strip_tac
+    >- (
+    (*
+      qpat_x_assum `!a b. _ /\ _ \/ _ ==> _` (qspecl_then [`Tyapp m l`,`Tyvar a`] assume_tac)
+      >> fs[]
+      >> qspecl_then[`t`,`p`] assume_tac subtype_at_TYPE_SUBST
+      >> pop_assum imp_res_tac
+      >> pop_assum (qspec_then `sigma++s` (assume_tac o GSYM))
+      >> rfs[]
+      >> rpt (qpat_x_assum `subtype_at _ _ = SOME _` kall_tac)
+    *)
+      rw[]
+      >> qpat_x_assum `!p. IS_SOME _ /\ _ ==> _` (qspecl_then [`p`] assume_tac)
+      >> rfs[]
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES,EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC
+        >> qexists_tac `q`
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES,EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        DISJ2_TAC >> DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >> (
+        DISJ2_TAC >> DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM,LEFT_EXISTS_AND_THM,RIGHT_EXISTS_AND_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `is_instance _ _ ==> _` imp_res_tac
+      >> qexists_tac `s''`
+      >> fs[EVERY_MEM,ELIM_UNCURRY]
+      >> rw[TYPE_SUBST_tyvars]
+      >> qpat_x_assum `!e. MEM _ _ ==> _` imp_res_tac
+      >> fs[GSYM subtype_at_tyvars]
+      >> Cases_on `x=a`
+      >> fs[REV_ASSOCD_def]
+    )
+    >> strip_tac
+    >- (rw[] >> fs[])
+    >> strip_tac
+    >- (rw[] >> fs[])
+    >> strip_tac
+    >- (rw[] >> fs[])
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyvar _) ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q`
+        >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at _ _ = SOME (Tyapp _ _) ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ1_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a. subtype_at (TYPE_SUBST _ _) _ = SOME _ /\ _ ==> _` (qspecl_then [`p`,`a'`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> imp_res_tac (REWRITE_RULE[IS_SOME_EXISTS] subtype_at_IS_SOME_parent)
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+      >- (
+        rveq
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`p`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        DISJ2_TAC >> qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+    >> strip_tac
+    >- (
+      qpat_x_assum `!a b. _ /\ _ \/ _ ==> _` (qspecl_then [`Tyapp m l`,`Tyvar a`] assume_tac)
+      >> fs[]
+      >> qspecl_then[`t`,`p`] assume_tac subtype_at_TYPE_SUBST
+      >> pop_assum imp_res_tac
+      >> pop_assum (qspec_then `sigma++s` (assume_tac o GSYM))
+      >> rfs[]
+      >> rpt (qpat_x_assum `subtype_at _ _ = SOME _` kall_tac)
+      >> rw[]
+      >> imp_res_tac is_subtype_leaf_TYPE_SUBST_parent
+      >> pop_assum (assume_tac o REWRITE_RULE[is_subtype_leaf_eq])
+      >> fs[]
+      (* Tyvar a' *)
+      >- (
+        Cases_on `a' = a`
+        >- (
+          imp_res_tac (GEN_ALL (CONTRAPOS (SPEC_ALL subtype_at_eqs_imp)))
+          >> qspecl_then [`t`,`q`,`sigma++s`] assume_tac subtype_at_TYPE_SUBST
+          >> pop_assum imp_res_tac
+          >> qspecl_then [`t`,`q`,`(Tyapp m l,Tyvar a)::sigma`] assume_tac subtype_at_TYPE_SUBST
+          >> pop_assum imp_res_tac
+          >> rveq
+          >> fs[REV_ASSOCD_def]
+        )
+        >> qspecl_then [`t`,`q`,`sigma++s`] assume_tac subtype_at_TYPE_SUBST
+        >> pop_assum imp_res_tac
+        >> qspecl_then [`t`,`q`,`(Tyapp m l,Tyvar a)::sigma`] assume_tac subtype_at_TYPE_SUBST
+        >> pop_assum imp_res_tac
+        >> qspecl_then [`t`,`q`,`sigma`] assume_tac subtype_at_TYPE_SUBST
+        >> pop_assum imp_res_tac
+        >> qspec_then `q` assume_tac ((CONV_RULE SWAP_FORALL_CONV) subtype_at_decomp_path)
+        >> pop_assum imp_res_tac
+        >> rpt (qpat_x_assum `!q. subtype_at _ _ = _` (qspec_then `r` assume_tac))
+        >> qpat_x_assum `!p. (_ <> _) /\ is_subtype_leaf _ _ ==> _` (qspecl_then [`q++r`] assume_tac)
+        >> rfs[]
+        >> rfs[REV_ASSOCD_def]
+        >> fs[]
+        >> rfs[]
+        >- (
+          qspecl_then [`t`,`q`,`r`,`q'`,`r'`] assume_tac (REWRITE_RULE[is_subtype_leaf_eq] is_subtype_leafs_init)
+          >> rfs[IS_PREFIX_APPEND,IS_SOME_EXISTS]
+          >> fs[option_CLAUSES]
+          >> rveq
+          >> qspecl_then [`t`,`q'`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+          >> pop_assum imp_res_tac
+          >> fs[NULL_EQ]
+        )
+        >> qexists_tac `q'`
+        >> fs[EXISTS_OR_THM]
+      )
+      (* Tyapp _ [] *)
+      >- (
+        imp_res_tac (GEN_ALL (CONTRAPOS (SPEC_ALL subtype_at_eqs_imp)))
+        >> qspecl_then [`t`,`q`,`sigma++s`] assume_tac subtype_at_TYPE_SUBST
+        >> pop_assum imp_res_tac
+        >> qspecl_then [`t`,`q`,`(Tyapp m l,Tyvar a)::sigma`] assume_tac subtype_at_TYPE_SUBST
+        >> pop_assum imp_res_tac
+        >> fs[TYPE_SUBST_def]
+      )
+    )
+    >- (
+      rw[]
+      >> qpat_x_assum `!p a b. _ /\ _ /\ (_ <> _) /\ _ ==> _` (qspecl_then [`p`,`a'`,`b`] assume_tac)
+      >> rfs[]
+      >- (
+        rveq
+        >> fs[IS_SOME_EXISTS]
+        >> fs[option_CLAUSES]
+        >> rveq
+        >> qspecl_then [`t`,`q`] assume_tac (CONJUNCT1 subtype_at_leaf_imp)
+        >> pop_assum imp_res_tac
+        >> fs[NULL_EQ]
+      )
+      >- (
+        qexists_tac `q` >> fs[EXISTS_OR_THM]
+      )
+    )
+  )
+  >- (
+    CCONTR_TAC
+    >> fs[instance_subst_inv_def]
+    >- (
+      qpat_x_assum `!a b. _ /\ _ \/ _ ==> _` (qspecl_then [`Tyapp m l`,`Tyvar a`] assume_tac)
+      >> fs[]
+      >> qspecl_then[`t`,`p`] assume_tac subtype_at_TYPE_SUBST
+      >> pop_assum imp_res_tac
+      >> pop_assum (qspec_then `sigma++s` (assume_tac o GSYM))
+      >> rfs[]
+      >> rpt (qpat_x_assum `subtype_at _ _ = SOME _` kall_tac)
+      >> imp_res_tac TYPE_SUBST_drop_suffix
+      >> pop_assum (qspec_then `s` assume_tac)
+      >> fs[MEM_MAP]
+      >> Cases_on `y`
+      >> fs[ELIM_UNCURRY]
+      >> rveq
+      >> imp_res_tac TYPE_SUBST_MEM'
+      >> fs[]
+    )
+    >- (
+      qpat_x_assum `!a b. _ /\ _ \/ _ ==> _` (qspecl_then [`Tyapp m l`,`Tyvar a`] assume_tac)
+      >> fs[]
+      >> qspecl_then[`t`,`p`] assume_tac subtype_at_TYPE_SUBST
+      >> pop_assum imp_res_tac
+      >> pop_assum (qspec_then `sigma++s` (assume_tac o GSYM))
+      >> rfs[]
+      >> rpt (qpat_x_assum `subtype_at _ _ = SOME _` kall_tac)
+      >> qpat_x_assum `!a. MEM _ e ==> ?x. _` imp_res_tac
+      >> qspecl_then[`t`,`p`] assume_tac subtype_at_TYPE_SUBST
+      >> pop_assum imp_res_tac
+      >> pop_assum (qspec_then `sigma++s` assume_tac)
+      >> fs[]
+    )
+  )
+);
+
 val instance_subst_complete_step = Q.store_thm("instance_subst_complete_step",
-  `!t ti sigma. is_instance t ti /\ instance_subst_inv [(ti,t)] l sigma ==> IS_SOME (instance_subst [(ti,t)])`,
+  `!l sigma e t ti. (?s. ti = (TYPE_SUBST (sigma++s) t))
+  /\ instance_subst_inv [(ti,t)] l sigma e
+  ==> IS_SOME (instance_subst l sigma e)`,
   ho_match_mp_tac instance_subst_ind
-  >> cheat
+  >> strip_tac
+  >- rw[instance_subst_inv_def,instance_subst_def]
+  >> strip_tac
+  >- (
+    rpt GEN_TAC
+    >> strip_tac
+    >> imp_res_tac instance_subst_complete_step1
+    >> rpt strip_tac
+    >> qpat_x_assum `!ti t. _ ==> _` imp_res_tac
+  )
+  >> strip_tac
+  >- (
+    rpt GEN_TAC
+    >> strip_tac
+    >> imp_res_tac instance_subst_complete_step2
+    >> rpt strip_tac
+    >> qpat_x_assum `!ti t. _ ==> _` imp_res_tac
+  )
+  >> strip_tac
+  >- (
+    rw[instance_subst_def]
+    >> qmatch_goalsub_abbrev_tac `_ \/ ~inst`
+    >> Cases_on `inst`
+    >> fs[markerTheory.Abbrev_def,instance_subst_inv_def]
+  )
+  >- (
+    rpt GEN_TAC
+    >> strip_tac
+    >> imp_res_tac instance_subst_complete_step3
+    >> rpt strip_tac
+    >> qpat_x_assum `!ti t. _ ==> _` imp_res_tac
+  )
 );
 
 val instance_subst_completeness = Q.store_thm("instance_subst_completeness",
-  `!t t'. (is_instance t' t) = IS_SOME (instance_subst t' t)`,
-  cheat
+  `!t t'. (is_instance t t') = IS_SOME (instance_subst [(t',t)] [] [])`,
+  rw[EQ_IMP_THM]
+  >- (
+    ho_match_mp_tac instance_subst_complete_step
+    >> qexists_tac `t`
+    >> qexists_tac `TYPE_SUBST i t`
+    >> fs[TYPE_SUBST_NIL,instance_subst_inv_init]
+    >> qexists_tac `i`
+    >> fs[]
+  )
+  >- (
+    fs[IS_SOME_EXISTS]
+    >> Cases_on `x`
+    >> imp_res_tac instance_subst_soundness
+    >> rw[]
+    >> qexists_tac `q`
+    >> fs[]
+  )
 );
+
+
 
 (* TODO: lemmas that should maybe go elsewhere *)
 val MEM_PAIR_FST = Q.prove(`!a b l. MEM (a,b) l ==> MEM a (MAP FST l)`,
