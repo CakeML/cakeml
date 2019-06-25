@@ -269,12 +269,83 @@ val TYPE_SUBST_drop_prefix = Q.prove(
   >> fs[REV_ASSOCD_def]
 );
 
+val TYPE_SUBST_drop_prefix_MAP = Q.prove(
+  `!l pfx a f. ~MEM (Tyvar a) (MAP SND pfx) ==> TYPE_SUBST (MAP (f ## I )pfx++l) (Tyvar a) = TYPE_SUBST l (Tyvar a)`,
+  Induct_on `pfx`
+  >> rw[REV_ASSOCD_drop]
+  >> Cases_on `h`
+  >> fs[REV_ASSOCD_def]
+);
+
 val TYPE_SUBST_MEM' = Q.prove(
   `!s a b. ALL_DISTINCT (MAP SND s) /\ MEM (b,Tyvar a) s ==> TYPE_SUBST s (Tyvar a) = b`,
   rw[MEM_SPLIT]
   >> fs[MAP_APPEND,ALL_DISTINCT_APPEND]
   >> imp_res_tac TYPE_SUBST_drop_prefix
   >> pop_assum (qspec_then `[(b,Tyvar a)]++l2` assume_tac)
+  >> fs[REV_ASSOCD_def]
+);
+
+val ZIP_ident = Q.prove(
+  `!a b c d. LENGTH a = LENGTH c /\ LENGTH b = LENGTH d /\
+  LENGTH a = LENGTH b ==> ((ZIP (a,b) = ZIP (c,d)) <=> (a = c /\ b = d))`,
+  Induct >- fs[]
+  >> strip_tac
+  >> rpt Cases >> fs[]
+  >> first_x_assum (qspecl_then [`t`,`t'`,`t''`] assume_tac)
+  >> rw[] >> fs[AC CONJ_ASSOC CONJ_COMM]
+);
+
+val MEM_SPLIT_APPEND_SND_first = Q.store_thm("MEM_SPLIT_APPEND_SND_first",
+  `!s x. MEM x (MAP SND s) ==> ?pfx sfx q. s = pfx ++ [(q,x)] ++ sfx /\ ~MEM x (MAP SND pfx)`,
+  rpt strip_tac
+  >> pop_assum (assume_tac o PURE_ONCE_REWRITE_RULE [MEM_SPLIT_APPEND_first])
+  >> fs[]
+  >> `LENGTH (MAP SND s) = LENGTH pfx + 1 + LENGTH sfx` by (ASM_REWRITE_TAC[LENGTH_APPEND] >> fs[])
+  >> ONCE_REWRITE_TAC[GSYM ZIP_MAP_FST_SND_EQ]
+  >> fs[MAP_APPEND]
+  >> qexists_tac `TAKE (LENGTH pfx) s`
+  >> qexists_tac `DROP (SUC (LENGTH pfx)) s`
+  >> qexists_tac `FST (EL (LENGTH pfx) s)`
+  >> qmatch_goalsub_abbrev_tac `ZIP (a,b) = ZIP(c,d)`
+  >> (Q.ISPECL_THEN [`a`,`b`,`c`,`d`] assume_tac) ZIP_ident
+  >> unabbrev_all_tac
+  >> fs[LENGTH_MAP]
+  >> rpt strip_tac
+  >- (
+    NTAC 2 (pop_assum kall_tac)
+    >> rpt (pop_assum mp_tac)
+    >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`sfx`,`x`,`pfx`,`s`]
+    >> Induct >- fs[]
+    >> rw[]
+    >> Cases_on `pfx`
+    >> fs[]
+  )
+  >- (
+    NTAC 2 (pop_assum kall_tac)
+    >> rpt (pop_assum mp_tac)
+    >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`sfx`,`x`,`pfx`,`s`]
+    >> Induct >- fs[]
+    >> rw[]
+    >> Cases_on `pfx`
+    >> fs[]
+  )
+  >> pop_assum mp_tac
+  >> rw[ZIP_MAP_FST_SND_EQ,MAP_TAKE]
+  >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
+  >> rw[TAKE_LENGTH_APPEND]
+);
+
+
+
+val TYPE_SUBST_drop_suffix = Q.prove(
+  `!s a. MEM (Tyvar a) (MAP SND s)
+  ==> !s'. TYPE_SUBST (s++s') (Tyvar a) = TYPE_SUBST s (Tyvar a)`,
+  rpt strip_tac
+  >> imp_res_tac MEM_SPLIT_APPEND_SND_first
+  >> imp_res_tac TYPE_SUBST_drop_prefix
+  >> first_assum (qspec_then `[(q,Tyvar a)]++sfx++s'` assume_tac)
+  >> first_x_assum (qspec_then `[(q,Tyvar a)]++sfx` assume_tac)
   >> fs[REV_ASSOCD_def]
 );
 
@@ -5012,56 +5083,6 @@ val unifiable_orth_ty_equiv = Q.store_thm("unifiable_orth_ty_equiv",
   >> PURE_ONCE_REWRITE_TAC[TYPE_SUBST_FILTER_tyvars]
   >> rw[FILTER_APPEND,FILTER_IDEM,FILTER_COMM]
   >> fs[]
-);
-
-val ZIP_ident = Q.prove(
-  `!a b c d. LENGTH a = LENGTH c /\ LENGTH b = LENGTH d /\
-  LENGTH a = LENGTH b ==> ((ZIP (a,b) = ZIP (c,d)) <=> (a = c /\ b = d))`,
-  Induct >- fs[]
-  >> strip_tac
-  >> rpt Cases >> fs[]
-  >> first_x_assum (qspecl_then [`t`,`t'`,`t''`] assume_tac)
-  >> rw[] >> fs[AC CONJ_ASSOC CONJ_COMM]
-);
-
-val MEM_SPLIT_APPEND_SND_first = Q.store_thm("MEM_SPLIT_APPEND_SND_first",
-  `!s x. MEM x (MAP SND s) ==> ?pfx sfx q. s = pfx ++ [(q,x)] ++ sfx /\ ~MEM x (MAP SND pfx)`,
-  rpt strip_tac
-  >> pop_assum (assume_tac o PURE_ONCE_REWRITE_RULE [MEM_SPLIT_APPEND_first])
-  >> fs[]
-  >> `LENGTH (MAP SND s) = LENGTH pfx + 1 + LENGTH sfx` by (ASM_REWRITE_TAC[LENGTH_APPEND] >> fs[])
-  >> ONCE_REWRITE_TAC[GSYM ZIP_MAP_FST_SND_EQ]
-  >> fs[MAP_APPEND]
-  >> qexists_tac `TAKE (LENGTH pfx) s`
-  >> qexists_tac `DROP (SUC (LENGTH pfx)) s`
-  >> qexists_tac `FST (EL (LENGTH pfx) s)`
-  >> qmatch_goalsub_abbrev_tac `ZIP (a,b) = ZIP(c,d)`
-  >> (Q.ISPECL_THEN [`a`,`b`,`c`,`d`] assume_tac) ZIP_ident
-  >> unabbrev_all_tac
-  >> fs[LENGTH_MAP]
-  >> rpt strip_tac
-  >- (
-    NTAC 2 (pop_assum kall_tac)
-    >> rpt (pop_assum mp_tac)
-    >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`sfx`,`x`,`pfx`,`s`]
-    >> Induct >- fs[]
-    >> rw[]
-    >> Cases_on `pfx`
-    >> fs[]
-  )
-  >- (
-    NTAC 2 (pop_assum kall_tac)
-    >> rpt (pop_assum mp_tac)
-    >> MAP_EVERY (W(curry Q.SPEC_TAC)) [`sfx`,`x`,`pfx`,`s`]
-    >> Induct >- fs[]
-    >> rw[]
-    >> Cases_on `pfx`
-    >> fs[]
-  )
-  >> pop_assum mp_tac
-  >> rw[ZIP_MAP_FST_SND_EQ,MAP_TAKE]
-  >> ONCE_REWRITE_TAC[GSYM APPEND_ASSOC]
-  >> rw[TAKE_LENGTH_APPEND]
 );
 
 val type_size'_le = Q.prove(
