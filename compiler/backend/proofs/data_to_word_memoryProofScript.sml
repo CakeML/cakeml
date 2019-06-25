@@ -4785,8 +4785,48 @@ Proof
                 GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
 QED
 
+Theorem all_ts_head_eq:
+  ∀v refs stack ts.
+   v  ∈ all_vs refs stack
+   ⇒ all_ts refs stack = all_ts refs (v::stack)
+Proof
+  rw [FUN_EQ_THM]
+  \\ EQ_TAC
+  >- (rw [all_ts_def,all_vs_def] \\ metis_tac [])
+  \\ fs [all_ts_def,all_vs_def] \\ rw []
+  >- metis_tac []
+  >- (Cases_on `v` \\ fs [v_all_ts_def]
+     >- (rw [] \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
+        \\ qexists_tac `x` \\ rw []
+        >- (disj1_tac \\ qexists_tac `l`
+           \\ rw [FRANGE_FLOOKUP] \\ metis_tac [])
+        \\ ho_match_mp_tac v_all_vs_ts_MEM
+        \\ qexists_tac `Block n0 n' l'`
+        \\ rw [v_all_ts_def])
+     \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
+     \\ qexists_tac `x'` \\ rw [v_all_ts_def]
+     >- (disj1_tac \\ qexists_tac `l` \\ metis_tac [FRANGE_FLOOKUP])
+     \\ rw [] \\ ho_match_mp_tac v_all_vs_ts_MEM
+     \\ qexists_tac `Block n0 n' l'` \\ rw [v_all_ts_def])
+  >- metis_tac []
+  >- metis_tac []
+  >- (Cases_on `v` \\ fs [v_all_ts_def]
+     >- (rw []
+        \\ drule_then assume_tac v_all_vs_MEM2
+        \\ rw []
+        \\ qexists_tac `x` \\ rw []
+        \\ ho_match_mp_tac v_all_vs_ts
+        \\ metis_tac [])
+    \\ drule_then assume_tac v_all_vs_MEM2 \\ rw []
+    \\ qexists_tac `x'`\\ rw [v_all_ts_def]
+    \\ ho_match_mp_tac v_all_vs_ts_MEM
+    \\ qexists_tac `Block n0 n l`
+    \\ rw [v_all_ts_def])
+  >- metis_tac []
+QED
+
 Theorem memory_rel_El:
-   memory_rel c be refs sp st m dm
+   memory_rel c be ts refs sp st m dm
      ((Block ts tag vals,ptr)::(Number (&index),i)::vars) /\
     good_dimindex (:'a) /\
     index < LENGTH vals ==>
@@ -4795,7 +4835,7 @@ Theorem memory_rel_El:
       get_real_addr c st ptr_w = SOME x /\
       get_real_offset i_w = SOME y /\
       (x + y) IN dm /\
-      memory_rel c be refs sp st m dm
+      memory_rel c be ts refs sp st m dm
         ((EL index vals,m (x + y))::
          (Block ts tag vals,ptr)::(Number (&index),i)::vars)
 Proof
@@ -4839,17 +4879,28 @@ Proof
   \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
   \\ fs [word_list_def,word_list_APPEND]
   \\ SEP_R_TAC \\ fs []
+  \\ fs[timestamps_ok_def] \\ rw []
+  \\ first_x_assum ho_match_mp_tac
+  \\ qmatch_asmsub_abbrev_tac `all_ts refs (hv1::tv1)`
+  \\ `hv1 ∈ all_vs refs tv1`
+     by (UNABBREV_ALL_TAC
+        \\ rw [all_vs_def,v_all_vs_def]
+        \\ disj2_tac \\ disj2_tac \\ disj1_tac
+        \\ ho_match_mp_tac MEM_v_all_vs
+        \\ rw [EL_MEM])
+  \\ drule all_ts_head_eq
+  \\ rw []
 QED
 
 Theorem memory_rel_swap:
-   memory_rel c be refs sp st m dm (x::y::z) ==>
-   memory_rel c be refs sp st m dm (y::x::z)
+   memory_rel c be ts refs sp st m dm (x::y::z) ==>
+   memory_rel c be ts refs sp st m dm (y::x::z)
 Proof
   match_mp_tac memory_rel_rearrange \\ rw[] \\ rw[]
 QED
 
 Theorem memory_rel_Deref:
-   memory_rel c be refs sp st m dm
+   memory_rel c be ts refs sp st m dm
      ((RefPtr nn,ptr)::(Number (&index),i)::vars) /\
     FLOOKUP refs nn = SOME (ValueArray vals) /\
     good_dimindex (:'a) /\
@@ -4859,7 +4910,7 @@ Theorem memory_rel_Deref:
       get_real_addr c st ptr_w = SOME x /\
       get_real_offset i_w = SOME y /\
       (x + y) IN dm /\
-      memory_rel c be refs sp st m dm
+      memory_rel c be ts refs sp st m dm
         ((EL index vals,m (x + y))::
          (RefPtr nn,ptr)::(Number (&index),i)::vars)
 Proof
@@ -4908,6 +4959,17 @@ Proof
   \\ Cases_on `b0` \\ fs [word_payload_def]
   \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES] \\ fs [SEP_F_def]
   \\ SEP_R_TAC \\ fs []
+  \\ rpt (fs[timestamps_ok_def] \\ rw []
+         \\ first_x_assum ho_match_mp_tac
+         \\ qmatch_asmsub_abbrev_tac `all_ts refs (hv1::tv1)`
+         \\ `hv1 ∈ all_vs refs tv1`
+         by (UNABBREV_ALL_TAC
+            \\ rw [all_vs_def,v_all_vs_def] \\ disj1_tac
+            \\ qexists_tac `nn` \\ rw [FLOOKUP_DEF]
+            \\ ho_match_mp_tac MEM_v_all_vs
+            \\ rw [EL_MEM])
+         \\ drule all_ts_head_eq
+         \\ rw [])
 QED
 
 Theorem LENGTH_EQ_1:
@@ -4981,8 +5043,15 @@ val gc_kind_update_Ref = prove(
   \\ rpt (CASE_TAC \\ fs [])
   \\ rveq \\ fs [isRef_def]);
 
+Theorem v_all_vs_append:
+  ∀x y. v_all_vs (x ++ y) = v_all_vs x ++ v_all_vs y
+Proof
+  ho_match_mp_tac (theorem "v_all_vs_ind")
+  \\ rw [v_all_vs_def]
+QED
+
 Theorem memory_rel_Update:
-   memory_rel c be refs sp st m dm
+   memory_rel c be ts refs sp st m dm
      ((h,w)::(RefPtr nn,ptr)::(Number (&index),i)::vars) /\
     FLOOKUP refs nn = SOME (ValueArray vals) /\
     good_dimindex (:'a) /\
@@ -4992,7 +5061,7 @@ Theorem memory_rel_Update:
       get_real_addr c st ptr_w = SOME x /\
       get_real_offset i_w = SOME y /\
       (x + y) IN dm /\
-      memory_rel c be (refs |+ (nn,ValueArray (LUPDATE h index vals))) sp st
+      memory_rel c be ts (refs |+ (nn,ValueArray (LUPDATE h index vals))) sp st
         ((x + y =+ w) m) dm
         ((h,w)::(RefPtr nn,ptr)::(Number (&index),i)::vars)
 Proof
@@ -5052,6 +5121,24 @@ Proof
   \\ SEP_R_TAC \\ fs []
   \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
   \\ imp_res_tac gc_kind_update_Ref \\ fs []
+  \\ fs[timestamps_ok_def] \\ rw []
+  \\ first_x_assum ho_match_mp_tac
+  \\ fs [all_ts_alt]
+  \\ qexists_tac `x` \\ rw []
+  \\ fs [all_vs_def]
+  \\ Cases_on `MEM x (v_all_vs [h])`
+  >- (disj2_tac \\ Cases_on `h` \\ fs [v_all_vs_def])
+  \\ disj1_tac \\ Cases_on `nn ≠ n` \\ fs [] \\ rveq
+  >- (map_every qexists_tac [`n`,`l`] \\ fs [FLOOKUP_UPDATE])
+  \\ map_every qexists_tac [`n`,`vals`] \\ rw [] \\ rfs []
+  \\ fs [FLOOKUP_UPDATE] \\ rveq
+  \\ `vals = TAKE (LENGTH ys1) vals ++
+             [EL (LENGTH ys1) vals] ++
+             DROP (LENGTH ys1 + 1) vals`
+      by rw [GSYM SEG1,GSYM TAKE_SEG_DROP]
+  \\ qmatch_asmsub_abbrev_tac `vals = x1 ++ [v1] ++ y1`
+  \\ `LENGTH ys1 = LENGTH x1` by (UNABBREV_ALL_TAC \\ rw [LENGTH_TAKE])
+  \\ fs [v_all_vs_append,lupdate_append2]
 QED
 
 val make_cons_ptr_def = Define `
