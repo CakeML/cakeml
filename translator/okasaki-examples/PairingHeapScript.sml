@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Pairing
+  Heap algorithm from Chris Okasaki's book.
+*)
 open preamble
 open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory
 
@@ -72,51 +76,61 @@ delete_min get_key leq (Tree x hs) = merge_pairs get_key leq hs`;
 
 (* Functional correctness proof *)
 
-val merge_bag = Q.store_thm ("merge_bag",
-`!get_key leq h1 h2.
+Theorem merge_bag:
+ !get_key leq h1 h2.
   heap_to_bag (merge get_key leq h1 h2) =
-  BAG_UNION (heap_to_bag h1) (heap_to_bag h2)`,
+  BAG_UNION (heap_to_bag h1) (heap_to_bag h2)
+Proof
 HO_MATCH_MP_TAC merge_ind >>
-srw_tac [BAG_AC_ss] [merge_def, heap_to_bag_def, BAG_INSERT_UNION]);
+srw_tac [BAG_AC_ss] [merge_def, heap_to_bag_def, BAG_INSERT_UNION]
+QED
 
-val merge_heap_ordered = Q.store_thm ("merge_heap_ordered",
-`!get_key leq h1 h2.
+Theorem merge_heap_ordered:
+ !get_key leq h1 h2.
   WeakLinearOrder leq ∧
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2
   ⇒
-  is_heap_ordered get_key leq (merge get_key leq h1 h2)`,
+  is_heap_ordered get_key leq (merge get_key leq h1 h2)
+Proof
 HO_MATCH_MP_TAC merge_ind >>
 rw [merge_def, is_heap_ordered_def, heap_to_bag_def] >>
 fs [BAG_EVERY] >>
-metis_tac [WeakLinearOrder, WeakOrder, transitive_def, WeakLinearOrder_neg]);
+metis_tac [WeakLinearOrder, WeakOrder, transitive_def, WeakLinearOrder_neg]
+QED
 
-val insert_bag = Q.store_thm ("insert_bag",
-`!h get_key leq x.
-  heap_to_bag (insert get_key leq x h) = BAG_INSERT x (heap_to_bag h)`,
-rw [insert_def, merge_bag, heap_to_bag_def, BAG_INSERT_UNION]);
+Theorem insert_bag:
+ !h get_key leq x.
+  heap_to_bag (insert get_key leq x h) = BAG_INSERT x (heap_to_bag h)
+Proof
+rw [insert_def, merge_bag, heap_to_bag_def, BAG_INSERT_UNION]
+QED
 
-val insert_heap_ordered = Q.store_thm ("insert_heap_ordered",
-`!get_key leq x h.
+Theorem insert_heap_ordered:
+ !get_key leq x h.
   WeakLinearOrder leq ∧ is_heap_ordered get_key leq h
   ⇒
-  is_heap_ordered get_key leq (insert get_key leq x h)`,
+  is_heap_ordered get_key leq (insert get_key leq x h)
+Proof
 rw [insert_def] >>
 `is_heap_ordered get_key leq (Tree x [])`
          by rw [is_heap_ordered_def, heap_to_bag_def] >>
-metis_tac [merge_heap_ordered]);
+metis_tac [merge_heap_ordered]
+QED
 
-val find_min_correct = Q.store_thm ("find_min_correct",
-`!h get_key leq.
+Theorem find_min_correct:
+ !h get_key leq.
   WeakLinearOrder leq ∧ (h ≠ Empty) ∧ is_heap_ordered get_key leq h
   ⇒
   BAG_IN (find_min h) (heap_to_bag h) ∧
-  (!y. BAG_IN y (heap_to_bag h) ⇒ leq (get_key (find_min h)) (get_key y))`,
+  (!y. BAG_IN y (heap_to_bag h) ⇒ leq (get_key (find_min h)) (get_key y))
+Proof
 rw [] >>
 cases_on `h` >>
 fs [find_min_def, heap_to_bag_def, is_heap_ordered_def] >>
 fs [BAG_EVERY] >>
-metis_tac [WeakLinearOrder, WeakOrder, reflexive_def]);
+metis_tac [WeakLinearOrder, WeakOrder, reflexive_def]
+QED
 
 val merge_pairs_bag = Q.prove (
 `!get_key leq hs. heap_to_bag (merge_pairs get_key leq hs) = heaps_to_bag hs`,
@@ -131,18 +145,20 @@ val merge_pairs_heap_ordered = Q.prove (
 recInduct merge_pairs_ind >>
 rw [merge_pairs_def, is_heap_ordered_def, merge_heap_ordered]);
 
-val delete_min_correct = Q.store_thm ("delete_min_correct",
-`!h get_key leq.
+Theorem delete_min_correct:
+ !h get_key leq.
   WeakLinearOrder leq ∧ (h ≠ Empty) ∧ is_heap_ordered get_key leq h
   ⇒
   is_heap_ordered get_key leq (delete_min get_key leq h) ∧
   (heap_to_bag (delete_min get_key leq h) =
-   BAG_DIFF (heap_to_bag h) (EL_BAG (find_min h)))`,
+   BAG_DIFF (heap_to_bag h) (EL_BAG (find_min h)))
+Proof
 rw [] >>
 cases_on `h` >>
 fs [delete_min_def, is_heap_ordered_def, merge_pairs_bag] >-
 metis_tac [merge_pairs_heap_ordered] >>
-rw [heap_to_bag_def, find_min_def, BAG_DIFF_INSERT2]);
+rw [heap_to_bag_def, find_min_def, BAG_DIFF_INSERT2]
+QED
 
 (* Simplify the side conditions on the generated certificate theorems *)
 

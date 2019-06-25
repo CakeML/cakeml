@@ -1,3 +1,6 @@
+(*
+  Define the format of the compiler-generated .S file for MIPS
+*)
 open preamble exportTheory
 
 val () = new_theory "export_mips";

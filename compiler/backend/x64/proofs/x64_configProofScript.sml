@@ -1,3 +1,7 @@
+(*
+  For x64, prove that the compiler configuration is well formed, and
+  instantiate the compiler correctness theorem.
+*)
 open preamble backendProofTheory
 open x64_configTheory x64_targetProofTheory
 open blastLib;
@@ -18,8 +22,9 @@ val names_tac =
   \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
-val x64_backend_config_ok = Q.store_thm("x64_backend_config_ok",`
-  backend_config_ok x64_backend_config`,
+Theorem x64_backend_config_ok:
+    backend_config_ok x64_backend_config
+Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[x64_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
@@ -34,26 +39,31 @@ val x64_backend_config_ok = Q.store_thm("x64_backend_config_ok",`
   \\ fs[stack_removeTheory.max_stack_alloc_def]
   \\ EVAL_TAC>>fs[]
   \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
-  \\ fs[])
+  \\ fs[]
+QED
 
-val x64_machine_config_ok = Q.store_thm("x64_machine_config_ok",
-  `is_x64_machine_config mc ⇒ mc_conf_ok mc`,
+Theorem x64_machine_config_ok:
+   is_x64_machine_config mc ⇒ mc_conf_ok mc
+Proof
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_x64_machine_config_def]
   >- EVAL_TAC
-  >- simp[x64_targetProofTheory.x64_backend_correct]
+  >- simp[x64_targetProofTheory.x64_encoder_correct]
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
-  >- EVAL_TAC  
-  >- metis_tac[asmPropsTheory.backend_correct_def,asmPropsTheory.target_ok_def,x64_backend_correct]);
+  >- EVAL_TAC
+  >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,x64_encoder_correct]
+QED
 
-val x64_init_ok = Q.store_thm("x64_init_ok",
-  `is_x64_machine_config mc ⇒
-    mc_init_ok x64_backend_config mc`,
+Theorem x64_init_ok:
+   is_x64_machine_config mc ⇒
+    mc_init_ok x64_backend_config mc
+Proof
   rw[mc_init_ok_def] \\
   fs[is_x64_machine_config_def] \\
-  EVAL_TAC);
+  EVAL_TAC
+QED
 
 val is_x64_machine_config_mc = x64_init_ok |> concl |> dest_imp |> #1
 

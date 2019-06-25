@@ -1,3 +1,11 @@
+(*
+  A compiler phases that transforms BVL programs into BVI programs. As
+  part of this phase, certain primitive operations map to "stubs" code
+  implemented in BVI; numeric constants are split into smaller ones to
+  ease code generation later; Handle is fused with Call; and very
+  large expressions are split into samller ones (in order to protect
+  the register allocator from overly large inputs).
+*)
 open preamble bvlTheory bviTheory;
 open backend_commonTheory
 local open
@@ -17,14 +25,17 @@ val destLet_def = Define `
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
   (destLet _ = ([],Var 0))`;
 
-val destLet_pmatch = Q.store_thm("destLet_pmatch",`∀exp.
+Theorem destLet_pmatch:
+  ∀exp.
   destLet exp =
     case exp of
       Let xs b => (xs,b)
-    | _ => ([],Var 0)`,
+    | _ => ([],Var 0)
+Proof
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[destLet_def])
+  >> fs[destLet_def]
+QED
 
 val large_int = ``268435457:int`` (* 2**28-1 *)
 
@@ -231,15 +242,16 @@ local val compile_op_quotation = `
     | Label l => Op (Label (bvl_num_stubs + bvl_to_bvi_namespaces * l)) c1
     | _ => Op op c1`
 in
-val compile_op_def = Define compile_op_quotation
+val compile_op_def = Define compile_op_quotation;
 
-val compile_op_pmatch = Q.store_thm("compile_op_pmatch",`∀op c1.` @
-  (compile_op_quotation |>
-   map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
-  rpt strip_tac
-  >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[compile_op_def])
+Theorem compile_op_pmatch = Q.prove(
+  `∀op c1.` @
+    (compile_op_quotation |>
+     map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
+         | aq => aq)),
+   rpt strip_tac
+   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
+   >> fs[compile_op_def]);
 end
 
 val _ = temp_overload_on("++",``SmartAppend``);
@@ -311,14 +323,18 @@ val compile_exps_LENGTH_lemma = Q.prove(
   \\ SIMP_TAC std_ss [compile_exps_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-val compile_exps_LENGTH = Q.store_thm("compile_exps_LENGTH",
-  `(compile_exps n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)`,
-  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_exps_LENGTH_lemma) \\ fs [])
+Theorem compile_exps_LENGTH:
+   (compile_exps n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)
+Proof
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_exps_LENGTH_lemma) \\ fs []
+QED
 
-val compile_exps_SING = Q.store_thm("compile_exps_SING",
-  `(compile_exps n [x] = (c,aux,n1)) ==> ?y. c = [y]`,
+Theorem compile_exps_SING:
+   (compile_exps n [x] = (c,aux,n1)) ==> ?y. c = [y]
+Proof
   REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
-  \\ Cases_on `c` \\ fs [LENGTH_NIL]);
+  \\ Cases_on `c` \\ fs [LENGTH_NIL]
+QED
 
 val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =

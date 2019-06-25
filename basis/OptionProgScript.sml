@@ -1,3 +1,6 @@
+(*
+  Module about the option tyoe.
+*)
 open preamble ml_translatorLib ml_progLib RuntimeProgTheory
      mloptionTheory
 
@@ -5,11 +8,10 @@ val _ = new_theory"OptionProg"
 
 val _ = translation_extends "RuntimeProg"
 
-val () = generate_sigs := true;
-
 val _ = ml_prog_update (open_module "Option");
 
-val _ = ml_prog_update (add_dec ``Dtabbrev unknown_loc ["'a"] "option" (Tapp [Tvar "'a"] (TC_name (Short "option")))`` I);
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc ["'a"] "option" (Atapp [Atvar "'a"] (Short "option"))`` I);
 
 val () = next_ml_names := ["getOpt"];
 val result = translate getOpt_def;
@@ -45,18 +47,8 @@ val res = translate IS_NONE_DEF;
 val () = next_ml_names := ["map2"];
 val res = translate OPTION_MAP2_DEF;
 
-val sigs = module_signatures [
-  "getOpt",
-  "isSome",
-  "valOf",
-  "join",
-  "map",
-  "mapPartial",
-  "compose",
-  "composePartial",
-  "isNone",
-  "map2"
-];
+val () = next_ml_names := ["compare"];
+val res = translate mloptionTheory.compare_def;
 
-val _ = ml_prog_update (close_module (SOME sigs));
+val _ = ml_prog_update (close_module NONE);
 val _ = export_theory();

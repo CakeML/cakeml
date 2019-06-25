@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Red-Black
+  Set algorithm from Chris Okasaki's book.
+*)
 open preamble;
 open okasaki_miscTheory pred_setTheory pred_setSimps;
 open ml_translatorLib ListProgTheory
@@ -228,11 +232,12 @@ rw [is_bst_def] >>
 imp_res_tac ins_set >>
 fs [StrongLinearOrder, StrongOrder]);
 
-val insert_set = Q.store_thm ("insert_set",
-`∀lt x t.
+Theorem insert_set:
+ ∀lt x t.
   StrongLinearOrder lt
   ⇒
-  (tree_to_set (insert lt x t) = {x} ∪ tree_to_set t)`,
+  (tree_to_set (insert lt x t) = {x} ∪ tree_to_set t)
+Proof
 rw [insert_def] >>
 `?c t1 y t2. ins lt x t = Tree c t1 y t2` by metis_tac [ins_tree] >>
 rw [tree_to_set_def] >>
@@ -240,30 +245,35 @@ rw [tree_to_set_def] >>
          by metis_tac [] >>
 fs [] >>
 imp_res_tac ins_set >>
-fs [tree_to_set_def]);
+fs [tree_to_set_def]
+QED
 
-val insert_bst = Q.store_thm ("insert_bst",
-`!lt x t.
+Theorem insert_bst:
+ !lt x t.
   StrongLinearOrder lt ∧ is_bst lt t
   ⇒
-  is_bst lt (insert lt x t)`,
+  is_bst lt (insert lt x t)
+Proof
 rw [insert_def] >>
 `?c t1 y t2. ins lt x t = Tree c t1 y t2` by metis_tac [ins_tree] >>
 rw [] >>
 `is_bst lt (Tree c t1 y t2)` by metis_tac [ins_bst] >>
-fs [is_bst_def]);
+fs [is_bst_def]
+QED
 
-val member_correct = Q.store_thm ("member_correct",
-`!lt t x.
+Theorem member_correct:
+ !lt t x.
   StrongLinearOrder lt ∧
   is_bst lt t
   ⇒
-  (member lt x t <=> x ∈ tree_to_set t)`,
+  (member lt x t <=> x ∈ tree_to_set t)
+Proof
 strip_tac >> induct_on `t` >>
 rw [member_def, is_bst_def, tree_to_set_def] >>
 fs [StrongLinearOrder, StrongOrder, irreflexive_def, transitive_def,
     trichotomous] >>
-metis_tac []);
+metis_tac []
+QED
 
 
 (* Prove the two red-black invariants that no red node has a red child,
@@ -304,12 +314,13 @@ rw [] >|
  metis_tac [balance_inv2_black, balance'_correct],
  rw [balance'_def, red_black_invariant2_def, case_opt_lem]]);
 
-val insert_invariant2 = Q.store_thm ("insert_invariant2",
-`!leq x t n.
+Theorem insert_invariant2:
+ !leq x t n.
   (red_black_invariant2 t = SOME n)
   ⇒
   (red_black_invariant2 (insert leq x t) = SOME n) ∨
-  (red_black_invariant2 (insert leq x t) = SOME (n + 1))`,
+  (red_black_invariant2 (insert leq x t) = SOME (n + 1))
+Proof
 rw [insert_def] >>
 cases_on `ins leq x t` >>
 rw [] >-
@@ -319,7 +330,8 @@ POP_ASSUM MP_TAC >>
 rw [red_black_invariant2_def, case_opt_lem] >>
 cases_on `n = n''` >>
 cases_on `c` >>
-fs []);
+fs []
+QED
 
 (* Invariant one hold everywhere except for the root node,
  * where it may or may not. *)
@@ -359,8 +371,9 @@ fs [red_black_invariant1_def, not_red_def] >|
  metis_tac [balance_inv1_black, balance'_correct, inv1_lemma],
  rw [balance'_def, rbinv1_root_def]]);
 
-val insert_invariant1 = Q.store_thm ("insert_invariant1",
-`!leq x t. red_black_invariant1 t ⇒ red_black_invariant1 (insert leq x t)`,
+Theorem insert_invariant1:
+ !leq x t. red_black_invariant1 t ⇒ red_black_invariant1 (insert leq x t)
+Proof
 rw [insert_def] >>
 cases_on `ins leq x t` >>
 rw [] >-
@@ -372,7 +385,8 @@ POP_ASSUM MP_TAC >>
 cases_on `not_red t` >>
 rw [] >>
 cases_on `c` >>
-fs [red_black_invariant1_def, rbinv1_root_def]);
+fs [red_black_invariant1_def, rbinv1_root_def]
+QED
 
 
 (* Simplify the side conditions on the generated certificate theorems,

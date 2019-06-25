@@ -1,3 +1,6 @@
+(*
+  Correctness proof for stack_names
+*)
 open preamble
      stack_namesTheory
      stackSemTheory stackPropsTheory
@@ -18,72 +21,91 @@ val rename_state_def = Define `
     ; ffi_save_regs := IMAGE (find_name f) s.ffi_save_regs
     |>`
 
-val rename_state_with_clock = Q.store_thm("rename_state_with_clock",
-  `rename_state c f (s with clock := k) = rename_state c f s with clock := k`,
-  EVAL_TAC);
+Theorem rename_state_with_clock:
+   rename_state c f (s with clock := k) = rename_state c f s with clock := k
+Proof
+  EVAL_TAC
+QED
 
-val rename_state_const = Q.store_thm("rename_state_const[simp]",
-  `(rename_state c f s).memory = s.memory ∧
+Theorem rename_state_const[simp]:
+   (rename_state c f s).memory = s.memory ∧
    (rename_state c f s).be = s.be ∧
    (rename_state c f s).mdomain = s.mdomain ∧
    (rename_state c f s).code_buffer = s.code_buffer ∧
    (rename_state c f s).clock = s.clock ∧
    (rename_state c f s).compile = c ∧
    (rename_state c f s).use_stack = s.use_stack ∧
-   (rename_state c f s).fp_regs = s.fp_regs`,
-  EVAL_TAC);
+   (rename_state c f s).fp_regs = s.fp_regs
+Proof
+  EVAL_TAC
+QED
 
-val rename_state_with_memory = Q.store_thm("rename_state_with_memory",
-  `rename_state c f (s with memory := k) = rename_state c f s with memory := k`,
-  EVAL_TAC);
+Theorem rename_state_with_memory:
+   rename_state c f (s with memory := k) = rename_state c f s with memory := k
+Proof
+  EVAL_TAC
+QED
 
-val dec_clock_rename_state = Q.store_thm("dec_clock_rename_state",
-  `dec_clock (rename_state c x y) = rename_state c x (dec_clock y)`,
-  EVAL_TAC >> simp[state_component_equality]);
+Theorem dec_clock_rename_state:
+   dec_clock (rename_state c x y) = rename_state c x (dec_clock y)
+Proof
+  EVAL_TAC >> simp[state_component_equality]
+QED
 
-val mem_load_rename_state = Q.store_thm("mem_load_rename_state[simp]",
-  `mem_load x (rename_state c f s) = mem_load x s`,
-  EVAL_TAC);
+Theorem mem_load_rename_state[simp]:
+   mem_load x (rename_state c f s) = mem_load x s
+Proof
+  EVAL_TAC
+QED
 
-val mem_store_rename_state = Q.store_thm("mem_store_rename_state[simp]",
-  `mem_store x y (rename_state c f s) = OPTION_MAP (rename_state c f) (mem_store x y s)`,
-  EVAL_TAC >> rw[] >> EVAL_TAC >> rw[]);
+Theorem mem_store_rename_state[simp]:
+   mem_store x y (rename_state c f s) = OPTION_MAP (rename_state c f) (mem_store x y s)
+Proof
+  EVAL_TAC >> rw[] >> EVAL_TAC >> rw[]
+QED
 
-val get_var_find_name = Q.store_thm("get_var_find_name[simp]",
-  `BIJ (find_name f) UNIV UNIV ==>
-    get_var (find_name f v) (rename_state c f s) = get_var v s`,
+Theorem get_var_find_name[simp]:
+   BIJ (find_name f) UNIV UNIV ==>
+    get_var (find_name f v) (rename_state c f s) = get_var v s
+Proof
   fs [get_var_def,rename_state_def,FLOOKUP_DEF,MAP_KEYS_def]
   \\ rpt strip_tac \\ imp_res_tac BIJ_IMP_11 \\ fs []
   \\ rw [] \\ fs [] \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ match_mp_tac (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
-  \\ fs [INJ_DEF]);
+  \\ fs [INJ_DEF]
+QED
 
-val get_var_imm_find_name = Q.store_thm("get_var_imm_find_name[simp]",
-  `BIJ (find_name f) UNIV UNIV ⇒
+Theorem get_var_imm_find_name[simp]:
+   BIJ (find_name f) UNIV UNIV ⇒
    get_var_imm (ri_find_name f ri) (rename_state c f s) =
-   get_var_imm ri s`,
+   get_var_imm ri s
+Proof
   Cases_on`ri`>>EVAL_TAC>>strip_tac>>
   dep_rewrite.DEP_REWRITE_TAC[FLOOKUP_MAP_KEYS] >>
   conj_tac >- metis_tac[INJ_DEF,BIJ_IMP_11,IN_UNIV] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   fs[GSYM tlookup_def] >>
-  metis_tac[BIJ_DEF,INJ_DEF,IN_UNIV,FLOOKUP_DEF]);
+  metis_tac[BIJ_DEF,INJ_DEF,IN_UNIV,FLOOKUP_DEF]
+QED
 
-val FLOOKUP_rename_state_find_name = Q.store_thm("FLOOKUP_rename_state_find_name[simp]",
-  `BIJ (find_name f) UNIV UNIV ⇒
-   FLOOKUP (rename_state c f s).regs (find_name f k) = FLOOKUP s.regs k`,
+Theorem FLOOKUP_rename_state_find_name[simp]:
+   BIJ (find_name f) UNIV UNIV ⇒
+   FLOOKUP (rename_state c f s).regs (find_name f k) = FLOOKUP s.regs k
+Proof
   rw[BIJ_DEF] >>
   rw[rename_state_def] >>
-  simp[FLOOKUP_MAP_KEYS_MAPPED]);
+  simp[FLOOKUP_MAP_KEYS_MAPPED]
+QED
 
 val prog_comp_eta = Q.prove(
   `prog_comp f = λ(x,y). (x,comp f y)`,
   rw[prog_comp_def,FUN_EQ_THM,FORALL_PROD])
 
-val find_code_rename_state = Q.store_thm("find_code_rename_state[simp]",
-  `BIJ (find_name f) UNIV UNIV ⇒
+Theorem find_code_rename_state[simp]:
+   BIJ (find_name f) UNIV UNIV ⇒
    find_code (dest_find_name f dest) (rename_state c f s).regs (rename_state c f s).code =
-   OPTION_MAP (comp f) (find_code dest s.regs s.code)`,
+   OPTION_MAP (comp f) (find_code dest s.regs s.code)
+Proof
   strip_tac >>
   Cases_on`dest`>>rw[find_code_def,rename_state_def,dest_find_name_def] >- (
     simp[lookup_fromAList,compile_def,prog_comp_eta,ALOOKUP_MAP,ALOOKUP_toAList] >>
@@ -99,25 +121,31 @@ val find_code_rename_state = Q.store_thm("find_code_rename_state[simp]",
   simp[lookup_fromAList,compile_def,prog_comp_eta,ALOOKUP_MAP,ALOOKUP_toAList] >>
   CASE_TAC >> simp[] >>
   CASE_TAC >> simp[] >>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val set_var_find_name = Q.store_thm("set_var_find_name",
-  `BIJ (find_name f) UNIV UNIV ⇒
+Theorem set_var_find_name:
+   BIJ (find_name f) UNIV UNIV ⇒
    rename_state c f (set_var x y z) =
-   set_var (find_name f x) y (rename_state c f z)`,
+   set_var (find_name f x) y (rename_state c f z)
+Proof
   rw[set_var_def,rename_state_def,state_component_equality] >>
   match_mp_tac MAP_KEYS_FUPDATE >>
-  metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV]);
+  metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV]
+QED
 
-val set_fp_var_find_name = Q.store_thm("set_fp_var_find_name",
-   `rename_state c f (set_fp_var x y z) =
-   set_fp_var x y (rename_state c f z)`,
-  rw[set_fp_var_def,rename_state_def,state_component_equality])
+Theorem set_fp_var_find_name:
+    rename_state c f (set_fp_var x y z) =
+   set_fp_var x y (rename_state c f z)
+Proof
+  rw[set_fp_var_def,rename_state_def,state_component_equality]
+QED
 
-val inst_rename = Q.store_thm("inst_rename",
-  `BIJ (find_name f) UNIV UNIV ⇒
+Theorem inst_rename:
+   BIJ (find_name f) UNIV UNIV ⇒
    inst (inst_find_name f i) (rename_state c f s) =
-   OPTION_MAP (rename_state c f) (inst i s)`,
+   OPTION_MAP (rename_state c f) (inst i s)
+Proof
   rw[inst_def] >>
   rw[inst_find_name_def] >>
   CASE_TAC >> fs[] >- (
@@ -140,15 +168,20 @@ val inst_rename = Q.store_thm("inst_rename",
   rw[] >> fs[] >> rfs[] >> rw[set_var_find_name,set_fp_var_find_name]
   \\ every_case_tac \\ fs [wordLangTheory.word_op_def]
   \\ rw [] \\ fs [] \\ fs [BIJ_DEF,INJ_DEF] \\ res_tac
-  \\ fs [rename_state_with_memory]);
+  \\ fs [rename_state_with_memory]
+QED
 
-val MAP_FST_compile = Q.store_thm("MAP_FST_compile[simp]",
-  `MAP FST (stack_names$compile f c) = MAP FST c`,
-  rw[compile_def,MAP_MAP_o,MAP_EQ_f,prog_comp_def,FORALL_PROD]);
+Theorem MAP_FST_compile[simp]:
+   MAP FST (stack_names$compile f c) = MAP FST c
+Proof
+  rw[compile_def,MAP_MAP_o,MAP_EQ_f,prog_comp_def,FORALL_PROD]
+QED
 
-val domain_rename_state_code = Q.store_thm("domain_rename_state_code[simp]",
-  `domain (rename_state c f s).code = domain s.code`,
-  rw[rename_state_def,domain_fromAList,toAList_domain,EXTENSION]);
+Theorem domain_rename_state_code[simp]:
+   domain (rename_state c f s).code = domain s.code
+Proof
+  rw[rename_state_def,domain_fromAList,toAList_domain,EXTENSION]
+QED
 
 val comp_STOP_While = Q.prove(
   `comp f (STOP (While cmp r1 ri c1)) =
@@ -374,11 +407,12 @@ val comp_correct = Q.prove(
     simp[Once comp_def] >> fs[evaluate_def] >>
     simp[Once rename_state_def] >> rveq >> simp[] ));
 
-val compile_semantics = Q.store_thm("compile_semantics",
-  `BIJ (find_name f) UNIV UNIV /\
+Theorem compile_semantics:
+   BIJ (find_name f) UNIV UNIV /\
     ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
     s.compile = (λcfg. c cfg o (compile f)) ==>
-    semantics start (rename_state c f s) = semantics start s`,
+    semantics start (rename_state c f s) = semantics start s
+Proof
   simp[GSYM AND_IMP_INTRO] >> ntac 4 strip_tac >>
   simp[semantics_def] >>
   simp[
@@ -390,7 +424,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
     |> SIMP_RULE std_ss [rename_state_with_clock]
     |> UNDISCH_ALL] >>
   simp[rename_state_def] >>
-  srw_tac[QUANT_INST_ss[pair_default_qp]][]);
+  srw_tac[QUANT_INST_ss[pair_default_qp]][]
+QED
 
 val compile_semantics_alt = Q.prove(
   `!s t.
@@ -413,13 +448,14 @@ val make_init_def = Define `
 *)
         ffi_save_regs := IMAGE (LINV (find_name f) UNIV) s.ffi_save_regs|>`
 
-val make_init_semantics = Q.store_thm("make_init_semantics",
-  `~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
+Theorem make_init_semantics:
+   ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
    BIJ (find_name f) UNIV UNIV /\ ALL_DISTINCT (MAP FST code) /\
    s.code = fromAList (compile f code) /\
    s.compile_oracle = (I ## compile f ## I) o oracle
    ==>
-   semantics start s = semantics start (make_init f (fromAList code) oracle s)`,
+   semantics start s = semantics start (make_init f (fromAList code) oracle s)
+Proof
   fs [make_init_def] \\ rw []
   \\ match_mp_tac compile_semantics_alt \\ fs []
   \\ fs [rename_state_def,state_component_equality]
@@ -427,14 +463,17 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
    (imp_res_tac BIJ_LINV_INV \\ fs [FUN_EQ_THM])
   \\ fs [GSYM IMAGE_COMPOSE] \\ fs [MAP_KEYS_BIJ_LINV]
   \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
-  \\ rw[prog_comp_eta,ALOOKUP_MAP_gen,ALOOKUP_toAList,lookup_fromAList]);
+  \\ rw[prog_comp_eta,ALOOKUP_MAP_2,ALOOKUP_toAList,lookup_fromAList]
+QED
 
-val stack_names_lab_pres = Q.store_thm("stack_names_lab_pres",`
-  ∀f p.
-  extract_labels p = extract_labels (comp f p)`,
+Theorem stack_names_lab_pres:
+    ∀f p.
+  extract_labels p = extract_labels (comp f p)
+Proof
   HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac [comp_def]>>fs[extract_labels_def]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[])
+  BasicProvers.EVERY_CASE_TAC>>fs[]
+QED
 
 val names_ok_imp = Q.prove(`
   names_ok f c.reg_count c.avoid_regs ⇒
@@ -484,23 +523,26 @@ val stack_names_comp_stack_asm_ok = Q.prove(`
   >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]
   >- metis_tac[names_ok_imp,asmTheory.reg_ok_def]);
 
-val stack_names_stack_asm_ok = Q.store_thm("stack_names_stack_asm_ok",`
-  EVERY (λ(n,p). stack_asm_name c p) prog ∧
+Theorem stack_names_stack_asm_ok:
+    EVERY (λ(n,p). stack_asm_name c p) prog ∧
   names_ok f c.reg_count c.avoid_regs ∧
   fixed_names f c ⇒
-  EVERY (λ(n,p). stack_asm_ok c p) (compile f prog)`,
+  EVERY (λ(n,p). stack_asm_ok c p) (compile f prog)
+Proof
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def,compile_def,MEM_MAP,EXISTS_PROD]>>
   rw[]>>
-  metis_tac[stack_names_comp_stack_asm_ok]);
+  metis_tac[stack_names_comp_stack_asm_ok]
+QED
 
-val stack_names_call_args = Q.store_thm("stack_names_call_args",`
-  compile f p = p' ∧
+Theorem stack_names_call_args:
+    compile f p = p' ∧
   EVERY (λp. call_args p 1 2 3 4 0) (MAP SND p) ==>
   EVERY (λp. call_args p (find_name f 1)
                            (find_name f 2)
                            (find_name f 3)
                            (find_name f 4)
-                           (find_name f 0)) (MAP SND p')`,
+                           (find_name f 0)) (MAP SND p')
+Proof
   rw[]>>fs[compile_def]>>
   fs[EVERY_MAP,EVERY_MEM,FORALL_PROD,prog_comp_def]>>
   rw[]>>res_tac>> pop_assum mp_tac>> rpt (pop_assum kall_tac)>>
@@ -509,6 +551,7 @@ val stack_names_call_args = Q.store_thm("stack_names_call_args",`
   Cases_on`p_2`>>rw[]>>
   ONCE_REWRITE_TAC [comp_def]>>
   fs[call_args_def]>>
-  BasicProvers.EVERY_CASE_TAC>>fs[]);
+  BasicProvers.EVERY_CASE_TAC>>fs[]
+QED
 
 val _ = export_theory();

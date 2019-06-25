@@ -1,9 +1,15 @@
+(*
+  Module about the built-in byte-array type.
+*)
 open preamble ml_translatorLib ml_progLib basisFunctionsLib
      Word8ProgTheory
 
 val _ = new_theory "Word8ArrayProg";
 
 val _ = translation_extends "Word8Prog";
+
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "byte_array" (Atapp [] (Short "word8array"))`` I);
 
 val _ = ml_prog_update (open_module "Word8Array");
 

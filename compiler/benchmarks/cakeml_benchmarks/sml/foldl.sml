@@ -12,3 +12,7 @@ fun main ()=
   val test = foldl (fn x => fn y => x + (foldl (fn x => fn y => x+y) 0 y)) 0
              (repeat (repeat 1 40000) 40000);
 in () end;
+
+val _ = main();
+(* Quit out correctly for interacive SMLs *)
+val _ = OS.Process.exit(OS.Process.success);

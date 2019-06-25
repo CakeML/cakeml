@@ -1,0 +1,5 @@
+This directory applies the translator to the compiler in order to
+produce a deep embedding of the entire shallowly embedded compiler.
+The translator is proof-producing. This means that each deep embedding
+comes with a certificate theorem that relates the deep embedding to
+the original shallow embedding.

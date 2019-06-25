@@ -1,9 +1,11 @@
+(*
+  Auxiliary definitions used in cfs
+*)
 structure cfComputeLib =
 struct
 
 open HolKernel boolLib bossLib
 
-(* Auxiliary definitions used in cfs *)
 val add_cf_aux_compset = computeLib.extend_compset
   [computeLib.Defs
     [cfTheory.is_bound_Fun_def,

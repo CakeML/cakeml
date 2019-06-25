@@ -1,3 +1,7 @@
+(*
+  Evaluate the 32-bit version of the compiler down to a LabLang
+  program (an assembly program).
+*)
 open preamble
      backendTheory
      to_dataBootstrapTheory
@@ -9,8 +13,12 @@ val _ = new_theory "to_lab_x64Bootstrap";
 
 val _ = Globals.max_print_depth := 10;
 
+val new_clos_conf =
+  (REWRITE_CONV [init_conf_def] THENC EVAL) ``init_conf.clos_conf`` |> concl |> rand
+
 val bootstrap_conf =
-  ``(x64_backend_config
+  ``((x64_backend_config
+      with clos_conf := ^new_clos_conf)
      with
      bvl_conf updated_by
        (λc. c with <| inline_size_limit := 3; exp_cut := 200 |>))

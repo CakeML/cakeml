@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Lazy Pairing
+  Heap algorithm from Chris Okasaki's book.
+*)
 open preamble
 open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory
 
@@ -108,7 +112,7 @@ decide_tac);
 (* Remove the size constraints *)
 
 val merge_def = SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] merge_def;
-val _ = save_thm ("merge_def",merge_def);
+val _ = save_thm ("merge_def[compute]",merge_def);
 
 val merge_ind =
   SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] (fetch "-" "merge_ind");
@@ -147,23 +151,26 @@ delete_min get_key leq (Tree _ a b) = merge get_key leq a b`;
 
 (* Functional correctness *)
 
-val merge_bag = Q.store_thm ("merge_bag",
-`!get_key leq h1 h2.
+Theorem merge_bag:
+ !get_key leq h1 h2.
   heap_to_bag (merge get_key leq h1 h2) =
-  BAG_UNION (heap_to_bag h1) (heap_to_bag h2)`,
+  BAG_UNION (heap_to_bag h1) (heap_to_bag h2)
+Proof
 HO_MATCH_MP_TAC merge_ind >>
 srw_tac [BAG_ss] [merge_def, heap_to_bag_def, BAG_INSERT_UNION] >|
 [cases_on `h1`,cases_on `h1'`] >>
 fs [] >>
-srw_tac [BAG_ss] [merge_def, heap_to_bag_def, BAG_INSERT_UNION]);
+srw_tac [BAG_ss] [merge_def, heap_to_bag_def, BAG_INSERT_UNION]
+QED
 
-val merge_heap_ordered = Q.store_thm ("merge_heap_ordered",
-`!get_key leq h1 h2.
+Theorem merge_heap_ordered:
+ !get_key leq h1 h2.
   WeakLinearOrder leq ∧
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2
   ⇒
-  is_heap_ordered get_key leq (merge get_key leq h1 h2)`,
+  is_heap_ordered get_key leq (merge get_key leq h1 h2)
+Proof
 HO_MATCH_MP_TAC merge_ind >>
 rw [merge_def, is_heap_ordered_def, merge_bag] >|
 [cases_on `h1`,cases_on `h1'`] >>
@@ -195,48 +202,57 @@ fs [BAG_EVERY, is_heap_ordered_def, merge_bag, heap_to_bag_def] >|
  cases_on `h` >>
      fs [heap_to_bag_def, merge_bag] >>
      metis_tac [WeakLinearOrder, WeakOrder, transitive_def,
-                WeakLinearOrder_neg]]);
+                WeakLinearOrder_neg]]
+QED
 
-val insert_bag = Q.store_thm ("insert_bag",
-`!h get_key leq x.
-  heap_to_bag (insert get_key leq x h) = BAG_INSERT x (heap_to_bag h)`,
+Theorem insert_bag:
+ !h get_key leq x.
+  heap_to_bag (insert get_key leq x h) = BAG_INSERT x (heap_to_bag h)
+Proof
 rw [insert_def, merge_bag, heap_to_bag_def,
-    BAG_INSERT_UNION]);
+    BAG_INSERT_UNION]
+QED
 
-val insert_heap_ordered = Q.store_thm ("insert_heap_ordered",
-`!get_key leq x h.
+Theorem insert_heap_ordered:
+ !get_key leq x h.
   WeakLinearOrder leq ∧ is_heap_ordered get_key leq h
   ⇒
-  is_heap_ordered get_key leq (insert get_key leq x h)`,
+  is_heap_ordered get_key leq (insert get_key leq x h)
+Proof
 rw [insert_def] >>
 `is_heap_ordered get_key leq (Tree x Empty Empty)`
          by rw [is_heap_ordered_def, heap_to_bag_def] >>
-metis_tac [merge_heap_ordered]);
+metis_tac [merge_heap_ordered]
+QED
 
-val find_min_correct = Q.store_thm ("find_min_correct",
-`!h get_key leq.
+Theorem find_min_correct:
+ !h get_key leq.
   WeakLinearOrder leq ∧ (h ≠ Empty) ∧ is_heap_ordered get_key leq h
   ⇒
   BAG_IN (find_min h) (heap_to_bag h) ∧
-  (!y. BAG_IN y (heap_to_bag h) ⇒ leq (get_key (find_min h)) (get_key y))`,
+  (!y. BAG_IN y (heap_to_bag h) ⇒ leq (get_key (find_min h)) (get_key y))
+Proof
 rw [] >>
 cases_on `h` >>
 fs [find_min_def, heap_to_bag_def, is_heap_ordered_def] >>
 fs [BAG_EVERY] >>
-metis_tac [WeakLinearOrder, WeakOrder, reflexive_def]);
+metis_tac [WeakLinearOrder, WeakOrder, reflexive_def]
+QED
 
-val delete_min_correct = Q.store_thm ("delete_min_correct",
-`!h get_key leq.
+Theorem delete_min_correct:
+ !h get_key leq.
   WeakLinearOrder leq ∧ (h ≠ Empty) ∧ is_heap_ordered get_key leq h
   ⇒
   is_heap_ordered get_key leq (delete_min get_key leq h) ∧
   (heap_to_bag (delete_min get_key leq h) =
-   BAG_DIFF (heap_to_bag h) (EL_BAG (find_min h)))`,
+   BAG_DIFF (heap_to_bag h) (EL_BAG (find_min h)))
+Proof
 rw [] >>
 cases_on `h` >>
 fs [delete_min_def, is_heap_ordered_def, merge_bag] >-
 metis_tac [merge_heap_ordered] >>
-rw [heap_to_bag_def, find_min_def, BAG_DIFF_INSERT2]);
+rw [heap_to_bag_def, find_min_def, BAG_DIFF_INSERT2]
+QED
 
 (* Simplify the side conditions on the generated certificate theorems *)
 

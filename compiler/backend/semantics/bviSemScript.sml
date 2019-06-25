@@ -1,3 +1,6 @@
+(*
+  The formal semantics of BVI
+*)
 open preamble bviTheory;
 local open backend_commonTheory bvlSemTheory in end;
 
@@ -34,9 +37,6 @@ val bvl_to_bvi_def = Define `
     t with <| refs := s.refs
             ; clock := s.clock
             ; ffi := s.ffi |>`;
-
-val small_enough_int_def = Define `
-  small_enough_int i <=> -268435457 <= i /\ i <= 268435457:int`;
 
 val s = ``(s:('c,'ffi) bviSem$state)``
 
@@ -201,9 +201,10 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases. *)
 
-val do_app_const = Q.store_thm("do_app_const",
-  `(bviSem$do_app op args s1 = Rval (res,s2)) ==>
-    (s2.clock = s1.clock)`,
+Theorem do_app_const:
+   (bviSem$do_app op args s1 = Rval (res,s2)) ==>
+    (s2.clock = s1.clock)
+Proof
   SIMP_TAC std_ss [do_app_def,do_install_def]
   \\ IF_CASES_TAC
   THEN1 (ntac 2 (every_case_tac \\ fs [UNCURRY]) \\ rw [] \\ fs [])
@@ -217,26 +218,31 @@ val do_app_const = Q.store_thm("do_app_const",
   \\ Cases_on `x'` \\ fs []
   \\ fs [do_app_aux_def]
   \\ BasicProvers.EVERY_CASE_TAC
-  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
+  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []
+QED
 
-val evaluate_clock = Q.store_thm("evaluate_clock",
-  `!xs env s1 vs s2.
-  (bviSem$evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
+Theorem evaluate_clock:
+   !xs env s1 vs s2.
+  (bviSem$evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock
+Proof
   recInduct evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
   imp_res_tac fix_clock_IMP >>
-  imp_res_tac do_app_const >> fs[]);
+  imp_res_tac do_app_const >> fs[]
+QED
 
-val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
-  `fix_clock s (evaluate (xs,env,s)) = evaluate (xs,env,s)`,
+Theorem fix_clock_evaluate:
+   fix_clock s (evaluate (xs,env,s)) = evaluate (xs,env,s)
+Proof
   Cases_on `evaluate(xs,env,s)` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
-  \\ fs [MIN_DEF,theorem "state_component_equality"]);
+  \\ fs [MIN_DEF,theorem "state_component_equality"]
+QED
 
 
 (* Finally, we remove fix_clock from the induction and definition theorems. *)
 
-val evaluate_def = save_thm("evaluate_def",
+val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 val evaluate_ind = save_thm("evaluate_ind",

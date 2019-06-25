@@ -1,9 +1,15 @@
+/*
+  Implements the foreign function interface (FFI) used in the CakeML basis
+  library, as a thin wrapper around the relevant system calls.
+*/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/time.h>
+#include <assert.h>
 
 /* clFFI (command line) */
 
@@ -67,6 +73,7 @@ int byte8_to_int(unsigned char *b){
 /* fsFFI (file system and I/O) */
 
 void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
   int fd = open((const char *) c, O_RDONLY);
   if (0 <= fd){
     a[0] = 0;
@@ -77,18 +84,25 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(9 <= alen);
+  #ifdef __WIN32
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
+  #else
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+  #endif
   if (0 <= fd){
     a[0] = 0;
     int_to_byte8(fd, &a[1]);
   }
   else
-    a[0] = 255;
+    a[0] = 1;
 }
 
 void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(clen == 8);
   int fd = byte8_to_int(c);
   int n = byte2_to_int(a);
+  assert(alen >= n + 4);
   int nread = read(fd, &a[4], n);
   if(nread < 0){
     a[0] = 1;
@@ -100,9 +114,11 @@ void ffiread (unsigned char *c, long clen, unsigned char *a, long alen) {
 }
 
 void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
+  assert(clen == 8);
   int fd = byte8_to_int(c);
   int n = byte2_to_int(a);
   int off = byte2_to_int(&a[2]);
+  assert(alen >= n + off + 4);
   int nw = write(fd, &a[4 + off], n);
   if(nw < 0){
       a[0] = 1;
@@ -114,6 +130,8 @@ void ffiwrite (unsigned char *c, long clen, unsigned char *a, long alen){
 }
 
 void fficlose (unsigned char *c, long clen, unsigned char *a, long alen) {
+  assert(alen >= 1);
+  assert(clen == 8);
   int fd = byte8_to_int(c);
   if (close(fd) == 0) a[0] = 0;
   else a[0] = 1;
@@ -134,6 +152,14 @@ void cml_exit(int arg) {
   #endif
   exit(arg);
 }
+
+void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
+  if(alen > 0) {
+    cml_exit((int)a[0]);
+  }
+  cml_exit(EXIT_FAILURE);
+}
+
 
 /* empty FFI (assumed to do nothing, but can be used for tracing/logging) */
 void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {

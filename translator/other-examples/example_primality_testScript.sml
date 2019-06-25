@@ -1,3 +1,7 @@
+(*
+  This is a simple example of applying the translator to an
+  efficient primaliy tester formalised by Joe Hurd.
+*)
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "example_primality_test";

@@ -1,3 +1,7 @@
+(*
+  Termination proofs for functions defined in .lem files whose termination is
+  not proved automatically.
+*)
 open preamble intSimps;
 open libTheory astTheory open namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open evaluateTheory;
@@ -34,56 +38,62 @@ val pats_size_thm = size_thm "pats_size_thm" ``pats_size`` ``pat_size``;
 (* val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``; *)
 (* val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``; *)
 
-val SUM_MAP_exp2_size_thm = Q.store_thm(
-"SUM_MAP_exp2_size_thm",
-`∀defs. SUM (MAP exp2_size defs) = SUM (MAP (list_size char_size) (MAP FST defs)) +
+Theorem SUM_MAP_exp2_size_thm:
+ ∀defs. SUM (MAP exp2_size defs) = SUM (MAP (list_size char_size) (MAP FST defs)) +
                                           SUM (MAP exp4_size (MAP SND defs)) +
-                                          LENGTH defs`,
+                                          LENGTH defs
+Proof
 Induct >- rw[exp_size_def] >>
 qx_gen_tac `p` >>
 PairCases_on `p` >>
-srw_tac[ARITH_ss][exp_size_def])
+srw_tac[ARITH_ss][exp_size_def]
+QED
 
-val SUM_MAP_exp4_size_thm = Q.store_thm(
-"SUM_MAP_exp4_size_thm",
-`∀ls. SUM (MAP exp4_size ls) = SUM (MAP (list_size char_size) (MAP FST ls)) +
+Theorem SUM_MAP_exp4_size_thm:
+ ∀ls. SUM (MAP exp4_size ls) = SUM (MAP (list_size char_size) (MAP FST ls)) +
                                       SUM (MAP exp_size (MAP SND ls)) +
-                                      LENGTH ls`,
+                                      LENGTH ls
+Proof
 Induct >- rw[exp_size_def] >>
-Cases >> srw_tac[ARITH_ss][exp_size_def]);
+Cases >> srw_tac[ARITH_ss][exp_size_def]
+QED
 
-val SUM_MAP_exp5_size_thm = Q.store_thm(
-"SUM_MAP_exp5_size_thm",
-`∀ls. SUM (MAP exp5_size ls) = SUM (MAP pat_size (MAP FST ls)) +
+Theorem SUM_MAP_exp5_size_thm:
+ ∀ls. SUM (MAP exp5_size ls) = SUM (MAP pat_size (MAP FST ls)) +
                                 SUM (MAP exp_size (MAP SND ls)) +
-                                LENGTH ls`,
+                                LENGTH ls
+Proof
 Induct >- rw[exp_size_def] >>
-Cases >> srw_tac[ARITH_ss][exp_size_def]);
+Cases >> srw_tac[ARITH_ss][exp_size_def]
+QED
 
 (*
-val SUM_MAP_v2_size_thm = Q.store_thm(
-"SUM_MAP_v2_size_thm",
-`∀env. SUM (MAP v2_size env) = SUM (MAP (list_size char_size) (MAP FST env)) +
+Theorem SUM_MAP_v2_size_thm:
+ ∀env. SUM (MAP v2_size env) = SUM (MAP (list_size char_size) (MAP FST env)) +
                                 SUM (MAP v_size (MAP SND env)) +
-                                LENGTH env`,
+                                LENGTH env
+Proof
 Induct >- rw[v_size_def] >>
-Cases >> srw_tac[ARITH_ss][v_size_def])
+Cases >> srw_tac[ARITH_ss][v_size_def]
+QED
 *)
 
 (*
-val SUM_MAP_v3_size_thm = Q.store_thm(
-"SUM_MAP_v3_size_thm",
-`∀env f. SUM (MAP (v3_size f) env) = SUM (MAP (v_size f) (MAP FST env)) +
+Theorem SUM_MAP_v3_size_thm:
+ ∀env f. SUM (MAP (v3_size f) env) = SUM (MAP (v_size f) (MAP FST env)) +
                                       SUM (MAP (option_size (pair_size (λx. x) f)) (MAP SND env)) +
-                                      LENGTH env`,
+                                      LENGTH env
+Proof
 Induct >- rw[v_size_def] >>
-Cases >> srw_tac[ARITH_ss][v_size_def])
+Cases >> srw_tac[ARITH_ss][v_size_def]
+QED
 *)
 
-val exp_size_positive = Q.store_thm(
-"exp_size_positive",
-`∀e. 0 < exp_size e`,
-Induct >> srw_tac[ARITH_ss][exp_size_def])
+Theorem exp_size_positive:
+ ∀e. 0 < exp_size e
+Proof
+Induct >> srw_tac[ARITH_ss][exp_size_def]
+QED
 val _ = export_rewrites["exp_size_positive"];
 
 fun register name def ind =
@@ -125,20 +135,20 @@ val _ = register "type_subst" type_subst_def type_subst_ind;
 
 val (type_name_subst_def, type_name_subst_ind) =
   tprove_no_defn ((type_name_subst_def, type_name_subst_ind),
-  WF_REL_TAC `measure (λ(x,y). t_size y)` >>
+  WF_REL_TAC `measure (λ(x,y). ast_t_size y)` >>
   rw [] >>
   induct_on `ts` >>
-  rw [t_size_def] >>
+  rw [ast_t_size_def] >>
   res_tac >>
   decide_tac);
 val _ = register "type_name_subst" type_name_subst_def type_name_subst_ind;
 
 val (check_type_names_def, check_type_names_ind) =
   tprove_no_defn ((check_type_names_def, check_type_names_ind),
-  WF_REL_TAC `measure (λ(x,y). t_size y)` >>
+  WF_REL_TAC `measure (λ(x,y). ast_t_size y)` >>
   rw [] >>
   induct_on `ts` >>
-  rw [t_size_def] >>
+  rw [ast_t_size_def] >>
   res_tac >>
   decide_tac);
 val _ = register "check_type_names" check_type_names_def check_type_names_ind;
@@ -162,6 +172,16 @@ srw_tac [ARITH_ss] [t_size_def] >>
 res_tac >>
 decide_tac);
 val _ = register "check_freevars" check_freevars_def check_freevars_ind;
+
+val (check_freevars_ast_def,check_freevars_ast_ind) =
+  tprove_no_defn ((check_freevars_ast_def,check_freevars_ast_ind),
+wf_rel_tac `measure (ast_t_size o SND)` >>
+srw_tac [ARITH_ss] [ast_t_size_def] >>
+induct_on `ts` >>
+srw_tac [ARITH_ss] [ast_t_size_def] >>
+res_tac >>
+decide_tac);
+val _ = register "check_freevars_ast" check_freevars_ast_def check_freevars_ast_ind;
 
 val (deBruijn_inc_def,deBruijn_inc_ind) =
   tprove_no_defn ((deBruijn_inc_def,deBruijn_inc_ind),
@@ -206,67 +226,69 @@ val (vs_to_string_def,vs_to_string_ind) =
 wf_rel_tac `measure LENGTH` \\ rw[]);
 val _ = register "vs_to_string" vs_to_string_def vs_to_string_ind;
 
-val check_ctor_foldr_flat_map = Q.prove (
-`!c. (FOLDR
-         (λ(tvs,tn,condefs) x2.
-            FOLDR (λ(n,ts) x2. n::x2) x2 condefs) [] c)
-    =
-    FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) c)`,
-induct_on `c` >>
-rw [LET_THM] >>
-PairCases_on `h` >>
-fs [LET_THM] >>
-pop_assum (fn _ => all_tac) >>
-induct_on `h2` >>
-rw [] >>
-PairCases_on `h` >>
-rw []);
+Theorem check_dup_ctors_thm:
+   check_dup_ctors (tvs,tn,condefs) = ALL_DISTINCT (MAP FST condefs)
+Proof
+  rw [check_dup_ctors_def] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs [] >>
+  eq_tac >>
+  rw [] >>
+  induct_on `condefs` >>
+  rw [] >>
+  pairarg_tac >>
+  fs []
+QED
 
-val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
-`!tds.
-  check_dup_ctors tds =
-    ALL_DISTINCT (FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) tds))`,
-metis_tac [check_dup_ctors_def,check_ctor_foldr_flat_map]);
-
-val do_log_thm = Q.store_thm("do_log_thm",
-  `do_log l v e =
+(*
+Theorem do_log_thm:
+   do_log l v e =
     if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
     if l = Or ∧ v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Exp e) else
     if v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Val v) else
     if v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Val v) else
-    NONE`,
+    NONE
+Proof
   rw[semanticPrimitivesTheory.do_log_def] >>
-    every_case_tac >> rw[])
+    every_case_tac >> rw[]
+QED
+    *)
 
 val fix_clock_IMP = Q.prove(
   `fix_clock s x = (s1,res) ==> s1.clock <= s.clock`,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
-val (evaluate_def,evaluate_ind) =
-  tprove_no_defn ((evaluate_def,evaluate_ind),
+val (evaluate_def, evaluate_ind) =
+  tprove_no_defn ((evaluateTheory.evaluate_def,evaluateTheory.evaluate_ind),
   wf_rel_tac`inv_image ($< LEX $<)
     (λx. case x of
          | INL(s,_,es) => (s.clock,exps_size es)
          | INR(s,_,_,pes,_) => (s.clock,pes_size pes))` >>
   rw[size_abbrevs,exp_size_def,
   dec_clock_def,LESS_OR_EQ,
-  do_if_def,do_log_thm] >>
+  do_if_def,do_log_def] >>
   imp_res_tac fix_clock_IMP >>
   simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
-val evaluate_clock = Q.store_thm("evaluate_clock",
-  `(∀(s1:'ffi state) env e r s2. evaluate s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
+Theorem evaluate_clock:
+   (∀(s1:'ffi state) env e r s2. evaluate s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)
+Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
   fs[dec_clock_def,fix_clock_def] >> simp[] >>
-  imp_res_tac fix_clock_IMP >> fs[]);
+  imp_res_tac fix_clock_IMP >> fs[]
+QED
 
-val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
-  `fix_clock s1 (evaluate s1 env e) = evaluate s1 env e`,
+Theorem fix_clock_evaluate:
+   fix_clock s1 (evaluate s1 env e) = evaluate s1 env e
+Proof
   Cases_on `evaluate s1 env e` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
-  \\ fs [MIN_DEF,state_component_equality]);
+  \\ fs [MIN_DEF,state_component_equality]
+QED
 
 val evaluate_def = save_thm("evaluate_def",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *));
@@ -277,5 +299,18 @@ val evaluate_ind = save_thm("evaluate_ind",
 val _ = register "evaluate" evaluate_def evaluate_ind
 
 val _ = export_rewrites["evaluate.list_result_def"];
+
+Theorem dec1_size_eq:
+   dec1_size xs = list_size dec_size xs
+Proof
+  Induct_on `xs` \\ fs [dec_size_def, list_size_def]
+QED
+
+val (evaluate_decs_def,evaluate_decs_ind) =
+  tprove_no_defn ((evaluate_decs_def,evaluate_decs_ind),
+  wf_rel_tac `measure (list_size dec_size o SND o SND)` >>
+  rw [dec1_size_eq]);
+
+val _ = register "evaluate_decs" evaluate_decs_def evaluate_decs_ind
 
 val _ = export_theory ();

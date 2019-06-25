@@ -1,3 +1,6 @@
+(*
+  Functional big-step semantics for evaluation of CakeML programs.
+*)
 open import Pervasives_extra
 open import Lib
 open import Ast
@@ -115,7 +118,7 @@ and
 evaluate st env [Mat e pes] =
   match fix_clock st (evaluate st env [e]) with
   | (st', Rval v) ->
-      evaluate_match st' env (head v) pes Bindv
+      evaluate_match st' env (head v) pes bind_exn_v
   | res -> res
   end
 and
@@ -152,27 +155,27 @@ declare {isabelle} rename function evaluate = fun_evaluate
 declare {isabelle} rename function evaluate_match = fun_evaluate_match
 
 val evaluate_decs :
-  forall 'ffi. list modN -> state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v
+  forall 'ffi. state 'ffi -> sem_env v -> list dec -> state 'ffi * result (sem_env v) v
 let rec
-evaluate_decs mn st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
+evaluate_decs st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
-evaluate_decs mn st env (d1::d2::ds) =
-  match evaluate_decs mn st env [d1] with
+evaluate_decs st env (d1::d2::ds) =
+  match evaluate_decs st env [d1] with
   | (st1, Rval env1) ->
-    match evaluate_decs mn st1 (extend_dec_env env1 env) (d2::ds) with
+    match evaluate_decs st1 (extend_dec_env env1 env) (d2::ds) with
     | (st2,r) -> (st2, combine_dec_result env1 r)
     end
   | res -> res
   end
 and
-evaluate_decs mn st env [Dlet locs p e] =
+evaluate_decs st env [Dlet locs p e] =
   if allDistinct (pat_bindings p []) then
     match evaluate st env [e] with
     | (st', Rval v) ->
         (st',
          match pmatch env.c st'.refs p (head v) [] with
          | Match new_vals -> Rval <| v = alist_to_ns new_vals; c = nsEmpty |>
-         | No_match -> Rerr (Rraise Bindv)
+         | No_match -> Rerr (Rraise bind_exn_v)
          | Match_type_error -> Rerr (Rabort Rtype_error)
          end)
     | (st', Rerr err) -> (st', Rerr err)
@@ -180,77 +183,42 @@ evaluate_decs mn st env [Dlet locs p e] =
   else
     (st, Rerr (Rabort Rtype_error))
 and
-evaluate_decs mn st env [Dletrec locs funs] =
+evaluate_decs st env [Dletrec locs funs] =
   (st,
    if allDistinct (map (fun (x,y,z) -> x) funs) then
      Rval <| v = build_rec_env funs env nsEmpty; c = nsEmpty |>
    else
      Rerr (Rabort Rtype_error))
 and
-evaluate_decs mn st env [Dtype locs tds] =
-  let new_tdecs = type_defs_to_new_tdecs mn tds in
-    if check_dup_ctors tds &&
-       disjoint new_tdecs st.defined_types &&
-       allDistinct (map (fun (tvs,tn,ctors) -> tn) tds)
-    then
-      (<| st with defined_types = new_tdecs union st.defined_types |>,
-       Rval <| v = nsEmpty; c = build_tdefs mn tds |>)
-    else
-      (st, Rerr (Rabort Rtype_error))
+evaluate_decs st env [Dtype locs tds] =
+  if List.all check_dup_ctors tds then
+    (<| st with next_type_stamp = st.next_type_stamp + List.length tds |>,
+     Rval <| v = nsEmpty; c = build_tdefs st.next_type_stamp tds |>)
+  else
+    (st, Rerr (Rabort Rtype_error))
 and
-evaluate_decs mn st env [Dtabbrev locs tvs tn t] =
+evaluate_decs st env [Dtabbrev locs tvs tn t] =
   (st, Rval <| v = nsEmpty; c = nsEmpty |>)
 and
-evaluate_decs mn st env [Dexn locs cn ts] =
-  if TypeExn (mk_id mn cn) IN st.defined_types then
-    (st, Rerr (Rabort Rtype_error))
-  else
-    (<| st with defined_types = {TypeExn (mk_id mn cn)} union st.defined_types |>,
-     Rval <| v = nsEmpty; c = nsSing cn (length ts, TypeExn (mk_id mn cn)) |>)
-declare termination_argument evaluate_decs = automatic
-
-declare {isabelle} rename function evaluate_decs = fun_evaluate_decs
-
-let envLift mn env =
-  <| v = nsLift mn env.v; c = nsLift mn env.c |>
-
-val evaluate_tops :
-  forall 'ffi. state 'ffi -> sem_env v -> list top -> state 'ffi *  result (sem_env v) v
-let rec
-evaluate_tops st env [] = (st, Rval <| v = nsEmpty; c = nsEmpty |>)
+evaluate_decs st env [Dexn locs cn ts] =
+  (<| st with next_exn_stamp = st.next_exn_stamp + 1 |>,
+   Rval <| v = nsEmpty; c = nsSing cn (length ts, ExnStamp st.next_exn_stamp) |>)
 and
-evaluate_tops st env (top1::top2::tops) =
-  match evaluate_tops st env [top1] with
-  | (st1, Rval env1) ->
-      match evaluate_tops st1 (extend_dec_env env1 env) (top2::tops) with
-      | (st2, r) -> (st2, combine_dec_result env1 r)
-      end
-  | res -> res
+evaluate_decs st env [Dmod mn ds] =
+  match evaluate_decs st env ds with
+  | (st', r) ->
+      (st',
+       match r with
+       | Rval env' -> Rval <| v = nsLift mn env'.v; c = nsLift mn env'.c |>
+       | Rerr err -> Rerr err
+       end)
   end
 and
-evaluate_tops st env [Tdec d] = evaluate_decs [] st env [d]
-and
-evaluate_tops st env [Tmod mn specs ds] =
-  if not ([mn] IN st.defined_mods) && no_dup_types ds
-  then
-    match evaluate_decs [mn] st env ds with
-    | (st', r) ->
-        (<| st' with defined_mods = {[mn]} union st'.defined_mods |>,
-         match r with
-         | Rval env' -> Rval <| v = nsLift mn env'.v; c = nsLift mn env'.c |>
-         | Rerr err -> Rerr err
-         end)
-    end
-  else
-    (st, Rerr (Rabort Rtype_error))
-declare termination_argument evaluate_tops = automatic
+evaluate_decs st env [Dlocal lds ds] =
+  match evaluate_decs st env lds with
+  | (st1, Rval env1) ->
+    evaluate_decs st1 (extend_dec_env env1 env) ds
+  | res -> res
+  end
 
-val evaluate_prog : forall 'ffi. state 'ffi -> sem_env v -> prog -> state 'ffi * result (sem_env v) v
-let
-evaluate_prog st env prog =
-  if no_dup_mods prog st.defined_mods && no_dup_top_types prog st.defined_types then
-    evaluate_tops st env prog
-  else
-    (st, Rerr (Rabort Rtype_error))
-
-declare {isabelle} rename function evaluate_prog = fun_evaluate_prog
+declare {isabelle} rename function evaluate_decs = fun_evaluate_decs

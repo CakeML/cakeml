@@ -1,3 +1,6 @@
+(*
+  Correctness proof for lab_filter
+*)
 open preamble labSemTheory labPropsTheory lab_filterTheory;
 
 val _ = new_theory "lab_filterProof";
@@ -519,12 +522,13 @@ val upd_pc_tac =
   full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
   metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC];
 
-val filter_correct = Q.store_thm("filter_correct",
-  `!(s1:('a,'c,'ffi) labSem$state) t1 res s2.
+Theorem filter_correct:
+   !(s1:('a,'c,'ffi) labSem$state) t1 res s2.
       (evaluate s1 = (res,s2)) /\ state_rel s1 t1 /\ ~t1.failed ==>
       ?k t2.
         (evaluate (t1 with clock := s1.clock + k) = (res,t2)) /\
-        (s2.ffi = t2.ffi)`,
+        (s2.ffi = t2.ffi)
+Proof
   ho_match_mp_tac evaluate_ind>>srw_tac[][]>>
   qpat_x_assum`evaluate s1 = _` mp_tac>>
   simp[Once evaluate_def]>>
@@ -842,7 +846,8 @@ val filter_correct = Q.store_thm("filter_correct",
       metis_tac[ADD_ASSOC])
     >>
       EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-      same_inst_tac);
+      same_inst_tac
+QED
 
 val state_rel_IMP_sem_EQ_sem = Q.prove(
   `!s t. state_rel s t ==> semantics s = semantics t`,
@@ -957,8 +962,8 @@ val state_rel_IMP_sem_EQ_sem = Q.prove(
       qexists_tac`k+k'`>>simp[EL_APPEND1] ) >>
     metis_tac[build_lprefix_lub_thm,unique_lprefix_lub,lprefix_lub_new_chain]));
 
-val filter_skip_semantics = Q.store_thm("filter_skip_semantics",
-  `!s t. (t.pc = 0) ∧ ¬t.failed /\
+Theorem filter_skip_semantics:
+   !s t. (t.pc = 0) ∧ ¬t.failed /\
    (∃scompile.
      s = t with <| code := filter_skip t.code ;
                    compile_oracle := (λ(a,b).(a,filter_skip b)) o t.compile_oracle;
@@ -966,20 +971,24 @@ val filter_skip_semantics = Q.store_thm("filter_skip_semantics",
                  |> ∧
     t.compile = λc p. scompile c (filter_skip p)) ∧
     ¬t.failed  ==>
-  semantics s = semantics t`,
+  semantics s = semantics t
+Proof
   srw_tac[][] \\ match_mp_tac state_rel_IMP_sem_EQ_sem
-  \\ full_simp_tac(srw_ss())[state_rel_def,state_component_equality,Once adjust_pc_def,o_DEF]);
+  \\ full_simp_tac(srw_ss())[state_rel_def,state_component_equality,Once adjust_pc_def,o_DEF]
+QED
 
-val sec_ends_with_label_filter_skip = Q.store_thm("sec_ends_with_label_filter_skip",
-  `∀code.
+Theorem sec_ends_with_label_filter_skip:
+   ∀code.
    EVERY sec_ends_with_label code ⇒
-   EVERY sec_ends_with_label (filter_skip code)`,
+   EVERY sec_ends_with_label (filter_skip code)
+Proof
   Induct \\ simp[filter_skip_def]
   \\ Cases \\ fs[filter_skip_def,sec_ends_with_label_def]
   \\ Induct_on`l` \\ fs[NULL_EQ]
   \\ Cases \\ fs[LAST_CONS_cond,not_skip_def]
   \\ TOP_CASE_TAC \\ fs[]
   \\ TOP_CASE_TAC \\ fs[]
-  \\ fs[LAST_CONS_cond]);
+  \\ fs[LAST_CONS_cond]
+QED
 
 val _ = export_theory();

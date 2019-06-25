@@ -1,3 +1,6 @@
+(*
+  Define the target compiler configuration for ARMv8.
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib arm8_stepTheory;
 
@@ -213,7 +216,24 @@ val arm8_ast_def = Define`
       [Branch (BranchImmediate (a, BranchType_CALL))]) /\
    (arm8_ast (JumpReg r) =
       [Branch (BranchRegister (n2w r, BranchType_JMP))]) /\
-   (arm8_ast (Loc r i) = [Address (F, i, n2w r)])`
+   (arm8_ast (Loc r i) =
+      if sw2sw (INT_MINw: word20) ≤ i ∧ i ≤ sw2sw (INT_MAXw: word20)
+      then
+        [Address (F, i, n2w r)]
+      else
+        [
+        Address (F, 0w, n2w r);
+        Data (MoveWide@64
+                (1w, MoveWideOp_K, 0w, (15 >< 0) i, ^temp));
+        Data (MoveWide@64
+                (1w, MoveWideOp_K, 1w, (31 >< 16) i, ^temp));
+        Data (MoveWide@64
+                (1w, MoveWideOp_K, 2w, (47 >< 32) i, ^temp));
+        Data (MoveWide@64
+                (1w, MoveWideOp_K, 3w, (63 >< 48) i, ^temp));
+        Data (AddSubShiftedRegister@64
+                (1w, F, F, ShiftType_LSL, ^temp, 0w, n2w r, n2w r))
+        ])`
 
 val arm8_enc_def = zDefine
   `arm8_enc = combin$C LIST_BIND arm8_encode o arm8_ast`
@@ -227,8 +247,8 @@ val off_max12 = eval ``w2w (UINT_MAXw: word12) : word64``
 val off_min = eval ``-^off_max12 + ^off_min9``
 val off_max = eval ``^off_max12 + ^off_max9``
 
-val loc_min = eval ``sw2sw (INT_MINw: word20) : word64``
-val loc_max = eval ``sw2sw (INT_MAXw: word20) : word64``
+val loc_min = eval ``sw2sw (INT_MINw: word32) : word64``
+val loc_max = eval ``sw2sw (INT_MAXw: word32) : word64``
 val cjump_min = eval ``sw2sw (INT_MINw: 21 word) + 4w : word64``
 val cjump_max = eval ``sw2sw (INT_MAXw: 21 word) + 4w : word64``
 val jump_min = eval ``sw2sw (INT_MINw: word28) : word64``

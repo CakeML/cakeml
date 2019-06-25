@@ -1,11 +1,16 @@
+(*
+  Translate the final part of the compiler backend for 64-bit targets.
+*)
 open preamble;
 open terminationTheory
 open ml_translatorLib ml_translatorTheory;
-open to_word64ProgTheory;
+open to_word64ProgTheory std_preludeTheory;
 
 val _ = new_theory "to_target64Prog"
 
 val _ = translation_extends "to_word64Prog";
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target64Prog");
 
 val RW = REWRITE_RULE
 
@@ -62,164 +67,12 @@ val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a wor
 
 val _ = inst_tyargs := [alpha]
 
-open word_to_stackTheory
+open word_to_stackTheory;
 
 val _ = translate (conv64 write_bitmap_def|> (RW (!extra_preprocessing)))
 
 (* TODO: The paired let trips up the translator's single line def mechanism, unable to find a smaller failing example yet *)
 val _ = translate (conv64 (wLive_def |> SIMP_RULE std_ss [LET_THM]))
-
-local
-  val ths = ml_translatorLib.eq_lemmas();
-in
-  fun find_equality_type_thm tm =
-    first (can (C match_term tm) o rand o snd o strip_imp o concl) ths
-end
-
-val EqualityType_NUM = find_equality_type_thm``NUM``
-val EqualityType_CHAR = find_equality_type_thm``CHAR``
-val EqualityType_WORD = find_equality_type_thm``WORD``
-
-val EqualityType_SUM_TYPE_NUM_NUM = find_equality_type_thm``SUM_TYPE NUM NUM``
-  |> Q.GENL[`a`,`b`]
-  |> Q.ISPECL[`NUM`,`NUM`]
-  |> SIMP_RULE std_ss [EqualityType_NUM];
-
-val EqualityType_PAIR_TYPE_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
-  |> Q.GENL[`b`,`c`]
-  |> Q.ISPECL[`NUM`,`NUM`]
-  |> SIMP_RULE std_ss [EqualityType_NUM];
-
-val EqualityType_PAIR_TYPE_NUM_NUM_NUM = find_equality_type_thm ``PAIR_TYPE _ _``
-  |> Q.GENL[`b`,`c`]
-  |> Q.ISPECL[`NUM`,`PAIR_TYPE NUM NUM`]
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_PAIR_TYPE_NUM_NUM];
-
-val EqualityType_LIST_TYPE_CHAR = find_equality_type_thm``LIST_TYPE CHAR``
-  |> Q.GEN`a` |> Q.ISPEC`CHAR` |> SIMP_RULE std_ss [EqualityType_CHAR]
-
-val EqualityType_ASM_CMP_TYPE = find_equality_type_thm``ASM_CMP_TYPE``
-  |> SIMP_RULE std_ss []
-val EqualityType_ASM_REG_IMM_TYPE = find_equality_type_thm``ASM_REG_IMM_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
-val EqualityType_AST_SHIFT_TYPE = find_equality_type_thm``AST_SHIFT_TYPE``
-  |> SIMP_RULE std_ss []
-val EqualityType_ASM_BINOP_TYPE = find_equality_type_thm``ASM_BINOP_TYPE``
-  |> SIMP_RULE std_ss []
-val EqualityType_ASM_ADDR_TYPE = find_equality_type_thm``ASM_ADDR_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD]
-val EqualityType_ASM_MEMOP_TYPE = find_equality_type_thm``ASM_MEMOP_TYPE``
-  |> SIMP_RULE std_ss []
-val EqualityType_ASM_ARITH_TYPE = find_equality_type_thm``ASM_ARITH_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_AST_SHIFT_TYPE,
-                       EqualityType_ASM_BINOP_TYPE,EqualityType_ASM_REG_IMM_TYPE]
-val EqualityType_ASM_FP_TYPE = find_equality_type_thm``ASM_FP_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM]
-val EqualityType_ASM_INST_TYPE = find_equality_type_thm``ASM_INST_TYPE``
-  |> SIMP_RULE std_ss [EqualityType_NUM,EqualityType_WORD,EqualityType_ASM_ADDR_TYPE,
-                       EqualityType_ASM_MEMOP_TYPE,EqualityType_ASM_ARITH_TYPE,
-                       EqualityType_ASM_FP_TYPE]
-
-val EqualityType_STACKLANG_STORE_NAME_TYPE = find_equality_type_thm``STACKLANG_STORE_NAME_TYPE``
-  |> SIMP_RULE std_ss []
-
-val STACKLANG_PROG_TYPE_def = theorem"STACKLANG_PROG_TYPE_def";
-val STACKLANG_PROG_TYPE_ind = theorem"STACKLANG_PROG_TYPE_ind";
-
-val STACKLANG_PROG_TYPE_no_closures = Q.prove(
-  `∀a b. STACKLANG_PROG_TYPE a b ⇒ no_closures b`,
-  ho_match_mp_tac STACKLANG_PROG_TYPE_ind
-  \\ rw[STACKLANG_PROG_TYPE_def]
-  \\ rw[no_closures_def] \\
-  TRY (
-    qmatch_rename_tac`no_closures y` \\
-    qmatch_assum_rename_tac`OPTION_TYPE _ x y` \\
-    Cases_on`x` \\ fs[OPTION_TYPE_def] \\ rw[no_closures_def] \\
-    qmatch_rename_tac`no_closures y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\
-    rw[no_closures_def] \\
-    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
-  metis_tac[EqualityType_def,
-            EqualityType_NUM,
-            EqualityType_LIST_TYPE_CHAR,
-            EqualityType_SUM_TYPE_NUM_NUM,
-            EqualityType_STACKLANG_STORE_NAME_TYPE,
-            EqualityType_ASM_CMP_TYPE,
-            EqualityType_ASM_REG_IMM_TYPE,
-            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
-            EqualityType_ASM_INST_TYPE]);
-
-val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
-
-val STACKLANG_PROG_TYPE_types_match = Q.prove(
-  `∀a b c d. STACKLANG_PROG_TYPE a b ∧ STACKLANG_PROG_TYPE c d ⇒ types_match b d`,
-  ho_match_mp_tac STACKLANG_PROG_TYPE_ind
-  \\ rw[STACKLANG_PROG_TYPE_def]
-  \\ Cases_on`c` \\ fs[STACKLANG_PROG_TYPE_def,types_match_def,ctor_same_type_def]
-  \\ rw[] \\
-  TRY (
-    qmatch_rename_tac`types_match y1 y2` \\
-    qmatch_assum_rename_tac`OPTION_TYPE _ x1 y1` \\
-    qmatch_assum_rename_tac`OPTION_TYPE _ x2 y2` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[OPTION_TYPE_def] \\
-    rw[types_match_def,ctor_same_type_def] \\
-    qmatch_rename_tac`types_match y1 y2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y1` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y2` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\
-    rw[types_match_def,ctor_same_type_def] \\
-    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
-  metis_tac[EqualityType_def,
-            EqualityType_NUM,
-            EqualityType_LIST_TYPE_CHAR,
-            EqualityType_SUM_TYPE_NUM_NUM,
-            EqualityType_STACKLANG_STORE_NAME_TYPE,
-            EqualityType_ASM_CMP_TYPE,
-            EqualityType_ASM_REG_IMM_TYPE,
-            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
-            EqualityType_ASM_INST_TYPE]);
-
-val STACKLANG_PROG_TYPE_11 = Q.prove(
-  `∀a b c d. STACKLANG_PROG_TYPE a b ∧ STACKLANG_PROG_TYPE c d ⇒ (a = c ⇔ b = d)`,
-  ho_match_mp_tac STACKLANG_PROG_TYPE_ind
-  \\ rw[STACKLANG_PROG_TYPE_def]
-  \\ Cases_on`c` \\ fs[STACKLANG_PROG_TYPE_def]
-  \\ rw[EQ_IMP_THM] \\
-  TRY (
-    qmatch_rename_tac`y1 = y2` \\
-    qmatch_assum_rename_tac`OPTION_TYPE _ x y1` \\
-    qmatch_assum_rename_tac`OPTION_TYPE _ x y2` \\
-    Cases_on`x` \\ fs[OPTION_TYPE_def] \\ rw[] \\
-    qmatch_rename_tac`y1 = y2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y1` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x y2` \\
-    Cases_on`x` \\ fs[PAIR_TYPE_def] \\ rw[] \\
-    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
-  TRY (
-    qmatch_rename_tac`x1 = x2` \\
-    qmatch_assum_rename_tac`OPTION_TYPE _ x1 y` \\
-    qmatch_assum_rename_tac`OPTION_TYPE _ x2 y` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[OPTION_TYPE_def] \\ rw[] \\
-    qmatch_rename_tac`x1 = x2` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x1 y` \\
-    qmatch_assum_rename_tac`PAIR_TYPE _ _ x2 y` \\
-    Cases_on`x1` \\ Cases_on`x2` \\ fs[PAIR_TYPE_def] \\ rw[] \\
-    metis_tac[EqualityType_def,EqualityType_PAIR_TYPE_NUM_NUM,EqualityType_PAIR_TYPE_NUM_NUM_NUM]) \\
-  metis_tac[EqualityType_def,
-            EqualityType_NUM,
-            EqualityType_LIST_TYPE_CHAR,
-            EqualityType_SUM_TYPE_NUM_NUM,
-            EqualityType_STACKLANG_STORE_NAME_TYPE,
-            EqualityType_ASM_CMP_TYPE,
-            EqualityType_ASM_REG_IMM_TYPE,
-            EqualityType_WORD |> (INST_TYPE[alpha|->``:5``]),
-            EqualityType_ASM_INST_TYPE]);
-
-val EqualityType_STACKLANG_PROG_TYPE = Q.prove(
-  `EqualityType STACKLANG_PROG_TYPE`,
-  metis_tac[EqualityType_def,STACKLANG_PROG_TYPE_no_closures,STACKLANG_PROG_TYPE_types_match,STACKLANG_PROG_TYPE_11])
-  |> store_eq_thm;
 
 (* TODO: the name is messed up (pair_) *)
 val _ = translate PAIR_MAP
@@ -241,7 +94,7 @@ val _ = translate (compile_word_to_stack_def |> INST_TYPE [beta |-> ``:64``])
 
 val _ = translate (compile_def |> INST_TYPE [alpha|->``:64``,beta|->``:64``]);
 
-open stack_allocTheory
+open stack_allocTheory;
 
 val inline_simp = SIMP_RULE std_ss [bytes_in_word_def,
                                     backend_commonTheory.word_shift_def]
@@ -303,7 +156,7 @@ val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side c
   fs[fetch "-" "stack_alloc_compile_side_def", stack_alloc_prog_comp_side]) |> update_precondition;
 *)
 
-open stack_removeTheory
+open stack_removeTheory;
 
 (* Might be better to inline this *)
 val _ = translate (conv64 word_offset_def)
@@ -319,21 +172,104 @@ val _ = translate (init_code_def |> inline_simp |> conv64 |> SIMP_RULE std_ss [w
 
 val _ = translate (spec64 compile_def)
 
-open stack_namesTheory
+open stack_namesTheory;
 
 val _ = translate (spec64 comp_def)
 val _ = translate (prog_comp_def |> INST_TYPE [beta |-> ``:64``])
 val _ = translate (compile_def |> INST_TYPE [beta |-> ``:64``])
 
-open stack_to_labTheory
+open stack_to_labTheory;
 
-val _ = matches := [``foo:'a labLang$prog``,``foo:'a labLang$sec``,``foo:'a labLang$line``,``foo:'a labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a inst``,``foo:'a asm_config``] @ (!matches)
+val _ = matches := [``foo:'a labLang$prog``,``foo:'a
+  labLang$sec``,``foo:'a labLang$line``,``foo:'a
+  labLang$asm_with_lab``,``foo:'a labLang$line list``,``foo:'a
+  inst``,``foo:'a asm_config``] @ (!matches)
 
 val _ = translate (flatten_def |> spec64)
 
 val _ = translate (compile_def |> spec64)
 
-open lab_filterTheory lab_to_targetTheory asmTheory
+open lab_filterTheory lab_to_targetTheory asmTheory;
+open monadic_encTheory monadic_enc64Theory ml_monad_translatorLib;
+
+(* The record types used for the monadic state and exceptions *)
+val exn_type   = ``:monadic_enc64$state_exn_64``;
+val _          = register_exn_type exn_type;
+val STATE_EXN_TYPE_def =  theorem "MONADIC_ENC64_STATE_EXN_64_TYPE_def"
+val exn_ri_def         = STATE_EXN_TYPE_def;
+
+val exn_functions = [
+    (raise_Fail_def, handle_Fail_def),
+    (raise_Subscript_def, handle_Subscript_def)
+];
+val refs_manip_list = [] : (string * thm * thm) list;
+val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+
+val add_type_theories  = ([] : string list);
+val store_pinv_def_opt = NONE : thm option;
+
+val state_type_64 = ``:enc_state_64``;
+val store_hprop_name_64   = "ENC_STATE_64";
+val farrays_manip_list_64 = [
+    ("hash_tab_64", get_hash_tab_64_def, set_hash_tab_64_def, hash_tab_64_length_def, hash_tab_64_sub_def, update_hash_tab_64_def)];
+
+val _ = translate (hash_reg_imm_def |> INST_TYPE [alpha|->``:64``])
+val _ = translate hash_binop_def
+val _ = translate hash_cmp_def
+val _ = translate hash_shift_def
+val _ = translate (hash_arith_def |> INST_TYPE [alpha|->``:64``] |> SIMP_RULE std_ss [roll_hash_def])
+val _ = translate hash_memop_def
+val _ = translate (hash_fp_def |> SIMP_RULE std_ss [roll_hash_def])
+val _ = translate (hash_inst_def |> INST_TYPE [alpha|->``:64``] |> SIMP_RULE std_ss [roll_hash_def])
+val _ = translate (hash_asm_def |> INST_TYPE [alpha|->``:64``] |> SIMP_RULE std_ss [roll_hash_def])
+
+(* Initialization *)
+
+val res = start_dynamic_init_fixed_store_translation
+            refs_manip_list
+            rarrays_manip_list
+            farrays_manip_list_64
+            store_hprop_name_64
+            state_type_64
+            exn_ri_def
+            exn_functions
+            add_type_theories
+            store_pinv_def_opt;
+
+val _ = translate (lab_inst_def |> INST_TYPE [alpha |-> ``:64``])
+val _ = translate (cbw_to_asm_def |> INST_TYPE [alpha |-> ``:64``])
+val _ = m_translate lookup_ins_table_64_def;
+val _ = m_translate enc_line_hash_64_def;
+val _ = m_translate enc_line_hash_64_ls_def;
+val _ = m_translate enc_sec_hash_64_ls_def;
+val _ = m_translate enc_sec_hash_64_ls_full_def;
+
+val _ = m_translate_run enc_secs_64_aux_def;
+
+val _ = translate enc_secs_64_def;
+
+val monadic_enc64_enc_line_hash_64_ls_side_def = Q.prove(`
+  ∀a b c d e.
+  d ≠ 0 ⇒
+  monadic_enc64_enc_line_hash_64_ls_side a b c d e ⇔ T`,
+  Induct_on`e`>>
+  simp[Once (fetch "-" "monadic_enc64_enc_line_hash_64_ls_side_def")]>>
+  EVAL_TAC>>rw[]>>fs[]);
+
+val monadic_enc64_enc_sec_hash_64_ls_side_def = Q.prove(`
+  ∀a b c d e.
+  d ≠ 0 ⇒
+  monadic_enc64_enc_sec_hash_64_ls_side a b c d e ⇔ T`,
+  Induct_on`e`>>
+  simp[Once (fetch "-" "monadic_enc64_enc_sec_hash_64_ls_side_def")]>>
+  metis_tac[monadic_enc64_enc_line_hash_64_ls_side_def]);
+
+Theorem monadic_enc64_enc_secs_64_side_def = Q.prove(`
+  monadic_enc64_enc_secs_64_side a b c ⇔ T`,
+  EVAL_TAC>>
+  rw[]>>
+  metis_tac[monadic_enc64_enc_sec_hash_64_ls_side_def,DECIDE``1n ≠ 0``])
+  |> update_precondition;
 
 val _ = translate (spec64 filter_skip_def)
 
@@ -355,9 +291,39 @@ val _ = translate (conv64 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPT
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
-val _ = translate (spec64 compile_def)
+(* Add in hidden argument to compile_lab *)
+val remove_labels_hash_def = Define `
+  remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
+    remove_labels_loop init_clock c pos labs ffis (enc_secs_64 c.encode hash_size sec_list)`;
+
+val res = translate (remove_labels_hash_def |> spec64);
+
+val compile_lab_thm = Q.prove(`
+  compile_lab c sec_list =
+    let current_ffis = find_ffi_names sec_list in
+    let (ffis,ffis_ok) =
+      case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
+    in
+    if ffis_ok then
+      case remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list of
+      | SOME (sec_list,l1) =>
+          SOME (prog_to_bytes sec_list,
+                c with <| labels := l1;
+                          pos := FOLDL (λpos sec. sec_length (Section_lines sec) pos) c.pos sec_list;
+                          ffi_names := SOME ffis
+                        |>)
+      | NONE => NONE
+    else NONE`,
+  rw[compile_lab_def,remove_labels_hash_def,remove_labels_def]>>
+  simp[enc_secs_64_correct]);
+
+val res = translate compile_lab_thm;
+
+val res = translate (spec64 compile_def);
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
+
+val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
 

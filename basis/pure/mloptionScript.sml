@@ -1,3 +1,6 @@
+(*
+  Pure functions for the Option module.
+*)
 open preamble
 
 val _ = new_theory"mloption"
@@ -24,6 +27,10 @@ val composePartial_def = Define`
     (SOME v) => f v
     | NONE => NONE`;
 
-
+val compare_def = Define `
+  compare f x y =
+    case x of
+    | NONE => (case y of NONE => Equal | _ => Less)
+    | SOME vx => (case y of NONE => Greater | SOME vy => f vx vy)`
 
 val _ = export_theory()

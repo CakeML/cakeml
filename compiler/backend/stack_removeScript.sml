@@ -1,6 +1,14 @@
-open preamble stackLangTheory;
+(*
+  This compiler phase implements all stack operations as normal memory
+  load/store operations.
+*)
+
+open preamble stackLangTheory
 
 val _ = new_theory "stack_remove";
+
+val _ = set_grammar_ancestry ["stackLang",
+  "misc" (* for bytes_in_word *) ];
 
 (* -- compiler -- *)
 
@@ -206,45 +214,39 @@ val store_init_def = Define `
 
 val init_code_def = Define `
   init_code gen_gc max_heap k =
-    let min_stack = LENGTH store_list + 1 in
-      if dimword (:'a) <= (dimindex (:'a) DIV 8) * min_stack \/
-         dimword (:'a) <= (dimindex (:'a) DIV 8) * max_heap then
-        halt_inst (10w:'a word)
-      else
-        list_Seq [(* check that pointers are in order *)
-                If Lower 3 (Reg 2) (halt_inst 7w) Skip;
-                If Lower 4 (Reg 3) (halt_inst 8w) Skip;
-                (* check that heap size isn't too big *)
+    let max_heap = (if max_heap * w2n (bytes_in_word:'a word) < dimword (:'a)
+                    then n2w max_heap * bytes_in_word
+                    else 0w-1w) in
+      list_Seq [(* compute the middle address, store in reg0 *)
+                move 0 4;
+                sub_inst 0 2;
+                right_shift_inst 0 (1 + word_shift (:'a));
+                left_shift_inst 0 (word_shift (:'a));
+                add_inst 0 2;
+                (* if reg3 is not between start and end of memory, then put
+                   it in the middle (i.e. split heap and stack evenly) *)
+                const_inst 5 (n2w max_stack_alloc * bytes_in_word:'a word);
+                add_inst 2 5;
+                sub_inst 4 5;
+                If Lower 3 (Reg 2) (move 3 0)
+                  (If Lower 4 (Reg 3) (move 3 0) Skip);
+                const_inst 0 (n2w max_stack_alloc * bytes_in_word:'a word);
+                sub_inst 2 0;
+                add_inst 4 0;
+                (* shrink the heap if it is too big *)
                 move 0 3;
                 sub_inst 0 2;
-                const_inst 5 (n2w max_heap * bytes_in_word);
-                If Lower 5 (Reg 0) (halt_inst 3w) Skip;
-                (* check max_stack_alloc *)
-                move 0 3;
-                const_inst 5 (n2w (min_stack-1) * bytes_in_word);
-                add_inst 0 5;
-                const_inst 5 (n2w (max_stack_alloc) * bytes_in_word);
-                If Lower 0 (Reg 5) (halt_inst 4w) Skip;
-                (* check that stack size is big enough *)
-                move 0 4;
-                sub_inst 0 3;
-                const_inst 5 (n2w min_stack * bytes_in_word);
-                If Lower 0 (Reg 5) (halt_inst 5w) Skip;
+                const_inst 5 max_heap;
+                If Lower 5 (Reg 0) (Seq (move 3 2) (add_inst 3 5)) Skip;
+                (* ensure heap is even number of words *)
+                sub_inst 3 2;
+                right_shift_inst 3 (word_shift (:'a) + 1);
+                left_shift_inst 3 (word_shift (:'a) + 1);
+                add_inst 3 2;
                 (* split heap into two, store heap length in 5 *)
                 move 5 3;
                 sub_inst 5 2;
                 right_shift_inst 5 1;
-                (* check that all values are aligned *)
-                move 0 2;
-                or_inst 0 3;
-                or_inst 0 4;
-                or_inst 0 5;
-                If Test 0 (Imm 7w) Skip (halt_inst 6w);
-                (* this alignment check must come AFTER the above, because
-                   the bitmap pointer lookup will fail if 2 is not aligned
-                *)
-                load_inst 0 2;
-                If Test 0 (Imm 7w) Skip (halt_inst 6w);
                 (* setup store, stack *)
                 move (k+2) 2;
                 add_inst 2 5;
@@ -270,10 +272,12 @@ val init_stubs_def = Define `
      (1n,halt_inst 0w);
      (2n,halt_inst 2w)]`
 
-val check_init_stubs_length = Q.store_thm("check_init_stubs_length",
-  `LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =
-   stack_num_stubs`,
-  EVAL_TAC);
+Theorem check_init_stubs_length:
+   LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =
+   stack_num_stubs
+Proof
+  EVAL_TAC
+QED
 
 (* -- full compiler -- *)
 

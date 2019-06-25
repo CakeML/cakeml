@@ -1,3 +1,7 @@
+(*
+  Defines the normalise_prog function which puts an arbitrary program
+  in A-normal form.
+*)
 open preamble
 open set_sepTheory helperLib ml_translatorTheory ConseqConv
 open semanticPrimitivesTheory cfHeapsTheory
@@ -22,11 +26,12 @@ val exp2v_def = Define `
   exp2v env (Var name) = nsLookup env.v name /\
   exp2v _ _ = NONE`
 
-val exp2v_evaluate = Q.store_thm ("exp2v_evaluate",
-  `!e env st v. exp2v env e = SOME v ==>
-    evaluate st env [e] = (st, Rval [v])`,
+Theorem exp2v_evaluate:
+   !e env st v. exp2v env e = SOME v ==>
+    evaluate st env [e] = (st, Rval [v])
+Proof
   Induct \\ fs [exp2v_def, terminationTheory.evaluate_def]
-);
+QED
 
 val exp2v_list_def = Define `
   exp2v_list env [] = SOME [] /\
@@ -38,9 +43,10 @@ val exp2v_list_def = Define `
           | NONE => NONE
           | SOME vs => SOME (v :: vs)))`;
 
-val exp2v_list_evaluate = Q.store_thm ("exp2v_list_evaluate",
-  `!l lv env st. exp2v_list env l = SOME lv ==>
-    evaluate st env l = (st, Rval lv)`,
+Theorem exp2v_list_evaluate:
+   !l lv env st. exp2v_list env l = SOME lv ==>
+    evaluate st env l = (st, Rval lv)
+Proof
   Induct
   THEN1 (fs [exp2v_list_def, terminationTheory.evaluate_def])
   THEN1 (
@@ -49,14 +55,14 @@ val exp2v_list_evaluate = Q.store_thm ("exp2v_list_evaluate",
     first_assum progress \\ progress exp2v_evaluate \\
     Cases_on `l` \\ fs [terminationTheory.evaluate_def]
   )
-);
+QED
 
-val evaluate_list_rcons = Q.store_thm ("evaluate_rcons",
-  `!env st st' st'' l x lv v.
+Theorem evaluate_rcons:
+   !env st st' st'' l x lv v.
      evaluate st env l = (st', Rval lv) /\
      evaluate st' env [x] = (st'', Rval [v]) ==>
-     evaluate st env (l ++ [x]) = (st'', Rval (lv ++ [v]))`,
-
+     evaluate st env (l ++ [x]) = (st'', Rval (lv ++ [v]))
+Proof
   Induct_on `l`
   THEN1 (
     rpt strip_tac \\ fs [terminationTheory.evaluate_def]
@@ -78,34 +84,37 @@ val evaluate_list_rcons = Q.store_thm ("evaluate_rcons",
       simp [terminationTheory.evaluate_def]
     )
   )
-);
+QED
 
-val exp2v_list_REVERSE = Q.store_thm ("exp2v_list_REVERSE",
-  `!l (st: 'ffi semanticPrimitives$state) lv env. exp2v_list env l = SOME lv ==>
-    evaluate st env (REVERSE l) = (st, Rval (REVERSE lv))`,
+Theorem exp2v_list_REVERSE:
+   !l (st: 'ffi semanticPrimitives$state) lv env. exp2v_list env l = SOME lv ==>
+    evaluate st env (REVERSE l) = (st, Rval (REVERSE lv))
+Proof
   Induct \\ rpt gen_tac \\ disch_then (assume_tac o GSYM) \\
   fs [exp2v_list_def, terminationTheory.evaluate_def] \\
-  every_case_tac \\ fs [] \\ rw [] \\ irule evaluate_list_rcons \\
+  every_case_tac \\ fs [] \\ rw [] \\ irule evaluate_rcons \\
   metis_tac [exp2v_evaluate]
-);
+QED
 
-val exp2v_list_rcons = Q.store_thm ("exp2v_list_rcons",
-  `!xs x l env.
+Theorem exp2v_list_rcons:
+   !xs x l env.
      exp2v_list env (xs ++ [x]) = SOME l ==>
      ?xvs xv.
        l = xvs ++ [xv] /\
        exp2v_list env xs = SOME xvs /\
-       exp2v env x = SOME xv`,
+       exp2v env x = SOME xv
+Proof
   Induct_on `xs` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
   every_case_tac \\ fs [] \\
   first_assum progress \\ fs [] \\ rw []
-);
+QED
 
-val exp2v_list_LENGTH = Q.store_thm ("exp2v_list_LENGTH",
-  `!l lv env. exp2v_list env l = SOME lv ==> LENGTH l = LENGTH lv`,
+Theorem exp2v_list_LENGTH:
+   !l lv env. exp2v_list env l = SOME lv ==> LENGTH l = LENGTH lv
+Proof
   Induct_on `l` \\ fs [exp2v_list_def] \\ rpt strip_tac \\
   every_case_tac \\ res_tac \\ fs [] \\ rw []
-);
+QED
 
 (* [dest_opapp]: destruct an n-ary application. *)
 val dest_opapp_def = Define `
@@ -272,6 +281,7 @@ val strip_annot_exp_def = tDefine"strip_annot_exp"`
                                  | INR (INR (INR funs)) => funs_size funs)` >>
    srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
 
+(*
 val norm_def = tDefine "norm" `
   norm (is_named: bool) (as_value: bool) (ns: string list) (Lit l) = (Lit l, ns, ([]: (string # exp) list)) /\
   norm is_named as_value ns (Var (Short name)) = (Var (Short name), name::ns, []) /\
@@ -378,9 +388,10 @@ val norm_def = tDefine "norm" `
   protect_letrec_branch is_named ns branch =
     (let (branch_e', ns) = protect is_named ns (SND (SND branch)) in
      ((FST branch, FST (SND branch), branch_e'), ns))`
- cheat;
+ (...);
 (* TODO: prove the termination of [norm]. This is probably a bit tricky and
    requires refactoring the way [norm] is defined. *)
+*)
 
 val full_normalise_def = Define `
   full_normalise ns e = FST (protect T ns (strip_annot_exp e))`;
@@ -445,12 +456,14 @@ val norm_state_rel_def = Define `
      s1.defined_mods = s2.defined_mods`
 
 (*
-val full_normalise_correct = Q.store_thm("full_normalise_correct",
-  `env_rel (free_in e) env1 env2 /\ norm_state_rel s1 s2 /\
+Theorem full_normalise_correct:
+   env_rel (free_in e) env1 env2 /\ norm_state_rel s1 s2 /\
     evaluate ck env1 s1 e1 (rs1,res1) /\ norm_exp_rel e1 e2 ==>
     ?rs2 res2. evaluate ck env2 s2 e2 (rs2,res2) /\
-               norm_state_rel rs1 rs2 /\ norm_res_rel res1 res2`,
-  ... ); TODO
+               norm_state_rel rs1 rs2 /\ norm_res_rel res1 res2
+Proof
+  ...
+QED TODO
 *)
 
 val full_normalise_exp_def = Define `

@@ -1,4 +1,11 @@
+(*
+  The closLang intermediate language. This language is the last
+  intermediate language that has closure values. This language is
+  designed for optimisation of function calls.
+*)
 open preamble backend_commonTheory;
+
+local open astTheory in end
 
 val _ = new_theory "closLang";
 
@@ -61,6 +68,7 @@ val _ = Datatype `
      | FP_cmp fp_cmp
      | FP_uop fp_uop
      | FP_bop fp_bop
+     | FP_top fp_top
      | BoundsCheckBlock
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)
@@ -83,10 +91,12 @@ val _ = Datatype `
 
 val exp_size_def = definition"exp_size_def";
 
-val exp1_size_lemma = Q.store_thm("exp1_size_lemma",
-  `!fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns`,
+Theorem exp1_size_lemma:
+   !fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns
+Proof
   Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
-  \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC);
+  \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC
+QED
 
 val pure_op_def = Define `
   pure_op op ⇔
@@ -114,7 +124,7 @@ val pure_def = tDefine "pure" `
     ∧
   (pure (Raise _ _) ⇔ F)
     ∧
-  (pure (Handle _ e1 _) ⇔ pure e1)
+  (pure (Handle _ e1 e2) ⇔ pure e1)
     ∧
   (pure (Tick _ _) ⇔ F)
     ∧
@@ -130,5 +140,10 @@ val pure_def = tDefine "pure" `
 ` (WF_REL_TAC `measure exp_size` >> simp[] >> rpt conj_tac >> rpt gen_tac >>
    (Induct_on `es` ORELSE Induct_on `fns`) >> dsimp[exp_size_def] >>
    rpt strip_tac >> res_tac >> simp[])
+
+(* used in proofs about closLang, BVL, BVI and dataLang *)
+val assign_get_code_label_def = Define`
+  (assign_get_code_label (closLang$Label x) = {x}) ∧
+  (assign_get_code_label x = {})`
 
 val _ = export_theory()

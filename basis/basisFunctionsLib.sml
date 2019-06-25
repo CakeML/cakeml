@@ -1,3 +1,6 @@
+(*
+  Functions that aid building the CakeML code for the basis library.
+*)
 structure basisFunctionsLib :> basisFunctionsLib =
 struct
 
@@ -8,22 +11,27 @@ open preamble
          library instead *)
 
 fun get_module_prefix () = let
-  val mod_tm = ml_progLib.get_thm (get_ml_prog_state ())
-               |> concl |> rator |> rator |> rand
-  in if optionSyntax.is_none mod_tm then "" else
-       stringSyntax.fromHOLstring (mod_tm |> rand |> rator |> rand) ^ "_"
+  val mods = ml_progLib.get_open_modules (get_ml_prog_state ())
+  in case mods of [] => ""
+    | (m :: ms) => m ^ "_"
   end
 
-fun trans ml_name q = let
-  val rhs = Term q
+fun trans ml_name rhs = let
   val prefix = get_module_prefix ()
-  val tm = mk_eq(mk_var(prefix ^ pick_name ml_name,type_of rhs),rhs)
+  val hol_name = prefix ^ pick_name ml_name
+  val hol_name_clashes = (fst (dest_const rhs) = hol_name)
+                         handle HOL_ERR _ => false
+  val tm = mk_eq(mk_var(hol_name,type_of rhs),rhs)
   val def = Define `^tm`
   val _ = (next_ml_names := [ml_name])
   val v_thm = translate (def |> SIMP_RULE std_ss [FUN_EQ_THM])
   val v_thm = v_thm |> REWRITE_RULE [def]
                     |> CONV_RULE (DEPTH_CONV ETA_CONV)
   val v_name = v_thm |> concl |> rand |> dest_const |> fst
+  val _ = if hol_name_clashes
+          then remove_ovl_mapping hol_name
+                 {Name = hol_name, Thy = current_theory()}
+          else ()
   (* evaluate precondition *)
   val pat = PRECONDITION_def |> SPEC_ALL |> GSYM |> concl |> rand
   fun PRECOND_CONV c tm =
@@ -52,23 +60,5 @@ fun prove_ref_spec op_name =
   fs [cf_ref_def, cf_deref_def, cf_assign_def] \\ irule local_elim \\
   reduce_tac \\ fs [app_ref_def, app_deref_def, app_assign_def] \\
   xsimpl \\ fs [UNIT_TYPE_def]
-
-fun derive_eval_thm for_eval v_name e = let
-  val th = get_ml_prog_state () |> get_thm
-  val th = MATCH_MP ml_progTheory.ML_code_NONE_Dlet_var th
-           handle HOL_ERR _ =>
-           MATCH_MP ml_progTheory.ML_code_SOME_Dlet_var th
-  val goal = th |> SPEC e |> SPEC_ALL |> concl |> dest_imp |> fst
-  val lemma = goal
-    |> (NCONV 50 (SIMP_CONV (srw_ss()) [Once bigStepTheory.evaluate_cases,
-            PULL_EXISTS,do_app_def,store_alloc_def,LET_THM]) THENC EVAL)
-  val v_thm = prove(mk_imp(lemma |> concl |> rand,goal),
-                    rpt strip_tac \\ rveq \\
-                    match_mp_tac (#2(EQ_IMP_RULE lemma)) \\
-                    simp_tac bool_ss [])
-                 |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
-  val v_tm = v_thm |> concl |> rand |> rand |> rand
-  val v_def = define_abbrev for_eval v_name v_tm
-  in v_thm |> REWRITE_RULE [GSYM v_def] end
 
 end

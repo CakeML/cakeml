@@ -1,3 +1,6 @@
+(*
+  Lemmas used in Okasaki examples.
+*)
 open preamble
 open relationTheory bagLib bagTheory;
 
@@ -6,25 +9,32 @@ val rw = srw_tac []
 
 val _ = new_theory "okasaki_misc"
 
-val WeakLinearOrder_neg = Q.store_thm ("WeakLinearOrder_neg",
-`!leq x y. WeakLinearOrder leq ⇒ (~leq x y <=> leq y x ∧ x ≠ y)`,
+Theorem WeakLinearOrder_neg:
+ !leq x y. WeakLinearOrder leq ⇒ (~leq x y <=> leq y x ∧ x ≠ y)
+Proof
 metis_tac [WeakLinearOrder, WeakOrder, trichotomous, reflexive_def,
-           antisymmetric_def]);
+           antisymmetric_def]
+QED
 
-val BAG_EVERY_DIFF = Q.store_thm ("BAG_EVERY_DIFF",
-`!P b1 b2. BAG_EVERY P b1 ⇒ BAG_EVERY P (BAG_DIFF b1 b2)`,
+Theorem BAG_EVERY_DIFF:
+ !P b1 b2. BAG_EVERY P b1 ⇒ BAG_EVERY P (BAG_DIFF b1 b2)
+Proof
 rw [BAG_EVERY] >>
-metis_tac [BAG_IN_DIFF_E]);
+metis_tac [BAG_IN_DIFF_E]
+QED
 
-val BAG_EVERY_EL = Q.store_thm ("BAG_EVERY_EL",
-`!P x. BAG_EVERY P (EL_BAG x) = P x`,
-rw [BAG_EVERY, EL_BAG]);
+Theorem BAG_EVERY_EL:
+ !P x. BAG_EVERY P (EL_BAG x) = P x
+Proof
+rw [BAG_EVERY, EL_BAG]
+QED
 
-val BAG_INN_BAG_DIFF = Q.store_thm ("BAG_INN_BAG_DIFF",
-`!x m b1 b2.
+Theorem BAG_INN_BAG_DIFF:
+ !x m b1 b2.
   BAG_INN x m (BAG_DIFF b1 b2) =
   ∃n1 n2. (m = n1 - n2) ∧
-          BAG_INN x n1 b1 ∧ BAG_INN x n2 b2 ∧ ~BAG_INN x (n2 + 1) b2`,
+          BAG_INN x n1 b1 ∧ BAG_INN x n2 b2 ∧ ~BAG_INN x (n2 + 1) b2
+Proof
 rw [BAG_INN, BAG_DIFF] >>
 EQ_TAC >>
 rw [] >|
@@ -34,27 +44,34 @@ rw [] >|
  qexists_tac `0` >>
      qexists_tac `b2 x` >>
      decide_tac,
- decide_tac]);
+ decide_tac]
+QED
 
-val BAG_DIFF_INSERT2 = Q.store_thm ("BAG_DIFF_INSERT2",
-`!x b. BAG_DIFF (BAG_INSERT x b) (EL_BAG x) = b`,
+Theorem BAG_DIFF_INSERT2:
+ !x b. BAG_DIFF (BAG_INSERT x b) (EL_BAG x) = b
+Proof
 rw [BAG_DIFF, BAG_INSERT, EL_BAG, FUN_EQ_THM, EMPTY_BAG] >>
 cases_on `x' = x` >>
-rw []);
+rw []
+QED
 
 val list_to_bag_def = Define `
 (list_to_bag [] = {||}) ∧
 (list_to_bag (h::t) = BAG_INSERT h (list_to_bag t))`;
 
-val list_to_bag_filter = Q.store_thm ("list_to_bag_filter",
-`∀P l. list_to_bag (FILTER P l) = BAG_FILTER P (list_to_bag l)`,
+Theorem list_to_bag_filter:
+ ∀P l. list_to_bag (FILTER P l) = BAG_FILTER P (list_to_bag l)
+Proof
 Induct_on `l` >>
-rw [list_to_bag_def]);
+rw [list_to_bag_def]
+QED
 
-val list_to_bag_append = Q.store_thm ("list_to_bag_append",
-`∀l1 l2. list_to_bag (l1 ++ l2) = BAG_UNION (list_to_bag l1) (list_to_bag l2)`,
+Theorem list_to_bag_append:
+ ∀l1 l2. list_to_bag (l1 ++ l2) = BAG_UNION (list_to_bag l1) (list_to_bag l2)
+Proof
 Induct_on `l1` >>
-srw_tac [BAG_ss] [list_to_bag_def, BAG_INSERT_UNION]);
+srw_tac [BAG_ss] [list_to_bag_def, BAG_INSERT_UNION]
+QED
 
 val list_to_bag_to_perm = Q.prove (
 `!l1 l2. PERM l1 l2 ⇒ (list_to_bag l1 = list_to_bag l2)`,
@@ -77,9 +94,11 @@ val perm_to_list_to_bag = Q.prove (
 rw [PERM_DEF] >>
 metis_tac [perm_to_list_to_bag_lem, list_to_bag_filter]);
 
-val list_to_bag_perm = Q.store_thm ("list_to_bag_perm",
-`!l1 l2. (list_to_bag l1 = list_to_bag l2) = PERM l1 l2`,
-metis_tac [perm_to_list_to_bag, list_to_bag_to_perm]);
+Theorem list_to_bag_perm:
+ !l1 l2. (list_to_bag l1 = list_to_bag l2) = PERM l1 l2
+Proof
+metis_tac [perm_to_list_to_bag, list_to_bag_to_perm]
+QED
 
 val sorted_reverse_lem = Q.prove (
 `!R l. transitive R ∧ SORTED R l ⇒ SORTED (\x y. R y x) (REVERSE l)`,
@@ -91,8 +110,9 @@ rw [SORTED_DEF] >-
      metis_tac []) >>
 metis_tac [SORTED_EQ]);
 
-val sorted_reverse = Q.store_thm ("sorted_reverse",
-`!R l. transitive R ⇒ (SORTED R (REVERSE l) = SORTED (\x y. R y x) l)`,
+Theorem sorted_reverse:
+ !R l. transitive R ⇒ (SORTED R (REVERSE l) = SORTED (\x y. R y x) l)
+Proof
 rw [] >>
 EQ_TAC >>
 rw [] >>
@@ -100,6 +120,7 @@ imp_res_tac sorted_reverse_lem >>
 fs [transitive_def] >>
 `(\x y. R x y) = R` by metis_tac [] >>
 fs [] >>
-metis_tac []);
+metis_tac []
+QED
 
 val _ = export_theory ();

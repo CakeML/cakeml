@@ -1,3 +1,7 @@
+(*
+  A collection of small examples that show (and test) what can be done
+  in CF proofs.
+*)
 open preamble
 open ml_translatorTheory cfTacticsBaseLib cfTacticsLib
 local open ml_progLib basisProgTheory in end
@@ -69,7 +73,7 @@ val example_let_spec = Q.prove (
 )
 
 val alloc_ref2 = process_topdecs
-  `fun alloc_ref2 a b = (ref a, ref b);`
+  `fun alloc_ref2 a b = (Ref a, Ref b);`
 
 val st = ml_progLib.add_prog alloc_ref2 pick_name basis_st
 
@@ -124,7 +128,7 @@ val example_if_spec = Q.prove (
 )
 
 val is_nil = process_topdecs
-  `fun is_nil l = case l of [] => true | x::xs => false`
+  `fun is_nil l = case l of [] => True | x::xs => False`
 
 val st = ml_progLib.add_prog is_nil pick_name basis_st
 
@@ -139,9 +143,11 @@ val is_nil_spec = Q.prove (
 )
 
 val is_none = process_topdecs
-  `fun is_none opt = case opt of NONE => true | SOME _ => false`
+  `fun is_none opt = case opt of None => True | Some _ => False`
 
 val st = ml_progLib.add_prog is_none pick_name basis_st
+
+val OPTION_TYPE_def = std_preludeTheory.OPTION_TYPE_def;
 
 val is_none_spec = Q.prove (
   `!ov a opt.
@@ -168,7 +174,7 @@ val example_eq_spec = Q.prove (
 )
 
 val example_and = process_topdecs
-  `fun example_and u = true andalso false`
+  `fun example_and u = True andalso False`
 
 val st = ml_progLib.add_prog example_and pick_name basis_st
 
@@ -192,22 +198,22 @@ val example_raise_spec = Q.prove (
   `!uv.
      UNIT_TYPE () uv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "example_raise" st) [uv]
-       emp (POSTe v. & (v = Conv (SOME ("Foo", TypeExn (Short "Foo"))) []))`,
+       emp (POSTe v. & (v = Conv (SOME (ExnStamp 7)) []))`,
   xcf "example_raise" st \\
-  xlet `POSTv ev. & (ev = Conv (SOME ("Foo", TypeExn (Short "Foo"))) [])`
+  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 7)) [])`
   THEN1 (xcon \\ xsimpl) \\
   xraise \\ xsimpl
 );
 
 val example_handle = process_topdecs
-  `exception Foo of int
+  `exception Foo int
    fun example_handle x = (raise (Foo 3)) handle Foo i => i`
 (* handle precedence bug in the parser? *)
 
 val st = ml_progLib.add_prog example_handle pick_name basis_st
 
 val Foo_exn_def = Define `
-  Foo_exn i v = (v = Conv (SOME ("Foo", TypeExn (Short "Foo"))) [Litv (IntLit i)])`
+  Foo_exn i v = (v = Conv (SOME (ExnStamp 7)) [Litv (IntLit i)])`
 
 val example_handle_spec = Q.prove (
   `!uv.
@@ -225,7 +231,7 @@ val example_handle_spec = Q.prove (
 );
 
 val example_handle2 = process_topdecs
-  `exception Foo of int
+  `exception Foo int
    fun example_handle2 x =
      (if x > 0 then
         1
@@ -241,7 +247,7 @@ val example_handle2_spec = Q.prove (
      app (p:'ffi ffi_proj) ^(fetch_v "example_handle2" st) [xv]
        emp (POSTv v. & INT (if x > 0 then 1 else (-1)) v)`,
   xcf "example_handle2" st \\
-  xhandle `POST (\v. & (x > 0 /\ INT 1 v)) (\e. & (x <= 0 /\ Foo_exn (-1) e))`
+  xhandle `POSTve (\v. & (x > 0 /\ INT 1 v)) (\e. & (x <= 0 /\ Foo_exn (-1) e))`
   THEN1 (
     xlet `POSTv bv. & (BOOL (x > 0) bv)`
     THEN1 (xapp \\ fs []) \\
@@ -292,11 +298,12 @@ val bytearray_fromlist = process_topdecs
 
 val st = ml_progLib.add_prog bytearray_fromlist pick_name basis_st
 
-val list_length_spec = Q.store_thm ("list_length_spec",
-  `!a l lv.
+Theorem list_length_spec:
+   !a l lv.
      LIST_TYPE a l lv ==>
      app (p:'ffi ffi_proj) ^(fetch_v "length" st) [lv]
-       emp (POSTv v. & NUM (LENGTH l) v)`,
+       emp (POSTv v. & NUM (LENGTH l) v)
+Proof
   Induct_on `l`
   THEN1 (
     xcf "length" st \\ fs [LIST_TYPE_def] \\
@@ -310,7 +317,7 @@ val list_length_spec = Q.store_thm ("list_length_spec",
     xapp \\ xsimpl \\ fs [NUM_def] \\ asm_exists_tac \\ fs [] \\
     (* meh? *) fs [INT_def] \\ intLib.ARITH_TAC
   )
-)
+QED
 
 val bytearray_fromlist_spec = Q.prove (
   `!l lv.
@@ -373,5 +380,28 @@ val strcat_foo_spec = Q.prove (
   xlet `POSTv sv'. &(STRING_TYPE (s ^ implode "foo") sv') * rv ~~> sv`
   >- (xapp >> xsimpl >> simp[mlstringTheory.implode_def] >> metis_tac[]) >>
   rveq >> xapp >> xsimpl);
+
+val example_ffidiv = process_topdecs `
+   fun example_ffidiv b = if b then Runtime.abort () else ()`
+
+val st = ml_progLib.add_prog example_ffidiv pick_name basis_st
+
+val example_ffidiv_spec = Q.prove (
+  `!b bv.
+     BOOL b bv ==>
+     app (p:'ffi ffi_proj) ^(fetch_v "example_ffidiv" st) [bv]
+       (RUNTIME)
+       (POST
+          (λuv. &(UNIT_TYPE () uv) * &(¬b) * RUNTIME)
+          (λev. &F)
+          (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [1w])
+                   * RUNTIME)
+          (λio. F))`,
+  xcf "example_ffidiv" st
+  >> xif
+  >- (xlet_auto
+      >- (xcon >- xsimpl)
+      >> xapp >> xsimpl >> rw[] >> qexists_tac `x` >> xsimpl)
+  >> xcon >> xsimpl);
 
 val _ = export_theory();

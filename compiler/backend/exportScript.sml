@@ -1,6 +1,9 @@
-open preamble mlstringTheory mlvectorTheory mlnumTheory mlintTheory;
+(*
+  Some common helper functions for writing the final byte list ->
+  string exporter.
+*)
+open preamble mlstringTheory mlvectorTheory mlintTheory;
 
-(* Some common helper functions for writing the final byte list -> string exporter *)
 val _ = new_theory "export";
 
 val split16_def = tDefine "split16" `
@@ -14,7 +17,7 @@ val split16_def = tDefine "split16" `
 
 val preamble_tm =
   ``(MAP (\n. strlit(n ++ "\n"))
-      ["/* Preprocessor to get around Mac OS and Linux differences in naming */";
+      ["/* Preprocessor to get around Mac OS, Windows, and Linux differences in naming and calling conventions */";
        "";
        "#if defined(__APPLE__)";
        "# define cdecl(s) _##s";
@@ -22,12 +25,20 @@ val preamble_tm =
        "# define cdecl(s) s";
        "#endif";
        "";
+       "#if defined(__APPLE__)";
+       "# define wcdecl(s) _##s";
+       "#elif defined(__WIN32)";
+       "# define wcdecl(s) windows_##s";
+       "#else";
+       "# define wcdecl(s) s";
+       "#endif";
+       "";
        "     .file        \"cake.S\"";
        ""])`` |> EVAL |> rconc;
 val preamble_def = Define`preamble = ^preamble_tm`;
 
 val space_line_def = Define`
-  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString n; strlit "\n"]`;
+  space_line n = concat[strlit"     .space 1024 * 1024 * "; toString (n:num); strlit "\n"]`;
 
 val data_section_def = Define`data_section word_directive heap_space stack_space =
      MAP (\n. strlit (n ++ "\n"))
@@ -77,11 +88,13 @@ val all_bytes_def = Define `
 
 val all_bytes_eq = save_thm("all_bytes_eq",EVAL ``all_bytes``);
 
-val byte_to_string_eq = store_thm("byte_to_string_eq",
-  ``!b. byte_to_string b = sub all_bytes (w2n b)``,
+Theorem byte_to_string_eq:
+   !b. byte_to_string b = sub all_bytes (w2n b)
+Proof
   Cases_on `b` \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ rewrite_tac [all_bytes_def,mlvectorTheory.sub_def]
   \\ full_simp_tac std_ss [w2n_n2w,EVAL ``dimword (:8)``]
-  \\ full_simp_tac std_ss [listTheory.EL_GENLIST]);
+  \\ full_simp_tac std_ss [listTheory.EL_GENLIST]
+QED
 
 val _ = export_theory ();

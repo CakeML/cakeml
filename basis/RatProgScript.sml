@@ -1,14 +1,36 @@
+(*
+  Module for computing over the rational numbers.
+*)
 open preamble ml_translatorLib ml_translatorTheory ml_progLib
-     mlvectorTheory NumProgTheory basisFunctionsLib
+     mlvectorTheory IntProgTheory basisFunctionsLib
      ratLib gcdTheory ratTheory
 
 val _ = new_theory"RatProg"
 
-val _ = translation_extends "NumProg";
+val _ = translation_extends "IntProg";
+
+val _ = ml_prog_update open_local_block;
+
+val _ = Datatype `rational = RatPair int num`
+
+val _ = (use_full_type_names := false);
+val _ = register_type ``:rational``;
+val _ = (use_full_type_names := true);
+
+val div_gcd_def = Define `
+  div_gcd a b =
+    let d = gcd (num_of_int a) b in
+      if d = 0 \/ d = 1 then RatPair a b else RatPair (a / &d) (b DIV d)`;
+
+val res = translate div_gcd_def;
+
+val _ = ml_prog_update open_local_in_block;
 
 val _ = ml_prog_update (open_module "Rat");
 
-val () = generate_sigs := true;
+(* provides the Map.map name for the map type *)
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "rat" (Atapp [] (Short "rational"))`` I);
 
 (* connection between real and rat *)
 
@@ -17,12 +39,15 @@ val real_of_rat_def = Define `
     intreal$real_of_int (RATN r) /  real_of_num (RATD r)
 `;
 
-val real_of_rat_int = store_thm("real_of_rat_int",
-  ``real_of_rat (&x) = &x``,
-  simp[real_of_rat_def, intrealTheory.real_of_int]);
+Theorem real_of_rat_int:
+   real_of_rat (&x) = &x
+Proof
+  simp[real_of_rat_def, intrealTheory.real_of_int]
+QED
 
-val real_of_rat_le = store_thm("real_of_rat_le[simp]",
-  ``∀r1 r2. real_of_rat r1 ≤ real_of_rat r2 ⇔ r1 ≤ r2``,
+Theorem real_of_rat_le[simp]:
+   ∀r1 r2. real_of_rat r1 ≤ real_of_rat r2 ⇔ r1 ≤ r2
+Proof
   simp[real_of_rat_def] >> rpt gen_tac >>
   assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r1’] |> SYM) >>
   assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r2’] |> SYM) >>
@@ -36,10 +61,11 @@ val real_of_rat_le = store_thm("real_of_rat_le[simp]",
                     GSYM intrealTheory.real_of_int_mul,
                     intrealTheory.real_of_int_le, GSYM rat_of_int_of_num,
                     rat_of_int_MUL, rat_of_int_LE, integerTheory.INT_MUL_COMM]
-);
+QED
 
-val real_of_rat_eq = store_thm("real_of_rat_eq[simp]",
-  ``∀r1 r2. real_of_rat r1 = real_of_rat r2 ⇔ r1 = r2``,
+Theorem real_of_rat_eq[simp]:
+   ∀r1 r2. real_of_rat r1 = real_of_rat r2 ⇔ r1 = r2
+Proof
   simp[real_of_rat_def] >> rpt gen_tac >>
   assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r1’] |> SYM) >>
   assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> ‘r2’] |> SYM) >>
@@ -51,19 +77,23 @@ val real_of_rat_eq = store_thm("real_of_rat_eq[simp]",
   simp_tac bool_ss [GSYM intrealTheory.real_of_int_num,
                     GSYM intrealTheory.real_of_int_mul,
                     intrealTheory.real_of_int_11, GSYM rat_of_int_of_num,
-                    rat_of_int_MUL, rat_of_int_11, integerTheory.INT_MUL_COMM]);
+                    rat_of_int_MUL, rat_of_int_11, integerTheory.INT_MUL_COMM]
+QED
 
-val real_of_rat_lt = store_thm("real_of_rat_lt",
-  ``∀r1 r2. real_of_rat r1 < real_of_rat r2 ⇔ r1 < r2``,
+Theorem real_of_rat_lt:
+   ∀r1 r2. real_of_rat r1 < real_of_rat r2 ⇔ r1 < r2
+Proof
   rpt gen_tac >>
   ‘∀s1:real s2. s1 < s2 <=> s1 <= s2 /\ s1 <> s2’
     by metis_tac[realTheory.REAL_LE_LT, realTheory.REAL_LT_REFL] >>
   ‘∀r1 r2:rat. r1 < r2 <=> r1 <= r2 /\ r1 <> r2’
     by metis_tac[rat_leq_def, RAT_LES_REF] >>
-  simp[]);
+  simp[]
+QED
 
-val real_of_rat_add = store_thm("real_of_rat_add",
-  ``∀r1 r2. real_of_rat (r1 + r2) = real_of_rat r1 + real_of_rat r2``,
+Theorem real_of_rat_add:
+   ∀r1 r2. real_of_rat (r1 + r2) = real_of_rat r1 + real_of_rat r2
+Proof
   simp[real_of_rat_def] >> rpt gen_tac >>
   map_every (fn q =>
                 assume_tac (RATN_DIV_RATD |> Q.INST [‘r’ |-> q] |> SYM))
@@ -83,7 +113,8 @@ val real_of_rat_add = store_thm("real_of_rat_add",
   simp[RAT_LDIV_EQ, RAT_RDIV_EQ, RDIV_MUL_OUT, LDIV_MUL_OUT] >>
   simp_tac bool_ss [GSYM rat_of_int_of_num, rat_of_int_MUL, rat_of_int_ADD,
                     rat_of_int_11] >>
-  simp[integerTheory.INT_MUL_COMM]);
+  simp[integerTheory.INT_MUL_COMM]
+QED
 
 val real_of_rat_mul = store_thm("real_of_rat_mul",
   “∀r1 r2. real_of_rat (r1 * r2) = real_of_rat r1 * real_of_rat r2”,
@@ -112,29 +143,33 @@ val real_of_rat_ainv = store_thm("real_of_rat_ainv",
   “∀r. real_of_rat (-r) = -real_of_rat r”,
   gen_tac >> simp[real_of_rat_def, realTheory.neg_rat]);
 
-val real_of_rat_sub = store_thm("real_of_rat_sub",
-  ``∀r1 r2. real_of_rat (r1 - r2) = real_of_rat r1 - real_of_rat r2``,
+Theorem real_of_rat_sub:
+   ∀r1 r2. real_of_rat (r1 - r2) = real_of_rat r1 - real_of_rat r2
+Proof
   rpt gen_tac >>
   simp[RAT_SUB_ADDAINV, real_of_rat_ainv, real_of_rat_add,
-       realTheory.real_sub]);
+       realTheory.real_sub]
+QED
 
 val inv_div = Q.prove(
   ‘x ≠ 0r ∧ y ≠ 0 ⇒ (inv (x / y) = y / x)’,
   simp[realTheory.real_div, realTheory.REAL_INV_MUL, realTheory.REAL_INV_EQ_0,
        realTheory.REAL_INV_INV, realTheory.REAL_MUL_COMM]);
 
-val real_of_int_eq_num = Q.store_thm(
-  "real_of_int_eq_num[simp]",
-  ‘((real_of_int i = &n) <=> (i = &n)) /\
-   ((&n = real_of_int i) <=> (i = &n))’,
+Theorem real_of_int_eq_num[simp]:
+   ((real_of_int i = &n) <=> (i = &n)) /\
+   ((&n = real_of_int i) <=> (i = &n))
+Proof
   simp[EQ_IMP_THM] >> simp[intrealTheory.real_of_int_def] >>
-  Cases_on ‘i’ >> simp[realTheory.eq_ints]);
+  Cases_on ‘i’ >> simp[realTheory.eq_ints]
+QED
 
-val rat_of_int_eq_num = Q.store_thm(
-  "rat_of_int_eq_num[simp]",
-  ‘((rat_of_int i = &n) <=> (i = &n)) /\
-   ((&n = rat_of_int i) <=> (i = &n))’,
-  Cases_on ‘i’ >> simp[rat_of_int_def]);
+Theorem rat_of_int_eq_num[simp]:
+   ((rat_of_int i = &n) <=> (i = &n)) /\
+   ((&n = rat_of_int i) <=> (i = &n))
+Proof
+  Cases_on ‘i’ >> simp[rat_of_int_def]
+QED
 
 val real_of_rat_inv = store_thm("real_of_rat_inv",
   “!r. r ≠ 0 ==> real_of_rat (rat_minv r) = inv (real_of_rat r)”,
@@ -161,15 +196,15 @@ val RAT_TYPE_def = Define `
   RAT_TYPE (r:rat) =
     \v. ?(n:int) (d:num). (r = (rat_of_int n) / &d) /\
                           gcd (Num (ABS n)) d = 1 /\ d <> 0 /\
-                          PAIR_TYPE INT NUM (n,d) v`;
+                          RATIONAL_TYPE (RatPair n d) v`;
 
-val _ = add_type_inv ``RAT_TYPE`` ``:(int # num)``;
+val _ = add_type_inv ``RAT_TYPE`` ``:rational``;
 
 val REAL_TYPE_def = Define `
   REAL_TYPE (r:real) =
     \v. ?x:rat. RAT_TYPE x v /\ (real_of_rat x = r)`;
 
-val _ = add_type_inv ``REAL_TYPE`` ``:(int # num)``;
+val _ = add_type_inv ``REAL_TYPE`` ``:rational``;
 
 (* transfer *)
 
@@ -223,14 +258,14 @@ val RAT_RAT_BOOL = Q.prove(
 
 (* -- *)
 
-val pair_of_num_def = Define `
-  pair_of_num n = ((& (n:num)):int, 1:num)`;
+val rational_of_num_def = Define `
+  rational_of_num (n:num) = RatPair (&n) 1`;
 
 val _ = next_ml_names := ["fromInt"];
-val pair_of_num_v_thm = translate pair_of_num_def;
+val rational_of_num_v_thm = translate rational_of_num_def;
 
 val Eval_RAT_NUM = Q.prove(
-  `!v. (NUM --> PAIR_TYPE INT NUM) pair_of_num v ==>
+  `!v. (NUM --> RATIONAL_TYPE) rational_of_num v ==>
        (NUM --> RAT_TYPE) ($&) v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
                        FORALL_PROD] \\ rw [] \\ res_tac >>
@@ -238,8 +273,8 @@ val Eval_RAT_NUM = Q.prove(
   pop_assum (qspec_then ‘R’ strip_assume_tac) >>
   fs [] >> asm_exists_tac >> fs [] >>
   qexists_tac `& x` >> qexists_tac `1` >>
-  fs [pair_of_num_def])
-  |> (fn th => MATCH_MP th pair_of_num_v_thm)
+  fs [rational_of_num_def])
+  |> (fn th => MATCH_MP th rational_of_num_v_thm)
   |> add_user_proved_v_thm;
 
 val Eval_REAL_NUM = Q.prove(
@@ -256,7 +291,7 @@ val Eval_REAL_NUM = Q.prove(
   |> add_user_proved_v_thm;
 
 val pair_le_def = Define `
-  pair_le (n1,d1) (n2,d2) = (n1 * & d2 <= n2 * (& d1):int)`;
+  pair_le (RatPair n1 d1) (RatPair n2 d2) = (n1 * & d2 <= n2 * (& d1):int)`;
 
 val _ = next_ml_names := ["<="];
 val pair_le_v_thm = translate pair_le_def;
@@ -264,7 +299,7 @@ val pair_le_v_thm = translate pair_le_def;
 val _ = augment_srw_ss [intLib.INT_ARITH_ss]
 
 val Eval_RAT_LE = Q.prove(
-  `!v. (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM --> BOOL) pair_le v ==>
+  `!v. (RATIONAL_TYPE --> RATIONAL_TYPE --> BOOL) pair_le v ==>
        (RAT_TYPE --> RAT_TYPE --> BOOL) ($<=) v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
                        pair_le_def,FORALL_PROD] >> rw [] >>
@@ -273,7 +308,7 @@ val Eval_RAT_LE = Q.prove(
                  mp_then.mp_then (mp_then.Pos hd)
                                  (qspec_then ‘R’ strip_assume_tac)) >>
   fs [] >> asm_exists_tac >> fs []
-  >> rw [] >> first_x_assum drule
+  >> rw [] >> first_x_assum drule >> fs [pair_le_def]
   >> qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
   >> disch_then (qspec_then `refs2` mp_tac)
   >> strip_tac >> rpt (asm_exists_tac >> fs []) >>
@@ -305,19 +340,19 @@ val Eval_REAL_GE = Q.prove(
   |> add_user_proved_v_thm;
 
 val pair_lt_def = Define `
-  pair_lt (n1,d1) (n2,d2) = (n1 * & d2 < n2 * (& d1):int)`;
+  pair_lt (RatPair n1 d1) (RatPair n2 d2) = (n1 * & d2 < n2 * (& d1):int)`;
 
 val _ = next_ml_names := ["<"];
 val pair_lt_v_thm = translate pair_lt_def;
 
 val Eval_RAT_LT = Q.prove(
-  `!v. (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM --> BOOL) pair_lt v ==>
+  `!v. (RATIONAL_TYPE --> RATIONAL_TYPE --> BOOL) pair_lt v ==>
        (RAT_TYPE --> RAT_TYPE --> BOOL) ($<) v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
                        pair_lt_def,FORALL_PROD] \\ rw [] \\ res_tac
   \\ pop_assum (strip_assume_tac o SPEC_ALL)
   \\ fs [] \\ asm_exists_tac \\ fs []
-  \\ rw [] \\ first_x_assum drule
+  \\ rw [] \\ first_x_assum drule \\ fs [pair_lt_def]
   \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
   \\ disch_then (qspec_then `refs2` mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
@@ -351,6 +386,44 @@ val Eval_REAL_GT = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_GT)
   |> add_user_proved_v_thm;
 
+val pair_compare_def = Define `
+  pair_compare (RatPair n1 d1) (RatPair n2 d2) =
+    let x1 = n1 * & d2 in
+    let x2 = n2 * & d1 in
+      if x1 < x2 then Less else
+      if x2 < x1 then Greater else Equal`
+
+val rat_compare_def = Define `
+  rat_compare (r1:rat) r2 =
+    if r1 < r2 then Less else if r2 < r1 then Greater else Equal`
+
+val _ = next_ml_names := ["compare"];
+val pair_compare_v_thm = translate pair_compare_def;
+
+val Eval_RAT_COMPARE = Q.prove(
+  `!v. (RATIONAL_TYPE --> RATIONAL_TYPE --> ORDERING_TYPE) pair_compare v ==>
+       (RAT_TYPE --> RAT_TYPE --> ORDERING_TYPE) rat_compare v`,
+  SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
+                       pair_compare_def,FORALL_PROD] \\ rw [] \\ res_tac
+  \\ pop_assum (strip_assume_tac o SPEC_ALL)
+  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ rw [] \\ first_x_assum drule \\ fs [pair_compare_def]
+  \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
+  \\ disch_then (qspec_then `refs2` mp_tac)
+  \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
+  \\ pop_assum mp_tac
+  \\ ntac 2 (qpat_x_assum `~_` mp_tac)
+  \\ rpt (pop_assum kall_tac)
+  \\ fs [rat_compare_def]
+  \\ ntac 2 strip_tac
+  \\ match_mp_tac (METIS_PROVE [] ``(x1 = x2) ==> f x1 y ==> f x2 y``)
+  \\ rfs[RAT_LDIV_LES_POS, RDIV_MUL_OUT, RAT_RDIV_LES_POS]
+  \\ full_simp_tac bool_ss [GSYM rat_of_int_of_num, rat_of_int_MUL, rat_of_int_11,
+                            rat_of_int_LT]
+  \\ fs[integerTheory.INT_MUL_COMM])
+  |> (fn th => MATCH_MP th pair_compare_v_thm)
+  |> add_user_proved_v_thm;
+
 val _ = next_ml_names := ["min"];
 val Eval_RAT_MIN = translate rat_min_def;
 
@@ -377,31 +450,25 @@ val Eval_REAL_MAX = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_MAX)
   |> add_user_proved_v_thm;
 
-val div_gcd_def = Define `
-  div_gcd a b =
-    let d = gcd (num_of_int a) b in
-      if d = 0 \/ d = 1 then (a,b) else (a / &d, b DIV d)`;
-
-val res = translate div_gcd_def;
-
 val gcd_LESS_EQ = prove(
   ``!m n. n <> 0 ==> gcd$gcd m n <= n``,
   recInduct gcd_ind \\ rw []
   \\ once_rewrite_tac [gcdTheory.gcd_def]
   \\ rw [] \\ fs []);
 
-val DIV_EQ_0 = Q.store_thm(
-  "DIV_EQ_0",
-  ‘0 < n ==> ((m DIV n = 0) <=> m < n)’,
+Theorem DIV_EQ_0:
+   0 < n ==> ((m DIV n = 0) <=> m < n)
+Proof
   strip_tac >> IMP_RES_THEN mp_tac DIVISION >>
   rpt (disch_then (qspec_then `m` assume_tac)) >>
   qabbrev_tac `q = m DIV n` >> qabbrev_tac `r = m MOD n` >>
   RM_ALL_ABBREVS_TAC >> rw[] >> eq_tac >> simp[] >>
-  Cases_on ‘q’ >> simp[MULT_CLAUSES]);
+  Cases_on ‘q’ >> simp[MULT_CLAUSES]
+QED
 
-val DIV_GCD_NONZERO = Q.store_thm(
-  "DIV_GCD_NONZERO",
-  ‘(0 < m ==> 0 < m DIV gcd m n) /\ (0 < n ==> 0 < n DIV gcd m n)’,
+Theorem DIV_GCD_NONZERO:
+   (0 < m ==> 0 < m DIV gcd m n) /\ (0 < n ==> 0 < n DIV gcd m n)
+Proof
   rw[] >> ‘gcd m n <> 0’ by simp[GCD_EQ_0]
   >- (‘~(m < gcd m n)’
         by metis_tac[dividesTheory.NOT_LT_DIVIDES,
@@ -416,7 +483,8 @@ val DIV_GCD_NONZERO = Q.store_thm(
       spose_not_then assume_tac >>
       rev_full_simp_tac bool_ss
         [DIV_EQ_0, arithmeticTheory.NOT_LT_ZERO_EQ_ZERO,
-         arithmeticTheory.NOT_ZERO_LT_ZERO]));
+         arithmeticTheory.NOT_ZERO_LT_ZERO])
+QED
 
 val INT_NEG_DIV_FACTOR = Q.prove(
   ‘0 < (x:num) ==> (-&(x * y):int / &x = -&y)’,
@@ -448,7 +516,7 @@ val INT_NEG_DIV_FACTOR = Q.prove(
 
 val PAIR_TYPE_IMP_RAT_TYPE = prove(
   ``r = rat_of_int m / & n /\ n <> 0 ==>
-    PAIR_TYPE INT NUM (div_gcd m n) v ==> RAT_TYPE r v``,
+    RATIONAL_TYPE (div_gcd m n) v ==> RAT_TYPE r v``,
   fs [RAT_TYPE_def,div_gcd_def] \\ rw [] >>
   goal_assum (first_assum o mp_then (Pos last) mp_tac)
   >- fs[num_of_int_def] >>
@@ -473,7 +541,7 @@ val PAIR_TYPE_IMP_RAT_TYPE = prove(
   simp[RAT_MUL_NUM_CALCULATE]);
 
 val pair_add_def = Define `
-  pair_add (n1:int, d1:num) (n2, d2) =
+  pair_add (RatPair n1 d1) (RatPair n2 d2) =
     div_gcd ((n1 * &d2) + (n2 * &d1)) (d1 * d2)`;
 
 val _ = next_ml_names := ["+"];
@@ -485,7 +553,7 @@ val abs_rat_ONTO = Q.prove(
 
 val Eval_RAT_ADD = Q.prove(
   `!v.
-     (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM) pair_add v
+     (RATIONAL_TYPE --> RATIONAL_TYPE --> RATIONAL_TYPE) pair_add v
        ==>
      (RAT_TYPE --> RAT_TYPE --> RAT_TYPE) ($+) v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,Once RAT_TYPE_def,PULL_EXISTS,
@@ -494,7 +562,7 @@ val Eval_RAT_ADD = Q.prove(
                        pair_add_def,FORALL_PROD] \\ rw [] \\ res_tac >>
   pop_assum (strip_assume_tac o SPEC_ALL) >>
   fs [] \\ asm_exists_tac \\ fs [] >>
-  rw [] \\ first_x_assum drule >>
+  rw [] \\ first_x_assum drule >> fs [pair_add_def] >>
   qmatch_goalsub_rename_tac `(empty_state with refs := refs2)` >>
   disch_then (qspec_then `refs2` mp_tac) >>
   strip_tac \\ rpt (asm_exists_tac \\ fs []) >>
@@ -517,14 +585,14 @@ val Eval_REAL_ADD = Q.prove(
   |> add_user_proved_v_thm;
 
 val pair_sub_def = Define `
-  pair_sub (n1:int, d1:num) (n2, d2) =
+  pair_sub (RatPair n1 d1) (RatPair n2 d2) =
     div_gcd ((n1 * &d2) - (n2 * &d1)) (d1 * d2)`;
 
 val _ = next_ml_names := ["-"];
 val pair_sub_v_thm = translate pair_sub_def;
 
 val Eval_RAT_SUB = Q.prove(
-  `!v. (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM) pair_sub v ==>
+  `!v. (RATIONAL_TYPE --> RATIONAL_TYPE --> RATIONAL_TYPE) pair_sub v ==>
        (RAT_TYPE --> RAT_TYPE --> RAT_TYPE) ($-) v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,Once RAT_TYPE_def,PULL_EXISTS,
                        pair_sub_def,FORALL_PROD] \\ rw [] \\ res_tac
@@ -532,7 +600,7 @@ val Eval_RAT_SUB = Q.prove(
                           PULL_EXISTS, pair_add_def,FORALL_PROD] >> rw [] >>
   res_tac >> pop_assum (strip_assume_tac o SPEC_ALL)
   \\ fs [] \\ asm_exists_tac \\ fs []
-  \\ rw [] \\ first_x_assum drule
+  \\ rw [] \\ first_x_assum drule \\ fs [pair_sub_def]
   \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
   \\ disch_then (qspec_then `refs2` mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
@@ -572,14 +640,14 @@ val Eval_REAL_NEG = Q.prove(
   |> add_user_proved_v_thm;
 
 val pair_mul_def = Define `
-  pair_mul (n1,d1) (n2,d2) = div_gcd (n1 * n2:int) (d1 * d2:num)`;
+  pair_mul (RatPair n1 d1) (RatPair n2 d2) = div_gcd (n1 * n2:int) (d1 * d2:num)`;
 
 val _ = next_ml_names := ["*"];
 val pair_mul_v_thm = translate pair_mul_def;
 
 val Eval_RAT_MUL = Q.prove(
   `!v.
-    (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM) pair_mul v
+    (RATIONAL_TYPE --> RATIONAL_TYPE --> RATIONAL_TYPE) pair_mul v
       ==>
     (RAT_TYPE --> RAT_TYPE --> RAT_TYPE) ($*) v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,Once RAT_TYPE_def,PULL_EXISTS,
@@ -589,7 +657,7 @@ val Eval_RAT_MUL = Q.prove(
   \\ res_tac
   \\ pop_assum (strip_assume_tac o SPEC_ALL)
   \\ fs [] \\ asm_exists_tac \\ fs []
-  \\ rw [] \\ first_x_assum drule
+  \\ rw [] \\ first_x_assum drule \\ fs [pair_mul_def]
   \\ qmatch_goalsub_rename_tac `(empty_state with refs := refs2)`
   \\ disch_then (qspec_then `refs2` mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
@@ -609,15 +677,15 @@ val Eval_REAL_MUL = Q.prove(
   |> add_user_proved_v_thm;
 
 val pair_inv_def = Define `
-  pair_inv (n1,d1) =
-    (if n1 < 0 then - & d1 else (& d1):int,num_of_int n1)`;
+  pair_inv (RatPair n1 d1) =
+    (RatPair (if n1 < 0 then - & d1 else (& d1):int) (num_of_int n1))`;
 
 val _ = next_ml_names := ["inv"];
 val pair_inv_v_thm = translate pair_inv_def;
 
 val Eval_RAT_INV = Q.prove(
   `PRECONDITION (r <> 0) ==>
-   !v. (PAIR_TYPE INT NUM --> PAIR_TYPE INT NUM) pair_inv v ==>
+   !v. (RATIONAL_TYPE --> RATIONAL_TYPE) pair_inv v ==>
        (Eq RAT_TYPE r --> RAT_TYPE) rat_minv v`,
   SIMP_TAC (srw_ss()) [Arrow_def,AppReturns_def,RAT_TYPE_def,PULL_EXISTS,
                        pair_mul_def,FORALL_PROD,Eq_def,PRECONDITION_def]
@@ -627,14 +695,14 @@ val Eval_RAT_INV = Q.prove(
   \\ rw [] \\ first_x_assum drule
   \\ disch_then (qspec_then `refs` mp_tac)
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
-  \\ rename [‘pair_inv (n,d)’]
+  \\ rename [‘pair_inv (RatPair n d)’]
   \\ ‘rat_of_int n ≠ 0’ by (strip_tac >> fs[])
   \\ simp [RAT_DIV_MINV] >>
   Cases_on ‘n’ >> fs[]
   >- (rename [‘&d / &m = _’, ‘m ≠ 0’] >>
       map_every qexists_tac [‘&d’, ‘m’] >>
       fs[integerTheory.INT_ABS_NUM, pair_inv_def, GCD_SYM])
-  >- (rename [‘&d / rat_of_int (-&m)’, ‘m ≠ 0’, ‘pair_inv (-&m, d)’] >>
+  >- (rename [‘&d / rat_of_int (-&m)’, ‘m ≠ 0’, ‘pair_inv (RatPair (-&m) d)’] >>
       map_every qexists_tac [‘-&d’, ‘m’] >>
       fs[integerTheory.INT_ABS_NEG, integerTheory.INT_ABS_NUM,
          rat_of_int_ainv, pair_inv_def, GCD_SYM] >>
@@ -671,17 +739,19 @@ val pair_div_side_def = Eval_RAT_DIV
   |> update_precondition;
 
 val toString_def = Define `
-  toString (i:int,n:num) =
+  toString (RatPair i n) =
     if n = 1 then mlint$toString i else
-      concat [mlint$toString i ; implode"/" ; mlnum$toString n]`
+      concat [mlint$toString i ; implode"/" ; mlint$toString (&n)]`
 
 val _ = (next_ml_names := ["toString"]);
 val v = translate toString_def;
 
-val EqualityType_RAT_TYPE = store_thm("EqualityType_RAT_TYPE",
-  ``EqualityType RAT_TYPE``,
+val RATIONAL_TYPE_def = fetch "-" "RATIONAL_TYPE_def"
+
+Theorem EqualityType_RAT_TYPE = Q.prove(`
+  EqualityType RAT_TYPE`,
   rw [EqualityType_def]
-  \\ fs [RAT_TYPE_def,PAIR_TYPE_def,INT_def,NUM_def] \\ EVAL_TAC
+  \\ fs [RAT_TYPE_def,RATIONAL_TYPE_def,INT_def,NUM_def] \\ EVAL_TAC
   \\ rveq \\ fs []
   \\ EQ_TAC \\ strip_tac \\ fs []
   \\ fs [GSYM rat_of_int_def] >>
@@ -720,31 +790,19 @@ val EqualityType_RAT_TYPE = store_thm("EqualityType_RAT_TYPE",
   \\ rveq \\ rfs [arithmeticTheory.EQ_MULT_RCANCEL])
   |> store_eq_thm;
 
-val EqualityType_REAL_TYPE = store_thm("EqualityType_REAL_TYPE",
-  ``EqualityType REAL_TYPE``,
+Theorem EqualityType_REAL_TYPE = Q.prove(`
+  EqualityType REAL_TYPE`,
   assume_tac EqualityType_RAT_TYPE
   \\ fs [REAL_TYPE_def,EqualityType_def,PULL_EXISTS]
   \\ rw [real_of_rat_eq] \\ fs [real_of_rat_eq]
   \\ metis_tac [])
   |> store_eq_thm;
 
-val sigs = module_signatures [
-  "fromInt",
-  "<=",
-  ">=",
-  "<",
-  ">",
-  "min",
-  "max",
-  "+",
-  "-",
-  "~",
-  "*",
-  "inv",
-  "/",
-  "toString"
-];
+val _ = ml_prog_update (close_module NONE);
 
-val _ = ml_prog_update (close_module (SOME sigs));
+val _ = ml_prog_update (add_dec
+  ``Dtabbrev unknown_loc [] "rat" (Atapp [] (Short "rational"))`` I);
+
+val _ = ml_prog_update close_local_block;
 
 val _ = export_theory ()

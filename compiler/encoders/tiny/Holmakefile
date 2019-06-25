@@ -1,2 +1,0 @@
-OPTIONS = QUIT_ON_FAILURE
-INCLUDES = $(HOLDIR)/examples/l3-machine-code/common ../asm

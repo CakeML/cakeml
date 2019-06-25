@@ -1,3 +1,7 @@
+(*
+  For RISC-V, prove that the compiler configuration is well formed,
+  and instantiate the compiler correctness theorem.
+*)
 open preamble backendProofTheory
      riscv_configTheory riscv_targetProofTheory
 open blastLib;
@@ -10,7 +14,7 @@ val is_riscv_machine_config_def = Define`
   mc.len_reg = 11  ∧
   mc.ptr_reg = 10 ∧
   mc.len2_reg = 13  ∧
-  mc.ptr2_reg = 12 ∧                                   
+  mc.ptr2_reg = 12 ∧
   mc.callee_saved_regs = [25;26;27]`;
 
 val names_tac =
@@ -18,8 +22,9 @@ val names_tac =
   \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
-val riscv_backend_config_ok = Q.store_thm("riscv_backend_config_ok",`
-  backend_config_ok riscv_backend_config`,
+Theorem riscv_backend_config_ok:
+    backend_config_ok riscv_backend_config
+Proof
   simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[riscv_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
@@ -34,26 +39,31 @@ val riscv_backend_config_ok = Q.store_thm("riscv_backend_config_ok",`
   \\ fs[stack_removeTheory.max_stack_alloc_def]
   \\ EVAL_TAC>>fs[]
   \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
-  \\ fs[])
+  \\ fs[]
+QED
 
-val riscv_machine_config_ok = Q.store_thm("riscv_machine_config_ok",
-  `is_riscv_machine_config mc ⇒ mc_conf_ok mc`,
+Theorem riscv_machine_config_ok:
+   is_riscv_machine_config mc ⇒ mc_conf_ok mc
+Proof
   rw[lab_to_targetProofTheory.mc_conf_ok_def,is_riscv_machine_config_def]
   >- EVAL_TAC
-  >- simp[riscv_targetProofTheory.riscv_backend_correct]
+  >- simp[riscv_targetProofTheory.riscv_encoder_correct]
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
-  >- metis_tac[asmPropsTheory.backend_correct_def,asmPropsTheory.target_ok_def,riscv_backend_correct]);
+  >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,riscv_encoder_correct]
+QED
 
-val riscv_init_ok = Q.store_thm("riscv_init_ok",
-  `is_riscv_machine_config mc ⇒
-    mc_init_ok riscv_backend_config mc`,
+Theorem riscv_init_ok:
+   is_riscv_machine_config mc ⇒
+    mc_init_ok riscv_backend_config mc
+Proof
   rw[mc_init_ok_def] \\
   fs[is_riscv_machine_config_def] \\
-  EVAL_TAC);
+  EVAL_TAC
+QED
 
 val is_riscv_machine_config_mc = riscv_init_ok |> concl |> dest_imp |> #1
 

@@ -1,10 +1,12 @@
+(*
+  A type system for values, and
+  the invariants that are used for type soundness.
+*)
 open HolKernel Parse boolLib bossLib;
 open astTheory namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open terminationTheory namespacePropsTheory;
 
 val _ = new_theory "typeSoundInvariants"
-
-(* Type system for values. The invariant that is used for type soundness. *)
 
 val _ = Datatype `
  store_t =
@@ -38,34 +40,33 @@ val tenv_val_exp_ok_def = Define `
     check_freevars (tvs + num_tvs tenv) [] t ∧
     tenv_val_exp_ok tenv)`;
 
-(* Global constructor type environments keyed by constructor name and type *)
-val _ = type_abbrev( "ctMap", ``:((conN # tid_or_exn), ( tvarN list # t list)) fmap``);
+(* Global constructor type environments keyed by constructor name and type
+ * stamp. Contains the type variables, the type of the arguments, and
+ * the identity of the type. *)
+val _ = type_abbrev( "ctMap", ``:(stamp, (tvarN list # t list # type_ident)) fmap``);
 
 val ctMap_ok_def = Define `
   ctMap_ok ctMap ⇔
-    FEVERY (\((cn,tn),(tvs,ts)). EVERY (check_freevars 0 tvs) ts) ctMap`;
-
-val type_decs_to_ctMap_def = Define `
-  type_decs_to_ctMap mn tenvT tds ⇔
-  FEMPTY |++
-  FLAT
-    (MAP (\(tvs,tn,ctors).
-       MAP (\(cn,ts).
-         ((cn,TypeId (mk_id mn tn)), (tvs, MAP (type_name_subst tenvT) ts))) ctors) tds)`;
-
-
-(* Get the modules that are used by the type and exception definitions *)
-val decls_to_mods_def = Define `
- decls_to_mods d ⇔
-   IMAGE id_to_mods d.defined_types ∪ IMAGE id_to_mods d.defined_exns`;
+    (* No free variables in the range *)
+    FEVERY (\(stamp,(tvs,ts, _)). EVERY (check_freevars 0 tvs) ts) ctMap ∧
+    (* Exceptions have type exception, and no type variables *)
+    (!ex tvs ts ti. FLOOKUP ctMap (ExnStamp ex) = SOME (tvs, ts, ti) ⇒
+      tvs = [] ∧ ti = Texn_num) ∧
+    (* Primitive, non-constructor types are not mapped *)
+    (!cn x tvs ts ti. FLOOKUP ctMap (TypeStamp cn x) = SOME (tvs, ts, ti) ⇒
+      ~MEM ti prim_type_nums) ∧
+    (* If type identities are equal then the stamps are from the same type *)
+    (!stamp1 tvs1 ts1 ti stamp2 tvs2 ts2.
+      FLOOKUP ctMap stamp1 = SOME (tvs1, ts1, ti) ∧
+      FLOOKUP ctMap stamp2 = SOME (tvs2, ts2, ti) ⇒
+      same_type stamp1 stamp2)`;
 
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
  * that the correct types are used. *)
 val type_ctor_def = Define `
-  type_ctor ctMap cn (n, t1) (tvs, ts, t2) ⇔
-    (t1 = t2) ∧
-    FLOOKUP ctMap (id_to_n cn,t1) = SOME (tvs, ts) ∧
+  type_ctor ctMap _ (n, stamp) (tvs, ts, ti) ⇔
+    FLOOKUP ctMap stamp = SOME (tvs, ts, ti) ∧
     LENGTH ts = n`;
 
 val add_tenvE_def = Define `
@@ -84,24 +85,24 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     type_v tvs ctMap tenvS (Litv (Word8 w)) Tword8) ∧
   (!tvs ctMap tenvS w.
     type_v tvs ctMap tenvS (Litv (Word64 w)) Tword64) ∧
-  (!tvs ctMap tenvS cn vs tvs' tn ts' ts.
+  (!tvs ctMap tenvS vs tvs' stamp ts' ts ti.
     EVERY (check_freevars tvs []) ts' ∧
     LENGTH tvs' = LENGTH ts' ∧
     LIST_REL (type_v tvs ctMap tenvS)
       vs (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts) ∧
-    FLOOKUP ctMap (cn, tn) = SOME (tvs',ts)
+    FLOOKUP ctMap stamp = SOME (tvs',ts,ti)
     ⇒
-    type_v tvs ctMap tenvS (Conv (SOME (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn))) ∧
+    type_v tvs ctMap tenvS (Conv (SOME stamp) vs) (Tapp ts' ti)) ∧
   (!tvs ctMap tenvS vs ts.
     LIST_REL (type_v tvs ctMap tenvS) vs ts
     ⇒
-    type_v tvs ctMap tenvS (Conv NONE vs) (Tapp ts TC_tup)) ∧
+    type_v tvs ctMap tenvS (Conv NONE vs) (Ttup ts)) ∧
   (!tvs ctMap tenvS env tenv tenvE n e t1 t2.
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     num_tvs tenvE = 0 ∧
-    nsAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
-    nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) (add_tenvE tenvE tenv.v) ∧
+    nsAll2 (type_ctor ctMap) env.c tenv.c ∧
+    nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) env.v (add_tenvE tenvE tenv.v) ∧
     check_freevars tvs [] t1 ∧
     type_e tenv (Bind_name n 0 t1 (bind_tvar tvs tenvE)) e t2
     ⇒
@@ -110,8 +111,8 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     num_tvs tenvE = 0 ∧
-    nsAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
-    nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) (add_tenvE tenvE tenv.v) ∧
+    nsAll2 (type_ctor ctMap) env.c tenv.c ∧
+    nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) env.v (add_tenvE tenvE tenv.v) ∧
     type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs bindings ∧
     ALOOKUP bindings n = SOME t ∧
     ALL_DISTINCT (MAP FST funs) ∧
@@ -131,12 +132,12 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     check_freevars 0 [] t ∧
     FLOOKUP tenvS n = SOME (Varray_t t)
     ⇒
-    type_v tvs ctMap tenvS (Loc n) (Tapp [t] TC_array)) ∧
+    type_v tvs ctMap tenvS (Loc n) (Tarray t)) ∧
   (!tvs ctMap tenvS vs t.
     check_freevars 0 [] t ∧
     EVERY (\v. type_v tvs ctMap tenvS v t) vs
     ⇒
-    type_v tvs ctMap tenvS (Vectorv vs) (Tapp [t] TC_vector))`;
+    type_v tvs ctMap tenvS (Vectorv vs) (Tvector t))`;
 
 val type_sv_def = Define `
   (type_sv ctMap tenvS (Refv v) (Ref_t t) ⇔ type_v 0 ctMap tenvS v t) ∧
@@ -159,25 +160,25 @@ val type_s_def = Define `
 (* The global constructor type environment has the primitive exceptions in it *)
 val ctMap_has_exns_def = Define `
   ctMap_has_exns ctMap ⇔
-    FLOOKUP ctMap ("Bind", TypeExn (Short "Bind")) = SOME ([],[]) ∧
-    FLOOKUP ctMap ("Chr", TypeExn (Short "Chr")) = SOME ([],[]) ∧
-    FLOOKUP ctMap ("Div", TypeExn (Short "Div")) = SOME ([],[]) ∧
-    FLOOKUP ctMap ("Subscript", TypeExn (Short "Subscript")) = SOME ([],[])`;
+    FLOOKUP ctMap bind_stamp = SOME ([],[],Texn_num) ∧
+    FLOOKUP ctMap chr_stamp = SOME ([],[],Texn_num) ∧
+    FLOOKUP ctMap div_stamp = SOME ([],[],Texn_num) ∧
+    FLOOKUP ctMap subscript_stamp = SOME ([],[],Texn_num)`;
 
 (* The global constructor type environment has the list primitives in it *)
 val ctMap_has_lists_def = Define `
   ctMap_has_lists ctMap ⇔
-    FLOOKUP ctMap ("nil", TypeId (Short "list")) = SOME (["'a"],[]) ∧
-    FLOOKUP ctMap ("::", TypeId (Short "list")) =
-      SOME (["'a"],[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]) ∧
-    (!cn. cn ≠ "::" ∧ cn ≠ "nil" ⇒ FLOOKUP ctMap (cn, TypeId (Short "list")) = NONE)`;
+    FLOOKUP ctMap (TypeStamp "[]" list_type_num) = SOME (["'a"],[],Tlist_num) ∧
+    FLOOKUP ctMap (TypeStamp "::" list_type_num) =
+      SOME (["'a"],[Tvar "'a"; Tlist (Tvar "'a")],Tlist_num) ∧
+    (!cn. cn ≠ "::" ∧ cn ≠ "[]" ⇒ FLOOKUP ctMap (TypeStamp cn list_type_num) = NONE)`;
 
 (* The global constructor type environment has the bool primitives in it *)
 val ctMap_has_bools_def = Define `
   ctMap_has_bools ctMap ⇔
-    FLOOKUP ctMap ("true", TypeId (Short "bool")) = SOME ([],[]) ∧
-    FLOOKUP ctMap ("false", TypeId (Short "bool")) = SOME ([],[]) ∧
-    (!cn. cn ≠ "true" ∧ cn ≠ "false" ⇒ FLOOKUP ctMap (cn, TypeId (Short "bool")) = NONE)`;
+    FLOOKUP ctMap (TypeStamp "True" bool_type_num) = SOME ([],[],Tbool_num) ∧
+    FLOOKUP ctMap (TypeStamp "False" bool_type_num) = SOME ([],[],Tbool_num) ∧
+    (!cn. cn ≠ "True" ∧ cn ≠ "False" ⇒ FLOOKUP ctMap (TypeStamp cn bool_type_num) = NONE)`;
 
 val good_ctMap_def = Define `
   good_ctMap ctMap ⇔
@@ -186,6 +187,7 @@ val good_ctMap_def = Define `
     ctMap_has_exns ctMap ∧
     ctMap_has_lists ctMap`;
 
+    (*
 (* The types and exceptions that are missing are all declared in modules. *)
 val weak_decls_only_mods_def = Define `
   weak_decls_only_mods d1 d2 ⇔
@@ -204,20 +206,32 @@ val consistent_decls_def = Define `
        | TypeId tid =>
            tid ∈ d.defined_types ∨
            (?mn tn. tid = Long mn (Short tn) ∧([mn] ∈ d.defined_mods)))`;
+           *)
 
 val consistent_ctMap_def = Define `
-  consistent_ctMap d ctMap ⇔
-    (!((cn,tid) :: FDOM ctMap).
-       case tid of
-       | TypeId tn => tn ∈ d.defined_types
-       | TypeExn cn => cn ∈ d.defined_exns)`;
+  consistent_ctMap st type_ids ctMap ⇔
+    (DISJOINT type_ids (FRANGE ((SND o SND) o_f ctMap))) ∧
+    !cn id.
+      (TypeStamp cn id ∈ FDOM ctMap ⇒ id < st.next_type_stamp) ∧
+      (ExnStamp id ∈ FDOM ctMap ⇒ id < st.next_exn_stamp)`;
 
+       (*
 val decls_ok_def = Define `
   decls_ok d ⇔ [] ∉ d.defined_mods ∧ decls_to_mods d ⊆ {[]} ∪ d.defined_mods`;
+  *)
 
 val type_all_env_def = Define `
   type_all_env ctMap tenvS env tenv ⇔
     nsAll2 (type_ctor ctMap) (sem_env_c env) tenv.c ∧
     nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) (sem_env_v env) tenv.v`;
+
+val type_sound_invariant_def = Define `
+type_sound_invariant st env ctMap tenvS type_idents tenv ⇔
+  tenv_ok tenv ∧
+  good_ctMap ctMap ∧
+  consistent_ctMap st type_idents ctMap ∧
+  type_all_env ctMap tenvS env tenv ∧
+  type_s ctMap st.refs tenvS`;
+
 
 val _ = export_theory();

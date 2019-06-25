@@ -8,6 +8,10 @@ val _ = numLib.prefer_num();
 
 val _ = new_theory "smallStep"
 
+(*
+  A small-step semantics for CakeML. This semantics is no longer used
+  in the CakeML development.
+*)
 (*open import Pervasives_extra*)
 (*open import Lib*)
 (*open import Ast*)
@@ -35,7 +39,7 @@ val _ = Hol_datatype `
   (* Evaluating a constructor's arguments
    * The v list should be in reverse order. *)
   | Ccon of  ( (modN, conN)id)option => v list => unit => exp list
-  | Ctannot of unit => t
+  | Ctannot of unit => ast_t
   | Clannot of unit => locs`;
 
 val _ = type_abbrev( "ctxt" , ``: ctxt_frame # v sem_env``);
@@ -74,7 +78,7 @@ val _ = Define `
 
 (*val application : forall 'ffi. op -> sem_env v -> store_ffi 'ffi v -> list v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (application op env s vs c=  
+ (application op env s vs c=
  ((case op of
       Opapp =>
       (case do_opapp vs of
@@ -97,7 +101,7 @@ val _ = Define `
 (* apply a context to a value *)
 (*val continue : forall 'ffi. store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
- (continue s v cs=  
+ (continue s v cs=
  ((case cs of
       [] => Estuck
     | (Craise () , env) :: c=>
@@ -165,7 +169,7 @@ val _ = Define `
 
 (*val e_step : forall 'ffi. small_state 'ffi -> e_step_result 'ffi*)
 val _ = Define `
- (e_step (env, s, ev, c)=  
+ (e_step (env, s, ev, c)=
  ((case ev of
       Val v  =>
         continue s v c
@@ -203,7 +207,7 @@ val _ = Define `
               )
           | Log l e1 e2 => push env s e1 (Clog l ()  e2) c
           | If e1 e2 e3 => push env s e1 (Cif ()  e2 e3) c
-          | Mat e pes => push env s e (Cmat ()  pes (Conv (SOME ("Bind", TypeExn (Short "Bind"))) [])) c
+          | Mat e pes => push env s e (Cmat ()  pes bind_exn_v) c
           | Let n e1 e2 => push env s e1 (Clet n ()  e2) c
           | Letrec funs e =>
               if ~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)) then
@@ -223,19 +227,19 @@ val _ = Define `
 (*val small_eval : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool*)
 
 val _ = Define `
- (e_step_reln st1 st2= 
+ (e_step_reln st1 st2=
   (e_step st1 = Estep st2))`;
 
 
  val _ = Define `
 
-(small_eval env s e c (s', Rval v)=  
+(small_eval env s e c (s', Rval v)=
  (? env'. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[])))
 /\
-(small_eval env s e c (s', Rerr (Rraise v))=  
+(small_eval env s e c (s', Rerr (Rraise v))=
  (? env' env''. (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[(Craise () , env'')])))
 /\
-(small_eval env s e c (s', Rerr (Rabort a))=  
+(small_eval env s e c (s', Rerr (Rabort a))=
  (? env' e' c'.
     (RTC (e_step_reln)) (env,s,Exp e,c) (env',s',e',c') /\
     (e_step (env',s',e',c') = Eabort a)))`;
@@ -243,7 +247,7 @@ val _ = Define `
 
 (*val e_diverges : forall 'ffi. sem_env v -> store_ffi 'ffi v -> exp -> bool*)
 val _ = Define `
- (e_diverges env s e=  
+ (e_diverges env s e=
  (! env' s' e' c'.
     (RTC (e_step_reln)) (env,s,Exp e,[]) (env',s',e',c')
     ==>
@@ -251,4 +255,3 @@ val _ = Define `
       e_step_reln (env',s',e',c') (env'',s'',e'',c''))))`;
 
 val _ = export_theory()
-

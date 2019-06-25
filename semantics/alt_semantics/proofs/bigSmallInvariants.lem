@@ -1,3 +1,7 @@
+(*
+  Invariants used in the proof relating the big-step and small-step
+  version of the CakeML source semantics.
+*)
 open import Pervasives
 open import Lib
 open import Namespace
@@ -190,7 +194,7 @@ indreln
 [evaluate_state : forall 'ffi. small_state 'ffi -> state 'ffi * result v v -> bool]
 
 exp : forall env e c res bv ffi refs st.
-evaluate false env <| ffi = ffi; clock = 0; refs = refs; defined_types = {}; defined_mods = {} |> e (st, res) &&
+evaluate false env <| ffi = ffi; clock = 0; refs = refs; next_type_stamp = 0; next_exn_stamp = 0 |> e (st, res) &&
 evaluate_ctxts st c res bv
 ==>
 evaluate_state (env, (refs, ffi), Exp e, c) bv
@@ -198,6 +202,6 @@ evaluate_state (env, (refs, ffi), Exp e, c) bv
 and
 
 vl : forall env ffi refs v c bv.
-evaluate_ctxts <| ffi = ffi; clock = 0; refs = refs; defined_types = {}; defined_mods = {} |> c (Rval v) bv
+evaluate_ctxts <| ffi = ffi; clock = 0; refs = refs; next_type_stamp = 0; next_exn_stamp = 0 |> c (Rval v) bv
 ==>
 evaluate_state (env, (refs, ffi), Val v, c) bv

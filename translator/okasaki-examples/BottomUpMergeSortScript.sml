@@ -1,3 +1,7 @@
+(*
+  This is an example of applying the translator to the Bottom Up Merge
+  Sort algorithm from Chris Okasaki's book.
+*)
 open preamble
 open okasaki_miscTheory bagLib bagTheory sortingTheory ml_translatorLib ListProgTheory;
 val _ = numLib.prefer_num()
@@ -51,6 +55,7 @@ val empty_def = mlDefine `
 empty = (0, [])`;
 
 val sptree_size = Parse.hide"size"
+val _ = Parse.hide"seg"
 
 val add_seg_def = tDefine "add_seg" `
 add_seg leq seg segs size =
@@ -186,24 +191,28 @@ rw [] >|
              [Once add_seg_def, sortable_to_bag_def, mrg_bag, mrg_length,
               arithmeticTheory.SUB_PLUS]]);
 
-val add_bag = Q.store_thm ("add_bag",
-`!leq x size segs.
+Theorem add_bag:
+ !leq x size segs.
   sortable_inv leq (size,segs) 1
   ⇒
   (sortable_to_bag (add leq x (size, segs)) =
-   BAG_INSERT x (sortable_to_bag (size, segs)))`,
+   BAG_INSERT x (sortable_to_bag (size, segs)))
+Proof
 rw [add_def] >>
 ASSUME_TAC (Q.SPECL [`leq`, `size`, `segs`, `1`, `[x]`] add_seg_bag) >>
-fs [list_to_bag_def, BAG_INSERT_UNION]);
+fs [list_to_bag_def, BAG_INSERT_UNION]
+QED
 
-val add_correct = Q.store_thm ("add_correct",
-`!leq x size segs.
+Theorem add_correct:
+ !leq x size segs.
   WeakLinearOrder leq ∧ sortable_inv leq (size,segs) 1
   ⇒
-  sortable_inv leq (add leq x (size,segs)) 1`,
+  sortable_inv leq (add leq x (size,segs)) 1
+Proof
 rw [add_def] >>
 match_mp_tac add_seg_sub_inv >>
-rw [SORTED_DEF]);
+rw [SORTED_DEF]
+QED
 
 val mrg_all_sorted = Q.prove (
 `!leq xs segs.
@@ -221,24 +230,28 @@ induct_on `segs` >>
 rw [mrg_all_def] >>
 metis_tac [mrg_perm, PERM_CONG, PERM_REFL, PERM_TRANS]);
 
-val sort_sorted = Q.store_thm ("sort_sorted",
-`!leq size segs.
+Theorem sort_sorted:
+ !leq size segs.
   WeakLinearOrder leq ∧ sortable_inv leq (size,segs) 1
   ⇒
-  SORTED leq (sort leq (size,segs))`,
+  SORTED leq (sort leq (size,segs))
+Proof
 rw [sort_def] >>
-metis_tac [sortable_inv_sorted, SORTED_DEF, mrg_all_sorted]);
+metis_tac [sortable_inv_sorted, SORTED_DEF, mrg_all_sorted]
+QED
 
 val sortable_to_bag_lem = Q.prove (
 `!size segs. sortable_to_bag (size,segs) = list_to_bag (FLAT segs)`,
 induct_on `segs` >>
 rw [sortable_to_bag_def, list_to_bag_def, list_to_bag_append]);
 
-val sort_bag = Q.store_thm ("sort_bag",
-`!leq x size segs.
-  list_to_bag (sort leq (size,segs)) = sortable_to_bag (size,segs)`,
+Theorem sort_bag:
+ !leq x size segs.
+  list_to_bag (sort leq (size,segs)) = sortable_to_bag (size,segs)
+Proof
 rw [sort_def, sortable_to_bag_lem, list_to_bag_perm] >>
-metis_tac [mrg_all_perm, APPEND]);
+metis_tac [mrg_all_perm, APPEND]
+QED
 
 
 (* Simplify the side conditions on the generated certificate theorems, based on

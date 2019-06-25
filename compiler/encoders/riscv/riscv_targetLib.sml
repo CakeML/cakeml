@@ -1,3 +1,6 @@
+(*
+  A compset for evaluating the RISC-V instruction encoder and config.
+*)
 structure riscv_targetLib :> riscv_targetLib =
 struct
 

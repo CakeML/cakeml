@@ -5,13 +5,14 @@ structure preamble =
 struct
 local open intLib wordsLib in end;
 open set_relationTheory; (* comes first so relationTheory takes precedence *)
-open BasicProvers Defn HolKernel Parse SatisfySimps Tactic monadsyntax
-     alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
-     combinTheory dep_rewrite finite_mapTheory indexedListsTheory lcsymtacs
-     listTheory llistTheory lprefix_lubTheory markerLib miscTheory
-     mp_then optionTheory pairLib pairTheory pred_setTheory
-     quantHeuristicsLib relationTheory res_quanTheory rich_listTheory
-     sortingTheory sptreeTheory stringTheory sumTheory wordsTheory;
+open ASCIInumbersTheory BasicProvers Defn HolKernel Parse SatisfySimps Tactic
+     monadsyntax alistTheory alignmentTheory arithmeticTheory bagTheory boolLib
+     boolSimps bossLib byteTheory containerTheory combinTheory dep_rewrite
+     finite_mapTheory indexedListsTheory lcsymtacs listTheory llistTheory
+     lprefix_lubTheory markerLib miscTheory mp_then optionTheory pairLib
+     pairTheory pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
+     rich_listTheory sortingTheory sptreeTheory stringTheory sumTheory
+     wordsTheory;
 (* TOOD: move? *)
 val wf_rel_tac = WF_REL_TAC
 val induct_on = Induct_on
@@ -25,6 +26,9 @@ val asm_exists_tac = first_assum(match_exists_tac o concl)
 val has_pair_type = can dest_prod o type_of
 (* -- *)
 
+fun check_tag t = Tag.isEmpty t orelse Tag.isDisk t
+val check_thm = Lib.assert (check_tag o Thm.tag)
+
 val option_bind_tm = prim_mk_const{Thy="option",Name="OPTION_BIND"};
 val option_ignore_bind_tm = prim_mk_const{Thy="option",Name="OPTION_IGNORE_BIND"};
 val option_guard_tm = prim_mk_const{Thy="option",Name="OPTION_GUARD"};
@@ -32,23 +36,19 @@ val option_guard_tm = prim_mk_const{Thy="option",Name="OPTION_GUARD"};
 structure option_monadsyntax = struct
 fun temp_add_option_monadsyntax() =
   let
-    val _ = monadsyntax.temp_add_monadsyntax();
-    val _ = temp_inferior_overload_on ("return",optionSyntax.some_tm);
-    val _ = temp_inferior_overload_on ("fail", optionSyntax.none_tm)
-    val _ = temp_overload_on ("monad_bind", option_bind_tm)
-    val _ = temp_overload_on ("monad_unitbind", option_ignore_bind_tm)
-    val _ = temp_overload_on ("assert", option_guard_tm)
-  in () end
+    open monadsyntax
+  in
+    temp_enable_monadsyntax ();
+    temp_enable_monad "option"
+  end
 
 fun add_option_monadsyntax() =
   let
-    val _ = monadsyntax.add_monadsyntax();
-    val _ = inferior_overload_on ("return",optionSyntax.some_tm);
-    val _ = inferior_overload_on ("fail", optionSyntax.none_tm)
-    val _ = overload_on ("monad_bind", option_bind_tm)
-    val _ = overload_on ("monad_unitbind", option_ignore_bind_tm)
-    val _ = overload_on ("assert", option_guard_tm)
-  in () end
+    open monadsyntax
+  in
+    enable_monadsyntax();
+    enable_monad "option"
+  end
 end
 
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
@@ -243,6 +243,9 @@ fun make_abbrevs str n [] acc = acc
 fun intro_abbrev [] tm = raise UNCHANGED
   | intro_abbrev (ab::abbs) tm =
       FORK_CONV(REWR_CONV(SYM ab),intro_abbrev abbs) tm
+
+fun Abbrev_intro th =
+  EQ_MP (SYM(SPEC(concl th)markerTheory.Abbrev_def)) th
 
 val preamble_ERR = mk_HOL_ERR"preamble"
 
@@ -479,12 +482,54 @@ fun mlstring_from_proc cmd args =
     NONE => Term `NONE : mlstring option`
   | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
 
-fun mlstring_from_proc_from dir cmd args =
-  case read_process (cmd, args, SOME dir) of
-    NONE => Term `NONE : mlstring option`
-  | SOME s => Term `SOME (strlit ^(stringSyntax.fromMLstring s))`
+(* ========================================================================= *)
+(* ========================================================================= *)
 
-(* ========================================================================= *)
-(* ========================================================================= *)
+local
+  open stringLib Boolconv ListConv1 pred_setLib;
+  val [ALL_DISTINCT_NIL,ALL_DISTINCT_CONS] = ALL_DISTINCT |> CONJUNCTS
+  val [MEM_NIL,MEM_CONS] = MEM |> CONJUNCTS
+  val [FLAT_NIL,FLAT_CONS] = FLAT |> CONJUNCTS
+  val [MAP_NIL,MAP_CONS] = MAP |> CONJUNCTS
+  val [APPEND_NIL_LEFT,APPEND_CONS] = APPEND |> CONJUNCTS
+  val APPEND_NIL_RIGHT = APPEND_NIL |> CONJUNCTS |> hd
+  val [set_nil,set_cons] = LIST_TO_SET |> CONJUNCTS
+in
+
+  (* TODO: move to listLib, consolidate with IS_EL_CONV *)
+  fun mem_conv eq_conv tm =
+    tm |> (
+      REWR_CONV MEM_NIL
+      ORELSEC
+     (REWR_CONV MEM_CONS
+       THENC RATOR_CONV(RAND_CONV(eq_conv))
+       THENC OR_CONV
+       THENC (fn tm => if Teq tm then ALL_CONV tm else mem_conv eq_conv tm))
+     )
+
+  (* TODO: move to listLib, cf. Z3ProofReplay.ALL_DISTINCT_CONV *)
+  fun all_distinct_conv eq_conv tm =
+    tm |> (
+       REWR_CONV ALL_DISTINCT_NIL
+       ORELSEC
+       (REWR_CONV ALL_DISTINCT_CONS
+        THENC RATOR_CONV(RAND_CONV(RAND_CONV(mem_conv eq_conv)))
+        THENC RATOR_CONV(RAND_CONV(NOT_CONV))
+        THENC AND_CONV
+        THENC (fn tm => if Feq tm then ALL_CONV tm else all_distinct_conv eq_conv tm)
+       )
+    )
+
+  val all_distinct_string_conv = all_distinct_conv string_EQ_CONV
+  val all_distinct_list_string_conv = all_distinct_conv (list_EQ_CONV string_EQ_CONV)
+
+  fun set_conv tm =
+    tm |>
+    (
+      REWR_CONV set_nil
+      ORELSEC
+      (REWR_CONV set_cons THENC RAND_CONV set_conv)
+    )
+end
 
 end

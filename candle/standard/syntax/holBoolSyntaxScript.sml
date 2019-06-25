@@ -1,3 +1,8 @@
+(*
+  Definitions to extend a theory context to include the theory of
+  Booleans, and some basic syntactic properties about these
+  extensions.
+*)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory"holBoolSyntax"
@@ -83,11 +88,12 @@ fun pull_tac () =
   BETA_TAC >> REWRITE_TAC[CONS_11] >> simp_tac bool_ss [] >>
   conj_asm2_tac
 
-val bool_extends = Q.store_thm("bool_extends",
-  `∀ctxt.
+Theorem bool_extends:
+   ∀ctxt.
       theory_ok (thyof ctxt) ∧
       DISJOINT (FDOM (tmsof ctxt)) (IMAGE strlit {"T";"F";"==>";"/\\";"\\/";"~";"!";"?"}) ⇒
-      mk_bool_ctxt ctxt extends ctxt`,
+      mk_bool_ctxt ctxt extends ctxt
+Proof
   REWRITE_TAC(mk_bool_ctxt_def::Defs) >>
   REWRITE_TAC[extends_def] >>
   ntac 2 strip_tac >>
@@ -99,12 +105,15 @@ val bool_extends = Q.store_thm("bool_extends",
   pull_tac() >- ConstDef_tac >>
   pull_tac() >- ConstDef_tac >>
   pull_tac() >- ConstDef_tac >>
-  rw[Once RTC_CASES1])
+  rw[Once RTC_CASES1]
+QED
 
-val bool_extends_init = Q.store_thm("bool_extends_init",
-  `mk_bool_ctxt init_ctxt extends init_ctxt`,
+Theorem bool_extends_init:
+   mk_bool_ctxt init_ctxt extends init_ctxt
+Proof
   match_mp_tac bool_extends >> simp[init_theory_ok] >>
-  simp[init_ctxt_def])
+  simp[init_ctxt_def]
+QED
 
 (* signatures of Boolean constants *)
 
@@ -139,18 +148,24 @@ val is_bool_sig_def = Define`
   is_forall_sig (tmsof sig) ∧
   is_exists_sig (tmsof sig)`
 
-val bool_has_bool_sig = Q.store_thm("bool_has_bool_sig",
-  `∀ctxt. is_std_sig (sigof ctxt)
-  ⇒ is_bool_sig (sigof (mk_bool_ctxt ctxt))`,
+Theorem bool_has_bool_sig:
+   ∀ctxt. is_std_sig (sigof ctxt)
+  ⇒ is_bool_sig (sigof (mk_bool_ctxt ctxt))
+Proof
   rw[is_bool_sig_def] >- (
     fs[is_std_sig_def,mk_bool_ctxt_def,FLOOKUP_UPDATE] ) >>
-  EVAL_TAC)
+  EVAL_TAC
+QED
 
-val is_bool_sig_std = Q.store_thm("is_bool_sig_std",
-  `is_bool_sig sig ⇒ is_std_sig sig`, rw[is_bool_sig_def])
+Theorem is_bool_sig_std:
+   is_bool_sig sig ⇒ is_std_sig sig
+Proof
+rw[is_bool_sig_def]
+QED
 
-val is_bool_sig_extends = Q.store_thm("is_bool_sig_extends",
-  `∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ is_bool_sig (sigof ctxt2)`,
+Theorem is_bool_sig_extends:
+   ∀ctxt1 ctxt2. ctxt2 extends ctxt1 ⇒ is_bool_sig (sigof ctxt1) ⇒ is_bool_sig (sigof ctxt2)
+Proof
   ho_match_mp_tac extends_ind >>
   REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   ho_match_mp_tac updates_ind >>
@@ -181,12 +196,13 @@ val is_bool_sig_extends = Q.store_thm("is_bool_sig_extends",
   rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
   imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,FORALL_PROD] >>
-  metis_tac[] )
+  metis_tac[]
+QED
 
 (* Boolean terms are ok *)
 
-val bool_term_ok = Q.store_thm("bool_term_ok",
-  `∀sig. is_bool_sig sig ⇒
+Theorem bool_term_ok:
+   ∀sig. is_bool_sig sig ⇒
     term_ok sig True ∧
     (∀p1 p2. term_ok sig (And p1 p2) ⇔ term_ok sig p1 ∧ term_ok sig p2 ∧ typeof p1 = Bool ∧ typeof p2 = Bool) ∧
     (∀p1 p2. term_ok sig (Implies p1 p2) ⇔ term_ok sig p1 ∧ term_ok sig p2 ∧ typeof p1 = Bool ∧ typeof p2 = Bool) ∧
@@ -194,9 +210,11 @@ val bool_term_ok = Q.store_thm("bool_term_ok",
     (∀z ty p. term_ok sig (Exists z ty p) ⇔ type_ok (tysof sig) ty ∧ term_ok sig p ∧ typeof p = Bool) ∧
     (∀p1 p2. term_ok sig (Or p1 p2) ⇔ term_ok sig p1 ∧ term_ok sig p2 ∧ typeof p1 = Bool ∧ typeof p2 = Bool) ∧
     term_ok sig False ∧
-    (∀p. term_ok sig (Not p) ⇔ term_ok sig p ∧ typeof p = Bool)`,
+    (∀p. term_ok sig (Not p) ⇔ term_ok sig p ∧ typeof p = Bool)
+Proof
   rw[] >> imp_res_tac is_bool_sig_std >> rw[term_ok_clauses] >>
   rw[term_ok_def] >> fs[is_bool_sig_def] >> fs sigs >> rw[term_ok_clauses,tyvar_inst_exists] >>
-  PROVE_TAC[term_ok_welltyped])
+  PROVE_TAC[term_ok_welltyped]
+QED
 
 val _ = export_theory()

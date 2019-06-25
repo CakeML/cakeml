@@ -1,3 +1,7 @@
+(*
+  Definitions of semantic primitives (e.g., values, and functions for doing
+  primitive operations) used in the semantics.
+*)
 open import Pervasives
 open import Lib
 import List_extra
@@ -8,26 +12,30 @@ open import Namespace
 open import Ffi
 open import FpSem
 
-(* The type that a constructor builds is either a named datatype or an exception.
- * For exceptions, we also keep the module that the exception was declared in. *)
-type tid_or_exn =
-  | TypeId of id modN typeN
-  | TypeExn of id modN conN
+(* Constructors and exceptions need unique identities, which we represent by stamps. *)
+type stamp =
+  (* Each type gets a unique number, and the constructor name must be unique
+     inside of the type *)
+  | TypeStamp of conN * nat
+  | ExnStamp of nat
 
+(*
 val type_defs_to_new_tdecs : list modN -> type_def -> set tid_or_exn
 let type_defs_to_new_tdecs mn tdefs =
   Set.fromList (List.map (fun (tvs,tn,ctors) -> TypeId (mk_id mn tn)) tdefs)
+*)
 
 type sem_env 'v =
   <| v : namespace modN varN 'v
-   ; c : namespace modN conN (nat * tid_or_exn)
+   (* Lexical mapping of constructor idents to arity, stamp pairs *)
+   ; c : namespace modN conN (nat * stamp)
    |>
 
 (* Value forms *)
 type v =
   | Litv of lit
-  (* Constructor application. *)
-  | Conv of maybe (conN * tid_or_exn) * list v
+  (* Constructor application. Can be a tuple or a given constructor of a given type *)
+  | Conv of maybe stamp * list v
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of sem_env v * varN * exp
@@ -39,10 +47,21 @@ type v =
   | Loc of nat
   | Vectorv of list v
 
-type env_ctor = namespace modN conN (nat * tid_or_exn)
+type env_ctor = namespace modN conN (nat * stamp)
 type env_val = namespace modN varN v
 
-let Bindv = Conv (Just("Bind",TypeExn(Short"Bind"))) []
+let bind_stamp = ExnStamp 0
+let chr_stamp = ExnStamp 1
+let div_stamp = ExnStamp 2
+let subscript_stamp = ExnStamp 3
+
+let bind_exn_v = Conv (Just bind_stamp) []
+let chr_exn_v = Conv (Just chr_stamp) []
+let div_exn_v = Conv (Just div_stamp) []
+let sub_exn_v = Conv (Just subscript_stamp) []
+
+let bool_type_num : nat = 0
+let list_type_num : nat = 1
 
 (* The result of evaluation *)
 type abort =
@@ -106,8 +125,8 @@ type state 'ffi =
   <| clock : nat
    ; refs  : store v
    ; ffi : ffi_state 'ffi
-   ; defined_types : set tid_or_exn
-   ; defined_mods : set (list modN)
+   ; next_type_stamp : nat
+   ; next_exn_stamp : nat
    |>
 
 (* Other primitives *)
@@ -119,7 +138,7 @@ let do_con_check cenv n_opt l =
     | Just n ->
         match nsLookup cenv n with
           | Nothing -> false
-          | Just (l',ns) -> l = l'
+          | Just (l',_) -> l = l'
         end
   end
 
@@ -131,7 +150,7 @@ let build_conv envC cn vs =
     | Just id ->
         match nsLookup envC id with
           | Nothing -> Nothing
-          | Just (len,t) -> Just (Conv (Just (id_to_n id, t)) vs)
+          | Just (len,stamp) -> Just (Conv (Just stamp) vs)
         end
   end
 
@@ -151,20 +170,19 @@ type match_result 'a =
   | Match_type_error
   | Match of 'a
 
-val same_tid : tid_or_exn -> tid_or_exn -> bool
-let rec same_tid (TypeId tn1) (TypeId tn2) = tn1 = tn2
-and same_tid (TypeExn _) (TypeExn _) = true
-and same_tid _ _ = false
+val same_type : stamp -> stamp -> bool
+let rec same_type (TypeStamp _ n1) (TypeStamp _ n2) = n1 = n2
+and same_type (ExnStamp _) (ExnStamp _) = true
+and same_type _ _ = false
 
-val same_ctor : conN * tid_or_exn -> conN * tid_or_exn -> bool
-let rec same_ctor (cn1, TypeExn mn1) (cn2, TypeExn mn2) = cn1 = cn2 && mn1 = mn2
-and same_ctor (cn1, _) (cn2, _) = cn1 = cn2
+val same_ctor : stamp -> stamp -> bool
+let same_ctor stamp1 stamp2 = stamp1 = stamp2
 
-val ctor_same_type : maybe (conN * tid_or_exn) -> maybe (conN * tid_or_exn) -> bool
+val ctor_same_type : maybe stamp -> maybe stamp -> bool
 let ctor_same_type c1 c2 =
   match (c1,c2) with
     | (Nothing, Nothing) -> true
-    | (Just (_,t1), Just (_,t2)) -> same_tid t1 t2
+    | (Just stamp1, Just stamp2) -> same_type stamp1 stamp2
     | _ -> false
   end
 
@@ -190,12 +208,15 @@ pmatch envC s (Plit l) (Litv l') env =
   else
     Match_type_error
 and
-pmatch envC s (Pcon (Just n) ps) (Conv (Just (n', t')) vs) env =
+pmatch envC s (Pcon (Just n) ps) (Conv (Just stamp') vs) env =
   match nsLookup envC n with
-    | Just (l, t) ->
-        if same_tid t t' && List.length ps = l then
-          if same_ctor (id_to_n n, t) (n',t') then
-            pmatch_list envC s ps vs env
+    | Just (l,stamp) ->
+        if same_type stamp stamp' && List.length ps = l then
+          if same_ctor stamp stamp' then
+            if List.length vs = l then
+              pmatch_list envC s ps vs env
+            else
+              Match_type_error
           else
             No_match
         else
@@ -304,9 +325,6 @@ do_eq_list (v1::vs1) (v2::vs2) =
 and
 do_eq_list _ _ = Eq_val false
 
-val prim_exn : conN -> v
-let prim_exn cn = Conv (Just (cn, TypeExn (Short cn))) []
-
 (* Do an application *)
 val do_opapp : list v -> maybe (sem_env v * exp)
 let do_opapp vs =
@@ -326,13 +344,13 @@ let do_opapp vs =
 
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 val v_to_list : v -> maybe (list v)
-let rec v_to_list (Conv (Just (cn, TypeId (Short tn))) []) =
-  if cn = "nil" && tn = "list" then
+let rec v_to_list (Conv (Just stamp) []) =
+  if stamp = TypeStamp "[]" list_type_num then
     Just []
   else
     Nothing
-and v_to_list (Conv (Just (cn,TypeId (Short tn))) [v1;v2]) =
-  if cn = "::"  && tn = "list" then
+and v_to_list (Conv (Just stamp) [v1;v2]) =
+  if stamp = TypeStamp "::" list_type_num then
     match v_to_list v2 with
       | Just vs -> Just (v1::vs)
       | Nothing -> Nothing
@@ -342,17 +360,17 @@ and v_to_list (Conv (Just (cn,TypeId (Short tn))) [v1;v2]) =
 and v_to_list _ = Nothing
 
 val list_to_v : list v -> v
-let rec list_to_v [] = Conv (Just ("nil", TypeId (Short "list"))) []
-and list_to_v (x::xs) = Conv (Just ("::", TypeId (Short "list"))) [x; list_to_v xs]
+let rec list_to_v [] = Conv (Just (TypeStamp "[]" list_type_num)) []
+and list_to_v (x::xs) = Conv (Just (TypeStamp "::" list_type_num)) [x; list_to_v xs]
 
 val v_to_char_list : v -> maybe (list char)
-let rec v_to_char_list (Conv (Just (cn, TypeId (Short tn))) []) =
-  if cn = "nil" && tn = "list" then
+let rec v_to_char_list (Conv (Just stamp) []) =
+  if stamp = TypeStamp "[]" list_type_num then
     Just []
   else
     Nothing
-and v_to_char_list (Conv (Just (cn,TypeId (Short tn))) [Litv (Char c);v]) =
-  if cn = "::"  && tn = "list" then
+and v_to_char_list (Conv (Just stamp) [Litv (Char c);v]) =
+  if stamp = TypeStamp "::" list_type_num then
     match v_to_char_list v with
       | Just cs -> Just (c::cs)
       | Nothing -> Nothing
@@ -442,8 +460,8 @@ end
 
 val Boolv : bool -> v
 let Boolv b = if b
-  then Conv (Just ("true", TypeId (Short "bool"))) []
-  else Conv (Just ("false", TypeId (Short "bool"))) []
+  then Conv (Just (TypeStamp "True" bool_type_num)) []
+  else Conv (Just (TypeStamp "False" bool_type_num)) []
 
 type exp_or_val =
   | Exp of exp
@@ -461,7 +479,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
       end
     | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just ((s,t), Rerr (Rraise (prim_exn "Div")))
+          Just ((s,t), Rerr (Rraise div_exn_v))
         else
           Just ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
@@ -470,6 +488,8 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) ->
         Just ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+    | (FP_top top, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) ->
+        Just ((s,t), Rval (Litv (Word64 (fp_top top w1 w2 w3))))
     | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) ->
         Just ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
     | (FP_uop uop, [Litv (Word64 w)]) ->
@@ -500,7 +520,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         end
     | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) ->
         if n < 0 then
-          Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          Just ((s,t), Rerr (Rraise sub_exn_v))
         else
           let (s',lnum) =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
@@ -510,11 +530,11 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
-                Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+                Just ((s,t), Rerr (Rraise sub_exn_v))
               else
                 let n = natFromInteger i in
                   if n >= List.length ws then
-                    Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+                    Just ((s,t), Rerr (Rraise sub_exn_v))
                   else
                     Just ((s,t), Rval (Litv (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
@@ -529,11 +549,11 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
-              Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+              Just ((s,t), Rerr (Rraise sub_exn_v))
             else
               let n = natFromInteger i in
                 if n >= List.length ws then
-                  Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+                  Just ((s,t), Rerr (Rraise sub_exn_v))
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
@@ -552,7 +572,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) ->
         Just ((s,t),
         match copy_array (toCharList str,off) len Nothing with
-        | Nothing -> Rerr (Rraise (prim_exn "Subscript"))
+        | Nothing -> Rerr (Rraise sub_exn_v)
         | Just cs -> Rval (Litv(StrLit(toString(cs))))
         end)
     | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
@@ -560,7 +580,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         match store_lookup dst s with
         | Just (W8array ws) ->
             match copy_array (toCharList str,off) len (Just(ws_to_chars ws,dstoff)) with
-            | Nothing -> Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+            | Nothing -> Just ((s,t), Rerr (Rraise sub_exn_v))
             | Just cs ->
               match store_assign dst (W8array (chars_to_ws cs)) s with
               | Just s' ->  Just ((s',t), Rval (Conv Nothing []))
@@ -574,7 +594,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
       | Just (W8array ws) ->
         Just ((s,t),
           match copy_array (ws,off) len Nothing with
-          | Nothing -> Rerr (Rraise (prim_exn "Subscript"))
+          | Nothing -> Rerr (Rraise sub_exn_v)
           | Just ws -> Rval (Litv(StrLit(toString(ws_to_chars ws))))
           end)
       | _ -> Nothing
@@ -584,7 +604,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
       match (store_lookup src s, store_lookup dst s) with
       | (Just (W8array ws), Just (W8array ds)) ->
           match copy_array (ws,off) len (Just(ds,dstoff)) with
-          | Nothing -> Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          | Nothing -> Just ((s,t), Rerr (Rraise sub_exn_v))
           | Just ws ->
               match store_assign dst (W8array ws) s with
               | Just s' -> Just ((s',t), Rval (Conv Nothing []))
@@ -598,7 +618,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
     | (Chr, [Litv (IntLit i)]) ->
         Just ((s,t),
           if i < 0 || i > 255 then
-            Rerr (Rraise (prim_exn "Chr"))
+            Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(String_extra.chr(natFromInteger i)))))
     | (Chopb op, [Litv (Char c1); Litv (Char c2)]) ->
@@ -611,11 +631,11 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           end
     | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) ->
         if i < 0 then
-          Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          Just ((s,t), Rerr (Rraise sub_exn_v))
         else
           let n = natFromInteger i in
             if n >= stringLength str then
-              Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+              Just ((s,t), Rerr (Rraise sub_exn_v))
             else
               Just ((s,t), Rval (Litv (Char (List_extra.nth (toCharList str) n))))
     | (Strlen, [Litv (StrLit str)]) ->
@@ -638,18 +658,18 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
           end
     | (Vsub, [Vectorv vs; Litv (IntLit i)]) ->
         if i < 0 then
-          Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          Just ((s,t), Rerr (Rraise sub_exn_v))
         else
           let n = natFromInteger i in
             if n >= List.length vs then
-              Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+              Just ((s,t), Rerr (Rraise sub_exn_v))
             else
               Just ((s,t), Rval (List_extra.nth vs n))
     | (Vlength, [Vectorv vs]) ->
         Just ((s,t), Rval (Litv (IntLit (integerFromNat (List.length vs)))))
     | (Aalloc, [Litv (IntLit n); v]) ->
         if n < 0 then
-          Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+          Just ((s,t), Rerr (Rraise sub_exn_v))
         else
           let (s',lnum) =
             store_alloc (Varray (List.replicate (natFromInteger n) v)) s
@@ -662,11 +682,11 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         match store_lookup lnum s with
           | Just (Varray vs) ->
               if i < 0 then
-                Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+                Just ((s,t), Rerr (Rraise sub_exn_v))
               else
                 let n = natFromInteger i in
                   if n >= List.length vs then
-                    Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+                    Just ((s,t), Rerr (Rraise sub_exn_v))
                   else
                     Just ((s,t), Rval (List_extra.nth vs n))
           | _ -> Nothing
@@ -681,11 +701,11 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         match store_lookup lnum s with
         | Just (Varray vs) ->
             if i < 0 then
-              Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+              Just ((s,t), Rerr (Rraise sub_exn_v))
             else
               let n = natFromInteger i in
                 if n >= List.length vs then
-                  Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
+                  Just ((s,t), Rerr (Rraise sub_exn_v))
                 else
                   match store_assign lnum (Varray (List.update vs n v)) s with
                     | Nothing -> Nothing
@@ -715,13 +735,12 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
 (* Do a logical operation *)
 val do_log : lop -> v -> exp -> maybe exp_or_val
 let do_log l v e =
-  match (l, v) with
-    | (And, Conv (Just ("true", TypeId (Short "bool"))) []) -> Just (Exp e)
-    | (Or, Conv (Just ("false", TypeId (Short "bool"))) []) -> Just (Exp e)
-    | (_, Conv (Just ("true", TypeId (Short "bool"))) []) -> Just (Val v)
-    | (_, Conv (Just ("false", TypeId (Short "bool"))) []) -> Just (Val v)
-    | _ -> Nothing
-  end
+  if l = And && v = Boolv true || l = Or && v = Boolv false then
+    Just (Exp e)
+  else if l = And && v = Boolv false || l = Or && v = Boolv true then
+    Just (Val v)
+  else
+    Nothing
 
 (* Do an if-then-else *)
 val do_if : v -> exp -> exp -> maybe exp
@@ -735,24 +754,25 @@ let do_if v e1 e2 =
 
 (* Semantic helpers for definitions *)
 
+let build_constrs stamp condefs =
+  List.map
+    (fun (conN, ts) ->
+      (conN, (List.length ts, TypeStamp conN stamp)))
+    condefs
+
 (* Build a constructor environment for the type definition tds *)
-val build_tdefs : list modN -> list (list tvarN * typeN * list (conN * list t)) -> env_ctor
-let build_tdefs mn tds =
-  alist_to_ns
-    (List.reverse
-      (List.concat
-        (List.map
-          (fun (tvs, tn, condefs) ->
-             List.map
-               (fun (conN, ts) ->
-                  (conN, (List.length ts, TypeId (mk_id mn tn))))
-               condefs)
-          tds)))
+val build_tdefs : nat -> list (list tvarN * typeN * list (conN * list ast_t)) -> env_ctor
+let rec build_tdefs next_stamp [] = alist_to_ns []
+and build_tdefs next_stamp ((tvs,tn,condefs)::tds) =
+  nsAppend
+    (build_tdefs (next_stamp + 1) tds)
+    (alist_to_ns (List.reverse (build_constrs next_stamp condefs)))
+declare termination_argument build_tdefs = automatic
 
 (* Checks that no constructor is defined twice in a type *)
-val check_dup_ctors : list (list tvarN * typeN * list (conN * list t)) -> bool
-let check_dup_ctors tds =
-  List.allDistinct [ n | forall ((tvs, tn, condefs) MEM tds) ((n, ts) MEM condefs) | true ]
+val check_dup_ctors : list tvarN * typeN * list (conN * list ast_t) -> bool
+let check_dup_ctors (tvs, tn, condefs) =
+  List.allDistinct [ n | forall ((n, ts) MEM condefs) | true ]
 
 val combine_dec_result : forall 'a. sem_env v -> result (sem_env v) 'a -> result (sem_env v) 'a
 let combine_dec_result env r =
@@ -765,6 +785,7 @@ val extend_dec_env : sem_env v -> sem_env v -> sem_env v
 let extend_dec_env new_env env =
   <| c = nsAppend new_env.c env.c; v = nsAppend new_env.v env.v |>
 
+(*
 val decs_to_types : list dec -> list typeN
 let decs_to_types ds =
   List.concat (List.map (fun d ->
@@ -802,3 +823,4 @@ val no_dup_top_types : list top -> set tid_or_exn -> bool
 let no_dup_top_types tops defined_types =
   List.allDistinct (prog_to_top_types tops) &&
   disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) defined_types
+  *)

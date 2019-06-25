@@ -1,22 +1,22 @@
-POLYC = polyc
 MLTON = mlton
+MOSMLC = mosmlc
 
 SRCS = $(wildcard *.sml)
 
-PROGSP = $(patsubst %.sml,polyc_%,$(SRCS))
 PROGSM = $(patsubst %.sml,mlton_%,$(SRCS))
-PROGSS = $(patsubst %.sml,sml_%,$(SRCS))
+PROGSMINF = $(patsubst %.sml,mlton_intinf_%,$(SRCS))
+PROGSMOS = $(patsubst %.sml,mosml_%,$(SRCS))
 
-all: $(PROGSP) $(PROGSM) $(PROGSS)
-
-polyc_% : %.sml
-	$(POLYC) -o $@ $<
+all: $(PROGSM) $(PROGSMINF) $(PROGSMOS)
 
 mlton_% : %.sml
-	(sed '2d;1d;$$d' $< > temp.sml);cat temp.sml;	$(MLTON) -output $@ temp.sml ; rm temp.sml
+	- $(MLTON) -output $@ $<
 
-sml_% : %.sml
-	(sed '2d;1d;$$d' $< > $@)
+mlton_intinf_% : %.sml
+	- $(MLTON) -default-type intinf -output $@ $<
+
+mosml_% : %.sml
+	- $(MOSMLC) -orthodox -standalone -toplevel -o $@ $<
 
 clean:
-	rm $(PROGSP) $(PROGSM) $(PROGSS)
+	$(RM) mlton_* mlton_intif_* mosml_* *.ui *.uo

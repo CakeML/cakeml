@@ -1,3 +1,7 @@
+(*
+  A compset for evaluating the register allocators and parallel move
+  compiler.
+*)
 structure reg_allocComputeLib =
 struct
 
@@ -39,7 +43,6 @@ val add_reg_alloc_compset = extend_compset
     reg_allocTheory.unspill_def,
     reg_allocTheory.do_simplify_def,
     reg_allocTheory.inc_deg_def,
-    reg_allocTheory.pair_rename_def,
     reg_allocTheory.do_coalesce_real_def,
     reg_allocTheory.bg_ok_def,
     reg_allocTheory.is_Fixed_def,
@@ -51,6 +54,11 @@ val add_reg_alloc_compset = extend_compset
     reg_allocTheory.do_prefreeze_def,
     reg_allocTheory.do_freeze_def,
     reg_allocTheory.safe_div_def,
+    reg_allocTheory.sorted_insert_def,
+    reg_allocTheory.sorted_mem_def,
+    reg_allocTheory.update_move_def,
+    reg_allocTheory.coalesce_parent_def,
+    reg_allocTheory.do_upd_coalesce_def,
     miscTheory.lookup_any_def,
     reg_allocTheory.st_ex_list_MIN_cost_def,
     reg_allocTheory.do_spill_def,

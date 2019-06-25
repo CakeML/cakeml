@@ -1,3 +1,6 @@
+(*
+  The formal semantics of labLang
+*)
 open preamble labLangTheory wordSemTheory;
 local open alignmentTheory targetSemTheory in end;
 
@@ -16,7 +19,8 @@ val _ = Datatype `
      ; pc         : num
      ; be         : bool
      ; ffi        : 'ffi ffi_state  (* oracle *)
-     ; io_regs    : num -> num -> 'a word option  (* oracle: sequence of havoc on registers at each FFI call *)
+                  (* oracle: sequence of havoc on registers at each FFI call *)
+     ; io_regs    : num (* seq number *) -> string (* ffi name *) -> num (* register *) -> 'a word option
      ; cc_regs    : num -> num -> 'a word option (* same as io_regs but for calling clear cache *)
      ; code       : 'a labLang$prog
      ; compile    : 'c -> 'a labLang$prog -> (word8 list # 'c) option
@@ -168,6 +172,9 @@ val fp_upd_def = Define `
   (fp_upd (FPDiv d1 d2 d3) s =
      upd_fp_reg d1
        (fp64_div roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPFma d1 d2 d3) s =
+     upd_fp_reg d1
+       (fpSem$fpfma (read_fp_reg d1 s) (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
   (fp_upd (FPMovToReg r1 r2 d) s =
      if dimindex(:'a) = 64 then
        upd_reg r1 (Word (w2w (read_fp_reg d s))) s
@@ -304,8 +311,8 @@ val loc_to_pc_def = Define `
              | NONE => NONE
              | SOME pos => SOME (pos + 1:num))`;
 
-val asm_inst_consts = Q.store_thm("asm_inst_consts",
-  `((asm_inst i s).pc = s.pc) /\
+Theorem asm_inst_consts:
+   ((asm_inst i s).pc = s.pc) /\
    ((asm_inst i s).code = s.code) /\
    ((asm_inst i s).clock = s.clock) /\
    ((asm_inst i s).ffi = s.ffi) ∧
@@ -313,7 +320,8 @@ val asm_inst_consts = Q.store_thm("asm_inst_consts",
    ((asm_inst i s).len_reg = s.len_reg) ∧
    ((asm_inst i s).ptr2_reg = s.ptr2_reg) ∧
    ((asm_inst i s).len2_reg = s.len2_reg) ∧
-   ((asm_inst i s).link_reg = s.link_reg)`,
+   ((asm_inst i s).link_reg = s.link_reg)
+Proof
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   >-
     (Cases_on `a`
@@ -329,7 +337,8 @@ val asm_inst_consts = Q.store_thm("asm_inst_consts",
   >>
     Cases_on`f`
     \\ fs[fp_upd_def,upd_reg_def,upd_fp_reg_def,assert_def]
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]) ;
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]
+QED ;
 
 val get_pc_value_def = Define `
   get_pc_value lab (s:('a,'c,'ffi) labSem$state) =
@@ -354,10 +363,6 @@ val get_lab_after_pos_def = Define `
 
 val get_ret_Loc_def = Define `
   get_ret_Loc s = get_lab_after s.pc s.code`;
-
-val get_reg_value_def = Define `
-  (get_reg_value NONE w f = w) /\
-  (get_reg_value (SOME v) _ f = f v)`
 
 val evaluate_def = tDefine "evaluate" `
   evaluate (s:('a,'c,'ffi) labSem$state) =
@@ -460,7 +465,7 @@ val evaluate_def = tDefine "evaluate" `
                                    mem := new_m ;
                                    ffi := new_ffi ;
                                    io_regs := new_io_regs ;
-                                   regs := (\a. get_reg_value (s.io_regs 0 a)
+                                   regs := (\a. get_reg_value (s.io_regs 0 ffi_index a)
                                                   (s.regs a) Word);
                                    pc := new_pc ;
                                    clock := s.clock - 1 |>))

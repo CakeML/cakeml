@@ -1,3 +1,7 @@
+(*
+  Automation that shows how asm instructions are encoded for the
+  different archs. See examples at the end of the file.
+*)
 structure encodeLib :> encodeLib =
 struct
 
@@ -114,7 +118,7 @@ local
   fun reduce_literal_conv tm =
     if fst (wordsSyntax.dest_mod_word_literal tm) =
        wordsSyntax.dest_word_literal tm
-      then raise ERR "reduce_literal" "already reduced"
+      then raise mk_HOL_ERR "encodeLib" "reduce_literal" "already reduced"
     else cnv tm
   val REDUCE_LITERALS_CONV = Conv.DEPTH_CONV reduce_literal_conv
 in
@@ -179,7 +183,7 @@ fun encoding q =
     }
   end
 
-datatype arch = Compare | All | ARMv6 | ARMv8 | MIPS | RISCV | x86_64
+datatype arch = Compare | All | ARMv7 | ARMv8 | MIPS | RISCV | x86_64
 
 fun encodings arches l =
   let
@@ -195,7 +199,7 @@ fun encodings arches l =
                         ( print_heading "ASM"
                         ; asm NONE
                         ; print "\n"
-                        ; pr "ARMv6" ARMv6 arm6
+                        ; pr "ARMv7" ARMv7 arm6
                         ; pr "ARMv8" ARMv8 arm8
                         ; pr "MIPS-64" MIPS mips
                         ; pr "RISC-V" RISCV riscv
@@ -208,14 +212,14 @@ fun encodings arches l =
                then ( print_heading h
                     ; General.ignore
                         (List.app (fn p => ( print (UTF8.chr 0x2022 ^ " ")
-                                           ; #asm p (SOME (a <> ARMv6))
+                                           ; #asm p (SOME (a <> ARMv7))
                                            ; print "\n"
                                            ; f p ()
                                            ; print "\n")) es)
                     )
              else ()
          in
-           pr "ARMv6" ARMv6 (#arm6)
+           pr "ARMv7" ARMv7 (#arm6)
          ; pr "ARMv8" ARMv8 (#arm8)
          ; pr "MIPS-64" MIPS (#mips)
          ; pr "RISC-V" RISCV (#riscv)
@@ -227,7 +231,7 @@ fun encodings arches l =
 
 open encodeLib
 
-val () = Count.apply (encodings [ARMv6, ARMv8, MIPS, RISCV])
+val () = Count.apply (encodings [ARMv7, ARMv8, MIPS, RISCV])
    [
     `Inst (Arith (LongMul 4 5 6 7))`
    ]
@@ -271,7 +275,7 @@ val () = Count.apply (encodings [All])
     `Loc 6 0xF00w`
    ]
 
-val () = Count.apply (encodings [ARMv6, MIPS])
+val () = Count.apply (encodings [ARMv7, MIPS])
    [
     `Inst (FP (FPLess 3 4 5))`,
     `Inst (FP (FPLessEqual 3 4 5))`,

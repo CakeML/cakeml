@@ -1,11 +1,13 @@
+(*
+  BVL transformation that introduces a Let into each Handle
+  body. This is preparation for BVL --> BVI compilation.  This phase
+  also removes Handles in case the body cannot raise an exception.
+*)
 open preamble bvlTheory db_varsTheory bvl_constTheory;
 
 val _ = new_theory "bvl_handle";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-(* BVL transformation that introduces a Let into each Handle
-   body. This is preparation for BVL --> BVI compilation.  This phase
-   also removes Handles in case the body cannot raise an exception. *)
 
 val SmartLet_def = Define `
   SmartLet xs x = if NULL xs then x else Let xs x`
@@ -83,14 +85,17 @@ val dest_Seq_def = Define `
   (dest_Seq (Let [e1;e2] (Var 1)) = SOME (e1,e2)) /\
   (dest_Seq _ = NONE)`
 
-val dest_Seq_pmatch = Q.store_thm("dest_Seq_pmatch",`∀exp.
+Theorem dest_Seq_pmatch:
+  ∀exp.
   dest_Seq exp =
     case exp of
       Let [e1;e2] (Var 1) => SOME (e1,e2)
-     | _ => NONE`,
+     | _ => NONE
+Proof
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[dest_Seq_def])
+  >> fs[dest_Seq_def]
+QED
 
 val compile_seqs_def = tDefine "compile_seqs" `
   compile_seqs cut_size e acc =
@@ -113,17 +118,21 @@ val compile_any_def = Define `
     else
       compile_exp cut_size arity e`;
 
-val compile_length = Q.store_thm("compile_length[simp]",
-  `!l n xs. LENGTH (FST (compile l n xs)) = LENGTH xs`,
+Theorem compile_length[simp]:
+   !l n xs. LENGTH (FST (compile l n xs)) = LENGTH xs
+Proof
   HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ fs [compile_def,ADD1,LET_DEF]
-  \\ rpt (pairarg_tac \\ fs []) \\ rw [OptionalLetLet_def]);
+  \\ rpt (pairarg_tac \\ fs []) \\ rw [OptionalLetLet_def]
+QED
 
-val compile_sing = Q.store_thm("compile_sing",
-  `compile l n [x] = (dx,lx,s) ==> ?y. dx = [y]`,
+Theorem compile_sing:
+   compile l n [x] = (dx,lx,s) ==> ?y. dx = [y]
+Proof
   `LENGTH (FST (compile l n [x])) = LENGTH [x]` by fs []
   \\ rpt strip_tac \\ full_simp_tac std_ss [LENGTH]
-  \\ Cases_on `dx` \\ fs [LENGTH_NIL]);
+  \\ Cases_on `dx` \\ fs [LENGTH_NIL]
+QED
 
 val compile_seqs_compute = save_thm("compile_seqs_compute",
   LIST_CONJ [

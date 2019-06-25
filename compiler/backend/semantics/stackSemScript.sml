@@ -1,6 +1,16 @@
-open preamble stackLangTheory wordSemTheory labSemTheory;
+(*
+  The formal semantics of stackLang
+*)
+
+open preamble stackLangTheory
+local open wordSemTheory labSemTheory in end
 
 val _ = new_theory"stackSem";
+
+val _ = set_grammar_ancestry
+  ["stackLang",
+   "wordSem" (* for word_loc *)
+  ];
 
 val _ = Datatype `
   result = Result ('w word_loc)
@@ -34,24 +44,28 @@ val map_bitmap_def = Define `
      | SOME (xs,ys,zs) => SOME (t::xs,ys,zs)) /\
   (map_bitmap _ _ _ = NONE)`
 
-val filter_bitmap_LENGTH = Q.store_thm("filter_bitmap_LENGTH",
-  `!bs xs x y. (filter_bitmap bs xs = SOME (x,y)) ==> LENGTH y <= LENGTH xs`,
+Theorem filter_bitmap_LENGTH:
+   !bs xs x y. (filter_bitmap bs xs = SOME (x,y)) ==> LENGTH y <= LENGTH xs
+Proof
   Induct \\ fs [filter_bitmap_def] \\ Cases_on `xs` \\ TRY (Cases_on `h`)
   \\ fs [filter_bitmap_def] \\ Cases \\ fs [filter_bitmap_def]
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ res_tac
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
-  \\ res_tac \\ decide_tac);
+  \\ res_tac \\ decide_tac
+QED
 
-val map_bitmap_LENGTH = Q.store_thm("map_bitmap_LENGTH",
-  `!t1 t2 t3 x y z. (map_bitmap t1 t2 t3 = SOME (x,y,z)) ==>
+Theorem map_bitmap_LENGTH:
+   !t1 t2 t3 x y z. (map_bitmap t1 t2 t3 = SOME (x,y,z)) ==>
                    LENGTH y ≤ LENGTH t2 ∧
-                   LENGTH z <= LENGTH t3`,
+                   LENGTH z <= LENGTH t3
+Proof
   Induct \\ fs [map_bitmap_def] \\ Cases_on `t2` \\ Cases_on `t3`
   \\ TRY (Cases_on `h`)
   \\ fs [map_bitmap_def] \\ Cases \\ fs [map_bitmap_def]
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ res_tac
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
-  \\ res_tac \\ fs[] \\ decide_tac);
+  \\ res_tac \\ fs[] \\ decide_tac
+QED
 
 val read_bitmap_def = Define `
   (read_bitmap [] = NONE) /\
@@ -409,6 +423,11 @@ val inst_def = Define `
       | (SOME f1,SOME f2) =>
         SOME (set_fp_var d1 (fp64_div roundTiesToEven f1 f2) s)
       | _ => NONE)
+    | FP (FPFma d1 d2 d3) =>
+      (case (get_fp_var d1 s, get_fp_var d2 s, get_fp_var d3 s) of
+      | (SOME f1, SOME f2, SOME f3) =>
+        SOME (set_fp_var d1 (fpSem$fpfma f1 f2 f3) s)
+      | _ => NONE)
     | FP (FPMovToReg r1 r2 d) =>
       (case get_fp_var d s of
       | SOME v =>
@@ -731,14 +750,17 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases. *)
 
-val gc_clock = Q.store_thm("gc_clock",
-  `!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock`,
+Theorem gc_clock:
+   !s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock
+Proof
   fs [gc_def,LET_DEF] \\ SRW_TAC [] []
   \\ every_case_tac >> fs[]
-  \\ SRW_TAC [] [] \\ fs []);
+  \\ SRW_TAC [] [] \\ fs []
+QED
 
-val alloc_clock = Q.store_thm("alloc_clock",
-  `!xs s1 vs s2. (alloc x s1 = (vs,s2)) ==> s2.clock <= s1.clock`,
+Theorem alloc_clock:
+   !xs s1 vs s2. (alloc x s1 = (vs,s2)) ==> s2.clock <= s1.clock
+Proof
   SIMP_TAC std_ss [alloc_def] \\ REPEAT STRIP_TAC
   \\ every_case_tac \\ SRW_TAC [] [] \\ fs []
   \\ Q.ABBREV_TAC `s3 = set_store AllocSize (Word x) s1`
@@ -746,7 +768,8 @@ val alloc_clock = Q.store_thm("alloc_clock",
   \\ IMP_RES_TAC gc_clock \\ fs []
   \\ UNABBREV_ALL_TAC \\ fs []
   \\ Cases_on `x'` \\ fs [] \\ SRW_TAC [] []
-  \\ EVAL_TAC \\ decide_tac);
+  \\ EVAL_TAC \\ decide_tac
+QED
 
 val inst_clock = Q.prove(
   `inst i s = SOME s2 ==> s2.clock <= s.clock`,
@@ -755,11 +778,12 @@ val inst_clock = Q.prove(
   \\ fs [mem_store_def] \\ SRW_TAC [] []\\
   EVAL_TAC \\ fs[]);
 
-val evaluate_clock = Q.store_thm("evaluate_clock",
-  `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
+Theorem evaluate_clock:
+   !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
+Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
-  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def,STOP_def]
+  \\ FULL_SIMP_TAC std_ss [STOP_def]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ fs []
   \\ rpt (every_case_tac \\ fs []
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [empty_env_def]
@@ -770,15 +794,18 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
     \\ every_case_tac \\ fs []
     \\ imp_res_tac fix_clock_IMP \\ fs []
     \\ imp_res_tac LESS_EQ_TRANS \\ fs [] \\ rfs []
-    \\ TRY decide_tac));
+    \\ TRY decide_tac)
+QED
 
-val fix_clock_evaluate = Q.store_thm("fix_clock_evaluate",
-  `fix_clock s (evaluate (xs,s)) = evaluate (xs,s)`,
+Theorem fix_clock_evaluate:
+   fix_clock s (evaluate (xs,s)) = evaluate (xs,s)
+Proof
   Cases_on `evaluate (xs,s)` \\ fs [fix_clock_def]
   \\ imp_res_tac evaluate_clock
-  \\ fs [MIN_DEF,GSYM NOT_LESS,theorem "state_component_equality"]);
+  \\ fs [MIN_DEF,GSYM NOT_LESS,theorem "state_component_equality"]
+QED
 
-val evaluate_def = save_thm("evaluate_def",
+val evaluate_def = save_thm("evaluate_def[compute]",
   REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 val evaluate_ind = save_thm("evaluate_ind",

@@ -1,66 +1,101 @@
+(*
+  Properties about BVI and its semantics
+*)
 open preamble bviSemTheory;
 local open bvlPropsTheory in end;
 
 val _ = new_theory"bviProps";
 
-val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
-  `(initial_state f c co cc k).code = c ∧
+Theorem initial_state_simp[simp]:
+   (initial_state f c co cc k).code = c ∧
    (initial_state f c co cc k).ffi = f ∧
    (initial_state f c co cc k).clock = k ∧
    (initial_state f c co cc k).compile = cc ∧
    (initial_state f c co cc k).compile_oracle = co ∧
    (initial_state f c co cc k).refs = FEMPTY ∧
-   (initial_state f c co cc k).global = NONE`,
-   srw_tac[][initial_state_def]);
+   (initial_state f c co cc k).global = NONE
+Proof
+   srw_tac[][initial_state_def]
+QED
 
-val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
-  `initial_state f c co cc k with clock := k1 = initial_state f c co cc k1 ∧
-   initial_state f c co cc k with code := c1 = initial_state f c1 co cc k`,
-  EVAL_TAC);
+Theorem initial_state_with_simp[simp]:
+   initial_state f c co cc k with clock := k1 = initial_state f c co cc k1 ∧
+   initial_state f c co cc k with code := c1 = initial_state f c1 co cc k
+Proof
+  EVAL_TAC
+QED
 
-val bvl_to_bvi_id = Q.store_thm("bvl_to_bvi_id",
-  `bvl_to_bvi (bvi_to_bvl s) s = s`,
-  EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality]);
+Theorem bvl_to_bvi_id:
+   bvl_to_bvi (bvi_to_bvl s) s = s
+Proof
+  EVAL_TAC \\ full_simp_tac(srw_ss())[bviSemTheory.state_component_equality]
+QED
 
-val bvl_to_bvi_with_refs = Q.store_thm("bvl_to_bvi_with_refs",
-  `bvl_to_bvi (x with refs := y) z = bvl_to_bvi x z with <| refs := y |>`,
-  EVAL_TAC)
+Theorem bvl_to_bvi_with_refs:
+   bvl_to_bvi (x with refs := y) z = bvl_to_bvi x z with <| refs := y |>
+Proof
+  EVAL_TAC
+QED
 
-val bvl_to_bvi_with_clock = Q.store_thm("bvl_to_bvi_with_clock",
-  `bvl_to_bvi (x with clock := y) z = bvl_to_bvi x z with <| clock := y |>`,
-  EVAL_TAC)
+Theorem bvl_to_bvi_with_clock:
+   bvl_to_bvi (x with clock := y) z = bvl_to_bvi x z with <| clock := y |>
+Proof
+  EVAL_TAC
+QED
 
-val bvl_to_bvi_with_ffi = Q.store_thm("bvl_to_bvi_with_ffi",
-  `bvl_to_bvi (x with ffi := y) z = bvl_to_bvi x z with ffi := y`,
-  EVAL_TAC)
+Theorem bvl_to_bvi_with_ffi:
+   bvl_to_bvi (x with ffi := y) z = bvl_to_bvi x z with ffi := y
+Proof
+  EVAL_TAC
+QED
 
-val bvl_to_bvi_code = Q.store_thm("bvl_to_bvi_code[simp]",
-  `(bvl_to_bvi x y).code = y.code`,
-  EVAL_TAC)
+Theorem bvl_to_bvi_code[simp]:
+   (bvl_to_bvi x y).code = y.code
+Proof
+  EVAL_TAC
+QED
 
-val bvl_to_bvi_clock = Q.store_thm("bvl_to_bvi_clock[simp]",
-  `(bvl_to_bvi x y).clock = x.clock`,
-  EVAL_TAC)
+Theorem bvl_to_bvi_clock[simp]:
+   (bvl_to_bvi x y).clock = x.clock
+Proof
+  EVAL_TAC
+QED
 
-val bvi_to_bvl_refs = Q.store_thm("bvi_to_bvl_refs[simp]",
-  `(bvi_to_bvl x).refs = x.refs`, EVAL_TAC)
+Theorem bvi_to_bvl_refs[simp]:
+   (bvi_to_bvl x).refs = x.refs
+Proof
+EVAL_TAC
+QED
 
-val bvi_to_bvl_code = Q.store_thm("bvi_to_bvl_code[simp]",
-  `(bvi_to_bvl x).code = map (K ARB) x.code`, EVAL_TAC)
+Theorem bvi_to_bvl_code[simp]:
+   (bvi_to_bvl x).code = map (K ARB) x.code
+Proof
+EVAL_TAC
+QED
 
-val bvi_to_bvl_clock = Q.store_thm("bvi_to_bvl_clock[simp]",
-  `(bvi_to_bvl x).clock = x.clock`, EVAL_TAC)
+Theorem bvi_to_bvl_clock[simp]:
+   (bvi_to_bvl x).clock = x.clock
+Proof
+EVAL_TAC
+QED
 
-val bvi_to_bvl_ffi = Q.store_thm("bvi_to_bvl_ffi[simp]",
-  `(bvi_to_bvl x).ffi = x.ffi`, EVAL_TAC);
+Theorem bvi_to_bvl_ffi[simp]:
+   (bvi_to_bvl x).ffi = x.ffi
+Proof
+EVAL_TAC
+QED
 
-val bvi_to_bvl_to_bvi_with_ffi = Q.store_thm("bvi_to_bvl_to_bvi_with_ffi",
-  `bvl_to_bvi (bvi_to_bvl x with ffi := f) x = x with ffi := f`,
-  EVAL_TAC \\ rw[state_component_equality]);
+Theorem bvi_to_bvl_to_bvi_with_ffi:
+   bvl_to_bvi (bvi_to_bvl x with ffi := f) x = x with ffi := f
+Proof
+  EVAL_TAC \\ rw[state_component_equality]
+QED
 
-val domain_bvi_to_bvl_code = Q.store_thm("domain_bvi_to_bvl_code[simp]",
-  `domain (bvi_to_bvl s).code = domain s.code`,
-  srw_tac[][bvi_to_bvl_def,domain_map])
+Theorem domain_bvi_to_bvl_code[simp]:
+   domain (bvi_to_bvl s).code = domain s.code
+Proof
+  srw_tac[][bvi_to_bvl_def,domain_map]
+QED
 
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def };
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def };
@@ -98,40 +133,47 @@ val evaluate_LENGTH = Q.prove(
 
 val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
 
-val evaluate_IMP_LENGTH = Q.store_thm("evaluate_IMP_LENGTH",
-  `(evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)`,
-  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_LENGTH) \\ full_simp_tac(srw_ss())[]);
+Theorem evaluate_IMP_LENGTH:
+   (evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)
+Proof
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_LENGTH) \\ full_simp_tac(srw_ss())[]
+QED
 
-val evaluate_SING_IMP = Q.store_thm("evaluate_SING_IMP",
-  `(evaluate ([x],env,s1) = (Rval vs,s2)) ==> ?w. vs = [w]`,
+Theorem evaluate_SING_IMP:
+   (evaluate ([x],env,s1) = (Rval vs,s2)) ==> ?w. vs = [w]
+Proof
   REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate_IMP_LENGTH
   \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);
+  \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []
+QED
 
-val evaluate_CONS = Q.store_thm("evaluate_CONS",
-  `evaluate (x::xs,env,s) =
+Theorem evaluate_CONS:
+   evaluate (x::xs,env,s) =
       case evaluate ([x],env,s) of
       | (Rval v,s2) =>
          (case evaluate (xs,env,s2) of
           | (Rval vs,s1) => (Rval (HD v::vs),s1)
           | t => t)
-      | t => t`,
+      | t => t
+Proof
   Cases_on `xs` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ Cases_on `evaluate ([x],env,s)` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ Cases_on `q` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ IMP_RES_TAC evaluate_IMP_LENGTH
   \\ Cases_on `a` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]);
+  \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]
+QED
 
-val evaluate_SNOC = Q.store_thm("evaluate_SNOC",
-  `!xs env s x.
+Theorem evaluate_SNOC:
+   !xs env s x.
       evaluate (SNOC x xs,env,s) =
       case evaluate (xs,env,s) of
       | (Rval vs,s2) =>
          (case evaluate ([x],env,s2) of
           | (Rval v,s1) => (Rval (vs ++ v),s1)
           | t => t)
-      | t => t`,
+      | t => t
+Proof
   Induct THEN1
    (full_simp_tac(srw_ss())[SNOC_APPEND,evaluate_def] \\ REPEAT STRIP_TAC
     \\ Cases_on `evaluate ([x],env,s)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[])
@@ -143,84 +185,119 @@ val evaluate_SNOC = Q.store_thm("evaluate_SNOC",
   \\ Cases_on `evaluate ([x],env,r')` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ IMP_RES_TAC evaluate_IMP_LENGTH
   \\ Cases_on `a''` \\ full_simp_tac(srw_ss())[LENGTH]
-  \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ full_simp_tac(srw_ss())[]);
+  \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ full_simp_tac(srw_ss())[]
+QED
 
-val evaluate_APPEND = Q.store_thm("evaluate_APPEND",
-  `!xs env s ys.
+Theorem evaluate_APPEND:
+   !xs env s ys.
       evaluate (xs ++ ys,env,s) =
       case evaluate (xs,env,s) of
         (Rval vs,s2) =>
           (case evaluate (ys,env,s2) of
              (Rval ws,s1) => (Rval (vs ++ ws),s1)
            | res => res)
-      | res => res`,
+      | res => res
+Proof
   Induct \\ full_simp_tac(srw_ss())[APPEND,evaluate_def] \\ REPEAT STRIP_TAC
   >- every_case_tac
   \\ ONCE_REWRITE_TAC [evaluate_CONS]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+QED
 
 val inc_clock_def = Define `
   inc_clock n (s:('c,'ffi) bviSem$state) = s with clock := s.clock + n`;
 
-val inc_clock_ZERO = Q.store_thm("inc_clock_ZERO",
-  `!s. inc_clock 0 s = s`,
-  full_simp_tac(srw_ss())[inc_clock_def,state_component_equality]);
+Theorem inc_clock_ZERO:
+   !s. inc_clock 0 s = s
+Proof
+  full_simp_tac(srw_ss())[inc_clock_def,state_component_equality]
+QED
 
-val inc_clock_ADD = Q.store_thm("inc_clock_ADD",
-  `inc_clock n (inc_clock m s) = inc_clock (n+m) s`,
-  full_simp_tac(srw_ss())[inc_clock_def,state_component_equality,AC ADD_ASSOC ADD_COMM]);
+Theorem inc_clock_ADD:
+   inc_clock n (inc_clock m s) = inc_clock (n+m) s
+Proof
+  full_simp_tac(srw_ss())[inc_clock_def,state_component_equality,AC ADD_ASSOC ADD_COMM]
+QED
 
-val inc_clock_refs = Q.store_thm("inc_clock_refs[simp]",
-  `(inc_clock n s).refs = s.refs`,EVAL_TAC)
+Theorem inc_clock_refs[simp]:
+   (inc_clock n s).refs = s.refs
+Proof
+EVAL_TAC
+QED
 
-val inc_clock_code = Q.store_thm("inc_clock_code[simp]",
-  `(inc_clock n s).code = s.code`,EVAL_TAC)
+Theorem inc_clock_code[simp]:
+   (inc_clock n s).code = s.code
+Proof
+EVAL_TAC
+QED
 
-val inc_clock_global = Q.store_thm("inc_clock_global[simp]",
-  `(inc_clock n s).global = s.global`,
-  srw_tac[][inc_clock_def])
+Theorem inc_clock_global[simp]:
+   (inc_clock n s).global = s.global
+Proof
+  srw_tac[][inc_clock_def]
+QED
 
-val inc_clock_ffi = Q.store_thm("inc_clock_ffi[simp]",
-  `(inc_clock n s).ffi = s.ffi`,
-  srw_tac[][inc_clock_def])
+Theorem inc_clock_ffi[simp]:
+   (inc_clock n s).ffi = s.ffi
+Proof
+  srw_tac[][inc_clock_def]
+QED
 
-val inc_clock_clock = Q.store_thm("inc_clock_clock[simp]",
-  `(inc_clock n s).clock = s.clock + n`,
-  srw_tac[][inc_clock_def])
+Theorem inc_clock_clock[simp]:
+   (inc_clock n s).clock = s.clock + n
+Proof
+  srw_tac[][inc_clock_def]
+QED
 
-val dec_clock_global = Q.store_thm("dec_clock_global[simp]",
-  `(dec_clock n s).global = s.global`,
-  srw_tac[][dec_clock_def])
+Theorem dec_clock_global[simp]:
+   (dec_clock n s).global = s.global
+Proof
+  srw_tac[][dec_clock_def]
+QED
 
-val dec_clock_ffi = Q.store_thm("dec_clock_ffi[simp]",
-  `(dec_clock n s).ffi = s.ffi`,
-  srw_tac[][dec_clock_def])
+Theorem dec_clock_ffi[simp]:
+   (dec_clock n s).ffi = s.ffi
+Proof
+  srw_tac[][dec_clock_def]
+QED
 
-val dec_clock_refs = Q.store_thm("dec_clock_refs[simp]",
-  `(dec_clock n s).refs = s.refs`,
-  srw_tac[][dec_clock_def])
+Theorem dec_clock_refs[simp]:
+   (dec_clock n s).refs = s.refs
+Proof
+  srw_tac[][dec_clock_def]
+QED
 
-val dec_clock_with_code = Q.store_thm("dec_clock_with_code[simp]",
-  `bviSem$dec_clock n (s with code := c) = dec_clock n s with code := c`,
-  EVAL_TAC );
+Theorem dec_clock_with_code[simp]:
+   bviSem$dec_clock n (s with code := c) = dec_clock n s with code := c
+Proof
+  EVAL_TAC
+QED
 
-val dec_clock_code = Q.store_thm("dec_clock_code[simp]",
-  `(dec_clock n s).code = s.code`,
-  srw_tac[][dec_clock_def])
+Theorem dec_clock_code[simp]:
+   (dec_clock n s).code = s.code
+Proof
+  srw_tac[][dec_clock_def]
+QED
 
-val dec_clock_inv_clock = Q.store_thm("dec_clock_inv_clock",
-  `¬(t1.clock < ticks + 1) ==>
-    (dec_clock (ticks + 1) (inc_clock c t1) = inc_clock c (dec_clock (ticks + 1) t1))`,
-  full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def,state_component_equality] \\ DECIDE_TAC);
+Theorem dec_clock_inv_clock:
+   ¬(t1.clock < ticks + 1) ==>
+    (dec_clock (ticks + 1) (inc_clock c t1) = inc_clock c (dec_clock (ticks + 1) t1))
+Proof
+  full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def,state_component_equality] \\ DECIDE_TAC
+QED
 
-val dec_clock_inv_clock1 = Q.store_thm("dec_clock_inv_clock1",
-  `t1.clock <> 0 ==>
-    (dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1))`,
-  full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def,state_component_equality] \\ DECIDE_TAC);
+Theorem dec_clock_inv_clock1:
+   t1.clock <> 0 ==>
+    (dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1))
+Proof
+  full_simp_tac(srw_ss())[dec_clock_def,inc_clock_def,state_component_equality] \\ DECIDE_TAC
+QED
 
-val dec_clock0 = Q.store_thm ("dec_clock0[simp]",
-  `!n (s:('c,'ffi) bviSem$state). dec_clock 0 s = s`,
-  simp [dec_clock_def, state_component_equality]);
+Theorem dec_clock0[simp]:
+   !n (s:('c,'ffi) bviSem$state). dec_clock 0 s = s
+Proof
+  simp [dec_clock_def, state_component_equality]
+QED
 
 val do_app_inv_clock = Q.prove(
   `case do_app op (REVERSE a) s of
@@ -240,10 +317,11 @@ val do_app_inv_clock = Q.prove(
   \\ rfs [] \\ fs[state_component_equality] \\ fs[] \\ rw[] \\ fs[]
   \\ fs[bvlSemTheory.state_component_equality] \\ fs[] \\ rw[] \\ fs[]);
 
-val evaluate_inv_clock = Q.store_thm("evaluate_inv_clock",
-  `!xs env t1 res t2 n.
+Theorem evaluate_inv_clock:
+   !xs env t1 res t2 n.
       (evaluate (xs,env,t1) = (res,t2)) /\ res <> Rerr(Rabort Rtimeout_error) ==>
-      (evaluate (xs,env,inc_clock n t1) = (res,inc_clock n t2))`,
+      (evaluate (xs,env,inc_clock n t1) = (res,inc_clock n t2))
+Proof
   SIMP_TAC std_ss [] \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ full_simp_tac(srw_ss())[evaluate_def]
   THEN1 (`?res5 s5. evaluate ([x],env,s) = (res5,s5)` by METIS_TAC [PAIR]
@@ -282,27 +360,33 @@ val evaluate_inv_clock = Q.store_thm("evaluate_inv_clock",
     \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ TRY(Cases_on`e` \\ full_simp_tac(srw_ss())[] \\ Cases_on`a'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][])
     \\ RES_TAC \\ TRY (full_simp_tac(srw_ss())[inc_clock_def] \\ decide_tac)
-    \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]));
+    \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][])
+QED
 
-val do_app_code = Q.store_thm("do_app_code",
-  `!op s1 s2. (do_app op a s1 = Rval (x0,s2)) /\ op <> Install ==> (s2.code = s1.code)`,
+Theorem do_app_code:
+   !op s1 s2. (do_app op a s1 = Rval (x0,s2)) /\ op <> Install ==> (s2.code = s1.code)
+Proof
   rw[do_app_def,case_eq_thms,pair_case_eq,bvl_to_bvi_def] \\ rw[] \\
-  fs[do_app_aux_def,case_eq_thms] \\ rw[]);
+  fs[do_app_aux_def,case_eq_thms] \\ rw[]
+QED
 
-val do_app_oracle = Q.store_thm("do_app_oracle",
-  `!op s1 s2. (do_app op a s1 = Rval (x0,s2)) /\ op <> Install ==>
+Theorem do_app_oracle:
+   !op s1 s2. (do_app op a s1 = Rval (x0,s2)) /\ op <> Install ==>
     (s2.compile_oracle = s1.compile_oracle) /\
-    (s2.compile = s1.compile)`,
+    (s2.compile = s1.compile)
+Proof
   rw[do_app_def,case_eq_thms,pair_case_eq,bvl_to_bvi_def] \\ rw[] \\
-  fs[do_app_aux_def,case_eq_thms] \\ rw[]);
+  fs[do_app_aux_def,case_eq_thms] \\ rw[]
+QED
 
-val evaluate_code = Q.store_thm("evaluate_code",
-  `!xs env s1 vs s2.
+Theorem evaluate_code:
+   !xs env s1 vs s2.
      (evaluate (xs,env,s1) = (vs,s2)) ==>
      ∃n.
        s2.compile_oracle = shift_seq n s1.compile_oracle ∧
        s2.code = FOLDL union s1.code (MAP (fromAList o SND)
-         (GENLIST s1.compile_oracle n))`,
+         (GENLIST s1.compile_oracle n))
+Proof
   recInduct evaluate_ind \\ rw [evaluate_def]
   \\ fs[case_eq_thms,pair_case_eq,bool_case_eq,bvlPropsTheory.case_eq_thms]
   \\ rveq \\ fs[shift_seq_def,dec_clock_def] \\ rfs[]
@@ -330,14 +414,17 @@ val evaluate_code = Q.store_thm("evaluate_code",
     \\ qexists_tac`1+n` \\ rfs[GENLIST_APPEND,FOLDL_APPEND] )
   \\ imp_res_tac do_app_code \\ rfs[]
   \\ imp_res_tac do_app_oracle \\ rfs[]
-  \\ qexists_tac`n` \\ fs[]);
+  \\ qexists_tac`n` \\ fs[]
+QED
 
-val evaluate_code_mono = Q.store_thm("evaluate_code_mono",
-  `!xs env s1 vs s2.
+Theorem evaluate_code_mono:
+   !xs env s1 vs s2.
      (evaluate (xs,env,s1) = (vs,s2)) ==>
-     subspt s1.code s2.code`,
+     subspt s1.code s2.code
+Proof
   rw[] \\ imp_res_tac evaluate_code
-  \\ rw[] \\ metis_tac[subspt_FOLDL_union]);
+  \\ rw[] \\ metis_tac[subspt_FOLDL_union]
+QED
 
 val evaluate_global_mono_lemma = Q.prove(
   `∀xs env s. IS_SOME s.global ⇒ IS_SOME((SND (evaluate (xs,env,s))).global)`,
@@ -350,56 +437,69 @@ val evaluate_global_mono_lemma = Q.prove(
   \\ every_case_tac \\ fs [do_install_def]
   \\ rw [] \\ fs []);
 
-val evaluate_global_mono = Q.store_thm("evaluate_global_mono",
-  `∀xs env s res t. (evaluate (xs,env,s) = (res,t)) ⇒ IS_SOME s.global ⇒ IS_SOME t.global`,
-  METIS_TAC[SND,evaluate_global_mono_lemma]);
+Theorem evaluate_global_mono:
+   ∀xs env s res t. (evaluate (xs,env,s) = (res,t)) ⇒ IS_SOME s.global ⇒ IS_SOME t.global
+Proof
+  METIS_TAC[SND,evaluate_global_mono_lemma]
+QED
 
-val do_app_err = Q.store_thm("do_app_err",
-  `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
+Theorem do_app_err:
+   do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
                              \/
-                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `,
+                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x))
+Proof
   rw[bviSemTheory.do_app_def,case_eq_thms,pair_case_eq] >>
   imp_res_tac bvlPropsTheory.do_app_err >>
-  fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []);
+  fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []
+QED
 
-val do_app_aux_const = Q.store_thm("do_app_aux_const",
-  `do_app_aux op vs s = SOME (SOME (y,z)) ⇒
-   z.clock = s.clock`,
-  rw[do_app_aux_def,case_eq_thms] >> rw[]);
+Theorem do_app_aux_const:
+   do_app_aux op vs s = SOME (SOME (y,z)) ⇒
+   z.clock = s.clock
+Proof
+  rw[do_app_aux_def,case_eq_thms] >> rw[]
+QED
 
-val do_app_with_code = Q.store_thm("do_app_with_code",
-  `bviSem$do_app op vs s = Rval (r,s') ⇒
+Theorem do_app_with_code:
+   bviSem$do_app op vs s = Rval (r,s') ⇒
    domain s.code ⊆ domain c ∧ op ≠ Install ⇒
-   do_app op vs (s with code := c) = Rval (r,s' with code := c)`,
+   do_app op vs (s with code := c) = Rval (r,s' with code := c)
+Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
-  \\ fs[SUBSET_DEF]);
+  \\ fs[SUBSET_DEF]
+QED
 
-val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
-  `bviSem$do_app op vs s = Rerr e ⇒
+Theorem do_app_with_code_err:
+   bviSem$do_app op vs s = Rerr e ⇒
    (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ∧ op ≠ Install ⇒
-   do_app op vs (s with code := c) = Rerr e`,
+   do_app op vs (s with code := c) = Rerr e
+Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
-  \\ fs[SUBSET_DEF] \\ strip_tac \\ res_tac);
+  \\ fs[SUBSET_DEF] \\ strip_tac \\ res_tac
+QED
 
 (*
-val find_code_add_code = Q.store_thm("find_code_add_code",
-  `bvlSem$find_code dest a (fromAList code) = SOME x ⇒
-   find_code dest a (fromAList (code ++ extra)) = SOME x`,
+Theorem find_code_add_code:
+   bvlSem$find_code dest a (fromAList code) = SOME x ⇒
+   find_code dest a (fromAList (code ++ extra)) = SOME x
+Proof
   Cases_on`dest`>>srw_tac[][bvlSemTheory.find_code_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[lookup_fromAList,ALOOKUP_APPEND] >> srw_tac[][]);
+  full_simp_tac(srw_ss())[lookup_fromAList,ALOOKUP_APPEND] >> srw_tac[][]
+QED
 
-val evaluate_add_code = Q.store_thm("evaluate_add_code",
-  `∀xs env s r s'.
+Theorem evaluate_add_code:
+   ∀xs env s r s'.
     evaluate (xs,env,s) = (r,s') ∧ r ≠ Rerr (Rabort Rtype_error) ∧
     s.code = fromAList code
     ⇒
     evaluate (xs,env,s with code := fromAList (code ++ extra)) =
-      (r,s' with code := fromAList (code ++ extra))`,
+      (r,s' with code := fromAList (code ++ extra))
+Proof
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   TRY (
@@ -433,37 +533,45 @@ val evaluate_add_code = Q.store_thm("evaluate_add_code",
     imp_res_tac find_code_add_code >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
     srw_tac[][] >> NO_TAC) >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]);
+  imp_res_tac evaluate_code_const >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
+QED
 *)
 
-val do_app_aux_with_clock = Q.store_thm("do_app_aux_with_clock",
-  `do_app_aux op vs (s with clock := c) =
-   OPTION_MAP (OPTION_MAP (λ(x,y). (x,y with clock := c))) (do_app_aux op vs s)`,
+Theorem do_app_aux_with_clock:
+   do_app_aux op vs (s with clock := c) =
+   OPTION_MAP (OPTION_MAP (λ(x,y). (x,y with clock := c))) (do_app_aux op vs s)
+Proof
   srw_tac[][do_app_aux_def] >>
-  every_case_tac >> fs[]);
+  every_case_tac >> fs[]
+QED
 
-val do_app_change_clock = Q.store_thm("do_app_change_clock",
-  `(do_app op args s1 = Rval (res,s2)) ==>
-   (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))`,
+Theorem do_app_change_clock:
+   (do_app op args s1 = Rval (res,s2)) ==>
+   (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))
+Proof
   rw[do_app_def,do_app_aux_with_clock,case_eq_thms,pair_case_eq,PULL_EXISTS]
   \\ imp_res_tac bvlPropsTheory.do_app_change_clock
   \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
-  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []);
+  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []
+QED
 
-val do_app_change_clock_err = Q.store_thm("do_app_change_clock_err",
-  `bviSem$do_app op vs s = Rerr e ⇒
-   do_app op vs (s with clock := c) = Rerr e`,
+Theorem do_app_change_clock_err:
+   bviSem$do_app op vs s = Rerr e ⇒
+   do_app op vs (s with clock := c) = Rerr e
+Proof
   rw[do_app_def,do_app_aux_with_clock,case_eq_thms,pair_case_eq,PULL_EXISTS]
   \\ imp_res_tac bvlPropsTheory.do_app_change_clock_err
   \\ fs[bvi_to_bvl_def,bvl_to_bvi_def]
-  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []);
+  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []
+QED
 
-val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
-  `!exps env s1 res s2.
+Theorem evaluate_add_clock:
+   !exps env s1 res s2.
     evaluate (exps,env,s1) = (res, s2) ∧
     res ≠ Rerr(Rabort Rtimeout_error)
     ⇒
-    !ck. evaluate (exps,env,inc_clock ck s1) = (res, inc_clock ck s2)`,
+    !ck. evaluate (exps,env,inc_clock ck s1) = (res, inc_clock ck s2)
+Proof
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def]
   >- (Cases_on `evaluate ([x], env,s)` >> full_simp_tac(srw_ss())[] >>
@@ -506,33 +614,40 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
       fsrw_tac[ARITH_ss][] >>
       `ck + r.clock - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >>
       full_simp_tac(srw_ss())[] >>
-      rpt(first_x_assum(qspec_then`ck`mp_tac))>> srw_tac[][]));
+      rpt(first_x_assum(qspec_then`ck`mp_tac))>> srw_tac[][])
+QED
 
-val do_app_aux_io_events_mono = Q.store_thm("do_app_aux_io_events_mono",
-  `do_app_aux op vs s = SOME (SOME (x,y)) ⇒
-   s.ffi.io_events ≼ y.ffi.io_events`,
-  rw[do_app_aux_def,case_eq_thms] \\ rw[]);
+Theorem do_app_aux_io_events_mono:
+   do_app_aux op vs s = SOME (SOME (x,y)) ⇒
+   s.ffi.io_events ≼ y.ffi.io_events
+Proof
+  rw[do_app_aux_def,case_eq_thms] \\ rw[]
+QED
 
-val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
-  `do_app op vs s1 = Rval (x,s2) ⇒
-   s1.ffi.io_events ≼ s2.ffi.io_events`,
+Theorem do_app_io_events_mono:
+   do_app op vs s1 = Rval (x,s2) ⇒
+   s1.ffi.io_events ≼ s2.ffi.io_events
+Proof
   rw[do_app_def,case_eq_thms,pair_case_eq]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def]
   \\ imp_res_tac bvlPropsTheory.do_app_io_events_mono \\ fs[]
   \\ imp_res_tac do_app_aux_io_events_mono \\ fs[]
   \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs []
-  \\ rw [] \\ fs []);
+  \\ rw [] \\ fs []
+QED
 
-val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
-  `!exps env s1 res s2.
+Theorem evaluate_io_events_mono:
+   !exps env s1 res s2.
     evaluate (exps,env,s1) = (res, s2)
     ⇒
-    s1.ffi.io_events ≼ s2.ffi.io_events`,
+    s1.ffi.io_events ≼ s2.ffi.io_events
+Proof
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-  metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono])
+  metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]
+QED
 
 val do_app_inc_clock = Q.prove(
   `do_app op vs (inc_clock x y) =
@@ -554,14 +669,17 @@ val dec_clock_inc_clock = Q.prove(
   `¬(s.clock < n) ⇒ dec_clock n (inc_clock x s) = inc_clock x (dec_clock n s)`,
   simp[state_component_equality,inc_clock_def,dec_clock_def])
 
-val inc_clock_eq_0 = Q.store_thm("inc_clock_eq_0[simp]",
-  `(inc_clock extra s).clock = 0 ⇔ s.clock = 0 ∧ extra = 0`,
-  srw_tac[][inc_clock_def])
+Theorem inc_clock_eq_0[simp]:
+   (inc_clock extra s).clock = 0 ⇔ s.clock = 0 ∧ extra = 0
+Proof
+  srw_tac[][inc_clock_def]
+QED
 
-val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
-  `∀exps env s extra.
+Theorem evaluate_add_to_clock_io_events_mono:
+   ∀exps env s extra.
     (SND(evaluate(exps,env,s))).ffi.io_events ≼
-    (SND(evaluate(exps,env,inc_clock extra s))).ffi.io_events`,
+    (SND(evaluate(exps,env,inc_clock extra s))).ffi.io_events
+Proof
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   TRY (
@@ -582,7 +700,8 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   fsrw_tac[ARITH_ss][dec_clock_inc_clock,inc_clock_ZERO] >>
   full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   metis_tac[evaluate_io_events_mono,SND,IS_PREFIX_TRANS,PAIR,
-            inc_clock_ffi,dec_clock_ffi]);
+            inc_clock_ffi,dec_clock_ffi]
+QED
 
 val take_drop_lem = Q.prove (
   `!skip env.
@@ -591,7 +710,7 @@ val take_drop_lem = Q.prove (
     DROP skip env ≠ [] ⇒
     EL skip env::TAKE n (DROP (1 + skip) env) = TAKE (n + 1) (DROP skip env)`,
   Induct_on `n` >>
-  srw_tac[][take1, hd_drop] >>
+  srw_tac[][TAKE1, HD_DROP] >>
   `skip + SUC n ≤ LENGTH env` by decide_tac >>
   res_tac >>
   `LENGTH (DROP skip env) = LENGTH env - skip` by srw_tac[][LENGTH_DROP] >>
@@ -604,12 +723,13 @@ val take_drop_lem = Q.prove (
   srw_tac[][EL_DROP] >>
   srw_tac [ARITH_ss] []);
 
-val evaluate_genlist_vars = Q.store_thm ("evaluate_genlist_vars",
-  `!skip env n (st:('c,'ffi) bviSem$state).
+Theorem evaluate_genlist_vars:
+   !skip env n (st:('c,'ffi) bviSem$state).
     n + skip ≤ LENGTH env ⇒
     evaluate (GENLIST (λarg. Var (arg + skip)) n, env, st)
     =
-    (Rval (TAKE n (DROP skip env)), st)`,
+    (Rval (TAKE n (DROP skip env)), st)
+Proof
   Induct_on `n` >>
   srw_tac[][evaluate_def, DROP_LENGTH_NIL, GSYM ADD1] >>
   srw_tac[][Once GENLIST_CONS] >>
@@ -628,6 +748,30 @@ val evaluate_genlist_vars = Q.store_thm ("evaluate_genlist_vars",
         by (Cases_on `DROP skip env` >>
             full_simp_tac(srw_ss())[] >>
             decide_tac) >>
-  metis_tac [take_drop_lem]);
+  metis_tac [take_drop_lem]
+QED
+
+val get_code_labels_def = tDefine"get_code_labels"
+  `(get_code_labels (Var _) = {}) ∧
+   (get_code_labels (If e1 e2 e3) = get_code_labels e1 ∪ get_code_labels e2 ∪ get_code_labels e3) ∧
+   (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
+   (get_code_labels (Raise e) = get_code_labels e) ∧
+   (get_code_labels (Tick e) = get_code_labels e) ∧
+   (get_code_labels (Call _ d es h) =
+     (case d of NONE => {} | SOME n => {n}) ∪
+     (case h of NONE => {} | SOME e => get_code_labels e) ∪
+     BIGUNION (set (MAP get_code_labels es))) ∧
+   (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))`
+  (wf_rel_tac`measure exp_size`
+   \\ simp[bviTheory.exp_size_def]
+   \\ rpt conj_tac \\ rpt gen_tac
+   \\ Induct_on`es`
+   \\ rw[bviTheory.exp_size_def]
+   \\ simp[] \\ res_tac \\ simp[]);
+val get_code_labels_def = get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[] |> curry save_thm "get_code_labels_def[simp,compute]"
+
+val good_code_labels_def = Define`
+  good_code_labels p ⇔
+    BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p)`;
 
 val _ = export_theory();

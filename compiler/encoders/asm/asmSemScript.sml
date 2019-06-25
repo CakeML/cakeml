@@ -1,5 +1,9 @@
+(*
+  The semantics of the asm instruction description.
+*)
 open HolKernel Parse boolLib bossLib
 open asmTheory machine_ieeeTheory
+open miscTheory (* for bytes_in_memory *)
 
 val () = new_theory "asmSem"
 
@@ -118,6 +122,9 @@ val fp_upd_def = Define `
   (fp_upd (FPDiv d1 d2 d3) s =
      upd_fp_reg d1
        (fp64_div roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPFma d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_mul_add roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s) (read_fp_reg d1 s)) s) /\
   (fp_upd (FPMovToReg r1 r2 d) (s : 'a asm_state) =
      if dimindex(:'a) = 64 then
        upd_reg r1 (w2w (read_fp_reg d s)) s
@@ -205,11 +212,6 @@ val asm_def = Define `
   (asm (JumpReg r) pc s =
      let a = read_reg r s in upd_pc a (assert (aligned s.align a) s)) /\
   (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s))`
-
-val bytes_in_memory_def = Define `
-  (bytes_in_memory a [] m dm <=> T) /\
-  (bytes_in_memory a ((x:word8)::xs) m dm <=>
-     (m a = x) /\ a IN dm /\ bytes_in_memory (a + 1w) xs m dm)`
 
 val asm_step_def = Define `
   asm_step c s1 i s2 <=>

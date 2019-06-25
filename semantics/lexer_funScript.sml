@@ -1,3 +1,6 @@
+(*
+  A functional specification of lexing from strings to token lists.
+*)
 open HolKernel Parse boolLib bossLib;
 
 val _ = new_theory "lexer_fun";
@@ -35,11 +38,13 @@ val read_while_def = Define `
      if P c then read_while P cs (c :: s)
             else (IMPLODE (REVERSE s),STRING c cs))`;
 
-val read_while_thm = Q.store_thm("read_while_thm",
-  `!cs s cs' s'.
-       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs`,
+Theorem read_while_thm:
+   !cs s cs' s'.
+       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs
+Proof
   Induct THEN SRW_TAC [][read_while_def] THEN SRW_TAC [][] THEN
-  RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
+  RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC
+QED
 
 val is_single_char_symbol_def = Define `
   is_single_char_symbol c = MEM c "()[]{},;"`;
@@ -65,9 +70,10 @@ val read_string_def = tDefine "read_string" `
   (WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC
    THEN Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC)
 
-val read_string_thm = Q.store_thm("read_string_thm",
-  `!s t l l' x1 x2. (read_string s t l = (x1, l', x2)) ==>
-                (LENGTH x2 <= LENGTH s + LENGTH t)`,
+Theorem read_string_thm:
+   !s t l l' x1 x2. (read_string s t l = (x1, l', x2)) ==>
+                (LENGTH x2 <= LENGTH s + LENGTH t)
+Proof
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN HO_MATCH_MP_TAC (fetch "-" "read_string_ind")
   THEN REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC
@@ -80,7 +86,8 @@ val read_string_thm = Q.store_thm("read_string_thm",
   THEN SIMP_TAC std_ss [] THEN SRW_TAC [] []
   THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss []
   THEN RES_TAC THEN TRY DECIDE_TAC THEN CCONTR_TAC
-  THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC);
+  THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC
+QED
 
 val loc_row_def = Define`
   loc_row n = <| row := n ; col := 1; offset := 0|>`
@@ -100,14 +107,16 @@ val skip_comment_def = Define `
       skip_comment (y::xs) d (loc_row (loc.row+1))
     else skip_comment (y::xs) d (loc with col := loc.col + 1))`
 
-val skip_comment_thm = Q.store_thm("skip_comment_thm",
-  `!xs d l l' str. (skip_comment xs d l = SOME (str, l')) ==> LENGTH str <= LENGTH xs`,
+Theorem skip_comment_thm:
+   !xs d l l' str. (skip_comment xs d l = SOME (str, l')) ==> LENGTH str <= LENGTH xs
+Proof
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   THEN HO_MATCH_MP_TAC (fetch "-" "skip_comment_ind") THEN REPEAT STRIP_TAC
   THEN POP_ASSUM MP_TAC THEN ONCE_REWRITE_TAC [skip_comment_def]
   THEN SRW_TAC [] [] THEN RES_TAC THEN TRY DECIDE_TAC
   THEN FULL_SIMP_TAC std_ss [] THEN SRW_TAC [] [] THEN RES_TAC
-  THEN DECIDE_TAC);
+  THEN DECIDE_TAC
+QED
 
 val read_FFIcall_def = Define‘
   (read_FFIcall "" acc loc = (ErrorS, loc, "")) ∧
@@ -121,19 +130,18 @@ val read_FFIcall_def = Define‘
         read_FFIcall s0 (c::acc) (loc with col updated_by (+) 1))
 ’
 
-val read_FFIcall_reduces_input = Q.store_thm(
-  "read_FFIcall_reduces_input",
-  ‘∀s0 a l0 t l s.
-     read_FFIcall s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1’,
+Theorem read_FFIcall_reduces_input:
+   ∀s0 a l0 t l s.
+     read_FFIcall s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1
+Proof
   Induct >> dsimp[read_FFIcall_def, bool_case_eq] >> rw[] >>
-  qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]);
+  qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
+QED
 
 val isAlphaNumPrime_def = Define`
   isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")`
 
-(* next_sym reads the next symbol from a string *)
-(* TODO: why do we need an option type? *)
-
+(* next_sym reads the next symbol from a string, returning NONE if at eof *)
 val next_sym_def = tDefine "next_sym" `
   (next_sym "" _ = NONE) /\
   (next_sym (c::str) loc =
@@ -252,15 +260,14 @@ val NOT_NIL_EXISTS_CONS = Q.prove(
    (list_CASE n F P ⇔ ∃h t. n = h :: t ∧ P h t)`,
   Cases_on `n` >> simp[]);
 
-val listeq = prove_case_eq_thm {case_def = listTheory.list_case_def,
-                                nchotomy = listTheory.list_CASES}
-val optioneq = prove_case_eq_thm { nchotomy = option_nchotomy,
-                                   case_def = option_case_def}
+val listeq = CaseEq "list"
+val optioneq = CaseEq "option"
 
 
-val next_sym_LESS = Q.store_thm("next_sym_LESS",
-  `!input l. (next_sym input l = SOME (s, l', rest))
-    ==> LENGTH rest < LENGTH input`,
+Theorem next_sym_LESS:
+   !input l s l' rest.
+     (next_sym input l = SOME (s, l', rest)) ==> LENGTH rest < LENGTH input
+Proof
   ho_match_mp_tac (fetch "-" "next_sym_ind") >>
   simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[NOT_NIL_EXISTS_CONS] >>
@@ -273,10 +280,10 @@ val next_sym_LESS = Q.store_thm("next_sym_LESS",
        rpt (pairarg_tac>> fs[]) >> rveq >>
        imp_res_tac read_while_thm >> simp[] >> NO_TAC) >>
   TRY (rename1 `read_FFIcall` >>
-       imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC)
-  (* TODO simpler? *)
-  >> `STRLEN rest < STRLEN input` by fs[]
-  >> fs[]);
+       imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC) >>
+  qpat_x_assum ‘SOME _ = next_sym _ _’ (assume_tac o SYM) >>
+  first_x_assum drule >> simp[]
+QED
 
 val _ = Define ` init_loc = <| row := 1; col := 1; offset := 0|>`
 
@@ -343,7 +350,6 @@ val get_token_def = zDefine `
     if s = "orelse" then OrelseT else
     if s = "raise" then RaiseT else
     if s = "rec" then RecT else
-    if s = "ref" then RefT else
     if s = "sharing" then SharingT else
     if s = "sig" then SigT else
     if s = "signature" then SignatureT else
@@ -378,15 +384,17 @@ val next_token_def = Define `
     | SOME (sym, locs, rest_of_input) =>
         SOME (token_of_sym sym, locs, rest_of_input)`;
 
-val next_token_LESS = Q.store_thm("next_token_LESS",
-  `!s l l' rest input. (next_token input l = SOME (s, l', rest)) ==>
-                   LENGTH rest < LENGTH input`,
+Theorem next_token_LESS:
+   !s l l' rest input. (next_token input l = SOME (s, l', rest)) ==>
+                   LENGTH rest < LENGTH input
+Proof
   NTAC 5 STRIP_TAC THEN Cases_on `next_sym input l`
   THEN ASM_SIMP_TAC (srw_ss()) [next_token_def]
   THEN every_case_tac
   THEN ASM_SIMP_TAC (srw_ss()) []
   THEN IMP_RES_TAC next_sym_LESS THEN REPEAT STRIP_TAC
-  THEN FULL_SIMP_TAC std_ss []);
+  THEN FULL_SIMP_TAC std_ss []
+QED
 
 (* top-level lexer specification *)
 

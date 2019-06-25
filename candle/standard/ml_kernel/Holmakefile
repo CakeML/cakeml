@@ -1,22 +1,12 @@
-INCLUDES = ../../../misc ../../../semantics ../../../semantics/alt_semantics ../../../translator ../monadic ../../../characteristic ../../../basis ../../../translator/monadic
-OPTIONS = QUIT_ON_FAILURE
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics\
+					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/translator/monadic\
+					 $(CAKEMLDIR)/basis $(CAKEMLDIR)/basis/pure\
+					 $(CAKEMLDIR)/characteristic ../monadic
 
-ifdef POLY
-HOLHEAP = heap
-PARENT_HOLHEAP = ../monadic/heap
-EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
-
-THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
-TARGETS0 = $(patsubst %Theory.sml,,$(THYFILES))
-TARGETS = $(patsubst %.sml,%.uo,$(TARGETS0))
-
-all: $(TARGETS) $(HOLHEAP)
+all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
-BARE_THYS = ../../../misc/preamble ../monadic/holKernelTheory
-
-DEPS = $(patsubst %,%.uo,$(BARE_THYS))
-
-$(HOLHEAP): $(DEPS)
-	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
-endif
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)

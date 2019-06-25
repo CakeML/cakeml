@@ -1,3 +1,7 @@
+(*
+  Module providing various functions that can be used to efficiently
+  pretty-print values of different types.
+*)
 open
   preamble
   ml_translatorLib
@@ -9,7 +13,9 @@ val _ = (
   new_theory "PrettyPrinterProg";
   translation_extends "TextIOProg";
   generate_sigs := true;
+  use_full_type_names := false;
   register_type ``:'a app_list``;
+  use_full_type_names := true;
   ml_prog_update (open_module "PrettyPrinter")
 )
 
@@ -27,6 +33,7 @@ val _ = tr "fromWord8" fromWord8_def
 val _ = tr "fromWord64" fromWord64_def
 val _ = tr "fromRat" fromRat_def
 val _ = tr "fromOption" fromOption_def
+val _ = tr "fromPair" fromPair_def
 val _ = tr "fromList" fromList_def
 val _ = tr "fromArray" fromArray_def
 val _ = tr "fromVector" fromVector_def

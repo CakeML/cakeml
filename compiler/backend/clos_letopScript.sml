@@ -1,3 +1,9 @@
+(*
+  This simple compiler phase tidies up after function inlining, in
+  particular it turns `Let [x0; x1; ...] (Op op [Var 0; Var 1; ...])`
+  into `Op op [x0; x1; ...]`, which enables further optimisation
+  later, e.g. in bvi_tailrec.
+*)
 open preamble closLangTheory;
 
 val _ = new_theory "clos_letop";
@@ -52,9 +58,11 @@ val let_op_def = tDefine "let_op" `
 
 val let_op_ind = theorem "let_op_ind";
 
-val LENGTH_let_op = store_thm("LENGTH_let_op",
-  ``!xs. LENGTH (let_op xs) = LENGTH xs``,
+Theorem LENGTH_let_op:
+   !xs. LENGTH (let_op xs) = LENGTH xs
+Proof
   recInduct let_op_ind \\ simp [let_op_def]
-  \\ rw [] \\ CASE_TAC \\ simp []);
+  \\ rw [] \\ CASE_TAC \\ simp []
+QED
 
 val _ = export_theory();

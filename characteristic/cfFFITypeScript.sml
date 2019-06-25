@@ -1,3 +1,7 @@
+(*
+  Defines a type that can be used for embedding different FFI models
+  for parts of the FFI state.
+*)
 open preamble;
 
 val _ = new_theory "cfFFIType"
@@ -81,25 +85,32 @@ val Inner_def = zDefine `
 
 (* injectivity *)
 
-val Num_11 = store_thm("Num_11[simp]",
-  ``!n1 n2. Num n1 = Num n2 <=> n1 = n2``,
+Theorem Num_11[simp]:
+   !n1 n2. Num n1 = Num n2 <=> n1 = n2
+Proof
   fs [Num_def,FUN_EQ_THM] \\ rw [] \\ eq_tac \\ rw []
-  \\ pop_assum (qspec_then `iNum 1` mp_tac) \\ fs []);
+  \\ pop_assum (qspec_then `iNum 1` mp_tac) \\ fs []
+QED
 
-val Str_11 = store_thm("Str_11[simp]",
-  ``!n1 n2. Str n1 = Str n2 <=> n1 = n2``,
+Theorem Str_11[simp]:
+   !n1 n2. Str n1 = Str n2 <=> n1 = n2
+Proof
   fs [Str_def,FUN_EQ_THM] \\ rw [] \\ eq_tac \\ rw []
-  \\ pop_assum (qspec_then `iNum 1` mp_tac) \\ fs []);
+  \\ pop_assum (qspec_then `iNum 1` mp_tac) \\ fs []
+QED
 
-val Cons_11 = store_thm("Cons_11[simp]",
-  ``!x1 x2 y1 y2. Cons x1 x2 = Cons y1 y2 <=> x1 = y1 /\ x2 = y2``,
+Theorem Cons_11[simp]:
+   !x1 x2 y1 y2. Cons x1 x2 = Cons y1 y2 <=> x1 = y1 /\ x2 = y2
+Proof
   rpt Cases
   \\ fs [Cons_def,FUN_EQ_THM,ffi_app_def] \\ rw [] \\ eq_tac \\ rw []
   THEN1 (pop_assum (qspec_then `iCons (iNum 0) x` mp_tac) \\ fs [])
-  THEN1 (pop_assum (qspec_then `iCons (iNum 1) x` mp_tac) \\ fs []));
+  THEN1 (pop_assum (qspec_then `iCons (iNum 1) x` mp_tac) \\ fs [])
+QED
 
-val List_11 = store_thm("List_11[simp]",
-  ``!xs ys. List xs = List ys <=> xs = ys``,
+Theorem List_11[simp]:
+   !xs ys. List xs = List ys <=> xs = ys
+Proof
   fs [List_def,FUN_EQ_THM] \\ rw [] \\ eq_tac \\ rw []
   \\ fs [LIST_EQ_REWRITE] \\ rw []
   THEN1 (pop_assum (qspec_then `iNum 1` mp_tac) \\ fs [])
@@ -107,25 +118,32 @@ val List_11 = store_thm("List_11[simp]",
   \\ Cases_on `EL x ys`
   \\ fs [FUN_EQ_THM] \\ rw []
   \\ first_x_assum (qspec_then `iCons (iNum x) x'` mp_tac)
-  \\ fs [ffi_app_def]);
+  \\ fs [ffi_app_def]
+QED
 
-val Stream_11 = store_thm("Stream_11[simp]",
-  ``!n1 n2. Stream n1 = Stream n2 <=> n1 = n2``,
+Theorem Stream_11[simp]:
+   !n1 n2. Stream n1 = Stream n2 <=> n1 = n2
+Proof
   fs [Stream_def,FUN_EQ_THM] \\ rw [] \\ eq_tac \\ rw []
-  \\ pop_assum (qspec_then `iNum 1` mp_tac) \\ fs []);
+  \\ pop_assum (qspec_then `iNum 1` mp_tac) \\ fs []
+QED
 
-val Fun_11 = store_thm("Fun_11[simp]",
-  ``Fun f1 = Fun f2 <=> f1 = f2``,
+Theorem Fun_11[simp]:
+   Fun f1 = Fun f2 <=> f1 = f2
+Proof
   eq_tac \\ rw [] \\ fs [FUN_EQ_THM,Fun_def] \\ rw []
   \\ Cases_on `f1 x`
   \\ Cases_on `f2 x`
   \\ fs [FUN_EQ_THM] \\ rw []
-  \\ first_x_assum (qspec_then `iCons x x'` mp_tac) \\ fs [ffi_app_def]);
+  \\ first_x_assum (qspec_then `iCons x x'` mp_tac) \\ fs [ffi_app_def]
+QED
 
-val Inner_11 = store_thm("Inner_11[simp]",
-  ``!n1 n2. Inner n1 = Inner n2 <=> n1 = n2``,
+Theorem Inner_11[simp]:
+   !n1 n2. Inner n1 = Inner n2 <=> n1 = n2
+Proof
   fs [Inner_def,FUN_EQ_THM] \\ rw [] \\ eq_tac \\ rw []
-  \\ pop_assum (qspec_then `iNum 1` mp_tac) \\ fs []);
+  \\ pop_assum (qspec_then `iNum 1` mp_tac) \\ fs []
+QED
 
 (* distinctness *)
 
@@ -169,8 +187,11 @@ val destStr_def = new_specification("destStr_def",["destStr"],prove(``
                   Stream_def,Fun_def,ffi_app_def]));
 val _ = export_rewrites ["destStr_def"];
 
-val destStr_o_Str = Q.store_thm("destStr_o_Str[simp]",
-  `destStr o Str = SOME`, rw[FUN_EQ_THM]);
+Theorem destStr_o_Str[simp]:
+   destStr o Str = SOME
+Proof
+rw[FUN_EQ_THM]
+QED
 
 val destCons_def = new_specification("destCons_def",["destCons"],prove(``
   ?destCons.
@@ -248,6 +269,10 @@ val destInner_def = new_specification("destInner_def",["destInner"],prove(``
   \\ rw [] \\ fs [Num_def,Str_def,Cons_def,List_def,Inner_def,
                   Stream_def,Fun_def,ffi_app_def]));
 val _ = export_rewrites ["destInner_def"];
+
+val dest_iStr_def = Define`
+  dest_iStr (iStr s) = s`;
+val _ = export_rewrites ["dest_iStr_def"];
 
 (* clean up *)
 

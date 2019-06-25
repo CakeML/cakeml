@@ -1,10 +1,11 @@
+(*
+  This compiler phase minimises the live-var annotations that are
+  attached to MakeSpace, Assign and Call in dataLang programs. This
+  phase also locally deletes code that has no observable effect.
+*)
 open preamble dataLangTheory;
 
 val _ = new_theory "data_live";
-
-(* This script defines an optimisation that minimises the live var
-   annotations that are attached to MakeSpace, Assign and Call in
-   dataLang programs. It also deletes dead code. *)
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -39,10 +40,12 @@ val is_pure_def = Define `
   (is_pure (WordFromWord b) = F) /\
   (is_pure (FP_uop _) = F) /\
   (is_pure (FP_bop _) = F) /\
+  (is_pure (FP_top _) = F) /\
   (is_pure ConfigGC = F) /\
   (is_pure _ = T)`
 
-val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
+Theorem is_pure_pmatch:
+  !op.
   is_pure op =
     case op of
       SetGlobalsPtr => F
@@ -75,11 +78,14 @@ val is_pure_pmatch = Q.store_thm("is_pure_pmatch",`!op.
     | WordFromWord b => F
     | FP_uop _ => F
     | FP_bop _ => F
+    | FP_top _ => F
     | ConfigGC => F
-    | _ => T`,
+    | _ => T
+Proof
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  >> every_case_tac >> fs[is_pure_def]);
+  >> every_case_tac >> fs[is_pure_def]
+QED
 
 val compile_def = Define `
   (compile Skip live = (Skip,live)) /\

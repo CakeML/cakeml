@@ -1,6 +1,11 @@
+(*
+  Functions and proofs about expanding constant definitions.
+*)
 open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory "holConservative";
+
+(*
 
 (* Theorems that should probably be proved elsewhere (perhaps some already are) *)
 
@@ -25,23 +30,27 @@ val type_ok_subst = Q.prove (
   qspec_tac(`tyvars ty`,`ls`) >>
   Induct >> simp[REV_ASSOCD] >> rw[]);
 
-val term_image_term_union = Q.store_thm ("term_image_term_union",
-`!f h1 h2.
+Theorem term_image_term_union:
+ !f h1 h2.
   (!t1 t2. ACONV t1 t2 ⇒ ACONV (f t1) (f t2)) ∧
   hypset_ok h1 ∧
   hypset_ok h2
   ⇒
-  term_image f (term_union h1 h2) = term_union (term_image f h1) (term_image f h2)`,
- cheat);
+  term_image f (term_union h1 h2) = term_union (term_image f h1) (term_image f h2)
+Proof
+ ...
+QED
 
-val term_image_term_image = Q.store_thm ("term_image_term_image",
-`!f g h.
-  term_image f (term_image g h) = term_image (f o g) h`,
+Theorem term_image_term_image:
+ !f g h.
+  term_image f (term_image g h) = term_image (f o g) h
+Proof
   gen_tac >> ho_match_mp_tac term_image_ind >> rw[] >>
   simp[Once term_image_def,SimpRHS] >>
   BasicProvers.CASE_TAC >- simp[] >> fs[] >> rw[] >>
   (* likely not true without some hypset_ok hypotheses *)
-  cheat)
+  ...
+QED
 
 val term_image_term_remove = Q.prove (
 `!x f tm tms.
@@ -289,7 +298,7 @@ val remove_const_inst = Q.prove (
   remove_const tys consts (INST tyin tm) = INST tyin (remove_const tys consts tm)`,
  Induct_on `tm` >>
  rw [remove_const_def] >>
- cheat);
+ ...);
 
 val RACONV_REFL2 = Q.prove (
 `!tms tm. EVERY (\(x,y). (x ≠ y) ⇒ ~VFREE_IN x tm ∧ ~VFREE_IN y tm) tms ⇒ RACONV tms (tm,tm)`,
@@ -309,7 +318,7 @@ val RACONV_REFL2 = Q.prove (
      metis_tac [])
  >- (fs [EVERY_MEM, LAMBDA_PROD, FORALL_PROD] >>
      metis_tac [])
- >- cheat);
+ >- ...);
 
 val remove_const_raconv = Q.prove (
 `!tms tm. RACONV tms tm ⇒
@@ -333,7 +342,7 @@ val remove_const_raconv = Q.prove (
      `CLOSED (INST x'' x')` by metis_tac [CLOSED_INST] >>
      fs [EVERY_MEM, CLOSED_def, LAMBDA_PROD, FORALL_PROD] >>
      rw [] >>
-     `(?x y. p_1 = Var x y) ∧ (?x y. p_2 = Var x y)` by cheat >>
+     `(?x y. p_1 = Var x y) ∧ (?x y. p_2 = Var x y)` by ... >>
      metis_tac [])
  >- rw [Once RACONV_cases]
  >- rw [Once RACONV_cases]);
@@ -348,7 +357,7 @@ val remove_const_vsubst = Q.prove (
 `!tys consts tm.
   remove_const tys consts (VSUBST ilist tm) =
   VSUBST (MAP (λ(x,y). (remove_const tys consts x, y)) ilist) (remove_const tys consts tm)`,
- cheat);
+ ...);
 
 val welltyped_remove_const = Q.prove (
 `!tys consts tm.
@@ -363,7 +372,7 @@ val use_const_spec = Q.prove (
   ⇒
   (thyof ctxt,[]) |-
   remove_const (tysof ctxt) consts (VSUBST (MAP (λ(s,t). (Const s (typeof t),Var s (typeof t))) consts) p)`,
- cheat);
+ ...);
 
 val remove_const_old_axiom = Q.prove (
 `!ctxt consts tm.
@@ -478,8 +487,8 @@ val update_conservative = Q.prove (
          imp_res_tac term_image_term_remove >>
          metis_tac [MEM_term_union, hypset_ok_term_union, hypset_ok_term_image,
                     hypset_ok_term_remove, ACONV_TRANS, remove_const_aconv])
-     >- cheat
-     >- cheat)
+     >- ...
+     >- ...)
  >- (rw [Once proves_cases] >>
      ntac 4 disj2_tac >>
      disj1_tac >>
@@ -563,5 +572,7 @@ val update_conservative = Q.prove (
          res_tac >>
          rw [term_image_def] >>
          metis_tac [remove_const_old_axiom])));
+
+*)
 
 val _ = export_theory ();

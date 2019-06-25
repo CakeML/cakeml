@@ -1,0 +1,1 @@
+../../../tutorial/wordcountCompileScript.sml

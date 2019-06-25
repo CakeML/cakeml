@@ -1,8 +1,11 @@
-open preamble data_simpTheory dataSemTheory;
+(*
+  Correctness proof for data_simp
+*)
+open preamble data_simpTheory dataSemTheory dataPropsTheory;
 
 val _ = new_theory"data_simpProof";
 
-val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="dataSem"};
+val _ = set_grammar_ancestry ["data_simp", "dataSem", "dataProps"];
 
 val evaluate_Seq_Skip = Q.prove(
   `!c s. evaluate (Seq c Skip,s) = evaluate (c,s)`,
@@ -30,8 +33,19 @@ val evaluate_simp = Q.prove(
   \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
   \\ every_case_tac >> fs[evaluate_def]);
 
-val simp_correct = Q.store_thm("simp_correct",
-  `!c s. evaluate (simp c Skip,s) = evaluate (c,s)`,
-  SIMP_TAC std_ss [evaluate_simp,evaluate_Seq_Skip]);
+Theorem simp_correct:
+   !c s. evaluate (simp c Skip,s) = evaluate (c,s)
+Proof
+  SIMP_TAC std_ss [evaluate_simp,evaluate_Seq_Skip]
+QED
+
+Theorem get_code_labels_simp:
+   ∀x y. get_code_labels (simp x y) ⊆ get_code_labels x ∪ get_code_labels y
+Proof
+  recInduct data_simpTheory.simp_ind
+  \\ rw[data_simpTheory.simp_def]
+  \\ fs[SUBSET_DEF, data_simpTheory.pSeq_def] \\ rw[]
+  \\ metis_tac[]
+QED
 
 val _ = export_theory();

@@ -1,3 +1,7 @@
+(*
+  This compiler phase implements instruction selection. It uses the
+  Maximal Munch strategy.
+*)
 open preamble wordLangTheory stackLangTheory sortingTheory;
 
 val _ = new_theory "word_inst";
@@ -35,30 +39,36 @@ val convert_sub_def = Define`
   (convert_sub [x;Const w] = Op Add [x;Const (-w)]) ∧
   (convert_sub ls = Op Sub ls)`
 
-val convert_sub_pmatch = Q.store_thm("convert_sub_pmatch",`!l.
+Theorem convert_sub_pmatch:
+  !l.
   convert_sub l =
   case l of
     [Const w1;Const w2] => Const (w1 -w2)
   | [x;Const w] => Op Add [x;Const (-w)]
-  | ls => Op Sub ls`,
+  | ls => Op Sub ls
+Proof
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac
-  >> fs[convert_sub_def])
+  >> fs[convert_sub_def]
+QED
 
 val op_consts_def = Define`
   (op_consts And = Const (~0w)) ∧
   (op_consts _ = Const 0w)`
 
-val op_consts_pmatch = Q.store_thm("op_consts_pmatch",`!op.
+Theorem op_consts_pmatch:
+  !op.
   op_consts op =
   case op of
     And => Const (~0w)
-  | _ => Const 0w`,
+  | _ => Const 0w
+Proof
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac
-  >> fs[op_consts_def]);
+  >> fs[op_consts_def]
+QED
 
 val optimize_consts_def = Define`
   optimize_consts op ls =
@@ -92,7 +102,8 @@ val pull_exp_def = tDefine "pull_exp"`
    \\ fs[exp_size_def,asmTheory.binop_size_def,astTheory.shift_size_def,store_name_size_def]
    \\ TRY (DECIDE_TAC))
 
-val pull_exp_pmatch = Q.store_thm("pull_exp_pmatch",`!(exp:'a exp).
+Theorem pull_exp_pmatch:
+  !(exp:'a exp).
   pull_exp exp =
   case exp of
    Op Sub ls => (
@@ -106,11 +117,13 @@ val pull_exp_pmatch = Q.store_thm("pull_exp_pmatch",`!(exp:'a exp).
       optimize_consts op pull_ls)
   | Load exp => Load (pull_exp exp)
   | Shift sh exp nexp => Shift sh (pull_exp exp) nexp
-  | exp => exp`,
+  | exp => exp
+Proof
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac
-  >> fs[pull_exp_def,ETA_THM])
+  >> fs[pull_exp_def,ETA_THM]
+QED
 
 (*Flatten list expressions to trees -- of the form:
       +
@@ -137,7 +150,8 @@ val flatten_exp_def = tDefine "flatten_exp" `
 
 
   (*
-val flatten_exp_pmatch = Q.store_thm("flatten_exp_pmatch",`!exp.
+Theorem flatten_exp_pmatch:
+  !exp.
   flatten_exp exp =
   case exp of
     (Op Sub exps) => Op Sub (MAP flatten_exp exps)
@@ -146,11 +160,13 @@ val flatten_exp_pmatch = Q.store_thm("flatten_exp_pmatch",`!exp.
   | (Op op (x::xs)) => Op op [flatten_exp (Op op xs);flatten_exp x]
   | (Load exp) => Load (flatten_exp exp)
   | (Shift shift exp nexp) => Shift shift (flatten_exp exp) nexp
-  | exp => exp`,
+  | exp => exp
+Proof
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac
-  >> fs[flatten_exp_def, ETA_THM])*)
+  >> fs[flatten_exp_def, ETA_THM]
+QED*)
 (*
 val test = EVAL ``flatten_exp (pull_exp (Op Add [Const 1w;Const 2w; Const 3w; Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w];Op Xor[Const 1w;Var y;Var x]] ; Const (8w:8 word)]))``
 
@@ -225,7 +241,8 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)) ;
 
-val inst_select_exp_pmatch = Q.store_thm("inst_select_exp_pmatch",`!c tar temp exp.
+Theorem inst_select_exp_pmatch:
+  !c tar temp exp.
   inst_select_exp (c:'a asm_config) tar temp exp =
   case exp of
     Load(Op Add [exp';Const w]) =>
@@ -270,11 +287,13 @@ val inst_select_exp_pmatch = Q.store_thm("inst_select_exp_pmatch",`!c tar temp e
     else
       Inst (Const tar 0w))
   (*Make it total*)
-  | _ => Skip`,
+  | _ => Skip
+Proof
   rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
-  >> fs[inst_select_exp_def] >> metis_tac[DIMINDEX_GT_0, NOT_ZERO_LT_ZERO]);
+  >> fs[inst_select_exp_def] >> metis_tac[DIMINDEX_GT_0, NOT_ZERO_LT_ZERO]
+QED
 
 (*
 
@@ -336,7 +355,8 @@ val inst_select_def = Define`
     Call retsel dest args handlersel) ∧
   (inst_select c temp prog = prog)`
 
-val inst_select_pmatch = Q.store_thm("inst_select_pmatch",`!c temp prog.
+Theorem inst_select_pmatch:
+  !c temp prog.
   inst_select c temp prog =
   case prog of
   | Assign v exp =>
@@ -383,12 +403,14 @@ val inst_select_pmatch = Q.store_thm("inst_select_pmatch",`!c temp prog.
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,inst_select c temp h,l1,l2) in
     Call retsel dest args handlersel)
-  | prog => prog`,
+  | prog => prog
+Proof
   rpt(
     rpt strip_tac
     >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
-    >> fs[inst_select_def]));
+    >> fs[inst_select_def])
+QED
 
 (*
   Convert all 3 register instructions to 2 register instructions
@@ -423,7 +445,8 @@ val three_to_two_reg_def = Define`
     Call retsel dest args handlersel) ∧
   (three_to_two_reg prog = prog)`
 
-val three_to_two_reg_pmatch = Q.store_thm("three_to_two_reg_pmatch",`!prog.
+Theorem three_to_two_reg_pmatch:
+  !prog.
   three_to_two_reg prog =
   case prog of
   | (Inst (Arith (Binop bop r1 r2 ri))) =>
@@ -453,11 +476,13 @@ val three_to_two_reg_pmatch = Q.store_thm("three_to_two_reg_pmatch",`!prog.
         NONE => NONE
       | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
     Call retsel dest args handlersel)
-  | prog => prog`,
+  | prog => prog
+Proof
   rpt(
     rpt strip_tac
     >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
-    >> fs[three_to_two_reg_def]));
+    >> fs[three_to_two_reg_def])
+QED
 
 val _ = export_theory();

@@ -1,3 +1,6 @@
+(*
+  A compset for evaluating the MIPS instruction encoder and config.
+*)
 structure mips_targetLib :> mips_targetLib =
 struct
 

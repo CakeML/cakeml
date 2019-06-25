@@ -9,8 +9,11 @@ val _ = new_theory "stackProg";
 
 val _ = translation_extends"basisProg";
 
+val _ = Datatype `exn_type = EmptyStack`;
+val _ = register_exn_type ``:exn_type``;
+
 val stack_decls = process_topdecs
-   ‘fun empty_stack u = ref (Array.arrayEmpty (), 0)
+   ‘fun empty_stack u = Ref (Array.arrayEmpty (), 0)
 
     fun push q e =
         case !q of (a,i) =>
@@ -25,17 +28,17 @@ val stack_decls = process_topdecs
                q := (a,i+1))
           end
 
-    exception EmptyStack
-
     fun pop q =
       case !q of
-        (a,i) => if i = 0 then raise EmptyStack
+        (a,i) => if i = 0 then raise Emptystack
                  else let val x = Array.sub a (i-1) in (q := (a, i-1); x) end’;
 
 val _ = append_prog stack_decls;
 
 val EmptyStack_exn_def = Define`
-  EmptyStack_exn v = (v = Conv (SOME ("EmptyStack", TypeExn (Short "EmptyStack"))) [])`;
+  EmptyStack_exn v = STACKPROG_EXN_TYPE_TYPE EmptyStack v`;
+
+val EmptyStack_exn_def = EVAL ``EmptyStack_exn v``;
 
 (* Heap predicate for stacks:
    STACK A vs qv means qv is a reference to a stack of
@@ -54,27 +57,31 @@ val xs_auto_tac = rpt (FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp, xle
 
 val st = get_ml_prog_state ();
 
-val empty_stack_spec = Q.store_thm ("empty_stack_spec",
-    `!uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_stack" st) [uv]
-          emp (POSTv qv. STACK A [] qv)`,
+Theorem empty_stack_spec:
+     !uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_stack" st) [uv]
+          emp (POSTv qv. STACK A [] qv)
+Proof
     xcf "empty_stack" st \\
     xlet `POSTv v. &UNIT_TYPE () v` THEN1(xcon \\ xsimpl) \\
     xlet `POSTv av. ARRAY av []` THEN1(xapp \\ fs[]) \\
     xlet `POSTv pv. SEP_EXISTS av iv.
       &(pv = Conv NONE [av; iv]) * ARRAY av [] * &NUM 0 iv`
     THEN1(xcon \\ xsimpl) \\
-    xref >> simp[STACK_def] >> xsimpl);
+    xref >> simp[STACK_def] >> xsimpl
+QED
 
-val empty_stack_spec = Q.store_thm ("empty_stack_spec",
-    `!uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_stack" st) [uv]
-          emp (POSTv qv. STACK A [] qv)`,
+Theorem empty_stack_spec:
+     !uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_stack" st) [uv]
+          emp (POSTv qv. STACK A [] qv)
+Proof
     xcf "empty_stack" st >> simp[STACK_def] >> xs_auto_tac
-);
+QED
 
-val push_spec = Q.store_thm ("push_spec",
-    `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "push" st) [qv; xv]
+Theorem push_spec:
+     !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "push" st) [qv; xv]
           (STACK A vs qv * & A x xv)
-          (POSTv uv. STACK A (vs ++ [x]) qv)`,
+          (POSTv uv. STACK A (vs ++ [x]) qv)
+Proof
     xcf "push" st >>
     simp[STACK_def] >>
     xpull >>
@@ -119,12 +126,13 @@ val push_spec = Q.store_thm ("push_spec",
         Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
         `vvs++[h]++t = vvs++h::t` by rw[] >>
         POP_ASSUM (fn x => fs[x, LUPDATE_LENGTH])
-);
+QED
 
-val push_spec = Q.store_thm ("push_spec",
-    `!qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "push" st) [qv; xv]
+Theorem push_spec:
+     !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "push" st) [qv; xv]
           (STACK A vs qv * & A x xv)
-          (POSTv uv. STACK A (vs ++ [x]) qv)`,
+          (POSTv uv. STACK A (vs ++ [x]) qv)
+Proof
     xcf "push" st >>
     simp[STACK_def] >>
     xpull >>
@@ -152,20 +160,21 @@ val push_spec = Q.store_thm ("push_spec",
         Cases_on `junk:v list` >-(fs[LENGTH_NIL]) >>
         `vvs++[h]++t = vvs++h::t` by rw[] >>
         POP_ASSUM (fn x => fs[x, LUPDATE_LENGTH])
-);
+QED
 
 val eq_num_v_thm =
   mlbasicsProgTheory.eq_v_thm
   |> DISCH_ALL
   |> C MATCH_MP (EqualityType_NUM_BOOL |> CONJUNCT1);
 
-val pop_spec = Q.store_thm("pop_spec",
-  `!qv.
+Theorem pop_spec:
+   !qv.
    EqualityType A ==>
    app (p:'ffi ffi_proj) ^(fetch_v "pop" st) [qv]
    (STACK A vs qv)
-   (POST (\v. &(not(NULL vs) /\ A (LAST vs) v) * STACK A (FRONT vs) qv)
-         (\e. &(NULL vs /\ EmptyStack_exn e) * STACK A vs qv))`,
+   (POSTve (\v. &(not(NULL vs) /\ A (LAST vs) v) * STACK A (FRONT vs) qv)
+           (\e. &(NULL vs /\ EmptyStack_exn e) * STACK A vs qv))
+Proof
    xcf "pop" st >>
    simp[STACK_def] >>
    xpull >>
@@ -216,6 +225,6 @@ val pop_spec = Q.store_thm("pop_spec",
   xsimpl >>
   rw[] >>
   fs[NULL_EQ]
-);
+QED
 
 val _ = export_theory ()

@@ -1,3 +1,6 @@
+(*
+  Prove `encoder_correct` for x64
+*)
 open HolKernel Parse boolLib bossLib
 open asmLib x64_stepLib x64_targetTheory;
 
@@ -532,21 +535,21 @@ val encode_rwts =
        e_imm64_def, Zsize_width_def, Zbinop_name2num_thm,
        asmSemTheory.is_test_def, total_num2Zreg_def
        ]
-   end
+   end;
 
 val enc_rwts =
   [x64_config, Zreg2num_num2Zreg_imp, binop_lem1, loc_lem1, loc_lem2,
    const_lem1, const_lem2, binop_lem9b, jump_lem1, jump_lem3, jump_lem4,
    jump_lem5, jump_lem6, cmp_lem7, is_rax, x64_asm_ok, xmm_reg, xmm_reg3,
    utilsLib.mk_cond_rand_thms [``asmSem$asm_state_failed``]] @
-  encode_rwts @ asmLib.asm_rwts
+  encode_rwts @ asmLib.asm_rwts;
 
 val enc_ok_rwts =
-  x64_asm_ok :: encode_rwts @ [asmPropsTheory.enc_ok_def, x64_config]
+  x64_asm_ok :: encode_rwts @ [asmPropsTheory.enc_ok_def, x64_config];
 
 (* some custom tactics ---------------------------------------------------- *)
 
-val rfs = rev_full_simp_tac (srw_ss())
+val rfs = rev_full_simp_tac (srw_ss());
 
 local
    val rip = ``state.RIP``
@@ -582,7 +585,7 @@ local
                 state.MXCSR.IM /\ ~state.MXCSR.DAZ /\ (state.MXCSR.RC = 0w) /\
                ^r`,
             rw [asmPropsTheory.target_state_rel_def, x64_target_def, x64_ok_def,
-                x64_config_def, asmSemTheory.bytes_in_memory_def]
+                x64_config_def, miscTheory.bytes_in_memory_def]
             \\ rfs []
          ) |> Thm.GENL b
       end
@@ -656,7 +659,7 @@ in
          \\ TRY (Q.PAT_X_ASSUM `NextStateX64 qq = qqq` kall_tac)
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
-end
+end;
 
 local
   fun is_n2w_var tm =
@@ -674,7 +677,7 @@ local
        [l] =>
          let
            val ts = List.map (HolKernel.find_terms is_n2w_var) l
-                    |> List.concat |> Lib.mk_set
+                    |> List.concat |> Lib.op_mk_set aconv
            val ts =
              List.foldl
                (fn (t, (n, a)) => (n + 1, mk_abbrev t n :: a)) (0, []) ts
@@ -695,7 +698,8 @@ in
     in
       EXISTS_TAC n
       \\ SIMP_TAC std_ss [asmPropsTheory.asserts_eval, x64_proj_def,
-                          asmPropsTheory.interference_ok_def]
+                          asmPropsTheory.interference_ok_def,
+                          asmPropsTheory.asserts2_eval]
       \\ NTAC 2 STRIP_TAC
       \\ Q.PAT_ABBREV_TAC `instr = x64_enc aa`
       \\ NO_STRIP_REV_FULL_SIMP_TAC
@@ -708,6 +712,11 @@ in
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ MAP_EVERY asmLib.split_bytes_in_memory_tac (List.map Int.abs l)
       \\ NTAC (i + 1) next_state_tac
+      \\ (if not (exists (fn i => i < 0) l) then all_tac else
+          `s1.pc = ms.RIP` by
+             (fs [asmPropsTheory.target_state_rel_def,x64_target_def])
+          \\ full_simp_tac std_ss [miscTheory.bytes_in_memory_def,
+               addressTheory.word_arith_lemma1])
       \\ fs [x64Theory.RexReg_def, asmPropsTheory.all_pcs, overflow_lem,
              asmPropsTheory.sym_target_state_rel, x64_target_def, sub_overflow,
              x64_config, set_sepTheory.fun2set_eq, integer_wordTheory.overflow,
@@ -722,7 +731,7 @@ in
       \\ rfs []
       \\ blastLib.FULL_BBLAST_TAC
     end
-end
+end;
 
 local
    fun rule rwt thm =
@@ -736,7 +745,7 @@ local
           SOME (l, r) =>
              (case Lib.total wordsSyntax.dest_word_extract l of
                  SOME (h, l, x, _) =>
-                    if x = v andalso h = ``3n`` andalso l = ``3n``
+                    if x ~~ v andalso h ~~ ``3n`` andalso l ~~ ``3n``
                        then (case Lib.total wordsSyntax.uint_of_word r of
                                 SOME 0 => SOME true
                               | SOME 1 => SOME false
@@ -817,7 +826,7 @@ local
 in
    val load_tac = load_store_tac true
    val store_tac = load_store_tac false
-end
+end;
 
 val fp_cmp_tac =
   Cases_on `n < 8`
@@ -827,7 +836,7 @@ val fp_cmp_tac =
   >- next_tac [4, 5, ~2]
   >- next_tac [4, 5, 2]
   >- next_tac [4, 6, ~2]
-  \\ next_tac [4, 6, 2]
+  \\ next_tac [4, 6, 2];
 
 (* -------------------------------------------------------------------------
    x64 target_ok
@@ -838,12 +847,12 @@ val x64_encoding = Q.prove (
    strip_tac
    \\ Cases_on `LIST_BIND (x64_ast i) x64_encode`
    \\ simp [x64_enc_def, x64_dec_fail_def]
-   )
+   );
 
 val x64_cmp_neq_p = Q.prove(
   `!cmp. x64_cmp cmp <> Z_P`,
   Cases \\ simp [x64_cmp_def]
-  )
+  );
 
 val x64_target_ok = Q.prove (
    `target_ok x64_target`,
@@ -863,21 +872,23 @@ val x64_target_ok = Q.prove (
    \\ full_simp_tac (srw_ss()++boolSimps.LET_ss)
         (asmPropsTheory.offset_monotonic_def :: x64_cmp_neq_p :: enc_ok_rwts)
    \\ rw [jump_lem1, jump_lem3, jump_lem4, jump_lem5, jump_lem6, loc_lem1]
-   )
+   );
 
 (* -------------------------------------------------------------------------
-   x64 backend_correct
+   x64 encoder_correct
    ------------------------------------------------------------------------- *)
 
-val print_tac = asmLib.print_tac ""
+val print_tac = asmLib.print_tac "";
 
-val x64_backend_correct = Q.store_thm("x64_backend_correct",
-   `backend_correct x64_target`,
-   simp [asmPropsTheory.backend_correct_def, x64_target_ok]
+Theorem x64_encoder_correct:
+    encoder_correct x64_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, x64_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel x64_target`
    \\ rw [x64_target_def, x64_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ Cases_on `i`
+
    >- (
       (*--------------
           Inst
@@ -1007,6 +1018,7 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
               --------------*)
             qexists_tac `0`
             \\ simp [asmPropsTheory.asserts_eval,
+                     asmPropsTheory.asserts2_eval,
                      asmPropsTheory.interference_ok_def,
                      x64_next_def, x64_proj_def]
             \\ NTAC 2 STRIP_TAC
@@ -1132,6 +1144,7 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
          >- (print_tac "FPSub" \\ next_tac [])
          >- (print_tac "FPMul" \\ next_tac [])
          >- (print_tac "FPDiv" \\ next_tac [])
+         >- (print_tac "FPFma" \\ next_tac [])
          >- (print_tac "FPMov" \\ next_tac [])
          >- (print_tac "FPMovToReg" \\ next_tac [])
          >- (print_tac "FPMovFromReg" \\ next_tac [])
@@ -1232,6 +1245,6 @@ val x64_backend_correct = Q.store_thm("x64_backend_correct",
       print_tac "Loc"
       \\ next_tac []
       )
-   )
+QED
 
 val () = export_theory ()

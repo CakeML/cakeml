@@ -1,3 +1,6 @@
+(*
+  Defines the HOL inference system.
+*)
 open preamble holSyntaxLibTheory mlstringTheory totoTheory
 
 val _ = new_theory "holSyntax"
@@ -14,20 +17,23 @@ val _ = Parse.overload_on("Bool",``Tyapp (strlit "bool") []``)
 val domain_raw = Define `
   domain ty = case ty of Tyapp n (x::xs) => x | _ => ty`;
 
-val domain_def = Q.store_thm("domain_def",
-  `!t s. domain (Fun s t) = s`,
-  REPEAT STRIP_TAC \\ EVAL_TAC);
+Theorem domain_def[compute,simp]:
+   !t s. domain (Fun s t) = s
+Proof
+  REPEAT STRIP_TAC \\ EVAL_TAC
+QED
 
 val codomain_raw = Define `
   codomain ty = case ty of Tyapp n (y::x::xs) => x | _ => ty`;
 
-val codomain_def = Q.store_thm("codomain_def",
-  `!t s. codomain (Fun s t) = t`,
-  REPEAT STRIP_TAC \\ EVAL_TAC);
+Theorem codomain_def[compute,simp]:
+   !t s. codomain (Fun s t) = t
+Proof
+  REPEAT STRIP_TAC \\ EVAL_TAC
+QED
 
 val _ = save_thm("domain_raw",domain_raw);
 val _ = save_thm("codomain_raw",codomain_raw);
-val _ = export_rewrites["domain_def","codomain_def"]
 
 fun type_rec_tac proj =
 (WF_REL_TAC(`measure (type_size o `@[QUOTE proj]@`)`) >> simp[] >>
@@ -221,8 +227,9 @@ val CLOSED_def = Define`
 (* Producing a variant of a variable, guaranteed
    to not be free in a given term. *)
 
-val VFREE_IN_FINITE = Q.store_thm("VFREE_IN_FINITE",
-  `∀t. FINITE {x | VFREE_IN x t}`,
+Theorem VFREE_IN_FINITE:
+   ∀t. FINITE {x | VFREE_IN x t}
+Proof
   Induct >> simp[VFREE_IN_def] >- (
     qmatch_abbrev_tac`FINITE z` >>
     qmatch_assum_abbrev_tac`FINITE x` >>
@@ -235,22 +242,27 @@ val VFREE_IN_FINITE = Q.store_thm("VFREE_IN_FINITE",
   qmatch_abbrev_tac`FINITE z` >>
   qsuff_tac`∃y. z = x DIFF y`>-metis_tac[FINITE_DIFF] >>
   simp[Abbr`z`,Abbr`x`,EXTENSION] >>
-  metis_tac[IN_SING])
+  metis_tac[IN_SING]
+QED
 
-val VFREE_IN_FINITE_ALT = Q.store_thm("VFREE_IN_FINITE_ALT",
-  `∀t ty. FINITE {x | VFREE_IN (Var (implode x) ty) t}`,
+Theorem VFREE_IN_FINITE_ALT:
+   ∀t ty. FINITE {x | VFREE_IN (Var (implode x) ty) t}
+Proof
   rw[] >> match_mp_tac (MP_CANON SUBSET_FINITE) >>
   qexists_tac`IMAGE (λt. case t of Var x y => explode x) {x | VFREE_IN x t}` >>
   simp[VFREE_IN_FINITE,IMAGE_FINITE] >>
   simp[SUBSET_DEF] >> rw[] >>
-  HINT_EXISTS_TAC >> simp[explode_implode])
+  HINT_EXISTS_TAC >> simp[explode_implode]
+QED
 
-val PRIMED_NAME_EXISTS = Q.store_thm("PRIMED_NAME_EXISTS",
-  `∃n. ¬(VFREE_IN (Var (implode (APPEND x (GENLIST (K #"'") n))) ty) t)`,
+Theorem PRIMED_NAME_EXISTS:
+   ∃n. ¬(VFREE_IN (Var (implode (APPEND x (GENLIST (K #"'") n))) ty) t)
+Proof
   qspecl_then[`t`,`ty`]mp_tac VFREE_IN_FINITE_ALT >>
   disch_then(mp_tac o CONJ PRIMED_INFINITE) >>
   disch_then(mp_tac o MATCH_MP INFINITE_DIFF_FINITE) >>
-  simp[GSYM MEMBER_NOT_EMPTY] >> rw[] >> metis_tac[])
+  simp[GSYM MEMBER_NOT_EMPTY] >> rw[] >> metis_tac[]
+QED
 
 val LEAST_EXISTS = Q.prove(
   `(∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)`,
@@ -267,9 +279,11 @@ val VARIANT_PRIMES_def = new_specification
 val VARIANT_def = Define`
   VARIANT t x ty = implode (APPEND x (GENLIST (K #"'") (VARIANT_PRIMES t x ty)))`
 
-val VARIANT_THM = Q.store_thm("VARIANT_THM",
-  `∀t x ty. ¬VFREE_IN (Var (VARIANT t x ty) ty) t`,
-  metis_tac[VARIANT_def,VARIANT_PRIMES_def])
+Theorem VARIANT_THM:
+   ∀t x ty. ¬VFREE_IN (Var (VARIANT t x ty) ty) t
+Proof
+  metis_tac[VARIANT_def,VARIANT_PRIMES_def]
+QED
 
 (* Substitution for type variables in a type. *)
 
@@ -307,9 +321,10 @@ val sizeof_def = Define`
   sizeof (Abs v t) = 2 + sizeof t`
 val _ = export_rewrites["sizeof_def"]
 
-val SIZEOF_VSUBST = Q.store_thm("SIZEOF_VSUBST",
-  `∀t ilist. (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s' = Var x ty)
-              ⇒ sizeof (VSUBST ilist t) = sizeof t`,
+Theorem SIZEOF_VSUBST:
+   ∀t ilist. (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s' = Var x ty)
+              ⇒ sizeof (VSUBST ilist t) = sizeof t
+Proof
   Induct >> simp[VSUBST_def] >> rw[VSUBST_def] >> simp[] >- (
     Q.ISPECL_THEN[`ilist`,`Var m t`,`Var m t`]mp_tac REV_ASSOCD_MEM >>
     rw[] >> res_tac >> pop_assum SUBST1_TAC >> simp[] )
@@ -317,11 +332,14 @@ val SIZEOF_VSUBST = Q.store_thm("SIZEOF_VSUBST",
   simp[pairTheory.UNCURRY] >> rw[] >> simp[] >>
   first_x_assum match_mp_tac >>
   simp[MEM_FILTER] >>
-  rw[] >> res_tac >> fs[] )
+  rw[] >> res_tac >> fs[]
+QED
 
-val sizeof_positive = Q.store_thm("sizeof_positive",
-  `∀t. 0 < sizeof t`,
-  Induct >> simp[])
+Theorem sizeof_positive:
+   ∀t. 0 < sizeof t
+Proof
+  Induct >> simp[]
+QED
 
 (* Instantiation of type variables in terms *)
 
@@ -623,37 +641,35 @@ val nonbuiltin_ctxt_def = Define`
 val is_builtin_name_def = Define`
   (is_builtin_name m = MEM m (MAP strlit ["bool";"fun"]))
 `
+
 val is_builtin_type_def = Define`
   (is_builtin_type (Tyvar _) = F)
-  /\ (is_builtin_type (Tyapp m ty) = is_builtin_name m)
+  /\ (is_builtin_type (Tyapp m ty) =
+      ((m = strlit "fun" /\ LENGTH ty = 2) \/
+       (m = strlit "bool" /\ LENGTH ty = 0)))
 `
+
+val type1_size_append = Q.prove(
+  `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
+  Induct >> simp[fetch "-" "type_size_def"]);
 
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
  * \sigma by combinations of built-in types.
  * This corresponds to   types^\bullet : term -> type set  in the publication *)
-val allTypes'_defn = Hol_defn "allTypes'" `
+val allTypes'_defn = tDefine "allTypes'" `
   (allTypes' (Tyapp s tys) =
-     case s of
-       strlit "fun" => FLAT (MAP allTypes' tys)
-     | strlit "bool" => [] (* tys = [] *)
-     | _ => [(Tyapp s tys)]
+    if s = strlit "fun" /\ LENGTH tys = 2 then FLAT (MAP allTypes' tys)
+    else if s = strlit "bool" /\ tys = [] then []
+    else [(Tyapp s tys)]
   )
-  /\ (allTypes' (Tyvar _) = [])
-`;
-
-val type1_size_append = Q.prove(
-  `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
-  Induct >> simp[fetch "-" "type_size_def"])
-
-val (allTypes'_eqns, allTypes'_ind) = Defn.tprove (
-  allTypes'_defn,
-  WF_REL_TAC `measure type_size`
-  >> Induct
-  >> rw[fetch "-" "type_size_def"]
-  >> fs[MEM_SPLIT]
-  >> rw[type1_size_append]
-  >> rw[fetch "-" "type_size_def"]
-);
+  /\ (allTypes' (Tyvar n) = [Tyvar n])
+  `
+  (WF_REL_TAC `measure type_size`
+   >> Induct
+   >> rw[fetch "-" "type_size_def"]
+   >> fs[MEM_SPLIT]
+   >> rw[type1_size_append]
+   >> rw[fetch "-" "type_size_def"]);
 
 (* extend allTypes' to terms *)
 val allTypes_def = Define `
@@ -700,13 +716,13 @@ val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
   (!ctxt t1 t2 name pred abs rep.
        MEM (TypeDefn name pred abs rep) ctxt
        /\ MEM t2 (allTypes pred)
-       /\ t1 = Tyapp name (MAP Tyvar (tvars pred))
+       /\ t1 = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
        ==>
        dependency ctxt (INL t1) (INL t2)) /\
   (!ctxt t c name pred abs rep.
        MEM (TypeDefn name pred abs rep) ctxt
        /\ MEM c (allCInsts pred)
-       /\ t = Tyapp name (MAP Tyvar (tvars pred))
+       /\ t = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred)))))
        ==>
        dependency ctxt (INL t) (INR c)) /\
   (!ctxt name t1 t2.
@@ -720,23 +736,23 @@ val (dependency_def,dependency_ind,dependency_cases) = Hol_reln
 (* The computable version of the dependency relation
  * types are INL and constants are INR *)
 val dependency_compute_def = Define`
-  dependency_compute = FLAT o MAP (\x.
+  dependency_compute = FLAT o MAP (λx.
     case x of
         (TypeDefn name t _ _ ) =>
-          let ty = INL (Tyapp name (MAP Tyvar (tvars t))) in
-          MAP (\v. (ty, INR v)) (allCInsts t)
-          ++ MAP (\v. (ty, INL v)) (allTypes t)
+          let ty = INL (Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars t)))))) in
+          MAP (λv. (ty, INR v)) (allCInsts t)
+          ++ MAP (λv. (ty, INL v)) (allTypes t)
         | (ConstSpec cl _) =>
-          FLAT (MAP (\(cname,t).
+          FLAT (MAP (λ(cname,t).
             if ~ wellformed_compute t then [] else
             let constant = INR (Const cname (typeof t))
             in
-              MAP (\subtype. (constant,INL subtype)) (allTypes t)
-              ++ MAP (\subconstant. (constant,INR subconstant)) (allCInsts t)
+              MAP (λsubtype. (constant,INL subtype)) (allTypes t)
+              ++ MAP (λsubconstant. (constant,INR subconstant)) (allCInsts t)
             ) cl)
       | (NewConst name ty) =>
           if is_builtin_name name then []
-          else MAP (\t1. (INR (Const name ty), INL t1)) (allTypes' ty)
+          else MAP (λt1. (INR (Const name ty), INL t1)) (allTypes' ty)
       | _ => []
   )
 `
@@ -860,8 +876,7 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
   (* new_type_definition *)
   ((thyof ctxt, []) |- Comb pred witness ∧
    CLOSED pred ∧
-   (* the resulting theory has to be orthogonal *)
-   ~cyclic (TypeDefn name pred abs rep::ctxt) ∧
+   name ∉ (FDOM (tysof ctxt)) ∧
    abs ∉ (FDOM (tmsof ctxt)) ∧
    rep ∉ (FDOM (tmsof ctxt)) ∧
    abs ≠ rep

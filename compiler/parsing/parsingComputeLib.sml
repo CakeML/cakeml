@@ -1,3 +1,6 @@
+(*
+  compset for the lexer and parser.
+*)
 structure parsingComputeLib =
 struct
 
