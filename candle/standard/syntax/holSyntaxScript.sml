@@ -840,6 +840,19 @@ val wf_ctxt_def = Define `
 val cyclic_def = Define `
   cyclic = ARB:(update list -> bool)`
 
+val constspec_ok_def = Define `
+  constspec_ok eqs prop ctxt =
+  if ∀s. MEM s (MAP FST eqs) ⇒ s ∉ (FDOM (tmsof ctxt))
+  then
+    ALL_DISTINCT (MAP FST eqs)
+  else if
+    (!name trm. MEM (name,trm) eqs ==> ?ty'. MEM (NewConst name ty') ctxt
+           /\ is_instance ty' (typeof trm)
+    )
+  then
+    ~cyclic (ConstSpec eqs prop::ctxt) /\ orth_ctxt (ConstSpec eqs prop::ctxt)
+  else F`
+
 (* Principles for extending the context *)
 
 val _ = Parse.add_infix("updates",450,Parse.NONASSOC)
@@ -866,7 +879,7 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
    (∀x ty. VFREE_IN (Var x ty) prop ⇒
              MEM (x,ty) (MAP (λ(s,t). (s,typeof t)) eqs)) ∧
    (* the resulting theory has to pass the cyclicity check *)
-   ~cyclic (ConstSpec eqs prop::ctxt)
+   constspec_ok eqs prop ctxt
    ⇒ (ConstSpec eqs prop) updates ctxt) ∧
 
   (* new_type *)
