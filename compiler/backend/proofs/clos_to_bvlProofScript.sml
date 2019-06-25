@@ -7120,6 +7120,10 @@ val req_compile_inc_addrs_def = Define `
   req_compile_inc_addrs (exps, code) = extracted_addrs exps ++
     code_locs exps ++ MAP FST code ++ code_locs (MAP (SND o SND) code)`;
 
+val can_extract_def = Define `
+  can_extract exps = (exps = [] \/ (?t n exp exps'.
+        exps = Op t (Const (& n)) [] :: exp :: exps'))`;
+
 Theorem extract_name_MAP_FST_addrs:
   extract_name exps = (n, real_es) ==>
   MAP FST (chain_exps n real_es) = extracted_addrs exps
@@ -7163,23 +7167,105 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem NULL_remove_dests:
+  NULL (clos_labels$remove_dests cfg xs) = NULL xs
+Proof
+  simp_tac bool_ss [NULL_LENGTH, clos_labelsTheory.LENGTH_remove_dests]
+QED
+
+Theorem code_locs_Op_cons = GEN_ALL (Q.SPEC `Op a b c` code_locs_cons)
+
 Theorem labels_compile_inc_ALL_DISTINCT:
-  ALL_DISTINCT (req_compile_inc_addrs prog) ==>
+  ALL_DISTINCT (req_compile_inc_addrs prog) /\ can_extract (FST prog) ==>
   ALL_DISTINCT (req_compile_inc_addrs (clos_labelsProof$compile_inc prog))
 Proof
   PairCases_on `prog`
   \\ fs [clos_labelsProofTheory.compile_inc_def, req_compile_inc_addrs_def]
   \\ fs [clos_labelsProofTheory.MAP_FST_compile]
   \\ disch_tac \\ irule clos_labels_distinct_locs
+  \\ fs [can_extract_def, extracted_addrs_def, clos_labelsTheory.remove_dests_def, extract_name_def, some_def]
+  \\ simp_tac bool_ss [NULL_LENGTH, clos_labelsTheory.LENGTH_remove_dests]
+  \\ fs [clos_labelsTheory.LENGTH_remove_dests, extract_name_def,
+        code_locs_def, code_locs_Op_cons]
+  \\ fs [ALL_DISTINCT_APPEND, clos_labelsProofTheory.code_locs_remove_dests,
+        clos_labelsProofTheory.code_locs_remove_dests_distinct]
+  \\ metis_tac []
+QED
 
+Theorem annotate_compile_code_locs:
+  set (code_locs (MAP (SND o SND) (clos_annotate$compile xs))) SUBSET
+    set (code_locs (MAP (SND o SND) xs)) /\
+  (ALL_DISTINCT (code_locs (MAP (SND o SND) xs)) ==>
+    ALL_DISTINCT (code_locs (MAP (SND o SND) (clos_annotate$compile xs))))
+Proof
+  Induct_on `xs` \\ fs [clos_annotateTheory.compile_def]
+  \\ fs [UNCURRY, Q.SPECL [`x`, `MAP (SND o SND) ys`] code_locs_cons]
+  \\ fs [clos_annotateProofTheory.HD_annotate_SING]
+  \\ rw [SUBSET_DEF, ALL_DISTINCT_APPEND] \\ fs [SUBSET_DEF]
+  \\ metis_tac [clos_annotateProofTheory.annotate_code_locs, SUBSET_DEF]
+QED
 
+Theorem LENGTH_annotate:
+  LENGTH (annotate i xs) = LENGTH xs
+Proof
+  fs [clos_annotateTheory.annotate_def, clos_annotateTheory.shift_LENGTH_LEMMA,
+    clos_annotateTheory.LENGTH_FST_alt_free]
+QED
+Theorem annotate_compile_inc_ALL_DISTINCT:
+  ALL_DISTINCT (req_compile_inc_addrs prog) /\ can_extract (FST prog) ==>
+  ALL_DISTINCT (req_compile_inc_addrs (clos_annotateProof$compile_inc prog))
+Proof
+  PairCases_on `prog`
+  \\ fs [clos_annotateProofTheory.compile_inc_def, req_compile_inc_addrs_def]
+  \\ disch_tac
+  \\ qmatch_goalsub_abbrev_tac `ALL_DISTINCT (xs ++ code_locs (MAP f _))`
+  \\ `ALL_DISTINCT (xs ++ code_locs (MAP f prog1))` suffices_by (
+    qunabbrev_tac `f`
+    \\ fs [ALL_DISTINCT_APPEND, annotate_compile_code_locs]
+    \\ metis_tac [annotate_compile_code_locs, SUBSET_DEF]
+  )
+  \\ unabbrev_all_tac
+  \\ fs [can_extract_def, extracted_addrs_def, EVAL ``annotate arity []``]
+  \\ fs [annotate_Op_Const, extract_name_def, some_def]
+  \\ simp_tac bool_ss [NULL_LENGTH, LENGTH_annotate]
+  \\ fs [LENGTH_annotate, code_locs_Op_cons, code_locs_def]
+  \\ fs [ALL_DISTINCT_APPEND, annotate_compile_code_locs]
+  \\ metis_tac [clos_annotateProofTheory.annotate_code_locs, SUBSET_DEF]
+QED
 
-clos_labelsProofTheory.code_locs_remove_dests (THEOREM)
-
-
-clos_labelsProofTheory.code_locs_remove_dests_distinct (THEOREM)
-
-
+Theorem cond_call_compile_inc_ALL_DISTINCT:
+  ALL_DISTINCT (req_compile_inc_addrs prog ++ MAP SUC (code_locs (FST prog)))
+    /\ can_extract (FST prog)
+    /\ SND prog = [] ==>
+  ALL_DISTINCT (req_compile_inc_addrs (SND (cond_call_compile_inc dc cfg prog)))
+Proof
+  PairCases_on `prog`
+  \\ Cases_on `prog1`
+  \\ fs [cond_call_compile_inc_def, req_compile_inc_addrs_def]
+  \\ CASE_TAC \\ fs [req_compile_inc_addrs_def]
+  \\ fs [ccompile_inc_uncurry, req_compile_inc_addrs_def]
+  \\ Cases_on `calls prog0 (cfg, [])`
+  \\ imp_res_tac clos_callProofTheory.calls_code_locs_ALL_DISTINCT
+  \\ imp_res_tac clos_callProofTheory.calls_code_locs_MEM
+  \\ imp_res_tac clos_callProofTheory.calls_add_SUC_code_locs
+  \\ imp_res_tac clos_callProofTheory.calls_ALL_DISTINCT
+  \\ fs [code_locs_def]
+  \\ rw []
+  \\ `extracted_addrs (FST (calls prog0 (cfg, []))) = extracted_addrs prog0`
+    by (
+     fs [can_extract_def] \\ fs [clos_callTheory.calls_def]
+     \\ fs [extracted_addrs_def]
+     \\ pairarg_tac \\ fs []
+     \\ rveq \\ fs []
+     \\ fs [extract_name_def]
+     \\ imp_res_tac clos_callTheory.calls_length
+     \\ full_simp_tac bool_ss [NULL_LENGTH]
+     \\ fs []
+    )
+  \\ fs [ALL_DISTINCT_APPEND]
+  \\ rfs [SUBSET_DEF, MEM_MAP]
+  \\ metis_tac []
+QED
 
 Theorem syntax_oracle_ok_to_oracle_inv:
 
@@ -7202,14 +7288,25 @@ Theorem syntax_oracle_ok_to_oracle_inv:
 
 Proof
 
-  rpt (gen_tac ORELSE disch_tac) 
+  rpt (gen_tac ORELSE disch_tac)
   \\ Cases_on `compile_common c es`
-  \\ simp_tac bool_ss [Once boolTheory.LET_THM, pairTheory.UNCURRY_DEF]
+  \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `compile_oracle_inv _ _ _ s_co _ _ t_co`
+  \\ fs [compile_oracle_inv_def]
+  \\ conj_tac >- (
 
+    simp [PAIR_FST_SND_EQ]
+    \\ unabbrev_all_tac
+    \\ rw []
+    \\ conseq [GEN_ALL compile_inc_ALL_DISTINCT,
+        GEN_ALL labels_compile_inc_ALL_DISTINCT,
+        GEN_ALL annotate_compile_inc_ALL_DISTINCT]
+    \\ fs [backendPropsTheory.SND_state_co]
+    \\ conseq [GEN_ALL cond_call_compile_inc_ALL_DISTINCT]
+    \\ fs []
 
-  fs [compile_oracle_inv_def]
-  \\ simp [Q.SPECL [`x`, `(y, z)`] PAIR_FST_SND_EQ]
-  \\ conseq [GEN_ALL compile_inc_ALL_DISTINCT]
+  )
+
 
   \\ pairarg_tac \\ fs []
   \\ fs [compile_inc_def]
@@ -7437,7 +7534,7 @@ Theorem calls_Op_Const
   \\ pairarg_tac \\ fs[]);
 
 Theorem annotate_Op_Const
-  `annotate m ((Op None (Const n) [])::ls) = Op None (Const n) [] :: annotate m ls`
+  `annotate m ((Op t (Const n) [])::ls) = Op t (Const n) [] :: annotate m ls`
   (rw[clos_annotateTheory.annotate_def]
   \\ Cases_on`ls` >- EVAL_TAC
   \\ rw[clos_annotateTheory.alt_free_def]
