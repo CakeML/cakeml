@@ -4569,402 +4569,405 @@ Proof
     srw_tac[][] >>
     metis_tac [SUBMAP_REFL])
   (* cEvalApp real app *)
-  \\ qpat_x_assum `evaluate_app x0 x1 x2 x3 = x4` mp_tac
-  \\ simp [cEval_def]
-  \\ qpat_abbrev_tac `args = _::_`
-  \\ rename1 `args = z::zs`
-  \\ DISCH_TAC
-  \\ qabbrev_tac `args' = args''`
-  \\ `LENGTH args' ≠ 0` by metis_tac [LIST_REL_LENGTH, LENGTH, DECIDE ``SUC x ≠ 0``]
-  \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `dest_closure s1.max_app loc_opt func args`
-  \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `x`
-  \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][]
-  >- ((* Partial application *)
-      `LENGTH args = LENGTH args' ∧ LENGTH args ≠ 0` by (imp_res_tac LIST_REL_LENGTH \\ fs[Abbr`args`]) >>
-      imp_res_tac dest_closure_part_app >>
-      srw_tac[][PULL_EXISTS] >>
-      imp_res_tac v_rel_num_rem_args >>
-      srw_tac[][mk_cl_call_def, bEval_def, bEval_APPEND, bEvalOp_def] >>
-      srw_tac [ARITH_ss] [el_append3] >>
-      `&n' ≠ &(LENGTH args')` by srw_tac [ARITH_ss] [] >>
-      `(&n'):int - 1 ≠ &(LENGTH args' - 1)`
-                 by (full_simp_tac(srw_ss())[int_arithTheory.INT_NUM_SUB] >>
-                     CCONTR_TAC >>
-                     full_simp_tac(srw_ss())[] >>
-                     srw_tac[][] >>
-                     ARITH_TAC) >>
-      srw_tac[][] >>
-      `0 < LENGTH args'` by decide_tac >>
-      `evaluate (GENLIST Var (LENGTH args'),
-              args' ++ [Block tag (CodePtr ptr::Number (&n'-1)::rest)] ++ env,
-              t1 with clock := s1.clock) = (Rval args', t1 with clock := s1.clock)`
-                  by metis_tac [evaluate_simple_genlist_vars, APPEND_ASSOC] >>
-      qexists_tac `0` >>
-      srw_tac[][] >>
-      `LENGTH args' - 1 < s1.max_app` by decide_tac >>
-      `lookup (generic_app_fn_location (LENGTH args' - 1)) t1.code = SOME (LENGTH args' + 1, generate_generic_app s1.max_app (LENGTH args' - 1))`
-             by (full_simp_tac(srw_ss())[state_rel_def] >>
-                 decide_tac) >>
-      simp [find_code_def] >>
-      `SUC (LENGTH zs) = LENGTH args` by metis_tac [LENGTH] >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][]
-      >- (`s1.clock < LENGTH args'` by decide_tac >>
-          full_simp_tac(srw_ss())[] >>
-          qexists_tac `f1` >>
-          simp [SUBMAP_REFL] >>
-          full_simp_tac(srw_ss())[] >>
-          full_simp_tac(srw_ss())[closSemTheory.state_component_equality] >>
-          `s1 = s2` by srw_tac[][closSemTheory.state_component_equality] >>
-          metis_tac []) >>
-      drule (GEN_ALL unpack_closure_thm) >>
-      disch_then drule >> disch_then strip_assume_tac >>
-      `lookup (partial_app_fn_location s1.max_app total_args (LENGTH args' + LENGTH prev_args − 1)) t1.code =
-           SOME (total_args - (LENGTH args' + LENGTH prev_args-1) + 1, generate_partial_app_closure_fn total_args (LENGTH args' + LENGTH prev_args − 1))`
+  \\
+   ( (* last goal but parenthesising this tactic reduces parse time a lot *)
+    qpat_x_assum `evaluate_app x0 x1 x2 x3 = x4` mp_tac
+    \\ simp [cEval_def]
+    \\ qpat_abbrev_tac `args = _::_`
+    \\ rename1 `args = z::zs`
+    \\ DISCH_TAC
+    \\ qabbrev_tac `args' = args''`
+    \\ `LENGTH args' ≠ 0` by metis_tac [LIST_REL_LENGTH, LENGTH, DECIDE ``SUC x ≠ 0``]
+    \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `dest_closure s1.max_app loc_opt func args`
+    \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `x`
+    \\ full_simp_tac(srw_ss())[]
+    \\ srw_tac[][]
+    >- ((* Partial application *)
+        `LENGTH args = LENGTH args' ∧ LENGTH args ≠ 0` by (imp_res_tac LIST_REL_LENGTH \\ fs[Abbr`args`]) >>
+        imp_res_tac dest_closure_part_app >>
+        srw_tac[][PULL_EXISTS] >>
+        imp_res_tac v_rel_num_rem_args >>
+        srw_tac[][mk_cl_call_def, bEval_def, bEval_APPEND, bEvalOp_def] >>
+        srw_tac [ARITH_ss] [el_append3] >>
+        `&n' ≠ &(LENGTH args')` by srw_tac [ARITH_ss] [] >>
+        `(&n'):int - 1 ≠ &(LENGTH args' - 1)`
+                   by (full_simp_tac(srw_ss())[int_arithTheory.INT_NUM_SUB] >>
+                       CCONTR_TAC >>
+                       full_simp_tac(srw_ss())[] >>
+                       srw_tac[][] >>
+                       ARITH_TAC) >>
+        srw_tac[][] >>
+        `0 < LENGTH args'` by decide_tac >>
+        `evaluate (GENLIST Var (LENGTH args'),
+                args' ++ [Block tag (CodePtr ptr::Number (&n'-1)::rest)] ++ env,
+                t1 with clock := s1.clock) = (Rval args', t1 with clock := s1.clock)`
+                    by metis_tac [evaluate_simple_genlist_vars, APPEND_ASSOC] >>
+        qexists_tac `0` >>
+        srw_tac[][] >>
+        `LENGTH args' - 1 < s1.max_app` by decide_tac >>
+        `lookup (generic_app_fn_location (LENGTH args' - 1)) t1.code = SOME (LENGTH args' + 1, generate_generic_app s1.max_app (LENGTH args' - 1))`
                by (full_simp_tac(srw_ss())[state_rel_def] >>
-                   first_x_assum match_mp_tac >>
-                   srw_tac[][] >>
                    decide_tac) >>
-      `LENGTH args' + LENGTH prev_args − 1 = LENGTH prev_args + (LENGTH args − 1)` by simp [] >>
-      `LENGTH args' < total_args + 1 − LENGTH prev_args` by simp [] >>
-      full_simp_tac(srw_ss())[] >>
-      Q.ISPECL_THEN [`s1.max_app`, `total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] assume_tac (Q.GEN`max_app`evaluate_generic_app_partial) >>
-      rev_full_simp_tac(srw_ss())[domain_lookup] >>
-      pop_assum mp_tac >>
-      REWRITE_TAC [Once CONJ_SYM] >>
-      disch_then drule >>
-      impl_tac
-      >- (
-        qpat_x_assum `state_rel _ _ _` mp_tac >>
-        simp_tac (srw_ss()) [state_rel_def, dec_clock_def]) >>
-      strip_tac >>
-      srw_tac[][]
-      >- ((* A TimeOut *)
-          full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def, int_arithTheory.INT_NUM_SUB] >>
-          qexists_tac `f1` >>
-          srw_tac[][SUBMAP_REFL] >>
-          full_simp_tac(srw_ss())[state_rel_def])
-      >- ((* Result *)
-          `~((t1 with clock := s1.clock).clock < LENGTH args')` by (full_simp_tac(srw_ss())[dec_clock_def] >> decide_tac) >>
-          full_simp_tac(srw_ss())[] >>
-          srw_tac[][] >>
-          qexists_tac `f1` >>
-          reverse (srw_tac[][])
-          >- (srw_tac[][bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
-              metis_tac [arith_helper_lem,LENGTH_NIL])
-          >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
-              full_simp_tac(srw_ss())[state_rel_def]) >>
-          `args ≠ []` by (Cases_on `args` >> full_simp_tac(srw_ss())[]) >>
-          full_simp_tac(srw_ss())[v_rel_cases, num_remaining_args_def,closure_tag_neq_1,partial_app_tag_neq_closure_tag] >>
-          srw_tac[][] >>
-          full_simp_tac(srw_ss())[num_remaining_args_def, add_args_def, partial_app_tag_neq_closure_tag]
-          THEN1 simp [closSemTheory.dec_clock_def]
-          THEN1 simp [closSemTheory.dec_clock_def]
-(*
-          >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
-                 closSemTheory.dec_clock_def] >>
-              full_simp_tac(srw_ss())[state_rel_def])
-          >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
-                 closSemTheory.dec_clock_def] >>
-              full_simp_tac(srw_ss())[state_rel_def]) *)
-          >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
-                 closSemTheory.dec_clock_def] >>
-              full_simp_tac(srw_ss())[state_rel_def])
-          >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
-                 closSemTheory.dec_clock_def] >>
-              full_simp_tac(srw_ss())[state_rel_def])
-          >- ((* Wrapping a normal closure *)
-              MAP_EVERY qexists_tac [`args`, `func`, `env'`, `fvs`, `total_args + 1`] >>
-              full_simp_tac(srw_ss())[] >>
-              imp_res_tac cl_rel_get_num_args >>
-              srw_tac[][SUB_LEFT_SUB, LESS_OR_EQ] >>
-              full_simp_tac(srw_ss())[])
-          >- ((* Wrapping a partially applied closure *)
-              full_simp_tac(srw_ss())[unpack_closure_cases] >>
-              srw_tac[][] >>
-              MAP_EVERY qexists_tac [`args++arg_env`, `cl`, `env'`, `fvs`, `total_args+1`] >>
-              full_simp_tac(srw_ss())[partial_app_tag_neq_closure_tag] >>
-              imp_res_tac EVERY2_LENGTH >>
-              srw_tac[][partial_app_tag_neq_closure_tag]
-              >- simp [] >>
-              metis_tac [arith_helper_lem3, add_args_append, EVERY2_APPEND, LENGTH_NIL]))) >>
-  (* Enough arguments to do something *)
-  `SUC (LENGTH zs) = LENGTH args` by metis_tac [LENGTH] >>
-  `every_Fn_SOME [e] ∧ every_Fn_vs_SOME [e]` by (
-    qhdtm_x_assum`dest_closure`mp_tac >>
-    simp[dest_closure_def] >>
-    BasicProvers.CASE_TAC >> srw_tac[][] >>
-    full_simp_tac(srw_ss())[v_rel_cases,cl_rel_cases] >>
-    srw_tac[][] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
-    pop_assum mp_tac >> srw_tac[][UNCURRY] >> full_simp_tac(srw_ss())[] >>
-    full_simp_tac(srw_ss())[Once every_Fn_SOME_EVERY,Once every_Fn_vs_SOME_EVERY] >>
-    full_simp_tac(srw_ss())[EVERY_MAP] >>
-    full_simp_tac(srw_ss())[EVERY_MEM,MEM_EL,PULL_EXISTS,EL_MAP] ) >>
-  full_simp_tac(srw_ss())[] >>
-  imp_res_tac (Q.GEN`max_app` dest_closure_full_app) >>
-  assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] (GEN_ALL v_rel_num_rem_args)) >>
-  rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
-  `loc_opt = NONE ∨ ?loc. loc_opt = SOME loc` by metis_tac [option_nchotomy] >>
-  full_simp_tac(srw_ss())[check_loc_def] >>
-  srw_tac[][]
-  >- ((* App NONE *)
-      qabbrev_tac `n = rem_args - 1` >>
-      imp_res_tac EVERY2_LENGTH >>
-      `lookup (generic_app_fn_location (LENGTH args' − 1)) t1.code =
-         SOME ((LENGTH args' - 1) + 2,generate_generic_app s1.max_app (LENGTH args' − 1))`
-                  by (full_simp_tac(srw_ss())[state_rel_def] >>
-                      `LENGTH args' - 1 < s1.max_app` by decide_tac >>
-                      metis_tac []) >>
-      `LENGTH args' - 1 + 2  = LENGTH args' + 1` by decide_tac >>
-      full_simp_tac(srw_ss())[] >>
-      `(&rem_args):int - 1 = &n ∧ rem_args + 1 = n + 2`
-           by (srw_tac [ARITH_ss] [Abbr `n`,int_arithTheory.INT_NUM_SUB]) >>
-      `LENGTH args' − (LENGTH args' − rem_args) = rem_args` by decide_tac >>
-      full_simp_tac(srw_ss())[] >>
-      Cases_on `s1.clock < rem_args` >>
-      full_simp_tac(srw_ss())[] >>
-      simp []
-      >- ((* Timeout *)
-          Q.ISPEC_THEN `t1 with clock := s1.clock` (assume_tac o GEN_ALL o (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]))
-            evaluate_mk_cl_call_spec >>
-          rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
-          pop_assum mp_tac >>
-          simp [] >>
-          DISCH_TAC >>
-          qexists_tac `0` >>
-          simp [] >>
-          qexists_tac `f1` >>
-          srw_tac[][]) >>
-      `?res' s'. evaluate ([e],l,dec_clock rem_args s1) = (res', s')` by metis_tac [pair_CASES] >>
-      full_simp_tac(srw_ss())[] >>
-      `res' ≠ Rerr(Rabort Rtype_error)` by (spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]) >>
-      full_simp_tac(srw_ss())[] >>
-      imp_res_tac v_rel_run >>
-      `LENGTH args ≠ 0` by decide_tac >>
-      full_simp_tac(srw_ss())[int_arithTheory.INT_NUM_SUB, closSemTheory.dec_clock_def] >>
-      first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
-      rpt (pop_assum (fn th => (first_assum (strip_assume_tac o MATCH_MP th)))) >>
-      Cases_on `?func''. res' =  Rval [func'']` >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >>
-      full_simp_tac(srw_ss())[]
-      >- ((* The first application succeeds *)
-          `?v'. v_rel s1.max_app f2 t2.refs t2.code func'' v' ∧ res'' = Rval [v']`
-                 by (full_simp_tac(srw_ss())[] >> metis_tac []) >>
-          `LIST_REL (v_rel s1.max_app f2 t2.refs t2.code) l0 (TAKE (LENGTH args' − rem_args) args')`
-                   by (match_mp_tac (GEN_ALL list_rel_app) >>
-                       MAP_EVERY qexists_tac [`s1.max_app`,`args`, `e`, `l`, `func`] >>
-                       srw_tac[][] >>
-                       full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-                       srw_tac[][] >>
-                       match_mp_tac (GEN_ALL v_rel_subspt) >>
-                       imp_res_tac evaluate_mono >>
-                       first_assum(part_match_exists_tac (el 2 o strip_conj) o concl) >> simp[] >>
-                       match_mp_tac (GEN_ALL v_rel_SUBMAP) >>
-                       metis_tac []) >>
-          `s'.max_app = s1.max_app` by
-             (imp_res_tac closPropsTheory.evaluate_const \\ fs []) \\ fs [] >>
-          first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
-          rev_full_simp_tac(srw_ss())[] >>
-          rpt (pop_assum (fn th => (first_assum (strip_assume_tac o MATCH_MP th)))) >>
-          full_simp_tac(srw_ss())[LENGTH_TAKE] >>
-          Cases_on `(LENGTH args' ≤ rem_args)` >>
-          full_simp_tac(srw_ss())[]
-          >- ((* No remaining arguments *)
-              Q.ISPEC_THEN `t1 with clock := ck + ck' + s1.clock`
-                (assume_tac o GEN_ALL o SIMP_RULE (srw_ss())
-                     [GSYM AND_IMP_INTRO])(evaluate_mk_cl_call_spec
-                  |> INST_TYPE [alpha|->``:'c``,beta|->``:'ffi``]) >>
-              rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
-              pop_assum mp_tac >>
-              simp [] >>
-              DISCH_TAC >>
-              qexists_tac `ck + ck'` >>
-              srw_tac[][] >>
-              `rem_args = LENGTH args' ∧ n + 1 = LENGTH args'` by decide_tac >>
-              full_simp_tac(srw_ss())[ADD_ASSOC] >>
-              first_x_assum (qspec_then `t1 with clock := ck + s1.clock - LENGTH args'` mp_tac) >>
-              simp [inc_clock_def, dec_clock_def] >>
-              pop_assum (assume_tac o GSYM) \\ fs [] >>
-              `!ck. t1 with <| clock := ck; code := t1.code |> = t1 with clock := ck`
-                       by srw_tac[][bvlSemTheory.state_component_equality] >>
-              srw_tac[][] >>
-              qpat_x_assum `_ = n + 1` (assume_tac o GSYM) \\ fs [] >>
-              `!ck. ck + s1.clock − LENGTH args' = s1.clock − LENGTH args' + ck` by decide_tac >>
-              srw_tac[][] >>
-              full_simp_tac(srw_ss())[cEval_def] >>
-              `!ck. t1 with <| clock := ck; refs := t1.refs |> = t1 with clock := ck`
-                       by srw_tac[][bvlSemTheory.state_component_equality] >>
-              full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-              metis_tac [SUBMAP_TRANS]) >>
-          (* Extra arguments *)
-          srw_tac[][] >>
-          imp_res_tac evaluate_const >> full_simp_tac (srw_ss())[] >>
-          first_x_assum (qspec_then `SOMEENV` strip_assume_tac) >>
-          Q.ISPEC_THEN `t1 with clock := ck + ck' + ck'' + 1 + s1.clock`
-            (assume_tac o GEN_ALL o SIMP_RULE (srw_ss())
-               [GSYM AND_IMP_INTRO]) (evaluate_mk_cl_call_spec
-              |> INST_TYPE [alpha|->``:'c``,beta|->``:'ffi``]) >>
-          rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
-          pop_assum mp_tac >>
-          simp [] >>
-          DISCH_TAC >>
-          qexists_tac `ck + ck' + ck'' + 1` >>
-          simp [] >>
-          pop_assum kall_tac >>
-          first_x_assum (qspec_then `t1 with clock := ck + ck'' + s1.clock - rem_args` mp_tac) >>
-          qpat_abbrev_tac`t11:('c,'ffi) bvlSem$state = inc_clock ck' Z` >>
-          qpat_abbrev_tac`t12:('c,'ffi) bvlSem$state = dec_clock X Y` >>
-          `t11 = t12` by (
-            simp[Abbr`t11`,Abbr`t12`] >>
-            srw_tac[][inc_clock_def,dec_clock_def,bvlSemTheory.state_component_equality] >>
-            fsrw_tac[ARITH_ss][]) >>
-          pop_assum SUBST1_TAC >>
-          disch_then SUBST1_TAC >>
-          map_every qunabbrev_tac[`t11`,`t12`] >>
-          qmatch_assum_abbrev_tac`evaluate (_,_,t11) = (_,t2)` >>
-          qpat_abbrev_tac`t12:('c,'ffi) bvlSem$state = X Y` >>
-          `t12 = inc_clock ck'' t11` by (
-            unabbrev_all_tac >>
-            srw_tac[][bvlSemTheory.state_component_equality,inc_clock_def] >>
-            fsrw_tac[ARITH_ss][]) >>
-          pop_assum SUBST1_TAC >>
-          imp_res_tac evaluate_add_clock >>
-          unabbrev_all_tac >> full_simp_tac(srw_ss())[] >>
-          ntac 2 (pop_assum kall_tac) >>
-          `SUC (LENGTH ys) - (rem_args - 1 + 1) = LENGTH args'' - rem_args` by (
-            fsrw_tac[ARITH_ss][ADD1] ) >>
-          pop_assum SUBST_ALL_TAC >>
-          `LENGTH [Block tag (CodePtr ptr::Number (&(rem_args − 1))::rest)] ≠ 0` by srw_tac[][] >>
-          `LENGTH args'' − rem_args ≤ LENGTH args''` by (rpt var_eq_tac >> ARITH_TAC) >>
-          drule mk_call_simp2 \\ disch_then strip_assume_tac \\
-          pop_assum (fn th => first_x_assum (strip_assume_tac o MATCH_MP th)) >>
-          pop_assum(qspecl_then[`SOMEENV`,`v''`,`inc_clock ck'' t2`](mp_tac o GSYM)) >>
-          rpt var_eq_tac >>
-          simp_tac(srw_ss())[inc_clock_def] >>
-          `rem_args = n + 1` by fs [] >> fs [] >>
-          disch_then kall_tac >>
-          qhdtm_x_assum`evaluate`mp_tac >>
-          simp_tac(srw_ss()++ARITH_ss)[] >>
-          `SUC (LENGTH ys) − (n + 1) = SUC (SUC (LENGTH ys) − (n + 2))` by fs [] >>
-          simp [] >>
-          qmatch_goalsub_rename_tac `_ = (res4,t3)` >>
-          Cases_on`res4`>> full_simp_tac(srw_ss())[] >>
-          rpt strip_tac >>
-          imp_res_tac bEval_SING >> full_simp_tac(srw_ss())[] >>
-          metis_tac[SUBMAP_TRANS])
-      >- ((* The first application fails *)
-          `res' = res ∧ s' = s2`
-                by (Cases_on `res'` >>
-                    full_simp_tac(srw_ss())[] >>
-                    Cases_on `a` >>
-                    full_simp_tac(srw_ss())[] >>
-                    Cases_on `t` >>
-                    full_simp_tac(srw_ss())[]) >>
-          full_simp_tac(srw_ss())[] >>
-          `!ck. t1 with <| refs := t1.refs; clock := ck; code := t1.code |> = t1 with clock := ck`
-                       by srw_tac[][bvlSemTheory.state_component_equality] >>
-          first_x_assum (qspec_then `t1 with clock := s1.clock - rem_args + ck` assume_tac) >>
-          rev_full_simp_tac(srw_ss())[] >>
-          Cases_on `n = LENGTH args' - 1` >>
-          full_simp_tac(srw_ss())[]
-          >- (Q.ISPEC_THEN `t1 with clock := ck+ck' + s1.clock`
-                (assume_tac o GEN_ALL o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
-              rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
-              pop_assum mp_tac >>
-              simp [] >>
-              DISCH_TAC >>
-              qexists_tac `ck+ck'` >>
-              rev_full_simp_tac (srw_ss()++ARITH_ss) [inc_clock_def, dec_clock_def] >>
-              qexists_tac `f2` >>
-              srw_tac[][])
-          >- (Q.ISPEC_THEN `t1 with clock := ck+ck' +1+ s1.clock`
-                (assume_tac o GEN_ALL o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
-              rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
-              pop_assum mp_tac >>
-              simp [] >>
-              DISCH_TAC >>
-              qexists_tac `ck+ck'+1` >>
-              rev_full_simp_tac (srw_ss()++ARITH_ss) [inc_clock_def, dec_clock_def] >>
-              pop_assum kall_tac >>
-              `rem_args = n + 1` by decide_tac >>
-              full_simp_tac(srw_ss())[] >>
-              srw_tac[][] >>
-              MAP_EVERY qexists_tac [`res''`, `t2`, `f2`] >>
-              srw_tac[][] >>
-              BasicProvers.CASE_TAC >>
-              Cases_on`res`>>full_simp_tac(srw_ss())[] >>
-              imp_res_tac bEval_SING >>
-              full_simp_tac(srw_ss())[] >> srw_tac[][]))) >>
-  (* App SOME *)
-  `rem_args = LENGTH args` by ARITH_TAC >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][find_code_def] >>
-  `&LENGTH args - 1:int = &(LENGTH args - 1)` by srw_tac[][int_arithTheory.INT_NUM_SUB] >>
-  full_simp_tac(srw_ss())[] >>
-  `t1.code = (t1 with clock := s1.clock - LENGTH args').code` by srw_tac[][] >>
-  full_simp_tac std_ss [] >>
-  strip_assume_tac (GEN_ALL (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] (v_rel_run))) >>
-  rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  `ptr = loc' + num_stubs s1.max_app`
-          by (full_simp_tac(srw_ss())[v_rel_cases] >>
-              imp_res_tac cl_rel_get_loc >>
-              full_simp_tac(srw_ss())[] >>
-              srw_tac [ARITH_ss] [] >>
-              metis_tac [no_partial_args,LENGTH_NIL]) >>
-  srw_tac[][] >>
-  imp_res_tac EVERY2_LENGTH >>
-  full_simp_tac(srw_ss())[] >>
-  Cases_on `s1.clock < LENGTH args'` >>
-  full_simp_tac(srw_ss())[]
-  >- ((* TimeOut *)
-      qexists_tac `0` >> srw_tac[][] >>
-      metis_tac [SUBMAP_REFL]) >>
-  `?res' s2. evaluate ([e],l,dec_clock (LENGTH args') s1) = (res',s2)`
-               by metis_tac [pair_CASES]  >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  `res' = res ∧ s2' = s2`
-          by (Cases_on `res'` >>
-              full_simp_tac(srw_ss())[] >>
-              Cases_on `a` >>
-              full_simp_tac(srw_ss())[] >>
-              Cases_on `t` >>
-              full_simp_tac(srw_ss())[cEval_def]) >>
-  srw_tac[][] >>
-  full_simp_tac(srw_ss())[] >>
-  `t1.refs = (dec_clock (LENGTH args') t1).refs` by srw_tac[][dec_clock_def] >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  `LENGTH args' − (LENGTH args' − 1 + 1) = 0` by decide_tac >>
-  full_simp_tac bool_ss [] >>
-  full_simp_tac(srw_ss())[inc_clock_def, dec_clock_def] >>
-  full_simp_tac (srw_ss()++ARITH_ss) [] >>
-  imp_res_tac evaluate_const >> full_simp_tac(srw_ss())[] >>
-  `(dec_clock (LENGTH args') s1).code = s1.code` by EVAL_TAC >>
-  `(dec_clock (LENGTH args') s1).max_app = s1.max_app` by EVAL_TAC >>
-  full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
-  first_x_assum (fn x => first_assum (strip_assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] x))) >>
-  first_x_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
-  full_simp_tac(srw_ss())[] >>
-  pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
-  full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
-  pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
-  qexists_tac `ck+ck'` >>
-  srw_tac[][] >>
-  first_x_assum (qspec_then `t1 with clock := ck + (s1.clock - LENGTH args')` mp_tac) >>
-  simp [] >>
-  srw_tac[][] >>
-  `!ck. t1 with <| refs:=t1.refs;code:=t1.code;clock := ck|> = t1 with clock := ck`
-        by srw_tac[][bvlSemTheory.state_component_equality] >>
-  full_simp_tac(srw_ss())[] >>
-  `ck + s1.clock − LENGTH args' = ck + (s1.clock − LENGTH args')` by decide_tac >>
-  metis_tac []
+        simp [find_code_def] >>
+        `SUC (LENGTH zs) = LENGTH args` by metis_tac [LENGTH] >>
+        full_simp_tac(srw_ss())[] >>
+        srw_tac[][]
+        >- (`s1.clock < LENGTH args'` by decide_tac >>
+            full_simp_tac(srw_ss())[] >>
+            qexists_tac `f1` >>
+            simp [SUBMAP_REFL] >>
+            full_simp_tac(srw_ss())[] >>
+            full_simp_tac(srw_ss())[closSemTheory.state_component_equality] >>
+            `s1 = s2` by srw_tac[][closSemTheory.state_component_equality] >>
+            metis_tac []) >>
+        drule (GEN_ALL unpack_closure_thm) >>
+        disch_then drule >> disch_then strip_assume_tac >>
+        `lookup (partial_app_fn_location s1.max_app total_args (LENGTH args' + LENGTH prev_args − 1)) t1.code =
+             SOME (total_args - (LENGTH args' + LENGTH prev_args-1) + 1, generate_partial_app_closure_fn total_args (LENGTH args' + LENGTH prev_args − 1))`
+                 by (full_simp_tac(srw_ss())[state_rel_def] >>
+                     first_x_assum match_mp_tac >>
+                     srw_tac[][] >>
+                     decide_tac) >>
+        `LENGTH args' + LENGTH prev_args − 1 = LENGTH prev_args + (LENGTH args − 1)` by simp [] >>
+        `LENGTH args' < total_args + 1 − LENGTH prev_args` by simp [] >>
+        full_simp_tac(srw_ss())[] >>
+        Q.ISPECL_THEN [`s1.max_app`, `total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] assume_tac (Q.GEN`max_app`evaluate_generic_app_partial) >>
+        rev_full_simp_tac(srw_ss())[domain_lookup] >>
+        pop_assum mp_tac >>
+        REWRITE_TAC [Once CONJ_SYM] >>
+        disch_then drule >>
+        impl_tac
+        >- (
+          qpat_x_assum `state_rel _ _ _` mp_tac >>
+          simp_tac (srw_ss()) [state_rel_def, dec_clock_def]) >>
+        strip_tac >>
+        srw_tac[][]
+        >- ((* A TimeOut *)
+            full_simp_tac (srw_ss()++ARITH_ss) [dec_clock_def, int_arithTheory.INT_NUM_SUB] >>
+            qexists_tac `f1` >>
+            srw_tac[][SUBMAP_REFL] >>
+            full_simp_tac(srw_ss())[state_rel_def])
+        >- ((* Result *)
+            `~((t1 with clock := s1.clock).clock < LENGTH args')` by (full_simp_tac(srw_ss())[dec_clock_def] >> decide_tac) >>
+            full_simp_tac(srw_ss())[] >>
+            srw_tac[][] >>
+            qexists_tac `f1` >>
+            reverse (srw_tac[][])
+            >- (srw_tac[][bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
+                metis_tac [arith_helper_lem,LENGTH_NIL])
+            >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
+                full_simp_tac(srw_ss())[state_rel_def]) >>
+            `args ≠ []` by (Cases_on `args` >> full_simp_tac(srw_ss())[]) >>
+            full_simp_tac(srw_ss())[v_rel_cases, num_remaining_args_def,closure_tag_neq_1,partial_app_tag_neq_closure_tag] >>
+            srw_tac[][] >>
+            full_simp_tac(srw_ss())[num_remaining_args_def, add_args_def, partial_app_tag_neq_closure_tag]
+            THEN1 simp [closSemTheory.dec_clock_def]
+            THEN1 simp [closSemTheory.dec_clock_def]
+  (*
+            >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
+                   closSemTheory.dec_clock_def] >>
+                full_simp_tac(srw_ss())[state_rel_def])
+            >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
+                   closSemTheory.dec_clock_def] >>
+                full_simp_tac(srw_ss())[state_rel_def]) *)
+            >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
+                   closSemTheory.dec_clock_def] >>
+                full_simp_tac(srw_ss())[state_rel_def])
+            >- (full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def,
+                   closSemTheory.dec_clock_def] >>
+                full_simp_tac(srw_ss())[state_rel_def])
+            >- ((* Wrapping a normal closure *)
+                MAP_EVERY qexists_tac [`args`, `func`, `env'`, `fvs`, `total_args + 1`] >>
+                full_simp_tac(srw_ss())[] >>
+                imp_res_tac cl_rel_get_num_args >>
+                srw_tac[][SUB_LEFT_SUB, LESS_OR_EQ] >>
+                full_simp_tac(srw_ss())[])
+            >- ((* Wrapping a partially applied closure *)
+                full_simp_tac(srw_ss())[unpack_closure_cases] >>
+                srw_tac[][] >>
+                MAP_EVERY qexists_tac [`args++arg_env`, `cl`, `env'`, `fvs`, `total_args+1`] >>
+                full_simp_tac(srw_ss())[partial_app_tag_neq_closure_tag] >>
+                imp_res_tac EVERY2_LENGTH >>
+                srw_tac[][partial_app_tag_neq_closure_tag]
+                >- simp [] >>
+                metis_tac [arith_helper_lem3, add_args_append, EVERY2_APPEND, LENGTH_NIL]))) >>
+    (* Enough arguments to do something *)
+    `SUC (LENGTH zs) = LENGTH args` by metis_tac [LENGTH] >>
+    `every_Fn_SOME [e] ∧ every_Fn_vs_SOME [e]` by (
+      qhdtm_x_assum`dest_closure`mp_tac >>
+      simp[dest_closure_def] >>
+      BasicProvers.CASE_TAC >> srw_tac[][] >>
+      full_simp_tac(srw_ss())[v_rel_cases,cl_rel_cases] >>
+      srw_tac[][] >> full_simp_tac(srw_ss())[add_args_def] >> srw_tac[][] >>
+      pop_assum mp_tac >> srw_tac[][UNCURRY] >> full_simp_tac(srw_ss())[] >>
+      full_simp_tac(srw_ss())[Once every_Fn_SOME_EVERY,Once every_Fn_vs_SOME_EVERY] >>
+      full_simp_tac(srw_ss())[EVERY_MAP] >>
+      full_simp_tac(srw_ss())[EVERY_MEM,MEM_EL,PULL_EXISTS,EL_MAP] ) >>
+    full_simp_tac(srw_ss())[] >>
+    imp_res_tac (Q.GEN`max_app` dest_closure_full_app) >>
+    assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] (GEN_ALL v_rel_num_rem_args)) >>
+    rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
+    `loc_opt = NONE ∨ ?loc. loc_opt = SOME loc` by metis_tac [option_nchotomy] >>
+    full_simp_tac(srw_ss())[check_loc_def] >>
+    srw_tac[][]
+    >- ((* App NONE *)
+        qabbrev_tac `n = rem_args - 1` >>
+        imp_res_tac EVERY2_LENGTH >>
+        `lookup (generic_app_fn_location (LENGTH args' − 1)) t1.code =
+           SOME ((LENGTH args' - 1) + 2,generate_generic_app s1.max_app (LENGTH args' − 1))`
+                    by (full_simp_tac(srw_ss())[state_rel_def] >>
+                        `LENGTH args' - 1 < s1.max_app` by decide_tac >>
+                        metis_tac []) >>
+        `LENGTH args' - 1 + 2  = LENGTH args' + 1` by decide_tac >>
+        full_simp_tac(srw_ss())[] >>
+        `(&rem_args):int - 1 = &n ∧ rem_args + 1 = n + 2`
+             by (srw_tac [ARITH_ss] [Abbr `n`,int_arithTheory.INT_NUM_SUB]) >>
+        `LENGTH args' − (LENGTH args' − rem_args) = rem_args` by decide_tac >>
+        full_simp_tac(srw_ss())[] >>
+        Cases_on `s1.clock < rem_args` >>
+        full_simp_tac(srw_ss())[] >>
+        simp []
+        >- ((* Timeout *)
+            Q.ISPEC_THEN `t1 with clock := s1.clock` (assume_tac o GEN_ALL o (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]))
+              evaluate_mk_cl_call_spec >>
+            rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+            pop_assum mp_tac >>
+            simp [] >>
+            DISCH_TAC >>
+            qexists_tac `0` >>
+            simp [] >>
+            qexists_tac `f1` >>
+            srw_tac[][]) >>
+        `?res' s'. evaluate ([e],l,dec_clock rem_args s1) = (res', s')` by metis_tac [pair_CASES] >>
+        full_simp_tac(srw_ss())[] >>
+        `res' ≠ Rerr(Rabort Rtype_error)` by (spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]) >>
+        full_simp_tac(srw_ss())[] >>
+        imp_res_tac v_rel_run >>
+        `LENGTH args ≠ 0` by decide_tac >>
+        full_simp_tac(srw_ss())[int_arithTheory.INT_NUM_SUB, closSemTheory.dec_clock_def] >>
+        first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+        rpt (pop_assum (fn th => (first_assum (strip_assume_tac o MATCH_MP th)))) >>
+        Cases_on `?func''. res' =  Rval [func'']` >>
+        full_simp_tac(srw_ss())[] >>
+        srw_tac[][] >>
+        full_simp_tac(srw_ss())[]
+        >- ((* The first application succeeds *)
+            `?v'. v_rel s1.max_app f2 t2.refs t2.code func'' v' ∧ res'' = Rval [v']`
+                   by (full_simp_tac(srw_ss())[] >> metis_tac []) >>
+            `LIST_REL (v_rel s1.max_app f2 t2.refs t2.code) l0 (TAKE (LENGTH args' − rem_args) args')`
+                     by (match_mp_tac (GEN_ALL list_rel_app) >>
+                         MAP_EVERY qexists_tac [`s1.max_app`,`args`, `e`, `l`, `func`] >>
+                         srw_tac[][] >>
+                         full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
+                         srw_tac[][] >>
+                         match_mp_tac (GEN_ALL v_rel_subspt) >>
+                         imp_res_tac evaluate_mono >>
+                         first_assum(part_match_exists_tac (el 2 o strip_conj) o concl) >> simp[] >>
+                         match_mp_tac (GEN_ALL v_rel_SUBMAP) >>
+                         metis_tac []) >>
+            `s'.max_app = s1.max_app` by
+               (imp_res_tac closPropsTheory.evaluate_const \\ fs []) \\ fs [] >>
+            first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+            rev_full_simp_tac(srw_ss())[] >>
+            rpt (pop_assum (fn th => (first_assum (strip_assume_tac o MATCH_MP th)))) >>
+            full_simp_tac(srw_ss())[LENGTH_TAKE] >>
+            Cases_on `(LENGTH args' ≤ rem_args)` >>
+            full_simp_tac(srw_ss())[]
+            >- ((* No remaining arguments *)
+                Q.ISPEC_THEN `t1 with clock := ck + ck' + s1.clock`
+                  (assume_tac o GEN_ALL o SIMP_RULE (srw_ss())
+                       [GSYM AND_IMP_INTRO])(evaluate_mk_cl_call_spec
+                    |> INST_TYPE [alpha|->``:'c``,beta|->``:'ffi``]) >>
+                rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+                pop_assum mp_tac >>
+                simp [] >>
+                DISCH_TAC >>
+                qexists_tac `ck + ck'` >>
+                srw_tac[][] >>
+                `rem_args = LENGTH args' ∧ n + 1 = LENGTH args'` by decide_tac >>
+                full_simp_tac(srw_ss())[ADD_ASSOC] >>
+                first_x_assum (qspec_then `t1 with clock := ck + s1.clock - LENGTH args'` mp_tac) >>
+                simp [inc_clock_def, dec_clock_def] >>
+                pop_assum (assume_tac o GSYM) \\ fs [] >>
+                `!ck. t1 with <| clock := ck; code := t1.code |> = t1 with clock := ck`
+                         by srw_tac[][bvlSemTheory.state_component_equality] >>
+                srw_tac[][] >>
+                qpat_x_assum `_ = n + 1` (assume_tac o GSYM) \\ fs [] >>
+                `!ck. ck + s1.clock − LENGTH args' = s1.clock − LENGTH args' + ck` by decide_tac >>
+                srw_tac[][] >>
+                full_simp_tac(srw_ss())[cEval_def] >>
+                `!ck. t1 with <| clock := ck; refs := t1.refs |> = t1 with clock := ck`
+                         by srw_tac[][bvlSemTheory.state_component_equality] >>
+                full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+                metis_tac [SUBMAP_TRANS]) >>
+            (* Extra arguments *)
+            srw_tac[][] >>
+            imp_res_tac evaluate_const >> full_simp_tac (srw_ss())[] >>
+            first_x_assum (qspec_then `SOMEENV` strip_assume_tac) >>
+            Q.ISPEC_THEN `t1 with clock := ck + ck' + ck'' + 1 + s1.clock`
+              (assume_tac o GEN_ALL o SIMP_RULE (srw_ss())
+                 [GSYM AND_IMP_INTRO]) (evaluate_mk_cl_call_spec
+                |> INST_TYPE [alpha|->``:'c``,beta|->``:'ffi``]) >>
+            rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+            pop_assum mp_tac >>
+            simp [] >>
+            DISCH_TAC >>
+            qexists_tac `ck + ck' + ck'' + 1` >>
+            simp [] >>
+            pop_assum kall_tac >>
+            first_x_assum (qspec_then `t1 with clock := ck + ck'' + s1.clock - rem_args` mp_tac) >>
+            qpat_abbrev_tac`t11:('c,'ffi) bvlSem$state = inc_clock ck' Z` >>
+            qpat_abbrev_tac`t12:('c,'ffi) bvlSem$state = dec_clock X Y` >>
+            `t11 = t12` by (
+              simp[Abbr`t11`,Abbr`t12`] >>
+              srw_tac[][inc_clock_def,dec_clock_def,bvlSemTheory.state_component_equality] >>
+              fsrw_tac[ARITH_ss][]) >>
+            pop_assum SUBST1_TAC >>
+            disch_then SUBST1_TAC >>
+            map_every qunabbrev_tac[`t11`,`t12`] >>
+            qmatch_assum_abbrev_tac`evaluate (_,_,t11) = (_,t2)` >>
+            qpat_abbrev_tac`t12:('c,'ffi) bvlSem$state = X Y` >>
+            `t12 = inc_clock ck'' t11` by (
+              unabbrev_all_tac >>
+              srw_tac[][bvlSemTheory.state_component_equality,inc_clock_def] >>
+              fsrw_tac[ARITH_ss][]) >>
+            pop_assum SUBST1_TAC >>
+            imp_res_tac evaluate_add_clock >>
+            unabbrev_all_tac >> full_simp_tac(srw_ss())[] >>
+            ntac 2 (pop_assum kall_tac) >>
+            `SUC (LENGTH ys) - (rem_args - 1 + 1) = LENGTH args'' - rem_args` by (
+              fsrw_tac[ARITH_ss][ADD1] ) >>
+            pop_assum SUBST_ALL_TAC >>
+            `LENGTH [Block tag (CodePtr ptr::Number (&(rem_args − 1))::rest)] ≠ 0` by srw_tac[][] >>
+            `LENGTH args'' − rem_args ≤ LENGTH args''` by (rpt var_eq_tac >> ARITH_TAC) >>
+            drule mk_call_simp2 \\ disch_then strip_assume_tac \\
+            pop_assum (fn th => first_x_assum (strip_assume_tac o MATCH_MP th)) >>
+            pop_assum(qspecl_then[`SOMEENV`,`v''`,`inc_clock ck'' t2`](mp_tac o GSYM)) >>
+            rpt var_eq_tac >>
+            simp_tac(srw_ss())[inc_clock_def] >>
+            `rem_args = n + 1` by fs [] >> fs [] >>
+            disch_then kall_tac >>
+            qhdtm_x_assum`evaluate`mp_tac >>
+            simp_tac(srw_ss()++ARITH_ss)[] >>
+            `SUC (LENGTH ys) − (n + 1) = SUC (SUC (LENGTH ys) − (n + 2))` by fs [] >>
+            simp [] >>
+            qmatch_goalsub_rename_tac `_ = (res4,t3)` >>
+            Cases_on`res4`>> full_simp_tac(srw_ss())[] >>
+            rpt strip_tac >>
+            imp_res_tac bEval_SING >> full_simp_tac(srw_ss())[] >>
+            metis_tac[SUBMAP_TRANS])
+        >- ((* The first application fails *)
+            `res' = res ∧ s' = s2`
+                  by (Cases_on `res'` >>
+                      full_simp_tac(srw_ss())[] >>
+                      Cases_on `a` >>
+                      full_simp_tac(srw_ss())[] >>
+                      Cases_on `t` >>
+                      full_simp_tac(srw_ss())[]) >>
+            full_simp_tac(srw_ss())[] >>
+            `!ck. t1 with <| refs := t1.refs; clock := ck; code := t1.code |> = t1 with clock := ck`
+                         by srw_tac[][bvlSemTheory.state_component_equality] >>
+            first_x_assum (qspec_then `t1 with clock := s1.clock - rem_args + ck` assume_tac) >>
+            rev_full_simp_tac(srw_ss())[] >>
+            Cases_on `n = LENGTH args' - 1` >>
+            full_simp_tac(srw_ss())[]
+            >- (Q.ISPEC_THEN `t1 with clock := ck+ck' + s1.clock`
+                  (assume_tac o GEN_ALL o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
+                rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+                pop_assum mp_tac >>
+                simp [] >>
+                DISCH_TAC >>
+                qexists_tac `ck+ck'` >>
+                rev_full_simp_tac (srw_ss()++ARITH_ss) [inc_clock_def, dec_clock_def] >>
+                qexists_tac `f2` >>
+                srw_tac[][])
+            >- (Q.ISPEC_THEN `t1 with clock := ck+ck' +1+ s1.clock`
+                  (assume_tac o GEN_ALL o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
+                rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+                pop_assum mp_tac >>
+                simp [] >>
+                DISCH_TAC >>
+                qexists_tac `ck+ck'+1` >>
+                rev_full_simp_tac (srw_ss()++ARITH_ss) [inc_clock_def, dec_clock_def] >>
+                pop_assum kall_tac >>
+                `rem_args = n + 1` by decide_tac >>
+                full_simp_tac(srw_ss())[] >>
+                srw_tac[][] >>
+                MAP_EVERY qexists_tac [`res''`, `t2`, `f2`] >>
+                srw_tac[][] >>
+                BasicProvers.CASE_TAC >>
+                Cases_on`res`>>full_simp_tac(srw_ss())[] >>
+                imp_res_tac bEval_SING >>
+                full_simp_tac(srw_ss())[] >> srw_tac[][]))) >>
+    (* App SOME *)
+    `rem_args = LENGTH args` by ARITH_TAC >>
+    full_simp_tac(srw_ss())[] >>
+    srw_tac[][find_code_def] >>
+    `&LENGTH args - 1:int = &(LENGTH args - 1)` by srw_tac[][int_arithTheory.INT_NUM_SUB] >>
+    full_simp_tac(srw_ss())[] >>
+    `t1.code = (t1 with clock := s1.clock - LENGTH args').code` by srw_tac[][] >>
+    full_simp_tac std_ss [] >>
+    strip_assume_tac (GEN_ALL (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] (v_rel_run))) >>
+    rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+    full_simp_tac(srw_ss())[] >>
+    srw_tac[][] >>
+    `ptr = loc' + num_stubs s1.max_app`
+            by (full_simp_tac(srw_ss())[v_rel_cases] >>
+                imp_res_tac cl_rel_get_loc >>
+                full_simp_tac(srw_ss())[] >>
+                srw_tac [ARITH_ss] [] >>
+                metis_tac [no_partial_args,LENGTH_NIL]) >>
+    srw_tac[][] >>
+    imp_res_tac EVERY2_LENGTH >>
+    full_simp_tac(srw_ss())[] >>
+    Cases_on `s1.clock < LENGTH args'` >>
+    full_simp_tac(srw_ss())[]
+    >- ((* TimeOut *)
+        qexists_tac `0` >> srw_tac[][] >>
+        metis_tac [SUBMAP_REFL]) >>
+    `?res' s2. evaluate ([e],l,dec_clock (LENGTH args') s1) = (res',s2)`
+                 by metis_tac [pair_CASES]  >>
+    full_simp_tac(srw_ss())[] >>
+    srw_tac[][] >>
+    `res' = res ∧ s2' = s2`
+            by (Cases_on `res'` >>
+                full_simp_tac(srw_ss())[] >>
+                Cases_on `a` >>
+                full_simp_tac(srw_ss())[] >>
+                Cases_on `t` >>
+                full_simp_tac(srw_ss())[cEval_def]) >>
+    srw_tac[][] >>
+    full_simp_tac(srw_ss())[] >>
+    `t1.refs = (dec_clock (LENGTH args') t1).refs` by srw_tac[][dec_clock_def] >>
+    full_simp_tac(srw_ss())[] >>
+    srw_tac[][] >>
+    `LENGTH args' − (LENGTH args' − 1 + 1) = 0` by decide_tac >>
+    full_simp_tac bool_ss [] >>
+    full_simp_tac(srw_ss())[inc_clock_def, dec_clock_def] >>
+    full_simp_tac (srw_ss()++ARITH_ss) [] >>
+    imp_res_tac evaluate_const >> full_simp_tac(srw_ss())[] >>
+    `(dec_clock (LENGTH args') s1).code = s1.code` by EVAL_TAC >>
+    `(dec_clock (LENGTH args') s1).max_app = s1.max_app` by EVAL_TAC >>
+    full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
+    first_x_assum (fn x => first_assum (strip_assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] x))) >>
+    first_x_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
+    full_simp_tac(srw_ss())[] >>
+    pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
+    full_simp_tac(srw_ss())[bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
+    pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
+    qexists_tac `ck+ck'` >>
+    srw_tac[][] >>
+    first_x_assum (qspec_then `t1 with clock := ck + (s1.clock - LENGTH args')` mp_tac) >>
+    simp [] >>
+    srw_tac[][] >>
+    `!ck. t1 with <| refs:=t1.refs;code:=t1.code;clock := ck|> = t1 with clock := ck`
+          by srw_tac[][bvlSemTheory.state_component_equality] >>
+    full_simp_tac(srw_ss())[] >>
+    `ck + s1.clock − LENGTH args' = ck + (s1.clock − LENGTH args')` by decide_tac >>
+    metis_tac []
+  )
 QED
 
 (* more correctness properties *)
@@ -6580,7 +6583,10 @@ Theorem known_co_facts:
             (set (code_locs exps')) co2) /\
     (∀k. clos_callProof$syntax_ok (FST (SND (co k))) ==>
         clos_callProof$syntax_ok (FST (SND (co2 k)))) /\
-    (∀k. SND (SND (co k)) = [] ==> SND (SND (co2 k)) = [])
+    (∀k. SND (SND (co k)) = [] ==> SND (SND (co2 k)) = []) /\
+    (∀k. (∀k. every_Fn_SOME (FST (SND (co k))) /\ SND (SND (co k)) = []) ==>
+        (every_Fn_SOME (FST (SND (co2 k))) /\
+            every_Fn_SOME (MAP (SND ∘ SND) (SND (SND (co2 k))))))
 Proof
   fs []
   \\ rpt (gen_tac ORELSE disch_tac)
@@ -6745,6 +6751,17 @@ Proof
   \\ imp_res_tac clos_callProofTheory.calls_domain_locs
   \\ fs []
   \\ metis_tac [SUBSET_TRANS, IMAGE_SUBSET]
+QED
+
+Theorem ccompile_locs_subset:
+  compile c.do_call exps = (exps', g, aux) ==>
+  set (code_locs (exps' ++ MAP (SND ∘ SND) aux)) ⊆ (set (code_locs exps))
+Proof
+  Cases_on `c.do_call` \\ fs [clos_callTheory.compile_def] \\ rw [] \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ drule clos_callProofTheory.calls_code_locs_MEM
+  \\ fs [code_locs_append, code_locs_def]
+  \\ fs [SUBSET_DEF]
 QED
 
 Theorem number_compile_inc_esgc_free:
@@ -7054,57 +7071,36 @@ Theorem compile_prog_semantics
 
 val syntax_oracle_ok_def = Define`
   syntax_oracle_ok c es co ⇔
-    (c.do_mti ⇒
-      1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es ∧
-      (∀n. clos_mtiProof$syntax_ok (FST(SND(co n))))) ∧
-    (IS_SOME c.known_conf ⇒
-       1 ≤ c.max_app ∧
-       FST(SND(FST(co 0))) =
-       (THE (FST (clos_known$compile c.known_conf
-         (SND (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))
-           (compile c.do_mti c.max_app es)))))).val_approx_spt) ∧
-    (c.do_call ⇒
-       let x =
-          (SND (clos_known$compile c.known_conf
-                 (SND (renumber_code_locs_list (make_even (LENGTH es + c.next_loc))
-                        (compile c.do_mti c.max_app es))))) in
-       (∀l k. MEM l (code_locs x) ∧ l ∉ domain (FST(SND(compile c.do_call x))) ⇒
-              l ∉ domain (FST(SND(SND(FST(co k)))))) ∧
-       FST(SND(SND(FST(co 0)))) =
-         FST(SND(clos_call$compile c.do_call x))) ∧
-    (*
-    FST (FST (co 0)) =
-    FST (renumber_code_locs_list (make_even (LENGTH es + c.next_loc)) (compile c.do_mti c.max_app es)) ∧
-    *)
-    (∀n.
-      SND (SND (co n)) = [] ∧
-      clos_knownProof$globals_approx_sgc_free (FST (SND (FST (co n)))) ∧
-      subspt (FST (SND (FST (co n)))) (FST (SND (FST (co (SUC n))))) ∧
-      BAG_ALL_DISTINCT
-        (BAG_UNION (elist_globals es)
-                   (elist_globals (FLAT (GENLIST (FST o SND o co) n)))) ∧
-      ¬contains_App_SOME c.max_app (FST (SND (co n))) ∧
-      clos_knownProof$syntax_ok (FST (SND (co n))) ∧
-      (*
-      FST (FST (co (SUC n))) =
-      FST (renumber_code_locs_list (make_even (FST (FST (co n)) + MAX (LENGTH (FST (SND (co n)))) 1))
-                                   (compile c.do_mti c.max_app (FST (SND (co n))))) ∧
-     (let kk =
-       clos_knownProof$known_co c.known_conf
-         (state_co (ignore_table clos_numberProof$compile_inc)
-           ((if c.do_mti then
-               pure_co (clos_mtiProof$compile_inc c.max_app)
-             else I) o co)) n in
-       FST (SND (SND (FST (co (SUC n))))) =
-       FST (SND (calls (FST (SND kk)) (FST (FST kk),[])))) ∧
-      *)
-      (*
-      every_Fn_vs_NONE (MAP (SND o SND) (SND (SND (SND (FST (co n)))))) ∧
-      *)
-      clos_knownProof$globals_approx_every_Fn_vs_NONE (FST (SND (FST (co n)))) ∧
-      clos_knownProof$globals_approx_every_Fn_SOME (FST (SND (FST (co n))))) ∧
-    ¬contains_App_SOME c.max_app es ∧
-    clos_knownProof$syntax_ok es`;
+   (∀n. SND (SND (co n)) = []) ∧
+   es ≠ [] ∧ (∀n. FST (SND (co n)) ≠ []) ∧
+   (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es ∧
+     (∀n. clos_mtiProof$syntax_ok (FST(SND(co n))))) ∧
+   (c.do_call ⇒ every_Fn_vs_NONE es ∧
+       is_state_oracle clos_callProof$compile_inc
+           (clos_knownProof$known_co c.known_conf
+               (state_co (ignore_table clos_numberProof$compile_inc)
+                   (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)))
+           (FST (SND (compile c.do_call (SND
+               (compile_inc_post_kcompile c es)))))) ∧
+   (IS_SOME c.known_conf ⇒
+       1 ≤ c.max_app ∧ every_Fn_vs_NONE es ∧
+       oracle_monotonic (SET_OF_BAG ∘ elist_globals ∘ FST ∘ SND) $<
+           (SET_OF_BAG (elist_globals es)) co ∧
+       is_state_oracle (clos_knownProof$compile_inc (THE c.known_conf))
+           (pure_co clos_knownProof$fvs_inc ∘
+               state_co (ignore_table clos_numberProof$compile_inc)
+                   (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co))
+           (THE (FST (compile_inc_post_kcompile c es))).val_approx_spt ∧
+       (∀n'. BAG_ALL_DISTINCT (elist_globals (FST (SND (co n')))) ∧
+               EVERY esgc_free (FST (SND (co n'))))) ∧
+   ¬contains_App_SOME c.max_app es ∧ clos_knownProof$syntax_ok es ∧
+   (∀n. ¬contains_App_SOME c.max_app (FST(SND(co n))) ∧
+           every_Fn_vs_NONE (FST (SND (co n)))) ∧
+   is_state_oracle (ignore_table clos_numberProof$compile_inc)
+       (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)
+       (FST (FST (co 0))) ∧
+   FST (FST (co 0)) >= FST (renumber_code_locs_list (make_even
+       (LENGTH es + c.next_loc)) (compile c.do_mti c.max_app es))`;
 
 Theorem compile_exps_IMP_acc:
   compile_exps max_app xs aux = (c,aux1) ==>
@@ -7114,11 +7110,40 @@ Proof
   \\ rw [] \\ fs []
 QED
 
+Theorem build_aux_append_aux:
+  !xs n aux aux_extra. build_aux n xs (aux ++ aux_extra) =
+    ((\(ys, aux2). (ys, aux2 ++ aux_extra)) (build_aux n xs aux))
+Proof
+  Induct \\ fs [build_aux_def]
+  \\ full_simp_tac bool_ss [GSYM APPEND]
+QED
+
+Theorem compile_exps_append_aux:
+  !max_app xs aux. compile_exps max_app xs (aux ++ aux_extra) =
+    ((\(ys, aux2). (ys, aux2 ++ aux_extra)) (compile_exps max_app xs aux))
+Proof
+  ho_match_mp_tac compile_exps_ind
+  \\ fs [compile_exps_def]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [list_case_eq, pair_case_eq]
+  \\ rpt (rveq \\ fs [] \\ pairarg_tac \\ fs [])
+  \\ imp_res_tac clos_to_bvlTheory.compile_exps_LENGTH
+  \\ fs [listTheory.APPEND_11_LENGTH]
+  \\ rveq \\ fs []
+  \\ fs [compile_exps_def]
+  \\ rveq \\ fs []
+  \\ fs [build_aux_append_aux]
+QED
+
 Theorem compile_exps_eq_append:
   compile_exps max_app xs aux =
     ((\(ys, aux2). (ys, aux2 ++ aux)) (I compile_exps max_app xs []))
 Proof
-  cheat
+  mp_tac (Q.SPECL [`aux`, `max_app`, `xs`, `[]`]
+    (GEN_ALL compile_exps_append_aux))
+  \\ rpt (pairarg_tac \\ fs [])
 QED
 
 val compile_exps_code_locs2 = compile_exps_code_locs |> SPEC_ALL
@@ -7290,7 +7315,7 @@ QED
 
 fun mk_to_oracle t xsq = let
     val ty = type_of t;
-    val (_, rty) = dom_rng ty; 
+    val (_, rty) = dom_rng ty;
     val ts = match_type rty ``:'s clos_co``
     val (orac1, orac2) = dest_abs (inst ts t)
   in subset_req_orac_to_oracle
@@ -7698,21 +7723,124 @@ Proof
   Cases_on `prog` \\ fs [clos_annotateProofTheory.compile_inc_def]
 QED
 
+Theorem LENGTH_FST_cond_mti_compile_inc:
+  LENGTH (FST (cond_mti_compile_inc do_it ma prog)) = LENGTH (FST prog)
+Proof
+  fs [cond_mti_compile_inc_def]
+  \\ CASE_TAC \\ fs []
+  \\ fs [mcompile_inc_uncurry, clos_mtiTheory.intro_multi_length]
+QED
+
+Theorem every_Fn_vs_NONE_cond_mti_compile_inc:
+  every_Fn_vs_NONE (FST (cond_mti_compile_inc do_it ma prog)) =
+    every_Fn_vs_NONE (FST prog)
+Proof
+  fs [cond_mti_compile_inc_def]
+  \\ CASE_TAC \\ fs []
+  \\ fs [mcompile_inc_uncurry]
+QED
+
+Theorem MAP_FST_compile_prog
+  `MAP FST (compile_prog max_app ls) =
+   MAP (((+)(num_stubs max_app)))
+     (MAP FST ls ++ REVERSE (code_locs (MAP (SND o SND) ls)))`
+  (simp[clos_to_bvlTheory.compile_prog_def, UNCURRY]
+  \\ Cases_on`compile_exps max_app (MAP (SND o SND) ls) []`
+  \\ imp_res_tac compile_exps_LENGTH
+  \\ fs[MAP2_MAP, MAP_MAP_o, o_DEF, UNCURRY]
+  \\ qmatch_goalsub_abbrev_tac`MAP f`
+  \\ `f = ((+)(num_stubs max_app)) o FST o FST` by ( simp[Abbr`f`, FUN_EQ_THM] )
+  \\ simp[Abbr`f`]
+  \\ simp[GSYM MAP_MAP_o]
+  \\ simp[MAP_ZIP]
+  \\ simp[MAP_MAP_o, o_DEF]
+  \\ qhdtm_x_assum`compile_exps`mp_tac
+  \\ specl_args_of_then``compile_exps`` compile_exps_code_locs mp_tac
+  \\ rw[] \\ fs[]);
+
+Theorem IMAGE_ADD_SUBSET_count:
+  A ⊆ count (n - m) ==> IMAGE ($+ m) A ⊆ count n
+Proof
+  rw [SUBSET_DEF]
+  \\ first_x_assum drule
+  \\ fs []
+QED
+
+Theorem compile_common_MAP_FST_compile_prog:
+  compile_common c es = (c', p) /\ es ≠ [] ==>
+  set (MAP FST (compile_prog c.max_app p)) ⊆
+    count (c'.next_loc + num_stubs c.max_app)
+Proof
+  fs [compile_common_def]
+  \\ full_simp_tac bool_ss [GSYM arithmeticTheory.EVEN_MOD2, GSYM make_even_def,
+        ADD_ASSOC]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rpt disch_tac
+  \\ rveq \\ fs []
+  \\ rveq \\ fs []
+  \\ IMP_RES_THEN (assume_tac o GSYM) clos_callTheory.compile_LENGTH
+  \\ imp_res_tac clos_knownProofTheory.compile_LENGTH
+  \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
+  \\ fs []
+  \\ `LENGTH es + c.next_loc <= n` by (
+    IMP_RES_THEN mp_tac clos_numberProofTheory.renumber_code_locs_imp_inc
+    \\ fs [make_even_def]
+    \\ EVERY_CASE_TAC
+    \\ fs []
+  )
+  \\ fs [MAP_FST_compile_prog, clos_labelsProofTheory.MAP_FST_compile]
+  \\ fs [MAP_REVERSE, GSYM CONJ_ASSOC]
+  \\ conj_tac >- (
+    fs [MAP_FST_chain_exps_any]
+    \\ rw [SUBSET_DEF, LIST_TO_SET_MAP, MEM_COUNT_LIST] \\ fs []
+    \\ Cases_on `es` \\ fs []
+  )
+  \\ REWRITE_TAC [GSYM pred_setTheory.UNION_SUBSET, GSYM LIST_TO_SET_APPEND]
+  \\ REWRITE_TAC [GSYM MAP_APPEND, LIST_TO_SET_MAP]
+  \\ irule IMAGE_ADD_SUBSET_count
+  \\ irule SUBSET_TRANS
+  \\ qexists_tac `set (code_locs es'' ++ MAP SUC (code_locs es''))`
+  \\ conj_tac >- (
+    (* call, annotate, etc *)
+    fs [clos_labels_locs]
+    \\ drule ccompile_aux_subset
+    \\ drule ccompile_locs_subset
+    \\ rw [SUBSET_DEF, LIST_TO_SET_MAP]
+    \\ drule (hd (CONJUNCTS annotate_compile_code_locs) |> MATCH_MP SUBSET_IMP)
+    \\ fs [chain_exps_code_locs, code_locs_append]
+    \\ rw [] \\ fs []
+  )
+  (* renumber, known *)
+  \\ fs []
+  \\ drule clos_knownProofTheory.compile_code_locs_bag
+  \\ disch_then (assume_tac o MATCH_MP LIST_TO_BAG_SUBSET)
+  \\ rpt (pop_assum mp_tac)
+  \\ specl_args_of_then ``renumber_code_locs_list``
+    (hd (CONJUNCTS clos_numberProofTheory.renumber_code_locs_EVEN))
+    assume_tac
+  \\ specl_args_of_then ``renumber_code_locs_list``
+    clos_numberProofTheory.renumber_code_locs_list_distinct assume_tac
+  \\ rpt disch_tac
+  \\ fs [EVERY_MEM, MEM_MAP, MEM_COUNT_LIST]
+  \\ fs [SUBSET_DEF, make_even_def]
+  \\ rw [] \\ fs [arithmeticTheory.GREATER_DEF]
+  \\ fs [MEM_MAP]
+  \\ rpt (first_x_assum (drule_then assume_tac))
+  \\ Cases_on `n` \\ fs [seqTheory.LT_SUC, EVEN]
+  \\ rveq \\ fs []
+QED
+
 fun abbrev_adj_tac f = first_assum (fn t => if not
     (markerSyntax.is_abbrev (concl t)) then NO_TAC else
   let
-    val _ = print "trying\n"
     val (v, rhs) = dest_eq (rand (concl t))
     val (v_nm, _) = dest_var v
-    val _ = print ("got" ^ v_nm ^ "\n")
     val x = f rhs
     val v2 = mk_var (v_nm ^ "'", type_of x)
   in markerLib.ABBREV_TAC (mk_eq (v2, x)) \\ markerLib.UNABBREV_TAC v_nm end)
 
 Theorem syntax_oracle_ok_to_oracle_inv:
-
-  ∀cc es co c. syntax_oracle_ok c es co
-    /\ (!n. SND (SND (co n)) = []) ==>
+  ∀cc es co c. syntax_oracle_ok c es co ==>
   let (c'', prog') = compile_common c es;
     co' = pure_co clos_labelsProof$compile_inc ∘
         pure_co clos_annotateProof$compile_inc ∘
@@ -7728,9 +7856,7 @@ Theorem syntax_oracle_ok_to_oracle_inv:
           init_globals c.max_app (c''.start + num_stubs c.max_app))] ++
         compile_prog c.max_app prog')) cc
     (pure_co (compile_inc c.max_app) ∘ co')
-
 Proof
-
   rpt (gen_tac ORELSE disch_tac)
   \\ Cases_on `compile_common c es`
   \\ fs []
@@ -7742,6 +7868,7 @@ Proof
   \\ qunabbrev_tac `t_co`
   \\ fs []
   \\ conseq (CONJUNCTS compile_inc_req_addrs @ [GEN_ALL compile_inc_monotonic])
+  \\ fs [domain_fromAList]
   \\ abbrev_adj_tac rand
   \\ fs []
   \\ conseq [labels_compile_inc_req_oracle]
@@ -7766,7 +7893,6 @@ Proof
     clos_annotateProofTheory.every_Fn_SOME_ann,
     annotate_compile_every_Fn_vs_SOME]
   \\ abbrev_adj_tac rand
-
   \\ conseq [cond_call_compile_inc_req_oracle]
   \\ fs [backendPropsTheory.SND_state_co]
   \\ conseq ([every_Fn_SOME_cond_call_compile_inc]
@@ -7775,75 +7901,43 @@ Proof
   \\ abbrev_adj_tac rand
   \\ conseq ([known_co_req_oracle] @ known_co_req_intros)
   \\ csimp []
-  \\ conseq (BODY_CONJUNCTS every_Fn_SOME_known_co)
+  \\ drule_then assume_tac compile_common_MAP_FST_compile_prog
+  \\ fs [compile_common_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ qpat_assum `compile c.known_conf _ = _`
+    (fn t => conseq (map (fn t2 => MATCH_MP t2 t) known_co_facts2))
+  \\ csimp [FORALL_AND_THM]
   \\ abbrev_adj_tac rand
-
   \\ fs [backendPropsTheory.SND_state_co, backendPropsTheory.FST_state_co]
   \\ conseq number_compile_inc_req_intros
   \\ csimp [FST_SND_ignore_table, SND_SND_ignore_table ]
-
   \\ unabbrev_all_tac
-  \\ fs [SND_cond_mti_compile_inc]
-
-
-(* time for known_co *)
-
-
-
-
-MARK
-
-    \\ conseq [GEN_ALL compile_inc_ALL_DISTINCT_prop,
-        GEN_ALL labels_compile_inc_ALL_DISTINCT_prop,
-        GEN_ALL annotate_compile_inc_DISTINCT_prop]
-    \\ fs [backendPropsTheory.SND_state_co]
-    \\ conseq [GEN_ALL cond_call_compile_inc_ALL_DISTINCT_prop,
-        GEN_ALL known_co_ALL_DISTINCT_prop]
-    \\ fs [backendPropsTheory.SND_state_co]
-    \\ conseq [GEN_ALL number_compile_inc_ALL_DISTINCT_prop]
-    \\ fs [cond_mti_compile_inc_def]
-
-    \\ CASE_TAC
-    \\ fs []
-    \\ fs [mcompile_inc_uncurry]
-    \\ simp_tac bool_ss [clos_mtiTheory.intro_multi_length, NULL_LENGTH]
-    \\ fs []
-  )
-  \\ conj_tac >- (
-    rw []
-    \\ qmatch_goalsub_abbrev_tac `DISJOINT (domain (union init _)) _`
-    \\ irule DISJOINT_nth_code_monotonic
-    \\ qunabbrev_tac `t_co` \\ qunabbrev_tac `s_co`
-    \\ 
-
-
-  \\ pairarg_tac \\ fs []
-  \\ fs [compile_inc_def]
-  \\ rw []
-
-  >-
-
-print_match [] ``SND (pure_co _ _)``;
-
-  fs []
-
-
-  \\ fs [Q.ISPEC `pure_co f x` PAIR_FST_SND_EQ]
-  \\ rveq \\ fs []
-  \\ fs [MAP_FST_compile_inc]
-  \\ fs [ALL_DISTINCT_APPEND]
-  \\ conseq [Q.ISPECL [`xs : num list`, `$+ (n : num)`] ALL_DISTINCT_MAP_INJ]
+  \\ conseq [renumber_code_locs_monotonic_req]
+  \\ fs [SND_cond_mti_compile_inc, every_Fn_vs_NONE_cond_mti_compile_inc]
+  \\ simp_tac bool_ss [NULL_LENGTH, GSYM NULL_EQ,
+        LENGTH_FST_cond_mti_compile_inc]
   \\ fs []
-
-
-  fs [backendPropsTheory.state_co_def]
-  \\ pop_assum mp_tac
-  \\ rpt (pairarg_tac \\ fs [])
-
-
-print_find "state_co_def"
-
-  cheat
+  \\ fs [syntax_oracle_ok_def]
+  \\ drule_then (fn t => simp [t]) is_state_oracle_IMP_EQ
+  \\ fs [compile_inc_post_kcompile_def]
+  \\ fs [PULL_EXISTS, GSYM boolTheory.RIGHT_EXISTS_IMP_THM,
+        make_even_def, arithmeticTheory.EVEN_MOD2,
+        Q.SPEC `IS_SOME x` IMP_CONJ_THM]
+  \\ drule_then assume_tac
+    clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
+  \\ qpat_assum `renumber_code_locs_list _ _ = _` mp_tac
+  \\ specl_args_of_then ``renumber_code_locs_list``
+    (hd (CONJUNCTS clos_numberProofTheory.renumber_code_locs_every_Fn_SOME))
+    mp_tac
+  \\ specl_args_of_then ``renumber_code_locs_list``
+    (hd (CONJUNCTS clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE))
+    mp_tac
+  \\ rfs []
+  \\ rw [] \\ fs [domain_fromAList, miscTheory.toAList_domain]
+  \\ TRY (imp_res_tac domain_init_code_lt_num_stubs)
+  \\ TRY (imp_res_tac SUBSET_IMP)
+  \\ fs [] \\ fs [num_stubs_def]
 QED
 
 Theorem compile_every_Fn_SOME
@@ -7999,24 +8093,6 @@ Theorem renumber_code_locs_sing
   \\ rw[EQ_IMP_THM] \\ rw[]);
 (* -- *)
 
-Theorem MAP_FST_compile_prog
-  `MAP FST (compile_prog max_app ls) =
-   MAP (((+)(num_stubs max_app)))
-     (MAP FST ls ++ REVERSE (code_locs (MAP (SND o SND) ls)))`
-  (simp[clos_to_bvlTheory.compile_prog_def, UNCURRY]
-  \\ Cases_on`compile_exps max_app (MAP (SND o SND) ls) []`
-  \\ imp_res_tac compile_exps_LENGTH
-  \\ fs[MAP2_MAP, MAP_MAP_o, o_DEF, UNCURRY]
-  \\ qmatch_goalsub_abbrev_tac`MAP f`
-  \\ `f = ((+)(num_stubs max_app)) o FST o FST` by ( simp[Abbr`f`, FUN_EQ_THM] )
-  \\ simp[Abbr`f`]
-  \\ simp[GSYM MAP_MAP_o]
-  \\ simp[MAP_ZIP]
-  \\ simp[MAP_MAP_o, o_DEF]
-  \\ qhdtm_x_assum`compile_exps`mp_tac
-  \\ specl_args_of_then``compile_exps`` compile_exps_code_locs mp_tac
-  \\ rw[] \\ fs[]);
-
 Theorem MAP_FST_compile_inc
   `MAP FST (compile_inc max_app p) =
    MAP ((+)(num_stubs max_app))
@@ -8142,8 +8218,7 @@ Theorem compile_semantics
    semantics ffi c.max_app FEMPTY co
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es`
   (
-
-strip_tac
+  strip_tac
   \\ imp_res_tac compile_all_distinct_locs
   \\ fs[compile_def]
   \\ pairarg_tac \\ fs[] \\ rveq
@@ -8152,15 +8227,8 @@ strip_tac
   \\ first_assum(mp_then (Pat`closSem$semantics`) mp_tac (GEN_ALL compile_common_semantics))
   \\ simp[]
   \\ impl_tac >- (
-
-cheat
-(* oracle ok ..
     fs[syntax_oracle_ok_def]
-    \\ fs[BAG_ALL_DISTINCT_BAG_UNION]
-    \\ fs[elist_globals_FLAT, BAG_DISJOINT_FOLDR_BAG_UNION, MAP_GENLIST, EVERY_GENLIST]
-    \\ metis_tac[prim_recTheory.LESS_SUC_REFL]
-*)
-)
+  )
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ irule compile_prog_semantics
   \\ simp[lookup_fromAList]
@@ -8219,7 +8287,8 @@ cheat
               |> SIMP_RULE (srw_ss()) [EVERY_MAP]]
       \\ rveq
       \\ irule clos_labelsProofTheory.compile_every_Fn_vs_SOME
-      \\ simp[compile_every_Fn_vs_SOME] ))
+      \\ simp [annotate_compile_every_Fn_vs_SOME]
+    ))
   \\ conj_tac
   >- (
     qexists_tac`prog'`
@@ -8258,252 +8327,8 @@ cheat
     \\ res_tac
     \\ imp_res_tac ALOOKUP_MEM
     \\ metis_tac[] )
-
   \\ Q.ISPEC_THEN `cc` drule syntax_oracle_ok_to_oracle_inv
-  \\ rw []
-
-GEN_ALL syntax_oracle_ok_to_oracle_inv
-  \\ simp[compile_oracle_inv_def]
-
-  \\ fs []
-  \\ simp[clos_knownProofTheory.known_co_def]
-
-  \\ simp[GSYM FORALL_AND_THM]
-  \\ gen_tac
-  \\ qmatch_goalsub_abbrev_tac`ff pp = (_,_)`
-  \\ qho_match_abbrev_tac`
-    (∀cfg ps. ff pp = (cfg,ps) ⇒ P ps) ∧ R ∧
-    (∀cfg e ps. pp = (cfg,e,ps) ⇒ Q e ps)`
-  \\ `P (SND (ff pp)) ∧ R ∧ Q (FST(SND pp)) (SND(SND pp))` suffices_by metis_tac[PAIR,PAIR_EQ]
-  \\ qunabbrev_tac`P` \\ qunabbrev_tac`Q`
-  \\ simp[Abbr`ff`, compile_inc_uncurry]
-  \\ rewrite_tac[CONJ_ASSOC]
-  \\ reverse conj_asm2_tac
-  >- (
-    simp[Abbr`pp`]
-    \\ simp[acompile_inc_uncurry]
-    \\ simp[clos_annotateTheory.compile_def]
-    \\ simp[EVERY_MAP, UNCURRY]
-    \\ simp[clos_annotateProofTheory.HD_annotate_SING]
-
- )
-  \\ reverse conj_asm2_tac
-  >- (
-    simp[Abbr`pp`]
-    \\ simp[acompile_inc_uncurry]
-    \\ simp[clos_annotateTheory.compile_def]
-    \\ simp[EVERY_MAP, UNCURRY]
-    \\ simp[clos_annotateProofTheory.HD_annotate_SING]
-    \\ irule MONO_EVERY \\ simp[]
-    \\ qexists_tac`λx. every_Fn_SOME [SND(SND x)]`
-    \\ simp[clos_annotateProofTheory.every_Fn_SOME_annotate]
-    \\ simp[backendPropsTheory.SND_state_co]
-    \\ qmatch_goalsub_abbrev_tac`SND (SND (ff gg))`
-    \\ `SND gg = []`
-    by (
-      simp[Abbr`gg`]
-      \\ fs[syntax_oracle_ok_def]
-      \\ simp[clos_knownProofTheory.known_co_def]
-      \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co,SND_SND_ignore_table]
-      \\ simp[backendPropsTheory.FST_state_co, kcompile_inc_uncurry, FST_SND_ignore_table, SND_SND_ignore_table]
-      \\ simp[clos_ticksProofTheory.compile_inc_def, clos_letopProofTheory.compile_inc_def]
-      \\ rw[] )
-    \\ simp[Abbr`ff`]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ simp[ccompile_inc_uncurry]
-    \\ qmatch_goalsub_abbrev_tac`calls xs g0`
-    \\ Cases_on`calls xs g0`
-    \\ drule clos_callProofTheory.calls_preserves_every_Fn_SOME
-    \\ impl_tac
-    >- (
-      simp[Abbr`xs`,Abbr`g0`]
-      \\ simp[Abbr`gg`]
-      \\ simp[clos_knownProofTheory.known_co_def]
-      \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co,FST_SND_ignore_table]
-      \\ simp[backendPropsTheory.FST_state_co, kcompile_inc_uncurry,FST_SND_ignore_table,SND_SND_ignore_table]
-      \\ simp[clos_letopProofTheory.compile_inc_def, clos_ticksProofTheory.compile_inc_def]
-      \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
-      \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_every_Fn_SOME
-      \\ impl_tac
-      >- (
-        simp[Abbr`bb`, Abbr`ccc`, Abbr`dd`]
-        \\ fs[syntax_oracle_ok_def] \\ rw[] )
-      \\ simp[] )
-    \\ strip_tac
-    \\ pop_assum mp_tac
-    \\ simp[Once every_Fn_SOME_EVERY]
-    \\ simp[EVERY_MAP] )
-  \\ reverse conj_asm2_tac
-  >- ( simp[Abbr`R`, Abbr`pp`, acompile_inc_uncurry] )
-  \\ reverse conj_asm2_tac
-  >- (
-    simp[Abbr`R`, Abbr`pp`, acompile_inc_uncurry]
-    \\ irule clos_annotateProofTheory.every_Fn_SOME_annotate
-    \\ simp[backendPropsTheory.SND_state_co]
-    \\ qmatch_goalsub_abbrev_tac`FST (SND (ff gg))`
-    \\ `every_Fn_SOME (FST gg)`
-    by (
-      simp[Abbr`gg`]
-      \\ fs[syntax_oracle_ok_def]
-      \\ simp[clos_knownProofTheory.known_co_def]
-      \\ TOP_CASE_TAC \\ simp[backendPropsTheory.SND_state_co,SND_SND_ignore_table]
-      \\ simp[backendPropsTheory.FST_state_co, kcompile_inc_uncurry, FST_SND_ignore_table, SND_SND_ignore_table]
-      \\ simp[clos_ticksProofTheory.compile_inc_def, clos_letopProofTheory.compile_inc_def]
-      \\ qmatch_goalsub_abbrev_tac`known aa bb ccc dd`
-      \\ qspecl_then[`aa`,`bb`,`ccc`,`dd`]mp_tac clos_knownProofTheory.known_every_Fn_SOME
-      \\ impl_tac
-      >- ( simp[Abbr`bb`, Abbr`ccc`, Abbr`dd`] \\ rw[])
-      \\ simp[] )
-    \\ simp[Abbr`ff`]
-    \\ TOP_CASE_TAC \\ simp[]
-    \\ simp[ccompile_inc_uncurry]
-    \\ qmatch_goalsub_abbrev_tac`calls xs g0`
-    \\ Cases_on`calls xs g0`
-    \\ drule clos_callProofTheory.calls_preserves_every_Fn_SOME
-    \\ impl_tac >- ( simp[Abbr`xs`,Abbr`g0`] )
-    \\ simp[])
-  \\ simp[Abbr`R`]
-  \\ simp[MAP_FST_compile_prog]
-  \\ conj_asm1_tac
-  >- (
-    rewrite_tac[GSYM MAP_APPEND]
-    \\ irule ALL_DISTINCT_MAP_INJ
-    \\ simp[]
-    \\ simp[MAP_FST_chain_exps_any]
-    \\ simp[code_locs_append]
-    \\ `extract_name (FST (SND pp)) =
-       if NULL (FST(SND (co n))) then (0, [Op None (Const (&FST(FST(co n)))) []]) else
-       (FST(FST(co n)),
-        let es = (if c.do_mti then clos_mtiProof$compile_inc c.max_app else I) (SND (co n)) in
-        let es = SND (renumber_code_locs_list (make_even (FST(FST(co n)) + MAX (LENGTH (FST es)) 1)) (FST es) ) in
-        let es = (case c.known_conf of NONE => es | SOME kcfg =>
-          FST (clos_letopProof$compile_inc
-            (clos_ticksProof$compile_inc
-              (SND (clos_knownProof$compile_inc kcfg (FST(SND(FST(co n)))) (es,[]))))
-              )) in
-        let es = if c.do_call then FST(calls es (FST(SND(SND(FST(co n)))), [])) else es in
-        annotate 0 es)`
-    by (
-      simp[Abbr`pp`, acompile_inc_uncurry, backendPropsTheory.SND_state_co]
-      \\ simp[clos_knownProofTheory.known_co_def]
-      \\ Cases_on`c.known_conf` >- (
-        rw[backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co]
-        \\ simp[ccompile_inc_uncurry, FST_SND_ignore_table, clos_numberProofTheory.compile_inc_def, UNCURRY,
-                calls_Op_Const, annotate_Op_Const, extract_name_Op_Const]
-        \\ fs[NULL_EQ, renumber_code_locs_list_nil, calls_nil, annotate_nil])
-      \\ fs[backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co]
-      \\ fs[ignore_table_uncurry, clos_numberProofTheory.compile_inc_def, UNCURRY]
-      \\ simp[kcompile_inc_uncurry, known_Op_Const]
-      \\ simp[clos_ticksProofTheory.compile_inc_def, remove_ticks_Op_Const]
-      \\ simp[clos_letopProofTheory.compile_inc_def, let_op_Op_Const]
-      \\ rw[ccompile_inc_uncurry, calls_Op_Const, annotate_Op_Const, extract_name_Op_Const]
-      \\ fs[NULL_EQ, annotate_nil, calls_nil, renumber_code_locs_list_nil, let_op_nil, remove_ticks_nil, known_nil,
-            mcompile_inc_uncurry, CONTRAPOS (#1(EQ_IMP_RULE (SPEC_ALL clos_mtiProofTheory.intro_multi_EQ_NIL))),
-            MAP_EQ_NIL |> SPEC_ALL |> CONJUNCT1 |> EQ_IMP_RULE |> #1 |> CONTRAPOS]
-      \\ rw[]
-      \\ metis_tac[NULL_EQ, annotate_nil, calls_nil, renumber_code_locs_list_nil, let_op_nil, remove_ticks_nil, known_nil,
-            mcompile_inc_uncurry, CONTRAPOS (#1(EQ_IMP_RULE (SPEC_ALL clos_mtiProofTheory.intro_multi_EQ_NIL))),
-            MAP_EQ_NIL |> SPEC_ALL |> CONJUNCT1 |> EQ_IMP_RULE |> #1 |> CONTRAPOS])
-    \\ `FST (extract_name (FST (SND pp))) = if NULL (FST(SND(co n))) then 0 else FST(FST(co n))` by (fs[] \\ rw[])
-    \\ pop_assum SUBST_ALL_TAC
-    \\ `LENGTH (SND (extract_name (FST (SND pp)))) = MAX (LENGTH (FST (SND (co n)))) 1`
-    by (
-      simp[]
-      \\ rw[NULL_EQ]
-      \\ fs[clos_annotateTheory.annotate_def, clos_annotateTheory.shift_LENGTH_LEMMA,
-            clos_annotateTheory.LENGTH_FST_alt_free, LENGTH_FST_calls]
-      \\ TOP_CASE_TAC \\ simp[clos_numberTheory.renumber_code_locs_length, mcompile_inc_uncurry, clos_mtiTheory.intro_multi_length]
-      \\ simp[clos_letopProofTheory.compile_inc_def, clos_ticksProofTheory.compile_inc_def, kcompile_inc_uncurry,
-              clos_letopTheory.LENGTH_let_op, clos_ticksTheory.LENGTH_remove_ticks, clos_knownTheory.known_LENGTH,
-              clos_numberTheory.renumber_code_locs_length, clos_mtiTheory.intro_multi_length]
-      \\ rw[MAX_DEF] )
-    \\ pop_assum SUBST_ALL_TAC
-    \\ simp_tac std_ss [MAX_MAX_ELIM]
-    \\ `ALL_DISTINCT (code_locs (SND (extract_name (FST (SND pp))))) ∧
-        set (code_locs (SND (extract_name (FST (SND pp))))) ⊆
-          between (make_even (FST (FST (co n)) + MAX (LENGTH (FST (SND (co n)))) 1))
-                (FST (renumber_code_locs_list
-                       (make_even (FST (FST (co n)) + MAX (LENGTH (FST (SND (co n)))) 1))
-                       (FST ((if c.do_mti then clos_mtiProof$compile_inc c.max_app else I) (SND (co n))))))`
-    by (
-      Cases_on`NULL(FST(SND(co n)))` \\ fs[NULL_EQ] >- ( EVAL_TAC \\ rw[] )
-      \\ qmatch_goalsub_abbrev_tac`renumber_code_locs_list xx yy`
-      \\ conj_tac
-      >- (
-        irule (CONJUNCT2 (SPEC_ALL clos_annotateProofTheory.annotate_code_locs))
-        \\ qmatch_goalsub_abbrev_tac`calls zz g0`
-        \\ Cases_on`calls zz g0`
-        \\ qspecl_then[`zz`,`g0`]mp_tac clos_callProofTheory.calls_code_locs_ALL_DISTINCT
-        \\ simp[Abbr`g0`, code_locs_def]
-        \\ impl_keep_tac
-        >- (
-          simp[Abbr`zz`]
-          \\ specl_args_of_then``renumber_code_locs_list`` clos_numberProofTheory.renumber_code_locs_list_distinct mp_tac
-          \\ strip_tac
-          \\ CASE_TAC \\ simp[]
-          \\ simp[clos_knownProofTheory.compile_inc_def]
-          \\ pairarg_tac \\ fs[]
-          \\ drule clos_knownProofTheory.known_code_locs_bag
-          \\ strip_tac
-          \\ simp[GSYM LIST_TO_BAG_DISTINCT]
-          \\ irule BAG_ALL_DISTINCT_SUB_BAG
-          \\ goal_assum(first_assum o mp_then Any mp_tac)
-          \\ simp[LIST_TO_BAG_DISTINCT] )
-        \\ rw[ALL_DISTINCT_APPEND] )
-      \\ qmatch_goalsub_abbrev_tac`annotate 0 ls`
-      \\ match_mp_tac SUBSET_TRANS
-      \\ qexists_tac`set (code_locs ls)`
-      \\ simp[clos_annotateProofTheory.annotate_code_locs]
-      \\ simp[Abbr`ls`]
-      \\ qmatch_goalsub_abbrev_tac`calls x y`
-      \\ qspecl_then[`x`,`y`]mp_tac set_code_locs_FST_calls_SUBSET
-      \\ simp[Abbr`y`, code_locs_def]
-      \\ qmatch_goalsub_abbrev_tac`between n1 n2`
-      \\ `set (code_locs x) ⊆ between n1 n2` suffices_by rw[SUBSET_DEF]
-      \\ simp[Abbr`x`]
-      \\ qspecl_then[`xx`,`yy`]mp_tac clos_numberProofTheory.renumber_code_locs_list_distinct
-      \\ `xx = n1`
-      by (
-        simp[Abbr`xx`,Abbr`n1`]
-        \\ rpt AP_TERM_TAC
-        \\ AP_THM_TAC \\ AP_TERM_TAC
-        \\ simp[Abbr`yy`]
-        \\ rw[mcompile_inc_uncurry, clos_mtiTheory.intro_multi_length] )
-      \\ fs[Abbr`xx`]
-      \\ strip_tac
-      \\ CASE_TAC
-      >- (
-        fs[SUBSET_DEF, EVERY_MEM, IN_between]
-        \\ rw[] \\ res_tac \\ fs[] )
-      \\ simp[clos_letopProofTheory.compile_inc_def]
-      \\ simp[clos_ticksProofTheory.compile_inc_def]
-      \\ simp[clos_knownProofTheory.compile_inc_def]
-      \\ pairarg_tac
-      \\ drule clos_knownProofTheory.known_code_locs_bag
-      \\ strip_tac
-      \\ drule LIST_TO_BAG_SUBSET
-      \\ simp[]
-      \\ fs[SUBSET_DEF, EVERY_MEM, IN_between]
-      \\ rw[]
-      \\ res_tac \\ fs[]
-      \\ res_tac \\ fs[] )
-    \\ ntac 2 (pop_assum mp_tac)
-    \\ simp_tac(srw_ss())[ALL_DISTINCT_APPEND, REVERSE_APPEND, SUBSET_DEF]
-    \\ strip_tac \\ strip_tac
-    \\ qmatch_goalsub_abbrev_tac`MEM _ cls ⇒ ¬ MEM _ (code_locs _)`
-    \\ simp[GSYM CONJ_ASSOC]
-    \\ conj_tac
-    >- (
-      irule ALL_DISTINCT_MAP_INJ
-      \\ simp[]
-      \\ simp[all_distinct_count_list] )
-    \\ `ALL_DISTINCT (MAP FST (SND (SND pp)) ++ code_locs (MAP (SND o SND) (SND (SND pp))))`
-    by ...
-    \\ pop_assum mp_tac
-    \\ simp[ALL_DISTINCT_APPEND]
-    \\ strip_tac
-    \\ ... )
-  \\ ... (* many syntactic properties of oracle *)*));
+  \\ fs []);
 
 Theorem assign_get_code_label_compile_op
   `closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`
