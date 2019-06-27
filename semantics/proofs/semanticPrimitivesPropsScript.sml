@@ -418,6 +418,102 @@ Proof
 QED
 
 
+val trunc_sign_def = Define `
+  trunc_sign s = s with <| args := TL (s.args) |>
+`
+
+
+Theorem mut_args_split:
+ sign.args = ty::ty' ==>
+   get_mut_args sign (arg::args) =  MAP SND (FILTER (is_mutty o FST) [(ty, arg)]) ++
+                           get_mut_args (trunc_sign sign) args
+Proof
+  rw [get_mut_args_def] >> fs [trunc_sign_def, listTheory.ZIP_def]
+QED
+
+
+Theorem store_cargs_lupdate:
+ !margs l s h n. store_cargs_sem margs l s ≠ NONE ==>
+  store_cargs_sem margs l (LUPDATE (W8array h) n s) ≠ NONE
+Proof
+  ho_match_mp_tac store_cargs_sem_ind
+  \\ rw []
+  >- (Cases_on `n`
+      >- (Cases_on `s` >> FULL_SIMP_TAC arith_ss [LUPDATE_def, store_cargs_sem_def])
+      >- (Cases_on `s` >> FULL_SIMP_TAC arith_ss [LUPDATE_def, store_cargs_sem_def]))
+  >- (fs [store_cargs_sem_def]
+      \\ fs [CaseEq"option"]
+      \\ CONJ_TAC
+      >- (Cases_on `marg` >> fs [store_carg_sem_def]
+          \\ Cases_on `n`
+           >- (Cases_on `s` >> FULL_SIMP_TAC arith_ss [LUPDATE_def,
+                    store_assign_def, store_v_same_type_def]
+                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                >- (rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) >> (Cases_on `n'` >>  fs [])))
+          >- (Cases_on `s` >> FULL_SIMP_TAC arith_ss [LUPDATE_def,
+                          store_assign_def, store_v_same_type_def]
+                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                >- (rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                    >- ((Cases_on `n'` >>  fs [])
+                        \\ Cases_on `n''`
+                        >- ((Cases_on `t` >> fs [LUPDATE_def])
+                             \\ (Cases_on `n` >>  fs []))
+                        >-  cheat (* how to repeat the above process SUC case *))
+                    >- cheat)))
+      >- cheat)
+  >- fs [store_cargs_sem_def]
+  >- fs [store_cargs_sem_def]
+QED
+
+
+
+Theorem store_cargs_SOME_same_loc:
+  !s ty args cargs. !sign l. sign.args = ty /\ get_cargs_sem s ty args = SOME cargs ==>
+  store_cargs_sem (get_mut_args sign args) l s <> NONE
+Proof
+  ho_match_mp_tac get_cargs_sem_ind
+  \\ rw [get_cargs_sem_def]
+  >- (strip_tac
+      \\ `get_mut_args sign ([]: v list) = []` by rw [get_mut_args_def, listTheory.ZIP_def]
+      \\ induct_on `l` >> fs [store_cargs_sem_def])
+  >- (strip_tac
+      \\ fs []
+      \\ Cases_on `get_mut_args sign (arg::args)`
+      >- (induct_on `l` >> fs [store_cargs_sem_def])
+      >- (`get_mut_args sign (arg::args) = MAP SND (FILTER (is_mutty o FST) [(ty, arg)]) ++
+                           get_mut_args (trunc_sign sign) args` by metis_tac [mut_args_split]
+          \\ fs []
+          \\ Cases_on `ty` >> fs [ffiTheory.is_mutty_def]
+          >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
+              \\ metis_tac [])
+          >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
+              \\ metis_tac [])
+          >- (rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+             >- (Cases_on `l` >> fs [store_cargs_sem_def]
+                 \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                 >- (Cases_on `arg` >> fs [get_carg_sem_def, store_carg_sem_def]
+                     \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                     \\ fs [store_assign_def, store_lookup_def, store_v_same_type_def])
+                 >- (Cases_on `arg` >> fs [get_carg_sem_def, store_carg_sem_def]
+                     >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
+                         \\ metis_tac [])
+                    >- (rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+                        \\ fs [store_assign_def, store_lookup_def, store_v_same_type_def]
+                        \\ cheat (*metis_tac [store_cargs_lupdate]*) )
+                     )
+                  )
+             >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
+                 \\ metis_tac [])
+               )))
+QED
+
+
 Theorem do_ffi_NONE_ffi:
    do_ffi s t n args = NONE /\
    t.signatures = t'.signatures /\
@@ -429,10 +525,11 @@ Proof
   rw[do_ffi_def]
   \\ fs[ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-  >> metis_tac[ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, get_cargs_sem_SOME_IMP_args_ok]
+  >> metis_tac[ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def,
+               get_cargs_sem_SOME_IMP_args_ok, store_cargs_SOME_same_loc]
  (* metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok] *)
-QED
 
+QED
 
 
 Theorem do_app_NONE_ffi:
@@ -465,7 +562,7 @@ Proof
   \\ rfs[ffiTheory.ffi_state_component_equality]
   \\ metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok]
 QED
-(* how \\ is associated to right/left?, nested \\ *)
+
 
 Theorem do_app_SOME_ffi_same:
    do_app (refs,ffi) op args = SOME ((refs',ffi),r)
