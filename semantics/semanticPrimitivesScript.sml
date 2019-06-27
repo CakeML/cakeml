@@ -588,32 +588,32 @@ val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_stat
 (* get_carg_sem “:α store_v list -> c_type -> v -> c_value option” *)
 
 val _ = Define `
-   (get_carg_sem _ (C_array conf) (Litv(StrLit s)) =
+  (get_carg_sem _ (C_array conf) (Litv(StrLit s)) =
     if conf.mutable then
       NONE
     else
       SOME (C_arrayv(MAP (\ c .  n2w(ORD c)) (EXPLODE s))))
 /\ (get_carg_sem st (C_array conf) (Loc lnum) =
-    if conf.mutable then
-      (case store_lookup lnum st of
+     if conf.mutable then
+       (case store_lookup lnum st of
          | SOME (W8array ws) => SOME(C_arrayv ws)
          | _ => NONE)
-    else NONE)
+     else NONE)
 /\ (get_carg_sem _ C_bool v =
-    if v = Boolv T then
-      SOME(C_primv(C_boolv T))
-    else if v = Boolv F then
-      SOME(C_primv(C_boolv F))
-    else NONE)
+     if v = Boolv T then
+       SOME(C_primv(C_boolv T))
+     else if v = Boolv F then
+       SOME(C_primv(C_boolv F))
+     else NONE)
 /\ (get_carg_sem _ C_int (Litv(IntLit n)) =
-    SOME(C_primv(C_intv n)))
+     SOME(C_primv(C_intv n)))
 /\ (get_carg_sem _ _ _ = NONE)`
 
 
 val _ = Define
   `(get_cargs_sem s [] [] = SOME [])
 /\ (get_cargs_sem s (ty::tys) (arg::args) =
-    OPTION_MAP2 CONS (get_carg_sem s ty arg) (get_cargs_sem s tys args))
+     OPTION_MAP2 CONS (get_carg_sem s ty arg) (get_cargs_sem s tys args))
 /\ (get_cargs_sem _ _ _ = NONE)
 `
 
@@ -629,9 +629,9 @@ val _ = Define  `
 val _ = Define `
   (als_lst_sem [] _ _ = []) /\
   (als_lst_sem  ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) =
-          if conf.mutable /\  conf'.mutable /\ (lc = lc')
-          then id::als_lst_sem prl (C_array conf) (Loc lc)
-          else als_lst_sem  prl (C_array conf) (Loc lc)) /\
+    if conf.mutable /\  conf'.mutable /\ (lc = lc')
+    then id::als_lst_sem prl (C_array conf) (Loc lc)
+    else als_lst_sem  prl (C_array conf) (Loc lc)) /\
   (als_lst_sem  _ (C_bool) _ = []) /\
   (als_lst_sem  _ (C_int)  _ = [])
 `
@@ -639,11 +639,14 @@ val _ = Define `
 
 val _ = Define `
   als_lst'_sem  (idx, ct, v) prl =
-    case ct of C_array conf => if conf.mutable
-                               then (case v of Loc lc => idx :: als_lst_sem prl ct v
-                                             | _ => [])
-                               else []
-            | _ => []
+    case ct of 
+      | C_array conf => 
+         if conf.mutable
+         then (case v of 
+		| Loc lc => idx :: als_lst_sem prl ct v
+                | _ => [])
+         else []
+      | _ => []
 `
 
 val _ = Define `
@@ -653,20 +656,16 @@ val _ = Define `
 val _ = Define `
   (matched_loc [] _ = []) /\
   (matched_loc _ [] = []) /\
-  (matched_loc (n::ns) prl = if  IS_EL n (MAP FST prl)
-                             then matched_num_pr_lst n prl ++ matched_loc (ns) prl
-                             else matched_loc ns prl )
+  (matched_loc (n::ns) prl = 
+    if  IS_EL n (MAP FST prl)
+    then matched_num_pr_lst n prl ++ matched_loc (ns) prl
+    else matched_loc ns prl )
 `
 
 
 val _ = Define `
   list_minus ms ns = FILTER (λ e. ~(MEM e ns)) ms
 `
-
-
-(*  type: 'a list -> ('a # 'b) list -> ('a # 'b) list *)
-(*  take the first element of all pairs, then remove the matcing numbers of the num list
-    from the pair list*)
 
 val _ = Define `
   remove_loc nl prl = list_minus prl (matched_loc nl prl)
@@ -696,9 +695,7 @@ val _ = Define `
 
 val _ = Define
 `(get_ret_val (SOME(C_boolv b)) = Boolv b)
-
 /\ (get_ret_val (SOME(C_intv i)) = Litv(IntLit i))
-
 /\ (get_ret_val _ = Conv NONE [])
   `
 
@@ -706,19 +703,29 @@ val _ = Define
 `get_mut_args sign cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(sign.args,cargs)))
 `
 
+(*
 val _ = Define `
    (store_carg_sem (Loc lnum) ws s = THE (store_assign lnum (W8array ws) s))
 /\ (store_carg_sem  _ _ s = s)`
+*)
+
+
+val _ = Define `
+   (store_carg_sem (Loc lnum) ws s = store_assign lnum (W8array ws) s)
+/\ (store_carg_sem  _ _ s = SOME s)`
 
 
 val _ = Define
-  `(store_cargs_sem [] [] s = s)
+  `(store_cargs_sem [] [] s = SOME s)
 /\ (store_cargs_sem (marg::margs) (w::ws) s =
-    store_cargs_sem margs ws (store_carg_sem marg w s))
-/\ (store_cargs_sem _ _ s = s)
+      case store_carg_sem marg w s of
+        | SOME s' => store_cargs_sem margs ws s'
+	| NONE => NONE )
+/\ (store_cargs_sem _ _ s = SOME s)
   `
 
 
+(*  add a none at the store assign case  *)
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) t.signatures of
@@ -727,9 +734,11 @@ val _ = Define
         | SOME cargs =>
           (case call_FFI t n sign cargs (als_args_final_sem (loc_typ_val sign.args args)) of
 	   | SOME (FFI_return t' newargs retv) =>
-             SOME ((store_cargs_sem (get_mut_args sign args) newargs s, t'), Rval (get_ret_val retv))
+              (case store_cargs_sem (get_mut_args sign args) newargs s of 
+		| SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
+	        | NONE => NONE) 
 	   | SOME (FFI_final outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
-           | NONE => NONE) (* return type mismatch error  *)
+           | NONE => NONE)
         | NONE => NONE)
     | NONE => NONE
   `
