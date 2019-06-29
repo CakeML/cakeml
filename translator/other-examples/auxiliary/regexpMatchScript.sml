@@ -38,6 +38,7 @@ open HolKernel bossLib Theory Parse Tactic boolLib Lib
 open stringLib pairTheory arithmeticTheory listTheory optionTheory;
 
 val thm_counter = Count.mk_meter();
+val _ = ParseExtras.temp_loose_equality();
 
 (*---------------------------------------------------------------------------*)
 (* Change free variable names to desired ones. Takes a list of (old,new)     *)
