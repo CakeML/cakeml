@@ -11,7 +11,8 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* compilation from BVI to dataLang *)
 
-Theorem op_space_reset_pmatch `! op.
+Theorem op_space_reset_pmatch:
+  ! op.
   op_space_reset op =
     case op of
       Add => T
@@ -32,30 +33,36 @@ Theorem op_space_reset_pmatch `! op.
     | CopyByte new_flag => new_flag
     | ConfigGC => T
     | FFI _ => T
-    | _ => F`
-  (rpt strip_tac
+    | _ => F
+Proof
+  rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  >> Cases_on `op` >> fs[op_space_reset_def]);
+  >> Cases_on `op` >> fs[op_space_reset_def]
+QED
 
-Theorem op_requires_names_eqn
-  `∀op. op_requires_names op =
+Theorem op_requires_names_eqn:
+   ∀op. op_requires_names op =
     (op_space_reset op ∨ (dtcase op of
                           | FFI n => T
                           | Install => T
                           | CopyByte new_flag => T
-                          | _ => F))`
-  (Cases>>fs[op_requires_names_def]);
+                          | _ => F))
+Proof
+  Cases>>fs[op_requires_names_def]
+QED
 
-Theorem op_requires_names_pmatch
-  `∀op. op_requires_names op =
+Theorem op_requires_names_pmatch:
+   ∀op. op_requires_names op =
   (op_space_reset op ∨ (case op of
                         | FFI n => T
                         | Install => T
                         | CopyByte new_flag => T
-                        | _ => F))`
-  (rpt strip_tac >>
+                        | _ => F))
+Proof
+  rpt strip_tac >>
   CONV_TAC(RAND_CONV(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)) >>
-  fs[op_requires_names_eqn]);
+  fs[op_requires_names_eqn]
+QED
 
 val iAssign_def = Define `
   iAssign n1 op vs live env =
@@ -132,11 +139,13 @@ val compile_LESS_EQ_lemma = Q.prove(
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-Theorem compile_LESS_EQ
-  `!n env tail live xs c vs new_var.
-      (compile n env tail live xs = (c,vs,new_var)) ==> n <= new_var`
-  (REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_LESS_EQ_lemma)
-  \\ FULL_SIMP_TAC std_ss []);
+Theorem compile_LESS_EQ:
+   !n env tail live xs c vs new_var.
+      (compile n env tail live xs = (c,vs,new_var)) ==> n <= new_var
+Proof
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_LESS_EQ_lemma)
+  \\ FULL_SIMP_TAC std_ss []
+QED
 
 val compile_LENGTH_lemma = Q.prove(
   `!n env tail live xs.
@@ -145,17 +154,21 @@ val compile_LENGTH_lemma = Q.prove(
   \\ SIMP_TAC std_ss [compile_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] []);
 
-Theorem compile_LENGTH
-  `!n env tail live xs c vs new_var.
-      (compile n env tail live xs = (c,vs,new_var)) ==> (LENGTH vs = LENGTH xs)`
-  (REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_LENGTH_lemma)
-  \\ FULL_SIMP_TAC std_ss []);
+Theorem compile_LENGTH:
+   !n env tail live xs c vs new_var.
+      (compile n env tail live xs = (c,vs,new_var)) ==> (LENGTH vs = LENGTH xs)
+Proof
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_LENGTH_lemma)
+  \\ FULL_SIMP_TAC std_ss []
+QED
 
-Theorem compile_SING_IMP
-  `(compile n env tail live [x] = (c,vs,new_var)) ==> ?t. vs = [t]`
-  (REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
+Theorem compile_SING_IMP:
+   (compile n env tail live [x] = (c,vs,new_var)) ==> ?t. vs = [t]
+Proof
+  REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
   \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);
+  \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []
+QED
 
 (* combine dataLang optimisations *)
 

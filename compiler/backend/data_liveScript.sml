@@ -40,10 +40,12 @@ val is_pure_def = Define `
   (is_pure (WordFromWord b) = F) /\
   (is_pure (FP_uop _) = F) /\
   (is_pure (FP_bop _) = F) /\
+  (is_pure (FP_top _) = F) /\
   (is_pure ConfigGC = F) /\
   (is_pure _ = T)`
 
-Theorem is_pure_pmatch `!op.
+Theorem is_pure_pmatch:
+  !op.
   is_pure op =
     case op of
       SetGlobalsPtr => F
@@ -76,11 +78,14 @@ Theorem is_pure_pmatch `!op.
     | WordFromWord b => F
     | FP_uop _ => F
     | FP_bop _ => F
+    | FP_top _ => F
     | ConfigGC => F
-    | _ => T`
-  (rpt strip_tac
+    | _ => T
+Proof
+  rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  >> every_case_tac >> fs[is_pure_def]);
+  >> every_case_tac >> fs[is_pure_def]
+QED
 
 val compile_def = Define `
   (compile Skip live = (Skip,live)) /\

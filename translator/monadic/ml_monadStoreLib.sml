@@ -401,12 +401,20 @@ fun create_store_X_hprop refs_manip_list
     val create_rarray_hprop_params =
         List.map (fn (x, _, y, _, _, _, _, _, _) => (x, y)) rarrays_manip_list
     val create_rarray_hprop_params = zip create_rarray_hprop_params rarrays_refs_locs
+    (*
+      val ((name, get_f), rarray_ref_loc) = hd create_rarray_hprop_params
+    *)
     fun create_rarray_hprop ((name, get_f), rarray_ref_loc) =
       let
-        val ref_inv = dest_abs get_f |> snd |> type_of |> dest_type |> snd |> List.hd |> get_type_inv
-        val get_term = mk_comb (get_f, state_var) |> BETA_CONV |> concl |> dest_eq |> snd
+        val ref_inv = dest_abs get_f |> snd |> type_of |> dest_type |> snd |>
+                      List.hd |> get_type_inv
+        val ty_subst = match_type (type_of state_var)
+                                  (type_of get_f |> dom_rng |> fst)
+        val get_term = mk_comb (get_f, Term.inst ty_subst state_var) |>
+                       BETA_CONV |> concl |> dest_eq |> snd
 
-        val hprop = mk_RARRAY_REL ref_inv rarray_ref_loc get_term
+        val hprop =
+          list_mk_ucomb(``RARRAY_REL``, [ref_inv, rarray_ref_loc, get_term])
       in
         hprop
       end
@@ -416,12 +424,19 @@ fun create_store_X_hprop refs_manip_list
     val create_farray_hprop_params =
         List.map (fn (x, _, y, _, _, _, _, _) => (x, y)) farrays_manip_list
     val create_farray_hprop_params = zip create_farray_hprop_params farrays_locs
+    (*
+      val ((name, get_f), farray_loc) = hd create_farray_hprop_params
+    *)
     fun create_farray_hprop ((name, get_f), farray_loc) =
       let
-        val ref_inv = dest_abs get_f |> snd |> type_of |> dest_type |> snd |> List.hd |> get_type_inv
-        val get_term = mk_comb (get_f, state_var) |> BETA_CONV |> concl |> dest_eq |> snd
+        val ref_inv = dest_abs get_f |> snd |> type_of |> dest_type |> snd |>
+                      List.hd |> get_type_inv
+        val ty_subst = match_type (type_of state_var)
+                                  (type_of get_f |> dom_rng |> fst)
+        val get_term = mk_comb (get_f, Term.inst ty_subst state_var) |>
+                       BETA_CONV |> concl |> dest_eq |> snd
 
-        val hprop = mk_ARRAY_REL ref_inv farray_loc get_term
+        val hprop = list_mk_ucomb(``ARRAY_REL``, [ref_inv, farray_loc, get_term])
       in
         hprop
       end
@@ -445,16 +460,42 @@ fun create_store_X_hprop refs_manip_list
                         mk_star(store_hprop,
                                 mk_cond(mk_comb( (concl pinv_def |> lhs) , state_var)))
                       | NONE => store_hprop
-    val store_hprop = mk_abs(state_var, store_hprop)
+
+    val store_hprop_state_vars = free_vars store_hprop |>
+                                (filter (fn t => fst (dest_var t) = "state"))
+    val store_hprop_state_var = (
+      case store_hprop_state_vars of
+          [] => state_var
+        | (x::_) => x)
+
+    val store_hprop = mk_abs(store_hprop_state_var, store_hprop)
 
     (* Create the constant for the store predicate *)
     val loc_vars = List.filter is_var (refs_locs @ rarrays_refs_locs @ farrays_locs)
     val num_vars = List.length loc_vars
 
-    val store_hprop_type = mk_type("fun", [state_type, hprop_ty])
+    val store_hprop_type = (type_of store_hprop_state_var) --> hprop_ty
+
     fun mk_hprop_type n t = if n = 0 then t else mk_type("fun", [v_ty, mk_hprop_type (n-1) t])
     val store_hprop_type = mk_hprop_type num_vars store_hprop_type
+
+    val free_type_vars = type_vars store_hprop_type
+    val tyvars_ref_invs = List.map get_type_inv free_type_vars
+
+    fun mk_fun_type [] ret_ty = ret_ty
+      | mk_fun_type (ty::tys) ret_ty =
+          ty --> (mk_fun_type tys ret_ty)
+    val store_hprop_type =
+      mk_fun_type (List.map type_of tyvars_ref_invs) store_hprop_type
+
+    (*
+    val store_hprop_type = mk_type("fun", [``:'a -> v -> bool``, store_hprop_type])
+    *)
     val store_hprop_var = mk_var(store_hprop_name, store_hprop_type)
+    (*
+    val store_hprop_var = mk_comb(store_hprop_var, ``a : 'a -> v -> bool``)
+    *)
+    val store_hprop_var = list_mk_comb(store_hprop_var, tyvars_ref_invs)
     val store_hprop_pred = list_mk_comb (store_hprop_var, loc_vars)
     val store_eq = mk_eq(store_hprop_pred, store_hprop)
     val store_hprop_def = Define `^store_eq`
@@ -774,15 +815,11 @@ fun prove_store_access_specs refs_manip_list
     val exc_type = type_of exn_ri |> dest_type |> snd |> List.hd
     val exc_type_aq = ty_antiq exc_type
     val state_type_aq = ty_antiq state_type
-
+    (*
+      val state_type_aq = ty_antiq ``:'a state_refs``
+    *)
     val intro_hprop = REWRITE_RULE [GSYM store_X_hprop_def, SEP_CLAUSES]
 
-    (*
-       val ((name, get_fun_def, read_fun, set_fun_def, write_fun), loc_def) =
-         hd (zip refs_manip_list refs_locs_defs)
-
-       val loc_def = el 1 refs_locs_defs
-     *)
     fun prove_ref_specs ((name, get_fun_def, read_fun, set_fun_def, write_fun),
                         loc_def) = let
         val name_v = stringLib.fromMLstring name
@@ -855,10 +892,12 @@ fun prove_store_access_specs refs_manip_list
     in (intro_hprop read_spec, intro_hprop write_spec) end
 
     val refs_access_thms = List.map prove_ref_specs (zip refs_manip_list refs_locs_defs)
-
+    (*
+    val ((name, get_def, get_fun, set_fun_def, set_fun, length_def, sub_def,
+          update_def, alloc_def), loc_def) =
+            zip rarrays_manip_list rarrays_refs_locs_defs |> hd
+    *)
     (* Resizable arrays *)
-    (* val (name, get_def, get_fun, set_fun_def, set_fun, length_def, sub_def, update_def, alloc_def) = List.hd rarrays_manip_list;
-       val loc_def = List.hd rarrays_refs_locs_defs; *)
     fun prove_rarray_specs ((name, get_def, get_fun, set_fun_def, set_fun, length_def, sub_def, update_def, alloc_def), loc_def) = let
         val name_v = stringLib.fromMLstring name
         val loc = concl loc_def |> lhs
@@ -937,10 +976,15 @@ fun prove_store_access_specs refs_manip_list
         in (eval_th, true) end
         handle HOL_ERR _ => (TRUTH, false)
 
+        val set_subst =
+          let val set_type = type_of set_arr |> dom_rng |> snd |> dom_rng
+          in match_type (snd set_type) (fst set_type) end
+        val set_arr' = Term.inst set_subst set_arr
+
         val update_thm =
           if usesSubscript then let
             val th =
-              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr,update_exn]
+              ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr', update_exn]
                       EvalM_R_Marray_update_subscript
             val th = SPEC_ALL th |> UNDISCH |> UNDISCH
             val th = MP th subscript_eval |> remove_assumption
@@ -955,13 +999,20 @@ fun prove_store_access_specs refs_manip_list
             val th = UNDISCH th
             val th = MP th Eval_update_rexp |> UNDISCH
           in rewrite_thm th end
-
+        (*
+        val update_thm = rewrite_thm th
+        *)
         val thm_name = name ^"_update_thm"
         val _ = save_thm(thm_name, update_thm)
         val _ = print ("Saved theorem __ \"" ^thm_name ^"\"\n")
 
         (* alloc *)
-        val alloc_thm = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr]
+        (*
+        val alloc_thm = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr']
+                              EvalM_R_Marray_alloc |> SPEC_ALL
+
+        *)
+        val alloc_thm = ISPECL[name_v,loc,TYPE,EXN_TYPE,H_part,get_arr,set_arr']
                               EvalM_R_Marray_alloc |> SPEC_ALL
         val alloc_thm = rewrite_thm alloc_thm |> UNDISCH
         val alloc_thm = remove_assumption alloc_thm |> remove_assumption
@@ -977,6 +1028,9 @@ fun prove_store_access_specs refs_manip_list
     end
 
     val rarrays_access_thms = List.map prove_rarray_specs (zip rarrays_manip_list rarrays_refs_locs_defs)
+    (*
+      val rarrays_access_thms = [it]
+    *)
 
     (* Fixed-size arrays *)
     (* val (name, get_def, get_fun, set_fun_def, set_fun, length_def, sub_def, update_def) = List.hd farrays_manip_list;
@@ -1136,7 +1190,9 @@ fun translate_dynamic_init_fixed_store refs_manip_list
     val rarrays_manip_list = find_rarrays_access_functions rarrays_manip_list
     val farrays_manip_list = find_farrays_access_functions farrays_manip_list
     val extra_hprop = NONE
-
+    (*
+      val refs_manip_list = []
+    *)
     val store_X_hprop_def = create_store_X_hprop refs_manip_list
                                                  refs_locs
                                                  rarrays_manip_list
@@ -1147,6 +1203,9 @@ fun translate_dynamic_init_fixed_store refs_manip_list
                                                  store_hprop_name
                                                  store_pinv_def_opt
                                                  extra_hprop
+    (*
+      val store_X_hprop_def = store_hprop_def
+    *)
 
     (* Prove the store access specifications *)
     (* Create dummy rewriting rules for the locations *)
@@ -1155,6 +1214,9 @@ fun translate_dynamic_init_fixed_store refs_manip_list
     val farrays_locs_defs = List.map REFL farrays_locs
 
     (* Prove the access specifications *)
+    (*
+    val (refs_access_thms, rarrays_access_thms, farrays_access_thms) = it
+    *)
     val (refs_access_thms, rarrays_access_thms, farrays_access_thms) =
       prove_store_access_specs refs_manip_list
                                rarrays_manip_list
@@ -1210,7 +1272,6 @@ fun translate_static_init_fixed_store refs_init_list rarrays_init_list farrays_i
 
     val store_pinv_def_opt = get_store_pinv_def_opt store_pinv_opt
 
-(************************************************************************************************************* PROBLEM HERE *)
     val store_X_hprop_def =
       create_store_X_hprop refs_manip_list
                            refs_locs

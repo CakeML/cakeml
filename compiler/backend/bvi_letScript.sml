@@ -54,9 +54,11 @@ val delete_var_def = Define `
   (delete_var ((Var n):bvi$exp) = Op (Const 0) []) /\
   (delete_var x = x)`;
 
-Theorem exp2_size_APPEND
-  `!xs ys. exp2_size (xs++ys) = exp2_size xs + exp2_size ys`
-  (Induct \\ fs [exp_size_def]);
+Theorem exp2_size_APPEND:
+   !xs ys. exp2_size (xs++ys) = exp2_size xs + exp2_size ys
+Proof
+  Induct \\ fs [exp_size_def]
+QED
 
 val compile_def = tDefine "compile" `
   (compile env d [] = []) /\
@@ -97,16 +99,20 @@ val compile_def = tDefine "compile" `
 
 val compile_ind = theorem"compile_ind";
 
-Theorem compile_length[simp]
-  `!n d xs. LENGTH (compile n d xs) = LENGTH xs`
-  (HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
+Theorem compile_length[simp]:
+   !n d xs. LENGTH (compile n d xs) = LENGTH xs
+Proof
+  HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [compile_def,ADD1,LET_DEF]
-  \\ every_case_tac \\ SRW_TAC [] [] \\ DECIDE_TAC);
+  \\ every_case_tac \\ SRW_TAC [] [] \\ DECIDE_TAC
+QED
 
-Theorem compile_HD_SING
-  `[HD (compile n d [x])] = compile n d [x]`
-  (MP_TAC (Q.SPECL [`n`,`d`,`[x]`] compile_length)
-  \\ Cases_on `compile n d [x]` \\ fs [LENGTH_NIL]);
+Theorem compile_HD_SING:
+   [HD (compile n d [x])] = compile n d [x]
+Proof
+  MP_TAC (Q.SPECL [`n`,`d`,`[x]`] compile_length)
+  \\ Cases_on `compile n d [x]` \\ fs [LENGTH_NIL]
+QED
 
 val compile_exp_def = Define `
   compile_exp x = case compile [] 0 [x] of (y::_) => y | _ => Var 0 (* impossible *)`;

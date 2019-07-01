@@ -18,17 +18,19 @@ val sub_completion_empty = Q.prove (
  rw [sub_completion_def, pure_add_constraints_def] >>
  metis_tac []);
 
-Theorem type_p_pat_bindings
-`(∀tvs tenv p t new_bindings.
+Theorem type_p_pat_bindings:
+ (∀tvs tenv p t new_bindings.
   type_p tvs tenv p t new_bindings ⇒ MAP FST new_bindings = pat_bindings p []) ∧
  (∀tvs tenv ps ts new_bindings.
-  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps [])`
- (ho_match_mp_tac type_p_ind >>
+  type_ps tvs tenv ps ts new_bindings ⇒ MAP FST new_bindings = pats_bindings ps [])
+Proof
+ ho_match_mp_tac type_p_ind >>
  rw [pat_bindings_def] >>
- metis_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]);
+ metis_tac [semanticPrimitivesPropsTheory.pat_bindings_accum]
+QED
 
-Theorem infer_pe_complete
-  `ienv_ok {} ienv ∧
+Theorem infer_pe_complete:
+   ienv_ok {} ienv ∧
     env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty) ∧
     ALL_DISTINCT (pat_bindings p []) ∧
     type_p tvs tenv p t1 tenv1 ∧
@@ -45,8 +47,9 @@ Theorem infer_pe_complete
       t_wfs s ∧
       (* This might be implied by something above *)
       EVERY (λ(n,t). check_t tvs {} (t_walkstar s' t)) new_bindings ∧
-      convert_env s' new_bindings = tenv1`
-  (rw []
+      convert_env s' new_bindings = tenv1
+Proof
+  rw []
   >> drule (CONJUNCT1 infer_e_complete)
   >> drule (CONJUNCT1 infer_p_complete) >>
   rw [] >>
@@ -143,7 +146,8 @@ Theorem infer_pe_complete
       fs[]>>metis_tac[MEM_EL])>>
     first_x_assum(qspecl_then[`q`,`r`] mp_tac)>>
     rw[]>>
-    metis_tac[check_freevars_empty_convert_unconvert_id]);
+    metis_tac[check_freevars_empty_convert_unconvert_id]
+QED
 
 val unconvert_11 = Q.prove (
 `!t1 t2. check_freevars 0 [] t1 ∧ check_freevars 0 [] t2 ⇒
@@ -163,8 +167,8 @@ val unconvert_11 = Q.prove (
  rfs [EL_MAP] >>
  metis_tac [EL_MEM]);
 
-Theorem infer_e_type_pe_determ
-`!loc ienv p e st st' t t' tenv' s.
+Theorem infer_e_type_pe_determ:
+ !loc ienv p e st st' t t' tenv' s.
   ALL_DISTINCT (MAP FST tenv') ∧
   ienv_ok {} ienv ∧
   env_rel_complete FEMPTY ienv tenv Empty ∧
@@ -173,8 +177,9 @@ Theorem infer_e_type_pe_determ
   t_unify st'.subst t t' = SOME s ∧
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'
   ⇒
-  type_pe_determ tenv Empty p e`
- (rw [type_pe_determ_def] >>
+  type_pe_determ tenv Empty p e
+Proof
+ rw [type_pe_determ_def] >>
  mp_tac (Q.INST [`tvs`|->`0`] infer_pe_complete) >>
  simp[]>>impl_keep_tac>-
    (imp_res_tac infer_p_bindings>>fs[])>>
@@ -186,10 +191,11 @@ Theorem infer_e_type_pe_determ
  fs [sub_completion_def] >>
  imp_res_tac pure_add_constraints_success >>
  fs [t_compat_def] >>
- metis_tac [t_walkstar_no_vars]);
+ metis_tac [t_walkstar_no_vars]
+QED
 
-Theorem t_vars_check_t `
-  (∀t.
+Theorem t_vars_check_t:
+    (∀t.
   ¬check_t 0 {} t ∧
   check_t 0 s t ⇒
   ∃n'. n' ∈ s ∧ n' ∈ t_vars t) ∧
@@ -197,30 +203,34 @@ Theorem t_vars_check_t `
   ∀x.MEM x ts ⇒
     ¬check_t 0 {} x ∧
     check_t 0 s x ⇒
-    ∃n'. n' ∈ s ∧ n' ∈ t_vars x)`
-  (ho_match_mp_tac infer_tTheory.infer_t_induction>>
+    ∃n'. n' ∈ s ∧ n' ∈ t_vars x)
+Proof
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def,t_vars_eqn]>>
   fs[EXISTS_MEM,EVERY_MEM]>>res_tac>>
   qexists_tac `n'`>>
   fs[MEM_MAP]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-Theorem t_walkstar_diff `
-  t_wfs s1 ∧ t_wfs s2 ∧
+Theorem t_walkstar_diff:
+    t_wfs s1 ∧ t_wfs s2 ∧
   (t_walkstar s1 (Infer_Tuvar n) ≠ t_walkstar s2 (Infer_Tuvar n))
   ⇒
   (∀t.(n ∈ t_vars t) ⇒ t_walkstar s1 t ≠ t_walkstar s2 t) ∧
   (∀ts.
   ∀x. MEM x ts ⇒
-    n ∈ t_vars x ⇒ t_walkstar s1 x ≠ t_walkstar s2 x)`
-  (strip_tac>>
+    n ∈ t_vars x ⇒ t_walkstar s1 x ≠ t_walkstar s2 x)
+Proof
+  strip_tac>>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[t_vars_eqn]>>fs[]>>
   fs[t_walkstar_eqn,t_walk_eqn,MEM_MAP]>>
   res_tac>>rfs[]>>
   SPOSE_NOT_THEN assume_tac>>
   imp_res_tac MAP_EQ_f>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 val env_rel_sound_weaken = Q.prove(
   `env_rel_sound FEMPTY ienv tenv tenvE ∧ t_wfs s ⇒
@@ -231,8 +241,8 @@ val env_rel_sound_weaken = Q.prove(
   qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL
   |> curry save_thm "env_rel_sound_weaken";
 
-Theorem type_pe_determ_infer_e
-`!loc ienv p e st st' t t' new_bindings s.
+Theorem type_pe_determ_infer_e:
+ !loc ienv p e st st' t t' new_bindings s.
   ALL_DISTINCT (MAP FST new_bindings) ∧
   (*
   check_menv ienv.inf_m ∧
@@ -251,8 +261,9 @@ Theorem type_pe_determ_infer_e
   t_unify st'.subst t t' = SOME s ∧
   type_pe_determ tenv Empty p e
   ⇒
-  EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) new_bindings`
- (rw [type_pe_determ_def] >>
+  EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) new_bindings
+Proof
+ rw [type_pe_determ_def] >>
  `t_wfs (init_infer_state ss).subst` by rw [t_wfs_def, init_infer_state_def] >>
  `t_wfs st.subst` by metis_tac [infer_e_wfs] >>
  `t_wfs st'.subst` by metis_tac [infer_p_wfs] >>
@@ -428,7 +439,8 @@ Theorem type_pe_determ_infer_e
    count st'.next_uvar ∩ COMPL (FDOM s2) = {}` by
     (fs[EXTENSION,SUBSET_DEF]>>metis_tac[])>>
   fs[]>>rfs[]>>
-  metis_tac[check_t_empty_unconvert_convert_id]);
+  metis_tac[check_t_empty_unconvert_convert_id]
+QED
 
  (*From ¬check_t 0 {} (t_walkstar s tt) it should follow that
    t_walkstar s tt must contain some unification variables.
@@ -440,9 +452,8 @@ Theorem type_pe_determ_infer_e
    unification variables are exactly bound in s1 and s2 to
    Infer_Tbool and Infer_Tint, hence the walkstars must differ *)
 
-Theorem infer_funs_complete
- `
-  ienv_ok {} ienv ∧
+Theorem infer_funs_complete:
+    ienv_ok {} ienv ∧
   tenv_ok tenv ∧
   env_rel_complete FEMPTY ienv tenv Empty ∧
   type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings
@@ -460,8 +471,9 @@ Theorem infer_funs_complete
   check_s 0 (count st'.next_uvar) st'.subst ∧
   sub_completion tvs st'.next_uvar st'.subst constr s ∧
   FDOM s = count st'.next_uvar ∧
-  MAP SND bindings = MAP (convert_t o t_walkstar s) funs_ts`
-  (rw[]>>
+  MAP SND bindings = MAP (convert_t o t_walkstar s) funs_ts
+Proof
+  rw[]>>
   imp_res_tac type_funs_distinct >> fs[FST_triple] >>
   imp_res_tac type_funs_MAP_FST >>
   imp_res_tac type_funs_Tfn>>
@@ -623,6 +635,7 @@ Theorem infer_funs_complete
       metis_tac[MEM_EL])
   >>
     match_mp_tac (el 4 (CONJUNCTS infer_e_check_s))>>
-    asm_exists_tac>>fs[ienv_ok_def,init_infer_state_def,check_s_def])
+    asm_exists_tac>>fs[ienv_ok_def,init_infer_state_def,check_s_def]
+QED
 
 val _ = export_theory ();

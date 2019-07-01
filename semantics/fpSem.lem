@@ -14,9 +14,11 @@ declare isabelle target_rep type rounding = `roundmode`
 type fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
 type fp_uop = FP_Abs | FP_Neg | FP_Sqrt
 type fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
+type fp_top = | FP_Fma
 declare {isabelle} rename type fp_cmp = fp_cmp_op
 declare {isabelle} rename type fp_uop = fp_uop_op
 declare {isabelle} rename type fp_bop = fp_bop_op
+declare {isabelle} rename type fp_top = fp_top_op
 
 val fp64_lessThan     : word64 -> word64 -> bool
 val fp64_lessEqual    : word64 -> word64 -> bool
@@ -57,6 +59,10 @@ declare isabelle    target_rep function fp64_sub = `fp64_sub`
 declare isabelle    target_rep function fp64_mul = `fp64_mul`
 declare isabelle    target_rep function fp64_div = `fp64_div`
 
+val fp64_mul_add : rounding -> word64 -> word64 -> word64 -> word64
+declare hol    target_rep function fp64_mul_add = `fp64_mul_add`
+declare isabelle    target_rep function fp64_mul_add = `fp64_mul_add`
+
 val roundTiesToEven : rounding
 declare hol    target_rep function roundTiesToEven = `roundTiesToEven`
 declare isabelle    target_rep function roundTiesToEven = `To_nearest`
@@ -83,4 +89,11 @@ let fp_bop fop = match fop with
   | FP_Sub -> fp64_sub roundTiesToEven
   | FP_Mul -> fp64_mul roundTiesToEven
   | FP_Div -> fp64_div roundTiesToEven
+end
+
+let fpfma v1 v2 v3 = fp64_mul_add roundTiesToEven v2 v3 v1
+
+val fp_top : fp_top -> word64 -> word64 -> word64 -> word64
+let fp_top fop = match fop with
+  | FP_Fma -> fpfma
 end

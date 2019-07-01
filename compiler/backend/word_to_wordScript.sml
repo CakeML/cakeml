@@ -47,8 +47,8 @@ val compile_def = Define `
     let progs = ZIP (progs,n_oracles) in
     (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
 
-Theorem compile_alt `
-  compile word_conf (asm_conf:'a asm_config) progs =
+Theorem compile_alt:
+    compile word_conf (asm_conf:'a asm_config) progs =
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let alg = word_conf.reg_alg in
@@ -69,10 +69,12 @@ Theorem compile_alt `
     let _ = empty_ffi (strlit "finished: word_alloc") in
     let rmt_ps = MAP remove_must_terminate reg_ps in
     let _ = empty_ffi (strlit "finished: word_remove") in
-    (col,ZIP(names,ZIP(args,rmt_ps)))`
-  (fs[compile_def,next_n_oracle_def,LIST_EQ_REWRITE]>>
+    (col,ZIP(names,ZIP(args,rmt_ps)))
+Proof
+  fs[compile_def,next_n_oracle_def,LIST_EQ_REWRITE]>>
   rw[]>>fs[EL_MAP,full_compile_single_def,EL_ZIP,EL_MAP2]>>
   Cases_on`EL x progs`>>simp[]>>
-  Cases_on`r`>>simp[compile_single_def]);
+  Cases_on`r`>>simp[compile_single_def]
+QED
 
 val _ = export_theory();

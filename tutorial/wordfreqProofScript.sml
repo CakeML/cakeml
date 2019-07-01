@@ -39,10 +39,13 @@ val compiler_output_def = Define `
 
 val get_file_contents_def = Define `
   get_file_contents fs fname =
-    if inFS_fname fs (File fname) then
-      case ALOOKUP fs.files (File fname) of
+    if inFS_fname fs fname then
+      case ALOOKUP fs.files fname of
       | NONE => NONE
-      | SOME s => SOME (implode s)
+      | SOME ino =>
+          case ALOOKUP fs.inode_tbl (File ino) of
+          | NONE => NONE
+          | SOME s => SOME (implode s)
     else NONE`
 
 val wfFS_def = Define `
@@ -56,19 +59,21 @@ val x64_installed_def = Define `
 
 (* -- *)
 
-Theorem wordfreq_compiled_thm
-  `wfcl [pname; fname] ∧ wfFS fs ∧ hasFreeFD fs ∧
+Theorem wordfreq_compiled_thm:
+   wfcl [pname; fname] ∧ wfFS fs ∧ hasFreeFD fs ∧
     (get_file_contents fs fname = SOME file_contents) ∧
     x64_installed compiler_output cbspace data_sp (basis_ffi [pname; fname] fs) mc ms ⇒
     ∃io_events ascii_output.
       machine_sem mc (basis_ffi [pname; fname] fs) ms ⊆
       extend_with_resource_limit {Terminate Success io_events} ∧
       (extract_fs fs io_events = SOME (add_stdout fs ascii_output)) ∧
-      valid_wordfreq_output file_contents ascii_output`
-  (strip_tac
+      valid_wordfreq_output file_contents ascii_output
+Proof
+  strip_tac
   \\ assume_tac wordfreq_compiled_lemma
   \\ rfs [get_file_contents_def,wfFS_def,compiler_output_def,x64_installed_def]
   \\ asm_exists_tac \\ fs [option_case_eq]
-  \\ metis_tac [wordfreqProgTheory.wordfreq_output_spec_def]);
+  \\ metis_tac [wordfreqProgTheory.wordfreq_output_spec_def]
+QED
 
 val _ = export_theory();

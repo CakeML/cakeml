@@ -105,6 +105,8 @@ val () = Datatype `
      | FPSub fp_reg fp_reg fp_reg
      | FPMul fp_reg fp_reg fp_reg
      | FPDiv fp_reg fp_reg fp_reg
+       (* Ternary ops *)
+     | FPFma fp_reg fp_reg fp_reg
        (* moves and converts *)
      | FPMov fp_reg fp_reg
      | FPMovToReg reg reg fp_reg
@@ -142,7 +144,7 @@ val () = Datatype `
 (* -- ASM target-specific configuration -- *)
 
 val () = Datatype `
-  architecture = ARMv6 | ARMv8 | MIPS | RISC_V | Ag32 | x86_64`
+  architecture = ARMv7 | ARMv8 | MIPS | RISC_V | Ag32 | x86_64`
 
 val () = Datatype `
   asm_config =
@@ -193,7 +195,7 @@ val arith_ok_def = Define `
   (arith_ok (LongMul r1 r2 r3 r4) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      ((c.ISA = x86_64) ==> (r1 = 2) /\ (r2 = 0) /\ (r3 = 0)) /\
-     ((c.ISA = ARMv6) ==> r1 <> r2) /\
+     ((c.ISA = ARMv7) ==> r1 <> r2) /\
      (c.ISA IN {ARMv8; RISC_V; Ag32} ==> r1 <> r3 /\ r1 <> r4)) /\
   (arith_ok (LongDiv r1 r2 r3 r4 r5) c <=>
      (c.ISA = x86_64) /\ (r1 = 0) /\ (r2 = 2) /\ (r3 = 2) /\ (r4 = 0) /\
@@ -234,6 +236,10 @@ val fp_ok_def = Define `
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_ok (FPDiv d1 d2 d3) c <=>
       (c.two_reg_arith ==> (d1 = d2)) /\
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_ok (FPFma d1 d2 d3) c <=>
+      (c.ISA = ARMv7) /\
+      2 < c.fp_reg_count /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_ok (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>

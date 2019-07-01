@@ -3,8 +3,8 @@ INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
 					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis $(CAKEMLDIR)/characteristic\
 					 parsing inference encoders/asm\
 					 backend backend/reg_alloc\
-           backend/arm6 backend/arm8 backend/mips backend/riscv\
-           backend/ag32 backend/x64\
+           backend/arm7 backend/arm8 backend/mips backend/riscv\
+		   backend/ag32 backend/x64
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

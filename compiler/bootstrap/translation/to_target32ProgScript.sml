@@ -190,6 +190,86 @@ val _ = translate (flatten_def |> spec32)
 val _ = translate (compile_def |> spec32)
 
 open lab_filterTheory lab_to_targetTheory asmTheory
+open monadic_encTheory monadic_enc32Theory ml_monad_translatorLib;
+
+(* The record types used for the monadic state and exceptions *)
+val exn_type   = ``:monadic_enc32$state_exn_32``;
+val _          = register_exn_type exn_type;
+val STATE_EXN_TYPE_def =  theorem "MONADIC_ENC32_STATE_EXN_32_TYPE_def"
+val exn_ri_def         = STATE_EXN_TYPE_def;
+
+val exn_functions = [
+    (raise_Fail_def, handle_Fail_def),
+    (raise_Subscript_def, handle_Subscript_def)
+];
+val refs_manip_list = [] : (string * thm * thm) list;
+val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
+
+val add_type_theories  = ([] : string list);
+val store_pinv_def_opt = NONE : thm option;
+
+val state_type_32 = ``:enc_state_32``;
+val store_hprop_name_32   = "ENC_STATE_32";
+val farrays_manip_list_32 = [
+    ("hash_tab_32", get_hash_tab_32_def, set_hash_tab_32_def, hash_tab_32_length_def, hash_tab_32_sub_def, update_hash_tab_32_def)];
+
+val _ = translate (hash_reg_imm_def |> INST_TYPE [alpha|->``:32``])
+val _ = translate hash_binop_def
+val _ = translate hash_cmp_def
+val _ = translate hash_shift_def
+val _ = translate (hash_arith_def |> INST_TYPE [alpha|->``:32``] |> SIMP_RULE std_ss [roll_hash_def])
+val _ = translate hash_memop_def
+val _ = translate (hash_fp_def |> SIMP_RULE std_ss [roll_hash_def])
+val _ = translate (hash_inst_def |> INST_TYPE [alpha|->``:32``] |> SIMP_RULE std_ss [roll_hash_def])
+val _ = translate (hash_asm_def |> INST_TYPE [alpha|->``:32``] |> SIMP_RULE std_ss [roll_hash_def])
+
+(* Initialization *)
+
+val res = start_dynamic_init_fixed_store_translation
+            refs_manip_list
+            rarrays_manip_list
+            farrays_manip_list_32
+            store_hprop_name_32
+            state_type_32
+            exn_ri_def
+            exn_functions
+            add_type_theories
+            store_pinv_def_opt;
+
+val _ = translate (lab_inst_def |> INST_TYPE [alpha |-> ``:32``])
+val _ = translate (cbw_to_asm_def |> INST_TYPE [alpha |-> ``:32``])
+val _ = m_translate lookup_ins_table_32_def;
+val _ = m_translate enc_line_hash_32_def;
+val _ = m_translate enc_line_hash_32_ls_def;
+val _ = m_translate enc_sec_hash_32_ls_def;
+val _ = m_translate enc_sec_hash_32_ls_full_def;
+
+val _ = m_translate_run enc_secs_32_aux_def;
+
+val _ = translate enc_secs_32_def;
+
+val monadic_enc32_enc_line_hash_32_ls_side_def = Q.prove(`
+  ∀a b c d e.
+  d ≠ 0 ⇒
+  monadic_enc32_enc_line_hash_32_ls_side a b c d e ⇔ T`,
+  Induct_on`e`>>
+  simp[Once (fetch "-" "monadic_enc32_enc_line_hash_32_ls_side_def")]>>
+  EVAL_TAC>>rw[]>>fs[]);
+
+val monadic_enc32_enc_sec_hash_32_ls_side_def = Q.prove(`
+  ∀a b c d e.
+  d ≠ 0 ⇒
+  monadic_enc32_enc_sec_hash_32_ls_side a b c d e ⇔ T`,
+  Induct_on`e`>>
+  simp[Once (fetch "-" "monadic_enc32_enc_sec_hash_32_ls_side_def")]>>
+  metis_tac[monadic_enc32_enc_line_hash_32_ls_side_def]);
+
+Theorem monadic_enc32_enc_secs_32_side_def = Q.prove(`
+  monadic_enc32_enc_secs_32_side a b c ⇔ T`,
+  EVAL_TAC>>
+  rw[]>>
+  metis_tac[monadic_enc32_enc_sec_hash_32_ls_side_def,DECIDE``1n ≠ 0``])
+  |> update_precondition;
 
 val _ = translate (spec32 filter_skip_def)
 
@@ -211,7 +291,35 @@ val _ = translate (conv32 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPT
 
 val _ = translate (spec32 asmTheory.asm_ok_def)
 
-val _ = translate (spec32 compile_def)
+(* Add in hidden argument to compile_lab *)
+val remove_labels_hash_def = Define `
+  remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
+    remove_labels_loop init_clock c pos labs ffis (enc_secs_32 c.encode hash_size sec_list)`;
+
+val res = translate (remove_labels_hash_def |> spec32);
+
+val compile_lab_thm = Q.prove(`
+  compile_lab c sec_list =
+    let current_ffis = find_ffi_names sec_list in
+    let (ffis,ffis_ok) =
+      case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
+    in
+    if ffis_ok then
+      case remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list of
+      | SOME (sec_list,l1) =>
+          SOME (prog_to_bytes sec_list,
+                c with <| labels := l1;
+                          pos := FOLDL (λpos sec. sec_length (Section_lines sec) pos) c.pos sec_list;
+                          ffi_names := SOME ffis
+                        |>)
+      | NONE => NONE
+    else NONE`,
+  rw[compile_lab_def,remove_labels_hash_def,remove_labels_def]>>
+  simp[enc_secs_32_correct]);
+
+val res = translate compile_lab_thm;
+
+val res = translate (spec32 compile_def)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
