@@ -24,7 +24,7 @@ val _ = type_abbrev( "type_ident" , ``: num``);
 val _ = Hol_datatype `
  t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
-    Tvar of tvarN
+    Tvar of tvarN (* tvanN is abbrev for string  *)
   (* deBruijn indexed type variables. *)
   | Tvar_db of num
   (* The two numbers represent the identity of the type constructor. The first
@@ -405,6 +405,7 @@ val _ = Define `
                | SOME ct => t = type_of_c_type ct
            )
          | NONE => F)
+ (* | (FFI n, [t1;t2]) => (t1 = Tstring) /\ (t2 = Tword8array) /\ (t = Ttup []) *)
     | (ListAppend, [Tapp [t1] ctor; t2]) => (ctor = Tlist_num) /\ (t2 = Tapp [t1] ctor) /\ (t = t2)
     | _ => F
   )))`;
