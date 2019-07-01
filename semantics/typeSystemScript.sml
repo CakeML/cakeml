@@ -336,10 +336,20 @@ val _ = Define `
 (*val type_d : bool -> type_env -> dec -> set nat -> type_env -> bool*)
 (*val type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool*)
 
+val _ = Define `
+  (type_of_c_type C_bool = Tbool) /\
+  (type_of_c_type C_int = Tint) /\
+  (type_of_c_type (C_array conf) =
+   if conf.mutable then
+     Tword8array
+   else
+     Tstring)
+  `
+
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
 val _ = Define `
- ((type_op:op ->(t)list -> t -> bool) op ts t=
+ ((type_op:c_funsig list -> op ->(t)list -> t -> bool) sigs op ts t=
    ((case (op,ts) of
       (Opapp, [t1; t2]) => t1 = Tfn t2 t
     | (Opn _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tint)
@@ -387,7 +397,14 @@ val _ = Define `
     | (Alength, [Tapp [t1] ctor]) => (ctor = Tarray_num) /\ (t = Tint)
     | (Aupdate, [t1; t2; t3]) => (t1 = Tarray t3) /\ (t2 = Tint) /\ (t = Ttup [])
     | (ConfigGC, [t1;t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Ttup [])
-    | (FFI n, [t1;t2]) => (t1 = Tstring) /\ (t2 = Tword8array) /\ (t = Ttup [])
+    | (FFI n, ts) =>
+      (case FIND (λx. x.mlname = n) sigs of
+         | SOME sig =>
+           (LIST_REL (λt ct. t = type_of_c_type ct) ts sig.args /\
+            case sig.retty of NONE => t = Ttup []
+               | SOME ct => t = type_of_c_type ct
+           )
+         | NONE => F)
     | (ListAppend, [Tapp [t1] ctor; t2]) => (ctor = Tlist_num) /\ (t2 = Tapp [t1] ctor) /\ (t = t2)
     | _ => F
   )))`;
@@ -558,107 +575,107 @@ type_ps tvs tenv ps ts bindings')
 ==>
 type_ps tvs tenv (p::ps) (t::ts) (bindings'++bindings))`;
 
-val _ = Hol_reln ` (! tenv tenvE n.
+val _ = Hol_reln ` (! sigs tenv tenvE n.
 T
 ==>
-type_e tenv tenvE (Lit (IntLit n)) Tint)
+type_e sigs tenv tenvE (Lit (IntLit n)) Tint)
 
-/\ (! tenv tenvE c.
+/\ (! sigs tenv tenvE c.
 T
 ==>
-type_e tenv tenvE (Lit (Char c)) Tchar)
+type_e sigs tenv tenvE (Lit (Char c)) Tchar)
 
-/\ (! tenv tenvE s.
+/\ (! sigs tenv tenvE s.
 T
 ==>
-type_e tenv tenvE (Lit (StrLit s)) Tstring)
+type_e sigs tenv tenvE (Lit (StrLit s)) Tstring)
 
-/\ (! tenv tenvE w.
+/\ (! sigs tenv tenvE w.
 T
 ==>
-type_e tenv tenvE (Lit (Word8 w)) Tword8)
+type_e sigs tenv tenvE (Lit (Word8 w)) Tword8)
 
-/\ (! tenv tenvE w.
+/\ (! sigs tenv tenvE w.
 T
 ==>
-type_e tenv tenvE (Lit (Word64 w)) Tword64)
+type_e sigs tenv tenvE (Lit (Word64 w)) Tword64)
 
-/\ (! tenv tenvE e t.
+/\ (! sigs tenv tenvE e t.
 (check_freevars (num_tvs tenvE) [] t /\
-type_e tenv tenvE e Texn)
+type_e sigs tenv tenvE e Texn)
 ==>
-type_e tenv tenvE (Raise e) t)
+type_e sigs tenv tenvE (Raise e) t)
 
 
-/\ (! tenv tenvE e pes t.
-(type_e tenv tenvE e t /\ ~ (pes = []) /\
+/\ (! sigs tenv tenvE e pes t.
+(type_e sigs tenv tenvE e t /\ ~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes). ? bindings.
    ALL_DISTINCT (pat_bindings p []) /\
    type_p (num_tvs tenvE) tenv p Texn bindings /\
-   type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t))
+   type_e sigs tenv (bind_var_list(( 0 : num)) bindings tenvE) e t))
 ==>
-type_e tenv tenvE (Handle e pes) t)
+type_e sigs tenv tenvE (Handle e pes) t)
 
-/\ (! tenv tenvE cn es tvs tn ts' ts.
+/\ (! sigs tenv tenvE cn es tvs tn ts' ts.
 (EVERY (check_freevars (num_tvs tenvE) []) ts' /\
 (LENGTH tvs = LENGTH ts') /\
-type_es tenv tenvE es (MAP (type_subst (alist_to_fmap (ZIP (tvs, ts')))) ts) /\
+type_es sigs tenv tenvE es (MAP (type_subst (alist_to_fmap (ZIP (tvs, ts')))) ts) /\
 (nsLookup tenv.c cn = SOME (tvs, ts, tn)))
 ==>
-type_e tenv tenvE (Con (SOME cn) es) (Tapp ts' tn))
+type_e sigs tenv tenvE (Con (SOME cn) es) (Tapp ts' tn))
 
-/\ (! tenv tenvE es ts.
-(type_es tenv tenvE es ts)
+/\ (! sigs tenv tenvE es ts.
+(type_es sigs tenv tenvE es ts)
 ==>
-type_e tenv tenvE (Con NONE es) (Ttup ts))
+type_e sigs tenv tenvE (Con NONE es) (Ttup ts))
 
-/\ (! tenv tenvE n t targs tvs.
+/\ (! sigs tenv tenvE n t targs tvs.
 ((tvs = LENGTH targs) /\
 EVERY (check_freevars (num_tvs tenvE) []) targs /\
 (lookup_var n tenvE tenv = SOME (tvs,t)))
 ==>
-type_e tenv tenvE (Var n) (deBruijn_subst(( 0 : num)) targs t))
+type_e sigs tenv tenvE (Var n) (deBruijn_subst(( 0 : num)) targs t))
 
-/\ (! tenv tenvE n e t1 t2.
+/\ (! sigs tenv tenvE n e t1 t2.
 (check_freevars (num_tvs tenvE) [] t1 /\
-type_e tenv (Bind_name n(( 0 : num)) t1 tenvE) e t2)
+type_e sigs tenv (Bind_name n(( 0 : num)) t1 tenvE) e t2)
 ==>
-type_e tenv tenvE (Fun n e) (Tfn t1 t2))
+type_e sigs tenv tenvE (Fun n e) (Tfn t1 t2))
 
-/\ (! tenv tenvE op es ts t.
-(type_es tenv tenvE es ts /\
-type_op op ts t /\
+/\ (! sigs tenv tenvE op es ts t.
+(type_es sigs tenv tenvE es ts /\
+type_op sigs op ts t /\
 check_freevars (num_tvs tenvE) [] t)
 ==>
-type_e tenv tenvE (App op es) t)
+type_e sigs tenv tenvE (App op es) t)
 
-/\ (! tenv tenvE l e1 e2.
-(type_e tenv tenvE e1 Tbool /\
-type_e tenv tenvE e2 Tbool)
+/\ (! sigs tenv tenvE l e1 e2.
+(type_e sigs tenv tenvE e1 Tbool /\
+type_e sigs tenv tenvE e2 Tbool)
 ==>
-type_e tenv tenvE (Log l e1 e2) Tbool)
+type_e sigs tenv tenvE (Log l e1 e2) Tbool)
 
-/\ (! tenv tenvE e1 e2 e3 t.
-(type_e tenv tenvE e1 Tbool /\
-type_e tenv tenvE e2 t /\
-type_e tenv tenvE e3 t)
+/\ (! sigs tenv tenvE e1 e2 e3 t.
+(type_e sigs tenv tenvE e1 Tbool /\
+type_e sigs tenv tenvE e2 t /\
+type_e sigs tenv tenvE e3 t)
 ==>
-type_e tenv tenvE (If e1 e2 e3) t)
+type_e sigs tenv tenvE (If e1 e2 e3) t)
 
-/\ (! tenv tenvE e pes t1 t2.
-(type_e tenv tenvE e t1 /\ ~ (pes = []) /\
+/\ (! sigs tenv tenvE e pes t1 t2.
+(type_e sigs tenv tenvE e t1 /\ ~ (pes = []) /\
 (! ((p,e) :: LIST_TO_SET pes) . ? bindings.
    ALL_DISTINCT (pat_bindings p []) /\
    type_p (num_tvs tenvE) tenv p t1 bindings /\
-   type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t2))
+   type_e sigs tenv (bind_var_list(( 0 : num)) bindings tenvE) e t2))
 ==>
-type_e tenv tenvE (Mat e pes) t2)
+type_e sigs tenv tenvE (Mat e pes) t2)
 
-/\ (! tenv tenvE n e1 e2 t1 t2.
-(type_e tenv tenvE e1 t1 /\
-type_e tenv (opt_bind_name n(( 0 : num)) t1 tenvE) e2 t2)
+/\ (! sigs tenv tenvE n e1 e2 t1 t2.
+(type_e sigs tenv tenvE e1 t1 /\
+type_e sigs tenv (opt_bind_name n(( 0 : num)) t1 tenvE) e2 t2)
 ==>
-type_e tenv tenvE (Let n e1 e2) t2)
+type_e sigs tenv tenvE (Let n e1 e2) t2)
 
 (*
 and
@@ -670,47 +687,47 @@ type_e tenv (bind_var_list tvs tenv' tenvE) e t
 type_e tenv tenvE (Letrec funs e) t
 *)
 
-/\ (! tenv tenvE funs e t bindings.
-(type_funs tenv (bind_var_list(( 0 : num)) bindings tenvE) funs bindings /\
-type_e tenv (bind_var_list(( 0 : num)) bindings tenvE) e t)
+/\ (! sigs tenv tenvE funs e t bindings.
+(type_funs sigs tenv (bind_var_list(( 0 : num)) bindings tenvE) funs bindings /\
+type_e sigs tenv (bind_var_list(( 0 : num)) bindings tenvE) e t)
 ==>
-type_e tenv tenvE (Letrec funs e) t)
+type_e sigs tenv tenvE (Letrec funs e) t)
 
-/\ (! tenv tenvE e t.
+/\ (! sigs tenv tenvE e t.
 (check_freevars_ast [] t /\
 check_type_names tenv.t t /\
-type_e tenv tenvE e (type_name_subst tenv.t t))
+type_e sigs tenv tenvE e (type_name_subst tenv.t t))
 ==>
-type_e tenv tenvE (Tannot e t) (type_name_subst tenv.t t))
+type_e sigs tenv tenvE (Tannot e t) (type_name_subst tenv.t t))
 
-/\ (! tenv tenvE e l t.
-(type_e tenv tenvE e t)
+/\ (! sigs tenv tenvE e l t.
+(type_e sigs tenv tenvE e t)
 ==>
-type_e tenv tenvE (Lannot e l) t)
+type_e sigs tenv tenvE (Lannot e l) t)
 
-/\ (! tenv tenvE.
+/\ (! sigs tenv tenvE.
 T
 ==>
-type_es tenv tenvE [] [])
+type_es sigs tenv tenvE [] [])
 
-/\ (! tenv tenvE e es t ts.
-(type_e tenv tenvE e t /\
-type_es tenv tenvE es ts)
+/\ (! sigs tenv tenvE e es t ts.
+(type_e sigs tenv tenvE e t /\
+type_es sigs tenv tenvE es ts)
 ==>
-type_es tenv tenvE (e::es) (t::ts))
+type_es sigs tenv tenvE (e::es) (t::ts))
 
-/\ (! tenv tenvE.
+/\ (! sigs tenv tenvE.
 T
 ==>
-type_funs tenv tenvE [] [])
+type_funs sigs tenv tenvE [] [])
 
-/\ (! tenv tenvE fn n e funs bindings t1 t2.
+/\ (! sigs tenv tenvE fn n e funs bindings t1 t2.
 (check_freevars (num_tvs tenvE) [] (Tfn t1 t2) /\
-type_e tenv (Bind_name n(( 0 : num)) t1 tenvE) e t2 /\
-type_funs tenv tenvE funs bindings /\
+type_e sigs tenv (Bind_name n(( 0 : num)) t1 tenvE) e t2 /\
+type_funs sigs tenv tenvE funs bindings /\
 (ALOOKUP bindings fn = NONE))
 ==>
-type_funs tenv tenvE ((fn, n, e)::funs) ((fn, Tfn t1 t2)::bindings))`;
+type_funs sigs tenv tenvE ((fn, n, e)::funs) ((fn, Tfn t1 t2)::bindings))`;
 
 (*val tenv_add_tvs : nat -> alist varN t -> alist varN (nat * t)*)
 val _ = Define `
@@ -718,12 +735,12 @@ val _ = Define `
    (MAP (\ (n,t) .  (n,(tvs,t))) bindings))`;
 
 
-(*val type_pe_determ : type_env -> tenv_val_exp -> pat -> exp -> bool*)
+(*val type_pe_determ : c_funsig list -> type_env -> tenv_val_exp -> pat -> exp -> bool*)
 val _ = Define `
- ((type_pe_determ:type_env -> tenv_val_exp -> pat -> exp -> bool) tenv tenvE p e=
+ ((type_pe_determ:c_funsig list -> type_env -> tenv_val_exp -> pat -> exp -> bool) sigs tenv tenvE p e=
    (! t1 tenv1 t2 tenv2.
-    (type_p(( 0 : num)) tenv p t1 tenv1 /\ type_e tenv tenvE e t1 /\
-    type_p(( 0 : num)) tenv p t2 tenv2 /\ type_e tenv tenvE e t2)
+    (type_p(( 0 : num)) tenv p t1 tenv1 /\ type_e sigs tenv tenvE e t1 /\
+    type_p(( 0 : num)) tenv p t2 tenv2 /\ type_e sigs tenv tenvE e t2)
     ==>
     (tenv1 = tenv2)))`;
 
@@ -743,45 +760,45 @@ val _ = Define `
    (<| v := (nsLift mn tenv.v); c := (nsLift mn tenv.c); t := (nsLift mn tenv.t)  |>))`;
 
 
-val _ = Hol_reln ` (! extra_checks tvs tenv p e t bindings locs.
+val _ = Hol_reln ` (! sigs extra_checks tvs tenv p e t bindings locs.
 (is_value e /\
 ALL_DISTINCT (pat_bindings p []) /\
 type_p tvs tenv p t bindings /\
-type_e tenv (bind_tvar tvs Empty) e t /\
+type_e sigs tenv (bind_tvar tvs Empty) e t /\
 (extra_checks ==>
-  (! tvs' bindings' t'.
+  (! sigs tvs' bindings' t'.
     (type_p tvs' tenv p t' bindings' /\
-    type_e tenv (bind_tvar tvs' Empty) e t') ==>
+    type_e sigs tenv (bind_tvar tvs' Empty) e t') ==>
       EVERY2 tscheme_inst (MAP SND (tenv_add_tvs tvs' bindings')) (MAP SND (tenv_add_tvs tvs bindings)))))
 ==>
-type_d extra_checks tenv (Dlet locs p e)
+type_d sigs extra_checks tenv (Dlet locs p e)
   {}
   <| v := (alist_to_ns (tenv_add_tvs tvs bindings)); c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks tenv p e t bindings locs.
+/\ (! sigs extra_checks tenv p e t bindings locs.
 (
 (* The following line makes sure that when the value restriction prohibits
    generalisation, a type error is given rather than picking an arbitrary
    instantiation. However, we should only do the check when the extra_checks
-   argument tells us to. *)(extra_checks ==> (~ (is_value e) /\ type_pe_determ tenv Empty p e)) /\
+   argument tells us to. *)(extra_checks ==> (~ (is_value e) /\ type_pe_determ sigs tenv Empty p e)) /\
 ALL_DISTINCT (pat_bindings p []) /\
 type_p(( 0 : num)) tenv p t bindings /\
-type_e tenv Empty e t)
+type_e sigs tenv Empty e t)
 ==>
-type_d extra_checks tenv (Dlet locs p e)
+type_d sigs extra_checks tenv (Dlet locs p e)
   {} <| v := (alist_to_ns (tenv_add_tvs(( 0 : num)) bindings)); c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks tenv funs bindings tvs locs.
-(type_funs tenv (bind_var_list(( 0 : num)) bindings (bind_tvar tvs Empty)) funs bindings /\
+/\ (! sigs extra_checks tenv funs bindings tvs locs.
+(type_funs sigs tenv (bind_var_list(( 0 : num)) bindings (bind_tvar tvs Empty)) funs bindings /\
 (extra_checks ==>
   (! tvs' bindings'.
-    type_funs tenv (bind_var_list(( 0 : num)) bindings' (bind_tvar tvs' Empty)) funs bindings' ==>
+    type_funs sigs tenv (bind_var_list(( 0 : num)) bindings' (bind_tvar tvs' Empty)) funs bindings' ==>
       EVERY2 tscheme_inst (MAP SND (tenv_add_tvs tvs' bindings')) (MAP SND (tenv_add_tvs tvs bindings)))))
 ==>
-type_d extra_checks tenv (Dletrec locs funs)
+type_d sigs extra_checks tenv (Dletrec locs funs)
   {} <| v := (alist_to_ns (tenv_add_tvs tvs bindings)); c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks tenv tdefs type_identities tenvT locs.
+/\ (! sigs extra_checks tenv tdefs type_identities tenvT locs.
 (ALL_DISTINCT type_identities /\
 DISJOINT (LIST_TO_SET type_identities)
          (LIST_TO_SET (Tlist_num :: (Tbool_num :: prim_type_nums))) /\
@@ -792,55 +809,55 @@ check_ctor_tenv (nsAppend tenvT tenv.t) tdefs /\
                         (tn, (tvs, Tapp (MAP Tvar tvs) i)))
                       tdefs type_identities)))
 ==>
-type_d extra_checks tenv (Dtype locs tdefs)
+type_d sigs extra_checks tenv (Dtype locs tdefs)
   (LIST_TO_SET type_identities)
   <| v := nsEmpty; c := (build_ctor_tenv (nsAppend tenvT tenv.t) tdefs type_identities); t := tenvT |>)
 
-/\ (! extra_checks tenv tvs tn t locs.
+/\ (! sigs extra_checks tenv tvs tn t locs.
 (check_freevars_ast tvs t /\
 check_type_names tenv.t t /\
 ALL_DISTINCT tvs)
 ==>
-type_d extra_checks tenv (Dtabbrev locs tvs tn t)
+type_d sigs extra_checks tenv (Dtabbrev locs tvs tn t)
   {}
   <| v := nsEmpty; c := nsEmpty; t := (nsSing tn (tvs,type_name_subst tenv.t t)) |>)
 
-/\ (! extra_checks tenv cn ts locs.
+/\ (! sigs extra_checks tenv cn ts locs.
 (EVERY (check_freevars_ast []) ts /\
 EVERY (check_type_names tenv.t) ts)
 ==>
-type_d extra_checks tenv (Dexn locs cn ts)
+type_d sigs extra_checks tenv (Dexn locs cn ts)
   {}
   <| v := nsEmpty;
      c := (nsSing cn ([], MAP (type_name_subst tenv.t) ts, Texn_num));
      t := nsEmpty |>)
 
-/\ (! extra_checks tenv mn ds decls tenv'.
-(type_ds extra_checks tenv ds decls tenv')
+/\ (! sigs extra_checks tenv mn ds decls tenv'.
+(type_ds sigs extra_checks tenv ds decls tenv')
 ==>
-type_d extra_checks tenv (Dmod mn ds) decls (tenvLift mn tenv'))
+type_d sigs extra_checks tenv (Dmod mn ds) decls (tenvLift mn tenv'))
 
-/\ (! extra_checks tenv lds ds tenv1 tenv2 decls1 decls2.
-(type_ds extra_checks tenv lds decls1 tenv1 /\
-type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 /\
+/\ (! sigs extra_checks tenv lds ds tenv1 tenv2 decls1 decls2.
+(type_ds sigs extra_checks tenv lds decls1 tenv1 /\
+type_ds sigs extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 /\
 DISJOINT decls1 decls2)
 ==>
-type_d extra_checks tenv (Dlocal lds ds) (decls1 UNION decls2) tenv2)
+type_d sigs extra_checks tenv (Dlocal lds ds) (decls1 UNION decls2) tenv2)
 
 
-/\ (! extra_checks tenv.
+/\ (! sigs extra_checks tenv.
 T
 ==>
-type_ds extra_checks tenv []
+type_ds sigs extra_checks tenv []
   {}
   <| v := nsEmpty; c := nsEmpty; t := nsEmpty |>)
 
-/\ (! extra_checks tenv d ds tenv1 tenv2 decls1 decls2.
-(type_d extra_checks tenv d decls1 tenv1 /\
-type_ds extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 /\
+/\ (! sigs extra_checks tenv d ds tenv1 tenv2 decls1 decls2.
+(type_d sigs extra_checks tenv d decls1 tenv1 /\
+type_ds sigs extra_checks (extend_dec_tenv tenv1 tenv) ds decls2 tenv2 /\
 DISJOINT decls1 decls2)
 ==>
-type_ds extra_checks tenv (d::ds)
+type_ds sigs extra_checks tenv (d::ds)
   (decls1 UNION decls2) (extend_dec_tenv tenv2 tenv1))`;
 
 (*
