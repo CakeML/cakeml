@@ -22,9 +22,10 @@ val names_tac =
   \\ REWRITE_TAC[SUBSET_DEF] \\ EVAL_TAC
   \\ rpt strip_tac \\ rveq \\ EVAL_TAC
 
-Theorem riscv_backend_config_ok `
-  backend_config_ok riscv_backend_config`
-  (simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
+Theorem riscv_backend_config_ok:
+    backend_config_ok riscv_backend_config
+Proof
+  simp[backend_config_ok_def]>>rw[]>>TRY(EVAL_TAC>>NO_TAC)
   >- fs[riscv_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
   >- names_tac
@@ -38,11 +39,13 @@ Theorem riscv_backend_config_ok `
   \\ fs[stack_removeTheory.max_stack_alloc_def]
   \\ EVAL_TAC>>fs[]
   \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP
-  \\ fs[])
+  \\ fs[]
+QED
 
-Theorem riscv_machine_config_ok
-  `is_riscv_machine_config mc ⇒ mc_conf_ok mc`
-  (rw[lab_to_targetProofTheory.mc_conf_ok_def,is_riscv_machine_config_def]
+Theorem riscv_machine_config_ok:
+   is_riscv_machine_config mc ⇒ mc_conf_ok mc
+Proof
+  rw[lab_to_targetProofTheory.mc_conf_ok_def,is_riscv_machine_config_def]
   >- EVAL_TAC
   >- simp[riscv_targetProofTheory.riscv_encoder_correct]
   >- EVAL_TAC
@@ -50,14 +53,17 @@ Theorem riscv_machine_config_ok
   >- EVAL_TAC
   >- EVAL_TAC
   >- EVAL_TAC
-  >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,riscv_encoder_correct]);
+  >- metis_tac[asmPropsTheory.encoder_correct_def,asmPropsTheory.target_ok_def,riscv_encoder_correct]
+QED
 
-Theorem riscv_init_ok
-  `is_riscv_machine_config mc ⇒
-    mc_init_ok riscv_backend_config mc`
-  (rw[mc_init_ok_def] \\
+Theorem riscv_init_ok:
+   is_riscv_machine_config mc ⇒
+    mc_init_ok riscv_backend_config mc
+Proof
+  rw[mc_init_ok_def] \\
   fs[is_riscv_machine_config_def] \\
-  EVAL_TAC);
+  EVAL_TAC
+QED
 
 val is_riscv_machine_config_mc = riscv_init_ok |> concl |> dest_imp |> #1
 

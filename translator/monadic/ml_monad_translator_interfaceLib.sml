@@ -21,8 +21,8 @@ val _ = monadsyntax.temp_add_monadsyntax()
 
 (* Parser overloadings *)
 val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
+val _ = temp_overload_on ("monad_unitbind", ``st_ex_ignore_bind``);
+val _ = temp_overload_on ("monad_ignore_bind", ``st_ex_ignore_bind``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 (* Hide "state" due to semanticPrimitives *)
@@ -58,12 +58,10 @@ type state = {
   store_exn_invariant_name  : string ref,
   exn_type_def              : thm ref,
   additional_type_theories  : string list ref,
-  extra_hprop               : term option ref,
+  hprop_field_names         : (term * string) list ref,
   monad_translation_params  : monadic_translation_parameters option ref,
   store_trans_result        : store_translation_result option ref,
   exn_specs                 : (thm * thm) list ref,
-  stdio_name                : string option ref,
-  commandline_name          : string option ref,
   exn_type                  : hol_type ref,
   state_type                : hol_type ref
 };
@@ -75,12 +73,10 @@ val internal_state : state = {
   store_exn_invariant_name = ref "STATE_EXN",
   exn_type_def             = ref ml_translatorTheory.UNIT_TYPE_def,
   additional_type_theories = ref [],
-  extra_hprop              = ref NONE,
+  hprop_field_names        = ref [],
   monad_translation_params = ref NONE,
   store_trans_result       = ref NONE,
   exn_specs                = ref [],
-  stdio_name               = ref NONE,
-  commandline_name         = ref NONE,
   state_type               = ref unit_ty,
   exn_type                 = ref unit_ty
 };
@@ -96,6 +92,7 @@ type config = {
                        len:thm, sub:thm, update:thm} list ref,
   resizeable_arrays : {name:string, init:thm, get:thm, set:thm,
                        len:thm, sub:thm, update:thm, alloc:thm} list ref,
+  extra_hprop       : term option ref,
   extra_state_inv   : (thm * thm) option ref
                       (* state_inv_def, state_inv_valid *)
 }
@@ -109,6 +106,7 @@ val local_state_config : config = {
   refs              = ref [],
   fixed_arrays      = ref [],
   resizeable_arrays = ref [],
+  extra_hprop       = ref NONE,
   extra_state_inv   = ref NONE
 };
 
@@ -121,6 +119,7 @@ val global_state_config : config = {
   refs              = ref [],
   fixed_arrays      = ref [],
   resizeable_arrays = ref [],
+  extra_hprop       = ref NONE,
   extra_state_inv   = ref NONE
 };
 
@@ -255,62 +254,54 @@ fun with_resizeable_arrays rarrays (translator_config : config) =
   end;
 
 (*
- *  Mark state fields as stdio.
+ * Use user-defined additional heap proposition(s)
  *)
-
-fun with_stdio field_name (translator_config : config) =
+fun with_heap_propositions hprop_field_names (translator_config : config) =
   let val state_type = ( !(#state_type translator_config) )
       val state_type_name = state_type |> dest_type |> fst
       val state_var = mk_var("s", state_type)
-      val stdio_field = (* s.stdio *)
-        Term [ANTIQUOTE state_var, QUOTE ".", QUOTE field_name]
-      val extra_hprop = ``MONAD_IO ^stdio_field``
+
+      fun mk_hprop_from_pair (hprop_comb, field_name) =
+        mk_comb(hprop_comb,
+                Term [ANTIQUOTE state_var, QUOTE ".", QUOTE field_name])
+
+      val hprops = map mk_hprop_from_pair hprop_field_names
+
+      fun mk_star_hprop hprop NONE = SOME hprop
+        | mk_star_hprop hprop (SOME old_hprop) =
+            SOME (list_mk_icomb (``STAR``, [old_hprop, hprop]))
+
+      fun overload_parser field_name = (
+        overload_on (field_name,
+          Term [
+            QUOTE "liftM ",
+            QUOTE (state_type_name ^ "_" ^ field_name ^ " "),
+            QUOTE (field_name ^ "_fupd")
+          ]);
+        print ("Overloaded parser on: ``" ^ field_name ^ "``.\n")
+      );
   in
-    #extra_hprop internal_state := (SOME extra_hprop);
-    #stdio_name internal_state := (SOME field_name);
-    overload_on (field_name,
-      Term [
-        QUOTE "liftM ",
-        QUOTE (state_type_name ^ "_" ^ field_name ^ " "),
-        QUOTE (field_name ^ "_fupd")
-      ]);
-    print ("Overloaded on: ``" ^ field_name ^ "``.\n");
+    #hprop_field_names internal_state :=
+      hprop_field_names;
+    map (overload_parser o snd) hprop_field_names;
+    #extra_hprop translator_config :=
+      foldl (uncurry mk_star_hprop) (!(#extra_hprop translator_config)) hprops;
     translator_config
-  end
+  end;
+
+(*
+ *  Mark state fields as stdio.
+ *)
+fun with_stdio field_name (translator_config : config) =
+  with_heap_propositions [(``MONAD_IO``, field_name)] translator_config
 
 (*
  *  Mark state fields as stdio and commandline.
  *)
 fun with_commandline commandline_name stdio_name (translator_config : config) =
-  let val state_type = ( !(#state_type translator_config) )
-      val state_type_name = state_type |> dest_type |> fst
-      val state_var = mk_var("s", state_type)
-      val stdio_field = (* s.stdio *)
-        Term [ANTIQUOTE state_var, QUOTE ".", QUOTE stdio_name]
-      val commandline_field = (* s.commandline *)
-        Term [ANTIQUOTE state_var, QUOTE ".", QUOTE commandline_name];
-      val extra_hprop =
-        ``COMMANDLINE ^(commandline_field) * MONAD_IO ^(stdio_field)``
-  in
-    #extra_hprop internal_state := (SOME extra_hprop);
-    #stdio_name internal_state := (SOME stdio_name);
-    #commandline_name internal_state := (SOME commandline_name);
-    overload_on (stdio_name,
-      Term [
-        QUOTE "liftM ",
-        QUOTE (state_type_name ^ "_" ^ stdio_name ^ " "),
-        QUOTE (stdio_name ^ "_fupd")
-      ]);
-    overload_on (commandline_name,
-      Term [
-        QUOTE "liftM ",
-        QUOTE (state_type_name ^ "_" ^ commandline_name ^ " "),
-        QUOTE (commandline_name ^ "_fupd")
-      ]);
-    print ("Overloaded on: ``" ^ stdio_name ^ "``, ``" ^
-           commandline_name ^ "``.\n");
+  with_heap_propositions
+    [(``MONAD_IO``, stdio_name), (``COMMANDLINE``, commandline_name)]
     translator_config
-  end
 
 (*
  * Use a user-defined additional state invariant.
@@ -322,11 +313,13 @@ fun with_state_invariant inv_def inv_valid (translator_config : config) =
     translator_config
   end;
 
+
 (******************************************************************************
 
   Initialisation and translation functions
 
 ******************************************************************************)
+
 (* Convert from named tuple to plain tuple, as ml_monad_translatorLib expects *)
 fun from_named_tuple_exn {raise_thm=raise_thm, handle_thm=handle_thm} =
   (raise_thm, handle_thm);
@@ -360,242 +353,96 @@ local
 
 in
 
-  fun add_stdio_access_patterns stdio_name = let
-      val store_inv_name = ( !(#store_invariant_name internal_state) )
-      val state_ty = ( !(#state_type internal_state) )
-      val state_predicate =
-        if state_ty = unit_ty then ``UNIT_TYPE``
-        else Term [QUOTE store_inv_name]
-      val stdio = Term [QUOTE stdio_name] |> Term.inst [alpha |-> unit_ty]
-      val st_stdio = Term [QUOTE "st.", QUOTE stdio_name]
-      val MONAD_IO_STAR_COMM = Q.prove(
-        `∀ p q . p * MONAD_IO q = MONAD_IO q * p`,
-        metis_tac[set_sepTheory.STAR_COMM]
-      )
+  fun add_field_access_patterns (hprop_comb, field_name) = let
+    val store_inv_name = ( !(#store_invariant_name internal_state) )
+    val state_ty = ( !(#state_type internal_state) )
+    val state_predicate =
+      if state_ty = unit_ty then ``UNIT_TYPE``
+      else Term [QUOTE store_inv_name]
+    val field = Term [QUOTE field_name]
+    val st_field = Term [QUOTE "st.", QUOTE field_name]
 
-      val stdio_intro =
-        Q.prove(
-          ` (∀ st . EvalM ro env st exp
-              (MONAD UNIT_TYPE exc_ty f) (MONAD_IO, p:'ffi ffi_proj))
-          ⇒
-            (∀ st . EvalM ro env st exp
-              (MONAD UNIT_TYPE exc_ty (^stdio f))
-                (^state_predicate, p:'ffi ffi_proj))`,
+    val HPROP_COMB_STAR_COMM = Q.prove(
+      `∀ p q . p * ^(hprop_comb) q = ^(hprop_comb) q * p`,
+      metis_tac[set_sepTheory.STAR_COMM]
+    )
 
-          fs [ml_monad_translatorTheory.EvalM_def] >> rw [] >>
-          first_x_assum (qspecl_then [`^st_stdio`,`s`] mp_tac) >>
-          impl_tac
-          >- (
-            fs [ml_monad_translatorBaseTheory.REFS_PRED_def] >>
-            fs [fetch "-" (store_inv_name ^ "_def")] >>
-            qabbrev_tac `a = MONAD_IO ^st_stdio` >>
-            qabbrev_tac `b = GC` >>
-            fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] >>
-            last_x_assum mp_tac >>
-            metis_tac [IMP_STAR_GC]
-          ) >>
-          disch_then strip_assume_tac >>
-          asm_exists_tac >> fs [] >>
-          fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
-              semanticPrimitivesTheory.state_component_equality] >>
-          rveq >> fs [ml_monad_translatorTheory.MONAD_def] >>
-          Cases_on `f ^st_stdio` >> fs [] >>
-          EVERY_CASE_TAC >>
-          rveq >> fs [] >>
+    val hprop_comb_intro =
+      Q.prove (
+        ` (∀st. EvalM ro env st exp
+            (MONAD ret_ty exc_ty f) (^hprop_comb, p:'ffi ffi_proj))
+        ⇒
+          (∀st. EvalM ro env st exp
+            (MONAD ret_ty exc_ty (^field f))
+              (^state_predicate, p:'ffi ffi_proj))`,
+        fs [ml_monad_translatorTheory.EvalM_def] >> rw [] >>
+        first_x_assum (qspecl_then [`^st_field`,`s`] mp_tac) >>
+        impl_tac
+        >- (
+          fs [ml_monad_translatorBaseTheory.REFS_PRED_def] >>
           fs [fetch "-" (store_inv_name ^ "_def")] >>
-          fs [ml_monadBaseTheory.liftM_def] >>
-          rw [] >>
-          rfs[] >>
-          fs[MONAD_IO_STAR_COMM, set_sepTheory.STAR_ASSOC] >>
-          metis_tac[set_sepTheory.STAR_ASSOC]
-        )
-
-      val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
-      val state_exn_ty = ( !(#exn_type internal_state) )
-      val state_exn_predicate =
-        if state_exn_ty = unit_ty then ``UNIT_TYPE``
-        else Term [QUOTE state_exn_name, QUOTE "_TYPE"]
-      val stdio = Term [QUOTE stdio_name] |>
-                  Term.inst [alpha |-> unit_ty, beta |-> state_exn_ty]
-      val EvalM_print = (
-        fetch "TextIOProof" "EvalM_print"
-        handle HOL_ERR e => (
-          print ("\n\nCould not find TextIOProofTheory.EvalM_name." ^
-                 " Have you opened basisProgTheory?\n\n");
-          raise (HOL_ERR e)
-        ))
-      val EvalM_print_err = (
-        fetch "TextIOProof" "EvalM_print_err"
-        handle HOL_ERR e => (
-          print ("\n\nCould not find TextIOProofTheory.EvalM_name." ^
-                 " Have you opened basisProgTheory?\n\n");
-          raise (HOL_ERR e)
-        ))
-
-      val EvalM_stdio_print =
-        Q.prove(
-          ` Eval env exp (STRING_TYPE x) ∧
-            (nsLookup env.v (Short "print") = SOME TextIO_print_v)
-          ⇒
-            EvalM F env st (App Opapp [Var (Short "print"); exp])
-              (MONAD UNIT_TYPE ^state_exn_predicate (^stdio (print x)))
-              (^state_predicate, p:'ffi ffi_proj)`,
-          metis_tac [stdio_intro, EvalM_print]
-        )
-
-      val EvalM_stdio_print_err =
-        Q.prove(
-          ` Eval env exp (STRING_TYPE x) ∧
-            (nsLookup env.v (Long "TextIO" (Short "print_err")) =
-              SOME TextIO_print_err_v)
-          ⇒
-            EvalM F env st
-              (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
-              (MONAD UNIT_TYPE ^state_exn_predicate (^stdio (print_err x)))
-              (^state_predicate, p:'ffi ffi_proj)`,
-          metis_tac [stdio_intro, EvalM_print_err]
-        )
-    in
-      save_thm("stdio_INTRO", stdio_intro);
-      save_thm("EvalM_" ^ stdio_name ^ "_print", EvalM_stdio_print);
-      save_thm("EvalM_" ^ stdio_name ^ "_print_err", EvalM_stdio_print_err);
-      print("Saved EvalM theorems for "^stdio_name^": print, print_err.\n");
-      add_access_pattern EvalM_stdio_print;
-      add_access_pattern EvalM_stdio_print_err;
-      print("Added access patterns for "^stdio_name^": print, print_err.\n");
-      ignore_type ``:IO_fs``
-    end
-
-  fun add_commandline_access_patterns commandline_name = let
-      val store_inv_name = ( !(#store_invariant_name internal_state) )
-      val state_ty = ( !(#state_type internal_state) )
-      val state_predicate =
-        if state_ty = unit_ty then ``UNIT_TYPE``
-        else Term [QUOTE store_inv_name]
-      val commandline = Term [QUOTE commandline_name]
-      val st_commandline = Term [QUOTE "st.", QUOTE commandline_name]
-      val COMMANDLINE_STAR_COMM = Q.prove(
-        `∀ p q . p * COMMANDLINE q = COMMANDLINE q * p`,
-        metis_tac[set_sepTheory.STAR_COMM]
+          qabbrev_tac `a = ^hprop_comb ^st_field` >>
+          qabbrev_tac `b = GC` >>
+          fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] >>
+          last_x_assum mp_tac >>
+          metis_tac [IMP_STAR_GC]
+        ) >>
+        disch_then strip_assume_tac >>
+        asm_exists_tac >> fs [] >>
+        fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
+            semanticPrimitivesTheory.state_component_equality] >>
+        rveq >> fs [ml_monad_translatorTheory.MONAD_def] >>
+        Cases_on `f ^st_field` >> fs [] >>
+        EVERY_CASE_TAC >>
+        rveq >> fs [] >>
+        fs [fetch "-" (store_inv_name ^ "_def")] >>
+        fs [ml_monadBaseTheory.liftM_def] >>
+        rw [] >>
+        rfs[] >>
+        fs[HPROP_COMB_STAR_COMM, set_sepTheory.STAR_ASSOC] >>
+        metis_tac[set_sepTheory.STAR_ASSOC]
       )
+    val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
+    val state_exn_ty = ( !(#exn_type internal_state) )
+    val state_exn_predicate =
+      if state_exn_ty = unit_ty then ``UNIT_TYPE``
+      else Term [QUOTE state_exn_name, QUOTE "_TYPE"]
 
-      val commandline_intro =
-        Q.prove(
-          ` (∀st. EvalM ro env st exp
-              (MONAD ret_ty exc_ty f) (COMMANDLINE, p:'ffi ffi_proj))
-          ⇒
-            (∀st. EvalM ro env st exp
-              (MONAD ret_ty exc_ty (^commandline f))
-                (^state_predicate, p:'ffi ffi_proj))`,
-          fs [ml_monad_translatorTheory.EvalM_def] >> rw [] >>
-          first_x_assum (qspecl_then [`^st_commandline`,`s`] mp_tac) >>
-          impl_tac
-          >- (
-            fs [ml_monad_translatorBaseTheory.REFS_PRED_def] >>
-            fs [fetch "-" (store_inv_name ^ "_def")] >>
-            qabbrev_tac `a = COMMANDLINE ^st_commandline` >>
-            qabbrev_tac `b = GC` >>
-            fs [AC set_sepTheory.STAR_ASSOC set_sepTheory.STAR_COMM] >>
-            last_x_assum mp_tac >>
-            metis_tac [IMP_STAR_GC]
-          ) >>
-          disch_then strip_assume_tac >>
-          asm_exists_tac >> fs [] >>
-          fs [ml_monad_translatorBaseTheory.REFS_PRED_FRAME_def,
-              semanticPrimitivesTheory.state_component_equality] >>
-          rveq >> fs [ml_monad_translatorTheory.MONAD_def] >>
-          Cases_on `f ^st_commandline` >> fs [] >>
-          EVERY_CASE_TAC >>
-          rveq >> fs [] >>
-          fs [fetch "-" (store_inv_name ^ "_def")] >>
-          fs [ml_monadBaseTheory.liftM_def] >>
-          rw [] >>
-          rfs[] >>
-          fs[COMMANDLINE_STAR_COMM, set_sepTheory.STAR_ASSOC] >>
-          metis_tac[set_sepTheory.STAR_ASSOC]
-        )
+    val access_thm_list = mapfilter
+      (fn ((_, name), (thm, Thm)) => (name^"_"^field_name, thm)
+        | _ => raise Fail "")
+      (apropos ``EvalM _ _ _ _ _ (^hprop_comb,_)``)
 
-      val state_exn_name = ( !(#store_exn_invariant_name internal_state) )
-      val state_exn_ty = ( !(#exn_type internal_state) )
-      val state_exn_predicate =
-        if state_exn_ty = unit_ty then ``UNIT_TYPE``
-        else Term [QUOTE state_exn_name, QUOTE "_TYPE"]
-      val state_exn_ty =
-        state_exn_predicate |> type_of |> dest_type |> snd |> hd
-      val commandline = Term [QUOTE commandline_name] |>
-                        Term.inst [alpha |-> ``:mlstring``,
-                                   beta |-> state_exn_ty]
-      val commandline_list = Term [QUOTE commandline_name] |>
-                             Term.inst [alpha |-> ``:mlstring list``,
-                                        beta |-> state_exn_ty]
-      val EvalM_name = (
-        fetch "CommandLineProof" "EvalM_name"
-        handle HOL_ERR e => (
-          print ("\n\nCould not find CommandLineProofTheory.EvalM_name." ^
-                 " Have you opened basisProgTheory?\n\n");
-          raise (HOL_ERR e)
-        ))
-      val EvalM_arguments = (
-        fetch "CommandLineProof" "EvalM_arguments"
-        handle HOL_ERR e => (
-          print ("\n\nCould not find CommandLineProofTheory.EvalM_name." ^
-                 " Have you opened basisProgTheory?\n\n");
-          raise (HOL_ERR e)
-        ))
+    fun create_access_thm access_thm =
+      let val evalM_term = access_thm |> concl |>
+              find_term (can (match_term ``EvalM _ _ st _ (MONAD _ _ _ )``))
+          val state_term = evalM_term |> strip_comb |> snd |> el 3
+          val exc_ty_predicate_term = evalM_term |> strip_comb |> snd |> last |>
+                                      strip_comb |> snd |> el 2
+      in
+        MATCH_MP hprop_comb_intro
+          (access_thm |> UNDISCH_ALL |> GEN state_term) |>
+        SPEC_ALL |> DISCH_ALL |> GEN exc_ty_predicate_term |>
+        ISPEC state_exn_predicate
+      end
 
-      val EvalM_commandline_name =
-        Q.prove(
-          ` Eval env exp (UNIT_TYPE x) ∧
-            (nsLookup env.v (Long "CommandLine" (Short "name")) =
-              SOME CommandLine_name_v)
-          ⇒
-            EvalM F env st
-              (App Opapp [Var (Long "CommandLine" (Short "name")); exp])
-              (MONAD STRING_TYPE ^state_exn_predicate (^commandline
-                (name x : mlstring list ->
-                  (mlstring, ^(ty_antiq state_exn_ty)) exc # mlstring list)
-                ))
-              (^state_predicate, p:'ffi ffi_proj)`,
-          metis_tac [commandline_intro, EvalM_name]
-        )
-
-      val EvalM_commandline_arguments =
-        Q.prove(
-          ` Eval env exp (UNIT_TYPE x) ∧
-            (nsLookup env.v (Long "CommandLine" (Short "arguments")) =
-              SOME CommandLine_arguments_v)
-          ⇒
-            EvalM F env st
-              (App Opapp [Var (Long "CommandLine" (Short "arguments")); exp])
-              (MONAD (LIST_TYPE STRING_TYPE) ^state_exn_predicate
-                (^commandline_list (arguments x : mlstring list ->
-                  (mlstring list, ^(ty_antiq state_exn_ty)) exc # mlstring list)
-                ))
-              (^state_predicate, p:'ffi ffi_proj)`,
-          metis_tac [commandline_intro, EvalM_arguments]
-        )
-    in
-      save_thm("commandline_INTRO", commandline_intro);
-      save_thm("EvalM_" ^ commandline_name ^ "_print", EvalM_commandline_name);
-      save_thm("EvalM_" ^ commandline_name ^ "_print_err",
-               EvalM_commandline_arguments);
-      print("Saved EvalM theorems for " ^ commandline_name ^
-            ": name, arguments.\n");
-      add_access_pattern EvalM_commandline_name;
-      add_access_pattern EvalM_commandline_arguments;
-      print("Added access patterns for " ^ commandline_name ^
-            ": name, arguments.\n")
-    end
+    fun save_access_thm (name, thm) =
+      let val access_thm = create_access_thm thm
+      in
+        save_thm(name, access_thm);
+        print ("Saved EvalM theorem for "^field_name^": "^name^".\n");
+        add_access_pattern access_thm;
+        print("Added access patterns for "^field_name^": "^name^".\n\n")
+      end
+  in
+    save_thm(field_name^"_INTRO", hprop_comb_intro);
+    print ("Saved intro theorem for "^field_name^": "^field_name^"_INTRO.\n\n");
+    map save_access_thm access_thm_list;
+    ignore_type ``:IO_fs``
+  end;
 
   fun add_access_patterns () =
-    case ( !(#stdio_name internal_state) ) of SOME stdio_name => (
-        add_stdio_access_patterns stdio_name;
-        case ( !(#commandline_name internal_state) ) of
-            SOME commandline_name =>
-              add_commandline_access_patterns commandline_name
-          | NONE => ()
-      )
-    | NONE => () (* no stdio, so no access patterns *)
+    map add_field_access_patterns ( !(#hprop_field_names internal_state) )
 
 end (* end local *)
 
@@ -615,12 +462,12 @@ fun start_translation (translator_config : config) =
           ((!(#exn_access_funs          c) ) |> map from_named_tuple_exn)
           ( !(#additional_type_theories s) )
           ( !(#extra_state_inv          c) )
-          ( !(#extra_hprop              s) )
+          ( !(#extra_hprop              c) )
         in
           #monad_translation_params s := SOME monad_trans_params;
           #store_trans_result       s := SOME store_trans_result;
           #exn_specs                s := exn_specs;
-          add_access_patterns ()
+          add_access_patterns (); ()
         end
   | LOCAL => let val (monad_trans_params, exn_specs) =
       start_dynamic_init_fixed_store_translation
@@ -643,10 +490,6 @@ fun start_translation (translator_config : config) =
 ) end;
 
 
-
-
-
-
 (* Translation functions from ml_translatorLib *)
 val translate = ml_translatorLib.translate;
 val translation_extends = ml_translatorLib.translation_extends;
@@ -654,8 +497,13 @@ val update_precondition = ml_translatorLib.update_precondition;
 
 (* Translation functions from ml_monad_translatorLib *)
 val register_type = ml_monad_translatorLib.register_type;
+val update_local_precondition =
+  ml_monad_translatorLib.update_local_precondition;
 val m_translate = ml_monad_translatorLib.m_translate;
 val m_translate_run = ml_monad_translatorLib.m_translate_run;
+
+(* From ml_monadBaseLib *)
+val define_run = ml_monadBaseLib.define_run;
 
 (*
  * From ml_translatorLib
@@ -666,5 +514,155 @@ val m_translate_run = ml_monad_translatorLib.m_translate_run;
  * translator (i.e. fetching the rest of the translator state).
  *)
 val m_translation_extends = ml_monad_translatorLib.m_translation_extends;
+
+
+(******************************************************************************
+
+  Monadic definition functions
+
+******************************************************************************)
+
+local
+
+  val st_ex_eta_intro = Q.prove(
+    `∀  f : 'b -> 'a -> ('d, 'c) exc # 'a .
+      f = ( λ x s . f x s)`,
+      metis_tac[ETA_THM]
+  );
+
+  val ignore_st_ex_eta_intro = Q.prove(
+    `∀  f : 'a -> ('d, 'c) exc # 'a .
+      f = ( λ s . f s)`,
+      fs[ETA_THM]
+  );
+
+  val remove_state_arg = Q.prove(
+    `∀ f:'a -> ('b, 'c) exc # 'a  g . (∀ s . (f s = g s)) ⇔ (f = λ a . g a)`,
+    rw[] >>
+    EQ_TAC >>
+    rw[] >>
+    fs[ETA_THM, EQ_EXT]
+  );
+
+  (* Theorems to push/pull state term into compound terms *)
+  (* TODO - add more theorems, these will not be enough *)
+  val push_thms = [
+                   COND_RATOR |> INST_TYPE [beta |-> ``:('b, 'c) exc # 'a``],
+                   LET_RATOR |> INST_TYPE [gamma |-> ``:('c, 'd) exc # 'b``],
+                   literal_case_RATOR |>
+                      INST_TYPE [gamma |-> ``:('c, 'd) exc # 'b``],
+                   LET2_RATOR |> INST_TYPE [gamma |-> ``:('c, 'd) exc # 'b``]
+                   ]
+  val pull_thms = List.map GSYM push_thms
+
+  val st_ex_bind_term = (fetch "ml_monadBase" "st_ex_bind_def" |> concl |>
+    dest_forall |> snd |> dest_forall |> snd |> lhs |> strip_comb |> fst)
+  val st_ex_ignore_bind_term = (fetch "ml_monadBase" "st_ex_ignore_bind_def") |>
+    concl |> dest_forall |> snd |> dest_forall |> snd |> lhs |>
+    strip_comb |> fst
+
+  (*
+   *  Find all ``st_ex_bind x (λ ret . f ret)`` and eta-expand to include the
+   *  state, giving ``st_ex_bind x (λ ret state . f ret state)``.
+   *  Some extra machinery with bound vars is needed to ensure names end up
+   *  as the user defined originally, and that each "state" abstraction has a
+   *  different name. Also introduce an explicit state arg.
+   *  Needed so that TotalDefn gives correct termination conditions.
+   *)
+  fun expand_term tm =
+    let val bind_terms =
+          find_terms
+            (fn t => can (match_term ``^st_ex_bind_term x f``) t) tm
+        fun get_bvar_name tm = strip_comb tm |> snd |> last |> bvar |>
+                               dest_var |> fst
+        val bvar_names = List.map get_bvar_name bind_terms
+        val bind_indexes = List.tabulate(length bind_terms, I)
+        val bvars_binds = Lib.zip bind_indexes (Lib.zip bvar_names bind_terms)
+        val bind_terms' = bvars_binds |>
+          List.map
+            (fn (index, (bvar, term)) => term |>
+                    (PAT_CONV ``λ f . ^st_ex_bind_term x f``
+                      (ONCE_REWRITE_CONV [st_ex_eta_intro])
+              THENC (DEPTH_CONV BETA_CONV)
+              THENC (REWRITE_CONV push_thms)
+              THENC (RAND_CONV
+                (RENAME_VARS_CONV [bvar, "sb" ^ int_to_string index]))
+              )
+            )
+
+        val ignore_bind_terms =
+          find_terms
+            (fn t => can (match_term ``^st_ex_ignore_bind_term x f``) t) tm
+        val ignore_bind_indexes = List.tabulate(length ignore_bind_terms, I)
+        val indexes_ignore_binds = Lib.zip ignore_bind_indexes ignore_bind_terms
+        val ignore_bind_terms' = indexes_ignore_binds |>
+          List.map
+            (fn (index, term) => term |>
+                    (PAT_CONV ``λ f . ^st_ex_ignore_bind_term x f``
+                      (ONCE_REWRITE_CONV [ignore_st_ex_eta_intro])
+              THENC (DEPTH_CONV BETA_CONV)
+              THENC (REWRITE_CONV push_thms)
+              THENC (RAND_CONV (RENAME_VARS_CONV ["si" ^ int_to_string index]))
+              )
+            )
+    in tm |> (
+        REWRITE_CONV (bind_terms' @ ignore_bind_terms')
+        THENC RAND_CONV (ONCE_REWRITE_CONV [GSYM ETA_THM])
+        THENC REWRITE_CONV [GSYM remove_state_arg]
+        THENC REWRITE_CONV push_thms
+      ) |> concl |> rhs |> dest_forall |> snd
+    end
+
+  (*
+   *  Remove all eta-expansions and so on, to give a pretty definition to
+   *  return to the user. Should in fact give a definition which looks exactly
+   *  like the quotation from user input.
+   *)
+  fun contract_def def =
+    let val state_arg =
+          def |> concl |> strip_forall |> snd |> lhs |>
+          strip_comb |> snd |> List.last
+    in
+      def |>
+      REWRITE_RULE pull_thms |>
+      CONV_RULE (DEPTH_CONV ETA_CONV) |>
+      SPEC_ALL |> GEN state_arg |>
+      REWRITE_RULE [remove_state_arg] |>
+      GEN_ALL |>
+      REWRITE_RULE [ETA_THM]
+    end
+
+  fun delete_defn name = (
+    delete_binding (name ^ (!Defn.def_suffix));
+    delete_binding (name ^ (!Defn.ind_suffix));
+    delete_const name
+  )
+  handle _ => ()
+
+in
+
+  fun mDefine name quotation =
+    let val _ = delete_defn name
+        val term = Term quotation
+        val expanded_term = expand_term term
+        val def = Define `^expanded_term` (* check for term entry point *)
+        val contracted_def = contract_def def
+    in
+      save_thm(name ^ (!Defn.def_suffix), contracted_def);
+      contracted_def
+    end
+
+  fun mtDefine name quotation tactic =
+    let val _ = delete_defn name
+        val term = Term quotation
+        val expanded_term = expand_term term
+        val def = tDefine name `^expanded_term` tactic
+        val contracted_def = contract_def def
+    in
+      save_thm(name ^ (!Defn.def_suffix), contracted_def);
+      contracted_def
+    end
+
+end
 
 end (* end struct *)

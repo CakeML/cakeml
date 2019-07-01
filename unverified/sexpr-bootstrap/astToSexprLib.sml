@@ -96,6 +96,7 @@ val pvar = ``ast$Pvar``;
 val pany = ``ast$Pany``;
 val locs = ``Locs``;
 val nil_l = ``[] : 'a list``;
+val string_ty = ``:string``;
 val app = ``ast$App``;
 val lit = ``ast$Lit``;
 val plit = ``ast$Plit``;
@@ -133,6 +134,7 @@ fun ast_to_exp term =
     else if same_const x plit then
       exp_list [exp_str "Plit", lit_to_exp (hd xs)]
     else if same_const x locs then loc_to_exp
+    else if same_const x nil_l andalso type_of x = string_ty then exp_str "\"\""
     else if same_const x nil_l then exp_list []
     else if same_const x cons then cons_to_exp term
     else if same_const x comma then tuple_to_exp term

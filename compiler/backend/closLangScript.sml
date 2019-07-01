@@ -68,6 +68,7 @@ val _ = Datatype `
      | FP_cmp fp_cmp
      | FP_uop fp_uop
      | FP_bop fp_bop
+     | FP_top fp_top
      | BoundsCheckBlock
      | BoundsCheckArray
      | BoundsCheckByte bool (* T = loose (<=) bound *)
@@ -90,10 +91,12 @@ val _ = Datatype `
 
 val exp_size_def = definition"exp_size_def";
 
-Theorem exp1_size_lemma
-  `!fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns`
-  (Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
-  \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC);
+Theorem exp1_size_lemma:
+   !fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns
+Proof
+  Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
+  \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC
+QED
 
 val pure_op_def = Define `
   pure_op op ⇔

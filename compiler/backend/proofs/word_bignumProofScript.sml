@@ -157,15 +157,17 @@ val eval_cases =
      ``Eval rec s1 (Loop r vs p) s2``,
      ``Eval rec s1 (LoopBody p) s2``] |> LIST_CONJ;
 
-Theorem Eval_NONE_IMP
-  `!s1 c s2 p. Eval NONE s1 c s2 ==> Eval (SOME p) s1 c s2`
-  (qsuff_tac
+Theorem Eval_NONE_IMP:
+   !s1 c s2 p. Eval NONE s1 c s2 ==> Eval (SOME p) s1 c s2
+Proof
+  qsuff_tac
     `!r s1 c s2. Eval r s1 c s2 ==>
                  Eval r s1 c s2 /\
                 !p. r = NONE ==> Eval (SOME p) s1 c s2`
   THEN1 metis_tac []
   \\ ho_match_mp_tac eval_ind \\ rw []
-  \\ once_rewrite_tac [eval_cases] \\ fs [] \\ metis_tac []);
+  \\ once_rewrite_tac [eval_cases] \\ fs [] \\ metis_tac []
+QED
 
 
 (* verification of compiler to wordLang *)
@@ -303,14 +305,16 @@ val syntax_ok_def = Define `
   syntax_ok (LoopBody body) = syntax_ok_aux body /\
   syntax_ok p = syntax_ok_aux p`
 
-Theorem evaluate_Seq_Seq
-  `!p1 p2 p3 t1.
-      wordSem$evaluate (Seq p1 (Seq p2 p3),t1) = evaluate (Seq (Seq p1 p2) p3,t1)`
-  (Induct
+Theorem evaluate_Seq_Seq:
+   !p1 p2 p3 t1.
+      wordSem$evaluate (Seq p1 (Seq p2 p3),t1) = evaluate (Seq (Seq p1 p2) p3,t1)
+Proof
+  Induct
   \\ fs [evaluate_def] \\ rw []
   \\ every_case_tac \\ fs []
   \\ pairarg_tac \\ fs []
-  \\ rw []);
+  \\ rw []
+QED
 
 val env_to_list_insert_0_LN = prove(
   ``env_to_list (insert 0 ret_val LN) p = ([0,ret_val],(\n. p (n+1)))``,
@@ -435,11 +439,13 @@ val LESS_LENGTH_IMP_APPEND = prove(
   Induct \\ fs [] \\ Cases_on `n` \\ fs [LENGTH_NIL]
   \\ rw [] \\ res_tac \\ fs [] \\ qexists_tac `h::ys` \\ fs []);
 
-Theorem word_list_APPEND
-  `!xs ys a. word_list a (xs ++ ys) =
-              word_list a xs * word_list (a + n2w (LENGTH xs) * bytes_in_word) ys`
-  (Induct \\ full_simp_tac(srw_ss())[word_list_def,SEP_CLAUSES,STAR_ASSOC,ADD1,
-                GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
+Theorem word_list_APPEND:
+   !xs ys a. word_list a (xs ++ ys) =
+              word_list a xs * word_list (a + n2w (LENGTH xs) * bytes_in_word) ys
+Proof
+  Induct \\ full_simp_tac(srw_ss())[word_list_def,SEP_CLAUSES,STAR_ASSOC,ADD1,
+                GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+QED
 
 val shift_eq_bytes_in_word = prove(
   ``good_dimindex (:'a) ==>
@@ -574,8 +580,8 @@ val LIST_REL_lemma = prove(
       LIST_REL Q xs ys``,
   Induct \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []);
 
-Theorem compile_thm
-  `!rec s1 prog s2.
+Theorem compile_thm:
+   !rec s1 prog s2.
       Eval rec s1 prog s2 ==>
       !n l i cs p1 l1 i1 cs1 cs2 t1 (ret_val:'a word_loc) p9.
         compile n l i cs prog = (p1,l1,i1,cs1) /\
@@ -602,8 +608,9 @@ Theorem compile_thm
                      0 < i1 /\
                      t2.stack = t1.stack /\
                      get_var 0 t2 = SOME ret_val /\
-                     state_rel s t2 cs2 t0 frame /\ t2.code = t1.code`
-  (ho_match_mp_tac eval_ind \\ rpt strip_tac
+                     state_rel s t2 cs2 t0 frame /\ t2.code = t1.code
+Proof
+  ho_match_mp_tac eval_ind \\ rpt strip_tac
   THEN1 (* Skip *)
     (fs [compile_def] \\ rveq \\ fs [evaluate_def]
      \\ qexists_tac `t1` \\ fs [])
@@ -1108,7 +1115,8 @@ Theorem compile_thm
     \\ fs [] \\ qexists_tac `t2'` \\ fs []
     \\ fs [call_env_def,wordSemTheory.dec_clock_def]
     \\ fs [evaluate_def]
-    \\ every_case_tac \\ fs []));
+    \\ every_case_tac \\ fs [])
+QED
 
 val good_code_def = Define `
   good_code cs3 =
@@ -1348,18 +1356,22 @@ val dec_clock_thm = prove(
   ``dec_clock s = clock_write (s.clock - 1) s``,
   EVAL_TAC);
 
-Theorem array_write_cancel[simp]
-  `array_write n (s.arrays n) s = s`
-  (fs [array_write_def,fetch "-" "state_component_equality",
-      APPLY_UPDATE_THM,FUN_EQ_THM]);
+Theorem array_write_cancel[simp]:
+   array_write n (s.arrays n) s = s
+Proof
+  fs [array_write_def,fetch "-" "state_component_equality",
+      APPLY_UPDATE_THM,FUN_EQ_THM]
+QED
 
-Theorem reg_write_cancel[simp]
-  `(n IN FDOM s.regs ==> reg_write n (SOME (s.regs ' n)) s = s) /\
-    (~(n IN FDOM s.regs) ==> reg_write n NONE s = s)`
-  (fs [reg_write_def,fetch "-" "state_component_equality",
+Theorem reg_write_cancel[simp]:
+   (n IN FDOM s.regs ==> reg_write n (SOME (s.regs ' n)) s = s) /\
+    (~(n IN FDOM s.regs) ==> reg_write n NONE s = s)
+Proof
+  fs [reg_write_def,fetch "-" "state_component_equality",
       FAPPLY_FUPDATE_THM,fmap_EXT,EXTENSION,DOMSUB_FAPPLY_THM]
   \\ rw[] \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs []
-  \\ strip_tac \\ fs []);
+  \\ strip_tac \\ fs []
+QED
 
 val state_eq_lemma = prove(
   ``(s0 = s1) <=>
@@ -1370,56 +1382,70 @@ val state_eq_lemma = prove(
   fs [fetch "-" "state_component_equality",fmap_EXT,FUN_EQ_THM]
   \\ rw [] \\ eq_tac \\ rw []);
 
-Theorem clock_write_simp[simp]
-  `(clock_write n s).regs = s.regs /\
+Theorem clock_write_simp[simp]:
+   (clock_write n s).regs = s.regs /\
     (clock_write n s).arrays = s.arrays /\
-    (clock_write n s).clock = n`
-  (fs [clock_write_def]);
+    (clock_write n s).clock = n
+Proof
+  fs [clock_write_def]
+QED
 
-Theorem dec_clock_write_simp[simp]
-  `(dec_clock s).regs = s.regs /\
+Theorem dec_clock_write_simp[simp]:
+   (dec_clock s).regs = s.regs /\
     (dec_clock s).arrays = s.arrays /\
-    (dec_clock s).clock = s.clock - 1`
-  (fs [dec_clock_def]);
+    (dec_clock s).clock = s.clock - 1
+Proof
+  fs [dec_clock_def]
+QED
 
-Theorem reg_write_simp[simp]
-  `(reg_write n NONE s).regs = s.regs \\ n /\
+Theorem reg_write_simp[simp]:
+   (reg_write n NONE s).regs = s.regs \\ n /\
     (reg_write n (SOME w) s).regs = s.regs |+ (n,w) /\
     (reg_write n v s).arrays = s.arrays /\
-    (reg_write n v s).clock = s.clock`
-  (Cases_on `v` \\ fs [reg_write_def]);
+    (reg_write n v s).clock = s.clock
+Proof
+  Cases_on `v` \\ fs [reg_write_def]
+QED
 
-Theorem reg_write_simp_alt
-  `((reg_write n NONE s).regs ' m = if n = m then FEMPTY ' m else s.regs ' m) /\
+Theorem reg_write_simp_alt:
+   ((reg_write n NONE s).regs ' m = if n = m then FEMPTY ' m else s.regs ' m) /\
     ((reg_write n (SOME w) s).regs ' m = if n = m then w else s.regs ' m) /\
     (FDOM (reg_write n NONE s).regs = FDOM s.regs DELETE n) /\
-    (FDOM (reg_write n (SOME w) s).regs = n INSERT FDOM s.regs)`
-  (fs [reg_write_def,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM] \\ rw []);
+    (FDOM (reg_write n (SOME w) s).regs = n INSERT FDOM s.regs)
+Proof
+  fs [reg_write_def,DOMSUB_FAPPLY_THM,FAPPLY_FUPDATE_THM] \\ rw []
+QED
 
-Theorem array_write_simp[simp]
-  `(array_write n w s).regs = s.regs /\
+Theorem array_write_simp[simp]:
+   (array_write n w s).regs = s.regs /\
     (array_write n w s).arrays = (n =+ w) s.arrays /\
-    (array_write n w s).clock = s.clock`
-  (fs [array_write_def]);
+    (array_write n w s).clock = s.clock
+Proof
+  fs [array_write_def]
+QED
 
-Theorem delete_vars_simp[simp]
-  `!vs.
+Theorem delete_vars_simp[simp]:
+   !vs.
       (delete_vars vs s).clock = s.clock /\
       (delete_vars vs s).arrays = s.arrays /\
       (FLOOKUP (delete_vars vs s).regs n =
          if MEM n vs then NONE else FLOOKUP s.regs n) /\
       ((n IN FDOM (delete_vars vs s).regs) =
-         if MEM n vs then F else (n IN FDOM s.regs))`
-  (Induct \\ fs [delete_vars_def,FLOOKUP_DEF]
+         if MEM n vs then F else (n IN FDOM s.regs))
+Proof
+  Induct \\ fs [delete_vars_def,FLOOKUP_DEF]
   \\ rw [DOMSUB_FAPPLY_THM] \\ fs []
-  \\ eq_tac \\ rw []);
+  \\ eq_tac \\ rw []
+QED
 
 val write_simps = LIST_CONJ [array_write_simp, reg_write_simp,
   dec_clock_write_simp, clock_write_simp]
 
-Theorem FLOOKUP_DOMSUB[simp]
-  `FLOOKUP (f \\ n) m = if m = n then NONE else FLOOKUP f m`
-  (fs [FLOOKUP_DEF] \\ rw [] \\ fs [DOMSUB_FAPPLY_THM]);
+Theorem FLOOKUP_DOMSUB[simp]:
+   FLOOKUP (f \\ n) m = if m = n then NONE else FLOOKUP f m
+Proof
+  fs [FLOOKUP_DEF] \\ rw [] \\ fs [DOMSUB_FAPPLY_THM]
+QED
 
 val s_var = Corr_def |> concl |> dest_forall |> snd |> dest_forall |> fst
 
@@ -2014,13 +2040,15 @@ val _ = (Teq (concl const_def)) orelse failwith "derive_corr_thm failed";
 val mc_fac_init_corr = snd (derive_corr_thm mc_fac_init_code_def);
 val mc_fac_final_corr = snd (derive_corr_thm mc_fac_final_code_def);
 
-Theorem mc_fac_corr
-  `Corr mc_fac_code s
+Theorem mc_fac_corr:
+   Corr mc_fac_code s
      (INR
         (let (l,r1) = mc_fac (s.clock-1,s.regs ' 1) in
            delete_vars [3;0;2] (clock_write l (reg_write 1 (SOME r1) s))))
-     (1 ∈ FDOM s.regs ∧ mc_fac_pre (s.clock-1,s.regs ' 1) ∧ s.clock <> 0)`
-  (all_tac);
+     (1 ∈ FDOM s.regs ∧ mc_fac_pre (s.clock-1,s.regs ' 1) ∧ s.clock <> 0)
+Proof
+  all_tac
+QED
 
 val th = let
   val raw_th = mc_fac_corr |> SIMP_RULE std_ss [LET_THM]

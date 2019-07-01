@@ -16,45 +16,56 @@ val tenv_equiv_def = Define
      nsAll2 (λi v1 v2. v1 = v2) tenv1.c tenv2.c ∧
      nsAll2 (λi v1 v2. v1 = v2) tenv1.v tenv2.v`;
 
-Theorem tenv_equiv_refl[simp]
-  `tenv_equiv tenv tenv`
-  (rw[tenv_equiv_def, nsAll2_def]
+Theorem tenv_equiv_refl[simp]:
+   tenv_equiv tenv tenv
+Proof
+  rw[tenv_equiv_def, nsAll2_def]
   \\ irule nsSub_refl
   \\ rw[nsAll_def]
-  \\ qexists_tac`K (K T)`\\ rw[]);
+  \\ qexists_tac`K (K T)`\\ rw[]
+QED
 
-Theorem tenv_equiv_sym
-  `tenv_equiv t1 t2 ⇒ tenv_equiv t2 t1`
-  (rw[tenv_equiv_def, nsAll2_def, nsSub_def]);
+Theorem tenv_equiv_sym:
+   tenv_equiv t1 t2 ⇒ tenv_equiv t2 t1
+Proof
+  rw[tenv_equiv_def, nsAll2_def, nsSub_def]
+QED
 
-Theorem tenv_equiv_tenvLift
-  `tenv_equiv t1 t2 ⇒ tenv_equiv (tenvLift m t1) (tenvLift m t2)`
-  (rw[tenv_equiv_def, tenvLift_def]);
+Theorem tenv_equiv_tenvLift:
+   tenv_equiv t1 t2 ⇒ tenv_equiv (tenvLift m t1) (tenvLift m t2)
+Proof
+  rw[tenv_equiv_def, tenvLift_def]
+QED
 
-Theorem check_type_names_tenv_equiv
-  `∀t1 t t2.
+Theorem check_type_names_tenv_equiv:
+   ∀t1 t t2.
    nsAll2 (λi v1 v2. v1 = v2) t1 t2 ∧
    check_type_names t1 t ⇒
-   check_type_names t2 t`
-  (recInduct check_type_names_ind
+   check_type_names t2 t
+Proof
+  recInduct check_type_names_ind
   \\ rw[check_type_names_def]
   \\ fs[EVERY_MEM, option_case_NONE_F]
-  \\ imp_res_tac nsAll2_nsLookup1 \\ fs[]);
+  \\ imp_res_tac nsAll2_nsLookup1 \\ fs[]
+QED
 
-Theorem lookup_var_tenv_equiv
-  `tenv_equiv tenv1 tenv2 ⇒ lookup_var n bvs tenv1 = lookup_var n bvs tenv2`
-  (rw[tenv_equiv_def, lookup_var_def, lookup_varE_def]
+Theorem lookup_var_tenv_equiv:
+   tenv_equiv tenv1 tenv2 ⇒ lookup_var n bvs tenv1 = lookup_var n bvs tenv2
+Proof
+  rw[tenv_equiv_def, lookup_var_def, lookup_varE_def]
   \\ every_case_tac \\ fs[]
   \\ (fn g as (asl,w) => Cases_on[ANTIQUOTE(lhs w)] g)
   \\ imp_res_tac nsAll2_nsLookup_none
   \\ imp_res_tac nsAll2_nsLookup1
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem type_name_subst_tenv_equiv
-  `∀t1 t t2.
+Theorem type_name_subst_tenv_equiv:
+   ∀t1 t t2.
     nsAll2 (λi v1 v2. v1 = v2) t1 t2 ⇒
-    type_name_subst t1 t = type_name_subst t2 t`
-  (recInduct type_name_subst_ind
+    type_name_subst t1 t = type_name_subst t2 t
+Proof
+  recInduct type_name_subst_ind
   \\ rw[type_name_subst_def, MAP_EQ_f]
   \\ CASE_TAC
   \\ imp_res_tac nsAll2_nsLookup_none \\ fs[MAP_EQ_f]
@@ -62,18 +73,20 @@ Theorem type_name_subst_tenv_equiv
   \\ CASE_TAC
   \\ AP_THM_TAC
   \\ ntac 4 AP_TERM_TAC
-  \\ rw[MAP_EQ_f]);
+  \\ rw[MAP_EQ_f]
+QED
 
-Theorem type_p_tenv_equiv
-  `(∀tvs tenv1 p t bindings.
+Theorem type_p_tenv_equiv:
+   (∀tvs tenv1 p t bindings.
      type_p tvs tenv1 p t bindings ⇒
      ∀tenv2. tenv_equiv tenv1 tenv2 ⇒
      type_p tvs tenv2 p t bindings) ∧
    (∀tvs tenv1 ps ts bindings.
      type_ps tvs tenv1 ps ts bindings ⇒
      ∀tenv2. tenv_equiv tenv1 tenv2 ⇒
-     type_ps tvs tenv2 ps ts bindings)`
-  (ho_match_mp_tac type_p_ind
+     type_ps tvs tenv2 ps ts bindings)
+Proof
+  ho_match_mp_tac type_p_ind
   \\ rw[]
   \\ rw[Once type_p_cases]
   \\ first_x_assum drule \\ rw[]
@@ -83,10 +96,11 @@ Theorem type_p_tenv_equiv
   \\ imp_res_tac type_name_subst_tenv_equiv
   \\ imp_res_tac check_type_names_tenv_equiv
   \\ fs[]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem type_e_tenv_equiv
-  `(∀tenv1 bvs e t.
+Theorem type_e_tenv_equiv:
+   (∀tenv1 bvs e t.
      type_e tenv1 bvs e t ⇒
      ∀tenv2. tenv_equiv tenv1 tenv2 ⇒
      type_e tenv2 bvs e t) ∧
@@ -97,8 +111,9 @@ Theorem type_e_tenv_equiv
    (∀tenv1 bvs funs ts.
      type_funs tenv1 bvs funs ts ⇒
      ∀tenv2. tenv_equiv tenv1 tenv2 ⇒
-     type_funs tenv2 bvs funs ts)`
-  (ho_match_mp_tac type_e_ind
+     type_funs tenv2 bvs funs ts)
+Proof
+  ho_match_mp_tac type_e_ind
   \\ rw[]
   \\ rw[Once type_e_cases]
   \\ TRY(first_x_assum drule \\ rw[])
@@ -109,17 +124,20 @@ Theorem type_e_tenv_equiv
   \\ fs[tenv_equiv_def]
   \\ imp_res_tac nsAll2_nsLookup1 \\ fs[] \\ rw[]
   \\ metis_tac[type_p_tenv_equiv, tenv_equiv_def,
-               type_name_subst_tenv_equiv, check_type_names_tenv_equiv]);
+               type_name_subst_tenv_equiv, check_type_names_tenv_equiv]
+QED
 
-Theorem type_pe_determ_tenv_equiv
-  `type_pe_determ t1 x y z ∧
+Theorem type_pe_determ_tenv_equiv:
+   type_pe_determ t1 x y z ∧
    tenv_equiv t1 t2 ⇒
-   type_pe_determ t2 x y z`
-  (rw[type_pe_determ_def]
+   type_pe_determ t2 x y z
+Proof
+  rw[type_pe_determ_def]
   \\ imp_res_tac tenv_equiv_sym
   \\ imp_res_tac type_p_tenv_equiv
   \\ imp_res_tac type_e_tenv_equiv
-  \\ res_tac);
+  \\ res_tac
+QED
 
 (* -- *)
 
@@ -139,15 +157,17 @@ val type_pe_determ_canon_def = Define`
     EVERY (λ(k,t).  set_tids_subset (count n) t) tenv2
     ⇒ tenv1 = tenv2`;
 
-Theorem type_pe_determ_canon_tenv_equiv
-  `type_pe_determ_canon n t1 x y z ∧
+Theorem type_pe_determ_canon_tenv_equiv:
+   type_pe_determ_canon n t1 x y z ∧
    tenv_equiv t1 t2 ⇒
-   type_pe_determ_canon n t2 x y z`
-  (rw[type_pe_determ_canon_def]
+   type_pe_determ_canon n t2 x y z
+Proof
+  rw[type_pe_determ_canon_def]
   \\ imp_res_tac tenv_equiv_sym
   \\ imp_res_tac type_p_tenv_equiv
   \\ imp_res_tac type_e_tenv_equiv
-  \\ res_tac);
+  \\ res_tac
+QED
 
 (* A "canonical" version of type_d that produces the type identifiers
   in ascending order.
@@ -309,16 +329,20 @@ val extend_bij_def = Define`
     v`
 *)
 
-Theorem extend_bij_id[simp] `
-  (extend_bij f f s 0 = f) ∧
-  (extend_bij f g {} n = f)`
-  (rw[extend_bij_def,FUN_EQ_THM]);
+Theorem extend_bij_id[simp]:
+    (extend_bij f f s 0 = f) ∧
+  (extend_bij f g {} n = f)
+Proof
+  rw[extend_bij_def,FUN_EQ_THM]
+QED
 
-Theorem extend_bij_compose
-   `extend_bij (extend_bij f g ids n) h jds (n + m) =
-    extend_bij f (extend_bij g h jds m) (ids ∪ jds) n`
-  (rw[extend_bij_def,FUN_EQ_THM]
-  \\ rw[] \\ fs[]);
+Theorem extend_bij_compose:
+    extend_bij (extend_bij f g ids n) h jds (n + m) =
+    extend_bij f (extend_bij g h jds m) (ids ∪ jds) n
+Proof
+  rw[extend_bij_def,FUN_EQ_THM]
+  \\ rw[] \\ fs[]
+QED
 
 (* needs monotonicity of set_tids_tenv *)
 val set_tids_tenv_extend_dec_tenv = Q.prove(`
@@ -328,15 +352,17 @@ val set_tids_tenv_extend_dec_tenv = Q.prove(`
   set_tids_tenv (s' ∪ s) (extend_dec_tenv t' t)`,
   rw[extend_dec_tenv_def,set_tids_tenv_def,nsAll_nsAppend]);
 
-Theorem set_tids_tenv_remap
-  `set_tids_tenv tids tenv ⇒
-   set_tids_tenv (IMAGE f tids) (remap_tenv f tenv)`
-  (rw[set_tids_tenv_def, remap_tenv_def, nsAll_nsMap, set_tids_subset_def,
+Theorem set_tids_tenv_remap:
+   set_tids_tenv tids tenv ⇒
+   set_tids_tenv (IMAGE f tids) (remap_tenv f tenv)
+Proof
+  rw[set_tids_tenv_def, remap_tenv_def, nsAll_nsMap, set_tids_subset_def,
      UNCURRY, set_tids_ts_tid_rename, EVERY_MAP]
   \\ fs[LAMBDA_PROD]
   \\ first_assum(mp_then Any match_mp_tac nsAll_mono)
   \\ simp[FORALL_PROD, EVERY_MEM]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 val good_remap_extend_bij = Q.prove(`
   good_remap f ∧ prim_tids F ids ⇒
@@ -360,26 +386,29 @@ val remap_tenv_extend_dec_tenv = Q.prove(`
   extend_dec_tenv (remap_tenv f t) (remap_tenv f t')`,
   fs[remap_tenv_def,extend_dec_tenv_def,nsMap_nsAppend]);
 
-Theorem BIJ_extend_bij `
-  DISJOINT tids ids ∧
+Theorem BIJ_extend_bij:
+    DISJOINT tids ids ∧
   BIJ f tids (count n) ∧
   BIJ g ids (count (CARD ids)) ⇒
-  BIJ (extend_bij f g ids n) (tids ∪ ids) (count (n + CARD ids))`
-  (rewrite_tac[INJ_DEF,SURJ_DEF,BIJ_DEF,extend_bij_def,IN_DISJOINT]
+  BIJ (extend_bij f g ids n) (tids ∪ ids) (count (n + CARD ids))
+Proof
+  rewrite_tac[INJ_DEF,SURJ_DEF,BIJ_DEF,extend_bij_def,IN_DISJOINT]
   \\ strip_tac
   \\ rewrite_tac[IN_UNION, count_add, IN_IMAGE]
   \\ reverse conj_tac >- metis_tac[]
   \\ conj_tac >- metis_tac[]
   \\ rw[]
-  \\ rpt (first_x_assum drule)>>fs[]);
+  \\ rpt (first_x_assum drule)>>fs[]
+QED
 
 (*
-Theorem INJ_extend_bij `
-  DISJOINT tids ids ∧
+Theorem INJ_extend_bij:
+    DISJOINT tids ids ∧
   INJ f tids (count n) ∧
   INJ g ids (count (CARD ids)) ⇒
-  INJ (extend_bij f g ids n) (tids ∪ ids) (count (n + CARD ids))`
-  (rewrite_tac[INJ_DEF,extend_bij_def,IN_DISJOINT,IN_COUNT,IN_UNION]
+  INJ (extend_bij f g ids n) (tids ∪ ids) (count (n + CARD ids))
+Proof
+  rewrite_tac[INJ_DEF,extend_bij_def,IN_DISJOINT,IN_COUNT,IN_UNION]
   \\ rpt strip_tac
   \\ res_tac
   \\ rpt (pop_assum mp_tac)
@@ -387,27 +416,32 @@ Theorem INJ_extend_bij `
   \\ rpt IF_CASES_TAC
   \\ rpt strip_tac
   \\ full_simp_tac bool_ss []
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem BIJ_extend_bij `
-  DISJOINT tids ids ∧
+Theorem BIJ_extend_bij:
+    DISJOINT tids ids ∧
   BIJ f tids (count n) ∧
   BIJ g ids (count (CARD ids)) ⇒
-  BIJ (extend_bij f g tids ids n) (tids ∪ ids) (count (n + CARD ids))`
-  (rewrite_tac[INJ_DEF,SURJ_DEF,BIJ_DEF,extend_bij_def,IN_DISJOINT]
+  BIJ (extend_bij f g tids ids n) (tids ∪ ids) (count (n + CARD ids))
+Proof
+  rewrite_tac[INJ_DEF,SURJ_DEF,BIJ_DEF,extend_bij_def,IN_DISJOINT]
   \\ strip_tac
   \\ rewrite_tac[IN_UNION, count_add, IN_IMAGE]
   \\ reverse conj_tac >- metis_tac[]
   \\ conj_tac >- metis_tac[]
   \\ rw[]
-  \\ rpt (first_x_assum drule)>>fs[]);
+  \\ rpt (first_x_assum drule)>>fs[]
+QED
 *)
 
-Theorem set_tids_subset_mono
-  `∀tids t tids'.
+Theorem set_tids_subset_mono:
+   ∀tids t tids'.
   set_tids_subset tids t ∧ tids ⊆ tids' ⇒
-  set_tids_subset tids' t`
-  (rw[set_tids_subset_def, SUBSET_DEF]);
+  set_tids_subset tids' t
+Proof
+  rw[set_tids_subset_def, SUBSET_DEF]
+QED
 
 val set_tids_tenv_mono = Q.prove(`
   set_tids_tenv tids tenv ∧ tids ⊆ tids' ⇒
@@ -472,28 +506,33 @@ val sing_renum_NOT_tscheme_inst = Q.prove(`
     \\ fs[check_freevars_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,MAP_MAP_o,MAP_EQ_ID]
     \\ metis_tac[]));
 
-Theorem sing_renum_NOTIN_ID
-  `∀t.
+Theorem sing_renum_NOTIN_ID:
+   ∀t.
   m ∉ set_tids t ⇒
-  ts_tid_rename (sing_renum m n) t = t`
-  (ho_match_mp_tac t_ind>>rw[]>>
+  ts_tid_rename (sing_renum m n) t = t
+Proof
+  ho_match_mp_tac t_ind>>rw[]>>
   fs[ts_tid_rename_def,sing_renum_def,set_tids_def]>>
   fs[EVERY_MEM,MAP_EQ_ID,MEM_MAP]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-Theorem sing_renum_IN_NOT_ID
-  `∀t.  m ∈ set_tids t ∧ m ≠ n ⇒ ts_tid_rename (sing_renum m n) t ≠ t`
-  (ho_match_mp_tac t_ind>>rw[]>>
+Theorem sing_renum_IN_NOT_ID:
+   ∀t.  m ∈ set_tids t ∧ m ≠ n ⇒ ts_tid_rename (sing_renum m n) t ≠ t
+Proof
+  ho_match_mp_tac t_ind>>rw[]>>
   fs[ts_tid_rename_def,sing_renum_def,set_tids_def]>>
   fs[EVERY_MEM,MAP_EQ_ID,MEM_MAP]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
 (* TODO: this is only true up to equivalence on tenvs *)
-Theorem sing_renum_NOTIN_tenv_ID
-  `set_tids_tenv tids tenv ∧
+Theorem sing_renum_NOTIN_tenv_ID:
+   set_tids_tenv tids tenv ∧
   m ∉ tids ⇒
-  tenv_equiv (remap_tenv (sing_renum m n) tenv) (tenv)`
-  (rw[remap_tenv_def,type_env_component_equality]>>
+  tenv_equiv (remap_tenv (sing_renum m n) tenv) (tenv)
+Proof
+  rw[remap_tenv_def,type_env_component_equality]>>
   fs[set_tids_tenv_def,set_tids_subset_def,tenv_equiv_def]>>
   rw[nsAll2_def, nsSub_def, nsLookup_nsMap, nsLookupMod_nsMap]
   \\ imp_res_tac nsLookup_nsAll \\ fs[]
@@ -503,10 +542,11 @@ Theorem sing_renum_NOTIN_tenv_ID
     match_mp_tac sing_renum_NOTIN_ID ORELSE match_mp_tac (GSYM sing_renum_NOTIN_ID)
     \\ CCONTR_TAC \\ fs[SUBSET_DEF]
     \\ metis_tac[])
-  \\ rw[sing_renum_def] \\ fs[]);
+  \\ rw[sing_renum_def] \\ fs[]
+QED
 
-Theorem type_p_ts_tid_rename `
-  good_remap f ⇒
+Theorem type_p_ts_tid_rename:
+    good_remap f ⇒
   (∀tvs tenv p t bindings.
   type_p tvs tenv p t bindings ⇒
   type_p tvs (remap_tenv f tenv) p (ts_tid_rename f t)
@@ -514,8 +554,9 @@ Theorem type_p_ts_tid_rename `
   (∀tvs tenv ps ts bindings.
   type_ps tvs tenv ps ts bindings ⇒
   type_ps tvs (remap_tenv f tenv) ps (MAP (ts_tid_rename f) ts)
-    (MAP (λn,t. (n,ts_tid_rename f t)) bindings))`
-  (strip_tac>>
+    (MAP (λn,t. (n,ts_tid_rename f t)) bindings))
+Proof
+  strip_tac>>
   ho_match_mp_tac type_p_strongind>>
   rw[]>>
   simp[Once type_p_cases,check_freevars_ts_tid_rename,ts_tid_rename_def]>>
@@ -533,16 +574,19 @@ Theorem type_p_ts_tid_rename `
     fs[ts_tid_rename_type_name_subst,remap_tenv_def,GSYM check_type_names_ts_tid_rename]>>
     metis_tac[ts_tid_rename_type_name_subst])
   >>
-    metis_tac[]);
+    metis_tac[]
+QED
 
-Theorem type_op_ts_tid_rename `
-  good_remap f ⇒
+Theorem type_op_ts_tid_rename:
+    good_remap f ⇒
   ∀op ts t.
   type_op op ts t ⇒
-  type_op op (MAP (ts_tid_rename f) ts) (ts_tid_rename f t)`
-  (rw[]>>
+  type_op op (MAP (ts_tid_rename f) ts) (ts_tid_rename f t)
+Proof
+  rw[]>>
   fs[typeSysPropsTheory.type_op_cases,ts_tid_rename_def]>>
-  fs[good_remap_def,prim_type_nums_def]);
+  fs[good_remap_def,prim_type_nums_def]
+QED
 
 val remap_tenvE_def = Define`
   (remap_tenvE f Empty = Empty) ∧
@@ -561,9 +605,11 @@ val remap_tenvE_bind_var_list = Q.prove(`
   fs[bind_var_list_def,remap_tenvE_def]>>
   rw[]);
 
-Theorem remap_tenvE_bind_tvar
-  `remap_tenvE f (bind_tvar tvs e) = bind_tvar tvs (remap_tenvE f e)`
-  (rw[bind_tvar_def, remap_tenvE_def]);
+Theorem remap_tenvE_bind_tvar:
+   remap_tenvE f (bind_tvar tvs e) = bind_tvar tvs (remap_tenvE f e)
+Proof
+  rw[bind_tvar_def, remap_tenvE_def]
+QED
 
 val deBruijn_inc_ts_tid_rename = Q.prove(`
   ∀skip n t.
@@ -592,8 +638,8 @@ val ts_tid_rename_deBruijn_subst = Q.prove(`
   fs[EL_MAP,MAP_MAP_o]>>
   fs[MAP_EQ_f]);
 
-Theorem type_e_ts_tid_rename `
-  good_remap f ⇒
+Theorem type_e_ts_tid_rename:
+    good_remap f ⇒
   (∀tenv tenvE e t.
     type_e tenv tenvE e t ⇒
     type_e (remap_tenv f tenv) (remap_tenvE f tenvE) e (ts_tid_rename f t)) ∧
@@ -602,8 +648,9 @@ Theorem type_e_ts_tid_rename `
     type_es (remap_tenv f tenv) (remap_tenvE f tenvE) es (MAP (ts_tid_rename f) ts)) ∧
   (∀tenv tenvE funs env.
     type_funs tenv tenvE funs env ⇒
-    type_funs (remap_tenv f tenv) (remap_tenvE f tenvE) funs (MAP (λ(n,t). (n, ts_tid_rename f t)) env))`
-  (strip_tac>>
+    type_funs (remap_tenv f tenv) (remap_tenvE f tenvE) funs (MAP (λ(n,t). (n, ts_tid_rename f t)) env))
+Proof
+  strip_tac>>
   ho_match_mp_tac type_e_strongind>>
   rw[]>>
   simp[Once type_e_cases,ts_tid_rename_def]>>
@@ -664,42 +711,50 @@ Theorem type_e_ts_tid_rename `
     metis_tac[ts_tid_rename_type_name_subst])
   >>
     fs[check_freevars_def,check_freevars_ts_tid_rename,remap_tenvE_def,ALOOKUP_MAP]>>
-    fs[good_remap_def,prim_type_nums_def]);
+    fs[good_remap_def,prim_type_nums_def]
+QED
 
-Theorem good_remap_LINV
-  `good_remap f ∧ prim_tids T s ∧ INJ f s t ⇒ good_remap (LINV f s o f)`
-  (rw[good_remap_def, prim_tids_def, MAP_EQ_ID, EVERY_MEM]
+Theorem good_remap_LINV:
+   good_remap f ∧ prim_tids T s ∧ INJ f s t ⇒ good_remap (LINV f s o f)
+Proof
+  rw[good_remap_def, prim_tids_def, MAP_EQ_ID, EVERY_MEM]
   \\ res_tac
-  \\ imp_res_tac LINV_DEF);
+  \\ imp_res_tac LINV_DEF
+QED
 
-Theorem ts_tid_rename_LINV
-  `∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINV f s) (ts_tid_rename f x) = x`
-  (recInduct ts_tid_rename_ind
+Theorem ts_tid_rename_LINV:
+   ∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINV f s) (ts_tid_rename f x) = x
+Proof
+  recInduct ts_tid_rename_ind
   \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_subset_def, SUBSET_DEF, MAP_EQ_ID]
   \\ fs[set_tids_def, PULL_EXISTS, MEM_MAP]
   >- (fs[EVERY_MEM] \\ metis_tac[])
   \\ imp_res_tac LINV_DEF
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem remap_tenv_LINV
-  `INJ f s t ∧ set_tids_tenv s tenv ⇒
-   tenv_equiv (remap_tenv (LINV f s) (remap_tenv f tenv)) tenv`
-  (rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
+Theorem remap_tenv_LINV:
+   INJ f s t ∧ set_tids_tenv s tenv ⇒
+   tenv_equiv (remap_tenv (LINV f s) (remap_tenv f tenv)) tenv
+Proof
+  rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
      nsSub_def, nsLookup_nsMap, nsLookupMod_nsMap]
   \\ fs[UNCURRY, set_tids_tenv_def]
   \\ imp_res_tac nsLookup_nsAll \\ fs[UNCURRY]
   \\ fs[MAP_MAP_o, o_DEF]
   \\ imp_res_tac ts_tid_rename_LINV \\ fs[]
   \\ imp_res_tac LINV_DEF \\ fs[EVERY_MEM]
-  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]);
+  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]
+QED
 
 val LINVI_def = Define`
   LINVI f s y = case LINV_OPT f s y of SOME x => x | NONE => f y`;
 
-Theorem remap_tenv_LINV
-  `BIJ f s t ∧ set_tids_tenv s tenv ⇒
-   tenv_equiv (remap_tenv (LINV f s) (remap_tenv f tenv)) tenv`
-  (rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
+Theorem remap_tenv_LINV:
+   BIJ f s t ∧ set_tids_tenv s tenv ⇒
+   tenv_equiv (remap_tenv (LINV f s) (remap_tenv f tenv)) tenv
+Proof
+  rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
      nsSub_def, nsLookup_nsMap, nsLookupMod_nsMap]
   \\ fs[UNCURRY, set_tids_tenv_def]
   \\ imp_res_tac nsLookup_nsAll \\ fs[UNCURRY]
@@ -708,109 +763,133 @@ Theorem remap_tenv_LINV
   \\ imp_res_tac ts_tid_rename_LINV \\ fs[]
   \\ imp_res_tac BIJ_LINV_INV \\ fs[EVERY_MEM]
   \\ imp_res_tac LINV_DEF \\ fs[]
-  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]);
+  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]
+QED
 
-Theorem good_remap_BIJ
-  `good_remap f ∧ prim_tids T s ∧ BIJ f s t ⇒ good_remap (LINV f s)`
-  (rw[good_remap_def, prim_tids_def, MAP_EQ_ID, EVERY_MEM]
+Theorem good_remap_BIJ:
+   good_remap f ∧ prim_tids T s ∧ BIJ f s t ⇒ good_remap (LINV f s)
+Proof
+  rw[good_remap_def, prim_tids_def, MAP_EQ_ID, EVERY_MEM]
   \\ imp_res_tac BIJ_LINV_BIJ
   \\ imp_res_tac BIJ_DEF
-  \\ metis_tac[BIJ_LINV_INV, INJ_DEF]);
+  \\ metis_tac[BIJ_LINV_INV, INJ_DEF]
+QED
 
-Theorem good_remap_LINVI
-  `good_remap f ∧ prim_tids T s ∧ INJ f s t ⇒ good_remap (LINVI f s)`
-  (rw[good_remap_def, prim_tids_def, LINVI_def, MAP_EQ_ID]
+Theorem good_remap_LINVI:
+   good_remap f ∧ prim_tids T s ∧ INJ f s t ⇒ good_remap (LINVI f s)
+Proof
+  rw[good_remap_def, prim_tids_def, LINVI_def, MAP_EQ_ID]
   \\ drule INJ_LINV_OPT
   \\ CASE_TAC \\ rw[]
   \\ fs[EVERY_MEM]
-  \\ metis_tac[INJ_DEF]);
+  \\ metis_tac[INJ_DEF]
+QED
 
-Theorem INJ_LINVI
-  `INJ f s t ∧ x ∈ s ⇒ LINVI f s (f x) = x`
-  (rw[LINVI_def]
+Theorem INJ_LINVI:
+   INJ f s t ∧ x ∈ s ⇒ LINVI f s (f x) = x
+Proof
+  rw[LINVI_def]
   \\ CASE_TAC
   \\ imp_res_tac INJ_LINV_OPT \\ rw[]
-  \\ metis_tac[INJ_DEF, NOT_NONE_SOME]);
+  \\ metis_tac[INJ_DEF, NOT_NONE_SOME]
+QED
 
-Theorem LINVI_RINV
-  `INJ f s t ∧ (∃x. x ∈ s ∧ f x = y) ⇒
-   f (LINVI f s y) = y`
-  (rw[LINVI_def]
+Theorem LINVI_RINV:
+   INJ f s t ∧ (∃x. x ∈ s ∧ f x = y) ⇒
+   f (LINVI f s y) = y
+Proof
+  rw[LINVI_def]
   \\ drule INJ_LINV_OPT
   \\ disch_then(qspec_then`f x`mp_tac o CONV_RULE SWAP_FORALL_CONV)
   \\ CASE_TAC \\ rw[]
-  \\ metis_tac[INJ_DEF]);
+  \\ metis_tac[INJ_DEF]
+QED
 
 (*
-Theorem BIJ_LINVI_RINV
-  `BIJ f s t ∧ LINVI f s y ∈ s ⇒
-   f (LINVI f s y) = y`
-  (rw[LINVI_def, LINV_OPT_def] \\ fs[]
+Theorem BIJ_LINVI_RINV:
+   BIJ f s t ∧ LINVI f s y ∈ s ⇒
+   f (LINVI f s y) = y
+Proof
+  rw[LINVI_def, LINV_OPT_def] \\ fs[]
   ff"bij""inv"
   f"LINV_OPT"
   \\ imp_res_tac
   \\ drule INJ_LINV_OPT
   \\ disch_then(qspec_then`f x`mp_tac o CONV_RULE SWAP_FORALL_CONV)
   \\ CASE_TAC \\ rw[]
-  \\ metis_tac[INJ_DEF]);
+  \\ metis_tac[INJ_DEF]
+QED
 *)
 
-Theorem ts_tid_rename_LINVI
-  `∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINVI f s) (ts_tid_rename f x) = x`
-  (recInduct ts_tid_rename_ind
+Theorem ts_tid_rename_LINVI:
+   ∀f x. INJ f s t ∧ set_tids_subset s x ⇒ ts_tid_rename (LINVI f s) (ts_tid_rename f x) = x
+Proof
+  recInduct ts_tid_rename_ind
   \\ rw[ts_tid_rename_def, MAP_MAP_o, set_tids_def, set_tids_subset_def, MAP_EQ_ID]
   \\ fs[SUBSET_DEF, PULL_EXISTS, MEM_MAP]
   >- metis_tac[]
   \\ rw[LINVI_def]
   \\ imp_res_tac INJ_LINV_OPT
   \\ CASE_TAC \\ fs[]
-  \\ metis_tac[INJ_DEF]);
+  \\ metis_tac[INJ_DEF]
+QED
 
-Theorem remap_tenv_LINVI
-  `INJ f s t ∧ set_tids_tenv s tenv ⇒
-   tenv_equiv (remap_tenv (LINVI f s) (remap_tenv f tenv)) tenv`
-  (rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
+Theorem remap_tenv_LINVI:
+   INJ f s t ∧ set_tids_tenv s tenv ⇒
+   tenv_equiv (remap_tenv (LINVI f s) (remap_tenv f tenv)) tenv
+Proof
+  rw[remap_tenv_def, tenv_equiv_def, nsMap_compose, nsAll2_def,
      nsSub_def, nsLookup_nsMap, nsLookupMod_nsMap]
   \\ fs[UNCURRY, set_tids_tenv_def]
   \\ imp_res_tac nsLookup_nsAll \\ fs[UNCURRY]
   \\ fs[MAP_MAP_o, o_DEF]
   \\ imp_res_tac ts_tid_rename_LINVI \\ fs[]
   \\ imp_res_tac INJ_LINVI \\ fs[EVERY_MEM]
-  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]);
+  \\ simp[PAIR_FST_SND_EQ, MAP_EQ_ID]
+QED
 
-Theorem ts_tid_rename_compose
-  `∀g t f. ts_tid_rename f (ts_tid_rename g t) = ts_tid_rename (f o g) t`
-  (recInduct ts_tid_rename_ind
-  \\ rw[ts_tid_rename_def, MAP_MAP_o, o_DEF, MAP_EQ_f]);
+Theorem ts_tid_rename_compose:
+   ∀g t f. ts_tid_rename f (ts_tid_rename g t) = ts_tid_rename (f o g) t
+Proof
+  recInduct ts_tid_rename_ind
+  \\ rw[ts_tid_rename_def, MAP_MAP_o, o_DEF, MAP_EQ_f]
+QED
 
-Theorem remap_tenv_compose
-  `remap_tenv f (remap_tenv g tenv) = remap_tenv (f o g) tenv`
-  (srw_tac[ETA_ss]
+Theorem remap_tenv_compose:
+   remap_tenv f (remap_tenv g tenv) = remap_tenv (f o g) tenv
+Proof
+  srw_tac[ETA_ss]
     [remap_tenv_def, nsMap_compose, ts_tid_rename_compose,
-     o_DEF, UNCURRY, LAMBDA_PROD, MAP_MAP_o]);
+     o_DEF, UNCURRY, LAMBDA_PROD, MAP_MAP_o]
+QED
 
-Theorem ts_tid_rename_eq_id
-  `∀f t. (ts_tid_rename f t = t ⇔ ∀x. x ∈ set_tids t ⇒ f x = x)`
-  (recInduct ts_tid_rename_ind
+Theorem ts_tid_rename_eq_id:
+   ∀f t. (ts_tid_rename f t = t ⇔ ∀x. x ∈ set_tids t ⇒ f x = x)
+Proof
+  recInduct ts_tid_rename_ind
   \\ rw[ts_tid_rename_def, set_tids_def, MAP_EQ_ID, MEM_MAP]
   \\ rw[EQ_IMP_THM] \\ rw[]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem ts_tid_rename_eq_f
-  `∀f t g. (ts_tid_rename f t = ts_tid_rename g t ⇔ ∀x. x ∈ set_tids t ⇒ f x = g x)`
-  (recInduct ts_tid_rename_ind
+Theorem ts_tid_rename_eq_f:
+   ∀f t g. (ts_tid_rename f t = ts_tid_rename g t ⇔ ∀x. x ∈ set_tids t ⇒ f x = g x)
+Proof
+  recInduct ts_tid_rename_ind
   \\ rw[ts_tid_rename_def, set_tids_def, MAP_EQ_f, MEM_MAP]
   \\ rw[EQ_IMP_THM] \\ rw[]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
-Theorem inj_ts_tid_rename_eq
-  `∀f t1 t2.
+Theorem inj_ts_tid_rename_eq:
+   ∀f t1 t2.
     (∀x y.
       x ∈ set_tids t1 ∧ y ∈ set_tids t2 ∧
       f x = f y ⇒ x = y) ∧
     (ts_tid_rename f t1 = ts_tid_rename f t2 )
-    ⇒ t1 = t2`
-  (recInduct ts_tid_rename_ind
+    ⇒ t1 = t2
+Proof
+  recInduct ts_tid_rename_ind
   \\ rewrite_tac[ts_tid_rename_def, set_tids_def, NOT_IN_EMPTY, IN_INSERT]
   \\ rpt strip_tac \\ Cases_on`t2`
   \\ pop_assum mp_tac \\ rewrite_tac[ts_tid_rename_def]
@@ -822,7 +901,8 @@ Theorem inj_ts_tid_rename_eq
   \\ ntac 2 strip_tac
   \\ reverse conj_tac >- metis_tac[]
   \\ first_x_assum(mp_then Any match_mp_tac INJ_MAP_EQ_2)
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 (* probably not be true because of shadows...
 Theorem remap_tenv_LINVI
@@ -874,14 +954,15 @@ val type_e_ts_tid_rename_sing_renum = Q.prove(`
   simp[]>>rw[]>>
   metis_tac[type_e_tenv_equiv]);
 
-Theorem type_funs_ts_tid_rename_sing_renum `
-  m ∉ tids ∧ prim_tids T tids ∧
+Theorem type_funs_ts_tid_rename_sing_renum:
+    m ∉ tids ∧ prim_tids T tids ∧
   type_funs tenv tenvE funs res ∧
   set_tids_tenv tids tenv
   ⇒
   type_funs tenv (remap_tenvE (sing_renum m n) tenvE) funs
-    (MAP (λ(z,t). (z, ts_tid_rename (sing_renum m n) t)) res)`
-  (rw[]>>
+    (MAP (λ(z,t). (z, ts_tid_rename (sing_renum m n) t)) res)
+Proof
+  rw[]>>
   `good_remap (sing_renum m n)` by
     (fs[good_remap_def,sing_renum_def]>>
     fs[prim_tids_def]>>
@@ -893,7 +974,8 @@ Theorem type_funs_ts_tid_rename_sing_renum `
   strip_tac>> first_x_assum drule>>
   drule sing_renum_NOTIN_tenv_ID>>
   simp[]>>rw[]>>
-  metis_tac[type_e_tenv_equiv]);
+  metis_tac[type_e_tenv_equiv]
+QED
 
 val type_pe_bindings_tids = Q.prove(`
   prim_tids T tids ∧
@@ -928,16 +1010,17 @@ val type_pe_bindings_tids = Q.prove(`
   `x ≠ x+1` by fs[]>>
   metis_tac[sing_renum_NOT_tscheme_inst]);
 
-Theorem type_funs_bindings_tids
-  `type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings ∧
+Theorem type_funs_bindings_tids:
+   type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs Empty)) funs bindings ∧
    set_tids_tenv tids tenv ∧ prim_tids T tids ∧
    (∀tvs' bindings'.
      type_funs tenv (bind_var_list 0 bindings' (bind_tvar tvs' Empty)) funs bindings' ⇒
      LIST_REL tscheme_inst (MAP (λx. (tvs', SND x)) bindings')
        (MAP (λx. (tvs, SND x)) bindings))
    ⇒
-   EVERY (set_tids_subset tids o SND) bindings`
-  (CCONTR_TAC>>fs[set_tids_subset_def,SUBSET_DEF,EXISTS_MEM]>>
+   EVERY (set_tids_subset tids o SND) bindings
+Proof
+  CCONTR_TAC>>fs[set_tids_subset_def,SUBSET_DEF,EXISTS_MEM]>>
   drule (GEN_ALL type_funs_ts_tid_rename_sing_renum)>>
   rpt (disch_then drule)>>
   disch_then(qspec_then`x+1` mp_tac)>>
@@ -949,16 +1032,18 @@ Theorem type_funs_bindings_tids
   asm_exists_tac>>
   fs[EL_MAP,UNCURRY]>>
   `x ≠ x+1` by fs[]>>
-  metis_tac[sing_renum_NOT_tscheme_inst]);
+  metis_tac[sing_renum_NOT_tscheme_inst]
+QED
 
-Theorem type_pe_bindings_tids_0 `
-   prim_tids T tids ∧
+Theorem type_pe_bindings_tids_0:
+     prim_tids T tids ∧
    set_tids_tenv tids tenv ∧
    type_p 0 tenv p t bindings ∧
    type_e tenv Empty e t ∧
    type_pe_determ tenv Empty p e ⇒
-   ∀p_1 p_2. MEM (p_1,p_2) bindings ⇒ set_tids_subset tids p_2`
-  (CCONTR_TAC>>fs[set_tids_subset_def,SUBSET_DEF]>>
+   ∀p_1 p_2. MEM (p_1,p_2) bindings ⇒ set_tids_subset tids p_2
+Proof
+  CCONTR_TAC>>fs[set_tids_subset_def,SUBSET_DEF]>>
   drule (GEN_ALL type_p_ts_tid_rename_sing_renum)>>
   rpt (disch_then drule)>>
   disch_then(qspec_then`x+1` mp_tac)>>
@@ -973,17 +1058,19 @@ Theorem type_pe_bindings_tids_0 `
   res_tac >>
   pairarg_tac \\ fs[] \\ rw[]
   \\ `x ≠ x+1` by fs[]>>
-  metis_tac[sing_renum_IN_NOT_ID]);
+  metis_tac[sing_renum_IN_NOT_ID]
+QED
 
-Theorem type_pe_determ_remap
-  `type_pe_determ tenv Empty p e ∧
+Theorem type_pe_determ_remap:
+   type_pe_determ tenv Empty p e ∧
    good_remap f ∧
    prim_tids T tids ∧
    BIJ f tids (count n) ∧
    set_tids_tenv tids tenv
    ⇒
-   type_pe_determ_canon n (remap_tenv f tenv) Empty p e`
-  (fs[type_pe_determ_canon_def,type_pe_determ_def] \\ rw[]
+   type_pe_determ_canon n (remap_tenv f tenv) Empty p e
+Proof
+  fs[type_pe_determ_canon_def,type_pe_determ_def] \\ rw[]
   \\ imp_res_tac good_remap_BIJ >>
   drule (GEN_ALL type_p_ts_tid_rename) >>
   disch_then(mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["t"])) o CONJUNCT1)
@@ -1016,18 +1103,20 @@ Theorem type_pe_determ_remap
   \\ first_x_assum(mp_then Any match_mp_tac inj_ts_tid_rename_eq)
   \\ rw[]
   \\ fs[EVERY_MEM,FORALL_PROD,set_tids_subset_def]
-  \\ metis_tac[BIJ_LINV_INV, SUBSET_DEF]);
+  \\ metis_tac[BIJ_LINV_INV, SUBSET_DEF]
+QED
 
-Theorem build_ctor_tenv_type_identities `
-  ∀tenvt xs type_identities tids.
+Theorem build_ctor_tenv_type_identities:
+    ∀tenvt xs type_identities tids.
   prim_tids T tids ∧
   nsAll (λi (ls,t). set_tids_subset (tids ∪ set type_identities) t) tenvt ∧
   LENGTH xs = LENGTH type_identities ⇒
   nsAll ((λi (ls,ts,tid).
     EVERY (λt. set_tids_subset (tids ∪ set type_identities) t) ts ∧
     (tid ∈ tids ∨ MEM tid type_identities)))
-    (build_ctor_tenv tenvt xs type_identities)`
-  (ho_match_mp_tac build_ctor_tenv_ind>>rw[build_ctor_tenv_def]>>
+    (build_ctor_tenv tenvt xs type_identities)
+Proof
+  ho_match_mp_tac build_ctor_tenv_ind>>rw[build_ctor_tenv_def]>>
   match_mp_tac nsAll_nsAppend>>fs[]>>
   CONJ_TAC>- (
     first_x_assum(qspec_then`id INSERT tids` mp_tac)>>
@@ -1041,7 +1130,8 @@ Theorem build_ctor_tenv_type_identities `
   fs[EVERY_REVERSE,EVERY_MAP,EVERY_MEM,LAMBDA_PROD,FORALL_PROD,MEM_MAP,PULL_EXISTS,PULL_FORALL]>>
   rw[]>>
   match_mp_tac set_tids_subset_type_name_subst>>
-  fs[prim_tids_def,prim_type_nums_def]);
+  fs[prim_tids_def,prim_type_nums_def]
+QED
 
 (*
 Theorem type_d_canon_tenv_equiv
@@ -1055,10 +1145,12 @@ Theorem type_d_canon_tenv_equiv
   type_d_canon_rules
 *)
 
-Theorem DISJOINT_CARD_UNION
-  `FINITE s /\ FINITE t /\ DISJOINT s t
-    ==> CARD (s UNION t) = CARD s + CARD t`
-  (metis_tac [CARD_UNION, DISJOINT_DEF, CARD_DEF, ADD, ADD_SYM]);
+Theorem DISJOINT_CARD_UNION:
+   FINITE s /\ FINITE t /\ DISJOINT s t
+    ==> CARD (s UNION t) = CARD s + CARD t
+Proof
+  metis_tac [CARD_UNION, DISJOINT_DEF, CARD_DEF, ADD, ADD_SYM]
+QED
 
 (* For any type_d, prove that the canonical type identifier strategy
   succeeds.
@@ -1066,8 +1158,8 @@ Theorem DISJOINT_CARD_UNION
   used by type_d_canon
   TODO: do we actually need the bijection??
 *)
-Theorem type_d_type_d_canon `
-  (∀extra_checks tenv d ids tenv'.
+Theorem type_d_type_d_canon:
+    (∀extra_checks tenv d ids tenv'.
     type_d extra_checks tenv d ids tenv' ==>
     ∀tids f n mapped_tenv.
     (* These restrict the kinds of type_d that we are thinking about *)
@@ -1101,8 +1193,9 @@ Theorem type_d_type_d_canon `
       set_tids_tenv (tids ∪ ids) tenv' ∧ prim_tids F ids ∧ FINITE ids ∧
       BIJ g ids (count (CARD ids)) ∧
       type_ds_canon n mapped_tenv ds (CARD ids) mapped_tenv' ∧
-      tenv_equiv (remap_tenv (extend_bij f g ids n) tenv') mapped_tenv')`
-  (ho_match_mp_tac type_d_strongind>>
+      tenv_equiv (remap_tenv (extend_bij f g ids n) tenv') mapped_tenv')
+Proof
+  ho_match_mp_tac type_d_strongind>>
   rw[]>>fs[]
   >- (
     (* Dlet poly *)
@@ -1715,11 +1808,12 @@ Theorem type_d_type_d_canon `
   \\ rw[] \\ res_tac \\ rw[]
   \\ fs[ts_tid_rename_eq_f, extend_bij_def, SUBSET_DEF, IN_DISJOINT,
         MAP_EQ_f, EVERY_MEM]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 (* n.b. proof almost entirely copied from type_d_tenv_ok_helper *)
-Theorem type_d_canon_tenv_ok
- `(∀check tenv d tdecs tenv'.
+Theorem type_d_canon_tenv_ok:
+  (∀check tenv d tdecs tenv'.
    type_d_canon check tenv d tdecs tenv' ⇒
    tenv_ok tenv
    ⇒
@@ -1728,8 +1822,9 @@ Theorem type_d_canon_tenv_ok
    type_ds_canon check tenv d tdecs tenv' ⇒
    tenv_ok tenv
    ⇒
-   tenv_ok tenv')`
- (ho_match_mp_tac type_d_canon_ind >>
+   tenv_ok tenv')
+Proof
+ ho_match_mp_tac type_d_canon_ind >>
  rw [tenv_ctor_ok_def, tenvLift_def]
  >- (
    fs [tenv_ok_def] >>
@@ -1804,6 +1899,7 @@ Theorem type_d_canon_tenv_ok
    >> simp [tenv_abbrev_ok_def])
  >- fs [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
  >- metis_tac [extend_dec_tenv_ok]
- >- metis_tac [extend_dec_tenv_ok]);
+ >- metis_tac [extend_dec_tenv_ok]
+QED
 
 val _ = export_theory();

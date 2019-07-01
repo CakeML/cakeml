@@ -147,6 +147,16 @@ val ror = Q.prove(
   \\ simp []
   )
 
+(* appears to not be relevant
+
+Theorem DecodeAny_encode[simp]:
+   !encode x. DecodeAny (Word (encode x)) = Decode (encode x)
+Proof
+  rw [riscv_stepTheory.Decode_IMP_DecodeAny]
+QED
+
+*)
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -159,8 +169,19 @@ val encode_rwts =
        Utype_def, UJtype_def]
    end
 
+val word_bit_0_add4 = prove(
+  ``word_bit 0 (w +  4w:word64) = word_bit 0 w /\
+    word_bit 0 (w +  8w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 12w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 16w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 20w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 24w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 28w:word64) = word_bit 0 w /\
+    word_bit 0 (w + 32w:word64) = word_bit 0 w``,
+  blastLib.BBLAST_TAC);
+
 val enc_rwts =
-  [riscv_config, riscv_asm_ok, lem6] @ encode_rwts @ asmLib.asm_rwts
+  [riscv_config, riscv_asm_ok, lem6, word_bit_0_add4] @ encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
   [asmPropsTheory.enc_ok_def, riscv_config, riscv_asm_ok] @ encode_rwts
@@ -178,12 +199,18 @@ local
    val find_NextRISCV =
       dest_NextRISCV o List.hd o HolKernel.find_terms is_NextRISCV
    val s = ``s: riscv_state``
+   val word_bit_0_lemmas = Q.store_thm("word_bit_0_lemmas",
+     `!w. ¬word_bit 0 (0xFFFFFFFFFFFFFFFEw && w:word64) /\
+          word_bit 0 ((0xFFFFFFFFFFFFFFFEw && w:word64) + v) = word_bit 0 v`,
+     blastLib.BBLAST_TAC)
+   fun post_process th =
+     th |> REWRITE_RULE [word_bit_0_lemmas]
    fun step the_state l =
       let
          val v = listSyntax.mk_list (bytes l, Type.bool)
          val thm = Thm.INST [s |-> the_state] (riscv_stepLib.riscv_step v)
       in
-         (Drule.DISCH_ALL thm,
+         (Drule.DISCH_ALL thm |> post_process,
           optionSyntax.dest_some (boolSyntax.rand (Thm.concl thm)))
       end
    val ms = ``ms: riscv_state``
@@ -242,7 +269,7 @@ in
          \\ qabbrev_tac `^next_state_var = ^next_state`
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
               [lem1, lem4, lem5, lem10, lem11, bitstringTheory.word_lsb_v2w,
-               alignmentTheory.aligned_numeric]
+               alignmentTheory.aligned_numeric, riscv_stepTheory.Skip]
          \\ Tactical.PAT_X_ASSUM x_tm kall_tac
          \\ SUBST1_TAC (Thm.SPEC the_state riscv_next_def)
          \\ byte_eq_tac
@@ -265,6 +292,9 @@ local
       rpt (WEAKEN_TAC (fn tm => not (markerSyntax.is_abbrev tm) andalso
                                 free_in var tm))
     end
+  val word_bit_0_mask = prove(
+    ``!w. ¬word_bit 0 (0xFFFFFFFFFFFFFFFEw && w:word64)``,
+    blastLib.BBLAST_TAC)
 in
   fun state_tac asm (gs as (asl, _)) =
     let
@@ -281,7 +311,7 @@ in
               (* Need to show that the register contents from the first
                  instruction are aligned *)
               NO_STRIP_FULL_SIMP_TAC (srw_ss()) [lem11]
-              \\ qpat_assum `aligned 2 (_ : word64) ==> (NextRISCV _ = _)`
+              \\ TRY (qpat_assum `aligned 2 (_ : word64) ==> (NextRISCV _ = _)`
                 (fn th => SUBGOAL_THEN (rand (rator (concl th)))
                              (fn lth => NO_STRIP_FULL_SIMP_TAC std_ss [lth])
                           >- (qpat_x_assum `aligned 2 _` mp_tac
@@ -290,7 +320,7 @@ in
                                    [Abbr [QUOTE x],
                                     combinTheory.APPLY_UPDATE_THM,
                                     alignmentTheory.aligned_extract]
-                              \\ blastLib.BBLAST_TAC))
+                              \\ blastLib.BBLAST_TAC)))
               \\ qpat_x_assum `~(0xFFFFFFFFFFF00000w <= c) \/ ~(c <= 0xFFFFFw)`
                    kall_tac
            else
@@ -301,6 +331,7 @@ in
             \\ asm_simp_tac (srw_ss()) [combinTheory.APPLY_UPDATE_THM,
                                         alignmentTheory.aligned_numeric]
             ) l
+       \\ NO_STRIP_FULL_SIMP_TAC std_ss [word_bit_0_mask]
        \\ drop_var_asms_tac x
        \\ qunabbrev_tac [QUOTE x]
        \\ asm_simp_tac (srw_ss())
@@ -376,6 +407,9 @@ local
    val (_, _, dest_riscv_enc, is_riscv_enc) =
      HolKernel.syntax_fns1 "riscv_target" "riscv_enc"
    fun get_asm tm = dest_riscv_enc (HolKernel.find_term is_riscv_enc tm)
+   val aligned_imp_bit_0 = prove(
+     ``aligned 2 w ==> ¬word_bit 0 (w:word64)``,
+     fs [alignmentTheory.aligned_bitwise_and] \\ blastLib.BBLAST_TAC)
 in
   fun next_tac gs =
     let
@@ -383,12 +417,16 @@ in
     in
       NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ next_tac_by_instructions
+      \\ imp_res_tac aligned_imp_bit_0
+      \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ state_tac asm
     end gs
   fun jc_next_tac c =
     NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
     \\ Cases_on c
     >| [next_tac_by_instructions, jc_next_tac_by_instructions]
+    \\ imp_res_tac aligned_imp_bit_0
+    \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
     \\ state_tac ``Inst Skip : 64 asm``
 end
 
@@ -442,9 +480,10 @@ val riscv_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-Theorem riscv_encoder_correct
-   `encoder_correct riscv_target`
-   (simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
+Theorem riscv_encoder_correct:
+    encoder_correct riscv_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel riscv_target`
    \\ rw [riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
@@ -621,6 +660,6 @@ Theorem riscv_encoder_correct
       print_tac "Loc"
       \\ next_tac
       )
-   )
+QED
 
 val () = export_theory ()

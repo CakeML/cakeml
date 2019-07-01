@@ -54,13 +54,18 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
+fun reraise fname message r = raise (ERR fname (message ^ ": " ^ #message r))
+
 fun auto_prove_asms name ((asms,goal),tac) = let
   val (rest,validation) = tac (asms,goal)
+    handle HOL_ERR r => reraise "auto_prove_asms" "tactic failure" r
   in if length rest = 0 then validation [] else let
   in failwith ("auto_prove_asms failed for " ^ name) end end
 
 fun auto_prove proof_name (goal,tac:tactic) = let
-  val (rest,validation) = tac ([],goal) handle Empty => fail()
+  val (rest,validation) = tac ([],goal)
+    handle HOL_ERR r => reraise "auto_prove" "tactic failure" r
+      | Empty => raise (ERR "auto_prove" "tactic raised Empty")
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
@@ -419,9 +424,9 @@ val basic_theories =
    ["alist", "arithmetic", "bag", "bitstring", "bit", "bool",
     "combin", "container", "divides", "fcp", "finite_map", "float",
     "fmaptree", "frac", "gcdset", "gcd", "ind_type", "integer_word",
-    "integer", "integral", "list", "llist", "marker", "measure",
-    "numeral_bit", "numeral", "numpair", "numposrep", "num", "one",
-    "operator", "option", "pair", "path", "patricia_casts",
+    "integer", "integral", "list", "llist", "marker", "machine_ieee",
+    "measure", "numeral_bit", "numeral", "numpair", "numposrep", "num",
+    "one", "operator", "option", "pair", "path", "patricia_casts",
     "patricia", "poly", "poset", "powser", "pred_set", "prelim",
     "prim_rec", "quote", "quotient_list", "quotient_option",
     "quotient_pair", "quotient_pred_set", "quotient_sum", "quotient",
@@ -1172,17 +1177,18 @@ fun mk_EqualityType_proof_via_measure typ = let
         TAC_PROOF ((assums, goal), prove_EqualityType_tac simps defs)])
   end
 
-fun mk_EqualityType_proof is_exn_type typ = let
+fun mk_EqualityType_thm is_exn_type typ = let
     val final_goal = ml_translatorSyntax.mk_EqualityType (get_type_inv typ)
+    val _ = print "Attempting proof of: "
+    val _ = print_term final_goal
     val (assums, get_thms) = if can get_type_n2typ_onto_thm typ
-      then ([], fn () => [EqualityType_via_n2typ is_exn_type typ])
-      else mk_EqualityType_proof_via_measure typ
-  in (list_mk_imp (assums, final_goal),
-    ASSUM_LIST (fn _ => let
-        val _ = print "Doing proof of: "
-        val _ = print_term final_goal
-      in simp_tac bool_ss (get_thms ()) end))
-  end
+          then ([], fn () => [EqualityType_via_n2typ is_exn_type typ])
+          else Option.valOf (total mk_EqualityType_proof_via_measure typ)
+    val thms = get_thms ()
+  in
+    prove (list_mk_imp (assums, final_goal), simp_tac bool_ss thms)
+    before print ".. done EqualityType proof.\n"
+  end handle Option => (print ".. cannot do EqualityType proof.\n"; TRUTH)
 
 local open ConseqConv in
 
@@ -1347,7 +1353,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
   val _ = if is_list_type then inv_def else
           if is_pair_type then inv_def else
           if is_unit_type then inv_def else
-            save_thm(name ^ "_def",inv_def |> REWRITE_RULE [K_THM])
+            save_thm(name ^ "_def[compute]",inv_def |> REWRITE_RULE [K_THM])
   val ind = fetch "-" (name ^ "_ind") |> clean_rule
             handle HOL_ERR _ => TypeBase.induction_of (hd tys) |> clean_rule
 (*
@@ -1365,9 +1371,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
   (* equality type *)
-  val eq_lemmas = map (fn ty => mk_EqualityType_proof is_exn_type ty
-        handle HOL_ERR _ => (T, simp_tac bool_ss [])) tys
-    |> map prove
+  val eq_lemmas = map (fn ty => mk_EqualityType_thm is_exn_type ty) tys
   val res = map (fn ((th,inv_def),eq_lemma) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
   in (name,res) end;
@@ -2434,11 +2438,14 @@ fun single_line_def def = let
   val lemma  = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
   val def_tm = (subst [const|->mk_comb(v,oneSyntax.one_tm)] (concl lemma))
   val _ = Pmatch.with_classic_heuristic quietDefine [ANTIQUOTE def_tm]
-  val curried = fetch "-" "generated_definition_curried_def"
+  fun find_def name =
+    Theory.current_definitions ()
+    |> first (fn (s,_) => s = name) |> snd
+  val curried = find_def "generated_definition_curried_def"
   val c = curried |> SPEC_ALL |> concl |> dest_eq |> snd |> rand
   val c2 = curried |> SPEC_ALL |> concl |> dest_eq |> fst
   val c1 = curried |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
-  val tupled = fetch "-" "generated_definition_tupled_primitive_def"
+  val tupled = find_def "generated_definition_tupled_primitive_def"
   val ind = fetch "-" "generated_definition_ind"
   val tys = ind |> concl |> dest_forall |> fst |> type_of |> dest_type |> snd
   val vv = mk_var("very unlikely name",el 2 tys)
@@ -2676,7 +2683,8 @@ fun mutual_to_single_line_def def = let
   in ([def],ind) end
 
 val builtin_terops =
-  [Eval_substring]
+  [Eval_substring,
+   Eval_FLOAT_FMA]
   |> map SPEC_ALL
   |> map (fn th =>
       (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
@@ -2705,6 +2713,15 @@ val builtin_binops =
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
+   Eval_FLOAT_ADD,
+   Eval_FLOAT_SUB,
+   Eval_FLOAT_MULT,
+   Eval_FLOAT_DIV,
+   Eval_FLOAT_LESS,
+   Eval_FLOAT_LESS_EQ,
+   Eval_FLOAT_GREATER,
+   Eval_FLOAT_GREATER_EQ,
+   Eval_FLOAT_EQ,
    Eval_force_gc_to_run,
    Eval_force_unit_type,
    Eval_strsub,
@@ -2725,6 +2742,9 @@ val builtin_monops =
    Eval_vector,
    Eval_int_of_num,
    Eval_num_of_int,
+   Eval_FLOAT_ABS,
+   Eval_FLOAT_SQRT,
+   Eval_FLOAT_NEG,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
    Eval_Chr,

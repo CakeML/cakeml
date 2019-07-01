@@ -349,13 +349,16 @@ val detuplify_def = Define`
   detuplify ty = [ty]
 `
 
-Theorem detuplify_pmatch `!ty.
+Theorem detuplify_pmatch:
+  !ty.
   detuplify ty =
   case ty of
     Attup args => args
-  | ty => [ty]`
-  (ho_match_mp_tac (theorem "detuplify_ind")
-  >> fs[detuplify_def]);
+  | ty => [ty]
+Proof
+  ho_match_mp_tac (theorem "detuplify_ind")
+  >> fs[detuplify_def]
+QED
 
 val ptree_PTbase_def = Define‘
   ptree_PTbase ast =

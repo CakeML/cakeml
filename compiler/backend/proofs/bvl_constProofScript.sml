@@ -20,10 +20,12 @@ val env_rel_def = Define `
      v_rel (:'c) (:'ffi) a x y (x::e1) (y::e2) /\ env_rel (:'c) (:'ffi) rest e1 e2) /\
   (env_rel _ _ _ _ _ = F)`
 
-Theorem env_rel_length
-  `!ax env env2. env_rel (:'c) (:'ffi) ax env env2 ==> LENGTH env2 = LENGTH env`
-  (Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
-  \\ Cases \\ fs [env_rel_def]);
+Theorem env_rel_length:
+   !ax env env2. env_rel (:'c) (:'ffi) ax env env2 ==> LENGTH env2 = LENGTH env
+Proof
+  Induct \\ Cases_on `env` \\ Cases_on `env2` \\ fs [env_rel_def]
+  \\ Cases \\ fs [env_rel_def]
+QED
 
 val env_rel_LLOOKUP_NONE = Q.prove(
   `!ax env env2 n.
@@ -45,14 +47,16 @@ val env_rel_LOOKUP_SOME = Q.prove(
   \\ first_x_assum match_mp_tac
   \\ Cases_on `h'` \\ fs [env_rel_def]);
 
-Theorem evaluate_delete_var_Rerr_SING
-  `!x s r e env2.
+Theorem evaluate_delete_var_Rerr_SING:
+   !x s r e env2.
       evaluate ([x],env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
-      evaluate ([bvl_const$delete_var x],env2,s) = (Rerr e,r)`
-  (Cases \\ fs [delete_var_def]
+      evaluate ([bvl_const$delete_var x],env2,s) = (Rerr e,r)
+Proof
+  Cases \\ fs [delete_var_def]
   \\ fs [evaluate_def,do_app_def] \\ rw []
-  \\ CCONTR_TAC \\ fs [] \\ rw []);
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+QED
 
 val evaluate_delete_var_Rerr = Q.prove(
   `!xs s r e env2.
@@ -99,12 +103,14 @@ val evaluate_delete_var_Rval = Q.prove(
   \\ fs [v_rel_def,NULL_EQ,evaluate_def,do_app_def]
   \\ every_case_tac \\ fs []);
 
-Theorem evaluate_EQ_NIL
-  `bvlSem$evaluate (xs,env,s) = (Rval [],t) <=> xs = [] /\ s = t`
-  (mp_tac (Q.SPECL [`xs`,`env`,`s`] evaluate_LENGTH)
+Theorem evaluate_EQ_NIL:
+   bvlSem$evaluate (xs,env,s) = (Rval [],t) <=> xs = [] /\ s = t
+Proof
+  mp_tac (Q.SPECL [`xs`,`env`,`s`] evaluate_LENGTH)
   \\ every_case_tac \\ fs []
   \\ rw [] \\ TRY eq_tac \\ fs [] \\ rw [] \\ fs [LENGTH_NIL]
-  \\ CCONTR_TAC \\ fs [] \\ fs [evaluate_def]);
+  \\ CCONTR_TAC \\ fs [] \\ fs [evaluate_def]
+QED
 
 val dest_simple_eq = prove(
   ``dest_simple h = SOME y <=> (h = Op (Const y) [])``,
@@ -180,27 +186,28 @@ val SmartOp2_thm = prove(
   \\ eq_tac \\ fs []);
 
 
-Theorem SmartOp_thm
-  `evaluate ([Op op xs],env,s) = (res,s2) /\
+Theorem SmartOp_thm:
+   evaluate ([Op op xs],env,s) = (res,s2) /\
     res ≠ Rerr (Rabort Rtype_error) ==>
-    evaluate ([SmartOp op xs],env,s) = (res,s2)`
-
-  (simp [SmartOp_def] \\
+    evaluate ([SmartOp op xs],env,s) = (res,s2)
+Proof
+  simp [SmartOp_def] \\
   every_case_tac \\
   rename1 `Op op [x1; x2]` \\
   Cases_on `SmartOp_flip op x1 x2` \\
   Cases_on `r` \\
   rename1 `SmartOp_flip op x1 x2 = (op', x1', x2')` \\
   metis_tac [SmartOp_flip_thm, SmartOp2_thm]
-)
+QED
 
-Theorem evaluate_env_rel
-  `!xs env1 (s1:('c,'ffi) bvlSem$state) ax env2 res s2 ys.
+Theorem evaluate_env_rel:
+   !xs env1 (s1:('c,'ffi) bvlSem$state) ax env2 res s2 ys.
       (evaluate (xs,env1,s1) = (res,s2)) /\
       env_rel (:'c) (:'ffi) ax env1 env2 /\
       res <> Rerr (Rabort Rtype_error) ==>
-      (evaluate (compile ax xs,env2,s1) = (res,s2))`
-  (recInduct evaluate_ind \\ REPEAT STRIP_TAC
+      (evaluate (compile ax xs,env2,s1) = (res,s2))
+Proof
+  recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [compile_def,evaluate_def,compile_HD_SING]
   THEN1
    (`?y0. compile ax [x] = [y0]` by
@@ -255,46 +262,56 @@ Theorem evaluate_env_rel
     \\ fs [env_rel_def])
   \\ TRY (match_mp_tac SmartOp_thm)
   \\ fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-  \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs []);
+  \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs []
+QED
 
 val compile_thm = save_thm("compile_thm",
   evaluate_env_rel
   |> Q.SPECL [`xs`,`env`,`s1`,`[]`,`env`] |> GEN_ALL
   |> SIMP_RULE std_ss [env_rel_def])
 
-Theorem evaluate_compile_exp
-  `evaluate ([d],env,s) = (r,t) /\
+Theorem evaluate_compile_exp:
+   evaluate ([d],env,s) = (r,t) /\
     r <> Rerr (Rabort Rtype_error) ==>
-    evaluate ([bvl_const$compile_exp d],env,s) = (r,t)`
-  (fs [compile_exp_def]
+    evaluate ([bvl_const$compile_exp d],env,s) = (r,t)
+Proof
+  fs [compile_exp_def]
   \\ `LENGTH (compile [] [d]) = LENGTH [d]` by fs [compile_length]
   \\ Cases_on `compile [] [d]` \\ fs [LENGTH_NIL] \\ rw []
-  \\ imp_res_tac compile_thm \\ rfs []);
+  \\ imp_res_tac compile_thm \\ rfs []
+QED
 
-Theorem delete_var_code_labels[simp]
-  `∀x. get_code_labels (bvl_const$delete_var x) = get_code_labels x`
-  (recInduct bvl_constTheory.delete_var_ind
+Theorem delete_var_code_labels[simp]:
+   ∀x. get_code_labels (bvl_const$delete_var x) = get_code_labels x
+Proof
+  recInduct bvl_constTheory.delete_var_ind
   \\ rw[bvl_constTheory.delete_var_def]
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem dest_simple_SOME_code_labels
-  `∀x y. dest_simple x = SOME y ⇒ get_code_labels x = {}`
-  (recInduct bvl_constTheory.dest_simple_ind
-  \\ rw[NULL_EQ] \\ EVAL_TAC);
+Theorem dest_simple_SOME_code_labels:
+   ∀x y. dest_simple x = SOME y ⇒ get_code_labels x = {}
+Proof
+  recInduct bvl_constTheory.dest_simple_ind
+  \\ rw[NULL_EQ] \\ EVAL_TAC
+QED
 
-Theorem SmartOp2_code_labels[simp]
-  `get_code_labels (SmartOp2 (op,x1,x2)) =
-    closLang$assign_get_code_label op ∪ get_code_labels x1 ∪ get_code_labels x2`
-  (rw[bvl_constTheory.SmartOp2_def, closLangTheory.assign_get_code_label_def]
+Theorem SmartOp2_code_labels[simp]:
+   get_code_labels (SmartOp2 (op,x1,x2)) =
+    closLang$assign_get_code_label op ∪ get_code_labels x1 ∪ get_code_labels x2
+Proof
+  rw[bvl_constTheory.SmartOp2_def, closLangTheory.assign_get_code_label_def]
   \\ rpt(PURE_CASE_TAC \\ simp[closLangTheory.assign_get_code_label_def])
   \\ imp_res_tac dest_simple_SOME_code_labels \\ fs[]
   \\ fs[bvl_constTheory.case_op_const_def, CaseEq"option", CaseEq"closLang$op", CaseEq"bvl$exp", CaseEq"list", NULL_EQ]
   \\ rveq \\ fs[closLangTheory.assign_get_code_label_def,bvlTheory.Bool_def]
-  \\ simp[EXTENSION] \\ metis_tac[]);
+  \\ simp[EXTENSION] \\ metis_tac[]
+QED
 
-Theorem SmartOp_code_labels[simp]
-  `get_code_labels (SmartOp op xs) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels xs))`
-  (rw[bvl_constTheory.SmartOp_def]
+Theorem SmartOp_code_labels[simp]:
+   get_code_labels (SmartOp op xs) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels xs))
+Proof
+  rw[bvl_constTheory.SmartOp_def]
   \\ PURE_CASE_TAC \\ simp[]
   \\ PURE_CASE_TAC \\ simp[]
   \\ PURE_CASE_TAC \\ simp[]
@@ -302,23 +319,27 @@ Theorem SmartOp_code_labels[simp]
   \\ PURE_TOP_CASE_TAC \\ fs[]
   >- ( rw[EXTENSION] \\ metis_tac[] )
   \\ imp_res_tac dest_simple_SOME_code_labels
-  \\ rw[closLangTheory.assign_get_code_label_def]);
+  \\ rw[closLangTheory.assign_get_code_label_def]
+QED
 
-Theorem MEM_extract_list_code_labels
-  `∀xs x. MEM (SOME x) (extract_list xs) ⇒ get_code_labels x = {}`
-  (Induct
+Theorem MEM_extract_list_code_labels:
+   ∀xs x. MEM (SOME x) (extract_list xs) ⇒ get_code_labels x = {}
+Proof
+  Induct
   \\ rw[bvl_constTheory.extract_list_def]
   \\ res_tac \\ fs[]
   \\ Cases_on`h` \\ fs[bvl_constTheory.extract_def]
   \\ rename1`Op op l`
   \\ Cases_on`op` \\ fs[bvl_constTheory.extract_def] \\ rw[]
-  \\ EVAL_TAC);
+  \\ EVAL_TAC
+QED
 
-Theorem compile_code_labels
-  `∀x y. BIGUNION (set (MAP get_code_labels (bvl_const$compile x y))) ⊆
+Theorem compile_code_labels:
+   ∀x y. BIGUNION (set (MAP get_code_labels (bvl_const$compile x y))) ⊆
          BIGUNION (set (MAP get_code_labels y)) ∪
-         BIGUNION (set (MAP (get_code_labels o THE) (FILTER IS_SOME x)))`
-  (recInduct bvl_constTheory.compile_ind
+         BIGUNION (set (MAP (get_code_labels o THE) (FILTER IS_SOME x)))
+Proof
+  recInduct bvl_constTheory.compile_ind
   \\ rw[bvl_constTheory.compile_def]
   \\ fsrw_tac[DNF_ss][SUBSET_DEF]
   \\ fs[Once(GSYM bvl_constTheory.compile_HD_SING)]
@@ -341,13 +362,16 @@ Theorem compile_code_labels
     \\ reverse(fs[MEM_MAP, PULL_EXISTS, MEM_FILTER, IS_SOME_EXISTS])
     >- metis_tac[]
     \\ imp_res_tac MEM_extract_list_code_labels
-    \\ fs[]));
+    \\ fs[])
+QED
 
-Theorem compile_exp_code_labels
-  `∀e. get_code_labels (bvl_const$compile_exp e) ⊆ get_code_labels e`
-  (rw[bvl_constTheory.compile_exp_def]
+Theorem compile_exp_code_labels:
+   ∀e. get_code_labels (bvl_const$compile_exp e) ⊆ get_code_labels e
+Proof
+  rw[bvl_constTheory.compile_exp_def]
   \\ rw[Once(GSYM bvl_constTheory.compile_HD_SING)]
   \\ specl_args_of_then``bvl_const$compile``compile_code_labels mp_tac
-  \\ rw[] \\ fs[Once(GSYM bvl_constTheory.compile_HD_SING)]);
+  \\ rw[] \\ fs[Once(GSYM bvl_constTheory.compile_HD_SING)]
+QED
 
 val _ = export_theory();

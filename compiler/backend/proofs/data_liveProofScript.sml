@@ -483,11 +483,12 @@ val evaluate_compile = Q.prove(
   \\ Cases_on `h` \\ fs []
   \\ SRW_TAC [] [] \\ fs []);
 
-Theorem compile_correct
-  `!c s. FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) /\
+Theorem compile_correct:
+   !c s. FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) /\
          FST (evaluate (c,s)) <> NONE ==>
-         (evaluate (FST (compile c LN),s) = evaluate (c,s))`
-  (REPEAT STRIP_TAC
+         (evaluate (FST (compile c LN),s) = evaluate (c,s))
+Proof
+  REPEAT STRIP_TAC
   \\ (evaluate_compile |> ONCE_REWRITE_RULE [SPLIT_PAIR]
        |> SIMP_RULE std_ss [] |> Q.SPECL [`c`,`s`,`LN`,`s`]
        |> SIMP_RULE std_ss [state_rel_ID] |> MP_TAC)
@@ -501,13 +502,16 @@ Theorem compile_correct
   \\ (Q.ISPECL_THEN [`FST (compile c LN)`,`s`]mp_tac evaluate_stack)
   \\ fs [] \\ Cases_on `x` \\ fs []
   \\ Cases_on`e`>>fs[] \\ Cases_on`a`>>fs[]
-  \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []);
+  \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []
+QED
 
-Theorem get_code_labels_compile
-  `∀x y. get_code_labels (FST (compile x y)) ⊆ get_code_labels x`
-  (recInduct data_liveTheory.compile_ind
+Theorem get_code_labels_compile:
+   ∀x y. get_code_labels (FST (compile x y)) ⊆ get_code_labels x
+Proof
+  recInduct data_liveTheory.compile_ind
   \\ rw[data_liveTheory.compile_def]
   \\ rpt(pairarg_tac \\ fs[])
-  \\ fs[SUBSET_DEF]);
+  \\ fs[SUBSET_DEF]
+QED
 
 val _ = export_theory();

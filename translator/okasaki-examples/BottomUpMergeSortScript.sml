@@ -191,24 +191,28 @@ rw [] >|
              [Once add_seg_def, sortable_to_bag_def, mrg_bag, mrg_length,
               arithmeticTheory.SUB_PLUS]]);
 
-Theorem add_bag
-`!leq x size segs.
+Theorem add_bag:
+ !leq x size segs.
   sortable_inv leq (size,segs) 1
   ⇒
   (sortable_to_bag (add leq x (size, segs)) =
-   BAG_INSERT x (sortable_to_bag (size, segs)))`
-(rw [add_def] >>
+   BAG_INSERT x (sortable_to_bag (size, segs)))
+Proof
+rw [add_def] >>
 ASSUME_TAC (Q.SPECL [`leq`, `size`, `segs`, `1`, `[x]`] add_seg_bag) >>
-fs [list_to_bag_def, BAG_INSERT_UNION]);
+fs [list_to_bag_def, BAG_INSERT_UNION]
+QED
 
-Theorem add_correct
-`!leq x size segs.
+Theorem add_correct:
+ !leq x size segs.
   WeakLinearOrder leq ∧ sortable_inv leq (size,segs) 1
   ⇒
-  sortable_inv leq (add leq x (size,segs)) 1`
-(rw [add_def] >>
+  sortable_inv leq (add leq x (size,segs)) 1
+Proof
+rw [add_def] >>
 match_mp_tac add_seg_sub_inv >>
-rw [SORTED_DEF]);
+rw [SORTED_DEF]
+QED
 
 val mrg_all_sorted = Q.prove (
 `!leq xs segs.
@@ -226,24 +230,28 @@ induct_on `segs` >>
 rw [mrg_all_def] >>
 metis_tac [mrg_perm, PERM_CONG, PERM_REFL, PERM_TRANS]);
 
-Theorem sort_sorted
-`!leq size segs.
+Theorem sort_sorted:
+ !leq size segs.
   WeakLinearOrder leq ∧ sortable_inv leq (size,segs) 1
   ⇒
-  SORTED leq (sort leq (size,segs))`
-(rw [sort_def] >>
-metis_tac [sortable_inv_sorted, SORTED_DEF, mrg_all_sorted]);
+  SORTED leq (sort leq (size,segs))
+Proof
+rw [sort_def] >>
+metis_tac [sortable_inv_sorted, SORTED_DEF, mrg_all_sorted]
+QED
 
 val sortable_to_bag_lem = Q.prove (
 `!size segs. sortable_to_bag (size,segs) = list_to_bag (FLAT segs)`,
 induct_on `segs` >>
 rw [sortable_to_bag_def, list_to_bag_def, list_to_bag_append]);
 
-Theorem sort_bag
-`!leq x size segs.
-  list_to_bag (sort leq (size,segs)) = sortable_to_bag (size,segs)`
-(rw [sort_def, sortable_to_bag_lem, list_to_bag_perm] >>
-metis_tac [mrg_all_perm, APPEND]);
+Theorem sort_bag:
+ !leq x size segs.
+  list_to_bag (sort leq (size,segs)) = sortable_to_bag (size,segs)
+Proof
+rw [sort_def, sortable_to_bag_lem, list_to_bag_perm] >>
+metis_tac [mrg_all_perm, APPEND]
+QED
 
 
 (* Simplify the side conditions on the generated certificate theorems, based on

@@ -605,6 +605,8 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+    | (FP_top top, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) =>
+        SOME ((s,t), Rval (Litv (Word64 (fp_top top w1 w2 w3))))
     | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
     | (FP_uop uop, [Litv (Word64 w)]) =>

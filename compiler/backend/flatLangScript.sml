@@ -37,6 +37,7 @@ val _ = Datatype `
   | FP_cmp fp_cmp
   | FP_uop fp_uop
   | FP_bop fp_bop
+  | FP_top fp_top
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -115,31 +116,38 @@ val _ = Datatype`
 
 val exp_size_def = definition"exp_size_def";
 
-Theorem exp6_size_APPEND[simp]
-  `flatLang$exp6_size (e ++ e2) = exp6_size e + exp6_size e2`
-  (Induct_on`e`>>simp[exp_size_def])
+Theorem exp6_size_APPEND[simp]:
+   flatLang$exp6_size (e ++ e2) = exp6_size e + exp6_size e2
+Proof
+  Induct_on`e`>>simp[exp_size_def]
+QED
 
-Theorem exp6_size_REVERSE[simp]
-  `flatLang$exp6_size (REVERSE es) = exp6_size es`
-  (Induct_on`es`>>simp[exp_size_def])
+Theorem exp6_size_REVERSE[simp]:
+   flatLang$exp6_size (REVERSE es) = exp6_size es
+Proof
+  Induct_on`es`>>simp[exp_size_def]
+QED
 
-Theorem exp_size_MAP
-  `(!xs. exp6_size (MAP SND xs) < exp3_size xs + 1) /\
-   (!xs. exp6_size (MAP (SND o SND) xs) < exp1_size xs + 1)`
-  (conj_tac
+Theorem exp_size_MAP:
+   (!xs. exp6_size (MAP SND xs) < exp3_size xs + 1) /\
+   (!xs. exp6_size (MAP (SND o SND) xs) < exp1_size xs + 1)
+Proof
+  conj_tac
   >-
    (Induct
     \\ rw [exp_size_def]
     \\ PairCases_on `h` \\ fs [exp_size_def])
   \\ Induct
   \\ rw [exp_size_def]
-  \\ PairCases_on `h` \\ fs [exp_size_def])
+  \\ PairCases_on `h` \\ fs [exp_size_def]
+QED
 
-Theorem exp_size_MEM
-  `(!xs x. MEM x xs ==> exp_size x < exp6_size xs) /\
+Theorem exp_size_MEM:
+   (!xs x. MEM x xs ==> exp_size x < exp6_size xs) /\
    (!xs x. MEM x xs ==> exp_size (SND (SND x)) < exp1_size xs) /\
-   (!xs x. MEM x xs ==> exp_size (SND x) < exp3_size xs)`
-  (conj_tac
+   (!xs x. MEM x xs ==> exp_size (SND x) < exp3_size xs)
+Proof
+  conj_tac
   >-
    (Induct
     \\ rw [exp_size_def]
@@ -150,7 +158,8 @@ Theorem exp_size_MEM
   \\ rw [exp_size_def]
   \\ PairCases_on `h` \\ fs [exp_size_def]
   \\ res_tac
-  \\ decide_tac);
+  \\ decide_tac
+QED
 
 val _ = Datatype`
  dec =
