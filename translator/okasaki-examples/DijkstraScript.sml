@@ -2,13 +2,10 @@
   Example of using bootstrapped skew binomial queues to implement Djikstra's
   algorithm.
 *)
-
-open preamble;
-open SkewBinomialHeapTheory;
-open balanced_mapTheory;
-open mlmapTheory;
-open MapProgTheory;
-open comparisonTheory;
+open preamble SkewBinomialHeapTheory sptreeTheory comparisonTheory;
+(* open balanced_mapTheory;
+   open mlmapTheory;
+   open MapProgTheory; *)
 
 val _ = new_theory "Djikstra";
 
@@ -72,34 +69,12 @@ val geq_inf_def = Define `
 Datatype `elemPrio = ElemPrio 'a infiNum`;
 
 (* Order on prioritized elements *)
-val geq_def = Define `
-  (geq (ElemPrio _ Inf) (ElemPrio _ Inf) = T) /\
-  (geq (ElemPrio _ Inf) (ElemPrio _ (Num _)) = T) /\
-  (geq (ElemPrio _ (Num _)) (ElemPrio _ Inf) = F) /\
-  (geq (ElemPrio _ (Num x)) (ElemPrio _ (Num y)) = (x >= y))
+val ep_geq_def = Define `
+  (ep_geq (ElemPrio _ Inf) (ElemPrio _ Inf) = T) /\
+  (ep_geq (ElemPrio _ Inf) (ElemPrio _ (Num _)) = T) /\
+  (ep_geq (ElemPrio _ (Num _)) (ElemPrio _ Inf) = F) /\
+  (ep_geq (ElemPrio _ (Num x)) (ElemPrio _ (Num y)) = (x >= y))
 `;
-
-Theorem geq_total_preorder:
-  TotalPreOrder geq
-Proof
-  rw[TotalPreOrder_def, PreOrder, reflexive_def, total_def, transitive_def]
-  >- (Cases_on `x` \\
-      Cases_on `i` \\
-      rw[geq_def])
-  >- (Cases_on `x` \\
-      Cases_on `y` \\
-      Cases_on `z` \\
-      Cases_on `i` \\
-      Cases_on `i'` \\
-      Cases_on `i''` \\
-      fs[geq_def])
-  >- (Cases_on `x` \\
-      Cases_on `y` \\
-      Cases_on `i` \\
-      Cases_on `i'` \\
-      rw[geq_def])
-QED;
-
 (* Implementation of Djikstra using priority queues *)
 
 (* Initial distance between the source and the other vertices *)
@@ -138,559 +113,100 @@ val update_distances_def = Define `
       else (updated_rest, (adj, old_dist)::updated_dists_rest))
 `;
 
+val fromNodeList_def = Define `
+  (fromNodeList [] = LN) /\
+  (fromNodeList (v::vs) = insert v () (fromNodeList vs))
+`;
+
+(* set containing all the nodes of the graph *)
+val spt_nodes_def = Define `
+  (spt_nodes [] = LN) /\
+  (spt_nodes ((Vertex l adjs)::vs) =
+    sptree$insert l () (sptree$union
+      (spt_nodes vs)
+      (fromNodeList (MAP FST adjs))))
+`;
+
 (*
  Djikstra's algorithm itself
 *)
 val dijkstra_step_defn = Hol_defn "dijkstra_step" `
-  dijkstra_step g dists queue decided =
+  dijkstra_step cmp (g:num vertex list) dists queue decided =
+    if (subspt decided (spt_nodes g)) /\
+       (is_b_heap_ordered cmp queue) /\
+       (TotalPreOrder cmp)
+    then
     if b_is_empty queue
     then dists
     else
       (case (THE (b_find_min queue)) of
-       (ElemPrio (label_min:'a) (dist_min: infiNum)) =>
-       let queue = THE (b_delete_min geq queue) in
+       (ElemPrio (label_min:num) (dist_min: infiNum)) =>
+       let queue = THE (b_delete_min cmp queue) in
        let current_distance = THE (get_distance dists label_min) in
-       if (IS_SOME (lookup decided label_min)) then
+       if ~(IS_SOME (sptree$lookup label_min decided )) /\
+          IS_SOME (sptree$lookup label_min (spt_nodes g))
+       then
          let adj_vertices = get_adjacents label_min g in
          let (updated_vertices, new_distances) =
 	      update_distances dists dist_min adj_vertices in
-	   dijkstra_step g
+	   dijkstra_step cmp
+                         g
                          new_distances
-                         (b_insert_list geq updated_vertices queue)
-                         (insert decided label_min T)
+                         (b_insert_list cmp updated_vertices queue)
+                         (sptree$insert label_min () decided)
        else
-         dijkstra_step g dists queue decided)
+         dijkstra_step cmp g dists queue decided)
+    else ARB
 `;
 
 (*
 Termination of dijkstra step
 *)
 
-(* size of a map *)
-(* val map_size_def = Define ` *)
-(*   (map_size s = foldrWithKey (\_ _ x. x+1) (0:num) s) *)
-(* `; *)
-
-(* Take one key from the map (not specified which one)*)
-val one_key_def = Define `
-  (one_key Tip = NONE) /\
-  (one_key (Bin _ k v _ _) = SOME k)
-`;
-
-val map_diff_defn = Hol_defn "map_diff" `
-  (map_diff cmp s1 s2 =
-    if (good_cmp cmp) /\ (invariant cmp s1) /\ (invariant cmp s2)
-    then
-      (if (balanced_map$null s2) \/ (balanced_map$null s1)
-       then s1
-       else (let k = THE (one_key s1) in
-         if (IS_SOME (balanced_map$lookup cmp k s2))
-         then map_diff cmp (balanced_map$delete cmp k s1) s2
-         else balanced_map$insert cmp k T
-              (map_diff cmp (balanced_map$delete cmp k s1) s2)))
-    else ARB)
-`;
-
-val map_size_def = Define `
-  (map_size (Map cmp t) = structure_size t)
-`;
-
-Theorem almost_balancedL_aux:
-  !cmp n k v n' k' v' b1 b2.
-    (good_cmp cmp) /\
-    (invariant cmp (Bin n k v Tip (Bin n' k' v' b1 b2))) /\
-    almost_balancedL (size (Bin n k v Tip (Bin n' k' v' b1 b2)))
-                     (size Tip) ==>
-    (b1 = Tip) /\ (b2 = Tip)
-Proof
-  rpt gen_tac \\
-  Cases_on `b1`
-  >- (Cases_on `b2`
-      >- rw[]
-      >- (rw[almost_balancedL_def] \\
-	  (DISJ2_TAC \\ DISJ1_TAC \\
-           disch_tac \\
-           fs[invariant_def, structure_size_def, size_def, balanced_def])))
-  >- (Cases_on `b2` \\
-      (rw[almost_balancedL_def] \\
-	  (DISJ2_TAC \\ DISJ1_TAC \\
-           disch_tac \\
-           fs[invariant_def, structure_size_def, size_def, balanced_def])))
-QED;
-
-Theorem almost_balancedR_aux:
-  !cmp n k v n' k' v' b1 b2.
-    (good_cmp cmp) /\
-    (invariant cmp (Bin n k v (Bin n' k' v' b1 b2) Tip)) /\
-    almost_balancedR (size Tip)
-                     (size (Bin n k v (Bin n' k' v' b1 b2) Tip)) ==>
-    (b1 = Tip) /\ (b2 = Tip)
-Proof
-  rpt gen_tac \\
-  Cases_on `b1`
-  >- (Cases_on `b2`
-      >- rw[]
-      >- (rw[almost_balancedR_def] \\
-          DISJ2_TAC \\ DISJ1_TAC \\
-          disch_tac \\
-          fs[invariant_def, structure_size_def, size_def, balanced_def]))
-  >- (Cases_on `b2` \\
-      (rw[almost_balancedL_def] \\
-	  (DISJ2_TAC \\ DISJ1_TAC \\
-           disch_tac \\
-           fs[invariant_def, structure_size_def, size_def, balanced_def])))
-QED;
-
-Theorem size_bin_lower_bound:
-  !cmp n k v b1 b2. (good_cmp cmp) /\
-                    (invariant cmp (Bin n k v b1 b2)) ==>
-                    size (Bin n k v b1 b2) >= 1
-Proof
-  rw[size_def, invariant_def]
-QED;
-
-Theorem structure_size_thm:
-  !cmp t. invariant cmp t ==> size t = structure_size t
-Proof
-  Cases_on `t` \\
-  rw[invariant_def, size_def, structure_size_def]
-QED;
-
-Theorem balanceL_size:
-  !cmp k v l r. good_cmp cmp /\
-                invariant cmp l /\
-                invariant cmp r /\
-                almost_balancedL (size l) (size r) ==>
-                structure_size (balanceL k v l r) =
-                1 + structure_size l + structure_size r
-Proof
-  Cases_on `l`
-  >- (Cases_on `r`
-      >- rw[balanceL_def, structure_size_def]
-      >- rw[balanceL_def, structure_size_def])
-  >- (Cases_on `r`
-      >- (Cases_on `b`
-          >- (Cases_on `b0`
-              >- rw[balanceL_def, structure_size_def]
-              >- (rw[balanceL_def, structure_size_def] \\
-                 (* We prove that b and b0 must be Tip because l and r
-                    are almost balancedL *)
-                 imp_res_tac almost_balancedL_aux \\
-		 rfs[structure_size_def]))
-          >- (Cases_on `b0`
-              >- rw[balanceL_def, structure_size_def]
-              >- rw[balanceL_def, structure_size_def]))
-      >- (rw[balanceL_def, almost_balancedL_def]
-	  >- (imp_res_tac size_bin_lower_bound \\
-              decide_tac)
-          >- (fs[balanced_def] \\
-              imp_res_tac size_bin_lower_bound
-              >- decide_tac
-	      >- fs[size_def])
-	  >- (imp_res_tac size_bin_lower_bound \\
-              decide_tac)
-	  >- (fs[balanced_def] \\
-              imp_res_tac size_bin_lower_bound
-              >- decide_tac
-              >- fs[size_def, delta_def, structure_size_def])
-          >- (imp_res_tac size_bin_lower_bound \\
-              decide_tac)
-          >- (imp_res_tac size_bin_lower_bound \\
-              decide_tac)
-	  >- (fs[size_def,delta_def] \\
-              Cases_on `b`
-              >- (rw[structure_size_def] \\
-                  fs[invariant_def, structure_size_def, balanced_def,
-		     size_def] \\
-		  imp_res_tac structure_size_thm \\
-                  fs[])
-	      >- (rw[structure_size_def] \\
-                  Cases_on `b0`
-                  >- (rw[structure_size_def] \\
-		      fs[invariant_def, structure_size_def, balanced_def,
-			 size_def])
-                  >- rw[structure_size_def]))
-          >- fs[size_def, delta_def]
-          >- (fs[size_def, delta_def] \\
-              Cases_on `b`
-              >- (rw[structure_size_def] \\
-                  fs[invariant_def, structure_size_def, balanced_def,
-		     size_def] \\
-		  imp_res_tac structure_size_thm \\
-                  fs[])
-              >- (rw[structure_size_def] \\
-                  Cases_on `b0`
-                  >- (rw[structure_size_def] \\
-                      fs[invariant_def, structure_size_def, balanced_def,
-			 size_def])
-                  >- rw[structure_size_def]))
-          >- fs[size_def, delta_def]))
-QED;
-
-Theorem balanceR_size:
-  !cmp k v l r. good_cmp cmp /\
-                invariant cmp l /\
-                invariant cmp r /\
-                almost_balancedR (size l) (size r) ==>
-                structure_size (balanceR k v l r) =
-                1 + structure_size l + structure_size r
-Proof
-  Cases_on `l`
-  >- (Cases_on `r`
-      >- rw[balanceR_def, structure_size_def]
-      >- (Cases_on `b`
-          >- (Cases_on `b0`
-              >- rw[balanceR_def, structure_size_def]
-	      >- rw[balanceR_def, structure_size_def])
-          >- (Cases_on `b0`
-              >- (rw[balanceR_def, structure_size_def] \\
-                  imp_res_tac almost_balancedR_aux \\
-		  rfs[structure_size_def])
-              >- rw[balanceR_def, structure_size_def])))
-  >- (Cases_on `r`
-      >- rw[balanceR_def, structure_size_def]
-      >- (rw[balanceR_def, almost_balancedR_def]
-          >- (imp_res_tac size_bin_lower_bound \\
-              decide_tac)
-	  >- (fs[balanced_def] \\
-              imp_res_tac size_bin_lower_bound
-              >- decide_tac
-	      >- fs[size_def])
-	  >- (imp_res_tac size_bin_lower_bound \\
-              decide_tac)
-	  >- (fs[balanced_def] \\
-              imp_res_tac size_bin_lower_bound
-              >- decide_tac
-              >- fs[size_def, delta_def, structure_size_def])
-          >- (imp_res_tac size_bin_lower_bound \\
-              decide_tac)
-          >- (imp_res_tac size_bin_lower_bound \\
-              decide_tac)
-	  >- (fs[size_def,delta_def] \\
-              Cases_on `b'`
-              >- (rw[structure_size_def] \\
-                  fs[invariant_def, structure_size_def, balanced_def,
-		     size_def] \\
-		  imp_res_tac structure_size_thm \\
-                  fs[])
-	      >- (rw[structure_size_def] \\
-                  Cases_on `b0'`
-                  >- (rw[structure_size_def] \\
-		      fs[invariant_def, structure_size_def, balanced_def,
-			 size_def])
-                  >- rw[structure_size_def]))
-          >- fs[size_def, delta_def]
-          >- (fs[size_def, delta_def] \\
-              Cases_on `b'`
-              >- (rw[structure_size_def] \\
-                  fs[invariant_def, structure_size_def, balanced_def,
-		     size_def] \\
-		  imp_res_tac structure_size_thm \\
-                  fs[])
-              >- (rw[structure_size_def] \\
-                  Cases_on `b0'`
-                  >- (rw[structure_size_def] \\
-                      fs[invariant_def, structure_size_def, balanced_def,
-			 size_def])
-                  >- rw[structure_size_def]))
-          >- fs[size_def, delta_def]))
-QED;
-
-Theorem balanced_is_almostBalancedL:
-  !b1 b2. balanced (size b1) (size b2) ==> almost_balancedL (size b1) (size b2)
-Proof
-  rw[balanced_def, almost_balancedL_def, delta_def, size_def]
-  >- (DISJ2_TAC \\ decide_tac)
-  >- (DISJ2_TAC \\
-      Cases_on `(size b1) < 1`
-      >- fs[]
-      >- fs[MIN_DEF])
-  >- (DISJ1_TAC \\
-      Cases_on `(size b1) < (size b2)` \\
-      fs[MIN_DEF])
-QED;
-
-Theorem balanced_is_almostBalancedR:
-  !b1 b2. balanced (size b1) (size b2) ==> almost_balancedR (size b1) (size b2)
-Proof
-  rw[balanced_def, almost_balancedR_def, delta_def, size_def]
-  >- (DISJ2_TAC \\ decide_tac)
-  >- (DISJ2_TAC \\
-      Cases_on `(size b1) < 1`
-      >- fs[]
-      >- fs[MIN_DEF])
-  >- (DISJ1_TAC \\
-      Cases_on `(size b1) < (size b2)` \\
-      fs[MIN_DEF])
-QED;
-
-
-Theorem balanced_sym:
-  !b1 b2. balanced (size b1) (size b2) ==> balanced (size b2) (size b1)
-Proof
-  rw[balanced_def]
-  >- (DISJ1_TAC \\ decide_tac)
-  >- (DISJ2_TAC \\
-      Cases_on `(size b2) < (size b1)` \\
-      fs[MIN_DEF, delta_def])
-QED;
-
-Theorem deleteFindMax_size:
-  !f km m b l. (good_cmp f) /\
-               ~(balanced_map$null b) /\
-               (invariant f b) /\
-               (deleteFindMax b = ((km,m), l)) ==>
-               structure_size b = (structure_size l) + 1
-Proof
-  ntac 3 strip_tac \\
-  recInduct deleteFindMax_ind \\
-  rpt strip_tac
-  >- fs[deleteFindMax_def, structure_size_def]
-  >- (fs[deleteFindMax_def] \\
-      `~null (Bin v5 v6 v7 v8 v9)` by rw[balanced_mapTheory.null_def] \\
-      `invariant f (Bin v5 v6 v7 v8 v9)` by fs[invariant_def] \\
-      Cases_on `deleteFindMax (Bin v5 v6 v7 v8 v9)` \\
-      Cases_on `q` \\
-      fs[] \\
-      rw[structure_size_def] \\
-      sg `almost_balancedL (size l) (size r)`
-      >- (`invariant f (Bin v5 v6 v7 v8 v9)` by fs[invariant_def] \\
-          `structure_size (Bin v5 v6 v7 v8 v9) = size (Bin v5 v6 v7 v8 v9)`
-          by (imp_res_tac (GSYM structure_size_thm)) \\
-	  `invariant f r` by (imp_res_tac deleteFindMax) \\
-	  `structure_size r = size r`
-          by (imp_res_tac (GSYM structure_size_thm)) \\
-	  fs[size_def] \\
-	  fs[almost_balancedL_def] \\
-          rw[balanced_def, delta_def]
-	  >- (DISJ1_TAC \\ rw[])
-	  >- (fs[invariant_def, balanced_def, size_def, structure_size_def,
-		 delta_def] \\
-              Cases_on `(size l) < (size r + 1)` \\
-              fs[MIN_DEF])
-          >- (fs[invariant_def, balanced_def, size_def] \\
-              Cases_on `(size l) < 1` \\
-              rw[] \\
-	      fs[MIN_DEF, delta_def])
-          >- (fs[invariant_def, balanced_def, size_def, structure_size_def,
-		 delta_def] \\
-              Cases_on `(size l) < 2` \\
-              rw[] \\
-              fs[MIN_DEF])
-	  >- (fs[invariant_def, balanced_def, size_def, structure_size_def,
-		delta_def] \\
-              Cases_on `(size l) < (size r + 1)` \\
-              fs[MIN_DEF, delta_def]))
-      >- (`invariant f l` by fs[invariant_def] \\
-          `invariant f r` by (imp_res_tac deleteFindMax) \\
-	  sg `structure_size (balanceL k x l r) =
-              1 + structure_size l + structure_size r`
-          >- (imp_res_tac balanceL_size \\
-	     first_x_assum (qspecl_then [`x`, `k`] assume_tac) \\
-             rw[])
-	  >- rw[]))
-  >- fs[balanced_mapTheory.null_def]
-QED;
-
-Theorem deleteFindMin_size:
-  !f km m b l. (good_cmp f) /\
-               ~(balanced_map$null b) /\
-               (invariant f b) /\
-               (deleteFindMin b = ((km,m), l)) ==>
-               structure_size b = (structure_size l) + 1
-Proof
-  ntac 3 strip_tac \\
-  recInduct deleteFindMin_ind \\
-  rpt strip_tac
-  >- fs[deleteFindMin_def, structure_size_def]
-  >- (fs[deleteFindMin_def] \\
-      `~null (Bin v5 v6 v7 v8 v9)` by rw[balanced_mapTheory.null_def] \\
-      `invariant f (Bin v5 v6 v7 v8 v9)` by fs[invariant_def] \\
-      Cases_on `deleteFindMin (Bin v5 v6 v7 v8 v9)` \\
-      Cases_on `q` \\
-      fs[] \\
-      rw[structure_size_def] \\
-      sg `almost_balancedR (size r') (size r)`
-      >- (`invariant f (Bin v5 v6 v7 v8 v9)` by fs[invariant_def] \\
-          `structure_size (Bin v5 v6 v7 v8 v9) = size (Bin v5 v6 v7 v8 v9)`
-          by (imp_res_tac (GSYM structure_size_thm)) \\
-	  `invariant f r'` by (imp_res_tac deleteFindMin) \\
-	  `structure_size r' = size r'`
-          by (imp_res_tac (GSYM structure_size_thm)) \\
-	  fs[size_def] \\
-	  fs[almost_balancedR_def] \\
-          rw[balanced_def, delta_def]
-	  >- (DISJ1_TAC \\ rw[])
-	  >- (fs[invariant_def, balanced_def, size_def, structure_size_def,
-		 delta_def] \\
-              Cases_on `(size r') < (size r + 1)` \\
-              fs[MIN_DEF])
-          >- (fs[invariant_def, balanced_def, size_def] \\
-              Cases_on `(size r') < 1` \\
-              rw[] \\
-	      fs[MIN_DEF, delta_def])
-          >- (fs[invariant_def, balanced_def, size_def, structure_size_def,
-		 delta_def] \\
-              Cases_on `(size r') < 2` \\
-              rw[] \\
-              fs[MIN_DEF])
-	  >- (fs[invariant_def, balanced_def, size_def, structure_size_def,
-		delta_def] \\
-              Cases_on `(size r') < (size r + 1)` \\
-              fs[MIN_DEF, delta_def]))
-      >- (`invariant f r` by fs[invariant_def] \\
-          `invariant f r'` by (imp_res_tac deleteFindMin) \\
-	  sg `structure_size (balanceR k x r' r) =
-              1 + structure_size r' + structure_size r`
-          >- (imp_res_tac balanceR_size \\
-	     first_x_assum (qspecl_then [`x`, `k`] assume_tac) \\
-             rw[])
-	  >- rw[]))
-  >- fs[balanced_mapTheory.null_def]
-QED;
-
-Theorem glue_size:
-  !f n k v b1 b2.
-    (good_cmp f) /\
-    (invariant f (Bin n k v b1 b2)) ==>
-    structure_size (glue b1 b2) = structure_size b1 + structure_size b2
-Proof
-  Cases_on `b1`
-  >- rw[glue_def,structure_size_def]
-  >- (Cases_on `b2`
-      >- rw[glue_def,structure_size_def]
-      >- (rw[glue_def]
-	  >- (Cases_on `deleteFindMax (Bin n k v b b0)` \\
-              Cases_on `q` \\
-              rw[] \\
-              `invariant f (Bin n k v b b0)` by fs[invariant_def] \\
-	      `~(null (Bin n k v b b0))` by rw[balanced_mapTheory.null_def] \\
-              imp_res_tac deleteFindMax_size \\
-              rpt (WEAKEN_TAC is_forall) \\
-              `invariant f r` by (imp_res_tac deleteFindMax) \\
-              sg `almost_balancedR (size r) (size (Bin n' k' v' b' b0'))`
-              >- (rw[size_def] \\
-                  `invariant f (Bin n k v b b0)` by fs[invariant_def] \\
-		  `structure_size (Bin n k v b b0) = n`
-                  by (imp_res_tac (GSYM structure_size_thm) \\ rw[size_def]) \\
-		  `structure_size r = size r`
-                  by (imp_res_tac (GSYM structure_size_thm)) \\
-                  fs[size_def] \\
-		  fs[almost_balancedR_def, invariant_def, balanced_def,
-		     delta_def, structure_size_def, size_def] \\
-                  rw[] \\
-		  (Cases_on `(size r) <
-                             (structure_size b' + (structure_size b0' + 1))`
-                   >- fs[]
-		   >- fs[MIN_DEF]))
-	      >- (`invariant f (Bin n' k' v' b' b0')` by fs[invariant_def] \\
-                  sg `structure_size (balanceR q' r' r (Bin n' k' v' b' b0')) =
-                  1+(structure_size r)+(structure_size (Bin n' k' v' b' b0'))`
-                  >- (imp_res_tac balanceR_size \\
-                      first_x_assum (qspecl_then [`r'`, `q'`] assume_tac) \\
-                      rw[])
-		  >- rw[]))
-	  >- (Cases_on `deleteFindMin (Bin n' k' v' b' b0')` \\
-              Cases_on `q` \\
-              rw[] \\
-              `invariant f (Bin n' k' v' b' b0')` by fs[invariant_def] \\
-	      `~(null (Bin n' k' v' b' b0'))` by rw[balanced_mapTheory.null_def] \\
-              imp_res_tac deleteFindMin_size \\
-              rpt (WEAKEN_TAC is_forall) \\
-              `invariant f r` by (imp_res_tac deleteFindMin) \\
-              sg `almost_balancedL (size (Bin n k v b b0)) (size r)`
-              >- (rw[size_def] \\
-                  `invariant f (Bin n k v b b0)` by fs[invariant_def] \\
-		  `structure_size (Bin n k v b b0) = n`
-                  by (imp_res_tac (GSYM structure_size_thm) \\ rw[size_def]) \\
-		  `structure_size r = size r`
-                  by (imp_res_tac (GSYM structure_size_thm)) \\
-                  fs[size_def] \\
-		  fs[almost_balancedL_def, invariant_def, balanced_def,
-		     delta_def, structure_size_def, size_def] \\
-                  rw[] \\
-		  Cases_on `(structure_size b + (structure_size b0 + 1)) <
-                            (size r + 1)` \\
-                  fs[MIN_DEF])
-	      >- (`invariant f (Bin n k v b b0)` by fs[invariant_def] \\
-                  sg `structure_size (balanceL q' r' (Bin n k v b b0) r) =
-                  1+(structure_size r)+(structure_size (Bin n k v b b0))`
-                  >- (imp_res_tac balanceL_size \\
-                      first_x_assum (qspecl_then [`r'`, `q'`] assume_tac) \\
-                      rw[])
-		  >- rw[]))))
-QED;
-
-Theorem delete_one_smaller:
-  !s. (good_cmp f) /\
-      (invariant f b) /\
-      ~(balanced_map$null b) ==>
-      balanced_map$structure_size (balanced_map$delete f (THE (one_key b)) b) <
-      balanced_map$structure_size b
-Proof
-  strip_tac \\
-  rw[structure_size_def] \\
-  Cases_on `b`
-  >- fs[null_def, balanced_mapTheory.null_def]
-  >- (rw[one_key_def, THE_DEF, delete_def,
-	 balanced_mapTheory.delete_def] \\
-      sg `f k k = Equal`
-      >- (imp_res_tac good_cmp_thm \\
-          rpt (first_x_assum (qspecl_then [`k`] assume_tac)) \\
-          rw[])
-      >- (rw[structure_size_def] \\
-          `invariant f b'` by fs[invariant_def] \\
-          `invariant f b0` by fs[invariant_def] \\
-          imp_res_tac glue_size \\
-	  rw[]))
-QED;
-
-val (map_diff_def, map_diff_ind) =
-  Defn.tprove (map_diff_defn,
-    wf_rel_tac `measure (\(cmp,s1,_). structure_size s1)` \\
-    CONJ_TAC \\
-    rpt strip_tac \\
-    imp_res_tac delete_one_smaller \\ rw[])
-;
-
-(* map containing all the the nodes of the graph *)
-val map_nodes_def = Define `
-  (map_nodes [] = (empty num_cmp)) /\
-  (map_nodes ((Vertex l adjs)::vs) =
-    insert (union
-            (map_nodes vs)
-            (mlmap$fromList num_cmp (MAP (\ (l,d).(l,T)) adjs)))
-            l T)
-`;
-
-(* EVAL ``map_nodes  *)
-(*   [(Vertex (1:num) [(2:num, 4); (3, 5)]); (Vertex 2 [(1, 4)])] *)
-(* ``; *)
-
-
-
 (* Defn.tgoal dijkstra_step_defn; *)
 val (dijkstra_step_def, dijkstra_step_ind) =
   Defn.tprove (dijkstra_step_defn,
-               cheat)
-;
-
-
-
+    WF_REL_TAC `inv_image ($< LEX $<) (\(cmp,graph,dists,queue,decided).
+     ( ((size (spt_nodes graph)) - (size decided)),
+      bsize queue))` \\ rw[]
+    >- (DISJ1_TAC \\ CONJ_TAC
+        >- (fs[sptreeTheory.size_insert] \\
+            Cases_on `label_min IN (domain decided)` \\ fs[] \\
+            imp_res_tac lookup_NONE_domain)
+	>- (imp_res_tac subspt_domain \\
+            `size (spt_nodes g) = CARD (domain (spt_nodes g))` by
+            metis_tac[size_domain] \\
+            `size decided = CARD (domain decided)` by
+            metis_tac[size_domain] \\
+            `FINITE (domain (spt_nodes g))` by metis_tac[FINITE_domain] \\
+            sg `(domain decided) PSUBSET (domain (spt_nodes g))`
+            >- (fs[IS_SOME_DEF] \\
+                `label_min NOTIN (domain decided)` by
+		metis_tac[lookup_NONE_domain] \\
+                `?x. lookup label_min (spt_nodes g) = SOME x` by
+                metis_tac[IS_SOME_EXISTS] \\
+	        metis_tac[PSUBSET_MEMBER, domain_lookup])
+	    >- (imp_res_tac CARD_PSUBSET \\
+                fs[]))) \\
+    (Cases_on `queue`
+     >- fs[b_is_empty_def]
+     >- (imp_res_tac b_delete_size \\ fs[]))
+);
 
 val dijkstra_def = Define `
   dijkstra source graph =
-    dijkstra_step graph
+    dijkstra_step ep_geq
+                  graph
                   (initial_distances source graph)
-                  (b_insert geq (ElemPrio source (Num 0)) Bsbempty)
-                  (empty num_cmp)
+                  (b_insert ep_geq (ElemPrio source (Num 0)) Bsbempty)
+                  LN
 `;
 
 open ml_translatorTheory ml_translatorLib;
 
 val _ = translation_extends "SkewBinomialHeap";
 
-val _ = translate geq_def;
+val _ = translate ep_geq_def;
 val _ = translate geq_inf_def;
 val _ = translate get_adjacents_def;
 val _ = translate add_inf_def;
