@@ -743,7 +743,6 @@ val _ = Define
     | NONE => NONE
   `
 
-
 val _ = Define `
  ((do_app:((v)store_v)list#'ffi ffi_state -> op ->(v)list ->((((v)store_v)list#'ffi ffi_state)#((v),(v))result)option) ((s: v store),(t: 'ffi ffi_state)) op vs=
    ((case (op, vs) of
