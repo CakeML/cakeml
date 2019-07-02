@@ -2,7 +2,6 @@
   Bootstrapped Skew Binomial Heaps, based on Purely Functional Data Structures
   sections 9.3.2 and 10.2.2 (Chris Okasaki)
 *)
-
 open preamble;
 open bagTheory bagLib;
 
@@ -121,6 +120,7 @@ val delete_min_def = Define `
               (merge_tree geq (REVERSE (children min)) (normalize geq ts'))))
 `;
 
+
 (* Bootstraping Skew Binomial Heaps *)
 Datatype `bsbHeap = Bsbempty | Bsbheap 'a (bsbHeap sbHeap)`;
 
@@ -206,6 +206,22 @@ val b_heap_to_bag_def = Define `
   (b_heap_to_bag4 geq [] = {||}) /\
   (b_heap_to_bag4 geq (t::ts) = BAG_UNION (b_heap_to_bag2 geq t)
                                           (b_heap_to_bag4 geq ts))
+`;
+
+val bsize_def = Define `
+  (bsize Bsbempty = 0:num) /\
+  (bsize (Bsbheap a0 a1) = 1 + (bsize1 a1)) /\
+  (bsize1 [] = 0) /\
+  (bsize1 (a0::a1) =
+     (bsize2 a0) + (bsize1 a1)) /\
+  (bsize2 (Sbnode a0 a1 a2 a3) =
+     (bsize a0) + (bsize3 a2) + (bsize4 a3)) /\
+  (bsize3 [] = 0) /\
+  (bsize3 (a0::a1) =
+    (bsize a0) + (bsize3 a1)) /\
+  (bsize4 [] = 0) /\
+  (bsize4 (a0::a1) =
+    (bsize2 a0) + (bsize4 a1))
 `;
 
 val is_tree_ordered_def = Define `
@@ -338,24 +354,25 @@ Proof
   rw[tree_to_bag_def,BAG_INSERT_UNION]
 QED;
 
-val bsbHeap_size_def = fetch "-" "bsbHeap_size_def";
+(* val bsize_def = fetch "-" "bsize_def"; *)
 
 Theorem equiv_size1_size4:
-  !f h. bsbHeap4_size f h = bsbHeap1_size f h
+  !h. bsize4 h = bsize1 h
 Proof
   Induct_on `h`
-  >- rw[bsbHeap_size_def]
-  >- rw[bsbHeap_size_def]
+  >- rw[bsize_def]
+  >- rw[bsize_def]
 QED;
 
 Theorem tree_size_general:
-  !f r n l0 l. bsbHeap2_size f (Sbnode r n l0 l) =
-               1 + n + (bsbHeap_size f r) +
-               (bsbHeap3_size f l0) + (bsbHeap1_size f l)
+  !r n l0 l. bsize2 (Sbnode r n l0 l) =
+             (bsize r) +
+             (bsize3 l0) +
+             (bsize1 l)
 Proof
   Induct_on `l`
-  >- rw[bsbHeap_size_def]
-  >- rw[bsbHeap_size_def, equiv_size1_size4]
+  >- rw[bsize_def]
+  >- rw[bsize_def, equiv_size1_size4]
 QED;
 
 Theorem reverse_bag:
@@ -447,43 +464,28 @@ Proof
 QED;
 
 Theorem elem_list_size:
-  !f x l. BAG_IN x (LIST_TO_BAG l) ==>
-          bsbHeap_size f x < 1 + (bsbHeap3_size f l)
+  !x l. BAG_IN x (LIST_TO_BAG l) ==>
+          bsize x < 1 + (bsize3 l)
 Proof
   Induct_on `l`
   >- rw[LIST_TO_BAG_def]
-  >- (rw[LIST_TO_BAG_def, bsbHeap_size_def]
+  >- (rw[LIST_TO_BAG_def, bsize_def]
       >- decide_tac
       >- (res_tac \\
-          pop_assum (qspecl_then [`f`] mp_tac) \\
           decide_tac))
 QED;
 
-Theorem head_heap_size:
-  !f t h. bsbHeap2_size f t < bsbHeap1_size f (t::h)
-Proof
-  rw[bsbHeap_size_def]
-QED;
-
-Theorem tree_first_child_size:
-  !f a n l c cs. bsbHeap2_size f c < bsbHeap2_size f (Sbnode a n l (c::cs))
-Proof
-  rw[bsbHeap_size_def]
-QED;
-
 Theorem elem_tree_size:
-  !f .(!t x. BAG_IN x (tree_to_bag t) ==>
-        bsbHeap_size f x < 1 + (bsbHeap2_size f t)) /\
-      (!ts x. BAG_IN x (heap_to_bag ts) ==>
-        bsbHeap_size f x < 1 + (bsbHeap4_size f ts))
+  (!(t: 'a bsbHeap sbTree) x. BAG_IN x (tree_to_bag t) ==>
+    bsize x < 1 + (bsize2 t)) /\
+  (!(ts: 'a bsbHeap sbHeap) x. BAG_IN x (heap_to_bag ts) ==>
+    bsize x < 1 + (bsize4 ts))
 Proof
-  strip_tac \\
   ho_match_mp_tac (fetch "-" "sbTree_induction") \\
   rw[]
   >- (fs[tree_to_bag_def] \\
       EVAL_TAC \\ fs[]
       >- (imp_res_tac elem_list_size \\
-          pop_assum (qspecl_then [`f`] mp_tac) \\
           rw[])
       >- (res_tac \\
           rw[]))
@@ -2082,13 +2084,100 @@ Proof
               metis_tac[COMM_BAG_UNION, ASSOC_BAG_UNION])))
 QED;
 
+val bsbHeap_ind  = fetch "-" "bsbHeap_induction";
+
+Theorem b_finite_bag:
+  !geq.
+    TotalPreOrder geq ==>
+    (!(h: 'a bsbHeap). FINITE_BAG (b_heap_to_bag geq h)) /\
+    (!(l: 'a bsbHeap sbTree list). FINITE_BAG (b_heap_to_bag1 geq l)) /\
+    (!(s: 'a bsbHeap sbTree). FINITE_BAG (b_heap_to_bag2 geq s)) /\
+    (!(l: 'a bsbHeap list). FINITE_BAG (b_heap_to_bag3 geq l)) /\
+    (!(l: 'a bsbHeap sbTree list). FINITE_BAG (b_heap_to_bag4 geq l))
+Proof
+  ntac 2 strip_tac \\
+  ho_match_mp_tac bsbHeap_ind \\ rw[] \\
+  rw[b_heap_to_bag_def]
+QED;
+
+Theorem b_size_bag_card:
+  !geq. TotalPreOrder geq ==>
+        (!h. is_b_heap_ordered geq h ==>
+             bsize h =
+             BAG_CARD (b_heap_to_bag geq h)) /\
+        (!l. is_b_heap_ordered1 geq l ==>
+             bsize1 l =
+             BAG_CARD (b_heap_to_bag1 geq l)) /\
+        (!s. is_b_heap_ordered2 geq s ==>
+             bsize2 s =
+             BAG_CARD (b_heap_to_bag2 geq s)) /\
+        (!l. is_b_heap_ordered3 geq l ==>
+             bsize3 l =
+	     BAG_CARD (b_heap_to_bag3 geq l)) /\
+        (!l. is_b_heap_ordered4 geq l ==>
+             bsize4 l =
+             BAG_CARD (b_heap_to_bag4 geq l))
+Proof
+  ntac 2 strip_tac \\
+  ho_match_mp_tac bsbHeap_ind \\
+  rw[b_heap_to_bag_def, bsize_def] \\
+  fs[is_b_heap_ordered_def]
+  >- metis_tac[b_finite_bag, BAG_CARD_THM]
+  >- (`FINITE_BAG (b_heap_to_bag2 geq s)` by metis_tac[b_finite_bag] \\
+      `FINITE_BAG (b_heap_to_bag1 geq l)` by metis_tac[b_finite_bag] \\
+      imp_res_tac BAG_CARD_UNION \\
+      rw[])
+  >- (`FINITE_BAG (b_heap_to_bag geq h)` by metis_tac[b_finite_bag] \\
+      `FINITE_BAG (b_heap_to_bag3 geq l)` by metis_tac[b_finite_bag] \\
+      `FINITE_BAG (b_heap_to_bag4 geq l')` by metis_tac[b_finite_bag] \\
+      imp_res_tac BAG_CARD_UNION \\
+      rw[])
+  >- (`FINITE_BAG (b_heap_to_bag geq h)` by metis_tac[b_finite_bag] \\
+      `FINITE_BAG (b_heap_to_bag3 geq l)` by metis_tac[b_finite_bag] \\
+      imp_res_tac BAG_CARD_UNION \\
+      rw[])
+  >- (`FINITE_BAG (b_heap_to_bag2 geq s)` by metis_tac[b_finite_bag] \\
+      `FINITE_BAG (b_heap_to_bag4 geq l)` by metis_tac[b_finite_bag] \\
+      imp_res_tac BAG_CARD_UNION \\
+      rw[])
+QED;
+
+Theorem b_delete_size:
+  !geq h. TotalPreOrder geq /\
+          h <> Bsbempty /\
+          is_b_heap_ordered geq h ==>
+	  bsize h =
+          bsize (THE (b_delete_min geq h)) + 1
+Proof
+  rpt strip_tac \\
+  imp_res_tac b_delete_min_order \\
+  WEAKEN_TAC is_imp \\
+  `bsize h = BAG_CARD (b_heap_to_bag geq h)` by
+  metis_tac[b_size_bag_card] \\
+  `bsize (THE (b_delete_min geq h)) =
+   BAG_CARD (b_heap_to_bag geq (THE (b_delete_min geq h)))` by
+  metis_tac[b_size_bag_card] \\
+  fs[] \\
+  Cases_on `h`
+  >- fs[]
+  >- (imp_res_tac b_delete_min_correct \\ fs[] \\
+      rw[b_find_min_def] \\
+      `FINITE_BAG (b_heap_to_bag geq (THE (b_delete_min geq (Bsbheap a l))))` by
+      metis_tac[b_finite_bag] \\
+      `FINITE_BAG {|a|}` by fs[] \\
+      rw [BAG_CARD_UNION] \\
+      `BAG_CARD {| a |} = 1` suffices_by fs[] \\
+      `FINITE_BAG {||}` by fs[] \\
+      rw[BAG_CARD_THM])
+QED;
+
 open ListProgTheory ml_translatorTheory;
 open ml_translatorLib;
 
 val _ = translation_extends "ListProg";
 
-val _ = register_type ``:'a sbTree``;
-(* val _ = register_type ``:'a sbHeap``; *)
+
+ val _ = register_type ``:'a sbTree``;
 
 val _ = translate leaf_def;
 val _ = translate root_def;
@@ -2128,14 +2217,15 @@ val SKEWBINOMIALHEAP_BSBHEAP_TYPE_def = tDefine "SKEWBINOMIALHEAP_BSBHEAP_TYPE" 
                        ARB) x_1 v2_2) ∧
   (SKEWBINOMIALHEAP_BSBHEAP_TYPE a Bsbempty v ⇔
     v = Conv (SOME (TypeStamp "Bsbempty" 6)) [])`
-  (WF_REL_TAC `measure ((bsbHeap_size (K 0)) o FST o SND)`
+  (WF_REL_TAC `measure (bsize o FST o SND)`
    \\ REPEAT STRIP_TAC
    \\ TRY (PAT_X_ASSUM (MEM |> CONJUNCT2 |> SPEC_ALL |> concl |> rand |> rand)
       (fn th => ASSUME_TAC th THEN Induct_on [ANTIQUOTE (rand (rand (concl th)))]))
    \\ FULL_SIMP_TAC std_ss [MEM,FORALL_PROD,size_def] \\ REPEAT STRIP_TAC \\
    imp_res_tac elem_tree_size \\
-   pop_assum (qspecl_then [`(K 0)`] mp_tac) \\
-   fs[]>>
+   res_tac \\
+   (*  pop_assum (qspecl_then [`(K 0)`] mp_tac) \\ *)
+   fs[bsize_def]>>
    EVAL_TAC \\ rw[]);
 
 val SKEWBINOMIALHEAP_SBTREE_TYPE_def = theorem "SKEWBINOMIALHEAP_SBTREE_TYPE_def";
