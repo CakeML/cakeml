@@ -200,12 +200,12 @@ Proof
 QED
 
 val type_e_weakening_lem = Q.prove (
-`(!tenv tenvE e t. type_e tenv tenvE e t ⇒
-    ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_e tenv' tenvE' e t) ∧
- (!tenv tenvE es ts. type_es tenv tenvE es ts ⇒
-    ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_es tenv' tenvE' es ts) ∧
- (!tenv tenvE funs bindings. type_funs tenv tenvE funs bindings ⇒
-    ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_funs tenv' tenvE' funs bindings)`,
+`(!signs tenv tenvE e t. type_e signs tenv tenvE e t ⇒
+    ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_e signs tenv' tenvE' e t) ∧
+ (!signs tenv tenvE es ts. type_es signs tenv tenvE es ts ⇒
+    ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_es signs tenv' tenvE' es ts) ∧
+ (!signs tenv tenvE funs bindings. type_funs signs tenv tenvE funs bindings ⇒
+    ∀ tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_funs signs tenv' tenvE' funs bindings)`,
  ho_match_mp_tac type_e_ind >>
  rw [weak_def] >>
  rw [Once type_e_cases]
@@ -292,12 +292,12 @@ val type_e_weakening_lem = Q.prove (
    metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]));
 
 Theorem type_e_weakening:
- (!tenv tenvE e t tenv' tenvE'.
-   type_e tenv tenvE e t ∧ weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_e tenv' tenvE' e t) ∧
- (!tenv tenvE es ts tenv' tenvE'.
-   type_es tenv tenvE es ts ∧ weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_es tenv' tenvE' es ts) ∧
- (!tenv tenvE funs bindings tenv' tenvE'.
-   type_funs tenv tenvE funs bindings ∧ weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_funs tenv' tenvE' funs bindings)
+ (!signs tenv tenvE e t tenv' tenvE'.
+   type_e signs tenv tenvE e t ∧ weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_e signs tenv' tenvE' e t) ∧
+ (!signs tenv tenvE es ts tenv' tenvE'.
+   type_es signs tenv tenvE es ts ∧ weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_es signs tenv' tenvE' es ts) ∧
+ (!signs tenv tenvE funs bindings tenv' tenvE'.
+   type_funs signs tenv tenvE funs bindings ∧ weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_funs signs tenv' tenvE' funs bindings)
 Proof
 metis_tac [type_e_weakening_lem]
 QED
@@ -389,7 +389,7 @@ val type_tenv_val_weakening_lemma = Q.prove (
              type_v tvs' ctMap' tenvS' v t) `
  >> rw []
  >> pairarg_tac
- >> fs []);
+ >> fs [] );
 
 val remove_lambda_prod = Q.prove (
 `(\(x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
@@ -435,6 +435,7 @@ Proof
    >> rw []
    >> fs [PULL_EXISTS])
  >- (fs [] >>
+     qexists_tac `signs` >>
      qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
      rw []
@@ -451,12 +452,19 @@ Proof
      >> irule weak_tenvE_bind
      >> irule (SIMP_RULE (srw_ss()) [] weak_tenvE_bind_tvar2)
      >> simp [tenv_val_exp_ok_def, weak_tenvE_def])
+
+
+
+
  >- (fs [] >>
+     qexists_tac `signs` >>
      qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
-     rw [] >>
-     metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma])
+     rw []
+     >- metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma]
+     >- metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma] )
  >- (fs [] >>
+     qexists_tac `signs` >>
      qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
      qexists_tac `bindings` >>
@@ -470,11 +478,13 @@ Proof
      >> irule (SIMP_RULE (srw_ss()) [] weak_tenvE_bind_tvar2)
      >> simp [tenv_val_exp_ok_def, weak_tenvE_def])
  >- (fs [] >>
+     qexists_tac `signs` >>
      qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
      qexists_tac `bindings` >>
-     rw [] >>
-     metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma])
+     rw []
+     >- metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma]
+     >- metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma])
  >- (fs [weakS_def] >>
      metis_tac [FLOOKUP_SUBMAP])
  >- (fs [weakS_def] >>
@@ -635,22 +645,22 @@ Proof
 QED
 
 Theorem type_d_weakening:
- (!check tenv d decls tenv'.
-  type_d check tenv d decls tenv' ⇒
+ (!signs check tenv d decls tenv'.
+  type_d signs check tenv d decls tenv' ⇒
   !tenv''.
   check = F ∧
   tenv_ok tenv'' ∧
   weak tenv'' tenv
   ⇒
-  type_d check tenv'' d decls tenv') ∧
- (!check tenv d decls tenv'.
-  type_ds check tenv d decls tenv' ⇒
+  type_d signs check tenv'' d decls tenv') ∧
+ (!signs check tenv d decls tenv'.
+  type_ds signs check tenv d decls tenv' ⇒
   !tenv''.
   check = F ∧
   tenv_ok tenv'' ∧
   weak tenv'' tenv
   ⇒
-  type_ds check tenv'' d decls tenv')
+  type_ds signs check tenv'' d decls tenv')
 Proof
  ho_match_mp_tac type_d_ind >>
  rw [] >>
