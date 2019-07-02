@@ -31,7 +31,8 @@ val code_rel_def = Define `
     !n x. lookup n s_code = SOME x ==>
           ?m. lookup n tree = SOME m /\
           lookup n t_code = SOME (strip_fun x (n + 1)) /\
-          lookup (n + 1) t_code = SOME (opt_code (create_raw_ep x) tree)
+          lookup (n + 1) t_code = SOME (opt_code (create_raw_ep x) tree) /\
+          ?x2. x = Seq (StackAlloc m) x2
 `;
 
 val state_rel_def = Define `
@@ -81,9 +82,10 @@ Theorem opt_code_correct:
     evaluate (prog,s) = (res,s1) /\ state_rel s t /\ code_rel s.code t.code tree /\
     tree_accurate tree s.code /\ res <> SOME Error ==>
     ?ck t1. evaluate (opt_code prog tree,t with clock := t.clock + ck) = (res,t1) /\
-            state_rel s1 t1 /\ tree_accurate tree s1.code /\
-            code_rel s1.code t1.code tree
+            (if res = SOME TimeOut then s1.ffi = t1.ffi else state_rel s1 t1) /\
+            tree_accurate tree s1.code /\ code_rel s1.code t1.code tree
 Proof
+
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1
    (rename [`Skip`]
@@ -157,6 +159,7 @@ Proof
    (rename[`Tick`]
     \\ fs[evaluate_def, opt_code_def, state_rel_def, tree_accurate_def, bool_case_eq, empty_env_def, dec_clock_def]
     \\ qexists_tac `0` \\ fs[])
+
   THEN1
    (rename [`Seq p1 p2`]
     \\ Cases_on `opt_code (Seq p1 p2) tree = Seq (opt_code p1 tree) (opt_code p2 tree)`
@@ -194,18 +197,44 @@ Proof
     \\ Cases_on `find_code (INL x') s.regs s.code` \\ fs[]
     \\ Cases_on `s.clock = 0` \\ fs[]
     THEN1
-      rveq \\ fs[]
+     (rveq \\ fs[]
       \\ fs[new_mem_def]
       \\ rw[] \\ fs[evaluate_def, state_rel_def, find_code_def]
       \\ qpat_assum `code_rel _ _ _` mp_tac
       \\ simp_tac std_ss [Once code_rel_def]
       \\ disch_then drule
       \\ strip_tac
-      \\ qexists_tac `0` \\ fs[empty_env_def]
-
-
+      \\ qexists_tac `0` \\ simp [])
+    \\ fs [pair_case_eq,option_case_eq] \\ rveq \\ fs []
+    \\ qpat_x_assum `!x. _` kall_tac
+    \\ fs [new_mem_def]
+    \\ Cases_on `x = x''` \\ fs [] \\ rveq
+    THEN1
+     (fs [evaluate_def,find_code_def]
+      \\ `t.clock <> 0` by fs [state_rel_def]
+      \\ qpat_assum `code_rel s.code t.code tree` (drule o REWRITE_RULE [code_rel_def])
+      \\ strip_tac \\ fs [] \\ rveq
+      \\ fs [create_raw_ep_def]
+      \\ fs [EVAL ``opt_code (Call NONE (INL x') NONE) tree``]
+      \\ `state_rel (s with stack_space := m + s.stack_space)
+                    (t with stack_space := m + t.stack_space)` by fs [state_rel_def]
+      \\ first_x_assum drule \\ fs [] \\ strip_tac
+      \\ first_x_assum drule \\ fs []
+      \\ simp [evaluate_def,find_code_def,dec_clock_def] \\ rveq
+      \\ fs [strip_fun_def]
+      \\ rveq \\ fs []
+      \\ fs [evaluate_def,dec_clock_def] \\ rveq
+      \\ `t.use_stack` by fs [state_rel_def] \\ fs [find_code_def]
+      \\ `t.clock <> 1` by cheat
+      \\ `t.clock = s.clock /\
+          t.stack_space = s.stack_space` by fs [state_rel_def] \\ fs []
+      \\ fs [pair_case_eq,option_case_eq,bool_case_eq] \\ rveq \\ fs []
+      \\ strip_tac
+      \\ cheat)
+    \\ cheat (*
 
     \\ TOP_CASE_TAC
+
     THEN1
       (ntac 2 (pop_assum kall_tac)
       \\ fs [evaluate_def]
@@ -227,11 +256,7 @@ Proof
       \\ drule (GEN_ALL stackPropsTheory.evaluate_add_clock)
       \\ fs [])
 
-    TOP_CASE_TAC
-
-
-
-
+    \\ TOP_CASE_TAC *)
 
 )
   THEN1
@@ -242,9 +267,8 @@ Proof
   THEN1
    (rename [`Raise n`]
     \\ fs[evaluate_def, opt_code_def, option_case_eq, get_var_def]
-    \\ EVERY_CASE_TAC
-      THEN1 (fs[])
-      THEN1 (fs[state_rel_def] \\ rveq \\ fs[]))
+    \\ EVERY_CASE_TAC THEN1 (fs[])
+    \\ fs[state_rel_def] \\ rveq \\ fs[])
   THEN1
    (rename [`If cmp r1 ri c1 c2`]
     \\ once_rewrite_tac [opt_code_def] \\ fs[]
