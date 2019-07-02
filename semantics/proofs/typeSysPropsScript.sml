@@ -17,7 +17,6 @@ val check_dup_ctors_cons = semanticPrimitivesPropsTheory.check_dup_ctors_cons;
 val no_dup_types_def = semanticPrimitivesTheory.no_dup_types_def;
 val decs_to_types_def = semanticPrimitivesTheory.decs_to_types_def;
 *)
-
 val _ = export_rewrites [
   "typeSystem.Tarray_def",
   "typeSystem.Tbool_def",
@@ -109,21 +108,21 @@ Proof
 QED
 
 val type_pes_def = Define `
-  type_pes tvs tvs' tenv tenvE pes t1 t2 ⇔
+  type_pes signs tvs tvs' tenv tenvE pes t1 t2 ⇔
     (∀(p,e)::set pes.
       ∃bindings.
         ALL_DISTINCT (pat_bindings p []) ∧
         type_p tvs tenv p t1 bindings ∧
-        type_e tenv (bind_var_list tvs' bindings tenvE) e t2)`;
+        type_e signs tenv (bind_var_list tvs' bindings tenvE) e t2)`;
 
 Theorem type_pes_cons:
-   !tvs tvs' tenv tenvE p e pes t1 t2.
-    type_pes tvs tvs' tenv tenvE ((p,e)::pes) t1 t2 ⇔
+   !signs tvs tvs' tenv tenvE p e pes t1 t2.
+    type_pes signs tvs tvs' tenv tenvE ((p,e)::pes) t1 t2 ⇔
     (ALL_DISTINCT (pat_bindings p []) ∧
      (?bindings.
          type_p tvs tenv p t1 bindings ∧
-         type_e tenv (bind_var_list tvs' bindings tenvE) e t2) ∧
-     type_pes tvs tvs' tenv tenvE pes t1 t2)
+         type_e signs tenv (bind_var_list tvs' bindings tenvE) e t2) ∧
+     type_pes signs tvs tvs' tenv tenvE pes t1 t2)
 Proof
  rw [type_pes_def, RES_FORALL] >>
  eq_tac >>
@@ -894,7 +893,7 @@ val eqs = ([pair_case_eq,bool_case_eq]@(List.map prove_case_eq_thm thms));
 val elims = List.map prove_case_elim_thm thms;
 
 val type_op_cases = save_thm("type_op_cases",
-  ``type_op op ts t3``
+  ``type_op signs op ts t3``
   |> (SIMP_CONV(srw_ss())(type_op_def::eqs@elims) THENC
       SIMP_CONV (bool_ss++DNF_ss) [
         PULL_EXISTS]));
@@ -1002,7 +1001,7 @@ QED
 (* ---------- type_e, type_es, type_funs ---------- *)
 
 Theorem type_es_list_rel:
- !es ts tenv tenvE. type_es tenv tenvE es ts = LIST_REL (type_e tenv tenvE) es ts
+ !signs es ts tenv tenvE. type_es signs tenv tenvE es ts = LIST_REL (type_e signs tenv tenvE) es ts
 Proof
  induct_on `es` >>
  srw_tac[][] >>
@@ -1010,8 +1009,8 @@ Proof
 QED
 
 Theorem type_es_length:
- ∀tenv tenvE es ts.
-  type_es tenv tenvE es ts ⇒ (LENGTH es = LENGTH ts)
+ ∀signs tenv tenvE es ts.
+  type_es signs tenv tenvE es ts ⇒ (LENGTH es = LENGTH ts)
 Proof
 induct_on `es` >>
 srw_tac[][Once type_e_cases] >>
@@ -1020,25 +1019,25 @@ metis_tac []
 QED
 
 Theorem type_funs_MAP_FST:
- !funs tenv tenvE env.
-  type_funs tenv tenvE funs env ⇒
+ !signs funs tenv tenvE env.
+  type_funs signs tenv tenvE funs env ⇒
   MAP FST funs = MAP FST env
 Proof
-  Induct>>srw_tac[][]>>
+  Induct_on `funs`  >> srw_tac[][]  >>
   pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_e_cases]) >>
-  full_simp_tac(srw_ss())[]>>metis_tac[]
+  full_simp_tac(srw_ss())[]>> metis_tac[]
 QED
 
 Theorem tenv_val_exp_ok_bvl_tvs:
-   !funs tenv env tvs bindings tenvE.
-    type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs env ∧
+   !signs funs tenv env tvs bindings tenvE.
+    type_funs signs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs env ∧
     tenv_val_exp_ok tenvE
     ⇒
     tenv_val_exp_ok (bind_var_list tvs env tenvE)
 Proof
  induct_on `funs`
  >> rw []
- >> qpat_x_assum `type_funs _ _ _ _` mp_tac
+ >> qpat_x_assum `type_funs _ _ _ _ _` mp_tac
  >> simp [Once type_e_cases]
  >> rw [check_freevars_def]
  >> rw [check_freevars_def, bind_var_list_def, tenv_val_exp_ok_def]
@@ -1046,15 +1045,15 @@ Proof
 QED
 
 Theorem tenv_val_exp_ok_bvl_funs:
-   !funs env tenv bindings tenv_val tenvE.
-    type_funs tenv (bind_var_list 0 bindings tenvE) funs env ∧
+   !signs funs env tenv bindings tenv_val tenvE.
+    type_funs signs tenv (bind_var_list 0 bindings tenvE) funs env ∧
     tenv_val_exp_ok tenvE
     ⇒
     tenv_val_exp_ok (bind_var_list 0 env tenvE)
 Proof
  induct_on `funs`
  >> rw []
- >> qpat_x_assum `type_funs _ _ _ _` mp_tac
+ >> qpat_x_assum `type_funs _ _ _ _ _` mp_tac
  >> simp [Once type_e_cases]
  >> rw [check_freevars_def]
  >> rw [check_freevars_def, bind_var_list_def, tenv_val_exp_ok_def]
@@ -1062,16 +1061,16 @@ Proof
 QED
 
 Theorem type_e_freevars:
- (!tenv tenvE e t.
-   type_e tenv tenvE e t ⇒
+ (!signs tenv tenvE e t.
+   type_e signs tenv tenvE e t ⇒
    tenv_val_exp_ok tenvE ∧ tenv_val_ok tenv.v ⇒
    check_freevars (num_tvs tenvE) [] t) ∧
- (!tenv tenvE es ts.
-   type_es tenv tenvE es ts ⇒
+ (!signs tenv tenvE es ts.
+   type_es signs tenv tenvE es ts ⇒
    tenv_val_exp_ok tenvE ∧ tenv_val_ok tenv.v ⇒
    EVERY (check_freevars (num_tvs tenvE) []) ts) ∧
- (!tenv tenvE funs env.
-   type_funs tenv tenvE funs env ⇒
+ (!signs tenv tenvE funs env.
+   type_funs signs tenv tenvE funs env ⇒
    tenv_val_exp_ok tenvE ∧ tenv_val_ok tenv.v ⇒
    EVERY (check_freevars (num_tvs tenvE) []) (MAP SND env))
 Proof
@@ -1111,8 +1110,14 @@ Proof
  >- metis_tac [tenv_val_exp_ok_bvl_funs, num_tvs_bind_var_list]
 QED
 
+Theorem deBruijn_subst_c_type:
+  deBruijn_subst n ts (type_of_c_type ct) = type_of_c_type ct
+Proof
+  Cases_on `ct` >> rw[deBruijn_subst_def,type_of_c_type_def]
+QED
+
 Theorem type_e_subst:
- (!tenv tenvE e t. type_e tenv tenvE e t ⇒
+ (!signs tenv tenvE e t. type_e signs tenv tenvE e t ⇒
     !tenvE1 targs tvs targs'.
       num_tvs tenvE2 = 0 ∧
       tenv_abbrev_ok tenv.t ∧
@@ -1123,10 +1128,10 @@ Theorem type_e_subst:
       tenvE = db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2) ∧
       targs' = MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs
       ⇒
-      type_e tenv (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
+      type_e signs tenv (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
                    e
                    (deBruijn_subst (num_tvs tenvE1) targs' t)) ∧
- (!tenv tenvE es ts. type_es tenv tenvE es ts ⇒
+ (!signs tenv tenvE es ts. type_es signs tenv tenvE es ts ⇒
     !tenvE1 targs tvs targs'.
       num_tvs tenvE2 = 0 ∧
       tenv_abbrev_ok tenv.t ∧
@@ -1137,10 +1142,10 @@ Theorem type_e_subst:
       tenvE = db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2) ∧
       targs' = MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs
       ⇒
-      type_es tenv (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
+      type_es signs tenv (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
                   es
                   (MAP (deBruijn_subst (num_tvs tenvE1) targs') ts)) ∧
- (!tenv tenvE funs env. type_funs tenv tenvE funs env ⇒
+ (!signs tenv tenvE funs env. type_funs signs tenv tenvE funs env ⇒
     !tenvE1 targs tvs targs'.
       num_tvs tenvE2 = 0 ∧
       tenv_abbrev_ok tenv.t ∧
@@ -1151,7 +1156,7 @@ Theorem type_e_subst:
       tenvE = db_merge tenvE1 (bind_tvar (LENGTH targs) tenvE2) ∧
       targs' = MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs
       ⇒
-      type_funs tenv (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
+      type_funs signs tenv (db_merge (deBruijn_subst_tenvE targs tenvE1) (bind_tvar tvs tenvE2))
                       funs
                       (MAP (\(x,t). (x, deBruijn_subst (num_tvs tenvE1) targs' t)) env))
 Proof
@@ -1290,6 +1295,8 @@ Proof
      full_simp_tac(srw_ss())[num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def] >>
      pop_assum irule
      >> srw_tac [] [tenv_val_exp_ok_def])
+
+
  >- (
    rw [GSYM PULL_EXISTS, CONJ_ASSOC]
    >- (
@@ -1297,8 +1304,22 @@ Proof
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[])) >>
      full_simp_tac(srw_ss())[deBruijn_subst_def] >>
-     metis_tac [])
+     TRY(rename1 `type_of_c_type` >>
+         first_x_assum drule >>
+         disch_then(qspec_then `tenvE1` mp_tac) >>
+         impl_tac >- rw[] >>
+         strip_tac >> asm_exists_tac >>
+         rw[] >>
+         PURE_TOP_CASE_TAC >> fs[] >>
+         CONJ_TAC
+         >- (rw[LIST_REL_MAP1,o_DEF] >>
+             fs[LIST_REL_EL_EQN] >> rw[] >> rfs[LIST_REL_EL_EQN,deBruijn_subst_c_type]) >>
+         PURE_TOP_CASE_TAC >> fs[deBruijn_subst_def,deBruijn_subst_c_type]) >>
+     metis_tac []
+  )
    >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])
+
+
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>
      qexists_tac `deBruijn_subst (num_tvs tenvE1) (MAP (deBruijn_inc 0 (num_tvs tenvE1)) targs) t` >>
      srw_tac[][] >>
@@ -1475,15 +1496,15 @@ QED
 
 (* Recursive functions have function type *)
 Theorem type_funs_Tfn:
-   ∀tenv tenvE funs bindings tvs t n.
-    type_funs tenv tenvE funs bindings ∧
+   ∀signs tenv tenvE funs bindings tvs t n.
+    type_funs signs tenv tenvE funs bindings ∧
     ALOOKUP bindings n = SOME t
     ⇒
     ∃t1 t2. (t = Tfn t1 t2) ∧ check_freevars (num_tvs tenvE) [] (Tfn t1 t2)
 Proof
  induct_on `funs`
  >> rw []
- >> qpat_x_assum `type_funs _ _ _ _` mp_tac
+ >> qpat_x_assum `type_funs _ _ _ _ _` mp_tac
  >> simp [Once type_e_cases]
  >> rw []
  >> fs []
@@ -1494,9 +1515,9 @@ QED
 
 (* Recursive functions can be looked up in the execution environment. *)
 Theorem type_funs_lookup:
- ∀fn tenvE funs bindings n e tenv.
+ ∀signs fn tenvE funs bindings n e tenv.
   MEM (fn,n,e) funs ∧
-  type_funs tenv tenvE funs bindings
+  type_funs signs tenv tenvE funs bindings
   ⇒
   (∃t. ALOOKUP bindings fn = SOME t)
 Proof
@@ -1511,9 +1532,9 @@ QED
 
 (* Functions in the type environment can be found *)
 Theorem type_funs_find_recfun:
- ∀fn env funs bindings e tenv tenvE t.
+ ∀signs fn env funs bindings e tenv tenvE t.
   ALOOKUP bindings fn = SOME t ∧
-  type_funs tenv tenvE funs bindings
+  type_funs signs tenv tenvE funs bindings
   ⇒
   (∃n e. find_recfun fn funs = SOME (n,e))
 Proof
@@ -1527,17 +1548,17 @@ metis_tac []
 QED
 
 Theorem type_recfun_lookup:
-   ∀fn funs n e tenv tenvE bindings tvs t1 t2.
+   ∀signs fn funs n e tenv tenvE bindings tvs t1 t2.
     find_recfun fn funs = SOME (n,e) ∧
-    type_funs tenv tenvE funs bindings ∧
+    type_funs signs tenv tenvE funs bindings ∧
     ALOOKUP bindings fn = SOME (Tfn t1 t2)
     ⇒
-    type_e tenv (Bind_name n 0 t1 tenvE) e t2 ∧
+    type_e signs tenv (Bind_name n 0 t1 tenvE) e t2 ∧
     check_freevars (num_tvs tenvE) [] (Tfn t1 t2)
 Proof
  induct_on `funs`
  >> rw [Once find_recfun_def]
- >> qpat_x_assum `type_funs _ _ _ _` mp_tac
+ >> qpat_x_assum `type_funs _ _ _ _ _` mp_tac
  >> simp [Once type_e_cases]
  >> rw []
  >> fs []
@@ -1545,12 +1566,13 @@ Proof
  >> fs []
  >> rw []
  >> metis_tac []
+
 QED
 
 (* No duplicate function definitions in a single let rec *)
 Theorem type_funs_distinct:
- ∀tenv tenvE funs bindings .
-  type_funs tenv tenvE funs bindings
+ ∀signs tenv tenvE funs bindings .
+  type_funs signs tenv tenvE funs bindings
   ⇒
   ALL_DISTINCT (MAP (λ(x,y,z). x) funs)
 Proof
@@ -1569,9 +1591,9 @@ srw_tac[][MEM_MAP] >|
 QED
 
 Theorem type_funs_tenv_exp_ok:
-   !funs env tenv tenvE tvs bindings.
+   !signs funs env tenv tenvE tvs bindings.
     num_tvs tenvE = 0 ∧
-    type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs env
+    type_funs signs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs env
     ⇒
     tenv_val_exp_ok (bind_var_list tvs env Empty)
 Proof
@@ -1586,8 +1608,8 @@ Proof
 QED
 
 val type_e_subst_lem = Q.prove (
-`∀tenv tenvE e t targs tvs targs'.
-  type_e tenv (Bind_name x 0 t1 (bind_tvar (LENGTH targs) tenvE)) e t ∧
+`∀signs tenv tenvE e t targs tvs targs'.
+  type_e signs tenv (Bind_name x 0 t1 (bind_tvar (LENGTH targs) tenvE)) e t ∧
   num_tvs tenvE = 0 ∧
   tenv_abbrev_ok tenv.t ∧
   tenv_ctor_ok tenv.c ∧
@@ -1596,7 +1618,7 @@ val type_e_subst_lem = Q.prove (
   EVERY (check_freevars tvs []) targs ∧
   check_freevars (LENGTH targs) [] t1
   ⇒
-  type_e tenv (Bind_name x 0 (deBruijn_subst 0 targs t1) (bind_tvar tvs tenvE)) e (deBruijn_subst 0 targs t)`,
+  type_e signs tenv (Bind_name x 0 (deBruijn_subst 0 targs t1) (bind_tvar tvs tenvE)) e (deBruijn_subst 0 targs t)`,
  srw_tac[][] >>
  drule (GEN_ALL (CONJUNCT1 type_e_subst))
  >> simp [tenv_val_exp_ok_def]
@@ -2251,14 +2273,16 @@ Proof
    >> simp []
    >> rfs [MEM_ZIP, EL_MEM])
  >- (
-   qexists_tac `tenv`
+   qexists_tac `signs`
+   >> qexists_tac `tenv`
    >> qexists_tac `tenvE`
    >> simp [nil_deBruijn_inc, deBruijn_subst_freevars]
    >> rw []
    >- fs [nsAll2_conj, remove_lambda_prod]
    >> match_mp_tac type_e_subst_lem
    >> fs [tenv_val_exp_ok_def, tenv_ok_def])
- >- (qexists_tac `tenv` >>
+ >- (qexists_tac `signs` >>
+     qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
      simp [nil_deBruijn_inc , deBruijn_subst_freevars] >>
      qexists_tac `MAP (λ(x,t). (x,deBruijn_subst 0 targs t)) bindings` >>
@@ -2275,7 +2299,7 @@ Proof
          >> irule tenv_val_exp_ok_bvl_funs
          >> simp [tenv_val_exp_ok_def]
          >> metis_tac [])
-     >- (qpat_x_assum `type_funs _ _ _ _` (fn x => ALL_TAC) >>
+     >- (qpat_x_assum `type_funs _ _ _ _ _` (fn x => ALL_TAC) >>
          induct_on `bindings` >>
          full_simp_tac(srw_ss())[] >>
          srw_tac[][] >>
@@ -2365,14 +2389,14 @@ QED
 (* ---------- type_d ---------- *)
 
 Theorem type_d_check_uniq:
- (!check tenv d tdecs new_tenv.
-  type_d check tenv d tdecs new_tenv
+ (!signs check tenv d tdecs new_tenv.
+  type_d signs check tenv d tdecs new_tenv
   ⇒
-  type_d F tenv d tdecs new_tenv) ∧
- (!check tenv d tdecs new_tenv.
-  type_ds check tenv d tdecs new_tenv
+  type_d signs F tenv d tdecs new_tenv) ∧
+ (!signs check tenv d tdecs new_tenv.
+  type_ds signs check tenv d tdecs new_tenv
   ⇒
-  type_ds F tenv d tdecs new_tenv)
+  type_ds signs F tenv d tdecs new_tenv)
 Proof
  ho_match_mp_tac type_d_ind >>
  rw [] >>
@@ -2394,13 +2418,13 @@ Proof
 QED
 
 Theorem type_d_tenv_ok_helper:
-  (∀check tenv d tdecs tenv'.
-   type_d check tenv d tdecs tenv' ⇒
+  (∀signs check tenv d tdecs tenv'.
+   type_d signs check tenv d tdecs tenv' ⇒
    tenv_ok tenv
    ⇒
    tenv_ok tenv') ∧
-  (∀check tenv d tdecs tenv'.
-   type_ds check tenv d tdecs tenv' ⇒
+  (∀signs check tenv d tdecs tenv'.
+   type_ds signs check tenv d tdecs tenv' ⇒
    tenv_ok tenv
    ⇒
    tenv_ok tenv')
@@ -2484,8 +2508,8 @@ Proof
 QED
 
 Theorem type_d_tenv_ok:
-  ∀check tenv d tdecs tenv'.
-   type_d check tenv d tdecs tenv' ∧
+  ∀signs check tenv d tdecs tenv'.
+   type_d signs check tenv d tdecs tenv' ∧
    tenv_ok tenv
    ⇒
    tenv_ok (extend_dec_tenv tenv' tenv)
@@ -2516,16 +2540,16 @@ QED
 (* ---------- type_ds ---------- *)
 
 Theorem type_ds_empty[simp]:
-  !check tenv decls r.
-  type_ds check tenv [] decls r ⇔
+  !signs check tenv decls r.
+  type_ds signs check tenv [] decls r ⇔
   decls = {} ∧ r = <| v := nsEmpty; c:= nsEmpty; t := nsEmpty |>
 Proof
  rw [Once type_d_cases]
 QED
 
 Theorem type_ds_sing[simp]:
-  !check tenv d decls r.
-  type_ds check tenv [d] decls r ⇔ type_d check tenv d decls r
+  !signs check tenv d decls r.
+  type_ds signs check tenv [d] decls r ⇔ type_d signs check tenv d decls r
 Proof
  simp [Once type_d_cases]
  >> rw [extend_dec_tenv_def, type_env_component_equality]
