@@ -2585,7 +2585,7 @@ Proof
         metis_tac[] ) >>
       conj_tac >- metis_tac[ALL_DISTINCT_DROP] >>
       rw[] >> spose_not_then strip_assume_tac >>
-      imp_res_tac rich_listTheory.MEM_DROP >>
+      imp_res_tac rich_listTheory.MEM_DROP_IMP >>
       metis_tac[]) >>
     metis_tac[]) >>
   rw[UNCURRY] >>
