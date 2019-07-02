@@ -480,12 +480,27 @@ Proof
 QED
 *)
 
+(* TODO: move? *)
+Theorem LUPDATE_LUPDATE_same:
+  !e n l e'. LUPDATE e n (LUPDATE e' n l) = LUPDATE e n l
+Proof
+  Induct_on `l` >> Cases_on `n` >> rw[LUPDATE_def]
+QED
 
 Theorem to_prove:
  !margs l s h n. store_cargs_sem margs l (LUPDATE (W8array h) n s) = NONE /\  n < LENGTH s ==>
   store_cargs_sem margs l s = NONE
 Proof
-  cheat
+  ho_match_mp_tac store_cargs_sem_ind >>
+  rw[store_cargs_sem_def,option_case_eq] >>
+  Cases_on `marg` >> fs[store_carg_sem_def,store_assign_def,EL_LUPDATE] >>
+  rveq >> fs[] >>
+  TRY(rename1 `store_v_same_type` >>
+      PURE_FULL_CASE_TAC >> fs[] >> rveq >>
+      fs[store_v_same_type_def] >>
+      PURE_FULL_CASE_TAC >> fs[LUPDATE_LUPDATE_same] >>
+      metis_tac[LUPDATE_commutes]) >>
+  metis_tac[]
 QED
 
 
