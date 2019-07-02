@@ -431,9 +431,9 @@ Proof
   rw [get_mut_args_def] >> fs [trunc_sign_def, listTheory.ZIP_def]
 QED
 
-
+(*
 Theorem store_cargs_lupdate:
- !margs l s h n. store_cargs_sem margs l s ≠ NONE ==>
+ !margs l s h n. store_cargs_sem margs l s ≠ NONE /\  n < LENGTH s ==>
   store_cargs_sem margs l (LUPDATE (W8array h) n s) ≠ NONE
 Proof
   ho_match_mp_tac store_cargs_sem_ind
@@ -464,13 +464,29 @@ Proof
                         \\ Cases_on `n''`
                         >- ((Cases_on `t` >> fs [LUPDATE_def])
                              \\ (Cases_on `n` >>  fs []))
-                        >-  cheat (* how to repeat the above process SUC case *))
-                    >- cheat)))
-      >- cheat)
+                        >-  fs [LUPDATE_def, EL_LUPDATE, bool_case_eq]
+                        >- fs [EL_CONS_IF, LUPDATE_def, EL_LUPDATE, bool_case_eq]
+                           >- (rveq >>  fs [])
+                           >- metis_tac [store_v_distinct])
+
+      >- rw []
+        \\ Cases_on `store_carg_sem marg w s` >> fs []
+        \\ `LENGTH x = LENGTH s` by cheat
+        \\ fs []
+        \\ Cases_on `marg` >> rfs [store_carg_sem_def] metis_tac []
+)
   >- fs [store_cargs_sem_def]
   >- fs [store_cargs_sem_def]
 QED
+*)
 
+
+Theorem to_prove:
+ !margs l s h n. store_cargs_sem margs l (LUPDATE (W8array h) n s) = NONE /\  n < LENGTH s ==>
+  store_cargs_sem margs l s = NONE
+Proof
+  cheat
+QED
 
 
 Theorem store_cargs_SOME_same_loc:
@@ -505,12 +521,13 @@ Proof
                          \\ metis_tac [])
                     >- (rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
                         \\ fs [store_assign_def, store_lookup_def, store_v_same_type_def]
-                        \\ cheat (*metis_tac [store_cargs_lupdate]*) )
-                     )
-                  )
+                        \\ first_x_assum (qspec_then `trunc_sign sign` mp_tac)
+                        \\ `(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
+                        \\ rw []
+                        \\ qexists_tac `t`
+                        \\ metis_tac [to_prove])))
              >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
-                 \\ metis_tac [])
-               )))
+                 \\ metis_tac []))))
 QED
 
 

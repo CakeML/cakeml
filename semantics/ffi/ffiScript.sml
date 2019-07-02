@@ -187,7 +187,7 @@ val _ = Define `
 val _ = Define `
   ffi_oracle_ok st =
   debug_ffi_ok st /\ (!n sign args st' newargs retv als.
-           valid_ffi_name n sign st 
+           valid_ffi_name n sign st
            /\ args_ok sign args
            /\ (st.oracle n st.ffi_state args als = Oracle_return st' newargs retv)
            ==> ret_ok sign.retty retv /\ als_ok sign.args newargs als

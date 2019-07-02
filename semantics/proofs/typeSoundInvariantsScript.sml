@@ -97,23 +97,23 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     LIST_REL (type_v tvs ctMap tenvS) vs ts
     ⇒
     type_v tvs ctMap tenvS (Conv NONE vs) (Ttup ts)) ∧
-  (!tvs ctMap tenvS env tenv tenvE n e t1 t2.
+  (!signs tvs ctMap tenvS env tenv tenvE n e t1 t2.
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     num_tvs tenvE = 0 ∧
     nsAll2 (type_ctor ctMap) env.c tenv.c ∧
     nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) env.v (add_tenvE tenvE tenv.v) ∧
     check_freevars tvs [] t1 ∧
-    type_e tenv (Bind_name n 0 t1 (bind_tvar tvs tenvE)) e t2
+    type_e signs tenv (Bind_name n 0 t1 (bind_tvar tvs tenvE)) e t2
     ⇒
     type_v tvs ctMap tenvS (Closure env n e) (Tfn t1 t2)) ∧
-  (!tvs ctMap tenvS env funs n t tenv tenvE bindings.
+  (!signs tvs ctMap tenvS env funs n t tenv tenvE bindings.
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     num_tvs tenvE = 0 ∧
     nsAll2 (type_ctor ctMap) env.c tenv.c ∧
     nsAll2 (\i v (tvs,t). type_v tvs ctMap tenvS v t) env.v (add_tenvE tenvE tenv.v) ∧
-    type_funs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs bindings ∧
+    type_funs signs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs bindings ∧
     ALOOKUP bindings n = SOME t ∧
     ALL_DISTINCT (MAP FST funs) ∧
     MEM n (MAP FST funs)
