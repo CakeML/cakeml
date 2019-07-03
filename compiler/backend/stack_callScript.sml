@@ -31,9 +31,9 @@ val create_raw_ep_def = Define `
 
 val new_mem_def = Define `
   (new_mem curr_mem dest_mem =
-      if dest_mem < curr_mem then StackFree (curr_mem - dest_mem) else
-      if curr_mem < dest_mem then StackAlloc (dest_mem - curr_mem) else
-      Skip)
+      if dest_mem < curr_mem then Seq Tick (StackFree (curr_mem - dest_mem)) else
+      if curr_mem < dest_mem then Seq Tick (StackAlloc (dest_mem - curr_mem)) else
+      Tick)
 `;
 
 val dest_StackFree_def = Define `
