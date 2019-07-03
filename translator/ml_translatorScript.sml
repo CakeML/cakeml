@@ -1674,6 +1674,70 @@ Proof
         substring_def,SEG_TAKE_DROP,STRING_TYPE_def]
 QED
 
+(* char list as string *)
+
+val HOL_STRING_TYPE_def = Define `
+  HOL_STRING_TYPE cs = STRING_TYPE (implode cs)`
+
+Theorem Eval_HOL_STRING_INTRO:
+  Eval env x (LIST_TYPE CHAR cs) ==>
+  Eval env (App Implode [x]) (HOL_STRING_TYPE cs)
+Proof
+  rw [HOL_STRING_TYPE_def]
+  \\ imp_res_tac Eval_implode
+QED
+
+Theorem Eval_HOL_STRING_LENGTH:
+   !env x1 s.
+      Eval env x1 (HOL_STRING_TYPE s) ==>
+      Eval env (App Strlen [x1]) (NUM (LENGTH s))
+Proof
+  rw [HOL_STRING_TYPE_def]
+  \\ imp_res_tac Eval_strlen
+  \\ fs [strlen_def]
+QED
+
+Theorem Eval_HOL_STRING_TYPE_EL:
+   !env x1 x2 s n.
+      Eval env x2 (NUM n) ==>
+      Eval env x1 (HOL_STRING_TYPE s) ==>
+      n < LENGTH s ==>
+      Eval env (App Strsub [x1; x2]) (CHAR (EL n s))
+Proof
+  rw [HOL_STRING_TYPE_def]
+  \\ imp_res_tac Eval_strsub
+  \\ rfs [strlen_def,strsub_def,implode_def]
+QED
+
+Theorem Eval_HOL_STRING_APPEND:
+   !env x1 x2 s1 s2 n.
+      Eval env x1 (HOL_STRING_TYPE s1) ==>
+      Eval env x2 (HOL_STRING_TYPE s2) ==>
+      nsLookup env.c (Short "::") = SOME (2,TypeStamp "::" 1) /\
+      nsLookup env.c (Short "[]") = SOME (0,TypeStamp "[]" 1) ==>
+      Eval env
+        (App Strcat [Con (SOME (Short "::"))
+                    [x1; Con (SOME (Short "::"))
+                         [x2; Con (SOME (Short "[]")) []]]])
+        (HOL_STRING_TYPE (s1++s2))
+Proof
+  rw [HOL_STRING_TYPE_def] \\ fs [implode_def]
+  \\ `strlit (STRCAT s1 s2) =
+      concat [strlit s1; strlit s2]` by EVAL_TAC
+  \\ fs [] \\ match_mp_tac (Eval_concat)
+  \\ fs [Eval_def,eval_rel_def]
+  \\ fs [evaluate_def,do_con_check_def,build_conv_def] \\ gen_tac
+  \\ first_x_assum (qspecl_then [`refs`] strip_assume_tac)
+  \\ first_x_assum (qspecl_then [`refs++refs'`] strip_assume_tac)
+  \\ qpat_x_assum `_ [x2] = _` assume_tac
+  \\ drule evaluate_set_clock \\ simp []
+  \\ disch_then (qspec_then `ck1'` strip_assume_tac)
+  \\ fs [LIST_TYPE_def,STRING_TYPE_def]
+  \\ qexists_tac `refs' ++ refs''`
+  \\ qexists_tac `ck1''` \\ fs []
+  \\ fs [state_component_equality]
+QED
+
 (* vectors *)
 
 val VECTOR_TYPE_def = Define `
