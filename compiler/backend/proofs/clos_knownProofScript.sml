@@ -4416,6 +4416,21 @@ val known_co_def = Define `
                             : 'b clos_co)) : 'b clos_co))
      | NONE      => (state_co (CURRY I) co) : 'b clos_co)`;
 
+Theorem known_co_eq_pure_state:
+  known_co known_conf co =
+    pure_co (if IS_SOME known_conf
+        then clos_letopProof$compile_inc
+            o (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
+        else I) o
+    state_co (case known_conf of SOME kcfg => compile_inc kcfg
+        | NONE => CURRY I)
+    (pure_co (if IS_SOME known_conf then clos_fvsProof$compile_inc else I) o co)
+Proof
+  fs [known_co_def]
+  \\ CASE_TAC
+  \\ fs [pure_co_I, pure_co_comb_pure_co]
+QED
+
 Theorem FST_known_co
   `FST (known_co kc co n) = SND (FST (co n))`
   (rw[known_co_def] \\ CASE_TAC

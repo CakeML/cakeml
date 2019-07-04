@@ -1896,24 +1896,6 @@ Proof
   \\ fs []
 QED
 
-Theorem is_state_oracle_0:
-  is_state_oracle compile_inc co st ==> FST (FST (co 0)) = st
-Proof
-  fs [is_state_oracle_def]
-QED
-
-Theorem is_state_oracle_k:
-  !k. is_state_oracle compile_inc_f co st ==>
-  ?st oth_st prog. co k = ((st, oth_st), prog)
-    /\ FST (FST (co (SUC k))) = FST (compile_inc_f st prog)
-Proof
-  rw []
-  \\ Cases_on `co k`
-  \\ Cases_on `FST (co k)`
-  \\ fs [is_state_oracle_def]
-  \\ rfs []
-QED
-
 (*
 val dummy_code_inv = mk_var("code_inv",
   type_of(#1(strip_comb(lhs(concl(SPEC_ALL code_inv_def))))))
@@ -1948,57 +1930,6 @@ val dummy_includes_state = mk_var("includes_state",
 val includes_state_def = Define`
   ^dummy_includes_state g1_s compile_oracle ⇔ T`;
 *)
-
-Theorem oracle_monotonic_shift_seq:
-  oracle_monotonic f R St co /\ i > 0 /\ St' ⊆ f (co (i - 1))
-  ==> oracle_monotonic f R St' (shift_seq i co)
-Proof
-  rw [] \\ rw [oracle_monotonic_def]
-  >- (
-    fs [shift_seq_def]
-    \\ drule oracle_monotonic_step
-    \\ disch_then irule
-    \\ metis_tac [arithmeticTheory.LT_ADD_LCANCEL]
-  )
-  \\ fs [shift_seq_def]
-  \\ drule oracle_monotonic_step
-  \\ disch_then irule
-  \\ qexists_tac `i - 1`
-  \\ qexists_tac `i + i'`
-  \\ fs []
-  \\ metis_tac [SUBSET_IMP]
-QED
-
-Theorem oracle_monotonic_shift_seq_1:
-  oracle_monotonic f R St co /\ St' ⊆ f (co 0) UNION St
-  ==> oracle_monotonic f R St' (shift_seq 1 co)
-Proof
-  rw [] \\ rw [oracle_monotonic_def]
-  >- (
-    fs [shift_seq_def]
-    \\ drule_then irule oracle_monotonic_step
-    \\ metis_tac [arithmeticTheory.LT_ADD_RCANCEL]
-  )
-  \\ fs [shift_seq_def]
-  \\ imp_res_tac SUBSET_IMP
-  \\ fs []
-  >- (
-    drule_then irule oracle_monotonic_step
-    \\ first_assum(part_match_exists_tac (last o strip_conj) o concl)
-    \\ fs []
-    \\ first_assum(part_match_exists_tac (last o strip_conj) o concl)
-    \\ fs []
-  )
-  \\ drule_then irule oracle_monotonic_init
-  \\ metis_tac []
-QED
-
-Theorem oracle_monotonic_DISJOINT_init:
-  !i. oracle_monotonic f R St co /\ irreflexive R
-    ==> DISJOINT St (f (co i))
-Proof
-  metis_tac [oracle_monotonic_init, irreflexive_def, IN_DISJOINT]
-QED
 
 Theorem code_rel_state_rel_install:
   code_inv (SOME g1) l1
@@ -2041,7 +1972,7 @@ Proof
   \\ rveq \\ fs []
   \\ Cases_on `r.compile_oracle 1`
   \\ fs [] \\ rveq \\ fs []
-  \\ drule is_state_oracle_0
+  \\ drule backendPropsTheory.is_state_oracle_0
   \\ disch_tac
   \\ rveq \\ fs []
   \\ drule_then (fn t => simp [t]) calls_acc
@@ -2112,7 +2043,7 @@ Proof
     \\ simp [compile_inc_def]
   )
   \\ fs [wfg_def, DISJOINT_IMAGE_SUC, DISJOINT_SYM]
-  \\ drule_then irule (GEN_ALL oracle_monotonic_shift_seq_1)
+  \\ drule_then irule (GEN_ALL (Q.SPEC `1` oracle_monotonic_shift_seq))
   \\ fs []
   \\ drule calls_domain_locs
   \\ fs [SUBSET_DEF]
@@ -4289,7 +4220,7 @@ Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
-  \\ imp_res_tac is_state_oracle_0
+  \\ imp_res_tac backendPropsTheory.is_state_oracle_0
   \\ fs [compile_def]
   \\ rveq \\ fs [FUPDATE_LIST]
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
@@ -4304,7 +4235,7 @@ Proof
       `initial_state ffi max_app (FOLDL $|+ FEMPTY aux) co1 cc1 k`,
       `set (code_locs x) DIFF domain (FST (FST (co 0)))`,
       `(g, aux)`] mp_tac)
-  \\ drule_then assume_tac is_state_oracle_0
+  \\ drule_then assume_tac backendPropsTheory.is_state_oracle_0
   \\ fs []
   \\ reverse impl_tac THEN1
    (strip_tac

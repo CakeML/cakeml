@@ -5754,16 +5754,16 @@ Theorem chain_installed_chain_exps
 
 Theorem chain_exps_semantics
   `semantics ffi max_app code co cc es ≠ Fail ∧ (* es ≠ [] ∧*)
-   DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) (*∧
-   (∀n. DISJOINT (FDOM code) (set (MAP FST (SND (SND (co n))))) ∧
-        DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (set (MAP FST (SND (SND (co n))))) ∧
-        ∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (co m))))) (set (MAP FST (SND (SND (co n))))))*)
+   DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) ∧
+   oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $<
+        (IMAGE ((+)start) (count (LENGTH es)) ∪ FDOM code) co
   ⇒
    ∃e.
    semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc [e] =
    semantics ffi max_app code co cc es ∧
    ALOOKUP (chain_exps start es) start = SOME (0,e)`
-  (rw[]
+  (
+  rw[]
   \\ reverse(Cases_on`0 < LENGTH es`)
   >- (
     fs[chain_exps_def]
@@ -5797,14 +5797,11 @@ Theorem chain_exps_semantics
       simp[Abbr`ss2`,SUBMAP_rel_def,closSemTheory.state_component_equality,closSemTheory.initial_state_def]
       \\ `es <> []` by (strip_tac \\ fs[])
       \\ simp[MAP_FST_chain_exps]
-      (*
-      \\ conj_tac
-      >- *) \\ (
-        irule SUBMAP_FUNION
-        \\ simp[FDOM_alist_to_fmap, MAP_FST_chain_exps]
-        \\ simp[LIST_TO_SET_MAP, COUNT_LIST_COUNT]
-        \\ fs[DISJOINT_SYM] )
-      (* \\ fs[LIST_TO_SET_MAP, COUNT_LIST_COUNT] *))
+      \\ simp[LIST_TO_SET_MAP, COUNT_LIST_COUNT]
+      \\ irule SUBMAP_FUNION
+      \\ simp[FDOM_alist_to_fmap, MAP_FST_chain_exps]
+      \\ simp[LIST_TO_SET_MAP, COUNT_LIST_COUNT]
+      \\ fs[DISJOINT_SYM])
     \\ strip_tac
     \\ first_x_assum(first_assum o mp_then Any mp_tac)
     \\ simp[]
@@ -5830,18 +5827,13 @@ Theorem chain_exps_semantics
 
 Theorem chain_exps_semantics_call
   `semantics ffi max_app code co cc es ≠ Fail ∧
-   DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) (* ∧
-   (∀n. DISJOINT (FDOM code) (set (MAP FST (SND (SND (co n))))) ∧
-        DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (set (MAP FST (SND (SND (co n))))) ∧
-        ∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (co m))))) (set (MAP FST (SND (SND (co n)))))) *)
+   DISJOINT (IMAGE ((+)start) (count (LENGTH es))) (FDOM code) ∧
+   oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $<
+        (IMAGE ((+)start) (count (LENGTH es)) ∪ FDOM code) co
   ⇒
    semantics ffi max_app (alist_to_fmap (chain_exps start es) ⊌ code) co cc ([Call None 0 start []]) =
    semantics ffi max_app code co cc es`
   (rw[]
-  (*
-  >- (
-    rw[closSemTheory.semantics_def, closSemTheory.evaluate_def, chain_exps_def] )
-  *)
   \\ drule chain_exps_semantics
   \\ simp[] \\ strip_tac
   \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o GSYM)
@@ -6327,18 +6319,6 @@ Theorem code_locs_FST_SND_kcompile_inc
   \\ Cases_on`known a b c d`
   \\ simp[]);
 
-Theorem pure_co_I:
-  pure_co I = I
-Proof
-  fs [FUN_EQ_THM, FORALL_PROD] \\ EVAL_TAC \\ fs []
-QED
-
-Theorem pure_cc_I:
-  pure_cc I = I
-Proof
-  fs [FUN_EQ_THM, FORALL_PROD] \\ EVAL_TAC \\ fs []
-QED
-
 val cond_call_compile_inc_def = Define`
   cond_call_compile_inc do_it = if do_it then clos_callProof$compile_inc
     else CURRY I`;
@@ -6466,7 +6446,7 @@ Proof
   \\ irule (GEN_ALL clos_mtiProofTheory.semantics_compile)
   \\ fs [cond_mti_compile_inc_def]
   \\ CASE_TAC
-  \\ fs [pure_cc_I, pure_co_I]
+  \\ fs [backendPropsTheory.pure_cc_I, backendPropsTheory.pure_co_I]
 QED
 
 fun expand_tup_def tm = let
@@ -6528,14 +6508,6 @@ Proof
   Cases_on `es` \\ EVAL_TAC \\ fs [UNCURRY]
 QED
 
-Theorem is_state_oracle_0:
-  is_state_oracle comp_inc co st ==> FST (FST (co 0)) = st
-Proof
-  fs [backendPropsTheory.is_state_oracle_def]
-QED
-
-val is_state_oracle_k = clos_callProofTheory.is_state_oracle_k
-
 Theorem known_state_oracle_globals_approx:
     is_state_oracle (clos_knownProof$compile_inc cfg')
         (pure_co clos_knownProof$fvs_inc ∘ co) spt /\
@@ -6549,7 +6521,7 @@ Proof
   rpt disch_tac \\ Induct
   >- (
     fs []
-    \\ drule_then assume_tac is_state_oracle_0
+    \\ drule_then assume_tac backendPropsTheory.is_state_oracle_0
     \\ fs []
     \\ fs [PAIR_FST_SND_EQ]
     \\ qpat_x_assum `SND _ = _` assume_tac
@@ -6563,7 +6535,8 @@ Proof
            clos_knownProofTheory.globals_approx_every_Fn_SOME_def]
   )
   \\ fs []
-  \\ drule_then (qspec_then `k` assume_tac) is_state_oracle_k
+  \\ drule_then (qspec_then `k` assume_tac)
+        backendPropsTheory.is_state_oracle_k
   \\ fs [clos_knownProofTheory.fvs_inc_def]
   \\ Cases_on `co k` \\ fs [backendPropsTheory.pure_co_def]
   \\ fs [clos_knownProofTheory.compile_inc_def, fcompile_inc_uncurry]
@@ -6675,7 +6648,7 @@ Theorem number_oracle_FST_inc:
   FST (clos_numberProof$compile_inc (FST (FST (co j))) (FST (SND (co j)))) =
     FST (FST (co (j + 1)))
 Proof
-  rw [] \\ drule (Q.SPEC `j` is_state_oracle_k)
+  rw [] \\ drule (Q.SPEC `j` backendPropsTheory.is_state_oracle_k)
   \\ rw []
   \\ fs []
   \\ Cases_on `prog` \\ fs [closPropsTheory.ignore_table_def]
@@ -6737,7 +6710,7 @@ Proof
   \\ assume_tac (Q.SPECL [`n`, `exps`] clos_numberProofTheory.renumber_code_locs_list_distinct)
   \\ fs [EVERY_MEM]
   \\ rpt (first_x_assum drule)
-  \\ drule is_state_oracle_0
+  \\ drule backendPropsTheory.is_state_oracle_0
   \\ drule_then (assume_tac o Q.SPECL [`i`, `0`]) number_oracle_FST_mono
   \\ rw []
 QED
@@ -6808,13 +6781,6 @@ Proof
     clos_mtiProofTheory.intro_multi_preserves_elist_globals]
 QED
 
-Theorem is_state_oracle_IMP_EQ:
-  is_state_oracle inc_f co st ==>
-  !st'. is_state_oracle inc_f co st' <=> (st' = st)
-Proof
-  fs [backendPropsTheory.is_state_oracle_def] \\ metis_tac []
-QED
-
 Theorem DISJOINT_LE_GT:
   (!x. x IN A ==> x <= (n : num)) /\ (!x. x IN B ==> n < x) ==>
   DISJOINT A B
@@ -6822,6 +6788,13 @@ Proof
   rw [] \\ CCONTR_TAC \\ fs [IN_DISJOINT]
   \\ rpt (first_x_assum drule)
   \\ fs []
+QED
+
+Theorem oracle_monotonic_init_subset:
+  oracle_monotonic f R St co /\ St' ⊆ St ==>
+  oracle_monotonic f R St' co
+Proof
+  metis_tac [backendPropsTheory.oracle_monotonic_subset, SUBSET_REFL]
 QED
 
 val compile_inc_post_kcompile_def = Define `
@@ -6838,18 +6811,6 @@ val semantics_kcompile = clos_knownProofTheory.semantics_compile
   |> promote_bool ``_ = clos_knownProof$known_cc _ _``
   |> promote_bool ``_ = clos_knownProof$known_co _ _``
   |> promote_bool ``clos_known$compile _ _ = _``;
-
-fun PICK_CONJUNCTS_CONV sel tm = let
-    val conjs = strip_conj tm
-    val (picked, not_picked) = partition sel conjs
-    fun list_mk_conj2 [] = T | list_mk_conj2 xs = list_mk_conj xs
-    val rhs = mk_conj (list_mk_conj2 picked, list_mk_conj2 not_picked)
-  in prove (mk_eq (tm, rhs), EQ_TAC \\ full_simp_tac bool_ss []) end
-
-val test = PICK_CONJUNCTS_CONV (fn t => total (fst o dest_var) t = SOME "B")
-  ``(A /\ (B /\ C) /\ (D /\ B) /\ A /\ B /\ C)``;
-
-fun sel_conjuncts_tac sel = CONV_TAC (PICK_CONJUNCTS_CONV sel) \\ conj_tac
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 
@@ -6887,7 +6848,12 @@ Theorem compile_common_semantics:
        (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1)
        (FST (FST (co1 0))) ∧
    FST (FST (co1 0)) >= FST (renumber_code_locs_list (make_even
-       (c.next_loc + MAX 1 (LENGTH es1))) (compile c.do_mti c.max_app es1))
+       (c.next_loc + MAX 1 (LENGTH es1))) (compile c.do_mti c.max_app es1)) ∧
+   oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $< (count (FST (FST (co1 0))))
+      (state_co (cond_call_compile_inc c.do_call)
+         (clos_knownProof$known_co c.known_conf
+            (state_co (ignore_table clos_numberProof$compile_inc)
+               (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1))))
    ⇒
    closSem$semantics ffi c.max_app (alist_to_fmap code2)
      (pure_co clos_labelsProof$compile_inc o
@@ -6962,27 +6928,46 @@ Proof
   \\ drule_then (fn t => fs [t]) (Q.prove
         (`compile c.do_call x = y ==> c.do_call ==> compile T x = y`,
             rw [] \\ fs []))
-  (* handle the DISJOINT bit separately, it's a bit messy *)
+  \\ drule (GEN_ALL oracle_monotonic_init_subset)
+  \\ disch_then (fn t => conseq [t])
+  (* handle the DISJOINT etc parts separately, it's awful *)
   \\ qmatch_goalsub_abbrev_tac`DISJOINT A B`
-  \\ `DISJOINT A B` by (
+  \\ `DISJOINT A B /\ (A ∪ B ⊆ count (FST (FST (co1 0))))` by (
     unabbrev_all_tac
     \\ IMP_RES_THEN (assume_tac o GSYM) clos_callTheory.compile_LENGTH
     \\ imp_res_tac clos_knownProofTheory.compile_LENGTH
     \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_list_IMP_LENGTH
     \\ fs []
     \\ drule ccompile_aux_subset
-    \\ match_mp_tac (REWRITE_RULE [GSYM AND_IMP_INTRO] DISJOINT_SUBSET)
     \\ drule clos_knownProofTheory.compile_code_locs_bag
     \\ disch_then (assume_tac o MATCH_MP containerTheory.LIST_TO_BAG_SUBSET)
-    \\ CCONTR_TAC \\ fs [IN_DISJOINT]
-    \\ imp_res_tac SUBSET_IMP
     \\ qpat_x_assum `renumber_code_locs_list _ _ = _` mp_tac
     \\ specl_args_of_then ``renumber_code_locs_list``
         clos_numberProofTheory.renumber_code_locs_list_distinct assume_tac
-    \\ disch_tac \\ fs [EVERY_MEM, MAX_DEF, make_even_def]
-    \\ rpt (first_x_assum drule)
-    \\ every_case_tac \\ fs []
+    \\ specl_args_of_then ``renumber_code_locs_list``
+        (hd (CONJUNCTS clos_numberProofTheory.renumber_code_locs_EVEN))
+        assume_tac
+    \\ rpt disch_tac \\ fs [EVERY_MEM, MAX_DEF, make_even_def]
+    \\ conj_tac >- (
+      CCONTR_TAC \\ fs [IN_DISJOINT, SUBSET_DEF]
+      \\ ntac 3 (res_tac \\ fs [])
+      \\ RES_THEN mp_tac
+      \\ rveq \\ fs []
+      \\ every_case_tac \\ fs []
     )
+    \\ conj_tac >- (
+      IMP_RES_THEN mp_tac clos_numberProofTheory.renumber_code_locs_imp_inc
+      \\ rw [SUBSET_DEF]
+    )
+    \\ rw [SUBSET_DEF]
+    \\ ntac 2 (imp_res_tac SUBSET_IMP \\ fs [] \\ rveq \\ fs [])
+    \\ ntac 2 (res_tac \\ fs [])
+    \\ irule arithmeticTheory.LESS_SUC_EQ_COR
+    \\ CCONTR_TAC \\ fs [Q.ISPEC `SUC n` EQ_SYM_EQ, arithmeticTheory.GREATER_EQ]
+    \\ fs [seqTheory.LE_SUC]
+    \\ rfs [EVEN]
+  )
+  \\ simp []
   (* deal with the renumber phase *)
   \\ drule_then assume_tac
     (hd (BODY_CONJUNCTS clos_numberProofTheory.renumber_code_locs_esgc_free))
@@ -6994,8 +6979,9 @@ Proof
         number_monotonic_elist_globals, cond_mti_monotonic_elist_globals,
         renumber_code_locs_monotonic]
   \\ csimp []
+  (* finale *)
   \\ fs []
-  \\ drule_then (fn t => simp [t]) is_state_oracle_IMP_EQ
+  \\ drule_then (fn t => simp [t]) backendPropsTheory.is_state_oracle_IMP_EQ
   \\ fs []
   \\ Cases_on `c.do_mti`
   \\ fs [cond_mti_compile_inc_def, clos_mtiTheory.compile_def,
@@ -7676,7 +7662,7 @@ Proof
   \\ assume_tac (Q.SPECL [`n`, `exps`] clos_numberProofTheory.renumber_code_locs_list_distinct)
   \\ fs [EVERY_MEM]
   \\ rpt (first_x_assum drule)
-  \\ drule is_state_oracle_0
+  \\ drule backendPropsTheory.is_state_oracle_0
   \\ drule_then (assume_tac o Q.SPECL [`i`, `0`]) number_oracle_FST_mono
   \\ rw []
 QED
@@ -7923,7 +7909,7 @@ Proof
         LENGTH_FST_cond_mti_compile_inc]
   \\ fs []
   \\ fs [syntax_oracle_ok_def]
-  \\ drule_then (fn t => simp [t]) is_state_oracle_IMP_EQ
+  \\ drule_then (fn t => simp [t]) backendPropsTheory.is_state_oracle_IMP_EQ
   \\ fs [compile_inc_post_kcompile_def]
   \\ fs [PULL_EXISTS, GSYM boolTheory.RIGHT_EXISTS_IMP_THM,
         make_even_def, arithmeticTheory.EVEN_MOD2,
@@ -8188,9 +8174,38 @@ Theorem LENGTH_FST_calls
   (Cases_on`calls xs g0`
   \\ imp_res_tac clos_callTheory.calls_length \\ fs[]);
 
-Theorem MAX_MAX_ELIM
-  `a ≤ b ∨ a ≤ c ⇒ (MAX a (MAX b c) = MAX b c)`
-  (rw[MAX_DEF]);
+Theorem syntax_oracle_ok_call_FST_monotonic:
+  syntax_oracle_ok c es co /\
+  compile_common c es = (c'',prog') ==>
+  oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $< (count (FST (FST (co 0))))
+     (state_co (cond_call_compile_inc c.do_call)
+        (clos_knownProof$known_co c.known_conf
+           (state_co (ignore_table clos_numberProof$compile_inc)
+              (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co))))
+Proof
+  rw [] \\ fs [syntax_oracle_ok_def]
+  \\ qmatch_goalsub_abbrev_tac `oracle_monotonic _ _ St cco`
+  \\ qsuff_tac `oracle_monotonic
+        (set ∘ MAP ($+ 0) ∘ req_compile_inc_addrs [] ∘ SND) $< St cco`
+  >- (
+    match_mp_tac backendPropsTheory.oracle_monotonic_subset
+    \\ rw []
+    \\ Cases_on `SND (cco n)`
+    \\ fs [req_compile_inc_addrs_def, SUBSET_DEF]
+  )
+  \\ unabbrev_all_tac
+  \\ conseq [cond_call_compile_inc_req_oracle]
+  \\ fs [backendPropsTheory.SND_state_co]
+  \\ conseq cond_call_compile_inc_req_intros
+  \\ conseq ([known_co_req_oracle] @ known_co_req_intros)
+  \\ csimp []
+  \\ simp [backendPropsTheory.SND_state_co]
+  \\ conseq (number_compile_inc_req_intros @ [renumber_code_locs_monotonic_req
+        |> Q.GEN `offs` |> Q.SPEC `0` |> SIMP_RULE (srw_ss ()) []])
+  \\ simp [SND_cond_mti_compile_inc]
+  \\ asm_exists_tac
+  \\ fs []
+QED
 
 Theorem compile_semantics
   `semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co
@@ -8219,7 +8234,9 @@ Theorem compile_semantics
   \\ first_assum(mp_then (Pat`closSem$semantics`) mp_tac (GEN_ALL compile_common_semantics))
   \\ simp[]
   \\ impl_tac >- (
-    fs[syntax_oracle_ok_def]
+    drule (GEN_ALL syntax_oracle_ok_call_FST_monotonic)
+    \\ disch_then drule
+    \\ fs[syntax_oracle_ok_def]
   )
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ irule compile_prog_semantics

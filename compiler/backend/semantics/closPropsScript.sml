@@ -2746,9 +2746,9 @@ Theorem find_code_SUBMAP
 
 val SUBMAP_rel_def = Define`
   SUBMAP_rel z1 z2 ⇔
-    z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code (*∧
-    (∀n. DISJOINT (FDOM z2.code) (set (MAP FST (SND (SND (z1.compile_oracle n))))) ∧
-         (∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (z1.compile_oracle m))))) (set (MAP FST (SND (SND (z1.compile_oracle n)))))))*)`;
+    z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code ∧
+    oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $<
+        (FDOM z2.code) z1.compile_oracle`;
 
 Theorem find_code_SUBMAP_rel
   `find_code dest vs s1.code = SOME p ∧ SUBMAP_rel s1 s2 ⇒
@@ -2762,26 +2762,34 @@ Proof
   Cases_on `z2` \\ fs [SUBMAP_rel_def] \\ metis_tac []
 QED
 
-(* This is not true, and probably can't be rescued.
-   FIXME: lots of work required around here. *)
-Theorem do_install_SUBMAP
-  `do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
-   SUBMAP_rel z1 z2 ⇒
-   ∃s2.
-     do_install xs z2 = (r,s2) ∧
-     SUBMAP_rel s1 s2`
-  (
+Theorem do_install_SUBMAP:
+  do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
+  SUBMAP_rel z1 z2 ⇒
+  ∃s2. do_install xs z2 = (r,s2) ∧ SUBMAP_rel s1 s2
+Proof
   rw[closSemTheory.do_install_def]
   \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ imp_res_tac SUBMAP_rel_EX
+  \\ fs[CaseEq"bool",CaseEq"option"]
+  \\ fs[CaseEq"prod", Once (CaseEq"bool")]
+  \\ fs[GSYM PULL_EXISTS, GSYM CONJ_ASSOC]
+  \\ conj_asm1_tac
+  >- (
+    fs [SUBMAP_rel_def]
+    \\ drule (Q.SPEC `0` backendPropsTheory.oracle_monotonic_DISJOINT_init)
+    \\ fs [irreflexive_def]
+  )
   \\ fs[CaseEq"bool",CaseEq"option",CaseEq"prod"]
-  \\ rveq
+  \\ rveq \\ fs []
   \\ fs[SUBMAP_rel_def]
-  \\ fs[] \\ rveq
-  \\ cheat
-  );
+  \\ rw []
+  \\ (irule SUBMAP_mono_FUPDATE_LIST ORELSE
+        irule backendPropsTheory.oracle_monotonic_shift_seq)
+  \\ fs [SUBMAP_FLOOKUP_EQN, FLOOKUP_DRESTRICT, FDOM_FUPDATE_LIST]
+  \\ fs [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
+QED
 
 val do_app_lemma_simp = prove(
   ``(exc_rel $= err1 err2 <=> err1 = err2) /\
