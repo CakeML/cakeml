@@ -3155,7 +3155,7 @@ Theorem compile_evaluate_decs:
    state_rel (compile_state co cc (FST res)) (FST res4) ∧
    OPTREL (exc_rel v_rel)
      (OPTION_MAP (map_error_result compile_v) (SND res))
-     (case (SND res4) of Rval _ => NONE | Rerr e => SOME e)
+    (case (SND res4) of Rval _ => NONE | Rerr e => SOME e)
 Proof
   map_every qid_spec_tac[`res`,`s`]
   \\ Induct_on`prog`
@@ -3208,42 +3208,44 @@ Proof
     \\ strip_tac \\ rveq
     \\ simp[Once evaluate_cons]
     \\ simp[OPTREL_def] )
-  \\ cheat
-  (*
   \\ ntac 2 (pop_assum mp_tac)
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
   \\ strip_tac \\ rveq
-  \\ TOP_CASE_TAC \\ fs[]
   \\ simp[Once evaluate_cons]
+  \\ rename [`evaluate _ flat_s0 _ = (flat_s1,_)`]
   \\ strip_tac
-  (*
-  \\ qmatch_asmsub_abbrev_tac`evaluate_decs env1`
-  \\ `env1 = env` by simp[Abbr`env1`,flatSemTheory.environment_component_equality]
-  \\ fs[Abbr`env1`]
-  *)
-  \\ qmatch_asmsub_rename_tac`evaluate_decs s1 prog`
-  \\ first_x_assum(qspecl_then[`s1`]mp_tac)
-  \\ simp[]
+  \\ qmatch_asmsub_rename_tac`evaluate_decs flat_s1 prog`
+  \\ first_x_assum(qspecl_then[`flat_s1`]mp_tac)
+  \\ `¬flat_s1.check_ctor ∧ flat_s1.exh_pat`
+         by metis_tac [evaluate_state_unchanged] \\ fs[]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`SND p`
   \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
   \\ pop_assum(assume_tac o SYM) \\ fs[]
-  \\ drule evaluate_exp_rel
+  \\ qmatch_asmsub_abbrev_tac`SND p`
+  \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
+  \\ pop_assum(assume_tac o SYM) \\ fs[]
+  \\ fs [v_rel_cases] \\ rveq \\ fs []
+  \\ qpat_x_assum `_ = (_,v4)` assume_tac
+  \\ rename [`evaluate [] pat_s1 (compile prog) = (pat_s2,v4)`]
+  \\ qmatch_goalsub_abbrev_tac `FST ppp`
+  \\ `FST ppp = pat_s2` by (Cases_on `v4` \\ fs [Abbr`ppp`]) \\ fs []
+  \\ qmatch_goalsub_abbrev_tac `OPTREL _ _ qqq`
+  \\ `qqq = case v4 of Rerr eee => SOME eee | _ => NONE` by
+        (unabbrev_all_tac \\ Cases_on `v4` \\ fs [])
+  \\ fs [] \\ ntac 4 (pop_assum kall_tac)
+  \\ pop_assum mp_tac
+  \\ drule evaluate_exp_rel \\ fs []
   \\ simp[compile_NoRun, compile_state_NoRun]
-  \\ qmatch_assum_rename_tac`state_rel (_ _ s1) s2`
-  \\ disch_then(qspecl_then[`[]`,`s2`,`compile prog`]mp_tac)
-  \\ simp[CONJUNCT2 exp_rel_refl]
-  \\ strip_tac >>
-  `¬s1.check_ctor ∧ s1.exh_pat` by metis_tac [evaluate_state_unchanged] >>
-  fs []
+  \\ disch_then(qspecl_then[`[]`,`pat_s1`,`compile prog`]mp_tac)
+  \\ fs [] \\ ntac 2 strip_tac \\ fs []
+  \\ fs[CONJUNCT2 exp_rel_refl]
+  \\ conj_tac THEN1 metis_tac[state_rel_trans]
   \\ qhdtm_x_assum`OPTREL`mp_tac
   \\ CASE_TAC \\ fs[OPTREL_def]
-  >- metis_tac[state_rel_trans]
-  \\ strip_tac \\ fs[]
-  \\ rveq
+  \\ rw[] \\ fs []
   \\ metis_tac[state_rel_trans, exc_rel_v_rel_trans]
-  *)
 QED
 
 Theorem compile_semantics:
