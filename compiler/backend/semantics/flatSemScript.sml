@@ -6,19 +6,21 @@ open semanticPrimitivesPropsTheory;
 
 val _ = new_theory "flatSem";
 
-(* The values of flatLang differ in that the closures do not environments for
- * global definitions.
+(* The values of flatLang differ from source semantic values in that
+ * the closures do not carry environments for global definitions.
  *
- * The semantics of flatLang differ in that there is no module environment menv, nor
- * are top-level bindings added to the normal env, thus when a closure is
- * created, only locals bindings are put into it. There is a global environment
- * genv, which is just a list of the top-level bindings seen so far, with the
- * older bindings nearer the head. Global variable reference expressions simply
- * index into global environment. Top-level let rec declarations evaluate to
- * closures, rather than to recursive closures, since the recursion can be
- * handled through the genv. The expressions bound to top-level lets must
- * evaluate to a tuple with exactly as many things in it as the number of
- * bindings that the let will bind.
+ * The semantics of flatLang differ from source in that there is no
+ * module environment menv, nor are top-level bindings added to the
+ * normal env, thus when a closure is created, only locals bindings
+ * are put into it. There is a global environment genv, which is just
+ * a list of the top-level bindings seen so far, with the older
+ * bindings nearer the head. Global variable reference expressions
+ * simply index into global environment. Top-level let rec
+ * declarations evaluate to closures, rather than to recursive
+ * closures, since the recursion can be handled through the genv. The
+ * expressions bound to top-level lets must evaluate to a tuple with
+ * exactly as many things in it as the number of bindings that the let
+ * will bind.
  *)
 
 val _ = set_grammar_ancestry ["flatLang", "semanticPrimitives",
