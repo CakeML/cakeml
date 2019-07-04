@@ -55,7 +55,7 @@ val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
 
 val (env_rel_rules, env_rel_ind, env_rel_cases) = Hol_reln `
   (!env env'.
-    LIST_REL (\(x,v1) (y,v2). x = y ∧ v_rel v1 v2) env.v env'.v 
+    LIST_REL (\(x,v1) (y,v2). x = y ∧ v_rel v1 v2) env.v env'.v
     ⇒
     env_rel env env')`;
 
