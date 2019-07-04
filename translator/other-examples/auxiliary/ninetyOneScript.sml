@@ -6,6 +6,8 @@ open TotalDefn numLib prim_recTheory arithmeticTheory;
 
 val _ = new_theory "ninetyOne"
 
+val _ = ParseExtras.temp_loose_equality()
+
 (*---------------------------------------------------------------------------
        Define the 91 function. We call it "N". We use Hol_defn to
        make the definition, since we have to tackle the termination

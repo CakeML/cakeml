@@ -6,6 +6,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "copying_gc";
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory;
 
+val _ = ParseExtras.temp_loose_equality();
 
 val _ = Hol_datatype `heap_address = H_ADDR of num | H_DATA of 'a`;
 

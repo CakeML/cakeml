@@ -2577,15 +2577,15 @@ Proof
       `LENGTH (bv_names tm) ≤ LENGTH names` by DECIDE_TAC >>
       conj_tac >- (
         rw[] >> spose_not_then strip_assume_tac >>
-        imp_res_tac rich_listTheory.MEM_DROP >>
+        imp_res_tac rich_listTheory.MEM_DROP_IMP >>
         metis_tac[] ) >>
       conj_tac >- (
         rw[] >> spose_not_then strip_assume_tac >>
-        imp_res_tac rich_listTheory.MEM_DROP >>
+        imp_res_tac rich_listTheory.MEM_DROP_IMP >>
         metis_tac[] ) >>
       conj_tac >- metis_tac[ALL_DISTINCT_DROP] >>
       rw[] >> spose_not_then strip_assume_tac >>
-      imp_res_tac rich_listTheory.MEM_DROP >>
+      imp_res_tac rich_listTheory.MEM_DROP_IMP >>
       metis_tac[]) >>
     metis_tac[]) >>
   rw[UNCURRY] >>
