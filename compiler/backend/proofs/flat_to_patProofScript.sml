@@ -3256,8 +3256,6 @@ Theorem compile_semantics:
      (compile es) =
    semantics T F ffi es
 Proof
-  cheat
-  (*
   simp[flatSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -3267,7 +3265,7 @@ Proof
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       qhdtm_x_assum`flatSem$evaluate_decs`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
-      (fn g as (_,w) => Cases_on[ANTIQUOTE(rand(rand(lhs w)))] g) \\
+      (fn g as (_,w) => Cases_on[ANTIQUOTE(rand((lhs w)))] g) \\
       fs[] \\ spose_not_then strip_assume_tac \\
       drule(compile_evaluate_decs) >>
       impl_tac >- (fs[] \\ EVAL_TAC) \\ strip_tac \\
@@ -3278,9 +3276,9 @@ Proof
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
       srw_tac[][] >>
-      qmatch_assum_abbrev_tac`flatSem$evaluate_decs env ss es = _` >>
+      qmatch_assum_abbrev_tac`flatSem$evaluate_decs ss es = _` >>
       qmatch_assum_abbrev_tac`patSem$evaluate bnv bs be = _` >>
-      qispl_then[`es`,`env`,`ss`]mp_tac flatPropsTheory.evaluate_decs_add_to_clock_io_events_mono >>
+      qispl_then[`es`,`ss`]mp_tac flatPropsTheory.evaluate_decs_add_to_clock_io_events_mono >>
       Q.ISPECL_THEN [`bnv`,`bs`,`be`](mp_tac o Q.GEN`extra`) patPropsTheory.evaluate_add_to_clock_io_events_mono >>
       simp[Abbr`bs`,Abbr`ss`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
@@ -3322,20 +3320,22 @@ Proof
     last_x_assum(qspec_then`k`strip_assume_tac) >>
     qmatch_assum_abbrev_tac`SND p ≠ _` >>
     Cases_on`p`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
-    pop_assum(mp_tac o SYM) >>
-    (fn g as (_,w) => Cases_on[ANTIQUOTE(rand(lhs(#1(dest_imp w))))] g) \\
-    drule compile_evaluate_decs \\
-    rw[] \\ strip_tac \\ rw[] \\ fs[] \\
-    first_x_assum(fn th => mp_tac th \\ impl_tac >- (fs[] \\ EVAL_TAC)) \\
-    fs[flatSemTheory.initial_state_def,compile_state_with_clock,OPTREL_SOME]
-    \\ spose_not_then strip_assume_tac \\ rw[]
-    \\ qpat_x_assum`Rabort _ = _`(assume_tac o SYM)
-    \\ fs[map_error_result_Rtype_error] ) \\
-  DEEP_INTRO_TAC some_intro >> simp[] >>
-  conj_tac >- (
-    spose_not_then strip_assume_tac >>
+    pop_assum(mp_tac o SYM)
+    \\ strip_tac
+    \\ drule compile_evaluate_decs
+    \\ impl_tac >- (fs[] \\ EVAL_TAC)
+    \\ strip_tac
+    \\ fs[flatSemTheory.initial_state_def,compile_state_with_clock,OPTREL_SOME]
+    \\ first_x_assum (qspec_then `k` assume_tac)
+    \\ rfs [] \\ Cases_on `r` \\ fs []
+    \\ Cases_on `x` \\ fs []
+    \\ Cases_on `a` \\ fs []
+    \\ fs [OPTREL_def])
+  \\ DEEP_INTRO_TAC some_intro >> simp[]
+  \\ conj_tac >- (
+    spose_not_then strip_assume_tac >> rfs [] >>
     last_x_assum(qspec_then`k`mp_tac) >>
-    (fn g as (_,w) => Cases_on[ANTIQUOTE(rand(rand(lhs(rand(#1(dest_imp w))))))] g) \\
+    (fn g as (_,w) => Cases_on[ANTIQUOTE(rand((lhs(rand(#1(dest_imp w))))))] g) \\
     strip_tac >>
     drule compile_evaluate_decs >>
     impl_tac >- (fs[] \\ EVAL_TAC) \\
@@ -3353,10 +3353,8 @@ Proof
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >> gen_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-  specl_args_of_then``flatSem$evaluate_decs``(Q.GENL[`env`,`s`,`prog`,`res`]compile_evaluate_decs) mp_tac >>
-  simp[state_rel_def,compile_state_def,flatSemTheory.initial_state_def] \\
-  impl_tac >- EVAL_TAC \\ simp[]
-  *)
+  specl_args_of_then``flatSem$evaluate_decs``(Q.GENL[`s`,`prog`,`res`]compile_evaluate_decs) mp_tac >>
+  simp[state_rel_def,compile_state_def,flatSemTheory.initial_state_def]
 QED
 
 val set_globals_let_els = Q.prove(`
