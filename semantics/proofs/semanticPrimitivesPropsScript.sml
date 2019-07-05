@@ -431,55 +431,6 @@ Proof
   rw [get_mut_args_def] >> fs [trunc_sign_def, listTheory.ZIP_def]
 QED
 
-(*
-Theorem store_cargs_lupdate:
- !margs l s h n. store_cargs_sem margs l s ≠ NONE /\  n < LENGTH s ==>
-  store_cargs_sem margs l (LUPDATE (W8array h) n s) ≠ NONE
-Proof
-  ho_match_mp_tac store_cargs_sem_ind
-  \\ rw []
-  >- (Cases_on `n`
-      >- (Cases_on `s` >> FULL_SIMP_TAC arith_ss [LUPDATE_def, store_cargs_sem_def])
-      >- (Cases_on `s` >> FULL_SIMP_TAC arith_ss [LUPDATE_def, store_cargs_sem_def]))
-  >- (fs [store_cargs_sem_def]
-      \\ fs [CaseEq"option"]
-      \\ CONJ_TAC
-      >- (Cases_on `marg` >> fs [store_carg_sem_def]
-          \\ Cases_on `n`
-           >- (Cases_on `s` >> FULL_SIMP_TAC arith_ss [LUPDATE_def,
-                    store_assign_def, store_v_same_type_def]
-                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                >- (rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) >> (Cases_on `n'` >>  fs [])))
-          >- (Cases_on `s` >> FULL_SIMP_TAC arith_ss [LUPDATE_def,
-                          store_assign_def, store_v_same_type_def]
-                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                >- rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                >- (rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                    >- ((Cases_on `n'` >>  fs [])
-                        \\ Cases_on `n''`
-                        >- ((Cases_on `t` >> fs [LUPDATE_def])
-                             \\ (Cases_on `n` >>  fs []))
-                        >-  fs [LUPDATE_def, EL_LUPDATE, bool_case_eq]
-                        >- fs [EL_CONS_IF, LUPDATE_def, EL_LUPDATE, bool_case_eq]
-                           >- (rveq >>  fs [])
-                           >- metis_tac [store_v_distinct])
-
-      >- rw []
-        \\ Cases_on `store_carg_sem marg w s` >> fs []
-        \\ `LENGTH x = LENGTH s` by cheat
-        \\ fs []
-        \\ Cases_on `marg` >> rfs [store_carg_sem_def] metis_tac []
-)
-  >- fs [store_cargs_sem_def]
-  >- fs [store_cargs_sem_def]
-QED
-*)
-
 (* TODO: move? *)
 Theorem LUPDATE_LUPDATE_same:
   !e n l e'. LUPDATE e n (LUPDATE e' n l) = LUPDATE e n l
@@ -487,7 +438,7 @@ Proof
   Induct_on `l` >> Cases_on `n` >> rw[LUPDATE_def]
 QED
 
-Theorem to_prove:
+Theorem store_cargs_none_lupdate:
  !margs l s h n. store_cargs_sem margs l (LUPDATE (W8array h) n s) = NONE /\  n < LENGTH s ==>
   store_cargs_sem margs l s = NONE
 Proof
@@ -540,7 +491,7 @@ Proof
                         \\ `(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
                         \\ rw []
                         \\ qexists_tac `t`
-                        \\ metis_tac [to_prove])))
+                        \\ metis_tac [store_cargs_none_lupdate])))
              >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
                  \\ metis_tac []))))
 QED
