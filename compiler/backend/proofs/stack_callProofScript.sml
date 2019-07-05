@@ -75,7 +75,16 @@ Proof
   Cases_on `x` \\ fs[]
 QED;
 
-val opt_code_Seq = SIMP_CONV(srw_ss())[Once opt_code_def]``opt_code (Seq p1 p2) tree``
+Theorem get_labels_opt_code:
+  !x tree. get_labels (opt_code x tree) = get_labels x
+Proof
+  recInduct opt_code_ind \\ rw []
+  \\ simp [Once opt_code_def]
+  \\ Cases_on `prog` \\ fs [get_labels_def]
+  \\ cheat
+QED
+
+val opt_code_Seq = SIMP_CONV(srw_ss())[Once opt_code_def]``opt_code (Seq p1 p2) tree``;
 
 Theorem opt_code_correct:
   !prog s res s1 t tree.
@@ -232,18 +241,15 @@ Proof
       \\ qpat_x_assum `_ = (_,_)` (fn th => rewrite_tac [GSYM th])
       \\ rpt AP_TERM_TAC \\ fs [state_component_equality])
     \\ TOP_CASE_TAC
-    THEN1 (* case: free is req *)
-     (pairarg_tac \\ fs[empty_env_def]
-      \\ rveq \\ fs[]
-      \\ cheat)
-    THEN1 (* case: alloc is req *)
-     (pairarg_tac \\ fs[]
-      \\ rveq \\ fs[])
-
+    THEN1 (* case: free is required *)
+      cheat
+    THEN1 (* case: alloc is required *)
+      cheat)
+(*
     \\ Cases_on `evaluate (x'³',dec_clock (s with stack_space := x + s.stack_space))`
     \\ fs[option_case_eq]
     \\ pairarg_tac \\
-
+*)
   THEN1
    (rename [`Return n m`]
     \\ fs[evaluate_def, opt_code_def, get_var_def, option_case_eq]
@@ -270,7 +276,7 @@ Proof
 
   THEN1
    (rename [`While cmp r1 ri c1`]
-    \\ once_rewrite_tac [opt_code_def]
+    \\ once_rewrite_tac [opt_code_def] \\ fs []
     \\ reverse (fs[evaluate_def, option_case_eq, word_loc_case_eq,bool_case_eq])
     \\ rveq \\ fs [PULL_EXISTS]
     THEN1 (* case: loop is not entered *)
@@ -282,57 +288,28 @@ Proof
       cheat
     THEN1 (* case: timeout after one iteration *)
       cheat
-    THEN1 (* case: loop continues executing *)
-      cheat
-(* -- old stuff --
-    \\ reverse (Cases_on `word_cmp cmp x y`) \\ fs[]
-      THEN1 (rw[PULL_EXISTS]
-        \\ `s.regs = t.regs` by fs[state_rel_def] \\ fs[]
-        \\ `get_var_imm ri t = get_var_imm ri s` by (Cases_on `ri`
-        \\ fs[state_rel_def, get_var_imm_def, get_var_def])
-        \\ fs[] \\ fs[get_var_def]
-        \\ qexists_tac `0` \\ fs[state_rel_def])
-      THEN1 (rw[PULL_EXISTS]
-        \\ `s.regs = t.regs` by fs[state_rel_def] \\ fs[]
-        \\ `get_var_imm ri t = get_var_imm ri s` by (Cases_on `ri`
-        \\ fs[state_rel_def, get_var_imm_def, get_var_def]))
-        \\ fs[get_var_def]
-        \\ pairarg_tac \\ fs[bool_case_eq]
-        \\ rw[] \\ fs[] \\ rfs[]
-        THEN1
-         (first_x_assum drule
-          \\ disch_then drule
-          \\ rw[]
-          \\ qexists_tac `ck` \\ qexists_tac `t1` \\ fs[])
-        THEN1
-         (first_x_assum drule
-         \\ disch_then drule
-         \\ rw[]
-         \\ qexists_tac `ck` \\ qexists_tac `empty_env t1` \\ fs[state_rel_def]
-         \\ fs[empty_env_def])
-       THEN1
-         (rfs[]
-          \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM)
-          \\ first_x_assum drule
-          \\ rpt (disch_then drule)
-          \\ rw[]
-          \\ `state_rel (dec_clock s1') (dec_clock t1)` by fs [state_rel_def, dec_clock_def]
-          \\ first_x_assum drule
-          \\ rpt (disch_then drule)
-          \\ rw[]
-          \\ qexists_tac `ck + ck'` \\ fs[]
-          \\ `t1.clock = s1'.clock` by fs [state_rel_def]
-          \\ fs[]
-          \\ qexists_tac `dec_clock t1'` \\ fs[]
-          \\ qpat_x_assum `evaluate (opt_code _ _, _) = (NONE, _)` assume_tac
-    \\ drule (GEN_ALL stackPropsTheory.evaluate_add_clock)
-          \\ disch_then (qspec_then `ck'` mp_tac) \\ simp[]
-          \\ rw[] \\ fs[STOP_def]
-          \\ qpat_x_assum `evaluate (opt_code (While _ _ _ _) _, _) = _` mp_tac
-          \\ once_rewrite_tac [opt_code_def] \\ fs[]
-          \\ cheat) *)
-          )
 
+    THEN1 (* case: loop continues executing *)
+     (qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs []
+      \\ first_x_assum drule \\ strip_tac
+      \\ first_x_assum drule \\ fs [] \\ strip_tac
+      \\ rename [`state_rel s2 t2`]
+      \\ `state_rel (dec_clock s2) (dec_clock t2)` by fs [state_rel_def,dec_clock_def]
+      \\ first_x_assum drule
+      \\ fs [EVAL ``(dec_clock t2).code``]
+      \\ strip_tac
+      \\ first_x_assum drule \\ fs []
+      \\ simp [Once opt_code_def] \\ fs [STOP_def] \\ strip_tac
+      \\ fs [dec_clock_def]
+      \\ qpat_x_assum `_ = (NONE,t2)` assume_tac
+      \\ `t2.clock = s2.clock` by fs [state_rel_def] \\ fs [] \\ rfs []
+      \\ drule (GEN_ALL stackPropsTheory.evaluate_add_clock)
+      \\ strip_tac \\ fs []
+      \\ first_x_assum (qspec_then `ck'` mp_tac) \\ rfs [] \\ strip_tac
+      \\ qexists_tac `ck' + ck` \\ fs []
+      \\ fs [get_var_def,state_rel_def]
+      \\ `get_var_imm ri t = get_var_imm ri s` by (Cases_on `ri` \\ fs [get_var_imm_def,get_var_def])
+      \\ fs []))
   THEN1
    (rename [`JumpLower r1 r2 dest`]
     \\ once_rewrite_tac [opt_code_def] \\ fs[evaluate_def]
@@ -373,7 +350,7 @@ Proof
     \\ Cases_on `v9` \\ fs[]
     \\ Cases_on `h` \\ fs[bool_case_eq]
     \\ rveq \\ fs[]
-    \\ cheat)
+    \\ cheat (* leave this here *))
   THEN1
    (rename [`CodeBufferWrite r1 r2`]
     \\ fs[evaluate_def, opt_code_def, option_case_eq]
@@ -381,13 +358,13 @@ Proof
     \\ Cases_on `v13` \\ fs[option_case_eq]
     \\ fs[get_var_def, state_rel_def]
     \\ EVERY_CASE_TAC \\ fs[]
-    \\ cheat)
+    \\ cheat (* leave this here *))
   THEN1
    (rename [`DataBufferWrite r1 r2`]
     \\ fs[evaluate_def, opt_code_def, bool_case_eq, option_case_eq]
     \\ Cases_on `v5` \\ fs[option_case_eq]
     \\ Cases_on `v13` \\ fs[option_case_eq, state_rel_def, get_var_def]
-    \\ cheat)
+    \\ cheat (* leave this here *))
   THEN1
    (rename [`FFI ffi_index ptr len ptr2 len2 ret`]
     \\ fs[evaluate_def, opt_code_def, option_case_eq]
@@ -401,7 +378,20 @@ Proof
    (rename [`LocValue r l1 l2`]
     \\ fs[evaluate_def, opt_code_def, bool_case_eq, state_rel_def, set_var_def]
     \\ rveq \\ fs []
-    \\ cheat)
+    \\ fs [loc_check_def]
+    THEN1
+     (fs [domain_lookup] \\ rveq
+      \\ fs [code_rel_def]
+      \\ first_x_assum (qspec_then `l1` mp_tac)
+      \\ asm_rewrite_tac [] \\ fs []
+      \\ strip_tac \\ asm_rewrite_tac [] \\ simp [])
+    \\ disj2_tac
+    \\ fs [code_rel_def]
+    \\ first_x_assum (qspec_then `n` mp_tac)
+    \\ fs []  \\ strip_tac \\ rveq
+    \\ fs [create_raw_ep_def,strip_fun_def]
+    \\ fs [get_labels_def]
+    \\ qexists_tac `n+1` \\ fs [get_labels_opt_code])
   THEN1
    (rename [`StackAlloc n`]
     \\ fs[evaluate_def, opt_code_def, bool_case_eq, state_rel_def, empty_env_def])
