@@ -1691,6 +1691,20 @@ QED
 
 (* char list as string *)
 
+Theorem Eval_explode_nop:
+  Eval env x (STRING_TYPE s) ==>
+  Eval env x (HOL_STRING_TYPE (explode s))
+Proof
+  rw [HOL_STRING_TYPE_def]
+QED
+
+Theorem Eval_implode_nop:
+  Eval env x (HOL_STRING_TYPE cs) ==>
+  Eval env x (STRING_TYPE (implode cs))
+Proof
+  rw [HOL_STRING_TYPE_def]
+QED
+
 Theorem Eval_HOL_STRING_INTRO:
   Eval env x (LIST_TYPE CHAR cs) ==>
   Eval env (App Implode [x]) (HOL_STRING_TYPE cs)
@@ -1699,7 +1713,7 @@ Proof
   \\ imp_res_tac Eval_implode
 QED
 
-Theorem Eval_LIST_TYPE_CHAR_INTRO:
+Theorem Eval_HOL_STRING_DEST:
   Eval env x (HOL_STRING_TYPE cs) ==>
   Eval env (App Explode [x]) (LIST_TYPE CHAR cs)
 Proof
@@ -1718,7 +1732,7 @@ Proof
   \\ fs [strlen_def]
 QED
 
-Theorem Eval_HOL_STRING_TYPE_EL:
+Theorem Eval_HOL_STRING_EL:
    !env x1 x2 s n.
       Eval env x2 (NUM n) ==>
       Eval env x1 (HOL_STRING_TYPE s) ==>
@@ -1734,15 +1748,15 @@ Theorem Eval_HOL_STRING_APPEND:
    !env x1 x2 s1 s2 n.
       Eval env x1 (HOL_STRING_TYPE s1) ==>
       Eval env x2 (HOL_STRING_TYPE s2) ==>
-      nsLookup env.c (Short "::") = SOME (2,TypeStamp "::" 1) /\
-      nsLookup env.c (Short "[]") = SOME (0,TypeStamp "[]" 1) ==>
+      lookup_cons (Short "::") env = SOME (2,TypeStamp "::" 1) /\
+      lookup_cons (Short "[]") env = SOME (0,TypeStamp "[]" 1) ==>
       Eval env
         (App Strcat [Con (SOME (Short "::"))
                     [x1; Con (SOME (Short "::"))
                          [x2; Con (SOME (Short "[]")) []]]])
         (HOL_STRING_TYPE (s1++s2))
 Proof
-  rw [HOL_STRING_TYPE_def] \\ fs [implode_def]
+  rw [HOL_STRING_TYPE_def] \\ fs [implode_def,lookup_cons_def]
   \\ `strlit (STRCAT s1 s2) =
       concat [strlit s1; strlit s2]` by EVAL_TAC
   \\ fs [] \\ match_mp_tac (Eval_concat)
@@ -1774,7 +1788,15 @@ Theorem Eval_HOL_STRING_EXPLODE:
       Eval env (App Explode [x1]) (LIST_TYPE CHAR (EXPLODE s))
 Proof
   rw [stringTheory.IMPLODE_EXPLODE_I]
-  \\ imp_res_tac Eval_LIST_TYPE_CHAR_INTRO
+  \\ imp_res_tac Eval_HOL_STRING_DEST
+QED
+
+Theorem Eval_HOL_STRING_LITERAL:
+  !s. Eval env (Lit (StrLit s)) (HOL_STRING_TYPE s)
+Proof
+  rw []
+  \\ qspec_then `s` mp_tac Eval_Val_STRING
+  \\ fs [HOL_STRING_TYPE_def,mlstringTheory.implode_def]
 QED
 
 (* vectors *)

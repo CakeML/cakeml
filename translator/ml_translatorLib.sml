@@ -42,6 +42,21 @@ exception UnableToTranslate of term;
 exception UnsupportedType of hol_type;
 exception NotFoundVThm of term;
 
+(* non-persistent state *)
+
+local
+  val use_string_type_ref = ref true;
+in
+  fun use_string_type b =
+    (use_string_type_ref := b;
+     if b then print "Translator now treats `char list` as a CakeML string.\n"
+     else print "Translator now treats `char list` as a list of characters in CakeML.\n");
+  fun use_hol_string_type () = !use_string_type_ref
+end
+
+(* / non-persistent state *)
+
+
 (* code for managing state of certificate theorems *)
 
 fun MY_MP name th1 th2 =
@@ -522,7 +537,7 @@ in
     if ty = numSyntax.num then int_ast_t else
     if ty = stringSyntax.char_ty then char_ast_t else
     if ty = oneSyntax.one_ty then one_ast_t else
-    if ty = stringSyntax.string_ty then string_ast_t else (* experimental *)
+    if ty = stringSyntax.string_ty andalso use_hol_string_type() then string_ast_t else
     if ty = mlstring_ty then string_ast_t else
     if can dest_vartype ty then
       astSyntax.mk_Atvar(stringSyntax.fromMLstring (dest_vartype ty))
@@ -572,7 +587,7 @@ in
     if ty = numSyntax.num then NUM else
     if ty = intSyntax.int_ty then ml_translatorSyntax.INT else
     if ty = stringSyntax.char_ty then CHAR else
-    if ty = stringSyntax.string_ty then HOL_STRING_TYPE else (* experimental *)
+    if ty = stringSyntax.string_ty andalso use_hol_string_type() then HOL_STRING_TYPE else
     if ty = mlstringSyntax.mlstring_ty then STRING_TYPE else
     if is_vector_type ty then let
       val inv = get_type_inv (dest_vector_type ty)
@@ -1416,6 +1431,7 @@ val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
   in f end
 
 (*
+val ty = ``:lit``; derive_thms_for_type false ty
 val ty = ``:unit``; derive_thms_for_type false ty
 val ty = ``:'a list``; derive_thms_for_type false ty
 val ty = ``:'a # 'b``; derive_thms_for_type false ty
@@ -1923,6 +1939,16 @@ fun inst_cons_thm tm hol2deep = let
   val xs = args res
   val ss = fst (match_term res tm)
   val ys = map (fn x => remove_primes (hol2deep (subst ss x))) xs
+  val ys =
+    let
+      val refs = th |> concl |> dest_imp |> fst |> list_dest dest_conj |> map rand
+      fun insert_HOL_STRING (y,r) =
+        if can (match_term r) (rand (concl y)) then y else
+          let val res = MATCH_MP Eval_HOL_STRING_INTRO y
+              val _ = print "Warning: automatically added string IMPLODE "
+              val _ = print "due to HOL_STRING_TYPE\n"
+          in res end
+    in map insert_HOL_STRING (zip ys refs) end handle HOL_ERR _ => ys
   val th1 = if length ys = 0 then TRUTH else LIST_CONJ ys
   in MATCH_MP th (UNDISCH_ALL th1)
      handle HOL_ERR _ => raise UnableToTranslate tm end
@@ -2704,7 +2730,7 @@ val builtin_binops =
    Eval_NUM_LESS_EQ,
    Eval_NUM_GREATER,
    Eval_NUM_GREATER_EQ,
-   Eval_HOL_STRING_TYPE_EL,
+   Eval_HOL_STRING_EL,
    Eval_HOL_STRING_APPEND,
    Eval_char_lt,
    Eval_char_le,
@@ -3168,6 +3194,8 @@ fun hol2deep tm =
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
+  if can stringSyntax.fromHOLstring tm then
+    SPEC tm Eval_HOL_STRING_LITERAL else
   if (Teq tm) then Eval_Val_BOOL_T else
   if (Feq tm) then Eval_Val_BOOL_F else
   if (tm ~~ TRUE) then Eval_Val_BOOL_TRUE else
@@ -3451,6 +3479,14 @@ fun hol2deep tm =
     val thx = force_remove_fix thx
     val result = MATCH_MP (MATCH_MP Eval_Arrow thf) thx handle HOL_ERR _ =>
                  MY_MATCH_MP (MATCH_MP Eval_Arrow thf) (MATCH_MP Eval_Eq thx)
+                 handle HOL_ERR e =>
+                   let (* patch up difference between HOL_STRING_TYPE and LIST_TYPE CHAR *)
+                     val thx' = MATCH_MP Eval_HOL_STRING_DEST thx
+                     val res = MATCH_MP (MATCH_MP Eval_Arrow thf) thx' handle HOL_ERR _ =>
+                               MY_MATCH_MP (MATCH_MP Eval_Arrow thf) (MATCH_MP Eval_Eq thx')
+                     val _ = print "Warning: automatically added string EXPLODE "
+                     val _ = print "due to HOL_STRING_TYPE\n"
+                   in res end handle HOL_ERR _ => raise (HOL_ERR e)
     in check_inv "comb" tm result end else
   (* lambda applications *)
   if is_abs tm then let

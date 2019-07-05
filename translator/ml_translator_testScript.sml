@@ -36,7 +36,7 @@ val AEVERY_AUX_def = Define `
 val res = translate AEVERY_AUX_def;
 
 val res = translate mlstringTheory.strcat_def;
-val res = translate mlstringTheory.concatWith_aux_def
+(* val res = translate mlstringTheory.concatWith_aux_def *)
 
 val ADEL_def = Define `
   (ADEL [] z = []) /\
@@ -304,5 +304,70 @@ val _ = ml_prog_update (open_module "m5");
 val r = translate m4_m5_f_def;
 val _ = ml_prog_update (close_module NONE);
 val _ = ml_prog_update (close_module NONE);
+
+(* test support for HOL_STRING_TYPE *)
+
+val _ = use_string_type true;
+
+val str_ex1_def = Define `
+  str_ex1 s1 s2 = if LENGTH s1 = 0 then "Hello!" else
+                  if EL 0 s1 = #"\n" then s1 else STRCAT s1 s2`;
+
+val res = translate str_ex1_def;
+
+val str_ex1_side_thm = Q.prove(
+  `str_ex1_side s1 s2 = T`,
+  rw [fetch "-" "str_ex1_side_def",DECIDE ``0 < n <=> n <> 0n``])
+  |> update_precondition;
+
+val res = translate MAP;
+
+val str_ex2_def = Define `
+  str_ex2 s1 = MAP ORD (str_ex1 s1 "Test")`;
+
+val res = translate str_ex2_def; (* causes warning *)
+
+val str_ex3_def = Define `
+  str_ex3 s1 = MAP ORD (EXPLODE (str_ex1 s1 "Test"))`;
+
+val res = translate str_ex3_def; (* doesn't cause warning *)
+
+val str_ex4_def = Define `
+  str_ex4 s1 = MAP CHR (str_ex3 s1)`
+
+val res = translate str_ex4_def
+
+val str_ex4_side_thm = Q.prove(
+  `str_ex4_side s1 = T`,
+  rw [fetch "-" "str_ex4_side_def",str_ex3_def,MEM_MAP]
+  \\ fs [stringTheory.ORD_BOUND])
+  |> update_precondition;
+
+val str_ex5_def = Define `
+  str_ex5 s1 = if s1 = "Hello" then "There!" else IMPLODE (MAP CHR (str_ex3 s1))`
+
+val res = translate str_ex5_def
+
+val str_ex5_side_thm = Q.prove(
+  `str_ex5_side s1 = T`,
+  rw [fetch "-" "str_ex5_side_def",str_ex3_def,MEM_MAP]
+  \\ fs [stringTheory.ORD_BOUND])
+  |> update_precondition;
+
+(* more advanced test of HOL_STRING_TYPE *)
+
+(* step 1: reg a type with string inside, StrLit : string -> lit *)
+val _ = use_string_type true;
+val _ = register_type ``:lit``
+
+(* step 2: translate a function that walks a char list producing datatype with strings *)
+val _ = use_string_type false;
+val chop_str_def = tDefine "chop_str" `
+  chop_str [] = [] /\
+  chop_str xs = StrLit (TAKE 5 xs) :: chop_str (DROP 5 xs)`
+  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_DROP]);
+val res = translate TAKE_def;
+val res = translate DROP_def;
+val res = translate chop_str_def
 
 val _ = export_theory();
