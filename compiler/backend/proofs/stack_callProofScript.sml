@@ -233,9 +233,17 @@ Proof
       \\ rpt AP_TERM_TAC \\ fs [state_component_equality])
     \\ TOP_CASE_TAC
     THEN1 (* case: free is req *)
-     cheat (* similar proof as above *)
+     (pairarg_tac \\ fs[empty_env_def]
+      \\ rveq \\ fs[]
+      \\ cheat)
     THEN1 (* case: alloc is req *)
-     cheat (* similar proof as above *))
+     (pairarg_tac \\ fs[]
+      \\ rveq \\ fs[])
+
+    \\ Cases_on `evaluate (x'³',dec_clock (s with stack_space := x + s.stack_space))`
+    \\ fs[option_case_eq]
+    \\ pairarg_tac \\
+
   THEN1
    (rename [`Return n m`]
     \\ fs[evaluate_def, opt_code_def, get_var_def, option_case_eq]
@@ -372,7 +380,7 @@ Proof
     \\ Cases_on `v5` \\ fs[option_case_eq]
     \\ Cases_on `v13` \\ fs[option_case_eq]
     \\ fs[get_var_def, state_rel_def]
-    \\ EVERY_CASE_TAC \\ fs[code_rel_def]
+    \\ EVERY_CASE_TAC \\ fs[]
     \\ cheat)
   THEN1
    (rename [`DataBufferWrite r1 r2`]
