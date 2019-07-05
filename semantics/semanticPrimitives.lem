@@ -629,6 +629,12 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
               Just ((s,t), Rval (Litv (StrLit (toString ls))))
           | Nothing -> Nothing
           end
+    | (Explode, [v]) ->
+          match v with
+          | Litv (StrLit str) ->
+              Just ((s,t), Rval ...)
+          | _ -> Nothing
+          end
     | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) ->
         if i < 0 then
           Just ((s,t), Rerr (Rraise sub_exn_v))

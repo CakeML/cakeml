@@ -84,6 +84,9 @@ val CHAR_def = Define`
 val STRING_TYPE_def = Define`
   STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))`;
 
+val HOL_STRING_TYPE_def = Define `
+  HOL_STRING_TYPE cs = STRING_TYPE (implode cs)`
+
 val CONTAINER_def = Define `CONTAINER x = x`;
 
 val TAG_def = Define `TAG n x = x`;
@@ -357,10 +360,10 @@ val Eq_lemma = Q.prove(
   \\ simp_tac std_ss [Once MULT_COMM] \\ fs []);
 
 Theorem EqualityType_NUM_BOOL:
-    EqualityType NUM /\ EqualityType INT /\
-    EqualityType BOOL /\ EqualityType WORD /\
-    EqualityType CHAR /\ EqualityType STRING_TYPE /\
-    EqualityType UNIT_TYPE
+  EqualityType NUM /\ EqualityType INT /\
+  EqualityType BOOL /\ EqualityType WORD /\
+  EqualityType CHAR /\ EqualityType STRING_TYPE /\
+  EqualityType UNIT_TYPE /\ EqualityType HOL_STRING_TYPE
 Proof
   EVAL_TAC \\ fs [no_closures_def,
     types_match_def, lit_same_type_def,
@@ -1604,6 +1607,18 @@ Proof
                stringTheory.IMPLODE_EXPLODE_I]
 QED
 
+Theorem Eval_explode:
+   !env x1 l.
+      Eval env x1 (STRING_TYPE s) ==>
+      Eval env (App Explode [x1]) (LIST_TYPE CHAR (explode s))
+Proof
+  tac1 \\ fs [option_case_eq,pair_case_eq]
+  \\ Cases_on `s` \\ fs [STRING_TYPE_def]
+  \\ rpt (pop_assum kall_tac)
+  \\ Induct_on `s'`
+  \\ fs [LIST_TYPE_def,list_to_v_def,CHAR_def,list_type_num_def]
+QED
+
 Theorem Eval_strlen:
    !env x1 s.
       Eval env x1 (STRING_TYPE s) ==>
@@ -1676,15 +1691,21 @@ QED
 
 (* char list as string *)
 
-val HOL_STRING_TYPE_def = Define `
-  HOL_STRING_TYPE cs = STRING_TYPE (implode cs)`
-
 Theorem Eval_HOL_STRING_INTRO:
   Eval env x (LIST_TYPE CHAR cs) ==>
   Eval env (App Implode [x]) (HOL_STRING_TYPE cs)
 Proof
   rw [HOL_STRING_TYPE_def]
   \\ imp_res_tac Eval_implode
+QED
+
+Theorem Eval_LIST_TYPE_CHAR_INTRO:
+  Eval env x (HOL_STRING_TYPE cs) ==>
+  Eval env (App Explode [x]) (LIST_TYPE CHAR cs)
+Proof
+  rw [HOL_STRING_TYPE_def]
+  \\ imp_res_tac Eval_explode
+  \\ fs [implode_def,explode_def]
 QED
 
 Theorem Eval_HOL_STRING_LENGTH:
@@ -1736,6 +1757,24 @@ Proof
   \\ qexists_tac `refs' ++ refs''`
   \\ qexists_tac `ck1''` \\ fs []
   \\ fs [state_component_equality]
+QED
+
+Theorem Eval_HOL_STRING_IMPLODE:
+   !env x1 s.
+      Eval env x1 (LIST_TYPE CHAR s) ==>
+      Eval env (App Implode [x1]) (HOL_STRING_TYPE (IMPLODE s))
+Proof
+  rw [stringTheory.IMPLODE_EXPLODE_I]
+  \\ imp_res_tac Eval_HOL_STRING_INTRO
+QED
+
+Theorem Eval_HOL_STRING_EXPLODE:
+   !env x1 s.
+      Eval env x1 (HOL_STRING_TYPE s) ==>
+      Eval env (App Explode [x1]) (LIST_TYPE CHAR (EXPLODE s))
+Proof
+  rw [stringTheory.IMPLODE_EXPLODE_I]
+  \\ imp_res_tac Eval_LIST_TYPE_CHAR_INTRO
 QED
 
 (* vectors *)
@@ -2634,6 +2673,7 @@ val translator_terms = save_thm("translator_terms",
      ("no_closure_pat",``!x v. p x v ==> no_closures v``),
      ("types_match_pat",``!x1 v1 x2 v2. p x1 v1 /\ p x2 v2 ==> types_match v1 v2``),
      ("prim_exn_list",prim_exn_list),
+     ("list-type-char",``LIST_TYPE CHAR``),
      ("OPTION_TYPE_SIMP",``!OPTION_TYPE x. CONTAINER OPTION_TYPE
               (\y v. if x = SOME y then p y v else ARB) x =
            (OPTION_TYPE (p:('a -> v -> bool)) x):v->bool``)]);

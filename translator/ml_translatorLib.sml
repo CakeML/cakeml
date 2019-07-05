@@ -522,6 +522,7 @@ in
     if ty = numSyntax.num then int_ast_t else
     if ty = stringSyntax.char_ty then char_ast_t else
     if ty = oneSyntax.one_ty then one_ast_t else
+    if ty = stringSyntax.string_ty then string_ast_t else (* experimental *)
     if ty = mlstring_ty then string_ast_t else
     if can dest_vartype ty then
       astSyntax.mk_Atvar(stringSyntax.fromMLstring (dest_vartype ty))
@@ -544,6 +545,8 @@ in
          if name = "prod" then mk_Attup(listSyntax.mk_list(tt,astSyntax.ast_t_ty)) else
          if name = "list" then Atapp tt (astSyntax.mk_Short(name_tm))
                           else Atapp tt (full_id name_tm) end
+  val HOL_STRING_TYPE =
+    HOL_STRING_TYPE_def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
     val ii = map (fn {redex = x, residue = y} => (x,y)) i
@@ -569,6 +572,7 @@ in
     if ty = numSyntax.num then NUM else
     if ty = intSyntax.int_ty then ml_translatorSyntax.INT else
     if ty = stringSyntax.char_ty then CHAR else
+    if ty = stringSyntax.string_ty then HOL_STRING_TYPE else (* experimental *)
     if ty = mlstringSyntax.mlstring_ty then STRING_TYPE else
     if is_vector_type ty then let
       val inv = get_type_inv (dest_vector_type ty)
@@ -2700,6 +2704,8 @@ val builtin_binops =
    Eval_NUM_LESS_EQ,
    Eval_NUM_GREATER,
    Eval_NUM_GREATER_EQ,
+   Eval_HOL_STRING_TYPE_EL,
+   Eval_HOL_STRING_APPEND,
    Eval_char_lt,
    Eval_char_le,
    Eval_char_gt,
@@ -2735,6 +2741,9 @@ val builtin_binops =
 val builtin_monops =
   [Eval_implode,
    Eval_strlen,
+   Eval_HOL_STRING_LENGTH,
+   Eval_HOL_STRING_IMPLODE,
+   Eval_HOL_STRING_EXPLODE,
    Eval_concat,
    Eval_Bool_Not,
    Eval_int_negate,
@@ -3133,10 +3142,6 @@ val tm = rhs
 val tm = rhs_tm
 val tm = ``case v3 of (v2,v1) => QSORT v7 v2 ++ [v6] ++ QSORT v7 v1``
 val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
-
-val tm = ``case l of
-       (x,y)::l1 => if y = a then x else x+y:num | _ => d``
-
 *)
 
 fun hol2deep tm =
@@ -3221,7 +3226,12 @@ fun hol2deep tm =
     val inv = get_type_inv (type_of tm)
     val target = mk_comb(inv,tm)
     val (ss,ii) = match_term res target handle HOL_ERR _ =>
-                  match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
+                  match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ =>
+                  let
+                    val new_target = subst [HOL_STRING_TYPE |-> get_term "list-type-char"] target
+                  in
+                    match_term res new_target
+                  end handle HOL_ERR _ => ([],[])
     val result = INST ss (INST_TYPE ii th)
     in check_inv "lookup_v_thm" tm result end else
   (* previously translated term *)
