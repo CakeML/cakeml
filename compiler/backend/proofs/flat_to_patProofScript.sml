@@ -241,6 +241,8 @@ Proof
     \\ fs [NoRun_store_v_def, EVERY_EL]
     \\ NO_TAC)
   \\ irule NoRun_list_to_v \\ fs []
+  \\ rename [`MAP (λc. Litv (Char c)) ll`]
+  \\ Induct_on `ll` \\ fs [NoRun_v_def]
 QED
 
 Theorem do_if_NoRun:
@@ -261,7 +263,7 @@ Theorem evaluate_NoRun:
      case res of
        Rval vs => EVERY NoRun_v vs
      | Rerr (Rraise e) => NoRun_v e
-     | _ => T
+    | _ => T
 Proof
   recInduct patSemTheory.evaluate_ind
   \\ rpt conj_tac
@@ -287,6 +289,9 @@ Proof
     \\ every_case_tac \\ fs []
     \\ TRY (imp_res_tac NoRun_state_dec_clock \\ fs [] \\ NO_TAC)
     \\ drule (GEN_ALL do_app_NoRun) \\ fs [EVERY_REVERSE])
+  \\ TRY
+   (drule do_app_NoRun \\ fs [EVERY_REVERSE]
+    \\ Cases_on `r` \\ fs [] \\ rveq \\ fs [] \\ NO_TAC)
   \\ every_case_tac \\ fs [ETA_AX]
   \\ imp_res_tac build_rec_env_NoRun \\ fs []
   \\ fs [NoRun_state_def, EVERY_GENLIST, NoRun_v_def]
@@ -466,12 +471,21 @@ Proof
   \\ fs [flatSemTheory.list_to_v_def, patSemTheory.list_to_v_def]
 QED
 
+Theorem compile_v_list_to_v_MAP_Litv_Char:
+  compile_v (list_to_v (MAP (λc. Litv (Char c)) str)) =
+             list_to_v (MAP (λc. Litv (Char c)) str)
+Proof
+  Induct_on `str`
+  \\ fs [patSemTheory.list_to_v_def,flatSemTheory.list_to_v_def]
+QED
+
 val do_app = Q.prove(
   `∀cc co op vs s0 s res.
      do_app b s0 op vs = SOME (s,res)
      ⇒
      do_app (compile_state co cc s0) (Op op) (compile_vs vs) =
        SOME (compile_state co cc s,map_result compile_v compile_v res)`,
+
   srw_tac[][compile_state_def] >>
   fs[flatSemTheory.do_app_cases] >> rw[] >>
   rw[patSemTheory.do_app_def,
@@ -490,6 +504,7 @@ val do_app = Q.prove(
   TRY (last_x_assum mp_tac) >>
   TRY TOP_CASE_TAC \\ fs[]
   \\ rw[flatSemTheory.Boolv_def,flatSemTheory.Boolv_def, backend_commonTheory.tuple_tag_def]
+  \\ fs [compile_v_list_to_v_MAP_Litv_Char]
   \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]);
 
 (* pattern compiler correctness *)

@@ -427,7 +427,20 @@ Proof
         rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
         rw[] >> fs[] >>
         fs[do_app_def])) >>
-    Cases_on `op = (Op ListAppend)`
+    Cases_on `op = Op Explode`
+    >-
+     (fs [patSemTheory.do_app_def] \\ Cases_on `REVERSE vs` \\ fs []
+      \\ Cases_on `t` \\ fs []
+      \\ Cases_on `h` \\ fs []
+      \\ Cases_on `l` \\ fs [] \\ rveq \\ fs []
+      \\ imp_res_tac evaluate_length
+      \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+      \\ fs [closSemTheory.evaluate_def,closSemTheory.do_app_def]
+      \\ rename [`MAP _ (MAP _ str)`]
+      \\ rpt (pop_assum kall_tac)
+      \\ Induct_on `str` \\ fs [patSemTheory.list_to_v_def,closSemTheory.list_to_v_def]
+      \\ fs [ORD_BOUND])
+    \\ Cases_on `op = (Op ListAppend)`
     >-
      (rw []
       \\ fs [do_app_cases, SWAP_REVERSE_SYM] \\ rw []

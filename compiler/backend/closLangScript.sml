@@ -39,6 +39,7 @@ val _ = Datatype `
      | FromList num  (* convert list to packed Block *)
      | String string (* create a ByteVector from a constant *)
      | FromListByte  (* convert list of chars to ByteVector *)
+     | ToListByte    (* convert ByteVector to list of chars *)
      | LengthByteVec (* get length of ByteVector *)
      | DerefByteVec  (* load a byte from a ByteVector *)
      | TagLenEq num num (* check Block's tag and length *)

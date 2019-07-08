@@ -175,6 +175,8 @@ val compile_def = tDefine"compile" `
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op Implode) es) =
     Op tra (FromListByte) (REVERSE (MAP compile es))) ∧
+  (compile (App tra (Op Explode) es) =
+    Op tra (ToListByte) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Strlen) es) =
     Op tra LengthByteVec (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Strcat) es) =

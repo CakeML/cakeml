@@ -942,6 +942,16 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       imp_res_tac v_to_char_list >>
       srw_tac[][])
+  >- (rename [`Explode`] >>
+      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
+      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
+      imp_res_tac v_to_char_list >>
+      srw_tac[][] >>
+      Induct_on `str` >>
+      fs [semanticPrimitivesTheory.list_to_v_def,flatSemTheory.list_to_v_def] >>
+      simp [Once v_rel_cases] >>
+      fs [genv_c_ok_def,has_lists_def] >>
+      simp [Once v_rel_cases])
   >- ((* Strsub *)
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_eqns] >>

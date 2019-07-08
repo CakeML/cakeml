@@ -259,6 +259,7 @@ val do_app_correct = Q.prove (
      ∃r' s2'. do_app F s1' op vs' = SOME (s2', r') ∧
               s_rel s2 s2' ∧
               result_rel v_rel v_rel r r'`,
+
   rw [do_app_cases] >>
   fs [] >>
   rw [] >>
@@ -315,6 +316,11 @@ val do_app_correct = Q.prove (
     \\ rw[semanticPrimitivesTheory.store_v_same_type_def, EL_LUPDATE]
   )
   >- metis_tac[v_to_char_list_v_rel]
+  >-
+   (rename [`list_to_v (MAP (λc. Litv (Char c)) str)`]
+    \\ Induct_on `str`
+    THEN1 simp [list_to_v_def,Once v_rel_cases,libTheory.the_def]
+    \\ simp [list_to_v_def,Once v_rel_cases,libTheory.the_def])
   >- (
     imp_res_tac v_to_list_v_rel
     \\ fs[] \\ rw[]

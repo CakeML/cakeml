@@ -319,6 +319,8 @@ val do_app_def = Define `
      | SOME ls =>
        SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
      | NONE => NONE)
+  | (Explode, [Litv (StrLit str)]) =>
+    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) str))))
   | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
     if i < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))

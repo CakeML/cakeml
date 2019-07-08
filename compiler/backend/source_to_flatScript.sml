@@ -82,6 +82,7 @@ val astOp_to_flatOp_def = Define `
   | Chr => flatLang$Chr
   | Chopb opb => flatLang$Chopb opb
   | Implode => flatLang$Implode
+  | Explode => flatLang$Explode
   | Strsub => flatLang$Strsub
   | Strlen => flatLang$Strlen
   | Strcat => flatLang$Strcat
