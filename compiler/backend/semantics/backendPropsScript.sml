@@ -185,15 +185,15 @@ Proof
   fs [is_state_oracle_def] \\ metis_tac []
 QED
 
-(* inverse combinators for building up the config part of an oracle *)
+(* constructive combinators for building up the config part of an oracle *)
 
 val syntax_to_full_oracle_def = Define `
   syntax_to_full_oracle mk progs i = (mk progs i,progs i)`;
 
 val state_orac_states_def = Define `
   state_orac_states f st progs 0 = st /\
-  state_orac_states f st progs (SUC n) = let
-    (st1, _) = f st (progs 0) in state_orac_states f st1 (shift_seq 1 progs) n`;
+  state_orac_states f st progs (SUC n) =
+    FST (f (state_orac_states f st progs n) (progs n))`;
 
 val state_co_progs_def = Define `
   state_co_progs f st orac = let
@@ -229,19 +229,19 @@ Proof
   \\ fs [pure_co_def, syntax_to_full_oracle_def, pure_co_progs_def]
 QED
 
-Theorem state_orac_states_add:
-  !i j progs st.
-  state_orac_states f (state_orac_states f st progs i) (shift_seq i progs) j =
-  state_orac_states f st progs (i + j)
+Theorem syntax_to_full_oracle_o_assoc:
+  syntax_to_full_oracle (f o g o h) progs =
+  syntax_to_full_oracle ((f o g) o h) progs
 Proof
-  Induct
-  \\ fs [state_orac_states_def, Q.SPEC `0` shift_seq_def, ETA_THM]
-  \\ rw []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ first_x_assum (qspecl_then [`j`, `shift_seq 1 progs`] mp_tac)
-  \\ fs [shift_seq_def, GSYM ADD1]
-  \\ REWRITE_TAC [GSYM arithmeticTheory.ADD_SUC, state_orac_states_def]
-  \\ fs [shift_seq_def, ADD1]
+  simp_tac bool_ss [o_ASSOC]
+QED
+
+Theorem oracle_monotonic_SND_syntax_to_full:
+  oracle_monotonic (f o SND) R St (syntax_to_full_oracle mk progs) =
+  oracle_monotonic (f o SND) R St (I syntax_to_full_oracle I progs) /\
+  oracle_monotonic (a o b o c) = oracle_monotonic ((a o b) o c)
+Proof
+  fs [oracle_monotonic_def, syntax_to_full_oracle_def]
 QED
 
 Theorem is_state_oracle_add_state_co:
@@ -250,15 +250,72 @@ Theorem is_state_oracle_add_state_co:
 Proof
   fs [is_state_oracle_def, syntax_to_full_oracle_def, add_state_co_def]
   \\ fs [state_orac_states_def]
-  \\ Cases_on `st0 = st` \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem syntax_oracle_unpack = LIST_CONJ (map GEN_ALL [
+    pure_co_syntax_to_full_oracle, state_co_add_state_co,
+    syntax_to_full_oracle_o_assoc,
+    syntax_to_full_oracle_def, oracle_monotonic_SND_syntax_to_full,
+    is_state_oracle_add_state_co])
+
+Theorem FST_add_state_co_0:
+  FST (add_state_co f st mk orac 0) = st
+Proof
+  simp [add_state_co_def, state_orac_states_def]
+QED
+
+Theorem state_orac_states_inv:
+  P st /\
+  (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==> P st') ==>
+  P (state_orac_states f_inc st orac i)
+Proof
+  rw []
+  \\ Induct_on `i`
+  \\ fs [state_orac_states_def]
+  \\ fs [PAIR_FST_SND_EQ]
+QED
+
+Theorem oracle_monotonic_state_co_progs_with_inv:
+  !P n_f. P st /\ (!x. x ∈ St ==> x < n_f st) ==>
+  (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
+    P st' /\ n_f st <= n_f st' /\
+    (!c x. x ∈ f (c, prog') ==> n_f st <= x /\ x < n_f st')) ==>
+  oracle_monotonic f (<) (St : num set) (syntax_to_full_oracle mk
+    (state_co_progs f_inc st orac))
+Proof
+  rw []
+  \\ `!i. let ss = state_orac_states f_inc st orac in
+        P (ss i) /\ (!j. j <= i ==> n_f (ss j) <= n_f (ss i))` by (
+    Induct \\ fs [state_orac_states_def]
+    \\ rw []
+    \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC, state_orac_states_def]
+    \\ metis_tac [LESS_EQ_TRANS]
+  )
+  \\ fs [oracle_monotonic_def, syntax_to_full_oracle_def,
+        state_co_progs_def]
+  \\ fs [PAIR_FST_SND_EQ]
   \\ rw []
-  \\ pairarg_tac \\ fs []
-  \\ Q.ISPECL_THEN [`f`, `n`, `1`, `progs`, `st`] mp_tac
-    (GEN_ALL state_orac_states_add)
-  \\ REWRITE_TAC [ONE, state_orac_states_def]
-  \\ fs []
-  \\ fs [GSYM ADD1, state_orac_states_def]
-  \\ fs [shift_seq_def, UNCURRY]
+  \\ metis_tac [state_orac_states_def, LESS_LESS_EQ_TRANS,
+        arithmeticTheory.LESS_OR, LESS_EQ_TRANS,
+        arithmeticTheory.ZERO_LESS_EQ]
+QED
+
+Theorem oracle_monotonic_state_co_progs_with_inv_init:
+  !P n_f.
+  f_inc st0 prog0 = (st, prog) /\ P st0 /\ St ⊆ f (st, prog) /\
+  (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
+    P st' /\ n_f st <= n_f st' /\
+    (!c x. x ∈ f (c, prog') ==> n_f st <= x /\ x < n_f st')) ==>
+  oracle_monotonic f (<) (St : num set) (syntax_to_full_oracle mk
+    (state_co_progs f_inc st orac))
+Proof
+  rw []
+  \\ irule oracle_monotonic_state_co_progs_with_inv
+  \\ qexists_tac `P` \\ qexists_tac `n_f`
+  \\ fs [SUBSET_DEF] \\ rw [] \\ fs []
+  \\ res_tac
+  \\ res_tac
 QED
 
 val _ = export_theory();
