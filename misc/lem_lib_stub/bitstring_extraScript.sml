@@ -910,28 +910,28 @@ Proof
 QED
 
 val blt_def = Define`
-    blt x y = v2n x < v2n y`
+    blt x y <=> v2n x < v2n y`
 
 val bgt_def = Define`
-    bgt x y = v2n x > v2n y`
+    bgt x y <=> v2n x > v2n y`
 
 val bleq_def = Define`
-    bleq x y = v2n x <= v2n y`
+    bleq x y <=> v2n x <= v2n y`
 
 val bgeq_def = Define`
-    bgeq x y = v2n x >= v2n y`
+    bgeq x y <=> v2n x >= v2n y`
 
 val blt_sign_def = Define`
-    blt_sign x y = v2i x < v2i y`
+    blt_sign x y <=> v2i x < v2i y`
 
 val bgt_sign_def = Define`
-    bgt_sign x y = v2i x > v2i y`
+    bgt_sign x y <=> v2i x > v2i y`
 
 val bleq_sign_def = Define`
-    bleq_sign x y = v2i x <= v2i y`
+    bleq_sign x y <=> v2i x <= v2i y`
 
 val bgeq_sign_def = Define`
-    bgeq_sign x y = v2i x >= v2i y`
+    bgeq_sign x y <=> v2i x >= v2i y`
 
 val btest_def = Define`
     btest x y =
