@@ -1245,21 +1245,21 @@ QED
 
 val dimword_eq_32_imp_or_bytes = Q.prove(
   `dimindex (:'a) = 32 ==>
-    (w2w ((w2w (x:'a word)):word8) ‖
-     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ‖
-     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ‖
+    (w2w ((w2w (x:'a word)):word8) ||
+     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
+     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ||
      w2w ((w2w (x ⋙ 24)):word8) ≪ 24) = x`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [])
 
 val dimword_eq_64_imp_or_bytes = Q.prove(
   `dimindex (:'a) = 64 ==>
-    (w2w ((w2w (x:'a word)):word8) ‖
-     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ‖
-     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ‖
-     w2w ((w2w (x ⋙ 24)):word8) ≪ 24 ‖
-     w2w ((w2w (x ⋙ 32)):word8) ≪ 32 ‖
-     w2w ((w2w (x ⋙ 40)):word8) ≪ 40 ‖
-     w2w ((w2w (x ⋙ 48)):word8) ≪ 48 ‖
+    (w2w ((w2w (x:'a word)):word8) ||
+     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
+     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ||
+     w2w ((w2w (x ⋙ 24)):word8) ≪ 24 ||
+     w2w ((w2w (x ⋙ 32)):word8) ≪ 32 ||
+     w2w ((w2w (x ⋙ 40)):word8) ≪ 40 ||
+     w2w ((w2w (x ⋙ 48)):word8) ≪ 48 ||
      w2w ((w2w (x ⋙ 56)):word8) ≪ 56) = x`,
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [])
 

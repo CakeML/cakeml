@@ -5784,7 +5784,7 @@ val make_header_and_2 = Q.prove(
 Theorem encode_header_tag_mask:
    encode_header c (4 * tag) n = SOME (w:'a word) /\ good_dimindex (:'a) ==>
     tag < dimword (:α) DIV 16 /\
-    (w && (tag_mask c ‖ 2w)) = n2w (16 * tag + 2)
+    (w && (tag_mask c || 2w)) = n2w (16 * tag + 2)
 Proof
   strip_tac \\ fs [encode_header_def,WORD_LEFT_AND_OVER_OR]
   \\ rw [make_header_and_2]
@@ -6738,9 +6738,9 @@ Theorem memory_rel_Number_bignum_header:
     ~small_int (:'a) i /\ good_dimindex (:'a) ==>
     ?ff w x a y.
       v = Word w /\ get_real_addr c st w = SOME a /\
-      IS_SOME ((encode_header c (w2n ((b2w (i < 0) ≪ 2 ‖ 3w):'a word))
+      IS_SOME ((encode_header c (w2n ((b2w (i < 0) ≪ 2 || 3w):'a word))
           (LENGTH (n2mw (Num (ABS i)):'a word list))):'a word option) /\
-      m a = Word (make_header c (b2w (i < 0) ≪ 2 ‖ 3w)
+      m a = Word (make_header c (b2w (i < 0) ≪ 2 || 3w)
               (LENGTH (n2mw (Num (ABS i)):'a word list)))
 Proof
   cheat (*fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
@@ -8113,8 +8113,8 @@ val fix_clock_IMP = prove(
 
 val word_is_clos_def = Define `
   word_is_clos c h <=>
-    (h && (tag_mask c ‖ 2w)) = n2w (16 * closure_tag + 2) \/
-    (h && (tag_mask c ‖ 2w)) = n2w (16 * partial_app_tag + 2)`;
+    (h && (tag_mask c || 2w)) = n2w (16 * closure_tag + 2) \/
+    (h && (tag_mask c || 2w)) = n2w (16 * partial_app_tag + 2)`;
 
 val word_eq_def = tDefine "word_eq" `
   (word_eq c st dm m l w1 (w2:'a word) =
@@ -8784,7 +8784,7 @@ Proof
   \\ fs [bignum_words_def,i2mw_def]
   \\ rpt_drule memory_rel_Number_bignum_header
   \\ strip_tac \\ fs []
-  \\ `(w2n (b2w (i < 0) ≪ 2 ‖ 3w:'a word)) = if i < 0 then 7 else 3` by
+  \\ `(w2n (b2w (i < 0) ≪ 2 || 3w:'a word)) = if i < 0 then 7 else 3` by
    (Cases_on `i < 0i` \\ fs [] \\ EVAL_TAC
     \\ fs [good_dimindex_def,dimword_def] \\ NO_TAC)
   \\ fs []
