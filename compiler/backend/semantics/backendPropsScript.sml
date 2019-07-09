@@ -280,8 +280,8 @@ Theorem oracle_monotonic_state_co_progs_with_inv:
   !P n_f. P st /\ (!x. x ∈ St ==> x < n_f st) ==>
   (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
     P st' /\ n_f st <= n_f st' /\
-    (!c x. x ∈ f (c, prog') ==> n_f st <= x /\ x < n_f st')) ==>
-  oracle_monotonic f (<) (St : num set) (syntax_to_full_oracle mk
+    (!x. x ∈ f (prog', prog') ==> n_f st <= x /\ x < n_f st')) ==>
+  oracle_monotonic f (<) (St : num set) (syntax_to_full_oracle I
     (state_co_progs f_inc st orac))
 Proof
   rw []
@@ -303,11 +303,11 @@ QED
 
 Theorem oracle_monotonic_state_co_progs_with_inv_init:
   !P n_f.
-  f_inc st0 prog0 = (st, prog) /\ P st0 /\ St ⊆ f (st, prog) /\
+  f_inc st0 prog0 = (st, prog) /\ P st0 /\ St ⊆ f (prog, prog) /\
   (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
     P st' /\ n_f st <= n_f st' /\
-    (!c x. x ∈ f (c, prog') ==> n_f st <= x /\ x < n_f st')) ==>
-  oracle_monotonic f (<) (St : num set) (syntax_to_full_oracle mk
+    (!c x. x ∈ f (prog', prog') ==> n_f st <= x /\ x < n_f st')) ==>
+  oracle_monotonic f (<) (St : num set) (syntax_to_full_oracle I
     (state_co_progs f_inc st orac))
 Proof
   rw []
