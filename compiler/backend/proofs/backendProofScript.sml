@@ -326,11 +326,15 @@ val semantics_thms = [source_to_flatProofTheory.compile_semantics,
 val _ = type_abbrev("clos_prog",
   ``: closLang$exp list # (num # num # closLang$exp) list``);
 
+val option_val_approx_spt_def = Define `
+  option_val_approx_spt kc = (case kc of NONE => LN
+    | SOME kcfg => kcfg.val_approx_spt)`;
+
 val known_mk_co_def = Define `
   known_mk_co kc kc' mk =
     add_state_co (if IS_SOME kc then clos_knownProof$compile_inc (THE kc)
         else CURRY I)
-    (case kc' of NONE => LN | SOME kcfg => kcfg.val_approx_spt)
+    (option_val_approx_spt kc')
     (mk o pure_co_progs (if IS_SOME kc then
           clos_letopProof$compile_inc
               ∘ (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
@@ -356,7 +360,8 @@ Proof
   \\ fs [known_co_progs_def, known_mk_co_def,
     backendPropsTheory.pure_co_syntax_to_full_oracle,
     backendPropsTheory.state_co_add_state_co,
-    clos_knownProofTheory.known_co_eq_pure_state]
+    clos_knownProofTheory.known_co_eq_pure_state,
+    option_val_approx_spt_def]
 QED
 
 val clos_mk_co_def = Define `
@@ -372,10 +377,6 @@ val clos_mk_co_def = Define `
                     o pure_co_progs clos_annotateProof$compile_inc)))
     o pure_co_progs (clos_to_bvlProof$cond_mti_compile_inc c.do_mti c.max_app)`;
 
-val final_orac_def = Define `
-  final_orac c NONE = ([], c.lab_conf) /\
-  final_orac c (SOME (bytes, xs, c')) = (xs, c'.lab_conf)`;
-
 val cake_co_def = Define `
   cake_co c c' = syntax_to_full_oracle (
     add_state_co source_to_flat$compile c'.source_conf
@@ -383,11 +384,105 @@ val cake_co_def = Define `
             add_state_co (bvl_inline_compile_inc c.bvl_conf.inline_size_limit
                 c.bvl_conf.split_main_at_seq c.bvl_conf.exp_cut)
                 c'.bvl_conf.inlines
-                (add_state_co bvl_to_bvi_compile_inc (ARB "TODO1" c'.bvl_conf)
-                    (add_state_co bvi_tailrec_compile_prog (ARB "TODO2" c'.bvl_conf)
-                        (pure_co_progs (final_orac c o from_bvi c')))))
+                (add_state_co bvl_to_bvi_compile_inc c'.bvl_conf.next_name1
+                    (add_state_co bvi_tailrec_compile_prog
+                        c'.bvl_conf.next_name2
+                        (K (K (c'.word_conf.bitmaps, c'.lab_conf))))))
         o pure_co_progs (λes. (MAP pat_to_clos_compile es,[]))
         o pure_co_progs flat_to_pat$compile))`;
+
+Theorem add_state_co_0_eq:
+  add_state_co f_inc st mk progs 0 = v
+    <=>
+  FST v = st /\ SND v = mk (state_co_progs f_inc st progs) 0
+Proof
+  fs [add_state_co_def, state_orac_states_def, PAIR_FST_SND_EQ]
+  \\ metis_tac []
+QED
+
+Theorem cake_co_0:
+  FST (cake_co c c' orac 0) = (c'.source_conf,
+    c'.clos_conf.next_loc, option_val_approx_spt c'.clos_conf.known_conf,
+    FST c'.clos_conf.call_state, c'.bvl_conf.inlines,
+    c'.bvl_conf.next_name1, c'.bvl_conf.next_name2,
+    c'.word_conf.bitmaps, c'.lab_conf)
+Proof
+  fs [cake_co_def, syntax_to_full_oracle_def, syntax_to_full_oracle_def,
+        add_state_co_0_eq]
+  \\ fs [add_state_co_0_eq, clos_mk_co_def, known_mk_co_def]
+QED
+
+Theorem from_clos_conf_EX:
+  from_clos c p = v ==>
+  ?cc p. from_bvl (c with clos_conf := cc) p = v
+Proof
+  fs [from_clos_def]
+  \\ pairarg_tac \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem from_bvl_conf_EX:
+  from_bvl c p = v ==>
+  ?st bvlcu p. from_bvi (c with <| bvl_conf updated_by bvlcu;
+    clos_conf updated_by (λc. c with start := st) |>) p = v
+Proof
+  fs [from_bvl_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ metis_tac []
+QED
+
+Theorem from_bvi_conf_EX:
+  from_bvi c p = v ==>
+  ?p. from_data c p = v
+Proof
+  fs [from_bvi_def]
+  \\ metis_tac []
+QED
+
+Theorem from_data_conf_EX:
+  from_data c p = v ==>
+  ?wcu p. from_word (c with word_to_word_conf updated_by wcu) p = v
+Proof
+  fs [from_data_def]
+  \\ pairarg_tac \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem from_word_conf_EX:
+  from_word c p = v ==>
+  ?wc p. from_stack (c with word_conf := wc) p = v
+Proof
+  fs [from_word_def]
+  \\ pairarg_tac \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem from_stack_conf_EX:
+  from_stack c p = v ==>
+  ?p. from_lab c p = v
+Proof
+  fs [from_stack_def]
+  \\ metis_tac []
+QED
+
+Theorem from_lab_conf_EX:
+  from_lab c p = SOME (bytes, bitmap, c') ==>
+  ?lc. c' = c with lab_conf := lc
+Proof
+  Cases_on `THE (compile c.lab_conf p)`
+  \\ Cases_on `compile c.lab_conf p`
+  \\ fs [from_lab_def, attach_bitmaps_def]
+  \\ metis_tac []
+QED
+
+val from_EXS = [
+    from_clos_conf_EX,
+    from_bvl_conf_EX,
+    from_bvi_conf_EX,
+    from_data_conf_EX,
+    from_word_conf_EX,
+    from_stack_conf_EX,
+    from_lab_conf_EX]
 
 Theorem MAP_compile_contains_App_SOME:
   0 < max_app ==> ¬ closProps$contains_App_SOME max_app (MAP pat_to_clos_compile xs)
@@ -679,6 +774,7 @@ Theorem compile_correct
   \\ impl_keep_tac
 
   >- (
+
     rpt (qsubpat_x_assum kall_tac `patSem$semantics []`)
     \\ conj_tac
     >- (
@@ -686,7 +782,9 @@ Theorem compile_correct
          flatSemTheory.initial_state_def,Abbr`s`] )
     \\ rpt (qsubpat_x_assum kall_tac `Fail`)
     \\ simp[Abbr`cf`,Abbr`co3`,Abbr`pc`]
+
     \\ simp[syntax_oracle_ok_def]
+    \\ simp[backendPropsTheory.FST_state_co, cake_co_0]
     \\ `clos_mtiProof$syntax_ok e3`
     by (
       simp[Abbr`e3`, Abbr`p''`]
@@ -726,19 +824,17 @@ Theorem compile_correct
     \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
     (* down to equalities about final config c' *)
     \\ unabbrev_all_tac
-    \\ fs [from_bvl_def, from_bvi_def, from_data_def, from_word_def, from_stack_def,
-        from_lab_def, clos_to_bvlTheory.compile_def, clos_to_bvlTheory.compile_common_def
+    \\ EVERY (map imp_res_tac from_EXS)
+    \\ simp []
+    \\ fs [clos_to_bvlTheory.compile_def, clos_to_bvlTheory.compile_common_def
         |> REWRITE_RULE [GSYM arithmeticTheory.EVEN_MOD2, GSYM make_even_def]]
     \\ rpt (pairarg_tac \\ fs [])
-    \\ imp_res_tac (GEN_ALL attach_bitmaps_SOME)
-    \\ fs []
     \\ rveq \\ fs []
-    \\ fs []
     \\ fs [clos_to_bvlProofTheory.compile_inc_post_kcompile_def]
     \\ conseq [compile_FST_nsAll_esgc_free]
     \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
     \\ imp_res_tac known_compile_IS_SOME
-    \\ rw [] \\ fs [optionTheory.IS_SOME_EXISTS]
+    \\ rw [] \\ fs [optionTheory.IS_SOME_EXISTS, option_val_approx_spt_def]
   )
 
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
