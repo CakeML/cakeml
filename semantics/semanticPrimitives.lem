@@ -632,7 +632,7 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
     | (Explode, [v]) ->
           match v with
           | Litv (StrLit str) ->
-              Just ((s,t), Rval ...)
+              Just ((s,t), Rval (list_to_v (List.map (fun c -> Litv (Char c)) (toCharList str))))
           | _ -> Nothing
           end
     | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) ->

@@ -749,7 +749,7 @@ val _ = Define `
     | (Explode, [v]) =>
           (case v of
             Litv (StrLit str) =>
-              SOME ((s,t), Rval (list_to_v (MAP (\c. Litv (Char c)) str)))
+              SOME ((s,t), Rval (list_to_v (MAP (\ c .  Litv (Char c)) (EXPLODE str))))
           | _ => NONE
           )
     | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
@@ -885,7 +885,7 @@ val _ = Define `
 val _ = Define `
  ((build_constrs:num ->(string#'a list)list ->(string#(num#stamp))list) stamp condefs=
    (MAP
-    (\ (conN, ts) .
+    (\ (conN, ts) . 
       (conN, (LENGTH ts, TypeStamp conN stamp)))
     condefs))`;
 
@@ -904,7 +904,7 @@ val _ = Define `
 (*val check_dup_ctors : list tvarN * typeN * list (conN * list ast_t) -> bool*)
 val _ = Define `
  ((check_dup_ctors:(tvarN)list#string#(string#(ast_t)list)list -> bool) (tvs, tn, condefs)=
-   (ALL_DISTINCT (let x2 =
+   (ALL_DISTINCT (let x2 = 
   ([]) in  FOLDR (\(n, ts) x2 .  if T then n :: x2 else x2) x2 condefs)))`;
 
 
@@ -963,3 +963,4 @@ let no_dup_top_types tops defined_types =
   disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) defined_types
   *)
 val _ = export_theory()
+
