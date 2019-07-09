@@ -604,6 +604,11 @@ val _ = Define `
           SOME ((s,t), Rval (Boolv (opwb_lookup op w1 w2)))
         else
           NONE
+    | (FP_top top, [Litv (Word w1); Litv (Word w2); Litv (Word w3)]) =>
+        if (LENGTH w1 = LENGTH w2) /\ (LENGTH w1 = LENGTH w3) /\ (LENGTH w1 =( 64 : num)) then
+          SOME ((s,t), Rval (Litv (Word (w2v (fp_top top (v2w w1) (v2w w2) (v2w w3))))))
+        else
+          NONE
     | (FP_bop bop, [Litv (Word w1); Litv (Word w2)]) =>
         if (LENGTH w1 = LENGTH w2) /\ (LENGTH w1 =( 64 : num)) then
           SOME ((s,t),Rval (Litv (Word (w2v (fp_bop bop (v2w w1) (v2w w2))))))

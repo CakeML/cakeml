@@ -239,6 +239,5 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   )))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) evaluate_decs_defn;
-
 val _ = export_theory()
 

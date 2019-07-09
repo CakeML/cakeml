@@ -1,10 +1,11 @@
 (*
-  Prove `encoder_correct` for ARMv6
+  Prove `encoder_correct` for ARMv7
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib arm6_targetTheory arm_stepLib;
+open HolKernel Parse boolLib bossLib;
+open arm_stepLib;
+open asmLib arm7_targetTheory;
 
-val () = new_theory "arm6_targetProof"
+val () = new_theory "arm7_targetProof"
 
 val () = wordsLib.guess_lengths ()
 
@@ -23,11 +24,11 @@ val valid_immediate2 =
    |> fst
    |> Drule.GEN_ALL
 
-val arm6_config =
-  REWRITE_RULE [valid_immediate] arm6_targetTheory.arm6_config
+val arm7_config =
+  REWRITE_RULE [valid_immediate] arm7_targetTheory.arm7_config
 
-val arm6_asm_ok =
-  REWRITE_RULE [valid_immediate] arm6_targetTheory.arm6_asm_ok
+val arm7_asm_ok =
+  REWRITE_RULE [valid_immediate] arm7_targetTheory.arm7_asm_ok
 
 val lem1 = Q.prove(
    `!n m. n < 16 /\ n <> 13 /\ n <> 15 ==>
@@ -66,11 +67,11 @@ val lem5 =
 
 val lem6 = Q.prove(
    `!s state c n.
-      target_state_rel arm6_target s state /\ n < 16 /\ n <> 13 /\ n <> 15 /\
+      target_state_rel arm7_target s state /\ n < 16 /\ n <> 13 /\ n <> 15 /\
       aligned 2 (c + s.regs n) ==>
       aligned 2 (c + state.REG (R_mode state.CPSR.M (n2w n)))`,
    rw [asmPropsTheory.target_state_rel_def, alignmentTheory.aligned_extract,
-       arm6_target_def, arm6_config_def, lem1]
+       arm7_target_def, arm7_config_def, lem1]
    )
 
 val lem7 = Q.prove(
@@ -586,8 +587,8 @@ val encode_rwts =
    let
       open armTheory
    in
-      [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def,
-       arm6_encode_def, arm6_encode1_def, encode_def, arm6_vfp_cmp_def,
+      [arm7_enc_def, arm7_bop_def, arm7_sh_def, arm7_cmp_def,
+       arm7_encode_def, arm7_encode1_def, encode_def, arm7_vfp_cmp_def,
        e_branch_def, e_data_def, e_load_def, e_store_def, e_vfp_def,
        e_multiply_def, EncodeImmShift_def, EncodeImmShift_def,
        EncodeVFPReg_def
@@ -597,22 +598,22 @@ val encode_rwts =
 val enc_rwts =
    [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, decode_imm8_thm1,
     decode_imm8_thm3, arm_stepTheory.Aligned, alignmentTheory.aligned_0,
-    alignmentTheory.aligned_numeric, arm6_asm_ok, Once valid_immediate2] @
+    alignmentTheory.aligned_numeric, arm7_asm_ok, Once valid_immediate2] @
    encode_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
-   [asmPropsTheory.enc_ok_def, arm6_config, arm6_asm_ok] @ encode_rwts
+   [asmPropsTheory.enc_ok_def, arm7_config, arm7_asm_ok] @ encode_rwts
 
 (* some custom tactics ---------------------------------------------------- *)
 
 val bytes_in_memory_thm = Q.prove(
    `!s state a b c d.
-      target_state_rel arm6_target s state /\
+      target_state_rel arm7_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
-      (state.Architecture = ARMv6) /\
+      (state.Architecture = ARMv7_R) /\
       ~state.Extensions Extension_Security /\
-      (state.VFPExtension = VFPv2) /\
+      (state.VFPExtension = VFPv4) /\
       (state.FP.FPSCR.RMode = 0w) /\
       ~state.CPSR.T /\
       ~state.CPSR.J /\
@@ -628,14 +629,14 @@ val bytes_in_memory_thm = Q.prove(
       state.REG RName_PC + 2w IN s.mem_domain /\
       state.REG RName_PC + 1w IN s.mem_domain /\
       state.REG RName_PC IN s.mem_domain`,
-   rw [asmPropsTheory.sym_target_state_rel, arm6_ok_def, arm6_target_def,
-       arm6_config_def, miscTheory.bytes_in_memory_def]
+   rw [asmPropsTheory.sym_target_state_rel, arm7_ok_def, arm7_target_def,
+       arm7_config_def, miscTheory.bytes_in_memory_def]
    \\ rfs [alignmentTheory.aligned_extract]
    )
 
 val bytes_in_memory_thm2 = Q.prove(
    `!w s state a b c d.
-      target_state_rel arm6_target s state /\
+      target_state_rel arm7_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM (state.REG RName_PC + w + 3w) = d) /\
       (state.MEM (state.REG RName_PC + w + 2w) = c) /\
@@ -645,8 +646,8 @@ val bytes_in_memory_thm2 = Q.prove(
       state.REG RName_PC + w + 2w IN s.mem_domain /\
       state.REG RName_PC + w + 1w IN s.mem_domain /\
       state.REG RName_PC + w IN s.mem_domain`,
-   rw [asmPropsTheory.sym_target_state_rel, arm6_ok_def, arm6_target_def,
-       arm6_config_def, miscTheory.bytes_in_memory_def]
+   rw [asmPropsTheory.sym_target_state_rel, arm7_ok_def, arm7_target_def,
+       arm7_config_def, miscTheory.bytes_in_memory_def]
    \\ rfs []
    )
 
@@ -657,7 +658,7 @@ local
    fun boolify n tm =
       List.tabulate (n, fn i => bool1 (tm, numLib.term_of_int (n - 1 - i)))
    val bytes = List.concat o List.rev o List.map (boolify 8)
-   val step6 = arm_stepLib.arm_eval "v6, vfp"
+   val step6 = arm_stepLib.arm_eval "v7-r, vfpv4"
    fun step state x l =
       let
          val v = listSyntax.mk_list (bytes l, Type.bool)
@@ -665,9 +666,9 @@ local
          (Q.INST [`s` |-> state] o Drule.DISCH_ALL o step6) (x, v)
       end
    val (_, _, dest_DecodeARM, is_DecodeARM) = arm_op2 "DecodeARM"
-   val is_arm6_next = #4 (HolKernel.syntax_fns1 "arm6_target" "arm6_next")
-   val arm6_next =
-     Drule.GEN_ALL (Thm.AP_THM arm6_targetTheory.arm6_next_def ``s:arm_state``)
+   val is_arm7_next = #4 (HolKernel.syntax_fns1 "arm7_target" "arm7_next")
+   val arm7_next =
+     Drule.GEN_ALL (Thm.AP_THM arm7_targetTheory.arm7_next_def ``s:arm_state``)
    val i_tm = ``R_mode ms.CPSR.M (n2w i)``
    fun fail_if_vacuous_tac gs =
      (if List.hd (fst gs) ~~ boolSyntax.T then NO_TAC else all_tac) gs
@@ -682,7 +683,7 @@ local
                      SOME (_, w) => Thm.SPEC w bytes_in_memory_thm2
                    | NONE => bytes_in_memory_thm
          val (tac, the_state) =
-            case asmLib.find_env is_arm6_next g of
+            case asmLib.find_env is_arm7_next g of
                SOME (t, tm) =>
                  let
                     val etm = ``env ^t ^tm : arm_state``
@@ -715,7 +716,7 @@ local
                combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
          \\ fail_if_vacuous_tac
          \\ Tactical.PAT_X_ASSUM x_tm kall_tac
-         \\ SUBST1_TAC (Thm.SPEC the_state arm6_next)
+         \\ SUBST1_TAC (Thm.SPEC the_state arm7_next)
          \\ asmLib.byte_eq_tac
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
                [alignmentTheory.aligned_0, alignmentTheory.aligned_numeric,
@@ -775,8 +776,8 @@ local
 in
    val state_tac =
       NO_STRIP_FULL_SIMP_TAC (srw_ss())
-         [asmPropsTheory.sym_target_state_rel, arm6_target_def,
-          asmPropsTheory.all_pcs, arm6_ok_def, arm6_config,
+         [asmPropsTheory.sym_target_state_rel, arm7_target_def,
+          asmPropsTheory.all_pcs, arm7_ok_def, arm7_config,
           combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
           alignmentTheory.align_aligned, set_sepTheory.fun2set_eq,
           integer_wordTheory.overflow_add, fp_to_int_lem2,
@@ -802,7 +803,7 @@ local
    fun number_of_instructions asl =
       case asmLib.strip_bytes_in_memory (List.last asl) of
          SOME l => List.length l div 4
-       | NONE => raise mk_HOL_ERR "arm6_targetProofTheory" "number_of_instructions" ""
+       | NONE => raise mk_HOL_ERR "arm7_targetProofTheory" "number_of_instructions" ""
    fun can_match t = Lib.can (Term.match_term t)
    fun next_tac' asm (gs as (asl, _)) =
       let
@@ -817,7 +818,7 @@ local
          \\ simp_tac (srw_ss()++boolSimps.CONJ_ss)
               [asmPropsTheory.asserts_eval,
                asmPropsTheory.asserts2_eval, reg_mode_eq,
-               asmPropsTheory.interference_ok_def, arm6_proj_def]
+               asmPropsTheory.interference_ok_def, arm7_proj_def]
          \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
          \\ (if neg_mem then
@@ -834,15 +835,15 @@ local
          \\ NTAC j next_state_tac
          \\ (if has_branch then imp_res_tac bytes_in_memory_thm2 else all_tac)
       end gs
-   val (_, _, dest_arm6_enc, is_arm6_enc) =
-     HolKernel.syntax_fns1 "arm6_target" "arm6_enc"
-   fun get_asm tm = dest_arm6_enc (HolKernel.find_term is_arm6_enc tm)
+   val (_, _, dest_arm7_enc, is_arm7_enc) =
+     HolKernel.syntax_fns1 "arm7_target" "arm7_enc"
+   fun get_asm tm = dest_arm7_enc (HolKernel.find_term is_arm7_enc tm)
 in
    fun next_tac gs =
      let
        val asm = get_asm (snd gs)
      in
-       Q.PAT_ABBREV_TAC `instr = arm6_enc _`
+       Q.PAT_ABBREV_TAC `instr = arm7_enc _`
        \\ pop_assum mp_tac
        \\ NO_STRIP_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
        \\ strip_tac
@@ -928,46 +929,46 @@ in
 end
 
 (* -------------------------------------------------------------------------
-   arm6 target_ok
+   arm7 target_ok
    ------------------------------------------------------------------------- *)
 
-val length_arm6_encode1 = Q.prove(
-  `!c i. LENGTH (arm6_encode1 c i) = 4`,
+val length_arm7_encode1 = Q.prove(
+  `!c i. LENGTH (arm7_encode1 c i) = 4`,
   Cases
-  \\ rw [arm6_encode_def, arm6_encode1_def, arm6_encode_fail_def]
+  \\ rw [arm7_encode_def, arm7_encode1_def, arm7_encode_fail_def]
   \\ CASE_TAC
   \\ simp []
   )
 
-val length_arm6_encode = Q.prove(
-  `!l. LENGTH (arm6_encode l) = 4 * LENGTH l`,
-  Induct >- rw [arm6_encode_def]
+val length_arm7_encode = Q.prove(
+  `!l. LENGTH (arm7_encode l) = 4 * LENGTH l`,
+  Induct >- rw [arm7_encode_def]
   \\ Cases
-  \\ rw [arm6_encode_def, length_arm6_encode1]
-  \\ fs [arm6_encode_def]
+  \\ rw [arm7_encode_def, length_arm7_encode1]
+  \\ fs [arm7_encode_def]
   )
 
-val arm6_encode_not_nil = Q.prove(
-  `(!c i. arm6_encode1 c i <> []) /\ (!l. (arm6_encode l <> []) = (l <> []))`,
+val arm7_encode_not_nil = Q.prove(
+  `(!c i. arm7_encode1 c i <> []) /\ (!l. (arm7_encode l <> []) = (l <> []))`,
   simp_tac std_ss
-    [GSYM listTheory.LENGTH_NIL, length_arm6_encode1, length_arm6_encode])
+    [GSYM listTheory.LENGTH_NIL, length_arm7_encode1, length_arm7_encode])
 
-val arm6_encoding = Q.prove (
-   `!i. let l = arm6_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
+val arm7_encoding = Q.prove (
+   `!i. let l = arm7_enc i in (LENGTH l MOD 4 = 0) /\ l <> []`,
    strip_tac
    \\ asmLib.asm_cases_tac `i`
-   \\ simp [arm6_enc_def, arm6_cmp_def, arm6_vfp_cmp_def, arm6_encode_fail_def,
-            length_arm6_encode1, length_arm6_encode]
+   \\ simp [arm7_enc_def, arm7_cmp_def, arm7_vfp_cmp_def, arm7_encode_fail_def,
+            length_arm7_encode1, length_arm7_encode]
    \\ REPEAT CASE_TAC
-   \\ rw [length_arm6_encode, length_arm6_encode1, arm6_encode_not_nil]
+   \\ rw [length_arm7_encode, length_arm7_encode1, arm7_encode_not_nil]
    )
    |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
-val arm6_target_ok = Q.prove (
-   `target_ok arm6_target`,
+val arm7_target_ok = Q.prove (
+   `target_ok arm7_target`,
    rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
-        arm6_proj_def, arm6_target_def, arm6_config, arm6_ok_def,
-        set_sepTheory.fun2set_eq, arm6_encoding] @ enc_ok_rwts)
+        arm7_proj_def, arm7_target_def, arm7_config, arm7_ok_def,
+        set_sepTheory.fun2set_eq, arm7_encoding] @ enc_ok_rwts)
    \\ rfs [reg_mode_eq]
    >| [all_tac, Cases_on `ri` \\ Cases_on `cmp`, all_tac, all_tac]
    \\ lfs enc_rwts
@@ -976,16 +977,17 @@ val arm6_target_ok = Q.prove (
    )
 
 (* -------------------------------------------------------------------------
-   arm6 encoder_correct
+   arm7 encoder_correct
    ------------------------------------------------------------------------- *)
 
 val print_tac = asmLib.print_tac "correct"
 
-Theorem arm6_encoder_correct
-   `encoder_correct arm6_target`
-   (simp [asmPropsTheory.encoder_correct_def, arm6_target_ok]
-   \\ qabbrev_tac `state_rel = target_state_rel arm6_target`
-   \\ rw [arm6_target_def, arm6_config, asmSemTheory.asm_step_def]
+Theorem arm7_encoder_correct:
+   encoder_correct arm7_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, arm7_target_ok]
+   \\ qabbrev_tac `state_rel = target_state_rel arm7_target`
+   \\ rw [arm7_target_def, arm7_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
    \\ Cases_on `i`
    >- (
@@ -1125,6 +1127,7 @@ Theorem arm6_encoder_correct
          >- (print_tac "FPSub"  \\ next_tac)
          >- (print_tac "FPMul"  \\ next_tac)
          >- (print_tac "FPDiv"  \\ next_tac)
+         >- (print_tac "FPFma"  \\ next_tac)
          >- (print_tac "FPMov"  \\ next_tac)
          >- (print_tac "FPMovToReg"   \\ next_tac)
          >- (print_tac "FPMovFromReg" \\ next_tac)
@@ -1215,6 +1218,6 @@ Theorem arm6_encoder_correct
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
       \\ blastLib.FULL_BBLAST_TAC
       )
-   )
+QED
 
 val () = export_theory ()

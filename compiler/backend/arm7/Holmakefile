@@ -1,4 +1,4 @@
-INCLUDES = $(CAKEMLDIR)/misc .. ../../../encoders/arm6/proofs ../../semantics ../../proofs
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure .. ../../encoders/arm7
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

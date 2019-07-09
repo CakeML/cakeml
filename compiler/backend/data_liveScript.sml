@@ -43,10 +43,12 @@ val is_pure_def = Define `
   (is_pure Install _ = F) /\
   (is_pure (FP_uop _) _ = F) /\
   (is_pure (FP_bop _) _ = F) /\
+  (is_pure (FP_top _) _ = F) /\
   (is_pure ConfigGC _ = F) /\
   (is_pure _ _ = T)`
 
-Theorem is_pure_pmatch `!op.
+Theorem is_pure_pmatch:
+  !op.
   is_pure op arch_size =
     case op of
       SetGlobalsPtr => F
@@ -81,11 +83,14 @@ Theorem is_pure_pmatch `!op.
     | Install => F
     | FP_uop _ => F
     | FP_bop _ => F
+    | FP_top _ => F
     | ConfigGC => F
-    | _ => T`
-  (rpt strip_tac
+    | _ => T
+Proof
+  rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  >> every_case_tac >> fs[is_pure_def]);
+  >> every_case_tac >> fs[is_pure_def]
+QED
 
 val compile_def = Define `
   (compile Skip live _ = (Skip,live)) /\

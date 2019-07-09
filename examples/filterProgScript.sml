@@ -31,7 +31,7 @@ val stdErr_print = regexpMisc.stdErr_print;
 fun regexpc r =
  let open listSyntax regexpSyntax
      val _ = stdErr_print "Compiling regexp to DFA by deduction (can be slow) :\n"
-     val regexp_tm = regexpSyntax.mk_regexp r
+     val regexp_tm = regexpSyntax.regexp_to_term r
      val compile_thm = Count.apply regexpEval ``regexp_compiler$compile_regexp ^regexp_tm``
      val triple = rhs (concl compile_thm)
      val [t1,t2,t3] = strip_pair triple

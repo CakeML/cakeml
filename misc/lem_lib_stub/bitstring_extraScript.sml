@@ -867,9 +867,11 @@ Proof
     simp[length_fixwidth,fixsub_length]
 QED
 
-val w2v_0w = Q.prove(`w2v (0w:'a word) = fixwidth (dimindex(:'a)) [F]`,
-   simp[w2v_n2w] >> EVAL_TAC)
-
+Theorem w2v_0w:
+   w2v (0w:'a word) = fixwidth (dimindex(:'a)) [F]
+Proof
+   simp[w2v_n2w] >> EVAL_TAC
+QED
 
 Theorem w2v_i2w:
   !i. w2v ((i2w i):'a word)

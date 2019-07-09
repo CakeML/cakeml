@@ -56,53 +56,70 @@ val compile_state_def = Define`
        max_app := max_app
     |>`;
 
-Theorem compile_state_const[simp]
-  `(compile_state max_app cc s).clock = s.clock ∧
+Theorem compile_state_const[simp]:
+   (compile_state max_app cc s).clock = s.clock ∧
    (compile_state max_app cc s).ffi = s.ffi ∧
    (compile_state max_app cc s).compile = cc ∧
    (compile_state max_app cc s).max_app = max_app ∧
-   (compile_state max_app cc s).compile_oracle = pure_co (λe. (MAP compile e,[])) o s.compile_oracle`
-  (EVAL_TAC);
+   (compile_state max_app cc s).compile_oracle = pure_co (λe. (MAP compile e,[])) o s.compile_oracle
+Proof
+  EVAL_TAC
+QED
 
-Theorem compile_state_dec_clock[simp]
-  `compile_state max_app cc (dec_clock y) = dec_clock 1 (compile_state max_app cc y)`
-  (EVAL_TAC >> simp[])
+Theorem compile_state_dec_clock[simp]:
+   compile_state max_app cc (dec_clock y) = dec_clock 1 (compile_state max_app cc y)
+Proof
+  EVAL_TAC >> simp[]
+QED
 
-Theorem compile_state_with_clock[simp]
-  `compile_state max_app cc (s with clock := k) = compile_state max_app cc s with clock := k`
-  (EVAL_TAC >> simp[])
+Theorem compile_state_with_clock[simp]:
+   compile_state max_app cc (s with clock := k) = compile_state max_app cc s with clock := k
+Proof
+  EVAL_TAC >> simp[]
+QED
 
-Theorem compile_state_with_refs_const[simp]
-  `(compile_state w cc (s with refs := r)).globals = (compile_state w cc s).globals ∧
-   (compile_state w cc (s with refs := r)).code = (compile_state w cc s).code`
-  (EVAL_TAC);
+Theorem compile_state_with_refs_const[simp]:
+   (compile_state w cc (s with refs := r)).globals = (compile_state w cc s).globals ∧
+   (compile_state w cc (s with refs := r)).code = (compile_state w cc s).code
+Proof
+  EVAL_TAC
+QED
 
-Theorem FLOOKUP_compile_state_refs
-  `FLOOKUP (compile_state w cc s).refs =
-   OPTION_MAP compile_sv o (combin$C store_lookup s.refs) `
-  (rw[FUN_EQ_THM,compile_state_def,ALOOKUP_GENLIST,store_lookup_def] \\ rw[]);
+Theorem FLOOKUP_compile_state_refs:
+   FLOOKUP (compile_state w cc s).refs =
+   OPTION_MAP compile_sv o (combin$C store_lookup s.refs)
+Proof
+  rw[FUN_EQ_THM,compile_state_def,ALOOKUP_GENLIST,store_lookup_def] \\ rw[]
+QED
 
-Theorem FDOM_compile_state_refs[simp]
-  `FDOM (compile_state w cc s).refs = count (LENGTH s.refs)`
-  (rw[compile_state_def,MAP_GENLIST,o_DEF,LIST_TO_SET_GENLIST]);
+Theorem FDOM_compile_state_refs[simp]:
+   FDOM (compile_state w cc s).refs = count (LENGTH s.refs)
+Proof
+  rw[compile_state_def,MAP_GENLIST,o_DEF,LIST_TO_SET_GENLIST]
+QED
 
-Theorem compile_state_with_refs_snoc
-  `compile_state w cc (s with refs := s.refs ++ [x]) =
+Theorem compile_state_with_refs_snoc:
+   compile_state w cc (s with refs := s.refs ++ [x]) =
    compile_state w cc s with refs :=
-     (compile_state w cc s).refs |+ (LENGTH s.refs, compile_sv x)`
-  (rw[compile_state_def,fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST]
-  \\ rw[EL_APPEND1,EL_APPEND2]);
+     (compile_state w cc s).refs |+ (LENGTH s.refs, compile_sv x)
+Proof
+  rw[compile_state_def,fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST]
+  \\ rw[EL_APPEND1,EL_APPEND2]
+QED
 
 (* semantic functions respect translation *)
 
-Theorem LENGTH_n2v
-`!n. LENGTH (n2v n) = if n = 0 then 1 else SUC (LOG 2 n)`
-(simp[n2v_def,num_to_bin_list_def,boolify_reverse_map] \\ rw[]
- \\ ASSUME_TAC (Q.SPEC `2` LENGTH_n2l) \\ fs[])
+Theorem LENGTH_n2v:
+  !n. LENGTH (n2v n) = if n = 0 then 1 else SUC (LOG 2 n)
+Proof
+ simp[n2v_def,num_to_bin_list_def,boolify_reverse_map] \\ rw[]
+ \\ ASSUME_TAC (Q.SPEC `2` LENGTH_n2l) \\ fs[]
+QED
 
-Theorem LENGTH_n2v_ORD
-  `!c. LENGTH (n2v (ORD c)) <= 8`
- (Cases \\ simp[ORD_CHR]
+Theorem LENGTH_n2v_ORD:
+  !c. LENGTH (n2v (ORD c)) <= 8
+Proof
+  Cases \\ simp[ORD_CHR]
   \\ simp[LENGTH_n2v]
   \\ TOP_CASE_TAC \\ simp[]
   \\ simp[GSYM LESS_EQ]
@@ -114,7 +131,7 @@ Theorem LENGTH_n2v_ORD
   >- EVAL_TAC
   \\ MATCH_MP_TAC (MP_CANON LOG_LE_MONO)
   \\ DECIDE_TAC
-)
+QED
 
 Theorem num_to_bin_list_eq:
   !x y. num_to_bin_list x = num_to_bin_list y <=> x = y
@@ -122,46 +139,56 @@ Proof
   rw[num_to_bin_list_def,EQ_IMP_THM]>>
   pop_assum (mp_tac o Q.AP_TERM `l2n 2`)>>
   fs[l2n_n2l]
-QED;
+QED
 
-Theorem EL_num_to_bin_list_not_SUC_SUC
- `!x n y. n < LENGTH (num_to_bin_list x) ==> ~(EL n (num_to_bin_list x) = SUC (SUC y))`
-(Induct >- (EVAL_TAC \\ Cases \\ simp[]) \\ rw[EL_num_to_bin_list]
+Theorem EL_num_to_bin_list_not_SUC_SUC:
+  !x n y. n < LENGTH (num_to_bin_list x) ==> ~(EL n (num_to_bin_list x) = SUC (SUC y))
+Proof
+ Induct >- (EVAL_TAC \\ Cases \\ simp[]) \\ rw[EL_num_to_bin_list]
  \\ simp[BITV_def] \\ simp[BITS_THM]
  \\ rename1 `a MOD 2 = _`
  \\ `a MOD 2 = 0 \/ a MOD 2 = 1` by (Cases_on `a MOD 2` \\ fs[] \\ rename1 `b = 0` \\ Cases_on `b` \\ fs[]
      \\ `a MOD 2 < 2` by (MATCH_MP_TAC MOD_LESS \\ simp[])
      \\ DECIDE_TAC)
  \\ fs[]
-)
+QED
 
-Theorem LIST_REL_bin_list_eq `LIST_REL (λn n'. n = 0 ⇔ n' = 0) (num_to_bin_list x)
+Theorem LIST_REL_bin_list_eq:
+  LIST_REL (λn n'. n = 0 ⇔ n' = 0) (num_to_bin_list x)
            (num_to_bin_list y) = LIST_REL (λn n'. n = n') (num_to_bin_list x)
-           (num_to_bin_list y)`
-(rw[LIST_REL_EL_EQN] \\ EQ_TAC \\ rw[] \\
+           (num_to_bin_list y)
+Proof
+ rw[LIST_REL_EL_EQN] \\ EQ_TAC \\ rw[] \\
 `n < LENGTH (num_to_bin_list x)` by fs[] \\ RES_TAC
  \\ Cases_on `EL n (num_to_bin_list x)` \\ fs[]
  \\ Cases_on `EL n (num_to_bin_list y)` \\ fs[]
  \\ rename1 `a=b` \\ Cases_on `a` \\ Cases_on `b` \\ fs[]
- \\ metis_tac[EL_num_to_bin_list_not_SUC_SUC])
+ \\ metis_tac[EL_num_to_bin_list_not_SUC_SUC]
+QED
 
 
-Theorem MAP_num_to_bin_list_eq `!x y. MAP (λn. n ≠ 0) (num_to_bin_list x) =
-    MAP (λn. n ≠ 0) (num_to_bin_list y) <=> num_to_bin_list x = num_to_bin_list y`
-(rpt STRIP_TAC \\ EQ_TAC \\ rw[] \\ fs[MAP_EQ_EVERY2]
+Theorem MAP_num_to_bin_list_eq:
+  !x y. MAP (λn. n ≠ 0) (num_to_bin_list x) =
+    MAP (λn. n ≠ 0) (num_to_bin_list y) <=> num_to_bin_list x = num_to_bin_list y
+Proof
+rpt STRIP_TAC \\ EQ_TAC \\ rw[] \\ fs[MAP_EQ_EVERY2]
 \\ simp[LIST_EQ_REWRITE] \\ fs[LIST_REL_bin_list_eq]
 \\ fs[LIST_REL_EL_EQN]
-)
+QED
 
-Theorem n2v_eq
-`!x y. n2v x = n2v y <=> x = y`
-(rpt STRIP_TAC \\ EQ_TAC \\ STRIP_TAC \\ fs[n2v_def]
+Theorem n2v_eq:
+  !x y. n2v x = n2v y <=> x = y
+Proof
+ rpt STRIP_TAC \\ EQ_TAC \\ STRIP_TAC \\ fs[n2v_def]
  \\ fs[boolify_reverse_map]
- \\ fs[num_to_bin_list_eq,MAP_num_to_bin_list_eq])
+ \\ fs[num_to_bin_list_eq,MAP_num_to_bin_list_eq]
+QED
 
-Theorem length_zero_extend2
-  `!x n. LENGTH (zero_extend n x) = MAX n (LENGTH x)`
-(rw[zero_extend_def,PAD_LEFT] \\ simp[MAX_DEF])
+Theorem length_zero_extend2:
+   !x n. LENGTH (zero_extend n x) = MAX n (LENGTH x)
+Proof
+ rw[zero_extend_def,PAD_LEFT] \\ simp[MAX_DEF]
+QED
 
 Theorem zero_extend_eq:
   LENGTH v <= n ⇒
@@ -173,7 +200,7 @@ Proof
   simp[NOT_LESS]>>
   simp[length_zero_extend2]>>
   simp[MAX_DEF]
-QED;
+QED
 
 Theorem v2n_fixwidth:
   LENGTH v ≤ n ⇒
@@ -187,7 +214,7 @@ Proof
   >>
     `LENGTH v=n` by fs[]>>
     fs[]
-QED;
+QED
 
 val LENGTH_n2v_256_bound = Q.prove(`
   n < 256 ⇒
@@ -197,12 +224,13 @@ val LENGTH_n2v_256_bound = Q.prove(`
   imp_res_tac (LOG_LE_MONO |> Q.SPEC `2n` |> SIMP_RULE std_ss [])>>
   fs[]);
 
-Theorem do_eq
-  `(∀v1 v2. do_eq v1 v2 ≠ Eq_type_error ⇒
+Theorem do_eq:
+   (∀v1 v2. do_eq v1 v2 ≠ Eq_type_error ⇒
       (do_eq v1 v2 = do_eq (compile_v v1) (compile_v v2))) ∧
     (∀vs1 vs2. do_eq_list vs1 vs2 ≠ Eq_type_error ⇒
-      (do_eq_list vs1 vs2 = do_eq_list (MAP compile_v vs1) (MAP compile_v vs2)))`
-  (ho_match_mp_tac patSemTheory.do_eq_ind >>
+      (do_eq_list vs1 vs2 = do_eq_list (MAP compile_v vs1) (MAP compile_v vs2)))
+Proof
+  ho_match_mp_tac patSemTheory.do_eq_ind >>
   simp[patSemTheory.do_eq_def,closSemTheory.do_eq_def] >>
   conj_tac >- (
     reverse(Cases >> Cases >> simp[lit_same_type_def,closSemTheory.do_eq_def])
@@ -229,14 +257,16 @@ Theorem do_eq
   rw[]>>fs[]>>rfs[ETA_AX]>>
   BasicProvers.CASE_TAC>>fs[]>>
   rw[]>>fs[]>>
-  BasicProvers.CASE_TAC>>fs[]);
+  BasicProvers.CASE_TAC>>fs[]
+QED
 
 val v_to_list_def = closSemTheory.v_to_list_def;
 
-Theorem v_to_char_list
-  `∀v ls. (v_to_char_list v = SOME ls) ⇒
-           (v_to_list (compile_v v) = SOME (MAP (Word o fixwidth 8 o n2v o ORD) ls))`
-  (ho_match_mp_tac v_to_char_list_ind >>
+Theorem v_to_char_list:
+   ∀v ls. (v_to_char_list v = SOME ls) ⇒
+           (v_to_list (compile_v v) = SOME (MAP (Word o fixwidth 8 o n2v o ORD) ls))
+Proof
+  ho_match_mp_tac v_to_char_list_ind >>
   simp[v_to_char_list_def,v_to_list_def] >>
   rw[] >>
   Cases_on`v`>>fs[v_to_char_list_def] >>
@@ -247,28 +277,35 @@ Theorem v_to_char_list
   Cases_on`t`>>fs[v_to_char_list_def,v_to_list_def] >>
   Cases_on`t'`>>fs[v_to_char_list_def,v_to_list_def] >>
   rw[]>>fs[]>>
-  Cases_on`v_to_char_list h`>>fs[]>> rw[])
+  Cases_on`v_to_char_list h`>>fs[]>> rw[]
+QED
 
-Theorem v_to_list
-  `∀v ls. (v_to_list v = SOME ls) ⇒
-           (v_to_list (compile_v v) = SOME (MAP compile_v ls))`
-  (ho_match_mp_tac patSemTheory.v_to_list_ind >>
+Theorem v_to_list:
+   ∀v ls. (v_to_list v = SOME ls) ⇒
+           (v_to_list (compile_v v) = SOME (MAP compile_v ls))
+Proof
+  ho_match_mp_tac patSemTheory.v_to_list_ind >>
   simp[patSemTheory.v_to_list_def,v_to_list_def] >>
-  rw[] >> Cases_on`v_to_list v`>>fs[]>> rw[])
+  rw[] >> Cases_on`v_to_list v`>>fs[]>> rw[]
+QED
 
-Theorem vs_to_string
-  `∀vs ws. vs_to_string vs = SOME ws ⇒
+Theorem vs_to_string:
+   ∀vs ws. vs_to_string vs = SOME ws ⇒
     ∃wss. MAP compile_v vs = MAP ByteVector wss ∧
-      FLAT wss = MAP (n2w o ORD) ws`
-  (ho_match_mp_tac vs_to_string_ind
+      FLAT wss = MAP (n2w o ORD) ws
+Proof
+  ho_match_mp_tac vs_to_string_ind
   \\ rw[vs_to_string_def]
   \\ every_case_tac \\ fs[] \\ rveq
   \\ qmatch_goalsub_abbrev_tac`ByteVector ws1`
-  \\ qexists_tac`ws1::wss` \\ simp[]);
+  \\ qexists_tac`ws1::wss` \\ simp[]
+QED
 
-Theorem Boolv[simp]
-  `compile_v (Boolv b) = Boolv b`
-  (Cases_on`b`>>EVAL_TAC)
+Theorem Boolv[simp]:
+   compile_v (Boolv b) = Boolv b
+Proof
+  Cases_on`b`>>EVAL_TAC
+QED
 
 (* TODO fix definitions of v_to_bytes and v_to_words *)
 
@@ -283,7 +320,7 @@ Proof
 QED
 
 Theorem v_to_bytes:
-  v_to_bytes v = SOME ls ==> v_to_bytes (compile_v v) = SOME ls
+   v_to_bytes v = SOME ls ==> v_to_bytes (compile_v v) = SOME ls
 Proof
   simp[patSemTheory.v_to_bytes_def,v_to_bytes_def]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
@@ -294,7 +331,7 @@ Proof
 QED
 
 Theorem v_to_words:
-  v_to_words v = SOME ls ==> v_to_words (compile_v v) = SOME ls
+   v_to_words v = SOME ls ==> v_to_words (compile_v v) = SOME ls
 Proof
   simp[patSemTheory.v_to_words_def,v_to_words_def]
   \\ DEEP_INTRO_TAC some_intro \\ rw[]
@@ -304,14 +341,15 @@ Proof
   \\ fs[MAP_Word_w2v_eq]
 QED
 
-Theorem do_install
-  `patSem$do_install vs s = SOME (v1,v2) ∧
+Theorem do_install:
+   patSem$do_install vs s = SOME (v1,v2) ∧
    s.compile = pure_cc (λe. (MAP compile e,[])) cc
    ==>
    closSem$do_install (MAP compile_v vs) (compile_state max_app cc s) =
      if s.clock = 0 then (Rerr (Rabort Rtimeout_error),compile_state max_app cc v2)
-     else (Rval (MAP compile v1),dec_clock 1(compile_state max_app cc v2))`
-  (simp[do_install_def,patSemTheory.do_install_def,case_eq_thms]
+     else (Rval (MAP compile v1),dec_clock 1(compile_state max_app cc v2))
+Proof
+  simp[do_install_def,patSemTheory.do_install_def,case_eq_thms]
   \\ simp[] \\ strip_tac \\ rveq \\ fs[]
   \\ imp_res_tac v_to_bytes \\ imp_res_tac v_to_words
   \\ rpt(pairarg_tac \\ fs[])
@@ -319,7 +357,8 @@ Theorem do_install
   \\ rfs[pure_cc_def]
   \\ fs[case_eq_thms,pair_case_eq,shift_seq_def,FUPDATE_LIST_THM] \\ rveq
   \\ fs[bool_case_eq,dec_clock_def]
-  \\ fs[state_component_equality,compile_state_def,pure_co_def,FUN_EQ_THM]);
+  \\ fs[state_component_equality,compile_state_def,pure_co_def,FUN_EQ_THM]
+QED
 
 (* compiler correctness *)
 
@@ -348,31 +387,36 @@ val LENGTH_eq = Q.prove(
    (2 = LENGTH ls ⇔ LENGTH ls = 2)`,
   Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL]);
 
-Theorem list_to_v_compile
-  `!x xs.
+Theorem list_to_v_compile:
+   !x xs.
    v_to_list x = SOME xs /\
    v_to_list (compile_v x) = SOME (MAP compile_v xs) ==>
-     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)`
-  (ho_match_mp_tac patSemTheory.v_to_list_ind
+     list_to_v (MAP compile_v xs) = compile_v (list_to_v xs)
+Proof
+  ho_match_mp_tac patSemTheory.v_to_list_ind
   \\ rw [patSemTheory.v_to_list_def] \\ fs []
   \\ fs [list_to_v_def, patSemTheory.list_to_v_def, case_eq_thms] \\ rveq
-  \\ fs [v_to_list_def, case_eq_thms, list_to_v_def, patSemTheory.list_to_v_def]);
+  \\ fs [v_to_list_def, case_eq_thms, list_to_v_def, patSemTheory.list_to_v_def]
+QED
 
-Theorem list_to_v_compile_APPEND
-  `!xs ys.
+Theorem list_to_v_compile_APPEND:
+   !xs ys.
      list_to_v (MAP compile_v xs) = compile_v (list_to_v xs) /\
      list_to_v (MAP compile_v ys) = compile_v (list_to_v ys) ==>
        list_to_v (MAP compile_v (xs ++ ys)) =
-       compile_v (list_to_v (xs ++ ys))`
-  (Induct \\ rw [patSemTheory.list_to_v_def]
-  \\ fs [list_to_v_def, patSemTheory.list_to_v_def]);
+       compile_v (list_to_v (xs ++ ys))
+Proof
+  Induct \\ rw [patSemTheory.list_to_v_def]
+  \\ fs [list_to_v_def, patSemTheory.list_to_v_def]
+QED
 
-Theorem dest_WordToInt_SOME
-  `!wdx es x w. dest_WordToInt wdx es = SOME (x,w) ==> ?tra. es = [App tra (Op (WordToInt w)) [x]]`
-  ( ho_match_mp_tac dest_WordToInt_ind >> fs[dest_WordToInt_def]
+Theorem dest_WordToInt_SOME:
+   !wdx es x w. dest_WordToInt wdx es = SOME (x,w) ==> ?tra. es = [App tra (Op (WordToInt w)) [x]]
+Proof
+  ho_match_mp_tac dest_WordToInt_ind >> fs[dest_WordToInt_def]
     >> Cases_on `op` \\ fs[]
-    >> Cases_on `o'` \\ TRY(fs[] \\ NO_TAC)
-  );
+    >> Cases_on `o'` \\ fs[]
+QED
 
 val Rabort_Rtype_error_map_error = prove(
   ``Rabort Rtype_error = map_error_result compile_v e <=>
@@ -383,7 +427,7 @@ val do_app_WordToInt_Rerr_IMP = prove(
   ``closSem$do_app (WordToInt n) ws x = Rerr e ==> e = Rabort Rtype_error``,
   fs [do_app_def,case_eq_thms,pair_case_eq] \\ rw [] \\ fs []);
 
-(* TODO prove and move *)
+(* TODO move *)
 val lem = Q.prove(`!t. EVERY ($= 0 ∘ combin$C $MOD 2)
            (REVERSE (MAP (λb. if b then 1 else 0) t)) ==> EVERY ($= F) t`,
      simp[EVERY_REVERSE,EVERY_MAP] \\ Induct \\ fs[])
@@ -429,13 +473,13 @@ val TAKE_ID = prove(
   ``∀l n. (LENGTH l = n) ⇒ (TAKE n l = l)``,
 Induct THEN SRW_TAC [ARITH_ss][]);
 
-
-Theorem l2n_2_append
- `!y x. l2n 2 (x ++ y) = l2n 2 x + (2**LENGTH x) * (l2n 2 y)`
-  (INDUCT_THEN list_INDUCT ASSUME_TAC \\ fs[] \\ STRIP_TAC \\ INDUCT_THEN list_INDUCT ASSUME_TAC \\ fs[]
+Theorem l2n_2_append:
+  !y x. l2n 2 (x ++ y) = l2n 2 x + (2**LENGTH x) * (l2n 2 y)
+Proof
+  INDUCT_THEN list_INDUCT ASSUME_TAC \\ fs[] \\ STRIP_TAC \\ INDUCT_THEN list_INDUCT ASSUME_TAC \\ fs[]
   \\ rw[] \\ simp[Once l2n_def] \\ ONCE_REWRITE_TAC[ADD_SYM] \\ simp[EXP] \\ simp[LEFT_ADD_DISTRIB]
-  \\ simp[l2n_def])
-
+  \\ simp[l2n_def]
+QED
 
 val l2n_GENLIST_0 = prove(``!n. l2n 2 (GENLIST (\v. 0) n) = 0``,
   ASSUME_TAC (Q.SPEC `2` l2n_eq_0) \\ fs[EVERY_GENLIST]
@@ -448,9 +492,11 @@ val v2n_fixwidth_n2v_ORD = Q.prove(`
   DEP_REWRITE_TAC[v2n_fixwidth]>>
   fs[LENGTH_n2v_ORD]);
 
-Theorem EVERY_MOD_EQUAL_LESS_EQUIV_EQUAL
-  `!l. (EVERY ($>2) l /\ EVERY ($=0 o combin$C $MOD 2) l) = EVERY ($=0) l`
-  (INDUCT_THEN list_INDUCT ASSUME_TAC \\ rw[EVERY_DEF] \\ EQ_TAC \\ rw[] \\ fs[])
+Theorem EVERY_MOD_EQUAL_LESS_EQUIV_EQUAL:
+  !l. (EVERY ($>2) l /\ EVERY ($=0 o combin$C $MOD 2) l) = EVERY ($=0) l
+Proof
+  INDUCT_THEN list_INDUCT ASSUME_TAC \\ rw[EVERY_DEF] \\ EQ_TAC \\ rw[] \\ fs[]
+QED
 
 val v2n_cons = Q.prove(`
   (v2n (T::ls) = 2**LENGTH ls + v2n ls) ∧
@@ -551,7 +597,7 @@ Proof
   simp [Once v2n_irrel]>>
   Cases_on`r`>>fs[]>>
   metis_tac[n2v_v2n_T]
-QED;
+QED
 
 Theorem zero_extend_n2v_v2n_cons:
   !h t. zero_extend (SUC (LENGTH t)) (n2v (v2n (h::t))) = h::t
@@ -574,7 +620,7 @@ Proof
   rw[]>>fs[]>>
   drule EVERY_F_IMP_REPLICATE>>
   fs[]
-QED;
+QED
 
 Theorem n2v_v2n_LENGTH_sub:
   !h t. LENGTH (n2v (v2n (h::t))) - LENGTH (h::t) = 0
@@ -584,17 +630,20 @@ Proof
   `LENGTH q + LENGTH r = LENGTH (h::t)` by
    metis_tac[SPLITP_LENGTH,FST,SND]>>
   fs[]
-QED;
+QED
 
-Theorem DROP_n2v_v2n_sub
-  `!h t. DROP (LENGTH (n2v (v2n (h::t))) - LENGTH (h::t)) (n2v (v2n (h::t)))
-   = n2v (v2n (h::t))`
-(rpt STRIP_TAC
- \\ ASM_SIMP_TAC arith_ss [DROP,n2v_v2n_LENGTH_sub])
+Theorem DROP_n2v_v2n_sub:
+   !h t. DROP (LENGTH (n2v (v2n (h::t))) - LENGTH (h::t)) (n2v (v2n (h::t)))
+   = n2v (v2n (h::t))
+Proof
+ rpt STRIP_TAC
+ \\ ASM_SIMP_TAC arith_ss [DROP,n2v_v2n_LENGTH_sub]
+QED
 
-Theorem n2v_v2n_not_less_id
-  `~(LENGTH (n2v (v2n (h::t))) < LENGTH (h::t)) ==> n2v (v2n (h::t)) = (h::t)`
-(simp[LENGTH_n2v] \\ TOP_CASE_TAC
+Theorem n2v_v2n_not_less_id:
+   ~(LENGTH (n2v (v2n (h::t))) < LENGTH (h::t)) ==> n2v (v2n (h::t)) = (h::t)
+Proof
+ simp[LENGTH_n2v] \\ TOP_CASE_TAC
  >- (Cases_on `t` \\ fs[] \\ Cases_on `h` \\ EVAL_TAC \\ POP_ASSUM (fn a => ASSUME_TAC a \\ UNDISCH_TAC (concl a)) \\ EVAL_TAC)
  \\ Cases_on `h` \\ rw[v2n_def,n2v_def,num_from_bin_list_def,num_to_bin_list_def,bitify_reverse_map,boolify_reverse_map]
  \\ Q.MATCH_ABBREV_TAC `REVERSE (MAP _ (n2l 2 (l2n 2 X))) = _`
@@ -645,21 +694,25 @@ Theorem n2v_v2n_not_less_id
     \\ simp[] \\ rename1 `1 <= LENGTH t` \\ Cases_on `t` \\ simp[]
     \\ fs[]
   )
- \\ IMP_RES_TAC TAKE_REVERSE \\ fs[])
-;
+ \\ IMP_RES_TAC TAKE_REVERSE \\ fs[]
+QED
 
-Theorem MAP_Word
-  `!x y. MAP Word x = MAP Word y <=> x = y`
- (rpt STRIP_TAC \\  MATCH_MP_TAC INJ_MAP_EQ_IFF \\ simp[INJ_DEF])
-Theorem compile_evaluate
-  `0 < max_app ⇒
+Theorem MAP_Word:
+   !x y. MAP Word x = MAP Word y <=> x = y
+Proof
+  rpt STRIP_TAC \\  MATCH_MP_TAC INJ_MAP_EQ_IFF \\ simp[INJ_DEF]
+QED
+
+Theorem compile_evaluate:
+   0 < max_app ⇒
    (∀env ^s es s' r.
       evaluate env s es = (s',r) ∧
       s.compile = pure_cc (λe. (MAP pat_to_clos$compile e,[])) cc ∧
       r ≠ Rerr (Rabort Rtype_error) ⇒
       evaluate (MAP compile es,MAP compile_v env,compile_state max_app cc s) =
-        (map_result (MAP compile_v) compile_v r, compile_state max_app cc s'))`
-  (strip_tac >>
+        (map_result (MAP compile_v) compile_v r, compile_state max_app cc s'))
+Proof
+  strip_tac >>
   ho_match_mp_tac patSemTheory.evaluate_ind >>
   strip_tac >- (rw[evaluate_pat_def,evaluate_def]>>rw[]) >>
   strip_tac >- (
@@ -1137,14 +1190,16 @@ evaluate_REPLICATE_Op_AllocGlobal, REPLICATE_GENLIST, MAP_GENLIST]
     rw[] >> fs[EXISTS_MAP] >>
     fs[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,
        combinTheory.o_DEF,ETA_AX,MAP_MAP_o,clos_env_def] >>
-    fsrw_tac[ETA_ss][]));
+    fsrw_tac[ETA_ss][] )
+QED
 
-Theorem compile_semantics
-  `0 < max_app ∧ st.compile = pure_cc (λe. (MAP compile e,[])) cc ∧ st.globals = [] ∧ st.refs = [] ⇒
+Theorem compile_semantics:
+   0 < max_app ∧ st.compile = pure_cc (λe. (MAP compile e,[])) cc ∧ st.globals = [] ∧ st.refs = [] ⇒
    semantics [] (st:('c,'ffi)patSem$state) es ≠ Fail ⇒
    semantics st.ffi max_app FEMPTY (pure_co (λe. (MAP compile e,[])) o st.compile_oracle) cc (MAP compile es) =
-   semantics [] st es`
-  (strip_tac >>
+   semantics [] st es
+Proof
+  strip_tac >>
   simp[patSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -1222,13 +1277,15 @@ Theorem compile_semantics
   qpat_abbrev_tac`s1 = compile_state _ _ _` \\
   `s1 = s0 k` by (
     simp[Abbr`s1`,Abbr`s0`,initial_state_def,compile_state_def] ) \\
-  srw_tac[QI_ss][]);
+  srw_tac[QI_ss][]
+QED
 
 (* more correctness properties *)
 
-Theorem compile_contains_App_SOME
-  `0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]`
-  (strip_tac >>
+Theorem compile_contains_App_SOME:
+   0 < max_app ⇒ ∀e. ¬contains_App_SOME max_app [compile e]
+Proof
+  strip_tac >>
   ho_match_mp_tac compile_ind >>
   simp[compile_def,contains_App_SOME_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[] >> srw_tac[ETA_ss][] >>
@@ -1246,11 +1303,12 @@ Theorem compile_contains_App_SOME
   >> rename1 `_ = [App tra' (Op (WordToInt r)) [q]]`
   >> Cases_on `(q,r)` >> fs[]
   >> fs[contains_App_SOME_def]
-);
+QED
 
-Theorem compile_every_Fn_vs_NONE
-  `∀e. every_Fn_vs_NONE[compile e]`
-  (ho_match_mp_tac compile_ind >>
+Theorem compile_every_Fn_vs_NONE:
+   ∀e. every_Fn_vs_NONE[compile e]
+Proof
+  ho_match_mp_tac compile_ind >>
   rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   rw[Once every_Fn_vs_NONE_EVERY] >>
   simp[EVERY_REVERSE,EVERY_MAP] >>
@@ -1262,12 +1320,13 @@ Theorem compile_every_Fn_vs_NONE
   TOP_CASE_TAC
   >> IMP_RES_TAC dest_WordToInt_SOME
   >> rw[Once every_Fn_vs_NONE_EVERY]
-);
+QED
 
 (* TODO cleanup *)
-Theorem set_globals_eq
-  `∀e. set_globals e = set_globals (compile e)`
-  (ho_match_mp_tac compile_ind >>
+Theorem set_globals_eq:
+   ∀e. set_globals e = set_globals (compile e)
+Proof
+  ho_match_mp_tac compile_ind >>
   rw[compile_def,patPropsTheory.op_gbag_def,op_gbag_def,elist_globals_reverse,CopyByteStr_def,CopyByteAw8_def]
   >>
     TRY
@@ -1309,12 +1368,13 @@ Theorem set_globals_eq
     pop_assum kall_tac >>
     rpt (pop_assum mp_tac) >>
     TRY (EVAL_TAC \\ NO_TAC) >>
-    fs [elist_globals_reverse] >> NO_TAC))
-;
+    fs [elist_globals_reverse] >> NO_TAC)
+QED
 
-Theorem compile_esgc_free
-  `∀e. esgc_free e ⇒ esgc_free (compile e)`
-  (ho_match_mp_tac compile_ind >>
+Theorem compile_esgc_free:
+   ∀e. esgc_free e ⇒ esgc_free (compile e)
+Proof
+  ho_match_mp_tac compile_ind >>
   rw[compile_def,CopyByteStr_def,CopyByteAw8_def] >>
   fs[EVERY_REVERSE,EVERY_MAP,EVERY_MEM]>>
   fs[set_globals_eq,LENGTH_eq,REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS]
@@ -1327,21 +1387,26 @@ Theorem compile_esgc_free
     fs [])
   >- (rename1 `_ = SOME x` >> Cases_on `x` >> IMP_RES_TAC dest_WordToInt_SOME
       >> fs[])
-  >- (Induct_on`es`>>fs[set_globals_eq]));
+  >- (Induct_on`es`>>fs[set_globals_eq])
+QED
 
-Theorem compile_distinct_setglobals
-  `∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
-       BAG_ALL_DISTINCT (set_globals (compile e))`
-  (fs[set_globals_eq]);
+Theorem compile_distinct_setglobals:
+   ∀e. BAG_ALL_DISTINCT (set_globals e) ⇒
+       BAG_ALL_DISTINCT (set_globals (compile e))
+Proof
+  fs[set_globals_eq]
+QED
 
-Theorem compile_no_Labels
-  `!e. no_Labels (compile e)`
-  (ho_match_mp_tac compile_ind \\ rw [compile_def]
+Theorem compile_no_Labels:
+   !e. no_Labels (compile e)
+Proof
+  ho_match_mp_tac compile_ind \\ rw [compile_def]
   \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
   \\ TRY (fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ NO_TAC)
   \\ every_case_tac \\ fs []
   \\ fs [EVERY_REVERSE,EVERY_REPLICATE]
   \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS]
-  \\ EVAL_TAC \\ fs []);
+  \\ EVAL_TAC \\ fs []
+QED
 
 val _ = export_theory()

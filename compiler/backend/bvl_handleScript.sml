@@ -85,14 +85,17 @@ val dest_Seq_def = Define `
   (dest_Seq (Let [e1;e2] (Var 1)) = SOME (e1,e2)) /\
   (dest_Seq _ = NONE)`
 
-Theorem dest_Seq_pmatch `∀exp.
+Theorem dest_Seq_pmatch:
+  ∀exp.
   dest_Seq exp =
     case exp of
       Let [e1;e2] (Var 1) => SOME (e1,e2)
-     | _ => NONE`
-  (rpt strip_tac
+     | _ => NONE
+Proof
+  rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[dest_Seq_def])
+  >> fs[dest_Seq_def]
+QED
 
 val compile_seqs_def = tDefine "compile_seqs" `
   compile_seqs cut_size e acc =
@@ -115,17 +118,21 @@ val compile_any_def = Define `
     else
       compile_exp cut_size arity e`;
 
-Theorem compile_length[simp]
-  `!l n xs. LENGTH (FST (compile l n xs)) = LENGTH xs`
-  (HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
+Theorem compile_length[simp]:
+   !l n xs. LENGTH (FST (compile l n xs)) = LENGTH xs
+Proof
+  HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ fs [compile_def,ADD1,LET_DEF]
-  \\ rpt (pairarg_tac \\ fs []) \\ rw [OptionalLetLet_def]);
+  \\ rpt (pairarg_tac \\ fs []) \\ rw [OptionalLetLet_def]
+QED
 
-Theorem compile_sing
-  `compile l n [x] = (dx,lx,s) ==> ?y. dx = [y]`
-  (`LENGTH (FST (compile l n [x])) = LENGTH [x]` by fs []
+Theorem compile_sing:
+   compile l n [x] = (dx,lx,s) ==> ?y. dx = [y]
+Proof
+  `LENGTH (FST (compile l n [x])) = LENGTH [x]` by fs []
   \\ rpt strip_tac \\ full_simp_tac std_ss [LENGTH]
-  \\ Cases_on `dx` \\ fs [LENGTH_NIL]);
+  \\ Cases_on `dx` \\ fs [LENGTH_NIL]
+QED
 
 val compile_seqs_compute = save_thm("compile_seqs_compute",
   LIST_CONJ [

@@ -11,25 +11,27 @@ fun sing x = [x]
 (*------------------------------------------------------------------*)
 (* hchange: using a [H1 ==>> H2] theorem modulo frame rule *)
 
-Theorem hchange_lemma'
-  `!H1 H1' H H' H2.
+Theorem hchange_lemma':
+   !H1 H1' H H' H2.
     H1 ==>> H1' ==>
     H ==>> H1 * H2 /\
     H1' * H2 ==>> H' ==>
-    H ==>> H'`
-  (rpt strip_tac \\ irule SEP_IMP_TRANS \\ qexists_tac `H1 * H2` \\ fs [] \\
+    H ==>> H'
+Proof
+  rpt strip_tac \\ irule SEP_IMP_TRANS \\ qexists_tac `H1 * H2` \\ fs [] \\
   irule SEP_IMP_TRANS \\ qexists_tac `H1' * H2` \\ hsimpl \\ fs []
-)
+QED
 
-Theorem hchange_lemma
-  `!H1 H1' H H' H2.
+Theorem hchange_lemma:
+   !H1 H1' H H' H2.
     H1 ==>> H1' /\
     H ==>> H1 * H2 /\
     H1' * H2 ==>> H' ==>
-    H ==>> H'`
-  (rpt strip_tac \\ irule SEP_IMP_TRANS \\ qexists_tac `H1 * H2` \\ fs [] \\
+    H ==>> H'
+Proof
+  rpt strip_tac \\ irule SEP_IMP_TRANS \\ qexists_tac `H1 * H2` \\ fs [] \\
   irule SEP_IMP_TRANS \\ qexists_tac `H1' * H2` \\ hsimpl \\ fs []
-)
+QED
 
 (*------------------------------------------------------------------*)
 (** Locality *)
@@ -48,15 +50,17 @@ val is_local_def = Define `
 
 (* Properties of [local] *)
 
-Theorem local_elim
-  `!cf H Q. cf H Q ==> local cf H Q`
-  (fs [local_def] \\ rpt strip_tac \\
+Theorem local_elim:
+   !cf H Q. cf H Q ==> local cf H Q
+Proof
+  fs [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H`, `emp`, `Q`] \\ hsimpl \\ rew_heap
-)
+QED
 
-Theorem local_local
-  `!cf. local (local cf) = local cf`
-  (qsuff_tac `!cf H Q. local (local cf) H Q = local cf H Q`
+Theorem local_local:
+   !cf. local (local cf) = local cf
+Proof
+  qsuff_tac `!cf H Q. local (local cf) H Q = local cf H Q`
   THEN1 (metis_tac []) \\
   rpt strip_tac \\ eq_tac \\
   fs [local_elim] \\
@@ -80,40 +84,44 @@ Theorem local_local
   qsuff_tac `SEP_IMP ((Q1 x * H2) * GC) ((Q x * GC) * GC)`
   THEN1 fs [AC STAR_ASSOC STAR_COMM] \\
   match_mp_tac SEP_IMP_STAR \\ fs [SEP_IMP_REFL]
-)
+QED
 
-Theorem local_is_local
-  `!F. is_local (local F) = T`
-  (metis_tac [is_local_def, local_local]
-)
+Theorem local_is_local:
+   !F. is_local (local F) = T
+Proof
+  metis_tac [is_local_def, local_local]
+QED
 
-Theorem is_local_prove
-  `!F. (!H Q. F H Q <=> local F H Q) ==> is_local F`
-  (rpt strip_tac \\ fs [is_local_def] \\
+Theorem is_local_prove:
+   !F. (!H Q. F H Q <=> local F H Q) ==> is_local F
+Proof
+  rpt strip_tac \\ fs [is_local_def] \\
   NTAC 2 (irule EQ_EXT \\ gen_tac) \\ fs []
-);
+QED
 
-Theorem local_frame_gc
-  `!F H H1 H2 Q1 Q.
+Theorem local_frame_gc:
+   !F H H1 H2 Q1 Q.
       is_local F ==>
       F H1 Q1 ==>
       H ==>> H1 * H2 ==>
       Q1 *+ H2 ==+> Q *+ GC ==>
-      F H Q`
-  (fs [is_local_def] \\ rpt strip_tac \\
+      F H Q
+Proof
+  fs [is_local_def] \\ rpt strip_tac \\
   qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   rewrite_tac [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H1`, `H2`, `Q1`] \\ strip_tac \\ fs [SEP_IMP_def]
-)
+QED
 
-Theorem local_frame
-  `!H1 H2 Q1 F H Q.
+Theorem local_frame:
+   !H1 H2 Q1 F H Q.
       is_local F ==>
       F H1 Q1 ==>
       H ==>> H1 * H2 ==>
       Q1 *+ H2 ==+> Q ==>
-      F H Q`
-  (fs [is_local_def] \\ rpt strip_tac \\
+      F H Q
+Proof
+  fs [is_local_def] \\ rpt strip_tac \\
   qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   rewrite_tac [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H1`, `H2`, `Q1`] \\ strip_tac
@@ -123,92 +131,99 @@ Theorem local_frame
     first_assum (fn t => irule (MATCH_MP hchange_lemma' (Q.SPEC `x` t))) \\
     QUANT_TAC [("x'", `x`, [])] \\ hsimpl \\ qexists_tac `emp` \\ hsimpl
   )
-)
+QED
 
-Theorem local_gc_pre_on
-  `!HG H' F H Q.
+Theorem local_gc_pre_on:
+   !HG H' F H Q.
      is_local F ==>
      H ==>> HG * H' ==>
      F H' Q ==>
-     F H Q`
-  (rpt strip_tac \\ fs [is_local_def] \\
+     F H Q
+Proof
+  rpt strip_tac \\ fs [is_local_def] \\
   qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   fs [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H'`, `HG`, `Q`] \\ rpt strip_tac
   THEN1 (once_rewrite_tac [STAR_COMM] \\ fs [SEP_IMP_def])
   THEN1 (fs [])
   THEN1 hsimpl
-)
+QED
 
-Theorem local_gc_post
-  `!Q' F H Q.
+Theorem local_gc_post:
+   !Q' F H Q.
      is_local F ==>
      F H Q' ==>
      Q' ==+> Q *+ GC ==>
-     F H Q`
-  (rpt strip_tac \\ fs [is_local_def] \\
+     F H Q
+Proof
+  rpt strip_tac \\ fs [is_local_def] \\
   qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   fs [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H`, `&T`, `Q'`] \\ rpt strip_tac
   THEN1 (fs [STAR_def, cond_def, SPLIT_emp2])
   THEN1 (fs [])
   THEN1 (hsimpl \\ fs [SEP_IMPPOST_def, STARPOST_def])
-);
+QED
 
 (* Extraction of premisses from [local] *)
 
-Theorem local_intro_prop
-  `!F H P Q.
+Theorem local_intro_prop:
+   !F H P Q.
       is_local F ==>
       (P ==> F H Q) ==>
-      F (H * cond P) Q`
-  (rpt strip_tac \\ fs [is_local_def] \\
+      F (H * cond P) Q
+Proof
+  rpt strip_tac \\ fs [is_local_def] \\
   qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   fs [local_def] \\ rpt strip_tac \\
   Q.LIST_EXISTS_TAC [`H`, `emp`, `Q`] \\ rew_heap \\ rpt strip_tac \\
   TRY (fs [STAR_def, cond_def] \\ SPLIT_TAC) \\ hsimpl
-)
+QED
 
 (** Extraction of existentials from [local] *)
 
-Theorem local_extract_exists
-  `!F A J Q.
+Theorem local_extract_exists:
+   !F A J Q.
       is_local F ==>
       (!x. F (J x) Q) ==>
-      F ($SEP_EXISTS J) Q`
-  (rpt strip_tac \\ fs [is_local_def] \\
+      F ($SEP_EXISTS J) Q
+Proof
+  rpt strip_tac \\ fs [is_local_def] \\
   qpat_x_assum `_ = local _` (once_rewrite_tac o sing) \\
   fs [local_def] \\ rpt strip_tac \\ fs [SEP_EXISTS] \\ rename1 `J x _` \\
   Q.LIST_EXISTS_TAC [`J x`, `emp`, `Q`] \\ rpt strip_tac \\ rew_heap \\
   hsimpl
-)
+QED
 
 (** Auxiliary lemmas for [hclean]. Mostly repackaging of previous lemmas *)
 
-Theorem hclean_prop
- `!F H P Q.
+Theorem hclean_prop:
+  !F H P Q.
       is_local F /\
       (P ==> F H Q) ==>
-      F (H * cond P) Q`
-  (fs [local_intro_prop]
-)
+      F (H * cond P) Q
+Proof
+  fs [local_intro_prop]
+QED
 
-Theorem hclean_prop_single
-  `!F P Q.
+Theorem hclean_prop_single:
+   !F P Q.
       is_local F /\
       (P ==> F emp Q) ==>
-      F (cond P) Q`
-  (qx_gen_tac `HF` \\
+      F (cond P) Q
+Proof
+  qx_gen_tac `HF` \\
   qspecl_then [`HF`, `emp`] mp_tac local_intro_prop \\
   rew_heap
-)
+QED
 
-Theorem hclean_exists_single
-  `!F A J Q.
+Theorem hclean_exists_single:
+   !F A J Q.
       is_local F /\
       (!x. F (J x) Q) ==>
-      F ($SEP_EXISTS J) Q`
-  (fs [local_extract_exists]
-)
+      F ($SEP_EXISTS J) Q
+Proof
+  fs [local_extract_exists]
+QED
 
 val _ = export_theory()

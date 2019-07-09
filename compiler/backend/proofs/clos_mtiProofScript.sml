@@ -55,33 +55,43 @@ val syntax_ok_def = tDefine "syntax_ok" `
   (WF_REL_TAC `measure exp3_size` \\ rw []
    \\ imp_res_tac closLang_exp_size_lemma \\ fs []);
 
-Theorem syntax_ok_cons
-  `syntax_ok (x::xs) <=> syntax_ok [x] /\ syntax_ok xs`
-  (Cases_on `xs` \\ fs [syntax_ok_def]);
+Theorem syntax_ok_cons:
+   syntax_ok (x::xs) <=> syntax_ok [x] /\ syntax_ok xs
+Proof
+  Cases_on `xs` \\ fs [syntax_ok_def]
+QED
 
-Theorem syntax_ok_append[simp]
-  `!xs ys. syntax_ok (xs ++ ys) <=> syntax_ok xs /\ syntax_ok ys`
-  (Induct \\ fs [syntax_ok_def]
+Theorem syntax_ok_append[simp]:
+   !xs ys. syntax_ok (xs ++ ys) <=> syntax_ok xs /\ syntax_ok ys
+Proof
+  Induct \\ fs [syntax_ok_def]
   \\ once_rewrite_tac [syntax_ok_cons]
-  \\ fs [syntax_ok_def] \\ rw [] \\ eq_tac \\ rw[]);
+  \\ fs [syntax_ok_def] \\ rw [] \\ eq_tac \\ rw[]
+QED
 
-Theorem syntax_ok_REVERSE[simp]
-  `!xs. syntax_ok (REVERSE xs) <=> syntax_ok xs`
-  (ho_match_mp_tac (theorem "syntax_ok_ind")
+Theorem syntax_ok_REVERSE[simp]:
+   !xs. syntax_ok (REVERSE xs) <=> syntax_ok xs
+Proof
+  ho_match_mp_tac (theorem "syntax_ok_ind")
   \\ rw [syntax_ok_def]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-Theorem syntax_ok_MAP
-  `!xs. (!x. MEM x xs ==> syntax_ok [f x]) ==> syntax_ok (MAP f xs)`
-  (Induct
+Theorem syntax_ok_MAP:
+   !xs. (!x. MEM x xs ==> syntax_ok [f x]) ==> syntax_ok (MAP f xs)
+Proof
+  Induct
   \\ rw [syntax_ok_def]
-  \\ rw [Once syntax_ok_cons]);
+  \\ rw [Once syntax_ok_cons]
+QED
 
-Theorem syntax_ok_REPLICATE
-  `syntax_ok [x] ==> syntax_ok (REPLICATE n x)`
-  (Induct_on `n`
+Theorem syntax_ok_REPLICATE:
+   syntax_ok [x] ==> syntax_ok (REPLICATE n x)
+Proof
+  Induct_on `n`
   \\ rw [syntax_ok_def]
-  \\ rw [Once syntax_ok_cons]);
+  \\ rw [Once syntax_ok_cons]
+QED
 
 (* code relation *)
 
@@ -89,28 +99,36 @@ val code_rel_def = Define `
   code_rel max_app e1 e2 <=>
     syntax_ok e1 /\ (e2 = intro_multi max_app e1)`
 
-Theorem code_rel_IMP_LENGTH
-  `code_rel max_app xs ys ==> LENGTH ys = LENGTH xs`
-  (rw [code_rel_def,clos_mtiTheory.intro_multi_length]);
+Theorem code_rel_IMP_LENGTH:
+   code_rel max_app xs ys ==> LENGTH ys = LENGTH xs
+Proof
+  rw [code_rel_def,clos_mtiTheory.intro_multi_length]
+QED
 
-Theorem HD_intro_multi[simp]
-  `[HD (intro_multi max_app [e2])] = intro_multi max_app [e2]`
-  (`?x. intro_multi max_app [e2] = [x]` by metis_tac [intro_multi_sing]
-  \\ fs []);
+Theorem HD_intro_multi[simp]:
+   [HD (intro_multi max_app [e2])] = intro_multi max_app [e2]
+Proof
+  `?x. intro_multi max_app [e2] = [x]` by metis_tac [intro_multi_sing]
+  \\ fs []
+QED
 
-Theorem intro_multi_cons
-  `!xs x. intro_multi m (x::xs) = HD (intro_multi m [x]) :: intro_multi m xs`
-  (Induct \\ fs[intro_multi_def]);
+Theorem intro_multi_cons:
+   !xs x. intro_multi m (x::xs) = HD (intro_multi m [x]) :: intro_multi m xs
+Proof
+  Induct \\ fs[intro_multi_def]
+QED
 
-Theorem code_rel_CONS_CONS
-  `code_rel m (x1::x2::xs) (y1::y2::ys) <=>
-    code_rel m [x1] [y1] /\ code_rel m (x2::xs) (y2::ys)`
-  (fs [code_rel_def,syntax_ok_def,intro_multi_def]
+Theorem code_rel_CONS_CONS:
+   code_rel m (x1::x2::xs) (y1::y2::ys) <=>
+    code_rel m [x1] [y1] /\ code_rel m (x2::xs) (y2::ys)
+Proof
+  fs [code_rel_def,syntax_ok_def,intro_multi_def]
   \\ `?t1. intro_multi m [x1] = [t1]` by metis_tac [intro_multi_sing]
   \\ `?t2. intro_multi m [x2] = [t2]` by metis_tac [intro_multi_sing]
   \\ fs [] \\ eq_tac \\ rw []
   \\ pop_assum mp_tac
-  \\ once_rewrite_tac [intro_multi_cons] \\ fs []);
+  \\ once_rewrite_tac [intro_multi_cons] \\ fs []
+QED
 
 (* value relation *)
 
@@ -183,9 +201,11 @@ val compile_inc_def = Define `
   compile_inc max_app (e,es) =
     (intro_multi max_app e, [])`
 
-Theorem SND_compile_inc[simp]
-  `SND (compile_inc max_app p) = []`
-  (Cases_on`p` \\ EVAL_TAC);
+Theorem SND_compile_inc[simp]:
+   SND (compile_inc max_app p) = []
+Proof
+  Cases_on`p` \\ EVAL_TAC
+QED
 
 val state_rel_def = Define `
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
@@ -204,21 +224,24 @@ val state_rel_def = Define `
 
 (* evaluation theorem *)
 
-Theorem collect_args_IMP
-  `!max_app k e1 num_args e2.
+Theorem collect_args_IMP:
+   !max_app k e1 num_args e2.
       collect_args max_app k e1 = (num_args,e2) /\ k <= max_app ==>
-      k <= num_args /\ num_args <= max_app`
-  (recInduct collect_args_ind
+      k <= num_args /\ num_args <= max_app
+Proof
+  recInduct collect_args_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
   \\ fs [collect_args_def]
-  \\ rw [] \\ fs []);
+  \\ rw [] \\ fs []
+QED
 
-Theorem collect_args_ok_IMP
-  `!max_app k e num_args e2.
+Theorem collect_args_ok_IMP:
+   !max_app k e num_args e2.
       collect_args max_app k e = (num_args,e2) /\ syntax_ok [e] ==>
       ?ts. e = mk_Fns ts e2 ∧ num_args = k + LENGTH ts /\
-           syntax_ok [e2]`
-  (recInduct collect_args_ind
+           syntax_ok [e2]
+Proof
+  recInduct collect_args_ind
   \\ rw [] \\ fs []
   \\ fs [collect_args_def] \\ rveq
   \\ TRY (fs [collect_args_def] \\ rveq
@@ -229,13 +252,16 @@ Theorem collect_args_ok_IMP
   \\ first_x_assum drule
   \\ fs [syntax_ok_def] \\ rveq
   \\ strip_tac \\ fs [] \\ rveq
-  \\ qexists_tac `t::ts` \\ fs [mk_Fns_def]);
+  \\ qexists_tac `t::ts` \\ fs [mk_Fns_def]
+QED
 
-Theorem dest_closure_SOME_IMP
-  `dest_closure max_app loc_opt f2 xs = SOME x ==>
+Theorem dest_closure_SOME_IMP:
+   dest_closure max_app loc_opt f2 xs = SOME x ==>
     (?loc arg_env clo_env num_args e. f2 = Closure loc arg_env clo_env num_args e) \/
-    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)`
-  (fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []);
+    (?loc arg_env clo_env fns i. f2 = Recclosure loc arg_env clo_env fns i)
+Proof
+  fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []
+QED
 
 val collect_apps_acc = prove(
   ``!max_app acc e res s.
@@ -278,12 +304,12 @@ val mk_Apps_def = Define `
   mk_Apps e [] = e /\
   mk_Apps e ((t,other)::ts) = App t NONE (mk_Apps e ts) [other]`
 
-Theorem collect_apps_IMP_mk_Apps
-  `!es max_app (acc:closLang$exp list) e other e3.
+Theorem collect_apps_IMP_mk_Apps = Q.prove(`
+  !es max_app (acc:closLang$exp list) e other e3.
       collect_apps max_app [] e = (other,e3) /\ syntax_ok es /\ es = [e] ==>
       ?ts. e = mk_Apps e3 (ZIP (ts, other)) /\ LENGTH other = LENGTH ts /\
-           LENGTH other <= max_app`
-  (recInduct (theorem "syntax_ok_ind") \\ fs [] \\ rw []
+           LENGTH other <= max_app`,
+  recInduct (theorem "syntax_ok_ind") \\ fs [] \\ rw []
   \\ fs [collect_apps_def] \\ rveq
   \\ TRY (qexists_tac `[]` \\ fs [mk_Apps_def]
           \\ FULL_CASE_TAC \\ fs [] \\ rveq \\ fs [mk_Apps_def] \\ NO_TAC)
@@ -326,14 +352,16 @@ val mk_Apps_err_2 = prove(
   \\ rveq \\ fs [] \\ fs [evaluate_def]
   \\ imp_res_tac evaluate_SING \\ rveq \\ fs []);
 
-Theorem collect_apps_syntax_ok
-  `!k aux e res e1.
+Theorem collect_apps_syntax_ok:
+   !k aux e res e1.
       collect_apps k aux e = (res,e1) /\
       syntax_ok [e] /\ syntax_ok aux ==>
-      syntax_ok res /\ syntax_ok [e1]`
-  (recInduct collect_apps_ind
+      syntax_ok res /\ syntax_ok [e1]
+Proof
+  recInduct collect_apps_ind
   \\ rw [collect_apps_def] \\ fs []
-  \\ fs [syntax_ok_def]);
+  \\ fs [syntax_ok_def]
+QED
 
 val evaluate_mk_Apps_err = prove(
   ``!other ts env1 s1 vs.
@@ -512,14 +540,15 @@ val v_rel_opt_thm = prove(
   ``v_rel_opt m = OPTREL (v_rel m)``,
   fs [FUN_EQ_THM] \\ Cases  \\ Cases \\ fs [OPTREL_def,v_rel_opt_def]);
 
-Theorem do_app_lemma
-  `state_rel s (t:('c,'ffi) closSem$state) /\ LIST_REL (v_rel s.max_app) xs ys ==>
+Theorem do_app_lemma:
+   state_rel s (t:('c,'ffi) closSem$state) /\ LIST_REL (v_rel s.max_app) xs ys ==>
     case do_app opp ys t of
     | Rerr err2 => (?err1. do_app opp xs s = Rerr err1 /\
                            exc_rel (v_rel s.max_app) err1 err2)
     | Rval (y,t1) => ?x s1. v_rel s.max_app x y /\ state_rel s1 t1 /\
-                            do_app opp xs s = Rval (x,s1)`
-  (mp_tac do_app_inst \\ fs []
+                            do_app opp xs s = Rval (x,s1)
+Proof
+  mp_tac do_app_inst \\ fs []
   \\ reverse impl_tac THEN1
    (rw [] \\ fs []
     \\ Cases_on `do_app opp ys t` \\ fs []
@@ -539,7 +568,8 @@ Theorem do_app_lemma
   THEN
    (rpt gen_tac \\ Cases_on `k = p` \\ fs []
     THEN1 (fs [ref_rel_cases])
-    \\ fs [FAPPLY_FUPDATE_THM]));
+    \\ fs [FAPPLY_FUPDATE_THM])
+QED
 
 val v_rel_IMP_v_to_bytes_lemma = prove(
   ``!y x.
@@ -575,17 +605,22 @@ val v_rel_IMP_v_to_words = prove(
   ``v_rel max_app x y ==> v_to_words y = v_to_words x``,
   rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
 
-Theorem intro_multi_EQ_NIL[simp]
-  `∀max_app es. intro_multi max_app es = [] ⇔ es = []`
-  (ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+Theorem intro_multi_EQ_NIL[simp]:
+   ∀max_app es. intro_multi max_app es = [] ⇔ es = []
+Proof
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
   simp[clos_mtiTheory.intro_multi_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]))
+  rpt (pairarg_tac >> fs[])
+QED
 
-Theorem intro_multi_nil
-  `intro_multi x [] = []` (metis_tac[intro_multi_EQ_NIL]);
+Theorem intro_multi_nil:
+   intro_multi x [] = []
+Proof
+metis_tac[intro_multi_EQ_NIL]
+QED
 
-Theorem evaluate_intro_multi
-  `(!ys env2 (t1:('c,'ffi) closSem$state) env1 t2 s1 res2 xs.
+Theorem evaluate_intro_multi:
+   (!ys env2 (t1:('c,'ffi) closSem$state) env1 t2 s1 res2 xs.
      (evaluate (ys,env2,t1) = (res2,t2)) /\
      EVERY2 (v_rel s1.max_app) env1 env2 /\
      state_rel s1 t1 /\ code_rel s1.max_app xs ys ==>
@@ -600,8 +635,9 @@ Theorem evaluate_intro_multi
      ?res1 s2.
        (evaluate_apps f1 args1 s1 = (res1,s2)) /\
        result_rel (LIST_REL (v_rel s1.max_app)) (v_rel s1.max_app) res1 res2 /\
-       state_rel s2 t2)`
-  (ho_match_mp_tac (evaluate_ind |> Q.SPEC `λ(x1,x2,x3). P0 x1 x2 x3`
+       state_rel s2 t2)
+Proof
+  ho_match_mp_tac (evaluate_ind |> Q.SPEC `λ(x1,x2,x3). P0 x1 x2 x3`
                    |> Q.GEN `P0` |> SIMP_RULE std_ss [FORALL_PROD])
   \\ rpt strip_tac
   \\ TRY (drule code_rel_IMP_LENGTH \\ strip_tac)
@@ -1244,36 +1280,42 @@ Theorem evaluate_intro_multi
     \\ fs [] \\ first_x_assum match_mp_tac \\ fs []
     \\ fs [Abbr `xxs`,Abbr`vvs`]
     \\ match_mp_tac EVERY2_DROP \\ fs []
-    \\ match_mp_tac EVERY2_APPEND_suff \\ fs []));
+    \\ match_mp_tac EVERY2_APPEND_suff \\ fs [])
+QED
 
-Theorem intro_multi_correct
-  `!xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t2 t1.
+Theorem intro_multi_correct:
+   !xs env1 (s1:('c,'ffi) closSem$state) res1 s2 env2 t2 t1.
       evaluate (xs,env1,s1) = (res1,s2) /\ syntax_ok xs /\
       LIST_REL (v_rel s1.max_app) env1 env2 /\ state_rel s1 t1 ==>
       ?res2 t2.
         evaluate (intro_multi s1.max_app xs,env2,t1) = (res2,t2) /\
         result_rel (LIST_REL (v_rel s1.max_app)) (v_rel s1.max_app) res1
-          res2 /\ state_rel s2 t2`
-  (rpt gen_tac
+          res2 /\ state_rel s2 t2
+Proof
+  rpt gen_tac
   \\ Cases_on `evaluate (intro_multi s1.max_app xs,env2,t1)` \\ fs []
   \\ drule (CONJUNCT1 evaluate_intro_multi)
   \\ ntac 2 strip_tac \\ first_x_assum drule
-  \\ fs [code_rel_def] \\ disch_then drule \\ fs []);
+  \\ fs [code_rel_def] \\ disch_then drule \\ fs []
+QED
 
 (* syntax well-formedness *)
 
-Theorem contains_App_SOME_collect_args
-  `∀m x y a b. collect_args m x y = (a,b) ⇒
-    (contains_App_SOME m [y] ⇔ contains_App_SOME m [b])`
-  (ho_match_mp_tac collect_args_ind >>
+Theorem contains_App_SOME_collect_args:
+   ∀m x y a b. collect_args m x y = (a,b) ⇒
+    (contains_App_SOME m [y] ⇔ contains_App_SOME m [b])
+Proof
+  ho_match_mp_tac collect_args_ind >>
   srw_tac[][collect_args_def,contains_App_SOME_def] >>
-  srw_tac[][contains_App_SOME_def]);
+  srw_tac[][contains_App_SOME_def]
+QED
 
-Theorem contains_App_SOME_collect_apps
-  `∀max_app x y a b. collect_apps max_app x y = (a,b) ⇒
+Theorem contains_App_SOME_collect_apps:
+   ∀max_app x y a b. collect_apps max_app x y = (a,b) ⇒
     (max_app < LENGTH x ∨ contains_App_SOME max_app x ∨ contains_App_SOME max_app [y] ⇔
-     max_app < LENGTH a ∨ contains_App_SOME max_app a ∨ contains_App_SOME max_app [b])`
-  (ho_match_mp_tac collect_apps_ind >>
+     max_app < LENGTH a ∨ contains_App_SOME max_app a ∨ contains_App_SOME max_app [b])
+Proof
+  ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def,contains_App_SOME_def] >>
   srw_tac[][contains_App_SOME_def] >> full_simp_tac(srw_ss())[] >>
   Cases_on`max_app < LENGTH x`>>full_simp_tac(srw_ss())[] >- DECIDE_TAC >>
@@ -1281,11 +1323,13 @@ Theorem contains_App_SOME_collect_apps
   rev_full_simp_tac(srw_ss()++ARITH_ss)[] >> srw_tac[][] >>
   rpt (pop_assum mp_tac) >>
   ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >> srw_tac[][] >>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-Theorem contains_App_SOME_intro_multi[simp]
-  `∀max_app es. contains_App_SOME max_app (intro_multi max_app es) ⇔ contains_App_SOME max_app es`
-  (ho_match_mp_tac intro_multi_ind >>
+Theorem contains_App_SOME_intro_multi[simp]:
+   ∀max_app es. contains_App_SOME max_app (intro_multi max_app es) ⇔ contains_App_SOME max_app es
+Proof
+  ho_match_mp_tac intro_multi_ind >>
   srw_tac[][intro_multi_def,contains_App_SOME_def] >>
   ONCE_REWRITE_TAC[CONS_APPEND] >>
   REWRITE_TAC[HD_intro_multi] >>
@@ -1305,18 +1349,23 @@ Theorem contains_App_SOME_intro_multi[simp]
     rpt(pop_assum mp_tac) >>
     ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >>
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-    metis_tac[contains_App_SOME_collect_args,SND,PAIR]));
+    metis_tac[contains_App_SOME_collect_args,SND,PAIR])
+QED
 
-Theorem contains_App_SOME_compile[simp]
-  `∀do_mti es. contains_App_SOME max_app (clos_mti$compile do_mti max_app es) ⇔ contains_App_SOME max_app es`
-  (Cases>>fs[clos_mtiTheory.compile_def]);
+Theorem contains_App_SOME_compile[simp]:
+   ∀do_mti es. contains_App_SOME max_app (clos_mti$compile do_mti max_app es) ⇔ contains_App_SOME max_app es
+Proof
+  Cases>>fs[clos_mtiTheory.compile_def]
+QED
 
-Theorem collect_args_preserves_esgc_free
-  `∀max_app n e n' e'. collect_args max_app n e = (n',e') ∧
-                       esgc_free e ⇒ esgc_free e'`
-  (ho_match_mp_tac clos_mtiTheory.collect_args_ind >>
+Theorem collect_args_preserves_esgc_free:
+   ∀max_app n e n' e'. collect_args max_app n e = (n',e') ∧
+                       esgc_free e ⇒ esgc_free e'
+Proof
+  ho_match_mp_tac clos_mtiTheory.collect_args_ind >>
   simp[clos_mtiTheory.collect_args_def, bool_case_eq] >> dsimp[] >>
-  rpt strip_tac >> metis_tac[set_globals_empty_esgc_free]);
+  rpt strip_tac >> metis_tac[set_globals_empty_esgc_free]
+QED
 
 val every_Fn_vs_NONE_collect_apps = Q.prove(
   `∀max_app es e x y. collect_apps max_app es e = (x,y) ⇒
@@ -1333,9 +1382,10 @@ val every_Fn_vs_NONE_collect_args = Q.prove(
   ho_match_mp_tac collect_args_ind >>
   srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[]);
 
-Theorem every_Fn_vs_NONE_intro_multi[simp]
-  `∀max_app es. every_Fn_vs_NONE (intro_multi max_app es) = every_Fn_vs_NONE es`
-  (ho_match_mp_tac intro_multi_ind >>
+Theorem every_Fn_vs_NONE_intro_multi[simp]:
+   ∀max_app es. every_Fn_vs_NONE (intro_multi max_app es) = every_Fn_vs_NONE es
+Proof
+  ho_match_mp_tac intro_multi_ind >>
   srw_tac[][intro_multi_def] >>
   ONCE_REWRITE_TAC[CONS_APPEND] >>
   REWRITE_TAC[HD_intro_multi] >>
@@ -1353,43 +1403,54 @@ Theorem every_Fn_vs_NONE_intro_multi[simp]
   rpt(pop_assum mp_tac) >>
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
   srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-  metis_tac[every_Fn_vs_NONE_collect_args,SND,PAIR]);
+  metis_tac[every_Fn_vs_NONE_collect_args,SND,PAIR]
+QED
 
-Theorem compile_EQ_NIL[simp]
-  `∀do_mti es. clos_mti$compile do_mti max_app es = [] ⇔ es = []`
-  (Cases>>fs[clos_mtiTheory.compile_def]);
+Theorem compile_EQ_NIL[simp]:
+   ∀do_mti es. clos_mti$compile do_mti max_app es = [] ⇔ es = []
+Proof
+  Cases>>fs[clos_mtiTheory.compile_def]
+QED
 
-Theorem compile_length[simp]
-  `LENGTH (clos_mti$compile do_mti max_app es) = LENGTH es`
-  (Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]);
+Theorem compile_length[simp]:
+   LENGTH (clos_mti$compile do_mti max_app es) = LENGTH es
+Proof
+  Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]
+QED
 
 val EVERY_HD = Q.prove(
   `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,
   Cases_on `l` >> simp[]);
 
-Theorem collect_apps_preserves_set_globals
-  `∀max_app es e es' e'.
+Theorem collect_apps_preserves_set_globals:
+   ∀max_app es e es' e'.
      collect_apps max_app es e = (es',e') ⇒
-     elist_globals es ⊎ set_globals e = elist_globals es' ⊎ set_globals e'`
-  (ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
+     elist_globals es ⊎ set_globals e = elist_globals es' ⊎ set_globals e'
+Proof
+  ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
   simp[clos_mtiTheory.collect_apps_def, bool_case_eq] >> rpt strip_tac
   >- (pop_assum (assume_tac o SYM) >> fs[elist_globals_append] >>
       metis_tac[bagTheory.COMM_BAG_UNION, bagTheory.ASSOC_BAG_UNION])
-  >- (rveq >> simp[]))
+  >- (rveq >> simp[])
+QED
 
-Theorem collect_apps_preserves_esgc_free
-  `∀max_app es e es' e'.
+Theorem collect_apps_preserves_esgc_free:
+   ∀max_app es e es' e'.
      collect_apps max_app es e = (es',e') ∧ EVERY esgc_free es ∧ esgc_free e ⇒
-     EVERY esgc_free es' ∧ esgc_free e'`
-  (ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
+     EVERY esgc_free es' ∧ esgc_free e'
+Proof
+  ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
   simp[clos_mtiTheory.collect_apps_def, bool_case_eq] >> rw[] >>
-  simp[] >> metis_tac[]);
+  simp[] >> metis_tac[]
+QED
 
-Theorem collect_args_preserves_set_globals
-  `∀max_app n e n' e'. collect_args max_app n e = (n',e') ⇒ set_globals e' = set_globals e`
-  (ho_match_mp_tac clos_mtiTheory.collect_args_ind >>
+Theorem collect_args_preserves_set_globals:
+   ∀max_app n e n' e'. collect_args max_app n e = (n',e') ⇒ set_globals e' = set_globals e
+Proof
+  ho_match_mp_tac clos_mtiTheory.collect_args_ind >>
   simp[clos_mtiTheory.collect_args_def, bool_case_eq] >> dsimp[] >>
-  rpt strip_tac >> pop_assum (assume_tac o SYM) >> fs[]);
+  rpt strip_tac >> pop_assum (assume_tac o SYM) >> fs[]
+QED
 
 val intro1_pat = ``intro_multi max_app [e]``
 fun intro_sing th =
@@ -1405,9 +1466,10 @@ fun intro_sing th =
                               clos_mtiTheory.intro_multi_sing t)
     | NONE => NO_TAC
 
-Theorem intro_multi_preserves_elist_globals
-  `∀max_app es. elist_globals (intro_multi max_app es) = elist_globals es`
-  (ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+Theorem intro_multi_preserves_elist_globals:
+   ∀max_app es. elist_globals (intro_multi max_app es) = elist_globals es
+Proof
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
   simp[] >> rpt conj_tac >> simp[clos_mtiTheory.intro_multi_def] >>
   rpt strip_tac >> fs[] >>
   TRY (rpt (first_assum intro_sing >> fs[] >> pop_assum mp_tac) >> NO_TAC)
@@ -1425,11 +1487,13 @@ Theorem intro_multi_preserves_elist_globals
       `∃e3'. intro_multi max_app [e3] = [e3']`
         by metis_tac[clos_mtiTheory.intro_multi_sing] >> simp[] >>
       rename1`EL n fns = (nn,e2)` >> `MEM (nn,e2) fns` by metis_tac[MEM_EL] >>
-      res_tac >> rfs[]))
+      res_tac >> rfs[])
+QED
 
-Theorem intro_multi_preserves_esgc_free
-  `∀max_app es. EVERY esgc_free es ⇒ EVERY esgc_free (intro_multi max_app es)`
-  (ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
+Theorem intro_multi_preserves_esgc_free:
+   ∀max_app es. EVERY esgc_free es ⇒ EVERY esgc_free (intro_multi max_app es)
+Proof
+  ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
   simp[] >> rpt conj_tac >> simp[clos_mtiTheory.intro_multi_def] >>
   rpt strip_tac >> fs[] >> simp[EVERY_HD]
   >- (pairarg_tac >> fs[] >>
@@ -1457,20 +1521,26 @@ Theorem intro_multi_preserves_esgc_free
       simp[] >>
       `elist_globals [e2'] = elist_globals [e2]`
         by metis_tac[intro_multi_preserves_elist_globals] >>
-      fs[] >> metis_tac[collect_args_preserves_set_globals]))
+      fs[] >> metis_tac[collect_args_preserves_set_globals])
+QED
 
-Theorem compile_preserves_elist_globals
-  `∀do_mti es. elist_globals (clos_mti$compile do_mti max_app es) = elist_globals es`
-  (Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_elist_globals])
+Theorem compile_preserves_elist_globals:
+   ∀do_mti es. elist_globals (clos_mti$compile do_mti max_app es) = elist_globals es
+Proof
+  Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_elist_globals]
+QED
 
-Theorem compile_preserves_esgc_free
-  `∀do_mti es. EVERY esgc_free es ⇒
-               EVERY esgc_free (clos_mti$compile do_mti max_app es)`
-  (Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_esgc_free])
+Theorem compile_preserves_esgc_free:
+   ∀do_mti es. EVERY esgc_free es ⇒
+               EVERY esgc_free (clos_mti$compile do_mti max_app es)
+Proof
+  Cases>>fs[clos_mtiTheory.compile_def,intro_multi_preserves_esgc_free]
+QED
 
-Theorem intro_multi_obeys_max_app
-  `!m xs. m ≠ 0 /\ syntax_ok xs ==> EVERY (obeys_max_app m) (intro_multi m xs)`
-  (ho_match_mp_tac intro_multi_ind \\ rw []
+Theorem intro_multi_obeys_max_app:
+   !m xs. m ≠ 0 /\ syntax_ok xs ==> EVERY (obeys_max_app m) (intro_multi m xs)
+Proof
+  ho_match_mp_tac intro_multi_ind \\ rw []
   \\ fs [intro_multi_def,syntax_ok_def]
   \\ TRY (pop_assum mp_tac
     \\ once_rewrite_tac [syntax_ok_cons]
@@ -1504,22 +1574,28 @@ Theorem intro_multi_obeys_max_app
   \\ rename [`_ = (_,e2)`]
   \\ `∃x.  intro_multi m [e2] = [x]` by fs [clos_mtiTheory.intro_multi_sing] \\ fs []
   \\ drule collect_args_ok_IMP \\ fs []
-  \\ strip_tac \\ fs []);
+  \\ strip_tac \\ fs []
+QED
 
-Theorem collect_apps_no_Labels
-  `!m es e es' e'.
+Theorem collect_apps_no_Labels:
+   !m es e es' e'.
       collect_apps m es e = (es',e') /\ EVERY no_Labels es /\ no_Labels e ==>
-      EVERY no_Labels es' /\ no_Labels e'`
-  (ho_match_mp_tac collect_apps_ind \\ fs [collect_apps_def] \\ rw [] \\ fs []);
+      EVERY no_Labels es' /\ no_Labels e'
+Proof
+  ho_match_mp_tac collect_apps_ind \\ fs [collect_apps_def] \\ rw [] \\ fs []
+QED
 
-Theorem collect_args_no_Labels
-  `!m na e es' e'.
-      collect_args m na e = (es',e') /\ no_Labels e ==> no_Labels e'`
-  (ho_match_mp_tac collect_args_ind \\ fs [] \\ rw [collect_args_def] \\ fs []);
+Theorem collect_args_no_Labels:
+   !m na e es' e'.
+      collect_args m na e = (es',e') /\ no_Labels e ==> no_Labels e'
+Proof
+  ho_match_mp_tac collect_args_ind \\ fs [] \\ rw [collect_args_def] \\ fs []
+QED
 
-Theorem intro_multi_no_Labels
-  `!m xs. EVERY no_Labels xs ==> EVERY no_Labels (intro_multi m xs)`
-  (ho_match_mp_tac intro_multi_ind \\ rw []
+Theorem intro_multi_no_Labels:
+   !m xs. EVERY no_Labels xs ==> EVERY no_Labels (intro_multi m xs)
+Proof
+  ho_match_mp_tac intro_multi_ind \\ rw []
   \\ fs [intro_multi_def,no_Labels_def]
   \\ TRY
    (`∃x. intro_multi m [e]  = [x]` by fs [intro_multi_sing]
@@ -1538,12 +1614,13 @@ Theorem intro_multi_no_Labels
   \\ first_x_assum match_mp_tac
   \\ rename [`_ = (_,e2)`]
   \\ `∃x.  intro_multi m [e2] = [x]` by fs [clos_mtiTheory.intro_multi_sing] \\ fs []
-  \\ imp_res_tac collect_args_no_Labels \\ fs []);
+  \\ imp_res_tac collect_args_no_Labels \\ fs []
+QED
 
 (* preservation of observable semantics *)
 
-Theorem semantics_intro_multi
-  `semantics (ffi:'ffi ffi_state) max_app FEMPTY
+Theorem semantics_intro_multi:
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc (compile_inc max_app) cc) xs <> Fail ==>
    (*
    (∀n. SND (SND (co n)) = [] ∧ syntax_ok (FST (SND (co n)))) ∧
@@ -1553,8 +1630,9 @@ Theorem semantics_intro_multi
      (pure_co (compile_inc max_app) ∘ co) cc
      (intro_multi max_app xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc (compile_inc max_app) cc) xs`
-  (strip_tac
+     co (pure_cc (compile_inc max_app) cc) xs
+Proof
+  strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
   \\ drule (intro_multi_correct |> SIMP_RULE std_ss [])
@@ -1567,18 +1645,21 @@ Theorem semantics_intro_multi
   \\ qexists_tac `0`
   \\ fs [] \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
-  \\ Cases_on `e` \\ fs []);
+  \\ Cases_on `e` \\ fs []
+QED
 
-Theorem semantics_compile
-  `semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
+Theorem semantics_compile:
+   semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    cc1 = (if do_mti then pure_cc (compile_inc max_app) else I) cc ∧
    co1 = (if do_mti then pure_co (compile_inc max_app) else I) o co ∧
    (do_mti ⇒ (∀n. SND (SND (co n)) = [] ∧ syntax_ok (FST (SND (co n)))) ∧ 1 ≤ max_app ∧ syntax_ok xs) ⇒
    semantics ffi max_app FEMPTY co1 cc (compile do_mti max_app xs) =
-   semantics ffi max_app FEMPTY co cc1 xs`
-  (strip_tac
+   semantics ffi max_app FEMPTY co cc1 xs
+Proof
+  strip_tac
   \\ Cases_on`do_mti` \\ fs[compile_def]
   \\ irule semantics_intro_multi
-  \\ fs[]);
+  \\ fs[]
+QED
 
 val _ = export_theory();

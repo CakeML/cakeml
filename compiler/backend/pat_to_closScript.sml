@@ -252,13 +252,19 @@ val compile_def = tDefine"compile" `
   (compile (App tra (Op (FP_uop u)) es) =
     (Op tra (FP_uop u) (REVERSE (MAP compile es)))) /\
   (compile (App tra (Op (FP_bop b)) es) =
-    (Op tra (FP_bop b) (REVERSE (MAP compile es))))`
-    (WF_REL_TAC `measure exp_size` >>
+    (Op tra (FP_bop b) (REVERSE (MAP compile es)))) /\
+  (compile (App tra (Op (FP_top t)) es) =
+    (Op tra (FP_top t) (REVERSE (MAP compile es))))`
+  let
+    val exp_size_def = patLangTheory.exp_size_def
+  in
+    WF_REL_TAC `measure exp_size` >>
     simp[exp_size_def] >>
     rpt conj_tac >> rpt gen_tac >>
     rw[] >> imp_res_tac MEM_exp1_size >> fs [] >>
     fs [LENGTH_EQ_NUM_compute,exp_size_def] >>
-    imp_res_tac dest_WordToInt_exp_size >> fs []);
+    imp_res_tac dest_WordToInt_exp_size >> fs []
+  end
 val _ = export_rewrites["compile_def"]
 
 val _ = export_theory()

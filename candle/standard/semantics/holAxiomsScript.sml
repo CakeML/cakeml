@@ -25,12 +25,13 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-Theorem eta_has_model
-  `is_set_theory ^mem ⇒
+Theorem eta_has_model:
+   is_set_theory ^mem ⇒
     ∀ctxt. is_std_sig (sigof ctxt) ⇒
       ∀i. i models (thyof ctxt) ⇒
-        i models (thyof (mk_eta_ctxt ctxt))`
-  (rw[models_def,mk_eta_ctxt_def,conexts_of_upd_def] >> res_tac >>
+        i models (thyof (mk_eta_ctxt ctxt))
+Proof
+  rw[models_def,mk_eta_ctxt_def,conexts_of_upd_def] >> res_tac >>
   rw[satisfies_def] >>
   `is_structure (sigof ctxt) i v` by simp[is_structure_def] >>
   `term_ok (sigof ctxt) (Abs x (Comb g x) === g)` by (
@@ -60,14 +61,15 @@ Theorem eta_has_model
     rw[] ) >>
   rw[combinTheory.APPLY_UPDATE_THM] >>
   match_mp_tac (UNDISCH apply_abstract) >>
-  rw[])
+  rw[]
+QED
 
 val good_select_def = xDefine"good_select"`
   good_select0 ^mem select = (∀ty p x. x <: ty ⇒ select ty p <: ty ∧ (p x ⇒ p (select ty p)))`
 val _ = Parse.overload_on("good_select",``good_select0 ^mem``)
 
-Theorem select_has_model_gen
-  `is_set_theory ^mem ⇒
+Theorem select_has_model_gen:
+   is_set_theory ^mem ⇒
     ∀ctxt.
       (strlit "@") ∉ FDOM (tmsof ctxt) ∧
       is_implies_sig (tmsof ctxt) ∧
@@ -81,8 +83,9 @@ Theorem select_has_model_gen
              i' models (thyof (mk_select_ctxt ctxt)) ∧
              (tmaof i' (strlit "@") =
                 (λls. Abstract (Funspace (HD ls) boolset) (HD ls)
-                        (λp. select (HD ls) (Holds p))))`
-  (rw[good_select_def,models_def,mk_select_ctxt_def,conexts_of_upd_def,is_implies_sig_def,is_implies_interpretation_def] >>
+                        (λp. select (HD ls) (Holds p))))
+Proof
+  rw[good_select_def,models_def,mk_select_ctxt_def,conexts_of_upd_def,is_implies_sig_def,is_implies_interpretation_def] >>
   qexists_tac`(tyaof i, (strlit "@" =+ λl. Abstract (Funspace (HD l) boolset) (HD l)
                                       (λp. select (HD l) (Holds p))) (tmaof i))` >>
   imp_res_tac is_std_interpretation_is_type >>
@@ -181,7 +184,8 @@ Theorem select_has_model_gen
       metis_tac[]) >>
     simp[Abbr`fs`] >>
     metis_tac[]) >>
-  simp[combinTheory.APPLY_UPDATE_THM])
+  simp[combinTheory.APPLY_UPDATE_THM]
+QED
 
 val base_select_def = xDefine "base_select"`
   base_select0 ^mem ty p =
@@ -190,10 +194,11 @@ val base_select_def = xDefine "base_select"`
     else ARB`
 val _ = Parse.overload_on("base_select",``base_select0 ^mem``)
 
-Theorem good_select_base_select
-  `is_set_theory ^mem ⇒
-    good_select base_select`
-  (rw[good_select_def,base_select_def] >>
+Theorem good_select_base_select:
+   is_set_theory ^mem ⇒
+    good_select base_select
+Proof
+  rw[good_select_def,base_select_def] >>
   rw[]>> TRY(metis_tac[]) >>
   TRY (
     qho_match_abbrev_tac`(case ($some Q) of NONE => R | SOME v => v) <: ty` >>
@@ -205,10 +210,11 @@ Theorem good_select_base_select
   qho_match_abbrev_tac`Z ($some Q)` >>
   match_mp_tac optionTheory.some_intro >>
   simp[Abbr`Z`,Abbr`Q`,Abbr`R`] >>
-  metis_tac[] )
+  metis_tac[]
+QED
 
-Theorem select_has_model
-  `is_set_theory ^mem ⇒
+Theorem select_has_model:
+   is_set_theory ^mem ⇒
     ∀ctxt.
       (strlit "@") ∉ FDOM (tmsof ctxt) ∧
       is_implies_sig (tmsof ctxt) ∧
@@ -218,13 +224,15 @@ Theorem select_has_model
         i models (thyof ctxt) ∧
         is_implies_interpretation (tmaof i)
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
-             i' models (thyof (mk_select_ctxt ctxt))`
-  (rw[] >>
+             i' models (thyof (mk_select_ctxt ctxt))
+Proof
+  rw[] >>
   qspec_then`ctxt`mp_tac(UNDISCH select_has_model_gen) >>
   simp[] >>
   disch_then(qspec_then`i`mp_tac) >>
   disch_then(qspec_then`base_select` mp_tac) >>
-  metis_tac[good_select_base_select])
+  metis_tac[good_select_base_select]
+QED
 
 val _ = Parse.temp_overload_on("h",``Var (strlit "f") (Fun Ind Ind)``)
 val _ = Parse.temp_overload_on("Exh",``Exists (strlit "f") (Fun Ind Ind)``)
@@ -267,8 +275,8 @@ val apply_abstract_tac = rpt ( (
     `tmsof sctx = tmsof (sigof sctx)` by simp[] >> pop_assum SUBST1_TAC >>
     rw[SIMP_RULE std_ss [] termsem_equation,boolean_in_boolset]
 
-Theorem infinity_has_model_gen
-  `is_set_theory ^mem  ⇒
+Theorem infinity_has_model_gen:
+   is_set_theory ^mem  ⇒
     ∀ctxt.
       theory_ok (thyof ctxt) ∧
       DISJOINT (FDOM (tmsof ctxt)) {strlit "ONE_ONE";strlit "ONTO"} ∧
@@ -289,8 +297,9 @@ Theorem infinity_has_model_gen
           is_infinite ^mem inf
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
              i' models (thyof (mk_infinity_ctxt ctxt)) ∧
-             (tyaof i' (strlit "ind") [] = inf)`
-  (rw[models_def,is_implies_sig_def,is_and_sig_def,is_forall_sig_def,is_exists_sig_def,is_not_sig_def,
+             (tyaof i' (strlit "ind") [] = inf)
+Proof
+  rw[models_def,is_implies_sig_def,is_and_sig_def,is_forall_sig_def,is_exists_sig_def,is_not_sig_def,
      is_implies_interpretation_def,is_and_interpretation_def,is_forall_interpretation_def,is_exists_interpretation_def,is_not_interpretation_def] >>
   `∃ctxt1 p. mk_infinity_ctxt ctxt = (NewAxiom p)::(NewType (strlit "ind") 0)::ctxt1` by simp[mk_infinity_ctxt_def] >>
   `mk_infinity_ctxt ctxt extends ctxt` by (
@@ -666,10 +675,11 @@ Theorem infinity_has_model_gen
       qpat_x_assum`INJ f X Y`mp_tac >>
       simp[INJ_DEF] ) >>
     metis_tac[]) >>
-  simp[combinTheory.APPLY_UPDATE_THM])
+  simp[combinTheory.APPLY_UPDATE_THM]
+QED
 
-Theorem infinity_has_model
-  `is_set_theory ^mem ∧ (∃inf. is_infinite ^mem inf) ⇒
+Theorem infinity_has_model:
+   is_set_theory ^mem ∧ (∃inf. is_infinite ^mem inf) ⇒
     ∀ctxt.
       theory_ok (thyof ctxt) ∧
       DISJOINT (FDOM (tmsof ctxt)) {strlit"ONE_ONE";strlit"ONTO"} ∧
@@ -688,7 +698,9 @@ Theorem infinity_has_model
           is_exists_interpretation (tmaof i) ∧
           is_not_interpretation (tmaof i)
       ⇒ ∃i'. equal_on (sigof ctxt) i i' ∧
-             i' models (thyof (mk_infinity_ctxt ctxt))`
-  (metis_tac[infinity_has_model_gen])
+             i' models (thyof (mk_infinity_ctxt ctxt))
+Proof
+  metis_tac[infinity_has_model_gen]
+QED
 
 val _ = export_theory()

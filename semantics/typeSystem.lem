@@ -252,6 +252,7 @@ let type_op op ts t =
     | (Opb _, [t1; t2]) -> t1 = Tint && t2 = Tint && t = Tbool
     | (Opw n _, [t1; t2]) -> t1 = Tword n && t2 = Tword n && t = Tword n
     | (Opwb n _, [t1; t2]) -> t1 = Tword n && t2 = Tword n && t = Tbool
+    | (FP_top _, [t1; t2; t3]) -> t1 = Tword 64 && t2 = Tword 64 && t3 = Tword 64 && t = Tword 64
     | (FP_bop _, [t1; t2]) -> t1 = Tword 64 && t2 = Tword 64 && t = Tword 64
     | (FP_uop _, [t1]) ->  t1 = Tword 64 && t = Tword 64
     | (FP_cmp _, [t1; t2]) ->  t1 = Tword 64 && t2 = Tword 64 && t = Tbool

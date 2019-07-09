@@ -9,9 +9,11 @@ val toChar_def = Define`
   toChar digit = if digit < 10 then CHR (ORD #"0" + digit)
   else CHR (ORD #"A" + digit - 10)`;
 
-Theorem toChar_HEX
-  `d < 16 ⇒ (toChar d = HEX d)`
-  (strip_tac \\ rpt(fs[Once NUMERAL_LESS_THM] >- EVAL_TAC));
+Theorem toChar_HEX:
+   d < 16 ⇒ (toChar d = HEX d)
+Proof
+  strip_tac \\ rpt(fs[Once NUMERAL_LESS_THM] >- EVAL_TAC)
+QED
 
 (* This should be smaller than the maximum smallint supported by the compiler
 (see bvl_to_bviTheory for that. 2**28-1?) Also it must be a power of the radix
@@ -29,9 +31,11 @@ val zero_pad_def = Define`
   (zero_pad 0 acc = acc) ∧
   (zero_pad (SUC n) acc = zero_pad n (#"0" :: acc))`;
 
-Theorem zero_pad_thm
-  `∀n acc. zero_pad n acc = REPLICATE n #"0" ++ acc`
-  (Induct \\ rw[GSYM SNOC_REPLICATE,zero_pad_def] \\ EVAL_TAC);
+Theorem zero_pad_thm:
+   ∀n acc. zero_pad n acc = REPLICATE n #"0" ++ acc
+Proof
+  Induct \\ rw[GSYM SNOC_REPLICATE,zero_pad_def] \\ EVAL_TAC
+QED
 
 val simple_toChars_def = Define`
   simple_toChars pad i acc =
@@ -39,10 +43,11 @@ val simple_toChars_def = Define`
     else simple_toChars (pad-1) (i DIV 10) (toChar (i MOD 10) :: acc)`;
 val simple_toChars_ind = theorem"simple_toChars_ind";
 
-Theorem simple_toChars_thm
-  `∀pad i acc. simple_toChars pad i acc =
-    REPLICATE (pad - LENGTH (num_to_dec_string i)) #"0" ++ num_to_dec_string i ++ acc`
-  (ho_match_mp_tac simple_toChars_ind \\
+Theorem simple_toChars_thm:
+   ∀pad i acc. simple_toChars pad i acc =
+    REPLICATE (pad - LENGTH (num_to_dec_string i)) #"0" ++ num_to_dec_string i ++ acc
+Proof
+  ho_match_mp_tac simple_toChars_ind \\
   rw[ASCIInumbersTheory.num_to_dec_string_def,
      ASCIInumbersTheory.n2s_def] \\
   rw[Once simple_toChars_def]
@@ -51,7 +56,8 @@ Theorem simple_toChars_thm
   \\ rw[Once numposrepTheory.n2l_def,SimpRHS]
   \\ match_mp_tac toChar_HEX
   \\ `i MOD 10 < 10` by simp[MOD_LESS]
-  \\ rw[]);
+  \\ rw[]
+QED
 
 val toChars_def = tDefine"toChars"`
   toChars chunk rest acc =
@@ -66,11 +72,12 @@ val toChars_def = tDefine"toChars"`
  \\ rw[maxSmall_DEC_def,DIV_LT_X] \\ fs[maxSmall_DEC_def]);
 val toChars_ind = theorem"toChars_ind";
 
-Theorem toChars_thm
-  `∀chunk rest acc. chunk < maxSmall_DEC ⇒
+Theorem toChars_thm:
+   ∀chunk rest acc. chunk < maxSmall_DEC ⇒
     (toChars chunk rest acc =
-      num_to_dec_string (rest * maxSmall_DEC + chunk) ++ acc)`
-  (ho_match_mp_tac toChars_ind
+      num_to_dec_string (rest * maxSmall_DEC + chunk) ++ acc)
+Proof
+  ho_match_mp_tac toChars_ind
   \\ rw[]
   \\ rw[Once toChars_def]
   \\ rw[simple_toChars_thm,REPLICATE]
@@ -87,7 +94,8 @@ Theorem toChars_thm
   \\ pop_assum (SUBST_ALL_TAC)
   \\ simp[GSYM MAP_REVERSE,REVERSE_REPLICATE,map_replicate]
   \\ qspecl_then[`maxSmall_DEC`,`chunk`]mp_tac DIV_MULT
-  \\ simp[]);
+  \\ simp[]
+QED
 
 val toString_def = Define`
   toString i =
@@ -97,9 +105,10 @@ val toString_def = Define`
       implode ((if i < 0i then "~" else "")++
                (toChars (Num (ABS i) MOD maxSmall_DEC) (Num (ABS i) DIV maxSmall_DEC) ""))`;
 
-Theorem toString_thm
-  `toString i = implode ((if i < 0i then "~" else "") ++ num_to_dec_string (Num (ABS i)))`
-  (rw[toString_def]
+Theorem toString_thm:
+   toString i = implode ((if i < 0i then "~" else "") ++ num_to_dec_string (Num (ABS i)))
+Proof
+  rw[toString_def]
   >- (`F` by intLib.COOPER_TAC)
   >- (
     rw[str_def]
@@ -114,7 +123,8 @@ Theorem toString_thm
     \\ `0 < maxSmall_DEC` by EVAL_TAC
     \\ simp[toChars_thm]
     \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
-    \\ simp[] ));
+    \\ simp[] )
+QED
 
 val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
 val _ = overload_on("toString",``num_to_str``);
@@ -143,11 +153,13 @@ val fromChar_def = Define`
       | _    => NONE`;
 
 (* Equivalence between the safe and unsafe versions of fromChar *)
-Theorem fromChar_eq_unsafe
-  `∀char. isDigit char ⇒ fromChar char = SOME (fromChar_unsafe char)`
-  (Cases_on `char` \\ rw [isDigit_def, fromChar_def, fromChar_unsafe_def]
+Theorem fromChar_eq_unsafe:
+   ∀char. isDigit char ⇒ fromChar char = SOME (fromChar_unsafe char)
+Proof
+  Cases_on `char` \\ rw [isDigit_def, fromChar_def, fromChar_unsafe_def]
   \\ rpt (pop_assum (ASSUME_TAC o CONV_RULE (BINOP_CONV (TRY_CONV numLib.num_CONV)))
-  \\ fs [LE]));
+  \\ fs [LE])
+QED
 
 val fromChars_range_unsafe_def = Define`
   fromChars_range_unsafe l 0       str = 0 ∧
@@ -161,15 +173,17 @@ val fromChars_range_def = Define`
         head = fromChar (strsub str (l + n))
     in OPTION_MAP2 $+ rest head`;
 
-Theorem fromChars_range_eq_unsafe
-  `∀str l r. EVERY isDigit str ∧ l + r <= STRLEN str ⇒
+Theorem fromChars_range_eq_unsafe:
+   ∀str l r. EVERY isDigit str ∧ l + r <= STRLEN str ⇒
      fromChars_range l r (strlit str) =
-     SOME (fromChars_range_unsafe l r (strlit str))`
-  (Induct_on `r`
+     SOME (fromChars_range_unsafe l r (strlit str))
+Proof
+  Induct_on `r`
   \\ rw [fromChars_range_def
         , fromChars_range_unsafe_def
         , fromChar_eq_unsafe
-        , EVERY_EL]);
+        , EVERY_EL]
+QED
 
 val fromChars_unsafe_def = tDefine "fromChars_unsafe" `
   fromChars_unsafe 0 str = 0n ∧ (* Shouldn't happend *)
@@ -195,10 +209,11 @@ val fromChars_def = tDefine "fromChars" `
 (wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
 val fromChars_ind = theorem"fromChars_ind"
 
-Theorem fromChars_eq_unsafe
-  `∀n s. EVERY isDigit (explode s) ∧ n ≤ strlen s ⇒
-    fromChars n s = SOME (fromChars_unsafe n s)`
-  (let val tactics = [fromChars_def
+Theorem fromChars_eq_unsafe:
+   ∀n s. EVERY isDigit (explode s) ∧ n ≤ strlen s ⇒
+    fromChars n s = SOME (fromChars_unsafe n s)
+Proof
+  let val tactics = [fromChars_def
                     , fromChars_unsafe_def
                     , fromChars_range_eq_unsafe
                     , strlen_def
@@ -208,7 +223,8 @@ Theorem fromChars_eq_unsafe
   \\ rw [] \\ Cases_on `str'`
   \\ rw tactics
   \\ fs tactics
-  end);
+  end
+QED
 
 val fromString_unsafe_def = Define`
   fromString_unsafe str =
@@ -241,40 +257,47 @@ val fromNatString_def = Define `
     | SOME i => if 0 <= i then SOME (Num i) else NONE`;
 
 (* fromString auxiliar lemmas *)
-Theorem fromChars_range_unsafe_0_substring_thm
-  `∀m r s. r ≤ m ⇒
+Theorem fromChars_range_unsafe_0_substring_thm:
+   ∀m r s. r ≤ m ⇒
     fromChars_range_unsafe 0 r s =
-      fromChars_range_unsafe 0 r (substring s 0 m)`
-  (Induct_on `r` \\ rw [fromChars_range_unsafe_def, strsub_substring_0_thm]);
+      fromChars_range_unsafe 0 r (substring s 0 m)
+Proof
+  Induct_on `r` \\ rw [fromChars_range_unsafe_def, strsub_substring_0_thm]
+QED
 
-Theorem fromChars_range_unsafe_split
-  `∀m n s. m ≠ 0 ∧ m < n
+Theorem fromChars_range_unsafe_split:
+   ∀m n s. m ≠ 0 ∧ m < n
     ⇒ fromChars_range_unsafe 0 n s =
         10 ** m * fromChars_range_unsafe    0    (n - m) s
-        +         fromChars_range_unsafe (n - m)    m    s`
-  (Induct_on `m`
+        +         fromChars_range_unsafe (n - m)    m    s
+Proof
+  Induct_on `m`
   >- rw []
   >- (`∀m k w. 10**SUC m*k + 10*w = 10*(10**m*k + w)` by simp [EXP]
       \\ Cases_on `n`
       \\ rw [fromChars_range_unsafe_def]
       \\ Cases_on `m`
-      \\ rw [fromChars_range_unsafe_def]));
+      \\ rw [fromChars_range_unsafe_def])
+QED
 
 (* fromString proofs *)
-Theorem fromChar_unsafe_thm
-  `∀ h. isDigit h ⇒ fromChar_unsafe h = num_from_dec_string [h]`
-  (let
+Theorem fromChar_unsafe_thm:
+   ∀ h. isDigit h ⇒ fromChar_unsafe h = num_from_dec_string [h]
+Proof
+  let
     val num_conv = ASSUME_TAC o CONV_RULE (BINOP_CONV (TRY_CONV numLib.num_CONV))
   in Cases_on `h`
   \\ rw [isDigit_def]
   \\ rpt (pop_assum num_conv >> fs [LE, fromChar_unsafe_def])
-  end);
+  end
+QED
 
-Theorem fromChars_range_unsafe_thm
-  `∀str. EVERY isDigit str ⇒
+Theorem fromChars_range_unsafe_thm:
+   ∀str. EVERY isDigit str ⇒
     fromChars_range_unsafe 0 (STRLEN str) (strlit str) =
-      num_from_dec_string str`
-  (recInduct SNOC_INDUCT
+      num_from_dec_string str
+Proof
+  recInduct SNOC_INDUCT
   \\ rw [fromChars_range_unsafe_def
         ,ASCIInumbersTheory.num_from_dec_string_def]
   \\ `isDigit x` by fs [EVERY_SNOC]
@@ -294,27 +317,31 @@ Theorem fromChars_range_unsafe_thm
         , SEG_0_SNOC |> SPEC ``LENGTH l``
                      |> SPEC ``l : 'a list``
                      |> SIMP_RULE std_ss [SEG_LENGTH_ID]]
-  \\ fs [ASCIInumbersTheory.s2n_def,EVERY_SNOC]);
+  \\ fs [ASCIInumbersTheory.s2n_def,EVERY_SNOC]
+QED
 
-Theorem fromChars_range_unsafe_eq
-  `∀n s. n ≤ (strlen s) ⇒ fromChars_unsafe n s = fromChars_range_unsafe 0 n s`
-  (recInduct fromChars_unsafe_ind
+Theorem fromChars_range_unsafe_eq:
+   ∀n s. n ≤ (strlen s) ⇒ fromChars_unsafe n s = fromChars_range_unsafe 0 n s
+Proof
+  recInduct fromChars_unsafe_ind
   \\ rw [fromChars_unsafe_def
         , fromChars_range_unsafe_def
         , padLen_DEC_eq
         , maxSmall_DEC_def
         , fromChars_range_unsafe_split |> SPEC ``8n``
                                        |> SIMP_RULE std_ss []
-                                       |> GSYM]);
+                                       |> GSYM]
+QED
 
-Theorem fromString_unsafe_thm
-  `∀str. (HD str ≠ #"~" ⇒ EVERY isDigit str) ∧
+Theorem fromString_unsafe_thm:
+   ∀str. (HD str ≠ #"~" ⇒ EVERY isDigit str) ∧
          (HD str = #"~" ⇒ EVERY isDigit (DROP 1 str)) ⇒
          fromString_unsafe (strlit str) =
            if HD str = #"~"
            then ~&num_from_dec_string (DROP 1 str)
-           else &num_from_dec_string str`
-  (rw [fromString_unsafe_def
+           else &num_from_dec_string str
+Proof
+  rw [fromString_unsafe_def
      , fromChars_range_unsafe_eq
      , fromChars_range_unsafe_thm
      , substring_def, SEG_TAKE_DROP
@@ -323,18 +350,20 @@ Theorem fromString_unsafe_thm
        |> ISPEC ``DROP 1 str' : string``
        |> REWRITE_RULE
           [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]
-  \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]);
+  \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]
+QED
 
-Theorem fromString_thm
-  `∀str. (HD str ≠ #"~" ∧ HD str ≠ #"-" ∧ HD str ≠ #"+" ⇒ EVERY isDigit str) ∧
+Theorem fromString_thm:
+   ∀str. (HD str ≠ #"~" ∧ HD str ≠ #"-" ∧ HD str ≠ #"+" ⇒ EVERY isDigit str) ∧
          (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str)) ⇒
          fromString (strlit str) = SOME
            if HD str = #"~" ∨ HD str = #"-"
            then ~&num_from_dec_string (DROP 1 str)
            else if HD str = #"+"
            then &num_from_dec_string (DROP 1 str)
-           else &num_from_dec_string str`
-  (rw [fromString_def
+           else &num_from_dec_string str
+Proof
+  rw [fromString_def
      , fromChars_eq_unsafe
      , fromChars_range_unsafe_eq
      , fromChars_range_unsafe_thm
@@ -344,14 +373,16 @@ Theorem fromString_thm
        |> ISPEC ``DROP 1 str' : string``
        |> REWRITE_RULE
           [prove(``STRLEN (DROP 1 str') = STRLEN str' - 1``, rw [])]]
-  \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]);
+  \\ rename1`s ≠ ""` \\ Cases_on `s` \\ fs[]
+QED
 
 val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
   fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]);
 
-Theorem fromString_toString_Num
-  `0 ≤ n ⇒ fromString (strlit (num_to_dec_string (Num n))) = SOME n`
-  (strip_tac
+Theorem fromString_toString_Num:
+   0 ≤ n ⇒ fromString (strlit (num_to_dec_string (Num n))) = SOME n
+Proof
+  strip_tac
   \\ DEP_REWRITE_TAC[fromString_thm]
   \\ qspec_then`Num n`assume_tac EVERY_isDigit_num_to_dec_string
   \\ Cases_on`num_to_dec_string (Num n)` \\ fs[]
@@ -361,11 +392,13 @@ Theorem fromString_toString_Num
   \\ simp[FUN_EQ_THM]
   \\ disch_then(qspec_then`Num n`mp_tac)
   \\ simp[]
-  \\ simp[integerTheory.INT_OF_NUM]);
+  \\ simp[integerTheory.INT_OF_NUM]
+QED
 
-Theorem fromString_toString[simp]
-  `!i:int. fromString (toString i) = SOME i`
-  (rw [toString_thm,implode_def]
+Theorem fromString_toString[simp]:
+   !i:int. fromString (toString i) = SOME i
+Proof
+  rw [toString_thm,implode_def]
   \\ qmatch_goalsub_abbrev_tac `strlit sss`
   \\ qspec_then `sss` mp_tac fromString_thm
   THEN1
@@ -381,25 +414,31 @@ Theorem fromString_toString[simp]
     \\ CCONTR_TAC \\ fs [] \\ rveq  \\ fs [isDigit_def])
   \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string]
   \\ fs [toString_thm,ASCIInumbersTheory.toNum_toString]
-  \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC);
+  \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC
+QED
 
-Theorem fromNatString_toString[simp]
-  `!n:num. fromNatString (toString n) = SOME n`
-  (fs [num_to_str_def,fromNatString_def]);
+Theorem fromNatString_toString[simp]:
+   !n:num. fromNatString (toString n) = SOME n
+Proof
+  fs [num_to_str_def,fromNatString_def]
+QED
 
-Theorem fromChar_IS_SOME_IFF
-  `IS_SOME (fromChar c) ⇔ isDigit c`
-  (simp[fromChar_def]
+Theorem fromChar_IS_SOME_IFF:
+   IS_SOME (fromChar c) ⇔ isDigit c
+Proof
+  simp[fromChar_def]
   \\ rpt(IF_CASES_TAC  \\ rveq >- EVAL_TAC)
   \\ rw[]
   \\ EVAL_TAC
   \\ Cases_on`c`
   \\ simp[]
-  \\ fs[]);
+  \\ fs[]
+QED
 
-Theorem fromChars_range_IS_SOME_IFF
-  `∀s x y. (x + y ≤ strlen s) ⇒ (IS_SOME (fromChars_range x y s) ⇔ EVERY isDigit (TAKE y (DROP x (explode s))))`
-  (Induct_on`y`
+Theorem fromChars_range_IS_SOME_IFF:
+   ∀s x y. (x + y ≤ strlen s) ⇒ (IS_SOME (fromChars_range x y s) ⇔ EVERY isDigit (TAKE y (DROP x (explode s))))
+Proof
+  Induct_on`y`
   \\ rw[fromChars_range_def]
   \\ fs[IS_SOME_EXISTS] \\ rw[]
   \\ fs[PULL_EXISTS]
@@ -421,11 +460,13 @@ Theorem fromChars_range_IS_SOME_IFF
   \\ simp[GSYM IS_SOME_EXISTS]
   \\ simp[fromChar_IS_SOME_IFF]
   \\ first_x_assum(qspec_then`y`mp_tac)
-  \\ simp[]);
+  \\ simp[]
+QED
 
-Theorem fromChars_IS_SOME_IFF
-  `∀n s. n ≤ strlen s ⇒ (IS_SOME (fromChars n s) ⇔ EVERY isDigit (TAKE n (explode s)))`
-  (recInduct fromChars_ind
+Theorem fromChars_IS_SOME_IFF:
+   ∀n s. n ≤ strlen s ⇒ (IS_SOME (fromChars n s) ⇔ EVERY isDigit (TAKE n (explode s)))
+Proof
+  recInduct fromChars_ind
   \\ rw[fromChars_def]
   \\ fs[fromChars_range_IS_SOME_IFF]
   \\ fs[IS_SOME_EXISTS, PULL_EXISTS]
@@ -445,14 +486,17 @@ Theorem fromChars_IS_SOME_IFF
   \\ strip_tac \\ fs[]
   \\ qspecl_then[`str'`,`SUC v2 - padLen_DEC`,`padLen_DEC`]mp_tac fromChars_range_IS_SOME_IFF
   \\ simp[IS_SOME_EXISTS]
-  \\ fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE, EL_DROP]);
+  \\ fs[EVERY_MEM, MEM_EL, PULL_EXISTS, LENGTH_TAKE_EQ, EL_TAKE, EL_DROP]
+QED
 
-Theorem fromString_EQ_NONE
-  `~isDigit c /\ c <> #"+" /\ c <> #"~" /\ c <> #"-" ==>
-   fromString (implode (STRING c x)) = NONE`
-  (rw [fromString_def,implode_def,strsub_def]
+Theorem fromString_EQ_NONE:
+   ~isDigit c /\ c <> #"+" /\ c <> #"~" /\ c <> #"-" ==>
+   fromString (implode (STRING c x)) = NONE
+Proof
+  rw [fromString_def,implode_def,strsub_def]
   \\ `(SUC (STRLEN x)) <= strlen (strlit (STRING c x))` by fs [strlen_def]
-  \\ drule fromChars_IS_SOME_IFF \\ fs [explode_def]);
+  \\ drule fromChars_IS_SOME_IFF \\ fs [explode_def]
+QED
 
 (* this formulation avoids a comparsion using = for better performance *)
 val int_cmp_def = Define `

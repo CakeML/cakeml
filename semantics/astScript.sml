@@ -77,6 +77,7 @@ val _ = Hol_datatype `
   | FP_cmp of fp_cmp
   | FP_uop of fp_uop
   | FP_bop of fp_bop
+  | FP_top of fp_top
   (* Function application *)
   | Opapp
   (* Reference operations *)

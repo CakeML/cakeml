@@ -19,19 +19,20 @@ fun cases_on_DecodeBitMasks (g as (asl, _)) =
       (Cases_on `^tm` \\ fs [] \\ Cases_on `x` \\ fs []) g
    end
 
-Theorem Decode_EncodeBitMask
-   `(!w: word32 n s r.
+Theorem Decode_EncodeBitMask:
+    (!w: word32 n s r.
         (EncodeBitMask w = SOME (n, s, r)) ==>
         (?v. DecodeBitMasks (n, s, r, T) = SOME (w, v))) /\
     (!w: word64 n s r.
         (EncodeBitMask w = SOME (n, s, r)) ==>
-        (?v. DecodeBitMasks (n, s, r, T) = SOME (w, v)))`
-   (lrw [arm8Theory.EncodeBitMask_def, arm8Theory.EncodeBitMaskAux_def]
+        (?v. DecodeBitMasks (n, s, r, T) = SOME (w, v)))
+Proof
+   lrw [arm8Theory.EncodeBitMask_def, arm8Theory.EncodeBitMaskAux_def]
    \\ BasicProvers.FULL_CASE_TAC
    \\ fs []
    \\ cases_on_DecodeBitMasks
    \\ metis_tac []
-   )
+QED
 
 val word_log2_7 = Q.prove(
    `!s: word6. word_log2 (((1w: word1) @@ s) : word7) = 6w`,
@@ -843,9 +844,10 @@ val arm8_target_ok = Q.prove (
 val ext12 = ``(11 >< 0) : word64 -> word12``
 val print_tac = asmLib.print_tac "correct"
 
-Theorem arm8_encoder_correct
-   `encoder_correct arm8_target`
-   (simp [asmPropsTheory.encoder_correct_def, arm8_target_ok]
+Theorem arm8_encoder_correct:
+    encoder_correct arm8_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, arm8_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm8_target`
    \\ rw [arm8_target_def, asmSemTheory.asm_step_def, arm8_config]
    \\ qunabbrev_tac `state_rel`
@@ -1205,6 +1207,6 @@ Theorem arm8_encoder_correct
       \\ next_state_tacN (`20w`, 1) filter_reg_31
       \\ state_tac [alignmentTheory.aligned_extract]
       \\ blastLib.FULL_BBLAST_TAC)
-   )
+QED
 
 val () = export_theory ()

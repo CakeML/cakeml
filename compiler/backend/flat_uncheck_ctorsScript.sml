@@ -57,34 +57,43 @@ val compile_def = tDefine "compile" `
 
 val compile_ind = theorem"compile_ind";
 
-Theorem compile_length[simp]
-  `! es. LENGTH (compile es) = LENGTH es`
-  (ho_match_mp_tac compile_ind
-  \\ rw [compile_def]);
+Theorem compile_length[simp]:
+   ! es. LENGTH (compile es) = LENGTH es
+Proof
+  ho_match_mp_tac compile_ind
+  \\ rw [compile_def]
+QED
 
-Theorem compile_sing
-  `! e. ?e2. compile [e] = [e2]`
-  (rw []
+Theorem compile_sing:
+   ! e. ?e2. compile [e] = [e2]
+Proof
+  rw []
   \\ qspec_then `[e]` mp_tac compile_length
-  \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]);
+  \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]
+QED
 
 val compile_nil = save_thm ("compile_nil[simp]", EVAL ``compile []``);
 
-Theorem compile_not_nil[simp]
-  `compile [x] <> []`
-  (strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
-  \\ fs [compile_length]);
+Theorem compile_not_nil[simp]:
+   compile [x] <> []
+Proof
+  strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [compile_length]
+QED
 
-Theorem compile_cons
-  `! e es. compile (e::es) = HD (compile [e]) :: (compile es)`
-  (rw []
+Theorem compile_cons:
+   ! e es. compile (e::es) = HD (compile [e]) :: (compile es)
+Proof
+  rw []
   \\ Cases_on `es`
   \\ rw [compile_def]
-  \\ METIS_TAC [compile_sing, HD]);
+  \\ METIS_TAC [compile_sing, HD]
+QED
 
-Theorem compile_append
-  `!es es2. compile (es:flatLang$exp list ++ es2) = compile es ++ compile es2`
-  (Induct >>
+Theorem compile_append:
+   !es es2. compile (es:flatLang$exp list ++ es2) = compile es ++ compile es2
+Proof
+  Induct >>
   rw [compile_def] >>
   Cases_on `es` >>
   rw [compile_def] >>
@@ -92,17 +101,22 @@ Theorem compile_append
   Cases_on `es2` >>
   rw [] >>
   Cases_on `h` >>
-  rw [compile_def]);
+  rw [compile_def]
+QED
 
-Theorem compile_reverse
-  `!es. compile (REVERSE es) = REVERSE (compile es:flatLang$exp list)`
-  (ho_match_mp_tac compile_ind >>
-  rw [compile_def, compile_append]);
+Theorem compile_reverse:
+   !es. compile (REVERSE es) = REVERSE (compile es:flatLang$exp list)
+Proof
+  ho_match_mp_tac compile_ind >>
+  rw [compile_def, compile_append]
+QED
 
-Theorem compile_HD_sing
-  `[HD (compile [e])] = compile [e:flatLang$exp]`
-  (qspec_then`e`strip_assume_tac compile_sing
-  \\ fs[]);
+Theorem compile_HD_sing:
+   [HD (compile [e])] = compile [e:flatLang$exp]
+Proof
+  qspec_then`e`strip_assume_tac compile_sing
+  \\ fs[]
+QED
 
 val compile_decs = Define `
   (compile_decs [] = []) ∧

@@ -272,10 +272,12 @@ val init_stubs_def = Define `
      (1n,halt_inst 0w);
      (2n,halt_inst 2w)]`
 
-Theorem check_init_stubs_length
-  `LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =
-   stack_num_stubs`
-  (EVAL_TAC);
+Theorem check_init_stubs_length:
+   LENGTH (init_stubs gen_gc max_heap k start) + 1 (* gc *) =
+   stack_num_stubs
+Proof
+  EVAL_TAC
+QED
 
 (* -- full compiler -- *)
 

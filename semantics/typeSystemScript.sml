@@ -349,6 +349,7 @@ val _ = Define `
     | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
     | (Opw n _, [t1; t2]) => (t1 = Tword n) /\ (t2 = Tword n) /\ (t = Tword n)
     | (Opwb n _, [t1; t2]) => (t1 = Tword n) /\ (t2 = Tword n) /\ (t = Tbool)
+    | (FP_top _, [t1; t2; t3]) => (t1 = Tword(( 64 : num))) /\ (t2 = Tword(( 64 : num))) /\ (t3 = Tword(( 64 : num))) /\ (t = Tword(( 64 : num)))
     | (FP_bop _, [t1; t2]) => (t1 = Tword(( 64 : num))) /\ (t2 = Tword(( 64 : num))) /\ (t = Tword(( 64 : num)))
     | (FP_uop _, [t1]) =>  (t1 = Tword(( 64 : num))) /\ (t = Tword(( 64 : num)))
     | (FP_cmp _, [t1; t2]) =>  (t1 = Tword(( 64 : num))) /\ (t2 = Tword(( 64 : num))) /\ (t = Tbool)

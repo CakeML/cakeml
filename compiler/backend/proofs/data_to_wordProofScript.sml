@@ -34,8 +34,8 @@ val assign_def =
                    data_to_wordTheory.arg4_def,
                    data_to_wordTheory.all_assign_defs];
 
-Theorem data_compile_correct
-  `!prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
+Theorem data_compile_correct:
+   !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t [] locs /\
@@ -59,8 +59,9 @@ Theorem data_compile_correct
                 !i. state_rel c l5 l6 (set_var i v s1)
                        (set_var (adjust_var i) w t1) [] ll)
          | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
-         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`
-  (recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
+         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)
+Proof
+  recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ full_simp_tac(srw_ss())[]
   THEN1 (* Skip *)
    (full_simp_tac(srw_ss())[comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ srw_tac[][])
@@ -395,10 +396,11 @@ Theorem data_compile_correct
     \\ imp_res_tac mk_loc_eq_push_env_exc_Exception \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
     \\ imp_res_tac s_key_eq_handler_eq_IMP
-    \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac []));
+    \\ full_simp_tac(srw_ss())[jump_exc_inc_clock_EQ_NONE] \\ metis_tac [])
+QED
 
-Theorem compile_correct_lemma
-  `!s c l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
+Theorem compile_correct_lemma:
+   !s c l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       t.termdep > 1 /\
@@ -415,8 +417,9 @@ Theorem compile_correct_lemma
         | SOME (Rerr (Rraise v)) => (t1.ffi = s1.ffi) /\
                                     (?v w. res1 = SOME (Exception v w))
         | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
-        | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)`
-  (rpt strip_tac
+        | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)
+Proof
+  rpt strip_tac
   \\ drule data_compile_correct \\ full_simp_tac(srw_ss())[]
   \\ ntac 2 (disch_then drule) \\ full_simp_tac(srw_ss())[comp_def]
   \\ strip_tac
@@ -424,7 +427,8 @@ Theorem compile_correct_lemma
   \\ qexists_tac `res1`
   \\ full_simp_tac(srw_ss())[] \\ strip_tac \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[state_rel_def]);
+  \\ full_simp_tac(srw_ss())[state_rel_def]
+QED
 
 val state_rel_ext_def = Define `
   state_rel_ext c l1 l2 s u <=>
@@ -443,8 +447,8 @@ val state_rel_ext_def = Define `
              lookup n l = SOME (SND (full_compile_single t' k' a' c' ((n,v),col)))) /\
       u = t with <| code := l; termdep:=0; compile:=u.compile; compile_oracle := u.compile_oracle|>`
 
-Theorem compile_correct
-  `!x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
+Theorem compile_correct:
+   !x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
       (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel_ext x l1 l2 s t ==>
@@ -460,8 +464,9 @@ Theorem compile_correct
          | SOME (Rval v) => ?w. (res1 = SOME (Result (Loc l1 l2) w))
          | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
          | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f))
-         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))`
-  (gen_tac
+         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))
+Proof
+  gen_tac
   \\ full_simp_tac(srw_ss())[state_rel_ext_def,PULL_EXISTS] \\ srw_tac[][]
   \\ fs [wordSemTheory.state_component_equality]
   \\ rename1 `state_rel x0 l1 l2 s t2 [] []`
@@ -521,7 +526,8 @@ Theorem compile_correct
   \\ qsuff_tac `t6 = t7`
   THEN1 (every_case_tac \\ fs [])
   \\ unabbrev_all_tac \\ fs []
-  \\ fs [wordSemTheory.state_component_equality]);
+  \\ fs [wordSemTheory.state_component_equality]
+QED
 
 val state_rel_ext_with_clock = Q.prove(
   `state_rel_ext a b c s1 s2 ==>
@@ -535,12 +541,13 @@ val state_rel_ext_with_clock = Q.prove(
 
 (* observational semantics preservation *)
 
-Theorem compile_semantics_lemma
-  `state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc t.clock) (t:('a,'c,'ffi) wordSem$state) /\
+Theorem compile_semantics_lemma:
+   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc t.clock) (t:('a,'c,'ffi) wordSem$state) /\
    semantics ffi (fromAList prog) co cc start <> Fail ==>
    semantics t start IN
-     extend_with_resource_limit { semantics ffi (fromAList prog) co cc start }`
-  (simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
+     extend_with_resource_limit { semantics ffi (fromAList prog) co cc start }
+Proof
+  simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
   simp[dataSemTheory.semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
@@ -755,7 +762,8 @@ Theorem compile_semantics_lemma
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[])) >>
   REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[]>>
   fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
-  simp[EL_APPEND1]);
+  simp[EL_APPEND1]
+QED
 
 val code_rel_ext_def = Define`
   code_rel_ext code l ⇔
@@ -766,8 +774,8 @@ val code_rel_ext_def = Define`
             (SND (full_compile_single t' k' a' c' ((n,p_1,p_2),col))) =
           lookup n l)`
 
-Theorem compile_semantics `
-   (* Definitely correct *)
+Theorem compile_semantics:
+     (* Definitely correct *)
    t:('a,'c,'ffi) state.handler = 0 ∧ t.gc_fun = word_gc_fun c ∧
    init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ∧
    good_dimindex (:α) ∧
@@ -790,8 +798,9 @@ Theorem compile_semantics `
    Fail ≠ semantics t.ffi (fromAList prog) co cc start ⇒
    semantics t start ∈
    extend_with_resource_limit
-   {semantics t.ffi (fromAList prog) co cc start}`
-   (rw[]>>
+   {semantics t.ffi (fromAList prog) co cc start}
+Proof
+   rw[]>>
    match_mp_tac (GEN_ALL compile_semantics_lemma)>>
    qexists_tac`c`>>fs[state_rel_ext_def]>>rw[]>>
    fs[code_rel_ext_def]>>
@@ -809,7 +818,8 @@ Theorem compile_semantics `
      (unabbrev_all_tac>>fs[]>>
      metis_tac[])>>
    fs[FORALL_PROD]>>
-   metis_tac[]);
+   metis_tac[]
+QED
 
 val code_rel_ext_def = definition"code_rel_ext_def";
 
@@ -817,14 +827,18 @@ val _ = (max_print_depth := 15);
 
 val extract_labels_def = wordPropsTheory.extract_labels_def;
 
-Theorem extract_labels_MemEqList[simp]
-  `!a x. extract_labels (MemEqList a x) = []`
-  (Induct_on `x`
-  \\ asm_rewrite_tac [MemEqList_def,extract_labels_def,APPEND]);
+Theorem extract_labels_MemEqList[simp]:
+   !a x. extract_labels (MemEqList a x) = []
+Proof
+  Induct_on `x`
+  \\ asm_rewrite_tac [MemEqList_def,extract_labels_def,APPEND]
+QED
 
-Theorem extract_labels_StoreEach
-  `!xs a d. extract_labels (StoreEach a xs d) = []`
-  (Induct \\ fs [StoreEach_def,extract_labels_def]);
+Theorem extract_labels_StoreEach:
+   !xs a d. extract_labels (StoreEach a xs d) = []
+Proof
+  Induct \\ fs [StoreEach_def,extract_labels_def]
+QED
 
 (* TODO: goes away on inlineenc branch *)
 val extract_labels_WordOp64_on_32 = Q.prove(`
@@ -860,14 +874,15 @@ val extract_labels_assignWordShift = Q.prove(`
     simp[extract_labels_def,list_Seq_def,extract_labels_WordShift64_on_32]>>
     EVAL_TAC);
 
-Theorem data_to_word_lab_pres_lem `
-  ∀c n l p.
+Theorem data_to_word_lab_pres_lem:
+    ∀c n l p.
   l ≠ 0 ⇒
   let (cp,l') = comp c n l p in
   l ≤ l' ∧
   EVERY (λ(l1,l2). l1 = n ∧ l ≤ l2 ∧ l2 < l') (extract_labels cp) ∧
-  ALL_DISTINCT (extract_labels cp)`
-  (HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
+  ALL_DISTINCT (extract_labels cp)
+Proof
+  HO_MATCH_MP_TAC comp_ind>>Cases_on`p`>>rw[]>>
   once_rewrite_tac[comp_def]>>fs[extract_labels_def]
   >-
     (BasicProvers.EVERY_CASE_TAC>>fs[]>>rveq>>fs[extract_labels_def]>>
@@ -899,7 +914,8 @@ Theorem data_to_word_lab_pres_lem `
        SilentFFI_def,list_Seq_def]>>
     every_case_tac >> fs [] >>
     fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
-       SilentFFI_def,list_Seq_def]));
+       SilentFFI_def,list_Seq_def])
+QED
 
 open match_goal;
 
@@ -907,26 +923,37 @@ val labels_rel_emp = Q.prove(`
   labels_rel [] ls ⇒ ls = [] `,
   fs[word_simpProofTheory.labels_rel_def]);
 
-Theorem stub_labels `
-  EVERY (λ(n,m,p).
+Theorem stub_labels:
+    EVERY (λ(n,m,p).
     EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) (extract_labels p)  ∧ ALL_DISTINCT (extract_labels p))
-    (stubs (:'a) data_conf)`
-  (simp[data_to_wordTheory.stubs_def,generated_bignum_stubs_eq]>>
+    (stubs (:'a) data_conf)
+Proof
+  simp[data_to_wordTheory.stubs_def,generated_bignum_stubs_eq]>>
   EVAL_TAC>>
-  rw[]>>EVAL_TAC);
+  rw[]>>EVAL_TAC
+QED
 
-Theorem stubs_with_has_fp_ops[simp]
-  `stubs (:α) (data_conf with has_fp_ops := b) = stubs (:α) data_conf`
-  (EVAL_TAC \\ fs []);
+Theorem stubs_with_has_fp_ops[simp]:
+   stubs (:α) (data_conf with has_fp_ops := b) = stubs (:α) data_conf
+Proof
+  EVAL_TAC \\ fs []
+QED
 
-Theorem data_to_word_compile_lab_pres `
-  let (c,p) = compile data_conf word_conf asm_conf prog in
+Theorem stubs_with_has_fp_tern[simp]:
+  stubs (:'a) (data_conf with has_fp_tern := b) = stubs (:'a) data_conf
+Proof
+  EVAL_TAC \\ fs []
+QED
+
+Theorem data_to_word_compile_lab_pres:
+    let (c,p) = compile data_conf word_conf asm_conf prog in
     MAP FST p = MAP FST (stubs(:α) data_conf) ++ MAP FST prog ∧
     EVERY (λn,m,(p:α wordLang$prog).
       let labs = extract_labels p in
       EVERY (λ(l1,l2).l1 = n ∧ l2 ≠ 0) labs ∧
-      ALL_DISTINCT labs) p`
-  (fs[data_to_wordTheory.compile_def]>>
+      ALL_DISTINCT labs) p
+Proof
+  fs[data_to_wordTheory.compile_def]>>
   qpat_abbrev_tac`datap = _ ++ MAP (A B) prog`>>
   mp_tac (compile_to_word_conventions |>GEN_ALL |> Q.SPECL [`word_conf`,`datap`,`asm_conf`])>>
   rw[]>>
@@ -963,7 +990,8 @@ Theorem data_to_word_compile_lab_pres `
   res_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   qpat_x_assum`A=MAP FST pp` mp_tac>>simp[Once LIST_EQ_REWRITE,EL_MAP]>>
-  disch_then(qspec_then`n` assume_tac)>>rfs[]);
+  disch_then(qspec_then`n` assume_tac)>>rfs[]
+QED
 
 val StoreEach_no_inst = Q.prove(`
   ∀a ls off.
@@ -979,6 +1007,7 @@ val assign_no_inst = Q.prove(`
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (a.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
    (a.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
+   (a.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7) /\
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w) ⇒
   every_inst (inst_ok_less ac) (FST(assign a b c d e f g))`,
   fs[assign_def]>>
@@ -990,29 +1019,32 @@ val assign_no_inst = Q.prove(`
     Maxout_bits_code_def,GiveUp_def,
     inst_ok_less_def,assign_def_extras,MemEqList_no_inst,
     asmTheory.fp_reg_ok_def,fp_uop_inst_def,fp_cmp_inst_def,
-    fp_bop_inst_def]>>
+    fp_bop_inst_def, fp_top_inst_def]>>
   IF_CASES_TAC>>fs[every_inst_def,list_Seq_def,StoreEach_no_inst,
     Maxout_bits_code_def,GiveUp_def,
-    inst_ok_less_def,assign_def_extras,MemEqList_no_inst]);
+    inst_ok_less_def,assign_def_extras,MemEqList_no_inst] \\ FAIL_TAC "");
 
 (*
 inst_ok_less_def
 *)
 
-Theorem comp_no_inst `
-  ∀c n m p.
+Theorem comp_no_inst:
+    ∀c n m p.
   ((c.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
    (c.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
-   (c.has_fp_ops ⇒ 1 < ac.fp_reg_count)) ∧
+   (c.has_fp_ops ⇒ 1 < ac.fp_reg_count) ∧
+   (c.has_fp_tern ==> 2 < ac.fp_reg_count /\ ac.ISA = ARMv7)) /\
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w ⇒
-  every_inst (inst_ok_less ac) (FST(comp c n m p))`
-  (ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  every_inst (inst_ok_less ac) (FST(comp c n m p))
+Proof
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
   simp[Once comp_def,every_inst_def]>>
   every_case_tac>>fs[]>>
   rpt(pairarg_tac>>fs[])>>
   fs[assign_no_inst]>>
   EVAL_TAC>>fs[] >>
-  IF_CASES_TAC >> EVAL_TAC >> fs []);
+  IF_CASES_TAC >> EVAL_TAC >> fs []
+QED
 
 val bounds_lem = Q.prove(`
   (dimindex(:'a) = 32 ∨ dimindex(:'a) = 64) ∧
@@ -1037,8 +1069,8 @@ val bounds_lem = Q.prove(`
   EVAL_TAC>>
   simp[numeral_bitTheory.iSUC,numeralTheory.numeral_evenodd,ODD]);
 
-Theorem data_to_word_compile_conventions `
-  good_dimindex(:'a) ==>
+Theorem data_to_word_compile_conventions:
+    good_dimindex(:'a) ==>
   let (c,p) = compile data_conf wc ac prog in
   EVERY (λ(n,m,prog).
     flat_exp_conventions (prog:'a prog) ∧
@@ -1051,8 +1083,9 @@ Theorem data_to_word_compile_conventions `
        anyway on all the targets *)
     (∀w. -8w <= w ∧ w <= 8w ==> byte_offset_ok ac w)
     ⇒ full_inst_ok_less ac prog) ∧
-    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p`
- (fs[data_to_wordTheory.compile_def]>>
+    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) p
+Proof
+ fs[data_to_wordTheory.compile_def]>>
  qpat_abbrev_tac`p= stubs(:'a) data_conf ++B`>>
  pairarg_tac>>fs[]>>
  Q.SPECL_THEN [`wc`,`p`,`ac`] mp_tac (GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
@@ -1087,29 +1120,37 @@ Theorem data_to_word_compile_conventions `
    match_mp_tac comp_no_inst>>fs[]>>
    first_x_assum match_mp_tac>>
    fs[good_dimindex_def]>>
-   metis_tac[bounds_lem]);
+   metis_tac[bounds_lem]
+QED
 
-Theorem data_to_word_names
-  `word_to_word$compile c1 c2 (stubs(:α)c.data_conf ++ MAP (compile_part c3) prog) = (col,p) ==>
-    MAP FST p = (MAP FST (stubs(:α)c.data_conf))++MAP FST prog`
-  (rw[]>>assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
+Theorem data_to_word_names:
+   word_to_word$compile c1 c2 (stubs(:α)c.data_conf ++ MAP (compile_part c3) prog) = (col,p) ==>
+    MAP FST p = (MAP FST (stubs(:α)c.data_conf))++MAP FST prog
+Proof
+  rw[]>>assume_tac(GEN_ALL word_to_wordProofTheory.compile_to_word_conventions)>>
   pop_assum (qspecl_then [`c1`,`stubs(:α)c.data_conf++(MAP (compile_part c3) prog)`,`c2`] assume_tac)>>rfs[]>>
-  fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD,data_to_wordTheory.compile_part_def]);
+  fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD,data_to_wordTheory.compile_part_def]
+QED
 
-Theorem ALL_DISTINCT_MAP_FST_stubs
-  `ALL_DISTINCT (MAP FST (stubs a c))`
-  (Cases_on`a` \\ EVAL_TAC);
+Theorem ALL_DISTINCT_MAP_FST_stubs:
+   ALL_DISTINCT (MAP FST (stubs a c))
+Proof
+  Cases_on`a` \\ EVAL_TAC
+QED
 
-Theorem MAP_FST_stubs_bound
-  `MEM n (MAP FST (stubs a c)) ⇒ n < data_num_stubs`
-  (Cases_on`a` \\ EVAL_TAC
-  \\ strip_tac \\ rveq \\ EVAL_TAC);
+Theorem MAP_FST_stubs_bound:
+   MEM n (MAP FST (stubs a c)) ⇒ n < data_num_stubs
+Proof
+  Cases_on`a` \\ EVAL_TAC
+  \\ strip_tac \\ rveq \\ EVAL_TAC
+QED
 
-Theorem code_rel_ext_word_to_word
-  `∀code c1 col code'.
+Theorem code_rel_ext_word_to_word:
+   ∀code c1 col code'.
    compile c1 c2 code = (col,code') ⇒
-   code_rel_ext (fromAList code) (fromAList code')`
-  (simp[word_to_wordTheory.compile_def,code_rel_ext_def] \\
+   code_rel_ext (fromAList code) (fromAList code')
+Proof
+  simp[word_to_wordTheory.compile_def,code_rel_ext_def] \\
   ntac 2 gen_tac \\
   map_every qspec_tac (map swap [(`r`,`c1.reg_alg`), (`col`,`c1.col_oracle`)]) \\
   Induct_on`code` \\ rw[] \\
@@ -1122,16 +1163,21 @@ Theorem code_rel_ext_word_to_word
   PairCases_on`p` \\ fs[word_to_wordTheory.compile_single_def] \\
   rveq \\ fs[] \\ IF_CASES_TAC \\ fs[] \\
   simp[word_to_wordTheory.full_compile_single_def,word_to_wordTheory.compile_single_def] \\
-  metis_tac[]);
+  metis_tac[]
+QED
 
-Theorem max_heap_limit_has_fp_ops[simp]
-  `max_heap_limit (:α) (conf with has_fp_ops := b) =
-    max_heap_limit (:α) conf`
-  (EVAL_TAC);
+Theorem max_heap_limit_has_fp_ops[simp]:
+   max_heap_limit (:α) (conf with has_fp_ops := b) =
+    max_heap_limit (:α) conf
+Proof
+  EVAL_TAC
+QED
 
-Theorem FST_compile_part[simp]
-  `FST (compile_part a b) = (FST b)`
-  (PairCases_on`b` \\ EVAL_TAC);
+Theorem FST_compile_part[simp]:
+   FST (compile_part a b) = (FST b)
+Proof
+  PairCases_on`b` \\ EVAL_TAC
+QED
 
 val _ = temp_overload_on("data_get_code_labels",``dataProps$get_code_labels``);
 val _ = temp_overload_on("data_good_code_labels",``dataProps$good_code_labels``);
@@ -1239,22 +1285,25 @@ val word_good_handlers_remove_dead = Q.prove(`
 
 (* ssa *)
 
-Theorem word_get_code_labels_fake_moves
-  `∀a b c d e f g h i.
+Theorem word_get_code_labels_fake_moves:
+   ∀a b c d e f g h i.
    fake_moves a b c d = (e,f,g,h,i) ⇒
    word_get_code_labels e = {} ∧
-   word_get_code_labels f = {}`
-  (Induct \\ rw[fake_moves_def] \\ rw[]
+   word_get_code_labels f = {}
+Proof
+  Induct \\ rw[fake_moves_def] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option"] \\ rw[]
   \\ first_x_assum drule \\ rw[]
-  \\ rw[fake_move_def]);
+  \\ rw[fake_move_def]
+QED
 
-Theorem word_get_code_labels_ssa_cc_trans
-  `∀x y z a b c.
+Theorem word_get_code_labels_ssa_cc_trans:
+   ∀x y z a b c.
    ssa_cc_trans x y z = (a,b,c) ⇒
-   word_get_code_labels a = word_get_code_labels x`
-  (recInduct ssa_cc_trans_ind
+   word_get_code_labels a = word_get_code_labels x
+Proof
+  recInduct ssa_cc_trans_ind
   \\ rw[ssa_cc_trans_def] \\ fs[]
   \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
   >- (
@@ -1293,7 +1342,8 @@ Theorem word_get_code_labels_ssa_cc_trans
     \\ rpt(pairarg_tac \\ fs[])
     \\ rveq \\ fs[]
     \\ imp_res_tac word_get_code_labels_fake_moves
-    \\ fs[]));
+    \\ fs[])
+QED
 
 val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
   ∀m p.
@@ -1309,22 +1359,25 @@ val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
   \\ drule word_get_code_labels_ssa_cc_trans
   \\ rw[]);
 
-Theorem word_good_handlers_fake_moves
-  `∀a b c d e f g h i.
+Theorem word_good_handlers_fake_moves:
+   ∀a b c d e f g h i.
    fake_moves a b c d = (e,f,g,h,i) ⇒
    word_good_handlers n e ∧
-   word_good_handlers n f`
-  (Induct \\ rw[fake_moves_def] \\ rw[]
+   word_good_handlers n f
+Proof
+  Induct \\ rw[fake_moves_def] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option"] \\ rw[]
   \\ first_x_assum drule \\ rw[]
-  \\ rw[fake_move_def]);
+  \\ rw[fake_move_def]
+QED
 
-Theorem word_good_handlers_ssa_cc_trans
-  `∀x y z a b c.
+Theorem word_good_handlers_ssa_cc_trans:
+   ∀x y z a b c.
    ssa_cc_trans x y z = (a,b,c) ⇒
-   word_good_handlers n a = word_good_handlers n x`
-  (recInduct ssa_cc_trans_ind
+   word_good_handlers n a = word_good_handlers n x
+Proof
+  recInduct ssa_cc_trans_ind
   \\ rw[ssa_cc_trans_def] \\ fs[]
   \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
   >- (
@@ -1363,7 +1416,8 @@ Theorem word_good_handlers_ssa_cc_trans
     \\ rpt(pairarg_tac \\ fs[])
     \\ rveq \\ fs[]
     \\ imp_res_tac word_good_handlers_fake_moves
-    \\ fs[]));
+    \\ fs[])
+QED
 
 val word_good_handlers_full_ssa_cc_trans = Q.prove(`
   ∀m p.
@@ -1429,9 +1483,10 @@ val word_good_handlers_const_fp_loop = Q.prove(`
   \\ every_case_tac\\ fs[]
   \\ rpt (pairarg_tac \\ fs[]));
 
-Theorem word_get_code_labels_apply_if_opt
-  `∀x y z. apply_if_opt x y = SOME z ⇒ word_get_code_labels z = word_get_code_labels x ∪ word_get_code_labels y`
-  (rw[apply_if_opt_def]
+Theorem word_get_code_labels_apply_if_opt:
+   ∀x y z. apply_if_opt x y = SOME z ⇒ word_get_code_labels z = word_get_code_labels x ∪ word_get_code_labels y
+Proof
+  rw[apply_if_opt_def]
   \\ fs[CaseEq"option",CaseEq"prod"]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option",CaseEq"prod"]
@@ -1444,22 +1499,26 @@ Theorem word_get_code_labels_apply_if_opt
   \\ fs[dest_If_Eq_Imm_def,CaseEq"option",CaseEq"prod",CaseEq"cmp",CaseEq"reg_imm"]
   \\ Cases_on`y` \\ fs[dest_If_def] \\ rveq
   \\ Cases_on`x` \\ fs[dest_Seq_def] \\ rveq \\ fs[]
-  \\ rw[EXTENSION, EQ_IMP_THM] \\ rw[]);
+  \\ rw[EXTENSION, EQ_IMP_THM] \\ rw[]
+QED
 
-Theorem word_get_code_labels_simp_if[simp]
-   `∀p.  word_get_code_labels (simp_if p) = word_get_code_labels p`
-  (recInduct simp_if_ind
+Theorem word_get_code_labels_simp_if[simp]:
+    ∀p.  word_get_code_labels (simp_if p) = word_get_code_labels p
+Proof
+  recInduct simp_if_ind
   \\ rw[simp_if_def]
   \\ CASE_TAC \\ simp[]
   >- ( drule word_get_code_labels_apply_if_opt \\ rw[] )
-  \\ every_case_tac \\ fs[]);
+  \\ every_case_tac \\ fs[]
+QED
 
-Theorem word_good_handlers_apply_if_opt
-  `∀x y z. apply_if_opt x y = SOME z ∧
+Theorem word_good_handlers_apply_if_opt:
+   ∀x y z. apply_if_opt x y = SOME z ∧
            word_good_handlers n x ∧ word_good_handlers n y
            ⇒
-           word_good_handlers n z `
-  (rw[apply_if_opt_def]
+           word_good_handlers n z
+Proof
+  rw[apply_if_opt_def]
   \\ fs[CaseEq"option",CaseEq"prod"]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option",CaseEq"prod"]
@@ -1471,7 +1530,8 @@ Theorem word_good_handlers_apply_if_opt
   \\ rveq \\ fs[]
   \\ fs[dest_If_Eq_Imm_def,CaseEq"option",CaseEq"prod",CaseEq"cmp",CaseEq"reg_imm"]
   \\ Cases_on`y` \\ fs[dest_If_def] \\ rveq
-  \\ Cases_on`x` \\ fs[dest_Seq_def] \\ rveq \\ fs[]);
+  \\ Cases_on`x` \\ fs[dest_Seq_def] \\ rveq \\ fs[]
+QED
 
 val word_good_handlers_simp_if = Q.prove(`
   ∀p.
@@ -1657,11 +1717,12 @@ val stubs_labels = Q.prove(`
   IF_CASES_TAC>>
   simp[]));
 
-Theorem data_to_word_good_code_labels `
-  (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ∧
+Theorem data_to_word_good_code_labels:
+    (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ∧
   data_good_code_labels prog ⇒
-  word_good_code_labels prog'`
-  (fs[data_to_wordTheory.compile_def]>>rw[]>>
+  word_good_code_labels prog'
+Proof
+  fs[data_to_wordTheory.compile_def]>>rw[]>>
   qmatch_asmsub_abbrev_tac`LHS = _`>>
   `prog' = SND LHS` by (unabbrev_all_tac>>fs[])>>
   pop_assum SUBST_ALL_TAC>>
@@ -1686,7 +1747,8 @@ Theorem data_to_word_good_code_labels `
       (first_x_assum drule>>
       disch_then drule>>fs[MEM_MAP,EXISTS_PROD])
     >>
-      fs[MEM_MAP]>>metis_tac[]);
+      fs[MEM_MAP]>>metis_tac[]
+QED
 
 end
 

@@ -150,6 +150,18 @@ val test_def = Define`test ids = D (F ids.f) (V ids.v)`;
 
 val res = translate test_def;
 
+(* Test floating-point support *)
+
+val test_def = Define `test f = fp64_add roundTiesToEven f f`
+
+val res = translate test_def;
+
+(* FMA: *)
+
+val test_def = Define `test f1 f2 f3 = (fp64_mul_add roundTiesToEven) f1 f2 f3`
+
+val res = translate test_def;
+
 (* tricky datatype *)
 
 val _ = register_type ``:'a option``;
@@ -232,11 +244,13 @@ val a_c_inv_num = get_type_inv ``:(num, num) a_c_type``;
 val st_inv = get_type_inv ``:simple_type``;
 val st2_inv = get_type_inv ``:simple_type2``;
 
-Theorem EqTyp_test_lemmas
-  `EqualityType (^a_inv) /\ EqualityType (^a_b_inv)
+Theorem EqTyp_test_lemmas:
+   EqualityType (^a_inv) /\ EqualityType (^a_b_inv)
     /\ EqualityType (^a_c_inv_num) /\ EqualityType (^st_inv)
-    /\ EqualityType (^st2_inv)`
-  (fs (eq_lemmas ()));
+    /\ EqualityType (^st2_inv)
+Proof
+  fs (eq_lemmas ())
+QED
 
 (* translating within nested local blocks and modules *)
 

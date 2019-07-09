@@ -201,11 +201,13 @@ val pad_code_def = Define `
 (pad_code nop ((Section n xs)::ys) =
   Section n (pad_section nop xs []) :: pad_code nop ys)`
 
-Theorem pad_code_MAP
-  `pad_code nop =
-    MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) []))`
-  (simp[FUN_EQ_THM] \\ Induct \\ simp[pad_code_def]
-  \\ Cases \\ simp[pad_code_def]);
+Theorem pad_code_MAP:
+   pad_code nop =
+    MAP (λx. Section (Section_num x) (pad_section nop (Section_lines x) []))
+Proof
+  simp[FUN_EQ_THM] \\ Induct \\ simp[pad_code_def]
+  \\ Cases \\ simp[pad_code_def]
+QED
 
 val sec_length_def = Define `
   (sec_length [] k = k) /\
@@ -265,10 +267,12 @@ val prog_to_bytes_def = Define `
 
 val prog_to_bytes_ind = theorem"prog_to_bytes_ind";
 
-Theorem prog_to_bytes_MAP
-  `∀ls. prog_to_bytes ls = FLAT
-          (MAP (FLAT o MAP line_bytes o Section_lines) ls)`
-  (ho_match_mp_tac prog_to_bytes_ind \\ rw[prog_to_bytes_def]);
+Theorem prog_to_bytes_MAP:
+   ∀ls. prog_to_bytes ls = FLAT
+          (MAP (FLAT o MAP line_bytes o Section_lines) ls)
+Proof
+  ho_match_mp_tac prog_to_bytes_ind \\ rw[prog_to_bytes_def]
+QED
 
 (* compile labels *)
 
