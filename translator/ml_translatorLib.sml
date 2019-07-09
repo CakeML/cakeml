@@ -2766,10 +2766,12 @@ val builtin_binops =
 
 val builtin_monops =
   [Eval_implode,
+   Eval_explode,
    Eval_strlen,
    Eval_HOL_STRING_LENGTH,
    Eval_HOL_STRING_IMPLODE,
    Eval_HOL_STRING_EXPLODE,
+   Eval_HOL_STRING_FLAT,
    Eval_concat,
    Eval_Bool_Not,
    Eval_int_negate,
@@ -3194,7 +3196,7 @@ fun hol2deep tm =
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
-  if can stringSyntax.fromHOLstring tm then
+  if use_hol_string_type () andalso can stringSyntax.fromHOLstring tm then
     SPEC tm Eval_HOL_STRING_LITERAL else
   if (Teq tm) then Eval_Val_BOOL_T else
   if (Feq tm) then Eval_Val_BOOL_F else

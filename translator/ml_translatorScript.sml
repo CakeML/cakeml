@@ -1773,6 +1773,25 @@ Proof
   \\ fs [state_component_equality]
 QED
 
+Theorem Eval_HOL_STRING_FLAT:
+   ∀env x ls.
+     Eval env x (LIST_TYPE HOL_STRING_TYPE ls) ==>
+     Eval env (App Strcat [x]) (HOL_STRING_TYPE (FLAT ls))
+Proof
+  tac1 \\ fs [option_case_eq,pair_case_eq,PULL_EXISTS]
+  \\ qhdtm_x_assum`evaluate`kall_tac
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac`res`
+  \\ Induct_on`ls`
+  \\ rw[LIST_TYPE_def,v_to_list_def,vs_to_string_def,STRING_TYPE_def]
+  THEN1 EVAL_TAC
+  THEN1 EVAL_TAC
+  \\ fs[v_to_list_def,LIST_TYPE_def,EVAL ``list_type_num``]
+  \\ first_x_assum drule \\ rw[]
+  \\ fs [] \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,implode_def]
+  \\ rveq \\ rw[vs_to_string_def]
+QED
+
 Theorem Eval_HOL_STRING_IMPLODE:
    !env x1 s.
       Eval env x1 (LIST_TYPE CHAR s) ==>
