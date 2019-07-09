@@ -1591,6 +1591,13 @@ val v_case_eq_thms =
     prove_case_eq_thm{nchotomy = closSemTheory.v_nchotomy, case_def = closSemTheory.v_case_def},
     prove_case_eq_thm{nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def}];
 
+val clos_do_app_case_eqs = closSemTheory.do_app_def |> concl
+  |> find_terms (can TypeBase.dest_case)
+  |> map (type_of o #2 o TypeBase.dest_case)
+  |> Redblackset.fromList Type.compare
+  |> Redblackset.listItems
+  |> map (TypeBasePure.case_eq_of o Option.valOf o TypeBase.fetch)
+
 val do_app_err = Q.prove(
   `do_app op xs s1 = Rerr err ∧
    err ≠ Rabort Rtype_error ∧
@@ -1605,25 +1612,20 @@ val do_app_err = Q.prove(
   >- (
     Cases_on `err` >>
     rw [closPropsTheory.do_app_cases_err] >>
-    Cases_on `a` >>
-    rw [closPropsTheory.do_app_cases_timeout] >>
-    fs [closPropsTheory.do_app_cases_type_error] >>
-    fs [closPropsTheory.do_app_cases_ffi_error] >> fs[])
+    fs ([closSemTheory.do_app_def] @ clos_do_app_case_eqs)
+  )
   \\ Cases_on `?n. op = FFI n`
   >- (Cases_on `err`
       >> rw [closPropsTheory.do_app_cases_err]
-      >- (PURE_FULL_CASE_TAC >> fs[])
-      >> Cases_on `a`
-      >> rw [closPropsTheory.do_app_cases_timeout]
-      >> fs [closPropsTheory.do_app_cases_type_error]
-      >> fs [closPropsTheory.do_app_cases_ffi_error] >> fs[]
-      >> PURE_FULL_CASE_TAC >> fs[] >> rveq
+      >> fs ([closSemTheory.do_app_def] @ clos_do_app_case_eqs)
+      >> rveq >> fs [] >> rveq >> fs []
       >> drule(GEN_ALL state_rel_refs_lookup) >> strip_tac
       >> simp[Once do_app_def] >> fs[v_rel_SIMP]
       >> first_x_assum drule >> disch_then drule
       >> strip_tac >> simp[]
       >> fs[ref_rel_simp]
-      >> rfs[state_rel_def])
+      >> rfs[state_rel_def]
+      >> fs [])
   \\ Cases_on`op`
   \\ srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   \\ TRY (fs[case_eq_thms,bool_case_eq,v_case_eq_thms] \\ NO_TAC)
