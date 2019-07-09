@@ -256,7 +256,7 @@ Proof
   \\ once_rewrite_tac [multiwordTheory.mw_cmp_def] \\ fs []
   \\ once_rewrite_tac [multiwordTheory.mw_cmp_def] \\ fs []
   \\ qabbrev_tac `n2' = n2 ⋙ 1`
-  \\ qabbrev_tac `n1' = (n2 ≪ (dimindex (:α) − 1) ‖ n1 ⋙ 1)`
+  \\ qabbrev_tac `n1' = (n2 ≪ (dimindex (:α) − 1) || n1 ⋙ 1)`
   \\ rewrite_tac [LongDiv1_code_def]
   \\ fs [eq_eval,word_add_n2w]
   \\ once_rewrite_tac [list_Seq_def] \\ fs [eq_eval]
