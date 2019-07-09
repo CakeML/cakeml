@@ -707,7 +707,7 @@ val Equal_code_def = Define `
       Assign 21 (Load (Var 20));
       Assign 41 (Load (Var 40));
       If Test 21 (Imm 0b1100w) (list_Seq
-          [Assign 1 (Op And [Var 21; Const (tag_mask c ‖ 2w)]);
+          [Assign 1 (Op And [Var 21; Const (tag_mask c || 2w)]);
            If Equal 1 (Imm (n2w (16 * closure_tag + 2)))
              (Seq (Assign 2 (Const 1w)) (Return 0 2)) Skip;
            If Equal 1 (Imm (n2w (16 * partial_app_tag + 2)))
