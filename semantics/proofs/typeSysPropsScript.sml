@@ -2170,7 +2170,7 @@ Proof
 QED
 
 Theorem type_v_freevars:
- !tvs tenvC tenvS v t. type_v tvs tenvC tenvS v t ⇒ check_freevars tvs [] t
+ !signs tvs tenvC tenvS v t. type_v signs tvs tenvC tenvS v t ⇒ check_freevars tvs [] t
 Proof
  ho_match_mp_tac type_v_strongind >>
  srw_tac[][check_freevars_def, tenv_val_ok_def, num_tvs_def, bind_tvar_def, Tchar_def]
@@ -2223,14 +2223,14 @@ val type_subst_lem1 =
 check_freevars_subst;
 
 Theorem type_subst:
-   !tvs ctMap tenvS v t.
-     type_v tvs ctMap tenvS v t ⇒
+   !signs tvs ctMap tenvS v t.
+     type_v signs tvs ctMap tenvS v t ⇒
      tvs = LENGTH targs ∧
      ctMap_ok ctMap ∧
      EVERY (check_freevars tvs' []) targs ∧
      check_freevars (LENGTH targs) [] t
      ⇒
-     type_v tvs' ctMap tenvS v (deBruijn_subst 0 targs t)
+     type_v signs tvs' ctMap tenvS v (deBruijn_subst 0 targs t)
 Proof
  ho_match_mp_tac type_v_strongind
  >> rw []
@@ -2273,16 +2273,14 @@ Proof
    >> simp []
    >> rfs [MEM_ZIP, EL_MEM])
  >- (
-   qexists_tac `signs`
-   >> qexists_tac `tenv`
+   qexists_tac `tenv`
    >> qexists_tac `tenvE`
    >> simp [nil_deBruijn_inc, deBruijn_subst_freevars]
    >> rw []
    >- fs [nsAll2_conj, remove_lambda_prod]
    >> match_mp_tac type_e_subst_lem
    >> fs [tenv_val_exp_ok_def, tenv_ok_def])
- >- (qexists_tac `signs` >>
-     qexists_tac `tenv` >>
+ >- (qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
      simp [nil_deBruijn_inc , deBruijn_subst_freevars] >>
      qexists_tac `MAP (λ(x,t). (x,deBruijn_subst 0 targs t)) bindings` >>

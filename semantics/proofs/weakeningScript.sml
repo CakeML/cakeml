@@ -367,7 +367,7 @@ Proof
 QED
 
 val type_tenv_val_weakening_lemma = Q.prove (
-`!ctMap tenvS tenvV envV ctMap' tenvS'.
+`!signs ctMap tenvS tenvV envV ctMap' tenvS'.
   weakCT ctMap' ctMap ∧
   weakS tenvS' tenvS ∧
   nsAll2 (λi v (tvs,t).
@@ -376,17 +376,17 @@ val type_tenv_val_weakening_lemma = Q.prove (
             weakCT ctMap' ctMap ∧
             weakS tenvS' tenvS
             ⇒
-            type_v tvs' ctMap' tenvS' v t)
+            type_v signs tvs' ctMap' tenvS' v t)
          envV tenvV
   ⇒
-  nsAll2 (λi v (tvs,t). type_v tvs ctMap' tenvS' v t) envV tenvV`,
+  nsAll2 (λi v (tvs,t). type_v signs tvs ctMap' tenvS' v t) envV tenvV`,
  rw [type_all_env_def, weakCT_def, weakS_def]
  >> irule nsAll2_mono
  >> qexists_tac `(λi v (tvs,t).
            ∀tvs' ctMap' tenvS'.
              (tvs = 0 ∨ tvs = tvs') ∧ ctMap ⊑ ctMap' ∧
              tenvS ⊑ tenvS' ⇒
-             type_v tvs' ctMap' tenvS' v t) `
+             type_v signs tvs' ctMap' tenvS' v t) `
  >> rw []
  >> pairarg_tac
  >> fs [] );
@@ -398,10 +398,10 @@ val remove_lambda_prod = Q.prove (
  >> rw []);
 
 Theorem type_v_weakening:
- (!tvs ctMap tenvS v t. type_v tvs ctMap tenvS v t ⇒
+ (!signs tvs ctMap tenvS v t. type_v signs tvs ctMap tenvS v t ⇒
     !tvs' ctMap' tenvS'.
       ((tvs = 0) ∨ (tvs = tvs')) ∧ weakCT ctMap' ctMap ∧ weakS tenvS' tenvS ⇒
-      type_v tvs' ctMap' tenvS' v t)
+      type_v signs tvs' ctMap' tenvS' v t)
 Proof
  ho_match_mp_tac type_v_ind >>
  rw [] >>
@@ -435,7 +435,6 @@ Proof
    >> rw []
    >> fs [PULL_EXISTS])
  >- (fs [] >>
-     qexists_tac `signs` >>
      qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
      rw []
@@ -452,19 +451,13 @@ Proof
      >> irule weak_tenvE_bind
      >> irule (SIMP_RULE (srw_ss()) [] weak_tenvE_bind_tvar2)
      >> simp [tenv_val_exp_ok_def, weak_tenvE_def])
-
-
-
-
  >- (fs [] >>
-     qexists_tac `signs` >>
      qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
      rw []
      >- metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma]
      >- metis_tac [type_tenv_ctor_weakening, type_tenv_val_weakening_lemma] )
  >- (fs [] >>
-     qexists_tac `signs` >>
      qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
      qexists_tac `bindings` >>
@@ -478,7 +471,6 @@ Proof
      >> irule (SIMP_RULE (srw_ss()) [] weak_tenvE_bind_tvar2)
      >> simp [tenv_val_exp_ok_def, weak_tenvE_def])
  >- (fs [] >>
-     qexists_tac `signs` >>
      qexists_tac `tenv` >>
      qexists_tac `tenvE` >>
      qexists_tac `bindings` >>
@@ -502,12 +494,12 @@ Proof
 QED
 
 Theorem type_all_env_weakening:
- !ctMap tenvS tenv env ctMap' tenvS'.
+ !signs ctMap tenvS tenv env ctMap' tenvS'.
   weakCT ctMap' ctMap ∧
   weakS tenvS' tenvS ∧
-  type_all_env ctMap tenvS env tenv
+  type_all_env signs ctMap tenvS env tenv
   ⇒
-  type_all_env ctMap' tenvS' env tenv
+  type_all_env signs ctMap' tenvS' env tenv
 Proof
  rw [type_all_env_def]
  >- metis_tac [type_tenv_ctor_weakening]
@@ -526,12 +518,12 @@ Proof
 QED
 
 Theorem type_sv_weakening:
- !ctMap tenvS st sv ctMap' tenvS'.
-  type_sv ctMap tenvS sv st ∧
+ !signs ctMap tenvS st sv ctMap' tenvS'.
+  type_sv signs ctMap tenvS sv st ∧
   weakCT ctMap' ctMap ∧
   weakS tenvS' tenvS
   ⇒
-  type_sv ctMap' tenvS' sv st
+  type_sv signs ctMap' tenvS' sv st
 Proof
  rpt gen_tac >>
  Cases_on `sv` >>
@@ -543,11 +535,11 @@ Proof
 QED
 
 Theorem type_s_weakening:
- !ctMap tenvS st ctMap'.
-  type_s ctMap tenvS st ∧
+ !signs ctMap tenvS st ctMap'.
+  type_s signs ctMap tenvS st ∧
   weakCT ctMap' ctMap
   ⇒
-  type_s ctMap' tenvS st
+  type_s signs ctMap' tenvS st
 Proof
  rw [type_s_def] >>
  metis_tac [type_sv_weakening, weakS_refl]

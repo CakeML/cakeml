@@ -72,28 +72,28 @@ QED
 
 (* Classifying values of basic types *)
 Theorem prim_canonical_values_thm:
-   (type_v tvs ctMap tenvS v Tint ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (IntLit n))) ∧
-   (type_v tvs ctMap tenvS v Tchar ∧ ctMap_ok ctMap ⇒ (∃c. v = Litv (Char c))) ∧
-   (type_v tvs ctMap tenvS v Tstring ∧ ctMap_ok ctMap ⇒ (∃s. v = Litv (StrLit s))) ∧
-   (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word8 n))) ∧
-   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word64 n))) ∧
-   (type_v tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
+   (type_v signs tvs ctMap tenvS v Tint ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (IntLit n))) ∧
+   (type_v signs tvs ctMap tenvS v Tchar ∧ ctMap_ok ctMap ⇒ (∃c. v = Litv (Char c))) ∧
+   (type_v signs tvs ctMap tenvS v Tstring ∧ ctMap_ok ctMap ⇒ (∃s. v = Litv (StrLit s))) ∧
+   (type_v signs tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word8 n))) ∧
+   (type_v signs tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word64 n))) ∧
+   (type_v signs tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
      (∃vs. v = Conv NONE vs ∧ LENGTH ts = LENGTH vs)) ∧
-   (type_v tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
+   (type_v signs tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
      (∃env n e. v = Closure env n e) ∨
      (∃env funs n. v = Recclosure env funs n)) ∧
-   (type_v tvs ctMap tenvS v (Tref t1) ∧ ctMap_ok ctMap ∧ type_s ctMap envS tenvS ⇒
+   (type_v signs tvs ctMap tenvS v (Tref t1) ∧ ctMap_ok ctMap ∧ type_s signs ctMap envS tenvS ⇒
      (∃n v2. v = Loc n ∧ store_lookup n envS = SOME (Refv v2) ∧
-       type_v 0 ctMap tenvS v2 t1)) ∧
-   (type_v tvs ctMap tenvS v Tword8array ∧ ctMap_ok ctMap ∧ type_s ctMap envS tenvS ⇒
+       type_v signs 0 ctMap tenvS v2 t1)) ∧
+   (type_v signs tvs ctMap tenvS v Tword8array ∧ ctMap_ok ctMap ∧ type_s signs ctMap envS tenvS ⇒
      (∃n ws. v = Loc n ∧ store_lookup n envS = SOME (W8array ws) ∧
        FLOOKUP tenvS n = SOME W8array_t)) ∧
-   (type_v tvs ctMap tenvS v (Tarray t) ∧ ctMap_ok ctMap ∧ type_s ctMap envS tenvS ⇒
+   (type_v signs tvs ctMap tenvS v (Tarray t) ∧ ctMap_ok ctMap ∧ type_s signs ctMap envS tenvS ⇒
      (∃n vs. v = Loc n ∧ store_lookup n envS = SOME (Varray vs) ∧
-       EVERY (\v. type_v 0 ctMap tenvS v t) vs ∧
+       EVERY (\v. type_v signs 0 ctMap tenvS v t) vs ∧
        FLOOKUP tenvS n = SOME (Varray_t t))) ∧
-   (type_v tvs ctMap tenvS v (Tvector t) ∧ ctMap_ok ctMap ⇒
-     (?vs. v = Vectorv vs ∧ EVERY (\v. type_v tvs ctMap tenvS v t) vs))
+   (type_v signs tvs ctMap tenvS v (Tvector t) ∧ ctMap_ok ctMap ⇒
+     (?vs. v = Vectorv vs ∧ EVERY (\v. type_v signs tvs ctMap tenvS v t) vs))
 Proof
   strip_tac >>
   rpt (conj_tac) >>
@@ -111,13 +111,13 @@ Proof
 QED
 
 val has_lists_v_to_list = Q.prove (
-`!ctMap tvs tenvS t3.
+`!signs ctMap tvs tenvS t3.
   ctMap_ok ctMap ∧
   ctMap_has_lists ctMap ∧
-  type_v tvs ctMap tenvS v (Tlist t3)
+  type_v signs tvs ctMap tenvS v (Tlist t3)
   ⇒
   ?vs. v_to_list v = SOME vs ∧
-  EVERY (\v. type_v tvs ctMap tenvS v t3) vs ∧
+  EVERY (\v. type_v signs tvs ctMap tenvS v t3) vs ∧
   (t3 = Tchar ⇒ ?vs. v_to_char_list v = SOME vs) ∧
   (t3 = Tstring ⇒ ∃str. vs_to_string vs = SOME str)`,
  measureInduct_on `v_size v` >>
@@ -142,7 +142,7 @@ val has_lists_v_to_list = Q.prove (
  full_simp_tac(srw_ss())[] >>
  srw_tac[][v_to_list_def,v_to_char_list_def,vs_to_string_def] >>
  full_simp_tac(srw_ss())[type_subst_def] >>
- rename1 `type_v _ _ _ v _` >>
+ rename1 `type_v signs _ _ _ v _` >>
  LAST_X_ASSUM (mp_tac o Q.SPEC `v`) >>
  simp [v_size_def] >>
  disch_then drule >>
@@ -155,15 +155,15 @@ val has_lists_v_to_list = Q.prove (
  rw [v_to_char_list_def, vs_to_string_def]);
 
 Theorem ctor_canonical_values_thm:
-   (type_v tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
+   (type_v signs tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
       ∃b. v = Boolv b) ∧
-   (type_v tvs ctMap tenvS v (Tlist t) ∧ ctMap_ok ctMap ∧ ctMap_has_lists ctMap ⇒
+   (type_v signs tvs ctMap tenvS v (Tlist t) ∧ ctMap_ok ctMap ∧ ctMap_has_lists ctMap ⇒
      ?vs.
        v_to_list v = SOME vs ∧
-       EVERY (\v. type_v tvs ctMap tenvS v t) vs ∧
+       EVERY (\v. type_v signs tvs ctMap tenvS v t) vs ∧
        (t = Tchar ⇒ ?vs. v_to_char_list v = SOME vs) ∧
        (t = Tstring ⇒ ∃str. vs_to_string vs = SOME str)) ∧
-   (type_v tvs ctMap tenvS v (Tapp ts ti) ∧
+   (type_v signs tvs ctMap tenvS v (Tapp ts ti) ∧
     ctMap_ok ctMap ∧
     FLOOKUP ctMap stamp = SOME (tvs',ts',ti) ⇒
     (?cn n vs. same_type stamp (TypeStamp cn n) ∧ v = Conv (SOME (TypeStamp cn n)) vs) ∨
@@ -208,16 +208,16 @@ val same_type_refl = Q.prove (
   rw [same_type_def]);
 
 val eq_same_type = Q.prove (
-`(!v1 v2 tvs ctMap cns tenvS t.
+`(!v1 v2 tvs signs ctMap cns tenvS t.
   ctMap_ok ctMap ∧
-  type_v tvs ctMap tenvS v1 t ∧
-  type_v tvs ctMap tenvS v2 t
+  type_v signs tvs ctMap tenvS v1 t ∧
+  type_v signs tvs ctMap tenvS v2 t
   ⇒
   do_eq v1 v2 ≠ Eq_type_error) ∧
-(!vs1 vs2 tvs ctMap cns tenvS ts.
+(!vs1 vs2 tvs signs ctMap cns tenvS ts.
   ctMap_ok ctMap ∧
-  LIST_REL (type_v tvs ctMap tenvS) vs1 ts ∧
-  LIST_REL (type_v tvs ctMap tenvS) vs2 ts
+  LIST_REL (type_v signs tvs ctMap tenvS) vs1 ts ∧
+  LIST_REL (type_v signs tvs ctMap tenvS) vs2 ts
   ⇒
   do_eq_list vs1 vs2 ≠ Eq_type_error)`,
   ho_match_mp_tac do_eq_ind >>
@@ -247,7 +247,7 @@ val eq_same_type = Q.prove (
    NO_TAC)
   >- (
     (* Same constructor and type *)
-    rpt (qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
+    rpt (qpat_x_assum `type_v _ _ _ _ _ _` mp_tac) >>
     ONCE_REWRITE_TAC [type_v_cases] >>
     rw [] >>
     fs [] >>
@@ -264,11 +264,11 @@ val eq_same_type = Q.prove (
    metis_tac [prim_type_nums_def, same_type_refl, stamp_nchotomy, MEM,
           Q.prove (`Ttup_num ≠ Texn_num`, rw [type_num_defs])])
   >- (
-    rpt (qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
+    rpt (qpat_x_assum `type_v _ _ _ _ _ _` mp_tac) >>
     ONCE_REWRITE_TAC [type_v_cases] >>
     srw_tac[][] >>
     full_simp_tac(srw_ss())[combinTheory.o_DEF, EVERY_LIST_REL] >>
-    `(\x y. type_v tvs ctMap tenvS x y) = type_v tvs ctMap tenvS` by metis_tac [] >>
+    `(\x y. type_v signs tvs ctMap tenvS x y) = type_v signs tvs ctMap tenvS` by metis_tac [] >>
     full_simp_tac(srw_ss())[] >>
     metis_tac [])
   >- (FULL_CASE_TAC \\
@@ -307,14 +307,14 @@ val type_recfun_env_help = Q.prove (
 `∀signs fn funs funs' ctMap tenv bindings tenvE env tenvS tvs bindings'.
   ALL_DISTINCT (MAP FST funs') ∧
   tenv_ok tenv ∧
-  type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
+  type_all_env signs ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
   tenv_val_exp_ok tenvE ∧
   num_tvs tenvE = 0 ∧
   (!fn t. (ALOOKUP bindings fn = SOME t) ⇒ (ALOOKUP bindings' fn = SOME t)) ∧
   type_funs signs tenv (bind_var_list 0 bindings' (bind_tvar tvs tenvE)) funs' bindings' ∧
   type_funs signs tenv (bind_var_list 0 bindings' (bind_tvar tvs tenvE)) funs bindings
   ⇒
-  LIST_REL (λ(x,y) (x',y'). x = x' ∧ (λ(tvs,t). type_v tvs ctMap tenvS y t) y')
+  LIST_REL (λ(x,y) (x',y'). x = x' ∧ (λ(tvs,t). type_v signs tvs ctMap tenvS y t) y')
     (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs)
     (MAP (λ(x,t). (x,tvs,t)) bindings)`,
  induct_on `funs`
@@ -325,7 +325,6 @@ val type_recfun_env_help = Q.prove (
  >> rw []
  >- (
    simp [Once type_v_cases]
-   >> qexists_tac `signs`
    >> qexists_tac `tenv`
    >> qexists_tac `tenvE`
    >> rw []
@@ -344,7 +343,6 @@ val type_recfun_env_help = Q.prove (
    first_x_assum irule
    >> simp []
    >> qexists_tac `bindings'`
-   >> qexists_tac `signs`
    >> qexists_tac `tenv`
    >> qexists_tac `tenvE`
    >> simp []
@@ -355,24 +353,24 @@ val type_recfun_env_help = Q.prove (
 val type_recfun_env = Q.prove (
 `∀signs funs ctMap tenvS tvs tenv tenvE env bindings.
   tenv_ok tenv ∧
-  type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
+  type_all_env signs ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
   tenv_val_exp_ok tenvE ∧
   num_tvs tenvE = 0 ∧
   type_funs signs tenv (bind_var_list 0 bindings (bind_tvar tvs tenvE)) funs bindings ∧
   ALL_DISTINCT (MAP FST funs)
   ⇒
-  LIST_REL (λ(x,y) (x',y'). x = x' ∧ (λ(tvs,t). type_v tvs ctMap tenvS y t) y')
+  LIST_REL (λ(x,y) (x',y'). x = x' ∧ (λ(tvs,t). type_v signs tvs ctMap tenvS y t) y')
     (MAP (λ(fn,n,e). (fn,Recclosure env funs fn)) funs)
     (MAP (λ(x,t). (x,tvs,t)) bindings)`,
 metis_tac [type_recfun_env_help]);
 
 val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
-`!tvs cenv senv.
+`!signs tvs cenv senv.
   ctMap_has_exns cenv ⇒
-  type_v tvs cenv senv (Conv (SOME chr_stamp) []) Texn ∧
-  type_v tvs cenv senv (Conv (SOME subscript_stamp) []) Texn ∧
-  type_v tvs cenv senv (Conv (SOME bind_stamp) []) Texn ∧
-  type_v tvs cenv senv (Conv (SOME div_stamp) []) Texn`,
+  type_v signs tvs cenv senv (Conv (SOME chr_stamp) []) Texn ∧
+  type_v signs tvs cenv senv (Conv (SOME subscript_stamp) []) Texn ∧
+  type_v signs tvs cenv senv (Conv (SOME bind_stamp) []) Texn ∧
+  type_v signs tvs cenv senv (Conv (SOME div_stamp) []) Texn`,
  ONCE_REWRITE_TAC [type_v_cases] >>
  srw_tac[][ctMap_has_exns_def] >>
  metis_tac [type_v_rules]));
@@ -383,16 +381,16 @@ val v_to_list_type = Q.prove (
   ctMap_ok ctMap ∧
   ctMap_has_lists ctMap ∧
   v_to_list v = SOME vs ∧
-  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
+  type_v signs 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
   ⇒
-  type_v tvs ctMap tenvS (Vectorv vs) (Tapp [t] TC_vector)`,
+  type_v signs tvs ctMap tenvS (Vectorv vs) (Tapp [t] TC_vector)`,
  ho_match_mp_tac v_to_list_ind >>
  srw_tac[][v_to_list_def]
  >- full_simp_tac(srw_ss())[Once type_v_cases] >>
  every_case_tac >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
- qpat_x_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+ qpat_x_assum `type_v signs x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
  srw_tac[][] >>
  srw_tac[][Once type_v_cases] >>
  res_tac >>
@@ -410,23 +408,23 @@ val v_to_char_list_type = Q.prove (
 `!v vs.
   ctMap_has_lists ctMap ∧
   v_to_char_list v = SOME vs ∧
-  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
+  type_v signs 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
   ⇒
-  type_v tvs ctMap tenvS (Litv (StrLit (IMPLODE vs))) (Tstring)`,
+  type_v signs tvs ctMap tenvS (Litv (StrLit (IMPLODE vs))) (Tstring)`,
  ho_match_mp_tac v_to_char_list_ind >>
  srw_tac[][v_to_char_list_def]
  >- full_simp_tac(srw_ss())[Once type_v_cases] >>
  every_case_tac >>
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
- qpat_x_assum `type_v x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
+ qpat_x_assum `type_v signs x0 x1 x2 (Conv x3 x4) x5` (mp_tac o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
  srw_tac[][] >>
  srw_tac[][Once type_v_cases]);
 
  *)
 
 val type_v_Boolv = Q.prove(
-  `ctMap_has_bools ctMap ⇒ type_v tvs ctMap tenvS (Boolv b) Tbool`,
+  `ctMap_has_bools ctMap ⇒ type_v signs tvs ctMap tenvS (Boolv b) Tbool`,
   srw_tac[][Boolv_def] >>
   srw_tac[][Once type_v_cases,LENGTH_NIL] >>
   full_simp_tac(srw_ss())[ctMap_has_bools_def] >>
@@ -442,13 +440,13 @@ Theorem opapp_type_sound:
  !signs ctMap tenvS vs ts t.
  ctMap_ok ctMap ∧
  type_op signs Opapp ts t ∧
- LIST_REL (type_v 0 ctMap tenvS) vs ts
+ LIST_REL (type_v signs 0 ctMap tenvS) vs ts
  ⇒
- ?signs env e tenv tenvE.
+   ?env e tenv tenvE.
    tenv_ok tenv ∧
    tenv_val_exp_ok tenvE ∧
    num_tvs tenvE = 0 ∧
-   type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
+   type_all_env signs ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
    type_e signs tenv tenvE e t ∧
    do_opapp vs = SOME (env,e)
 Proof
@@ -459,11 +457,10 @@ Proof
     (CONJUNCTS prim_canonical_values_thm) >>
   rw [do_opapp_def]
  >- (
-   rename1 `type_v _ _ _ (Closure env n e) _`
-   >> qpat_x_assum `type_v _ _ _ (Closure env n e) _` mp_tac
+   rename1 `type_v signs _ _ _ (Closure env n e) _`
+   >> qpat_x_assum `type_v signs _ _ _ (Closure env n e) _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
-   >> qexists_tac `signs`
    >> qexists_tac `tenv`
    >> qexists_tac `Bind_name n 0 t2 (bind_tvar 0 tenvE)`
    >> rw []
@@ -472,8 +469,8 @@ Proof
    >> irule nsAll2_nsBind
    >> simp [])
  >- (
-   rename1 `type_v _ _ _ (Recclosure env funs n) _`
-   >> qpat_x_assum `type_v _ _ _ (Recclosure env funs n) _` mp_tac
+   rename1 `type_v _ _ _ _ (Recclosure env funs n) _`
+   >> qpat_x_assum `type_v _ _ _ _ (Recclosure env funs n) _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
    >> imp_res_tac type_funs_find_recfun
@@ -482,7 +479,6 @@ Proof
    >> imp_res_tac (SIMP_RULE (srw_ss()) [Tfn_def] type_recfun_lookup)
    >> fs []
    >> qmatch_assum_abbrev_tac `type_e _ _ b _ _`
-   >> qexists_tac `signs`
    >> qexists_tac `tenv`
    >> qexists_tac `b`
    >> fs [type_all_env_def]
@@ -546,14 +542,14 @@ Proof
 QED
 
 Theorem store_assign_type_sound:
-  !ctMap tenvS store sv st l.
-  type_s ctMap store tenvS ∧
+  !signs ctMap tenvS store sv st l.
+  type_s signs ctMap store tenvS ∧
   FLOOKUP tenvS l = SOME st ∧
-  type_sv ctMap tenvS sv st
+  type_sv signs ctMap tenvS sv st
   ⇒
   ?store'.
     store_assign l sv store = SOME store' ∧
-    type_s ctMap store' tenvS
+    type_s signs ctMap store' tenvS
 Proof
  rw [store_assign_def, type_s_def, store_v_same_type_def]
  >- (
@@ -577,15 +573,15 @@ Proof
 QED
 
 Theorem store_alloc_type_sound:
-  !ctMap tenvS store sv st.
+  !signs ctMap tenvS store sv st.
   ctMap_ok ctMap ∧
-  type_s ctMap store tenvS ∧
-  type_sv ctMap tenvS sv st
+  type_s signs ctMap store tenvS ∧
+  type_sv signs ctMap tenvS sv st
   ⇒
   ?store' tenvS' n.
     store_type_extension tenvS tenvS' ∧
     store_alloc sv store = (store', n) ∧
-    type_s ctMap store' tenvS' ∧
+    type_s signs ctMap store' tenvS' ∧
     FLOOKUP tenvS' n = SOME st
 Proof
  rw [store_alloc_def]
@@ -621,7 +617,7 @@ QED
    (*
 Theorem store_lookup_type_sound:
   !ctMap tenvS store n st.
-  type_s ctMap store tenvS ∧
+  type_s signs ctMap store tenvS ∧
   FLOOKUP tenvS n = SOME st
   ⇒
   ?sv.
@@ -636,26 +632,26 @@ QED
 
 Theorem type_v_list_to_v:
    !x xs t.
-   type_v n ctMap tenvS x t /\
+   type_v signs n ctMap tenvS x t /\
    v_to_list x = SOME xs ==>
-     type_v n ctMap tenvS (list_to_v xs) t
+     type_v signs n ctMap tenvS (list_to_v xs) t
 Proof
    recInduct v_to_list_ind \\ rw [Once type_v_cases]
    \\ fs [v_to_list_def, list_to_v_def] \\ rw []
    \\ fs [list_to_v_def]
    \\ FULL_CASE_TAC \\ fs [] \\ rw []
    \\ fs [list_to_v_def]
-   \\ qpat_x_assum `type_v _ _ _ _ _` mp_tac
+   \\ qpat_x_assum `type_v _ _ _ _ _ _` mp_tac
    \\ rw [Once type_v_cases] \\ simp [Once type_v_cases]
 QED
 
 Theorem type_v_list_to_v_APPEND:
    !xs ys t.
      ctMap_has_lists ctMap /\
-     type_v 0 ctMap tenvS (list_to_v xs) (Tapp [t] Tlist_num) /\
-     type_v 0 ctMap tenvS (list_to_v ys) (Tapp [t] Tlist_num)
+     type_v signs 0 ctMap tenvS (list_to_v xs) (Tapp [t] Tlist_num) /\
+     type_v signs 0 ctMap tenvS (list_to_v ys) (Tapp [t] Tlist_num)
      ==>
-     type_v 0 ctMap tenvS (list_to_v (xs ++ ys)) (Tapp [t] Tlist_num)
+     type_v signs 0 ctMap tenvS (list_to_v (xs ++ ys)) (Tapp [t] Tlist_num)
 Proof
   Induct \\ rw [list_to_v_def]
   \\ ntac 2 (pop_assum mp_tac)
@@ -667,7 +663,7 @@ Proof
   \\ fs [] \\ rveq
   \\ imp_res_tac ctMap_has_lists_def \\ fs [] \\ rveq
   \\ ntac 2 (pop_assum kall_tac)
-  \\ qpat_x_assum `type_v _ _ _ (_ xs) _` mp_tac
+  \\ qpat_x_assum `type_v _ _ _ _ (_ xs) _` mp_tac
   \\ EVAL_TAC \\ strip_tac
   \\ first_x_assum (qspec_then `ys` mp_tac)
   \\ EVAL_TAC \\ metis_tac [Tlist_num_def]
@@ -681,7 +677,7 @@ val disjCI = PURE_ONCE_REWRITE_TAC[DISJ_EQ_IMP] >> rpt (strip_tac)
 val disjCI2 = PURE_ONCE_REWRITE_TAC[CONV_RULE(PURE_ONCE_REWRITE_CONV [DISJ_COMM]) DISJ_EQ_IMP] >> strip_tac
 
 Theorem ctMap_ok_type_v_bool_true_false:
-   ctMap_ok ctMap /\ ctMap_has_bools ctMap /\ type_v n ctMap tenvS v (Tapp [] Tbool_num) ==>
+   ctMap_ok ctMap /\ ctMap_has_bools ctMap /\ type_v signs n ctMap tenvS v (Tapp [] Tbool_num) ==>
       v = Boolv T \/ v = Boolv F
 Proof
   disjCI >>
@@ -709,7 +705,7 @@ Proof
 QED
 
 Theorem type_v_bool_v_int_get_carg_sem:
-  type_v n ctMap tenvS (Litv l) (Tapp [] Tint_num) ==> get_carg_sem store C_int (Litv l) <> NONE
+  type_v signs n ctMap tenvS (Litv l) (Tapp [] Tint_num) ==> get_carg_sem store C_int (Litv l) <> NONE
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> rveq >> fs [get_carg_sem_def, Tint_num_def, Tchar_num_def, Tstring_num_def,
@@ -718,7 +714,7 @@ QED
 
 
 Theorem ctMap_ok_type_v_not_int_num:
-  ctMap_ok ctMap ==> ~(type_v n ctMap tenvS (Conv s l) (Tapp [] Tint_num))
+  ctMap_ok ctMap ==> ~(type_v signs n ctMap tenvS (Conv s l) (Tapp [] Tint_num))
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> rveq >> fs [Tint_num_def, Ttup_num_def]
@@ -729,7 +725,7 @@ QED
 
 
 Theorem ctMap_ok_type_v_recc_not_int_num:
-  ctMap_ok ctMap ==> ~type_v n ctMap tenvS (Recclosure s l s0) (Tapp [] Tint_num)
+  ctMap_ok ctMap ==> ~type_v signs n ctMap tenvS (Recclosure s l s0) (Tapp [] Tint_num)
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> drule_all type_funs_Tfn >> rw []
@@ -737,7 +733,7 @@ QED
 
 
 Theorem type_v_lit_word8_false:
-  ~ type_v n ctMap tenvS (Litv l) (Tapp [] Tword8array_num)
+  ~ type_v signs n ctMap tenvS (Litv l) (Tapp [] Tword8array_num)
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> fs [Tword8array_num_def, Tint_num_def, Tchar_num_def, Tstring_num_def, Tword8_num_def, Tword64_num_def]
@@ -745,7 +741,7 @@ QED
 
 
 Theorem type_v_conv_word8_false:
-  ctMap_ok ctMap ==> ~type_v n ctMap tenvS (Conv st l) (Tapp [] Tword8array_num)
+  ctMap_ok ctMap ==> ~type_v signs n ctMap tenvS (Conv st l) (Tapp [] Tword8array_num)
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> fs [ Tint_num_def, Tchar_num_def, Tstring_num_def, Tword8_num_def, Tword64_num_def, Ttup_num_def]
@@ -758,7 +754,7 @@ QED
 
 
 Theorem type_v_clos_word8_false:
-  ~type_v n ctMap tenvS (Closure s s' e) (Tapp [] Tword8array_num)
+  ~type_v signs n ctMap tenvS (Closure s s' e) (Tapp [] Tword8array_num)
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> fs [Tint_num_def, Tchar_num_def, Tstring_num_def, Tword8_num_def, Tword64_num_def, Ttup_num_def]
@@ -766,7 +762,7 @@ QED
 
 
 Theorem type_v_recclos_word8_false:
- ~type_v n ctMap tenvS (Recclosure s l s') (Tapp [] Tword8array_num)
+ ~type_v signs n ctMap tenvS (Recclosure s l s') (Tapp [] Tword8array_num)
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> fs [ Tint_num_def, Tchar_num_def, Tstring_num_def, Tword8_num_def, Tword64_num_def, Ttup_num_def] >>
@@ -776,7 +772,7 @@ QED
 
 
 Theorem type_v_conv_tapp_string_false:
-  ctMap_ok ctMap ==> ~type_v n ctMap tenvS (Conv st l) (Tapp [] Tstring_num)
+  ctMap_ok ctMap ==> ~type_v signs n ctMap tenvS (Conv st l) (Tapp [] Tstring_num)
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> fs [Tstring_num_def, Ttup_num_def] >>
@@ -786,7 +782,7 @@ Proof
 QED
 
 Theorem type_v_clos_tapp_string_false:
-  ~type_v n ctMap tenvS (Closure s s' e) (Tapp [] Tstring_num)
+  ~type_v signs n ctMap tenvS (Closure s s' e) (Tapp [] Tstring_num)
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> fs [Tstring_num_def, Ttup_num_def]
@@ -794,7 +790,7 @@ QED
 
 
 Theorem type_v_recclos_tapp_string_false:
-  ctMap_ok ctMap ==> ~type_v n ctMap tenvS (Recclosure s l s') (Tapp [] Tstring_num)
+  ctMap_ok ctMap ==> ~type_v signs n ctMap tenvS (Recclosure s l s') (Tapp [] Tstring_num)
 Proof
   CCONTR_TAC >> fs [] >>
   fs [Once type_v_cases] >> fs [ Tint_num_def, Tchar_num_def, Tstring_num_def, Tword8_num_def, Tword64_num_def, Ttup_num_def] >>
@@ -843,7 +839,7 @@ QED
 
 Theorem type_v_ok_bool_Tbool:
   ctMap_ok ctMap /\ ctMap_has_bools ctMap ==>
-      type_v n ctMap tenvS (Boolv b) (Tapp [] Tbool_num)
+      type_v signs n ctMap tenvS (Boolv b) (Tapp [] Tbool_num)
 Proof
   rw [Once type_v_cases] >> fs [ctMap_has_bools_def, Tbool_num_def, Tint_num_def, Tchar_num_def,
                                 Tstring_num_def, Tword8_num_def, Tword64_num_def, Ttup_num_def, Tword8array_num_def] >>
@@ -857,7 +853,7 @@ QED
 
 Theorem type_v_ok_int_lit_Tint:
   ctMap_ok ctMap ==>
-     type_v n ctMap tenvS (Litv (IntLit i)) (Tapp [] Tint_num)
+     type_v signs n ctMap tenvS (Litv (IntLit i)) (Tapp [] Tint_num)
 Proof
   rw [Once type_v_cases] >> fs [Tbool_num_def, Tint_num_def, Tchar_num_def,
                                 Tstring_num_def, Tword8_num_def, Tword64_num_def, Ttup_num_def, Tword8array_num_def] >>
@@ -870,19 +866,19 @@ Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
  op ≠ Opapp ∧
- type_s ctMap store tenvS ∧
+ type_s ffi.signatures ctMap store tenvS ∧
  type_op ffi.signatures op ts t ∧
  check_freevars 0 [] t ∧
- LIST_REL (type_v 0 ctMap tenvS) vs (REVERSE ts) /\
+ LIST_REL (type_v ffi.signatures 0 ctMap tenvS) vs (REVERSE ts) /\
  ffi_oracle_ok ffi
  ⇒
  ?tenvS' store' ffi' r.
    store_type_extension tenvS tenvS' ∧
-   type_s ctMap store' tenvS' ∧
+   type_s ffi.signatures ctMap store' tenvS' ∧
    do_app (store,ffi) op (REVERSE vs) = SOME ((store', ffi'), r) ∧
    case r of
-   | Rval v => type_v 0 ctMap tenvS' v t
-   | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+   | Rval v => type_v ffi.signatures 0 ctMap tenvS' v t
+   | Rerr (Rraise v) => type_v ffi.signatures 0 ctMap tenvS' v Texn
    | Rerr (Rabort(Rffi_error _)) => T
    | Rerr (Rabort _) => F
 Proof
@@ -892,7 +888,7 @@ Proof
   rpt (
     MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
       (CONJUNCTS prim_canonical_values_thm) >>
-    qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
+    qpat_x_assum `type_v _ _ _ _ _ _` mp_tac) >>
   rw [] >>
   rw [do_opapp_def]
  >> TRY ( (* simple cases *)
@@ -930,7 +926,7 @@ Proof
    res_tac >>
    rw [do_app_cases, PULL_EXISTS] >>
    simp [Once type_v_cases]
-   >> qpat_x_assum `type_v _ _ _ (Loc _) _` mp_tac
+   >> qpat_x_assum `type_v _ _ _ _ (Loc _) _` mp_tac
    >> simp [Once type_v_cases]
    >> rw [type_num_defs]
    >> metis_tac [type_sv_def, store_type_extension_refl, store_assign_type_sound])
@@ -938,8 +934,8 @@ Proof
    rename1 `Opref`
    >> rw [do_app_cases, PULL_EXISTS]
    >> simp [Once type_v_cases]
-   >> rename1 `type_v _ _ _ v t`
-   >> `type_sv ctMap tenvS (Refv v) (Ref_t t)` by rw [type_sv_def]
+   >> rename1 `type_v _ _ _ _ v t`
+   >> `type_sv ffi.signatures ctMap tenvS (Refv v) (Ref_t t)` by rw [type_sv_def]
    >> drule store_alloc_type_sound
    >> rpt (disch_then drule)
    >> rw []
@@ -953,9 +949,9 @@ Proof
  >> TRY ( (* W8array alloc *)
    rename1 `Aw8alloc`
    >> rw [do_app_cases, PULL_EXISTS]
-   >> rename1 `type_v _ _ _ (Litv (Word8 w)) _`
-   >> rename1 `type_v _ _ _ (Litv (IntLit n)) _`
-   >> `type_sv ctMap tenvS (W8array (REPLICATE (Num (ABS n)) w)) W8array_t`
+   >> rename1 `type_v _ _ _ _ (Litv (Word8 w)) _`
+   >> rename1 `type_v _ _ _ _ (Litv (IntLit n)) _`
+   >> `type_sv ffi.signatures ctMap tenvS (W8array (REPLICATE (Num (ABS n)) w)) W8array_t`
      by rw [type_sv_def]
    >> drule store_alloc_type_sound
    >> rpt (disch_then drule)
@@ -990,8 +986,8 @@ Proof
    rw [do_app_cases, PULL_EXISTS] >>
    first_x_assum drule >>
    rw [] >>
-   rename1 `type_v _ _ _ (Litv (IntLit z)) _` >>
-   rename1 `type_v _ _ _ (Loc l) _`
+   rename1 `type_v _ _ _ _ (Litv (IntLit z)) _` >>
+   rename1 `type_v _ _ _ _ (Loc l) _`
    >> Cases_on `z < 0`
    >> fs [type_v_exn, sub_exn_v_def]
    >- metis_tac [store_type_extension_refl]
@@ -1000,7 +996,7 @@ Proof
    >> rw [type_v_exn]
    >- metis_tac [store_type_extension_refl]
    >> simp [Once type_v_cases]
-   >> `type_sv ctMap tenvS (W8array (LUPDATE n (Num (ABS z)) ws)) W8array_t`
+   >> `type_sv ffi.signatures ctMap tenvS (W8array (LUPDATE n (Num (ABS z)) ws)) W8array_t`
      by rw [type_sv_def]
    >> drule store_assign_type_sound
    >> rpt (disch_then drule)
@@ -1135,7 +1131,7 @@ Proof
    rw [do_app_cases, PULL_EXISTS] >>
    rename1 `Tapp [t] Tarray_num` >>
    rename1 `REPLICATE _ v` >>
-   `type_sv ctMap tenvS (Varray (REPLICATE (Num (ABS n)) v)) (Varray_t t)`
+   `type_sv ffi.signatures  ctMap tenvS (Varray (REPLICATE (Num (ABS n)) v)) (Varray_t t)`
      by rw [type_sv_def, EVERY_REPLICATE]
    >> drule store_alloc_type_sound
    >> rpt (disch_then drule)
@@ -1149,7 +1145,7 @@ Proof
    rename1 `AallocEmpty` >>
    rw [do_app_cases, PULL_EXISTS] >>
    rename1`Tapp [t1] Tarray_num` >>
-   `type_sv ctMap tenvS (Varray []) (Varray_t t1)`
+   `type_sv ffi.signatures  ctMap tenvS (Varray []) (Varray_t t1)`
      by rw [type_sv_def]
    >> drule store_alloc_type_sound
    >> rpt (disch_then drule)
@@ -1193,8 +1189,8 @@ Proof
    >> Cases_on `Num (ABS n) ≥ LENGTH vs`
    >> rw [type_v_exn]
    >- metis_tac [store_type_extension_refl]
-   >> qmatch_assum_rename_tac `type_v _ _ _ _ (Tapp [t] Tarray_num)`
-   >> `type_sv ctMap tenvS (Varray (LUPDATE x (Num (ABS n)) vs)) (Varray_t t)`
+   >> qmatch_assum_rename_tac `type_v _ _ _ _ _ (Tapp [t] Tarray_num)`
+   >> `type_sv ffi.signatures ctMap tenvS (Varray (LUPDATE x (Num (ABS n)) vs)) (Varray_t t)`
      by (
        rw [type_sv_def]
        >> irule IMP_EVERY_LUPDATE
@@ -1446,23 +1442,20 @@ Proof
                TRY (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]))))
 QED
 
-
-
-
 Theorem build_conv_type_sound:
- !envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.
+ !signs envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.
  nsAll2 (type_ctor ctMap) envC tenvC ∧
  do_con_check envC (SOME cn) l ∧
  num_tvs tenvE = 0 ∧
  EVERY (check_freevars (num_tvs (bind_tvar tvs tenvE)) []) ts' ∧
  LENGTH tvs' = LENGTH ts' ∧
- LIST_REL (type_v tvs ctMap tenvS) vs
+ LIST_REL (type_v signs tvs ctMap tenvS) vs
    (REVERSE (MAP (type_subst (alist_to_fmap (ZIP (tvs',ts')))) ts)) ∧
  nsLookup tenvC cn = SOME (tvs',ts,tn)
  ⇒
  ?v.
    build_conv envC (SOME cn) (REVERSE vs) = SOME v ∧
-   type_v tvs ctMap tenvS v (Tapp ts' tn)
+   type_v signs tvs ctMap tenvS v (Tapp ts' tn)
 Proof
  rw []
  >> drule do_con_check_build_conv
@@ -1511,30 +1504,30 @@ val pat_sound_tac =
  NO_TAC;
 
 Theorem pat_type_sound:
-  (∀(cenv : env_ctor) st p v bindings tenv ctMap tbindings t new_tbindings tenvS tvs.
+  (∀(cenv : env_ctor) st p v bindings tenv ctMap tbindings t new_tbindings tenvS tvs signs.
    ctMap_ok ctMap ∧
    nsAll2 (type_ctor ctMap) cenv tenv.c ∧
-   type_v tvs ctMap tenvS v t ∧
+   type_v signs tvs ctMap tenvS v t ∧
    type_p tvs tenv p t new_tbindings ∧
-   type_s ctMap st tenvS ∧
-   LIST_REL (λ(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings tbindings
+   type_s signs ctMap st tenvS ∧
+   LIST_REL (λ(x,v) (x',t). x = x' ∧ type_v signs tvs ctMap tenvS v t) bindings tbindings
    ⇒
    pmatch cenv st p v bindings = No_match ∨
    (?bindings'.
      pmatch cenv st p v bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings))) ∧
-  (∀(cenv : env_ctor) st ps vs bindings tenv ctMap tbindings new_tbindings ts tenvS tvs.
+     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v signs tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings))) ∧
+  (∀(cenv : env_ctor) st ps vs bindings tenv ctMap tbindings new_tbindings ts tenvS tvs signs.
    ctMap_ok ctMap ∧
    nsAll2 (type_ctor ctMap) cenv tenv.c ∧
-   LIST_REL (type_v tvs ctMap tenvS) vs ts ∧
+   LIST_REL (type_v signs tvs ctMap tenvS) vs ts ∧
    type_ps tvs tenv ps ts new_tbindings ∧
-   type_s ctMap st tenvS ∧
-   LIST_REL (λ(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings tbindings
+   type_s signs ctMap st tenvS ∧
+   LIST_REL (λ(x,v) (x',t). x = x' ∧ type_v signs tvs ctMap tenvS v t) bindings tbindings
    ⇒
    pmatch_list cenv st ps vs bindings = No_match ∨
    (?bindings'.
      pmatch_list cenv st ps vs bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings)))
+     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v signs tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings)))
 Proof
  ho_match_mp_tac pmatch_ind
  >> rw [pmatch_def]
@@ -1544,7 +1537,7 @@ Proof
  >> rw [bind_var_list_def]
  >- pat_sound_tac
  >- (
-   qpat_x_assum `type_v _ _ _ _ _` mp_tac
+   qpat_x_assum `type_v _ _ _ _ _ _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
    >> drule type_env_conv_thm
@@ -1566,7 +1559,7 @@ Proof
      fs [ctMap_ok_def] >>
      metis_tac []))
  >- (
-   qpat_x_assum `type_v _ _ _ _ _` mp_tac
+   qpat_x_assum `type_v _ _ _ _ _ _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
    >> first_x_assum irule
@@ -1579,7 +1572,7 @@ Proof
    >> rw []
    >> metis_tac [type_ps_length, LIST_REL_LENGTH])
  >- (
-   qpat_x_assum `type_v _ _ _ _ _` mp_tac
+   qpat_x_assum `type_v _ _ _ _ _ _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
    >> fs [type_s_def]
@@ -1633,16 +1626,17 @@ Proof
  >- pat_sound_tac
 QED
 
+
 Theorem lookup_var_sound:
-   !n tvs tenvE targs t ctMap tenvS env tenv.
+   !signs n tvs tenvE targs t ctMap tenvS env tenv.
     lookup_var n (bind_tvar tvs tenvE) tenv = SOME (LENGTH targs, t) ∧
     ctMap_ok ctMap ∧
     tenv_val_exp_ok tenvE ∧
     num_tvs tenvE = 0 ∧
     EVERY (check_freevars tvs []) targs ∧
-    type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v)
+    type_all_env signs ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v)
     ⇒
-    ?v. nsLookup env.v n = SOME v ∧ type_v tvs ctMap tenvS v (deBruijn_subst 0 targs t)
+    ?v. nsLookup env.v n = SOME v ∧ type_v signs tvs ctMap tenvS v (deBruijn_subst 0 targs t)
 Proof
  rw [lookup_var_def, type_all_env_def]
  >> `nsLookup (add_tenvE tenvE tenv.v) n = SOME (LENGTH targs, t)`
@@ -1667,50 +1661,123 @@ Proof
  >- metis_tac [nsLookup_add_tenvE3]
 QED
 
+
+Theorem do_ffi_SOME_same_signs:
+   do_ffi refs ffi n args = SOME ((refs',ffi'),r) ⇒ ffi.signatures = ffi'.signatures
+Proof
+  rw[do_ffi_def]
+  >> fs[ffiTheory.call_FFI_def]
+  >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+  >> simp []
+QED
+
+
+Theorem do_app_SOME_same_signs:
+   do_app (refs,ffi) op args = SOME ((refs',ffi'),r) ⇒ ffi.signatures = ffi'.signatures
+Proof
+  rw[] >>
+  fs[do_app_cases] >>
+  rw[] >> fs [] >>
+  metis_tac[do_ffi_SOME_same_signs]
+QED
+
+
+Theorem evaluate_ffi_signs_eq:
+   (!(s:'ffi semanticPrimitives$state) env es. s.ffi.signatures = (FST(evaluate s env es)).ffi.signatures) /\
+   (!(s:'ffi semanticPrimitives$state) e v pes errv. s.ffi.signatures = (FST(evaluate_match s e v pes errv)).ffi.signatures)
+Proof
+  ho_match_mp_tac evaluate_ind >>
+  srw_tac[][evaluate_def] >> every_case_tac >> full_simp_tac(srw_ss())[]
+  >- fs [dec_clock_def]
+  >- (
+    rename1`do_app _ _ _ = SOME _` >>
+    metis_tac[do_app_SOME_same_signs])
+QED
+
+
+Theorem do_ffi_SOME_same_signs:
+   ffi_oracle_ok ffi /\ do_ffi refs ffi n args = SOME ((refs',ffi'),r)  ⇒ ffi_oracle_ok ffi'
+Proof
+  rw[do_ffi_def]
+  >> fs[ffiTheory.call_FFI_def]
+  >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+  >> rw [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
+  >- fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
+  >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def] >> cheat)
+  >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def] >> cheat)
+  >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def] >> cheat)
+QED
+
+Theorem do_app_some_ffi_oracle_ok:
+  ffi_oracle_ok ffi /\ do_app (refs,ffi) op args = SOME ((refs',ffi'),r) ==> ffi_oracle_ok ffi'
+Proof
+  rw[] >>
+  fs[do_app_cases] >>
+  rw[] >> fs [] >>
+  metis_tac [do_ffi_SOME_same_signs]
+QED
+
+
+Theorem evaluate_ffi_oracle_ok:
+  (!(s:'ffi semanticPrimitives$state) env es. ffi_oracle_ok s.ffi  ==> ffi_oracle_ok (FST(evaluate s env es)).ffi) /\
+  (!(s:'ffi semanticPrimitives$state) e v pes errv. ffi_oracle_ok s.ffi ==> ffi_oracle_ok (FST(evaluate_match s e v pes errv)).ffi)
+Proof
+  ho_match_mp_tac evaluate_ind
+  >> rw [evaluate_def]
+  >> every_case_tac
+  >> fs []
+  >> rw [dec_clock_def]
+  >> rfs []
+  >> metis_tac [do_app_some_ffi_oracle_ok]
+QED
+
+
 Theorem exp_type_sound:
-  (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS signs.
+  (!(s:'ffi semanticPrimitives$state) env es r s' tenv tenvE ts tvs tenvS.
     evaluate s env es = (s', r) ∧
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     good_ctMap ctMap ∧
     num_tvs tenvE = 0 ∧
-    type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
-    type_s ctMap s.refs tenvS ∧
+    type_all_env (s.ffi.signatures) ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
+    type_s (s.ffi.signatures) ctMap s.refs tenvS ∧
     (tvs ≠ 0 ⇒ EVERY is_value es) ∧
-    type_es signs tenv (bind_tvar tvs tenvE) es ts
+    ffi_oracle_ok s.ffi /\
+    type_es (s.ffi.signatures) tenv (bind_tvar tvs tenvE) es ts
     ⇒
     ∃tenvS'.
-      type_s ctMap s'.refs tenvS' ∧
+      type_s (s.ffi.signatures) ctMap s'.refs tenvS' ∧
       store_type_extension tenvS tenvS' ∧
       case r of
-         | Rval vs => LIST_REL (type_v tvs ctMap tenvS') vs ts
-         | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+         | Rval vs => LIST_REL (type_v (s.ffi.signatures) tvs ctMap tenvS') vs ts
+         | Rerr (Rraise v) => type_v (s.ffi.signatures) 0 ctMap tenvS' v Texn
          | Rerr (Rabort Rtimeout_error) => T
          | Rerr (Rabort (Rffi_error _)) => T
          | Rerr (Rabort Rtype_error) => F) ∧
- (!(s:'ffi semanticPrimitives$state) env v pes err_v r s' tenv tenvE t1 t2 tvs tenvS signs.
+ (!(s:'ffi semanticPrimitives$state) env v pes err_v r s' tenv tenvE t1 t2 tvs tenvS.
     evaluate_match s env v pes err_v = (s', r) ∧
     tenv_ok tenv ∧
     tenv_val_exp_ok tenvE ∧
     good_ctMap ctMap ∧
     num_tvs tenvE = 0 ∧
-    type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
-    type_s ctMap s.refs tenvS ∧
-    type_v tvs ctMap tenvS v t1 ∧
-    type_v 0 ctMap tenvS err_v Texn ∧
-    type_pes signs tvs tvs tenv tenvE pes t1 t2
+    type_all_env (s.ffi.signatures) ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
+    type_s (s.ffi.signatures) ctMap s.refs tenvS ∧
+    type_v (s.ffi.signatures) tvs ctMap tenvS v t1 ∧
+    type_v (s.ffi.signatures) 0 ctMap tenvS err_v Texn ∧
+    ffi_oracle_ok s.ffi /\
+    type_pes (s.ffi.signatures) tvs tvs tenv tenvE pes t1 t2
     ⇒
     ∃tenvS'.
-      type_s ctMap s'.refs tenvS' ∧
+      type_s (s.ffi.signatures) ctMap s'.refs tenvS' ∧
       store_type_extension tenvS tenvS' ∧
       case r of
-         | Rval vs => type_v tvs ctMap tenvS' (HD vs) t2
-         | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+         | Rval vs => type_v (s.ffi.signatures) tvs ctMap tenvS' (HD vs) t2
+         | Rerr (Rraise v) => type_v (s.ffi.signatures) 0 ctMap tenvS' v Texn
          | Rerr (Rabort Rtimeout_error) => T
          | Rerr (Rabort (Rffi_error _)) => T
          | Rerr (Rabort Rtype_error) => F)
 Proof
-(* ho_match_mp_tac evaluate_ind
+ ho_match_mp_tac evaluate_ind
  >> simp [evaluate_def, type_es_list_rel, GSYM CONJ_ASSOC, good_ctMap_def]
  >> rw []
  >- metis_tac [store_type_extension_refl]
@@ -1731,22 +1798,29 @@ Proof
    >> rpt (disch_then drule)
    >> rw []
    >> rename1 `store_type_extension _ new_tenvS`
-   >> `type_all_env ctMap new_tenvS env (tenv with v := add_tenvE tenvE tenv.v)`
+   >> `type_all_env (s.ffi.signatures) ctMap new_tenvS env (tenv with v := add_tenvE tenvE tenv.v)`
      by metis_tac [store_type_extension_weakS, type_all_env_weakening, weakCT_refl]
    >> first_x_assum drule
    >> rpt (disch_then drule)
    >> simp [PULL_EXISTS, GSYM CONJ_ASSOC]
    >> rpt (disch_then drule)
    >> rw []
-   >> Cases_on `r2`
+   >>  Cases_on `r2`
    >> fs []
+   >> rw []
+   >> `s1.ffi.signatures = s.ffi.signatures` by
+          (qspecl_then [`s`, `env`, `[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+   >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
+   >> fs []
+   >> first_x_assum drule_all
    >> rw []
    >> metis_tac [store_type_extension_trans, store_type_extension_weakS,
                  weakCT_refl, type_all_env_weakening, type_v_weakening])
  >- (
    pop_assum mp_tac
    >> simp [Once type_e_cases, Once type_v_cases]
-   >> metis_tac [store_type_extension_refl])
+   >> metis_tac [store_type_extension_refl]
+    )
  >- (
    pop_assum mp_tac
    >> simp [Once type_e_cases]
@@ -1793,8 +1867,8 @@ Proof
    >> fs [type_pes_def]
    >> rw []
    >- (
-     rename1`type_v 0 ctMap tenvS' _ _` >>
-     `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+      rename1`type_v _ 0 ctMap tenvS' _ _` >>
+     `type_all_env (s.ffi.signatures) ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
        by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
      >> first_x_assum drule
      >> rpt (disch_then drule)
@@ -1805,8 +1879,14 @@ Proof
      >> imp_res_tac evaluate_length
      >> fs [sing_list]
      >> fs [bind_tvar_def]
+     >> `s1.ffi.signatures = s.ffi.signatures` by
+          (qspecl_then [`s`, `env`, `[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+     >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
+     >> fs []
+     >> first_x_assum drule_all
+     >> rw []
      >> metis_tac [store_type_extension_trans, type_v_freevars])
-   >- metis_tac [])
+   >- metis_tac [] )
  >- (
    qpat_x_assum `type_e _ _ _ (Con _ _) _` mp_tac
    >> simp [Once type_e_cases]
@@ -1837,7 +1917,7 @@ Proof
      >> rw []
      >> fs []
      >> rw []
-     >> metis_tac [])
+     >> metis_tac [] )
    >- metis_tac []
    >- (
      fs [build_conv_def]
@@ -1895,7 +1975,7 @@ Proof
    >- (
      Cases_on `op = Opapp`
      >> fs []
-     >> rename1 `LIST_REL (type_v 0 _ _) vs _`
+     >> rename1 `LIST_REL (type_v _ 0 _ _) vs _`
      >- (
        drule opapp_type_sound
        >> fs [EVERY2_REVERSE1]
@@ -1908,11 +1988,16 @@ Proof
        >> rw []
        >- metis_tac []
        >> fs [type_all_env_def]
+       >> `s1.ffi.signatures = s.ffi.signatures` by
+          (qspecl_then [`s`, `env`, `REVERSE es`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+       >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`REVERSE es`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
        >> first_x_assum drule
        >> rpt (disch_then drule)
+       >> fs [dec_clock_def]
+       >> rpt (disch_then drule)
        >> fs [dec_clock_def, PULL_EXISTS]
-       >> rename1 `type_e tenv' tenvE' e t`
-       >> rename1 `type_s _ _ tenvS'`
+       >> rename1 `type_e _ tenv' tenvE' e t`
+       >> rename1 `type_s _ _ _ tenvS'`
        >> disch_then (qspecl_then [`0`, `t`] mp_tac)
        >> simp [bind_tvar_def]
        >> rw []
@@ -1921,8 +2006,12 @@ Proof
        fs [bind_tvar_def]
        >> `good_ctMap ctMap` by simp [good_ctMap_def]
        >> drule op_type_sound
+       >> disch_then drule
+       >> `s.ffi.signatures = s1.ffi.signatures` by
+          (qspecl_then [`s`, `env`, `REVERSE es`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+       >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`REVERSE es`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
+       >> fs []
        >> rpt (disch_then drule)
-       >> disch_then (qspec_then `s1.ffi` mp_tac)
        >> rw []
        >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
        >> Cases_on `r1`
@@ -1959,6 +2048,9 @@ Proof
    >> fs []
    >> rw []
    >- (
+     `s1.ffi.signatures = s.ffi.signatures` by
+          (qspecl_then [`s`, `env`, `[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+     >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs []) >>
      MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
          (CONJUNCTS ctor_canonical_values_thm) >>
      rw [] >>
@@ -1968,8 +2060,8 @@ Proof
      >> fs []
      >> rw []
      >- (
-       rename1`type_s _ _ tenvS'` >>
-       `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+       rename1`type_s _ _ _ tenvS'` >>
+       `type_all_env (s.ffi.signatures) ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
          by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
        >> first_x_assum drule
        >> rpt (disch_then drule)
@@ -1981,8 +2073,8 @@ Proof
      >- metis_tac []
      >- metis_tac []
      >- (
-       rename1`type_s _ _ tenvS'` >>
-       `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+       rename1`type_s _ _ _ tenvS'` >>
+       `type_all_env (s.ffi.signatures) ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
          by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
        >> first_x_assum drule
        >> rpt (disch_then drule)
@@ -2000,6 +2092,9 @@ Proof
    >> rename1 `evaluate _ _ _ = (s1,r1)`
    >> rw []
    >> rfs [is_value_def, bind_tvar_def]
+   >> `s1.ffi.signatures = s.ffi.signatures` by
+          (qspecl_then [`s`, `env`, `[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+   >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
    >> first_x_assum drule
    >> rpt (disch_then drule)
    >> simp [PULL_EXISTS]
@@ -2013,11 +2108,11 @@ Proof
      MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
          (CONJUNCTS ctor_canonical_values_thm) >>
      rw []
-     >> rename1`type_s _ _ tenvS'`
+     >> rename1`type_s _ _ _ tenvS'`
      >> Cases_on `b`
      >> fs [do_if_def, Boolv_def]
      >> rw []
-     >> `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+     >> `type_all_env (s.ffi.signatures) ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
        by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
      >> first_x_assum drule
      >> rpt (disch_then drule)
@@ -2048,10 +2143,13 @@ Proof
    >> rw []
    >> rw []
    >- (
-     fs [type_pes_def]
+    `s1.ffi.signatures = s.ffi.signatures` by
+          (qspecl_then [`s`, `env`, `[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+   >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
+     >> fs [type_pes_def]
      >> rw []
-     >> rename1`type_s _ _ tenvS'`
-     >> `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+     >> rename1`type_s _ _ _ tenvS'`
+     >> `type_all_env (s.ffi.signatures) ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
        by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
      >> first_x_assum drule
      >> rpt (disch_then drule)
@@ -2064,7 +2162,7 @@ Proof
      >> imp_res_tac evaluate_length
      >> fs [sing_list]
      >> fs [bind_tvar_def]
-     >> metis_tac [store_type_extension_trans, type_v_freevars])
+     >> metis_tac [store_type_extension_trans, type_v_freevars] )
    >- metis_tac [])
  >- (
    pop_assum mp_tac
@@ -2085,15 +2183,18 @@ Proof
    >> fs []
    >> rw []
    >- (
-     rename1 `type_e tenv (opt_bind_name n 0 t1 tenvE) e2 t2` >>
-     rename1 `type_s _ _ tenvS'`
+     rename1 `type_e _ tenv (opt_bind_name n 0 t1 tenvE) e2 t2` >>
+     rename1 `type_s _ _ _ tenvS'`
+     >> `s1.ffi.signatures = s.ffi.signatures` by
+          (qspecl_then [`s`, `env`, `[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+     >> `ffi_oracle_ok s1.ffi` by (qspecl_then [`s`,`env`,`[e1]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
      >> qabbrev_tac `env' = nsOptBind n (HD [x]) env.v`
      >> qabbrev_tac `tenv' = opt_bind_name n 0 t1 tenvE`
      >> drule type_v_freevars
      >> rw []
      >> `tenv_val_exp_ok tenv'`
        by (Cases_on `n` >> fs [opt_bind_name_def, tenv_val_exp_ok_def, Abbr `tenv'`] >> NO_TAC)
-     >> `type_all_env ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
+     >> `type_all_env (s.ffi.signatures) ctMap tenvS' env (tenv with v := add_tenvE tenvE tenv.v)`
        by metis_tac [type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
      >> first_x_assum drule
      >> rpt (disch_then drule)
@@ -2102,7 +2203,7 @@ Proof
      >> `num_tvs tenv' = 0`
        by (Cases_on `n` >> fs [opt_bind_name_def, Abbr `tenv'`] >> NO_TAC)
      >> simp []
-     >> `type_all_env ctMap tenvS' (env with v := env') (tenv with v := add_tenvE tenv' tenv.v)`
+     >> `type_all_env (s.ffi.signatures) ctMap tenvS' (env with v := env') (tenv with v := add_tenvE tenv' tenv.v)`
        by (
          fs [type_all_env_def, Abbr `env'`, Abbr `tenv'`]
          >> Cases_on `n`
@@ -2172,7 +2273,7 @@ Proof
    >> rw []
    >> imp_res_tac type_v_freevars
    >> fs []
-   >> qpat_x_assum `type_v _ _ _ _ (Tapp [] TC_exn)` mp_tac
+   >> qpat_x_assum `type_v _ _ _ _ _ (Tapp [] TC_exn)` mp_tac
    >> drule (hd (CONJUNCTS pat_type_sound))
    >> fs [type_all_env_def]
    >> rpt (disch_then drule)
@@ -2187,7 +2288,7 @@ Proof
      `tenv_val_exp_ok (bind_var_list tvs bindings tenvE)`
        by metis_tac [type_p_bvl]
      >> rename1`pmatch _ _ _ _ _ = Match bindings'`
-     >> `nsAll2 (λi v (tvs,t). type_v tvs ctMap tenvS v t)
+     >> `nsAll2 (λi v (tvs,t). type_v (s.ffi.signatures) tvs ctMap tenvS v t)
            (nsAppend (alist_to_ns bindings') env.v)
            (add_tenvE (bind_var_list tvs bindings tenvE) tenv.v)`
        by (
@@ -2211,13 +2312,12 @@ Proof
      >> rw []
      >> Cases_on `r`
      >> fs []
-     >> metis_tac [type_v_weakening, weakCT_refl, weakS_refl]))
+     >> metis_tac [type_v_weakening, weakCT_refl, weakS_refl])  )
  >- (
    CCONTR_TAC
    >> fs [type_pes_def, RES_FORALL]
    >> pop_assum (qspec_then `(p,e)` mp_tac)
-   >> simp []) *)
-cheat
+   >> simp [])
 QED
 
 val let_tac =
@@ -2226,7 +2326,7 @@ val let_tac =
   >> fs []
   >> rw []
   >- ( (* a value *)
-    `type_all_env ctMap tenvS'' env tenv`
+    `type_all_env (st.ffi.signatures) ctMap tenvS'' env tenv`
       by metis_tac [good_ctMap_def, type_all_env_weakening, weakCT_refl, store_type_extension_weakS]
     >> fs [good_ctMap_def, type_all_env_def]
     >> drule (CONJUNCT1 pat_type_sound)
@@ -2262,7 +2362,7 @@ val let_tac =
       >> conj_tac
       >- metis_tac [consistent_ctMap_def, evaluate_state_unchanged]
       >> irule nsAll2_mono
-      >> qexists_tac `(λi v (tvs,t). type_v tvs ctMap tenvS v t)`
+      >> qexists_tac `(λi v (tvs,t). type_v (st.ffi.signatures) tvs ctMap tenvS v t)`
       >> rw []
       >> pairarg_tac
       >> fs []
@@ -2354,19 +2454,43 @@ val check_ctor_tenv_dups = Q.prove (
   rw [check_ctor_tenv_def]);
 
 Theorem type_all_env_extend:
-   type_all_env ctMap tenvS env1 tenv1
-    /\ type_all_env ctMap tenvS env2 tenv2
-    ==> type_all_env ctMap tenvS (extend_dec_env env1 env2)
+   type_all_env signs ctMap tenvS env1 tenv1
+    /\ type_all_env signs ctMap tenvS env2 tenv2
+    ==> type_all_env signs ctMap tenvS (extend_dec_env env1 env2)
         (extend_dec_tenv tenv1 tenv2)
 Proof
   fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def]
   \\ metis_tac [nsAll2_nsAppend]
 QED
 
+
+Theorem evaluate_decs_ffi_signs_eq:
+   !(st:'ffi semanticPrimitives$state) env ds. st.ffi.signatures = (FST(evaluate_decs st env ds)).ffi.signatures
+Proof
+  ho_match_mp_tac evaluate_decs_ind >>
+  srw_tac[][evaluate_decs_def] >> every_case_tac >> full_simp_tac(srw_ss())[]
+  >> qspecl_then [`st`, `env`, `[e]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> fs []
+QED
+
+
+
+
+Theorem evaluate_decs_ffi_oracle_ok:
+  !(s:'ffi semanticPrimitives$state) env ds. ffi_oracle_ok s.ffi  ==> ffi_oracle_ok (FST(evaluate_decs s env ds)).ffi
+Proof
+  ho_match_mp_tac evaluate_decs_ind
+  >> rw [evaluate_decs_def]
+  >> every_case_tac
+  >> fs []
+  >> qspecl_then [`s`, `env`, `[e]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs []
+QED
+
+
 Theorem decs_type_sound_no_check:
   ∀(st:'ffi semanticPrimitives$state) env ds st' r ctMap tenvS tenv tids tenv'.
    evaluate_decs st env ds = (st',r) ∧
-   type_ds F tenv ds tids tenv' ∧
+   type_ds (st.ffi.signatures) F tenv ds tids tenv' ∧
+   ffi_oracle_ok st.ffi /\
    type_sound_invariant st env ctMap tenvS tids tenv
    ⇒
    ∃ctMap' tenvS'.
@@ -2375,11 +2499,11 @@ Theorem decs_type_sound_no_check:
      store_type_extension tenvS tenvS' ∧
      case r of
      | Rval env' =>
-       type_all_env ctMap' tenvS' env' tenv' ∧
+       type_all_env (st.ffi.signatures) ctMap' tenvS' env' tenv' ∧
        type_sound_invariant st' (extend_dec_env env' env)
          ctMap' tenvS' {} (extend_dec_tenv tenv' tenv)
      | Rerr (Rraise err_v) =>
-       type_v 0 ctMap' tenvS' err_v Texn ∧
+       type_v (st.ffi.signatures) 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env ctMap' tenvS' {} tenv
      | Rerr (Rabort Rtype_error) => F
      | Rerr (Rabort Rtimeout_error) => T
@@ -2394,7 +2518,7 @@ Proof
    simp [extend_dec_env_def, extend_dec_tenv_def, type_all_env_def]
    >> metis_tac [store_type_extension_refl, weakCT_refl, DIFF_EQ_EMPTY])
  >- ( (* case d1::d2::ds *)
-   qpat_x_assum `type_ds _ _ (_::_::_) _ _` mp_tac >>
+   qpat_x_assum `type_ds _ _ _ (_::_::_) _ _` mp_tac >>
    simp [Once type_d_cases] >>
    rw [] >>
    split_pair_case_tac
@@ -2403,7 +2527,9 @@ Proof
    >> Cases_on `r1`
    >> fs []
    >- (
-     split_pair_case_tac
+     `st1.ffi.signatures = st.ffi.signatures` by (qspecl_then [`st`,`env`,`[d1]`] assume_tac evaluate_decs_ffi_signs_eq >> fs [])
+     >> `ffi_oracle_ok st1.ffi` by (qspecl_then [`st`,`env`,`[d1]`] assume_tac evaluate_decs_ffi_oracle_ok >> rfs [])
+     >> split_pair_case_tac
      >> fs []
      >> rw []
      >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ = (st2, r2)`
@@ -2437,18 +2563,22 @@ Proof
      >- (
        fs [type_sound_invariant_def, good_ctMap_def, extend_dec_env_def]
        >> fs [extend_dec_tenv_def, extend_dec_env_def]
-       >> `type_all_env ctMap0 tenvS1 env1 tenv1`
+       >> `type_all_env (st.ffi.signatures) ctMap0 tenvS1 env1 tenv1`
          by metis_tac [type_all_env_weakening, store_type_extension_weakS]
        >> fs [type_all_env_def]
        >> metis_tac [nsAll2_nsAppend])
      >- (
        Cases_on `e`
        >> fs []
+       >> `st2.ffi.signatures = st1.ffi.signatures` by
+       (qspecl_then [`st1`,`extend_dec_env env1 env`,`(d2::ds)`] assume_tac evaluate_decs_ffi_signs_eq >> fs [])
        >> fs [type_sound_invariant_def]
        >- metis_tac [type_all_env_weakening, weakCT_trans,
                      store_type_extension_weakS, store_type_extension_trans]))
    >- (
-     rw []
+     `st1.ffi.signatures = st.ffi.signatures` by (qspecl_then [`st`,`env`,`[d1]`] assume_tac evaluate_decs_ffi_signs_eq >> fs [])
+     >> `ffi_oracle_ok st1.ffi` by (qspecl_then [`st`,`env`,`[d1]`] assume_tac evaluate_decs_ffi_oracle_ok >> rfs [])
+     >> rw []
      >> fs []
      >> first_x_assum drule
      >> drule type_sound_invariant_union
@@ -2464,6 +2594,9 @@ Proof
    split_pair_case_tac
    >> fs []
    >> rename1 `evaluate _ _ _ = (st1, r1)`
+   >> `st1.ffi.signatures = st.ffi.signatures` by
+          (qspecl_then [`st`, `env`, `[e]`] assume_tac (CONJUNCT1 evaluate_ffi_signs_eq) >> rfs [])
+   >> `ffi_oracle_ok st1.ffi` by (qspecl_then [`st`,`env`,`[e]`] assume_tac (CONJUNCT1 evaluate_ffi_oracle_ok) >> rfs [])
    >> drule (hd (CONJUNCTS exp_type_sound))
    >> fs [type_sound_invariant_def]
    >> disch_then drule
@@ -2500,7 +2633,7 @@ Proof
      fs [type_all_env_def]
      >> irule nsAll2_nsAppend
      >> simp [])
-   >> `type_all_env ctMap tenvS env (tenv with v := add_tenvE Empty tenv.v)`
+   >> `type_all_env (st.ffi.signatures) ctMap tenvS env (tenv with v := add_tenvE Empty tenv.v)`
      by rw [add_tenvE_def]
    >> drule type_recfun_env
    >> rpt (disch_then drule)
@@ -2650,7 +2783,7 @@ Proof
        decide_tac))
    >> conj_tac
    >- (
-     `type_all_env (FEMPTY |++ REVERSE (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities) ⊌ ctMap) tenvS env tenv`
+     `type_all_env (st.ffi.signatures) (FEMPTY |++ REVERSE (type_def_to_ctMap new_tabbrev st.next_type_stamp tds type_identities) ⊌ ctMap) tenvS env tenv`
      by metis_tac [type_all_env_weakening, weakS_refl] >>
      fs [type_all_env_def, extend_dec_tenv_def] >>
      rw [] >>
@@ -2770,14 +2903,14 @@ Proof
    >> conj_tac
    >- (
      qmatch_assum_abbrev_tac `weakCT ctMap' _`
-     >> `type_all_env ctMap' tenvS env tenv`
+     >> `type_all_env (st.ffi.signatures) ctMap' tenvS env tenv`
        by metis_tac [type_all_env_weakening, weakS_refl]
      >> fs [type_all_env_def, extend_dec_tenv_def, extend_dec_env_def]
      >> irule nsAll2_nsBind
      >> simp [])
    >- metis_tac [type_s_weakening, good_ctMap_def])
  >- ( (* Case module *)
-   qpat_x_assum `type_d _ _ (Dmod _ _) _ _` mp_tac >>
+   qpat_x_assum `type_d _ _ _ (Dmod _ _) _ _` mp_tac >>
    rw [Once type_d_cases] >>
    split_pair_case_tac >>
    fs [] >>
@@ -2805,6 +2938,7 @@ Proof
        PairCases_on `arg2` >>
        fs [type_ctor_def])
      >- (
+       `st'.ffi.signatures = st.ffi.signatures` by (qspecl_then [`st`,`env`,`ds`] assume_tac evaluate_decs_ffi_signs_eq >> fs []) >>
        fs [type_sound_invariant_def] >>
        rw []
        >- (
@@ -2814,7 +2948,7 @@ Proof
              extend_dec_tenv_def] >>
          metis_tac [nsAll_nsAppend_left])
        >- (
-         `type_all_env ctMap1 tenvS1 env tenv`
+         `type_all_env (st.ffi.signatures) ctMap1 tenvS1 env tenv`
          by metis_tac [type_all_env_weakening, store_type_extension_weakS] >>
          fs [type_all_env_def, extend_dec_env_def, extend_dec_tenv_def] >>
          rw [] >>
@@ -2832,7 +2966,7 @@ Proof
      disch_then drule >>
      rw []))
  >- ( (* case local *)
-   qpat_x_assum `type_d _ _ (Dlocal _ _) _ _` mp_tac
+   qpat_x_assum `type_d _ _ _ (Dlocal _ _) _ _` mp_tac
    >> rw [Once type_d_cases]
    >> Cases_on `evaluate_decs st env ds`
    >> fs []
@@ -2841,9 +2975,10 @@ Proof
    >> first_assum (assume_tac o MATCH_MP type_sound_invariant_union)
    >> disch_then drule
    >> Cases_on `r1` >> fs []
-   >- (
-     rw []
-     >> rename1 `evaluate_decs _ (extend_dec_env env1 _) _ = (st2, r2)`
+   >- ( rw [] >>
+     `st1.ffi.signatures = st.ffi.signatures` by (qspecl_then [`st`,`env`,`ds`] assume_tac evaluate_decs_ffi_signs_eq >> fs [])
+     >> `ffi_oracle_ok st1.ffi` by (qspecl_then [`st`,`env`,`ds`] assume_tac evaluate_decs_ffi_oracle_ok >> rfs [])
+     >> fs []
      >> first_x_assum drule
      >> disch_then (mp_tac o Q.SPECL [`ctMap'`, `tenvS'`])
      >> impl_keep_tac
@@ -2868,13 +3003,17 @@ Proof
          >- metis_tac [type_d_tenv_ok_helper, extend_dec_tenv_ok]
          >> match_mp_tac type_all_env_extend
          >> fs []
+         >> `st'.ffi.signatures = st1.ffi.signatures`
+             by (qspecl_then [`st1`,`(extend_dec_env a env)`,`ds'`] assume_tac evaluate_decs_ffi_signs_eq >> fs [])
          >> metis_tac [type_all_env_weakening, weakCT_trans, store_type_extension_weakS]
        )
        >> CASE_TAC >> fs []
        >> fs [type_sound_invariant_def]
+       >> `st'.ffi.signatures = st1.ffi.signatures`
+             by (qspecl_then [`st1`,`(extend_dec_env a env)`,`ds'`] assume_tac evaluate_decs_ffi_signs_eq >> fs [])
        >> metis_tac [type_all_env_weakening, weakCT_trans, store_type_extension_weakS]
      )
-   )
+    )
    >- (
      rveq
      >> fs []
@@ -2888,7 +3027,8 @@ QED
 Theorem decs_type_sound:
   ∀(st:'ffi semanticPrimitives$state) env ds extra_checks st' r ctMap tenvS tenv tids tenv'.
    evaluate_decs st env ds = (st',r) ∧
-   type_ds extra_checks tenv ds tids tenv' ∧
+   type_ds (st.ffi.signatures) extra_checks tenv ds tids tenv' ∧
+   ffi_oracle_ok st.ffi /\
    type_sound_invariant st env ctMap tenvS tids tenv
    ⇒
    ∃ctMap' tenvS'.
@@ -2897,11 +3037,11 @@ Theorem decs_type_sound:
      store_type_extension tenvS tenvS' ∧
      case r of
      | Rval env' =>
-       type_all_env ctMap' tenvS' env' tenv' ∧
+       type_all_env (st.ffi.signatures) ctMap' tenvS' env' tenv' ∧
        type_sound_invariant st' (extend_dec_env env' env)
          ctMap' tenvS' {} (extend_dec_tenv tenv' tenv)
      | Rerr (Rraise err_v) =>
-       type_v 0 ctMap' tenvS' err_v Texn ∧
+       type_v (st.ffi.signatures) 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env ctMap' tenvS' {} tenv
      | Rerr (Rabort Rtype_error) => F
      | Rerr (Rabort (Rffi_error _)) => T
@@ -2916,6 +3056,10 @@ Proof
   fs []
 QED
 
+
+
+
+
      (*
 val type_sound_invariant_def = Define `
 type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
@@ -2926,7 +3070,7 @@ type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
     good_ctMap ctMap ∧
     weak tenv_no_sig tenv ∧
     type_all_env ctMap tenvS env tenv_no_sig ∧
-    type_s ctMap st.refs tenvS ∧
+    type_s signs ctMap st.refs tenvS ∧
     weak_decls tdecs_no_sig tdecs ∧
     weak_decls_only_mods tdecs_no_sig tdecs ∧
     consistent_decls st.defined_types tdecs_no_sig ∧
@@ -2953,7 +3097,7 @@ Theorem tops_type_sound_no_extra_checks:
        type_sound_invariant st' (extend_dec_env env' env)
          (union_decls tdecs1' tdecs1) ctMap' tenvS' (extend_dec_tenv tenv' tenv)
      | Rerr (Rraise err_v) =>
-       type_v 0 ctMap' tenvS' err_v Texn ∧
+       type_v signs 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env (union_decls tdecs1' tdecs1) ctMap' tenvS' tenv
      | Rerr (Rabort Rtype_error) => F
      | Rerr (Rabort(Rffi_error _)) => T
@@ -3263,7 +3407,7 @@ Theorem tops_type_sound:
        type_sound_invariant st' (extend_dec_env env' env)
          (union_decls tdecs1' tdecs1) ctMap' tenvS' (extend_dec_tenv tenv' tenv)
      | Rerr (Rraise err_v) =>
-       type_v 0 ctMap' tenvS' err_v Texn ∧
+       type_v signs 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env (union_decls tdecs1' tdecs1) ctMap' tenvS' tenv
      | Rerr (Rabort Rtype_error) => F
      | Rerr (Rabort(Rffi_error _)) => T
@@ -3291,7 +3435,7 @@ Theorem prog_type_sound:
        type_sound_invariant st' (extend_dec_env env' env)
          (union_decls tdecs1' tdecs1) ctMap' tenvS' (extend_dec_tenv tenv' tenv)
      | Rerr (Rraise err_v) =>
-       type_v 0 ctMap' tenvS' err_v Texn ∧
+       type_v signs 0 ctMap' tenvS' err_v Texn ∧
        type_sound_invariant st' env (union_decls tdecs1' tdecs1) ctMap' tenvS' tenv
      | Rerr (Rabort Rtype_error) => F
      | Rerr (Rabort(Rffi_error _)) => T
@@ -3323,10 +3467,12 @@ QED
 
    *)
 
+
 Theorem semantics_type_sound:
   ∀(st:'ffi semanticPrimitives$state) env tops r checks ctMap tenvS tenv new_tenv tids.
    semantics_prog st env tops r ∧
-   type_ds checks tenv tops tids new_tenv ∧
+   type_ds (st.ffi.signatures) checks tenv tops tids new_tenv ∧
+   ffi_oracle_ok st.ffi /\
    type_sound_invariant st env ctMap tenvS tids tenv ⇒
    r ≠ Fail
 Proof
@@ -3341,8 +3487,7 @@ Proof
  >> fs []
  >> rw []
  >> drule decs_type_sound
- >> disch_then drule
- >> simp []
+ >> rw []
  >> fs [type_sound_invariant_def]
  >> fs [consistent_ctMap_def]
  >> metis_tac []
