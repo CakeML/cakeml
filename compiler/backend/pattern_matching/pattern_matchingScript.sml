@@ -2,7 +2,6 @@
   Pattern-matching compilation to decision trees
   See issue #667 for details and references
 *)
-open preamble
 open listTheory;
 
 val _ = new_theory "pattern_matching";
@@ -144,10 +143,10 @@ QED;
 
 Theorem pmatch_list_app:
   !p1 t1 p2 t2.
-    LENGTH t1 = LENGTH p1 /\
-    LENGTH t2 = LENGTH p2 ==>
-    pmatch_list (t1 ++ t2) (p1 ++ p2) =
-    ((pmatch_list t1 p1) /\ (pmatch_list t2 p2))
+    ((LENGTH t1 = LENGTH p1) /\
+     (LENGTH t2 = LENGTH p2)) ==>
+    (pmatch_list (t1 ++ t2) (p1 ++ p2) =
+    ((pmatch_list t1 p1) /\ (pmatch_list t2 p2)))
 Proof
   Induct_on `t1`
   >- (rw[] \\
@@ -198,7 +197,7 @@ End
 
 Theorem match_first_patlist:
   !ps ts e xs.
-    pmatch_list ps ts ==> match ((Branch ps e)::xs) ts = (SOME e)
+    pmatch_list ps ts ==> (match ((Branch ps e)::xs) ts = (SOME e))
 Proof
   rpt strip_tac \\
   Cases_on `ps` \\
@@ -216,8 +215,8 @@ QED;
 
 Theorem match_app:
   !b1 ts b2 x.
-    match b1 ts = (SOME x) ==>
-    match (b1 ++ b2) ts = (SOME x)
+    (match b1 ts = (SOME x)) ==>
+    (match (b1 ++ b2) ts = (SOME x))
 Proof
   ho_match_mp_tac (fetch "-" "match_ind") \\ rw[]
   >- fs[match_def]
@@ -229,8 +228,8 @@ QED;
 
 Theorem match_app2:
   !b1 ts b2.
-    match b1 ts = NONE ==>
-    match (b1 ++ b2) ts = match b2 ts
+    (match b1 ts = NONE) ==>
+    (match (b1 ++ b2) ts = match b2 ts)
 Proof
   ho_match_mp_tac (fetch "-" "match_ind") \\ rw[] \\
   fs[match_def] \\
@@ -278,11 +277,11 @@ End
 (* Key property of matrix decomposition (Lemma 1 of article) *)
 Theorem spec_lem:
   !c a m ts targs.
-    inv_mat m /\
-    (LENGTH targs) = a /\
-    (msize m) = (LENGTH ts) + 1 ==>
-    match m ((Term c targs)::ts) =
-    match (spec c (LENGTH targs) m) (targs++ts)
+    (inv_mat m /\
+     ((LENGTH targs) = a) /\
+     ((msize m) = (LENGTH ts) + 1)) ==>
+    (match m ((Term c targs)::ts) =
+     match (spec c (LENGTH targs) m) (targs++ts))
 Proof
   ho_match_mp_tac (fetch "-" "spec_ind") \\ rw[]
   >- fs[msize_def]
