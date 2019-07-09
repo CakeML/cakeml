@@ -5,13 +5,14 @@
 open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
+     backendPropsTheory
 
 val _ = new_theory "source_to_flatProof";
 
 val grammar_ancestry =
   ["source_to_flat","flatProps","namespaceProps",
    "semantics","semanticPrimitivesProps","ffi","lprefix_lub",
-   "backend_common","misc"];
+   "backend_common","misc","backendProps"];
 val _ = set_grammar_ancestry grammar_ancestry;
 
 (* TODO: move *)
@@ -4261,5 +4262,61 @@ Theorem compile_decs_elist_globals
     \\ AP_TERM_TAC
     \\ fs[MAP_EQ_f]
   ));
+
+Theorem compile_flat_sub_bag:
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet (compile_flat p))) <=
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet p))
+Proof
+  fs [source_to_flatTheory.compile_flat_def,
+    flat_exh_matchTheory.compile_def]
+  \\ metis_tac [flat_exh_matchProofTheory.compile_decs_sub_bag,
+        flat_exh_matchProofTheory.compile_decs_sub_bag,
+       flat_reorder_matchProofTheory.compile_decs_sub_bag,
+       flat_uncheck_ctorsProofTheory.compile_decs_sub_bag,
+       flat_elimProofTheory.remove_flat_prog_sub_bag,
+        bagTheory.SUB_BAG_TRANS]
+QED
+
+Theorem SUB_BAG_IMP:
+  (B1 <= B2) ==> x ⋲ B1 ==> x ⋲ B2
+Proof
+  rw []
+  \\ imp_res_tac bagTheory.SUB_BAG_SET
+  \\ imp_res_tac SUBSET_IMP
+  \\ fs []
+QED
+
+Theorem monotonic_globals_state_progs_compile:
+  source_to_flat$compile conf prog = (conf',p) /\ conf'' = conf' /\
+  nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) conf.mod_env.v
+    ==>
+  oracle_monotonic (SET_OF_BAG ∘ elist_globals ∘
+        MAP dest_Dlet ∘ FILTER is_Dlet ∘ SND) $<
+    (SET_OF_BAG (elist_globals (MAP dest_Dlet (FILTER is_Dlet p))))
+    (syntax_to_full_oracle I
+        (state_co_progs source_to_flat$compile conf'' orac))
+Proof
+  rw []
+  \\ drule (GEN_ALL oracle_monotonic_state_co_progs_with_inv_init)
+  \\ disch_then irule
+  \\ fs []
+  \\ qexists_tac `\c.
+nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) c.mod_env.v`
+  \\ qexists_tac `\c. c.next.vidx`
+  \\ fs []
+  \\ rpt (gen_tac ORELSE disch_tac)
+  \\ fs [source_to_flatTheory.compile_def,
+        source_to_flatTheory.compile_prog_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ imp_res_tac compile_decs_num_bindings
+  \\ imp_res_tac compile_decs_esgc_free
+  \\ imp_res_tac compile_decs_elist_globals
+  \\ fs []
+  \\ rpt (gen_tac ORELSE disch_tac)
+  \\ drule (MATCH_MP SUB_BAG_IMP compile_flat_sub_bag)
+  \\ fs [glob_alloc_def, flatPropsTheory.op_gbag_def]
+  \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]
+QED
 
 val _ = export_theory ();
