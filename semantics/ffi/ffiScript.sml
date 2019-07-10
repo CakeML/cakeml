@@ -170,10 +170,14 @@ val _ = Define `
  |>))`;
 
 
-val _ = Define `
-   debug_ffi_ok st = ?sign. (FIND (λsg. sg.mlname = "") st.signatures = SOME sign) /\
-                            (!args. mutargs sign.args args = []) /\ (sign.retty = NONE)
-`
+val _ = Define
+  `debug_sig =
+     <|mlname:="";
+       cname:="ffi";
+       retty := NONE;
+       args := [C_array <|with_length := T; mutable := F|>;
+                C_array <|with_length := T; mutable := T|>] |>`
+
 val _ = Define `
   valid_ffi_name n sign st = (FIND (λsg. sg.mlname = n) st.signatures = SOME sign)
 `
@@ -186,10 +190,11 @@ val _ = Define `
 
 val _ = Define `
   ffi_oracle_ok st =
-  debug_ffi_ok st /\ (!n sign args st' ffi newargs retv als.
+  (!n sign args st' ffi newargs retv als.
            valid_ffi_name n sign st
            /\ args_ok sign args
            /\ (st.oracle n ffi args als = Oracle_return st' newargs retv)
+           /\ n <> ""
            ==> ret_ok sign.retty retv /\ als_ok sign.args newargs als
                /\ eq_len sign args newargs)
     `

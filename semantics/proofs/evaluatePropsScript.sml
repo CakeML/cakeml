@@ -17,7 +17,7 @@ Theorem call_FFI_LENGTH:
        LIST_REL (λm v. LENGTH m = LENGTH v) (mutargs sign.args args) nargs
 Proof
   fs[ffiTheory.call_FFI_def, ffiTheory.ffi_oracle_ok_def,
-      ffiTheory.valid_ffi_name_def, ffiTheory.debug_ffi_ok_def]
+      ffiTheory.valid_ffi_name_def, ]
   \\ every_case_tac \\ rw[]
   >- metis_tac []
   >- (rw [LIST_REL_def]
@@ -95,7 +95,7 @@ Theorem call_FFI_rel_io_events_mono:
 Proof
   REWRITE_TAC[io_events_mono_def] \\
   ho_match_mp_tac RTC_INDUCT
-  \\ simp[call_FFI_rel_def,ffiTheory.call_FFI_def, ffiTheory.debug_ffi_ok_def]
+  \\ simp[call_FFI_rel_def,ffiTheory.call_FFI_def]
   \\ rpt gen_tac \\ strip_tac
   \\ qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC
   >- (TOP_CASE_TAC >> TOP_CASE_TAC
@@ -144,7 +144,7 @@ Proof
   >- (fs [ffiTheory.call_FFI_def]
       \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
       >- fs [CaseEq"oracle_result"]
-      >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
+      >- (fs [ffiTheory.ffi_oracle_ok_def, ]
           \\ `sign = sign'` by (fs [FIND_def] \\ fs[INDEX_FIND_def])
           \\ fs [ffiTheory.ret_ok_def]))
   \\ conj_tac
@@ -161,7 +161,7 @@ Proof
       >- (fs [CaseEq"oracle_result"] \\
           metis_tac [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def,
                      get_cargs_sem_SOME_IMP_args_ok])
-      >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
+      >- (fs [ffiTheory.ffi_oracle_ok_def, ]
           \\ `sign = sign'` by (fs [FIND_def] \\ fs[INDEX_FIND_def])
           \\ metis_tac []))
 QED
@@ -190,7 +190,7 @@ Proof
       >- (fs [CaseEq"oracle_result"]
           >> (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC \\ rw[])
           >> metis_tac [get_cargs_sem_SOME_IMP_args_ok, ffiTheory.valid_ffi_name_def])
-      >- (fs[ffiTheory.debug_ffi_ok_def]
+      >- (fs[]
           >> `sign = sign'` by (fs [FIND_def] \\ fs [INDEX_FIND_def])
           >> metis_tac [ffiTheory.ret_ok_def]) )
 QED
@@ -914,6 +914,7 @@ val sign_eq_def = Define `
   sign_eq t s = (t.ffi.signatures = s.ffi.signatures)
 `
 
+
 Theorem sign_eq_ffi_id:
   sign_eq t s /\ s'.ffi = s.ffi ==> sign_eq t s'
 Proof
@@ -925,7 +926,6 @@ Theorem sign_eq_ffi_id':
 Proof
   rw [sign_eq_def]
 QED
-
 
 Theorem ffi_oracle_clock_refs_up:
   ffi_oracle_ok t.ffi ==> ffi_oracle_ok (t with <|clock := clk; refs := refs|>).ffi
@@ -945,7 +945,6 @@ Theorem st_refs_up:
 Proof
   rw []
 QED
-
 
 Theorem evaluate_ffi_intro:
     (∀(s:'a state) env e s' r.
@@ -1184,7 +1183,246 @@ Proof
     \\ rw[state_component_equality] )
 QED
 
+val state_sign_extends_def = Define `
+  state_sign_extends t s =
+  sign_extends t.ffi s.ffi
+`
 
+Theorem state_sign_extends_ffi_id':
+  state_sign_extends t s /\ s'.ffi = s.ffi ==> state_sign_extends (t with <|clock := s'.clock; refs := s'.refs|>) s'
+Proof
+  rw [state_sign_extends_def]
+QED
+
+Theorem evaluate_ffi_sign_extends_intro:
+    (∀(s:'a state) env e s' r.
+     evaluate s env e = (s',r) ∧
+     s'.ffi = s.ffi ∧
+     (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome))) ∧
+     r ≠ Rerr(Rabort Rtype_error)
+     ⇒
+     ∀(t:'b state).
+       t.clock = s.clock ∧ t.refs = s.refs  /\ state_sign_extends t s
+       ⇒
+       evaluate t env e = (t with <| clock := s'.clock; refs := s'.refs |>, r)) ∧
+  (∀(s:'a state) env v pes errv s' r.
+     evaluate_match s env v pes errv = (s',r) ∧
+     s'.ffi = s.ffi ∧
+     (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome))) ∧
+     r ≠ Rerr(Rabort Rtype_error)
+     ⇒
+     ∀(t:'b state).
+       t.clock = s.clock ∧ t.refs = s.refs /\ state_sign_extends t s
+       ⇒
+       evaluate_match t env v pes errv = (t with <| clock := s'.clock; refs := s'.refs |>, r))
+Proof
+  ho_match_mp_tac evaluate_ind
+  \\ rw []
+  >- (rfs[evaluate_def] \\ rw[state_component_equality])
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC \\ fs[result_CASE_fst_cong]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ qmatch_assum_abbrev_tac`evaluate t1 _ (_::_) = _`
+    \\ rfs[]
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[]
+    \\ every_case_tac >> (fs [] \\ qpat_x_assum `!t. _ ==> _` (qspecl_then [`t with <|clock := s1.clock; refs := s1.refs|>`] mp_tac)
+      \\ PURE_REWRITE_TAC [st_clock_up, st_refs_up] \\ rw []
+       \\ metis_tac [state_sign_extends_ffi_id']))
+  >- (
+    rfs[evaluate_def] \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[] \\ fs[]
+    \\ first_x_assum(qspec_then`t`mp_tac) \\ fs[] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ strip_tac \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ first_x_assum (qspec_then `t with <|clock := s1.clock; refs := s1.refs|>` mp_tac)
+    \\ PURE_REWRITE_TAC [st_clock_up, st_refs_up] \\ rw[]
+    \\ metis_tac [state_sign_extends_ffi_id']
+    (*
+    \\ qmatch_goalsub_abbrev_tac`evaluate_match t1`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[]
+    *) )
+  >- (
+    rfs[evaluate_def]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC
+    \\ fs[option_CASE_fst_cong,result_CASE_fst_cong]
+    \\ rw[]
+    \\ rfs[]
+    \\ pop_assum mp_tac
+    \\ impl_tac >- (every_case_tac \\ fs[])
+    \\ rw[])
+  >- (
+    rfs[evaluate_def]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ fs[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ fs[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC \\ fs[]
+    >- (
+      TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      \\ TOP_CASE_TAC \\ fs[]
+      >- ( strip_tac \\ rveq \\ fs[] )
+      \\ strip_tac \\ fs[]
+      \\ rename1`evaluate (dec_clock s1) _ _ = _`
+      \\ `s1.ffi = s.ffi`
+      by (
+        imp_res_tac evaluate_ffi_sandwich
+        \\ rfs[dec_clock_def] )
+      \\ fs[]
+      \\ rfs[dec_clock_def] \\ fs[]
+      \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+      \\ `t1.clock = s1.clock − 1` by rw [Abbr`t1`]
+      \\ `t1.refs = s1.refs` by rw [Abbr`t1`]
+      \\ `state_sign_extends t1 (s1 with clock := s1.clock − 1)` by fs [Abbr`t1`, state_sign_extends_def]
+      \\ rw[Abbr`t1`]
+      (*
+      \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+      \\ first_x_assum(qspec_then`t1`mp_tac)
+      \\ fs[Abbr`t1`]
+      \\ imp_res_tac evaluate_state_const \\ fs[]*) )
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rveq \\ fs[]
+    \\ imp_res_tac do_app_io_events_mono
+    \\ imp_res_tac evaluate_io_events_mono_imp
+    \\ imp_res_tac io_events_mono_antisym \\ fs[state_sign_extends_def]
+    \\ imp_res_tac do_app_SOME_ffi_sign_extends_same \\ fs[]
+    \\ rw[state_component_equality] )
+
+
+ >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ first_x_assum (qspec_then `t with <|clock := s1.clock; refs := s1.refs|>` mp_tac)
+    \\ PURE_REWRITE_TAC [st_clock_up, st_refs_up] \\ rw[]
+    \\ metis_tac [state_sign_extends_ffi_id']
+    (*
+    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[]*) )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ TOP_CASE_TAC
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ first_x_assum(qspec_then `t with <|clock := s1.clock; refs := s1.refs|>` mp_tac)
+    \\ PURE_REWRITE_TAC [st_clock_up, st_refs_up] \\ rw[]
+    \\ metis_tac [state_sign_extends_ffi_id']
+    (*
+    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[] *))
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ strip_tac \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_match_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qpat_x_assum `!t. _ ==> evaluate_match _ _ _ _ _ = _` (qspec_then `t with <|clock := s1.clock; refs := s1.refs|>` mp_tac)
+    \\ PURE_REWRITE_TAC [st_clock_up, st_refs_up] \\ rw[]
+    \\ metis_tac [state_sign_extends_ffi_id']
+    (*
+    \\ qmatch_goalsub_abbrev_tac`evaluate_match t1`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[]*) )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ strip_tac \\ fs[]
+    \\ rename1`evaluate s _ _ = (s1,_)`
+    \\ `s1.ffi = s.ffi` by metis_tac[evaluate_ffi_sandwich]
+    \\ fs[] \\ rfs[]
+    \\ qpat_x_assum `!t. _ ==>  evaluate _ (_ with v := _) _ = _` (qspec_then `t with <|clock := s1.clock; refs := s1.refs|>` mp_tac)
+    \\ PURE_REWRITE_TAC [st_clock_up, st_refs_up] \\ rw[]
+    \\ metis_tac [state_sign_extends_ffi_id']
+    (*
+    \\ qmatch_goalsub_abbrev_tac`evaluate t1 _ [_]`
+    \\ first_x_assum(qspec_then`t1`mp_tac)
+    \\ simp[Abbr`t1`]
+    \\ imp_res_tac evaluate_state_const \\ fs[]*) )
+  >- (
+    rfs[evaluate_def]
+    \\ qpat_x_assum`_ = (_,_)`mp_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ fs[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ rw[state_component_equality] )
+  >- (
+    rfs[evaluate_def]
+    \\ reverse TOP_CASE_TAC \\ fs[]
+    \\ TOP_CASE_TAC \\ fs[]
+    \\ rw[state_component_equality] )
+QED
 
 Theorem is_clock_io_mono_set_clock:
    is_clock_io_mono f s

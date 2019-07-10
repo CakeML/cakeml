@@ -496,6 +496,19 @@ Proof
                  \\ metis_tac []))))
 QED
 
+(* TODO: duplicated from mllistScript. move? *)
+Theorem index_find_thm:
+   !x y. OPTION_MAP SND (INDEX_FIND x f l) = OPTION_MAP SND (INDEX_FIND y f l)
+Proof
+  Induct_on`l` \\ rw[INDEX_FIND_def]
+QED
+
+Theorem FIND_thm:
+   (FIND f [] = NONE) ∧
+   (∀h t. FIND f (h::t) = if f h then SOME h else FIND f t)
+Proof
+  rw[FIND_def,INDEX_FIND_def,index_find_thm]
+QED
 
 Theorem do_ffi_NONE_ffi:
    do_ffi s t n args = NONE /\
@@ -508,6 +521,7 @@ Proof
   rw[do_ffi_def]
   \\ fs[ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+  \\ rfs[ffiTheory.debug_sig_def,FIND_thm]
   >> metis_tac[ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def,
                get_cargs_sem_SOME_IMP_args_ok, store_cargs_SOME_same_loc]
  (* metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok] *)
@@ -530,7 +544,6 @@ Proof
 QED
 
 
-
 Theorem do_ffi_SOME_ffi_same:
    do_ffi refs ffi n args = SOME ((refs',ffi),r)
    ∧ (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome)))
@@ -543,9 +556,30 @@ Proof
   rw [do_ffi_def, ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, ffiTheory.call_FFI_def]
   \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
   \\ rfs[ffiTheory.ffi_state_component_equality]
-  \\ metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok]
 QED
 
+(* TODO: move? *)
+val sign_extends_def = Define `
+  sign_extends t s =
+  (!n sign. FIND (λsg. sg.mlname = n) s.signatures = SOME sign
+    ==> FIND (λsg. sg.mlname = n) t.signatures = SOME sign)
+`
+
+Theorem do_ffi_SOME_ffi_extends:
+   do_ffi refs ffi n args = SOME ((refs',ffi),r)
+   ∧ (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome)))
+   /\ sign_extends ffi' ffi
+      ⇒
+   do_ffi refs ffi' n args = SOME ((refs',ffi'),r)
+Proof
+  rw [do_ffi_def, ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, ffiTheory.call_FFI_def,
+      sign_extends_def]
+  \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+  \\ rfs[ffiTheory.ffi_state_component_equality,ffiTheory.debug_sig_def,FIND_thm]
+  \\ res_tac \\ fs[] \\ rveq \\ fs[]
+  \\ rveq
+  \\ fs[get_mut_args_def,store_cargs_sem_def]
+QED
 
 Theorem do_app_SOME_ffi_same:
    do_app (refs,ffi) op args = SOME ((refs',ffi),r)
@@ -561,6 +595,20 @@ Proof
   \\ rw[] \\ fs[]
   \\ metis_tac [do_ffi_SOME_ffi_same]
 QED
+
+Theorem do_app_SOME_ffi_sign_extends_same:
+   do_app (refs,ffi) op args = SOME ((refs',ffi),r)
+   ∧ (∀outcome. r ≠ Rerr(Rabort(Rffi_error outcome)))
+   /\ sign_extends ffi' ffi
+    ⇒
+   do_app (refs,ffi') op args = SOME ((refs',ffi'),r)
+Proof
+  rw[]
+  \\ fs[do_app_cases]
+  \\ rw[] \\ fs[]
+  \\ metis_tac [do_ffi_SOME_ffi_extends]
+QED
+
 
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.

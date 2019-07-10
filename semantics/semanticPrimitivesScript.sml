@@ -728,7 +728,7 @@ val _ = Define
 (*  add a none at the store assign case  *)
 val _ = Define
   `do_ffi s t n args =
-   case FIND (λx. x.mlname = n) t.signatures of
+   case FIND (λx. x.mlname = n) (debug_sig::t.signatures) of
      SOME sign =>
        (case get_cargs_sem s sign.args args of
         | SOME cargs =>

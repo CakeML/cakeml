@@ -21,13 +21,16 @@ val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
 
 (* Definitions *)
 
+(* TODO: move *)
+
+
 val empty_state_def = Define`
   empty_state = <|
     clock := 0;
     refs := empty_store;
     (* force the ffi state to unit
        the monadic translator must be used for FFI calls *)
-    ffi := initial_ffi_state ARB ();
+    ffi := initial_ffi_state ARB () [];
     next_type_stamp := 0;
     next_exn_stamp := 0|>`;
 
@@ -122,9 +125,10 @@ Theorem evaluate_empty_state_IMP:
 Proof
   rw [eval_rel_def]
   \\ drule (INST_TYPE[alpha|->oneSyntax.one_ty,beta|->``:'ffi``]
-              (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_intro))
+              (CONJUNCT1 evaluatePropsTheory.evaluate_ffi_sign_extends_intro))
   \\ disch_then (qspec_then `s with clock := ck1` mp_tac)
-  \\ fs [empty_state_def]
+  \\ fs [empty_state_def,state_sign_extends_def,sign_extends_def,ffiTheory.initial_ffi_state_def,
+         mllistTheory.FIND_thm]
   \\ strip_tac \\ asm_exists_tac \\ fs []
 QED
 
