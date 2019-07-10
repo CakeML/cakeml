@@ -6391,7 +6391,8 @@ Theorem semantics_cond_call_compile_inc:
     clos_call$compile do_call es = (es', g, aux) /\
     code = alist_to_fmap aux /\
     (do_call ==> clos_callProof$syntax_ok es /\
-          is_state_oracle clos_callProof$compile_inc co g /\
+          is_state_oracle clos_callProof$compile_inc co /\
+          g = FST (FST (co 0)) /\
           oracle_monotonic (set o code_locs o FST o SND) (<)
               (set (code_locs es)) co /\
           (!k. let (cfg, exp, aux) = co k in
@@ -6510,9 +6511,12 @@ Proof
   Cases_on `es` \\ EVAL_TAC \\ fs [UNCURRY]
 QED
 
+val fvs_inc = ``clos_fvsProof$compile_inc : clos_prog -> clos_prog``;
+
 Theorem known_state_oracle_globals_approx:
     is_state_oracle (clos_knownProof$compile_inc cfg')
-        (pure_co clos_knownProof$fvs_inc ∘ co) spt /\
+        (pure_co ^fvs_inc ∘ co) /\
+    FST (FST (co 0)) = spt /\
     known cfg exps [] LN = (k_exps, spt) /\
     every_Fn_vs_NONE exps /\ every_Fn_SOME exps /\
     (!k. every_Fn_vs_NONE (FST (SND (co k))) /\
@@ -6523,7 +6527,6 @@ Proof
   rpt disch_tac \\ Induct
   >- (
     fs []
-    \\ drule_then assume_tac backendPropsTheory.is_state_oracle_0
     \\ fs []
     \\ fs [PAIR_FST_SND_EQ]
     \\ qpat_x_assum `SND _ = _` assume_tac
@@ -6539,7 +6542,7 @@ Proof
   \\ fs []
   \\ drule_then (qspec_then `k` assume_tac)
         backendPropsTheory.is_state_oracle_k
-  \\ fs [clos_knownProofTheory.fvs_inc_def]
+  \\ fs []
   \\ Cases_on `co k` \\ fs [backendPropsTheory.pure_co_def]
   \\ fs [clos_knownProofTheory.compile_inc_def, fcompile_inc_uncurry]
   \\ rveq \\ fs []
@@ -6558,7 +6561,8 @@ Theorem known_co_facts:
     compile kc exps = (kc',exps') ==>
     (IS_SOME kc ==>
         is_state_oracle (clos_knownProof$compile_inc (THE kc))
-            (pure_co clos_knownProof$fvs_inc ∘ co) (THE kc').val_approx_spt /\
+            (pure_co ^fvs_inc ∘ co) /\
+        FST (FST (co 0)) = (THE kc').val_approx_spt /\
         every_Fn_vs_NONE exps /\ every_Fn_SOME exps /\
         (!k. every_Fn_vs_NONE (FST (SND (co k))) /\
             every_Fn_SOME (FST (SND (co k))))) ==>
@@ -6646,7 +6650,7 @@ Proof
 QED
 
 Theorem number_oracle_FST_inc:
-  is_state_oracle (ignore_table clos_numberProof$compile_inc) co m ==>
+  is_state_oracle (ignore_table clos_numberProof$compile_inc) co ==>
   FST (clos_numberProof$compile_inc (FST (FST (co j))) (FST (SND (co j)))) =
     FST (FST (co (j + 1)))
 Proof
@@ -6659,7 +6663,7 @@ Proof
 QED
 
 Theorem number_oracle_FST_strict_mono:
-    is_state_oracle (ignore_table clos_numberProof$compile_inc) co m ==>
+    is_state_oracle (ignore_table clos_numberProof$compile_inc) co ==>
     !j i. i < j ==> FST (FST (co i)) < FST (FST (co j))
 Proof
   disch_tac \\ Induct \\ fs []
@@ -6669,7 +6673,7 @@ Proof
   \\ fs [clos_numberProofTheory.compile_inc_def]
   \\ pairarg_tac \\ fs []
   \\ imp_res_tac clos_numberProofTheory.renumber_code_locs_imp_inc
-  \\ `FST (FST (co j)) < m'` by (
+  \\ `FST (FST (co j)) < m` by (
     match_mp_tac (arithmeticTheory.LESS_LESS_EQ_TRANS
         |> SIMP_RULE bool_ss [Once CONJ_COMM])
     \\ asm_exists_tac \\ fs []
@@ -6683,7 +6687,7 @@ Proof
 QED
 
 Theorem number_oracle_FST_mono:
-    is_state_oracle (ignore_table clos_numberProof$compile_inc) co m ==>
+    is_state_oracle (ignore_table clos_numberProof$compile_inc) co ==>
     !j i. i <= j ==> FST (FST (co i)) <= FST (FST (co j))
 Proof
   rw [arithmeticTheory.LESS_OR_EQ]
@@ -6692,8 +6696,8 @@ Proof
 QED
 
 Theorem renumber_code_locs_monotonic:
-    is_state_oracle (ignore_table clos_numberProof$compile_inc) co m /\
-    m >= FST (renumber_code_locs_list n exps) ==>
+    is_state_oracle (ignore_table clos_numberProof$compile_inc) co /\
+    FST (FST (co 0)) >= FST (renumber_code_locs_list n exps) ==>
     oracle_monotonic (set ∘ code_locs ∘ FST ∘ SND) $<
         (set (code_locs (SND (renumber_code_locs_list n exps))))
         (state_co (ignore_table clos_numberProof$compile_inc) co)
@@ -6712,7 +6716,6 @@ Proof
   \\ assume_tac (Q.SPECL [`n`, `exps`] clos_numberProofTheory.renumber_code_locs_list_distinct)
   \\ fs [EVERY_MEM]
   \\ rpt (first_x_assum drule)
-  \\ drule backendPropsTheory.is_state_oracle_0
   \\ drule_then (assume_tac o Q.SPECL [`i`, `0`]) number_oracle_FST_mono
   \\ rw []
 QED
@@ -6830,16 +6833,18 @@ Theorem compile_common_semantics:
            (clos_knownProof$known_co c.known_conf
                (state_co (ignore_table clos_numberProof$compile_inc)
                    (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1)))
-           (FST (SND (compile c.do_call (SND
-               (compile_inc_post_kcompile c es1)))))) ∧
+           /\
+       FST (SND (SND (FST (co1 0)))) = FST (SND (compile c.do_call (SND
+           (compile_inc_post_kcompile c es1))))) ∧
    (IS_SOME c.known_conf ⇒
        1 ≤ c.max_app ∧
        oracle_monotonic (SET_OF_BAG ∘ elist_globals ∘ FST ∘ SND) $<
            (SET_OF_BAG (elist_globals es1)) co1 ∧
        is_state_oracle (clos_knownProof$compile_inc (THE c.known_conf))
-           (pure_co clos_knownProof$fvs_inc ∘
+           (pure_co ^fvs_inc ∘
                state_co (ignore_table clos_numberProof$compile_inc)
-                   (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1))
+                   (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1)) /\
+       FST (SND (FST (co1 0))) = 
            (THE (FST (compile_inc_post_kcompile c es1))).val_approx_spt ∧
        (∀n'. BAG_ALL_DISTINCT (elist_globals (FST (SND (co1 n')))) ∧
                EVERY esgc_free (FST (SND (co1 n'))))) ∧
@@ -6847,8 +6852,7 @@ Theorem compile_common_semantics:
    (∀n. ¬contains_App_SOME c.max_app (FST(SND(co1 n))) ∧
            every_Fn_vs_NONE (FST (SND (co1 n)))) ∧
    is_state_oracle (ignore_table clos_numberProof$compile_inc)
-       (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1)
-       (FST (FST (co1 0))) ∧
+       (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1) ∧
    FST (FST (co1 0)) >= FST (renumber_code_locs_list (make_even
        (c.next_loc + MAX 1 (LENGTH es1))) (compile c.do_mti c.max_app es1)) ∧
    oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $< (count (FST (FST (co1 0))))
@@ -6910,7 +6914,9 @@ Proof
   \\ csimp []
   (* down to syntactic conditions *)
   (* dealing with known_co and things passed across it *)
-  \\ fs [UNCURRY, clos_callProofTheory.syntax_ok_def]
+  \\ fs [UNCURRY, clos_callProofTheory.syntax_ok_def,
+        clos_knownProofTheory.FST_known_co,
+        backendPropsTheory.FST_state_co]
   \\ qpat_assum `compile c.known_conf _ = _`
     (fn t => conseq (map (fn t2 => MATCH_MP t2 t) known_co_facts2))
   \\ simp [backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
@@ -6969,7 +6975,7 @@ Proof
     \\ fs [seqTheory.LE_SUC]
     \\ rfs [EVEN]
   )
-  \\ simp []
+  \\ simp [backendPropsTheory.FST_state_co]
   (* deal with the renumber phase *)
   \\ drule_then assume_tac
     (hd (BODY_CONJUNCTS clos_numberProofTheory.renumber_code_locs_esgc_free))
@@ -6982,8 +6988,6 @@ Proof
         renumber_code_locs_monotonic]
   \\ csimp []
   (* finale *)
-  \\ fs []
-  \\ drule_then (fn t => simp [t]) backendPropsTheory.is_state_oracle_IMP_EQ
   \\ fs []
   \\ Cases_on `c.do_mti`
   \\ fs [cond_mti_compile_inc_def, clos_mtiTheory.compile_def,
@@ -7067,6 +7071,7 @@ Theorem compile_prog_semantics
   \\ Cases_on`res1` \\ fs[]
   \\ Cases_on`e` \\ fs[]);
 
+(* fixme: have this take two configs *)
 val syntax_oracle_ok_def = Define`
   syntax_oracle_ok c es co ⇔
    (∀n. SND (SND (co n)) = []) ∧
@@ -7084,7 +7089,7 @@ val syntax_oracle_ok_def = Define`
        oracle_monotonic (SET_OF_BAG ∘ elist_globals ∘ FST ∘ SND) $<
            (SET_OF_BAG (elist_globals es)) co ∧
        is_state_oracle (clos_knownProof$compile_inc (THE c.known_conf))
-           (pure_co clos_knownProof$fvs_inc ∘
+           (pure_co ^fvs_inc ∘
                state_co (ignore_table clos_numberProof$compile_inc)
                    (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co))
            (THE (FST (compile_inc_post_kcompile c es))).val_approx_spt ∧

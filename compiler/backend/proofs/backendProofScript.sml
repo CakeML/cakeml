@@ -323,47 +323,6 @@ val semantics_thms = [source_to_flatProofTheory.compile_semantics,
   word_to_stackProofTheory.compile_semantics,
   full_make_init_semantics]
 
-val _ = type_abbrev("clos_prog",
-  ``: closLang$exp list # (num # num # closLang$exp) list``);
-
-val option_val_approx_spt_def = Define `
-  option_val_approx_spt kc = (case kc of NONE => LN
-    | SOME kcfg => kcfg.val_approx_spt)`;
-
-val known_mk_co_def = Define `
-  known_mk_co kc kc' mk =
-    add_state_co (if IS_SOME kc then clos_knownProof$compile_inc (THE kc)
-        else CURRY I)
-    (option_val_approx_spt kc')
-    (mk o pure_co_progs (if IS_SOME kc then
-          clos_letopProof$compile_inc
-              ∘ (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
-        else I))
-    o pure_co_progs (if IS_SOME kc then clos_fvsProof$compile_inc else I)`
-
-val known_co_progs_def = Define `
-  known_co_progs kc kc' =
-    pure_co_progs (if IS_SOME kc then
-          clos_letopProof$compile_inc
-              ∘ (clos_ticksProof$compile_inc : clos_prog -> clos_prog)
-        else I)
-    o state_co_progs (if IS_SOME kc then clos_knownProof$compile_inc (THE kc)
-        else CURRY I) (case kc' of NONE => LN | SOME kcfg => kcfg.val_approx_spt)
-    o pure_co_progs (if IS_SOME kc then clos_fvsProof$compile_inc else I)`
-
-Theorem known_co_known_mk_co:
-  clos_knownProof$known_co kc
-    (syntax_to_full_oracle (known_mk_co kc kc' mk) co) =
-  syntax_to_full_oracle mk (known_co_progs kc kc' co)
-Proof
-  Cases_on `kc`
-  \\ fs [known_co_progs_def, known_mk_co_def,
-    backendPropsTheory.pure_co_syntax_to_full_oracle,
-    backendPropsTheory.state_co_add_state_co,
-    clos_knownProofTheory.known_co_eq_pure_state,
-    option_val_approx_spt_def]
-QED
-
 val clos_mk_co_def = Define `
   clos_mk_co c c' mk =
     add_state_co (closProps$ignore_table clos_numberProof$compile_inc)
@@ -611,15 +570,6 @@ Theorem attach_bitmaps_SOME:
   ?bytes c'. v = SOME (bytes, c') /\ r = (bytes,c.word_conf.bitmaps,c with lab_conf := c')
 Proof
   Cases_on `THE v` \\ Cases_on `v` \\ fs [attach_bitmaps_def]
-QED
-
-Theorem known_compile_IS_SOME:
-  compile kc es = (kc',es') ⇒ IS_SOME kc ⇒ IS_SOME kc'
-Proof
-  rw [IS_SOME_EXISTS]
-  \\ fs [clos_knownTheory.compile_def]
-  \\ pairarg_tac \\ fs []
-  \\ rveq \\ fs []
 QED
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])

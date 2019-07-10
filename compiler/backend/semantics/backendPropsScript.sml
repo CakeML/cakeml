@@ -144,14 +144,14 @@ QED
 (* check that an oracle with config values lists the config values that
    would be produced by the incremental compiler. *)
 val is_state_oracle_def = Define`
-  is_state_oracle compile_inc_f co init_state =
-    ((FST (FST (co 0)) = init_state) /\ (!n. FST (FST (co (SUC n)))
-        = FST (compile_inc_f (FST (FST (co n))) (SND (co n)))))`;
+  is_state_oracle compile_inc_f co =
+    (!n. FST (FST (co (SUC n)))
+        = FST (compile_inc_f (FST (FST (co n))) (SND (co n))))`;
 
 Theorem is_state_oracle_shift:
-  is_state_oracle compile_inc_f co st =
-  (FST (FST (co 0)) = st /\ is_state_oracle compile_inc_f (shift_seq 1 co)
-        (FST (compile_inc_f st (SND (co 0)))))
+  is_state_oracle compile_inc_f co =
+  (is_state_oracle compile_inc_f (shift_seq 1 co) /\
+        FST (FST (co 1)) = FST (compile_inc_f (FST (FST (co 0))) (SND (co 0))))
 Proof
   fs [is_state_oracle_def, shift_seq_def]
   \\ EQ_TAC \\ rw [] \\ fs [sptreeTheory.ADD_1_SUC]
@@ -160,14 +160,8 @@ Proof
   \\ fs []
 QED
 
-Theorem is_state_oracle_0:
-  is_state_oracle comp_inc co st ==> FST (FST (co 0)) = st
-Proof
-  fs [is_state_oracle_def]
-QED
-
 Theorem is_state_oracle_k:
-  !k. is_state_oracle compile_inc_f co st ==>
+  !k. is_state_oracle compile_inc_f co ==>
   ?st oth_st prog. co k = ((st, oth_st), prog)
     /\ FST (FST (co (SUC k))) = FST (compile_inc_f st prog)
 Proof
@@ -176,13 +170,6 @@ Proof
   \\ Cases_on `FST (co k)`
   \\ fs [is_state_oracle_def]
   \\ rfs []
-QED
-
-Theorem is_state_oracle_IMP_EQ:
-  is_state_oracle inc_f co st ==>
-  !st'. is_state_oracle inc_f co st' <=> (st' = st)
-Proof
-  fs [is_state_oracle_def] \\ metis_tac []
 QED
 
 (* constructive combinators for building up the config part of an oracle *)
@@ -245,8 +232,7 @@ Proof
 QED
 
 Theorem is_state_oracle_add_state_co:
-  is_state_oracle f (syntax_to_full_oracle (add_state_co f st mk) progs) st0
-    <=> st0 = st
+  is_state_oracle f (syntax_to_full_oracle (add_state_co f st mk) progs)
 Proof
   fs [is_state_oracle_def, syntax_to_full_oracle_def, add_state_co_def]
   \\ fs [state_orac_states_def]

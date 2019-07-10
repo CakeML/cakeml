@@ -1878,7 +1878,8 @@ val code_inv_def = Define `
     s_code = FEMPTY /\
     s_cc = state_cc compile_inc t_cc /\
     t_co = state_co compile_inc s_co /\
-    (?g aux. wfg (g, aux) /\ is_state_oracle compile_inc s_co g /\
+    (?g aux. wfg (g, aux) /\ is_state_oracle compile_inc s_co /\
+        FST (FST (s_co 0)) = g /\
         oracle_monotonic (set o code_locs o FST o SND) (<)
             (domain g UNION l1) s_co /\
         t_code = alist_to_fmap aux /\
@@ -1972,9 +1973,6 @@ Proof
   \\ rveq \\ fs []
   \\ Cases_on `r.compile_oracle 1`
   \\ fs [] \\ rveq \\ fs []
-  \\ drule backendPropsTheory.is_state_oracle_0
-  \\ disch_tac
-  \\ rveq \\ fs []
   \\ drule_then (fn t => simp [t]) calls_acc
   \\ first_x_assum (fn t => qspec_then `0` assume_tac t
     \\ qspec_then `1` assume_tac t)
@@ -2038,7 +2036,7 @@ Proof
     \\ fs [wfg_def, DISJOINT_IMAGE_SUC]
   )
   \\ conj_tac >- (
-    qpat_x_assum `is_state_oracle _ _ _` mp_tac
+    qpat_x_assum `is_state_oracle _ _` mp_tac
     \\ simp [Once is_state_oracle_shift]
     \\ simp [compile_inc_def]
   )
@@ -2992,7 +2990,6 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
     \\ fs[env_rel_def,fv1_thm])
   (* Letrec *)
   \\ conj_tac >- (
-(* saved *)
     say "Letrec"
     \\ rw[evaluate_def] \\ fs[IS_SOME_EXISTS]
     \\ fs[calls_def,code_locs_def,ALL_DISTINCT_APPEND,
@@ -4078,59 +4075,6 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
   \\ fs [subg_def, subspt_def, SUBSET_DEF]
 QED
 
-(*
-Theorem recclosure_rel_EL_i:
-
-  recclosure_rel g1 l1 s_code loc fns fns' /\ EL i fns = (n, exp) /\
-    dest_closure ma loco f (x::xs) = SOME (Full_app exp args rest) /\
-    v_rel g1 l1 t_code f f' /\
-    dest_closure ma loco f' (y::ys) = SOME (Full_app exp' args2 rest2) /\
-    exp' = SND (EL i fns') ==>
-  ?g0 g. calls [exp] g0 = ([exp'], g) ∧
-    every_Fn_SOME [exp] ∧ every_Fn_vs_NONE [exp] ∧
-    wfg g0 ∧ subg g g1 ∧ ALL_DISTINCT (code_locs [exp]) ∧
-    DISJOINT (IMAGE SUC (set (code_locs [exp])))
-        (set (MAP FST (SND g0))) ∧
-    set (code_locs [exp]) DIFF domain (FST g) ⊆ l1 ∧
-    env_rel (v_rel g1 l1 t_code) args args2 0 [(0, exp')] ∧
-    EVERY (wfv g1 l1 t_code) args ∧
-    code_includes (SND g) t_code
-
-Proof
-
-  fs[recclosure_rel_def]
-  \\ rw []
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ imp_res_tac calls_length \\ fs[]
-
-  \\ `env_rel (v_rel g1 l1 t_code) args args2 0 [(0, SND (EL i fns'))]`
-  by (
-    qhdtm_x_assum`env_rel`mp_tac
-    \\ `n = FST (EL i fns2)`
-    by ( Cases_on`b` \\ fs[calls_list_MAPi,EL_ZIP,EL_MAP] )
-    \\ reverse IF_CASES_TAC \\ fs[]
-    >- (
-      strip_tac
-      \\ match_mp_tac env_rel_DROP_args
-      \\ simp[] \\ fs[]
-      \\ qpat_x_assum `EL i fns1 = _` (assume_tac o GSYM) \\ fs [])
-    \\ qpat_x_assum `EL i fns1 = _` (assume_tac o GSYM) \\ fs []
-    \\ ONCE_REWRITE_TAC[ADD_COMM]
-    \\ simp[GSYM DROP_DROP]
-    \\ strip_tac \\ drule env_rel_DROP
-    \\ impl_tac
-    >- (
-      simp[]
-      \\ fs[LIST_REL_EL_EQN]
-      \\ rfs[EL_TAKE,EL_DROP] )
-    \\ strip_tac
-    \\ match_mp_tac env_rel_DROP_args
-    \\ simp[] \\ fs[]
-    \\ fs[LIST_REL_EL_EQN]
-    \\ rfs[EL_TAKE])
-QED
-*)
-
 val code_locs_calls_list = Q.prove(`
   ∀ls n tr i. code_locs (MAP SND (calls_list tr i n ls)) = []`,
   Induct>>fs[calls_list_def,FORALL_PROD,Once code_locs_cons]>>
@@ -4212,7 +4156,7 @@ Theorem semantics_calls:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x <> Fail ==>
    compile T x = (y,g0,aux) /\ every_Fn_SOME x ∧ every_Fn_vs_NONE x /\
    ALL_DISTINCT (code_locs x) /\
-   is_state_oracle compile_inc co g0 /\
+   FST (FST (co 0)) = g0 /\
    code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ aux) cc1 co1 ==>
    semantics (ffi:'ffi ffi_state) max_app (FEMPTY |++ aux) co1 cc1 y =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY co cc x
@@ -4220,7 +4164,6 @@ Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
-  \\ imp_res_tac backendPropsTheory.is_state_oracle_0
   \\ fs [compile_def]
   \\ rveq \\ fs [FUPDATE_LIST]
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
@@ -4234,8 +4177,7 @@ Proof
   \\ disch_then (qspecl_then [`[]`,
       `initial_state ffi max_app (FOLDL $|+ FEMPTY aux) co1 cc1 k`,
       `set (code_locs x) DIFF domain (FST (FST (co 0)))`,
-      `(g, aux)`] mp_tac)
-  \\ drule_then assume_tac backendPropsTheory.is_state_oracle_0
+      `(FST (FST (co 0)), aux)`] mp_tac)
   \\ fs []
   \\ reverse impl_tac THEN1
    (strip_tac
@@ -4271,7 +4213,7 @@ Theorem semantics_compile
   `semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
    compile do_call x = (y,g1,aux) ∧
    (if do_call then
-    syntax_ok x ∧ is_state_oracle compile_inc co g1 ∧
+    syntax_ok x ∧ g1 = FST (FST (co 0)) ∧
     code_inv NONE (set (code_locs x)) FEMPTY cc co (FEMPTY |++ aux) cc1 co1
     else cc = state_cc (CURRY I) cc1 ∧
          co1 = state_co (CURRY I) co) ⇒
