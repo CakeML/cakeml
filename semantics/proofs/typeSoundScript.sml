@@ -1223,8 +1223,7 @@ Proof
        qexists_tac `tenvS` >>
        rw [store_type_extension_refl] >>
        rw [do_ffi_def] >>
-       every_case_tac >> fs [] >>
-(*       rfs[FIND_thm,ffiTheory.debug_sig_def,bool_case_eq]*)
+       every_case_tac >> fs []
        >- (fs [EVERY2_REVERSE1]
            >> rpt (pop_assum mp_tac)
            >> qmatch_goalsub_abbrev_tac `get_cargs_sem _ sgn rvs`
@@ -1260,7 +1259,9 @@ Proof
            >- (CCONTR_TAC >> fs [] >> metis_tac []))
        >- (fs [ffiTheory.call_FFI_def]
            >> qpat_x_assum `(if _ then _ else _) = _` mp_tac >> every_case_tac >> fs []
-           >> metis_tac [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, get_cargs_sem_SOME_IMP_args_ok])
+           >> drule get_cargs_sem_SOME_IMP_args_ok >> strip_tac >> fs [ffiTheory.debug_sig_def, FIND_thm]
+               >> fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, ffiTheory.debug_sig_def,
+                         FIND_thm] >> res_tac >> rfs [])
        >- metis_tac [store_cargs_SOME_same_loc]
        >- (CONJ_TAC
            >- (qpat_x_assum `call_FFI _ _ _ _ _ = _` kall_tac >> qpat_x_assum `ffi_oracle_ok _ ` kall_tac  >>
@@ -1321,8 +1322,6 @@ Proof
                                                   >- (Cases_on `x''` >> rw [get_ret_val_def, Boolv_def]
                                                       >> (fs [ffiTheory.call_FFI_def, ffiTheory.ret_ok_def] >> every_case_tac >> rfs [])))
               >> simp [Once type_v_cases])))
-
-
    >> rename1 `FIND _ _ = SOME sign`>>
       qexists_tac `tenvS` >>
       rw [store_type_extension_refl] >>
@@ -1363,7 +1362,9 @@ Proof
            >- (CCONTR_TAC >> fs [] >> metis_tac []))
        >- (fs [ffiTheory.call_FFI_def]
            >> qpat_x_assum `(if _ then _ else _) = _` mp_tac >> every_case_tac >> fs []
-           >> metis_tac [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, get_cargs_sem_SOME_IMP_args_ok])
+           >> drule get_cargs_sem_SOME_IMP_args_ok >> strip_tac >> fs [ffiTheory.debug_sig_def, FIND_thm]
+               >> fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def, ffiTheory.debug_sig_def,
+                         FIND_thm] >> res_tac >> rfs [])
        >- metis_tac [store_cargs_SOME_same_loc]
        >- (CONJ_TAC
            >- (qpat_x_assum `call_FFI _ _ _ _ _ = _` kall_tac >> qpat_x_assum `ffi_oracle_ok _ ` kall_tac  >>
@@ -1422,8 +1423,8 @@ Proof
            >- (rename1 `_.retty = SOME rty` >> Cases_on `rty` >> fs [] >-
                (`?b. get_ret_val o' = Boolv b` by (Cases_on `o'`
                                                   >- (rw [get_ret_val_def, Boolv_def] >>
-                                                       fs [ffiTheory.call_FFI_def, ffiTheory.ret_ok_def, ffiTheory.ret_ok_def,
-                                                              ffiTheory.ffi_oracle_ok_def] >>
+                                                       fs [ffiTheory.call_FFI_def, ffiTheory.ret_ok_def, ffiTheory.ret_ok_def, ffiTheory.debug_sig_def,
+                                                           FIND_thm, ffiTheory.ffi_oracle_ok_def] >> fs [Once bool_case_eq] >> fs [] >>
                                                               every_case_tac >> rfs []  >> (rveq >> `sign = sign'` by (fs [FIND_def] >> fs[INDEX_FIND_def]) >> fs []))
                                                   >- (rename1 `get_ret_val (SOME rty) = Boolv _` >> Cases_on `rty` >>
                                                               fs [get_ret_val_def, Boolv_def, ffiTheory.call_FFI_def, ffiTheory.ret_ok_def
@@ -1431,14 +1432,14 @@ Proof
                rw [type_of_c_type_def] >> metis_tac [type_v_ok_bool_Tbool]) >-
                (rveq >> `?i. get_ret_val o' = Litv(IntLit i)` by (Cases_on `o'`
                                                   >- (rw [get_ret_val_def, Boolv_def] >>
-                                                       fs [ffiTheory.call_FFI_def, ffiTheory.ret_ok_def, ffiTheory.ret_ok_def,
-                                                              ffiTheory.ffi_oracle_ok_def] >>
+                                                       fs [ffiTheory.call_FFI_def, ffiTheory.ret_ok_def, ffiTheory.ret_ok_def, ffiTheory.debug_sig_def,
+                                                           FIND_thm, ffiTheory.ffi_oracle_ok_def] >> fs [Once bool_case_eq] >> fs [] >>
                                                               every_case_tac >> rfs []  >> (rveq >> `sign = sign'` by (fs [FIND_def] >> fs[INDEX_FIND_def]) >> fs []))
                                                   >- (rename1 `get_ret_val (SOME rty) = Litv (IntLit _)` >> Cases_on `rty` >>
                                                               fs [get_ret_val_def, Boolv_def, ffiTheory.call_FFI_def, ffiTheory.ret_ok_def
                                                                   ] >> every_case_tac >> rfs [bool_case_eq, ffiTheory.arg_ok_def])) >>
                                                      rw [type_of_c_type_def] >> metis_tac [type_v_ok_int_lit_Tint]) >>
-               fs [ffiTheory.call_FFI_def, ffiTheory.ret_ok_def, ffiTheory.arg_ok_def] >>
+               fs [ffiTheory.call_FFI_def, ffiTheory.ret_ok_def, ffiTheory.arg_ok_def, ffiTheory.debug_sig_def, FIND_thm] >> fs [Once bool_case_eq] >> fs [] >>
                every_case_tac >> fs []  >> rveq  >> TRY (metis_tac []) >> fs [] >> TRY (Cases_on `z` >> fs []) >>
                TRY (fs [ffiTheory.ffi_oracle_ok_def]))))
 QED
