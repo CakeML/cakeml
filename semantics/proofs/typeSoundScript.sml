@@ -1694,18 +1694,23 @@ Proof
     metis_tac[do_app_SOME_same_signs])
 QED
 
+Theorem valid_ffi_name_ffi_update:
+  valid_ffi_name n sign ffi = valid_ffi_name n sign (ffi with <|ffi_state := f; io_events := io|>)
+Proof
+  rw [ffiTheory.valid_ffi_name_def]
+QED
+
 
 Theorem do_ffi_SOME_same_signs:
-   ffi_oracle_ok ffi /\ do_ffi refs ffi n args = SOME ((refs',ffi'),r)  ⇒ ffi_oracle_ok ffi'
+   ffi_oracle_ok ffi /\ do_ffi refs ffi n args = SOME ((refs',ffi'),r)  ⇒
+     ffi_oracle_ok ffi'
 Proof
   rw[do_ffi_def]
   >> fs[ffiTheory.call_FFI_def]
   >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
   >> rw [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
-  >- fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def]
-  >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def] >> cheat)
-  >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def] >> cheat)
-  >- (fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def] >> cheat)
+  >- fs [ffiTheory.ffi_oracle_ok_def, ffiTheory.debug_ffi_ok_def] >>
+  TRY (fs [ffiTheory.ffi_oracle_ok_def , GSYM valid_ffi_name_ffi_update] >> res_tac >> fs [])
 QED
 
 Theorem do_app_some_ffi_oracle_ok:

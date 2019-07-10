@@ -154,13 +154,15 @@ val state_invariant_def = Define`
   state_invariant st ⇔
   ?ctMap tenvS.
     FRANGE ((SND ∘ SND) o_f ctMap) ⊆ st.type_ids ∧
-    type_sound_invariant st.sem_st st.sem_env ctMap tenvS {} st.tenv`;
+    type_sound_invariant st.sem_st st.sem_env ctMap tenvS {} st.tenv /\
+    ffi_oracle_ok st.sem_st.ffi`;
 
 val clock_lemmas = Q.prove(
   `((x with clock := c).clock = c) ∧
    (((x with clock := c) with clock := d) = (x with clock := d)) ∧
    (x with clock := x.clock = x)`,
   srw_tac[][semanticPrimitivesTheory.state_component_equality])
+
 
 Theorem semantics_deterministic:
    state_invariant st ⇒
