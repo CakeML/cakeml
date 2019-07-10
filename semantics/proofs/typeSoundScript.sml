@@ -1703,7 +1703,7 @@ Proof
 QED
 
 
-Theorem do_ffi_SOME_same_signs:
+Theorem do_ffi_SOME_oracle_ok:
    ffi_oracle_ok ffi /\ do_ffi refs ffi n args = SOME ((refs',ffi'),r)  ⇒
      ffi_oracle_ok ffi'
 Proof
@@ -1711,8 +1711,7 @@ Proof
   >> fs[ffiTheory.call_FFI_def]
   >> rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
   >> rw [ffiTheory.ffi_oracle_ok_def]
-  >- fs [ffiTheory.ffi_oracle_ok_def] >>
-  TRY (fs [ffiTheory.ffi_oracle_ok_def , GSYM valid_ffi_name_ffi_update] >> res_tac >> fs [])
+  >> fs [ffiTheory.ffi_oracle_ok_def , GSYM valid_ffi_name_ffi_update] >> res_tac >> fs []
 QED
 
 Theorem do_app_some_ffi_oracle_ok:
@@ -1721,7 +1720,7 @@ Proof
   rw[] >>
   fs[do_app_cases] >>
   rw[] >> fs [] >>
-  metis_tac [do_ffi_SOME_same_signs]
+  metis_tac [do_ffi_SOME_oracle_ok]
 QED
 
 

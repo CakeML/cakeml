@@ -2026,8 +2026,8 @@ Proof
   \\ fs [ffiTheory.call_FFI_def]
   \\ fs [store_assign_def]
   \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
-  \\ fs [EL_LENGTH_APPEND]
-  \\ EVAL_TAC \\ fs []
+  \\ fs []
+  \\ EVAL_TAC \\ fs [EL_LENGTH_APPEND]
 QED
 
 (* a few misc. lemmas that help the automation *)
