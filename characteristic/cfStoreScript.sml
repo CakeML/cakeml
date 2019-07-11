@@ -19,37 +19,37 @@ val store2heap_aux_def = Define `
 val store2heap_def = Define `store2heap l = store2heap_aux (0: num) l`
 
 val ffi_has_index_in_def = Define `
-  ffi_has_index_in ns (IO_event i conf ws) = (MEM i ns)`;
+  ffi_has_index_in ns (IO_event i args newargs outcome) = (MEM i ns)`;
 
 val parts_ok_def = Define `
   parts_ok st ((proj,parts):'ffi ffi_proj) <=>
-    ALL_DISTINCT (FLAT (MAP FST parts)) /\
-    EVERY (ffi_has_index_in (FLAT (MAP FST parts))) st.io_events /\
-    (!ns u.
-       MEM (ns,u) parts ==>
-       ?s. !n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s) /\
-    (!x conf bytes m ns u.
-       MEM (ns,u) parts /\ MEM m ns /\
-       u m conf bytes (proj x ' m) = SOME FFIdiverge ==>
-        st.oracle m x conf bytes = Oracle_final(FFI_diverged)) /\
-    !x conf bytes w new_bytes m ns u.
-      MEM (ns,u) parts /\ MEM m ns /\
-      u m conf bytes (proj x ' m) = SOME(FFIreturn new_bytes w) ==>
-      LENGTH new_bytes = LENGTH bytes /\
+    ALL_DISTINCT (MAP (λx. x.mlname) (FLAT (MAP FST parts))) /\
+    EVERY (ffi_has_index_in (MAP (λx. x.mlname) (FLAT (MAP FST parts)))) st.io_events /\
+    (!sigs u.
+       MEM (sigs,u) parts ==>
+       ?s. !sig. MEM sig sigs ==> FLOOKUP (proj st.ffi_state) sig.mlname = SOME(s,sig)) /\
+    (!x args als sig sigs u.
+       MEM (sigs,u) parts /\ MEM sig sigs /\ args_ok sig args /\
+       u sig.mlname args als (FST(proj x ' sig.mlname)) = SOME FFIdiverge ==>
+        st.oracle sig.mlname x args als = Oracle_final(FFI_diverged)) /\
+    !x args als w new_bytes retv sig sigs u.
+      MEM (sigs,u) parts /\ MEM sig sigs /\ args_ok sig args /\
+      u sig.mlname args als (FST(proj x ' sig.mlname)) = SOME(FFIreturn new_bytes retv w) ==>
+      eq_len sig args new_bytes /\ ret_ok sig.retty retv /\ als_ok sig.args new_bytes als /\
       ?y.
-        st.oracle m x conf bytes = Oracle_return y new_bytes /\
-        proj x |++ (MAP (\n. (n,w)) ns) = proj y`
+        st.oracle sig.mlname x args als = Oracle_return y new_bytes retv /\
+        proj x |++ (MAP (\sig. (sig.mlname,(w,sig))) sigs) = proj y`
 
 val ffi2heap_def = Define `
   ffi2heap ((proj,parts):'ffi ffi_proj) st =
     if parts_ok st (proj,parts) then
       FFI_split INSERT
-      { FFI_part s u ns ts |
-        MEM (ns,u) parts /\ ns <> [] /\
-        ts = FILTER (ffi_has_index_in ns) st.io_events /\
-        !n. MEM n ns ==> FLOOKUP (proj st.ffi_state) n = SOME s }
+      { FFI_part s u sigs ts |
+        MEM (sigs,u) parts /\ sigs <> [] /\
+        ts = FILTER (ffi_has_index_in (MAP (λx. x.mlname) sigs)) st.io_events /\
+        !sig. MEM sig sigs ==> FLOOKUP (proj st.ffi_state) sig.mlname = SOME(s,sig) }
     else
-      { FFI_full st.io_events }`;
+      { FFI_full (FLAT (MAP FST parts)) st.io_events }`;
 
 (* st2heap: 'ffi state -> heap *)
 val st2heap_def = Define `
@@ -158,7 +158,7 @@ Proof
 QED
 
 Theorem FFI_full_NOT_IN_store2heap_aux:
-   ∀n s. FFI_full x1 ∉ store2heap_aux n s
+   ∀n s. FFI_full x1 x2 ∉ store2heap_aux n s
 Proof
   Induct_on `s` \\ fs [store2heap_aux_def]
 QED
@@ -166,7 +166,7 @@ QED
 Theorem FFI_part_NOT_IN_store2heap:
    !s. ~(FFI_split ∈ store2heap s) /\
         ~(FFI_part x1 x2 x3 x4 ∈ store2heap s) /\
-        ~(FFI_full y2 ∈ store2heap s)
+        ~(FFI_full y1 y2 ∈ store2heap s)
 Proof
   fs [store2heap_def,FFI_part_NOT_IN_store2heap_aux,
       FFI_full_NOT_IN_store2heap_aux,FFI_split_NOT_IN_store2heap_aux]
