@@ -28,9 +28,9 @@ val evaluate_to_heap_def = Define `
                          st2heap p st' = heap)
     | Exn e => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)) /\
                          st2heap p st' = heap)
-    | FFIDiv name conf bytes => (∃ck st'.
+    | FFIDiv name args => (∃ck st'.
       evaluate_ck ck st env [exp]
-      = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
+      = (st', Rerr(Rabort(Rffi_error(Final_event name args FFI_diverged)))) /\
       st2heap p st' = heap)
     | Div io => (* all clocks produce timeout *)
                 (∀ck. ∃st'. evaluate_ck ck st env [exp] =
@@ -321,7 +321,7 @@ Proof
 QED
 
 Theorem FFI_full_NOT_IN_store2heap:
-   FFI_full x1 ∉ store2heap refs
+   FFI_full x1 x2 ∉ store2heap refs
 Proof
   rw[store2heap_def,FFI_full_NOT_IN_store2heap_aux]
 QED
@@ -402,6 +402,15 @@ Proof
 QED
 *)
 
+(* TODO: move to semanticPrimitives *)
+Theorem store_cargs_sem_refs_length_eq:
+  !l1 l2 refs refs'. store_cargs_sem l1 l2 refs = SOME refs' ==> LENGTH refs' = LENGTH refs
+Proof
+  ho_match_mp_tac store_cargs_sem_ind >> rw[store_cargs_sem_def] >>
+  Cases_on `marg` >> fs[store_carg_sem_def] >> every_case_tac >> fs[store_assign_def] >>
+  rveq >> fs[]
+QED
+
 Theorem evaluate_refs_length_mono:
     (∀(s:'a state) env e s' r.
      evaluate s env e = (s',r) ⇒ LENGTH s.refs ≤ LENGTH s'.refs) ∧
@@ -413,9 +422,11 @@ Proof
   \\ every_case_tac \\ fs[] \\ rw[] \\ rfs[]
   \\ fs[dec_clock_def]
   \\ fs[semanticPrimitivesPropsTheory.do_app_cases] \\ rw[]
-  \\ fs[semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
+  \\ fs[semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def,
+        semanticPrimitivesTheory.do_ffi_def]
   \\ rw[]
   \\ every_case_tac >> fs[] >> rveq >> fs[]
+  \\ imp_res_tac store_cargs_sem_refs_length_eq >> fs[]
 QED
 
 (*
@@ -459,7 +470,7 @@ val forall_cases = Q.prove(
   `(!x. P x) <=> (!x1 x2. P (Mem x1 x2)) /\
                   (P FFI_split) /\
                   (!x3 x4 x2 x1. P (FFI_part x1 x2 x3 x4)) /\
-                  (!x1. P (FFI_full x1))`,
+                  (!x1 x2. P (FFI_full x1 x2))`,
   EQ_TAC \\ rw [] \\ Cases_on `x` \\ fs []);
 
 val SPLIT_UNION_IMP_SUBSET = Q.prove(
@@ -535,7 +546,8 @@ val FFI_part_EXISTS = Q.prove(
     FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) s1 ==>
     ?y1 y2 y4. FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s2`,
   strip_tac \\ rfs [ffi2heap_def] \\ asm_exists_tac \\ fs []
-  \\ fs [parts_ok_def] \\ metis_tac []);
+  \\ fs [parts_ok_def]
+  \\ metis_tac[]);
 
 val ALL_DISTINCT_FLAT_MEM_IMP = Q.prove(
   `!p1 x x2 y2.
@@ -555,7 +567,8 @@ val FFI_part_11 = Q.prove(
     x1 = y1 /\ x2 = y2 /\ x4 = y4`,
   strip_tac \\ rfs [ffi2heap_def]
   \\ Cases_on `x3` \\ fs [] \\ fs [parts_ok_def]
-  \\ imp_res_tac ALL_DISTINCT_FLAT_MEM_IMP \\ fs []);
+  \\ imp_res_tac ALL_DISTINCT_FLAT_MEM_IMP \\ fs []
+  \\ imp_res_tac ALL_DISTINCT_MAP \\ fs[]);
 
 Theorem SPLIT_st2heap_ffi:
    SPLIT (st2heap p st') (st2heap p st, h_g) ⇒
@@ -580,11 +593,11 @@ Proof
   \\ fs [Mem_NOT_IN_ffi2heap]
   \\ reverse (Cases_on `parts_ok st.ffi (p0,p1)`) \\ fs [] THEN1
    (fs [ffi2heap_def]
-    \\ first_x_assum (qspecl_then [`st.ffi.io_events`] mp_tac)
+    \\ first_x_assum (qspecl_then [`FLAT (MAP FST p1)`,`st.ffi.io_events`] mp_tac)
     \\ fs [])
   \\ rw []
   \\ qpat_x_assum `!x1 x2. _ <=> _` kall_tac
-  \\ qpat_x_assum `!x1. _ <=> _` kall_tac
+  \\ qpat_x_assum `!x1 x2. _ <=> _` kall_tac
   \\ qpat_x_assum `_ <=> _` kall_tac
   \\ `∀x3 x4 x2 x1.
         FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) st'.ffi ⇔
@@ -599,7 +612,7 @@ Proof
   \\ pop_assum mp_tac \\ qpat_x_assum `!x. _` kall_tac \\ rw []
   \\ fs [ffi2heap_def] \\ rfs []
   \\ fs [parts_ok_def]
-  \\ reverse (Cases_on `MEM n ((FLAT (MAP FST p1)))`)
+  \\ reverse (Cases_on `MEM n (MAP (λx. x.mlname) (FLAT (MAP FST p1)))`)
   THEN1 (imp_res_tac FILTER_ffi_has_index_in_EQ_NIL \\ fs [])
   \\ fs [MEM_FLAT,MEM_MAP]
   \\ rpt var_eq_tac
@@ -608,13 +621,14 @@ Proof
   \\ qpat_assum `!x1 x2. _ ==> _` drule
   \\ strip_tac
   \\ first_assum (qspecl_then [`y0`,
-       `FILTER (ffi_has_index_in y0) st'.ffi.io_events`,`y1`,`s`] mp_tac)
+       `FILTER (ffi_has_index_in (MAP (λx. x.mlname) y0)) st'.ffi.io_events`,`y1`,`s`] mp_tac)
   \\ `y0 <> []` by (CCONTR_TAC \\ fs [])
   \\ rewrite_tac [] \\ simp []
-  \\ strip_tac
   \\ rpt strip_tac
   \\ match_mp_tac FILTER_ffi_has_index_in_MEM
-  \\ fs [] \\ asm_exists_tac \\ fs []
+  \\ fs []
+  \\ qexists_tac `MAP (λx. x.mlname) y0`
+  \\ fs[MEM_MAP] \\ HINT_EXISTS_TAC \\ rw[]
 QED
 
 (*
@@ -702,19 +716,20 @@ Proof
   \\ first_x_assum drule
   \\ fs[evaluate_ck_def]
   \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
-  \\ disch_then( qspec_then`ARB with
-        <| refs := refs; |>` mp_tac)
+  \\ disch_then( qspec_then`(ARB with <|ffi := (ARB.ffi with signatures := []); refs := refs; |>)` mp_tac)
   \\ rw [] \\ instantiate
   \\ rename1 `SPLIT (st2heap p st1) _`
-  \\ drule (CONJUNCT1 evaluate_ffi_intro |> INST_TYPE [beta|->``:unit``]) \\ fs []
+  \\ drule (CONJUNCT1 evaluate_ffi_sign_extends_intro |> INST_TYPE [beta|->``:unit``]) \\ fs []
   \\ disch_then (qspec_then
        `empty_state with <| clock := ck ;refs := refs |>` mp_tac) \\ fs []
   \\ qsuff_tac `?refs1. st1.refs = refs ++ refs1 /\
-                        st1.ffi = ARB.ffi`
+                        st1.ffi = (ARB.ffi with signatures := [])`
   THEN1
    (fs [ml_progTheory.eval_rel_def] \\ rw []
     \\ qexists_tac `refs1`
-    \\ qexists_tac `ck` \\ fs [state_component_equality])
+    \\ qexists_tac `ck`
+     \\ fs [state_component_equality,state_sign_extends_def,ml_translatorTheory.empty_state_def,
+            ffiTheory.initial_ffi_state_def,semanticPrimitivesPropsTheory.sign_extends_def])
   \\ imp_res_tac evaluate_refs_length_mono \\ fs []
   \\ imp_res_tac evaluate_io_events_mono_imp
   \\ fs[io_events_mono_def]
