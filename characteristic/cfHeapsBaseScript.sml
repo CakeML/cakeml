@@ -64,27 +64,27 @@ Proof
 QED
 
 val _ = Datatype `
-  ffi_result = FFIreturn (word8 list) 'ffi | FFIdiverge`
+  ffi_result = FFIreturn (word8 list list) (c_primv option) 'ffi | FFIdiverge`
 
 (* make an ffi_next function from base functions and encode/decode *)
 val mk_ffi_next_def = Define`
-  mk_ffi_next (encode,decode,ls) name conf bytes s =
+  mk_ffi_next (encode,decode,ls) name args als s =
     OPTION_BIND (ALOOKUP ls name) (λf.
     OPTION_BIND (decode s) (λs.
-    OPTION_BIND (f conf bytes s) (λr.
+    OPTION_BIND ((FST f) name args als s) (λr.
      case r of
-       FFIreturn bytes s => SOME(FFIreturn bytes (encode s))
+       FFIreturn newargs retv s => SOME(FFIreturn newargs retv (encode s))
      | FFIdiverge => SOME FFIdiverge)))`;
 
 val _ = temp_type_abbrev("loc", ``:num``)
 
-val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> word8 list -> ffi -> ffi ffi_result option``);
+val _ = temp_type_abbrev("ffi_next", ``:string -> c_value list -> num list list -> ffi -> ffi ffi_result option``);
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
             | FFI_split
-            | FFI_part ffi ffi_next (string list) (io_event list)
-            | FFI_full (io_event list)`
+            | FFI_part ffi ffi_next (c_funsig list) (io_event list)
+            | FFI_full (c_funsig list) (io_event list)`
 
 val _ = type_abbrev("heap", ``:heap_part set``)
 val _ = type_abbrev("hprop", ``:heap -> bool``)
@@ -92,12 +92,12 @@ val _ = type_abbrev("hprop", ``:heap -> bool``)
 val _ = Datatype `
   res = Val v
       | Exn v
-      | FFIDiv string (word8 list) (word8 list)
+      | FFIDiv string (c_value list)
       | Div (io_event llist)`
 
 val _ = type_abbrev("ffi_proj",
-  ``: ('ffi -> (string |-> ffi)) #
-      ((string list # ffi_next) list)``)
+  ``: ('ffi -> (string |-> ffi # c_funsig)) #
+      ((c_funsig list # ffi_next) list)``)
 
 val SPLIT3_def = Define `
   SPLIT3 (s:'a set) (u,v,w) =
@@ -142,7 +142,7 @@ val SEP_IMPPOSTe_def = Define `
 
 val SEP_IMPPOSTf_def = Define `
   SEP_IMPPOSTf (Q1: res -> hprop) (Q2: res -> hprop) =
-    !name conf bytes. SEP_IMP (Q1 (FFIDiv name conf bytes)) (Q2 (FFIDiv name conf bytes))`
+    !name args. SEP_IMP (Q1 (FFIDiv name args)) (Q2 (FFIDiv name args))`
 
 val SEP_IMPPOSTd_def = Define `
   SEP_IMPPOSTd (Q1: res -> hprop) (Q2: res -> hprop) =
@@ -161,40 +161,40 @@ val GC_def = Define `GC: hprop = SEP_EXISTS H. H`
 
 (* Injections for post-conditions *)
 val POST_def = Define `
-  POST (Qv: v -> hprop) (Qe: v -> hprop) (Qf: string -> word8 list -> word8 list -> hprop) (Qd: io_event llist -> bool) = \r.
+  POST (Qv: v -> hprop) (Qe: v -> hprop) (Qf: string -> c_value list -> hprop) (Qd: io_event llist -> bool) = \r.
     case r of
      | Val v => Qv v
      | Exn e => Qe e
-     | FFIDiv name conf bytes => Qf name conf bytes
+     | FFIDiv name args => Qf name args
      | Div io => cond (Qd io)`
 
 val POSTv_def = new_binder_definition("POSTv_def",
   ``($POSTv) (Qv: v -> hprop) =
-      POST Qv (\e. cond F) (\name conf bytes. cond F) (\io. F)``)
+      POST Qv (\e. cond F) (\name args. cond F) (\io. F)``)
 
 val POSTe_def = new_binder_definition("POSTe_def",
   ``($POSTe) (Qe: v -> hprop) =
-      POST (\v. cond F) Qe (\name conf bytes. cond F) (\io. F)``)
+      POST (\v. cond F) Qe (\name args. cond F) (\io. F)``)
 
 val POSTf_def = new_binder_definition("POSTf_def",
-  ``($POSTf) (Qf: string -> word8 list -> word8 list -> hprop) =
+  ``($POSTf) (Qf: string -> c_value list -> hprop) =
       POST (\v. cond F) (\e. cond F) Qf (\io. F)``)
 
 val POSTd_def = new_binder_definition("POSTd_def",
   ``($POSTd) (Qd: io_event llist -> bool) =
-      POST (\v. cond F) (\e. cond F) (\name conf bytes. cond F) Qd``)
+      POST (\v. cond F) (\e. cond F) (\name args. cond F) Qd``)
 
 val POSTve_def = Define `
   POSTve (Qv: v -> hprop) (Qe: v -> hprop) =
-    POST Qv Qe (\name conf bytes. cond F) (\io. F)`
+    POST Qv Qe (\name args. cond F) (\io. F)`
 
 val POSTvd_def = Define `
   POSTvd (Qv: v -> hprop) (Qd: io_event llist -> bool) =
-    POST Qv (\e. cond F) (\name conf bytes. cond F) Qd`
+    POST Qv (\e. cond F) (\name args. cond F) Qd`
 
 val POSTed_def = Define `
   POSTed (Qe: v -> hprop) (Qd: io_event llist -> bool) =
-    POST (\v. cond F) Qe (\name conf bytes. cond F) Qd`
+    POST (\v. cond F) Qe (\name args. cond F) Qd`
 
 val POST_F_def = Define `
   POST_F (r: res): hprop = cond F`
@@ -223,11 +223,12 @@ val W8ARRAY_def = Define `
     SEP_EXISTS loc. cond (av = Loc loc) * cell loc (W8array wl)`
 
 val IO_def = Define `
-  IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events) * cond (~MEM "" ns)`;
+  IO s u sigs = SEP_EXISTS events. one (FFI_part s u sigs events)
+                                   * cond (~EXISTS (λsig. sig.mlname = "") sigs)`;
 
 val IOx_def = Define`
   IOx (encode,decode,ls) s =
-    IO (encode s) (mk_ffi_next (encode,decode,ls)) (MAP FST ls)`;
+    IO (encode s) (mk_ffi_next (encode,decode,ls)) (MAP (SND o SND) ls)`;
 
 val mk_proj1_def = Define`
   mk_proj1 (encode,decode,ls) s =
@@ -560,7 +561,7 @@ Theorem SEP_IMPPOST_unfold:
       (Q1 ==+> Q2) <=>
       (!v. Q1 (Val v) ==>> Q2 (Val v)) /\
       (!v. Q1 (Exn v) ==>> Q2 (Exn v)) /\
-      (!name conf bytes. Q1 (FFIDiv name conf bytes) ==>> Q2 (FFIDiv name conf bytes)) /\
+      (!name args. Q1 (FFIDiv name args) ==>> Q2 (FFIDiv name args)) /\
       (!io. Q1 (Div io) ==>> Q2 (Div io))
 Proof
   rpt strip_tac \\ eq_tac \\ rpt strip_tac \\ fs [SEP_IMPPOST_def] \\
@@ -657,7 +658,7 @@ Proof
 QED
 
 Theorem POST_FFIDiv[simp]:
-   !Qv Qe Qf Qd name conf bytes. POST Qv Qe Qf Qd (FFIDiv name conf bytes) = Qf name conf bytes
+   !Qv Qe Qf Qd name args. POST Qv Qe Qf Qd (FFIDiv name args) = Qf name args
 Proof
   fs [POST_def]
 QED
@@ -681,7 +682,7 @@ Proof
 QED
 
 Theorem POSTv_FFIDiv[simp]:
-   !Qv name conf bytes. $POSTv Qv (FFIDiv name conf bytes) = &F
+   !Qv name args. $POSTv Qv (FFIDiv name args) = &F
 Proof
   fs [POSTv_def, POST_def]
 QED
@@ -705,7 +706,7 @@ Proof
 QED
 
 Theorem POSTe_FFIDiv[simp]:
-   !Qe name conf bytes. $POSTe Qe (FFIDiv name conf bytes) = &F
+   !Qe name args. $POSTe Qe (FFIDiv name args) = &F
 Proof
   fs [POSTe_def, POST_def]
 QED
@@ -729,7 +730,7 @@ Proof
 QED
 
 Theorem POSTf_FFIDiv[simp]:
-   !Qf name conf bytes. $POSTf Qf (FFIDiv name conf bytes) = Qf name conf bytes
+   !Qf name args. $POSTf Qf (FFIDiv name args) = Qf name args
 Proof
   fs [POSTf_def, POST_def]
 QED
@@ -753,7 +754,7 @@ Proof
 QED
 
 Theorem POSTd_FFIDiv[simp]:
-   !Qd name conf bytes. $POSTd Qd (FFIDiv name conf bytes) = &F
+   !Qd name args. $POSTd Qd (FFIDiv name args) = &F
 Proof
   fs [POSTd_def, POST_def]
 QED
@@ -777,7 +778,7 @@ Proof
 QED
 
 Theorem POSTve_FFIDiv[simp]:
-   !Qv Qe name conf bytes. POSTve Qv Qe (FFIDiv name conf bytes) = &F
+   !Qv Qe name args. POSTve Qv Qe (FFIDiv name args) = &F
 Proof
   fs [POSTve_def, POST_def]
 QED
@@ -801,7 +802,7 @@ Proof
 QED
 
 Theorem POSTvd_FFIDiv[simp]:
-   !Qv Qd name conf bytes. POSTvd Qv Qd (FFIDiv name conf bytes) = &F
+   !Qv Qd name args. POSTvd Qv Qd (FFIDiv name args) = &F
 Proof
   fs [POSTvd_def, POST_def]
 QED
@@ -825,7 +826,7 @@ Proof
 QED
 
 Theorem POSTed_FFIDiv[simp]:
-   !Qe Qd name conf bytes. POSTed Qe Qd (FFIDiv name conf bytes) = &F
+   !Qe Qd name args. POSTed Qe Qd (FFIDiv name args) = &F
 Proof
   fs [POSTed_def, POST_def]
 QED
