@@ -383,41 +383,6 @@ fun get_module_prefix () = let
     | (m :: ms) => m ^ "_"
   end
 
-fun trans ml_name rhs = let
-  val prefix = get_module_prefix ()
-  val hol_name = prefix ^ pick_name ml_name
-  val hol_name_clashes = (fst (dest_const rhs) = hol_name)
-                         handle HOL_ERR _ => false
-  val tm = mk_eq(mk_var(hol_name,type_of rhs),rhs)
-  val def = Define `^tm`
-  val _ = (next_ml_names := [ml_name])
-  val v_thm = translate (def |> SIMP_RULE std_ss [FUN_EQ_THM])
-  val v_thm = v_thm |> REWRITE_RULE [def]
-                    |> CONV_RULE (DEPTH_CONV ETA_CONV)
-  val v_name = v_thm |> concl |> rand |> dest_const |> fst
-  val _ = if hol_name_clashes
-          then remove_ovl_mapping hol_name
-                 {Name = hol_name, Thy = current_theory()}
-          else ()
-  (* evaluate precondition *)
-  val pat = PRECONDITION_def |> SPEC_ALL |> GSYM |> concl |> rand
-  fun PRECOND_CONV c tm =
-    if can (match_term pat) tm then RAND_CONV c tm else NO_CONV tm
-  val v_thm = v_thm |> DISCH_ALL
-                    |> CONV_RULE (ONCE_DEPTH_CONV (PRECOND_CONV EVAL))
-                    |> UNDISCH_ALL
-  val _ = save_thm(v_name ^ "_thm",v_thm)
-  in v_thm end
-
-val _ = trans "sub" mlstringSyntax.strsub_tm;
-val _ = trans "implode" mlstringSyntax.implode_tm;
-val _ = trans "explode" mlstringSyntax.explode_tm;
-val _ = trans "size" mlstringSyntax.strlen_tm;
-val _ = trans "concat" mlstringSyntax.concat_tm;
-val _ = trans "substring" mlstringSyntax.substring_tm;
-val result = translate mlstringTheory.strcat_def;
-val _ = trans "^" mlstringSyntax.strcat_tm;
-
 val _ = translate arithmeticTheory.MIN_DEF
 val result = translate (mlstringTheory.extract_def |> REWRITE_RULE [mlstringTheory.implode_def]);
 
@@ -587,5 +552,105 @@ val collate_side_thm = Q.prove (
 
 val _ = ml_prog_update close_local_blocks;
 
+(* from IntProg *)
+val _ = use_string_type false;
+
+open mlintTheory
+
+val result = translate zero_pad_def
+
+val result = translate toChar_def
+val tochar_side_def = definition"tochar_side_def";
+val tochar_side = Q.prove(
+  `∀x. tochar_side x <=> (~(x < 10) ==> x < 201)`,
+  rw[tochar_side_def])
+  |> update_precondition;
+
+val result = translate simple_toChars_def
+
+val simple_toChars_side = Q.prove(
+  `∀x y z. simple_tochars_side x y z = T`,
+  ho_match_mp_tac simple_toChars_ind \\ rw[]
+  \\ rw[Once (theorem"simple_tochars_side_def")])
+  |> update_precondition;
+
+val _ = save_thm("toChars_ind",
+   toChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val _ = add_preferred_thy "-";
+val result = translate
+  (toChars_def |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = next_ml_names := ["toString"];
+
+val toString_v_thm = translate
+  (toString_def |> REWRITE_RULE[maxSmall_DEC_def])
+val tostring_side = Q.prove(
+  `∀x. tostring_side x = T`,
+  rw[definition"tostring_side_def"]
+  \\ intLib.COOPER_TAC)
+  |> update_precondition;
+
+val toString_v_thm = toString_v_thm
+  |> DISCH_ALL |> REWRITE_RULE [tostring_side,ml_translatorTheory.PRECONDITION_def]
+  |> ml_translatorLib.remove_Eq_from_v_thm;
+
+val Eval_NUM_toString = Q.prove(
+  `!v. (INT --> STRING_TYPE) toString v ==>
+       (NUM --> STRING_TYPE) num_to_str v`,
+  simp [ml_translatorTheory.Arrow_def,
+    ml_translatorTheory.AppReturns_def,num_to_str_def,
+    ml_translatorTheory.NUM_def,PULL_EXISTS,FORALL_PROD]
+  \\ rw [] \\ res_tac)
+  |> (fn th => MATCH_MP th toString_v_thm)
+  |> add_user_proved_v_thm;
+
+val _ = ml_prog_update open_local_block;
+
+val result = translate fromChar_unsafe_def;
+val result = translate fromChars_range_unsafe_def;
+
+val _ = save_thm("fromChars_unsafe_ind",
+  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val result = translate (fromChars_unsafe_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val result = translate fromString_unsafe_def;
+
+val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
+val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
+val fromchars_range_unsafe_side_def = theorem"fromchars_range_unsafe_side_def";
+
+Theorem fromchars_unsafe_side_thm:
+   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
+Proof
+  completeInduct_on`n` \\ rw[]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def]
+QED
+
+val _ = translate optionTheory.OPTION_MAP_DEF
+val _ = translate optionTheory.IS_SOME_DEF
+val _ = translate optionTheory.OPTION_MAP2_DEF
+val _ = translate combinTheory.o_DEF
+
+val result = translate fromChar_def;
+val result = translate fromChars_range_def;
+
+val _ = save_thm("fromChars_ind",
+  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val result = translate (fromChars_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = next_ml_names := ["fromString"];
+val result = translate fromString_def;
+val fromstring_side_def = definition"fromstring_side_def";
+val fromchars_side_def = theorem"fromchars_side_def";
+val fromchars_range_side_def = theorem"fromchars_range_side_def";
+
+val _ = next_ml_names := ["fromNatString"];
+val result = translate fromNatString_def;
 
 val _ = export_theory();

@@ -45,7 +45,7 @@ exception NotFoundVThm of term;
 (* non-persistent state *)
 
 local
-  val use_string_type_ref = ref true;
+  val use_string_type_ref = ref false;
 in
   fun use_string_type b =
     (use_string_type_ref := b;
@@ -2715,9 +2715,8 @@ fun mutual_to_single_line_def def = let
 val builtin_terops =
   [Eval_substring,
    Eval_FLOAT_FMA]
-  |> map SPEC_ALL
   |> map (fn th =>
-      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
 
 val builtin_binops =
   [Eval_NUM_ADD,
@@ -2730,8 +2729,6 @@ val builtin_binops =
    Eval_NUM_LESS_EQ,
    Eval_NUM_GREATER,
    Eval_NUM_GREATER_EQ,
-   Eval_HOL_STRING_EL,
-   Eval_HOL_STRING_APPEND,
    Eval_char_lt,
    Eval_char_le,
    Eval_char_gt,
@@ -2760,9 +2757,8 @@ val builtin_binops =
    Eval_ListAppend,
    Eval_sub,
    Eval_Implies]
-  |> map SPEC_ALL
   |> map (fn th =>
-      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 
 val builtin_monops =
   [Eval_implode,
@@ -2786,15 +2782,31 @@ val builtin_monops =
    Eval_force_out_of_memory_error,
    Eval_Chr,
    Eval_Ord]
-  |> map SPEC_ALL
   |> map (fn th =>
-      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
+
+val builtin_hol_string_binops =
+  [Eval_HOL_STRING_EL,
+   Eval_HOL_STRING_APPEND]
+  |> map (fn th =>
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
+
+val builtin_hol_string_monops =
+  [Eval_HOL_STRING_LENGTH,
+   Eval_HOL_STRING_IMPLODE,
+   Eval_HOL_STRING_EXPLODE,
+   Eval_HOL_STRING_FLAT,
+   Eval_HOL_STRING_explode]
+  |> map (fn th =>
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
 
 val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
   val must_eta_expand_ops =
     map fst builtin_terops @
     map fst builtin_binops @
-    map fst builtin_monops
+    map fst builtin_monops @
+    map fst builtin_hol_string_binops @
+    map fst builtin_hol_string_monops
   fun must_eta_expand tm =
     TypeBase.is_constructor tm orelse
     tmem tm must_eta_expand_ops orelse
@@ -2876,14 +2888,18 @@ fun dest_builtin_terop tm = let
 fun dest_builtin_binop tm = let
   val (px,r2) = dest_comb tm
   val (p,r1) = dest_comb px
-  val (x,th) = first (fn (x,_) => can (match_term x) p) builtin_binops
+  val thms = (if use_hol_string_type () then builtin_hol_string_binops else [])
+             @ builtin_binops
+  val (x,th) = first (fn (x,_) => can (match_term x) p) thms
   val (ss,ii) = match_term x p
   val th = INST ss (INST_TYPE ii th)
   in (p,r1,r2,th) end handle HOL_ERR _ => failwith("Not a builtin operator")
 
 fun dest_builtin_monop tm = let
   val (p,r) = dest_comb tm
-  val (x,th) = first (fn (x,_) => can (match_term x) p) builtin_monops
+  val thms = (if use_hol_string_type () then builtin_hol_string_monops else [])
+             @ builtin_monops
+  val (x,th) = first (fn (x,_) => can (match_term x) p) thms
   val (ss,ii) = match_term x p
   val th = INST ss (INST_TYPE ii th)
   in (p,r,th) end handle HOL_ERR _ => failwith("Not a builtin operator")
@@ -3170,6 +3186,12 @@ val tm = rhs
 val tm = rhs_tm
 val tm = ``case v3 of (v2,v1) => QSORT v7 v2 ++ [v6] ++ QSORT v7 v1``
 val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
+val tm = def |> SPEC_ALL |> concl |> rand
+
+val tm = x1
+
+hol2deep ((rand o rator) x1)
+
 *)
 
 fun hol2deep tm =

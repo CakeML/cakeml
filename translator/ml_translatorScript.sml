@@ -1691,16 +1691,16 @@ QED
 
 (* char list as string *)
 
-Theorem Eval_explode_nop:
-  Eval env x (STRING_TYPE s) ==>
-  Eval env x (HOL_STRING_TYPE (explode s))
+Theorem Eval_implode_nop:
+  Eval env x (HOL_STRING_TYPE cs) ==>
+  Eval env x (STRING_TYPE (implode cs))
 Proof
   rw [HOL_STRING_TYPE_def]
 QED
 
-Theorem Eval_implode_nop:
-  Eval env x (HOL_STRING_TYPE cs) ==>
-  Eval env x (STRING_TYPE (implode cs))
+Theorem Eval_HOL_STRING_explode:
+  Eval env x (STRING_TYPE s) ==>
+  Eval env x (HOL_STRING_TYPE (explode s))
 Proof
   rw [HOL_STRING_TYPE_def]
 QED
