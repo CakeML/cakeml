@@ -20,16 +20,18 @@ Variables are identified by num
 Datatype `pat =
     Any
   | Var num
-  | Cons num (pat list)
+  (* A constructor pattern is an constructor id, the number of constructors
+     in its type an a list of other patterns *)
+  | Cons num num (pat list)
   | Or pat pat
-  | As pat num (* pat as var *)
+  | As pat num (* (p:pat) as (x:num) *)
 `;
 
 Definition psize_def:
   (psize Any = (1:num)) /\
   (psize (Var n) = 1) /\
-  (psize (Cons n []) = 1) /\
-  (psize (Cons n (x::xs)) = 1 + (psize x) + psize (Cons n xs)) /\
+  (psize (Cons n t []) = 1) /\
+  (psize (Cons n t (x::xs)) = 1 + (psize x) + psize (Cons n t xs)) /\
   (psize (Or p1 p2) = 1 + (psize p1) + (psize p2)) /\
   (psize (As p n) = 1 + (psize p))
 End
@@ -103,15 +105,15 @@ QED;
 val pmatch_def = tDefine "match_def" `
   (pmatch Any  t = T) /\
   (pmatch (Var n) t = T) /\
-  (pmatch (Cons pcons pargs) (Term tcons targs) =
+  (pmatch (Cons pcons _ pargs) (Term tcons targs) =
     ((pcons = tcons) /\
     (LIST_REL (\p t. pmatch p t) pargs targs))) /\
-  (pmatch (Cons pcons []) (Term tcons []) = (pcons = tcons)) /\
-  (pmatch (Cons pcons ps) (Term tcons []) = F) /\
-  (pmatch (Cons pcons []) (Term tcons ts) = F) /\
-  (pmatch (Cons pcons (p::ps)) (Term tcons (t::ts)) =
+  (pmatch (Cons pcons _ []) (Term tcons []) = (pcons = tcons)) /\
+  (pmatch (Cons pcons _ ps) (Term tcons []) = F) /\
+  (pmatch (Cons pcons _ []) (Term tcons ts) = F) /\
+  (pmatch (Cons pcons tinfo (p::ps)) (Term tcons (t::ts)) =
     ((pmatch p t) /\
-     (pmatch (Cons pcons ps) (Term tcons ts)))) /\
+     (pmatch (Cons pcons tinfo ps) (Term tcons ts)))) /\
   (pmatch (Or p1 p2) t = ((pmatch p1 t) \/ (pmatch p2 t))) /\
   (pmatch (As p num) t = pmatch p t)`
   (WF_REL_TAC `measure (\ (x,_). psize x)` \\ rw[psize_def] \\
@@ -290,7 +292,7 @@ Definition spec_def:
     (Branch ((n_any a)++ps) e)::(spec c a rs)) /\
   (spec c a ((Branch ((Var n)::ps) e)::rs) =
     (Branch ((n_any a)++ps) e)::(spec c a rs)) /\
-  (spec c a ((Branch ((Cons pcons pargs)::ps) e)::rs) =
+  (spec c a ((Branch ((Cons pcons _ pargs)::ps) e)::rs) =
     if c = pcons
     then (Branch (pargs++ps) e)::(spec c a rs)
     else (spec c a rs)) /\
@@ -475,14 +477,14 @@ Definition default_def:
     (Branch ps e)::(default rs)) /\
   (default ((Branch ((Var n)::ps) e)::rs) =
     (Branch ps e)::(default rs)) /\
-  (default ((Branch ((Cons pcons pargs)::ps) e)::rs) =
+  (default ((Branch ((Cons pcons _ pargs)::ps) e)::rs) =
     (default rs)) /\
   (default ((Branch ((Or p1 p2)::ps) e)::rs) =
     (default [Branch (p1::ps) e]) ++
     (default [Branch (p2::ps) e]) ++
     (default rs)) /\
   (default ((Branch ((As p n)::ps) e)::rs) =
-    (default (Branch (p::ps) e)::rs))
+    default ((Branch (p::ps) e)::rs))
 End
 
 (* Key property of default matrix (Lemma 2 of article) *)
@@ -494,7 +496,7 @@ Definition is_cons_head_def:
     (is_cons_head c rs)) /\
   (is_cons_head c ((Branch ((Var n)::ps) e)::rs) =
     (is_cons_head c rs)) /\
-  (is_cons_head c ((Branch ((Cons pcons pargs)::ps) e)::rs) =
+  (is_cons_head c ((Branch ((Cons pcons _ pargs)::ps) e)::rs) =
     (if c = pcons
     then T
     else (is_cons_head c rs))) /\
@@ -660,5 +662,218 @@ Proof
           res_tac \\ fs[]))
   >- fs[msize_def]
 QED;
+
+(* Definition of decision trees *)
+Datatype `dTree =
+    Leaf num
+  | Fail
+  | Swap num dTree
+  | If num dTree dTree
+  | Let num dTree
+`;
+
+(* Swap the first and ith items in a list *)
+Definition get_ith_def:
+  (get_ith 0 (t::ts) = t) /\
+  (get_ith n (t::ts) = get_ith (n-1) ts)
+End
+
+Definition replace_ith_def:
+  (replace_ith (t::ts) 0 u = (u::ts)) /\
+  (replace_ith (t::ts) n u = t::(replace_ith ts (n-1) u))
+End
+
+Definition swap_items_def:
+  (swap_items i (t::ts) = (get_ith (i-1) ts)::(replace_ith ts (i-1) t))
+End
+
+(* Swap the first and ith columns in a matrix *)
+Definition swap_columns_def:
+  (swap_columns i [] = []) /\
+  (swap_columns i (b::bs) =
+     (swap_items i b)::(swap_columns i bs))
+End
+
+(* Remove the first column of a matrix *)
+Definition remove_fst_col_def:
+  (remove_fst_col [] = []) /\
+  (remove_fst_col ((Branch (p::ps) e)::bs) =
+    (Branch ps e)::(remove_fst_col bs))
+End
+
+(* Semantics of decision trees *)
+Definition dt_eval_def:
+  (dt_eval ts (Leaf k) = k) /\
+  (dt_eval ts (Swap i dt) = dt_eval (swap_items i ts) dt) /\
+  (dt_eval ((Term c targs)::ts) (If c' dt1 dt2) =
+    if c = c'
+    then dt_eval (targs++ts) dt1
+    else dt_eval (targs++ts) dt2) /\
+  (dt_eval ts (Let k dt) = dt_eval ts dt)
+End
+
+(* Definition of occurences and their application to terms *)
+(* val _ = type_abbrev("occurences", ``:num list``) *)
+
+(* Definition occur_term_def: *)
+(*   (occur_term t [] = t) /\ *)
+(*   (occur_term (Term tcons targs) (occ::os) = *)
+(*     occur_term (get_ith occ targs) os) *)
+(* End *)
+
+Definition all_wild_or_bindings_def:
+  (all_wild_or_vars [] = T) /\
+  (all_wild_or_vars (Any::ps) = all_wild_or_vars ps) /\
+  (all_wild_or_vars ((Var _)::ps) = all_wild_or_vars ps) /\
+  (all_wild_or_vars ((Cons _ _ _)::_) = F) /\
+  (all_wild_or_vars ((Or p1 p2)::ps) = ((all_wild_or_vars [p1]) /\
+                                        (all_wild_or_vars [p2]) /\
+                                        (all_wild_or_vars ps))) /\
+  (all_wild_or_vars ((As p _)::ps) = ((all_wild_or_vars [p]) /\
+                                      (all_wild_or_vars ps)))
+End
+
+(* add bindings add let expressions to an existing decision tree *)
+Definition add_bindings_def:
+  (add_bindings [] d = d) /\
+  (add_bindings (Any::ps) d = add_bindings ps d) /\
+  (add_bindings ((Var n)::ps) d = Let n (add_bindings ps d)) /\
+  (add_bindings ((Cons _ _ _)::ps) d = add_bindings ps d) /\
+  (add_bindings ((Or p1 p2)::ps) d =
+    add_bindings [p1] (add_bindings [p2] (add_bindings ps d))) /\
+  (add_bindings ((As p n)::ps) d = Let n (add_bindings [p] (add_bindings ps d)))
+End
+
+(*
+Column infos
+Returns a pair containing identifiers to be bound in default
+case and a list containing pairs of constructors and list of
+identifiers to be bound for each of these constructors
+*)
+Definition add_def_id_def:
+  add_def_id id (ids, cinfos) = (id::ids, cinfos)
+End
+
+val _ = type_abbrev("cons_infos", ``:((num # (num list)) list)``)
+val _ = type_abbrev("col_infos", ``:(num list) # cons_infos``)
+
+
+Definition add_cons_id_aux_def:
+  (add_cons_id_aux c id ([]: cons_infos) = [(c,[id])]) /\
+  (add_cons_id_aux c id ((c',cids)::cinfos) =
+    if c = c'
+    then ((c', id::cids)::cinfos)
+    else ((c', cids)::(add_cons_id_aux c id cinfos)))
+End
+
+Definition add_cons_id_def:
+  (add_cons_id c id ((ids, cinfos): col_infos) =
+    (ids, (add_cons_id_aux c id cinfos)))
+End
+
+Definition add_cons_aux_def:
+  (add_cons_aux c [] = [(c,[])]) /\
+  (add_cons_aux c ((c',cids)::cinfos) =
+    if c = c'
+    then ((c', cids)::cinfos)
+    else ((c', cids)::(add_cons_aux c cinfos)))
+End
+
+Definition add_cons_def:
+  (add_cons c ((ids, cinfos): col_infos) =
+    (ids, (add_cons_aux c cinfos)))
+End
+
+Definition merge_list_def:
+  (merge_list [] ys = ys) /\
+  (merge_list (x::xs) ys =
+    if MEM x ys
+    then (merge_list xs ys)
+    else x::(merge_list xs ys))
+End
+
+Definition merge_cinfos_aux_def:
+  (merge_cinfos_aux c [] cinfos =
+    add_cons_aux c cinfos) /\
+  (merge_cinfos_aux c (cid::cids) cinfos =
+    add_cons_id_aux c cid (merge_cinfos_aux c cids cinfos))
+End
+
+Definition merge_cinfos_def:
+  (merge_cinfos [] cinfos = cinfos) /\
+  (merge_cinfos ((c',cids)::cinfos) cinfos' =
+    merge_cinfos_aux c' cids (merge_cinfos cinfos cinfos'))
+End
+
+Definition merge_colinfos_def:
+  merge_colinfos (ids, cinfos) (ids', cinfos') =
+    (merge_list ids ids', merge_cinfos cinfos cinfos')
+End
+
+Definition add_def_bindings_def:
+  (add_def_bindings Any col_infos = col_infos) /\
+  (add_def_bindings (Var n) col_infos = add_def_id n col_infos) /\
+  (add_def_bindings (Or p1 p2) col_infos = merge_colinfos
+                                            (add_def_bindings p1 col_infos)
+                                            (add_def_bindings p2 col_infos)) /\
+  (add_def_bindings (As p n) col_infos = add_def_id n
+                                           (add_def_bindings p col_infos))
+End
+
+Definition add_cons_bindings_def:
+  (add_cons_bindings c Any col_infos = col_infos) /\
+  (add_cons_bindings c (Var n) col_infos = add_cons_id c n col_infos) /\
+  (add_cons_bindings c (Cons _ _ _) col_infos = col_infos) /\
+  (add_cons_bindings c (Or p1 p2) col_infos = merge_colinfos
+                                          (add_cons_bindings c p1 col_infos)
+                                          (add_cons_bindings c p2 col_infos)) /\
+  (add_cons_bindings c (As p n) col_infos = add_cons_id c n
+                                            (add_cons_bindings c p col_infos))
+End
+
+Definition get_cons_in_def:
+  (get_cons_in Any = []) /\
+  (get_cons_in (Var _) = []) /\
+  (get_cons_in (Cons c _ _) = [c]) /\
+  (get_cons_in (Or p1 p2) = merge_list (get_cons_in p1)
+                                       (get_cons_in p2)) /\
+  (get_cons_in (As p _) = get_cons_in p)
+End
+
+Definition col_infos_def:
+  (col_infos [] = ([],[])) /\
+  (col_infos ((Branch (Any::ps) e)::rs) = col_infos rs) /\
+  (col_infos ((Branch ((Var n)::ps) e)::rs) =
+    add_def_id n (col_infos rs)) /\
+  (col_infos ((Branch ((Cons c a sub_ps)::ps) e)::rs) =
+    add_cons c (col_infos rs)) /\
+  (col_infos ((Branch ((Or p1 p2)::ps) e)::rs) =
+    merge_colinfos (merge_colinfos (col_infos [(Branch [p1] e)])
+                                  (col_infos [(Branch [p2] e)]))
+                   (col_infos rs)) /\
+  (col_infos ((Branch ((As p n)::ps) e)::rs) =
+    if all_wild_or_vars [As p n]
+    then add_def_id n (add_def_bindings p (col_infos rs))
+    else FOLDL (\infos cons. add_cons_bindings cons p infos)
+               (col_infos rs)
+               (get_cons_in p))
+End
+
+(* Compilation scheme a pattern matrix to a decision tree
+   based on a heuristic h *)
+Definition compile_def:
+  (compile h [] = Fail) /\
+  (compile h ((Branch [] e)::bs) = Leaf e) /\
+  (compile h ((Branch ps e)::bs) =
+    if all_wild_or_vars ps
+    then (add_bindings ps (Leaf e))
+    else
+      (* we select a column using heuristic h *)
+      let sel_col = (h m) in
+      if sel_col > 0
+      then Swap sel_col (compile h (swap_columns sel_col ((Branch ps e)::bs)))
+      else
+
+
 
 val _ = export_theory ();
