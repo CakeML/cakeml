@@ -1674,97 +1674,97 @@ Proof
   \\ metis_tac [v_inv_lemma]
 QED
 
-(* ASK: There are issues with using list_to_v_alt as input for
-        v_inv since the vs' created always have 0 timestamps
-*)
+val bind_each_def = Define `
+  bind_each tf ts k 0 = tf /\
+  bind_each tf ts k (SUC n) = bind_each tf (ts+1n) (k+1n) n |+ (ts,k)`
 
-(* val v_inv_list_to_v_alt_lem = Q.prove ( *)
-(*   `!rs xs t rt ha hb sp. *)
-(*      let hm = list_to_BlockReps conf rt (heap_length ha) rs in *)
-(*        rs <> [] /\ *)
-(*        v_inv conf t (rt, f, tf, ha ++ heap_expand sp ++ hb) /\ *)
-(*        LIST_REL (\v x. v_inv conf v (x, f, tf, ha ++ heap_expand sp ++ hb)) xs rs /\ *)
-(*        heap_length hm <= sp *)
-(*        ==> *)
-(*        v_inv conf (list_to_v_alt t xs) *)
-(*          (Pointer (heap_length ha) (Word (ptr_bits conf cons_tag 2)), *)
-(*           f, tf, ha ++ hm ++ heap_expand (sp - heap_length hm) ++ hb)`, *)
-(*   gen_tac \\ completeInduct_on `LENGTH rs` \\ rw [] *)
-(*   \\ Cases_on `rs = []` \\ fs [] *)
-(*   \\ Cases_on `?r. rs = [r]` \\ fs [] \\ rveq *)
-(*   >- *)
-(*    (fs [dataSemTheory.list_to_v_alt_def, list_to_BlockReps_def, v_inv_def] *)
-(*     \\ unlength_tac [BlockRep_def, heap_length_APPEND, heap_lookup_APPEND, *)
-(*                      heap_lookup_def, dataSemTheory.list_to_v_alt_def] *)
-(*     \\ reverse conj_tac *)
-(*     THEN1 ( *)
-(*      ) *)
-(*     \\ conj_tac *)
-(*     \\ qmatch_goalsub_abbrev_tac `ha ++ hs ++ _` *)
-(*     \\ `3 = heap_length hs` by unlength_tac [Abbr`hs`] *)
-(*     \\ pop_assum (fn th => fs [th]) *)
-(*     \\ match_mp_tac v_inv_lemma *)
-(*     \\ unlength_tac [heap_expand_def, Abbr`hs`]) *)
-(*   \\ Cases_on `rs` \\ fs [] *)
-(*   \\ rw [list_to_BlockReps_def] \\ CASE_TAC \\ fs [] \\ rveq *)
-(*   \\ rename1 `v::w::vs` *)
-(*   \\ rename1 `list_to_BlockReps _ _ _ (r::rr::rs)` *)
-(*   \\ first_x_assum (qspec_then `LENGTH (rr::rs)` mp_tac) \\ simp [] *)
-(*   \\ disch_then (qspec_then `rr::rs` mp_tac) \\ fs [] \\ strip_tac *)
-(*   \\ once_rewrite_tac [dataSemTheory.list_to_v_alt_def] *)
-(*   \\ first_x_assum (qspecl_then [`w::vs`,`t`,`rt`] mp_tac) *)
-(*   \\ qmatch_goalsub_abbrev_tac `ha++el::_++_` *)
-(*   \\ disch_then (qspec_then `ha++[el]` mp_tac) \\ fs [] *)
-(*   \\ disch_then (qspecl_then [`hb`,`sp-3`] mp_tac) \\ fs [] *)
-(*   \\ impl_tac *)
-(*   >- *)
-(*    (`sp - 3 = sp - heap_length [el]` by unlength_tac [Abbr`el`, BlockRep_def] *)
-(*     \\ pop_assum (fn th => fs [th]) *)
-(*     \\ qunabbrev_tac `el` *)
-(*     \\ conj_tac (* TODO *) *)
-(*     >- *)
-(*      (match_mp_tac v_inv_lemma *)
-(*       \\ unlength_tac [heap_expand_def, BlockRep_def, list_to_BlockReps_def]) *)
-(*     \\ reverse conj_tac *)
-(*     >- *)
-(*      (fs [list_to_BlockReps_def, BlockRep_def] *)
-(*       \\ CASE_TAC \\ unlength_tac []) *)
-(*     \\ reverse conj_tac *)
-(*     >- *)
-(*      (unlength_tac [BlockRep_def] *)
-(*       \\ qmatch_goalsub_abbrev_tac `ha ++ [el] ++ _` *)
-(*       \\ `sp - 3 = sp - heap_length [el]` by *)
-(*         unlength_tac [Abbr`el`] *)
-(*       \\ pop_assum (fn th => fs [th]) *)
-(*       \\ ho_match_mp_tac EVERY2_SWAP *)
-(*       \\ match_mp_tac v_inv_LIST_REL *)
-(*       \\ unlength_tac [heap_expand_def, BlockRep_def, Abbr`el`, *)
-(*                        list_to_BlockReps_def] *)
-(*       \\ Cases_on `sp` \\ fs [] *)
-(*       \\ imp_res_tac EVERY2_SWAP \\ fs []) *)
-(*     \\ match_mp_tac v_inv_lemma *)
-(*     \\ unlength_tac [heap_expand_def, BlockRep_def, list_to_BlockReps_def] *)
-(*     \\ rfs []) *)
-(*   \\ strip_tac *)
-(*   \\ simp [v_inv_def, PULL_EXISTS] *)
-(*   \\ qexists_tac `r` *)
-(*   \\ qexists_tac `Pointer (heap_length ha + 3) (Word (ptr_bits conf cons_tag 2))` *)
-(*   \\ conj_tac *)
-(*   >- *)
-(*    (match_mp_tac v_inv_lemma *)
-(*     \\ unlength_tac [Abbr`el`, BlockRep_def, list_to_BlockReps_def]) *)
-(*   \\ conj_tac *)
-(*   >- *)
-(*    (once_rewrite_tac [CONS_APPEND] \\ fs [] *)
-(*     \\ `heap_length ha + 3 = heap_length (ha ++ [el])` by *)
-(*       unlength_tac [heap_length_APPEND, Abbr`el`, BlockRep_def] *)
-(*     \\ fs [] *)
-(*     \\ `heap_length [el] = 3` by unlength_tac [Abbr`el`] *)
-(*     \\ fs [heap_length_APPEND, heap_length_def]) *)
-(*   \\ conj_tac *)
-(*   >- (cheat) (* TODO *) *)
-(*   \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND, heap_expand_def, *)
-(*                    Abbr`el`, BlockRep_def, heap_lookup_def]); *)
+val v_inv_list_to_v_alt_lem = Q.prove (
+  `!rs xs t rt ha hb sp.
+     let hm = list_to_BlockReps conf rt (heap_length ha) rs in
+       rs <> [] /\
+       v_inv conf t (rt, f, tf, ha ++ heap_expand sp ++ hb) /\
+       LIST_REL (\v x. v_inv conf v (x, f, tf, ha ++ heap_expand sp ++ hb)) xs rs /\
+       heap_length hm <= sp
+       ==>
+       v_inv conf (list_to_v_alt ts t xs)
+         (Pointer (heap_length ha) (Word (ptr_bits conf cons_tag 2)),
+          f, bind_each tf ts (heap_length ha) (LENGTH xs),
+          ha ++ hm ++ heap_expand (sp - heap_length hm) ++ hb)`,
+
+  gen_tac \\ completeInduct_on `LENGTH rs` \\ rw []
+  \\ Cases_on `rs = []` \\ fs []
+  \\ Cases_on `?r. rs = [r]` \\ fs [] \\ rveq
+  >-
+   (fs [list_to_v_alt_def, list_to_BlockReps_def, v_inv_def]
+    \\ unlength_tac [BlockRep_def, heap_length_APPEND, heap_lookup_APPEND,
+                     heap_lookup_def, dataSemTheory.list_to_v_alt_def]
+    \\ rewrite_tac [EVAL ``bind_each tf ts n 1``,FLOOKUP_UPDATE]
+
+    \\ qmatch_goalsub_abbrev_tac `ha ++ hs ++ _`
+    \\ `3 = heap_length hs` by unlength_tac [Abbr`hs`]
+    \\ pop_assum (fn th => fs [th])
+    \\ match_mp_tac v_inv_lemma
+    \\ unlength_tac [heap_expand_def, Abbr`hs`])
+  \\ Cases_on `rs` \\ fs []
+  \\ rw [list_to_BlockReps_def] \\ CASE_TAC \\ fs [] \\ rveq
+  \\ rename1 `v::w::vs`
+  \\ rename1 `list_to_BlockReps _ _ _ (r::rr::rs)`
+  \\ first_x_assum (qspec_then `LENGTH (rr::rs)` mp_tac) \\ simp []
+  \\ disch_then (qspec_then `rr::rs` mp_tac) \\ fs [] \\ strip_tac
+  \\ once_rewrite_tac [dataSemTheory.list_to_v_alt_def]
+  \\ first_x_assum (qspecl_then [`w::vs`,`t`,`rt`] mp_tac)
+  \\ qmatch_goalsub_abbrev_tac `ha++el::_++_`
+  \\ disch_then (qspec_then `ha++[el]` mp_tac) \\ fs []
+  \\ disch_then (qspecl_then [`hb`,`sp-3`] mp_tac) \\ fs []
+  \\ impl_tac
+  >-
+   (`sp - 3 = sp - heap_length [el]` by unlength_tac [Abbr`el`, BlockRep_def]
+    \\ pop_assum (fn th => fs [th])
+    \\ qunabbrev_tac `el`
+    \\ conj_tac (* TODO *)
+    >-
+     (match_mp_tac v_inv_lemma
+      \\ unlength_tac [heap_expand_def, BlockRep_def, list_to_BlockReps_def])
+    \\ reverse conj_tac
+    >-
+     (fs [list_to_BlockReps_def, BlockRep_def]
+      \\ CASE_TAC \\ unlength_tac [])
+    \\ reverse conj_tac
+    >-
+     (unlength_tac [BlockRep_def]
+      \\ qmatch_goalsub_abbrev_tac `ha ++ [el] ++ _`
+      \\ `sp - 3 = sp - heap_length [el]` by
+        unlength_tac [Abbr`el`]
+      \\ pop_assum (fn th => fs [th])
+      \\ ho_match_mp_tac EVERY2_SWAP
+      \\ match_mp_tac v_inv_LIST_REL
+      \\ unlength_tac [heap_expand_def, BlockRep_def, Abbr`el`,
+                       list_to_BlockReps_def]
+      \\ Cases_on `sp` \\ fs []
+      \\ imp_res_tac EVERY2_SWAP \\ fs [])
+    \\ match_mp_tac v_inv_lemma
+    \\ unlength_tac [heap_expand_def, BlockRep_def, list_to_BlockReps_def]
+    \\ rfs [])
+  \\ strip_tac
+  \\ simp [v_inv_def, PULL_EXISTS]
+  \\ qexists_tac `r`
+  \\ qexists_tac `Pointer (heap_length ha + 3) (Word (ptr_bits conf cons_tag 2))`
+  \\ conj_tac
+  >-
+   (match_mp_tac v_inv_lemma
+    \\ unlength_tac [Abbr`el`, BlockRep_def, list_to_BlockReps_def])
+  \\ conj_tac
+  >-
+   (once_rewrite_tac [CONS_APPEND] \\ fs []
+    \\ `heap_length ha + 3 = heap_length (ha ++ [el])` by
+      unlength_tac [heap_length_APPEND, Abbr`el`, BlockRep_def]
+    \\ fs []
+    \\ `heap_length [el] = 3` by unlength_tac [Abbr`el`]
+    \\ fs [heap_length_APPEND, heap_length_def])
+  \\ conj_tac
+  >- (cheat) (* TODO *)
+  \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND, heap_expand_def,
+                   Abbr`el`, BlockRep_def, heap_lookup_def]);
 
 (* val v_inv_list_to_v_alt = save_thm ("v_inv_list_to_v_alt", *)
 (*   SIMP_RULE (srw_ss()) [LET_THM] v_inv_list_to_v_alt_lem); *)
