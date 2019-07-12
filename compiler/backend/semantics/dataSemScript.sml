@@ -246,17 +246,17 @@ val do_install_def = Define `
        | _ => Rerr(Rabort Rtype_error))`;
 
 val list_to_v_def = Define `
-  list_to_v [] = Block 0 nil_tag [] /\
-  list_to_v (v::vs) = Block 0 cons_tag [v; list_to_v vs]`;
+  list_to_v ts [] = Block 0 nil_tag [] /\
+  list_to_v ts (v::vs) = Block ts cons_tag [v; list_to_v (ts+1) vs]`;
 
 val list_to_v_alt_def = Define`
-  list_to_v_alt t [] = t
-∧ list_to_v_alt t (h::l) = Block 0 cons_tag [h;list_to_v_alt t l]`;
+  list_to_v_alt ts t [] = t ∧
+  list_to_v_alt ts t (h::l) = Block ts cons_tag [h; list_to_v_alt (ts+1) t l]`;
 
 val with_fresh_ts_def = Define`
-  with_fresh_ts ^s f = case s.tstamps of
-                          SOME ts => f ts (s with <| tstamps := SOME (ts + 1) |>)
-                        | NONE    => f 0 s
+  with_fresh_ts ^s n f = case s.tstamps of
+                           SOME ts => f ts (s with <| tstamps := SOME (ts + n) |>)
+                         | NONE    => f 0 s
 `;
 
 val do_app_aux_def = Define `
@@ -289,7 +289,7 @@ val do_app_aux_def = Define `
                           then Rval (Block 0 n [],s)
                           else Error
              | SOME vs => if len = Number (& (LENGTH vs))
-                          then with_fresh_ts s (λts s'. Rval (Block ts n vs, s'))
+                          then with_fresh_ts s 1 (λts s'. Rval (Block ts n vs, s'))
                           else Error
              | _ => Error)
          | _ => Error)
@@ -312,19 +312,20 @@ val do_app_aux_def = Define `
     (* bvl part *)
     | (Cons tag,xs) => (if xs = []
                         then Rval (Block 0 tag [],s)
-                        else with_fresh_ts s (λts s'. Rval (Block ts tag xs, s')))
+                        else with_fresh_ts s 1 (λts s'. Rval (Block ts tag xs, s')))
     | (ConsExtend tag,Block _ _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ lower + len > &LENGTH xs' ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Error
-        else with_fresh_ts s (λts s'.
+        else with_fresh_ts s 1 (λts s'.
           Rval (Block ts tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s'))
     | (ConsExtend tag,_) => Error
     | (El,[Block _ tag xs;Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
-         | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys),s)
+         | (SOME xs, SOME ys) =>
+             with_fresh_ts ^s (LENGTH xs) (λts s'. Rval (list_to_v_alt ts x2 xs, s'))
          | _ => Error)
     | (LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
