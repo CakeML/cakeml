@@ -82,7 +82,7 @@ fun format_def def = def
                        wordsTheory.word_bits_mask,wordsTheory.WORD_MUL_LSL,
                        wordsTheory.word_mul_n2w,addressTheory.word_arith_lemma2,
                        wordsTheory.WORD_LT,word_msb_word_bit,ag32_constant_def,
-                       EVAL ``dimindex (:32)``,miscTheory.word_bit_test]
+                       EVAL ``dimindex (:32)``,wordsTheory.word_bit_test]
   |> REWRITE_RULE [word_neg];
 
 val r = translate (format_def ag32_jump_constant_def);

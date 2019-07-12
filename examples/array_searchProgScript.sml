@@ -638,10 +638,7 @@ Proof
                                 [`value_v`, `EL mid elems`, `EL mid elem_vs`]
                                     mp_tac) >> fs[] >>
                                 strip_tac >> metis_tac[]) >>
-                            (qspecl_then [`start`, `TAKE finish elems`]
-                                mp_tac) MEM_DROP >>
-                            impl_tac >> fs[LENGTH_TAKE] >>
-                            rw[] >> metis_tac[]
+                            metis_tac[MEM_DROP_IMP]
                         )
                         >- (first_x_assum match_mp_tac >> fs[] >>
                             (qspecl_then [`TAKE finish elems`, `start`,

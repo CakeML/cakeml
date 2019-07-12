@@ -5768,6 +5768,7 @@ Proof
        \\ Cases_on`t` \\ fs[])
   \\ disch_then(qspecl_then[`l1`,`l0`]mp_tac)
   >> impl_tac >- (
+
     conj_tac >- EVAL_TAC
     \\ fs[bytes_in_memory_def]
     \\ fs[clFFITheory.ffi_get_arg_def]
@@ -5883,7 +5884,7 @@ Proof
     \\ `strlen (EL i cls) ≤ SUM (MAP strlen (DROP i cls))`
     by (
       irule SUM_MAP_MEM_bound
-      \\ simp[Once listTheory.MEM_DROP] )
+      \\ simp [MEM_EL] \\ qexists_tac `0` \\ simp [HD_DROP] )
     \\ reverse conj_tac
     >- (
       qpat_x_assum`ms.R 3w ∈ md`mp_tac

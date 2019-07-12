@@ -4374,7 +4374,7 @@ val word_gen_gc_move_loop_code_thm = Q.prove(
          (7,Word (-1w * pb' + pbx')) |+
          (8,Word pax) |+
          (5,Word (-1w * pa' + pax)) |+
-         (7,Word (-1w * pa' + pax ‖ -1w * pb' + pb)) ;
+         (7,Word (-1w * pa' + pax || -1w * pb' + pb)) ;
        store := s2.store |+ (Temp 4w,Word pb) |>`
   \\ `s1.mdomain = s4.mdomain /\ m' = s4.memory` by
         (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []

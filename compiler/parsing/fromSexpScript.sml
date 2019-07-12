@@ -1669,8 +1669,10 @@ Proof
   \\ Cases_on`odestSXSYM s` \\ fs[dstrip_sexp_SOME] \\ rw[]
   \\ fs[odestSXSYM_def] \\ simp[EXISTS_OPTION, optsexp_def, listsexp_def]
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[] \\ fs[] \\ rw[]
-  \\ rename[`odestSXSYM s = SOME _`] >> Cases_on `s` >>
-  fs[odestSXSYM_def, dstrip_sexp_def]
+  >- (qexists_tac `SOME e1` \\ fs [] \\ EVAL_TAC)
+  \\ rename[`odestSXSYM s = SOME _`] >> Cases_on `s`
+  \\ fs[odestSXSYM_def, dstrip_sexp_def]
+  \\ qexists_tac `NONE` \\ fs [] \\ EVAL_TAC
 QED
 
 Theorem listsexp_MAP_EQ_f:
