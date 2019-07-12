@@ -1690,7 +1690,6 @@ val v_inv_list_to_v_alt_lem = Q.prove (
          (Pointer (heap_length ha) (Word (ptr_bits conf cons_tag 2)),
           f, bind_each tf ts (heap_length ha) (LENGTH xs),
           ha ++ hm ++ heap_expand (sp - heap_length hm) ++ hb)`,
-
   gen_tac \\ completeInduct_on `LENGTH rs` \\ rw []
   \\ Cases_on `rs = []` \\ fs []
   \\ Cases_on `?r. rs = [r]` \\ fs [] \\ rveq
@@ -1699,12 +1698,14 @@ val v_inv_list_to_v_alt_lem = Q.prove (
     \\ unlength_tac [BlockRep_def, heap_length_APPEND, heap_lookup_APPEND,
                      heap_lookup_def, dataSemTheory.list_to_v_alt_def]
     \\ rewrite_tac [EVAL ``bind_each tf ts n 1``,FLOOKUP_UPDATE]
-
     \\ qmatch_goalsub_abbrev_tac `ha ++ hs ++ _`
     \\ `3 = heap_length hs` by unlength_tac [Abbr`hs`]
     \\ pop_assum (fn th => fs [th])
+    \\ conj_tac
     \\ match_mp_tac v_inv_lemma
-    \\ unlength_tac [heap_expand_def, Abbr`hs`])
+    \\ unlength_tac [heap_expand_def, Abbr`hs`]
+    \\ cheat)
+  \\ cheat (*
   \\ Cases_on `rs` \\ fs []
   \\ rw [list_to_BlockReps_def] \\ CASE_TAC \\ fs [] \\ rveq
   \\ rename1 `v::w::vs`
@@ -1764,7 +1765,7 @@ val v_inv_list_to_v_alt_lem = Q.prove (
   \\ conj_tac
   >- (cheat) (* TODO *)
   \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND, heap_expand_def,
-                   Abbr`el`, BlockRep_def, heap_lookup_def]);
+                   Abbr`el`, BlockRep_def, heap_lookup_def] *));
 
 (* val v_inv_list_to_v_alt = save_thm ("v_inv_list_to_v_alt", *)
 (*   SIMP_RULE (srw_ss()) [LET_THM] v_inv_list_to_v_alt_lem); *)
