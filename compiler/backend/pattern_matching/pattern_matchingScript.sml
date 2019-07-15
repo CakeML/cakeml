@@ -2,7 +2,8 @@
   Pattern-matching compilation to decision trees
   See issue #667 for details and references
 *)
-open listTheory;
+open preamble;
+open numTheory listTheory;
 
 val _ = new_theory "pattern_matching";
 
@@ -320,15 +321,15 @@ Proof
           suffices_by metis_tac[match_first_patlist] \\
           `LENGTH ps = LENGTH ts` by fs[msize_def] \\
           `pmatch_list ps ts` by fs[pmatch_list_def, pmatch_def] \\
-	  metis_tac[n_any_length, pmatch_list_app, pmatch_list_nany])
+           metis_tac[n_any_length, pmatch_list_app, pmatch_list_nany])
       >- (`~(pmatch_list ps ts)` by fs[pmatch_list_def, pmatch_def] \\
           imp_res_tac pmatch_list_length \\
           fs[LENGTH_APPEND, n_any_length] \\
-	  `LENGTH ps = LENGTH ts` by fs[] \\
+          `LENGTH ps = LENGTH ts` by fs[] \\
           metis_tac[pmatch_list_app, pmatch_list_nany, n_any_length])
       >- (Cases_on `m`
           >- rw[match_def, spec_def]
-	  >- (`msize (h::t) = LENGTH ts + 1` by
+        >- (`msize (h::t) = LENGTH ts + 1` by
               (imp_res_tac msize_inv \\ fs[]) \\
               `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
               first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\
@@ -338,15 +339,15 @@ Proof
           suffices_by metis_tac[match_first_patlist] \\
           `LENGTH ps = LENGTH ts` by fs[msize_def] \\
           `pmatch_list ps ts` by fs[pmatch_list_def, pmatch_def] \\
-	  metis_tac[n_any_length, pmatch_list_app, pmatch_list_nany])
+        metis_tac[n_any_length, pmatch_list_app, pmatch_list_nany])
       >- (`~(pmatch_list ps ts)` by fs[pmatch_list_def, pmatch_def] \\
           imp_res_tac pmatch_list_length \\
           fs[LENGTH_APPEND, n_any_length] \\
-	  `LENGTH ps = LENGTH ts` by fs[] \\
+          `LENGTH ps = LENGTH ts` by fs[] \\
           metis_tac[pmatch_list_app, pmatch_list_nany, n_any_length])
       >- (Cases_on `m`
           >- rw[match_def, spec_def]
-	  >- (`msize (h::t) = LENGTH ts + 1` by
+          >- (`msize (h::t) = LENGTH ts + 1` by
               (imp_res_tac msize_inv \\ fs[]) \\
               `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
               first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\
@@ -365,7 +366,7 @@ Proof
           >- (fs[] \\
               Cases_on `m`
               >- rw[match_def, spec_def]
-	      >- (`msize (h::t) = LENGTH ts + 1` by
+              >- (`msize (h::t) = LENGTH ts + 1` by
                   (imp_res_tac msize_inv \\ fs[]) \\
                   `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
                   first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\
@@ -378,14 +379,14 @@ Proof
            >- (fs[] \\
                Cases_on `m`
                >- rw[match_def, spec_def]
-	       >- (`msize (h::t) = LENGTH ts + 1` by
+               >- (`msize (h::t) = LENGTH ts + 1` by
                    (imp_res_tac msize_inv \\ fs[]) \\
                    `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
                    first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\
                    fs[])))
        >- (Cases_on `m`
            >- rw[match_def, spec_def]
-	   >- (`msize (h::t) = LENGTH ts + 1` by
+           >- (`msize (h::t) = LENGTH ts + 1` by
                (imp_res_tac msize_inv \\ fs[]) \\
                `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
                first_x_assum (qspecl_then [`ts`, `targs`] assume_tac) \\
@@ -395,7 +396,7 @@ Proof
       >- (`match [Branch (p1::ps) e] (Term c targs::ts) = SOME e`
           by rw[match_def] \\
           `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-	  fs[msize_def] \\
+          fs[msize_def] \\
           `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
           rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\
           fs[] \\ res_tac \\ fs[] \\
@@ -404,12 +405,12 @@ Proof
           >- (`match [Branch (p1::ps) e] (Term c targs::ts) = SOME e`
               by rw[match_def] \\
               `LENGTH ps = LENGTH ts` by fs[msize_def] \\
-	      fs[msize_def] \\
+              fs[msize_def] \\
               `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
               rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\
               fs[] \\ res_tac \\ fs[] \\
               metis_tac[match_app])
-	  >- (`match [Branch (p1::ps) e] (Term c targs::ts) = NONE`
+          >- (`match [Branch (p1::ps) e] (Term c targs::ts) = NONE`
               by (imp_res_tac nmatch_first_patlist \\
                  first_x_assum (qspecl_then [`[]`, `e`] assume_tac) \\
                  fs[match_def]) \\
@@ -421,7 +422,7 @@ Proof
               fs[] \\ res_tac \\ fs[] \\
               imp_res_tac match_app2 \\
               first_x_assum (qspec_then
-	      `spec c (LENGTH targs) [Branch (p2::ps) e] ++
+              `spec c (LENGTH targs) [Branch (p2::ps) e] ++
                spec c (LENGTH targs) m` assume_tac) \\
               fs[] \\
               `match [Branch (p2::ps) e] (Term c targs::ts) = SOME e`
@@ -446,7 +447,7 @@ Proof
          match (spec c (LENGTH targs) m) (targs ++ ts)`
         suffices_by
         (fs[msize_def] \\
-	rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\
+        rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\
         fs[] \\ res_tac \\ fs[] \\
         imp_res_tac match_app2 \\
         first_assum (qspec_then
@@ -455,7 +456,7 @@ Proof
         fs[]) \\
         Cases_on `m`
         >- rw[match_def, spec_def]
-	>- (`inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
+        >- (`inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
             `msize (h::t) = LENGTH ts + 1` by
             (imp_res_tac msize_inv \\ fs[]) \\
             rpt (first_x_assum (qspecl_then [`ts`, `targs`] assume_tac)) \\
@@ -501,12 +502,12 @@ Definition is_cons_head_def:
     then T
     else (is_cons_head c rs))) /\
   (is_cons_head c ((Branch ((Or p1 p2)::ps) e)::rs) =
-    (is_cons_head c [Branch (p1::ps) e]) \/
-    (is_cons_head c [Branch (p2::ps) e]) \/
-    (is_cons_head c rs)) /\
+    ((is_cons_head c [Branch (p1::ps) e]) \/
+     (is_cons_head c [Branch (p2::ps) e]) \/
+     (is_cons_head c rs))) /\
   (is_cons_head c ((Branch ((As p n)::ps) e)::rs) =
-    (is_cons_head c [Branch (p::ps) e]) \/
-    (is_cons_head c rs))
+    ((is_cons_head c [Branch (p::ps) e]) \/
+    (is_cons_head c rs)))
 End
 
 Theorem is_cons_head_app:
@@ -555,7 +556,7 @@ Proof
       >- (fs[is_cons_head_def] \\
           Cases_on `m`
           >- rw[match_def, default_def]
-	  >- (`(msize (h::t)) = LENGTH ts + 1`
+          >- (`(msize (h::t)) = LENGTH ts + 1`
               by (imp_res_tac msize_inv \\ fs[]) \\
               `inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
               first_x_assum (qspecl_then [`c`,`ts`,`targs`] assume_tac) \\
@@ -583,7 +584,7 @@ Proof
                        assume_tac)) \\
                   res_tac \\ rpt (WEAKEN_TAC is_imp) \\ fs[] \\
                   metis_tac[match_app])
-	      >- (`match [Branch (p1::ps) e] (Term c targs::ts) = NONE`
+              >- (`match [Branch (p1::ps) e] (Term c targs::ts) = NONE`
                   by (imp_res_tac nmatch_first_patlist \\
                   first_x_assum (qspecl_then [`[]`, `e`] assume_tac) \\
                   fs[match_def]) \\
@@ -596,7 +597,7 @@ Proof
                   fs[] \\ res_tac \\ fs[] \\
                   imp_res_tac match_app2 \\
                   first_x_assum (qspec_then
-	          `default [Branch (p2::ps) e] ++
+                  `default [Branch (p2::ps) e] ++
                   default m` assume_tac) \\
                   fs[] \\
                   `match [Branch (p2::ps) e] (Term c targs::ts) = SOME e`
@@ -622,7 +623,7 @@ Proof
           match (default m) ts`
           suffices_by
           (fs[msize_def] \\
-	  rpt (first_x_assum (qspecl_then [`c`,`ts`, `targs`] assume_tac)) \\
+           rpt (first_x_assum (qspecl_then [`c`,`ts`, `targs`] assume_tac)) \\
           fs[] \\ res_tac \\ fs[] \\
           imp_res_tac match_app2 \\
           first_assum (qspec_then
@@ -631,7 +632,7 @@ Proof
           fs[]) \\
           Cases_on `m`
           >- rw[match_def, default_def]
-	  >- (`inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
+          >- (`inv_mat (h::t)` by (imp_res_tac inv_mat_dcmp) \\
               `msize (h::t) = LENGTH ts + 1` by
               (imp_res_tac msize_inv \\ fs[]) \\
               rpt (first_x_assum (qspecl_then [`c`,`ts`, `targs`] assume_tac)) \\
@@ -640,7 +641,7 @@ Proof
       >- (imp_res_tac pmatch_list_as \\
           `match ((Branch (p::ps) e)::rs) (Term c targs::ts) = SOME e`
           by rw[match_def] \\
-	  imp_res_tac inv_mat_as \\
+          imp_res_tac inv_mat_as \\
           `msize ((Branch (p::ps) e)::rs) = LENGTH ts + 1`
           by fs[msize_def] \\
           `~(is_cons_head c (Branch (p::ps) e::rs))`
@@ -674,12 +675,12 @@ Datatype `dTree =
 
 (* Swap the first and ith items in a list *)
 Definition get_ith_def:
-  (get_ith 0 (t::ts) = t) /\
+  (get_ith (0:num) (t::ts) = t) /\
   (get_ith n (t::ts) = get_ith (n-1) ts)
 End
 
 Definition replace_ith_def:
-  (replace_ith (t::ts) 0 u = (u::ts)) /\
+  (replace_ith (t::ts) (0:num) u = (u::ts)) /\
   (replace_ith (t::ts) n u = t::(replace_ith ts (n-1) u))
 End
 
@@ -690,8 +691,8 @@ End
 (* Swap the first and ith columns in a matrix *)
 Definition swap_columns_def:
   (swap_columns i [] = []) /\
-  (swap_columns i (b::bs) =
-     (swap_items i b)::(swap_columns i bs))
+  (swap_columns i ((Branch b e)::bs) =
+     (Branch (swap_items i b) e)::(swap_columns i bs))
 End
 
 (* Remove the first column of a matrix *)
@@ -746,44 +747,49 @@ End
 
 (*
 Column infos
-Returns a pair containing identifiers to be bound in default
-case and a list containing pairs of constructors and list of
-identifiers to be bound for each of these constructors
+
+Returns a pair containing identifiers to be bound in default case and a list
+containing pairs of constructors, expected number of constructors for a type,
+an arity for the constructor, and list of identifiers to be bound for each of
+these constructors
 *)
+val _ = type_abbrev("cons_infos", ``:((num # num # num # (num list)) list)``)
+val _ = type_abbrev("col_infos", ``:(num list) # cons_infos``)
+
+(* Add an indentifier to the "default" identifiers *)
 Definition add_def_id_def:
   add_def_id id (ids, cinfos) = (id::ids, cinfos)
 End
 
-val _ = type_abbrev("cons_infos", ``:((num # (num list)) list)``)
-val _ = type_abbrev("col_infos", ``:(num list) # cons_infos``)
-
-
+(* Add a constructor to the list of constructors of the column *)
 Definition add_cons_id_aux_def:
-  (add_cons_id_aux c id ([]: cons_infos) = [(c,[id])]) /\
-  (add_cons_id_aux c id ((c',cids)::cinfos) =
+  (add_cons_id_aux c n a id ([]: cons_infos) = [(c,n,a,[id])]) /\
+  (add_cons_id_aux c n a id ((c', n', a', cids)::cinfos) =
     if c = c'
-    then ((c', id::cids)::cinfos)
-    else ((c', cids)::(add_cons_id_aux c id cinfos)))
+    then ((c', n', a', id::cids)::cinfos)
+    else ((c', n', a', cids)::(add_cons_id_aux c n a id cinfos)))
 End
 
 Definition add_cons_id_def:
-  (add_cons_id c id ((ids, cinfos): col_infos) =
-    (ids, (add_cons_id_aux c id cinfos)))
+  (add_cons_id c n a id ((ids, cinfos): col_infos) =
+    (ids, (add_cons_id_aux c n a id cinfos)))
 End
 
+(* Adds an identifier associated with the constructor c *)
 Definition add_cons_aux_def:
-  (add_cons_aux c [] = [(c,[])]) /\
-  (add_cons_aux c ((c',cids)::cinfos) =
+  (add_cons_aux c n a [] = [(c,n,a,[])]) /\
+  (add_cons_aux c n a ((c', n', a', cids)::cinfos) =
     if c = c'
-    then ((c', cids)::cinfos)
-    else ((c', cids)::(add_cons_aux c cinfos)))
+    then ((c', n', a', cids)::cinfos)
+    else ((c', n', a', cids)::(add_cons_aux c n a cinfos)))
 End
 
 Definition add_cons_def:
-  (add_cons c ((ids, cinfos): col_infos) =
-    (ids, (add_cons_aux c cinfos)))
+  (add_cons c n a ((ids, cinfos): col_infos) =
+    (ids, (add_cons_aux c n a cinfos)))
 End
 
+(* Merge two columns informations *)
 Definition merge_list_def:
   (merge_list [] ys = ys) /\
   (merge_list (x::xs) ys =
@@ -793,16 +799,16 @@ Definition merge_list_def:
 End
 
 Definition merge_cinfos_aux_def:
-  (merge_cinfos_aux c [] cinfos =
-    add_cons_aux c cinfos) /\
-  (merge_cinfos_aux c (cid::cids) cinfos =
-    add_cons_id_aux c cid (merge_cinfos_aux c cids cinfos))
+  (merge_cinfos_aux c n a [] cinfos =
+    add_cons_aux c n a cinfos) /\
+  (merge_cinfos_aux c n a (cid::cids) cinfos =
+    add_cons_id_aux c n a cid (merge_cinfos_aux c n a cids cinfos))
 End
 
 Definition merge_cinfos_def:
   (merge_cinfos [] cinfos = cinfos) /\
-  (merge_cinfos ((c',cids)::cinfos) cinfos' =
-    merge_cinfos_aux c' cids (merge_cinfos cinfos cinfos'))
+  (merge_cinfos ((c', n, a, cids)::cinfos) cinfos' =
+    merge_cinfos_aux c' n a cids (merge_cinfos cinfos cinfos'))
 End
 
 Definition merge_colinfos_def:
@@ -810,6 +816,7 @@ Definition merge_colinfos_def:
     (merge_list ids ids', merge_cinfos cinfos cinfos')
 End
 
+(* Add the identifiers of a default pattern to the infos of a column *)
 Definition add_def_bindings_def:
   (add_def_bindings Any col_infos = col_infos) /\
   (add_def_bindings (Var n) col_infos = add_def_id n col_infos) /\
@@ -820,48 +827,74 @@ Definition add_def_bindings_def:
                                            (add_def_bindings p col_infos))
 End
 
+(* Add the identifiers for constructor c to the infos of a column *)
 Definition add_cons_bindings_def:
-  (add_cons_bindings c Any col_infos = col_infos) /\
-  (add_cons_bindings c (Var n) col_infos = add_cons_id c n col_infos) /\
-  (add_cons_bindings c (Cons _ _ _) col_infos = col_infos) /\
-  (add_cons_bindings c (Or p1 p2) col_infos = merge_colinfos
-                                          (add_cons_bindings c p1 col_infos)
-                                          (add_cons_bindings c p2 col_infos)) /\
-  (add_cons_bindings c (As p n) col_infos = add_cons_id c n
-                                            (add_cons_bindings c p col_infos))
+  (add_cons_bindings c n a Any col_infos = col_infos) /\
+  (add_cons_bindings c n a (Var n') col_infos = add_cons_id c n a n' col_infos) /\
+  (add_cons_bindings c n a (Cons _ _ _) col_infos = col_infos) /\
+  (add_cons_bindings c n a (Or p1 p2) col_infos = merge_colinfos
+                                          (add_cons_bindings c n a p1 col_infos)
+                                          (add_cons_bindings c n a p2 col_infos)) /\
+  (add_cons_bindings c n a (As p n') col_infos = add_cons_id c n a n'
+                                            (add_cons_bindings c n a p col_infos))
 End
 
+(* Get the list of constructors and arities in a pattern *)
 Definition get_cons_in_def:
   (get_cons_in Any = []) /\
   (get_cons_in (Var _) = []) /\
-  (get_cons_in (Cons c _ _) = [c]) /\
+  (get_cons_in (Cons c _ sub_pats) = [(c, (LENGTH sub_pats))]) /\
   (get_cons_in (Or p1 p2) = merge_list (get_cons_in p1)
                                        (get_cons_in p2)) /\
   (get_cons_in (As p _) = get_cons_in p)
 End
 
+(* Get number of constructors that match the type of the pattern *)
+Definition get_nb_types_def:
+  (get_nb_types Any = 0) /\
+  (get_nb_types (Var _) = 0) /\
+  (get_nb_types (Cons _ n _) = n) /\
+  (get_nb_types (Or p1 p2) = MAX (get_nb_types p1) (get_nb_types p2)) /\
+  (get_nb_types (As p _) = get_nb_types p)
+End
+
+(* Build the informations on a constructor *)
 Definition col_infos_def:
   (col_infos [] = ([],[])) /\
   (col_infos ((Branch (Any::ps) e)::rs) = col_infos rs) /\
   (col_infos ((Branch ((Var n)::ps) e)::rs) =
     add_def_id n (col_infos rs)) /\
-  (col_infos ((Branch ((Cons c a sub_ps)::ps) e)::rs) =
-    add_cons c (col_infos rs)) /\
+  (col_infos ((Branch ((Cons c n sub_ps)::ps) e)::rs) =
+    add_cons c n (LENGTH sub_ps) (col_infos rs)) /\
   (col_infos ((Branch ((Or p1 p2)::ps) e)::rs) =
     merge_colinfos (merge_colinfos (col_infos [(Branch [p1] e)])
-                                  (col_infos [(Branch [p2] e)]))
+                                   (col_infos [(Branch [p2] e)]))
                    (col_infos rs)) /\
   (col_infos ((Branch ((As p n)::ps) e)::rs) =
     if all_wild_or_vars [As p n]
     then add_def_id n (add_def_bindings p (col_infos rs))
-    else FOLDL (\infos cons. add_cons_bindings cons p infos)
+    else FOLDL (\infos (cons, arity). add_cons_bindings cons (get_nb_types p) arity p infos)
                (col_infos rs)
                (get_cons_in p))
 End
 
+(* Tell if the patterns contain all the constructors of a signature
+   from a column_infos *)
+Definition is_col_complete_def:
+  (is_col_complete (_,[]) = F) /\
+  (is_col_complete (_,(c,a,binds)::cons) =
+    (((LENGTH cons) + 1:num) = a))
+End
+
+(* Add let-bindings to a decision tree from a list of identifiers *)
+Definition add_bindings_from_ids_def:
+  (add_bindings_from_ids [] dt = dt) /\
+  (add_bindings_from_ids (id::ids) dt = Let id (add_bindings_from_ids ids dt))
+End
+
 (* Compilation scheme a pattern matrix to a decision tree
    based on a heuristic h *)
-Definition compile_def:
+Define `
   (compile h [] = Fail) /\
   (compile h ((Branch [] e)::bs) = Leaf e) /\
   (compile h ((Branch ps e)::bs) =
@@ -869,11 +902,48 @@ Definition compile_def:
     then (add_bindings ps (Leaf e))
     else
       (* we select a column using heuristic h *)
-      let sel_col = (h m) in
+      let sel_col = (h ((Branch ps e)::bs)) in
       if sel_col > 0
       then Swap sel_col (compile h (swap_columns sel_col ((Branch ps e)::bs)))
-      else
+      else (let cinfos = col_infos ((Branch ps e)::bs) in
+            if (is_col_complete cinfos)
+            then Fail
+	    else Fail))
+`
 
+val compile_defn = Hol_defn "compile_defn" `
+  (compile h [] = Fail) /\
+  (compile h ((Branch [] e)::bs) = Leaf e) /\
+  (compile h ((Branch ps e)::bs) =
+    if all_wild_or_vars ps
+    then (add_bindings ps (Leaf e))
+    else
+      (* we select a column using heuristic h *)
+      let sel_col = (h ((Branch ps e)::bs)) in
+      if sel_col > 0
+      then Swap sel_col (compile h (swap_columns sel_col ((Branch ps e)::bs)))
+      else (let cinfos = col_infos ((Branch ps e)::bs) in
+            if (is_col_complete cinfos)
+            then make_complete h ((Branch ps e)::bs) cinfos
+            else make_partial h ((Branch ps e)::bs) cinfos)) /\
+  (make_complete h m (defs,(c,_,a,binds)::[]) =
+     (add_bindings_from_ids defs
+      (add_bindings_from_ids binds
+       (compile h (spec c a m))))) /\
+  (make_complete h m (defs,(c,_,a,binds)::cons) =
+    If c (add_bindings_from_ids defs
+          (add_bindings_from_ids binds
+           (compile h (spec c a m))))
+         (make_complete h m (defs, cons))) /\
+  (make_partial h m (defs,[]) =
+    add_bindings_from_ids defs
+      (compile h (default m))) /\
+  (make_partial h m (defs,(c,_,a,binds)::cons) =
+    If c (add_bindings_from_ids defs
+          (add_bindings_from_ids binds
+           (compile h (spec c a m))))
+         (make_partial h m (defs, cons)))
+`
 
 
 val _ = export_theory ();
