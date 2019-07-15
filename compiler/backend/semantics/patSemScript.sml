@@ -190,8 +190,8 @@ val als_lst_pat_def = Define `
           if conf.mutable /\  conf'.mutable /\ (lc = lc')
           then id::als_lst_pat prl (C_array conf) (Loc lc)
           else als_lst_pat prl (C_array conf) (Loc lc)) /\
-  (als_lst_pat _ (C_bool) _ = []) /\
-  (als_lst_pat _ (C_int)  _ = [])
+  (als_lst_pat (_::prl) (C_array conf) (Loc lc) = als_lst_pat prl (C_array conf) (Loc lc)) /\
+  (als_lst_pat _ _ _ = [])
 `
 
 
@@ -211,7 +211,7 @@ val als_args_pat_def = tDefine "als_args_pat"
     als_lst'_pat pr prs :: als_args_pat (remove_loc (als_lst'_pat pr prs) prs))
   `
   (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
+   rw[fetch "semanticPrimitives" "remove_loc_def",arithmeticTheory.LESS_EQ,
       rich_listTheory.LENGTH_FILTER_LEQ])
 
 
@@ -223,88 +223,43 @@ val als_args_final_pat_def = Define `
 val ret_val_pat_def = Define
 `(ret_val_pat (SOME(C_boolv b)) = Boolv b)
 /\ (ret_val_pat (SOME(C_intv i)) = Litv(IntLit i))
-/\ (ret_val_pat _ = Conv 0 []) (* void constructor representation *)
+/\ (ret_val_pat _ = Conv 0 [])
   `
-
-(*
-(*  “:c_type -> word8 list -> v -> v store_v list -> v store_v list option”*)
-
-val store_carg_pat_def = Define `
-   (store_carg_pat (C_array conf) ws (Loc lnum) (s:patSem$v store) =
-    if conf.mutable then
-      store_assign lnum (W8array ws) s
-    else
-      NONE)
-/\ (store_carg_pat _ _ _ s = SOME s)`
-
-
-(*
-   “:c_type list ->
-    word8 list list ->
-    v list -> v store_v list option -> v store_v list option” *)
-
-val store_cargs_pat_def = Define
-  `(store_cargs_pat [] [] [] s = s)
-/\ (store_cargs_pat (ty::tys) (carg::cargs) (arg::args) s =
-    store_cargs_pat tys cargs args (OPTION_BIND s (store_carg_pat ty carg arg)))
-/\ (store_cargs_pat _ _ _ _ = NONE)
-`
-
-val do_ffi_pat_def = Define `
-  do_ffi_pat (t:('ffi, 'c) patSem$state) n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
-     (case get_cargs_pat t.refs sign.args args of
-          SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_pat (loc_typ_val sign.args args)) of
-              FFI_return t' (* ffi state *) newargs retv =>
-                (case store_cargs_pat sign.args newargs (get_mut_args sign args) (SOME t.refs) of
-                   NONE => NONE
-                 | SOME s' (* v store  *) =>
-                   if ret_ok sign.retty retv then
-                      SOME (t with <| refs := s'; ffi := t'|>, Rval (ret_val_pat retv))
-                   else NONE)
-            | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
-        | NONE => NONE)
-   | NONE => NONE
-  `
-*)
 
 
 (*  “:c_type -> word8 list -> v -> v store_v list -> v store_v list option”*)
 
 val store_carg_pat_def = Define `
    (store_carg_pat (Loc lnum) ws (s:patSem$v store) =
-      THE(store_assign lnum (W8array ws) s))
-/\ (store_carg_pat _ _ s = s)`
+    store_assign lnum (W8array ws) s)
+/\ (store_carg_pat _ _ s = SOME s)`
 
-
-(*
-   “:c_type list ->
-    word8 list list ->
-    v list -> v store_v list option -> v store_v list option” *)
 
 val store_cargs_pat_def = Define
-  `(store_cargs_pat [] [] s = s)
+  `(store_cargs_pat [] [] s = SOME s)
 /\ (store_cargs_pat (marg::margs) (w::ws) s =
-      store_cargs_pat margs ws (store_carg_pat marg w s))
-/\ (store_cargs_pat _ _ s = s)
+      case store_carg_pat marg w s of
+        | SOME s' => store_cargs_pat margs ws s'
+        | NONE => NONE)
+/\ (store_cargs_pat _ _ s = SOME s)
 `
 
 val do_ffi_pat_def = Define `
   do_ffi_pat (t:('ffi, 'c) patSem$state) n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+   case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_pat t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_pat (loc_typ_val sign.args args)) of
-              FFI_return t' (* ffi state *) newargs retv =>
-                   if ret_ok sign.retty retv then
-                      SOME (t with <| refs := store_cargs_pat (get_mut_args sign args) newargs (t.refs);
-                                      ffi := t'|>, Rval (ret_val_pat retv))
-                   else NONE
-            | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
+           (case call_FFI t.ffi n sign cargs (als_args_final_pat (loc_typ_val sign.args args)) of
+              SOME (FFI_return t' newargs retv) =>
+                (case store_cargs_pat (get_mut_args sign args) newargs (t.refs) of
+                  | SOME s' => SOME (t with <| refs := s'; ffi := t'|>, Rval (ret_val_pat retv))
+                  | NONE => NONE)
+            | SOME (FFI_final outcome) => SOME (t, Rerr (Rabort (Rffi_error outcome)))
+            | NONE => NONE)
         | NONE => NONE)
    | NONE => NONE
   `
+
 
 
 val do_app_def = Define `
@@ -747,7 +702,8 @@ Theorem do_app_clock:
 Proof
   rpt strip_tac THEN fs[do_app_cases] >> rw[] \\
   fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def]
-  \\ rw[] \\ rfs[]
+  \\ rw[] \\ rfs[] \\
+  fs [do_ffi_pat_def] \\ every_case_tac \\ fs [] \\ rveq \\ rw []
 QED
 
 Theorem evaluate_clock:

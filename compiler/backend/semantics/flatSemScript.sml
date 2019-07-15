@@ -232,10 +232,9 @@ val als_lst_flat_def = Define `
           if conf.mutable /\  conf'.mutable /\ (lc = lc')
           then id::als_lst_flat prl (C_array conf) (Loc lc)
           else als_lst_flat prl (C_array conf) (Loc lc)) /\
-  (als_lst_flat _ (C_bool) _ = []) /\
-  (als_lst_flat _ (C_int)  _ = [])
+  (als_lst_flat (_::prl) (C_array conf) (Loc lc) = als_lst_flat prl (C_array conf) (Loc lc)) /\
+  (als_lst_flat _ _ _ = [])
 `
-
 
 
 val als_lst'_flat_def = Define `
@@ -254,7 +253,7 @@ val als_args_flat_def = tDefine "als_args_flat"
     als_lst'_flat pr prs :: als_args_flat (remove_loc (als_lst'_flat pr prs) prs))
   `
   (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
+   rw[fetch "semanticPrimitives" "remove_loc_def",arithmeticTheory.LESS_EQ,
       rich_listTheory.LENGTH_FILTER_LEQ])
 
 
@@ -270,75 +269,40 @@ val ret_val_flat_def = Define
 /\ (ret_val_flat _ check_ctor = Unitv check_ctor )
   `
 
-(*
-val store_carg_flat_def = Define `
-   (store_carg_flat (C_array conf) ws (Loc lnum) (s:flatSem$v store) =
-    if conf.mutable then
-      store_assign lnum (W8array ws) s
-    else
-      NONE)
-/\ (store_carg_flat _ _ _ s = SOME s)`
-
-
-
-val store_cargs_flat_def = Define
-  `(store_cargs_flat [] [] [] s = s)
-/\ (store_cargs_flat (ty::tys) (carg::cargs) (arg::args) s =
-    store_cargs_flat tys cargs args (OPTION_BIND s (store_carg_flat ty carg arg)))
-/\ (store_cargs_flat _ _ _ _ = NONE)
-`
-
-val do_ffi_flat_def = Define `
-  do_ffi_flat (t:'a flatSem$state) check_ctor n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
-     (case get_cargs_flat t.refs sign.args args of
-          SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_flat (loc_typ_val sign.args args)) of
-              FFI_return t' (* ffi state *) newargs retv =>
-                (case store_cargs_flat sign.args newargs (get_mut_args sign args) (SOME t.refs) of
-                   NONE => NONE
-                 | SOME s' (* v store  *) =>
-                   if ret_ok sign.retty retv then
-                      SOME (t with <| refs := s'; ffi := t'|>, Rval (ret_val_flat retv check_ctor))
-                   else NONE)
-            | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
-        | NONE => NONE)
-   | NONE => NONE
-  `
-*)
-
 
 val store_carg_flat_def = Define `
    (store_carg_flat (Loc lnum) ws (s:flatSem$v store) =
-       THE (store_assign lnum (W8array ws) s))
-/\ (store_carg_flat _ _ s = s)`
+       store_assign lnum (W8array ws) s)
+/\ (store_carg_flat _ _ s = SOME s)`
 
 
 
 val store_cargs_flat_def = Define
-  `(store_cargs_flat [] [] s = s)
+  `(store_cargs_flat [] [] s = SOME s)
 /\ (store_cargs_flat (marg::margs) (w::ws) s =
-    store_cargs_flat margs ws (store_carg_flat marg w s))
-/\ (store_cargs_flat _ _ s = s)
+     case store_carg_flat marg w s of
+        | SOME s' => store_cargs_flat margs ws s'
+        | NONE => NONE)
+/\ (store_cargs_flat _ _ s = SOME s)
 `
+
 
 val do_ffi_flat_def = Define `
   do_ffi_flat (t:'a flatSem$state) check_ctor n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+   case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_flat t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_flat (loc_typ_val sign.args args)) of
-              FFI_return t' (* ffi state *) newargs retv =>
-                if ret_ok sign.retty retv then
-                 SOME (t with <| refs := store_cargs_flat (get_mut_args sign args) newargs (t.refs);
-                                 ffi := t'|>, Rval (ret_val_flat retv check_ctor))
-                  else NONE
-            | FFI_final outcome => SOME (t, Rerr (Rabort (Rffi_error outcome))))
+           (case call_FFI t.ffi n sign cargs (als_args_final_flat (loc_typ_val sign.args args)) of
+              SOME (FFI_return t' newargs retv) =>
+               (case store_cargs_flat (get_mut_args sign args) newargs (t.refs) of
+                | SOME s' => SOME (t with <| refs := s'; ffi := t'|>,
+                                   Rval (ret_val_flat retv check_ctor))
+                | NONE => NONE)
+            | SOME (FFI_final outcome) => SOME (t, Rerr (Rabort (Rffi_error outcome)))
+            | NONE => NONE)
         | NONE => NONE)
    | NONE => NONE
   `
-
-(* bool -> state -> op -> flatSem$v list *)
 
 val do_app_def = Define `
   do_app check_ctor s op (vs:flatSem$v list) =
@@ -558,7 +522,7 @@ val do_app_def = Define `
      | _ => NONE)
   | (ConfigGC, [Litv (IntLit n1); Litv (IntLit n2)]) =>
        SOME (s, Rval (Unitv check_ctor))
-  | (FFI n, args) => do_ffi_flat s (* state *) check_ctor n args
+  | (FFI n, args) => do_ffi_flat s check_ctor n args
   (*
   | (FFI n, [Litv(StrLit conf); Loc lnum]) =>
     (case store_lookup lnum s.refs of
@@ -802,9 +766,10 @@ val do_app_cases = save_thm ("do_app_cases",
 Theorem do_app_const:
    do_app cc s op vs = SOME (s',r) ⇒ s.clock = s'.clock
 Proof
-  rw [do_app_cases] >>
+  rw [do_app_cases, do_ffi_flat_def] >>
   rw[] >>
-  rfs []
+  every_case_tac >>
+  rfs [] >> rveq >> rw []
 QED
 
 Theorem evaluate_clock:

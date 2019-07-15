@@ -158,7 +158,7 @@ Proof
   Cases_on`do_app s op vs`
   \\ ((pop_assum(strip_assume_tac o CONV_RULE(REWR_CONV do_app_cases_none)))
      ORELSE(pop_assum(strip_assume_tac o CONV_RULE(REWR_CONV do_app_cases))))
-  \\ rw[do_app_def] >>
+  \\ rw[do_app_def, do_ffi_pat_def] >> fs [do_ffi_pat_def] >> 
   fs[semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def]
@@ -169,7 +169,7 @@ QED
 Theorem do_app_const:
    do_app s op vs = SOME (s',r) ⇒ s'.compile = s.compile
 Proof
-  rw[do_app_def,case_eq_thms,bool_case_eq,UNCURRY,pair_case_eq] \\ rw[]
+  rw[do_app_def,do_ffi_pat_def, case_eq_thms,bool_case_eq,UNCURRY,pair_case_eq] \\ rw[]
 QED
 
 Theorem do_install_with_clock:
@@ -203,7 +203,7 @@ QED
 val do_app_io_events_mono = Q.prove(
   `do_app s op vs = SOME(s',r) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events`,
-  srw_tac[][] >> full_simp_tac(srw_ss())[do_app_cases] >>
+  srw_tac[][] >> full_simp_tac(srw_ss())[do_app_cases, do_ffi_pat_def] >>
   every_case_tac >>
   full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,

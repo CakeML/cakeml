@@ -161,7 +161,6 @@ val do_install_def = Define `
        | _ => (Rerr(Rabort Rtype_error),s))`;
 
 
-
 val get_carg_clos_def = Define `
    (get_carg_clos st (C_array conf) (ByteVector ws) =
     if conf.mutable then
@@ -185,8 +184,6 @@ val get_carg_clos_def = Define `
 /\ (get_carg_clos _ _ _ = NONE)`
 
 
-
-
 val get_cargs_clos_def = Define
   `(get_cargs_clos s [] [] = SOME [])
 /\ (get_cargs_clos s (ty::tys) (arg::args) =
@@ -196,15 +193,14 @@ val get_cargs_clos_def = Define
 
 
 val als_lst_clos_def = Define `
-  (als_lst_clos ([]:('s # c_type # closSem$v) list)  _ _ = []) /\
+  (als_lst_clos ([]:('s # c_type # closSem$v) list)    _ _ = []) /\
   (als_lst_clos ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
           if conf.mutable /\  conf'.mutable /\ (n = n')
           then id::als_lst_clos prl (C_array conf) (RefPtr n)
           else als_lst_clos prl (C_array conf) (RefPtr n)) /\
-  (als_lst_clos _ (C_bool) _ = []) /\
-  (als_lst_clos _ (C_int)  _ = [])
+  (als_lst_clos (_::prl) (C_array conf) (RefPtr n) = als_lst_clos prl (C_array conf) (RefPtr n)) /\
+  (als_lst_clos _ _ _ = [])
 `
-
 
 val als_lst'_clos_def = Define `
   als_lst'_clos (idx, ct, v) prl =
@@ -222,7 +218,7 @@ val als_args_clos_def = tDefine "als_args_clos"
     als_lst'_clos pr prs :: als_args_clos (remove_loc (als_lst'_clos pr prs) prs))
   `
   (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
+   rw[fetch "semanticPrimitives" "remove_loc_def",arithmeticTheory.LESS_EQ,
       rich_listTheory.LENGTH_FILTER_LEQ])
 
 
@@ -230,55 +226,11 @@ val als_args_final_clos_def = Define `
   (als_args_final_clos prl  = emp_filt (als_args_clos prl))
 `
 
-
 val ret_val_clos_def = Define
 `(ret_val_clos (SOME(C_boolv b)) = Boolv b)
 /\ (ret_val_clos (SOME(C_intv i)) = Number i)
-/\ (ret_val_clos _ = Unit) (* void constructor representation *)
+/\ (ret_val_clos _ = Unit)
   `
-(*
-val store_carg_clos_def = Define `
-   (store_carg_clos (C_array conf) ws (RefPtr ptr) (st: num |-> closSem$v ref) =
-    if conf.mutable then
-     (case FLOOKUP st ptr of
-         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
-         | _ => NONE)
-    else
-      NONE)
-/\ (store_carg_clos _ _ _ st = SOME st)`
-
-
-
-val store_cargs_clos_def = Define
-  `(store_cargs_clos [] [] [] st = st)
-/\ (store_cargs_clos (ty::tys) (carg::cargs) (arg::args) st =
-    store_cargs_clos tys cargs args (OPTION_BIND st (store_carg_clos ty carg arg)))
-/\ (store_cargs_clos _ _ _ _ = NONE)
-`
-
-
-(*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
-
-val do_ffi_clos_def = Define `
-  do_ffi_clos t n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
-     (case get_cargs_clos t.refs sign.args args of
-          SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_clos (loc_typ_val sign.args args)) of
-              FFI_return t' (* ffi state *) newargs retv =>
-                (case store_cargs_clos sign.args newargs (get_mut_args sign args) (SOME t.refs) of
-                   NONE => NONE
-                 | SOME s' (* finit map of num to v ref *) =>
-                   if ret_ok sign.retty retv then
-                      SOME (Rval (ret_val_clos retv, t with <| refs := s'; ffi := t'|>))
-                   else NONE)
-                 | FFI_final outcome =>
-                   SOME (Rerr (Rabort (Rffi_error outcome))) )
-        | NONE => NONE)
-   | NONE => NONE
-  `
-*)
-
 
 val store_carg_clos_def = Define `
    (store_carg_clos (RefPtr ptr) ws (st: num |-> closSem$v ref) =
@@ -290,31 +242,30 @@ val store_carg_clos_def = Define `
 
 
 val store_cargs_clos_def = Define
-  `(store_cargs_clos [] [] st = st)
+  `(store_cargs_clos [] [] st = SOME st)
 /\ (store_cargs_clos (marg::margs) (w::ws) st =
-      store_cargs_clos margs ws (THE(store_carg_clos marg w st)))
-/\ (store_cargs_clos  _ _ st = st)
+      case store_carg_clos marg w st of
+        | SOME s' => store_cargs_clos margs ws s'
+        | NONE => NONE)
+/\ (store_cargs_clos  _ _ st = SOME st)
 `
-
-
-(*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
 
 val do_ffi_clos_def = Define `
   do_ffi_clos t n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+   case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_clos t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_clos (loc_typ_val sign.args args)) of
-              FFI_return t' (* ffi state *) newargs retv =>
-                if ret_ok sign.retty retv then
-                      SOME (Rval (ret_val_clos retv, t with <| refs := store_cargs_clos (get_mut_args sign args) newargs (t.refs);
-                                                                ffi := t'|>))
-                   else NONE
-                 | FFI_final outcome => SOME (Rerr (Rabort (Rffi_error outcome))) )
+           (case call_FFI t.ffi n sign cargs (als_args_final_clos (loc_typ_val sign.args args)) of
+              SOME (FFI_return t' newargs retv) =>
+               (case store_cargs_clos (get_mut_args sign args) newargs (t.refs) of
+                  | SOME s' => SOME (Rval (ret_val_clos retv,
+                                t with <| refs := s'; ffi := t'|>))
+                  | NONE => NONE)
+                 | SOME (FFI_final outcome) => SOME (Rerr (Rabort (Rffi_error outcome)))
+                 | NONE => NONE)
         | NONE => NONE)
    | NONE => NONE
 `
-
 
 (*   “:closLang$op -> v list -> (α, β) state -> (v # (α, β) state, v) result” *)
 val do_app_def = Define `
@@ -825,7 +776,7 @@ Theorem do_app_const:
     (s2.compile_oracle = s1.compile_oracle) /\
     (s2.compile = s1.compile)
 Proof
-  simp[do_app_def,case_eq_thms]
+  simp[do_app_def,case_eq_thms, do_ffi_clos_def]
   \\ strip_tac \\ fs[] \\ rveq \\ fs[]
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED

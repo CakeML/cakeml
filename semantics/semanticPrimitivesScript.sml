@@ -632,8 +632,8 @@ val _ = Define `
     if conf.mutable /\  conf'.mutable /\ (lc = lc')
     then id::als_lst_sem prl (C_array conf) (Loc lc)
     else als_lst_sem  prl (C_array conf) (Loc lc)) /\
-  (als_lst_sem  _ (C_bool) _ = []) /\
-  (als_lst_sem  _ (C_int)  _ = [])
+  (als_lst_sem (_::prl) (C_array conf) (Loc lc) = als_lst_sem prl (C_array conf) (Loc lc)) /\
+  (als_lst_sem _ _ _ = [])
 `
 
 
@@ -650,28 +650,8 @@ val _ = Define `
 `
 
 val _ = Define `
-  matched_num_pr_lst n prs = FILTER ($= n o FST) prs
+  remove_loc nl prl =  FILTER (λ(n,_). ~(MEM n nl)) prl
 `
-
-val _ = Define `
-  (matched_loc [] _ = []) /\
-  (matched_loc _ [] = []) /\
-  (matched_loc (n::ns) prl = 
-    if  IS_EL n (MAP FST prl)
-    then matched_num_pr_lst n prl ++ matched_loc (ns) prl
-    else matched_loc ns prl )
-`
-
-
-val _ = Define `
-  list_minus ms ns = FILTER (λ e. ~(MEM e ns)) ms
-`
-
-val _ = Define `
-  remove_loc nl prl = list_minus prl (matched_loc nl prl)
-`
-
-
 
 val _ = tDefine "als_args_sem"
   `
@@ -680,7 +660,7 @@ val _ = tDefine "als_args_sem"
     als_lst'_sem pr prs :: als_args_sem (remove_loc (als_lst'_sem pr prs) prs))
   `
   (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "-" "remove_loc_def",fetch "-" "list_minus_def",arithmeticTheory.LESS_EQ,
+   rw[fetch "-" "remove_loc_def",arithmeticTheory.LESS_EQ,
       rich_listTheory.LENGTH_FILTER_LEQ])
 
 val _ = Define `
@@ -691,8 +671,6 @@ val _ = Define `
   (als_args_final_sem prl  = emp_filt (als_args_sem prl))
 `
 
-(* get_ret_val ::c_primv option -> v *)
-
 val _ = Define
 `(get_ret_val (SOME(C_boolv b)) = Boolv b)
 /\ (get_ret_val (SOME(C_intv i)) = Litv(IntLit i))
@@ -702,12 +680,6 @@ val _ = Define
 val _ = Define
 `get_mut_args sign cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(sign.args,cargs)))
 `
-
-(*
-val _ = Define `
-   (store_carg_sem (Loc lnum) ws s = THE (store_assign lnum (W8array ws) s))
-/\ (store_carg_sem  _ _ s = s)`
-*)
 
 
 val _ = Define `

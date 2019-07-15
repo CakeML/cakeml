@@ -197,50 +197,8 @@ val als_args_final_bvl_def = Define `
 val ret_val_bvl_def = Define
 `(ret_val_bvl (SOME(C_boolv b)) = Boolv b)
 /\ (ret_val_bvl (SOME(C_intv i)) = Number i)
-/\ (ret_val_bvl _ = Unit) (* void constructor representation *)
+/\ (ret_val_bvl _ = Unit)
   `
-(*
-val store_carg_bvl_def = Define `
-   (store_carg_bvl (C_array conf) ws (RefPtr ptr) (st: num |-> bvlSem$v ref) =
-    if conf.mutable then
-     (case FLOOKUP st ptr of
-         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
-         | _ => NONE)
-    else
-      NONE)
-/\ (store_carg_bvl _ _ _ st = SOME st)`
-
-
-
-val store_cargs_bvl_def = Define
-  `(store_cargs_bvl [] [] [] st = st)
-/\ (store_cargs_bvl (ty::tys) (carg::cargs) (arg::args) st =
-    store_cargs_bvl tys cargs args (OPTION_BIND st (store_carg_bvl ty carg arg)))
-/\ (store_cargs_bvl _ _ _ _ = NONE)
-`
-
-(*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
-
-val do_ffi_bvl_def = Define `
-  do_ffi_bvl t n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
-     (case get_cargs_bvl t.refs sign.args args of
-          SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_bvl (loc_typ_val sign.args args))  of
-              FFI_return t' (* ffi state *) newargs retv =>
-                (case store_cargs_bvl sign.args newargs (get_mut_args sign args) (SOME t.refs) of
-                   NONE => NONE
-                 | SOME s' (* finite map of num to v ref *) =>
-                   if ret_ok sign.retty retv then
-                      SOME (Rval (ret_val_bvl retv, t with <| refs := s'; ffi := t'|>))
-                   else NONE)
-                 | FFI_final outcome =>
-                   SOME (Rerr (Rabort (Rffi_error outcome))) )
-        | NONE => NONE)
-   | NONE => NONE
-  `
-*)
-
 
 val store_carg_bvl_def = Define `
    (store_carg_bvl (RefPtr ptr) ws (st: num |-> bvlSem$v ref) =
@@ -250,29 +208,31 @@ val store_carg_bvl_def = Define `
 /\ (store_carg_bvl  _ _ st = SOME st)`
 
 
-
 val store_cargs_bvl_def = Define
-  `(store_cargs_bvl [] [] st = st)
+  `(store_cargs_bvl [] [] st = SOME st)
 /\ (store_cargs_bvl (marg::margs) (w::ws) st =
-    store_cargs_bvl margs ws (THE(store_carg_bvl marg w st)))
-/\ (store_cargs_bvl  _ _ st = st)
+    case store_carg_bvl marg w st of
+        | SOME s' => store_cargs_bvl margs ws s'
+        | NONE => NONE)
+/\ (store_cargs_bvl  _ _ st = SOME st)
 `
 
 (*  “:(α, β) state -> string -> v list -> (v # (α, β) state, γ) result option” *)
 
 val do_ffi_bvl_def = Define `
   do_ffi_bvl t n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+   case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_bvl t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_bvl (loc_typ_val sign.args args))  of
-              FFI_return t' (* ffi state *) newargs retv =>
-                   if ret_ok sign.retty retv then
-                      SOME (Rval (ret_val_bvl retv, t with <| refs := store_cargs_bvl (get_mut_args sign args) newargs (t.refs);
-                                                              ffi := t'|>))
-                   else NONE
-                 | FFI_final outcome =>
-                   SOME (Rerr (Rabort (Rffi_error outcome))) )
+           (case call_FFI t.ffi n sign cargs (als_args_final_bvl (loc_typ_val sign.args args))  of
+              SOME (FFI_return t'  newargs retv) =>
+                 (case store_cargs_bvl (get_mut_args sign args) newargs (t.refs) of
+                  | SOME s' => SOME (Rval (ret_val_bvl retv,
+                                     t with <| refs := s'; ffi := t'|>))
+                  | NONE => NONE)
+                 | SOME (FFI_final outcome) =>
+                   SOME (Rerr (Rabort (Rffi_error outcome)))
+                 | NONE => NONE )
         | NONE => NONE)
    | NONE => NONE
   `
@@ -649,7 +609,7 @@ Theorem do_app_const:
                        s2.compile = s1.compile /\
                        s2.compile_oracle = s1.compile_oracle)
 Proof
-  rw[do_app_def,case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]
+  rw[do_app_def,do_ffi_bvl_def, case_eq_thms,PULL_EXISTS,do_install_def,UNCURRY] \\ rw[]
 QED
 
 Theorem bvl_do_app_Ref[simp]:

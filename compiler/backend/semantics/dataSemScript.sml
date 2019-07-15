@@ -248,45 +248,6 @@ val ret_val_data_def = Define
 /\ (ret_val_data _ = Unit) (* void constructor representation *)
   `
 
-(*
-val store_carg_data_def = Define `
-   (store_carg_data (C_array conf) ws (RefPtr ptr) (st: num |-> dataSem$v ref) =
-    if conf.mutable then
-     (case FLOOKUP st ptr of
-         | SOME (ByteArray F _) => SOME (st |+ (ptr,ByteArray F ws)) (* FUPDATE *)
-         | _ => NONE)
-    else
-      NONE)
-/\ (store_carg_data _ _ _ st = SOME st)`
-
-
-
-val store_cargs_data_def = Define
-  `(store_cargs_data [] [] [] st = st)
-/\ (store_cargs_data (ty::tys) (carg::cargs) (arg::args) st =
-    store_cargs_data tys cargs args (OPTION_BIND st (store_carg_data ty carg arg)))
-/\ (store_cargs_data _ _ _ _ = NONE)
-`
-
-val do_ffi_data_def = Define `
-  do_ffi_data t n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
-     (case get_cargs_data t.refs sign.args args of
-          SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_data (loc_typ_val sign.args args))  of
-              FFI_return t' (* ffi state *) newargs retv =>
-                (case store_cargs_data sign.args newargs (get_mut_args sign args) (SOME t.refs) of
-                   NONE => NONE
-                 | SOME s' (* finite map of num to v ref *) =>
-                   if ret_ok sign.retty retv then
-                      SOME (Rval (ret_val_data retv, t with <| refs := s'; ffi := t'|>))
-                   else NONE)
-                 | FFI_final outcome =>
-                   SOME (Rerr (Rabort (Rffi_error outcome))) )
-        | NONE => NONE)
-   | NONE => NONE
-  `
-*)
 
 val store_carg_data_def = Define `
    (store_carg_data (RefPtr ptr) ws (st: num |-> dataSem$v ref) =
@@ -298,25 +259,28 @@ val store_carg_data_def = Define `
 
 
 val store_cargs_data_def = Define
-  `(store_cargs_data [] [] st = st)
+  `(store_cargs_data [] [] st = SOME st)
 /\ (store_cargs_data  (marg::margs) (w::ws) st =
-     store_cargs_data margs ws (THE(store_carg_data marg w st)))
-/\ (store_cargs_data _ _ st = st)
+      case store_carg_data marg w st of
+        | SOME s' => store_cargs_data margs ws s'
+        | NONE => NONE)
+/\ (store_cargs_data _ _ st = SOME st)
 `
+
 
 val do_ffi_data_def = Define `
   do_ffi_data t n args =
-   case FIND (\x.x.mlname = n) t.ffi.signatures of SOME sign =>
+   case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_data t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n cargs (als_args_final_data (loc_typ_val sign.args args))  of
-              FFI_return t' (* ffi state *) newargs retv =>
-                   if ret_ok sign.retty retv then
-                      SOME (Rval (ret_val_data retv, t with <| refs := store_cargs_data (get_mut_args sign args) newargs (t.refs);
-                                                               ffi := t'|>))
-                   else NONE
-                 | FFI_final outcome =>
-                   SOME (Rerr (Rabort (Rffi_error outcome))) )
+           (case call_FFI t.ffi n sign cargs (als_args_final_data (loc_typ_val sign.args args)) of
+	      | SOME (FFI_return t' newargs retv) =>
+                 (case store_cargs_data (get_mut_args sign args) newargs (t.refs) of
+                  | SOME s' => SOME (Rval (ret_val_data retv,
+                                     t with <| refs := s'; ffi := t'|>))
+                  | NONE => NONE)
+               | SOME (FFI_final outcome) => SOME (Rerr (Rabort (Rffi_error outcome)))
+	       | NONE => NONE)
         | NONE => NONE)
    | NONE => NONE
   `
@@ -785,7 +749,7 @@ val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_e
 Theorem do_app_clock:
    (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
 Proof
-  rw[ do_app_def
+  rw[ do_app_def, do_ffi_data_def 
     , do_app_aux_def
     , do_space_def
     , consume_space_def

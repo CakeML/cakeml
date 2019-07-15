@@ -398,13 +398,13 @@ val do_app_add_to_clock = Q.prove (
    ==>
    do_app cc (s with clock := s.clock + k) op es =
      SOME (t with clock := t.clock + k, r)`,
-  rw [do_app_cases]);
+  rw [do_app_cases, do_ffi_flat_def] \\ every_case_tac \\ fs [] \\ rveq \\ rw []);
 
 val do_app_add_to_clock_NONE = Q.prove (
   `do_app cc s op es = NONE
    ==>
    do_app cc (s with clock := s.clock + k) op es = NONE`,
-  Cases_on `op` \\ rw [do_app_def]
+  Cases_on `op` \\ rw [do_app_def, do_ffi_flat_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [bool_case_eq, case_eq_thms]);
@@ -512,7 +512,7 @@ Theorem do_app_io_events_mono:
    do_app cc (s:'ffi flatSem$state) op vs = SOME (t, r) ⇒
    s.ffi.io_events ≼ t.ffi.io_events
 Proof
-  rw [do_app_def] \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
+  rw [do_app_def, do_ffi_flat_def] \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
   \\ rw [] \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ fs [semanticPrimitivesTheory.store_assign_def,
