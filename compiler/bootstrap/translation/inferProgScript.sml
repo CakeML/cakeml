@@ -305,7 +305,7 @@ val pr_CASE = Q.prove(
   SRW_TAC [] []);
 
 val op_apply = Q.prove(
-  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41) y =
+  `!op. (ast$op_CASE op x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42) y =
          (ast$op_CASE op
             (* Opn 1 *)
             (\z. x1 z y)
@@ -361,34 +361,36 @@ val op_apply = Q.prove(
             (\z. x26 z y)
             (* Implode *)
             (x27 y)
-            (* Strsub*)
+            (* Explode *)
             (x28 y)
-            (* Strlen *)
+            (* Strsub*)
             (x29 y)
-            (* Strcat *)
+            (* Strlen *)
             (x30 y)
-            (* Vfromlist *)
+            (* Strcat *)
             (x31 y)
-            (* Vsub *)
+            (* Vfromlist *)
             (x32 y)
-            (* Vlength *)
+            (* Vsub *)
             (x33 y)
-            (* Aalloc *)
+            (* Vlength *)
             (x34 y)
-            (* AallocEmpty *)
+            (* Aalloc *)
             (x35 y)
-            (* Asub *)
+            (* AallocEmpty *)
             (x36 y)
-            (* Alength*)
+            (* Asub *)
             (x37 y)
-            (* Aupdate *)
+            (* Alength*)
             (x38 y)
-            (* ListAppend *)
+            (* Aupdate *)
             (x39 y)
-            (* ConfigGC *)
+            (* ListAppend *)
             (x40 y)
+            (* ConfigGC *)
+            (x41 y)
             (* FFI *)
-            (\z. x41 z y))`,
+            (\z. x42 z y))`,
   Cases THEN SRW_TAC [] []);
 
 val list_apply = Q.prove(
