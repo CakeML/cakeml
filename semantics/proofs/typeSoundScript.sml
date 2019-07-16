@@ -885,7 +885,11 @@ Proof
    rw [] >>
    goal_assum (first_assum o mp_then Any mp_tac) >>
    simp [store_type_extension_refl] >>
-   qspec_tac (`s`,`s`) >> Induct >> cheat)
+   qspec_tac (`s`,`s`) >> Induct >>
+   fs [IMPLODE_EXPLODE_I,list_to_v_def,ctMap_has_lists_def] >>
+   once_rewrite_tac [type_v_cases] >> simp [] >>
+   simp [type_subst_def,FLOOKUP_UPDATE,FUPDATE_LIST,check_freevars_def] >>
+   once_rewrite_tac [type_v_cases] >> simp [])
  >> TRY ( (* string lookup *)
    rename1 `Strsub` >>
    rw [do_app_cases, PULL_EXISTS] >>
