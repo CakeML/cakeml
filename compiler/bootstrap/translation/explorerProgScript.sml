@@ -80,22 +80,8 @@ val res = translate (presLangTheory.flat_op_to_display_def |>
 val _ = ml_translatorLib.use_string_type false;
 val _ = translate presLangTheory.lang_to_json_def
 
-Theorem str_cons_eq_explode_str:
-  STRING c "" = explode (str c)
-Proof
-  fs []
-QED
-
-Theorem explode_str_CHR:
-  explode (str (CHR n)) = [CHR n]
-Proof
-  fs []
-QED
-
 val _ = ml_translatorLib.use_string_type true;
-val r = translate (presLangTheory.lit_to_display_def
-                   |> REWRITE_RULE [str_cons_eq_explode_str]
-                   |> REWRITE_RULE [explode_str_CHR])
+val r = translate presLangTheory.lit_to_display_def
 
 val _ = ml_translatorLib.use_string_type false;
 val r = translate presLangTheory.num_to_varn_def

@@ -28,19 +28,7 @@ val r = translate pegTheory.ignoreL_def
 val r = translate simpleSexpTheory.arb_sexp_def
 val r = translate simpleSexpPEGTheory.choicel_def
 
-Theorem str_cons_eq_explode_str:
-  STRING c "" = explode (str c)
-Proof
-  fs []
-QED
-
-Theorem explode_str_CHR:
-  explode (str (CHR n)) = [CHR n]
-Proof
-  fs []
-QED
-
-val r = translate (simpleSexpPEGTheory.tokeq_def |> REWRITE_RULE [str_cons_eq_explode_str])
+val r = translate simpleSexpPEGTheory.tokeq_def
 val r = translate simpleSexpPEGTheory.pegf_def
 val r = translate simpleSexpPEGTheory.grabWS_def
 val r = translate simpleSexpPEGTheory.replace_nil_def
@@ -54,9 +42,7 @@ val r = translate (simpleSexpTheory.valid_first_symchar_def
 val r = translate (simpleSexpTheory.valid_symchar_def
                   |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY])
 val r = translate pairTheory.PAIR_MAP_THM; (* TODO: isn't this done earlier? *)
-val r = translate (simpleSexpPEGTheory.sexpPEG_def
-                   |> REWRITE_RULE [str_cons_eq_explode_str]
-                   |> REWRITE_RULE [explode_str_CHR])
+val r = translate simpleSexpPEGTheory.sexpPEG_def
 val () = next_ml_names := ["destResult"];
 val r = translate pegexecTheory.destResult_def
 
