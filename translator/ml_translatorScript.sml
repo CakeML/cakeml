@@ -1744,6 +1744,17 @@ Proof
   \\ rfs [strlen_def,strsub_def,implode_def]
 QED
 
+Theorem Eval_HOL_STRING_HD:
+   !env x1 s n.
+      Eval env x1 (HOL_STRING_TYPE s) ==>
+      s <> "" ==>
+      Eval env (App Strsub [x1; Lit (IntLit 0)]) (CHAR (HD s))
+Proof
+  rw [] \\ rewrite_tac [GSYM (EVAL ``EL 0``)]
+  \\ irule Eval_HOL_STRING_EL
+  \\ fs [DECIDE ``0 < n <=> n <> 0:num``,Eval_Val_NUM]
+QED
+
 Theorem Eval_HOL_STRING_APPEND:
    !env x1 x2 s1 s2 n.
       Eval env x1 (HOL_STRING_TYPE s1) ==>

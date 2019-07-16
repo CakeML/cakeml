@@ -9,8 +9,10 @@ open preamble parserProgTheory
 val _ = new_theory "inferProg"
 
 val _ = translation_extends "reg_allocProg";
+val _ = ml_translatorLib.use_string_type true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "inferProg");
+val _ = ml_translatorLib.use_string_type true;
 
 (* translator setup *)
 
@@ -510,7 +512,17 @@ val _ = translate (infer_def ``apply_subst_list``);
 val _ = fetch "-" "apply_subst_list_side_def" |> update_precondition;
 
 val _ = translate infer_tTheory.get_tyname_def;
-val _ = translate infer_tTheory.ty_var_name_def;
+
+Theorem ty_var_name_eq:
+  ty_var_name n =
+    concat [strlit "'";
+            if n < 28 then str (CHR (n + ORD #"a")) else mlint$toString (&n)]
+Proof
+  rw [infer_tTheory.ty_var_name_def,mlstringTheory.implode_def]
+  \\ fs [mlstringTheory.concat_def,mlstringTheory.str_def,mlstringTheory.implode_def]
+QED
+
+val _ = translate ty_var_name_eq;
 
 val ty_var_name_side =
   ``ty_var_name_side x``

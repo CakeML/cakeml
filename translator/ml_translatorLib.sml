@@ -2791,7 +2791,9 @@ val builtin_hol_string_monops =
   [Eval_HOL_STRING_LENGTH,
    Eval_HOL_STRING_IMPLODE,
    Eval_HOL_STRING_EXPLODE,
+   Eval_HOL_STRING_HD,
    Eval_HOL_STRING_FLAT,
+   Eval_implode_nop,
    Eval_HOL_STRING_explode]
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))

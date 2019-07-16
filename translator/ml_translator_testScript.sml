@@ -335,7 +335,7 @@ val res = translate str_ex3_def; (* doesn't cause warning *)
 val str_ex4_def = Define `
   str_ex4 s1 = MAP CHR (str_ex3 s1)`
 
-val res = translate str_ex4_def
+val res = translate str_ex4_def;
 
 val str_ex4_side_thm = Q.prove(
   `str_ex4_side s1 = T`,
@@ -346,13 +346,26 @@ val str_ex4_side_thm = Q.prove(
 val str_ex5_def = Define `
   str_ex5 s1 = if s1 = "Hello" then "There!" else IMPLODE (MAP CHR (str_ex3 s1))`
 
-val res = translate str_ex5_def
+val res = translate str_ex5_def;
 
 val str_ex5_side_thm = Q.prove(
   `str_ex5_side s1 = T`,
   rw [fetch "-" "str_ex5_side_def",str_ex3_def,MEM_MAP]
   \\ fs [stringTheory.ORD_BOUND])
   |> update_precondition;
+
+val str_ex6_def = Define `
+  str_ex6 s <=>
+    s <> "before" /\ s <> "div" /\ s <> "mod" /\ s <> "o" ∧
+    if s = "" then T else HD s = #" "`
+
+val res = translate str_ex6_def;
+
+val id_to_string_def = Define `
+  id_to_string (Short s) = implode s /\
+  id_to_string (Long x id) = concat [implode x; implode "."; id_to_string id]`
+
+val res = translate id_to_string_def;
 
 (* more advanced test of HOL_STRING_TYPE *)
 

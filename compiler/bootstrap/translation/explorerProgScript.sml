@@ -10,6 +10,7 @@ val _ = new_theory "explorerProg"
 val _ = translation_extends "inferProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "explorerProg");
+val _ = ml_translatorLib.use_string_type false;
 
 (* TODO: this is copied in many bootstrap translation files - should be in a lib? *)
 fun def_of_const tm = let
@@ -72,18 +73,68 @@ val res = translate displayLangTheory.num_to_json_def;
 val res = translate displayLangTheory.trace_to_json_def;
 val res = translate displayLangTheory.display_to_json_def;
 
-val res = translate presLangTheory.flat_op_to_display_def;
-val res = translate presLangTheory.tap_flat_def;
+val _ = ml_translatorLib.use_string_type true;
+val res = translate (presLangTheory.flat_op_to_display_def |>
+                     REWRITE_RULE [presLangTheory.string_to_display2_def])
 
-val res = translate presLangTheory.num_to_varn_def;
+val _ = ml_translatorLib.use_string_type false;
+val _ = translate presLangTheory.lang_to_json_def
+
+Theorem str_cons_eq_explode_str:
+  STRING c "" = explode (str c)
+Proof
+  fs []
+QED
+
+Theorem explode_str_CHR:
+  explode (str (CHR n)) = [CHR n]
+Proof
+  fs []
+QED
+
+val _ = ml_translatorLib.use_string_type true;
+val r = translate (presLangTheory.lit_to_display_def
+                   |> REWRITE_RULE [str_cons_eq_explode_str]
+                   |> REWRITE_RULE [explode_str_CHR])
+
+val _ = ml_translatorLib.use_string_type false;
+val r = translate presLangTheory.num_to_varn_def
 val num_to_varn_side = Q.prove(`
   ∀n. num_to_varn_side n ⇔ T`,
   recInduct presLangTheory.num_to_varn_ind \\ rw[] \\
   rw[Once (theorem"num_to_varn_side_def")] \\
-  `n MOD 26 < 26` by simp[] \\ decide_tac) |> update_precondition;
+  `n MOD 26 < 26` by simp[] \\ decide_tac)
+  |> update_precondition;
+
+val r = translate (presLangTheory.display_num_as_varn_def
+                   |> REWRITE_RULE [presLangTheory.string_to_display2_def])
+
+val _ = ml_translatorLib.use_string_type true;
+val _ = translate (presLangTheory.flat_pat_to_display_def |>
+                   REWRITE_RULE [presLangTheory.string_to_display2_def])
+
+Theorem string_to_display2_lam:
+  string_to_display2 = \s. string_to_display (implode s)
+Proof
+  fs [FUN_EQ_THM,presLangTheory.string_to_display2_def]
+QED
+
+val res = translate (presLangTheory.flat_to_display_def |>
+                     SIMP_RULE std_ss [string_to_display2_lam])
 
 val res = translate presLangTheory.tap_flat_def;
+
+val _ = ml_translatorLib.use_string_type false;
 val res = translate presLangTheory.tap_pat_def;
+
+val _ = ml_translatorLib.use_string_type true;
+val r = translate (presLangTheory.clos_op_to_display_def |>
+                   SIMP_RULE std_ss [string_to_display2_lam]);
+
+val _ = ml_translatorLib.use_string_type false;
+val r = translate (presLangTheory.clos_to_display_def |>
+                   SIMP_RULE std_ss [string_to_display2_lam]);
+
 val res = translate presLangTheory.tap_clos_def;
 
 (* we can't translate the tap_word bits yet, because that's 32/64 specific.
