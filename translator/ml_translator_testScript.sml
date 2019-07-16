@@ -367,6 +367,13 @@ val id_to_string_def = Define `
 
 val res = translate id_to_string_def;
 
+val _ = use_string_type true;
+
+val _ = (hol2deep ``"hi"`` |> concl |> rator |> rand |> astSyntax.is_Lit)
+        orelse failwith "incorrectly translates string literals";
+
+val r = hol2deep ``\c. STRING c ""``;
+
 (* more advanced test of HOL_STRING_TYPE *)
 
 (* step 1: reg a type with string inside, StrLit : string -> lit *)

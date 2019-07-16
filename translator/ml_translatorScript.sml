@@ -1784,6 +1784,33 @@ Proof
   \\ fs [state_component_equality]
 QED
 
+Theorem Eval_HOL_STRING_CONS:
+   !env x1 x2 c s n.
+      Eval env x1 (CHAR c) ==>
+      Eval env x2 (HOL_STRING_TYPE s) ==>
+      lookup_cons (Short "::") env = SOME (2,TypeStamp "::" 1) /\
+      lookup_cons (Short "[]") env = SOME (0,TypeStamp "[]" 1) ==>
+      Eval env
+        (App Strcat [Con (SOME (Short "::"))
+                    [App Implode [Con (SOME (Short "::"))
+                                    [x1; Con (SOME (Short "[]")) []]];
+                     Con (SOME (Short "::"))
+                       [x2; Con (SOME (Short "[]")) []]]])
+        (HOL_STRING_TYPE (STRING c s))
+Proof
+  rw[] \\ `STRING c s = [c] ++ s` by fs []
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ irule (MP_CANON Eval_HOL_STRING_APPEND) \\ fs []
+  \\ irule Eval_HOL_STRING_INTRO
+  \\ fs [Eval_def,eval_rel_def,lookup_cons_def]
+  \\ fs [evaluate_def,do_con_check_def,build_conv_def] \\ gen_tac
+  \\ last_x_assum (qspecl_then [`refs`] strip_assume_tac)
+  \\ fs [LIST_TYPE_def,CHAR_def]
+  \\ qexists_tac `refs'` \\ fs []
+  \\ qexists_tac `ck1` \\ fs []
+  \\ qexists_tac `ck2` \\ fs []
+QED
+
 Theorem Eval_HOL_STRING_FLAT:
    ∀env x ls.
      Eval env x (LIST_TYPE HOL_STRING_TYPE ls) ==>

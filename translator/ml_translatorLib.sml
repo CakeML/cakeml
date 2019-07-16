@@ -1951,7 +1951,10 @@ fun inst_cons_thm tm hol2deep = let
     in map insert_HOL_STRING (zip ys refs) end handle HOL_ERR _ => ys
   val th1 = if length ys = 0 then TRUTH else LIST_CONJ ys
   in MATCH_MP th (UNDISCH_ALL th1)
-     handle HOL_ERR _ => raise UnableToTranslate tm end
+     handle HOL_ERR _ =>
+       if use_hol_string_type () andalso stringSyntax.is_string tm
+       then raise failwith "string cons"
+       else raise UnableToTranslate tm end
 
 val inst_case_thm_for_fail = ref T;
 val tm = !inst_case_thm_for_fail
@@ -2783,6 +2786,7 @@ val builtin_monops =
 
 val builtin_hol_string_binops =
   [Eval_HOL_STRING_EL,
+   Eval_HOL_STRING_CONS,
    Eval_HOL_STRING_APPEND]
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
@@ -3185,11 +3189,6 @@ val tm = rhs_tm
 val tm = ``case v3 of (v2,v1) => QSORT v7 v2 ++ [v6] ++ QSORT v7 v1``
 val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
 val tm = def |> SPEC_ALL |> concl |> rand
-
-val tm = x1
-
-hol2deep ((rand o rator) x1)
-
 *)
 
 fun hol2deep tm =
