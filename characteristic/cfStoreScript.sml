@@ -26,6 +26,10 @@ val parts_ok_def = Define `
     ALL_DISTINCT (MAP (λx. x.mlname) (FLAT (MAP FST parts))) /\
     EVERY (ffi_has_index_in (MAP (λx. x.mlname) (FLAT (MAP FST parts)))) st.io_events /\
     (!sigs u.
+       MEM (sigs,u) parts ==> !sig. MEM sig sigs ==>
+       FIND (λx. x.mlname = sig.mlname) st.signatures = SOME sig
+       ) /\
+    (!sigs u.
        MEM (sigs,u) parts ==>
        ?s. !sig. MEM sig sigs ==> FLOOKUP (proj st.ffi_state) sig.mlname = SOME(s,sig)) /\
     (!x args als sig sigs u.
@@ -49,7 +53,7 @@ val ffi2heap_def = Define `
         ts = FILTER (ffi_has_index_in (MAP (λx. x.mlname) sigs)) st.io_events /\
         !sig. MEM sig sigs ==> FLOOKUP (proj st.ffi_state) sig.mlname = SOME(s,sig) }
     else
-      { FFI_full (FLAT (MAP FST parts)) st.io_events }`;
+      { FFI_full st.signatures st.io_events }`;
 
 (* st2heap: 'ffi state -> heap *)
 val st2heap_def = Define `

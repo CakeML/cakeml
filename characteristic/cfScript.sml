@@ -1240,6 +1240,20 @@ Proof
   \\ imp_res_tac store2heap_IN_unique_key \\ fs []
 QED
 
+Theorem SPLIT_Mem_IMP_Mem_NOT_IN:   
+   SPLIT (st2heap p st) (c1,c2) ==>
+    !y xs. Mem y xs IN c1 ==>
+    !ys. ~(Mem y ys IN c2)
+Proof
+  fs [SPLIT_def] \\ rw [] \\ fs [EXTENSION,st2heap_def]
+  \\ CCONTR_TAC \\ fs []
+  \\ `Mem y ys ∈ store2heap st.refs` by metis_tac [Mem_NOT_IN_ffi2heap]
+  \\ `Mem y xs ∈ store2heap st.refs` by metis_tac [Mem_NOT_IN_ffi2heap]
+  \\ imp_res_tac store2heap_IN_unique_key \\ fs []
+  \\ fs[DISJOINT_DEF]
+  \\ metis_tac[IN_INTER,NOT_IN_EMPTY]
+QED
+
 Theorem FLOOKUP_FUPDATE_LIST:
    !ns f. FLOOKUP (f |++ MAP (λn. (n,s)) ns) m =
            if MEM m ns then SOME s else FLOOKUP f m
@@ -1649,30 +1663,137 @@ val cf_wordToInt_W64_def = Define `
       exp2v env xw = SOME (Litv (Word64 w)) /\
       app_wordToInt w H Q)`
 
+val remdups_def = Define `
+  (remdups [] = []) /\
+  (remdups (f::r) = f::FILTER ($<> f) (remdups r))`
+
+Theorem MEM_remdups:
+  MEM x s ==> MEM x (remdups s)
+Proof
+  Induct_on `s` >> rw[remdups_def,MEM_FILTER] >> metis_tac[]
+QED
+
+Theorem remdups_MEM:
+  MEM x (remdups s) ==> MEM x s
+Proof
+  Induct_on `s` >> rw[remdups_def,MEM_FILTER] >> metis_tac[]
+QED
+
+Theorem ALL_DISTINCT_remdups:
+  !l. ALL_DISTINCT(remdups l)
+Proof
+  Induct_on `l` >> rw[remdups_def] >>  
+  fs[ALL_DISTINCT_FILTER,FILTER_FILTER,MEM_FILTER] >>
+  rpt strip_tac >> res_tac >>
+  fs[FILTER_EQ_CONS,FILTER_EQ_NIL] >>
+  qexists_tac `l1` >>   qexists_tac `l2` >>
+  fs[] >>
+  conj_tac >>
+  match_mp_tac(MP_CANON EVERY_MONOTONIC) >>
+  PURE_ONCE_REWRITE_TAC[CONJ_SYM] >>
+  asm_exists_tac >>
+  rw[]
+QED
+
+Theorem W8ARRAYS_FILTER_EQ:
+  ALL_DISTINCT l ==>
+  W8ARRAY arg h * FOLDR $* emp
+        (MAP (UNCURRY W8ARRAY)
+             (FILTER ($<> (arg,h)) l)) =
+  if MEM (arg,h) l then
+    FOLDR $* emp
+      (MAP (UNCURRY W8ARRAY) l)
+  else
+    W8ARRAY arg h * FOLDR $* emp
+      (MAP (UNCURRY W8ARRAY) l)
+Proof
+  Induct_on `l` >>
+  rw[] >> fs[] >>
+  rename1 `UNCURRY W8ARRAY ah` >>
+  Cases_on `ah` >>
+  rw[] >>
+  metis_tac[STAR_ASSOC,STAR_COMM]
+QED
+
+val W8ARRAYS_def =
+Define `
+ W8ARRAYS sign args wss =
+  FOLDR STAR emp (MAP (UNCURRY W8ARRAY) (remdups(ZIP (get_mut_args sign args, wss))))`
+
+Theorem W8ARRAYS_unique:
+  W8ARRAYS sign argvs wss v /\ W8ARRAYS sign argvs wss v'
+  ==> v = v'
+Proof
+  rw[W8ARRAYS_def] >>
+  rename1 `remdups l` >>
+  rpt(pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`v`,`v'`,`l`] >>
+  Induct >- rw[remdups_def,emp_def] >>
+  Cases >> rw[remdups_def] >>
+  Q.ISPEC_THEN `l` assume_tac ALL_DISTINCT_remdups \\
+  fs[W8ARRAYS_FILTER_EQ] \\
+  PURE_FULL_CASE_TAC \\ fs[] \\ rveq \\
+  fs[STAR_def,SPLIT_def] >> rveq >>
+  first_x_assum (dxrule_all_then assume_tac) >> rveq >>
+  fs[W8ARRAY_def,SEP_EXISTS,cell_def,cond_def,STAR_def,one_def,SPLIT_SING_2] >>
+  fs[]
+QED
+
+val get_carg_heap_def = Define `
+  (get_carg_heap _ (C_array conf) (Litv(StrLit s)) =
+    if conf.mutable then
+      NONE
+    else
+      SOME (C_arrayv(MAP (\ c .  n2w(ORD c)) (EXPLODE s))))
+/\ (get_carg_heap (ws::_) (C_array conf) (Loc lnum) =
+     if conf.mutable then
+       SOME(C_arrayv ws)
+     else NONE)
+/\ (get_carg_heap _ C_bool v =
+     if v = Boolv T then
+       SOME(C_primv(C_boolv T))
+     else if v = Boolv F then
+       SOME(C_primv(C_boolv F))
+     else NONE)
+/\ (get_carg_heap _ C_int (Litv(IntLit n)) =
+     SOME(C_primv(C_intv n)))
+/\ (get_carg_heap _ _ _ = NONE)`
+
+val get_cargs_heap_def = Define
+  `(get_cargs_heap s [] [] = SOME [])
+/\ (get_cargs_heap s (ty::tys) (arg::args) =
+     OPTION_MAP2 CONS (get_carg_heap s ty arg)
+                 (get_cargs_heap (if is_mutty ty then TL s else s) tys args))
+/\ (get_cargs_heap _ _ _ = NONE)
+`
+
+val get_cargs_heap_ind = fetch "-" "get_cargs_heap_ind"
+
 val app_ffi_def = Define `
-  app_ffi ffi_index c a H Q =
-    ((?conf ws frame s u ns events.
-         MEM ffi_index ns /\
-         c = Litv(StrLit(MAP (CHR o w2n) conf)) /\
-         (H ==>> frame * W8ARRAY a ws * one (FFI_part s u ns events) *
-                 cond (~MEM "" ns)) /\
-         (case u ffi_index conf ws s of
-            SOME(FFIreturn vs s') =>
-             (frame * W8ARRAY a vs * one (FFI_part s' u ns
-                 (events ++ [IO_event ffi_index conf (ZIP (ws, vs))])) *
-              cond (~MEM "" ns)) ==>> Q (Val (Conv NONE []))
+  app_ffi ffi_index args H Q =
+    ((?wss frame s u sign sigs cargs events.
+         MEM sign sigs /\
+         FIND (λx. x.mlname = sign.mlname) sigs = SOME sign /\
+         ffi_index = sign.mlname /\
+         get_cargs_heap wss sign.args args = SOME cargs /\
+         LENGTH wss = LENGTH(get_mut_args sign args) /\
+         (H ==>> frame * W8ARRAYS sign args wss * one (FFI_part s u sigs events) *
+                 cond (FIND (λx. x.mlname = "") sigs = NONE)) /\
+         (case u ffi_index cargs (als_args_final_sem (loc_typ_val sign.args args)) s of
+            SOME(FFIreturn vs retv s') =>
+             (frame * W8ARRAYS sign args vs * one (FFI_part s' u sigs
+                 (events ++ [IO_event ffi_index cargs vs retv])) *
+              cond (FIND (λx. x.mlname = "") sigs = NONE)) ==>> Q (Val (get_ret_val retv))
           | SOME(FFIdiverge) =>
-             (frame * W8ARRAY a ws * one (FFI_part s u ns events) *
-              cond (~MEM "" ns)) ==>> Q (FFIDiv ffi_index conf ws)
+             (frame * W8ARRAYS sign args wss * one (FFI_part s u sigs events) *
+              cond (FIND (λx. x.mlname = "") sigs = NONE)) ==>> Q (FFIDiv ffi_index cargs)
           | NONE => F)) /\
      Q ==e> POST_F /\ Q ==d> POST_F)`
 
 val cf_ffi_def = Define `
-  cf_ffi ffi_index c r = \env. local (\H Q.
-    ?conf rv.
-      exp2v env r = SOME rv /\
-      exp2v env c = SOME conf /\
-      app_ffi ffi_index conf rv H Q)`
+  cf_ffi ffi_index exps = \env. local (\H Q.
+    ?args. exp2v_list env exps = SOME args /\
+     app_ffi ffi_index args H Q)`
 
 val cf_log_def = Define `
   cf_log lop e1 cf2 = \env. local (\H Q.
@@ -1824,9 +1945,7 @@ val cf_def = tDefine "cf" `
              | [w] => cf_wordToInt_W64 w
              | _ => cf_bottom)
         | FFI ffi_index =>
-          (case args of
-             | [c;w] => cf_ffi ffi_index c w
-             | _ => cf_bottom)
+          (cf_ffi ffi_index args)
         | _ => cf_bottom) /\
   cf (p:'ffi ffi_proj) (Log lop e1 e2) =
     cf_log lop e1 (cf p e2) /\
@@ -2121,9 +2240,9 @@ val cf_cases_evaluate_match = Q.prove (
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
           (st', Rerr (Rraise e)) /\
           st2heap p st' = heap
-        | FFIDiv name conf bytes => ∃ck st'.
+        | FFIDiv name args => ∃ck st'.
           evaluate_match (st with clock := ck) env v rows nomatch_exn =
-          (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+          (st', Rerr (Rabort (Rffi_error (Final_event name args FFI_diverged)))) /\
           st2heap p st' = heap
         | Div io =>
           (∀ck. ?st'. evaluate_match (st with clock := ck) env v rows nomatch_exn =
@@ -2190,40 +2309,254 @@ val cf_cases_evaluate_match = Q.prove (
     qexists_tac `h_g UNION h_g'` \\ SPLIT_TAC
   ));
 
+(* TODO: move? *)
+Theorem FIND_IMP_MEM:
+  FIND P l = SOME e ==> MEM e l
+Proof
+  Induct_on `l` >> rw[mllistTheory.FIND_thm]
+QED
+
+
+Theorem FIND_signature_FFI_part:
+  FIND (λx. x.mlname = sign.mlname) sigs = SOME sign /\
+  FFI_part s u sigs events ∈ st2heap p st
+  ==> FIND (λx. x.mlname = sign.mlname) st.ffi.signatures = SOME sign
+Proof
+  Cases_on `p` >> rw[st2heap_def,FFI_part_NOT_IN_store2heap,ffi2heap_def,parts_ok_def] >>
+  imp_res_tac FIND_IMP_MEM >> res_tac
+QED
+
+Theorem get_cargs_heap_IMP_get_cargs_sem:
+get_cargs_heap wss sign.args argvs = SOME cargs /\
+W8ARRAYS sign argvs wss v /\
+v ⊆ store2heap st.refs /\
+LENGTH wss =  LENGTH (get_mut_args sign argvs)(* /\
+parts_ok st.ffi p*)
+==>
+get_cargs_sem st.refs sign.args argvs = SOME cargs
+Proof
+  PURE_REWRITE_TAC[GSYM AND_IMP_INTRO,get_mut_args_def,W8ARRAYS_def] \\
+  rename1 `get_cargs_heap _ sargs` \\
+  MAP_EVERY qid_spec_tac [`v`,`p`,`st`,`cargs`,`argvs`,`sargs`,`wss`] \\
+  ho_match_mp_tac get_cargs_heap_ind \\
+  rw[get_cargs_heap_def,get_cargs_sem_def]
+  >- (Cases_on `wss` \\ fs[remdups_def] \\
+      conj_tac >-
+        (Cases_on `ty` >> Cases_on `arg` >> fs[fetch "-" "get_carg_heap_def",bool_case_eq] >>
+         rveq >> fs[ffiTheory.is_mutty_def,fetch "-" "get_carg_heap_def"] >> rveq >>
+         TRY(rename1 `Litv lv` >> Cases_on `lv` >> fs[fetch "-" "get_carg_heap_def"]) >>
+         fs[get_carg_sem_def] >>
+         fs[STAR_def,SPLIT_def,W8ARRAY_def,cell_def,SEP_EXISTS_THM,cond_def,one_def] >>
+         rveq >> fs[UNION_SUBSET] >>
+         imp_res_tac store2heap_IN_LENGTH >>
+         imp_res_tac store2heap_IN_EL >>
+         simp[store_lookup_def]
+        ) >>
+      first_x_assum (match_mp_tac o MP_CANON) >>
+      qmatch_asmsub_abbrev_tac `remdups a1` >>
+      Q.ISPEC_THEN `a1` assume_tac ALL_DISTINCT_remdups >>
+      fs[W8ARRAYS_FILTER_EQ] >>
+      every_case_tac >> fs[STAR_def,SPLIT_def] >>
+      asm_exists_tac >> simp[] >>
+      rveq >> fs[UNION_SUBSET]
+     ) >>
+  conj_tac >-
+    (Cases_on `ty` >> Cases_on `arg` >> fs[fetch "-" "get_carg_heap_def",bool_case_eq] >>
+     rveq >> fs[ffiTheory.is_mutty_def,fetch "-" "get_carg_heap_def"] >> rveq >>
+     TRY(rename1 `Litv lv` >> Cases_on `lv` >> fs[fetch "-" "get_carg_heap_def"]) >>
+     fs[get_carg_sem_def] >> Cases_on `wss` >> fs[fetch "-" "get_carg_heap_def"]) >>
+  first_x_assum (match_mp_tac o MP_CANON) >>
+  HINT_EXISTS_TAC >> simp[]
+QED
+
+Theorem W8ARRAYS_Mem:
+  W8ARRAYS sign argvs wss v
+  ==> !e. e IN v ==> ?rv x. e = Mem rv x
+Proof
+  rw[W8ARRAYS_def,FOLDR_MAP] >>
+  rename1 `FOLDR _ _ l` >>
+  rpt(pop_assum mp_tac) >>
+  qid_spec_tac `v` >>
+  Induct_on `l` >> rw[W8ARRAY_def,emp_def] >>
+  qpat_x_assum `(_ * _) v` mp_tac >>
+  PURE_ONCE_REWRITE_TAC [STAR_def] >>
+  rw[SPLIT_def] >>
+  fs[IN_UNION,ELIM_UNCURRY,emp_def] >>
+  res_tac >>
+  fs[W8ARRAY_def,STAR_def,SPLIT_def,SEP_EXISTS,cell_def,one_def,cond_def] >>
+  rveq >> fs[]
+QED
+
+(* TODO: move *)
+Theorem store_cargs_SOME_same_loc_alt =
+  (semanticPrimitivesPropsTheory.store_cargs_SOME_same_loc
+   |> SPEC_ALL |> Q.INST [`ty` |-> `sign.args`] |> REWRITE_RULE [] |> GEN_ALL)
+
+val dest_loc_def = Define `
+  loc_of(Loc loc) = loc`    
+
+(* TODO: move *)
+Theorem get_cargs_sem_length:
+  !st argvs cargs sign.
+  get_cargs_sem st sign.args argvs = SOME cargs ==>
+  LENGTH(mutargs sign.args cargs) =
+  LENGTH(get_mut_args sign argvs)
+Proof
+  `!st sigargs argvs cargs.
+    get_cargs_sem st sigargs argvs = SOME cargs ==>
+    LENGTH(mutargs sigargs cargs) =
+    LENGTH (MAP SND (FILTER (is_mutty ∘ FST) (ZIP (sigargs,argvs))))`
+    suffices_by metis_tac[get_mut_args_def] >>
+  ho_match_mp_tac get_cargs_sem_ind >>
+  rw[get_cargs_sem_def] >>
+  rw[ffiTheory.mutargs_def] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[ffiTheory.is_mutty_def] >> rveq) >>
+  Cases_on `arg` >> fs[ffiTheory.is_mutty_def,get_carg_sem_def,
+                       option_case_eq,CaseEq "store_v"] >>
+  rename1 `Litv v` >> Cases_on `v` >> fs[get_carg_sem_def]
+QED
+
+Theorem get_cargs_heap_get_mut_args_loc:
+  !wss sign argvs cargs.
+  get_cargs_heap wss sign.args argvs = SOME cargs ==>
+  !v. MEM v (get_mut_args sign argvs) ==> ?loc. v = Loc loc
+Proof
+  rw[get_mut_args_def] \\
+  rename1 `ZIP(sigargs,_)` \\
+  rpt(pop_assum mp_tac) \\
+  MAP_EVERY qid_spec_tac [`v`,`cargs`,`argvs`,`sigargs`,`wss`] \\
+  ho_match_mp_tac get_cargs_heap_ind \\
+  rw[get_cargs_heap_def] \\
+  fs[ffiTheory.is_mutty_def] \\ every_case_tac \\ fs[] \\
+  Cases_on `arg` \\ fs[get_carg_heap_def] \\
+  rename1 `Litv l` \\ Cases_on `l` \\ fs[get_carg_heap_def]
+QED
+
+Theorem W8ARRAYS_expl:
+  LENGTH (get_mut_args sign argvs) = LENGTH vs /\
+  (!v. MEM v (get_mut_args sign argvs) ==> ?loc. v = Loc loc)
+  ==>
+  W8ARRAYS sign argvs vs
+          (set
+             (MAP2 (λx y. Mem (loc_of x) (W8array y))
+                (get_mut_args sign argvs) vs))
+Proof
+  rw[W8ARRAYS_def,MAP2_ZIP] >>
+  `(!v. MEM v (MAP FST(ZIP(get_mut_args sign argvs,vs))) ==> ?loc. v = Loc loc)`
+    by(rw[MEM_MAP] >> rfs[MEM_ZIP] >> metis_tac[EL_MEM]) >>
+  pop_assum mp_tac >>
+  rename1 `remdups a1` >> rpt(pop_assum kall_tac) >>
+  Induct_on `a1`
+  >- rw[remdups_def,emp_def] >>
+  rw[remdups_def] >>
+  Q.ISPEC_THEN `a1` assume_tac ALL_DISTINCT_remdups >>
+  rename1 `UNCURRY W8ARRAY tup` >>
+  Cases_on `tup` >>
+  rename1 `UNCURRY W8ARRAY (arg,h)` >>
+  drule W8ARRAYS_FILTER_EQ \\
+  simp[] \\ disch_then kall_tac \\
+  rw[]
+  >- (drule_then assume_tac remdups_MEM \\
+      `Mem (loc_of arg) (W8array h) IN (set (MAP (λ(x,y). Mem (loc_of x) (W8array y)) a1))`
+        by(simp[MEM_MAP,ELIM_UNCURRY] \\ HINT_EXISTS_TAC \\ simp[]) \\
+      imp_res_tac ABSORPTION \\ simp[]) \\
+  simp[STAR_def,SPLIT_def,DISJOINT_DEF] \\
+  qmatch_goalsub_abbrev_tac `a2 INSERT a3` \\
+  qexists_tac `{a2}` \\
+  qexists_tac `a3` \\
+  unabbrev_all_tac \\
+  simp[GSYM INSERT_SING_UNION] \\
+  simp[W8ARRAY_def,SEP_EXISTS,cell_def,cond_def,one_def,STAR_def,SPLIT_def,DISJOINT_DEF] \\
+  drule_then assume_tac (CONTRAPOS MEM_remdups) \\
+  simp[INTER_DEF,MEM_MAP,PULL_EXISTS,ELIM_UNCURRY,FUN_EQ_THM] \\
+  fs[DISJ_IMP_THM,FORALL_AND_THM,fetch "-" "loc_of_def"] \\
+  rveq \\
+  Cases \\ CCONTR_TAC \\ fs[] \\ rveq \\ fs[MEM_MAP,PULL_EXISTS] \\
+  first_x_assum (drule_then strip_assume_tac) \\
+  fs[fetch "-" "loc_of_def"]
+QED
+
+Theorem W8ARRAYS_eq_expl:
+  W8ARRAYS sign argvs vs v /\
+  LENGTH (get_mut_args sign argvs) = LENGTH vs /\
+  (!v. MEM v (get_mut_args sign argvs) ==> ?loc. v = Loc loc)
+  ==>
+  v = (set
+         (MAP2 (λx y. Mem (loc_of x) (W8array y))
+           (get_mut_args sign argvs) vs))
+Proof
+  metis_tac[W8ARRAYS_unique,W8ARRAYS_expl]
+QED
+
+Theorem MEM_ZIP_SWAP_LEFT:
+  !ll lr l r lr'.
+  MEM (l,r) (ZIP (ll,lr)) /\
+  LENGTH ll = LENGTH lr /\
+  LENGTH lr = LENGTH lr' ==>
+  ?r'. MEM (l,r') (ZIP(ll,lr'))
+Proof
+  Induct >> rw[] >> fs[] >>
+  Cases_on `lr` >> Cases_on `lr'` >> fs[] >>
+  metis_tac[]
+QED
+
+Theorem store_cargs_sem_update:
+  !muts vs refs x.
+  store_cargs_sem muts vs refs = SOME x /\ LENGTH muts = LENGTH vs /\
+  (!v. MEM v muts ==> ?loc. v = Loc loc)
+  ==>
+  x = FOLDL (λst (x,y). LUPDATE (W8array y) (loc_of x) st) refs (ZIP(muts,vs))
+Proof
+  ho_match_mp_tac store_cargs_sem_ind >>
+  rw[store_cargs_sem_def,CaseEq "option"] >>
+  Cases_on `marg` >>
+  fs[store_carg_sem_def,DISJ_IMP_THM,FORALL_AND_THM,fetch "-" "loc_of_def",store_assign_def,
+     store_v_same_type_def]
+QED
+
 val cf_ffi_sound = Q.prove (
-  `sound (p:'ffi ffi_proj) (App (FFI ffi_index) [c; r]) (\env. local (\H Q.
-     ?cv rv. exp2v env r = SOME rv /\
-          exp2v env c = SOME cv /\
-          app_ffi ffi_index cv rv H Q))`,
+  `sound (p:'ffi ffi_proj) (App (FFI ffi_index) args) (\env. local (\H Q.
+     ?argvs. exp2v_list env args = SOME argvs /\
+            app_ffi ffi_index argvs H Q))`,
    cf_strip_sound_tac \\
    fs[app_ffi_def] \\
-   Cases_on `u ffi_index conf ws s`
+   FULL_CASE_TAC
    >- fs[] \\
-   qmatch_asmsub_abbrev_tac `u ffi_index conf ws s = SOME a1` \\
+   qmatch_asmsub_abbrev_tac `u ffi_index cargs a2 s = SOME a1` \\
    pop_assum kall_tac \\ reverse (Cases_on `a1`)
    THEN1 (
-     qpat_assum `u ffi_index conf ws s = SOME FFIdiverge` kall_tac \\
-     qexists_tac `FFIDiv ffi_index conf ws` \\
+     qpat_assum `u ffi_index cargs a2 s = SOME FFIdiverge` kall_tac \\
+     qexists_tac `FFIDiv ffi_index cargs` \\
      MAP_EVERY qexists_tac [`h_i`, `{}`, `st2heap p st`] \\
      conj_tac >- fs[SPLIT3_def,SPLIT_def] \\
      conj_tac >- fs[SEP_IMP_def] \\
      cf_evaluate_step_tac \\
      MAP_EVERY qexists_tac [`st.clock`, `st`] \\
      fs [do_app_def,app_ffi_def,W8ARRAY_def] \\
-     cf_exp2v_evaluate_tac `st with clock := st.clock` \\
-     fs [do_app_def,app_ffi_def,SEP_IMP_def,W8ARRAY_def,SEP_EXISTS] \\
+     drule_then (qspec_then `st with clock := st.clock` assume_tac) exp2v_list_REVERSE \\
+     fs [do_app_def,do_ffi_def,app_ffi_def,SEP_IMP_def,W8ARRAY_def,SEP_EXISTS] \\
      fs [STAR_def,cell_def,one_def,cond_def] \\
      first_assum progress \\ fs [SPLIT_emp1] \\ rveq \\
      fs [SPLIT_SING_2] \\ rveq \\
-     rename1 `frame u2` \\
-     `store_lookup y st.refs = SOME (W8array ws) /\
-      Mem y (W8array ws) IN st2heap p st` by
-       (`Mem y (W8array ws) IN st2heap p st` by SPLIT_TAC
-        \\ fs [st2heap_def,Mem_NOT_IN_ffi2heap]
-        \\ imp_res_tac store2heap_IN_EL
-        \\ imp_res_tac store2heap_IN_LENGTH
-        \\ fs [store_lookup_def] \\ NO_TAC) \\
-     fs [ffiTheory.call_FFI_def] \\
+     `sign.mlname <> ""` by(CCONTR_TAC \\ fs[]) \\
+     rw[mllistTheory.FIND_thm,ffiTheory.debug_sig_def] \\
+     fs[SPLIT_emp2] \\
+     rveq \\
+     `FIND (λx. x.mlname = sign.mlname) st.ffi.signatures = SOME sign`
+       by(`FFI_part s u sigs events ∈ st2heap p st`
+            by(fs[INSERT_DEF,UNION_DEF,SPLIT_def,IN_DEF,GSPEC_ETA] \\ metis_tac[]) \\
+          imp_res_tac FIND_signature_FFI_part) \\
+     simp[] \\
+     `v ⊆ store2heap st.refs`
+       by(rw[SUBSET_DEF] >>
+          drule_all_then strip_assume_tac (MP_CANON W8ARRAYS_Mem) >>
+          rveq >> Cases_on `p` >>
+          fs[st2heap_def,SPLIT_def,SUBSET_DEF,UNION_DEF,INSERT_DEF,GSPEC_ETA,FUN_EQ_THM] >>
+          rename1 `Mem rv xx` >>
+          rpt(first_x_assum(qspec_then `Mem rv xx` assume_tac)) >>
+          rfs[IN_DEF] >> metis_tac[Mem_NOT_IN_ffi2heap,IN_DEF]) \\
+     drule_all_then assume_tac get_cargs_heap_IMP_get_cargs_sem \\ simp[] \\
+     simp[ffiTheory.call_FFI_def] \\
      fs [SEP_EXISTS_THM,cond_STAR] \\ rveq \\
      fs [one_def] \\ rveq \\
      fs [st2heap_def,
@@ -2231,7 +2564,7 @@ val cf_ffi_sound = Q.prove (
             FFI_part_NOT_IN_store2heap,
             FFI_full_NOT_IN_store2heap,Mem_NOT_IN_ffi2heap] \\
      fs [SPLIT_SING_2] \\ rveq \\
-     `FFI_part s u ns events IN store2heap st.refs ∪ ffi2heap p st.ffi` by SPLIT_TAC \\
+     `FFI_part s u sigs events IN store2heap st.refs ∪ ffi2heap p st.ffi` by SPLIT_TAC \\
      fs [FFI_part_NOT_IN_store2heap] \\
      pop_assum mp_tac \\
      PairCases_on `p` \\
@@ -2243,28 +2576,45 @@ val cf_ffi_sound = Q.prove (
            (fn th => mp_tac th \\ assume_tac th) \\
      simp_tac std_ss [parts_ok_def] \\ strip_tac \\
      qpat_x_assum `!x. _ ==> _` kall_tac \\
-     `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
+     imp_res_tac semanticPrimitivesPropsTheory.get_cargs_sem_SOME_IMP_args_ok \\
      rpt(first_x_assum progress) \\
      fs[IMPLODE_EXPLODE_I,MAP_MAP_o,o_DEF,state_component_equality]
       ) \\
-   rename1 `_ = SOME (FFIreturn vs s')` \\
+   rename1 `_ = SOME (FFIreturn vs retv s')` \\
    Q.REFINE_EXISTS_TAC `Val v` \\
    cf_evaluate_step_tac \\
-   GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-   cf_exp2v_evaluate_tac `st` \\
-   fs [do_app_def,app_ffi_def,SEP_IMP_def,W8ARRAY_def,SEP_EXISTS] \\
+
+   GEN_EXISTS_TAC "ck" `st.clock` \\
+   drule_then (qspec_then `st with clock := st.clock` assume_tac) exp2v_list_REVERSE \\
+   fs [with_clock_self] \\
+   fs [do_app_def,do_ffi_def,app_ffi_def,SEP_IMP_def,W8ARRAY_def,SEP_EXISTS] \\
+
    fs [STAR_def,cell_def,one_def,cond_def] \\
    first_assum progress \\ fs [SPLIT_emp1] \\ rveq \\
    fs [SPLIT_SING_2] \\ rveq \\
-   rename1 `frame u2` \\
-   `store_lookup y st.refs = SOME (W8array ws) /\
-    Mem y (W8array ws) IN st2heap p st` by
-     (`Mem y (W8array ws) IN st2heap p st` by SPLIT_TAC
-      \\ fs [st2heap_def,Mem_NOT_IN_ffi2heap]
-      \\ imp_res_tac store2heap_IN_EL
-      \\ imp_res_tac store2heap_IN_LENGTH
-      \\ fs [store_lookup_def] \\ NO_TAC) \\
-   fs [ffiTheory.call_FFI_def] \\
+   `sign.mlname <> ""` by(CCONTR_TAC \\ fs[]) \\
+   rw[mllistTheory.FIND_thm,ffiTheory.debug_sig_def] \\
+
+   
+   fs[SPLIT_emp2] \\
+     rveq \\
+     `FIND (λx. x.mlname = sign.mlname) st.ffi.signatures = SOME sign`
+       by(`FFI_part s u sigs events ∈ st2heap p st`
+            by(fs[INSERT_DEF,UNION_DEF,SPLIT_def,IN_DEF,GSPEC_ETA] \\ metis_tac[]) \\
+          imp_res_tac FIND_signature_FFI_part) \\
+     simp[] \\
+     `v ⊆ store2heap st.refs`
+       by(rw[SUBSET_DEF] >>
+          drule_all_then strip_assume_tac (MP_CANON W8ARRAYS_Mem) >>
+          rveq >> Cases_on `p` >>
+          fs[st2heap_def,SPLIT_def,SUBSET_DEF,UNION_DEF,INSERT_DEF,GSPEC_ETA,FUN_EQ_THM] >>
+          rename1 `Mem rv xx` >>
+          rpt(first_x_assum(qspec_then `Mem rv xx` assume_tac)) >>
+          rfs[IN_DEF] >> metis_tac[Mem_NOT_IN_ffi2heap,IN_DEF]) \\
+
+   drule_all_then assume_tac get_cargs_heap_IMP_get_cargs_sem \\ simp[] \\
+   simp[ffiTheory.call_FFI_def] \\
+
    fs [SEP_EXISTS_THM,cond_STAR] \\ rveq \\
    fs [one_def] \\ rveq \\
    fs [st2heap_def,
@@ -2272,7 +2622,7 @@ val cf_ffi_sound = Q.prove (
        FFI_part_NOT_IN_store2heap,
        FFI_full_NOT_IN_store2heap,Mem_NOT_IN_ffi2heap] \\
    fs [SPLIT_SING_2] \\ rveq \\
-   `FFI_part s u ns events IN store2heap st.refs ∪ ffi2heap p st.ffi` by SPLIT_TAC \\
+   `FFI_part s u sigs events IN store2heap st.refs ∪ ffi2heap p st.ffi` by SPLIT_TAC \\
    fs [FFI_part_NOT_IN_store2heap] \\
    pop_assum mp_tac \\
    PairCases_on `p` \\
@@ -2284,8 +2634,109 @@ val cf_ffi_sound = Q.prove (
          (fn th => mp_tac th \\ assume_tac th) \\
    simp_tac std_ss [parts_ok_def] \\ strip_tac \\
    qpat_x_assum `!x. _ ==> _` kall_tac \\
-   `ffi_index ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
-   first_x_assum progress \\ fs [store_assign_def] \\
+   `sign.mlname ≠ ""` by (strip_tac \\ fs []) \\ fs [] \\
+   imp_res_tac semanticPrimitivesPropsTheory.get_cargs_sem_SOME_IMP_args_ok \\
+   first_x_assum progress \\
+   first_x_assum(qspecl_then [`st.ffi.ffi_state`,`a2`] mp_tac) \\
+   simp[] \\ rpt strip_tac \\ simp[] \\
+
+   drule_then (qspec_then `vs` assume_tac) store_cargs_SOME_same_loc_alt \\
+   fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS] \\
+
+   
+   rename1 `frame u2` \\
+   qabbrev_tac `events1 = (FILTER (ffi_has_index_in (MAP (λx. x.mlname) sigs)) st.ffi.io_events)` \\
+   qabbrev_tac `new_events = events1 ++ [IO_event
+                                           sign.mlname
+                                           cargs
+                                           vs
+                                           retv]` \\
+   qexists_tac `
+      (FFI_part s' u sigs new_events INSERT
+       (set(MAP2 (λx y. Mem (loc_of x) (W8array y)) (get_mut_args sign argvs) vs)
+        UNION u2))` \\
+   qexists_tac `{}` \\
+
+   `SPLIT (store2heap st.refs UNION ffi2heap (p0,p1) st.ffi)
+    (v UNION u2 UNION h_k,
+     {FFI_part (FST(p0 st.ffi.ffi_state ' sign.mlname)) u sigs events1}) /\
+     SPLIT (store2heap st.refs UNION ffi2heap (p0,p1) st.ffi)
+     (v,
+      u2 UNION h_k UNION
+      {FFI_part (FST(p0 st.ffi.ffi_state ' sign.mlname)) u sigs events1})` by SPLIT_TAC \\
+   fs [GSYM st2heap_def] \\
+   drule SPLIT_FFI_SET_IMP_DISJOINT \\
+   drule(GEN_ALL SPLIT_Mem_IMP_Mem_NOT_IN) \\
+   ntac 2 strip_tac \\
+   
+
+
+   reverse conj_tac >-
+     (first_x_assum match_mp_tac \\
+      qexists_tac `set(MAP2 (λx y. Mem (loc_of x) (W8array y)) (get_mut_args sign argvs) vs)
+                   UNION u2` \\
+      simp[] \\
+      imp_res_tac store_cargs_sem_refs_length_eq \\
+      fs[ffiTheory.eq_len_def] \\
+      imp_res_tac LIST_REL_LENGTH \\
+      imp_res_tac get_cargs_sem_length \\
+      rpt conj_tac
+      >- fs[MAP2_ZIP,MEM_MAP,ELIM_UNCURRY]
+      >- (fs[SPLIT_def] >> rveq >>
+          qmatch_goalsub_abbrev_tac `as1 UNION as2` \\
+          MAP_EVERY qexists_tac [`as2`,`as1`] \\
+          MAP_EVERY qunabbrev_tac [`as2`,`as1`] \\
+          simp[UNION_COMM] \\
+          reverse conj_tac >- 
+            (match_mp_tac W8ARRAYS_expl \\
+             rw[] \\
+             drule_then assume_tac semanticPrimitivesPropsTheory.get_cargs_sem_SOME_IMP_args_ok \\
+             metis_tac[get_cargs_heap_get_mut_args_loc]) \\
+          drule W8ARRAYS_eq_expl \\
+          impl_tac >-
+            (simp[] \\ rw[] \\
+             drule_then assume_tac semanticPrimitivesPropsTheory.get_cargs_sem_SOME_IMP_args_ok \\
+             metis_tac[get_cargs_heap_get_mut_args_loc]) \\
+          strip_tac \\
+          rveq \\          
+          simp[REWRITE_RULE [Once DISJOINT_SYM] DISJOINT_ALT] \\
+          qpat_x_assum `LENGTH wss = LENGTH vs` assume_tac \\
+          fs[MAP2_ZIP,MEM_MAP,ELIM_UNCURRY,PULL_EXISTS] \\
+          rw[] \\
+          rename1 `Mem (loc_of (FST vw))` \\
+          Cases_on `vw` \\
+          rename1 `FST(v,warr)` \\
+          simp[] \\
+          drule (REWRITE_RULE [Once CONJ_SYM] MEM_ZIP_MEM_MAP) \\
+          impl_tac >- fs[] \\
+          simp[] \\ strip_tac \\
+          drule (INST_TYPE [gamma |-> ``:word8 list``] MEM_ZIP_SWAP_LEFT) \\
+          disch_then drule \\
+          disch_then(qspec_then `wss` mp_tac) \\
+          impl_tac >- simp[] \\
+          strip_tac \\
+          first_x_assum dxrule \\
+          simp[])) \\
+   simp[SPLIT3_emp3] \\
+   imp_res_tac store_cargs_sem_refs_length_eq \\
+   fs[ffiTheory.eq_len_def] \\
+   imp_res_tac LIST_REL_LENGTH \\
+   imp_res_tac get_cargs_sem_length \\
+
+   drule store_cargs_sem_update \\
+   impl_tac >-
+     (simp[] \\ rw[] \\
+      drule_then assume_tac semanticPrimitivesPropsTheory.get_cargs_sem_SOME_IMP_args_ok \\
+      metis_tac[get_cargs_heap_get_mut_args_loc]) \\
+   strip_tac \\
+   rveq \\
+   
+
+      strip_
+
+   impl_tac >- simp[]
+
+\\ fs [store_assign_def] \\
    imp_res_tac store2heap_IN_EL \\
    imp_res_tac store2heap_IN_LENGTH \\ fs [] \\
    fs [store_v_same_type_def,PULL_EXISTS] \\ rveq \\

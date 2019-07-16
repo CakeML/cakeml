@@ -593,7 +593,7 @@ Proof
   \\ fs [Mem_NOT_IN_ffi2heap]
   \\ reverse (Cases_on `parts_ok st.ffi (p0,p1)`) \\ fs [] THEN1
    (fs [ffi2heap_def]
-    \\ first_x_assum (qspecl_then [`FLAT (MAP FST p1)`,`st.ffi.io_events`] mp_tac)
+    \\ first_x_assum (qspecl_then [`st.ffi.signatures`,`st.ffi.io_events`] mp_tac)
     \\ fs [])
   \\ rw []
   \\ qpat_x_assum `!x1 x2. _ <=> _` kall_tac
@@ -628,7 +628,7 @@ Proof
   \\ match_mp_tac FILTER_ffi_has_index_in_MEM
   \\ fs []
   \\ qexists_tac `MAP (λx. x.mlname) y0`
-  \\ fs[MEM_MAP] \\ HINT_EXISTS_TAC \\ rw[]
+  \\ fs[MEM_MAP] \\ metis_tac[]
 QED
 
 (*
