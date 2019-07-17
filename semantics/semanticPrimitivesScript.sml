@@ -100,12 +100,14 @@ val _ = Define `
 val _ = Define `
  ((list_type_num:num) : num= (( 1 : num)))`;
 
-
 val _ = Define `
  ((option_type_num:num) : num= (( 2 : num)))`;
 
 val _ = Define `
- ((id_type_num:num) : num= (( 7 : num)))`;
+ ((lit_type_num:num) : num= (( 3 : num)))`;
+
+val _ = Define `
+ ((id_type_num:num) : num= (( 4 : num)))`;
 
 
 (* The result of evaluation *)
@@ -519,6 +521,29 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 /\ ((v_to_id:v ->(((string),(string))id)option) _=  NONE)`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) v_to_id_defn;
+
+
+(*val enc_lit : lit -> v*)
+ val _ = Define `
+
+((enc_lit:lit -> v) (Word64 w)=  (Conv (SOME (TypeStamp "Word64" lit_type_num)) [Litv (Word64 w)]))
+/\
+((enc_lit:lit -> v) (Word8 b)=  (Conv (SOME (TypeStamp "Word8" lit_type_num)) [Litv (Word8 b)]))
+/\
+((enc_lit:lit -> v) (StrLit s)=  (Conv (SOME (TypeStamp "Strlit" lit_type_num)) [Litv (StrLit s)]))
+/\
+((enc_lit:lit -> v) (Char c)=  (Conv (SOME (TypeStamp "Char" lit_type_num)) [Litv (Char c)]))
+/\
+((enc_lit:lit -> v) (IntLit i)=  (Conv (SOME (TypeStamp "Intlit" lit_type_num)) [Litv (IntLit i)]))`;
+
+
+(*val some : forall 'a. ('a -> bool) -> maybe 'a*)
+
+(*val dec_lit : v -> maybe lit*)
+val _ = Define `
+ ((dec_lit:v ->(lit)option) v=  ($some (\ x .  (enc_lit x = v))))`;
+
+
 
 (*val v_to_dec : v -> maybe dec*)
 val _ = Define `

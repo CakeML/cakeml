@@ -1,5 +1,8 @@
 A proof-producing translator from HOL functions to CakeML.
 
+[decProgScript.sml](decProgScript.sml):
+Translation of CakeML source AST
+
 [ml_module_demoScript.sml](ml_module_demoScript.sml):
 Demonstration of using the translator to produce a CakeML module.
 

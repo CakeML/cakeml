@@ -64,9 +64,9 @@ let sub_exn_v = Conv (Just subscript_stamp) []
 
 let bool_type_num : nat = 0
 let list_type_num : nat = 1
-
 let option_type_num : nat = 2
-let id_type_num : nat = 7
+let lit_type_num : nat = 3
+let id_type_num : nat = 4
 
 (* The result of evaluation *)
 type abort =
@@ -416,6 +416,27 @@ and v_to_id (Conv (Just stamp) [Litv (StrLit s); v]) =
   else
     Nothing
 and v_to_id _ = Nothing
+
+
+val enc_lit : lit -> v
+let rec
+enc_lit (Word64 w) = Conv (Just (TypeStamp "Word64" lit_type_num)) [Litv (Word64 w)]
+and
+enc_lit (Word8 b) = Conv (Just (TypeStamp "Word8" lit_type_num)) [Litv (Word8 b)]
+and
+enc_lit (StrLit s) = Conv (Just (TypeStamp "Strlit" lit_type_num)) [Litv (StrLit s)]
+and
+enc_lit (Char c) = Conv (Just (TypeStamp "Char" lit_type_num)) [Litv (Char c)]
+and
+enc_lit (IntLit i) = Conv (Just (TypeStamp "Intlit" lit_type_num)) [Litv (IntLit i)]
+
+val some : forall 'a. ('a -> bool) -> maybe 'a
+declare hol      target_rep function some = `$some`
+declare isabelle target_rep function some = `SOME`
+
+val dec_lit : v -> maybe lit
+let dec_lit v = some (fun x -> (enc_lit x = v))
+
 
 val v_to_dec : v -> maybe dec
 let v_to_dec v = Nothing (* TODO *)
