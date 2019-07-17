@@ -46,96 +46,17 @@ c_funsig =
  ; args        : c_type list
 |>`
 
-(*  arg_ok :: "c_type ⇒ c_value ⇒ bool" *)
-val _ = Define `arg_ok t v =
-  case v of
-    C_arrayv _ => (case t of C_array _ => T | _ => F)
-  | C_primv(C_boolv _) => (t = C_bool)
-  | C_primv(C_intv _) => (t = C_int)
-`
-
-(*   args_ok :: "c_funsig ⇒ c_value list ⇒ bool" *)
-(* args to be passed in the signature's sequence *)
-
-val _ = Define `args_ok sig args = LIST_REL arg_ok sig.args args`
-
-(* ret_ok :: "c_type option ⇒ c_value option ⇒ bool" *)
-val _ = Define `ret_ok t v =
- ((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T)`
-
-
-(* 'a list  -> (num # 'a) list *)
-
-val _ = Define `
-  loc_typ ctl = MAPi $, ctl
-`
-
-(* byte list list -> (num#c_type) list -> (num#byte list) list *)
-
-val _ = Define `
-  (mut_tag_retr [] _ = []) /\
-  (mut_tag_retr _ [] = []) /\
-  (mut_tag_retr (btl::btls) (ict::icts) =
-         case SND ict of C_array conf => if conf.mutable
-                                         then (FST ict, btl) :: mut_tag_retr btls icts
-                                         else mut_tag_retr (btl::btls) icts
-                         | _ =>   mut_tag_retr (btl::btls) icts)
-`
-
-(* ('a # 'b list) list -> 'a list -> ('a # 'b list) list *)
-val _ = Define `
-  (match_cargs btl [] = []) /\
-  (match_cargs btl (n::ns) = FILTER (\x. FST x = n) btl ++ match_cargs btl ns)
-`
-
-val _ = Define `
-  ident_elems l = if CARD (set l) = 1 then T else F
-`
-(* c_type list -> 'a list -> num list -> 'a list  *)
-val _ = Define `
-  als_vals ctl btl als = MAP (\x. SND x) (match_cargs (mut_tag_retr btl (loc_typ ctl)) als)
-`
-
-
-val _ = Define `
-  als_vals_ok ctl btl als =  ident_elems (als_vals ctl btl als)
-`
-
-(*  “:c_type list -> α list -> num list list -> bool” *)
-
-val _ = Define `
-  als_ok ctl btl alsl =  (FILTER (\b. b = F) (MAP (\nl. ident_elems (als_vals ctl btl nl) ) alsl) = [])
-`
-
-
-val is_mutty = Define `
- is_mutty ty =
-  (case ty of C_array c => c.mutable
-   | _ => F)
- `
-
-val _ = Define `(mutargs [] _ = [])
- /\ (mutargs _ [] = [])
- /\ (mutargs (ty::tys) (v::vs) =
-     (case v of
-        C_arrayv v =>
-        (case ty of C_array c => if c.mutable then v::mutargs tys vs
-                                else mutargs tys vs
-                  | _ => mutargs tys vs)
-      | _ => mutargs tys vs))`
 
 
 val _ = Hol_datatype `
  ffi_outcome = FFI_failed | FFI_diverged`;
 
-(* Oracle_return encodes the new state, list of word8 list of the output, and the return value *)
 val _ = Hol_datatype `
  oracle_result = Oracle_return of 'ffi => word8 list list  => c_primv option
                | Oracle_final of ffi_outcome`;
 
 
 
-(* reinstating num list list to treat aliasing *)
 val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> c_value list -> num list list -> 'ffi oracle_result``);
 val _ = type_abbrev((*  'ffi *) "oracle" , ``: string -> 'ffi oracle_function``);
 
@@ -156,11 +77,10 @@ val _ = Hol_datatype `
 <| oracle      : 'ffi oracle
  ; ffi_state   : 'ffi
  ; io_events   : io_event list
- ; signatures  : c_funsig list (* new *)
+ ; signatures  : c_funsig list
  |>`;
 
 
-(*val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi*)
 val _ = Define `
  ((initial_ffi_state:(string -> 'ffi oracle_function) -> 'ffi -> c_funsig list -> 'ffi ffi_state) oc ffi sigs =
  (<| oracle      := oc
@@ -183,20 +103,55 @@ val _ = Define `
 `
 
 
-val _ = Define `
-  eq_len sign args newargs = LIST_REL (λx y. LENGTH x = LENGTH y) (mutargs sign.args args) newargs
+val is_mutty = Define `
+ is_mutty ty =
+  (case ty of C_array c => c.mutable
+   | _ => F)
+ `
 
+val _ = Define `arg_ok t cv =
+  case cv of
+    C_arrayv _ => (case t of C_array _ => T | _ => F)
+  | C_primv(C_boolv _) => (t = C_bool)
+  | C_primv(C_intv _) => (t = C_int)
+`
+
+val _ = Define `args_ok cts cargs = LIST_REL arg_ok cts cargs`
+
+val _ = Define `ret_ok t v =
+ ((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T)`
+
+val _ = Define `
+  als_ok btl alsl =
+    (EVERY (EVERY (λn. n < LENGTH btl)) alsl)
+    /\
+    EVERY (λasl. ∀i j. MEM i asl /\ MEM j asl ==> (EL i btl = EL j btl)) alsl
+`
+
+(*
+val _ = Define ` 
+ mut_len cts cargs = 
+   MAP (LENGTH o THE) (MAP ((\v. case v of 
+    | Carray_v bl => SOME bl 
+    | _ => NONE) o SND) 
+   (FILTER (is_mutty o FST) (ZIP (cts,cargs))))
+`
+*)
+
+
+val _ = Define ` 
+ mut_len cts cargs = ARB
 `
 
 val _ = Define `
   ffi_oracle_ok st =
-  (!n sign args st' ffi newargs retv als.
+  (!n sign cargs st' ffi newargs retv als.
            valid_ffi_name n sign st
-           /\ args_ok sign args
-           /\ (st.oracle n ffi args als = Oracle_return st' newargs retv)
+           /\ args_ok sign.args cargs
+           /\ (st.oracle n ffi cargs als = Oracle_return st' newargs retv)
            /\ n <> ""
-           ==> ret_ok sign.retty retv /\ als_ok sign.args newargs als
-               /\ eq_len sign args newargs)
+           ==> ret_ok sign.retty retv /\ als_ok newargs als
+               /\ (mut_len sign.args cargs = (MAP LENGTH newargs)))
     `
 
 val _ = Hol_datatype `
@@ -205,16 +160,16 @@ val _ = Hol_datatype `
 
 
 val _ = Define `
- call_FFI st n sign args als =
+ call_FFI st n rtyp cargs mutlen als =
    if ~ (n = "") then
-     case st.oracle n st.ffi_state args als of
+     case st.oracle n st.ffi_state cargs als of
          Oracle_return ffi' newargs retv =>
-           if ret_ok sign.retty retv /\ als_ok sign.args newargs als /\ eq_len sign args newargs then
+           if ret_ok rtyp retv /\ als_ok newargs als /\ (mutlen = (MAP LENGTH newargs)) then
               SOME (FFI_return (st with<| ffi_state := ffi'
-                                   ; io_events := st.io_events ++ [IO_event n args newargs retv]
+                                   ; io_events := st.io_events ++ [IO_event n cargs newargs retv]
                          |>) newargs retv)
            else NONE
-        | Oracle_final outcome => SOME (FFI_final (Final_event n args outcome))
+        | Oracle_final outcome => SOME (FFI_final (Final_event n cargs outcome))
   else SOME (FFI_return st [] NONE)`;
 
 

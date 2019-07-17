@@ -618,70 +618,6 @@ val _ = Define
 `
 
 
-(*  “:'a list -> 'b list -> (num # 'a # 'b) list” *)
-val _ = Define  `
-  loc_typ_val  cts vs = MAPi $, (ZIP(cts,vs))
-`
-
-
-(*  “:(α # c_type # v) list -> c_type -> v -> α list” *)
-
-val _ = Define `
-  (als_lst_sem [] _ _ = []) /\
-  (als_lst_sem  ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) =
-    if conf.mutable /\  conf'.mutable /\ (lc = lc')
-    then id::als_lst_sem prl (C_array conf) (Loc lc)
-    else als_lst_sem  prl (C_array conf) (Loc lc)) /\
-  (als_lst_sem (_::prl) (C_array conf) (Loc lc) = als_lst_sem prl (C_array conf) (Loc lc)) /\
-  (als_lst_sem _ _ _ = [])
-`
-
-
-val _ = Define `
-  als_lst'_sem  (idx, ct, v) prl =
-    case ct of 
-      | C_array conf => 
-         if conf.mutable
-         then (case v of 
-		| Loc lc => idx :: als_lst_sem prl ct v
-                | _ => [])
-         else []
-      | _ => []
-`
-
-val _ = Define `
-  remove_loc nl prl =  FILTER (λ(n,_). ~(MEM n nl)) prl
-`
-
-val _ = tDefine "als_args_sem"
-  `
-  (als_args_sem [] = []) /\
-  (als_args_sem (pr::prs) =
-    als_lst'_sem pr prs :: als_args_sem (remove_loc (als_lst'_sem pr prs) prs))
-  `
-  (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "-" "remove_loc_def",arithmeticTheory.LESS_EQ,
-      rich_listTheory.LENGTH_FILTER_LEQ])
-
-val _ = Define `
-  emp_filt nll = FILTER (\nl. ~(nl = [])) nll
-`
-
-val _ = Define `
-  (als_args_final_sem prl  = emp_filt (als_args_sem prl))
-`
-
-val _ = Define
-`(get_ret_val (SOME(C_boolv b)) = Boolv b)
-/\ (get_ret_val (SOME(C_intv i)) = Litv(IntLit i))
-/\ (get_ret_val _ = Conv NONE [])
-  `
-
-val _ = Define
-`get_mut_args sign cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(sign.args,cargs)))
-`
-
-
 val _ = Define `
    (store_carg_sem (Loc lnum) ws s = store_assign lnum (W8array ws) s)
 /\ (store_carg_sem  _ _ s = SOME s)`
@@ -696,17 +632,69 @@ val _ = Define
 /\ (store_cargs_sem _ _ s = SOME s)
   `
 
+val _ = Define `
+  als_args cts args =
+  (MAP
+    (MAP FST o λ(ct,v).
+      FILTER
+          (λ(n',ct',v'). v = v')
+          (MAPi $,
+            (FILTER (is_mutty o FST) (ZIP (cts,args))))
+    )
+    (FILTER (is_mutty o FST) (ZIP (cts,args)))
+  )
+`
 
-(*  add a none at the store assign case  *)
+val _ = Define
+`(get_ret_val (SOME(C_boolv b)) = Boolv b)
+/\ (get_ret_val (SOME(C_intv i)) = Litv(IntLit i))
+/\ (get_ret_val _ = Conv NONE [])
+  `
+
+val _ = Define
+`get_mut_args cts cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(cts,cargs)))
+`
+
+
+(*
+val _ = Define `(mutargs [] _ = [])
+ /\ (mutargs _ [] = [])
+ /\ (mutargs (ty::tys) (v::vs) =
+     (case v of
+        C_arrayv v =>
+        (case ty of C_array c => if c.mutable then v::mutargs tys vs
+                                else mutargs tys vs
+                  | _ => mutargs tys vs)
+      | _ => mutargs tys vs))`
+
+*)
+
+(*
+val _ = Define ` 
+ mut_len cts cargs = 
+   MAP (LENGTH o THE) (MAP ((\v. case v of 
+    | Carray_v bl => SOME bl 
+    | _ => NONE) o SND) 
+   (FILTER (is_mutty o FST) (ZIP (cts,cargs))))
+`
+*)
+
+val _ = Define ` 
+ mut_len cts cargs = ARB
+`
+
+
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) (debug_sig::t.signatures) of
      SOME sign =>
        (case get_cargs_sem s sign.args args of
         | SOME cargs =>
-          (case call_FFI t n sign cargs (als_args_final_sem (loc_typ_val sign.args args)) of
+          (case call_FFI t n sign.retty cargs
+			 (mut_len sign.args cargs)
+                         (als_args sign.args args) of
 	   | SOME (FFI_return t' newargs retv) =>
-              (case store_cargs_sem (get_mut_args sign args) newargs s of 
+              (case store_cargs_sem (get_mut_args sign.args args) newargs s of 
 		| SOME s' => SOME ((s', t'), Rval (get_ret_val retv))
 	        | NONE => NONE) 
 	   | SOME (FFI_final outcome) => SOME ((s, t), Rerr (Rabort (Rffi_error outcome)))
