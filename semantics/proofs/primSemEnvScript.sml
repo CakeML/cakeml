@@ -1,5 +1,5 @@
 (*
-  TODO: document
+  Establishes type_sound_invariant for primitive types
 *)
 open preamble;
 open libTheory astTheory evaluateTheory semanticPrimitivesTheory;
@@ -28,10 +28,15 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
         val th1 = mk_eq(rhs(concl pth),lhs(concl th)) |> EVAL |> EQT_ELIM
         in TRANS (TRANS pth th1) th end));
 
+val all_type_num_defs = LIST_CONJ
+  [bool_type_num_def,
+   list_type_num_def,
+   option_type_num_def];
+
 Theorem prim_type_sound_invariants:
    !type_ids sem_st prim_env.
    (sem_st,prim_env) = THE (prim_sem_env ffi) ∧
-   DISJOINT type_ids {Tlist_num; Tbool_num; Texn_num}
+   DISJOINT type_ids {Toption_num; Tlist_num; Tbool_num; Texn_num}
    ⇒
    ?ctMap.
      type_sound_invariant sem_st prim_env ctMap FEMPTY type_ids prim_tenv ∧
@@ -43,6 +48,8 @@ Proof
       (div_stamp, ([],[],Texn_num));
       (chr_stamp, ([],[],Texn_num));
       (subscript_stamp, ([],[],Texn_num));
+      (TypeStamp "None" option_type_num, (["'a"],[],Toption_num));
+      (TypeStamp "Some" option_type_num, (["'a"],[Tvar "'a"],Toption_num));
       (TypeStamp "[]" list_type_num, (["'a"],[],Tlist_num));
       (TypeStamp "::" list_type_num, (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num));
       (TypeStamp "True" bool_type_num, ([],[], Tbool_num));
@@ -62,8 +69,8 @@ Proof
     rw [FEVERY_FUPDATE, check_freevars_def, FEVERY_FEMPTY])
   >- (
     rw [consistent_ctMap_def] >>
-    fs [FDOM_FUPDATE_LIST, bool_type_num_def,
-        list_type_num_def, subscript_stamp_def, chr_stamp_def, div_stamp_def,
+    fs [FDOM_FUPDATE_LIST, all_type_num_defs,
+        subscript_stamp_def, chr_stamp_def, div_stamp_def,
         bind_stamp_def] >>
     simp [DISJOINT_DEF, EXTENSION, IN_FRANGE_FLOOKUP, FLOOKUP_o_f,
          flookup_fupdate_list] >>
@@ -78,8 +85,7 @@ Proof
     rpt (
       irule nsAll2_nsBind >>
       rw [type_ctor_def, flookup_fupdate_list, bind_stamp_def, div_stamp_def,
-          chr_stamp_def, subscript_stamp_def,
-          bool_type_num_def, list_type_num_def]))
+          chr_stamp_def, subscript_stamp_def, all_type_num_defs]))
   >- simp [type_s_def, store_lookup_def]
   >- (
     simp[SUBSET_DEF]

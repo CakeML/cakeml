@@ -98,6 +98,9 @@ val _ = Define `
 val _ = Define `
  ((list_type_num:num) : num= (( 1 : num)))`;
 
+val _ = Define `
+ ((option_type_num:num) : num= (( 2 : num)))`;
+
 
 (* The result of evaluation *)
 val _ = Hol_datatype `

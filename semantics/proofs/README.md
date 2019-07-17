@@ -24,7 +24,7 @@ the grammar’s rules finite map.
 Proofs about the namespace datatype.
 
 [primSemEnvScript.sml](primSemEnvScript.sml):
-TODO: document
+Establishes type_sound_invariant for primitive types
 
 [semanticPrimitivesPropsScript.sml](semanticPrimitivesPropsScript.sml):
 Various basic properties of the semantic primitives.

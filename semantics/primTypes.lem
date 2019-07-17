@@ -19,7 +19,10 @@ let prim_types_program =
    Dexn unknown_loc "Div" [];
    Dexn unknown_loc "Subscript" [];
    Dtype unknown_loc [([], "bool", [("False", []); ("True", [])])];
-   Dtype unknown_loc [(["'a"], "list", [("[]", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]);])];]
+   Dtype unknown_loc [(["'a"], "list",
+     [("[]", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]);])];
+   Dtype unknown_loc [(["'a"],"option",
+     [("Some",[Atvar "'a"]); ("None",[])])]]
 
 val add_to_sem_env :
   forall 'ffi. Eq 'ffi => (state 'ffi * sem_env v) -> list dec -> maybe (state 'ffi * sem_env v)
@@ -47,7 +50,9 @@ let prim_tenv =
            ("False", ([],[], Tbool_num));
            ("True", ([],[], Tbool_num));
            ("[]", (["'a"],[],Tlist_num));
-           ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]);
+           ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num));
+           ("Some", (["'a"],[Tvar "'a"], Toption_num));
+           ("None", (["'a"],[],Toption_num))]);
        v = nsEmpty;
        t = alist_to_ns (List.reverse
           [
@@ -68,4 +73,4 @@ let prim_tenv =
           ("word8array",([],Tapp [] Tword8array_num))]
           )|>
 
-let prim_type_ids = Set.fromList (Tlist_num :: Tbool_num :: prim_type_nums)
+let prim_type_ids = Set.fromList (Toption_num :: Tlist_num :: Tbool_num :: prim_type_nums)

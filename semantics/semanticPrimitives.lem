@@ -62,6 +62,7 @@ let sub_exn_v = Conv (Just subscript_stamp) []
 
 let bool_type_num : nat = 0
 let list_type_num : nat = 1
+let option_type_num : nat = 2
 
 (* The result of evaluation *)
 type abort =

@@ -76,6 +76,9 @@ val _ = Define `
 val _ = Define `
  ((Tword8array_num:num) : type_ident= (( 13 : num)))`;
 
+val _ = Define `
+ ((Toption_num:num) : type_ident= (( 14 : num)))`;
+
 
 (* The numbers for the primitive types *)
 val _ = Define `
@@ -125,6 +128,9 @@ val _ = Define `
 
 val _ = Define `
  ((Tword8array:t)=  (Tapp [] Tword8array_num))`;
+
+val _ = Define `
+ ((Toption:t)=  (Tapp [] Toption_num))`;
 
 
 (* Check that the free type variables are in the given list. Every deBruijn
@@ -448,7 +454,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   EVERY
     (\ (cn,ts) .  EVERY (check_freevars_ast tvs) ts /\ EVERY (check_type_names tenvT) ts)
     ctors /\
-  ~ (MEM tn (MAP (\p .
+  ~ (MEM tn (MAP (\p .  
   (case (p ) of ( (_,tn,_) ) => tn )) tds)) /\
   check_ctor_tenv tenvT tds))`;
 
@@ -788,7 +794,7 @@ DISJOINT (LIST_TO_SET type_identities)
 check_ctor_tenv (nsAppend tenvT tenv.t) tdefs /\
 (LENGTH type_identities = LENGTH tdefs) /\
 (tenvT = alist_to_ns (MAP2
-                      (\ (tvs,tn,ctors) i .
+                      (\ (tvs,tn,ctors) i . 
                         (tn, (tvs, Tapp (MAP Tvar tvs) i)))
                       tdefs type_identities)))
 ==>
@@ -1005,3 +1011,4 @@ type_prog extra_checks decls tenv (top :: tops)
   (union_decls decls2 decls1) (extend_dec_tenv tenv2 tenv1)
   *)
 val _ = export_theory()
+

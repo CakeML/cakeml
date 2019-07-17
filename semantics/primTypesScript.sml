@@ -30,7 +30,10 @@ val _ = Define `
    Dexn unknown_loc "Div" [];
    Dexn unknown_loc "Subscript" [];
    Dtype unknown_loc [([], "bool", [("False", []); ("True", [])])];
-   Dtype unknown_loc [(["'a"], "list", [("[]", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]) ])] ]))`;
+   Dtype unknown_loc [(["'a"], "list",
+     [("[]", []); ("::", [Atvar "'a"; Atapp [Atvar "'a"] (Short "list")]) ])];
+   Dtype unknown_loc [(["'a"],"option",
+     [("Some",[Atvar "'a"]); ("None",[])])]]))`;
 
 
 (*val add_to_sem_env :
@@ -64,7 +67,9 @@ val _ = Define `
            ("False", ([],[], Tbool_num));
            ("True", ([],[], Tbool_num));
            ("[]", (["'a"],[],Tlist_num));
-           ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num))]));
+           ("::", (["'a"],[Tvar "'a"; Tlist (Tvar "'a")], Tlist_num));
+           ("Some", (["'a"],[Tvar "'a"], Toption_num));
+           ("None", (["'a"],[],Toption_num))]));
        v := nsEmpty;
        t := (alist_to_ns (REVERSE
           [
@@ -87,7 +92,7 @@ val _ = Define `
 
 
 val _ = Define `
- ((prim_type_ids:(num)set)=  (LIST_TO_SET (Tlist_num :: (Tbool_num :: prim_type_nums))))`;
+ ((prim_type_ids:(num)set)=  (LIST_TO_SET (Toption_num :: (Tlist_num :: (Tbool_num :: prim_type_nums)))))`;
 
 val _ = export_theory()
 

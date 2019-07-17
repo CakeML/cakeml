@@ -36,6 +36,7 @@ let Tvector_num : type_ident = 10
 let Tword64_num : type_ident = 11
 let Tword8_num : type_ident = 12
 let Tword8array_num : type_ident = 13
+let Toption_num : type_ident = 14
 
 (* The numbers for the primitive types *)
 let prim_type_nums =
@@ -56,6 +57,7 @@ let Tvector t = Tapp [t] Tvector_num
 let Tword64 = Tapp [] Tword64_num
 let Tword8 = Tapp [] Tword8_num
 let Tword8array = Tapp [] Tword8array_num
+let Toption = Tapp [] Toption_num
 
 (* Check that the free type variables are in the given list. Every deBruijn
  * variable must be smaller than the first argument. So if it is 0, no deBruijn
