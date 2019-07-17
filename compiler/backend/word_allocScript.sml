@@ -735,7 +735,8 @@ val get_writes_def = Define`
   (get_writes (Install r1 _ _ _ _) = insert r1 () LN) ∧
   (get_writes prog = LN)`
 
-Theorem get_writes_pmatch `!inst.
+Theorem get_writes_pmatch:
+  !inst.
   get_writes inst =
     case inst of
     | Move pri ls => numset_list_insert (MAP FST ls) LN
@@ -744,10 +745,12 @@ Theorem get_writes_pmatch `!inst.
     | Get num store => insert num () LN
     | LocValue r l1 => insert r () LN
     | Install r1 _ _ _ _ => insert r1 () LN
-    | prog => LN`
-  (rpt strip_tac
+    | prog => LN
+Proof
+  rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  >> every_case_tac >> fs[get_writes_def])
+  >> every_case_tac >> fs[get_writes_def]
+QED
 
 (* Old representation *)
 val get_clash_sets_def = Define`
@@ -894,7 +897,8 @@ val get_prefs_def = Define`
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
   (get_prefs prog acc = acc)`
 
-Theorem get_prefs_pmatch `!s acc.
+Theorem get_prefs_pmatch:
+  !s acc.
   get_prefs s acc =
     case s of
     | (Move pri ls) => (MAP (λx,y. (pri,x,y)) ls) ++ acc
@@ -908,8 +912,9 @@ Theorem get_prefs_pmatch `!s acc.
     get_prefs ret_handler acc
     | (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args (SOME (_,prog,_,_))) =>
     get_prefs prog (get_prefs ret_handler acc)
-    | prog => acc`
-  (rpt strip_tac
+    | prog => acc
+Proof
+  rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> every_case_tac
@@ -918,7 +923,8 @@ Theorem get_prefs_pmatch `!s acc.
   >> Q.SPEC_TAC (`acc`,`acc`) >> Q.SPEC_TAC (`s`,`s`)
   >> ho_match_mp_tac (theorem "get_prefs_ind")
   >> rpt strip_tac >> fs[Once get_prefs_def]
-  >> every_case_tac >> metis_tac[pair_CASES]));
+  >> every_case_tac >> metis_tac[pair_CASES])
+QED
 
 (*
   For each var, we collect 5 tuples indicating the number of
@@ -1125,7 +1131,7 @@ val get_forced_def = Define`
           acc
        else acc
     | Arith (LongMul r1 r2 r3 r4) =>
-       if (c.ISA = ARMv6) then
+       if (c.ISA = ARMv7) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
        else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Ag32) then
          (if r1=r3 then [] else [(r1,r3)]) ++
@@ -1152,7 +1158,8 @@ val get_forced_def = Define`
     | SOME (v,prog,l1,l2) => get_forced c prog (get_forced c ret_handler acc)) ∧
   (get_forced c prog acc = acc)`
 
-Theorem get_forced_pmatch `!c prog acc.
+Theorem get_forced_pmatch:
+  !c prog acc.
   (get_forced (c:'a asm_config) prog acc =
     case prog of
       Inst(Arith (AddCarry r1 r2 r3 r4)) =>
@@ -1172,7 +1179,7 @@ Theorem get_forced_pmatch `!c prog acc.
           acc
        else acc
     | Inst(Arith (LongMul r1 r2 r3 r4)) =>
-       if (c.ISA = ARMv6) then
+       if (c.ISA = ARMv7) then
          (if (r1=r2) then [] else [(r1,r2)]) ++ acc
        else if (c.ISA = ARMv8) \/ (c.ISA = RISC_V) \/ (c.ISA = Ag32) then
          (if r1=r3 then [] else [(r1,r3)]) ++
@@ -1194,8 +1201,9 @@ Theorem get_forced_pmatch `!c prog acc.
       get_forced c ret_handler acc
     | Call (SOME (v,cutset,ret_handler,l1,l2)) dest args (SOME (_,prog,_,_)) =>
       get_forced c prog (get_forced c ret_handler acc)
-    | _ => acc)`
-  (rpt strip_tac
+    | _ => acc)
+Proof
+  rpt strip_tac
   >> CONV_TAC(patternMatchesLib.PMATCH_LIFT_BOOL_CONV true)
   >> rpt strip_tac
   >> every_case_tac
@@ -1208,7 +1216,8 @@ Theorem get_forced_pmatch `!c prog acc.
   >> fs[get_forced_def]
   >> every_case_tac
   >> fs[]
-  >> metis_tac[pair_CASES]);
+  >> metis_tac[pair_CASES]
+QED
 
 (*col is injective over every cut set*)
 val check_colouring_ok_alt_def = Define`

@@ -49,10 +49,12 @@ val const_cons_sep_MEM= Q.store_thm("const_cons_sep_MEM",
   Induct_on `pes`
   \\ rw [const_cons_sep_def] \\ METIS_TAC [MEM])
 
-Theorem const_cons_fst_MEM
-  `MEM x (const_cons_fst pes) ==> MEM x pes`
-  (rw [const_cons_fst_def]
-  \\ METIS_TAC [MEM, const_cons_sep_MEM])
+Theorem const_cons_fst_MEM:
+   MEM x (const_cons_fst pes) ==> MEM x pes
+Proof
+  rw [const_cons_fst_def]
+  \\ METIS_TAC [MEM, const_cons_sep_MEM]
+QED
 
 (*
  example:
@@ -106,30 +108,38 @@ val compile_def = tDefine "compile" `
 
 val compile_ind = theorem"compile_ind";
 
-Theorem compile_length[simp]
-  `! es. LENGTH (compile es) = LENGTH es`
-  (ho_match_mp_tac compile_ind
-  \\ rw [compile_def]);
+Theorem compile_length[simp]:
+   ! es. LENGTH (compile es) = LENGTH es
+Proof
+  ho_match_mp_tac compile_ind
+  \\ rw [compile_def]
+QED
 
-Theorem compile_sing
-  `! e. ?e2. compile [e] = [e2]`
-  (rw []
+Theorem compile_sing:
+   ! e. ?e2. compile [e] = [e2]
+Proof
+  rw []
   \\ qspec_then `[e]` mp_tac compile_length
-  \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]);
+  \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]
+QED
 
 val compile_nil = save_thm ("compile_nil[simp]", EVAL ``compile []``);
 
-Theorem compile_not_nil[simp]
-  `compile [x] <> []`
-  (strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
-  \\ fs [compile_length]);
+Theorem compile_not_nil[simp]:
+   compile [x] <> []
+Proof
+  strip_tac \\ pop_assum (mp_tac o Q.AP_TERM `LENGTH`)
+  \\ fs [compile_length]
+QED
 
-Theorem compile_cons
-  `! e es. compile (e::es) = HD (compile [e]) :: (compile es)`
-  (rw []
+Theorem compile_cons:
+   ! e es. compile (e::es) = HD (compile [e]) :: (compile es)
+Proof
+  rw []
   \\ Cases_on `es`
   \\ rw [compile_def]
-  \\ METIS_TAC [compile_sing, HD])
+  \\ METIS_TAC [compile_sing, HD]
+QED
 
 val compile_decs_def = Define `
   (compile_decs [] = []) /\

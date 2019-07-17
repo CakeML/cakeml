@@ -28,8 +28,8 @@ val inputLinesFromAny = process_topdecs`
 
 val () = append_prog inputLinesFromAny;
 
-Theorem inputLinesFromAny_spec
-  `OPTION_TYPE FILENAME fo fov ∧ (IS_SOME fo ⇒ hasFreeFD fs) ∧
+Theorem inputLinesFromAny_spec:
+   OPTION_TYPE FILENAME fo fov ∧ (IS_SOME fo ⇒ hasFreeFD fs) ∧
   (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0)))
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFromAny" (get_ml_prog_state()))
@@ -38,8 +38,9 @@ Theorem inputLinesFromAny_spec
       (if IS_SOME fo ⇒ inFS_fname fs (THE fo)
        then SOME (case fo of NONE => all_lines_inode fs (UStream(strlit"stdin"))
                            | SOME f => all_lines fs f)
-       else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))`
-  (xcf"inputLinesFromAny"(get_ml_prog_state())
+       else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))
+Proof
+  xcf"inputLinesFromAny"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull )
   \\ reverse(Cases_on`∃ll. wfFS (fs with numchars := ll)`) >- (fs[STDIO_def,IOFS_def] \\ xpull)
   \\ xmatch
@@ -79,7 +80,8 @@ Theorem inputLinesFromAny_spec
     \\ EVAL_TAC )
   \\ (reverse conj_tac >- (EVAL_TAC \\ rw[]))
   \\ xapp
-  \\ fs[]);
+  \\ fs[]
+QED
 (* -- *)
 
 val wordcount = process_topdecs`
@@ -104,13 +106,15 @@ val wordcount_precond_def = Define`
       ALOOKUP fs.inode_tbl (UStream (strlit"stdin")) = SOME contents ∧
       fs' = fastForwardFD fs 0`;
 
-Theorem wordcount_precond_numchars
-  `wordcount_precond cl fs contens fs' ⇒ fs'.numchars = fs.numchars`
-  (rw[wordcount_precond_def]
-  \\ every_case_tac \\ fs[]);
+Theorem wordcount_precond_numchars:
+   wordcount_precond cl fs contens fs' ⇒ fs'.numchars = fs.numchars
+Proof
+  rw[wordcount_precond_def]
+  \\ every_case_tac \\ fs[]
+QED
 
-Theorem wordcount_spec
-  `wordcount_precond cl fs contents fs'
+Theorem wordcount_spec:
+   wordcount_precond cl fs contents fs'
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordcount" (get_ml_prog_state()))
      [uv] (STDIO fs * COMMANDLINE cl)
@@ -120,8 +124,9 @@ Theorem wordcount_spec
                             strlit " ";
                             mlint$toString (&(LENGTH (splitlines contents)));
                             strlit "\n"]))
-                * COMMANDLINE cl)`
-  (simp [concat_def] \\
+                * COMMANDLINE cl)
+Proof
+  simp [concat_def] \\
   strip_tac \\
   xcf "wordcount" (get_ml_prog_state()) \\
   xlet_auto >- (xcon \\ xsimpl) \\
@@ -230,10 +235,11 @@ Theorem wordcount_spec
   \\ Cases_on`cl` \\ fs[wfcl_def]
   \\ Cases_on`t` \\ fs[]
   \\ TRY (Cases_on`t'` \\ fs[])
-  \\ simp[all_lines_def,splitwords_lines_of,splitwords_def, mlstringTheory.TOKENS_eq_tokens_sym]);
+  \\ simp[all_lines_def,splitwords_lines_of,splitwords_def, mlstringTheory.TOKENS_eq_tokens_sym]
+QED
 
-Theorem wordcount_whole_prog_spec
-  `wordcount_precond cl fs contents fs'
+Theorem wordcount_whole_prog_spec:
+   wordcount_precond cl fs contents fs'
    ⇒
    whole_prog_spec ^(fetch_v "wordcount" (get_ml_prog_state())) cl fs NONE
    ((=)
@@ -241,8 +247,9 @@ Theorem wordcount_whole_prog_spec
        (concat [mlint$toString (&(LENGTH (TOKENS isSpace contents)));
                 strlit " ";
                 mlint$toString (&(LENGTH (splitlines contents)));
-                strlit "\n"])))`
-  (disch_then assume_tac
+                strlit "\n"])))
+Proof
+  disch_then assume_tac
   \\ imp_res_tac wordcount_precond_numchars
   \\ pop_assum(assume_tac o SYM)
   \\ simp[whole_prog_spec_def]
@@ -250,7 +257,8 @@ Theorem wordcount_whole_prog_spec
   \\ qexists_tac`fs1`
   \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
   \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH wordcount_spec)))
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
 val spec = wordcount_whole_prog_spec |> UNDISCH_ALL
 val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state()) "wordcount" spec

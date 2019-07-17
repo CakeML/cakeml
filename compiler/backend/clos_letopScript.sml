@@ -58,9 +58,11 @@ val let_op_def = tDefine "let_op" `
 
 val let_op_ind = theorem "let_op_ind";
 
-Theorem LENGTH_let_op
-  `!xs. LENGTH (let_op xs) = LENGTH xs`
-  (recInduct let_op_ind \\ simp [let_op_def]
-  \\ rw [] \\ CASE_TAC \\ simp []);
+Theorem LENGTH_let_op:
+   !xs. LENGTH (let_op xs) = LENGTH xs
+Proof
+  recInduct let_op_ind \\ simp [let_op_def]
+  \\ rw [] \\ CASE_TAC \\ simp []
+QED
 
 val _ = export_theory();

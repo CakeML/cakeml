@@ -90,13 +90,14 @@ val words_of_bytes_def = tDefine "words_of_bytes" `
 
 val words_of_bytes_ind = theorem"words_of_bytes_ind";
 
-Theorem LENGTH_words_of_bytes
-  `8 ≤ dimindex(:'a) ⇒
+Theorem LENGTH_words_of_bytes:
+   8 ≤ dimindex(:'a) ⇒
    ∀be ls.
    (LENGTH (words_of_bytes be ls : 'a word list) =
     LENGTH ls DIV (w2n (bytes_in_word : 'a word)) +
-    MIN 1 (LENGTH ls MOD (w2n (bytes_in_word : 'a word))))`
-  (strip_tac
+    MIN 1 (LENGTH ls MOD (w2n (bytes_in_word : 'a word))))
+Proof
+  strip_tac
   \\ recInduct words_of_bytes_ind
   \\ `1 ≤ w2n bytes_in_word`
   by (
@@ -132,15 +133,17 @@ Theorem LENGTH_words_of_bytes
   \\ fs[]
   \\ `m DIV n - 1 + 1 = m DIV n` suffices_by fs[]
   \\ DEP_REWRITE_TAC[SUB_ADD]
-  \\ fs[X_LE_DIV]);
+  \\ fs[X_LE_DIV]
+QED
 
-Theorem words_of_bytes_append
-  `0 < w2n(bytes_in_word:'a word) ⇒
+Theorem words_of_bytes_append:
+   0 < w2n(bytes_in_word:'a word) ⇒
    ∀l1 l2.
    (LENGTH l1 MOD w2n (bytes_in_word:'a word) = 0) ⇒
    (words_of_bytes be (l1 ++ l2) : 'a word list =
-    words_of_bytes be l1 ++ words_of_bytes be l2)`
-  (strip_tac
+    words_of_bytes be l1 ++ words_of_bytes be l2)
+Proof
+  strip_tac
   \\ gen_tac
   \\ completeInduct_on`LENGTH l1`
   \\ rw[]
@@ -172,7 +175,8 @@ Theorem words_of_bytes_append
   \\ IF_CASES_TAC \\ fs[NOT_LESS]
   >- metis_tac[]
   \\ Cases_on`w2n bytes_in_word` \\ fs[] \\ rw[]
-  \\ Cases_on`n''` \\ fs[]);
+  \\ Cases_on`n''` \\ fs[]
+QED
 
 Theorem words_of_bytes_append_word:
   0 < LENGTH l1 ∧ (LENGTH l1 = w2n (bytes_in_word:'a word)) ⇒
@@ -193,11 +197,12 @@ val bytes_to_word_def = Define `
 
 val bytes_to_word_ind = theorem "bytes_to_word_ind";
 
-Theorem word_of_bytes_bytes_to_word
-  `∀be a bs k.
+Theorem word_of_bytes_bytes_to_word:
+   ∀be a bs k.
    LENGTH bs ≤ k ⇒
-   (word_of_bytes be a bs = bytes_to_word k a bs 0w be)`
-  (Induct_on`bs`
+   (word_of_bytes be a bs = bytes_to_word k a bs 0w be)
+Proof
+  Induct_on`bs`
   >- (
     EVAL_TAC
     \\ Cases_on`k`
@@ -209,7 +214,8 @@ Theorem word_of_bytes_bytes_to_word
   \\ AP_THM_TAC
   \\ AP_TERM_TAC
   \\ first_x_assum match_mp_tac
-  \\ fs[]);
+  \\ fs[]
+QED
 
 Theorem bytes_to_word_same:
   ∀bw k b1 w be b2.

@@ -13,8 +13,8 @@ val case_eq_thms = pair_case_eq::bool_case_eq::map (prove_case_eq_thm o get_thms
   [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``, ``:'a reg_imm``
   ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,``:'a ffi_result``] |> LIST_CONJ |> curry save_thm "case_eq_thms"
 
-Theorem set_store_const[simp]
-  `(set_store x y z).ffi = z.ffi ∧
+Theorem set_store_const[simp]:
+   (set_store x y z).ffi = z.ffi ∧
    (set_store x y z).clock = z.clock ∧
    (set_store x y z).use_alloc = z.use_alloc ∧
    (set_store x y z).use_store = z.use_store ∧
@@ -27,15 +27,19 @@ Theorem set_store_const[simp]
    (set_store x y z).data_buffer = z.data_buffer ∧
    (set_store x y z).code_buffer = z.code_buffer ∧
    (set_store x y z).compile = z.compile ∧
-   (set_store x y z).compile_oracle = z.compile_oracle`
-  (EVAL_TAC);
+   (set_store x y z).compile_oracle = z.compile_oracle
+Proof
+  EVAL_TAC
+QED
 
-Theorem set_store_with_const[simp]
-  `set_store x y (z with clock := a) = set_store x y z with clock := a`
-  (EVAL_TAC);
+Theorem set_store_with_const[simp]:
+   set_store x y (z with clock := a) = set_store x y z with clock := a
+Proof
+  EVAL_TAC
+QED
 
-Theorem set_var_const[simp]
-  `(set_var x y z).ffi = z.ffi ∧
+Theorem set_var_const[simp]:
+   (set_var x y z).ffi = z.ffi ∧
    (set_var x y z).clock = z.clock ∧
    (set_var x y z).use_alloc = z.use_alloc ∧
    (set_var x y z).use_store = z.use_store ∧
@@ -48,20 +52,26 @@ Theorem set_var_const[simp]
    (set_var x y z).compile = z.compile ∧
    (set_var x y z).compile_oracle = z.compile_oracle ∧
    (set_var x y z).stack = z.stack ∧
-   (set_var x y z).stack_space = z.stack_space`
-  (EVAL_TAC);
+   (set_var x y z).stack_space = z.stack_space
+Proof
+  EVAL_TAC
+QED
 
-Theorem set_var_with_const[simp]
-  `set_var x y (z with clock := k) = set_var x y z with clock := k ∧
-   set_var x y (z with stack_space := k) = set_var x y z with stack_space := k`
-  (EVAL_TAC);
+Theorem set_var_with_const[simp]:
+   set_var x y (z with clock := k) = set_var x y z with clock := k ∧
+   set_var x y (z with stack_space := k) = set_var x y z with stack_space := k
+Proof
+  EVAL_TAC
+QED
 
-Theorem get_var_imm_with_const[simp]
-  `get_var_imm x (y with clock := k) = get_var_imm x y`
-  (Cases_on`x`>>EVAL_TAC);
+Theorem get_var_imm_with_const[simp]:
+   get_var_imm x (y with clock := k) = get_var_imm x y
+Proof
+  Cases_on`x`>>EVAL_TAC
+QED
 
-Theorem empty_env_const[simp]
-  `(empty_env x).ffi = x.ffi ∧
+Theorem empty_env_const[simp]:
+   (empty_env x).ffi = x.ffi ∧
    (empty_env x).clock = x.clock ∧
    (empty_env z).use_alloc = z.use_alloc ∧
    (empty_env z).use_store = z.use_store ∧
@@ -74,15 +84,19 @@ Theorem empty_env_const[simp]
    (empty_env z).data_buffer = z.data_buffer ∧
    (empty_env z).code_buffer = z.code_buffer ∧
    (empty_env z).compile = z.compile ∧
-   (empty_env z).compile_oracle = z.compile_oracle`
-  (EVAL_TAC)
+   (empty_env z).compile_oracle = z.compile_oracle
+Proof
+  EVAL_TAC
+QED
 
-Theorem empty_env_with_const[simp]
-  `empty_env (x with clock := y) = empty_env x with clock := y`
-  (EVAL_TAC);
+Theorem empty_env_with_const[simp]:
+   empty_env (x with clock := y) = empty_env x with clock := y
+Proof
+  EVAL_TAC
+QED
 
-Theorem alloc_const
-  `alloc w s = (r,t) ⇒ t.ffi = s.ffi ∧
+Theorem alloc_const:
+   alloc w s = (r,t) ⇒ t.ffi = s.ffi ∧
     t.clock = s.clock ∧
     t.use_alloc = s.use_alloc ∧
     t.use_store = s.use_store ∧
@@ -95,43 +109,57 @@ Theorem alloc_const
     t.compile = s.compile ∧
     t.data_buffer = s.data_buffer ∧
     t.code_buffer = s.code_buffer ∧
-    t.compile_oracle = s.compile_oracle`
-  (srw_tac[][alloc_def,gc_def,LET_THM] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
+    t.compile_oracle = s.compile_oracle
+Proof
+  srw_tac[][alloc_def,gc_def,LET_THM] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]
+QED
 
-Theorem gc_with_const[simp]
-  `gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x)`
-   (srw_tac[][gc_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
+Theorem gc_with_const[simp]:
+   gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x)
+Proof
+   srw_tac[][gc_def] >> every_case_tac >> full_simp_tac(srw_ss())[]
+QED
 
-Theorem alloc_with_const[simp]
-  `alloc x (y with clock := z) = (I ## (λs. s with clock := z))(alloc x y)`
-  (srw_tac[][alloc_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]);
+Theorem alloc_with_const[simp]:
+   alloc x (y with clock := z) = (I ## (λs. s with clock := z))(alloc x y)
+Proof
+  srw_tac[][alloc_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
+QED
 
-Theorem mem_load_with_const[simp]
-  `mem_load x (y with clock := k) = mem_load x y`
-  (EVAL_TAC)
+Theorem mem_load_with_const[simp]:
+   mem_load x (y with clock := k) = mem_load x y
+Proof
+  EVAL_TAC
+QED
 
-Theorem mem_load_with_const[simp]
-  `mem_store x y (z with clock := k) = OPTION_MAP(λs. s with clock := k)(mem_store x y z)`
-  (EVAL_TAC >> srw_tac[][]);
+Theorem mem_load_with_const[simp]:
+   mem_store x y (z with clock := k) = OPTION_MAP(λs. s with clock := k)(mem_store x y z)
+Proof
+  EVAL_TAC >> srw_tac[][]
+QED
 
-Theorem word_exp_with_const[simp]
-  `∀s y k. word_exp (s with clock := k) y = word_exp s y`
-  (ho_match_mp_tac word_exp_ind >> srw_tac[][word_exp_def] >>
+Theorem word_exp_with_const[simp]:
+   ∀s y k. word_exp (s with clock := k) y = word_exp s y
+Proof
+  ho_match_mp_tac word_exp_ind >> srw_tac[][word_exp_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[EVERY_MEM,EXISTS_MEM] >>
   unabbrev_all_tac >>
   full_simp_tac(srw_ss())[MEM_MAP,PULL_EXISTS] >>
   res_tac >> full_simp_tac(srw_ss())[IS_SOME_EXISTS] >> full_simp_tac(srw_ss())[] >>
   rpt AP_TERM_TAC >>
-  simp[MAP_EQ_f]);
+  simp[MAP_EQ_f]
+QED
 
-Theorem assign_with_const[simp]
-  `assign x y (s with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y s)`
-  (srw_tac[][assign_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
+Theorem assign_with_const[simp]:
+   assign x y (s with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y s)
+Proof
+  srw_tac[][assign_def] >> every_case_tac >> full_simp_tac(srw_ss())[]
+QED
 
-Theorem inst_const
-  `inst i s = SOME t ⇒
+Theorem inst_const:
+   inst i s = SOME t ⇒
     t.ffi = s.ffi ∧
     t.clock = s.clock ∧
     t.use_alloc = s.use_alloc ∧
@@ -143,23 +171,27 @@ Theorem inst_const
     t.mdomain = s.mdomain ∧
     t.bitmaps = s.bitmaps ∧
     t.compile = s.compile ∧
-    t.compile_oracle = s.compile_oracle`
-  (Cases_on`i`>>srw_tac[][inst_def,assign_def] >>
+    t.compile_oracle = s.compile_oracle
+Proof
+  Cases_on`i`>>srw_tac[][inst_def,assign_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[set_fp_var_def,set_var_def,word_exp_def,LET_THM] >> srw_tac[][] >>
   full_simp_tac(srw_ss())[mem_store_def] >> srw_tac[][] >>
-  fs[get_vars_def]>>every_case_tac>>fs[state_component_equality]);
+  fs[get_vars_def]>>every_case_tac>>fs[state_component_equality]
+QED
 
-Theorem inst_with_const[simp]
-  `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`
-  (srw_tac[][inst_def] >>
+Theorem inst_with_const[simp]:
+   inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)
+Proof
+  srw_tac[][inst_def] >>
   CASE_TAC >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[]>>
   fs[get_vars_def,get_var_def,get_fp_var_def,set_fp_var_def]>>
   every_case_tac>>fs[]>>
-  rw[]>>fs[]>>rw[]>>fs[]);
+  rw[]>>fs[]>>rw[]>>fs[]
+QED
 
-Theorem dec_clock_const[simp]
-  `(dec_clock s).ffi = s.ffi ∧
+Theorem dec_clock_const[simp]:
+   (dec_clock s).ffi = s.ffi ∧
    (dec_clock z).use_alloc = z.use_alloc ∧
    (dec_clock z).use_store = z.use_store ∧
    (dec_clock z).use_stack = z.use_stack ∧
@@ -169,11 +201,13 @@ Theorem dec_clock_const[simp]
    (dec_clock z).mdomain = z.mdomain ∧
    (dec_clock z).bitmaps = z.bitmaps ∧
    (dec_clock z).compile = z.compile ∧
-   (dec_clock z).compile_oracle = z.compile_oracle`
-  (EVAL_TAC);
+   (dec_clock z).compile_oracle = z.compile_oracle
+Proof
+  EVAL_TAC
+QED
 
-Theorem evaluate_consts
-  `!c s r s1.
+Theorem evaluate_consts:
+   !c s r s1.
       evaluate (c,s) = (r,s1) ==>
       s1.use_alloc = s.use_alloc /\
       s1.use_store = s.use_store /\
@@ -181,8 +215,9 @@ Theorem evaluate_consts
       s1.be = s.be /\
       s1.gc_fun = s.gc_fun /\
       s1.mdomain = s.mdomain /\
-      s1.compile = s.compile`
-  (recInduct evaluate_ind >>
+      s1.compile = s.compile
+Proof
+  recInduct evaluate_ind >>
   rpt conj_tac >>
   simp[evaluate_def] >>
   rpt gen_tac >>
@@ -192,16 +227,18 @@ Theorem evaluate_consts
     (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
     (pairarg_tac >> simp[]))>>
-  (every_case_tac>>fs[]>>rw[]));
+  (every_case_tac>>fs[]>>rw[])
+QED
 
-Theorem evaluate_code_bitmaps
-  `∀c s r s1.
+Theorem evaluate_code_bitmaps:
+   ∀c s r s1.
    evaluate (c,s) = (r,s1) ⇒
    ∃n.
     s1.compile_oracle = shift_seq n s.compile_oracle ∧
     s1.code = FOLDL union s.code (MAP (fromAList o FST o SND) (GENLIST s.compile_oracle n)) ∧
-    s1.bitmaps = s.bitmaps ++ FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n))`
-  (recInduct evaluate_ind >>
+    s1.bitmaps = s.bitmaps ++ FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n))
+Proof
+  recInduct evaluate_ind >>
   rw[evaluate_def] >>
   TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
   TRY(
@@ -271,24 +308,28 @@ Theorem evaluate_code_bitmaps
     pairarg_tac \\ fs[] \\
     fs[case_eq_thms,empty_env_def]>>rw[]>>
     TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    qexists_tac`1` \\ fsrw_tac[ETA_ss][shift_seq_def]));
+    qexists_tac`1` \\ fsrw_tac[ETA_ss][shift_seq_def])
+QED
 
-Theorem evaluate_mono `
-  ∀c s r s1.
+Theorem evaluate_mono:
+    ∀c s r s1.
   evaluate (c,s) = (r,s1) ⇒
   isPREFIX s.bitmaps s1.bitmaps ∧
-  subspt s.code s1.code`
-  (rw[] \\
+  subspt s.code s1.code
+Proof
+  rw[] \\
   imp_res_tac evaluate_code_bitmaps \\
   rw[] \\
-  metis_tac[subspt_FOLDL_union]);
+  metis_tac[subspt_FOLDL_union]
+QED
 
-Theorem evaluate_io_events_mono
-  `!exps s1 res s2.
+Theorem evaluate_io_events_mono:
+   !exps s1 res s2.
     evaluate (exps,s1) = (res, s2)
     ⇒
-    s1.ffi.io_events ≼ s2.ffi.io_events`
-  (recInduct evaluate_ind >>
+    s1.ffi.io_events ≼ s2.ffi.io_events
+Proof
+  recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
   TRY pairarg_tac >> full_simp_tac(srw_ss())[] >>
@@ -298,13 +339,15 @@ Theorem evaluate_io_events_mono
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
        every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
-  metis_tac[IS_PREFIX_TRANS]);
+  metis_tac[IS_PREFIX_TRANS]
+QED
 
-Theorem evaluate_add_clock
-  `∀p s r s'.
+Theorem evaluate_add_clock:
+   ∀p s r s'.
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
-    evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)`
-  (recInduct evaluate_ind >>
+    evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)
+Proof
+  recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
   TRY (
     rename1`find_code dest (_ \\ _)` >>
@@ -380,17 +423,21 @@ Theorem evaluate_add_clock
   TRY (
     rename1`call_FFI` >>
     pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >> simp[] ) >>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-Theorem with_clock_ffi
-  `(s with clock := k).ffi = s.ffi`
-  (EVAL_TAC);
+Theorem with_clock_ffi:
+   (s with clock := k).ffi = s.ffi
+Proof
+  EVAL_TAC
+QED
 
-Theorem evaluate_add_clock_io_events_mono
-  `∀e s.
+Theorem evaluate_add_clock_io_events_mono:
+   ∀e s.
      (SND(evaluate(e,s))).ffi.io_events ≼
-     (SND(evaluate(e,s with clock := s.clock + extra))).ffi.io_events`
-  (recInduct evaluate_ind >>
+     (SND(evaluate(e,s with clock := s.clock + extra))).ffi.io_events
+Proof
+  recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM,get_var_def] >>
   TRY BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
   TRY (
@@ -429,7 +476,8 @@ Theorem evaluate_add_clock_io_events_mono
     rename1 `buffer_flush _ _ _ = _`>>
     pairarg_tac>>fs[]>>
     every_case_tac >> fs[get_var_def])>>
-  metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]);
+  metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]
+QED
 
 val clock_neutral_def = Define `
   (clock_neutral (Seq p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
@@ -465,41 +513,48 @@ val inst_clock_neutral_ffi = Q.prove(
   \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def,get_fp_var_def]
   \\ srw_tac[][state_component_equality]));
 
-Theorem evaluate_clock_neutral
-  `!prog s res t.
+Theorem evaluate_clock_neutral:
+   !prog s res t.
       evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
-      evaluate (prog,s with clock := c) = (res,t with clock := c)`
-  (recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+      evaluate (prog,s with clock := c) = (res,t with clock := c)
+Proof
+  recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
   THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
   THEN1 (every_case_tac \\ imp_res_tac inst_clock_neutral \\ full_simp_tac(srw_ss())[])
   THEN1 (Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_THM] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   \\ `get_var_imm ri (s with clock := c) = get_var_imm ri s` by
          (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]);
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
+QED
 
-Theorem evaluate_ffi_neutral
-  `!prog s res t.
+Theorem evaluate_ffi_neutral:
+   !prog s res t.
       evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
-      evaluate (prog,s with ffi := c) = (res,t with ffi := c)`
-  (recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+      evaluate (prog,s with ffi := c) = (res,t with ffi := c)
+Proof
+  recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
   THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[empty_env_def])
   THEN1 (every_case_tac \\ imp_res_tac inst_clock_neutral_ffi \\ full_simp_tac(srw_ss())[])
   THEN1 (Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_THM] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   \\ `get_var_imm ri (s with ffi := c) = get_var_imm ri s` by
          (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]);
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
+QED
 
-Theorem semantics_Terminate_IMP_PREFIX
-  `semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l`
-  (full_simp_tac(srw_ss())[semantics_def,LET_DEF] \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
+Theorem semantics_Terminate_IMP_PREFIX:
+   semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l
+Proof
+  full_simp_tac(srw_ss())[semantics_def,LET_DEF] \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   \\ DEEP_INTRO_TAC some_intro \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ imp_res_tac evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]);
+  \\ imp_res_tac evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]
+QED
 
-Theorem semantics_Diverge_IMP_LPREFIX
-  `semantics start s1 = Diverge l ==> LPREFIX (fromList s1.ffi.io_events) l`
-  (simp[semantics_def] >> IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+Theorem semantics_Diverge_IMP_LPREFIX:
+   semantics start s1 = Diverge l ==> LPREFIX (fromList s1.ffi.io_events) l
+Proof
+  simp[semantics_def] >> IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> srw_tac[][] >>
   qmatch_abbrev_tac`LPREFIX l1 (build_lprefix_lub l2)` >>
   `l1 ∈ l2 ∧ lprefix_chain l2` suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_def] >>
@@ -516,34 +571,39 @@ Theorem semantics_Diverge_IMP_LPREFIX
   simp[LESS_EQ_EXISTS] >>
   metis_tac[evaluate_add_clock_io_events_mono,
             EVAL``(s with clock := k).clock``,
-            EVAL``((s with clock := k) with clock := k2) = (s with clock := k2)``]);
+            EVAL``((s with clock := k) with clock := k2) = (s with clock := k2)``]
+QED
 
-Theorem map_bitmap_length `
-  ∀a b c x y z.
+Theorem map_bitmap_length:
+    ∀a b c x y z.
   map_bitmap a b c = SOME(x,y,z) ⇒
   LENGTH c = LENGTH x + LENGTH z ∧
-  LENGTH x = LENGTH a`
-  (Induct>>rw[]>>
+  LENGTH x = LENGTH a
+Proof
+  Induct>>rw[]>>
   Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
   fs[map_bitmap_def]>>
   TRY(qpat_x_assum`A=x` (SUBST_ALL_TAC o SYM))>>
   TRY(qpat_x_assum`A=y` (SUBST_ALL_TAC o SYM))>>
   fs[LENGTH_NIL]>>
   pop_assum mp_tac>>every_case_tac>>rw[]>>res_tac>>
-  fs[]>>DECIDE_TAC);
+  fs[]>>DECIDE_TAC
+QED
 
-Theorem dec_stack_length `
-  ∀bs enc orig_stack new_stack.
+Theorem dec_stack_length:
+    ∀bs enc orig_stack new_stack.
   dec_stack bs enc orig_stack = SOME new_stack ⇒
-  LENGTH orig_stack = LENGTH new_stack`
-  (ho_match_mp_tac stackSemTheory.dec_stack_ind>>
+  LENGTH orig_stack = LENGTH new_stack
+Proof
+  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
   fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
   pop_assum mp_tac>>
   Cases_on`w`>>fs[full_read_bitmap_def]>>
   every_case_tac>>fs[]>>
   rw[]>>
   imp_res_tac map_bitmap_length>>
-  simp[]>>metis_tac[])
+  simp[]>>metis_tac[]
+QED
 
 val extract_labels_def = Define`
   (extract_labels (Call ret dest h) =
@@ -563,14 +623,16 @@ val extract_labels_def = Define`
     (extract_labels e2 ++ extract_labels e3)) ∧
   (extract_labels _ = [])`
 
-Theorem find_code_IMP_get_labels
-  `find_code d r code = SOME e ==>
-    get_labels e SUBSET loc_check code`
-  (Cases_on `d`
+Theorem find_code_IMP_get_labels:
+   find_code d r code = SOME e ==>
+    get_labels e SUBSET loc_check code
+Proof
+  Cases_on `d`
   \\ fs [stackSemTheory.find_code_def,SUBSET_DEF,IN_DEF,
          loc_check_def,FORALL_PROD]
   \\ every_case_tac \\ fs []
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
 (* TODO: This is not updated for Install, CBW and DBW *)
 (* asm_ok out of stack_names *)
@@ -615,7 +677,7 @@ val arith_name_def = Define`
   (arith_name (LongMul r1 r2 r3 r4) c ⇔
     reg_name r1 c ∧ reg_name r2 c ∧ reg_name r3 c ∧ reg_name r4 c ∧
     (c.ISA = x86_64 ⇒ r1 = 3 ∧ r2 = 0 ∧ r3 = 0) ∧
-    (c.ISA = ARMv6 ⇒ r1 ≠ r2) ∧
+    (c.ISA = ARMv7 ⇒ r1 ≠ r2) ∧
     (c.ISA = ARMv8 ∨ c.ISA = RISC_V ∨ c.ISA = Ag32 ⇒ r1 ≠ r3 ∧ r1 ≠ r4)) ∧
   (arith_name (LongDiv r1 r2 r3 r4 r5) c ⇔
     c.ISA = x86_64 ∧ r1 = 0 ∧ r2 = 3 ∧ r3 = 3 ∧ r4 = 0 ∧
@@ -658,6 +720,10 @@ val fp_name_def = Define `
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_name (FPDiv d1 d2 d3) c <=>
       (c.two_reg_arith ==> (d1 = d2)) /\
+      fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
+  (fp_name (FPFma d1 d2 d3) c <=>
+      (c.ISA = ARMv7) /\
+      2 < c.fp_reg_count /\
       fp_reg_ok d1 c /\ fp_reg_ok d2 c /\ fp_reg_ok d3 c) /\
   (fp_name (FPMov d1 d2) c <=> fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_name (FPMovToReg r1 r2 d) (c : 'a asm_config) <=>

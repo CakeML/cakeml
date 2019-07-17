@@ -9,6 +9,7 @@ open to_word32ProgTheory std_preludeTheory;
 val _ = new_theory "to_target32Prog"
 
 val _ = translation_extends "to_word32Prog";
+val _ = ml_translatorLib.use_string_type true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target32Prog");
 
@@ -264,9 +265,9 @@ val monadic_enc32_enc_sec_hash_32_ls_side_def = Q.prove(`
   simp[Once (fetch "-" "monadic_enc32_enc_sec_hash_32_ls_side_def")]>>
   metis_tac[monadic_enc32_enc_line_hash_32_ls_side_def]);
 
-Theorem monadic_enc32_enc_secs_32_side_def
-  `monadic_enc32_enc_secs_32_side a b c ⇔ T`
-  (EVAL_TAC>>
+Theorem monadic_enc32_enc_secs_32_side_def = Q.prove(`
+  monadic_enc32_enc_secs_32_side a b c ⇔ T`,
+  EVAL_TAC>>
   rw[]>>
   metis_tac[monadic_enc32_enc_sec_hash_32_ls_side_def,DECIDE``1n ≠ 0``])
   |> update_precondition;

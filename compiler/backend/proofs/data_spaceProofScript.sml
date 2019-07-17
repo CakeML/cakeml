@@ -20,10 +20,12 @@ val mk_wf_inter = Q.prove(
   `!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)`,
   full_simp_tac(srw_ss())[]);
 
-Theorem get_vars_IMP_LENGTH
-  `!xs s l. get_vars xs s = SOME l ==> (LENGTH l = LENGTH xs)`
-  (Induct \\ fs [get_vars_def] \\ rw [] \\ every_case_tac \\ fs []
-  \\ rw [] \\ fs [] \\ res_tac \\ fs []);
+Theorem get_vars_IMP_LENGTH:
+   !xs s l. get_vars xs s = SOME l ==> (LENGTH l = LENGTH xs)
+Proof
+  Induct \\ fs [get_vars_def] \\ rw [] \\ every_case_tac \\ fs []
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+QED
 
 val case_eq_thms = bvlPropsTheory.case_eq_thms;
 
@@ -373,23 +375,26 @@ val evaluate_compile = Q.prove(
            dec_clock_def] \\ METIS_TAC [])
     \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
 
-Theorem compile_correct
-  `!c s.
+Theorem compile_correct:
+   !c s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
-      (evaluate (compile c, s) = evaluate (c,s))`
-  (REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
+      (evaluate (compile c, s) = evaluate (c,s))
+Proof
+  REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
   \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_compile)
   \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
   \\ POP_ASSUM (MP_TAC o Q.SPECL [`s.locals`])
   \\ full_simp_tac(srw_ss())[locals_ok_refl]
-  \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[with_same_locals]);
+  \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[with_same_locals]
+QED
 
-Theorem get_code_labels_space
-  `∀x y y0 y1 y2.
+Theorem get_code_labels_space:
+   ∀x y y0 y1 y2.
    (space x = INL y ⇒ get_code_labels y = get_code_labels x) ∧
-   (space x = INR (y0,y1,y2) ⇒ get_code_labels y2 = get_code_labels x)`
-  (recInduct data_spaceTheory.space_ind
+   (space x = INR (y0,y1,y2) ⇒ get_code_labels y2 = get_code_labels x)
+Proof
+  recInduct data_spaceTheory.space_ind
   \\ rw[data_spaceTheory.space_def] \\ simp[]
   \\ fs[CaseEq"sum",CaseEq"dataLang$prog"] \\ rveq \\ fs[data_spaceTheory.space_def]
   \\ fs[data_spaceTheory.pMakeSpace_def]
@@ -399,15 +404,18 @@ Theorem get_code_labels_space
   \\ Cases_on`space c2` \\ Cases_on`space c3` \\ fs[] \\ TRY(PairCases_on`y`)
   \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
   \\ PairCases_on`y'`
-  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]);
+  \\ fs[data_spaceTheory.pMakeSpace_def,CaseEq"option",data_spaceTheory.space_def]
+QED
 
-Theorem get_code_labels_compile[simp]
-  `∀x. get_code_labels (data_space$compile x) = get_code_labels x`
-  (rw[data_spaceTheory.compile_def]
+Theorem get_code_labels_compile[simp]:
+   ∀x. get_code_labels (data_space$compile x) = get_code_labels x
+Proof
+  rw[data_spaceTheory.compile_def]
   \\ Cases_on`space x`
   \\ simp[data_spaceTheory.pMakeSpace_def]
   \\ TRY (PairCases_on`y`)
   \\ simp[data_spaceTheory.pMakeSpace_def]
-  \\ imp_res_tac get_code_labels_space);
+  \\ imp_res_tac get_code_labels_space
+QED
 
 val _ = export_theory();

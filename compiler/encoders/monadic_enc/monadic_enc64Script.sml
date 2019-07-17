@@ -118,47 +118,55 @@ val enc_secs_64_def = Define`
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
 
-Theorem Msub_eqn[simp] `
-  ∀e n ls v.
+Theorem Msub_eqn[simp]:
+    ∀e n ls v.
   Msub e n ls =
   if n < LENGTH ls then Success (EL n ls)
-                   else Failure e`
-  (ho_match_mp_tac Msub_ind>>rw[]>>
+                   else Failure e
+Proof
+  ho_match_mp_tac Msub_ind>>rw[]>>
   simp[Once Msub_def]>>
   Cases_on`ls`>>fs[]>>
   IF_CASES_TAC>>fs[]>>
-  Cases_on`n`>>fs[]);
+  Cases_on`n`>>fs[]
+QED
 
-Theorem hash_tab_64_sub_eqn[simp] `
-  hash_tab_64_sub n s =
+Theorem hash_tab_64_sub_eqn[simp]:
+    hash_tab_64_sub n s =
   if n < LENGTH s.hash_tab_64 then
     (Success (EL n s.hash_tab_64),s)
   else
-    (Failure (Subscript),s)`
-  (rw[fetch "-" "hash_tab_64_sub_def"]>>
-  fs[Marray_sub_def]);
+    (Failure (Subscript),s)
+Proof
+  rw[fetch "-" "hash_tab_64_sub_def"]>>
+  fs[Marray_sub_def]
+QED
 
-Theorem Mupdate_eqn[simp] `
-  ∀e x n ls.
+Theorem Mupdate_eqn[simp]:
+    ∀e x n ls.
   Mupdate e x n ls =
   if n < LENGTH ls then
     Success (LUPDATE x n ls)
   else
-    Failure e`
-  (ho_match_mp_tac Mupdate_ind>>rw[]>>
+    Failure e
+Proof
+  ho_match_mp_tac Mupdate_ind>>rw[]>>
   simp[Once Mupdate_def]>>
   Cases_on`ls`>>fs[]>>
   IF_CASES_TAC>>fs[LUPDATE_def]>>
-  Cases_on`n`>>fs[LUPDATE_def]);
+  Cases_on`n`>>fs[LUPDATE_def]
+QED
 
-Theorem update_hash_tab_64_eqn[simp] `
-  update_hash_tab_64 n t s =
+Theorem update_hash_tab_64_eqn[simp]:
+    update_hash_tab_64 n t s =
   if n < LENGTH s.hash_tab_64 then
      (Success (),s with hash_tab_64 := LUPDATE t n s.hash_tab_64)
   else
-     (Failure (Subscript),s)`
-  (rw[fetch "-" "update_hash_tab_64_def"]>>
-  fs[Marray_update_def]);
+     (Failure (Subscript),s)
+Proof
+  rw[fetch "-" "update_hash_tab_64_def"]>>
+  fs[Marray_update_def]
+QED
 
 val good_table_64_def = Define`
   good_table_64 enc n s ⇔
@@ -238,10 +246,10 @@ val enc_sec_hash_64_ls_correct = Q.prove(`
   first_x_assum drule>>rw[]>>
   simp[enc_sec_def]);
 
-Theorem enc_secs_64_correct`
+Theorem enc_secs_64_correct:
   enc_secs_64 enc n xs =
-  (enc_sec_list enc xs)`
-  (
+  (enc_sec_list enc xs)
+Proof
   fs[enc_secs_64_def,enc_secs_64_aux_def]>>
   fs[fetch "-" "run_ienc_state_64_def",run_def]>>
   simp[enc_sec_hash_64_ls_full_def]>>
@@ -250,6 +258,7 @@ Theorem enc_secs_64_correct`
   impl_tac>-
     (unabbrev_all_tac>>fs[good_table_64_def,EVERY_REPLICATE])>>
   rw[]>>
-  fs[enc_sec_list_def]);
+  fs[enc_sec_list_def]
+QED
 
 val _ = export_theory();

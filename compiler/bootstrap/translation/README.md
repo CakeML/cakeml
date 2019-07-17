@@ -7,8 +7,8 @@ the original shallow embedding.
 [ag32ProgScript.sml](ag32ProgScript.sml):
 Translate the ag32 instruction encoder and ag32-specific config.
 
-[arm6ProgScript.sml](arm6ProgScript.sml):
-Translate the ARMv6 instruction encoder and ARMv6-specific config.
+[arm7ProgScript.sml](arm7ProgScript.sml):
+Translate the ARMv7 instruction encoder and ARMv7-specific config.
 
 [arm8ProgScript.sml](arm8ProgScript.sml):
 Translate the ARMv8 instruction encoder and ARMv8-specific config.

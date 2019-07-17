@@ -21,8 +21,11 @@ val _ = Globals.max_print_depth := 20
 val lookup0_def = Define`
   lookup0 w t = case mlmap$lookup t w of NONE => 0n | SOME n => n`;
 
-Theorem lookup0_empty[simp]
-  `!w cmp. lookup0 w (empty cmp) = 0` (EVAL_TAC \\ fs []);
+Theorem lookup0_empty[simp]:
+   !w cmp. lookup0 w (empty cmp) = 0
+Proof
+EVAL_TAC \\ fs []
+QED
 
 val insert_word_def = Define`
   insert_word t w =
@@ -34,14 +37,16 @@ val insert_line_def = Define`
 
 (* and their verification *)
 
-Theorem lookup0_insert
-  `map_ok t ⇒
+Theorem lookup0_insert:
+   map_ok t ⇒
    lookup0 k (insert t k' v) =
-   if k = k' then v else lookup0 k t`
-  (rw [lookup0_def,lookup_insert]);
+   if k = k' then v else lookup0 k t
+Proof
+  rw [lookup0_def,lookup_insert]
+QED
 
-Theorem insert_line_thm
-  `map_ok t ∧
+Theorem insert_line_thm:
+   map_ok t ∧
    insert_line t s = t'
    ⇒
    map_ok t' ∧
@@ -49,18 +54,20 @@ Theorem insert_line_thm
         lookup0 w t + frequency s w) ∧
    cmp_of t' = cmp_of t ∧
    FDOM (to_fmap t') =
-   FDOM (to_fmap t) ∪ set (splitwords s)`
-  (strip_tac \\ rveq \\
+   FDOM (to_fmap t) ∪ set (splitwords s)
+Proof
+  strip_tac \\ rveq \\
   simp[insert_line_def,splitwords_def,frequency_def] \\
   Q.SPEC_TAC(`tokens isSpace s`,`ls`) \\
   ho_match_mp_tac SNOC_INDUCT \\ simp[] \\
   ntac 3 strip_tac \\
   simp[MAP_SNOC,FOLDL_SNOC,insert_word_def] \\
   rw [insert_thm,lookup0_insert,FILTER_SNOC] \\
-  rw [EXTENSION] \\ metis_tac []);
+  rw [EXTENSION] \\ metis_tac []
+QED
 
-Theorem FOLDL_insert_line
-  `∀ls t t' s.
+Theorem FOLDL_insert_line:
+   ∀ls t t' s.
     map_ok t ∧ t' = FOLDL insert_line t ls ∧
     EVERY (λw. ∃x. w = strcat x (strlit "\n")) ls ∧
     s = concat ls
@@ -68,15 +75,17 @@ Theorem FOLDL_insert_line
     map_ok t' ∧
     cmp_of t' = cmp_of t /\
     (∀w. lookup0 w t' = lookup0 w t + frequency s w) ∧
-    FDOM (to_fmap t') = FDOM (to_fmap t) ∪ set (splitwords s)`
-  (Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
+    FDOM (to_fmap t') = FDOM (to_fmap t) ∪ set (splitwords s)
+Proof
+  Induct \\ simp[concat_nil,concat_cons] \\ ntac 3 strip_tac \\
   rename1`insert_line t w` \\
   imp_res_tac insert_line_thm \\ fs[] \\
   `strlit "\n" = str #"\n"` by EVAL_TAC \\
   `isSpace #"\n"` by EVAL_TAC \\
   first_x_assum drule \\
   rw[frequency_concat,splitwords_concat,frequency_concat_space,splitwords_concat_space] \\
-  rw[EXTENSION] \\ metis_tac[]);
+  rw[EXTENSION] \\ metis_tac[]
+QED
 
 (* Translation of wordfreq helper functions *)
 
@@ -130,9 +139,10 @@ val valid_wordfreq_output_def = Define`
    file_contents and output, it is actually functional (there is only one correct
    output). We prove this below: existence and uniqueness. *)
 
-Theorem valid_wordfreq_output_exists
-  `∃output. valid_wordfreq_output file_chars output`
-  (rw[valid_wordfreq_output_def] \\
+Theorem valid_wordfreq_output_exists:
+   ∃output. valid_wordfreq_output file_chars output
+Proof
+  rw[valid_wordfreq_output_def] \\
   qexists_tac`QSORT $<= (nub (splitwords file_chars))` \\
   qmatch_goalsub_abbrev_tac`set l1 = LIST_TO_SET l2` \\
   `PERM (nub l2) l1` by metis_tac[QSORT_PERM] \\
@@ -143,11 +153,13 @@ Theorem valid_wordfreq_output_exists
   conj_tac >- metis_tac[ALL_DISTINCT_PERM,all_distinct_nub] \\
   match_mp_tac QSORT_SORTED \\
   simp[transitive_def,total_def] \\
-  metis_tac[mlstring_lt_trans,mlstring_lt_cases]);
+  metis_tac[mlstring_lt_trans,mlstring_lt_cases]
+QED
 
-Theorem valid_wordfreq_output_unique
-  `∀out1 out2. valid_wordfreq_output s out1 ∧ valid_wordfreq_output s out2 ⇒ out1 = out2`
-  (rw[valid_wordfreq_output_def] \\
+Theorem valid_wordfreq_output_unique:
+   ∀out1 out2. valid_wordfreq_output s out1 ∧ valid_wordfreq_output s out2 ⇒ out1 = out2
+Proof
+  rw[valid_wordfreq_output_def] \\
   rpt AP_TERM_TAC \\
   match_mp_tac (MP_CANON SORTED_PERM_EQ) \\
   instantiate \\
@@ -159,7 +171,8 @@ Theorem valid_wordfreq_output_unique
     instantiate \\ simp[irreflexive_def] \\
     metis_tac[mlstring_lt_nonrefl] ) \\
   fs[ALL_DISTINCT_PERM_LIST_TO_SET_TO_LIST] \\
-  metis_tac[PERM_TRANS,PERM_SYM]);
+  metis_tac[PERM_TRANS,PERM_SYM]
+QED
 
 (* Now we can define a function that is the unique valid output for a given
    file_contents. Note that this function does not have a computable
@@ -180,11 +193,12 @@ val wordfreq_output_spec_def =
    you like.)
 *)
 
-Theorem wordfreq_output_valid
-  `!file_contents.
+Theorem wordfreq_output_valid:
+   !file_contents.
      valid_wordfreq_output file_contents
-       (concat (compute_wordfreq_output (lines_of file_contents)))`
-  (rw[valid_wordfreq_output_def,compute_wordfreq_output_def] \\
+       (concat (compute_wordfreq_output (lines_of file_contents)))
+Proof
+  rw[valid_wordfreq_output_def,compute_wordfreq_output_def] \\
   qmatch_goalsub_abbrev_tac`MAP format_output ls` \\
   (* EXERCISE: what is the list of words to use here? *)
   (* hint: toAscList returns a list of pairs, and you can use
@@ -219,14 +233,15 @@ Theorem wordfreq_output_valid
   (* hint: also consider using lookup_thm *)
   (* hint: the following idiom is useful for specialising an assumption:
      first_x_assum (qspec_then `<insert specialisation here>` mp_tac) *)
-);
+QED
 
-Theorem wordfreq_output_spec_unique
-  `valid_wordfreq_output file_chars output ⇒
-   wordfreq_output_spec file_chars = output`
-  ((* EXERCISE: prove this *)
+Theorem wordfreq_output_spec_unique:
+   valid_wordfreq_output file_chars output ⇒
+   wordfreq_output_spec file_chars = output
+Proof
+  (* EXERCISE: prove this *)
   (* hint: it's a one-liner *)
-);
+QED
 
 (* This will be needed for xlet_auto to handle our use of List.foldl *)
 val empty_v_thm = MapProgTheory.empty_v_thm |> Q.GENL[`a`,`b`] |> Q.ISPECL[`STRING_TYPE`,`NUM`];
@@ -284,19 +299,21 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
 
 (* Finally, we package the verified program up with the following boilerplate *)
 
-Theorem wordfreq_whole_prog_spec
-  `hasFreeFD fs ∧ inFS_fname fs fname ∧
+Theorem wordfreq_whole_prog_spec:
+   hasFreeFD fs ∧ inFS_fname fs fname ∧
    cl = [pname; fname] ∧
    contents = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname)))))   ⇒
    whole_prog_spec ^(fetch_v "wordfreq" (get_ml_prog_state())) cl fs NONE
-         ((=) (add_stdout fs (wordfreq_output_spec contents)))`
-  (disch_then assume_tac
+         ((=) (add_stdout fs (wordfreq_output_spec contents)))
+Proof
+  disch_then assume_tac
   \\ simp[whole_prog_spec_def]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ simp[Abbr`fs1`,GSYM add_stdo_with_numchars,with_same_numchars]
   \\ match_mp_tac (MP_CANON (MATCH_MP app_wgframe (UNDISCH wordfreq_spec)))
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
 val (sem_thm,prog_tm) = whole_prog_thm (get_ml_prog_state ()) "wordfreq" (UNDISCH wordfreq_whole_prog_spec)
 val wordfreq_prog_def = Define `wordfreq_prog = ^prog_tm`;

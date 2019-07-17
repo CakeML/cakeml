@@ -7,6 +7,7 @@ val _ = new_theory "to_closProg";
 val _ = translation_extends "to_patProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_closProg");
+val _ = ml_translatorLib.use_string_type true;
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
@@ -120,9 +121,9 @@ val clos_known_known_op_side = Q.prove(`
 
 val r = translate clos_knownTheory.free_def;
 
-Theorem clos_known_free_side
-  `!x. clos_known_free_side x`
-  (ho_match_mp_tac clos_knownTheory.free_ind \\ rw []
+Theorem clos_known_free_side = Q.prove(`
+  !x. clos_known_free_side x`,
+  ho_match_mp_tac clos_knownTheory.free_ind \\ rw []
   \\ `!xs ys l. free xs = (ys, l) ==> LENGTH xs = LENGTH ys` by
    (ho_match_mp_tac clos_knownTheory.free_ind
     \\ rw [] \\ fs [clos_knownTheory.free_def]
@@ -256,8 +257,7 @@ val clos_annotate_shift_side = Q.prove(`
   ho_match_mp_tac clos_annotateTheory.shift_ind>>
   `∀a b c d. shift [a] b c d ≠ []` by
     (CCONTR_TAC>>fs[]>>
-    imp_res_tac clos_annotateTheory.shift_SING>>
-    fs[])>>
+    metis_tac[clos_annotateTheory.shift_SING,list_distinct])>>
   rw[]>>
   simp[Once (fetch "-" "clos_annotate_shift_side_def")]>>
   rw[]>> metis_tac[]) |> update_precondition;
@@ -285,4 +285,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
 val _ = export_theory ();
-

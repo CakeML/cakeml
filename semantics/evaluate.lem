@@ -237,3 +237,4 @@ evaluate_decs st env [Dlocal lds ds] =
 
 declare {isabelle} rename function evaluate = fun_evaluate
 declare {isabelle} rename function evaluate_match = fun_evaluate_match
+declare {isabelle} rename function evaluate_decs = fun_evaluate_decs

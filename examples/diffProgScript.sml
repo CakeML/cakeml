@@ -87,8 +87,8 @@ val _ = (append_prog o process_topdecs) `
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
           | Some lines2 => TextIO.print_list (diff_alg2 lines1 lines2)`
 
-Theorem diff'_spec
-  `FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
+Theorem diff'_spec:
+   FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
    hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"diff'"(get_ml_prog_state()))
@@ -103,8 +103,9 @@ Theorem diff'_spec
               concat ((diff_alg2 (all_lines fs f1)
                                  (all_lines fs f2))))
          else add_stderr fs (notfound_string f2)
-         else add_stderr fs (notfound_string f1)))`
-  (xcf"diff'"(get_ml_prog_state())
+         else add_stderr fs (notfound_string f1)))
+Proof
+  xcf"diff'"(get_ml_prog_state())
   \\ xlet_auto_spec(SOME inputLinesFrom_spec)
   >- xsimpl
   \\ xmatch \\ reverse(Cases_on `inFS_fname fs f1`)
@@ -128,7 +129,8 @@ Theorem diff'_spec
   \\ PURE_REWRITE_TAC [GSYM CONJ_ASSOC] \\ reverse strip_tac
   >- (EVAL_TAC \\ rw[])
   \\ xlet_auto >- xsimpl
-  \\ xapp \\ rw[]);
+  \\ xapp \\ rw[]
+QED
 
 val _ = (append_prog o process_topdecs) `
   fun diff u =
@@ -150,15 +152,16 @@ val diff_sem_def = Define`
     else add_stderr fs (notfound_string (EL 1 cl))
     else add_stderr fs usage_string`;
 
-Theorem diff_spec
-  `hasFreeFD fs
+Theorem diff_spec:
+   hasFreeFD fs
    ⇒
    app (p:'ffi ffi_proj) ^(fetch_v"diff"(get_ml_prog_state()))
      [Conv NONE []]
      (STDIO fs * COMMANDLINE cl)
      (POSTv uv. &UNIT_TYPE () uv *
-                STDIO (diff_sem cl fs) * (COMMANDLINE cl))`
-  (once_rewrite_tac[diff_sem_def]
+                STDIO (diff_sem cl fs) * (COMMANDLINE cl))
+Proof
+  once_rewrite_tac[diff_sem_def]
   \\ strip_tac \\ xcf "diff" (get_ml_prog_state())
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull)
@@ -182,20 +185,23 @@ Theorem diff_spec
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `h''`
   \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `h'`
   \\ xsimpl \\ fs[FILENAME_def]
-  \\ fs[validArg_def,EVERY_MEM]);
+  \\ fs[validArg_def,EVERY_MEM]
+QED
 
 val st = get_ml_prog_state();
 
-Theorem diff_whole_prog_spec
-  `hasFreeFD fs ⇒
-   whole_prog_spec ^(fetch_v"diff"st) cl fs NONE ((=) (diff_sem cl fs))`
-  (rw[whole_prog_spec_def]
+Theorem diff_whole_prog_spec:
+   hasFreeFD fs ⇒
+   whole_prog_spec ^(fetch_v"diff"st) cl fs NONE ((=) (diff_sem cl fs))
+Proof
+  rw[whole_prog_spec_def]
   \\ qexists_tac`diff_sem cl fs`
   \\ reverse conj_tac
   >- ( rw[diff_sem_def,GSYM add_stdo_with_numchars,with_same_numchars] )
   \\ simp [SEP_CLAUSES]
   \\ match_mp_tac (MP_CANON (DISCH_ALL (MATCH_MP app_wgframe (UNDISCH diff_spec))))
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
 val name = "diff"
 val (sem_thm,prog_tm) = whole_prog_thm st name (UNDISCH diff_whole_prog_spec)

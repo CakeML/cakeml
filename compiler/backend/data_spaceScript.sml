@@ -20,10 +20,12 @@ val op_space_req_def = Define `
   (op_space_req (WordFromWord F) _ = 3) /\
   (op_space_req (FP_uop _) v9 = 3) /\
   (op_space_req (FP_bop _) v9 = 3) /\
+  (op_space_req (FP_top _) v9 = 3) /\
   (op_space_req _ _ = 0)`;
 
 (*
-Theorem op_space_req_pmatch `!op l.
+Theorem op_space_req_pmatch:
+  !op l.
   op_space_req op l =
     case op of
       Cons _ => if l = 0n then 0 else l+1
@@ -35,10 +37,12 @@ Theorem op_space_req_pmatch `!op l.
     | WordFromWord b => (if b then 0 else 3)
     | FP_uop _ => 3
     | FP_bop _ => 3
-    | _ => 0`
-  (rpt strip_tac
+    | _ => 0
+Proof
+  rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  >> every_case_tac >> fs[op_space_req_def]);
+  >> every_case_tac >> fs[op_space_req_def]
+QED
 *)
 
 val pMakeSpace_def = Define `
@@ -72,7 +76,8 @@ val space_def = Define `
      INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))) /\
   (space c = INL c)`;
 
-Theorem space_pmatch `∀c.
+Theorem space_pmatch:
+  ∀c.
   space c =
     case c of
     | MakeSpace k names => INR (k,names,Skip)
@@ -99,11 +104,13 @@ Theorem space_pmatch `∀c.
            | _ => INL (Seq d1 (pMakeSpace x2))))
     | If n c2 c3 =>
       INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))
-    | c => INL c`
-  (rpt strip_tac
+    | c => INL c
+Proof
+  rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   >> every_case_tac >> TRY(PURE_REWRITE_TAC [LET_DEF] >> BETA_TAC))
-  >> fs[space_def]);
+  >> fs[space_def]
+QED
 
 val compile_def = Define `
   compile c = pMakeSpace (space c)`;

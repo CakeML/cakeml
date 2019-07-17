@@ -5,7 +5,7 @@ INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
            ../.. ../../backend/reg_alloc ../../backend/reg_alloc/proofs\
 					 ../../encoders/monadic_enc\
 					 ../../encoders/x64   ../../backend/x64 $(HOLDIR)/examples/l3-machine-code/x64/model\
-					 ../../encoders/arm6  ../../backend/arm6 $(HOLDIR)/examples/l3-machine-code/arm/model\
+					 ../../encoders/arm7  ../../backend/arm7 $(HOLDIR)/examples/l3-machine-code/arm/model\
            ../../encoders/riscv ../../backend/riscv $(HOLDIR)/examples/l3-machine-code/riscv/model\
            ../../encoders/mips  ../../backend/mips $(HOLDIR)/examples/l3-machine-code/mips/model\
            ../../encoders/arm8  ../../backend/arm8 $(HOLDIR)/examples/l3-machine-code/arm8/model\

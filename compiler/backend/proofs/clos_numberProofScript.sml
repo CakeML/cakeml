@@ -31,31 +31,39 @@ fun tac (g as (asl,w)) =
     map_every (fn tm => Cases_on [ANTIQUOTE tm]) tms g
   end
 
-Theorem renumber_code_locs_list_IMP_LENGTH
-  `renumber_code_locs_list loc es = (l1,es2) ==> LENGTH es2 = LENGTH es`
-  (metis_tac [SND,renumber_code_locs_length]);
+Theorem renumber_code_locs_list_IMP_LENGTH:
+   renumber_code_locs_list loc es = (l1,es2) ==> LENGTH es2 = LENGTH es
+Proof
+  metis_tac [SND,renumber_code_locs_length]
+QED
 
-Theorem renumber_code_locs_inc
-  `(∀n es. n ≤ FST (renumber_code_locs_list n es)) ∧
-    (∀n e. n ≤ FST (renumber_code_locs n e))`
-  (ho_match_mp_tac renumber_code_locs_ind >>
+Theorem renumber_code_locs_inc:
+   (∀n es. n ≤ FST (renumber_code_locs_list n es)) ∧
+    (∀n e. n ≤ FST (renumber_code_locs n e))
+Proof
+  ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> srw_tac[][] >>
   tac >> full_simp_tac(srw_ss())[] >>
   tac >> full_simp_tac(srw_ss())[] >>
   tac >> full_simp_tac(srw_ss())[] >> simp[] >>
-  pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]);
+  pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[]
+QED
 
-Theorem renumber_code_locs_imp_inc
-  `(renumber_code_locs_list n es = (m,vs) ⇒ n ≤ m) ∧
-    (renumber_code_locs n e = (z,v) ⇒ n ≤ z)`
-  (metis_tac[pairTheory.pair_CASES,pairTheory.FST,renumber_code_locs_inc])
+Theorem renumber_code_locs_imp_inc:
+   (renumber_code_locs_list n es = (m,vs) ⇒ n ≤ m) ∧
+    (renumber_code_locs n e = (z,v) ⇒ n ≤ z)
+Proof
+  metis_tac[pairTheory.pair_CASES,pairTheory.FST,renumber_code_locs_inc]
+QED
 
-Theorem renumber_code_locs_list_length
-  `∀ls n x y. renumber_code_locs_list n ls = (x,y) ⇒ LENGTH y = LENGTH ls`
-  (Induct >> simp[renumber_code_locs_def,LENGTH_NIL] >> srw_tac[][] >>
+Theorem renumber_code_locs_list_length:
+   ∀ls n x y. renumber_code_locs_list n ls = (x,y) ⇒ LENGTH y = LENGTH ls
+Proof
+  Induct >> simp[renumber_code_locs_def,LENGTH_NIL] >> srw_tac[][] >>
   Cases_on`renumber_code_locs n h`>>full_simp_tac(srw_ss())[]>>
   Cases_on`renumber_code_locs_list q ls`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-  res_tac)
+  res_tac
+QED
 
 val renumber_code_locs_distinct_lemma = Q.prove(
   `(∀n es. SORTED $< (code_locs (SND (renumber_code_locs_list n es))) ∧
@@ -111,27 +119,31 @@ val renumber_code_locs_distinct_lemma = Q.prove(
   rev_full_simp_tac(srw_ss())[MAP_ZIP] >>
   srw_tac[][] >> full_simp_tac(srw_ss())[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][MAP_ZIP]);
 
-Theorem renumber_code_locs_distinct
-  `∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)]) ∧
+Theorem renumber_code_locs_distinct:
+   ∀n e. ALL_DISTINCT (code_locs [SND (renumber_code_locs n e)]) ∧
           EVERY ($<= n) (code_locs [SND (renumber_code_locs n e)]) ∧
-          EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)])`
-  (srw_tac[][] >>
+          EVERY ($> (FST (renumber_code_locs n e))) (code_locs [SND (renumber_code_locs n e)])
+Proof
+  srw_tac[][] >>
   qspecl_then[`n`,`e`]strip_assume_tac (CONJUNCT2 renumber_code_locs_distinct_lemma) >> simp[] >>
   match_mp_tac (MP_CANON (GEN_ALL SORTED_ALL_DISTINCT)) >>
   qexists_tac`$<` >> simp[] >>
-  simp[relationTheory.irreflexive_def])
+  simp[relationTheory.irreflexive_def]
+QED
 
-Theorem renumber_code_locs_list_distinct
-  `!n es.
+Theorem renumber_code_locs_list_distinct:
+   !n es.
      ALL_DISTINCT (code_locs (SND (renumber_code_locs_list n es))) /\
      EVERY ($<= n) (code_locs (SND (renumber_code_locs_list n es))) /\
      EVERY ($> (FST (renumber_code_locs_list n es)))
-           (code_locs (SND (renumber_code_locs_list n es)))`
-  (rw []
+           (code_locs (SND (renumber_code_locs_list n es)))
+Proof
+  rw []
   \\ qspecl_then [`n`,`es`] strip_assume_tac
          (CONJUNCT1 renumber_code_locs_distinct_lemma) \\ fs []
   \\ match_mp_tac (MP_CANON (GEN_ALL SORTED_ALL_DISTINCT))
-  \\ qexists_tac `$<` \\ simp [relationTheory.irreflexive_def]);
+  \\ qexists_tac `$<` \\ simp [relationTheory.irreflexive_def]
+QED
 
 val renumber_code_locs_list_els = Q.prove(
   `∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
@@ -237,16 +249,20 @@ val v_rel_simp = let
             ``v_rel max_app y (Recclosure x1 x2 x3 x4 x5)``] |> LIST_CONJ end
   |> curry save_thm"v_rel_simp"
 
-Theorem v_rel_Boolv[simp]
-  `(v_rel max_app x (Boolv b) ⇔ (x = Boolv b)) ∧
-    (v_rel max_app (Boolv b) x ⇔ (x = Boolv b))`
-  (Cases_on`b`>>srw_tac[][Boolv_def,Once v_rel_cases] >>
-  srw_tac[][Once v_rel_cases])
+Theorem v_rel_Boolv[simp]:
+   (v_rel max_app x (Boolv b) ⇔ (x = Boolv b)) ∧
+    (v_rel max_app (Boolv b) x ⇔ (x = Boolv b))
+Proof
+  Cases_on`b`>>srw_tac[][Boolv_def,Once v_rel_cases] >>
+  srw_tac[][Once v_rel_cases]
+QED
 
-Theorem v_rel_Unit[simp]
-  `(v_rel max_app x Unit ⇔ (x = Unit)) ∧
-    (v_rel max_app Unit x ⇔ (x = Unit))`
-  (EVAL_TAC >> simp[v_rel_simp])
+Theorem v_rel_Unit[simp]:
+   (v_rel max_app x Unit ⇔ (x = Unit)) ∧
+    (v_rel max_app Unit x ⇔ (x = Unit))
+Proof
+  EVAL_TAC >> simp[v_rel_simp]
+QED
 
 (* semantic functions respect relation *)
 
@@ -404,8 +420,8 @@ val do_app_inst =
   |> Q.INST [`sr`|->`\r t. (r.max_app = s.max_app) /\ state_rel r t`]
   |> SIMP_RULE std_ss []
 
-Theorem do_app_lemma
-  `state_rel s t ∧ LIST_REL (v_rel s.max_app) xs ys ⇒
+Theorem do_app_lemma:
+   state_rel s t ∧ LIST_REL (v_rel s.max_app) xs ys ⇒
     case do_app opp xs s of
       Rval (x,s1) =>
         ∃y t1.
@@ -415,8 +431,9 @@ Theorem do_app_lemma
     | Rerr err1 =>
         ∃err2.
           do_app opp ys t = Rerr err2 ∧
-          exc_rel (v_rel s.max_app) err1 err2`
-  (match_mp_tac do_app_inst
+          exc_rel (v_rel s.max_app) err1 err2
+Proof
+  match_mp_tac do_app_inst
   \\ conj_tac THEN1
    (fs [simple_val_rel_def]
     \\ once_rewrite_tac [v_rel_cases] \\ fs []
@@ -432,14 +449,17 @@ Theorem do_app_lemma
     \\ rpt (qpat_x_assum `!x._` kall_tac)
     \\ rfs [] \\ Cases_on `r.refs ' ptr` \\ fs [ref_rel_def])
   \\ rpt gen_tac \\ fs [] \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-Theorem list_to_v_v_rel
-  `!xs ys.
-     LIST_REL (v_rel ap) xs ys ==> v_rel ap (list_to_v xs) (list_to_v ys)`
-  (Induct
+Theorem list_to_v_v_rel:
+   !xs ys.
+     LIST_REL (v_rel ap) xs ys ==> v_rel ap (list_to_v xs) (list_to_v ys)
+Proof
+  Induct
   >- rw [LIST_REL_EL_EQN, v_rel_simp, list_to_v_def]
-  \\ rw [] \\ fs [v_rel_simp, list_to_v_def]);
+  \\ rw [] \\ fs [v_rel_simp, list_to_v_def]
+QED
 
 val do_app = Q.prove(
   `state_rel s1 s2 ∧
@@ -544,19 +564,23 @@ val do_install = Q.prove(
 
 (* compiler correctness *)
 
-Theorem lookup_vars_NONE_related_env
-  `LIST_REL (v_rel max_app) e1 e2 ⇒
-   (lookup_vars vs e1 = NONE ⇔ lookup_vars vs e2 = NONE)`
-  (strip_tac >> `LENGTH e1 = LENGTH e2` by metis_tac[LIST_REL_LENGTH] >>
-  metis_tac[lookup_vars_NONE]);
+Theorem lookup_vars_NONE_related_env:
+   LIST_REL (v_rel max_app) e1 e2 ⇒
+   (lookup_vars vs e1 = NONE ⇔ lookup_vars vs e2 = NONE)
+Proof
+  strip_tac >> `LENGTH e1 = LENGTH e2` by metis_tac[LIST_REL_LENGTH] >>
+  metis_tac[lookup_vars_NONE]
+QED
 
-Theorem lookup_vars_SOME_related_env
-  `LIST_REL (v_rel max_app) e1 e2 ∧ lookup_vars vs e1 = SOME e1' ∧
-   lookup_vars vs e2 = SOME e2' ⇒ LIST_REL (v_rel max_app) e1' e2'`
-  (map_every qid_spec_tac [`e2'`, `e1'`, `e2`, `e1`, `vs`] >> Induct >>
+Theorem lookup_vars_SOME_related_env:
+   LIST_REL (v_rel max_app) e1 e2 ∧ lookup_vars vs e1 = SOME e1' ∧
+   lookup_vars vs e2 = SOME e2' ⇒ LIST_REL (v_rel max_app) e1' e2'
+Proof
+  map_every qid_spec_tac [`e2'`, `e1'`, `e2`, `e1`, `vs`] >> Induct >>
   simp[lookup_vars_def] >>
   dsimp[CaseEq"option"] >> reverse conj_tac >- metis_tac[] >>
-  simp[LIST_REL_EL_EQN]);
+  simp[LIST_REL_EL_EQN]
+QED
 
 (*
 val do_install_Rabort = prove(
@@ -568,8 +592,8 @@ val do_install_Rabort = prove(
   \\ fs [do_install_def,case_eq_thms,pair_case_eq,bool_case_eq]);
 *)
 
-Theorem renumber_code_locs_correct
-  `(!tmp xs env (s1:(num#'c,'ffi) closSem$state) env' t1 res s2 n.
+Theorem renumber_code_locs_correct:
+   (!tmp xs env (s1:(num#'c,'ffi) closSem$state) env' t1 res s2 n.
      tmp = (xs,env,s1) ∧
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) ⇒
      ¬contains_App_SOME s1.max_app xs ∧
@@ -589,8 +613,9 @@ Theorem renumber_code_locs_correct
        ?res' t2.
           (evaluate_app loc f' args' t1 = (res',t2)) /\
           result_rel (LIST_REL (v_rel s.max_app)) (v_rel s.max_app) res res' /\
-          state_rel s2 t2)`
-  (ho_match_mp_tac evaluate_ind \\ srw_tac[][]
+          state_rel s2 t2)
+Proof
+  ho_match_mp_tac evaluate_ind \\ srw_tac[][]
   THEN1 (* NIL *)
    (full_simp_tac(srw_ss())[renumber_code_locs_def,evaluate_def]
     \\ SRW_TAC [] [])
@@ -921,24 +946,28 @@ Theorem renumber_code_locs_correct
     BasicProvers.EVERY_CASE_TAC >>
     full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     imp_res_tac state_rel_max_app >>
-    imp_res_tac evaluate_const >> fs[]));
+    imp_res_tac evaluate_const >> fs[])
+QED
 
-Theorem renumber_code_locs_every_Fn_SOME
-  `(∀n es. every_Fn_SOME (SND (renumber_code_locs_list n es))) ∧
-   (∀n e. every_Fn_SOME [SND (renumber_code_locs n e)])`
-  (ho_match_mp_tac renumber_code_locs_ind >>
+Theorem renumber_code_locs_every_Fn_SOME:
+   (∀n es. every_Fn_SOME (SND (renumber_code_locs_list n es))) ∧
+   (∀n e. every_Fn_SOME [SND (renumber_code_locs n e)])
+Proof
+  ho_match_mp_tac renumber_code_locs_ind >>
   srw_tac[][renumber_code_locs_def] >> srw_tac[][every_Fn_SOME_def] >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[Once every_Fn_SOME_EVERY] >>
   imp_res_tac renumber_code_locs_list_length >>
   full_simp_tac(srw_ss())[EVERY_MAP,ZIP_MAP] >>
-  full_simp_tac(srw_ss())[EVERY_MEM,MEM_ZIP,PULL_EXISTS,MEM_EL]);
+  full_simp_tac(srw_ss())[EVERY_MEM,MEM_ZIP,PULL_EXISTS,MEM_EL]
+QED
 
-Theorem renumber_code_locs_every_Fn_vs_NONE
-  `(∀n es. every_Fn_vs_NONE (SND (renumber_code_locs_list n es)) ⇔
+Theorem renumber_code_locs_every_Fn_vs_NONE:
+   (∀n es. every_Fn_vs_NONE (SND (renumber_code_locs_list n es)) ⇔
            every_Fn_vs_NONE es) ∧
    (∀n e. every_Fn_vs_NONE [SND (renumber_code_locs n e)] ⇔
-          every_Fn_vs_NONE [e])`
-  (ho_match_mp_tac renumber_code_locs_ind >>
+          every_Fn_vs_NONE [e])
+Proof
+  ho_match_mp_tac renumber_code_locs_ind >>
   srw_tac[][renumber_code_locs_def] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >- (
     simp[Once every_Fn_vs_NONE_EVERY] >>
     simp[Once every_Fn_vs_NONE_EVERY,SimpRHS] >>
@@ -947,12 +976,14 @@ Theorem renumber_code_locs_every_Fn_vs_NONE
   full_simp_tac(srw_ss())[Once every_Fn_vs_NONE_EVERY] >>
   full_simp_tac(srw_ss())[Once every_Fn_vs_NONE_EVERY,SimpRHS] >>
   full_simp_tac(srw_ss())[EVERY_MAP,ZIP_MAP] >>
-  full_simp_tac(srw_ss())[EVERY_MEM,MEM_ZIP,PULL_EXISTS,MEM_EL]);
+  full_simp_tac(srw_ss())[EVERY_MEM,MEM_ZIP,PULL_EXISTS,MEM_EL]
+QED
 
-Theorem renumber_code_locs_EVEN
-  `(∀n es. EVEN n ⇒ EVEN (FST (renumber_code_locs_list n es)) ∧ EVERY EVEN (code_locs (SND (renumber_code_locs_list n es)))) ∧
-   (∀n e. EVEN n ⇒ EVEN (FST (renumber_code_locs n e)) ∧ EVERY EVEN (code_locs [SND (renumber_code_locs n e)]))`
-  (ho_match_mp_tac renumber_code_locs_ind
+Theorem renumber_code_locs_EVEN:
+   (∀n es. EVEN n ⇒ EVEN (FST (renumber_code_locs_list n es)) ∧ EVERY EVEN (code_locs (SND (renumber_code_locs_list n es)))) ∧
+   (∀n e. EVEN n ⇒ EVEN (FST (renumber_code_locs n e)) ∧ EVERY EVEN (code_locs [SND (renumber_code_locs n e)]))
+Proof
+  ho_match_mp_tac renumber_code_locs_ind
   \\ rw[renumber_code_locs_def,code_locs_def]
   \\ rpt (pairarg_tac \\ fs[])
   \\ fs[code_locs_def]
@@ -961,30 +992,34 @@ Theorem renumber_code_locs_EVEN
   \\ fs[SIMP_RULE(srw_ss()++ARITH_ss)[]MOD_TIMES]
   \\ imp_res_tac renumber_code_locs_list_length
   \\ fs[MAP_ZIP,EVERY_GENLIST] \\ rw[]
-  \\ simp[EVEN_MOD2,SIMP_RULE(srw_ss()++ARITH_ss)[]MOD_TIMES]);
+  \\ simp[EVEN_MOD2,SIMP_RULE(srw_ss()++ARITH_ss)[]MOD_TIMES]
+QED
 
-Theorem renumber_code_locs_elist_globals
-  `(∀loc es n es'.
+Theorem renumber_code_locs_elist_globals:
+   (∀loc es n es'.
       renumber_code_locs_list loc es = (n,es') ⇒
       elist_globals es' = elist_globals es) ∧
    (∀loc e n e'.
       renumber_code_locs loc e = (n, e') ⇒
-      set_globals e' = set_globals e)`
-  (ho_match_mp_tac renumber_code_locs_ind >>
+      set_globals e' = set_globals e)
+Proof
+  ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[EVAL ``op_gbag Add``] >>
   rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
   qspecl_then [`locn1`, `MAP SND functions`] mp_tac
     (CONJUNCT1 renumber_code_locs_length) >>
-  simp[] >> simp[MAP_ZIP]);
+  simp[] >> simp[MAP_ZIP]
+QED
 
-Theorem renumber_code_locs_esgc_free
-  `(∀loc es n es'.
+Theorem renumber_code_locs_esgc_free:
+   (∀loc es n es'.
       renumber_code_locs_list loc es = (n,es') ∧ EVERY esgc_free es ⇒
       EVERY esgc_free es') ∧
    (∀loc e n e'.
-      renumber_code_locs loc e = (n,e') ∧ esgc_free e ⇒ esgc_free e')`
-  (ho_match_mp_tac renumber_code_locs_ind >>
+      renumber_code_locs loc e = (n,e') ∧ esgc_free e ⇒ esgc_free e')
+Proof
+  ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> rpt strip_tac >>
   rpt (pairarg_tac >> fs[]) >> rveq >> fs[]
   >- (imp_res_tac renumber_code_locs_elist_globals >> simp[])
@@ -992,47 +1027,55 @@ Theorem renumber_code_locs_esgc_free
       qspecl_then [`locn1`, `MAP SND functions`] mp_tac
         (CONJUNCT1 renumber_code_locs_length) >>
       simp[] >> simp[MAP_ZIP] >> imp_res_tac renumber_code_locs_elist_globals >>
-      simp[]));
+      simp[])
+QED
 
-Theorem renumber_code_locs_obeys_max_app
-  `(∀loc es n es'.
+Theorem renumber_code_locs_obeys_max_app:
+   (∀loc es n es'.
       renumber_code_locs_list loc es = (n,es') ∧ EVERY (obeys_max_app m) es ⇒
       EVERY (obeys_max_app m) es') ∧
    (∀loc e n e'.
-      renumber_code_locs loc e = (n,e') ∧ obeys_max_app m e ⇒ obeys_max_app m e')`
-  (ho_match_mp_tac renumber_code_locs_ind
+      renumber_code_locs loc e = (n,e') ∧ obeys_max_app m e ⇒ obeys_max_app m e')
+Proof
+  ho_match_mp_tac renumber_code_locs_ind
   \\ rw [renumber_code_locs_def] \\ fs []
   \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
   \\ imp_res_tac renumber_code_locs_list_IMP_LENGTH \\ fs []
   \\ fs [] \\ rw [] \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
-  \\ fs [MEM_ZIP] \\ fs [PULL_EXISTS,MEM_EL]);
+  \\ fs [MEM_ZIP] \\ fs [PULL_EXISTS,MEM_EL]
+QED
 
-Theorem renumber_code_locs_no_Labels
-  `(∀loc es n es'.
+Theorem renumber_code_locs_no_Labels:
+   (∀loc es n es'.
       renumber_code_locs_list loc es = (n,es') ∧ EVERY no_Labels es ⇒
       EVERY no_Labels es') ∧
    (∀loc e n e'.
-      renumber_code_locs loc e = (n,e') ∧ no_Labels e ⇒ no_Labels e')`
-  (ho_match_mp_tac renumber_code_locs_ind
+      renumber_code_locs loc e = (n,e') ∧ no_Labels e ⇒ no_Labels e')
+Proof
+  ho_match_mp_tac renumber_code_locs_ind
   \\ rw [renumber_code_locs_def] \\ fs []
   \\ rpt (pairarg_tac \\ fs[]) \\ rveq \\ fs[]
   \\ imp_res_tac renumber_code_locs_list_IMP_LENGTH \\ fs []
   \\ fs [] \\ rw [] \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
-  \\ fs [MEM_ZIP] \\ fs [PULL_EXISTS,MEM_EL]);
+  \\ fs [MEM_ZIP] \\ fs [PULL_EXISTS,MEM_EL]
+QED
 
-Theorem renumber_code_locs_imp_EVEN
-  `(renumber_code_locs_list n es = (n',es') ∧ EVEN n ⇒ EVEN n') ∧
-   (renumber_code_locs n e = (n',e') ∧ EVEN n ⇒ EVEN n')`
-  (rw[]
+Theorem renumber_code_locs_imp_EVEN:
+   (renumber_code_locs_list n es = (n',es') ∧ EVEN n ⇒ EVEN n') ∧
+   (renumber_code_locs n e = (n',e') ∧ EVEN n ⇒ EVEN n')
+Proof
+  rw[]
   \\ strip_assume_tac(SPEC_ALL (CONJUNCT1 renumber_code_locs_EVEN)) \\ rfs[]
-  \\ strip_assume_tac(SPEC_ALL (CONJUNCT2 renumber_code_locs_EVEN)) \\ rfs[]);
+  \\ strip_assume_tac(SPEC_ALL (CONJUNCT2 renumber_code_locs_EVEN)) \\ rfs[]
+QED
 
-Theorem renumber_code_locs_get_code_labels
-  `(∀n es n' es'. renumber_code_locs_list n es = (n',es') ∧ EVERY ((=){}) (MAP get_code_labels es) ∧ EVEN n ⇒
+Theorem renumber_code_locs_get_code_labels:
+   (∀n es n' es'. renumber_code_locs_list n es = (n',es') ∧ EVERY ((=){}) (MAP get_code_labels es) ∧ EVEN n ⇒
       BIGUNION (set (MAP get_code_labels es')) = { n + 2 * k | k | n + 2 * k < n' }) ∧
    (∀n e n' e'. renumber_code_locs n e = (n',e') ∧ get_code_labels e = {} ∧ EVEN n ⇒
-     get_code_labels e' = { n + 2 * k | k | n + 2 * k < n' })`
-  (ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind
+     get_code_labels e' = { n + 2 * k | k | n + 2 * k < n' })
+Proof
+  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind
   \\ rw[clos_numberTheory.renumber_code_locs_def]
   \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
   \\ imp_res_tac renumber_code_locs_imp_inc
@@ -1210,23 +1253,26 @@ Theorem renumber_code_locs_get_code_labels
       \\ simp[EVEN_EXISTS] \\ strip_tac \\ rveq \\ fs[]
       \\ fs[LESS_EQ_EXISTS] \\ rveq
       \\ qexists_tac`k-p`
-      \\ simp[] )));
+      \\ simp[] ))
+QED
 
-Theorem renumber_code_locs_any_dests
-  `(!k xs n ys. renumber_code_locs_list k xs = (n,ys) ==> any_dests ys = ∅) /\
-    (!k x n y. renumber_code_locs k x = (n,y) ==> any_dests [y] = ∅)`
-  (ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind \\ rpt strip_tac
+Theorem renumber_code_locs_any_dests:
+   (!k xs n ys. renumber_code_locs_list k xs = (n,ys) ==> any_dests ys = ∅) /\
+    (!k x n y. renumber_code_locs k x = (n,y) ==> any_dests [y] = ∅)
+Proof
+  ho_match_mp_tac clos_numberTheory.renumber_code_locs_ind \\ rpt strip_tac
   \\ fs [clos_numberTheory.renumber_code_locs_def] \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
   \\ once_rewrite_tac [closPropsTheory.app_call_dests_cons] \\ fs []
   \\ `LENGTH fns = LENGTH fns'` by
        metis_tac [clos_numberTheory.renumber_code_locs_length,LENGTH_MAP,SND]
-  \\ fs [MAP_ZIP]);
+  \\ fs [MAP_ZIP]
+QED
 
 (* preservation of observable semantics *)
 
-Theorem semantics_number
-  `semantics (ffi:'ffi ffi_state) max_app FEMPTY co
+Theorem semantics_number:
+   semantics (ffi:'ffi ffi_state) max_app FEMPTY co
      (state_cc (ignore_table compile_inc) cc) xs <> Fail ==>
    ¬contains_App_SOME max_app xs (* /\
    (∀n.
@@ -1236,8 +1282,9 @@ Theorem semantics_number
      (state_co (ignore_table compile_inc) co) cc
         (SND (renumber_code_locs_list n xs)) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (state_cc (ignore_table compile_inc) cc) xs`
-  (strip_tac
+     co (state_cc (ignore_table compile_inc) cc) xs
+Proof
+  strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
   \\ fs [] \\ fs [eval_sim_def] \\ rw []
   \\ drule (renumber_code_locs_correct
@@ -1253,6 +1300,7 @@ Theorem semantics_number
   \\ qexists_tac `0` \\ fs []
   \\ fs [state_rel_def]
   \\ Cases_on `res1` \\ fs []
-  \\ Cases_on `e` \\ fs []);
+  \\ Cases_on `e` \\ fs []
+QED
 
 val _ = export_theory();

@@ -2176,13 +2176,13 @@ val repeat_clos = cfTacticsLib.process_topdecs `
 
 val repeat_body = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
-val cause_type_error_def = Define `cause_type_error = App Opapp []`
+val cause_type_error_def = Define `cause_type_error = App Ord [Lit(IntLit 0)]`
 
 Theorem evaluate[simp]:
   evaluate s env [cause_type_error] = (s,Rerr (Rabort Rtype_error))
 Proof
   fs [terminationTheory.evaluate_def,cause_type_error_def,
-      semanticPrimitivesTheory.do_opapp_def]
+      semanticPrimitivesTheory.do_opapp_def,semanticPrimitivesTheory.do_app_def]
 QED
 
 val then_tyerr_def = Define `then_tyerr e =
