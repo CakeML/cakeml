@@ -485,7 +485,6 @@ val do_app = Q.prove(
      ⇒
      do_app (compile_state co cc s0) (Op op) (compile_vs vs) =
        SOME (compile_state co cc s,map_result compile_v compile_v res)`,
-
   srw_tac[][compile_state_def] >>
   fs[flatSemTheory.do_app_cases] >> rw[] >>
   rw[patSemTheory.do_app_def,
