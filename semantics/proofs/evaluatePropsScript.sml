@@ -42,7 +42,7 @@ Theorem call_FFI_rel_consts:
    call_FFI_rel s s' ⇒ (s.oracle = s'.oracle)
 Proof
   rw[call_FFI_rel_def]
-  \\ fs[ffiTheory.call_FFI_def(*, ffiTheory.ffi_oracle_ok_def*)]
+  \\ fs[ffiTheory.call_FFI_def]
   \\ fs[CaseEq"bool",CaseEq"oracle_result"]
   \\ rw[]
   \\ metis_tac []
@@ -117,85 +117,6 @@ Proof
   \\ rw [call_FFI_rel_def]
   \\ metis_tac []
 QED
-
-
-(*
-Theorem do_app_call_FFI_rel:
-   do_app (r,ffi) op vs = SOME ((r',ffi'),res) /\
-   ffi_oracle_ok ffi  ⇒
-   call_FFI_rel^* ffi ffi'
-Proof
-  srw_tac[][do_app_cases] \\ rw[]
-  \\ fs [do_ffi_def]
-  \\ fs[CaseEq"option"]
-  (*\\ qexists_tac `sign` *)
-  \\ fs [CaseEq"ffi_result"]
-  \\ match_mp_tac RTC_SUBSET
-  \\ rename1 `FIND (λx. x.mlname = n) ffi.signatures = SOME sign`
-  \\ qabbrev_tac `als = als_args_final_sem (loc_typ_val sign.args vs)`
-  \\ rw [call_FFI_rel_def]
-  \\ MAP_EVERY qexists_tac [`n`, `sign`, `cargs`, `als`, `newargs`, `retv`]
-  \\ simp[]
-  \\ conj_tac
-  >- rw [ffiTheory.valid_ffi_name_def]
-  \\ conj_tac
-  >- metis_tac [get_cargs_sem_SOME_IMP_args_ok]
-  \\ conj_tac
-  >- (fs [ffiTheory.call_FFI_def]
-      \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
-      >- fs [CaseEq"oracle_result"]
-      >- (fs [ffiTheory.ffi_oracle_ok_def, ]
-          \\ `sign = sign'` by (fs [FIND_def] \\ fs[INDEX_FIND_def])
-          \\ fs [ffiTheory.ret_ok_def]))
-  \\ conj_tac
-  >- (fs [ffiTheory.call_FFI_def]
-      \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
-      >- (fs [CaseEq"oracle_result"] \\
-          metis_tac [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def,
-                     get_cargs_sem_SOME_IMP_args_ok])
-      >- (rw [ffiTheory.als_ok_def, ffiTheory.ident_elems_def,
-             ffiTheory.als_vals_def, ffiTheory.mut_tag_retr_def,
-             ffiTheory.match_cargs_def] \\ cheat))
-  >- (fs [ffiTheory.call_FFI_def]
-      \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC >> rw[])
-      >- (fs [CaseEq"oracle_result"] \\
-          metis_tac [ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def,
-                     get_cargs_sem_SOME_IMP_args_ok])
-      >- (fs [ffiTheory.ffi_oracle_ok_def, ]
-          \\ `sign = sign'` by (fs [FIND_def] \\ fs[INDEX_FIND_def])
-          \\ metis_tac []))
-QED
-
-Theorem do_app_call_FFI_rel:
-   do_app (r,ffi) op vs = SOME ((r',ffi'),res)
-   /\ ffi_oracle_ok ffi ⇒
-   call_FFI_rel^* ffi ffi'
-Proof
-  srw_tac[][do_app_cases] \\ rw[]
-  \\ fs [do_ffi_def]
-  \\ fs[CaseEq"option"]
-  (*\\ qexists_tac `sign` *)
-  \\ fs [CaseEq"ffi_result"]
-  \\ match_mp_tac RTC_SUBSET
-  \\ rw [call_FFI_rel_def]
-  \\ fs [ffiTheory.valid_ffi_name_def, ffiTheory.ffi_oracle_ok_def]
-  \\ rename1 `FIND (λx. x.mlname = n) ffi.signatures = SOME sign`
-  \\ qabbrev_tac `als = als_args_final_sem (loc_typ_val sign.args vs)`
-  \\ MAP_EVERY qexists_tac [`n`, `sign`, `cargs`, `als`, `newargs`, `retv`]
-  \\ simp []
-  \\ conj_tac
-  >- metis_tac [get_cargs_sem_SOME_IMP_args_ok]
-  >- (fs [ffiTheory.call_FFI_def]
-      \\ (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC \\ rw[])
-      >- (fs [CaseEq"oracle_result"]
-          >> (qpat_x_assum `(if _ then _ else _) = _` mp_tac \\ TOP_CASE_TAC \\ rw[])
-          >> metis_tac [get_cargs_sem_SOME_IMP_args_ok, ffiTheory.valid_ffi_name_def])
-      >- (fs[]
-          >> `sign = sign'` by (fs [FIND_def] \\ fs [INDEX_FIND_def])
-          >> metis_tac [ffiTheory.ret_ok_def]) )
-QED
-
-*)
 
 
 Theorem call_ffi_sign_eq:

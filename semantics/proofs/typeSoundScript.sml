@@ -1213,8 +1213,6 @@ Proof
    qexists_tac `tenvS` >>
    rw [store_type_extension_refl] >>
    metis_tac [type_v_list_to_v_APPEND, type_v_list_to_v])
-
-
  >> TRY ( (* FFI call *)
    rename1`FFI` >>
    rw [do_app_cases, PULL_EXISTS] >>
@@ -1274,7 +1272,7 @@ Proof
                pop_assum (mp_tac o (PURE_ONCE_REWRITE_RULE [markerTheory.Abbrev_def])) >>
                MAP_EVERY qid_spec_tac [`ctMap`,`tenvS`,`sign`, `v`, `x`, `x'`, `store`, `ws`, `margs`] >>
                ho_match_mp_tac store_cargs_sem_ind >>  rw [store_cargs_sem_def] >> fs [CaseEq"option"] >>
-               `?n. margs = get_mut_args (sign with args := DROP n sign.args) (DROP n v)`
+               `?n. margs = get_mut_args (DROP n sign.args) (DROP n v)`
                  by(imp_res_tac get_cargs_sem_LENGTH >>
                     fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                     rveq >> rename1 `_ = l1 ++ [mid] ++ l2` >>
@@ -1377,7 +1375,7 @@ Proof
                pop_assum (mp_tac o (PURE_ONCE_REWRITE_RULE [markerTheory.Abbrev_def])) >>
                MAP_EVERY qid_spec_tac [`ctMap`,`tenvS`,`sign`, `v`, `x`, `x'`, `store`, `ws`, `margs`] >>
                ho_match_mp_tac store_cargs_sem_ind >>  rw [store_cargs_sem_def] >> fs [CaseEq"option"] >>
-               `?n. margs = get_mut_args (sign with args := DROP n sign.args) (DROP n v)`
+               `?n. margs = get_mut_args (DROP n sign.args) (DROP n v)`
                  by(imp_res_tac get_cargs_sem_LENGTH >>
                     fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                     rveq >> rename1 `_ = l1 ++ [mid] ++ l2` >>
@@ -1443,6 +1441,8 @@ Proof
                every_case_tac >> fs []  >> rveq  >> TRY (metis_tac []) >> fs [] >> TRY (Cases_on `z` >> fs []) >>
                TRY (fs [ffiTheory.ffi_oracle_ok_def]))))
 QED
+
+
 
 Theorem build_conv_type_sound:
  !signs envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.
