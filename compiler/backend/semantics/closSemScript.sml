@@ -241,6 +241,8 @@ val do_app_def = Define `
         (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
          | SOME ns => Rval (ByteVector (MAP n2w ns), s)
          | NONE => Error)
+    | (ToListByte,[ByteVector bs]) =>
+        (Rval (list_to_v (MAP (\b. Number (& (w2n b))) bs), s))
     | (LengthByteVec,[ByteVector bs]) =>
         (Rval (Number (& LENGTH bs), s))
     | (DerefByteVec,[ByteVector bs; Number i]) =>

@@ -156,4 +156,7 @@ sig
     (* returns the induction theorem for the latest rec translation *)
     val latest_ind : unit -> thm
 
+    (* configure whether HOL_STRING_TYPE is to be used *)
+    val use_string_type : bool -> unit
+
 end

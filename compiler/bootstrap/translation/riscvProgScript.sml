@@ -11,6 +11,7 @@ open inliningLib;
 val _ = new_theory "riscvProg"
 
 val _ = translation_extends "arm8Prog";
+val _ = ml_translatorLib.use_string_type true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "riscvProg");
 

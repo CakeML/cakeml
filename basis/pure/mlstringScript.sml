@@ -15,6 +15,7 @@ val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
    moved into HOL, either as its own theory, or as an addendum to stringTheory *)
 
 val _ = Datatype`mlstring = strlit string`
+val _ = add_strliteral_form{inj=``strlit``, ldelim = "«"};
 
 val implode_def = Define`
   implode = strlit`

@@ -8,6 +8,8 @@ val _ = translation_extends "to_flatProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_patProg");
 
+val _ = ml_translatorLib.use_string_type true;
+
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
 (* ------------------------------------------------------------------------- *)
@@ -69,4 +71,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
 val _ = export_theory ();
-
