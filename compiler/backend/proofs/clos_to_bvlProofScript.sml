@@ -6844,7 +6844,7 @@ Theorem compile_common_semantics:
            (pure_co ^fvs_inc ∘
                state_co (ignore_table clos_numberProof$compile_inc)
                    (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co1)) /\
-       FST (SND (FST (co1 0))) = 
+       FST (SND (FST (co1 0))) =
            (THE (FST (compile_inc_post_kcompile c es1))).val_approx_spt ∧
        (∀n'. BAG_ALL_DISTINCT (elist_globals (FST (SND (co1 n')))) ∧
                EVERY esgc_free (FST (SND (co1 n'))))) ∧
@@ -7071,19 +7071,18 @@ Theorem compile_prog_semantics
   \\ Cases_on`res1` \\ fs[]
   \\ Cases_on`e` \\ fs[]);
 
-(* fixme: have this take two configs *)
 val syntax_oracle_ok_def = Define`
-  syntax_oracle_ok c es co ⇔
+  syntax_oracle_ok c c' es co ⇔
    (∀n. SND (SND (co n)) = []) ∧
    (c.do_mti ⇒ 1 ≤ c.max_app ∧ clos_mtiProof$syntax_ok es ∧
      (∀n. clos_mtiProof$syntax_ok (FST(SND(co n))))) ∧
+   (?v. FST (co 0) = (c'.next_loc,
+       clos_knownProof$option_val_approx_spt c'.known_conf, FST c'.call_state, v)) ∧
    (c.do_call ⇒ every_Fn_vs_NONE es ∧
        is_state_oracle clos_callProof$compile_inc
            (clos_knownProof$known_co c.known_conf
                (state_co (ignore_table clos_numberProof$compile_inc)
-                   (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)))
-           (FST (SND (compile c.do_call (SND
-               (compile_inc_post_kcompile c es)))))) ∧
+                   (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)))) ∧
    (IS_SOME c.known_conf ⇒
        1 ≤ c.max_app ∧ every_Fn_vs_NONE es ∧
        oracle_monotonic (SET_OF_BAG ∘ elist_globals ∘ FST ∘ SND) $<
@@ -7091,18 +7090,14 @@ val syntax_oracle_ok_def = Define`
        is_state_oracle (clos_knownProof$compile_inc (THE c.known_conf))
            (pure_co ^fvs_inc ∘
                state_co (ignore_table clos_numberProof$compile_inc)
-                   (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co))
-           (THE (FST (compile_inc_post_kcompile c es))).val_approx_spt ∧
+                   (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)) ∧
        (∀n'. BAG_ALL_DISTINCT (elist_globals (FST (SND (co n')))) ∧
                EVERY esgc_free (FST (SND (co n'))))) ∧
    ¬contains_App_SOME c.max_app es ∧ clos_knownProof$syntax_ok es ∧
    (∀n. ¬contains_App_SOME c.max_app (FST(SND(co n))) ∧
            every_Fn_vs_NONE (FST (SND (co n)))) ∧
    is_state_oracle (ignore_table clos_numberProof$compile_inc)
-       (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)
-       (FST (FST (co 0))) ∧
-   FST (FST (co 0)) >= FST (renumber_code_locs_list (make_even
-       (c.next_loc + MAX 1 (LENGTH es))) (compile c.do_mti c.max_app es))`;
+       (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)`;
 
 Theorem compile_exps_IMP_acc:
   compile_exps max_app xs aux = (c,aux1) ==>
@@ -7648,8 +7643,8 @@ Proof
 QED
 
 Theorem renumber_code_locs_monotonic_req:
-    is_state_oracle (ignore_table clos_numberProof$compile_inc) co m /\
-    (!x. x ∈ St ==> m + offs > x) /\
+    is_state_oracle (ignore_table clos_numberProof$compile_inc) co /\
+    (!x. x ∈ St ==> FST (FST (co 0)) + offs > x) /\
     (!n. SND (SND (co n)) = []) ==>
     oracle_monotonic (set ∘ MAP ($+ offs) ∘ req_compile_inc_addrs [SUC] ∘ SND)
         $< St (state_co (ignore_table clos_numberProof$compile_inc) co)
@@ -7669,7 +7664,6 @@ Proof
   \\ assume_tac (Q.SPECL [`n`, `exps`] clos_numberProofTheory.renumber_code_locs_list_distinct)
   \\ fs [EVERY_MEM]
   \\ rpt (first_x_assum drule)
-  \\ drule backendPropsTheory.is_state_oracle_0
   \\ drule_then (assume_tac o Q.SPECL [`i`, `0`]) number_oracle_FST_mono
   \\ rw []
 QED
@@ -7837,9 +7831,9 @@ fun abbrev_adj_tac f = first_assum (fn t => if not
   in markerLib.ABBREV_TAC (mk_eq (v2, x)) \\ markerLib.UNABBREV_TAC v_nm end)
 
 Theorem syntax_oracle_ok_to_oracle_inv:
-  ∀cc es co c. syntax_oracle_ok c es co ==>
-  let (c'', prog') = compile_common c es;
-    co' = pure_co clos_labelsProof$compile_inc ∘
+  ∀cc es co c c'. syntax_oracle_ok c c' es co /\
+    compile_common c es = (c', prog') ==>
+  let co' = pure_co clos_labelsProof$compile_inc ∘
         pure_co clos_annotateProof$compile_inc ∘
         state_co (cond_call_compile_inc c.do_call)
           (clos_knownProof$known_co c.known_conf
@@ -7916,7 +7910,6 @@ Proof
         LENGTH_FST_cond_mti_compile_inc]
   \\ fs []
   \\ fs [syntax_oracle_ok_def]
-  \\ drule_then (fn t => simp [t]) backendPropsTheory.is_state_oracle_IMP_EQ
   \\ fs [compile_inc_post_kcompile_def]
   \\ fs [PULL_EXISTS, GSYM boolTheory.RIGHT_EXISTS_IMP_THM,
         make_even_def, arithmeticTheory.EVEN_MOD2,
@@ -7934,7 +7927,10 @@ Proof
   \\ rw [] \\ fs [domain_fromAList, miscTheory.toAList_domain]
   \\ TRY (imp_res_tac domain_init_code_lt_num_stubs)
   \\ TRY (imp_res_tac SUBSET_IMP)
-  \\ fs [] \\ fs [num_stubs_def]
+  \\ TRY (imp_res_tac clos_knownProofTheory.known_compile_IS_SOME)
+  \\ fs []
+  \\ fs [num_stubs_def, IS_SOME_EXISTS,
+        clos_knownProofTheory.option_val_approx_spt_def]
 QED
 
 Theorem compile_every_Fn_SOME
@@ -8182,8 +8178,8 @@ Theorem LENGTH_FST_calls
   \\ imp_res_tac clos_callTheory.calls_length \\ fs[]);
 
 Theorem syntax_oracle_ok_call_FST_monotonic:
-  syntax_oracle_ok c es co /\
-  compile_common c es = (c'',prog') ==>
+  syntax_oracle_ok c c' es co /\
+  compile_common c es = (c',prog') ==>
   oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $< (count (FST (FST (co 0))))
      (state_co (cond_call_compile_inc c.do_call)
         (clos_knownProof$known_co c.known_conf
@@ -8214,11 +8210,18 @@ Proof
   \\ fs []
 QED
 
+Theorem syntax_oracle_ok_start:
+  syntax_oracle_ok c (c' with start updated_by f) es co =
+  syntax_oracle_ok c c' es co
+Proof
+  simp [syntax_oracle_ok_def]
+QED
+
 Theorem compile_semantics
   `semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co
      (compile_common_inc c (pure_cc (compile_inc c.max_app) cc)) es ≠ Fail ∧
    compile c es = (c', prog) ∧
-   syntax_oracle_ok c es co
+   syntax_oracle_ok c c' es co
    ⇒
    semantics ffi (fromAList prog)
      (pure_co (compile_inc c.max_app) o
@@ -8237,13 +8240,20 @@ Theorem compile_semantics
   \\ fs[compile_def]
   \\ pairarg_tac \\ fs[] \\ rveq
   \\ DEP_REWRITE_TAC[fromAList_code_sort]
-  \\ fs[ALL_DISTINCT_code_sort]
+  \\ fs[ALL_DISTINCT_code_sort, syntax_oracle_ok_start]
   \\ first_assum(mp_then (Pat`closSem$semantics`) mp_tac (GEN_ALL compile_common_semantics))
   \\ simp[]
   \\ impl_tac >- (
     drule (GEN_ALL syntax_oracle_ok_call_FST_monotonic)
     \\ disch_then drule
     \\ fs[syntax_oracle_ok_def]
+    \\ fs[common_def]
+    \\ rpt (pairarg_tac \\ fs[])
+    \\ rveq \\ fs[]
+    \\ fs [compile_inc_post_kcompile_def]
+    \\ imp_res_tac clos_knownProofTheory.known_compile_IS_SOME
+    \\ rw [IS_SOME_EXISTS]
+    \\ fs [clos_knownProofTheory.option_val_approx_spt_def, IS_SOME_EXISTS]
   )
   \\ disch_then(assume_tac o SYM) \\ fs[]
   \\ irule compile_prog_semantics
@@ -8343,8 +8353,40 @@ Theorem compile_semantics
     \\ res_tac
     \\ imp_res_tac ALOOKUP_MEM
     \\ metis_tac[] )
-  \\ Q.ISPEC_THEN `cc` drule syntax_oracle_ok_to_oracle_inv
+  \\ Q.ISPECL_THEN [`cc`, `es`, `co`] drule syntax_oracle_ok_to_oracle_inv
   \\ fs []);
+
+Theorem known_co_progs_to_known_co:
+  clos_knownProof$known_co_progs kc kc' co
+    = SND o (clos_knownProof$known_co kc
+        (syntax_to_full_oracle (clos_knownProof$known_mk_co kc kc' I) co))
+Proof
+  simp [FUN_EQ_THM, clos_knownProofTheory.known_co_known_mk_co]
+  \\ simp [backendPropsTheory.syntax_to_full_oracle_def]
+QED
+
+Theorem compile_inc_phases_all_distinct:
+  SND (orac i) = [] ==>
+  ALL_DISTINCT (MAP FST (compile_inc max_app
+    (clos_labelsProof$compile_inc (clos_annotateProof$compile_inc
+      (state_co_progs (cond_call_compile_inc dc) c_st
+        (clos_knownProof$known_co_progs kc kc'
+          (state_co_progs (closProps$ignore_table clos_numberProof$compile_inc)
+            n_st orac))
+        i)))))
+Proof
+  rw []
+  \\ conseq ([compile_inc_req_addrs]
+        @ labels_compile_inc_req_intros
+        @ annotate_compile_inc_req_intros)
+  \\ csimp [backendPropsTheory.state_co_progs_def]
+  \\ conseq cond_call_compile_inc_req_intros
+  \\ csimp [known_co_progs_to_known_co]
+  \\ conseq known_co_req_intros
+  \\ csimp [backendPropsTheory.syntax_to_full_oracle_def]
+  \\ conseq number_compile_inc_req_intros
+  \\ simp []
+QED
 
 Theorem assign_get_code_label_compile_op
   `closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}`

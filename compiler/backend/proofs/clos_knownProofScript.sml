@@ -5184,12 +5184,12 @@ Theorem compile_obeys_max_app
                 clos_letopProofTheory.let_op_obeys_max_app]);
 
 Theorem known_compile_IS_SOME:
-  compile kc es = (kc',es') ⇒ IS_SOME kc ⇒ IS_SOME kc'
+  compile kc es = (kc',es') ⇒ (IS_SOME kc' <=> IS_SOME kc)
 Proof
-  rw [IS_SOME_EXISTS]
+  Cases_on `kc`
   \\ fs [clos_knownTheory.compile_def]
   \\ pairarg_tac \\ fs []
-  \\ rveq \\ fs []
+  \\ rw [] \\ simp []
 QED
 
 (* names *)

@@ -3708,7 +3708,8 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
                    \\ rw[wfg_subg_refl])
   (* app cons *)
   \\ say "evaluate_app_CONS"
-  \\ simp[evaluate_def]
+  \\ ( (* parentheses seem to speed up tactic parsing *)
+  simp[evaluate_def]
   \\ rpt gen_tac \\ strip_tac
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -4073,6 +4074,7 @@ Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
   \\ qsuff_tac `ck11 = ck22` \\ rw [] \\ fs []
   \\ unabbrev_all_tac
   \\ fs [subg_def, subspt_def, SUBSET_DEF]
+  )
 QED
 
 val code_locs_calls_list = Q.prove(`
