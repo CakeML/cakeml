@@ -398,12 +398,12 @@ QED
 
 
 Theorem get_cargs_sem_SOME_IMP_args_ok:
-  get_cargs_sem s sigs.args args = SOME cargs ==>
-  args_ok sigs cargs
+  get_cargs_sem s sign.args args = SOME cargs ==>
+  args_ok sign.args cargs
 Proof
-  `!s sigargs args cargs.
-  get_cargs_sem s sigargs args = SOME cargs ==>
-  LIST_REL arg_ok sigargs cargs
+  `!s cts args cargs.
+  get_cargs_sem s cts args = SOME cargs ==>
+  LIST_REL arg_ok cts cargs
   `
   by(ho_match_mp_tac get_cargs_sem_ind \\
      rw[get_cargs_sem_def,ffiTheory.args_ok_def] \\
@@ -418,17 +418,11 @@ Proof
 QED
 
 
-val trunc_sign_def = Define `
-  trunc_sign s = s with <| args := TL (s.args) |>
-`
-
-
 Theorem mut_args_split:
- sign.args = ty::ty' ==>
-   get_mut_args sign (arg::args) =  MAP SND (FILTER (is_mutty o FST) [(ty, arg)]) ++
-                           get_mut_args (trunc_sign sign) args
+   get_mut_args (ty::ty') (arg::args) =  MAP SND (FILTER (is_mutty o FST) [(ty, arg)]) ++
+                           get_mut_args ty' args
 Proof
-  rw [get_mut_args_def] >> fs [trunc_sign_def, listTheory.ZIP_def]
+  rw [get_mut_args_def] >> fs [listTheory.ZIP_def]
 QED
 
 (* TODO: move? *)
@@ -456,45 +450,34 @@ QED
 
 
 Theorem store_cargs_SOME_same_loc:
-  !s ty args cargs. !sign l. sign.args = ty /\ get_cargs_sem s ty args = SOME cargs ==>
-  store_cargs_sem (get_mut_args sign args) l s <> NONE
+  !s ty args cargs sign l. get_cargs_sem s sign.args args = SOME cargs ==>
+  store_cargs_sem (get_mut_args sign.args args) l s <> NONE
 Proof
-  ho_match_mp_tac get_cargs_sem_ind
-  \\ rw [get_cargs_sem_def]
-  >- (strip_tac
-      \\ `get_mut_args sign ([]: v list) = []` by rw [get_mut_args_def, listTheory.ZIP_def]
-      \\ induct_on `l` >> fs [store_cargs_sem_def])
-  >- (strip_tac
-      \\ fs []
-      \\ Cases_on `get_mut_args sign (arg::args)`
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `get_cargs_sem _ cts _ = SOME _` >>
+  pop_assum kall_tac >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`l`, `cargs`, `args`, `cts`, `s`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC [GSYM PULL_FORALL] >>
+  ho_match_mp_tac get_cargs_sem_ind >> rw [get_cargs_sem_def]
+  >- (induct_on `l` >> fs [store_cargs_sem_def, get_mut_args_def, listTheory.ZIP_def])
+  >- (Cases_on `get_mut_args (ty::cts) (arg::args)`
       >- (induct_on `l` >> fs [store_cargs_sem_def])
-      >- (`get_mut_args sign (arg::args) = MAP SND (FILTER (is_mutty o FST) [(ty, arg)]) ++
-                           get_mut_args (trunc_sign sign) args` by metis_tac [mut_args_split]
-          \\ fs []
-          \\ Cases_on `ty` >> fs [ffiTheory.is_mutty_def]
-          >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
-              \\ metis_tac [])
-          >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
-              \\ metis_tac [])
-          >- (rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-             >- (Cases_on `l` >> fs [store_cargs_sem_def]
-                 \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                 >- (Cases_on `arg` >> fs [get_carg_sem_def, store_carg_sem_def]
-                     \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                     \\ fs [store_assign_def, store_lookup_def, store_v_same_type_def])
-                 >- (Cases_on `arg` >> fs [get_carg_sem_def, store_carg_sem_def]
-                     >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
-                         \\ metis_tac [])
-                    >- (rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
-                        \\ fs [store_assign_def, store_lookup_def, store_v_same_type_def]
-                        \\ first_x_assum (qspec_then `trunc_sign sign` mp_tac)
-                        \\ `(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
-                        \\ rw []
-                        \\ qexists_tac `t`
-                        \\ metis_tac [store_cargs_none_lupdate])))
-             >- (`(trunc_sign sign).args = ty'` by rw [trunc_sign_def]
-                 \\ metis_tac []))))
+      >- (fs [mut_args_split] >>
+          Cases_on `ty` >> fs [ffiTheory.is_mutty_def] >>
+          rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
+          Cases_on `l` >> fs [store_cargs_sem_def] >>
+          rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
+           >- (Cases_on `arg` >> fs [get_carg_sem_def, store_carg_sem_def] >>
+               rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
+               fs [store_assign_def, store_lookup_def, store_v_same_type_def]) >>
+              Cases_on `arg` >> fs [get_carg_sem_def, store_carg_sem_def] >>
+              rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
+              fs [store_assign_def, store_lookup_def, store_v_same_type_def]>>
+              metis_tac [store_cargs_none_lupdate]))
 QED
+
+
 
 (* TODO: duplicated from mllistScript. move? *)
 Theorem index_find_thm:
@@ -524,8 +507,6 @@ Proof
   \\ rfs[ffiTheory.debug_sig_def,FIND_thm]
   >> metis_tac[ffiTheory.ffi_oracle_ok_def, ffiTheory.valid_ffi_name_def,
                get_cargs_sem_SOME_IMP_args_ok, store_cargs_SOME_same_loc]
- (* metis_tac[ffiTheory.ffi_oracle_ok_def, get_cargs_sem_SOME_IMP_args_ok] *)
-
 QED
 
 
