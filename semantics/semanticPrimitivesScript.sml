@@ -656,43 +656,13 @@ val _ = Define
 `
 
 
-(*
-val _ = Define `(mutargs [] _ = [])
- /\ (mutargs _ [] = [])
- /\ (mutargs (ty::tys) (v::vs) =
-     (case v of
-        C_arrayv v =>
-        (case ty of C_array c => if c.mutable then v::mutargs tys vs
-                                else mutargs tys vs
-                  | _ => mutargs tys vs)
-      | _ => mutargs tys vs))`
-
-*)
-
-(*
-val _ = Define ` 
- mut_len cts cargs = 
-   MAP (LENGTH o THE) (MAP ((\v. case v of 
-    | Carray_v bl => SOME bl 
-    | _ => NONE) o SND) 
-   (FILTER (is_mutty o FST) (ZIP (cts,cargs))))
-`
-*)
-
-val _ = Define ` 
- mut_len cts cargs = ARB
-`
-
-
 val _ = Define
   `do_ffi s t n args =
    case FIND (λx. x.mlname = n) (debug_sig::t.signatures) of
      SOME sign =>
        (case get_cargs_sem s sign.args args of
         | SOME cargs =>
-          (case call_FFI t n sign.retty cargs
-			 (mut_len sign.args cargs)
-                         (als_args sign.args args) of
+          (case call_FFI t n sign cargs (als_args sign.args args) of
 	   | SOME (FFI_return t' newargs retv) =>
               (case store_cargs_sem (get_mut_args sign.args args) newargs s of 
 		| SOME s' => SOME ((s', t'), Rval (get_ret_val retv))

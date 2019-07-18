@@ -128,19 +128,11 @@ val _ = Define `
     EVERY (λasl. ∀i j. MEM i asl /\ MEM j asl ==> (EL i btl = EL j btl)) alsl
 `
 
-(*
 val _ = Define ` 
  mut_len cts cargs = 
-   MAP (LENGTH o THE) (MAP ((\v. case v of 
-    | Carray_v bl => SOME bl 
-    | _ => NONE) o SND) 
+   MAP LENGTH (MAP ((\v. case v of 
+    | C_arrayv bl => bl) o SND) 
    (FILTER (is_mutty o FST) (ZIP (cts,cargs))))
-`
-*)
-
-
-val _ = Define ` 
- mut_len cts cargs = ARB
 `
 
 val _ = Define `
@@ -160,11 +152,11 @@ val _ = Hol_datatype `
 
 
 val _ = Define `
- call_FFI st n rtyp cargs mutlen als =
+ call_FFI st n sign cargs als =
    if ~ (n = "") then
      case st.oracle n st.ffi_state cargs als of
          Oracle_return ffi' newargs retv =>
-           if ret_ok rtyp retv /\ als_ok newargs als /\ (mutlen = (MAP LENGTH newargs)) then
+           if ret_ok sign.retty retv /\ als_ok newargs als /\ (mut_len sign.args cargs = (MAP LENGTH newargs)) then
               SOME (FFI_return (st with<| ffi_state := ffi'
                                    ; io_events := st.io_events ++ [IO_event n cargs newargs retv]
                          |>) newargs retv)
