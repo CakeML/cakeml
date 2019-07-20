@@ -158,7 +158,7 @@ Proof
   Cases_on`do_app s op vs`
   \\ ((pop_assum(strip_assume_tac o CONV_RULE(REWR_CONV do_app_cases_none)))
      ORELSE(pop_assum(strip_assume_tac o CONV_RULE(REWR_CONV do_app_cases))))
-  \\ rw[do_app_def, do_ffi_pat_def] >> fs [do_ffi_pat_def] >> 
+  \\ rw[do_app_def, do_ffi_pat_def] >> fs [do_ffi_pat_def] >>
   fs[semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def]

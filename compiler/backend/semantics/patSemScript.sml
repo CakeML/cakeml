@@ -184,50 +184,11 @@ val get_cargs_pat_def = Define
 /\ (get_cargs_pat _ _ _ = NONE)
 `
 
-val als_lst_pat_def = Define `
-  (als_lst_pat ([]:('s # c_type # patSem$v) list)  _ _ = []) /\
-  (als_lst_pat ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) =
-          if conf.mutable /\  conf'.mutable /\ (lc = lc')
-          then id::als_lst_pat prl (C_array conf) (Loc lc)
-          else als_lst_pat prl (C_array conf) (Loc lc)) /\
-  (als_lst_pat (_::prl) (C_array conf) (Loc lc) = als_lst_pat prl (C_array conf) (Loc lc)) /\
-  (als_lst_pat _ _ _ = [])
-`
-
-
-val als_lst'_pat_def = Define `
-  als_lst'_pat (idx, ct, v) prl =
-    case ct of C_array conf => if conf.mutable
-                               then (case v of Loc lc => idx :: als_lst_pat prl ct v
-                                             | _ => [])
-                               else []
-            | _ => []
-`
-
-val als_args_pat_def = tDefine "als_args_pat"
-  `
-  (als_args_pat [] = []) /\
-  (als_args_pat (pr::prs) =
-    als_lst'_pat pr prs :: als_args_pat (remove_loc (als_lst'_pat pr prs) prs))
-  `
-  (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "semanticPrimitives" "remove_loc_def",arithmeticTheory.LESS_EQ,
-      rich_listTheory.LENGTH_FILTER_LEQ])
-
-
-val als_args_final_pat_def = Define `
-  (als_args_final_pat prl  = emp_filt (als_args_pat prl))
-`
-
-
 val ret_val_pat_def = Define
 `(ret_val_pat (SOME(C_boolv b)) = Boolv b)
 /\ (ret_val_pat (SOME(C_intv i)) = Litv(IntLit i))
 /\ (ret_val_pat _ = Conv 0 [])
   `
-
-
-(*  “:c_type -> word8 list -> v -> v store_v list -> v store_v list option”*)
 
 val store_carg_pat_def = Define `
    (store_carg_pat (Loc lnum) ws (s:patSem$v store) =
@@ -249,9 +210,9 @@ val do_ffi_pat_def = Define `
    case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_pat t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n sign cargs (als_args_final_pat (loc_typ_val sign.args args)) of
+           (case call_FFI t.ffi n sign cargs (als_args sign.args args) of
               SOME (FFI_return t' newargs retv) =>
-                (case store_cargs_pat (get_mut_args sign args) newargs (t.refs) of
+                (case store_cargs_pat (get_mut_args sign.args args) newargs (t.refs) of
                   | SOME s' => SOME (t with <| refs := s'; ffi := t'|>, Rval (ret_val_pat retv))
                   | NONE => NONE)
             | SOME (FFI_final outcome) => SOME (t, Rerr (Rabort (Rffi_error outcome)))
