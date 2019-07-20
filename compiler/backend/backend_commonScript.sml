@@ -3,10 +3,12 @@
 *)
 
 open preamble
+open bitstringTheory
+open multiwordTheory
 
 val _ = new_theory "backend_common";
 
-val _ = set_grammar_ancestry ["arithmetic", "integer", "words"];
+val _ = set_grammar_ancestry ["arithmetic", "integer", "words","bitstring","multiword"];
 
 (* Small general definition *)
 val small_enough_int_def = Define `
@@ -112,5 +114,14 @@ val word_shift_def = Define `
        to be sure that LOG doesn't unnecessarily end up in the
        generated CakeML code *)
     if dimindex (:'a) = 32 then 2 else 3:num`;
+
+
+val ROUNDUP_DIV = Define `
+  ROUNDUP_DIV x y = x DIV y + (if x MOD y = 0 then 0 else 1)`;
+
+(* PAD to length (ROUNDUP_DIV (LENGTH w) (dimindex (:'a)) *)
+val v2mw_def = Define`
+  v2mw (:'a) (w:bool list)
+    = PAD_LEFT 0w (ROUNDUP_DIV (LENGTH w) (dimindex(:'a))) (n2mw (v2n w):('a word) list)`
 
 val _ = export_theory();

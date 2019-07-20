@@ -884,6 +884,13 @@ val WriteBoxedWordNative_def = Define `
              [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                 (shift_length c − shift (:α)); Const (1w:'a word)])]`
 
+val WordOpLarge_def = Define `
+  WordOpLarge n (:'a) opw  =
+    dtcase lookup_word_op opw of
+    | Bitwise op => list_Seq (GENLIST (\i. Assign (2*i+31) (Op op [Var (2*i+11);Var (2*i+13)])) (n ROUNDUP_DIV (dimindex(:'a))))
+    | Carried Add => ARB
+    | Carried Sub => ARB`
+
 val WordOp64_on_32_def = Define `
   WordOp64_on_32 (opw:opw) =
     dtcase opw of
@@ -1037,12 +1044,33 @@ val def = assign_Define `
         else (Assign (adjust_var dest) (Const (n2w (Num (4 * i)))),l)
       : 'a wordLang$prog # num`;
 
+val WriteBoxedConst_def = Define`
+    WriteBoxedConst (c:data_to_word$config) (header:'a word) (dest:num) payload =
+        let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+        let x = ARB in
+        list_Seq [
+           Assign 1 x;
+           (* allocate variable *)
+           AllocVar c limit (fromList [();();()]);
+           Assign 9 (Lookup NextFree);
+           (* adjust end of heap *)
+           Assign 1 (Op Add [Var 9;ARB]);
+           Set NextFree (Op Add [Var 1; Const bytes_in_word]);
+           ARB
+        ]
+      : 'a wordLang$prog`
+
 val def = assign_Define `
-  assign_WordConst w (l:num) (dest:num) =
-        if LENGTH w < dimindex(:'a)-2 then
-           (Assign (adjust_var dest) (Const (v2w w)),l)
-        else
-           (ARB,l)
+  assign_WordConst c w (l:num) (dest:num) =
+        (* TODO mark as unused *)
+        if LENGTH w = 0 then
+           (Assign (adjust_var dest) (Const 0w),l)
+        else if LENGTH w <= dimindex(:'a)-2 then
+           (Assign (adjust_var dest) (Const (word_lsl (v2w w) (dimindex(:'a) - LENGTH w))),l)
+        else (let payload = v2mw (:'a) w in
+            (dtcase encode_header c 3 (LENGTH payload) of
+            | NONE => (GiveUp,l)
+            | SOME (header:'a word) => (WriteBoxedConst c header dest payload,l)))
        : 'a wordLang$prog # num`
 
 val def = assign_Define `
@@ -1584,17 +1612,13 @@ val def = assign_Define `
    operations of word_size
    assumes word_size < dimindex(:'a);
  *)
-(* it's 'a word with; with dimindex(:'a)-word_size most significant bits set *)
+(* it's an ('a word) with; with dimindex(:'a)-word_size least significant bits set to 0 *)
 val small_bitmask_def = Define `small_bitmask (:'a) word_size
        = v2w
-          (PAD_RIGHT T (dimindex (:'a)) (PAD_LEFT F word_size [])):('a word)`
+          (PAD_RIGHT T (dimindex (:'a)) (PAD_LEFT F (dimindex(:'a) - word_size) [])):('a word)`
 
 (* addition overflows by at most single bit *)
 (* subtraction overflows by at most 2 *)
-
-(* TODO add to backend common *)
-val ROUNDUP_DIV = Define `
-  ROUNDUP_DIV x y = x DIV y + (if x MOD y = 0 then 0 else 1)`;
 
 (* TODO do we need a new way to differentiate header?
    the type should be determinable by header and len together
@@ -1603,11 +1627,12 @@ val ROUNDUP_DIV = Define `
 val def = assign_Define `
   assign_WordOp opw word_size (c:data_to_word$config) (secn:num)
                (l:num) (dest:num) (names:num_set option) v1 v2 =
+        (if word_size = 0 then
+           (Skip,l)
         (* unboxed case *)
-        (if word_size<=dimindex(:'a)-2 then
+        else if word_size<=dimindex(:'a)-2 then
            (Assign (adjust_var dest) (dtcase lookup_word_op opw of
              | Bitwise op => Op op [Var (adjust_var v1); Var (adjust_var v2)]
-             (* TODO wrong, we need to add an overflow carry *)
              | Carried op => Op And [Op op [Var (adjust_var v1);Var (adjust_var v2)];Const (small_bitmask (:'a) word_size)]
            ),l)
          (* small boxed case *)
@@ -1639,15 +1664,65 @@ val def = assign_Define `
             | SOME (header:'a word) =>
                   (ARB,l))): 'a wordLang$prog # num`
 
+val Signed_def = Datatype`Signed = Unsigned
+                                 | UnsignedFlipped
+                                 | Signed
+                                 | SignedFlipped
+                                 | Test`
+
+val signed_def = Define`signed Ltw = Unsigned /\
+                        signed Gtw = UnsignedFlipped /\
+                        signed Leqw = UnsignedFlipped /\
+                        signed Geqw = Unsigned /\
+                        signed Test = Test /\
+                        signed LtSignw = Signed /\
+                        signed GtSignw = Signed /\
+                        signed LeqSignw = Signed /\
+                        signed GeqSignw = Signed`
+val unsigned_to_op = Define`unsigned_to_op Ltw = Lower /\
+                            unsigned_to_op Geqw = NotLower `
+
+val unsigned_flipped_to_op = Define `unsigned_flipped_to_op Gtw = NotLower /\
+                                     unsigned_flipped_to_op Leqw = Lower`
+
+val LoadWordNative_def = Define `
+  LoadWordNative c i j =
+    Assign i (Load (Op Add [real_addr c j; Const bytes_in_word])):'a wordLang$prog`;
+
 val def = assign_Define `
   assign_WordCmp opwb word_size (c:data_to_word$config) (secn:num)
                (l:num) (dest:num) (names:num_set option) v1 v2 =
         (* unboxed case *)
         (if word_size<=dimindex(:'a)-2 then
-           (ARB,l)
+           (case signed opwb of
+             | Unsigned => (let cmpop = unsigned_to_op opwb in
+                  list_Seq[Assign 1 (Var (adjust_var v2));
+                       If cmpop (adjust_var v1) (Reg 1)
+                       (Assign (adjust_var dest) TRUE_CONST)
+                       (Assign (adjust_var dest) FALSE_CONST)],l)
+             | UnsignedFlipped => (let cmpop = unsigned_flipped_to_op opwb in
+                  list_Seq[Assign 1 (Var (adjust_var v1));
+                       If cmpop (adjust_var v2) (Reg 1)
+                       (Assign (adjust_var dest) TRUE_CONST)
+                       (Assign (adjust_var dest) FALSE_CONST)],l)
+             | Signed => (ARB,l)
+             (* makes Test always pass on 2 lsbs by setting them to 0s on 1 of 2 inputs, i.e. & (Tw-3w) *)
+             | Test => (list_Seq[
+                     Assign 1 (Op And [Var (adjust_var v2);Const (word_T-3w)]);
+                     If Test (adjust_var v1) (Reg 1)
+                       (Assign (adjust_var dest) TRUE_CONST)
+                       (Assign (adjust_var dest) FALSE_CONST)],l))
          (* small boxed case *)
          else if word_size<=dimindex(:'a) then
-           (ARB,l)
+           (case signed opwb of
+            (* 0 && 0 = 0 = 0 so we dont mind clearing anything *)
+            | Test => (list_Seq[
+                    LoadWordNative c 1 (adjust_var v1);
+                    LoadWordNative c 3 (adjust_var v2);
+                    If Test 1 (Reg 3)
+                       (Assign (adjust_var dest) TRUE_CONST)
+                       (Assign (adjust_var dest) FALSE_CONST)],l)
+            | _ => (ARB,l))
          (* large boxed case *)
          else
            (ARB,l)): 'a wordLang$prog # num`
@@ -2062,7 +2137,7 @@ val assign_def = Define `
     (args:num list) (names:num_set option) =
     dtcase op of
     | Const i => assign_Const i l dest
-    | WordConst w => assign_WordConst w l dest
+    | WordConst w => assign_WordConst c w l dest
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => arg1 args (assign_SetGlobalsPtr l dest) (Skip,l)
     | El => arg2 args (assign_El c l dest) (Skip,l)

@@ -2745,8 +2745,8 @@ val not_less_zero_int_eq = prove(
   ``~(i < 0:int) <=> ?n. i = &n``,
   Cases_on `i` \\ fs []);
 
-Theorem assign_WordFromWord:
-   (?b. op = WordFromWord b) ==> ^assign_thm_goal
+Theorem assign_WordToWord:
+   (?b. op = WordToWord src dest) ==> ^assign_thm_goal
 Proof
   cheat (* rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ `t.termdep <> 0` by fs[]
@@ -8156,15 +8156,19 @@ Proof
 QED
 *)
 
-
-Theorem memory_rel_small_word_IMP:
-  good_dimindex(:'a) /\ data_to_word_memoryProof$small_word (:'a) w /\
-  memory_rel c be refs sp st m dm ((Word w,v:'a word_loc)::vars) ==>
-  v = Word (v2w w)
+Theorem opw_lookup_proper:
+  (semanticPrimitives$opw_lookup Andw = band) ∧
+  (semanticPrimitives$opw_lookup Orw = bor) ∧
+  (semanticPrimitives$opw_lookup Xor = bxor) ∧
+  (semanticPrimitives$opw_lookup Add = fixadd) ∧
+  (semanticPrimitives$opw_lookup Sub = fixsub) ∧
+  (semanticPrimitivesProps$opw_lookup Andw = band) ∧
+  (semanticPrimitivesProps$opw_lookup Orw = bor) ∧
+  (semanticPrimitivesProps$opw_lookup Xor = bxor) ∧
+  (semanticPrimitivesProps$opw_lookup Add = fixadd) ∧
+  (semanticPrimitivesProps$opw_lookup Sub = fixsub)
 Proof
- fs[memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
-   bc_stack_ref_inv_def,v_inv_def] \\ rw[] \\ fs[]
- \\ fs[word_addr_def] \\ cheat
+EVAL_TAC
 QED
 
 Theorem assign_WordOp_small:
@@ -8177,22 +8181,24 @@ Proof
  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
  \\ imp_res_tac get_vars_IMP_LENGTH
  \\ fs[do_app]
- \\ every_case_tac \\ fs[]
+ \\ `alloc_size wsize (dimindex(:'a)) = 0 <=> wsize <= dimindex(:'a) - 2`
+   by (simp[data_spaceTheory.alloc_size_def
+           ,data_spaceTheory.ROUNDUP_DIV_def]
+       \\ TOP_CASE_TAC \\ fs[] \\ cheat)
+ \\ fs[]
+ \\ Cases_on `wsize <= dimindex(:'a)-2` \\ fs[]
  \\ clean_tac
- \\ imp_res_tac state_rel_get_vars_IMP
+ \\ Cases_on `vals` \\ fs[]
+ \\ Cases_on `t'` \\ fs[]
+ \\ Cases_on `h'` \\ fs[]
+ \\ Cases_on `h` \\ fs[]
+ \\ Cases_on `t''` \\ fs[]
+ \\ Cases_on `wsize = LENGTH l' /\ wsize = LENGTH l''` \\ fs[]
+ \\ clean_tac
+ \\ fs[] \\ clean_tac
+ \\ simp[assign_def]
  \\ fs[quantHeuristicsTheory.LIST_LENGTH_2]
- \\ clean_tac
- \\ fs[state_rel_thm] \\ eval_tac
- \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
- \\ rpt_drule0 (memory_rel_get_vars_IMP |> GEN_ALL)
- \\ strip_tac
- \\ fs[]
- \\ clean_tac
- \\ qmatch_asmsub_rename_tac`[Word w1; Word w2]`
- \\ imp_res_tac memory_rel_small_word_IMP
- \\ fs[data_to_word_memoryProofTheory.small_word_def]
- \\ res_tac
- \\ fs[]
+ \\ eval_tac \\ clean_tac
  \\ cheat
 QED
 
@@ -9758,7 +9764,26 @@ QED
 Theorem assign_WordConst:
   (?w. op = WordConst w) ==> ^assign_thm_goal
 Proof
-  cheat
+  rpt strip_tac \\ drule0 (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
+  \\ `t.termdep <> 0` by fs[]
+  \\ rpt_drule0 state_rel_cut_IMP
+  \\ qpat_x_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ fs [do_app] \\ every_case_tac \\ fs []
+  \\ rpt var_eq_tac
+  \\ fs [assign_def]
+  \\ TOP_CASE_TAC
+  >- ( (* small words *)
+      fs[]
+      \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
+      \\ fs [state_rel_def,wordSemTheory.set_var_def,set_var_def,
+            lookup_insert,adjust_var_11]
+      \\ rw[] \\ fs[]
+      \\ asm_exists_tac \\ fs[]
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac word_ml_inv_insert \\ fs[]
+      \\ match_mp_tac word_ml_inv_word \\ fs[]
+      \\ simp[small_word_def])
+  \\ cheat
 QED
 
 Theorem assign_GlobalsPtr:

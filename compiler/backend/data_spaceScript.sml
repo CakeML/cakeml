@@ -5,13 +5,11 @@
   several calls to the memory allocator into a single efficient call.
 *)
 open preamble dataLangTheory;
+local open backend_commonTheory in end
 
 val _ = new_theory "data_space";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
-val ROUNDUP_DIV = Define `
-  ROUNDUP_DIV x y = x DIV y + (if x MOD y = 0 then 0 else 1)`;
 
 val alloc_size_def = Define
   `alloc_size word_size arch_size = (ROUNDUP_DIV word_size (arch_size-2))-1`
