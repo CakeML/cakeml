@@ -95,19 +95,70 @@ val _ = Define `
 
 
 val _ = Define `
- ((bool_type_num:num) : num= (( 0 : num)))`;
+ ((bool_type_num:num)      : num= (( 0 : num)))`;
 
 val _ = Define `
- ((list_type_num:num) : num= (( 1 : num)))`;
+ ((list_type_num:num)      : num= (( 1 : num)))`;
 
 val _ = Define `
- ((option_type_num:num) : num= (( 2 : num)))`;
+ ((option_type_num:num)    : num= (( 2 : num)))`;
 
 val _ = Define `
- ((lit_type_num:num) : num= (( 3 : num)))`;
+ ((lit_type_num:num)       : num= (( 3 : num)))`;
 
 val _ = Define `
- ((id_type_num:num) : num= (( 4 : num)))`;
+ ((id_type_num:num)        : num= (( 4 : num)))`;
+
+val _ = Define `
+ ((ast_t_type_num:num)     : num= (( 5 : num)))`;
+
+val _ = Define `
+ ((pat_type_num:num)       : num= (( 6 : num)))`;
+
+val _ = Define `
+ ((lop_type_num:num)       : num= (( 7 : num)))`;
+
+val _ = Define `
+ ((opn_type_num:num)       : num= (( 8 : num)))`;
+
+val _ = Define `
+ ((opb_type_num:num)       : num= (( 9 : num)))`;
+
+val _ = Define `
+ ((opw_type_num:num)       : num= (( 10 : num)))`;
+
+val _ = Define `
+ ((shift_type_num:num)     : num= (( 11 : num)))`;
+
+val _ = Define `
+ ((word_size_type_num:num) : num= (( 12 : num)))`;
+
+val _ = Define `
+ ((fp_uop_type_num:num)    : num= (( 13 : num)))`;
+
+val _ = Define `
+ ((fp_bop_type_num:num)    : num= (( 14 : num)))`;
+
+val _ = Define `
+ ((fp_top_type_num:num)    : num= (( 15 : num)))`;
+
+val _ = Define `
+ ((fp_cmp_type_num:num)    : num= (( 16 : num)))`;
+
+val _ = Define `
+ ((op_type_num:num)        : num= (( 17 : num)))`;
+
+val _ = Define `
+ ((locn_type_num:num)      : num= (( 18 : num)))`;
+
+val _ = Define `
+ ((locs_type_num:num)      : num= (( 19 : num)))`;
+
+val _ = Define `
+ ((exp_type_num:num)       : num= (( 20 : num)))`;
+
+val _ = Define `
+ ((dec_type_num:num)       : num= (( 21 : num)))`;
 
 
 (* The result of evaluation *)

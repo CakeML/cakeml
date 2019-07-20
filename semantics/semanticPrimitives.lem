@@ -62,11 +62,28 @@ let chr_exn_v = Conv (Just chr_stamp) []
 let div_exn_v = Conv (Just div_stamp) []
 let sub_exn_v = Conv (Just subscript_stamp) []
 
-let bool_type_num : nat = 0
-let list_type_num : nat = 1
-let option_type_num : nat = 2
-let lit_type_num : nat = 3
-let id_type_num : nat = 4
+let bool_type_num      : nat = 0
+let list_type_num      : nat = 1
+let option_type_num    : nat = 2
+let lit_type_num       : nat = 3
+let id_type_num        : nat = 4
+let ast_t_type_num     : nat = 5
+let pat_type_num       : nat = 6
+let lop_type_num       : nat = 7
+let opn_type_num       : nat = 8
+let opb_type_num       : nat = 9
+let opw_type_num       : nat = 10
+let shift_type_num     : nat = 11
+let word_size_type_num : nat = 12
+let fp_uop_type_num    : nat = 13
+let fp_bop_type_num    : nat = 14
+let fp_top_type_num    : nat = 15
+let fp_cmp_type_num    : nat = 16
+let op_type_num        : nat = 17
+let locn_type_num      : nat = 18
+let locs_type_num      : nat = 19
+let exp_type_num       : nat = 20
+let dec_type_num       : nat = 21
 
 (* The result of evaluation *)
 type abort =
