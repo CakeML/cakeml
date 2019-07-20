@@ -224,45 +224,6 @@ val get_cargs_flat_def = Define
 /\ (get_cargs_flat _ _ _ = NONE)
 `
 
-
-
-val als_lst_flat_def = Define `
-  (als_lst_flat ([]:('s # c_type # flatSem$v) list)  _ _ = []) /\
-  (als_lst_flat ((id, (C_array conf'), (Loc lc'))::prl) (C_array conf) (Loc lc) =
-          if conf.mutable /\  conf'.mutable /\ (lc = lc')
-          then id::als_lst_flat prl (C_array conf) (Loc lc)
-          else als_lst_flat prl (C_array conf) (Loc lc)) /\
-  (als_lst_flat (_::prl) (C_array conf) (Loc lc) = als_lst_flat prl (C_array conf) (Loc lc)) /\
-  (als_lst_flat _ _ _ = [])
-`
-
-
-val als_lst'_flat_def = Define `
-  als_lst'_flat (idx, ct, v) prl =
-    case ct of C_array conf => if conf.mutable
-                               then (case v of Loc lc => idx :: als_lst_flat prl ct v
-                                             | _ => [])
-                               else []
-            | _ => []
-`
-
-val als_args_flat_def = tDefine "als_args_flat"
-  `
-  (als_args_flat [] = []) /\
-  (als_args_flat (pr::prs) =
-    als_lst'_flat pr prs :: als_args_flat (remove_loc (als_lst'_flat pr prs) prs))
-  `
-  (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "semanticPrimitives" "remove_loc_def",arithmeticTheory.LESS_EQ,
-      rich_listTheory.LENGTH_FILTER_LEQ])
-
-
-val als_args_final_flat_def = Define `
-  (als_args_final_flat prl  = emp_filt (als_args_flat prl))
-`
-
-(* Unitv determines the representation of unit constructor in flatLang using check_ctor *)
-
 val ret_val_flat_def = Define
 `(ret_val_flat (SOME(C_boolv b)) _ = Boolv b)
 /\ (ret_val_flat (SOME(C_intv i)) _ = Litv(IntLit i))
@@ -292,9 +253,9 @@ val do_ffi_flat_def = Define `
    case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_flat t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n sign cargs (als_args_final_flat (loc_typ_val sign.args args)) of
+           (case call_FFI t.ffi n sign cargs (als_args sign.args args) of
               SOME (FFI_return t' newargs retv) =>
-               (case store_cargs_flat (get_mut_args sign args) newargs (t.refs) of
+               (case store_cargs_flat (get_mut_args sign.args args) newargs (t.refs) of
                 | SOME s' => SOME (t with <| refs := s'; ffi := t'|>,
                                    Rval (ret_val_flat retv check_ctor))
                 | NONE => NONE)
