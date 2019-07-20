@@ -191,41 +191,6 @@ val get_cargs_clos_def = Define
 /\ (get_cargs_clos _ _ _ = NONE)
 `
 
-
-val als_lst_clos_def = Define `
-  (als_lst_clos ([]:('s # c_type # closSem$v) list)    _ _ = []) /\
-  (als_lst_clos ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
-          if conf.mutable /\  conf'.mutable /\ (n = n')
-          then id::als_lst_clos prl (C_array conf) (RefPtr n)
-          else als_lst_clos prl (C_array conf) (RefPtr n)) /\
-  (als_lst_clos (_::prl) (C_array conf) (RefPtr n) = als_lst_clos prl (C_array conf) (RefPtr n)) /\
-  (als_lst_clos _ _ _ = [])
-`
-
-val als_lst'_clos_def = Define `
-  als_lst'_clos (idx, ct, v) prl =
-    case ct of C_array conf => if conf.mutable
-                               then (case v of RefPtr n => idx :: als_lst_clos prl ct v
-                                             | _ => [])
-                               else []
-            | _ => []
-`
-
-val als_args_clos_def = tDefine "als_args_clos"
-  `
-  (als_args_clos [] = []) /\
-  (als_args_clos (pr::prs) =
-    als_lst'_clos pr prs :: als_args_clos (remove_loc (als_lst'_clos pr prs) prs))
-  `
-  (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "semanticPrimitives" "remove_loc_def",arithmeticTheory.LESS_EQ,
-      rich_listTheory.LENGTH_FILTER_LEQ])
-
-
-val als_args_final_clos_def = Define `
-  (als_args_final_clos prl  = emp_filt (als_args_clos prl))
-`
-
 val ret_val_clos_def = Define
 `(ret_val_clos (SOME(C_boolv b)) = Boolv b)
 /\ (ret_val_clos (SOME(C_intv i)) = Number i)
@@ -255,9 +220,9 @@ val do_ffi_clos_def = Define `
    case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_clos t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n sign cargs (als_args_final_clos (loc_typ_val sign.args args)) of
+           (case call_FFI t.ffi n sign cargs (als_args sign.args args) of
               SOME (FFI_return t' newargs retv) =>
-               (case store_cargs_clos (get_mut_args sign args) newargs (t.refs) of
+               (case store_cargs_clos (get_mut_args sign.args args) newargs (t.refs) of
                   | SOME s' => SOME (Rval (ret_val_clos retv,
                                 t with <| refs := s'; ffi := t'|>))
                   | NONE => NONE)
