@@ -3367,8 +3367,11 @@ val compile_decs_correct' = Q.prove (
     rename [`_ = (s_i2,res)`] >>
     drule compile_exp_correct >>
     disch_then (qspecl_then [`comp_map`,`s_i1`,`None`,`genv.c`] mp_tac) >>
-    impl_tac THEN1 cheat >>
-    strip_tac \\ fs [] >> rfs [] \\ fs []
+    impl_tac THEN1
+     (rfs [invariant_def,evaluate_Letrec_Var] \\ rveq \\ fs [] \\ fs []
+      \\ match_mp_tac global_env_inv_weak
+      \\ asm_exists_tac \\ fs [] \\ fs [subglobals_def])
+    \\ strip_tac \\ fs [] >> rfs [] \\ fs []
     \\ fs [compile_exp_def] \\ rfs []
     \\ rfs [evaluate_Letrec_Var] \\ rveq \\ fs []
     \\ qabbrev_tac `vs = MAP (λ(f,x,e). Recclosure env funs f) funs`
