@@ -3555,7 +3555,7 @@ val compile_decs_correct' = Q.prove (
       rw [subglobals_refl] >>
       `genv = <|v := s_i1.globals; c := genv.c|>` by rw [theorem "global_env_component_equality"] >>
       metis_tac [])
-    >- cheat
+    >- fs [EXTENSION]
     >- rw [env_domain_eq_def]
     >- rw [FLOOKUP_DEF])
 
@@ -3697,17 +3697,14 @@ Proof
   disch_then drule >>
   disch_then drule >>
   fs [] >>
-  impl_tac >- cheat >> strip_tac >>
-  `s_i1.check_ctor` by cheat >> fs [] >>
-  asm_exists_tac >> fs [] >>
-(* impl_tac
+  impl_tac
   >- (
     rw [Abbr`ext_glob`] >>
     fs [invariant_def] >>
     rfs []) >>
-  rw [] >>
-  rw [] >>
-  qexists_tac `genv''` >> *)
+  strip_tac >>
+  `s_i1.check_ctor` by fs [invariant_def,s_rel_cases] >> fs [] >>
+  asm_exists_tac >> fs [] >>
   rw [Abbr`ext_glob`] >>
   fs [invariant_def] >>
   qpat_x_assum `subglobals _ _` mp_tac >>
