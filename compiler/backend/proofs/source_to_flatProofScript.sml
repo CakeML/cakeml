@@ -1799,42 +1799,16 @@ val compile_exp_correct' = Q.prove (
     fs[] >>
     rw [] >>
     imp_res_tac do_app_const >>
-    rw []
+    imp_res_tac do_app_state_unchanged >>
+    rw [] >> fs[]
     >- (
       irule v_rel_weak >>
       qexists_tac `genv with v := s2.globals` >>
       rw [subglobals_refl])
     >- (
-      fs [LIST_REL_EL_EQN] >>
-      rw [] >>
-      irule sv_rel_weak >>
-      qexists_tac `genv with v := s2.globals` >>
-      rw [])
-    >- cheat
-    >- cheat
-    >- cheat
-    >- (
       irule v_rel_weak >>
       qexists_tac `genv with v := s2.globals` >>
-      rw [subglobals_refl])
-    >- (
-      fs [LIST_REL_EL_EQN] >>
-      rw [] >>
-      irule sv_rel_weak >>
-      qexists_tac `genv with v := s2.globals` >>
-      rw [])
-    >- cheat
-    >- cheat
-    >- cheat
-    >- (
-      fs [LIST_REL_EL_EQN] >>
-      rw [] >>
-      irule sv_rel_weak >>
-      qexists_tac `genv with v := s2.globals` >>
-      rw [])
-    >- cheat
-    >- cheat
-    >- cheat)
+      rw [subglobals_refl]))
   >- ( (* logical operation *)
     fs[markerTheory.Abbrev_def]>>
     qpat_x_assum`_ ⇒ _`mp_tac >>

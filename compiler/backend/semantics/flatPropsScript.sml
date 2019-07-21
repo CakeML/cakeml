@@ -298,7 +298,7 @@ Proof
 QED
 
 Theorem do_app_state_unchanged:
-  !s op vs s' r. do_app s.check_ctor s op vs = SOME (s', r) ⇒
+  !c s op vs s' r. do_app c s op vs = SOME (s', r) ⇒
      s.c = s'.c ∧
      s.exh_pat = s'.exh_pat ∧
      s.check_ctor = s'.check_ctor
