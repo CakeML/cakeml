@@ -30,6 +30,15 @@ Proof
   metis_tac [APPEND, APPEND_ASSOC]
 QED
 
+Theorem pats_bindings_FLAT_MAP:
+  ∀ps acc. pats_bindings ps acc = FLAT (REVERSE (MAP (λp. pat_bindings p []) ps)) ++ acc
+Proof
+  Induct
+  \\ simp[pat_bindings_def]
+  \\ Cases \\ simp[pat_bindings_def]
+  \\ metis_tac[pat_bindings_accum]
+QED
+
 Theorem pmatch_state:
   (∀ (st:'ffi state) p v l (st':'ffi state) res .
     pmatch st p v l = res ∧

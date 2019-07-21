@@ -3233,7 +3233,9 @@ val compile_decs_correct' = Q.prove (
     qpat_abbrev_tac `e1 = evaluate_decs s_i1 prog` >>
     qabbrev_tac `c1 = compile_exp None comp_map
       (Letrec funs (Con NONE (MAP (λ(f,_). Var (Short f)) funs)))` >>
-    `ALL_DISTINCT (pat_bindings (Pcon NONE (MAP (λ(f,_). Pvar f) funs)) [])` by cheat >>
+    `ALL_DISTINCT (pat_bindings (Pcon NONE (MAP (λ(f,_). Pvar f) funs)) [])` by (
+      rw[pat_bindings_def, pats_bindings_FLAT_MAP, MAP_MAP_o, o_DEF, UNCURRY, FLAT_MAP_SING]
+      \\ fs[FST_triple] ) \\
     `e1 = evaluate_decs s_i1
        [Dlet (Mat None c1
           [(Pcon NONE (MAP (\(f,_). Pvar f) funs), stores)])]` by
