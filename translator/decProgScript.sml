@@ -69,94 +69,10 @@ val LOCATION_LOCS_TYPE_def = my_fetch "LOCATION_LOCS_TYPE_def";
 val AST_EXP_TYPE_def = my_fetch "AST_EXP_TYPE_def";
 val AST_DEC_TYPE_def = my_fetch "AST_DEC_TYPE_def";
 
-Theorem enc_lit_11[simp]:
-  !i j. enc_lit i = enc_lit j <=> i = j
-Proof
-  Cases_on `i` \\ Cases_on `j` \\ fs [enc_lit_def]
-QED
-
-Theorem dec_lit_enc_lit[simp]:
-  dec_lit (enc_lit l) = SOME l
-Proof
-  fs [dec_lit_def]
-QED
-
 Theorem AST_LIT_TYPE_eq_enc:
   !l v. AST_LIT_TYPE l v <=> v = enc_lit l
 Proof
   Cases \\ fs [AST_LIT_TYPE_def,enc_lit_def]
-QED
-
-Definition enc_id_def:
-  enc_id (Short s) =
-    Conv (SOME (TypeStamp "Short" id_type_num)) [Litv (StrLit s)] /\
-  enc_id (Long s i) =
-    Conv (SOME (TypeStamp "Long" id_type_num)) [Litv (StrLit s); enc_id i]
-End
-
-Definition enc_list_def:
-  enc_list [] =
-    Conv (SOME (TypeStamp "[]" list_type_num)) [] /\
-  enc_list (x::xs) =
-    Conv (SOME (TypeStamp "::" list_type_num)) [x; enc_list xs]
-End
-
-Definition enc_option_def:
-  enc_option NONE =
-    Conv (SOME (TypeStamp "None" option_type_num)) [] /\
-  enc_option (SOME x) =
-    Conv (SOME (TypeStamp "Some" option_type_num)) [x]
-End
-
-Definition enc_ast_t_def:
-  enc_ast_t (Atapp x y) =
-    Conv (SOME (TypeStamp "Atapp" ast_t_type_num))
-      [enc_list (MAP enc_ast_t x); enc_id y] /\
-  enc_ast_t (Attup x) =
-    Conv (SOME (TypeStamp "Attup" ast_t_type_num))
-      [enc_list (MAP enc_ast_t x)] /\
-  enc_ast_t (Atfun x_3 x_2) =
-    Conv (SOME (TypeStamp "Atfun" ast_t_type_num))
-      [enc_ast_t x_3; enc_ast_t x_2] /\
-  enc_ast_t (Atvar x_1) =
-    Conv (SOME (TypeStamp "Atvar" ast_t_type_num)) [Litv (StrLit x_1)]
-Termination
-  WF_REL_TAC `measure ast_t_size`
-  \\ `!xs a. MEM a xs ==> ast_t_size a < ast_t1_size xs` by
-        (Induct \\ fs [] \\ rw [] \\ fs [ast_t_size_def] \\ res_tac \\ fs [])
-  \\ rw [] \\ fs [ast_t_size_def] \\ res_tac \\ fs []
-End
-
-Definition enc_pat_def:
-  enc_pat (Ptannot x_7 x_6) =
-    Conv (SOME (TypeStamp "Ptannot" pat_type_num))
-      [enc_pat x_7; enc_ast_t x_6] /\
-  enc_pat (Pref x_5) =
-    Conv (SOME (TypeStamp "Pref" pat_type_num))
-      [enc_pat x_5] /\
-  enc_pat (Pcon x_4 x_3) =
-    Conv (SOME (TypeStamp "Pcon" pat_type_num))
-      [enc_option (OPTION_MAP enc_id x_4); enc_list (MAP enc_pat x_3)] /\
-  enc_pat (Plit x_2) =
-    Conv (SOME (TypeStamp "Plit" pat_type_num))
-      [enc_lit x_2] /\
-  enc_pat (Pvar x_1) =
-    Conv (SOME (TypeStamp "Pvar" pat_type_num))
-      [Litv (StrLit x_1)] /\
-  enc_pat Pany =
-    Conv (SOME (TypeStamp "Pany" pat_type_num)) []
-Termination
-  WF_REL_TAC `measure pat_size`
-  \\ rw [] \\ fs [pat_size_def]
-  \\ qsuff_tac `!a l. MEM a l ==> pat_size a < pat1_size l`
-  THEN1 (rw[] \\ res_tac \\ fs [])
-  \\ Induct_on `l` \\ fs [] \\ rw [] \\ fs [pat_size_def] \\ res_tac \\ fs []
-End
-
-Theorem enc_id_11[simp]:
-  !i j. enc_id i = enc_id j <=> i = j
-Proof
-  Induct_on `i` \\ Cases_on `j` \\ fs [enc_id_def]
 QED
 
 Theorem NAMESPACE_ID_TYPE_eq_enc:
@@ -166,198 +82,31 @@ Proof
                 STRING_TYPE_def,mlstringTheory.implode_def,enc_id_def]
 QED
 
-Theorem enc_list_11[simp]:
-  !i j. enc_list i = enc_list j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_list_def]
-QED
-
-Theorem enc_option_11[simp]:
-  !i j. enc_option i = enc_option j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_option_def]
-QED
-
-Theorem enc_ast_t_11[simp]:
-  !i j. enc_ast_t i = enc_ast_t j <=> i = j
-Proof
-  recInduct (theorem "enc_ast_t_ind") \\ rw []
-  \\ Cases_on `j` \\ fs [enc_ast_t_def]
-  THEN1
-    (Cases_on `y = i` \\ fs [] \\ rveq
-    \\ pop_assum mp_tac \\ qspec_tac (`l`,`l`)
-    \\ Induct_on `x` \\ Cases_on `l` \\ fs [])
-  \\ pop_assum mp_tac \\ qspec_tac (`l`,`l`)
-  \\ Induct_on `x` \\ Cases_on `l` \\ fs []
-QED
-
-Theorem LIST_TYPE_eq_enc:
-  !l v.
-    (∀a. MEM a l ⇒ ∀v. P a v ⇔ v = f a) ==>
-    (LIST_TYPE P l v <=> v = enc_list (MAP f l))
-Proof
-  Induct \\ fs [LIST_TYPE_def,enc_list_def]
-QED
-
 Theorem AST_AST_T_TYPE_eq_enc:
   !l v. AST_AST_T_TYPE l v <=> v = enc_ast_t l
 Proof
-  recInduct (theorem "enc_ast_t_ind") \\ rw []
+  recInduct enc_ast_t_ind \\ rw []
   \\ fs [AST_AST_T_TYPE_def,NAMESPACE_ID_TYPE_eq_enc,enc_ast_t_def]
   \\ fs [HOL_STRING_TYPE_def,mlstringTheory.implode_def,STRING_TYPE_def]
-  \\ drule LIST_TYPE_eq_enc
-  \\ fs [] \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+  \\ qsuff_tac
+       `!v. LIST_TYPE AST_AST_T_TYPE x v <=> v = enc_list (MAP (λa. enc_ast_t a) x)`
+  \\ fs [] \\ Induct_on `x` \\ fs [LIST_TYPE_def,enc_list_def]
 QED
 
 Theorem AST_PAT_TYPE_eq_enc:
   !l v. AST_PAT_TYPE l v <=> v = enc_pat l
 Proof
-  recInduct (theorem "enc_pat_ind") \\ rw []
+  recInduct enc_pat_ind \\ rw []
   \\ fs [AST_PAT_TYPE_def,NAMESPACE_ID_TYPE_eq_enc,enc_pat_def,
          AST_AST_T_TYPE_eq_enc]
   \\ fs [AST_LIT_TYPE_eq_enc,HOL_STRING_TYPE_def,mlstringTheory.implode_def,STRING_TYPE_def]
-  \\ drule LIST_TYPE_eq_enc \\ fs []
-  \\ Cases_on `x_4`
+  \\ rename [`LIST_TYPE AST_PAT_TYPE xs`]
+  \\ `!v. LIST_TYPE AST_PAT_TYPE xs v <=> v = enc_list (MAP (λa. enc_pat a) xs)` by
+         (Induct_on `xs` \\ fs [LIST_TYPE_def,enc_list_def]) \\ fs []
+  \\ rename [`OPTION_MAP enc_id xo`]
+  \\ Cases_on `xo`
   \\ fs [enc_option_def,OPTION_TYPE_def,PULL_EXISTS, NAMESPACE_ID_TYPE_eq_enc,enc_id_def]
   \\ fs [] \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
-QED
-
-Theorem enc_pat_11[simp]:
-  !i j. enc_pat i = enc_pat j <=> i = j
-Proof
-  recInduct (theorem "enc_pat_ind") \\ rw []
-  \\ Cases_on `j` \\ fs [enc_pat_def]
-  \\ rename [`OPTION_MAP _ x = _ y`]
-  \\ `OPTION_MAP enc_id x = OPTION_MAP enc_id y <=> x = y` by
-       (Cases_on `x` \\ Cases_on `y` \\ fs [])
-  \\ fs [] \\ Cases_on `x = y` \\ fs []
-  \\ qspec_tac (`l`,`l`)
-  \\ Induct_on `x_3` \\ rw [] \\ Cases_on `l` \\ fs []
-QED
-
-Definition enc_lop_def:
-  enc_lop Or = Conv (SOME (TypeStamp "Or" lop_type_num)) [] /\
-  enc_lop And = Conv (SOME (TypeStamp "And" lop_type_num)) []
-End
-
-Definition enc_opn_def:
-  enc_opn Modulo = Conv (SOME (TypeStamp "Modulo" opn_type_num)) [] ∧
-  enc_opn Divide = Conv (SOME (TypeStamp "Divide" opn_type_num)) [] ∧
-  enc_opn Times = Conv (SOME (TypeStamp "Times" opn_type_num)) [] ∧
-  enc_opn Minus = Conv (SOME (TypeStamp "Minus" opn_type_num)) [] ∧
-  enc_opn Plus = Conv (SOME (TypeStamp "Plus" opn_type_num)) []
-End
-
-Definition enc_opb_def:
-  enc_opb Geq = Conv (SOME (TypeStamp "Geq" opb_type_num)) [] ∧
-  enc_opb Leq = Conv (SOME (TypeStamp "Leq" opb_type_num)) [] ∧
-  enc_opb Gt = Conv (SOME (TypeStamp "Gt" opb_type_num)) [] ∧
-  enc_opb Lt = Conv (SOME (TypeStamp "Lt" opb_type_num)) []
-End
-
-Definition enc_opw_def:
-  enc_opw Sub = Conv (SOME (TypeStamp "Sub" opw_type_num)) [] ∧
-  enc_opw Add = Conv (SOME (TypeStamp "Add" opw_type_num)) [] ∧
-  enc_opw Xor = Conv (SOME (TypeStamp "Xor" opw_type_num)) [] ∧
-  enc_opw Orw = Conv (SOME (TypeStamp "Orw" opw_type_num)) [] ∧
-  enc_opw Andw = Conv (SOME (TypeStamp "Andw" opw_type_num)) []
-End
-
-Definition enc_shift_def:
-  enc_shift Ror = Conv (SOME (TypeStamp "Ror" shift_type_num)) [] ∧
-  enc_shift Asr = Conv (SOME (TypeStamp "Asr" shift_type_num)) [] ∧
-  enc_shift Lsr = Conv (SOME (TypeStamp "Lsr" shift_type_num)) [] ∧
-  enc_shift Lsl = Conv (SOME (TypeStamp "Lsl" shift_type_num)) []
-End
-
-Definition enc_word_size_def:
-  enc_word_size W64 = Conv (SOME (TypeStamp "W64" word_size_type_num)) [] ∧
-  enc_word_size W8 = Conv (SOME (TypeStamp "W8" word_size_type_num)) []
-End
-
-Definition enc_fp_uop_def:
-  enc_fp_uop FP_Sqrt = Conv (SOME (TypeStamp "Fp_sqrt" fp_uop_type_num)) [] ∧
-  enc_fp_uop FP_Neg = Conv (SOME (TypeStamp "Fp_neg" fp_uop_type_num)) [] ∧
-  enc_fp_uop FP_Abs = Conv (SOME (TypeStamp "Fp_abs" fp_uop_type_num)) []
-End
-
-Definition enc_fp_bop_def:
-  enc_fp_bop FP_Div = Conv (SOME (TypeStamp "Fp_div" fp_bop_type_num)) [] ∧
-  enc_fp_bop FP_Mul = Conv (SOME (TypeStamp "Fp_mul" fp_bop_type_num)) [] ∧
-  enc_fp_bop FP_Sub = Conv (SOME (TypeStamp "Fp_sub" fp_bop_type_num)) [] ∧
-  enc_fp_bop FP_Add = Conv (SOME (TypeStamp "Fp_add" fp_bop_type_num)) []
-End
-
-Definition enc_fp_top_def:
-  enc_fp_top FP_Fma = Conv (SOME (TypeStamp "Fp_fma" fp_top_type_num)) []
-End
-
-Definition enc_fp_cmp_def:
-  enc_fp_cmp FP_Equal = Conv (SOME (TypeStamp "Fp_equal" fp_cmp_type_num)) [] ∧
-  enc_fp_cmp FP_GreaterEqual = Conv (SOME (TypeStamp "Fp_greaterequal" fp_cmp_type_num)) [] ∧
-  enc_fp_cmp FP_Greater = Conv (SOME (TypeStamp "Fp_greater" fp_cmp_type_num)) [] ∧
-  enc_fp_cmp FP_LessEqual = Conv (SOME (TypeStamp "Fp_lessequal" fp_cmp_type_num)) [] ∧
-  enc_fp_cmp FP_Less = Conv (SOME (TypeStamp "Fp_less" fp_cmp_type_num)) []
-End
-
-Theorem enc_lop_11[simp]:
-  !i j. enc_lop i = enc_lop j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_lop_def]
-QED
-
-Theorem enc_opn_11[simp]:
-  !i j. enc_opn i = enc_opn j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_opn_def]
-QED
-
-Theorem enc_opb_11[simp]:
-  !i j. enc_opb i = enc_opb j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_opb_def]
-QED
-
-Theorem enc_opw_11[simp]:
-  !i j. enc_opw i = enc_opw j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_opw_def]
-QED
-
-Theorem enc_shift_11[simp]:
-  !i j. enc_shift i = enc_shift j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_shift_def]
-QED
-
-Theorem enc_word_size_11[simp]:
-  !i j. enc_word_size i = enc_word_size j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_word_size_def]
-QED
-
-Theorem enc_fp_uop_11[simp]:
-  !i j. enc_fp_uop i = enc_fp_uop j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_fp_uop_def]
-QED
-
-Theorem enc_fp_bop_11[simp]:
-  !i j. enc_fp_bop i = enc_fp_bop j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_fp_bop_def]
-QED
-
-Theorem enc_fp_top_11[simp]:
-  !i j. enc_fp_top i = enc_fp_top j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_fp_cmp_def]
-QED
-
-Theorem enc_fp_cmp_11[simp]:
-  !i j. enc_fp_cmp i = enc_fp_cmp j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_fp_cmp_def]
 QED
 
 Theorem AST_LOP_TYPE_eq_enc:
@@ -420,59 +169,6 @@ Proof
   Induct \\ fs [FPSEM_FP_CMP_TYPE_def,enc_fp_cmp_def]
 QED
 
-Definition enc_op_def:
-  enc_op EnvLookup = Conv (SOME (TypeStamp "Envlookup" op_type_num)) [] ∧
-  enc_op Eval = Conv (SOME (TypeStamp "Eval" op_type_num)) [] ∧
-  enc_op (FFI x_15) = Conv (SOME (TypeStamp "Ffi" op_type_num)) [Litv (StrLit x_15)] ∧
-  enc_op ConfigGC = Conv (SOME (TypeStamp "Configgc" op_type_num)) [] ∧
-  enc_op ListAppend = Conv (SOME (TypeStamp "Listappend" op_type_num)) [] ∧
-  enc_op Aupdate = Conv (SOME (TypeStamp "Aupdate" op_type_num)) [] ∧
-  enc_op Alength = Conv (SOME (TypeStamp "Alength" op_type_num)) [] ∧
-  enc_op Asub = Conv (SOME (TypeStamp "Asub" op_type_num)) [] ∧
-  enc_op AallocEmpty = Conv (SOME (TypeStamp "Aallocempty" op_type_num)) [] ∧
-  enc_op Aalloc = Conv (SOME (TypeStamp "Aalloc" op_type_num)) [] ∧
-  enc_op Vlength = Conv (SOME (TypeStamp "Vlength" op_type_num)) [] ∧
-  enc_op Vsub = Conv (SOME (TypeStamp "Vsub" op_type_num)) [] ∧
-  enc_op VfromList = Conv (SOME (TypeStamp "Vfromlist" op_type_num)) [] ∧
-  enc_op Strcat = Conv (SOME (TypeStamp "Strcat" op_type_num)) [] ∧
-  enc_op Strlen = Conv (SOME (TypeStamp "Strlen" op_type_num)) [] ∧
-  enc_op Strsub = Conv (SOME (TypeStamp "Strsub" op_type_num)) [] ∧
-  enc_op Explode = Conv (SOME (TypeStamp "Explode" op_type_num)) [] ∧
-  enc_op Implode = Conv (SOME (TypeStamp "Implode" op_type_num)) [] ∧
-  enc_op (Chopb x_14) = Conv (SOME (TypeStamp "Chopb" op_type_num)) [enc_opb x_14] ∧
-  enc_op Chr = Conv (SOME (TypeStamp "Chr_1" op_type_num)) [] ∧
-  enc_op Ord = Conv (SOME (TypeStamp "Ord" op_type_num)) [] ∧
-  enc_op CopyAw8Aw8 = Conv (SOME (TypeStamp "Copyaw8aw8" op_type_num)) [] ∧
-  enc_op CopyAw8Str = Conv (SOME (TypeStamp "Copyaw8str" op_type_num)) [] ∧
-  enc_op CopyStrAw8 = Conv (SOME (TypeStamp "Copystraw8" op_type_num)) [] ∧
-  enc_op CopyStrStr = Conv (SOME (TypeStamp "Copystrstr" op_type_num)) [] ∧
-  enc_op (WordToInt x_13) = Conv (SOME (TypeStamp "Wordtoint" op_type_num)) [enc_word_size x_13] ∧
-  enc_op (WordFromInt x_12) = Conv (SOME (TypeStamp "Wordfromint" op_type_num)) [enc_word_size x_12] ∧
-  enc_op Aw8update = Conv (SOME (TypeStamp "Aw8update" op_type_num)) [] ∧
-  enc_op Aw8length = Conv (SOME (TypeStamp "Aw8length" op_type_num)) [] ∧
-  enc_op Aw8sub = Conv (SOME (TypeStamp "Aw8sub" op_type_num)) [] ∧
-  enc_op Aw8alloc = Conv (SOME (TypeStamp "Aw8alloc" op_type_num)) [] ∧
-  enc_op Opderef = Conv (SOME (TypeStamp "Opderef" op_type_num)) [] ∧
-  enc_op Opref = Conv (SOME (TypeStamp "Opref" op_type_num)) [] ∧
-  enc_op Opassign = Conv (SOME (TypeStamp "Opassign" op_type_num)) [] ∧
-  enc_op Opapp = Conv (SOME (TypeStamp "Opapp" op_type_num)) [] ∧
-  enc_op (FP_top x_11) = Conv (SOME (TypeStamp "Fp_top" op_type_num)) [enc_fp_top x_11] ∧
-  enc_op (FP_bop x_10) = Conv (SOME (TypeStamp "Fp_bop" op_type_num)) [enc_fp_bop x_10] ∧
-  enc_op (FP_uop x_9) = Conv (SOME (TypeStamp "Fp_uop" op_type_num)) [enc_fp_uop x_9] ∧
-  enc_op (FP_cmp x_8) = Conv (SOME (TypeStamp "Fp_cmp" op_type_num)) [enc_fp_cmp x_8] ∧
-  enc_op Equality = Conv (SOME (TypeStamp "Equality" op_type_num)) [] ∧
-  enc_op (Shift x_7 x_6 x_5) = Conv (SOME (TypeStamp "Shift" op_type_num)) [enc_word_size x_7; enc_shift x_6; Litv (IntLit (&x_5))] ∧
-  enc_op (Opw x_4 x_3) = Conv (SOME (TypeStamp "Opw" op_type_num)) [enc_word_size x_4; enc_opw x_3] ∧
-  enc_op (Opb x_2) = Conv (SOME (TypeStamp "Opb" op_type_num)) [enc_opb x_2] ∧
-  enc_op (Opn x_1) = Conv (SOME (TypeStamp "Opn" op_type_num)) [enc_opn x_1]
-End
-
-Theorem enc_op_11[simp]:
-  !i j. enc_op i = enc_op j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_op_def]
-QED
-
 Theorem AST_OP_TYPE_eq_enc:
   !l v. AST_OP_TYPE l v <=> v = enc_op l
 Proof
@@ -483,33 +179,10 @@ Proof
     FPSEM_FP_TOP_TYPE_eq_enc, FPSEM_FP_CMP_TYPE_eq_enc]
 QED
 
-Definition enc_locn_def:
-  enc_locn (locn x_3 x_2 x_1) =
-    Conv (SOME (TypeStamp "Recordtypelocn" locn_type_num))
-      [Litv (IntLit (&x_3)); Litv (IntLit (&x_2)); Litv (IntLit (&x_1))]
-End
-
-Theorem enc_locn_11[simp]:
-  !i j. enc_locn i = enc_locn j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_locn_def]
-QED
-
 Theorem LOCATION_LOCN_TYPE_eq_enc:
   !l v. LOCATION_LOCN_TYPE l v <=> v = enc_locn l
 Proof
   Induct \\ fs [LOCATION_LOCN_TYPE_def,enc_locn_def]
-QED
-
-Definition enc_locs_def:
-  enc_locs (Locs x_2 x_1) =
-    Conv (SOME (TypeStamp "Locs" locs_type_num)) [enc_locn x_2; enc_locn x_1]
-End
-
-Theorem enc_locs_11[simp]:
-  !i j. enc_locs i = enc_locs j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [enc_locs_def]
 QED
 
 Theorem LOCATION_LOCS_TYPE_eq_enc:
@@ -518,301 +191,113 @@ Proof
   Induct \\ fs [LOCATION_LOCS_TYPE_def,enc_locs_def,LOCATION_LOCN_TYPE_eq_enc]
 QED
 
-Definition enc_pair_def:
-  enc_pair v1 v2 = Conv NONE [v1; v2]
-End
-
-Definition enc_exp_def:
-  enc_exp (Lannot x_28 x_27) =
-    Conv (SOME (TypeStamp "Lannot" exp_type_num)) [enc_exp x_28; enc_locs x_27] ∧
-  enc_exp (Tannot x_26 x_25) =
-    Conv (SOME (TypeStamp "Tannot" exp_type_num)) [enc_exp x_26; enc_ast_t x_25] ∧
-  enc_exp (Letrec x_24 x_23) =
-    Conv (SOME (TypeStamp "Letrec" exp_type_num))
-      [enc_list (MAP ( \ (f,x,e). enc_pair (Litv (StrLit f))
-                               (enc_pair (Litv (StrLit x))
-                                         (enc_exp e))) x_24);
-       enc_exp x_23] ∧
-  enc_exp (Let x_22 x_21 x_20) =
-    Conv (SOME (TypeStamp "Let" exp_type_num))
-      [enc_option (OPTION_MAP (\s. Litv (StrLit s)) x_22); enc_exp x_21; enc_exp x_20] ∧
-  enc_exp (Mat x_19 x_18) =
-    Conv (SOME (TypeStamp "Mat" exp_type_num))
-      [enc_exp x_19; enc_list (MAP (\(p,e). enc_pair (enc_pat p) (enc_exp e)) x_18)] ∧
-  enc_exp (If x_17 x_16 x_15) =
-    Conv (SOME (TypeStamp "If" exp_type_num)) [enc_exp x_17; enc_exp x_16; enc_exp x_15] ∧
-  enc_exp (Log x_14 x_13 x_12) =
-    Conv (SOME (TypeStamp "Log" exp_type_num)) [enc_lop x_14; enc_exp x_13; enc_exp x_12] ∧
-  enc_exp (App x_11 x_10) =
-    Conv (SOME (TypeStamp "App" exp_type_num)) [enc_op x_11; enc_list (MAP enc_exp x_10)] ∧
-  enc_exp (Fun x_9 x_8) =
-    Conv (SOME (TypeStamp "Fun" exp_type_num)) [Litv (StrLit x_9); enc_exp x_8] ∧
-  enc_exp (Var x_7) =
-    Conv (SOME (TypeStamp "Var" exp_type_num)) [enc_id x_7] ∧
-  enc_exp (Con x_6 x_5) =
-    Conv (SOME (TypeStamp "Con" exp_type_num))
-      [enc_option (OPTION_MAP enc_id x_6);
-       enc_list (MAP enc_exp x_5)] ∧
-  enc_exp (Lit x_4) =
-    Conv (SOME (TypeStamp "Lit" exp_type_num)) [enc_lit x_4] ∧
-  enc_exp (Handle x_3 x_2) =
-    Conv (SOME (TypeStamp "Handle" exp_type_num))
-      [enc_exp x_3; enc_list (MAP (\(p,e). enc_pair (enc_pat p) (enc_exp e)) x_2)] ∧
-  enc_exp (Raise x_1) =
-    Conv (SOME (TypeStamp "Raise" exp_type_num)) [enc_exp x_1]
-Termination
-  WF_REL_TAC `measure exp_size`
-  \\ `!l f x e. MEM (f,x,e) l ==> exp_size e < exp1_size l` by
-       (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs [])
-  \\ `!l p e. MEM (p,e) l ==> exp_size e < exp3_size l` by
-       (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs [])
-  \\ `!l e. MEM e l ==> exp_size e < exp6_size l` by
-       (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs [])
-  \\ rw [] \\ fs [exp_size_def]
-  \\ res_tac \\ fs []
-End
-
-Theorem enc_exp_11[simp]:
-  !i j. enc_exp i = enc_exp j <=> i = j
-Proof
-  ho_match_mp_tac (theorem "enc_exp_ind")
-  \\ rpt conj_tac \\ fs [PULL_FORALL]
-  \\ Cases_on `j` \\ fs [enc_exp_def]
-  \\ fs [FORALL_PROD] \\ rw []
-  THEN1
-   (Cases_on `i = e` \\ rw []
-    \\ qid_spec_tac `l` \\ Induct_on `x_24`
-    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs []
-    \\ PairCases_on `h` \\ fs [enc_pair_def]
-    \\ rw [] \\ eq_tac \\ rw [] \\ metis_tac [])
-  THEN1
-   (rename [`OPTION_MAP _ x = _ y`] \\ Cases_on `x` \\ Cases_on `y` \\ fs [])
-  THEN1
-   (Cases_on `i = e` \\ rw []
-    \\ qid_spec_tac `l` \\ Induct_on `x_18`
-    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs []
-    \\ PairCases_on `h` \\ fs [enc_pair_def]
-    \\ rw [] \\ eq_tac \\ rw [] \\ metis_tac [])
-  THEN1
-   (rename [`x44 = x55 /\ _`] \\ Cases_on `x44 = x55` \\ fs []
-    \\ qid_spec_tac `l` \\ Induct_on `x_10`
-    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs [])
-  THEN1
-   (rename [`OPTION_MAP _ x = _ y`]
-    \\ `OPTION_MAP enc_id x = OPTION_MAP enc_id y <=> x = y` by
-         (Cases_on `x` \\ Cases_on `y` \\ fs []) \\ fs []
-    \\ Cases_on `x = y` \\ fs []
-    \\ qid_spec_tac `l` \\ Induct_on `x_5`
-    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs [])
-  \\ Cases_on `i = e` \\ fs []
-  \\ qid_spec_tac `l` \\ Induct_on `x_2`
-  \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs []
-  \\ PairCases_on `h` \\ fs [enc_pair_def] \\ metis_tac []
-QED
-
 Theorem AST_EXP_TYPE_eq_enc:
   !l v. AST_EXP_TYPE l v <=> v = enc_exp l
 Proof
-  recInduct (theorem "enc_exp_ind") \\ rpt conj_tac \\ rpt gen_tac
+  recInduct enc_exp_ind \\ rpt conj_tac \\ rpt gen_tac
   \\ fs [AST_EXP_TYPE_def,enc_exp_def,AST_OP_TYPE_eq_enc,AST_LIT_TYPE_eq_enc,
          AST_AST_T_TYPE_eq_enc,AST_LOP_TYPE_eq_enc,LOCATION_LOCS_TYPE_eq_enc,
          NAMESPACE_ID_TYPE_eq_enc]
   \\ rw []
   THEN1
-   (qsuff_tac `!v. LIST_TYPE
+   (rename [`LIST_TYPE _ xs`]
+    \\ qsuff_tac `!v. LIST_TYPE
            (PAIR_TYPE HOL_STRING_TYPE
-             (PAIR_TYPE HOL_STRING_TYPE AST_EXP_TYPE)) x_24 v <=>
+             (PAIR_TYPE HOL_STRING_TYPE AST_EXP_TYPE)) xs v <=>
          v = enc_list (MAP (λ(f,x,e).
                      enc_pair (Litv (StrLit f))
-                       (enc_pair (Litv (StrLit x)) (enc_exp e))) x_24)`
+                       (enc_pair (Litv (StrLit x)) (enc_exp e))) xs)`
     THEN1 fs []
-    \\ Induct_on `x_24` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw []
+    \\ Induct_on `xs` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw []
     \\ first_x_assum (fn th => mp_tac th \\ impl_tac)
     THEN1 metis_tac []
     \\ fs [PAIR_TYPE_def,enc_pair_def,HOL_STRING_TYPE_def,STRING_TYPE_def,
           mlstringTheory.implode_def])
   THEN1
-   (rename [`OPTION_MAP _ x99`] \\ Cases_on `x99`
+   (rename [`OPTION_MAP _ xo`] \\ Cases_on `xo`
     \\ fs [OPTION_TYPE_def,enc_option_def,HOL_STRING_TYPE_def,STRING_TYPE_def,
           mlstringTheory.implode_def])
   THEN1
-   (qsuff_tac `!v. LIST_TYPE (PAIR_TYPE AST_PAT_TYPE AST_EXP_TYPE) x_18 v <=>
-         v = enc_list (MAP (λ(p,e). enc_pair (enc_pat p) (enc_exp e)) x_18)`
+   (rename [`LIST_TYPE _ xs`]
+    \\ qsuff_tac `!v. LIST_TYPE (PAIR_TYPE AST_PAT_TYPE AST_EXP_TYPE) xs v <=>
+         v = enc_list (MAP (λ(p,e). enc_pair (enc_pat p) (enc_exp e)) xs)`
     THEN1 fs []
-    \\ Induct_on `x_18` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw []
+    \\ Induct_on `xs` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw []
     \\ first_x_assum (fn th => mp_tac th \\ impl_tac)
     THEN1 metis_tac []
     \\ fs [PAIR_TYPE_def,enc_pair_def,HOL_STRING_TYPE_def,STRING_TYPE_def,
           mlstringTheory.implode_def,PULL_EXISTS,AST_PAT_TYPE_eq_enc])
   THEN1
-   (qsuff_tac `!v. LIST_TYPE AST_EXP_TYPE x_10 v <=>
-         v = enc_list (MAP (λa. enc_exp a) x_10)`
+   (rename [`LIST_TYPE _ xs`]
+    \\ qsuff_tac `!v. LIST_TYPE AST_EXP_TYPE xs v <=>
+         v = enc_list (MAP (λa. enc_exp a) xs)`
     THEN1 fs []
-    \\ Induct_on `x_10` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
+    \\ Induct_on `xs` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
   THEN1
    (rename [`OPTION_TYPE _ x`] \\ Cases_on `x` \\ fs [OPTION_TYPE_def,enc_option_def]
-    \\ `!v. LIST_TYPE AST_EXP_TYPE x_5 v <=>
-            v = enc_list (MAP (λa. enc_exp a) x_5)`
-         by (Induct_on `x_5` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
+    \\ rename [`LIST_TYPE _ xs`]
+    \\ `!v. LIST_TYPE AST_EXP_TYPE xs v <=>
+            v = enc_list (MAP (λa. enc_exp a) xs)`
+         by (Induct_on `xs` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
     \\ fs [NAMESPACE_ID_TYPE_eq_enc,enc_option_def])
-
   THEN1
-   (qsuff_tac `!v. LIST_TYPE (PAIR_TYPE AST_PAT_TYPE AST_EXP_TYPE) x_2 v <=>
-         v = enc_list (MAP (λ(p,e). enc_pair (enc_pat p) (enc_exp e)) x_2)`
+   (rename [`LIST_TYPE _ xs`]
+    \\ qsuff_tac `!v. LIST_TYPE (PAIR_TYPE AST_PAT_TYPE AST_EXP_TYPE) xs v <=>
+         v = enc_list (MAP (λ(p,e). enc_pair (enc_pat p) (enc_exp e)) xs)`
     THEN1 fs []
-    \\ Induct_on `x_2` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw []
+    \\ Induct_on `xs` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw []
     \\ first_x_assum (fn th => mp_tac th \\ impl_tac)
     THEN1 metis_tac []
     \\ fs [PAIR_TYPE_def,enc_pair_def,HOL_STRING_TYPE_def,STRING_TYPE_def,
           mlstringTheory.implode_def,PULL_EXISTS,AST_PAT_TYPE_eq_enc])
-QED
-
-Definition enc_dec_def:
-  enc_dec (Denv x_19) =
-    Conv (SOME (TypeStamp "Denv" dec_type_num)) [Litv (StrLit x_19)] ∧
-  enc_dec (Dlocal x_18 x_17) =
-    Conv (SOME (TypeStamp "Dlocal" dec_type_num))
-      [enc_list (MAP enc_dec x_18); enc_list (MAP enc_dec x_17)] ∧
-  enc_dec (Dmod x_16 x_15) =
-    Conv (SOME (TypeStamp "Dmod" dec_type_num))
-      [Litv (StrLit x_16); enc_list (MAP enc_dec x_15)] ∧
-  enc_dec (Dexn x_14 x_13 x_12) =
-    Conv (SOME (TypeStamp "Dexn" dec_type_num))
-      [enc_locs x_14; Litv (StrLit x_13); enc_list (MAP enc_ast_t x_12)] ∧
-  enc_dec (Dtabbrev x_11 x_10 x_9 x_8) =
-    Conv (SOME (TypeStamp "Dtabbrev" dec_type_num))
-      [enc_locs x_11; enc_list (MAP (\s. Litv (StrLit s)) x_10);
-       Litv (StrLit x_9); enc_ast_t x_8] ∧
-  enc_dec (Dtype x_7 x_6) =
-    Conv (SOME (TypeStamp "Dtype" dec_type_num))
-      [enc_locs x_7;
-       enc_list (MAP ( \ (vs,s,l).
-                  enc_pair (enc_list (MAP (\s. Litv (StrLit s)) vs))
-                    (enc_pair (Litv (StrLit s))
-                       (enc_list (MAP ( \ (x,xs). enc_pair (Litv (StrLit x))
-                          (enc_list (MAP enc_ast_t xs))) l)))) x_6)] ∧
-  enc_dec (Dletrec x_5 x_4) =
-    Conv (SOME (TypeStamp "Dletrec" dec_type_num))
-      [enc_locs x_5;
-       enc_list (MAP ( \ (f,x,e). enc_pair (Litv (StrLit f))
-                               (enc_pair (Litv (StrLit x))
-                                         (enc_exp e))) x_4)] ∧
-  enc_dec (Dlet x_3 x_2 x_1) =
-    Conv (SOME (TypeStamp "Dlet" dec_type_num))
-      [enc_locs x_3; enc_pat x_2; enc_exp x_1]
-Termination
-  WF_REL_TAC `measure dec_size`
-  \\ `!l e. MEM e l ==> dec_size e < dec1_size l` by
-       (Induct \\ fs [dec_size_def] \\ rw [] \\ fs [dec_size_def] \\ res_tac \\ fs [])
-  \\ rw [] \\ fs [dec_size_def]
-  \\ res_tac \\ fs []
-End
-
-Theorem enc_dec_11[simp]:
-  !i j. enc_dec i = enc_dec j <=> i = j
-Proof
-  ho_match_mp_tac (theorem "enc_dec_ind")
-  \\ rpt conj_tac \\ fs [PULL_FORALL]
-  \\ Cases_on `j` \\ fs [enc_dec_def]
-  \\ fs [FORALL_PROD] \\ rw []
-  THEN1
-   (rename [`MAP _ l1 = MAP _ l2`]
-    \\ `MAP (λa. enc_dec a) l1 = MAP (λa. enc_dec a) l2 <=> l1 = l2` by
-      (qid_spec_tac `l2` \\ Induct_on `l1`
-       \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs [])
-    \\ fs [] \\ Cases_on `l1 = l2` \\ fs []
-    \\ rename [`MAP _ r1 = MAP _ r2`]
-    \\ `MAP (λa. enc_dec a) r1 = MAP (λa. enc_dec a) r2 <=> r1 = r2` by
-      (qid_spec_tac `r2` \\ Induct_on `r1`
-       \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `r2` \\ fs []))
-  THEN1
-   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
-    \\ rename [`MAP _ l1 = MAP _ l2`]
-    \\ qid_spec_tac `l2` \\ Induct_on `l1`
-    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs [])
-  THEN1
-   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
-    \\ rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
-    \\ rename [`MAP _ l1 = MAP _ l2`]
-    \\ qid_spec_tac `l2` \\ Induct_on `l1`
-    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs [])
-  THEN1
-   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
-    \\ rename [`_ /\ x = y`] \\ Cases_on `x = y` \\ fs [] \\ rveq
-    \\ rename [`_ /\ x = y`] \\ Cases_on `x = y` \\ fs [] \\ rveq
-    \\ rename [`MAP _ l1 = MAP _ l2`]
-    \\ qid_spec_tac `l2` \\ Induct_on `l1`
-    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs [])
-  THEN1
-   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
-    \\ rename [`MAP _ l1 = MAP _ l2`]
-    \\ qid_spec_tac `l2` \\ Induct_on `l1`
-    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs []
-    \\ PairCases_on `h` \\ fs [enc_pair_def]
-    \\ rewrite_tac [GSYM CONJ_ASSOC]
-    \\ rename [`_ /\ x1 = y1 /\ _ /\ l1 = z1`]
-    \\ Cases_on `x1 = y1` \\ fs []
-    \\ Cases_on `l1 = z1` \\ fs []
-    \\ `MAP (λs. Litv (StrLit s)) p_1 = MAP (λs. Litv (StrLit s)) h0 <=> p_1 = h0` by
-      (qid_spec_tac `h0` \\ Induct_on `p_1`
-       \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `h0` \\ fs []) \\ fs []
-    \\ Cases_on `p_1 = h0` \\ fs [] \\ rveq
-    \\ rpt (pop_assum kall_tac)
-    \\ qid_spec_tac `p_2` \\ Induct_on `h2`
-    \\ rw [] \\ Cases_on `p_2` \\ fs []
-    \\ rename [`_ x1 = _ x2 /\ _`] \\ PairCases_on `x1` \\ PairCases_on `x2`
-    \\ fs []
-    \\ qsuff_tac `MAP enc_ast_t x11 = MAP enc_ast_t x21 <=> x11 = x21` \\ fs []
-    \\ qid_spec_tac `x11` \\ Induct_on `x21` \\ fs [] \\ Cases_on `x11` \\ fs [])
-  THEN1
-   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
-    \\ rename [`MAP _ l1 = MAP _ l2`]
-    \\ qid_spec_tac `l2` \\ Induct_on `l1`
-    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs []
-    \\ PairCases_on `h` \\ fs [enc_pair_def])
 QED
 
 Theorem AST_DEC_TYPE_eq_enc:
   !l v. AST_DEC_TYPE l v <=> v = enc_dec l
 Proof
-  recInduct (theorem "enc_dec_ind") \\ rpt conj_tac \\ rpt gen_tac
+  recInduct enc_dec_ind \\ rpt conj_tac \\ rpt gen_tac
   \\ fs [AST_EXP_TYPE_eq_enc,AST_OP_TYPE_eq_enc,AST_LIT_TYPE_eq_enc,
          AST_AST_T_TYPE_eq_enc,AST_LOP_TYPE_eq_enc,LOCATION_LOCS_TYPE_eq_enc,
          NAMESPACE_ID_TYPE_eq_enc,enc_dec_def,AST_DEC_TYPE_def,AST_PAT_TYPE_eq_enc]
   \\ rw []
   THEN1
-   (`!v. LIST_TYPE AST_DEC_TYPE x_17 v <=>
-         v = enc_list (MAP (λa. enc_dec a) x_17)` by
-     (Induct_on `x_17` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
-     \\ `!v. LIST_TYPE AST_DEC_TYPE x_18 v <=>
-         v = enc_list (MAP (λa. enc_dec a) x_18)` by
-     (Induct_on `x_18` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
+   (rename [`LIST_TYPE _ xs _ /\ LIST_TYPE _ ys _`]
+    \\ `!v. LIST_TYPE AST_DEC_TYPE xs v <=>
+         v = enc_list (MAP (λa. enc_dec a) xs)` by
+     (Induct_on `xs` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
+    \\ `!v. LIST_TYPE AST_DEC_TYPE ys v <=>
+         v = enc_list (MAP (λa. enc_dec a) ys)` by
+     (Induct_on `ys` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
     \\ fs [])
   THEN1
-   (`!v. LIST_TYPE AST_DEC_TYPE x_15 v <=>
-         v = enc_list (MAP (λa. enc_dec a) x_15)` by
-     (Induct_on `x_15` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
+   (rename [`LIST_TYPE _ xs`]
+    \\ `!v. LIST_TYPE AST_DEC_TYPE xs v <=>
+         v = enc_list (MAP (λa. enc_dec a) xs)` by
+     (Induct_on `xs` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD] \\ rw [])
     \\ fs [])
   THEN1
-   (`!v. LIST_TYPE AST_AST_T_TYPE x_12 v <=>
-         v = enc_list (MAP enc_ast_t x_12)` by
-     (Induct_on `x_12` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD]
+   (rename [`LIST_TYPE _ xs`]
+    \\ `!v. LIST_TYPE AST_AST_T_TYPE xs v <=>
+         v = enc_list (MAP enc_ast_t xs)` by
+     (Induct_on `xs` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD]
       \\ rw [AST_AST_T_TYPE_eq_enc])
     \\ fs [])
   THEN1
-   (`!v. LIST_TYPE HOL_STRING_TYPE x_10 v <=>
-         v = enc_list (MAP (λs. Litv (StrLit s)) x_10)` by
-     (Induct_on `x_10` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD]
+   (rename [`LIST_TYPE _ xs`]
+    \\ `!v. LIST_TYPE HOL_STRING_TYPE xs v <=>
+         v = enc_list (MAP (λs. Litv (StrLit s)) xs)` by
+     (Induct_on `xs` \\ fs [enc_list_def,LIST_TYPE_def,FORALL_PROD]
       \\ rw [HOL_STRING_TYPE_def,STRING_TYPE_def,mlstringTheory.implode_def])
     \\ fs [])
   THEN1
-   (qsuff_tac
+   (rename [`LIST_TYPE _ xs`]
+    \\ qsuff_tac
      `!v. LIST_TYPE
            (PAIR_TYPE (LIST_TYPE HOL_STRING_TYPE)
               (PAIR_TYPE HOL_STRING_TYPE
                  (LIST_TYPE
                     (PAIR_TYPE HOL_STRING_TYPE (LIST_TYPE AST_AST_T_TYPE)))))
-          x_6 v <=>
+          xs v <=>
         v = enc_list
         (MAP
            (λ(vs,s,l).
@@ -822,8 +307,8 @@ Proof
                         (MAP
                            (λ(x,xs).
                                 enc_pair (Litv (StrLit x))
-                                  (enc_list (MAP enc_ast_t xs))) l)))) x_6)` THEN1 fs []
-    \\ Induct_on `x_6` \\ fs [LIST_TYPE_def,enc_list_def]
+                                  (enc_list (MAP enc_ast_t xs))) l)))) xs)` THEN1 fs []
+    \\ Induct_on `xs` \\ fs [LIST_TYPE_def,enc_list_def]
     \\ fs [FORALL_PROD,EXISTS_PROD,PAIR_TYPE_def,enc_pair_def,PULL_EXISTS,
            HOL_STRING_TYPE_def,STRING_TYPE_def,mlstringTheory.implode_def,
            AST_EXP_TYPE_eq_enc]
@@ -845,27 +330,18 @@ Proof
                v = enc_list (MAP enc_ast_t l)` by
            (Induct \\ fs [LIST_TYPE_def,enc_list_def,AST_AST_T_TYPE_eq_enc])
      \\ fs [])
+  \\ rename [`LIST_TYPE _ xs`]
   \\ qsuff_tac
    `!v. LIST_TYPE
           (PAIR_TYPE HOL_STRING_TYPE (PAIR_TYPE HOL_STRING_TYPE AST_EXP_TYPE))
-          x_4 v <=>
+          xs v <=>
         v = enc_list (MAP (λ(f,x,e).
                 enc_pair (Litv (StrLit f))
-                  (enc_pair (Litv (StrLit x)) (enc_exp e))) x_4)` THEN1 fs []
-  \\ Induct_on `x_4` \\ fs [LIST_TYPE_def,enc_list_def]
+                  (enc_pair (Litv (StrLit x)) (enc_exp e))) xs)` THEN1 fs []
+  \\ Induct_on `xs` \\ fs [LIST_TYPE_def,enc_list_def]
   \\ fs [FORALL_PROD,EXISTS_PROD,PAIR_TYPE_def,enc_pair_def,PULL_EXISTS,
          HOL_STRING_TYPE_def,STRING_TYPE_def,mlstringTheory.implode_def,
        AST_EXP_TYPE_eq_enc]
-QED
-
-Definition decs_to_v_def:
-  decs_to_v ds = enc_list (MAP enc_dec ds)
-End
-
-Theorem decs_to_v_11[simp]:
-  !i j. decs_to_v i = decs_to_v j <=> i = j
-Proof
-  Induct \\ Cases_on `j` \\ fs [decs_to_v_def,enc_list_def]
 QED
 
 Theorem AST_DEC_TYPE_eq_enc:
@@ -875,21 +351,10 @@ Proof
   \\ fs [LIST_TYPE_def,enc_list_def,decs_to_v_def,AST_DEC_TYPE_eq_enc]
 QED
 
-Definition v_to_decs_def:
-  v_to_decs v = some ds. v = decs_to_v ds
-End
-
-Theorem decs_to_v_v_to_decs:
-  !ds. v_to_decs (decs_to_v ds) = SOME ds
-Proof
-  fs [v_to_decs_def]
-QED
-
 Theorem AST_DEC_TYPE_eq_v_to_decs:
   !l v. LIST_TYPE AST_DEC_TYPE l v <=> v_to_decs v = SOME l
 Proof
-  simp [AST_DEC_TYPE_eq_enc,v_to_decs_def]
-  \\ fs [optionTheory.some_def] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+  simp [AST_DEC_TYPE_eq_enc,semanticPrimitivesPropsTheory.v_to_decs_eq_decs_to_v]
 QED
 
 val _ = (print_asts := true);

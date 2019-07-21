@@ -217,9 +217,17 @@ lshift (n : nat) ls =
 
 open import {hol} `locationTheory`
 type locn = <| row : nat;  col : nat; offset : nat |>
-type locs = (locn * locn)
+type locs = Locs of locn * locn
 declare hol target_rep type locn = `locn`
 declare hol target_rep type locs = `locs`
 val unknown_loc : locs
 declare hol target_rep function unknown_loc = `unknown_loc`
 declare isabelle target_rep function unknown_loc = `((| row = 0, col = 0, offset = 0 |), (| row = 0, col = 0, offset = 0 |))`
+
+val option_map : forall 'a 'b. ('a -> 'b) -> maybe 'a -> maybe 'b
+declare hol      target_rep function option_map = `OPTION_MAP`
+declare isabelle target_rep function option_map = `???` (* TODO *)
+
+val some : forall 'a. ('a -> bool) -> maybe 'a
+declare hol      target_rep function some = `$some`
+declare isabelle target_rep function some = `???` (* TODO *)

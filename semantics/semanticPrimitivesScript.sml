@@ -574,50 +574,463 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) v_to_id_defn;
 
 
+(*val enc_pair : v -> v -> v*)
+val _ = Define `
+ ((enc_pair:v -> v -> v) v1 v2=  (Conv NONE [v1; v2]))`;
+
+
+(*val enc_list : list v -> v*)
+ val enc_list_defn = Defn.Hol_multi_defns `
+
+  ((enc_list:(v)list -> v) []=
+     (Conv (SOME (TypeStamp "[]" list_type_num)) []))
+/\
+  ((enc_list:(v)list -> v) (x::xs)=
+     (Conv (SOME (TypeStamp "::" list_type_num)) [x; enc_list xs]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) enc_list_defn;
+
+(*val enc_option : maybe v -> v*)
+ val _ = Define `
+
+  ((enc_option:(v)option -> v) NONE=
+     (Conv (SOME (TypeStamp "None" option_type_num)) []))
+/\
+  ((enc_option:(v)option -> v) (SOME x)=
+     (Conv (SOME (TypeStamp "Some" option_type_num)) [x]))`;
+
+
 (*val enc_lit : lit -> v*)
  val _ = Define `
 
-((enc_lit:lit -> v) (Word64 w)=  (Conv (SOME (TypeStamp "Word64" lit_type_num)) [Litv (Word64 w)]))
+  ((enc_lit:lit -> v) (Word64 w)=
+     (Conv (SOME (TypeStamp "Word64" lit_type_num)) [Litv (Word64 w)]))
 /\
-((enc_lit:lit -> v) (Word8 b)=  (Conv (SOME (TypeStamp "Word8" lit_type_num)) [Litv (Word8 b)]))
+  ((enc_lit:lit -> v) (Word8 b)=
+     (Conv (SOME (TypeStamp "Word8" lit_type_num)) [Litv (Word8 b)]))
 /\
-((enc_lit:lit -> v) (StrLit s)=  (Conv (SOME (TypeStamp "Strlit" lit_type_num)) [Litv (StrLit s)]))
+  ((enc_lit:lit -> v) (StrLit s)=
+     (Conv (SOME (TypeStamp "Strlit" lit_type_num)) [Litv (StrLit s)]))
 /\
-((enc_lit:lit -> v) (Char c)=  (Conv (SOME (TypeStamp "Char" lit_type_num)) [Litv (Char c)]))
+  ((enc_lit:lit -> v) (Char c)=
+     (Conv (SOME (TypeStamp "Char" lit_type_num)) [Litv (Char c)]))
 /\
-((enc_lit:lit -> v) (IntLit i)=  (Conv (SOME (TypeStamp "Intlit" lit_type_num)) [Litv (IntLit i)]))`;
+  ((enc_lit:lit -> v) (IntLit i)=
+     (Conv (SOME (TypeStamp "Intlit" lit_type_num)) [Litv (IntLit i)]))`;
 
 
-(*val some : forall 'a. ('a -> bool) -> maybe 'a*)
+(*val enc_id : id modN typeN -> v*)
+ val enc_id_defn = Defn.Hol_multi_defns `
 
-(*val dec_lit : v -> maybe lit*)
+  ((enc_id:((string),(string))id -> v) (Short s)=
+     (Conv (SOME (TypeStamp "Short" id_type_num)) [Litv (StrLit s)]))
+/\
+  ((enc_id:((string),(string))id -> v) (Long s i)=
+     (Conv (SOME (TypeStamp "Long" id_type_num)) [Litv (StrLit s); enc_id i]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) enc_id_defn;
+
+(*val enc_ast_t : ast_t -> v*)
+ val enc_ast_t_defn = Defn.Hol_multi_defns `
+
+  ((enc_ast_t:ast_t -> v) (Atapp x y)=
+     (Conv (SOME (TypeStamp "Atapp" ast_t_type_num))
+      [enc_list (MAP enc_ast_t x); enc_id y]))
+/\
+  ((enc_ast_t:ast_t -> v) (Attup x)=
+     (Conv (SOME (TypeStamp "Attup" ast_t_type_num))
+      [enc_list (MAP enc_ast_t x)]))
+/\
+  ((enc_ast_t:ast_t -> v) (Atfun x_3 x_2)=
+     (Conv (SOME (TypeStamp "Atfun" ast_t_type_num))
+      [enc_ast_t x_3; enc_ast_t x_2]))
+/\
+  ((enc_ast_t:ast_t -> v) (Atvar x_1)=
+     (Conv (SOME (TypeStamp "Atvar" ast_t_type_num)) [Litv (StrLit x_1)]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) enc_ast_t_defn;
+
+(*val enc_pat : pat -> v*)
+ val enc_pat_defn = Defn.Hol_multi_defns `
+
+  ((enc_pat:pat -> v) (Ptannot x_7 x_6)=
+     (Conv (SOME (TypeStamp "Ptannot" pat_type_num))
+      [enc_pat x_7; enc_ast_t x_6]))
+/\
+  ((enc_pat:pat -> v) (Pref x_5)=
+     (Conv (SOME (TypeStamp "Pref" pat_type_num))
+      [enc_pat x_5]))
+/\
+  ((enc_pat:pat -> v) (Pcon x_4 x_3)=
+     (Conv (SOME (TypeStamp "Pcon" pat_type_num))
+      [enc_option (OPTION_MAP enc_id x_4); enc_list (MAP enc_pat x_3)]))
+/\
+  ((enc_pat:pat -> v) (Plit x_2)=
+     (Conv (SOME (TypeStamp "Plit" pat_type_num))
+      [enc_lit x_2]))
+/\
+  ((enc_pat:pat -> v) (Pvar x_1)=
+     (Conv (SOME (TypeStamp "Pvar" pat_type_num))
+      [Litv (StrLit x_1)]))
+/\
+  ((enc_pat:pat -> v) Pany=
+     (Conv (SOME (TypeStamp "Pany" pat_type_num)) []))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) enc_pat_defn;
+
+(*val enc_lop : lop -> v*)
+ val _ = Define `
+
+  ((enc_lop:lop -> v) Or=  (Conv (SOME (TypeStamp "Or" lop_type_num)) []))
+/\
+  ((enc_lop:lop -> v) And=  (Conv (SOME (TypeStamp "And" lop_type_num)) []))`;
+
+
+(*val enc_opn : opn -> v*)
+ val _ = Define `
+
+  ((enc_opn:opn -> v) Modulo=  (Conv (SOME (TypeStamp "Modulo" opn_type_num)) []))
+/\
+  ((enc_opn:opn -> v) Divide=  (Conv (SOME (TypeStamp "Divide" opn_type_num)) []))
+/\
+  ((enc_opn:opn -> v) Times=  (Conv (SOME (TypeStamp "Times" opn_type_num)) []))
+/\
+  ((enc_opn:opn -> v) Minus=  (Conv (SOME (TypeStamp "Minus" opn_type_num)) []))
+/\
+  ((enc_opn:opn -> v) Plus=  (Conv (SOME (TypeStamp "Plus" opn_type_num)) []))`;
+
+
+(*val enc_opb : opb -> v*)
+ val _ = Define `
+
+  ((enc_opb:opb -> v) Geq=  (Conv (SOME (TypeStamp "Geq" opb_type_num)) []))
+/\
+  ((enc_opb:opb -> v) Leq=  (Conv (SOME (TypeStamp "Leq" opb_type_num)) []))
+/\
+  ((enc_opb:opb -> v) Gt=  (Conv (SOME (TypeStamp "Gt" opb_type_num)) []))
+/\
+  ((enc_opb:opb -> v) Lt=  (Conv (SOME (TypeStamp "Lt" opb_type_num)) []))`;
+
+
+(*val enc_opw : opw -> v*)
+ val _ = Define `
+
+  ((enc_opw:opw -> v) Sub=  (Conv (SOME (TypeStamp "Sub" opw_type_num)) []))
+/\
+  ((enc_opw:opw -> v) Add=  (Conv (SOME (TypeStamp "Add" opw_type_num)) []))
+/\
+  ((enc_opw:opw -> v) Xor=  (Conv (SOME (TypeStamp "Xor" opw_type_num)) []))
+/\
+  ((enc_opw:opw -> v) Orw=  (Conv (SOME (TypeStamp "Orw" opw_type_num)) []))
+/\
+  ((enc_opw:opw -> v) Andw=  (Conv (SOME (TypeStamp "Andw" opw_type_num)) []))`;
+
+
+(*val enc_shift : shift -> v*)
+ val _ = Define `
+
+  ((enc_shift:shift -> v) Ror=  (Conv (SOME (TypeStamp "Ror" shift_type_num)) []))
+/\
+  ((enc_shift:shift -> v) Asr=  (Conv (SOME (TypeStamp "Asr" shift_type_num)) []))
+/\
+  ((enc_shift:shift -> v) Lsr=  (Conv (SOME (TypeStamp "Lsr" shift_type_num)) []))
+/\
+  ((enc_shift:shift -> v) Lsl=  (Conv (SOME (TypeStamp "Lsl" shift_type_num)) []))`;
+
+
+(*val enc_word_size : word_size -> v*)
+ val _ = Define `
+
+  ((enc_word_size:word_size -> v) W64=  (Conv (SOME (TypeStamp "W64" word_size_type_num)) []))
+/\
+  ((enc_word_size:word_size -> v) W8=  (Conv (SOME (TypeStamp "W8" word_size_type_num)) []))`;
+
+
+(*val enc_fp_uop : fp_uop -> v*)
+ val _ = Define `
+
+  ((enc_fp_uop:fp_uop -> v) FP_Sqrt=  (Conv (SOME (TypeStamp "Fp_sqrt" fp_uop_type_num)) []))
+/\
+  ((enc_fp_uop:fp_uop -> v) FP_Neg=  (Conv (SOME (TypeStamp "Fp_neg" fp_uop_type_num)) []))
+/\
+  ((enc_fp_uop:fp_uop -> v) FP_Abs=  (Conv (SOME (TypeStamp "Fp_abs" fp_uop_type_num)) []))`;
+
+
+(*val enc_fp_bop : fp_bop -> v*)
+ val _ = Define `
+
+  ((enc_fp_bop:fp_bop -> v) FP_Div=  (Conv (SOME (TypeStamp "Fp_div" fp_bop_type_num)) []))
+/\
+  ((enc_fp_bop:fp_bop -> v) FP_Mul=  (Conv (SOME (TypeStamp "Fp_mul" fp_bop_type_num)) []))
+/\
+  ((enc_fp_bop:fp_bop -> v) FP_Sub=  (Conv (SOME (TypeStamp "Fp_sub" fp_bop_type_num)) []))
+/\
+  ((enc_fp_bop:fp_bop -> v) FP_Add=  (Conv (SOME (TypeStamp "Fp_add" fp_bop_type_num)) []))`;
+
+
+(*val enc_fp_top : fp_top -> v*)
+ val _ = Define `
+
+  ((enc_fp_top:fp_top -> v) FP_Fma=  (Conv (SOME (TypeStamp "Fp_fma" fp_top_type_num)) []))`;
+
+
+(*val enc_fp_cmp : fp_cmp -> v*)
+ val _ = Define `
+
+  ((enc_fp_cmp:fp_cmp -> v) FP_Equal=
+     (Conv (SOME (TypeStamp "Fp_equal" fp_cmp_type_num)) []))
+/\
+  ((enc_fp_cmp:fp_cmp -> v) FP_GreaterEqual=
+     (Conv (SOME (TypeStamp "Fp_greaterequal" fp_cmp_type_num)) []))
+/\
+  ((enc_fp_cmp:fp_cmp -> v) FP_Greater=
+     (Conv (SOME (TypeStamp "Fp_greater" fp_cmp_type_num)) []))
+/\
+  ((enc_fp_cmp:fp_cmp -> v) FP_LessEqual=
+     (Conv (SOME (TypeStamp "Fp_lessequal" fp_cmp_type_num)) []))
+/\
+  ((enc_fp_cmp:fp_cmp -> v) FP_Less=
+     (Conv (SOME (TypeStamp "Fp_less" fp_cmp_type_num)) []))`;
+
+
+(*val enc_op : op -> v*)
+ val _ = Define `
+
+  ((enc_op:op -> v) EnvLookup=  (Conv (SOME (TypeStamp "Envlookup" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Eval=  (Conv (SOME (TypeStamp "Eval" op_type_num)) []))
+/\
+  ((enc_op:op -> v) (FFI x_15)=
+     (Conv (SOME (TypeStamp "Ffi" op_type_num)) [Litv (StrLit x_15)]))
+/\
+  ((enc_op:op -> v) ConfigGC=  (Conv (SOME (TypeStamp "Configgc" op_type_num)) []))
+/\
+  ((enc_op:op -> v) ListAppend=  (Conv (SOME (TypeStamp "Listappend" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Aupdate=  (Conv (SOME (TypeStamp "Aupdate" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Alength=  (Conv (SOME (TypeStamp "Alength" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Asub=  (Conv (SOME (TypeStamp "Asub" op_type_num)) []))
+/\
+  ((enc_op:op -> v) AallocEmpty=  (Conv (SOME (TypeStamp "Aallocempty" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Aalloc=  (Conv (SOME (TypeStamp "Aalloc" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Vlength=  (Conv (SOME (TypeStamp "Vlength" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Vsub=  (Conv (SOME (TypeStamp "Vsub" op_type_num)) []))
+/\
+  ((enc_op:op -> v) VfromList=  (Conv (SOME (TypeStamp "Vfromlist" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Strcat=  (Conv (SOME (TypeStamp "Strcat" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Strlen=  (Conv (SOME (TypeStamp "Strlen" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Strsub=  (Conv (SOME (TypeStamp "Strsub" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Explode=  (Conv (SOME (TypeStamp "Explode" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Implode=  (Conv (SOME (TypeStamp "Implode" op_type_num)) []))
+/\
+  ((enc_op:op -> v) (Chopb x_14)=
+     (Conv (SOME (TypeStamp "Chopb" op_type_num)) [enc_opb x_14]))
+/\
+  ((enc_op:op -> v) Chr=  (Conv (SOME (TypeStamp "Chr_1" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Ord=  (Conv (SOME (TypeStamp "Ord" op_type_num)) []))
+/\
+  ((enc_op:op -> v) CopyAw8Aw8=  (Conv (SOME (TypeStamp "Copyaw8aw8" op_type_num)) []))
+/\
+  ((enc_op:op -> v) CopyAw8Str=  (Conv (SOME (TypeStamp "Copyaw8str" op_type_num)) []))
+/\
+  ((enc_op:op -> v) CopyStrAw8=  (Conv (SOME (TypeStamp "Copystraw8" op_type_num)) []))
+/\
+  ((enc_op:op -> v) CopyStrStr=  (Conv (SOME (TypeStamp "Copystrstr" op_type_num)) []))
+/\
+  ((enc_op:op -> v) (WordToInt x_13)=
+     (Conv (SOME (TypeStamp "Wordtoint" op_type_num)) [enc_word_size x_13]))
+/\
+  ((enc_op:op -> v) (WordFromInt x_12)=
+     (Conv (SOME (TypeStamp "Wordfromint" op_type_num)) [enc_word_size x_12]))
+/\
+  ((enc_op:op -> v) Aw8update=  (Conv (SOME (TypeStamp "Aw8update" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Aw8length=  (Conv (SOME (TypeStamp "Aw8length" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Aw8sub=  (Conv (SOME (TypeStamp "Aw8sub" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Aw8alloc=  (Conv (SOME (TypeStamp "Aw8alloc" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Opderef=  (Conv (SOME (TypeStamp "Opderef" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Opref=  (Conv (SOME (TypeStamp "Opref" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Opassign=  (Conv (SOME (TypeStamp "Opassign" op_type_num)) []))
+/\
+  ((enc_op:op -> v) Opapp=  (Conv (SOME (TypeStamp "Opapp" op_type_num)) []))
+/\
+  ((enc_op:op -> v) (FP_top x_11)=
+     (Conv (SOME (TypeStamp "Fp_top" op_type_num)) [enc_fp_top x_11]))
+/\
+  ((enc_op:op -> v) (FP_bop x_10)=
+     (Conv (SOME (TypeStamp "Fp_bop" op_type_num)) [enc_fp_bop x_10]))
+/\
+  ((enc_op:op -> v) (FP_uop x_9)=
+     (Conv (SOME (TypeStamp "Fp_uop" op_type_num)) [enc_fp_uop x_9]))
+/\
+  ((enc_op:op -> v) (FP_cmp x_8)=
+     (Conv (SOME (TypeStamp "Fp_cmp" op_type_num)) [enc_fp_cmp x_8]))
+/\
+  ((enc_op:op -> v) Equality=  (Conv (SOME (TypeStamp "Equality" op_type_num)) []))
+/\
+  ((enc_op:op -> v) (Shift x_7 x_6 x_5)=
+     (Conv (SOME (TypeStamp "Shift" op_type_num))
+      [enc_word_size x_7; enc_shift x_6; Litv (IntLit (int_of_num x_5))]))
+/\
+  ((enc_op:op -> v) (Opw x_4 x_3)=
+     (Conv (SOME (TypeStamp "Opw" op_type_num)) [enc_word_size x_4; enc_opw x_3]))
+/\
+  ((enc_op:op -> v) (Opb x_2)=
+     (Conv (SOME (TypeStamp "Opb" op_type_num)) [enc_opb x_2]))
+/\
+  ((enc_op:op -> v) (Opn x_1)=
+     (Conv (SOME (TypeStamp "Opn" op_type_num)) [enc_opn x_1]))`;
+
+
+(*val enc_locn : locn -> v*)
 val _ = Define `
- ((dec_lit:v ->(lit)option) v=  ($some (\ x .  (enc_lit x = v))))`;
+ ((enc_locn:locn -> v) l=
+     (Conv (SOME (TypeStamp "Recordtypelocn" locn_type_num))
+      [Litv (IntLit (int_of_num l.row));
+       Litv (IntLit (int_of_num l.col));
+       Litv (IntLit (int_of_num l.offset))]))`;
 
 
+(*val enc_locs : locs -> v*)
+ val _ = Define `
 
-(*val v_to_dec : v -> maybe dec*)
+  ((enc_locs:locs -> v) (Locs l1 l2)=
+     (Conv (SOME (TypeStamp "Locs" locs_type_num))
+      [enc_locn l1; enc_locn l2]))`;
+
+
+(*val enc_exp : exp -> v*)
+ val enc_exp_defn = Defn.Hol_multi_defns `
+
+  ((enc_exp:exp -> v) (Lannot x_28 x_27)=
+     (Conv (SOME (TypeStamp "Lannot" exp_type_num)) [enc_exp x_28; enc_locs x_27]))
+/\
+  ((enc_exp:exp -> v) (Tannot x_26 x_25)=
+     (Conv (SOME (TypeStamp "Tannot" exp_type_num)) [enc_exp x_26; enc_ast_t x_25]))
+/\
+  ((enc_exp:exp -> v) (Letrec x_24 x_23)=
+     (Conv (SOME (TypeStamp "Letrec" exp_type_num))
+      [enc_list (MAP (\ (f,x,e) .  enc_pair (Litv (StrLit f))
+                               (enc_pair (Litv (StrLit x))
+                                         (enc_exp e))) x_24);
+       enc_exp x_23]))
+/\
+  ((enc_exp:exp -> v) (Let x_22 x_21 x_20)=
+     (Conv (SOME (TypeStamp "Let" exp_type_num))
+      [enc_option (OPTION_MAP (\ s .  Litv (StrLit s)) x_22);
+       enc_exp x_21; enc_exp x_20]))
+/\
+  ((enc_exp:exp -> v) (Mat x_19 x_18)=
+     (Conv (SOME (TypeStamp "Mat" exp_type_num))
+      [enc_exp x_19;
+       enc_list (MAP (\ (p,e) .  enc_pair (enc_pat p) (enc_exp e)) x_18)]))
+/\
+  ((enc_exp:exp -> v) (If x_17 x_16 x_15)=
+     (Conv (SOME (TypeStamp "If" exp_type_num))
+      [enc_exp x_17; enc_exp x_16; enc_exp x_15]))
+/\
+  ((enc_exp:exp -> v) (Log x_14 x_13 x_12)=
+     (Conv (SOME (TypeStamp "Log" exp_type_num))
+      [enc_lop x_14; enc_exp x_13; enc_exp x_12]))
+/\
+  ((enc_exp:exp -> v) (App x_11 x_10)=
+     (Conv (SOME (TypeStamp "App" exp_type_num))
+      [enc_op x_11; enc_list (MAP enc_exp x_10)]))
+/\
+  ((enc_exp:exp -> v) (Fun x_9 x_8)=
+     (Conv (SOME (TypeStamp "Fun" exp_type_num)) [Litv (StrLit x_9); enc_exp x_8]))
+/\
+  ((enc_exp:exp -> v) (Var x_7)=
+     (Conv (SOME (TypeStamp "Var" exp_type_num)) [enc_id x_7]))
+/\
+  ((enc_exp:exp -> v) (Con x_6 x_5)=
+     (Conv (SOME (TypeStamp "Con" exp_type_num))
+      [enc_option (OPTION_MAP enc_id x_6);
+       enc_list (MAP enc_exp x_5)]))
+/\
+  ((enc_exp:exp -> v) (Lit x_4)=
+     (Conv (SOME (TypeStamp "Lit" exp_type_num)) [enc_lit x_4]))
+/\
+  ((enc_exp:exp -> v) (Handle x_3 x_2)=
+     (Conv (SOME (TypeStamp "Handle" exp_type_num))
+      [enc_exp x_3;
+       enc_list (MAP (\ (p,e) .  enc_pair (enc_pat p) (enc_exp e)) x_2)]))
+/\
+  ((enc_exp:exp -> v) (Raise x_1)=
+     (Conv (SOME (TypeStamp "Raise" exp_type_num)) [enc_exp x_1]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) enc_exp_defn;
+
+(*val enc_dec : dec -> v*)
+ val enc_dec_defn = Defn.Hol_multi_defns `
+
+  ((enc_dec:dec -> v) (Denv x_19)=
+     (Conv (SOME (TypeStamp "Denv" dec_type_num)) [Litv (StrLit x_19)]))
+/\
+  ((enc_dec:dec -> v) (Dlocal x_18 x_17)=
+     (Conv (SOME (TypeStamp "Dlocal" dec_type_num))
+      [enc_list (MAP enc_dec x_18); enc_list (MAP enc_dec x_17)]))
+/\
+  ((enc_dec:dec -> v) (Dmod x_16 x_15)=
+     (Conv (SOME (TypeStamp "Dmod" dec_type_num))
+      [Litv (StrLit x_16); enc_list (MAP enc_dec x_15)]))
+/\
+  ((enc_dec:dec -> v) (Dexn x_14 x_13 x_12)=
+     (Conv (SOME (TypeStamp "Dexn" dec_type_num))
+      [enc_locs x_14; Litv (StrLit x_13); enc_list (MAP enc_ast_t x_12)]))
+/\
+  ((enc_dec:dec -> v) (Dtabbrev x_11 x_10 x_9 x_8)=
+     (Conv (SOME (TypeStamp "Dtabbrev" dec_type_num))
+      [enc_locs x_11; enc_list (MAP (\ s .  Litv (StrLit s)) x_10);
+       Litv (StrLit x_9); enc_ast_t x_8]))
+/\
+  ((enc_dec:dec -> v) (Dtype x_7 x_6)=
+     (Conv (SOME (TypeStamp "Dtype" dec_type_num))
+      [enc_locs x_7;
+       enc_list (MAP (\ (vs,s,l) . 
+                  enc_pair (enc_list (MAP (\ s .  Litv (StrLit s)) vs))
+                    (enc_pair (Litv (StrLit s))
+                       (enc_list (MAP (\ (x,xs) .  enc_pair (Litv (StrLit x))
+                          (enc_list (MAP enc_ast_t xs))) l)))) x_6)]))
+/\
+  ((enc_dec:dec -> v) (Dletrec x_5 x_4)=
+     (Conv (SOME (TypeStamp "Dletrec" dec_type_num))
+      [enc_locs x_5;
+       enc_list (MAP (\ (f,x,e) .  enc_pair (Litv (StrLit f))
+                               (enc_pair (Litv (StrLit x))
+                                         (enc_exp e))) x_4)]))
+/\
+  ((enc_dec:dec -> v) (Dlet x_3 x_2 x_1)=
+     (Conv (SOME (TypeStamp "Dlet" dec_type_num))
+      [enc_locs x_3; enc_pat x_2; enc_exp x_1]))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) enc_dec_defn;
+
+(*val decs_to_v : list dec -> v*)
 val _ = Define `
- ((v_to_dec:v ->(dec)option) v=  NONE)`;
- (* TODO *)
+ ((decs_to_v:(dec)list -> v) ds=  (enc_list (MAP enc_dec ds)))`;
+
 
 (*val v_to_decs : v -> maybe (list dec)*)
- val v_to_decs_defn = Defn.Hol_multi_defns `
- ((v_to_decs:v ->((dec)list)option) (Conv (SOME stamp) [])=
-   (if stamp = TypeStamp "[]" list_type_num then
-    SOME []
-  else
-    NONE))
-/\ ((v_to_decs:v ->((dec)list)option) (Conv (SOME stamp) [v1; v2])=
-   (if stamp = TypeStamp "::" list_type_num then
-    (case (v_to_dec v1, v_to_decs v2) of
-      (SOME d, SOME ds) => SOME (d::ds)
-    | _ => NONE
-    )
-  else
-    NONE))`;
+val _ = Define `
+ ((v_to_decs:v ->((dec)list)option) v=  ($some (\ ds .  (v = decs_to_v ds))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) v_to_decs_defn;
 
 (*val v_to_env : v -> maybe (sem_env v)*)
 val _ = Define `

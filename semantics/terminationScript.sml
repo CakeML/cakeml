@@ -361,4 +361,43 @@ Proof
   Induct_on `xs` \\ fs [dec_size_def, list_size_def]
 QED
 
+val (enc_ast_t_def, enc_ast_t_ind) =
+  tprove_no_defn ((enc_ast_t_def, enc_ast_t_ind),
+    WF_REL_TAC `measure ast_t_size`
+    \\ `!xs a. MEM a xs ==> ast_t_size a < ast_t1_size xs` by
+          (Induct \\ fs [] \\ rw [] \\ fs [ast_t_size_def] \\ res_tac \\ fs [])
+    \\ rw [] \\ fs [ast_t_size_def] \\ res_tac \\ fs [])
+val _ = register "enc_ast_t" enc_ast_t_def enc_ast_t_ind;
+
+val (enc_pat_def, enc_pat_ind) =
+  tprove_no_defn ((enc_pat_def, enc_pat_ind),
+    WF_REL_TAC `measure pat_size`
+    \\ rw [] \\ fs [pat_size_def]
+    \\ qsuff_tac `!a l. MEM a l ==> pat_size a < pat1_size l`
+    THEN1 (rw[] \\ res_tac \\ fs [])
+    \\ Induct_on `l` \\ fs [] \\ rw [] \\ fs [pat_size_def] \\ res_tac \\ fs [])
+val _ = register "enc_pat" enc_pat_def enc_pat_ind;
+
+val (enc_exp_def, enc_exp_ind) =
+  tprove_no_defn ((enc_exp_def, enc_exp_ind),
+    WF_REL_TAC `measure exp_size`
+    \\ `!l f x e. MEM (f,x,e) l ==> exp_size e < exp1_size l` by
+         (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs [])
+    \\ `!l p e. MEM (p,e) l ==> exp_size e < exp3_size l` by
+         (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs [])
+    \\ `!l e. MEM e l ==> exp_size e < exp6_size l` by
+         (Induct \\ fs [exp_size_def] \\ rw [] \\ fs [exp_size_def] \\ res_tac \\ fs [])
+    \\ rw [] \\ fs [exp_size_def]
+    \\ res_tac \\ fs [])
+val _ = register "enc_exp" enc_exp_def enc_exp_ind;
+
+val (enc_dec_def, enc_dec_ind) =
+  tprove_no_defn ((enc_dec_def, enc_dec_ind),
+    WF_REL_TAC `measure dec_size`
+    \\ `!l e. MEM e l ==> dec_size e < dec1_size l` by
+         (Induct \\ fs [dec_size_def] \\ rw [] \\ fs [dec_size_def] \\ res_tac \\ fs [])
+    \\ rw [] \\ fs [dec_size_def]
+    \\ res_tac \\ fs [])
+val _ = register "enc_dec" enc_dec_def enc_dec_ind;
+
 val _ = export_theory ();

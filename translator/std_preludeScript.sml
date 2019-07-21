@@ -4,12 +4,11 @@
 *)
 
 open preamble astTheory libTheory semanticPrimitivesTheory whileTheory;
-open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib;
+open terminationTheory ml_translatorLib ml_translatorTheory ml_progLib decProgTheory;
 
 val _ = new_theory "std_prelude";
 
-val register_type = abs_register_type;
-val translate = abs_translate;
+val _ = translation_extends "decProg";
 
 (* type registration *)
 
@@ -113,7 +112,6 @@ val LEAST_LEMMA = Q.prove(
 
 val res = translate LEAST_LEMMA;
 
-(*
 val FUNPOW_LEMMA = Q.prove(
   `!n m. FUNPOW (\x. x + 1) n m = n + m`,
   Induct THEN FULL_SIMP_TAC std_ss [FUNPOW,ADD1,AC ADD_COMM ADD_ASSOC]);
@@ -124,12 +122,6 @@ val least_side_thm = Q.prove(
   THEN FULL_SIMP_TAC std_ss [OWHILE_def,FUNPOW_LEMMA,FUN_EQ_THM,EMPTY_DEF]
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;
-*)
-
-val _ = concretise_all () (* needs to be done before module below *)
-
-(* TODO: move the AST generated here into the primitive type program *)
-val _ = register_type ``:dec``;
 
 val _ = (print_asts := true);
 

@@ -913,4 +913,255 @@ val all_env_dom_def = Define`
     { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`;
     *)
 
+Theorem enc_lit_11[simp]:
+  !i j. enc_lit i = enc_lit j <=> i = j
+Proof
+  Cases_on `i` \\ Cases_on `j` \\ fs [enc_lit_def]
+QED
+
+Theorem enc_id_11[simp]:
+  !i j. enc_id i = enc_id j <=> i = j
+Proof
+  Induct_on `i` \\ Cases_on `j` \\ fs [enc_id_def]
+QED
+
+Theorem enc_list_11[simp]:
+  !i j. enc_list i = enc_list j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_list_def]
+QED
+
+Theorem enc_option_11[simp]:
+  !i j. enc_option i = enc_option j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_option_def]
+QED
+
+Theorem enc_ast_t_11[simp]:
+  !i j. enc_ast_t i = enc_ast_t j <=> i = j
+Proof
+  recInduct enc_ast_t_ind \\ rw []
+  \\ Cases_on `j` \\ fs [enc_ast_t_def]
+  THEN1
+    (Cases_on `y = i` \\ fs [] \\ rveq
+    \\ pop_assum mp_tac \\ qspec_tac (`l`,`l`)
+    \\ Induct_on `x` \\ Cases_on `l` \\ fs [])
+  \\ pop_assum mp_tac \\ qspec_tac (`l`,`l`)
+  \\ Induct_on `x` \\ Cases_on `l` \\ fs []
+QED
+
+Theorem enc_pat_11[simp]:
+  !i j. enc_pat i = enc_pat j <=> i = j
+Proof
+  recInduct enc_pat_ind \\ rw []
+  \\ Cases_on `j` \\ fs [enc_pat_def]
+  \\ rename [`OPTION_MAP _ x = _ y`]
+  \\ `OPTION_MAP enc_id x = OPTION_MAP enc_id y <=> x = y` by
+       (Cases_on `x` \\ Cases_on `y` \\ fs [])
+  \\ fs [] \\ Cases_on `x = y` \\ fs []
+  \\ qspec_tac (`l`,`l`) \\ rename [`MAP _ xs`]
+  \\ Induct_on `xs` \\ rw [] \\ Cases_on `l` \\ fs []
+QED
+
+Theorem enc_lop_11[simp]:
+  !i j. enc_lop i = enc_lop j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_lop_def]
+QED
+
+Theorem enc_opn_11[simp]:
+  !i j. enc_opn i = enc_opn j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_opn_def]
+QED
+
+Theorem enc_opb_11[simp]:
+  !i j. enc_opb i = enc_opb j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_opb_def]
+QED
+
+Theorem enc_opw_11[simp]:
+  !i j. enc_opw i = enc_opw j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_opw_def]
+QED
+
+Theorem enc_shift_11[simp]:
+  !i j. enc_shift i = enc_shift j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_shift_def]
+QED
+
+Theorem enc_word_size_11[simp]:
+  !i j. enc_word_size i = enc_word_size j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_word_size_def]
+QED
+
+Theorem enc_fp_uop_11[simp]:
+  !i j. enc_fp_uop i = enc_fp_uop j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_fp_uop_def]
+QED
+
+Theorem enc_fp_bop_11[simp]:
+  !i j. enc_fp_bop i = enc_fp_bop j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_fp_bop_def]
+QED
+
+Theorem enc_fp_top_11[simp]:
+  !i j. enc_fp_top i = enc_fp_top j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_fp_cmp_def]
+QED
+
+Theorem enc_fp_cmp_11[simp]:
+  !i j. enc_fp_cmp i = enc_fp_cmp j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_fp_cmp_def]
+QED
+
+Theorem enc_op_11[simp]:
+  !i j. enc_op i = enc_op j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_op_def]
+QED
+
+Theorem enc_locn_11[simp]:
+  !i j. enc_locn i = enc_locn j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_locn_def]
+QED
+
+Theorem enc_locs_11[simp]:
+  !i j. enc_locs i = enc_locs j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [enc_locs_def]
+QED
+
+Theorem enc_exp_11[simp]:
+  !i j. enc_exp i = enc_exp j <=> i = j
+Proof
+  ho_match_mp_tac enc_exp_ind
+  \\ rpt conj_tac \\ fs [PULL_FORALL]
+  \\ Cases_on `j` \\ fs [enc_exp_def]
+  \\ fs [FORALL_PROD] \\ rw []
+  THEN1
+   (Cases_on `i = e` \\ rw [] \\ rename [`MAP _ xs = _`]
+    \\ qid_spec_tac `l` \\ Induct_on `xs`
+    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs []
+    \\ PairCases_on `h` \\ fs [enc_pair_def]
+    \\ rw [] \\ eq_tac \\ rw [] \\ metis_tac [])
+  THEN1
+   (rename [`OPTION_MAP _ x = _ y`] \\ Cases_on `x` \\ Cases_on `y` \\ fs [])
+  THEN1
+   (Cases_on `i = e` \\ rw [] \\ rename [`MAP _ xs = _`]
+    \\ qid_spec_tac `l` \\ Induct_on `xs`
+    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs []
+    \\ rename [`(_,_) = x`]
+    \\ PairCases_on `x` \\ fs [enc_pair_def]
+    \\ rw [] \\ eq_tac \\ rw [] \\ metis_tac [])
+  THEN1
+   (rename [`x44 = x55 /\ _`] \\ Cases_on `x44 = x55` \\ fs []
+    \\ qid_spec_tac `l` \\ rename [`MAP _ xs = _`] \\ Induct_on `xs`
+    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs [])
+  THEN1
+   (rename [`OPTION_MAP _ x = _ y`]
+    \\ `OPTION_MAP enc_id x = OPTION_MAP enc_id y <=> x = y` by
+         (Cases_on `x` \\ Cases_on `y` \\ fs []) \\ fs []
+    \\ Cases_on `x = y` \\ fs []
+    \\ qid_spec_tac `l` \\ rename [`MAP _ xs = _`] \\ Induct_on `xs`
+    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs [])
+  \\ Cases_on `i = e` \\ fs [] \\ rename [`MAP _ xs = _`]
+  \\ qid_spec_tac `l` \\ Induct_on `xs`
+  \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l` \\ fs []
+  \\ rename [`(_,_) = x`]
+  \\ PairCases_on `x` \\ fs [enc_pair_def] \\ metis_tac []
+QED
+
+Theorem enc_dec_11[simp]:
+  !i j. enc_dec i = enc_dec j <=> i = j
+Proof
+  ho_match_mp_tac enc_dec_ind
+  \\ rpt conj_tac \\ fs [PULL_FORALL]
+  \\ Cases_on `j` \\ fs [enc_dec_def]
+  \\ fs [FORALL_PROD] \\ rw []
+  THEN1
+   (rename [`MAP _ l1 = MAP _ l2`]
+    \\ `MAP (λa. enc_dec a) l1 = MAP (λa. enc_dec a) l2 <=> l1 = l2` by
+      (qid_spec_tac `l2` \\ Induct_on `l1`
+       \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs [])
+    \\ fs [] \\ Cases_on `l1 = l2` \\ fs []
+    \\ rename [`MAP _ r1 = MAP _ r2`]
+    \\ `MAP (λa. enc_dec a) r1 = MAP (λa. enc_dec a) r2 <=> r1 = r2` by
+      (qid_spec_tac `r2` \\ Induct_on `r1`
+       \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `r2` \\ fs []))
+  THEN1
+   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
+    \\ rename [`MAP _ l1 = MAP _ l2`]
+    \\ qid_spec_tac `l2` \\ Induct_on `l1`
+    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs [])
+  THEN1
+   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
+    \\ rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
+    \\ rename [`MAP _ l1 = MAP _ l2`]
+    \\ qid_spec_tac `l2` \\ Induct_on `l1`
+    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs [])
+  THEN1
+   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
+    \\ rename [`_ /\ x = y`] \\ Cases_on `x = y` \\ fs [] \\ rveq
+    \\ rename [`_ /\ x = y`] \\ Cases_on `x = y` \\ fs [] \\ rveq
+    \\ rename [`MAP _ l1 = MAP _ l2`]
+    \\ qid_spec_tac `l2` \\ Induct_on `l1`
+    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs [])
+  THEN1
+   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
+    \\ rename [`MAP _ l1 = MAP _ l2`]
+    \\ qid_spec_tac `l2` \\ Induct_on `l1`
+    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs []
+    \\ PairCases_on `h` \\ fs [enc_pair_def]
+    \\ rewrite_tac [GSYM CONJ_ASSOC]
+    \\ rename [`_ /\ x1 = y1 /\ _ /\ l1 = z1`]
+    \\ Cases_on `x1 = y1` \\ fs []
+    \\ Cases_on `l1 = z1` \\ fs []
+    \\ `MAP (λs. Litv (StrLit s)) p_1 = MAP (λs. Litv (StrLit s)) h0 <=> p_1 = h0` by
+      (qid_spec_tac `h0` \\ Induct_on `p_1`
+       \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `h0` \\ fs []) \\ fs []
+    \\ Cases_on `p_1 = h0` \\ fs [] \\ rveq
+    \\ rpt (pop_assum kall_tac)
+    \\ qid_spec_tac `p_2` \\ Induct_on `h2`
+    \\ rw [] \\ Cases_on `p_2` \\ fs []
+    \\ rename [`_ x1 = _ x2 /\ _`] \\ PairCases_on `x1` \\ PairCases_on `x2`
+    \\ fs []
+    \\ qsuff_tac `MAP enc_ast_t x11 = MAP enc_ast_t x21 <=> x11 = x21` \\ fs []
+    \\ qid_spec_tac `x11` \\ Induct_on `x21` \\ fs [] \\ Cases_on `x11` \\ fs [])
+  THEN1
+   (rename [`x = y /\ _`] \\ Cases_on `x = y` \\ fs [] \\ rveq
+    \\ rename [`MAP _ l1 = MAP _ l2`]
+    \\ qid_spec_tac `l2` \\ Induct_on `l1`
+    \\ fs [FORALL_PROD] \\ rw [] \\ Cases_on `l2` \\ fs []
+    \\ PairCases_on `h` \\ fs [enc_pair_def])
+QED
+
+Theorem decs_to_v_11[simp]:
+  !i j. decs_to_v i = decs_to_v j <=> i = j
+Proof
+  Induct \\ Cases_on `j` \\ fs [decs_to_v_def,enc_list_def]
+QED
+
+Theorem decs_to_v_v_to_decs:
+  !ds. v_to_decs (decs_to_v ds) = SOME ds
+Proof
+  fs [v_to_decs_def]
+QED
+
+Theorem v_to_decs_eq_decs_to_v:
+  !ds v. v_to_decs v = SOME ds <=> v = decs_to_v ds
+Proof
+  fs [v_to_decs_def,optionTheory.some_def]
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []
+QED
+
 val _ = export_theory ();

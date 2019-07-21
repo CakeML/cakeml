@@ -435,43 +435,409 @@ and v_to_id (Conv (Just stamp) [Litv (StrLit s); v]) =
 and v_to_id _ = Nothing
 
 
+val enc_pair : v -> v -> v
+let enc_pair v1 v2 = Conv Nothing [v1; v2]
+
+val enc_list : list v -> v
+let rec
+  enc_list [] =
+    Conv (Just (TypeStamp "[]" list_type_num)) []
+and
+  enc_list (x::xs) =
+    Conv (Just (TypeStamp "::" list_type_num)) [x; enc_list xs]
+
+val enc_option : maybe v -> v
+let rec
+  enc_option Nothing =
+    Conv (Just (TypeStamp "None" option_type_num)) []
+and
+  enc_option (Just x) =
+    Conv (Just (TypeStamp "Some" option_type_num)) [x]
+
 val enc_lit : lit -> v
 let rec
-enc_lit (Word64 w) = Conv (Just (TypeStamp "Word64" lit_type_num)) [Litv (Word64 w)]
+  enc_lit (Word64 w) =
+    Conv (Just (TypeStamp "Word64" lit_type_num)) [Litv (Word64 w)]
 and
-enc_lit (Word8 b) = Conv (Just (TypeStamp "Word8" lit_type_num)) [Litv (Word8 b)]
+  enc_lit (Word8 b) =
+    Conv (Just (TypeStamp "Word8" lit_type_num)) [Litv (Word8 b)]
 and
-enc_lit (StrLit s) = Conv (Just (TypeStamp "Strlit" lit_type_num)) [Litv (StrLit s)]
+  enc_lit (StrLit s) =
+    Conv (Just (TypeStamp "Strlit" lit_type_num)) [Litv (StrLit s)]
 and
-enc_lit (Char c) = Conv (Just (TypeStamp "Char" lit_type_num)) [Litv (Char c)]
+  enc_lit (Char c) =
+    Conv (Just (TypeStamp "Char" lit_type_num)) [Litv (Char c)]
 and
-enc_lit (IntLit i) = Conv (Just (TypeStamp "Intlit" lit_type_num)) [Litv (IntLit i)]
+  enc_lit (IntLit i) =
+    Conv (Just (TypeStamp "Intlit" lit_type_num)) [Litv (IntLit i)]
 
-val some : forall 'a. ('a -> bool) -> maybe 'a
-declare hol      target_rep function some = `$some`
-declare isabelle target_rep function some = `SOME`
+val enc_id : id modN typeN -> v
+let rec
+  enc_id (Short s) =
+    Conv (Just (TypeStamp "Short" id_type_num)) [Litv (StrLit s)]
+and
+  enc_id (Long s i) =
+    Conv (Just (TypeStamp "Long" id_type_num)) [Litv (StrLit s); enc_id i]
 
-val dec_lit : v -> maybe lit
-let dec_lit v = some (fun x -> (enc_lit x = v))
+val enc_ast_t : ast_t -> v
+let rec
+  enc_ast_t (Atapp x y) =
+    Conv (Just (TypeStamp "Atapp" ast_t_type_num))
+      [enc_list (List.map enc_ast_t x); enc_id y]
+and
+  enc_ast_t (Attup x) =
+    Conv (Just (TypeStamp "Attup" ast_t_type_num))
+      [enc_list (List.map enc_ast_t x)]
+and
+  enc_ast_t (Atfun x_3 x_2) =
+    Conv (Just (TypeStamp "Atfun" ast_t_type_num))
+      [enc_ast_t x_3; enc_ast_t x_2]
+and
+  enc_ast_t (Atvar x_1) =
+    Conv (Just (TypeStamp "Atvar" ast_t_type_num)) [Litv (StrLit x_1)]
 
+val enc_pat : pat -> v
+let rec
+  enc_pat (Ptannot x_7 x_6) =
+    Conv (Just (TypeStamp "Ptannot" pat_type_num))
+      [enc_pat x_7; enc_ast_t x_6]
+and
+  enc_pat (Pref x_5) =
+    Conv (Just (TypeStamp "Pref" pat_type_num))
+      [enc_pat x_5]
+and
+  enc_pat (Pcon x_4 x_3) =
+    Conv (Just (TypeStamp "Pcon" pat_type_num))
+      [enc_option (option_map enc_id x_4); enc_list (List.map enc_pat x_3)]
+and
+  enc_pat (Plit x_2) =
+    Conv (Just (TypeStamp "Plit" pat_type_num))
+      [enc_lit x_2]
+and
+  enc_pat (Pvar x_1) =
+    Conv (Just (TypeStamp "Pvar" pat_type_num))
+      [Litv (StrLit x_1)]
+and
+  enc_pat Pany =
+    Conv (Just (TypeStamp "Pany" pat_type_num)) []
 
-val v_to_dec : v -> maybe dec
-let v_to_dec v = Nothing (* TODO *)
+val enc_lop : lop -> v
+let rec
+  enc_lop Or = Conv (Just (TypeStamp "Or" lop_type_num)) []
+and
+  enc_lop And = Conv (Just (TypeStamp "And" lop_type_num)) []
+
+val enc_opn : opn -> v
+let rec
+  enc_opn Modulo = Conv (Just (TypeStamp "Modulo" opn_type_num)) []
+and
+  enc_opn Divide = Conv (Just (TypeStamp "Divide" opn_type_num)) []
+and
+  enc_opn Times = Conv (Just (TypeStamp "Times" opn_type_num)) []
+and
+  enc_opn Minus = Conv (Just (TypeStamp "Minus" opn_type_num)) []
+and
+  enc_opn Plus = Conv (Just (TypeStamp "Plus" opn_type_num)) []
+
+val enc_opb : opb -> v
+let rec
+  enc_opb Geq = Conv (Just (TypeStamp "Geq" opb_type_num)) []
+and
+  enc_opb Leq = Conv (Just (TypeStamp "Leq" opb_type_num)) []
+and
+  enc_opb Gt = Conv (Just (TypeStamp "Gt" opb_type_num)) []
+and
+  enc_opb Lt = Conv (Just (TypeStamp "Lt" opb_type_num)) []
+
+val enc_opw : opw -> v
+let rec
+  enc_opw Sub = Conv (Just (TypeStamp "Sub" opw_type_num)) []
+and
+  enc_opw Add = Conv (Just (TypeStamp "Add" opw_type_num)) []
+and
+  enc_opw Xor = Conv (Just (TypeStamp "Xor" opw_type_num)) []
+and
+  enc_opw Orw = Conv (Just (TypeStamp "Orw" opw_type_num)) []
+and
+  enc_opw Andw = Conv (Just (TypeStamp "Andw" opw_type_num)) []
+
+val enc_shift : shift -> v
+let rec
+  enc_shift Ror = Conv (Just (TypeStamp "Ror" shift_type_num)) []
+and
+  enc_shift Asr = Conv (Just (TypeStamp "Asr" shift_type_num)) []
+and
+  enc_shift Lsr = Conv (Just (TypeStamp "Lsr" shift_type_num)) []
+and
+  enc_shift Lsl = Conv (Just (TypeStamp "Lsl" shift_type_num)) []
+
+val enc_word_size : word_size -> v
+let rec
+  enc_word_size W64 = Conv (Just (TypeStamp "W64" word_size_type_num)) []
+and
+  enc_word_size W8 = Conv (Just (TypeStamp "W8" word_size_type_num)) []
+
+val enc_fp_uop : fp_uop -> v
+let rec
+  enc_fp_uop FP_Sqrt = Conv (Just (TypeStamp "Fp_sqrt" fp_uop_type_num)) []
+and
+  enc_fp_uop FP_Neg = Conv (Just (TypeStamp "Fp_neg" fp_uop_type_num)) []
+and
+  enc_fp_uop FP_Abs = Conv (Just (TypeStamp "Fp_abs" fp_uop_type_num)) []
+
+val enc_fp_bop : fp_bop -> v
+let rec
+  enc_fp_bop FP_Div = Conv (Just (TypeStamp "Fp_div" fp_bop_type_num)) []
+and
+  enc_fp_bop FP_Mul = Conv (Just (TypeStamp "Fp_mul" fp_bop_type_num)) []
+and
+  enc_fp_bop FP_Sub = Conv (Just (TypeStamp "Fp_sub" fp_bop_type_num)) []
+and
+  enc_fp_bop FP_Add = Conv (Just (TypeStamp "Fp_add" fp_bop_type_num)) []
+
+val enc_fp_top : fp_top -> v
+let rec
+  enc_fp_top FP_Fma = Conv (Just (TypeStamp "Fp_fma" fp_top_type_num)) []
+
+val enc_fp_cmp : fp_cmp -> v
+let rec
+  enc_fp_cmp FP_Equal =
+    Conv (Just (TypeStamp "Fp_equal" fp_cmp_type_num)) []
+and
+  enc_fp_cmp FP_GreaterEqual =
+    Conv (Just (TypeStamp "Fp_greaterequal" fp_cmp_type_num)) []
+and
+  enc_fp_cmp FP_Greater =
+    Conv (Just (TypeStamp "Fp_greater" fp_cmp_type_num)) []
+and
+  enc_fp_cmp FP_LessEqual =
+    Conv (Just (TypeStamp "Fp_lessequal" fp_cmp_type_num)) []
+and
+  enc_fp_cmp FP_Less =
+    Conv (Just (TypeStamp "Fp_less" fp_cmp_type_num)) []
+
+val enc_op : op -> v
+let rec
+  enc_op EnvLookup = Conv (Just (TypeStamp "Envlookup" op_type_num)) []
+and
+  enc_op Eval = Conv (Just (TypeStamp "Eval" op_type_num)) []
+and
+  enc_op (FFI x_15) =
+    Conv (Just (TypeStamp "Ffi" op_type_num)) [Litv (StrLit x_15)]
+and
+  enc_op ConfigGC = Conv (Just (TypeStamp "Configgc" op_type_num)) []
+and
+  enc_op ListAppend = Conv (Just (TypeStamp "Listappend" op_type_num)) []
+and
+  enc_op Aupdate = Conv (Just (TypeStamp "Aupdate" op_type_num)) []
+and
+  enc_op Alength = Conv (Just (TypeStamp "Alength" op_type_num)) []
+and
+  enc_op Asub = Conv (Just (TypeStamp "Asub" op_type_num)) []
+and
+  enc_op AallocEmpty = Conv (Just (TypeStamp "Aallocempty" op_type_num)) []
+and
+  enc_op Aalloc = Conv (Just (TypeStamp "Aalloc" op_type_num)) []
+and
+  enc_op Vlength = Conv (Just (TypeStamp "Vlength" op_type_num)) []
+and
+  enc_op Vsub = Conv (Just (TypeStamp "Vsub" op_type_num)) []
+and
+  enc_op VfromList = Conv (Just (TypeStamp "Vfromlist" op_type_num)) []
+and
+  enc_op Strcat = Conv (Just (TypeStamp "Strcat" op_type_num)) []
+and
+  enc_op Strlen = Conv (Just (TypeStamp "Strlen" op_type_num)) []
+and
+  enc_op Strsub = Conv (Just (TypeStamp "Strsub" op_type_num)) []
+and
+  enc_op Explode = Conv (Just (TypeStamp "Explode" op_type_num)) []
+and
+  enc_op Implode = Conv (Just (TypeStamp "Implode" op_type_num)) []
+and
+  enc_op (Chopb x_14) =
+    Conv (Just (TypeStamp "Chopb" op_type_num)) [enc_opb x_14]
+and
+  enc_op Chr = Conv (Just (TypeStamp "Chr_1" op_type_num)) []
+and
+  enc_op Ord = Conv (Just (TypeStamp "Ord" op_type_num)) []
+and
+  enc_op CopyAw8Aw8 = Conv (Just (TypeStamp "Copyaw8aw8" op_type_num)) []
+and
+  enc_op CopyAw8Str = Conv (Just (TypeStamp "Copyaw8str" op_type_num)) []
+and
+  enc_op CopyStrAw8 = Conv (Just (TypeStamp "Copystraw8" op_type_num)) []
+and
+  enc_op CopyStrStr = Conv (Just (TypeStamp "Copystrstr" op_type_num)) []
+and
+  enc_op (WordToInt x_13) =
+    Conv (Just (TypeStamp "Wordtoint" op_type_num)) [enc_word_size x_13]
+and
+  enc_op (WordFromInt x_12) =
+    Conv (Just (TypeStamp "Wordfromint" op_type_num)) [enc_word_size x_12]
+and
+  enc_op Aw8update = Conv (Just (TypeStamp "Aw8update" op_type_num)) []
+and
+  enc_op Aw8length = Conv (Just (TypeStamp "Aw8length" op_type_num)) []
+and
+  enc_op Aw8sub = Conv (Just (TypeStamp "Aw8sub" op_type_num)) []
+and
+  enc_op Aw8alloc = Conv (Just (TypeStamp "Aw8alloc" op_type_num)) []
+and
+  enc_op Opderef = Conv (Just (TypeStamp "Opderef" op_type_num)) []
+and
+  enc_op Opref = Conv (Just (TypeStamp "Opref" op_type_num)) []
+and
+  enc_op Opassign = Conv (Just (TypeStamp "Opassign" op_type_num)) []
+and
+  enc_op Opapp = Conv (Just (TypeStamp "Opapp" op_type_num)) []
+and
+  enc_op (FP_top x_11) =
+    Conv (Just (TypeStamp "Fp_top" op_type_num)) [enc_fp_top x_11]
+and
+  enc_op (FP_bop x_10) =
+    Conv (Just (TypeStamp "Fp_bop" op_type_num)) [enc_fp_bop x_10]
+and
+  enc_op (FP_uop x_9) =
+    Conv (Just (TypeStamp "Fp_uop" op_type_num)) [enc_fp_uop x_9]
+and
+  enc_op (FP_cmp x_8) =
+    Conv (Just (TypeStamp "Fp_cmp" op_type_num)) [enc_fp_cmp x_8]
+and
+  enc_op Equality = Conv (Just (TypeStamp "Equality" op_type_num)) []
+and
+  enc_op (Shift x_7 x_6 x_5) =
+    Conv (Just (TypeStamp "Shift" op_type_num))
+      [enc_word_size x_7; enc_shift x_6; Litv (IntLit (integerFromNat x_5))]
+and
+  enc_op (Opw x_4 x_3) =
+    Conv (Just (TypeStamp "Opw" op_type_num)) [enc_word_size x_4; enc_opw x_3]
+and
+  enc_op (Opb x_2) =
+    Conv (Just (TypeStamp "Opb" op_type_num)) [enc_opb x_2]
+and
+  enc_op (Opn x_1) =
+    Conv (Just (TypeStamp "Opn" op_type_num)) [enc_opn x_1]
+
+val enc_locn : locn -> v
+let enc_locn l =
+    Conv (Just (TypeStamp "Recordtypelocn" locn_type_num))
+      [Litv (IntLit (integerFromNat l.row));
+       Litv (IntLit (integerFromNat l.col));
+       Litv (IntLit (integerFromNat l.offset))]
+
+val enc_locs : locs -> v
+let rec
+  enc_locs (Locs l1 l2) =
+    Conv (Just (TypeStamp "Locs" locs_type_num))
+      [enc_locn l1; enc_locn l2]
+
+val enc_exp : exp -> v
+let rec
+  enc_exp (Lannot x_28 x_27) =
+    Conv (Just (TypeStamp "Lannot" exp_type_num)) [enc_exp x_28; enc_locs x_27]
+and
+  enc_exp (Tannot x_26 x_25) =
+    Conv (Just (TypeStamp "Tannot" exp_type_num)) [enc_exp x_26; enc_ast_t x_25]
+and
+  enc_exp (Letrec x_24 x_23) =
+    Conv (Just (TypeStamp "Letrec" exp_type_num))
+      [enc_list (List.map (fun (f,x,e) -> enc_pair (Litv (StrLit f))
+                               (enc_pair (Litv (StrLit x))
+                                         (enc_exp e))) x_24);
+       enc_exp x_23]
+and
+  enc_exp (Let x_22 x_21 x_20) =
+    Conv (Just (TypeStamp "Let" exp_type_num))
+      [enc_option (option_map (fun s -> Litv (StrLit s)) x_22);
+       enc_exp x_21; enc_exp x_20]
+and
+  enc_exp (Mat x_19 x_18) =
+    Conv (Just (TypeStamp "Mat" exp_type_num))
+      [enc_exp x_19;
+       enc_list (List.map (fun (p,e) -> enc_pair (enc_pat p) (enc_exp e)) x_18)]
+and
+  enc_exp (If x_17 x_16 x_15) =
+    Conv (Just (TypeStamp "If" exp_type_num))
+      [enc_exp x_17; enc_exp x_16; enc_exp x_15]
+and
+  enc_exp (Log x_14 x_13 x_12) =
+    Conv (Just (TypeStamp "Log" exp_type_num))
+      [enc_lop x_14; enc_exp x_13; enc_exp x_12]
+and
+  enc_exp (App x_11 x_10) =
+    Conv (Just (TypeStamp "App" exp_type_num))
+      [enc_op x_11; enc_list (List.map enc_exp x_10)]
+and
+  enc_exp (Fun x_9 x_8) =
+    Conv (Just (TypeStamp "Fun" exp_type_num)) [Litv (StrLit x_9); enc_exp x_8]
+and
+  enc_exp (Var x_7) =
+    Conv (Just (TypeStamp "Var" exp_type_num)) [enc_id x_7]
+and
+  enc_exp (Con x_6 x_5) =
+    Conv (Just (TypeStamp "Con" exp_type_num))
+      [enc_option (option_map enc_id x_6);
+       enc_list (List.map enc_exp x_5)]
+and
+  enc_exp (Lit x_4) =
+    Conv (Just (TypeStamp "Lit" exp_type_num)) [enc_lit x_4]
+and
+  enc_exp (Handle x_3 x_2) =
+    Conv (Just (TypeStamp "Handle" exp_type_num))
+      [enc_exp x_3;
+       enc_list (List.map (fun (p,e) -> enc_pair (enc_pat p) (enc_exp e)) x_2)]
+and
+  enc_exp (Raise x_1) =
+    Conv (Just (TypeStamp "Raise" exp_type_num)) [enc_exp x_1]
+
+val enc_dec : dec -> v
+let rec
+  enc_dec (Denv x_19) =
+    Conv (Just (TypeStamp "Denv" dec_type_num)) [Litv (StrLit x_19)]
+and
+  enc_dec (Dlocal x_18 x_17) =
+    Conv (Just (TypeStamp "Dlocal" dec_type_num))
+      [enc_list (List.map enc_dec x_18); enc_list (List.map enc_dec x_17)]
+and
+  enc_dec (Dmod x_16 x_15) =
+    Conv (Just (TypeStamp "Dmod" dec_type_num))
+      [Litv (StrLit x_16); enc_list (List.map enc_dec x_15)]
+and
+  enc_dec (Dexn x_14 x_13 x_12) =
+    Conv (Just (TypeStamp "Dexn" dec_type_num))
+      [enc_locs x_14; Litv (StrLit x_13); enc_list (List.map enc_ast_t x_12)]
+and
+  enc_dec (Dtabbrev x_11 x_10 x_9 x_8) =
+    Conv (Just (TypeStamp "Dtabbrev" dec_type_num))
+      [enc_locs x_11; enc_list (List.map (fun s -> Litv (StrLit s)) x_10);
+       Litv (StrLit x_9); enc_ast_t x_8]
+and
+  enc_dec (Dtype x_7 x_6) =
+    Conv (Just (TypeStamp "Dtype" dec_type_num))
+      [enc_locs x_7;
+       enc_list (List.map (fun (vs,s,l) ->
+                  enc_pair (enc_list (List.map (fun s -> Litv (StrLit s)) vs))
+                    (enc_pair (Litv (StrLit s))
+                       (enc_list (List.map (fun (x,xs) -> enc_pair (Litv (StrLit x))
+                          (enc_list (List.map enc_ast_t xs))) l)))) x_6)]
+and
+  enc_dec (Dletrec x_5 x_4) =
+    Conv (Just (TypeStamp "Dletrec" dec_type_num))
+      [enc_locs x_5;
+       enc_list (List.map (fun (f,x,e) -> enc_pair (Litv (StrLit f))
+                               (enc_pair (Litv (StrLit x))
+                                         (enc_exp e))) x_4)]
+and
+  enc_dec (Dlet x_3 x_2 x_1) =
+    Conv (Just (TypeStamp "Dlet" dec_type_num))
+      [enc_locs x_3; enc_pat x_2; enc_exp x_1]
+
+val decs_to_v : list dec -> v
+let decs_to_v ds = enc_list (List.map enc_dec ds)
 
 val v_to_decs : v -> maybe (list dec)
-let rec v_to_decs (Conv (Just stamp) []) =
-  if stamp = TypeStamp "[]" list_type_num then
-    Just []
-  else
-    Nothing
-and v_to_decs (Conv (Just stamp) [v1; v2]) =
-  if stamp = TypeStamp "::" list_type_num then
-    match (v_to_dec v1, v_to_decs v2) with
-    | (Just d, Just ds) -> Just (d::ds)
-    | _ -> Nothing
-    end
-  else
-    Nothing
+let v_to_decs v = some (fun ds -> (v = decs_to_v ds))
 
 val v_to_env : v -> maybe (sem_env v)
 let v_to_env v =
