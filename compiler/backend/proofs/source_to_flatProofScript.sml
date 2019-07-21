@@ -2479,7 +2479,7 @@ val evaluate_alloc_tags = Q.prove (
        (genv with c := FUNION genv_c genv.c)
        (idx with tidx updated_by SUC)
        (s with next_type_stamp updated_by SUC)
-       s' ∧
+       (s' with c := FDOM genv_c ∪ FDOM genv.c) ∧
       global_env_inv (genv with c := FUNION genv_c genv.c)
         <| c := ns; v := nsEmpty |>
         {}
@@ -2735,8 +2735,6 @@ val evaluate_alloc_tags = Q.prove (
     rw [SUBMAP_DEF, FAPPLY_FUPDATE, FUNION_DEF, subglobals_refl] >>
     rw [] >>
     metis_tac [])
-  >- cheat (* this looks unprovable *)
-    (* fs [EXTENSION] \\ rw [] \\ eq_tac \\ rw [] \\ fs [] *)
   >- (
     pop_assum mp_tac >>
     rw [nsLookup_alist_to_ns_some]
@@ -3353,10 +3351,9 @@ val compile_decs_correct' = Q.prove (
           qexists_tac `om_tra ▷ t + 1` >>
           irule (PROVE [] ``!f a b x y z. x = y ⇒ f a x z = f a y z``) >>
           rw [source_to_flatTheory.environment_component_equality])) *))
-
-  >- cheat (* ( (* Type definition *)
+  >- ( (* Type definition *)
     rpt (pop_assum mp_tac) >>
-    MAP_EVERY qspec_tac [(`genv`,`genv`), (`idx`,`idx`), (`comp_map`,`comp_map`), (`env`,`env`), (`s`,`s`), (`s_i1`, `s_i1`)] >>
+    MAP_EVERY qid_spec_tac [`genv`, `idx`, `comp_map`, `env`, `s`, `s_i1`] >>
     Induct_on `tds`
     >- ( (* No tds *)
       rw [evaluate_decs_def] >>
@@ -3373,6 +3370,7 @@ val compile_decs_correct' = Q.prove (
     pairarg_tac >>
     fs [] >>
     simp [evaluate_dec_def] >>
+    `s_i1.check_ctor` by fs[invariant_def, s_rel_cases] \\ simp[] \\
     drule evaluate_alloc_tags >>
     disch_then drule >>
     simp [lookup_def] >>
@@ -3384,6 +3382,7 @@ val compile_decs_correct' = Q.prove (
     >- (
       fs [is_fresh_type_def, invariant_def] >>
       rw [] >>
+      fs[s_rel_cases] >>
       metis_tac [DECIDE ``!x:num. x ≥ x``]) >>
     first_x_assum drule >>
     disch_then drule >>
@@ -3395,6 +3394,12 @@ val compile_decs_correct' = Q.prove (
     `!x y. SUC x + y = x + SUC y` by decide_tac >>
     asm_simp_tac std_ss [] >>
     rw [] >>
+    qmatch_goalsub_abbrev_tac`evaluate_decs xxx` >>
+    qmatch_asmsub_abbrev_tac`evaluate_decs xxy` >>
+    `xxx = xxy` by (
+      simp[Abbr`xxx`,Abbr`xxy`,state_component_equality]
+      \\ fs[invariant_def, s_rel_cases] )
+    \\ fs[] \\
     qexists_tac `genv'` >>
     rw []
     >- (
@@ -3406,7 +3411,6 @@ val compile_decs_correct' = Q.prove (
       rw [] >>
       fs [FLOOKUP_DEF, invariant_def] >>
       metis_tac [DECIDE ``!x. x ≥ x:num``])
-    >- metis_tac [UNION_ASSOC]
     >- (
       fs [env_domain_eq_def, build_tdefs_def, ADD1] >>
       ONCE_REWRITE_TAC [nsAppend_foldl] >>
@@ -3436,8 +3440,7 @@ val compile_decs_correct' = Q.prove (
         simp [] >>
         res_tac >>
         fs [namespaceTheory.id_to_mods_def] >>
-        metis_tac [flookup_funion_submap]))) *)
-
+        metis_tac [flookup_funion_submap])))
   >- ( (* type abbreviation *)
     fs [evaluate_decs_def, evaluate_dec_def] >>
     qexists_tac `genv` >>
