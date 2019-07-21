@@ -2931,7 +2931,90 @@ Proof
   \\ rename [`_ <> _ h6`] \\ PairCases_on `h6` \\ fs []
 QED
 
+Theorem UNCURRY_EQ_comp_FST:
+  (\(x, y). f x) = (f o FST)
+Proof
+  fs [FUN_EQ_THM, FORALL_PROD]
+QED
+
+Theorem pmatch_list_vars_eq_Match:
+  !vnames vals bindings. pmatch_list st (MAP Pvar vnames) vals bindings
+    = if LENGTH vnames = LENGTH vals
+        then Match (REVERSE (ZIP (vnames, vals)) ++ bindings)
+        else Match_type_error
+Proof
+  Induct
+  >- (
+    Cases
+    \\ simp [pmatch_def]
+  )
+  \\ gen_tac
+  \\ Cases
+  \\ simp [pmatch_def]
+  \\ CASE_TAC
+  \\ simp []
+QED
+
+Theorem LUPDATE_EACH_LUPDATE:
+  !xs ys i j.
+    j < i /\ i + LENGTH ys <= LENGTH xs ==>
+    LUPDATE_EACH i (LUPDATE x j xs) ys = LUPDATE x j (LUPDATE_EACH i xs ys)
+Proof
+  Induct_on `ys` \\ fs [LUPDATE_EACH_def] \\ rw []
+  \\ `i <> j` by fs []
+  \\ metis_tac [miscTheory.LUPDATE_commutes]
+QED
+
+Theorem evaluate_let_none_list_MAPi:
+  !exps env st n. st.check_ctor /\ ALL_DISTINCT (MAP FST env.v) /\
+    IMAGE g (set exps) ⊆ IMAGE FST (set env.v) /\
+    (!i. i < LENGTH exps ==> i + n < LENGTH st.globals /\ EL (i + n) st.globals = NONE)
+  ==>
+  evaluate env st [let_none_list (MAPi (\i x.
+    App None (GlobalVarInit (i + n)) [Var_local None (g x)]) exps)]
+  = (st with globals := LUPDATE_EACH n st.globals
+        (MAP (\exp. THE (ALOOKUP env.v (g exp))) exps),
+      Rval [flatSem$Conv NONE []])
+Proof
+  Induct
+  \\ simp [let_none_list_def, evaluate_def, LUPDATE_EACH_def]
+  >- simp [flatSemTheory.state_component_equality]
+  \\ Cases_on `exps`
+  \\ simp [let_none_list_def, evaluate_def]
+  \\ simp [EXISTS_PROD]
+  \\ rw []
+  \\ rfs [miscTheory.MEM_ALOOKUP]
+  \\ rveq \\ fs []
+  \\ simp [do_app_def, LUPDATE_EACH_def]
+  \\ first_assum (qspecl_then [`0`] mp_tac)
+  \\ simp_tac (srw_ss ()) []
+  \\ rw []
+  \\ fs [o_DEF]
+  \\ first_assum (qspecl_then [`env_x`, `st_x`, `SUC n`] (assume_tac o GEN_ALL))
+  \\ fs [ADD1]
+  \\ first_x_assum (fn t => CHANGED_TAC (DEP_REWRITE_TAC [t]))
+  \\ simp [libTheory.opt_bind_def, EXISTS_PROD, listTheory.EL_LUPDATE,
+        miscTheory.MEM_ALOOKUP]
+  \\ simp [LUPDATE_EACH_LUPDATE, LUPDATE_EACH_def]
+  \\ simp [flatSemTheory.state_component_equality, miscTheory.LUPDATE_commutes]
+  \\ DEP_REWRITE_TAC [LUPDATE_EACH_LUPDATE]
+  \\ simp [flatSemTheory.state_component_equality, miscTheory.LUPDATE_commutes]
+  \\ rw []
+  \\ TRY (first_x_assum (qspecl_then [`SUC i`] mp_tac)
+    \\ simp [ADD1] \\ NO_TAC)
+  \\ cheat
+QED
+
+Theorem ALOOKUP_FST_EL_ALL_DISTINCT_EQ:
+  ∀ls n.  n < LENGTH ls /\ ALL_DISTINCT (MAP FST ls) /\
+    EL n ls' = EL n ls ⇒
+  ALOOKUP ls (FST (EL n ls')) = SOME (SND (EL n ls))
+Proof
+  simp [alistTheory.ALOOKUP_ALL_DISTINCT_EL]
+QED
+
 val compile_decs_correct' = Q.prove (
+
   `!s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
@@ -3360,7 +3443,25 @@ val compile_decs_correct' = Q.prove (
     \\ qexists_tac `s'_i1 with globals := LUPDATE_EACH idx.vidx s_i1.globals l` \\ fs []
     \\ qexists_tac `<| v := LUPDATE_EACH idx.vidx s_i1.globals l; c := genv.c |>`
     \\ fs []
-    \\ conj_tac THEN1 cheat
+
+    \\ conj_tac >- (
+      simp [UNCURRY_EQ_comp_FST, GSYM MAP_MAP_o, pmatch_list_vars_eq_Match]
+      \\ qunabbrev_tac `stores`
+      \\ simp [pairTheory.ELIM_UNCURRY]
+      \\ DEP_REWRITE_TAC [evaluate_let_none_list_MAPi]
+      \\ simp [rich_listTheory.MAP_REVERSE, listTheory.MAP_ZIP]
+      \\ fs [FST_triple, GSYM listTheory.LIST_TO_SET_MAP, listTheory.MAP_ZIP]
+      \\ conj_tac >- cheat
+      \\ simp [flatSemTheory.state_component_equality]
+      \\ AP_TERM_TAC
+      \\ rw [LIST_EQ_REWRITE, EL_MAP]
+      \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
+      \\ conj_asm1_tac >- simp [MAP_ZIP]
+      \\ drule (REWRITE_RULE [Once CONJ_COMM] alistTheory.ALOOKUP_ALL_DISTINCT_EL)
+      \\ simp []
+      \\ disch_then drule
+      \\ simp [EL_ZIP, EL_MAP])
+
     \\ unabbrev_all_tac
     \\ qpat_x_assum `evaluate _ _ _ = _` kall_tac
     \\ fs [invariant_def] \\ fs []
