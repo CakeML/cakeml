@@ -123,6 +123,8 @@ val least_side_thm = Q.prove(
   THEN METIS_TAC [IS_SOME_DEF])
   |> update_precondition;
 
+val _ = save_thm("OPTION_TYPE_def",OPTION_TYPE_def);
+
 val _ = (print_asts := true);
 
 val _ = export_theory();
