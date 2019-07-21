@@ -3050,7 +3050,7 @@ Theorem b_inputUntil_aux_NOT_EXISTS_no_refill_spec
       \\ xsimpl)));
 
 Theorem b_inputUntil_aux_spec
- `!fd fdv fs content pos bactive
+ `!fd fdv fs content pos bactive.
    CHAR ch chv /\
    P = ($=((n2w o ORD) ch)) /\
    get_file_content fs fd = SOME(content, pos) /\
