@@ -3378,7 +3378,9 @@ val compile_decs_correct' = Q.prove (
     \\ Cases_on `y` \\ simp [Once v_rel_cases]
     \\ strip_tac \\ rveq
     \\ fs [pmatch_def]
-    \\ `s'_i1.check_ctor ∧ LENGTH funs = LENGTH l` by cheat \\ fs []
+    \\ `s'_i1.check_ctor ∧ LENGTH funs = LENGTH l` by
+          (imp_res_tac LIST_REL_LENGTH \\ fs [invariant_def,s_rel_cases])
+    \\ fs []
     \\ qexists_tac `s'_i1 with globals := LUPDATE_EACH idx.vidx s_i1.globals l` \\ fs []
     \\ qexists_tac `<| v := LUPDATE_EACH idx.vidx s_i1.globals l; c := genv.c |>`
     \\ fs []
