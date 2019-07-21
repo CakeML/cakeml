@@ -1304,7 +1304,7 @@ val ctor_same_type_refl = Q.prove (
   rw [ctor_same_type_def]);
 
 val pmatch = Q.prove (
-  `(!cenv s p v env r env' env'' genv env_i1 s_i1 v_i1 comp_map genv_v.
+  `(!cenv s p v env r env' env'' genv env_i1 (s_i1:'ffi flatSem$state) v_i1 comp_map.
     semanticPrimitives$pmatch cenv s p v env = r ∧
     genv_c_ok genv.c ∧
     (!x arity stamp.
@@ -1477,7 +1477,6 @@ val compile_exp_correct' = Q.prove (
          s_rel genv.c s' s'_i1 ∧
          flatSem$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1) ∧
          s_i1.globals = s'_i1.globals)`,
-
   ho_match_mp_tac terminationTheory.evaluate_ind >>
   srw_tac[][terminationTheory.evaluate_def, flatSemTheory.evaluate_def,compile_exp_def] >>
   full_simp_tac(srw_ss())[result_rel_eqns, v_rel_eqns] >>
@@ -2048,74 +2047,60 @@ val compile_exp_correct' = Q.prove (
     irule v_rel_weak >>
     fs [] >>
     metis_tac [SUBMAP_REFL, subglobals_refl])
-  >- ( (* pattern/expression *)
-    cheat ));
-    (*
+  >- ( (* pattern *)
     fs[markerTheory.Abbrev_def]>>
     qpat_x_assum`_ = (_,r)`mp_tac >>
-    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >- (
-      rev_full_simp_tac(srw_ss())[] >>
-      drule (CONJUNCT1 pmatch) >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >> rw[] >> fs[] >- (
+      rfs[] >>
+      drule (GEN_ALL (CONJUNCT1 pmatch)) >>
       `genv_c_ok <| v := s_i1.globals; c := genv.c |>.c` by rw [] >>
       disch_then drule >>
-      simp[GSYM CONJ_ASSOC] >>
-      ONCE_REWRITE_TAC[CONJ_COMM] >>
-      simp[GSYM CONJ_ASSOC] >>
       qhdtm_x_assum`s_rel`mp_tac >>
       simp[Once s_rel_cases] >> strip_tac >>
-      disch_then drule >>
+      simp[Once s_rel_cases] >>
+      disch_then(first_assum o mp_then (Pat`LIST_REL`) mp_tac) >>
+      simp[] >>
       `<|v := s_i1.globals; c := genv.c|> = genv`
       by rw [theorem"global_env_component_equality"] >>
       simp [] >>
-      disch_then drule >>
+      disch_then(first_assum o mp_then Any mp_tac) >>
       qhdtm_x_assum`env_all_rel`mp_tac >>
       simp[Once env_all_rel_cases] >> strip_tac >>
       simp [v_rel_eqns] >>
       disch_then (qspec_then `comp_map with v := bind_locals ts locals comp_map.v` mp_tac) >>
-      disch_then (qspec_then `env''` mp_tac) >>
       impl_tac >- fs [v_rel_eqns] >>
       strip_tac >>
       qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
       Cases_on`mm`>>full_simp_tac(srw_ss())[match_result_rel_def] >>
       pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
       simp[evaluate_def]>>
-      ONCE_REWRITE_TAC[CONJ_ASSOC] >>
-      ONCE_REWRITE_TAC[CONJ_ASSOC] >>
-      ONCE_REWRITE_TAC[CONJ_COMM] >>
-      rw [GSYM CONJ_ASSOC] >>
       first_x_assum match_mp_tac >>
       simp[s_rel_cases] >>
       simp[env_all_rel_cases] >>
       metis_tac[] ) >>
     rfs [] >>
-    drule (CONJUNCT1 pmatch) >>
+    drule (GEN_ALL (CONJUNCT1 pmatch)) >>
     `genv_c_ok <| v := s_i1.globals; c := genv.c|>.c` by rw [] >>
     disch_then drule >>
-    simp[GSYM CONJ_ASSOC] >>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    simp[GSYM CONJ_ASSOC] >>
     qhdtm_x_assum`s_rel`mp_tac >>
     simp[Once s_rel_cases] >> strip_tac >>
-    disch_then drule >>
+    simp[Once s_rel_cases] >>
+    disch_then(first_assum o mp_then (Pat`LIST_REL`) mp_tac) >>
+    simp[] >>
     `<|v := s_i1.globals; c := genv.c|> = genv`
     by rw [theorem"global_env_component_equality"] >>
     simp [] >>
-    disch_then drule >>
+    disch_then(first_assum o mp_then Any mp_tac) >>
     qhdtm_x_assum`env_all_rel`mp_tac >>
     simp[Once env_all_rel_cases] >> strip_tac >>
     simp [v_rel_eqns] >>
     disch_then (qspec_then `comp_map with v := bind_locals ts locals comp_map.v` mp_tac) >>
-    disch_then (qspec_then `env''` mp_tac) >>
     impl_tac >- fs [v_rel_eqns] >>
     strip_tac >>
     qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
     Cases_on`mm`>>full_simp_tac(srw_ss())[match_result_rel_def] >>
     pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
     simp[evaluate_def]>>
-    ONCE_REWRITE_TAC[CONJ_ASSOC] >>
-    ONCE_REWRITE_TAC[CONJ_ASSOC] >>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    REWRITE_TAC [GSYM CONJ_ASSOC] >>
     qspecl_then [`comp_map.v`, `pat_bindings p []`] assume_tac (Q.GEN `comp_map` nsBindList_pat_tups_bind_locals|>INST_TYPE[alpha|->``:tvarN``])>>
     fs[]>>
     first_x_assum match_mp_tac >>
@@ -2134,7 +2119,6 @@ val compile_exp_correct' = Q.prove (
       rw_tac std_ss [GSYM nsAppend_alist_to_ns] >>
       match_mp_tac env_rel_append >>
       rw [])));
-      *)
 
 val compile_exp_correct = Q.prove (
   `∀s env es comp_map s' r s_i1 t genv_c.
