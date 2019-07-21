@@ -3002,7 +3002,7 @@ Proof
   \\ rw []
   \\ TRY (first_x_assum (qspecl_then [`SUC i`] mp_tac)
     \\ simp [ADD1] \\ NO_TAC)
-  \\ cheat
+  \\ first_x_assum (qspec_then `LENGTH t + 1` mp_tac) \\ fs []
 QED
 
 Theorem ALOOKUP_FST_EL_ALL_DISTINCT_EQ:
