@@ -2856,6 +2856,12 @@ val LUPDATE_EACH_def = Define `
   LUPDATE_EACH i xs [] = xs /\
   LUPDATE_EACH i xs (y::ys) = LUPDATE (SOME y) i (LUPDATE_EACH (i+1) xs ys)`
 
+Theorem compile_exps_MAP_Var[simp]:
+  compile_exps t env (MAP Var vs) =
+  MAP (λv. case nsLookup env.v v of NONE => Var_local t "" | SOME x => x) vs
+Proof Induct_on`vs` \\ rw[compile_exp_def]
+QED
+
 val compile_decs_correct' = Q.prove (
   `!s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
@@ -3248,6 +3254,28 @@ val compile_decs_correct' = Q.prove (
       \\ fs [GSYM compile_funs_dom,Abbr `mf`]
       \\ `s_i1.check_ctor` by fs [invariant_def,s_rel_cases] \\ fs []
       \\ qmatch_goalsub_abbrev_tac `evaluate bc`
+      \\ qmatch_goalsub_abbrev_tac`compile_exps None cenv mvf`
+      \\ `mvf = MAP Var (MAP (Short o FST) funs)`
+      by ( simp[Abbr`mvf`, MAP_EQ_f, MAP_MAP_o, FORALL_PROD] )
+      \\ fs[Abbr`mvf`]
+      \\ simp[MAP_MAP_o, o_DEF, Abbr`cenv`]
+      \\ qmatch_goalsub_abbrev_tac`REVERSE (MAP f funs)`
+      \\ `MAP f funs = MAP (Var_local None o FST) funs`
+      by (
+        simp[MAP_EQ_f, Abbr`f`, FORALL_PROD]
+        \\ rpt strip_tac
+        \\ simp[GSYM nsAppend_to_nsBindList]
+        \\ CASE_TAC
+        \\ fs[nsLookup_nsAppend_some, nsLookup_nsAppend_none, namespaceTheory.id_to_mods_def]
+        \\ fs[nsLookup_alist_to_ns_none, nsLookup_alist_to_ns_some]
+        \\ TRY(fs[ALOOKUP_FAILS, MEM_MAP, FORALL_PROD] \\ NO_TAC)
+        \\ imp_res_tac ALOOKUP_MEM \\ fs[MEM_MAP] )
+      \\ fs[Abbr`f`]
+      \\ pop_assum kall_tac
+      \\ pop_assum kall_tac
+      \\ simp[GSYM MAP_REVERSE]
+      \\ simp[GSYM MAP_MAP_o]
+
       \\ cheat) >>
     pop_assum (fn th => rewrite_tac [th]) >>
     qpat_x_assum `Abbrev (e1 = _)` kall_tac >>
