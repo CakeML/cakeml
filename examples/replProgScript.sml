@@ -24,7 +24,7 @@ val _ = temp_tight_equality();
 val () = ml_translatorLib.translation_extends"basisProg";
 
 val welcome_message_def = Define`
-  welcome_message = strlit"CakeML\n"`;
+  welcome_message = strlit"Welcome to CakeML\n"`;
 
 val prompt_def = Define`
   prompt = strlit"> "`;
@@ -59,22 +59,19 @@ val envlookup_def = Define`
 
 val envlookup_v_def = definition"envlookup_v_def";
 
-(*
-val (v_to_id_def, v_to_id_ind) =
-  tprove_no_defn
-  ((semanticPrimitivesTheory.v_to_id_def,
-    semanticPrimitivesTheory.v_to_id_ind),
-  cheat)
-
-Theorem ID_TYPE_v_to_id:
+Theorem NAMESPACE_ID_TYPE_v_to_id:
   ∀v x.
-  ID_TYPE STRING_TYPE STRING_TYPE x v
+  NAMESPACE_ID_TYPE HOL_STRING_TYPE HOL_STRING_TYPE x v
   ⇔ v_to_id v = SOME x
 Proof
   recInduct v_to_id_ind
-  \\ rw[v_to_id_def, CaseEq"option", ID_TYPE_def]
-  \\ Cases_on`x` \\ fs[ID_TYPE_def, semanticPrimitivesTheory.id_type_num_def]
-*)
+  \\ rw[v_to_id_def, CaseEq"option", decProgTheory.NAMESPACE_ID_TYPE_def]
+  \\ Cases_on`x` \\ fs[decProgTheory.NAMESPACE_ID_TYPE_def, semanticPrimitivesTheory.id_type_num_def]
+  \\ fs[HOL_STRING_TYPE_def, implode_def, STRING_TYPE_def]
+  \\ qmatch_goalsub_abbrev_tac`stamp = ts`
+  \\ Cases_on`stamp = ts` \\ fs[]
+  \\ metis_tac[]
+QED
 
 (*
 Theorem envlookup_cert:
