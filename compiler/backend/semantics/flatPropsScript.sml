@@ -793,7 +793,17 @@ Proof
   fs []
 QED
 
-
+Theorem pmatch_list_MAP_Pvar:
+  LENGTH xs = LENGTH vs ⇒
+  pmatch_list s (MAP Pvar xs) vs [] = Match (REVERSE (ZIP (xs,vs)))
+Proof
+  qid_spec_tac`vs`
+  \\ Induct_on`xs`
+  \\ rw[pmatch_def]
+  \\ Cases_on`vs` \\ fs[]
+  \\ rw[pmatch_def]
+  \\ rw[Once pmatch_nil]
+QED
 
       (*
 Theorem evaluate_append:

@@ -3216,9 +3216,7 @@ val compile_decs_correct' = Q.prove (
       `genv1 = genv2` by simp[Abbr`genv1`,Abbr`genv2`,theorem"global_env_component_equality"] >>
       fs[])
   )
-
   >- ( (* Letrec *)
-
     `funs = [] ∨ (?f x e. funs = [(f,x,e)]) ∨ ?f1 f2 fs. funs = f1::f2::fs`
     by metis_tac [list_CASES, pair_CASES]
     >- ( (* No functions *)
@@ -3357,8 +3355,53 @@ val compile_decs_correct' = Q.prove (
       \\ drule (GEN_ALL evaluate_MAP_Var_local)
       \\ simp[] \\ disch_then kall_tac
       \\ simp[pmatch_def]
-
-      \\ cheat) >>
+      \\ qmatch_goalsub_abbrev_tac`MAP f funs`
+      \\ `MAP f funs = MAP Pvar (MAP FST funs)`
+        by simp[Abbr`f`, MAP_MAP_o, o_DEF, UNCURRY, LAMBDA_PROD]
+      \\ fs[Abbr`f`, pmatch_list_MAP_Pvar]
+      \\ simp[Abbr`bc`, build_rec_env_merge]
+      \\ simp[REVERSE_ZIP, MAP_REVERSE]
+      \\ qmatch_goalsub_abbrev_tac`evaluate <| v := bc |>`
+      \\ qmatch_goalsub_abbrev_tac`ZIP zz`
+      \\ `bc = REVERSE (ZIP zz)`
+      by (
+        simp[Abbr`bc`, Abbr`zz`, Abbr`funs'`, compile_funs_map, REVERSE_ZIP]
+        \\ simp[MAP_MAP_o, o_DEF, UNCURRY]
+        \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] )
+      \\ fs[Once SWAP_REVERSE]
+      \\ ntac 2 (pop_assum kall_tac) (* remove zz *)
+      \\ `evaluate <|v := bc|> s_i1 [stores] =
+          evaluate <|v := REVERSE bc|> s_i1 [stores]` suffices_by rw[]
+      \\ `ALL_DISTINCT (MAP FST bc)` by (
+        simp[Abbr`bc`, MAP_MAP_o, o_DEF, UNCURRY, ETA_AX]
+        \\ simp[Abbr`funs'`, GSYM compile_funs_dom] )
+      \\ pop_assum mp_tac
+      \\ qunabbrev_tac`stores`
+      (*
+      \\ `MAP FST bc = MAP FST funs`
+      by (
+        simp[Abbr`bc`, MAP_MAP_o, GSYM compile_funs_dom, Abbr`funs'`, o_DEF, UNCURRY, ETA_AX]
+        \\ simp[FST_triple] )
+      \\ pop_assum mp_tac
+      *)
+      \\ rpt (pop_assum kall_tac)
+      \\ qid_spec_tac`bc` \\ qid_spec_tac`s_i1`
+      \\ qspec_tac(`idx.vidx`,`n`)
+      \\ Induct_on`funs` \\ simp[FORALL_PROD, let_none_list_def]
+      >- ( simp[evaluate_def] )
+      \\ Cases_on`funs` \\ fs[let_none_list_def]
+      >- (
+        simp[evaluate_def, PULL_EXISTS]
+        \\ rw[alookup_distinct_reverse] )
+      \\ PairCases_on`h` \\ fs[]
+      \\ rw[evaluate_def, alookup_distinct_reverse, opt_bind_lem]
+      \\ CASE_TAC \\ fs[]
+      \\ CASE_TAC \\ fs[]
+      \\ CASE_TAC \\ fs[]
+      \\ CASE_TAC \\ fs[]
+      \\ fs[o_DEF, ADD1]
+      \\ first_x_assum(qspec_then`n+1`mp_tac)
+      \\ simp[]) >>
     pop_assum (fn th => rewrite_tac [th]) >>
     qpat_x_assum `Abbrev (e1 = _)` kall_tac >>
     simp [flatSemTheory.evaluate_dec_def,flatSemTheory.evaluate_decs_def,
