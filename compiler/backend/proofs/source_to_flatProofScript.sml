@@ -3217,8 +3217,7 @@ val compile_decs_correct' = Q.prove (
       fs[])
   )
   >- ( (* Letrec *)
-    `funs = [] ∨ (?f x e. funs = [(f,x,e)]) ∨ ?f1 f2 fs. funs = f1::f2::fs`
-    by metis_tac [list_CASES, pair_CASES]
+    Cases_on `funs = []`
     >- ( (* No functions *)
       fs [compile_decs_def] >>
       rw [evaluate_decs_def, compile_exp_def, evaluate_dec_def, alloc_defs_def,
@@ -3227,78 +3226,9 @@ val compile_decs_correct' = Q.prove (
       TRY (qexists_tac `genv`) >>
       rw [] >>
       fs [invariant_def, v_rel_eqns, s_rel_cases, env_domain_eq_def] >>
-      metis_tac [subglobals_refl])
-    >- ( (* One function *)
-      fs [compile_decs_def] >>
-      reverse (
-        rw [evaluate_decs_def, evaluate_dec_def, compile_exp_def, evaluate_def,
-            namespaceTheory.nsBindList_def, namespaceTheory.mk_id_def,
-            nsLookup_nsBind, build_rec_env_def, do_app_def]) >>
-      fs [invariant_def] >>
-      `idx.vidx < LENGTH genv.v` by decide_tac >>
-      fs [] >>
-      rfs []
-      >- (
-        res_tac >>
-        fs []) >>
-      rw [] >>
-      qmatch_goalsub_abbrev_tac `_ = LUPDATE (SOME cl) _ _` >>
-      qexists_tac `<| v := LUPDATE (SOME cl) idx.vidx s_i1.globals; c := genv.c |>` >>
-      rw []
-      >- (
-        rw [subglobals_def, EL_LUPDATE] >>
-        rw [] >>
-        res_tac >>
-        fs [])
-      >- (
-        rw [subglobals_def, EL_LUPDATE] >>
-        rw [] >>
-        res_tac >>
-        fs [])
-      >- (
-        fs [s_rel_cases] >>
-        irule LIST_REL_mono >>
-        qexists_tac `sv_rel <|v := s_i1.globals; c := genv.c|>` >>
-        rw [] >>
-        irule sv_rel_weak >>
-        rw [] >>
-        qexists_tac `<|v := s_i1.globals; c := genv.c|>` >>
-        rw [subglobals_def] >>
-        rw [subglobals_def, EL_LUPDATE] >>
-        rw [] >>
-        res_tac >>
-        fs [])
-      >- rw [env_domain_eq_def, semanticPrimitivesTheory.build_rec_env_def,
-             alloc_defs_def]
-      >- (
-        rw [v_rel_eqns, nsLookup_alist_to_ns_some,
-            semanticPrimitivesTheory.build_rec_env_def, EL_LUPDATE] >>
-        simp [alloc_defs_def] >>
-        fs [nsLookup_nsBind] >>
-        Cases_on `x'` >>
-        fs [] >>
-        Cases_on `n = f` >>
-        fs [nsLookup_nsBind] >>
-        irule v_rel_weak >>
-        qexists_tac `genv` >>
-        rw []
-        >- (
-          rw [subglobals_def, EL_LUPDATE] >>
-          rw [] >>
-          res_tac >>
-          fs []) >>
-        rw [Abbr`cl`] >>
-        simp [Once v_rel_cases] >>
-        rw [compile_exp_def, bind_locals_def] >>
-        rw [namespaceTheory.nsBindList_def] >>
-        MAP_EVERY qexists_tac [`comp_map`, `env`, `nsEmpty`, `om_tra ▷t`, `[om_tra ▷t]`] >>
-        simp [v_rel_eqns])) >>
+      metis_tac [subglobals_refl]) >>
     (* Multiple functions *)
     full_simp_tac std_ss [compile_decs_def] >>
-    `LENGTH funs > 1` by rw [] >>
-    qpat_x_assum `_ = _::_::_` (assume_tac o GSYM) >>
-    full_simp_tac std_ss [] >>
-    pop_assum kall_tac >>
     fs [] >>
     rveq >> fs [] >>
     qpat_abbrev_tac `stores = let_none_list _` >>
@@ -4214,7 +4144,8 @@ Proof
     \\ simp [EVERY_MEM, GSYM elist_globals_eq_empty, Abbr`xs`,
              alloc_defs_set_globals]
     \\ NO_TAC)
-  >- fs [compile_exp_def]
+  >- cheat
+(*
   >-
    (ho_match_mp_tac (EVERY_EL |> REWRITE_RULE [EQ_IMP_THM]
                      |> SPEC_ALL |> CONJUNCT1)
@@ -4240,6 +4171,7 @@ Proof
     \\ qmatch_goalsub_abbrev_tac `compile_exp _ env3`
     \\ `nsAll P env3.v` by fs [Abbr `P`, Abbr `env3`, nsAll_nsBind]
     \\ fs [compile_exp_esgc_free])
+*)
   \\ fs [empty_env_def]
   \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
@@ -4333,6 +4265,8 @@ Proof
   \\ rw[set_globals_make_varls]
   \\ rw[compile_exp_esgc_free]
   \\ TRY ( EVAL_TAC \\ rw [EL_BAG] \\ NO_TAC )
+  >- cheat
+(*
   >- (
     qmatch_goalsub_abbrev_tac`FILTER P (MAPi f ls)`
     \\ qmatch_asmsub_abbrev_tac`compile_funs _ _ ll`
@@ -4401,6 +4335,7 @@ Proof
     \\ rw[]
     \\ AP_TERM_TAC
     \\ simp[MAP_EQ_f])
+*)
   >- (
     simp[MAPi_enumerate_MAP, FILTER_MAP, o_DEF, UNCURRY]
     \\ EVAL_TAC )

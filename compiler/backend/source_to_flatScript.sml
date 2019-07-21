@@ -295,26 +295,6 @@ val let_none_list_def = Define `
   let_none_list [x] = x /\
   let_none_list (x::xs) = flatLang$Let None NONE x (let_none_list xs)`;
 
-(*
-val decs_measure_def = tDefine "decs_measure" `
-  (decs_measure [ast$Dlet locs p e] = 1) ∧
-  (decs_measure [ast$Dletrec locs funs] = 2) ∧
-  (decs_measure [Dtype locs type_def] = 1) ∧
-  (decs_measure [Dtabbrev locs tvs tn t] = 1) ∧
-  (decs_measure [Dexn locs cn ts] = 1) ∧
-  (decs_measure [Dmod mn ds] = decs_measure ds + 1) ∧
-  (decs_measure [Dlocal lds ds] = decs_measure lds + decs_measure ds + 1) ∧
-  (decs_measure [] = 0) ∧
-  (decs_measure (d::ds) = decs_measure [d] + decs_measure ds + 1)`
- (wf_rel_tac `measure (list_size ast$dec_size)`
-  >> rw [dec1_size_eq]);
-
-  (compile_decs n next env [ast$Dletrec locs funs] =
-     compile_decs n next env
-       [ast$Dlet locs (Pcon NONE (MAP (\x. Pvar (FST x)) funs))
-          (Letrec funs (Con NONE (MAP (\x. Var (Short (FST x))) funs)))]) ∧
-*)
-
 val compile_decs_def = tDefine "compile_decs" `
   (compile_decs n next env [ast$Dlet locs p e] =
      let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
@@ -326,13 +306,6 @@ val compile_decs_def = tDefine "compile_decs" `
         <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
         [flatLang$Dlet (Mat t2 e'
           [(compile_pat env p, make_varls 0 t4 next.vidx xs)])])) ∧
-  (compile_decs n next env [ast$Dletrec locs [(f,x,e)]] =
-     (* TODO: The tracing stuff is copy/pasted. Don't know if it's right *)
-     let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
-     let e' = compile_exp t1 env (ast$Letrec [(f,x,e)] (ast$Var (mk_id [] f))) in
-       (n' + 1, (next with vidx := next.vidx + 1),
-        <| v := alist_to_ns (alloc_defs n' next.vidx [f]); c := nsEmpty |>,
-        [flatLang$Dlet (App t4 (GlobalVarInit next.vidx) [e'])])) ∧
   (compile_decs n next env [ast$Dletrec locs funs] =
      let fun_names = MAP FST funs in
      let new_env = nsBindList (MAP (\x. (x, Var_local None x)) fun_names) env.v in
@@ -371,8 +344,6 @@ val compile_decs_def = tDefine "compile_decs" `
        (n'', next2, extend_env new_env2 new_env1, d'++ds'))`
  (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND)`
   >> rw [dec1_size_eq]);
-(* (wf_rel_tac `measure (decs_measure o SND o SND o SND)`
-  \\ fs [decs_measure_def]); *)
 
 val _ = Datatype`
   config = <| next : next_indices
