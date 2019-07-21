@@ -331,9 +331,9 @@ val _ = (append_prog o process_topdecs)`
         else b_input1_aux is`;
 
 val _ = (append_prog o process_topdecs)`
-  fun b_inputUntil_aux is chr =
+  fun b_inputUntil_aux is (chr:char) =
     case b_input1 is of
-      Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else [chr])
+      Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else [])
       |None => []`;
 
 val _ = (append_prog o process_topdecs)`
