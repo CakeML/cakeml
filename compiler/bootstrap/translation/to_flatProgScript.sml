@@ -57,10 +57,8 @@ val _ = (find_def_for_const := def_of_const);
 
 val _ = use_long_names:=true;
 
-(* translate source AST and use CakeML's string type for HOL's char list *)
+(* use CakeML's string type for HOL's char list *)
 val _ = ml_translatorLib.use_string_type true;
-val _ = register_type ``:ast$dec``;
-val _ = fetch "-" "AST_EXP_TYPE_def";
 
 (* ------------------------------------------------------------------------- *)
 (* source_to_flat                                                            *)

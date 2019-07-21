@@ -334,6 +334,8 @@ val compile_decs_def = tDefine "compile_decs" `
      let (n'', next2, new_env2, ds') = compile_decs n' next1
         (extend_env new_env1 env) ds
      in (n'', next2, new_env2, lds'++ds')) ∧
+  (compile_decs n next env [Denv nenv] =
+     (n, next, empty_env, [])) ∧ (* TODO *)
   (compile_decs n next env [] =
     (n, next, empty_env, [])) ∧
   (compile_decs n next env (d::ds) =
