@@ -59,6 +59,8 @@ val envlookup_def = Define`
 
 val envlookup_v_def = definition"envlookup_v_def";
 
+open semanticPrimitivesTheory terminationTheory
+
 Theorem NAMESPACE_ID_TYPE_v_to_id:
   ∀v x.
   NAMESPACE_ID_TYPE HOL_STRING_TYPE HOL_STRING_TYPE x v
@@ -66,21 +68,20 @@ Theorem NAMESPACE_ID_TYPE_v_to_id:
 Proof
   recInduct v_to_id_ind
   \\ rw[v_to_id_def, CaseEq"option", decProgTheory.NAMESPACE_ID_TYPE_def]
-  \\ Cases_on`x` \\ fs[decProgTheory.NAMESPACE_ID_TYPE_def, semanticPrimitivesTheory.id_type_num_def]
+  \\ Cases_on`x` \\ fs[decProgTheory.NAMESPACE_ID_TYPE_def, id_type_num_def]
   \\ fs[HOL_STRING_TYPE_def, implode_def, STRING_TYPE_def]
   \\ qmatch_goalsub_abbrev_tac`stamp = ts`
   \\ Cases_on`stamp = ts` \\ fs[]
   \\ metis_tac[]
 QED
 
-(*
 Theorem envlookup_cert:
   (SEM_ENV
-   --> ID_TYPE (LIST_TYPE CHAR) (LIST_TYPE CHAR)
+   --> NAMESPACE_ID_TYPE HOL_STRING_TYPE HOL_STRING_TYPE
    --> OPTION_TYPE (=)) envlookup envlookup_v
 Proof
   rw[PRECONDITION_def, IS_SOME_EXISTS, Arrow_def, AppReturns_def,
-     envlookup_v_def, do_opapp_def, eval_rel_def]
+     envlookup_v_def, do_opapp_def, ml_progTheory.eval_rel_def]
   \\ rw[Once evaluate_def]
   \\ qexists_tac`[]`
   \\ rw[PULL_EXISTS]
@@ -92,11 +93,13 @@ Proof
   \\ rw[Once evaluate_def]
   \\ rw[do_app_def]
   \\ fs[SEM_ENV_def]
-
-  \\ Cases_on`x`
-  \\ fs[SEMANTICPRIMITIVES_SEM_ENV_TYPE_def]
-  f"SEM_ENV_TYPE"
-*)
+  \\ fs[NAMESPACE_ID_TYPE_v_to_id]
+  \\ simp[state_component_equality]
+  \\ simp[envlookup_def]
+  \\ qmatch_goalsub_rename_tac`nsLookup env.v v`
+  \\ Cases_on`nsLookup env.v v` \\ fs[OPTION_TYPE_def, maybe_to_v_def]
+  \\ EVAL_TAC
+QED
 
 val exn_infer_t_def = Define`
   exn_infer_t = Infer_Tapp [] Texn_num`;
