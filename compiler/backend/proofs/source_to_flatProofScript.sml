@@ -4118,6 +4118,13 @@ Proof
   simp [extend_env_def, nsAll_nsAppend]
 QED
 
+Theorem let_none_list_esgc_free:
+  ∀es. EVERY esgc_free es ⇒ esgc_free (let_none_list es)
+Proof
+  recInduct let_none_list_ind
+  \\ rw[let_none_list_def]
+QED
+
 Theorem compile_decs_esgc_free:
    !n next env decs n1 next1 env1 decs1.
      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v /\
@@ -4144,34 +4151,25 @@ Proof
     \\ simp [EVERY_MEM, GSYM elist_globals_eq_empty, Abbr`xs`,
              alloc_defs_set_globals]
     \\ NO_TAC)
-  >- cheat
-(*
-  >-
-   (ho_match_mp_tac (EVERY_EL |> REWRITE_RULE [EQ_IMP_THM]
-                     |> SPEC_ALL |> CONJUNCT1)
-    \\ qmatch_goalsub_abbrev_tac `extend_env env2`
-    \\ qmatch_asmsub_abbrev_tac `nsAll P`
-    \\ `nsAll P (extend_env env2 env).v`
-      by (irule nsAll_extend_env
-          \\ fs [Abbr `env2`, Abbr `P`]
-          \\ irule nsAll_alist_to_ns
-          \\ fs [alloc_defs_append]
-          \\ simp [EVERY_CONJ, ELIM_UNCURRY]
-          \\ simp [GSYM EVERY_MAP]
-          \\ fs [alloc_defs_esgc_free]
-          \\ conj_tac
-          \\ qmatch_goalsub_abbrev_tac `EVERY _ xs`
-          \\ `EVERY (\x. set_globals x = {||}) (MAP SND xs)`
-              suffices_by rw [EVERY_MAP]
-          \\ simp [EVERY_MEM, GSYM elist_globals_eq_empty, Abbr`xs`,
-                   alloc_defs_set_globals])
-    \\ simp [EVERY_MEM]
-    \\ simp [compile_funs_map]
-    \\ rw [MEM_MAP, PULL_EXISTS, UNCURRY]
-    \\ qmatch_goalsub_abbrev_tac `compile_exp _ env3`
-    \\ `nsAll P env3.v` by fs [Abbr `P`, Abbr `env3`, nsAll_nsBind]
-    \\ fs [compile_exp_esgc_free])
-*)
+  >- (
+    conj_tac
+    >- (
+      match_mp_tac let_none_list_esgc_free
+      \\ rw[MAPi_enumerate_MAP, EVERY_MAP, UNCURRY] )
+    \\ rw[compile_funs_map, MAP_MAP_o, o_DEF, UNCURRY]
+    \\ rw[elist_globals_eq_empty, MEM_MAP, EXISTS_PROD]
+    \\ qmatch_goalsub_abbrev_tac`compile_exp _ env' exp`
+    \\ qspecl_then[`None`,`env'`,`exp`]mp_tac (CONJUNCT1 compile_exp_esgc_free)
+    \\ impl_tac
+    >- (
+      simp[Abbr`env'`]
+      \\ irule nsAll_nsBind
+      \\ simp[]
+      \\ simp[GSYM nsAppend_to_nsBindList]
+      \\ irule nsAll_nsAppend \\ simp[]
+      \\ irule nsAll_alist_to_ns
+      \\ simp[EVERY_MAP] )
+    \\ rw[] )
   \\ fs [empty_env_def]
   \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
