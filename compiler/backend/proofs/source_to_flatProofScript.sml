@@ -2862,6 +2862,45 @@ Theorem compile_exps_MAP_Var[simp]:
 Proof Induct_on`vs` \\ rw[compile_exp_def]
 QED
 
+val LENGTH_LUPDATE_EACH = prove(
+  ``!zs i xs. LENGTH (LUPDATE_EACH i xs zs) = LENGTH xs``,
+  Induct \\ fs [LUPDATE_EACH_def]);
+
+val EL_LUPDATE_EACH = prove(
+  ``!zs n i xs. n < i ==> EL n (LUPDATE_EACH i xs zs) = EL n xs``,
+  Induct \\ fs [LUPDATE_EACH_def,EL_LUPDATE]);
+
+val EL_LUPDATE_EACH_PAST = prove(
+  ``!zs n i xs. i + LENGTH zs <= n ==> EL n (LUPDATE_EACH i xs zs) = EL n xs``,
+  Induct \\ fs [LUPDATE_EACH_def,EL_LUPDATE]);
+
+val EL_LUPDATE_EACH_HIT = prove(
+  ``!l i n xs. i < LENGTH l /\ LENGTH l + n <= LENGTH xs ==>
+               EL (i + n) (LUPDATE_EACH n xs l) = SOME (EL i l)``,
+  cheat);
+
+val nsLookup_FOLDR_SOME_IMP = prove(
+  ``nsLookup
+      (FOLDR (λ(f,x,e) env'. nsBind f (Recclosure env funs f) env')
+        nsEmpty funs) x = SOME (v:semanticPrimitives$v) ==>
+    ?i f y e. i < LENGTH funs /\ v = Recclosure env funs f /\ EL i funs = (f,y,e) /\
+              x = Short f``,
+  cheat);
+
+Theorem LIST_REL_IMP_EL:
+  !P xs ys. LIST_REL P xs ys ==> !i. i < LENGTH xs ==> P (EL i xs) (EL i ys)
+Proof
+  Induct_on `xs` \\ fs [PULL_EXISTS] \\ rw [] \\ Cases_on `i` \\ fs []
+QED
+
+Theorem evaluate_Letrec_Var:
+  ALL_DISTINCT (MAP (λ(x,y,z). x) funs) ==>
+  evaluate s env [Letrec funs (Con NONE (MAP (λ(f,_). Var (Short f)) funs))] =
+    (s, Rval [Conv NONE (MAP (\(f,x,e). Recclosure env funs f) funs)])
+Proof
+  cheat
+QED
+
 val compile_decs_correct' = Q.prove (
   `!s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
@@ -3150,7 +3189,6 @@ val compile_decs_correct' = Q.prove (
 
   >- ( (* Letrec *)
 
-
     `funs = [] ∨ (?f x e. funs = [(f,x,e)]) ∨ ?f1 f2 fs. funs = f1::f2::fs`
     by metis_tac [list_CASES, pair_CASES]
     >- ( (* No functions *)
@@ -3288,203 +3326,81 @@ val compile_decs_correct' = Q.prove (
     impl_tac THEN1 cheat >>
     strip_tac \\ fs [] >> rfs [] \\ fs []
     \\ fs [compile_exp_def] \\ rfs []
-    \\ `?vs. s_i2 = s /\ res = Rval [Conv NONE vs] /\ LENGTH vs = LENGTH funs` by cheat
+    \\ rfs [evaluate_Letrec_Var] \\ rveq \\ fs []
+    \\ qabbrev_tac `vs = MAP (λ(f,x,e). Recclosure env funs f) funs`
+    \\ `LENGTH vs = LENGTH funs` by fs [Abbr `vs`]
     \\ rveq \\ Cases_on `r_i1` \\ fs [result_rel_cases] \\ rveq \\ fs []
     \\ qpat_x_assum `v_rel _ (Conv NONE vs) _` mp_tac
     \\ Cases_on `y` \\ simp [Once v_rel_cases]
     \\ strip_tac \\ rveq
     \\ fs [pmatch_def]
     \\ `s'_i1.check_ctor ∧ LENGTH funs = LENGTH l` by cheat \\ fs []
-    (* the following instantiations might be wrong *)
-    \\ qexists_tac `s'_i1` \\ fs []
+    \\ qexists_tac `s'_i1 with globals := LUPDATE_EACH idx.vidx s_i1.globals l` \\ fs []
     \\ qexists_tac `<| v := LUPDATE_EACH idx.vidx s_i1.globals l; c := genv.c |>`
     \\ fs []
     \\ conj_tac THEN1 cheat
     \\ unabbrev_all_tac
-    \\ rpt (qpat_x_assum `evaluate _ _ _ = _` kall_tac)
+    \\ qpat_x_assum `evaluate _ _ _ = _` kall_tac
     \\ fs [invariant_def] \\ fs []
-    \\ cheat (*
-
-    \\ qpat_abbrev_tac `mf = MAP FST` >>
-    `mf = MAP (\(x,y,z). x)`
-         by (fs [Abbr `mf`] \\ AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]) >>
-    fs [GSYM compile_funs_dom,Abbr `mf`] >>
-
-
-    rw [mapi_map, extend_env_def] >>
-    fs [invariant_def] >>
-    rfs [] >>
-    fs [] >>
-    qmatch_goalsub_abbrev_tac `evaluate_decs env1 s1 (MAPi _ cfuns)` >>
-    `LENGTH funs = LENGTH cfuns`
-    by rw [Abbr`cfuns`, compile_funs_map] >>
-    fs [] >>
-    `env1.check_ctor` by fs[Abbr`env1`] >>
-    imp_res_tac evaluate_recfuns >>
-    fs [] >>
-    qmatch_assum_abbrev_tac `∀t2 t1.
-       evaluate_decs env1 _
-         (MAPi
-            (λi (f,x,e).
-               Dlet
-                 (App t1 (GlobalVarInit (i + idx.vidx)) [Fun t2 x e]))
-            cfuns) =
-       (s2,_, _)` >>
-    qexists_tac `<| v := s2.globals; c := genv.c |>` >>
-    rw []
-    >- (
-      rw [subglobals_def, Abbr `s2`, EL_APPEND_EQN] >>
-      rw [EL_TAKE, EL_DROP] >>
-      fs [] >>
-      `idx.vidx ≤ n` by decide_tac >>
-      res_tac >>
-      fs [])
-    >- (
-      fs [Abbr `s2`, EL_APPEND_EQN] >>
-      `n < LENGTH s1.globals` by rfs [LENGTH_TAKE] >>
-      rw [EL_DROP])
-    >- fs [Abbr `s2`]
-    >- (
-      fs [s_rel_cases, Abbr `s2`] >>
-      irule LIST_REL_mono >>
-      qexists_tac `sv_rel <|v := s1.globals; c := genv.c|>` >>
-      rw [] >>
-      drule sv_rel_weak >>
-      disch_then irule >>
-      rw [subglobals_def, EL_APPEND_EQN] >>
-      rw [EL_TAKE, EL_MAP, EL_DROP] >>
-      res_tac >>
-      fs [])
-    >- (
-      rw [env_domain_eq_def, semanticPrimitivesPropsTheory.build_rec_env_merge] >>
-      rw [EXTENSION, GSYM MAP_MAP_o, fst_alloc_defs] >>
-      rw [MEM_MAP, EXISTS_PROD])
-    >- (
-      fs [Abbr`s2`, semanticPrimitivesPropsTheory.build_rec_env_merge] >>
-      qmatch_abbrev_tac `global_env_inv <| v := g1++middle++g2; c := _ |> _ _ <| v := alist_to_ns pat_env; c := _ |>` >>
-      qspecl_then [`pat_env`,
-                   `<| v := g1 ⧺ middle ⧺ g2;
-                       c := genv.c|>`,
-                   `REVERSE (MAP (λ(f,x,e). (f, Closure [] x e)) cfuns)`,
-                   `t`, `g1`, `g2`]
-                  mp_tac global_env_inv_extend >>
-      simp [Abbr`pat_env`, Abbr`middle`, MAP_REVERSE, MAP_MAP_o, o_DEF,
-            LAMBDA_PROD, fst_lem] >>
-      `LENGTH g1 = idx.vidx` by rw [Abbr`g1`, LENGTH_TAKE] >>
-      simp [] >>
-      `MAP FST cfuns = REVERSE (MAP FST funs)`
-      by (
-        rw [Abbr`cfuns`] >>
-        metis_tac [compile_funs_dom, MAP_REVERSE, GSYM fst_lem]) >>
-      simp [] >>
-      disch_then irule >>
-      fs [fst_lem] >>
-      rw [env_rel_el]
-      >- (
-        simp [Abbr`cfuns`, GSYM MAP_REVERSE, compile_funs_map, MAP_MAP_o,
-              o_DEF, LAMBDA_PROD] >>
-        simp [EL_MAP] >>
-        pairarg_tac >>
-        rw []) >>
-      simp [Abbr`cfuns`, Once compile_funs_map] >>
-      fs [compile_funs_map] >>
-      simp [GSYM MAP_REVERSE, MAP_MAP_o, o_DEF, LAMBDA_PROD, EL_MAP] >>
-      pairarg_tac >>
-      simp [] >>
-      simp [Once v_rel_cases] >>
-      MAP_EVERY qexists_tac [`comp_map`, `e`, `alloc_defs t (LENGTH g1) (MAP FST (REVERSE funs))`, `om_tra ▷ t + 1`, `om_tra ▷ t + 1`] >>
-      rw []
-      >- (
-        rw [nsAppend_to_nsBindList] >>
-        rw [namespaceTheory.nsBindList_def] >>
-        irule (PROVE [] ``!f a b x y z. x = y ⇒ f a x z = f a y z``) >>
-        rw [source_to_flatTheory.environment_component_equality])
-      >- simp [fst_alloc_defs]
-      >- (
-        irule global_env_inv_weak >>
-        qexists_tac `genv` >>
-        rw [subglobals_def,EL_APPEND_EQN, EL_TAKE]
-        >- rw [Abbr `g1`, Abbr`g2`] >>
-        rw [EL_TAKE, Abbr`g1`, TAKE_LENGTH_ID]
-        >- (
-          res_tac >>
-          fs []) >>
-        fs [Abbr`g2`] >>
-        res_tac >>
-        `idx.vidx ≤ n''` by decide_tac >>
-        fs [])
-      >- (
-        irule find_recfun_el >>
-        rw [fst_lem] >>
-        metis_tac [])
-      >- (
-        fs [MEM_MAP] >>
-        rw [] >>
-        rename [`MEM fun funs`] >>
-        `?f1 x1 e1. fun = (f1,x1,e1)` by metis_tac [pair_CASES] >>
-        fs [] >>
-        imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
-        `ALOOKUP (REVERSE funs) f1 = SOME (x1,e1)`
-        by metis_tac [alookup_distinct_reverse] >>
-        drule ALOOKUP_alloc_defs >>
-        disch_then (qspecl_then [`idx.vidx`, `t`] mp_tac) >>
-        rw [] >>
-        rw [] >>
-        rw [EL_APPEND_EQN, EL_MAP, find_recfun_ALOOKUP,
-            nsAppend_to_nsBindList, namespaceTheory.nsBindList_def] >>
-        rfs [GSYM MAP_REVERSE, EL_MAP] >>
-        pairarg_tac >>
-        simp [] >>
-        simp [Once v_rel_cases] >>
-        MAP_EVERY qexists_tac [`comp_map`, `e`, `alloc_defs t (LENGTH g1) (MAP FST (REVERSE funs))`, `om_tra ▷ t + 1`, `om_tra ▷ t + 1`] >>
-        rw []
-        >- (
-          rw [nsAppend_to_nsBindList] >>
-          rw [namespaceTheory.nsBindList_def] >>
-          irule (PROVE [] ``!f a b x y z. x = y ⇒ f a x z = f a y z``) >>
-          rw [source_to_flatTheory.environment_component_equality])
-        >- simp [fst_alloc_defs]
-        >- (
-          irule global_env_inv_weak >>
-          qexists_tac `genv` >>
-          rw [subglobals_def,EL_APPEND_EQN, EL_TAKE]
-          >- rw [Abbr `g1`, Abbr`g2`] >>
-          rw [EL_TAKE, Abbr`g1`, TAKE_LENGTH_ID]
-          >- (
-            res_tac >>
-            fs []) >>
-          fs [Abbr`g2`] >>
-          res_tac >>
-          `idx.vidx ≤ n''` by decide_tac >>
-          fs [])
-        >- (
-          irule find_recfun_el >>
-          rw [fst_lem] >>
-          metis_tac [])
-        >- (
-          fs [MEM_MAP] >>
-          rw [] >>
-          rename [`MEM fun funs`] >>
-          `?f1 x1 e1. fun = (f1,x1,e1)` by metis_tac [pair_CASES] >>
-          fs [] >>
-          imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
-          `ALOOKUP (REVERSE funs) f1 = SOME (x1,e1)`
-          by metis_tac [alookup_distinct_reverse] >>
-          drule ALOOKUP_alloc_defs >>
-          disch_then (qspecl_then [`idx.vidx`, `t`] mp_tac) >>
-          rw [] >>
-          rw [] >>
-          rw [EL_APPEND_EQN, EL_MAP, find_recfun_ALOOKUP,
-              nsAppend_to_nsBindList, namespaceTheory.nsBindList_def] >>
-          rfs [GSYM MAP_REVERSE, EL_MAP] >>
-          pairarg_tac >>
-          rw [] >>
-          fs [] >>
-          qexists_tac `om_tra ▷ t + 1` >>
-          qexists_tac `om_tra ▷ t + 1` >>
-          irule (PROVE [] ``!f a b x y z. x = y ⇒ f a x z = f a y z``) >>
-          rw [source_to_flatTheory.environment_component_equality])) *))
-
+    \\ rw [] \\ fs [subglobals_def,LENGTH_LUPDATE_EACH]
+    THEN1
+     (rw [] \\ irule (GSYM EL_LUPDATE_EACH) \\ CCONTR_TAC \\ fs [NOT_LESS]
+      \\ res_tac \\ fs [])
+    THEN1
+     (`idx.vidx <= n` by fs [] \\ res_tac \\ pop_assum (fn th => fs [GSYM th])
+      \\ match_mp_tac EL_LUPDATE_EACH_PAST \\ fs [])
+    THEN1
+     (fs [s_rel_cases]
+      \\ irule LIST_REL_mono
+      \\ qexists_tac `sv_rel <|v := s'_i1.globals; c := genv.c|>`
+      \\ rw []
+      \\ irule sv_rel_weak
+      \\ rw []
+      \\ qexists_tac `<|v := s_i1.globals; c := genv.c|>`
+      \\ rw [subglobals_def,LENGTH_LUPDATE_EACH]
+      \\ rw [] \\ irule (GSYM EL_LUPDATE_EACH) \\ CCONTR_TAC \\ fs [NOT_LESS]
+      \\ res_tac \\ fs [])
+    THEN1
+     (rw [env_domain_eq_def, semanticPrimitivesTheory.build_rec_env_def,alloc_defs_def]
+      \\ qspec_tac (`Recclosure env funs`,`h`)
+      \\ qspec_tac (`idx.vidx`,`x`)
+      \\ qid_spec_tac `t`
+      \\ qid_spec_tac `funs`
+      \\ Induct \\ fs [alloc_defs_def,FORALL_PROD] \\ fs []
+      \\ fs [EXTENSION] \\ metis_tac [])
+    \\ rw [v_rel_eqns, nsLookup_alist_to_ns_some,
+           semanticPrimitivesTheory.build_rec_env_def, EL_LUPDATE]
+    \\ simp [alloc_defs_def,PULL_EXISTS,LENGTH_LUPDATE_EACH]
+    \\ drule nsLookup_FOLDR_SOME_IMP \\ strip_tac
+    \\ rveq \\ fs []
+    \\ qexists_tac `idx.vidx + i` \\ fs [] \\ rfs [EL_LUPDATE_EACH_HIT]
+    \\ simp [GSYM PULL_EXISTS]
+    \\ conj_tac
+    THEN1
+     (ntac 2 (pop_assum mp_tac)
+      \\ qpat_x_assum `ALL_DISTINCT (MAP (λ(x,y,z). x) funs)` mp_tac
+      \\ qspec_tac (`idx.vidx`,`x`)
+      \\ qid_spec_tac `t`
+      \\ qid_spec_tac `i`
+      \\ qpat_x_assum `LENGTH funs = LENGTH l` (assume_tac o GSYM) \\ fs []
+      \\ qid_spec_tac `funs`
+      \\ Induct \\ fs [FORALL_PROD]
+      \\ Cases_on `i` \\ fs [] \\ fs [alloc_defs_def] \\ fs []
+      \\ fs [MEM_MAP,FORALL_PROD]
+      \\ rpt strip_tac
+      \\ IF_CASES_TAC
+      THEN1 (imp_res_tac EL_MEM \\ rfs [] \\ metis_tac [])
+      \\ metis_tac [ADD_COMM, ADD_ASSOC,ADD1])
+    \\ drule LIST_REL_IMP_EL \\ fs []
+    \\ disch_then drule
+    \\ strip_tac
+    \\ irule v_rel_weak
+    \\ qpat_x_assum `LENGTH funs = LENGTH l` (assume_tac o GSYM)
+    \\ fs [EL_MEM] \\ rfs [EL_MAP]
+    \\ fs [] \\ goal_assum (first_x_assum o mp_then Any mp_tac) \\ fs []
+    \\ fs [subglobals_def,LENGTH_LUPDATE_EACH]
+    \\ rw [] \\ irule (GSYM EL_LUPDATE_EACH) \\ CCONTR_TAC \\ fs [NOT_LESS]
+    \\ res_tac \\ fs [])
   >- ( (* Type definition *)
     rpt (pop_assum mp_tac) >>
     MAP_EVERY qid_spec_tac [`genv`, `idx`, `comp_map`, `env`, `s`, `s_i1`] >>
