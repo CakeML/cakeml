@@ -3014,7 +3014,6 @@ Proof
 QED
 
 val compile_decs_correct' = Q.prove (
-
   `!s env ds s' r comp_map s_i1 idx idx' comp_map' ds_i1 t t' genv.
     evaluate$evaluate_decs s env ds = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
@@ -3041,7 +3040,6 @@ val compile_decs_correct' = Q.prove (
         ?err_i1.
           r_i1 = SOME err_i1 ∧
           result_rel (\a b (c:'a). T) genv' (Rerr err) (Rerr err_i1))`,
-
   ho_match_mp_tac terminationTheory.evaluate_decs_ind >>
   simp [terminationTheory.evaluate_decs_def] >>
   conj_tac
@@ -3443,7 +3441,6 @@ val compile_decs_correct' = Q.prove (
     \\ qexists_tac `s'_i1 with globals := LUPDATE_EACH idx.vidx s_i1.globals l` \\ fs []
     \\ qexists_tac `<| v := LUPDATE_EACH idx.vidx s_i1.globals l; c := genv.c |>`
     \\ fs []
-
     \\ conj_tac >- (
       simp [UNCURRY_EQ_comp_FST, GSYM MAP_MAP_o, pmatch_list_vars_eq_Match]
       \\ qunabbrev_tac `stores`
@@ -3451,7 +3448,11 @@ val compile_decs_correct' = Q.prove (
       \\ DEP_REWRITE_TAC [evaluate_let_none_list_MAPi]
       \\ simp [rich_listTheory.MAP_REVERSE, listTheory.MAP_ZIP]
       \\ fs [FST_triple, GSYM listTheory.LIST_TO_SET_MAP, listTheory.MAP_ZIP]
-      \\ conj_tac >- cheat
+      \\ conj_tac THEN1
+       (fs [invariant_def,s_rel_cases]
+        \\ reverse (rpt strip_tac) \\ rfs []
+        \\ TRY (first_x_assum match_mp_tac)
+        \\ fs [] \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
       \\ simp [flatSemTheory.state_component_equality]
       \\ AP_TERM_TAC
       \\ rw [LIST_EQ_REWRITE, EL_MAP]
@@ -3461,7 +3462,6 @@ val compile_decs_correct' = Q.prove (
       \\ simp []
       \\ disch_then drule
       \\ simp [EL_ZIP, EL_MAP])
-
     \\ unabbrev_all_tac
     \\ qpat_x_assum `evaluate _ _ _ = _` kall_tac
     \\ fs [invariant_def] \\ fs []
