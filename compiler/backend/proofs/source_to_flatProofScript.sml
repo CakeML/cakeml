@@ -4251,89 +4251,50 @@ QED
 val COUNT_LIST_ADD_SYM = COUNT_LIST_ADD
   |> CONV_RULE (SIMP_CONV bool_ss [Once ADD_SYM]);
 
+Theorem MAPi_SNOC: (* TODO: move *)
+  !xs x f. MAPi f (SNOC x xs) = SNOC (f (LENGTH xs) x) (MAPi f xs)
+Proof
+  Induct \\ fs [SNOC]
+QED
+
 Theorem compile_decs_elist_globals:
-   ∀n next env ds e f g p.
-   compile_decs n next env ds = (e,f,g,p) ∧
-   nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) env.v ⇒
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet p)) =
-     LIST_TO_BAG (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings ds))))
+  ∀n next env ds e f g p.
+    compile_decs n next env ds = (e,f,g,p) ∧
+    nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) env.v ⇒
+    elist_globals (MAP dest_Dlet (FILTER is_Dlet p)) =
+      LIST_TO_BAG (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings ds))))
 Proof
   recInduct source_to_flatTheory.compile_decs_ind
   \\ rw[source_to_flatTheory.compile_decs_def]
   \\ rw[set_globals_make_varls]
   \\ rw[compile_exp_esgc_free]
   \\ TRY ( EVAL_TAC \\ rw [EL_BAG] \\ NO_TAC )
-  >- cheat
-(*
-  >- (
-    qmatch_goalsub_abbrev_tac`FILTER P (MAPi f ls)`
-    \\ qmatch_asmsub_abbrev_tac`compile_funs _ _ ll`
-    \\ Q.ISPECL_THEN[`P`,`ls`,`f`]mp_tac(Q.GEN`P` FILTER_MAPi_ID)
-    \\ simp[Abbr`P`, Abbr`f`, UNCURRY]
-    \\ disch_then kall_tac
-    \\ simp[o_DEF, UNCURRY]
-    \\ qmatch_goalsub_abbrev_tac`COUNT_LIST l`
-    \\ `l = LENGTH ls` by simp[Abbr`ls`, Abbr`l`,source_to_flatTheory.compile_funs_map,Abbr`ll`]
-    \\ qmatch_goalsub_abbrev_tac`MAPi f ls`
-    \\ `∀n. n < LENGTH ls ⇒ set_globals (EL n (MAPi f ls)) = {|next.vidx + n|}`
-    by (
-      simp[Abbr`f`, EL_MAPi]
-      \\ EVAL_TAC
-      \\ qx_gen_tac`m`
-      \\ strip_tac
-      \\ `set_globals (SND(SND(EL m ls))) = {||}` suffices_by simp[]
-      \\ fs[Abbr`ls`, source_to_flatTheory.compile_funs_map]
-      \\ simp[EL_MAP]
-      \\ simp[UNCURRY]
-      \\ qmatch_goalsub_abbrev_tac`compile_exp tra venv exp`
-      \\ qspecl_then[`tra`,`venv`,`exp`]mp_tac (CONJUNCT1 compile_exp_esgc_free)
-      \\ impl_tac
-      >- (
-        rw[Abbr`venv`]
-        \\ irule namespacePropsTheory.nsAll_nsBind
-        \\ rw[source_to_flatTheory.extend_env_def]
-        \\ irule namespacePropsTheory.nsAll_nsAppend
-        \\ rw[]
-        \\ irule namespacePropsTheory.nsAll_alist_to_ns
-        \\ simp[UNCURRY]
-        \\ qmatch_goalsub_abbrev_tac`alloc_defs n v l`
-        \\ Q.ISPECL_THEN[`l`,`n`,`v`] mp_tac alloc_defs_set_globals
-        \\ simp[flatPropsTheory.elist_globals_eq_empty]
-        \\ simp[EVERY_MEM, UNCURRY]
-        \\ simp[MEM_MAP, PULL_EXISTS]
-        \\ Q.ISPECL_THEN[`l`,`n`,`v`] mp_tac alloc_defs_esgc_free
-        \\ simp[EVERY_MEM, UNCURRY]
-        \\ simp[MEM_MAP, PULL_EXISTS] )
-      \\ rw[] )
-    \\ qhdtm_x_assum`Abbrev`kall_tac
-    \\ qhdtm_x_assum`Abbrev`kall_tac
-    \\ rw[]
-    \\ pop_assum mp_tac
-    \\ `LENGTH (MAPi f ls) = LENGTH ls` by simp[]
-    \\ pop_assum mp_tac
+  THEN1
+   (qmatch_goalsub_abbrev_tac `compile_funs tra1 env1 funs1`
+    \\ qspecl_then [`tra1`,`env1`,`funs1`] mp_tac
+         (compile_exp_esgc_free |> CONJUNCTS |> el 4) \\ fs []
+    \\ impl_tac THEN1
+     (unabbrev_all_tac \\ fs []
+      \\ Induct_on `funs`
+      \\ fs [namespaceTheory.nsBindList_def,namespaceTheory.nsAll_def]
+      \\ rpt gen_tac \\ rename [`nsLookup _ c`]
+      \\ rw [] \\ res_tac \\ fs []
+      \\ reverse (Cases_on `c`) \\ fs [] THEN1 metis_tac []
+      \\ Cases_on `FST h = n` \\ fs [nsLookup_nsBind]
+      \\ rw [] \\ res_tac \\ fs [])
+    \\ strip_tac \\ fs []
+    \\ unabbrev_all_tac
     \\ rpt (pop_assum kall_tac)
-    \\ qspec_tac(`next.vidx`,`b`)
-    \\ qspec_tac(`MAPi f ls`,`l1`)
-    \\ Induct_on`ls` \\ simp[]
-    >- (EVAL_TAC \\ rw[])
-    \\ simp[o_DEF] \\ rw[ADD1]
-    \\ Cases_on`l1` \\ fs[]
-    \\ last_x_assum(qspecl_then[`t`,`b+1`]mp_tac)
-    \\ impl_tac >- ( fs[ADD1] )
-    \\ impl_tac >- (
-      rw[]
-      \\ first_x_assum(qspec_then`SUC n`mp_tac)
-      \\ rw[] )
-    \\ rw[COUNT_LIST_ADD_SYM]
-    \\ simp[MAP_MAP_o, o_DEF]
-    \\ rw[LIST_TO_BAG_APPEND]
-    \\ simp[EVAL``COUNT_LIST 1``]
-    \\ rw[LIST_TO_BAG_def]
-    \\ first_x_assum(qspec_then`0`mp_tac)
-    \\ rw[]
-    \\ AP_TERM_TAC
-    \\ simp[MAP_EQ_f])
-*)
+    \\ qid_spec_tac `funs`
+    \\ ho_match_mp_tac SNOC_INDUCT
+    \\ fs [MAPi_SNOC,COUNT_LIST_SNOC]
+    \\ fs [MAP_SNOC] \\ fs [SNOC_APPEND, LIST_TO_BAG_APPEND,FORALL_PROD]
+    \\ fs [let_none_list_def,COUNT_LIST_def]
+    \\ rw [] \\ pop_assum (assume_tac o GSYM) \\ fs []
+    \\ qpat_abbrev_tac `xs = MAPi _ _`
+    \\ rpt (pop_assum kall_tac)
+    \\ Induct_on `xs` \\ fs [let_none_list_def] THEN1 EVAL_TAC
+    \\ Cases_on `xs` \\ fs [let_none_list_def,ASSOC_BAG_UNION])
   >- (
     simp[MAPi_enumerate_MAP, FILTER_MAP, o_DEF, UNCURRY]
     \\ EVAL_TAC )
