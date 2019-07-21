@@ -3313,6 +3313,20 @@ val compile_decs_correct' = Q.prove (
       \\ pop_assum kall_tac
       \\ simp[GSYM MAP_REVERSE]
       \\ simp[GSYM MAP_MAP_o]
+      \\ qmatch_asmsub_abbrev_tac`build_rec_env funs' [] []`
+      \\ `MAP (ALOOKUP bc.v) (MAP FST (REVERSE funs)) =
+          MAP SOME (MAP (Recclosure [] funs' o FST) (REVERSE funs))`
+      by (
+        simp[MAP_MAP_o, MAP_REVERSE, MAP_EQ_f, FORALL_PROD]
+        \\ simp[Abbr`bc`, build_rec_env_merge] \\ rw[]
+        \\ irule ALOOKUP_ALL_DISTINCT_MEM
+        \\ simp[MAP_MAP_o, MEM_MAP, EXISTS_PROD, o_DEF, Abbr`funs'`, UNCURRY, ETA_AX]
+        \\ simp[compile_funs_map, MAP_MAP_o, o_DEF, UNCURRY, ETA_AX] \\ fs[FST_triple]
+        \\ simp[MEM_MAP, EXISTS_PROD]
+        \\ metis_tac[] )
+      \\ drule (GEN_ALL evaluate_MAP_Var_local)
+      \\ simp[] \\ disch_then kall_tac
+      \\ simp[pmatch_def]
 
       \\ cheat) >>
     pop_assum (fn th => rewrite_tac [th]) >>

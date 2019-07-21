@@ -687,6 +687,20 @@ Proof
 QED
   *)
 
+Theorem evaluate_MAP_Var_local:
+  MAP (ALOOKUP env.v) xs = MAP SOME vs ⇒
+  evaluate env s (MAP (Var_local t) xs) = (s, Rval vs)
+Proof
+  qid_spec_tac`vs` \\
+  Induct_on`xs` \\ rw[evaluate_def]
+  \\ simp[Once evaluate_cons]
+  \\ simp[evaluate_def]
+  \\ Cases_on`vs` \\ fs[]
+  \\ CASE_TAC
+  \\ CASE_TAC
+  \\ fs[] \\ metis_tac[]
+QED
+
 val bind_locals_list_def = Define`
   bind_locals_list ts ks = list$MAP2 (λt x. (flatLang$Var_local t x)) ts ks`;
 
