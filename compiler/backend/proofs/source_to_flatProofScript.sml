@@ -3060,29 +3060,27 @@ val compile_decs_correct' = Q.prove (
       rfs [] >>
       irule LIST_EQ >>
       rw [EL_APPEND_EQN, EL_TAKE, EL_REPLICATE, EL_DROP]) >>
-    cheat
-(*
     drule evaluate_make_varls >>
     disch_then drule >>
     disch_then (qspecl_then [`0`, `om_tra ▷ t + 3`, `<|v := env|>`,
        `MAP SND (REVERSE env)`] mp_tac) >>
     fs [markerTheory.Abbrev_def] >>
-    qpat_x_assum `Match _ = pmatch _ _ _ _ _` (assume_tac o GSYM) >>
+    qpat_x_assum `Match _ = pmatch _ _ _ _` (assume_tac o GSYM) >>
     drule (CONJUNCT1 pmatch_bindings) >>
     simp [] >>
     strip_tac >>
     impl_tac
     >- metis_tac [EL_MAP, alookup_distinct_reverse, ALOOKUP_ALL_DISTINCT_EL,
                   LENGTH_MAP, LENGTH_REVERSE, MAP_REVERSE,
-                  ALL_DISTINCT_REVERSE] >>
-    rw [] >>
-    qexists_tac `<| v := g1 ⧺ MAP SOME (MAP SND (REVERSE env)) ⧺ g2;
-                    c := genv.c |>` >>
-    conj_tac
-    >- simp [] >>
+                  ALL_DISTINCT_REVERSE, s_rel_cases] >>
+    `s.check_ctor` by fs[s_rel_cases] >>
+    simp[Unitv_def] >>
+    strip_tac >>
+    qmatch_goalsub_abbrev_tac`_.v = g1 ++ ggg ++ g2` >>
+    qexists_tac`genv with v := g1 ++ ggg ++ g2` \\ simp[] >>
     conj_asm1_tac
     >- (
-      rw [] >>
+      rw [Abbr`ggg`] >>
       simp_tac std_ss [subglobals_refl_append, GSYM APPEND_ASSOC] >>
       `LENGTH (REPLICATE (LENGTH (pat_bindings p [])) (NONE:flatSem$v option)) =
        LENGTH (MAP SOME (MAP SND (REVERSE env)))`
@@ -3094,7 +3092,7 @@ val compile_decs_correct' = Q.prove (
       rw [subglobals_def] >>
       `n < LENGTH (pat_bindings p [])` by metis_tac [LENGTH_MAP] >>
       fs [EL_REPLICATE]) >>
-    rw []
+    rw [Abbr`ggg`]
     >- (
       `LENGTH (pat_bindings p []) = LENGTH env` by metis_tac [LENGTH_MAP] >>
       rw [EL_APPEND_EQN] >>
@@ -3102,10 +3100,6 @@ val compile_decs_correct' = Q.prove (
       simp [EL_APPEND_EQN])
     >- metis_tac [evaluatePropsTheory.evaluate_state_unchanged, s_rel_cases]
     >- metis_tac [evaluatePropsTheory.evaluate_state_unchanged, s_rel_cases]
-    (*
-    >- metis_tac [evaluatePropsTheory.evaluate_state_unchanged, s_rel_cases]
-    >- metis_tac [evaluatePropsTheory.evaluate_state_unchanged, s_rel_cases]
-    *)
     >- (
       fs [s_rel_cases] >>
       irule LIST_REL_mono >>
@@ -3126,7 +3120,7 @@ val compile_decs_correct' = Q.prove (
       metis_tac [FST, MEM_MAP])
     >- (
       fs [] >>
-      qspecl_then [`a`, `<|v := g1 ⧺ MAP SOME (MAP SND (REVERSE env)) ⧺ g2; c := genv.c|>`,
+      qspecl_then [`a`, `genv with v := g1 ⧺ MAP SOME (MAP SND (REVERSE env)) ⧺ g2`,
                    `env`, `t+4`, `g1`, `g2`] mp_tac global_env_inv_extend >>
       simp [MAP_REVERSE] >>
       impl_tac
@@ -3140,9 +3134,12 @@ val compile_decs_correct' = Q.prove (
         rw [EL_APPEND_EQN] >>
         rfs [EL_REPLICATE] >>
         metis_tac [LENGTH_MAP, LESS_EQ_REFL, ADD_COMM, ADD_ASSOC]) >>
-      simp []) *)
+      qmatch_goalsub_abbrev_tac`global_env_inv genv1` >>
+      strip_tac >>
+      qmatch_goalsub_abbrev_tac`global_env_inv genv2` >>
+      `genv1 = genv2` by simp[Abbr`genv1`,Abbr`genv2`,theorem"global_env_component_equality"] >>
+      fs[])
   )
-
   >- ( (* Letrec *)
     `funs = [] ∨ (?f x e. funs = [(f,x,e)]) ∨ ?f1 f2 fs. funs = f1::f2::fs`
     by metis_tac [list_CASES, pair_CASES]
