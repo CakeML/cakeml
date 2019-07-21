@@ -290,6 +290,31 @@ val alloc_tags = Define `
     let (ns, new_cids') = alloc_tags tid new_cids ctors in
       (nsBind cn (tag, SOME tid) ns, new_cids'))`;
 
+val let_none_list_def = Define `
+  let_none_list [] = flatLang$Con None NONE [] /\
+  let_none_list [x] = x /\
+  let_none_list (x::xs) = flatLang$Let None NONE x (let_none_list xs)`;
+
+(*
+val decs_measure_def = tDefine "decs_measure" `
+  (decs_measure [ast$Dlet locs p e] = 1) ∧
+  (decs_measure [ast$Dletrec locs funs] = 2) ∧
+  (decs_measure [Dtype locs type_def] = 1) ∧
+  (decs_measure [Dtabbrev locs tvs tn t] = 1) ∧
+  (decs_measure [Dexn locs cn ts] = 1) ∧
+  (decs_measure [Dmod mn ds] = decs_measure ds + 1) ∧
+  (decs_measure [Dlocal lds ds] = decs_measure lds + decs_measure ds + 1) ∧
+  (decs_measure [] = 0) ∧
+  (decs_measure (d::ds) = decs_measure [d] + decs_measure ds + 1)`
+ (wf_rel_tac `measure (list_size ast$dec_size)`
+  >> rw [dec1_size_eq]);
+
+  (compile_decs n next env [ast$Dletrec locs funs] =
+     compile_decs n next env
+       [ast$Dlet locs (Pcon NONE (MAP (\x. Pvar (FST x)) funs))
+          (Letrec funs (Con NONE (MAP (\x. Var (Short (FST x))) funs)))]) ∧
+*)
+
 val compile_decs_def = tDefine "compile_decs" `
   (compile_decs n next env [ast$Dlet locs p e] =
      let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
@@ -309,13 +334,14 @@ val compile_decs_def = tDefine "compile_decs" `
         <| v := alist_to_ns (alloc_defs n' next.vidx [f]); c := nsEmpty |>,
         [flatLang$Dlet (App t4 (GlobalVarInit next.vidx) [e'])])) ∧
   (compile_decs n next env [ast$Dletrec locs funs] =
-     (* TODO: The tracing stuff is copy/pasted. Don't know if it's right *)
-     let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
-     let fun_names = REVERSE (MAP FST funs) in
+     let fun_names = MAP FST funs in
+     let new_env = nsBindList (MAP (\x. (x, Var_local None x)) fun_names) env.v in
+     let flat_funs = compile_funs None (env with v := new_env) funs in
      let env' = <| v := alist_to_ns (alloc_defs n next.vidx fun_names); c := nsEmpty |> in
-       (n+2, (next with vidx := next.vidx + LENGTH fun_names), env',
-        (MAPi (\i (f,x,e). (Dlet (App t4 (GlobalVarInit (next.vidx + i)) [flatLang$Fun t4 x e])))
-              (compile_funs (Cons om_tra (n+1)) (extend_env env' env) (REVERSE funs))))) ∧
+       (n + LENGTH funs, (next with vidx := next.vidx + LENGTH funs), env',
+        [flatLang$Dlet (flatLang$Letrec None flat_funs
+           (let_none_list (MAPi (\i (f,x,e). App None (GlobalVarInit (next.vidx + i))
+               [Var_local None f]) funs)))])) /\
   (compile_decs n next env [Dtype locs type_def] =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) LN constrs) type_def in
      (n, (next with tidx := next.tidx + LENGTH type_def),
@@ -345,6 +371,8 @@ val compile_decs_def = tDefine "compile_decs" `
        (n'', next2, extend_env new_env2 new_env1, d'++ds'))`
  (wf_rel_tac `measure (list_size ast$dec_size o SND o SND o SND)`
   >> rw [dec1_size_eq]);
+(* (wf_rel_tac `measure (decs_measure o SND o SND o SND)`
+  \\ fs [decs_measure_def]); *)
 
 val _ = Datatype`
   config = <| next : next_indices
