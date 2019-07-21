@@ -555,7 +555,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 
 (*val v_to_id : v -> maybe (id modN varN)*)
- val v_to_id_defn = Defn.Hol_multi_defns `
+ val _ = Define `
  ((v_to_id:v ->(((string),(string))id)option) (Conv (SOME stamp) [Litv (StrLit s)])=
    (if stamp = TypeStamp "Short" id_type_num then
     SOME (Short s)
@@ -570,8 +570,6 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   else
     NONE))
 /\ ((v_to_id:v ->(((string),(string))id)option) _=  NONE)`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) v_to_id_defn;
 
 
 (*val enc_pair : v -> v -> v*)

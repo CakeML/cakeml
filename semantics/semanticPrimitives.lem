@@ -433,7 +433,7 @@ and v_to_id (Conv (Just stamp) [Litv (StrLit s); v]) =
   else
     Nothing
 and v_to_id _ = Nothing
-
+declare termination_argument v_to_id = automatic
 
 val enc_pair : v -> v -> v
 let enc_pair v1 v2 = Conv Nothing [v1; v2]
