@@ -2877,7 +2877,10 @@ val EL_LUPDATE_EACH_PAST = prove(
 val EL_LUPDATE_EACH_HIT = prove(
   ``!l i n xs. i < LENGTH l /\ LENGTH l + n <= LENGTH xs ==>
                EL (i + n) (LUPDATE_EACH n xs l) = SOME (EL i l)``,
-  cheat);
+  Induct_on `l` \\ fs [LUPDATE_EACH_def] \\ Cases_on `i` \\ fs []
+  \\ fs [EL_LUPDATE,LENGTH_LUPDATE_EACH] \\ rw []
+  \\ first_x_assum drule
+  \\ disch_then (qspecl_then [`n'+1`,`xs`] mp_tac) \\ fs [ADD1]);
 
 val nsLookup_FOLDR_SOME_IMP = prove(
   ``nsLookup
@@ -2885,9 +2888,16 @@ val nsLookup_FOLDR_SOME_IMP = prove(
         nsEmpty funs) x = SOME (v:semanticPrimitives$v) ==>
     ?i f y e. i < LENGTH funs /\ v = Recclosure env funs f /\ EL i funs = (f,y,e) /\
               x = Short f``,
-  cheat);
+  qspec_tac (`Recclosure env funs`,`rr`)
+  \\ Induct_on `funs` \\ fs [FORALL_PROD]
+  \\ Cases_on `x` \\ fs [nsLookup_nsBind]
+  \\ rw [] \\ Cases_on `p_1 = n` \\ fs []
+  \\ fs [nsLookup_nsBind]
+  THEN1 (qexists_tac `0` \\ fs [])
+  \\ res_tac \\ fs []
+  \\ fs [] \\ qexists_tac `SUC i` \\ fs []);
 
-Theorem LIST_REL_IMP_EL:
+Theorem LIST_REL_IMP_EL: (* TODO: move *)
   !P xs ys. LIST_REL P xs ys ==> !i. i < LENGTH xs ==> P (EL i xs) (EL i ys)
 Proof
   Induct_on `xs` \\ fs [PULL_EXISTS] \\ rw [] \\ Cases_on `i` \\ fs []
@@ -2898,7 +2908,27 @@ Theorem evaluate_Letrec_Var:
   evaluate s env [Letrec funs (Con NONE (MAP (λ(f,_). Var (Short f)) funs))] =
     (s, Rval [Conv NONE (MAP (\(f,x,e). Recclosure env funs f) funs)])
 Proof
-  cheat
+  fs [terminationTheory.evaluate_def,do_con_check_def,build_conv_def,
+      pair_case_eq,result_case_eq,PULL_EXISTS,listTheory.SWAP_REVERSE_SYM]
+  \\ fs [semanticPrimitivesTheory.build_rec_env_def]
+  \\ qspec_tac (`Recclosure env funs`,`h`)
+  \\ qid_spec_tac `env`  \\ qid_spec_tac `funs`
+  \\ ho_match_mp_tac SNOC_INDUCT
+  \\ fs [MAP_SNOC,REVERSE_SNOC,FOLDR_SNOC,FORALL_PROD,ALL_DISTINCT_SNOC]
+  \\ once_rewrite_tac [evaluatePropsTheory.evaluate_cons]
+  \\ fs [terminationTheory.evaluate_def] \\ rw []
+  \\ qpat_abbrev_tac `pat = nsLookup _ _`
+  \\ qsuff_tac `pat = SOME (h p_1)`
+  THEN1
+   (first_x_assum (qspecl_then [`env with v := nsBind p_1 (h p_1) env.v`,`h`] mp_tac)
+    \\ fs [])
+  \\ unabbrev_all_tac
+  \\ pop_assum kall_tac
+  \\ pop_assum mp_tac
+  \\ rpt (pop_assum kall_tac)
+  \\ Induct_on `funs` \\ fs []
+  \\ rw [FORALL_PROD]
+  \\ rename [`_ <> _ h6`] \\ PairCases_on `h6` \\ fs []
 QED
 
 val compile_decs_correct' = Q.prove (
