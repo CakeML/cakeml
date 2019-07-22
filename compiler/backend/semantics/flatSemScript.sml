@@ -543,13 +543,16 @@ val do_eval_def = Define ` (* TODO *)
     | Eval => NONE
     | Install ic => SOME ([]:dec list,s)`;
 
-val do_eval_clock = prove(
-  ``do_eval (vs :v list) ^s = SOME (ds,t) ==>
-    t.clock = s.clock /\
-    t.c = s.c /\
-    t.exh_pat = s.exh_pat /\
-    t.check_ctor = s.check_ctor``,
-  Cases_on `s.eval_mode` \\ fs [do_eval_def]);
+Theorem do_eval_clock:
+  do_eval (vs :v list) ^s = SOME (ds,t) ==>
+  t.ffi = s.ffi /\
+  t.clock = s.clock /\
+  t.c = s.c /\
+  t.exh_pat = s.exh_pat /\
+  t.check_ctor = s.check_ctor
+Proof
+  Cases_on `s.eval_mode` \\ fs [do_eval_def]
+QED
 
 Definition evaluate_def:
   (evaluate (env:flatSem$environment) ^s ([]:flatLang$exp list) = (s,Rval [])) ∧

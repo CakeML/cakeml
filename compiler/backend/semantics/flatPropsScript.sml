@@ -415,6 +415,19 @@ val do_app_add_to_clock_NONE = Q.prove (
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [bool_case_eq, case_eq_thms]);
 
+val do_eval_add_to_clock = Q.prove (
+  `do_eval vs ^s = SOME (r, t)
+   ==>
+   do_eval vs (s with clock := s.clock + k) =
+     SOME (r, t with clock := t.clock + k)`,
+  rw [do_eval_def] \\ CASE_TAC \\ fs []);
+
+val do_eval_add_to_clock_NONE = Q.prove (
+  `do_eval vs ^s = NONE
+   ==>
+   do_eval vs (s with clock := s.clock + k) = NONE`,
+  rw [do_eval_def] \\ CASE_TAC \\ fs []);
+
 Theorem evaluate_add_to_clock:
    (∀env ^s es s' r.
        evaluate env s es = (s',r) ∧
@@ -439,28 +452,17 @@ Theorem evaluate_add_to_clock:
 Proof
   ho_match_mp_tac evaluate_ind \\ rw [evaluate_def]
   \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
-
   \\ rw [] \\ fs [pmatch_ignore_clock]
   \\ fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw []
   \\ fs [dec_clock_def]
   \\ rw [METIS_PROVE [] ``a \/ b <=> ~a ==> b``]
   \\ map_every imp_res_tac
       [do_app_add_to_clock_NONE,
-       do_app_add_to_clock] \\ fs []
+       do_app_add_to_clock,
+       do_eval_add_to_clock_NONE,
+       do_eval_add_to_clock] \\ fs []
   \\ every_case_tac \\ fs []
 QED
-
-val evaluate_dec_add_to_clock = Q.prove(
-  `∀d s s' r.
-    r ≠ SOME (Rabort Rtimeout_error) ∧
-    evaluate_dec s d = (s',r) ⇒
-    evaluate_dec (s with clock := s.clock + extra) d =
-      (s' with clock := s'.clock + extra,r)`,
-  Cases \\ rw [evaluate_dec_def]
-  \\ fs [case_eq_thms, pair_case_eq]
-  \\ imp_res_tac evaluate_add_to_clock \\ fs []
-  \\ rw [] \\ rfs [] >>
-  fs []);
 
 Theorem evaluate_decs_add_to_clock:
   ∀decs s s' r.
@@ -469,14 +471,11 @@ Theorem evaluate_decs_add_to_clock:
    evaluate_decs (s with clock := s.clock + extra) decs =
    (s' with clock := s'.clock + extra,r)
 Proof
-  Induct \\ rw [evaluate_decs_def]
-  \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
-  \\ imp_res_tac evaluate_dec_add_to_clock \\ fs []
-  \\ metis_tac []
+  metis_tac [evaluate_add_to_clock]
 QED
 
 Theorem do_app_io_events_mono:
-   do_app cc (s:'ffi flatSem$state) op vs = SOME (t, r) ⇒
+   do_app cc ^s op vs = SOME (t, r) ⇒
    s.ffi.io_events ≼ t.ffi.io_events
 Proof
   rw [do_app_def] \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
@@ -489,15 +488,20 @@ Proof
 QED
 
 Theorem evaluate_io_events_mono:
-   (∀env (s:'ffi flatSem$state) es.
+   (∀env ^s es.
       s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events) ∧
-   (∀env (s:'ffi flatSem$state) pes v err_v.
-      s.ffi.io_events ≼ (FST (evaluate_match env s pes v err_v)).ffi.io_events)
+   (∀env ^s pes v err_v.
+      s.ffi.io_events ≼ (FST (evaluate_match env s pes v err_v)).ffi.io_events) ∧
+   (∀^s d.
+      s.ffi.io_events ≼ (FST (evaluate_dec s d)).ffi.io_events) ∧
+   (∀^s ds.
+      s.ffi.io_events ≼ (FST (evaluate_decs s ds)).ffi.io_events)
 Proof
   ho_match_mp_tac evaluate_ind \\ rw [evaluate_def]
   \\ every_case_tac \\ fs [] \\ rfs []
   \\ fs [dec_clock_def]
   \\ imp_res_tac do_app_io_events_mono \\ fs []
+  \\ imp_res_tac do_eval_clock \\ fs []
   \\ metis_tac [IS_PREFIX_TRANS]
 QED
 
