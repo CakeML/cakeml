@@ -544,7 +544,11 @@ val do_eval_def = Define ` (* TODO *)
     | Install ic => SOME ([]:dec list,s)`;
 
 val do_eval_clock = prove(
-  ``do_eval (vs :v list) ^s = SOME (ds,t) ==> t.clock = s.clock``,
+  ``do_eval (vs :v list) ^s = SOME (ds,t) ==>
+    t.clock = s.clock /\
+    t.c = s.c /\
+    t.exh_pat = s.exh_pat /\
+    t.check_ctor = s.check_ctor``,
   Cases_on `s.eval_mode` \\ fs [do_eval_def]);
 
 Definition evaluate_def:
@@ -821,7 +825,7 @@ val semantics_def = Define`
              (FST (evaluate_decs
                (initial_state ffi k exh_pat check_ctor ec) prog)).ffi.io_events) UNIV))`;
 
-val _ = map (can o delete_const)
+val _ = map (can delete_const)
   ["do_eq_UNION_aux","do_eq_UNION",
    "pmatch_UNION_aux","pmatch_UNION"];
 
