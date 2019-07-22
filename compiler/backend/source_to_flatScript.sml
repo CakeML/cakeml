@@ -15,9 +15,11 @@ open preamble astTheory terminationTheory flatLangTheory;
 open flat_elimTheory flat_exh_matchTheory flat_uncheck_ctorsTheory
      flat_reorder_matchTheory
 
-val _ = numLib.prefer_num();
 
 val _ = new_theory"source_to_flat";
+val _ = set_grammar_ancestry ["ast", "flatLang", "termination"];
+val _ = numLib.prefer_num();
+val _ = temp_tight_equality ();
 
 val _ = Datatype `
   environment =
@@ -289,6 +291,11 @@ val alloc_tags = Define `
     let (ns, new_cids') = alloc_tags tid new_cids ctors in
       (nsBind cn (tag, SOME tid) ns, new_cids'))`;
 
+val let_none_list_def = Define `
+  let_none_list [] = flatLang$Con None NONE [] /\
+  let_none_list [x] = x /\
+  let_none_list (x::xs) = flatLang$Let None NONE x (let_none_list xs)`;
+
 val compile_decs_def = tDefine "compile_decs" `
   (compile_decs n next env [ast$Dlet locs p e] =
      let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
@@ -300,21 +307,15 @@ val compile_decs_def = tDefine "compile_decs" `
         <| v := alist_to_ns (alloc_defs n' next.vidx xs); c := nsEmpty |>,
         [flatLang$Dlet (Mat t2 e'
           [(compile_pat env p, make_varls 0 t4 next.vidx xs)])])) ∧
-  (compile_decs n next env [ast$Dletrec locs [(f,x,e)]] =
-     (* TODO: The tracing stuff is copy/pasted. Don't know if it's right *)
-     let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
-     let e' = compile_exp t1 env (ast$Letrec [(f,x,e)] (ast$Var (mk_id [] f))) in
-       (n' + 1, (next with vidx := next.vidx + 1),
-        <| v := alist_to_ns (alloc_defs n' next.vidx [f]); c := nsEmpty |>,
-        [flatLang$Dlet (App t4 (GlobalVarInit next.vidx) [e'])])) ∧
   (compile_decs n next env [ast$Dletrec locs funs] =
-     (* TODO: The tracing stuff is copy/pasted. Don't know if it's right *)
-     let (n', t1, t2, t3, t4) = (n + 4, Cons om_tra n, Cons om_tra (n + 1), Cons om_tra (n + 2), Cons om_tra (n + 3)) in
-     let fun_names = REVERSE (MAP FST funs) in
+     let fun_names = MAP FST funs in
+     let new_env = nsBindList (MAP (\x. (x, Var_local None x)) fun_names) env.v in
+     let flat_funs = compile_funs None (env with v := new_env) funs in
      let env' = <| v := alist_to_ns (alloc_defs n next.vidx fun_names); c := nsEmpty |> in
-       (n+2, (next with vidx := next.vidx + LENGTH fun_names), env',
-        (MAPi (\i (f,x,e). (Dlet (App t4 (GlobalVarInit (next.vidx + i)) [flatLang$Fun t4 x e])))
-              (compile_funs (Cons om_tra (n+1)) (extend_env env' env) (REVERSE funs))))) ∧
+       (n + LENGTH funs, (next with vidx := next.vidx + LENGTH funs), env',
+        [flatLang$Dlet (flatLang$Letrec None flat_funs
+           (let_none_list (MAPi (\i (f,x,e). App None (GlobalVarInit (next.vidx + i))
+               [Var_local None f]) funs)))])) /\
   (compile_decs n next env [Dtype locs type_def] =
     let new_env = MAPi (\tid (_,_,constrs). alloc_tags (next.tidx + tid) LN constrs) type_def in
      (n, (next with tidx := next.tidx + LENGTH type_def),

@@ -46,16 +46,16 @@ val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
     s.clock = s'.clock ∧
     LIST_REL (sv_rel v_rel) s.refs s'.refs ∧
     s.ffi = s'.ffi ∧
-    LIST_REL (OPTION_REL v_rel) s.globals s'.globals
+    LIST_REL (OPTION_REL v_rel) s.globals s'.globals ∧
+    s.exh_pat = s'.exh_pat ∧
+    s.check_ctor ∧
+    ~s'.check_ctor
     ⇒
     s_rel s s')`;
 
 val (env_rel_rules, env_rel_ind, env_rel_cases) = Hol_reln `
   (!env env'.
-    LIST_REL (\(x,v1) (y,v2). x = y ∧ v_rel v1 v2) env.v env'.v ∧
-    env.exh_pat = env'.exh_pat ∧
-    env.check_ctor ∧
-    ~env'.check_ctor
+    LIST_REL (\(x,v1) (y,v2). x = y ∧ v_rel v1 v2) env.v env'.v
     ⇒
     env_rel env env')`;
 
@@ -416,34 +416,32 @@ val do_app_correct = Q.prove (
     \\ rw[] \\ fs[]));
 
 Theorem pmatch_correct:
-   (∀env1 refs1 p v1 acc1 env2 refs2 v2 acc2.
-    env_rel env1 env2 ∧
-    LIST_REL (sv_rel v_rel) refs1 refs2 ∧
+   (∀(s1:'ffi state) p v1 acc1 s2 v2 acc2.
+    s_rel s1 s2 ∧
     v_rel v1 v2 ∧
     LIST_REL v_rel (MAP SND acc1) (MAP SND acc2) ∧
     MAP FST acc1 = MAP FST acc2 ∧
-    pmatch env1 refs1 p v1 acc1 ≠ Match_type_error
+    pmatch s1 p v1 acc1 ≠ Match_type_error
     ⇒
-    case pmatch env1 refs1 p v1 acc1 of
+    case pmatch s1 p v1 acc1 of
     | Match res1 => ∃res2.
-        pmatch env2 refs2 (compile_pat p) v2 acc2 = Match res2 ∧
+        pmatch s2 (compile_pat p) v2 acc2 = Match res2 ∧
         LIST_REL v_rel (MAP SND res1) (MAP SND res2) ∧
         MAP FST res1 = MAP FST res2
-    | r => pmatch env2 refs2 (compile_pat p) v2 acc2 = r) ∧
-   (∀env1 refs1 p v1 acc1 env2 refs2 v2 acc2.
-    env_rel env1 env2 ∧
-    LIST_REL (sv_rel v_rel) refs1 refs2 ∧
+    | r => pmatch s2 (compile_pat p) v2 acc2 = r) ∧
+   (∀(s1:'ffi state) p v1 acc1 s2 v2 acc2.
+    s_rel s1 s2 ∧
     LIST_REL v_rel v1 v2 ∧
     LIST_REL v_rel (MAP SND acc1) (MAP SND acc2) ∧
     MAP FST acc1 = MAP FST acc2 ∧
-    pmatch_list env1 refs1 p v1 acc1 ≠ Match_type_error
+    pmatch_list s1 p v1 acc1 ≠ Match_type_error
     ⇒
-    case pmatch_list env1 refs1 p v1 acc1 of
+    case pmatch_list s1 p v1 acc1 of
     | Match res1 => ∃res2.
-        pmatch_list env2 refs2 (MAP compile_pat p) v2 acc2 = Match res2 ∧
+        pmatch_list s2 (MAP compile_pat p) v2 acc2 = Match res2 ∧
         LIST_REL v_rel (MAP SND res1) (MAP SND res2) ∧
         MAP FST res1 = MAP FST res2
-    | r => pmatch_list env2 refs2 (MAP compile_pat p) v2 acc2 = r)
+    | r => pmatch_list s2 (MAP compile_pat p) v2 acc2 = r)
 Proof
   ho_match_mp_tac pmatch_ind
   \\ rw[pmatch_def, compile_pat_def, libTheory.the_def]
@@ -451,12 +449,12 @@ Proof
     qpat_x_assum`v_rel (Conv _ _) _`mp_tac
     \\ rw[Once v_rel_cases, libTheory.the_def] )
   >- (
-    fs[pmatch_def, env_rel_cases] \\ rfs[]
+    fs[pmatch_def, s_rel_cases] \\ rfs[]
     \\ fs[flatSemTheory.same_ctor_def]
     \\ imp_res_tac LIST_REL_LENGTH \\ fs[] >>
     simp [ETA_THM])
   >- (
-    fs[pmatch_def, env_rel_cases] \\ rfs[]
+    fs[pmatch_def, s_rel_cases] \\ rfs[]
     \\ fs[flatSemTheory.same_ctor_def]
     \\ rename1`ctor_same_type (SOME c1) (SOME c2)`
     \\ Cases_on`c1` \\ Cases_on `c2`
@@ -467,15 +465,15 @@ Proof
     every_case_tac >>
     fs [pmatch_def] >>
     rw [ETA_THM] >>
-    fs [env_rel_cases, same_ctor_def] >>
+    fs [s_rel_cases, same_ctor_def] >>
     metis_tac [LIST_REL_LENGTH])
   >- (
     fs[case_eq_thms]
-    \\ Cases_on`store_lookup lnum refs1` \\ fs[]
+    \\ Cases_on`store_lookup lnum s1.refs` \\ fs[]
     \\ Cases_on`x` \\ fs[]
-    \\ `∃b. store_lookup lnum refs2 = SOME (Refv b) ∧ v_rel a b`
+    \\ `∃b. store_lookup lnum s2.refs = SOME (Refv b) ∧ v_rel a b`
     by (
-      fs[semanticPrimitivesTheory.store_lookup_def, LIST_REL_EL_EQN]
+      fs[s_rel_cases, semanticPrimitivesTheory.store_lookup_def, LIST_REL_EL_EQN]
       \\ metis_tac[semanticPrimitivesPropsTheory.sv_rel_cases,
                    semanticPrimitivesTheory.store_v_distinct,
                    semanticPrimitivesTheory.store_v_11] )
@@ -514,7 +512,7 @@ val compile_exp_correct = Q.prove (
   ho_match_mp_tac evaluate_ind >>
   rw [evaluate_def, compile_def] >>
   rw [] >>
-  TRY (fs [env_rel_cases] >> NO_TAC) >>
+  TRY (fs [s_rel_cases] >> NO_TAC) >>
   TRY (split_pair_case_tac >> rw []) >>
   TRY (split_pair_case_tac >> rw [])
   >- (
@@ -631,7 +629,7 @@ val compile_exp_correct = Q.prove (
         >- fs [s_rel_cases]
         >- fs [s_rel_cases]
         >- fs [s_rel_cases] >>
-        `env_rel (env with v := env') (env1 with v := env'')` by fs [env_rel_cases] >>
+        `env_rel <|v := env'|> <|v := env''|>` by fs [env_rel_cases] >>
         `s_rel (dec_clock s') (dec_clock s1')` by fs [dec_clock_def,s_rel_cases] >>
         res_tac >>
         rw [] >>
@@ -647,7 +645,7 @@ val compile_exp_correct = Q.prove (
         \\ drule do_app_correct
         \\ disch_then drule
         \\ rveq
-        \\ fs[env_rel_cases] \\ rfs[]
+        \\ fs[s_rel_cases] \\ rfs[]
         \\ disch_then drule
         \\ strip_tac
         \\ goal_assum (first_assum o mp_then Any mp_tac)
@@ -721,12 +719,11 @@ val compile_exp_correct = Q.prove (
   >- fs[MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
   >- (
     drule(CONJUNCT1 pmatch_correct)
-    \\ qpat_assum`s_rel _ _`(strip_assume_tac o SIMP_RULE std_ss [s_rel_cases])
-    \\ disch_then drule
-    \\ disch_then(qspecl_then[`p`,`v`,`[]`]mp_tac)
-    \\ disch_then drule \\ fs[]
-    \\ impl_tac >- (strip_tac \\ fs[])
-    \\ TOP_CASE_TAC \\ fs[]
+    \\ disch_then(qspecl_then[`p`,`v`,`[]`]mp_tac) >>
+    disch_then drule >>
+    fs [] >>
+    impl_tac >- (every_case_tac >> fs []) >>
+    TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ rfs[]
     \\ fs[compile_HD_sing]
     \\ first_x_assum match_mp_tac
@@ -755,16 +752,15 @@ Proof
 QED
 
 Theorem compile_dec_correct:
-   ∀env (s : 'a flatSem$state) d s' r s1 env'.
-    evaluate_dec env s d = (s',c,r) ∧
+   ∀(s : 'a flatSem$state) d s' r s1.
+    evaluate_dec s d = (s',r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
-    env_rel env env' ∧
     s_rel s s1
     ⇒
     ?s1' r1.
       dec_res_rel r r1 ∧
       s_rel s' s1' ∧
-      evaluate_decs env' s1 (compile_decs [d]) = (s1', {}, r1)
+      evaluate_decs s1 (compile_decs [d]) = (s1', r1)
 Proof
   Cases_on `d` >>
   simp [evaluate_decs_def, evaluate_dec_def, compile_decs_def] >>
@@ -776,7 +772,7 @@ Proof
     rw [] >>
     drule (List.nth (CONJUNCTS compile_exp_correct, 0)) >>
     rw [] >>
-    `env_rel (env with v := []) (env' with v := [])` by fs [env_rel_cases] >>
+    `env_rel <|v := []|> <|v := []|>` by fs [env_rel_cases] >>
     first_x_assum drule >>
     disch_then drule >>
     rw [] >>
@@ -790,26 +786,22 @@ Proof
     fs [Unitv_def, env_rel_cases] >>
     rw [] >>
     fs [] >>
-    rfs [libTheory.the_def]) >>
+    rfs [libTheory.the_def, s_rel_cases]) >>
+  fs [s_rel_cases] >>
   rw [] >>
   rw []
 QED
 
-val lemma = Q.prove (
-  `!x. (x with c updated_by $UNION ∅) = x`,
-  rw [environment_component_equality]);
-
 Theorem compile_decs_correct:
-   ∀env (s : 'a flatSem$state) ds s' r s1 env' c.
-    evaluate_decs env s ds = (s',c,r) ∧
+   ∀env (s : 'a flatSem$state) ds s' r s1.
+    evaluate_decs s ds = (s',r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
-    env_rel env env' ∧
     s_rel s s1
     ⇒
     ?s1' r1.
       dec_res_rel r r1 ∧
       s_rel s' s1' ∧
-      evaluate_decs env' s1 (compile_decs ds) = (s1', {}, r1)
+      evaluate_decs s1 (compile_decs ds) = (s1', r1)
 Proof
   Induct_on `ds` >>
   rw [evaluate_decs_def, compile_decs_def] >>
@@ -821,14 +813,9 @@ Proof
   fs []
   >- (
     disch_then drule >>
-    disch_then drule >>
     rw [] >>
-    `env_rel (env with c updated_by $UNION new_ctors)
-        (env' with c updated_by $UNION {})`
-    by fs [env_rel_cases] >>
     first_x_assum drule >>
     simp [] >>
-    disch_then drule >>
     disch_then drule >>
     rw [] >>
     qexists_tac `s1'` >>
@@ -842,7 +829,6 @@ Proof
   >- (
     rveq >>
     fs [] >>
-    disch_then drule >>
     disch_then drule >>
     rw [] >>
     qexists_tac `s1''` >>
@@ -865,12 +851,10 @@ Proof
   \\ CONV_TAC (RESORT_EXISTS_CONV rev)
   \\ drule compile_decs_correct >>
   simp [] >>
-  disch_then (qspecl_then [`initial_state ffi k`,
-               ` <| v := []; c := initial_ctors; exh_pat := T; check_ctor := F |>`]
-               mp_tac) >>
+  disch_then (qspec_then `initial_state ffi k T F` mp_tac) >>
   impl_tac
-  >- fs [initial_env_def, env_rel_cases, initial_state_def, s_rel_cases]
-  \\ rw [initial_env_def] >>
+  >- fs [initial_state_def, s_rel_cases]
+  \\ rw [] >>
   rw [] >>
   fs [s_rel_cases]
 QED ;

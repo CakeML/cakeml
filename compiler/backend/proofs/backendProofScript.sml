@@ -370,7 +370,7 @@ Proof
     (fn g as (asl,w) =>
       let
         val (genv_c,tm) = dest_exists w
-        val tm = tm |> strip_conj |> el 10 |> strip_forall |> #2
+        val tm = tm |> strip_conj |> rev |> first is_forall |> strip_forall |> #2
         val (tms1, tm) = dest_imp tm
         val tms2 = tm |> dest_exists |> #2 |> strip_conj |> el 1
         fun get_data (tm,acc) =
