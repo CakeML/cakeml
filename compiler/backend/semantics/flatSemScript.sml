@@ -38,7 +38,7 @@ val _ = Datatype`
 
 val _ = Datatype `
   install_config =
-   <| compile : 'c -> flatLang$exp list -> (word8 list # word64 list # 'c) option
+   <| compile : 'c -> flatLang$dec list -> (word8 list # word64 list # 'c) option
     ; compile_oracle : num -> 'c # flatLang$dec list
     |>`
 
@@ -203,6 +203,12 @@ val vs_to_string_def = Define`
    | SOME s2 => SOME (s1++s2)
    | _ => NONE) ∧
   (vs_to_string _ = NONE)`;
+
+val v_to_bytes_def = Define `
+  v_to_bytes lv = some ns. v_to_list lv = SOME (MAP (Litv o Word8) ns)`;
+
+val v_to_words_def = Define `
+  v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word64) ns)`;
 
 val do_app_def = Define `
   do_app check_ctor s op (vs:flatSem$v list) =
@@ -537,11 +543,26 @@ val is_fresh_exn_def = Define `
   is_fresh_exn exn_id ctors ⇔
     !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)`;
 
-val do_eval_def = Define ` (* TODO *)
+val do_eval_def = Define `
   do_eval (vs :v list) ^s =
     case s.eval_mode of
-    | Eval => NONE
-    | Install ic => SOME ([]:dec list,s)`;
+    | Eval => NONE (* TODO *)
+    | Install ic =>
+      (case vs of
+       | [v1; v2] =>
+         (case (v_to_bytes v1, v_to_words v2) of
+          | (SOME bytes, SOME data) =>
+            let (st,decs) = ic.compile_oracle 0 in
+            let new_oracle = shift_seq 1 ic.compile_oracle in
+            (case ic.compile st decs of
+             | SOME (bytes',data',st') =>
+               if bytes = bytes' ∧ data = data' ∧
+                  FST(new_oracle 0) = st' ∧ decs <> [] then
+                 SOME (decs, s with eval_mode := Install (ic with compile_oracle := new_oracle))
+               else NONE
+             | _ => NONE)
+          | _ => NONE)
+       | _ => NONE)`;
 
 Theorem do_eval_clock:
   do_eval (vs :v list) ^s = SOME (ds,t) ==>
@@ -551,7 +572,11 @@ Theorem do_eval_clock:
   t.exh_pat = s.exh_pat /\
   t.check_ctor = s.check_ctor
 Proof
-  Cases_on `s.eval_mode` \\ fs [do_eval_def]
+  Cases_on `s.eval_mode`
+  \\ fs [do_eval_def, CaseEq"list", CaseEq"option"]
+  \\ strip_tac \\ fs[]
+  \\ pairarg_tac \\ fs[CaseEq"option", CaseEq"prod"]
+  \\ rveq \\ fs[]);
 QED
 
 Definition evaluate_def:
