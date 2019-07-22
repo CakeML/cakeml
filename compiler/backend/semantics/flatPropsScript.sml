@@ -408,17 +408,21 @@ val do_app_add_to_clock_NONE = Q.prove (
   \\ fs [bool_case_eq, case_eq_thms]);
 
 val do_eval_add_to_clock = Q.prove (
-  `do_eval vs ^s = SOME (r, t)
+  `do_eval vs ^s = SOME (r, t, v)
    ==>
    do_eval vs (s with clock := s.clock + k) =
-     SOME (r, t with clock := t.clock + k)`,
-  rw [do_eval_def] \\ CASE_TAC \\ fs []);
+     SOME (r, t with clock := t.clock + k, v)`,
+  fs [do_eval_def] \\ every_case_tac \\ fs []
+  \\ pairarg_tac \\ fs [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+  \\ rw [] \\ fs []);
 
 val do_eval_add_to_clock_NONE = Q.prove (
   `do_eval vs ^s = NONE
    ==>
    do_eval vs (s with clock := s.clock + k) = NONE`,
-  rw [do_eval_def] \\ CASE_TAC \\ fs []);
+  fs [do_eval_def] \\ every_case_tac \\ fs []
+  \\ pairarg_tac \\ fs [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+  \\ rw [] \\ fs []);
 
 Theorem evaluate_add_to_clock:
    (∀env ^s es s' r.
