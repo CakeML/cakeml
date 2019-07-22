@@ -247,14 +247,6 @@ Proof
   srw_tac[][build_rec_env_def, build_rec_env_help_lem]
 QED
 
-  (*
-Theorem Boolv_11[simp]:
-  Boolv b1 = Boolv b2 ⇔ (b1 = b2)
-Proof
-srw_tac[][Boolv_def]
-QED
-*)
-
 val Unitv_simp = save_thm("Unitv_simp[simp]",
   CONJ (EVAL``Unitv T``) (EVAL ``Unitv F``));
 
@@ -512,21 +504,31 @@ Proof
 QED
 
 Theorem evaluate_add_to_clock_io_events_mono:
-   (∀env (s:'ffi flatSem$state) es extra.
+   (∀env ^s es extra.
        (FST (evaluate env s es)).ffi.io_events ≼
        (FST (evaluate env (s with clock := s.clock + extra) es)).ffi.io_events) ∧
-   (∀env (s:'ffi flatSem$state) pes v err_v extra.
+   (∀env ^s pes v err_v extra.
        (FST (evaluate_match env s pes v err_v)).ffi.io_events ≼
-       (FST (evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi.io_events)
+       (FST (evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi.io_events) ∧
+   (∀^s d extra.
+       (FST (evaluate_dec s d)).ffi.io_events ≼
+       (FST (evaluate_dec (s with clock := s.clock + extra) d)).ffi.io_events) ∧
+   (∀^s ds extra.
+       (FST (evaluate_decs s ds)).ffi.io_events ≼
+       (FST (evaluate_decs (s with clock := s.clock + extra) ds)).ffi.io_events)
 Proof
   ho_match_mp_tac evaluate_ind \\ rw [evaluate_def] \\ fs []
   \\ rpt (PURE_FULL_CASE_TAC \\ fs []) \\ rfs []
   \\ map_every imp_res_tac [evaluate_add_to_clock,
                             evaluate_io_events_mono,
                             do_app_add_to_clock_NONE,
-                            do_app_add_to_clock]
+                            do_app_add_to_clock,
+                            do_eval_add_to_clock_NONE,
+                            do_eval_add_to_clock,
+                            do_eval_clock]
   \\ fs [dec_clock_def, pmatch_ignore_clock]
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
+  \\ imp_res_tac do_eval_clock \\ rfs []
   \\ metis_tac [IS_PREFIX_TRANS, FST, PAIR,
                 evaluate_io_events_mono,
                 with_clock_ffi,
@@ -537,50 +539,33 @@ Theorem evaluate_dec_io_events_mono:
   ∀z y.
      y.ffi.io_events ≼ (FST (evaluate_dec y z)).ffi.io_events
 Proof
-  Cases \\ rw [evaluate_dec_def] \\ every_case_tac \\ fs [] \\ rw []
+  Cases \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [evaluate_io_events_mono, FST]
 QED;
 
 Theorem evaluate_dec_add_to_clock_io_events_mono:
-  ∀prog (s:'ffi flatSem$state) extra.
+  ∀prog ^s extra.
    (FST (evaluate_dec s prog)).ffi.io_events ≼
    (FST (evaluate_dec (s with clock := s.clock + extra) prog)).ffi.io_events
 Proof
-  Cases \\ rw [evaluate_dec_def] \\ fs []
-  \\ split_pair_case_tac \\ fs []
-  \\ split_pair_case_tac \\ fs []
-  \\ qmatch_assum_abbrev_tac `evaluate ee (s with clock := _) pp = _`
-  \\ qispl_then
-         [`ee`,`s`,`pp`,`extra`] mp_tac
-         (CONJUNCT1 evaluate_add_to_clock_io_events_mono)
-  \\ rw [] \\ fs []
-  \\ every_case_tac \\ fs []
+  metis_tac [evaluate_add_to_clock_io_events_mono]
 QED
 
 Theorem evaluate_decs_io_events_mono:
-  ∀prog s s' y. evaluate_decs s prog = (s',y) ⇒
+  ∀ds ^s s' y. evaluate_decs s ds = (s',y) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events
 Proof
-  Induct \\ rw [evaluate_decs_def]
-  \\ every_case_tac \\ fs [] \\ rw []
-  \\ res_tac \\ fs []
-  \\ metis_tac [IS_PREFIX_TRANS, FST, evaluate_dec_io_events_mono]
+  rw []
+  \\ qspecl_then [`s`,`ds`] mp_tac (evaluate_io_events_mono |> CONJUNCTS |> last)
+  \\ fs []
 QED
 
 Theorem evaluate_decs_add_to_clock_io_events_mono:
-  ∀prog s extra.
-   (FST (evaluate_decs s prog)).ffi.io_events ≼
-   (FST (evaluate_decs (s with clock := s.clock + extra) prog)).ffi.io_events
+   ∀ds ^s extra.
+     (FST (evaluate_decs s ds)).ffi.io_events ≼
+     (FST (evaluate_decs (s with clock := s.clock + extra) ds)).ffi.io_events
 Proof
-  Induct \\ rw [evaluate_decs_def] \\ every_case_tac \\ fs []
-  \\ qmatch_assum_abbrev_tac
-         `evaluate_dec (ss with clock := extra + _) pp = _`
-  \\ qispl_then
-         [`pp`,`ss`,`extra`] mp_tac
-         evaluate_dec_add_to_clock_io_events_mono
-  \\ rw [] \\ fs []
-  \\ imp_res_tac evaluate_dec_add_to_clock \\ fs []
-  \\ metis_tac [IS_PREFIX_TRANS, FST, pair_CASES, evaluate_decs_io_events_mono]
+  metis_tac [evaluate_add_to_clock_io_events_mono]
 QED;
 
 Theorem evaluate_MAP_Var_local:
@@ -599,7 +584,6 @@ QED
 
 val bind_locals_list_def = Define`
   bind_locals_list ts ks = list$MAP2 (λt x. (flatLang$Var_local t x)) ts ks`;
-
 
 Theorem evaluate_vars:
    !env s kvs env' ks vs ts.
@@ -623,13 +607,13 @@ Proof
 QED
 
 Theorem pmatch_evaluate_vars:
-  (!(s:'a state) p v evs env' ts.
+  (!^s p v evs env' ts.
     flatSem$pmatch s p v evs = Match env' ∧
     ALL_DISTINCT (pat_bindings p (MAP FST evs)) ∧
     LENGTH ts = LENGTH (pat_bindings p (MAP FST evs))
     ⇒
     flatSem$evaluate (env with v := env') s (bind_locals_list ts (pat_bindings p (MAP FST evs))) = (s,Rval (MAP SND env'))) ∧
-   (!(s:'a state) ps vs evs env' ts.
+   (!^s ps vs evs env' ts.
     flatSem$pmatch_list s ps vs evs = Match env' ∧
     ALL_DISTINCT (pats_bindings ps (MAP FST evs)) ∧
     LENGTH ts = LENGTH (pats_bindings ps (MAP FST evs))
@@ -669,7 +653,7 @@ Proof
 QED
 
 Theorem pmatch_evaluate_vars_lem:
-  ∀p v bindings env s ts.
+  ∀p v bindings env ^s ts.
     pmatch s p v [] = Match bindings ∧
     ALL_DISTINCT (pat_bindings p []) ∧
     LENGTH ts = LENGTH (pat_bindings p [])
@@ -695,16 +679,16 @@ QED
 
 val evaluate_decs_add_to_clock_initial_state = Q.prove(
   `r ≠ SOME (Rabort Rtimeout_error) ∧
-   evaluate_decs (initial_state ffi k x y) decs = (s',r) ⇒
-   evaluate_decs (initial_state ffi (ck + k) x y) decs =
+   evaluate_decs (initial_state ffi k x y ec) decs = (s',r) ⇒
+   evaluate_decs (initial_state ffi (ck + k) x y ec) decs =
    (s' with clock := s'.clock + ck,r)`,
   rw [initial_state_def]
   \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []);
 
 val evaluate_decs_add_to_clock_initial_state_io_events_mono = Q.prove (
-  `evaluate_decs (initial_state ffi k x y) prog = (s',r) ==>
+  `evaluate_decs (initial_state ffi k x y ec) prog = (s',r) ==>
    s'.ffi.io_events ≼
-   (FST (evaluate_decs (initial_state ffi (k+ck) x y) prog)).ffi.io_events`,
+   (FST (evaluate_decs (initial_state ffi (k+ck) x y ec) prog)).ffi.io_events`,
   rw [initial_state_def]
   \\ qmatch_assum_abbrev_tac `evaluate_decs s1 _ = _`
   \\ qispl_then
@@ -713,8 +697,8 @@ val evaluate_decs_add_to_clock_initial_state_io_events_mono = Q.prove (
   \\ fs [Abbr`s1`]);
 
 val initial_state_with_clock = Q.prove (
-  `(initial_state ffi k x y with clock := (initial_state ffi k x y).clock + ck) =
-   initial_state ffi (k + ck) x y`,
+  `(initial_state ffi k x y ec with clock := (initial_state ffi k x y ec).clock + ck) =
+   initial_state ffi (k + ck) x y ec`,
   rw [initial_state_def]);
 
 val SND_SND_lemma = prove(
@@ -722,15 +706,15 @@ val SND_SND_lemma = prove(
   PairCases_on `x` \\ fs []);
 
 val eval_sim_def = Define `
-  eval_sim ffi exh1 ctor1 ds1 exh2 ctor2 ds2 rel allow_fail =
+  eval_sim ffi exh1 ctor1 ds1 exh2 ctor2 ds2 ec rel allow_fail =
     !k res1 s2.
-      evaluate_decs (initial_state ffi k exh1 ctor1) ds1 =
+      evaluate_decs (initial_state ffi k exh1 ctor1 ec) ds1 =
         (s2, res1) /\
       (allow_fail \/ res1 <> SOME (Rabort Rtype_error)) /\
       rel ds1 ds2
       ==>
       ?ck res2 t2.
-        evaluate_decs (initial_state ffi (k + ck) exh2 ctor2) ds2 =
+        evaluate_decs (initial_state ffi (k + ck) exh2 ctor2 ec) ds2 =
           (t2, res2) /\
         s2.ffi = t2.ffi /\
         (res1 = NONE ==> res2 = NONE) /\
@@ -738,11 +722,11 @@ val eval_sim_def = Define `
         (!a. res1 = SOME (Rabort a) ==> res2 = SOME (Rabort a))`;
 
 Theorem IMP_semantics_eq:
-   eval_sim ffi exh1 ctor1 ds1 exh2 ctor2 ds2 rel F /\
-   semantics exh1 ctor1 (ffi:'ffi ffi_state) ds1 <> Fail ==>
+   eval_sim ffi exh1 ctor1 ds1 exh2 ctor2 ds2 ec rel F /\
+   semantics exh1 ctor1 ec (ffi:'ffi ffi_state) ds1 <> Fail ==>
    rel ds1 ds2 ==>
-   semantics exh1 ctor1 ffi ds1 =
-   semantics exh2 ctor2 ffi ds2
+   semantics exh1 ctor1 ec ffi ds1 =
+   semantics exh2 ctor2 ec ffi ds2
 Proof
   rewrite_tac [GSYM AND_IMP_INTRO]
   \\ strip_tac
@@ -756,7 +740,7 @@ Proof
     \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
     \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
     \\ fs [eval_sim_def]
-    \\ Cases_on `evaluate_decs (initial_state ffi k' exh1 ctor1) ds1`
+    \\ Cases_on `evaluate_decs (initial_state ffi k' exh1 ctor1 ec) ds1`
     \\ `r' <> SOME (Rabort Rtype_error)` by metis_tac []
     \\ last_x_assum drule \\ strip_tac \\ rfs [])
   \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
@@ -803,7 +787,7 @@ Proof
   \\ simp [Once semantics_def]
   \\ IF_CASES_TAC \\ fs [SND_SND_lemma]
   >-
-   (Cases_on `evaluate_decs (initial_state ffi k exh1 ctor1) ds1`
+   (Cases_on `evaluate_decs (initial_state ffi k exh1 ctor1 ec) ds1`
     \\ first_x_assum (qspec_then `k` mp_tac)
     \\ disch_then (qspec_then `q` mp_tac)
     \\ disch_then (qspec_then `r` mp_tac)
@@ -819,7 +803,7 @@ Proof
   \\ DEEP_INTRO_TAC some_intro
   \\ fs [] \\ rw []
   >-
-   (Cases_on `evaluate_decs (initial_state ffi k exh1 ctor1) ds1`
+   (Cases_on `evaluate_decs (initial_state ffi k exh1 ctor1 ec) ds1`
     \\ last_x_assum (qspecl_then [`k`, `q`, `r'`] mp_tac)
     \\ strip_tac \\ rfs []
     \\ fs [eval_sim_def]
@@ -854,7 +838,7 @@ Proof
   \\ unabbrev_all_tac \\ simp [PULL_EXISTS]
   \\ simp [LNTH_fromList, PULL_EXISTS, GSYM FORALL_AND_THM]
   \\ rpt gen_tac
-  \\ Cases_on `evaluate_decs (initial_state ffi k exh1 ctor1) ds1`
+  \\ Cases_on `evaluate_decs (initial_state ffi k exh1 ctor1 ec) ds1`
   \\ fs [eval_sim_def]
   \\ first_x_assum drule
   \\ impl_keep_tac >- metis_tac []
