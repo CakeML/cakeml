@@ -1,8 +1,10 @@
 (*
   The formal semantics of flatLang
 *)
-open preamble flatLangTheory;
-open semanticPrimitivesPropsTheory;
+
+open preamble flatLangTheory
+     semanticPrimitivesPropsTheory
+     source_to_flatTheory
 
 val _ = new_theory "flatSem";
 
@@ -42,10 +44,16 @@ val _ = Datatype `
     ; compile_oracle : num -> 'c # flatLang$dec list
     |>`
 
+val _ = Datatype`
+  eval_compiler_config =
+   <| compile : source_to_flat$environment -> 'c -> ast$dec list
+                  -> flatLang$dec list # source_to_flat$environment # 'c
+    ; compiler_state : 'c |>`;
+
 val _ = Datatype `
   eval_config =
-    | Eval
-    | Install ('c install_config)`
+    | Eval ('c eval_compiler_config)
+    | Install ('c install_config) (* not the same 'c as for Eval *)`
 
 val _ = Datatype`
   state = <|
@@ -209,6 +217,39 @@ val v_to_bytes_def = Define `
 
 val v_to_words_def = Define `
   v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word64) ns)`;
+
+(*
+val namespace_to_v_def = Define`
+  namespace_to_v (Bind l1 l2) =
+    Conv (SOME 0)
+      (list_to_v l1)
+      (list_to_v l2)
+
+val environment_to_v_def = Define`
+  environment_to_v env =
+    Conv (SOME 0)
+      (namespace_to_v char_l env.c)
+      (namespace_to_v env.v)`;
+*)
+
+val environment_to_v_def = Define`
+  environment_to_v (env:source_to_flat$environment) = ARB : v`; (* TODO *)
+
+val v_to_environment_def = Define`
+  v_to_environment v = some env. environment_to_v env = v`;
+
+(*
+val constructors_to_v_def = Define`
+  constructors_to_v (semanticPrimitives$Conv name vs) =
+    flatSem$Conv name (MAP constructors_to_v vs)`;
+have to deal with genv.c to get this to work, the stamp mapping
+*)
+
+val decs_to_v_def = Define`
+  decs_to_v (ds : ast$dec list) = ARB : flatSem$v`; (* TODO *)
+
+val v_to_decs_def = Define`
+  v_to_decs v = some ds. flatSem$decs_to_v ds = v`;
 
 val do_app_def = Define `
   do_app check_ctor s op (vs:flatSem$v list) =
@@ -546,8 +587,18 @@ val is_fresh_exn_def = Define `
 val do_eval_def = Define `
   do_eval (vs :v list) ^s =
     case s.eval_mode of
-    | Eval => NONE (* TODO *)
-    | Install ic =>
+    | flatSem$Eval ec =>
+      (case vs of
+       | [envv; dsv] =>
+         (case (v_to_environment envv, flatSem$v_to_decs dsv) of
+           (SOME env, SOME ds) =>
+             let (decs, new_env, new_st) = ec.compile env ec.compiler_state ds in
+               SOME (decs,
+                     s with eval_mode := Eval (ec with compiler_state := new_st),
+                     environment_to_v new_env)
+          | _ => NONE)
+       | _ => NONE)
+    | flatSem$Install ic =>
       (case vs of
        | [v1; v2] =>
          (case (v_to_bytes v1, v_to_words v2) of
@@ -558,14 +609,16 @@ val do_eval_def = Define `
              | SOME (bytes',data',st') =>
                if bytes = bytes' ∧ data = data' ∧
                   FST(new_oracle 0) = st' ∧ decs <> [] then
-                 SOME (decs, s with eval_mode := Install (ic with compile_oracle := new_oracle))
+                 SOME (decs,
+                       s with eval_mode := Install (ic with compile_oracle := new_oracle),
+                       Unitv s.check_ctor)
                else NONE
              | _ => NONE)
           | _ => NONE)
        | _ => NONE)`;
 
 Theorem do_eval_clock:
-  do_eval (vs :v list) ^s = SOME (ds,t) ==>
+  do_eval (vs :v list) ^s = SOME (ds,t,rv) ==>
   t.ffi = s.ffi /\
   t.clock = s.clock /\
   t.c = s.c /\
@@ -576,7 +629,7 @@ Proof
   \\ fs [do_eval_def, CaseEq"list", CaseEq"option"]
   \\ strip_tac \\ fs[]
   \\ pairarg_tac \\ fs[CaseEq"option", CaseEq"prod"]
-  \\ rveq \\ fs[]);
+  \\ rveq \\ fs[]
 QED
 
 Definition evaluate_def:
@@ -629,12 +682,12 @@ Definition evaluate_def:
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else if op = flatLang$Eval then
          (case do_eval vs s of
-          | SOME (decs, s) =>
+          | SOME (decs, s, retv) =>
             if s.clock = 0 then
               (s, Rerr (Rabort Rtimeout_error))
             else
               (case evaluate_decs (dec_clock s) decs of
-               | (s, NONE) => (s, Rval [Unitv s.check_ctor])
+               | (s, NONE) => (s, Rval [retv])
                | (s, SOME e) => (s, Rerr e))
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
