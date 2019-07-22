@@ -75,11 +75,11 @@ QED
 (* bind locals with an arbitrary trace *)
 val bind_locals_def = Define `
   bind_locals ts locals comp_map =
-    nsBindList (MAP2 (\t x. (x, flatLang$Var_local t x)) ts locals) comp_map`;
+    nsBindList (MAP2 (\t x. (x, Local t x)) ts locals) comp_map`;
 
 val nsAppend_bind_locals = Q.prove(`
   ∀funs.
-  nsAppend (alist_to_ns (MAP (λx. (x,Var_local t x)) (MAP FST funs))) (bind_locals ts locals comp_map) =
+  nsAppend (alist_to_ns (MAP (λx. (x,Local t x)) (MAP FST funs))) (bind_locals ts locals comp_map) =
   bind_locals (REPLICATE (LENGTH funs) t ++ ts) (MAP FST funs ++ locals) comp_map`,
   Induct_on`funs`>>fs[FORALL_PROD,bind_locals_def,namespaceTheory.nsBindList_def]);
 
@@ -174,18 +174,18 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      * require step-indexing *)
     (!x. x ∈ set (MAP FST funs) ⇒
        ?n y e t1 t2 t3.
-         ALOOKUP new_vars x = SOME (App t1 (GlobalVarLookup n) []) ∧
+         ALOOKUP new_vars x = SOME (Glob t1 n) ∧
          n < LENGTH genv.v ∧
          find_recfun x funs = SOME (y,e) ∧
          EL n genv.v =
            SOME (Closure [] y
-                  (compile_exp t2 (comp_map with v := nsBindList ((y, Var_local t3 y)::new_vars) comp_map.v) e)))
+                  (compile_exp t2 (comp_map with v := nsBindList ((y, Local t3 y)::new_vars) comp_map.v) e)))
     ⇒
     v_rel genv
       (Recclosure env funs x)
       (Closure [] y
         (compile_exp t1
-          (comp_map with v := nsBindList ((y, Var_local t2 y)::new_vars) comp_map.v)
+          (comp_map with v := nsBindList ((y, Local t2 y)::new_vars) comp_map.v)
           e))) ∧
   (!genv loc.
     v_rel genv (Loc loc) (Loc loc)) ∧
@@ -206,7 +206,7 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
        nsLookup env.v x = SOME v
        ⇒
        ?n v' t.
-         nsLookup comp_map.v x = SOME (App t (GlobalVarLookup n) []) ∧
+         nsLookup comp_map.v x = SOME (Glob t n) ∧
          n < LENGTH genv.v ∧
          EL n genv.v = SOME v' ∧
          v_rel genv v v') ∧
@@ -249,7 +249,7 @@ Theorem v_rel_eqns:
        nsLookup env.v x = SOME v
        ⇒
        ?n v' t.
-         nsLookup comp_map.v x = SOME (App t (GlobalVarLookup n) []) ∧
+         nsLookup comp_map.v x = SOME (Glob t n) ∧
          n < LENGTH genv.v ∧
          EL n genv.v = SOME v' ∧
          v_rel genv v v') ∧
@@ -1063,7 +1063,7 @@ val find_recfun = Q.prove (
     find_recfun x funs = SOME (y,e)
     ⇒
     find_recfun x (compile_funs t comp_map funs) =
-      SOME (y, compile_exp t (comp_map with v := nsBind y (Var_local t y) comp_map.v) e)`,
+      SOME (y, compile_exp t (comp_map with v := nsBind y (Local t y) comp_map.v) e)`,
    induct_on `funs` >>
    srw_tac[][Once find_recfun_def, compile_exp_def] >>
    PairCases_on `h` >>
@@ -1092,13 +1092,13 @@ val do_app_rec_help = Q.prove (
                 (compile_funs t
                    (comp_map with v :=
                      (FOLDR (λ(x,v) e. nsBind x v e) comp_map.v
-                      (MAP2 (λt x. (x,Var_local t x)) ts
+                      (MAP2 (λt x. (x,Local t x)) ts
                          (MAP FST funs' ++ MAP FST env_v_local')))) funs')
                 fn))
           (compile_funs t
              (comp_map with v :=
                (FOLDR (λ(x,v) e. nsBind x v e) comp_map.v
-                (MAP2 (λt x. (x,Var_local t x)) ts
+                (MAP2 (λt x. (x,Local t x)) ts
                    (MAP FST funs' ++ MAP FST env_v_local')))) funs))`,
   induct_on `funs`
   >- srw_tac[][v_rel_eqns, compile_exp_def] >>
@@ -1606,7 +1606,7 @@ val compile_exp_correct' = Q.prove (
       simp[MAP2_MAP]>>
       every_case_tac >>
       fs [nsLookup_nsAppend_some, nsLookup_nsAppend_none, nsLookup_alist_to_ns_some,
-          nsLookup_alist_to_ns_none]>>
+          nsLookup_alist_to_ns_none,evaluate_def]>>
       fs[ALOOKUP_NONE,MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
       `(λ(p1:tra,p2:tvarN). p2) = SND` by fs[FUN_EQ_THM,FORALL_PROD]>>
       fs[]>>rfs[MAP_ZIP]
@@ -1615,7 +1615,7 @@ val compile_exp_correct' = Q.prove (
       >- (
         drule ALOOKUP_MEM >>
         rw [MEM_MAP] >>
-        pairarg_tac>>fs[]>>
+        pairarg_tac>>fs[compile_var_def]>>
         simp [evaluate_def, result_rel_cases] >>
         irule v_rel_weak >>
         simp [] >>
@@ -1641,7 +1641,7 @@ val compile_exp_correct' = Q.prove (
       >- (
         rfs [ALOOKUP_TABULATE] >>
         rw [] >>
-        simp [evaluate_def, result_rel_cases] >>
+        simp [evaluate_def, result_rel_cases,compile_var_def] >>
         simp [do_app_def] >>
         irule v_rel_weak >>
         simp [] >>
@@ -2155,7 +2155,7 @@ val ALOOKUP_alloc_defs_EL = Q.prove (
     ⇒
     ∃tt.
     ALOOKUP (alloc_defs m l (MAP FST (REVERSE funs))) (EL n (MAP FST funs)) =
-      SOME (App tt (GlobalVarLookup (l + LENGTH funs − (n + 1))) [])`,
+      SOME (Glob tt (l + LENGTH funs − (n + 1)))`,
   gen_tac >>
   Induct_on `LENGTH funs` >>
   rw [] >>
@@ -2271,7 +2271,7 @@ val ALOOKUP_alloc_defs = Q.prove (
     ALOOKUP (REVERSE env) x = SOME v
     ⇒
     ∃n t.
-      ALOOKUP (alloc_defs tt l (MAP FST (REVERSE env))) x = SOME (App t (GlobalVarLookup (l + n)) [] )∧
+      ALOOKUP (alloc_defs tt l (MAP FST (REVERSE env))) x = SOME (Glob t (l + n)) ∧
       n < LENGTH (MAP FST env) ∧
       EL n (REVERSE (MAP SOME (MAP SND env))) = SOME v`,
   Induct_on `env` >>
@@ -2854,11 +2854,11 @@ val build_tdefs_no_mod = Q.prove (
 
 val LUPDATE_EACH_def = Define `
   LUPDATE_EACH i xs [] = xs /\
-  LUPDATE_EACH i xs (y::ys) = LUPDATE (SOME y) i (LUPDATE_EACH (i+1) xs ys)`
+  LUPDATE_EACH i xs (y::ys) = LUPDATE (SOME y) i (LUPDATE_EACH (i+1) xs ys)`;
 
 Theorem compile_exps_MAP_Var[simp]:
   compile_exps t env (MAP Var vs) =
-  MAP (λv. case nsLookup env.v v of NONE => Var_local t "" | SOME x => x) vs
+  MAP (λv. case nsLookup env.v v of NONE => Var_local t "" | SOME x => compile_var t x) vs
 Proof Induct_on`vs` \\ rw[compile_exp_def]
 QED
 
@@ -3332,6 +3332,7 @@ val compile_decs_correct' = Q.prove (
       \\ `s_i1.check_ctor` by fs [invariant_def,s_rel_cases] \\ fs []
       \\ qmatch_goalsub_abbrev_tac `evaluate bc`
       \\ qmatch_goalsub_abbrev_tac`compile_exps None cenv mvf`
+
       \\ `mvf = MAP Var (MAP (Short o FST) funs)`
       by ( simp[Abbr`mvf`, MAP_EQ_f, MAP_MAP_o, FORALL_PROD] )
       \\ fs[Abbr`mvf`]
@@ -3339,14 +3340,15 @@ val compile_decs_correct' = Q.prove (
       \\ qmatch_goalsub_abbrev_tac`REVERSE (MAP f funs)`
       \\ `MAP f funs = MAP (Var_local None o FST) funs`
       by (
-        simp[MAP_EQ_f, Abbr`f`, FORALL_PROD]
+        simp[compile_var_def,MAP_EQ_f, Abbr`f`, FORALL_PROD]
         \\ rpt strip_tac
-        \\ simp[GSYM nsAppend_to_nsBindList]
+        \\ simp[compile_var_def,GSYM nsAppend_to_nsBindList]
         \\ CASE_TAC
-        \\ fs[nsLookup_nsAppend_some, nsLookup_nsAppend_none, namespaceTheory.id_to_mods_def]
+        \\ fs[nsLookup_nsAppend_some, nsLookup_nsAppend_none,
+              compile_var_def, namespaceTheory.id_to_mods_def]
         \\ fs[nsLookup_alist_to_ns_none, nsLookup_alist_to_ns_some]
         \\ TRY(fs[ALOOKUP_FAILS, MEM_MAP, FORALL_PROD] \\ NO_TAC)
-        \\ imp_res_tac ALOOKUP_MEM \\ fs[MEM_MAP] )
+        \\ imp_res_tac ALOOKUP_MEM \\ fs[compile_var_def,MEM_MAP] )
       \\ fs[Abbr`f`]
       \\ pop_assum kall_tac
       \\ pop_assum kall_tac
@@ -4110,23 +4112,15 @@ QED
 
 Theorem compile_exp_esgc_free:
    (!tra env exp.
-      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
-      ==>
       esgc_free (compile_exp tra env exp) /\
       set_globals (compile_exp tra env exp) = {||}) /\
    (!tra env exps.
-      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
-      ==>
       EVERY esgc_free (compile_exps tra env exps) /\
       elist_globals (compile_exps tra env exps) = {||}) /\
    (!tra env pes.
-      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
-      ==>
       EVERY esgc_free (MAP SND (compile_pes tra env pes)) /\
       elist_globals (MAP SND (compile_pes tra env pes)) = {||}) /\
    (!tra env funs.
-      nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v
-      ==>
       EVERY esgc_free (MAP (SND o SND) (compile_funs tra env funs)) /\
       elist_globals (MAP (SND o SND) (compile_funs tra env funs)) = {||})
 Proof
@@ -4137,7 +4131,8 @@ Proof
   \\ fs [compile_exp_def]
   >-
    (PURE_FULL_CASE_TAC \\ fs []
-    \\ imp_res_tac nsLookup_nsAll \\ fs [])
+    \\ rename [`compile_var _ x`] \\ Cases_on `x` \\ fs [compile_var_def]
+    \\ EVAL_TAC )
   \\ fs [nsAll_nsBind]
   >-
    (IF_CASES_TAC \\ fs []
@@ -4152,28 +4147,6 @@ Proof
    (Cases_on `lop` \\ fs []
     \\ res_tac \\ fs []
     \\ EVAL_TAC)
-  >-
-   (rfs []
-    \\ last_x_assum mp_tac \\ impl_tac \\ rw []
-    \\ last_x_assum mp_tac \\ impl_tac \\ rw []
-    \\ qhdtm_x_assum `nsAll` mp_tac
-    \\ rpt (pop_assum kall_tac)
-    \\ EVAL_TAC
-    \\ rename1 `FOLDR _ b (MAP _ xs)`
-    \\ qid_spec_tac `b`
-    \\ Induct_on `xs` \\ rw []
-    \\ Cases_on `id` \\ Cases_on `h = n`
-    \\ fs [nsLookup_nsBind] \\ rw []
-    \\ metis_tac [])
-  \\ last_x_assum irule
-  \\ pop_assum mp_tac
-  \\ rpt (pop_assum kall_tac)
-  \\ qid_spec_tac `env`
-  \\ rename1 `pat_tups tra ps`
-  \\ qid_spec_tac `ps`
-  \\ Induct \\ rw [pat_tups_def, namespaceTheory.nsBindList_def]
-  \\ last_x_assum drule
-  \\ fs [namespaceTheory.nsBindList_def, nsAll_nsBind]
 QED
 
 (* - esgc_free theorems for compile_decs ----------------------------------- *)
@@ -4201,18 +4174,6 @@ Proof
   \\ rw [make_varls_def]
 QED
 
-Theorem alloc_defs_set_globals:
-   !xs n next. elist_globals (MAP SND (alloc_defs n next xs)) = {||}
-Proof
-  Induct \\ rw [alloc_defs_def, op_gbag_def]
-QED
-
-Theorem alloc_defs_esgc_free:
-   !xs n next. EVERY esgc_free (MAP SND (alloc_defs n next xs))
-Proof
-  Induct \\ rw [alloc_defs_def, op_gbag_def]
-QED
-
 Theorem nsAll_extend_env:
    nsAll P e1.v /\ nsAll P e2.v ==> nsAll P (extend_env e1 e2).v
 Proof
@@ -4228,11 +4189,9 @@ QED
 
 Theorem compile_decs_esgc_free:
    !n next env decs n1 next1 env1 decs1.
-     nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env.v /\
      compile_decs n next env decs = (n1, next1, env1, decs1)
      ==>
-     EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs1)) /\
-     nsAll (\_ v. esgc_free v /\ set_globals v = {||}) env1.v
+     EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet decs1))
 Proof
   ho_match_mp_tac compile_decs_ind
   \\ rw [compile_decs_def]
@@ -4245,45 +4204,25 @@ Proof
     \\ ho_match_mp_tac
       (EVERY_CONJ |> REWRITE_RULE [EQ_IMP_THM] |> SPEC_ALL |> CONJUNCT2)
     \\ conj_tac
-    >- simp [GSYM EVERY_MAP, alloc_defs_esgc_free]
+    >- simp [GSYM EVERY_MAP]
     \\ qmatch_goalsub_abbrev_tac `EVERY _ xs`
     \\ `EVERY (\x. set_globals x = {||}) (MAP SND xs)`
         suffices_by rw [EVERY_MAP]
-    \\ simp [EVERY_MEM, GSYM elist_globals_eq_empty, Abbr`xs`,
-             alloc_defs_set_globals]
+    \\ simp [EVERY_MEM, GSYM elist_globals_eq_empty, Abbr`xs`]
     \\ NO_TAC)
-  >- (
-    conj_tac
-    >- (
-      match_mp_tac let_none_list_esgc_free
+  >- (match_mp_tac let_none_list_esgc_free
       \\ rw[MAPi_enumerate_MAP, EVERY_MAP, UNCURRY] )
-    \\ rw[compile_funs_map, MAP_MAP_o, o_DEF, UNCURRY]
-    \\ rw[elist_globals_eq_empty, MEM_MAP, EXISTS_PROD]
-    \\ qmatch_goalsub_abbrev_tac`compile_exp _ env' exp`
-    \\ qspecl_then[`None`,`env'`,`exp`]mp_tac (CONJUNCT1 compile_exp_esgc_free)
-    \\ impl_tac
-    >- (
-      simp[Abbr`env'`]
-      \\ irule nsAll_nsBind
-      \\ simp[]
-      \\ simp[GSYM nsAppend_to_nsBindList]
-      \\ irule nsAll_nsAppend \\ simp[]
-      \\ irule nsAll_alist_to_ns
-      \\ simp[EVERY_MAP] )
-    \\ rw[] )
   \\ fs [empty_env_def]
   \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ fs [EVERY_MEM, lift_env_def]
   \\ last_x_assum mp_tac
   \\ impl_tac \\ rw []
-  \\ irule nsAll_extend_env \\ fs []
 QED
 
 (* - the source_to_flat compiler produces things which are esgc_free ------- *)
 
 Theorem compile_prog_esgc_free:
-   nsAll (\_ v. esgc_free v /\ set_globals v = {||}) c.mod_env.v /\
    compile_prog c p = (c1, p1)
    ==>
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))
@@ -4310,7 +4249,6 @@ Proof
 QED
 
 Theorem compile_esgc_free:
-   nsAll (\_ v. esgc_free v /\ set_globals v = {||}) c.mod_env.v /\
    compile c p = (c1, p1)
    ==>
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet p1))
@@ -4360,8 +4298,7 @@ QED
 
 Theorem compile_decs_elist_globals:
   ∀n next env ds e f g p.
-    compile_decs n next env ds = (e,f,g,p) ∧
-    nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) env.v ⇒
+    compile_decs n next env ds = (e,f,g,p) ⇒
     elist_globals (MAP dest_Dlet (FILTER is_Dlet p)) =
       LIST_TO_BAG (MAP ((+) next.vidx) (COUNT_LIST (SUM (MAP num_bindings ds))))
 Proof
@@ -4370,23 +4307,8 @@ Proof
   \\ rw[set_globals_make_varls]
   \\ rw[compile_exp_esgc_free]
   \\ TRY ( EVAL_TAC \\ rw [EL_BAG] \\ NO_TAC )
-  THEN1
-   (qmatch_goalsub_abbrev_tac `compile_funs tra1 env1 funs1`
-    \\ qspecl_then [`tra1`,`env1`,`funs1`] mp_tac
-         (compile_exp_esgc_free |> CONJUNCTS |> el 4) \\ fs []
-    \\ impl_tac THEN1
-     (unabbrev_all_tac \\ fs []
-      \\ Induct_on `funs`
-      \\ fs [namespaceTheory.nsBindList_def,namespaceTheory.nsAll_def]
-      \\ rpt gen_tac \\ rename [`nsLookup _ c`]
-      \\ rw [] \\ res_tac \\ fs []
-      \\ reverse (Cases_on `c`) \\ fs [] THEN1 metis_tac []
-      \\ Cases_on `FST h = n` \\ fs [nsLookup_nsBind]
-      \\ rw [] \\ res_tac \\ fs [])
-    \\ strip_tac \\ fs []
-    \\ unabbrev_all_tac
-    \\ rpt (pop_assum kall_tac)
-    \\ qid_spec_tac `funs`
+  >-
+   (qid_spec_tac `funs`
     \\ ho_match_mp_tac SNOC_INDUCT
     \\ fs [MAPi_SNOC,COUNT_LIST_SNOC]
     \\ fs [MAP_SNOC] \\ fs [SNOC_APPEND, LIST_TO_BAG_APPEND,FORALL_PROD]
@@ -4408,14 +4330,6 @@ Proof
     \\ rveq
     \\ simp [flatPropsTheory.elist_globals_append, FILTER_APPEND]
     \\ drule compile_decs_esgc_free
-    \\ disch_then drule
-    \\ strip_tac
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac
-    >- (
-      simp[extend_env_def]
-      \\ irule namespacePropsTheory.nsAll_nsAppend
-      \\ simp[] )
     \\ rw []
     \\ imp_res_tac compile_decs_num_bindings
     \\ rw [COUNT_LIST_ADD_SYM]
@@ -4429,14 +4343,6 @@ Proof
     \\ rveq
     \\ simp[flatPropsTheory.elist_globals_append, FILTER_APPEND]
     \\ drule compile_decs_esgc_free
-    \\ disch_then drule
-    \\ strip_tac
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ impl_tac
-    >- (
-      simp[extend_env_def]
-      \\ irule namespacePropsTheory.nsAll_nsAppend
-      \\ simp[] )
     \\ rw[]
     \\ imp_res_tac compile_decs_num_bindings
     \\ rw[]

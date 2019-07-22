@@ -411,7 +411,6 @@ Proof
   qunabbrev_tac`sem2` >>
 
   qabbrev_tac`TODO_co1 = ARB ** 0 - SUC ZERO` >>
-
   (flat_to_patProofTheory.compile_semantics
    |> Q.GEN`cc`
    |> (
@@ -601,8 +600,6 @@ Proof
         \\ simp[source_to_flatTheory.glob_alloc_def]
         \\ simp[flatPropsTheory.op_gbag_def]
         \\ drule compile_decs_elist_globals
-        \\ impl_tac >- (
-          EVAL_TAC \\ Cases \\ simp[namespaceTheory.nsLookup_def] )
         \\ rw[]
         \\ simp[LIST_TO_BAG_DISTINCT]
         \\ irule ALL_DISTINCT_MAP_INJ
