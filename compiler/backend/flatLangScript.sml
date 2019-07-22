@@ -87,7 +87,9 @@ val _ = Datatype `
   (* Initialise given global variable *)
   | GlobalVarInit num
   (* Get the value of the given global variable *)
-  | GlobalVarLookup num`;
+  | GlobalVarLookup num
+  (* Evaluate some declarations *)
+  | Eval`;
 
 val _ = type_abbrev ("ctor_id", ``:num``);
 (* NONE represents the exception type *)
