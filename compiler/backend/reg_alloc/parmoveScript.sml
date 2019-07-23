@@ -708,7 +708,7 @@ Proof
       \\ fs[MAP_SNOC] )
     \\ imp_res_tac OLEAST_SOME_IMP \\ fs[]
     >- ( fs[MEM_MAP] >> metis_tac[MEM_TAKE,LESS_IMP_LESS_OR_EQ])
-    \\ ( fs[MEM_MAP] >> metis_tac[MEM_DROP,MEM,LESS_IMP_LESS_OR_EQ] ))
+    \\ ( fs[MEM_MAP] >> metis_tac[MEM_DROP_IMP,MEM,LESS_IMP_LESS_OR_EQ] ))
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ strip_tac
   \\ first_x_assum drule
@@ -773,7 +773,7 @@ Proof
       \\ fs[MAP_SNOC] )
     \\ imp_res_tac OLEAST_SOME_IMP \\ fs[]
     >- ( fs[MEM_MAP] >> metis_tac[MEM_TAKE,LESS_IMP_LESS_OR_EQ])
-    \\ ( fs[MEM_MAP] >> metis_tac[MEM_DROP,MEM,LESS_IMP_LESS_OR_EQ] ))
+    \\ ( fs[MEM_MAP] >> metis_tac[MEM_DROP_IMP,MEM,LESS_IMP_LESS_OR_EQ] ))
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ strip_tac
   \\ first_x_assum drule
