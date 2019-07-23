@@ -81,7 +81,7 @@ val compile_exp_def = Define `
   compile_exp cut_size arity e =
     HD (FST (compile cut_size arity [bvl_const$compile_exp e]))`;
 
-val dest_Seq_def = Define `
+val dest_Seq_def = PmatchHeuristics.with_classic_heuristic Define `
   (dest_Seq (Let [e1;e2] (Var 1)) = SOME (e1,e2)) /\
   (dest_Seq _ = NONE)`
 
