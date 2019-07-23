@@ -424,7 +424,7 @@ val basic_theories =
    ["alist", "arithmetic", "bag", "bitstring", "bit", "bool",
     "combin", "container", "divides", "fcp", "finite_map", "float",
     "fmaptree", "frac", "gcdset", "gcd", "ind_type", "integer_word",
-    "integer", "integral", "list", "llist", "marker", "machine_iee",
+    "integer", "integral", "list", "llist", "marker", "machine_ieee",
     "measure", "numeral_bit", "numeral", "numpair", "numposrep", "num",
     "one", "operator", "option", "pair", "path", "patricia_casts",
     "patricia", "poly", "poset", "powser", "pred_set", "prelim",
