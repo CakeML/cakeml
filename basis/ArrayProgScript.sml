@@ -6,7 +6,7 @@ open preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = new_theory"ArrayProg"
 
-val _ = translation_extends"DoubleProg"
+val _ = translation_extends"Word8ArrayProg"
 
 val () = ml_prog_update (open_module "Array");
 

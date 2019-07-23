@@ -20,10 +20,10 @@ Char
 Word64
 Word8
 Word8Array
-Double
 Array
 Map
 CommandLine
+Double
 TextIO
 PrettyPrinter
 basis
