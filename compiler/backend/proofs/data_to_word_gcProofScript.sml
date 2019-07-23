@@ -723,7 +723,7 @@ val can_select_def = Define `
 
 Theorem read_length_lemma:
    can_select (n+2) 2 (n2w k :'a word) ==>
-    (((n + 1 -- 2) (h ≪ (2 + n) ‖ n2w k ≪ 2 ‖ 3w)) = n2w k :'a word)
+    (((n + 1 -- 2) (h ≪ (2 + n) || n2w k ≪ 2 || 3w)) = n2w k :'a word)
 Proof
   full_simp_tac(srw_ss())[word_bits_eq_slice_shift,word_slice_or,can_select_def,DECIDE ``n+2-1=n+1n``]
   \\ full_simp_tac(srw_ss())[DECIDE ``2+n=n+1+1n``,word_slice_lsl_eq_0,word_slice_2_3_eq_0]

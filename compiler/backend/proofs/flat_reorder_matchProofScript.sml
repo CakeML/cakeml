@@ -595,6 +595,8 @@ Proof
   \\ rw [EL_MAP, METIS_PROVE [] ``a \/ b <=> ~a ==> b``, ELIM_UNCURRY]
   \\ fs [] \\ EVAL_TAC
   \\ fs [LUPDATE_MAP,compile_store_v_def,map_replicate, IS_SOME_EXISTS]
+  \\ rename [`MAP (λc. Litv (Char c)) str`]
+  \\ Induct_on `str` \\ fs [compile_v_def,list_to_v_def]
 QED
 
 (* main results *)

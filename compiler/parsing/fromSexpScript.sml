@@ -661,6 +661,7 @@ val sexpop_def = Define`
   if s = "ChopbLeq" then SOME (Chopb Leq) else
   if s = "ChopbGeq" then SOME (Chopb Geq) else
   if s = "Implode" then SOME Implode else
+  if s = "Explode" then SOME Explode else
   if s = "Strsub" then SOME Strsub else
   if s = "Strlen" then SOME Strlen else
   if s = "Strcat" then SOME Strcat else
@@ -1248,6 +1249,7 @@ val opsexp_def = Define`
   (opsexp (Chopb Leq)= SX_SYM "ChopbLeq") ∧
   (opsexp (Chopb Geq)= SX_SYM "ChopbGeq") ∧
   (opsexp Implode = SX_SYM "Implode") ∧
+  (opsexp Explode = SX_SYM "Explode") ∧
   (opsexp Strsub = SX_SYM "Strsub") ∧
   (opsexp Strlen = SX_SYM "Strlen") ∧
   (opsexp Strcat = SX_SYM "Strcat") ∧
@@ -1669,8 +1671,10 @@ Proof
   \\ Cases_on`odestSXSYM s` \\ fs[dstrip_sexp_SOME] \\ rw[]
   \\ fs[odestSXSYM_def] \\ simp[EXISTS_OPTION, optsexp_def, listsexp_def]
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[] \\ fs[] \\ rw[]
-  \\ rename[`odestSXSYM s = SOME _`] >> Cases_on `s` >>
-  fs[odestSXSYM_def, dstrip_sexp_def]
+  >- (qexists_tac `SOME e1` \\ fs [] \\ EVAL_TAC)
+  \\ rename[`odestSXSYM s = SOME _`] >> Cases_on `s`
+  \\ fs[odestSXSYM_def, dstrip_sexp_def]
+  \\ qexists_tac `NONE` \\ fs [] \\ EVAL_TAC
 QED
 
 Theorem listsexp_MAP_EQ_f:

@@ -527,7 +527,7 @@ Proof
       (unabbrev_all_tac \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w] \\ NO_TAC)
   \\ fs [] \\ pop_assum kall_tac
   \\ fs [store_list_def,FOUR_MUL_LSL]
-  \\ `(n2w i ≪ (dimindex (:α) − (c.len_size + 2) + 2) ‖ make_header c 2w 0) =
+  \\ `(n2w i ≪ (dimindex (:α) − (c.len_size + 2) + 2) || make_header c 2w 0) =
       make_header c 2w i:'a word` by
    (fs [make_header_def,WORD_MUL_LSL,word_mul_n2w,LEFT_ADD_DISTRIB]
     \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)

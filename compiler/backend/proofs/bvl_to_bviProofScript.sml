@@ -108,6 +108,7 @@ val state_rel_def = Define `
     (lookup CopyGlobals_location t.code = SOME CopyGlobals_code) ∧
     (lookup ListLength_location t.code = SOME ListLength_code) ∧
     (lookup FromListByte_location t.code = SOME FromListByte_code) ∧
+    (lookup ToListByte_location t.code = SOME ToListByte_code) ∧
     (lookup SumListLength_location t.code = SOME SumListLength_code) ∧
     (lookup ConcatByte_location t.code = SOME ConcatByte_code) ∧
     (* (lookup InitGlobals_location t.code = SOME InitGlobals_code start) ∧ *)
@@ -335,6 +336,10 @@ val do_app_ok_lemma = Q.prove(
     \\ res_tac \\ fs[bv_ok_def]
     \\ asm_exists_tac \\ fs[]
     \\ fs[SUBSET_DEF] )
+  THEN1 (
+    rename1` _ () = ToListByte`
+    \\ qspec_tac (`l`,`l`)
+    \\ Induct \\ fs [bv_ok_def,list_to_v_def] )
   THEN1
    (rename1 `_ () = Ref`
     \\ full_simp_tac(srw_ss())[LET_DEF,state_ok_def]
@@ -692,6 +697,51 @@ Proof
   \\ rw[EL_TAKE,EL_APPEND1,EL_APPEND2]
 QED
 
+Theorem evaluate_ToListByte_code:
+  ∀bs rest p (s:('c,'ffi) bviSem$state).
+    lookup ToListByte_location s.code = SOME (3,SND ToListByte_code) ∧
+    FLOOKUP s.refs p = SOME (ByteArray fl (bs ++ rest))
+    ⇒
+    ∃c.
+      evaluate ([SND ToListByte_code],
+        [list_to_v (MAP (\b. Number (& (w2n b))) rest);
+         Number (& (LENGTH bs)); RefPtr p],inc_clock c s) =
+        (Rval [list_to_v (MAP (\b. Number (& (w2n b))) bs ++
+                          MAP (\b. Number (& (w2n b))) rest)],
+         s with refs := s.refs |+ (p,ByteArray fl (bs ++ rest)))
+Proof
+  ho_match_mp_tac SNOC_INDUCT \\ rpt strip_tac \\ fs []
+  THEN1
+   (fs [ToListByte_code_def,evaluate_def,do_app_def,do_app_aux_def,
+        bvlSemTheory.do_app_def,inc_clock_def,bvl_to_bvi_def,bvi_to_bvl_def,
+        state_component_equality,FLOOKUP_EXT]
+    \\ rw [FLOOKUP_UPDATE,FUN_EQ_THM] \\ rw [] \\ fs [])
+  \\ simp [ToListByte_code_def,Once evaluate_def,do_app_def,do_app_aux_def,
+        bvlSemTheory.do_app_def,inc_clock_def,bvl_to_bvi_def,bvi_to_bvl_def]
+  \\ simp [Once evaluate_def,do_app_def,do_app_aux_def,bvlSemTheory.do_app_def]
+  \\ ntac 11 (simp [Once evaluate_def,do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
+                    backend_commonTheory.small_enough_int_def,ADD1,
+                    intLib.COOPER_PROVE ``& (n + 1) - 1:int = & n``])
+  \\ simp [ToListByte_code_def,Once evaluate_def,do_app_def,do_app_aux_def,
+        bvlSemTheory.do_app_def,inc_clock_def,bvl_to_bvi_def,bvi_to_bvl_def]
+  \\ fs [SNOC_APPEND]
+  \\ `EL (LENGTH bs) (bs ++ [x] ++ rest) = x` by
+    (rewrite_tac [GSYM APPEND_ASSOC,APPEND] \\ simp [rich_listTheory.EL_LENGTH_APPEND])
+  \\ fs []
+  \\ ntac 11 (simp [Once evaluate_def,do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
+                    backend_commonTheory.small_enough_int_def,ADD1,
+                    intLib.COOPER_PROVE ``& (n + 1) - 1:int = & n``])
+  \\ fs [find_code_def]
+  \\ simp [Once evaluate_def,do_app_def,do_app_aux_def,dec_clock_def,
+        bvlSemTheory.do_app_def,inc_clock_def,bvl_to_bvi_def,bvi_to_bvl_def]
+  \\ first_x_assum (qspecl_then [`x::rest`,`p`,
+      `s with <|refs := s.refs; ffi := s.ffi|>`] mp_tac) \\ fs [] \\ strip_tac
+  \\ fs [inc_clock_def]
+  \\ qexists_tac `c+1` \\ fs [list_to_v_def,EVAL ``cons_tag``]
+  \\ rewrite_tac [APPEND,GSYM APPEND_ASSOC]
+  \\ fs [state_component_equality]
+QED
+
 Theorem evaluate_SumListLength_code:
    ∀lv ps wss n.
    lookup SumListLength_location s.code = SOME (2,SND SumListLength_code) ∧
@@ -928,7 +978,8 @@ val iEval_bVarBound = Q.prove(
         \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
         \\ Cases_on `a` \\ fs [] \\ rveq \\ fs []
         \\ Cases_on `t` \\ fs [] \\ fs [evaluate_def]))
-    \\ Cases_on `(?t. op = FromList t) ∨ op = FromListByte ∨ op = ConcatByteVec` THEN1
+    \\ Cases_on `(?t. op = FromList t) ∨
+                 op = FromListByte ∨ op = ToListByte ∨ op = ConcatByteVec` THEN1
      (fs [] \\ rw[] \\ fs [compile_op_def]
       \\ once_rewrite_tac [bviSemTheory.evaluate_def]
       \\ (IF_CASES_TAC THEN1
@@ -1090,7 +1141,8 @@ val do_app_adjust = Q.prove(
    (!i. op <> Const i) /\ (op <> Ref) /\ (∀flag. op ≠ RefByte flag) ∧ (op ≠ RefArray) ∧
    (∀n. op ≠ Global n) ∧ (∀n. op ≠ SetGlobal n) ∧ (op ≠ AllocGlobal) ∧
    op <> Install /\
-   (∀n. op ≠ FromList n) ∧ (op ≠ FromListByte) ∧ (∀str. op ≠ String str) ∧
+   (∀n. op ≠ FromList n) ∧ (op ≠ FromListByte) ∧
+   (op ≠ ToListByte) ∧ (∀str. op ≠ String str) ∧
    (∀b. op ≠ CopyByte b) ∧ (op ≠ ConcatByteVec) ∧ (∀n. op ≠ Label n) ∧
    (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
    ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
@@ -2384,6 +2436,38 @@ val compile_exps_correct = Q.prove(
                  bviSemTheory.state_component_equality] \\ NO_TAC)
       \\ fs [] \\ fs [bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def]
       \\ fs [adjust_bv_def] \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+    \\ Cases_on `op = ToListByte` \\ full_simp_tac(srw_ss())[] THEN1
+     (note_tac "Op: ToListByte" \\ fs [compile_op_def] \\ rveq
+      \\ fs [bvlSemTheory.do_app_def]
+      \\ Cases_on `REVERSE a` \\ fs [] \\ Cases_on `t` \\ fs [] \\ rveq \\ fs []
+      \\ Cases_on `h` \\ fs [option_case_eq] \\ Cases_on `v1` \\ fs [] \\ rveq \\ fs []
+      \\ drule evaluate_IMP_LENGTH \\ rveq
+      \\ Cases_on `c1` \\ fs [LENGTH_NIL]
+      \\ strip_tac \\ rveq \\ fs []
+      \\ qexists_tac `t2`
+      \\ qexists_tac `b2`
+      \\ `lookup ToListByte_location t2.code = SOME (3,SND ToListByte_code)` by
+              (fs [state_rel_def] \\ EVAL_TAC) \\ fs []
+      \\ drule (GEN_ALL evaluate_ToListByte_code)
+      \\ `FLOOKUP t2.refs (b2 n') = SOME (ByteArray b l)` by
+          (fs [state_rel_def]
+          \\ ntac 3 (qpat_x_assum `!x. _` kall_tac)
+          \\ first_x_assum (qspec_then `n'` mp_tac) \\ fs [])
+      \\ disch_then (qspecl_then [`b`,`l`,`[]`,`b2 n'`] mp_tac) \\ fs [] \\ strip_tac
+      \\ fs [adjust_bv_def] \\ pop_assum mp_tac
+      \\ drule evaluate_add_clock \\ simp []
+      \\ disch_then (qspec_then `c'+1` assume_tac) \\ strip_tac
+      \\ fs [inc_clock_def]
+      \\ qexists_tac `c' + c + 1` \\ fs [evaluate_def,do_app_def,find_code_def,
+           do_app_aux_def,bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def]
+      \\ Cases_on `ToListByte_code` \\ fs [] \\ rveq \\ fs [dec_clock_def]
+      \\ fs [list_to_v_def,EVAL ``nil_tag``]
+      \\ `t2 with <|refs := t2.refs; clock := c' + t2.clock; ffi := t2.ffi|> =
+          t2 with clock := c' + t2.clock` by fs [state_component_equality] \\ fs []
+      \\ conj_tac
+      THEN1 (qid_spec_tac `l` \\ Induct \\ fs [list_to_v_def,adjust_bv_def])
+      \\ fs [FLOOKUP_EXT,state_component_equality,FLOOKUP_UPDATE,FUN_EQ_THM]
+      \\ rw [] \\ fs [])
     \\ Cases_on `op = Ref` \\ full_simp_tac(srw_ss())[] THEN1
      (note_tac "Op: Ref" \\ rw [] \\
       full_simp_tac(srw_ss())[compile_op_def,iEval_def]

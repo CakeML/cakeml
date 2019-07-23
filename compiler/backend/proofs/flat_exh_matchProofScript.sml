@@ -588,6 +588,15 @@ Proof
    (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
     \\ rw [Once v_rel_cases, subscript_exn_v_def, ok_ctor_def]
     \\ metis_tac [v_rel_v_to_char_list, v_rel_vs_to_string, v_rel_v_to_list])
+  \\ Cases_on `op = Explode`
+  >-
+   (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []
+    \\ rename [`MAP (λc. Litv (Char c)) str`] \\ pop_assum kall_tac
+    \\ Induct_on `str`
+    \\ simp [Once v_rel_cases,list_to_v_def,ok_ctor_def]
+    \\ rw [] THEN1 (asm_exists_tac  \\ fs [] \\ EVAL_TAC \\ fs [lookup_def])
+    \\ goal_assum (first_assum o mp_then Any mp_tac)
+    \\ fs [EVAL ``FLOOKUP init_ctors list_id``,lookup_def] \\ EVAL_TAC)
   \\ Cases_on `op = VfromList \/ op = Vsub \/ op = Vlength`
   >-
    (fs [do_app_def, case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs []

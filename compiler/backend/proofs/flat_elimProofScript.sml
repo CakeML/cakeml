@@ -930,6 +930,10 @@ Proof
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
     >- (metis_tac[find_v_globals_v_to_list, SUBSET_DEF])
     >- (qexists_tac `removed_state` >> fs[] >> fs[])
+    >- (rename [`find_v_globals (list_to_v (MAP (λc. Litv (Char c)) ss))`]
+        \\ `find_v_globals (list_to_v (MAP (λc. Litv (Char c)) ss)) = LN` by
+             (Induct_on `ss` \\ fs [list_to_v_def,find_v_globals_def])
+        \\ fs [])
     >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
     >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
     >- (rw[] >> metis_tac[find_refs_globals_LUPDATE])
@@ -1971,6 +1975,5 @@ Theorem remove_flat_prog_distinct_globals:
 Proof
   metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]
 QED
-
 
 val _ = export_theory();
