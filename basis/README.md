@@ -17,6 +17,16 @@ library.
 [CommandLineProofScript.sml](CommandLineProofScript.sml):
 Proof about the command-line module of the CakeML standard basis library.
 
+[DoubleFFIScript.sml](DoubleFFIScript.sml):
+Logical model of the Double state: TODO
+
+[DoubleProgScript.sml](DoubleProgScript.sml):
+Module about the built-in integer tyoe. Note that CakeML uses
+arbitrary precision integers (the mathematical intergers).
+
+[DoubleProofScript.sml](DoubleProofScript.sml):
+Proofs that the Double basis module behaves correctly
+
 [IntProgScript.sml](IntProgScript.sml):
 Module about the built-in integer tyoe. Note that CakeML uses
 arbitrary precision integers (the mathematical intergers).
