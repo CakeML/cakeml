@@ -109,4 +109,72 @@ Proof
   prove_array_spec "Word8Array.substring"
 QED
 
+val firsti_def = Define `
+  firsti f [] = NONE /\
+  firsti f (x::xs) =
+    if (f x) then SOME (0:num) else
+    case firsti f xs of
+      |NONE => NONE
+      |SOME n => SOME (n + 1)`;
+
+Theorem firsti_spec:
+  ! f arr i.
+  firsti f arr = SOME i ==>
+    f (EL i arr) /\ (! m. m < i ==> ~ f (EL m arr)) /\ i < LENGTH(arr)
+Proof
+  Induct_on `arr` \\ fs[Once firsti_def]
+  \\ ntac 4 strip_tac
+  \\ fs[Once firsti_def]
+  \\ Cases_on `f h` \\ fs[]
+  >- (rveq \\ fs[])
+  \\ Cases_on `firsti f arr` \\ fs[]
+  \\ rveq
+  \\ res_tac \\ fs[GSYM ADD1]
+  \\ rpt strip_tac \\ res_tac
+  \\ Cases_on `m` \\ fs[]
+  \\ res_tac
+QED
+
+Theorem w8aray_find_aux_spec:
+  !f fv arr arrv av n nv.
+    firsti f old = NONE /\
+    (WORD8 --> BOOL) f fv /\ NUM (LENGTH arr + LENGTH old) av /\ NUM (LENGTH old) nv ==>
+    app (p:'ffi ffi_proj) Word8Array_find_aux_v
+      [fv; arrv; av; nv]
+      (W8ARRAY arrv (old ++ arr))
+      (POSTv v. W8ARRAY arrv (old ++ arr) *
+          cond (OPTION_TYPE NUM (firsti f (old ++ arr)) v))
+Proof
+  (* INDUCTION HERE *)
+  xcf_with_def "Word8Array.find_aux" Word8Array_find_aux_v_def
+  \\ xlet_auto >- xsimpl
+  \\ xif
+  >- (xcon \\ xsimpl
+      \\ `arr = []`
+        by (Cases_on `arr` \\ fs[])
+      \\ rveq \\ fs[std_preludeTheory.OPTION_TYPE_def])
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xif
+  >- (xlet_auto >- xsimpl
+      \\ xcon \\ xsimpl
+      \\ fs[std_preludeTheory.OPTION_TYPE_def]
+      \\ cheat)
+  \\ xlet_auto >- xsimpl
+  \\ cheat
+QED
+
+Theorem w8array_find_spec:
+  !f fv arr arrv.
+    (WORD8 --> BOOL) f fv ==>
+    app (p:'ffi ffi_proj) Word8Array_find_v [fv; arrv]
+      (W8ARRAY arrv arr)
+      (POSTv v. W8ARRAY arrv arr *
+          cond (OPTION_TYPE NUM (firsti f arr) v))
+Proof
+  xcf_with_def "Word8Array.find" Word8Array_find_v_def
+  \\ xlet_auto >- xsimpl
+  \\ xapp \\ xsimpl \\  fs[firsti_def] \\ asm_exists_tac \\ fs[]
+QED
+
 val _ = export_theory()
