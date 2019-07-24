@@ -218,6 +218,72 @@ val MOD_CONST = Q.prove(`!x z. (0 < z /\ SUC x MOD z = 0 /\ SUC (SUC x) MOD z = 
       \\ fs[]
 )
 
+Theorem ONE_DIV:
+  !b. 1 < b ==> 1 DIV b = 0
+Proof
+  rw[] \\ ASSUME_TAC (Q.SPECL [`1`,`b`] (GEN_ALL DIV_EQ_0))
+  \\ fs[]
+QED
+
+Theorem ROUNDUP_DIV_EQ_1:
+ !n b. 0 < n /\ 1 < b ==> (ROUNDUP_DIV n b = 1 <=> n <= b)
+Proof
+  rw[] \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
+  \\ TOP_CASE_TAC
+  \\ simp[DIV_EQ_0]
+  >- (
+    eq_tac \\ rw[]
+    >- (`n=b` suffices_by simp[]
+        \\ ASSUME_TAC (Q.SPEC `b` DIVISION)
+        \\ `0<b` by DECIDE_TAC
+        \\ fs[]
+        \\ pop_assum kall_tac
+        \\ pop_assum (ASSUME_TAC o Q.SPEC `n`) \\ rfs[])
+    >- (`n=b` suffices_by simp[]
+        \\ ASSUME_TAC (Q.SPEC `b` DIVISION)
+        \\ `0<b` by DECIDE_TAC
+        \\ fs[]
+        \\ first_x_assum (ASSUME_TAC o Q.SPEC `n`)
+        \\ CCONTR_TAC
+        \\ `n<b` by DECIDE_TAC
+        \\ pop_assum mp_tac \\ fs[])
+  )
+  \\ `~(n=b)` suffices_by simp[]
+  \\ CCONTR_TAC
+  \\ fs[]
+  \\ `b MOD b = 0` suffices_by simp[]
+  \\ match_mp_tac MOD_UNIQUE
+  \\ qexists_tac `1` \\ simp[]
+QED
+
+Theorem DIMWORD_GT_1[simp]:
+  1 < dimword(:'a)
+Proof
+  simp[dimword_def]
+QED
+
+open logrootTheory
+
+Theorem DIMINDEX_EQ_LOG2_DIMWORD:
+  dimindex(:'a) = LOG 2 (dimword(:'a))
+Proof
+  rw[dimword_def]
+  \\ ASSUME_TAC (Q.SPECL[`dimindex (:'a)`,`2`,`1`] LOG_EXP)
+  \\ fs[]
+QED
+
+Theorem EXP_LOG_LE:
+  !b x. (0 < x /\ 1 < b) ==> b ** LOG b x <= x
+Proof
+ rw[] \\ cheat
+QED
+
+Theorem TWO_EXP_SUC_GT1:
+  !n. 1<2 ** (SUC n)
+Proof
+  Induct_on `n` \\ simp[Once EXP]
+QED
+
 Theorem LENGTH_n2mw:
   !n. LENGTH ((n2mw n):('a word list)) = if n = 0 then 0 else ROUNDUP_DIV ((LOG 2 n)+1) (dimindex(:'a))
 Proof
@@ -227,19 +293,40 @@ Proof
   \\ Induct_on `n`
   >- rw[]
   \\ simp[]
-  \\ Cases_on `n` >- ( rw[] \\ simp[Once n2mw_def]
+  \\ Cases_on `n`
+   >- ( rw[] \\ simp[Once n2mw_def]
      \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
      \\ Cases_on `dimindex(:'a)` >- simp[DIMINDEX_GT_0]
      \\ rename1 `1 DIV SUC m` \\ Cases_on `m` >- simp[dimword_def]
-     \\ simp[]
-     \\ `1 DIV dimword(:'a) = 0` by cheat
-     \\ fs[]
-     \\ `1 DIV (SUC (SUC n)) = 0` by cheat
-     \\ fs[])
+     \\ simp[ONE_DIV])
   \\ fs[PULL_FORALL] \\ rw[]
   \\ simp[Once n2mw_def]
   \\ TOP_CASE_TAC \\ fs[] \\ clean_tac
-  >- (simp[backend_commonTheory.ROUNDUP_DIV_def] \\ TOP_CASE_TAC \\ fs[] \\ cheat)
+  >- (
+     Q.MATCH_ABBREV_TAC `X = Y`
+     \\ `Y = X` suffices_by simp[]
+     \\ UNABBREV_ALL_TAC
+     \\ rename1 `SUC (SUC a)`
+     \\ Q.MATCH_ABBREV_TAC `ROUNDUP_DIV n b = 1`
+     \\ `0 < n` by simp[Abbr`n`]
+     \\ Cases_on `~(1<b)` >- (simp[Abbr`b`] \\ simp[GSYM DIMINDEX_EQ_LOG2_DIMWORD]
+                               \\ Cases_on `~(1<dimindex(:'a))`
+                               >- (`dimindex(:'a)=1` by (Cases_on `dimindex(:'a)` \\ fs[DIMINDEX_GT_0])
+                                   \\ fs[] \\ EVAL_TAC \\ simp[]
+                                   \\ fs[dimword_def]
+                                   \\ fs[DIV_EQ_0])
+                               \\ fs[])
+     \\ fs[ROUNDUP_DIV_EQ_1]
+     \\ UNABBREV_ALL_TAC
+     \\ simp[DIMINDEX_EQ_LOG2_DIMWORD]
+     \\ rename1 `SUC (SUC a)`
+     \\ `LOG 2 (SUC (SUC a)) < LOG 2 (dimword (:α))` suffices_by simp[]
+     \\ `~(LOG 2 (SUC (SUC a)) = LOG 2 (dimword (:α)))` by cheat
+     \\ `SUC (SUC a) <= dimword(:'a)` by fs[DIV_EQ_0]
+     \\ `LOG 2 (SUC (SUC a)) <= LOG 2 (dimword (:α))` suffices_by simp[]
+     \\ MATCH_MP_TAC (MP_CANON LOG_LE_MONO)
+     \\ fs[DIV_EQ_0]
+    )
   \\ cheat
 QED
 
@@ -296,7 +383,7 @@ Proof
  \\ simp[GSYM ADD1]
  \\ `~(LENGTH (dropWhile ($= 0) (REVERSE L))=0)` by (
      simp[LENGTH_NIL,dropWhile_eq_nil]
-     \\ simp[EXISTS_REVERSE,o_DEF]) 
+     \\ simp[EXISTS_REVERSE,o_DEF])
  \\ Q.PAT_ABBREV_TAC `m = LENGTH (dropWhile ($= 0) (REVERSE L))`
  \\ `SUC (PRE m) = m` by (`0<m` by DECIDE_TAC \\ fs[SUC_PRE])
  \\ fs[]
@@ -320,7 +407,6 @@ Proof
   \\ simp[LEFT_ADD_DISTRIB]
   \\ TOP_CASE_TAC \\ fs[]
   \\ fs[DIMINDEX_GT_0,DIV_TIMES] \\ cheat
-  
 QED
 
 Theorem WordRep_DataElement:
@@ -4118,7 +4204,7 @@ Proof
   \\ `d+(d*(x DIV d) - d) = x` suffices_by simp[]
   \\ `0<d` by DECIDE_TAC
   \\ `d <= x` by (fs[MOD_EQ_0_DIVISOR] \\ rename1 `x=d*nv` \\ Cases_on `nv` \\ fs[])
-  \\ `d*(x DIV d) = x` by (fs[MOD_EQ_0_DIVISOR] \\ MATCH_MP_TAC DIV_UNIQUE \\ qexists_tac `0` \\ fs[]) 
+  \\ `d*(x DIV d) = x` by (fs[MOD_EQ_0_DIVISOR] \\ MATCH_MP_TAC DIV_UNIQUE \\ qexists_tac `0` \\ fs[])
   \\ fs[]
 QED
 
@@ -4204,7 +4290,7 @@ Proof
                          \\ Cases_on `n` \\ fs[] \\ clean_tac
                          \\ rename1 `2 ** k = SUC m` \\ Cases_on `m` \\ fs[])
    \\ ASM_SIMP_TAC(srw_ss())[]
-   \\ Cases_on `n` \\ ASM_SIMP_TAC(srw_ss())[]  
+   \\ Cases_on `n` \\ ASM_SIMP_TAC(srw_ss())[]
    >- (pop_assum mp_tac \\ `~(1 < 2 ** 0)` by simp[] \\ ASM_SIMP_TAC(srw_ss())[])
    \\ rename1`dimindex(:'a) < 1+SUC a`
    \\ `~(dimindex(:'a)<1+SUC a)` by simp[ADD1]
@@ -8609,7 +8695,7 @@ Proof
     \\ imp_res_tac memory_rel_tail
     \\ drule memory_rel_Word64_IMP \\ fs []
     \\ pop_assum kall_tac
-    \\ rpt strip_tac \\ fs [get_addr_0,GSYM word_bit] *)
+    \\ rpt strip_tac \\ fs [get_addr_0,GSYM word_bit] *))
   \\ Cases_on `isClos n l` \\ fs [] THEN1
    (every_case_tac \\ fs []
     \\ drule memory_rel_Block_IMP \\ fs []

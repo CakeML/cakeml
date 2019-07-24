@@ -1047,17 +1047,17 @@ val def = assign_Define `
 val WriteBoxedConst_def = Define`
     WriteBoxedConst (c:data_to_word$config) (header:'a word) (dest:num) payload =
         let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
-        let x = ARB in
-        list_Seq [
+        let x = Const (n2w (LENGTH payload)) in
+        list_Seq ([
            Assign 1 x;
            (* allocate variable *)
            AllocVar c limit (fromList [();();()]);
            Assign 9 (Lookup NextFree);
            (* adjust end of heap *)
-           Assign 1 (Op Add [Var 9;ARB]);
+           Assign 1 (Op Add [Var 9;x]);
            Set NextFree (Op Add [Var 1; Const bytes_in_word]);
            ARB
-        ]
+        ])
       : 'a wordLang$prog`
 
 val def = assign_Define `
@@ -1633,8 +1633,10 @@ val def = assign_Define `
         else if word_size<=dimindex(:'a)-2 then
            (Assign (adjust_var dest) (dtcase lookup_word_op opw of
              | Bitwise op => Op op [Var (adjust_var v1); Var (adjust_var v2)]
-             | Carried op => Op And [Op op [Var (adjust_var v1);Var (adjust_var v2)];Const (small_bitmask (:'a) word_size)]
-           ),l)
+             | Carried op => (case opw of
+                  | Add => Op op [Var (adjust_var v1); Var (adjust_var v2)]
+                  | Sub => Op And [Op op [Var (adjust_var v1);Var (adjust_var v2)];Const (small_bitmask (:'a) word_size)]
+           )),l)
          (* small boxed case *)
          else if word_size<=dimindex(:'a) then
            (dtcase encode_header c 3 1 of
@@ -1731,14 +1733,26 @@ val def = assign_Define `
 val def = assign_Define `
   assign_WordShift sh word_size n (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
+        (if word_size = 0 then
+           (ARB,l)
         (* unboxed case *)
-        (if word_size<=dimindex(:'a)-2 then
-           (Assign (adjust_var dest)
-              (dtcase sh of
-               | Lsl => Shift Lsl (Var (adjust_var v1)) (n MOD (word_size+1)) (* WRONG *)
-               | Lsr => Shift Lsr (Var (adjust_var v1)) (n MOD (word_size+1)) (* WRONG *)
-               | Asr => ARB
-               | Ror => ARB),l)
+         else if word_size<=dimindex(:'a)-2 then
+           (if n >= word_size then
+              (case sh of
+                | Lsr => Assign (adjust_var dest) (Const 0w)
+                | Lsl => Assign (adjust_var dest) (Const 0w)
+                (* places sign into all representation bits *)
+                (* i.e. Asr (dimindex(:'a) - 2)  then AND mask *)
+                | Asr => Assign (adjust_var dest)
+                (Op And [Shift Asr (Var (adjust_var v1)) (dimindex(:'a)-2);Const (small_bitmask (:'a) word_size)])
+                | Ror => ARB)
+            else if n = 0 then
+                Assign (adjust_var dest) (Var (adjust_var v1))
+            else (case sh of
+                 | Lsr => Assign (adjust_var dest) (Op And [Shift Lsr (Var (adjust_var v1)) n;Const (small_bitmask (:'a) word_size)])
+                 | Lsl => Assign (adjust_var dest) (Shift Lsl (Var (adjust_var v1)) n)
+                 | Asr => Assign (adjust_var dest) (Op And [Shift Asr (Var (adjust_var v1)) n;Const (small_bitmask (:'a) word_size)])
+                 | Ror => ARB),l)
          (* small boxed case *)
          else if word_size<=dimindex(:'a) then
            (ARB,l)
