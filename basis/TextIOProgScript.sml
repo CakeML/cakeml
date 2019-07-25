@@ -333,17 +333,16 @@ val _ = (append_prog o process_topdecs)`
 val _ = (append_prog o process_topdecs)`
   fun b_inputUntil_aux is (chr:char) =
     case b_input1 is of
-      Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else [])
+      Some c =>  (if c <> chr then (c::b_inputUntil_aux is chr) else (c::[]))
       |None => []`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputUntil is chr = String.implode (b_inputUntil_aux is chr)`;
 
+
 val _ = (append_prog o process_topdecs)`
   fun b_inputLine is =
-     case b_inputUntil is #"\n" of
-       "" => None
-       |l => Some l`;
+    let val line = b_inputUntil is #"\n"`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLines is =
