@@ -6950,7 +6950,7 @@ Proof
       bc_ref_inv c i2 refs (f,heap,be)` by
    (rpt strip_tac \\ first_x_assum match_mp_tac
     \\ fs [reachable_refs_def]
-    \\ metis_tac [get_refs_def,MEM,RTC_DEF])
+    \\ metis_tac [get_refs_def,MEM,RTC_CASES1])
   \\ fs [bc_ref_inv_def,FLOOKUP_DEF] \\ rfs [SUBSET_DEF]
   \\ NTAC 2 (pop_assum mp_tac) \\ fs []
   \\ rpt strip_tac

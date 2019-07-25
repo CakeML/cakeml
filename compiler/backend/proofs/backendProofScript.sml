@@ -370,7 +370,7 @@ Proof
     (fn g as (asl,w) =>
       let
         val (genv_c,tm) = dest_exists w
-        val tm = tm |> strip_conj |> el 10 |> strip_forall |> #2
+        val tm = tm |> strip_conj |> rev |> first is_forall |> strip_forall |> #2
         val (tms1, tm) = dest_imp tm
         val tms2 = tm |> dest_exists |> #2 |> strip_conj |> el 1
         fun get_data (tm,acc) =
@@ -411,7 +411,6 @@ Proof
   qunabbrev_tac`sem2` >>
 
   qabbrev_tac`TODO_co1 = ARB ** 0 - SUC ZERO` >>
-
   (flat_to_patProofTheory.compile_semantics
    |> Q.GEN`cc`
    |> (
@@ -601,8 +600,6 @@ Proof
         \\ simp[source_to_flatTheory.glob_alloc_def]
         \\ simp[flatPropsTheory.op_gbag_def]
         \\ drule compile_decs_elist_globals
-        \\ impl_tac >- (
-          EVAL_TAC \\ Cases \\ simp[namespaceTheory.nsLookup_def] )
         \\ rw[]
         \\ simp[LIST_TO_BAG_DISTINCT]
         \\ irule ALL_DISTINCT_MAP_INJ
