@@ -6598,8 +6598,7 @@ Theorem assign_BoundsCheckByte:
                                 let header = Load addr in
                                 let extra = (if dimindex (:'a) = 32 then 2 else 3) in
                                 let k = dimindex (:'a) - c.len_size - extra in
-                                let kk = (if dimindex (:'a) = 32 then 3w else 7w) in
-                                  Op Sub [Shift Lsr header k; Const kk]);
+                                  Op Sub [Shift Lsr header k; Const bytes_in_word]);
                               Assign 3 (ShiftVar Ror (adjust_var v2) 2);
                               (if leq then If NotLower 1 (Reg 3) else
                                            If Lower 3 (Reg 1))
@@ -6657,7 +6656,7 @@ Proof
   \\ impl_tac
   \\ TRY (fs [small_int_def,dimword_def,good_dimindex_def] \\ rfs [] \\ NO_TAC)
   \\ fs [GSYM word_add_n2w]
-  \\ strip_tac \\ fs []
+  \\ strip_tac \\ fs [bytes_in_word_def]
   \\ IF_CASES_TAC
   \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
   \\ simp[inter_insert_ODD_adjust_set,GSYM Boolv_def]
@@ -10527,7 +10526,7 @@ Proof
       >> res_tac >> fs[])
     \\ fs[]
     \\ qmatch_goalsub_abbrev_tac`read_bytearray aa len g`
-    \\ qmatch_asmsub_rename_tac`LENGTH ls + 3`
+    \\ qmatch_asmsub_rename_tac`LENGTH ls + 4`
     \\ qispl_then[`ls`,`LENGTH ls`,`aa`]mp_tac IMP_read_bytearray_GENLIST
     \\ impl_tac >- simp[]
     \\ `len = LENGTH ls`
@@ -10592,7 +10591,7 @@ Proof
   \\ simp[]
   \\ simp[wordSemTheory.get_var_def,lookup_insert]
   \\ qmatch_goalsub_abbrev_tac`read_bytearray aa len g`
-  \\ qmatch_asmsub_rename_tac`LENGTH ls + 3`
+  \\ qmatch_asmsub_rename_tac`LENGTH ls + 4`
   \\ qispl_then[`ls`,`LENGTH ls`,`aa`]mp_tac IMP_read_bytearray_GENLIST
   \\ impl_tac >- simp[]
   \\ `len = LENGTH ls`
@@ -10918,7 +10917,7 @@ Proof
   \\ simp[]
   \\ simp[wordSemTheory.get_var_def,lookup_insert]
   \\ qmatch_goalsub_abbrev_tac`read_bytearray aa len g`
-  \\ qmatch_asmsub_rename_tac`LENGTH ls + 3`
+  \\ qmatch_asmsub_rename_tac`LENGTH ls + 4`
   \\ qispl_then[`ls`,`LENGTH ls`,`aa`]mp_tac IMP_read_bytearray_GENLIST
   \\ impl_tac >- simp[]
   \\ `len = LENGTH ls`
