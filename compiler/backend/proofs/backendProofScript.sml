@@ -1,5 +1,10 @@
 (*
   Composes the correctness theorems for all of the compiler phases.
+
+  \\ irule compile_inc_phases_all_distinct
+  \\ simp [clos_to_bvlProofTheory.SND_cond_mti_compile_inc]
+  \\ simp [cake_orac_def, UNCURRY]
+
 *)
 
 open preamble primSemEnvTheory semanticsPropsTheory
@@ -333,6 +338,7 @@ val _ = Datatype `progs =
    ; data_prog : (num # num # dataLang$prog) list
    ; word_prog : (num # num # 'a wordLang$prog) list
    ; stack_prog : (num # 'a stackLang$prog) list
+   ; cur_bm : 'a word list
    ; lab_prog : 'a sec list
    ; target_prog : word8 list # 'a word list
    |>`;
@@ -340,21 +346,28 @@ val _ = Datatype `progs =
 val empty_progs_def = Define `
   empty_progs = <| source_prog := []; flat_prog := [];
     pat_prog := []; clos_prog := []; bvl_prog := []; bvi_prog := [];
-    data_prog := []; word_prog := []; stack_prog := [];
+    data_prog := []; word_prog := []; stack_prog := []; cur_bm := [];
     lab_prog := []; target_prog := ([], []) |>`;
 
 val _ = type_abbrev("clos_prog",
   ``: closLang$exp list # (num # num # closLang$exp) list``);
 
+val known_static_conf_def = Define `
+  known_static_conf kc = (case kc of NONE => NONE
+    | SOME kc => SOME (reset_inline_factor kc with val_approx_spt := LN))`;
+
 val known_compile_inc_def = Define`
-  known_compile_inc NONE p = (NONE, p) /\
-  known_compile_inc (SOME c) p =
+  known_compile_inc NONE spt p = (spt, p) /\
+  known_compile_inc (SOME c) spt p =
     let (p : clos_prog) = clos_fvsProof$compile_inc p in
-    let (g, p) = clos_knownProof$compile_inc c c.val_approx_spt p in
-    let c = c with <| val_approx_spt := g |> in
+    let (spt, p) = clos_knownProof$compile_inc c spt p in
     let (p : clos_prog) = clos_ticksProof$compile_inc p in
     let p = clos_letopProof$compile_inc p in
-    (SOME c, p)`;
+    (spt, p)`;
+
+val option_upd_val_spt_def = Define`
+  option_upd_val_spt spt NONE = NONE /\
+  option_upd_val_spt spt (SOME kc) = SOME (kc with val_approx_spt := spt)`;
 
 val clos_to_bvl_compile_inc_def = Define`
   clos_to_bvl_compile_inc c p =
@@ -362,8 +375,9 @@ val clos_to_bvl_compile_inc_def = Define`
     let (n, p) = closProps$ignore_table clos_numberProof$compile_inc
         c.next_loc p in
     let c = c with <| next_loc := n |> in
-    let (c', p) = known_compile_inc c.known_conf p in
-    let c = c with <| known_conf := c' |> in
+    let spt = clos_knownProof$option_val_approx_spt c.known_conf in
+    let (spt, p) = known_compile_inc (known_static_conf c.known_conf) spt p in
+    let c = c with <| known_conf := option_upd_val_spt spt c.known_conf |> in
     let (c', p) = clos_to_bvlProof$cond_call_compile_inc c.do_call
         (FST c.call_state) p in
     let c = c with <| call_state := (c', []) |> in
@@ -401,8 +415,9 @@ val compile_inc_progs_def = Define`
     let ps = ps with <| bvi_prog := p |> in
     let p = bvi_to_data_compile_prog p in
     let ps = ps with <| data_prog := p |> in
-    let p = MAP (compile_part c.data_conf) p in
     let asm_c = c.lab_conf.asm_conf in
+    let dc = c.data_conf with has_fp_ops := (1 < asm_c.fp_reg_count) in
+    let p = MAP (compile_part dc) p in
     let reg_count1 = asm_c.reg_count - (5 + LENGTH asm_c.avoid_regs) in
     let p = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
@@ -411,7 +426,7 @@ val compile_inc_progs_def = Define`
     let (p, bm) = compile_word_to_stack reg_count1 p bm0 in
     let cur_bm = DROP (LENGTH bm0) bm in
     let c = c with word_conf := <|bitmaps := bm|> in
-    let ps = ps with <| stack_prog := p |> in
+    let ps = ps with <| stack_prog := p ; cur_bm := cur_bm |> in
     let reg_count2 = asm_c.reg_count - (3 + LENGTH asm_c.avoid_regs) in
     let p = stack_to_labProof$compile_no_stubs
         c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
@@ -469,19 +484,6 @@ Proof
   \\ rw [] \\ simp []
 QED
 
-Theorem known_compile_inc_IS_SOME:
-  known_compile_inc kc es = (kc', es') ⇒ (IS_SOME kc' <=> IS_SOME kc)
-Proof
-  Cases_on `kc`
-  \\ fs [known_compile_inc_def]
-  \\ pairarg_tac \\ fs []
-  \\ rw [] \\ simp []
-QED
-
-val known_static_conf_def = Define `
-  known_static_conf kc = (case kc of NONE => NONE
-    | SOME kc => SOME (reset_inline_factor kc with val_approx_spt := LN))`;
-
 Theorem compile_lab_lab_conf:
   compile_lab lc es = SOME (b, lc')
     ==> lc'.asm_conf = lc.asm_conf
@@ -506,23 +508,22 @@ Proof
   \\ fs [known_static_conf_def, clos_knownTheory.reset_inline_factor_def]
 QED
 
-Theorem known_compile_inc_static_conf:
-  known_compile_inc kc es = (kc',es') ⇒
-  known_static_conf kc' = known_static_conf kc
+Theorem known_option_upd_val_spt_eq:
+  IS_SOME (option_upd_val_spt spt kc) = IS_SOME kc /\
+  known_static_conf (option_upd_val_spt spt kc) = known_static_conf kc
 Proof
-  Cases_on `kc` \\ fs [known_compile_inc_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rw []
-  \\ fs [known_static_conf_def, clos_knownTheory.reset_inline_factor_def]
+  Cases_on `kc` \\ fs [known_static_conf_def, option_upd_val_spt_def,
+    clos_knownTheory.reset_inline_factor_def]
 QED
 
-val cake_orac_config_tuple_eq_step = (Q.ISPEC
-  `(\(cc, bc, mc). (cc.max_app, cc.do_call, IS_SOME cc.known_conf,
+val cake_orac_config_inv_f =
+  ``(\(cc, bc, mc). (cc.max_app, cc.do_call, IS_SOME cc.known_conf,
         known_static_conf cc.known_conf, cc.do_mti, bc.inline_size_limit,
         bc.split_main_at_seq, bc.exp_cut, mc))
     o (\c. (c.clos_conf, c.bvl_conf, c.data_conf,
-        c.word_to_word_conf.reg_alg, c.lab_conf.asm_conf))`
-  cake_configs_eq)
+        c.word_to_word_conf.reg_alg, c.stack_conf, c.lab_conf.asm_conf))``
+
+val cake_orac_config_tuple_eq_step = ISPEC cake_orac_config_inv_f cake_configs_eq
   |> SIMP_RULE std_ss []
 
 val orac_eq_prop = let
@@ -547,11 +548,10 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ imp_res_tac attach_bitmaps_SOME \\ fs []
   \\ imp_res_tac known_compile_IS_SOME
-  \\ imp_res_tac known_compile_inc_IS_SOME
   \\ imp_res_tac known_compile_static_conf
-  \\ imp_res_tac known_compile_inc_static_conf
   \\ imp_res_tac compile_lab_lab_conf
   \\ rveq \\ fs []
+  \\ fs [known_option_upd_val_spt_eq]
   \\ every_case_tac
   \\ simp []
   \\ imp_res_tac compile_lab_lab_conf
@@ -578,28 +578,33 @@ Proof
   \\ rpt (CASE_TAC \\ fs [])
 QED
 
-Theorem known_compile_inc_eq:
-  (case kc of NONE => CURRY I
-        | SOME kcfg => clos_knownProof$compile_inc kcfg)
-    (clos_knownProof$option_val_approx_spt kc')
-    ((if IS_SOME kc then clos_fvsProof$compile_inc else I) p) = (spt, p') ==>
-  IS_SOME kc' = IS_SOME kc /\ known_static_conf kc' = known_static_conf kc ==>
-  SND (known_compile_inc kc' p) = ((if IS_SOME kc then
-        (clos_letopProof$compile_inc : clos_prog -> clos_prog)
-            ∘ clos_ticksProof$compile_inc else I) p')
+Theorem known_reset_to_static_conf:
+  known (reset_inline_factor kc) = known (THE (known_static_conf (SOME kc)))
 Proof
-  CASE_TAC
-  \\ rw []
-  \\ fs [IS_SOME_EXISTS, known_compile_inc_def,
-        clos_knownProofTheory.option_val_approx_spt_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [clos_to_bvlProofTheory.kcompile_inc_uncurry]
-  \\ rveq \\ fs []
-  \\ fs [known_static_conf_def]
-  \\ metis_tac [known_reset_spt]
+  fs [known_static_conf_def, known_reset_spt]
+QED
+
+Theorem known_co_eq_state_co_inc:
+  clos_knownProof$known_co kc co =
+  state_co (known_compile_inc (known_static_conf kc)) co
+Proof
+  Cases_on `kc`
+  >- (
+    simp [known_static_conf_def, known_compile_inc_def,
+        clos_knownProofTheory.known_co_def, FUN_EQ_THM, state_co_def]
+  )
+  \\ simp [known_static_conf_def, known_compile_inc_def,
+      clos_knownProofTheory.known_co_def, FUN_EQ_THM, state_co_def]
+  \\ simp [pure_co_def, UNCURRY, clos_to_bvlProofTheory.kcompile_inc_uncurry]
+  \\ simp [known_reset_to_static_conf]
+  \\ simp [known_static_conf_def, clos_knownTheory.reset_inline_factor_def]
 QED
 
 Theorem cake_orac_eqs:
+  state_co source_to_flat$compile
+    (cake_orac c' src config_tuple1 (\ps. ps.source_prog)) =
+  cake_orac c' src (SND o config_tuple1) (\ps. ps.flat_prog)
+  /\
   pure_co flat_to_pat$compile o cake_orac c' src f1 (\ps. ps.flat_prog) =
   cake_orac c' src f1 (\ps. ps.pat_prog)
   /\
@@ -630,7 +635,8 @@ Theorem cake_orac_eqs:
     cake_orac c' src f3 (\ps. ps.bvi_prog) =
   cake_orac c' src f3 (\ps. ps.data_prog)
   /\ (
-  compile c prog = SOME (b,bm,c') /\ dc = c.data_conf /\
+  compile c prog = SOME (b,bm,c') /\
+    dc = c.data_conf with has_fp_ops := (1 < c.lab_conf.asm_conf.fp_reg_count) /\
     tr_c = c.lab_conf.asm_conf.two_reg_arith /\
     reg_c = c.lab_conf.asm_conf.reg_count -
         (LENGTH c.lab_conf.asm_conf.avoid_regs + 5) /\
@@ -640,13 +646,35 @@ Theorem cake_orac_eqs:
     pure_co (MAP (compile_part dc)) o cake_orac c' src f4 (\ps. ps.data_prog) =
   cake_orac c' src f4 (\ps. ps.word_prog)
   )
+  /\
+  (
+  compile c prog = SOME (b, bm, c') ==>
+  (λ((bm0,cfg),prg). (λ(prg2,bm). (cfg,prg2,DROP (LENGTH bm0) bm))
+    (compile_word_to_stack (c.lab_conf.asm_conf.reg_count -
+      (LENGTH c.lab_conf.asm_conf.avoid_regs + 5)) prg bm0)) ∘
+  cake_orac c' src (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog) =
+  cake_orac c' src (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (λps. (ps.stack_prog,ps.cur_bm))
+  )
+  /\
+  (
+  compile c prog = SOME (b,bm,c') /\ reg_nm = c.stack_conf.reg_names /\
+    jump = c.stack_conf.jump /\ sp = c.lab_conf.asm_conf.reg_count -
+      (LENGTH c.lab_conf.asm_conf.avoid_regs + 3) /\
+    offs = c.lab_conf.asm_conf.addr_offset
+    ==>
+  pure_co (stack_to_labProof$compile_no_stubs reg_nm jump offs sp ∘ FST) ∘
+  cake_orac c' src f5 (λps. (ps.stack_prog, ps.cur_bm)) =
+  cake_orac c' src f5 (λps. ps.lab_prog)
+  )
 Proof
   rw [cake_orac_def, FUN_EQ_THM, config_tuple1_def]
-  \\ simp [clos_knownProofTheory.known_co_eq_pure_state,
-        bvl_to_bviProofTheory.full_co_def]
+  \\ simp [known_co_eq_state_co_inc, bvl_to_bviProofTheory.full_co_def]
   \\ simp [cake_orac_def, compile_inc_progs_def, pure_co_def, state_co_def]
   \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [config_tuple1_def, config_tuple2_def]
   \\ rveq \\ fs []
+  (* assumption-free goals need to be proven by now *)
   \\ drule_then assume_tac cake_orac_config_eqs
   \\ fs []
   >- (
@@ -654,9 +682,6 @@ Proof
         config_tuple1_def]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
-    \\ drule known_compile_inc_eq
-    \\ simp []
-    \\ disch_tac \\ fs []
   )
   >- (
     fs [bvl_to_bvi_compile_inc_all_def, config_tuple2_def]
@@ -665,11 +690,29 @@ Proof
   )
 QED
 
-Theorem FST_cake_orac_0:
-  FST (cake_orac c' src f g 0) = (f c')
+val [source_to_flat_orac_eq, flat_to_pat_orac_eq, pat_to_clos_orac_eq,
+    clos_to_bvl_orac_eq, bvl_to_bvi_orac_eq, bvi_to_data_orac_eq,
+    data_to_word_orac_eq, word_to_stack_orac_eq, stack_to_lab_orac_eq] =
+        map GEN_ALL (CONJUNCTS cake_orac_eqs);
+
+val simple_orac_eqs = LIST_CONJ [source_to_flat_orac_eq, flat_to_pat_orac_eq,
+    pat_to_clos_orac_eq, bvi_to_data_orac_eq];
+
+Theorem cake_orac_0:
+  cake_orac c' src f g 0 = (f c', g (SND (compile_inc_progs c' (src 0))))
 Proof
   fs [cake_orac_def, UNCURRY]
   \\ fs [cake_configs_def, state_orac_states_def]
+QED
+
+Theorem cake_orac_SUC:
+  cake_orac c' src f g (SUC i) = (let (c'', ps) = cake_orac c' src I I i in
+    let c''' = FST (compile_inc_progs c'' (src i)) in
+    (f c''', g (SND (compile_inc_progs c''' (src (SUC i))))))
+Proof
+  simp [cake_orac_def, cake_configs_def, state_orac_states_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
 QED
 
 Theorem from_clos_conf_EX:
@@ -831,6 +874,32 @@ Proof
     compile_nsAll_esgc_free]
 QED
 
+Theorem cake_orac_invariant:
+  P (f c) /\
+  (!c prog. P (f c) ==> P (f (FST (compile_inc_progs c prog)))) ==>
+  (!i. P (FST (cake_orac c syntax f g i)))
+Proof
+  disch_tac
+  \\ Induct
+  \\ simp [cake_orac_0, cake_orac_SUC]
+  \\ fs [UNCURRY, cake_orac_def]
+QED
+
+Theorem cake_orac_src_conf_nsAll_esgc_free:
+  nsAll (\_ v. flatProps$esgc_free v /\ set_globals v = {||})
+    c'.source_conf.mod_env.v ==>
+  (!i. (\cfg_tup. nsAll (\_ v. flatProps$esgc_free v ∧ set_globals v = {||})
+            (FST cfg_tup).mod_env.v)
+    (FST (cake_orac c' syntax config_tuple1 (λps. ps.source_prog) i)))
+Proof
+  disch_tac
+  \\ match_mp_tac cake_orac_invariant
+  \\ simp [config_tuple1_def]
+  \\ rw [compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ imp_res_tac compile_nsAll_esgc_free
+QED
+
 Theorem source_to_flat_SND_compile_esgc_free =
   GEN_ALL source_to_flatProofTheory.compile_esgc_free
     |> REWRITE_RULE [PAIR_FST_SND_EQ]
@@ -864,6 +933,20 @@ Theorem compile_SND_globals_BAG_ALL_DISTINCT =
 Theorem compile_FST_nsAll_esgc_free =
   GEN_ALL compile_nsAll_esgc_free
     |> SIMP_RULE bool_ss [PAIR_FST_SND_EQ, FST, SND]
+
+Theorem compile_source_conf_nsAll_esgc_free:
+  compile c prog = SOME (b, bm, c') ==>
+  nsAll (\_ v. flatProps$esgc_free v ∧ set_globals v = {||})
+    c.source_conf.mod_env.v ==>
+  nsAll (\_ v. flatProps$esgc_free v ∧ set_globals v = {||})
+    c'.source_conf.mod_env.v
+Proof
+  rw [backendTheory.compile_def, compile_tap_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ imp_res_tac attach_bitmaps_SOME
+  \\ imp_res_tac compile_nsAll_esgc_free
+  \\ fs []
+QED
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 
@@ -926,6 +1009,19 @@ Proof
         EVAL ``0 < bvl_to_bvi_namespaces``]
 QED
 
+Theorem compile_no_stubs_wrap_pure_co:
+  (λn. (let (c,p,b) = coracle n in
+    (c, stack_to_labProof$compile_no_stubs rn j offs sp p)))
+    =
+  (pure_co (stack_to_labProof$compile_no_stubs rn j offs sp o FST) o coracle)
+Proof
+  rw [FUN_EQ_THM, pure_co_def]
+  \\ rpt (pairarg_tac \\ fs [])
+QED
+
+Theorem full_make_init_semantics2 = full_make_init_semantics
+  |> REWRITE_RULE [compile_no_stubs_wrap_pure_co]
+
 Theorem data_num_stubs_LE_tailrec_compile:
   data_num_stubs <= nn2 /\ EVERY ($<= data_num_stubs) (MAP FST (orac n)) ==>
   EVERY ($<= data_num_stubs)
@@ -967,104 +1063,514 @@ Proof
   \\ rw []
 QED
 
-Theorem states_tailrec_MULT_namespaces:
-  ?k. state_orac_states bvi_tailrec_compile_prog n syntax i
-    = n + (k * bvl_to_bvi_namespaces)
+Theorem configs_nn2_MULT_namespaces:
+  ?k. (cake_configs c' syntax n).bvl_conf.next_name2
+    = c'.bvl_conf.next_name2 + (k * bvl_to_bvi_namespaces)
 Proof
-  Induct_on `i` \\ fs [state_orac_states_def]
+  Induct_on `n` \\ fs [cake_configs_def, state_orac_states_def]
   >- (qexists_tac `0` \\ simp [])
-  \\ qmatch_goalsub_abbrev_tac `bvi_tailrec_compile_prog st_n prog_n`
-  \\ Cases_on `bvi_tailrec_compile_prog st_n prog_n`
+  \\ simp [compile_inc_progs_def, bvl_to_bvi_compile_inc_all_def]
+  \\ rpt (pairarg_tac \\ fs [])
   \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
   \\ rw []
-  \\ unabbrev_all_tac
-  \\ qexists_tac `k + k'`
-  \\ simp []
+  \\ rveq \\ fs []
+  \\ metis_tac [arithmeticTheory.RIGHT_ADD_DISTRIB]
 QED
 
-Theorem states_tailrec_MOD_namespaces:
-  state_orac_states bvi_tailrec_compile_prog n syntax i
+Theorem configs_nn2_MOD_namespaces:
+  (cake_configs c' syntax n).bvl_conf.next_name2
         MOD bvl_to_bvi_namespaces
-    = n MOD bvl_to_bvi_namespaces
+    = c'.bvl_conf.next_name2 MOD bvl_to_bvi_namespaces
 Proof
-  mp_tac states_tailrec_MULT_namespaces
+  mp_tac configs_nn2_MULT_namespaces
   \\ rw []
   \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``]
 QED
 
-
-Theorem cake_co_n:
-  compile (c:'a config) prog = SOME (bytes,bitmaps,c')
-  ==> !n. ?src_conf next_loc approx call_conf inlines nn1 nn2_k bitmaps lab_conf prog.
-  cake_co c c' orac n = ((src_conf, next_loc, approx, call_conf,
-        inlines, nn1, bvl_num_stubs + nn2_k * bvl_to_bvi_namespaces + 2,
-        bitmaps, lab_conf), prog)
+Theorem bvl_to_bvi_compile_inc_all_num_stubs_LE:
+  bvl_to_bvi_compile_inc_all c bvl = (c', bvi) ==>
+  bvl_num_stubs <= c.next_name2 ==>
+  EVERY ($<= bvl_num_stubs) (MAP FST bvi)
 Proof
-  rw [cake_co_def, syntax_to_full_oracle_def]
-  \\ simp [add_state_co_def, clos_mk_co_def, clos_knownProofTheory.known_mk_co_def]
-  \\ simp [pure_co_progs_def]
-  \\ qmatch_goalsub_abbrev_tac `state_orac_states _ nn0 progs _`
-  \\ mp_tac (GEN_ALL states_tailrec_MULT_namespaces)
-  \\ disch_then (qspecl_then [`progs`, `nn0`, `n`] assume_tac)
-  \\ fs []
+  rw [EVERY_MEM, bvl_to_bvi_compile_inc_all_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+  \\ disch_then drule
+  \\ rw [] \\ fs []
+  \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
+  \\ disch_then drule
+  \\ rw []
+QED
+
+Theorem bvl_num_stubs_LE_bvi_prog:
+  compile c prog = SOME (b, bm, c') ==>
+  EVERY ($<= bvl_num_stubs)
+    (MAP FST (SND (cake_orac c' syntax f (\ps. ps.bvi_prog) n)))
+Proof
+  rw [cake_orac_def]
+  \\ simp [compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ drule (GEN_ALL bvl_to_bvi_compile_inc_all_num_stubs_LE)
+  \\ disch_then irule
+  \\ qsuff_tac `bvl_num_stubs <= c'.bvl_conf.next_name2`
+  >- (
+    mp_tac configs_nn2_MULT_namespaces
+    \\ rw [] \\ fs []
+  )
   \\ fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs [])
-  \\ drule attach_bitmaps_SOME \\ rw [] \\ fs []
+  \\ drule_then assume_tac attach_bitmaps_SOME
+  \\ rveq \\ fs []
   \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
-  \\ qunabbrev_tac `nn0`
-  \\ fs []
   \\ rw []
-  \\ qexists_tac `k' + k`
+QED
+
+Theorem stack_to_lab_orac_eq_std_sym = stack_to_lab_orac_eq
+  |> SIMP_RULE std_ss []
+  |> SPEC_ALL |> UNDISCH_ALL |> GSYM |> DISCH_ALL
+
+Theorem oracle_monotonic_state_with_inv:
+  !P n_f. P (FST (FST (orac 0))) /\
+  (!x. x ∈ St ==> x < n_f (FST (FST (orac 0)))) /\
+  (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
+    P st' /\ n_f st <= n_f st' /\
+    (!cfg x. x ∈ f (cfg, prog') ==> n_f st <= x /\ x < n_f st')) /\
+  is_state_oracle f_inc orac ==>
+  oracle_monotonic f (<) (St : num set) (state_co f_inc orac)
+Proof
+  rw []
+  \\ `!i. P (FST (FST (orac i))) /\
+        (!j. j <= i ==> n_f (FST (FST (orac j))) <= n_f (FST (FST (orac i))))`
+  by (
+    Induct \\ fs [is_state_oracle_def]
+    \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC]
+    \\ rw [] \\ fs []
+    \\ metis_tac [LESS_EQ_TRANS]
+  )
+  \\ fs [oracle_monotonic_def, is_state_oracle_def, state_co_def, UNCURRY]
+  \\ fs [PAIR_FST_SND_EQ]
+  \\ rw []
+  \\ metis_tac [state_orac_states_def, LESS_LESS_EQ_TRANS,
+        arithmeticTheory.LESS_OR, LESS_EQ_TRANS,
+        arithmeticTheory.ZERO_LESS_EQ]
+QED
+
+Theorem oracle_monotonic_state_with_inv_init:
+  !P n_f. f_inc st0 prog0 = (st, prog) /\ P st0 /\
+  St ⊆ f (cfg, prog) /\ FST (FST (orac 0)) = st /\
+  (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
+    P st' /\ n_f st <= n_f st' /\
+    (!cfg x. x ∈ f (cfg, prog') ==> n_f st <= x /\ x < n_f st')) /\
+  is_state_oracle f_inc orac ==>
+  oracle_monotonic f (<) (St : num set) (state_co f_inc orac)
+Proof
+  rw []
+  \\ match_mp_tac oracle_monotonic_state_with_inv
+  \\ qexists_tac `P` \\ qexists_tac `n_f`
+  \\ simp []
+  \\ metis_tac [SUBSET_IMP]
+QED
+
+Theorem monotonic_globals_state_co_compile:
+  compile conf prog = (conf',p) ∧ FST (FST (orac 0)) = conf' ∧
+  nsAll (λ_ v. flatProps$esgc_free v ∧ set_globals v = {||}) conf.mod_env.v ∧
+  is_state_oracle source_to_flat$compile orac ⇒
+  oracle_monotonic
+    (SET_OF_BAG ∘ elist_globals ∘ MAP flatProps$dest_Dlet ∘
+      FILTER flatProps$is_Dlet ∘ SND) $<
+    (SET_OF_BAG (elist_globals (MAP flatProps$dest_Dlet
+      (FILTER flatProps$is_Dlet p))))
+    (state_co source_to_flat$compile orac)
+Proof
+  rw []
+  \\ match_mp_tac (GEN_ALL oracle_monotonic_state_with_inv_init)
+  \\ asm_exists_tac
+  \\ fs []
+  \\ qexists_tac `\c. nsAll (λ_ v. flatProps$esgc_free v ∧ set_globals v = {||})
+        c.mod_env.v`
+  \\ fs []
+  \\ qexists_tac `\c. c.next.vidx`
+  \\ rpt (gen_tac ORELSE disch_tac)
+  \\ fs [source_to_flatTheory.compile_def,
+        source_to_flatTheory.compile_prog_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ imp_res_tac compile_decs_num_bindings
+  \\ imp_res_tac compile_decs_esgc_free
+  \\ imp_res_tac compile_decs_elist_globals
+  \\ fs []
+  \\ rpt (gen_tac ORELSE disch_tac)
+  \\ drule (MATCH_MP SUB_BAG_IMP compile_flat_sub_bag)
+  \\ fs [source_to_flatTheory.glob_alloc_def, flatPropsTheory.op_gbag_def]
+  \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]
+QED
+
+val state_co_fun_def = Define `
+  state_co_fun f_inc x =
+    let ((cfg1, cfg2), p) = x in
+    let (_, p') = f_inc cfg1 p in
+    (cfg2, p')`;
+
+Theorem state_co_eq_comp:
+  state_co f_inc orac = state_co_fun f_inc o orac
+Proof
+  fs [state_co_def, state_co_fun_def, FUN_EQ_THM]
+QED
+
+Theorem is_state_oracle_cake_orac_comp:
+  (!i ps'.
+    let (c'', ps) = compile_inc_progs (cake_configs c' syntax i) (syntax i) in
+    let ((f_c, _), f_p) = f (g (cake_configs c' syntax i), h ps) in
+    let ((f_c', _), _) = f (g c'', ps') in
+    f_c' = FST (f_inc f_c f_p))
+  ==>
+  is_state_oracle f_inc (f o cake_orac c' syntax g h)
+Proof
+  rw [is_state_oracle_def]
+  \\ simp [cake_orac_SUC]
+  \\ first_x_assum (qspecl_then [`n`] mp_tac)
+  \\ simp [cake_orac_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ qmatch_goalsub_abbrev_tac `f (g c_x, h p_x)`
+  \\ disch_then (qspecl_then [`h p_x`] mp_tac)
+  \\ pairarg_tac \\ fs []
+QED
+
+Theorem is_state_oracle_cake_orac = is_state_oracle_cake_orac_comp
+  |> Q.GEN `f` |> Q.ISPEC `I : (('x # 'y) # 'z -> ('x # 'y) # 'z)`
+  |> REWRITE_RULE [combinTheory.I_o_ID]
+
+Theorem cake_orac_clos_is_state:
+  is_state_oracle clos_to_bvl_compile_inc
+    (cake_orac c' syntax (\c. (c.clos_conf, ())) (\ps. (ps.clos_prog, [])))
+Proof
+  match_mp_tac is_state_oracle_cake_orac
+  \\ rw []
+  \\ fs [compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+QED
+
+Theorem cake_orac_source_is_state:
+  is_state_oracle compile
+    (cake_orac c' syntax config_tuple1 (\ps. ps.source_prog))
+Proof
+  match_mp_tac is_state_oracle_cake_orac
+  \\ rw []
+  \\ fs [compile_inc_progs_def, config_tuple1_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+QED
+
+Theorem is_state_oracle_cake_orac_to_comp:
+  is_state_oracle f_inc (cake_orac c' syntax st_f ps_f) ==>
+  compile c prog = SOME (b, bm, c') ==>
+  (!c'' ps c''' g_p'.
+    ^cake_orac_config_inv_f c'' = ^cake_orac_config_inv_f c ==>
+    (* f step *)
+    let (f_c', _) = f_inc (FST (st_f c'')) (ps_f ps) in
+    (* g step *)
+    let ((g_c, _), g_p) = adj (g c'', h ps) in
+    let (g_c', _) = g_inc g_c g_p in
+    (* for some c''', if f step agrees, g step should agree *)
+    f_c' = FST (st_f c''') ==> g_c' = FST (FST (adj (g c''', g_p')))) ==>
+  is_state_oracle g_inc (adj o cake_orac c' syntax g h)
+Proof
+  rw [is_state_oracle_def]
+  \\ first_x_assum (qspecl_then [`n`] mp_tac)
+  \\ simp [cake_orac_def]
+  \\ first_x_assum (qspecl_then [`(cake_configs c' syntax n)`] mp_tac)
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
+  \\ fs [UNCURRY]
+  \\ metis_tac []
+QED
+
+Theorem cake_orac_clos_syntax_oracle_ok:
+  compile (c : 's config) prog = SOME (b, bm, c') /\
+  compile c.clos_conf clos_prog = (clos_c', clos_prog') /\
+  (?st. c'.clos_conf = clos_c' with start := st) /\
+  clos_prog = SND (to_clos c prog) /\
+  1 <= c.clos_conf.max_app /\
+  c.source_conf = (prim_config : 's config).source_conf ==>
+  clos_to_bvlProof$syntax_oracle_ok c.clos_conf clos_c' clos_prog
+     (cake_orac c' syntax (SND ∘ config_tuple1) (λps. (ps.clos_prog,[])))
+Proof
+  rw []
+  \\ simp [to_clos_def, to_pat_def, to_flat_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ simp [syntax_oracle_ok_def, to_clos_def]
+  \\ simp [backendPropsTheory.FST_state_co, cake_orac_0,
+      config_tuple1_def]
+  \\ conseq [syntax_ok_MAP_pat_to_clos]
+  \\ simp [clos_knownProofTheory.syntax_ok_def]
+  \\ simp [GSYM simple_orac_eqs]
+  \\ csimp [MAP_compile_every_Fn_vs_NONE]
+  \\ conseq [MAP_compile_contains_App_SOME,
+      MAP_compile_esgc_free, syntax_ok_MAP_pat_to_clos,
+      MAP_compile_distinct_setglobals,
+      flat_to_patProofTheory.compile_esgc_free]
+  \\ conseq [MATCH_MP
+          (REWRITE_RULE [GSYM AND_IMP_INTRO] BAG_ALL_DISTINCT_SUB_BAG)
+          (SPEC_ALL elist_globals_compile)]
+  \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`, SND_state_co]
+  \\ rveq
+  \\ conseq [source_to_flat_SND_compile_esgc_free,
+        compile_SND_globals_BAG_ALL_DISTINCT,
+        BETA_RULE cake_orac_src_conf_nsAll_esgc_free ]
+  \\ drule_then (fn t => conseq [t]) compile_source_conf_nsAll_esgc_free
+  \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
+  \\ simp [GSYM simple_orac_eqs]
+  \\ conseq [oracle_monotonic_globals_pat_to_clos,
+        oracle_monotonic_globals_flat_to_pat]
+  \\ qpat_assum `compile c _ = SOME _`
+    (assume_tac o REWRITE_RULE [compile_eq_from_source])
+  \\ fs [from_source_def, from_pat_def, from_flat_def,
+        to_clos_def, to_pat_def, to_flat_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ drule_then (fn t => conseq [t]) monotonic_globals_state_co_compile
+  \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
+  \\ simp [cake_orac_0, config_tuple1_def]
+  \\ rename [`compile _.source_conf _ = (source_conf',_)`]
+  \\ `source_conf' = c'.source_conf` by (
+    EVERY (map imp_res_tac from_EXS)
+    \\ fs [] \\ rfs []
+    \\ rveq \\ fs []
+  )
+  \\ simp [simple_orac_eqs, cake_orac_source_is_state]
+  \\ Q.ISPECL_THEN [`c'`] assume_tac (Q.GEN `c'` cake_orac_clos_is_state)
+  \\ rw []
+  \\ REWRITE_TAC [state_co_eq_comp, o_ASSOC, known_co_eq_state_co_inc]
+  \\ drule_then (drule_then irule) (GEN_ALL is_state_oracle_cake_orac_to_comp)
+  \\ fs [state_co_fun_def, pure_co_def, config_tuple1_def,
+        clos_to_bvl_compile_inc_def]
+  \\ rpt (gen_tac ORELSE disch_tac ORELSE (pairarg_tac \\ fs []))
+  \\ fs [clos_to_bvlTheory.config_component_equality]
+  \\ rveq \\ fs []
+  \\ rveq \\ fs []
+  >- (
+    fs [SPEC T clos_to_bvlProofTheory.cond_call_compile_inc_def]
+    \\ rveq \\ fs []
+    \\ fs [PAIR_FST_SND_EQ]
+  )
+  >- (
+    fs [IS_SOME_EXISTS]
+    \\ rfs [known_static_conf_def, known_compile_inc_def, kcompile_inc_uncurry]
+    \\ fs [known_reset_to_static_conf]
+    \\ fs [known_static_conf_def, clos_knownTheory.reset_inline_factor_def,
+clos_knownProofTheory.option_val_approx_spt_def, option_upd_val_spt_def]
+    \\ fs [Q.ISPEC `SOME z` boolTheory.EQ_SYM_EQ]
+  )
+QED
+
+Theorem cake_orac_bvl_ALL_DISTINCT:
+  compile c prog = SOME (b, bm, c') ==>
+  ALL_DISTINCT (MAP FST (SND (cake_orac c' syntax f (λps. ps.bvl_prog) n)))
+Proof
+  rw []
+  \\ qsuff_tac `ALL_DISTINCT (MAP FST (SND (cake_orac c' syntax config_tuple2
+        (λps. ps.bvl_prog) n)))`
+  >- (simp [cake_orac_def, UNCURRY])
+  \\ drule clos_to_bvl_orac_eq
+  \\ simp []
+  \\ disch_then (fn t => simp [GSYM t])
+  \\ simp [SND_state_co]
+  \\ irule compile_inc_phases_all_distinct
+  \\ simp [clos_to_bvlProofTheory.SND_cond_mti_compile_inc]
+  \\ simp [cake_orac_def, UNCURRY]
+QED
+
+(* seems plausible? to prove this though, we apparently need to show
+   all_enc_ok (not all_enc_ok_pre), which is a lot of work. also, the
+   issue here is apparently that compile_lab returns a c'.pos that is
+   possibly different to the length of the bytes which it also returns.
+   I don't know why it doesn't just use the length of the list, which
+   would avoid this whole issue. There are approximately 3 facts about
+   compile_lab or lab_to_target.compile, so they probably don't care. *)
+Theorem compile_lab_LENGTH:
+  compile_lab c secs = SOME (bytes, c') ==>
+  c'.pos = LENGTH bytes + c.pos
+
+Proof
+  simp [lab_to_targetTheory.compile_lab_def, UNCURRY]
+  \\ every_case_tac \\ rw [] \\ simp []
+
+  \\ simp [lab_to_targetTheory.prog_to_bytes_MAP, rich_listTheory.LENGTH_FLAT]
+  \\ simp [MAP_MAP_o, o_DEF, rich_listTheory.LENGTH_FLAT]
+  \\ cheat
+QED
+
+Theorem bvl_to_bvi_compile_inc_all_DISTINCT:
+  bvl_to_bvi_compile_inc_all c p = (c', p') /\
+  ALL_DISTINCT (MAP FST p) /\ c.next_name2 MOD bvl_to_bvi_namespaces = 2 ==>
+  ALL_DISTINCT (MAP FST p')
+Proof
+  mp_tac (GEN_ALL ALL_DISTINCT_MAP_FST_SND_full_co
+    |> Q.SPECL [`n`, `K ((c.inlines, c.next_name1, c.next_name2, cfg), p)`, `c`])
+  \\ simp [bvl_to_bvi_compile_inc_all_def, full_co_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ simp [state_co_def]
+  \\ rw []
   \\ simp []
 QED
 
-val null_oracle_def = Define `
-  null_oracle = (K [] : num -> ast$dec list)`;
-
-Theorem compile_no_stubs_good_code:
-
-  ???
-  ==>
-  lab_to_targetProof$good_code mc.target.config c'.labels
-    (stack_to_labProof$compile_no_stubs c.reg_names
-      c.jump asm_c.addr_offset (asm_c.reg_count - avoid_n) prog)
-
+Theorem cake_orac_stack_ALL_DISTINCT:
+  compile c prog = SOME (b, bm, c') ==>
+  ALL_DISTINCT (MAP FST (FST (SND (cake_orac c' syntax
+    (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (λps. (ps.stack_prog,ps.cur_bm)) n))))
 Proof
+  rw []
+  \\ drule cake_orac_bvl_ALL_DISTINCT
+  \\ simp [cake_orac_def, compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ rw []
+  \\ imp_res_tac word_to_stackProofTheory.MAP_FST_compile_word_to_stack
+  \\ fs []
+  \\ simp [MAP_MAP_o, o_DEF]
+  \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
+  \\ simp [ETA_THM]
+  \\ drule_then irule bvl_to_bvi_compile_inc_all_DISTINCT
+  \\ simp [configs_nn2_MOD_namespaces]
+  \\ fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ drule attach_bitmaps_SOME
+  \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+  \\ rw []
+  \\ simp []
+  \\ EVAL_TAC
+  \\ simp []
+QED
 
-  simp[compile_no_stubs_def, good_code_def]
+Theorem MAP_full_compile_single_to_compile:
+  Abbrev (pp = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count
+      reg_alg asm_c (p, NONE)) pp0) /\
+  reg_count = (asm_c.reg_count - (LENGTH asm_c.avoid_regs + 5)) ==>
+  ∃wc ign. word_to_word$compile wc asm_c pp0 = (ign, pp)
+Proof
+  rw [word_to_wordTheory.compile_def]
+  \\ qexists_tac`<| col_oracle := K NONE; reg_alg := reg_alg |>`
+  \\ simp[]
+  \\ simp[word_to_wordTheory.next_n_oracle_def]
+  \\ simp[Abbr`pp`]
+  \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] 
+QED
+
+Theorem compile_to_word_conventions2:
+  compile wc ac p = (_,ps) ==>
+  MAP FST ps = MAP FST p ∧
+  LIST_REL word_simpProof$labels_rel
+    (MAP (wordProps$extract_labels ∘ SND ∘ SND) p)
+    (MAP (wordProps$extract_labels ∘ SND ∘ SND) ps) ∧
+  EVERY (λ(n,m,prog).
+    wordProps$flat_exp_conventions prog ∧
+    wordProps$post_alloc_conventions
+      (ac.reg_count - (5 + LENGTH ac.avoid_regs)) prog ∧
+    (EVERY (λ(n,m,prog).
+                      wordProps$every_inst (wordProps$inst_ok_less ac) prog)
+                 p ∧ addr_offset_ok ac 0w ⇒
+               wordProps$full_inst_ok_less ac prog) ∧
+              (ac.two_reg_arith ⇒
+               wordProps$every_inst wordProps$two_reg_inst prog)) ps
+Proof
+  rw []
+  \\ mp_tac word_to_wordProofTheory.compile_to_word_conventions
+  \\ simp []
+QED
+
+Theorem accum_lab_conf_labels:
+  compile c prog = SOME (b, bm, c') ==>
+  domain (cake_configs c' syntax i).lab_conf.labels ⊆
+  domain c'.lab_conf.labels ∪ BIGUNION (set (MAP (IMAGE FST o get_code_labels o
+    SND o cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (λps. ps.lab_prog)) (COUNT_LIST i)))
+Proof
+  disch_tac \\ Induct_on `i`
+  \\ simp [cake_configs_def, state_orac_states_def, COUNT_LIST_SNOC]
+  \\ simp [MAP_SNOC, LIST_TO_SET_SNOC, GSYM cake_configs_def]
+  \\ simp [compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ every_case_tac
+  >- (
+    simp []
+    \\ drule_then irule SUBSET_TRANS
+    \\ simp [SUBSET_DEF]
+  )
+  \\ simp []
+  \\ drule_then (fn t => fs [t]) cake_orac_config_eqs
+  \\ fs[lab_to_targetTheory.compile_def]
+  \\ fs[lab_to_targetTheory.compile_lab_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ qpat_x_assum `_ = SOME _` mp_tac
+  \\ rpt (CASE_TAC \\ fs [])
+  \\ rw []
+  \\ simp []
+  \\ imp_res_tac remove_labels_domain_labs
+  \\ simp []
+  \\ rw [] \\ TRY (drule_then irule SUBSET_TRANS \\ simp [SUBSET_DEF])
+  \\ simp [cake_orac_def, config_tuple2_def, compile_inc_progs_def]
+  \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
+  \\ simp [SUBSET_DEF]
+QED
+
+Theorem monotonic_DISJOINT_labels_lab:
+  compile c prog = SOME (b, bm, c') /\
+  oracle_monotonic (IMAGE FST ∘ get_code_labels ∘ SND) (<) (domain c'.lab_conf.labels)
+    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+                (λps. ps.lab_prog))
+  ==>
+  DISJOINT (domain (cake_configs c' syntax i).lab_conf.labels)
+    (IMAGE FST (get_code_labels (SND (cake_orac c' syntax
+      (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog) i))))
+Proof
+  rw []
+  \\ drule accum_lab_conf_labels  
+  \\ disch_tac
+  \\ REWRITE_TAC [Once DISJOINT_SYM]
+  \\ drule_then irule (REWRITE_RULE [Once CONJ_COMM] DISJOINT_SUBSET)
+  \\ CCONTR_TAC
+  \\ fs [IN_DISJOINT]
+  >- (
+    drule oracle_monotonic_init
+    \\ disch_then drule
+    \\ simp [PULL_EXISTS]
+    \\ asm_exists_tac
+    \\ simp []
+  )
+  \\ fs [MEM_MAP, MEM_COUNT_LIST]
+  \\ drule oracle_monotonic_step
+  \\ disch_then drule
+  \\ simp [PULL_EXISTS]
+  \\ rfs []
+  \\ asm_exists_tac \\ simp []
+  \\ asm_exists_tac \\ simp []
+QED
+
+Theorem good_code_lab_oracle:
+  compile c prog = SOME (b, bm, c') /\
+  cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (λps. ps.lab_prog) i = (cfg,code) /\
+  backend_config_ok (c:'a config) /\
+  conf = c.lab_conf.asm_conf /\ conf = mc.target.config /\
+  lab_to_targetProof$mc_conf_ok mc
+  ==> lab_to_targetProof$good_code conf cfg.labels code
+Proof
+  simp [cake_orac_def, compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw [] \\ rveq \\ fs []
+  \\ simp[compile_no_stubs_def, good_code_def]
   \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ppg`
-
   \\ `stack_to_labProof$labels_ok (MAP prog_to_section ppg)`
   by (
     irule prog_to_section_labels_ok
+    \\ drule (Q.SPEC `i` (Q.GEN `n` cake_orac_stack_ALL_DISTINCT))
     \\ simp[Abbr`ppg`,MAP_MAP_o, o_DEF]
-
-    \\ simp_tac(srw_ss()++ETA_ss)[Abbr`stack_oracle`]
-    \\ simp[UNCURRY]
-    \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kkk psk bmk`
-    \\ Cases_on`compile_word_to_stack kkk psk bmk`
-    \\ imp_res_tac word_to_stackProofTheory.MAP_FST_compile_word_to_stack
-    \\ fs[Abbr`psk`]
-    \\ simp[Abbr`word_oracle`, MAP_MAP_o, o_DEF]
-    \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
-    \\ simp_tac(srw_ss()++ETA_ss)[Abbr`data_oracle`]
-    \\ conj_tac >- (
-      (* fixme: we proved some of this a moment ago, maybe save it *)
-      irule ALL_DISTINCT_MAP_FST_SND_full_co
-      \\ simp[]
-      \\ simp[Abbr`co`, Abbr`co3`, Abbr`pc`]
-      \\ simp [cake_co_def]
-      \\ REWRITE_TAC ( CONJUNCTS syntax_oracle_unpack @ [cake_co_def,
-              clos_knownProofTheory.known_co_known_mk_co, clos_mk_co_def] )
-      \\ simp []
-      \\ conseq [compile_inc_phases_all_distinct]
-      \\ simp [FST_SND_add_state_co, states_tailrec_MOD_namespaces]
-      \\ simp [Abbr `n2`]
-      \\ simp [pure_co_progs_def, clos_to_bvlProofTheory.SND_cond_mti_compile_inc]
-      \\ EVAL_TAC
-      \\ simp []
-    )
-
+    \\ simp [cake_orac_def, compile_inc_progs_def, Q.ISPEC `FST` ETA_THM]
+    \\ rw []
     \\ simp[stack_namesTheory.compile_def, MAP_MAP_o, EVERY_MAP]
     \\ simp[LAMBDA_PROD]
     \\ simp[stack_allocTheory.prog_comp_def]
@@ -1074,29 +1580,20 @@ Proof
     \\ qx_genl_tac[`l1`,`l2`] \\ strip_tac
     \\ simp[GSYM stack_namesProofTheory.stack_names_lab_pres]
     \\ simp[GSYM stack_removeProofTheory.stack_remove_lab_pres]
-    \\ simp[GSYM word_to_stackProofTheory.word_to_stack_lab_pres]
     \\ qspecl_then[`l1`,`next_lab l2 1`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
-    \\ simp[]
-    \\ pairarg_tac \\ simp[]
-    \\ reverse impl_tac >- rw[]
+    \\ simp[UNCURRY]
+    \\ reverse impl_tac >- rw []
     \\ drule compile_word_to_stack_lab_pres
     \\ CONV_TAC(PATH_CONV"lrr"(SIMP_CONV(srw_ss())[Once EVERY_MEM]))
     \\ simp[FORALL_PROD]
     \\ disch_then irule \\ simp[]
-    \\ qmatch_goalsub_abbrev_tac`EVERY _ pp`
-    \\ qmatch_asmsub_abbrev_tac`Abbrev (pp = MAP _ pp0)`
-    \\ `∃wc ign. compile wc mc.target.config pp0 = (ign, pp)`
-    by (
-      simp[word_to_wordTheory.compile_def]
-      \\ qexists_tac`<| col_oracle := K NONE; reg_alg := aa |>`
-      \\ simp[]
-      \\ simp[word_to_wordTheory.next_n_oracle_def]
-      \\ simp[Abbr`pp`]
-      \\ simp[Abbr`kkk`,Abbr`stk`]
-      \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] )
-    \\ qspecl_then[`wc`,`mc.target.config`,`pp0`]mp_tac (Q.GENL[`wc`,`ac`,`p`]word_to_wordProofTheory.compile_to_word_conventions)
-    \\ simp[]
-    \\ strip_tac
+    \\ fs [pure_co_def, PAIR_MAP_EQ_EQ]
+    \\ rveq \\ fs []
+    \\ qmatch_goalsub_abbrev_tac`EVERY _ fcs_pp`
+    \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
+    \\ rfs []
+    \\ drule compile_to_word_conventions2
+    \\ rw []
     \\ qhdtm_x_assum`EVERY`mp_tac
     \\ simp[Once EVERY_MEM] \\ strip_tac
     \\ simp[Once EVERY_MEM]
@@ -1108,13 +1605,13 @@ Proof
     \\ simp[EVERY2_MAP,word_simpProofTheory.labels_rel_def]
     \\ simp[LIST_REL_EL_EQN]
     \\ strip_tac
-    \\ qpat_x_assum`MEM _ pp`mp_tac
+    \\ qpat_x_assum`MEM _ fcs_pp`mp_tac
     \\ simp[MEM_EL]
-    \\ disch_then(qx_choose_then`i`strip_assume_tac)
-    \\ first_x_assum(qspec_then`i`mp_tac)
+    \\ disch_then(qx_choose_then`j`strip_assume_tac)
+    \\ first_x_assum(qspec_then`j`mp_tac)
     \\ simp[] \\ strip_tac
-    \\ qpat_x_assum`_ = EL i pp`(assume_tac o SYM) \\ fs[]
-    \\ fs[Abbr`pp0`] \\ rfs[EL_MAP]
+    \\ qpat_x_assum`_ = EL j pp`(assume_tac o SYM) \\ fs[]
+    \\ fs[Abbr`fcs_pp`] \\ rfs[EL_MAP]
     \\ qmatch_asmsub_abbrev_tac`compile_part c4_data_conf pp4`
     \\ PairCases_on`pp4`
     \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
@@ -1124,51 +1621,30 @@ Proof
     \\ pairarg_tac \\ fs[]
     \\ simp[EVERY_MEM]
     \\ rw[]
-    \\ fs[SUBSET_DEF]
-    \\ first_x_assum drule
-    \\ strip_tac
-    \\ first_x_assum drule
-    \\ pairarg_tac \\ rw[]
+    \\ imp_res_tac SUBSET_IMP
+    \\ pairarg_tac \\ fs[]
     \\ qpat_x_assum`MAP FST pp = _`mp_tac
     \\ simp[LIST_EQ_REWRITE, EL_MAP]
-    \\ disch_then(qspec_then`i`mp_tac)
-    \\ simp[])
+    \\ disch_then(qspec_then`j`mp_tac)
+    \\ simp[data_to_wordTheory.compile_part_def]
+    \\ first_x_assum drule
+    \\ rw [])
   \\ drule labels_ok_imp
   \\ simp[]
   \\ strip_tac
-  \\ simp[Abbr`stack_oracle`, UNCURRY]
-  \\ simp[Abbr`word_oracle`]
-  \\ simp[Abbr`data_oracle`]
-  \\ simp[full_co_def, UNCURRY, backendPropsTheory.FST_state_co]
-  \\ fs[]
-  \\ qpat_x_assum`compile _ p7 = _`mp_tac
-  \\ simp[lab_to_targetTheory.compile_def]
-  \\ simp[lab_to_targetTheory.compile_lab_def]
-  \\ pairarg_tac \\ fs[]
-  \\ pop_assum mp_tac
-  \\ simp[CaseEq"prod",CaseEq"option"]
-  \\ once_rewrite_tac[GSYM AND_IMP_INTRO]
-  \\ disch_then(assume_tac o Abbrev_intro)
-  \\ strip_tac
-  \\ strip_tac
-  \\ rveq
-  \\ simp[]
-  \\ imp_res_tac remove_labels_domain_labs
-  \\ simp[]
-  \\ fs[PAIR_MAP, UNCURRY]
   \\ simp[CONJ_ASSOC]
   \\ reverse conj_tac
   >- (
-    irule compile_all_enc_ok_pre
-    \\ reverse conj_tac
-    >- (
+    fs [backend_config_ok_def]
+    \\ irule compile_all_enc_ok_pre
+    \\ reverse conj_tac >- (
       first_x_assum irule
       \\ fs[mc_conf_ok_def]
-      \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
+      \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w]
+    )
     \\ simp[Abbr`ppg`]
     \\ irule stack_namesProofTheory.stack_names_stack_asm_ok
-    \\ reverse conj_tac
-    >- ( qhdtm_x_assum`lab_to_targetProof$mc_conf_ok`mp_tac \\ simp[mc_conf_ok_def] )
+    \\ drule_then (fn t => simp [t]) cake_orac_config_eqs 
     \\ simp[Once EVERY_MAP]
     \\ simp[LAMBDA_PROD]
     \\ simp[stack_removeTheory.prog_comp_def]
@@ -1177,10 +1653,7 @@ Proof
     \\ irule stack_removeProofTheory.stack_remove_comp_stack_asm_name
     \\ simp[]
     \\ conj_tac >- fs[mc_conf_ok_def]
-    \\ conj_tac >- fs[Abbr`stoff`]
-    \\ conj_tac >- ( fs[Abbr`stk`] \\ EVAL_TAC \\ fs[] )
-    \\ conj_tac >- ( fs[Abbr`stk`] \\ EVAL_TAC \\ fs[] )
-    \\ conj_tac >- ( fs[Abbr`stk`] \\ EVAL_TAC \\ fs[] )
+    \\ rpt (conj_tac >- ( fs[] \\ EVAL_TAC \\ fs[] ))
     \\ pop_assum mp_tac
     \\ simp[Once MEM_MAP, EXISTS_PROD]
     \\ simp[stack_allocTheory.prog_comp_def]
@@ -1190,6 +1663,7 @@ Proof
     \\ specl_args_of_then``stack_alloc$comp`` stack_allocProofTheory.stack_alloc_comp_stack_asm_name
           (Q.ISPEC_THEN`mc.target.config`mp_tac o Q.GEN`c`)
     \\ ntac 2 strip_tac \\ fs[]
+    \\ rfs []
     \\ first_x_assum match_mp_tac
     \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack kkk pp qq`
     \\ Cases_on`compile_word_to_stack kkk pp qq`
@@ -1198,22 +1672,13 @@ Proof
     \\ impl_tac
     >- (
       reverse conj_tac
-      >- ( fs[Abbr`kkk`,Abbr`stk`] )
+      >- ( fs[Abbr`kkk`] \\ drule_then (fn t => simp [t]) cake_orac_config_eqs )
       \\ qmatch_asmsub_abbrev_tac`Abbrev (pp = MAP _ pp0)`
-      \\ `∃wc ign. compile wc mc.target.config pp0 = (ign, pp)`
-      by (
-        simp[word_to_wordTheory.compile_def]
-        \\ qexists_tac`<| col_oracle := K NONE; reg_alg := aa |>`
-        \\ simp[]
-        \\ simp[word_to_wordTheory.next_n_oracle_def]
-        \\ simp[Abbr`pp`]
-        \\ simp[Abbr`kkk`,Abbr`stk`]
-        \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
-        \\ simp[UNCURRY])
-      \\ qspecl_then[`wc`,`mc.target.config`,`pp0`]mp_tac(
-           Q.GENL[`wc`,`ac`,`p`]word_to_wordProofTheory.compile_to_word_conventions)
+      \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
+      \\ drule_then (fn t => rfs [t]) cake_orac_config_eqs
+      \\ drule compile_to_word_conventions2
       \\ simp[]
-      \\ simp[EVERY_MEM, UNCURRY, Abbr`kkk`, Abbr`stk`]
+      \\ simp[EVERY_MEM, UNCURRY, Abbr`kkk`]
       \\ rw[]
       \\ first_x_assum drule
       \\ rw[]
@@ -1223,7 +1688,6 @@ Proof
       \\ simp[data_to_wordTheory.compile_part_def]
       \\ simp[PULL_EXISTS] \\ rw[]
       \\ irule data_to_wordProofTheory.comp_no_inst
-      \\ qunabbrev_tac`c4_data_conf`
       \\ EVAL_TAC
       \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]
       \\ pairarg_tac \\ fs[]
@@ -1234,227 +1698,170 @@ Proof
       \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
     \\ simp[EVERY_MEM, FORALL_PROD] \\ fs[]
     \\ disch_then drule
-    \\ simp[])
-
-  \\ simp[MAP_prog_to_section_Section_num]
-
-  \\ simp[SUBSET_DEF]
-
-  \\ conseq [get_labels_MAP_prog_to_section_SUBSET_code_labels
-      |> SPEC_ALL |> UNDISCH_ALL |> MATCH_MP SUBSET_IMP
-      |> DISCH_ALL |> IRULE_CANON]
-  \\ simp []
-
+    \\ simp[] )
+  (* this is where we start to hit missing things. it's all about labels, via
+     get_code_labels and config.lab_conf.labels. The latter can be shown to be
+     a union of get_code_labels at every step ( accum_lab_conf_labels ).
+     So it's down to get_code_labels. One of the below goals is expected to be
+     show via
+     stack_to_labProofTheory.get_labels_MAP_prog_to_section_SUBSET_code_labels
+     however that requires stackProps$stack_good_code_labels, which seems to
+     require that the "raise" stub is present, which isn't true in the
+     incremental case. we also want to show these labels are monotonic so that
+     they're disjoint, but there appear to be no relevant lemmas. *)
+  \\ conj_tac >- (
+    drule monotonic_DISJOINT_labels_lab
+    \\ reverse impl_tac >- (
+      simp[config_tuple2_def]
+      \\ disch_tac
+      \\ drule_then irule DISJOINT_SUBSET
+      \\ simp [Abbr `ppg`]
+      \\ simp [cake_orac_def, compile_inc_progs_def, compile_no_stubs_def]
+      \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ps`
+      \\ simp [labPropsTheory.get_code_labels_def]
+      \\ simp [SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+      \\ simp [stack_to_labTheory.prog_to_section_def, UNCURRY, PULL_EXISTS,
+         labPropsTheory.sec_get_code_labels_def, EXISTS_PROD, FORALL_PROD]
+      \\ metis_tac []
+    )
+    (* need to track back to wherever these labels are allocated *)
+    \\ cheat
+  )
   \\ `stackProps$stack_good_code_labels ppg` by (
     simp [Abbr `ppg`]
-    \\ irule word_to_stack_good_code_labels
-    \\ simp [word_to_stackTheory.compile_def]
-
-MARK
-
-print_match [] ``
-
-        \\ conseq [get_labels_MAP_prog_to_section_SUBSET_code_labels]
-
-        \\ `ppg = []`
-        by (
-          cheat (* this hack no longer works for the new oracle definition *)
-        )
-        \\ simp[]
-        \\ EVAL_TAC
-        \\ simp[]
-        (*
-        \\ conj_tac
-        >- (
-          simp[Abbr`ppg`]
-          \\ simp[MAP_MAP_o, o_DEF]
-          \\ srw_tac[ETA_ss][]
-          \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kkk pp qq`
-          \\ Cases_on`compile_word_to_stack kkk pp qq`
-          \\ drule word_to_stackProofTheory.MAP_FST_compile_word_to_stack \\ rw[]
-          \\ simp[Abbr`pp`, MAP_MAP_o, o_DEF]
-          \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
-          \\ srw_tac[ETA_ss][bvi_to_dataTheory.compile_prog_def]
-          \\ srw_tac[ETA_ss][MAP_MAP_o, o_DEF]
-          \\ simp[full_co_def, UNCURRY, backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co]
-          \\ qmatch_goalsub_abbrev_tac`compile_prog n2 pp`
-          \\ Cases_on`compile_prog n2 pp`
-          \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
-          \\ rw[]
-          \\ simp[IN_DISJOINT]
-          \\ CCONTR_TAC \\ fs[]
-          \\ first_x_assum drule
-          \\ simp[]
-          \\ rveq
-          \\ qunabbrev_tac`pp`
-          \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc n1 pp`
-          \\ Cases_on`compile_inc n1 pp`
-          \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
-          \\ strip_tac \\ fs[]
-          \\ qmatch_assum_rename_tac`z ∈ get_code_labels p7`
-          \\ PairCases_on`z` \\ fs[]
-          \\ conj_tac
-          >- (
-            strip_tac
-            \\ first_x_assum drule
-            \\ simp[]
-            \\ ... (* oracle labels... *) )
-          \\ disj1_tac
-          \\ fs[Abbr`p7`]
-          \\ ... (* get_code_labels range...  *) )
-        \\ qspec_then`ppg`mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels
-        \\ simp[SUBSET_DEF]
-        \\ strip_tac
-        \\ gen_tac \\ strip_tac
-        \\ first_x_assum drule
-        \\ strip_tac \\ rw[]
-        \\ ... (* referenced labels are present (for oracle) *) *))
-      \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
-      simp[Abbr`co`, Abbr`co3`] \\
-      simp [GSYM pure_co_def, cake_co_0, UNCURRY, full_co_def,
-        backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
-        clos_knownProofTheory.FST_known_co]
-
-      \\ qpat_x_assum`compile c.lab_conf p7 = _`mp_tac
-      \\ qmatch_asmsub_abbrev_tac`compile c.lab_conf TODO_p7`
-      \\ `TODO_p7 = p7` suffices_by simp[]
-
-      rpt(pairarg_tac \\ fs[]) \\
-      fs[full_co_def,bvi_tailrecProofTheory.mk_co_def] \\
-      rpt(pairarg_tac \\ fs[]) \\
-      fs[backendPropsTheory.state_co_def] \\
-      rpt(pairarg_tac \\ fs[]) \\
-      rveq \\ fs[] \\
-      rveq \\ fs[]
-      \\ fs[backendPropsTheory.pure_co_def]
-      \\ rveq \\ fs[]
-      \\ qhdtm_assum`clos_knownProof$known_co`(mp_tac o Q.AP_TERM`FST`)
-      \\ simp[clos_knownProofTheory.FST_known_co]
-      \\ qmatch_goalsub_rename_tac`SND ppp = _`
-      \\ Cases_on`ppp` \\ strip_tac \\ fs[] \\ rveq
-      \\ qpat_assum`_ = ((_,_,_,_,_,_,_,cfg),_)`(mp_tac o Q.AP_TERM`FST`)
-      \\ rewrite_tac[COND_RATOR]
-      \\ rewrite_tac[COND_RAND]
-      \\ simp[]
-      \\ strip_tac \\ rveq
-      \\ simp[]
-      \\ qpat_x_assum`compile c.lab_conf p7 = _`mp_tac
-      \\ qmatch_asmsub_abbrev_tac`compile c.lab_conf TODO_p7`
-      \\ `TODO_p7 = p7` suffices_by simp[]
-      \\ simp[Abbr`p7`]
-      \\ fs[Abbr`TODO_p7`,Abbr`stk`,Abbr`stoff`]
-      \\ AP_TERM_TAC \\ rfs[]
-
+    (* bigger issue here. to prove stack_good_code_labels we need to talk about
+       the presence of the "raise" stub at least, but that won't be in subsequent
+       incremental compilations. *)
+    \\ cheat
+  )
+  \\ drule stack_to_labProofTheory.get_labels_MAP_prog_to_section_SUBSET_code_labels
+  \\ disch_then drule
+  \\ simp [SUBSET_DEF]
 QED
 
-
-(*
-it would be better to have some kind of a theorem like this
-
-Theorem oracle_good_code_intro:
-  lab_to_target$compile c code = SOME (bytes, c')
-  ==>
-  good_code c (FST (orac i)).labels (SND (orac i))
-Proof
-  dunno
-QED
-*)
-
-
-Theorem clos_syntax_oracle_ok:
-
+Theorem oracle_stack_good_code:
   compile c prog = SOME (b, bm, c') /\
-  compile c.clos_conf clos_prog = (clos_c', clos_prog') /\
-  clos_c' = c'.clos_conf /\ clos_prog = SND (to_clos c prog) /\
-  1 <= c.clos_conf.max_app /\ c.source_conf = prim_config.source_conf ==>
-  clos_to_bvlProof$syntax_oracle_ok c.clos_conf clos_c' clos_prog
-     (cake_orac c' syntax (SND ∘ config_tuple1) (λps. (ps.clos_prog,[])))
-
+  reg_count_sub = (c.lab_conf.asm_conf.reg_count
+    - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3)) /\
+  backend_config_ok c /\ lab_to_targetProof$mc_conf_ok mc /\
+  c.lab_conf.asm_conf = mc.target.config ==>
+  stack_to_labProof$good_code reg_count_sub
+    (FST (SND (cake_orac c' syntax f (\ps. (ps.stack_prog, ps.cur_bm)) n)))
 Proof
-
-  rw []
-  \\ simp [to_clos_def, to_pat_def, to_flat_def]
+  strip_tac
+  \\ drule cake_orac_stack_ALL_DISTINCT
+  \\ fs [cake_orac_def, compile_inc_progs_def]
   \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ simp [syntax_oracle_ok_def, to_clos_def]
-  \\ simp [backendPropsTheory.FST_state_co, FST_cake_orac_0,
-      config_tuple1_def]
-  \\ conseq [syntax_ok_MAP_pat_to_clos]
-  \\ simp [clos_knownProofTheory.syntax_ok_def]
-
-  \\ csimp [MAP_compile_every_Fn_vs_NONE]
-  \\ conseq [MAP_compile_contains_App_SOME,
-      MAP_compile_esgc_free, clos_mtiProofTheory.syntax_ok_MAP,
-      MAP_compile_distinct_setglobals,
-      flat_to_patProofTheory.compile_esgc_free]
-  \\ conseq [MATCH_MP
-          (REWRITE_RULE [GSYM AND_IMP_INTRO] BAG_ALL_DISTINCT_SUB_BAG)
-          (SPEC_ALL elist_globals_compile)]
-  \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`]
-  \\ rveq
-  \\ conseq [source_to_flat_SND_compile_esgc_free,
-        compile_SND_globals_BAG_ALL_DISTINCT]
-  \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
-
-  \\ `oracle_monotonic (SET_OF_BAG ∘ closProps$elist_globals ∘ FST ∘ SND) $<
-        (SET_OF_BAG (closProps$elist_globals (MAP pat_to_clos_compile
-            (flat_to_pat_compile (SND (compile c.source_conf prog))))))
-        (cake_orac c' syntax (SND ∘ config_tuple1) (λps. (ps.clos_prog,[])))`
-  >- (
-    simp (map GSYM (CONJUNCTS cake_orac_eqs))
-    \\ conseq [oracle_monotonic_globals_pat_to_clos,
-        oracle_monotonic_globals_flat_to_pat]
-
-oracle_monotonic_globals_pat_to_clos
-
-    DEP_REWRITE_TAC (map (GSYM o GEN_ALL) (CONJUNCTS cake_orac_eqs))
-    simp [GSYM cake_orac_eqs]
-    simp []
-
-  \\ simp [is_state_oracle_def, FST_state_co, SND_state_co,
-        closPropsTheory.ignore_table_def, clos_knownProofTheory.FST_known_co,
-        clos_knownProofTheory.known_co_eq_pure_state]
-
-  \\ rpt (CHANGED_TAC (simp [Once PULL_FORALL, GSYM FORALL_AND_THM]))
-
-CHANGED_TAC (REWRITE_TAC (map Once (BODY_CONJUNCTS PULL_FORALL)))
-
-(*
-  \\ REWRITE_TAC ( CONJUNCTS syntax_oracle_unpack @ [
-      clos_knownProofTheory.known_co_known_mk_co] )
-  \\ fs [FST_add_state_co_0, clos_knownProofTheory.syntax_ok_def,
-      SPEC T clos_to_bvlProofTheory.cond_call_compile_inc_def,
-      backendPropsTheory.is_state_oracle_add_state_co]
-  \\ fs [clos_knownProofTheory.known_mk_co_def]
-  \\ REWRITE_TAC (CONJUNCTS syntax_oracle_unpack)
-  \\ simp [Abbr`e3`, Abbr`p''`]
-*)
- \\ conseq [GEN_ALL oracle_monotonic_globals_flat_to_pat,
-      MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] BAG_ALL_DISTINCT_SUB_BAG)
-          (SPEC_ALL elist_globals_compile)]
-  \\ conseq [flat_to_patProofTheory.compile_esgc_free]
-
-    \\ drule (GEN_ALL monotonic_globals_state_progs_compile)
-    \\ disch_then (fn t => conseq [t])
-    \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`]
-    \\ rveq
-    \\ simp [state_co_progs_def]
-    \\ conseq [state_progs_compile_nsAll_esgc_free,
-        source_to_flat_SND_compile_esgc_free,
-        compile_SND_globals_BAG_ALL_DISTINCT,
-        compile_FST_nsAll_esgc_free]
-    \\ csimp []
-    \\ conseq [compile_FST_nsAll_esgc_free]
-    \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
-    (* down to equalities about final config c' *)
-    \\ unabbrev_all_tac
-    \\ EVERY (map imp_res_tac from_EXS)
+  \\ rw [] \\ rveq \\ fs []
+  \\ simp [stack_to_labProofTheory.good_code_def]
+  \\ imp_res_tac word_to_stackProofTheory.MAP_FST_compile_word_to_stack
+  \\ simp [Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b``]EVERY_CONJ)
+              |> Q.SPEC`Q o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
+  \\ simp [GSYM ALL_EL_MAP, GSYM CONJ_ASSOC]
+  \\ simp [MAP_MAP_o, o_DEF, word_to_wordTheory.full_compile_single_def, UNCURRY]
+  \\ simp [ETA_THM]
+  \\ conj_tac >- (
+    drule bvl_num_stubs_LE_bvi_prog
+    \\ simp [cake_orac_def, compile_inc_progs_def]
+    \\ match_mp_tac listTheory.EVERY_MONOTONIC
+    \\ EVAL_TAC
     \\ simp []
-
-  (* needs a lot of fixing *)
-
+  )
+  \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack kkk pp`
+  \\ drule (GEN_ALL compile_word_to_stack_convs)
+  \\ disch_then(qspec_then`mc.target.config`mp_tac)
+  \\ simp[]
+  \\ qmatch_asmsub_abbrev_tac`Abbrev (pp = MAP _ pp0)`
+  \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
+  \\ rfs []
+  \\ drule compile_to_word_conventions2
+  \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
+  \\ simp[]
+  \\ strip_tac
+  \\ impl_tac
+  >- (
+    simp[EVERY_MAP, LAMBDA_PROD]
+    \\ fs[Abbr`kkk`]
+    \\ fs [backend_config_ok_def, lab_to_targetProofTheory.mc_conf_ok_def]
+    \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
+    \\ fs[EVERY_MEM] \\ rw[]
+    \\ first_x_assum drule
+    \\ pairarg_tac \\ rw[]
+    \\ first_x_assum irule
+    \\ simp[Abbr`pp0`, FORALL_PROD]
+    \\ simp[MEM_MAP, EXISTS_PROD]
+    \\ simp[data_to_wordTheory.compile_part_def]
+    \\ simp[PULL_EXISTS] \\ rw[]
+    \\ irule data_to_wordProofTheory.comp_no_inst
+    \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
+    \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]
+    \\ rpt (pairarg_tac \\ fs[])
+    \\ fsrw_tac[DNF_ss][]
+    \\ conj_tac \\ first_x_assum irule
+    \\ fs[mc_conf_ok_def]
+    \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w])
+  \\ simp[]
+  \\ strip_tac
+  \\ simp[EVERY_MAP]
+  \\ rw [] \\ TRY (
+    first_x_assum (fn t => mp_tac t \\ match_mp_tac MONO_EVERY)
+    \\ simp [UNCURRY]
+    \\ simp [Abbr `kkk`]
+    \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
+    \\ rw []
+    \\ drule_then irule word_to_stackProofTheory.reg_bound_mono
+    \\ fs [backend_config_ok_def]
+  )
+  \\ drule compile_word_to_stack_lab_pres
+  \\ simp[Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b``]EVERY_CONJ)
+          |> Q.SPEC`Q o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
+  \\ simp[o_DEF]
+  \\ reverse impl_tac
+  >- (
+    fs[EVERY_MEM, FORALL_PROD]
+    \\ rfs[Abbr`kkk`]
+    \\ metis_tac[] )
+  \\ qhdtm_x_assum`LIST_REL`mp_tac
+  \\ simp[EVERY2_MAP,word_simpProofTheory.labels_rel_def]
+  \\ simp[LIST_REL_EL_EQN]
+  \\ strip_tac
+  \\ simp[Once EVERY_MEM]
+  \\ simp[MEM_EL]
+  \\ gen_tac
+  \\ disch_then(qx_choose_then`i`strip_assume_tac)
+  \\ first_x_assum(qspec_then`i`mp_tac)
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac
+  \\ qpat_x_assum`_ = EL i _`(assume_tac o SYM) \\ fs[]
+  \\ fs[Abbr`pp0`] \\ rfs[EL_MAP]
+  \\ qmatch_asmsub_abbrev_tac`compile_part c4_data_conf pp4`
+  \\ PairCases_on`pp4`
+  \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
+  \\ fs[data_to_wordTheory.compile_part_def]
+  \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
+  \\ simp[]
+  \\ pairarg_tac \\ fs[]
+  \\ simp[EVERY_MEM]
+  \\ strip_tac
+  \\ fs[SUBSET_DEF]
+  \\ simp[GSYM FORALL_AND_THM, GSYM IMP_CONJ_THM]
+  \\ gen_tac \\ strip_tac
+  \\ first_x_assum drule
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ pairarg_tac \\ rw[]
+  \\ qpat_x_assum`MAP FST pp = _`mp_tac
+  \\ simp[LIST_EQ_REWRITE, EL_MAP]
+  \\ disch_then(qspec_then`i`mp_tac)
+  \\ simp[]
 QED
 
+Theorem data_to_word_orac_eq_std = data_to_word_orac_eq
+  |> SPEC_ALL |> Q.GEN `f4` |> Q.ISPEC `(SND ∘ SND ∘ SND ∘ config_tuple2)` |> GEN_ALL
+
+Theorem data_to_word_orac_eq_sym_std = data_to_word_orac_eq_std
+  |> SIMP_RULE bool_ss []
+  |> SPEC_ALL |> UNDISCH_ALL |> GSYM |> DISCH_ALL |> GEN_ALL
 
 Theorem compile_correct
 
@@ -1531,6 +1938,7 @@ Theorem compile_correct
     simp[EXTENSION,IN_DEF] >>
     metis_tac[semantics_prog_deterministic] ) >>
   qunabbrev_tac`sem2` >>
+
   (flat_to_patProofTheory.compile_semantics
    |> Q.GEN`cc`
    |> (
@@ -1557,7 +1965,8 @@ Theorem compile_correct
                                     (MAP prog_comp progs))))))
                          (compile_word_to_stack ((c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs + 3))-2) progs bm0))
                             cfg (MAP (λp. full_compile_single mc.target.config.two_reg_arith (mc.target.config.reg_count - (LENGTH mc.target.config.avoid_regs + 5))
-                            aa (mc:('a,'b,'c)machine_config).target.config (p,NONE)) progs)) o
+                            c.word_to_word_conf.reg_alg
+                            (mc:('a,'b,'c)machine_config).target.config (p,NONE)) progs)) o
                             MAP (compile_part (c.data_conf with has_fp_ops := (1 < mc.target.config.fp_reg_count))))))))``
      |> ISPEC)
    |> Q.GEN`co`
@@ -1604,55 +2013,14 @@ Theorem compile_correct
       fs[flat_to_patProofTheory.compile_state_def,
          flatSemTheory.initial_state_def,Abbr`s`,
          cake_orac_eqs] )
-    \\ rpt (qsubpat_x_assum kall_tac `Fail`)
-(* saved *)
-
-    \\ simp[syntax_oracle_ok_def]
-    \\ simp[backendPropsTheory.FST_state_co, FST_cake_orac_0,
-        config_tuple1_def]
-    \\ `clos_mtiProof$syntax_ok e3`
-    by (
-      simp[Abbr`e3`, Abbr`p''`]
-      \\ match_mp_tac clos_mtiProofTheory.syntax_ok_MAP
-      \\ rw [syntax_ok_pat_to_clos] )
-    \\ REWRITE_TAC ( CONJUNCTS syntax_oracle_unpack @ [
-        clos_knownProofTheory.known_co_known_mk_co] )
-    \\ fs [FST_add_state_co_0, clos_knownProofTheory.syntax_ok_def,
-        SPEC T clos_to_bvlProofTheory.cond_call_compile_inc_def,
-        backendPropsTheory.is_state_oracle_add_state_co]
-    \\ fs [clos_knownProofTheory.known_mk_co_def]
-    \\ REWRITE_TAC (CONJUNCTS syntax_oracle_unpack)
-    \\ simp [Abbr`e3`, Abbr`p''`]
-    \\ csimp [MAP_compile_every_Fn_vs_NONE]
-    \\ conseq [MAP_compile_contains_App_SOME,
-        MAP_compile_esgc_free, clos_mtiProofTheory.syntax_ok_MAP,
-        oracle_monotonic_globals_pat_to_clos,
-        MAP_compile_distinct_setglobals,
-        flat_to_patProofTheory.compile_esgc_free]
-    \\ fs [syntax_ok_pat_to_clos, clos_to_bvlProofTheory.cond_call_compile_inc_def]
-    \\ simp [Abbr `p'`]
-    \\ conseq [GEN_ALL oracle_monotonic_globals_flat_to_pat,
-        MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] BAG_ALL_DISTINCT_SUB_BAG)
-            (SPEC_ALL elist_globals_compile)]
-    \\ conseq [flat_to_patProofTheory.compile_esgc_free]
-
-    \\ drule (GEN_ALL monotonic_globals_state_progs_compile)
-    \\ disch_then (fn t => conseq [t])
-    \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`]
-    \\ rveq
-    \\ simp [state_co_progs_def]
-    \\ conseq [state_progs_compile_nsAll_esgc_free,
-        source_to_flat_SND_compile_esgc_free,
-        compile_SND_globals_BAG_ALL_DISTINCT,
-        compile_FST_nsAll_esgc_free]
-    \\ csimp []
-    \\ conseq [compile_FST_nsAll_esgc_free]
-    \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
-    (* down to equalities about final config c' *)
+    \\ drule_then irule cake_orac_clos_syntax_oracle_ok
     \\ unabbrev_all_tac
+    \\ simp [to_clos_def, to_pat_def, to_flat_def]
     \\ EVERY (map imp_res_tac from_EXS)
-    \\ simp []
+    \\ rveq \\ fs []
+    \\ simp [clos_to_bvlTheory.config_component_equality]
   )
+
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qhdtm_x_assum`from_bvl`mp_tac >>
   simp[from_bvl_def] >>
@@ -1669,24 +2037,37 @@ Theorem compile_correct
   \\ impl_tac
   >- (
     rpt (qsubpat_x_assum kall_tac `bvlSem$semantics`)
-    \\ simp [Abbr `co`, backendPropsTheory.FST_state_co,
-        clos_knownProofTheory.FST_known_co]
-    \\ simp [Abbr`co3`, backendPropsTheory.FST_state_co]
-    \\ simp [cake_co_0]
-    \\ simp [cake_co_def]
-    \\ REWRITE_TAC ( CONJUNCTS syntax_oracle_unpack @ [cake_co_def,
-        clos_knownProofTheory.known_co_known_mk_co, clos_mk_co_def] )
-    \\ simp []
+    \\ simp [Abbr `co`]
+    \\ simp [cake_orac_0, config_tuple2_def]
+    \\ drule_then (fn t => conseq [t]) cake_orac_bvl_ALL_DISTINCT
+    \\ unabbrev_all_tac
     \\ imp_res_tac clos_to_bvlProofTheory.compile_all_distinct_locs
     \\ simp []
-    \\ conseq [compile_inc_phases_all_distinct]
-    \\ unabbrev_all_tac
-    \\ simp [pure_co_progs_def, clos_to_bvlProofTheory.SND_cond_mti_compile_inc]
-    \\ EVERY (map imp_res_tac from_EXS)
-    \\ simp [])
+    \\ conj_tac >- (
+      (* equalities on final config *)
+      EVERY (map imp_res_tac from_EXS)
+      \\ fs []
+    )
+    (* proving is_state_oracle sucks *)
+    \\ REWRITE_TAC [state_co_eq_comp, o_ASSOC]
+    \\ irule is_state_oracle_cake_orac_comp
+    \\ rw []
+    \\ simp [compile_inc_progs_def, state_co_fun_def,
+             bvl_to_bvi_compile_inc_all_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs []
+    \\ fs [config_tuple2_def]
+    \\ rveq \\ fs []
+    \\ drule_then (fn t => fs (CONJUNCTS t)) cake_orac_config_eqs
+    \\ rveq \\ fs []
+    \\ rveq \\ fs [])
 
+  \\ simp [Abbr `co`]
+  \\ drule_then (fn t => simp [t]) bvl_to_bvi_orac_eq
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qunabbrev_tac`cc`
+  \\ rpt (qsubpat_x_assum kall_tac `patSem$semantics`)
+
   \\ (bvi_to_dataProofTheory.compile_prog_semantics
       |> SIMP_RULE std_ss [GSYM backendPropsTheory.pure_cc_def |> SIMP_RULE std_ss [LET_THM]]
       |> REWRITE_RULE [GSYM pure_co_def]
@@ -1702,8 +2083,19 @@ Theorem compile_correct
   qhdtm_x_assum`from_word`mp_tac \\
   simp[from_word_def] \\ pairarg_tac \\ fs[] \\ strip_tac \\
 
+  qmatch_goalsub_abbrev_tac`cake_orac _ orac_syntax _ (\ps. ps.bvi_prog)` \\
+  simp [simple_orac_eqs] \\
+  qabbrev_tac `data_oracle = cake_orac c' orac_syntax
+        (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.data_prog)` \\
+  qabbrev_tac `word_oracle = cake_orac c' orac_syntax
+        (SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.word_prog)` \\
   qmatch_assum_rename_tac`compile _ p5 = (c6,p6)` \\
   fs[from_stack_def,from_lab_def] \\
+
+  qabbrev_tac `stack_oracle = cake_orac c' orac_syntax
+        (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. (ps.stack_prog, ps.cur_bm))` \\
+  qabbrev_tac `lab_oracle = cake_orac c' orac_syntax
+        (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog)` \\
   qmatch_assum_abbrev_tac`_ _ (compile c4.lab_conf p7) = SOME (bytes,bitmaps,c')`
   \\ drule attach_bitmaps_SOME
   \\ disch_tac \\ fs []
@@ -1715,21 +2107,8 @@ Theorem compile_correct
   strip_tac \\
   qabbrev_tac`kkk = stk - 2`>>
   qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ data_oracle` \\
-
   qabbrev_tac `c4_data_conf = (c4.data_conf with has_fp_ops := (1 < c4.lab_conf.asm_conf.fp_reg_count))` \\
-  qabbrev_tac`word_oracle =
-    (I ## MAP (λp. full_compile_single mc.target.config.two_reg_arith kkk aa c4.lab_conf.asm_conf (p,NONE))) o
-    (I ## MAP (compile_part c4_data_conf)) o
-    data_oracle`>>
-  qabbrev_tac`stack_oracle =
-     (λn.
-      let ((bm0,cfg),progs) = word_oracle n in
-      let (progs,bm) = word_to_stack$compile_word_to_stack kkk progs bm0 in
-        (cfg,progs,DROP (LENGTH bm0) bm))`>>
-  qabbrev_tac`lab_oracle =
-    (λn.
-     let (cfg,p,b) = stack_oracle n in
-       (cfg,stack_to_labProof$compile_no_stubs c4.stack_conf.reg_names c4.stack_conf.jump stoff stk p))`\\
+
   qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = lab_to_targetProof$make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
        (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace lab_oracle` \\
   qabbrev_tac`stack_st_opt =
@@ -1841,25 +2220,25 @@ Theorem compile_correct
     EVAL_TAC>>rw[])>>
   disch_then(qspecl_then[`fromAList t_code`,`InitGlobals_location`,`p4`,`c4_data_conf`]mp_tac) \\
   (* TODO: make this auto *)
-  disch_then(qspecl_then[`mc.target.config.two_reg_arith`,`kkk`,`c4.lab_conf.asm_conf`,`aa`]mp_tac) \\
-  `∀n. EVERY ($<= data_num_stubs) (MAP FST (SND (bvl_to_bviProof$full_co c.bvl_conf co n)))` by (
+  disch_then(qspecl_then[`mc.target.config.two_reg_arith`,`kkk`,`c4.lab_conf.asm_conf`,`c.word_to_word_conf.reg_alg`]mp_tac) \\
+
+  `∀n. EVERY ($<= data_num_stubs) (MAP FST (SND (data_oracle n)))` by (
     rpt (qsubpat_x_assum kall_tac `dataSem$semantics`)
     \\ rpt (qsubpat_x_assum kall_tac `closSem$semantics`)
-    \\ simp[Abbr`co`,full_co_def, Abbr`co3`]
-    \\ simp [cake_co_def]
-    \\ REWRITE_TAC ( CONJUNCTS syntax_oracle_unpack @ [cake_co_def,
-        clos_knownProofTheory.known_co_known_mk_co, clos_mk_co_def] )
-    \\ conseq [data_num_stubs_LE_tailrec_compile, data_num_stubs_LE_bvl_bvi_compile]
-    \\ qunabbrev_tac `c4`
-    \\ simp []
-    \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
-    \\ `data_num_stubs <= bvl_num_stubs` by EVAL_TAC
-    \\ rw []
+    \\ gen_tac
+    \\ qsuff_tac `EVERY ($<= bvl_num_stubs) (MAP FST (SND (data_oracle n)))`
+    >- (
+      match_mp_tac listTheory.MONO_EVERY
+      \\ EVAL_TAC \\ simp []
+    )
+    \\ simp[Abbr`data_oracle`]
+    \\ simp [GSYM simple_orac_eqs]
+    \\ drule_then irule bvl_num_stubs_LE_bvi_prog
   )
-
   \\ `loc = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
     \\ rpt (pairarg_tac \\ fs []))
+
   \\ impl_tac >- (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def,Abbr`c4`,Abbr`c4_data_conf`]
     (*
@@ -1889,9 +2268,17 @@ Theorem compile_correct
     conj_tac >- (
       AP_TERM_TAC>>
       simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,LAMBDA_PROD])>>
-    qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ TODO_cc'`
-    \\ qpat_x_assum`dataSem$semantics _ _ data_oracle _ _ ≠ Fail`mp_tac
+    conj_tac >- (
+      simp [Abbr `data_oracle`]
+      \\ simp [GSYM pure_co_def]
+      \\ drule_then (irule o GSYM) data_to_word_orac_eq
+      \\ fs [markerTheory.Abbrev_def]
+    )
+    \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ TODO_cc'`
+    \\ qpat_x_assum`dataSem$semantics _ _ _ _ _ ≠ Fail`mp_tac
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ TODO_cc`
+    \\ simp [Abbr `data_oracle`]
+    \\ simp [simple_orac_eqs]
     \\ `TODO_cc' = TODO_cc` suffices_by simp[]
     \\ simp[Abbr`TODO_cc`,Abbr`TODO_cc'`, FUN_EQ_THM]
     \\ rpt gen_tac
@@ -1901,7 +2288,6 @@ Theorem compile_correct
     \\ simp[full_make_init_compile]
     \\ simp[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
     \\ simp[Abbr`stoff`] ) \\
-
   `lab_st.ffi = ffi` by ( fs[Abbr`lab_st`] ) \\
   `word_st.ffi = ffi` by (
     simp[Abbr`word_st`,word_to_stackProofTheory.make_init_def] \\
@@ -1909,475 +2295,46 @@ Theorem compile_correct
     fs [full_make_init_def,stack_allocProofTheory.make_init_def,
         stack_removeProofTheory.make_init_any_ffi] \\ EVAL_TAC) \\
   strip_tac \\
+
   qmatch_abbrev_tac`x ⊆ extend_with_resource_limit y` \\
-  `Fail ∉ y` by fs[Abbr`y`] \\
+  `Fail ∉ y` by (fs [Abbr `y`] \\ fs [GSYM pure_co_def, simple_orac_eqs]) \\
   pop_assum mp_tac \\ simp[GSYM implements_def] \\
   simp[Abbr`y`] \\
   drule (GEN_ALL semantics_compile) \\
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
   simp[Abbr`c4`] \\
   disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
-  disch_then(qspec_then`lab_oracle`mp_tac) \\
-
-  (* saved *)
-
+  disch_then(qspec_then`lab_oracle`mp_tac)
   \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_next_mono)
   \\ strip_tac
   \\ pop_assum(assume_tac o Abbrev_intro)
-
-  (* skip ahead to MARK *)
-
-  `∀k. SND (co k) = []` by (
-      (* FIXME: this is where the null oracle is examined and
-         unrealistic assumptions start being used. *)
-      gen_tac
-      \\ rpt (qsubpat_x_assum kall_tac `dataSem$semantics`)
-      \\ rpt (qsubpat_x_assum kall_tac `closSem$semantics`)
-      \\ simp[Abbr`co`, Abbr`co3`, Abbr`pc`]
-
-      \\ simp [cake_co_def]
-      \\ REWRITE_TAC ( CONJUNCTS syntax_oracle_unpack @ [cake_co_def,
-          clos_knownProofTheory.known_co_known_mk_co, clos_mk_co_def] )
-      \\ simp []
-
-      \\ simp[null_oracle_def]
-      \\ simp[Q.SPECL [`f`, `st`, `K v`] state_co_progs_def |> GEN_ALL,
-            flat_to_patTheory.compile_def, source_to_flatTheory.compile_def,
-            source_to_flatTheory.compile_prog_def,
-            source_to_flatTheory.compile_decs_def]
-
-      \\ qmatch_goalsub_abbrev_tac`SND (aaa (bbb,[],[]))`
-      \\ `SND (aaa (bbb,[],[])) = ([],[])`  by ( rw[Abbr`bbb`,Abbr`aaa`] \\ EVAL_TAC )
-      \\ fs[]
-      \\ simp[closPropsTheory.ignore_table_def, UNCURRY]
-      \\ `FST (FST (aaa (bbb,[],[]))) = TODO_co1`
-      by ( simp[Abbr`aaa`,Abbr`bbb`] \\ rw[] )
-      \\ fs[]
-      \\ qmatch_goalsub_abbrev_tac`SND ccc,[]`
-      \\ `ccc = (make_even (TODO_co1+1), [Op None (Const (&TODO_co1))[]])`
-      by ( simp[Abbr`ccc`] \\ EVAL_TAC )
-      \\ fs[Abbr`ccc`]
-      \\ qmatch_goalsub_abbrev_tac`_ _ (SND ccc)`
-      \\ `ccc = (SND (SND (FST (aaa (bbb,[],[])))),[Op None (Const (&TODO_co1)) []],[])`
-      by (
-        simp[Abbr`ccc`]
-        \\ EVAL_TAC \\ simp[UNCURRY]
-        \\ CASE_TAC \\ EVAL_TAC )
-      \\ fs[Abbr`ccc`]
-      \\ qmatch_goalsub_abbrev_tac`_ (SND ccc)`
-      \\ `SND ccc = ([Op None (Const (&TODO_co1)) []],[])`
-      by ( rw[Abbr`ccc`] \\ EVAL_TAC )
-      \\ fs[]
-      \\ simp[clos_annotateProofTheory.compile_inc_def]
-      \\ CONV_TAC(LAND_CONV(RAND_CONV EVAL))
-      \\ simp[clos_to_bvlProofTheory.compile_inc_def]) \\
-
-  `∀k. FST (SND (FST (co k))) = n1`
-  by (
-    simp[Abbr`co`, backendPropsTheory.FST_state_co, clos_knownProofTheory.FST_known_co]
-    \\ simp[Abbr`co3`]
-    \\ rewrite_tac[COND_RATOR]
-    \\ rewrite_tac[Ntimes COND_RAND 3]
-    \\ simp[] )
-  \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_prog_distinct_locs)
-  \\ impl_tac >- ( drule bvl_inlineProofTheory.compile_prog_names \\ rw[] )
-  \\ strip_tac
-  \\ `∀k. FST (SND (SND (FST (co k)))) = n2`
-  by (
-    simp[Abbr`co`, backendPropsTheory.FST_state_co, clos_knownProofTheory.FST_known_co]
-    \\ simp[Abbr`co3`]
-    \\ rewrite_tac[COND_RATOR]
-    \\ rewrite_tac[Ntimes COND_RAND 3]
-    \\ simp[] )
-
-  \\ `∀k. FST (SND (SND (SND (FST (co k))))) = ((FST(compile c.lab_conf.asm_conf p5)).bitmaps)`
-  by (
-    simp[Abbr`co`, backendPropsTheory.FST_state_co, clos_knownProofTheory.FST_known_co]
-    \\ simp[Abbr`co3`]
-    \\ rewrite_tac[COND_RATOR]
-    \\ rewrite_tac[Ntimes COND_RAND 5]
-    \\ simp[]
-    \\ qpat_x_assum`_ = (_,p5)`mp_tac
-    \\ simp[]
-    \\ simp[Abbr`t_code`]
-    \\ qunabbrev_tac`c4_data_conf`
-    \\ simp_tac(srw_ss())[]
-    \\ simp[])
-  \\ `∀k. (SND(SND(SND(SND(FST(co k)))))).labels = (SND(THE(compile c.lab_conf p7))).labels`
-  by (
-    simp[Abbr`co`, backendPropsTheory.FST_state_co, clos_knownProofTheory.FST_known_co]
-    \\ simp[Abbr`co3`]
-    \\ rewrite_tac[COND_RATOR]
-    \\ rewrite_tac[Ntimes COND_RAND 8]
-    \\ simp[]
-    \\ rpt AP_TERM_TAC
-    \\ simp[Abbr`p7`,Abbr`stk`,Abbr`stoff`]
-    \\ AP_TERM_TAC
-    \\ qpat_x_assum`_ = (_,p6)`mp_tac
-    \\ simp[]
-    \\ simp[SND_EQ_EQUIV] \\ rw[]
-    \\ qexists_tac`c6` \\ pop_assum(SUBST1_TAC o SYM)
-    \\ AP_TERM_TAC
-    \\ qpat_x_assum`_ = (_,p5)`mp_tac
-    \\ simp[]
-    \\ simp[SND_EQ_EQUIV] \\ rw[]
-    \\ qexists_tac`col` \\ pop_assum(SUBST1_TAC o SYM)
-    \\ AP_TERM_TAC
-    \\ simp[Abbr`t_code`]
-    \\ qunabbrev_tac`c4_data_conf`
-    \\ simp_tac (srw_ss())[]
-    \\ simp[] )
-
-  MARK end-skip
-
   \\ full_simp_tac (bool_ss ++ simpLib.type_ssfrag ``: 'a config``) []
+
+  (* saved *)
 
   \\ impl_keep_tac
   >- (
-
     conj_tac >- (
-
       rpt (qsubpat_x_assum kall_tac `dataSem$semantics`)
       \\ rpt (qsubpat_x_assum kall_tac `closSem$semantics`)
-
+      \\ simp [Abbr `lab_oracle`]
       \\ simp [compiler_oracle_ok_def]
-      \\ conj_tac
-      >- (
-
-
-(* experimental *)
-
-simp [Abbr`lab_oracle`]
-\\ gen_tac
-\\ pairarg_tac \\ simp []
-\\ fs [miscTheory.UNCURRY_eq_pair]
-\\ rveq \\ simp []
-
-
-
-val t = full_make_init_semantics |> concl
-    |> find_term (can (match_term ``t.compile_oracle = _``))
-
-
-        simp[Abbr`lab_oracle`, UNCURRY]
-        \\ simp[compile_no_stubs_def]
-        \\ gen_tac
-        \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ppg`
-        \\ `stack_to_labProof$labels_ok (MAP prog_to_section ppg)`
-        by (
-          irule prog_to_section_labels_ok
-          \\ simp[Abbr`ppg`,MAP_MAP_o, o_DEF]
-          \\ simp_tac(srw_ss()++ETA_ss)[Abbr`stack_oracle`]
-          \\ simp[UNCURRY]
-          \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kkk psk bmk`
-          \\ Cases_on`compile_word_to_stack kkk psk bmk`
-          \\ imp_res_tac word_to_stackProofTheory.MAP_FST_compile_word_to_stack
-          \\ fs[Abbr`psk`]
-          \\ simp[Abbr`word_oracle`, MAP_MAP_o, o_DEF]
-          \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
-          \\ simp_tac(srw_ss()++ETA_ss)[Abbr`data_oracle`]
-          \\ conj_tac >- (
-            (* fixme: we proved some of this a moment ago, maybe save it *)
-            irule ALL_DISTINCT_MAP_FST_SND_full_co
-            \\ simp[]
-            \\ simp[Abbr`co`, Abbr`co3`, Abbr`pc`]
-            \\ simp [cake_co_def]
-            \\ REWRITE_TAC ( CONJUNCTS syntax_oracle_unpack @ [cake_co_def,
-                    clos_knownProofTheory.known_co_known_mk_co, clos_mk_co_def] )
-            \\ simp []
-            \\ conseq [compile_inc_phases_all_distinct]
-            \\ simp [FST_SND_add_state_co, states_tailrec_MOD_namespaces]
-            \\ imp_res_tac bvi_tailrecProofTheory.compile_prog_next_mono
-            \\ simp [pure_co_progs_def, clos_to_bvlProofTheory.SND_cond_mti_compile_inc]
-            \\ EVAL_TAC
-            \\ simp []
-          )
-          \\ simp[stack_namesTheory.compile_def, MAP_MAP_o, EVERY_MAP]
-          \\ simp[LAMBDA_PROD]
-          \\ simp[stack_allocTheory.prog_comp_def]
-          \\ simp[stack_removeTheory.prog_comp_def]
-          \\ simp[stack_namesTheory.prog_comp_def]
-          \\ simp[Once EVERY_MEM, FORALL_PROD]
-          \\ qx_genl_tac[`l1`,`l2`] \\ strip_tac
-          \\ simp[GSYM stack_namesProofTheory.stack_names_lab_pres]
-          \\ simp[GSYM stack_removeProofTheory.stack_remove_lab_pres]
-          \\ simp[GSYM word_to_stackProofTheory.word_to_stack_lab_pres]
-          \\ qspecl_then[`l1`,`next_lab l2 1`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
-          \\ simp[]
-          \\ pairarg_tac \\ simp[]
-          \\ reverse impl_tac >- rw[]
-          \\ drule compile_word_to_stack_lab_pres
-          \\ CONV_TAC(PATH_CONV"lrr"(SIMP_CONV(srw_ss())[Once EVERY_MEM]))
-          \\ simp[FORALL_PROD]
-          \\ disch_then irule \\ simp[]
-          \\ qmatch_goalsub_abbrev_tac`EVERY _ pp`
-          \\ qmatch_asmsub_abbrev_tac`Abbrev (pp = MAP _ pp0)`
-          \\ `∃wc ign. compile wc mc.target.config pp0 = (ign, pp)`
-          by (
-            simp[word_to_wordTheory.compile_def]
-            \\ qexists_tac`<| col_oracle := K NONE; reg_alg := aa |>`
-            \\ simp[]
-            \\ simp[word_to_wordTheory.next_n_oracle_def]
-            \\ simp[Abbr`pp`]
-            \\ simp[Abbr`kkk`,Abbr`stk`]
-            \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] )
-          \\ qspecl_then[`wc`,`mc.target.config`,`pp0`]mp_tac (Q.GENL[`wc`,`ac`,`p`]word_to_wordProofTheory.compile_to_word_conventions)
-          \\ simp[]
-          \\ strip_tac
-          \\ qhdtm_x_assum`EVERY`mp_tac
-          \\ simp[Once EVERY_MEM] \\ strip_tac
-          \\ simp[Once EVERY_MEM]
-          \\ ntac 2 strip_tac
-          \\ first_x_assum drule
-          \\ pairarg_tac \\ fs[]
-          \\ strip_tac
-          \\ qhdtm_x_assum`LIST_REL`mp_tac
-          \\ simp[EVERY2_MAP,word_simpProofTheory.labels_rel_def]
-          \\ simp[LIST_REL_EL_EQN]
-          \\ strip_tac
-          \\ qpat_x_assum`MEM _ pp`mp_tac
-          \\ simp[MEM_EL]
-          \\ disch_then(qx_choose_then`i`strip_assume_tac)
-          \\ first_x_assum(qspec_then`i`mp_tac)
-          \\ simp[] \\ strip_tac
-          \\ qpat_x_assum`_ = EL i pp`(assume_tac o SYM) \\ fs[]
-          \\ fs[Abbr`pp0`] \\ rfs[EL_MAP]
-          \\ qmatch_asmsub_abbrev_tac`compile_part c4_data_conf pp4`
-          \\ PairCases_on`pp4`
-          \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
-          \\ fs[data_to_wordTheory.compile_part_def]
-          \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
-          \\ simp[]
-          \\ pairarg_tac \\ fs[]
-          \\ simp[EVERY_MEM]
-          \\ rw[]
-          \\ fs[SUBSET_DEF]
-          \\ first_x_assum drule
-          \\ strip_tac
-          \\ first_x_assum drule
-          \\ pairarg_tac \\ rw[]
-          \\ qpat_x_assum`MAP FST pp = _`mp_tac
-          \\ simp[LIST_EQ_REWRITE, EL_MAP]
-          \\ disch_then(qspec_then`i`mp_tac)
-          \\ simp[])
-
-        \\ drule labels_ok_imp
-        \\ simp[]
-        \\ strip_tac
-        \\ simp[Abbr`stack_oracle`, UNCURRY]
-        \\ simp[Abbr`word_oracle`]
-        \\ simp[Abbr`data_oracle`]
-        \\ simp[full_co_def, UNCURRY, backendPropsTheory.FST_state_co]
-        \\ fs[]
-        \\ qpat_x_assum`compile _ p7 = _`mp_tac
-        \\ simp[lab_to_targetTheory.compile_def]
-        \\ simp[lab_to_targetTheory.compile_lab_def]
-        \\ pairarg_tac \\ fs[]
-        \\ pop_assum mp_tac
-        \\ simp[CaseEq"prod",CaseEq"option"]
-        \\ once_rewrite_tac[GSYM AND_IMP_INTRO]
-        \\ disch_then(assume_tac o Abbrev_intro)
-        \\ strip_tac
-        \\ strip_tac
-        \\ rveq
-        \\ simp[]
-        \\ imp_res_tac remove_labels_domain_labs
-        \\ simp[]
-        \\ fs[PAIR_MAP, UNCURRY]
-        \\ simp[CONJ_ASSOC]
-        \\ reverse conj_tac
-        >- (
-          irule compile_all_enc_ok_pre
-          \\ reverse conj_tac
-          >- (
-            first_x_assum irule
-            \\ fs[mc_conf_ok_def]
-            \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
-          \\ simp[Abbr`ppg`]
-          \\ irule stack_namesProofTheory.stack_names_stack_asm_ok
-          \\ reverse conj_tac
-          >- ( qhdtm_x_assum`lab_to_targetProof$mc_conf_ok`mp_tac \\ simp[mc_conf_ok_def] )
-          \\ simp[Once EVERY_MAP]
-          \\ simp[LAMBDA_PROD]
-          \\ simp[stack_removeTheory.prog_comp_def]
-          \\ simp[Once EVERY_MEM, FORALL_PROD]
-          \\ rpt gen_tac \\ strip_tac
-          \\ irule stack_removeProofTheory.stack_remove_comp_stack_asm_name
-          \\ simp[]
-          \\ conj_tac >- fs[mc_conf_ok_def]
-          \\ conj_tac >- fs[Abbr`stoff`]
-          \\ conj_tac >- ( fs[Abbr`stk`] \\ EVAL_TAC \\ fs[] )
-          \\ conj_tac >- ( fs[Abbr`stk`] \\ EVAL_TAC \\ fs[] )
-          \\ conj_tac >- ( fs[Abbr`stk`] \\ EVAL_TAC \\ fs[] )
-          \\ pop_assum mp_tac
-          \\ simp[Once MEM_MAP, EXISTS_PROD]
-          \\ simp[stack_allocTheory.prog_comp_def]
-          \\ simp[FST_EQ_EQUIV]
-          \\ strip_tac
-          \\ qhdtm_x_assum`comp`mp_tac
-          \\ specl_args_of_then``stack_alloc$comp`` stack_allocProofTheory.stack_alloc_comp_stack_asm_name
-                (Q.ISPEC_THEN`mc.target.config`mp_tac o Q.GEN`c`)
-          \\ ntac 2 strip_tac \\ fs[]
-          \\ first_x_assum match_mp_tac
-          \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack kkk pp qq`
-          \\ Cases_on`compile_word_to_stack kkk pp qq`
-          \\ drule (Q.GEN`c`compile_word_to_stack_convs)
-          \\ disch_then(qspec_then`mc.target.config`mp_tac)
-          \\ impl_tac
-          >- (
-            reverse conj_tac
-            >- ( fs[Abbr`kkk`,Abbr`stk`] )
-            \\ qmatch_asmsub_abbrev_tac`Abbrev (pp = MAP _ pp0)`
-            \\ `∃wc ign. compile wc mc.target.config pp0 = (ign, pp)`
-            by (
-              simp[word_to_wordTheory.compile_def]
-              \\ qexists_tac`<| col_oracle := K NONE; reg_alg := aa |>`
-              \\ simp[]
-              \\ simp[word_to_wordTheory.next_n_oracle_def]
-              \\ simp[Abbr`pp`]
-              \\ simp[Abbr`kkk`,Abbr`stk`]
-              \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
-              \\ simp[UNCURRY])
-            \\ qspecl_then[`wc`,`mc.target.config`,`pp0`]mp_tac(
-                 Q.GENL[`wc`,`ac`,`p`]word_to_wordProofTheory.compile_to_word_conventions)
-            \\ simp[]
-            \\ simp[EVERY_MEM, UNCURRY, Abbr`kkk`, Abbr`stk`]
-            \\ rw[]
-            \\ first_x_assum drule
-            \\ rw[]
-            \\ first_x_assum irule
-            \\ simp[Abbr`pp0`, FORALL_PROD]
-            \\ simp[MEM_MAP, EXISTS_PROD]
-            \\ simp[data_to_wordTheory.compile_part_def]
-            \\ simp[PULL_EXISTS] \\ rw[]
-            \\ irule data_to_wordProofTheory.comp_no_inst
-            \\ qunabbrev_tac`c4_data_conf`
-            \\ EVAL_TAC
-            \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]
-            \\ pairarg_tac \\ fs[]
-            \\ pairarg_tac \\ fs[]
-            \\ fsrw_tac[DNF_ss][]
-            \\ conj_tac \\ first_x_assum irule
-            \\ fs[mc_conf_ok_def]
-            \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
-          \\ simp[EVERY_MEM, FORALL_PROD] \\ fs[]
-          \\ disch_then drule
-          \\ simp[])
-
-        \\ simp[MAP_prog_to_section_Section_num]
-
-
-        \\ simp[SUBSET_DEF]
-
-        \\ conseq [get_labels_MAP_prog_to_section_SUBSET_code_labels
-            |> SPEC_ALL |> UNDISCH_ALL |> MATCH_MP SUBSET_IMP
-            |> DISCH_ALL |> IRULE_CANON]
+      \\ conj_tac >- (
+        gen_tac
+        \\ pairarg_tac \\ simp []
+        \\ drule_then (drule_then irule) (GEN_ALL good_code_lab_oracle)
+        \\ fs [Abbr `stoff`, backend_config_ok_def, asmTheory.offset_ok_def]
+        \\ asm_exists_tac
         \\ simp []
-
-        \\ `stackProps$stack_good_code_labels ppg` by (
-          simp [Abbr `ppg`]
-          \\ irule word_to_stack_good_code_labels
-          \\ simp [word_to_stackTheory.compile_def]
-
-MARK
-
-print_match [] ``
-
-        \\ conseq [get_labels_MAP_prog_to_section_SUBSET_code_labels]
-
-        \\ `ppg = []`
-        by (
-          cheat (* this hack no longer works for the new oracle definition *)
-        )
-        \\ simp[]
-        \\ EVAL_TAC
-        \\ simp[]
-        (*
-        \\ conj_tac
-        >- (
-          simp[Abbr`ppg`]
-          \\ simp[MAP_MAP_o, o_DEF]
-          \\ srw_tac[ETA_ss][]
-          \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kkk pp qq`
-          \\ Cases_on`compile_word_to_stack kkk pp qq`
-          \\ drule word_to_stackProofTheory.MAP_FST_compile_word_to_stack \\ rw[]
-          \\ simp[Abbr`pp`, MAP_MAP_o, o_DEF]
-          \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
-          \\ srw_tac[ETA_ss][bvi_to_dataTheory.compile_prog_def]
-          \\ srw_tac[ETA_ss][MAP_MAP_o, o_DEF]
-          \\ simp[full_co_def, UNCURRY, backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co]
-          \\ qmatch_goalsub_abbrev_tac`compile_prog n2 pp`
-          \\ Cases_on`compile_prog n2 pp`
-          \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
-          \\ rw[]
-          \\ simp[IN_DISJOINT]
-          \\ CCONTR_TAC \\ fs[]
-          \\ first_x_assum drule
-          \\ simp[]
-          \\ rveq
-          \\ qunabbrev_tac`pp`
-          \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc n1 pp`
-          \\ Cases_on`compile_inc n1 pp`
-          \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
-          \\ strip_tac \\ fs[]
-          \\ qmatch_assum_rename_tac`z ∈ get_code_labels p7`
-          \\ PairCases_on`z` \\ fs[]
-          \\ conj_tac
-          >- (
-            strip_tac
-            \\ first_x_assum drule
-            \\ simp[]
-            \\ ... (* oracle labels... *) )
-          \\ disj1_tac
-          \\ fs[Abbr`p7`]
-          \\ ... (* get_code_labels range...  *) )
-        \\ qspec_then`ppg`mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels
-        \\ simp[SUBSET_DEF]
-        \\ strip_tac
-        \\ gen_tac \\ strip_tac
-        \\ first_x_assum drule
-        \\ strip_tac \\ rw[]
-        \\ ... (* referenced labels are present (for oracle) *) *))
-      \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
-      simp[Abbr`co`, Abbr`co3`] \\
-      simp [GSYM pure_co_def, cake_co_0, UNCURRY, full_co_def,
-        backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
-        clos_knownProofTheory.FST_known_co]
-
-      \\ qpat_x_assum`compile c.lab_conf p7 = _`mp_tac
-      \\ qmatch_asmsub_abbrev_tac`compile c.lab_conf TODO_p7`
-      \\ `TODO_p7 = p7` suffices_by simp[]
-
-      rpt(pairarg_tac \\ fs[]) \\
-      fs[full_co_def,bvi_tailrecProofTheory.mk_co_def] \\
-      rpt(pairarg_tac \\ fs[]) \\
-      fs[backendPropsTheory.state_co_def] \\
-      rpt(pairarg_tac \\ fs[]) \\
-      rveq \\ fs[] \\
-      rveq \\ fs[]
-      \\ fs[backendPropsTheory.pure_co_def]
-      \\ rveq \\ fs[]
-      \\ qhdtm_assum`clos_knownProof$known_co`(mp_tac o Q.AP_TERM`FST`)
-      \\ simp[clos_knownProofTheory.FST_known_co]
-      \\ qmatch_goalsub_rename_tac`SND ppp = _`
-      \\ Cases_on`ppp` \\ strip_tac \\ fs[] \\ rveq
-      \\ qpat_assum`_ = ((_,_,_,_,_,_,_,cfg),_)`(mp_tac o Q.AP_TERM`FST`)
-      \\ rewrite_tac[COND_RATOR]
-      \\ rewrite_tac[COND_RAND]
-      \\ simp[]
-      \\ strip_tac \\ rveq
-      \\ simp[]
-      \\ qpat_x_assum`compile c.lab_conf p7 = _`mp_tac
-      \\ qmatch_asmsub_abbrev_tac`compile c.lab_conf TODO_p7`
-      \\ `TODO_p7 = p7` suffices_by simp[]
-      \\ simp[Abbr`p7`]
-      \\ fs[Abbr`TODO_p7`,Abbr`stk`,Abbr`stoff`]
-      \\ AP_TERM_TAC \\ rfs[])>>
-
-    fs[good_code_def,labels_ok_def] \\
-    (*
-    qmatch_goalsub_rename_tac`c5.lab_conf.labels` \\ qunabbrev_tac`c5` >>
-    *)
+      )
+      \\ fs [markerTheory.Abbrev_def]
+      \\ fs [lab_to_targetTheory.compile_def]
+      \\ drule compile_lab_lab_conf
+      \\ drule compile_lab_LENGTH
+      \\ simp [cake_orac_0, config_tuple2_def]
+    )
+    (* start of 'good_code' proof for initial compilation *)
+    \\ fs[good_code_def,labels_ok_def] \\
     rfs[]>>
     CONJ_TAC>-
       fs[Abbr`p7`,stack_to_labTheory.compile_def]>>
@@ -2566,20 +2523,21 @@ print_match [] ``
       \\ simp[clos_to_bvlTheory.generate_partial_app_closure_fn_def]
       \\ rw[]
       \\ fs[closLangTheory.assign_get_code_label_def, MEM_MAP, MEM_GENLIST] \\ rveq \\ fs[closLangTheory.assign_get_code_label_def] )
-    \\ fs[clos_to_bvlTheory.compile_common_def]
+    \\ qpat_assum `compile_common _ _ = _`
+        (assume_tac o REWRITE_RULE [clos_to_bvlTheory.compile_common_def])
+    \\ fs []
     \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
     \\ specl_args_of_then``clos_to_bvl$compile_prog``(Q.GENL[`max_app`,`prog`]
         clos_to_bvlProofTheory.compile_prog_code_labels)mp_tac
     \\ impl_tac >- (
         simp[]
+        \\ drule compile_common_syntax
         \\ `EVERY no_Labels e3 /\ clos_mtiProof$syntax_ok e3` by
          (qpat_x_assum `Abbrev (e3 = MAP pat_to_clos_compile _)` mp_tac
           \\ rpt (pop_assum kall_tac) \\ strip_tac \\ unabbrev_all_tac
           \\ fs [pat_to_closProofTheory.compile_no_Labels,EVERY_MEM,
                  MEM_MAP,PULL_EXISTS,syntax_ok_MAP_pat_to_clos])
-        \\ qspecl_then [`cf`,`e3`] mp_tac compile_common_syntax
-        \\ simp [clos_to_bvlTheory.compile_common_def]
-        \\ Cases_on `cf.known_conf` \\ fs [])
+        \\ simp [])
     \\ strip_tac
     \\ match_mp_tac SUBSET_TRANS
     \\ asm_exists_tac \\ simp[]
@@ -2606,21 +2564,18 @@ print_match [] ``
     \\ qpat_x_assum `Abbrev (e3 = _)` kall_tac
     \\ qpat_x_assum `Abbrev (e3 = _)` assume_tac
     \\ rename [`Abbrev (_ = MAP pat_to_clos_compile pat_prog)`]
-    \\ qspecl_then [`cf`,`pat_prog`] mp_tac compile_common_code_locs
     \\ simp [Abbr`ls`,Abbr`e3`]
-    \\ fs [clos_to_bvlTheory.compile_common_def]
-    \\ disch_then match_mp_tac
-    \\ rpt strip_tac \\ fs [])
+    \\ drule compile_common_code_locs
+    \\ rpt strip_tac \\ fs []
+  )
+
   \\ strip_tac
   \\ qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
   disch_then(assume_tac o SYM) \\
   Cases_on`stack_st_opt` \\
-  drule full_make_init_semantics \\
+  drule full_make_init_semantics2 \\
 
   impl_tac >- (
-
-    (* trying from here, saved *)
-
     simp_tac std_ss [Once EVERY_FST_SND] \\
     qunabbrev_tac`stack_st` \\
     fs[Abbr`lab_st`,make_init_def] \\
@@ -2628,7 +2583,12 @@ print_match [] ``
     `max_heap_limit (:'a) c4_data_conf = max_heap_limit (:'a) c.data_conf` by
       (simp[Abbr`c4_data_conf`] \\ EVAL_TAC) \\
     conj_tac>- fs[Abbr`p7`] \\
-    conj_tac>- simp[ETA_AX] \\
+    conj_tac >- (
+      qunabbrev_tac `lab_oracle`
+      \\ qunabbrev_tac `stack_oracle`
+      \\ drule_then (fn t => DEP_REWRITE_TAC [t]) stack_to_lab_orac_eq
+      \\ simp []
+    ) \\
     `max_stack_alloc ≤ 2 * max_heap_limit (:α) c4_data_conf − 1` by
        fs [] \\ fs [] \\
     conj_tac >- (
@@ -2707,146 +2667,16 @@ print_match [] ``
         (EVAL_TAC>>fs[])>>
       CONJ_TAC>-
         EVAL_TAC>>
-      metis_tac[EVERY_MONOTONIC])
-    >>
-
-      fs[stack_to_labProofTheory.good_code_def,Abbr`stack_oracle`]>>
-
-(* works fine to here, saved  *)
-
-      simp[MAP_MAP_o, UNCURRY]
-      \\ gen_tac
-      \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kkk psk bmk`
-      \\ Cases_on`compile_word_to_stack kkk psk bmk`
-      \\ imp_res_tac word_to_stackProofTheory.MAP_FST_compile_word_to_stack
-      \\ fs[Abbr`psk`]
-      \\ simp[Abbr`word_oracle`, MAP_MAP_o, o_DEF]
-      \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
-      \\ simp_tac(srw_ss()++ETA_ss)[Abbr`data_oracle`]
-      \\ conj_tac >- (
-        irule ALL_DISTINCT_MAP_FST_SND_full_co
-        \\ simp[]
-        \\ simp[Abbr`co`, Abbr`co3`, Abbr`pc`]
-        \\ simp [cake_co_def]
-        \\ REWRITE_TAC ( CONJUNCTS syntax_oracle_unpack @ [cake_co_def,
-                clos_knownProofTheory.known_co_known_mk_co, clos_mk_co_def] )
-        \\ simp []
-        \\ conseq [compile_inc_phases_all_distinct]
-        \\ simp [FST_SND_add_state_co, states_tailrec_MOD_namespaces]
-        \\ simp [Abbr `n2`]
-        \\ simp [pure_co_progs_def, clos_to_bvlProofTheory.SND_cond_mti_compile_inc]
-        \\ EVAL_TAC \\ simp[])
-
-      \\ simp[Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b``]EVERY_CONJ)
-              |> Q.SPEC`Q o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
-      \\ simp[GSYM ALL_EL_MAP, GSYM CONJ_ASSOC]
-      \\ simp[MAP_MAP_o, o_DEF]
-      \\ qpat_x_assum`Abbrev(bmk = _)`mp_tac
-      \\ simp[PAIR_MAP]
-      \\ simp[Once full_co_def]
-      \\ simp[UNCURRY]
-      \\ simp[backendPropsTheory.FST_state_co]
-
-      \\ strip_tac \\ qunabbrev_tac`bmk`
-      \\ fs[PAIR_MAP]
-      \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack kkk pp`
-      \\ drule (GEN_ALL compile_word_to_stack_convs)
-      \\ disch_then(qspec_then`mc.target.config`mp_tac)
-      \\ simp[]
-      \\ qmatch_asmsub_abbrev_tac`Abbrev (pp = MAP _ pp0)`
-      \\ `∃wc ign. compile wc mc.target.config pp0 = (ign, pp)`
-      by (
-        simp[word_to_wordTheory.compile_def]
-        \\ qexists_tac`<| col_oracle := K NONE; reg_alg := aa |>`
-        \\ simp[]
-        \\ simp[word_to_wordTheory.next_n_oracle_def]
-        \\ simp[Abbr`pp`]
-        \\ simp[Abbr`kkk`]
-        \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] )
-      \\ qspecl_then[`wc`,`mc.target.config`,`pp0`]mp_tac (Q.GENL[`wc`,`ac`,`p`]word_to_wordProofTheory.compile_to_word_conventions)
-      \\ simp[]
-      \\ strip_tac
-      \\ impl_tac
-      >- (
-        simp[EVERY_MAP, LAMBDA_PROD]
-        \\ fs[Abbr`kkk`]
-        \\ fs[EVERY_MEM] \\ rw[]
-        \\ first_x_assum drule
-        \\ pairarg_tac \\ rw[]
-        \\ first_x_assum irule
-        \\ simp[Abbr`pp0`, FORALL_PROD]
-        \\ simp[MEM_MAP, EXISTS_PROD]
-        \\ simp[data_to_wordTheory.compile_part_def]
-        \\ simp[PULL_EXISTS] \\ rw[]
-        \\ irule data_to_wordProofTheory.comp_no_inst
-        \\ qunabbrev_tac`c4_data_conf`
-        \\ EVAL_TAC
-        \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]
-        \\ pairarg_tac \\ fs[]
-        \\ pairarg_tac \\ fs[]
-        \\ fsrw_tac[DNF_ss][]
-        \\ conj_tac \\ first_x_assum irule
-        \\ fs[mc_conf_ok_def]
-        \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
-      \\ simp[]
-      \\ strip_tac
-      \\ simp[EVERY_MAP]
-      \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
-      \\ simp[Once(GSYM o_DEF)]
-      \\ simp[GSYM ALL_EL_MAP]
-      \\ qpat_assum`∀n. EVERY ($<= _) _`mp_tac
-      \\ disch_then(qspec_then`n`strip_assume_tac)
-      \\ conj_tac
-      >- (
-        irule MONO_EVERY
-        \\ goal_assum(first_assum o mp_then Any mp_tac)
-        \\ EVAL_TAC \\ rw[] )
-      \\ drule compile_word_to_stack_lab_pres
-      \\ simp[Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b``]EVERY_CONJ)
-              |> Q.SPEC`Q o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
-      \\ simp[o_DEF]
-      \\ reverse impl_tac
-      >- (
-        fs[EVERY_MEM, FORALL_PROD]
-        \\ rfs[Abbr`kkk`]
-        \\ metis_tac[] )
-      \\ qhdtm_x_assum`LIST_REL`mp_tac
-      \\ simp[EVERY2_MAP,word_simpProofTheory.labels_rel_def]
-      \\ simp[LIST_REL_EL_EQN]
-      \\ strip_tac
-      \\ simp[Once EVERY_MEM]
-      \\ simp[MEM_EL]
-      \\ gen_tac
-      \\ disch_then(qx_choose_then`i`strip_assume_tac)
-      \\ first_x_assum(qspec_then`i`mp_tac)
-      \\ pairarg_tac \\ fs[]
-      \\ strip_tac
-      \\ qpat_x_assum`_ = EL i _`(assume_tac o SYM) \\ fs[]
-      \\ fs[Abbr`pp0`] \\ rfs[EL_MAP]
-      \\ qmatch_asmsub_abbrev_tac`compile_part c4_data_conf pp4`
-      \\ PairCases_on`pp4`
-      \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
-      \\ fs[data_to_wordTheory.compile_part_def]
-      \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
-      \\ simp[]
-      \\ pairarg_tac \\ fs[]
-      \\ simp[EVERY_MEM]
-      \\ strip_tac
-      \\ fs[SUBSET_DEF]
-      \\ simp[GSYM FORALL_AND_THM, GSYM IMP_CONJ_THM]
-      \\ gen_tac \\ strip_tac
-      \\ first_x_assum drule
-      \\ strip_tac
-      \\ first_x_assum drule
-      \\ pairarg_tac \\ rw[]
-      \\ qpat_x_assum`MAP FST pp = _`mp_tac
-      \\ simp[LIST_EQ_REWRITE, EL_MAP]
-      \\ disch_then(qspec_then`i`mp_tac)
-      \\ simp[]) >>
-
-  (* works to here. saved *)
-
-  CASE_TAC
+      metis_tac[EVERY_MONOTONIC]) >>
+    fs[Abbr `stack_oracle`]
+    \\ gen_tac
+    \\ drule_then irule oracle_stack_good_code
+    \\ simp [backend_config_ok_def]
+    \\ simp [Abbr `stoff`]
+    \\ qexists_tac `mc`
+    \\ simp [mc_conf_ok_def]
+  )
+  \\ CASE_TAC
   >- (
     strip_tac \\
     match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
@@ -2859,7 +2689,9 @@ print_match [] ``
   match_mp_tac (GEN_ALL (MP_CANON implements_trans)) \\
   qmatch_assum_abbrev_tac`z InitGlobals_location ∈ _ {_}` \\
   qexists_tac`{z InitGlobals_location}` \\
-  fsrw_tac [ETA_ss] []>>
+
+  (* saved *)
+
   conj_tac >- (
     match_mp_tac (GEN_ALL(MP_CANON implements_intro_ext)) \\
     simp[]
@@ -2885,8 +2717,6 @@ print_match [] ``
    |> GEN_ALL
    |> Q.ISPECL_THEN[`kkk`,`word_oracle`,`stack_st`,`p5`,`c.lab_conf.asm_conf`,`InitGlobals_location`]mp_tac) \\
 
-  (* works to here. saved *)
-
   impl_tac >- (
     fs[] \\
     conj_tac >- (
@@ -2897,97 +2727,33 @@ print_match [] ``
       fs[Abbr`kkk`,Abbr`stk`]) >>
     conj_tac >- (
       match_mp_tac (GEN_ALL IMP_init_state_ok) \\
+      goal_assum(first_assum o mp_then Any mp_tac) \\
       fs[Abbr`kkk`,Abbr`stk`]>>
       fs[mc_conf_ok_def,backend_config_ok_def,Abbr`stack_st`] >>
-      rfs[ETA_AX,Abbr`word_oracle`,Abbr`data_oracle`]>>
-      simp[PAIR_MAP] >>
-      simp[GSYM PULL_EXISTS] >>
       drule compile_word_to_stack_bitmaps>>
       CASE_TAC>>strip_tac>>
-      fs[attach_bitmaps_def]>>
-      simp[UNCURRY] >>
-      simp[PULL_EXISTS] >> rveq >>
-      goal_assum(first_assum o mp_then Any mp_tac) \\
-      simp[EVERY_MAP] \\
-      gen_tac
-      \\ simp[GSYM EVERY_CONJ, CONJ_ASSOC]
-      \\ reverse conj_tac
-      >- (
-        simp [full_co_def]
-        \\ simp [Abbr `co`, Abbr `co3`, FST_state_co,
-            clos_knownProofTheory.FST_known_co, cake_co_0]
+      reverse conj_tac >- (
+        simp [Abbr `stack_oracle`, Abbr `word_oracle`]
+        \\ drule_then (fn t => simp [GSYM t]) word_to_stack_orac_eq
+        \\ simp [FUN_EQ_THM, UNCURRY, ETA_THM]
       )
-      \\ simp[EVERY_MEM]
-      \\ gen_tac
-      \\ simp[bvi_to_dataTheory.compile_prog_def]
-      \\ qmatch_goalsub_abbrev_tac`MEM _ pp0`
-      \\ qmatch_goalsub_rename_tac`MEM z pp0`
-      \\ strip_tac
-      \\ reverse conj_tac
-      >- (
-        EVAL_TAC
-        \\ simp[UNCURRY]
-        \\ simp[Abbr`pp0`]
-        \\ fs[bvi_to_dataTheory.compile_prog_def, MEM_MAP]
-        \\ pop_assum mp_tac
-        \\ EVAL_TAC
-        \\ simp[UNCURRY]
-        \\ qmatch_asmsub_rename_tac`compile_part xxx`
-        \\ PairCases_on`xxx`
-        \\ simp[bvi_to_dataTheory.compile_part_def]
-        \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog n2_n pp`
-        \\ Cases_on`bvi_tailrec$compile_prog n2_n pp`
-        \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
-        \\ fs[]
-        \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
-        \\ ntac 2 strip_tac
-        \\ first_x_assum drule
-        \\ reverse strip_tac
-        >- (
-          pop_assum mp_tac
-          \\ simp[Abbr`n2_n`]
-          \\ EVAL_TAC \\ rw[]
-          \\ simp[Abbr`co`, Abbr `co3`]
-          \\ simp[FST_state_co, clos_knownProofTheory.FST_known_co]
-
-          \\ mp_tac cake_co_n
-          \\ impl_tac
-          >- (
-simp [compile_eq_from_source, from_source_def, from_flat_def,
-        from_pat_def, from_clos_def, from_bvl_def, from_bvi_def,
-        from_data_def, from_word_def, from_stack_def, from_lab_def]
-
-(* FIXME: keep the fact that compile prog c = (..., c') around *)
-
-(* going to factor out proof that cake_co n has 'n2' field >= num_stubs *)
-
- )
-        \\ strip_tac \\ rveq
-        \\ pop_assum mp_tac
-        \\ simp[Abbr`pp`]
-        \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_list n1 pp`
-        \\ qspecl_then[`n1`,`pp`]mp_tac bvl_to_bviProofTheory.compile_list_distinct_locs
-        \\ Cases_on`compile_list n1 pp` \\ simp[]
-        \\ impl_tac
-        >- ( simp[Abbr`pp`] \\ EVAL_TAC )
-        \\ simp[EVERY_MEM, MEM_FILTER, FORALL_PROD, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
-        \\ EVAL_TAC \\ rw[]
-        \\ strip_tac \\ first_x_assum drule \\ EVAL_TAC
-        \\ first_x_assum drule \\ rw[] )
-      \\ qho_match_abbrev_tac`(_ _ (SND (SND (pp1 _))) ∧ _)`
-      \\ `MEM (compile_part c4_data_conf z) (MAP (compile_part c4_data_conf) pp0)` by metis_tac[MEM_MAP]
-      \\ qmatch_assum_abbrev_tac`MEM zz pp00`
-      \\ `∃wc ign. compile wc mc.target.config pp00 = (ign, MAP (pp1 o (λz. (z, NONE))) pp00)`
-      by (
-        simp[word_to_wordTheory.compile_def]
-        \\ qexists_tac`<| col_oracle := K NONE; reg_alg := aa |>`
-        \\ simp[]
-        \\ simp[word_to_wordTheory.next_n_oracle_def]
-        \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] )
-      \\ qspecl_then[`wc`,`mc.target.config`,`pp00`]mp_tac (Q.GENL[`wc`,`ac`,`p`]word_to_wordProofTheory.compile_to_word_conventions)
-      \\ simp[]
-      \\ simp[EVERY_MAP, UNCURRY]
-      \\ simp[EVERY_MEM])>>
+      \\ simp [Abbr `word_oracle`]
+      \\ drule_then (fn t => simp [t]) data_to_word_orac_eq_sym_std
+      \\ gen_tac \\ Cases_on `data_oracle n`
+      \\ simp [pure_co_def]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ qmatch_goalsub_abbrev_tac`EVERY _ fcs_pp`
+      \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
+      \\ fs []
+      \\ drule compile_to_word_conventions2
+      \\ simp [EVERY_MAP |> REWRITE_RULE [GSYM o_DEF] |> Q.SPEC `P` |> Q.ISPEC `FST` |> GSYM]
+      \\ simp [MAP_MAP_o |> REWRITE_RULE [o_DEF], Q.ISPEC `FST` ETA_THM]
+      \\ rw [EVERY_MEM] \\ TRY (first_x_assum drule \\ simp [UNCURRY])
+      \\ fs [Abbr `data_oracle`] \\ fs [cake_orac_0, config_tuple2_def]
+      \\ first_x_assum (qspecl_then [`n`] mp_tac)
+      \\ simp [EVERY_MEM]
+      \\ metis_tac [EVAL ``data_num_stubs <= raise_stub_location``]
+    ) \\
     conj_tac >- (
       qunabbrev_tac`t_code` \\
       imp_res_tac data_to_word_names \\
@@ -3005,10 +2771,12 @@ simp [compile_eq_from_source, from_source_def, from_flat_def,
       metis_tac[] ) \\
     fs[extend_with_resource_limit_def]
     \\ qpat_x_assum`_ ≠ Fail`assume_tac
-    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo1 _ ≠ Fail`
-    \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
-    \\ `foo1 = foo2` suffices_by metis_tac[]
-    \\ simp[Abbr`foo1`,Abbr`foo2`,FUN_EQ_THM]
+    \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ ≠ Fail`
+    \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ orac2 foo2`
+    \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac[]
+    \\ simp[Abbr`foo1`,Abbr`foo2`,Abbr`orac1`,Abbr`orac2`,FUN_EQ_THM,
+        Abbr `data_oracle`]
+    \\ simp [GSYM simple_orac_eqs]
     \\ rpt gen_tac \\ AP_TERM_TAC
     \\ AP_THM_TAC
     \\ simp[EVAL``(word_to_stackProof$make_init a b c e).compile``]
@@ -3038,10 +2806,11 @@ simp [compile_eq_from_source, from_source_def, from_flat_def,
   \\ CONV_TAC(RAND_CONV SYM_CONV)
   \\ match_mp_tac (GEN_ALL extend_with_resource_limit_not_fail)
   \\ asm_exists_tac \\ simp[]
-  \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo1 _ ≠ Fail`
-  \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
-  \\ `foo1 = foo2` suffices_by metis_tac[]
-  \\ simp[Abbr`foo1`,Abbr`foo2`,FUN_EQ_THM]
+  \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ orac1 foo1 _ ≠ Fail`
+  \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ orac2 foo2`
+  \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac[]
+  \\ simp[Abbr`foo1`,Abbr`foo2`,Abbr`orac1`,Abbr`orac2`,FUN_EQ_THM]
+  \\ simp[Abbr`data_oracle`,GSYM simple_orac_eqs]
   \\ rpt gen_tac \\ AP_TERM_TAC
   \\ rfs[Abbr`kkk`,Abbr`stk`]
   \\ AP_THM_TAC
@@ -3050,6 +2819,7 @@ simp [compile_eq_from_source, from_source_def, from_flat_def,
   \\ simp_tac std_ss []
   \\ disch_then(SUBST_ALL_TAC o SYM)
   \\ fs[full_make_init_compile, Abbr`lab_st`]
-  \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]);
+  \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
+);
 
 val _ = export_theory();

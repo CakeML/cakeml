@@ -8356,34 +8356,22 @@ Theorem compile_semantics
   \\ Q.ISPECL_THEN [`cc`, `es`, `co`] drule syntax_oracle_ok_to_oracle_inv
   \\ fs []);
 
-Theorem known_co_progs_to_known_co:
-  clos_knownProof$known_co_progs kc kc' co
-    = SND o (clos_knownProof$known_co kc
-        (syntax_to_full_oracle (clos_knownProof$known_mk_co kc kc' I) co))
-Proof
-  simp [FUN_EQ_THM, clos_knownProofTheory.known_co_known_mk_co]
-  \\ simp [backendPropsTheory.syntax_to_full_oracle_def]
-QED
-
 Theorem compile_inc_phases_all_distinct:
-  SND (orac i) = [] ==>
-  ALL_DISTINCT (MAP FST (compile_inc max_app
+  SND (SND (orac i)) = [] ==>
+  ALL_DISTINCT (MAP FST (clos_to_bvlProof$compile_inc max_app
     (clos_labelsProof$compile_inc (clos_annotateProof$compile_inc
-      (state_co_progs (cond_call_compile_inc dc) c_st
-        (clos_knownProof$known_co_progs kc kc'
-          (state_co_progs (closProps$ignore_table clos_numberProof$compile_inc)
-            n_st orac))
-        i)))))
+      (SND (clos_to_bvlProof$cond_call_compile_inc dc c_st
+        (SND (clos_knownProof$known_co kc
+          (state_co (closProps$ignore_table clos_numberProof$compile_inc) orac)
+            i))))))))
 Proof
   rw []
   \\ conseq ([compile_inc_req_addrs]
         @ labels_compile_inc_req_intros
         @ annotate_compile_inc_req_intros)
-  \\ csimp [backendPropsTheory.state_co_progs_def]
-  \\ conseq cond_call_compile_inc_req_intros
-  \\ csimp [known_co_progs_to_known_co]
-  \\ conseq known_co_req_intros
-  \\ csimp [backendPropsTheory.syntax_to_full_oracle_def]
+  \\ csimp []
+  \\ conseq (cond_call_compile_inc_req_intros @ known_co_req_intros)
+  \\ csimp [backendPropsTheory.SND_state_co]
   \\ conseq number_compile_inc_req_intros
   \\ simp []
 QED

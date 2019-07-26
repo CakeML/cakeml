@@ -7737,11 +7737,12 @@ val stack_move_code_labels = Q.prove(`
   get_code_labels (stack_move a b c d e) = get_code_labels e`,
   Induct>>rw[stack_move_def]);
 
-val word_to_stack_comp_code_labels = Q.prove(`
+Theorem word_to_stack_comp_code_labels:
   ∀prog bs kf n.
   good_handlers n prog ⇒
   get_code_labels (FST (comp prog bs kf)) ⊆
-  (raise_stub_location,0n) INSERT ((IMAGE (λn.(n,0)) (get_code_labels prog)) ∪ stack_get_handler_labels n (FST (comp prog bs kf)))`,
+  (raise_stub_location,0n) INSERT ((IMAGE (λn.(n,0)) (get_code_labels prog)) ∪ stack_get_handler_labels n (FST (comp prog bs kf)))
+Proof
   ho_match_mp_tac word_to_stackTheory.comp_ind>>
   rw[word_to_stackTheory.comp_def]>>
   TRY(PairCases_on`kf`)>>
@@ -7781,9 +7782,10 @@ val word_to_stack_comp_code_labels = Q.prove(`
   >-
     (drule wLive_code_labels>>fs[])
   >>
-    rw[wRegWrite1_def]);
+    rw[wRegWrite1_def]
+QED
 
-val compile_word_to_stack_code_labels = Q.prove(`
+Theorem compile_word_to_stack_code_labels:
   ∀ac p bs p' bs'.
   EVERY (λ(n,m,pp). good_handlers n pp) p ∧
   compile_word_to_stack ac p bs = (p',bs') ⇒
@@ -7793,7 +7795,8 @@ val compile_word_to_stack_code_labels = Q.prove(`
   (* either came from wordLang *)
   IMAGE (\n.(n,0n)) (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) UNION
   (* or has been introduced into the handler labels *)
-  BIGUNION (set (MAP (λ(n,pp). (stack_get_handler_labels n pp)) p'))`,
+  BIGUNION (set (MAP (λ(n,pp). (stack_get_handler_labels n pp)) p'))
+Proof
   ho_match_mp_tac compile_word_to_stack_ind>>
   fs[compile_word_to_stack_def]>>rw[]>>
   rpt(pairarg_tac>>fs[])>>rw[]>>fs[]
@@ -7809,13 +7812,15 @@ val compile_word_to_stack_code_labels = Q.prove(`
     metis_tac[])
   >>
   fs[SUBSET_DEF]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-Theorem word_to_stack_good_code_labels `
+Theorem word_to_stack_good_code_labels:
   compile asm_conf progs = (bs,prog') ∧
   good_code_labels progs ⇒
-  stack_good_code_labels prog'`
-  (fs[word_to_stackTheory.compile_def]>>
+  stack_good_code_labels prog'
+Proof
+  fs[word_to_stackTheory.compile_def]>>
   rpt(pairarg_tac>>fs[])>>
   fs[good_code_labels_def,stack_good_code_labels_def]>>
   rw[]>>
@@ -7832,6 +7837,7 @@ Theorem word_to_stack_good_code_labels `
     (match_mp_tac IMAGE_SUBSET_gen>>
     asm_exists_tac>>simp[SUBSET_DEF])
   >>
-    fs[SUBSET_DEF]);
+    fs[SUBSET_DEF]
+QED
 
 val _ = export_theory();
