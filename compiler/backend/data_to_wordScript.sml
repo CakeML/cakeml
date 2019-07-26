@@ -1739,9 +1739,9 @@ val def = assign_Define `
         let fakelen2 = Shift Lsr header2 k in
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
-          Assign 3 (Op Sub [fakelen1; Const (bytes_in_word-1w)]);
+          Assign 3 (Op Sub [fakelen1; Const bytes_in_word]);
           Assign 5 (if ffi_index = "" then Const 0w else (Op Add [addr2; Const bytes_in_word]));
-          Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const (bytes_in_word-1w)]));
+          Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const bytes_in_word]));
           FFI ffi_index 1 3 5 7 (adjust_set (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)
