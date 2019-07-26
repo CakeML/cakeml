@@ -42,6 +42,21 @@ exception UnableToTranslate of term;
 exception UnsupportedType of hol_type;
 exception NotFoundVThm of term;
 
+(* non-persistent state *)
+
+local
+  val use_string_type_ref = ref false;
+in
+  fun use_string_type b =
+    (use_string_type_ref := b;
+     if b then print "Translator now treats `char list` as a CakeML string.\n"
+     else print "Translator now treats `char list` as a list of characters in CakeML.\n");
+  fun use_hol_string_type () = !use_string_type_ref
+end
+
+(* / non-persistent state *)
+
+
 (* code for managing state of certificate theorems *)
 
 fun MY_MP name th1 th2 =
@@ -54,13 +69,18 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
+fun reraise fname message r = raise (ERR fname (message ^ ": " ^ #message r))
+
 fun auto_prove_asms name ((asms,goal),tac) = let
   val (rest,validation) = tac (asms,goal)
+    handle HOL_ERR r => reraise "auto_prove_asms" "tactic failure" r
   in if length rest = 0 then validation [] else let
   in failwith ("auto_prove_asms failed for " ^ name) end end
 
 fun auto_prove proof_name (goal,tac:tactic) = let
-  val (rest,validation) = tac ([],goal) handle Empty => fail()
+  val (rest,validation) = tac ([],goal)
+    handle HOL_ERR r => reraise "auto_prove" "tactic failure" r
+      | Empty => raise (ERR "auto_prove" "tactic raised Empty")
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
@@ -419,9 +439,9 @@ val basic_theories =
    ["alist", "arithmetic", "bag", "bitstring", "bit", "bool",
     "combin", "container", "divides", "fcp", "finite_map", "float",
     "fmaptree", "frac", "gcdset", "gcd", "ind_type", "integer_word",
-    "integer", "integral", "list", "llist", "marker", "measure",
-    "numeral_bit", "numeral", "numpair", "numposrep", "num", "one",
-    "operator", "option", "pair", "path", "patricia_casts",
+    "integer", "integral", "list", "llist", "marker", "machine_ieee",
+    "measure", "numeral_bit", "numeral", "numpair", "numposrep", "num",
+    "one", "operator", "option", "pair", "path", "patricia_casts",
     "patricia", "poly", "poset", "powser", "pred_set", "prelim",
     "prim_rec", "quote", "quotient_list", "quotient_option",
     "quotient_pair", "quotient_pred_set", "quotient_sum", "quotient",
@@ -517,6 +537,7 @@ in
     if ty = numSyntax.num then int_ast_t else
     if ty = stringSyntax.char_ty then char_ast_t else
     if ty = oneSyntax.one_ty then one_ast_t else
+    if ty = stringSyntax.string_ty andalso use_hol_string_type() then string_ast_t else
     if ty = mlstring_ty then string_ast_t else
     if can dest_vartype ty then
       astSyntax.mk_Atvar(stringSyntax.fromMLstring (dest_vartype ty))
@@ -539,6 +560,8 @@ in
          if name = "prod" then mk_Attup(listSyntax.mk_list(tt,astSyntax.ast_t_ty)) else
          if name = "list" then Atapp tt (astSyntax.mk_Short(name_tm))
                           else Atapp tt (full_id name_tm) end
+  val HOL_STRING_TYPE =
+    HOL_STRING_TYPE_def |> SPEC_ALL |> concl |> dest_eq |> fst |> repeat rator
   fun inst_type_inv (ty,inv) ty0 = let
     val i = match_type ty ty0
     val ii = map (fn {redex = x, residue = y} => (x,y)) i
@@ -564,6 +587,7 @@ in
     if ty = numSyntax.num then NUM else
     if ty = intSyntax.int_ty then ml_translatorSyntax.INT else
     if ty = stringSyntax.char_ty then CHAR else
+    if ty = stringSyntax.string_ty andalso use_hol_string_type() then HOL_STRING_TYPE else
     if ty = mlstringSyntax.mlstring_ty then STRING_TYPE else
     if is_vector_type ty then let
       val inv = get_type_inv (dest_vector_type ty)
@@ -1172,17 +1196,18 @@ fun mk_EqualityType_proof_via_measure typ = let
         TAC_PROOF ((assums, goal), prove_EqualityType_tac simps defs)])
   end
 
-fun mk_EqualityType_proof is_exn_type typ = let
+fun mk_EqualityType_thm is_exn_type typ = let
     val final_goal = ml_translatorSyntax.mk_EqualityType (get_type_inv typ)
+    val _ = print "Attempting proof of: "
+    val _ = print_term final_goal
     val (assums, get_thms) = if can get_type_n2typ_onto_thm typ
-      then ([], fn () => [EqualityType_via_n2typ is_exn_type typ])
-      else mk_EqualityType_proof_via_measure typ
-  in (list_mk_imp (assums, final_goal),
-    ASSUM_LIST (fn _ => let
-        val _ = print "Doing proof of: "
-        val _ = print_term final_goal
-      in simp_tac bool_ss (get_thms ()) end))
-  end
+          then ([], fn () => [EqualityType_via_n2typ is_exn_type typ])
+          else Option.valOf (total mk_EqualityType_proof_via_measure typ)
+    val thms = get_thms ()
+  in
+    prove (list_mk_imp (assums, final_goal), simp_tac bool_ss thms)
+    before print ".. done EqualityType proof.\n"
+  end handle Option => (print ".. cannot do EqualityType proof.\n"; TRUTH)
 
 local open ConseqConv in
 
@@ -1365,9 +1390,7 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
                    (ml_ty_name,xs,ty,sub lhs th,input)) (zip inv_defs ys)
   val _ = map reg_type ys2
   (* equality type *)
-  val eq_lemmas = map (fn ty => mk_EqualityType_proof is_exn_type ty
-        handle HOL_ERR _ => (T, simp_tac bool_ss [])) tys
-    |> map prove
+  val eq_lemmas = map (fn ty => mk_EqualityType_thm is_exn_type ty) tys
   val res = map (fn ((th,inv_def),eq_lemma) => (th,inv_def,eq_lemma))
                 (zip inv_defs eq_lemmas)
   in (name,res) end;
@@ -1408,6 +1431,7 @@ val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
   in f end
 
 (*
+val ty = ``:lit``; derive_thms_for_type false ty
 val ty = ``:unit``; derive_thms_for_type false ty
 val ty = ``:'a list``; derive_thms_for_type false ty
 val ty = ``:'a # 'b``; derive_thms_for_type false ty
@@ -1915,9 +1939,22 @@ fun inst_cons_thm tm hol2deep = let
   val xs = args res
   val ss = fst (match_term res tm)
   val ys = map (fn x => remove_primes (hol2deep (subst ss x))) xs
+  val ys =
+    let
+      val refs = th |> concl |> dest_imp |> fst |> list_dest dest_conj |> map rand
+      fun insert_HOL_STRING (y,r) =
+        if can (match_term r) (rand (concl y)) then y else
+          let val res = MATCH_MP Eval_HOL_STRING_INTRO y
+              val _ = print "Warning: automatically added string IMPLODE "
+              val _ = print "due to HOL_STRING_TYPE\n"
+          in res end
+    in map insert_HOL_STRING (zip ys refs) end handle HOL_ERR _ => ys
   val th1 = if length ys = 0 then TRUTH else LIST_CONJ ys
   in MATCH_MP th (UNDISCH_ALL th1)
-     handle HOL_ERR _ => raise UnableToTranslate tm end
+     handle HOL_ERR _ =>
+       if use_hol_string_type () andalso stringSyntax.is_string tm
+       then raise failwith "string cons"
+       else raise UnableToTranslate tm end
 
 val inst_case_thm_for_fail = ref T;
 val tm = !inst_case_thm_for_fail
@@ -2679,10 +2716,10 @@ fun mutual_to_single_line_def def = let
   in ([def],ind) end
 
 val builtin_terops =
-  [Eval_substring]
-  |> map SPEC_ALL
+  [Eval_substring,
+   Eval_FLOAT_FMA]
   |> map (fn th =>
-      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator |> rator, th))
 
 val builtin_binops =
   [Eval_NUM_ADD,
@@ -2708,18 +2745,27 @@ val builtin_binops =
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
    Eval_INT_GREATER_EQ,
+   Eval_FLOAT_ADD,
+   Eval_FLOAT_SUB,
+   Eval_FLOAT_MULT,
+   Eval_FLOAT_DIV,
+   Eval_FLOAT_LESS,
+   Eval_FLOAT_LESS_EQ,
+   Eval_FLOAT_GREATER,
+   Eval_FLOAT_GREATER_EQ,
+   Eval_FLOAT_EQ,
    Eval_force_gc_to_run,
    Eval_force_unit_type,
    Eval_strsub,
    Eval_ListAppend,
    Eval_sub,
    Eval_Implies]
-  |> map SPEC_ALL
   |> map (fn th =>
-      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
 
 val builtin_monops =
   [Eval_implode,
+   Eval_explode,
    Eval_strlen,
    Eval_concat,
    Eval_Bool_Not,
@@ -2728,19 +2774,41 @@ val builtin_monops =
    Eval_vector,
    Eval_int_of_num,
    Eval_num_of_int,
+   Eval_FLOAT_ABS,
+   Eval_FLOAT_SQRT,
+   Eval_FLOAT_NEG,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
    Eval_Chr,
    Eval_Ord]
-  |> map SPEC_ALL
   |> map (fn th =>
-      (th |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
+
+val builtin_hol_string_binops =
+  [Eval_HOL_STRING_EL,
+   Eval_HOL_STRING_CONS,
+   Eval_HOL_STRING_APPEND]
+  |> map (fn th =>
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
+
+val builtin_hol_string_monops =
+  [Eval_HOL_STRING_LENGTH,
+   Eval_HOL_STRING_IMPLODE,
+   Eval_HOL_STRING_EXPLODE,
+   Eval_HOL_STRING_HD,
+   Eval_HOL_STRING_FLAT,
+   Eval_implode_nop,
+   Eval_HOL_STRING_explode]
+  |> map (fn th =>
+      (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator, th))
 
 val AUTO_ETA_EXPAND_CONV = let (* K ($=) --> K (\x y. x = y) *)
   val must_eta_expand_ops =
     map fst builtin_terops @
     map fst builtin_binops @
-    map fst builtin_monops
+    map fst builtin_monops @
+    map fst builtin_hol_string_binops @
+    map fst builtin_hol_string_monops
   fun must_eta_expand tm =
     TypeBase.is_constructor tm orelse
     tmem tm must_eta_expand_ops orelse
@@ -2822,14 +2890,18 @@ fun dest_builtin_terop tm = let
 fun dest_builtin_binop tm = let
   val (px,r2) = dest_comb tm
   val (p,r1) = dest_comb px
-  val (x,th) = first (fn (x,_) => can (match_term x) p) builtin_binops
+  val thms = (if use_hol_string_type () then builtin_hol_string_binops else [])
+             @ builtin_binops
+  val (x,th) = first (fn (x,_) => can (match_term x) p) thms
   val (ss,ii) = match_term x p
   val th = INST ss (INST_TYPE ii th)
   in (p,r1,r2,th) end handle HOL_ERR _ => failwith("Not a builtin operator")
 
 fun dest_builtin_monop tm = let
   val (p,r) = dest_comb tm
-  val (x,th) = first (fn (x,_) => can (match_term x) p) builtin_monops
+  val thms = (if use_hol_string_type () then builtin_hol_string_monops else [])
+             @ builtin_monops
+  val (x,th) = first (fn (x,_) => can (match_term x) p) thms
   val (ss,ii) = match_term x p
   val th = INST ss (INST_TYPE ii th)
   in (p,r,th) end handle HOL_ERR _ => failwith("Not a builtin operator")
@@ -3116,10 +3188,7 @@ val tm = rhs
 val tm = rhs_tm
 val tm = ``case v3 of (v2,v1) => QSORT v7 v2 ++ [v6] ++ QSORT v7 v1``
 val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
-
-val tm = ``case l of
-       (x,y)::l1 => if y = a then x else x+y:num | _ => d``
-
+val tm = def |> SPEC_ALL |> concl |> rand
 *)
 
 fun hol2deep tm =
@@ -3146,6 +3215,8 @@ fun hol2deep tm =
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
+  if use_hol_string_type () andalso can stringSyntax.fromHOLstring tm then
+    SPEC tm Eval_HOL_STRING_LITERAL else
   if (Teq tm) then Eval_Val_BOOL_T else
   if (Feq tm) then Eval_Val_BOOL_F else
   if (tm ~~ TRUE) then Eval_Val_BOOL_TRUE else
@@ -3204,7 +3275,12 @@ fun hol2deep tm =
     val inv = get_type_inv (type_of tm)
     val target = mk_comb(inv,tm)
     val (ss,ii) = match_term res target handle HOL_ERR _ =>
-                  match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
+                  match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ =>
+                  let
+                    val new_target = subst [HOL_STRING_TYPE |-> get_term "list-type-char"] target
+                  in
+                    match_term res new_target
+                  end handle HOL_ERR _ => ([],[])
     val result = INST ss (INST_TYPE ii th)
     in check_inv "lookup_v_thm" tm result end else
   (* previously translated term *)
@@ -3424,6 +3500,14 @@ fun hol2deep tm =
     val thx = force_remove_fix thx
     val result = MATCH_MP (MATCH_MP Eval_Arrow thf) thx handle HOL_ERR _ =>
                  MY_MATCH_MP (MATCH_MP Eval_Arrow thf) (MATCH_MP Eval_Eq thx)
+                 handle HOL_ERR e =>
+                   let (* patch up difference between HOL_STRING_TYPE and LIST_TYPE CHAR *)
+                     val thx' = MATCH_MP Eval_HOL_STRING_DEST thx
+                     val res = MATCH_MP (MATCH_MP Eval_Arrow thf) thx' handle HOL_ERR _ =>
+                               MY_MATCH_MP (MATCH_MP Eval_Arrow thf) (MATCH_MP Eval_Eq thx')
+                     val _ = print "Warning: automatically added string EXPLODE "
+                     val _ = print "due to HOL_STRING_TYPE\n"
+                   in res end handle HOL_ERR _ => raise (HOL_ERR e)
     in check_inv "comb" tm result end else
   (* lambda applications *)
   if is_abs tm then let

@@ -122,6 +122,9 @@ val fp_upd_def = Define `
   (fp_upd (FPDiv d1 d2 d3) s =
      upd_fp_reg d1
        (fp64_div roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s)) s) /\
+  (fp_upd (FPFma d1 d2 d3) s =
+     upd_fp_reg d1
+       (fp64_mul_add roundTiesToEven (read_fp_reg d2 s) (read_fp_reg d3 s) (read_fp_reg d1 s)) s) /\
   (fp_upd (FPMovToReg r1 r2 d) (s : 'a asm_state) =
      if dimindex(:'a) = 64 then
        upd_reg r1 (w2w (read_fp_reg d s)) s

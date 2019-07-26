@@ -19,11 +19,12 @@ val double = process_topdecs `
 
 val _ = append_prog double;
 
-Theorem double_spec
-    `∀x x_v. NUM x x_v
+Theorem double_spec:
+     ∀x x_v. NUM x x_v
         ⇒ app (p:'ffi ffi_proj) ^(fetch_v "double" (basis_st())) [x_v]
-        emp (POSTv v. &(NUM (2 * x) v))`
-    (Induct_on `x` >>
+        emp (POSTv v. &(NUM (2 * x) v))
+Proof
+    Induct_on `x` >>
     xcf "double" (basis_st())
     >- (xlet_auto
         >- xsimpl
@@ -43,7 +44,7 @@ Theorem double_spec
                    fs[NUM_def, INT_def] >>
                    fs[integerTheory.INT_ADD_CALCULATE]
         )
-);
+QED
 
 (**********)
 
@@ -57,11 +58,12 @@ val double_tail_rec = process_topdecs `
 
 val _ = append_prog double_tail_rec;
 
-Theorem double_tail_rec_spec
-    `∀x x_v. NUM x x_v
+Theorem double_tail_rec_spec:
+     ∀x x_v. NUM x x_v
         ⇒ app (p:'ffi ffi_proj) ^(fetch_v "double_tail_rec" (basis_st())) [x_v]
-        emp (POSTv v. &(NUM (2 * x) v))`
-    (xcf "double_tail_rec" (basis_st()) >>
+        emp (POSTv v. &(NUM (2 * x) v))
+Proof
+    xcf "double_tail_rec" (basis_st()) >>
     xlet_auto
         >- xsimpl >>
     xif >> fs[BOOL_def]
@@ -98,7 +100,7 @@ Theorem double_tail_rec_spec
                 qexists_tac `carry + 2` >> fs[] >>
                 fs[ADD1] >>
                 fs[NUM_def, INT_def, INT_OF_NUM_SUBS]
-);
+QED
 
 (**********)
 
@@ -115,8 +117,8 @@ val double_ref = process_topdecs `
 
 val _ = append_prog double_ref;
 
-Theorem double_ref_spec
-    `∀ inp inp_v inp_ref ffi_p .
+Theorem double_ref_spec:
+     ∀ inp inp_v inp_ref ffi_p .
         NUM inp inp_v
       ⇒ app (ffi_p:'ffi ffi_proj) ^(fetch_v "double_ref" (basis_st())) [inp_ref]
         (inp_ref ~~> inp_v)
@@ -125,8 +127,9 @@ Theorem double_ref_spec
                 (inp_ref ~~> inp0_v) * &(NUM 0 inp0_v)) *
             (SEP_EXISTS ret_v .
                 (ret_ref ~~> ret_v) * &(NUM (2 * inp) ret_v))
-        )`
-    (Induct_on `inp` >>
+        )
+Proof
+    Induct_on `inp` >>
     xcf "double_ref" (basis_st())
     >- (xlet_auto
         >- xsimpl
@@ -168,7 +171,7 @@ Theorem double_ref_spec
             >- xsimpl
         >> xvar >> xsimpl >>
            fs[NUM_def, INT_def]
-);
+QED
 
 (**********)
 
@@ -180,8 +183,8 @@ val double_ref_same = process_topdecs `
 
 val _ = append_prog double_ref_same;
 
-Theorem double_ref_same_spec
-    `∀ inp inp_v inp_ref ffi_p .
+Theorem double_ref_same_spec:
+     ∀ inp inp_v inp_ref ffi_p .
         NUM inp inp_v
       ⇒ app (ffi_p:'ffi ffi_proj)
         ^(fetch_v "double_ref_same" (basis_st())) [inp_ref]
@@ -192,8 +195,9 @@ Theorem double_ref_same_spec
                &(NUM (2 * inp) ret_v ∧
                  ret_ref = inp_ref)
             )
-        )`
-    (Induct_on `inp` >>
+        )
+Proof
+    Induct_on `inp` >>
     xcf "double_ref_same" (basis_st())
     >- (
         xlet_auto
@@ -237,6 +241,6 @@ Theorem double_ref_same_spec
             >- xsimpl
         >> xvar >> xsimpl >>
             fs[NUM_def, INT_def]
-);
+QED
 
 val _ = export_theory();

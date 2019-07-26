@@ -34,21 +34,25 @@ val _ = Parse.set_grammar_ancestry
 
 (* TODO: move/rephrase *)
 
-Theorem byte_aligned_mult
-  `good_dimindex (:'a) ==>
-    byte_aligned (a + bytes_in_word * n2w i) = byte_aligned (a:'a word)`
-  (fs [alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]
+Theorem byte_aligned_mult:
+   good_dimindex (:'a) ==>
+    byte_aligned (a + bytes_in_word * n2w i) = byte_aligned (a:'a word)
+Proof
+  fs [alignmentTheory.byte_aligned_def,labPropsTheory.good_dimindex_def]
   \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w]
   \\ once_rewrite_tac [MULT_COMM]
-  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]);
+  \\ rewrite_tac [GSYM (EVAL ``2n**2``),GSYM (EVAL ``2n**3``), aligned_add_pow]
+QED
 
-Theorem byte_aligned_MOD `
-  good_dimindex (:'a) ⇒
+Theorem byte_aligned_MOD:
+    good_dimindex (:'a) ⇒
   ∀x:'a word.x ∈ byte_aligned ⇒
-  w2n x MOD (dimindex (:'a) DIV 8) = 0`
-  (rw[IN_DEF]>>
+  w2n x MOD (dimindex (:'a) DIV 8) = 0
+Proof
+  rw[IN_DEF]>>
   fs [aligned_w2n, alignmentTheory.byte_aligned_def]>>
-  rfs[labPropsTheory.good_dimindex_def] \\ rfs []);
+  rfs[labPropsTheory.good_dimindex_def] \\ rfs []
+QED
 
 (* -- *)
 
@@ -83,22 +87,28 @@ val backend_config_ok_def = Define`
          c.lab_conf.asm_conf.valid_imm (INL Sub) (n2w (n * (dimindex (:α) DIV 8))) ∧
          c.lab_conf.asm_conf.valid_imm (INL Add) (n2w (n * (dimindex (:α) DIV 8))))`;
 
-Theorem backend_config_ok_with_bvl_conf_updated[simp]
-  `(f cc.bvl_conf).next_name2 = cc.bvl_conf.next_name2 ⇒
-   (backend_config_ok (cc with bvl_conf updated_by f) ⇔ backend_config_ok cc)`
-  (rw[backend_config_ok_def]);
+Theorem backend_config_ok_with_bvl_conf_updated[simp]:
+   (f cc.bvl_conf).next_name2 = cc.bvl_conf.next_name2 ⇒
+   (backend_config_ok (cc with bvl_conf updated_by f) ⇔ backend_config_ok cc)
+Proof
+  rw[backend_config_ok_def]
+QED
 
-Theorem backend_config_ok_with_word_to_word_conf_updated[simp]
-  `backend_config_ok (cc with word_to_word_conf updated_by f) ⇔ backend_config_ok cc`
-  (rw[backend_config_ok_def]);
+Theorem backend_config_ok_with_word_to_word_conf_updated[simp]:
+   backend_config_ok (cc with word_to_word_conf updated_by f) ⇔ backend_config_ok cc
+Proof
+  rw[backend_config_ok_def]
+QED
 
-Theorem backend_config_ok_call_empty_ffi[simp]
-  `backend_config_ok (cc with
+Theorem backend_config_ok_call_empty_ffi[simp]:
+   backend_config_ok (cc with
       data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
-    backend_config_ok cc`
-  (fs [backend_config_ok_def,data_to_wordTheory.conf_ok_def,
+    backend_config_ok cc
+Proof
+  fs [backend_config_ok_def,data_to_wordTheory.conf_ok_def,
       data_to_wordTheory.shift_length_def,
-      data_to_wordTheory.max_heap_limit_def]);
+      data_to_wordTheory.max_heap_limit_def]
+QED
 
 val mc_init_ok_def = Define`
   mc_init_ok c mc ⇔
@@ -117,20 +127,26 @@ val mc_init_ok_def = Define`
   ¬MEM (case mc.target.config.link_reg of NONE => 0 | SOME n => n) mc.callee_saved_regs ∧
    c.lab_conf.asm_conf = mc.target.config`
 
-Theorem mc_init_ok_with_bvl_conf_updated[simp]
-  `mc_init_ok (cc with bvl_conf updated_by f) mc ⇔ mc_init_ok cc mc`
-  (rw[mc_init_ok_def]);
+Theorem mc_init_ok_with_bvl_conf_updated[simp]:
+   mc_init_ok (cc with bvl_conf updated_by f) mc ⇔ mc_init_ok cc mc
+Proof
+  rw[mc_init_ok_def]
+QED
 
-Theorem mc_init_ok_with_word_to_word_conf_updated[simp]
-  `mc_init_ok (cc with word_to_word_conf updated_by f) mc ⇔ mc_init_ok cc mc`
-  (rw[mc_init_ok_def]);
+Theorem mc_init_ok_with_word_to_word_conf_updated[simp]:
+   mc_init_ok (cc with word_to_word_conf updated_by f) mc ⇔ mc_init_ok cc mc
+Proof
+  rw[mc_init_ok_def]
+QED
 
-Theorem mc_init_ok_call_empty_ffi[simp]
-  `mc_init_ok (cc with
+Theorem mc_init_ok_call_empty_ffi[simp]:
+   mc_init_ok (cc with
       data_conf updated_by (λc. c with call_empty_ffi updated_by x)) =
-    mc_init_ok cc`
-  (fs [mc_init_ok_def,data_to_wordTheory.conf_ok_def,
-      data_to_wordTheory.shift_length_def,FUN_EQ_THM]);
+    mc_init_ok cc
+Proof
+  fs [mc_init_ok_def,data_to_wordTheory.conf_ok_def,
+      data_to_wordTheory.shift_length_def,FUN_EQ_THM]
+QED
 
 val heap_regs_def = Define`
   heap_regs reg_names =
@@ -163,9 +179,10 @@ val _ = temp_overload_on("code_locs",``closProps$code_locs``);
 (* TODO re-define syntax_ok on terms of things in closPropsTheory
  * (invent new properties), and prove elsewhere
  * that the pat_to_clos compiler satisfies these things.*)
-Theorem syntax_ok_pat_to_clos
-  `!e. clos_mtiProof$syntax_ok [pat_to_clos$compile e]`
-  (ho_match_mp_tac pat_to_closTheory.compile_ind
+Theorem syntax_ok_pat_to_clos:
+   !e. clos_mtiProof$syntax_ok [pat_to_clos$compile e]
+Proof
+  ho_match_mp_tac pat_to_closTheory.compile_ind
   \\ rw [pat_to_closTheory.compile_def,
          clos_mtiProofTheory.syntax_ok_def,
          pat_to_closTheory.CopyByteStr_def,
@@ -177,31 +194,37 @@ Theorem syntax_ok_pat_to_clos
   \\ rw [clos_mtiProofTheory.syntax_ok_def,
          Once clos_mtiProofTheory.syntax_ok_cons,
          clos_mtiProofTheory.syntax_ok_REVERSE,
-         clos_mtiProofTheory.syntax_ok_MAP]);
+         clos_mtiProofTheory.syntax_ok_MAP]
+QED
 
-Theorem syntax_ok_MAP_pat_to_clos
-  `!xs. clos_mtiProof$syntax_ok (MAP pat_to_clos_compile xs)`
-  (Induct \\ fs [clos_mtiProofTheory.syntax_ok_def]
+Theorem syntax_ok_MAP_pat_to_clos:
+   !xs. clos_mtiProof$syntax_ok (MAP pat_to_clos_compile xs)
+Proof
+  Induct \\ fs [clos_mtiProofTheory.syntax_ok_def]
   \\ once_rewrite_tac [clos_mtiProofTheory.syntax_ok_cons]
-  \\ fs [syntax_ok_pat_to_clos]);
+  \\ fs [syntax_ok_pat_to_clos]
+QED
 
-Theorem syntax_ok_IMP_obeys_max_app
-  `!e3. 0 < m /\ clos_mtiProof$syntax_ok e3 ==> EVERY (obeys_max_app m) e3`
-  (ho_match_mp_tac clos_mtiProofTheory.syntax_ok_ind \\ rpt strip_tac \\ fs []
+Theorem syntax_ok_IMP_obeys_max_app:
+   !e3. 0 < m /\ clos_mtiProof$syntax_ok e3 ==> EVERY (obeys_max_app m) e3
+Proof
+  ho_match_mp_tac clos_mtiProofTheory.syntax_ok_ind \\ rpt strip_tac \\ fs []
   \\ pop_assum mp_tac \\ once_rewrite_tac [clos_mtiProofTheory.syntax_ok_def]
   \\ fs [] \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS]
-  \\ rw [] \\ res_tac);
+  \\ rw [] \\ res_tac
+QED
 
 (* TODO: move these *)
-Theorem compile_common_syntax
-  `!cf e3 cf1 e4.
+Theorem compile_common_syntax:
+   !cf e3 cf1 e4.
       clos_to_bvl$compile_common cf e3 = (cf1,e4) ==>
       (EVERY no_Labels e3 ==>
        EVERY no_Labels (MAP (SND o SND) e4)) /\
       (0 < cf.max_app /\ clos_mtiProof$syntax_ok e3 ==>
        EVERY (obeys_max_app cf.max_app) (MAP (SND o SND) e4)) /\
-      every_Fn_SOME (MAP (SND o SND) e4)`
-  (fs [clos_to_bvlTheory.compile_common_def]
+      every_Fn_SOME (MAP (SND o SND) e4)
+Proof
+  fs [clos_to_bvlTheory.compile_common_def]
   \\ rpt gen_tac \\ rpt (pairarg_tac \\ fs [])
   \\ strip_tac \\ rveq \\ fs [] \\ rw []
   THEN1 (* no_Labels *)
@@ -272,14 +295,16 @@ Theorem compile_common_syntax
   \\ match_mp_tac clos_labelsProofTheory.every_Fn_SOME_labs
   \\ match_mp_tac clos_annotateProofTheory.every_Fn_SOME_ann
   \\ fs [closPropsTheory.every_Fn_SOME_APPEND]
-  \\ match_mp_tac clos_to_bvlProofTheory.chain_exps_every_Fn_SOME \\ fs []);
+  \\ match_mp_tac clos_to_bvlProofTheory.chain_exps_every_Fn_SOME \\ fs []
+QED
 
-Theorem compile_common_code_locs
-  `!c es c1 xs.
+Theorem compile_common_code_locs:
+   !c es c1 xs.
       clos_to_bvl$compile_common c (MAP pat_to_clos_compile es) = (c1,xs) ==>
       BIGUNION (set (MAP closProps$get_code_labels (MAP (SND ∘ SND) xs))) ⊆
-      set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))`
-  (rpt strip_tac
+      set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))
+Proof
+  rpt strip_tac
   \\ drule compile_common_syntax
   \\ fs [EVERY_MAP,compile_no_Labels]
   \\ strip_tac
@@ -305,18 +330,21 @@ Theorem compile_common_code_locs
              MEM_MAP, PULL_EXISTS] \\ metis_tac[] )
   \\ rename [`clos_labels$compile input`]
   \\ fs [closPropsTheory.BIGUNION_MAP_code_locs_SND_SND]
-  \\ metis_tac [clos_labelsProofTheory.compile_any_dests_SUBSET_code_locs]);
+  \\ metis_tac [clos_labelsProofTheory.compile_any_dests_SUBSET_code_locs]
+QED
 (* -- *)
 
 val _ = temp_overload_on("esgc_free",``patProps$esgc_free``);
 val _ = temp_overload_on("elist_globals",``flatProps$elist_globals``);
 val _ = temp_overload_on("set_globals",``flatProps$set_globals``);
 
-Theorem word_list_exists_imp
-  `dm = stack_removeProof$addresses a n /\
+Theorem word_list_exists_imp:
+   dm = stack_removeProof$addresses a n /\
     dimindex (:'a) DIV 8 * n < dimword (:'a) ∧ good_dimindex (:'a) ⇒
-    word_list_exists a n (fun2set (m1,dm:'a word set))`
-  (metis_tac [stack_removeProofTheory.word_list_exists_addresses]);
+    word_list_exists a n (fun2set (m1,dm:'a word set))
+Proof
+  metis_tac [stack_removeProofTheory.word_list_exists_addresses]
+QED
 
 val semantics_thms = [source_to_flatProofTheory.compile_semantics,
   flat_to_patProofTheory.compile_semantics,
@@ -1863,16 +1891,14 @@ Theorem data_to_word_orac_eq_sym_std = data_to_word_orac_eq_std
   |> SIMP_RULE bool_ss []
   |> SPEC_ALL |> UNDISCH_ALL |> GSYM |> DISCH_ALL |> GEN_ALL
 
-Theorem compile_correct
 
-  `compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
-       extend_with_resource_limit (semantics_prog s env prog)`
-
+       extend_with_resource_limit (semantics_prog s env prog)
+Proof
   (
 
   disch_then (fn t => mp_tac t >>
@@ -1899,7 +1925,7 @@ Theorem compile_correct
     (fn g as (asl,w) =>
       let
         val (genv_c,tm) = dest_exists w
-        val tm = tm |> strip_conj |> el 10 |> strip_forall |> #2
+        val tm = tm |> strip_conj |> rev |> first is_forall |> strip_forall |> #2
         val (tms1, tm) = dest_imp tm
         val tms2 = tm |> dest_exists |> #2 |> strip_conj |> el 1
         fun get_data (tm,acc) =
@@ -1967,13 +1993,18 @@ Theorem compile_correct
                             cfg (MAP (λp. full_compile_single mc.target.config.two_reg_arith (mc.target.config.reg_count - (LENGTH mc.target.config.avoid_regs + 5))
                             c.word_to_word_conf.reg_alg
                             (mc:('a,'b,'c)machine_config).target.config (p,NONE)) progs)) o
-                            MAP (compile_part (c.data_conf with has_fp_ops := (1 < mc.target.config.fp_reg_count))))))))``
+                                                <| has_fp_ops := (1 < mc.target.config.fp_reg_count);
+                                                   has_fp_tern := (mc.target.config.ISA = ARMv7 /\ 2 < mc.target.config.fp_reg_count) |>)))))))``
      |> ISPEC)
    |> Q.GEN`co`
    |> Q.GEN`k0`
    |>  drule)
   \\ disch_then(qspecl_then[`TODO_clock`,
         `cake_orac c' TODO_syntax (SND o config_tuple1) (\ps. ps.flat_prog)`]
+                           let c4_data_conf =
+                                c.data_conf with
+                                  <| has_fp_ops := (1 < c.lab_conf.asm_conf.fp_reg_count);
+                                     has_fp_tern := (c.lab_conf.asm_conf.ISA = ARMv7 /\ 2 < c.lab_conf.asm_conf.fp_reg_count) |>  in
     (strip_assume_tac o SYM)) >>
   qhdtm_x_assum`from_pat`mp_tac >>
   srw_tac[][from_pat_def] >>
@@ -2107,8 +2138,8 @@ Theorem compile_correct
   strip_tac \\
   qabbrev_tac`kkk = stk - 2`>>
   qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ data_oracle` \\
-  qabbrev_tac `c4_data_conf = (c4.data_conf with has_fp_ops := (1 < c4.lab_conf.asm_conf.fp_reg_count))` \\
-
+  qabbrev_tac `c4_data_conf = (c4.data_conf with <| has_fp_ops := (1 < c4.lab_conf.asm_conf.fp_reg_count);
+                                                    has_fp_tern := (c4.lab_conf.asm_conf.ISA = ARMv7 /\ 2 < c4.lab_conf.asm_conf.fp_reg_count) |>)` \\
   qabbrev_tac`lab_st:('a,'a lab_to_target$config,'ffi) labSem$state = lab_to_targetProof$make_init mc ffi io_regs cc_regs tar_st m (dm ∩ byte_aligned) ms p7 lab_to_target$compile
        (mc.target.get_pc ms + n2w (LENGTH bytes)) cbspace lab_oracle` \\
   qabbrev_tac`stack_st_opt =
@@ -2820,6 +2851,6 @@ Theorem compile_correct
   \\ disch_then(SUBST_ALL_TAC o SYM)
   \\ fs[full_make_init_compile, Abbr`lab_st`]
   \\ fs[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
-);
+QED
 
 val _ = export_theory();

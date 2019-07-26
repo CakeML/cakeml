@@ -226,27 +226,31 @@ val gc_move_list_thm = Q.prove(
 
 val APPEND_NIL_LEMMA = METIS_PROVE [APPEND_NIL] ``?xs1. xs = xs ++ xs1:'a list``
 
-Theorem gc_move_ALT
-  `gc_move (ys,xs,a,n,heap,c,limit) =
+Theorem gc_move_ALT:
+   gc_move (ys,xs,a,n,heap,c,limit) =
       let (ys,xs1,x) = gc_move (ys,[],a,n,heap,c,limit) in
-        (ys,xs++xs1,x)`
-  (Cases_on `ys` \\ simp_tac (srw_ss()) [gc_move_def] \\ rpt strip_tac
+        (ys,xs++xs1,x)
+Proof
+  Cases_on `ys` \\ simp_tac (srw_ss()) [gc_move_def] \\ rpt strip_tac
   \\ Cases_on `heap_lookup n' heap` \\ simp_tac (srw_ss()) [LET_DEF]
   \\ Cases_on `x` \\ simp_tac (srw_ss()) [LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ full_simp_tac std_ss []);
+  \\ full_simp_tac std_ss []
+QED
 
-Theorem gc_move_list_ALT
-  `!ys xs a n heap c limit ys3 xs3 a3 n3 heap3 c3.
+Theorem gc_move_list_ALT:
+   !ys xs a n heap c limit ys3 xs3 a3 n3 heap3 c3.
       gc_move_list (ys,xs,a,n,heap,c,limit) =
         let (ys,xs1,x) = gc_move_list (ys,[],a,n,heap,c,limit) in
-          (ys,xs++xs1,x)`
-  (Induct \\ simp_tac std_ss [gc_move_list_def,LET_DEF,APPEND_NIL]
+          (ys,xs++xs1,x)
+Proof
+  Induct \\ simp_tac std_ss [gc_move_list_def,LET_DEF,APPEND_NIL]
   \\ simp_tac std_ss [Once gc_move_ALT,LET_DEF]
   \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ full_simp_tac std_ss [LET_DEF] \\ rpt strip_tac
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ full_simp_tac std_ss [APPEND_ASSOC]);
+  \\ full_simp_tac std_ss [APPEND_ASSOC]
+QED
 
 val gc_move_list_APPEND_lemma = Q.prove(
   `!ys xs a n heap c limit ys3 xs3 a3 n3 heap3 c3.
@@ -344,14 +348,15 @@ val gc_inv_init = Q.prove(
   \\ full_simp_tac (srw_ss()) [heaps_similar_REFL,heap_map_EMPTY,FLOOKUP_DEF]
   \\ full_simp_tac (srw_ss()) [BIJ_DEF,INJ_DEF,SURJ_DEF]);
 
-Theorem full_gc_thm
-  `roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
+Theorem full_gc_thm:
+   roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
     ?heap2 a2 heap3.
       (full_gc (roots:'a heap_address list,heap,limit) =
          (ADDR_MAP (heap_map1 heap3) roots,heap2,a2,T)) /\
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM (heap_map 0 heap3)) /\
-      gc_inv (heap2,[],a2,limit - a2,heap3,T,limit) heap roots`
-  (simp_tac std_ss [Once (GSYM gc_inv_init)]
+      gc_inv (heap2,[],a2,limit - a2,heap3,T,limit) heap roots
+Proof
+  simp_tac std_ss [Once (GSYM gc_inv_init)]
   \\ rpt strip_tac \\ full_simp_tac std_ss [full_gc_def]
   \\ mp_tac (Q.SPECL [`roots`,`[]`,`0`,`limit`,`heap`,`T`] gc_move_list_thm |> Q.INST [`h1`|->`[]`,`heap0`|->`heap`,`roots0`|->`roots`])
   \\ full_simp_tac std_ss [gc_inv_init] \\ match_mp_tac IMP_IMP \\ strip_tac THEN1
@@ -374,7 +379,8 @@ Theorem full_gc_thm
   THEN1 (full_simp_tac std_ss [gc_inv_def,APPEND_NIL] \\ decide_tac)
   \\ match_mp_tac ADDR_MAP_EQ
   \\ full_simp_tac std_ss [] \\ rpt strip_tac \\ res_tac
-  \\ full_simp_tac std_ss [SUBMAP_DEF,heap_map1_def]);
+  \\ full_simp_tac std_ss [SUBMAP_DEF,heap_map1_def]
+QED
 
 val heap_lookup_IMP_heap_addresses = Q.prove(
   `!xs n x j. (heap_lookup j xs = SOME x) ==> n + j IN heap_addresses n xs`,
@@ -384,21 +390,24 @@ val heap_lookup_IMP_heap_addresses = Q.prove(
   \\ `n + el_length h + (j - el_length h) = n + j` by decide_tac
   \\ metis_tac []) |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [] |> GEN_ALL;
 
-Theorem full_gc_LENGTH
-  `roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
+Theorem full_gc_LENGTH:
+   roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
     ?roots2 heap2 a2.
       (full_gc (roots:'a heap_address list,heap,limit) =
-      (roots2,heap2,heap_length heap2,T))`
-  (rpt strip_tac \\ mp_tac full_gc_thm \\ full_simp_tac std_ss []
-  \\ rpt strip_tac \\ full_simp_tac std_ss [gc_inv_def,APPEND_NIL]);
+      (roots2,heap2,heap_length heap2,T))
+Proof
+  rpt strip_tac \\ mp_tac full_gc_thm \\ full_simp_tac std_ss []
+  \\ rpt strip_tac \\ full_simp_tac std_ss [gc_inv_def,APPEND_NIL]
+QED
 
-Theorem full_gc_ok
-  `roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
+Theorem full_gc_ok:
+   roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
     ?roots2 heap2 a2.
       (full_gc (roots:'a heap_address list,heap,limit) = (roots2,heap2,a2,T)) /\
       a2 <= limit /\ roots_ok roots2 (heap2 ++ heap_expand (limit - a2)) /\
-      heap_ok (heap2 ++ heap_expand (limit - a2)) limit`
-  (rpt strip_tac \\ mp_tac full_gc_thm \\ full_simp_tac std_ss [] \\ strip_tac
+      heap_ok (heap2 ++ heap_expand (limit - a2)) limit
+Proof
+  rpt strip_tac \\ mp_tac full_gc_thm \\ full_simp_tac std_ss [] \\ strip_tac
   \\ full_simp_tac std_ss [] \\ full_simp_tac std_ss [gc_inv_def]
   \\ full_simp_tac std_ss [APPEND_NIL] \\ strip_tac THEN1 decide_tac
   \\ simp_tac std_ss [roots_ok_def,heap_ok_def]
@@ -436,17 +445,19 @@ Theorem full_gc_ok
   \\ qpat_x_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`y`,`ptr`])
   \\ full_simp_tac std_ss [] \\ strip_tac
   \\ match_mp_tac isSome_heap_looukp_IMP_APPEND \\ full_simp_tac std_ss []
-  \\ full_simp_tac (srw_ss()) [isSomeDataElement_def]);
+  \\ full_simp_tac (srw_ss()) [isSomeDataElement_def]
+QED
 
-Theorem full_gc_related
-  `roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
+Theorem full_gc_related:
+   roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
     ?heap2 a2 f.
       (full_gc (roots:'a heap_address list,heap,limit) =
          (ADDR_MAP (FAPPLY f) roots,heap2,a2,T)) /\
       (FDOM f = reachable_addresses roots heap) /\
       (heap_length heap2 = heap_length (heap_filter (FDOM f) heap)) /\
-      gc_related f heap (heap2 ++ heap_expand (limit - a2))`
-  (strip_tac \\ mp_tac full_gc_thm \\ asm_simp_tac std_ss []
+      gc_related f heap (heap2 ++ heap_expand (limit - a2))
+Proof
+  strip_tac \\ mp_tac full_gc_thm \\ asm_simp_tac std_ss []
   \\ rpt strip_tac \\ full_simp_tac std_ss []
   \\ qexists_tac `heap_map 0 heap3`
   \\ `(FAPPLY (heap_map 0 heap3)) = heap_map1 heap3` by (full_simp_tac std_ss [heap_map1_def,FUN_EQ_THM])
@@ -501,15 +512,17 @@ Theorem full_gc_related
        by full_simp_tac std_ss [FLOOKUP_DEF]
   \\ res_tac \\ full_simp_tac (srw_ss()) [APPEND_NIL]
   \\ imp_res_tac heap_lookup_LESS \\ imp_res_tac heap_lookup_EXTEND
-  \\ full_simp_tac std_ss [] \\ metis_tac []);
+  \\ full_simp_tac std_ss [] \\ metis_tac []
+QED
 
 (* Lemmas about ok and a *)
 
-Theorem gc_move_ok
-  `(gc_move (x,h2,a,n,heap,c,limit) = (x',h2',a',n',heap',T)) ==>
+Theorem gc_move_ok:
+   (gc_move (x,h2,a,n,heap,c,limit) = (x',h2',a',n',heap',T)) ==>
     c /\
-    ((a = b + heap_length h2) ==> (a' = b + heap_length h2'))`
-  (simp_tac std_ss [Once EQ_SYM_EQ] \\ Cases_on `x`
+    ((a = b + heap_length h2) ==> (a' = b + heap_length h2'))
+Proof
+  simp_tac std_ss [Once EQ_SYM_EQ] \\ Cases_on `x`
   \\ full_simp_tac std_ss [gc_move_def]
   \\ Cases_on `heap_lookup n'' heap` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `x` \\ full_simp_tac (srw_ss()) [LET_DEF]
@@ -519,14 +532,16 @@ Theorem gc_move_ok
   \\ rpt (pop_assum mp_tac)
   \\ once_rewrite_tac [EQ_SYM_EQ] \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [heap_length_APPEND,heap_length_def,
-       el_length_def,ADD_ASSOC]);
+       el_length_def,ADD_ASSOC]
+QED
 
-Theorem gc_move_list_ok
-  `!xs h2 a n heap c limit xs' h2' a' n' heap' c'.
+Theorem gc_move_list_ok:
+   !xs h2 a n heap c limit xs' h2' a' n' heap' c'.
       (gc_move_list (xs,h2,a,n,heap,c,limit) = (xs',h2',a',n',heap',T)) ==>
       c /\
-      ((a = b + heap_length h2) ==> (a' = b + heap_length h2'))`
-  (Induct \\ simp_tac std_ss [gc_move_list_def] \\ rpt strip_tac
+      ((a = b + heap_length h2) ==> (a' = b + heap_length h2'))
+Proof
+  Induct \\ simp_tac std_ss [gc_move_list_def] \\ rpt strip_tac
   THENL [all_tac, pop_assum mp_tac]
   \\ pop_assum mp_tac
   \\ `? x' h2' a' n' heap' c'. gc_move (h,h2,a,n,heap,c,limit) =
@@ -540,7 +555,8 @@ Theorem gc_move_list_ok
   \\ Cases_on `c1` \\ simp_tac std_ss [] \\ `c'` by metis_tac []
   \\ pop_assum mp_tac \\ Cases_on `c'` \\ simp_tac std_ss []
   \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp_tac std_ss [] \\ res_tac
-  \\ imp_res_tac gc_move_ok \\ metis_tac []);
+  \\ imp_res_tac gc_move_ok \\ metis_tac []
+QED
 
 val th =
   fetch "-" "gc_move_loop_ind" |> Q.SPEC `(\(h1,h2,a,n,heap,c,limit).
@@ -568,65 +584,77 @@ val th = MP th lemma |> SIMP_RULE std_ss []
 
 val gc_move_loop_ok = save_thm("gc_move_loop_ok",th);
 
-Theorem gc_move_list_IMP_LENGTH
-  `!l5 h a n heap c k xs ys a1 xs1 heap1 c1.
+Theorem gc_move_list_IMP_LENGTH:
+   !l5 h a n heap c k xs ys a1 xs1 heap1 c1.
       (gc_move_list (l5,h,a,n,heap,c,k) =
-        (xs,ys,a1,xs1,heap1,c1)) ==> (LENGTH xs = LENGTH l5)`
-  (Induct \\ fs [gc_move_list_def,LET_THM] \\ rw []
+        (xs,ys,a1,xs1,heap1,c1)) ==> (LENGTH xs = LENGTH l5)
+Proof
+  Induct \\ fs [gc_move_list_def,LET_THM] \\ rw []
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[] \\ rw []
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs []
+QED
 
-Theorem full_gc_IMP_LENGTH
-  `(full_gc (xs,heap,limit) = (roots2,heap2,h,T)) ==>
-    (LENGTH roots2 = LENGTH xs)`
-  (fs [full_gc_def,LET_THM]
+Theorem full_gc_IMP_LENGTH:
+   (full_gc (xs,heap,limit) = (roots2,heap2,h,T)) ==>
+    (LENGTH roots2 = LENGTH xs)
+Proof
+  fs [full_gc_def,LET_THM]
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ imp_res_tac gc_move_list_IMP_LENGTH \\ fs []);
+  \\ imp_res_tac gc_move_list_IMP_LENGTH \\ fs []
+QED
 
-Theorem gc_move_IMP_isDataElement
-  `!l5 h a n heap c k xs ys a1 xs1 heap1 c1.
+Theorem gc_move_IMP_isDataElement:
+   !l5 h a n heap c k xs ys a1 xs1 heap1 c1.
       EVERY isDataElement h /\
       (gc_move (l5,h,a,n,heap,c,k) =
         (xs,ys,a1,xs1,heap1,c1)) ==>
-      EVERY isDataElement ys`
-  (Cases \\ fs [gc_move_def]
+      EVERY isDataElement ys
+Proof
+  Cases \\ fs [gc_move_def]
   \\ rw [] \\ every_case_tac \\ fs []
-  \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [isDataElement_def]);
+  \\ pairarg_tac \\ fs [] \\ rw [] \\ fs [isDataElement_def]
+QED
 
-Theorem gc_move_list_IMP_isDataElement
-  `!l5 h a n heap c k xs ys a1 xs1 heap1 c1.
+Theorem gc_move_list_IMP_isDataElement:
+   !l5 h a n heap c k xs ys a1 xs1 heap1 c1.
       EVERY isDataElement h /\
       (gc_move_list (l5,h,a,n,heap,c,k) =
         (xs,ys,a1,xs1,heap1,c1)) ==>
-      EVERY isDataElement ys`
-  (Induct \\ fs [gc_move_list_def,LET_THM] \\ rw []
+      EVERY isDataElement ys
+Proof
+  Induct \\ fs [gc_move_list_def,LET_THM] \\ rw []
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[] \\ rw []
   \\ imp_res_tac gc_move_IMP_isDataElement
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs []
+QED
 
-Theorem gc_move_loop_IMP_isDataElement
-  `!h1 h2 a n heap c limit h1' a' n' heap' c'.
+Theorem gc_move_loop_IMP_isDataElement:
+   !h1 h2 a n heap c limit h1' a' n' heap' c'.
       EVERY isDataElement h1 /\
       EVERY isDataElement h2 /\
       (gc_move_loop (h1,h2,a,n,heap,c,limit) = (h1',a',n',heap',T)) ==>
-      EVERY isDataElement h1'`
-  (recInduct (fetch "-" "gc_move_loop_ind") \\ rw []
+      EVERY isDataElement h1'
+Proof
+  recInduct (fetch "-" "gc_move_loop_ind") \\ rw []
   \\ fs [gc_move_loop_def]
   \\ every_case_tac \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ rfs [] \\ fs [isDataElement_def]
   \\ imp_res_tac gc_move_loop_ok \\ fs []
   \\ imp_res_tac gc_move_list_IMP_isDataElement \\ fs []
-  \\ Cases_on `h2'` \\ fs [isDataElement_def]);
+  \\ Cases_on `h2'` \\ fs [isDataElement_def]
+QED
 
-Theorem full_gc_IMP_isDataElement
-  `(full_gc (roots,heap,limit) = (roots1,heap1,a,T)) ==>
-    EVERY isDataElement heap1`
-  (fs [full_gc_def]
+Theorem full_gc_IMP_isDataElement:
+   (full_gc (roots,heap,limit) = (roots1,heap1,a,T)) ==>
+    EVERY isDataElement heap1
+Proof
+  fs [full_gc_def]
   \\ rpt (pairarg_tac \\ fs []) \\ strip_tac \\ rveq \\ fs []
   \\ imp_res_tac gc_move_list_IMP_isDataElement \\ fs []
-  \\ imp_res_tac gc_move_loop_IMP_isDataElement \\ fs []);
+  \\ imp_res_tac gc_move_loop_IMP_isDataElement \\ fs []
+QED
 
 val _ = export_theory();

@@ -45,9 +45,11 @@ val theWord_def = Define `
 val isWord_def = Define `
   (isWord (Word w) = T) /\ (isWord _ = F)`;
 
-Theorem isWord_exists
-  `isWord x ⇔ ∃w. x = Word w`
-  (Cases_on`x` \\ rw[isWord_def]);
+Theorem isWord_exists:
+   isWord x ⇔ ∃w. x = Word w
+Proof
+  Cases_on`x` \\ rw[isWord_def]
+QED
 
 val mem_load_byte_aux_def = Define `
   mem_load_byte_aux m dm be w =
@@ -548,6 +550,11 @@ val inst_def = Define `
       | (SOME f1,SOME f2) =>
         SOME (set_fp_var d1 (fp64_div roundTiesToEven f1 f2) s)
       | _ => NONE)
+    | FP (FPFma d1 d2 d3) =>
+      (case (get_fp_var d1 s, get_fp_var d2 s, get_fp_var d3 s) of
+      | (SOME f1, SOME f2, SOME f3) =>
+        SOME (set_fp_var d1 (fpSem$fpfma f1 f2 f3) s)
+      | _ => NONE)
     | FP (FPMovToReg r1 r2 d) =>
       (case get_fp_var d s of
       | SOME v =>
@@ -827,16 +834,19 @@ val evaluate_ind = theorem"evaluate_ind";
 
 (* We prove that the clock never increases and that termdep is constant. *)
 
-Theorem gc_clock
-  `!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep`
-  (full_simp_tac(srw_ss())[gc_def,LET_DEF] \\ SRW_TAC [] []
+Theorem gc_clock:
+   !s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep
+Proof
+  full_simp_tac(srw_ss())[gc_def,LET_DEF] \\ SRW_TAC [] []
   \\ every_case_tac >> full_simp_tac(srw_ss())[]
-  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+QED
 
-Theorem alloc_clock
-  `!xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==>
-                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep`
-  (SIMP_TAC std_ss [alloc_def] \\ rpt gen_tac
+Theorem alloc_clock:
+   !xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==>
+                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep
+Proof
+  SIMP_TAC std_ss [alloc_def] \\ rpt gen_tac
   \\ rpt (BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[])
   \\ imp_res_tac gc_clock
   \\ rpt (disch_then strip_assume_tac)
@@ -844,7 +854,8 @@ Theorem alloc_clock
   \\ full_simp_tac(srw_ss())[push_env_def,set_store_def,call_env_def,LET_THM,pop_env_def]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]);
+  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+QED
 
 val inst_clock = Q.prove(
   `inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep`,
@@ -854,10 +865,11 @@ val inst_clock = Q.prove(
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []
   \\ EVAL_TAC \\ fs[]);
 
-Theorem evaluate_clock
-  `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==>
-                 s2.clock <= s1.clock /\ s2.termdep = s1.termdep`
-  (recInduct evaluate_ind \\ REPEAT STRIP_TAC
+Theorem evaluate_clock:
+   !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==>
+                 s2.clock <= s1.clock /\ s2.termdep = s1.termdep
+Proof
+  recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ rpt (disch_then strip_assume_tac)
   \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -881,7 +893,8 @@ Theorem evaluate_clock
   \\ TRY (PairCases_on `x''`)
   \\ full_simp_tac(srw_ss())[push_env_def,LET_THM]
   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-  \\ decide_tac);
+  \\ decide_tac
+QED
 
 val fix_clock_evaluate = Q.prove(
   `fix_clock s (evaluate (c1,s)) = evaluate (c1,s)`,

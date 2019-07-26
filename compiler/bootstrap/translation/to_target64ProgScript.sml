@@ -9,6 +9,7 @@ open to_word64ProgTheory std_preludeTheory;
 val _ = new_theory "to_target64Prog"
 
 val _ = translation_extends "to_word64Prog";
+val _ = ml_translatorLib.use_string_type true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target64Prog");
 
@@ -264,9 +265,9 @@ val monadic_enc64_enc_sec_hash_64_ls_side_def = Q.prove(`
   simp[Once (fetch "-" "monadic_enc64_enc_sec_hash_64_ls_side_def")]>>
   metis_tac[monadic_enc64_enc_line_hash_64_ls_side_def]);
 
-Theorem monadic_enc64_enc_secs_64_side_def
-  `monadic_enc64_enc_secs_64_side a b c ⇔ T`
-  (EVAL_TAC>>
+Theorem monadic_enc64_enc_secs_64_side_def = Q.prove(`
+  monadic_enc64_enc_secs_64_side a b c ⇔ T`,
+  EVAL_TAC>>
   rw[]>>
   metis_tac[monadic_enc64_enc_sec_hash_64_ls_side_def,DECIDE``1n ≠ 0``])
   |> update_precondition;

@@ -9,14 +9,17 @@ val _ = new_theory"sexp_parserProg";
 val _ = translation_extends "explorerProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
+val _ = ml_translatorLib.use_string_type true;
 
 (* TODO: this is duplicated in parserProgTheory *)
 val monad_unitbind_assert = Q.prove(
   `!b x. monad_unitbind (assert b) x = if b then x else NONE`,
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
-Theorem OPTION_BIND_THM
-  `!x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i`
-  (Cases THEN SRW_TAC [] []);
+Theorem OPTION_BIND_THM:
+   !x y. OPTION_BIND x y = case x of NONE => NONE | SOME i => y i
+Proof
+  Cases THEN SRW_TAC [] []
+QED
 (* -- *)
 
 val r = translate simpleSexpPEGTheory.pnt_def
@@ -24,6 +27,7 @@ val r = translate pegTheory.ignoreR_def
 val r = translate pegTheory.ignoreL_def
 val r = translate simpleSexpTheory.arb_sexp_def
 val r = translate simpleSexpPEGTheory.choicel_def
+
 val r = translate simpleSexpPEGTheory.tokeq_def
 val r = translate simpleSexpPEGTheory.pegf_def
 val r = translate simpleSexpPEGTheory.grabWS_def
@@ -81,12 +85,13 @@ val r = translate simpleSexpTheory.dstrip_sexp_def
 
 
 (* TODO: move (used?) *)
-Theorem isHexDigit_cases
-  `isHexDigit c ⇔
+Theorem isHexDigit_cases:
+   isHexDigit c ⇔
    isDigit c ∨
    c ∈ {#"a";#"b";#"c";#"d";#"e";#"f"} ∨
-   c ∈ {#"A";#"B";#"C";#"D";#"E";#"F"}`
-  (rw[isHexDigit_def,isDigit_def]
+   c ∈ {#"A";#"B";#"C";#"D";#"E";#"F"}
+Proof
+  rw[isHexDigit_def,isDigit_def]
   \\ EQ_TAC \\ strip_tac \\ simp[]
   >- (
     `ORD c = 97 ∨
@@ -103,37 +108,44 @@ Theorem isHexDigit_cases
      ORD c = 68 ∨
      ORD c = 69 ∨
      ORD c = 70` by decide_tac \\
-    pop_assum(assume_tac o Q.AP_TERM`CHR`) \\ fs[CHR_ORD] ));
+    pop_assum(assume_tac o Q.AP_TERM`CHR`) \\ fs[CHR_ORD] )
+QED
 
-Theorem isHexDigit_UNHEX_LESS
-  `isHexDigit c ⇒ UNHEX c < 16`
-  (rw[isHexDigit_cases] \\ EVAL_TAC \\
+Theorem isHexDigit_UNHEX_LESS:
+   isHexDigit c ⇒ UNHEX c < 16
+Proof
+  rw[isHexDigit_cases] \\ EVAL_TAC \\
   rw[GSYM simpleSexpParseTheory.isDigit_UNHEX_alt] \\
-  fs[isDigit_def]);
+  fs[isDigit_def]
+QED
 
-Theorem num_from_hex_string_alt_length_2
-  `num_from_hex_string_alt [d1;d2] < 256`
-  (rw[lexer_implTheory.num_from_hex_string_alt_def,
+Theorem num_from_hex_string_alt_length_2:
+   num_from_hex_string_alt [d1;d2] < 256
+Proof
+  rw[lexer_implTheory.num_from_hex_string_alt_def,
      ASCIInumbersTheory.s2n_def,
      numposrepTheory.l2n_def]
   \\ qspecl_then[`unhex_alt d1`,`16`]mp_tac MOD_LESS
   \\ impl_tac >- rw[]
   \\ qspecl_then[`unhex_alt d2`,`16`]mp_tac MOD_LESS
   \\ impl_tac >- rw[]
-  \\ decide_tac);
+  \\ decide_tac
+QED
 (* -- *)
 
-Theorem num_from_hex_string_alt_intro
-  `EVERY isHexDigit ls ⇒
+Theorem num_from_hex_string_alt_intro:
+   EVERY isHexDigit ls ⇒
    num_from_hex_string ls =
-   num_from_hex_string_alt ls`
-  (rw[ASCIInumbersTheory.num_from_hex_string_def,
+   num_from_hex_string_alt ls
+Proof
+  rw[ASCIInumbersTheory.num_from_hex_string_def,
      lexer_implTheory.num_from_hex_string_alt_def,
      ASCIInumbersTheory.s2n_def,
      numposrepTheory.l2n_def] \\
   AP_TERM_TAC \\
   simp[MAP_EQ_f] \\
-  fs[EVERY_MEM,lexer_implTheory.unhex_alt_def]);
+  fs[EVERY_MEM,lexer_implTheory.unhex_alt_def]
+QED
 
 val lemma = Q.prove(`
   isHexDigit x ∧ isHexDigit y ∧ A ∧ B ∧ ¬isPrint (CHR (num_from_hex_string[x;y])) ⇔
@@ -146,6 +158,7 @@ val lemma2 = Q.prove(`
   num_from_hex_string [x;y] = num_from_hex_string_alt [x;y]`,
   rw[num_from_hex_string_alt_intro]);
 
+val _ = ml_translatorLib.use_string_type false;
 val r = fromSexpTheory.decode_control_def
         |> SIMP_RULE std_ss [monad_unitbind_assert,lemma,lemma2]
         |> translate;
@@ -161,7 +174,26 @@ val decode_control_side = Q.prove(
   rw[Once(theorem"decode_control_side_def")])
   |> update_precondition;
 
-val r = translate fromSexpTheory.odestSEXSTR_def;
+val decode_control_wrapper_def = Define `
+  decode_control_wrapper s =
+    case decode_control (explode s) of
+      NONE => NONE
+    | SOME x => SOME (implode x)`
+
+val r = translate decode_control_wrapper_def
+
+val _ = ml_translatorLib.use_string_type true;
+
+Theorem decode_control_eq:
+  decode_control s =
+  OPTION_MAP (\x. explode x) (decode_control_wrapper (implode s))
+Proof
+  fs [decode_control_wrapper_def]
+  \\ Cases_on `decode_control s` \\ fs []
+QED
+
+val r = translate (fromSexpTheory.odestSEXSTR_def
+                   |> REWRITE_RULE [decode_control_eq]);
 val r = translate fromSexpTheory.odestSXSYM_def;
 val r = translate fromSexpTheory.odestSXNUM_def;
 
@@ -174,12 +206,6 @@ val sexpid_side = Q.prove(
   ho_match_mp_tac fromSexpTheory.sexpid_ind \\ rw[] \\
   rw[Once(theorem"sexpid_side_def")])
 |> update_precondition;
-
-(*
-val r = fromSexpTheory.sexptctor_def
-        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
-        |> translate;
-*)
 
 val r = translate sexptype_alt_def;
 
@@ -235,7 +261,9 @@ val sexppat_alt_side = Q.prove(
   rw[Once(theorem"sexppat_alt_side_def")])
   |> update_precondition;
 
-val r = translate fromSexpTheory.sexpop_def;
+val r = translate (fromSexpTheory.sexpop_def
+                   |> REWRITE_RULE [decode_control_eq]);
+
 val r = translate fromSexpTheory.sexplop_def;
 
 val r = translate sexpexp_alt_def;

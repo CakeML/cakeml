@@ -67,22 +67,28 @@ fun prove_ref_spec op_name =
   xsimpl \\ fs [UNIT_TYPE_def]
 
 (*
-Theorem ref_spec
-  `!xv. app (p:'ffi ffi_proj) ^(fetch_v "op ref" (get_ml_prog_state ())) [xv]
-          emp (POSTv rv. rv ~~> xv)`
-  (prove_ref_spec "op ref");
+Theorem ref_spec:
+   !xv. app (p:'ffi ffi_proj) ^(fetch_v "op ref" (get_ml_prog_state ())) [xv]
+          emp (POSTv rv. rv ~~> xv)
+Proof
+  prove_ref_spec "op ref"
+QED
 *)
 
-Theorem deref_spec
-  `!xv. app (p:'ffi ffi_proj) ^(fetch_v "op !" (get_ml_prog_state ())) [rv]
-          (rv ~~> xv) (POSTv yv. cond (xv = yv) * rv ~~> xv)`
-  (prove_ref_spec "op !");
+Theorem deref_spec:
+   !xv. app (p:'ffi ffi_proj) ^(fetch_v "op !" (get_ml_prog_state ())) [rv]
+          (rv ~~> xv) (POSTv yv. cond (xv = yv) * rv ~~> xv)
+Proof
+  prove_ref_spec "op !"
+QED
 
-Theorem assign_spec
-  `!rv xv yv.
+Theorem assign_spec:
+   !rv xv yv.
      app (p:'ffi ffi_proj) ^(fetch_v "op :=" (get_ml_prog_state ())) [rv; yv]
-       (rv ~~> xv) (POSTv v. cond (UNIT_TYPE () v) * rv ~~> yv)`
-  (prove_ref_spec "op :=");
+       (rv ~~> xv) (POSTv v. cond (UNIT_TYPE () v) * rv ~~> yv)
+Proof
+  prove_ref_spec "op :="
+QED
 
 val bool_toString_def = Define `
   bool_toString b = if b then strlit "True" else strlit"False"`;

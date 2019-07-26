@@ -150,6 +150,8 @@ val x64_ast_def = Define`
      [SSE (bin_SD (sse_mul, n2w d1, xr d2))]) /\
    (x64_ast (Inst (FP (FPDiv d1 _ d2))) =
      [SSE (bin_SD (sse_div, n2w d1, xr d2))]) /\
+   (x64_ast (Inst (FP (FPFma _ _ _))) =
+    [Znop(1)]) /\
    (x64_ast (Inst (FP (FPMovToReg r1 r2 d))) =
      [SSE (MOV_D_Q (F, T, n2w d, reg r1))]) /\
    (x64_ast (Inst (FP (FPMovFromReg d r1 r2))) =

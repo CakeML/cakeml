@@ -8,13 +8,14 @@ open bigStepTheory;
 val _ = new_theory "bigStepProps";
 
 (* TODO see if this is actually needed
-Theorem evaluate_decs_evaluate_prog_MAP_Tdec
-  `∀ck env cs tids ds res.
+Theorem evaluate_decs_evaluate_prog_MAP_Tdec:
+   ∀ck env cs tids ds res.
       evaluate_decs ck NONE env (cs,tids) ds res
       ⇔
       case res of ((s,tids'),envC,r) =>
-      evaluate_prog ck env (cs,tids,{}) (MAP Tdec ds) ((s,tids',{}),([],envC),map_result(λenvE. ([],envE))(I)r)`
-  (Induct_on`ds`>>simp[Once evaluate_decs_cases,Once evaluate_prog_cases] >- (
+      evaluate_prog ck env (cs,tids,{}) (MAP Tdec ds) ((s,tids',{}),([],envC),map_result(λenvE. ([],envE))(I)r)
+Proof
+  Induct_on`ds`>>simp[Once evaluate_decs_cases,Once evaluate_prog_cases] >- (
     rpt gen_tac >> BasicProvers.EVERY_CASE_TAC >> simp[] >>
     Cases_on`r'`>>simp[] ) >>
   srw_tac[DNF_ss][] >>
@@ -52,14 +53,16 @@ Theorem evaluate_decs_evaluate_prog_MAP_Tdec
     TRY (Cases_on`res4`>>full_simp_tac(srw_ss())[]) >>
     Cases_on`a`>>Cases_on`e`>>full_simp_tac(srw_ss())[]>>srw_tac[][])
   >- (
-    Cases_on`a`>>full_simp_tac(srw_ss())[]))
+    Cases_on`a`>>full_simp_tac(srw_ss())[])
+QED
 
-Theorem evaluate_decs_ctors_in
-  `∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
+Theorem evaluate_decs_ctors_in:
+   ∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
       ∀cn.
         IS_SOME (ALOOKUP (FST(SND res)) cn) ⇒
-        MEM cn (FLAT (MAP ctors_of_dec decs))`
-  (HO_MATCH_MP_TAC evaluate_decs_ind >>
+        MEM cn (FLAT (MAP ctors_of_dec decs))
+Proof
+  HO_MATCH_MP_TAC evaluate_decs_ind >>
   simp[] >>
   srw_tac[][Once evaluate_dec_cases] >> simp[] >>
   full_simp_tac(srw_ss())[ALOOKUP_APPEND] >>
@@ -79,14 +82,15 @@ Theorem evaluate_decs_ctors_in
   PairCases_on `y` >>
   full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
-  METIS_TAC[pair_CASES])
+  METIS_TAC[pair_CASES]
+QED
 
   *)
 
 val st = ``st:'ffi state``
 
-Theorem evaluate_no_new_types_exns
-`(!ck env ^st e r. evaluate ck env st e r ⇒
+Theorem evaluate_no_new_types_exns:
+ (!ck env ^st e r. evaluate ck env st e r ⇒
    st.next_type_stamp = (FST r).next_type_stamp ∧
    st.next_exn_stamp = (FST r).next_exn_stamp) ∧
  (!ck env ^st es r. evaluate_list ck env st es r ⇒
@@ -94,12 +98,14 @@ Theorem evaluate_no_new_types_exns
    st.next_exn_stamp = (FST r).next_exn_stamp) ∧
  (!ck env ^st v pes err_v r. evaluate_match ck env st v pes err_v r ⇒
    st.next_type_stamp = (FST r).next_type_stamp ∧
-   st.next_exn_stamp = (FST r).next_exn_stamp)`
- (ho_match_mp_tac bigStepTheory.evaluate_ind >>
- srw_tac[][]);
+   st.next_exn_stamp = (FST r).next_exn_stamp)
+Proof
+ ho_match_mp_tac bigStepTheory.evaluate_ind >>
+ srw_tac[][]
+QED
 
-Theorem evaluate_ignores_types_exns
-`(∀ck env ^st e r.
+Theorem evaluate_ignores_types_exns:
+ (∀ck env ^st e r.
    evaluate ck env st e r ⇒
    !x y. evaluate ck env (st with <| next_type_stamp := x; next_exn_stamp := y |>) e
             ((FST r) with <| next_type_stamp := x; next_exn_stamp := y |>, SND r)) ∧
@@ -110,26 +116,32 @@ Theorem evaluate_ignores_types_exns
  (∀ck env ^st v pes err_v r.
    evaluate_match ck env st v pes err_v r ⇒
    !x y. evaluate_match ck env (st with <| next_type_stamp := x; next_exn_stamp := y |>) v pes err_v
-            ((FST r) with <| next_type_stamp := x; next_exn_stamp := y |>, SND r))`
- (ho_match_mp_tac bigStepTheory.evaluate_ind >>
+            ((FST r) with <| next_type_stamp := x; next_exn_stamp := y |>, SND r))
+Proof
+ ho_match_mp_tac bigStepTheory.evaluate_ind >>
  srw_tac[][] >>
  srw_tac[][Once evaluate_cases, state_component_equality] >>
- metis_tac [state_accfupds, K_DEF]);
+ metis_tac [state_accfupds, K_DEF]
+QED
 
 (*
 
-Theorem eval_d_no_new_mods
-`!ck mn env st d r. evaluate_dec ck mn env st d r ⇒ st.defined_mods = (FST r).defined_mods`
- (srw_tac[][evaluate_dec_cases] >>
+Theorem eval_d_no_new_mods:
+ !ck mn env st d r. evaluate_dec ck mn env st d r ⇒ st.defined_mods = (FST r).defined_mods
+Proof
+ srw_tac[][evaluate_dec_cases] >>
  imp_res_tac evaluate_no_new_types_mods >>
- full_simp_tac(srw_ss())[]);
+ full_simp_tac(srw_ss())[]
+QED
 
-Theorem eval_ds_no_new_mods
-`!ck mn env ^st ds r. evaluate_decs ck mn env st ds r ⇒ st.defined_mods = (FST r).defined_mods`
- (ho_match_mp_tac evaluate_decs_ind >>
+Theorem eval_ds_no_new_mods:
+ !ck mn env ^st ds r. evaluate_decs ck mn env st ds r ⇒ st.defined_mods = (FST r).defined_mods
+Proof
+ ho_match_mp_tac evaluate_decs_ind >>
  srw_tac[][] >>
  imp_res_tac eval_d_no_new_mods >>
- full_simp_tac(srw_ss())[]);
+ full_simp_tac(srw_ss())[]
+QED
  *)
 
 (* REPL bootstrap lemmas *)
@@ -180,8 +192,8 @@ val evaluate_decs_last3 = Q.prove(
   PairCases_on`cenv` >>
   full_simp_tac(srw_ss())[semanticPrimitivesTheory.merge_alist_mod_env_def, FUNION_ASSOC])
 
-Theorem evaluate_Tmod_last3
-  `evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
+Theorem evaluate_Tmod_last3 = Q.prove(`
+  evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
     decs = decs0 ++[Dlet (Pvar x) (App Opref [Con i []]);Dlet (Pvar y) (App Opref [Con j []]);Dlet (Pvar p) (Fun q z)]
   ⇒
     ∃n ls1 ls iv jv.
@@ -191,8 +203,8 @@ Theorem evaluate_Tmod_last3
     build_conv (merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0))) i [] = SOME iv ∧
     build_conv (merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0))) j [] = SOME jv ∧
     (EL n (SND cs) = Refv iv) ∧
-    (EL (n+1) (SND cs) = Refv jv)`
-  (Cases_on`cs`>>srw_tac[][bigStepTheory.evaluate_top_cases]>>
+    (EL (n+1) (SND cs) = Refv jv)`,
+  Cases_on`cs`>>srw_tac[][bigStepTheory.evaluate_top_cases]>>
   imp_res_tac evaluate_decs_last3 >> full_simp_tac(srw_ss())[]) |> GEN_ALL
 
 val evaluate_decs_tys = Q.prove(

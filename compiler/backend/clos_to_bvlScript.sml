@@ -64,9 +64,11 @@ val _ = EVAL``clos_tag_shift nil_tag = nil_tag`` |> EQT_ELIM
   |> curry save_thm"clos_tag_shift_nil_tag[simp]";
 val _ = EVAL``clos_tag_shift cons_tag = cons_tag`` |> EQT_ELIM
   |> curry save_thm"clos_tag_shift_cons_tag[simp]";
-Theorem clos_tag_shift_inj
-  `clos_tag_shift n1 = clos_tag_shift n2 ⇒ n1 = n2`
-  (EVAL_TAC >> rw[] >> simp[])
+Theorem clos_tag_shift_inj:
+   clos_tag_shift n1 = clos_tag_shift n2 ⇒ n1 = n2
+Proof
+  EVAL_TAC >> rw[] >> simp[]
+QED
 
 val num_added_globals_def = Define
   `num_added_globals = 1n`;
@@ -87,7 +89,8 @@ val compile_op_def = Define`
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
-Theorem compile_op_pmatch `∀op.
+Theorem compile_op_pmatch:
+  ∀op.
   compile_op op =
     case op of
         Cons tag => Cons (clos_tag_shift tag)
@@ -99,10 +102,12 @@ Theorem compile_op_pmatch `∀op.
       | DerefByteVec => DerefByte
       | SetGlobal n => SetGlobal (n + num_added_globals)
       | Global n => Global (n + num_added_globals)
-      | x => x`
-  (rpt strip_tac
+      | x => x
+Proof
+  rpt strip_tac
   >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac)
-  >> fs[compile_op_def]);
+  >> fs[compile_op_def]
+QED
 
 val mk_const_def = Define `
   mk_const n : bvl$exp = Op (Const (&n)) []`;
@@ -128,42 +133,52 @@ val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\
   (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+2) xs ((i,x) :: aux))`;
 
-Theorem build_aux_LENGTH
-  `!l n aux n1 t.
-      (build_aux n l aux = (n1,t)) ==> (n1 = n + 2 * LENGTH l)`
-  (Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC);
+Theorem build_aux_LENGTH:
+   !l n aux n1 t.
+      (build_aux n l aux = (n1,t)) ==> (n1 = n + 2 * LENGTH l)
+Proof
+  Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC
+QED
 
-Theorem build_aux_MOVE
-  `!xs n aux n1 aux1.
+Theorem build_aux_MOVE:
+   !xs n aux n1 aux1.
       (build_aux n xs aux = (n1,aux1)) <=>
-      ?aux2. (build_aux n xs [] = (n1,aux2)) /\ (aux1 = aux2 ++ aux)`
-  (Induct THEN1 (fs [build_aux_def] \\ METIS_TAC [])
+      ?aux2. (build_aux n xs [] = (n1,aux2)) /\ (aux1 = aux2 ++ aux)
+Proof
+  Induct THEN1 (fs [build_aux_def] \\ METIS_TAC [])
   \\ ONCE_REWRITE_TAC [build_aux_def]
   \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
-  \\ fs [PULL_EXISTS]);
+  \\ fs [PULL_EXISTS]
+QED
 
-Theorem build_aux_acc
-  `!k n aux. ?aux1. SND (build_aux n k aux) = aux1 ++ aux`
-  (METIS_TAC[build_aux_MOVE,SND,PAIR]);
+Theorem build_aux_acc:
+   !k n aux. ?aux1. SND (build_aux n k aux) = aux1 ++ aux
+Proof
+  METIS_TAC[build_aux_MOVE,SND,PAIR]
+QED
 
-Theorem build_aux_MEM
-  `!c n aux n7 aux7.
+Theorem build_aux_MEM:
+   !c n aux n7 aux7.
        (build_aux n c aux = (n7,aux7)) ==>
-       !k. k < LENGTH c ==> ?d. MEM (n + 2*k,d) aux7`
-  (Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
+       !k. k < LENGTH c ==> ?d. MEM (n + 2*k,d) aux7
+Proof
+  Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+2`,`(n,h)::aux`]) \\ fs []
   \\ REPEAT STRIP_TAC
   \\ Cases_on `k` \\ fs []
   THEN1 (MP_TAC (Q.SPECL [`c`,`n+2`,`(n,h)::aux`] build_aux_acc) \\ fs []
          \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC [])
-  \\ RES_TAC \\ fs [ADD1,LEFT_ADD_DISTRIB] \\ METIS_TAC []);
+  \\ RES_TAC \\ fs [ADD1,LEFT_ADD_DISTRIB] \\ METIS_TAC []
+QED
 
-Theorem build_aux_APPEND1
-  `!xs x n aux.
+Theorem build_aux_APPEND1:
+   !xs x n aux.
       build_aux n (xs ++ [x]) aux =
         let (n1,aux1) = build_aux n xs aux in
-          (n1+2,(n1,x)::aux1)`
-  (Induct \\ fs [build_aux_def,LET_DEF]);
+          (n1+2,(n1,x)::aux1)
+Proof
+  Induct \\ fs [build_aux_def,LET_DEF]
+QED
 
 val recc_Let_def = Define `
   recc_Let n num_args i =
@@ -419,11 +434,12 @@ val pair_lem2 = Q.prove (
   PairCases_on `z` >>
   rw []);
 
-Theorem compile_exps_acc
-  `!max_app xs aux.
+Theorem compile_exps_acc:
+   !max_app xs aux.
       let (c,aux1) = compile_exps max_app xs aux in
-        (LENGTH c = LENGTH xs) /\ ?ys. aux1 = ys ++ aux`
-  (recInduct compile_exps_ind \\ REPEAT STRIP_TAC
+        (LENGTH c = LENGTH xs) /\ ?ys. aux1 = ys ++ aux
+Proof
+  recInduct compile_exps_ind \\ REPEAT STRIP_TAC
   \\ fs [compile_exps_def] \\ SRW_TAC [] [] \\ fs [LET_DEF,ADD1]
   \\ fs []
   \\ BasicProvers.EVERY_CASE_TAC \\ rfs [] \\ fs [pair_lem1] >>
@@ -431,42 +447,51 @@ Theorem compile_exps_acc
   fs [pair_lem2] >>
   rfs [compile_exps_def, LET_THM] >>
   fs [pair_lem1, pair_lem2] >>
-  metis_tac [build_aux_acc, APPEND_ASSOC]);
+  metis_tac [build_aux_acc, APPEND_ASSOC]
+QED
 
-Theorem compile_exps_LENGTH
-  `(compile_exps max_app xs aux = (c,aux1)) ==> (LENGTH c = LENGTH xs)`
-  (REPEAT STRIP_TAC
+Theorem compile_exps_LENGTH:
+   (compile_exps max_app xs aux = (c,aux1)) ==> (LENGTH c = LENGTH xs)
+Proof
+  REPEAT STRIP_TAC
   \\ ASSUME_TAC (Q.SPECL [`max_app`,`xs`,`aux`] compile_exps_acc)
-  \\ rfs [LET_DEF]);
+  \\ rfs [LET_DEF]
+QED
 
-Theorem compile_exps_SING
-  `(compile_exps max_app [x] aux = (c,aux1)) ==> ?d. c = [d]`
-  (REPEAT STRIP_TAC
+Theorem compile_exps_SING:
+   (compile_exps max_app [x] aux = (c,aux1)) ==> ?d. c = [d]
+Proof
+  REPEAT STRIP_TAC
   \\ ASSUME_TAC (Q.SPECL [`max_app`,`[x]`,`aux`] compile_exps_acc) \\ rfs [LET_DEF]
-  \\ Cases_on `c` \\ fs [] \\ Cases_on `t` \\ fs []);
+  \\ Cases_on `c` \\ fs [] \\ Cases_on `t` \\ fs []
+QED
 
-Theorem compile_exps_CONS
-  `!max_app xs x aux.
+Theorem compile_exps_CONS:
+   !max_app xs x aux.
       compile_exps max_app (x::xs) aux =
       (let (c1,aux1) = compile_exps max_app [x] aux in
        let (c2,aux2) = compile_exps max_app xs aux1 in
-         (c1 ++ c2,aux2))`
-  (Cases_on `xs` \\ fs[compile_exps_def] \\ fs [LET_DEF]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
+         (c1 ++ c2,aux2))
+Proof
+  Cases_on `xs` \\ fs[compile_exps_def] \\ fs [LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
+QED
 
-Theorem compile_exps_SNOC
-  `!xs x aux max_app.
+Theorem compile_exps_SNOC:
+   !xs x aux max_app.
       compile_exps max_app (SNOC x xs) aux =
       (let (c1,aux1) = compile_exps max_app xs aux in
        let (c2,aux2) = compile_exps max_app [x] aux1 in
-         (c1 ++ c2,aux2))`
-  (Induct THEN1
+         (c1 ++ c2,aux2))
+Proof
+  Induct THEN1
    (fs [compile_exps_def,LET_DEF]
     \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [])
   \\ fs [SNOC_APPEND]
   \\ ONCE_REWRITE_TAC [compile_exps_CONS]
   \\ ASM_SIMP_TAC std_ss [compile_exps_def,LET_DEF,APPEND_NIL]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []
+QED
 
 val _ = Datatype`
   config = <| next_loc : num
@@ -505,17 +530,21 @@ val code_merge_def = tDefine "code_merge" `
           y1::code_merge xs ys1`
   (WF_REL_TAC `measure (\(xs,ys). LENGTH xs + LENGTH ys)` \\ rw []);
 
-Theorem code_split_NULL
-  `!ts1 ts2 ts3 xs ys.
+Theorem code_split_NULL:
+   !ts1 ts2 ts3 xs ys.
       (xs,ys) = code_split ts1 ts2 ts3 /\ ts2 <> [] /\ ts3 <> [] ==>
-      xs <> [] /\ ys <> []`
-  (Induct \\ fs [code_split_def] \\ rw [] \\ first_x_assum drule \\ fs []);
+      xs <> [] /\ ys <> []
+Proof
+  Induct \\ fs [code_split_def] \\ rw [] \\ first_x_assum drule \\ fs []
+QED
 
-Theorem code_split_LENGTH
-  `!ts1 ts2 ts3 xs ys.
+Theorem code_split_LENGTH:
+   !ts1 ts2 ts3 xs ys.
       (xs,ys) = code_split ts1 ts2 ts3 ==>
-      LENGTH xs + LENGTH ys = LENGTH ts1 + LENGTH ts2 + LENGTH ts3`
-  (Induct \\ fs [code_split_def] \\ rw [] \\ first_x_assum drule \\ fs []);
+      LENGTH xs + LENGTH ys = LENGTH ts1 + LENGTH ts2 + LENGTH ts3
+Proof
+  Induct \\ fs [code_split_def] \\ rw [] \\ first_x_assum drule \\ fs []
+QED
 
 val code_sort_def = tDefine "code_sort" `
   (code_sort [] = []) /\

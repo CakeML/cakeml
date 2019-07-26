@@ -3,6 +3,7 @@
 *)
 open preamble;
 local open ag32ProgTheory in end;
+local open arm7ProgTheory in end;
 open compilerTheory
      exportTheory
      ml_translatorLib ml_translatorTheory;
@@ -11,6 +12,7 @@ open cfLib basis;
 val _ = new_theory"compiler32Prog";
 
 val _ = translation_extends "ag32Prog";
+val _ = ml_translatorLib.use_string_type true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler32Prog");
 
@@ -29,9 +31,11 @@ val max_heap_limit_32_def = Define`
 
 val res = translate max_heap_limit_32_def
 
-Theorem max_heap_limit_32_thm
-  `max_heap_limit (:32) = max_heap_limit_32`
-  (rw[FUN_EQ_THM] \\ EVAL_TAC);
+Theorem max_heap_limit_32_thm:
+   max_heap_limit (:32) = max_heap_limit_32
+Proof
+  rw[FUN_EQ_THM] \\ EVAL_TAC
+QED
 
 (*
 
@@ -151,8 +155,12 @@ val res = translate find_num_def;
 val res = translate get_err_str_def;
 
 val res = translate parse_num_list_def;
+
+(* comma_tokens treats strings as char lists so we switch modes temporarily *)
+val _ = ml_translatorLib.use_string_type false;
 val res = translate comma_tokens_def;
 val res = translate parse_nums_def;
+val _ = ml_translatorLib.use_string_type true;
 
 val res = translate clos_knownTheory.default_inline_factor_def;
 val res = translate clos_knownTheory.default_max_body_size_def;
@@ -179,12 +187,12 @@ val res = translate
   (ag32_configTheory.ag32_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
 
-(* arm6 *)
-val res = translate arm6_configTheory.arm6_names_def;
-val res = translate export_arm6Theory.ffi_asm_def;
-val res = translate export_arm6Theory.arm6_export_def;
+(* arm7 *)
+val res = translate arm7_configTheory.arm7_names_def;
+val res = translate export_arm7Theory.ffi_asm_def;
+val res = translate export_arm7Theory.arm7_export_def;
 val res = translate
-  (arm6_configTheory.arm6_backend_config_def
+  (arm7_configTheory.arm7_backend_config_def
    |> SIMP_RULE(srw_ss())[FUNION_FUPDATE_1]);
 
 (* Leave the module now, so that key things are available in the toplevel
@@ -224,23 +232,24 @@ val main = process_topdecs`
       if compiler_has_version_flag cl then
         print compiler_current_build_info_str
       else
-        case compiler_compile_32 cl (String.explode (TextIO.inputAll TextIO.stdIn))  of
+        case compiler_compile_32 cl (TextIO.inputAll TextIO.stdIn)  of
           (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                      compiler32prog_nonzero_exit_code_for_error_msg e)
     end`;
 
 val res = append_prog main;
 
-val st = get_ml_prog_state()
+val main_v_def = fetch "-" "main_v_def";
 
-Theorem main_spec
-  `app (p:'ffi ffi_proj) ^(fetch_v "main" st)
+Theorem main_spec:
+   app (p:'ffi ffi_proj) main_v
      [Conv NONE []] (STDIO fs * COMMANDLINE cl)
      (POSTv uv.
        &UNIT_TYPE () uv
        * STDIO (full_compile_32 (TL cl) (get_stdin fs) fs)
-       * COMMANDLINE cl)`
-  (xcf "main" st
+       * COMMANDLINE cl)
+Proof
+  xcf_with_def "main" main_v_def
   \\ xlet_auto >- (xcon \\ xsimpl)
   \\ xlet_auto
   >- (
@@ -280,7 +289,7 @@ Theorem main_spec
     \\ qexists_tac`fs`
     \\ xsimpl)
   \\ xlet_auto >- (xsimpl \\ fs[INSTREAM_stdin, STD_streams_get_mode])
-  \\ xlet_auto >- xsimpl
+  \\ fs [GSYM HOL_STRING_TYPE_def]
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_32_def]
   \\ pairarg_tac
@@ -296,12 +305,14 @@ Theorem main_spec
     \\ asm_exists_tac \\ xsimpl
     \\ qexists_tac `fs'` \\ xsimpl)
   \\ xapp
-  \\ asm_exists_tac \\ simp [] \\ xsimpl);
+  \\ asm_exists_tac \\ simp [] \\ xsimpl
+QED
 
-Theorem main_whole_prog_spec
-  `whole_prog_spec ^(fetch_v "main" st) cl fs NONE
-    ((=) (full_compile_32 (TL cl) (get_stdin fs) fs))`
-  (simp[whole_prog_spec_def,UNCURRY]
+Theorem main_whole_prog_spec:
+   whole_prog_spec main_v cl fs NONE
+    ((=) (full_compile_32 (TL cl) (get_stdin fs) fs))
+Proof
+  simp[whole_prog_spec_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac`fs1 = _ with numchars := _`
   \\ qexists_tac`fs1`
   \\ reverse conj_tac >-
@@ -310,9 +321,11 @@ Theorem main_whole_prog_spec
        GSYM add_stdo_with_numchars, with_same_numchars]
   \\ simp [SEP_CLAUSES]
   \\ match_mp_tac(MP_CANON(MATCH_MP app_wgframe main_spec))
-  \\ xsimpl);
+  \\ xsimpl
+QED
 
-val (semantics_thm,prog_tm) = whole_prog_thm st "main" main_whole_prog_spec;
+val (semantics_thm,prog_tm) =
+  whole_prog_thm (get_ml_prog_state()) "main" main_whole_prog_spec;
 
 val compiler32_prog_def = Define`compiler32_prog = ^prog_tm`;
 
