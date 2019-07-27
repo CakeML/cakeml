@@ -425,6 +425,11 @@ val bvl_to_bvi_compile_inc_all_def = Define `
     let c = c with <| next_name2 := nn2 |> in
     (c, p)`;
 
+val ensure_fp_conf_ok_def = Define `
+  ensure_fp_conf_ok asm_c c =
+  c with <|has_fp_ops := (1 < asm_c.fp_reg_count);
+          has_fp_tern := (asm_c.ISA = ARMv7 ∧ 2 < asm_c.fp_reg_count)|>`;
+
 val compile_inc_progs_def = Define`
   compile_inc_progs c p =
     let ps = empty_progs with <| source_prog := p |> in
@@ -444,7 +449,7 @@ val compile_inc_progs_def = Define`
     let p = bvi_to_data_compile_prog p in
     let ps = ps with <| data_prog := p |> in
     let asm_c = c.lab_conf.asm_conf in
-    let dc = c.data_conf with has_fp_ops := (1 < asm_c.fp_reg_count) in
+    let dc = ensure_fp_conf_ok asm_c c.data_conf in
     let p = MAP (compile_part dc) p in
     let reg_count1 = asm_c.reg_count - (5 + LENGTH asm_c.avoid_regs) in
     let p = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count1
@@ -664,7 +669,7 @@ Theorem cake_orac_eqs:
   cake_orac c' src f3 (\ps. ps.data_prog)
   /\ (
   compile c prog = SOME (b,bm,c') /\
-    dc = c.data_conf with has_fp_ops := (1 < c.lab_conf.asm_conf.fp_reg_count) /\
+    dc = ensure_fp_conf_ok c.lab_conf.asm_conf c.data_conf /\
     tr_c = c.lab_conf.asm_conf.two_reg_arith /\
     reg_c = c.lab_conf.asm_conf.reg_count -
         (LENGTH c.lab_conf.asm_conf.avoid_regs + 5) /\
@@ -879,29 +884,6 @@ Proof
         flat_to_patProofTheory.elist_globals_compile]
 QED
 
-Theorem compile_nsAll_esgc_free:
-  source_to_flat$compile conf prog = (conf', prog') /\
-  nsAll (\_ v. flatProps$esgc_free v /\ set_globals v = {||}) conf.mod_env.v ==>
-  nsAll (\_ v. flatProps$esgc_free v /\ set_globals v = {||}) conf'.mod_env.v
-Proof
-  rw [source_to_flatTheory.compile_def,
-        source_to_flatTheory.compile_prog_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ imp_res_tac compile_decs_esgc_free
-QED
-
-Theorem state_progs_compile_nsAll_esgc_free:
-  nsAll (\_ v. flatProps$esgc_free v /\ set_globals v = {||}) conf.mod_env.v ==>
-  !i. nsAll (\_ v. flatProps$esgc_free v /\ set_globals v = {||})
-    (state_orac_states source_to_flat$compile conf orac i).mod_env.v
-Proof
-  metis_tac [state_orac_states_inv
-    |> Q.GEN `P`
-    |> Q.ISPEC `\conf. nsAll (\_ v. flatProps$esgc_free v /\ set_globals v = {||}) conf.mod_env.v`,
-    compile_nsAll_esgc_free]
-QED
-
 Theorem cake_orac_invariant:
   P (f c) /\
   (!c prog. P (f c) ==> P (f (FST (compile_inc_progs c prog)))) ==>
@@ -913,29 +895,13 @@ Proof
   \\ fs [UNCURRY, cake_orac_def]
 QED
 
-Theorem cake_orac_src_conf_nsAll_esgc_free:
-  nsAll (\_ v. flatProps$esgc_free v /\ set_globals v = {||})
-    c'.source_conf.mod_env.v ==>
-  (!i. (\cfg_tup. nsAll (\_ v. flatProps$esgc_free v ∧ set_globals v = {||})
-            (FST cfg_tup).mod_env.v)
-    (FST (cake_orac c' syntax config_tuple1 (λps. ps.source_prog) i)))
-Proof
-  disch_tac
-  \\ match_mp_tac cake_orac_invariant
-  \\ simp [config_tuple1_def]
-  \\ rw [compile_inc_progs_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ imp_res_tac compile_nsAll_esgc_free
-QED
-
 Theorem source_to_flat_SND_compile_esgc_free =
   GEN_ALL source_to_flatProofTheory.compile_esgc_free
     |> REWRITE_RULE [PAIR_FST_SND_EQ]
     |> SIMP_RULE bool_ss [EVERY_MAP |> REWRITE_RULE [GSYM o_DEF]]
 
 Theorem compile_globals_BAG_ALL_DISTINCT:
-  source_to_flat$compile conf prog = (conf', prog') /\ conf' = conf'' /\
-  nsAll (\_ v. flatProps$esgc_free v /\ set_globals v = {||}) conf.mod_env.v ==>
+  source_to_flat$compile conf prog = (conf', prog') /\ conf' = conf'' ==>
   BAG_ALL_DISTINCT (elist_globals (MAP flatProps$dest_Dlet
     (FILTER flatProps$is_Dlet prog')))
 Proof
@@ -957,24 +923,6 @@ QED
 Theorem compile_SND_globals_BAG_ALL_DISTINCT =
   GEN_ALL compile_globals_BAG_ALL_DISTINCT
     |> SIMP_RULE bool_ss [PAIR_FST_SND_EQ, FST, SND]
-
-Theorem compile_FST_nsAll_esgc_free =
-  GEN_ALL compile_nsAll_esgc_free
-    |> SIMP_RULE bool_ss [PAIR_FST_SND_EQ, FST, SND]
-
-Theorem compile_source_conf_nsAll_esgc_free:
-  compile c prog = SOME (b, bm, c') ==>
-  nsAll (\_ v. flatProps$esgc_free v ∧ set_globals v = {||})
-    c.source_conf.mod_env.v ==>
-  nsAll (\_ v. flatProps$esgc_free v ∧ set_globals v = {||})
-    c'.source_conf.mod_env.v
-Proof
-  rw [backendTheory.compile_def, compile_tap_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ imp_res_tac attach_bitmaps_SOME
-  \\ imp_res_tac compile_nsAll_esgc_free
-  \\ fs []
-QED
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 
@@ -1159,82 +1107,6 @@ Theorem stack_to_lab_orac_eq_std_sym = stack_to_lab_orac_eq
   |> SIMP_RULE std_ss []
   |> SPEC_ALL |> UNDISCH_ALL |> GSYM |> DISCH_ALL
 
-Theorem oracle_monotonic_state_with_inv:
-  !P n_f. P (FST (FST (orac 0))) /\
-  (!x. x ∈ St ==> x < n_f (FST (FST (orac 0)))) /\
-  (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
-    P st' /\ n_f st <= n_f st' /\
-    (!cfg x. x ∈ f (cfg, prog') ==> n_f st <= x /\ x < n_f st')) /\
-  is_state_oracle f_inc orac ==>
-  oracle_monotonic f (<) (St : num set) (state_co f_inc orac)
-Proof
-  rw []
-  \\ `!i. P (FST (FST (orac i))) /\
-        (!j. j <= i ==> n_f (FST (FST (orac j))) <= n_f (FST (FST (orac i))))`
-  by (
-    Induct \\ fs [is_state_oracle_def]
-    \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC]
-    \\ rw [] \\ fs []
-    \\ metis_tac [LESS_EQ_TRANS]
-  )
-  \\ fs [oracle_monotonic_def, is_state_oracle_def, state_co_def, UNCURRY]
-  \\ fs [PAIR_FST_SND_EQ]
-  \\ rw []
-  \\ metis_tac [state_orac_states_def, LESS_LESS_EQ_TRANS,
-        arithmeticTheory.LESS_OR, LESS_EQ_TRANS,
-        arithmeticTheory.ZERO_LESS_EQ]
-QED
-
-Theorem oracle_monotonic_state_with_inv_init:
-  !P n_f. f_inc st0 prog0 = (st, prog) /\ P st0 /\
-  St ⊆ f (cfg, prog) /\ FST (FST (orac 0)) = st /\
-  (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
-    P st' /\ n_f st <= n_f st' /\
-    (!cfg x. x ∈ f (cfg, prog') ==> n_f st <= x /\ x < n_f st')) /\
-  is_state_oracle f_inc orac ==>
-  oracle_monotonic f (<) (St : num set) (state_co f_inc orac)
-Proof
-  rw []
-  \\ match_mp_tac oracle_monotonic_state_with_inv
-  \\ qexists_tac `P` \\ qexists_tac `n_f`
-  \\ simp []
-  \\ metis_tac [SUBSET_IMP]
-QED
-
-Theorem monotonic_globals_state_co_compile:
-  compile conf prog = (conf',p) ∧ FST (FST (orac 0)) = conf' ∧
-  nsAll (λ_ v. flatProps$esgc_free v ∧ set_globals v = {||}) conf.mod_env.v ∧
-  is_state_oracle source_to_flat$compile orac ⇒
-  oracle_monotonic
-    (SET_OF_BAG ∘ elist_globals ∘ MAP flatProps$dest_Dlet ∘
-      FILTER flatProps$is_Dlet ∘ SND) $<
-    (SET_OF_BAG (elist_globals (MAP flatProps$dest_Dlet
-      (FILTER flatProps$is_Dlet p))))
-    (state_co source_to_flat$compile orac)
-Proof
-  rw []
-  \\ match_mp_tac (GEN_ALL oracle_monotonic_state_with_inv_init)
-  \\ asm_exists_tac
-  \\ fs []
-  \\ qexists_tac `\c. nsAll (λ_ v. flatProps$esgc_free v ∧ set_globals v = {||})
-        c.mod_env.v`
-  \\ fs []
-  \\ qexists_tac `\c. c.next.vidx`
-  \\ rpt (gen_tac ORELSE disch_tac)
-  \\ fs [source_to_flatTheory.compile_def,
-        source_to_flatTheory.compile_prog_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ imp_res_tac compile_decs_num_bindings
-  \\ imp_res_tac compile_decs_esgc_free
-  \\ imp_res_tac compile_decs_elist_globals
-  \\ fs []
-  \\ rpt (gen_tac ORELSE disch_tac)
-  \\ drule (MATCH_MP SUB_BAG_IMP compile_flat_sub_bag)
-  \\ fs [source_to_flatTheory.glob_alloc_def, flatPropsTheory.op_gbag_def]
-  \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]
-QED
-
 val state_co_fun_def = Define `
   state_co_fun f_inc x =
     let ((cfg1, cfg2), p) = x in
@@ -1347,9 +1219,7 @@ Proof
   \\ fs [PAIR_FST_SND_EQ |> Q.ISPEC `source_to_flat$compile c p`, SND_state_co]
   \\ rveq
   \\ conseq [source_to_flat_SND_compile_esgc_free,
-        compile_SND_globals_BAG_ALL_DISTINCT,
-        BETA_RULE cake_orac_src_conf_nsAll_esgc_free ]
-  \\ drule_then (fn t => conseq [t]) compile_source_conf_nsAll_esgc_free
+        compile_SND_globals_BAG_ALL_DISTINCT]
   \\ simp [Q.prove (`prim_config.source_conf.mod_env.v = nsEmpty`, EVAL_TAC)]
   \\ simp [GSYM simple_orac_eqs]
   \\ conseq [oracle_monotonic_globals_pat_to_clos,
@@ -1485,7 +1355,7 @@ Proof
   \\ simp[]
   \\ simp[word_to_wordTheory.next_n_oracle_def]
   \\ simp[Abbr`pp`]
-  \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] 
+  \\ simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP]
 QED
 
 Theorem compile_to_word_conventions2:
@@ -1556,7 +1426,7 @@ Theorem monotonic_DISJOINT_labels_lab:
       (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog) i))))
 Proof
   rw []
-  \\ drule accum_lab_conf_labels  
+  \\ drule accum_lab_conf_labels
   \\ disch_tac
   \\ REWRITE_TAC [Once DISJOINT_SYM]
   \\ drule_then irule (REWRITE_RULE [Once CONJ_COMM] DISJOINT_SUBSET)
@@ -1672,7 +1542,7 @@ Proof
     )
     \\ simp[Abbr`ppg`]
     \\ irule stack_namesProofTheory.stack_names_stack_asm_ok
-    \\ drule_then (fn t => simp [t]) cake_orac_config_eqs 
+    \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
     \\ simp[Once EVERY_MAP]
     \\ simp[LAMBDA_PROD]
     \\ simp[stack_removeTheory.prog_comp_def]
@@ -1822,7 +1692,7 @@ Proof
     \\ simp[PULL_EXISTS] \\ rw[]
     \\ irule data_to_wordProofTheory.comp_no_inst
     \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
-    \\ fs[backend_config_ok_def, asmTheory.offset_ok_def]
+    \\ fs[backend_config_ok_def, asmTheory.offset_ok_def, ensure_fp_conf_ok_def]
     \\ rpt (pairarg_tac \\ fs[])
     \\ fsrw_tac[DNF_ss][]
     \\ conj_tac \\ first_x_assum irule
@@ -1892,14 +1762,17 @@ Theorem data_to_word_orac_eq_sym_std = data_to_word_orac_eq_std
   |> SPEC_ALL |> UNDISCH_ALL |> GSYM |> DISCH_ALL |> GEN_ALL
 
 
+Theorem compile_correct:
+
+  compile (c:'a config) prog = SOME (bytes,bitmaps,c') ⇒
    let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    ¬semantics_prog s env prog Fail ∧
    backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
    installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names ffi (heap_regs c.stack_conf.reg_names) mc ms ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)
+
 Proof
-  (
 
   disch_then (fn t => mp_tac t >>
     srw_tac[][compile_eq_from_source,from_source_def,
@@ -1993,19 +1866,16 @@ Proof
                             cfg (MAP (λp. full_compile_single mc.target.config.two_reg_arith (mc.target.config.reg_count - (LENGTH mc.target.config.avoid_regs + 5))
                             c.word_to_word_conf.reg_alg
                             (mc:('a,'b,'c)machine_config).target.config (p,NONE)) progs)) o
-                                                <| has_fp_ops := (1 < mc.target.config.fp_reg_count);
-                                                   has_fp_tern := (mc.target.config.ISA = ARMv7 /\ 2 < mc.target.config.fp_reg_count) |>)))))))``
+                            MAP (compile_part (ensure_fp_conf_ok mc.target.config c.data_conf)))))))``
      |> ISPEC)
    |> Q.GEN`co`
    |> Q.GEN`k0`
    |>  drule)
+
   \\ disch_then(qspecl_then[`TODO_clock`,
         `cake_orac c' TODO_syntax (SND o config_tuple1) (\ps. ps.flat_prog)`]
-                           let c4_data_conf =
-                                c.data_conf with
-                                  <| has_fp_ops := (1 < c.lab_conf.asm_conf.fp_reg_count);
-                                     has_fp_tern := (c.lab_conf.asm_conf.ISA = ARMv7 /\ 2 < c.lab_conf.asm_conf.fp_reg_count) |>  in
     (strip_assume_tac o SYM)) >>
+
   qhdtm_x_assum`from_pat`mp_tac >>
   srw_tac[][from_pat_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
@@ -2303,7 +2173,7 @@ Proof
       simp [Abbr `data_oracle`]
       \\ simp [GSYM pure_co_def]
       \\ drule_then (irule o GSYM) data_to_word_orac_eq
-      \\ fs [markerTheory.Abbrev_def]
+      \\ fs [markerTheory.Abbrev_def, ensure_fp_conf_ok_def]
     )
     \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ _ TODO_cc'`
     \\ qpat_x_assum`dataSem$semantics _ _ _ _ _ ≠ Fail`mp_tac
@@ -2315,6 +2185,7 @@ Proof
     \\ rpt gen_tac
     \\ AP_TERM_TAC
     \\ simp[Abbr`kkk`,Abbr`stk`]
+    \\ simp[ensure_fp_conf_ok_def]
     \\ AP_THM_TAC \\ AP_THM_TAC
     \\ simp[full_make_init_compile]
     \\ simp[EVAL``(lab_to_targetProof$make_init a b c d e f g h i j k l m).compile``]
@@ -2340,8 +2211,6 @@ Proof
   \\ strip_tac
   \\ pop_assum(assume_tac o Abbrev_intro)
   \\ full_simp_tac (bool_ss ++ simpLib.type_ssfrag ``: 'a config``) []
-
-  (* saved *)
 
   \\ impl_keep_tac
   >- (
@@ -2721,8 +2590,6 @@ Proof
   qmatch_assum_abbrev_tac`z InitGlobals_location ∈ _ {_}` \\
   qexists_tac`{z InitGlobals_location}` \\
 
-  (* saved *)
-
   conj_tac >- (
     match_mp_tac (GEN_ALL(MP_CANON implements_intro_ext)) \\
     simp[]
@@ -2735,7 +2602,7 @@ Proof
     \\ qmatch_asmsub_abbrev_tac`dataSem$semantics _ _ _ foo2`
     \\ `foo1 = foo2` suffices_by fs[]
     \\ simp[Abbr`foo1`,Abbr`foo2`]
-    \\ simp[FUN_EQ_THM]
+    \\ simp[FUN_EQ_THM, ensure_fp_conf_ok_def]
     \\ rpt gen_tac \\ AP_TERM_TAC
     \\ qhdtm_assum`stack_to_labProof$full_make_init`(mp_tac o Q.AP_TERM`FST`)
     \\ simp_tac std_ss []
@@ -2807,7 +2674,7 @@ Proof
     \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac[]
     \\ simp[Abbr`foo1`,Abbr`foo2`,Abbr`orac1`,Abbr`orac2`,FUN_EQ_THM,
         Abbr `data_oracle`]
-    \\ simp [GSYM simple_orac_eqs]
+    \\ simp [GSYM simple_orac_eqs, ensure_fp_conf_ok_def]
     \\ rpt gen_tac \\ AP_TERM_TAC
     \\ AP_THM_TAC
     \\ simp[EVAL``(word_to_stackProof$make_init a b c e).compile``]
@@ -2841,7 +2708,7 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`dataSem$semantics _ _ orac2 foo2`
   \\ `foo1 = foo2 /\ orac1 = orac2` suffices_by metis_tac[]
   \\ simp[Abbr`foo1`,Abbr`foo2`,Abbr`orac1`,Abbr`orac2`,FUN_EQ_THM]
-  \\ simp[Abbr`data_oracle`,GSYM simple_orac_eqs]
+  \\ simp[Abbr`data_oracle`,GSYM simple_orac_eqs,ensure_fp_conf_ok_def]
   \\ rpt gen_tac \\ AP_TERM_TAC
   \\ rfs[Abbr`kkk`,Abbr`stk`]
   \\ AP_THM_TAC

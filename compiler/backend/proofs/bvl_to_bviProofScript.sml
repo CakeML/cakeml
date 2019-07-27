@@ -4217,7 +4217,7 @@ Theorem ALL_DISTINCT_MAP_FST_SND_full_co:
   ⇒
    ALL_DISTINCT (MAP FST (SND (full_co c co n)))
 Proof
-  (rw[full_co_def, UNCURRY, backendPropsTheory.FST_state_co,
+  rw[full_co_def, UNCURRY, backendPropsTheory.FST_state_co,
         backendPropsTheory.SND_state_co]
   \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m xs`
   \\ Cases_on`bvi_tailrec$compile_prog m xs`

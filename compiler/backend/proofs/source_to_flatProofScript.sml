@@ -4392,23 +4392,18 @@ Proof
   \\ fs []
 QED
 
-Theorem monotonic_globals_state_progs_compile:
-  source_to_flat$compile conf prog = (conf',p) /\ conf'' = conf' /\
-  nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) conf.mod_env.v
-    ==>
-  oracle_monotonic (SET_OF_BAG ∘ elist_globals ∘
-        MAP dest_Dlet ∘ FILTER is_Dlet ∘ SND) $<
-    (SET_OF_BAG (elist_globals (MAP dest_Dlet (FILTER is_Dlet p))))
-    (syntax_to_full_oracle I
-        (state_co_progs source_to_flat$compile conf'' orac))
+Theorem monotonic_globals_state_co_compile:
+  source_to_flat$compile conf prog = (conf',p) ∧ FST (FST (orac 0)) = conf' ∧
+  is_state_oracle source_to_flat$compile orac ⇒
+  oracle_monotonic
+    (SET_OF_BAG ∘ elist_globals ∘ MAP flatProps$dest_Dlet ∘
+      FILTER flatProps$is_Dlet ∘ SND) $<
+    (SET_OF_BAG (elist_globals (MAP flatProps$dest_Dlet
+      (FILTER flatProps$is_Dlet p))))
+    (state_co source_to_flat$compile orac)
 Proof
   rw []
-  \\ drule (GEN_ALL oracle_monotonic_state_co_progs_with_inv_init)
-  \\ disch_then irule
-  \\ fs []
-  \\ qexists_tac `\c.
-nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) c.mod_env.v`
-  \\ qexists_tac `\c. c.next.vidx`
+  \\ drule_then irule (Q.ISPEC `\c. c.next.vidx` oracle_monotonic_state_init)
   \\ fs []
   \\ rpt (gen_tac ORELSE disch_tac)
   \\ fs [source_to_flatTheory.compile_def,
@@ -4421,7 +4416,7 @@ nsAll (λ_ v. esgc_free v ∧ set_globals v = {||}) c.mod_env.v`
   \\ fs []
   \\ rpt (gen_tac ORELSE disch_tac)
   \\ drule (MATCH_MP SUB_BAG_IMP compile_flat_sub_bag)
-  \\ fs [glob_alloc_def, flatPropsTheory.op_gbag_def]
+  \\ fs [source_to_flatTheory.glob_alloc_def, flatPropsTheory.op_gbag_def]
   \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]
 QED
 

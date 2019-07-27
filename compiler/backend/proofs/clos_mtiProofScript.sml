@@ -565,14 +565,16 @@ val do_app_inst =
   |> Q.INST [`sr`|->`\r t. (r.max_app = s.max_app) /\ state_rel r t`]
   |> SIMP_RULE std_ss [simple_val_rel, simple_state_rel]
 
-Theorem do_app_lemma
-  `state_rel s (t:('c,'ffi) closSem$state) /\ LIST_REL (v_rel s.max_app) xs ys ==>
+Theorem do_app_lemma:
+  state_rel s (t:('c,'ffi) closSem$state) /\ LIST_REL (v_rel s.max_app) xs ys ==>
     case do_app opp ys t of
     | Rerr err2 => (?err1. do_app opp xs s = Rerr err1 /\
                            exc_rel (v_rel s.max_app) err1 err2)
     | Rval (y,t1) => ?x s1. v_rel s.max_app x y /\ state_rel s1 t1 /\
-                            do_app opp xs s = Rval (x,s1)`
-  (mp_tac do_app_inst \\ fs [] \\ EVERY_CASE_TAC \\ metis_tac [])
+                            do_app opp xs s = Rval (x,s1)
+Proof
+  mp_tac do_app_inst \\ fs [] \\ EVERY_CASE_TAC \\ metis_tac []
+QED
 
 val v_rel_IMP_v_to_bytes = prove(
   ``v_rel max_app x y ==> v_to_bytes y = v_to_bytes x``,

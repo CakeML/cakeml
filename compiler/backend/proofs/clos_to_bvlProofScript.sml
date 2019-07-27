@@ -5335,10 +5335,11 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Theorem clos_labels_distinct_locs
-  `ALL_DISTINCT (xs ++ code_locs (MAP (SND o SND) code)) ==>
-   ALL_DISTINCT (xs ++ code_locs (MAP (SND o SND) (clos_labels$compile code)))`
-  (fs [clos_labelsTheory.compile_def]
+Theorem clos_labels_distinct_locs:
+  ALL_DISTINCT (xs ++ code_locs (MAP (SND o SND) code)) ==>
+  ALL_DISTINCT (xs ++ code_locs (MAP (SND o SND) (clos_labels$compile code)))
+Proof
+  fs [clos_labelsTheory.compile_def]
   \\ TRY EVERY_CASE_TAC
   \\ simp[MAP_MAP_o, UNCURRY, o_DEF, ETA_AX]
   \\ simp[ALL_DISTINCT_APPEND, MEM_MAP, PULL_EXISTS, FORALL_PROD, code_locs_map]
@@ -5352,14 +5353,16 @@ Theorem clos_labels_distinct_locs
                 clos_annotateTheory.annotate_def,
                 clos_annotateTheory.HD_FST_alt_free,
                 clos_annotateTheory.HD_shift,
-                SUBSET_DEF])
+                SUBSET_DEF]
+QED
 
 val common_def = compile_common_def
     |> REWRITE_RULE [GSYM arithmeticTheory.EVEN_MOD2, GSYM make_even_def];
 
-Theorem compile_common_distinct_locs
-  `compile_common c e = (c', p) ==> ALL_DISTINCT (MAP FST p ++ code_locs (MAP (SND o SND) p))`
-  (
+Theorem compile_common_distinct_locs:
+  compile_common c e = (c', p) ==>
+  ALL_DISTINCT (MAP FST p ++ code_locs (MAP (SND o SND) p))
+Proof
   simp [common_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ strip_tac \\ rveq
@@ -6043,7 +6046,7 @@ QED
 (* TODO: there's lots to move in this file *)
 
 Theorem kcompile_csyntax_ok:
-  `clos_known$compile kc es = (x,y) ==>
+  clos_known$compile kc es = (x,y) ==>
   clos_callProof$syntax_ok es ==>
    clos_callProof$syntax_ok y
 Proof
@@ -6333,7 +6336,7 @@ Proof
 QED
 
 Theorem compile_inc_uncurry:
-  `compile_inc max_app p =
+  compile_inc max_app p =
    compile_prog max_app ((chain_exps (FST (extract_name (FST p))) (SND (extract_name (FST p)))) ++ SND p)
 Proof
   Cases_on`p` \\ rw[compile_inc_def]
@@ -6411,10 +6414,10 @@ Proof
 QED
 
 Theorem calls_compile_csyntax_ok:
-  `clos_call$compile p xs = (ys, g, aux) ==>
-   clos_callProof$syntax_ok xs ==>
-   every_Fn_vs_NONE ys /\
-   every_Fn_vs_NONE (MAP (SND o SND) aux)
+  clos_call$compile p xs = (ys, g, aux) ==>
+  clos_callProof$syntax_ok xs ==>
+  every_Fn_vs_NONE ys /\
+  every_Fn_vs_NONE (MAP (SND o SND) aux)
 Proof
   Cases_on `p` \\ rw [clos_callTheory.compile_def]
   \\ fs [clos_callProofTheory.syntax_ok_def]
@@ -6464,21 +6467,6 @@ Proof
   \\ rw[code_locs_def, code_locs_append]
   \\ metis_tac[UNION_COMM,UNION_ASSOC]
 QED
-
-(*
-Theorem set_code_locs_intro_multi[simp]
-  `∀max_app es. set (code_locs (intro_multi max_app es)) = set (code_locs es)`
-  (ho_match_mp_tac clos_mtiTheory.intro_multi_ind >>
-  srw_tac[][clos_mtiTheory.intro_multi_def] >>
-  ONCE_REWRITE_TAC[CONS_APPEND] >>
-  REWRITE_TAC[clos_mtiProofTheory.HD_intro_multi] >>
-  full_simp_tac(srw_ss())[clos_mtiProofTheory.HD_intro_multi]
-  \\ fs[code_locs_def, code_locs_append]
-  >- (
-    fs[code_locs_append]
-    \\ simp[Once code_locs_cons,SimpLHS] )
-  >- (
-*)
 
 Theorem every_Fn_SOME_ncompile_inc[simp]:
    every_Fn_SOME (SND (clos_numberProof$compile_inc x y))
@@ -6711,9 +6699,9 @@ Proof
     miscTheory.ALL_DISTINCT_alist_to_fmap_REVERSE]
 QED
 
-Theorem obvious_12
-  `((a : num) = b + a) = (b = 0)`
-  (Cases_on `b` \\ fs []);
+val obvious_arith_comm = Q.prove (
+  `((a : num) = b + a) = (b = 0)`,
+  Cases_on `b` \\ fs []);
 
 Theorem SND_SND_known_compile_inc:
   SND (SND (clos_knownProof$compile_inc conf app es)) = SND es
@@ -7031,6 +7019,13 @@ fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 
 val c0 = ``Call None 0 loc []``;
 
+Theorem FST_known_co:
+  FST (clos_knownProof$known_co kc co n) = SND (FST (co n))
+Proof
+  rw[clos_knownProofTheory.known_co_def] \\ CASE_TAC
+  \\ simp[backendPropsTheory.FST_state_co]
+QED
+
 Theorem compile_common_semantics:
    closSem$semantics (ffi:'ffi ffi_state) c.max_app FEMPTY co1
     (compile_common_inc c cc) es1 ≠ Fail ∧
@@ -7092,7 +7087,7 @@ Proof
         |> IRULE_CANON ]
   \\ fs [chain_exps_every_Fn_vs_NONE, backendPropsTheory.SND_state_co,
         MAP_FST_chain_exps_any]
-  \\ fs [MEM_MAP, obvious_12, rich_listTheory.MEM_COUNT_LIST]
+  \\ fs [MEM_MAP, obvious_arith_comm, rich_listTheory.MEM_COUNT_LIST]
   \\ conseq [every_Fn_vs_NONE_cond_call_compile_inc]
   \\ fs [backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
         SND_SND_ignore_table, FST_SND_ignore_table]
@@ -7125,8 +7120,7 @@ Proof
   (* down to syntactic conditions *)
   (* dealing with known_co and things passed across it *)
   \\ fs [UNCURRY, clos_callProofTheory.syntax_ok_def,
-        clos_knownProofTheory.FST_known_co,
-        backendPropsTheory.FST_state_co]
+        FST_known_co, backendPropsTheory.FST_state_co]
   \\ qpat_assum `compile c.known_conf _ = _`
     (fn t => conseq (map (fn t2 => MATCH_MP t2 t) known_co_facts2))
   \\ simp [backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co,
@@ -7204,7 +7198,6 @@ Proof
         mcompile_inc_uncurry,
         clos_mtiProofTheory.intro_multi_preserves_elist_globals,
         clos_mtiProofTheory.intro_multi_preserves_esgc_free]
-QED
 QED
 
 Theorem compile_prog_semantics:
@@ -7555,14 +7548,16 @@ Proof
     clos_annotateTheory.LENGTH_FST_alt_free]
 QED
 
-Theorem annotate_Op_Const
-  `annotate m ((Op t (Const n) [])::ls) = Op t (Const n) [] :: annotate m ls`
-  (rw[clos_annotateTheory.annotate_def]
+Theorem annotate_Op_Const:
+  annotate m ((Op t (Const n) [])::ls) = Op t (Const n) [] :: annotate m ls
+Proof
+  rw[clos_annotateTheory.annotate_def]
   \\ Cases_on`ls` >- EVAL_TAC
   \\ rw[clos_annotateTheory.alt_free_def]
   \\ pairarg_tac \\ fs[]
   \\ Cases_on`c2` >- EVAL_TAC
-  \\ rw[clos_annotateTheory.shift_def]);
+  \\ rw[clos_annotateTheory.shift_def]
+QED
 
 Theorem annotate_compile_inc_req:
   can_extract (FST prog) ==>
@@ -7600,11 +7595,13 @@ val annotate_compile_inc_req_intros = UNDISCH_ALL annotate_compile_inc_req
 val annotate_compile_inc_req_oracle = mk_to_oracle
   ``\orac1. pure_co clos_annotateProof$compile_inc o orac1`` `[]`
 
-Theorem annotate_compile_every_Fn_vs_SOME
-  `every_Fn_vs_SOME (MAP (SND o SND) (clos_annotate$compile es))`
-  (rw[clos_annotateTheory.compile_def, Once every_Fn_vs_SOME_EVERY]
+Theorem annotate_compile_every_Fn_vs_SOME:
+  every_Fn_vs_SOME (MAP (SND o SND) (clos_annotate$compile es))
+Proof
+  rw[clos_annotateTheory.compile_def, Once every_Fn_vs_SOME_EVERY]
   \\ fs[EVERY_MAP, UNCURRY]
-  \\ rw[EVERY_MEM, clos_annotateProofTheory.HD_annotate_SING]);
+  \\ rw[EVERY_MEM, clos_annotateProofTheory.HD_annotate_SING]
+QED
 
 Theorem cond_call_compile_inc_req:
   can_extract (FST prog) ==>
@@ -7655,10 +7652,13 @@ val cond_call_compile_inc_req_intros = UNDISCH_ALL cond_call_compile_inc_req
 val cond_call_compile_inc_req_oracle = mk_to_oracle
   ``\orac1. state_co (cond_call_compile_inc dc) orac1`` `[SUC]`
 
-Theorem known_Op_Const
-  `known a ((Op tv (Const (&n)) [])::b) c d = ((CONS (Op tv (Const (&n)) [], Int (&n))) ## I) (known a b c d)`
-  (Cases_on`b` \\ rw[clos_knownTheory.known_def]
-  \\ EVAL_TAC \\ simp[UNCURRY] \\ Cases_on`known a (h::t) c d` \\ simp[]);
+Theorem known_Op_Const:
+  known a ((Op tv (Const (&n)) [])::b) c d =
+  ((CONS (Op tv (Const (&n)) [], Int (&n))) ## I) (known a b c d)
+Proof
+  Cases_on`b` \\ rw[clos_knownTheory.known_def]
+  \\ EVAL_TAC \\ simp[UNCURRY] \\ Cases_on`known a (h::t) c d` \\ simp[]
+QED
 
 Theorem BAG_IMAGE_SUB_BAG:
   x <= y /\ FINITE_BAG x /\ FINITE_BAG y ==>
@@ -7681,13 +7681,18 @@ Proof
   \\ fs []
 QED
 
-Theorem remove_ticks_Op_Const
-  `remove_ticks ((Op t (Const (&n)) [])::ls) = (Op t (Const (&n)) [])::(remove_ticks ls)`
-  (Cases_on`ls` \\ EVAL_TAC);
+Theorem remove_ticks_Op_Const:
+  remove_ticks ((Op t (Const (&n)) [])::ls) =
+  (Op t (Const (&n)) [])::(remove_ticks ls)
+Proof
+  Cases_on`ls` \\ EVAL_TAC
+QED
 
-Theorem let_op_Op_Const
-  `let_op ((Op t (Const (&n)) [])::ls) = (Op t (Const (&n)) [])::(let_op ls)`
-  (Cases_on`ls` \\ EVAL_TAC);
+Theorem let_op_Op_Const:
+  let_op ((Op t (Const (&n)) [])::ls) = (Op t (Const (&n)) [])::(let_op ls)
+Proof
+  Cases_on`ls` \\ EVAL_TAC
+QED
 
 Theorem known_co_req:
   can_extract (FST (SND (orac n))) ==>
@@ -7947,11 +7952,12 @@ Proof
   \\ fs [mcompile_inc_uncurry]
 QED
 
-Theorem MAP_FST_compile_prog
-  `MAP FST (compile_prog max_app ls) =
+Theorem MAP_FST_compile_prog:
+  MAP FST (compile_prog max_app ls) =
    MAP (((+)(num_stubs max_app)))
-     (MAP FST ls ++ REVERSE (code_locs (MAP (SND o SND) ls)))`
-  (simp[clos_to_bvlTheory.compile_prog_def, UNCURRY]
+     (MAP FST ls ++ REVERSE (code_locs (MAP (SND o SND) ls)))
+Proof
+  simp[clos_to_bvlTheory.compile_prog_def, UNCURRY]
   \\ Cases_on`compile_exps max_app (MAP (SND o SND) ls) []`
   \\ imp_res_tac compile_exps_LENGTH
   \\ fs[MAP2_MAP, MAP_MAP_o, o_DEF, UNCURRY]
@@ -7963,7 +7969,8 @@ Theorem MAP_FST_compile_prog
   \\ simp[MAP_MAP_o, o_DEF]
   \\ qhdtm_x_assum`compile_exps`mp_tac
   \\ specl_args_of_then``compile_exps`` compile_exps_code_locs mp_tac
-  \\ rw[] \\ fs[]);
+  \\ rw[] \\ fs[]
+QED
 
 Theorem IMAGE_ADD_SUBSET_count:
   A ⊆ count (n - m) ==> IMAGE ($+ m) A ⊆ count n
@@ -8158,14 +8165,10 @@ Proof
   \\ res_tac
 QED
 
-  rw[clos_annotateTheory.compile_def, Once every_Fn_vs_SOME_EVERY]
-QED
 Theorem compile_common_max_app:
-   compile_common c es = (c',es') ⇒ c'.max_app = c.max_app
+  compile_common c es = (c',es') ⇒ c'.max_app = c.max_app
 Proof
-  simp[compile_common_def]
-  \\ rpt(pairarg_tac \\ fs[])
-  \\ strip_tac \\ rveq \\ fs[]
+  rw[clos_annotateTheory.compile_def, Once every_Fn_vs_SOME_EVERY]
 QED
 
 Theorem chain_exps_every_Fn_SOME:
@@ -8315,10 +8318,7 @@ Proof
   \\ fs[LENGTH_EQ_NUM_compute]
   \\ rw[EQ_IMP_THM] \\ rw[]
 QED
-(* -- *)
 
-  simp[clos_to_bvlTheory.compile_prog_def, UNCURRY]
-QED
 Theorem MAP_FST_compile_inc:
   MAP FST (compile_inc max_app p) =
    MAP ((+)(num_stubs max_app))
@@ -8334,18 +8334,6 @@ Proof
   rw[compile_inc_uncurry, MAP_FST_compile_prog, MAP_FST_chain_exps_any]
 QED
 
-  \\ pairarg_tac \\ fs[]
-QED
-  rw[clos_annotateTheory.annotate_def]
-QED
-  EVAL_TAC
-QED
-  \\ EVAL_TAC \\ simp[UNCURRY] \\ Cases_on`known a (h::t) c d` \\ simp[]
-QED
-  Cases_on`ls` \\ EVAL_TAC
-QED
-  Cases_on`ls` \\ EVAL_TAC
-QED
 Theorem mcompile_inc_nil:
    (FST p = [] ⇒ (clos_mtiProof$compile_inc max_app p = ([],[]))) ∧
    (FST p ≠ [] ⇒ FST (clos_mtiProof$compile_inc max_app p) ≠ [])
@@ -8639,7 +8627,6 @@ Proof
   \\ csimp [backendPropsTheory.SND_state_co]
   \\ conseq number_compile_inc_req_intros
   \\ simp []
-QED
 QED
 
 Theorem assign_get_code_label_compile_op:

@@ -455,8 +455,7 @@ Theorem do_app_lemma:
           do_app opp ys t = Rerr err2 ∧
           exc_rel (v_rel s.max_app) err1 err2
 Proof
-  (match_mp_tac do_app_inst \\ fs [simple_val_rel, simple_state_rel])
-  match_mp_tac do_app_inst
+  match_mp_tac do_app_inst \\ fs [simple_val_rel, simple_state_rel]
   \\ metis_tac []
 QED
 

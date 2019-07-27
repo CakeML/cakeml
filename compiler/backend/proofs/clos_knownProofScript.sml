@@ -4775,6 +4775,8 @@ Proof
   \\ fs [elist_globals_FLAT_FOLDR, MAP_GENLIST, o_DEF, fvs_compile_uncurry]
 QED
 
+Theorem semantics_compile:
+  closSem$semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
    (cc1 = known_cc known_conf cc) ∧
    (co1 = known_co known_conf co) ∧
    (compile known_conf xs = (known_conf', es)) ∧

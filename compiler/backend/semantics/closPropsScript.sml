@@ -2382,11 +2382,13 @@ val simple_compile_state_rel_def = Define `
                         shift_seq 1 t.compile_oracle; code := t.code |>)))
 `;
 
-Theorem simple_val_rel_v_to_bytes
-  `simple_val_rel vr /\ vr x y ==> v_to_bytes x = v_to_bytes y`
-  (rw [v_to_bytes_def]
+Theorem simple_val_rel_v_to_bytes:
+  simple_val_rel vr /\ vr x y ==> v_to_bytes x = v_to_bytes y
+Proof
+  rw [v_to_bytes_def]
   \\ imp_res_tac v_rel_to_list_byte1
-  \\ rfs [listTheory.MAP_o]);
+  \\ rfs [listTheory.MAP_o]
+QED
 
 Theorem simple_val_rel_Word64_left:
   simple_val_rel vr ==> !x w. vr (Word64 w) x = (x = Word64 w)
@@ -3020,7 +3022,6 @@ Theorem do_install_SUBMAP:
   SUBMAP_rel z1 z2 ⇒
   ∃s2. do_install xs z2 = (r,s2) ∧ SUBMAP_rel s1 s2
 Proof
-  rw[closSemTheory.do_install_def]
   rw[closSemTheory.do_install_def]
   \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
   \\ pairarg_tac \\ fs[]

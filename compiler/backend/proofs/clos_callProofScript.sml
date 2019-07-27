@@ -689,6 +689,10 @@ Proof
   \\ TRY (metis_tac [FST])
 QED
 
+Theorem wfg'_insert_each:
+  ∀n g loc. wfg' g ⇒ wfg' (insert_each loc n g)
+Proof
+  Induct \\ Cases \\ rw[insert_each_def]
   \\ first_x_assum match_mp_tac
   \\ fs[wfg'_def,SUBSET_DEF,IN_EVEN]
   \\ metis_tac[EVEN_ADD,EVAL``EVEN 2``]
@@ -1623,10 +1627,12 @@ Proof
   fs [EVERY_MEM] \\ metis_tac [wfv_SUBMAP]
 QED
 
-Theorem EVERY_wfv_subg
-  `EVERY (wfv g l code) env /\ code SUBMAP code2 /\ subg g g2 /\ l ⊆ l2 ==>
-    EVERY (wfv g2 l2 code2) env`
-  (fs [EVERY_MEM] \\ metis_tac [wfv_subg]);
+Theorem EVERY_wfv_subg:
+  EVERY (wfv g l code) env /\ code SUBMAP code2 /\ subg g g2 /\ l ⊆ l2 ==>
+    EVERY (wfv g2 l2 code2) env
+Proof
+  fs [EVERY_MEM] \\ metis_tac [wfv_subg]
+QED
 
 Theorem every_refv_mono:
   (!x. P x ==> P' x) ==> every_refv P v ==> every_refv P' v
@@ -1634,17 +1640,21 @@ Proof
   metis_tac[every_refv_def, MONO_EVERY, ref_nchotomy]
 QED
 
-Theorem wfv_state_subg
-  `wfv_state g l code s /\ code SUBMAP code2 /\ subg g g2 /\ l ⊆ l2 ==>
-      wfv_state g2 l2 code2 s`
-  (rw[wfv_state_def, EVERY_MEM, FEVERY_ALL_FLOOKUP]
+Theorem wfv_state_subg:
+  wfv_state g l code s /\ code SUBMAP code2 /\ subg g g2 /\ l ⊆ l2 ==>
+      wfv_state g2 l2 code2 s
+Proof
+  rw[wfv_state_def, EVERY_MEM, FEVERY_ALL_FLOOKUP]
   \\ metis_tac[OPTION_ALL_MONO, wfv_subg, every_refv_mono]
-);
+QED
 
-      wfv_state g1 l1 code s /\ code SUBMAP code1 ==>
+Theorem wfv_state_SUBMAP:
+  !g1 l1 code s code1.
+       wfv_state g1 l1 code s /\ code SUBMAP code1 ==>
       wfv_state g1 l1 code1 s
 Proof
-  \\ metis_tac[OPTION_ALL_MONO, wfv_SUBMAP, every_refv_mono]);
+  rw[wfv_state_def, EVERY_MEM, FEVERY_ALL_FLOOKUP]
+  \\ metis_tac[OPTION_ALL_MONO, wfv_SUBMAP, every_refv_mono]
 QED
 
 Theorem v_rel_SUBMAP:
@@ -1670,6 +1680,8 @@ Proof
   metis_tac [v_rel_SUBMAP, v_rel_subg]
 QED
 
+Theorem LIST_REL_v_rel_SUBMAP:
+  !g1 l1 code v1 v2 code1.
       LIST_REL (v_rel g1 l1 code) v1 v2 /\ code SUBMAP code1 ==>
       LIST_REL (v_rel g1 l1 code1) v1 v2
 Proof
@@ -1683,6 +1695,8 @@ Proof
   metis_tac [LIST_REL_mono, v_rel_subg, v_rel_SUBMAP]
 QED
 
+Theorem env_rel_SUBMAP:
+  !code code' g1 l1 env1 env2 n vars.
       env_rel (v_rel g1 l1 code) env1 env2 n vars /\ code SUBMAP code' ==>
       env_rel (v_rel g1 l1 code') env1 env2 n vars
 Proof
@@ -4391,7 +4405,6 @@ Proof
   \\ conj_tac THEN1 (fs [IN_DISJOINT] \\ metis_tac [])
   \\ metis_tac [alistTheory.ALOOKUP_EQ_FLOOKUP]
 QED
-QED
 
 Theorem semantics_compile:
    semantics ffi max_app FEMPTY co cc x ≠ Fail ∧
@@ -4432,14 +4445,6 @@ Proof
     \\ fs [FUPDATE_LIST_APPLY_NOT_MEM])
   \\ `~(x ∈ FDOM code)` by metis_tac [] \\ fs []
   \\ match_mp_tac FUPDATE_SAME_LIST_APPLY \\ fs []
-QED
-  Induct \\ fs [make_gs_def] \\ rw [] THEN1
-QED
-  Induct \\ fs [] \\ fs [make_gs_def] \\ rw []
-QED
-  \\ rpt (pairarg_tac \\ fs []) \\ fs [shift_seq_def,ADD1]
-QED
-  Induct_on `k` \\ simp [Once co_ok_def]
 QED
 
 (* Preservation of some label properties

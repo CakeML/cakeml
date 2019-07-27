@@ -270,24 +270,25 @@ Proof
   \\ fs [PAIR_FST_SND_EQ]
 QED
 
-Theorem oracle_monotonic_state_co_progs_with_inv:
-  !P n_f. P st /\ (!x. x ∈ St ==> x < n_f st) ==>
+Theorem oracle_monotonic_state_with_inv:
+  !P n_f. P (FST (FST (orac 0))) /\
+  (!x. x ∈ St ==> x < n_f (FST (FST (orac 0)))) /\
   (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
     P st' /\ n_f st <= n_f st' /\
-    (!x. x ∈ f (prog', prog') ==> n_f st <= x /\ x < n_f st')) ==>
-  oracle_monotonic f (<) (St : num set) (syntax_to_full_oracle I
-    (state_co_progs f_inc st orac))
+    (!cfg x. x ∈ f (cfg, prog') ==> n_f st <= x /\ x < n_f st')) /\
+  is_state_oracle f_inc orac ==>
+  oracle_monotonic f (<) (St : num set) (state_co f_inc orac)
 Proof
   rw []
-  \\ `!i. let ss = state_orac_states f_inc st orac in
-        P (ss i) /\ (!j. j <= i ==> n_f (ss j) <= n_f (ss i))` by (
-    Induct \\ fs [state_orac_states_def]
-    \\ rw []
-    \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC, state_orac_states_def]
+  \\ `!i. P (FST (FST (orac i))) /\
+        (!j. j <= i ==> n_f (FST (FST (orac j))) <= n_f (FST (FST (orac i))))`
+  by (
+    Induct \\ fs [is_state_oracle_def]
+    \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC]
+    \\ rw [] \\ fs []
     \\ metis_tac [LESS_EQ_TRANS]
   )
-  \\ fs [oracle_monotonic_def, syntax_to_full_oracle_def,
-        state_co_progs_def]
+  \\ fs [oracle_monotonic_def, is_state_oracle_def, state_co_def, UNCURRY]
   \\ fs [PAIR_FST_SND_EQ]
   \\ rw []
   \\ metis_tac [state_orac_states_def, LESS_LESS_EQ_TRANS,
@@ -295,21 +296,27 @@ Proof
         arithmeticTheory.ZERO_LESS_EQ]
 QED
 
-Theorem oracle_monotonic_state_co_progs_with_inv_init:
-  !P n_f.
-  f_inc st0 prog0 = (st, prog) /\ P st0 /\ St ⊆ f (prog, prog) /\
+Theorem oracle_monotonic_state_with_inv_init:
+  !P n_f. f_inc st0 prog0 = (st, prog) /\ P st0 /\
+  St ⊆ f (cfg, prog) /\ FST (FST (orac 0)) = st /\
   (! st prog st' prog'. f_inc st prog = (st', prog') /\ P st ==>
     P st' /\ n_f st <= n_f st' /\
-    (!c x. x ∈ f (prog', prog') ==> n_f st <= x /\ x < n_f st')) ==>
-  oracle_monotonic f (<) (St : num set) (syntax_to_full_oracle I
-    (state_co_progs f_inc st orac))
+    (!cfg x. x ∈ f (cfg, prog') ==> n_f st <= x /\ x < n_f st')) /\
+  is_state_oracle f_inc orac ==>
+  oracle_monotonic f (<) (St : num set) (state_co f_inc orac)
 Proof
   rw []
-  \\ irule oracle_monotonic_state_co_progs_with_inv
+  \\ match_mp_tac oracle_monotonic_state_with_inv
   \\ qexists_tac `P` \\ qexists_tac `n_f`
-  \\ fs [SUBSET_DEF] \\ rw [] \\ fs []
-  \\ res_tac
-  \\ res_tac
+  \\ simp []
+  \\ metis_tac [SUBSET_IMP]
 QED
+
+Theorem oracle_monotonic_state = oracle_monotonic_state_with_inv
+  |> Q.SPEC `\x. T` |> SIMP_RULE bool_ss []
+
+Theorem oracle_monotonic_state_init = oracle_monotonic_state_with_inv_init
+  |> Q.SPEC `\x. T` |> SIMP_RULE bool_ss []
+
 
 val _ = export_theory();
