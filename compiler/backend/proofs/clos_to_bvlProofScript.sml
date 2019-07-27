@@ -18,6 +18,7 @@ open
   clos_callProofTheory
   clos_fvsProofTheory
   clos_labelsProofTheory
+  patSemTheory
 in end
 
 val _ = new_theory"clos_to_bvlProof";
@@ -8168,7 +8169,9 @@ QED
 Theorem compile_common_max_app:
   compile_common c es = (c',es') ⇒ c'.max_app = c.max_app
 Proof
-  rw[clos_annotateTheory.compile_def, Once every_Fn_vs_SOME_EVERY]
+  simp [compile_common_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw [] \\ simp []
 QED
 
 Theorem chain_exps_every_Fn_SOME:
