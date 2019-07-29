@@ -632,29 +632,13 @@ val _ = Define
 /\ (store_cargs_sem _ _ s = SOME s)
   `
 
-val _ = Define `
-  als_args cts args =
-  (MAP
-    (MAP FST o λ(ct,v).
-      FILTER
-          (λ(n',ct',v'). v = v')
-          (MAPi $,
-            (FILTER (is_mutty o FST) (ZIP (cts,args))))
-    )
-    (FILTER (is_mutty o FST) (ZIP (cts,args)))
-  )
-`
+
 
 val _ = Define
 `(get_ret_val (SOME(C_boolv b)) = Boolv b)
 /\ (get_ret_val (SOME(C_intv i)) = Litv(IntLit i))
 /\ (get_ret_val _ = Conv NONE [])
   `
-
-val _ = Define
-`get_mut_args cts cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(cts,cargs)))
-`
-
 
 val _ = Define
   `do_ffi s t n args =

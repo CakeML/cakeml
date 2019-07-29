@@ -1274,7 +1274,7 @@ Proof
                ho_match_mp_tac store_cargs_sem_ind >>  rw [store_cargs_sem_def] >> fs [CaseEq"option"] >>
                `?n. margs = get_mut_args (DROP n sign.args) (DROP n v)`
                  by(imp_res_tac get_cargs_sem_LENGTH >>
-                    fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
+                    fs[ffiTheory.get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                     rveq >> rename1 `_ = l1 ++ [mid] ++ l2` >>
                     qexists_tac `SUC(LENGTH l1)` >>
                     `SUC(LENGTH l1) <= LENGTH(sign.args)`
@@ -1287,7 +1287,7 @@ Proof
                simp[GSYM PULL_EXISTS] >>
                conj_tac >-
                  (`?loc arr. marg = Loc loc /\ store_lookup loc store = SOME(W8array arr)`
-                    by(fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
+                    by(fs[ffiTheory.get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                        rveq >> imp_res_tac get_cargs_sem_EVERY_get_carg_sem >> rfs[ELIM_UNCURRY] >>
                        rename1 `SND av` >> Cases_on `FST av` >> Cases_on `SND av` >> fs[get_carg_sem_def,ffiTheory.is_mutty_def] >>
                        TRY(rename1 `Litv lv` >> Cases_on `lv` >> fs[get_carg_sem_def] >> NO_TAC) >>
@@ -1302,12 +1302,12 @@ Proof
                  rw[]) >>
                conj_tac >-
                  (`?loc arr. marg = Loc loc /\ store_lookup loc store = SOME(W8array arr)`
-                    by(fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
+                    by(fs[ffiTheory.get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                        rveq >> imp_res_tac get_cargs_sem_EVERY_get_carg_sem >> rfs[ELIM_UNCURRY] >>
                        rename1 `SND av` >> Cases_on `FST av` >> Cases_on `SND av` >> fs[get_carg_sem_def,ffiTheory.is_mutty_def] >>
                        TRY(rename1 `Litv lv` >> Cases_on `lv` >> fs[get_carg_sem_def] >> NO_TAC) >>
                        fs[CaseEq "option",CaseEq "store_v"]) >>
-                 fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
+                 fs[ffiTheory.get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                     rveq >> rename1 `_ = l1 ++ [mid] ++ l2` >>
                     fs [store_carg_sem_def, store_assign_def, store_v_same_type_def] >>
                     Cases_on `EL loc store` >> fs [] >>
@@ -1377,7 +1377,7 @@ Proof
                ho_match_mp_tac store_cargs_sem_ind >>  rw [store_cargs_sem_def] >> fs [CaseEq"option"] >>
                `?n. margs = get_mut_args (DROP n sign.args) (DROP n v)`
                  by(imp_res_tac get_cargs_sem_LENGTH >>
-                    fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
+                    fs[ffiTheory.get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                     rveq >> rename1 `_ = l1 ++ [mid] ++ l2` >>
                     qexists_tac `SUC(LENGTH l1)` >>
                     `SUC(LENGTH l1) <= LENGTH(sign.args)`
@@ -1390,7 +1390,7 @@ Proof
                simp[GSYM PULL_EXISTS] >>
                conj_tac >-
                  (`?loc arr. marg = Loc loc /\ store_lookup loc store = SOME(W8array arr)`
-                    by(fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
+                    by(fs[ffiTheory.get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                        rveq >> imp_res_tac get_cargs_sem_EVERY_get_carg_sem >> rfs[ELIM_UNCURRY] >>
                        rename1 `SND av` >> Cases_on `FST av` >> Cases_on `SND av` >> fs[get_carg_sem_def,ffiTheory.is_mutty_def] >>
                        TRY(rename1 `Litv lv` >> Cases_on `lv` >> fs[get_carg_sem_def] >> NO_TAC) >>
@@ -1405,12 +1405,12 @@ Proof
                  rw[]) >>
                conj_tac >- metis_tac [] >> conj_tac >-
                  (`?loc arr. marg = Loc loc /\ store_lookup loc store = SOME(W8array arr)`
-                    by(fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
+                    by(fs[ffiTheory.get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                        rveq >> imp_res_tac get_cargs_sem_EVERY_get_carg_sem >> rfs[ELIM_UNCURRY] >>
                        rename1 `SND av` >> Cases_on `FST av` >> Cases_on `SND av` >> fs[get_carg_sem_def,ffiTheory.is_mutty_def] >>
                        TRY(rename1 `Litv lv` >> Cases_on `lv` >> fs[get_carg_sem_def] >> NO_TAC) >>
                        fs[CaseEq "option",CaseEq "store_v"]) >>
-                 fs[get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
+                 fs[ffiTheory.get_mut_args_def,CONV_RULE (LHS_CONV SYM_CONV) MAP_EQ_CONS,CONV_RULE(LHS_CONV SYM_CONV) (SPEC_ALL FILTER_EQ_CONS)] >>
                     rveq >> rename1 `_ = l1 ++ [mid] ++ l2` >>
                     fs [store_carg_sem_def, store_assign_def, store_v_same_type_def] >>
                     Cases_on `EL loc store` >> fs [] >>

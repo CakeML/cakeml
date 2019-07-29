@@ -470,28 +470,28 @@ QED
 (* Standard add clock lemma for FBS *)
 
 Theorem get_cargs_word_clock_up_eq:
-  !s n cts args lens clk. 
-    get_cargs_word s n cts args lens  =
-    get_cargs_word (s with clock := clk) n cts args lens
+  !s cts args lens clk.
+    get_cargs_word s cts args lens  =
+    get_cargs_word (s with clock := clk) cts args lens
 Proof
   rw [] >>
-  Cases_on `get_cargs_word s n cts args lens` >> 
+  Cases_on `get_cargs_word s cts args lens` >>
   ONCE_REWRITE_TAC [EQ_SYM_EQ] >>
-  pop_assum mp_tac 
-  >- (MAP_EVERY qid_spec_tac [`clk`, `lens`,`args`,`cts`,`n`, `s`] >>
-      ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] 
+  pop_assum mp_tac
+  >- (MAP_EVERY qid_spec_tac [`clk`, `lens`,`args`,`cts`, `s`] >>
+      ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def]
       >- (disj1_tac >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_word_def]) >>
      metis_tac []) >>
-  MAP_EVERY qid_spec_tac [`x`, `clk`, `lens`,`args`,`cts`,`n`, `s`] >>
+  MAP_EVERY qid_spec_tac [`x`, `clk`, `lens`,`args`,`cts`, `s`] >>
   ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] >>
   Cases_on `ty` >> Cases_on `len` >> fs [get_carg_word_def]
 QED
 
 
 Theorem get_cargs_word_clock_up_eq':
-  !s n cts args lens clk. 
-    get_cargs_word s n cts args lens = NONE  ==>
-    get_cargs_word (s with clock := clk) n cts args lens = NONE
+  !s cts args lens clk.
+    get_cargs_word s cts args lens = NONE  ==>
+    get_cargs_word (s with clock := clk) cts args lens = NONE
 Proof
   ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] >-
   (disj1_tac >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_word_def]) >>
@@ -500,9 +500,9 @@ QED
 
 
 Theorem get_cargs_word_clock_up_eq'':
-  !s n cts args lens cargs clk. 
-    get_cargs_word s n cts args lens = SOME cargs  ==>
-    get_cargs_word (s with clock := clk) n cts args lens <> NONE
+  !s cts args lens cargs clk.
+    get_cargs_word s cts args lens = SOME cargs  ==>
+    get_cargs_word (s with clock := clk) cts args lens <> NONE
 Proof
   ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] >-
   (CCONTR_TAC >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_word_def]) >>
@@ -511,7 +511,7 @@ QED
 
 
 Theorem get_word_margs_clk_upd:
-  !margs s clk. get_word_margs margs s = 
+  !margs s clk. get_word_margs margs s =
      get_word_margs margs (s with clock := clk)
 Proof
   rw [get_word_margs_def]
@@ -519,7 +519,7 @@ QED
 
 
 Theorem store_retv_cargs_word_clk_upd:
-  !margs nargs n retv st st' clk. 
+  !margs nargs n retv st st' clk.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     store_retv_cargs_word margs nargs n retv (st with clock := clk) <>  NONE
 Proof
@@ -528,7 +528,7 @@ Proof
 QED
 
 Theorem store_retv_cargs_word_clk_upd':
-  !margs nargs n retv st st' clk. 
+  !margs nargs n retv st st' clk.
    store_retv_cargs_word margs nargs n retv st =  NONE ==>
     store_retv_cargs_word margs nargs n retv (st with clock := clk)  = NONE
 Proof
@@ -538,17 +538,17 @@ QED
 
 
 Theorem store_cargs_word_some_clk_eq:
-  !margs nargs st st'. 
+  !margs nargs st st'.
    store_cargs_word margs nargs st = st' ==>
     st'.clock = st.clock
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
 
 Theorem store_retv_cargs_word_some_clk_eq:
-  !margs nargs n retv st st'. 
+  !margs nargs n retv st st'.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     st'.clock = st.clock
 Proof
@@ -559,12 +559,12 @@ QED
 
 
 Theorem store_cargs_word_some_clk_upd_rel:
-  !margs nargs st st' st'' clk. 
+  !margs nargs st st' st'' clk.
    store_cargs_word margs nargs st =  st' /\
     store_cargs_word margs nargs (st with clock := clk) = st'' ==>
    st'' = (st' with clock := clk)
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
@@ -585,14 +585,14 @@ QED
 
 
 Theorem store_retv_cargs_word_some_clk_upd_rel:
-  !margs nargs n retv st st' st'' clk. 
+  !margs nargs n retv st st' st'' clk.
    store_retv_cargs_word margs nargs n retv st =  SOME st' /\
     store_retv_cargs_word margs nargs n retv (st with clock := clk) = SOME st'' ==>
    st''  = (st' with clock := clk)
 Proof
-  rw [store_retv_cargs_word_def] >> every_case_tac >> fs [] 
+  rw [store_retv_cargs_word_def] >> every_case_tac >> fs []
   >- (pop_assum mp_tac >>
-      drule store_cargs_word_some_clk_upd_rel >> fs []) 
+      drule store_cargs_word_some_clk_upd_rel >> fs [])
   >- (drule_all store_cargs_word_some_clk_upd_rel >> fs [])
   >- (rveq  >> fs [store_cargs_word_state_clk_eq]) >>
   rveq >> fs [store_cargs_word_state_clk_eq]
@@ -600,7 +600,7 @@ QED
 
 
 Theorem get_var_margs_clk_upd:
-  !ns s clk. get_var_margs ns s = 
+  !ns s clk. get_var_margs ns s =
      get_var_margs ns (s with clock := clk)
 Proof
   rw [get_var_margs_def]
@@ -614,14 +614,14 @@ Theorem evaluate_ffi_add_clock:
 Proof
   rw [evaluate_ffi_def] >> every_case_tac >> fs [] >>
   TRY (
-   rename1 `get_cargs_word _ _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
-   `get_cargs_word s names sign.args (get_args sign.args ns) (get_len sign.args ns) =
-    get_cargs_word (s with clock := extra + s.clock) names sign.args 
-      (get_args sign.args ns) (get_len sign.args ns)` by metis_tac [get_cargs_word_clock_up_eq] >> 
-    rveq >> fs [] >> rfs []) >> rveq 
-  >- (imp_res_tac store_retv_cargs_word_clk_upd >> 
+   rename1 `get_cargs_word _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
+   `get_cargs_word s sign.args (get_args sign.args ns) (get_len sign.args ns) =
+    get_cargs_word (s with clock := extra + s.clock) sign.args
+      (get_args sign.args ns) (get_len sign.args ns)` by metis_tac [get_cargs_word_clock_up_eq] >>
+    rveq >> fs [] >> rfs []) >> rveq
+  >- (imp_res_tac store_retv_cargs_word_clk_upd >>
       fs [Once (GSYM get_word_margs_clk_upd)])
-  >- (imp_res_tac store_retv_cargs_word_clk_upd' >> 
+  >- (imp_res_tac store_retv_cargs_word_clk_upd' >>
       fs [Once (GSYM get_word_margs_clk_upd)])
   >- (drule_all store_retv_cargs_word_some_clk_eq >> rw [] >>
       fs [Once (GSYM get_word_margs_clk_upd)] >>
@@ -706,9 +706,8 @@ Theorem evaluate_ffi_clk_eq:
   evaluate_ffi s ffi_index n ns names = (r,s') ==>
   s'.clock = s.clock
 Proof
-  rw [evaluate_ffi_def] >> every_case_tac >> fs [call_env_def] >> rveq  
-  >- rw[] 
-  >- (drule_all store_retv_cargs_word_some_clk_eq >> rw []) >> rw []
+  rw [evaluate_ffi_def] >> every_case_tac >>  fs [] >> rveq >> rw []
+  >> drule_all store_retv_cargs_word_some_clk_eq >> rw []
 QED
 
 Theorem evaluate_ffi_clock_upd_eq:
@@ -719,14 +718,14 @@ Theorem evaluate_ffi_clock_upd_eq:
 Proof
   rw [evaluate_ffi_def] >> every_case_tac >> fs [] >>
   TRY (
-   rename1 `get_cargs_word _ _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
-   `get_cargs_word s names sign.args (get_args sign.args ns) (get_len sign.args ns) =
-    get_cargs_word (s with clock := clk) names sign.args 
-      (get_args sign.args ns) (get_len sign.args ns)` by metis_tac [get_cargs_word_clock_up_eq] >> 
-    rveq >> fs [] >> rfs []) >> rveq 
-  >- (imp_res_tac store_retv_cargs_word_clk_upd >> 
+   rename1 `get_cargs_word _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
+   `get_cargs_word s  sign.args (get_args sign.args ns) (get_len sign.args ns) =
+    get_cargs_word (s with clock := clk)  sign.args
+      (get_args sign.args ns) (get_len sign.args ns)` by metis_tac [get_cargs_word_clock_up_eq] >>
+    rveq >> fs [] >> rfs []) >> rveq
+  >- (imp_res_tac store_retv_cargs_word_clk_upd >>
       fs [Once (GSYM get_word_margs_clk_upd)])
-  >- (imp_res_tac store_retv_cargs_word_clk_upd' >> 
+  >- (imp_res_tac store_retv_cargs_word_clk_upd' >>
       fs [Once (GSYM get_word_margs_clk_upd)])
   >- (drule_all store_retv_cargs_word_some_clk_eq >> rw [] >>
       fs [Once (GSYM get_word_margs_clk_upd)] >>
@@ -828,7 +827,7 @@ QED
 
 Theorem call_ffi_io_events_mono:
    !(s:('a, 'b, 'c) wordSem$state) ffi_index n sign args als s' nargs retv.
-   call_FFI s.ffi n sign args als = SOME (FFI_return s' nargs retv) ==> 
+   call_FFI s.ffi n sign args als = SOME (FFI_return s' nargs retv) ==>
    s.ffi.io_events ≼ s'.io_events
 Proof
   rw[ffiTheory.call_FFI_def] >> every_case_tac >>
@@ -840,9 +839,8 @@ Theorem evaluate_ffi_io_even_mono:
   evaluate_ffi s ffi_index n ns names = (r,s') ==>
   s.ffi.io_events ≼ s'.ffi.io_events
 Proof
-  rw [evaluate_ffi_def] >> every_case_tac >> fs [call_env_def] >> rveq  
-  >- rw[] 
-  >- (drule_all call_ffi_io_events_mono >> rw [] ) >> rw [] 
+  rw [evaluate_ffi_def] >> every_case_tac >> fs [] >> rveq >> rw [] >>
+  drule_all call_ffi_io_events_mono >> rw []
 QED
 
 Theorem evaluate_io_events_mono:
@@ -986,10 +984,10 @@ Proof
     imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >>
     imp_res_tac pop_env_const >> rveq >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
     metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
-  TRY (rename1 `(_ (evaluate_ffi _ _ _ _ _)).ffi.io_events ≼ _` >> 
-      qpat_abbrev_tac `a1  = evaluate_ffi _ _ _ _ _  ` >> Cases_on `a1` >> 
+  TRY (rename1 `(_ (evaluate_ffi _ _ _ _ _)).ffi.io_events ≼ _` >>
+      qpat_abbrev_tac `a1  = evaluate_ffi _ _ _ _ _  ` >> Cases_on `a1` >>
       pop_assum(assume_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def]) >>
-      drule (GEN_ALL evaluate_ffi_add_clock) >> 
+      drule (GEN_ALL evaluate_ffi_add_clock) >>
       disch_then (qspec_then `extra` mp_tac) >> rw [] >> fs [])>>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   rpt (pairarg_tac >> full_simp_tac(srw_ss())[]) >>
@@ -1030,7 +1028,7 @@ Theorem alloc_code_gc_fun_const:
 Proof
   fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
-  imp_res_tac pop_env_code_gc_fun_clock>>fs[] 
+  imp_res_tac pop_env_code_gc_fun_clock>>fs[]
 QED
 
 val inst_code_gc_fun_const = Q.prove(`
@@ -1041,17 +1039,17 @@ val inst_code_gc_fun_const = Q.prove(`
 
 
 Theorem store_cargs_word_some_gc_fun_eq:
-  !margs nargs st st'. 
+  !margs nargs st st'.
    store_cargs_word margs nargs st = st' ==>
     st'.gc_fun = st.gc_fun
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
 
 Theorem store_retv_cargs_word_some_gc_fun_eq:
-  !margs nargs n retv st st'. 
+  !margs nargs n retv st st'.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     st'.gc_fun = st.gc_fun
 Proof
@@ -1063,17 +1061,17 @@ QED
 
 
 Theorem store_cargs_word_some_mdomain_eq:
-  !margs nargs st st'. 
+  !margs nargs st st'.
    store_cargs_word margs nargs st = st' ==>
     st'.mdomain = st.mdomain
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
 
 Theorem store_retv_cargs_word_some_mdomain_eq:
-  !margs nargs n retv st st'. 
+  !margs nargs n retv st st'.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     st'.mdomain= st.mdomain
 Proof
@@ -1084,17 +1082,17 @@ QED
 
 
 Theorem store_cargs_word_some_compile_eq:
-  !margs nargs st st'. 
+  !margs nargs st st'.
    store_cargs_word margs nargs st = st' ==>
     st'.compile = st.compile
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
 
 Theorem store_retv_cargs_word_some_compile_eq:
-  !margs nargs n retv st st'. 
+  !margs nargs n retv st st'.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     st'.compile= st.compile
 Proof
@@ -1105,17 +1103,17 @@ QED
 
 
 Theorem store_cargs_word_some_be_eq:
-  !margs nargs st st'. 
+  !margs nargs st st'.
    store_cargs_word margs nargs st = st' ==>
     (st.be ⇔ st'.be)
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
 
 Theorem store_retv_cargs_word_some_be_eq:
-  !margs nargs n retv st st'. 
+  !margs nargs n retv st st'.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     (st.be ⇔ st'.be)
 Proof
@@ -1566,17 +1564,17 @@ val word_exp_stack_swap = Q.prove(
 
 
 Theorem store_cargs_word_some_handler_eq:
-  !margs nargs st st'. 
+  !margs nargs st st'.
    store_cargs_word margs nargs st = st' ==>
     st'.handler = st.handler
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
 
 Theorem store_retv_cargs_word_some_handler_eq:
-  !margs nargs n retv st st'. 
+  !margs nargs n retv st st'.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     st'.handler = st.handler
 Proof
@@ -1587,17 +1585,17 @@ QED
 
 
 Theorem store_cargs_word_some_stack_eq:
-  !margs nargs st st'. 
+  !margs nargs st st'.
    store_cargs_word margs nargs st = st' ==>
     st'.stack = st.stack
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
 
 Theorem store_retv_cargs_word_some_stack_eq:
-  !margs nargs n retv st st'. 
+  !margs nargs n retv st st'.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     st'.stack = st.stack
 Proof
@@ -1610,25 +1608,25 @@ QED
 
 
 Theorem get_cargs_word_stack_up_eq:
-  !s n cts args lens stk. 
-    get_cargs_word s n cts args lens  =
-    get_cargs_word (s with stack := stk) n cts args lens
+  !s cts args lens stk.
+    get_cargs_word s cts args lens  =
+    get_cargs_word (s with stack := stk) cts args lens
 Proof
   rw [] >>
-  Cases_on `get_cargs_word s n cts args lens` >> 
+  Cases_on `get_cargs_word s cts args lens` >>
   ONCE_REWRITE_TAC [EQ_SYM_EQ] >>
-  pop_assum mp_tac 
-  >- (MAP_EVERY qid_spec_tac [`stk`, `lens`,`args`,`cts`,`n`, `s`] >>
-      ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] 
+  pop_assum mp_tac
+  >- (MAP_EVERY qid_spec_tac [`stk`, `lens`,`args`,`cts`, `s`] >>
+      ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def]
       >- (disj1_tac >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_word_def]) >>
      metis_tac []) >>
-  MAP_EVERY qid_spec_tac [`x`, `clk`, `lens`,`args`,`cts`,`n`, `s`] >>
+  MAP_EVERY qid_spec_tac [`x`, `clk`, `lens`,`args`,`cts`, `s`] >>
   ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] >>
   Cases_on `ty` >> Cases_on `len` >> fs [get_carg_word_def]
 QED
 
 Theorem get_var_margs_stack_upd:
-  !ns s clk. get_var_margs ns s = 
+  !ns s clk. get_var_margs ns s =
      get_var_margs ns (s with stack := stk)
 Proof
   rw [get_var_margs_def]
@@ -1637,7 +1635,7 @@ QED
 
 
 Theorem get_word_margs_stack_upd:
-  !margs s stk. get_word_margs margs s = 
+  !margs s stk. get_word_margs margs s =
      get_word_margs margs (s with stack := stk)
 Proof
   rw [get_word_margs_def]
@@ -1646,7 +1644,7 @@ QED
 
 
 Theorem store_retv_cargs_word_stack_upd:
-  !margs nargs n retv st st' stk. 
+  !margs nargs n retv st st' stk.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     store_retv_cargs_word margs nargs n retv (st with stack := stk) <>  NONE
 Proof
@@ -1657,12 +1655,12 @@ QED
 
 
 Theorem store_cargs_word_some_stack_upd_rel:
-  !margs nargs st st' st'' stk. 
+  !margs nargs st st' st'' stk.
    store_cargs_word margs nargs st =  st' /\
     store_cargs_word margs nargs (st with stack := stk) = st'' ==>
    st'' = (st' with stack := stk)
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
@@ -1686,17 +1684,17 @@ QED
 
 
 Theorem store_retv_cargs_word_some_stack_upd_rel:
-  !margs nargs n retv st st' st'' stk. 
+  !margs nargs n retv st st' st'' stk.
    store_retv_cargs_word margs nargs n retv st =  SOME st' /\
     store_retv_cargs_word margs nargs n retv (st with stack := stk) = SOME st'' ==>
    st''  = (st' with stack := stk)
 Proof
-  rw [store_retv_cargs_word_def] >> every_case_tac >> fs [] 
+  rw [store_retv_cargs_word_def] >> every_case_tac >> fs []
   >- (pop_assum mp_tac >>
-      drule store_cargs_word_some_stack_upd_rel >> fs []) 
+      drule store_cargs_word_some_stack_upd_rel >> fs [])
   >- (drule_all store_cargs_word_some_stack_upd_rel >> fs [])
   >- (rveq  >> `x'' = x' with stack := stk` by (fs [mem_store_def] >> rw []) >>
-      fs [GSYM store_cargs_word_state_stack_eq]) >> 
+      fs [GSYM store_cargs_word_state_stack_eq]) >>
   rveq >> fs [store_cargs_word_state_stack_eq]
 QED
 
@@ -1960,32 +1958,26 @@ Proof
     fs[case_eq_thms]>>
     every_case_tac>>fs[state_component_equality]>>
     metis_tac[s_key_eq_refl])
-  >-(*FFI*) 
+  >-(*FFI*)
    (full_simp_tac(srw_ss())[evaluate_def, evaluate_ffi_def]>>
     every_case_tac >> fs [state_component_equality]
-    >- (rw [call_env_def, fromList2_def] >>  every_case_tac >> fs [] >>
-        rename1 `get_cargs_word _ _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
-        `get_cargs_word s names sign.args (get_args sign.args ns) (get_len sign.args ns) =
-          get_cargs_word (s with stack := xs) names sign.args (get_args sign.args ns) (get_len sign.args ns)` by 
-            metis_tac [get_cargs_word_stack_up_eq] >> 
-         rveq >> fs [call_env_def, fromList2_def] >> rveq >> fs [])
-    >- (conj_tac >- (drule store_retv_cargs_word_some_stack_eq >> rw [s_key_eq_refl]) >> 
+    >- (conj_tac >- (drule store_retv_cargs_word_some_stack_eq >> rw [s_key_eq_refl]) >>
         conj_tac >- metis_tac [store_retv_cargs_word_some_handler_eq] >>
-        rw [] >> rename1 `get_cargs_word _ _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
-        `get_cargs_word s names sign.args (get_args sign.args ns) (get_len sign.args ns) =
-          get_cargs_word (s with stack := xs) names sign.args (get_args sign.args ns) (get_len sign.args ns)` by 
+        rw [] >> rename1 `get_cargs_word _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
+        `get_cargs_word s sign.args (get_args sign.args ns) (get_len sign.args ns) =
+          get_cargs_word (s with stack := xs) sign.args (get_args sign.args ns) (get_len sign.args ns)` by
             metis_tac [get_cargs_word_stack_up_eq] >>
         rveq >> qexists_tac `xs` >> fs [] >> rw [GSYM get_var_margs_stack_upd, GSYM get_word_margs_stack_upd]
-        >- (imp_res_tac store_retv_cargs_word_stack_upd >> fs [] >> 
-            every_case_tac >- (res_tac >> fs []) >> 
+        >- (imp_res_tac store_retv_cargs_word_stack_upd >> fs [] >>
+            every_case_tac >- (res_tac >> fs []) >>
             drule_all store_retv_cargs_word_some_stack_upd_rel >> rw [])
-        >- (drule store_retv_cargs_word_some_stack_eq >> rw []) >>  metis_tac[s_key_eq_refl])
-    >> (rw [call_env_def, fromList2_def] >>  every_case_tac >> fs [] >> 
-        rename1 `get_cargs_word _ _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
-        `get_cargs_word s names sign.args (get_args sign.args ns) (get_len sign.args ns) =
-          get_cargs_word (s with stack := xs) names sign.args (get_args sign.args ns) (get_len sign.args ns)` by 
-            metis_tac [get_cargs_word_stack_up_eq] >> 
-         rveq >> fs [call_env_def, fromList2_def] >> rveq >> fs []))
+        >- (drule store_retv_cargs_word_some_stack_eq >> rw []) >>  metis_tac[s_key_eq_refl]) >>
+    rw [call_env_def, fromList2_def] >>  every_case_tac >> fs [] >>
+    rename1 `get_cargs_word _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
+    `get_cargs_word s sign.args (get_args sign.args ns) (get_len sign.args ns) =
+    get_cargs_word (s with stack := xs) sign.args (get_args sign.args ns) (get_len sign.args ns)` by
+      metis_tac [get_cargs_word_stack_up_eq] >>
+    rveq >> fs [call_env_def, fromList2_def] >> rveq >> fs [])
   >-(*Call*)
   (full_simp_tac(srw_ss())[evaluate_def]>>
   Cases_on`get_vars args s`>> full_simp_tac(srw_ss())[]>>
@@ -2475,19 +2467,19 @@ val jump_exc_perm = Q.prove(`
   final permute is equal to the target *)
 
 Theorem get_cargs_word_perm_up_eq:
-  !s n cts args lens perm. 
-    get_cargs_word s n cts args lens  =
-    get_cargs_word (s with permute := perm) n cts args lens
+  !s cts args lens perm.
+    get_cargs_word s cts args lens  =
+    get_cargs_word (s with permute := perm) cts args lens
 Proof
   rw [] >>
-  Cases_on `get_cargs_word s n cts args lens` >> 
+  Cases_on `get_cargs_word s cts args lens` >>
   ONCE_REWRITE_TAC [EQ_SYM_EQ] >>
-  pop_assum mp_tac 
-  >- (MAP_EVERY qid_spec_tac [`perm`, `lens`,`args`,`cts`,`n`, `s`] >>
-      ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] 
+  pop_assum mp_tac
+  >- (MAP_EVERY qid_spec_tac [`perm`, `lens`,`args`,`cts`, `s`] >>
+      ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def]
       >- (disj1_tac >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_word_def]) >>
      metis_tac []) >>
-  MAP_EVERY qid_spec_tac [`x`, `perm`, `lens`,`args`,`cts`,`n`, `s`] >>
+  MAP_EVERY qid_spec_tac [`x`, `perm`, `lens`,`args`,`cts`, `s`] >>
   ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] >>
   Cases_on `ty` >> Cases_on `len` >> fs [get_carg_word_def]
 QED
@@ -2495,7 +2487,7 @@ QED
 
 
 Theorem get_word_margs_perm_upd:
-  !margs s perm. get_word_margs margs s = 
+  !margs s perm. get_word_margs margs s =
      get_word_margs margs (s with permute := perm)
 Proof
   rw [get_word_margs_def]
@@ -2503,7 +2495,7 @@ QED
 
 
 Theorem store_retv_cargs_word_perm_upd:
-  !margs nargs n retv st st' perm. 
+  !margs nargs n retv st st' perm.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     store_retv_cargs_word margs nargs n retv (st with permute := perm) <>  NONE
 Proof
@@ -2512,7 +2504,7 @@ Proof
 QED
 
 Theorem store_retv_cargs_word_perm_upd':
-  !margs nargs n retv st st' perm. 
+  !margs nargs n retv st st' perm.
    store_retv_cargs_word margs nargs n retv st =  NONE ==>
     store_retv_cargs_word margs nargs n retv (st with permute := perm)  = NONE
 Proof
@@ -2522,17 +2514,17 @@ QED
 
 
 Theorem store_cargs_word_some_perm_eq:
-  !margs nargs st st'. 
+  !margs nargs st st'.
    store_cargs_word margs nargs st = st' ==>
     st'.permute = st.permute
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
 
 Theorem store_retv_cargs_word_some_perm_eq:
-  !margs nargs n retv st st'. 
+  !margs nargs n retv st st'.
    store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
     st'.permute = st.permute
 Proof
@@ -2542,15 +2534,13 @@ Proof
 QED
 
 
-
-
 Theorem store_cargs_word_some_perm_upd_rel:
-  !margs nargs st st' st'' perm. 
+  !margs nargs st st' st'' perm.
    store_cargs_word margs nargs st =  st' /\
     store_cargs_word margs nargs (st with permute := perm) = st'' ==>
    st'' = (st' with permute := perm)
 Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
+  ho_match_mp_tac store_cargs_word_ind >>
   rw [store_cargs_word_def]
 QED
 
@@ -2571,13 +2561,13 @@ QED
 
 
 Theorem store_retv_cargs_word_some_perm_upd_rel:
-  !margs nargs n retv st st' st'' perm. 
+  !margs nargs n retv st st' st'' perm.
    store_retv_cargs_word margs nargs n retv st =  SOME st' /\
     store_retv_cargs_word margs nargs n retv (st with permute := perm) = SOME st'' ==>
    st''  = (st' with permute := perm)
 Proof
-  rw [store_retv_cargs_word_def] >> every_case_tac >> fs [] 
-  >- (pop_assum mp_tac >> drule store_cargs_word_some_perm_upd_rel >> fs []) 
+  rw [store_retv_cargs_word_def] >> every_case_tac >> fs []
+  >- (pop_assum mp_tac >> drule store_cargs_word_some_perm_upd_rel >> fs [])
   >- (drule_all store_cargs_word_some_perm_upd_rel >> fs [])
   >- (rveq  >> `x'' = x' with permute := perm` by (fs [mem_store_def] >> rw []) >>
       fs [GSYM store_cargs_word_state_perm_eq]) >>
@@ -2586,7 +2576,7 @@ QED
 
 
 Theorem get_var_margs_perm_upd:
-  !ns s perm. get_var_margs ns s = 
+  !ns s perm. get_var_margs ns s =
      get_var_margs ns (s with permute := perm)
 Proof
   rw [get_var_margs_def]
@@ -2600,14 +2590,14 @@ Theorem evaluate_ffi_perm_upd:
 Proof
   rw [evaluate_ffi_def] >> every_case_tac >> fs [] >>
   TRY (
-   rename1 `get_cargs_word _ _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
-   `get_cargs_word s names sign.args (get_args sign.args ns) (get_len sign.args ns) =
-    get_cargs_word (s with permute := perm) names sign.args 
-      (get_args sign.args ns) (get_len sign.args ns)` by metis_tac [get_cargs_word_perm_up_eq] >> 
+   rename1 `get_cargs_word _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
+   `get_cargs_word s sign.args (get_args sign.args ns) (get_len sign.args ns) =
+    get_cargs_word (s with permute := perm) sign.args
+      (get_args sign.args ns) (get_len sign.args ns)` by metis_tac [get_cargs_word_perm_up_eq] >>
     rveq >> fs [] >> rfs []) >> rveq  >> rw [call_env_def]
-  >- (imp_res_tac store_retv_cargs_word_perm_upd >> 
+  >- (imp_res_tac store_retv_cargs_word_perm_upd >>
       fs [Once (GSYM get_word_margs_perm_upd)])
-  >- (imp_res_tac store_retv_cargs_word_perm_upd' >> 
+  >- (imp_res_tac store_retv_cargs_word_perm_upd' >>
       fs [Once (GSYM get_word_margs_perm_upd)])
   >- (drule_all store_retv_cargs_word_some_perm_eq >> rw [] >>
       fs [Once (GSYM get_word_margs_perm_upd)] >>
@@ -2708,7 +2698,7 @@ Proof
     fs[case_eq_thms,state_component_equality]
   >- (* DBW *)
     fs[case_eq_thms,state_component_equality]
-  >- (*FFI*) 
+  >- (*FFI*)
     (qexists_tac`perm`>> metis_tac [evaluate_ffi_perm_upd])
   >- (*Call*)
     (fs[evaluate_def]>>
@@ -2864,9 +2854,9 @@ Proof
   TRY(Cases_on`x`>>full_simp_tac(srw_ss())[])>>
   TRY(Cases_on`r`>>full_simp_tac(srw_ss())[])>>
   TRY(Cases_on`ri`>>full_simp_tac(srw_ss())[every_var_imm_def])>>
-  TRY (rename1 `P_num_lst _ _` >> rw [P_num_lst_def, EVERY_MAP] >> 
+  TRY (rename1 `P_num_lst _ _` >> rw [P_num_lst_def, EVERY_MAP] >>
        metis_tac [EVERY_CONJ, every_name_conj]) >>
-  TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj,every_name_conj])  
+  TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj,every_name_conj])
 QED
 
 (*Similar lemmas about every_stack_var*)
@@ -3018,6 +3008,198 @@ val locals_rel_cut_env = Q.prove(`
   do not affect evaluation*)
 
 val srestac = qpat_x_assum`A=res`sym_sub_tac>>full_simp_tac(srw_ss())[]
+
+
+Theorem pnum_list_impl:
+  P_num_lst P (x::xs) ==> P_num_lst P xs
+Proof
+  rw [P_num_lst_def]
+QED
+
+Theorem pnum_sub_list_prop:
+  !ns f P .P_num_lst P ns /\ (!m. MEM m (f ns) ==> MEM m ns)
+    ==> P_num_lst P (f ns)
+Proof
+  rw [P_num_lst_def, EVERY_MAP, EVERY_MEM]
+QED
+
+
+Theorem get_arg_length_le_args:
+  !cts ns n.
+  n < LENGTH (get_args cts ns) ==>  (n < LENGTH (get_args cts ns))
+Proof
+  ho_match_mp_tac get_args_ind >> rw [get_args_def]
+QED
+
+Theorem get_cargs_sub_list:
+  ∀cts ns m. MEM m (get_args cts ns) ⇒ MEM m ns
+Proof
+   ho_match_mp_tac get_args_ind >> rw [get_args_def] >>
+   Cases_on `ty` >> fs [] >> every_case_tac >> fs [] >>
+   `MEM m (TL ns) ==> MEM m ns` by (Cases_on `ns` >> fs []) >>
+   fs []
+QED
+
+
+Theorem pnum_get_args:
+  !cts ns P .P_num_lst P ns ==> P_num_lst P (get_args cts ns)
+Proof
+  rw [] >>
+  ho_match_mp_tac pnum_sub_list_prop >>
+  metis_tac [get_cargs_sub_list]
+QED
+
+
+Theorem get_mut_args_sub_list:
+  ∀cts ns m.  MEM m (get_mut_args cts ns) ⇒ MEM m ns
+Proof
+  rw [ffiTheory.get_mut_args_def] >>
+  fs [MEM_MAP, MEM_FILTER] >> rveq >> drule MEM_ZIP2 >>
+  rw [] >> fs [MEM_EL] >> metis_tac []
+QED
+
+Theorem pnum_get_mut_args:
+  !cts ns P .P_num_lst P ns ==> P_num_lst P (get_mut_args cts (get_args cts ns))
+Proof
+  rw [] >>
+  ho_match_mp_tac pnum_sub_list_prop >>
+  rw [pnum_get_args] >> metis_tac [get_mut_args_sub_list]
+QED
+
+
+Theorem pnum_get_len:
+  !cts ns P .P_num_lst P ns ==>
+   P_num_lst P (MAP THE (FILTER (\n. n <> NONE) (get_len cts ns)))
+Proof
+  ho_match_mp_tac get_len_ind >> rw [get_len_def] >>
+  fs [P_num_lst_def, EVERY_MAP] >>
+  Cases_on `ty` >> fs [] >> every_case_tac >> fs[] >>
+  conj_tac >- (Cases_on `ns` >> fs [EVERY_DEF] >> fs [get_len_def]) >>
+  `EVERY (λx. P x) (TL ns)` by (Cases_on `ns` >> fs [EVERY_DEF]) >> metis_tac []
+QED
+
+
+
+Theorem get_var_margs_loc_upd:
+  !margs s loc temp.
+    P_num_lst (λx. x < temp) margs /\
+    locals_rel temp s.locals loc ==>
+     get_var_margs margs s =
+     get_var_margs margs (s with locals := loc)
+Proof
+  rw [get_var_margs_def, MAP_EQ_f, P_num_lst_def, locals_rel_def,
+      get_var_def, EVERY_MAP, EVERY_MEM]
+QED
+
+Theorem store_retv_cargs_word_loc_upd:
+  !margs nargs n retv st st' temp loc.
+    n < temp /\
+    locals_rel temp st.locals loc /\
+   store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
+    store_retv_cargs_word margs nargs n retv (st with locals := loc) <>  NONE
+Proof
+  rw [store_retv_cargs_word_def] >> every_case_tac >> fs [] >>
+  fs [locals_rel_def, get_var_def] >> res_tac >> rfs [] >>
+  rveq >> fs [mem_store_def]
+QED
+
+Theorem get_cargs_word_locals_up_eq:
+  !s cts args lens loc temp.
+    P_num_lst (λx. x < temp) args /\
+    P_num_lst (λx. x < temp) (MAP THE (FILTER (\n. n <> NONE) lens)) /\
+    locals_rel temp s.locals loc ==>
+    get_cargs_word s cts args lens  =
+    get_cargs_word (s with locals := loc) cts args lens
+Proof
+  rw [] >>
+  Cases_on `get_cargs_word s cts args lens` >>
+  ONCE_REWRITE_TAC [EQ_SYM_EQ] >>
+  qpat_x_assum `locals_rel _ _ _` mp_tac >>
+  qpat_x_assum `P_num_lst _ _` mp_tac >>
+  qpat_x_assum `P_num_lst _ _` mp_tac >>
+  pop_assum mp_tac
+  >- (MAP_EVERY qid_spec_tac [`temp`, `loc`, `lens`,`args`,`cts`, `s`] >>
+      ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def]
+      >- (disj1_tac >> fs [P_num_lst_def] >>
+         Cases_on `ty`  >> Cases_on `len` >> fs [get_carg_word_def, locals_rel_def, get_var_def])
+      >- (dxrule pnum_list_impl >>
+          dxrule pnum_list_impl >>
+          rw [] >> metis_tac [])
+      >- (disj1_tac >> fs [P_num_lst_def] >>
+          Cases_on `ty` >> fs [get_carg_word_def, locals_rel_def, get_var_def])
+      >> dxrule pnum_list_impl >>
+         rw [] >> metis_tac [])
+ >>
+  MAP_EVERY qid_spec_tac [`temp`, `loc`, `x`, `lens`,`args`,`cts`, `s`] >>
+  ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] >>
+  conj_tac
+  >- (fs [P_num_lst_def] >> Cases_on `ty`  >> Cases_on `len` >>
+     fs [get_carg_word_def, locals_rel_def, get_var_def])
+  >- (dxrule pnum_list_impl >>
+     dxrule pnum_list_impl >>
+     rw [] >> metis_tac [])
+  >- (fs [P_num_lst_def] >> Cases_on `ty`  >>
+     fs [get_carg_word_def, locals_rel_def, get_var_def])
+  >> dxrule pnum_list_impl >> rw [] >> metis_tac []
+QED
+
+
+Theorem get_word_margs_loc_upd:
+  !margs s loc temp.
+    P_num_lst (λx. x < temp) margs /\
+    locals_rel temp s.locals loc ==>
+     get_word_margs margs s =
+     get_word_margs margs (s with locals := loc)
+Proof
+  rw [get_word_margs_def] >>
+  imp_res_tac  get_var_margs_loc_upd >> fs [get_var_margs_def]
+QED
+
+
+Theorem store_cargs_word_some_loc_upd_rel:
+  !margs nargs st st' st'' loc.
+   store_cargs_word margs nargs st =  st' /\
+    store_cargs_word margs nargs (st with locals := loc) = st'' ==>
+   st'' = (st' with locals := loc)
+Proof
+  ho_match_mp_tac store_cargs_word_ind >>
+  rw [store_cargs_word_def]
+QED
+
+
+
+Theorem store_cargs_word_state_loc_eq:
+  !margs nargs st loc.
+  store_cargs_word margs nargs (st with locals := loc) =
+   store_cargs_word margs nargs st with locals := loc
+Proof
+  rw [] >>
+  qpat_abbrev_tac `stloc = st with locals := _` >>
+  qpat_abbrev_tac `stn = store_cargs_word _ _ stloc` >>
+  qpat_x_assum `Abbrev (stloc = _ )` (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum (mp_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  MAP_EVERY qid_spec_tac [`st`, `loc`, `stn`, `stn`, `stloc`, `nargs`,`margs`]  >>
+  ho_match_mp_tac store_cargs_word_ind >> rw [store_cargs_word_def]
+QED
+
+
+
+Theorem store_retv_cargs_word_some_loc_upd_rel:
+  !margs nargs n retv st st' st'' temp loc.
+   n < temp /\
+   locals_rel temp st.locals loc /\
+   store_retv_cargs_word margs nargs n retv st =  SOME st' /\
+   store_retv_cargs_word margs nargs n retv (st with locals := loc) = SOME st'' ==>
+     st''  = (st' with locals := loc)
+Proof
+  rw [store_retv_cargs_word_def] >> every_case_tac >> fs []
+  >- (drule_all store_cargs_word_some_loc_upd_rel >> rw [])
+  >- (drule_all store_cargs_word_some_loc_upd_rel >> fs []) >>
+  fs [mem_store_def] >> rveq >>
+  fs [store_cargs_word_state_loc_eq, locals_rel_def, get_var_def] >>
+  res_tac >> fs []
+QED
+
 
 Theorem locals_rel_evaluate_thm:
     ∀prog st res rst loc temp.
@@ -3221,148 +3403,33 @@ Proof
     (fs[case_eq_thms,every_var_def]>>rw[]>>
     imp_res_tac locals_rel_get_var>>fs[state_component_equality]) >>
   rename1 `evaluate_ffi _ ffi_index n ns names  = _ ` >>
-  qexists_tac `loc` >> conj_tac
-
-
-
-
-Theorem get_cargs_word_locals_up_eq:
-  !s names ty arg len loc temp. 
-    arg < temp /\
-    THE len < temp /\
-    every_name (λx. x < temp) names /\
-    locals_rel temp s.locals loc ==>
-    get_carg_word s names ty arg len  =
-    get_carg_word (s with locals := loc) names ty arg len
-Proof
-  rw [] >>
-  Cases_on `get_carg_word s names ty arg len` >> 
-  ONCE_REWRITE_TAC [EQ_SYM_EQ] >>
-  Cases_on `ty`  >> Cases_on `len` >> fs [get_carg_word_def] >>
-  fs [get_var_def, locals_rel_def] >> 
-  first_x_assum (qspec_then `arg` mp_tac) >> rw [] >> fs [] >>
-  
-
-  every_case_tac >>  fs []
-
- fs [cut_env_def , every_name_def, domain_def] >> fs [inter_def]
-
-
-QED
-
-
-Theorem get_cargs_word_locals_up_eq:
-  !s names cts args lens loc temp. 
-    P_num_lst (λx. x < temp) args /\
-    P_num_lst (λx. x < temp) (MAP THE lens) /\
-    every_name (λx. x < temp) names /\
-    locals_rel temp s.locals loc ==>
-    get_cargs_word s names cts args lens  =
-    get_cargs_word (s with locals := loc) names cts args lens
-Proof
-  rw [] >>
-  Cases_on `get_cargs_word s names cts args lens` >> 
-  ONCE_REWRITE_TAC [EQ_SYM_EQ] >>
-  qpat_x_assum `locals_rel _ _ _` mp_tac >>
-  qpat_x_assum `every_name _ _` mp_tac >>
-  qpat_x_assum `P_num_lst _ _` mp_tac >>
-  qpat_x_assum `P_num_lst _ _` mp_tac >>
-  pop_assum mp_tac 
-  >- (MAP_EVERY qid_spec_tac [`temp`, `loc`, `lens`,`args`,`cts`,`names`, `s`] >>
-      ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] 
-      >- (disj1_tac >> 
-
-
-
-
-fs [P_num_lst_def]
-
-
-
-
-Cases_on `ty` >> Cases_on `len` >> 
-          fs [get_carg_word_def, every_name_def, locals_rel_def, get_var_def ]) >>
-     metis_tac []) >>
-  MAP_EVERY qid_spec_tac [`x`, `loc`, `lens`,`args`,`cts`,`n`, `s`] >>
-  ho_match_mp_tac get_cargs_word_ind >> rw [get_cargs_word_def] >>
-  Cases_on `ty` >> Cases_on `len` >> fs [get_carg_word_def]
-QED
-
-
-Theorem evaluate_ffi_upd_locals_rel:
-  every_var (λx. x < temp) (FFI ffi_index n ns names) /\
-  locals_rel temp s.locals loc /\
-  evaluate_ffi s ffi_index n ns names = (r,s')  /\
-   r ≠ SOME Error ==>
-    evaluate_ffi (s with locals := loc) ffi_index n ns names =
-        (r,s' with locals := loc)
-Proof
-  rw [evaluate_ffi_def] >> every_case_tac >> fs [] >> fs [every_var_def]
-  TRY (
-   rename1 `get_cargs_word _ _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
-   `get_cargs_word s names sign.args (get_args sign.args ns) (get_len sign.args ns) =
-    get_cargs_word (s with locals := loc) names sign.args 
-      (get_args sign.args ns) (get_len sign.args ns)` by metis_tac [get_cargs_word_clock_up_eq] >> 
-    rveq >> fs [] >> rfs []) >> rveq 
-  >- (imp_res_tac store_retv_cargs_word_clk_upd >> 
-      fs [Once (GSYM get_word_margs_clk_upd)])
-  >- (imp_res_tac store_retv_cargs_word_clk_upd' >> 
-      fs [Once (GSYM get_word_margs_clk_upd)])
-  >- (drule_all store_retv_cargs_word_some_clk_eq >> rw [] >>
-      fs [Once (GSYM get_word_margs_clk_upd)] >>
-      drule_all store_retv_cargs_word_some_clk_upd_rel >> rw [])
-  >> rfs [Once (GSYM get_word_margs_clk_upd), Once (GSYM get_var_margs_clk_upd)]
-QED
-
-
-
-
-Theorem store_cargs_word_some_locals_eq:
-  !margs nargs st st'. 
-   store_cargs_word margs nargs st = st' ==>
-     st'.locals = st.locals
-Proof
-  ho_match_mp_tac store_cargs_word_ind >> 
-  rw [store_cargs_word_def]
-QED
-
-
-Theorem store_retv_cargs_word_some_locals_eq:
-  !margs nargs n retv st st'. 
-   store_retv_cargs_word margs nargs n retv st =  SOME st' ==>
-    st'.locals = st.locals
-Proof
-  rw [store_retv_cargs_word_def] >> every_case_tac >> fs [] >>
-  drule_all store_cargs_word_some_locals_eq >> fs [] >>
-  rw [] >> fs [mem_store_def] >> rw []
-QED
-
-(*
-  rw [evaluate_ffi_def] >> every_case_tac >> fs [call_env_def] >> rw [] >>
-  rveq >> metis_tac [store_retv_cargs_word_some_be_eq, store_retv_cargs_word_some_compile_eq,
-              store_retv_cargs_word_some_gc_fun_eq, store_retv_cargs_word_some_mdomain_eq]
-*)
-
-
-Theorem evaluate_ffi_locals_eq:
-  !s ffi_index n ns names r s'.
-  evaluate_ffi s ffi_index n ns names = (r,s') ==>
-  s'.locals = s.locals
-Proof
-  rw [evaluate_ffi_def] >> every_case_tac >> fs [call_env_def] >> rw [] >>
-  rveq
-  >- cheat
-  >- (fs [cut_env_def] >> Cases_on `s.locals` >> fs [inter_def] >> 
-       Cases_on `names` >> fs [] >> rveq  cut_env_def
-every_case_tac >> fs [])
-  inter_def domain_def
-
-)
-
-fs [cut_env_def] 
-  >- rw[] 
-  >- (drule_all store_retv_cargs_word_some_locals_eq >> rw []) >> rw []
-QED
+  fs [evaluate_ffi_def] >> TOP_CASE_TAC >> fs [] >>
+  rename1 `FIND _ _ =SOME sign` >>
+  fs [every_var_def] >>
+  drule pnum_list_impl >> rw [] >>
+  drule pnum_get_args >> disch_then (qspec_then `sign.args` mp_tac) >>
+  drule pnum_get_len >> disch_then (qspec_then `sign.args` mp_tac) >> rw [] >>
+  drule_all get_cargs_word_locals_up_eq >> disch_then (qspec_then `sign.args` mp_tac) >>
+  strip_tac >> TOP_CASE_TAC >> fs [] >> pop_assum kall_tac >>
+  Cases_on `cut_env names st.locals` >> fs [every_var_def] >>
+  drule_all (GEN_ALL locals_rel_cut_env) >> strip_tac >> fs [] >>
+  TOP_CASE_TAC >> fs [] >> TOP_CASE_TAC >> fs []
+  >- (assume_tac (INST_TYPE [``:'a``|->``:num``] pnum_get_mut_args) >>
+      pop_assum (qspecl_then [`sign.args`, `ns` , `(λx. x < temp)`] mp_tac) >>
+      drule pnum_list_impl >> PURE_ASM_REWRITE_TAC [] >> strip_tac >>
+      strip_tac >> fs [] >>
+      drule_all (GSYM get_var_margs_loc_upd) >> strip_tac >>  rfs[bool_case_eq] >>
+      pop_assum kall_tac >> drule_all (GSYM get_word_margs_loc_upd) >>
+      strip_tac >> fs [] >> pop_assum kall_tac >>
+      rename1 `store_retv_cargs_word margs nargs n retv _` >>
+      Cases_on `store_retv_cargs_word margs nargs n retv st` >> fs [P_num_lst_def] >>
+      rename1 `store_retv_cargs_word _ _ _ _ _ =SOME st'` >>
+      drule store_retv_cargs_word_loc_upd >>
+      disch_then (qspecl_then [`margs`, `nargs`, `retv`, `st`, `st'`, `loc`] mp_tac) >>
+      PURE_ASM_REWRITE_TAC [] >> strip_tac >> fs [] >>
+      TOP_CASE_TAC >> fs [] >> rveq >> qexists_tac `x'` >>
+      conj_tac >- (drule_all store_retv_cargs_word_some_loc_upd_rel >> rw []) >>
+      rw [locals_rel_def]) >>
 
 
 val gc_fun_ok_def = Define `

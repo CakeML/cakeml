@@ -112,7 +112,7 @@ val do_app_with_stack = time Q.prove(
   Cases_on `do_app op vs (s with stack := z)`
   \\ Cases_on `op`
   \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              bool_case_eq,do_ffi_data_def, ffiTheory.call_FFI_def,do_app_def,do_space_def,
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
@@ -125,7 +125,7 @@ val do_app_aux_with_space = time Q.store_thm("do_app_aux_with_space",
   Cases_on `do_app_aux op vs (s with space := z)`
   \\ Cases_on `op`
   \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              bool_case_eq,do_ffi_data_def, ffiTheory.call_FFI_def,do_app_def,do_space_def,
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
@@ -138,7 +138,7 @@ val do_app_aux_with_locals = time Q.store_thm("do_app_aux_with_locals",
   Cases_on `do_app_aux op vs (s with locals := z)`
   \\ Cases_on `op`
   \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              bool_case_eq,do_ffi_data_def, ffiTheory.call_FFI_def,do_app_def,do_space_def,
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
@@ -151,7 +151,7 @@ val do_app_with_locals = time Q.prove(
   Cases_on `do_app op vs (s with locals := z)`
   \\ Cases_on `op`
   \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_space_def,
+              bool_case_eq,do_ffi_data_def, ffiTheory.call_FFI_def,do_app_def,do_space_def,
               with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
@@ -166,7 +166,7 @@ val do_app_aux_err = Q.store_thm("do_app_aux_err",
   rw [ do_app_aux_def,case_eq_thms
      , do_install_def,do_space_def,with_fresh_ts_def
      , PULL_EXISTS, UNCURRY,consume_space_def]
-  \\ fs []);
+  \\ fs [do_ffi_data_def] \\ every_case_tac >> fs [] >> metis_tac []);
 
 val do_app_aux_const = Q.store_thm("do_app_aux_const",
   `do_app_aux op vs x = Rval (y,z) ⇒
@@ -174,8 +174,9 @@ val do_app_aux_const = Q.store_thm("do_app_aux_const",
     z.clock = x.clock ∧ z.compile = x.compile`,
   rw [ do_app_aux_def,case_eq_thms
      , do_install_def,do_space_def,with_fresh_ts_def
-     , PULL_EXISTS, UNCURRY,consume_space_def]
-  \\ fs []);
+     , PULL_EXISTS, UNCURRY,consume_space_def] \\ fs []
+  \\ fs [do_ffi_data_def] \\ every_case_tac \\ fs []
+  \\ full_simp_tac(srw_ss())[state_component_equality]);
 
 Theorem do_app_err:
    do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
@@ -197,7 +198,8 @@ Proof
   rw [ do_app_def,do_app_aux_def,case_eq_thms
      , do_install_def,do_space_def,with_fresh_ts_def
      , PULL_EXISTS, UNCURRY,consume_space_def]
-  \\ fs []
+  \\ fs [] \\ fs [do_ffi_data_def] \\ every_case_tac \\ fs []
+  \\ full_simp_tac(srw_ss())[state_component_equality]
 QED
 
 Theorem do_app_locals:
@@ -208,7 +210,8 @@ Proof
    rw [ do_app_def,do_app_aux_def,case_eq_thms
       , do_install_def,do_space_def,with_fresh_ts_def
       , PULL_EXISTS, UNCURRY,consume_space_def]
-   \\ fs []
+   \\ fs [] \\ fs [do_ffi_data_def] \\ every_case_tac \\ fs []
+  \\ full_simp_tac(srw_ss())[state_component_equality]
 QED
 
 Theorem do_space_alt:
@@ -217,8 +220,8 @@ Theorem do_space_alt:
       else consume_space (op_space_req op l) s
 Proof
   full_simp_tac(srw_ss())[do_space_def] \\ SRW_TAC [] [consume_space_def]
-  \\ full_simp_tac(srw_ss())[state_component_equality] \\ fs[] \\ DECIDE_TAC
-QED
+  \\ full_simp_tac(srw_ss())[state_component_equality] \\ fs[] \\ DECIDE_TAC);
+
 
 Theorem Seq_Skip:
    evaluate (Seq c Skip,s) = evaluate (c,s)
@@ -750,7 +753,7 @@ Proof
   fs[do_app_def,do_space_def] >>
   Cases_on `op` >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,
+              bool_case_eq,do_ffi_data_def, ffiTheory.call_FFI_def,
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
@@ -770,7 +773,7 @@ Proof
   srw_tac[][do_app_def,do_space_def] >>
   Cases_on `op` >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,
+              bool_case_eq,do_ffi_data_def, ffiTheory.call_FFI_def,
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
@@ -790,7 +793,7 @@ Proof
   srw_tac[][do_app_def,do_space_def] >>
   Cases_on `op` >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,
+              bool_case_eq,do_ffi_data_def, ffiTheory.call_FFI_def,
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
@@ -896,7 +899,7 @@ Proof
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   Cases_on `x` >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,
+              bool_case_eq,do_ffi_data_def, ffiTheory.call_FFI_def,
               with_fresh_ts_def,closSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,

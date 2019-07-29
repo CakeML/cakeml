@@ -70,8 +70,8 @@ Theorem do_app_Rval_swap:
        <| globals := x1.globals; refs := x1.refs;
           clock := x1.clock; ffi := x1.ffi |>)
 Proof
-  rw[do_app_cases_val] \\ rfs[SUBSET_DEF] \\ fs []
-  \\ strip_tac \\ res_tac \\ fs []
+  rw[do_app_cases_val] \\ rfs[SUBSET_DEF] \\ fs [] \\
+  fs [do_ffi_bvl_def] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
 QED
 
 Theorem do_app_with_code:
@@ -102,8 +102,9 @@ val do_app_Rerr_swap = time store_thm("do_app_Rerr_swap",
      ((t1:('c,'d) bvlSem$state) with
        <| globals := s1.globals; refs := s1.refs; clock := s1.clock;
           ffi := s1.ffi|> ) = Rerr e``,
-  Cases_on `op` \\ rw[do_app_cases_err] \\ rfs[SUBSET_DEF] \\ fs []
-  \\ strip_tac \\ res_tac \\ fs []);
+  Cases_on `op` \\ rw[do_app_cases_err] \\ (rfs[SUBSET_DEF] \\ fs [] \\
+  fs [do_ffi_bvl_def] \\ every_case_tac \\ fs [] \\ rveq \\ res_tac \\ fs []) \\ metis_tac []);
+
 
 Theorem do_app_with_code_err_not_Install:
    bvlSem$do_app op vs s = Rerr e /\ op <> Install ⇒
@@ -113,7 +114,8 @@ Theorem do_app_with_code_err_not_Install:
                          ; compile_oracle := co |>) = Rerr e
 Proof
   rw [Once do_app_cases_err] >> rw [do_app_def] >> fs [SUBSET_DEF] >>
-  fs [do_install_def,case_eq_thms,UNCURRY]
+  fs [do_install_def,case_eq_thms,UNCURRY] >> fs [do_ffi_bvl_def] \\ every_case_tac \\
+  fs [] \\ rveq \\ fs []
 QED
 
 Theorem do_app_with_code_err:
@@ -122,7 +124,8 @@ Theorem do_app_with_code_err:
    do_app op vs (s with code := c) = Rerr e
 Proof
   rw [Once do_app_cases_err] >> rw [do_app_def] >> fs [SUBSET_DEF] >>
-  fs [do_install_def,case_eq_thms,UNCURRY] >>
+  fs [do_install_def,case_eq_thms,UNCURRY] >> fs [do_ffi_bvl_def] \\ every_case_tac \\
+  fs [] \\ rveq \\ fs [] \\
   rveq \\ fs [PULL_EXISTS]
   \\ CCONTR_TAC \\ fs []
   \\ rename1 `s.compile _ args = _`
@@ -184,8 +187,8 @@ Theorem do_app_err:
                              \/
                              (?i x. op = FFI i /\ e = Rabort (Rffi_error x))
 Proof
-  rw [do_app_cases_err,do_install_def,UNCURRY] >> fs []
-  \\ every_case_tac \\ fs []
+  rw [do_app_cases_err,do_install_def,UNCURRY] >> fs [do_ffi_bvl_def] >> every_case_tac >>
+  fs [] >> rveq >> fs []
 QED
 
 val evaluate_LENGTH = Q.prove(
@@ -476,8 +479,8 @@ Theorem do_app_change_clock:
    (do_app op args s1 = Rval (res,s2)) ==>
    (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))
 Proof
-  rw [do_app_cases_val,UNCURRY,do_install_def]
-  \\ every_case_tac \\ fs []
+  rw [do_app_cases_val,UNCURRY,do_install_def] \\ fs [do_ffi_bvl_def] \\ every_case_tac \\
+  fs [] \\ rveq \\ fs []
 QED
 
 Theorem do_app_change_clock_err:
@@ -485,7 +488,7 @@ Theorem do_app_change_clock_err:
    (do_app op args (s1 with clock := ck) = Rerr e)
 Proof
   disch_then (strip_assume_tac o SIMP_RULE (srw_ss()) [do_app_cases_err])
-  \\ rveq \\ asm_simp_tac (srw_ss()) [do_app_def]
+  \\ rveq \\ asm_simp_tac (srw_ss()) [do_app_def] \\ fs [do_ffi_bvl_def]
   \\ fs [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
   \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
 QED
@@ -564,7 +567,7 @@ Theorem do_app_io_events_mono:
    s1.ffi.io_events ≼ s2.ffi.io_events
 Proof
   rw [do_app_cases_val] >>
-  fs[ffiTheory.call_FFI_def,case_eq_thms] >>
+  fs[ffiTheory.call_FFI_def,case_eq_thms, do_ffi_bvl_def] >>
   every_case_tac \\ fs[] \\ rw[] \\ rfs[do_install_def,UNCURRY] >>
   every_case_tac \\ fs[] \\ rw[] \\ rfs[do_install_def,UNCURRY]
 QED
@@ -714,12 +717,29 @@ Proof
   metis_tac [evaluate_var_reverse]
 QED
 
+Theorem store_cargs_bvl_fdom_eq:
+  !margs l s st x. store_cargs_bvl margs l s.refs = SOME st /\ x ∈ FDOM s.refs ==>
+   x ∈ FDOM st
+Proof
+  rw [] >>
+  rename1 `store_cargs_bvl _ _ st' = SOME _` >>
+  pop_assum mp_tac >> pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`x`, `st`,`st'`,`l`,`margs`] >>
+  ho_match_mp_tac store_cargs_bvl_ind >> rw [store_cargs_bvl_def] >>
+  every_case_tac >> fs [] >>
+  `x ∈ FDOM x'` by (Cases_on `marg` >> Cases_on `l` >> fs [store_carg_bvl_def] >>
+   every_case_tac >> fs [] >> drule FDOM_EQ_FDOM_FUPDATE >>
+   disch_then (qspec_then `ByteArray F w` mp_tac) >> rw []) >>
+  res_tac >> fs []
+QED
+
 Theorem do_app_refs_SUBSET:
    (do_app op a r = Rval (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs
 Proof
-  rw [do_app_cases_val] >>
-  fs [SUBSET_DEF,IN_INSERT,dec_clock_def,do_install_def] >>
-  fs [UNCURRY] >> every_case_tac >> fs [] \\ rw [] \\ fs []
+  rw [do_app_cases_val] \\
+  fs [SUBSET_DEF,IN_INSERT,dec_clock_def,do_install_def, do_ffi_bvl_def] >>
+  fs [UNCURRY] >> every_case_tac >> fs [] \\ rw [] \\ fs [] >>
+  drule_all store_cargs_bvl_fdom_eq >> rw []
 QED
 
 val evaluate_refs_SUBSET_lemma = Q.prove(

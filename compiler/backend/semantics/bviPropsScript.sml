@@ -466,7 +466,8 @@ Theorem do_app_with_code:
    do_app op vs (s with code := c) = Rval (r,s' with code := c)
 Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
-  \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
+  \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms, bvlSemTheory.do_ffi_bvl_def]
+  \\ every_case_tac
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
   \\ fs[SUBSET_DEF]
 QED
@@ -477,7 +478,8 @@ Theorem do_app_with_code_err:
    do_app op vs (s with code := c) = Rerr e
 Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
-  \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
+  \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms, bvlSemTheory.do_ffi_bvl_def]
+  \\ every_case_tac
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
   \\ fs[SUBSET_DEF] \\ strip_tac \\ res_tac
 QED

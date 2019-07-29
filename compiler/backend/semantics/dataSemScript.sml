@@ -206,42 +206,6 @@ val get_cargs_data_def = Define
 /\ (get_cargs_data _ _ _ = NONE)
 `
 
-val als_lst_data_def = Define `
-  (als_lst_data ([]:('s # c_type # dataSem$v) list)  _ _ = []) /\
-  (als_lst_data ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
-          if conf.mutable /\  conf'.mutable /\ (n = n')
-          then id::als_lst_data prl (C_array conf) (RefPtr n)
-          else als_lst_data prl (C_array conf) (RefPtr n)) /\
-  (als_lst_data _ (C_bool) _ = []) /\
-  (als_lst_data _ (C_int)  _ = [])
-`
-
-
-val als_lst'_data_def = Define `
-  als_lst'_data (idx, ct, v) prl =
-    case ct of C_array conf => if conf.mutable
-                               then (case v of RefPtr n => idx :: als_lst_data prl ct v
-                                             | _ => [])
-                               else []
-            | _ => []
-`
-
-val als_args_data_def = tDefine "als_args_data"
-  `
-  (als_args_data [] = []) /\
-  (als_args_data (pr::prs) =
-    als_lst'_data pr prs :: als_args_data (remove_loc (als_lst'_data pr prs) prs))
-  `
-  (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
-      rich_listTheory.LENGTH_FILTER_LEQ])
-
-
-val als_args_final_data_def = Define `
-  (als_args_final_data prl  = emp_filt (als_args_data prl))
-`
-
-
 val ret_val_data_def = Define
 `(ret_val_data (SOME(C_boolv b)) = Boolv b)
 /\ (ret_val_data (SOME(C_intv i)) = Number i)
@@ -273,14 +237,14 @@ val do_ffi_data_def = Define `
    case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_data t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n sign cargs (als_args_final_data (loc_typ_val sign.args args)) of
-	      | SOME (FFI_return t' newargs retv) =>
-                 (case store_cargs_data (get_mut_args sign args) newargs (t.refs) of
+           (case call_FFI t.ffi n sign cargs (als_args sign.args args) of
+              | SOME (FFI_return t' newargs retv) =>
+                 (case store_cargs_data (get_mut_args sign.args args) newargs (t.refs) of
                   | SOME s' => SOME (Rval (ret_val_data retv,
                                      t with <| refs := s'; ffi := t'|>))
                   | NONE => NONE)
                | SOME (FFI_final outcome) => SOME (Rerr (Rabort (Rffi_error outcome)))
-	       | NONE => NONE)
+               | NONE => NONE)
         | NONE => NONE)
    | NONE => NONE
   `
@@ -749,7 +713,7 @@ val case_eq_thms = LIST_CONJ (pair_case_eq::bool_case_eq::(List.map prove_case_e
 Theorem do_app_clock:
    (dataSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock
 Proof
-  rw[ do_app_def, do_ffi_data_def 
+  rw[ do_app_def, do_ffi_data_def
     , do_app_aux_def
     , do_space_def
     , consume_space_def

@@ -52,7 +52,7 @@ val _ = Datatype `
                                       data buffer start, length of new data, cut-set *)
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
-       | FFI string num (num list) num_set (* num_set? *)
+       | FFI string num (num list) num_set
       (* | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)*) `;
 
 val raise_stub_location_def = Define`

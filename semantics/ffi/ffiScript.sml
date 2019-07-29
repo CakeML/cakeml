@@ -164,7 +164,21 @@ val _ = Define `
         | Oracle_final outcome => SOME (FFI_final (Final_event n cargs outcome))
   else SOME (FFI_return st [] NONE)`;
 
-
+val _ = Define
+`get_mut_args cts cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(cts,cargs)))
+`
+val _ = Define `
+  als_args cts args =
+  (MAP
+    (MAP FST o λ(ct,v).
+      FILTER
+          (λ(n',ct',v'). v = v')
+          (MAPi $,
+            (FILTER (is_mutty o FST) (ZIP (cts,args))))
+    )
+    (FILTER (is_mutty o FST) (ZIP (cts,args)))
+  )
+`
 
 val _ = Hol_datatype `
  outcome = Success | Resource_limit_hit | FFI_outcome of final_event`;

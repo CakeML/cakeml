@@ -645,12 +645,10 @@ val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 *)
 
 
-val get_mut_args_def = Define
-`get_mut_args cts cargs = MAP SND (FILTER (is_mutty o FST) (ZIP(cts,cargs)))
-`
-
 val get_args_def =  Define `
   (get_args [] _ = [])
+/\
+  (get_args _ [] = [])
 /\
   (get_args (ty::tys) (n::ns) = n :: get_args tys (case ty of
                                                        | (C_array conf) => if conf.with_length then (TL ns)
@@ -660,65 +658,57 @@ val get_args_def =  Define `
 val get_len_def =  Define `
   (get_len [] _ = [])
 /\
+  (get_len _ [] = [])
+/\
   (get_len (ty::tys) (n::ns) = case ty of
-                              | C_array conf => if conf.with_length then
+                              | C_array conf => if conf.with_length /\ LENGTH ns > 0 then
                                                 SOME (HD ns) :: get_len tys (TL ns)
                                                 else NONE :: get_len tys ns
                               | _ => NONE :: get_len tys ns)`
 
-val als_args_def = Define `
-  als_args cts args =
-  (MAP
-    (MAP FST o λ(ct,v).
-      FILTER
-          (λ(n',ct',v'). v = v')
-          (MAPi $,
-            (FILTER (is_mutty o FST) (ZIP (cts,args))))
-    )
-    (FILTER (is_mutty o FST) (ZIP (cts,args))))`
+
 
 val get_carg_word_def = Define `
-  (get_carg_word s names (C_array conf) n (SOME n') = (* with_length *)
+  (get_carg_word s (C_array conf) n (SOME n') = (* with_length *)
     if conf.mutable then
       (case (get_var n s, get_var n' s) of
-        | SOME (Word w),SOME (Word w') => (case cut_env names s.locals of
-          | NONE => NONE
-          | SOME env => (case (read_bytearray w (w2n w') (mem_load_byte_aux s.memory s.mdomain s.be)) of
+        | SOME (Word w),SOME (Word w') =>
+           (case (read_bytearray w (w2n w') (mem_load_byte_aux s.memory s.mdomain s.be)) of
             | SOME bytes => SOME(C_arrayv bytes)
-            | NONE => NONE))
+            | NONE => NONE)
         | res => NONE)
     else NONE)
 /\
-  (get_carg_word s names (C_array conf) n NONE = (* with_out_length *)
+  (get_carg_word s  (C_array conf) n NONE = (* with_out_length *)
     if conf.mutable then
       (case (get_var n s) of
-        | SOME (Word w) => (case cut_env names s.locals of
-          | NONE => NONE
-          | SOME env => (case (read_bytearray w 8 (mem_load_byte_aux s.memory s.mdomain s.be)) of
+        | SOME (Word w) =>
+           (case (read_bytearray w 8 (mem_load_byte_aux s.memory s.mdomain s.be)) of
             | SOME bytes => SOME(C_arrayv bytes)
-            | NONE => NONE))
+            | NONE => NONE)
         | res => NONE)
     else NONE)
-/\ (get_carg_word s  _ C_bool n NONE =
+/\ (get_carg_word s  C_bool n NONE =
     case get_var n s of
       | SOME (Word w) =>  if w = n2w 2 then SOME(C_primv(C_boolv T))
          else if w = n2w 18 then SOME(C_primv(C_boolv F))
          else NONE
       | _ => NONE)
-/\ (get_carg_word s  _ C_int n NONE =
+/\ (get_carg_word s  C_int n NONE =
     case get_var n s of
       | SOME (Word w) => if word_lsb w then NONE (* big num *)
                          else SOME(C_primv(C_intv (w2i (w >>2))))
       | _ => NONE)
-/\ (get_carg_word _ _ _ _ _ = NONE)`
+/\ (get_carg_word _ _ _ _ = NONE)`
 
 
 val get_cargs_word_def = Define
-  `(get_cargs_word s names [] [] [] = SOME [])
-/\ (get_cargs_word s names (ty::tys) (arg::args) (len::lens) =
-    OPTION_MAP2 CONS (get_carg_word s names ty arg len) (get_cargs_word s names tys args lens))
-/\ (get_cargs_word _ _ _ _ _ = NONE)
+  `(get_cargs_word s [] [] [] = SOME [])
+/\ (get_cargs_word s (ty::tys) (arg::args) (len::lens) =
+    OPTION_MAP2 CONS (get_carg_word s ty arg len) (get_cargs_word s tys args lens))
+/\ (get_cargs_word  _ _ _ _ = NONE)
 `
+
 
 val Smallnum'_def = Define `
   Smallnum' i =
@@ -762,19 +752,19 @@ val evaluate_ffi_def = Define `
   evaluate_ffi s ffi_index n ns names =
    case FIND (\x.x.mlname = ffi_index) (debug_sig::s.ffi.signatures) of
      | SOME sign =>
-       (case get_cargs_word s names sign.args (get_args sign.args ns) (get_len sign.args ns) of
+       (case get_cargs_word s sign.args (get_args sign.args ns) (get_len sign.args ns) of
           SOME cargs =>
-           (case call_FFI s.ffi ffi_index sign cargs (als_args sign.args (get_args sign.args ns)) of
+          (case cut_env names s.locals of
+            | NONE => (SOME Error,s)
+            | SOME env =>  (case call_FFI s.ffi ffi_index sign cargs (als_args sign.args (get_args sign.args ns)) of
              | SOME (FFI_return new_ffi vs retv) =>
-               (case cut_env names s.locals of
-                 | NONE => (SOME Error,s)
-                 | SOME env => if FILTER (\v. v = NONE) (get_var_margs (get_mut_args sign.args (get_args sign.args ns)) s) = []
+                if FILTER (\v. v = NONE) (get_var_margs (get_mut_args sign.args (get_args sign.args ns)) s) = []
                    then case store_retv_cargs_word (get_word_margs (get_mut_args sign.args (get_args sign.args ns)) s) vs n retv s of
                      | NONE => (SOME Error,s)
                      | SOME s' => (NONE, s' with <|locals := env ; ffi := new_ffi |>)
-                   else (SOME Error, s))
+                   else (SOME Error, s)
              | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), call_env [] s with stack := [])
-             | NONE => (SOME Error, s))
+             | NONE => (SOME Error, s)))
           | NONE => (SOME Error,s))
      | NONE => (SOME Error,s)
 `

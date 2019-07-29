@@ -2230,7 +2230,7 @@ Theorem val_rel_get_mut_args_eq:
   LIST_REL vr xs ys ==>
     get_mut_args sign.args xs = get_mut_args sign.args ys
 Proof
-  rw [semanticPrimitivesTheory.get_mut_args_def] >>
+  rw [ffiTheory.get_mut_args_def] >>
   qpat_x_assum `simple_val_rel _ ` mp_tac >>
   qpat_x_assum `get_cargs_clos _ _ _ = _` mp_tac >>
   qpat_x_assum `get_cargs_clos _ _ _ = _` mp_tac >>
@@ -2282,7 +2282,7 @@ Theorem get_cargs_some_mut_args_refptr:
    (!m. MEM m (get_mut_args sign.args args) ==> ?n. m = RefPtr n)
 Proof
   rw [] >>
-  fs [semanticPrimitivesTheory.get_mut_args_def] >>
+  fs [ffiTheory.get_mut_args_def] >>
   rename1 `get_cargs_clos _ cts _ = _` >>
   pop_assum mp_tac >>
   pop_assum mp_tac >>
@@ -2389,7 +2389,7 @@ Proof
   MAP_EVERY qid_spec_tac [`l`, `cargs`, `args`, `cts`, `s`] >>
   Ho_Rewrite.PURE_REWRITE_TAC [GSYM PULL_FORALL] >>
   ho_match_mp_tac get_cargs_clos_ind >> rw [get_cargs_clos_def]
-  >- (induct_on `l` >> fs [store_cargs_clos_def, semanticPrimitivesTheory.get_mut_args_def,
+  >- (induct_on `l` >> fs [store_cargs_clos_def, ffiTheory.get_mut_args_def,
                            listTheory.ZIP_def])
   >- (Cases_on `get_mut_args (ty::cts) (arg::args)`
       >- (induct_on `l` >> fs [store_cargs_clos_def])
@@ -2431,7 +2431,7 @@ Theorem mutty_ct_elem_arg_refptr:
   is_mutty (EL n sign.args) ==>  MEM (EL n args) (get_mut_args sign.args args)
 Proof
   rw [] >>
-  fs [semanticPrimitivesTheory.get_mut_args_def, MEM_MAP] >>
+  fs [ffiTheory.get_mut_args_def, MEM_MAP] >>
   qexists_tac `(EL n sign.args,EL n args)` >> fs [MEM_FILTER] >>
   simp [MEM_EL] >> metis_tac []
 QED
@@ -2473,7 +2473,7 @@ Proof
   res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
   qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw [] >>
   rfs [] >> fs [simple_val_rel_def] >> res_tac >> rfs []) >>
-  rw [semanticPrimitivesTheory.als_args_def]
+  rw [ffiTheory.als_args_def]
 QED
 
 
@@ -2682,7 +2682,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
            fs [state_fupdcanon]) >>
         `LENGTH (get_mut_args sign.args ys) = LENGTH newargs` by
          (fs [ffiTheory.call_FFI_def] >> every_case_tac >> fs []  >>
-          fs [ffiTheory.mut_len_def, semanticPrimitivesTheory.get_mut_args_def] >> rveq >>
+          fs [ffiTheory.mut_len_def, ffiTheory.get_mut_args_def] >> rveq >>
           dxrule (GEN_ALL list_eq_length) >> rw [LENGTH_MAP]  >>
           ntac 2 (dxrule get_cargs_clos_mutty_eq_len) >> rw [] >> fs []) >>
         dxrule store_cargs_clos_some_store_rel >> rw [] >>

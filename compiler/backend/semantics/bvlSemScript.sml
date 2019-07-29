@@ -158,41 +158,6 @@ val get_cargs_bvl_def = Define
 /\ (get_cargs_bvl _ _ _ = NONE)
 `
 
-val als_lst_bvl_def = Define `
-  (als_lst_bvl ([]:('s # c_type # bvlSem$v) list)  _ _ = []) /\
-  (als_lst_bvl ((id, (C_array conf'), (RefPtr n'))::prl) (C_array conf) (RefPtr n) =
-          if conf.mutable /\  conf'.mutable /\ (n = n')
-          then id::als_lst_bvl prl (C_array conf) (RefPtr n)
-          else als_lst_bvl prl (C_array conf) (RefPtr n)) /\
-  (als_lst_bvl _ (C_bool) _ = []) /\
-  (als_lst_bvl _ (C_int)  _ = [])
-`
-
-
-val als_lst'_bvl_def = Define `
-  als_lst'_bvl (idx, ct, v) prl =
-    case ct of C_array conf => if conf.mutable
-                               then (case v of RefPtr n => idx :: als_lst_bvl prl ct v
-                                             | _ => [])
-                               else []
-            | _ => []
-`
-
-val als_args_bvl_def = tDefine "als_args_bvl"
-  `
-  (als_args_bvl [] = []) /\
-  (als_args_bvl (pr::prs) =
-    als_lst'_bvl pr prs :: als_args_bvl (remove_loc (als_lst'_bvl pr prs) prs))
-  `
-  (WF_REL_TAC `inv_image $< LENGTH` >>
-   rw[fetch "semanticPrimitives" "remove_loc_def",fetch "semanticPrimitives" "list_minus_def",arithmeticTheory.LESS_EQ,
-      rich_listTheory.LENGTH_FILTER_LEQ])
-
-
-val als_args_final_bvl_def = Define `
-  (als_args_final_bvl prl  = emp_filt (als_args_bvl prl))
-`
-
 
 val ret_val_bvl_def = Define
 `(ret_val_bvl (SOME(C_boolv b)) = Boolv b)
@@ -224,9 +189,9 @@ val do_ffi_bvl_def = Define `
    case FIND (\x.x.mlname = n) (debug_sig::t.ffi.signatures) of SOME sign =>
      (case get_cargs_bvl t.refs sign.args args of
           SOME cargs =>
-           (case call_FFI t.ffi n sign cargs (als_args_final_bvl (loc_typ_val sign.args args))  of
+           (case call_FFI t.ffi n sign cargs (als_args sign.args args)  of
               SOME (FFI_return t'  newargs retv) =>
-                 (case store_cargs_bvl (get_mut_args sign args) newargs (t.refs) of
+                 (case store_cargs_bvl (get_mut_args sign.args args) newargs (t.refs) of
                   | SOME s' => SOME (Rval (ret_val_bvl retv,
                                      t with <| refs := s'; ffi := t'|>))
                   | NONE => NONE)

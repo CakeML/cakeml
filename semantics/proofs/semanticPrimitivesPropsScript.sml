@@ -422,7 +422,7 @@ Theorem mut_args_split:
    get_mut_args (ty::ty') (arg::args) =  MAP SND (FILTER (is_mutty o FST) [(ty, arg)]) ++
                            get_mut_args ty' args
 Proof
-  rw [get_mut_args_def] >> fs [listTheory.ZIP_def]
+  rw [ffiTheory.get_mut_args_def] >> fs [listTheory.ZIP_def]
 QED
 
 (* TODO: move? *)
@@ -460,7 +460,7 @@ Proof
   MAP_EVERY qid_spec_tac [`l`, `cargs`, `args`, `cts`, `s`] >>
   Ho_Rewrite.PURE_REWRITE_TAC [GSYM PULL_FORALL] >>
   ho_match_mp_tac get_cargs_sem_ind >> rw [get_cargs_sem_def]
-  >- (induct_on `l` >> fs [store_cargs_sem_def, get_mut_args_def, listTheory.ZIP_def])
+  >- (induct_on `l` >> fs [store_cargs_sem_def, ffiTheory.get_mut_args_def, listTheory.ZIP_def])
   >- (Cases_on `get_mut_args (ty::cts) (arg::args)`
       >- (induct_on `l` >> fs [store_cargs_sem_def])
       >- (fs [mut_args_split] >>
@@ -559,7 +559,7 @@ Proof
   \\ rfs[ffiTheory.ffi_state_component_equality,ffiTheory.debug_sig_def,FIND_thm]
   \\ res_tac \\ fs[] \\ rveq \\ fs[]
   \\ rveq
-  \\ fs[get_mut_args_def,store_cargs_sem_def]
+  \\ fs[ffiTheory.get_mut_args_def,store_cargs_sem_def]
 QED
 
 Theorem do_app_SOME_ffi_same:
