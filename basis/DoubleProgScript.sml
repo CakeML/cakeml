@@ -92,7 +92,7 @@ val _ = process_topdecs
       val _ = Word8Array.update iobuff 6 (byte_6 d);
       val _ = Word8Array.update iobuff 7 (byte_7 d);
       val _ = #(double_toString) "" iobuff;
-      val n = Option.valOf (Word8Array.find is_0_byte iobuff);
+      val n = fst (Option.valOf (Word8Array.findi is_0_byte iobuff));
     in
         Word8Array.substring iobuff 0 n
     end;` |> append_prog;

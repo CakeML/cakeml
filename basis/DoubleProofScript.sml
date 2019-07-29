@@ -99,34 +99,37 @@ Proof
   \\ blastLib.BBLAST_TAC
 QED
 
-Theorem firsti_app:
-  ! f s1 s2 n.
-    firsti f s1 = NONE /\
-    firsti f s2 = SOME n ==>
-    firsti f (s1 ++ s2) = SOME (n + LENGTH s1)
+Theorem findi_app:
+  ! f s1 s2 n x.
+    findi f s1 = NONE /\
+    findi f s2 = SOME (n, x) ==>
+    findi f (s1 ++ s2) = SOME (n + LENGTH s1, x)
 Proof
-  Induct_on `s1` \\ fs[firsti_def] \\ rpt strip_tac \\ fs[]
+  Induct_on `s1` \\ fs[findi_def] \\ rpt strip_tac \\ fs[]
   \\ Cases_on `f h` \\ fs[]
-  \\ Cases_on `firsti f s1` \\ fs[]
+  \\ reverse (Cases_on `findi f s1`)
+  >- (rename [`findi f s1 = SOME p`] \\ PairCases_on `p` \\ fs[])
   \\ res_tac \\ fs[]
 QED
 
-Theorem firsti_app2:
-  ! f s1 s2 n.
-    firsti f s1 = SOME n ==>
-    firsti f (s1 ++ s2) = SOME n
+Theorem findi_app2:
+  ! f s1 s2 n x.
+    findi f s1 = SOME (n,x) ==>
+    findi f (s1 ++ s2) = SOME (n,x)
 Proof
-  Induct_on `s1` \\ fs[firsti_def] \\ rpt strip_tac
+  Induct_on `s1` \\ fs[findi_def] \\ rpt strip_tac
   \\ Cases_on `f h` \\ fs[]
-  \\ Cases_on `firsti f s1` \\ fs[]
+  \\ Cases_on `findi f s1` \\ fs[]
+  \\ rename [`findi f s1 = SOME p`] \\ PairCases_on `p` \\ fs[]
+  \\ rveq
   \\ res_tac \\ rveq \\ fs[]
 QED
 
-Theorem firsti_none:
+Theorem findi_none:
   ~ MEM #"\^@" s ==>
-  firsti is_0_byte (MAP (n2w o ORD) s) = NONE
+  findi is_0_byte (MAP (n2w o ORD) s) = NONE
 Proof
-  Induct_on `s` \\ fs[firsti_def, is_0_byte_def]
+  Induct_on `s` \\ fs[findi_def, is_0_byte_def]
   \\ rpt strip_tac
   \\ `ORD h MOD 256 = ORD h`
     by (irule MOD_UNIQUE
@@ -138,19 +141,19 @@ QED
 Theorem toString_has_0byte:
   ! w. doubleFuns_ok df /\
   s = df.toString w ==>
-  firsti is_0_byte (MAP (n2w ∘ ORD) s ++ [0w] ++ remStr) =
-    SOME (LENGTH s)
+  findi is_0_byte (MAP (n2w ∘ ORD) s ++ [0w] ++ remStr) =
+    SOME (LENGTH s, 0w)
 Proof
   rpt strip_tac
-  \\ Q.ISPECL_THEN [`is_0_byte`] assume_tac firsti_app2
+  \\ Q.ISPECL_THEN [`is_0_byte`] assume_tac findi_app2
   \\ first_x_assum (qspecl_then [`MAP (n2w o ORD) s ++ [0w]`, `remStr`, `STRLEN s`] assume_tac)
   \\ first_x_assum irule
-  \\ Q.ISPECL_THEN [`is_0_byte`] assume_tac firsti_app
+  \\ Q.ISPECL_THEN [`is_0_byte`] assume_tac findi_app
   \\ first_x_assum (qspecl_then [`MAP (n2w o ORD) s`, `[0w]`, `0`] assume_tac)
   \\ fs[doubleFuns_ok_def] \\ first_x_assum (qspec_then `w` assume_tac)
   \\ fs[]
-  \\ IMP_RES_TAC firsti_none
-  \\ rveq \\ res_tac \\ fs[firsti_def, is_0_byte_def]
+  \\ IMP_RES_TAC findi_none
+  \\ rveq \\ res_tac \\ fs[findi_def, is_0_byte_def]
 QED
 
 Theorem TAKE_STRLEN_id:
@@ -202,7 +205,7 @@ Proof
       \\ xsimpl \\ fs[one_one_eq])
   \\ xlet `POSTv v. W8ARRAY iobuff final_str *
           DoubleIO df *
-          cond (OPTION_TYPE NUM (firsti is_0_byte final_str) v)`
+          cond (OPTION_TYPE (PAIR_TYPE NUM WORD8) (findi is_0_byte final_str) v)`
     >- (xapp \\ xsimpl
         \\ qexists_tac `is_0_byte` \\ fs[is_0_byte_v_thm])
   \\ IMP_RES_TAC toString_has_0byte
@@ -212,14 +215,14 @@ Proof
   >- (xsimpl
       \\ unabbrev_all_tac
       \\ fs[concat_all_bytes_i])
-  \\ xapp
-  \\ xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xapp \\ xsimpl
   \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ asm_exists_tac \\ fs[]
   \\ rpt conj_tac
   >- (rpt strip_tac
       \\ fs[STRING_TYPE_def, mlstringTheory.implode_def]
-      \\ `firsti is_0_byte final_str = SOME (STRLEN (df.toString w))`
+      \\ `findi is_0_byte final_str = SOME (STRLEN (df.toString w), 0w)`
           by (unabbrev_all_tac \\ fs[])
       \\ fs[]
       \\ `TAKE (STRLEN (df.toString w)) final_str = MAP (n2w o ORD) (df.toString w)`

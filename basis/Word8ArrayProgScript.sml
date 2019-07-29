@@ -33,23 +33,23 @@ val _ = append_decs
 
 val _ = ml_prog_update open_local_block;
 
-val array_find_aux = process_topdecs
-  `fun find_aux f arr max n =
+val array_findi_aux = process_topdecs
+  `fun findi_aux f arr max n =
     if n = max
       then None
     else (if f (sub arr n)
-        then Some(sub arr n)
-      else find_aux f arr max (n + 1))`;
+        then Some (n, sub arr n)
+      else findi_aux f arr max (n + 1))`;
 
-val _ = append_prog array_find_aux;
+val _ = append_prog array_findi_aux;
 
 val _ = ml_prog_update open_local_in_block;
 
-val array_find = process_topdecs
-  `fun find f arr =
-    find_aux f arr (length arr) 0`;
+val array_findi = process_topdecs
+  `fun findi f arr =
+    findi_aux f arr (length arr) 0`;
 
-val _ = append_prog array_find;
+val _ = append_prog array_findi;
 
 val _ = ml_prog_update close_local_blocks;
 
