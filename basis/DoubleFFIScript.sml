@@ -1,5 +1,5 @@
 (*
-  Logical model of the Double state 
+  Specifies behaviour of FFI calls from/toString for doubles
 *)
 open preamble
     cfFFITypeTheory
