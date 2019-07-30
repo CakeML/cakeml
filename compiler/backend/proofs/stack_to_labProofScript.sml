@@ -3481,10 +3481,11 @@ QED
 
 Theorem get_labels_MAP_prog_to_section_SUBSET_code_labels:
  ∀p. EVERY sec_labels_ok (MAP prog_to_section p) ∧
-    stack_good_code_labels p
+    stack_good_code_labels p elabs
    ⇒
     get_labels (MAP prog_to_section p) ⊆
-    get_code_labels (MAP prog_to_section p)
+    get_code_labels (MAP prog_to_section p) ∪
+    IMAGE (λn. n,0) elabs
 Proof
   rw[stack_good_code_labels_def]>>
   drule get_labels_MAP_prog_to_section_SUBSET_code_labels_lemma >>
@@ -3492,7 +3493,7 @@ Proof
   asm_exists_tac>> simp[]>>
   match_mp_tac SUBSET_TRANS>>
   asm_exists_tac>> rw[]>>
-  metis_tac[MAP_prog_to_section_preserves_handler_labels,prog_to_section_preserves_MAP_FST]
+  metis_tac[MAP_prog_to_section_preserves_handler_labels,prog_to_section_preserves_MAP_FST,SUBSET_UNION,SUBSET_TRANS]
 QED
 
 (* TODO: move these when the actual needed theorem is clearer...
@@ -3564,7 +3565,7 @@ val init_stubs_labels = Q.prove(`
   EVERY (λp. get_code_labels p SUBSET (set [(1n,0n);(start,0n)])) (MAP SND (init_stubs ggc mh k start))`,
   rpt(EVAL_TAC>>rw[]>>fs[]));
 
-(* stack_names *)
+(* ---- stack_names  ----*)
 val get_code_labels_comp = Q.prove(
   `!f p. get_code_labels (comp f p) = get_code_labels p`,
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
@@ -3585,16 +3586,19 @@ val UNCURRY_PAIR_ETA = Q.prove(`
   UNCURRY f = λ(p1,p2). f p1 p2`,
   fs[FUN_EQ_THM]);
 
-val stack_names_stack_good_code_labels = Q.prove(`
-  ∀prog f. stack_good_code_labels prog ⇒
-  stack_good_code_labels (stack_names$compile f prog)`,
+(* TODO: Exported for now -- maybe using in backendProof *)
+Theorem stack_names_stack_good_code_labels:
+  ∀prog f. stack_good_code_labels prog elabs ⇒
+  stack_good_code_labels (stack_names$compile f prog) elabs
+Proof
   EVAL_TAC>>rw[]>>
   fs[GSYM LIST_TO_SET_MAP]>>
   fs[MAP_MAP_o,o_DEF,stack_namesTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
   fs[stack_get_handler_labels_comp,get_code_labels_comp]>>
-  fs[UNCURRY_PAIR_ETA]);
+  fs[UNCURRY_PAIR_ETA]
+QED;
 
-(* stack_remove *)
+(* ---- stack_remove ---- *)
 val get_code_labels_comp = Q.prove(
   `!a b c p.
   get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p`,
@@ -3679,11 +3683,12 @@ val init_code_labels = Q.prove(`
   x ∈ get_code_labels (init_code ggc mh sp) ⇒ x = (1n,0n)`,
   rpt(EVAL_TAC>>rw[]>>fs[]));
 
-val stack_remove_stack_good_code_labels = Q.prove(`
+Theorem stack_remove_stack_good_code_labels:
   ∀prog.
   MEM loc (MAP FST prog) ∧
-  stack_good_code_labels prog ⇒
-  stack_good_code_labels (stack_remove$compile jump off ggc mh sp loc prog)`,
+  stack_good_code_labels prog elabs ⇒
+  stack_good_code_labels (stack_remove$compile jump off ggc mh sp loc prog) elabs
+Proof
   rw[]>>
   simp[stack_removeTheory.compile_def]>>
   fs[stack_good_code_labels_def]>>rw[]
@@ -3705,9 +3710,30 @@ val stack_remove_stack_good_code_labels = Q.prove(`
     >-
       fs[stack_removeTheory.init_stubs_def,stack_removeTheory.stack_err_lab_def,EXISTS_PROD]
     >>
-      metis_tac[]);
+      metis_tac[]
+QED;
 
-(* stack_alloc *)
+(*
+  The same theorem, but for the incremental version
+  The jump label (2) is now assumed to be in there
+*)
+Theorem stack_remove_stack_good_code_labels_incr:
+  ∀prog.
+  stack_err_lab ∈ elabs ∧
+  stack_good_code_labels prog elabs ⇒
+  stack_good_code_labels (MAP (prog_comp jump offset sp) prog) elabs
+Proof
+  rw[]>>
+  fs[stack_good_code_labels_def]>>rw[]>>
+  fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_removeTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
+  simp[stack_get_handler_labels_comp]>>
+  fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
+  drule (get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+  rw[]>>
+  metis_tac[]
+QED;
+
+(* --- stack_alloc ---- *)
 val get_code_labels_comp = Q.prove(`
   !n m p pp mm.
   get_code_labels (FST (comp n m p)) ⊆ (gc_stub_location,0) INSERT get_code_labels p`,
@@ -3735,10 +3761,11 @@ val init_code_labels = Q.prove(`
   EVERY_CASE_TAC>>fs[]>>
   rpt(EVAL_TAC>>rw[]>>fs[]));
 
-val stack_alloc_stack_good_code_labels = Q.prove(`
+Theorem stack_alloc_stack_good_code_labels:
   ∀prog c.
-  stack_good_code_labels prog ⇒
-  stack_good_code_labels (stack_alloc$compile c prog)`,
+  stack_good_code_labels prog elabs ⇒
+  stack_good_code_labels (stack_alloc$compile c prog) elabs
+Proof
   simp[stack_allocTheory.compile_def]>>
   fs[stack_good_code_labels_def]>>rw[]
   >- (
@@ -3754,15 +3781,36 @@ val stack_alloc_stack_good_code_labels = Q.prove(`
     >-
       fs[stack_allocTheory.stubs_def]
     >>
-      metis_tac[]);
+      metis_tac[]
+QED;
+
+(*
+  The same theorem, but for the incremental version
+  The jump label (2) is now assumed to be in there
+*)
+Theorem stack_alloc_stack_good_code_labels_incr:
+  ∀prog.
+  gc_stub_location ∈ elabs ∧
+  stack_good_code_labels prog elabs ⇒
+  stack_good_code_labels (MAP prog_comp prog) elabs
+Proof
+  fs[stack_good_code_labels_def]>>rw[]>>
+  fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_allocTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
+  simp[stack_get_handler_labels_comp]>>
+  fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
+  drule (get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+  rw[]>>
+  metis_tac[]
+QED;
 
 (* stack_to_lab *)
 Theorem stack_to_lab_stack_good_code_labels:
-    compile stack_conf data_conf max_heap sp offset prog = prog' ∧
+  compile stack_conf data_conf max_heap sp offset prog = prog' ∧
   MEM InitGlobals_location (MAP FST prog) ∧
-  stack_good_code_labels prog ∧
+  stack_good_code_labels prog elabs ∧
   EVERY sec_labels_ok  prog' ⇒
-  get_labels prog' ⊆ get_code_labels prog'
+  (* TODO: pretty sure this is only ever used with elabs = {} *)
+  get_labels prog' ⊆ get_code_labels prog' ∪ IMAGE (λn. n,0) elabs
 Proof
   rw[stack_to_labTheory.compile_def]>>
   match_mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels >>
@@ -3777,6 +3825,24 @@ Proof
   >>
   match_mp_tac stack_alloc_stack_good_code_labels>>
   fs[]
-QED
+QED;
+
+Theorem stack_to_lab_stack_good_code_labels_incr:
+  stack_err_lab ∈ elabs ∧
+  gc_stub_location ∈ elabs ∧
+  compile_no_stubs f jump offset sp prog = prog' ∧
+  stack_good_code_labels prog elabs ∧
+  EVERY sec_labels_ok  prog' ⇒
+  get_labels prog' ⊆ get_code_labels prog' ∪ IMAGE (λn. n,0) elabs
+Proof
+  rw[compile_no_stubs_def]>>
+  match_mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels >>
+  simp[]>>
+  match_mp_tac stack_names_stack_good_code_labels>>
+  match_mp_tac stack_remove_stack_good_code_labels_incr>>
+  simp[]>>
+  match_mp_tac stack_alloc_stack_good_code_labels_incr>>
+  simp[]
+QED;
 
 val _ = export_theory();

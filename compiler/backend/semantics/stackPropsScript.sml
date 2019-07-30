@@ -948,11 +948,12 @@ val get_code_labels_def = Define`
   (get_code_labels _ = {})`;
 val _ = export_rewrites["get_code_labels_def"];
 
+(* elabs gives a set of existing code labels *)
 val stack_good_code_labels_def = Define`
-  stack_good_code_labels p ⇔
+  stack_good_code_labels p elabs ⇔
   BIGUNION (IMAGE get_code_labels (set (MAP SND p))) ⊆
   BIGUNION (set (MAP (λ(n,pp). stack_get_handler_labels n pp) p)) ∪
-  IMAGE (λn. n,0) (set (MAP FST p))
-`
+  IMAGE (λn. n,0) (set (MAP FST p)) ∪
+  IMAGE (λn. n,0) elabs`
 
 val _ = export_theory();

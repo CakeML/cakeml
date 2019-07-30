@@ -1450,12 +1450,20 @@ QED
 
 Theorem good_code_lab_oracle:
   compile c prog = SOME (b, bm, c') /\
+  (*
+    the i-th oracle configuration and code
+    It MUST be the case that cfg.labels is strict monotone
+    with respect to the subspt relation for increasing indices (starting from c')
+    - older labels must always be there
+    - newer labels should never overlap older ones
+  *)
   cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. ps.lab_prog) i = (cfg,code) /\
   backend_config_ok (c:'a config) /\
   conf = c.lab_conf.asm_conf /\ conf = mc.target.config /\
   lab_to_targetProof$mc_conf_ok mc
-  ==> lab_to_targetProof$good_code conf cfg.labels code
+  ==>
+  lab_to_targetProof$good_code conf cfg.labels code
 Proof
   simp [cake_orac_def, compile_inc_progs_def]
   \\ rpt (pairarg_tac \\ fs [])
@@ -1622,19 +1630,45 @@ Proof
          labPropsTheory.sec_get_code_labels_def, EXISTS_PROD, FORALL_PROD]
       \\ metis_tac []
     )
-    (* need to track back to wherever these labels are allocated *)
     \\ cheat
-  )
-  \\ `stackProps$stack_good_code_labels ppg` by (
-    simp [Abbr `ppg`]
-    (* bigger issue here. to prove stack_good_code_labels we need to talk about
-       the presence of the "raise" stub at least, but that won't be in subsequent
-       incremental compilations. *)
-    \\ cheat
-  )
-  \\ drule stack_to_labProofTheory.get_labels_MAP_prog_to_section_SUBSET_code_labels
-  \\ disch_then drule
-  \\ simp [SUBSET_DEF]
+  )>>
+  (*
+    labs_domain is probably correct but seems too precise here
+    we should only ever need the all the code table entries (n1,0)
+
+    elabs is the thing that must be chained up to where it gets generated at
+    closLang
+    There will probably need to be an extra proof saying that whatever labels
+    got emitted in closLang is carried through to the code
+  *)
+  qmatch_goalsub_abbrev_tac` _ ∪ ld`>>
+  qabbrev_tac `elabs = set data_to_wordProof$stubs_fst ∪ {stack_err_lab; gc_stub_location; raise_stub_location} ∪ STUFF`>>
+  `stack_err_lab ∈ elabs ∧ gc_stub_location ∈ elabs ∧ raise_stub_location ∈ elabs` by fs[Abbr`elabs`]>>
+  `set data_to_wordProof$stubs_fst ⊆ elabs` by
+    (fs[Abbr`elabs`]>>
+    metis_tac[SUBSET_UNION,UNION_ASSOC,UNION_COMM])>>
+  `IMAGE (λn. (n,0)) elabs ⊆ ld` by cheat>>
+  qpat_abbrev_tac`lppg = MAP _ ppg`>>
+  fs[Abbr`ppg`,GSYM stack_to_labProofTheory.compile_no_stubs_def] >>
+  qsuff_tac`get_labels lppg ⊆ get_code_labels lppg ∪ IMAGE (λn. (n,0)) elabs`
+  >-
+    (strip_tac>>match_mp_tac SUBSET_TRANS>>
+    asm_exists_tac>>simp[]>>
+    metis_tac[SUBSET_UNION,SUBSET_TRANS])
+  >>
+  match_mp_tac (GEN_ALL stack_to_labProofTheory.stack_to_lab_stack_good_code_labels_incr)>>
+  simp[]>>
+  pop_assum mp_tac >> REWRITE_TAC[markerTheory.Abbrev_def]>>
+  disch_then (assume_tac o SYM)>>
+  asm_exists_tac>> simp[]>>
+  drule (GEN_ALL word_to_stackProofTheory.word_to_stack_good_code_labels_incr)>>
+  disch_then drule>>
+  disch_then match_mp_tac>>
+  match_mp_tac word_get_code_labels_word_to_word_incr>>
+  match_mp_tac data_to_word_good_code_labels_incr>>
+  simp[]>>
+  match_mp_tac bvi_to_dataProofTheory.compile_prog_good_code_labels>>
+  cheat
 QED
 
 Theorem oracle_stack_good_code:
@@ -2263,7 +2297,7 @@ Proof
     qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
     simp[markerTheory.Abbrev_def]>>
     disch_then (assume_tac o SYM)>>
-    drule stack_to_lab_stack_good_code_labels>>
+    drule (stack_to_lab_stack_good_code_labels |> Q.GEN `elabs` |> Q.SPEC `{}`)>>
     simp[]>>
     disch_then match_mp_tac>>
     CONJ_TAC>- (
@@ -2275,7 +2309,7 @@ Proof
       \\ simp[]
       \\ disj1_tac
       \\ EVAL_TAC )
-    \\ drule word_to_stack_good_code_labels>>
+    \\ drule (word_to_stack_good_code_labels |> Q.GEN `elabs` |> Q.SPEC `{}`)>>
     disch_then match_mp_tac>>
     irule data_to_word_good_code_labels \\
     simp[data_to_wordTheory.compile_def]
@@ -2290,6 +2324,7 @@ Proof
     \\ qpat_x_assum`_ = (_,code,_)`assume_tac
     \\ qpat_x_assum`_ = (_,prog')`assume_tac
     \\ qpat_x_assum`_ = (_,p''')`assume_tac
+    (* TODO: factor out and prove this stuff for the oracle as well *)
     \\ simp[bviPropsTheory.good_code_labels_def]
     \\ drule
       (bvi_tailrecProofTheory.compile_prog_good_code_labels

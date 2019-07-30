@@ -1587,17 +1587,21 @@ val word_good_handlers_word_simp = Q.prove(`
   match_mp_tac word_good_handlers_simp_if>>
   fs[word_good_handlers_Seq_assoc]);
 
-val word_get_code_labels_word_to_word = Q.prove(`
-  word_good_code_labels progs ⇒
-  word_good_code_labels (SND (compile wc ac progs))`,
-  fs[word_to_wordTheory.compile_def]>>
-  rpt(pairarg_tac>>fs[])>>
-  fs[wordPropsTheory.good_code_labels_def,next_n_oracle_def]>>
+Theorem word_get_code_labels_word_to_word_incr_helper:
+  ∀oracles.
+  LENGTH progs = LENGTH oracles ⇒
+  word_good_code_labels progs elabs ⇒
+  word_good_code_labels
+  (MAP (full_compile_single tra reg_count1
+        ralg asm_c) (ZIP (progs,oracles))) elabs
+Proof
+  fs[wordPropsTheory.good_code_labels_def]>>
   rw[]
   >- (
     rfs[EVERY_MAP,LENGTH_GENLIST,EVERY_MEM,MEM_ZIP,PULL_EXISTS]>>
     rw[full_compile_single_def]>>
-    Cases_on`EL n progs`>>Cases_on`r`>>fs[compile_single_def]>>
+    Cases_on`EL n progs`>>Cases_on`r`>>
+    fs[compile_single_def]>>
     fs[word_good_handlers_remove_must_terminate,word_good_handlers_word_alloc]>>
     simp[COND_RAND]>>
     fs[word_good_handlers_three_to_two_reg]>>
@@ -1609,7 +1613,8 @@ val word_get_code_labels_word_to_word = Q.prove(`
   >>
     fs[SUBSET_DEF,PULL_EXISTS,MEM_MAP,MEM_ZIP]>>
     rw[full_compile_single_def]>>
-    Cases_on`EL n progs`>>Cases_on`r`>>fs[compile_single_def]>>
+    Cases_on`EL n progs`>>Cases_on`r`>>
+    fs[compile_single_def]>>
     fs[word_get_code_labels_remove_must_terminate,word_get_code_labels_word_alloc]>>
     fs[COND_RAND]>>
     fs[word_get_code_labels_three_to_two_reg]>>
@@ -1622,10 +1627,34 @@ val word_get_code_labels_word_to_word = Q.prove(`
     disch_then(qspecl_then [`q`,`q'`] mp_tac)>>
     impl_tac >-
         metis_tac[EL_MEM]>>
-    rw[]>>
+    rw[]>>simp[]>>
+    DISJ1_TAC>>
     fs[MEM_EL]>>
     qexists_tac`n'`>>simp[]>>
-    Cases_on`EL n' progs`>>Cases_on`r`>>fs[compile_single_def]);
+    Cases_on`EL n' progs`>>Cases_on`r`>>fs[compile_single_def]
+QED;
+
+(* The actual incremental theorem to use in the backend *)
+Theorem word_get_code_labels_word_to_word_incr:
+  word_good_code_labels progs elabs ⇒
+  word_good_code_labels
+    (MAP (\p. full_compile_single tra reg_count1 ralg asm_c (p, NONE)) progs) elabs
+Proof
+  strip_tac>>
+  qspec_then `MAP (\p. NONE) progs` assume_tac word_get_code_labels_word_to_word_incr_helper>>
+  fs[ZIP_MAP,MAP_MAP_o,o_DEF]
+QED;
+
+Theorem word_get_code_labels_word_to_word:
+  word_good_code_labels progs elabs ⇒
+  word_good_code_labels (SND (compile wc ac progs)) elabs
+Proof
+  fs[word_to_wordTheory.compile_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  match_mp_tac word_get_code_labels_word_to_word_incr_helper>>
+  fs[next_n_oracle_def]>>
+  rveq>>fs[LENGTH_GENLIST]
+QED;
 
 val word_get_code_labels_StoreEach = Q.prove(`
   ∀ls off.
@@ -1711,18 +1740,20 @@ val data_to_word_comp_good_handlers = Q.prove(`
     EVAL_TAC>>rw[]>>fs[]);
 
 val stubs_labels = Q.prove(`
-  BIGUNION (set (MAP (λ(n,m,pp). word_get_code_labels pp)  (stubs (:'a) data_conf)))
-  ⊆ set (MAP FST (stubs (:'a) data_conf))`,
+  BIGUNION (set (MAP (λ(n,m,pp). word_get_code_labels pp)  (stubs (:'a) dc)))
+  ⊆ set (MAP FST (stubs (:'a) dc))`,
   rpt(EVAL_TAC>>
   IF_CASES_TAC>>
   simp[]));
 
 Theorem data_to_word_good_code_labels:
-    (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ∧
-  data_good_code_labels prog ⇒
-  word_good_code_labels prog'
+  (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ∧
+  data_good_code_labels prog elabs ⇒
+  word_good_code_labels prog' elabs
 Proof
   fs[data_to_wordTheory.compile_def]>>rw[]>>
+  qmatch_asmsub_abbrev_tac` stubs _ dc`>>
+  pop_assum kall_tac>>
   qmatch_asmsub_abbrev_tac`LHS = _`>>
   `prog' = SND LHS` by (unabbrev_all_tac>>fs[])>>
   pop_assum SUBST_ALL_TAC>>
@@ -1736,7 +1767,9 @@ Proof
     fs[EVERY_MEM,FORALL_PROD])
   >-
     (assume_tac stubs_labels>>
-    match_mp_tac SUBSET_TRANS>>asm_exists_tac>>fs[])
+    match_mp_tac SUBSET_TRANS>>
+    asm_exists_tac>>fs[]>>
+    metis_tac[SUBSET_TRANS,SUBSET_UNION])
   >>
     fs[MAP_MAP_o,o_DEF,LAMBDA_PROD,compile_part_def]>>
     fs[SUBSET_DEF,PULL_EXISTS,Once MEM_MAP,FORALL_PROD]>>
@@ -1745,10 +1778,45 @@ Proof
     rw[]
     >-
       (first_x_assum drule>>
-      disch_then drule>>fs[MEM_MAP,EXISTS_PROD])
+      disch_then drule>>fs[MEM_MAP,EXISTS_PROD]>>
+      metis_tac[])
     >>
       fs[MEM_MAP]>>metis_tac[]
 QED
+
+val th = EVAL``MAP FST (stubs (:'a) c)``;
+
+(* TODO: move somewhere better *)
+val stubs_fst_def = Define`
+  stubs_fst = ^(rconc th)`
+
+val stubs_fst_eq =
+  save_thm("stubs_fst_eq",th |> REWRITE_RULE [GSYM stubs_fst_def])
+
+(* The incremental version ONLY does data_to_word
+  TODO: MAP FST stubs is independent of the data conf,
+  not sure if generality is needed
+*)
+Theorem data_to_word_good_code_labels_incr:
+  set stubs_fst ⊆ elabs ∧
+  data_good_code_labels progs elabs ⇒
+  word_good_code_labels (MAP (compile_part dc) progs) elabs
+Proof
+  fs[wordPropsTheory.good_code_labels_def,dataPropsTheory.good_code_labels_def]>>rw[]
+  >-
+    (simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
+    fs[EVERY_MEM,FORALL_PROD])
+  >>
+  fs[SUBSET_DEF,PULL_EXISTS,FORALL_PROD,MEM_MAP]>>
+  rw[]>>
+  fs[EXISTS_PROD,compile_part_def]>>
+  drule (data_to_word_comp_code_labels |> SIMP_RULE std_ss [SUBSET_DEF])>>
+  rw[]
+  >-
+    metis_tac[]
+  >>
+    fs[stubs_fst_eq]
+QED;
 
 end
 

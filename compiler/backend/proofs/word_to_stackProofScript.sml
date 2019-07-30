@@ -8019,7 +8019,7 @@ Proof
     (drule wLive_code_labels>>fs[])
   >>
     rw[wRegWrite1_def]
-QED
+QED;
 
 Theorem compile_word_to_stack_code_labels:
   ∀ac p bs p' bs'.
@@ -8049,12 +8049,12 @@ Proof
   >>
   fs[SUBSET_DEF]>>
   metis_tac[]
-QED
+QED;
 
 Theorem word_to_stack_good_code_labels:
-    compile asm_conf progs = (bs,prog') ∧
-  good_code_labels progs ⇒
-  stack_good_code_labels prog'
+  compile asm_conf progs = (bs,prog') ∧
+  good_code_labels progs elabs ⇒
+  stack_good_code_labels prog' elabs
 Proof
   fs[word_to_stackTheory.compile_def]>>
   rpt(pairarg_tac>>fs[])>>
@@ -8071,9 +8071,32 @@ Proof
   rw[]
   >-
     (match_mp_tac IMAGE_SUBSET_gen>>
-    asm_exists_tac>>simp[SUBSET_DEF])
+    asm_exists_tac>>simp[SUBSET_DEF]>>
+    metis_tac[])
   >>
     fs[SUBSET_DEF]
-QED
+QED;
+
+Theorem word_to_stack_good_code_labels_incr:
+  raise_stub_location ∈ elabs ∧
+  compile_word_to_stack ac prog bs = (prog',bs') ⇒
+  good_code_labels prog elabs ⇒
+  stack_good_code_labels prog' elabs
+Proof
+  fs[good_code_labels_def,stack_good_code_labels_def]>>
+  rw[]>>
+  drule compile_word_to_stack_code_labels>>
+  disch_then drule>>fs[]>>
+  drule MAP_FST_compile_word_to_stack>>
+  rw[]>>
+  match_mp_tac SUBSET_TRANS>> asm_exists_tac>>simp[]>>
+  rw[]
+  >-
+    (match_mp_tac IMAGE_SUBSET_gen>>
+    asm_exists_tac>>simp[SUBSET_DEF]>>
+    metis_tac[])
+  >>
+    fs[SUBSET_DEF]
+QED;
 
 val _ = export_theory();
