@@ -114,7 +114,7 @@ val is_pure_do_app_Rerr_IMP = Q.prove(
 
 
 val small_alloc = Q.prove(`!n. 0 < arch_size-2 ==> is_small arch_size n ==> alloc_size n arch_size = 0`,
-    simp[data_spaceTheory.alloc_size_def,data_liveTheory.is_small_def,data_spaceTheory.ROUNDUP_DIV_def]
+    simp[data_spaceTheory.alloc_size_def,data_liveTheory.is_small_def,backend_commonTheory.ROUNDUP_DIV_def]
     \\ fs[LESS_OR_EQ] \\ SIMP_TAC arith_ss [] \\ rpt STRIP_TAC \\ fs[] \\ Cases_on `n = 0` \\ fs[]
     >> metis_tac[ZERO_DIV,LESS_DIV_EQ_ZERO]
 )
