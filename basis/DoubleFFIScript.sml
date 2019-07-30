@@ -1,5 +1,5 @@
 (*
-  Logical model of the Double state: TODO
+  Logical model of the Double state 
 *)
 open preamble
     cfFFITypeTheory
