@@ -1,10 +1,6 @@
 (*
   Composes the correctness theorems for all of the compiler phases.
 
-  \\ irule compile_inc_phases_all_distinct
-  \\ simp [clos_to_bvlProofTheory.SND_cond_mti_compile_inc]
-  \\ simp [cake_orac_def, UNCURRY]
-
 *)
 
 open preamble primSemEnvTheory semanticsPropsTheory
@@ -1448,7 +1444,79 @@ Proof
   \\ asm_exists_tac \\ simp []
 QED
 
+val orac_names_defined_def = Define `
+  orac_names_defined f g init orac = (!i nm. nm ∈ f (orac i) ==>
+    nm ∈ g init \/ (?j. (j : num) <= i /\ nm ∈ g (orac j)))`;
+
+
+Theorem orac_names_defined_subset:
+  (f' p' ⊆ g' p' ∪ g p) /\
+  (!i. f' (orac' i) ⊆ g' (orac' i) ∪ g (orac i) ∪ g p) /\
+  g p ⊆ g' p' /\ (!i. g (orac i) ⊆ g' (orac' i)) ==>
+  orac_names_defined f g p orac ==>
+  orac_names_defined f' g' p' orac'
+Proof
+  rw [orac_names_defined_def, SUBSET_DEF]
+  \\ metis_tac [LESS_EQ_REFL]
+QED
+
+Theorem stack_to_lab_names_defined:
+
+  compile c prog = SOME (b, bm, c') /\
+  stack_to_lab$compile stack_conf data_conf max_heap sp offset p = p' /\
+  MEM InitGlobals_location (MAP FST p) /\
+  stackProps$stack_good_code_labels p {} /\
+  EVERY sec_labels_ok p' /\
+  orac_names_defined
+    (BIGUNION ∘ IMAGE stackProps$get_code_labels ∘ set ∘ MAP SND)
+    (IMAGE (λn. (n,0)) ∘ set ∘ MAP FST) p
+    (FST ∘ SND ∘ cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+        (λps. (ps.stack_prog,ps.cur_bm)))
+  ==> orac_names_defined get_labels get_code_labels p'
+    (SND ∘ cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+        (λps. ps.lab_prog))
+
+Proof
+
+  rw []
+  \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac orac_names_defined_subset)
+  \\ rpt conj_tac
+  >- (
+    drule (stack_to_labProofTheory.stack_to_lab_stack_good_code_labels
+        |> GEN_ALL |> SIMP_RULE bool_ss [])
+    \\ disch_then (drule_then drule)
+    \\ simp []
+    \\ disch_tac
+    \\ drule_then irule SUBSET_TRANS
+    \\ simp []
+  )
+  >- (
+    rw [cake_orac_def, config_tuple2_def, compile_inc_progs_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs []
+    \\ simp_tac bool_ss [GSYM UNION_ASSOC, GSYM IMAGE_UNION]
+    \\ irule stack_to_labProofTheory.stack_to_lab_stack_good_code_labels_incr
+    \\ drule_then (fn t => fs [t]) cake_orac_config_eqs
+    \\ cheat (*  not sure how to prove or assume sec_labels_ok,
+        stub labels are in initial program, or good_code_labels *)
+  )
+  >- (
+    (* simple one, MAP FST p is preserved in get_code_labels, or else
+       the whole thing is phrased wrong. *)
+    cheat
+  )
+  >- (
+    rw [cake_orac_def, config_tuple2_def, compile_inc_progs_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs []
+
+    \\ cheat (* probably requires unfolding compile_no_stubs_def *)
+  )
+
+QED
+
 Theorem good_code_lab_oracle:
+
   compile c prog = SOME (b, bm, c') /\
   (*
     the i-th oracle configuration and code
@@ -1464,7 +1532,9 @@ Theorem good_code_lab_oracle:
   lab_to_targetProof$mc_conf_ok mc
   ==>
   lab_to_targetProof$good_code conf cfg.labels code
+
 Proof
+
   simp [cake_orac_def, compile_inc_progs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw [] \\ rveq \\ fs []
@@ -1632,6 +1702,10 @@ Proof
     )
     \\ cheat
   )>>
+
+  (* now apply stack_to_lab_names_defined - in principle .. *)
+
+
   (*
     labs_domain is probably correct but seems too precise here
     we should only ever need the all the code table entries (n1,0)
