@@ -80,6 +80,7 @@ type op =
   | Chopb of opb
   (* String operations *)
   | Implode
+  | Explode
   | Strsub
   | Strlen
   | Strcat

@@ -5,6 +5,8 @@
 open preamble flatLangTheory
 
 val _ = new_theory"flat_reorder_match";
+val _ = set_grammar_ancestry ["flatLang"];
+val _ = temp_tight_equality ();
 
 val is_const_con_def = Define`
   (is_const_con (Pcon (SOME tag) plist) = (plist = [])) /\

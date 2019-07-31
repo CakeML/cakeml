@@ -50,198 +50,200 @@ val _ = Datatype `
 
 (* helper functions *)
 
-val get_global_def = Define `
-  get_global n globals =
-    if n < LENGTH globals then SOME (EL n globals) else NONE`
+        val get_global_def = Define `
+          get_global n globals =
+            if n < LENGTH globals then SOME (EL n globals) else NONE`
 
-val Boolv_def = Define `
-  (Boolv b = Block (if b then true_tag else false_tag) [])`;
+        val Boolv_def = Define `
+          (Boolv b = Block (if b then true_tag else false_tag) [])`;
 
-val do_eq_def = tDefine "do_eq" `
-  (do_eq x y =
-     case x of
-     | Number i =>
-         (case y of
-          | Number j => Eq_val (i = j)
-          | _ => Eq_type_error)
-     | Word v =>
-         (case y of
-          | Word w => if (LENGTH v = LENGTH w) then Eq_val (v = w) else Eq_type_error
-          | _ => Eq_type_error)
-     | Block t1 xs =>
-         (case y of
-          | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
-                             do_eq_list xs ys
-                           else Eq_val F
-          | _ => Eq_type_error)
-     | ByteVector cs =>
-         (case y of
-          | ByteVector ds => Eq_val (cs = ds)
-          | _ => Eq_type_error)
-     | RefPtr i =>
-         (case y of
-          | RefPtr j => Eq_val (i = j)
-          | _ => Eq_type_error)
-     | _ =>
-         (case y of
-          | Number _ => Eq_type_error
-          | Word _ => Eq_type_error
-          | Block _ _ => Eq_type_error
-          | ByteVector _ => Eq_type_error
-          | RefPtr _ => Eq_type_error
-          | _ => Eq_val T)) /\
-  (do_eq_list [] [] = Eq_val T) /\
-  (do_eq_list (x::xs) (y::ys) =
-     case do_eq x y of
-     | Eq_val T => do_eq_list xs ys
-     | res => res) /\
-  (do_eq_list _ _ = Eq_val F)`
- (WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
-                                   | INR (vs,_) => v1_size vs)`)
+        val do_eq_def = tDefine "do_eq" `
+          (do_eq x y =
+             case x of
+             | Number i =>
+                 (case y of
+                  | Number j => Eq_val (i = j)
+                  | _ => Eq_type_error)
+             | Word v =>
+                 (case y of
+                  | Word w => if (LENGTH v = LENGTH w) then Eq_val (v = w) else Eq_type_error
+                  | _ => Eq_type_error)
+             | Block t1 xs =>
+                 (case y of
+                  | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
+                                     do_eq_list xs ys
+                                   else Eq_val F
+                  | _ => Eq_type_error)
+             | ByteVector cs =>
+                 (case y of
+                  | ByteVector ds => Eq_val (cs = ds)
+                  | _ => Eq_type_error)
+             | RefPtr i =>
+                 (case y of
+                  | RefPtr j => Eq_val (i = j)
+                  | _ => Eq_type_error)
+             | _ =>
+                 (case y of
+                  | Number _ => Eq_type_error
+                  | Word _ => Eq_type_error
+                  | Block _ _ => Eq_type_error
+                  | ByteVector _ => Eq_type_error
+                  | RefPtr _ => Eq_type_error
+                  | _ => Eq_val T)) /\
+          (do_eq_list [] [] = Eq_val T) /\
+          (do_eq_list (x::xs) (y::ys) =
+             case do_eq x y of
+             | Eq_val T => do_eq_list xs ys
+             | res => res) /\
+          (do_eq_list _ _ = Eq_val F)`
+         (WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
+                                           | INR (vs,_) => v1_size vs)`)
 
-val v_to_list_def = Define`
-  (v_to_list (Block tag []) =
-     if tag = nil_tag then SOME [] else NONE) ∧
-  (v_to_list (Block tag [h;bt]) =
-     if tag = cons_tag then
-       (case v_to_list bt of
-        | SOME t => SOME (h::t)
-        | _ => NONE )
-     else NONE) ∧
-  (v_to_list _ = NONE)`
+        val v_to_list_def = Define`
+          (v_to_list (Block tag []) =
+             if tag = nil_tag then SOME [] else NONE) ∧
+          (v_to_list (Block tag [h;bt]) =
+             if tag = cons_tag then
+               (case v_to_list bt of
+                | SOME t => SOME (h::t)
+                | _ => NONE )
+             else NONE) ∧
+          (v_to_list _ = NONE)`
 
-val list_to_v_def = Define `
-  list_to_v [] = Block nil_tag [] /\
-  list_to_v (x::xs) = Block cons_tag [x; list_to_v xs]
-  `;
+        val list_to_v_def = Define `
+          list_to_v [] = Block nil_tag [] /\
+          list_to_v (x::xs) = Block cons_tag [x; list_to_v xs]
+          `;
 
-val Unit_def = Define`
-  Unit = Block tuple_tag []`
+        val Unit_def = Define`
+          Unit = Block tuple_tag []`
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``)
+        val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#(('c,'ffi) closSem$state), closSem$v)result``)
 
-val v_to_bytes_def = Define `
-  v_to_bytes lv = some ns:word8 list.
-                    v_to_list lv = SOME (MAP (Word o w2v) ns)`;
+        val v_to_bytes_def = Define `
+          v_to_bytes lv = some ns:word8 list.
+                            v_to_list lv = SOME (MAP (Word o w2v) ns)`;
 
-val v_to_words_def = Define `
-  v_to_words lv = some ns:word64 list. v_to_list lv = SOME (MAP (Word o w2v) ns)`;
+        val v_to_words_def = Define `
+          v_to_words lv = some ns:word64 list. v_to_list lv = SOME (MAP (Word o w2v) ns)`;
 
-val s = ``s:('c,'ffi)closSem$state``;
+        val s = ``s:('c,'ffi)closSem$state``;
 
-val do_install_def = Define `
-  do_install vs ^s =
-      (case vs of
-       | [v1;v2] =>
-           (case (v_to_bytes v1, v_to_words v2) of
-            | (SOME bytes, SOME data) =>
-               let (cfg,progs) = s.compile_oracle 0 in
-               let new_oracle = shift_seq 1 s.compile_oracle in
-                (if DISJOINT (FDOM s.code) (set (MAP FST (SND progs))) /\
-                    ALL_DISTINCT (MAP FST (SND progs)) then
-                 (case s.compile cfg progs, progs of
-                  | SOME (bytes',data',cfg'), (exps,aux) =>
-                      if bytes = bytes' ∧ data = data' ∧
-                         FST(new_oracle 0) = cfg' ∧ exps <> [] then
-                       (let s' =
-                          s with <|
-                             code := s.code |++ aux
-                           ; compile_oracle := new_oracle
-                           ; clock := s.clock - 1
-                           |>
-                        in
-                          if s.clock = 0
-                          then (Rerr(Rabort Rtimeout_error),s')
-                          else (Rval exps, s'))
-                      else ((Rerr(Rabort Rtype_error):(closLang$exp list,v)result),s)
-                  | _ => (Rerr(Rabort Rtype_error),s))
-                  else (Rerr(Rabort Rtype_error),s))
-            | _ => (Rerr(Rabort Rtype_error),s))
-       | _ => (Rerr(Rabort Rtype_error),s))`;
+        val do_install_def = Define `
+          do_install vs ^s =
+              (case vs of
+               | [v1;v2] =>
+                   (case (v_to_bytes v1, v_to_words v2) of
+                    | (SOME bytes, SOME data) =>
+                       let (cfg,progs) = s.compile_oracle 0 in
+                       let new_oracle = shift_seq 1 s.compile_oracle in
+                        (if DISJOINT (FDOM s.code) (set (MAP FST (SND progs))) /\
+                            ALL_DISTINCT (MAP FST (SND progs)) then
+                         (case s.compile cfg progs, progs of
+                          | SOME (bytes',data',cfg'), (exps,aux) =>
+                              if bytes = bytes' ∧ data = data' ∧
+                                 FST(new_oracle 0) = cfg' ∧ exps <> [] then
+                               (let s' =
+                                  s with <|
+                                     code := s.code |++ aux
+                                   ; compile_oracle := new_oracle
+                                   ; clock := s.clock - 1
+                                   |>
+                                in
+                                  if s.clock = 0
+                                  then (Rerr(Rabort Rtimeout_error),s')
+                                  else (Rval exps, s'))
+                              else ((Rerr(Rabort Rtype_error):(closLang$exp list,v)result),s)
+                          | _ => (Rerr(Rabort Rtype_error),s))
+                          else (Rerr(Rabort Rtype_error),s))
+                    | _ => (Rerr(Rabort Rtype_error),s))
+               | _ => (Rerr(Rabort Rtype_error),s))`;
 
-val do_app_def = Define `
-  do_app (op:closLang$op) (vs:closSem$v list) ^s =
-    case (op,vs) of
-    | (Global n,[]:closSem$v list) =>
-        (case get_global n s.globals of
-         | SOME (SOME v) => (Rval (v,s))
-         | _ => Error)
-    | (SetGlobal n,[v]) =>
-        (case get_global n s.globals of
-         | SOME NONE => Rval (Unit,
-             s with globals := (LUPDATE (SOME v) n s.globals))
-         | _ => Error)
-    | (AllocGlobal,[]) =>
-        Rval (Unit, s with globals := s.globals ++ [NONE])
-    | (Const i,[]) => Rval (Number i, s)
-    | (WordConst v,[]) => Rval (Word v, s)
-    | (Cons tag,xs) => Rval (Block tag xs, s)
-    | (ConsExtend tag, Block _ xs'::Number lower::Number len::Number tot::xs) =>
-        if lower < 0 ∨ len < 0 ∨ &LENGTH xs' < lower + len ∨
-           tot = 0 ∨ tot ≠ &LENGTH xs + len then
-          Error
-        else
-          Rval (Block tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s)
-    | (ConsExtend tag,_) => Error
-    | (El,[Block tag xs;Number i]) =>
-        if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
-    | (ListAppend, [x1; x2]) =>
-        (case (v_to_list x1, v_to_list x2) of
-        | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys), s)
-        | _ => Error)
-    | (LengthBlock,[Block tag xs]) =>
-        Rval (Number (&LENGTH xs), s)
-    | (Length,[RefPtr ptr]) =>
-        (case FLOOKUP s.refs ptr of
-          | SOME (ValueArray xs) =>
-              Rval (Number (&LENGTH xs), s)
-          | _ => Error)
-    | (LengthByte,[RefPtr ptr]) =>
-        (case FLOOKUP s.refs ptr of
-          | SOME (ByteArray _ xs) =>
-              Rval (Number (&LENGTH xs), s)
-          | _ => Error)
-    | (RefByte F,[Number i;Word b]) =>
-         if 0 ≤ i ∧ (∃w:word8. b = w2v w) then
-           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-             Rval (RefPtr ptr, s with refs := s.refs |+
-               (ptr,ByteArray F (REPLICATE (Num i) (v2w b))))
-         else Error
-    | (RefArray,[Number i;v]) =>
-        if 0 ≤ i then
-          let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-            Rval (RefPtr ptr, s with refs := s.refs |+
-              (ptr,ValueArray (REPLICATE (Num i) v)))
-         else Error
-    | (DerefByte,[RefPtr ptr; Number i]) =>
-        (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray _ ws) =>
-            (if 0 ≤ i ∧ i < &LENGTH ws
-             then Rval (Word (w2v (EL (Num i) ws)),s)
-             else Error)
-         | _ => Error)
-    | (UpdateByte,[RefPtr ptr; Number i; Word b]) =>
-        (case FLOOKUP s.refs ptr of
-         | SOME (ByteArray f bs) =>
-            (if 0 ≤ i ∧ i < &LENGTH bs ∧ (LENGTH b = 8)
-             then
-               Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray f (LUPDATE (v2w b) (Num i) bs)))
-             else Error)
-         | _ => Error)
-    | (ConcatByteVec,[lv]) =>
-        (case (some wss. v_to_list lv = SOME (MAP ByteVector wss)) of
-         | SOME wss => Rval (ByteVector (FLAT wss), s)
-         | _ => Error)
-    | (FromList n,[lv]) =>
-        (case v_to_list lv of
-         | SOME vs => Rval (Block n vs, s)
-         | _ => Error)
-    | (String str,[]) => Rval (ByteVector (MAP (n2w o ORD) str),s)
-    | (FromListByte,[lv]) =>
-        (case some ns. v_to_list lv = SOME (MAP Word ns) ∧ EVERY (λn. LENGTH n = 8) ns of
-         | SOME ns => Rval (ByteVector (MAP v2w ns), s)
-         | NONE => Error)
+        val do_app_def = Define `
+          do_app (op:closLang$op) (vs:closSem$v list) ^s =
+            case (op,vs) of
+            | (Global n,[]:closSem$v list) =>
+                (case get_global n s.globals of
+                 | SOME (SOME v) => (Rval (v,s))
+                 | _ => Error)
+            | (SetGlobal n,[v]) =>
+                (case get_global n s.globals of
+                 | SOME NONE => Rval (Unit,
+                     s with globals := (LUPDATE (SOME v) n s.globals))
+                 | _ => Error)
+            | (AllocGlobal,[]) =>
+                Rval (Unit, s with globals := s.globals ++ [NONE])
+            | (Const i,[]) => Rval (Number i, s)
+            | (WordConst v,[]) => Rval (Word v, s)
+            | (Cons tag,xs) => Rval (Block tag xs, s)
+            | (ConsExtend tag, Block _ xs'::Number lower::Number len::Number tot::xs) =>
+                if lower < 0 ∨ len < 0 ∨ &LENGTH xs' < lower + len ∨
+                   tot = 0 ∨ tot ≠ &LENGTH xs + len then
+                  Error
+                else
+                  Rval (Block tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s)
+            | (ConsExtend tag,_) => Error
+            | (El,[Block tag xs;Number i]) =>
+                if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
+            | (ListAppend, [x1; x2]) =>
+                (case (v_to_list x1, v_to_list x2) of
+                | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys), s)
+                | _ => Error)
+            | (LengthBlock,[Block tag xs]) =>
+                Rval (Number (&LENGTH xs), s)
+            | (Length,[RefPtr ptr]) =>
+                (case FLOOKUP s.refs ptr of
+                  | SOME (ValueArray xs) =>
+                      Rval (Number (&LENGTH xs), s)
+                  | _ => Error)
+            | (LengthByte,[RefPtr ptr]) =>
+                (case FLOOKUP s.refs ptr of
+                  | SOME (ByteArray _ xs) =>
+                      Rval (Number (&LENGTH xs), s)
+                  | _ => Error)
+            | (RefByte F,[Number i;Word b]) =>
+                 if 0 ≤ i ∧ (∃w:word8. b = w2v w) then
+                   let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+                     Rval (RefPtr ptr, s with refs := s.refs |+
+                       (ptr,ByteArray F (REPLICATE (Num i) (v2w b))))
+                 else Error
+            | (RefArray,[Number i;v]) =>
+                if 0 ≤ i then
+                  let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
+                    Rval (RefPtr ptr, s with refs := s.refs |+
+                      (ptr,ValueArray (REPLICATE (Num i) v)))
+                 else Error
+            | (DerefByte,[RefPtr ptr; Number i]) =>
+                (case FLOOKUP s.refs ptr of
+                 | SOME (ByteArray _ ws) =>
+                    (if 0 ≤ i ∧ i < &LENGTH ws
+                     then Rval (Word (w2v (EL (Num i) ws)),s)
+                     else Error)
+                 | _ => Error)
+            | (UpdateByte,[RefPtr ptr; Number i; Word b]) =>
+                (case FLOOKUP s.refs ptr of
+                 | SOME (ByteArray f bs) =>
+                    (if 0 ≤ i ∧ i < &LENGTH bs ∧ (LENGTH b = 8)
+                     then
+                       Rval (Unit, s with refs := s.refs |+
+                         (ptr, ByteArray f (LUPDATE (v2w b) (Num i) bs)))
+                     else Error)
+                 | _ => Error)
+            | (ConcatByteVec,[lv]) =>
+                (case (some wss. v_to_list lv = SOME (MAP ByteVector wss)) of
+                 | SOME wss => Rval (ByteVector (FLAT wss), s)
+                 | _ => Error)
+            | (FromList n,[lv]) =>
+                (case v_to_list lv of
+                 | SOME vs => Rval (Block n vs, s)
+                 | _ => Error)
+            | (String str,[]) => Rval (ByteVector (MAP (n2w o ORD) str),s)
+            | (FromListByte,[lv]) =>
+                (case some ns. v_to_list lv = SOME (MAP Word ns) ∧ EVERY (λn. LENGTH n = 8) ns of
+                 | SOME ns => Rval (ByteVector (MAP v2w ns), s)
+                 | NONE => Error)
+    | (ToListByte,[ByteVector bs]) =>
+        (Rval (list_to_v (MAP (\b. Word (w2v b)) bs), s))
     | (LengthByteVec,[ByteVector bs]) =>
         (Rval (Number (& LENGTH bs), s))
     | (DerefByteVec,[ByteVector bs; Number i]) =>

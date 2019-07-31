@@ -294,6 +294,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.InitGlobals_code_def
     ,bvl_to_bviTheory.ListLength_code_def
     ,bvl_to_bviTheory.FromListByte_code_def
+    ,bvl_to_bviTheory.ToListByte_code_def
     ,bvl_to_bviTheory.SumListLength_code_def
     ,bvl_to_bviTheory.ConcatByte_code_def
     ,bvl_to_bviTheory.CopyGlobals_location_eq
@@ -302,6 +303,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.InitGlobals_location_eq
     ,bvl_to_bviTheory.ListLength_location_eq
     ,bvl_to_bviTheory.FromListByte_location_eq
+    ,bvl_to_bviTheory.ToListByte_location_eq
     ,bvl_to_bviTheory.SumListLength_location_eq
     ,bvl_to_bviTheory.ConcatByte_location_eq
     ,bvl_to_bviTheory.compile_int_def

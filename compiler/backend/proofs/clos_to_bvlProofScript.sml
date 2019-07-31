@@ -1446,8 +1446,20 @@ val do_app = Q.prove(
     \\ drule (do_eq |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> GEN_ALL)
     \\ disch_then drule
     \\ strip_tac
-    \\ `do_eq t1.refs y1 y2 = Eq_val b` by metis_tac [] \\ fs []) >>
-  Cases_on `?tag. op = Cons tag`
+    \\ `do_eq t1.refs y1 y2 = Eq_val b` by metis_tac [] \\ fs [])
+  \\ Cases_on `op = ToListByte` THEN1
+   (fs [] \\ rveq \\ fs [do_app_def,patSemTheory.do_app_def]
+    \\ Cases_on `xs` \\ fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def]
+    \\ Cases_on `h` \\ fs [] \\ Cases_on `t` \\ fs []
+    \\ strip_tac \\ rveq \\ fs []
+    \\ pop_assum mp_tac \\ simp [Once v_rel_cases]
+    \\ Cases_on `y` \\ fs []
+    THEN1 (CCONTR_TAC \\ fs [] \\ fs [cl_rel_cases] \\ rveq \\ fs [add_args_F])
+    \\ disch_then kall_tac
+    \\ Induct_on `l` \\ fs [closSemTheory.list_to_v_def,bvlSemTheory.list_to_v_def]
+    \\ simp [Once v_rel_cases] \\ fs []
+    \\ simp [Once v_rel_cases] \\ fs [])
+  \\ Cases_on `?tag. op = Cons tag`
   >- (
     rw [closSemTheory.do_app_def] >>
     fs [] >>

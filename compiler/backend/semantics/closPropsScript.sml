@@ -2254,6 +2254,21 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
     \\ match_mp_tac EVERY2_TAKE \\ fs []
     \\ match_mp_tac EVERY2_DROP \\ fs [])
+  \\ Cases_on `opp = ToListByte` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ rfs [simple_val_rel_def] \\ rveq \\ fs []
+    THEN1 (Induct_on `bs` \\ fs [list_to_v_def])
+    \\ res_tac \\ Cases_on `x` \\ fs [isClos_def])
+  \\ Cases_on `opp = FromListByte` THEN1
+   (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
+    \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
+    \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
+    \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
+    \\ drule v_rel_to_list_byte \\ fs []
+    \\ disch_then drule
+    \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
   \\ Cases_on `?b. opp = FromList b` THEN1
    (print_tac "FromList" \\ Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq

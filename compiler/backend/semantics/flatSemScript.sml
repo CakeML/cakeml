@@ -6,20 +6,26 @@ open semanticPrimitivesPropsTheory;
 
 val _ = new_theory "flatSem";
 
-(* The values of flatLang differ in that the closures do not environments for
- * global definitions.
+(* The values of flatLang differ from source semantic values in that
+ * the closures do not carry environments for global definitions.
  *
- * The semantics of flatLang differ in that there is no module environment menv, nor
- * are top-level bindings added to the normal env, thus when a closure is
- * created, only locals bindings are put into it. There is a global environment
- * genv, which is just a list of the top-level bindings seen so far, with the
- * older bindings nearer the head. Global variable reference expressions simply
- * index into global environment. Top-level let rec declarations evaluate to
- * closures, rather than to recursive closures, since the recursion can be
- * handled through the genv. The expressions bound to top-level lets must
- * evaluate to a tuple with exactly as many things in it as the number of
- * bindings that the let will bind.
+ * The semantics of flatLang differ from source in that there is no
+ * module environment menv, nor are top-level bindings added to the
+ * normal env, thus when a closure is created, only locals bindings
+ * are put into it. There is a global environment genv, which is just
+ * a list of the top-level bindings seen so far, with the older
+ * bindings nearer the head. Global variable reference expressions
+ * simply index into global environment. Top-level let rec
+ * declarations evaluate to closures, rather than to recursive
+ * closures, since the recursion can be handled through the genv. The
+ * expressions bound to top-level lets must evaluate to a tuple with
+ * exactly as many things in it as the number of bindings that the let
+ * will bind.
  *)
+
+val _ = set_grammar_ancestry ["flatLang", "semanticPrimitives",
+          "semanticPrimitivesProps", "fpSem"];
+val _ = temp_tight_equality();
 
 val _ = Datatype`
   v =
@@ -35,18 +41,18 @@ val _ = Datatype`
     clock   : num;
     refs    : v store;
     ffi     : 'ffi ffi_state;
-    globals : (v option) list
-  |>`;
-
-val _ = Datatype`
-  environment = <|
-    v : (varN, v) alist;
+    globals : (v option) list;
     (* The set of constructors that exist, according to their id, type and arity *)
     c : ((ctor_id # type_id) # num) set;
     (* T if all patterns are required to be exhaustive *)
     exh_pat : bool;
     (* T if constructors must be declared *)
     check_ctor : bool
+  |>`;
+
+val _ = Datatype`
+  environment = <|
+    v : (varN, v) alist;
   |>`;
 
 val list_id_def = Define `
@@ -337,6 +343,8 @@ val do_app_def = Define `
      | SOME ls =>
        SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
      | NONE => NONE)
+  | (Explode, [Litv (StrLit str)]) =>
+    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) str))))
   | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
     if i < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
@@ -476,42 +484,42 @@ val same_ctor_def = Define `
       FST n1 = FST n2`;
 
 val pmatch_def = tDefine "pmatch" `
-  (pmatch env s (Pvar x) v' bindings = (Match ((x,v') :: bindings))) ∧
-  (pmatch env s flatLang$Pany v' bindings = Match bindings) ∧
-  (pmatch env s (Plit l) (Litv l') bindings =
+  (pmatch s (Pvar x) v' bindings = (Match ((x,v') :: bindings))) ∧
+  (pmatch s flatLang$Pany v' bindings = Match bindings) ∧
+  (pmatch s (Plit l) (Litv l') bindings =
     if l = l' then
       Match bindings
     else if lit_same_type l l' then
       No_match
     else
       Match_type_error) ∧
-  (pmatch env s (Pcon (SOME n) ps) (Conv (SOME n') vs) bindings =
-    if env.check_ctor ∧
-       ((n, LENGTH ps) ∉ env.c ∨ ~ctor_same_type (SOME n) (SOME n')) then
+  (pmatch s (Pcon (SOME n) ps) (Conv (SOME n') vs) bindings =
+    if s.check_ctor ∧
+       ((n, LENGTH ps) ∉ s.c ∨ ~ctor_same_type (SOME n) (SOME n')) then
       Match_type_error
-    else if same_ctor env.check_ctor n n' ∧ LENGTH ps = LENGTH vs then
-      pmatch_list env s ps vs bindings
+    else if same_ctor s.check_ctor n n' ∧ LENGTH ps = LENGTH vs then
+      pmatch_list s ps vs bindings
     else
       No_match) ∧
-  (pmatch env s (Pcon NONE ps) (Conv NONE vs) bindings =
-    if env.check_ctor ∧ LENGTH ps = LENGTH vs then
-      pmatch_list env s ps vs bindings
+  (pmatch s (Pcon NONE ps) (Conv NONE vs) bindings =
+    if s.check_ctor ∧ LENGTH ps = LENGTH vs then
+      pmatch_list s ps vs bindings
     else
       Match_type_error) ∧
-  (pmatch env s (Pref p) (Loc lnum) bindings =
-    case store_lookup lnum s of
-    | SOME (Refv v) => pmatch env s p v bindings
+  (pmatch s (Pref p) (Loc lnum) bindings =
+    case store_lookup lnum s.refs of
+    | SOME (Refv v) => pmatch s p v bindings
     | _ => Match_type_error) ∧
-  (pmatch env _ _ _ bindings = Match_type_error) ∧
-  (pmatch_list env s [] [] bindings = Match bindings) ∧
-  (pmatch_list env s (p::ps) (v::vs) bindings =
-    case pmatch env s p v bindings of
+  (pmatch _ _ _ bindings = Match_type_error) ∧
+  (pmatch_list s [] [] bindings = Match bindings) ∧
+  (pmatch_list s (p::ps) (v::vs) bindings =
+    case pmatch s p v bindings of
     | No_match => No_match
     | Match_type_error => Match_type_error
-    | Match bindings' => pmatch_list env s ps vs bindings') ∧
-  (pmatch_list env s _ _ bindings = Match_type_error)`
- (WF_REL_TAC `inv_image $< (\x. case x of INL (a,x,p,y,z) => pat_size p
-                                        | INR (a,x,ps,y,z) => pat1_size ps)` >>
+    | Match bindings' => pmatch_list s ps vs bindings') ∧
+  (pmatch_list s _ _ bindings = Match_type_error)`
+ (WF_REL_TAC `inv_image $< (\x. case x of INL (x,p,y,z) => pat_size p
+                                        | INR (x,ps,y,z) => pat1_size ps)` >>
   srw_tac [ARITH_ss] [terminationTheory.size_abbrevs, astTheory.pat_size_def]);
 
 val dec_clock_def = Define`
@@ -543,14 +551,14 @@ val evaluate_def = tDefine "evaluate"`
    | (s, Rerr (Rraise v)) => evaluate_match env s v pes v
    | res => res) ∧
   (evaluate env s [Con _ NONE es] =
-    if env.check_ctor then
+    if s.check_ctor then
       case evaluate env s (REVERSE es) of
       | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
       | res => res
     else
       (s, Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Con _ (SOME cn) es] =
-    if env.check_ctor ∧ (cn, LENGTH es) ∉ env.c then
+    if s.check_ctor ∧ (cn, LENGTH es) ∉ s.c then
       (s, Rerr (Rabort Rtype_error))
     else
       case evaluate env s (REVERSE es) of
@@ -573,7 +581,7 @@ val evaluate_def = tDefine "evaluate"`
               evaluate (env with v := env') (dec_clock s) [e]
           | NONE => (s, Rerr (Rabort Rtype_error)))
        else
-       (case (do_app env.check_ctor s op (REVERSE vs)) of
+       (case (do_app s.check_ctor s op (REVERSE vs)) of
         | NONE => (s, Rerr (Rabort Rtype_error))
         | SOME (s',r) => (s', list_result r))
    | res => res) ∧
@@ -598,13 +606,13 @@ val evaluate_def = tDefine "evaluate"`
    then evaluate (env with v := build_rec_env funs env.v env.v) s [e]
    else (s, Rerr (Rabort Rtype_error))) ∧
   (evaluate_match (env:flatSem$environment) s v [] err_v =
-    if env.exh_pat then
+    if s.exh_pat then
       (s, Rerr(Rabort Rtype_error))
     else
       (s, Rerr(Rraise err_v))) ∧
   (evaluate_match env s v ((p,e)::pes) err_v =
    if ALL_DISTINCT (pat_bindings p []) then
-     case pmatch env s.refs p v [] of
+     case pmatch s p v [] of
      | Match env_v' => evaluate (env with v := env_v' ++ env.v) s [e]
      | No_match => evaluate_match env s v pes err_v
      | _ => (s, Rerr(Rabort Rtype_error))
@@ -686,56 +694,48 @@ val evaluate_ind = save_thm("evaluate_ind",
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
 val is_fresh_type_def = Define `
-  is_fresh_type type_id env ⇔
-    !ctor. ctor ∈ env.c ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)`;
+  is_fresh_type type_id ctors ⇔
+    !ctor. ctor ∈ ctors ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)`;
 
 val is_fresh_exn_def = Define `
-  is_fresh_exn exn_id env ⇔
-    !ctor. ctor ∈ env.c ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)`;
+  is_fresh_exn exn_id ctors ⇔
+    !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)`;
 
 val evaluate_dec_def = Define`
-  (evaluate_dec env s (Dlet e) =
-   case evaluate (env with v := []) s [e] of
+  (evaluate_dec s (Dlet e) =
+   case evaluate <| v := [] |> s [e] of
    | (s, Rval x) =>
-     if x = [Unitv env.check_ctor] then
-       (s, {}, NONE)
+     if x = [Unitv s.check_ctor] then
+       (s, NONE)
      else
-       (s, {}, SOME (Rabort Rtype_error))
-   | (s, Rerr e) => (s, {}, SOME e)) ∧
-  (evaluate_dec env s (Dtype id ctors) =
-    if env.check_ctor then
-      if is_fresh_type id env then
-        (s,
-         { ((idx, SOME id), arity) | ?max. lookup arity ctors = SOME max ∧ idx < max },
+       (s, SOME (Rabort Rtype_error))
+   | (s, Rerr e) => (s, SOME e)) ∧
+  (evaluate_dec s (Dtype id ctors) =
+    if s.check_ctor then
+      if is_fresh_type id s.c then
+        (s with
+           c updated_by $UNION
+           { ((idx, SOME id), arity) | ?max. lookup arity ctors = SOME max ∧ idx < max },
          NONE)
       else
-        (s, {}, SOME (Rabort Rtype_error))
+        (s, SOME (Rabort Rtype_error))
     else
-      (s, {}, NONE)) ∧
-  (evaluate_dec env s (Dexn id arity) =
-    if env.check_ctor then
-      if is_fresh_exn id env then
-        (s, {((id, NONE), arity)}, NONE)
+      (s, NONE)) ∧
+  (evaluate_dec s (Dexn id arity) =
+    if s.check_ctor then
+      if is_fresh_exn id s.c then
+        (s with c updated_by $UNION {((id, NONE), arity)}, NONE)
       else
-        (s, {}, SOME (Rabort Rtype_error))
+        (s, SOME (Rabort Rtype_error))
     else
-      (s, {}, NONE))`;
+      (s, NONE))`;
 
 val evaluate_decs_def = Define`
-  (evaluate_decs env s [] = (s, {}, NONE)) ∧
-  (evaluate_decs env s (d::ds) =
-   case evaluate_dec env s d of
-   | (s, new_ctors, NONE) =>
-     (case evaluate_decs (env with c updated_by $UNION new_ctors) s ds of
-      | (s, new_ctors', r) => (s, new_ctors' ∪ new_ctors, r))
-   | (s, new_ctors, SOME e) => (s, new_ctors, SOME e))`;
-
-val initial_state_def = Define `
-  initial_state ffi k =
-    <| clock   := k
-     ; refs    := []
-     ; ffi     := ffi
-     ; globals := [] |>`;
+  (evaluate_decs s [] = (s, NONE)) ∧
+  (evaluate_decs s (d::ds) =
+   case evaluate_dec s d of
+   | (s, NONE) => evaluate_decs s ds
+   | (s, SOME e) => (s, SOME e))`;
 
 val bool_ctors_def = Define `
   bool_ctors =
@@ -759,24 +759,25 @@ val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
 val initial_ctors_def = Define `
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors`;
 
-val initial_env_def = Define `
-  initial_env exh_pat check_ctor =
-    <| v          := []
-     ; c          := initial_ctors
-     ; exh_pat    := exh_pat
-     ; check_ctor := check_ctor |>`
+val initial_state_def = Define `
+  initial_state ffi k exh_pat check_ctor =
+    <| clock   := k
+     ; refs    := []
+     ; ffi     := ffi
+     ; globals := []
+     ; c       := initial_ctors
+     ; exh_pat := exh_pat
+     ; check_ctor := check_ctor |>`;
 
 val semantics_def = Define`
   semantics exh_pat check_ctor ffi prog =
-    if ∃k. (SND o SND) (evaluate_decs (initial_env exh_pat check_ctor)
-                                      (initial_state ffi k) prog) =
+    if ∃k. SND (evaluate_decs (initial_state ffi k exh_pat check_ctor) prog) =
            SOME (Rabort Rtype_error)
       then Fail
     else
     case some res.
-      ∃k s r outcome x.
-        evaluate_decs (initial_env exh_pat check_ctor)
-                      (initial_state ffi k) prog = (s,x,r) ∧
+      ∃k s r outcome.
+        evaluate_decs (initial_state ffi k exh_pat check_ctor) prog = (s,r) ∧
         (case r of
          | SOME (Rabort (Rffi_error e)) => outcome = FFI_outcome e
          | SOME (Rabort _) => F
@@ -787,8 +788,8 @@ val semantics_def = Define`
        Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-             (FST (evaluate_decs (initial_env exh_pat check_ctor)
-               (initial_state ffi k) prog)).ffi.io_events) UNIV))`;
+             (FST (evaluate_decs
+               (initial_state ffi k exh_pat check_ctor) prog)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",

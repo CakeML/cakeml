@@ -11,6 +11,7 @@ open inliningLib;
 val _ = new_theory "x64Prog"
 
 val _ = translation_extends "to_target64Prog";
+val _ = ml_translatorLib.use_string_type true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "x64Prog");
 

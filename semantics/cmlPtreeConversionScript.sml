@@ -597,7 +597,7 @@ val Papply_def = Define`
     | _ => pat
 `;
 
-val maybe_handleRef_def = Define‘
+val maybe_handleRef_def = PmatchHeuristics.with_classic_heuristic Define‘
   maybe_handleRef (Pcon (SOME (Short "Ref")) [pat]) = Pref pat ∧
   maybe_handleRef p = p
 ’;

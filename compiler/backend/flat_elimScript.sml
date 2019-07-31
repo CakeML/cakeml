@@ -10,6 +10,8 @@ open preamble sptreeTheory flatLangTheory
 
 val _ = new_theory "flat_elim";
 
+val _ = set_grammar_ancestry ["flatLang", "misc"]
+val _ = temp_tight_equality();
 
 (**************************** ANALYSIS FUNCTIONS *****************************)
 

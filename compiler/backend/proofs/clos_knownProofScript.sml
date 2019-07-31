@@ -785,6 +785,8 @@ Proof
       simp[v_to_list_def] >>
       rename1 `closSem$Block _ (v1::v2::vs)` >> Cases_on `vs` >>
       simp[v_to_list_def, case_eq_thms, PULL_EXISTS, PULL_FORALL])
+  >- (rw [] \\ rpt (pop_assum kall_tac)
+      \\ Induct_on `bs` \\ fs [list_to_v_def])
   >- (dsimp[ssgc_free_def, FLOOKUP_UPDATE, bool_case_eq] >> metis_tac[])
   >- (dsimp[ssgc_free_def] >>
       metis_tac[MEM_EL, EVERY_MEM, integerTheory.INT_INJ,

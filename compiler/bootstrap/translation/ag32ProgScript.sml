@@ -11,6 +11,7 @@ local open arm7ProgTheory in end;
 val _ = new_theory "ag32Prog"
 
 val _ = translation_extends "arm7Prog";
+val _ = ml_translatorLib.use_string_type true;
 
 val ri2bits_eq = prove(
   ``ri2bits ri = case ri of Imm v => (64w:word7 || w2w v) | Reg i => w2w i``,

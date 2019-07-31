@@ -375,6 +375,7 @@ val _ = Define `
     | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
     | (Chopb _, [t1; t2]) => (t1 = Tchar) /\ (t2 = Tchar) /\ (t = Tbool)
     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
+    | (Explode, [t1]) => (t1 = Tstring) /\ (t = Tlist Tchar)
     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
     | (Strlen, [t1]) => (t1 = Tstring) /\ (t = Tint)
     | (Strcat, [t1]) => (t1 = Tlist Tstring) /\ (t = Tstring)

@@ -316,6 +316,12 @@ val do_app_def = Define `
               SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
           | NONE => NONE
           )
+    | (Op Explode, [v]) =>
+          (case v of
+            Litv (StrLit str) =>
+              SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) str)))
+          | _ => NONE
+          )
     | (Op Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))

@@ -13,6 +13,7 @@ open basisProgTheory
 val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "parserProg";
+val _ = ml_translatorLib.use_string_type true;
 (*
 val _ = translation_extends "basisProg";
 *)

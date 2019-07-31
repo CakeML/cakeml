@@ -105,6 +105,7 @@ val _ = Hol_datatype `
   | Chopb of opb
   (* String operations *)
   | Implode
+  | Explode
   | Strsub
   | Strlen
   | Strcat

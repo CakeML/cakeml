@@ -769,6 +769,12 @@ val _ = Define `
               SOME ((s,t), Rval (Litv (StrLit (IMPLODE ls))))
           | NONE => NONE
           )
+    | (Explode, [v]) =>
+          (case v of
+            Litv (StrLit str) =>
+              SOME ((s,t), Rval (list_to_v (MAP (\ c .  Litv (Char c)) (EXPLODE str))))
+          | _ => NONE
+          )
     | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME ((s,t), Rerr (Rraise sub_exn_v))
