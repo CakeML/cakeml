@@ -18,7 +18,7 @@ library.
 Proof about the command-line module of the CakeML standard basis library.
 
 [IntProgScript.sml](IntProgScript.sml):
-Module about the built-in integer tyoe. Note that CakeML uses
+Module about the built-in integer type. Note that CakeML uses
 arbitrary precision integers (the mathematical intergers).
 
 [ListProgScript.sml](ListProgScript.sml):
