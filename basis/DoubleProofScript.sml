@@ -1,5 +1,7 @@
 (*
-  Proofs that the Double basis module behaves correctly
+  Proofs that the to-/fromString functions in the Double
+  module correctly produce a string representation from a double,
+  and vice versa assuming that the FFI is implemented correctly.
 *)
 open preamble
      ml_translatorTheory ml_translatorLib ml_progLib cfLib

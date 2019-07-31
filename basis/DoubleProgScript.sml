@@ -1,6 +1,8 @@
 (*
-  Module about the built-in integer tyoe. Note that CakeML uses
-  arbitrary precision integers (the mathematical intergers).
+  Module for the built-in double floating-point type.
+  Defines basic arithmetic operations like +,-,*,/, and FMA,
+  logical operations <, <=, >, >=, and =
+  and to-/fromString functions for parsing and pretty-printing constants
 *)
 open preamble
      ml_translatorLib ml_progLib basisFunctionsLib

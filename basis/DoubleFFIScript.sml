@@ -1,5 +1,6 @@
 (*
-  Specifies behaviour of FFI calls from/toString for doubles
+  Logical model of the FFI calls for functions to-/fromString in
+  the Double module.
 *)
 open preamble
     cfFFITypeTheory
