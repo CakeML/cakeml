@@ -18,7 +18,7 @@ library.
 Proof about the command-line module of the CakeML standard basis library.
 
 [DoubleFFIScript.sml](DoubleFFIScript.sml):
-Logical model of the Double state: TODO
+Specifies behaviour of FFI calls from/toString for doubles
 
 [DoubleProgScript.sml](DoubleProgScript.sml):
 Module about the built-in integer tyoe. Note that CakeML uses
