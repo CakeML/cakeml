@@ -33,7 +33,7 @@ module correctly produce a string representation from a double,
 and vice versa assuming that the FFI is implemented correctly.
 
 [IntProgScript.sml](IntProgScript.sml):
-Module about the built-in integer tyoe. Note that CakeML uses
+Module about the built-in integer type. Note that CakeML uses
 arbitrary precision integers (the mathematical intergers).
 
 [ListProgScript.sml](ListProgScript.sml):
