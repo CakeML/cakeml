@@ -528,7 +528,7 @@ Proof
 QED
 
 Theorem store_retv_cargs_word_clk_upd':
-  !margs nargs n retv st st' clk.
+  !margs nargs n retv st clk.
    store_retv_cargs_word margs nargs n retv st =  NONE ==>
     store_retv_cargs_word margs nargs n retv (st with clock := clk)  = NONE
 Proof
@@ -3430,7 +3430,8 @@ Proof
       TOP_CASE_TAC >> fs [] >> rveq >> qexists_tac `x'` >>
       conj_tac >- (drule_all store_retv_cargs_word_some_loc_upd_rel >> rw []) >>
       rw [locals_rel_def]) >>
-
+      rw [call_env_def]
+QED
 
 val gc_fun_ok_def = Define `
   gc_fun_ok (f:'a gc_fun_type) =
@@ -3742,9 +3743,10 @@ Theorem max_var_intro:
   P (max_var prog)
 Proof
   ho_match_mp_tac max_var_ind>>
-  full_simp_tac(srw_ss())[every_var_def,max_var_def,max_var_exp_IMP,MAX_DEF]>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[every_var_def,max_var_def,max_var_exp_IMP,MAX_DEF, P_num_lst_def]>>srw_tac[][]>>
   TRY(metis_tac[max_var_exp_IMP])>>
-  TRY (match_mp_tac list_max_intro>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def])
+  TRY (match_mp_tac list_max_intro>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def] >> NO_TAC) >>
+  TRY (unabbrev_all_tac>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_imm_def] >> NO_TAC)
   >-
     (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
     TRY(Cases_on`f`)>>
@@ -3753,8 +3755,10 @@ Proof
   >-
     (TOP_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[list_max_intro]>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[LET_THM]>>srw_tac[][]>>
-    match_mp_tac list_max_intro>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def])
-  >> (unabbrev_all_tac>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_imm_def])
+    match_mp_tac list_max_intro>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def]) >>
+  full_simp_tac(srw_ss())[LET_THM]>>srw_tac[][]>>
+    match_mp_tac list_max_intro>>full_simp_tac(srw_ss())[EVERY_APPEND,every_name_def] >>
+   fs [EVERY_MAP] >> metis_tac []
 QED
 
 val get_code_labels_def = Define`

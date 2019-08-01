@@ -563,62 +563,63 @@ val get_cargs_stack_def = Define
 /\ (get_cargs_stack _ _ _ _ = NONE)
 `
 
-val store_carg_stack_def = Define `
-  store_carg_stack w vs s = s with <| memory := write_bytearray w vs s.memory s.mdomain s.be |>
- `
 
-val store_cargs_stack_def = Define`
-   (store_cargs_stack [] [] st = st)
-/\ (store_cargs_stack (marg::margs) (w::ws) st =
-    store_cargs_stack margs ws (store_carg_stack marg w st))
-/\ (store_cargs_stack _ _ st = st)
+val get_var_margs_stack_def = Define `
+  get_var_margs ns s = MAP (\n. get_var n s) ns
 `
 
 
-val num_word_lst_stack_def = Define `
-  (num_word_lst_stack [] s = [])
-/\
-  (num_word_lst_stack (n::ns) s = (case (get_var n s) of
-                                 | SOME (Word w) => SOME w :: num_word_lst_stack ns s
-                                 | NONE => NONE :: num_word_lst_stack ns s))
+val get_word_margs_stack_def = Define `
+  get_word_margs ns s  = MAP  (\v. case v of SOME (Word w) => w) (MAP (\n. get_var n s) ns)
 `
 
-val store_cargs_nums_stack_def = Define `
-  store_cargs_nums_stack margs vs st = if (MEM NONE (num_word_lst_stack margs st)) then NONE
-                                       else SOME (store_cargs_stack (MAP THE (num_word_lst_stack margs st)) vs st)
-`
-
-val store_cargs_num'_stack_def = Define `
-  store_cargs_num'_stack margs vs n v st =
-    case (get_var n st) of
-      | SOME (Word w) => (case  mem_store w v st of
-                            | SOME st' => store_cargs_nums_stack margs vs st'
-                            | NONE => NONE)
-      | _ => NONE
+val ret_val_stack_def = Define
+`(ret_val_stack (SOME(C_boolv b)) = if b then SOME (Word (n2w 2)) else SOME (Word (n2w 18)))
+/\ (ret_val_stack (SOME(C_intv i)) = SOME (Word (Smallnum' i)))
+/\ (ret_val_stack _ = NONE)
   `
+
+val store_cargs_stack_def = Define
+  `(store_cargs_stack [] [] s =  s)
+/\ (store_cargs_stack (marg::margs) (w::ws) s =
+      store_cargs_stack margs ws s with <| memory := write_bytearray marg w s.memory s.mdomain s.be |>)
+/\ (store_cargs_stack _ _ s =  s)
+  `
+
+val store_cargs_stack_ind  = fetch "-" "store_cargs_stack_ind"
+
+val store_retv_cargs_stack_def = Define`
+  store_retv_cargs_stack  margs vs n retv st =
+   case ret_val_stack retv of
+     | SOME v  =>  (case get_var n st of
+       | SOME (Word w) => (case  mem_store w v st of
+                            | SOME st' => SOME (store_cargs_stack margs vs st')
+                            | NONE => NONE)
+       | _ => NONE)
+    | NONE => SOME (store_cargs_stack margs vs st)
+`
 
 
 val evaluate_ffi_def = Define `
-  evaluate_ffi s ffi_index n ns ret =
-   case FIND (\x.x.mlname = ffi_index) s.ffi.signatures of
+  evaluate_ffi s ffi_index n ns =
+   case FIND (\x.x.mlname = ffi_index) (debug_sig::s.ffi.signatures) of
      | SOME sign =>
-     (case get_cargs_stack s sign.args (len_filter sign.args ns) (len_args sign.args ns) of
+       (case get_cargs_stack s sign.args (get_args sign.args ns) (get_len sign.args ns) of
           SOME cargs =>
-           (case call_FFI s.ffi ffi_index cargs (als_args_final_word (loc_typ_val sign.args (len_filter sign.args ns))) of
-            FFI_return new_ffi vs retv =>
-             if ret_ok sign.retty retv then
-                (case ret_val_word retv of
-                                | SOME v => case store_cargs_num'_stack (get_mut_args sign (len_filter sign.args ns)) vs n v s of
-                                              | NONE => (SOME Error,s)
-                                              | SOME s' =>  (NONE, s' with <|regs := DRESTRICT s.regs s.ffi_save_regs; ffi := new_ffi |>)
-                                | NONE => case store_cargs_nums_stack (get_mut_args sign (len_filter sign.args ns)) vs s of
-                                             | NONE => (SOME Error,s)
-                                             | SOME s' =>  (NONE, s' with <|regs := DRESTRICT s.regs s.ffi_save_regs; ffi := new_ffi |>))
-             else (SOME Error,s)
-        | FFI_final outcome => (SOME (FinalFFI outcome),s))
+          (case call_FFI s.ffi ffi_index sign cargs (als_args sign.args (get_args sign.args ns)) of
+             | SOME (FFI_return new_ffi vs retv) =>
+               if FILTER (\v. v = NONE) (get_var_margs (get_mut_args sign.args (get_args sign.args ns)) s) = []
+               then (case store_retv_cargs_stack (get_word_margs (get_mut_args sign.args (get_args sign.args ns)) s) vs n retv s of
+                     | NONE => (SOME Error,s)
+                     | SOME s' => (NONE, s' with <|regs := DRESTRICT s.regs s.ffi_save_regs; ffi := new_ffi |>))
+               else (SOME Error, s)
+             | SOME (FFI_final outcome) => (SOME (FinalFFI outcome), s)
+             | NONE => (SOME Error, s))
           | NONE => (SOME Error,s))
-       | NONE => (SOME Error,s)
+     | NONE => (SOME Error,s)
 `
+
+
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
@@ -766,7 +767,7 @@ val evaluate_def = tDefine "evaluate" `
             (NONE,s with data_buffer:=new_db)
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))) /\
-  (evaluate (FFI ffi_index n ns ret,s) = evaluate_ffi s ffi_index n ns ret) /\
+  (evaluate (FFI ffi_index n ns ret,s) = evaluate_ffi s ffi_index n ns) /\
 
  (* (evaluate (FFI ffi_index ptr len ptr2 len2 ret,s) =
     case (get_var len s, get_var ptr s,get_var len2 s, get_var ptr2 s) of
@@ -884,6 +885,36 @@ val inst_clock = Q.prove(
   \\ fs [mem_store_def] \\ SRW_TAC [] []\\
   EVAL_TAC \\ fs[]);
 
+
+
+Theorem store_cargs_stack_some_clk_eq:
+  !margs nargs st st'.
+   store_cargs_stack margs nargs st = st' ==>
+    st'.clock = st.clock
+Proof
+  ho_match_mp_tac store_cargs_stack_ind >>
+  rw [store_cargs_stack_def, get_var_def]
+QED
+
+Theorem store_retv_cargs_stack_some_clk_eq:
+  !margs nargs n retv st st'.
+   store_retv_cargs_stack margs nargs n retv st =  SOME st' ==>
+    st'.clock = st.clock
+Proof
+  rw [store_retv_cargs_stack_def] >> every_case_tac >> fs [] >>
+  drule_all store_cargs_stack_some_clk_eq >> fs [] >>
+  rw [] >> fs [mem_store_def] >> rveq >> fs []
+QED
+
+
+Theorem evaluate_ffi_clock:
+  evaluate_ffi s ffi_index n ns = (vs,s2) ⇒ s2.clock <= s.clock
+Proof
+  rw [evaluate_ffi_def] >> every_case_tac >> fs [] >>
+  drule store_retv_cargs_stack_some_clk_eq >> rw []
+QED
+
+
 Theorem evaluate_clock:
    !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
 Proof
@@ -891,6 +922,7 @@ Proof
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ FULL_SIMP_TAC std_ss [STOP_def]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ fs []
+  \\ TRY (rename1 `evaluate_ffi` >> metis_tac [evaluate_ffi_clock] >> NO_TAC)
   \\ rpt (every_case_tac \\ fs []
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [empty_env_def]
     \\ IMP_RES_TAC inst_clock

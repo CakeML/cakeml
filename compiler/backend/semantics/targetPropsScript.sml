@@ -260,6 +260,7 @@ Proof
   IF_CASES_TAC >> fs[] \\
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  IF_CASES_TAC >>  full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]
@@ -312,7 +313,8 @@ Proof
   \\ CONV_TAC (RAND_CONV (SIMP_CONV std_ss [Once evaluate_def]))
   \\ fs [apply_oracle_def]
   \\ BasicProvers.TOP_CASE_TAC >> fs []
-  \\ METIS_TAC[evaluate_io_events_mono]
+  >- METIS_TAC[evaluate_io_events_mono]
+  \\ BasicProvers.TOP_CASE_TAC >> fs []
 QED
 
 Theorem machine_sem_total:
@@ -344,7 +346,7 @@ Proof
   \\ metis_tac[LESS_EQ_CASES,evaluate_add_clock_io_events_mono]
 QED
 
-Theorem read_ffi_bytearray_IMP_SUBSET_prog_addresses:
+(*Theorem read_ffi_bytearray_IMP_SUBSET_prog_addresses:
    (read_ffi_bytearray mc a l ms = SOME bytes) ==>
     all_words (mc.target.get_reg ms a) (LENGTH bytes) SUBSET
       mc.prog_addresses
@@ -357,7 +359,7 @@ Proof
   \\ rw [] \\ fs[option_case_eq] \\ rveq \\ fs []
   \\ fs [all_words_def]
 QED
-
+*)
 Theorem encoder_correct_asm_step_target_state_rel:
    encoder_correct t ∧
    target_state_rel t s1 ms ∧

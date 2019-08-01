@@ -367,6 +367,118 @@ Proof
   \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs []
 QED
 
+
+Theorem get_addr_margs_clk_eq:
+  get_addr_margs margs (st with clock := clk)=
+   get_addr_margs margs st
+Proof
+  rw [get_addr_margs_def]
+QED
+
+
+
+Theorem get_cargs_lab_clk_eq:
+  !s cts args lens clk.
+   get_cargs_lab s cts args lens =
+  get_cargs_lab (s with clock := clk) cts args lens
+
+Proof
+  rw [] >>
+  Cases_on `get_cargs_lab s cts args lens` >>
+  ONCE_REWRITE_TAC [EQ_SYM_EQ] >>
+  pop_assum mp_tac
+  >- (MAP_EVERY qid_spec_tac [`clk`, `lens`,`args`,`cts`, `s`] >>
+      ho_match_mp_tac get_cargs_lab_ind >> rw [get_cargs_lab_def]
+      >- (disj1_tac >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_lab_def]) >>
+     metis_tac []) >>
+  MAP_EVERY qid_spec_tac [`x`, `clk`, `lens`,`args`,`cts`, `s`] >>
+  ho_match_mp_tac get_cargs_lab_ind >> rw [get_cargs_lab_def] >>
+  Cases_on `ty` >> Cases_on `len` >> fs [get_carg_lab_def]
+QED
+
+Theorem get_cargs_lab_clk_imp:
+  !s cts args lens cargs clk.
+    get_cargs_lab s cts args lens = SOME cargs  ==>
+    get_cargs_lab (s with clock := clk) cts args lens <> NONE
+Proof
+  ho_match_mp_tac get_cargs_lab_ind >> rw [get_cargs_lab_def] >-
+  (CCONTR_TAC >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_lab_def]) >>
+  metis_tac []
+QED
+
+Theorem store_retv_cargs_lab_clk_upd:
+  !margs nargs retv st st' clk.
+   store_retv_cargs_lab margs nargs retv st =  SOME st' ==>
+    store_retv_cargs_lab margs nargs retv (st with clock := clk) <>  NONE
+Proof
+  rw [store_retv_cargs_lab_def] >> every_case_tac >>
+  fs []
+QED
+
+Theorem store_retv_cargs_lab_clk_upd':
+  !margs nargs retv st clk.
+   store_retv_cargs_lab margs nargs retv st =  NONE ==>
+    store_retv_cargs_lab margs nargs retv (st with clock := clk)  = NONE
+Proof
+  rw [store_retv_cargs_lab_def] >> every_case_tac >>
+  fs []
+QED
+
+Theorem store_cargs_lab_some_clk_upd_rel:
+  !margs nargs st st' st'' clk.
+   store_cargs_lab margs nargs st =  st' /\
+    store_cargs_lab margs nargs (st with clock := clk) = st'' ==>
+   st'' = (st' with clock := clk)
+Proof
+  ho_match_mp_tac store_cargs_lab_ind >>
+  rw [store_cargs_lab_def]
+QED
+
+Theorem store_cargs_lab_state_clk_eq:
+  !margs nargs st clk.
+  store_cargs_lab margs nargs (st with clock := clk) =
+   store_cargs_lab margs nargs st with clock := clk
+Proof
+  rw [] >>
+  qpat_abbrev_tac `stclk = st with clock := _` >>
+  qpat_abbrev_tac `stn = store_cargs_lab _ _ stclk` >>
+  qpat_x_assum `Abbrev (stclk =_ )` (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum (mp_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  MAP_EVERY qid_spec_tac [`st`, `clk`,`stn`, `stclk`, `nargs`,`margs`]  >>
+  ho_match_mp_tac store_cargs_lab_ind >> rw [store_cargs_lab_def]
+QED
+
+
+Theorem upd_mem_clk_upd:
+  upd_mem c x (st with clock := clk) =
+    upd_mem c x st with clock := clk
+Proof
+  rw [upd_mem_def]
+QED
+
+
+Theorem store_retv_cargs_lab_some_clk_upd_rel:
+  !margs nargs retv st st' st'' clk.
+   store_retv_cargs_lab margs nargs retv st =  SOME st' /\
+    store_retv_cargs_lab margs nargs retv (st with clock := clk) = SOME st'' ==>
+   st''  = (st' with clock := clk)
+Proof
+  rw [store_retv_cargs_lab_def] >> every_case_tac >> fs []
+  >- (pop_assum mp_tac >>
+      drule store_cargs_lab_some_clk_upd_rel >> fs [])
+  >- (pop_assum mp_tac >>
+      drule store_cargs_lab_some_clk_upd_rel >>
+      disch_then (qspecl_then [`st''`, `clk`] assume_tac) >> rw [upd_mem_def]) >>
+  rveq >> fs [store_cargs_lab_state_clk_eq]
+QED
+
+Theorem not_none_exist_some:
+  y <> NONE ==> ?x. y = SOME x
+Proof
+  rw [GSYM IS_SOME_EXISTS, quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
+QED
+
+
 Theorem evaluate_ADD_clock:
    !s res r k.
       evaluate s = (res,r) /\ res <> TimeOut ==>
@@ -381,8 +493,16 @@ Proof
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
   TRY pairarg_tac >> fs[case_eq_thms] >> rw[]>>
-  first_x_assum(qspec_then`k`mp_tac)>>simp[]
+  TRY (metis_tac [get_cargs_lab_clk_eq]>> NO_TAC) >>
+  TRY (disj2_tac >> fs [GSYM get_cargs_lab_clk_eq, get_addr_margs_clk_eq, store_retv_cargs_lab_clk_upd'] >> NO_TAC) >>
+  rw [GSYM get_cargs_lab_clk_eq, get_addr_margs_clk_eq, store_retv_cargs_lab_clk_upd] >>
+  drule store_retv_cargs_lab_clk_upd >>
+  disch_then (qspec_then `k + s.clock` assume_tac) >> drule not_none_exist_some >> rw [] >> fs [] >>
+  pop_assum mp_tac >>
+  drule store_retv_cargs_lab_some_clk_upd_rel >>
+  disch_then (qspecl_then [`x`, `k + s.clock`] assume_tac) >> fs []
 QED
+
 
 Theorem evaluate_add_clock_io_events_mono:
    ∀s.
@@ -423,7 +543,19 @@ Proof
   every_case_tac >> fs[] >>
   fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
-  rev_full_simp_tac(srw_ss()++ARITH_ss)[]
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+  TRY (fs[call_FFI_def] >>
+    qmatch_abbrev_tac`s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events` >>
+    Cases_on`evaluate s1` >>
+    drule (GEN_ALL evaluate_io_events_mono) >>
+    unabbrev_all_tac >> fs[] >>
+    every_case_tac >> fs[] >> rw[] >>
+    fs[IS_PREFIX_APPEND,IS_SOME_EXISTS] >> NO_TAC) >>
+    fs [GSYM get_cargs_lab_clk_eq, get_addr_margs_clk_eq] >> rveq >> fs [] >> rveq >>
+    TRY (metis_tac [store_retv_cargs_lab_clk_upd] >> NO_TAC) >>
+    rename1 `store_retv_cargs_lab _ _ _ (s with clock := _) = SOME st'` >>
+    pop_assum mp_tac >> drule store_retv_cargs_lab_some_clk_upd_rel >>
+    disch_then (qspecl_then [`st'`,`extra + s.clock`] assume_tac) >> fs []
 QED
 
 val align_dm_def = Define `
@@ -745,10 +877,11 @@ Proof
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ fs[inc_pc_def,align_dm_def,dec_clock_def])
   \\ BasicProvers.TOP_CASE_TAC
-  \\ simp[Once evaluate_def,SimpRHS]
+  \\ TRY (simp[Once evaluate_def,SimpRHS]
   \\ simp[case_eq_thms]
   \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def,case_eq_thms]
-  \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[]
+  \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[] >> NO_TAC)
+  \\ cheat
 QED
 
 Theorem implements_align_dm:

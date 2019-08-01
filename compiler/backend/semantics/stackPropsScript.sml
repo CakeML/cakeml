@@ -206,6 +206,73 @@ Proof
   EVAL_TAC
 QED
 
+
+
+Theorem store_cargs_stack_const:
+  !margs nargs s s1.
+   store_cargs_stack margs nargs s = s1 ==>
+      s1.use_alloc = s.use_alloc /\
+      s1.use_store = s.use_store /\
+      s1.use_stack = s.use_stack /\
+      s1.be = s.be /\
+      s1.gc_fun = s.gc_fun /\
+      s1.mdomain = s.mdomain /\
+      s1.compile = s.compile
+
+Proof
+  ho_match_mp_tac store_cargs_stack_ind >> rw [store_cargs_stack_def]
+QED
+
+Theorem store_cargs_stack_mem_upd_const:
+  !margs nargs s s1 m.
+   store_cargs_stack margs nargs (s with memory := m) = s1 ==>
+      s1.use_alloc = s.use_alloc /\
+      s1.use_store = s.use_store /\
+      s1.use_stack = s.use_stack /\
+      s1.be = s.be /\
+      s1.gc_fun = s.gc_fun /\
+      s1.mdomain = s.mdomain /\
+      s1.compile = s.compile
+
+Proof
+  ho_match_mp_tac store_cargs_stack_ind >> rw [store_cargs_stack_def] >>
+  fs [state_accfupds]
+QED
+
+
+Theorem store_retv_cargs_stack_const:
+  !margs nargs n retv s s1.
+   store_retv_cargs_stack margs nargs n retv s =  SOME s1 ==>
+      s1.use_alloc = s.use_alloc /\
+      s1.use_store = s.use_store /\
+      s1.use_stack = s.use_stack /\
+      s1.be = s.be /\
+      s1.gc_fun = s.gc_fun /\
+      s1.mdomain = s.mdomain /\
+      s1.compile = s.compile
+
+Proof
+  rw [store_retv_cargs_stack_def] >> every_case_tac >>
+  rveq >> fs [mem_store_def] >>
+  TRY (metis_tac [store_cargs_stack_const] >> NO_TAC) >>
+  metis_tac [store_cargs_stack_mem_upd_const]
+QED
+
+Theorem evaluate_ffi_consts:
+   !s ffi_index n ns r s1.
+      evaluate_ffi  s ffi_index n ns = (r,s1) ==>
+      s1.use_alloc = s.use_alloc /\
+      s1.use_store = s.use_store /\
+      s1.use_stack = s.use_stack /\
+      s1.be = s.be /\
+      s1.gc_fun = s.gc_fun /\
+      s1.mdomain = s.mdomain /\
+      s1.compile = s.compile
+Proof
+  rw [evaluate_ffi_def] >> every_case_tac >> fs [] >> rveq >>
+  drule store_retv_cargs_stack_const >> rw [state_accfupds]
+QED
+
 Theorem evaluate_consts:
    !c s r s1.
       evaluate (c,s) = (r,s1) ==>
@@ -227,8 +294,58 @@ Proof
     (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
     (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
     (pairarg_tac >> simp[]))>>
-  (every_case_tac>>fs[]>>rw[])
+    (every_case_tac>>fs[]>>rw[]) >> metis_tac [evaluate_ffi_consts]
 QED
+
+
+Theorem store_cargs_stack_oc_code_bmap:
+  !margs nargs s s'.
+   store_cargs_stack margs nargs s = s' ==>
+     s'.compile_oracle = s.compile_oracle ∧ s'.code = s.code ∧
+     s'.bitmaps = s.bitmaps
+Proof
+  ho_match_mp_tac store_cargs_stack_ind >> rw [store_cargs_stack_def]
+QED
+
+Theorem store_cargs_stack_mem_upd_oc_code_bmap:
+  !margs nargs s s' m.
+   store_cargs_stack margs nargs (s with memory := m) = s' ==>
+     s'.compile_oracle = s.compile_oracle ∧ s'.code = s.code ∧
+     s'.bitmaps = s.bitmaps
+Proof
+  ho_match_mp_tac store_cargs_stack_ind >> rw [store_cargs_stack_def] >>
+  fs [state_accfupds]
+QED
+
+
+Theorem store_retv_cargs_stack_oc_code_bmap:
+  !margs nargs n retv s s'.
+   store_retv_cargs_stack margs nargs n retv s =  SOME s' ==>
+     s'.compile_oracle = s.compile_oracle ∧ s'.code = s.code ∧
+     s'.bitmaps = s.bitmaps
+Proof
+  rw [store_retv_cargs_stack_def] >> every_case_tac >>
+  rveq >> fs [mem_store_def] >>
+  TRY (metis_tac [store_cargs_stack_oc_code_bmap] >> NO_TAC) >>
+  metis_tac [store_cargs_stack_mem_upd_oc_code_bmap]
+QED
+
+
+Theorem evaluate_ffi_code_bitmaps:
+  !s ffi_index n ns r s1.
+      evaluate_ffi s ffi_index n ns = (r,s1) ==>
+      ∃n.
+    s1.compile_oracle = shift_seq n s.compile_oracle ∧
+    s1.code = FOLDL union s.code (MAP (fromAList o FST o SND) (GENLIST s.compile_oracle n)) ∧
+    s1.bitmaps = s.bitmaps ++ FLAT (MAP (SND o SND) (GENLIST s.compile_oracle n))
+Proof
+  rw [evaluate_ffi_def] >>
+  fs[case_eq_thms,empty_env_def]>>rw[]>>
+  TRY(qexists_tac`0` >> fsrw_tac[ETA_ss][shift_seq_def] >> NO_TAC) >>
+  qexists_tac`0` >> fsrw_tac[ETA_ss][shift_seq_def] >>
+  metis_tac [store_retv_cargs_stack_oc_code_bmap]
+QED
+
 
 Theorem evaluate_code_bitmaps:
    ∀c s r s1.
@@ -308,7 +425,8 @@ Proof
     pairarg_tac \\ fs[] \\
     fs[case_eq_thms,empty_env_def]>>rw[]>>
     TRY(qexists_tac`0` \\ fsrw_tac[ETA_ss][shift_seq_def] \\ NO_TAC) \\
-    qexists_tac`1` \\ fsrw_tac[ETA_ss][shift_seq_def])
+    qexists_tac`1` \\ fsrw_tac[ETA_ss][shift_seq_def]) >>
+   metis_tac [evaluate_ffi_code_bitmaps]
 QED
 
 Theorem evaluate_mono:
@@ -321,6 +439,18 @@ Proof
   imp_res_tac evaluate_code_bitmaps \\
   rw[] \\
   metis_tac[subspt_FOLDL_union]
+QED
+
+
+Theorem evaluate_ffi_io_events_mono:
+  !s ffi_index n ns r s1.
+      evaluate_ffi s ffi_index n ns = (r,s1) ==>
+      s.ffi.io_events ≼ s1.ffi.io_events
+Proof
+  rw [evaluate_ffi_def] >> every_case_tac >> fs [] >>
+  rveq >> fs [] >>
+  CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
+       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]
 QED
 
 Theorem evaluate_io_events_mono:
@@ -337,10 +467,148 @@ Proof
   imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
   full_simp_tac(srw_ss())[set_var_def] >> srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
-       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
-  metis_tac[IS_PREFIX_TRANS]
+  metis_tac[IS_PREFIX_TRANS, evaluate_ffi_io_events_mono]
 QED
+
+
+Theorem get_cargs_stack_clock_up_eq:
+  !s cts args lens clk.
+    get_cargs_stack s cts args lens  =
+    get_cargs_stack (s with clock := clk) cts args lens
+Proof
+  rw [] >>
+  Cases_on `get_cargs_stack s cts args lens` >>
+  ONCE_REWRITE_TAC [EQ_SYM_EQ] >>
+  pop_assum mp_tac
+  >- (MAP_EVERY qid_spec_tac [`clk`, `lens`,`args`,`cts`, `s`] >>
+      ho_match_mp_tac get_cargs_stack_ind >> rw [get_cargs_stack_def]
+      >- (disj1_tac >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_stack_def, get_var_def]) >>
+     metis_tac []) >>
+  MAP_EVERY qid_spec_tac [`x`, `clk`, `lens`,`args`,`cts`, `s`] >>
+  ho_match_mp_tac get_cargs_stack_ind >> rw [get_cargs_stack_def] >>
+  Cases_on `ty` >> Cases_on `len` >> fs [get_carg_stack_def, get_var_def]
+QED
+
+
+Theorem get_cargs_stack_clock_up_eq':
+  !s cts args lens clk.
+    get_cargs_stack s cts args lens = NONE  ==>
+    get_cargs_stack (s with clock := clk) cts args lens = NONE
+Proof
+  ho_match_mp_tac get_cargs_stack_ind >> rw [get_cargs_stack_def] >-
+  (disj1_tac >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_stack_def, get_var_def]) >>
+  metis_tac []
+QED
+
+
+Theorem get_cargs_stack_clock_up_eq'':
+  !s cts args lens cargs clk.
+    get_cargs_stack s cts args lens = SOME cargs  ==>
+    get_cargs_stack (s with clock := clk) cts args lens <> NONE
+Proof
+  ho_match_mp_tac get_cargs_stack_ind >> rw [get_cargs_stack_def] >-
+  (CCONTR_TAC >> Cases_on `ty` >> Cases_on `len` >> fs [get_carg_stack_def, get_var_def]) >>
+  metis_tac []
+QED
+
+
+Theorem get_word_margs_clk_upd:
+  !margs s clk. get_word_margs margs s =
+     get_word_margs margs (s with clock := clk)
+Proof
+  rw [get_word_margs_def, get_var_def]
+QED
+
+
+Theorem store_retv_cargs_stack_clk_upd:
+  !margs nargs n retv st st' clk.
+   store_retv_cargs_stack margs nargs n retv st =  SOME st' ==>
+    store_retv_cargs_stack margs nargs n retv (st with clock := clk) <>  NONE
+Proof
+  rw [store_retv_cargs_stack_def] >> every_case_tac >>
+  fs [get_var_def] >> rveq >> fs []
+QED
+
+Theorem store_retv_cargs_stack_clk_upd':
+  !margs nargs n retv st clk.
+   store_retv_cargs_stack margs nargs n retv st =  NONE ==>
+    store_retv_cargs_stack margs nargs n retv (st with clock := clk)  = NONE
+Proof
+  rw [store_retv_cargs_stack_def] >> every_case_tac >>
+  fs [get_var_def] >> rveq >> fs []
+QED
+
+
+Theorem store_cargs_stack_some_clk_upd_rel:
+  !margs nargs st st' st'' clk.
+   store_cargs_stack margs nargs st =  st' /\
+    store_cargs_stack margs nargs (st with clock := clk) = st'' ==>
+   st'' = (st' with clock := clk)
+Proof
+  ho_match_mp_tac store_cargs_stack_ind >>
+  rw [store_cargs_stack_def, get_var_def]
+QED
+
+
+Theorem store_cargs_stack_state_clk_eq:
+  !margs nargs st clk.
+  store_cargs_stack margs nargs (st with clock := clk) =
+   store_cargs_stack margs nargs st with clock := clk
+Proof
+  rw [] >>
+  qpat_abbrev_tac `stclk = st with clock := _` >>
+  qpat_abbrev_tac `stn = store_cargs_stack _ _ stclk` >>
+  qpat_x_assum `Abbrev (stclk =_ )` (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum (mp_tac o GSYM o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  MAP_EVERY qid_spec_tac [`st`, `clk`, `stn`, `stn`, `stclk`, `nargs`,`margs`]  >>
+  ho_match_mp_tac store_cargs_stack_ind >> rw [store_cargs_stack_def, get_var_def]
+QED
+
+
+Theorem store_retv_cargs_stack_some_clk_upd_rel:
+  !margs nargs n retv st st' st'' clk.
+   store_retv_cargs_stack margs nargs n retv st =  SOME st' /\
+    store_retv_cargs_stack margs nargs n retv (st with clock := clk) = SOME st'' ==>
+   st''  = (st' with clock := clk)
+Proof
+  rw [store_retv_cargs_stack_def] >> every_case_tac >> fs []
+  >- (drule_all store_cargs_stack_some_clk_upd_rel >> fs [])
+  >- (drule_all store_cargs_stack_some_clk_upd_rel >> fs [])
+  >- (fs [get_var_def] >> rveq  >> fs [store_cargs_stack_state_clk_eq]) >>
+  rveq >> fs [store_cargs_stack_state_clk_eq]
+QED
+
+
+Theorem get_var_margs_clk_upd:
+  !ns s clk. get_var_margs ns s =
+     get_var_margs ns (s with clock := clk)
+Proof
+  rw [get_var_margs_def, get_var_def]
+QED
+
+
+Theorem evaluate_ffi_add_clock:
+  evaluate_ffi s ffi_index n ns  = (r,s') ==>
+  evaluate_ffi (s with clock := s.clock + extra) ffi_index n ns =
+        (r,s' with clock := s'.clock + extra)
+Proof
+  rw [evaluate_ffi_def] >> every_case_tac >> fs [] >>
+  TRY (
+   rename1 `get_cargs_stack _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
+   `get_cargs_stack s sign.args (get_args sign.args ns) (get_len sign.args ns) =
+    get_cargs_stack (s with clock := extra + s.clock) sign.args
+      (get_args sign.args ns) (get_len sign.args ns)` by metis_tac [get_cargs_stack_clock_up_eq] >>
+    rveq >> fs [] >> rfs []) >> rveq
+  >- (imp_res_tac store_retv_cargs_stack_clk_upd >>
+      fs [Once (GSYM get_word_margs_clk_upd)])
+  >- (imp_res_tac store_retv_cargs_stack_clk_upd' >>
+      fs [Once (GSYM get_word_margs_clk_upd)])
+  >- (drule_all store_retv_cargs_stack_some_clk_eq >> rw [] >>
+      fs [Once (GSYM get_word_margs_clk_upd)] >>
+      drule_all store_retv_cargs_stack_some_clk_upd_rel >> rw [])
+  >> rfs [Once (GSYM get_word_margs_clk_upd), Once (GSYM get_var_margs_clk_upd)]
+QED
+
 
 Theorem evaluate_add_clock:
    ∀p s r s'.
@@ -421,8 +689,8 @@ Proof
   imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
   fsrw_tac[ARITH_ss][dec_clock_def] >>
   TRY (
-    rename1`call_FFI` >>
-    pairarg_tac >> full_simp_tac(srw_ss())[] >> rveq >> simp[] ) >>
+    rename1`evaluate_ffi` >>
+    drule  evaluate_ffi_add_clock >> fs [])>>
   metis_tac[]
 QED
 
@@ -431,6 +699,26 @@ Theorem with_clock_ffi:
 Proof
   EVAL_TAC
 QED
+
+
+Theorem evaluate_ffi_io_event_mono_snd_frm:
+  (SND (evaluate_ffi s ffi_index n ns)).ffi.io_events ≼
+   (SND (evaluate_ffi (s with clock := extra + s.clock) ffi_index n ns)).ffi.
+   io_events
+Proof
+  rw [evaluate_ffi_def] >> every_case_tac >> fs [] >>
+  rveq >> fs [] >>
+  rename1 `get_cargs_stack _ sign.args (get_args sign.args _) (get_len sign.args _)  =_` >>
+  `get_cargs_stack s sign.args (get_args sign.args ns) (get_len sign.args ns)=
+   get_cargs_stack (s with clock := extra + s.clock) sign.args (get_args sign.args ns) (get_len sign.args ns)`
+   by metis_tac [get_cargs_stack_clock_up_eq] >> fs [] >>
+  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
+  every_case_tac >> srw_tac[][] >> fs [] >> rveq >> fs [] >>
+  TRY ((imp_res_tac store_retv_cargs_stack_clk_upd >>
+  fs [Once (GSYM get_word_margs_clk_upd)]) >> NO_TAC) >>
+  rfs [Once (GSYM get_var_margs_clk_upd)]
+QED
+
 
 Theorem evaluate_add_clock_io_events_mono:
    ∀e s.
@@ -468,16 +756,14 @@ Proof
   rveq >> fsrw_tac[ARITH_ss][] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
   rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])>> full_simp_tac(srw_ss())[] >>
-  TRY(
-    CHANGED_TAC(simp[ffiTheory.call_FFI_def,get_var_def]) >>
-    every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >>
-    rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[]) >>
+  TRY( rename1 `evaluate_ffi` >>  rw [evaluate_ffi_io_event_mono_snd_frm]) >>
   TRY(
     rename1 `buffer_flush _ _ _ = _`>>
     pairarg_tac>>fs[]>>
     every_case_tac >> fs[get_var_def])>>
   metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]
 QED
+
 
 val clock_neutral_def = Define `
   (clock_neutral (Seq p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
@@ -850,6 +1136,7 @@ val reg_bound_inst_def = Define`
   (reg_bound_inst _ _ ⇔ T)`;
 val _ = export_rewrites["reg_bound_inst_def"];
 
+
 val reg_bound_def = Define `
   (reg_bound (Halt v1) k <=>
      v1 < k) /\
@@ -874,8 +1161,10 @@ val reg_bound_def = Define `
      r < k /\ (case ri of Reg n => n < k | _ => T) /\
      reg_bound p1 k) /\
   (reg_bound (Halt n) k <=> n < k) /\
-  (reg_bound (FFI ffi_index ptr' len' ptr2' len2' ret') k <=>
-     ptr' < k /\ len' < k /\ ptr2' < k /\ len2' < k /\ ret' < k) /\
+  (reg_bound (FFI ffi_index n ns ret') k <=>
+     n < k /\ EVERY (\n. n < k) ns  /\ ret' < k) /\
+  (* (reg_bound (FFI ffi_index ptr' len' ptr2' len2' ret') k <=>
+     ptr' < k /\ len' < k /\ ptr2' < k /\ len2' < k /\ ret' < k) *)
   (reg_bound (Call x1 dest x2) k <=>
      (case dest of INR i => i < k | _ => T) /\
      (case x1 of
@@ -901,25 +1190,26 @@ val reg_bound_def = Define `
 
 (* Finally, stack_to_lab requires correct arguments for Call/FFI/Install calls *)
 val call_args_def = Define `
-  (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
-     call_args p1 ptr len ptr2 len2 ret /\
-     call_args p2 ptr len ptr2 len2 ret) /\
-  (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ptr2 len2 ret <=>
-     call_args p1 ptr len ptr2 len2 ret /\
-     call_args p2 ptr len ptr2 len2 ret) /\
-  (call_args (While c r ri p1) ptr len ptr2 len2 ret <=>
-     call_args p1 ptr len ptr2 len2 ret) /\
-  (call_args (Halt n) ptr len ptr2 len2 ret <=> (n = ptr)) /\
-  (call_args (FFI ffi_index ptr' len' ptr2' len2' ret') ptr len ptr2 len2 ret <=>
-     ptr' = ptr /\ len' = len /\ ptr2' = ptr2 /\ len2' = len2 /\ ret' = ret) /\
-  (call_args (Call x1 _ x2) ptr len ptr2 len2 ret <=>
+  (call_args ((Seq p1 p2):'a stackLang$prog) ptr len ffi_radr ffi_regs ret <=>
+     call_args p1 ptr len ffi_radr ffi_regs ret /\
+     call_args p2 ptr len ffi_radr ffi_regs ret) /\
+  (call_args ((If c r ri p1 p2):'a stackLang$prog) ptr len ffi_radr ffi_regs ret <=>
+     call_args p1 ptr len ffi_radr ffi_regs ret /\
+     call_args p2 ptr len ffi_radr ffi_regs ret) /\
+  (call_args (While c r ri p1) ptr len ffi_radr ffi_regs ret <=>
+     call_args p1 ptr len ffi_radr ffi_regs ret) /\
+  (call_args (Halt n) ptr len ffi_radr ffi_regs ret <=> (n = ptr)) /\
+  (call_args (FFI ffi_index ffi_radr' ffi_regs' ret') ptr len ffi_radr ffi_regs ret <=>
+     ffi_radr' = ffi_radr /\ ffi_regs' = ffi_regs /\ ret' = ret) /\
+  (call_args (Call x1 _ x2) ptr len ffi_radr ffi_regs ret <=>
      (case x1 of
-      | SOME (y,r,_,_) => call_args y ptr len ptr2 len2 ret /\ r = ret
+      | SOME (y,r,_,_) => call_args y ptr len ffi_radr ffi_regs ret /\ r = ret
       | NONE => T) /\
-     (case x2 of SOME (y,_,_) => call_args y ptr len ptr2 len2 ret | NONE => T)) /\
-  (call_args (Install ptr' len' _ _ ret') ptr len ptr2 len2 ret <=>
+     (case x2 of SOME (y,_,_) => call_args y ptr len ffi_radr ffi_regs ret | NONE => T)) /\
+  (call_args (Install ptr' len' _ _ ret') ptr len ffi_radr ffi_regs ret <=>
      ptr' = ptr /\ len' = len /\ ret' = ret) /\
-  (call_args _ ptr len ptr2 len2 ret <=> T)`
+  (call_args _ ptr len ffi_radr ffi_regs ret <=> T)`
+
 
 (* TODO: remove "stack_" prefix from these functions *)
 
