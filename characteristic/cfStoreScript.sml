@@ -33,13 +33,13 @@ val parts_ok_def = Define `
        MEM (sigs,u) parts ==>
        ?s. !sig. MEM sig sigs ==> FLOOKUP (proj st.ffi_state) sig.mlname = SOME(s,sig)) /\
     (!x args als sig sigs u.
-       MEM (sigs,u) parts /\ MEM sig sigs /\ args_ok sig args /\
+       MEM (sigs,u) parts /\ MEM sig sigs /\ args_ok sig.args args /\
        u sig.mlname args als (FST(proj x ' sig.mlname)) = SOME FFIdiverge ==>
         st.oracle sig.mlname x args als = Oracle_final(FFI_diverged)) /\
     !x args als w new_bytes retv sig sigs u.
-      MEM (sigs,u) parts /\ MEM sig sigs /\ args_ok sig args /\
+      MEM (sigs,u) parts /\ MEM sig sigs /\ args_ok sig.args args /\
       u sig.mlname args als (FST(proj x ' sig.mlname)) = SOME(FFIreturn new_bytes retv w) ==>
-      eq_len sig args new_bytes /\ ret_ok sig.retty retv /\ als_ok sig.args new_bytes als /\
+      mut_len sig.args args = MAP LENGTH new_bytes /\ ret_ok sig.retty retv /\ als_ok new_bytes als /\
       ?y.
         st.oracle sig.mlname x args als = Oracle_return y new_bytes retv /\
         proj x |++ (MAP (\sig. (sig.mlname,(w,sig))) sigs) = proj y`
