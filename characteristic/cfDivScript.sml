@@ -1781,7 +1781,7 @@ val get_index_def = Define `
                             (i, states (get_index st states (i-1)))`
 
 val FFI_full_IN_st2heap_IMP = store_thm("FFI_full_IN_st2heap_IMP",
-  ``FFI_full io ∈ st2heap p s ==> s.ffi.io_events = io``,
+  ``FFI_full sigs io ∈ st2heap p s ==> s.ffi.io_events = io``,
   strip_tac \\ fs [st2heap_def]
   THEN1 fs [store2heap_def,FFI_full_NOT_IN_store2heap_aux]
   \\ Cases_on `p` \\ fs [ffi2heap_def]
@@ -1855,7 +1855,7 @@ val tailrec_POSTd = store_thm("tailrec_POSTd",
       nsLookup env.c (Short "Inl") = SOME (1,inl) /\
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
-         (!i. ?P. Hs i = P * one (FFI_full (events i))) /\
+         (!i. ?P. Hs i = P * one (FFI_full sigs (events i))) /\
          (!i.
             (app p fv [vs i] (Hs i)
                (POSTv v'. &(v' = Conv (SOME inl) [vs (SUC i)]) *
@@ -2142,13 +2142,13 @@ val IMP_app_POSTd_old = store_thm("IMP_app_POSTd_old",
     (∀v. build_conv env.c (SOME (Short "Inl")) [v] =
          SOME (Conv (SOME (TypeStamp "Inl" 4)) [v])) ∧ fname ≠ farg ∧
     (∃Hs events vs io.
-         vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_full (events 0)) ∧
+         vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_full sigs (events 0)) ∧
          (∀i.
-              app p stepv [vs i] (Hs i * one (FFI_full (events i)))
+              app p stepv [vs i] (Hs i * one (FFI_full sigs (events i)))
                 (POSTv v'.
                      &(v' = Conv (SOME (TypeStamp "Inl" 4))
                               [vs (SUC i)]) *
-                   Hs (SUC i) * one (FFI_full (events (SUC i))))) ∧
+                   Hs (SUC i) * one (FFI_full sigs (events (SUC i))))) ∧
          lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
     app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
   strip_tac
@@ -2159,7 +2159,8 @@ val IMP_app_POSTd_old = store_thm("IMP_app_POSTd_old",
   \\ fs [terminationTheory.evaluate_def,build_rec_env_def]
   \\ fs [GSYM some_tailrec_clos_def]
   \\ match_mp_tac (GEN_ALL tailrec_POSTd) \\ fs []
-  \\ qexists_tac `\i. Hs i * one (FFI_full (events i))`
+  \\ qexists_tac `sigs`
+  \\ qexists_tac `\i. Hs i * one (FFI_full sigs (events i))`
   \\ qexists_tac `events`
   \\ qexists_tac `vs`
   \\ qexists_tac `io`
@@ -3365,7 +3366,7 @@ val get_index_def = Define `
                             (i, states (get_index st states (i-1)))`
 
 val FFI_full_IN_st2heap_IMP = store_thm("FFI_full_IN_st2heap_IMP",
-  ``FFI_full io ∈ st2heap p s ==> s.ffi.io_events = io``,
+  ``FFI_full sigs io ∈ st2heap p s ==> s.ffi.io_events = io``,
   strip_tac \\ fs [st2heap_def]
   THEN1 fs [store2heap_def,FFI_full_NOT_IN_store2heap_aux]
   \\ Cases_on `p` \\ fs [ffi2heap_def]
@@ -3387,7 +3388,7 @@ val repeat_POSTd = store_thm("repeat_POSTd",
   ``!p env fv xv H Q.
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
-         (!i. ?P. Hs i = P * one (FFI_full (events i))) /\
+         (!i. ?P. Hs i = P * one (FFI_full sigs (events i))) /\
          (!i.
             (app p fv [vs i] (Hs i)
                              (POSTv v'. &(v' = vs (SUC i)) * Hs (SUC i)))) /\
@@ -3578,11 +3579,11 @@ val IMP_app_POSTd = store_thm("IMP_app_POSTd",
   ``make_stepfun_closure env fname farg fbody = SOME stepv /\
     fname ≠ farg ∧
     (∃Hs events vs io.
-         vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_full (events 0)) ∧
+         vs 0 = xv ∧ H ==>> Hs 0 * one (FFI_full sigs (events 0)) ∧
          (∀i.
-              app p stepv [vs i] (Hs i * one (FFI_full (events i)))
+              app p stepv [vs i] (Hs i * one (FFI_full sigs (events i)))
                 (POSTv v'. &(v' = vs (SUC i)) *
-                           Hs (SUC i) * one (FFI_full (events (SUC i))))) ∧
+                           Hs (SUC i) * one (FFI_full sigs (events (SUC i))))) ∧
          lprefix_lub (IMAGE (fromList ∘ events) univ(:num)) io ∧ Q io) ⇒
     app p (Recclosure env [(fname,farg,fbody)] fname) [xv] H ($POSTd Q)``,
   strip_tac
@@ -3593,7 +3594,8 @@ val IMP_app_POSTd = store_thm("IMP_app_POSTd",
   \\ fs [terminationTheory.evaluate_def,build_rec_env_def]
   \\ fs [GSYM some_repeat_clos_def]
   \\ match_mp_tac (GEN_ALL repeat_POSTd) \\ fs []
-  \\ qexists_tac `\i. Hs i * one (FFI_full (events i))`
+  \\ qexists_tac `sigs`
+  \\ qexists_tac `\i. Hs i * one (FFI_full sigs (events i))`
   \\ qexists_tac `events`
   \\ qexists_tac `vs`
   \\ qexists_tac `io`
@@ -3608,8 +3610,8 @@ val limited_parts_def = Define `
     ns = FLAT (MAP FST parts)`
 
 val FFI_part_IN_st2heap_IMP = store_thm("FFI_part_IN_st2heap_IMP",
-  ``FFI_part s u ns events ∈ st2heap p st ==>
-    FILTER (ffi_has_index_in ns) st.ffi.io_events = events``,
+  ``FFI_part s u sigs events ∈ st2heap p st ==>
+    FILTER (ffi_has_index_in (MAP (λx. x.mlname) sigs)) st.ffi.io_events = events``,
   strip_tac \\ fs [st2heap_def]
   THEN1 fs [store2heap_def, FFI_part_NOT_IN_store2heap_aux]
   \\ Cases_on `p` \\ fs [ffi2heap_def]
@@ -3886,7 +3888,7 @@ val repeat_POSTd = store_thm("repeat_POSTd",
   ``!p fv xv H Q.
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
-         (!i. ?P. Hs i = P * one (FFI_full (events i))) /\
+         (!i. ?P. Hs i = P * one (FFI_full sigs (events i))) /\
          (!i.
             (app p fv [vs i] (Hs i)
                              (POSTv v'. &(v' = vs (SUC i)) * Hs (SUC i)))) /\
@@ -4181,7 +4183,7 @@ Proof
   rw[]
   \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
   \\ rw[] \\ fs[]
-  \\ fs[ffiTheory.call_FFI_def]
+  \\ fs[ffiTheory.call_FFI_def,semanticPrimitivesTheory.do_ffi_def]
   \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
   \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
   \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
@@ -4196,7 +4198,7 @@ Proof
   rw[]
   \\ fs[semanticPrimitivesPropsTheory.do_app_cases]
   \\ rw[] \\ fs[]
-  \\ fs[ffiTheory.call_FFI_def]
+  \\ fs[ffiTheory.call_FFI_def,semanticPrimitivesTheory.do_ffi_def]
   \\ rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq)
   \\ rveq \\ fs[ffiTheory.ffi_state_component_equality,DROP_LENGTH_NIL]
   \\ rfs[store_assign_def,store_v_same_type_def,store_lookup_def]
@@ -4260,6 +4262,23 @@ Proof
            fs[evaluatePropsTheory.io_events_mono_def] >>
            fs[IS_PREFIX_APPEND] >>
            fs[DROP_APPEND,DROP_LENGTH_TOO_LONG,DECIDE ``!a b. a - (a + b:num) = 0``] >>
+           NO_TAC) >>
+       TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
+           impl_tac >- simp[] >>
+           strip_tac >> fs[] >>
+           rveq >> fs[] >>
+           drule(GEN_ALL do_app_SOME_ffi_same_oracle_state) >>
+           strip_tac >>
+           fs[] >>
+           rveq >>
+           fs[state_component_equality,ffiTheory.ffi_state_component_equality] >>
+           imp_res_tac do_app_ffi_mono >>
+           fs[DROP_APPEND,DROP_LENGTH_NIL] >>
+           rename1 `_ = qq.refs` >>
+           first_x_assum(qspec_then `qq.ffi.io_events` assume_tac) >>
+           `qq.ffi with io_events := qq.ffi.io_events = qq.ffi`
+             by fs[ffiTheory.ffi_state_component_equality] >>
+           fs[] >>
            NO_TAC) >>
        TRY(first_x_assum(qspecl_then [`st`,`l`] mp_tac) >>
            impl_tac >- simp[] >>
@@ -4344,13 +4363,13 @@ Proof
   rw[st2heap_def,FUN_EQ_THM,EQ_IMP_THM,ffi2heap_def] >> fs[parts_ok_remove_events] >-
     (qexists_tac `x` >> every_case_tac >> fs[FFI_part_NOT_IN_store2heap]) >-
     (qexists_tac `FFI_split` >> simp[]) >-
-    (qexists_tac `FFI_part s u ns (FILTER (ffi_has_index_in ns) st.ffi.io_events)` >> every_case_tac >> fs[] >> rveq >> fs[]) >-
+    (qexists_tac `FFI_part s u sigs (FILTER (ffi_has_index_in (MAP (λx. x.mlname) sigs)) st.ffi.io_events)` >> every_case_tac >> fs[] >> rveq >> fs[]) >-
     (every_case_tac >> fs[FFI_part_NOT_IN_store2heap])
 QED
 
 Theorem parts_ok_swap_events:
   parts_ok st.ffi p /\
-  EVERY (ffi_has_index_in (FLAT (MAP FST (SND p)))) es ==>
+  EVERY (ffi_has_index_in (MAP (λx. x.mlname) (FLAT (MAP FST (SND p))))) es ==>
   parts_ok (st.ffi with io_events := es) p
 Proof
   Cases_on `p` >> rw[parts_ok_def] >> metis_tac[]
@@ -4359,7 +4378,7 @@ QED
 Theorem FFI_part_has_index_in:
   FFI_part s u ns es ∈ st2heap p st'
   ==>
-  EVERY (ffi_has_index_in (FLAT (MAP FST (SND p)))) es
+  EVERY (ffi_has_index_in (MAP (λx. x.mlname) (FLAT (MAP FST (SND p))))) es
 Proof
   Cases_on `p` >>
   rw[st2heap_def,ffi2heap_def,FFI_part_NOT_IN_store2heap] >>
@@ -4372,14 +4391,14 @@ parts_ok st.ffi p /\
 parts_ok (st.ffi with io_events := es) p
 ==>
 st2heap p (st with ffi := st.ffi with io_events := es) =
-IMAGE (\x. case x of FFI_part s u ns l => FFI_part s u ns (FILTER (ffi_has_index_in ns) es)
+IMAGE (\x. case x of FFI_part s u ns l => FFI_part s u ns (FILTER (ffi_has_index_in (MAP (λx. x.mlname) ns)) es)
                    | _ => x) (st2heap p st)
 Proof
   Cases_on `p` >>
   rw[st2heap_def,FUN_EQ_THM,EQ_IMP_THM,ffi2heap_def] >> fs[parts_ok_remove_events] >-
     (qexists_tac `x` >> every_case_tac >> fs[FFI_part_NOT_IN_store2heap]) >-
     (qexists_tac `FFI_split` >> simp[]) >-
-    (qexists_tac `FFI_part s u ns (FILTER (ffi_has_index_in ns) st.ffi.io_events)` >> every_case_tac >> fs[] >> rveq >> fs[]) >-
+    (qexists_tac `FFI_part s u sigs (FILTER (ffi_has_index_in (MAP (λx. x.mlname) sigs)) st.ffi.io_events)` >> every_case_tac >> fs[] >> rveq >> fs[]) >-
     (every_case_tac >> fs[FFI_part_NOT_IN_store2heap])
 QED
 
@@ -4495,7 +4514,7 @@ val list_length_eq2 = Q.prove(
 Theorem MEM_FLAT_MAP_FST_SING:
   MEM (FLAT (MAP FST r),u) r
   /\
-  ALL_DISTINCT(FLAT (MAP FST r))
+  ALL_DISTINCT(FLAT (MAP (MAP f o FST) r))
   /\
   MEM (ns, u') r
   /\
@@ -4546,7 +4565,7 @@ Proof
   PURE_FULL_CASE_TAC >> fs[] >> rveq >>
   fs[parts_ok_def] >>
   conj_asm2_tac >- (fs[] >> rveq >> fs[] >> Cases_on `FLAT (MAP FST r)` >> fs[]) >>
-  metis_tac[MEM_FLAT_MAP_FST_SING]
+  metis_tac[MEM_FLAT_MAP_FST_SING,MAP_FLAT,MAP_MAP_o]
 QED
 
 Theorem IMAGE_purge_parts_no_parts:
@@ -4558,7 +4577,7 @@ Theorem IMAGE_purge_parts_no_parts:
              Mem v7 v8 => x
            | FFI_split => x
            | FFI_part s u ns l => FFI_part s u ns []
-           | FFI_full v13 => x) h = h
+           | FFI_full sig v13 => x) h = h
 Proof
   simp[IN_DEF,FUN_EQ_THM] >> strip_tac >> Cases >> fs[] >>
   rw[EQ_IMP_THM] >> rpt(PURE_FULL_CASE_TAC >> rveq >> fs[]) >>
@@ -4575,7 +4594,7 @@ Theorem IMAGE_purge_parts_no_parts2:
              Mem v7 v8 => x
            | FFI_split => x
            | FFI_part s u ns l => FFI_part s u ns (f ns)
-           | FFI_full v13 => x) h = h
+           | FFI_full sig v13 => x) h = h
 Proof
   simp[IN_DEF,FUN_EQ_THM] >> strip_tac >> Cases >> fs[] >>
   rw[EQ_IMP_THM] >> rpt(PURE_FULL_CASE_TAC >> rveq >> fs[]) >>
