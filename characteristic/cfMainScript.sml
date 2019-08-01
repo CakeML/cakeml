@@ -179,22 +179,22 @@ QED
 Theorem call_main_thm2_ffidiv:
    Decls env1 st1 prog env2 st2 ==>
    lookup_var fname env2 = SOME fv ==>
-  app (proj1, proj2) fv [Conv NONE []] P (POSTf n. λ c b. Q n c b) ==>
+  app (proj1, proj2) fv [Conv NONE []] P (POSTf n. λ c. Q n c) ==>
   SPLIT (st2heap (proj1, proj2) st2) (h1,h2) /\ P h1
   ==>
     ∃st3 n c b.
     semantics_prog st1 env1  (SNOC ^main_call prog)
-                   (Terminate (FFI_outcome(Final_event n c b FFI_diverged)) st3.ffi.io_events) /\
-    (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ Q n c b h3) /\
+                   (Terminate (FFI_outcome(Final_event n c FFI_diverged)) st3.ffi.io_events) /\
+    (?h3 h4. SPLIT3 (st2heap (proj1, proj2) st3) (h3,h2,h4) /\ Q n c h3) /\
     call_FFI_rel^* st1.ffi st3.ffi
 Proof
   rw[]
-  \\ qho_match_abbrev_tac`?st3 n c b. A st3 n c b /\ B st3 n c b /\ C st1 st3`
-  \\ `?st3 st4 n c b.  Decls env1 st1 prog env2 st3
+  \\ qho_match_abbrev_tac`?st3 n c. A st3 n c /\ B st3 n c /\ C st1 st3`
+  \\ `?st3 st4 n c.  Decls env1 st1 prog env2 st3
                        /\ semantics_prog st3 (merge_env env2 env1) [(^main_call)]
-                          (Terminate (FFI_outcome(Final_event n c b FFI_diverged))
+                          (Terminate (FFI_outcome(Final_event n c FFI_diverged))
                                      st4.ffi.io_events)
-                       /\ B st4 n c b /\ C st1 st4`
+                       /\ B st4 n c /\ C st1 st4`
        suffices_by metis_tac[prog_SNOC_semantics_prog]
   \\ fs[]
   \\ asm_exists_tac \\ fs[app_def,app_basic_def]
@@ -204,9 +204,9 @@ Proof
   >- (fs[cond_def])
   >- (fs[cond_def])
   >- (fs[evaluate_to_heap_def]
-      \\ rename1 `Final_event name conf bytes _`
+      \\ rename1 `Final_event name cargs _`
       \\ rename1 `evaluate_ck _ _ _ _ = (st4,_)`
-      \\ MAP_EVERY qexists_tac [`st4`,`name`,`conf`,`bytes`]
+      \\ MAP_EVERY qexists_tac [`st4`,`name`,`cargs`]
       \\ conj_tac
       >- (fs[semanticsTheory.semantics_prog_def,semanticsTheory.evaluate_prog_with_clock_def,
              terminationTheory.evaluate_decs_def]

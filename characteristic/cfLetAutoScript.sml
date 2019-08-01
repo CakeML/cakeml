@@ -224,18 +224,19 @@ Cases_on `parts_ok st.ffi (proj, parts)`
            `EL n (MAP FST parts) = FST (EL n parts)` by fs[EL_MAP] >>
            metis_tac[GSYM MEM_EL]
        ) >>
-       metis_tac[cfTheory.ALL_DISTINCT_FLAT_MEM_IMP]
+       fs[MAP_FLAT,MAP_MAP_o] \\
+       metis_tac[ALL_DISTINCT_FLAT_MAP_FST_IMP]
     ) >>
     (* Simplify the goal *)
     fs[] >>
 
     (* s2 = s1 *)
-    `FLOOKUP (proj st.ffi.ffi_state) p = SOME s1` by metis_tac[] >>
-    `FLOOKUP (proj st.ffi.ffi_state) p = SOME s2` by metis_tac[] >>
+    `FLOOKUP (proj st.ffi.ffi_state) p.mlname = SOME(s1,p)` by metis_tac[] >>
+    `FLOOKUP (proj st.ffi.ffi_state) p.mlname = SOME(s2,p)` by metis_tac[] >>
     fs[] >>
-
     (* u2 = u1 *)
-    IMP_RES_TAC ALL_DISTINCT_FLAT_FST_IMP
+    fs[MAP_FLAT,MAP_MAP_o] \\
+    metis_tac[ALL_DISTINCT_FLAT_MAP_FST_IMP2]
 ) >>
 fs[]);
 
