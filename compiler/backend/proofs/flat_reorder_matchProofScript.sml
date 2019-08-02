@@ -60,7 +60,7 @@ QED
 
 (* -- *)
 
-val s = ``s:'ffi flatSem$state``;
+val s = ``s:('c, 'ffi) flatSem$state``;
 
 (* value transformation *)
 
@@ -112,13 +112,8 @@ val compile_store_v_def = Define `
 
 val compile_state_def = Define `
     compile_state (^s) =
-    <| clock := s.clock;
-       refs := MAP compile_store_v s.refs;
-       ffi := s.ffi;
-       globals := MAP (OPTION_MAP compile_v) s.globals;
-       check_ctor := s.check_ctor;
-       exh_pat := s.exh_pat;
-       c := s.c
+    s with <| refs := MAP compile_store_v s.refs;
+       globals := MAP (OPTION_MAP compile_v) s.globals
     |>`;
 
 Theorem dec_clock_compile_state:
@@ -448,10 +443,10 @@ QED
 (* semantic auxiliaries respect transformation of values *)
 
 Theorem pmatch_compile:
-   (!(s:'ffi state) p err_v acc.
+   (! ^s p err_v acc.
      pmatch (compile_state s) p (compile_v err_v) (compile_env acc) =
      map_match compile_env (pmatch s p err_v acc)) /\
-   (!(s:'ffi state) ps vs acc.
+   (! ^s ps vs acc.
       pmatch_list (compile_state s) ps (MAP compile_v vs) (compile_env acc) =
       map_match compile_env (pmatch_list s ps vs acc))
 Proof
@@ -595,6 +590,51 @@ Proof
   \\ Induct_on `str` \\ fs [compile_v_def,list_to_v_def]
 QED
 
+Theorem HD_compile_sing:
+  [HD (compile [e])] = compile [e]
+Proof
+  CONV_TAC (RAND_CONV (REWR_CONV compile_cons))
+  \\ simp [compile_def]
+QED
+
+Theorem v_to_decs_compile_v:
+  v_to_decs decsv = Some decs'
+  ==> v_to_decs (compile_v decsv) = Some decs'
+Proof
+  cheat
+QED
+
+Theorem v_to_environment_compile_v:
+  v_to_environment envv = Some env'
+  ==> v_to_environment (compile_v envv) = Some env'
+Proof
+  cheat
+QED
+
+Theorem v_to_bytes_compile_v:
+  v_to_bytes v = Some bytes ==>
+  v_to_bytes (compile_v v) = Some bytes
+Proof
+  simp [v_to_bytes_def, some_def]
+  \\ disch_tac
+  \\ qspec_then `v` mp_tac v_to_list_compile
+  \\ full_simp_tac bool_ss []
+  \\ rfs []
+  \\ fs [MAP_MAP_o, o_DEF, listTheory.INJ_MAP_EQ_IFF, INJ_DEF]
+QED
+
+Theorem compile_decs_CONS:
+  compile_decs (d::ds) = compile_decs [d] ++ compile_decs ds
+Proof
+  rw [compile_decs_def] \\ every_case_tac \\ fs []
+QED
+
+Theorem compile_decs_CONS2:
+  compile_decs (d::ds) = HD (compile_decs [d]) :: compile_decs ds
+Proof
+  rw [compile_decs_def] \\ every_case_tac \\ fs []
+QED
+
 (* main results *)
 
 Theorem compile_evaluate:
@@ -619,7 +659,26 @@ Theorem compile_evaluate:
                     (compile_v v)
                     (MAP (\(p,e). (p,HD(compile[e]))) pes)
                     (compile_v err_v) =
-       (compile_state s1, map_result (MAP compile_v) compile_v r1))
+       (compile_state s1, map_result (MAP compile_v) compile_v r1)) /\
+   (! ^s d env t r.
+     evaluate_dec s d = (t, r) /\
+     s.exh_pat /\
+     ~s.check_ctor /\
+     r <> SOME (Rabort Rtype_error)
+     ==>
+     ?r2.
+       evaluate_dec (compile_state s) (HD (compile_decs [d])) =
+         (compile_state t, r2) /\
+       r2 = OPTION_MAP (map_error_result compile_v) r) /\
+   (! ^s ds t r.
+     evaluate_decs s ds = (t, r) /\
+     s.exh_pat /\
+     ~s.check_ctor /\
+     r <> SOME (Rabort Rtype_error)
+     ==>
+     ?r2.
+       evaluate_decs (compile_state s) (compile_decs ds) = (compile_state t, r2) /\
+         r2 = OPTION_MAP (map_error_result compile_v) r)
 Proof
   ho_match_mp_tac evaluate_ind
   \\ rw [compile_def] \\ fs [evaluate_def] \\ rw []
@@ -665,19 +724,45 @@ Proof
     \\ rfs [compile_reverse, MAP_REVERSE, ETA_AX, compile_state_def] >>
     fs [])
   >- (every_case_tac \\ fs [ALOOKUP_compile_env, PULL_EXISTS, compile_state_def])
-  >-
-   (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw []
-    \\ fs [compile_reverse, PULL_EXISTS, GSYM MAP_REVERSE]
-    \\ fs [list_result_map_result, dec_clock_compile_state]
+  >- (
+    fs [pair_case_eq, case_eq_thms] \\ rw []
+    \\ fs [compile_reverse]
+    \\ rveq \\ fs [GSYM MAP_REVERSE]
+    \\ fs [bool_case_eq]
+    \\ fs [pair_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
     >- (
-      first_x_assum drule >>
-      disch_then drule >> simp [] >>
-      qpat_x_assum `(_,_) = _` (assume_tac o GSYM) \\ fs [] >>
-      fs [dec_clock_def] >>
-      imp_res_tac evaluate_state_unchanged >> fs [] >> rw [] >>
-      qspec_then `e` strip_assume_tac compile_sing >> fs [])
+      (* Opapp *)
+      rveq \\ fs []
+      \\ fs [pair_case_eq, case_eq_thms, bool_case_eq]
+      \\ fs [GSYM dec_clock_compile_state]
+      \\ fs [dec_clock_def, HD_compile_sing]
+      \\ imp_res_tac evaluate_state_unchanged
+      \\ fs []
+    )
     >- (
-      simp [compile_state_def, list_result_map_result]))
+      (* Eval *)
+      fs [case_eq_thms, pair_case_eq]
+      \\ fs [do_eval_def, CaseEq "eval_config", case_eq_thms]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs []
+      \\ fs [EVAL ``(compile_state s).eval_mode``]
+      \\ imp_res_tac v_to_environment_compile_v
+      \\ imp_res_tac v_to_decs_compile_v
+      \\ fs [bool_case_eq]
+      \\ fs [pair_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
+      \\ fs [GSYM dec_clock_compile_state]
+      \\ imp_res_tac evaluate_state_unchanged
+      \\ imp_res_tac v_to_bytes_compile_v
+      \\ fs [compile_state_def, dec_clock_def]
+      \\ fs [case_eq_thms, pair_case_eq]
+      \\ rveq \\ fs []
+      \\ fs []
+      (* yuck. eval interacts with all this strangely *)
+      \\ cheat
+    )
+    \\ fs [case_eq_thms, pair_case_eq]
+    \\ simp [compile_state_def, list_result_map_result]
+  )
   >-
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qspec_then `e1` strip_assume_tac compile_sing \\ fs []
@@ -720,77 +805,46 @@ Proof
   >-
    (fs [build_rec_env_merge, MAP_MAP_o, o_DEF, UNCURRY]
     \\ qspec_then `e` strip_assume_tac compile_sing \\ fs [])
-  \\ fs [pmatch_compile_nil]
-  \\ every_case_tac \\ fs [] \\ rfs []
-  \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
-QED
-
-Theorem compile_dec_evaluate:
-   !d env s t r.
-     evaluate_dec s d = (t, r) /\
-     s.exh_pat /\
-     ~s.check_ctor /\
-     r <> SOME (Rabort Rtype_error)
-     ==>
-     ?r2.
-       evaluate_dec (compile_state s) (HD (compile_decs [d])) =
-         (compile_state t, r2) /\
-       r2 = OPTION_MAP (map_error_result compile_v) r
-Proof
-  Cases \\ rw [evaluate_dec_def]
-  \\ fs [evaluate_dec_def, compile_decs_def]
-  \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
-  \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
-  \\ TRY (fs [compile_state_def] >> NO_TAC)
-  \\ qispl_then [`<| v := [] |>`,`s`] mp_tac (CONJUNCT1 compile_evaluate)
-  \\ disch_then drule
-  \\ rw [evaluate_dec_def] >>
-  every_case_tac >>
-  fs [compile_state_def, Unitv_def] >>
-  rw []
-QED
-
-Theorem compile_decs_CONS:
-  compile_decs (d::ds) = compile_decs [d] ++ compile_decs ds
-Proof
-  rw [compile_decs_def] \\ every_case_tac \\ fs []
-QED
-
-Theorem compile_decs_SING:
-  !y. ?x. compile_decs [y] = [x]
-Proof
-  Cases \\ rw [compile_decs_def] \\ fs []
-QED
-
-Theorem compile_decs_evaluate:
-  !ds s t r.
-     evaluate_decs s ds = (t, r) /\
-     s.exh_pat /\
-     ~s.check_ctor /\
-     r <> SOME (Rabort Rtype_error)
-     ==>
-     ?r2.
-       evaluate_decs (compile_state s) (compile_decs ds) = (compile_state t, r2) /\
-         r2 = OPTION_MAP (map_error_result compile_v) r
-Proof
-  Induct >- (rw [evaluate_decs_def, compile_decs_def] \\ rw []) \\ rw[]
-  \\ fs [evaluate_decs_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
-  \\ once_rewrite_tac [compile_decs_CONS]
-  \\ drule compile_dec_evaluate \\ rw [] \\ fs []
-  \\ qspec_then `h` strip_assume_tac compile_decs_SING \\ fs []
   >- (
-    last_x_assum drule \\ rw [evaluate_decs_def] \\ fs [] >>
-    imp_res_tac evaluate_dec_state_unchanged >> fs []
+    fs [pmatch_compile_nil]
+    \\ every_case_tac \\ fs [] \\ rfs []
+    \\ qspec_then `e` strip_assume_tac compile_sing \\ fs []
   )
-  \\ simp [evaluate_decs_def]
-  \\ every_case_tac \\ fs []
-  \\ Cases_on `e` \\ Cases_on `a` \\ fs []
+  >- (
+    fs [pair_case_eq, case_eq_thms, bool_case_eq]
+    \\ rveq \\ fs []
+    \\ simp [compile_decs_def, evaluate_def, HD_compile_sing]
+    \\ imp_res_tac evaluate_state_unchanged
+    \\ rfs [compile_v_def, Unitv_def, compile_state_def]
+  )
+  >- (
+    simp [compile_decs_def, evaluate_def, HD_compile_sing]
+    \\ simp [compile_state_def]
+  )
+  >- (
+    simp [compile_decs_def, evaluate_def, HD_compile_sing]
+    \\ simp [compile_state_def]
+  )
+  >- (
+    simp [compile_decs_def, evaluate_def, HD_compile_sing]
+    \\ simp [compile_state_def]
+  )
+  >- (
+    simp [Once compile_decs_CONS2, evaluate_def]
+    \\ fs [pair_case_eq, case_eq_thms, bool_case_eq]
+    \\ rveq \\ fs []
+    \\ imp_res_tac evaluate_state_unchanged
+    \\ fs []
+  )
 QED
+
+Theorem compile_dec_evaluate = List.nth (CONJUNCTS compile_evaluate, 2)
+Theorem compile_decs_evaluate = List.nth (CONJUNCTS compile_evaluate, 3)
 
 Theorem compile_decs_eval_sim:
    eval_sim
      (ffi:'ffi ffi_state) T F ds1 T F
-     (compile_decs ds1)
+     (compile_decs ds1) ec
      (\p1 p2. p2 = compile_decs p1) F
 Proof
   rw [eval_sim_def]
@@ -802,11 +856,10 @@ Proof
   \\ fs[initial_state_def, compile_state_def]
 QED
 
-val compile_decs_semantics = save_thm ("compile_decs_semantics",
-  MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
-           compile_decs_eval_sim
+Theorem compile_decs_semantics = compile_decs_eval_sim
+  |> MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
   |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]);
+  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO]
 
 (* syntactic results *)
 
