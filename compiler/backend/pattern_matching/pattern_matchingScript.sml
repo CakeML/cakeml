@@ -5,8 +5,6 @@
 open preamble;
 open numTheory listTheory;
 
-val _ = new_theory "pattern_matching";
-
 (*
 Definition of terms
 Every term is a constructor with 0 or more arguments
@@ -29,12 +27,12 @@ Datatype `pat =
 `;
 
 Definition psize_def:
-  (psize Any = (1:num)) /\
-  (psize (Var n) = 1) /\
-  (psize (Cons n t []) = 1) /\
-  (psize (Cons n t (x::xs)) = 1 + (psize x) + psize (Cons n t xs)) /\
-  (psize (Or p1 p2) = 1 + (psize p1) + (psize p2)) /\
-  (psize (As p n) = 1 + (psize p))
+  (psize Any = (2:num)) /\
+  (psize (Var n) = 2) /\
+  (psize (Cons n t []) = 2) /\
+  (psize (Cons n t (x::xs)) = 2 + ((psize x) * psize (Cons n t xs))) /\
+  (psize (Or p1 p2) = 2 + (psize p1) + (psize p2)) /\
+  (psize (As p n) = 2 + (psize p))
 End
 
 (*
@@ -102,6 +100,39 @@ Proof
       fs[patterns_def, msize_def])
 QED;
 
+Theorem msize_inv':
+  !m b. inv_mat (b::m) /\
+          m <> [] ==>
+          (msize (b::m) = msize m)
+Proof
+  rw[] \\
+  imp_res_tac msize_inv \\
+  rpt (first_x_assum (qspec_then `msize (b::m)` assume_tac)) \\
+  fs[]
+QED;
+
+Theorem msize_inv_gt_zero:
+  !m b x. inv_mat (b::m) /\
+          m <> [] /\
+          (msize (b::m) > x) ==>
+          (msize m > x)
+Proof
+  rw[msize_def, inv_mat_def] \\
+  Cases_on `b` \\
+  fs[patterns_def] \\
+  Cases_on `m`
+  >- fs[]
+  >- (fs[msize_def, EVERY_DEF] \\
+      Cases_on `h` \\
+      fs[patterns_def, msize_def])
+QED;
+
+Theorem psize_gt_zero:
+  !p. 0 < (psize p)
+Proof
+  ho_match_mp_tac (theorem "psize_ind") \\ rw[psize_def]
+QED;
+
 (* Semantics of matching *)
 val pmatch_def = tDefine "match_def" `
   (pmatch Any  t = T) /\
@@ -122,8 +153,18 @@ val pmatch_def = tDefine "match_def" `
   >- fs[psize_def]
   >- (rpt strip_tac \\
       fs[MEM]
-      >- fs[psize_def]
-      >- (res_tac \\ fs[psize_def])));
+      >- (fs[psize_def] \\
+          `0 < psize (Cons pcons' v0 pargs) ` by fs[psize_gt_zero] \\
+	  `(psize h) <= ((psize h) * (psize (Cons pcons' v0 pargs)))` by
+	  fs[LE_MULT_CANCEL_LBARE] \\
+	  decide_tac)
+      >- (res_tac \\
+          fs[psize_def] \\
+          `0 < psize h ` by fs[psize_gt_zero] \\
+          `psize (Cons pcons' v0 pargs) <= (psize h) * (psize (Cons pcons' v0 pargs))` by
+          fs[] \\
+	  decide_tac)))
+
 
 Definition pmatch_list_def:
   (pmatch_list [] [] = T) /\
@@ -664,7 +705,7 @@ Proof
   >- fs[msize_def]
 QED;
 
-(* Definition of decision trees *)
+(* definition of decision trees *)
 Datatype `dTree =
     Leaf num
   | Fail
@@ -675,18 +716,30 @@ Datatype `dTree =
 
 (* Swap the first and ith items in a list *)
 Definition get_ith_def:
-  (get_ith (0:num) (t::ts) = t) /\
-  (get_ith n (t::ts) = get_ith (n-1) ts)
+  get_ith n ts = HD (DROP n ts)
 End
 
 Definition replace_ith_def:
+  (replace_ith [] _ _ = []) /\
   (replace_ith (t::ts) (0:num) u = (u::ts)) /\
   (replace_ith (t::ts) n u = t::(replace_ith ts (n-1) u))
 End
 
+Theorem replace_ith_droptake:
+  !l i e. replace_ith l i e =
+          TAKE (LENGTH l) ((TAKE i l) ++ [e] ++ (DROP (SUC i) l))
+Proof
+  ho_match_mp_tac (theorem "replace_ith_ind") \\ rw[]
+  >- fs[replace_ith_def]
+  >- fs[replace_ith_def]
+  >- fs[replace_ith_def, DROP_def]
+QED;
+
 Definition swap_items_def:
+  (swap_items i [] = []) /\
   (swap_items i (t::ts) = (get_ith (i-1) ts)::(replace_ith ts (i-1) t))
 End
+
 
 (* Swap the first and ith columns in a matrix *)
 Definition swap_columns_def:
@@ -722,7 +775,7 @@ End
 (*     occur_term (get_ith occ targs) os) *)
 (* End *)
 
-Definition all_wild_or_bindings_def:
+Definition all_wild_or_vars_def:
   (all_wild_or_vars [] = T) /\
   (all_wild_or_vars (Any::ps) = all_wild_or_vars ps) /\
   (all_wild_or_vars ((Var _)::ps) = all_wild_or_vars ps) /\
@@ -734,6 +787,48 @@ Definition all_wild_or_bindings_def:
                                       (all_wild_or_vars ps)))
 End
 
+Theorem all_wild_vars_dcmp:
+  !p ps. all_wild_or_vars (p::ps) ==>
+         (all_wild_or_vars [p] /\
+          all_wild_or_vars ps)
+Proof
+  Cases_on `p` \\ fs[all_wild_or_vars_def]
+QED;
+
+Theorem all_wild_vars_pmatch_list_aux:
+   (!p t. all_wild_or_vars [p] ==>
+          pmatch p t) /\
+   (!ps ts. all_wild_or_vars ps /\
+            (LENGTH ps) = (LENGTH ts) ==>
+            pmatch_list ps ts)
+Proof
+  ho_match_mp_tac (theorem "pat_induction") \\ rw[]
+  >- fs[pmatch_def]
+  >- fs[pmatch_def]
+  >- fs[all_wild_or_vars_def]
+  >- fs[all_wild_or_vars_def, pmatch_def]
+  >- fs[all_wild_or_vars_def, pmatch_def]
+  >- fs[pmatch_list_def]
+  >- (Cases_on `ts`
+      >- (Cases_on `ps` \\ fs[])
+      >- (fs[all_wild_or_vars_def] \\
+          imp_res_tac all_wild_vars_dcmp \\
+          fs[pmatch_list_def]))
+QED;
+
+Theorem all_wild_vars_pmatch_list:
+  !ps ts. (LENGTH ps) = (LENGTH ts) /\
+         all_wild_or_vars ps ==>
+         pmatch_list ps ts
+Proof
+  Cases_on `ps` \\ Cases_on `ts` \\ rw[]
+  >- fs[pmatch_list_def]
+  >- (rw[pmatch_list_def] \\
+      imp_res_tac all_wild_vars_dcmp \\
+      imp_res_tac all_wild_vars_pmatch_list_aux \\
+      first_assum (qspec_then `h'` mp_tac) \\ fs[])
+QED;
+
 (* add bindings add let expressions to an existing decision tree *)
 Definition add_bindings_def:
   (add_bindings [] d = d) /\
@@ -744,6 +839,18 @@ Definition add_bindings_def:
     add_bindings [p1] (add_bindings [p2] (add_bindings ps d))) /\
   (add_bindings ((As p n)::ps) d = Let n (add_bindings [p] (add_bindings ps d)))
 End
+
+(*
+TODO: when we add a semantic meaning to let bindings, this has to change
+*)
+Theorem eval_add_bindings:
+  !vs bs dt. dt_eval vs (add_bindings bs dt) =
+             dt_eval vs dt
+Proof
+  gen_tac \\
+  ho_match_mp_tac (theorem "add_bindings_ind") \\ rw[] \\
+  fs[add_bindings_def, dt_eval_def]
+QED;
 
 (*
 Column infos
@@ -878,6 +985,10 @@ Definition col_infos_def:
                (get_cons_in p))
 End
 
+Definition cinfo_size_def:
+  cinfo_size (_,cons) = LENGTH cons
+End
+
 (* Tell if the patterns contain all the constructors of a signature
    from a column_infos *)
 Definition is_col_complete_def:
@@ -892,36 +1003,210 @@ Definition add_bindings_from_ids_def:
   (add_bindings_from_ids (id::ids) dt = Let id (add_bindings_from_ids ids dt))
 End
 
-(* Compilation scheme a pattern matrix to a decision tree
-   based on a heuristic h *)
-Define `
-  (compile h [] = Fail) /\
-  (compile h ((Branch [] e)::bs) = Leaf e) /\
-  (compile h ((Branch ps e)::bs) =
-    if all_wild_or_vars ps
-    then (add_bindings ps (Leaf e))
-    else
-      (* we select a column using heuristic h *)
-      let sel_col = (h ((Branch ps e)::bs)) in
-      if sel_col > 0
-      then Swap sel_col (compile h (swap_columns sel_col ((Branch ps e)::bs)))
-      else (let cinfos = col_infos ((Branch ps e)::bs) in
-            if (is_col_complete cinfos)
-            then Fail
-	    else Fail))
-`
+(*
+Computing the size of a pattern matrix by giving a weight to each
+of these parts. The weights are set these way to have the specialization
+of m or the default matrix associated to m strictly smaller than m.
+*)
+Definition plist_size_def:
+  (plist_size [] = 1) /\
+  (plist_size (p::ps) = (psize p) * (plist_size ps))
+End
 
-val compile_defn = Hol_defn "compile_defn" `
-  (compile h [] = Fail) /\
-  (compile h ((Branch [] e)::bs) = Leaf e) /\
-  (compile h ((Branch ps e)::bs) =
+Theorem plist_size_gt_zero:
+  !ps. 0 < plist_size ps
+Proof
+  Induct_on `ps` \\
+  fs[plist_size_def] \\
+  rw[] \\
+  `0 < psize h` by fs[psize_gt_zero] \\
+  fs[LESS_MULT2]
+QED;
+
+Definition pm_size_def:
+  (pm_size [] = 0) /\
+  (pm_size ((Branch ps e)::bs) =
+    (plist_size ps) +
+    (pm_size bs))
+End
+
+(* Most of these theorems are not working with the special
+  case for or-patterns *)
+Theorem pm_size_product_patterns:
+  !p ps e. pm_size [Branch (p::ps) e] = psize p * pm_size [Branch ps e]
+Proof
+  Cases_on `p` \\
+  fs[pm_size_def, psize_def, plist_size_def]
+QED;
+
+Theorem pm_size_cons:
+  !b bs. pm_size (b::bs) = (pm_size [b]) + (pm_size bs)
+Proof
+  Cases_on `b` \\
+  fs[pm_size_def]
+QED;
+
+Theorem pm_size_app:
+  !p1 p2 e. pm_size [Branch (p1 ++ p2) e] = pm_size [Branch p1 e] * pm_size [Branch p2 e]
+Proof
+  Induct_on `p1` \\
+  fs[pm_size_def, plist_size_def]
+QED;
+
+Theorem pm_size_app2:
+  !b1 b2. pm_size (b1++b2) = pm_size b1 + pm_size b2
+Proof
+  Induct_on `b1` \\
+  rw[] \\
+  fs[pm_size_def] \\
+  rewrite_tac [Once pm_size_cons] \\
+  `pm_size (h::b1) = pm_size [h] + pm_size b1` by
+  rewrite_tac [Once pm_size_cons] \\
+  fs[]
+QED;
+
+Theorem plist_size_app:
+  !ps qs. plist_size (ps ++ qs) = (plist_size ps) * (plist_size qs)
+Proof
+  Induct_on `ps` \\
+  fs[plist_size_def]
+QED;
+
+Theorem drop_plist_size_decompose:
+  !t i. i < LENGTH t ==>
+        (psize (HD (DROP i t)) *
+         plist_size (DROP (SUC i) t)) =
+        plist_size (DROP i t)
+Proof
+  Induct_on `t`
+  >- fs[DROP_def]
+  >- (fs[DROP_def] \\
+     Cases_on `i=0` \\ rw[]
+     >- rw[plist_size_def]
+     >- (first_x_assum (qspec_then `i'-1` assume_tac) \\
+         `SUC (i'-1) = i'` by fs[SUB_LEFT_SUC] \\
+         fs[])
+     >- rw[plist_size_def]
+     >- (first_x_assum (qspec_then `i'-1` assume_tac) \\
+         `SUC (i'-1) = i'` by fs[SUB_LEFT_SUC] \\
+         fs[]))
+QED;
+
+Theorem drop_take_plist_size:
+  !i t. (plist_size (TAKE i t) * plist_size (DROP i t)) =
+        plist_size t
+Proof
+  rw[] \\
+  `plist_size t = plist_size ((TAKE i t) ++ (DROP i t))` by fs[] \\
+  fs[plist_size_app]
+QED;
+
+
+Theorem swapi_plist_size:
+  !i ps e. i > 0 /\
+           i < (LENGTH ps) ==>
+           plist_size (swap_items i ps) = plist_size ps
+Proof
+  Cases_on `ps`
+  >- fs[swap_items_def]
+  >- (fs[swap_items_def, get_ith_def, replace_ith_droptake, plist_size_def] \\
+      rw[] \\
+      `LENGTH (TAKE (i-1) t ++ [h] ++ DROP i t) = (LENGTH t)`
+      by fs[LENGTH_APPEND, LENGTH_TAKE_EQ] \\
+      fs[TAKE_LENGTH_ID_rwt] \\
+      fs[plist_size_app, plist_size_def] \\
+      `(psize (HD (DROP (i-1) t)) *
+      plist_size (DROP (SUC (i-1)) t)) *
+      plist_size (TAKE (i-1) t) *
+      psize h = (plist_size t) * psize h` suffices_by metis_tac[MULT_ASSOC, MULT_COMM] \\
+      `i - 1 < LENGTH t` by fs[] \\
+      metis_tac[drop_plist_size_decompose, drop_take_plist_size, MULT_COMM])
+QED;
+
+Theorem swap_pmsize:
+  !i m. inv_mat m /\
+        i > 0 /\
+        i < (msize m) ==>
+        pm_size (swap_columns i m) = pm_size m
+Proof
+  Induct_on `m`
+  >- fs[swap_columns_def, pm_size_def]
+  >- (Cases_on `h` \\
+      fs[swap_columns_def, pm_size_def, swap_items_def] \\
+      rewrite_tac[Once pm_size_cons] \\
+      `pm_size (Branch l n::m) = (pm_size [Branch l n] + pm_size m)`
+      by rewrite_tac [Once pm_size_cons] \\
+      rw[] \\
+      imp_res_tac inv_mat_dcmp \\
+      Cases_on `m = []`
+      >- fs[swap_columns_def, swapi_plist_size, msize_def]
+      >- (imp_res_tac msize_inv' \\
+          fs[msize_def, swapi_plist_size]))
+QED;
+
+Theorem pm_size_default:
+  !m. inv_mat m /\
+      (msize m) > 0 /\
+      m <> [] ==>
+      pm_size (default m) < pm_size m
+Proof
+  ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, psize_def, plist_size_def,
+	    plist_size_gt_zero]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_def]))
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, psize_def, plist_size_def,
+	    plist_size_gt_zero]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_def]))
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, psize_def, plist_size_gt_zero]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_gt_zero]))
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, pm_size_app2, plist_size_def, psize_def,
+            inv_mat_def, msize_def]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_gt_zero, pm_size_app2,
+             plist_size_def, inv_mat_def, msize_def]))
+  >- (Cases_on `rs`
+      >- fs[default_def, pm_size_def, plist_size_def, psize_def, inv_mat_def, msize_def]
+      >- (imp_res_tac inv_mat_as \\
+          `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\
+          res_tac \\
+          fs[default_def, pm_size_def, plist_size_def, psize_def]))
+  >- fs[msize_def]
+QED;
+
+(* Compilation scheme a pattern matrix to a decision tree
+   based on a heuristic h
+*)
+val compile_def = Hol_defn "compile" `
+  (compile h [] useh = Fail) /\
+  (compile h ((Branch [] e)::bs) useh = Leaf e) /\
+  (compile h ((Branch ps e)::bs) useh =
+    if ~(inv_mat ((Branch ps e)::bs)) then ARB else
     if all_wild_or_vars ps
     then (add_bindings ps (Leaf e))
     else
       (* we select a column using heuristic h *)
       let sel_col = (h ((Branch ps e)::bs)) in
-      if sel_col > 0
-      then Swap sel_col (compile h (swap_columns sel_col ((Branch ps e)::bs)))
+      if ((sel_col > 0) /\ (sel_col < (msize ((Branch ps e)::bs))) /\ useh)
+      then Swap sel_col (compile h (swap_columns sel_col ((Branch ps e)::bs)) F)
       else (let cinfos = col_infos ((Branch ps e)::bs) in
             if (is_col_complete cinfos)
             then make_complete h ((Branch ps e)::bs) cinfos
@@ -929,21 +1214,113 @@ val compile_defn = Hol_defn "compile_defn" `
   (make_complete h m (defs,(c,_,a,binds)::[]) =
      (add_bindings_from_ids defs
       (add_bindings_from_ids binds
-       (compile h (spec c a m))))) /\
+       (compile h (spec c a m) T)))) /\
   (make_complete h m (defs,(c,_,a,binds)::cons) =
     If c (add_bindings_from_ids defs
           (add_bindings_from_ids binds
-           (compile h (spec c a m))))
+           (compile h (spec c a m) T)))
          (make_complete h m (defs, cons))) /\
   (make_partial h m (defs,[]) =
     add_bindings_from_ids defs
-      (compile h (default m))) /\
+      (compile h (default m) T)) /\
   (make_partial h m (defs,(c,_,a,binds)::cons) =
     If c (add_bindings_from_ids defs
           (add_bindings_from_ids binds
-           (compile h (spec c a m))))
+           (compile h (spec c a m) T)))
          (make_partial h m (defs, cons)))
 `
 
+Defn.tgoal compile_def;
+
+WF_REL_TAC `(inv_image ($< LEX $<)
+            (\x. case x of INL(_,m,b) => ((pm_size m) + 1, (if b then (1:num) else 0))
+                         | INR y => (case y of INL(_,m,_,i) => (pm_size m, LENGTH i)
+                                             | INR(_,m,_,i) => (pm_size m, LENGTH i))))` \\
+rw[]
+>- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (DISJ2_TAC \\
+    imp_res_tac swap_pmsize)
+>-
+
+
+
+>- cheat
+>- cheat
+>- cheat
+>- cheat
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- cheat
+
+
+
+
+Theorem compile_complete:
+  (!c h m useh v k. (msize m) = (LENGTH v) /\
+                    useh /\
+                    c > (3 * (LENGTH m) * (msize m) + 1) ==>
+                    ((match m v = SOME k) ==>
+                    (dt_eval v (compile c h m useh) = k))) /\
+  (!c h m cinfos v k. (msize m) = (LENGTH v) /\
+                      c > (3 * (LENGTH m) * (msize m)) /\
+                      (is_col_complete cinfos) ==>
+                      ((match m v = SOME k) ==>
+                       (dt_eval v (make_complete c h m cinfos) = k))) /\
+  (!c h m cinfos v k. (msize m) = (LENGTH v) /\
+                      c > (3 * (LENGTH m) * (msize m)) /\
+                      ~(is_col_complete cinfos) ==>
+                      ((match m v = SOME k) ==>
+                       (dt_eval v (make_partial c h m cinfos) = k)))
+Proof
+  ho_match_mp_tac (theorem "compile_ind") \\ rw[]
+  >- fs[match_def]
+  >- (fs[match_def, compile_def, msize_def] \\
+      Cases_on `v` \\
+      fs[pmatch_list_def, dt_eval_def])
+  >- (fs[compile_def] \\
+      Cases_on `v` \\ fs[msize_def] \\
+      Cases_on `all_wild_or_vars (v14::v15)` \\ fs[]
+      >- (fs[match_def] \\
+          `LENGTH (h::t) = LENGTH (v14::v15)` by fs[] \\
+          imp_res_tac all_wild_vars_pmatch_list \\
+          fs[eval_add_bindings, dt_eval_def])
+      >- cheat)
+      (*
+      >- (Cases_on `h (Branch (v12::v13) e::bs) > 0` \\ fs[]
+          >- (fs[swap_columns_length, swap_columns_msize, msize_def,
+		 dt_eval_def]
+              `SUC`*)
+  >- (fs[compile_def] \\
+      (* we must show that add_bindings_from_id doesn't effect evaluation *)
+      fs[eval_add_bindings, dt_eval_def]
+      cheat)
+  >- (fs[compile_def, dt_eval_def] \\
+      (* Cases analysis on head of c *)
+      cheat)
+  (* same for make partial *)
+  >- cheat
+  >- cheat
+  >- (fs[compile_def, dt_eval_def] \\
+      (* Somehow show that this case is not possible, case
+        analysis on on the first column of h ? *)
+      cheat)
+QED;
 
 val _ = export_theory ();
