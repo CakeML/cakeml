@@ -856,6 +856,43 @@ Proof
   EVAL_TAC
 QED
 
+Theorem store_carg_flat_dom_refs_global:
+  store_carg_flat marg w st = SOME st' /\
+  domain (find_refs_globals st) ⊆ domain (reachable: unit spt)  ==>
+   domain (find_refs_globals st') ⊆ domain reachable
+Proof
+  rw [] >> Cases_on `marg` >> Cases_on `w` >> 
+  fs [store_carg_flat_def] >> rveq >>
+  fs [semanticPrimitivesTheory.store_assign_def,
+      semanticPrimitivesTheory.store_v_same_type_def] >> 
+  every_case_tac >> rveq >> fs [] >>
+  metis_tac [find_refs_globals_LUPDATE]
+QED
+   
+Theorem store_cargs_flat_dom_refs_global:
+  !margs args st st' (reachable: unit spt). 
+  store_cargs_flat margs args st = SOME st' /\
+  domain (find_refs_globals st) ⊆ domain reachable  ==>
+    domain (find_refs_globals st') ⊆ domain reachable
+Proof
+  ho_match_mp_tac store_cargs_flat_ind >> 
+  rw [store_cargs_flat_def] >> every_case_tac >>
+  fs [find_refs_globals_def] >>
+  Cases_on `marg` >> Cases_on `w` >> 
+  drule_all store_carg_flat_dom_refs_global >> fs []
+QED
+
+
+Theorem find_sem_prim_res_globals_ret_val_dom:
+   domain (find_sem_prim_res_globals (Rval [ret_val_flat retty retv])) ⊆ domain (reachable: unit spt)
+Proof
+  rw [find_sem_prim_res_globals_def, find_v_globals_def] >>
+  Cases_on `retty` >> fs [ret_val_flat_def] >>
+  rename1 `ret_val_flat (SOME retty)` >> Cases_on `retty` >>  
+  fs [ret_val_flat_def, find_v_globals_def, Boolv_def]
+QED
+
+
 Theorem do_app_SOME_flat_state_rel:
      ∀ reachable state removed_state op l new_state result new_removed_state.
         flat_state_rel reachable state removed_state ∧ op ≠ Opapp ∧
@@ -865,7 +902,7 @@ Theorem do_app_SOME_flat_state_rel:
             result ≠ Rerr (Rabort Rtype_error)
             ⇒ ∃ new_removed_state .
                 flat_state_rel reachable new_state new_removed_state ∧
-                do_app cc removed_state op l =
+                do_app cc removed_state op l  =
                     SOME (new_removed_state, result) ∧
                 domain (find_sem_prim_res_globals (list_result result)) ⊆
                     domain reachable
@@ -908,7 +945,15 @@ Proof
         >- (fs[EL_APPEND2] >>
             `n' - LENGTH removed_state.globals < n` by fs[] >>
             fs[EL_REPLICATE]))
-    >-  metis_tac[find_refs_globals_LUPDATE]
+    >- (fs [do_ffi_flat_def, ffiTheory.call_FFI_def] >> every_case_tac >>
+        fs [] >> rveq >> fs []
+        >- metis_tac [find_sem_prim_res_globals_ret_val_dom, store_cargs_flat_dom_refs_global]
+        >- fs[find_sem_prim_res_globals_def, find_result_globals_def] >>
+      rw [] 
+      >- metis_tac[] 
+      >- (rename1 `store_cargs_flat margs _ _ = _` >>
+          Cases_on `margs` >> fs [store_cargs_flat_def]) >>
+      fs [ret_val_flat_def, find_sem_prim_res_globals_def, find_v_globals_def])
     >-  metis_tac[find_v_globals_v_to_list, find_v_globals_list_to_v_APPEND]
     >- (qsuff_tac
         `domain (find_v_globalsL (LUPDATE v'''''' (Num (ABS i''''''')) vs))
