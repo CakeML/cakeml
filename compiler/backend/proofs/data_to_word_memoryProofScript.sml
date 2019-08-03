@@ -10984,6 +10984,93 @@ Proof
   \\ rw []
 QED
 
+Theorem bind_each_FDOM:
+  ∀n tf ts k i.
+   FDOM (bind_each tf ts k i n) = FDOM tf ∪ { x | ts ≤ x ∧ x < ts + n}
+Proof
+ Induct \\ rw [bind_each_def,Once INSERT_SING_UNION]
+ \\ qmatch_goalsub_abbrev_tac `_ ∪ (_ ∪ s1) = _ ∪ s2`
+ \\ `s2 = {ts}  ∪ s1`
+    suffices_by  metis_tac [UNION_ASSOC,UNION_COMM]
+ \\ ONCE_REWRITE_TAC [GSYM INSERT_SING_UNION]
+ \\ UNABBREV_ALL_TAC \\ rw [INSERT_DEF,FUN_EQ_THM]
+QED
+
+Theorem bind_each_eq_tf_FDOM:
+  ∀k tf ts n i x.
+    (∀t. t ∈ FDOM tf ⇒ t < ts) ∧ x < ts ∧ x ∈ FDOM (bind_each tf ts n i k)
+    ⇒  x ∈ FDOM tf
+Proof
+  rw [bind_each_FDOM] \\  fs []
+QED
+
+Theorem bind_each_eq_lt_FAPPLY:
+  ∀n tf ts k i x.
+   bind_each tf ts k i n ' x < k
+   ⇒ bind_each tf ts k i n ' x = tf ' x
+Proof
+  Induct
+  \\ rw [bind_each_def]
+  \\ Cases_on `x = ts`
+  \\ fs [bind_each_def,FAPPLY_FUPDATE_THM]
+QED
+
+Theorem bind_each_eq_lt_FDOM:
+  ∀n tf ts k i x.
+   x ∈ FDOM (bind_each tf ts k i n)
+   ∧ bind_each tf ts k i n ' x < k
+   ⇒ x ∈ FDOM tf
+Proof
+  Induct \\ rw [bind_each_def,FAPPLY_FUPDATE_THM]
+  \\ first_x_assum ho_match_mp_tac
+  \\ asm_exists_tac
+  \\ rw []
+QED
+
+Theorem bind_each_eq_gt_FAPPLY:
+  ∀n tf ts k i x.
+   i*n + k < bind_each tf ts k i n ' x
+   ⇒ bind_each tf ts k i n ' x = tf ' x
+Proof
+  Induct
+  \\ rw [bind_each_def]
+  \\ Cases_on `x = ts`
+  \\ fs [bind_each_def,FAPPLY_FUPDATE_THM]
+  \\ first_x_assum ho_match_mp_tac
+  \\ rw []
+  \\ `i + (k + i * n) = k + i * SUC n` suffices_by rw []
+  \\ rw [MULT_SUC]
+QED
+
+Theorem bind_each_eq_gt_FDOM:
+  ∀n tf ts k i x.
+   x ∈ FDOM (bind_each tf ts k i n)
+   ∧ i*n + k < bind_each tf ts k i n ' x
+   ⇒ x ∈ FDOM tf
+Proof
+  Induct \\ rw [bind_each_def,FAPPLY_FUPDATE_THM]
+  \\ first_x_assum ho_match_mp_tac
+  \\ asm_exists_tac
+  \\ rw []
+  \\ `i + (k + i * n) = k + i * SUC n` suffices_by rw []
+  \\ rw [MULT_SUC]
+QED
+
+Theorem bind_each_eq_ge_FDOM:
+  ∀n tf ts k i x.
+   x ∈ FDOM (bind_each tf ts k i n)
+   ∧ i*n + k ≤ bind_each tf ts k i n ' x
+   ∧ i ≠ 0
+   ⇒ x ∈ FDOM tf
+Proof
+  Induct \\ rw [bind_each_def,FAPPLY_FUPDATE_THM]
+  \\ first_x_assum ho_match_mp_tac >- fs [MULT_SUC]
+  \\ asm_exists_tac
+  \\ rw []
+  \\ `i + (k + i * n) = k + i * SUC n` suffices_by rw []
+  \\ rw [MULT_SUC]
+QED
+
 Theorem bind_each_fdom_limit:
   ∀k tf ts n i x.
     (∀t. t ∈ FDOM tf ⇒ t < ts) ∧ ts + k < x
@@ -10993,6 +11080,129 @@ Proof
   >- (CCONTR_TAC \\ fs [] \\ first_x_assum drule \\ rw [])
   \\ first_x_assum ho_match_mp_tac
   \\ rw [] \\ RES_TAC \\ rw []
+QED
+
+Theorem bind_each_FUPDATE:
+  ∀n i tf ts1 ts2 k1 k2.
+   ts1 < ts2 ∧ k1 < k2
+   ⇒ bind_each (tf |+ (ts1,k1)) ts2 k2 i n = bind_each tf ts2 k2 i n |+ (ts1,k1)
+Proof
+  Induct \\ rw [bind_each_def]
+  \\ qmatch_goalsub_abbrev_tac `f1 |+ _ |+ _`
+  \\ ho_match_mp_tac FUPDATE_COMMUTES
+  \\ rw []
+QED
+
+Theorem bind_each_MINUS:
+  ∀n tf ts x k1 k2 i.
+   (∀t. t ∈ FDOM tf ⇒ t < ts)
+   ∧ x ∈ { x | ts ≤ x ∧ x < ts + n}
+   ∧ k2 ≤ k1
+   ⇒ bind_each tf ts k1 i n ' x - k2 = bind_each tf ts (k1 - k2) i n ' x
+Proof
+  Induct \\ rw [bind_each_def]
+  \\ Cases_on `x = ts` >- (EVAL_TAC \\ rw [])
+  \\ rw [FAPPLY_FUPDATE_THM]
+  \\ first_x_assum ho_match_mp_tac
+  \\ rw []
+  \\ first_x_assum drule
+  \\ rw []
+QED
+
+Theorem isSomeDataElement_heap_lookup:
+  ∀n a sp b.
+   isSomeDataElement (heap_lookup n (a ++ [Unused sp] ++ b))
+   ⇒ n < heap_length a ∨ el_length (Unused sp) + heap_length a ≤ n
+Proof
+  rw [heap_lookup_APPEND,heap_length_APPEND]
+  \\ fs [heap_lookup_def,NOT_LESS,heap_length_def]
+  \\ every_case_tac \\ fs [isSomeDataElement_def]
+  \\ fs [el_length_def]
+QED
+
+Theorem bind_each_isSomeDataElement:
+  ∀l tf ts x p k conf.
+   l ≠ []
+   ∧ x ∈ { x | ts ≤ x ∧ x < ts + (LENGTH l)}
+   ∧ (∀t. t ∈ FDOM tf ⇒ t < ts)
+   ⇒ isSomeDataElement (heap_lookup ((bind_each tf ts 0 3 (LENGTH l) ' x))
+                       (list_to_BlockReps conf p k l))
+Proof
+  Induct \\ rw []
+  \\ Cases_on `l` >- (EVAL_TAC \\ fs [])
+  \\ rw [bind_each_def]
+  \\ Cases_on `x = ts` >- (EVAL_TAC \\ rw[])
+  \\ first_x_assum (qspecl_then [`tf`,`ts + 1`,`x`,`p`,`k`,`conf`] mp_tac)
+  \\ impl_tac
+  >- (fs [] \\ rw [] \\ rw []
+     \\ ho_match_mp_tac LESS_TRANS \\ qexists_tac `ts` \\ rw [])
+  \\ rw [bind_each_FUPDATE]
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ every_case_tac
+  >- (fs [list_to_BlockReps_def
+        , BlockRep_def
+        , heap_lookup_def
+        , el_length_def]
+     \\ every_case_tac
+     \\ rw [heap_lookup_def,isSomeDataElement_def])
+  \\ rw [list_to_BlockReps_def,heap_lookup_def]
+  >- rw [isSomeDataElement_def,BlockRep_def]
+  >- (fs [el_length_def,BlockRep_def]
+     \\ `x ∉ FDOM tf` by (CCONTR_TAC \\ fs [] \\ first_x_assum drule \\ rw [])
+     \\ `x ∈ FDOM (bind_each tf (ts + 2) 6 3 (LENGTH t))`
+        by rw [bind_each_FDOM]
+     \\ drule bind_each_eq_lt_FDOM
+     \\ impl_tac \\ rw [])
+  \\ fs [el_length_def,BlockRep_def]
+  \\ qspecl_then [`LENGTH t`,`tf`,`ts+2`,`x`,`6`,`3`,`3`] mp_tac bind_each_MINUS
+  \\ impl_tac \\ rw []
+  >- (first_x_assum drule \\ rw [])
+  \\ fs [list_to_BlockReps_def]
+  \\ every_case_tac \\ fs [bind_each_def,BlockRep_def]
+  \\ fs [heap_lookup_def] \\ reverse every_case_tac
+  >- (fs [el_length_def]
+     \\ qmatch_goalsub_abbrev_tac `heap_lookup n1 (list_to_BlockReps _ _ k1 ls)`
+     \\ qmatch_asmsub_abbrev_tac `list_to_BlockReps conf p k2 _`
+     \\ qpat_x_assum `isSomeDataElement _` mp_tac \\ rpt (pop_assum (K all_tac))
+     \\ cheat) (* TODO *)
+  \\ fs [isSomeDataElement_def,el_length_def]
+QED
+
+Theorem bind_each_eq_INJ:
+  ∀n x y tf ts k i.
+  bind_each tf ts k i n ' x = bind_each tf ts k i n ' y
+  ∧ i ≠ 0
+  ∧ x ∈ { x | ts ≤ x ∧ x < ts + n} ∧ x ∉ FDOM tf
+  ∧ y ∈ { x | ts ≤ x ∧ x < ts + n} ∧ y ∉ FDOM tf
+  ⇒ x = y
+Proof
+  Induct \\ rw [bind_each_def]
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ every_case_tac \\ fs []
+  >- (qspecl_then [`n`,`tf`,`ts+1`,`i + k`,`i`,`y`] mp_tac bind_each_eq_lt_FDOM
+     \\ impl_tac \\ rw [] \\ fs [bind_each_FDOM])
+  >- (qspecl_then [`n`,`tf`,`ts+1`,`i + k`,`i`,`x`] mp_tac bind_each_eq_lt_FDOM
+     \\ impl_tac \\ rw [] \\ fs [bind_each_FDOM])
+  \\ first_x_assum ho_match_mp_tac
+  \\ map_every qexists_tac [`tf |+ (ts,k)`,`ts + 1`,`k+i`,`i`]
+  \\ rw [FAPPLY_FUPDATE_THM,bind_each_FUPDATE]
+QED
+
+Theorem timestamps_ok_APPEND:
+  ∀refs s1 s2 ts.
+   timestamps_ok refs (s1 ++ s2) ts
+   ⇒ timestamps_ok refs s1 ts ∧ timestamps_ok refs s2 ts
+Proof
+  rw [timestamps_ok_def,all_ts_append]
+QED
+
+Theorem all_ts_list_to_v_alt_SUBSET:
+  ∀xs ts (refs: num |-> v ref) t.
+   {x | ts <= x ∧ x < ts + LENGTH xs} ⊆ all_ts refs [list_to_v_alt ts t xs]
+Proof
+  Induct \\ rw [list_to_v_alt_def,all_ts_cons]
+  \\ ho_match_mp_tac SUBSET_INSERT_RIGHT
+  \\ cheat (* TODO *)
 QED
 
 Theorem cons_multi_thm:
