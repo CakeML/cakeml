@@ -11120,6 +11120,21 @@ Proof
   \\ fs [el_length_def]
 QED
 
+Theorem isSomeDataElement_heap_lookup_eq:
+  ∀ls n p k1 k2 conf.
+   isSomeDataElement (heap_lookup n
+     ((list_to_BlockReps conf p k2 ls) : (α word_loc, tag # β list) heap_element list))
+   ⇒ isSomeDataElement (heap_lookup n
+     ((list_to_BlockReps conf p k1 ls) : (α word_loc, tag # β list) heap_element list))
+Proof
+  Induct \\ rw [list_to_BlockReps_def]
+  \\ every_case_tac \\  fs [heap_lookup_def]
+  \\ every_case_tac
+  \\ fs [heap_lookup_def,isSomeDataElement_def,BlockRep_def,el_length_def]
+  \\ first_x_assum ho_match_mp_tac
+  \\ asm_exists_tac \\ rw []
+QED
+
 Theorem bind_each_isSomeDataElement:
   ∀l tf ts x p k conf.
    l ≠ []
@@ -11163,8 +11178,8 @@ Proof
   >- (fs [el_length_def]
      \\ qmatch_goalsub_abbrev_tac `heap_lookup n1 (list_to_BlockReps _ _ k1 ls)`
      \\ qmatch_asmsub_abbrev_tac `list_to_BlockReps conf p k2 _`
-     \\ qpat_x_assum `isSomeDataElement _` mp_tac \\ rpt (pop_assum (K all_tac))
-     \\ cheat) (* TODO *)
+     \\ ho_match_mp_tac isSomeDataElement_heap_lookup_eq
+     \\ asm_exists_tac \\ rw [])
   \\ fs [isSomeDataElement_def,el_length_def]
 QED
 
@@ -11201,8 +11216,12 @@ Theorem all_ts_list_to_v_alt_SUBSET:
    {x | ts <= x ∧ x < ts + LENGTH xs} ⊆ all_ts refs [list_to_v_alt ts t xs]
 Proof
   Induct \\ rw [list_to_v_alt_def,all_ts_cons]
-  \\ ho_match_mp_tac SUBSET_INSERT_RIGHT
-  \\ cheat (* TODO *)
+  \\ fs [SUBSET_DEF]
+  \\ Cases_on `h` \\ rw [all_ts_cons_no_block]
+  \\ Cases_on `x = ts` \\ rw []
+  \\ rw [all_ts_cons]
+  \\ Cases_on `x = n0` \\ rw []
+  \\ rw [all_ts_append]
 QED
 
 Theorem cons_multi_thm:
