@@ -11355,21 +11355,127 @@ Proof
     \\ simp [SUBSET_DEF, isSomeDataElement_def] \\ rw [] \\ fs [])
   \\ fs []
   \\ conj_tac
-  >- cheat (* TODO *)
+  >- (qpat_x_assum `INJ _ (FDOM tf) _` assume_tac
+     \\ qpat_x_assum `heap_length _ <= sp` assume_tac
+     \\ qmatch_goalsub_abbrev_tac `INJ _ _ a0`
+     \\ drule_then (qspecl_then [`FDOM tf`,`a0`] mp_tac) INJ_SUBSET
+     \\ impl_tac
+     >- (rw [Abbr `a0`]
+        \\ rw [SUBSET_DEF]
+        \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND]
+        \\ every_case_tac \\ rw [] \\ fs []
+        \\ fs [heap_lookup_def,isSomeDataElement_def]
+        \\ map_every qexists_tac [`ys`,`l`,`d`]
+        \\ qmatch_goalsub_abbrev_tac `heap_lookup x0 hb`
+        \\ qmatch_asmsub_abbrev_tac `heap_lookup x1 hb`
+        \\ `x0 = x1` suffices_by fs []
+        \\ UNABBREV_ALL_TAC \\ fs [])
+     \\ rw [Abbr `a0`]
+     \\ pop_assum mp_tac
+     \\ ONCE_REWRITE_TAC [GSYM APPEND_ASSOC]
+     \\ ONCE_REWRITE_TAC [GSYM APPEND_ASSOC]
+     \\ qmatch_goalsub_abbrev_tac `(ha ++ (Allocd ++ hb1))`
+     \\ strip_tac
+     \\ `∀t. t ∈ FDOM tf ⇒ t < ts`
+          by (fs [timestamps_ok_def] \\ rw []
+             \\ first_x_assum ho_match_mp_tac
+             \\ fs [SUBSET_DEF])
+     \\ ntac 21 (last_x_assum (K all_tac)) (* make proofs faster *)
+     \\ (fs [INJ_DEF] \\ rw []
+     >- (Cases_on `x' < ts`
+        >- (drule bind_each_eq_tf
+           \\ disch_then drule \\ rw []
+           \\ first_x_assum ho_match_mp_tac
+           \\ ho_match_mp_tac bind_each_eq_tf_FDOM
+           \\ metis_tac [])
+        \\ qmatch_goalsub_abbrev_tac `isSomeDataElement (heap_lookup tf1 _)`
+        \\ `heap_length Allocd = 3 * LENGTH ys1`
+           by rw [Abbr`Allocd`, list_to_BlockReps_heap_length]
+        \\ Cases_on `tf1 < heap_length ha`
+        >- (fs [Abbr `tf1`] \\ drule bind_each_eq_lt_FAPPLY \\ rw []
+           \\ first_x_assum ho_match_mp_tac \\ ho_match_mp_tac bind_each_eq_lt_FDOM
+           \\ asm_exists_tac \\ rw [])
+        \\ fs [NOT_LESS]
+        \\ Cases_on `heap_length ha +  heap_length Allocd < tf1`
+        >- (fs [Abbr `tf1`] \\ rfs [] \\ drule bind_each_eq_gt_FAPPLY \\ rw []
+           \\ first_x_assum ho_match_mp_tac \\ ho_match_mp_tac bind_each_eq_gt_FDOM
+           \\ asm_exists_tac \\ rw [])
+        \\ fs [NOT_LESS]
+        \\ `x' ∉ FDOM tf` by (CCONTR_TAC \\ fs [] \\ first_x_assum drule \\ rw [])
+        \\ fs [heap_lookup_APPEND,heap_length_APPEND]
+        \\ every_case_tac \\ fs []
+        \\ rw []
+        \\ fs [heap_length_def,el_length_def]
+        >- (rw[Abbr`tf1`]
+           \\ drule_then (qspecl_then [ `LENGTH ys1`,`x'`
+                                      , `SUM (MAP el_length ha)`
+                                      , `SUM (MAP el_length ha)`
+                                      , `3`] mp_tac) bind_each_MINUS
+           \\ impl_tac >- fs [bind_each_FDOM]
+           \\ rw[Abbr`Allocd`]
+           \\ ho_match_mp_tac bind_each_isSomeDataElement
+           \\ rw [] \\ fs [bind_each_FDOM])
+        \\ fs[NOT_LESS,Abbr`tf1`]
+        \\ drule bind_each_eq_ge_FDOM
+        \\ rw [])
+        \\ rpt (qpat_x_assum `_ ∈ FDOM _`
+                        (fn asm => assume_tac (SIMP_RULE std_ss [bind_each_FDOM] asm)
+                                    \\ mp_tac asm))
+        \\ rpt (strip_tac)
+        \\ fs []
+        >- (RES_TAC \\ first_x_assum ho_match_mp_tac
+           \\ IMP_RES_TAC bind_each_eq_tf
+           \\ fs [])
+        >- (first_assum drule \\ strip_tac
+           \\ drule bind_each_eq_tf \\ disch_then drule
+           \\ strip_tac \\ fs []
+           \\ RES_TAC \\ fs []
+           \\ drule isSomeDataElement_heap_lookup \\ strip_tac
+           \\ `x' ∉ FDOM tf` by (CCONTR_TAC \\ fs [] \\ first_x_assum drule \\ rw [])
+           \\ qpat_x_assum `y ∈ FDOM (bind_each _ _ _ _ _)` (K all_tac)
+           >- (qpat_x_assum `bind_each _ _ _ _ _ ' x' = _` (assume_tac o GSYM)
+              \\ fs [] \\ drule bind_each_eq_lt_FDOM \\ rw [])
+           \\ TRY (`sp1 = 0 /\ sp = heap_length Allocd` by fs []) \\ fs []
+           \\ drule bind_each_eq_ge_FDOM
+           \\ rw [] \\ fs [el_length_def]
+           \\ ho_match_mp_tac LESS_EQ_TRANS
+           \\ qexists_tac `heap_length Allocd - 1 + 1 + heap_length ha`
+           \\ rw [] \\ rw [Abbr`Allocd`,list_to_BlockReps_heap_length])
+        >- (first_assum drule \\ strip_tac
+           \\ drule bind_each_eq_tf \\ disch_then drule
+           \\ strip_tac \\ fs []
+           \\ RES_TAC \\ fs []
+           \\ drule isSomeDataElement_heap_lookup \\ strip_tac
+           \\ `y ∉ FDOM tf` by (CCONTR_TAC \\ fs [] \\ first_x_assum drule \\ rw [])
+           \\ qpat_x_assum `x' ∈ FDOM (bind_each _ _ _ _ _)` (K all_tac)
+           >- (fs [] \\ drule bind_each_eq_lt_FDOM \\ rw [])
+           \\ TRY (`sp1 = 0 /\ sp = heap_length Allocd` by fs []) \\ fs []
+           \\ drule bind_each_eq_ge_FDOM
+           \\ rw [] \\ fs [el_length_def]
+           \\ ho_match_mp_tac LESS_EQ_TRANS
+           \\ qexists_tac `heap_length Allocd - 1 + 1 + heap_length ha`
+           \\ rw [] \\ rw [Abbr`Allocd`,list_to_BlockReps_heap_length])
+        \\ ho_match_mp_tac bind_each_eq_INJ
+        \\ asm_exists_tac \\ rw [] \\ CCONTR_TAC
+        \\ fs [] \\ first_x_assum drule \\ rw []))
   \\ conj_tac
-  >- cheat (* TODO *)
-  (*  (first_x_assum (mp_then Any ho_match_mp_tac SUBSET_TRANS) *)
-  (*   \\ ONCE_REWRITE_TAC [all_ts_head] *)
-  (*   \\ qmatch_goalsub_abbrev_tac `t0 ∪ _ ⊆ v0 ∪ _` *)
-  (*   \\ rw [UNION_SUBSET,all_ts_append] *)
-  (*   \\ ho_match_mp_tac SUBSET_TRANS \\ qexists_tac `v0` *)
-  (*   \\ `timestamps_ok refs (t::xs) ts` *)
-  (*       by (qpat_x_assum `timestamps_ok _ _ _` mp_tac *)
-  (*          \\ ho_match_mp_tac timestamps_ok_rearrange *)
-  (*          \\ rw [] \\ metis_tac []) *)
-  (*   \\ rw [Abbr `v0`] \\ drule all_ts_list_to_v_alt *)
-  (*   \\ disch_then (mp_then (Pos (el 2)) ho_match_mp_tac SUBSET_TRANS) *)
-  (*   \\ rw [Once all_ts_head]) *)
+  >- (rw [bind_each_FDOM]
+     >-(ho_match_mp_tac SUBSET_TRANS
+       \\ qexists_tac `all_ts refs (t::(xs++stack))` \\ rw []
+       \\ qpat_x_assum `timestamps_ok _ _ _` mp_tac
+       \\ ONCE_REWRITE_TAC [APPEND |> CONJ_LIST 2 |> GSYM o el 2]
+       \\ disch_then (mp_then Any assume_tac timestamps_ok_APPEND)
+       \\ rw [all_ts_append] \\ qabbrev_tac `s1 = t::xs`
+       \\ ONCE_REWRITE_TAC [all_ts_head] \\ rw [Abbr`s1`]
+       \\ ho_match_mp_tac SUBSET_TRANS
+       \\ qexists_tac `all_ts refs [list_to_v_alt ts t xs]`
+       \\ rw [] \\ ho_match_mp_tac all_ts_list_to_v_alt \\ rw [])
+     \\ ho_match_mp_tac SUBSET_TRANS
+     \\ qexists_tac `all_ts refs [list_to_v_alt ts t xs]`
+     \\ qmatch_goalsub_abbrev_tac `all_ts refs s1`
+     \\ ONCE_REWRITE_TAC [all_ts_head] \\ rw [Abbr`s1`]
+     \\ qpat_x_assum `LENGTH xs = _` (assume_tac o GSYM)
+     \\ rw [all_ts_list_to_v_alt_SUBSET])
   \\ reverse conj_tac
   >-
    (rpt strip_tac
