@@ -3845,4 +3845,108 @@ Proof
   simp[]
 QED;
 
+(* nonzero restricted code labels *)
+Theorem nonzero_get_labels_MAP_prog_to_section_SUBSET_code_labels:
+ ∀p. EVERY sec_labels_ok (MAP prog_to_section p) ∧
+    stack_good_handler_labels p
+    ⇒
+    restrict_nonzero (get_labels (MAP prog_to_section p)) ⊆
+    get_code_labels (MAP prog_to_section p)
+Proof
+  rw[]>>
+  drule get_labels_MAP_prog_to_section_SUBSET_code_labels_lemma >>
+  strip_tac>>
+  fs[stack_good_handler_labels_def]>>
+  drule restrict_nonzero_SUBSET_left>>
+  strip_tac>>
+  drule restrict_nonzero_right_union>>
+  qmatch_goalsub_abbrev_tac`a ⊆ b ∪ c`>>
+  qsuff_tac` c ⊆ b`
+  >-
+    (simp[SUBSET_DEF]>>
+    metis_tac[])
+  >>
+    unabbrev_all_tac>>
+    cheat
+    (* metis_tac[MAP_prog_to_section_preserves_handler_labels,SUBSET_UNION,SUBSET_TRANS] *)
+QED;
+
+Theorem stack_names_stack_good_handler_labels:
+  ∀prog f. stack_good_handler_labels prog ⇒
+  stack_good_handler_labels (stack_names$compile f prog)
+Proof
+  cheat
+QED;
+
+Theorem stack_remove_stack_good_handler_labels:
+  ∀prog.
+  stack_good_handler_labels prog ⇒
+  stack_good_handler_labels (stack_remove$compile jump off ggc mh sp loc prog)
+Proof
+  cheat
+QED;
+
+Theorem stack_remove_stack_good_handler_labels_incr:
+  ∀prog.
+  stack_good_handler_labels prog ⇒
+  stack_good_handler_labels (MAP (prog_comp jump offset sp) prog)
+Proof
+  cheat
+QED;
+
+Theorem stack_alloc_stack_good_handler_labels:
+  ∀prog c.
+  stack_good_handler_labels prog ⇒
+  stack_good_handler_labels (stack_alloc$compile c prog)
+Proof
+  cheat
+QED;
+
+Theorem stack_alloc_stack_good_handler_labels_incr:
+  ∀prog.
+  stack_good_handler_labels prog ⇒
+  stack_good_handler_labels (MAP prog_comp prog)
+Proof
+  fs[stack_good_handler_labels_def]>>rw[]>>
+  fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_allocTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
+  simp[stack_get_handler_labels_comp]>>
+  fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
+  first_x_assum match_mp_tac>>
+  qexists_tac`y`>>simp[]>>
+  drule (MATCH_MP restrict_nonzero_mono (get_code_labels_comp |> SPEC_ALL) |> SIMP_RULE std_ss [SUBSET_DEF])>>
+  simp[restrict_nonzero_def]>>
+  Cases_on`x`>>simp[]>>
+  metis_tac[]
+QED;
+
+Theorem stack_to_lab_stack_good_handler_labels:
+  compile stack_conf data_conf max_heap sp offset prog = prog' ∧
+  stack_good_handler_labels prog ∧
+  EVERY sec_labels_ok  prog' ⇒
+  restrict_nonzero (get_labels prog') ⊆ get_code_labels prog'
+Proof
+  rw[stack_to_labTheory.compile_def]>>
+  match_mp_tac nonzero_get_labels_MAP_prog_to_section_SUBSET_code_labels >>
+  simp[]>>
+  match_mp_tac stack_names_stack_good_handler_labels>>
+  match_mp_tac stack_remove_stack_good_handler_labels>>
+  match_mp_tac stack_alloc_stack_good_handler_labels>>
+  fs[]
+QED;
+
+Theorem stack_to_lab_stack_good_handler_labels_incr:
+  compile_no_stubs f jump offset sp prog = prog' ∧
+  stack_good_handler_labels prog ∧
+  EVERY sec_labels_ok prog' ⇒
+  restrict_nonzero (get_labels prog') ⊆ get_code_labels prog'
+Proof
+  rw[compile_no_stubs_def]>>
+  match_mp_tac nonzero_get_labels_MAP_prog_to_section_SUBSET_code_labels >>
+  simp[]>>
+  match_mp_tac stack_names_stack_good_handler_labels>>
+  match_mp_tac stack_remove_stack_good_handler_labels_incr>>
+  match_mp_tac stack_alloc_stack_good_handler_labels_incr>>
+  simp[]
+QED;
+
 val _ = export_theory();

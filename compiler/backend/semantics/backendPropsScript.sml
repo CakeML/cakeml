@@ -318,5 +318,51 @@ Theorem oracle_monotonic_state = oracle_monotonic_state_with_inv
 Theorem oracle_monotonic_state_init = oracle_monotonic_state_with_inv_init
   |> Q.SPEC `\x. T` |> SIMP_RULE bool_ss []
 
+val restrict_zero_def = Define`
+  restrict_zero (labels : num # num -> bool) =
+    {l | l ∈ labels ∧ SND l = 0}`
+
+val restrict_nonzero_def = Define`
+  restrict_nonzero (labels : num # num -> bool) =
+    {l | l ∈ labels ∧ SND l ≠ 0}`
+
+Theorem restrict_nonzero_SUBSET:
+  restrict_nonzero l ⊆ l
+Proof
+  rw[restrict_nonzero_def,SUBSET_DEF]
+QED;
+
+Theorem restrict_nonzero_SUBSET_left:
+  s ⊆ t ⇒
+  restrict_nonzero s ⊆ t
+Proof
+  metis_tac[restrict_nonzero_SUBSET,SUBSET_TRANS]
+QED;
+
+Theorem restrict_nonzero_right_union :
+  restrict_nonzero s ⊆ a ∪ b ⇒
+  restrict_nonzero s ⊆ a ∪ restrict_nonzero b
+Proof
+  rw[restrict_nonzero_def,SUBSET_DEF]
+QED;
+
+Theorem restrict_nonzero_mono:
+  s ⊆ t ⇒
+  restrict_nonzero s ⊆ restrict_nonzero t
+Proof
+ rw[restrict_nonzero_def,SUBSET_DEF]
+QED;
+
+Theorem restrict_nonzero_BIGUNION[simp]:
+  restrict_nonzero(BIGUNION ss) = BIGUNION (IMAGE restrict_nonzero ss)
+Proof
+  rw[restrict_nonzero_def,EXTENSION]>>
+  rw[EQ_IMP_THM]
+  >-
+    (qexists_tac`{x | x ∈ s ∧ SND x ≠ 0}`>>
+    simp[]>>
+    qexists_tac`s`>>simp[])>>
+  metis_tac[]
+QED;
 
 val _ = export_theory();
