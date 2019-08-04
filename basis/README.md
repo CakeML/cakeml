@@ -17,6 +17,21 @@ library.
 [CommandLineProofScript.sml](CommandLineProofScript.sml):
 Proof about the command-line module of the CakeML standard basis library.
 
+[DoubleFFIScript.sml](DoubleFFIScript.sml):
+Logical model of the FFI calls for functions to-/fromString in
+the Double module.
+
+[DoubleProgScript.sml](DoubleProgScript.sml):
+Module for the built-in double floating-point type.
+Defines basic arithmetic operations like +,-,*,/, and FMA,
+logical operations <, <=, >, >=, and =
+and to-/fromString functions for parsing and pretty-printing constants
+
+[DoubleProofScript.sml](DoubleProofScript.sml):
+Proofs that the to-/fromString functions in the Double
+module correctly produce a string representation from a double,
+and vice versa assuming that the FFI is implemented correctly.
+
 [IntProgScript.sml](IntProgScript.sml):
 Module about the built-in integer type. Note that CakeML uses
 arbitrary precision integers (the mathematical intergers).

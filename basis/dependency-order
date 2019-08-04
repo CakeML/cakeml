@@ -23,6 +23,7 @@ Word8Array
 Array
 Map
 CommandLine
+Double
 TextIO
 PrettyPrinter
 basis
