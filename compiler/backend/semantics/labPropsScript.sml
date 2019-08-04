@@ -60,6 +60,16 @@ val sec_get_code_labels_def = Define`
 val get_code_labels_def = Define`
   get_code_labels code = BIGUNION (IMAGE sec_get_code_labels (set code))`;
 
+val restrict_zero_def = Define`
+  restrict_zero (labels : num # num -> bool) =
+    {l | l ∈ labels ∧ SND l = 0}`
+val _ = export_rewrites["restrict_zero_def"];
+
+val restrict_nonzero_def = Define`
+  restrict_nonzero (labels : num # num -> bool) =
+    {l | l ∈ labels ∧ SND l ≠ 0}`
+val _ = export_rewrites["restrict_nonzero_def"];
+
 Theorem get_code_labels_nil[simp]:
    get_code_labels [] = {}
 Proof
