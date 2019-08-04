@@ -203,3 +203,32 @@ void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
   }
   #endif
 }
+
+typedef union {
+  double d;
+  char bytes[8];
+} double_bytes;
+
+// FFI calls for floating-point parsing
+void ffidouble_fromString (unsigned char *c, long clen, unsigned char *a, long alen) {
+  double_bytes d;
+  sscanf(c, "%lf",&d.d);
+  assert (8 == alen);
+  for (int i = 0; i < 8; i++){
+    a[i] = d.bytes[i];
+  }
+}
+
+void ffidouble_toString (unsigned char *c, long clen, unsigned char *a, long alen) {
+  double_bytes d;
+  assert (256 == alen);
+  for (int i = 0; i < 8; i++){
+    d.bytes[i] = a[i];
+  }
+  //snprintf always terminates with a 0 byte if space was sufficient
+  int bytes_written = snprintf(&a[0], 255, "%#.12f", d.d);
+  // snprintf returns number of bytes it would have written if the buffer was
+  // large enough -> check that it did not write more than the buffer size - 1
+  // for the 0 byte
+  assert (bytes_written <= 255);
+}
