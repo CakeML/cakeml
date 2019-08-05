@@ -1288,13 +1288,14 @@ QED
 Theorem compile_lab_LENGTH:
   compile_lab c secs = SOME (bytes, c') ==>
   c'.pos = LENGTH bytes + c.pos
-
 Proof
   simp [lab_to_targetTheory.compile_lab_def, UNCURRY]
   \\ every_case_tac \\ rw [] \\ simp []
-
-  \\ simp [lab_to_targetTheory.prog_to_bytes_MAP, rich_listTheory.LENGTH_FLAT]
-  \\ simp [MAP_MAP_o, o_DEF, rich_listTheory.LENGTH_FLAT]
+  \\ irule lab_to_targetProofTheory.LENGTH_prog_to_bytes
+  \\ drule lab_to_targetProofTheory.remove_labels_thm
+  \\ reverse impl_tac >- metis_tac []
+  (* need to prove every precondition of remove_labels_thm all over again,
+     it's not going to happen. *)
   \\ cheat
 QED
 
@@ -1411,9 +1412,28 @@ Proof
   \\ simp [SUBSET_DEF]
 QED
 
+(* one plan for disjointness is to prove theorems like this
+
+Theorem monotonic_labels_stack_to_lab:
+
+  oracle_monotonic ??? (<)
+    ???
+    (cake_orac c' src (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+        (λps. (ps.stack_prog,ps.cur_bm)))
+ ==>
+  oracle_monotonic (IMAGE FST ∘ get_code_labels ∘ SND) (<)
+    domain c'.lab_conf.labels
+    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+        (λps. ps.lab_prog))
+
+Proof
+
+*)
+
 Theorem monotonic_DISJOINT_labels_lab:
   compile c prog = SOME (b, bm, c') /\
-  oracle_monotonic (IMAGE FST ∘ get_code_labels ∘ SND) (<) (domain c'.lab_conf.labels)
+  oracle_monotonic (IMAGE FST ∘ get_code_labels ∘ SND) (<)
+    domain c'.lab_conf.labels
     (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
                 (λps. ps.lab_prog))
   ==>
@@ -1444,75 +1464,79 @@ Proof
   \\ asm_exists_tac \\ simp []
 QED
 
-val orac_names_defined_def = Define `
-  orac_names_defined f g init orac = (!i nm. nm ∈ f (orac i) ==>
-    nm ∈ g init \/ (?j. (j : num) <= i /\ nm ∈ g (orac j)))`;
-
-
-Theorem orac_names_defined_subset:
-  (f' p' ⊆ g' p' ∪ g p) /\
-  (!i. f' (orac' i) ⊆ g' (orac' i) ∪ g (orac i) ∪ g p) /\
-  g p ⊆ g' p' /\ (!i. g (orac i) ⊆ g' (orac' i)) ==>
-  orac_names_defined f g p orac ==>
-  orac_names_defined f' g' p' orac'
-Proof
-  rw [orac_names_defined_def, SUBSET_DEF]
-  \\ metis_tac [LESS_EQ_REFL]
-QED
-
-Theorem stack_to_lab_names_defined:
-
+Theorem lab_labels_ok_oracle:
   compile c prog = SOME (b, bm, c') /\
-  stack_to_lab$compile stack_conf data_conf max_heap sp offset p = p' /\
-  MEM InitGlobals_location (MAP FST p) /\
-  stackProps$stack_good_code_labels p {} /\
-  EVERY sec_labels_ok p' /\
-  orac_names_defined
-    (BIGUNION ∘ IMAGE stackProps$get_code_labels ∘ set ∘ MAP SND)
-    (IMAGE (λn. (n,0)) ∘ set ∘ MAP FST) p
-    (FST ∘ SND ∘ cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-        (λps. (ps.stack_prog,ps.cur_bm)))
-  ==> orac_names_defined get_labels get_code_labels p'
-    (SND ∘ cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-        (λps. ps.lab_prog))
-
+  cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (λps. ps.lab_prog) i = (cfg,code) ==>
+  stack_to_labProof$labels_ok code
 Proof
-
-  rw []
-  \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac orac_names_defined_subset)
-  \\ rpt conj_tac
-  >- (
-    drule (stack_to_labProofTheory.stack_to_lab_stack_good_code_labels
-        |> GEN_ALL |> SIMP_RULE bool_ss [])
-    \\ disch_then (drule_then drule)
-    \\ simp []
-    \\ disch_tac
-    \\ drule_then irule SUBSET_TRANS
-    \\ simp []
-  )
-  >- (
-    rw [cake_orac_def, config_tuple2_def, compile_inc_progs_def]
-    \\ rpt (pairarg_tac \\ fs [])
-    \\ rveq \\ fs []
-    \\ simp_tac bool_ss [GSYM UNION_ASSOC, GSYM IMAGE_UNION]
-    \\ irule stack_to_labProofTheory.stack_to_lab_stack_good_code_labels_incr
-    \\ drule_then (fn t => fs [t]) cake_orac_config_eqs
-    \\ cheat (*  not sure how to prove or assume sec_labels_ok,
-        stub labels are in initial program, or good_code_labels *)
-  )
-  >- (
-    (* simple one, MAP FST p is preserved in get_code_labels, or else
-       the whole thing is phrased wrong. *)
-    cheat
-  )
-  >- (
-    rw [cake_orac_def, config_tuple2_def, compile_inc_progs_def]
-    \\ rpt (pairarg_tac \\ fs [])
-    \\ rveq \\ fs []
-
-    \\ cheat (* probably requires unfolding compile_no_stubs_def *)
-  )
-
+  simp [cake_orac_def, compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw [] \\ rveq \\ fs []
+  \\ simp[compile_no_stubs_def, good_code_def]
+  \\ irule prog_to_section_labels_ok
+  \\ drule (Q.SPEC `i` (Q.GEN `n` cake_orac_stack_ALL_DISTINCT))
+  \\ simp[MAP_MAP_o, o_DEF]
+  \\ simp [cake_orac_def, compile_inc_progs_def, Q.ISPEC `FST` ETA_THM]
+  \\ rw []
+  \\ simp[stack_namesTheory.compile_def, MAP_MAP_o, EVERY_MAP]
+  \\ simp[LAMBDA_PROD]
+  \\ simp[stack_allocTheory.prog_comp_def]
+  \\ simp[stack_removeTheory.prog_comp_def]
+  \\ simp[stack_namesTheory.prog_comp_def]
+  \\ simp[Once EVERY_MEM, FORALL_PROD]
+  \\ qx_genl_tac[`l1`,`l2`] \\ strip_tac
+  \\ simp[GSYM stack_namesProofTheory.stack_names_lab_pres]
+  \\ simp[GSYM stack_removeProofTheory.stack_remove_lab_pres]
+  \\ qspecl_then[`l1`,`next_lab l2 1`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
+  \\ simp[UNCURRY]
+  \\ reverse impl_tac >- rw []
+  \\ drule compile_word_to_stack_lab_pres
+  \\ CONV_TAC(PATH_CONV"lrr"(SIMP_CONV(srw_ss())[Once EVERY_MEM]))
+  \\ simp[FORALL_PROD]
+  \\ disch_then irule \\ simp[]
+  \\ fs [pure_co_def, PAIR_MAP_EQ_EQ]
+  \\ rveq \\ fs []
+  \\ qmatch_goalsub_abbrev_tac`EVERY _ fcs_pp`
+  \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
+  \\ rfs []
+  \\ drule compile_to_word_conventions2
+  \\ rw []
+  \\ qhdtm_x_assum`EVERY`mp_tac
+  \\ simp[Once EVERY_MEM] \\ strip_tac
+  \\ simp[Once EVERY_MEM]
+  \\ ntac 2 strip_tac
+  \\ first_x_assum drule
+  \\ pairarg_tac \\ fs[]
+  \\ strip_tac
+  \\ qhdtm_x_assum`LIST_REL`mp_tac
+  \\ simp[EVERY2_MAP,word_simpProofTheory.labels_rel_def]
+  \\ simp[LIST_REL_EL_EQN]
+  \\ strip_tac
+  \\ qpat_x_assum`MEM _ fcs_pp`mp_tac
+  \\ simp[MEM_EL]
+  \\ disch_then(qx_choose_then`j`strip_assume_tac)
+  \\ first_x_assum(qspec_then`j`mp_tac)
+  \\ simp[] \\ strip_tac
+  \\ qpat_x_assum`_ = EL j pp`(assume_tac o SYM) \\ fs[]
+  \\ fs[Abbr`fcs_pp`] \\ rfs[EL_MAP]
+  \\ qmatch_asmsub_abbrev_tac`compile_part c4_data_conf pp4`
+  \\ PairCases_on`pp4`
+  \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
+  \\ fs[data_to_wordTheory.compile_part_def]
+  \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
+  \\ simp[]
+  \\ pairarg_tac \\ fs[]
+  \\ simp[EVERY_MEM]
+  \\ rw[]
+  \\ imp_res_tac SUBSET_IMP
+  \\ pairarg_tac \\ fs[]
+  \\ qpat_x_assum`MAP FST pp = _`mp_tac
+  \\ simp[LIST_EQ_REWRITE, EL_MAP]
+  \\ disch_then(qspec_then`j`mp_tac)
+  \\ simp[data_to_wordTheory.compile_part_def]
+  \\ first_x_assum drule
+  \\ rw []
 QED
 
 Theorem good_code_lab_oracle:
@@ -1542,69 +1566,9 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ppg`
   \\ `stack_to_labProof$labels_ok (MAP prog_to_section ppg)`
   by (
-    irule prog_to_section_labels_ok
-    \\ drule (Q.SPEC `i` (Q.GEN `n` cake_orac_stack_ALL_DISTINCT))
-    \\ simp[Abbr`ppg`,MAP_MAP_o, o_DEF]
-    \\ simp [cake_orac_def, compile_inc_progs_def, Q.ISPEC `FST` ETA_THM]
-    \\ rw []
-    \\ simp[stack_namesTheory.compile_def, MAP_MAP_o, EVERY_MAP]
-    \\ simp[LAMBDA_PROD]
-    \\ simp[stack_allocTheory.prog_comp_def]
-    \\ simp[stack_removeTheory.prog_comp_def]
-    \\ simp[stack_namesTheory.prog_comp_def]
-    \\ simp[Once EVERY_MEM, FORALL_PROD]
-    \\ qx_genl_tac[`l1`,`l2`] \\ strip_tac
-    \\ simp[GSYM stack_namesProofTheory.stack_names_lab_pres]
-    \\ simp[GSYM stack_removeProofTheory.stack_remove_lab_pres]
-    \\ qspecl_then[`l1`,`next_lab l2 1`,`l2`]mp_tac stack_allocProofTheory.stack_alloc_lab_pres
-    \\ simp[UNCURRY]
-    \\ reverse impl_tac >- rw []
-    \\ drule compile_word_to_stack_lab_pres
-    \\ CONV_TAC(PATH_CONV"lrr"(SIMP_CONV(srw_ss())[Once EVERY_MEM]))
-    \\ simp[FORALL_PROD]
-    \\ disch_then irule \\ simp[]
-    \\ fs [pure_co_def, PAIR_MAP_EQ_EQ]
-    \\ rveq \\ fs []
-    \\ qmatch_goalsub_abbrev_tac`EVERY _ fcs_pp`
-    \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
-    \\ rfs []
-    \\ drule compile_to_word_conventions2
-    \\ rw []
-    \\ qhdtm_x_assum`EVERY`mp_tac
-    \\ simp[Once EVERY_MEM] \\ strip_tac
-    \\ simp[Once EVERY_MEM]
-    \\ ntac 2 strip_tac
-    \\ first_x_assum drule
-    \\ pairarg_tac \\ fs[]
-    \\ strip_tac
-    \\ qhdtm_x_assum`LIST_REL`mp_tac
-    \\ simp[EVERY2_MAP,word_simpProofTheory.labels_rel_def]
-    \\ simp[LIST_REL_EL_EQN]
-    \\ strip_tac
-    \\ qpat_x_assum`MEM _ fcs_pp`mp_tac
-    \\ simp[MEM_EL]
-    \\ disch_then(qx_choose_then`j`strip_assume_tac)
-    \\ first_x_assum(qspec_then`j`mp_tac)
-    \\ simp[] \\ strip_tac
-    \\ qpat_x_assum`_ = EL j pp`(assume_tac o SYM) \\ fs[]
-    \\ fs[Abbr`fcs_pp`] \\ rfs[EL_MAP]
-    \\ qmatch_asmsub_abbrev_tac`compile_part c4_data_conf pp4`
-    \\ PairCases_on`pp4`
-    \\ pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def])
-    \\ fs[data_to_wordTheory.compile_part_def]
-    \\ qspecl_then[`c4_data_conf`,`pp40`,`1`,`pp42`]mp_tac data_to_wordProofTheory.data_to_word_lab_pres_lem
-    \\ simp[]
-    \\ pairarg_tac \\ fs[]
-    \\ simp[EVERY_MEM]
-    \\ rw[]
-    \\ imp_res_tac SUBSET_IMP
-    \\ pairarg_tac \\ fs[]
-    \\ qpat_x_assum`MAP FST pp = _`mp_tac
-    \\ simp[LIST_EQ_REWRITE, EL_MAP]
-    \\ disch_then(qspec_then`j`mp_tac)
-    \\ simp[data_to_wordTheory.compile_part_def]
-    \\ first_x_assum drule
-    \\ rw [])
+    drule_then match_mp_tac (Q.GEN `cfg` lab_labels_ok_oracle)
+    \\ simp [cake_orac_def, compile_inc_progs_def, compile_no_stubs_def]
+  )
   \\ drule labels_ok_imp
   \\ simp[]
   \\ strip_tac
@@ -1674,17 +1638,9 @@ Proof
       \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
     \\ simp[EVERY_MEM, FORALL_PROD] \\ fs[]
     \\ disch_then drule
-    \\ simp[] )
-  (* this is where we start to hit missing things. it's all about labels, via
-     get_code_labels and config.lab_conf.labels. The latter can be shown to be
-     a union of get_code_labels at every step ( accum_lab_conf_labels ).
-     So it's down to get_code_labels. One of the below goals is expected to be
-     show via
-     stack_to_labProofTheory.get_labels_MAP_prog_to_section_SUBSET_code_labels
-     however that requires stackProps$stack_good_code_labels, which seems to
-     require that the "raise" stub is present, which isn't true in the
-     incremental case. we also want to show these labels are monotonic so that
-     they're disjoint, but there appear to be no relevant lemmas. *)
+    \\ simp[]
+  )
+
   \\ conj_tac >- (
     drule monotonic_DISJOINT_labels_lab
     \\ reverse impl_tac >- (
@@ -1703,46 +1659,23 @@ Proof
     \\ cheat
   )>>
 
-  (* now apply stack_to_lab_names_defined - in principle .. *)
+  (* FIXME: the below works BUT the theorem
+     stack_to_lab_stack_good_handler_labels_incr
+     makes no mention of the prior labels, i.e. it seems to
+     enforce that the code is self-contained and doesn't call to
+     code from prior compilations or stubs. seems unlikely. *)
 
+  drule ( word_to_stack_good_handler_labels_incr
+    |> REWRITE_RULE [AND_IMP_INTRO, Once CONJ_COMM] |> GEN_ALL)
+  \\ impl_tac >- simp [word_good_handlers_word_to_word_incr,
+    data_to_word_good_handlers_incr]
+  \\ disch_tac
+  \\ drule_then drule (stack_to_lab_stack_good_handler_labels_incr
+    |> REWRITE_RULE [Once CONJ_COMM] |> GEN_ALL)
+  \\ simp [GSYM PULL_EXISTS]
+  \\ reverse impl_tac >- simp [SUBSET_DEF]
+  \\ simp [compile_no_stubs_def, Abbr `ppg`] \\ metis_tac []
 
-  (*
-    labs_domain is probably correct but seems too precise here
-    we should only ever need the all the code table entries (n1,0)
-
-    elabs is the thing that must be chained up to where it gets generated at
-    closLang
-    There will probably need to be an extra proof saying that whatever labels
-    got emitted in closLang is carried through to the code
-  *)
-  qmatch_goalsub_abbrev_tac` _ ∪ ld`>>
-  qabbrev_tac `elabs = set data_to_wordProof$stubs_fst ∪ {stack_err_lab; gc_stub_location; raise_stub_location} ∪ STUFF`>>
-  `stack_err_lab ∈ elabs ∧ gc_stub_location ∈ elabs ∧ raise_stub_location ∈ elabs` by fs[Abbr`elabs`]>>
-  `set data_to_wordProof$stubs_fst ⊆ elabs` by
-    (fs[Abbr`elabs`]>>
-    metis_tac[SUBSET_UNION,UNION_ASSOC,UNION_COMM])>>
-  `IMAGE (λn. (n,0)) elabs ⊆ ld` by cheat>>
-  qpat_abbrev_tac`lppg = MAP _ ppg`>>
-  fs[Abbr`ppg`,GSYM stack_to_labProofTheory.compile_no_stubs_def] >>
-  qsuff_tac`get_labels lppg ⊆ get_code_labels lppg ∪ IMAGE (λn. (n,0)) elabs`
-  >-
-    (strip_tac>>match_mp_tac SUBSET_TRANS>>
-    asm_exists_tac>>simp[]>>
-    metis_tac[SUBSET_UNION,SUBSET_TRANS])
-  >>
-  match_mp_tac (GEN_ALL stack_to_labProofTheory.stack_to_lab_stack_good_code_labels_incr)>>
-  simp[]>>
-  pop_assum mp_tac >> REWRITE_TAC[markerTheory.Abbrev_def]>>
-  disch_then (assume_tac o SYM)>>
-  asm_exists_tac>> simp[]>>
-  drule (GEN_ALL word_to_stackProofTheory.word_to_stack_good_code_labels_incr)>>
-  disch_then drule>>
-  disch_then match_mp_tac>>
-  match_mp_tac word_get_code_labels_word_to_word_incr>>
-  match_mp_tac data_to_word_good_code_labels_incr>>
-  simp[]>>
-  match_mp_tac bvi_to_dataProofTheory.compile_prog_good_code_labels>>
-  cheat
 QED
 
 Theorem oracle_stack_good_code:

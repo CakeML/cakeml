@@ -3940,7 +3940,7 @@ Theorem stack_remove_stack_good_handler_labels:
 Proof
   rw[]>>
   simp[stack_removeTheory.compile_def]>>
-  match_mp_tac stack_good_handler_labels_append>>rw[]>>
+  match_mp_tac stack_good_handler_labels_append>>rw[]
   >-
     (simp[stack_good_handler_labels_def]>>
     simp[stack_removeTheory.init_stubs_def,get_code_labels_def,stack_removeTheory.halt_inst_def,restrict_nonzero_union]>>

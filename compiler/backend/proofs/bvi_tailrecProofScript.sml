@@ -2408,9 +2408,9 @@ QED
 Theorem compile_prog_good_code_labels:
    ∀n c n2 c2.
    bvi_tailrec$compile_prog n c = (n2,c2) ∧
-   BIGUNION (set (MAP (get_code_labels o SND o SND) c)) ⊆ all ∧ set (MAP FST p) ⊆ all ∧
+   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c)) ⊆ all ∧
    { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
-   BIGUNION (set (MAP (get_code_labels o SND o SND) c2)) ⊆ all
+   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c2)) ⊆ all
 Proof
   recInduct bvi_tailrecTheory.compile_prog_ind
   \\ simp[bvi_tailrecTheory.compile_prog_def]
