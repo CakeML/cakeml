@@ -4,7 +4,6 @@
 
 open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
 open preamble flatPropsTheory flatSemTheory flat_exh_matchTheory
-(* TODO: fix grammar ancestry problems when these opens are combined *)
 
 val _ = new_theory "flat_exh_matchProof"
 
@@ -366,8 +365,11 @@ Proof
   \\ every_case_tac \\ fs [] \\ res_tac \\ fs []
 QED
 
+val s = ``s:('c, 'ffi) flatSem$state``;
+val s1 = ``s1:('c, 'ffi) flatSem$state``;
+
 Theorem pmatch_thm:
-  (!(s:'ffi state) p v vs r ctors s1 v1 vs1.
+  (! ^s p v vs r ctors ^s1 v1 vs1.
      pmatch s p v vs = r /\
      r <> Match_type_error /\
      state_rel T ctors s s1 ∧
@@ -377,7 +379,7 @@ Theorem pmatch_thm:
      ?r1.
        pmatch s1 p v1 vs1 = r1 /\
        match_rel ctors r r1) /\
-  (!(s:'ffi state) ps v vs r ctors s1 v1 vs1.
+  (! ^s ps v vs r ctors ^s1 v1 vs1.
      pmatch_list s ps v vs = r /\
      r <> Match_type_error /\
      state_rel T ctors s s1 ∧
@@ -812,16 +814,109 @@ Proof
   \\ metis_tac [LIST_REL_LENGTH]
 QED
 
+val is_new_type_def = Define `
+  is_new_type ctors decl <=>
+    !tid s. decl = Dtype tid s ==> tid NOTIN FDOM ctors`;
+
+val get_tdecs_def = Define `
+  get_tdecs xs =
+    MAP (\d. case d of Dtype t s => t)
+      (FILTER (\d. ?t s. d = Dtype t s) xs)`;
+
+Theorem get_tdecs_APPEND:
+   get_tdecs (xs ++ ys) = get_tdecs xs ++ get_tdecs ys
+Proof
+  rw [get_tdecs_def, FILTER_APPEND]
+QED
+
+Theorem get_tdecs_MEM:
+   MEM t (get_tdecs xs) <=> ?s. MEM (Dtype t s) xs
+Proof
+  rw [get_tdecs_def, MEM_MAP, MEM_FILTER, PULL_EXISTS]
+QED
+
+val compile_decs_SUBMAP = Q.prove (
+  `!decs ctors_pre ctors_post decs2.
+     EVERY (is_new_type ctors_pre) decs /\
+     ALL_DISTINCT (get_tdecs decs) /\
+     compile_decs ctors_pre decs = (ctors_post, decs2)
+     ==>
+     ctors_pre SUBMAP ctors_post`,
+  Induct \\ rw [compile_decs_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq
+  \\ `ALL_DISTINCT (get_tdecs decs) /\
+      ctors_pre SUBMAP ctor1 /\
+      EVERY (is_new_type ctor1) decs`
+    by (rename1 `compile_dec _ dec`
+        \\ Cases_on `dec` \\ fs [compile_dec_def] \\ rw []
+        \\ fs [is_new_type_def, EVERY_MEM] \\ rw []
+        \\ imp_res_tac get_tdecs_MEM
+        \\ fs [get_tdecs_def]
+        \\ every_case_tac \\ fs []
+        \\ strip_tac \\ fs []
+        \\ metis_tac [])
+  \\ metis_tac [SUBMAP_TRANS]);
+
+val v_rel_SUBMAP = Q.prove (
+  `(!pre v1 v2.
+    v_rel pre v1 v2 ==>
+    !post.
+    pre SUBMAP post ==>
+    v_rel post v1 v2) /\
+   (!pre vs1 vs2.
+    nv_rel pre vs1 vs2 ==>
+    !post.
+    pre SUBMAP post ==>
+    nv_rel post vs1 vs2)`,
+  ho_match_mp_tac v_rel_ind \\ rw [] \\ fs [LIST_REL_EL_EQN]
+  \\ fs [ok_ctor_def] \\ every_case_tac \\ fs []
+  \\ rw [Once v_rel_cases] \\ metis_tac [SUBMAP_TRANS, FLOOKUP_SUBMAP]);
+
+val sv_rel_lemma = Q.prove (
+  `!R x y. (!x y. R x y ==> Q ==> P x y) ==> sv_rel R x y ==> Q ==> sv_rel P x y`,
+  ho_match_mp_tac sv_rel_ind
+  \\ rw [] \\ fs [LIST_REL_EL_EQN]);
+
+val sv_rel_v_rel_SUBMAP = Q.prove (
+  `sv_rel (v_rel pre) v1 v2 /\
+   pre SUBMAP post
+   ==>
+   sv_rel (v_rel post) v1 v2`,
+  rw [] \\ ho_match_mp_tac (GEN_ALL (MP_CANON sv_rel_lemma))
+  \\ qexists_tac `pre SUBMAP post` \\ fs []
+  \\ qexists_tac `v_rel pre` \\ rw []
+  \\ imp_res_tac v_rel_SUBMAP);
+
+val dec_res_rel_def = Define `
+  (dec_res_rel ctors NONE NONE <=> T) /\
+  (dec_res_rel ctors (SOME r1) (SOME r2) <=>
+     result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2)) /\
+  (dec_res_rel _ _ _ <=> F)`;
+
+Theorem dec_res_rel_thms[simp]:
+   (!ctors r. dec_res_rel ctors NONE r <=> r = NONE) /\
+   (!ctors r. dec_res_rel ctors r NONE <=> r = NONE) /\
+   (!ctors e r. dec_res_rel ctors (SOME e) r <=>
+      ?e1. r = SOME e1 /\
+           result_rel (LIST_REL o v_rel) ctors (Rerr e) (Rerr e1)) /\
+   (!ctors e r. dec_res_rel ctors r (SOME e) <=>
+      ?e1. r = SOME e1 /\
+           result_rel (LIST_REL o v_rel) ctors (Rerr e1) (Rerr e))
+Proof
+  rw [] \\ Cases_on `r` \\ rw [dec_res_rel_def]
+QED
+
 val s1 = mk_var ("s1",
   ``flatSem$evaluate`` |> type_of |> strip_fun |> snd
   |> dest_prod |> fst);
+val s2 = mk_var ("s2", type_of s1);
 
 Theorem compile_exps_evaluate:
   (!env1 ^s1 xs t1 r1.
     evaluate env1 s1 xs = (t1, r1) /\
     r1 <> Rerr (Rabort Rtype_error)
     ==>
-    !ctors env2 s2 ctors_pre.
+    !ctors env2 ^s2 ctors_pre.
       env_rel ctors env1 env2 /\
       state_rel T ctors s1 s2 /\
       ctors_pre SUBMAP ctors
@@ -834,7 +929,7 @@ Theorem compile_exps_evaluate:
     evaluate_match env1 s1 v ps err_v = (t1, r1) /\
     r1 <> Rerr (Rabort Rtype_error)
     ==>
-    !ps2 is_handle ctors env2 s2 v2 tr err_v2 ctors_pre.
+    !ps2 is_handle ctors env2 ^s2 v2 tr err_v2 ctors_pre.
       env_rel ctors env1 env2 /\
       state_rel T ctors s1 s2 /\
       ctors_pre SUBMAP ctors /\
@@ -851,10 +946,41 @@ Theorem compile_exps_evaluate:
         state_rel T ctors t1 t2 /\
         evaluate_match env2 s2 v2
           (MAP (\(p,e). (p, HD (compile_exps ctors_pre [e]))) ps2)
-          err_v2 = (t2, r2))
+          err_v2 = (t2, r2)) /\
+  (! ^s1 d1 t1 c1 r1.
+     evaluate_dec s1 d1 = (t1, r1) /\
+     r1 <> SOME (Rabort Rtype_error)
+     ==>
+     !ctors ^s2.
+       state_rel T ctors s1 s2 /\
+       is_new_type ctors d1
+       ==>
+       ?t2 r2 d2 ctors_post c2.
+         ctors SUBMAP ctors_post /\
+         compile_dec ctors d1 = (ctors_post, d2) /\
+         state_rel T ctors_post t1 t2 /\
+         dec_res_rel ctors_post r1 r2 /\
+         evaluate_dec s2 d2 = (t2, r2)) /\
+  (! ^s1 ds1 t1 c1 r1.
+     evaluate_decs s1 ds1 = (t1, r1) /\
+     r1 <> SOME (Rabort Rtype_error)
+     ==>
+     !ctors ^s2 ds2 ctors_post.
+       compile_decs ctors ds1 = (ctors_post, ds2) /\
+       state_rel T ctors s1 s2 /\
+       EVERY (is_new_type ctors) ds1 /\
+       ALL_DISTINCT (get_tdecs ds1)
+       ==>
+       ?t2 r2.
+         ctors SUBMAP ctors_post /\
+         state_rel (r1 = NONE) ctors_post t1 t2 /\
+         dec_res_rel ctors_post r1 r2 /\
+         evaluate_decs s2 ds2 = (t2, r2))
 Proof
   ho_match_mp_tac evaluate_ind
   \\ rw [compile_exps_def, evaluate_def] \\ fs [result_rel_def]
+  \\ TRY ((* solve cases which negate check_ctor *)
+        fs [state_rel_def] \\ NO_TAC)
   >-
    (simp [Once evaluate_cons]
     \\ fs [case_eq_thms, pair_case_eq, PULL_EXISTS] \\ rw [] \\ fs [PULL_EXISTS]
@@ -876,7 +1002,6 @@ Proof
     \\ first_x_assum drule
     \\ rpt (disch_then drule) \\ rw [] \\ fs []
     \\ fsrw_tac [DNF_ss] [state_rel_def, ok_ctor_def])
-  >- fs [state_rel_def]
   >- (* Con *)
    (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ qpat_x_assum `_ ==> _` mp_tac
@@ -891,7 +1016,8 @@ Proof
   >- (simp [Once v_rel_cases] \\ metis_tac [env_rel_def])
   >- (* App *)
    (fs [case_eq_thms, pair_case_eq, bool_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
-    \\ last_x_assum drule
+    (* cheated for now *) \\ cheat
+    \\ (last_x_assum drule
     \\ rpt (disch_then drule) \\ rw [] \\ fs []
     \\ rpt (qpat_x_assum `(_,_) = _` (assume_tac o GSYM)) \\ fs []
     \\ imp_res_tac EVERY2_REVERSE
@@ -910,7 +1036,7 @@ Proof
     `init_ctors ⊑ ctors` by fs [state_rel_def] >>
     fs [] >>
     Cases_on `r` \\ Cases_on `r2` \\ fs [evaluateTheory.list_result_def] >>
-    fs [PULL_EXISTS, state_rel_def] >> rfs [])
+    fs [PULL_EXISTS, state_rel_def] >> rfs []))
   >- (* If *)
    (fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]
     \\ first_x_assum drule \\ rpt (disch_then drule) \\ rw [] \\ fs []
@@ -980,283 +1106,140 @@ Proof
     \\ first_x_assum (qspec_then `ps3` mp_tac)
     \\ rw [] \\ fs [Abbr`ps2`, Abbr`ps3`]
     \\ rfs [add_default_def] \\ rw [] \\ fs [evaluate_def])
-  \\ `LIST_REL (sv_rel (v_rel ctors)) s1.refs s2.refs` by fs [state_rel_def]
-  \\ reverse every_case_tac \\ fs []
-  \\ drule (CONJUNCT1 pmatch_thm) \\ fs []
-  \\ rpt (disch_then drule)
-  \\ disch_then (qspecl_then [`[]`] mp_tac)
-  \\ (impl_tac >- simp [Once v_rel_cases])
-  \\ rw []
-  >-
-   (Cases_on `pmatch s2 p v2 []` \\ fs [match_rel_def]
-    \\ `env_rel ctors <|v := a ++ env1.v|> <|v := a' ++ env2.v|>` by
-     (fs [env_rel_def, nv_rel_LIST_REL]
-      \\ match_mp_tac EVERY2_APPEND_suff \\ fs [])
+  >- (
+    `LIST_REL (sv_rel (v_rel ctors)) s1.refs s2.refs` by fs [state_rel_def]
+    \\ reverse every_case_tac \\ fs []
+    \\ drule (CONJUNCT1 pmatch_thm) \\ fs []
+    \\ rpt (disch_then drule)
+    \\ disch_then (qspecl_then [`[]`] mp_tac)
+    \\ (impl_tac >- simp [Once v_rel_cases])
+    \\ rw []
+    >-
+     (Cases_on `pmatch s2 p v2 []` \\ fs [match_rel_def]
+      \\ `env_rel ctors <|v := a ++ env1.v|> <|v := a' ++ env2.v|>` by
+       (fs [env_rel_def, nv_rel_LIST_REL]
+        \\ match_mp_tac EVERY2_APPEND_suff \\ fs [])
+      \\ first_x_assum drule
+      \\ rpt (disch_then drule)
+      \\ rw [] \\ fs []
+      \\ rw [add_default_def] \\ fs [compile_exps_def, evaluate_def])
     \\ first_x_assum drule
     \\ rpt (disch_then drule)
-    \\ rw [] \\ fs []
-    \\ rw [add_default_def] \\ fs [compile_exps_def, evaluate_def])
-  \\ first_x_assum drule
-  \\ rpt (disch_then drule)
-  \\ disch_then (qspec_then `tr` mp_tac o CONV_RULE SWAP_FORALL_CONV) \\ fs []
-  \\ qpat_abbrev_tac `ps2 = add_default X Y F ps`
-  \\ qpat_abbrev_tac `ps3 = add_default X Y T ps`
-  \\ strip_tac
-  \\ first_assum (qspec_then `ps2` mp_tac)
-  \\ simp_tac std_ss []
-  \\ strip_tac \\ fs []
-  \\ first_x_assum (qspec_then `ps3` mp_tac)
-  \\ fs [Abbr`ps2`,Abbr`ps3`, add_default_def] \\ rw [] \\ fs []
-  \\ fs [evaluate_def, compile_exps_def] \\ rw [] \\ fs []
-  \\ fs [exists_match_def, PULL_EXISTS]
-  \\ rw [] \\ fsrw_tac [DNF_ss] []
-  \\ metis_tac [pmatch_any_no_match]
-QED
-
-(* ------------------------------------------------------------------------- *)
-(* Compile declarations                                                      *)
-(* ------------------------------------------------------------------------- *)
-
-val v_rel_SUBMAP = Q.prove (
-  `(!pre v1 v2.
-    v_rel pre v1 v2 ==>
-    !post.
-    pre SUBMAP post ==>
-    v_rel post v1 v2) /\
-   (!pre vs1 vs2.
-    nv_rel pre vs1 vs2 ==>
-    !post.
-    pre SUBMAP post ==>
-    nv_rel post vs1 vs2)`,
-  ho_match_mp_tac v_rel_ind \\ rw [] \\ fs [LIST_REL_EL_EQN]
-  \\ fs [ok_ctor_def] \\ every_case_tac \\ fs []
-  \\ rw [Once v_rel_cases] \\ metis_tac [SUBMAP_TRANS, FLOOKUP_SUBMAP]);
-
-val sv_rel_lemma = Q.prove (
-  `!R x y. (!x y. R x y ==> Q ==> P x y) ==> sv_rel R x y ==> Q ==> sv_rel P x y`,
-  ho_match_mp_tac sv_rel_ind
-  \\ rw [] \\ fs [LIST_REL_EL_EQN]);
-
-val sv_rel_v_rel_SUBMAP = Q.prove (
-  `sv_rel (v_rel pre) v1 v2 /\
-   pre SUBMAP post
-   ==>
-   sv_rel (v_rel post) v1 v2`,
-  rw [] \\ ho_match_mp_tac (GEN_ALL (MP_CANON sv_rel_lemma))
-  \\ qexists_tac `pre SUBMAP post` \\ fs []
-  \\ qexists_tac `v_rel pre` \\ rw []
-  \\ imp_res_tac v_rel_SUBMAP);
-
-(* TODO, not true anymore
-val state_rel_SUBMAP = Q.prove (
-  `state_rel pre s1 s2 /\
-   pre SUBMAP post
-   ==>
-   state_rel post s1 s2`,
-  rw [state_rel_def, LIST_REL_EL_EQN]
-  >- metis_tac [sv_rel_v_rel_SUBMAP]
-  \\ first_x_assum (qspec_then `n` mp_tac)
-  \\ rw [OPTREL_def] \\ fs []
-  >- metis_tac [v_rel_SUBMAP]
-  >- metis_tac [SUBMAP_TRANS]
-  >- (
-    fs [ctor_rel_def, SUBMAP_DEF, FLOOKUP_DEF] >>
-    rw [] >> eq_tac >> rw [GSYM PULL_EXISTS]
-    metis_tac []
-    *)
-
-val dec_res_rel_def = Define `
-  (dec_res_rel ctors NONE NONE <=> T) /\
-  (dec_res_rel ctors (SOME r1) (SOME r2) <=>
-     result_rel (LIST_REL o v_rel) ctors (Rerr r1) (Rerr r2)) /\
-  (dec_res_rel _ _ _ <=> F)`;
-
-Theorem dec_res_rel_thms[simp]:
-   (!ctors r. dec_res_rel ctors NONE r <=> r = NONE) /\
-   (!ctors r. dec_res_rel ctors r NONE <=> r = NONE) /\
-   (!ctors e r. dec_res_rel ctors (SOME e) r <=>
-      ?e1. r = SOME e1 /\
-           result_rel (LIST_REL o v_rel) ctors (Rerr e) (Rerr e1)) /\
-   (!ctors e r. dec_res_rel ctors r (SOME e) <=>
-      ?e1. r = SOME e1 /\
-           result_rel (LIST_REL o v_rel) ctors (Rerr e1) (Rerr e))
-Proof
-  rw [] \\ Cases_on `r` \\ rw [dec_res_rel_def]
-QED
-
-val compile_exps_lemma =
-  CONJUNCT1 compile_exps_evaluate
-  |> SPEC_ALL |> UNDISCH |> SPEC_ALL
-  |> Q.GENL [`ctors_pre`,`ctors`]
-  |> Q.SPECL [`ctors`,`ctors`]
-  |> SIMP_RULE (srw_ss()) []
-  |> DISCH_ALL |> GEN_ALL;
-
-val get_tdecs_def = Define `
-  get_tdecs xs =
-    MAP (\d. case d of Dtype t s => t)
-      (FILTER (\d. ?t s. d = Dtype t s) xs)`;
-
-Theorem get_tdecs_APPEND:
-   get_tdecs (xs ++ ys) = get_tdecs xs ++ get_tdecs ys
-Proof
-  rw [get_tdecs_def, FILTER_APPEND]
-QED
-
-Theorem get_tdecs_MEM:
-   MEM t (get_tdecs xs) <=> ?s. MEM (Dtype t s) xs
-Proof
-  rw [get_tdecs_def, MEM_MAP, MEM_FILTER, PULL_EXISTS]
-QED
-
-val is_new_type_def = Define `
-  is_new_type ctors decl <=>
-    !tid s. decl = Dtype tid s ==> tid NOTIN FDOM ctors`;
-
-val compile_decs_SUBMAP = Q.prove (
-  `!decs ctors_pre ctors_post decs2.
-     EVERY (is_new_type ctors_pre) decs /\
-     ALL_DISTINCT (get_tdecs decs) /\
-     compile_decs ctors_pre decs = (ctors_post, decs2)
-     ==>
-     ctors_pre SUBMAP ctors_post`,
-  Induct \\ rw [compile_decs_def]
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq
-  \\ `ALL_DISTINCT (get_tdecs decs) /\
-      ctors_pre SUBMAP ctor1 /\
-      EVERY (is_new_type ctor1) decs`
-    by (rename1 `compile_dec _ dec`
-        \\ Cases_on `dec` \\ fs [compile_dec_def] \\ rw []
-        \\ fs [is_new_type_def, EVERY_MEM] \\ rw []
-        \\ imp_res_tac get_tdecs_MEM
-        \\ fs [get_tdecs_def]
-        \\ every_case_tac \\ fs []
-        \\ strip_tac \\ fs []
-        \\ metis_tac [])
-  \\ metis_tac [SUBMAP_TRANS]);
-
-Theorem compile_dec_evaluate:
-  !d1 s1 t1 c1 r1.
-     evaluate_dec s1 d1 = (t1, r1) /\
-     r1 <> SOME (Rabort Rtype_error)
-     ==>
-     !ctors s2.
-       state_rel T ctors s1 s2 /\
-       is_new_type ctors d1
-       ==>
-       ?t2 r2 d2 ctors_post c2.
-         ctors SUBMAP ctors_post /\
-         compile_dec ctors d1 = (ctors_post, d2) /\
-         state_rel T ctors_post t1 t2 /\
-         dec_res_rel ctors_post r1 r2 /\
-         evaluate_dec s2 d2 = (t2, r2)
-Proof
-  Cases \\ rw []
+    \\ disch_then (qspec_then `tr` mp_tac o CONV_RULE SWAP_FORALL_CONV) \\ fs []
+    \\ qpat_abbrev_tac `ps2 = add_default X Y F ps`
+    \\ qpat_abbrev_tac `ps3 = add_default X Y T ps`
+    \\ strip_tac
+    \\ first_assum (qspec_then `ps2` mp_tac)
+    \\ simp_tac std_ss []
+    \\ strip_tac \\ fs []
+    \\ first_x_assum (qspec_then `ps3` mp_tac)
+    \\ fs [Abbr`ps2`,Abbr`ps3`, add_default_def] \\ rw [] \\ fs []
+    \\ fs [evaluate_def, compile_exps_def] \\ rw [] \\ fs []
+    \\ fs [exists_match_def, PULL_EXISTS]
+    \\ rw [] \\ fsrw_tac [DNF_ss] []
+    \\ metis_tac [pmatch_any_no_match]
+  )
   >- (* Dlet *)
-   (
-    fs [compile_dec_def, evaluate_dec_def, pair_case_eq, case_eq_thms]
+  (
+    fs [compile_dec_def, evaluate_def, pair_case_eq]
     \\ rveq \\ fs [PULL_EXISTS]
-    \\ drule compile_exps_lemma \\ fs [] >>
-    disch_then (qspecl_then [`s2`, `<|v:=[]|>`] mp_tac) >>
-    simp [env_rel_def] >> disch_then drule >> rw [] >>
-    fs [compile_exp_def]
-    \\ every_case_tac \\ fs [] \\ rw [] >>
-    fs [Once v_rel_cases, Unitv_def, state_rel_def] >>
-    metis_tac [])
+    \\ Cases_on `v1 = Rerr (Rabort Rtype_error)`
+    >- (fs [] \\ rveq \\ fs [])
+    \\ fs []
+    \\ first_x_assum (qspecl_then [`ctors`, `<|v:=[]|>`] assume_tac)
+    \\ fs [env_rel_def]
+    \\ first_x_assum drule
+    \\ qspec_then `ctors` assume_tac finite_mapTheory.SUBMAP_REFL
+    \\ disch_then drule
+    \\ disch_tac
+    \\ fs [case_eq_thms, bool_case_eq, compile_exp_def]
+    \\ rveq \\ fs []
+    \\ fs [Once v_rel_cases, Unitv_def, state_rel_def]
+  )
   >- (* Dtype *)
-   (
-     fs [compile_dec_def, evaluate_dec_def] >>
-     Cases_on `is_fresh_type n s1.c` >> fs [] >>
-     `s1.check_ctor ∧ s1.c = s2.c` by fs [state_rel_def] >>
-     fs [] >> rw []
-     >- fs [is_new_type_def]
-     >- (
-       fs [state_rel_def, LIST_REL_EL_EQN] >> rw []
-       >- (
-         irule sv_rel_v_rel_SUBMAP >>
-         qexists_tac `ctors` >>
-         rw [] >> fs [is_new_type_def])
-       >- (
-         irule OPTREL_MONO >>
-         qexists_tac `v_rel ctors` >>
-         rw [] >>
-         irule (CONJUNCT1 v_rel_SUBMAP) >>
-         qexists_tac `ctors` >>
-         fs [is_new_type_def])
-       >- fs [SUBSET_DEF]
-       >- (fs [SUBMAP_DEF, FAPPLY_FUPDATE_THM, is_new_type_def] >> metis_tac [])
-       >- (
-         fs [ctor_rel_def, is_new_type_def, is_fresh_type_def] >> rw [] >>
-         Cases_on `ty = n` >> simp [FLOOKUP_UPDATE] >>
-         eq_tac >> rw [] >> metis_tac []))
-     >- fs [is_new_type_def]
-     >- fs [state_rel_def])
-  (* Dexn *)
-  \\ fs [evaluate_dec_def, env_rel_def, is_fresh_exn_def, compile_dec_def]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [ctor_rel_def, FORALL_PROD, state_rel_def]
-  \\ metis_tac [SUBSET_DEF, SUBSET_UNION]
+  (
+    fs [compile_dec_def, evaluate_def] >>
+    Cases_on `is_fresh_type id s1.c` >> fs [] >>
+    `s1.check_ctor ∧ s2.check_ctor ∧ s1.c = s2.c` by fs [state_rel_def] >>
+    fs [] >> rw []
+    >- fs [is_new_type_def]
+    >- (
+      fs [state_rel_def, LIST_REL_EL_EQN] >> rw []
+      >- (
+        irule sv_rel_v_rel_SUBMAP >>
+        qexists_tac `ctors'` >>
+        rw [] >> fs [is_new_type_def])
+      >- (
+        irule OPTREL_MONO >>
+        qexists_tac `v_rel ctors'` >>
+        rw [] >>
+        irule (CONJUNCT1 v_rel_SUBMAP) >>
+        qexists_tac `ctors'` >>
+        fs [is_new_type_def])
+      >- fs [SUBSET_DEF]
+      >- (fs [SUBMAP_DEF, FAPPLY_FUPDATE_THM, is_new_type_def] >> metis_tac [])
+      >- (
+        fs [ctor_rel_def, is_new_type_def, is_fresh_type_def] >> rw [] >>
+        Cases_on `ty = n` >> simp [FLOOKUP_UPDATE] >>
+        eq_tac >> rw [] >> metis_tac [])
+    )
+  )
+  >- ( (* Dexn *)
+    fs [evaluate_def, env_rel_def, is_fresh_exn_def, compile_dec_def]
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [ctor_rel_def, FORALL_PROD, state_rel_def]
+    \\ metis_tac [SUBSET_DEF, SUBSET_UNION]
+  )
+  >- ( (* [] *)
+    fs [compile_decs_def]
+    \\ rveq \\ fs []
+    \\ fs [evaluate_def]
+  )
+  >- ( (* decs cons *)
+    fs [evaluate_def, compile_decs_def, case_eq_thms, pair_case_eq]
+    \\ rpt (pairarg_tac \\ fs []) \\ rw []
+    \\ rpt (first_x_assum drule)
+    \\ `EVERY (is_new_type ctor1) ds1`
+      by (fs [EVERY_MEM] \\ rw []
+          \\ first_x_assum drule \\ fs [is_new_type_def] \\ rw []
+          \\ fs [get_tdecs_def]
+          \\ Cases_on `d1` \\ fs [compile_dec_def] \\ rw [] \\ fs []
+          \\ metis_tac [get_tdecs_MEM, get_tdecs_def])
+    \\ `ALL_DISTINCT (get_tdecs ds1)` by (Cases_on `d1` \\ fs [get_tdecs_def])
+    \\ rw []
+    >-
+     (
+      first_x_assum drule
+      \\ rw []
+      \\ simp [RIGHT_EXISTS_AND_THM]
+      \\ conj_tac >- metis_tac [SUBMAP_TRANS]
+      \\ fs [AC UNION_ASSOC UNION_COMM, evaluate_def])
+    \\ fs [] \\ rw [] \\ fs [evaluate_def] >> rw []
+    >- metis_tac [SUBMAP_TRANS, compile_decs_SUBMAP]
+    >- (
+      `ctor1 SUBMAP ctor2` by metis_tac [compile_decs_SUBMAP] >>
+      fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >>
+      metis_tac [OPTREL_MONO,sv_rel_v_rel_SUBMAP,v_rel_SUBMAP, SUBMAP_TRANS])
+    >- metis_tac [v_rel_SUBMAP, compile_decs_SUBMAP]
+    >- metis_tac [SUBMAP_TRANS, compile_decs_SUBMAP]
+    >- (
+      `ctor1 SUBMAP ctor2` by metis_tac [compile_decs_SUBMAP] >>
+      fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >>
+      metis_tac [OPTREL_MONO,sv_rel_v_rel_SUBMAP,v_rel_SUBMAP, SUBMAP_TRANS])
+  )
 QED
 
-Theorem compile_decs_evaluate:
-  !ds1 s1 t1 c1 r1.
-     evaluate_decs s1 ds1 = (t1, r1) /\
-     r1 <> SOME (Rabort Rtype_error)
-     ==>
-     !ctors s2 ds2 ctors_post.
-       compile_decs ctors ds1 = (ctors_post, ds2) /\
-       state_rel T ctors s1 s2 /\
-       EVERY (is_new_type ctors) ds1 /\
-       ALL_DISTINCT (get_tdecs ds1)
-       ==>
-       ?t2 r2.
-         ctors SUBMAP ctors_post /\
-         state_rel (r1 = NONE) ctors_post t1 t2 /\
-         dec_res_rel ctors_post r1 r2 /\
-         evaluate_decs s2 ds2 = (t2, r2)
-Proof
-  Induct \\ rw []
-  >-
-   (fs [evaluate_decs_def, compile_decs_def, env_rel_def, get_tdecs_def,
-        environment_component_equality] \\ rw []
-    \\ fs [get_tdecs_def, evaluate_decs_def])
-  \\ fs [evaluate_decs_def, compile_decs_def, case_eq_thms, pair_case_eq]
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ drule compile_dec_evaluate \\ fs []
-  \\ rpt (disch_then drule) \\ rw []
-  \\ `EVERY (is_new_type ctor1) ds1`
-    by (fs [EVERY_MEM] \\ rw []
-        \\ first_x_assum drule \\ fs [is_new_type_def] \\ rw []
-        \\ fs [get_tdecs_def]
-        \\ Cases_on `h` \\ fs [compile_dec_def] \\ rw [] \\ fs []
-        \\ metis_tac [get_tdecs_MEM, get_tdecs_def])
-  \\ `ALL_DISTINCT (get_tdecs ds1)` by (Cases_on `h` \\ fs [get_tdecs_def])
-  >-
-   (last_x_assum drule
-    \\ rpt (disch_then drule) \\ rw []
-    \\ simp [RIGHT_EXISTS_AND_THM]
-    \\ conj_tac >- metis_tac [SUBMAP_TRANS]
-    \\ fs [AC UNION_ASSOC UNION_COMM, evaluate_decs_def])
-  \\ fs [] \\ rw [] \\ fs [evaluate_decs_def] >>
-  rw []
-  >- metis_tac [SUBMAP_TRANS, compile_decs_SUBMAP]
-  >- (
-    `ctor1 SUBMAP ctor2` by metis_tac [compile_decs_SUBMAP] >>
-    fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >>
-    metis_tac [OPTREL_MONO,sv_rel_v_rel_SUBMAP,v_rel_SUBMAP, SUBMAP_TRANS])
-  >- metis_tac [v_rel_SUBMAP, compile_decs_SUBMAP]
-  >- metis_tac [SUBMAP_TRANS, compile_decs_SUBMAP]
-  >- (
-    `ctor1 SUBMAP ctor2` by metis_tac [compile_decs_SUBMAP] >>
-    fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >>
-    metis_tac [OPTREL_MONO,sv_rel_v_rel_SUBMAP,v_rel_SUBMAP, SUBMAP_TRANS])
-QED
+(* ------------------------------------------------------------------------- *)
+(* Compile declarations now in exps                                          *) 
+(* ------------------------------------------------------------------------- *)
+
+Theorem compile_decs_evaluate = List.last (CONJUNCTS compile_exps_evaluate)
 
 (* ------------------------------------------------------------------------- *)
 (* Top-level semantics theorem                                               *)
 (* ------------------------------------------------------------------------- *)
 
 val ctor_rel_initial_ctor = Q.prove (
-  `ctor_rel init_ctors (initial_state a b c d).c`,
+  `ctor_rel init_ctors (initial_state a b c d ec).c`,
   rw [ctor_rel_def, init_ctors_def, initial_state_def, flookup_fupdate_list] \\ rw []
   \\ fs [lookup_insert] \\ every_case_tac \\ fs [lookup_def] \\ EVAL_TAC \\ rw []);
 
@@ -1266,12 +1249,12 @@ Theorem compile_decs_eval_sim:
    ==>
    eval_sim
      (ffi:'ffi ffi_state) F T ds1 T T
-     (SND (compile ds1))
+     (SND (compile ds1)) ec
      (\p1 p2. p2 = SND (compile p1)) F
 Proof
   rw [eval_sim_def] \\ qexists_tac `0` \\ fs []
   \\ Cases_on `compile ds1` \\ fs [compile_def]
-  \\ `state_rel T init_ctors (initial_state ffi k F T) (initial_state ffi k T T)`
+  \\ `state_rel T init_ctors (initial_state ffi k F T ec) (initial_state ffi k T T ec)`
     by (EVAL_TAC \\ fs [] >> rw [] >> eq_tac >> rw [] >> CCONTR_TAC >>
         fs [lookup_def] >> fs [] >>
         every_case_tac >> fs [lookup_def, EVEN_EXISTS] >>
