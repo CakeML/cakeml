@@ -108,7 +108,7 @@ val add_backend_compset = computeLib.extend_compset
     ,flat_to_patTheory.pure_def
     ,flat_to_patTheory.ground_def
     ,flat_to_patTheory.sLet_def
-    ,flat_to_patTheory.Let_Els_def_compute
+    ,flat_to_patTheory.Let_Els_compute
     ,flat_to_patTheory.compile_pat_def
     ,flat_to_patTheory.compile_row_def
     ,flat_to_patTheory.compile_exp_def
@@ -149,7 +149,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_callTheory.code_list_def
     ,clos_callTheory.compile_def
     ,clos_callTheory.calls_list_def
-    ,clos_callTheory.insert_each_def_compute
+    ,clos_callTheory.insert_each_compute
     ,clos_callTheory.GENLIST_Var_def
       (* ---- clos_annotate ---- *)
     ,clos_annotateTheory.get_var_def
@@ -158,7 +158,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_annotateTheory.shift_def
     ,clos_annotateTheory.compile_def
     ,clos_annotateTheory.const_0_def
-    ,clos_annotateTheory.no_overlap_def_compute
+    ,clos_annotateTheory.no_overlap_compute
     ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.get_size_sc_aux_def
@@ -728,7 +728,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_to_stackTheory.SeqStackFree_def
     ,word_to_stackTheory.stack_arg_count_def
     ,word_to_stackTheory.stack_free_def
-    ,word_to_stackTheory.stack_move_def_compute
+    ,word_to_stackTheory.stack_move_compute
     ,word_to_stackTheory.StackArgs_def
     ,word_to_stackTheory.comp_def
     ,word_to_stackTheory.raise_stub_def
