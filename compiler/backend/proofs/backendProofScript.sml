@@ -1657,15 +1657,8 @@ Proof
       \\ metis_tac []
     )
     \\ cheat
-  )>>
-
-  (* FIXME: the below works BUT the theorem
-     stack_to_lab_stack_good_handler_labels_incr
-     makes no mention of the prior labels, i.e. it seems to
-     enforce that the code is self-contained and doesn't call to
-     code from prior compilations or stubs. seems unlikely. *)
-
-  drule ( word_to_stack_good_handler_labels_incr
+  )
+  \\ drule (word_to_stack_good_handler_labels_incr
     |> REWRITE_RULE [AND_IMP_INTRO, Once CONJ_COMM] |> GEN_ALL)
   \\ impl_tac >- simp [word_good_handlers_word_to_word_incr,
     data_to_word_good_handlers_incr]
@@ -1675,7 +1668,6 @@ Proof
   \\ simp [GSYM PULL_EXISTS]
   \\ reverse impl_tac >- simp [SUBSET_DEF]
   \\ simp [compile_no_stubs_def, Abbr `ppg`] \\ metis_tac []
-
 QED
 
 Theorem oracle_stack_good_code:
