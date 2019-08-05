@@ -8102,7 +8102,7 @@ QED;
 Theorem word_to_stack_good_handler_labels:
   EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
   compile asm_conf prog = (bs,prog') ⇒
-  stack_good_handler_labels prog' elabs
+  stack_good_handler_labels prog'
 Proof
   cheat
 QED;
@@ -8110,7 +8110,7 @@ QED;
 Theorem word_to_stack_good_handler_labels_incr:
   EVERY (λ(n,m,pp). good_handlers n pp) prog ⇒
   compile_word_to_stack ac prog bs = (prog',bs') ⇒
-  stack_good_handler_labels prog' elabs
+  stack_good_handler_labels prog'
 Proof
   cheat
 QED;
