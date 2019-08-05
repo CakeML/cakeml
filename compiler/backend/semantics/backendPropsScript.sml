@@ -339,6 +339,13 @@ Proof
   metis_tac[restrict_nonzero_SUBSET,SUBSET_TRANS]
 QED;
 
+Theorem restrict_nonzero_left_union :
+  restrict_nonzero s ⊆ a ∪ b ⇒
+  restrict_nonzero s ⊆ restrict_nonzero a ∪ b
+Proof
+  rw[restrict_nonzero_def,SUBSET_DEF]
+QED;
+
 Theorem restrict_nonzero_right_union :
   restrict_nonzero s ⊆ a ∪ b ⇒
   restrict_nonzero s ⊆ a ∪ restrict_nonzero b
@@ -353,7 +360,7 @@ Proof
  rw[restrict_nonzero_def,SUBSET_DEF]
 QED;
 
-Theorem restrict_nonzero_BIGUNION[simp]:
+Theorem restrict_nonzero_BIGUNION:
   restrict_nonzero(BIGUNION ss) = BIGUNION (IMAGE restrict_nonzero ss)
 Proof
   rw[restrict_nonzero_def,EXTENSION]>>

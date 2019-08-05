@@ -8104,7 +8104,25 @@ Theorem word_to_stack_good_handler_labels:
   compile asm_conf prog = (bs,prog') ⇒
   stack_good_handler_labels prog'
 Proof
-  cheat
+  fs[word_to_stackTheory.compile_def]>>
+  rpt(pairarg_tac>>fs[])>>
+  fs[stack_good_handler_labels_def]>>
+  rw[]>>
+  drule compile_word_to_stack_code_labels>>
+  disch_then drule>>fs[]>>
+  drule MAP_FST_compile_word_to_stack>>
+  rw[]>>
+  simp[raise_stub_def]>>
+  drule backendPropsTheory.restrict_nonzero_SUBSET_left>>
+  REWRITE_TAC[Once INSERT_SING_UNION]>>
+  REWRITE_TAC[Once UNION_ASSOC]>>
+  strip_tac>>
+  drule backendPropsTheory.restrict_nonzero_left_union>>
+  qmatch_goalsub_abbrev_tac`_ ⊆ restrict_nonzero xxx ∪ _`>>
+  `restrict_nonzero xxx = {}` by
+    (simp[backendPropsTheory.restrict_nonzero_def,Abbr`xxx`,EXTENSION,MEM_MAP]>>
+    metis_tac[SND])>>
+  simp[]
 QED;
 
 Theorem word_to_stack_good_handler_labels_incr:
@@ -8112,7 +8130,23 @@ Theorem word_to_stack_good_handler_labels_incr:
   compile_word_to_stack ac prog bs = (prog',bs') ⇒
   stack_good_handler_labels prog'
 Proof
-  cheat
+  fs[stack_good_handler_labels_def]>>
+  rw[]>>
+  drule compile_word_to_stack_code_labels>>
+  disch_then drule>>fs[]>>
+  drule MAP_FST_compile_word_to_stack>>
+  rw[]>>
+  simp[raise_stub_def]>>
+  drule backendPropsTheory.restrict_nonzero_SUBSET_left>>
+  REWRITE_TAC[Once INSERT_SING_UNION]>>
+  REWRITE_TAC[Once UNION_ASSOC]>>
+  strip_tac>>
+  drule backendPropsTheory.restrict_nonzero_left_union>>
+  qmatch_goalsub_abbrev_tac`_ ⊆ restrict_nonzero xxx ∪ _`>>
+  `restrict_nonzero xxx = {}` by
+    (simp[backendPropsTheory.restrict_nonzero_def,Abbr`xxx`,EXTENSION,MEM_MAP]>>
+    metis_tac[SND])>>
+  simp[]
 QED;
 
 val _ = export_theory();
