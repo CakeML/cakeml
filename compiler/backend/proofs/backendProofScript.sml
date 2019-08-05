@@ -1377,91 +1377,32 @@ Proof
   \\ simp []
 QED
 
-Theorem accum_lab_conf_labels:
-  compile c prog = SOME (b, bm, c') ==>
-  domain (cake_configs c' syntax i).lab_conf.labels ⊆
-  domain c'.lab_conf.labels ∪ BIGUNION (set (MAP (IMAGE FST o get_code_labels o
-    SND o cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-    (λps. ps.lab_prog)) (COUNT_LIST i)))
+Theorem sec_labels_ok_FST_code_labels_Section_num:
+  EVERY sec_labels_ok code ==>
+  IMAGE FST (get_code_labels code) = set (MAP Section_num code)
 Proof
-  disch_tac \\ Induct_on `i`
-  \\ simp [cake_configs_def, state_orac_states_def, COUNT_LIST_SNOC]
-  \\ simp [MAP_SNOC, LIST_TO_SET_SNOC, GSYM cake_configs_def]
-  \\ simp [compile_inc_progs_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ every_case_tac
-  >- (
-    simp []
-    \\ drule_then irule SUBSET_TRANS
-    \\ simp [SUBSET_DEF]
-  )
-  \\ simp []
-  \\ drule_then (fn t => fs [t]) cake_orac_config_eqs
-  \\ fs[lab_to_targetTheory.compile_def]
-  \\ fs[lab_to_targetTheory.compile_lab_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ qpat_x_assum `_ = SOME _` mp_tac
-  \\ rpt (CASE_TAC \\ fs [])
-  \\ rw []
-  \\ simp []
-  \\ imp_res_tac remove_labels_domain_labs
-  \\ simp []
-  \\ rw [] \\ TRY (drule_then irule SUBSET_TRANS \\ simp [SUBSET_DEF])
-  \\ simp [cake_orac_def, config_tuple2_def, compile_inc_progs_def]
-  \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
-  \\ simp [SUBSET_DEF]
+  simp [labPropsTheory.get_code_labels_extract_labels]
+  \\ simp [LIST_TO_SET_MAP, IMAGE_IMAGE, o_DEF, Q.ISPEC `Section_num` ETA_THM]
+  \\ rw [pred_setTheory.EXTENSION]
+  \\ EQ_TAC \\ rw []
+  >- prove_tac []
+  \\ fs [MEM_FLAT, MEM_MAP]
+  \\ goal_assum(first_assum o mp_then Any mp_tac)
+  \\ rveq \\ fs []
+  \\ fs [EVERY_MEM]
+  \\ first_x_assum drule
+  \\ Cases_on `x`
+  \\ fs [GSYM labPropsTheory.EVERY_sec_label_ok]
+  \\ simp [EVERY_MEM]
+  \\ disch_then drule
+  \\ pairarg_tac \\ simp []
 QED
 
-(* one plan for disjointness is to prove theorems like this
-
-Theorem monotonic_labels_stack_to_lab:
-
-  oracle_monotonic ??? (<)
-    ???
-    (cake_orac c' src (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-        (λps. (ps.stack_prog,ps.cur_bm)))
- ==>
-  oracle_monotonic (IMAGE FST ∘ get_code_labels ∘ SND) (<)
-    domain c'.lab_conf.labels
-    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-        (λps. ps.lab_prog))
-
+Theorem stack_labels_ok_FST_code_labels_Section_num:
+  stack_to_labProof$labels_ok code ==>
+  IMAGE FST (get_code_labels code) = set (MAP Section_num code)
 Proof
-
-*)
-
-Theorem monotonic_DISJOINT_labels_lab:
-  compile c prog = SOME (b, bm, c') /\
-  oracle_monotonic (IMAGE FST ∘ get_code_labels ∘ SND) (<)
-    domain c'.lab_conf.labels
-    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-                (λps. ps.lab_prog))
-  ==>
-  DISJOINT (domain (cake_configs c' syntax i).lab_conf.labels)
-    (IMAGE FST (get_code_labels (SND (cake_orac c' syntax
-      (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog) i))))
-Proof
-  rw []
-  \\ drule accum_lab_conf_labels
-  \\ disch_tac
-  \\ REWRITE_TAC [Once DISJOINT_SYM]
-  \\ drule_then irule (REWRITE_RULE [Once CONJ_COMM] DISJOINT_SUBSET)
-  \\ CCONTR_TAC
-  \\ fs [IN_DISJOINT]
-  >- (
-    drule oracle_monotonic_init
-    \\ disch_then drule
-    \\ simp [PULL_EXISTS]
-    \\ asm_exists_tac
-    \\ simp []
-  )
-  \\ fs [MEM_MAP, MEM_COUNT_LIST]
-  \\ drule oracle_monotonic_step
-  \\ disch_then drule
-  \\ simp [PULL_EXISTS]
-  \\ rfs []
-  \\ asm_exists_tac \\ simp []
-  \\ asm_exists_tac \\ simp []
+  metis_tac [sec_labels_ok_FST_code_labels_Section_num, labels_ok_imp]
 QED
 
 Theorem lab_labels_ok_oracle:
@@ -1537,6 +1478,96 @@ Proof
   \\ simp[data_to_wordTheory.compile_part_def]
   \\ first_x_assum drule
   \\ rw []
+QED
+
+Theorem accum_lab_conf_labels:
+  compile c prog = SOME (b, bm, c') ==>
+  domain (cake_configs c' syntax i).lab_conf.labels ⊆
+  domain c'.lab_conf.labels ∪ BIGUNION (set (MAP (set ∘ MAP Section_num ∘
+    SND ∘ cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+    (λps. ps.lab_prog)) (COUNT_LIST i)))
+Proof
+  disch_tac \\ Induct_on `i`
+  \\ simp [cake_configs_def, state_orac_states_def, COUNT_LIST_SNOC]
+  \\ simp [MAP_SNOC, LIST_TO_SET_SNOC, GSYM cake_configs_def]
+  \\ simp [compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ every_case_tac
+  >- (
+    simp []
+    \\ drule_then irule SUBSET_TRANS
+    \\ simp [SUBSET_DEF]
+  )
+  \\ simp []
+  \\ drule_then (fn t => fs [t]) cake_orac_config_eqs
+  \\ fs[lab_to_targetTheory.compile_def]
+  \\ fs[lab_to_targetTheory.compile_lab_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ qpat_x_assum `_ = SOME _` mp_tac
+  \\ rpt (CASE_TAC \\ fs [])
+  \\ rw []
+  \\ drule (Q.GENL [`cfg`, `code`] lab_labels_ok_oracle)
+  \\ simp [PAIR_FST_SND_EQ]
+  \\ disch_tac
+  \\ imp_res_tac remove_labels_domain_labs
+  \\ simp []
+  \\ rw [] \\ TRY (drule_then irule SUBSET_TRANS \\ simp [SUBSET_DEF])
+  \\ drule stack_labels_ok_FST_code_labels_Section_num
+  \\ simp [cake_orac_def, config_tuple2_def, compile_inc_progs_def]
+  \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
+  \\ simp [SUBSET_DEF]
+QED
+
+(* one plan for disjointness is to prove theorems like this
+
+Theorem monotonic_labels_stack_to_lab:
+
+  oracle_monotonic ??? (<)
+    ???
+    (cake_orac c' src (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+        (λps. (ps.stack_prog,ps.cur_bm)))
+ ==>
+  oracle_monotonic (set ∘ MAP Section_num ∘ SND) (<)
+    domain c'.lab_conf.labels
+    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+        (λps. ps.lab_prog))
+
+Proof
+
+*)
+
+Theorem monotonic_DISJOINT_labels_lab:
+  compile c prog = SOME (b, bm, c') /\
+  oracle_monotonic (set ∘ MAP Section_num ∘ SND) (<)
+    (domain c'.lab_conf.labels)
+    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+                (λps. ps.lab_prog))
+  ==>
+  DISJOINT (domain (cake_configs c' syntax i).lab_conf.labels)
+    (set (MAP Section_num (SND (cake_orac c' syntax
+      (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog) i))))
+Proof
+  rw []
+  \\ drule accum_lab_conf_labels
+  \\ disch_tac
+  \\ REWRITE_TAC [Once DISJOINT_SYM]
+  \\ drule_then irule (REWRITE_RULE [Once CONJ_COMM] DISJOINT_SUBSET)
+  \\ CCONTR_TAC
+  \\ fs [IN_DISJOINT]
+  >- (
+    drule oracle_monotonic_init
+    \\ disch_then drule
+    \\ simp [PULL_EXISTS]
+    \\ asm_exists_tac
+    \\ simp []
+  )
+  \\ fs [MEM_MAP, MEM_COUNT_LIST]
+  \\ drule oracle_monotonic_step
+  \\ disch_then drule
+  \\ rfs []
+  \\ rveq \\ fs [MEM_MAP, PULL_EXISTS]
+  \\ asm_exists_tac \\ simp []
+  \\ asm_exists_tac \\ simp []
 QED
 
 Theorem good_code_lab_oracle:
