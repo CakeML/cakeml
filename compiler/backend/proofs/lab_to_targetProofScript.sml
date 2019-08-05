@@ -3812,7 +3812,8 @@ val _ = overload_on("all_labs_exist",``λlabs code. EVERY (sec_labs_exist labs) 
 val zero_labs_acc_of_eq_zero_labs_of = Q.prove(`
   domain (zero_labs_acc_of l acc) =
   IMAGE FST (restrict_zero (labs_of l)) ∪ domain acc`,
-  Cases_on`l`>> (TRY (Cases_on`l'`))>> fs[restrict_zero_def]>>
+  Cases_on`l`>> (TRY (Cases_on`l'`))>>
+  simp[backendPropsTheory.restrict_zero_def]>>
   rw[]>>
   simp[EXTENSION]);
 
@@ -3820,8 +3821,8 @@ val line_get_zero_labs_acc_eq_line_get_zero_labels = Q.prove(`
   domain (line_get_zero_labs_acc l acc) =
   IMAGE FST (restrict_zero (line_get_labels l)) ∪ domain acc`,
   Cases_on`l`>>fs[line_get_zero_labs_acc_def,line_get_labels_def]>>
-  simp[restrict_zero_def]>>
-  fs[zero_labs_acc_of_eq_zero_labs_of,restrict_zero_def]);
+  simp[backendPropsTheory.restrict_zero_def]>>
+  fs[zero_labs_acc_of_eq_zero_labs_of,backendPropsTheory.restrict_zero_def]);
 
 val sec_get_zero_labs_acc_eq_sec_get_zero_labels = Q.prove(`
   domain (sec_get_zero_labs_acc sec acc) =
@@ -3829,7 +3830,7 @@ val sec_get_zero_labs_acc_eq_sec_get_zero_labels = Q.prove(`
   Cases_on`sec`>>Induct_on`l`>>
   fs[sec_get_zero_labs_acc_def,sec_get_labels_def]>>
   simp[line_get_zero_labs_acc_eq_line_get_zero_labels]>>
-  simp[EXTENSION,restrict_zero_def]>>
+  simp[EXTENSION,backendPropsTheory.restrict_zero_def]>>
   metis_tac[]);
 
 val get_zero_labs_acc_eq_get_zero_labels = Q.prove(`
@@ -3837,7 +3838,7 @@ val get_zero_labs_acc_eq_get_zero_labels = Q.prove(`
   IMAGE FST (restrict_zero (get_labels code)) ∪ domain acc`,
   Induct_on`code`>>fs[get_labels_def]>>
   simp[sec_get_zero_labs_acc_eq_sec_get_zero_labels]>>
-  simp[EXTENSION,restrict_zero_def]>>
+  simp[EXTENSION,backendPropsTheory.restrict_zero_def]>>
   metis_tac[]);
 
 Theorem zero_labs_acc_exist_eq:
@@ -3852,7 +3853,7 @@ Proof
   simp[get_zero_labs_acc_def,get_zero_labs_acc_eq_get_zero_labels]>>
   simp[labs_domain_def,lab_lookup_def]>>
   simp[SUBSET_DEF,EXISTS_PROD,FORALL_PROD]>>
-  rw[EQ_IMP_THM]>>fs[restrict_zero_def]>>
+  rw[EQ_IMP_THM]>>fs[backendPropsTheory.restrict_zero_def]>>
   rw[]>>
   first_x_assum drule>>fs[]>>
   every_case_tac>>fs[]
@@ -4846,7 +4847,7 @@ val remove_labels_loop_thm = Q.prove(
         \\ metis_tac [enc_secs_again_IMP_similar, code_similar_get_code_labels, code_similar_get_labels])>>
       simp[]>>
       `get_labels code = restrict_zero (get_labels code) ∪ restrict_nonzero (get_labels code)` by
-      (fs[EXTENSION,FORALL_PROD,restrict_zero_def,restrict_nonzero_def]>>
+      (fs[EXTENSION,FORALL_PROD,backendPropsTheory.restrict_zero_def,backendPropsTheory.restrict_nonzero_def]>>
       metis_tac[])>>
       pop_assum SUBST1_TAC>>fs[]>>
       metis_tac[SUBSET_TRANS,SUBSET_UNION])

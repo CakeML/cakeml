@@ -3566,14 +3566,14 @@ val init_stubs_labels = Q.prove(`
   rpt(EVAL_TAC>>rw[]>>fs[]));
 
 (* ---- stack_names  ----*)
-val get_code_labels_comp = Q.prove(
+val stack_names_get_code_labels_comp = Q.prove(
   `!f p. get_code_labels (comp f p) = get_code_labels p`,
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
   \\ Cases_on `p` \\ once_rewrite_tac [stack_namesTheory.comp_def] \\ fs [get_code_labels_def]
   \\ every_case_tac \\ fs [] \\
   fs[stack_namesTheory.dest_find_name_def]);
 
-val stack_get_handler_labels_comp = Q.prove(`
+val stack_names_stack_get_handler_labels_comp = Q.prove(`
   !f p n.
   stack_get_handler_labels n (comp f p) =
   stack_get_handler_labels n p`,
@@ -3594,12 +3594,12 @@ Proof
   EVAL_TAC>>rw[]>>
   fs[GSYM LIST_TO_SET_MAP]>>
   fs[MAP_MAP_o,o_DEF,stack_namesTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
-  fs[stack_get_handler_labels_comp,get_code_labels_comp]>>
+  fs[stack_names_stack_get_handler_labels_comp,stack_names_get_code_labels_comp]>>
   fs[UNCURRY_PAIR_ETA]
 QED;
 
 (* ---- stack_remove ---- *)
-val get_code_labels_comp = Q.prove(
+val stack_remove_get_code_labels_comp = Q.prove(
   `!a b c p.
   get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p`,
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
@@ -3641,7 +3641,7 @@ val get_code_labels_comp = Q.prove(
     first_x_assum(qspec_then`n0-max_stack_alloc` mp_tac)>>
     fs[stack_removeTheory.max_stack_alloc_def]));
 
-val stack_get_handler_labels_comp = Q.prove(
+val stack_remove_stack_get_handler_labels_comp = Q.prove(
   `!a b c p m.
   stack_get_handler_labels m (comp a b c p) =
   stack_get_handler_labels m p`,
@@ -3679,7 +3679,7 @@ val stack_get_handler_labels_comp = Q.prove(
     first_x_assum(qspec_then`n0-max_stack_alloc` mp_tac)>>
     fs[stack_removeTheory.max_stack_alloc_def]));
 
-val init_code_labels = Q.prove(`
+val stack_remove_init_code_labels = Q.prove(`
   x ∈ get_code_labels (init_code ggc mh sp) ⇒ x = (1n,0n)`,
   rpt(EVAL_TAC>>rw[]>>fs[]));
 
@@ -3698,14 +3698,14 @@ Proof
     fs[get_code_labels_def,stack_removeTheory.halt_inst_def]>>
     rw[]>>fs[]
     >-
-      metis_tac[init_code_labels]
+      metis_tac[stack_remove_init_code_labels]
     >>
       fs[MEM_MAP,EXISTS_PROD]>>metis_tac[])
   >>
     fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_removeTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
-    simp[stack_get_handler_labels_comp]>>
+    simp[stack_remove_stack_get_handler_labels_comp]>>
     fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
-    drule (get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+    drule (stack_remove_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
     rw[]
     >-
       fs[stack_removeTheory.init_stubs_def,stack_removeTheory.stack_err_lab_def,EXISTS_PROD]
@@ -3726,15 +3726,15 @@ Proof
   rw[]>>
   fs[stack_good_code_labels_def]>>rw[]>>
   fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_removeTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
-  simp[stack_get_handler_labels_comp]>>
+  simp[stack_remove_stack_get_handler_labels_comp]>>
   fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
-  drule (get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+  drule (stack_remove_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
   rw[]>>
   metis_tac[]
 QED;
 
 (* --- stack_alloc ---- *)
-val get_code_labels_comp = Q.prove(`
+val stack_alloc_get_code_labels_comp = Q.prove(`
   !n m p pp mm.
   get_code_labels (FST (comp n m p)) ⊆ (gc_stub_location,0) INSERT get_code_labels p`,
   HO_MATCH_MP_TAC stack_allocTheory.comp_ind \\ rw []
@@ -3744,7 +3744,7 @@ val get_code_labels_comp = Q.prove(`
   \\ rpt(pairarg_tac \\ fs[])
   \\ fs[SUBSET_DEF]>>metis_tac[]);
 
-val stack_get_handler_labels_comp = Q.prove(`
+val stack_alloc_stack_get_handler_labels_comp = Q.prove(`
   !n m p pp mm.
   stack_get_handler_labels i (FST (comp n m p)) = stack_get_handler_labels i p`,
   HO_MATCH_MP_TAC stack_allocTheory.comp_ind \\ rw []
@@ -3754,7 +3754,7 @@ val stack_get_handler_labels_comp = Q.prove(`
   \\ rpt(pairarg_tac \\ fs[stack_get_handler_labels_def])
   \\ fs[stack_get_handler_labels_def]);
 
-val init_code_labels = Q.prove(`
+val stack_alloc_init_code_labels = Q.prove(`
   get_code_labels (word_gc_code c) = {}`,
   simp[stack_allocTheory.word_gc_code_def]>>
   EVAL_TAC>>
@@ -3771,12 +3771,12 @@ Proof
   >- (
     fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF]>>
     simp[SUBSET_DEF,stack_allocTheory.stubs_def,PULL_EXISTS]>>
-    simp[init_code_labels])
+    simp[stack_alloc_init_code_labels])
   >>
     fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_allocTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
-    simp[stack_get_handler_labels_comp]>>
+    simp[stack_alloc_stack_get_handler_labels_comp]>>
     fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
-    drule (get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+    drule (stack_alloc_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
     rw[]
     >-
       fs[stack_allocTheory.stubs_def]
@@ -3796,9 +3796,9 @@ Theorem stack_alloc_stack_good_code_labels_incr:
 Proof
   fs[stack_good_code_labels_def]>>rw[]>>
   fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_allocTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
-  simp[stack_get_handler_labels_comp]>>
+  simp[stack_alloc_stack_get_handler_labels_comp]>>
   fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
-  drule (get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+  drule (stack_alloc_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
   rw[]>>
   metis_tac[]
 QED;
@@ -3857,9 +3857,9 @@ Proof
   drule get_labels_MAP_prog_to_section_SUBSET_code_labels_lemma >>
   strip_tac>>
   fs[stack_good_handler_labels_def]>>
-  drule restrict_nonzero_SUBSET_left>>
+  drule backendPropsTheory.restrict_nonzero_SUBSET_left>>
   strip_tac>>
-  drule restrict_nonzero_right_union>>
+  drule backendPropsTheory.restrict_nonzero_right_union>>
   qmatch_goalsub_abbrev_tac`a ⊆ b ∪ c`>>
   qsuff_tac` c ⊆ b`
   >-
@@ -3867,23 +3867,42 @@ Proof
     metis_tac[])
   >>
     unabbrev_all_tac>>
-    cheat
-    (* metis_tac[MAP_prog_to_section_preserves_handler_labels,SUBSET_UNION,SUBSET_TRANS] *)
+    match_mp_tac SUBSET_TRANS>> asm_exists_tac>>simp[]>>
+    metis_tac[MAP_prog_to_section_preserves_handler_labels,SUBSET_UNION,SUBSET_TRANS]
 QED;
 
 Theorem stack_names_stack_good_handler_labels:
   ∀prog f. stack_good_handler_labels prog ⇒
   stack_good_handler_labels (stack_names$compile f prog)
 Proof
-  cheat
+  simp[stack_namesTheory.compile_def,stack_good_handler_labels_def,MAP_MAP_o,o_DEF]>>
+  simp[LAMBDA_PROD,stack_namesTheory.prog_comp_def]>>
+  rw[]>>
+  fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,LAMBDA_PROD,stack_names_get_code_labels_comp]>>
+  fs[stack_names_stack_get_handler_labels_comp]
 QED;
 
-Theorem stack_remove_stack_good_handler_labels:
-  ∀prog.
-  stack_good_handler_labels prog ⇒
-  stack_good_handler_labels (stack_remove$compile jump off ggc mh sp loc prog)
+Theorem restrict_nonzero_union:
+  restrict_nonzero (A ∪ B) = restrict_nonzero A ∪ restrict_nonzero B
 Proof
-  cheat
+  rw[backendPropsTheory.restrict_nonzero_def,EXTENSION]>>
+  metis_tac[]
+QED;
+
+Theorem restrict_nonzero_IN:
+  x ∈ restrict_nonzero s ⇔ x ∈ s ∧ SND x ≠ 0
+Proof
+  EVAL_TAC>>simp[]
+QED;
+
+Theorem stack_good_handler_labels_append:
+  stack_good_handler_labels xs ∧
+  stack_good_handler_labels ys ⇒
+  stack_good_handler_labels (xs ++ ys)
+Proof
+  simp[stack_good_handler_labels_def,restrict_nonzero_union]>>
+  rw[]>>
+  metis_tac[SUBSET_UNION,SUBSET_TRANS]
 QED;
 
 Theorem stack_remove_stack_good_handler_labels_incr:
@@ -3891,15 +3910,52 @@ Theorem stack_remove_stack_good_handler_labels_incr:
   stack_good_handler_labels prog ⇒
   stack_good_handler_labels (MAP (prog_comp jump offset sp) prog)
 Proof
-  cheat
+  simp[stack_good_handler_labels_def]>>
+  rw[]>>
+  simp[MAP_MAP_o,o_DEF,stack_removeTheory.prog_comp_def,LAMBDA_PROD]>>
+  simp[stack_remove_stack_get_handler_labels_comp]>>
+  fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
+  qmatch_asmsub_abbrev_tac`A ⊆ B`>>
+  qmatch_goalsub_abbrev_tac`C ⊆ D`>>
+  qsuff_tac`C ⊆ A`
+  >-
+    (unabbrev_all_tac>>metis_tac[SUBSET_UNION,SUBSET_TRANS])
+  >>
+  unabbrev_all_tac>>
+  simp[backendPropsTheory.restrict_nonzero_BIGUNION]>>
+  simp[BIGUNION_IMAGE_set_SUBSET,MEM_MAP,SUBSET_DEF]>>
+  simp[PULL_FORALL,PULL_EXISTS]>>rw[]>>
+  qexists_tac`y`>>simp[]>>
+  fs[restrict_nonzero_IN]>>
+  pairarg_tac>>fs[]>>
+  drule(stack_remove_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
+  Cases_on`x'`>>simp[]>>
+  rw[]>>fs[]
 QED;
 
-Theorem stack_alloc_stack_good_handler_labels:
-  ∀prog c.
+Theorem stack_remove_stack_good_handler_labels:
+  ∀prog.
   stack_good_handler_labels prog ⇒
-  stack_good_handler_labels (stack_alloc$compile c prog)
+  stack_good_handler_labels (stack_remove$compile jump off ggc mh sp loc prog)
 Proof
-  cheat
+  rw[]>>
+  simp[stack_removeTheory.compile_def]>>
+  match_mp_tac stack_good_handler_labels_append>>rw[]>>
+  >-
+    (simp[stack_good_handler_labels_def]>>
+    simp[stack_removeTheory.init_stubs_def,get_code_labels_def,stack_removeTheory.halt_inst_def,restrict_nonzero_union]>>
+    qmatch_goalsub_abbrev_tac` A ⊆ _`>>
+    qsuff_tac`A = {}`
+    >-
+      simp[backendPropsTheory.restrict_nonzero_def,SUBSET_DEF]
+    >>
+    simp[Abbr`A`,EXTENSION,backendPropsTheory.restrict_nonzero_def]>>
+    rw[]>>
+    CCONTR_TAC>>fs[]>>
+    drule stack_remove_init_code_labels>>
+    metis_tac[SND])
+  >>
+    metis_tac[stack_remove_stack_good_handler_labels_incr]
 QED;
 
 Theorem stack_alloc_stack_good_handler_labels_incr:
@@ -3908,15 +3964,32 @@ Theorem stack_alloc_stack_good_handler_labels_incr:
   stack_good_handler_labels (MAP prog_comp prog)
 Proof
   fs[stack_good_handler_labels_def]>>rw[]>>
+  fs[backendPropsTheory.restrict_nonzero_BIGUNION]>>
   fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,stack_allocTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
-  simp[stack_get_handler_labels_comp]>>
+  simp[stack_alloc_stack_get_handler_labels_comp]>>
   fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
   first_x_assum match_mp_tac>>
   qexists_tac`y`>>simp[]>>
-  drule (MATCH_MP restrict_nonzero_mono (get_code_labels_comp |> SPEC_ALL) |> SIMP_RULE std_ss [SUBSET_DEF])>>
-  simp[restrict_nonzero_def]>>
+  drule (MATCH_MP backendPropsTheory.restrict_nonzero_mono (get_code_labels_comp |> SPEC_ALL) |> SIMP_RULE std_ss [SUBSET_DEF])>>
+  simp[backendPropsTheory.restrict_nonzero_def]>>
   Cases_on`x`>>simp[]>>
   metis_tac[]
+QED;
+
+Theorem stack_alloc_stack_good_handler_labels:
+  ∀prog c.
+  stack_good_handler_labels prog ⇒
+  stack_good_handler_labels (stack_alloc$compile c prog)
+Proof
+  rw[stack_allocTheory.compile_def]>>
+  match_mp_tac stack_good_handler_labels_append>>rw[]
+  >-
+    (simp[stack_good_handler_labels_def,GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF]>>
+    simp[SUBSET_DEF,stack_allocTheory.stubs_def,PULL_EXISTS]>>
+    simp[stack_alloc_init_code_labels]>>
+    simp[backendPropsTheory.restrict_nonzero_def])
+  >>
+    metis_tac[stack_alloc_stack_good_handler_labels_incr]
 QED;
 
 Theorem stack_to_lab_stack_good_handler_labels:
