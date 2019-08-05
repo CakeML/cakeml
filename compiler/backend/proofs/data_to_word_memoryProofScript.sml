@@ -11553,6 +11553,10 @@ Proof
     unlength_tac [Abbr`hm`, heap_expand_def]
   \\ pop_assum (fn th => fs [th])
   \\ qunabbrev_tac `Allocd`
+  \\ `∀t. t ∈ FDOM tf ⇒ t < ts`
+     by (fs [timestamps_ok_def] \\ rw []
+        \\ first_x_assum ho_match_mp_tac
+        \\ fs [SUBSET_DEF])
   \\ `∀t. t ∈ FDOM tf ⇒ t < ts` by cheat
   \\ qpat_x_assum `LENGTH xs = _` (assume_tac o GSYM)
   \\ rw []
