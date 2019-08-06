@@ -10940,7 +10940,7 @@ QED
 
 Theorem timestamps_ok_MONO:
   ∀refs stack ts0 ts1.
-   timestamps_ok refs stack ts0 ∧ ts0 < ts1
+   timestamps_ok refs stack ts0 ∧ ts0 ≤ ts1
    ⇒ timestamps_ok refs stack ts1
 Proof
   rw [timestamps_ok_def]
@@ -11209,6 +11209,15 @@ Theorem timestamps_ok_APPEND:
    ⇒ timestamps_ok refs s1 ts ∧ timestamps_ok refs s2 ts
 Proof
   rw [timestamps_ok_def,all_ts_append]
+QED
+
+Theorem APPEND_timestamps_ok:
+  ∀refs s1 s2 ts.
+   timestamps_ok refs s1 ts ∧ timestamps_ok refs s2 ts
+   ⇒ timestamps_ok refs (s1 ++ s2) ts
+Proof
+  rw [timestamps_ok_def,all_ts_append]
+  \\ metis_tac []
 QED
 
 Theorem all_ts_list_to_v_alt_SUBSET:
@@ -11562,10 +11571,40 @@ Proof
   \\ match_mp_tac (Q.INST [`sp`|->`sp+sp1`] (SPEC_ALL v_inv_list_to_v_alt))
   \\ unlength_tac [heap_expand_def]);
 
-(* problem
+val _ = overload_on("Block_nil",``Block 0 nil_tag []``);
+
+Theorem timestamps_ok_list_to_v_alt:
+  ∀t2 refs t1 ts ts'.
+    timestamps_ok refs (t1::t2) ts
+    ∧ ts + LENGTH t2 <= ts'
+    ⇒ timestamps_ok refs [list_to_v_alt ts t1 t2] ts'
+Proof
+  Induct \\ rw [list_to_v_alt_def]
+  >- (ho_match_mp_tac timestamps_ok_MONO \\ asm_exists_tac \\ rw [])
+  \\ drule_then assume_tac timestamps_ok_tail
+  \\ fs [timestamps_ok_def]
+  \\ ONCE_REWRITE_TAC [all_ts_cons] \\ fs []
+  \\ rw [Once all_ts_head] \\ fs []
+  \\ TRY (pop_assum mp_tac \\ fs [PULL_FORALL] \\ first_x_assum ho_match_mp_tac)
+  \\ rw []
+  \\ `t < ts` suffices_by fs []
+  \\ fs [Once all_ts_head,IN_UNION]
+QED
+
+Theorem timestamps_ok_head_split:
+  ∀refs x xs ts.
+   timestamps_ok refs (x::xs) ts = (timestamps_ok refs [x] ts ∧ timestamps_ok refs xs ts)
+Proof
+  rw []
+  \\ ONCE_REWRITE_TAC [CONS_APPEND]
+  \\ EQ_TAC
+  >- (strip_tac \\ drule timestamps_ok_APPEND \\ rw [])
+  \\ (strip_tac \\ ho_match_mp_tac APPEND_timestamps_ok \\ fs[])
+QED
+
 Theorem memory_rel_append:
    memory_rel c be ts refs sp st m1 dm
-      ((list_to_v in2,h)::ZIP (in1,ws) ++ vars) /\
+      ((list_to_v_alt ts0 Block_nil in2 ,h)::ZIP (in1,ws) ++ vars) /\
     (word_list next_free
       (append_writes c init_ptr (make_header c 0w 2) ws h) * SEP_T)
       (fun2set (m1,dm)) /\
@@ -11575,10 +11614,10 @@ Theorem memory_rel_append:
     Word init_ptr = make_cons_ptr c (next_free - curr) 0 2 /\
     FLOOKUP st CurrHeap = SOME (Word curr) /\
     FLOOKUP st NextFree = SOME (Word (next_free:'a word)) ==>
-    memory_rel c be ts refs (sp - 3 * LENGTH in1)
+    memory_rel c be (ts + LENGTH in1) refs (sp - 3 * LENGTH in1)
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
-       ((list_to_v (in1 ++ in2),Word init_ptr)::vars)
+       ((list_to_v_alt ts (list_to_v_alt ts0 Block_nil in2) in1 ,Word init_ptr)::vars)
 Proof
   rw []
   \\ qabbrev_tac `p1 = ptr_bits c 0 2`
@@ -11588,12 +11627,13 @@ Proof
   \\ imp_res_tac MAP_ZIP
   \\ fs [word_ml_inv_def]
   \\ mp_tac (GEN_ALL cons_multi_thm)
-  \\ disch_then (qspecl_then [`in1`,`list_to_v in2`] mp_tac) \\ fs []
+  \\ disch_then (qspecl_then [`in1`,`ts`,`list_to_v_alt ts0 Block_nil in2`] mp_tac)
+  \\ fs []
   \\ disch_then drule
   \\ impl_tac
   >- (Cases_on `ws` \\ Cases_on `in1` \\ fs [])
   \\ rw []
-  \\ fs [list_to_v_alt_list_to_v]
+  (* \\ fs [list_to_v_alt_list_to_v] *)
   \\ rw [memory_rel_def, word_ml_inv_def, PULL_EXISTS]
   \\ qmatch_asmsub_abbrev_tac `abs_ml_inv _ _ _ (r0::rs0,h0,_,a0,sp0,_) _`
   \\ Q.LIST_EXISTS_TAC [`h0`,`limit`,`a0`,`sp0`,`sp1`,`gens`,`r0`,`rs0`] \\ fs []
@@ -11602,7 +11642,16 @@ Proof
   >-
    (fs [abs_ml_inv_def, LIST_REL_APPEND_EQ]
     \\ reverse conj_tac
-    >- (Cases_on `rs` \\ fs [list_to_BlockReps_heap_length])
+    >- (Cases_on `rs` \\ fs [list_to_BlockReps_heap_length]
+       \\ ho_match_mp_tac (timestamps_ok_head_split |> SPEC_ALL |> EQ_IMP_RULE |> snd |> GEN_ALL)
+       \\ drule (timestamps_ok_head_split |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL)
+       \\ strip_tac \\ reverse conj_tac
+       >- (ho_match_mp_tac timestamps_ok_MONO
+          \\ drule timestamps_ok_APPEND \\ rw []
+          \\ asm_exists_tac \\ rw [])
+       \\ ho_match_mp_tac timestamps_ok_list_to_v_alt
+       \\ rw [Once timestamps_ok_head_split]
+       \\ drule timestamps_ok_APPEND \\ rw [])
     \\ fs [heap_in_memory_store_def, make_cons_ptr_thm] \\ rfs [] \\ rw []
     \\ once_rewrite_tac [GSYM WORD_NEG_MUL]
     \\ once_rewrite_tac [WORD_2COMP_LSL]
@@ -11638,7 +11687,6 @@ Proof
   \\ irule append_writes_list_to_BlockReps \\ fs []
   \\ metis_tac [LIST_REL_APPEND_IMP]
 QED
-*)
 
 (* --- ML lists cannot exceed heap size: --- *)
 
