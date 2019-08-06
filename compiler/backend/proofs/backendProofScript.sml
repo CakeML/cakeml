@@ -1480,6 +1480,17 @@ Proof
   \\ rw []
 QED
 
+Theorem compile_lab_domain_labels:
+  compile_lab c prog = SOME (b, c') ==>
+  domain c'.labels = IMAGE FST (get_code_labels prog) ∪ domain c.labels
+Proof
+  simp [lab_to_targetTheory.compile_lab_def, UNCURRY]
+  \\ EVERY_CASE_TAC
+  \\ rw []
+  \\ drule remove_labels_domain_labs
+  \\ rw []
+QED
+
 Theorem accum_lab_conf_labels:
   compile c prog = SOME (b, bm, c') ==>
   domain (cake_configs c' syntax i).lab_conf.labels ⊆
@@ -1501,15 +1512,10 @@ Proof
   \\ simp []
   \\ drule_then (fn t => fs [t]) cake_orac_config_eqs
   \\ fs[lab_to_targetTheory.compile_def]
-  \\ fs[lab_to_targetTheory.compile_lab_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ qpat_x_assum `_ = SOME _` mp_tac
-  \\ rpt (CASE_TAC \\ fs [])
-  \\ rw []
   \\ drule (Q.GENL [`cfg`, `code`] lab_labels_ok_oracle)
   \\ simp [PAIR_FST_SND_EQ]
   \\ disch_tac
-  \\ imp_res_tac remove_labels_domain_labs
+  \\ drule_then assume_tac compile_lab_domain_labels
   \\ simp []
   \\ rw [] \\ TRY (drule_then irule SUBSET_TRANS \\ simp [SUBSET_DEF])
   \\ drule stack_labels_ok_FST_code_labels_Section_num
@@ -1518,23 +1524,69 @@ Proof
   \\ simp [SUBSET_DEF]
 QED
 
-(* one plan for disjointness is to prove theorems like this
+Theorem MAP_Section_num_stack_to_lab_SUBSET:
+  set (MAP FST prog) ⊆ labs /\ count (SUC gc_stub_location) ⊆ labs ==>
+  set (MAP Section_num (compile sc dc max_heap sp offset prog)) ⊆ labs
+Proof
+  simp [stack_to_labTheory.compile_def, MAP_prog_to_section_Section_num]
+  \\ simp [stack_removeTheory.compile_def, MAP_MAP_o, o_DEF,
+       stack_allocTheory.compile_def, Q.ISPEC `FST` ETA_THM]
+  \\ EVAL_TAC
+  \\ simp []
+QED
+
+Theorem to_lab_labels_ok:
+  compile c prog = SOME (b, bm, c') /\ backend_config_ok c
+  ==>
+  stack_to_labProof$labels_ok (SND (to_lab c prog))
+Proof
+  simp [to_lab_def]
+  \\ pairarg_tac
+  \\ rw []
+  \\ irule stack_to_lab_compile_lab_pres
+  (* todo: factor the proof of these conditions from the big proof
+     out to here *)
+  \\ cheat
+QED
 
 Theorem monotonic_labels_stack_to_lab:
-
-  oracle_monotonic ??? (<)
-    ???
-    (cake_orac c' src (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+  compile c prog = SOME (b, bm, c') /\ backend_config_ok c
+  ==>
+  oracle_monotonic (set o MAP FST o FST o SND) (<)
+    (set (MAP FST (SND (to_stack c prog))) ∪ count (SUC gc_stub_location))
+    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. (ps.stack_prog,ps.cur_bm)))
  ==>
   oracle_monotonic (set ∘ MAP Section_num ∘ SND) (<)
-    domain c'.lab_conf.labels
+    (domain c'.lab_conf.labels)
     (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. ps.lab_prog))
-
 Proof
-
-*)
+  disch_tac
+  \\ match_mp_tac oracle_monotonic_subset
+  \\ conj_tac >- (
+    fs []
+    \\ drule_then drule to_lab_labels_ok
+    \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ drule_then strip_assume_tac attach_bitmaps_SOME
+    \\ simp [to_stack_def, to_word_def, to_data_def, to_bvi_def, to_bvl_def,
+        to_clos_def, to_pat_def, to_flat_def, to_lab_def]
+    \\ fs[lab_to_targetTheory.compile_def]
+    \\ drule compile_lab_domain_labels
+    \\ `domain c.lab_conf.labels = {}` by fs [backend_config_ok_def]
+    \\ rw []
+    \\ simp [stack_labels_ok_FST_code_labels_Section_num]
+    \\ irule MAP_Section_num_stack_to_lab_SUBSET
+    \\ simp []
+  )
+  \\ simp [cake_orac_def, compile_inc_progs_def, Q.ISPEC `FST` ETA_THM]
+  \\ rw []
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ simp [compile_no_stubs_def, MAP_prog_to_section_Section_num,
+    MAP_MAP_o, o_DEF, Q.ISPEC `FST` ETA_THM]
+QED
 
 Theorem monotonic_DISJOINT_labels_lab:
   compile c prog = SOME (b, bm, c') /\
