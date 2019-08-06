@@ -1944,18 +1944,16 @@ val app_ffi_def = Define `
          MEM sign sigs /\
          FIND (λx. x.mlname = sign.mlname) sigs = SOME sign /\
          ffi_index = sign.mlname /\
-         get_cargs_heap wss sign.args args = SOME cargs /\
          LENGTH wss = LENGTH(get_mut_args sign.args args) /\
          (H ==>> frame * W8ARRAYS sign.args args wss * one (FFI_part s u sigs events) *
-                 cond (FIND (λx. x.mlname = "") sigs = NONE)) /\
+                 cond (FIND (λx. x.mlname = "") sigs = NONE) *
+                 cond (get_cargs_heap wss sign.args args = SOME cargs)) /\
          (case u ffi_index cargs (als_args sign.args args) s of
             SOME(FFIreturn vs retv s') =>
              (frame * W8ARRAYS sign.args args vs * one (FFI_part s' u sigs
-                 (events ++ [IO_event ffi_index cargs vs retv])) *
-              cond (FIND (λx. x.mlname = "") sigs = NONE)) ==>> Q (Val (get_ret_val retv))
+                 (events ++ [IO_event ffi_index cargs vs retv]))) ==>> Q (Val (get_ret_val retv))
           | SOME(FFIdiverge) =>
-             (frame * W8ARRAYS sign.args args wss * one (FFI_part s u sigs events) *
-              cond (FIND (λx. x.mlname = "") sigs = NONE)) ==>> Q (FFIDiv ffi_index cargs)
+             (frame * W8ARRAYS sign.args args wss * one (FFI_part s u sigs events)) ==>> Q (FFIDiv ffi_index cargs)
           | NONE => F)) /\
      Q ==e> POST_F /\ Q ==d> POST_F)`
 
@@ -2910,8 +2908,11 @@ val cf_ffi_sound = Q.prove (
      qpat_assum `u ffi_index cargs a2 s = SOME FFIdiverge` kall_tac \\
      qexists_tac `FFIDiv ffi_index cargs` \\
      MAP_EVERY qexists_tac [`h_i`, `{}`, `st2heap p st`] \\
-     conj_tac >- fs[SPLIT3_def,SPLIT_def] \\
-     conj_tac >- fs[SEP_IMP_def] \\
+     conj_tac >- (res_tac >> fs[SPLIT3_def,SPLIT_def]) \\
+     conj_tac >- (fs[SEP_IMP_def] \\ rfs[] \\
+                  first_x_assum(match_mp_tac o MP_CANON) \\
+                  first_x_assum drule \\
+                  simp[cond_STAR]) \\
      cf_evaluate_step_tac \\
      MAP_EVERY qexists_tac [`st.clock`, `st`] \\
      fs [do_app_def,app_ffi_def,W8ARRAY_def] \\

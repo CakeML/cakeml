@@ -771,16 +771,39 @@ Proof
             W8ARRAY iobuff_loc fnm0 *
             catfs fs'`
     >- (simp[Abbr`catfs`,Abbr`fs'`] >>
-        xffi >> xsimpl >>
-        qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
+        xffi >>
         fs[strcat_thm,implode_def] >>
         simp[fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
         qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
-        CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-        map_every qexists_tac[`events`,`ns`,`f`,`st`]
-        >> xsimpl >>
-        simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
-             ffi_open_in_def, (* decode_encode_FS, *) Abbr`fd0`,
+        map_every qexists_tac [`[fd0]`,
+                               `W8ARRAY iobuff_loc fnm0`,
+                               `st`,`f`,`open_in_sig`,`ns`,
+                               `[C_arrayv (MAP (n2w o ORD) (STRCAT (explode s) "\^@")); C_arrayv fd0]`,
+                               `events`
+                              ] >>
+        unabbrev_all_tac >>
+        conj_tac >- EVAL_TAC >>
+        conj_tac >- EVAL_TAC >>
+        conj_tac >- EVAL_TAC >>
+        conj_tac >- EVAL_TAC >>
+        `!l sv av. W8ARRAYS open_in_sig.args [sv; av] [l]
+          = W8ARRAY av l`
+           by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,open_in_sig_def,
+                 W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+                 remdups_def,FUN_EQ_THM
+                ] >>
+              rw[EQ_IMP_THM,emp_def] >> metis_tac[SPLIT_emp2]) >>
+        fs[] >>
+        conj_tac >-
+          (hpullr_keep >>
+           conj_tac >- (rw[] >> EVAL_TAC) >>
+           conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] >>
+                        fs[STRING_TYPE_def] >> EVAL_TAC \\ simp[o_DEF]) >>
+           xsimpl
+          ) >>
+        fs[cfHeapsBaseTheory.mk_ffi_next_def,
+           GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute] >>
+        simp[ffi_open_in_def, (* decode_encode_FS, *)
              getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
              dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
              LENGTH_explode,REPLICATE_compute,LUPDATE_compute,explode_implode] >>
@@ -789,7 +812,8 @@ Proof
         csimp[openFileFS_def, openFile_def, validFD_def] >>
         fs[STRING_TYPE_def] \\ xsimpl >>
         qpat_abbrev_tac `new_events = events ++ _` >>
-        qexists_tac `new_events` >> xsimpl) >>
+        qexists_tac `new_events` >> xsimpl >>
+        EVAL_TAC) >>
     xlet_auto >- xsimpl >>
     xlet_auto >- xsimpl >>
     xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R >> fs[])
@@ -804,21 +828,45 @@ Proof
   xlet `POSTv u2.
             &UNIT_TYPE () u2 * catfs fs * W8ARRAY iobuff_loc fnm0 *
             W8ARRAY loc (LUPDATE 1w 0 fd0)`
-  >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >> xsimpl >>
+  >- (simp[Abbr`catfs`,Abbr`fs'`] >> xffi >>
       simp[fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
       qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
-      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-      map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
-      qexists_tac`(MAP (n2w o ORD) (explode s) ++ [0w])` >>
       fs[strcat_thm,implode_def] >>
-      simp[Abbr`f`,Abbr`st`,Abbr`ns`, mk_ffi_next_def,
-           ffi_open_in_def, (* decode_encode_FS, *) Abbr`fd0`,
+      map_every qexists_tac [`[fd0]`,
+                             `W8ARRAY iobuff_loc fnm0`,
+                             `st`,`f`,`open_in_sig`,`ns`,
+                             `[C_arrayv (MAP (n2w o ORD) (STRCAT (explode s) "\^@")); C_arrayv fd0]`,
+                             `events`
+                              ] >>
+      unabbrev_all_tac >>
+      conj_tac >- EVAL_TAC >>
+      conj_tac >- EVAL_TAC >>
+      conj_tac >- EVAL_TAC >>
+      conj_tac >- EVAL_TAC >>
+      `!l sv av. W8ARRAYS open_in_sig.args [sv; av] [l]
+        = W8ARRAY av l`
+         by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,open_in_sig_def,
+               W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+               remdups_def,FUN_EQ_THM
+              ] >>
+            rw[EQ_IMP_THM,emp_def] >> metis_tac[SPLIT_emp2]) >>
+      fs[] >>
+      conj_tac >-
+        (hpullr_keep >>
+         conj_tac >- (rw[] >> EVAL_TAC) >>
+         conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] >>
+                      fs[STRING_TYPE_def] >> EVAL_TAC \\ simp[o_DEF]) >>
+         xsimpl
+        ) >>
+      fs[cfHeapsBaseTheory.mk_ffi_next_def,
+         GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute] >>
+      simp[ffi_open_in_def, (* decode_encode_FS, *)
            getNullTermStr_add_null, MEM_MAP, ORD_BOUND, ORD_eq_0,
            dimword_8, MAP_MAP_o, o_DEF, char_BIJ,str_def,strcat_thm,
-           implode_explode, LENGTH_explode] >>
+           LENGTH_explode,REPLICATE_compute,LUPDATE_compute,explode_implode] >>
       fs[not_inFS_fname_openFile,STRING_TYPE_def] \\ xsimpl >>
       qpat_abbrev_tac `new_events = events ++ _` >>
-      qexists_tac `new_events` >> xsimpl) >>
+        qexists_tac `new_events` >> xsimpl >> EVAL_TAC) >>
   xlet_auto >-(xsimpl) >> fs[] >>
   xlet_auto >- xsimpl >>
   xlet_auto >- (xsimpl >> imp_res_tac WORD_UNICITY_R) >>

@@ -257,7 +257,7 @@ val hsimpl_cancel = CONSEQ_CONV_TAC hsimpl_cancel_conseq_conv
 
 (** hpullr *)
 
-fun hpullr_conseq_conv_core t =
+fun hpullr_conseq_conv_core_gen rules t =
   let
     val (l, r) = dest_sep_imp t
     val rs = list_dest dest_star r
@@ -270,7 +270,7 @@ fun hpullr_conseq_conv_core t =
         SOME (
           EVERY_CONSEQ_CONV [
             rearrange_conv tm,
-            CONSEQ_TOP_REWRITE_CONV ([], [hsimpl_prop, hsimpl_prop_single], [])
+            CONSEQ_TOP_REWRITE_CONV ([], rules, [])
               CONSEQ_CONV_STRENGTHEN_direction
           ]
         )
@@ -291,6 +291,9 @@ fun hpullr_conseq_conv_core t =
       | SOME cc => cc t
   end
 
+val hpullr_conseq_conv_core = hpullr_conseq_conv_core_gen [hsimpl_prop, hsimpl_prop_single]
+val hpullr_conseq_conv_core_keep = hpullr_conseq_conv_core_gen [hsimpl_prop_keep, hsimpl_prop_single]
+
 val hpullr_setup_conv =
   SEP_IMP_conv REFL (QCONV heap_clean_conv)
 
@@ -298,12 +301,22 @@ val hpullr_one_conseq_conv =
   STRENGTHEN_CONSEQ_CONV hpullr_setup_conv THEN_DCC
   STRENGTHEN_CONSEQ_CONV hpullr_conseq_conv_core
 
+val hpullr_keep_one_conseq_conv =
+  STRENGTHEN_CONSEQ_CONV hpullr_setup_conv THEN_DCC
+  STRENGTHEN_CONSEQ_CONV hpullr_conseq_conv_core_keep
+
 val hpullr_conseq_conv =
   STRENGTHEN_CONSEQ_CONV hpullr_setup_conv THEN_DCC
   REDEPTH_CONSEQ_CONV (STRENGTHEN_CONSEQ_CONV hpullr_conseq_conv_core)
 
+val hpullr_keep_conseq_conv =
+  STRENGTHEN_CONSEQ_CONV hpullr_setup_conv THEN_DCC
+  REDEPTH_CONSEQ_CONV (STRENGTHEN_CONSEQ_CONV hpullr_conseq_conv_core_keep)
+
 val hpullr_one = CONSEQ_CONV_TAC hpullr_one_conseq_conv
+val hpullr_keep_one = CONSEQ_CONV_TAC hpullr_keep_one_conseq_conv
 val hpullr = CONSEQ_CONV_TAC hpullr_conseq_conv
+val hpullr_keep = CONSEQ_CONV_TAC hpullr_keep_conseq_conv
 
 (* test goal:
   g `Z ==>> (A * cond P * (SEP_EXISTS x. G x) * cond Q :hprop)`;

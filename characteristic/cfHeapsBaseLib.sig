@@ -118,6 +118,11 @@ sig
   val hpullr_conseq_conv : directed_conseq_conv
   val hpullr_one_conseq_conv : directed_conseq_conv
 
+  val hpullr_keep : tactic
+  val hpullr_keep_one : tactic
+  val hpullr_keep_conseq_conv : directed_conseq_conv
+  val hpullr_keep_one_conseq_conv : directed_conseq_conv
+
   (** [hcancel]: [hsimpl] without [hpull] *)
   val hcancel : tactic
   val hcancel_conseq_conv : directed_conseq_conv

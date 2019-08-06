@@ -6,13 +6,22 @@ open preamble
 
 val _ = new_theory"runtimeFFI";
 
+val exit_sig_def = Define
+  `exit_sig =
+   <| mlname := "exit";
+       cname  := "ffiexit";
+       retty  := NONE;
+       args   := [C_array <| mutable := F; with_length := T |>;
+                  C_array <| mutable := T; with_length := T |>]
+    |>`
+
 val ffi_exit_def = Define `
- ffi_exit (conf:word8 list) (bytes:word8 list) () = SOME(FFIdiverge:unit ffi_result)
+ ffi_exit _ _ () = SOME(FFIdiverge:unit ffi_result)
   `
 
 Theorem ffi_exit_length:
-    ffi_exit (conf:word8 list) (bytes:word8 list) u = SOME (FFIreturn bytes' args')
-  ==> LENGTH bytes' = LENGTH bytes
+    ffi_exit args als u = SOME (FFIreturn bytes' retv args')
+  ==> F
 Proof
   Cases_on `u` \\ rw[ffi_exit_def]
 QED
@@ -35,6 +44,6 @@ QED
 
 val runtime_ffi_part_def = Define`
   runtime_ffi_part = (encode,decode,
-    [("exit",ffi_exit)])`;
+    [("exit",ffi_exit,exit_sig)])`;
 
 val _ = export_theory();

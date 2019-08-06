@@ -32,7 +32,7 @@ Theorem Runtime_exit_spec:
    INT i iv ==>
    app (p:'ffi ffi_proj) ^(fetch_v "Runtime.exit" st) [iv]
      (RUNTIME)
-     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [i2w i]))
+     (POSTf n. λcargs. RUNTIME * &(n = "exit" /\ cargs = [C_arrayv []; C_arrayv [i2w i]]))
 Proof
   qpat_abbrev_tac `Q = $POSTf _`
   \\ simp [RUNTIME_def,runtime_ffi_part_def,IOx_def,IO_def]
@@ -53,24 +53,37 @@ Proof
   \\ rw[]
   \\ qexists_tac `H * W8ARRAY loc [i2w i]`
   \\ qexists_tac `emp` \\ simp[app_ffi_def]
+  \\ simp[exp2v_list_def,exp2v_def]
   \\ simp[GSYM PULL_EXISTS]
   \\ conj_tac
   >- (fs[STAR_def,emp_def,SPLIT_emp2] >> metis_tac[])
-  \\ qexists_tac `(POSTf n. (λc b. RUNTIME *
-                                   &(n = "exit" ∧ c = [] ∧ b = [i2w i]) *
+  \\ qexists_tac `(POSTf n. (λcargs. RUNTIME *
+                                   &(n = "exit" /\ cargs = [C_arrayv []; C_arrayv [i2w i]]) *
                                    SEP_EXISTS loc. W8ARRAY loc [i2w i]))`
   \\ reverse (conj_tac)
   >- (unabbrev_all_tac \\ xsimpl)
+  \\ reverse conj_tac >- xsimpl
   \\ fs[RUNTIME_def,runtime_ffi_part_def,IOx_def,IO_def]
   \\ xsimpl
-  \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-  \\ MAP_EVERY qexists_tac [`loc`,`[]`,`[i2w i]`,`emp`,`s`,`u`,`ns`,`events`]
+  \\ qmatch_goalsub_abbrev_tac `FFI_part s u _`
+  \\ MAP_EVERY qexists_tac [`[[i2w i]]`,`emp`,`s`,`u`,`exit_sig`,`[exit_sig]`,
+                            `[C_arrayv [];C_arrayv [i2w i]]`,`events`]
   \\ conj_tac >- EVAL_TAC
   \\ conj_tac >- EVAL_TAC
+  \\ conj_tac >- EVAL_TAC
+  \\ conj_tac >- EVAL_TAC
+  \\ `W8ARRAYS exit_sig.args [Litv (StrLit ""); loc] [[i2w i]]
+      = W8ARRAY loc [i2w i]`
+       by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,exit_sig_def,
+             W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+             remdups_def,FUN_EQ_THM
+            ]
+          \\ rw[EQ_IMP_THM,emp_def] \\ metis_tac[SPLIT_emp2])
   \\ unabbrev_all_tac
   \\ fs[mk_ffi_next_def,encode_def,decode_def,ffi_exit_def]
   \\ xsimpl
-  \\ MAP_EVERY qexists_tac [`events`,`loc`]
+  \\ conj_asm1_tac >- (fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] \\ EVAL_TAC)
+  \\ MAP_EVERY qexists_tac [`loc`,`events`]
   \\ xsimpl
 QED
 
@@ -78,7 +91,7 @@ Theorem Runtime_abort_spec:
    UNIT_TYPE u uv ==>
    app (p:'ffi ffi_proj) ^(fetch_v "Runtime.abort" st) [uv]
      (RUNTIME)
-     (POSTf n. λc b. RUNTIME * &(n = "exit" /\ c = [] /\ b = [1w]))
+     (POSTf n. λcargs. RUNTIME * &(n = "exit" /\ cargs = [C_arrayv []; C_arrayv [1w]]))
 Proof
   xcf "Runtime.abort" st
   \\ fs [UNIT_TYPE_def]

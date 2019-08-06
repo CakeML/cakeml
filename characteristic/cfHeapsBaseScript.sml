@@ -71,7 +71,7 @@ val mk_ffi_next_def = Define`
   mk_ffi_next (encode,decode,ls) name args als s =
     OPTION_BIND (ALOOKUP ls name) (λf.
     OPTION_BIND (decode s) (λs.
-    OPTION_BIND ((FST f) name args als s) (λr.
+    OPTION_BIND ((FST f) args als s) (λr.
      case r of
        FFIreturn newargs retv s => SOME(FFIreturn newargs retv (encode s))
      | FFIdiverge => SOME FFIdiverge)))`;
@@ -618,12 +618,30 @@ Proof
   SPLIT_TAC
 QED
 
+Theorem hsimpl_prop_keep:
+   !H' H P.
+     (!h. H' h ==> P) /\ (H' ==>> H) ==>
+     (H' ==>> H * cond P)
+Proof
+  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
+  SPLIT_TAC
+QED
+
 Theorem hsimpl_prop_single:
    !H' P.
      P /\ (H' ==>> emp) ==>
      (H' ==>> cond P)
 Proof
   rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def, emp_def] \\
+  SPLIT_TAC
+QED
+
+Theorem hsimpl_prop_single_keep:
+   !H' H P.
+     (!h. H' h ==> h = ∅ /\ P) ==>
+     (H' ==>> cond P)
+Proof
+  rpt strip_tac \\ fs [SEP_IMP_def, STAR_def, cond_def] \\
   SPLIT_TAC
 QED
 

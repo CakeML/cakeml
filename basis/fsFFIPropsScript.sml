@@ -371,14 +371,14 @@ QED
 (* ffi lengths *)
 
 Theorem ffi_open_in_length:
-   ffi_open_in conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_open_in [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
 Proof
   rw[ffi_open_in_def] \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[n2w8_def]
 QED
 
 Theorem ffi_open_out_length:
-   ffi_open_out conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_open_out [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
 Proof
   rw[ffi_open_out_def] \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[n2w8_def]
@@ -394,7 +394,7 @@ Proof
 QED
 
 Theorem ffi_read_length:
-   ffi_read conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_read [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
 Proof
   rw[ffi_read_def]
   \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
@@ -404,7 +404,7 @@ Proof
 QED
 
 Theorem ffi_write_length:
-   ffi_write conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_write [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
 Proof
   EVAL_TAC \\ rw[]
   \\ fs[option_eq_some] \\ every_case_tac \\ fs[] \\ rw[]
@@ -414,7 +414,7 @@ Proof
 QED
 
 Theorem ffi_close_length:
-   ffi_close conf bytes fs = SOME (FFIreturn bytes' fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_close [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
 Proof
   rw[ffi_close_def] \\ fs[option_eq_some] \\ TRY pairarg_tac \\ fs[] \\ rw[]
 QED

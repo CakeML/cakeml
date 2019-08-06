@@ -27,7 +27,8 @@ val set_tm = set_thm |> concl |> find_term(pred_setSyntax.is_insert)
 
 val COMMANDLINE_precond = Q.prove(
   `wfcl cl ⇒ (COMMANDLINE cl) ^set_tm`,
-  rw[set_thm]) |> UNDISCH
+  rw[set_thm,get_arg_count_sig_def,
+     get_arg_length_sig_def,get_arg_sig_def]) |> UNDISCH
   |> curry save_thm "COMMANDLINE_precond";
 
 Theorem COMMANDLINE_FFI_part_hprop:
@@ -143,16 +144,34 @@ Proof
   THEN1
    (xffi
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def,IO_def]
-    \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
-    \\ xsimpl
+    \\ map_every qexists_tac [`[[n2w n; n2w (n DIV 256)]]`,`emp`, `s`, `u`,
+                              `get_arg_length_sig`, `ns`,
+                              `[C_arrayv []; C_arrayv [n2w n; n2w (n DIV 256)]]`,`events`]
     \\ unabbrev_all_tac \\ fs []
+    \\ conj_tac >- EVAL_TAC
+    \\ conj_tac >- EVAL_TAC
+    \\ conj_tac >- EVAL_TAC
+    \\ `!l. W8ARRAYS get_arg_length_sig.args [Litv (StrLit ""); av] [l]
+        = W8ARRAY av l`
+         by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,get_arg_length_sig_def,
+               W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+               remdups_def,FUN_EQ_THM
+              ]
+            \\ rw[EQ_IMP_THM,emp_def] \\ metis_tac[SPLIT_emp2])
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_length_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
-    \\ fs [wfcl_def] \\ xsimpl
+    \\ fs[wfcl_def]
+    \\ conj_tac >-
+      (hpullr_keep
+       \\ conj_tac >- (rw[] \\ EVAL_TAC)
+       \\ conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] \\ EVAL_TAC)
+       \\ xsimpl)
+    \\ xsimpl
+    \\ fs[PULL_EXISTS]
     \\ qpat_abbrev_tac `new_events = events ++ _`
-    \\ qexists_tac `new_events` \\ xsimpl)
+    \\ qexists_tac `new_events` \\ xsimpl
+  )
   \\ rpt (xlet_auto THEN1 xsimpl)
   \\ qmatch_goalsub_abbrev_tac`W8ARRAY av1 bytes`
   \\ `strlen x < 65536` by
@@ -167,14 +186,32 @@ Proof
     \\ xffi
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def,IO_def]
     \\ qabbrev_tac `extra = W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)]`
-    \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`extra`, `s`, `u`, `ns`, `events`]
-    \\ xsimpl
-    \\ unabbrev_all_tac \\ fs []
+    \\ map_every qexists_tac [`[bytes]`,
+                              `extra`, `s`, `u`, `get_arg_sig`, `ns`,
+                              `[C_arrayv []; C_arrayv bytes]`,
+                              `events`]
+    \\ unabbrev_all_tac \\ fs[]
+    \\ conj_tac >- EVAL_TAC
+    \\ conj_tac >- EVAL_TAC
+    \\ conj_tac >- EVAL_TAC
+    \\ `!l av. W8ARRAYS get_arg_sig.args [Litv (StrLit ""); av] [l]
+        = W8ARRAY av l`
+         by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,get_arg_sig_def,
+               W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+               remdups_def,FUN_EQ_THM
+              ]
+            \\ rw[EQ_IMP_THM,emp_def] \\ metis_tac[SPLIT_emp2])
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
-    \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum] \\ xsimpl
+    \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum]
+    \\ conj_tac >-
+      (hpullr_keep
+       \\ conj_tac >- (rw[] \\ EVAL_TAC)
+       \\ conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] \\ EVAL_TAC)
+       \\ xsimpl
+      )
+    \\ xsimpl
     \\ qpat_abbrev_tac `new_events = events ++ _`
     \\ qexists_tac `new_events` \\ xsimpl)
   \\ xlet_auto
@@ -225,14 +262,31 @@ Proof
   THEN1
    (xffi
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,IO_def]
-    \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
-    \\ xsimpl
-    \\ unabbrev_all_tac \\ fs []
+    \\ map_every qexists_tac [`[[0w;0w]]`,`emp`, `s`, `u`, `get_arg_count_sig`,`ns`,
+                              `[C_arrayv []; C_arrayv [0w;0w]]`,`events`]
+    \\ unabbrev_all_tac
+    \\ conj_tac >- EVAL_TAC
+    \\ conj_tac >- EVAL_TAC
+    \\ conj_tac >- EVAL_TAC
+    \\ conj_tac >- EVAL_TAC
+    \\ `!l av. W8ARRAYS get_arg_count_sig.args [Litv (StrLit ""); av] [l]
+        = W8ARRAY av l`
+         by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,get_arg_count_sig_def,
+               W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+               remdups_def,FUN_EQ_THM
+              ]
+            \\ rw[EQ_IMP_THM,emp_def] \\ metis_tac[SPLIT_emp2])
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_count_def,
            GSYM cfHeapsBaseTheory.encode_list_def]
-    \\ fs [wfcl_def] \\ xsimpl
+    \\ fs [wfcl_def]
+    \\ conj_tac >-
+      (hpullr_keep
+       \\ conj_tac >- (rw[] \\ EVAL_TAC)
+       \\ conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] \\ EVAL_TAC)
+       \\ xsimpl
+      )
+    \\ xsimpl
     \\ qpat_abbrev_tac `new_events = events ++ _`
     \\ qexists_tac `new_events` \\ xsimpl)
   \\ xlet_auto >- xsimpl

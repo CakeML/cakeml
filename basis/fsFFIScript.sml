@@ -161,6 +161,51 @@ val closeFD_def = Define`
     - close
 *)
 
+val open_in_sig_def = Define
+  `open_in_sig =
+   <| mlname := "open_in";
+       cname  := "ffiopen_in";
+       retty  := NONE;
+       args   := [C_array <| mutable := F; with_length := T |>;
+                  C_array <| mutable := T; with_length := T |>]
+    |>`
+
+val open_out_sig_def = Define
+  `open_out_sig =
+   <| mlname := "open_out";
+       cname  := "ffiopen_out";
+       retty  := NONE;
+       args   := [C_array <| mutable := F; with_length := T |>;
+                  C_array <| mutable := T; with_length := T |>]
+    |>`
+
+val read_sig_def = Define
+  `read_sig =
+   <| mlname := "read";
+       cname  := "ffiread";
+       retty  := NONE;
+       args   := [C_array <| mutable := F; with_length := T |>;
+                  C_array <| mutable := T; with_length := T |>]
+    |>`
+
+val write_sig_def = Define
+  `write_sig =
+   <| mlname := "write";
+       cname  := "ffiwrite";
+       retty  := NONE;
+       args   := [C_array <| mutable := F; with_length := T |>;
+                  C_array <| mutable := T; with_length := T |>]
+    |>`
+
+val close_sig_def = Define
+  `close_sig =
+   <| mlname := "close";
+       cname  := "fficlose";
+       retty  := NONE;
+       args   := [C_array <| mutable := F; with_length := T |>;
+                  C_array <| mutable := T; with_length := T |>]
+    |>`
+
 (* truncate byte list after null byte and convert into char list *)
 val getNullTermStr_def = Define`
   getNullTermStr (bytes : word8 list) =
@@ -175,16 +220,16 @@ val getNullTermStr_def = Define`
 *  return result code in first byte
 *  write its file descriptor index in the second byte *)
 val ffi_open_in_def = Define`
-  ffi_open_in (conf: word8 list) bytes fs =
+  ffi_open_in [C_arrayv conf; C_arrayv bytes] _ fs =
     do
       assert(9 <= LENGTH bytes);
       fname <- getNullTermStr conf;
       (fd, fs') <- openFile (implode fname) fs ReadMode 0;
-      return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes) fs')
+      return (FFIreturn [0w :: n2w8 fd ++ DROP 9 bytes] NONE fs')
     od ++
     do
       assert(0 < LENGTH bytes);
-      return (FFIreturn (LUPDATE 1w 0 bytes) fs)
+      return (FFIreturn [LUPDATE 1w 0 bytes] NONE fs)
     od`;
 
 (* open append:
@@ -197,17 +242,17 @@ val ffi_open_in_def = Define`
 * The file is truncated to zero length if it already exists.
 * TODO: It is created if it does not already exists.*)
 val ffi_open_out_def = Define`
-  ffi_open_out (conf: word8 list) bytes fs =
+  ffi_open_out [C_arrayv conf; C_arrayv bytes] _ fs =
     do
       assert(9 <= LENGTH bytes);
       fname <- getNullTermStr conf;
       (fd, fs') <- openFile_truncate (implode fname) fs WriteMode;
       assert(fd <= 255);
-      return (FFIreturn (0w :: n2w8 fd ++ DROP 9 bytes) fs')
+      return (FFIreturn [0w :: n2w8 fd ++ DROP 9 bytes] NONE fs')
     od ++
     do
       assert(0 < LENGTH bytes);
-      return (FFIreturn (LUPDATE 1w 0 bytes) fs)
+      return (FFIreturn [LUPDATE 1w 0 bytes] NONE fs)
     od`;
 
 (*
@@ -216,7 +261,7 @@ val ffi_open_out_def = Define`
 * corresponding system call:
 *  ssize_t read(int fd, void *buf, size_t count) *)
 val ffi_read_def = Define`
-  ffi_read (conf: word8 list) bytes fs =
+  ffi_read [C_arrayv conf; C_arrayv bytes] _ fs =
     (* the buffer contains at least the number of requested bytes *)
     case bytes of
        | (n1 :: n0 :: pad1 :: pad2 :: tll) =>
@@ -227,11 +272,11 @@ val ffi_read_def = Define`
       (* return ok code and list of chars
       *  the end of the array may remain unchanged *)
              return (FFIreturn
-                       (0w :: n2w2 (LENGTH l) ++ [pad2] ++
+                       [0w :: n2w2 (LENGTH l) ++ [pad2] ++
                         MAP (n2w o ORD) l ++
-                        DROP (LENGTH l) tll)
-                       fs')
-           od ++ return (FFIreturn (LUPDATE 1w 0 bytes) fs)
+                        DROP (LENGTH l) tll]
+                       NONE fs')
+           od ++ return (FFIreturn [LUPDATE 1w 0 bytes] NONE fs)
       (* inaccurate: "when an error occurs, [...]
       * it is left unspecified whether the file position (if any) changes. *)
   | _  => NONE`
@@ -241,7 +286,7 @@ val ffi_read_def = Define`
 * corresponding system call:
 * ssize_t write(int fildes, const void *buf, size_t nbytes) *)
 val ffi_write_def = Define`
-  ffi_write (conf:word8 list) bytes fs =
+  ffi_write [C_arrayv conf; C_arrayv bytes] _ fs =
     case bytes of
        | (n1 :: n0 :: off1 :: off0 :: tll) =>
           do
@@ -251,22 +296,22 @@ val ffi_write_def = Define`
             (nw, fs') <- write (w82n conf) (w22n [n1; n0])
                                (MAP (CHR o w2n) (DROP (w22n [off1; off0]) tll)) fs;
             (* return ok code and number of bytes written *)
-            return (FFIreturn (0w :: n2w2 nw ++ (off0 :: tll)) fs')
+            return (FFIreturn [0w :: n2w2 nw ++ (off0 :: tll)] NONE fs')
           (* return error code *)
-          od ++ return (FFIreturn (LUPDATE 1w 0 bytes) fs)
+          od ++ return (FFIreturn [LUPDATE 1w 0 bytes] NONE fs)
         | _ => NONE`;
 
 (* closes a file given its descriptor index *)
 val ffi_close_def = Define`
-  ffi_close (conf:word8 list) (bytes: word8 list) fs =
+  ffi_close [C_arrayv conf; C_arrayv bytes] _ fs =
     do
       assert(LENGTH bytes >= 1);
       assert(LENGTH conf = 8);
       do
         (_, fs') <- closeFD (w82n conf) fs;
-        return (FFIreturn (LUPDATE 0w 0 bytes) fs')
+        return (FFIreturn [LUPDATE 0w 0 bytes] NONE fs')
       od ++
-      return (FFIreturn (LUPDATE 1w 0 bytes) fs)
+      return (FFIreturn [LUPDATE 1w 0 bytes] NONE fs)
     od`;
 
 (* given a file descriptor and an offset, returns 0 and update fs or returns 1
@@ -364,10 +409,10 @@ val _ = export_rewrites ["decode_encode"];
 val fs_ffi_part_def = Define`
   fs_ffi_part =
     (encode,decode,
-      [("open_in",ffi_open_in);
-       ("open_out",ffi_open_out);
-       ("read",ffi_read);
-       ("write",ffi_write);
-       ("close",ffi_close)])`;
+      [("open_in",ffi_open_in,open_in_sig);
+       ("open_out",ffi_open_out,open_out_sig);
+       ("read",ffi_read,read_sig);
+       ("write",ffi_write,write_sig);
+       ("close",ffi_close,close_sig)])`;
 
 val _ = export_theory();
