@@ -11613,8 +11613,9 @@ Theorem memory_rel_append:
     3 * LENGTH in1 <= sp /\ good_dimindex (:'a) /\
     Word init_ptr = make_cons_ptr c (next_free - curr) 0 2 /\
     FLOOKUP st CurrHeap = SOME (Word curr) /\
-    FLOOKUP st NextFree = SOME (Word (next_free:'a word)) ==>
-    memory_rel c be (ts + LENGTH in1) refs (sp - 3 * LENGTH in1)
+    FLOOKUP st NextFree = SOME (Word (next_free:'a word)) /\
+    ts + LENGTH in1 ≤ ts1 ==>
+    memory_rel c be ts1 refs (sp - 3 * LENGTH in1)
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
        ((list_to_v_alt ts (list_to_v_alt ts0 Block_nil in2) in1 ,Word init_ptr)::vars)
