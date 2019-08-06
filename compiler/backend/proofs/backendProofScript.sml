@@ -1535,18 +1535,72 @@ Proof
   \\ simp []
 QED
 
+Theorem to_data_labels_ok:
+  compile c prog = SOME (b, bm, c') /\ backend_config_ok c
+  ==>
+  let (_, p) = to_data c prog in
+  EVERY (λn. n > data_num_stubs) (MAP FST p) /\ ALL_DISTINCT (MAP FST p)
+Proof
+  cheat
+QED
+
+Theorem to_word_labels_ok:
+  compile c prog = SOME (b, bm, c') /\ backend_config_ok c
+  ==>
+  let (_, p) = to_word c prog in
+  ALL_DISTINCT (MAP FST p) /\
+  EVERY (λn. n > raise_stub_location) (MAP FST p) /\
+  EVERY (λ(n,m,p).
+    let labs = wordProps$extract_labels p in
+    EVERY (λ(l1,l2). l1 = n ∧ l2 ≠ 0) labs ∧ ALL_DISTINCT labs) p
+Proof
+  rw [to_word_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ pop_assum mp_tac
+  \\ (data_to_word_compile_lab_pres
+     |> Q.GENL[`data_conf`,`word_conf`,`asm_conf`,`prog`]
+     |> C (specl_args_of_then``data_to_word$compile``)mp_tac)
+  \\ rpt disch_tac \\ fs []
+  \\ drule to_data_labels_ok
+  \\ simp []
+  \\ disch_tac \\ fs []
+  \\ simp [ALL_DISTINCT_APPEND, EVERY_MEM]
+  \\ EVAL_TAC
+  \\ simp_tac bool_ss [boolTheory.MONO_NOT_EQ |> Q.GEN `x` |> Q.SPEC `~ MEM e xs`]
+  \\ simp_tac bool_ss [DISJ_IMP_THM, FORALL_AND_THM]
+  \\ full_simp_tac bool_ss [EVERY_MEM]
+  \\ EVAL_TAC
+  \\ conj_tac \\ rpt (gen_tac ORELSE disch_tac)
+  \\ first_x_assum drule
+  \\ EVAL_TAC
+  \\ rw []
+QED
+
 Theorem to_lab_labels_ok:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
   stack_to_labProof$labels_ok (SND (to_lab c prog))
 Proof
-  simp [to_lab_def]
-  \\ pairarg_tac
+  simp [to_lab_def, to_stack_def]
+  \\ rpt (pairarg_tac \\ fs [])
   \\ rw []
   \\ irule stack_to_lab_compile_lab_pres
-  (* todo: factor the proof of these conditions from the big proof
-     out to here *)
-  \\ cheat
+  \\ drule to_word_labels_ok
+  \\ simp []
+  \\ rename [`to_word c prog = (word_c, word_p)`]
+  \\ qspecl_then [`word_p`, `word_c.lab_conf.asm_conf`] mp_tac
+    (GEN_ALL word_to_stack_compile_lab_pres)
+  \\ simp []
+  \\ rpt disch_tac
+  \\ fs []
+  \\ EVAL_TAC
+  \\ fs [EVERY_MEM]
+  \\ CCONTR_TAC
+  \\ fs []
+  \\ RES_THEN mp_tac
+  \\ EVAL_TAC
+  \\ simp []
 QED
 
 Theorem monotonic_labels_stack_to_lab:
