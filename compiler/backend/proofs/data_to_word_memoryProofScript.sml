@@ -11557,7 +11557,6 @@ Proof
      by (fs [timestamps_ok_def] \\ rw []
         \\ first_x_assum ho_match_mp_tac
         \\ fs [SUBSET_DEF])
-  \\ `∀t. t ∈ FDOM tf ⇒ t < ts` by cheat
   \\ qpat_x_assum `LENGTH xs = _` (assume_tac o GSYM)
   \\ rw []
   \\ match_mp_tac (Q.INST [`sp`|->`sp+sp1`] (SPEC_ALL v_inv_list_to_v_alt))
