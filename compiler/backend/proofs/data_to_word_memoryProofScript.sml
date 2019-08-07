@@ -11634,7 +11634,6 @@ Proof
   \\ impl_tac
   >- (Cases_on `ws` \\ Cases_on `in1` \\ fs [])
   \\ rw []
-  (* \\ fs [list_to_v_alt_list_to_v] *)
   \\ rw [memory_rel_def, word_ml_inv_def, PULL_EXISTS]
   \\ qmatch_asmsub_abbrev_tac `abs_ml_inv _ _ _ (r0::rs0,h0,_,a0,sp0,_) _`
   \\ Q.LIST_EXISTS_TAC [`h0`,`limit`,`a0`,`sp0`,`sp1`,`gens`,`r0`,`rs0`] \\ fs []
@@ -11704,25 +11703,25 @@ val walk_def = Define `
           ptr::walk conf heap p (n-1)`;
 
 Theorem v_inv_list_to_v_lemma:
-   v_inv c (list_to_v vs) (y,f,tf,heap) /\
+   v_inv c (list_to_v_alt ts Block_nil vs) (y,f,tf,heap) /\
    vs <> [] ==>
     ?p ys. y = Pointer p (Word (ptr_bits c cons_tag 2)) /\
                heap_lookup p heap = SOME (BlockRep cons_tag ys)
 Proof
-  rw [] \\ Cases_on `vs` \\ fs [] \\ rw []
+  rw [] \\ Cases_on `vs` \\ fs [list_to_v_alt_def] \\ rw []
   \\ pop_assum mp_tac
   \\ rw [list_to_v_def, v_inv_def, BlockRep_def]
 QED
 
 Theorem walk_LENGTH:
-   !vs ptr ps.
-     v_inv c (list_to_v vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
+   !vs ptr ps ts.
+     v_inv c (list_to_v_alt ts Block_nil vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
      vs <> [] /\
      walk c heap ptr (LENGTH vs) = ps
      ==>
      LENGTH ps = LENGTH vs
 Proof
-  Induct \\ rw [list_to_v_def, v_inv_def]
+  Induct \\ rw [list_to_v_alt_def, v_inv_def]
   \\ drule (GEN_ALL v_inv_list_to_v_lemma)
   \\ Cases_on `vs` \\ fs []
   >- (once_rewrite_tac [walk_def] \\ fs [])
@@ -11796,15 +11795,15 @@ Proof
 QED
 
 Theorem walk_heap_lookup:
-   !vs p ps.
-     v_inv c (list_to_v vs)
+   !vs p ps ts.
+     v_inv c (list_to_v_alt ts Block_nil vs)
        (Pointer p (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
      vs <> [] /\
      walk c heap p (LENGTH vs) = ps
      ==>
      EVERY (\p. ?x y. heap_lookup p heap = SOME (BlockRep cons_tag [x; y])) ps
 Proof
-  Induct \\ rw [list_to_v_def, v_inv_def]
+  Induct \\ rw [list_to_v_alt_def, v_inv_def]
   \\ imp_res_tac v_inv_list_to_v_lemma
   \\ Cases_on `vs = []` \\ fs [] \\ rveq
   >- (once_rewrite_tac [walk_def] \\ fs [BlockRep_def])
@@ -11816,26 +11815,26 @@ Proof
 QED
 
 Theorem walk_MEM:
-   v_inv c (list_to_v vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
+   v_inv c (list_to_v_alt ts Block_nil vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
    vs <> []
    ==>
    MEM ptr (walk c heap ptr (LENGTH vs))
 Proof
   Cases_on `vs` \\ fs []
-  \\ simp [Once walk_def, list_to_v_def, v_inv_def, some_def, BlockRep_def]
+  \\ simp [Once walk_def, list_to_v_alt_def, v_inv_def, some_def, BlockRep_def]
   \\ strip_tac \\ rveq \\ fs []
   \\ IF_CASES_TAC \\ fs []
   \\ IF_CASES_TAC \\ fs []
   \\ rename1 `z <> Pointer _ _`
   \\ Cases_on `z` \\ fs []
   \\ qhdtm_x_assum `v_inv` mp_tac
-  \\ Cases_on `t` \\ rw [v_inv_def, list_to_v_def, BlockRep_def]
+  \\ Cases_on `t` \\ rw [v_inv_def, list_to_v_alt_def, BlockRep_def]
   \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs []
 QED
 
 Theorem walk_EL:
-   !vs ptr ps.
-     v_inv c (list_to_v vs)
+   !vs ptr ps ts.
+     v_inv c (list_to_v_alt ts Block_nil vs)
        (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
      vs <> [] /\
      walk c heap ptr (LENGTH vs) = ps
@@ -11846,10 +11845,10 @@ Theorem walk_EL:
            SOME (BlockRep cons_tag [x;
              Pointer (EL (SUC n) ps) (Word (ptr_bits c cons_tag 2))])
 Proof
-  Induct >- rw [] \\ ntac 4 strip_tac
+  Induct >- rw [] \\ ntac 5 strip_tac
   \\ Induct \\ rw []
   \\ qhdtm_x_assum `v_inv` mp_tac
-  \\ rw [list_to_v_def, v_inv_def]
+  \\ rw [list_to_v_alt_def, v_inv_def]
   \\ Cases_on `vs` \\ fs [] \\ rveq
   \\ drule (GEN_ALL v_inv_list_to_v_lemma) \\ fs [] \\ rw []
   \\ first_x_assum drule
@@ -11858,39 +11857,39 @@ Proof
     \\ Cases_on `t` \\ fs [] \\ rw []
     \\ ntac 2 (once_rewrite_tac [walk_def] \\ fs [BlockRep_def])
     \\ qhdtm_x_assum `v_inv` mp_tac
-    \\ rw [list_to_v_def, v_inv_def] \\ fs [BlockRep_def]
+    \\ rw [list_to_v_alt_def, v_inv_def] \\ fs [BlockRep_def]
     \\ rveq \\ fs [])
   \\ disch_then drule \\ rw []
   \\ once_rewrite_tac [walk_def] \\ fs [BlockRep_def]
 QED
 
 Theorem list_to_v_same_LENGTH:
-   !xs x ys.
-     v_inv c (list_to_v xs) (x,f,tf,heap) /\
-     v_inv c (list_to_v ys) (x,f,tf,heap)
+   !xs x ys ts1 ts2.
+     v_inv c (list_to_v_alt ts1 Block_nil xs) (x,f,tf,heap) /\
+     v_inv c (list_to_v_alt ts2 Block_nil ys) (x,f,tf,heap)
      ==>
      LENGTH xs = LENGTH ys
 Proof
   Induct \\ rw []
   \\ pop_assum mp_tac
   \\ pop_assum mp_tac
-  \\ rw [v_inv_def, list_to_v_def]
+  \\ rw [v_inv_def, list_to_v_alt_def]
   \\ pop_assum mp_tac
   \\ Cases_on `ys`
-  \\ rw [v_inv_def, list_to_v_def]
+  \\ rw [v_inv_def, list_to_v_alt_def]
   \\ fs [BlockRep_def] \\ rveq
   \\ metis_tac []
 QED
 
 Theorem list_to_v_DROP:
-   !vs ptr ps k.
-   v_inv c (list_to_v vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
+   !vs ptr ps k ts.
+   v_inv c (list_to_v_alt ts Block_nil vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
    vs <> [] /\
    walk c heap ptr (LENGTH vs) = ps /\
    ALL_DISTINCT ps /\
    k < LENGTH vs
    ==>
-   v_inv c (list_to_v (DROP k vs))
+   v_inv c (list_to_v_alt (ts + k) Block_nil (DROP k vs))
      (Pointer (EL k ps) (Word (ptr_bits c cons_tag 2)),f,tf,heap)
 Proof
   Induct >- rw []
@@ -11898,10 +11897,10 @@ Proof
   \\ Induct \\ rw []
   >-
    (qhdtm_x_assum `v_inv` mp_tac
-    \\ rw [Once list_to_v_def, v_inv_def] \\ fs []
+    \\ rw [Once list_to_v_alt_def, v_inv_def] \\ fs []
     \\ Cases_on `vs = []` \\ fs []
     >-
-     (fs [list_to_v_def]
+     (fs [list_to_v_alt_def]
       \\ fs [v_inv_def]
       \\ once_rewrite_tac [walk_def] \\ fs [PULL_EXISTS]
       \\ fs [BlockRep_def])
@@ -11909,14 +11908,14 @@ Proof
     \\ first_x_assum drule
     \\ disch_then (qspec_then `0` mp_tac)
     \\ simp [DROP_def] \\ rw []
-    \\ rw [list_to_v_def, v_inv_def, PULL_EXISTS]
+    \\ rw [list_to_v_alt_def, v_inv_def, PULL_EXISTS]
     \\ once_rewrite_tac [walk_def] \\ fs [BlockRep_def])
   \\ qhdtm_x_assum `v_inv` mp_tac
-  \\ rw [Once list_to_v_def, v_inv_def] \\ fs []
+  \\ rw [Once list_to_v_alt_def, v_inv_def] \\ fs []
   \\ Cases_on `vs = []` \\ fs []
   \\ drule (GEN_ALL v_inv_list_to_v_lemma) \\ fs [] \\ rw []
-  \\ qpat_x_assum `_ ==> _` mp_tac
-  \\ simp [list_to_v_def, v_inv_def, PULL_EXISTS, BlockRep_def]
+  \\ qpat_x_assum `∀ts. _ ==> _` mp_tac
+  \\ simp [list_to_v_alt_def, v_inv_def, PULL_EXISTS, BlockRep_def]
   \\ first_x_assum drule
   \\ disch_then (qspec_then `k` mp_tac)
   \\ impl_tac \\ fs []
@@ -11926,23 +11925,24 @@ Proof
   \\ rw []
   \\ pop_assum mp_tac
   \\ simp [Once walk_def, BlockRep_def]
-  \\ simp [list_to_v_def, DROP_def]
+  \\ simp [list_to_v_alt_def, DROP_def]
   \\ IF_CASES_TAC \\ fs []
-  >- simp [list_to_v_def, v_inv_def, PULL_EXISTS, BlockRep_def, Once walk_def]
+  >- (simp [list_to_v_alt_def, v_inv_def, PULL_EXISTS, BlockRep_def, Once walk_def])
   \\ strip_tac
   \\ Cases_on `k` \\ fs []
   \\ once_rewrite_tac [walk_def] \\ fs [BlockRep_def]
+  \\ fs [SUC_ONE_ADD]
 QED
 
 Theorem walk_ALL_DISTINCT:
-   !vs ptr ps.
-     v_inv c (list_to_v vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
+   !vs ptr ps ts.
+     v_inv c (list_to_v_alt ts Block_nil vs) (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap) /\
      vs <> [] /\
      walk c heap ptr (LENGTH vs) = ps
      ==>
      ALL_DISTINCT ps
 Proof
-  Induct \\ rw [v_inv_def, list_to_v_def]
+  Induct \\ rw [v_inv_def, list_to_v_alt_def]
   \\ rename1 `(y,f,tf,heap)`
   \\ rename1 `SUC (LENGTH vs)`
   \\ drule (GEN_ALL v_inv_list_to_v_lemma) \\ strip_tac
@@ -11952,26 +11952,27 @@ Proof
   >-
    (first_x_assum drule \\ rw []
     \\ Cases_on `vs` \\ fs [] \\ rw [Once walk_def]
-    \\ fs [v_inv_def, list_to_v_def, BlockRep_def]
+    \\ fs [v_inv_def, list_to_v_alt_def, BlockRep_def]
     \\ rfs [Once walk_def, BlockRep_def] \\ fs []
     \\ metis_tac [walk_MEM])
   \\ CCONTR_TAC \\ fs []
   \\ qabbrev_tac `ps = walk c heap p (LENGTH vs)`
   \\ first_x_assum drule \\ strip_tac
   \\ fs [MEM_EL]
-  \\ sg `v_inv c (list_to_v (DROP n vs))
+  \\ sg `v_inv c (list_to_v_alt ((ts + 1) + n) Block_nil (DROP n vs))
            (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap)`
   >- (drule (GEN_ALL list_to_v_DROP) \\ fs [] \\ metis_tac [walk_LENGTH])
-  \\ sg `v_inv c (list_to_v (h::vs))
+  \\ sg `v_inv c (list_to_v_alt ts Block_nil (h::vs))
            (Pointer ptr (Word (ptr_bits c cons_tag 2)),f,tf,heap)`
-  >- rw [v_inv_def, list_to_v_def, BlockRep_def]
+  >- rw [v_inv_def, list_to_v_alt_def, BlockRep_def]
   \\ sg `LENGTH (h::vs) = LENGTH (DROP n vs)`
-  >- (irule list_to_v_same_LENGTH \\ asm_exists_tac \\ fs [])
-  \\ fs [LENGTH_DROP]
+  >- (irule list_to_v_same_LENGTH \\ asm_exists_tac \\ fs [] \\ rveq
+     \\ asm_exists_tac \\ fs [])
+  \\ fs [LENGTH_DROP,Abbr`ps`]
 QED
 
 Theorem list_to_v_heap_length:
-   v_inv c (list_to_v vs) (x,f,tf,heap) /\
+   v_inv c (list_to_v_alt ts Block_nil vs) (x,f,tf,heap) /\
    vs <> []
    ==>
    3 * LENGTH vs <= heap_length heap
@@ -11983,7 +11984,7 @@ QED
 (* ------------------------------------------------------------------------- *)
 
 Theorem memory_rel_list_limit:
-   memory_rel c be ts refs sp0 st m dm ((list_to_v xs, (w: 'a word_loc))::vars) /\
+   memory_rel c be ts refs sp0 st m dm ((list_to_v_alt ts0 Block_nil xs, (w: 'a word_loc))::vars) /\
    good_dimindex (:'a)
    ==>
    3 * (LENGTH xs + 1) * (dimindex (:'a) DIV 8) < dimword (:'a)
