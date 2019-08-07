@@ -8768,13 +8768,58 @@ val memory_rel_Block_Block_small_eq = prove(
   \\ imp_res_tac memory_rel_tail
   \\ drule memory_rel_Block_IMP \\ fs []);
 
+Theorem testbit_shiftl:
+   !i x n. i<LENGTH x+n ==> testbit i (shiftl x n) = if i < n then F else testbit (i-n) x
+Proof
+  rw[testbit,shiftl_def,PAD_RIGHT,EL_APPEND_EQN]
+QED
+
+Theorem v2w_samelength_leq_11:
+  !y x. LENGTH x <= dimindex(:'a) /\ LENGTH y = LENGTH x
+      ==> ((v2w y):('a word) = v2w x <=> y = x)
+Proof
+  rw[] \\ eq_tac \\ rw[]
+  \\ fs[v2w_11]
+  \\ fs[fixwidth_eq]
+  \\ `y = fixwidth (LENGTH y) y` by simp[]
+  \\ `x = fixwidth (LENGTH x) x` by simp[]
+  \\ ONCE_ASM_REWRITE_TAC[]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ ASM_REWRITE_TAC[]
+  \\ REWRITE_TAC[fixwidth_eq]
+  \\ rw[]
+QED
+
 Theorem shifted_equality:
    !x y. LENGTH x <= dimindex(:'a) - 2 /\ LENGTH y = LENGTH x
    ==>
-   ((v2w y << (dimindex(:'a) - LENGTH x) =
+   (((v2w y << (dimindex(:'a) - LENGTH x)):('a word) =
    v2w x << (dimindex(:'a) - LENGTH x)) <=> y = x)
 Proof
-  cheat
+  rw[]
+  \\ reverse eq_tac
+  >- simp[]
+  \\ Q.MATCH_ABBREV_TAC `X ==> _`
+  \\ `X <=> v2w y = v2w x`
+   by (UNABBREV_ALL_TAC
+       \\ simp[word_lsl_v2w,v2w_11,fixwidth_eq]
+      \\ eq_tac \\ rw[]
+      \\ fs[testbit_shiftl]
+      \\ reverse(Cases_on `i < dimindex(:'a) - 2`)
+      \\ `LENGTH x = LENGTH y` by simp[]
+      \\ fs[]
+      \\ fs[testbit_shiftl]
+      >- simp[testbit]
+      \\ clean_tac
+      \\ reverse(Cases_on `i < LENGTH y`)
+      >- simp[testbit]
+      \\ FIRST_X_ASSUM (ASSUME_TAC o Q.ISPEC`(i:num)+(dimindex(:'a) - LENGTH (y:bool list))`)
+      \\ pop_assum mp_tac \\ impl_tac
+      >- DECIDE_TAC
+      \\ simp[])
+  \\ fs[]
+  \\ `LENGTH x <= dimindex(:'a)` by DECIDE_TAC
+  \\ simp[v2w_samelength_leq_11]
 QED
 
 Theorem memory_rel_simple_eq:
@@ -9313,7 +9358,39 @@ val word_eq_thm0 = prove(
                    \\ rpt var_eq_tac
                    \\ imp_res_tac word_neq_Word))
            \\ `~(LENGTH w2 <= dimindex(:'a) - 2)` by fs[]
-           \\ fs[] \\ cheat)
+           \\ drule large_word_memory_rel_simple
+           \\ impl_tac >- fs[]
+           \\ strip_tac
+           \\ imp_res_tac memory_rel_tail
+           \\ drule large_word_memory_rel_simple
+           \\ impl_tac >- fs[]
+           \\ pop_assum kall_tac
+           \\ rpt strip_tac \\ fs[get_addr_0,GSYM word_bit])
+    \\ Cases_on `small_word (:'a) w1` >-
+     (imp_res_tac memory_rel_small_word_IMP
+      \\ fs[]
+      \\ rename1 `v2w l1 << (_ - LENGTH l2)`
+      \\ spose_not_then kall_tac
+      \\ Q.MATCH_ASMSUB_ABBREV_TAC `word_bit 0 (X << Y)`
+      \\ Q.UNDISCH_TAC `word_bit 0 (X << Y)`
+      \\ simp[]
+      \\ simp[word_lsl_def,Abbr`Y`]
+      \\ simp[word_bit_def,fcpTheory.FCP_BETA]
+      \\ rfs[]
+      \\ DISJ1_TAC
+      \\ fs[good_dimindex_def])
+    \\ drule large_word_memory_rel_simple \\ fs[]
+    \\ imp_res_tac memory_rel_tail
+    \\ drule large_word_memory_rel_simple \\ fs[]
+    \\ pop_assum kall_tac
+    \\ rpt strip_tac
+    \\ fs[get_addr_0,GSYM word_bit]
+    \\ fs[word_header_def]
+    \\ rfs[]
+    \\ clean_tac
+    \\ TOP_CASE_TAC \\ fs[]
+    >- cheat
+    \\ clean_tac (* TODO guide to full memory_rel_Word_IMP lemma *)
     \\ cheat (* drule memory_rel_Word64_IMP \\ fs []
     \\ imp_res_tac memory_rel_tail
     \\ drule memory_rel_Word64_IMP \\ fs []
