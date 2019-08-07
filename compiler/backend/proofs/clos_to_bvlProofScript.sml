@@ -8632,6 +8632,44 @@ Proof
   \\ simp []
 QED
 
+Theorem syntax_oracle_ok_bvl_FST_monotonic:
+  syntax_oracle_ok c c' es co /\
+  compile c es = (c',prog') ==>
+  oracle_monotonic (set ∘ MAP FST ∘ SND) $<
+     (count (FST (FST (co 0)) + num_stubs c.max_app))
+     (pure_co (compile_inc c.max_app) o
+      pure_co clos_labelsProof$compile_inc o
+      pure_co clos_annotateProof$compile_inc o
+      (state_co (cond_call_compile_inc c.do_call)
+        (clos_knownProof$known_co c.known_conf
+           (state_co (ignore_table clos_numberProof$compile_inc)
+              (pure_co (cond_mti_compile_inc c.do_mti c.max_app) ∘ co)))))
+Proof
+  simp [clos_to_bvlTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw []
+  \\ fs [syntax_oracle_ok_start]
+  \\ qmatch_goalsub_abbrev_tac `oracle_monotonic _ _ St (pure_co _ ∘ cco)`
+  \\ qsuff_tac `oracle_monotonic (set ∘ MAP ($+ (num_stubs c.max_app))
+            ∘ req_compile_inc_addrs [] ∘ SND) $< St cco`
+  >- (
+    match_mp_tac backendPropsTheory.oracle_monotonic_subset
+    \\ rw [compile_inc_req_addrs]
+  )
+  \\ unabbrev_all_tac
+  \\ rpt (conseq ([labels_compile_inc_req_oracle,
+        annotate_compile_inc_req_oracle,
+        cond_call_compile_inc_req_oracle, known_co_req_oracle]
+    @ labels_compile_inc_req_intros
+    @ annotate_compile_inc_req_intros
+    @ cond_call_compile_inc_req_intros
+    @ known_co_req_intros
+  ) \\ csimp [backendPropsTheory.SND_state_co])
+  \\ conseq (number_compile_inc_req_intros @ [renumber_code_locs_monotonic_req])
+  \\ simp [SND_cond_mti_compile_inc]
+  \\ fs [syntax_oracle_ok_def]
+QED
+
 Theorem assign_get_code_label_compile_op:
    closLang$assign_get_code_label (compile_op op) = case some n. op = Label n of SOME n => {n} | _ => {}
 Proof

@@ -1772,6 +1772,15 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem oracle_monotonic_handle_init_component:
+  !D. (!i x y. x ∈ D /\ y ∈ f (co i) ==> R x y) /\
+  oracle_monotonic f R (init_set DIFF D) co ==>
+  oracle_monotonic f R init_set co
+Proof
+  fs [oracle_monotonic_def]
+  \\ metis_tac []
+QED
+
 Theorem oracle_monotonic_cake_orac_to_I:
   oracle_monotonic (\(cfg, p). f (cfg_f cfg, p_f p)) R init_st
     (cake_orac c' syntax I I) ==>
@@ -1925,7 +1934,7 @@ Theorem monotonic_labels_bvl_to_bvi:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
-    (set (MAP FST (SND (to_bvl c prog))) ∪ count (SUC data_num_stubs))
+    (set (MAP FST (SND (to_bvl c prog))))
     (cake_orac c' syntax config_tuple2 (\ps. ps.bvl_prog))
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
@@ -1943,7 +1952,24 @@ Proof
   \\ Cases_on `z = 0`
   >- (
     (* labels in modulus group 0 are passed through from bvl *)
-    first_x_assum (fn t => mp_tac t
+    irule (Q.ISPEC `count bvl_num_stubs`
+        oracle_monotonic_handle_init_component)
+    \\ conj_tac >- (
+      simp [IN_PREIMAGE]
+      \\ rw [cake_orac_def, compile_inc_progs_def, bvl_to_bvi_compile_inc_all_def]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs []
+      \\ CCONTR_TAC \\ fs []
+      \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
+      \\ drule_then drule configs_nn2_MOD_namespaces_ok
+      \\ rw [configs_nn2_MOD_namespaces]
+      \\ CCONTR_TAC \\ fs []
+      \\ drule_then drule
+            (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
+      \\ qpat_x_assum `_ < bvl_num_stubs` mp_tac
+      \\ EVAL_TAC \\ simp []
+    )
+    \\ first_x_assum (fn t => mp_tac t
       \\ match_mp_tac (Q.ISPEC
           `\n. (n - bvl_num_stubs) DIV bvl_to_bvi_namespaces`
           oracle_monotonic_subset_inject))
@@ -1952,15 +1978,11 @@ Proof
       simp [to_bvi_def, bvl_to_bviTheory.compile_def]
       \\ rpt (pairarg_tac \\ fs [])
       \\ rveq \\ fs []
-      \\ simp [SUBSET_DEF, PULL_EXISTS]
-      \\ gen_tac \\ Cases_on `n < SUC data_num_stubs`
-      >- (
-        pop_assum mp_tac
-        \\ simp []
-        \\ EVAL_TAC
-        \\ simp [multiwordTheory.DIV_thm2]
-      )
-      \\ rw [pred_setTheory.IN_PREIMAGE]
+      \\ simp [SUBSET_DEF, PULL_EXISTS, IN_PREIMAGE]
+      \\ gen_tac
+      \\ Cases_on `n < SUC data_num_stubs`
+      >- ( pop_assum mp_tac \\ EVAL_TAC \\ simp [] )
+      \\ rw []
       \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
       \\ simp [EVAL ``(bvl_num_stubs + 2) MOD bvl_to_bvi_namespaces``]
       \\ disch_tac
@@ -1968,6 +1990,7 @@ Proof
       \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names
       \\ disch_tac \\ fs []
       \\ qpat_x_assum `_ MOD _ = 0` mp_tac
+      \\ qpat_x_assum `~ (_ < bvl_num_stubs)` mp_tac
       \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``, arithmeticTheory.MULT_DIV]
       \\ TRY (qpat_x_assum `MEM _ (MAP FST (stubs _ _))` mp_tac)
       \\ EVAL_TAC \\ rw [] \\ simp []
@@ -2082,56 +2105,72 @@ Proof
   \\ simp []
 QED
 
+Theorem syntax_oracle_ok_start:
+  clos_to_bvlProof$syntax_oracle_ok c (c' with start updated_by f) es co =
+  clos_to_bvlProof$syntax_oracle_ok c c' es co
+Proof
+  simp [clos_to_bvlProofTheory.syntax_oracle_ok_def]
+QED
+
 Theorem monotonic_labels_bvl:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
   oracle_monotonic (set o MAP FST o SND) (≠)
-    (set (MAP FST (SND (to_bvl c prog))) ∪ count (SUC data_num_stubs))
+    (set (MAP FST (SND (to_bvl c prog))))
     (cake_orac c' syntax config_tuple2 (\ps. ps.bvl_prog))
 Proof
-
   rw []
   \\ qpat_assum `_ = SOME _`
     (assume_tac o REWRITE_RULE [backendTheory.compile_def])
   \\ fs [compile_tap_def]
   \\ rpt (pairarg_tac \\ fs [])
+  \\ drule attach_bitmaps_SOME
+  \\ rw []
   \\ drule_then drule (GEN_ALL cake_orac_clos_syntax_oracle_ok)
   \\ simp [to_clos_def, to_pat_def, to_flat_def]
   \\ disch_then (qspec_then `syntax` mp_tac)
   \\ impl_tac >- (
-    fs [backend_config_ok_def]
-    \\ drule attach_bitmaps_SOME
-    \\ rw [] \\ simp [] \\ metis_tac []
+    fs [backend_config_ok_def] \\ metis_tac []
   )
   \\ disch_tac
-  \\ drule (GEN_ALL clos_to_bvlProofTheory.syntax_oracle_ok_call_FST_monotonic)
+  \\ irule (Q.ISPEC `((<) : num -> num -> bool)` oracle_monotonic_rel_mono)
+  \\ simp []
+  \\ drule_then drule (GEN_ALL
+    (Q.INST_TYPE [`:'a` |-> `:'x`] syntax_oracle_ok_bvl_FST_monotonic))
+  \\ drule_then (fn t => simp [t]) clos_to_bvl_orac_eq
+  \\ match_mp_tac backendPropsTheory.oracle_monotonic_subset
+  \\ simp [cake_orac_0, config_tuple1_def]
+  \\ simp [to_bvl_def, to_clos_def, to_pat_def, to_flat_def]
   \\ fs [clos_to_bvlTheory.compile_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-  (* ugh ... connecting the clos results *)
-  \\ cheat
+  \\ drule clos_to_bvlProofTheory.compile_common_MAP_FST_compile_prog
+  \\ imp_res_tac clos_to_bvlProofTheory.compile_common_max_app
+  \\ simp [clos_to_bvlProofTheory.set_MAP_code_sort]
+  \\ rw []
+  >- (
+    rw [SUBSET_DEF, miscTheory.toAList_domain]
+    \\ drule clos_to_bvlProofTheory.domain_init_code_lt_num_stubs
+    \\ simp []
+  )
+  \\ simp [clos_to_bvlTheory.num_stubs_def]
 QED
 
 Theorem good_code_lab_oracle:
-
   compile c prog = SOME (b, bm, c') /\
-  (*
-    the i-th oracle configuration and code
-    It MUST be the case that cfg.labels is strict monotone
-    with respect to the subspt relation for increasing indices (starting from c')
+  (* validity of the code produced in the oracle at step i
+    - the tricky bit is cfg.labels, which gathers past and current labels
     - older labels must always be there
     - newer labels should never overlap older ones
   *)
   cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
     (λps. ps.lab_prog) i = (cfg,code) /\
-  backend_config_ok (c:'a config) /\
+  backend_config_ok c /\
   conf = c.lab_conf.asm_conf /\ conf = mc.target.config /\
   lab_to_targetProof$mc_conf_ok mc
   ==>
   lab_to_targetProof$good_code conf cfg.labels code
-
 Proof
-
   simp [cake_orac_def, compile_inc_progs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw [] \\ rveq \\ fs []
@@ -2213,23 +2252,29 @@ Proof
     \\ disch_then drule
     \\ simp[]
   )
-
   \\ conj_tac >- (
     drule monotonic_DISJOINT_labels_lab
-    \\ reverse impl_tac >- (
-      simp[config_tuple2_def]
-      \\ disch_tac
-      \\ drule_then irule DISJOINT_SUBSET
-      \\ simp [Abbr `ppg`]
-      \\ simp [cake_orac_def, compile_inc_progs_def, compile_no_stubs_def]
-      \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ps`
-      \\ simp [labPropsTheory.get_code_labels_def]
-      \\ simp [SUBSET_DEF, MEM_MAP, PULL_EXISTS]
-      \\ simp [stack_to_labTheory.prog_to_section_def, UNCURRY, PULL_EXISTS,
-         labPropsTheory.sec_get_code_labels_def, EXISTS_PROD, FORALL_PROD]
-      \\ metis_tac []
+    \\ impl_tac >- (
+      drule_then irule monotonic_labels_stack_to_lab
+      \\ simp []
+      \\ drule_then irule monotonic_labels_bvi_down_to_stack
+      \\ simp []
+      \\ drule_then irule monotonic_labels_bvl_to_bvi
+      \\ simp []
+      \\ drule_then irule monotonic_labels_bvl
+      \\ simp []
     )
-    \\ cheat
+    \\ simp[config_tuple2_def]
+    \\ disch_tac
+    \\ drule_then irule DISJOINT_SUBSET
+    \\ simp [Abbr `ppg`]
+    \\ simp [cake_orac_def, compile_inc_progs_def, compile_no_stubs_def]
+    \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ps`
+    \\ simp [labPropsTheory.get_code_labels_def]
+    \\ simp [SUBSET_DEF, MEM_MAP, PULL_EXISTS]
+    \\ simp [stack_to_labTheory.prog_to_section_def, UNCURRY, PULL_EXISTS,
+       labPropsTheory.sec_get_code_labels_def, EXISTS_PROD, FORALL_PROD]
+    \\ metis_tac []
   )
   \\ drule (word_to_stack_good_handler_labels_incr
     |> REWRITE_RULE [AND_IMP_INTRO, Once CONJ_COMM] |> GEN_ALL)

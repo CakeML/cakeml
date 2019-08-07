@@ -3970,7 +3970,7 @@ Proof
   fs[SUBSET_DEF,MEM_MAP,PULL_EXISTS,UNCURRY]>> rw[]>>
   first_x_assum match_mp_tac>>
   qexists_tac`y`>>simp[]>>
-  drule (MATCH_MP backendPropsTheory.restrict_nonzero_mono (get_code_labels_comp |> SPEC_ALL) |> SIMP_RULE std_ss [SUBSET_DEF])>>
+  drule (MATCH_MP backendPropsTheory.restrict_nonzero_mono (stack_alloc_get_code_labels_comp |> SPEC_ALL) |> SIMP_RULE std_ss [SUBSET_DEF])>>
   simp[backendPropsTheory.restrict_nonzero_def]>>
   Cases_on`x`>>simp[]>>
   metis_tac[]
