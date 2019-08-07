@@ -922,12 +922,32 @@ Proof
                             (fs with infds updated_by ADELKEY fdw)
                          else fs)`
   >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
-     qmatch_goalsub_abbrev_tac`FFI_part st f ns` >> xsimpl >>
-     qmatch_goalsub_abbrev_tac`FFI_part (_ fs') f ns` >>
-     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-     map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
-     qexists_tac`n2w8 fdw` >> fs[FD_def] >>
-     unabbrev_all_tac >>
+     qmatch_goalsub_abbrev_tac`FFI_part st f ns` >>
+     map_every qexists_tac[`[h::t]`, (* TODO: generated names *)
+                           `emp`,`st`,`f`,`close_sig`,`ns`,
+                           `[C_arrayv (n2w8 fdw);
+                             C_arrayv (h::t)]`,
+                           `events`] >>
+     unabbrev_all_tac >> fs[FD_def] >>
+     conj_tac >- EVAL_TAC >>
+     conj_tac >- EVAL_TAC >>
+     conj_tac >- EVAL_TAC >>
+     `!l sv av. W8ARRAYS close_sig.args [sv; av] [l]
+        = W8ARRAY av l`
+         by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,close_sig_def,
+               W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+               remdups_def,FUN_EQ_THM
+              ] >>
+            rw[EQ_IMP_THM,emp_def] >> metis_tac[SPLIT_emp2]) >>
+     conj_tac >-
+       (hpullr_keep >>
+        conj_tac >- (rw[] >> EVAL_TAC) >>
+        conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] >>
+                     fs[STRING_TYPE_def] >>
+                     rw[get_cargs_heap_def,get_carg_heap_def,close_sig_def,ffiTheory.is_mutty_def,
+                        IMPLODE_EXPLODE_I,o_DEF,MAP_MAP_o]) >>
+        xsimpl
+       ) >>
      simp[validFileFD_def] >>
      Cases_on`ALOOKUP fs.infds fdw` \\ fs[] \\
      TRY(PairCases_on`x`) \\
@@ -939,7 +959,7 @@ Proof
      imp_res_tac ALOOKUP_NONE >> rw[] \\
      fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl >>
      qpat_abbrev_tac `new_events = events ++ _` >>
-     qexists_tac `new_events` >> xsimpl) >>
+     qexists_tac `new_events` >> xsimpl >> EVAL_TAC) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
   CASE_TAC >> xif >> instantiate
   >-(xcon >> fs[IOFS_def,liveFS_def] >> xsimpl) >>
@@ -970,12 +990,32 @@ Proof
                             (fs with infds updated_by ADELKEY fdw)
                          else fs)`
   >-(xffi >> simp[IOFS_def,fsFFITheory.fs_ffi_part_def,IOx_def,IO_def] >>
-     qmatch_goalsub_abbrev_tac `FFI_part st f ns` >> xsimpl >>
-     qmatch_goalsub_abbrev_tac `FFI_part (_ fs') f ns` >>
-     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-     map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
-     qexists_tac`n2w8 fdw` >> fs[FD_def] >>
-     unabbrev_all_tac >>
+     qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
+     map_every qexists_tac[`[h::t]`, (* TODO: generated names *)
+                           `emp`,`st`,`f`,`close_sig`,`ns`,
+                           `[C_arrayv (n2w8 fdw);
+                             C_arrayv (h::t)]`,
+                           `events`] >>
+     unabbrev_all_tac >> fs[FD_def] >>
+     conj_tac >- EVAL_TAC >>
+     conj_tac >- EVAL_TAC >>
+     conj_tac >- EVAL_TAC >>
+     `!l sv av. W8ARRAYS close_sig.args [sv; av] [l]
+        = W8ARRAY av l`
+         by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,close_sig_def,
+               W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+               remdups_def,FUN_EQ_THM
+              ] >>
+            rw[EQ_IMP_THM,emp_def] >> metis_tac[SPLIT_emp2]) >>
+     conj_tac >-
+       (hpullr_keep >>
+        conj_tac >- (rw[] >> EVAL_TAC) >>
+        conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] >>
+                     fs[STRING_TYPE_def] >>
+                     rw[get_cargs_heap_def,get_carg_heap_def,close_sig_def,ffiTheory.is_mutty_def,
+                        IMPLODE_EXPLODE_I,o_DEF,MAP_MAP_o]) >>
+        xsimpl
+       ) >>
      simp[validFileFD_def] >>
      Cases_on`ALOOKUP fs.infds fdw` \\ fs[] \\
      TRY(PairCases_on`x`) \\
@@ -987,7 +1027,7 @@ Proof
      imp_res_tac ALOOKUP_NONE >> rw[] \\
      fs[liveFS_def,IO_fs_infds_fupd,STRING_TYPE_def] \\ xsimpl >>
      qpat_abbrev_tac `new_events = events ++ _` >>
-     qexists_tac `new_events` >> xsimpl) >>
+     qexists_tac `new_events` >> xsimpl >> EVAL_TAC) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
   CASE_TAC >> xif >> instantiate
   >-(xcon >> fs[IOFS_def,liveFS_def] >> xsimpl) >>
@@ -1082,31 +1122,52 @@ Proof
         qpat_abbrev_tac `Q = $POSTv _` >>
         simp [fs_ffi_part_def, IOx_def, IO_def] >>
         xpull >> qunabbrev_tac `Q` >>
-        xffi >> xsimpl >>
+        xffi >>
         fs[IOFS_def,IOx_def,fs_ffi_part_def,
                mk_ffi_next_def, IO_def] >>
         qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
-        CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-        map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
-        qexists_tac`n2w8 fd` >>
-        fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,w82n_n2w8,LENGTH_n2w8,
+        map_every qexists_tac[`[n2w (n DIV 256)::n2w n::n2w (i DIV 256)::n2w i::rest]`,
+                              `emp`,`st`,`f`,`write_sig`,`ns`,
+                              `[C_arrayv (n2w8 fd);
+                                C_arrayv (n2w (n DIV 256)::n2w n::n2w (i DIV 256)::n2w i::rest)]`,
+                              `events`] >>
+        unabbrev_all_tac >> fs[FD_def] >>
+        conj_tac >- EVAL_TAC >>
+        conj_tac >- EVAL_TAC >>
+        conj_tac >- EVAL_TAC >>
+        `!l sv av. W8ARRAYS write_sig.args [sv; av] [l]
+           = W8ARRAY av l`
+            by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,write_sig_def,
+                  W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+                  remdups_def,FUN_EQ_THM
+                 ] >>
+               rw[EQ_IMP_THM,emp_def] >> metis_tac[SPLIT_emp2]) >>
+        conj_tac >-
+          (hpullr_keep >>
+           conj_tac >- (rw[] >> EVAL_TAC) >>
+           conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] >>
+                        fs[STRING_TYPE_def] >>
+                        rw[get_cargs_heap_def,get_carg_heap_def,write_sig_def,ffiTheory.is_mutty_def,
+                           IMPLODE_EXPLODE_I,o_DEF,MAP_MAP_o]) >>
+           xsimpl
+          ) >>
+        xsimpl >>
+        fs[mk_ffi_next_def,w82n_n2w8,LENGTH_n2w8,
            ffi_write_def,(* decode_encode_FS, *)MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
            dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
            HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,write_def,
-           get_file_content_def] >>
+           get_file_content_def,GSYM n2w2_def,w22n_n2w2] >>
         pairarg_tac >> fs[] >> xsimpl >>
         `MEM fd (MAP FST fs.infds)` by (metis_tac[MEM_MAP]) >>
+        rfs [] >>
         rw[] >> TRY(metis_tac[STRING_TYPE_def,wfFS_fsupdate,liveFS_fsupdate]) >>
-        cases_on`fs.numchars` >> fs[Abbr`fs'`,fsupdate_def] >>
-        fs[GSYM n2w2_def] >>
-        `i < 2 ** (2 * 8)` by fs[] >> imp_res_tac w22n_n2w2 >>
-        `n < 2 ** (2 * 8)` by fs[] >> imp_res_tac w22n_n2w2 >>
-        rw[] >> rfs[]
-        \\ Cases_on`md` \\ fs[]
+        cases_on`fs.numchars` >> fs[fsupdate_def] >>
+        rw[] >> rfs[] >>
+        Cases_on`md` \\ fs[]
         >- rfs[get_mode_def]
         \\ xsimpl \\ simp[n2w2_def] >>
         qpat_abbrev_tac `new_events = events ++ _` >>
-        qexists_tac `new_events` >> xsimpl) >>
+        qexists_tac `new_events` >> xsimpl >> EVAL_TAC) >>
      qmatch_goalsub_abbrev_tac` _ * IOx _ fs'` >>
      qmatch_goalsub_abbrev_tac`W8ARRAY _ (_::m1 :: m0 :: n2w i :: rest)` >>
      fs[] >>
@@ -1130,14 +1191,36 @@ Proof
      qpat_abbrev_tac `Q = $POSTv _` >>
      simp [fs_ffi_part_def, IOx_def, IO_def] >>
      xpull >> qunabbrev_tac `Q` >>
-     xffi >> xsimpl >>
+     xffi >>
      fs[IOFS_def,IOx_def,fs_ffi_part_def,
             mk_ffi_next_def,IO_def] >>
      qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
-     CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-     map_every qexists_tac[`events`,`ns`,`f`,`st`] >> xsimpl >>
-     qexists_tac`n2w8 fd` >>
-     fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
+     map_every qexists_tac[`[insert_atI (n2w2 i) 2 (insert_atI (n2w2 n) 0 (h1::h2::h3::h4::rest))]`,
+                              `emp`,`st`,`f`,`write_sig`,`ns`,
+                              `[C_arrayv (n2w8 fd);
+                                C_arrayv (insert_atI (n2w2 i) 2 (insert_atI (n2w2 n) 0 (h1::h2::h3::h4::rest)))]`,
+                              `events`] >>
+     unabbrev_all_tac >> fs[FD_def] >>
+     conj_tac >- EVAL_TAC >>
+     conj_tac >- EVAL_TAC >>
+     conj_tac >- EVAL_TAC >>
+     `!l sv av. W8ARRAYS write_sig.args [sv; av] [l]
+        = W8ARRAY av l`
+         by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,write_sig_def,
+               W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+               remdups_def,FUN_EQ_THM
+              ] >>
+            rw[EQ_IMP_THM,emp_def] >> metis_tac[SPLIT_emp2]) >>
+     conj_tac >-
+       (hpullr_keep >>
+        conj_tac >- (rw[] >> EVAL_TAC) >>
+        conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] >>
+                     fs[STRING_TYPE_def] >>
+                     rw[get_cargs_heap_def,get_carg_heap_def,write_sig_def,ffiTheory.is_mutty_def,
+                        IMPLODE_EXPLODE_I,o_DEF,MAP_MAP_o]) >>
+        xsimpl
+       ) >>
+     fs[mk_ffi_next_def,
         ffi_write_def,(* decode_encode_FS, *)MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
         dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
         HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,write_def,
@@ -1145,7 +1228,7 @@ Proof
      pairarg_tac >> xsimpl >>
      `MEM fd (MAP FST fs.infds)` by (metis_tac[MEM_MAP]) >>
      rw[] >> TRY(metis_tac[STRING_TYPE_def,wfFS_fsupdate,liveFS_fsupdate,Abbr`fs'`]) >>
-     fs[Abbr`fs'`,fsupdate_def,insert_atI_def,n2w2_def] >>
+     fs[fsupdate_def,insert_atI_def,n2w2_def] >>
      fs[GSYM n2w2_def] >>
      `i < 2 ** (2 * 8)` by fs[] >> imp_res_tac w22n_n2w2 >>
      `n < 2 ** (2 * 8)` by fs[] >> imp_res_tac w22n_n2w2 >>
@@ -1154,7 +1237,7 @@ Proof
      >- rfs[get_mode_def]
      \\ xsimpl >>
      qpat_abbrev_tac `new_events = events ++ _` >>
-     qexists_tac `new_events` >> xsimpl) >>
+     qexists_tac `new_events` >> xsimpl >> EVAL_TAC) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
   xif >> fs[FALSE_def] >> instantiate >>
   NTAC 2 (xlet_auto >- xsimpl) >>
@@ -1549,13 +1632,35 @@ Proof
       >-(qpat_abbrev_tac `Q = $POSTv _` >>
          simp [fs_ffi_part_def, IOx_def, IO_def] >>
          xpull >> qunabbrev_tac `Q` >>
-         xffi >> xsimpl >>
+         xffi >>
          fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def,IO_def] >>
          qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
-         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-         map_every qexists_tac[`events`,`ns`,`f`, `st`] >>
-         xsimpl >> qexists_tac`n2w8 fd` >>
-         fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def, ffi_read_def,
+         map_every qexists_tac[`[n2w (n DIV 256)::n2w n::h3::h4::rest]`,
+                               `emp`,`st`,`f`,`read_sig`,`ns`,
+                               `[C_arrayv (n2w8 fd);
+                                 C_arrayv (n2w (n DIV 256)::n2w n::h3::h4::rest)]`,
+                               `events`] >>
+         unabbrev_all_tac >> fs[FD_def] >>
+         conj_tac >- EVAL_TAC >>
+         conj_tac >- EVAL_TAC >>
+         conj_tac >- EVAL_TAC >>
+         `!l sv av. W8ARRAYS read_sig.args [sv; av] [l]
+            = W8ARRAY av l`
+             by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,read_sig_def,
+                   W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+                   remdups_def,FUN_EQ_THM
+                  ] >>
+                rw[EQ_IMP_THM,emp_def] >> metis_tac[SPLIT_emp2]) >>
+         conj_tac >-
+           (hpullr_keep >>
+            conj_tac >- (rw[] >> EVAL_TAC) >>
+            conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] >>
+                         fs[STRING_TYPE_def] >>
+                         rw[get_cargs_heap_def,get_carg_heap_def,read_sig_def,ffiTheory.is_mutty_def,
+                            IMPLODE_EXPLODE_I,o_DEF,MAP_MAP_o]) >>
+            xsimpl
+           ) >>
+         fs[mk_ffi_next_def, ffi_read_def,
             w82n_n2w8,LENGTH_n2w8,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
             dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
             HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
@@ -1577,13 +1682,35 @@ Proof
       >-(qpat_abbrev_tac `Q = $POSTv _` >>
          simp [fs_ffi_part_def, IOx_def, IO_def] >>
          xpull >> qunabbrev_tac `Q` >>
-         xffi >> xsimpl >>
+         xffi >>
          fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def,IO_def] >>
          qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
-         CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-         map_every qexists_tac[`events`,`ns`,`f`,`st`] >>
-         xsimpl >> qexists_tac`n2w8 fd` >>
-         fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def, ffi_read_def,
+         map_every qexists_tac[`[n2w (n DIV 256)::n2w n::h3::h4::rest]`,
+                               `emp`,`st`,`f`,`read_sig`,`ns`,
+                               `[C_arrayv (n2w8 fd);
+                                 C_arrayv (n2w (n DIV 256)::n2w n::h3::h4::rest)]`,
+                               `events`] >>
+         unabbrev_all_tac >> fs[FD_def] >>
+         conj_tac >- EVAL_TAC >>
+         conj_tac >- EVAL_TAC >>
+         conj_tac >- EVAL_TAC >>
+         `!l sv av. W8ARRAYS read_sig.args [sv; av] [l]
+            = W8ARRAY av l`
+             by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,read_sig_def,
+                   W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+                   remdups_def,FUN_EQ_THM
+                  ] >>
+                rw[EQ_IMP_THM,emp_def] >> metis_tac[SPLIT_emp2]) >>
+         conj_tac >-
+           (hpullr_keep >>
+            conj_tac >- (rw[] >> EVAL_TAC) >>
+            conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] >>
+                         fs[STRING_TYPE_def] >>
+                         rw[get_cargs_heap_def,get_carg_heap_def,read_sig_def,ffiTheory.is_mutty_def,
+                            IMPLODE_EXPLODE_I,o_DEF,MAP_MAP_o]) >>
+            xsimpl
+           ) >>
+         fs[mk_ffi_next_def, ffi_read_def,
             w82n_n2w8,LENGTH_n2w8,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
             dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
             HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
@@ -1609,13 +1736,35 @@ Proof
    >-(qpat_abbrev_tac `Q = POSTve _ _` >>
       simp [fs_ffi_part_def, IOx_def, IO_def] >>
       xpull >> qunabbrev_tac `Q` >>
-      xffi >> xsimpl >>
+      reverse xffi >- xsimpl >>
       fs[IOFS_def,IOx_def,fs_ffi_part_def, mk_ffi_next_def,IO_def] >>
       qmatch_goalsub_abbrev_tac `FFI_part st f ns` >>
-      CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-      map_every qexists_tac[`events`,`ns`,`f`,`st`] >>
-      xsimpl >> qexists_tac`n2w8 fd` >>
-      fs[Abbr`f`,Abbr`st`,Abbr`ns`,mk_ffi_next_def,
+      map_every qexists_tac[`[n2w (n DIV 256)::n2w n::h3::h4::rest]`,
+                            `emp`,`st`,`f`,`read_sig`,`ns`,
+                            `[C_arrayv (n2w8 fd);
+                              C_arrayv (n2w (n DIV 256)::n2w n::h3::h4::rest)]`,
+                            `events`] >>
+      unabbrev_all_tac >> fs[FD_def] >>
+      conj_tac >- EVAL_TAC >>
+      conj_tac >- EVAL_TAC >>
+      conj_tac >- EVAL_TAC >>
+      `!l sv av. W8ARRAYS read_sig.args [sv; av] [l]
+         = W8ARRAY av l`
+          by(fs[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def,read_sig_def,
+                W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+                remdups_def,FUN_EQ_THM
+               ] >>
+             rw[EQ_IMP_THM,emp_def] >> metis_tac[SPLIT_emp2]) >>
+      conj_tac >-
+         (hpullr_keep >>
+         conj_tac >- (rw[] >> EVAL_TAC) >>
+         conj_tac >- (rw[STAR_def,W8ARRAY_def,SEP_EXISTS,cond_def] >>
+                      fs[STRING_TYPE_def] >>
+                      rw[get_cargs_heap_def,get_carg_heap_def,read_sig_def,ffiTheory.is_mutty_def,
+                         IMPLODE_EXPLODE_I,o_DEF,MAP_MAP_o]) >>
+         xsimpl
+        ) >>
+      fs[mk_ffi_next_def,
          ffi_read_def,w82n_n2w8,LENGTH_n2w8,MEM_MAP, ORD_BOUND,ORD_eq_0,wfFS_LDROP,
          dimword_8, MAP_MAP_o,o_DEF,char_BIJ,implode_explode,LENGTH_explode,
          HD_LUPDATE,LUPDATE_def,option_eq_some,validFD_def,read_def,
@@ -1625,7 +1774,7 @@ Proof
       cases_on`fs.numchars` >> fs[wfFS_def,liveFS_def,live_numchars_def] >>
       fs[n2w2_def,DIV_MOD_MOD_DIV,DIV_DIV_DIV_MULT] >> xsimpl >>
       qmatch_goalsub_abbrev_tac`(k DIV 256) MOD 256 = _ MOD 256` >> qexists_tac`k` >>
-      xsimpl >> fs[MIN_LE,eof_def,Abbr`k`,NUM_def,INT_def] >>
+      xsimpl >> fs[MIN_LE,eof_def,Abbr`k`,NUM_def,INT_def] >> xsimpl >>
       qpat_abbrev_tac `new_events = events ++ _` >>
       qexists_tac `new_events` >> xsimpl) >>
    rpt(xlet_auto >- xsimpl) >>
