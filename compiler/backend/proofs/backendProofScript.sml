@@ -1059,6 +1059,20 @@ Proof
   \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``]
 QED
 
+Theorem configs_nn2_MOD_namespaces_ok:
+  compile c prog = SOME (b, bm, c') /\ backend_config_ok c ==>
+  c'.bvl_conf.next_name2 MOD bvl_to_bvi_namespaces = 2
+Proof
+  fs [backendTheory.compile_def, compile_tap_def, bvl_to_bviTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw []
+  \\ drule_then assume_tac attach_bitmaps_SOME
+  \\ rveq \\ fs []
+  \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+  \\ rw [] \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``]
+  \\ EVAL_TAC
+QED
+
 Theorem bvl_to_bvi_compile_inc_all_num_stubs_LE:
   bvl_to_bvi_compile_inc_all c bvl = (c', bvi) ==>
   bvl_num_stubs <= c.next_name2 ==>
@@ -1186,9 +1200,9 @@ QED
 
 Theorem cake_orac_clos_syntax_oracle_ok:
   compile (c : 's config) prog = SOME (b, bm, c') /\
-  compile c.clos_conf clos_prog = (clos_c', clos_prog') /\
+  compile c2 clos_prog = (clos_c', clos_prog') /\
   (?st. c'.clos_conf = clos_c' with start := st) /\
-  clos_prog = SND (to_clos c prog) /\
+  c2 = c.clos_conf /\ clos_prog = SND (to_clos c prog) /\
   1 <= c.clos_conf.max_app /\
   c.source_conf = (prim_config : 's config).source_conf ==>
   clos_to_bvlProof$syntax_oracle_ok c.clos_conf clos_c' clos_prog
@@ -1539,9 +1553,24 @@ Theorem to_data_labels_ok:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
   let (_, p) = to_data c prog in
-  EVERY (λn. n > data_num_stubs) (MAP FST p) /\ ALL_DISTINCT (MAP FST p)
+  EVERY (λn. data_num_stubs <= n) (MAP FST p) /\ ALL_DISTINCT (MAP FST p)
 Proof
-  cheat
+  rw [to_data_def, to_bvi_def, to_bvl_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ drule_then irule bvl_to_bviProofTheory.compile_distinct_names
+  \\ drule_then (fn t => simp [t]) compile_all_distinct_locs
+  \\ fs [to_clos_def, to_pat_def, to_flat_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [backend_config_ok_def]
+  \\ qexists_tac `0` \\ simp []
+QED
+
+Theorem data_to_word_stubs_above_raise_stub:
+  EVERY (λn. n > raise_stub_location) (MAP FST (data_to_word$stubs (:'a) dc))
+Proof
+  EVAL_TAC
 QED
 
 Theorem to_word_labels_ok:
@@ -1557,24 +1586,17 @@ Proof
   rw [to_word_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ fs []
-  \\ pop_assum mp_tac
+  \\ qpat_x_assum `compile _.data_conf _ _ _ = _` mp_tac
   \\ (data_to_word_compile_lab_pres
      |> Q.GENL[`data_conf`,`word_conf`,`asm_conf`,`prog`]
      |> C (specl_args_of_then``data_to_word$compile``)mp_tac)
   \\ rpt disch_tac \\ fs []
   \\ drule to_data_labels_ok
-  \\ simp []
-  \\ disch_tac \\ fs []
-  \\ simp [ALL_DISTINCT_APPEND, EVERY_MEM]
-  \\ EVAL_TAC
-  \\ simp_tac bool_ss [boolTheory.MONO_NOT_EQ |> Q.GEN `x` |> Q.SPEC `~ MEM e xs`]
-  \\ simp_tac bool_ss [DISJ_IMP_THM, FORALL_AND_THM]
-  \\ full_simp_tac bool_ss [EVERY_MEM]
-  \\ EVAL_TAC
-  \\ conj_tac \\ rpt (gen_tac ORELSE disch_tac)
-  \\ first_x_assum drule
-  \\ EVAL_TAC
-  \\ rw []
+  \\ simp [data_to_word_stubs_above_raise_stub]
+  \\ simp [ALL_DISTINCT_APPEND, EVERY_MEM, ALL_DISTINCT_MAP_FST_stubs]
+  \\ metis_tac [prim_recTheory.LESS_REFL, MAP_FST_stubs_bound,
+    LESS_LESS_EQ_TRANS, (EVAL ``raise_stub_location < data_num_stubs``),
+    arithmeticTheory.GREATER_DEF]
 QED
 
 Theorem to_lab_labels_ok:
@@ -1603,15 +1625,226 @@ Proof
   \\ simp []
 QED
 
+Theorem oracle_monotonic_slice:
+  !g. (!z. oracle_monotonic (\x. f x ∩ PREIMAGE g {z}) (≠)
+    (init_s ∩ PREIMAGE g {z}) orac)
+  ==>
+  oracle_monotonic f (≠) init_s orac
+Proof
+  rw []
+  \\ simp [oracle_monotonic_def]
+  \\ CCONTR_TAC \\ fs []
+  >- (
+    first_x_assum (qspec_then `g y` assume_tac)
+    \\ drule oracle_monotonic_step
+    \\ simp [pred_setTheory.IN_PREIMAGE]
+    \\ metis_tac []
+  )
+  \\ first_x_assum (qspec_then `g y` assume_tac)
+  \\ drule oracle_monotonic_init
+  \\ simp [pred_setTheory.IN_PREIMAGE]
+  \\ metis_tac []
+QED
+
+Theorem oracle_monotonic_rel_mono:
+  !R R'. (!x y. R x y ==> R' x y) /\ oracle_monotonic f R init_s orac ==>
+  oracle_monotonic f R' init_s orac
+Proof
+  simp [oracle_monotonic_def] \\ metis_tac []
+QED
+
+Theorem oracle_monotonic_state_with_inv:
+  !P n_f. P (FST (FST (orac 0))) /\
+  (!x. x ∈ St ==> x < n_f (FST (FST (orac 0)))) /\
+  (! i st prog st' prog' st_ex. f_inc st prog = (st', prog') /\ P st /\
+        orac i = ((st, st_ex), prog) ==>
+    P st' /\ n_f st <= n_f st' /\
+    (!cfg x. x ∈ f (cfg, prog') ==> n_f st <= x /\ x < n_f st')) /\
+  is_state_oracle f_inc orac ==>
+  oracle_monotonic f (<) (St : num set) (state_co f_inc orac)
+Proof
+  rw []
+  \\ `!i. P (FST (FST (orac i))) /\
+        (!j. j <= i ==> n_f (FST (FST (orac j))) <= n_f (FST (FST (orac i))))`
+  by (
+    Induct \\ fs [is_state_oracle_def]
+    \\ fs [PAIR_FST_SND_EQ, seqTheory.LE_SUC]
+    \\ rw [] \\ fs []
+    \\ metis_tac [LESS_EQ_TRANS]
+  )
+  \\ fs [oracle_monotonic_def, is_state_oracle_def, state_co_def, UNCURRY]
+  \\ fs [PAIR_FST_SND_EQ]
+  \\ rw []
+  \\ metis_tac [state_orac_states_def, LESS_LESS_EQ_TRANS,
+        arithmeticTheory.LESS_OR, LESS_EQ_TRANS,
+        arithmeticTheory.ZERO_LESS_EQ]
+QED
+
+Theorem oracle_monotonic_bounded_state:
+  !n_f.
+  (!x. x ∈ St ==> x < n_f (orac 0)) /\
+  (!i. n_f (orac i) <= n_f (orac (SUC i)) /\
+        (!x. x ∈ f (orac i) ==> n_f (orac i) <= x /\ x < n_f (orac (SUC i))))
+  ==>
+  oracle_monotonic f (<) (St : num set) orac
+Proof
+  rw []
+  \\ `!i. (!j. j <= i ==> n_f (orac j) <= n_f (orac i))`
+  by (
+    Induct \\ fs []
+    \\ simp [seqTheory.LE_SUC]
+    \\ rw [] \\ simp []
+    \\ metis_tac [LESS_EQ_TRANS]
+  )
+  \\ simp [oracle_monotonic_def]
+  \\ metis_tac [LESS_LESS_EQ_TRANS,
+        arithmeticTheory.LESS_OR, LESS_EQ_TRANS,
+        arithmeticTheory.ZERO_LESS_EQ]
+QED
+
+Theorem compile_prog_avoids_nss_2:
+   compile_prog start f prog = (loc,code,new_state) /\
+   MEM k (MAP FST code) /\ k MOD bvl_to_bvi_namespaces = 2 ==>
+   k < bvl_num_stubs
+Proof
+  fs [bvl_to_bviTheory.compile_prog_def] \\ pairarg_tac \\ fs []
+  \\ drule_then assume_tac bvl_to_bviProofTheory.compile_list_code_labels_domain
+  \\ rw [] \\ fs []
+  \\ rfs [EVAL ``0 < bvl_to_bvi_namespaces``]
+  \\ TRY (qpat_x_assum `MEM _ _` mp_tac)
+  \\ qpat_x_assum `_ = 2` mp_tac
+  \\ EVAL_TAC \\ rw []
+QED
+
+Theorem tailrec_compile_prog_MEM_not_nss_2:
+  ∀ys xs n1 n e.
+  bvi_tailrec_compile_prog n xs = (n1,ys) ∧ MEM e (MAP FST ys) ∧
+  n MOD bvl_to_bvi_namespaces = 2 /\ e MOD bvl_to_bvi_namespaces ≠ 2 ⇒
+  MEM e (MAP FST xs)
+Proof
+  rw []
+  \\ drule_then drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+  \\ rw []
+  \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``]
+QED
+
+Theorem is_state_oracle_tailrec_cake_orac:
+  compile c prog = SOME (b,bm,c') ==>
+  is_state_oracle bvi_tailrec_compile_prog
+    (state_co bvl_to_bvi_compile_inc (state_co
+      (bvl_inline_compile_inc c.bvl_conf.inline_size_limit
+        c.bvl_conf.split_main_at_seq c.bvl_conf.exp_cut)
+      (cake_orac c' syntax config_tuple2 (λps. ps.bvl_prog))))
+Proof
+  rw []
+  \\ REWRITE_TAC [state_co_eq_comp, o_ASSOC]
+  \\ irule is_state_oracle_cake_orac_comp
+  \\ rw []
+  \\ simp [compile_inc_progs_def, state_co_fun_def,
+           bvl_to_bvi_compile_inc_all_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ fs [config_tuple2_def]
+  \\ rveq \\ fs []
+  \\ drule_then (fn t => fs (CONJUNCTS t)) cake_orac_config_eqs
+  \\ rveq \\ fs []
+  \\ rveq \\ fs []
+QED
+
+Theorem inline_compile_inc_names:
+   bvl_inline$compile_inc l b i spt prog = (inlines,prog3) ==>
+   MAP FST prog3 = MAP FST prog
+Proof
+  fs [bvl_inlineTheory.compile_prog_def,bvl_inlineTheory.compile_inc_def]
+  \\ pairarg_tac \\ fs []
+  \\ fs [bvl_inlineTheory.tick_compile_prog_def]
+  \\ imp_res_tac bvl_inlineProofTheory.tick_inline_all_names \\ rw []
+  \\ rw[] \\ fs[]
+QED
+
+Theorem oracle_monotonic_subset_inject:
+  !g. (!x y. R (g x) (g y) ==> R' x y) ∧
+  IMAGE g init_set' ⊆ init_set ∧ (∀n. IMAGE g (f' (co' n)) ⊆ f (co n)) ==>
+  oracle_monotonic f R init_set co ==>
+  oracle_monotonic f' R' init_set' co'
+Proof
+  fs [oracle_monotonic_def, SUBSET_DEF]
+  \\ metis_tac []
+QED
+
+Theorem oracle_monotonic_cake_orac_to_I:
+  oracle_monotonic (\(cfg, p). f (cfg_f cfg, p_f p)) R init_st
+    (cake_orac c' syntax I I) ==>
+  oracle_monotonic f R init_st (cake_orac c' syntax cfg_f p_f)
+Proof
+  match_mp_tac oracle_monotonic_subset
+  \\ simp [cake_orac_def, UNCURRY]
+QED
+
+Theorem cake_orac_monotonic_bounded_state:
+  !n_f.
+  (!x. x ∈ St ==> x < n_f c') /\
+  (!i c2 ps. let c1 = cake_configs c' syntax i in
+    compile_inc_progs c1 (syntax i) = (c2, ps) ==>
+    n_f c1 <= n_f c2 /\
+    (!x. x ∈ f (cfg_f c1, p_f ps) ==> n_f c1 <= x /\ x < n_f c2))
+  ==>
+  oracle_monotonic f (<) (St : num set) (cake_orac c' syntax cfg_f p_f)
+Proof
+  rw []
+  \\ irule oracle_monotonic_cake_orac_to_I
+  \\ Q.ISPEC_THEN `n_f o FST` irule oracle_monotonic_bounded_state
+  \\ qexists_tac `n_f`
+  \\ simp [cake_orac_def, cake_configs_def, state_orac_states_def]
+  \\ simp [GSYM cake_configs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gen_tac
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ metis_tac []
+QED
+
+Theorem monotonic_DISJOINT_labels_lab:
+  compile c prog = SOME (b, bm, c') /\
+  oracle_monotonic (set ∘ MAP Section_num ∘ SND) (≠)
+    (domain c'.lab_conf.labels)
+    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+                (λps. ps.lab_prog))
+  ==>
+  DISJOINT (domain (cake_configs c' syntax i).lab_conf.labels)
+    (set (MAP Section_num (SND (cake_orac c' syntax
+      (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog) i))))
+Proof
+  rw []
+  \\ drule accum_lab_conf_labels
+  \\ disch_tac
+  \\ REWRITE_TAC [Once DISJOINT_SYM]
+  \\ drule_then irule (REWRITE_RULE [Once CONJ_COMM] DISJOINT_SUBSET)
+  \\ CCONTR_TAC
+  \\ fs [IN_DISJOINT]
+  >- (
+    drule oracle_monotonic_init
+    \\ disch_then drule
+    \\ simp [PULL_EXISTS]
+    \\ asm_exists_tac
+    \\ simp []
+  )
+  \\ fs [MEM_MAP, MEM_COUNT_LIST]
+  \\ drule oracle_monotonic_step
+  \\ disch_then drule
+  \\ rfs []
+  \\ rveq \\ fs [MEM_MAP, PULL_EXISTS]
+  \\ metis_tac []
+QED
+
 Theorem monotonic_labels_stack_to_lab:
   compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
-  oracle_monotonic (set o MAP FST o FST o SND) (<)
+  oracle_monotonic (set o MAP FST o FST o SND) (≠)
     (set (MAP FST (SND (to_stack c prog))) ∪ count (SUC gc_stub_location))
     (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. (ps.stack_prog,ps.cur_bm)))
  ==>
-  oracle_monotonic (set ∘ MAP Section_num ∘ SND) (<)
+  oracle_monotonic (set ∘ MAP Section_num ∘ SND) (≠)
     (domain c'.lab_conf.labels)
     (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
         (λps. ps.lab_prog))
@@ -1642,38 +1875,241 @@ Proof
     MAP_MAP_o, o_DEF, Q.ISPEC `FST` ETA_THM]
 QED
 
-Theorem monotonic_DISJOINT_labels_lab:
-  compile c prog = SOME (b, bm, c') /\
-  oracle_monotonic (set ∘ MAP Section_num ∘ SND) (<)
-    (domain c'.lab_conf.labels)
-    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
-                (λps. ps.lab_prog))
+Theorem monotonic_labels_bvi_down_to_stack:
+  compile c prog = SOME (b, bm, c') /\ backend_config_ok c
   ==>
-  DISJOINT (domain (cake_configs c' syntax i).lab_conf.labels)
-    (set (MAP Section_num (SND (cake_orac c' syntax
-      (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog) i))))
+  oracle_monotonic (set o MAP FST o SND) (≠)
+    (set (MAP FST (SND (to_bvi c prog))) ∪ count (SUC data_num_stubs))
+    (cake_orac c' syntax (SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
+  ==>
+  oracle_monotonic (set o MAP FST o FST o SND) (≠)
+    (set (MAP FST (SND (to_stack c prog))) ∪ count (SUC gc_stub_location))
+    (cake_orac c' syntax (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2)
+        (λps. (ps.stack_prog,ps.cur_bm)))
+Proof
+  disch_tac
+  \\ match_mp_tac oracle_monotonic_subset
+  \\ fs []
+  \\ conj_tac >- (
+    drule to_word_labels_ok
+    \\ simp [to_stack_def, to_word_def, to_data_def]
+    \\ disch_tac
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs []
+    \\ rename [`compile c2.lab_conf.asm_conf word_p = _`]
+    \\ qspecl_then [`word_p`, `c2.lab_conf.asm_conf`] mp_tac
+        (GEN_ALL word_to_stack_compile_lab_pres)
+    \\ simp [EVAL ``raise_stub_location < SUC data_num_stubs``]
+    \\ disch_tac
+    \\ qpat_x_assum `compile _.data_conf _ _ _ = _` mp_tac
+    \\ (data_to_word_compile_lab_pres
+       |> Q.GENL[`data_conf`,`word_conf`,`asm_conf`,`prog`]
+       |> C (specl_args_of_then``data_to_word$compile``)mp_tac)
+    \\ simp []
+    \\ rpt disch_tac
+    \\ fs []
+    \\ simp [SUBSET_DEF]
+    \\ metis_tac [MAP_FST_stubs_bound, prim_recTheory.LESS_THM,
+        EVAL ``gc_stub_location < data_num_stubs``, LESS_TRANS]
+  )
+  \\ rw [cake_orac_def, compile_inc_progs_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  \\ drule_then assume_tac MAP_FST_compile_word_to_stack
+  \\ fs [REWRITE_RULE [o_DEF] MAP_MAP_o,
+        word_to_wordTheory.full_compile_single_def, UNCURRY,
+        Q.ISPEC `FST` ETA_THM]
+QED
+
+Theorem monotonic_labels_bvl_to_bvi:
+  compile c prog = SOME (b, bm, c') /\ backend_config_ok c
+  ==>
+  oracle_monotonic (set o MAP FST o SND) (≠)
+    (set (MAP FST (SND (to_bvl c prog))) ∪ count (SUC data_num_stubs))
+    (cake_orac c' syntax config_tuple2 (\ps. ps.bvl_prog))
+  ==>
+  oracle_monotonic (set o MAP FST o SND) (≠)
+    (set (MAP FST (SND (to_bvi c prog))) ∪ count (SUC data_num_stubs))
+    (cake_orac c' syntax (SND o SND o SND o config_tuple2) (\ps. ps.bvi_prog))
 Proof
   rw []
-  \\ drule accum_lab_conf_labels
-  \\ disch_tac
-  \\ REWRITE_TAC [Once DISJOINT_SYM]
-  \\ drule_then irule (REWRITE_RULE [Once CONJ_COMM] DISJOINT_SUBSET)
-  \\ CCONTR_TAC
-  \\ fs [IN_DISJOINT]
+  \\ irule (Q.ISPEC `\i. i MOD bvl_to_bvi_namespaces` oracle_monotonic_slice)
+  \\ rw []
+  \\ reverse (Cases_on `z < bvl_to_bvi_namespaces`)
   >- (
-    drule oracle_monotonic_init
-    \\ disch_then drule
-    \\ simp [PULL_EXISTS]
-    \\ asm_exists_tac
+    simp [oracle_monotonic_def, IN_PREIMAGE]
+    \\ metis_tac [MOD_LESS, EVAL ``0 < bvl_to_bvi_namespaces``]
+  )
+  \\ Cases_on `z = 0`
+  >- (
+    (* labels in modulus group 0 are passed through from bvl *)
+    first_x_assum (fn t => mp_tac t
+      \\ match_mp_tac (Q.ISPEC
+          `\n. (n - bvl_num_stubs) DIV bvl_to_bvi_namespaces`
+          oracle_monotonic_subset_inject))
+    \\ simp []
+    \\ conj_tac >- (
+      simp [to_bvi_def, bvl_to_bviTheory.compile_def]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs []
+      \\ simp [SUBSET_DEF, PULL_EXISTS]
+      \\ gen_tac \\ Cases_on `n < SUC data_num_stubs`
+      >- (
+        pop_assum mp_tac
+        \\ simp []
+        \\ EVAL_TAC
+        \\ simp [multiwordTheory.DIV_thm2]
+      )
+      \\ rw [pred_setTheory.IN_PREIMAGE]
+      \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
+      \\ simp [EVAL ``(bvl_num_stubs + 2) MOD bvl_to_bvi_namespaces``]
+      \\ disch_tac
+      \\ drule bvl_to_bviProofTheory.compile_prog_code_labels_domain
+      \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names
+      \\ disch_tac \\ fs []
+      \\ qpat_x_assum `_ MOD _ = 0` mp_tac
+      \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``, arithmeticTheory.MULT_DIV]
+      \\ TRY (qpat_x_assum `MEM _ (MAP FST (stubs _ _))` mp_tac)
+      \\ EVAL_TAC \\ rw [] \\ simp []
+    )
+    \\ rw [cake_orac_def, compile_inc_progs_def, bvl_to_bvi_compile_inc_all_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs []
+    \\ simp [SUBSET_DEF, PULL_EXISTS, IN_PREIMAGE]
+    \\ drule_then drule configs_nn2_MOD_namespaces_ok
+    \\ rw []
+    \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
+    \\ rw [configs_nn2_MOD_namespaces]
+    \\ drule_then drule
+          (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
+    \\ imp_res_tac inline_compile_inc_names
     \\ simp []
   )
-  \\ fs [MEM_MAP, MEM_COUNT_LIST]
-  \\ drule oracle_monotonic_step
-  \\ disch_then drule
-  \\ rfs []
-  \\ rveq \\ fs [MEM_MAP, PULL_EXISTS]
-  \\ asm_exists_tac \\ simp []
-  \\ asm_exists_tac \\ simp []
+  \\ Cases_on `z = 1`
+  >- (
+    (* labels in modulus `2` are allocated by bvl_to_bvi *)
+    irule (Q.ISPEC `((<) : num -> num -> bool)` oracle_monotonic_rel_mono)
+    \\ simp []
+    \\ irule (Q.ISPEC `\cfg. bvl_num_stubs
+                + (cfg.bvl_conf.next_name1 * bvl_to_bvi_namespaces)`
+            cake_orac_monotonic_bounded_state)
+    \\ simp [IN_PREIMAGE]
+    \\ conj_tac
+    >- (
+      simp [compile_inc_progs_def, bvl_to_bvi_compile_inc_all_def]
+      \\ rpt (gen_tac ORELSE disch_tac)
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs []
+      \\ imp_res_tac bvl_to_bviProofTheory.compile_inc_next
+      \\ simp []
+      \\ rpt (gen_tac ORELSE disch_tac)
+      \\ fs []
+      \\ drule_then drule configs_nn2_MOD_namespaces_ok
+      \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
+      \\ simp [configs_nn2_MOD_namespaces]
+      \\ rpt disch_tac \\ fs []
+      \\ drule_then drule
+            (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
+      \\ simp []
+    )
+    \\ rw []
+    \\ TRY (qpat_x_assum `_ < SUC _` mp_tac \\ EVAL_TAC \\ simp [])
+    \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def,
+          to_bvi_def, to_bvl_def, to_clos_def, to_pat_def, to_flat_def,
+          bvl_to_bviTheory.compile_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ drule_then assume_tac attach_bitmaps_SOME
+    \\ ntac 5 (rveq \\ fs [])
+    \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
+    \\ simp [EVAL ``(bvl_num_stubs + 2) MOD bvl_to_bvi_namespaces``]
+    \\ rw []
+    \\ drule bvl_to_bviProofTheory.compile_prog_code_labels_domain
+    \\ disch_tac \\ fs []
+    \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``, EVAL ``bvl_num_stubs MOD bvl_to_bvi_namespaces``]
+    \\ TRY (qpat_x_assum `MEM _ (MAP FST (stubs _ _))` mp_tac)
+    \\ EVAL_TAC \\ rw [] \\ simp []
+  )
+  \\ Cases_on `z = 2`
+  >- (
+    (* labels in modulus `2` are allocated by bvi_tailrec *)
+    irule (Q.ISPEC `((<) : num -> num -> bool)` oracle_monotonic_rel_mono)
+    \\ simp []
+    \\ drule_then (mp_tac o GSYM) bvl_to_bvi_orac_eq
+    \\ simp [full_co_def]
+    \\ disch_then kall_tac
+    \\ irule (Q.ISPEC `\n. n MOD bvl_to_bvi_namespaces = 2`
+            oracle_monotonic_state_with_inv
+        |> Q.SPEC `\n. n`)
+    \\ drule_then (fn t => simp [t]) is_state_oracle_tailrec_cake_orac
+    \\ conj_tac
+    >- (
+      rpt (gen_tac ORELSE disch_tac)
+      \\ fs [pred_setTheory.IN_PREIMAGE]
+      \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+      \\ disch_tac \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``]
+      \\ rpt (gen_tac ORELSE disch_tac)
+      \\ fs []
+      \\ drule_then drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+      \\ rpt (gen_tac ORELSE disch_tac)
+      \\ fs [state_co_def]
+      \\ rpt (pairarg_tac \\ fs [])
+      \\ rveq \\ fs []
+      \\ drule_then drule
+            (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
+      \\ simp []
+    )
+    \\ simp [FST_state_co, pred_setTheory.IN_PREIMAGE, cake_orac_0,
+            config_tuple2_def]
+    \\ fs [backendTheory.compile_def, backendTheory.compile_tap_def,
+          to_bvi_def, to_bvl_def, to_clos_def, to_pat_def, to_flat_def,
+          bvl_to_bviTheory.compile_def]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ drule_then assume_tac attach_bitmaps_SOME
+    \\ ntac 6 (rveq \\ fs [])
+    \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+    \\ disch_tac \\ fs []
+    \\ simp [EVAL ``0 < bvl_to_bvi_namespaces``,
+        EVAL ``(bvl_num_stubs + 2) MOD bvl_to_bvi_namespaces``]
+    \\ assume_tac (EVAL ``SUC data_num_stubs <= bvl_num_stubs``)
+    \\ fs [] \\ rw [] \\ simp []
+    \\ drule_then drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+    \\ disch_tac \\ fs []
+    \\ drule_then drule (GEN_ALL compile_prog_avoids_nss_2)
+    \\ simp []
+  )
+  \\ qpat_x_assum `z < _`
+    (mp_tac o CONV_RULE EVAL o REWRITE_RULE [GSYM IN_COUNT])
+  \\ simp []
+QED
+
+Theorem monotonic_labels_bvl:
+  compile c prog = SOME (b, bm, c') /\ backend_config_ok c
+  ==>
+  oracle_monotonic (set o MAP FST o SND) (≠)
+    (set (MAP FST (SND (to_bvl c prog))) ∪ count (SUC data_num_stubs))
+    (cake_orac c' syntax config_tuple2 (\ps. ps.bvl_prog))
+Proof
+
+  rw []
+  \\ qpat_assum `_ = SOME _`
+    (assume_tac o REWRITE_RULE [backendTheory.compile_def])
+  \\ fs [compile_tap_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ drule_then drule (GEN_ALL cake_orac_clos_syntax_oracle_ok)
+  \\ simp [to_clos_def, to_pat_def, to_flat_def]
+  \\ disch_then (qspec_then `syntax` mp_tac)
+  \\ impl_tac >- (
+    fs [backend_config_ok_def]
+    \\ drule attach_bitmaps_SOME
+    \\ rw [] \\ simp [] \\ metis_tac []
+  )
+  \\ disch_tac
+  \\ drule (GEN_ALL clos_to_bvlProofTheory.syntax_oracle_ok_call_FST_monotonic)
+  \\ fs [clos_to_bvlTheory.compile_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rveq \\ fs []
+  (* ugh ... connecting the clos results *)
+  \\ cheat
 QED
 
 Theorem good_code_lab_oracle:
@@ -2119,7 +2555,8 @@ Proof
       EVERY (map imp_res_tac from_EXS)
       \\ fs []
     )
-    (* proving is_state_oracle sucks *)
+    (* proving is_state_oracle sucks : FIXME : think this is
+       is_state_oracle_tailrec_cake_orac *)
     \\ REWRITE_TAC [state_co_eq_comp, o_ASSOC]
     \\ irule is_state_oracle_cake_orac_comp
     \\ rw []
