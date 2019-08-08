@@ -288,7 +288,7 @@ val output_buffer_size_def = Define`
   output_buffer_size = 2048n`;
 
 val heap_size_def = Define`
-  heap_size = 100 * 1024 * 1024n`;
+  heap_size = 80 * 1024 * 1024n`;
 
 val startup_code_size_def = Define`
   startup_code_size = 240n`;
