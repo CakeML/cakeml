@@ -23,20 +23,19 @@ val prove_parts_ok_st =
     qmatch_goalsub_abbrev_tac`st.ffi`
     \\ `st.ffi.oracle = basis_ffi_oracle`
     by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
-    \\ rw[cfStoreTheory.parts_ok_def]
-    \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
-    \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
-    \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
-    \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
-    \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
-    \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
-    \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
-    \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
-    \\ TRY PURE_FULL_CASE_TAC
-    \\ fs[]
-    \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms))
-    \\ fs[fs_ffi_no_ffi_div,cl_ffi_no_ffi_div]
-    \\ srw_tac[DNF_ss][] \\ simp[basis_ffi_oracle_def];
+    \\ simp[Abbr `st`]
+    \\ rename1 `basis_ffi cls fs`
+    \\ mp_tac parts_ok_basis_st
+    \\ (fn goal as (_,g) =>
+        let
+          val {Name = tm1, Thy = thy1, ...} =
+            g |> rand |> rator |> rand |> rand |> rator |> dest_thy_const
+          val {Name = tm2, Thy = thy2, ...} =
+            g |> rator |> rand |> rator |> rand |> rand |> rator |> dest_thy_const
+        in
+          PURE_REWRITE_TAC [DB.fetch thy1 (tm1^"_def"),DB.fetch thy2 (tm2^"_def")] goal
+        end)
+    \\ simp[]
 
 (* TODO
  * - the functionality should be the same when we want a RUNTIME postcond
@@ -80,6 +79,7 @@ fun subset_basis_st st precond sets sets_thm =
        \\ EVAL_TAC
        \\ rw[cfAppTheory.store2heap_aux_append_many,INJ_MAP_EQ_IFF,INJ_DEF,FLOOKUP_UPDATE]
        \\ rw[cfStoreTheory.store2heap_aux_def]
+       \\ fs[ffiTheory.c_funsig_component_equality]
        )
     val (subgoals,_) = tac ([],goal)
     fun mk_mapping (x,y) =
