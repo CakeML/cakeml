@@ -34,8 +34,11 @@ QED
 
 val call_FFI_rel_def = Define `
   call_FFI_rel s s' <=> ?n sign args als nargs retv.
+    FIND (λsig. sig.mlname = sign.mlname) (debug_sig::s.signatures) = SOME sign
+    /\
+    args_ok sign.args args
+    /\
     call_FFI s n sign args als = SOME (FFI_return s' nargs retv)`;
-
 
 
 Theorem call_FFI_rel_consts:
@@ -103,6 +106,11 @@ Proof
   >- (fs[IS_PREFIX_APPEND] >> rw [] >> rfs[])
 QED
 
+Theorem FIND_IMP_pred:
+  FIND P l = SOME e ==> P e
+Proof
+  Induct_on `l` >> rw[semanticPrimitivesPropsTheory.FIND_thm] >> rw[]
+QED
 
 Theorem do_app_call_FFI_rel:
    do_app (r,ffi) op vs = SOME ((r',ffi'),res) ==>
@@ -115,7 +123,12 @@ Proof
   \\ fs[CaseEq"option"]
   \\ match_mp_tac RTC_SUBSET
   \\ rw [call_FFI_rel_def]
-  \\ metis_tac []
+  \\ fs[FIND_thm,CaseEq"bool"]
+  >- (CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac `debug_sig` \\
+      rveq \\ imp_res_tac get_cargs_sem_SOME_IMP_args_ok \\
+      metis_tac[])
+  \\ imp_res_tac FIND_IMP_pred \\ imp_res_tac get_cargs_sem_SOME_IMP_args_ok
+  \\ metis_tac[]
 QED
 
 
