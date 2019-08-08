@@ -342,11 +342,9 @@ val compile_lab_def = Define `
     if ffis_ok then
       case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
-          SOME (prog_to_bytes sec_list,
-                c with <| labels := l1;
-                          pos := FOLDL (λpos sec. sec_length (Section_lines sec) pos) c.pos sec_list;
-                          ffi_names := SOME ffis
-                        |>)
+          let bytes = prog_to_bytes sec_list in
+          SOME (bytes, c with <| labels := l1; pos := LENGTH bytes + c.pos;
+                          ffi_names := SOME ffis |>)
       | NONE => NONE
     else NONE`;
 

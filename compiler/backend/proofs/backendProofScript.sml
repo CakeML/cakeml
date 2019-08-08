@@ -1251,25 +1251,12 @@ Proof
   \\ simp [cake_orac_def, UNCURRY]
 QED
 
-(* seems plausible? to prove this though, we apparently need to show
-   all_enc_ok (not all_enc_ok_pre), which is a lot of work. also, the
-   issue here is apparently that compile_lab returns a c'.pos that is
-   possibly different to the length of the bytes which it also returns.
-   I don't know why it doesn't just use the length of the list, which
-   would avoid this whole issue. There are approximately 3 facts about
-   compile_lab or lab_to_target.compile, so they probably don't care. *)
 Theorem compile_lab_LENGTH:
   compile_lab c secs = SOME (bytes, c') ==>
   c'.pos = LENGTH bytes + c.pos
 Proof
   simp [lab_to_targetTheory.compile_lab_def, UNCURRY]
   \\ every_case_tac \\ rw [] \\ simp []
-  \\ irule lab_to_targetProofTheory.LENGTH_prog_to_bytes
-  \\ drule lab_to_targetProofTheory.remove_labels_thm
-  \\ reverse impl_tac >- metis_tac []
-  (* need to prove every precondition of remove_labels_thm all over again,
-     it's not going to happen. *)
-  \\ cheat
 QED
 
 Theorem bvl_to_bvi_compile_inc_all_DISTINCT:
