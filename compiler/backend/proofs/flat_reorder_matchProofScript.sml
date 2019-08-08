@@ -566,6 +566,180 @@ Proof
   Induct \\ rw [compile_v_def, list_to_v_def]
 QED
 
+
+Theorem get_carg_flat_compile_store_v:
+  get_carg_flat s.refs ty arg = NONE ==>
+    get_carg_flat (MAP compile_store_v s.refs) ty (compile_v arg) = NONE   
+Proof
+  rw [] >>
+  Cases_on `ty` >> Cases_on `arg` >>
+  fs [get_carg_flat_def, bool_case_eq, Boolv_def, compile_store_v_def] >>
+  TRY (Cases_on `l` >>  fs [get_carg_flat_def, compile_store_v_def] >> NO_TAC) >>
+  every_case_tac >> fs [semanticPrimitivesTheory.store_lookup_def, EL_MAP,compile_store_v_def]
+QED
+
+
+Theorem get_cargs_flat_compile_store_v:
+  !s cts vs.
+  get_cargs_flat s.refs cts vs = NONE ==>
+      get_cargs_flat (MAP compile_store_v s.refs) cts (MAP compile_v vs) = NONE   
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `get_cargs_flat rfs _ _ = _ ` >>
+  pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`s`,`vs`, `cts`, `rfs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def] >>
+  fs [get_cargs_flat_def] >> metis_tac [get_carg_flat_compile_store_v]
+QED
+
+
+
+Theorem get_carg_flat_compile_store_v_some:
+  get_carg_flat s.refs ty arg = SOME carg  ==>
+    get_carg_flat (MAP compile_store_v s.refs) ty (compile_v arg) = SOME carg 
+Proof
+  rw [] >>
+  Cases_on `ty` >> Cases_on `arg` >>
+  fs [get_carg_flat_def, bool_case_eq, Boolv_def, compile_store_v_def] >>
+  TRY (Cases_on `l` >>  fs [get_carg_flat_def, compile_store_v_def] >> NO_TAC) >>
+  every_case_tac >> fs [semanticPrimitivesTheory.store_lookup_def, EL_MAP,compile_store_v_def] >> rw []
+QED
+
+Theorem get_cargs_flat_compile_store_v_some:
+  !s cts vs cargs.
+  get_cargs_flat s.refs cts vs = SOME cargs  ==>
+      get_cargs_flat (MAP compile_store_v s.refs) cts (MAP compile_v vs) = SOME cargs    
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `get_cargs_flat rfs _ _ = _ ` >>
+  pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`s`,`cargs`, `vs`, `cts`, `rfs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def] >>
+  fs [get_cargs_flat_def] >> metis_tac [get_carg_flat_compile_store_v_some]
+QED
+
+Theorem als_args_compile_store_v_eq:
+  get_cargs_flat st sign.args args = SOME cargs ==>
+  als_args sign.args args =  als_args sign.args (MAP compile_v args)
+Proof
+  rw [] >>
+  drule (GEN_ALL get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  `FILTER (is_mutty ∘ FST) (ZIP (sign.args,args)) =
+  FILTER (is_mutty ∘ FST) (ZIP (sign.args,MAP compile_v args))` by
+  (ho_match_mp_tac FILTER_EL_EQ >> rw []
+   >- (drule EL_ZIP >> disch_then (qspec_then `n` mp_tac) >> rw [] >> 
+      `LENGTH sign.args =  LENGTH (MAP compile_v args)` by rw [LENGTH_MAP] >> 
+      drule EL_ZIP >> disch_then (qspec_then `n` mp_tac) >> rw [] >> 
+      pop_assum kall_tac >>
+      `is_mutty (EL n sign.args)` by fs []>>
+      drule mutty_ct_elem_arg_loc >> rw [] >> fs [] >>
+      res_tac >> fs [] >> drule_all (INST_TYPE [beta|->``:v``] EL_MAP) >> 
+      disch_then (qspec_then `compile_v` assume_tac) >> fs []) >>
+  drule EL_ZIP >> disch_then (qspec_then `n` mp_tac) >> rw [] >> 
+  `LENGTH sign.args =  LENGTH (MAP compile_v args)` by rw [LENGTH_MAP] >> 
+  drule EL_ZIP >> disch_then (qspec_then `n` mp_tac) >> rw [] >> 
+  pop_assum kall_tac >>
+  `is_mutty (EL n sign.args)` by (drule EL_ZIP >> rw [] >> res_tac >> fs []) >>
+  drule mutty_ct_elem_arg_loc >> rw [] >> fs [] >>
+  res_tac >> fs [] >> drule_all (INST_TYPE [beta|->``:v``] EL_MAP) >> 
+      disch_then (qspec_then `compile_v` assume_tac) >> fs []) >>
+  rw [ffiTheory.als_args_def]
+QED
+
+
+Theorem get_mut_args_compile_store_v_eq:
+  get_cargs_flat st sign.args args = SOME cargs ==>
+    get_mut_args sign.args args = get_mut_args sign.args (MAP compile_v args)
+Proof
+  rw [] >>
+  drule (GEN_ALL get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  `FILTER (is_mutty ∘ FST) (ZIP (sign.args,args)) =
+  FILTER (is_mutty ∘ FST) (ZIP (sign.args,MAP compile_v args))` by
+  (ho_match_mp_tac FILTER_EL_EQ >> rw []
+   >- (drule EL_ZIP >> disch_then (qspec_then `n` mp_tac) >> rw [] >> 
+      `LENGTH sign.args =  LENGTH (MAP compile_v args)` by rw [LENGTH_MAP] >> 
+      drule EL_ZIP >> disch_then (qspec_then `n` mp_tac) >> rw [] >> 
+      pop_assum kall_tac >>
+      `is_mutty (EL n sign.args)` by fs []>>
+      drule mutty_ct_elem_arg_loc >> rw [] >> fs [] >>
+      res_tac >> fs [] >> drule_all (INST_TYPE [beta|->``:v``] EL_MAP) >> 
+      disch_then (qspec_then `compile_v` assume_tac) >> fs []) >>
+  drule EL_ZIP >> disch_then (qspec_then `n` mp_tac) >> rw [] >> 
+  `LENGTH sign.args =  LENGTH (MAP compile_v args)` by rw [LENGTH_MAP] >> 
+  drule EL_ZIP >> disch_then (qspec_then `n` mp_tac) >> rw [] >> 
+  pop_assum kall_tac >>
+  `is_mutty (EL n sign.args)` by (drule EL_ZIP >> rw [] >> res_tac >> fs []) >>
+  drule mutty_ct_elem_arg_loc >> rw [] >> fs [] >>
+  res_tac >> fs [] >> drule_all (INST_TYPE [beta|->``:v``] EL_MAP) >> 
+      disch_then (qspec_then `compile_v` assume_tac) >> fs []) >>
+  rw [ffiTheory.get_mut_args_def]
+QED
+
+Theorem store_cargs_flat_compile_store_v_some:
+  !margs ws s st.
+  store_cargs_flat margs ws s.refs = SOME st  ==>
+      ?st'. store_cargs_flat margs ws (MAP compile_store_v s.refs) = SOME st'    
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `store_cargs_flat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`s`, `st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac store_cargs_flat_ind >> rw [store_cargs_flat_def] >>
+  every_case_tac >> fs []
+  >- (Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def] >>
+      fs [semanticPrimitivesTheory.store_assign_def, 
+          semanticPrimitivesTheory.store_v_same_type_def] >> 
+      every_case_tac >> fs [] >> 
+      drule_all (INST_TYPE [beta|->``:v store_v``] EL_MAP) >> 
+      disch_then (qspec_then `compile_store_v` assume_tac) >> fs [] >>
+      Cases_on `EL n s.refs` >> fs [compile_store_v_def]) >>
+  pop_assum (qspec_then `st` mp_tac) >> rw [] >>
+  Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def] >> every_case_tac >>
+  TRY (metis_tac []) >> rveq
+ >- (fs [semanticPrimitivesTheory.store_assign_def] >>
+     first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
+     rw [] >> fs [LUPDATE_MAP, compile_store_v_def]) >>
+  fs [semanticPrimitivesTheory.store_assign_def] >>
+  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
+  rw [] >> fs [LUPDATE_MAP, compile_store_v_def]
+QED
+
+
+Theorem store_cargs_flat_compile_store_v_rel:
+  !margs ws s st st'.
+  store_cargs_flat margs ws s.refs = SOME st /\
+  store_cargs_flat margs ws (MAP compile_store_v s.refs) = SOME st' ==>
+    st' = MAP compile_store_v st
+Proof
+  rw [] >>
+  pop_assum mp_tac >>
+  qmatch_asmsub_abbrev_tac `store_cargs_flat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`st'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac store_cargs_flat_ind >> rw [store_cargs_flat_def] >>
+  every_case_tac >> fs [] >>
+  pop_assum (qspec_then `st` mp_tac) >> rw [] >>
+  Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def] >> every_case_tac >>
+  TRY (metis_tac []) >> rveq
+  >- (fs [semanticPrimitivesTheory.store_assign_def] >>
+     first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
+     rw [] >> fs [LUPDATE_MAP, compile_store_v_def]) >>
+  fs [semanticPrimitivesTheory.store_assign_def] >>
+  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
+  rw [] >> fs [LUPDATE_MAP, compile_store_v_def]
+QED
+
+
 Theorem do_app_compile[simp]:
    do_app cc (compile_state s) op (MAP compile_v as) =
    OPTION_MAP (λ(s,r). (compile_state s, map_result compile_v compile_v r))
@@ -577,15 +751,55 @@ Proof
     \\ pop_assum mp_tac
     \\ simp [do_app_def] \\ fs [case_eq_thms] \\ rw []
     \\ pairarg_tac \\ fs [] \\ rveq
-    \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND])
-  \\ Cases_on `do_app cc s op as` \\ Cases_on `op`
+    \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]) \\ 
+  Cases_on `do_app cc s op as` 
+  >- (Cases_on `op`  
+      \\ TRY (rename1 `FFI _` >> pop_assum mp_tac >> 
+         fs[do_app_def] >> fs [do_ffi_flat_def] >> 
+         rpt (PURE_TOP_CASE_TAC >> fs [get_cargs_flat_compile_store_v]) >>
+         TRY (drule get_cargs_flat_compile_store_v_some >> strip_tac >> fs [] >>
+             pop_assum kall_tac >>
+             drule (CONV_RULE (RAND_CONV SYM_CONV) als_args_compile_store_v_eq) >> 
+             strip_tac >> fs []) >> rveq >>
+             metis_tac [store_cargs_flat_SOME_same_loc])
+     \\ pop_assum mp_tac
+     \\ fs[do_app_def,
+        semanticPrimitivesTheory.store_assign_def,
+        semanticPrimitivesTheory.store_alloc_def,
+        semanticPrimitivesTheory.store_lookup_def,
+        EL_MAP,compile_store_v_def]
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs []) 
+  \\ rfs[EL_MAP,semanticPrimitivesTheory.store_v_same_type_def]
+  \\ every_case_tac \\ fs [compile_store_v_def]
+  \\ rw [EL_MAP, METIS_PROVE [] ``a \/ b <=> ~a ==> b``, ELIM_UNCURRY]
+  \\ fs [] \\ EVAL_TAC
+  \\ fs [LUPDATE_MAP,compile_store_v_def,map_replicate, IS_SOME_EXISTS])
+  \\ Cases_on `op`
+  \\ TRY (rename1 `FFI _` >> 
+         pop_assum mp_tac >> 
+         fs[do_app_def] >> fs [do_ffi_flat_def] >> 
+         rpt (PURE_TOP_CASE_TAC >> fs []) >>
+         TRY (drule get_cargs_flat_compile_store_v_some >> strip_tac >> fs [] >>
+              pop_assum kall_tac >>
+             drule (CONV_RULE (RAND_CONV SYM_CONV) als_args_compile_store_v_eq) >> 
+             strip_tac >> fs [] >>
+             drule (CONV_RULE (RAND_CONV SYM_CONV) get_mut_args_compile_store_v_eq) >> 
+             strip_tac >> fs [] >> drule store_cargs_flat_compile_store_v_some >> strip_tac >> rfs []) >>
+         rveq 
+         >- (rw [] >> fs [compile_state_def] >> conj_tac 
+             >- (drule  store_cargs_flat_compile_store_v_rel >> rw []) >>
+             Cases_on `o'` >> fs [ret_val_flat_def, Unitv_def] >> Cases_on `x` >>  fs [ret_val_flat_def, Boolv_def])
+         >> drule get_cargs_flat_compile_store_v_some >> strip_tac >> fs [] >> rveq >>
+         pop_assum mp_tac >> pop_assum mp_tac >>
+         drule (CONV_RULE (RAND_CONV SYM_CONV) als_args_compile_store_v_eq) >> 
+         strip_tac >> fs [] >> rw [] >> fs [])
   \\ pop_assum mp_tac
   \\ fs[do_app_def, compile_state_def,
         semanticPrimitivesTheory.store_assign_def,
         semanticPrimitivesTheory.store_alloc_def,
         semanticPrimitivesTheory.store_lookup_def,
         EL_MAP,compile_store_v_def]
-  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  \\ rpt (PURE_TOP_CASE_TAC \\ fs []) 
   \\ rfs[EL_MAP,semanticPrimitivesTheory.store_v_same_type_def]
   \\ every_case_tac \\ fs [compile_store_v_def]
   \\ rw [EL_MAP, METIS_PROVE [] ``a \/ b <=> ~a ==> b``, ELIM_UNCURRY]
@@ -594,6 +808,7 @@ Proof
   \\ rename [`MAP (λc. Litv (Char c)) str`]
   \\ Induct_on `str` \\ fs [compile_v_def,list_to_v_def]
 QED
+
 
 (* main results *)
 

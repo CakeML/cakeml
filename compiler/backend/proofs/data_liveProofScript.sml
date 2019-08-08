@@ -45,10 +45,10 @@ val state_rel_IMP_do_app_aux = Q.prove(
                                              handler := t1.handler |>))`,
   STRIP_TAC
   \\ Cases_on `op`
-  \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def,state_rel_def]
+  \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def,state_rel_def, do_ffi_data_def, ffiTheory.call_FFI_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
-  \\ SRW_TAC [] [] \\ fs[]);
+  \\ SRW_TAC [] [] \\ fs[] \\ HINT_EXISTS_TAC \\ fs []);
 
 val state_rel_IMP_do_app = Q.prove(
   `(do_app op args s1 = Rval (v,s2)) /\
@@ -74,16 +74,16 @@ val state_rel_IMP_do_app_aux_err = Q.prove(
     (do_app_aux op args t1 = Rerr e)`,
   STRIP_TAC
   \\ Cases_on `op`
-  \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def]
+  \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def, do_ffi_data_def, ffiTheory.call_FFI_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
-  \\ SRW_TAC [] [] \\ fs[]);
+  \\ SRW_TAC [] [] \\ fs[] \\ disj2_tac \\ HINT_EXISTS_TAC \\ fs []);
 
 val state_rel_IMP_do_app_err = Q.prove(
   `(do_app op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
     (do_app op args t1 = Rerr e)`,
   STRIP_TAC
-  \\ fs [do_app_def,do_space_def]
+  \\ fs [do_app_def,do_space_def, do_ffi_data_def, ffiTheory.call_FFI_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ qmatch_goalsub_abbrev_tac `do_app_aux op args t1'`
   \\ TRY (qpat_x_assum `_ = s1'` (ASSUME_TAC o GSYM))

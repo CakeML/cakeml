@@ -1280,4 +1280,132 @@ val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
 
 val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
+
+(* FFI related theorems *)
+
+
+
+Theorem get_cargs_flat_some_len_eq:
+  !st sign args cargs. get_cargs_flat st sign.args args = SOME cargs ==>
+  LENGTH sign.args  = LENGTH args
+Proof
+  rw [] >>
+  rename1 `get_cargs_flat _ cts _ = _` >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`cargs`, `args`, `cts` ,`st`] >>
+  ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def] >> metis_tac []
+QED
+
+
+
+Theorem get_cargs_flat_some_mut_args_refptr:
+  !st sign args cargs.
+   get_cargs_flat st sign.args args = SOME cargs ==>
+   (!m. MEM m (get_mut_args sign.args args) ==> ?n. m = Loc n)
+Proof
+  rw [] >>
+  fs [ffiTheory.get_mut_args_def] >>
+  rename1 `get_cargs_flat _ cts _ = _` >>
+  pop_assum mp_tac >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`m`, `cargs`, `args`, `cts` ,`st`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def]
+  >- (Cases_on `ty` >> Cases_on `arg` >> fs [get_carg_flat_def] >>
+      every_case_tac >> fs [ffiTheory.is_mutty_def] >>
+      Cases_on `l` >> fs [get_carg_flat_def])
+  >> metis_tac []
+QED
+
+
+
+(* TODO: move to ffi? same thm present in closProps  *)
+Theorem mutty_ct_elem_arg_loc:
+  EL n (ZIP (sign.args,args)) = (EL n sign.args,EL n args) /\
+  n < LENGTH sign.args /\ n < LENGTH args /\
+  is_mutty (EL n sign.args) ==>  MEM (EL n args) (get_mut_args sign.args args)
+Proof
+  rw [] >>
+  fs [ffiTheory.get_mut_args_def, MEM_MAP] >>
+  qexists_tac `(EL n sign.args,EL n args)` >> fs [MEM_FILTER] >>
+  simp [MEM_EL] >> metis_tac []
+QED
+
+
+Theorem store_cargs_flat_none_lupdate:
+ !margs l s h n h'.
+   n < LENGTH s /\ store_cargs_flat margs l (LUPDATE (W8array h) n s) =  NONE  /\
+   EL n s = W8array h' ==>
+     store_cargs_flat margs l s = NONE
+Proof
+  ho_match_mp_tac store_cargs_flat_ind >>
+  rw[store_cargs_flat_def,option_case_eq] >>
+  Cases_on `marg` >> fs[store_carg_flat_def, semanticPrimitivesTheory.store_assign_def,
+          semanticPrimitivesTheory.store_v_same_type_def] >>
+  every_case_tac >> rveq >> fs[] >>
+  TRY (metis_tac [] >> NO_TAC) >>
+  TRY (Cases_on `n' < LENGTH s` >> fs []  >>
+  drule (CONJUNCT2 LUPDATE_SEM) >>
+  disch_then (qspecl_then [`W8array h`, `n`] assume_tac) >> every_case_tac >> fs [] >> NO_TAC) >>
+  Cases_on `n=  n' ` >> fs [] >> rveq
+  >- fs [semanticPrimitivesPropsTheory.LUPDATE_LUPDATE_same] >>
+  first_x_assum (qspecl_then [`h`,`n`,`h'`] assume_tac) >>
+  drule (INST_TYPE[alpha|->``:v store_v``] LUPDATE_commutes) >>
+  disch_then (qspecl_then [`W8array h`, `W8array w`, `s`] assume_tac) >>
+  qpat_x_assum `_ < _` kall_tac >>
+  drule (CONJUNCT2 LUPDATE_SEM) >>
+  disch_then (qspecl_then [`W8array w`, `n'`] assume_tac) >> rfs [] >>
+  metis_tac []
+QED
+
+
+Theorem store_cargs_flat_SOME_same_loc:
+  !s args cargs sign l. get_cargs_flat s sign.args args = SOME cargs ==>
+  store_cargs_flat (get_mut_args sign.args args) l s <> NONE
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `get_cargs_flat _ cts _ = SOME _` >>
+  pop_assum kall_tac >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`l`, `cargs`, `args`, `cts`, `s`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC [GSYM PULL_FORALL] >>
+  ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def]
+  >- (induct_on `l` >> fs [store_cargs_flat_def, ffiTheory.get_mut_args_def,
+                           listTheory.ZIP_def])>>
+  Cases_on `get_mut_args (ty::cts) (arg::args)`
+  >- (induct_on `l` >> fs [store_cargs_flat_def]) >>
+  fs [semanticPrimitivesPropsTheory.mut_args_split] >>
+  Cases_on `ty` >> fs [ffiTheory.is_mutty_def] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
+  Cases_on `l` >> fs [store_cargs_flat_def] >>
+  rpt(PURE_FULL_CASE_TAC >> fs[] >> rveq) >>
+  Cases_on `arg` >> fs [get_carg_flat_def, store_carg_flat_def] >>
+  every_case_tac >> fs [semanticPrimitivesTheory.store_assign_def,
+                        semanticPrimitivesTheory.store_lookup_def,
+                        semanticPrimitivesTheory.store_v_same_type_def] >>
+  CCONTR_TAC >> fs [] >> rveq >> metis_tac [store_cargs_flat_none_lupdate]
+QED
+
+val loc_num_def = Define `
+  (loc_num (Loc lc)  = lc )
+ `
+Theorem store_carg_flat_some_ref_rel:
+   store_carg_flat (Loc lnum) w refs = SOME refs' ==>
+     refs' = LUPDATE (W8array w) lnum refs
+Proof
+  rw [store_carg_flat_def, semanticPrimitivesTheory.store_assign_def]
+QED
+
+Theorem store_cargs_flat_some_store_rel:
+  !margs ws refs refs'.
+   store_cargs_flat margs ws refs = SOME refs' /\ (!m. MEM m margs ==> ?n. m = Loc  n) /\
+   LENGTH margs = LENGTH ws
+    ==> refs' = FOLDL (\refs (marg,w). LUPDATE (W8array w) (loc_num marg) refs) refs  (ZIP (margs, ws))
+Proof
+  ho_match_mp_tac store_cargs_flat_ind >> rw [store_cargs_flat_def, store_carg_flat_def]
+  >> every_case_tac >> fs [] >> Cases_on `marg`
+  >> res_tac >> fs [] >> TRY (fs [DISJ_IMP_THM, FORALL_AND_THM] >> NO_TAC)
+  >> drule store_carg_flat_some_ref_rel >> strip_tac >> rw [loc_num_def]
+QED
+
 val _ = export_theory()

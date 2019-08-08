@@ -3,7 +3,7 @@
 *)
 open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     flatLangTheory flatPropsTheory flat_to_patTheory backendPropsTheory
+     flatLangTheory flat_to_patTheory backendPropsTheory
      patLangTheory patPropsTheory
 
 val _ = new_theory"flat_to_patProof"
@@ -13,7 +13,6 @@ val _ = temp_bring_to_front_overload"Loc"{Name="Loc",Thy="patSem"};
 
 val _ = set_grammar_ancestry ["misc","ffi","bag","flatProps","patProps",
                               "flat_to_pat","backendProps","backend_common"];
-
 val _ = Parse.hide"U";
 
 val pmatch_flat_def = flatSemTheory.pmatch_def
@@ -204,6 +203,98 @@ Proof
    Induct \\ rw [patSemTheory.list_to_v_def, NoRun_v_def]
 QED
 
+(* To move to props *)
+Theorem get_cargs_pat_some_len_eq:
+  !st sign args cargs. get_cargs_pat st sign.args args = SOME cargs ==>
+  LENGTH sign.args  = LENGTH args
+Proof
+  rw [] >>
+  rename1 `get_cargs_pat _ cts _ = _` >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`cargs`, `args`, `cts` ,`st`] >>
+  ho_match_mp_tac patSemTheory.get_cargs_pat_ind >> rw [patSemTheory.get_cargs_pat_def] >> metis_tac []
+QED
+
+
+Theorem NoRun_v_margs:
+   LENGTH cts = LENGTH vs /\
+   EVERY NoRun_v vs ==> 
+   EVERY NoRun_v (get_mut_args cts vs)
+Proof
+  rw [ffiTheory.get_mut_args_def] >>
+  fs [EVERY_MAP, EVERY_FILTER, EVERY_EL] >> 
+  rw [] >> drule EL_ZIP >> rw []
+QED
+
+
+Theorem NoRun_store_v_lupdate:
+  EVERY NoRun_store_v s.refs ==> 
+   EVERY NoRun_store_v (LUPDATE (W8array w) n s.refs) 
+Proof
+  rw [] >> ho_match_mp_tac IMP_EVERY_LUPDATE >> 
+  rw [NoRun_store_v_def]
+QED
+
+Theorem NoRun_v_store_cargs_pat:
+  !margs ws s st. 
+  store_cargs_pat margs ws s.refs = SOME st /\
+  EVERY NoRun_v margs /\
+  EVERY NoRun_store_v s.refs ==> 
+   EVERY NoRun_store_v st
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `store_cargs_pat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 3 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`s` ,`st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  rw [patSemTheory.store_cargs_pat_def] >>
+  every_case_tac >> fs [] >>
+  pop_assum (qspec_then `st` mp_tac) >> rw [] >>
+  Cases_on `marg` >> fs [patSemTheory.store_carg_pat_def] >> rw [] >>
+  rfs [] >> TRY (metis_tac []) >> fs [store_assign_def] >> rveq >>
+  drule NoRun_store_v_lupdate >> rw [] >> fs [] >>
+  first_x_assum (qspec_then `s with refs := LUPDATE (W8array w) n s.refs` mp_tac) >> 
+  rw []
+QED
+
+
+Theorem do_ffi_pat_rval_NoRun_rel:
+  do_ffi_pat s s' vs = SOME (t,(Rval: v -> (v,v) result) a) ∧ 
+   EVERY NoRun_v vs ∧ NoRun_state s ⇒
+   NoRun_state t ∧ NoRun_v a
+Proof
+  rw [patSemTheory.do_ffi_pat_def] >> every_case_tac >> fs []
+  >- (fs [NoRun_state_def] >> conj_tac
+      >- (rveq >> fs [] >> drule get_cargs_pat_some_len_eq >> 
+          strip_tac >> drule NoRun_v_margs >> rw [] >> metis_tac [NoRun_v_store_cargs_pat]) >>
+      `s.globals = t.globals` by (rveq >> Cases_on `s` >> rw []) >> fs []) >>
+  rveq >> rename1 `ret_val_pat retv` >> Cases_on `retv` >> 
+  fs [patSemTheory.ret_val_pat_def, NoRun_v_def] >> 
+  rename1 `ret_val_pat (SOME retv)` >> Cases_on `retv` >> 
+  fs [patSemTheory.ret_val_pat_def, patSemTheory.Boolv_def, NoRun_v_def]
+QED
+
+
+
+Theorem do_ffi_pat_rerr_NoRun_rel:
+  do_ffi_pat s s' vs = SOME (t,Rerr (Rraise a)) ∧ 
+   EVERY NoRun_v vs ∧ NoRun_state s ⇒
+   NoRun_state t ∧ NoRun_v a
+Proof
+  rw [patSemTheory.do_ffi_pat_def] >> every_case_tac >> fs []
+QED
+
+Theorem do_ffi_pat_rerr_NoRun_rel':
+  do_ffi_pat s s' vs = SOME (t,Rerr (Rabort a)) ∧ 
+   EVERY NoRun_v vs ∧ NoRun_state s ⇒
+   NoRun_state t
+Proof
+  rw [patSemTheory.do_ffi_pat_def] >> every_case_tac >> fs []
+QED
+
+
 Theorem do_app_NoRun:
    do_app s op vs = SOME (t, res) /\
    EVERY NoRun_v vs /\
@@ -218,6 +309,8 @@ Theorem do_app_NoRun:
 Proof
   simp [patSemTheory.do_app_def]
   \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  \\ TRY (rename1 `do_ffi_pat` \\ metis_tac [do_ffi_pat_rval_NoRun_rel, 
+      do_ffi_pat_rerr_NoRun_rel, do_ffi_pat_rerr_NoRun_rel']) 
   \\ rw [] \\ fs [patSemTheory.prim_exn_def, NoRun_v_def, patSemTheory.Boolv_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ TRY (imp_res_tac store_assign_NoRun \\ fs [NoRun_state_def] \\ NO_TAC)
@@ -242,9 +335,9 @@ Proof
     \\ fs [NoRun_store_v_def, EVERY_EL]
     \\ NO_TAC)
   \\ irule NoRun_list_to_v \\ fs []
-  \\ rename [`MAP (λc. Litv (Char c)) ll`]
-  \\ Induct_on `ll` \\ fs [NoRun_v_def]
 QED
+
+
 
 Theorem do_if_NoRun:
    do_if v x y = SOME z /\
@@ -264,7 +357,7 @@ Theorem evaluate_NoRun:
      case res of
        Rval vs => EVERY NoRun_v vs
      | Rerr (Rraise e) => NoRun_v e
-    | _ => T
+     | _ => T
 Proof
   recInduct patSemTheory.evaluate_ind
   \\ rpt conj_tac
@@ -290,9 +383,6 @@ Proof
     \\ every_case_tac \\ fs []
     \\ TRY (imp_res_tac NoRun_state_dec_clock \\ fs [] \\ NO_TAC)
     \\ drule (GEN_ALL do_app_NoRun) \\ fs [EVERY_REVERSE])
-  \\ TRY
-   (drule do_app_NoRun \\ fs [EVERY_REVERSE]
-    \\ Cases_on `r` \\ fs [] \\ rveq \\ fs [] \\ NO_TAC)
   \\ every_case_tac \\ fs [ETA_AX]
   \\ imp_res_tac build_rec_env_NoRun \\ fs []
   \\ fs [NoRun_state_def, EVERY_GENLIST, NoRun_v_def]
@@ -472,13 +562,147 @@ Proof
   \\ fs [flatSemTheory.list_to_v_def, patSemTheory.list_to_v_def]
 QED
 
-Theorem compile_v_list_to_v_MAP_Litv_Char:
-  compile_v (list_to_v (MAP (λc. Litv (Char c)) str)) =
-             list_to_v (MAP (λc. Litv (Char c)) str)
+
+Theorem get_carg_flat_pat_compile_store_v_some:
+  get_carg_flat s.refs ty arg = SOME carg  ==>
+    get_carg_pat (MAP (map_sv compile_v) s.refs) ty (compile_v arg) = SOME carg 
 Proof
-  Induct_on `str`
-  \\ fs [patSemTheory.list_to_v_def,flatSemTheory.list_to_v_def]
+  rw [] >>
+  Cases_on `ty` >> Cases_on `arg` >>
+  fs [flatSemTheory.get_carg_flat_def, patSemTheory.get_carg_pat_def, bool_case_eq, 
+      flatSemTheory.Boolv_def, patSemTheory.Boolv_def,compile_v_def] >>
+  TRY (Cases_on `l` >>  fs [flatSemTheory.get_carg_flat_def, patSemTheory.get_carg_pat_def, compile_v_def] >> NO_TAC) >>
+  every_case_tac >> fs [semanticPrimitivesTheory.store_lookup_def, EL_MAP,compile_v_def] >> rw []
 QED
+
+
+Theorem get_cargs_flat_pat_compile_store_v_some:
+  !s cts vs cargs.
+  get_cargs_flat s.refs cts vs = SOME cargs  ==>
+      get_cargs_pat (MAP (map_sv compile_v) s.refs) cts (MAP compile_v vs) = SOME cargs    
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `get_cargs_flat rfs _ _ = _ ` >>
+  pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`s`,`cargs`, `vs`, `cts`, `rfs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac flatSemTheory.get_cargs_flat_ind >> 
+  rw [flatSemTheory.get_cargs_flat_def, patSemTheory.get_cargs_pat_def] >>
+  metis_tac [get_carg_flat_pat_compile_store_v_some]
+QED
+
+Theorem MAPi_ZIP_GENLIST:
+  !l. MAPi $, l   = ZIP (GENLIST I (LENGTH l),l)
+Proof
+  rw[MAPi_GENLIST,S_DEF] >>
+  match_mp_tac LIST_EQ >>
+  rw[EL_ZIP]
+QED
+
+Theorem als_args_flat_compile_store_v_eq:
+  get_cargs_flat st sign.args args = SOME cargs ==>
+  als_args sign.args args =  als_args sign.args (MAP compile_v (args: flatSem$v list))
+Proof
+  rw [] >>
+  drule (GEN_ALL flatPropsTheory.get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule flatPropsTheory.get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  `LENGTH sign.args = LENGTH(MAP compile_v args)` by rw [LENGTH_MAP] >> 
+  rw [ffiTheory.als_args_def] >>
+  fs[MAPi_ZIP_GENLIST,ZIP_MAP,FILTER_MAP,o_DEF,MAP_MAP_o] >>
+  CONV_TAC(DEPTH_CONV ETA_CONV) >>
+  fs[ELIM_UNCURRY] >>
+  PURE_ONCE_REWRITE_TAC [MAP_EQ_EVERY2] >>
+  conj_tac >- simp[] >>
+  match_mp_tac EVERY2_refl >>
+  rw[] >>
+  `!l:(num#c_type#flatSem$v) list. FILTER (λx'. SND x = SND (SND x')) l  = 
+    FILTER (λp'. compile_v (SND x) = compile_v (SND (SND p'))) l`
+    suffices_by simp[] >>
+  rw[FILTER_EQ] >>
+  fs [ffiTheory.get_mut_args_def, o_DEF, MEM_MAP, PULL_EXISTS] >>
+  res_tac >> fs [] >>
+  Cases_on `SND (SND p')` >> rw [compile_v_def]
+QED 
+
+
+Theorem get_mut_args_flat_pat_compile_store_v_eq:
+  get_cargs_flat st sign.args args = SOME cargs ==>
+    get_mut_args sign.args (MAP compile_v args) = 
+       MAP compile_v (get_mut_args sign.args args)
+Proof
+  rw [] >>
+  drule (GEN_ALL flatPropsTheory.get_cargs_flat_some_len_eq) >> rw [] >>
+  dxrule flatPropsTheory.get_cargs_flat_some_mut_args_refptr >> rw [] >>
+  rw [ffiTheory.get_mut_args_def] >>
+  fs[ZIP_MAP,FILTER_MAP,o_DEF,MAP_MAP_o]
+QED
+
+
+Theorem store_cargs_flat_pat_compile_store_v_some:
+  !margs ws s st.
+  store_cargs_flat margs ws s.refs = SOME st  ==>
+      ?st'. store_cargs_pat (MAP compile_v margs) ws (MAP (map_sv compile_v) s.refs) = SOME st'    
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `store_cargs_flat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`s`, `st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac flatSemTheory.store_cargs_flat_ind >>
+  rw [flatSemTheory.store_cargs_flat_def, patSemTheory.store_cargs_pat_def] >>
+  every_case_tac >> fs []
+  >- (Cases_on `marg` >> Cases_on `w` >> fs [flatSemTheory.store_carg_flat_def, patSemTheory.store_carg_pat_def] >>
+      fs [semanticPrimitivesTheory.store_assign_def, 
+          semanticPrimitivesTheory.store_v_same_type_def] >> 
+      every_case_tac >> fs [] >> 
+      drule_all (INST_TYPE [beta|->``:v store_v``] EL_MAP) >> 
+      disch_then (qspec_then `map_sv compile_v` assume_tac) >> fs [] >>
+      Cases_on `EL n s.refs` >> fs [map_sv_def, compile_v_def]) >>
+  pop_assum (qspec_then `st` mp_tac) >> rw [] >>
+  Cases_on `marg` >> Cases_on `w` >> 
+  fs [flatSemTheory.store_carg_flat_def, patSemTheory.store_carg_pat_def] >> every_case_tac >>
+  TRY (metis_tac []) >> rveq
+ >- (fs [semanticPrimitivesTheory.store_assign_def] >>
+     first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
+     rw [] >> fs [LUPDATE_MAP, map_sv_def, compile_v_def]) >>
+  fs [semanticPrimitivesTheory.store_assign_def] >>
+  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
+  rw [] >> fs [LUPDATE_MAP, map_sv_def, compile_v_def]
+QED
+
+
+
+Theorem store_cargs_flat_pat_compile_store_v_rel:
+  !margs ws s st st'.
+  store_cargs_flat margs ws s.refs = SOME st /\
+  store_cargs_pat (MAP compile_v margs) ws (MAP (map_sv compile_v) s.refs) = SOME st'  ==>
+    st' = MAP (map_sv compile_v) st
+Proof
+  rw [] >>
+  pop_assum mp_tac >>
+  qmatch_asmsub_abbrev_tac `store_cargs_flat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`st'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac flatSemTheory.store_cargs_flat_ind >> 
+  rw [flatSemTheory.store_cargs_flat_def, patSemTheory.store_cargs_pat_def] >>
+  every_case_tac >> fs [] >>
+  pop_assum (qspec_then `st` mp_tac) >> rw [] >>
+  Cases_on `marg` >> Cases_on `w` >> 
+  fs [flatSemTheory.store_carg_flat_def, patSemTheory.store_carg_pat_def] >> every_case_tac >>
+  TRY (metis_tac []) >> rveq
+  >- (fs [semanticPrimitivesTheory.store_assign_def] >>
+     first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
+     rw [] >> fs [LUPDATE_MAP, map_sv_def, compile_v_def]) >>
+  fs [semanticPrimitivesTheory.store_assign_def] >>
+  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
+  rw [] >> fs [LUPDATE_MAP, map_sv_def, compile_v_def]
+QED
+
+
 
 val do_app = Q.prove(
   `∀cc co op vs s0 s res.
@@ -489,6 +713,7 @@ val do_app = Q.prove(
   srw_tac[][compile_state_def] >>
   fs[flatSemTheory.do_app_cases] >> rw[] >>
   rw[patSemTheory.do_app_def,
+     patSemTheory.do_ffi_pat_def,
      patSemTheory.prim_exn_def,
      flatSemTheory.div_exn_v_def,
      flatSemTheory.subscript_exn_v_def,
@@ -504,8 +729,22 @@ val do_app = Q.prove(
   TRY (last_x_assum mp_tac) >>
   TRY TOP_CASE_TAC \\ fs[]
   \\ rw[flatSemTheory.Boolv_def,flatSemTheory.Boolv_def, backend_commonTheory.tuple_tag_def]
-  \\ fs [compile_v_list_to_v_MAP_Litv_Char]
-  \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]);
+  >- metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]
+  >- rw [flatSemTheory.do_ffi_flat_def] >> 
+  fs [flatSemTheory.do_ffi_flat_def] >> every_case_tac >> fs [] >> rveq >> 
+  TRY (drule (GEN_ALL get_cargs_flat_pat_compile_store_v_some) >> strip_tac >> fs [] >> rveq) >>
+  TRY (drule (GEN_ALL als_args_flat_compile_store_v_eq) >> strip_tac >> fs []) >> rveq >>
+  TRY (drule (GEN_ALL get_mut_args_flat_pat_compile_store_v_eq) >> strip_tac >> fs [] >>
+       drule (GEN_ALL store_cargs_flat_pat_compile_store_v_some) >> strip_tac >> fs []) >>
+  rveq >> drule (GEN_ALL store_cargs_flat_pat_compile_store_v_rel) >> strip_tac >> fs [] >>
+  rename1 `ret_val_pat retv` >>
+  Cases_on `retv` >> fs [flatSemTheory.ret_val_flat_def, patSemTheory.ret_val_pat_def, 
+  flatSemTheory.Unitv_def]
+  >- (every_case_tac >> fs [compile_tag_def, backend_commonTheory.tuple_tag_def]) >>
+  rename1 `ret_val_pat (SOME retv)` >>
+  Cases_on `retv` >> fs [flatSemTheory.ret_val_flat_def, patSemTheory.ret_val_pat_def, 
+  flatSemTheory.Boolv_def] >>
+  every_case_tac >> fs [compile_tag_def, patSemTheory.Boolv_def, backend_commonTheory.true_tag_def]);
 
 (* pattern compiler correctness *)
 
@@ -693,8 +932,7 @@ val Let_Els_correct = Q.prove(
     metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
   srw_tac[][] >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> simp[] >>
-  metis_tac[SNOC_APPEND,SNOC_EL_TAKE]);
-
+  metis_tac[SNOC_APPEND,SNOC_EL_TAKE])
 val Let_Els_correct = Q.prove(
   `∀t n k e tag vs env ^s res us enve.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
@@ -709,17 +947,17 @@ val s = mk_var("s",
   |> type_subst[alpha |-> ``:'ffi``])
 
 val compile_pat_correct = Q.prove(
-  `(∀t p v ^s env res env4.
-       pmatch s p v env = res ∧ ¬s.check_ctor ∧ res ≠ Match_type_error ⇒
+  `(∀t p v cenv ^s env res env4.
+       pmatch cenv s.refs p v env = res ∧ ¬cenv.check_ctor ∧ res ≠ Match_type_error ⇒
        evaluate
          (compile_v v::env4)
          (compile_state co cc s)
          [compile_pat t p] =
          (compile_state co cc s
          ,Rval [Boolv (∃env'. res = Match env')])) ∧
-    (∀t n ps qs vs ^s env env' res env4.
-       pmatch_list s qs (TAKE n vs) env = Match env' ∧
-       pmatch_list s ps (DROP n vs) env = res ∧ ¬s.check_ctor ∧ res ≠ Match_type_error ∧
+    (∀t n ps qs vs cenv ^s env env' res env4.
+       pmatch_list cenv s.refs qs (TAKE n vs) env = Match env' ∧
+       pmatch_list cenv s.refs ps (DROP n vs) env = res ∧ ¬cenv.check_ctor ∧ res ≠ Match_type_error ∧
        (n = LENGTH qs) ∧ n ≤ LENGTH vs ⇒
        evaluate
          (compile_vs vs ++ env4)
@@ -798,34 +1036,34 @@ val compile_pat_correct = Q.prove(
   Q.PAT_ABBREV_TAC`env5 = X ++ env4` >>
   `LENGTH qs < LENGTH vs` by simp[] >>
   full_simp_tac(srw_ss())[rich_listTheory.DROP_EL_CONS] >>
-  first_x_assum(qspecl_then[`v`,`s`,`env`,`env5`]mp_tac) >>
-  Cases_on`pmatch s p v env`>>full_simp_tac(srw_ss())[] >- (
+  first_x_assum(qspecl_then[`v`,`cenv`,`s`,`env`,`env5`]mp_tac) >>
+  Cases_on`pmatch cenv s.refs p v env`>>full_simp_tac(srw_ss())[] >- (
     strip_tac >>
     simp[patSemTheory.do_if_def,patPropsTheory.Boolv_disjoint] >>
     simp[patSemTheory.Boolv_def,patSemTheory.evaluate_def]) >>
   strip_tac >>
   simp[patSemTheory.do_if_def] >>
   simp[Abbr`env5`] >>
-  first_x_assum(qspecl_then[`qs++[p]`,`vs`,`s`,`env`]mp_tac) >>
+  first_x_assum(qspecl_then[`qs++[p]`,`vs`,`cenv`,`s`,`env`]mp_tac) >>
   simp[] >>
   simp[rich_listTheory.TAKE_EL_SNOC,GSYM SNOC_APPEND] >>
   simp[flatPropsTheory.pmatch_list_snoc] >>
   imp_res_tac flatPropsTheory.pmatch_any_match >>
-  qmatch_assum_rename_tac`pmatch_list s qs _ env = Match env2` >>
+  qmatch_assum_rename_tac`pmatch_list cenv s.refs qs _ env = Match env2` >>
   last_x_assum(qspec_then`env2`strip_assume_tac)>>simp[]>>
-  qmatch_assum_rename_tac`pmatch s p v env = Match env3`>>
-  Cases_on`pmatch_list s ps ws env`>>simp[]>>
-  Cases_on`pmatch_list s ps ws env3`>>full_simp_tac(srw_ss())[]>>
+  qmatch_assum_rename_tac`pmatch cenv s.refs p v env = Match env3`>>
+  Cases_on`pmatch_list cenv s.refs ps ws env`>>simp[]>>
+  Cases_on`pmatch_list cenv s.refs ps ws env3`>>full_simp_tac(srw_ss())[]>>
   metis_tac[flatPropsTheory.pmatch_any_match_error
            ,flatPropsTheory.pmatch_any_match
            ,flatPropsTheory.pmatch_any_no_match
            ,match_result_distinct])
 
 val compile_row_correct = Q.prove(
-  `(∀t Nbvs0 p bvs0 ^s v menv bvs1 n f.
+  `(∀t Nbvs0 p bvs0 cenv ^s v menv bvs1 n f.
       (Nbvs0 = NONE::bvs0) ∧
-      (pmatch s p v [] = Match menv) ∧
-      ¬s.check_ctor ∧
+      (pmatch cenv s.refs p v [] = Match menv) ∧
+      ¬cenv.check_ctor ∧
       (compile_row t Nbvs0 p = (bvs1,n,f))
     ⇒ ∃menv4 bvs.
        EVERY NoRun_v menv4 /\
@@ -849,10 +1087,10 @@ val compile_row_correct = Q.prove(
               compile := any_cc;
               compile_oracle := any_co
               |> [f e] = res) ∧
-   (∀t bvsk0 nk k ps tag ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
-     (pmatch_list s qs (TAKE k vs) [] = Match menvk) ∧
-     (pmatch_list s ps (DROP k vs) [] = Match menv) ∧
-      ¬s.check_ctor ∧
+   (∀t bvsk0 nk k ps tag cenv ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
+     (pmatch_list cenv s.refs qs (TAKE k vs) [] = Match menvk) ∧
+     (pmatch_list cenv s.refs ps (DROP k vs) [] = Match menv) ∧
+      ¬cenv.check_ctor ∧
      (compile_cols t bvsk0 nk k ps = (bvs1,n1,f)) ∧
      (bvsk0 = bvsk ++ NONE::bvs0) ∧
      (k = LENGTH qs) ∧ k ≤ LENGTH vs ∧ (LENGTH bvsk = nk) ∧
@@ -895,14 +1133,14 @@ val compile_row_correct = Q.prove(
     srw_tac[][pmatch_flat_def,compile_row_def] >> full_simp_tac(srw_ss())[] >>
     Cases_on`v`>>full_simp_tac(srw_ss())[pmatch_flat_def] >>
     qpat_x_assum`X = Match menv`mp_tac >> srw_tac[][] >>
-    rename1`pmatch _ (Pcon xx _) (Conv yy _) [] = _`
+    rename1`pmatch _ _ (Pcon xx _) (Conv yy _) [] = _`
     \\ Cases_on`xx` \\ Cases_on`yy` \\ rfs[pmatch_flat_def]
     \\ pop_assum mp_tac \\ rw[] >>
-    qmatch_assum_rename_tac`pmatch_list s ps vs [] = Match menv` >>
+    qmatch_assum_rename_tac`pmatch_list cenv s.refs ps vs [] = Match menv` >>
     full_simp_tac(srw_ss())[LENGTH_NIL,pmatch_flat_def,LENGTH_NIL_SYM] >>
     Q.PAT_ABBREV_TAC`w = Conv X Y` >>
     qmatch_assum_rename_tac`Abbrev(w = Conv tag (MAP compile_v vs))` >>
-    first_x_assum(qspecl_then[`tag`,`s`,`vs`]mp_tac) >> srw_tac[][] >> srw_tac[][] >>
+    first_x_assum(qspecl_then[`tag`,`cenv`,`s`,`vs`]mp_tac) >> srw_tac[][] >> srw_tac[][] >>
     simp[] >>
     qexists_tac`menv4++[w]` >>
     simp[GSYM rich_listTheory.ZIP_APPEND,rich_listTheory.FILTER_APPEND] >>
@@ -916,8 +1154,8 @@ val compile_row_correct = Q.prove(
     qpat_x_assum`X = Match menv`mp_tac >> BasicProvers.CASE_TAC >>
     BasicProvers.CASE_TAC >>
     srw_tac[][] >> full_simp_tac(srw_ss())[UNCURRY,LET_THM] >> srw_tac[][] >>
-    qmatch_assum_rename_tac`pmatch s p v [] = Match menv` >>
-    first_x_assum(qspecl_then[`s`,`v`]mp_tac) >> simp[] >>
+    qmatch_assum_rename_tac`pmatch cenv s.refs p v [] = Match menv` >>
+    first_x_assum(qspecl_then[`cenv`,`s`,`v`]mp_tac) >> simp[] >>
     Q.PAT_ABBREV_TAC`tt = compile_row _ X Y` >>
     `∃bvs1 n f. tt = (bvs1,n,f)` by simp[GSYM EXISTS_PROD] >>
     qunabbrev_tac`tt` >> simp[] >> srw_tac[][] >> simp[] >>
@@ -949,10 +1187,10 @@ val compile_row_correct = Q.prove(
   srw_tac[][] >>
   Cases_on`DROP (LENGTH qs) vs`>>full_simp_tac(srw_ss())[pmatch_flat_def] >>
   qmatch_assum_rename_tac`DROP (LENGTH qs) vs = v::ws` >>
-  Cases_on`pmatch s p v []`>>full_simp_tac(srw_ss())[] >>
-  first_x_assum(qspecl_then[`s`,`v`]mp_tac) >> simp[] >>
+  Cases_on`pmatch cenv s.refs p v []`>>full_simp_tac(srw_ss())[] >>
+  first_x_assum(qspecl_then[`cenv`,`s`,`v`]mp_tac) >> simp[] >>
   strip_tac >> srw_tac[][] >>
-  first_x_assum(qspecl_then[`tag`,`s`,`qs++[p]`,`vs`]mp_tac) >>
+  first_x_assum(qspecl_then[`tag`,`cenv`,`s`,`qs++[p]`,`vs`]mp_tac) >>
   Cases_on`LENGTH vs = LENGTH qs`>>full_simp_tac(srw_ss())[rich_listTheory.DROP_LENGTH_NIL_rwt] >>
   `LENGTH qs < LENGTH vs` by simp[] >>
   full_simp_tac(srw_ss())[rich_listTheory.DROP_EL_CONS] >>
@@ -970,7 +1208,7 @@ val compile_row_correct = Q.prove(
   disch_then(qspec_then`menv4 ++ menv4k`mp_tac) >>
   simp[rich_listTheory.FILTER_APPEND,GSYM(rich_listTheory.ZIP_APPEND)] >>
   impl_tac >- (
-    qpat_x_assum`pmatch s p v menvk = X`mp_tac >>
+    qpat_x_assum`pmatch cenv s.refs p v menvk = X`mp_tac >>
     simp[Once (CONJUNCT1 flatPropsTheory.pmatch_nil)] >>
     REWRITE_TAC[GSYM MAP_APPEND] >> PROVE_TAC[] ) >>
   srw_tac[][] >> srw_tac[][] >> simp[] >>
@@ -978,7 +1216,7 @@ val compile_row_correct = Q.prove(
   qexists_tac`menv3 ++ menv4` >> simp[] >>
   simp[rich_listTheory.FILTER_APPEND,GSYM(rich_listTheory.ZIP_APPEND)] >>
   conj_tac >- (
-    qpat_x_assum`pmatch_list s ps ww env2 = X`mp_tac >>
+    qpat_x_assum`pmatch_list cenv s.refs ps ww env2 = X`mp_tac >>
     simp[Once (CONJUNCT2 flatPropsTheory.pmatch_nil)] >>
     REWRITE_TAC[GSYM MAP_APPEND] >> PROVE_TAC[] ) >>
   srw_tac[][] >>
@@ -986,7 +1224,7 @@ val compile_row_correct = Q.prove(
   simp[patSemTheory.evaluate_def] >>
   simp[patSemTheory.do_app_def] >>
   simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>
-  simp[EL_MAP]);
+  simp[EL_MAP])
 
 (* value relation *)
 
@@ -1617,6 +1855,321 @@ Proof
   \\ simp [Once v_rel_cases]
 QED
 
+Theorem eq_ffi_sign_eq:
+  s.ffi = s'.ffi /\
+  FIND (λx. x.mlname = n) (debug_sig::s.ffi.signatures) = SOME sign ==>
+    FIND (λx. x.mlname = n) (debug_sig::s'.ffi.signatures) = SOME sign
+Proof
+  Cases_on `s.ffi` >>  Cases_on `s'.ffi` >>
+  rw [] >> fs []
+QED
+
+Theorem state_rel_get_carg_pat_eq:
+   get_carg_pat s'.refs ty arg' = SOME carg /\
+   state_rel s s' /\
+   v_rel arg arg' ==>
+    get_carg_pat s.refs ty arg = SOME carg
+Proof
+  rw [] >>
+  Cases_on `ty` >> Cases_on `arg'` >> fs [state_rel_def, v_rel_cases] >>
+  fs [patSemTheory.get_carg_pat_def, bool_case_eq, patSemTheory.Boolv_def] >> 
+  rveq >>
+  fs [LIST_REL_NIL] >> 
+  TRY (Cases_on `l` >> fs [patSemTheory.get_carg_pat_def] >> NO_TAC) >>
+  every_case_tac >> fs []
+  >- fs [store_lookup_def, LIST_REL_EL_EQN]
+  >> fs [store_lookup_def, LIST_REL_EL_EQN] >>
+      ntac 2 (first_x_assum (qspec_then `n` mp_tac)) >> rw []
+QED
+
+
+Theorem state_rel_get_cargs_pat_eq:
+  !s cts vs cargs s' vs'.
+  get_cargs_pat s'.refs cts vs' = SOME cargs /\
+  state_rel s s' /\
+  LIST_REL v_rel vs vs' ==>
+      get_cargs_pat s.refs cts vs = SOME cargs  
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `get_cargs_pat rfs _ _ = _ ` >>
+  pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 3 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`vs`, `ctors`, `s'`, `s`, `cargs`, `vs'`, `cts`, `rfs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac patSemTheory.get_cargs_pat_ind >> 
+  rw [patSemTheory.get_cargs_pat_def] >>
+  fs [patSemTheory.get_cargs_pat_def] >> metis_tac [state_rel_get_carg_pat_eq]
+QED
+
+
+
+Theorem get_cargs_pat_some_mut_args_refptr:
+  !st sign args cargs.
+   get_cargs_pat st sign.args args = SOME cargs ==>
+   (!m. MEM m (get_mut_args sign.args args) ==> ?n. m = Loc n)
+Proof
+  rw [] >>
+  fs [ffiTheory.get_mut_args_def] >>
+  rename1 `get_cargs_pat _ cts _ = _` >>
+  pop_assum mp_tac >>
+  pop_assum mp_tac >>
+  MAP_EVERY qid_spec_tac [`m`, `cargs`, `args`, `cts` ,`st`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac patSemTheory.get_cargs_pat_ind >> rw [patSemTheory.get_cargs_pat_def]
+  >- (Cases_on `ty` >> Cases_on `arg` >> fs [patSemTheory.get_carg_pat_def] >>
+      every_case_tac >> fs [ffiTheory.is_mutty_def] >>
+      Cases_on `l` >> fs [patSemTheory.get_carg_pat_def])
+  >> metis_tac []
+QED
+
+
+
+Theorem v_rel_pat_als_args_eq:
+  get_cargs_pat st sign.args args = SOME cargs /\
+  get_cargs_pat st' sign.args args' =  SOME cargs' /\
+  LIST_REL v_rel args args'  ==>
+  als_args sign.args args =  als_args sign.args args'
+Proof
+  rw [] >>
+  drule (GEN_ALL get_cargs_pat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_pat_some_mut_args_refptr >> rw [] >>
+  drule (GEN_ALL get_cargs_pat_some_len_eq) >> rw [] >>
+  dxrule get_cargs_pat_some_mut_args_refptr >> rw [] >>
+  `FILTER (is_mutty ∘ FST) (ZIP (sign.args,args)) =
+  FILTER (is_mutty ∘ FST) (ZIP (sign.args,args'))` by
+  (ho_match_mp_tac FILTER_EL_EQ >> rw []
+   >- (qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+      drule EL_ZIP >> rw [] >>
+      first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+      qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+      drule EL_ZIP >> rw [] >>
+      first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+      dxrule flatPropsTheory.mutty_ct_elem_arg_loc >> rw [] >>
+      dxrule flatPropsTheory.mutty_ct_elem_arg_loc >> rw [] >>
+      res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+      qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw []) >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs [] >>
+  qpat_x_assum `LENGTH _ =_ ` mp_tac >>
+  drule EL_ZIP >> rw [] >>
+  first_x_assum (qspec_then `n` mp_tac) >> rw [] >> fs []>>
+  dxrule flatPropsTheory.mutty_ct_elem_arg_loc >> rw [] >>
+  dxrule flatPropsTheory.mutty_ct_elem_arg_loc >> rw [] >>
+  res_tac >> fs [] >> fs [LIST_REL_EL_EQN] >>
+  qpat_x_assum `!n. n < _ ⇒ _` (qspec_then `n` mp_tac) >> rw []) >>
+  rw [ffiTheory.als_args_def]
+QED
+
+Theorem v_rel_pat_get_mut_args_eq:
+  !xs ys.
+  get_cargs_pat st  sign.args xs = SOME cargs /\
+  get_cargs_pat st' sign.args ys = SOME cargs' /\
+  LIST_REL v_rel xs ys ==>
+    get_mut_args sign.args xs = get_mut_args sign.args ys
+Proof
+  rw [ffiTheory.get_mut_args_def] >>
+  qpat_x_assum `get_cargs_pat _ _ _ = _` mp_tac >>
+  qpat_x_assum `get_cargs_pat _ _ _ = _` mp_tac >>
+  pop_assum mp_tac >>
+  rename1 `ZIP (cts, _)` >>
+  MAP_EVERY qid_spec_tac [`st`, `st'`, `cargs`, `cargs'`, `cts`, `ys`,`xs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac LIST_REL_ind >> rw [] >>
+  Cases_on `cts` >> rw [] >> fs [ZIP_def, patSemTheory.get_cargs_pat_def]
+  >- (Cases_on `h` >> Cases_on `h1` >> Cases_on `h2` >> 
+      fs [patSemTheory.get_carg_pat_def, Boolv_def, Once v_rel_cases, ffiTheory.is_mutty_def]) >>
+  TRY(metis_tac [])
+QED
+
+
+
+Theorem state_rel_store_cargs_pat_some_not_none:
+  !margs ws s st s'.
+  store_cargs_pat margs ws s'.refs = SOME st /\
+  state_rel s s'  ==>
+   ?st'. store_cargs_pat margs ws s.refs = SOME st'   
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `store_cargs_pat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 2 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`s`, `s'`, `st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  rw [patSemTheory.store_cargs_pat_def] >>
+  every_case_tac >> fs []
+  >- (Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def]  >> 
+      fs [state_rel_def] >> fs [LIST_REL_EL_EQN] >>
+      fs [store_assign_def, store_v_same_type_def] >>
+      last_x_assum (qspec_then `n` mp_tac) >> strip_tac >> rfs [] >>
+      every_case_tac >> fs [sv_rel_def]) >>
+  pop_assum (qspec_then `st` mp_tac) >> rw [] >>
+  Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def] >> every_case_tac >>
+  TRY (metis_tac []) >> rveq
+  >- (fs [store_assign_def] >>
+      first_x_assum (qspecl_then [`s' with refs := LUPDATE (W8array []) n s'.refs`,
+      `s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> rw [] >> 
+      `state_rel (s with refs := LUPDATE (W8array []) n s.refs)
+       (s' with refs := LUPDATE (W8array []) n s'.refs)` by 
+       (fs [state_rel_def, LIST_REL_EL_EQN] >>
+        rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []) >>
+  fs [store_assign_def] >>
+  first_x_assum (qspecl_then [`s' with refs := LUPDATE (W8array (h::t)) n s'.refs`,
+  `s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> rw [] >> 
+   `state_rel (s with refs := LUPDATE (W8array (h::t)) n s.refs)
+   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by 
+   (fs [state_rel_def, LIST_REL_EL_EQN] >>
+   rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []
+QED
+
+
+Theorem state_rel_get_carg_pat_eq':
+   get_carg_pat s.refs ty arg = SOME carg /\
+   state_rel s s' /\
+   v_rel arg arg' ==>
+    get_carg_pat s'.refs ty arg' = SOME carg
+Proof
+  rw [] >>
+  Cases_on `ty` >> Cases_on `arg` >> fs [state_rel_def, v_rel_cases] >>
+  fs [patSemTheory.get_carg_pat_def, bool_case_eq, patSemTheory.Boolv_def] >> 
+  rveq >>
+  fs [LIST_REL_NIL] >> 
+  TRY (Cases_on `l` >> fs [patSemTheory.get_carg_pat_def] >> NO_TAC) >>
+  every_case_tac >> fs []
+  >- fs [store_lookup_def, LIST_REL_EL_EQN]
+  >> fs [store_lookup_def, LIST_REL_EL_EQN] >>
+      ntac 2 (first_x_assum (qspec_then `n` mp_tac)) >> rw []
+QED
+
+
+Theorem state_rel_get_cargs_pat_eq':
+  !s cts vs cargs s' vs'.
+  get_cargs_pat s.refs cts vs = SOME cargs /\
+  state_rel s s' /\
+  LIST_REL v_rel vs vs' ==>
+      get_cargs_pat s'.refs cts vs' = SOME cargs  
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `get_cargs_pat rfs _ _ = _ ` >>
+  pop_assum(mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 3 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`vs'`, `ctors`, `s`, `s'`, `cargs`, `vs`, `cts`, `rfs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac patSemTheory.get_cargs_pat_ind >> 
+  rw [patSemTheory.get_cargs_pat_def] >>
+  fs [patSemTheory.get_cargs_pat_def] >> metis_tac [state_rel_get_carg_pat_eq']
+QED
+
+
+Theorem state_rel_store_cargs_pat_some_not_none':
+  !margs ws s st s'.
+  store_cargs_pat margs ws s.refs = SOME st /\
+  state_rel s s'  ==>
+   ?st'. store_cargs_pat margs ws s'.refs = SOME st'   
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `store_cargs_pat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 2 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`s'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  rw [patSemTheory.store_cargs_pat_def] >>
+  every_case_tac >> fs []
+  >- (Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def]  >> 
+      fs [state_rel_def] >> fs [LIST_REL_EL_EQN] >>
+      fs [store_assign_def, store_v_same_type_def] >>
+      last_x_assum (qspec_then `n` mp_tac) >> strip_tac >> rfs [] >>
+      every_case_tac >> fs [sv_rel_def]) >>
+  pop_assum (qspec_then `st` mp_tac) >> rw [] >>
+  Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def] >> every_case_tac >>
+  TRY (metis_tac []) >> rveq
+  >- (fs [store_assign_def] >>
+      first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`,
+      `s' with refs := LUPDATE (W8array []) n s'.refs`] mp_tac) >> rw [] >> 
+      `state_rel (s with refs := LUPDATE (W8array []) n s.refs)
+       (s' with refs := LUPDATE (W8array []) n s'.refs)` by 
+       (fs [state_rel_def, LIST_REL_EL_EQN] >>
+        rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []) >>
+  fs [store_assign_def] >>
+  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`,
+  `s' with refs := LUPDATE (W8array (h::t)) n s'.refs`] mp_tac) >> rw [] >> 
+   `state_rel (s with refs := LUPDATE (W8array (h::t)) n s.refs)
+   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by 
+   (fs [state_rel_def, LIST_REL_EL_EQN] >>
+   rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []
+QED
+
+Theorem store_cargs_pat_state_rel_length_eq:
+  !margs ws s st s' st'.
+  store_cargs_pat margs ws s.refs = SOME st /\
+   store_cargs_pat margs ws s'.refs = SOME st' /\
+   state_rel s s'  ==>
+    LENGTH st' = LENGTH st
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `store_cargs_pat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 3 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`s'`, `st'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  rw [patSemTheory.store_cargs_pat_def] >>
+  every_case_tac >> fs [] >>
+  TRY (fs [state_rel_def, LIST_REL_EL_EQN] >> NO_TAC) >>
+  Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def] >> rveq >>
+  TRY (first_x_assum (qspecl_then [`st`, `s`] mp_tac) >> simp [] >> 
+       disch_then (qspec_then `s'` mp_tac) >> simp [] >> NO_TAC) 
+  >- (fs [store_assign_def] >> rveq >>
+      first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
+      simp [] >> 
+      disch_then (qspec_then `s' with refs := LUPDATE (W8array []) n s'.refs` mp_tac) >> 
+      `state_rel (s with refs := LUPDATE (W8array []) n s.refs)
+       (s' with refs := LUPDATE (W8array []) n s'.refs)` suffices_by fs [] >>
+      fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >>
+  fs [store_assign_def] >> rveq >>
+  first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
+  simp [] >> 
+  disch_then (qspec_then `s' with refs := LUPDATE (W8array (h::t)) n s'.refs` mp_tac) >> 
+  `state_rel (s with refs := LUPDATE (W8array (h::t)) n s.refs)
+   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` suffices_by fs [] >>
+   fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]
+QED
+
+Theorem store_cargs_pat_sv_rel_preserved:
+  !margs ws s st s' st'.
+  store_cargs_pat margs ws s.refs = SOME st /\
+  store_cargs_pat margs ws s'.refs = SOME st' /\
+   LIST_REL (sv_rel v_rel) s.refs s'.refs  ==>
+    LIST_REL (sv_rel v_rel) st st'
+Proof
+  rw [] >>
+  qmatch_asmsub_abbrev_tac `store_cargs_pat _ _ rfs = _ ` >>
+  pop_assum (mp_tac o REWRITE_RULE [markerTheory.Abbrev_def]) >>
+  ntac 3 (pop_assum mp_tac) >>
+  MAP_EVERY qid_spec_tac [`s'`, `st'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
+  Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  rw [patSemTheory.store_cargs_pat_def] >>
+  every_case_tac >> fs [] >>
+  Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def] >> rveq >>
+  TRY (first_x_assum (qspecl_then [`st`, `s`] mp_tac) >> simp [] >> 
+       disch_then (qspec_then `s'` mp_tac) >> simp [] >> NO_TAC) 
+  >- (fs [store_assign_def] >> rveq >>
+      first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
+      simp [] >> 
+      `LIST_REL (sv_rel v_rel) (LUPDATE (W8array []) n s.refs)
+       (LUPDATE (W8array []) n s'.refs)` by (fs [LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> 
+      simp [] >> disch_then (qspec_then `s' with refs := LUPDATE (W8array []) n s'.refs` mp_tac) >> fs []) >>
+  fs [store_assign_def] >> rveq >>
+     first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
+     simp [] >> 
+     `LIST_REL (sv_rel v_rel) (LUPDATE (W8array (h::t)) n s.refs)
+     (LUPDATE (W8array (h::t)) n s'.refs)` by (fs [LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> 
+     simp [] >> disch_then (qspec_then `s' with refs := LUPDATE (W8array (h::t)) n s'.refs` mp_tac) >> fs []
+QED
+
 Theorem do_app_v_rel:
    ∀^s op s' vs vs'.
       LIST_REL v_rel vs vs' ⇒
@@ -1694,7 +2247,23 @@ Proof
     \\ TRY CASE_TAC \\ fs[]
     \\ fs[LIST_REL_EL_EQN,OPTREL_def]
     \\ res_tac \\ fs[store_v_same_type_def,sv_rel_cases] \\ fs[]
-    \\ metis_tac[NOT_SOME_NONE]) >>
+    \\ TRY(metis_tac[NOT_SOME_NONE] >> NO_TAC) >>
+      fs [patSemTheory.do_ffi_pat_def] >> every_case_tac >> fs [] >>
+      drule (GEN_ALL eq_ffi_sign_eq) >> strip_tac >> res_tac >> rfs [] >> rveq >> 
+      last_assum (mp_then Any mp_tac (REWRITE_RULE [state_rel_def] state_rel_get_cargs_pat_eq)) >> 
+      disch_then (qspecl_then [`x.args`,`vs`, `x'`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN, OPTREL_def] >>
+      rw [LIST_REL_EL_EQN] >> res_tac >> rfs [] >>
+      CCONTR_TAC  >> fs [] >> rveq >> 
+      drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+      disch_then (qspecl_then [`s'.refs`,`x'`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+      CCONTR_TAC >> fs [] >> rveq >> 
+      drule (GEN_ALL v_rel_pat_get_mut_args_eq) >> 
+      disch_then (qspecl_then [`s'.refs`,`x'`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+      CCONTR_TAC >> fs [] >> rveq >>
+      drule (REWRITE_RULE [state_rel_def] state_rel_store_cargs_pat_some_not_none) >> 
+      disch_then (qspec_then `s` mp_tac) >> 
+      simp [LIST_REL_EL_EQN, OPTREL_def] >>
+      rw [LIST_REL_EL_EQN] >> res_tac >> rfs []) >>
   Cases_on `op = (Op ListAppend)`
   >-
    (fs [] \\ rveq
@@ -1733,8 +2302,62 @@ Proof
   fs[LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE,LENGTH_REPLICATE,EL_REPLICATE] >>
   res_tac >> fs[sv_rel_cases] >> rfs[] >> fs[LIST_REL_EL_EQN,EL_LUPDATE,store_v_same_type_def] >>
   rw[EL_LUPDATE] \\ rw[EL_LUPDATE,EL_APPEND_EQN,EL_REPLICATE] >> rw[]
-  \\ metis_tac[]
+  \\ TRY (metis_tac[] >> NO_TAC) >>
+   `(∀n. n < LENGTH s'.refs ⇒ sv_rel v_rel (EL n s.refs) (EL n s'.refs))` by 
+   (rw [] >> res_tac >> fs [sv_rel_def] >> rw [LIST_REL_EL_EQN]) >>
+   fs [patSemTheory.do_ffi_pat_def] >> every_case_tac >> fs [] >>
+   drule (GEN_ALL eq_ffi_sign_eq) >> strip_tac >> res_tac >> rfs [] >> rveq >>
+   drule (REWRITE_RULE [state_rel_def] state_rel_get_cargs_pat_eq') >>
+   disch_then (qspecl_then [`s'`, `vs'`] mp_tac) >> fs [LIST_REL_EL_EQN, OPTREL_def] >>
+   TRY (rw[] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >> NO_TAC) >>
+   TRY (rw[] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >>
+       CCONTR_TAC  >> fs [] >> rveq >> 
+       drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+       disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+       CCONTR_TAC >> fs [] >> rveq >> NO_TAC) >>
+   TRY (rw[] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >>
+       CCONTR_TAC  >> fs [] >> rveq >> 
+       drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+       disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+       CCONTR_TAC >> fs [] >> rveq >>
+       drule (GEN_ALL v_rel_pat_get_mut_args_eq) >> 
+       disch_then (qspecl_then [`s'.refs`,`x''`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+       CCONTR_TAC >> fs [] >> rveq >>
+       drule (REWRITE_RULE [state_rel_def] state_rel_store_cargs_pat_some_not_none') >> 
+       disch_then (qspec_then `s'` mp_tac) >> 
+       simp [LIST_REL_EL_EQN, OPTREL_def] >>
+       rw [LIST_REL_EL_EQN] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >> NO_TAC) >>
+   rw[]
+   >- (drule (GEN_ALL v_rel_pat_get_mut_args_eq) >> 
+       disch_then (qspecl_then [`s'.refs`,`x''`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+       strip_tac >> fs [] >> 
+       drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+       disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+       strip_tac >> fs [] >> rveq >>
+       rename1 `store_cargs_pat _ _ s'.refs = SOME ws` >> 
+       drule (REWRITE_RULE [state_rel_def] store_cargs_pat_state_rel_length_eq) >> 
+       disch_then (qspecl_then [`s'`, `ws`] mp_tac) >> simp [] >> 
+       rw [LIST_REL_EL_EQN, OPTREL_def] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN])
+   >- (rw [] >> drule (GEN_ALL v_rel_pat_get_mut_args_eq) >> 
+       disch_then (qspecl_then [`s'.refs`,`x''`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+       strip_tac >> fs [] >> 
+       drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+       disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+       strip_tac >> fs [] >> rveq >>
+       rename1 `store_cargs_pat _ _ s'.refs = SOME ws'` >> 
+       rename1 `store_cargs_pat _ _ s.refs = SOME ws` >> 
+       drule (REWRITE_RULE [state_rel_def] store_cargs_pat_state_rel_length_eq) >> 
+       disch_then (qspecl_then [`s'`, `ws'`] mp_tac) >> simp [] >> 
+       rw [LIST_REL_EL_EQN, OPTREL_def] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >> 
+       drule (INST_TYPE[delta|->``:'ffi``] store_cargs_pat_sv_rel_preserved) >>
+       disch_then (qspecl_then [`s'`, `ws'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+       disch_then (qspec_then `n` mp_tac) >> simp [] >> 
+       Cases_on `EL n ws` >> Cases_on `EL n ws'` >> fs [sv_rel_def, LIST_REL_EL_EQN]) >>
+  drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+  disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
+  strip_tac >> fs []
 QED
+
 
 (* some NoRun things for exp_rel, v_rel, state_rel etc *)
 
@@ -2682,7 +3305,7 @@ val compile_env_aux = Q.prove (
 
 Theorem compile_exp_evaluate:
    (∀env ^s exps ress. flatSem$evaluate env s exps = ress ⇒
-    ¬s.check_ctor ∧ s.exh_pat ∧
+    ¬env.check_ctor ∧ env.exh_pat ∧
     (SND ress ≠ Rerr (Rabort Rtype_error)) ⇒
     ∃ress4.
       evaluate
@@ -2692,7 +3315,7 @@ Theorem compile_exp_evaluate:
       state_rel (compile_state co cc (FST ress)) (FST ress4) ∧
       result_rel (LIST_REL v_rel) v_rel (map_result compile_vs compile_v (SND ress)) (SND ress4)) ∧
    (∀env ^s v pes err_v res t. evaluate_match env s v pes err_v = res ⇒
-    ¬s.check_ctor ∧ s.exh_pat ∧
+    ¬env.check_ctor ∧ env.exh_pat ∧
     (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
     ∃res4.
       patSem$evaluate
@@ -2702,7 +3325,7 @@ Theorem compile_exp_evaluate:
       state_rel (compile_state co cc (FST res)) (FST res4) ∧
       result_rel (LIST_REL v_rel) v_rel (map_result (MAP compile_v) compile_v (SND res)) (SND res4))
 Proof
-  ho_match_mp_tac flatSemTheory.evaluate_ind >>
+   ho_match_mp_tac flatSemTheory.evaluate_ind >>
   (* nil *)
   strip_tac >- ( srw_tac[][evaluate_flat_def] >> simp[patSemTheory.evaluate_def] ) >>
   (* cons *)
@@ -2718,7 +3341,6 @@ Proof
       simp[Once evaluate_cons] >>
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
       simp[Once evaluate_cons] ) >>
-    imp_res_tac evaluate_state_unchanged >> fs [] >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
     Cases_on`r = Rerr (Rabort Rtype_error)`>>full_simp_tac(srw_ss())[] >>
     qpat_x_assum`flatSem$evaluate _ _ (_::_::_) = _`kall_tac >>
@@ -2758,7 +3380,6 @@ Proof
     ntac 2 strip_tac >> full_simp_tac(srw_ss())[] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac evaluate_state_unchanged >> fs [] >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
     Cases_on`r`>>full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`er ≠ Rabort Rtype_error ⇒ _` >>
@@ -2824,10 +3445,6 @@ Proof
       full_simp_tac(srw_ss())[compile_exps_reverse] >>
       split_pair_case_tac >> full_simp_tac(srw_ss())[] ) >>
     qmatch_assum_rename_tac`_ = (s',Rval vs)` >>
-    `¬(dec_clock s').check_ctor ∧ (dec_clock s').exh_pat`
-    by (
-      imp_res_tac evaluate_state_unchanged >>
-      fs [flatSemTheory.dec_clock_def]) >>
     Cases_on`op = Opapp` >> full_simp_tac(srw_ss())[] >- (
       Cases_on`do_opapp (REVERSE vs)`>>simp[] >>
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -2889,10 +3506,7 @@ Proof
       \\ imp_res_tac evaluate_flat_sing
       \\ imp_res_tac evaluate_sing
       \\ fs[bool_case_eq]
-      \\ rveq \\ fs[flatSemTheory.Boolv_def,v_rel_cases,patSemTheory.Boolv_def]) >>
-    `¬q.check_ctor ∧ q.exh_pat`
-    by (imp_res_tac evaluate_state_unchanged >> fs []) >>
-    fs []
+      \\ rveq \\ fs[flatSemTheory.Boolv_def,v_rel_cases,patSemTheory.Boolv_def] )
     \\ qhdtm_x_assum`state_rel`mp_tac
     \\ specl_args_of_then ``patSem$evaluate``evaluate_exp_rel mp_tac
     \\ simp[compile_state_NoRun,compile_exp_NoRun,compile_env_aux]
@@ -2927,9 +3541,6 @@ Proof
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
     reverse(Cases_on`r`)>>full_simp_tac(srw_ss())[] >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
     rename1`compile_pes (tr § 2) _ pes` \\
-    `¬s'.check_ctor ∧ s'.exh_pat`
-    by (imp_res_tac evaluate_state_unchanged >> fs []) >>
-    fs [] >>
     first_x_assum(qspec_then`tr§2`strip_assume_tac) \\
     qhdtm_x_assum`result_rel`mp_tac >>
     specl_args_of_then``patSem$evaluate``evaluate_exp_rel mp_tac >>
@@ -2960,9 +3571,6 @@ Proof
     rpt gen_tac >> ntac 2 strip_tac >>
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
-    `¬s'.check_ctor ∧ s'.exh_pat`
-    by (imp_res_tac evaluate_state_unchanged >> fs []) >>
-    fs [] >>
     Cases_on`n`>>full_simp_tac(srw_ss())[libTheory.opt_bind_def] >- (
       simp[patSemTheory.evaluate_def] >>
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
@@ -3049,7 +3657,7 @@ Proof
         split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
         Q.ISPECL_THEN[`co`,`cc`]mp_tac
           (Q.GENL[`co`,`cc`](CONJUNCT1 compile_pat_correct)) >>
-        disch_then(qspecl_then[`t § 2`,`p`,`v`,`s`,`[]`]mp_tac) >> simp[] >>
+        disch_then(qspecl_then[`t § 2`,`p`,`v`,`env`,`s`,`[]`]mp_tac) >> simp[] >>
         strip_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> pop_assum kall_tac >>
         simp[patSemTheory.do_if_def] >>
         qspec_tac(`t§3`,`t`) \\ gen_tac]
@@ -3057,13 +3665,13 @@ Proof
       split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
       qmatch_assum_rename_tac `_ = (bvs,_,f)` >>
       full_simp_tac(srw_ss())[Once(CONJUNCT1 flatPropsTheory.pmatch_nil)] >>
-      Cases_on`pmatch s p v []`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`pmatch env s.refs p v []`>>full_simp_tac(srw_ss())[]>>
       rveq >> qmatch_asmsub_rename_tac`menv ++ env.v` >>
       qmatch_assum_abbrev_tac`compile_row t (NONE::bvs0) p = X` >>
       (compile_row_correct
        |> CONJUNCT1
        |> SIMP_RULE (srw_ss())[]
-       |> Q.SPECL[`t`,`p`,`bvs0`,`s`,`v`]
+       |> Q.SPECL[`t`,`p`,`bvs0`,`env`,`s`,`v`]
        |> Q.GENL[`any_cc`,`any_co`]
        |> mp_tac) >>
       simp[Abbr`X`] >>
@@ -3154,7 +3762,7 @@ Proof
     split_pair_case_tac >> full_simp_tac(srw_ss())[] >>
     Q.ISPECL_THEN[`co`,`cc`]mp_tac
       (Q.GENL[`co`,`cc`](CONJUNCT1 compile_pat_correct)) >>
-    disch_then(qspecl_then[`t§2`,`p`,`v`,`s`,`[]`]mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`t§2`,`p`,`v`,`env`,`s`,`[]`]mp_tac) >> simp[] >>
     strip_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >> pop_assum kall_tac >>
     simp[patSemTheory.do_if_def] >>
     first_x_assum(qspec_then`t§4`strip_assume_tac) \\
@@ -3162,16 +3770,16 @@ Proof
 QED
 
 Theorem compile_evaluate_decs:
-   flatSem$evaluate_decs ^s prog = res ∧ ¬s.check_ctor ∧ s.exh_pat ∧
-   SND res ≠ SOME (Rabort Rtype_error) ⇒
+   flatSem$evaluate_decs env ^s prog = res ∧ ¬env.check_ctor ∧ env.exh_pat ∧
+   SND (SND res) ≠ SOME (Rabort Rtype_error) ⇒
    ∃res4.
    patSem$evaluate [] (compile_state co cc ^s) (compile prog) = res4 ∧
    state_rel (compile_state co cc (FST res)) (FST res4) ∧
    OPTREL (exc_rel v_rel)
-     (OPTION_MAP (map_error_result compile_v) (SND res))
-    (case (SND res4) of Rval _ => NONE | Rerr e => SOME e)
+     (OPTION_MAP (map_error_result compile_v) (SND (SND res)))
+     (case (SND res4) of Rval _ => NONE | Rerr e => SOME e)
 Proof
-  map_every qid_spec_tac[`res`,`s`]
+  map_every qid_spec_tac[`res`,`env`,`s`]
   \\ Induct_on`prog`
   >- (
     rw[flatSemTheory.evaluate_decs_def, compile_def]
@@ -3226,39 +3834,30 @@ Proof
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
   \\ strip_tac \\ rveq
+  \\ TOP_CASE_TAC \\ fs[]
   \\ simp[Once evaluate_cons]
-  \\ rename [`evaluate _ flat_s0 _ = (flat_s1,_)`]
   \\ strip_tac
-  \\ qmatch_asmsub_rename_tac`evaluate_decs flat_s1 prog`
-  \\ first_x_assum(qspecl_then[`flat_s1`]mp_tac)
-  \\ `¬flat_s1.check_ctor ∧ flat_s1.exh_pat`
-         by metis_tac [evaluate_state_unchanged] \\ fs[]
+  \\ qmatch_asmsub_abbrev_tac`evaluate_decs env1`
+  \\ `env1 = env` by simp[Abbr`env1`,flatSemTheory.environment_component_equality]
+  \\ fs[Abbr`env1`]
+  \\ qmatch_asmsub_rename_tac`evaluate_decs env s1 prog`
+  \\ first_x_assum(qspecl_then[`s1`,`env`]mp_tac)
+  \\ simp[]
   \\ strip_tac
   \\ qmatch_asmsub_abbrev_tac`SND p`
   \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
   \\ pop_assum(assume_tac o SYM) \\ fs[]
-  \\ qmatch_asmsub_abbrev_tac`SND p`
-  \\ Cases_on`p` \\ fs[markerTheory.Abbrev_def]
-  \\ pop_assum(assume_tac o SYM) \\ fs[]
-  \\ fs [v_rel_cases] \\ rveq \\ fs []
-  \\ qpat_x_assum `_ = (_,v4)` assume_tac
-  \\ rename [`evaluate [] pat_s1 (compile prog) = (pat_s2,v4)`]
-  \\ qmatch_goalsub_abbrev_tac `FST ppp`
-  \\ `FST ppp = pat_s2` by (Cases_on `v4` \\ fs [Abbr`ppp`]) \\ fs []
-  \\ qmatch_goalsub_abbrev_tac `OPTREL _ _ qqq`
-  \\ `qqq = case v4 of Rerr eee => SOME eee | _ => NONE` by
-        (unabbrev_all_tac \\ Cases_on `v4` \\ fs [])
-  \\ fs [] \\ ntac 4 (pop_assum kall_tac)
-  \\ pop_assum mp_tac
-  \\ drule evaluate_exp_rel \\ fs []
+  \\ drule evaluate_exp_rel
   \\ simp[compile_NoRun, compile_state_NoRun]
-  \\ disch_then(qspecl_then[`[]`,`pat_s1`,`compile prog`]mp_tac)
-  \\ fs [] \\ ntac 2 strip_tac \\ fs []
-  \\ fs[CONJUNCT2 exp_rel_refl]
-  \\ conj_tac THEN1 metis_tac[state_rel_trans]
+  \\ qmatch_assum_rename_tac`state_rel (_ _ s1) s2`
+  \\ disch_then(qspecl_then[`[]`,`s2`,`compile prog`]mp_tac)
+  \\ simp[CONJUNCT2 exp_rel_refl]
+  \\ strip_tac
   \\ qhdtm_x_assum`OPTREL`mp_tac
   \\ CASE_TAC \\ fs[OPTREL_def]
-  \\ rw[] \\ fs []
+  >- metis_tac[state_rel_trans]
+  \\ strip_tac \\ fs[]
+  \\ rveq
   \\ metis_tac[state_rel_trans, exc_rel_v_rel_trans]
 QED
 
@@ -3266,7 +3865,7 @@ Theorem compile_semantics:
    semantics T F (ffi:'ffi ffi$ffi_state) es ≠ Fail ⇒
    semantics
      []
-     (compile_state co cc (initial_state ffi k0 T F))
+     (compile_state co cc (initial_state ffi k0))
      (compile es) =
    semantics T F ffi es
 Proof
@@ -3279,7 +3878,7 @@ Proof
     IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       qhdtm_x_assum`flatSem$evaluate_decs`kall_tac >>
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
-      (fn g as (_,w) => Cases_on[ANTIQUOTE(rand((lhs w)))] g) \\
+      (fn g as (_,w) => Cases_on[ANTIQUOTE(rand(rand(lhs w)))] g) \\
       fs[] \\ spose_not_then strip_assume_tac \\
       drule(compile_evaluate_decs) >>
       impl_tac >- (fs[] \\ EVAL_TAC) \\ strip_tac \\
@@ -3290,9 +3889,9 @@ Proof
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
       srw_tac[][] >>
-      qmatch_assum_abbrev_tac`flatSem$evaluate_decs ss es = _` >>
+      qmatch_assum_abbrev_tac`flatSem$evaluate_decs env ss es = _` >>
       qmatch_assum_abbrev_tac`patSem$evaluate bnv bs be = _` >>
-      qispl_then[`es`,`ss`]mp_tac flatPropsTheory.evaluate_decs_add_to_clock_io_events_mono >>
+      qispl_then[`es`,`env`,`ss`]mp_tac flatPropsTheory.evaluate_decs_add_to_clock_io_events_mono >>
       Q.ISPECL_THEN [`bnv`,`bs`,`be`](mp_tac o Q.GEN`extra`) patPropsTheory.evaluate_add_to_clock_io_events_mono >>
       simp[Abbr`bs`,Abbr`ss`] >>
       disch_then(qspec_then`k`strip_assume_tac) >>
@@ -3334,22 +3933,20 @@ Proof
     last_x_assum(qspec_then`k`strip_assume_tac) >>
     qmatch_assum_abbrev_tac`SND p ≠ _` >>
     Cases_on`p`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
-    pop_assum(mp_tac o SYM)
-    \\ strip_tac
-    \\ drule compile_evaluate_decs
-    \\ impl_tac >- (fs[] \\ EVAL_TAC)
-    \\ strip_tac
-    \\ fs[flatSemTheory.initial_state_def,compile_state_with_clock,OPTREL_SOME]
-    \\ first_x_assum (qspec_then `k` assume_tac)
-    \\ rfs [] \\ Cases_on `r` \\ fs []
-    \\ Cases_on `x` \\ fs []
-    \\ Cases_on `a` \\ fs []
-    \\ fs [OPTREL_def])
-  \\ DEEP_INTRO_TAC some_intro >> simp[]
-  \\ conj_tac >- (
-    spose_not_then strip_assume_tac >> rfs [] >>
+    pop_assum(mp_tac o SYM) >>
+    (fn g as (_,w) => Cases_on[ANTIQUOTE(rand(lhs(#1(dest_imp w))))] g) \\
+    drule compile_evaluate_decs \\
+    rw[] \\ strip_tac \\ rw[] \\ fs[] \\
+    first_x_assum(fn th => mp_tac th \\ impl_tac >- (fs[] \\ EVAL_TAC)) \\
+    fs[flatSemTheory.initial_state_def,compile_state_with_clock,OPTREL_SOME]
+    \\ spose_not_then strip_assume_tac \\ rw[]
+    \\ qpat_x_assum`Rabort _ = _`(assume_tac o SYM)
+    \\ fs[map_error_result_Rtype_error] ) \\
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    spose_not_then strip_assume_tac >>
     last_x_assum(qspec_then`k`mp_tac) >>
-    (fn g as (_,w) => Cases_on[ANTIQUOTE(rand((lhs(rand(#1(dest_imp w))))))] g) \\
+    (fn g as (_,w) => Cases_on[ANTIQUOTE(rand(rand(lhs(rand(#1(dest_imp w))))))] g) \\
     strip_tac >>
     drule compile_evaluate_decs >>
     impl_tac >- (fs[] \\ EVAL_TAC) \\
@@ -3367,8 +3964,9 @@ Proof
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >> gen_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-  specl_args_of_then``flatSem$evaluate_decs``(Q.GENL[`s`,`prog`,`res`]compile_evaluate_decs) mp_tac >>
-  simp[state_rel_def,compile_state_def,flatSemTheory.initial_state_def]
+  specl_args_of_then``flatSem$evaluate_decs``(Q.GENL[`env`,`s`,`prog`,`res`]compile_evaluate_decs) mp_tac >>
+  simp[state_rel_def,compile_state_def,flatSemTheory.initial_state_def] \\
+  impl_tac >- EVAL_TAC \\ simp[]
 QED
 
 val set_globals_let_els = Q.prove(`

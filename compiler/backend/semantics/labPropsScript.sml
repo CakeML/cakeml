@@ -852,13 +852,21 @@ Proof
   \\ imp_res_tac mem_store_byte_aux_align_dm \\ fs[]
 QED
 
+
+Theorem align_dm_ffi_regs_eq[simp]:
+  (align_dm s).ffi_regs = s.ffi_regs
+Proof
+  rw [align_dm_def]
+QED
+
+
 Theorem evaluate_align_dm:
    good_dimindex(:α) ⇒
    ∀(s:(α,'c,'ffi) labSem$state).
       evaluate (align_dm s) =
       let (r,s') = evaluate s in (r, align_dm s')
 Proof
-  strip_tac
+(*  strip_tac
   \\ ho_match_mp_tac evaluate_ind
   \\ rpt strip_tac
   \\ simp[Once evaluate_def]
@@ -876,12 +884,80 @@ Proof
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ TRY BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ fs[inc_pc_def,align_dm_def,dec_clock_def])
+
+
+
+
   \\ BasicProvers.TOP_CASE_TAC
   \\ TRY (simp[Once evaluate_def,SimpRHS]
   \\ simp[case_eq_thms]
   \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def,case_eq_thms]
   \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[] >> NO_TAC)
-  \\ cheat
+
+
+
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ TRY (simp[Once evaluate_def,SimpRHS]
+  \\ simp[case_eq_thms]
+  \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def,case_eq_thms]
+  \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[] >> NO_TAC)
+
+\\ BasicProvers.TOP_CASE_TAC
+  \\ TRY (simp[Once evaluate_def,SimpRHS]
+  \\ simp[case_eq_thms]
+  \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def,case_eq_thms]
+  \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[] >> NO_TAC)
+
+
+
+\\ BasicProvers.TOP_CASE_TAC
+  \\ TRY (simp[Once evaluate_def,SimpRHS]
+  \\ simp[case_eq_thms]
+  \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def,case_eq_thms]
+  \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[] >> NO_TAC)
+
+
+
+\\ BasicProvers.TOP_CASE_TAC
+  \\ TRY (simp[Once evaluate_def,SimpRHS]
+  \\ simp[case_eq_thms]
+  \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def,case_eq_thms]
+  \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[] >> NO_TAC)
+
+
+
+
+
+ \\ BasicProvers.TOP_CASE_TAC
+ >-(simp[Once evaluate_def,SimpRHS] >> fs []
+  \\ `get_cargs_lab s x.args (get_args x.args s.ffi_regs)
+             (get_len x.args s.ffi_regs)  =NONE ` by cheat >> fs [])
+
+\\ BasicProvers.TOP_CASE_TAC
+>- (simp[Once evaluate_def,SimpRHS] >> fs [] >>
+    `get_cargs_lab s x.args (get_args x.args s.ffi_regs)
+             (get_len x.args s.ffi_regs)=  SOME x''` by cheat >> fs [])
+
+\\ BasicProvers.TOP_CASE_TAC
+>- (BasicProvers.TOP_CASE_TAC >>
+   simp[Once evaluate_def,SimpRHS] >> fs [] >- cheat) >>
+
+  simp[Once evaluate_def,SimpRHS]
+
+
+)
+
+
+   \\ TRY (simp[Once evaluate_def,SimpRHS]
+  \\ simp[case_eq_thms]
+  \\ rpt(pairarg_tac \\ fs[] \\ rveq \\ fs[]) \\ fs[align_dm_def,case_eq_thms]
+  \\ rveq \\ fs[] \\ pairarg_tac \\ fs[] \\ rfs[] >> NO_TAC)
+
+
+
+
+  \\*)
+cheat
 QED
 
 Theorem implements_align_dm:

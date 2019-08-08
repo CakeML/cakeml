@@ -2195,8 +2195,6 @@ Proof
 QED
 
 
-
-
 Theorem simple_state_rel_get_store_cargs_eq:
   !cts ys cargs s t xs vr sr.
   get_cargs_clos (t.refs) cts ys = SOME cargs /\
@@ -2293,7 +2291,6 @@ Proof
   >> metis_tac []
 QED
 
-
 val ptr_num_def = Define `
   (ptr_num (RefPtr ptr) = ptr)
  `
@@ -2304,9 +2301,6 @@ Proof
   rw [store_carg_clos_def] >> every_case_tac >> fs []
 QED
 
-
-
-
 Theorem store_cargs_clos_some_store_rel:
   !margs ws refs refs'.
    store_cargs_clos margs ws refs = SOME refs' /\ (!m. MEM m margs ==> ?n. m = RefPtr n) /\
@@ -2319,21 +2313,6 @@ Proof
   >> fs [FUPDATE_LIST_THM] >> Cases_on `marg` >> fs [] >> TRY (fs [DISJ_IMP_THM, FORALL_AND_THM])
   >> fs [ptr_num_def] >> drule_all store_carg_some_ref_rel >> strip_tac >> rw []
 QED
-
-
-Theorem store_cargs_clos_some_store_rel:
-  !margs ws refs refs'.
-   store_cargs_clos margs ws refs = SOME refs' /\ (!m. MEM m margs ==> ?n. m = RefPtr n) /\
-   LENGTH margs = LENGTH ws
-    ==> refs' = refs |++
-       ZIP (MAP ptr_num margs, MAP (\w. ByteArray F w) ws)
-Proof
-  ho_match_mp_tac store_cargs_clos_ind >> rw [store_cargs_clos_def, store_carg_clos_def]
-  >> every_case_tac >> fs []
-  >> fs [FUPDATE_LIST_THM] >> Cases_on `marg` >> fs [] >> TRY (fs [DISJ_IMP_THM, FORALL_AND_THM])
-  >> fs [ptr_num_def] >> drule_all store_carg_some_ref_rel >> strip_tac >> rw []
-QED
-
 
 
 Theorem simple_state_rel_Fupdate_bytes:
