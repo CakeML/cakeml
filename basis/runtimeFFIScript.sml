@@ -16,7 +16,7 @@ val exit_sig_def = Define
     |>`
 
 val ffi_exit_def = Define `
- ffi_exit _ _ () = SOME(FFIdiverge:unit ffi_result)
+ ffi_exit (_:c_value list) (_:num list list) () = SOME(FFIdiverge:unit ffi_result)
   `
 
 Theorem ffi_exit_length:

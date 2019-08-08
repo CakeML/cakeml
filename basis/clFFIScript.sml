@@ -42,14 +42,14 @@ val get_arg_sig_def = Define
     |>`
 
 val ffi_get_arg_count_def = Define `
-  ffi_get_arg_count [C_arrayv conf; C_arrayv bytes] _ args =
+  ffi_get_arg_count [C_arrayv conf; C_arrayv bytes] (_:num list list) args =
     if LENGTH bytes = 2 /\ LENGTH args < 256 * 256 then
       SOME (FFIreturn [[n2w (LENGTH args);
              n2w (LENGTH args DIV 256)]] NONE args)
     else NONE`;
 
 val ffi_get_arg_length_def = Define `
-  ffi_get_arg_length [C_arrayv conf; C_arrayv bytes] _ args =
+  ffi_get_arg_length [C_arrayv conf; C_arrayv bytes] (_:num list list) args =
     if LENGTH bytes = 2 /\ LENGTH args < 256 * 256 then
       (let index = w2n (EL 1 bytes) * 256 + w2n (EL 0 bytes) in
          if index < LENGTH args then
@@ -59,7 +59,7 @@ val ffi_get_arg_length_def = Define `
     else NONE`;
 
 val ffi_get_arg_def = Define `
-  ffi_get_arg [C_arrayv conf; C_arrayv bytes] _ args =
+  ffi_get_arg [C_arrayv conf; C_arrayv bytes] (_:num list list) args =
     if 2 <= LENGTH bytes then
       (let index = w2n (EL 1 bytes) * 256 + w2n (EL 0 bytes) in
        let arg = EL index args in
@@ -71,24 +71,40 @@ val ffi_get_arg_def = Define `
 (* lengths *)
 
 Theorem ffi_get_arg_count_length:
-   ffi_get_arg_count [C_arrayv conf; C_arrayv bytes] als args = SOME (FFIreturn [bytes'] retv args') ==>
-    LENGTH bytes' = LENGTH bytes
+   ffi_get_arg_count cargs als args = SOME (FFIreturn bytes' retv args') /\
+   args_ok get_arg_count_sig.args cargs
+   ==>
+   mut_len get_arg_count_sig.args cargs = MAP LENGTH bytes' /\
+   ret_ok get_arg_count_sig.retty retv /\
+   als_ok bytes' als
 Proof
-  fs [ffi_get_arg_count_def] \\ rw [] \\ fs []
+  EVAL_TAC \\ rw[ffiTheory.arg_ok_def,ffiTheory.args_ok_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\ fs[ffi_get_arg_count_def,ffiTheory.is_mutty_def] \\
+  rveq \\ fs[]
 QED
 
 Theorem ffi_get_arg_length_length:
-   ffi_get_arg_length [C_arrayv conf; C_arrayv bytes] als args = SOME (FFIreturn [bytes'] retv args') ==>
-    LENGTH bytes' = LENGTH bytes
+   ffi_get_arg_length cargs als args = SOME (FFIreturn bytes' retv args') /\
+   args_ok get_arg_length_sig.args cargs ==>
+   mut_len get_arg_length_sig.args cargs = MAP LENGTH bytes' /\
+   ret_ok get_arg_length_sig.retty retv /\
+   als_ok bytes' als
 Proof
-  fs [ffi_get_arg_length_def] \\ rw [] \\ fs []
+  EVAL_TAC \\ rw[ffiTheory.arg_ok_def,ffiTheory.args_ok_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\ fs[ffi_get_arg_length_def,ffiTheory.is_mutty_def] \\
+  rveq \\ fs[]
 QED
 
 Theorem ffi_get_arg_length:
-   ffi_get_arg [C_arrayv conf; C_arrayv bytes] als args = SOME (FFIreturn [bytes'] retv args') ==>
-    LENGTH bytes' = LENGTH bytes
+   ffi_get_arg cargs als args = SOME (FFIreturn bytes' retv args') /\
+   args_ok get_arg_sig.args cargs ==>
+   mut_len get_arg_sig.args cargs = MAP LENGTH bytes' /\
+   ret_ok get_arg_sig.retty retv /\
+   als_ok bytes' als
 Proof
-  fs [ffi_get_arg_def] \\ rw [] \\ fs [mlstringTheory.LENGTH_explode]
+  EVAL_TAC \\ rw[ffiTheory.arg_ok_def,ffiTheory.args_ok_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\ fs[ffi_get_arg_def,ffiTheory.is_mutty_def] \\
+  rveq \\ fs[]
 QED
 
 (* FFI part for the commandline *)

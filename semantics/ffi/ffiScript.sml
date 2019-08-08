@@ -123,9 +123,7 @@ val _ = Define `ret_ok t v =
 
 val _ = Define `
   als_ok btl alsl =
-    (EVERY (EVERY (λn. n < LENGTH btl)) alsl)
-    /\
-    EVERY (λasl. ∀i j. MEM i asl /\ MEM j asl ==> (EL i btl = EL j btl)) alsl
+    EVERY (λasl. ∀i j. MEM i asl /\ MEM j asl /\ i < LENGTH btl /\ j < LENGTH btl ==> (EL i btl = EL j btl)) alsl
 `
 
 val _ = Define ` 

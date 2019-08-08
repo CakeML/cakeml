@@ -371,16 +371,28 @@ QED
 (* ffi lengths *)
 
 Theorem ffi_open_in_length:
-   ffi_open_in [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_open_in cargs als fs = SOME (FFIreturn bytes' retv fs') /\
+   args_ok open_in_sig.args cargs ==>
+   mut_len open_in_sig.args cargs = MAP LENGTH bytes' /\
+   ret_ok open_in_sig.retty retv /\
+   als_ok bytes' als
 Proof
-  rw[ffi_open_in_def] \\ fs[option_eq_some]
+  EVAL_TAC \\ rw[ffiTheory.arg_ok_def,ffiTheory.args_ok_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\ fs[ffi_open_in_def,ffiTheory.is_mutty_def] \\
+  rveq \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[n2w8_def]
 QED
 
 Theorem ffi_open_out_length:
-   ffi_open_out [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_open_out cargs als fs = SOME (FFIreturn bytes' retv fs') /\
+   args_ok open_out_sig.args cargs ==>
+   mut_len open_out_sig.args cargs = MAP LENGTH bytes' /\
+   ret_ok open_out_sig.retty retv /\
+   als_ok bytes' als
 Proof
-  rw[ffi_open_out_def] \\ fs[option_eq_some]
+  EVAL_TAC \\ rw[ffiTheory.arg_ok_def,ffiTheory.args_ok_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\ fs[ffi_open_out_def,ffiTheory.is_mutty_def] \\
+  rveq \\ fs[option_eq_some]
   \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[n2w8_def]
 QED
 
@@ -394,29 +406,45 @@ Proof
 QED
 
 Theorem ffi_read_length:
-   ffi_read [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_read cargs als fs = SOME (FFIreturn bytes' retv fs') /\
+   args_ok read_sig.args cargs ==>
+   mut_len read_sig.args cargs = MAP LENGTH bytes' /\
+   ret_ok read_sig.retty retv /\
+   als_ok bytes' als
 Proof
-  rw[ffi_read_def]
-  \\ fs[option_case_eq,prove_case_eq_thm{nchotomy=list_nchotomy,case_def=list_case_def}]
-  \\ fs[option_eq_some]
+  EVAL_TAC \\ rw[ffiTheory.arg_ok_def,ffiTheory.args_ok_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\ fs[ffi_read_def,ffiTheory.is_mutty_def] \\
+  rveq \\ fs[option_eq_some,option_case_eq,CaseEq"list"]
   \\ TRY(pairarg_tac) \\ rveq \\ fs[] \\ rveq \\ fs[n2w2_def]
   \\ imp_res_tac read_length \\ fs[]
 QED
 
 Theorem ffi_write_length:
-   ffi_write [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_write cargs als fs = SOME (FFIreturn bytes' retv fs') /\
+   args_ok write_sig.args cargs ==>
+   mut_len write_sig.args cargs = MAP LENGTH bytes' /\
+   ret_ok write_sig.retty retv /\
+   als_ok bytes' als
 Proof
-  EVAL_TAC \\ rw[]
-  \\ fs[option_eq_some] \\ every_case_tac \\ fs[] \\ rw[]
+  EVAL_TAC \\ rw[ffiTheory.arg_ok_def,ffiTheory.args_ok_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\ fs[ffi_write_def,ffiTheory.is_mutty_def,write_def] \\
+  rveq \\ fs[option_eq_some,option_case_eq,CaseEq"list"]\\ rveq \\ fs[]
   \\ pairarg_tac \\ fs[] \\ pairarg_tac \\ fs[n2w2_def]
   \\ rw[] \\ Cases_on`bytes` \\ fs[]
   \\ rpt(Cases_on`t` \\ fs[] \\ Cases_on`t'` \\ fs[])
 QED
 
 Theorem ffi_close_length:
-   ffi_close [C_arrayv conf; C_arrayv bytes] als fs = SOME (FFIreturn [bytes'] retv fs') ==> LENGTH bytes' = LENGTH bytes
+   ffi_close cargs als fs = SOME (FFIreturn bytes' retv fs') /\
+   args_ok close_sig.args cargs ==>
+   mut_len close_sig.args cargs = MAP LENGTH bytes' /\
+   ret_ok close_sig.retty retv /\
+   als_ok bytes' als
 Proof
-  rw[ffi_close_def] \\ fs[option_eq_some] \\ TRY pairarg_tac \\ fs[] \\ rw[]
+  EVAL_TAC \\ rw[ffiTheory.arg_ok_def,ffiTheory.args_ok_def] \\
+  rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq) \\ fs[ffi_close_def,ffiTheory.is_mutty_def] \\
+  rveq \\ fs[option_eq_some]
+  \\ TRY(pairarg_tac) \\ rw[] \\ fs[] \\ rw[] \\ fs[n2w8_def]
 QED
 
 (* fastForwardFD *)

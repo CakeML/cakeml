@@ -220,7 +220,7 @@ val getNullTermStr_def = Define`
 *  return result code in first byte
 *  write its file descriptor index in the second byte *)
 val ffi_open_in_def = Define`
-  ffi_open_in [C_arrayv conf; C_arrayv bytes] _ fs =
+  ffi_open_in [C_arrayv conf; C_arrayv bytes] (_:num list list) fs =
     do
       assert(9 <= LENGTH bytes);
       fname <- getNullTermStr conf;
@@ -242,7 +242,7 @@ val ffi_open_in_def = Define`
 * The file is truncated to zero length if it already exists.
 * TODO: It is created if it does not already exists.*)
 val ffi_open_out_def = Define`
-  ffi_open_out [C_arrayv conf; C_arrayv bytes] _ fs =
+  ffi_open_out [C_arrayv conf; C_arrayv bytes] (_:num list list) fs =
     do
       assert(9 <= LENGTH bytes);
       fname <- getNullTermStr conf;
@@ -261,7 +261,7 @@ val ffi_open_out_def = Define`
 * corresponding system call:
 *  ssize_t read(int fd, void *buf, size_t count) *)
 val ffi_read_def = Define`
-  ffi_read [C_arrayv conf; C_arrayv bytes] _ fs =
+  ffi_read [C_arrayv conf; C_arrayv bytes] (_:num list list) fs =
     (* the buffer contains at least the number of requested bytes *)
     case bytes of
        | (n1 :: n0 :: pad1 :: pad2 :: tll) =>
@@ -286,7 +286,7 @@ val ffi_read_def = Define`
 * corresponding system call:
 * ssize_t write(int fildes, const void *buf, size_t nbytes) *)
 val ffi_write_def = Define`
-  ffi_write [C_arrayv conf; C_arrayv bytes] _ fs =
+  ffi_write [C_arrayv conf; C_arrayv bytes] (_:num list list) fs =
     case bytes of
        | (n1 :: n0 :: off1 :: off0 :: tll) =>
           do
@@ -303,7 +303,7 @@ val ffi_write_def = Define`
 
 (* closes a file given its descriptor index *)
 val ffi_close_def = Define`
-  ffi_close [C_arrayv conf; C_arrayv bytes] _ fs =
+  ffi_close [C_arrayv conf; C_arrayv bytes] (_:num list list) fs =
     do
       assert(LENGTH bytes >= 1);
       assert(LENGTH conf = 8);

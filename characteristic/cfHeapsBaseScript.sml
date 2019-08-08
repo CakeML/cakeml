@@ -232,11 +232,11 @@ val IOx_def = Define`
 
 val mk_proj1_def = Define`
   mk_proj1 (encode,decode,ls) s =
-    MAP (λx. (x, encode s)) (MAP FST ls)`;
+    MAP (λ(x,(_,sig)). (x, (encode s,sig))) ls`;
 
 val mk_proj2_def = Define`
   mk_proj2 (encode,decode,ls) =
-    (MAP FST ls, mk_ffi_next (encode,decode,ls))`;
+    (MAP (SND o SND) ls, mk_ffi_next (encode,decode,ls))`;
 
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)

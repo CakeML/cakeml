@@ -14,52 +14,64 @@ val _ = new_theory"basis_ffi";
 
 val basis_ffi_oracle_def = Define `
   basis_ffi_oracle =
-    \name (cls,fs) conf bytes.
+    \name (cls,fs) cargs als.
      if name = "write" then
-       case ffi_write conf bytes fs of
-       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
+       case ffi_write cargs als fs of
+       | SOME(FFIreturn bytes retv fs) => Oracle_return (cls,fs) bytes retv
        | _ => Oracle_final FFI_failed else
      if name = "read" then
-       case ffi_read conf bytes fs of
-       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
+       case ffi_read cargs als fs of
+       | SOME(FFIreturn bytes retv fs) => Oracle_return (cls,fs) bytes retv
        | _ => Oracle_final FFI_failed else
      if name = "get_arg_count" then
-       case ffi_get_arg_count conf bytes cls of
-       | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
+       case ffi_get_arg_count cargs als cls of
+       | SOME(FFIreturn bytes retv cls) => Oracle_return (cls,fs) bytes retv
        | _ => Oracle_final FFI_failed else
      if name = "get_arg_length" then
-       case ffi_get_arg_length conf bytes cls of
-       | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
+       case ffi_get_arg_length cargs als cls of
+       | SOME(FFIreturn bytes retv cls) => Oracle_return (cls,fs) bytes retv
        | _ => Oracle_final FFI_failed else
      if name = "get_arg" then
-       case ffi_get_arg conf bytes cls of
-       | SOME(FFIreturn bytes cls) => Oracle_return (cls,fs) bytes
+       case ffi_get_arg cargs als cls of
+       | SOME(FFIreturn bytes retv cls) => Oracle_return (cls,fs) bytes retv
        | _ => Oracle_final FFI_failed else
      if name = "open_in" then
-       case ffi_open_in conf bytes fs of
-       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
+       case ffi_open_in cargs als fs of
+       | SOME(FFIreturn bytes retv fs) => Oracle_return (cls,fs) bytes retv
        | _ => Oracle_final FFI_failed else
      if name = "open_out" then
-       case ffi_open_out conf bytes fs of
-       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
+       case ffi_open_out cargs als fs of
+       | SOME(FFIreturn bytes retv fs) => Oracle_return (cls,fs) bytes retv
        | _ => Oracle_final FFI_failed else
      if name = "close" then
-       case ffi_close conf bytes fs of
-       | SOME(FFIreturn bytes fs) => Oracle_return (cls,fs) bytes
+       case ffi_close cargs als fs of
+       | SOME(FFIreturn bytes retv fs) => Oracle_return (cls,fs) bytes retv
        | _ => Oracle_final FFI_failed else
      if name = "exit" then
-       case ffi_exit conf bytes () of
-       | SOME(FFIreturn bytes ()) => Oracle_return (cls,fs) bytes
+       case ffi_exit cargs als () of
+       | SOME(FFIreturn bytes retv ()) => Oracle_return (cls,fs) bytes retv
        | SOME(FFIdiverge) => Oracle_final FFI_diverged
        | NONE => Oracle_final FFI_failed else
      Oracle_final FFI_failed`
+
+val basis_ffi_signatures = Define `basis_ffi_signatures =
+       [write_sig;read_sig;get_arg_count_sig;get_arg_length_sig;
+        get_arg_sig;open_in_sig;open_out_sig;close_sig;exit_sig]`
+
+Theorem basis_ffi_sig_defs =
+  (LIST_CONJ
+     [write_sig_def,read_sig_def,clFFITheory.get_arg_count_sig_def,clFFITheory.get_arg_length_sig_def,
+      clFFITheory.get_arg_sig_def,open_in_sig_def,open_out_sig_def,close_sig_def,exit_sig_def])
+
 
 (* standard streams are initialized *)
 val basis_ffi_def = Define `
   basis_ffi cl fs =
     <| oracle := basis_ffi_oracle
      ; ffi_state := (cl, fs)
-     ; io_events := [] |>`;
+     ; io_events := []
+     ; signatures := [write_sig;read_sig;get_arg_count_sig;get_arg_length_sig;
+                     get_arg_sig;open_in_sig;open_out_sig;close_sig;exit_sig] |>`;
 
 val basis_proj1_def = Define `
   basis_proj1 = (λ(cls, fs).
@@ -75,24 +87,29 @@ val basis_proj2_def = Define `
      mk_proj2 runtime_ffi_part]`;
 
 Theorem basis_proj1_write:
-   basis_proj1 ffi ' "write" = encode(SND ffi)
+   basis_proj1 ffi ' "write" = (encode(SND ffi),write_sig)
 Proof
   PairCases_on`ffi` \\ EVAL_TAC
 QED
 
 (* builds the file system from a list of events *)
 
+(* TODO: IO_events should probably record aliasing information *)
 val extract_fs_with_numchars_def = Define `
   (extract_fs_with_numchars init_fs [] = SOME init_fs) ∧
-  (extract_fs_with_numchars init_fs ((IO_event name conf bytes)::xs) =
-    case (ALOOKUP (SND(SND fs_ffi_part)) name) of
-    | SOME ffi_fun => (case ffi_fun conf (MAP FST bytes) init_fs of
-                       | SOME (FFIreturn bytes' fs') =>
-                         if bytes' = MAP SND bytes then
-                           extract_fs_with_numchars fs' xs
-                         else NONE
-                       | _ => NONE)
-    | NONE => extract_fs_with_numchars init_fs xs)`
+  (extract_fs_with_numchars init_fs ((IO_event name cargs newargs retv)::xs) =
+    case cargs of
+      [C_arrayv conf; C_arrayv bytes] =>
+        (case (ALOOKUP (SND(SND fs_ffi_part)) name) of
+         | SOME(ffi_fun,sig) => (case ffi_fun cargs [[0]] init_fs of
+                            | SOME (FFIreturn bytes' retv' fs') =>
+                              if bytes' = newargs /\ retv = retv' then
+                                extract_fs_with_numchars fs' xs
+                              else NONE
+                            | _ => NONE)
+         | NONE => extract_fs_with_numchars init_fs xs)
+    | _ => NONE)
+      `
 
 Theorem extract_fs_with_numchars_APPEND:
    !xs ys init_fs. extract_fs_with_numchars init_fs (xs ++ ys) =
@@ -130,7 +147,7 @@ Proof
   >- ( rw[extract_fs_with_numchars_def])
   \\ Cases
   \\ rw[extract_fs_with_numchars_def]
-  \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  \\ fs[CaseEq"option",CaseEq"ffi_result",CaseEq"prod",CaseEq"list",CaseEq "c_value"]
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ last_x_assum drule
   \\ disch_then drule
@@ -180,7 +197,7 @@ Proof
     \\ metis_tac[] )
   \\ Cases
   \\ rw[extract_fs_with_numchars_def]
-  \\ fs[CaseEq"option",CaseEq"ffi_result"]
+  \\ fs[CaseEq"option",CaseEq"ffi_result",CaseEq"prod",CaseEq"list",CaseEq "c_value"]
   >- metis_tac[]
   \\ fs[fsFFITheory.fs_ffi_part_def]
   \\ last_x_assum drule
@@ -351,35 +368,40 @@ QED *)
   that to make the subsequent proofs similar one should show an equivalence between
   extract_output and proj1  *)
 Theorem RTC_call_FFI_rel_IMP_basis_events:
-   !fs st st'. call_FFI_rel^* st st' ==> st.oracle = basis_ffi_oracle ==>
+   !fs st st'. call_FFI_rel^* st st' ==> st.oracle = basis_ffi_oracle ==> st.signatures = basis_ffi_signatures ==>
   (extract_fs_with_numchars fs st.io_events
-     = fsFFI$decode (basis_proj1 st.ffi_state ' "write") ==>
+     = fsFFI$decode (FST(basis_proj1 st.ffi_state ' "write")) ==>
    extract_fs_with_numchars fs st'.io_events
-     = fsFFI$decode (basis_proj1 st'.ffi_state ' "write"))
+     = fsFFI$decode (FST(basis_proj1 st'.ffi_state ' "write")))
 Proof
   strip_tac
   \\ HO_MATCH_MP_TAC RTC_INDUCT \\ rw [] \\ fs []
   \\ fs [evaluatePropsTheory.call_FFI_rel_def]
   \\ fs [ffiTheory.call_FFI_def]
-(*  \\ Cases_on `st.final_event = NONE` \\ fs [] \\ rw []*)
   \\ Cases_on `n = ""` \\ fs [] THEN1 (rveq \\ fs [])
-  \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ FULL_CASE_TAC \\ fs [] \\ rw [] \\ fs []
   \\ Cases_on `f` \\ fs []
   \\ fs [extract_fs_with_numchars_APPEND,extract_fs_with_numchars_def,basis_proj1_write] \\ rfs []
   \\ first_x_assum match_mp_tac
-  \\ qpat_x_assum`_ = Oracle_return _ _`mp_tac
+  \\ qpat_x_assum`_ = Oracle_return _ _ _`mp_tac
   \\ simp[basis_ffi_oracle_def,fs_ffi_part_def]
   \\ rpt(pairarg_tac \\ fs[]) \\ rw[]
-  \\ rpt(full_case_tac \\ fs[option_eq_some,MAP_ZIP] \\ rw[]) >>
-  rfs[MAP_ZIP]
+  \\ fs[CaseEq "option",CaseEq "ffi_result",CaseEq"list",CaseEq"c_value",PULL_EXISTS]
+  \\ rveq
+  \\ fs[basis_ffi_signatures,mllistTheory.FIND_thm,CaseEq"bool"]
+  \\ rveq
+  \\ fs[ffiTheory.args_ok_def,ffiTheory.arg_ok_def,basis_ffi_sig_defs,ffiTheory.debug_sig_def]
+  \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq \\
+         fs[ffi_write_def,ffi_read_def,ffi_open_in_def,ffi_open_out_def,ffi_close_def,
+            CaseEq"list",PULL_EXISTS] \\
+         fs[option_eq_some,MAP_ZIP] \\ rw[])
 QED
 
 (* the first condition for the previous theorem holds for the
   init_state ffi  *)
 Theorem extract_fs_basis_ffi:
    !ll. extract_fs fs (basis_ffi cls fs).io_events =
-   decode (basis_proj1 (basis_ffi cls fs).ffi_state ' "write")
+   decode (FST(basis_proj1 (basis_ffi cls fs).ffi_state ' "write"))
 Proof
   rw[ml_progTheory.init_state_def,extract_fs_def,extract_fs_with_numchars_def,
      basis_ffi_def,basis_proj1_write,IO_fs_component_equality]
@@ -398,10 +420,10 @@ val iobuff_loc_num =
 Theorem IOFS_precond = Q.prove(`
   wfFS fs ⇒ LENGTH v >= 2052 ⇒
    IOFS fs
-    ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
+    ({FFI_part (encode fs) (mk_ffi_next fs_ffi_part) (MAP (SND o SND) (SND(SND fs_ffi_part))) events}
     ∪ {Mem ^iobuff_loc_num (W8array v)})`,
   rw[IOFS_def,cfHeapsBaseTheory.IOx_def,fs_ffi_part_def,cfHeapsBaseTheory.IO_def,one_def,
-     IOFS_iobuff_def,W8ARRAY_def,cell_def]
+     IOFS_iobuff_def,W8ARRAY_def,cell_def,basis_ffi_sig_defs]
   \\ rw[set_sepTheory.SEP_EXISTS_THM,set_sepTheory.cond_STAR,set_sepTheory.SEP_CLAUSES,
         TextIOProgTheory.iobuff_loc_def]
   \\ qexists_tac`events` \\  qexists_tac`v` \\ exists_tac iobuff_loc_num
@@ -413,7 +435,7 @@ Theorem STDIO_precond = Q.prove(`
   LENGTH v >= 2052 ==>
   STDIO fs
     ({FFI_part (encode fs)
-               (mk_ffi_next fs_ffi_part) (MAP FST (SND(SND fs_ffi_part))) events}
+               (mk_ffi_next fs_ffi_part) (MAP (SND o SND) (SND(SND fs_ffi_part))) events}
      ∪ {Mem ^iobuff_loc_num (W8array v)})`,
   rw[STDIO_def,IOFS_precond,SEP_EXISTS_THM,SEP_CLAUSES] >>
   qexists_tac`fs.numchars` >>
@@ -422,10 +444,10 @@ Theorem STDIO_precond = Q.prove(`
 
 Theorem RUNTIME_precond:
    RUNTIME {FFI_part (encode ()) (mk_ffi_next runtime_ffi_part)
-           (MAP FST (SND(SND runtime_ffi_part))) events}
+           (MAP (SND o SND) (SND(SND runtime_ffi_part))) events}
 Proof
   rw[RUNTIME_def,runtimeFFITheory.runtime_ffi_part_def,
-     IOx_def,SEP_EXISTS_THM,SEP_CLAUSES,IO_def,one_def]
+     IOx_def,SEP_EXISTS_THM,SEP_CLAUSES,IO_def,one_def,basis_ffi_sig_defs]
 QED
 
 (*call_main_thm_basis uses call_main_thm2 to get Semantics_prog, and then uses the previous two
@@ -450,11 +472,11 @@ val whole_prog_spec_def = Define`
 
 val whole_prog_ffidiv_spec_def = Define`
   whole_prog_ffidiv_spec fv cl fs post ⇔
-    ∃fs' n' c' b'.
+    ∃fs' n' cargs'.
     app (basis_proj1, basis_proj2) fv [Conv NONE []]
       (COMMANDLINE cl * STDIO fs * RUNTIME)
-      (POSTf n. λc b. STDIO fs' * RUNTIME * &(n = n' /\ c = c' /\ b = b')) ∧
-    post n' c' b' (fs' with numchars := fs.numchars)`;
+      (POSTf n. λcargs. STDIO fs' * RUNTIME * &(n = n' /\ cargs = cargs')) ∧
+    post n' cargs' (fs' with numchars := fs.numchars)`;
 
 Theorem whole_prog_spec_semantics_prog:
    ∀fname fv.
@@ -484,6 +506,7 @@ Proof
   \\ rw[extract_fs_def,PULL_EXISTS]
   \\ drule RTC_call_FFI_rel_IMP_basis_events
   \\ simp[Once ml_progTheory.init_state_def,Once basis_ffi_def]
+  \\ simp[Once ml_progTheory.init_state_def,Once basis_ffi_def,basis_ffi_signatures]
   \\ simp[Once ml_progTheory.init_state_def,Once basis_ffi_def]
   \\ simp[Once extract_fs_with_numchars_def]
   \\ simp[Once ml_progTheory.init_state_def]
@@ -502,8 +525,8 @@ Proof
          Abbr`ffip`,cfStoreTheory.ffi2heap_def]
   \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
   \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
-  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
-  \\ fs[basis_proj1_write,STAR_def,cond_def]
+  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`write_sig`)
+  \\ fs[write_sig_def,basis_proj1_write,STAR_def,cond_def]
   \\ metis_tac[]
 QED
 
@@ -515,29 +538,30 @@ Theorem whole_prog_spec_semantics_prog_ffidiv:
      (?h1 h2. SPLIT (st2heap (basis_proj1, basis_proj2) st2) (h1,h2) /\
      (COMMANDLINE cl * STDIO fs * RUNTIME) h1)
    ==>
-   ∃io_events fs' n c b.
+   ∃io_events fs' n cargs.
      semantics_prog (init_state (basis_ffi cl fs)) env1
        (SNOC ^main_call prog)
-       (Terminate (FFI_outcome(Final_event n c b FFI_diverged)) io_events) /\
-     extract_fs fs io_events = SOME fs' ∧ Q n c b fs'
+       (Terminate (FFI_outcome(Final_event n cargs FFI_diverged)) io_events) /\
+     extract_fs fs io_events = SOME fs' ∧ Q n cargs fs'
 Proof
   rw[whole_prog_ffidiv_spec_def]
   \\ drule (GEN_ALL call_main_thm2_ffidiv)
   \\ rpt(disch_then drule)
   \\ disch_then (qspecl_then [`basis_proj2`,`basis_proj1`] mp_tac)
   \\ disch_then (qspecl_then [`h2`, `h1`] mp_tac)
-  \\ disch_then (qspec_then `\n c b. STDIO fs' * RUNTIME * &(n = n' ∧ c = c' ∧ b = b')` mp_tac)
+  \\ disch_then (qspec_then `\n cargs. STDIO fs' * RUNTIME * &(n = n' ∧ cargs = cargs')` mp_tac)
   \\ disch_then (qspec_then `COMMANDLINE cl * STDIO fs * RUNTIME` mp_tac)
   \\ simp[] \\ strip_tac
   \\ asm_exists_tac \\ rw[]
   \\ rw[extract_fs_def,PULL_EXISTS]
   \\ drule RTC_call_FFI_rel_IMP_basis_events
   \\ simp[Once ml_progTheory.init_state_def,Once basis_ffi_def]
+  \\ simp[Once ml_progTheory.init_state_def,Once basis_ffi_def,basis_ffi_signatures]
   \\ simp[Once ml_progTheory.init_state_def,Once basis_ffi_def]
   \\ simp[Once extract_fs_with_numchars_def]
   \\ simp[Once ml_progTheory.init_state_def]
   \\ rw[basis_proj1_write,Once basis_ffi_def]
-  \\ `n = n' /\ c = c' /\ b = b'` by(fs[STAR_def,cond_def])
+  \\ `n = n' /\ c = cargs'` by(fs[STAR_def,cond_def])
   \\ rveq
   \\ `∃ll. SND st3.ffi.ffi_state = fs' with numchars := ll` suffices_by ( rw[] \\ rw[] )
   \\ fs[STDIO_def, IOFS_def,cfHeapsBaseTheory.IO_def,
@@ -553,8 +577,8 @@ Proof
          Abbr`ffip`,cfStoreTheory.ffi2heap_def]
   \\ Cases_on `parts_ok st3.ffi (basis_proj1, basis_proj2)`
   \\ fs[FLOOKUP_DEF, MAP_MAP_o, n2w_ORD_CHR_w2n, basis_proj1_write]
-  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`"write"`)
-  \\ fs[basis_proj1_write,STAR_def,cond_def]
+  \\ FIRST_X_ASSUM(ASSUME_TAC o Q.SPEC`write_sig`)
+  \\ fs[write_sig_def,basis_proj1_write,STAR_def,cond_def]
   \\ metis_tac[]
 QED
 
@@ -575,34 +599,33 @@ Theorem oracle_parts:
      st.ffi.oracle = basis_ffi_oracle /\
      MEM (ns, u) basis_proj2 /\
      MEM m ns /\
-     u m conf bytes (basis_proj1 x ' m) = SOME (FFIreturn new_bytes w)
+     u m.mlname cargs als (FST(basis_proj1 x ' m.mlname)) = SOME (FFIreturn new_bytes retv w)
      ==>
-     (?y. st.ffi.oracle m x conf bytes = Oracle_return y new_bytes /\
-          basis_proj1 x |++ MAP (\n. (n,w)) ns = basis_proj1 y)
+     (?y. st.ffi.oracle m.mlname x cargs als = Oracle_return y new_bytes retv /\
+          basis_proj1 x |++ MAP (\n. (n.mlname,w,n)) ns = basis_proj1 y)
 Proof
   simp[basis_proj2_def,basis_proj1_def]
   \\ pairarg_tac \\ fs[]
   \\ rw[cfHeapsBaseTheory.mk_proj1_def,
         cfHeapsBaseTheory.mk_proj2_def,
-        basis_ffi_oracle_def,basis_ffi_part_defs]
+        basis_ffi_oracle_def,basis_ffi_part_defs,basis_ffi_sig_defs]
   \\ rw[] \\ fs[FUPDATE_LIST_THM,FAPPLY_FUPDATE_THM]
   \\ TRY (
      CASE_TAC \\ fs[cfHeapsBaseTheory.mk_ffi_next_def]
-     \\ CASE_TAC \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
+     \\ CASE_TAC
+     \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
      \\ rw[] )
-  \\ TRY (
-      fs[ffi_exit_def] \\ NO_TAC)
   \\ disj2_tac
-  \\ CCONTR_TAC \\ fs[] \\ rfs[]
+  \\ CCONTR_TAC \\ fs[] \\ rfs[] \\ rveq \\ fs[]
 QED
 
 (* TODO: move to fsFFI? *)
 Theorem fs_ffi_no_ffi_div:
-    (ffi_open_in conf bytes fs = SOME FFIdiverge ==> F) /\
-  (ffi_open_out conf bytes fs = SOME FFIdiverge ==> F) /\
-  (ffi_read conf bytes fs = SOME FFIdiverge ==> F) /\
-  (ffi_close conf bytes fs = SOME FFIdiverge ==> F) /\
-  (ffi_write conf bytes fs = SOME FFIdiverge ==> F)
+    (ffi_open_in [C_arrayv conf; C_arrayv bytes] als fs = SOME FFIdiverge ==> F) /\
+  (ffi_open_out [C_arrayv conf; C_arrayv bytes] als fs = SOME FFIdiverge ==> F) /\
+  (ffi_read [C_arrayv conf; C_arrayv bytes] als fs = SOME FFIdiverge ==> F) /\
+  (ffi_close [C_arrayv conf; C_arrayv bytes] als fs = SOME FFIdiverge ==> F) /\
+  (ffi_write [C_arrayv conf; C_arrayv bytes] als fs = SOME FFIdiverge ==> F)
 Proof
   rw[ffi_open_in_def,ffi_open_out_def,ffi_read_def,ffi_close_def,ffi_write_def,
      OPTION_GUARD_COND,OPTION_CHOICE_EQUALS_OPTION,ELIM_UNCURRY]
@@ -612,9 +635,9 @@ QED
 
 (* TODO: move to clFFI? *)
 Theorem cl_ffi_no_ffi_div:
-    (ffi_get_arg_count conf bytes cls = SOME FFIdiverge ==> F) /\
-  (ffi_get_arg_length conf bytes cls = SOME FFIdiverge ==> F) /\
-  (ffi_get_arg conf bytes cls = SOME FFIdiverge ==> F)
+    (ffi_get_arg_count [C_arrayv conf; C_arrayv bytes] als cls = SOME FFIdiverge ==> F) /\
+  (ffi_get_arg_length [C_arrayv conf; C_arrayv bytes] als cls = SOME FFIdiverge ==> F) /\
+  (ffi_get_arg [C_arrayv conf; C_arrayv bytes] als cls = SOME FFIdiverge ==> F)
 Proof
   rw[clFFITheory.ffi_get_arg_count_def,clFFITheory.ffi_get_arg_length_def,
      clFFITheory.ffi_get_arg_def]
@@ -622,25 +645,30 @@ QED
 
 Theorem oracle_parts_div:
    !st.
-     st.ffi.oracle = basis_ffi_oracle /\ MEM (ns, u) basis_proj2 /\
+     st.ffi.oracle = basis_ffi_oracle /\ st.ffi.signatures = basis_ffi_signatures /\
+     MEM (ns, u) basis_proj2 /\
      MEM m ns /\
-     u m conf bytes (basis_proj1 x ' m) = SOME FFIdiverge
+     args_ok m.args cargs /\
+     u m.mlname cargs als (FST(basis_proj1 x ' m.mlname)) = SOME FFIdiverge
      ==>
-     st.ffi.oracle m x conf bytes = Oracle_final FFI_diverged
+     st.ffi.oracle m.mlname x cargs als = Oracle_final FFI_diverged
 Proof
   simp[basis_proj2_def,basis_proj1_def]
   \\ pairarg_tac \\ fs[]
-  \\ rw[cfHeapsBaseTheory.mk_proj1_def,
+  \\ rw[cfHeapsBaseTheory.mk_proj1_def,mk_proj1_def,
         cfHeapsBaseTheory.mk_proj2_def,
-        basis_ffi_oracle_def,basis_ffi_part_defs]
+        basis_ffi_oracle_def,basis_ffi_part_defs,basis_ffi_signatures,basis_ffi_sig_defs]
   \\ rw[] \\ fs[FUPDATE_LIST_THM,FAPPLY_FUPDATE_THM]
   \\ TRY (
      CASE_TAC \\ fs[cfHeapsBaseTheory.mk_ffi_next_def]
      \\ CASE_TAC \\ fs[fmap_eq_flookup,FLOOKUP_UPDATE]
      \\ rw[] )
+  \\ fs[ffiTheory.args_ok_def,ffiTheory.arg_ok_def]
+  \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
   \\ fs[cl_ffi_no_ffi_div,fs_ffi_no_ffi_div]
   \\ disj2_tac
   \\ CCONTR_TAC \\ fs[] \\ rfs[]
+  \\ rveq \\ fs[]
 QED
 
 val _ = translation_extends "TextIOProg";
@@ -648,25 +676,65 @@ val st_f = get_ml_prog_state () |> get_state |> strip_comb |> fst;
 val st = mk_icomb (st_f, ``basis_ffi cls fs``);
 val _ = reset_translation ()
 
+Theorem basis_sig_names =
+ ((LIST_CONJ o map EVAL)
+   [``write_sig.mlname``,
+    ``read_sig.mlname``,
+    ``get_arg_count_sig.mlname``,
+    ``get_arg_length_sig.mlname``,
+    ``get_arg_sig.mlname``,
+    ``open_in_sig.mlname``,
+    ``open_out_sig.mlname``,
+    ``close_sig.mlname``,
+    ``exit_sig.mlname``])
+
 Theorem parts_ok_basis_st:
    parts_ok (^st).ffi (basis_proj1, basis_proj2)
 Proof
   qmatch_goalsub_abbrev_tac`st.ffi`
   \\ `st.ffi.oracle = basis_ffi_oracle`
   by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
+  \\ `st.ffi.signatures = basis_ffi_signatures`
+  by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
   \\ rw[cfStoreTheory.parts_ok_def]
   \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
-  \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
+  \\ TRY(rename1 `FIND` \\
+         fs[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def] \\
+         rveq \\ fs[basis_ffi_sig_defs,Abbr `st`] \\ EVAL_TAC \\ NO_TAC)
   \\ TRY ( imp_res_tac oracle_parts_div \\ rfs[] \\ NO_TAC)
-  \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
-  \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
-  \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
-  \\ simp[basis_proj1_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj1_def,FUPDATE_LIST_THM]
-  \\ rw[] \\ rw[] \\ pairarg_tac \\ fs[FLOOKUP_UPDATE] \\ rw[]
-  \\ fs[FAPPLY_FUPDATE_THM,cfHeapsBaseTheory.mk_ffi_next_def]
-  \\ TRY(PURE_FULL_CASE_TAC \\ fs[])
-  \\ EVERY (map imp_res_tac (CONJUNCTS basis_ffi_length_thms)) \\ fs[]
-  \\ srw_tac[DNF_ss][] \\ fs[ffi_exit_def]
+  \\ TRY(fs[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
+         \\ rveq \\ fs[mk_ffi_next_def,basis_proj1_def,CaseEq"ffi_result"]
+         \\ rveq \\ fs[basis_sig_names] \\ rveq \\ fs[]
+         \\ imp_res_tac basis_ffi_length_thms \\ NO_TAC)
+  \\ TRY(
+         fs[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def] \\
+         rveq \\ fs[basis_ffi_sig_defs,Abbr `st`,DISJ_IMP_THM,FORALL_AND_THM] \\
+         EVAL_TAC \\ fs[EXISTS_THM] \\ metis_tac[])
+  \\ TRY(imp_res_tac oracle_parts \\ metis_tac[])
+QED
+
+Theorem basis_oracle_ok:
+  st.oracle = basis_ffi_oracle /\ st.signatures = basis_ffi_signatures ==>
+  ffi_oracle_ok st
+Proof
+  rw[ffiTheory.ffi_oracle_ok_def,ffiTheory.ret_ok_def,ffiTheory.als_ok_def,
+     CaseEq "bool",CaseEq "option",CaseEq "ffi_result", ELIM_UNCURRY,
+     basis_ffi_oracle_def,ffiTheory.valid_ffi_name_def,basis_ffi_signatures,
+     basis_ffi_sig_defs,semanticPrimitivesPropsTheory.FIND_thm,
+     ffiTheory.args_ok_def,ffiTheory.arg_ok_def,ffiTheory.mut_len_def]
+  \\ fs[ffiTheory.arg_ok_def,ffiTheory.is_mutty_def] \\ rpt(PURE_FULL_CASE_TAC \\ fs[] \\ rveq)
+  \\ fs[ffi_write_def,ffi_read_def,ffi_open_in_def,ffi_open_out_def,ffi_close_def,ffi_exit_def,
+        CaseEq "option", CaseEq "list",option_eq_some,
+        clFFITheory.ffi_get_arg_count_def,clFFITheory.ffi_get_arg_length_def,clFFITheory.ffi_get_arg_def
+       ]
+  \\ rveq
+  \\ TRY pairarg_tac \\ fs[]
+  \\ rveq \\ fs[]
+  \\ TRY(rename1 `write` \\
+         fs[write_def] \\ pairarg_tac \\ rveq \\ fs[option_eq_some] \\
+         rveq \\ fs[MarshallingTheory.w22n_def,MarshallingTheory.n2w2_def] \\ NO_TAC)
+  \\ imp_res_tac read_length \\ fs[MarshallingTheory.n2w2_def]
+  \\ fs[MarshallingTheory.n2w8_def]
 QED
 
 (* TODO: move somewhere else? *)
