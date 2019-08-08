@@ -45,7 +45,6 @@ local open
   clos_knownTheory
   clos_numberTheory
   clos_annotateTheory
-  clos_labelsTheory
 in (* clos-to-clos transformations *) end;
 
 val _ = new_theory "clos_to_bvl";
@@ -577,7 +576,6 @@ val compile_common_def = Define `
     let (es,g,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
-    let prog = clos_labels$compile prog in
       (c with <| start := c.next_loc; next_loc := n; known_conf := kc;
                  call_state := (g,aux) |>,
        prog)`;

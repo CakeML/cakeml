@@ -237,7 +237,6 @@ Proof
     \\ TRY pairarg_tac \\ fs [] \\ rveq
     \\ TRY (drule clos_callProofTheory.calls_no_Labels
             \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
-    \\ match_mp_tac clos_labelsProofTheory.no_Labels_labs
     \\ match_mp_tac clos_annotateProofTheory.no_Labels_ann
     \\ fs [clos_callProofTheory.state_syntax_def]
     \\ rw [] \\ TRY (match_mp_tac clos_to_bvlProofTheory.chain_exps_no_Labels \\ fs [])
@@ -262,7 +261,6 @@ Proof
     \\ TRY (drule (GEN_ALL clos_callProofTheory.calls_obeys_max_app)
             \\ disch_then (qspec_then `cf.max_app` mp_tac)
             \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
-    \\ match_mp_tac clos_labelsProofTheory.obeys_max_app_labs
     \\ match_mp_tac clos_annotateProofTheory.obeys_max_app_ann
     \\ fs [clos_callProofTheory.state_syntax_def]
     \\ rw [] \\ TRY (match_mp_tac clos_to_bvlProofTheory.chain_exps_obeys_max_app \\ fs [])
@@ -288,47 +286,10 @@ Proof
   \\ TRY pairarg_tac \\ fs [] \\ rveq
   \\ TRY (drule clos_callProofTheory.calls_preserves_every_Fn_SOME
           \\ impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ strip_tac \\ fs [])
-  \\ match_mp_tac clos_labelsProofTheory.every_Fn_SOME_labs
   \\ match_mp_tac clos_annotateProofTheory.every_Fn_SOME_ann
   \\ fs [closPropsTheory.every_Fn_SOME_APPEND]
   \\ match_mp_tac clos_to_bvlProofTheory.chain_exps_every_Fn_SOME \\ fs []
 QED
-
-Theorem compile_common_code_locs:
-   !c es c1 xs.
-      clos_to_bvl$compile_common c (MAP pat_to_clos_compile es) = (c1,xs) ==>
-      BIGUNION (set (MAP closProps$get_code_labels (MAP (SND ∘ SND) xs))) ⊆
-      set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))
-Proof
-  rpt strip_tac
-  \\ drule compile_common_syntax
-  \\ fs [EVERY_MAP,compile_no_Labels]
-  \\ strip_tac
-  \\ qpat_x_assum `_ ==> _` kall_tac
-  \\ fs [clos_to_bvlTheory.compile_common_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ rveq \\ fs []
-  \\ fs [clos_to_bvlProofTheory.MAP_FST_chain_exps_any]
-  \\ qmatch_goalsub_abbrev_tac `clos_annotate$compile ls`
-  \\ simp[closPropsTheory.code_locs_map, LIST_TO_SET_FLAT, MAP_MAP_o, o_DEF,
-          LIST_TO_SET_MAP, GSYM IMAGE_COMPOSE]
-  \\ simp[GSYM LIST_TO_SET_MAP]
-  \\ fs[clos_annotateTheory.compile_def,MAP_MAP_o,UNCURRY,o_DEF]
-  \\ simp[GSYM o_DEF]
-  \\ simp[Once(GSYM MAP_MAP_o)]
-  \\ DEP_REWRITE_TAC[closPropsTheory.get_code_labels_code_locs]
-  \\ conj_tac THEN1
-   (fs [o_DEF] \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-    \\ rw[] \\ res_tac \\ fs [])
-  \\ simp[]
-  \\ conj_tac >- (
-        simp[SUBSET_DEF, o_DEF, closPropsTheory.code_locs_map, MEM_FLAT,
-             MEM_MAP, PULL_EXISTS] \\ metis_tac[] )
-  \\ rename [`clos_labels$compile input`]
-  \\ fs [closPropsTheory.BIGUNION_MAP_code_locs_SND_SND]
-  \\ metis_tac [clos_labelsProofTheory.compile_any_dests_SUBSET_code_locs]
-QED
-(* -- *)
 
 val _ = temp_overload_on("esgc_free",``patProps$esgc_free``);
 val _ = temp_overload_on("elist_globals",``flatProps$elist_globals``);
@@ -406,7 +367,6 @@ val clos_to_bvl_compile_inc_def = Define`
         (FST c.call_state) p in
     let c = c with <| call_state := (c', []) |> in
     let p = clos_annotateProof$compile_inc p in
-    let p = clos_labelsProof$compile_inc p in
     let p = clos_to_bvlProof$compile_inc c.max_app p in
     (c, p)`;
 
@@ -643,7 +603,6 @@ Theorem cake_orac_eqs:
   /\ (
   compile c prog = SOME (b,bm,c') /\ clos_c = c.clos_conf ==>
   pure_co (clos_to_bvlProof$compile_inc clos_c.max_app) o
-  pure_co clos_labelsProof$compile_inc o
   pure_co clos_annotateProof$compile_inc o
   state_co (clos_to_bvlProof$cond_call_compile_inc clos_c.do_call)
     (clos_knownProof$known_co clos_c.known_conf
