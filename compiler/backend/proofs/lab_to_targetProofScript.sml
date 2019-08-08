@@ -1448,15 +1448,6 @@ val fp_upd_lemma = Q.prove(`
     IF_CASES_TAC>>fs[]>>
     rw[]>>EVAL_TAC>>rw[]);
 
-(* ugly workaround since we're not in sync with the 'new' compute world yet *)
-(* FIXME delete this later *)
-val write_mem_word_compute = DB.find "write_mem_word"
-  |> filter (String.isSubstring "compute" o snd o fst)
-  |> map (fst o snd) |> LIST_CONJ;
-val read_mem_word_compute = DB.find "read_mem_word"
-  |> filter (String.isSubstring "compute" o snd o fst)
-  |> map (fst o snd) |> LIST_CONJ;
-
 val Inst_lemma = Q.prove(
   `~(asm_inst i s1).failed /\
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p) s1 t1 ms1 /\
