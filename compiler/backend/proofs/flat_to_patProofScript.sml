@@ -269,7 +269,11 @@ Proof
   >- (fs [NoRun_state_def] >> conj_tac
       >- (rveq >> fs [] >> drule get_cargs_pat_some_len_eq >> 
           strip_tac >> drule NoRun_v_margs >> rw [] >> metis_tac [NoRun_v_store_cargs_pat]) >>
+<<<<<<< HEAD
       `s.globals = t.globals` by (rveq >> Cases_on `s` >> rw []) >> fs []) >>
+=======
+      `s.globals = t.globals` by cheat >> fs []) >>
+>>>>>>> Progress in flat_to_patProofs for updated FFI
   rveq >> rename1 `ret_val_pat retv` >> Cases_on `retv` >> 
   fs [patSemTheory.ret_val_pat_def, NoRun_v_def] >> 
   rename1 `ret_val_pat (SOME retv)` >> Cases_on `retv` >> 
@@ -729,6 +733,7 @@ val do_app = Q.prove(
   TRY (last_x_assum mp_tac) >>
   TRY TOP_CASE_TAC \\ fs[]
   \\ rw[flatSemTheory.Boolv_def,flatSemTheory.Boolv_def, backend_commonTheory.tuple_tag_def]
+<<<<<<< HEAD
   >- metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]
   >- rw [flatSemTheory.do_ffi_flat_def] >> 
   fs [flatSemTheory.do_ffi_flat_def] >> every_case_tac >> fs [] >> rveq >> 
@@ -745,6 +750,9 @@ val do_app = Q.prove(
   Cases_on `retv` >> fs [flatSemTheory.ret_val_flat_def, patSemTheory.ret_val_pat_def, 
   flatSemTheory.Boolv_def] >>
   every_case_tac >> fs [compile_tag_def, patSemTheory.Boolv_def, backend_commonTheory.true_tag_def]);
+=======
+  \\ metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]);
+>>>>>>> Progress in flat_to_patProofs for updated FFI
 
 (* pattern compiler correctness *)
 
