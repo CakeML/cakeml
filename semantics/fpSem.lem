@@ -3,6 +3,8 @@
 *)
 open import Pervasives
 open import Lib
+open import FpOpt
+open import FpValTree
 
 open import {hol} `machine_ieeeTheory`
 open import {isabelle} `IEEE_Floating_Point.FP64`
@@ -10,15 +12,6 @@ open import {isabelle} `IEEE_Floating_Point.FP64`
 type rounding
 declare hol target_rep type rounding = `rounding`
 declare isabelle target_rep type rounding = `roundmode`
-
-type fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
-type fp_uop = FP_Abs | FP_Neg | FP_Sqrt
-type fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
-type fp_top = | FP_Fma
-declare {isabelle} rename type fp_cmp = fp_cmp_op
-declare {isabelle} rename type fp_uop = fp_uop_op
-declare {isabelle} rename type fp_bop = fp_bop_op
-declare {isabelle} rename type fp_top = fp_top_op
 
 val fp64_lessThan     : word64 -> word64 -> bool
 val fp64_lessEqual    : word64 -> word64 -> bool
@@ -35,6 +28,10 @@ declare isabelle    target_rep function fp64_lessEqual = `fp64_lessEqual`
 declare isabelle    target_rep function fp64_greaterThan = `fp64_greaterThan`
 declare isabelle    target_rep function fp64_greaterEqual = `fp64_greaterEqual`
 declare isabelle    target_rep function fp64_equal = `fp64_equal`
+
+val fp64_isNan      :word64 -> bool
+declare hol         target_rep function fp64_isNan = `fp64_isNan`
+declare isabelle    target_rep function fp64_isNan = `fp64_isNan`
 
 val fp64_abs    : word64 -> word64
 val fp64_negate : word64 -> word64
@@ -68,7 +65,7 @@ declare hol    target_rep function roundTiesToEven = `roundTiesToEven`
 declare isabelle    target_rep function roundTiesToEven = `To_nearest`
 
 val fp_cmp : fp_cmp -> word64 -> word64 -> bool
-let fp_cmp fop = match fop with
+let fp_cmp_comp fop = match fop with
   | FP_Less -> fp64_lessThan
   | FP_LessEqual -> fp64_lessEqual
   | FP_Greater -> fp64_greaterThan
@@ -76,15 +73,20 @@ let fp_cmp fop = match fop with
   | FP_Equal -> fp64_equal
 end
 
+val fp_pred: fp_pred -> word64 -> bool
+let fp_pred_comp fp = match fp with
+  | FP_NaN -> fp64_isNan
+end
+
 val fp_uop : fp_uop -> word64 -> word64
-let fp_uop fop = match fop with
+let fp_uop_comp fop = match fop with
   | FP_Abs -> fp64_abs
   | FP_Neg -> fp64_negate
   | FP_Sqrt -> fp64_sqrt roundTiesToEven
 end
 
 val fp_bop : fp_bop -> word64 -> word64 -> word64
-let fp_bop fop = match fop with
+let fp_bop_comp fop = match fop with
   | FP_Add -> fp64_add roundTiesToEven
   | FP_Sub -> fp64_sub roundTiesToEven
   | FP_Mul -> fp64_mul roundTiesToEven
@@ -94,6 +96,45 @@ end
 let fpfma v1 v2 v3 = fp64_mul_add roundTiesToEven v2 v3 v1
 
 val fp_top : fp_top -> word64 -> word64 -> word64 -> word64
-let fp_top fop = match fop with
+let fp_top_comp fop = match fop with
   | FP_Fma -> fpfma
 end
+
+val fp_sc : forall 'v. sc -> 'v -> 'v
+let fp_sc_comp sc v = match sc with
+  | Opt -> v
+end
+
+type result = | Fp_bool of bool | Fp_word of word64
+
+val compress: fp_val -> maybe result
+let rec compress (Fp_const w1) = Just (Fp_word w1)
+    and compress (Fp_uop u1 v1) =
+        match compress v1 with
+        | Just (Fp_word w1) -> Just (Fp_word (fp_uop_comp u1 w1))
+        | _ -> Nothing
+        end
+    and compress (Fp_bop b v1 v2) =
+        match (compress v1, compress v2) with
+        | (Just (Fp_word w1), Just (Fp_word w2)) ->
+          Just (Fp_word (fp_bop_comp b w1 w2))
+        end
+    and compress (Fp_top t v1 v2 v3) =
+        match (compress v1, compress v2, compress v3) with
+        | (Just (Fp_word w1), Just (Fp_word w2), Just (Fp_word w3)) ->
+          Just (Fp_word (fp_top_comp t w1 w2 w3))
+        end
+    and compress (Fp_pred p v1) =
+        match compress v1 with
+        | Just (Fp_word w1) -> Just (Fp_bool (fp_pred_comp p w1))
+        | _ -> Nothing
+        end
+    and compress (Fp_cmp cmp v1 v2) =
+        match (compress v1, compress v2) with
+        | (Just (Fp_word w1), Just (Fp_word w2)) ->
+          Just (Fp_bool (fp_cmp_comp cmp w1 w2))
+        end
+    and compress (Fp_sc sc v) = compress v
+
+val eqvalTree: fp_val -> fp_val -> bool
+let rec eqValTree v1 v2 = (compress v1 = compress v2)

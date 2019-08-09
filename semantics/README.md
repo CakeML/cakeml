@@ -38,8 +38,14 @@ Functional big-step semantics for evaluation of CakeML programs.
 Definition of CakeML's observational semantics, in particular traces of calls
 over the Foreign-Function Interface (FFI).
 
+[fpOpt.lem](fpOpt.lem):
+Definition of the fp_pattern language for Icing optimizations
+
 [fpSem.lem](fpSem.lem):
 Definitions of the floating point operations used in CakeML.
+
+[fpValTree.lem](fpValTree.lem):
+Definition of floating point value trees for CakeML
 
 [gramScript.sml](gramScript.sml):
 Definition of CakeML's Context-Free Grammar.

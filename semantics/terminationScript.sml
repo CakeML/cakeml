@@ -3,7 +3,9 @@
   not proved automatically.
 *)
 open preamble intSimps;
-open libTheory astTheory open namespaceTheory semanticPrimitivesTheory typeSystemTheory;
+open libTheory astTheory
+open fpOptTheory
+open namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open evaluateTheory;
 
 val _ = new_theory "termination";
@@ -103,6 +105,43 @@ fun register name def ind =
   in
     ()
   end;
+
+val (substUpdate_def, substUpdate_ind) =
+  tprove_no_defn ((substUpdate_def, substUpdate_ind),
+  wf_rel_tac `measure (\ (_, _, l). LENGTH l)` \\ fs[]);
+val _ = register "substUpdate" substUpdate_def substUpdate_ind;
+
+val (matchValTree_def, matchValTree_ind) =
+  tprove_no_defn ((matchValTree_def, matchValTree_ind),
+  wf_rel_tac `measure (\ (p, _). fp_pat_size p)`);
+val _ = register "matchValTree" matchValTree_def matchValTree_ind;
+
+val (instValTree_def, instValTree_ind) =
+  tprove_no_defn ((instValTree_def, instValTree_ind),
+  wf_rel_tac `measure (\ (p, _). fp_pat_size p)`);
+val _ = register "instValTree" instValTree_def instValTree_ind;
+
+val instValTree_def =
+  [``instValTree (Word w) s ``,
+   ``instValTree (Var n) s ``,
+   ``instValTree (Unop u p) s ``,
+   ``instValTree (Binop op p1 p2) s ``,
+   ``instValTree (Terop op p1 p2 p3) s ``,
+   ``instValTree (Pred pr p1) s ``,
+   ``instValTree (Cmp cmp p1 p2) s ``,
+   ``instValTree (Scope sc p) s``]
+  |> map (SIMP_CONV (srw_ss()) [Once instValTree_def])
+  |> LIST_CONJ |> curry save_thm "instValTree_def";
+
+val (rwFp_pathValTree_def, rwFp_pathValTree_ind) =
+  tprove_no_defn ((rwFp_pathValTree_def, rwFp_pathValTree_ind),
+  wf_rel_tac `measure (\ (_, _, p, _). fp_path_size p)`);
+val _ = register "rwFp_pathValTree" rwFp_pathValTree_def rwFp_pathValTree_ind;
+
+val (rwAllValTree_def, rwAllValTree_ind) =
+  tprove_no_defn ((rwAllValTree_def, rwAllValTree_ind),
+  wf_rel_tac `measure (\ (l, _, _, _). LENGTH l)` \\ fs[]);
+val _ = register "rwAllValTree" rwAllValTree_def rwAllValTree_ind;
 
 val (nsMap_def, nsMap_ind) =
   tprove_no_defn ((nsMap_def, nsMap_ind),

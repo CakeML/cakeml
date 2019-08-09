@@ -9,7 +9,7 @@ all: $(DEFAULT_TARGETS) README.md addancs
 #LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
 LEM_OPT = -wl_unused_vars ign -suppress_renaming -auxiliary_level none
 
-SRC = fpSem semanticPrimitives evaluate typeSystem primTypes
+SRC = fpValTree fpOpt fpSem semanticPrimitives evaluate typeSystem primTypes
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 all: $(GENS)

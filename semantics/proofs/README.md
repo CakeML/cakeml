@@ -15,6 +15,12 @@ compset for the operational semantics.
 [evaluatePropsScript.sml](evaluatePropsScript.sml):
 Properties of the operational semantics.
 
+[fpOptPropsScript.sml](fpOptPropsScript.sml):
+This file contains proofs about the matching and instantiation functions
+defined in patternScript.sml
+It also contains some compatibility lemmas for rwAllValTree, the value tree
+rewriting function
+
 [gramPropsScript.sml](gramPropsScript.sml):
 Properties of the CakeML CFG, including automatically derived
 nullability results for various non-terminals, and results about
