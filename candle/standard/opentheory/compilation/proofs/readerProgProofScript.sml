@@ -52,7 +52,7 @@ val installed_x64_def = Define `
       installed
         code cbspace
         data data_sp
-        cfg.ffi_names
+        cfg.lab_conf.ffi_names
         ffi
         (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
     `;
