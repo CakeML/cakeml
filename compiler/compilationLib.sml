@@ -469,6 +469,13 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
 
       val () = computeLib.extend_compset[computeLib.Defs[word_prog2_def]] cs;
 
+      (* TODO: HACK to bypass hidden bvi_conf, forcing it to eval *)
+      val flat_conf_def = fetch "-" "flat_conf_def"
+      val bvl_conf_def = fetch "-" "bvl_conf_def"
+      val bvi_conf_def = fetch "-" "bvi_conf_def"
+
+      val () = computeLib.extend_compset[computeLib.Defs[flat_conf_def,bvl_conf_def,bvi_conf_def]] cs;
+
       (* slow; cannot parallelise easily due to bitmaps accumulator *)
       val from_word_thm =
         compile_thm1'
@@ -651,7 +658,10 @@ val [lul1,lul2,lul3,lul4] = CONJUNCTS lab_to_targetTheory.lines_upd_lab_len_def;
 val add_pos_conv = PATH_CONV "llr" numLib.REDUCE_CONV
 
 val extract_ffi_names_tm =
-  optionSyntax.dest_some o assoc "ffi_names" o  #2 o TypeBase.dest_record
+  (optionSyntax.dest_some) o
+  (assoc "ffi_names" o #2 o TypeBase.dest_record) o
+  (assoc "lab_conf" o #2 o TypeBase.dest_record)
+
 val extract_ffi_names =
   map stringSyntax.fromHOLstring o fst o listSyntax.dest_list o
   extract_ffi_names_tm
@@ -842,6 +852,13 @@ fun cbv_to_bytes
         computeLib.Defs [ backend_config_def, names_def, lab_prog_def]
       ] cs
     val eval = computeLib.CBV_CONV cs;
+
+    (* TODO: HACK to bypass hidden bvi_conf, forcing it to eval *)
+    val flat_conf_def = fetch "-" "flat_conf_def"
+    val bvl_conf_def = fetch "-" "bvl_conf_def"
+    val bvi_conf_def = fetch "-" "bvi_conf_def"
+
+    val () = computeLib.extend_compset[computeLib.Defs[flat_conf_def,bvl_conf_def,bvi_conf_def]] cs;
 
     val bootstrap_thm =
       timez "lab_to_target" (CONV_RULE(RAND_CONV(eval))) stack_to_lab_thm
