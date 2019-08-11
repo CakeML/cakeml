@@ -44,7 +44,7 @@ Theorem reader_compiled_thm =
 
 val installed_x64_def = Define `
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 lab_to_target$config))
+      (word8 list # word64 list # 64 backend$config))
     ffi mc ms
   <=>
     ?cbspace data_sp.
