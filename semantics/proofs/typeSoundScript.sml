@@ -2052,7 +2052,7 @@ Proof
    >> drule (hd (CONJUNCTS exp_type_sound))
    >> fs [type_sound_invariant_def]
    >> disch_then drule
-   >> disch_then (qspec_then `Empty` mp_tac)
+   >> disch_then (qspecl_then [`ctMap`, `Empty`] mp_tac)
    >> simp [tenv_val_exp_ok_def, add_tenvE_def]
    >> rpt (disch_then drule)
    >> simp [type_es_list_rel, PULL_EXISTS]

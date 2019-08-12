@@ -699,10 +699,11 @@ Proof
       simp[ptree_Decl_def, tokcheckl_def, tokcheck_def] >> dsimp[]
       >- metis_tac[Pattern_OK, E_OK]
       >- metis_tac[AndFDecls_OK]
-      >- (drule TypeDec_OK >> dsimp[])
+      >- (drule TypeDec_OK >> simp[] >> disch_then drule >> rw[] >> dsimp[])
       >- (fs[DISJ_IMP_THM, FORALL_AND_THM] >>
           drule (GEN_ALL Dconstructor_OK) >> dsimp[FORALL_PROD])
-      >- (drule TypeAbbrevDec_OK >> dsimp[] >> rw[] >>
+      >- (drule TypeAbbrevDec_OK >> dsimp[] >> disch_then drule >> rw[] >>
+          simp[] >>
           qmatch_abbrev_tac `∃d. foo ++ SOME x = SOME d` >>
           Cases_on `foo` >> simp[])
       >- fs[DISJ_IMP_THM, FORALL_AND_THM])
