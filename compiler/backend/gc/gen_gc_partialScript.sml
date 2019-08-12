@@ -703,6 +703,7 @@ val gc_move_list_simulation = prove(
   \\ fs []
   \\ imp_res_tac gen_gcTheory.gc_move_list_ok
   \\ drule gc_move_simulation \\ fs []
+  \\ disch_then drule
   \\ strip_tac \\ fs [] \\ rveq
   \\ first_x_assum drule
   \\ fs [] \\ strip_tac
@@ -945,7 +946,8 @@ val gc_move_data_simulation = prove(
   \\ rpt (pairarg_tac \\ fs [])
   \\ strip_tac \\ rveq
   \\ imp_res_tac gc_move_data_ok \\ fs []
-  \\ drule gc_move_list_simulation
+  \\ drule gc_move_list_simulation \\ fs []
+  \\ disch_then drule
   \\ fs [] \\ strip_tac \\ rveq
   \\ `(∀ptr' u. MEM (Pointer ptr' u) l ⇒ ptr' < conf.limit)` by metis_tac[]
   \\ first_x_assum drule \\ DISCH_TAC \\ fs[] \\ rveq
@@ -2100,6 +2102,7 @@ Proof
   \\ drule roots_ok_simulation
   \\ disch_then drule \\ simp [] \\ strip_tac
   \\ drule heap_ok_simulation
+  \\ disch_then drule
   \\ fs [] \\ strip_tac
   \\ impl_tac THEN1
    (drule gen_gc_ok
@@ -2428,7 +2431,8 @@ Proof
      \\ IF_CASES_TAC \\ fs []
      \\ drule roots_ok_APPEND
      \\ strip_tac
-     \\ drule refs_root_IMP_isSomeData \\ simp [])
+     \\ drule_then irule refs_root_IMP_isSomeData
+     \\ simp [] \\ metis_tac [])
   \\ fs []
   \\ fs [gc_related_def]
   \\ `∀i. i ∈ FDOM f ⇒ isSomeDataElement (heap_lookup (i + conf.gen_start) heap)` by (rpt strip_tac
@@ -2455,13 +2459,13 @@ Proof
         \\ fs [new_f_FDOM]
         \\ rpt strip_tac
         \\ Cases_on `x < conf.gen_start` \\ fs []
-        >- (drule heap_lookup_old_IMP_ALT
+        >- (REWRITE_TAC [GSYM APPEND_ASSOC]
+           \\ drule_then irule heap_lookup_old_IMP_ALT
            \\ fs [isSomeDataElement_def,gen_inv_def]
-           \\ metis_tac [GSYM APPEND_ASSOC])
+           \\ metis_tac [])
         \\ IF_CASES_TAC \\ fs []
-        >- (drule heap_lookup_refs_IMP_ALT
+        >- (drule_then irule heap_lookup_refs_IMP_ALT
            \\ fs [gen_inv_def]
-           \\ impl_tac \\ fs []
            \\ metis_tac [])
         \\ `(to_gen_state conf state1).r1 = []` by EVAL_TAC
         \\ fs []
