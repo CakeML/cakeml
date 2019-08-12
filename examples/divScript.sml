@@ -95,23 +95,23 @@ Theorem oddLoop_spec:
   !i iv.
     INT i iv /\ ¬(2 int_divides i) ==>
     app (p:'ffi ffi_proj) ^(fetch_v "oddLoop" st) [iv]
-      (one (FFI_full [])) (POSTd io. io = [||])
+      (one (FFI_full sigs [])) (POSTd io. io = [||])
 Proof
   xcf_div_FFI_full "oddLoop" st
-  \\ MAP_EVERY qexists_tac [`K emp`,`K []`,`(\n. Litv(IntLit(i - 2 * &n)))`]
+  \\ MAP_EVERY qexists_tac [`sigs`,`K emp`,`K []`,`(\n. Litv(IntLit(i - 2 * &n)))`]
   \\ simp[lprefix_lub_def]
   \\ conj_tac >- (fs[ml_translatorTheory.INT_def])
   \\ conj_tac >- xsimpl
   \\ fs[SEP_CLAUSES]
   \\ strip_tac
   \\ rename1 `2 * SUC j`
-  \\ xlet `POSTv bv. &BOOL F bv * one(FFI_full [])`
+  \\ xlet `POSTv bv. &BOOL F bv * one(FFI_full sigs [])`
   >- (xapp_spec eq_v_INT_thm \\ xsimpl
       \\ fs[ml_translatorTheory.BOOL_def,semanticPrimitivesTheory.Boolv_def]
       \\ rw[] \\ intLib.COOPER_TAC)
   \\ xif
   \\ asm_exists_tac \\ simp[]
-  \\ xlet `POSTv iv2. &INT (i − &(2 * SUC j)) iv2 * one(FFI_full [])`
+  \\ xlet `POSTv iv2. &INT (i − &(2 * SUC j)) iv2 * one(FFI_full sigs [])`
   >- (xapp \\ xsimpl \\ fs[ml_translatorTheory.INT_def]
       \\ intLib.COOPER_TAC)
   \\ xvar \\ xsimpl \\ fs[ml_translatorTheory.INT_def]
@@ -158,57 +158,65 @@ QED
 
 (* A small IO model needed for IO examples *)
 
-val names_def = Define `names = ["put_char"; "get_char"]`;
-
 val put_char_event_def = Define `
-  put_char_event c = IO_event "put_char" [n2w (ORD c)] []`;
+  put_char_event c = IO_event "put_char" [C_arrayv [n2w (ORD c)]] [] NONE`;
 
 val put_str_event_def = Define `
-  put_str_event cs = IO_event "put_char" (MAP (n2w o ORD) cs) []`;
+  put_str_event cs = IO_event "put_char" [C_arrayv (MAP (n2w o ORD) cs)] [] NONE`;
 
 val get_char_event_def = Define `
-  get_char_event c = IO_event "get_char" [] [0w, 1w; 0w, n2w (ORD c)]`;
+  get_char_event c = IO_event "get_char" [C_arrayv [0w; 0w]] [[1w; n2w (ORD c)]] NONE`;
 
 val get_char_eof_event_def = Define `
-  get_char_eof_event = IO_event "get_char" [] [0w, 0w; 0w, 0w]`;
+  get_char_eof_event = IO_event "get_char" [C_arrayv [0w; 0w]] [[0w; 0w]] NONE`;
 
 val update_def = Define `
-  (update "put_char" cs [] s = SOME (FFIreturn [] s)) /\
-  (update "get_char" [] [0w; 0w] s = case destStream s of
+  (update "put_char" [C_arrayv cs] _ s = SOME (FFIreturn [] NONE s)) /\
+  (update "get_char" [C_arrayv [0w; 0w]] _ s = case destStream s of
      | NONE    => NONE
      | SOME ll => if ll = [||] then
-         SOME (FFIreturn [0w; 0w] s)
+         SOME (FFIreturn [[0w; 0w]] NONE s)
        else
-         SOME (FFIreturn [1w; n2w (THE (LHD ll))]
+         SOME (FFIreturn [[1w; n2w (THE (LHD ll))]] NONE
                          (Stream (THE (LTL ll)))))`
+
+val put_char_sig_def =
+  Define `put_char_sig =
+  <|mlname := "put_char"; cname := "ffiput_char"; retty := NONE;
+    args := [C_array <|mutable := F; with_length := T|>]|>`
+
+val get_char_sig_def =
+  Define `get_char_sig =
+  <|mlname := "get_char"; cname := "ffiget_char"; retty := NONE;
+    args := [C_array <|mutable := T; with_length := T|>]|>`
+
+val signatures_def = Define `signatures = [put_char_sig; get_char_sig]`;
 
 val State_def = Define `
   State input = Stream (LMAP ORD input)`
 
 val SIO_def = Define `
   SIO input events =
-    one (FFI_part (State input) update names events)`
+    one (FFI_part (State input) update signatures events)`
 
 val _ = process_topdecs `
   fun put_char c = let
       val s = String.implode [c]
-      val a = Word8Array.array 0 (Word8.fromInt 0)
-      val _ = #(put_char) s a
+      val _ = #(put_char) s
     in () end
   ` |> append_prog;
 
 val _ = process_topdecs `
   fun put_line l = let
       val s = l ^ "\n"
-      val a = Word8Array.array 0 (Word8.fromInt 0)
-      val _ = #(put_char) s a
+      val _ = #(put_char) s
     in () end
   ` |> append_prog;
 
 val _ = process_topdecs `
   fun get_char (u:unit) = let
       val a = Word8Array.array 2 (Word8.fromInt 0)
-      val _ = #(get_char) "" a
+      val _ = #(get_char) a
     in if Word8Array.sub a 0 = Word8.fromInt 1 then
         Some (Char.chr (Word8.toInt (Word8Array.sub a 1)))
       else
@@ -220,7 +228,7 @@ val st = ml_translatorLib.get_ml_prog_state();
 
 Theorem put_char_spec:
   !c cv input events.
-  limited_parts names p /\ CHAR c cv ==>
+  limited_parts signatures p /\ CHAR c cv ==>
   app (p:'ffi ffi_proj) ^(fetch_v "put_char" st) [cv]
     (SIO input events)
     (POSTv v. &UNIT_TYPE () v *
@@ -232,25 +240,25 @@ Proof
   \\ xlet
     `POSTv v. &STRING_TYPE (implode [c]) v * SIO input events`
   THEN1 (xapp \\ xsimpl \\ qexists_tac `[c]` \\ fs [LIST_TYPE_def])
-  \\ xlet_auto THEN1 xsimpl
-  \\ xlet_auto THEN1 xsimpl
-  \\ rename1 `W8ARRAY av`
   \\ xlet
-    `POSTv v. &UNIT_TYPE () v * W8ARRAY av [] *
-              SIO input (SNOC (put_char_event c) events)`
+    `POSTv v. &UNIT_TYPE () v * SIO input (SNOC (put_char_event c) events)`
   THEN1 (
     xffi \\ xsimpl \\ fs [SIO_def]
     \\ MAP_EVERY qexists_tac
-      [`[n2w (ORD c)]`, `emp`, `State input`, `update`, `names`, `events`]
-    \\ fs [update_def, put_char_event_def, names_def, SNOC_APPEND,
-           implode_def, STRING_TYPE_def, State_def]
+      [`[]`, `emp`, `State input`, `update`,
+          `put_char_sig`,`signatures`, `[C_arrayv [n2w(ORD c)]]`, `events`]
+    \\ fs [update_def, put_char_event_def, SNOC_APPEND,
+           implode_def, STRING_TYPE_def, State_def,put_char_sig_def,signatures_def,
+           mllistTheory.FIND_thm,W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+           remdups_def,get_char_sig_def,semanticPrimitivesTheory.get_ret_val_def,
+           get_cargs_heap_def,get_carg_heap_def]
     \\ xsimpl)
   \\ xcon \\ xsimpl
 QED
 
 Theorem put_line_spec:
   !l lv input events.
-  limited_parts names p /\ STRING_TYPE (strlit l) lv ==>
+  limited_parts signatures p /\ STRING_TYPE (strlit l) lv ==>
   app (p:'ffi ffi_proj) ^(fetch_v "put_line" st) [lv]
     (SIO input events)
     (POSTv v. &UNIT_TYPE () v *
@@ -258,27 +266,27 @@ Theorem put_line_spec:
 Proof
   xcf "put_line" st
   \\ xlet_auto THEN1 xsimpl
-  \\ xlet_auto THEN1 xsimpl
-  \\ xlet_auto THEN1 xsimpl
-  \\ rename1 `W8ARRAY av`
   \\ xlet
-    `POSTv v. &UNIT_TYPE () v * W8ARRAY av [] *
+    `POSTv v. &UNIT_TYPE () v *
               SIO input (SNOC (put_str_event (l ++ "\n")) events)`
   THEN1 (
     xffi \\ xsimpl \\ fs [SIO_def]
     \\ MAP_EVERY qexists_tac
-      [`MAP (n2w o ORD) (l ++ "\n")`, `emp`, `State input`, `update`,
-       `names`, `events`]
-    \\ fs [update_def, put_str_event_def, names_def, SNOC_APPEND,
-           STRING_TYPE_def, State_def, strlit_STRCAT, MAP_MAP_o, o_DEF,
-           CHR_ORD, ORD_BOUND]
+      [`[]`, `emp`, `State input`, `update`,
+          `put_char_sig`,`signatures`, `[C_arrayv (MAP (n2w o ORD) (l ++ "\n"))]`, `events`]
+    \\ fs [update_def, put_str_event_def, SNOC_APPEND,
+           implode_def, STRING_TYPE_def, State_def,put_char_sig_def,signatures_def,
+           mllistTheory.FIND_thm,W8ARRAYS_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+           remdups_def,get_char_sig_def,semanticPrimitivesTheory.get_ret_val_def,
+           get_cargs_heap_def,get_carg_heap_def, strlit_STRCAT, MAP_MAP_o, o_DEF,
+           CHR_ORD, ORD_BOUND, IMPLODE_EXPLODE_I]
     \\ xsimpl)
   \\ xcon \\ xsimpl
 QED
 
 Theorem get_char_spec:
   !uv c input events.
-  limited_parts names p /\ UNIT_TYPE () uv ==>
+  limited_parts signatures p /\ UNIT_TYPE () uv ==>
   app (p:'ffi ffi_proj) ^(fetch_v "get_char" st) [uv]
     (SIO input events)
     (POSTv v. &OPTION_TYPE CHAR (LHD input) v *
@@ -299,13 +307,18 @@ Proof
     fs [] \\ rename1 `W8ARRAY av`
     \\ xlet `POSTv v. &UNIT_TYPE () v * W8ARRAY av a * sio`
     THEN1 (
-      xffi \\ xsimpl \\ fs [SIO_def]
+      xffi \\ fs [SIO_def]
       \\ qpat_abbrev_tac `s = State _`
-      \\ MAP_EVERY qexists_tac [`emp`, `s`, `update`, `names`, `events`]
+      \\ MAP_EVERY qexists_tac [`[[0w;0w]]`, `emp`, `s`, `update`, `get_char_sig`, `signatures`,
+                                `[C_arrayv [0w;0w]]`, `events`]
       \\ unabbrev_all_tac
       \\ fs [update_def, get_char_event_def, get_char_eof_event_def,
-             names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def]
-      \\ xsimpl)
+             signatures_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def,mllistTheory.FIND_thm,
+             put_char_sig_def,get_char_sig_def,ffiTheory.get_mut_args_def,ffiTheory.is_mutty_def,
+             get_cargs_heap_def,W8ARRAYS_def,remdups_def,get_carg_heap_def,semanticPrimitivesTheory.get_ret_val_def
+            ]
+      \\ conj_tac \\ hpullr_keep
+      \\ xsimpl \\ EVAL_TAC \\ rw[SEP_EXISTS] \\ rw[get_carg_heap_def])
     \\ rpt (xlet_auto THEN1 xsimpl)
     \\ xlet_auto THEN1 (xsimpl \\ fs [WORD_def])
     \\ xif \\ instantiate
@@ -449,7 +462,7 @@ val st = ml_translatorLib.get_ml_prog_state();
 
 Theorem printLoop_spec:
   !c cv.
-    limited_parts names p /\ CHAR c cv ==>
+    limited_parts signatures p /\ CHAR c cv ==>
     app (p:'ffi ffi_proj) ^(fetch_v "printLoop" st) [cv]
       (SIO [||] []) (POSTd io. io = LREPEAT [put_char_event c])
 Proof
@@ -485,7 +498,7 @@ val _ = overload_on("yes",``yes_v``);
 
 Theorem yes_spec:
   !uv.
-    limited_parts names p ==>
+    limited_parts signatures p ==>
     app (p:'ffi ffi_proj) ^(fetch_v "yes" st) [arg]
       (io_events []) (POSTd io. io = LREPEAT [put_str_event "y\n"])
 Proof
@@ -669,7 +682,7 @@ QED
 
 Theorem catLoop_spec:
   !uv input.
-    limited_parts names p ==>
+    limited_parts signatures p ==>
     app (p:'ffi ffi_proj) ^(fetch_v "catLoop" st) [uv]
       (SIO input []) (POSTvd
         (\v. &(LFINITE input /\ UNIT_TYPE () v) *
@@ -1235,7 +1248,7 @@ val st = ml_translatorLib.get_ml_prog_state();
 
 Theorem pointerLoop_spec:
   !c cv rv.
-    limited_parts names p ==>
+    limited_parts signatures p ==>
     app (p:'ffi ffi_proj) ^(fetch_v "pointerLoop" st) [rv]
       (SIO [||] [] * REF_LIST rv (SNOC rv rvs) CHAR l)
       (POSTd io. io = LMAP put_char_event (LREPEAT l))
