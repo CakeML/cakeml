@@ -84,10 +84,11 @@ Theorem do_app_call_FFI_rel:
    call_FFI_rel^* ffi ffi'
 Proof
   srw_tac[][do_app_cases] >> rw[] >>
-  FULL_CASE_TAC
-  >- (match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >> fs[] >> every_case_tac
-      >> fs[] >> metis_tac[])
-  >- fs[]
+  FULL_CASE_TAC >>
+  fs[option_case_eq] >>
+  rpt (FULL_CASE_TAC \\ fs[]) >>
+  match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >> fs[] >> every_case_tac
+  >> fs[] >> metis_tac[]
 QED
 
 Theorem evaluate_call_FFI_rel:

@@ -4,7 +4,7 @@
 *)
 open preamble intSimps;
 open libTheory astTheory
-open fpOptTheory
+open fpOptTheory fpValTreeTheory;
 open namespaceTheory semanticPrimitivesTheory typeSystemTheory;
 open evaluateTheory;
 
@@ -142,6 +142,16 @@ val (rwAllValTree_def, rwAllValTree_ind) =
   tprove_no_defn ((rwAllValTree_def, rwAllValTree_ind),
   wf_rel_tac `measure (\ (l, _, _, _). LENGTH l)` \\ fs[]);
 val _ = register "rwAllValTree" rwAllValTree_def rwAllValTree_ind;
+
+val (isFpWordOp_def, isFpWordOp_ind) =
+  tprove_no_defn ((isFpWordOp_def, isFpWordOp_ind),
+  wf_rel_tac `measure (\v. fp_val_size v)` \\ fs[]);
+val _ = register "isFpWordOp" isFpWordOp_def isFpWordOp_ind;
+
+val (isFpBoolOp_def, isFpBoolOp_ind) =
+  tprove_no_defn ((isFpBoolOp_def, isFpBoolOp_ind),
+  wf_rel_tac `measure (\v. fp_val_size v)` \\ fs[]);
+val _ = register "isFpBoolOp" isFpBoolOp_def isFpBoolOp_ind;
 
 val (nsMap_def, nsMap_ind) =
   tprove_no_defn ((nsMap_def, nsMap_ind),
