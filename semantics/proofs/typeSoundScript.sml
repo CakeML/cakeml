@@ -2049,7 +2049,7 @@ Proof
    split_pair_case_tac
    >> fs []
    >> rename1 `evaluate _ _ _ = (st1, r1)`
-   >> drule (hd (CONJUNCTS exp_type_sound))
+   >> FREEZE_THEN drule (hd (CONJUNCTS exp_type_sound))
    >> fs [type_sound_invariant_def]
    >> disch_then drule
    >> disch_then (qspec_then `Empty` mp_tac)
