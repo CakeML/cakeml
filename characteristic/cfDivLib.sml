@@ -13,6 +13,7 @@ fun xcf_div_FFI_full name st =
     rpt strip_tac
     \\ simp[f_def]
     \\ match_mp_tac(GEN_ALL IMP_app_POSTd)
+    \\ Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_EXISTS]
     (* TODO: we could look at the goal state and generate a fresh name instead*)
     \\ qmatch_goalsub_abbrev_tac `make_stepfun_closure highly_improbable_name`
     \\ CONV_TAC(QUANT_CONV(PATH_CONV "l" EVAL))
