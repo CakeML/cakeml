@@ -42,14 +42,15 @@ let fp_top fop f1 f2 f3 = Fp_top fop f1 f2 f3
 
 val isFpWordOp: fp_val -> bool
 let rec isFpWordOp (Fp_const _) = true
-    and isFpWordOp (Fp_uop _ _) = true
-    and isFpWordOp (Fp_bop _ _ _) = true
-    and isFpWordOp (Fp_top _ _ _ _) = true
+    and isFpWordOp (Fp_uop _ v) = isFpWordOp v
+    and isFpWordOp (Fp_bop _ v1 v2) = isFpWordOp v1 && isFpWordOp v2
+    and isFpWordOp (Fp_top _ v1 v2 v3) =
+      isFpWordOp v1 && isFpWordOp v2 && isFpWordOp v3
     and isFpWordOp (Fp_sc _ v) = isFpWordOp v
     and isFpWordOp _ = false
 
 val isFpBoolOp: fp_val -> bool
-let rec isFpBoolOp (Fp_pred _ _) = true
-    and isFpBoolOp (Fp_cmp _ _ _) = true
+let rec isFpBoolOp (Fp_pred _ v) = isFpWordOp v
+    and isFpBoolOp (Fp_cmp _ v1 v2) = isFpWordOp v1 && isFpWordOp v2
     and isFpBoolOp (Fp_sc _ v) = isFpBoolOp v
     and isFpBoolOp _ = false

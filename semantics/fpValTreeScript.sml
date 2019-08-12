@@ -72,9 +72,10 @@ val _ = Define `
 (*val isFpWordOp: fp_val -> bool*)
  val isFpWordOp_defn = Defn.Hol_multi_defns `
  ((isFpWordOp:fp_val -> bool) (Fp_const _)=  T)
-    /\ ((isFpWordOp:fp_val -> bool) (Fp_uop _ _)=  T)
-    /\ ((isFpWordOp:fp_val -> bool) (Fp_bop _ _ _)=  T)
-    /\ ((isFpWordOp:fp_val -> bool) (Fp_top _ _ _ _)=  T)
+    /\ ((isFpWordOp:fp_val -> bool) (Fp_uop _ v)=  (isFpWordOp v))
+    /\ ((isFpWordOp:fp_val -> bool) (Fp_bop _ v1 v2)=  (isFpWordOp v1 /\ isFpWordOp v2))
+    /\ ((isFpWordOp:fp_val -> bool) (Fp_top _ v1 v2 v3)=
+       (isFpWordOp v1 /\ isFpWordOp v2 /\ isFpWordOp v3))
     /\ ((isFpWordOp:fp_val -> bool) (Fp_sc _ v)=  (isFpWordOp v))
     /\ ((isFpWordOp:fp_val -> bool) _=  F)`;
 
@@ -82,8 +83,8 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
 
 (*val isFpBoolOp: fp_val -> bool*)
  val isFpBoolOp_defn = Defn.Hol_multi_defns `
- ((isFpBoolOp:fp_val -> bool) (Fp_pred _ _)=  T)
-    /\ ((isFpBoolOp:fp_val -> bool) (Fp_cmp _ _ _)=  T)
+ ((isFpBoolOp:fp_val -> bool) (Fp_pred _ v)=  (isFpWordOp v))
+    /\ ((isFpBoolOp:fp_val -> bool) (Fp_cmp _ v1 v2)=  (isFpWordOp v1 /\ isFpWordOp v2))
     /\ ((isFpBoolOp:fp_val -> bool) (Fp_sc _ v)=  (isFpBoolOp v))
     /\ ((isFpBoolOp:fp_val -> bool) _=  F)`;
 
