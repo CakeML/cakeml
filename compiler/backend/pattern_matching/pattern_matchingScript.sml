@@ -3,7 +3,7 @@
   See issue #667 for details and references
 *)
 open preamble;
-open numTheory listTheory;
+open numTheory listTheory arithmeticTheory;
 
 (*
 Definition of terms
@@ -20,19 +20,23 @@ Datatype `pat =
     Any
   | Var num
   (* A constructor pattern is an constructor id, the number of constructors
-     in its type an a list of other patterns *)
+     in its type and a list of other patterns *)
   | Cons num num (pat list)
   | Or pat pat
   | As pat num (* (p:pat) as (x:num) *)
 `;
 
+(*
+We parametrize the size function by an arity a to take into account the fact
+that a Any or a Var can be expanded into a list of Any patterns
+*)
 Definition psize_def:
-  (psize Any = (2:num)) /\
-  (psize (Var n) = 2) /\
-  (psize (Cons n t []) = 2) /\
-  (psize (Cons n t (x::xs)) = 2 + ((psize x) * psize (Cons n t xs))) /\
-  (psize (Or p1 p2) = 2 + (psize p1) + (psize p2)) /\
-  (psize (As p n) = 2 + (psize p))
+  (psize a Any = (a * (2:num)) + 1) /\
+  (psize a (Var n) = (a * 2) + 1) /\
+  (psize a (Cons n t []) = 2) /\
+  (psize a (Cons n t (x::xs)) = 2 + ((psize a x) * psize a (Cons n t xs))) /\
+  (psize a (Or p1 p2) = 2 + (psize a p1) + (psize a p2)) /\
+  (psize a (As p n) = 2 + (psize a p))
 End
 
 (*
@@ -119,7 +123,7 @@ Theorem msize_inv_gt_zero:
 Proof
   rw[msize_def, inv_mat_def] \\
   Cases_on `b` \\
-  fs[patterns_def] \\
+   fs[patterns_def] \\
   Cases_on `m`
   >- fs[]
   >- (fs[msize_def, EVERY_DEF] \\
@@ -128,7 +132,13 @@ Proof
 QED;
 
 Theorem psize_gt_zero:
-  !p. 0 < (psize p)
+  !a p. 0 < (psize a p)
+Proof
+  ho_match_mp_tac (theorem "psize_ind") \\ rw[psize_def]
+QED;
+
+Theorem psize_gt_one:
+  !a p. a > 1 ==> 1 < (psize a p)
 Proof
   ho_match_mp_tac (theorem "psize_ind") \\ rw[psize_def]
 QED;
@@ -148,23 +158,22 @@ val pmatch_def = tDefine "match_def" `
      (pmatch (Cons pcons tinfo ps) (Term tcons ts)))) /\
   (pmatch (Or p1 p2) t = ((pmatch p1 t) \/ (pmatch p2 t))) /\
   (pmatch (As p num) t = pmatch p t)`
-  (WF_REL_TAC `measure (\ (x,_). psize x)` \\ rw[psize_def] \\
+  (WF_REL_TAC `measure (\ (x,_). psize 1 x)` \\ rw[psize_def] \\
   Induct_on `pargs`
   >- fs[psize_def]
   >- (rpt strip_tac \\
       fs[MEM]
       >- (fs[psize_def] \\
-          `0 < psize (Cons pcons' v0 pargs) ` by fs[psize_gt_zero] \\
-	  `(psize h) <= ((psize h) * (psize (Cons pcons' v0 pargs)))` by
+          `0 < psize 1 (Cons pcons' v0 pargs) ` by fs[psize_gt_zero] \\
+	  `(psize 1 h) <= ((psize 1 h) * (psize 1 (Cons pcons' v0 pargs)))` by
 	  fs[LE_MULT_CANCEL_LBARE] \\
 	  decide_tac)
       >- (res_tac \\
           fs[psize_def] \\
-          `0 < psize h ` by fs[psize_gt_zero] \\
-          `psize (Cons pcons' v0 pargs) <= (psize h) * (psize (Cons pcons' v0 pargs))` by
+          `0 < psize 1 h ` by fs[psize_gt_zero] \\
+          `psize 1 (Cons pcons' v0 pargs) <= (psize 1 h) * (psize 1 (Cons pcons' v0 pargs))` by
           fs[] \\
 	  decide_tac)))
-
 
 Definition pmatch_list_def:
   (pmatch_list [] [] = T) /\
@@ -1004,84 +1013,112 @@ Definition add_bindings_from_ids_def:
 End
 
 (*
-Computing the size of a pattern matrix by giving a weight to each
-of these parts. The weights are set these way to have the specialization
-of m or the default matrix associated to m strictly smaller than m.
+Computing the size of a pattern matrix. Parametrized by a list associating
+to each column the maximal arity of all the constructor patterns occuring
+in it
 *)
 Definition plist_size_def:
-  (plist_size [] = 1) /\
-  (plist_size (p::ps) = (psize p) * (plist_size ps))
+  (plist_size [] [] = 1) /\
+  (plist_size [] (p::ps) = ARB) /\
+  (plist_size (a::ars) (p::ps) = (psize a p) * (plist_size ars ps))
 End
 
 Theorem plist_size_gt_zero:
-  !ps. 0 < plist_size ps
+  !ars ps. (LENGTH ars) = (LENGTH ps) /\
+           (EVERY (\x. 0 < x) ars) ==>
+           0 < (plist_size ars ps)
 Proof
   Induct_on `ps` \\
   fs[plist_size_def] \\
   rw[] \\
-  `0 < psize h` by fs[psize_gt_zero] \\
-  fs[LESS_MULT2]
+  Cases_on `ars`
+  >- fs[]
+  >- (fs[plist_size_def] \\
+      res_tac \\
+      `0 < psize h' h` by fs[psize_gt_zero] \\
+      fs[LESS_MULT2])
 QED;
 
+(* Not provable anymore, but apparently never used
+   left here if turns out to be needed.
+   To prove it, we would need all the elements of
+   ars to be gt 1, which is not realistic *)
+(* Theorem plist_size_gt_one: *)
+(*   !ars ps. (LENGTH ars) = (LENGTH ps) /\ *)
+(*            (EVERY (\x. 0 < x) ars) /\ *)
+(*            (LENGTH ps) > 0 ==> 1 < plist_size ars ps *)
+(* Proof *)
+(* QED; *)
+
 Definition pm_size_def:
-  (pm_size [] = 0) /\
-  (pm_size ((Branch ps e)::bs) =
-    (plist_size ps) +
-    (pm_size bs))
+  (pm_size _ [] = 0) /\
+  (pm_size ars ((Branch ps e)::bs) =
+    (plist_size ars ps) +
+    (pm_size ars bs))
 End
 
 (* Most of these theorems are not working with the special
   case for or-patterns *)
 Theorem pm_size_product_patterns:
-  !p ps e. pm_size [Branch (p::ps) e] = psize p * pm_size [Branch ps e]
+  !p ps e a ars. pm_size (a::ars) [Branch (p::ps) e] = psize a p * pm_size ars [Branch ps e]
 Proof
   Cases_on `p` \\
   fs[pm_size_def, psize_def, plist_size_def]
 QED;
 
 Theorem pm_size_cons:
-  !b bs. pm_size (b::bs) = (pm_size [b]) + (pm_size bs)
+  !b bs ars. pm_size ars (b::bs) = (pm_size ars [b]) + (pm_size ars bs)
 Proof
   Cases_on `b` \\
   fs[pm_size_def]
 QED;
 
-Theorem pm_size_app:
-  !p1 p2 e. pm_size [Branch (p1 ++ p2) e] = pm_size [Branch p1 e] * pm_size [Branch p2 e]
-Proof
-  Induct_on `p1` \\
-  fs[pm_size_def, plist_size_def]
-QED;
+(* Doesn't seem to be needed anymore, and would be cumbersome to prove with
+   new pm_size *)
+(* Theorem pm_size_app: *)
+(*   !p1 p2 e. pm_size [Branch (p1 ++ p2) e] = pm_size [Branch p1 e] * pm_size [Branch p2 e] *)
+(* Proof *)
+(*   Induct_on `p1` \\ *)
+(*   fs[pm_size_def, plist_size_def] *)
+(* QED; *)
 
 Theorem pm_size_app2:
-  !b1 b2. pm_size (b1++b2) = pm_size b1 + pm_size b2
+  !b1 b2 ars. pm_size ars (b1++b2) = pm_size ars b1 + pm_size ars b2
 Proof
   Induct_on `b1` \\
   rw[] \\
   fs[pm_size_def] \\
   rewrite_tac [Once pm_size_cons] \\
-  `pm_size (h::b1) = pm_size [h] + pm_size b1` by
+  `pm_size ars (h::b1) = pm_size ars [h] + pm_size ars b1` by
   rewrite_tac [Once pm_size_cons] \\
   fs[]
 QED;
 
 Theorem plist_size_app:
-  !ps qs. plist_size (ps ++ qs) = (plist_size ps) * (plist_size qs)
+  !ps qs a1 a2.
+    (LENGTH a1) = (LENGTH ps) /\
+    (LENGTH a2) = (LENGTH qs) ==>
+    plist_size (a1 ++ a2) (ps ++ qs) = (plist_size a1 ps) * (plist_size a2 qs)
 Proof
-  Induct_on `ps` \\
-  fs[plist_size_def]
+  Induct_on `ps`
+  >- fs[plist_size_def]
+  >- (Cases_on `a1` \\
+      fs[plist_size_def])
 QED;
 
 Theorem drop_plist_size_decompose:
-  !t i. i < LENGTH t ==>
-        (psize (HD (DROP i t)) *
-         plist_size (DROP (SUC i) t)) =
-        plist_size (DROP i t)
+  !t i ars. (LENGTH t) = (LENGTH ars) /\
+            i < LENGTH t ==>
+            (psize (HD (DROP i ars)) (HD (DROP i t)) *
+            plist_size (DROP (SUC i) ars) (DROP (SUC i) t)) =
+            plist_size (DROP i ars) (DROP i t)
 Proof
   Induct_on `t`
   >- fs[DROP_def]
   >- (fs[DROP_def] \\
-     Cases_on `i=0` \\ rw[]
+     Cases_on `i=0` \\
+     Cases_on `ars` \\
+     rw[]
      >- rw[plist_size_def]
      >- (first_x_assum (qspec_then `i'-1` assume_tac) \\
          `SUC (i'-1) = i'` by fs[SUB_LEFT_SUC] \\
@@ -1093,102 +1130,178 @@ Proof
 QED;
 
 Theorem drop_take_plist_size:
-  !i t. (plist_size (TAKE i t) * plist_size (DROP i t)) =
-        plist_size t
+  !i t ars. (LENGTH t) = (LENGTH ars) /\
+            i < (LENGTH t) ==>
+            (plist_size (TAKE i ars) (TAKE i t) * plist_size (DROP i ars) (DROP i t)) =
+            plist_size ars t
 Proof
   rw[] \\
-  `plist_size t = plist_size ((TAKE i t) ++ (DROP i t))` by fs[] \\
+  `plist_size ars t = plist_size ((TAKE i ars) ++ (DROP i ars))
+                                 ((TAKE i t) ++ (DROP i t))` by fs[] \\
+  `LENGTH (TAKE i ars) = LENGTH (TAKE i t)` by fs[LENGTH_TAKE] \\
+  `LENGTH (DROP i ars) = LENGTH (DROP i t)` by fs[LENGTH_DROP] \\
   fs[plist_size_app]
 QED;
 
 
 Theorem swapi_plist_size:
-  !i ps e. i > 0 /\
-           i < (LENGTH ps) ==>
-           plist_size (swap_items i ps) = plist_size ps
+  !i ps e ars. i > 0 /\
+           i < (LENGTH ps) /\
+           (LENGTH ars) = (LENGTH ps) ==>
+           plist_size (swap_items i ars) (swap_items i ps) = plist_size ars ps
 Proof
   Cases_on `ps`
   >- fs[swap_items_def]
-  >- (fs[swap_items_def, get_ith_def, replace_ith_droptake, plist_size_def] \\
+  >- (Cases_on `ars` \\
+      fs[swap_items_def, get_ith_def, replace_ith_droptake, plist_size_def] \\
       rw[] \\
       `LENGTH (TAKE (i-1) t ++ [h] ++ DROP i t) = (LENGTH t)`
       by fs[LENGTH_APPEND, LENGTH_TAKE_EQ] \\
+      `i < SUC (LENGTH t')` by fs[] \\
+      `LENGTH (TAKE (i-1) t' ++ [h'] ++ DROP i t') = (LENGTH t')`
+      by fs[LENGTH_APPEND, LENGTH_TAKE_EQ] \\
       fs[TAKE_LENGTH_ID_rwt] \\
       fs[plist_size_app, plist_size_def] \\
-      `(psize (HD (DROP (i-1) t)) *
-      plist_size (DROP (SUC (i-1)) t)) *
-      plist_size (TAKE (i-1) t) *
-      psize h = (plist_size t) * psize h` suffices_by metis_tac[MULT_ASSOC, MULT_COMM] \\
+      `(psize (HD (DROP (i-1) t')) (HD (DROP (i-1) t)) *
+      plist_size (DROP (SUC (i-1)) t') (DROP (SUC (i-1)) t)) *
+      plist_size (TAKE (i-1) t')(TAKE (i-1) t) *
+      psize h' h = (plist_size t' t) * psize h' h` suffices_by metis_tac[MULT_ASSOC, MULT_COMM] \\
       `i - 1 < LENGTH t` by fs[] \\
       metis_tac[drop_plist_size_decompose, drop_take_plist_size, MULT_COMM])
 QED;
 
 Theorem swap_pmsize:
-  !i m. inv_mat m /\
+  !i m ars.
+        (msize m) = (LENGTH ars) /\
+        inv_mat m /\
         i > 0 /\
         i < (msize m) ==>
-        pm_size (swap_columns i m) = pm_size m
+        pm_size (swap_items i ars) (swap_columns i m) = pm_size ars m
 Proof
   Induct_on `m`
   >- fs[swap_columns_def, pm_size_def]
   >- (Cases_on `h` \\
       fs[swap_columns_def, pm_size_def, swap_items_def] \\
-      rewrite_tac[Once pm_size_cons] \\
-      `pm_size (Branch l n::m) = (pm_size [Branch l n] + pm_size m)`
-      by rewrite_tac [Once pm_size_cons] \\
       rw[] \\
+      `LENGTH ars = LENGTH l` by fs[msize_def] \\
+      `i < LENGTH l` by fs[msize_def] \\
+      imp_res_tac swapi_plist_size \\
+      fs[] \\
       imp_res_tac inv_mat_dcmp \\
       Cases_on `m = []`
-      >- fs[swap_columns_def, swapi_plist_size, msize_def]
+      >- (fs[swap_columns_def, swapi_plist_size, msize_def] \\
+          Cases_on `ars` \\ fs[pm_size_def, swap_items_def])
       >- (imp_res_tac msize_inv' \\
           fs[msize_def, swapi_plist_size]))
+QED;
+
+Definition n_one_def:
+  (n_one 0 = []) /\
+  (n_one (SUC n) = (1:num)::(n_one n))
+End
+
+Theorem n_one_length:
+  !n. LENGTH (n_one n) = n
+Proof
+  Induct_on `n` \\
+  fs[n_one_def]
+QED;
+
+Theorem n_one_gt_zero:
+  !n. EVERY (\x. 0 < x) (n_one n)
+Proof
+  Induct_on `n` \\
+  fs[n_one_def, EVERY_DEF]
+QED;
+
+Theorem plist_size_n_one_cons:
+  !p ps. plist_size (n_one (SUC (LENGTH ps))) (p::ps) =
+           (psize 1 p) * (plist_size (n_one (LENGTH ps)) ps)
+Proof
+  fs[n_one_def, plist_size_def]
 QED;
 
 Theorem pm_size_default:
   !m. inv_mat m /\
       (msize m) > 0 /\
       m <> [] ==>
-      pm_size (default m) < pm_size m
+      pm_size (n_one ((msize m) - 1)) (default m) <
+      pm_size (n_one (msize m)) m
 Proof
   ho_match_mp_tac (theorem "default_ind") \\ rw[]
   >- (Cases_on `m`
       >- fs[default_def, pm_size_def, psize_def, plist_size_def,
-	    plist_size_gt_zero]
+	    plist_size_gt_zero, msize_def, n_one_def, n_one_length,
+	    n_one_gt_zero]
       >- (`h::t <> []` by fs[] \\
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
           res_tac \\
-          fs[default_def, pm_size_def, psize_def, plist_size_def]))
+          fs[default_def, pm_size_def, psize_def, plist_size_def,
+	     plist_size_n_one_cons, msize_def] \\
+          imp_res_tac msize_inv' \\
+          `pm_size (n_one (LENGTH ps)) (default (h::t)) <
+           pm_size (n_one (SUC (LENGTH ps))) (h::t)` suffices_by fs[] \\
+          `msize (h::t) = SUC (LENGTH ps)`
+          by fs[msize_def] \\
+          fs[msize_def]))
   >- (Cases_on `m`
       >- fs[default_def, pm_size_def, psize_def, plist_size_def,
-	    plist_size_gt_zero]
+	    plist_size_gt_zero, msize_def, n_one_def, n_one_length,
+	    n_one_gt_zero]
       >- (`h::t <> []` by fs[] \\
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
           res_tac \\
-          fs[default_def, pm_size_def, psize_def, plist_size_def]))
+          fs[default_def, pm_size_def, psize_def, plist_size_def,
+	     plist_size_n_one_cons, msize_def] \\
+          imp_res_tac msize_inv' \\
+          `pm_size (n_one (LENGTH ps)) (default (h::t)) <
+           pm_size (n_one (SUC (LENGTH ps))) (h::t)` suffices_by fs[] \\
+          `msize (h::t) = SUC (LENGTH ps)`
+          by fs[msize_def] \\
+          fs[msize_def]))
   >- (Cases_on `m`
-      >- fs[default_def, pm_size_def, psize_def, plist_size_gt_zero]
+      >- fs[default_def, pm_size_def, psize_def, plist_size_gt_zero,
+	    n_one_def, n_one_length, n_one_gt_zero, msize_def]
       >- (`h::t <> []` by fs[] \\
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
           res_tac \\
-          fs[default_def, pm_size_def, psize_def, plist_size_gt_zero]))
+          fs[default_def, pm_size_def, psize_def, plist_size_def,
+	     plist_size_n_one_cons, msize_def] \\
+          imp_res_tac msize_inv' \\
+          `pm_size (n_one (LENGTH ps)) (default (h::t)) <
+           pm_size (n_one (SUC (LENGTH ps))) (h::t)` suffices_by fs[] \\
+          `msize (h::t) = SUC (LENGTH ps)`
+          by fs[msize_def] \\
+          fs[msize_def]))
   >- (Cases_on `m`
       >- fs[default_def, pm_size_def, pm_size_app2, plist_size_def, psize_def,
-            inv_mat_def, msize_def]
+            inv_mat_def, msize_def, n_one_def]
       >- (`h::t <> []` by fs[] \\
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
           res_tac \\
+          `msize (h::t) = SUC (LENGTH ps)` by
+          (imp_res_tac msize_inv' \\
+           fs[msize_def]) \\
           fs[default_def, pm_size_def, psize_def, plist_size_gt_zero, pm_size_app2,
-             plist_size_def, inv_mat_def, msize_def]))
+             plist_size_def, n_one_def, msize_def] \\
+          `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
+	  `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\
+          fs[]))
   >- (Cases_on `rs`
-      >- fs[default_def, pm_size_def, plist_size_def, psize_def, inv_mat_def, msize_def]
+      >- (fs[default_def, pm_size_def, plist_size_def, psize_def, inv_mat_def, msize_def] \\
+          Cases_on `n_one (SUC (LENGTH ps))`
+          >- fs[plist_size_def]
+	  >- fs[plist_size_def, psize_def])
       >- (imp_res_tac inv_mat_as \\
           `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\
           res_tac \\
-          fs[default_def, pm_size_def, plist_size_def, psize_def]))
+          `msize (Branch (As p n::ps) e::h::t) =
+           msize (Branch (p::ps) e::h::t)` by fs[msize_def] \\
+          fs[default_def, pm_size_def, plist_size_def, psize_def, msize_def, n_one_def]))
   >- fs[msize_def]
 QED;
 
