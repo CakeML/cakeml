@@ -622,6 +622,24 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+    | (Opw W64 op, [ValueTree w1; Litv (Word64 w2)]) =>
+        (case compress w1 of
+          SOME (Fp_word w1) =>
+          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+        | _ => NONE
+        )
+    | (Opw W64 op, [Litv (Word64 w1); ValueTree w2]) =>
+        (case compress w2 of
+          SOME (Fp_word w2) =>
+          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+        | _ => NONE
+        )
+    | (Opw W64 op, [ValueTree w1; ValueTree w2]) =>
+        (case (compress w1, compress w2) of
+          (SOME (Fp_word w1), SOME (Fp_word w2)) =>
+          SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+        | _ => NONE
+        )
     | (FP_top top, [v1; v2; v3]) =>
         (case (fp_translate v1, fp_translate v2, fp_translate v3) of
           (SOME (ValueTree w1), SOME (ValueTree w2), SOME (ValueTree w3)) =>
