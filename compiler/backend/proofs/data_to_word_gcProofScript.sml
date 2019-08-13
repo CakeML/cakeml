@@ -4294,6 +4294,7 @@ val state_rel_thm = Define `
       t.compile t.compile_oracle t.code_buffer t.data_buffer /\
     good_dimindex (:'a) /\
     shift_length c < dimindex (:'a) /\
+    IS_SOME s.tstamps /\
     (* the store *)
     EVERY (\n. n IN FDOM t.store) [Globals] /\
     (* every local is represented in word lang *)
@@ -4304,7 +4305,7 @@ val state_rel_thm = Define `
     EVERY2 stack_rel s.stack t.stack /\
     EVERY2 contains_loc t.stack locs /\
     (* there exists some GC-compatible abstraction *)
-    memory_rel c t.be s.refs s.space t.store t.memory t.mdomain
+    memory_rel c t.be (THE s.tstamps) s.refs s.space t.store t.memory t.mdomain
       (v1 ++
        join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
        [(the_global s.global,t.store ' Globals)] ++
@@ -4371,7 +4372,7 @@ Theorem state_rel_init:
     t.stack = [] /\
     conf_ok (:'a) c /\
     init_store_ok c t.store t.memory t.mdomain t.code_buffer t.data_buffer ==>
-    state_rel c l1 l2 (initial_state ffi code co cc ts hl ls t.clock)
+    state_rel c l1 l2 (initial_state ffi code co cc T hl ls t.clock)
                       (t:('a,'c,'ffi) state) [] []
 Proof
   simp_tac std_ss [word_list_exists_ADD,conf_ok_def,init_store_ok_def]
@@ -4392,15 +4393,17 @@ Proof
   \\ `(limit+3) * (dimindex (:α) DIV 8) + 1 < dimword (:α)` by
    (fs [labPropsTheory.good_dimindex_def,dimword_def]
     \\ rfs [shift_def] \\ decide_tac)
+  \\ `timestamps_ok FEMPTY [] 0` by fs [timestamps_ok_def,all_ts_def]
   \\ asm_exists_tac \\ fs []
   \\ fs [word_ml_inv_def]
   \\ qexists_tac `heap_expand limit`
+  \\ qexists_tac `limit`
   \\ qexists_tac `0`
   \\ qexists_tac `case c.gc_kind of Generational l => 0 | _ => limit`
   \\ qexists_tac `case c.gc_kind of Generational l => limit | _ => 0`
   \\ qexists_tac `GenState 0 (case c.gc_kind of
                               | Generational l => MAP (K 0) l
-                              | _ => [])`
+                              | _ => [])` \\ fs []
   \\ reverse conj_tac THEN1
    (fs[abs_ml_inv_def,roots_ok_def,heap_ok_def,heap_length_heap_expand,
        unused_space_inv_def,bc_stack_ref_inv_def,FDOM_EQ_EMPTY]
@@ -4573,7 +4576,7 @@ Proof
   \\ `F` by decide_tac
 QED
 
-val s1 = mk_var("s1",type_of s)
+val s1 = mk_var("s1",type_of s);
 
 Theorem state_rel_pop_env_IMP:
    state_rel c q l ^s1 t1 xs locs /\
