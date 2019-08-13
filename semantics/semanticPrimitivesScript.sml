@@ -290,6 +290,13 @@ val _ = Define `
   else
     Match_type_error))
 /\
+((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Plit (Word64 w)) (ValueTree v) env=
+   ((case compress v of
+    NONE => Match_type_error
+  | SOME (Fp_bool b) => Match_type_error
+  | SOME (Fp_word w') => if w = w' then Match env else No_match
+  )))
+/\
 ((pmatch:((string),(string),(num#stamp))namespace ->((v)store_v)list -> pat -> v ->(string#v)list ->((string#v)list)match_result) envC s (Pcon (SOME n) ps) (Conv (SOME stamp') vs) env=
    ((case nsLookup envC n of
       SOME (l,stamp) =>
@@ -661,13 +668,13 @@ val _ = Define `
     | (FP_cmp cmp, [v1; v2]) =>
         (case (fp_translate v1, fp_translate v2) of
           (SOME (ValueTree w1), SOME (ValueTree w2)) =>
-          SOME ((s,t),Rval (ValueTree (fp_cmp cmp w1 w2)))
+          SOME ((s,t),Rval (Boolv (compress (fp_cmp cmp w1 w2) = SOME (Fp_bool T))))
         | _ => NONE
         )
     | (FP_pred pred, [v1]) =>
         (case (fp_translate v1) of
           (SOME (ValueTree w1)) =>
-          SOME ((s,t),Rval (ValueTree (fp_pred pred w1)))
+          SOME ((s,t),Rval (Boolv (compress (fp_pred pred w1) = SOME (Fp_bool T))))
         | _ => NONE
         )
     | (FP_sc sc, [v1]) =>
@@ -680,6 +687,12 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
+    | (Shift W64 op n, [ValueTree w1]) =>
+        (case compress w1 of
+          SOME (Fp_word w1) =>
+          (SOME ((s,t), Rval (Litv (Word64 (shift64_lookup op w1 n)))))
+        | _ => NONE
+        )
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
@@ -749,6 +762,12 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (WordToInt W64, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
+    | (WordToInt W64, [ValueTree v]) =>
+        (case (compress v) of
+          SOME (Fp_word w) =>
+          SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
+        | _ => NONE
+        )
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
         (case copy_array (EXPLODE str,off) len NONE of

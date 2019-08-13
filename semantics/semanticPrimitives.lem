@@ -217,6 +217,13 @@ pmatch envC s (Plit l) (Litv l') env =
   else
     Match_type_error
 and
+pmatch envC s (Plit (Word64 w)) (ValueTree v) env =
+  match compress v with
+  | Nothing -> Match_type_error
+  | Just (Fp_bool b) -> Match_type_error
+  | Just (Fp_word w') -> if w = w' then Match env else No_match
+  end
+and
 pmatch envC s (Pcon (Just n) ps) (Conv (Just stamp') vs) env =
   match nsLookup envC n with
     | Just (l,stamp) ->
@@ -542,13 +549,13 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
     | (FP_cmp cmp, [v1; v2]) ->
         match (fp_translate v1, fp_translate v2) with
         | (Just (ValueTree w1), Just (ValueTree w2)) ->
-          Just ((s,t),Rval (ValueTree (fp_cmp cmp w1 w2)))
+          Just ((s,t),Rval (Boolv (compress (fp_cmp cmp w1 w2) = Just (Fp_bool true))))
         | _ -> Nothing
         end
     | (FP_pred pred, [v1]) ->
         match (fp_translate v1) with
         | (Just (ValueTree w1)) ->
-          Just ((s,t),Rval (ValueTree (fp_pred pred w1)))
+          Just ((s,t),Rval (Boolv (compress (fp_pred pred w1) = Just (Fp_bool true))))
         | _ -> Nothing
         end
     | (FP_sc sc, [v1]) ->
@@ -561,6 +568,12 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Litv (Word8 (shift8_lookup op w n))))
     | (Shift W64 op n, [Litv (Word64 w)]) ->
         Just ((s,t), Rval (Litv (Word64 (shift64_lookup op w n))))
+    | (Shift W64 op n, [ValueTree w1]) ->
+        match compress w1 with
+        | Just (Fp_word w1) ->
+          (Just ((s,t), Rval (Litv (Word64 (shift64_lookup op w1 n)))))
+        | _ -> Nothing
+        end
     | (Equality, [v1; v2]) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
@@ -630,6 +643,12 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
         Just ((s,t), Rval (Litv (IntLit (integerFromNat(natFromWord8 w)))))
     | (WordToInt W64, [Litv (Word64 w)]) ->
         Just ((s,t), Rval (Litv (IntLit (integerFromNat(natFromWord64 w)))))
+    | (WordToInt W64, [ValueTree v]) ->
+        match (compress v) with
+        | Just (Fp_word w) ->
+          Just ((s,t), Rval (Litv (IntLit (integerFromNat(natFromWord64 w)))))
+        | _ -> Nothing
+        end
     | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) ->
         Just ((s,t),
         match copy_array (toCharList str,off) len Nothing with
