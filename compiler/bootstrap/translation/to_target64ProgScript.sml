@@ -298,14 +298,15 @@ val remove_labels_hash_def = Define `
     remove_labels_loop init_clock c pos labs ffis (enc_secs_64 c.encode hash_size sec_list)`;
 
 val remove_labels_hash_correct = Q.prove(`
-  remove_labels_hash = remove_labels`,
+  remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =
+  remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list`,
   simp [FUN_EQ_THM, remove_labels_hash_def, remove_labels_def,
         enc_secs_64_correct]);
 
 val res = translate (remove_labels_hash_def |> spec64);
 
 val compile_lab_thm = compile_lab_def
-  |> REWRITE_RULE [GSYM remove_labels_hash_correct];
+  |> spec64 |> REWRITE_RULE [GSYM remove_labels_hash_correct];
 
 val res = translate compile_lab_thm;
 
