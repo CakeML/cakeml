@@ -4,7 +4,7 @@
 open preamble;
 open libTheory astTheory typeSystemTheory semanticPrimitivesTheory evaluateTheory;
 open terminationTheory;
-open namespacePropsTheory;
+open namespacePropsTheory fpSemPropsTheory;
 open semanticPrimitivesPropsTheory;
 open evaluatePropsTheory;
 open weakeningTheory typeSysPropsTheory typeSoundInvariantsTheory;
@@ -40,7 +40,7 @@ Proof
 QED
 
 val fst_triple = Q.prove (
-`(\(x,y,z). x) = FST`,
+`(\ (x,y,z). x) = FST`,
  rw [FUN_EQ_THM]
  >> pairarg_tac
  >> rw []);
@@ -76,7 +76,9 @@ Theorem prim_canonical_values_thm:
    (type_v tvs ctMap tenvS v Tchar ∧ ctMap_ok ctMap ⇒ (∃c. v = Litv (Char c))) ∧
    (type_v tvs ctMap tenvS v Tstring ∧ ctMap_ok ctMap ⇒ (∃s. v = Litv (StrLit s))) ∧
    (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word8 n))) ∧
-   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word64 n))) ∧
+   (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒
+    (∃n. v = Litv (Word64 n)) \/
+    (? f w. v = ValueTree f /\ isFpWordOp f /\ compress f = SOME (Fp_word w))) ∧
    (type_v tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
      (∃vs. v = Conv NONE vs ∧ LENGTH ts = LENGTH vs)) ∧
    (type_v tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
@@ -104,6 +106,7 @@ Proof
   fs [type_num_defs] >>
   TRY (Cases_on `stamp` >> res_tac >> fs [] >> NO_TAC) >>
   fs [type_s_def]
+  >- (imp_res_tac compress_word_valid >> fs[])
   >- metis_tac [LIST_REL_LENGTH] >>
   res_tac >>
   Cases_on `v` >>
@@ -156,7 +159,7 @@ val has_lists_v_to_list = Q.prove (
 
 Theorem ctor_canonical_values_thm:
    (type_v tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
-      ∃b. v = Boolv b) ∧
+      (∃b. v = Boolv b)) /\
    (type_v tvs ctMap tenvS v (Tlist t) ∧ ctMap_ok ctMap ∧ ctMap_has_lists ctMap ⇒
      ?vs.
        v_to_list v = SOME vs ∧
@@ -669,6 +672,14 @@ Proof
   \\ EVAL_TAC \\ metis_tac [Tlist_num_def]
 QED
 
+(* TODO: Move *)
+Theorem type_v_valTree:
+  isFpWordOp v ==> type_v 0 ctMap tenvS (ValueTree v) (Tapp [] Tword64_num)
+Proof
+  rpt strip_tac >>
+  fs[Once type_v_cases]
+QED
+
 Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
@@ -722,7 +733,14 @@ Proof
  >> TRY ( (* FP cmp *)
    rename1`FP_cmp` >>
    rw [do_app_cases, PULL_EXISTS] >>
+    qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
+   fs[type_v_Boolv,store_type_extension_refl, Tbool_def] >>
    metis_tac[type_v_Boolv,store_type_extension_refl, Tbool_def])
+ >> TRY ( (* FP ops *)
+   (rename1`FP_uop` ORELSE rename1`FP_bop` ORELSE rename1 `FP_top`) >>
+   rw [do_app_cases, PULL_EXISTS] >>
+    qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
+   irule type_v_valTree >> EVAL_TAC >> fs[])
  >> TRY ( (* Equality *)
    rename1`Equality` >>
    rw [do_app_cases, PULL_EXISTS] >>
@@ -1130,6 +1148,11 @@ Proof
  >> rw [bind_var_list_def]
  >- pat_sound_tac
  >- (
+   qpat_x_assum `type_v _ _ _ _ _` (fn thm => assume_tac (REWRITE_RULE [Once type_v_cases] thm))
+   >> fs[] >> rveq
+   >> imp_res_tac compress_word_valid \\ fs[]
+   >> Cases_on `w = w'` \\ fs[])
+ >- (
    qpat_x_assum `type_v _ _ _ _ _` mp_tac
    >> simp [Once type_v_cases]
    >> rw []
@@ -1181,6 +1204,12 @@ Proof
    first_x_assum irule
    >> simp []
    >> metis_tac [])
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
+ >- pat_sound_tac
  >- pat_sound_tac
  >- pat_sound_tac
  >- pat_sound_tac

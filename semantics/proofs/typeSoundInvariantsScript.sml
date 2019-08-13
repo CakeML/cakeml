@@ -48,7 +48,7 @@ val _ = type_abbrev( "ctMap", ``:(stamp, (tvarN list # t list # type_ident)) fma
 val ctMap_ok_def = Define `
   ctMap_ok ctMap ⇔
     (* No free variables in the range *)
-    FEVERY (\(stamp,(tvs,ts, _)). EVERY (check_freevars 0 tvs) ts) ctMap ∧
+    FEVERY (\ (stamp,(tvs,ts, _)). EVERY (check_freevars 0 tvs) ts) ctMap ∧
     (* Exceptions have type exception, and no type variables *)
     (!ex tvs ts ti. FLOOKUP ctMap (ExnStamp ex) = SOME (tvs, ts, ti) ⇒
       tvs = [] ∧ ti = Texn_num) ∧
@@ -85,6 +85,9 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     type_v tvs ctMap tenvS (Litv (Word8 w)) Tword8) ∧
   (!tvs ctMap tenvS w.
     type_v tvs ctMap tenvS (Litv (Word64 w)) Tword64) ∧
+  (!tvs ctMap tenvS v.
+    isFpWordOp v ==>
+    type_v tvs ctMap tenvS (ValueTree v) Tword64) /\
   (!tvs ctMap tenvS vs tvs' stamp ts' ts ti.
     EVERY (check_freevars tvs []) ts' ∧
     LENGTH tvs' = LENGTH ts' ∧
