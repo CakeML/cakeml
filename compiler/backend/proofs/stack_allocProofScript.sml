@@ -5707,17 +5707,17 @@ Proof
       srw_tac[][] >>
       Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[]>>
       qpat_x_assum `evaluate _ = (SOME r, t)` assume_tac >>
-      dxrule comp_correct_thm >>
+      old_dxrule comp_correct_thm >>
       simp[RIGHT_FORALL_IMP_THM] >>
       impl_tac >- (
         simp[alloc_arg_def] >>
         reverse conj_tac >- metis_tac[] >>
         CCONTR_TAC >> fs[]) >>
       strip_tac >>
-      dxrule(GEN_ALL evaluate_add_clock) >>
+      old_dxrule(GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then `k'` mp_tac) >>
       impl_tac >- (CCONTR_TAC >> fs[]) >>
-      dxrule(GEN_ALL evaluate_add_clock) >>
+      dxrule evaluate_add_clock >>
       disch_then(qspec_then `ck + k` mp_tac) >>
       impl_tac >- (CCONTR_TAC >> fs[]) >>
       ntac 2 strip_tac >>

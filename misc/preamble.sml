@@ -562,6 +562,12 @@ fun old_drule_then ttac th =
       drule_then (specnames_then fvnames ttac) th
     end
 val old_drule = old_drule_then mp_tac
+fun old_dxrule_then ttac th =
+    let val fvnames = map (#1 o dest_var) (th |> concl |> free_vars)
+    in
+      dxrule_then (specnames_then fvnames ttac) th
+    end
+val old_dxrule = old_dxrule_then mp_tac
 
 end
 
