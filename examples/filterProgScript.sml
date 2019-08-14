@@ -511,15 +511,16 @@ val filter_ffi = Datatype `
    |>`
 
 val filter_oracle = Define `
-  (filter_oracle:filter_ffi oracle) port st conf bytes =
+  (filter_oracle:filter_ffi oracle) port st [C_arrayv conf; C_arrayv bytes] als =
   if port = "accept_call" then
     (if st.input = LNIL then Oracle_final FFI_diverged
      else if LENGTH bytes = 256 then
         Oracle_return (st with input := THE(LTL(st.input)))
-                        (TAKE 256 (THE(LHD st.input)) ++ DROP (LENGTH(THE(LHD st.input))) bytes)
+                        [TAKE 256 (THE(LHD st.input)) ++ DROP (LENGTH(THE(LHD st.input))) bytes]
+                        NONE
      else Oracle_final FFI_failed)
   else if port = "emit_string" then
-    Oracle_return st bytes
+    Oracle_return st [bytes] NONE
   else Oracle_final FFI_failed
 `
 
@@ -546,11 +547,25 @@ val decode_oracle_state_def = Define `
                               (destStr(instream (iNum n)))) 0|>`
 
 val filter_cf_oracle = Define `
-  filter_cf_oracle port conf bytes ffi =
-  case filter_oracle port (decode_oracle_state ffi) conf bytes of
+  filter_cf_oracle port args als ffi =
+  case filter_oracle port (decode_oracle_state ffi) args als of
       Oracle_final FFI_failed => NONE
     | Oracle_final FFI_diverged => SOME FFIdiverge
-    | Oracle_return st' bytes => SOME(FFIreturn bytes (encode_oracle_state st'))`
+    | Oracle_return st' bytes retv => SOME(FFIreturn bytes retv (encode_oracle_state st'))`
+
+val emit_string_sig_def =
+  Define `emit_string_sig =
+  <|mlname := "emit_string"; cname := "ffiemit_string"; retty := NONE;
+    args := [C_array <|mutable := F; with_length := T|>;
+             C_array <|mutable := T; with_length := T|>]|>`
+
+val accept_call_sig_def =
+  Define `accept_call_sig =
+  <|mlname := "accept_call"; cname := "ffiaccept_call"; retty := NONE;
+    args := [C_array <|mutable := F; with_length := T|>;
+             C_array <|mutable := T; with_length := T|>]|>`
+
+val signatures_def = Define `signatures = [emit_string_sig; accept_call_sig]`;
 
 val seL4_IO_def = Define `
   seL4_IO input events =
@@ -558,7 +573,7 @@ val seL4_IO_def = Define `
     FFI_part
       (encode_oracle_state (<|input:=input|>))
       filter_cf_oracle
-      ["accept_call";"emit_string"]
+      signatures
       events)`
 
 Theorem decode_encode_oracle_state_11:
@@ -595,10 +610,10 @@ val LLENGTH_NONE_LTAKE = Q.prove(
   Induct >> Cases_on `ll` >> rw[]);
 
 val is_emit_def = Define
-  `is_emit (IO_event s _ _) = (s = "emit_string")`
+  `is_emit (IO_event s _ _ _) = (s = "emit_string")`
 
 val output_event_of_def = Define
-  `output_event_of s = IO_event "emit_string" s []`
+  `output_event_of s = IO_event "emit_string" [C_arrayv s; C_arrayv []] [[]] NONE`
 
 val nth_arr_def = Define `nth_arr n ll =
  FST(FUNPOW (λ(l,ll).
@@ -674,9 +689,9 @@ val next_filter_events = Define
   `next_filter_events filter_fun last_input input =
    let new_input = TAKE 256 input ++ DROP (LENGTH input) last_input
    in
-    [IO_event "accept_call" [] (ZIP (last_input,new_input))] ++
+    [IO_event "accept_call" [C_arrayv []; C_arrayv last_input] [new_input] NONE] ++
     if filter_fun(cut_at_null_w input) then
-      [IO_event "emit_string" (cut_at_null_w new_input) []]
+      [IO_event "emit_string" [C_arrayv (cut_at_null_w new_input); C_arrayv []] [[]] NONE]
     else
       []`
 
@@ -787,7 +802,7 @@ val LFILTER_fromList = Q.prove(`
 
 Theorem forward_matching_lines_div_spec:
   !input output rv.
-    limited_parts ["accept_call";"emit_string"] p /\
+    limited_parts signatures p /\
     LLENGTH input = NONE /\
     every (null_terminated_w) input /\
     every ($>= 256 o LENGTH) input
@@ -834,23 +849,35 @@ Proof
         (FFI_part
            (encode_oracle_state
               <|input := THE (LDROP (SUC i) input)|>) filter_cf_oracle
-           ["accept_call"; "emit_string"]
-           [IO_event "accept_call" [] (ZIP(inputbuff,
-                                          ((TAKE 256 (THE (LHD (THE (LDROP i input)))) ++
-                              DROP (LENGTH (THE (LHD (THE (LDROP i input))))) inputbuff))))]
+           signatures
+           [IO_event "accept_call" [C_arrayv []; C_arrayv inputbuff]
+                                   [TAKE 256 (THE (LHD (THE (LDROP i input)))) ++
+                                    DROP (LENGTH (THE (LHD (THE (LDROP i input))))) inputbuff]
+                                   NONE]
            ))` >-
-       (xffi >> xsimpl >>
+       (xffi >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-        MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
-        unabbrev_all_tac >> xsimpl >>
-        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
+        MAP_EVERY qexists_tac [
+          `[inputbuff]`,
+          `W8ARRAY dummyarr_loc []`,`s`,`u`,`accept_call_sig`,`ns`,
+          `[C_arrayv []; C_arrayv inputbuff]`,`events`] >>
+        unabbrev_all_tac >>
+        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle,
+             signatures_def,accept_call_sig_def,emit_string_sig_def,
+             mllistTheory.FIND_thm,ffiTheory.get_mut_args_def,
+             ffiTheory.is_mutty_def,W8ARRAYS_def,remdups_def,
+             semanticPrimitivesTheory.get_ret_val_def
+            ] >>
         `?i1 input'. LDROP i input = SOME(i1:::input')`
           by(qpat_x_assum `LLENGTH input = NONE` mp_tac >>
              qid_spec_tac `input` >> rpt(pop_assum kall_tac) >>
              Induct_on `i` >> fs[] >>
              Cases >> rw[]) >>
-        simp[LDROP_SUC] >>
-        xsimpl) >>
+        simp[LDROP_SUC,remdups_def] >>
+        conj_tac >> hpullr_keep >> xsimpl >>
+        rw[STAR_def,SEP_EXISTS,W8ARRAY_def,SPLIT_def,cond_def] >>
+        rw[get_cargs_heap_def,get_carg_heap_def,ffiTheory.is_mutty_def,
+           semanticPrimitivesTheory.get_ret_val_def]) >>
      xlet `(POSTv v. &UNIT_TYPE () v * W8ARRAY dummyarr_loc [] *
             W8ARRAY inputarr ((TAKE 256 (THE (LHD (THE (LDROP i input)))) ++
                               DROP (LENGTH (THE (LHD (THE (LDROP i input))))) inputbuff))  *
@@ -858,7 +885,7 @@ Proof
         (FFI_part
            (encode_oracle_state
               <|input := THE (LDROP (SUC i) input)|>) filter_cf_oracle
-           ["accept_call"; "emit_string"]
+           signatures
            (next_filter_events (language o MAP (CHR o w2n)) inputbuff (THE(LNTH i input)))))` >-
        (xlet_auto >-
           (xsimpl >>
@@ -890,16 +917,23 @@ Proof
            xsimpl) >-
           (xffi >>
            fs[cut_at_null_thm,STRING_TYPE_def] >>
-           qmatch_goalsub_abbrev_tac `MAP _ a1 = _` >>
-           qexists_tac `a1` >> qunabbrev_tac `a1` >>
+           qmatch_goalsub_abbrev_tac `StrLit(MAP _ a1)` >>
            simp[] >>
            qmatch_goalsub_abbrev_tac `W8ARRAY inputarr ibuff` >>
-           MAP_EVERY qexists_tac [`[]`,`W8ARRAY inputarr ibuff`] >>
-           xsimpl >>
            qmatch_goalsub_abbrev_tac `FFI_part s u ns events` >>
-           MAP_EVERY qexists_tac [`s`,`u`,`ns`,`events`] >>
-           unabbrev_all_tac >> simp[filter_cf_oracle,filter_oracle] >>
-           xsimpl >>
+           MAP_EVERY qexists_tac [`[[]]`,`W8ARRAY inputarr ibuff`,
+                                  `s`,`u`,`emit_string_sig`,`ns`,
+                                  `[C_arrayv a1; C_arrayv []]`,
+                                  `events`
+                                 ] >>
+           unabbrev_all_tac >>
+           simp[filter_cf_oracle,filter_oracle,
+                signatures_def,accept_call_sig_def,emit_string_sig_def,
+                mllistTheory.FIND_thm,ffiTheory.get_mut_args_def,
+                ffiTheory.is_mutty_def,W8ARRAYS_def,remdups_def,
+                semanticPrimitivesTheory.get_ret_val_def,
+                get_cargs_heap_def,get_carg_heap_def
+               ] >>
            `~LFINITE input` by rw[LFINITE_LLENGTH] >>
            `?i1. LNTH i input = SOME(i1)`
              by(CCONTR_TAC >> fs[LFINITE_LNTH_NONE] >> metis_tac[NOT_SOME_NONE,option_nchotomy]) >>
@@ -914,7 +948,9 @@ Proof
            fs[DROP_LENGTH_TOO_LONG] >>
            fs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
            simp[decode_encode_oracle_state_11] >>
-           xsimpl)
+           conj_tac >> hpullr_keep >> xsimpl >>
+           rw[o_DEF,IMPLODE_EXPLODE_I,W8ARRAY_def,STAR_def,cond_def,SEP_EXISTS] >>
+           rw[get_carg_heap_def])
        ) >>
        xvar >> xsimpl >>
        simp[nth_arr_SUC] >>
@@ -1086,15 +1122,15 @@ val STRING_TYPE_explode = Q.store_thm("STRING_TYPE_explode",
 
 Theorem forward_matching_lines_ffidiv_spec:
   !input rv.
-    limited_parts ["accept_call";"emit_string"] p /\
+    limited_parts signatures p /\
     LLENGTH input = SOME n /\
     every (null_terminated_w) input /\
     every ($>= 256 o LENGTH) input
     ==>
     app (p:'ffi ffi_proj) ^(fetch_v "forward_matching_lines" st) [rv]
       (seL4_IO input [] * W8ARRAY dummyarr_loc [])
-      (POSTf s. λconf (bytes:word8 list).
-         &(s = "accept_call" /\ conf = []) *
+      (POSTf s. λcargs.
+         &(s = "accept_call" /\ LENGTH cargs = 2 /\ HD cargs = C_arrayv []) *
          W8ARRAY dummyarr_loc [] *
          SEP_EXISTS loc init. W8ARRAY loc init *
          SEP_EXISTS events.
@@ -1122,8 +1158,8 @@ Proof
   Induct_on `l` >-
     (rw[] >>
      xcf "forward_loop" st >>
-     xlet `(POSTf s. (λconf bytes.
-             &(s = "accept_call" ∧ conf = []) *
+     xlet `(POSTf s. (λcargs.
+             &(s = "accept_call" ∧ LENGTH cargs = 2 ∧ HD cargs = C_arrayv []) *
                 seL4_IO [||] events * W8ARRAY v' init *
                  W8ARRAY dummyarr_loc []))` >-
        (simp[cf_ffi_def] >>
@@ -1131,14 +1167,27 @@ Proof
         hnf >>
         simp[app_ffi_def] >> reduce_tac >>
         reverse conj_tac >- (simp[SEP_IMPPOSTe_POSTf_left,SEP_IMPPOSTd_POSTf_left]) >>
-        xsimpl >>
         simp[seL4_IO_def] >>
         qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-        MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
-        unabbrev_all_tac >> xsimpl >>
-        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
-        xsimpl) >>
+        MAP_EVERY qexists_tac [
+           `[init]`,
+           `W8ARRAY dummyarr_loc []`,`s`,`u`,`accept_call_sig`,`ns`,
+           `[C_arrayv []; C_arrayv init]`,
+           `events`] >>
+        unabbrev_all_tac >>
+        simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle,
+             signatures_def,accept_call_sig_def,emit_string_sig_def,
+             mllistTheory.FIND_thm,ffiTheory.get_mut_args_def,
+             ffiTheory.is_mutty_def,W8ARRAYS_def,remdups_def,
+             semanticPrimitivesTheory.get_ret_val_def
+            ] >>
+        conj_tac >> hpullr_keep >> xsimpl >>
+        rw[STAR_def,SEP_EXISTS,W8ARRAY_def,SPLIT_def,cond_def] >>
+        rw[get_cargs_heap_def,get_carg_heap_def,ffiTheory.is_mutty_def,
+           semanticPrimitivesTheory.get_ret_val_def]
+       ) >>
      xsimpl >> rename1 `W8ARRAY loc init` >>
+     rw[] >>
      MAP_EVERY qexists_tac [`loc`,`init`,`[]`] >>
      simp[] >> xsimpl) >>
   rpt strip_tac >> fs[] >>
@@ -1146,15 +1195,25 @@ Proof
   qabbrev_tac `newinit = TAKE 256 h ++ DROP (LENGTH h) init` >>
   xlet `POSTv v. &UNIT_TYPE () v *
         W8ARRAY v' newinit * W8ARRAY dummyarr_loc [] *
-        seL4_IO (fromList l) (SNOC (IO_event "accept_call" [] (ZIP(init,newinit))) events)` >-
-    (xffi >> xsimpl >>
+        seL4_IO (fromList l) (SNOC (IO_event "accept_call" [C_arrayv []; C_arrayv init] [newinit] NONE) events)` >-
+    (xffi >>
      simp[seL4_IO_def,Abbr `newinit`] >>
      qmatch_goalsub_abbrev_tac `one(FFI_part s u ns events)` >>
-     MAP_EVERY qexists_tac [`W8ARRAY dummyarr_loc []`,`s`,`u`,`ns`,`events`] >>
-     unabbrev_all_tac >> simp[] >> xsimpl >>
-     simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
-     xsimpl >>
-     simp[SNOC_APPEND,SEP_IMP_REFL]) >>
+     MAP_EVERY qexists_tac [`[init]`,
+                            `W8ARRAY dummyarr_loc []`,`s`,`u`,`accept_call_sig`,`ns`,
+                            `[C_arrayv []; C_arrayv init]`,`events`] >>
+     unabbrev_all_tac >>
+     simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle,
+          signatures_def,accept_call_sig_def,emit_string_sig_def,
+          mllistTheory.FIND_thm,ffiTheory.get_mut_args_def,
+          ffiTheory.is_mutty_def,W8ARRAYS_def,remdups_def,
+          semanticPrimitivesTheory.get_ret_val_def
+         ] >>
+     simp[SNOC_APPEND] >>
+     conj_tac >> hpullr_keep >> xsimpl >>
+     rw[STAR_def,SEP_EXISTS,W8ARRAY_def,SPLIT_def,cond_def] >>
+        rw[get_cargs_heap_def,get_carg_heap_def,ffiTheory.is_mutty_def,
+           semanticPrimitivesTheory.get_ret_val_def]) >>
   xlet `(POSTv v. &UNIT_TYPE () v * W8ARRAY dummyarr_loc [] *
          W8ARRAY v' newinit *
          SEP_EXISTS events'.
@@ -1183,16 +1242,21 @@ Proof
         qexists_tac `x` >> simp[Abbr `x`] >>
         simp[is_emit_def] >> xsimpl
        ) >>
-     xffi >> xsimpl >>
+     xffi >>
      simp[seL4_IO_def] >>
      imp_res_tac STRING_TYPE_explode >>
      rveq >> fs[] >>
      simp[cut_at_null_thm] >>
      qmatch_goalsub_abbrev_tac `one(FFI_part s u ns newevents)` >>
-     MAP_EVERY qexists_tac [`cut_at_null_w(TAKE 256 newinit)`,`W8ARRAY v' newinit`,`s`,`u`,`ns`,`newevents`] >>
-     unabbrev_all_tac >> simp[] >> xsimpl >>
-     simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle] >>
-     xsimpl >>
+     MAP_EVERY qexists_tac [`[[]]`,`W8ARRAY v' newinit`,`s`,`u`,`emit_string_sig`,`ns`,
+                            `[C_arrayv (cut_at_null_w (TAKE 256 newinit)); C_arrayv []]`,
+                            `newevents`] >>
+     unabbrev_all_tac >>
+     simp[filter_cf_oracle,decode_encode_oracle_state_11,filter_oracle,
+          signatures_def,accept_call_sig_def,emit_string_sig_def,
+          mllistTheory.FIND_thm,ffiTheory.get_mut_args_def,
+          ffiTheory.is_mutty_def,W8ARRAYS_def,remdups_def,
+          semanticPrimitivesTheory.get_ret_val_def] >>
      fs[match_string_eq] >>
      fs[cut_at_null_w_thm,MAP_MAP_o,CHR_w2n_n2w_ORD,implode_def] >>
      fs[null_terminated_w_thm,implode_def] >>
@@ -1200,11 +1264,15 @@ Proof
      rfs[GSYM strlit_STRCAT,null_terminated_cut_APPEND] >>
      simp[toList_THM] >>
      PURE_REWRITE_TAC[GSYM APPEND_ASSOC,APPEND,SNOC_APPEND] >>
-     xsimpl >>
+     conj_tac >> hpullr_keep >> xsimpl >-
+       (rw[STAR_def,SEP_EXISTS,W8ARRAY_def,SPLIT_def,cond_def] >>
+        rw[get_cargs_heap_def,get_carg_heap_def,ffiTheory.is_mutty_def,
+           semanticPrimitivesTheory.get_ret_val_def,o_DEF,IMPLODE_EXPLODE_I]) >>
      qmatch_goalsub_abbrev_tac `events ++ x` >>
      qexists_tac `x` >> simp[Abbr `x`] >>
-     simp[is_emit_def] >> xsimpl >>
-     simp[output_event_of_def,cut_at_null_w_thm,implode_def]
+     simp[is_emit_def] >>
+     simp[output_event_of_def,cut_at_null_w_thm,implode_def] >>
+     xsimpl
     ) >>
   xapp >>
   xsimpl >>
@@ -1223,17 +1291,17 @@ QED
 val seL4_proj1_def = Define `
   seL4_proj1 = (λffi.
     FEMPTY |++ (mk_proj1 (encode_oracle_state,decode_oracle_state,
-                          [("accept_call", filter_oracle "accept_call");
-                           ("emit_string", filter_oracle "emit_string")]) ffi))`;
+                          [("accept_call", filter_oracle "accept_call", accept_call_sig);
+                           ("emit_string", filter_oracle "emit_string", emit_string_sig)]) ffi))`;
 
 val seL4_proj2 = Define `seL4_proj2 =
-  [(["accept_call";"emit_string"],filter_cf_oracle)]`
+  [(signatures,filter_cf_oracle)]`
 
 val filter_ffi_state_def = Define `filter_ffi input =
-  <|oracle:=filter_oracle; ffi_state := input; io_events := []|>`;
+  <|oracle:=filter_oracle; ffi_state := input; io_events := []; signatures := signatures|>`;
 
 Theorem limited_parts_proj:
-  limited_parts ["accept_call";"emit_string"] (seL4_proj1,seL4_proj2)
+  limited_parts signatures (seL4_proj1,seL4_proj2)
 Proof
   rw[limited_parts_def,seL4_proj2]
 QED
@@ -1244,11 +1312,16 @@ Proof
   rw[cfStoreTheory.parts_ok_def,seL4_proj1_def,seL4_proj2,filter_ffi_state_def,
      cfStoreTheory.ffi_has_index_in_def,mk_proj1_def,FLOOKUP_UPDATE,
      FUPDATE_LIST_THM,FAPPLY_FUPDATE_THM,decode_encode_oracle_state_11,
-     filter_oracle,filter_cf_oracle]
-  >- metis_tac[NOT_SOME_NONE]
-  >> rw[] >> fs[] >> rveq >> fs[]
-  >> every_case_tac >> fs[] >> rveq >> fs[LENGTH_TAKE_EQ]
-  >> rw[fmap_eq_flookup,FLOOKUP_UPDATE]
+     filter_oracle,filter_cf_oracle,signatures_def,emit_string_sig_def,
+     accept_call_sig_def,mllistTheory.FIND_thm,DISJ_IMP_THM,
+     FORALL_AND_THM,ffiTheory.mut_len_def,ffiTheory.args_ok_def,
+     ffiTheory.arg_ok_def,ffiTheory.is_mutty_def,ffiTheory.als_ok_def
+    ] >>
+  fs[CaseEq "oracle_result",CaseEq "ffi_outcome",decode_encode_oracle_state_11,
+     ffiTheory.arg_ok_def,ffiTheory.is_mutty_def] >>
+  rveq >> fs[] >>
+  every_case_tac >> fs[filter_oracle,CaseEq "bool"] >> rveq >> fs[ffiTheory.ret_ok_def] >>
+  rw[fmap_eq_flookup,FLOOKUP_UPDATE] >> rw[] >> fs[LENGTH_TAKE_EQ]
 QED
 
 Theorem forward_matching_lines_semantics:
@@ -1278,15 +1351,16 @@ Proof
        fetch "-" "filterProg_st_def",parts_ok_filter] >>
   qmatch_goalsub_abbrev_tac `FFI_split INSERT FFIset` >>
   `FFIset = {FFI_part (encode_oracle_state <|input:= input|>) filter_cf_oracle
-                      ["accept_call"; "emit_string"] []}`
-    by(unabbrev_all_tac >> rw[FUN_EQ_THM,EQ_IMP_THM] >-
-        (pairarg_tac >> fs[seL4_proj2] >> rveq >>
-         first_x_assum(qspec_then `"accept_call"` mp_tac) >>
-         simp[seL4_proj1_def,mk_proj1_def] >>
-         simp[FLOOKUP_UPDATE,FUPDATE_LIST_THM,filter_ffi_state_def]) >>
+                      signatures []}`
+    by(unabbrev_all_tac >> rw[FUN_EQ_THM,EQ_IMP_THM,signatures_def] >-
+        (pairarg_tac >> fs[seL4_proj2,seL4_proj1_def,signatures_def] >> rveq >>
+         fs[DISJ_IMP_THM,FORALL_AND_THM,FLOOKUP_UPDATE,FUPDATE_LIST_THM,
+            accept_call_sig_def,emit_string_sig_def,mk_proj1_def,
+            filter_ffi_state_def]) >>
        Q.REFINE_EXISTS_TAC `(s,u,ns,ts)` >>
        rw[seL4_proj2,filter_ffi_state_def,seL4_proj1_def,mk_proj1_def,
-          FLOOKUP_UPDATE,FUPDATE_LIST_THM,filter_ffi_state_def]) >>
+          FLOOKUP_UPDATE,FUPDATE_LIST_THM,filter_ffi_state_def,signatures_def,
+          emit_string_sig_def,accept_call_sig_def] >> rw[]) >>
   simp[] >> pop_assum kall_tac >> unabbrev_all_tac >>
   qmatch_goalsub_abbrev_tac `(Mem dummyarr _ INSERT junk) ∪ {_;FFIpart}` >>
   disch_then(qspecl_then [`FFI_split INSERT junk`,
@@ -1365,7 +1439,7 @@ Theorem forward_matching_lines_ffidiv_semantics:
  semantics_prog (^(get_state st) with ffi := (filter_ffi <|input:=input|>)) ^(get_env st)
   [Dlet unknown_loc (Pcon NONE [])
            (App Opapp [Var (Short "forward_matching_lines"); Con NONE []])]
-  (Terminate (FFI_outcome(Final_event "accept_call" [] bytes FFI_diverged))
+  (Terminate (FFI_outcome(Final_event "accept_call" [C_arrayv []; bytes] FFI_diverged))
              events) /\
  LFILTER is_emit (fromList events) = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) input)
 Proof
@@ -1384,15 +1458,16 @@ Proof
        fetch "-" "filterProg_st_def",parts_ok_filter] >>
   qmatch_goalsub_abbrev_tac `FFI_split INSERT FFIset` >>
   `FFIset = {FFI_part (encode_oracle_state <|input:= input|>) filter_cf_oracle
-                      ["accept_call"; "emit_string"] []}`
-    by(unabbrev_all_tac >> rw[FUN_EQ_THM,EQ_IMP_THM] >-
-        (pairarg_tac >> fs[seL4_proj2] >> rveq >>
-         first_x_assum(qspec_then `"accept_call"` mp_tac) >>
-         simp[seL4_proj1_def,mk_proj1_def] >>
-         simp[FLOOKUP_UPDATE,FUPDATE_LIST_THM,filter_ffi_state_def]) >>
+                      signatures []}`
+    by(unabbrev_all_tac >> rw[FUN_EQ_THM,EQ_IMP_THM,signatures_def] >-
+        (pairarg_tac >> fs[seL4_proj2,seL4_proj1_def,signatures_def] >> rveq >>
+         fs[DISJ_IMP_THM,FORALL_AND_THM,FLOOKUP_UPDATE,FUPDATE_LIST_THM,
+            accept_call_sig_def,emit_string_sig_def,mk_proj1_def,
+            filter_ffi_state_def]) >>
        Q.REFINE_EXISTS_TAC `(s,u,ns,ts)` >>
        rw[seL4_proj2,filter_ffi_state_def,seL4_proj1_def,mk_proj1_def,
-          FLOOKUP_UPDATE,FUPDATE_LIST_THM,filter_ffi_state_def]) >>
+          FLOOKUP_UPDATE,FUPDATE_LIST_THM,filter_ffi_state_def,signatures_def,
+          emit_string_sig_def,accept_call_sig_def] >> rw[]) >>
   simp[] >> pop_assum kall_tac >> unabbrev_all_tac >>
   qmatch_goalsub_abbrev_tac `(Mem dummyarr _ INSERT junk) ∪ {_;FFIpart}` >>
   disch_then(qspecl_then [`FFI_split INSERT junk`,
@@ -1434,7 +1509,8 @@ Proof
   asm_exists_tac >> simp[] >>
   CONV_TAC SWAP_EXISTS_CONV >>
   qexists_tac `SUC ck` >>
-  fs[evaluate_ck_def]
+  fs[evaluate_ck_def,quantHeuristicsTheory.LIST_LENGTH_2] >>
+  rveq >> fs[]
 QED
 
 val semantics_diverge_filter = Q.store_thm("semantics_diverge_filter",
