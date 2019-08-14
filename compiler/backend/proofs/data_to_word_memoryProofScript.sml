@@ -271,12 +271,13 @@ val all_ts_def = Define`
 
 (* THIS IS IMPORTANT *)
 val bc_stack_ref_inv_def = Define `
-  bc_stack_ref_inv conf stack refs (roots, heap, be) =
+  bc_stack_ref_inv conf ts stack refs (roots, heap, be) =
     ?f tf.
       INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap) } /\
       FDOM f SUBSET FDOM refs /\
       INJ (FAPPLY tf) (FDOM tf) { a | isSomeDataElement (heap_lookup a heap) } /\
       FDOM tf SUBSET (all_ts refs stack) /\
+      FDOM tf SUBSET { n | n < ts } /\
       EVERY2 (\v x. v_inv conf v (x,f,tf,heap)) stack roots /\
       !n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)`;
 
@@ -318,11 +319,11 @@ val gc_kind_inv_def = Define `
                 EVERY (\x. ~isRef x) h1 /\ EVERY isRef h2`;
 
 val abs_ml_inv_def = Define `
-  abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit <=>
+  abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts <=>
     roots_ok roots heap /\ heap_ok heap limit /\
     gc_kind_inv conf a sp sp1 gens heap /\
     unused_space_inv a (sp+sp1) heap /\
-    bc_stack_ref_inv conf stack refs (roots,heap,be)`;
+    bc_stack_ref_inv conf ts stack refs (roots,heap,be)`;
 
 (* --- *)
 
@@ -616,9 +617,9 @@ val reachable_refs_lemma = Q.prove(
 
 val bc_stack_ref_inv_related = Q.prove(
   `gc_related g heap1 heap2 /\
-    bc_stack_ref_inv conf stack refs (roots,heap1,be) /\
+    bc_stack_ref_inv conf ts stack refs (roots,heap1,be) /\
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
-    bc_stack_ref_inv conf stack refs (ADDR_MAP (FAPPLY g) roots,heap2,be)`,
+    bc_stack_ref_inv conf ts stack refs (ADDR_MAP (FAPPLY g) roots,heap2,be)`,
   rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ qexists_tac `g f_o_f f`
   \\ qexists_tac `g f_o_f tf`
@@ -626,6 +627,7 @@ val bc_stack_ref_inv_related = Q.prove(
   THEN1 (full_simp_tac (srw_ss()) [INJ_DEF,gc_related_def,f_o_f_DEF])
   THEN1 (full_simp_tac (srw_ss()) [f_o_f_DEF,SUBSET_DEF])
   THEN1 (full_simp_tac (srw_ss()) [INJ_DEF,gc_related_def,f_o_f_DEF])
+  THEN1 (full_simp_tac (srw_ss()) [f_o_f_DEF,SUBSET_DEF])
   THEN1 (full_simp_tac (srw_ss()) [f_o_f_DEF,SUBSET_DEF])
   THEN1
    (full_simp_tac std_ss [ONCE_REWRITE_RULE [CONJ_COMM] EVERY2_EVERY,
@@ -645,13 +647,13 @@ Proof
 QED
 
 Theorem full_gc_thm:
-   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
    conf.gc_kind = Simple ==>
     ?roots2 heap2 a2.
       (full_gc (roots,heap,limit) = (roots2,heap2,a2,T)) /\
        abs_ml_inv conf stack refs
         (roots2,heap2 ++ heap_expand (limit - a2),be,
-         a2,limit - a2,0,gens) limit /\
+         a2,limit - a2,0,gens) limit ts /\
       (heap_length heap2 = a2) /\
       (heap_length (heap_filter (reachable_addresses roots heap) heap) =
        heap_length heap2)
@@ -818,12 +820,12 @@ Proof
 QED
 
 Theorem gen_gc_thm:
-   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ==>
+   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts ==>
     ?roots2 state2.
       (gen_gc (make_gc_conf limit) (roots,heap) = (roots2,state2)) /\
       abs_ml_inv conf stack refs
         (roots2,state2.h1 ++ heap_expand state2.n ++ state2.r1,be,
-         state2.a,state2.n,0,reset_gens conf state2.a) limit /\ state2.ok /\
+         state2.a,state2.n,0,reset_gens conf state2.a) limit ts /\ state2.ok /\
       (heap_length (state2.h1 ⧺ state2.r1) =
        heap_length (heap_filter (reachable_addresses roots heap) heap))
 Proof
@@ -905,7 +907,7 @@ val isRef_heap_expand = prove(
   Cases \\ EVAL_TAC \\ fs [] \\ EVAL_TAC);
 
 Theorem gen_gc_partial_thm:
-   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
    has_gen gens /\ conf.gc_kind = Generational xs ==>
     ?roots2 state2.
       partial_gc
@@ -913,7 +915,7 @@ Theorem gen_gc_partial_thm:
         (roots,heap) = (roots2,state2) /\
       abs_ml_inv conf stack refs
         (roots2,state2.old ++ state2.h1 ++ heap_expand state2.n ++ state2.r1,be,
-         state2.a,state2.n,0,reset_gens conf state2.a) limit /\ state2.ok
+         state2.a,state2.n,0,reset_gens conf state2.a) limit ts /\ state2.ok
 Proof
   simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC,make_gc_conf_def]
   \\ rpt strip_tac \\ qmatch_goalsub_abbrev_tac `partial_gc cc`
@@ -1040,13 +1042,13 @@ Proof
 QED
 
 Theorem gc_combined_thm:
-   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
    (do_partial ==> has_gen gens) ==>
     ?roots2 heap2 gens2 n2 a2.
       (gc_combined (make_gc_conf limit) conf.gc_kind
             (roots,heap,gens,a+sp+sp1,do_partial) =
          (roots2,heap2,a2,n2,gens2,T)) /\
-      abs_ml_inv conf stack refs (roots2,heap2,be,a2,n2,0,gens2) limit
+      abs_ml_inv conf stack refs (roots2,heap2,be,a2,n2,0,gens2) limit ts
 Proof
   Cases_on `conf.gc_kind` \\ fs [gc_combined_def]
   THEN1
@@ -2119,6 +2121,20 @@ Proof
         \\ Cases_on `y` \\ fs [])
 QED
 
+Theorem v_inv_tf_update_thm:
+  ∀v y f tf heap ts' a conf.
+    v_inv conf v (y,f,tf,heap) ∧ ts' ∉ FDOM tf ⇒
+    v_inv conf v (y,f, tf |+ (ts', a),heap)
+Proof
+  recInduct (fetch "-" "v_inv_ind") \\ fs [v_inv_def] \\ rw [] \\ rw []
+  \\ fs [FLOOKUP_UPDATE]
+  \\ CASE_TAC THEN1 fs [FLOOKUP_DEF]
+  \\ qexists_tac `xs` \\ fs []
+  \\ qpat_x_assum `LIST_REL _ _ _` mp_tac
+  \\ match_mp_tac EVERY2_IMP_EVERY2
+  \\ rw [] \\ res_tac \\ fs []
+QED
+
 Theorem v_inv_tf_update:
   ∀y f tf heap heap1 a stack conf ts ts' tag xs refs.
      (Block ts tag xs) ∈ (all_vs refs stack) ∧
@@ -2188,29 +2204,8 @@ Proof
      \\ fs [FLOOKUP_DRESTRICT])
 QED
 
-Theorem v_inv_ts_eq:
-  ∀x y f tf ts heap heap1 a stack conf refs.
-    x ∈ all_vs refs stack ∧
-    ts ∉ all_ts refs stack ∧
-    heap_store_rel heap heap1 ∧
-    v_inv conf x (y,f,tf,heap)
-    ⇒ v_inv conf x (y,f, tf |+ (ts, a),heap1)
-Proof
-  rw [] \\ Cases_on `∃ts' tag xs. x = Block ts' tag xs`
-  >- (fs [] \\ rveq
-     \\ ho_match_mp_tac heap_store_rel_v_inv \\ rw []
-     \\ drule_then (drule_then drule) v_inv_tf_update \\ rw [])
-  >- (Cases_on `x`
-     \\ fs [ v_inv_def,heap_store_rel_def
-           , isSomeDataElement_def
-           , Bignum_def,Word64Rep_def]
-     \\ TRY (pairarg_tac \\ fs [])
-     \\ every_case_tac \\ fs [])
-QED
-
 Theorem cons_thm_alt:
-   abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
-    ts ∉ (all_ts refs (xs ++ stack)) /\
+   abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     LENGTH xs < sp /\ xs <> [] ==>
     ?rs roots2 heap2.
       (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
@@ -2219,10 +2214,14 @@ Theorem cons_thm_alt:
         ((Block ts tag xs)::stack) refs
         (Pointer a (Word (ptr_bits conf tag (LENGTH xs)))::roots2,
          heap2,be,a+el_length (BlockRep tag rs),
-         sp-el_length (BlockRep tag rs),sp1,gens) limit
+         sp-el_length (BlockRep tag rs),sp1,gens) limit (ts + 1)
 Proof
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
+  \\ `~(ts IN FDOM tf)` by
+     (qpat_x_assum `FDOM tf ⊆ _` mp_tac
+      \\ rpt (pop_assum kall_tac)
+      \\ rw [SUBSET_DEF] \\ CCONTR_TAC \\ fs [] \\ res_tac \\ fs [])
   \\ imp_res_tac LIST_REL_SPLIT1 \\ full_simp_tac std_ss []
   \\ Q.LIST_EXISTS_TAC [`ys1`,`ys2`] \\ full_simp_tac std_ss []
   \\ imp_res_tac EVERY2_LENGTH \\ full_simp_tac std_ss []
@@ -2271,29 +2270,35 @@ Proof
     \\ fs [SUBSET_DEF])
   \\ rpt strip_tac
   THEN1
-   (fs [INJ_DEF] \\ rw []
-    \\ fs [FAPPLY_FUPDATE_THM]
-    \\ metis_tac [] (* Slow *))
+   (qpat_x_assum `INJ ($' tf) (FDOM tf) _` mp_tac
+    \\ rewrite_tac [INJ_DEF]
+    \\ simp_tac (srw_ss()) [FAPPLY_FUPDATE_THM]
+    \\ metis_tac [])
   THEN1 (rw [FDOM_FUPDATE,SUBSET_INSERT_RIGHT,all_ts_cons])
+  THEN1 (fs [] \\ fs [SUBSET_DEF] \\ rw [] \\ res_tac \\ fs [])
   THEN1
    (full_simp_tac (srw_ss()) [v_inv_def]
     \\ full_simp_tac std_ss [BlockRep_def,el_length_def]
     \\ qexists_tac `ys1` \\ full_simp_tac std_ss []
-    \\ full_simp_tac std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS]
+    \\ full_simp_tac std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS,FLOOKUP_UPDATE]
     \\ rpt strip_tac
-    >- (`MEM (EL n xs) (xs ++ stack)` by rw [EL_MEM]
-       \\ ho_match_mp_tac v_inv_ts_eq
-       \\ map_every qexists_tac [`heap`,`xs ++ stack`,`refs`]
-       \\ rw [all_vs_def,MEM_v_all_vs])
-    >- rw [FLOOKUP_UPDATE])
+    \\ match_mp_tac v_inv_tf_update_thm \\ asm_rewrite_tac []
+    \\ match_mp_tac (GEN_ALL v_inv_SUBMAP)
+    \\ goal_assum (first_x_assum o mp_then Any mp_tac)
+    \\ qexists_tac `tf`
+    \\ qexists_tac `f`
+    \\ rewrite_tac [SUBMAP_REFL]
+    \\ first_x_assum match_mp_tac
+    \\ asm_rewrite_tac [])
   THEN1
    (full_simp_tac std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS]
     \\ `f SUBMAP f` by full_simp_tac std_ss [SUBMAP_REFL]
     \\ rpt strip_tac \\ res_tac
     \\ `MEM (EL n stack) (xs ++ stack)` by (rw [EL_MEM])
-    \\ ho_match_mp_tac v_inv_ts_eq
-    \\ map_every qexists_tac [`heap`,`xs ++ stack`,`refs`]
-    \\ rw [all_vs_def,MEM_v_all_vs])
+    \\ match_mp_tac v_inv_tf_update_thm \\ asm_rewrite_tac []
+    \\ match_mp_tac (GEN_ALL v_inv_SUBMAP)
+    \\ goal_assum (first_x_assum o mp_then Any mp_tac)
+    \\ fs [])
   \\ `reachable_refs (xs++stack) refs n` by
    (POP_ASSUM MP_TAC \\ simp_tac std_ss [reachable_refs_def]
     \\ rpt strip_tac \\ full_simp_tac std_ss [MEM] THEN1
@@ -2311,19 +2316,19 @@ Proof
     \\ qpat_x_assum `EVERY2 PP zs l` MP_TAC
     \\ match_mp_tac EVERY2_IMP_EVERY2 \\ full_simp_tac (srw_ss()) []
     \\ rpt strip_tac \\ res_tac
-    \\ ho_match_mp_tac v_inv_ts_eq
-    \\ map_every qexists_tac [`heap`,`xs++stack`,`refs`]
-    \\ rw [all_vs_def]
-    \\ metis_tac [all_vs_def,MEM_v_all_vs])
+    \\ match_mp_tac v_inv_tf_update_thm \\ asm_rewrite_tac []
+    \\ match_mp_tac (GEN_ALL v_inv_SUBMAP)
+    \\ goal_assum (first_x_assum o mp_then Any mp_tac)
+    \\ fs [])
   \\ fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma
   \\ metis_tac []
 QED
 
 Theorem cons_thm_EMPTY:
-   abs_ml_inv conf stack refs (roots,heap:'a ml_heap,be,a,sp,sp1,gens) limit /\
+   abs_ml_inv conf stack refs (roots,heap:'a ml_heap,be,a,sp,sp1,gens) limit ts /\
     tag < dimword (:'a) DIV 16 ==>
     abs_ml_inv conf ((Block 0 tag [])::stack) refs
-      (Data (Word (BlockNil tag))::roots,heap,be,a,sp,sp1,gens) limit
+      (Data (Word (BlockNil tag))::roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
@@ -2342,7 +2347,7 @@ QED
 (* word64 *)
 
 Theorem word64_alt_thm:
-   abs_ml_inv conf (ws ++ stack) refs (rs ++ roots,heap,be,a,sp,sp1,gens) limit ∧
+   abs_ml_inv conf (ws ++ stack) refs (rs ++ roots,heap,be,a,sp,sp1,gens) limit ts ∧
    LENGTH ws = LENGTH rs ∧
    (Word64Rep (:'a) w64 :'a ml_el) = DataElement [] len (Word64Tag,xs) ∧
    LENGTH xs < sp
@@ -2351,7 +2356,7 @@ Theorem word64_alt_thm:
      heap_store_unused_alt a (sp + sp1) (Word64Rep (:'a) w64) heap = (heap2,T) ∧
      abs_ml_inv conf (Word64 w64::stack) refs
        (Pointer a (Word 0w)::roots,heap2,
-        be,a + len + 1,sp - len - 1,sp1,gens) limit
+        be,a + len + 1,sp - len - 1,sp1,gens) limit ts
 Proof
   rw[abs_ml_inv_def]
   \\ qpat_abbrev_tac`wr = DataElement _ _ _`
@@ -2416,6 +2421,8 @@ Proof
   \\ conj_tac
   >- (fs [all_ts_cons_no_block,DRESTRICT_DEF])
   \\ conj_tac
+  >- (fs [all_ts_cons_no_block,DRESTRICT_DEF,SUBSET_DEF,IN_INTER])
+  \\ conj_tac
   >- (
     simp[v_inv_def]
     \\ match_mp_tac EVERY2_MEM_MONO
@@ -2461,14 +2468,14 @@ QED
 (* bignum *)
 
 Theorem bignum_alt_thm:
-   abs_ml_inv conf (ws ++ stack) refs (rs ++ roots,heap,be,a,sp,sp1,gens) limit ∧
+   abs_ml_inv conf (ws ++ stack) refs (rs ++ roots,heap,be,a,sp,sp1,gens) limit ts ∧
    LENGTH ws = LENGTH rs ∧ ¬small_int (:α) i ∧
    (Bignum i :α ml_el) = DataElement [] len (tag,xs) ∧
    LENGTH xs < sp ⇒
    ∃heap2.
    heap_store_unused_alt a (sp+sp1) (Bignum i) heap = (heap2,T) ∧
    abs_ml_inv conf (Number i::stack) refs
-     (Pointer a (Word (0w:α word))::roots,heap2,be,a+len+1,sp-len-1,sp1,gens) limit
+     (Pointer a (Word (0w:α word))::roots,heap2,be,a+len+1,sp-len-1,sp1,gens) limit ts
 Proof
   rw[abs_ml_inv_def]
   \\ qmatch_assum_abbrev_tac`br = DataElement _ _ _`
@@ -2534,6 +2541,8 @@ Proof
   >- fs[INJ_DEF,DRESTRICT_DEF]
   \\ conj_tac
   >- (fs [all_ts_cons_no_block,DRESTRICT_DEF])
+  \\ conj_tac
+  >- (fs [all_ts_cons_no_block,DRESTRICT_DEF,SUBSET_DEF,IN_INTER])
   \\ conj_tac
   >- (
     simp[v_inv_def]
@@ -2866,13 +2875,13 @@ QED
 
 Theorem update_ref_thm:
    abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) refs
-    (roots,heap,be,a,sp,sp1,gens) limit /\
+    (roots,heap,be,a,sp,sp1,gens) limit ts /\
     (FLOOKUP refs ptr = SOME (ValueArray xs1)) /\ (LENGTH xs = LENGTH xs1) ==>
     ?p rs roots2 heap2 u.
       (roots = rs ++ Pointer p u :: roots2) /\
       (heap_store p [RefBlock rs] heap = (heap2,T)) /\
       abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
-        (roots,heap2,be,a,sp,sp1,gens) limit
+        (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -2941,6 +2950,7 @@ Proof
   THEN1 (fs [SUBSET_DEF])
   THEN1 (fs [INJ_DEF,DRESTRICT_DEF])
   THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF])
+  THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF,SUBSET_DEF,IN_INTER])
   >- (match_mp_tac EVERY2_MEM_MONO
      \\ imp_res_tac LIST_REL_APPEND_IMP
      \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
@@ -3000,7 +3010,7 @@ val heap_deref_def = Define `
 
 Theorem update_ref_thm1:
    abs_ml_inv conf (xs ++ RefPtr ptr::stack) refs
-    (roots,heap,be,a,sp,sp1,gens) limit /\
+    (roots,heap,be,a,sp,sp1,gens) limit ts /\
     (FLOOKUP refs ptr = SOME (ValueArray xs1)) /\ i < LENGTH xs1 /\ 0 < LENGTH xs
     ==>
     ?p rs roots2 vs1 heap2 u.
@@ -3009,7 +3019,7 @@ Theorem update_ref_thm1:
       (heap_store p [RefBlock (LUPDATE (HD rs) i vs1)] heap = (heap2,T)) /\
       abs_ml_inv conf (xs ++ (RefPtr ptr)::stack)
         (refs |+ (ptr,ValueArray (LUPDATE (HD xs) i xs1)))
-        (roots,heap2,be,a,sp,sp1,gens) limit
+        (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -3083,6 +3093,7 @@ Proof
   THEN1 (fs [SUBSET_DEF])
   THEN1 (fs [INJ_DEF,DRESTRICT_DEF])
   THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF])
+  THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF,SUBSET_DEF,IN_INTER])
   >- (match_mp_tac EVERY2_MEM_MONO
      \\ imp_res_tac LIST_REL_APPEND_IMP
      \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
@@ -3230,14 +3241,14 @@ val unused_space_inv_byte_update = prove(
   \\ rpt gen_tac \\ Cases_on `a = 0` \\ fs []);
 
 Theorem update_byte_ref_thm:
-   abs_ml_inv conf ((RefPtr ptr)::stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   abs_ml_inv conf ((RefPtr ptr)::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     (FLOOKUP refs ptr = SOME (ByteArray fl xs)) /\ (LENGTH xs = LENGTH ys) ==>
     ?roots2 h1 h2 ws.
       (roots = Pointer (heap_length h1) ((Word 0w):'a word_loc) :: roots2) /\
       heap = h1 ++ [Bytes be fl xs ws] ++ h2 /\
       (* LENGTH ws = LENGTH xs DIV (dimindex (:α) DIV 8) + 1 /\ *)
       abs_ml_inv conf ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray fl ys))
-        (roots,h1 ++ [Bytes be fl ys ws] ++ h2,be,a,sp,sp1,gens) limit
+        (roots,h1 ++ [Bytes be fl ys ws] ++ h2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -3297,6 +3308,7 @@ Proof
   THEN1 (imp_res_tac unused_space_inv_byte_update \\ fs [])
   THEN1 (fs [INJ_DEF,DRESTRICT_DEF])
   THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF])
+  THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF,SUBSET_DEF,IN_INTER])
   THEN1
    (match_mp_tac EVERY2_MEM_MONO
     \\ imp_res_tac LIST_REL_APPEND_IMP
@@ -3422,14 +3434,14 @@ val heap_store_unused_gen_state_ok = prove(
 (* new ref *)
 
 Theorem new_ref_thm:
-   abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     ~(ptr IN FDOM refs) /\ LENGTH xs + 1 <= sp ==>
     ?p rs roots2 heap2.
       (roots = rs ++ roots2) /\ LENGTH rs = LENGTH xs /\
       (heap_store_unused a (sp+sp1) (RefBlock rs) heap = (heap2,T)) /\
       abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
                  (rs ++ Pointer (a+sp+sp1-(LENGTH xs + 1)) (Word 0w)::roots2,heap2,be,a,
-                  sp - (LENGTH xs + 1),sp1,gens) limit
+                  sp - (LENGTH xs + 1),sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -3499,6 +3511,8 @@ Proof
   THEN1 (fs [INJ_DEF,DRESTRICT_DEF,heap_store_rel_def])
   \\ strip_tac
   THEN1 (fs [DRESTRICT_DEF,SUBSET_DEF])
+  \\ strip_tac
+  THEN1 (fs [DRESTRICT_DEF,SUBSET_DEF,IN_INTER])
   \\ Q.ABBREV_TAC `f1 = f |+ (ptr,a + sp + sp1 - (LENGTH ys1 + 1))`
   \\ `f SUBMAP f1` by
    (Q.UNABBREV_TAC `f1` \\ full_simp_tac (srw_ss()) [SUBMAP_DEF,FAPPLY_FUPDATE_THM]
@@ -3604,16 +3618,16 @@ val heap_el_def = Define `
   (heap_el _ _ _ = (ARB,F))`;
 
 Theorem deref_thm:
-   abs_ml_inv conf (RefPtr ptr::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ==>
+   abs_ml_inv conf (RefPtr ptr::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts ==>
     ?r roots2.
       (roots = r::roots2) /\ ptr IN FDOM refs /\
       case refs ' ptr of
       | ByteArray _ _ => T
-      | ValueArray ts =>
-      !n. n < LENGTH ts ==>
+      | ValueArray vs =>
+      !n. n < LENGTH vs ==>
           ?y. (heap_el r n heap = (y,T)) /\
-                abs_ml_inv conf (EL n ts::RefPtr ptr::stack) refs
-                  (y::roots,heap,be,a,sp,sp1,gens) limit
+                abs_ml_inv conf (EL n vs::RefPtr ptr::stack) refs
+                  (y::roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ rpt strip_tac \\ Cases_on `roots` \\ full_simp_tac (srw_ss()) [LIST_REL_def]
@@ -3671,12 +3685,12 @@ QED
 (* el *)
 
 Theorem el_thm:
-   abs_ml_inv conf (Block ts n xs::stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   abs_ml_inv conf (Block t0 n xs::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     i < LENGTH xs ==>
     ?r roots2 y.
       (roots = r :: roots2) /\ (heap_el r i heap = (y,T)) /\
-      abs_ml_inv conf (EL i xs::Block ts n xs::stack) refs
-                      (y::roots,heap,be,a,sp,sp1,gens) limit
+      abs_ml_inv conf (EL i xs::Block t0 n xs::stack) refs
+                      (y::roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ rpt strip_tac \\ Cases_on `roots` \\ full_simp_tac (srw_ss()) [LIST_REL_def]
@@ -3698,13 +3712,14 @@ Proof
   \\ conj_tac
   THEN1 (
     `∀x y. FDOM tf ⊆ y ∧ x = y ⇒ FDOM tf ⊆ x` by metis_tac []
+    \\ qpat_x_assum `FDOM tf ⊆ _` kall_tac
     \\ pop_assum drule
     \\ disch_then ho_match_mp_tac
     \\ rw [FUN_EQ_THM,all_ts_def]
     \\ EQ_TAC
     >- (rw []
        >- metis_tac []
-       >- (qexists_tac `Block ts n xs` \\ rw [v_all_ts_def]
+       >- (qexists_tac `Block t0 n xs` \\ rw [v_all_ts_def]
           \\ disj2_tac \\ rw [ETA_THM]
           \\ ho_match_mp_tac v_all_vs_ts_list
           \\ qexists_tac `EL i xs` \\ rw []
@@ -3718,7 +3733,7 @@ Proof
   \\ full_simp_tac std_ss [reachable_refs_def]
   \\ reverse (Cases_on `x = EL i xs`)
   THEN1 (full_simp_tac std_ss [MEM] \\ metis_tac [])
-  \\ Q.LIST_EXISTS_TAC [`Block ts n xs`,`r`]
+  \\ Q.LIST_EXISTS_TAC [`Block t0 n xs`,`r`]
   \\ asm_simp_tac std_ss [MEM]
   \\ full_simp_tac std_ss [get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
   \\ qexists_tac `EL i xs` \\ full_simp_tac std_ss []
@@ -3729,7 +3744,7 @@ QED
 (* new byte array *)
 
 Theorem new_byte_alt_thm:
-   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\
+   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
     LENGTH bs ≤ ws * (dimindex (:α) DIV 8) ∧
     ws ≤ LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
     ~(ptr IN FDOM refs) /\ ws + 1 <= sp ==>
@@ -3738,7 +3753,7 @@ Theorem new_byte_alt_thm:
         (Bytes be fl bs (REPLICATE ws (0w:'a word))) heap = (heap2,T)) /\
       abs_ml_inv conf ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray fl bs))
                  (Pointer a (Word 0w)::roots,heap2,be,a + ws + 1,
-                  sp - (ws + 1),sp1,gens) limit
+                  sp - (ws + 1),sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -3804,6 +3819,7 @@ Proof
   \\ strip_tac THEN1 fs [INJ_DEF]
   \\ strip_tac THEN1
       (`∀x y. FDOM tf ⊆ y ∧ x = y ⇒ FDOM tf ⊆ x` by metis_tac []
+      \\ qpat_x_assum `FDOM tf ⊆ _` kall_tac
       \\ pop_assum drule
       \\ disch_then ho_match_mp_tac
       \\ rw [FUN_EQ_THM,all_ts_def]
@@ -3813,6 +3829,7 @@ Proof
          >- fs [v_all_ts_def]
          >- metis_tac [])
       \\ metis_tac [DOMSUB_NOT_IN_DOM])
+  \\ strip_tac THEN1 asm_rewrite_tac []
   \\ Q.ABBREV_TAC `f1 = f |+ (ptr,a)`
   \\ `f SUBMAP f1` by
    (Q.UNABBREV_TAC `f1` \\ full_simp_tac (srw_ss()) [SUBMAP_DEF,FAPPLY_FUPDATE_THM]
@@ -3861,9 +3878,9 @@ QED
 (* pop *)
 
 Theorem pop_thm:
-   abs_ml_inv conf (xs ++ stack) refs (rs ++ roots,heap,be,a,sp,sp1,gens) limit /\
+   abs_ml_inv conf (xs ++ stack) refs (rs ++ roots,heap,be,a,sp,sp1,gens) limit ts /\
     (LENGTH xs = LENGTH rs) ==>
-    abs_ml_inv conf (stack) refs (roots,heap,be,a,sp,sp1,gens) limit
+    abs_ml_inv conf (stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def,MEM_APPEND]
@@ -3874,6 +3891,8 @@ Proof
   >- fs [INJ_DEF,DRESTRICT_DEF]
   \\ conj_tac
   >- fs [SUBSET_DEF,DRESTRICT_DEF]
+  \\ conj_tac
+  >- fs [SUBSET_DEF,DRESTRICT_DEF,IN_INTER]
   \\ conj_tac
   >- (match_mp_tac EVERY2_MEM_MONO
      \\ imp_res_tac LIST_REL_APPEND_IMP
@@ -3914,7 +3933,7 @@ QED
 
 Theorem ref_eq_thm:
    abs_ml_inv conf (RefPtr p1::RefPtr p2::stack) refs
-      (r1::r2::roots,heap,be,a,sp,sp1,gens) limit ==>
+      (r1::r2::roots,heap,be,a,sp,sp1,gens) limit ts ==>
     ((p1 = p2) <=> (r1 = r2)) /\
     ?p1 p2. r1 = Pointer p1 (Word 0w) /\ r2 = Pointer p2 (Word 0w)
 Proof
@@ -3925,7 +3944,7 @@ QED
 
 Theorem num_eq_thm:
     abs_ml_inv conf (Number i1::Number i2::stack) refs
-      (r1::r2::roots,heap,be,a,sp,sp1,gens) limit /\
+      (r1::r2::roots,heap,be,a,sp,sp1,gens) limit ts /\
     small_int (:'a) i1 /\
     small_int (:'a) i2 ==>
     ((i1 = i2) <=> (r1 = r2)) /\
@@ -3996,10 +4015,10 @@ QED
 Theorem abs_ml_inv_stack_permute:
   !xs ys.
       abs_ml_inv conf (MAP FST xs ++ stack) refs
-        (MAP SND xs ++ roots,heap,be,a,sp,sp1,gens) limit /\
+        (MAP SND xs ++ roots,heap,be,a,sp,sp1,gens) limit ts /\
       set ys SUBSET set xs ==>
       abs_ml_inv conf (MAP FST ys ++ stack) refs
-        (MAP SND ys ++ roots,heap,be,a,sp,sp1,gens) limit
+        (MAP SND ys ++ roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def]
@@ -4010,6 +4029,8 @@ Proof
   >- fs[INJ_DEF,DRESTRICT_DEF]
   \\ conj_tac
   >- fs[SUBSET_DEF,DRESTRICT_DEF]
+  \\ conj_tac
+  >- fs[SUBSET_DEF,DRESTRICT_DEF,IN_INTER]
   \\ conj_tac
   >- (full_simp_tac std_ss [LIST_REL_APPEND_EQ,LENGTH_MAP]
      \\ conj_tac
@@ -4064,9 +4085,9 @@ QED
 (* duplicate *)
 
 Theorem duplicate_thm:
-   abs_ml_inv conf (xs ++ stack) refs (rs ++ roots,heap,be,a,sp,sp1,gens) limit /\
-    (LENGTH xs = LENGTH rs) ==>
-    abs_ml_inv conf (xs ++ xs ++ stack) refs (rs ++ rs ++ roots,heap,be,a,sp,sp1,gens) limit
+   abs_ml_inv conf (xs ++ stack) refs (rs ++ roots,heap,be,a,sp,sp1,gens) limit ts /\
+   (LENGTH xs = LENGTH rs) ==>
+   abs_ml_inv conf (xs ++ xs ++ stack) refs (rs ++ rs ++ roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def] THEN1 metis_tac [MEM_APPEND]
@@ -4087,12 +4108,12 @@ val duplicate1_thm = save_thm("duplicate1_thm",
 Theorem move_thm:
    !xs1 rs1 xs2 rs2 xs3 rs3.
       abs_ml_inv conf (xs1 ++ xs2 ++ xs3 ++ stack) refs
-                      (rs1 ++ rs2 ++ rs3 ++ roots,heap,be,a,sp,sp1,gens) limit /\
+                      (rs1 ++ rs2 ++ rs3 ++ roots,heap,be,a,sp,sp1,gens) limit ts /\
       (LENGTH xs1 = LENGTH rs1) /\
       (LENGTH xs2 = LENGTH rs2) /\
       (LENGTH xs3 = LENGTH rs3) ==>
       abs_ml_inv conf (xs1 ++ xs3 ++ xs2 ++ stack) refs
-                      (rs1 ++ rs3 ++ rs2 ++ roots,heap,be,a,sp,sp1,gens) limit
+                      (rs1 ++ rs3 ++ rs2 ++ roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
   REPEAT GEN_TAC
   \\ full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
@@ -4107,7 +4128,7 @@ QED
 (* splits *)
 
 Theorem split1_thm:
-   abs_ml_inv conf (xs1 ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ==>
+   abs_ml_inv conf (xs1 ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts ==>
     ?rs1 roots1. (roots = rs1 ++ roots1) /\ (LENGTH rs1 = LENGTH xs1)
 Proof
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,GSYM APPEND_ASSOC]
@@ -4115,7 +4136,7 @@ Proof
 QED
 
 Theorem split2_thm:
-   abs_ml_inv conf (xs1 ++ xs2 ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ==>
+   abs_ml_inv conf (xs1 ++ xs2 ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts ==>
     ?rs1 rs2 roots1. (roots = rs1 ++ rs2 ++ roots1) /\
       (LENGTH rs1 = LENGTH xs1) /\ (LENGTH rs2 = LENGTH xs2)
 Proof
@@ -4124,7 +4145,7 @@ Proof
 QED
 
 Theorem split3_thm:
-   abs_ml_inv conf (xs1 ++ xs2 ++ xs3 ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ==>
+   abs_ml_inv conf (xs1 ++ xs2 ++ xs3 ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts ==>
     ?rs1 rs2 rs3 roots1. (roots = rs1 ++ rs2 ++ rs3 ++ roots1) /\
       (LENGTH rs1 = LENGTH xs1) /\ (LENGTH rs2 = LENGTH xs2) /\
       (LENGTH rs3 = LENGTH xs3)
@@ -4134,9 +4155,9 @@ Proof
 QED
 
 Theorem abs_ml_inv_Num:
-   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\ small_int (:α) i ==>
+   abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\ small_int (:α) i ==>
     abs_ml_inv conf (Number i::stack) refs
-      (Data (Word ((Smallnum i):'a word))::roots,heap,be,a,sp,sp1,gens) limit
+      (Data (Word ((Smallnum i):'a word))::roots,heap,be,a,sp,sp1,gens) limit ts
 Proof
   fs [abs_ml_inv_def,roots_ok_def,bc_stack_ref_inv_def,v_inv_def]
   \\ fs [reachable_refs_def]
@@ -4311,8 +4332,8 @@ val heap_in_memory_store_def = Define `
        word_heap other (heap_expand limit) c) (fun2set (m,dm))`
 
 val word_ml_inv_def = Define `
-  word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs stack <=>
-    ?hs. abs_ml_inv c (MAP FST stack) refs (hs,heap,be,a,sp,sp1,gens) limit /\
+  word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs stack <=>
+    ?hs. abs_ml_inv c (MAP FST stack) refs (hs,heap,be,a,sp,sp1,gens) limit ts /\
          EVERY2 (\v w. word_addr c v = w) hs (MAP SND stack)`
 
 Theorem IMP_THE_EQ:
@@ -4321,17 +4342,12 @@ Proof
   full_simp_tac(srw_ss())[]
 QED
 
-val timestamps_ok_def = Define`
-  timestamps_ok (refs : num |-> v ref) stack ts =
-    ∀t. t ∈ all_ts refs stack ⇒ t < ts`
-
 val memory_rel_def = Define `
   memory_rel c be ts refs space st (m:'a word -> 'a word_loc) dm vars <=>
     ∃heap limit a sp sp1 gens.
        heap_in_memory_store heap a sp sp1 gens c st m dm limit ∧
-       word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs vars ∧
-       (limit+3) * (dimindex (:α) DIV 8) + 1 < dimword (:α) ∧ space ≤ sp ∧
-       timestamps_ok refs (MAP FST vars) ts`
+       word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs vars ∧
+       (limit+3) * (dimindex (:α) DIV 8) + 1 < dimword (:α) ∧ space ≤ sp`
 
 Theorem EVERY2_MAP_MAP:
    !xs. EVERY2 P (MAP f xs) (MAP g xs) = EVERY (\x. P (f x) (g x)) xs
@@ -4373,8 +4389,8 @@ QED
 
 Theorem word_ml_inv_rearrange:
    (!x. MEM x ys ==> MEM x xs) ==>
-    word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs xs ==>
-    word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs ys
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs xs ==>
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs ys
 Proof
   full_simp_tac(srw_ss())[word_ml_inv_def] \\ srw_tac[][]
   \\ qexists_tac `MAP (\y. THE (ALOOKUP (ZIP(xs,hs)) y)) ys`
@@ -4389,7 +4405,7 @@ Proof
     \\ srw_tac[][] \\ qexists_tac `n'` \\ full_simp_tac(srw_ss())[EL_MAP]
     \\ match_mp_tac IMP_THE_EQ
     \\ imp_res_tac ALOOKUP_ZIP_EL)
-  \\ qpat_x_assum `abs_ml_inv c (MAP FST xs) refs (hs,heap,be,a,sp,sp1,gens) limit` mp_tac
+  \\ qpat_x_assum `abs_ml_inv c (MAP FST xs) refs (hs,heap,be,a,sp,sp1,gens) limit ts` mp_tac
   \\ `MAP FST ys = MAP FST (MAP (\y. FST y, THE (ALOOKUP (ZIP (xs,hs)) y)) ys) /\
       MAP (λy. THE (ALOOKUP (ZIP (xs,hs)) y)) ys =
         MAP SND (MAP (\y. FST y, THE (ALOOKUP (ZIP (xs,hs)) y)) ys)` by
@@ -4417,29 +4433,14 @@ Proof
   \\ match_mp_tac ALOOKUP_ZIP_EL \\ full_simp_tac(srw_ss())[]
 QED
 
-Theorem timestamps_ok_rearrange:
-     (∀x. MEM x ys ⇒ MEM x xs) ⇒
-     timestamps_ok refs xs ts ⇒
-     timestamps_ok refs ys ts
-Proof
-  rw [timestamps_ok_def]
-  \\ first_assum ho_match_mp_tac
-  \\ fs [all_ts_def]
-  \\ metis_tac []
-QED
-
 Theorem memory_rel_rearrange:
    (∀x. MEM x ys ⇒ MEM x xs) ⇒
    memory_rel c be ts refs sp st m dm xs ==>
    memory_rel c be ts refs sp st m dm ys
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
-  \\ conj_tac
-  >- (qpat_x_assum `word_ml_inv _ _ _ _ _` mp_tac
-     \\ match_mp_tac word_ml_inv_rearrange \\ fs [])
-  >- (qpat_x_assum `timestamps_ok _ _ _` mp_tac
-     \\ match_mp_tac timestamps_ok_rearrange
-     \\ metis_tac [MEM_MAP])
+  \\ qpat_x_assum `word_ml_inv _ _ _ _ _ _` mp_tac
+  \\ match_mp_tac word_ml_inv_rearrange \\ fs []
 QED
 
 Theorem memory_rel_tl:
@@ -4450,9 +4451,9 @@ Proof
 QED
 
 Theorem word_ml_inv_Unit:
-   word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs ws /\
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs ws /\
     good_dimindex (:'a) ==>
-    word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs
+    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs
       ((Unit,Word (2w:'a word))::ws)
 Proof
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
@@ -4470,10 +4471,7 @@ Theorem memory_rel_Unit:
    memory_rel c be ts refs sp st m dm ((Unit,Word (2w:'a word))::xs)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
-  \\ conj_tac
-  >- (match_mp_tac word_ml_inv_Unit \\ fs [])
-  \\ fs[timestamps_ok_def,dataSemTheory.Unit_def]
-  \\ rw[] \\ fs [all_ts_cons]
+  \\ match_mp_tac word_ml_inv_Unit \\ fs []
 QED
 
 Theorem get_lowerbits_LSL_shift_length:
@@ -4597,10 +4595,10 @@ Proof
 QED
 
 Theorem word_ml_inv_num:
-   word_ml_inv (heap,be,a,sp,sp1,gens) limit c s.refs ws /\
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c s.refs ws /\
     good_dimindex (:'a) /\
     small_enough_int (&n) ==>
-    word_ml_inv (heap,be,a,sp,sp1,gens) limit c s.refs
+    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c s.refs
       ((Number (&n),Word (n2w (4 * n):'a word))::ws)
 Proof
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
@@ -4630,10 +4628,10 @@ Proof
 QED
 
 Theorem word_ml_inv_neg_num:
-   word_ml_inv (heap,be,a,sp,sp1,gens) limit c s.refs ws /\
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c s.refs ws /\
     good_dimindex (:'a) /\
     small_enough_int (-&n) /\ n <> 0 ==>
-    word_ml_inv (heap,be,a,sp,sp1,gens) limit c s.refs
+    word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c s.refs
       ((Number (-&n),Word (-n2w (4 * n):'a word))::ws)
 Proof
   fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
@@ -4725,7 +4723,7 @@ Proof
   \\ disch_then kall_tac
   \\ `word_addr c v' = Word (n2w (4 * index))` by
    (imp_res_tac heap_lookup_SPLIT
-    \\ qpat_x_assum `abs_ml_inv _ _ _ _ _` kall_tac
+    \\ qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
@@ -4744,23 +4742,12 @@ Proof
   \\ imp_res_tac heap_lookup_SPLIT
   \\ rename1 `heap = ha ++ DataElement (ys1 ++ y::ys2) tt yy::hb`
   \\ PairCases_on `yy`
-  \\ qpat_x_assum `abs_ml_inv _ _ _ _ _` kall_tac
+  \\ qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
   \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
   \\ clean_tac
   \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
   \\ fs [word_list_def,word_list_APPEND]
   \\ SEP_R_TAC \\ fs []
-  \\ fs[timestamps_ok_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ qmatch_asmsub_abbrev_tac `all_ts refs (hv1::tv1)`
-  \\ `hv1 ∈ all_vs refs tv1`
-     by (UNABBREV_ALL_TAC
-        \\ rw [all_vs_def,v_all_vs_def]
-        \\ disj2_tac \\ disj2_tac \\ disj1_tac
-        \\ ho_match_mp_tac MEM_v_all_vs
-        \\ rw [EL_MEM])
-  \\ drule all_ts_head_eq
-  \\ rw []
 QED
 
 Theorem memory_rel_swap:
@@ -4800,7 +4787,7 @@ Proof
   \\ rpt_drule get_real_addr_get_addr \\ fs []
   \\ disch_then kall_tac
   \\ `word_addr c v' = Word (n2w (4 * index))` by
-   (qpat_x_assum `abs_ml_inv _ _ _ _ _` kall_tac
+   (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
@@ -4830,17 +4817,6 @@ Proof
   \\ Cases_on `b0` \\ fs [word_payload_def]
   \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES] \\ fs [SEP_F_def]
   \\ SEP_R_TAC \\ fs []
-  \\ rpt (fs[timestamps_ok_def] \\ rw []
-         \\ first_x_assum ho_match_mp_tac
-         \\ qmatch_asmsub_abbrev_tac `all_ts refs (hv1::tv1)`
-         \\ `hv1 ∈ all_vs refs tv1`
-         by (UNABBREV_ALL_TAC
-            \\ rw [all_vs_def,v_all_vs_def] \\ disj1_tac
-            \\ qexists_tac `nn` \\ rw [FLOOKUP_DEF]
-            \\ ho_match_mp_tac MEM_v_all_vs
-            \\ rw [EL_MEM])
-         \\ drule all_ts_head_eq
-         \\ rw [])
 QED
 
 Theorem LENGTH_EQ_1:
@@ -4952,7 +4928,7 @@ Proof
   \\ rpt_drule get_real_addr_get_addr \\ fs []
   \\ disch_then kall_tac
   \\ `word_addr c v'' = Word (n2w (4 * index)) /\ n = LENGTH l` by
-   (qpat_x_assum `abs_ml_inv _ _ _ _ _` kall_tac
+   (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
@@ -4991,25 +4967,6 @@ Proof
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ SEP_R_TAC \\ fs []
   \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
-  \\ imp_res_tac gc_kind_update_Ref \\ fs []
-  \\ fs[timestamps_ok_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_alt]
-  \\ qexists_tac `x` \\ rw []
-  \\ fs [all_vs_def]
-  \\ Cases_on `MEM x (v_all_vs [h])`
-  >- (disj2_tac \\ Cases_on `h` \\ fs [v_all_vs_def])
-  \\ disj1_tac \\ Cases_on `nn ≠ n` \\ fs [] \\ rveq
-  >- (map_every qexists_tac [`n`,`l`] \\ fs [FLOOKUP_UPDATE])
-  \\ map_every qexists_tac [`n`,`vals`] \\ rw [] \\ rfs []
-  \\ fs [FLOOKUP_UPDATE] \\ rveq
-  \\ `vals = TAKE (LENGTH ys1) vals ++
-             [EL (LENGTH ys1) vals] ++
-             DROP (LENGTH ys1 + 1) vals`
-      by rw [GSYM SEG1,GSYM TAKE_SEG_DROP]
-  \\ qmatch_asmsub_abbrev_tac `vals = x1 ++ [v1] ++ y1`
-  \\ `LENGTH ys1 = LENGTH x1` by (UNABBREV_ALL_TAC \\ rw [LENGTH_TAKE])
-  \\ fs [v_all_vs_append,lupdate_append2]
 QED
 
 val make_cons_ptr_def = Define `
@@ -5305,15 +5262,6 @@ Proof
   \\ simp[word_addr_def,make_ptr_def,get_addr_def,
            get_lowerbits_def,bytes_in_word_mul_eq_shift]
   \\ imp_res_tac EVERY2_SWAP \\ fs[]
-  \\ fs[timestamps_ok_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_alt]
-  \\ qexists_tac `x` \\ rw []
-  \\ fs [all_vs_def]
-  >- metis_tac []
-  \\ disj2_tac
-  \\ fs [v_all_vs_def,v_all_vs_append]
-  \\ rfs [v_all_ts_def]
 QED
 
 val memory_rel_WordOp64_alt =
@@ -5400,16 +5348,7 @@ val IMP_memory_rel_bignum_alt = Q.prove(
      \\ simp[AC STAR_ASSOC STAR_COMM])
   \\ simp[word_addr_def,make_ptr_def,get_addr_def,
           get_lowerbits_def,bytes_in_word_mul_eq_shift]
-  \\ imp_res_tac EVERY2_SWAP \\ fs[]
-  \\ fs[timestamps_ok_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_alt]
-  \\ qexists_tac `x'` \\ rw []
-  \\ fs [all_vs_def]
-  >- metis_tac []
-  \\ disj2_tac
-  \\ fs [v_all_vs_def,v_all_vs_append]
-  \\ rfs [v_all_ts_def]);
+  \\ imp_res_tac EVERY2_SWAP \\ fs[]);
 
 val IMP_memory_rel_bignum_alt = save_thm("IMP_memory_rel_bignum_alt",
   IMP_memory_rel_bignum_alt |> Q.INST [`vs`|->`[]`] |> SIMP_RULE std_ss [APPEND]);
@@ -5435,13 +5374,10 @@ Proof
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
   \\ fs [MAP_ZIP]
   \\ drule (GEN_ALL cons_thm_alt)
-  \\ disch_then (qspecl_then [`ts`,`tag`] strip_assume_tac)
+  \\ disch_then (qspecl_then [`tag`] strip_assume_tac)
   \\ rfs [] \\ fs [] \\ clean_tac
   \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
-  \\ `ts ∉ all_ts refs (vals ++ MAP FST vars)`
-     by (fs [timestamps_ok_def] \\ CCONTR_TAC \\ fs []
-        \\ first_x_assum drule \\ fs [])
   \\ fs []
   \\ asm_exists_tac \\ fs [word_addr_def]
   \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE]
@@ -5497,13 +5433,6 @@ Proof
   \\ fs [el_length_def,heap_length_APPEND,heap_length_heap_expand,
          GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,ADD1]
   \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
-  \\ rw [timestamps_ok_def]
-  \\ Cases_on `t = ts` \\ rw []
-  \\ ho_match_mp_tac LESS_TRANS
-  \\ qexists_tac `ts`
-  \\ rw [] \\ fs [timestamps_ok_def]
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_cons]
 QED
 
 Theorem memory_rel_Cons_empty:
@@ -5514,18 +5443,13 @@ Theorem memory_rel_Cons_empty:
 Proof
   fs [memory_rel_def] \\ rw []
   \\ asm_exists_tac \\ fs []
-  \\ conj_tac
-  >- (fs [word_ml_inv_def]
-     \\ rpt_drule cons_thm_EMPTY
-     \\ disch_then strip_assume_tac
-     \\ asm_exists_tac \\ fs []
-     \\ fs [word_addr_def,BlockNil_def,WORD_MUL_LSL,word_mul_n2w]
-     \\ fs [GSYM word_mul_n2w]
-     \\ match_mp_tac BlockNil_and_lemma \\ fs [])
-  \\ fs [timestamps_ok_def] \\ rw []
-  \\ Cases_on `t = 0` \\ fs []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_cons]
+  \\ fs [word_ml_inv_def]
+  \\ rpt_drule cons_thm_EMPTY
+  \\ disch_then strip_assume_tac
+  \\ asm_exists_tac \\ fs []
+  \\ fs [word_addr_def,BlockNil_def,WORD_MUL_LSL,word_mul_n2w]
+  \\ fs [GSYM word_mul_n2w]
+  \\ match_mp_tac BlockNil_and_lemma \\ fs []
 QED
 
 Theorem memory_rel_Ref:
@@ -5593,14 +5517,6 @@ Proof
   \\ pop_assum mp_tac \\ CONV_TAC (DEPTH_CONV ETA_CONV)
   \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
-  \\ rw [] \\ fs [timestamps_ok_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_cons_no_block,all_ts_alt]
-  \\ qexists_tac `x` \\ rw []
-  \\ fs [all_vs_def]
-  >- (Cases_on `n = new` \\ fs [FLOOKUP_UPDATE,v_all_vs_append]
-     \\ metis_tac [])
-  \\ disj2_tac \\ fs [v_all_vs_append]
 QED
 
 Theorem memory_rel_write:
@@ -5694,7 +5610,7 @@ Proof
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
   \\ fs [MAP_ZIP]
   \\ drule (GEN_ALL cons_thm_alt)
-  \\ disch_then (qspecl_then [`ts`,`tag`] strip_assume_tac)
+  \\ disch_then (qspecl_then [`tag`] strip_assume_tac)
   \\ rfs [] \\ fs [] \\ clean_tac
   \\ `?free curr. FLOOKUP st NextFree = SOME (Word free) ∧
                   FLOOKUP st CurrHeap = SOME (Word curr)` by
@@ -5702,9 +5618,6 @@ Proof
   \\ strip_tac
   \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ once_rewrite_tac [METIS_PROVE [] ``b2 /\ b1 /\ b3 <=> b1 /\ b2 /\ b3:bool``]
-  \\ `ts ∉ all_ts refs (vals ++ MAP FST vars)`
-     by (fs [timestamps_ok_def] \\ CCONTR_TAC \\ fs []
-        \\ first_x_assum drule \\ fs [])
   \\ fs []
   \\ asm_exists_tac \\ fs [word_addr_def]
   \\ fs [heap_in_memory_store_def,FLOOKUP_UPDATE]
@@ -5720,14 +5633,6 @@ Proof
   \\ fs [LIST_REL_APPEND_EQ,minus_lemma]
   \\ fs [bytes_in_word_mul_eq_shift]
   \\ fs [GSYM bytes_in_word_mul_eq_shift]
-  \\ reverse conj_tac
-  >- (rw [timestamps_ok_def]
-     \\ Cases_on `t = ts` \\ rw []
-     \\ ho_match_mp_tac LESS_TRANS
-     \\ qexists_tac `ts`
-     \\ rw [] \\ fs [timestamps_ok_def]
-     \\ first_x_assum ho_match_mp_tac
-     \\ fs [all_ts_cons])
   \\ conj_tac THEN1 (fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
   \\ fs [heap_store_unused_alt_def,el_length_def]
   \\ every_case_tac \\ fs []
@@ -6298,13 +6203,6 @@ Proof
   \\ fs [heap_length_def,el_length_def]
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
-  \\ fs [timestamps_ok_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_alt,all_vs_def]
-  >- (Cases_on `n'' = new` \\ fs [FLOOKUP_UPDATE]
-     \\ metis_tac [])
-  \\ qexists_tac `x` \\ rw [] \\ disj2_tac
-  \\ fs [v_all_vs_def] \\ rfs [v_all_ts_def]
 QED
 
 Theorem memory_rel_tail:
@@ -6363,25 +6261,12 @@ Proof
   \\ Cases_on `a` \\ fs [word_addr_def]
 QED
 
-Theorem timestamps_ok_cons_no_block:
-  ∀refs vars ts v.
-   timestamps_ok refs vars ts ∧ (∀ts tag vs. v ≠ Block ts tag vs)
-   ⇒ timestamps_ok refs (v::vars) ts
-Proof
-  fs [timestamps_ok_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_def]
-  >- metis_tac []
-  \\ qexists_tac `x` \\ rw []
-  \\ Cases_on `v` \\ fs [v_all_ts_def]
-QED
-
 Theorem memory_rel_CodePtr:
    memory_rel c be ts refs sp st m dm vars ==>
     memory_rel c be ts refs sp st m dm ((CodePtr lab,Loc lab 0)::vars)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
-  \\ fs [word_ml_inv_def,PULL_EXISTS,word_addr_eq_Loc,timestamps_ok_cons_no_block]
+  \\ fs [word_ml_inv_def,PULL_EXISTS,word_addr_eq_Loc]
   \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
   \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,
          roots_ok_def,reachable_refs_def]
@@ -6429,7 +6314,7 @@ Proof
   \\ fs [make_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
   \\ fs [labPropsTheory.good_dimindex_def]
   \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index]
-  \\ fs [timestamps_ok_def,all_ts_cons]
+  \\ fs [FLOOKUP_DEF,SUBSET_DEF] \\ res_tac
 QED
 
 Theorem IMP_memory_rel_Number:
@@ -6444,7 +6329,6 @@ Proof
   \\ strip_tac \\ asm_exists_tac \\ fs [word_addr_def]
   \\ fs [Smallnum_def] \\ Cases_on `i`
   \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma]
-  \\ fs [timestamps_ok_cons_no_block]
 QED
 
 Theorem memory_rel_El_any:
@@ -7379,7 +7263,7 @@ Proof
     \\ simp[]
     \\ strip_tac
     \\ simp[PULL_EXISTS]
-    \\ first_assum(part_match_exists_tac (last o butlast o strip_conj) o concl)
+    \\ first_assum(part_match_exists_tac (last o strip_conj) o concl)
     \\ simp[]
     \\ `h1 = ha`
     by (
@@ -7401,14 +7285,7 @@ Proof
     \\ disch_then(qspec_then`LUPDATE w i vals`mp_tac)
     \\ simp[] \\ strip_tac \\ fs[]
     \\ asm_exists_tac
-    \\ simp[word_addr_def]
-    \\ fs [timestamps_ok_def] \\ rw []
-    \\ first_x_assum ho_match_mp_tac
-    \\ fs [all_ts_alt]
-    \\  qexists_tac `x` \\ rw []
-    \\ fs [all_vs_def]
-    \\ Cases_on `p = n` \\ fs [FLOOKUP_UPDATE]
-    \\ metis_tac [])
+    \\ simp[word_addr_def])
   \\ qpat_x_assum `LENGTH vals + (_ - 1) < 2 ** (_ + _)` assume_tac
   \\ fs [labPropsTheory.good_dimindex_def,make_byte_header_def,
          LENGTH_write_bytes] \\ rfs []
@@ -7850,10 +7727,6 @@ Proof
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
   \\ EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
-  \\ rw [] \\ fs [timestamps_ok_def,v_all_ts_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_alt] \\ qexists_tac `x` \\ rw [all_vs_def]
-  \\ fs [FRANGE_FLOOKUP] \\ metis_tac [MEM_v_all_vs]
 QED
 
 Theorem memory_rel_Boolv_F:
@@ -7867,18 +7740,10 @@ Proof
   \\ rfs [labPropsTheory.good_dimindex_def,dimword_def]
   \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
   \\ EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
-  \\ rw [] \\ fs [timestamps_ok_def,v_all_ts_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_alt] \\ qexists_tac `x` \\ rw [all_vs_def]
-  \\ fs [FRANGE_FLOOKUP] \\ metis_tac [MEM_v_all_vs]
-  \\ rw [] \\ fs [timestamps_ok_def,v_all_ts_def] \\ rw []
-  \\ first_x_assum ho_match_mp_tac
-  \\ fs [all_ts_alt] \\ qexists_tac `x` \\ rw [all_vs_def]
-  \\ fs [FRANGE_FLOOKUP] \\ metis_tac [MEM_v_all_vs]
 QED
 
 Theorem word_ml_inv_SP_LIMIT:
-   word_ml_inv (heap,be,a,sp,sp1,gens) limit c refs stack ==> sp <= limit
+   word_ml_inv (heap,be,a,sp,sp1,gens) limit ts c refs stack ==> sp <= limit
 Proof
   srw_tac[][] \\ Cases_on `sp = 0`
   \\ full_simp_tac(srw_ss())[word_ml_inv_def,abs_ml_inv_def,
@@ -10919,59 +10784,6 @@ Proof
   \\ fs [AC STAR_COMM STAR_ASSOC, ptr_bits_lemma]
 QED
 
-Theorem timestamps_ok_tail:
-  ∀refs v stack ts. timestamps_ok refs (v::stack) ts ⇒ timestamps_ok refs stack ts
-Proof
-  rw [timestamps_ok_def,Once all_ts_head]
-QED
-
-Theorem timestamps_ok_head:
-  ∀refs v stack ts. timestamps_ok refs (v::stack) ts ⇒ timestamps_ok refs [v] ts
-Proof
-  rw [timestamps_ok_def,Once all_ts_head]
-QED
-
-
-Theorem timestamps_ok_not_in_all_ts:
-  ∀refs stack ts. timestamps_ok refs stack ts ⇒ ts ∉ all_ts refs stack
-Proof
-  rw [] \\ fs [timestamps_ok_def] \\ CCONTR_TAC \\ fs [] \\ RES_TAC \\ fs []
-QED
-
-Theorem timestamps_ok_MONO:
-  ∀refs stack ts0 ts1.
-   timestamps_ok refs stack ts0 ∧ ts0 ≤ ts1
-   ⇒ timestamps_ok refs stack ts1
-Proof
-  rw [timestamps_ok_def]
-  \\ first_x_assum drule
-  \\ rw []
-QED
-
-Theorem all_ts_list_to_v_alt:
-   ∀xs ts refs t.
-    timestamps_ok refs (t::xs) ts
-    ⇒ all_ts refs (t::xs) ⊆ all_ts refs [list_to_v_alt ts t xs]
-Proof
-  Induct \\ rw [list_to_v_alt_def,all_ts_cons]
-  \\ drule_then (fn t => rw [t]) timestamps_ok_not_in_all_ts
-  \\ ONCE_REWRITE_TAC [all_ts_head]
-  \\ qmatch_goalsub_abbrev_tac `t0 ∪ _ ⊆ h0 ∪ _`
-  \\ ONCE_REWRITE_TAC [all_ts_head]
-  \\ rw []
-  \\ ho_match_mp_tac SUBSET_TRANS
-  \\ qexists_tac `all_ts refs [list_to_v_alt (ts + 1) t xs]`
-  \\ (reverse conj_tac
-     >- (ONCE_REWRITE_TAC [UNION_COMM] \\ rw [GSYM UNION_ASSOC])
-     \\ first_x_assum (qspecl_then [`ts+1`,`refs`,`t`] mp_tac)
-     \\ impl_tac
-     >- (ho_match_mp_tac timestamps_ok_MONO \\ qexists_tac `ts`
-        \\ rw [] \\ last_assum mp_tac \\ ho_match_mp_tac timestamps_ok_rearrange
-        \\ rw [] \\ metis_tac [])
-     \\ disch_then (mp_then (Pos (el 2)) ho_match_mp_tac SUBSET_TRANS)
-     \\ rw [Once all_ts_head])
-QED
-
 Theorem bind_each_eq_tf:
   ∀k tf ts n i x.
     (∀t. t ∈ FDOM tf ⇒ t < ts) ∧ x < ts
@@ -11203,23 +11015,6 @@ Proof
   \\ rw [FAPPLY_FUPDATE_THM,bind_each_FUPDATE]
 QED
 
-Theorem timestamps_ok_APPEND:
-  ∀refs s1 s2 ts.
-   timestamps_ok refs (s1 ++ s2) ts
-   ⇒ timestamps_ok refs s1 ts ∧ timestamps_ok refs s2 ts
-Proof
-  rw [timestamps_ok_def,all_ts_append]
-QED
-
-Theorem APPEND_timestamps_ok:
-  ∀refs s1 s2 ts.
-   timestamps_ok refs s1 ts ∧ timestamps_ok refs s2 ts
-   ⇒ timestamps_ok refs (s1 ++ s2) ts
-Proof
-  rw [timestamps_ok_def,all_ts_append]
-  \\ metis_tac []
-QED
-
 Theorem all_ts_list_to_v_alt_SUBSET:
   ∀xs ts (refs: num |-> v ref) t.
    {x | ts <= x ∧ x < ts + LENGTH xs} ⊆ all_ts refs [list_to_v_alt ts t xs]
@@ -11233,10 +11028,50 @@ Proof
   \\ rw [all_ts_append]
 QED
 
+Theorem all_ts_SUBSET_list_to_v_alt:
+  !refs t xs stack ts.
+    all_ts refs (t::(xs ++ stack)) ⊆
+    all_ts refs (list_to_v_alt ts t xs::stack)
+Proof
+  Induct_on `xs` \\ fs [list_to_v_alt_def,all_ts_cons] \\ rw []
+  \\ pop_assum (qspecl_then [`refs`,`t`,`h::stack`,`ts+1`] mp_tac)
+  \\ fs [all_ts_def,SUBSET_DEF]
+  \\ simp [AC DISJ_COMM DISJ_ASSOC]
+  \\ rw []
+  \\ DISJ2_TAC
+  \\ first_x_assum match_mp_tac
+  \\ fs []
+  \\ metis_tac []
+QED
+
+Theorem new_all_ts_SUBSET_list_to_v_alt:
+  !refs t xs stack ts.
+    {x | ts <= x ∧ x < ts + LENGTH xs} ⊆
+    all_ts refs (list_to_v_alt ts t xs::stack)
+Proof
+  Induct_on `xs` \\ fs [list_to_v_alt_def,all_ts_cons] \\ rw []
+  \\ pop_assum (qspecl_then [`refs`,`t`,`h::stack`,`ts+1`] mp_tac)
+  \\ fs [all_ts_def,SUBSET_DEF]
+  \\ ntac 2 strip_tac
+  \\ Cases_on `x = ts` \\ simp [ADD1]
+  \\ rw []
+  \\ `ts + 1 <= x` by fs []
+  \\ metis_tac []
+QED
+
+Theorem FDOM_bind_each_lemma:
+  !tf k ts h.
+    FDOM tf ⊆ {n | n < ts} ⇒
+    FDOM (bind_each tf ts h n k) ⊆ {n | n < ts + k}
+Proof
+  Induct_on `k` \\ fs [bind_each_def,ADD1] \\ rw []
+  \\ first_x_assum match_mp_tac
+  \\ fs [SUBSET_DEF] \\ rw [] \\ res_tac \\ fs []
+QED
+
 Theorem cons_multi_thm:
-  abs_ml_inv conf (t::xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit /\
-  3 * LENGTH xs <= sp /\ xs <> [] /\
-   timestamps_ok refs (t :: xs ++ stack) ts ==>
+  abs_ml_inv conf (t::xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
+  3 * LENGTH xs <= sp /\ xs <> [] ==>
      ?rt rs roots2 heap1 heap2.
        let Allocd = list_to_BlockReps conf rt a rs in
          (roots = rt::rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
@@ -11248,10 +11083,10 @@ Theorem cons_multi_thm:
             heap1 ++ Allocd
                   ++ heap_expand (sp + sp1 - heap_length Allocd)
                   ++ heap2, be,
-            a + heap_length Allocd, sp - heap_length Allocd, sp1, gens) limit
+            a + heap_length Allocd, sp - heap_length Allocd, sp1, gens) limit (ts + LENGTH xs)
 Proof
   rw [abs_ml_inv_def]
-  \\ qpat_x_assum `bc_stack_ref_inv _ _ _ _` mp_tac
+  \\ qpat_x_assum `bc_stack_ref_inv _ _ _ _ _` mp_tac
   \\ simp [Once bc_stack_ref_inv_def] \\ strip_tac
   \\ imp_res_tac LIST_REL_SPLIT1 \\ rw []
   \\ imp_res_tac LIST_REL_LENGTH \\ fs [] \\ rfs []
@@ -11404,10 +11239,7 @@ Proof
      \\ ONCE_REWRITE_TAC [GSYM APPEND_ASSOC]
      \\ qmatch_goalsub_abbrev_tac `(ha ++ (Allocd ++ hb1))`
      \\ strip_tac
-     \\ `∀t. t ∈ FDOM tf ⇒ t < ts`
-          by (fs [timestamps_ok_def] \\ rw []
-             \\ first_x_assum ho_match_mp_tac
-             \\ fs [SUBSET_DEF])
+     \\ `∀t. t ∈ FDOM tf ⇒ t < ts` by (fs [SUBSET_DEF])
      \\ ntac 21 (last_x_assum (K all_tac)) (* make proofs faster *)
      \\ (fs [INJ_DEF] \\ rw []
      >- (Cases_on `x' < ts`
@@ -11488,22 +11320,15 @@ Proof
         \\ fs [] \\ first_x_assum drule \\ rw []))
   \\ conj_tac
   >- (rw [bind_each_FDOM]
-     >-(ho_match_mp_tac SUBSET_TRANS
-       \\ qexists_tac `all_ts refs (t::(xs++stack))` \\ rw []
-       \\ qpat_x_assum `timestamps_ok _ _ _` mp_tac
-       \\ ONCE_REWRITE_TAC [APPEND |> CONJ_LIST 2 |> GSYM o el 2]
-       \\ disch_then (mp_then Any assume_tac timestamps_ok_APPEND)
-       \\ rw [all_ts_append] \\ qabbrev_tac `s1 = t::xs`
-       \\ ONCE_REWRITE_TAC [all_ts_head] \\ rw [Abbr`s1`]
-       \\ ho_match_mp_tac SUBSET_TRANS
-       \\ qexists_tac `all_ts refs [list_to_v_alt ts t xs]`
-       \\ rw [] \\ ho_match_mp_tac all_ts_list_to_v_alt \\ rw [])
+     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+     \\ TRY (qpat_x_assum `LENGTH xs = _` (assume_tac o GSYM))
+     \\ fs [new_all_ts_SUBSET_list_to_v_alt]
      \\ ho_match_mp_tac SUBSET_TRANS
-     \\ qexists_tac `all_ts refs [list_to_v_alt ts t xs]`
-     \\ qmatch_goalsub_abbrev_tac `all_ts refs s1`
-     \\ ONCE_REWRITE_TAC [all_ts_head] \\ rw [Abbr`s1`]
-     \\ qpat_x_assum `LENGTH xs = _` (assume_tac o GSYM)
-     \\ rw [all_ts_list_to_v_alt_SUBSET])
+     \\ qexists_tac `all_ts refs (t::(xs++stack))` \\ rw []
+     \\ fs [all_ts_SUBSET_list_to_v_alt])
+  \\ conj_tac
+  >- (match_mp_tac FDOM_bind_each_lemma \\ fs [])
   \\ reverse conj_tac
   >-
    (rpt strip_tac
@@ -11512,33 +11337,32 @@ Proof
     >-
       (fs [reachable_refs_def] \\ rveq
        \\ metis_tac [list_to_v_alt_get_refs])
-     \\ simp [bc_ref_inv_def] \\ fs []
-     \\ fs [RefBlock_def, Bytes_def]
-     \\ ntac 3 TOP_CASE_TAC \\ fs []
-     \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND]
-     \\ `0 < heap_length Allocd /\ heap_length Allocd <= sp + sp1` by fs []
-     \\ drule (GEN_ALL v_inv_LIST_REL)
-     \\ disch_then drule
-     \\ fs [heap_expand_def]
-     \\ rw []
-     \\ TRY (`sp1 = 0 /\ sp = heap_length Allocd` by fs [] \\ fs [])
-     \\ TRY (fs [heap_lookup_def] \\ NO_TAC)
-     \\ TRY (asm_exists_tac \\ rw [])
-     \\ TRY (qexists_tac `zs` \\ conj_tac >- unlength_tac [] )
-     \\ TRY
-      (first_x_assum drule \\ rw []
-       \\ unlength_tac []
-       \\ pop_assum mp_tac
-       \\ ho_match_mp_tac  LIST_REL_mono \\ rw []
-       \\ pop_assum (mp_then Any ho_match_mp_tac (GEN_ALL v_inv_SUBMAP))
-       \\ rw [heap_store_rel_def]
-       \\ ho_match_mp_tac bind_each_SUBMAP
-       \\ rw [] \\ fs [timestamps_ok_def] \\ first_x_assum ho_match_mp_tac
-       \\ pop_assum mp_tac \\ fs [SUBSET_DEF]
-       \\ NO_TAC)
-     \\ TRY
-      (first_x_assum drule \\ rw [])
-     \\ unlength_tac [])
+    \\ simp [bc_ref_inv_def] \\ fs []
+    \\ fs [RefBlock_def, Bytes_def]
+    \\ ntac 3 TOP_CASE_TAC \\ fs []
+    \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND]
+    \\ `0 < heap_length Allocd /\ heap_length Allocd <= sp + sp1` by fs []
+    \\ drule (GEN_ALL v_inv_LIST_REL)
+    \\ disch_then drule
+    \\ fs [heap_expand_def]
+    \\ rw []
+    \\ TRY (`sp1 = 0 /\ sp = heap_length Allocd` by fs [] \\ fs [])
+    \\ TRY (fs [heap_lookup_def] \\ NO_TAC)
+    \\ TRY (asm_exists_tac \\ rw [])
+    \\ TRY (qexists_tac `zs` \\ conj_tac >- unlength_tac [] )
+    \\ TRY
+     (first_x_assum drule \\ rw []
+      \\ unlength_tac []
+      \\ pop_assum mp_tac
+      \\ ho_match_mp_tac  LIST_REL_mono \\ rw []
+      \\ pop_assum (mp_then Any ho_match_mp_tac (GEN_ALL v_inv_SUBMAP))
+      \\ rw [heap_store_rel_def]
+      \\ ho_match_mp_tac bind_each_SUBMAP
+      \\ fs [SUBSET_DEF]
+      \\ NO_TAC)
+    \\ TRY
+     (first_x_assum drule \\ rw [])
+    \\ unlength_tac [])
   \\ reverse conj_tac
   >-
    (`0 < heap_length Allocd /\ heap_length Allocd <= sp + sp1` by decide_tac
@@ -11555,52 +11379,19 @@ Proof
     \\ pop_assum (mp_then Any ho_match_mp_tac (GEN_ALL v_inv_SUBMAP))
     \\ rw [heap_store_rel_def]
     \\ ho_match_mp_tac bind_each_SUBMAP
-    \\ rw [] \\ fs [timestamps_ok_def] \\ first_x_assum ho_match_mp_tac
-    \\ pop_assum mp_tac \\ fs [SUBSET_DEF])
+    \\ fs [SUBSET_DEF])
   \\ qmatch_goalsub_abbrev_tac `ha ++ _ ++ hm ++ _`
   \\ `hm = heap_expand (sp+sp1 - heap_length Allocd)` by
     unlength_tac [Abbr`hm`, heap_expand_def]
   \\ pop_assum (fn th => fs [th])
   \\ qunabbrev_tac `Allocd`
-  \\ `∀t. t ∈ FDOM tf ⇒ t < ts`
-     by (fs [timestamps_ok_def] \\ rw []
-        \\ first_x_assum ho_match_mp_tac
-        \\ fs [SUBSET_DEF])
+  \\ `∀t. t ∈ FDOM tf ⇒ t < ts` by fs [SUBSET_DEF]
   \\ qpat_x_assum `LENGTH xs = _` (assume_tac o GSYM)
   \\ rw []
   \\ match_mp_tac (Q.INST [`sp`|->`sp+sp1`] (SPEC_ALL v_inv_list_to_v_alt))
   \\ unlength_tac [heap_expand_def]);
 
 val _ = overload_on("Block_nil",``Block 0 nil_tag []``);
-
-Theorem timestamps_ok_list_to_v_alt:
-  ∀t2 refs t1 ts ts'.
-    timestamps_ok refs (t1::t2) ts
-    ∧ ts + LENGTH t2 <= ts'
-    ⇒ timestamps_ok refs [list_to_v_alt ts t1 t2] ts'
-Proof
-  Induct \\ rw [list_to_v_alt_def]
-  >- (ho_match_mp_tac timestamps_ok_MONO \\ asm_exists_tac \\ rw [])
-  \\ drule_then assume_tac timestamps_ok_tail
-  \\ fs [timestamps_ok_def]
-  \\ ONCE_REWRITE_TAC [all_ts_cons] \\ fs []
-  \\ rw [Once all_ts_head] \\ fs []
-  \\ TRY (pop_assum mp_tac \\ fs [PULL_FORALL] \\ first_x_assum ho_match_mp_tac)
-  \\ rw []
-  \\ `t < ts` suffices_by fs []
-  \\ fs [Once all_ts_head,IN_UNION]
-QED
-
-Theorem timestamps_ok_head_split:
-  ∀refs x xs ts.
-   timestamps_ok refs (x::xs) ts = (timestamps_ok refs [x] ts ∧ timestamps_ok refs xs ts)
-Proof
-  rw []
-  \\ ONCE_REWRITE_TAC [CONS_APPEND]
-  \\ EQ_TAC
-  >- (strip_tac \\ drule timestamps_ok_APPEND \\ rw [])
-  \\ (strip_tac \\ ho_match_mp_tac APPEND_timestamps_ok \\ fs[])
-QED
 
 Theorem memory_rel_append:
    memory_rel c be ts refs sp st m1 dm
@@ -11613,9 +11404,8 @@ Theorem memory_rel_append:
     3 * LENGTH in1 <= sp /\ good_dimindex (:'a) /\
     Word init_ptr = make_cons_ptr c (next_free - curr) 0 2 /\
     FLOOKUP st CurrHeap = SOME (Word curr) /\
-    FLOOKUP st NextFree = SOME (Word (next_free:'a word)) /\
-    ts + LENGTH in1 ≤ ts1 ==>
-    memory_rel c be ts1 refs (sp - 3 * LENGTH in1)
+    FLOOKUP st NextFree = SOME (Word (next_free:'a word)) ==>
+    memory_rel c be (ts + LENGTH in1) refs (sp - 3 * LENGTH in1)
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
        ((list_to_v_alt ts (list_to_v_alt ts0 Block_nil in2) in1 ,Word init_ptr)::vars)
@@ -11635,23 +11425,14 @@ Proof
   >- (Cases_on `ws` \\ Cases_on `in1` \\ fs [])
   \\ rw []
   \\ rw [memory_rel_def, word_ml_inv_def, PULL_EXISTS]
-  \\ qmatch_asmsub_abbrev_tac `abs_ml_inv _ _ _ (r0::rs0,h0,_,a0,sp0,_) _`
+  \\ qmatch_asmsub_abbrev_tac `abs_ml_inv _ _ _ (r0::rs0,h0,_,a0,sp0,_) _ _`
   \\ Q.LIST_EXISTS_TAC [`h0`,`limit`,`a0`,`sp0`,`sp1`,`gens`,`r0`,`rs0`] \\ fs []
   \\ unabbrev_all_tac
   \\ reverse conj_tac
   >-
    (fs [abs_ml_inv_def, LIST_REL_APPEND_EQ]
     \\ reverse conj_tac
-    >- (Cases_on `rs` \\ fs [list_to_BlockReps_heap_length]
-       \\ ho_match_mp_tac (timestamps_ok_head_split |> SPEC_ALL |> EQ_IMP_RULE |> snd |> GEN_ALL)
-       \\ drule (timestamps_ok_head_split |> SPEC_ALL |> EQ_IMP_RULE |> fst |> GEN_ALL)
-       \\ strip_tac \\ reverse conj_tac
-       >- (ho_match_mp_tac timestamps_ok_MONO
-          \\ drule timestamps_ok_APPEND \\ rw []
-          \\ asm_exists_tac \\ rw [])
-       \\ ho_match_mp_tac timestamps_ok_list_to_v_alt
-       \\ rw [Once timestamps_ok_head_split]
-       \\ drule timestamps_ok_APPEND \\ rw [])
+    >- (Cases_on `rs` \\ fs [list_to_BlockReps_heap_length])
     \\ fs [heap_in_memory_store_def, make_cons_ptr_thm] \\ rfs [] \\ rw []
     \\ once_rewrite_tac [GSYM WORD_NEG_MUL]
     \\ once_rewrite_tac [WORD_2COMP_LSL]
