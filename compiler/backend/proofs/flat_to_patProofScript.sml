@@ -15,6 +15,7 @@ val _ = set_grammar_ancestry ["misc","ffi","bag","flatProps","patProps",
                               "flat_to_pat","backendProps","backend_common"];
 
 val _ = Parse.hide"U";
+val drule = old_drule
 
 val pmatch_flat_def = flatSemTheory.pmatch_def
 

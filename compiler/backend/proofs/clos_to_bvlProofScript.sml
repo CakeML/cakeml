@@ -28,6 +28,8 @@ val _ = set_grammar_ancestry
    "backendProps", "ffi", "lprefix_lub"
    ];
 
+val drule = old_drule
+
 val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
 val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bvl"};
 val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos_to_bvl"};
