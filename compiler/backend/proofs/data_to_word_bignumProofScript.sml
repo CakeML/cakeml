@@ -1290,7 +1290,7 @@ Proof
       \\ qpat_x_assum `lookup 4 s1.locals = SOME (Word w)` assume_tac
       \\ `get_real_addr c s1.store w = SOME x` by
             fs [get_real_addr_def,FLOOKUP_UPDATE]
-      \\ qpat_x_assum `word_ml_inv _ _ _ _ _` assume_tac
+      \\ qpat_x_assum `word_ml_inv _ _ _ _ _ _` assume_tac
       \\ `lookup 4 s9.locals = SOME (Word w)` by
         (qunabbrev_tac `s9`
          \\ simp_tac (srw_ss()) [wordSemTheory.set_store_def,lookup_insert]
@@ -1374,7 +1374,7 @@ Proof
       \\ qpat_x_assum `lookup 2 s1.locals = SOME (Word w)` assume_tac
       \\ `get_real_addr c s1.store w = SOME x` by
             fs [get_real_addr_def,FLOOKUP_UPDATE]
-      \\ qpat_x_assum `word_ml_inv _ _ _ _ _` assume_tac
+      \\ qpat_x_assum `word_ml_inv _ _ _ _ _ _` assume_tac
       \\ `lookup 2 s9.locals = SOME (Word w)` by
         (qunabbrev_tac `s9`
          \\ simp_tac (srw_ss()) [wordSemTheory.set_store_def,lookup_insert]
@@ -1521,7 +1521,7 @@ Proof
     THEN1 (simp [])
     THEN1 asm_simp_tac std_ss []
     THEN1
-     (qpat_x_assum `word_ml_inv _ _ _ _ _` mp_tac
+     (qpat_x_assum `word_ml_inv _ _ _ _ _ _` mp_tac
       \\ match_mp_tac word_ml_inv_rearrange
       \\ fs [] \\ rpt strip_tac \\ asm_rewrite_tac []
       \\ full_simp_tac (srw_ss()) [FAPPLY_FUPDATE_THM,FLOOKUP_UPDATE]
