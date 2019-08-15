@@ -4467,7 +4467,7 @@ Proof
 QED
 
 Theorem memory_rel_Unit:
-   memory_rel c be ts refs sp st m dm xs /\ good_dimindex (:'a) /\ 0 < ts ==>
+   memory_rel c be ts refs sp st m dm xs /\ good_dimindex (:'a) ==>
    memory_rel c be ts refs sp st m dm ((Unit,Word (2w:'a word))::xs)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
@@ -5437,7 +5437,7 @@ QED
 
 Theorem memory_rel_Cons_empty:
    memory_rel c be ts refs sp st m (dm:'a word set) vars /\
-    tag < dimword (:α) DIV 16 /\ good_dimindex (:'a) /\ 0 < ts ==>
+    tag < dimword (:α) DIV 16 /\ good_dimindex (:'a) ==>
     memory_rel c be ts refs sp st m dm
       ((Block 0 tag [],Word (BlockNil tag))::vars)
 Proof
@@ -7717,7 +7717,7 @@ Proof
 QED
 
 Theorem memory_rel_Boolv_T:
-   memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:'a) ∧ 0 < ts
+   memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:'a)
    ⇒ memory_rel c be ts refs sp st m dm ((Boolv T,Word (18w:'a word))::vars)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
@@ -7730,7 +7730,7 @@ Proof
 QED
 
 Theorem memory_rel_Boolv_F:
-   memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:'a) ∧ 0 < ts
+   memory_rel c be ts refs sp st m dm vars ∧ good_dimindex (:'a)
    ⇒ memory_rel c be ts refs sp st m dm ((Boolv F,Word (2w:'a word))::vars)
 Proof
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
