@@ -1,4 +1,5 @@
 (*
+ize
   Pattern-matching compilation to decision trees
   See issue #667 for details and references
 *)
@@ -31,10 +32,11 @@ We parametrize the size function by an arity a to take into account the fact
 that a Any or a Var can be expanded into a list of Any patterns
 *)
 Definition psize_def:
-  (psize a Any = (a * (2:num)) + 1) /\
-  (psize a (Var n) = (a * 2) + 1) /\
-  (psize a (Cons n t []) = 2) /\
-  (psize a (Cons n t (x::xs)) = 2 + ((psize a x) * psize a (Cons n t xs))) /\
+  (* (psize a Any = ((2:num) ** (a+2)) + 1) /\ *)
+  (psize a Any = (2:num) ** (2 ** a)) /\
+  (psize a (Var n) = (2 ** (2 ** a))) /\
+  (psize a (Cons n t []) = 2 + a) /\
+  (psize a (Cons n t (x::xs)) = 2 + a + ((psize a x) * psize a (Cons n t xs))) /\
   (psize a (Or p1 p2) = 2 + (psize a p1) + (psize a p2)) /\
   (psize a (As p n) = 2 + (psize a p))
 End
@@ -69,6 +71,12 @@ Proof
   rw[]
 QED;
 
+Theorem inv_mat_cons:
+  !b m. inv_mat (b::m) ==> inv_mat [b]
+Proof
+  rw[inv_mat_def]
+QED;
+
 Theorem inv_mat_as:
   !p n ps e rs.
     inv_mat ((Branch ((As p n)::ps) e)::rs) ==>
@@ -76,6 +84,20 @@ Theorem inv_mat_as:
 Proof
   rw[inv_mat_def] \\
   fs[patterns_def]
+QED;
+
+Theorem inv_mat_or1:
+  !p1 p2 ps e m. inv_mat ((Branch (Or p1 p2::ps) e)::m) ==>
+                 inv_mat ((Branch (p1::ps) e)::m)
+Proof
+  rw[inv_mat_def, patterns_def]
+QED;
+
+Theorem inv_mat_or2:
+  !p1 p2 ps e m. inv_mat ((Branch (Or p1 p2::ps) e)::m) ==>
+                 inv_mat ((Branch (p2::ps) e)::m)
+Proof
+  rw[inv_mat_def, patterns_def]
 QED;
 
 (*
@@ -115,6 +137,32 @@ Proof
   fs[]
 QED;
 
+Theorem msize_cons:
+  !b bs. msize (b::bs) = msize [b]
+Proof
+  Cases_on `b` \\ rw[msize_def]
+QED;
+
+Theorem msize_app:
+  !xs ys. xs <> [] ==>
+          msize (xs ++ ys) =
+          msize xs
+Proof
+  Cases_on `xs`
+  >- rw[]
+  >- (rw[] \\
+      Cases_on `h` \\
+      fs[msize_def])
+QED;
+
+Theorem msize_app2:
+  !xs ys. xs = [] ==>
+          msize (xs ++ ys) =
+          msize ys
+Proof
+  rw[]
+QED;
+
 Theorem msize_inv_gt_zero:
   !m b x. inv_mat (b::m) /\
           m <> [] /\
@@ -137,11 +185,78 @@ Proof
   ho_match_mp_tac (theorem "psize_ind") \\ rw[psize_def]
 QED;
 
-Theorem psize_gt_one:
-  !a p. a > 1 ==> 1 < (psize a p)
+Definition ars_pat_def:
+  (ars_pat c a Any = T) /\
+  (ars_pat c a (Var _) = T) /\
+  (ars_pat c a (Cons c' _ ps) =
+    if c = c'
+    then (LENGTH ps) = a
+    else T) /\
+  (ars_pat c a (Or p1 p2) =
+    ((ars_pat c a p1) /\ (ars_pat c a p2))) /\
+  (ars_pat c a (As p n) =
+    ars_pat c a p)
+End
+
+Definition ars_branch_def:
+  (ars_branch c a [] = T) /\
+  (ars_branch c a (p::ps) =
+    ((ars_pat c a p) /\
+     (ars_branch c a ps)))
+End
+
+Definition ars_inv_def:
+  (ars_inv _ _ [] = T) /\
+  (ars_inv c a ((Branch ps e)::bs) =
+    ((ars_branch c a ps) /\
+     (ars_inv c a bs)))
+End
+
+Theorem ars_inv_dcmp:
+  !b bs c a. inv_mat (b::bs) /\
+             ars_inv c a (b::bs) ==> ars_inv c a bs
 Proof
-  ho_match_mp_tac (theorem "psize_ind") \\ rw[psize_def]
+  Cases_on `b` \\
+  fs[ars_inv_def]
 QED;
+
+Theorem ars_inv_cons:
+  !b bs c a. ars_inv c a (b::bs) ==>
+             ars_inv c a [b]
+Proof
+  Cases_on `b` \\
+  rw[ars_inv_def]
+QED;
+
+Theorem ars_inv_or1:
+  !c a p1 p2 ps e m.
+    ars_inv c a ((Branch (Or p1 p2::ps) e)::m) ==>
+    ars_inv c a ((Branch (p1::ps) e)::m)
+Proof
+  fs[ars_inv_def, ars_branch_def, ars_pat_def]
+QED;
+
+Theorem ars_inv_or2:
+  !c a p1 p2 ps e m.
+    ars_inv c a ((Branch (Or p1 p2::ps) e)::m) ==>
+    ars_inv c a ((Branch (p2::ps) e)::m)
+Proof
+  fs[ars_inv_def, ars_branch_def, ars_pat_def]
+QED;
+
+Theorem ars_inv_as:
+  !c a p n ps e m.
+    ars_inv c a ((Branch (As p n::ps) e)::m) ==>
+    ars_inv c a ((Branch (p::ps) e)::m)
+Proof
+  rw[ars_inv_def, ars_branch_def, ars_pat_def]
+QED;
+
+(* Theorem psize_gt_one: *)
+(*   !a p. a > 1 ==> 1 < (psize a p) *)
+(* Proof *)
+(*   ho_match_mp_tac (theorem "psize_ind") \\ rw[psize_def] *)
+(* QED; *)
 
 (* Semantics of matching *)
 val pmatch_def = tDefine "match_def" `
@@ -559,6 +674,90 @@ Definition is_cons_head_def:
     ((is_cons_head c [Branch (p::ps) e]) \/
     (is_cons_head c rs)))
 End
+
+Theorem spec_msize:
+  !c a m. ars_inv c a m /\
+          (inv_mat m) /\
+          (msize m) > 0 /\
+          m <> [] /\
+          (spec c a m) <> [] ==>
+          msize (spec c a m) =
+          a + (msize m) - 1
+Proof
+  ho_match_mp_tac (theorem "spec_ind") \\ rw[]
+  >- (Cases_on `m` \\
+      fs[spec_def, msize_def, n_any_length])
+  >- (Cases_on `m` \\
+      fs[spec_def, msize_def, n_any_length])
+  >- (Cases_on `m` \\
+      Cases_on `c = pcons'`
+      >- fs[spec_def, msize_def, n_any_length, ars_inv_def,
+	    ars_branch_def, ars_pat_def]
+      >- fs[spec_def]
+      >- fs[spec_def, msize_def, n_any_length, ars_inv_def,
+	    ars_branch_def, ars_pat_def]
+      >- (fs[spec_def, msize_def, ars_inv_def, inv_mat_dcmp, inv_mat_def] \\
+          Cases_on `h` \\
+          fs[patterns_def, msize_def]))
+  >- (Cases_on `m`
+      >- (fs[spec_def, msize_def, msize_app]
+          >- (imp_res_tac ars_inv_or1 \\
+              imp_res_tac inv_mat_or1 \\
+              fs[])
+	  >- (Cases_on `spec c a [Branch (p1::ps) e] = []`
+              >- (fs[msize_app2] \\
+                  imp_res_tac ars_inv_or2 \\
+                  imp_res_tac inv_mat_or2 \\
+                  fs[])
+	      >- (fs[msize_app] \\
+                  imp_res_tac ars_inv_or1 \\
+                  imp_res_tac inv_mat_or1 \\
+                  fs[])))
+      >- (fs[spec_def, msize_def, msize_app]
+	  >- (imp_res_tac ars_inv_or1 \\
+              imp_res_tac inv_mat_or1 \\
+              imp_res_tac inv_mat_cons \\
+              imp_res_tac ars_inv_cons \\
+              fs[])
+          >- (Cases_on `spec c a [Branch (p1::ps) e] = []`
+              >- (fs[msize_app2] \\
+                  imp_res_tac ars_inv_or2 \\
+                  imp_res_tac inv_mat_or2 \\
+                  imp_res_tac inv_mat_cons \\
+                  imp_res_tac ars_inv_cons \\
+                  fs[])
+              >- (fs[msize_app] \\
+                  imp_res_tac ars_inv_or1 \\
+                  imp_res_tac inv_mat_or1 \\
+                  imp_res_tac inv_mat_cons \\
+                  imp_res_tac ars_inv_cons \\
+                  fs[]))
+          >- (Cases_on `spec c a [Branch (p1::ps) e] = []`
+              >- (Cases_on `spec c a [Branch (p2::ps) e] = []`
+                  >- (fs[msize_app2] \\
+                      imp_res_tac ars_inv_dcmp \\
+                      imp_res_tac inv_mat_dcmp \\
+                      fs[inv_mat_def, EVERY_DEF, patterns_def] \\
+                      Cases_on `h` \\
+                      fs[msize_def, patterns_def])
+                  >- (fs[msize_app2, msize_app] \\
+                      imp_res_tac ars_inv_or2 \\
+                      imp_res_tac inv_mat_or2 \\
+                      imp_res_tac inv_mat_cons \\
+                      imp_res_tac ars_inv_cons \\
+                      fs[]))
+              >- (fs[msize_app] \\
+                  imp_res_tac ars_inv_or1 \\
+                  imp_res_tac inv_mat_or1 \\
+                  imp_res_tac ars_inv_cons \\
+                  imp_res_tac inv_mat_cons \\
+                  fs[]))))
+  >- (fs[spec_def] \\
+      imp_res_tac inv_mat_as \\
+      imp_res_tac ars_inv_as \\
+      fs[msize_def])
+  >- fs[msize_def]
+QED;
 
 Theorem is_cons_head_app:
   !c m1 m2. (~(is_cons_head c m1) /\
@@ -1024,8 +1223,7 @@ Definition plist_size_def:
 End
 
 Theorem plist_size_gt_zero:
-  !ars ps. (LENGTH ars) = (LENGTH ps) /\
-           (EVERY (\x. 0 < x) ars) ==>
+  !ars ps. (LENGTH ars) = (LENGTH ps) ==>
            0 < (plist_size ars ps)
 Proof
   Induct_on `ps` \\
@@ -1038,6 +1236,7 @@ Proof
       `0 < psize h' h` by fs[psize_gt_zero] \\
       fs[LESS_MULT2])
 QED;
+
 
 (* Not provable anymore, but apparently never used
    left here if turns out to be needed.
@@ -1073,15 +1272,6 @@ Proof
   fs[pm_size_def]
 QED;
 
-(* Doesn't seem to be needed anymore, and would be cumbersome to prove with
-   new pm_size *)
-(* Theorem pm_size_app: *)
-(*   !p1 p2 e. pm_size [Branch (p1 ++ p2) e] = pm_size [Branch p1 e] * pm_size [Branch p2 e] *)
-(* Proof *)
-(*   Induct_on `p1` \\ *)
-(*   fs[pm_size_def, plist_size_def] *)
-(* QED; *)
-
 Theorem pm_size_app2:
   !b1 b2 ars. pm_size ars (b1++b2) = pm_size ars b1 + pm_size ars b2
 Proof
@@ -1093,6 +1283,58 @@ Proof
   rewrite_tac [Once pm_size_cons] \\
   fs[]
 QED;
+
+Theorem pm_size_gt_zero:
+  !ars m. (LENGTH ars) = (msize m) /\
+          (inv_mat m) /\
+          m <> [] ==>
+          0 < (pm_size ars m)
+Proof
+  Induct_on `m` \\ rw[] \\
+  Cases_on `m`
+  >- (Cases_on `ars`
+      >- (Cases_on `h` \\
+          Cases_on `l`
+          >- fs[pm_size_def, plist_size_gt_zero, msize_def]
+	  >- fs[msize_def])
+      >- (Cases_on `h` \\
+          Cases_on `l`
+          >- fs[msize_def]
+	  >- fs[pm_size_def, plist_size_gt_zero, msize_def]))
+  >- (Cases_on `ars`
+      >- (Cases_on `h` \\
+          Cases_on `l` \\
+          fs[pm_size_def] \\
+          imp_res_tac msize_inv \\
+          first_x_assum (qspec_then `[]` assume_tac) \\
+          first_x_assum (qspec_then `LENGTH []` assume_tac) \\
+          fs[msize_def] \\
+          imp_res_tac inv_mat_dcmp \\
+          fs[])
+      >- (Cases_on `h` \\
+          Cases_on `l`
+          >- (fs[pm_size_def] \\
+              imp_res_tac msize_inv \\
+              first_x_assum (qspec_then `(h''::t')` assume_tac) \\
+              first_x_assum (qspec_then `LENGTH (h''::t')` assume_tac) \\
+	      fs[msize_def])
+          >- (fs[pm_size_def] \\
+              imp_res_tac msize_inv \\
+              first_x_assum (qspec_then `(h''::t')` assume_tac) \\
+              first_x_assum (qspec_then `LENGTH (h''::t')` assume_tac) \\
+	      fs[msize_def] \\
+	      imp_res_tac inv_mat_dcmp \\
+              fs[])))
+QED;
+
+(* Doesn't seem to be needed anymore, and would be cumbersome to prove with
+   new pm_size *)
+(* Theorem pm_size_app: *)
+(*   !p1 p2 e. pm_size [Branch (p1 ++ p2) e] = pm_size [Branch p1 e] * pm_size [Branch p2 e] *)
+(* Proof *)
+(*   Induct_on `p1` \\ *)
+(*   fs[pm_size_def, plist_size_def] *)
+(* QED; *)
 
 Theorem plist_size_app:
   !ps qs a1 a2.
@@ -1197,7 +1439,7 @@ QED;
 
 Definition n_one_def:
   (n_one 0 = []) /\
-  (n_one (SUC n) = (1:num)::(n_one n))
+  (n_one (SUC n) = (0:num)::(n_one n))
 End
 
 Theorem n_one_length:
@@ -1207,16 +1449,25 @@ Proof
   fs[n_one_def]
 QED;
 
-Theorem n_one_gt_zero:
-  !n. EVERY (\x. 0 < x) (n_one n)
+(* Not needed anymore, to remove when termination
+   proof is done and we're sure we don't need it *)
+(* Theorem n_one_gt_zero: *)
+(*   !n. EVERY (\x. 0 < x) (n_one n) *)
+(* Proof *)
+(*   Induct_on `n` \\ *)
+(*   fs[n_one_def, EVERY_DEF] *)
+(* QED; *)
+
+Theorem n_one_plus_app:
+  !n m. n_one (n+m) = (n_one n) ++ (n_one m)
 Proof
   Induct_on `n` \\
-  fs[n_one_def, EVERY_DEF]
+  fs[n_one_def, ADD_CLAUSES]
 QED;
 
 Theorem plist_size_n_one_cons:
   !p ps. plist_size (n_one (SUC (LENGTH ps))) (p::ps) =
-           (psize 1 p) * (plist_size (n_one (LENGTH ps)) ps)
+           (psize 0 p) * (plist_size (n_one (LENGTH ps)) ps)
 Proof
   fs[n_one_def, plist_size_def]
 QED;
@@ -1231,8 +1482,7 @@ Proof
   ho_match_mp_tac (theorem "default_ind") \\ rw[]
   >- (Cases_on `m`
       >- fs[default_def, pm_size_def, psize_def, plist_size_def,
-	    plist_size_gt_zero, msize_def, n_one_def, n_one_length,
-	    n_one_gt_zero]
+	    plist_size_gt_zero, msize_def, n_one_def, n_one_length]
       >- (`h::t <> []` by fs[] \\
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
@@ -1247,8 +1497,7 @@ Proof
           fs[msize_def]))
   >- (Cases_on `m`
       >- fs[default_def, pm_size_def, psize_def, plist_size_def,
-	    plist_size_gt_zero, msize_def, n_one_def, n_one_length,
-	    n_one_gt_zero]
+	    plist_size_gt_zero, msize_def, n_one_def, n_one_length]
       >- (`h::t <> []` by fs[] \\
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
@@ -1263,7 +1512,7 @@ Proof
           fs[msize_def]))
   >- (Cases_on `m`
       >- fs[default_def, pm_size_def, psize_def, plist_size_gt_zero,
-	    n_one_def, n_one_length, n_one_gt_zero, msize_def]
+	    n_one_def, n_one_length, msize_def]
       >- (`h::t <> []` by fs[] \\
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
@@ -1305,7 +1554,370 @@ Proof
   >- fs[msize_def]
 QED;
 
-(* Compilation scheme a pattern matrix to a decision tree
+Theorem n_any_n_one:
+  !a. plist_size (n_one a) (n_any a) = 2 ** a
+Proof
+  Induct_on `a` \\
+  rw[plist_size_def, n_one_def, n_any_def, psize_def, EXP_ADD, SUC_ONE_ADD]
+QED;
+
+Theorem pm_size_n_any:
+  !a. plist_size (n_one (LENGTH (n_any a))) (n_any a) < psize a Any
+Proof
+  rw[n_any_length, n_any_n_one, psize_def, EXP_ADD, X_LT_EXP_X]
+QED;
+
+Theorem pm_size_n_any_var:
+  !a n. plist_size (n_one (LENGTH (n_any a))) (n_any a) < psize a (Var n)
+Proof
+  rw[n_any_length, n_any_n_one, psize_def, EXP_ADD, X_LT_EXP_X]
+QED;
+
+Theorem less_less_eq_mult:
+  !(w:num) x y z.
+    0 < w /\
+    0 < x /\
+    0 < y /\
+    0 < z /\
+    w < y /\
+    x <= z ==>
+    w * x < y * z
+Proof
+  rw[] \\
+  Cases_on `x = z`
+  >- fs[LT_MULT_RCANCEL]
+  >- (`x < z` by fs[] \\
+      fs[bitTheory.LESS_MULT_MONO2])
+QED;
+
+Theorem psize_cons_arity:
+  !n p.
+    psize n p <
+    psize (SUC n) p
+Proof
+  ho_match_mp_tac (theorem "psize_ind") \\ rw[] \\
+  Cases_on `n` \\
+  fs[psize_def]
+  >- (`psize 0 p * psize 0 (Cons n' t xs) <
+      psize 1 p * psize 1 (Cons n' t xs)` suffices_by fs[] \\
+      fs[bitTheory.LESS_MULT_MONO2])
+  >- (`psize (SUC n'') p * psize (SUC n'') (Cons n' t xs) + 2 <
+       psize (SUC  (SUC n'')) p * psize (SUC (SUC n'')) (Cons n' t xs) + 2`
+      suffices_by fs[] \\
+      fs[bitTheory.LESS_MULT_MONO2])
+QED;
+
+Theorem psize_arity_zero_ge:
+  !n p. psize 0 p <= psize n p
+Proof
+  rw[] \\
+  Induct_on `n`
+  >- rw[]
+  >- (rw[] \\
+      `psize n p < psize (SUC n) p` by fs[psize_cons_arity] \\
+      fs[LESS_TRANS])
+QED;
+
+Theorem plist_size_n_one_cons:
+  !c v args a. a = LENGTH args ==> plist_size (n_one a) args < psize a (Cons c v args)
+Proof
+  Induct_on `args` \\ rw[]
+  >- fs[plist_size_def, n_one_def, psize_def]
+  >- (fs[psize_def, n_one_def, plist_size_def] \\
+      first_x_assum (qspecl_then [`c`, `v`] assume_tac) \\
+      `plist_size (n_one (LENGTH args)) args * psize 0 h <
+       psize (SUC (LENGTH args)) h *
+       psize (SUC (LENGTH args)) (Cons c v args)`
+      suffices_by fs[] \\
+      `psize 0 h <= psize (SUC (LENGTH args)) h`
+      by fs[psize_arity_zero_ge] \\
+      `0 < psize 0 h` by fs[psize_gt_zero] \\
+      `0 < psize (SUC (LENGTH args)) h` by fs[psize_gt_zero] \\
+      `0 < plist_size (n_one (LENGTH args)) args`
+      by fs[plist_size_gt_zero, n_one_length] \\
+      `0 < psize (LENGTH args) (Cons c v args)`
+      by fs[psize_gt_zero, psize_cons_arity] \\
+      `psize (LENGTH args) (Cons c v args) <
+       psize (SUC (LENGTH args)) (Cons c v args)`
+      by fs[psize_cons_arity] \\
+      `plist_size (n_one (LENGTH args)) args <
+       psize (SUC (LENGTH args)) (Cons c v args)`
+      by fs[LESS_TRANS] \\
+      `plist_size (n_one (LENGTH args)) args * psize 0 h <
+       psize (SUC (LENGTH args)) (Cons c v args) * psize (SUC (LENGTH args)) h`
+      suffices_by metis_tac[MULT_COMM] \\
+      fs[less_less_eq_mult])
+QED;
+
+Theorem pm_size_spec:
+  !c a m. ars_inv c a m /\
+          inv_mat m /\
+          (msize m) > 0 /\
+          m <> [] ==>
+          pm_size (n_one (msize (spec c a m))) (spec c a m) <
+          pm_size (a::(n_one ((msize m) - 1))) m
+Proof
+  ho_match_mp_tac (theorem "spec_ind") \\ rw[]
+  >- (Cases_on `m`
+      >- (fs[spec_def, pm_size_def, plist_size_def, msize_def] \\
+          rewrite_tac [Once ADD_COMM] \\
+          fs[n_one_plus_app, n_one_length, plist_size_app] \\
+	  CONJ_TAC
+	  >- fs[n_one_length, plist_size_gt_zero]
+	  >- fs[pm_size_n_any])
+      >- (fs[spec_def] \\
+          imp_res_tac msize_inv_gt_zero \\
+          fs[msize_def] \\
+          rewrite_tac[Once ADD_COMM] \\
+          fs[pm_size_def, n_one_plus_app, n_one_length,
+	     plist_size_app, plist_size_def] \\
+          Cases_on `spec c a (h::t) = []`
+          >- (fs[pm_size_def] \\
+              imp_res_tac ars_inv_dcmp \\
+              imp_res_tac inv_mat_dcmp \\
+              fs[] \\
+              `LENGTH ps = (msize (h::t) - 1)`
+              by (Cases_on `h` \\
+                  fs[inv_mat_def, EVERY_DEF, patterns_def, msize_def]) \\
+              fs[] \\
+              `plist_size (n_one (LENGTH (n_any a))) (n_any a) *
+               plist_size (n_one (msize (h::t) − 1)) ps <
+               plist_size (n_one (msize (h::t) − 1)) ps * psize a Any`
+              suffices_by fs[] \\
+              rewrite_tac [Once MULT_COMM] \\
+              fs[LT_MULT_LCANCEL] \\
+              fs[pm_size_n_any, plist_size_gt_zero, n_one_length])
+          >- (fs[pm_size_def] \\
+              imp_res_tac ars_inv_dcmp \\
+              imp_res_tac inv_mat_dcmp \\
+              fs[] \\
+              `LENGTH ps = (msize (h::t) - 1)`
+              by (Cases_on `h` \\
+                  fs[inv_mat_def, EVERY_DEF, patterns_def, msize_def]) \\
+              fs[spec_msize, n_any_length] \\
+              fs[GSYM n_one_plus_app] \\
+              `plist_size (n_one (LENGTH (n_any a))) (n_any a) *
+               plist_size (n_one (msize (h::t) − 1)) ps <
+               plist_size (n_one (msize (h::t) − 1)) ps * psize a Any`
+              by (rewrite_tac [Once MULT_COMM] \\
+                  fs[LT_MULT_LCANCEL, n_one_length, plist_size_gt_zero, pm_size_n_any]) \\
+	      fs[n_one_length, n_any_length])))
+  >- (Cases_on `m`
+      >- (fs[spec_def, pm_size_def, plist_size_def, msize_def] \\
+          rewrite_tac [Once ADD_COMM] \\
+          fs[n_one_plus_app, n_one_length, plist_size_app] \\
+	  CONJ_TAC
+	  >- fs[n_one_length, plist_size_gt_zero]
+	  >- fs[pm_size_n_any_var])
+      >- (fs[spec_def] \\
+          imp_res_tac msize_inv_gt_zero \\
+          fs[msize_def] \\
+          rewrite_tac[Once ADD_COMM] \\
+          fs[pm_size_def, n_one_plus_app, n_one_length,
+	     plist_size_app, plist_size_def] \\
+          Cases_on `spec c a (h::t) = []`
+          >- (fs[pm_size_def] \\
+              imp_res_tac ars_inv_dcmp \\
+              imp_res_tac inv_mat_dcmp \\
+              fs[] \\
+              `LENGTH ps = (msize (h::t) - 1)`
+              by (Cases_on `h` \\
+                  fs[inv_mat_def, EVERY_DEF, patterns_def, msize_def]) \\
+              fs[] \\
+              `plist_size (n_one (LENGTH (n_any a))) (n_any a) *
+               plist_size (n_one (msize (h::t) − 1)) ps <
+               plist_size (n_one (msize (h::t) − 1)) ps * psize a (Var n)`
+              suffices_by fs[] \\
+              rewrite_tac [Once MULT_COMM] \\
+              fs[LT_MULT_LCANCEL] \\
+              fs[pm_size_n_any_var, plist_size_gt_zero, n_one_length])
+          >- (fs[pm_size_def] \\
+              imp_res_tac ars_inv_dcmp \\
+              imp_res_tac inv_mat_dcmp \\
+              fs[] \\
+              `LENGTH ps = (msize (h::t) - 1)`
+              by (Cases_on `h` \\
+                  fs[inv_mat_def, EVERY_DEF, patterns_def, msize_def]) \\
+              fs[spec_msize, n_any_length] \\
+              fs[GSYM n_one_plus_app] \\
+              `plist_size (n_one (LENGTH (n_any a))) (n_any a) *
+               plist_size (n_one (msize (h::t) − 1)) ps <
+               plist_size (n_one (msize (h::t) − 1)) ps * psize a (Var n)`
+              by (rewrite_tac [Once MULT_COMM] \\
+                  fs[LT_MULT_LCANCEL, n_one_length, plist_size_gt_zero, pm_size_n_any_var]) \\
+	      fs[n_one_length, n_any_length])))
+  >- (Cases_on `m` \\
+      Cases_on `c = pcons'`
+      >- (fs[spec_def, ars_inv_def, ars_branch_def, ars_pat_def] \\
+          fs[msize_app, msize_def, pm_size_def, plist_size_def,
+	     n_one_plus_app, n_one_length, plist_size_app] \\
+          `0 < plist_size (n_one (LENGTH ps)) ps`
+          by fs[n_one_length, plist_size_gt_zero] \\
+          rewrite_tac [Once MULT_COMM] \\
+          fs[LT_MULT_LCANCEL] \\
+          fs[plist_size_n_one_cons])
+      >- (fs[spec_def, n_one_def, msize_def, pm_size_def] \\
+          fs[plist_size_gt_zero, n_one_length])
+      >- (fs[] \\
+          imp_res_tac ars_inv_dcmp \\
+          imp_res_tac inv_mat_dcmp \\
+          imp_res_tac msize_inv_gt_zero \\
+          fs[] \\
+          rpt (WEAKEN_TAC is_forall) \\
+          rpt (WEAKEN_TAC is_imp) \\
+          fs[spec_def, ars_inv_def, ars_branch_def, ars_pat_def] \\
+          fs[msize_def] \\
+          Cases_on `spec pcons' a (h::t) = []`
+          >- (fs[n_one_plus_app, pm_size_def, plist_size_app, n_one_length,
+	         plist_size_def] \\
+              `plist_size (n_one a) pargs * plist_size (n_one (LENGTH ps)) ps <
+               plist_size (n_one (LENGTH ps)) ps * psize a (Cons pcons' v0 pargs)`
+              suffices_by fs[] \\
+	      rewrite_tac[Once MULT_COMM] \\
+              fs[LT_MULT_LCANCEL, plist_size_gt_zero, n_one_length, plist_size_n_one_cons])
+          >- (fs[spec_msize] \\
+              `LENGTH ps = (msize (h::t) - 1)`
+              by (Cases_on `h` \\
+                  fs[inv_mat_def, EVERY_DEF, patterns_def, msize_def]) \\
+              fs[pm_size_def, plist_size_app, n_one_plus_app, n_one_length] \\
+              fs[GSYM n_one_plus_app] \\
+              `plist_size (n_one a) pargs * plist_size (n_one (msize (h::t) - 1)) ps <
+               plist_size (a::n_one (msize (h::t) - 1)) (Cons pcons' v0 pargs::ps)`
+              suffices_by fs[] \\
+              fs[plist_size_def] \\
+              rewrite_tac [Once MULT_COMM] \\
+              fs[LT_MULT_LCANCEL, plist_size_gt_zero, n_one_length, plist_size_n_one_cons]))
+      >- (fs[spec_def] \\
+          imp_res_tac ars_inv_dcmp \\
+          imp_res_tac inv_mat_dcmp \\
+          imp_res_tac msize_inv_gt_zero \\
+          fs[] \\
+	  rpt (WEAKEN_TAC is_forall) \\
+          rpt (WEAKEN_TAC is_imp) \\
+          fs[msize_def] \\
+          `LENGTH ps = (msize (h::t) - 1)`
+          by (Cases_on `h` \\
+              fs[inv_mat_def, EVERY_DEF, patterns_def, msize_def]) \\
+          fs[pm_size_def]))
+  >- (Cases_on `m`
+      >- (fs[spec_def, pm_size_app2, msize_def] \\
+          Cases_on `spec c a [Branch (p1::ps) e] = []`
+          >- (fs[spec_msize, pm_size_def, plist_size_def] \\
+              imp_res_tac ars_inv_or2 \\
+              imp_res_tac inv_mat_or2 \\
+              fs[psize_def])
+          >- (fs[msize_app, pm_size_def, plist_size_def] \\
+              imp_res_tac ars_inv_or2 \\
+              imp_res_tac ars_inv_or1 \\
+              imp_res_tac inv_mat_or1 \\
+              imp_res_tac inv_mat_or2 \\
+              fs[psize_def] \\
+              `pm_size (n_one (msize (spec c a [Branch (p1::ps) e])))
+                (spec c a [Branch (p1::ps) e]) +
+              pm_size (n_one (msize (spec c a [Branch (p1::ps) e])))
+                (spec c a [Branch (p2::ps) e]) <
+              plist_size (n_one (LENGTH ps)) ps * psize a p1 +
+              plist_size (n_one (LENGTH ps)) ps * psize a p2`
+	      suffices_by fs[RIGHT_ADD_DISTRIB, LESS_IMP_LESS_ADD] \\
+              Cases_on `spec c a [Branch (p2::ps) e] = []`
+              >- fs[pm_size_def]
+              >- (sg `msize (spec c a [Branch (p1::ps) e]) =
+                      msize (spec c a [Branch (p2::ps) e])`
+                  >- (`msize [Branch (p1::ps) e] > 0` by fs[msize_def] \\
+                      `msize [Branch (p2::ps) e] > 0` by fs[msize_def] \\
+                      fs[spec_msize, msize_def])
+                  >- fs[])))
+    >- (imp_res_tac inv_mat_or1 \\
+        imp_res_tac inv_mat_or2 \\
+        imp_res_tac inv_mat_dcmp \\
+        imp_res_tac inv_mat_cons \\
+        imp_res_tac ars_inv_or1 \\
+        imp_res_tac ars_inv_or2 \\
+        imp_res_tac ars_inv_dcmp \\
+        imp_res_tac ars_inv_cons \\
+        `msize [Branch (p1::ps) e] > 0` by fs[msize_def] \\
+        `msize [Branch (p2::ps) e] > 0` by fs[msize_def] \\
+        `msize (h::t) > 0` by (imp_res_tac msize_inv_gt_zero \\ fs[]) \\
+	fs[spec_def, pm_size_app2, msize_def] \\
+        Cases_on `spec c a [Branch (p1::ps) e] = []` \\
+        Cases_on `spec c a [Branch (p2::ps) e] = []` \\
+        Cases_on `spec c a (h::t) = []`
+        >- (fs[msize_app, pm_size_def, plist_size_def, spec_msize] \\
+            `LENGTH (a::n_one (LENGTH ps)) = msize (h::t)`
+            by (Cases_on `h` \\
+                fs[inv_mat_def, patterns_def, n_one_length, msize_def]) \\
+            `0 < pm_size (a::n_one (LENGTH ps)) (h::t)`
+            by fs[pm_size_gt_zero, n_one_length] \\
+            fs[plist_size_gt_zero, n_one_length, psize_gt_zero])
+        >- (fs[msize_app, pm_size_def] \\
+            `msize (h::t) = LENGTH (a::n_one (LENGTH ps)) `
+            by (Cases_on `h` \\
+                fs[inv_mat_def, patterns_def, n_one_length, msize_def]) \\
+            fs[n_one_length])
+        >- fs[msize_app, pm_size_def, plist_size_def, psize_def]
+	>- (fs[msize_app, pm_size_def, plist_size_def, psize_def] \\
+            `msize (h::t) = LENGTH (a::n_one (LENGTH ps)) `
+            by (Cases_on `h` \\
+                fs[inv_mat_def, patterns_def, n_one_length, msize_def]) \\
+            sg `msize (spec c a [Branch (p2::ps) e]) =
+                msize (spec c a (h::t))`
+            >- (`msize [Branch (p2::ps) e] > 0` by fs[msize_def] \\
+                fs[spec_msize, msize_def] \\
+                fs[n_one_length])
+	    >- fs[n_one_length])
+        >- fs[msize_app, pm_size_def, plist_size_def, psize_def]
+	>- (fs[msize_app, pm_size_def, plist_size_def, psize_def] \\
+            `msize (h::t) = LENGTH (a::n_one (LENGTH ps)) `
+            by (Cases_on `h` \\
+                fs[inv_mat_def, patterns_def, n_one_length, msize_def]) \\
+            sg `msize (spec c a [Branch (p1::ps) e]) =
+                msize (spec c a (h::t))`
+            >- (`msize [Branch (p1::ps) e] > 0` by fs[msize_def] \\
+                fs[spec_msize, msize_def] \\
+                fs[n_one_length])
+	    >- fs[n_one_length])
+        >- (fs[msize_app, pm_size_def, plist_size_def, psize_def] \\
+            `msize (h::t) = LENGTH (a::n_one (LENGTH ps)) `
+            by (Cases_on `h` \\
+                fs[inv_mat_def, patterns_def, n_one_length, msize_def]) \\
+            sg `msize (spec c a [Branch (p1::ps) e]) =
+                msize (spec c a [Branch (p2::ps) e])`
+            >- (`msize [Branch (p1::ps) e] > 0` by fs[msize_def] \\
+                `msize [Branch (p2::ps) e] > 0` by fs[msize_def] \\
+                fs[spec_msize, msize_def] \\
+                fs[n_one_length])
+	    >- fs[n_one_length])
+        >- (fs[msize_app, pm_size_def, plist_size_def, psize_def] \\
+            `msize (h::t) = LENGTH (a::n_one (LENGTH ps)) `
+            by (Cases_on `h` \\
+                fs[inv_mat_def, patterns_def, n_one_length, msize_def]) \\
+            `msize (spec c a [Branch (p1::ps) e]) =
+             msize (spec c a [Branch (p2::ps) e])`
+            by (`msize [Branch (p1::ps) e] > 0` by fs[msize_def] \\
+                `msize [Branch (p2::ps) e] > 0` by fs[msize_def] \\
+                fs[spec_msize, msize_def] \\
+                fs[n_one_length]) \\
+            `msize (spec c a [Branch (p2::ps) e]) =
+             msize (spec c a (h::t))`
+            by (`msize [Branch (p2::ps) e] > 0` by fs[msize_def] \\
+                fs[spec_msize, msize_def] \\
+                fs[n_one_length]) \\
+            fs[n_one_length])))
+  >- (Cases_on `rs`
+    >- (fs[spec_def, pm_size_def, plist_size_def, psize_def,
+	   msize_def, n_one_length] \\
+        imp_res_tac ars_inv_as \\
+        imp_res_tac inv_mat_as \\
+        fs[])
+    >- (fs[spec_def, pm_size_def, plist_size_def, psize_def,
+	   msize_def, n_one_length] \\
+	imp_res_tac ars_inv_as \\
+        imp_res_tac inv_mat_as \\
+        fs[]))
+  >- fs[msize_def]
+QED;
+
+(* compilation scheme a pattern matrix to a decision tree
    based on a heuristic h
 *)
 val compile_def = Hol_defn "compile" `
@@ -1346,12 +1958,24 @@ val compile_def = Hol_defn "compile" `
 Defn.tgoal compile_def;
 
 WF_REL_TAC `(inv_image ($< LEX $<)
-            (\x. case x of INL(_,m,b) => ((pm_size m) + 1, (if b then (1:num) else 0))
-                         | INR y => (case y of INL(_,m,_,i) => (pm_size m, LENGTH i)
-                                             | INR(_,m,_,i) => (pm_size m, LENGTH i))))` \\
+            (\x. case x of INL(_,m,b) => ((pm_size (n_one (msize m)) m) + 1, (if b then (1:num) else 0))
+                         | INR y => (case y of INL(_,m,_,i) =>
+                                      (case i of
+                                          [] => (pm_size (n_one (msize m)) m, LENGTH i)
+				        | (_,_,a,_)::ps => (pm_size (a::(n_one ((msize m) - 1))) m, LENGTH i))
+                                     | INR(_,m,_,i) =>
+                                       (case i of
+                                          [] => (pm_size (n_one (msize_m)) m, LENGTH i)
+                                        | (_,_,a_)::ps => (pm_size (a::(n_one ((msize m) - 1))) m, LENGTH i)))))` \\
+
 rw[]
 >- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
+    Cases_on `p_2`
+    fs[] \\
+    Cases_on `h'` \\
+    Cases_on `r` \\
+    Cases_on `r'` \\
+    fs[]
 >- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
     fs[])
 >- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
