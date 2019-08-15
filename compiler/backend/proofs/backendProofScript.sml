@@ -222,18 +222,18 @@ Proof
   \\ rpt gen_tac \\ rpt (pairarg_tac \\ fs [])
   \\ strip_tac \\ rveq \\ fs [] \\ rw []
   THEN1 (* no_Labels *)
-   (drule (clos_numberProofTheory.renumber_code_locs_no_Labels |> CONJUNCT1)
+   (old_drule (clos_numberProofTheory.renumber_code_locs_no_Labels |> CONJUNCT1)
     \\ impl_tac THEN1
      (Cases_on `cf.do_mti` \\ fs [clos_mtiTheory.compile_def]
       \\ fs [clos_mtiProofTheory.intro_multi_no_Labels])
     \\ strip_tac
     \\ `EVERY no_Labels es'` by
       (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
-       \\ drule clos_knownProofTheory.compile_no_Labels
+       \\ old_drule clos_knownProofTheory.compile_no_Labels
        \\ fs [clos_knownTheory.compile_def] \\ rw [] \\ fs [])
     \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
     \\ TRY pairarg_tac \\ fs [] \\ rveq
-    \\ TRY (drule clos_callProofTheory.calls_no_Labels
+    \\ TRY (old_drule clos_callProofTheory.calls_no_Labels
             \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
     \\ match_mp_tac clos_labelsProofTheory.no_Labels_labs
     \\ match_mp_tac clos_annotateProofTheory.no_Labels_ann
@@ -242,7 +242,7 @@ Proof
     \\ fs [EVERY_MEM,FORALL_PROD,MEM_MAP,PULL_EXISTS]
     \\ rw [] \\ res_tac \\ fs [])
   THEN1 (* obeys_max_app *)
-   (drule (clos_numberProofTheory.renumber_code_locs_obeys_max_app
+   (old_drule (clos_numberProofTheory.renumber_code_locs_obeys_max_app
            |> CONJUNCT1 |> GEN_ALL)
     \\ disch_then (qspec_then `cf.max_app` mp_tac)
     \\ impl_tac THEN1
@@ -252,12 +252,12 @@ Proof
     \\ strip_tac
     \\ `EVERY (obeys_max_app cf.max_app) es'` by
       (Cases_on `cf.known_conf` THEN1 (fs [clos_knownTheory.compile_def] \\ rfs [])
-       \\ drule (GEN_ALL clos_knownProofTheory.compile_obeys_max_app)
+       \\ old_drule (GEN_ALL clos_knownProofTheory.compile_obeys_max_app)
        \\ disch_then (qspec_then `cf.max_app` mp_tac)
        \\ fs [clos_knownTheory.compile_def] \\ rw [] \\ fs [])
     \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
     \\ TRY pairarg_tac \\ fs [] \\ rveq
-    \\ TRY (drule (GEN_ALL clos_callProofTheory.calls_obeys_max_app)
+    \\ TRY (old_drule (GEN_ALL clos_callProofTheory.calls_obeys_max_app)
             \\ disch_then (qspec_then `cf.max_app` mp_tac)
             \\ (impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ rw []))
     \\ match_mp_tac clos_labelsProofTheory.obeys_max_app_labs
@@ -284,7 +284,7 @@ Proof
      \\ strip_tac \\ fs [])
   \\ Cases_on `cf.do_call` \\ fs [clos_callTheory.compile_def] \\ rveq \\ fs []
   \\ TRY pairarg_tac \\ fs [] \\ rveq
-  \\ TRY (drule clos_callProofTheory.calls_preserves_every_Fn_SOME
+  \\ TRY (old_drule clos_callProofTheory.calls_preserves_every_Fn_SOME
           \\ impl_tac THEN1 (fs [] \\ EVAL_TAC) \\ strip_tac \\ fs [])
   \\ match_mp_tac clos_labelsProofTheory.every_Fn_SOME_labs
   \\ match_mp_tac clos_annotateProofTheory.every_Fn_SOME_ann
@@ -299,7 +299,7 @@ Theorem compile_common_code_locs:
       set (MAP FST xs) ∪ set (code_locs (MAP (SND ∘ SND) xs))
 Proof
   rpt strip_tac
-  \\ drule compile_common_syntax
+  \\ old_drule compile_common_syntax
   \\ fs [EVERY_MAP,compile_no_Labels]
   \\ strip_tac
   \\ qpat_x_assum `_ ==> _` kall_tac
@@ -352,7 +352,7 @@ Proof
   srw_tac[][compile_eq_from_source,from_source_def,backend_config_ok_def,heap_regs_def] >>
   `c.lab_conf.asm_conf = mc.target.config` by fs[mc_init_ok_def] >>
   `c'.ffi_names = SOME mc.ffi_names` by fs[targetSemTheory.installed_def] >>
-  drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_flatProofTheory.compile_semantics)) >>
+  old_drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_flatProofTheory.compile_semantics)) >>
   fs[primSemEnvTheory.prim_sem_env_eq] >>
   qpat_x_assum`_ = s`(assume_tac o Abbrev_intro o SYM) >>
   qpat_x_assum`_ = env`(assume_tac o Abbrev_intro o SYM) >>
@@ -398,7 +398,7 @@ Proof
     \\ simp[IN_FRANGE, DOMSUB_FAPPLY_THM]
     \\ EVAL_TAC \\ rw[] \\ EVAL_TAC
     \\ CCONTR_TAC \\ fs[] \\ rw[] \\ fs[])
-  \\ disch_then drule >> strip_tac >>
+  \\ disch_then old_drule >> strip_tac >>
   pairarg_tac \\ fs[] >>
   qhdtm_x_assum`from_flat`mp_tac >>
   srw_tac[][from_flat_def] >>
@@ -444,9 +444,10 @@ Proof
      |> ISPEC)
    |> Q.GEN`co`
    |> Q.GEN`k0`
-   |>  drule)
+   |> Q.GEN`c`
+   |> old_drule)
   \\ disch_then(
-       qspecl_then[`TODO_clock`,
+       qspecl_then[`c`, `TODO_clock`,
                    `K ((TODO_co1,
                         (
                           (case
@@ -495,7 +496,7 @@ Proof
    |> Q.GENL[`cc`,`st`,`es`,`max_app`]
    |> qispl_then[`cc3`,`st4 (pure_cc pc cc3) st3`,`es3`]mp_tac) >>
   simp[Abbr`es3`] >>
-  disch_then drule >>
+  disch_then old_drule >>
   impl_tac >- (
     fs[Abbr`st3`, flat_to_patProofTheory.compile_state_def, Abbr`st4`]
     \\ EVAL_TAC ) >>
@@ -599,7 +600,7 @@ Proof
         \\ pairarg_tac \\ fs[] \\ rveq
         \\ simp[source_to_flatTheory.glob_alloc_def]
         \\ simp[flatPropsTheory.op_gbag_def]
-        \\ drule compile_decs_elist_globals
+        \\ old_drule compile_decs_elist_globals
         \\ rw[]
         \\ simp[LIST_TO_BAG_DISTINCT]
         \\ irule ALL_DISTINCT_MAP_INJ
@@ -618,7 +619,7 @@ Proof
       \\ simp[Abbr`coa`]
       \\ Cases_on`c.clos_conf.known_conf` \\ fs[clos_knownTheory.compile_def]
       \\ pairarg_tac \\ fs[]
-      \\ drule clos_knownProofTheory.known_preserves_esgc_free
+      \\ old_drule clos_knownProofTheory.known_preserves_esgc_free
       \\ impl_keep_tac
       >- (
         fs[] \\ rveq \\ rfs[]
@@ -680,7 +681,7 @@ Proof
   fs[from_bvi_def] \\
   `s.ffi = ffi` by simp[Abbr`s`] \\ pop_assum SUBST_ALL_TAC \\ fs[] \\
   qmatch_goalsub_abbrev_tac`bvlSem$semantics _ _ co cc`
-  \\ Q.ISPEC_THEN`co`(drule o GEN_ALL) (Q.GEN`co`bvl_to_bviProofTheory.compile_semantics)
+  \\ Q.ISPEC_THEN`co`(old_drule o GEN_ALL) (Q.GEN`co`bvl_to_bviProofTheory.compile_semantics)
   \\ disch_then(qspec_then`ffi`mp_tac)
   \\ qunabbrev_tac`cc`
   \\ qmatch_goalsub_abbrev_tac`bvlSem$semantics _ _ co (full_cc _ cc) _`
@@ -716,14 +717,14 @@ Proof
         \\ `bvl_num_stubs ≤ n2` suffices_by rw[]
         \\ fs[bvl_to_bviTheory.compile_def]
         \\ rpt(pairarg_tac \\ fs[])
-        \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+        \\ old_drule bvi_tailrecProofTheory.compile_prog_next_mono
         \\ rveq \\ rw[])
       >- (
         simp[Abbr`co3`]
         \\ `bvl_to_bviProof$in_ns 2 n2` suffices_by rw[]
         \\ fs[bvl_to_bviTheory.compile_def]
         \\ rpt(pairarg_tac \\ fs[])
-        \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+        \\ old_drule bvi_tailrecProofTheory.compile_prog_next_mono
         \\ rw[]
         \\ simp[bvl_to_bviProofTheory.mult_nss_in_ns_2] ))
     \\ (
@@ -734,7 +735,7 @@ Proof
 
   \\ (bvi_to_dataProofTheory.compile_prog_semantics
       |> SIMP_RULE std_ss [GSYM backendPropsTheory.pure_cc_def |> SIMP_RULE std_ss [LET_THM]]
-      |> drule)
+      |> old_drule)
   \\ disch_then(strip_assume_tac o SYM) \\ fs[] \\
   qmatch_assum_abbrev_tac `from_data c4 p4 = _` \\
   qhdtm_x_assum`from_data`mp_tac
@@ -817,7 +818,7 @@ Proof
      unabbrev_all_tac \\ fs[] >>
     metis_tac[])>>
   strip_tac>>
-  drule (word_to_stack_stack_convs|> GEN_ALL)>>
+  old_drule (word_to_stack_stack_convs|> GEN_ALL)>>
   simp[]>>
   impl_tac>-
     (fs[backend_config_ok_def,Abbr`c4`]>>
@@ -828,13 +829,13 @@ Proof
   strip_tac>>
   fs[data_to_wordTheory.compile_def]
   \\ qmatch_assum_abbrev_tac`compile _ _ t_code = (_,p5)`
-  \\ drule (GEN_ALL compile_distinct_names)
+  \\ old_drule (GEN_ALL compile_distinct_names)
   \\ fs[bvl_to_bviTheory.compile_def]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
   \\ rveq
-  \\ drule clos_to_bvlProofTheory.compile_all_distinct_locs
+  \\ old_drule clos_to_bvlProofTheory.compile_all_distinct_locs
   \\ strip_tac
   \\ disch_then(qspec_then`0`mp_tac) \\ simp[] \\ strip_tac
   \\ `stubs (:'a) c4.data_conf = stubs (:'a) c4_data_conf` by ( simp[Abbr`c4_data_conf`] )
@@ -852,7 +853,7 @@ Proof
       simp[data_to_wordTheory.compile_part_def,FST_triple,MAP_MAP_o,o_DEF,LAMBDA_PROD])>>
     conj_tac >- (
       rw[] \\
-      drule(ONCE_REWRITE_RULE[CONJ_COMM] ALOOKUP_ALL_DISTINCT_MEM) \\
+      old_drule(ONCE_REWRITE_RULE[CONJ_COMM] ALOOKUP_ALL_DISTINCT_MEM) \\
       impl_tac >- MATCH_ACCEPT_TAC ALL_DISTINCT_MAP_FST_stubs \\ simp[] ) \\
     rw[] \\
     reverse CASE_TAC >- (
@@ -882,7 +883,7 @@ Proof
     match_mp_tac stack_to_lab_compile_lab_pres>>
     rw[]>>EVAL_TAC>>
     fs[EVERY_MEM]>> rpt strip_tac>>
-    first_x_assum drule>>
+    first_x_assum old_drule>>
     EVAL_TAC>>rw[])>>
   disch_then(qspecl_then[`fromAList t_code`,`InitGlobals_location`,`p4`,`c4_data_conf`]mp_tac) \\
   (* TODO: make this auto *)
@@ -895,8 +896,8 @@ Proof
     \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog znn xxs`
     \\ Cases_on`bvi_tailrec_compile_prog znn xxs`
     \\ rw[]
-    \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
-    \\ disch_then drule
+    \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+    \\ disch_then old_drule
     \\ simp[Abbr`xxs`, Abbr`znn`]
     \\ strip_tac
     >- (
@@ -905,8 +906,8 @@ Proof
       \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc znn xxs`
       \\ Cases_on`bvl_to_bvi$compile_inc znn xxs`
       \\ rw[]
-      \\ drule (GEN_ALL compile_inc_next_range)
-      \\ disch_then drule
+      \\ old_drule (GEN_ALL compile_inc_next_range)
+      \\ disch_then old_drule
       \\ rw[]
       \\ qpat_x_assum`_ ≤ e`mp_tac
       \\ EVAL_TAC
@@ -916,7 +917,7 @@ Proof
     \\ qmatch_goalsub_rename_tac`IG.bitmaps,NORE`
     \\ EVAL_TAC
     \\ qpat_x_assum`_ = (n2,_)`assume_tac
-    \\ drule bvi_tailrecProofTheory.compile_prog_next_mono
+    \\ old_drule bvi_tailrecProofTheory.compile_prog_next_mono
     \\ IF_CASES_TAC \\ EVAL_TAC \\ rw[] )
   \\ `loc = InitGlobals_location` by
    (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
@@ -972,10 +973,10 @@ Proof
   `Fail ∉ y` by fs[Abbr`y`] \\
   pop_assum mp_tac \\ simp[GSYM implements_def] \\
   simp[Abbr`y`] \\
-  drule (GEN_ALL semantics_compile) \\
-  disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
+  old_drule (GEN_ALL semantics_compile) \\
+  disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(optionSyntax.is_some o rhs))))) \\
   simp[Abbr`c4`] \\
-  disch_then(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
+  disch_then(old_drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(move_conj_left(same_const``good_init_state`` o fst o strip_comb))))) \\
   disch_then(qspec_then`lab_oracle`mp_tac) \\
 
   `∀k. SND (co k) = []` by (
@@ -1014,8 +1015,8 @@ Proof
     \\ rewrite_tac[COND_RATOR]
     \\ rewrite_tac[Ntimes COND_RAND 3]
     \\ simp[] )
-  \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_prog_distinct_locs)
-  \\ impl_tac >- ( drule bvl_inlineProofTheory.compile_prog_names \\ rw[] )
+  \\ old_drule (GEN_ALL bvl_to_bviProofTheory.compile_prog_distinct_locs)
+  \\ impl_tac >- ( old_drule bvl_inlineProofTheory.compile_prog_names \\ rw[] )
   \\ strip_tac
   \\ `∀k. FST (SND (SND (FST (co k)))) = n2`
   by (
@@ -1024,7 +1025,7 @@ Proof
     \\ rewrite_tac[COND_RATOR]
     \\ rewrite_tac[Ntimes COND_RAND 3]
     \\ simp[] )
-  \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_next_mono)
+  \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_next_mono)
   \\ strip_tac
   \\ pop_assum(assume_tac o Abbrev_intro)
 
@@ -1108,7 +1109,7 @@ Proof
           \\ simp[]
           \\ pairarg_tac \\ simp[]
           \\ reverse impl_tac >- rw[]
-          \\ drule compile_word_to_stack_lab_pres
+          \\ old_drule compile_word_to_stack_lab_pres
           \\ CONV_TAC(PATH_CONV"lrr"(SIMP_CONV(srw_ss())[Once EVERY_MEM]))
           \\ simp[FORALL_PROD]
           \\ disch_then irule \\ simp[]
@@ -1130,7 +1131,7 @@ Proof
           \\ simp[Once EVERY_MEM] \\ strip_tac
           \\ simp[Once EVERY_MEM]
           \\ ntac 2 strip_tac
-          \\ first_x_assum drule
+          \\ first_x_assum old_drule
           \\ pairarg_tac \\ fs[]
           \\ strip_tac
           \\ qhdtm_x_assum`LIST_REL`mp_tac
@@ -1154,15 +1155,15 @@ Proof
           \\ simp[EVERY_MEM]
           \\ rw[]
           \\ fs[SUBSET_DEF]
-          \\ first_x_assum drule
+          \\ first_x_assum old_drule
           \\ strip_tac
-          \\ first_x_assum drule
+          \\ first_x_assum old_drule
           \\ pairarg_tac \\ rw[]
           \\ qpat_x_assum`MAP FST pp = _`mp_tac
           \\ simp[LIST_EQ_REWRITE, EL_MAP]
           \\ disch_then(qspec_then`i`mp_tac)
           \\ simp[])
-        \\ drule labels_ok_imp
+        \\ old_drule labels_ok_imp
         \\ simp[]
         \\ strip_tac
         \\ simp[Abbr`stack_oracle`, UNCURRY]
@@ -1222,7 +1223,7 @@ Proof
           \\ first_x_assum match_mp_tac
           \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack kkk pp qq`
           \\ Cases_on`compile_word_to_stack kkk pp qq`
-          \\ drule (Q.GEN`c`compile_word_to_stack_convs)
+          \\ old_drule (Q.GEN`c`compile_word_to_stack_convs)
           \\ disch_then(qspec_then`mc.target.config`mp_tac)
           \\ impl_tac
           >- (
@@ -1244,7 +1245,7 @@ Proof
             \\ simp[]
             \\ simp[EVERY_MEM, UNCURRY, Abbr`kkk`, Abbr`stk`]
             \\ rw[]
-            \\ first_x_assum drule
+            \\ first_x_assum old_drule
             \\ rw[]
             \\ first_x_assum irule
             \\ simp[Abbr`pp0`, FORALL_PROD]
@@ -1262,7 +1263,7 @@ Proof
             \\ fs[mc_conf_ok_def]
             \\ fs[WORD_LE,labPropsTheory.good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
           \\ simp[EVERY_MEM, FORALL_PROD] \\ fs[]
-          \\ disch_then drule
+          \\ disch_then old_drule
           \\ simp[])
         \\ simp[MAP_prog_to_section_Section_num]
         \\ `ppg = []`
@@ -1282,7 +1283,7 @@ Proof
           \\ srw_tac[ETA_ss][]
           \\ qmatch_goalsub_abbrev_tac`compile_word_to_stack kkk pp qq`
           \\ Cases_on`compile_word_to_stack kkk pp qq`
-          \\ drule word_to_stackProofTheory.MAP_FST_compile_word_to_stack \\ rw[]
+          \\ old_drule word_to_stackProofTheory.MAP_FST_compile_word_to_stack \\ rw[]
           \\ simp[Abbr`pp`, MAP_MAP_o, o_DEF]
           \\ simp[word_to_wordTheory.full_compile_single_def, UNCURRY]
           \\ srw_tac[ETA_ss][bvi_to_dataTheory.compile_prog_def]
@@ -1290,24 +1291,24 @@ Proof
           \\ simp[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co, backendPropsTheory.SND_state_co]
           \\ qmatch_goalsub_abbrev_tac`compile_prog n2 pp`
           \\ Cases_on`compile_prog n2 pp`
-          \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+          \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
           \\ rw[]
           \\ simp[IN_DISJOINT]
           \\ CCONTR_TAC \\ fs[]
-          \\ first_x_assum drule
+          \\ first_x_assum old_drule
           \\ simp[]
           \\ rveq
           \\ qunabbrev_tac`pp`
           \\ qmatch_goalsub_abbrev_tac`bvl_to_bvi$compile_inc n1 pp`
           \\ Cases_on`compile_inc n1 pp`
-          \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
+          \\ old_drule (GEN_ALL bvl_to_bviProofTheory.compile_inc_next_range)
           \\ strip_tac \\ fs[]
           \\ qmatch_assum_rename_tac`z ∈ get_code_labels p7`
           \\ PairCases_on`z` \\ fs[]
           \\ conj_tac
           >- (
             strip_tac
-            \\ first_x_assum drule
+            \\ first_x_assum old_drule
             \\ simp[]
             \\ ... (* oracle labels... *) )
           \\ disj1_tac
@@ -1317,7 +1318,7 @@ Proof
         \\ simp[SUBSET_DEF]
         \\ strip_tac
         \\ gen_tac \\ strip_tac
-        \\ first_x_assum drule
+        \\ first_x_assum old_drule
         \\ strip_tac \\ rw[]
         \\ ... (* referenced labels are present (for oracle) *) *))
       \\ fs[Abbr`stack_oracle`,Abbr`word_oracle`,Abbr`data_oracle`,Abbr`lab_oracle`] >>
@@ -1379,19 +1380,19 @@ Proof
     qpat_x_assum`Abbrev(p7 = _)` mp_tac>>
     simp[markerTheory.Abbrev_def]>>
     disch_then (assume_tac o SYM)>>
-    drule stack_to_lab_stack_good_code_labels>>
+    old_drule stack_to_lab_stack_good_code_labels>>
     simp[]>>
     disch_then match_mp_tac>>
     CONJ_TAC>- (
       EVAL_TAC
-      \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_keeps_names)
+      \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_keeps_names)
       \\ disch_then irule
       \\ fs[bvl_to_bviTheory.compile_prog_def]
       \\ pairarg_tac \\ fs[] \\ rveq
       \\ simp[]
       \\ disj1_tac
       \\ EVAL_TAC )
-    \\ drule word_to_stack_good_code_labels>>
+    \\ old_drule word_to_stack_good_code_labels>>
     disch_then match_mp_tac>>
     irule data_to_word_good_code_labels \\
     simp[data_to_wordTheory.compile_def]
@@ -1407,7 +1408,7 @@ Proof
     \\ qpat_x_assum`_ = (_,prog')`assume_tac
     \\ qpat_x_assum`_ = (_,p''')`assume_tac
     \\ simp[bviPropsTheory.good_code_labels_def]
-    \\ drule
+    \\ old_drule
       (bvi_tailrecProofTheory.compile_prog_good_code_labels
        |> INST_TYPE [alpha|->``:num#bvi$exp``]
        |> GEN_ALL)
@@ -1418,19 +1419,19 @@ Proof
      (imp_res_tac bvi_tailrecProofTheory.compile_prog_labels
       \\ pop_assum kall_tac
       \\ pop_assum (SUBST1_TAC o GSYM) \\ fs [])
-    \\ drule bvi_tailrecProofTheory.compile_prog_labels
+    \\ old_drule bvi_tailrecProofTheory.compile_prog_labels
     \\ strip_tac
     \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o GSYM)
-    \\ drule bvl_to_bviProofTheory.compile_prog_get_code_labels
+    \\ old_drule bvl_to_bviProofTheory.compile_prog_get_code_labels
     \\ qmatch_goalsub_abbrev_tac`ss ⊆ star INSERT _`
-    \\ drule bvl_inlineProofTheory.compile_prog_get_code_labels
+    \\ old_drule bvl_inlineProofTheory.compile_prog_get_code_labels
     \\ strip_tac
     \\ fs[clos_to_bvlTheory.compile_def]
     \\ pairarg_tac \\ fs[] \\ rveq \\ fs[]
     \\ fs[clos_to_bvlProofTheory.set_MAP_code_sort]
     \\ qmatch_goalsub_abbrev_tac`star INSERT fcc ∪ pp`
     \\ `star ∈ fcc ∧ pp ⊆ fcc` suffices_by ( simp[SUBSET_DEF] \\ metis_tac[] )
-    \\ drule (GEN_ALL bvl_to_bviProofTheory.compile_prog_code_labels_domain) \\ simp[]
+    \\ old_drule (GEN_ALL bvl_to_bviProofTheory.compile_prog_code_labels_domain) \\ simp[]
     \\ disch_then(qspecl_then[`ARB`,`ARB`]strip_assume_tac)
     \\ fs[Abbr`fcc`]
     \\ conj_tac
@@ -1449,7 +1450,7 @@ Proof
       \\ rw[Abbr`qrog`]
       \\ simp[clos_to_bvlProofTheory.set_MAP_code_sort] )
     \\ simp[Abbr`pp`]
-    \\ drule bvl_inlineProofTheory.compile_prog_names
+    \\ old_drule bvl_inlineProofTheory.compile_prog_names
     \\ rw[clos_to_bvlProofTheory.set_MAP_code_sort]
     \\ qmatch_goalsub_abbrev_tac`IMAGE ff _`
     \\ qmatch_asmsub_abbrev_tac`star = _ + _ * mm`
@@ -1588,7 +1589,7 @@ Proof
   \\ qpat_x_assum`Abbrev(stack_st_opt = _)`(mp_tac o REWRITE_RULE[markerTheory.Abbrev_def]) \\
   disch_then(assume_tac o SYM) \\
   Cases_on`stack_st_opt` \\
-  drule full_make_init_semantics \\
+  old_drule full_make_init_semantics \\
 
   impl_tac >- (
     simp_tac std_ss [Once EVERY_FST_SND] \\
@@ -1627,12 +1628,12 @@ Proof
         \\ qabbrev_tac `a = tar_st.regs mc.len_reg`
         \\ qabbrev_tac `b = tar_st.regs mc.len2_reg`
         \\ qpat_x_assum `a <=+ b` assume_tac
-        \\ drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
+        \\ old_drule WORD_LS_IMP \\ strip_tac \\ fs [EXTENSION]
         \\ fs [IN_DEF,PULL_EXISTS,bytes_in_word_def,word_mul_n2w]
         \\ rw [] \\ reverse eq_tac THEN1
          (rw [] \\ fs [] \\ qexists_tac `i * (dimindex (:α) DIV 8)` \\ fs []
           \\ `0 < dimindex (:α) DIV 8` by rfs [labPropsTheory.good_dimindex_def]
-          \\ drule X_LT_DIV \\ disch_then (fn th => fs [th])
+          \\ old_drule X_LT_DIV \\ disch_then (fn th => fs [th])
           \\ fs [RIGHT_ADD_DISTRIB]
           \\ fs [GSYM word_mul_n2w,GSYM bytes_in_word_def]
           \\ fs [byte_aligned_mult])
@@ -1642,7 +1643,7 @@ Proof
         \\ rfs [alignmentTheory.byte_aligned_def,
              ONCE_REWRITE_RULE [WORD_ADD_COMM] alignmentTheory.aligned_add_sub]
         \\ fs [aligned_w2n]
-        \\ drule DIVISION
+        \\ old_drule DIVISION
         \\ disch_then (qspec_then `i` (strip_assume_tac o GSYM))
         \\ `2 ** LOG2 (dimindex (:α) DIV 8) = dimindex (:α) DIV 8` by
              (fs [labPropsTheory.good_dimindex_def] \\ NO_TAC)
@@ -1706,7 +1707,7 @@ Proof
       \\ strip_tac \\ qunabbrev_tac`bmk`
       \\ fs[PAIR_MAP]
       \\ qmatch_asmsub_abbrev_tac`compile_word_to_stack kkk pp`
-      \\ drule (GEN_ALL compile_word_to_stack_convs)
+      \\ old_drule (GEN_ALL compile_word_to_stack_convs)
       \\ disch_then(qspec_then`mc.target.config`mp_tac)
       \\ simp[]
       \\ qmatch_asmsub_abbrev_tac`Abbrev (pp = MAP _ pp0)`
@@ -1727,7 +1728,7 @@ Proof
         simp[EVERY_MAP, LAMBDA_PROD]
         \\ fs[Abbr`kkk`]
         \\ fs[EVERY_MEM] \\ rw[]
-        \\ first_x_assum drule
+        \\ first_x_assum old_drule
         \\ pairarg_tac \\ rw[]
         \\ first_x_assum irule
         \\ simp[Abbr`pp0`, FORALL_PROD]
@@ -1757,7 +1758,7 @@ Proof
         irule MONO_EVERY
         \\ goal_assum(first_assum o mp_then Any mp_tac)
         \\ EVAL_TAC \\ rw[] )
-      \\ drule compile_word_to_stack_lab_pres
+      \\ old_drule compile_word_to_stack_lab_pres
       \\ simp[Q.SPEC`P o FST`(INST_TYPE[alpha|->``:'a # 'b``]EVERY_CONJ)
               |> Q.SPEC`Q o SND` |> SIMP_RULE (srw_ss()) [LAMBDA_PROD]]
       \\ simp[o_DEF]
@@ -1791,9 +1792,9 @@ Proof
       \\ fs[SUBSET_DEF]
       \\ simp[GSYM FORALL_AND_THM, GSYM IMP_CONJ_THM]
       \\ gen_tac \\ strip_tac
-      \\ first_x_assum drule
+      \\ first_x_assum old_drule
       \\ strip_tac
-      \\ first_x_assum drule
+      \\ first_x_assum old_drule
       \\ pairarg_tac \\ rw[]
       \\ qpat_x_assum`MAP FST pp = _`mp_tac
       \\ simp[LIST_EQ_REWRITE, EL_MAP]
@@ -1853,7 +1854,7 @@ Proof
       rfs[ETA_AX,Abbr`word_oracle`,Abbr`data_oracle`]>>
       simp[PAIR_MAP] >>
       simp[GSYM PULL_EXISTS] >>
-      drule compile_word_to_stack_bitmaps>>
+      old_drule compile_word_to_stack_bitmaps>>
       CASE_TAC>>strip_tac>>
       fs[attach_bitmaps_def]>>
       simp[UNCURRY] >>
@@ -1884,11 +1885,11 @@ Proof
         \\ simp[bvi_to_dataTheory.compile_part_def]
         \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog n2 pp`
         \\ Cases_on`bvi_tailrec$compile_prog n2 pp`
-        \\ drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
+        \\ old_drule (GEN_ALL bvi_tailrecProofTheory.compile_prog_MEM)
         \\ fs[]
         \\ simp[MEM_MAP, PULL_EXISTS, EXISTS_PROD]
         \\ ntac 2 strip_tac
-        \\ first_x_assum drule
+        \\ first_x_assum old_drule
         \\ reverse strip_tac
         >- (
           pop_assum mp_tac
@@ -1904,8 +1905,8 @@ Proof
         >- ( simp[Abbr`pp`] \\ EVAL_TAC )
         \\ simp[EVERY_MEM, MEM_FILTER, FORALL_PROD, MEM_MAP, EXISTS_PROD, PULL_EXISTS]
         \\ EVAL_TAC \\ rw[]
-        \\ strip_tac \\ first_x_assum drule \\ EVAL_TAC
-        \\ first_x_assum drule \\ rw[] )
+        \\ strip_tac \\ first_x_assum old_drule \\ EVAL_TAC
+        \\ first_x_assum old_drule \\ rw[] )
       \\ qho_match_abbrev_tac`(_ _ (SND (SND (pp1 _))) ∧ _)`
       \\ `MEM (compile_part c4_data_conf z) (MAP (compile_part c4_data_conf) pp0)` by metis_tac[MEM_MAP]
       \\ qmatch_assum_abbrev_tac`MEM zz pp00`
