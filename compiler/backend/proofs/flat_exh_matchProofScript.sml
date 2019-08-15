@@ -474,7 +474,7 @@ Proof
 QED
 
 
-Theorem state_rel_get_cargs_flat_eq:
+Theorem state_rel_get_carg_flat_eq:
    get_carg_flat s.refs ty arg = SOME carg /\
    state_rel ctors s s' /\
    v_rel ctors arg arg' ==>
@@ -505,7 +505,7 @@ Proof
   MAP_EVERY qid_spec_tac [`vs'`, `ctors`, `s`, `s'`, `cargs`, `vs`, `cts`, `rfs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
   ho_match_mp_tac get_cargs_flat_ind >> rw [get_cargs_flat_def] >>
-  fs [get_cargs_flat_def] >> metis_tac [state_rel_get_cargs_flat_eq]
+  fs [get_cargs_flat_def] >> metis_tac [state_rel_get_carg_flat_eq]
 QED
 
 
