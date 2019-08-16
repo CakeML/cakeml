@@ -245,13 +245,9 @@ val do_install_def = Define `
             | _ => Rerr(Rabort Rtype_error))
        | _ => Rerr(Rabort Rtype_error))`;
 
-val list_to_v_def = Define `
-  list_to_v ts [] = Block 0 nil_tag [] /\
-  list_to_v ts (v::vs) = Block ts cons_tag [v; list_to_v (ts+1) vs]`;
-
-val list_to_v_alt_def = Define`
-  list_to_v_alt ts t [] = t ∧
-  list_to_v_alt ts t (h::l) = Block ts cons_tag [h; list_to_v_alt (ts+1) t l]`;
+val list_to_v_def = Define`
+  list_to_v ts t [] = t ∧
+  list_to_v ts t (h::l) = Block ts cons_tag [h; list_to_v (ts+1) t l]`;
 
 val with_fresh_ts_def = Define`
   with_fresh_ts ^s n f = case s.tstamps of
@@ -325,7 +321,7 @@ val do_app_aux_def = Define `
     | (ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
          | (SOME xs, SOME ys) =>
-             with_fresh_ts ^s (LENGTH xs) (λts s'. Rval (list_to_v_alt ts x2 xs, s'))
+             with_fresh_ts ^s (LENGTH xs) (λts s'. Rval (list_to_v ts x2 xs, s'))
          | _ => Error)
     | (LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
