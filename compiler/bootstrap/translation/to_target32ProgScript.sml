@@ -292,6 +292,12 @@ val _ = translate (conv32 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPT
 
 val _ = translate (spec32 asmTheory.asm_ok_def)
 
+val res = translate (zero_labs_acc_of_def |> spec32)
+val res = translate (line_get_zero_labs_acc_def |> spec32)
+val res = translate (sec_get_zero_labs_acc_def |> spec32)
+val res = translate (get_zero_labs_acc_def |> spec32)
+val res = translate (zero_labs_acc_exist_def |> INST_TYPE[alpha |-> ``:num``, beta |->``:32``])
+
 (* Add in hidden argument to compile_lab *)
 val remove_labels_hash_def = Define `
   remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
