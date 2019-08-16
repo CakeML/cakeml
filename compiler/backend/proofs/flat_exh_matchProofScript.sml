@@ -412,7 +412,7 @@ Theorem do_opapp_thm:
      ctors_pre SUBMAP ctors /\
      do_opapp vs2 = SOME (nvs2, HD (compile_exps ctors_pre [e]))
 Proof
-  simp [do_opapp_def, pair_case_eq, case_eq_thms, PULL_EXISTS]
+ simp [do_opapp_def, pair_case_eq, case_eq_thms, PULL_EXISTS]
   \\ rw [] \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
   \\ fs [Once v_rel_cases] \\ rw [] \\ fs [PULL_EXISTS]
   \\ TRY
@@ -456,7 +456,7 @@ val store_v_same_type_cases = Q.prove (
 
 
 Theorem state_rel_sign_eq:
-  state_rel ctors s s' /\
+  state_rel T ctors s s' /\
   FIND (λx. x.mlname = n) (debug_sig::s.ffi.signatures) = SOME sign ==>
     FIND (λx. x.mlname = n) (debug_sig::s'.ffi.signatures) = SOME sign
 Proof
@@ -465,7 +465,7 @@ Proof
 QED
 
 Theorem state_rel_silent_sign_eq:
-  state_rel ctors s s' /\
+  state_rel T ctors s s' /\
   FIND (λx. x.mlname = "" ) (debug_sig::s.ffi.signatures) = SOME sign ==>
     FIND (λx. x.mlname = "") (debug_sig::s'.ffi.signatures) = SOME sign
 Proof
@@ -476,14 +476,14 @@ QED
 
 Theorem state_rel_get_carg_flat_eq:
    get_carg_flat s.refs ty arg = SOME carg /\
-   state_rel ctors s s' /\
+   state_rel T ctors s s' /\
    v_rel ctors arg arg' ==>
     get_carg_flat s'.refs ty arg' = SOME carg
 Proof
   rw [] >>
   Cases_on `ty` >> Cases_on `arg` >> fs [state_rel_def] >>
   fs [get_carg_flat_def, bool_case_eq, Boolv_def] >> rveq >>
-  fs [LIST_REL_NIL] >> 
+  fs [LIST_REL_NIL] >>
   TRY (Cases_on `l` >> fs [get_carg_flat_def] >> NO_TAC) >>
   every_case_tac >> fs []
   >- fs [store_lookup_def, LIST_REL_EL_EQN]
@@ -494,9 +494,9 @@ QED
 Theorem state_rel_get_cargs_flat_eq:
   !s cts vs cargs s' vs' ctors.
   get_cargs_flat s.refs cts vs = SOME cargs /\
-  state_rel ctors s s' /\
+  state_rel T ctors s s' /\
   LIST_REL (v_rel ctors) vs vs' ==>
-      get_cargs_flat s'.refs cts vs' = SOME cargs  
+      get_cargs_flat s'.refs cts vs' = SOME cargs
 Proof
   rw [] >>
   qmatch_asmsub_abbrev_tac `get_cargs_flat rfs _ _ = _ ` >>
@@ -511,10 +511,10 @@ QED
 
 Theorem v_rel_get_mut_args:
   !vs vs' cts. LIST_REL (v_rel ctors) vs vs' ==>
-    LIST_REL (v_rel ctors) (get_mut_args cts vs) (get_mut_args cts vs')  
+    LIST_REL (v_rel ctors) (get_mut_args cts vs) (get_mut_args cts vs')
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac LIST_REL_ind >> 
+  ho_match_mp_tac LIST_REL_ind >>
   rw [LIST_REL_def, ffiTheory.get_mut_args_def, ZIP_def] >>
   Cases_on `cts` >> fs [ZIP_def] >> every_case_tac >>
   fs [MAP]
@@ -561,17 +561,17 @@ QED
 
 Theorem state_rel_store_carg_flat_some_not_none:
   store_carg_flat marg w s.refs = SOME x /\
-  state_rel ctors s s' /\
+  state_rel T ctors s s' /\
   v_rel ctors marg marg'  ==>
    store_carg_flat marg' w' s'.refs <> NONE
 Proof
   rw [] >>
-  Cases_on `marg` >> 
+  Cases_on `marg` >>
   fs [state_rel_def, store_carg_flat_def]
   >- fs [Once v_rel_cases, store_carg_flat_def]
   >- fs [Once v_rel_cases, store_carg_flat_def] >>
   fs [store_assign_def, store_v_same_type_def] >> rveq >> fs [] >>
-  every_case_tac >> fs [LIST_REL_EL_EQN] >> 
+  every_case_tac >> fs [LIST_REL_EL_EQN] >>
   first_x_assum (qspec_then `n` mp_tac) >>
   first_x_assum (qspec_then `n` mp_tac) >> rw []
 QED
@@ -580,8 +580,8 @@ QED
 Theorem state_rel_store_cargs_flat_some_not_none:
   !margs ws s st s' ctors.
   store_cargs_flat margs ws s.refs = SOME st /\
-  state_rel ctors s s'  ==>
-   ?st'. store_cargs_flat margs ws s'.refs = SOME st'   
+  state_rel T ctors s s'  ==>
+   ?st'. store_cargs_flat margs ws s'.refs = SOME st'
 Proof
   rw [] >>
   qmatch_asmsub_abbrev_tac `store_cargs_flat _ _ rfs = _ ` >>
@@ -591,7 +591,7 @@ Proof
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
   ho_match_mp_tac store_cargs_flat_ind >> rw [store_cargs_flat_def] >>
   every_case_tac >> fs []
-  >- (Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def]  >> 
+  >- (Cases_on `marg` >> Cases_on `w` >> fs [store_carg_flat_def]  >>
       fs [state_rel_def] >> fs [LIST_REL_EL_EQN] >>
       fs [store_assign_def, store_v_same_type_def] >>
       last_x_assum (qspec_then `n` mp_tac) >> strip_tac >> rfs [] >>
@@ -601,16 +601,16 @@ Proof
   TRY (metis_tac []) >> rveq
   >- (fs [store_assign_def] >>
       first_x_assum (qspecl_then [`ctors`,`s with refs := LUPDATE (W8array []) n s.refs`,
-      `s' with refs := LUPDATE (W8array []) n s'.refs`] mp_tac) >> rw [] >> 
-      `state_rel ctors (s with refs := LUPDATE (W8array []) n s.refs)
-       (s' with refs := LUPDATE (W8array []) n s'.refs)` by 
+      `s' with refs := LUPDATE (W8array []) n s'.refs`] mp_tac) >> rw [] >>
+      `state_rel T ctors (s with refs := LUPDATE (W8array []) n s.refs)
+       (s' with refs := LUPDATE (W8array []) n s'.refs)` by
        (fs [state_rel_def, LIST_REL_EL_EQN] >>
         rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []) >>
   fs [store_assign_def] >>
   first_x_assum (qspecl_then [`ctors`,`s with refs := LUPDATE (W8array (h::t)) n s.refs`,
-  `s' with refs := LUPDATE (W8array (h::t)) n s'.refs`] mp_tac) >> rw [] >> 
-   `state_rel ctors (s with refs := LUPDATE (W8array (h::t)) n s.refs)
-   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by 
+  `s' with refs := LUPDATE (W8array (h::t)) n s'.refs`] mp_tac) >> rw [] >>
+   `state_rel T ctors (s with refs := LUPDATE (W8array (h::t)) n s.refs)
+   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by
    (fs [state_rel_def, LIST_REL_EL_EQN] >>
    rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []
 QED
@@ -639,10 +639,10 @@ QED
 
 
 Theorem state_rel_ffi_result:
-   state_rel ctors s s' /\  
+   state_rel T ctors s s' /\
    s.ffi.oracle n s.ffi.ffi_state margs alsargs = Oracle_return f l rtv /\
    s'.ffi.oracle n s'.ffi.ffi_state margs alsargs = Oracle_return f' l' rtv' ==>
-     f' = f /\  l' = l /\ rtv' = rtv 
+     f' = f /\  l' = l /\ rtv' = rtv
 Proof
   rw [state_rel_def,  ffiTheory.ffi_state_component_equality] >>
   rfs []
@@ -650,8 +650,8 @@ QED
 
 
 Theorem state_rel_update_bytes:
-  state_rel ctors s t ==>
-   state_rel ctors
+  state_rel T ctors s t ==>
+   state_rel T ctors
     (s with refs := LUPDATE (W8array w) lnum s.refs)
     (t with refs := LUPDATE (W8array w) lnum t.refs)
 Proof
@@ -661,7 +661,7 @@ QED
 
 Theorem state_rel_lupfate_w8array_rel:
   !ctors s t. LENGTH margs = LENGTH l  /\
-     state_rel ctors s t  ==>
+     state_rel T ctors s t  ==>
     LIST_REL (sv_rel (v_rel ctors))
           (FOLDL (λrefs (marg,w). LUPDATE (W8array w) (loc_num marg) refs)
              s.refs (ZIP (margs,l)))
@@ -672,8 +672,8 @@ Proof
    >- (qpat_x_assum `[]= _` (assume_tac o GSYM) >> fs [state_rel_def]) >>
   qpat_x_assum `_::_ = _` (assume_tac o GSYM) >> fs [] >>
   Cases_on `margs` >> Cases_on `l` >> fs [] >>
-  rveq >> first_x_assum (qspecl_then [`t'`, `t''`] mp_tac) >> 
-  rw [] >> 
+  rveq >> first_x_assum (qspecl_then [`t'`, `t''`] mp_tac) >>
+  rw [] >>
   first_x_assum (qspecl_then [`ctors`, `s with refs:= LUPDATE (W8array h'') (loc_num h') s.refs`,
                               `t with refs:= LUPDATE (W8array h'') (loc_num h') t.refs`] mp_tac) >>
   drule (GEN_ALL state_rel_update_bytes) >> rw []
@@ -886,51 +886,51 @@ Proof
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> rw [] >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> rw [])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> rw [] >> fs [] >>
-          rename1 `FIND _ _ = SOME sign` >> drule v_rel_get_mut_args >> 
-          disch_then (qspec_then `sign.args` assume_tac) >> fs [] >> 
+          rename1 `FIND _ _ = SOME sign` >> drule v_rel_get_mut_args >>
+          disch_then (qspec_then `sign.args` assume_tac) >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> rw [] >>
           drule_all v_rel_als_args_eq >> rw [] >>
           drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >>
           drule_all state_rel_store_cargs_flat_some_not_none >> strip_tac >>
           drule_all (GEN_ALL state_rel_ffi_result) >> strip_tac >> fs [])
       >-  (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac >> fs [] >>
-          rename1 `FIND _ _ = SOME sign` >> drule v_rel_get_mut_args >> 
-          disch_then (qspec_then `sign.args` assume_tac) >> fs [] >> 
+          rename1 `FIND _ _ = SOME sign` >> drule v_rel_get_mut_args >>
+          disch_then (qspec_then `sign.args` assume_tac) >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> strip_tac >>
           drule_all v_rel_als_args_eq >> strip_tac >>
-          drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >> 
-          rename1 `FIND _ _ = SOME sign` >> drule v_rel_get_mut_args >> 
+          drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >>
+          rename1 `FIND _ _ = SOME sign` >> drule v_rel_get_mut_args >>
           disch_then (qspec_then `sign.args` assume_tac) >> fs [] >>
-          drule_all (GEN_ALL state_rel_ffi_result) >> strip_tac >> fs [] >> rveq >> rw [] 
+          drule_all (GEN_ALL state_rel_ffi_result) >> strip_tac >> fs [] >> rveq >> rw []
           >- (Cases_on `o'` >> fs [ret_val_flat_def] >> Cases_on `x` >> fs [ret_val_flat_def, v_rel_Boolv]) >>
           fs [state_rel_def] >>
-          `LENGTH (get_mut_args sign.args vs2) = LENGTH l` by 
+          `LENGTH (get_mut_args sign.args vs2) = LENGTH l` by
           (fs [ffiTheory.mut_len_def, ffiTheory.get_mut_args_def] >> rveq >>
           ntac 3 (dxrule (GEN_ALL closPropsTheory.list_eq_length)) >> rw [LENGTH_MAP]  >>
           ntac 2 (dxrule get_cargs_flat_mutty_eq_len) >> rw [] >> fs []) >>
-          dxrule store_cargs_flat_some_store_rel >> 
           dxrule store_cargs_flat_some_store_rel >>
-          dxrule get_cargs_flat_some_mut_args_refptr >> 
-          dxrule get_cargs_flat_some_mut_args_refptr >> 
-          rw [] >> ho_match_mp_tac state_rel_lupfate_w8array_rel >> rw [state_rel_def])
+          dxrule store_cargs_flat_some_store_rel >>
+          dxrule get_cargs_flat_some_mut_args_refptr >>
+          dxrule get_cargs_flat_some_mut_args_refptr >>
+          rw [] >> fs [] >> ho_match_mp_tac state_rel_lupfate_w8array_rel >> rw [state_rel_def])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> rw [] >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> rw [] >>
-          drule_all v_rel_als_args_eq >> rw [] >> 
+          drule_all v_rel_als_args_eq >> rw [] >>
           fs [state_rel_def, ffiTheory.ffi_state_component_equality] >>
           rfs [] >> rveq >> fs[])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> rw [] >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> rw [] >>
-          drule_all v_rel_als_args_eq >> rw [] >> 
+          drule_all v_rel_als_args_eq >> rw [] >>
           fs [state_rel_def, ffiTheory.ffi_state_component_equality] >>
           rfs [] >> rveq >> fs[])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> rw [] >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> rw [] >>
-          drule_all v_rel_als_args_eq >> rw [] >> 
+          drule_all v_rel_als_args_eq >> rw [] >>
           fs [state_rel_def, ffiTheory.ffi_state_component_equality] >>
           rfs [] >> rveq >> fs[])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> strip_tac >>
-          drule_all v_rel_als_args_eq >> strip_tac >> 
+          drule_all v_rel_als_args_eq >> strip_tac >>
           fs [state_rel_def, ffiTheory.ffi_state_component_equality] >>
           rfs [])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [])
@@ -939,42 +939,43 @@ Proof
       >- metis_tac [store_cargs_flat_SOME_same_loc]
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> strip_tac >>
-          drule_all v_rel_als_args_eq >> strip_tac >> 
+          drule_all v_rel_als_args_eq >> strip_tac >>
           fs [state_rel_def, ffiTheory.ffi_state_component_equality] >>
           rfs [])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> strip_tac >>
-          drule_all v_rel_als_args_eq >> strip_tac >> 
+          drule_all v_rel_als_args_eq >> strip_tac >>
           fs [state_rel_def, ffiTheory.ffi_state_component_equality] >>
           rfs [])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> strip_tac >>
-          drule_all v_rel_als_args_eq >> strip_tac >> 
+          drule_all v_rel_als_args_eq >> strip_tac >>
           fs [state_rel_def, ffiTheory.ffi_state_component_equality] >>
           rfs [])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> strip_tac >>
-          drule_all v_rel_als_args_eq >> strip_tac >> 
+          drule_all v_rel_als_args_eq >> strip_tac >>
           fs [state_rel_def, ffiTheory.ffi_state_component_equality] >>
           rfs [])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> strip_tac >>
-          drule_all v_rel_als_args_eq >> strip_tac >> rw [] >> 
+          drule_all v_rel_als_args_eq >> strip_tac >> rw [] >>
           fs [state_rel_def, ffiTheory.ffi_state_component_equality] >>
           rfs [])
-      >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [])          
+      >- (drule_all (GEN_ALL state_rel_sign_eq) >> strip_tac  >> fs [])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> rw [] >> fs [] >>
-          drule_all state_rel_get_cargs_flat_eq >> rw [] )
-      >- (Cases_on `get_mut_args x'³'.args vs2` >> fs [store_cargs_flat_def])
+          drule_all state_rel_get_cargs_flat_eq >> rw [])
+      >- (rename1 `get_mut_args sign.args vs2` >> 
+          Cases_on `get_mut_args sign.args vs2` >> fs [store_cargs_flat_def])
       >- (drule_all (GEN_ALL state_rel_sign_eq) >> rw [] >> fs [] >>
           drule_all state_rel_get_cargs_flat_eq >> rw [] )
       >> rw []
-      >- fs [ret_val_flat_def] >>
+      >- fs [ret_val_flat_def] >> 
       drule_all (GEN_ALL state_rel_silent_sign_eq) >> strip_tac  >> fs [] >> rveq >>
       drule_all state_rel_get_cargs_flat_eq >> strip_tac >> fs [] >> rveq >>
-      drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >> 
+      drule_all v_rel_get_mut_args_eq >> strip_tac >> fs [] >>
       rename1 `store_cargs_flat margs _ _  = _ ` >>
-      Cases_on `margs` >> fs [store_cargs_flat_def] >> rveq >> fs [state_rel_def])
+      Cases_on `margs` >> fs [store_cargs_flat_def] >> rveq >> fs [state_rel_def] >> fs []) 
   \\ Cases_on `op = ListAppend`
   >-
    (fs [do_app_def, case_eq_thms, pair_case_eq] \\ rw [] \\ fs [PULL_EXISTS]

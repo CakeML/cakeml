@@ -861,24 +861,24 @@ Theorem store_carg_flat_dom_refs_global:
   domain (find_refs_globals st) ⊆ domain (reachable: unit spt)  ==>
    domain (find_refs_globals st') ⊆ domain reachable
 Proof
-  rw [] >> Cases_on `marg` >> Cases_on `w` >> 
+  rw [] >> Cases_on `marg` >> Cases_on `w` >>
   fs [store_carg_flat_def] >> rveq >>
   fs [semanticPrimitivesTheory.store_assign_def,
-      semanticPrimitivesTheory.store_v_same_type_def] >> 
+      semanticPrimitivesTheory.store_v_same_type_def] >>
   every_case_tac >> rveq >> fs [] >>
   metis_tac [find_refs_globals_LUPDATE]
 QED
-   
+
 Theorem store_cargs_flat_dom_refs_global:
-  !margs args st st' (reachable: unit spt). 
+  !margs args st st' (reachable: unit spt).
   store_cargs_flat margs args st = SOME st' /\
   domain (find_refs_globals st) ⊆ domain reachable  ==>
     domain (find_refs_globals st') ⊆ domain reachable
 Proof
-  ho_match_mp_tac store_cargs_flat_ind >> 
+  ho_match_mp_tac store_cargs_flat_ind >>
   rw [store_cargs_flat_def] >> every_case_tac >>
   fs [find_refs_globals_def] >>
-  Cases_on `marg` >> Cases_on `w` >> 
+  Cases_on `marg` >> Cases_on `w` >>
   drule_all store_carg_flat_dom_refs_global >> fs []
 QED
 
@@ -888,7 +888,7 @@ Theorem find_sem_prim_res_globals_ret_val_dom:
 Proof
   rw [find_sem_prim_res_globals_def, find_v_globals_def] >>
   Cases_on `retty` >> fs [ret_val_flat_def] >>
-  rename1 `ret_val_flat (SOME retty)` >> Cases_on `retty` >>  
+  rename1 `ret_val_flat (SOME retty)` >> Cases_on `retty` >>
   fs [ret_val_flat_def, find_v_globals_def, Boolv_def]
 QED
 
@@ -949,8 +949,8 @@ Proof
         fs [] >> rveq >> fs []
         >- metis_tac [find_sem_prim_res_globals_ret_val_dom, store_cargs_flat_dom_refs_global]
         >- fs[find_sem_prim_res_globals_def, find_result_globals_def] >>
-      rw [] 
-      >- metis_tac[] 
+      rw []
+      >- metis_tac[]
       >- (rename1 `store_cargs_flat margs _ _ = _` >>
           Cases_on `margs` >> fs [store_cargs_flat_def]) >>
       fs [ret_val_flat_def, find_sem_prim_res_globals_def, find_v_globals_def])

@@ -313,8 +313,9 @@ Theorem do_app_state_unchanged:
      s.check_ctor = s'.check_ctor
 Proof
   rw [do_app_cases] >>
-  fs [semanticPrimitivesTheory.store_assign_def] >>
-  rfs []
+  fs [semanticPrimitivesTheory.store_assign_def, do_ffi_flat_def] >>
+  every_case_tac >> rfs [] >>
+  rw [state_accfupds]
 QED
 
 Theorem evaluate_state_unchanged:

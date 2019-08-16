@@ -204,7 +204,7 @@ Proof
    Induct \\ rw [patSemTheory.list_to_v_def, NoRun_v_def]
 QED
 
-* To move to props *)
+(* To move to props *)
 Theorem get_cargs_pat_some_len_eq:
   !st sign args cargs. get_cargs_pat st sign.args args = SOME cargs ==>
   LENGTH sign.args  = LENGTH args
@@ -219,28 +219,28 @@ QED
 
 Theorem NoRun_v_margs:
    LENGTH cts = LENGTH vs /\
-   EVERY NoRun_v vs ==> 
+   EVERY NoRun_v vs ==>
    EVERY NoRun_v (get_mut_args cts vs)
 Proof
   rw [ffiTheory.get_mut_args_def] >>
-  fs [EVERY_MAP, EVERY_FILTER, EVERY_EL] >> 
+  fs [EVERY_MAP, EVERY_FILTER, EVERY_EL] >>
   rw [] >> drule EL_ZIP >> rw []
 QED
 
 
 Theorem NoRun_store_v_lupdate:
-  EVERY NoRun_store_v s.refs ==> 
-   EVERY NoRun_store_v (LUPDATE (W8array w) n s.refs) 
+  EVERY NoRun_store_v s.refs ==>
+   EVERY NoRun_store_v (LUPDATE (W8array w) n s.refs)
 Proof
-  rw [] >> ho_match_mp_tac IMP_EVERY_LUPDATE >> 
+  rw [] >> ho_match_mp_tac IMP_EVERY_LUPDATE >>
   rw [NoRun_store_v_def]
 QED
 
 Theorem NoRun_v_store_cargs_pat:
-  !margs ws s st. 
+  !margs ws s st.
   store_cargs_pat margs ws s.refs = SOME st /\
   EVERY NoRun_v margs /\
-  EVERY NoRun_store_v s.refs ==> 
+  EVERY NoRun_store_v s.refs ==>
    EVERY NoRun_store_v st
 Proof
   rw [] >>
@@ -249,38 +249,38 @@ Proof
   ntac 3 (pop_assum mp_tac) >>
   MAP_EVERY qid_spec_tac [`s` ,`st`, `rfs`, `ws`, `margs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >>
   rw [patSemTheory.store_cargs_pat_def] >>
   every_case_tac >> fs [] >>
   pop_assum (qspec_then `st` mp_tac) >> rw [] >>
   Cases_on `marg` >> fs [patSemTheory.store_carg_pat_def] >> rw [] >>
   rfs [] >> TRY (metis_tac []) >> fs [store_assign_def] >> rveq >>
   drule NoRun_store_v_lupdate >> rw [] >> fs [] >>
-  first_x_assum (qspec_then `s with refs := LUPDATE (W8array w) n s.refs` mp_tac) >> 
+  first_x_assum (qspec_then `s with refs := LUPDATE (W8array w) n s.refs` mp_tac) >>
   rw []
 QED
 
 
 Theorem do_ffi_pat_rval_NoRun_rel:
-  do_ffi_pat s s' vs = SOME (t,(Rval: v -> (v,v) result) a) ∧ 
+  do_ffi_pat s s' vs = SOME (t,(Rval: v -> (v,v) result) a) ∧
    EVERY NoRun_v vs ∧ NoRun_state s ⇒
    NoRun_state t ∧ NoRun_v a
 Proof
   rw [patSemTheory.do_ffi_pat_def] >> every_case_tac >> fs []
   >- (fs [NoRun_state_def] >> conj_tac
-      >- (rveq >> fs [] >> drule get_cargs_pat_some_len_eq >> 
+      >- (rveq >> fs [] >> drule get_cargs_pat_some_len_eq >>
           strip_tac >> drule NoRun_v_margs >> rw [] >> metis_tac [NoRun_v_store_cargs_pat]) >>
       `s.globals = t.globals` by (rveq >> Cases_on `s` >> rw []) >> fs []) >>
-  rveq >> rename1 `ret_val_pat retv` >> Cases_on `retv` >> 
-  fs [patSemTheory.ret_val_pat_def, NoRun_v_def] >> 
-  rename1 `ret_val_pat (SOME retv)` >> Cases_on `retv` >> 
+  rveq >> rename1 `ret_val_pat retv` >> Cases_on `retv` >>
+  fs [patSemTheory.ret_val_pat_def, NoRun_v_def] >>
+  rename1 `ret_val_pat (SOME retv)` >> Cases_on `retv` >>
   fs [patSemTheory.ret_val_pat_def, patSemTheory.Boolv_def, NoRun_v_def]
 QED
 
 
 
 Theorem do_ffi_pat_rerr_NoRun_rel:
-  do_ffi_pat s s' vs = SOME (t,Rerr (Rraise a)) ∧ 
+  do_ffi_pat s s' vs = SOME (t,Rerr (Rraise a)) ∧
    EVERY NoRun_v vs ∧ NoRun_state s ⇒
    NoRun_state t ∧ NoRun_v a
 Proof
@@ -288,7 +288,7 @@ Proof
 QED
 
 Theorem do_ffi_pat_rerr_NoRun_rel':
-  do_ffi_pat s s' vs = SOME (t,Rerr (Rabort a)) ∧ 
+  do_ffi_pat s s' vs = SOME (t,Rerr (Rabort a)) ∧
    EVERY NoRun_v vs ∧ NoRun_state s ⇒
    NoRun_state t
 Proof
@@ -310,8 +310,8 @@ Theorem do_app_NoRun:
 Proof
   simp [patSemTheory.do_app_def]
   \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
-  \\ TRY (rename1 `do_ffi_pat` \\ metis_tac [do_ffi_pat_rval_NoRun_rel, 
-      do_ffi_pat_rerr_NoRun_rel, do_ffi_pat_rerr_NoRun_rel']) 
+  \\ TRY (rename1 `do_ffi_pat` \\ metis_tac [do_ffi_pat_rval_NoRun_rel,
+      do_ffi_pat_rerr_NoRun_rel, do_ffi_pat_rerr_NoRun_rel'])
   \\ rw [] \\ fs [patSemTheory.prim_exn_def, NoRun_v_def, patSemTheory.Boolv_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rw []
   \\ TRY (imp_res_tac store_assign_NoRun \\ fs [NoRun_state_def] \\ NO_TAC)
@@ -336,6 +336,8 @@ Proof
     \\ fs [NoRun_store_v_def, EVERY_EL]
     \\ NO_TAC)
   \\ irule NoRun_list_to_v \\ fs []
+  \\ rename [`MAP (λc. Litv (Char c)) ll`]
+  \\ Induct_on `ll` \\ fs [NoRun_v_def]
 QED
 
 Theorem do_if_NoRun:
@@ -575,11 +577,11 @@ QED
 
 Theorem get_carg_flat_pat_compile_store_v_some:
   get_carg_flat s.refs ty arg = SOME carg  ==>
-    get_carg_pat (MAP (map_sv compile_v) s.refs) ty (compile_v arg) = SOME carg 
+    get_carg_pat (MAP (map_sv compile_v) s.refs) ty (compile_v arg) = SOME carg
 Proof
   rw [] >>
   Cases_on `ty` >> Cases_on `arg` >>
-  fs [flatSemTheory.get_carg_flat_def, patSemTheory.get_carg_pat_def, bool_case_eq, 
+  fs [flatSemTheory.get_carg_flat_def, patSemTheory.get_carg_pat_def, bool_case_eq,
       flatSemTheory.Boolv_def, patSemTheory.Boolv_def,compile_v_def] >>
   TRY (Cases_on `l` >>  fs [flatSemTheory.get_carg_flat_def, patSemTheory.get_carg_pat_def, compile_v_def] >> NO_TAC) >>
   every_case_tac >> fs [semanticPrimitivesTheory.store_lookup_def, EL_MAP,compile_v_def] >> rw []
@@ -589,7 +591,7 @@ QED
 Theorem get_cargs_flat_pat_compile_store_v_some:
   !s cts vs cargs.
   get_cargs_flat s.refs cts vs = SOME cargs  ==>
-      get_cargs_pat (MAP (map_sv compile_v) s.refs) cts (MAP compile_v vs) = SOME cargs    
+      get_cargs_pat (MAP (map_sv compile_v) s.refs) cts (MAP compile_v vs) = SOME cargs
 Proof
   rw [] >>
   qmatch_asmsub_abbrev_tac `get_cargs_flat rfs _ _ = _ ` >>
@@ -597,7 +599,7 @@ Proof
   pop_assum mp_tac >>
   MAP_EVERY qid_spec_tac [`s`,`cargs`, `vs`, `cts`, `rfs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac flatSemTheory.get_cargs_flat_ind >> 
+  ho_match_mp_tac flatSemTheory.get_cargs_flat_ind >>
   rw [flatSemTheory.get_cargs_flat_def, patSemTheory.get_cargs_pat_def] >>
   metis_tac [get_carg_flat_pat_compile_store_v_some]
 QED
@@ -617,7 +619,7 @@ Proof
   rw [] >>
   drule (GEN_ALL flatPropsTheory.get_cargs_flat_some_len_eq) >> rw [] >>
   dxrule flatPropsTheory.get_cargs_flat_some_mut_args_refptr >> rw [] >>
-  `LENGTH sign.args = LENGTH(MAP compile_v args)` by rw [LENGTH_MAP] >> 
+  `LENGTH sign.args = LENGTH(MAP compile_v args)` by rw [LENGTH_MAP] >>
   rw [ffiTheory.als_args_def] >>
   fs[MAPi_ZIP_GENLIST,ZIP_MAP,FILTER_MAP,o_DEF,MAP_MAP_o] >>
   CONV_TAC(DEPTH_CONV ETA_CONV) >>
@@ -626,19 +628,19 @@ Proof
   conj_tac >- simp[] >>
   match_mp_tac EVERY2_refl >>
   rw[] >>
-  `!l:(num#c_type#flatSem$v) list. FILTER (λx'. SND x = SND (SND x')) l  = 
+  `!l:(num#c_type#flatSem$v) list. FILTER (λx'. SND x = SND (SND x')) l  =
     FILTER (λp'. compile_v (SND x) = compile_v (SND (SND p'))) l`
     suffices_by simp[] >>
   rw[FILTER_EQ] >>
   fs [ffiTheory.get_mut_args_def, o_DEF, MEM_MAP, PULL_EXISTS] >>
   res_tac >> fs [] >>
   Cases_on `SND (SND p')` >> rw [compile_v_def]
-QED 
+QED
 
 
 Theorem get_mut_args_flat_pat_compile_store_v_eq:
   get_cargs_flat st sign.args args = SOME cargs ==>
-    get_mut_args sign.args (MAP compile_v args) = 
+    get_mut_args sign.args (MAP compile_v args) =
        MAP compile_v (get_mut_args sign.args args)
 Proof
   rw [] >>
@@ -652,7 +654,7 @@ QED
 Theorem store_cargs_flat_pat_compile_store_v_some:
   !margs ws s st.
   store_cargs_flat margs ws s.refs = SOME st  ==>
-      ?st'. store_cargs_pat (MAP compile_v margs) ws (MAP (map_sv compile_v) s.refs) = SOME st'    
+      ?st'. store_cargs_pat (MAP compile_v margs) ws (MAP (map_sv compile_v) s.refs) = SOME st'
 Proof
   rw [] >>
   qmatch_asmsub_abbrev_tac `store_cargs_flat _ _ rfs = _ ` >>
@@ -664,21 +666,21 @@ Proof
   rw [flatSemTheory.store_cargs_flat_def, patSemTheory.store_cargs_pat_def] >>
   every_case_tac >> fs []
   >- (Cases_on `marg` >> Cases_on `w` >> fs [flatSemTheory.store_carg_flat_def, patSemTheory.store_carg_pat_def] >>
-      fs [semanticPrimitivesTheory.store_assign_def, 
-          semanticPrimitivesTheory.store_v_same_type_def] >> 
-      every_case_tac >> fs [] >> 
-      drule_all (INST_TYPE [beta|->``:v store_v``] EL_MAP) >> 
+      fs [semanticPrimitivesTheory.store_assign_def,
+          semanticPrimitivesTheory.store_v_same_type_def] >>
+      every_case_tac >> fs [] >>
+      drule_all (INST_TYPE [beta|->``:v store_v``] EL_MAP) >>
       disch_then (qspec_then `map_sv compile_v` assume_tac) >> fs [] >>
       Cases_on `EL n s.refs` >> fs [map_sv_def, compile_v_def]) >>
   pop_assum (qspec_then `st` mp_tac) >> rw [] >>
-  Cases_on `marg` >> Cases_on `w` >> 
+  Cases_on `marg` >> Cases_on `w` >>
   fs [flatSemTheory.store_carg_flat_def, patSemTheory.store_carg_pat_def] >> every_case_tac >>
   TRY (metis_tac []) >> rveq
  >- (fs [semanticPrimitivesTheory.store_assign_def] >>
-     first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
+     first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >>
      rw [] >> fs [LUPDATE_MAP, map_sv_def, compile_v_def]) >>
   fs [semanticPrimitivesTheory.store_assign_def] >>
-  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
+  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >>
   rw [] >> fs [LUPDATE_MAP, map_sv_def, compile_v_def]
 QED
 
@@ -697,21 +699,20 @@ Proof
   pop_assum mp_tac >>
   MAP_EVERY qid_spec_tac [`st'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac flatSemTheory.store_cargs_flat_ind >> 
+  ho_match_mp_tac flatSemTheory.store_cargs_flat_ind >>
   rw [flatSemTheory.store_cargs_flat_def, patSemTheory.store_cargs_pat_def] >>
   every_case_tac >> fs [] >>
   pop_assum (qspec_then `st` mp_tac) >> rw [] >>
-  Cases_on `marg` >> Cases_on `w` >> 
+  Cases_on `marg` >> Cases_on `w` >>
   fs [flatSemTheory.store_carg_flat_def, patSemTheory.store_carg_pat_def] >> every_case_tac >>
   TRY (metis_tac []) >> rveq
   >- (fs [semanticPrimitivesTheory.store_assign_def] >>
-     first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
+     first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >>
      rw [] >> fs [LUPDATE_MAP, map_sv_def, compile_v_def]) >>
   fs [semanticPrimitivesTheory.store_assign_def] >>
-  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
+  first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >>
   rw [] >> fs [LUPDATE_MAP, map_sv_def, compile_v_def]
 QED
-
 
 
 val do_app = Q.prove(
@@ -723,7 +724,6 @@ val do_app = Q.prove(
   srw_tac[][compile_state_def] >>
   fs[flatSemTheory.do_app_cases] >> rw[] >>
   rw[patSemTheory.do_app_def,
-     patSemTheory.do_ffi_pat_def,
      patSemTheory.prim_exn_def,
      flatSemTheory.div_exn_v_def,
      flatSemTheory.subscript_exn_v_def,
@@ -739,22 +739,23 @@ val do_app = Q.prove(
   TRY (last_x_assum mp_tac) >>
   TRY TOP_CASE_TAC \\ fs[]
   \\ rw[flatSemTheory.Boolv_def,flatSemTheory.Boolv_def, backend_commonTheory.tuple_tag_def]
-  >- metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND]
-  >- rw [flatSemTheory.do_ffi_flat_def] >> 
-  fs [flatSemTheory.do_ffi_flat_def] >> every_case_tac >> fs [] >> rveq >> 
+  \\ fs [compile_v_list_to_v_MAP_Litv_Char]
+  >- metis_tac [list_to_v_compile, list_to_v_compile_APPEND, MAP_APPEND] >>
+  fs [flatSemTheory.do_ffi_flat_def, patSemTheory.do_ffi_pat_def] >> every_case_tac >> fs [] >> rveq >>
   TRY (drule (GEN_ALL get_cargs_flat_pat_compile_store_v_some) >> strip_tac >> fs [] >> rveq) >>
   TRY (drule (GEN_ALL als_args_flat_compile_store_v_eq) >> strip_tac >> fs []) >> rveq >>
   TRY (drule (GEN_ALL get_mut_args_flat_pat_compile_store_v_eq) >> strip_tac >> fs [] >>
        drule (GEN_ALL store_cargs_flat_pat_compile_store_v_some) >> strip_tac >> fs []) >>
   rveq >> drule (GEN_ALL store_cargs_flat_pat_compile_store_v_rel) >> strip_tac >> fs [] >>
   rename1 `ret_val_pat retv` >>
-  Cases_on `retv` >> fs [flatSemTheory.ret_val_flat_def, patSemTheory.ret_val_pat_def, 
+  Cases_on `retv` >> fs [flatSemTheory.ret_val_flat_def, patSemTheory.ret_val_pat_def,
   flatSemTheory.Unitv_def]
   >- (every_case_tac >> fs [compile_tag_def, backend_commonTheory.tuple_tag_def]) >>
   rename1 `ret_val_pat (SOME retv)` >>
-  Cases_on `retv` >> fs [flatSemTheory.ret_val_flat_def, patSemTheory.ret_val_pat_def, 
+  Cases_on `retv` >> fs [flatSemTheory.ret_val_flat_def, patSemTheory.ret_val_pat_def,
   flatSemTheory.Boolv_def] >>
   every_case_tac >> fs [compile_tag_def, patSemTheory.Boolv_def, backend_commonTheory.true_tag_def]);
+
 
 (* pattern compiler correctness *)
 
@@ -1884,9 +1885,9 @@ Theorem state_rel_get_carg_pat_eq:
 Proof
   rw [] >>
   Cases_on `ty` >> Cases_on `arg'` >> fs [state_rel_def, v_rel_cases] >>
-  fs [patSemTheory.get_carg_pat_def, bool_case_eq, patSemTheory.Boolv_def] >> 
+  fs [patSemTheory.get_carg_pat_def, bool_case_eq, patSemTheory.Boolv_def] >>
   rveq >>
-  fs [LIST_REL_NIL] >> 
+  fs [LIST_REL_NIL] >>
   TRY (Cases_on `l` >> fs [patSemTheory.get_carg_pat_def] >> NO_TAC) >>
   every_case_tac >> fs []
   >- fs [store_lookup_def, LIST_REL_EL_EQN]
@@ -1900,7 +1901,7 @@ Theorem state_rel_get_cargs_pat_eq:
   get_cargs_pat s'.refs cts vs' = SOME cargs /\
   state_rel s s' /\
   LIST_REL v_rel vs vs' ==>
-      get_cargs_pat s.refs cts vs = SOME cargs  
+      get_cargs_pat s.refs cts vs = SOME cargs
 Proof
   rw [] >>
   qmatch_asmsub_abbrev_tac `get_cargs_pat rfs _ _ = _ ` >>
@@ -1908,7 +1909,7 @@ Proof
   ntac 3 (pop_assum mp_tac) >>
   MAP_EVERY qid_spec_tac [`vs`, `ctors`, `s'`, `s`, `cargs`, `vs'`, `cts`, `rfs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac patSemTheory.get_cargs_pat_ind >> 
+  ho_match_mp_tac patSemTheory.get_cargs_pat_ind >>
   rw [patSemTheory.get_cargs_pat_def] >>
   fs [patSemTheory.get_cargs_pat_def] >> metis_tac [state_rel_get_carg_pat_eq]
 QED
@@ -1989,7 +1990,7 @@ Proof
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
   ho_match_mp_tac LIST_REL_ind >> rw [] >>
   Cases_on `cts` >> rw [] >> fs [ZIP_def, patSemTheory.get_cargs_pat_def]
-  >- (Cases_on `h` >> Cases_on `h1` >> Cases_on `h2` >> 
+  >- (Cases_on `h` >> Cases_on `h1` >> Cases_on `h2` >>
       fs [patSemTheory.get_carg_pat_def, Boolv_def, Once v_rel_cases, ffiTheory.is_mutty_def]) >>
   TRY(metis_tac [])
 QED
@@ -2000,7 +2001,7 @@ Theorem state_rel_store_cargs_pat_some_not_none:
   !margs ws s st s'.
   store_cargs_pat margs ws s'.refs = SOME st /\
   state_rel s s'  ==>
-   ?st'. store_cargs_pat margs ws s.refs = SOME st'   
+   ?st'. store_cargs_pat margs ws s.refs = SOME st'
 Proof
   rw [] >>
   qmatch_asmsub_abbrev_tac `store_cargs_pat _ _ rfs = _ ` >>
@@ -2008,10 +2009,10 @@ Proof
   ntac 2 (pop_assum mp_tac) >>
   MAP_EVERY qid_spec_tac [`s`, `s'`, `st`, `rfs`, `ws`, `margs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >>
   rw [patSemTheory.store_cargs_pat_def] >>
   every_case_tac >> fs []
-  >- (Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def]  >> 
+  >- (Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def]  >>
       fs [state_rel_def] >> fs [LIST_REL_EL_EQN] >>
       fs [store_assign_def, store_v_same_type_def] >>
       last_x_assum (qspec_then `n` mp_tac) >> strip_tac >> rfs [] >>
@@ -2021,16 +2022,16 @@ Proof
   TRY (metis_tac []) >> rveq
   >- (fs [store_assign_def] >>
       first_x_assum (qspecl_then [`s' with refs := LUPDATE (W8array []) n s'.refs`,
-      `s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> rw [] >> 
+      `s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> rw [] >>
       `state_rel (s with refs := LUPDATE (W8array []) n s.refs)
-       (s' with refs := LUPDATE (W8array []) n s'.refs)` by 
+       (s' with refs := LUPDATE (W8array []) n s'.refs)` by
        (fs [state_rel_def, LIST_REL_EL_EQN] >>
         rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []) >>
   fs [store_assign_def] >>
   first_x_assum (qspecl_then [`s' with refs := LUPDATE (W8array (h::t)) n s'.refs`,
-  `s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> rw [] >> 
+  `s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> rw [] >>
    `state_rel (s with refs := LUPDATE (W8array (h::t)) n s.refs)
-   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by 
+   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by
    (fs [state_rel_def, LIST_REL_EL_EQN] >>
    rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []
 QED
@@ -2044,9 +2045,9 @@ Theorem state_rel_get_carg_pat_eq':
 Proof
   rw [] >>
   Cases_on `ty` >> Cases_on `arg` >> fs [state_rel_def, v_rel_cases] >>
-  fs [patSemTheory.get_carg_pat_def, bool_case_eq, patSemTheory.Boolv_def] >> 
+  fs [patSemTheory.get_carg_pat_def, bool_case_eq, patSemTheory.Boolv_def] >>
   rveq >>
-  fs [LIST_REL_NIL] >> 
+  fs [LIST_REL_NIL] >>
   TRY (Cases_on `l` >> fs [patSemTheory.get_carg_pat_def] >> NO_TAC) >>
   every_case_tac >> fs []
   >- fs [store_lookup_def, LIST_REL_EL_EQN]
@@ -2060,7 +2061,7 @@ Theorem state_rel_get_cargs_pat_eq':
   get_cargs_pat s.refs cts vs = SOME cargs /\
   state_rel s s' /\
   LIST_REL v_rel vs vs' ==>
-      get_cargs_pat s'.refs cts vs' = SOME cargs  
+      get_cargs_pat s'.refs cts vs' = SOME cargs
 Proof
   rw [] >>
   qmatch_asmsub_abbrev_tac `get_cargs_pat rfs _ _ = _ ` >>
@@ -2068,7 +2069,7 @@ Proof
   ntac 3 (pop_assum mp_tac) >>
   MAP_EVERY qid_spec_tac [`vs'`, `ctors`, `s`, `s'`, `cargs`, `vs`, `cts`, `rfs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac patSemTheory.get_cargs_pat_ind >> 
+  ho_match_mp_tac patSemTheory.get_cargs_pat_ind >>
   rw [patSemTheory.get_cargs_pat_def] >>
   fs [patSemTheory.get_cargs_pat_def] >> metis_tac [state_rel_get_carg_pat_eq']
 QED
@@ -2078,7 +2079,7 @@ Theorem state_rel_store_cargs_pat_some_not_none':
   !margs ws s st s'.
   store_cargs_pat margs ws s.refs = SOME st /\
   state_rel s s'  ==>
-   ?st'. store_cargs_pat margs ws s'.refs = SOME st'   
+   ?st'. store_cargs_pat margs ws s'.refs = SOME st'
 Proof
   rw [] >>
   qmatch_asmsub_abbrev_tac `store_cargs_pat _ _ rfs = _ ` >>
@@ -2086,10 +2087,10 @@ Proof
   ntac 2 (pop_assum mp_tac) >>
   MAP_EVERY qid_spec_tac [`s'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >>
   rw [patSemTheory.store_cargs_pat_def] >>
   every_case_tac >> fs []
-  >- (Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def]  >> 
+  >- (Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def]  >>
       fs [state_rel_def] >> fs [LIST_REL_EL_EQN] >>
       fs [store_assign_def, store_v_same_type_def] >>
       last_x_assum (qspec_then `n` mp_tac) >> strip_tac >> rfs [] >>
@@ -2099,16 +2100,16 @@ Proof
   TRY (metis_tac []) >> rveq
   >- (fs [store_assign_def] >>
       first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array []) n s.refs`,
-      `s' with refs := LUPDATE (W8array []) n s'.refs`] mp_tac) >> rw [] >> 
+      `s' with refs := LUPDATE (W8array []) n s'.refs`] mp_tac) >> rw [] >>
       `state_rel (s with refs := LUPDATE (W8array []) n s.refs)
-       (s' with refs := LUPDATE (W8array []) n s'.refs)` by 
+       (s' with refs := LUPDATE (W8array []) n s'.refs)` by
        (fs [state_rel_def, LIST_REL_EL_EQN] >>
         rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []) >>
   fs [store_assign_def] >>
   first_x_assum (qspecl_then [`s with refs := LUPDATE (W8array (h::t)) n s.refs`,
-  `s' with refs := LUPDATE (W8array (h::t)) n s'.refs`] mp_tac) >> rw [] >> 
+  `s' with refs := LUPDATE (W8array (h::t)) n s'.refs`] mp_tac) >> rw [] >>
    `state_rel (s with refs := LUPDATE (W8array (h::t)) n s.refs)
-   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by 
+   (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` by
    (fs [state_rel_def, LIST_REL_EL_EQN] >>
    rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> fs []
 QED
@@ -2126,24 +2127,24 @@ Proof
   ntac 3 (pop_assum mp_tac) >>
   MAP_EVERY qid_spec_tac [`s'`, `st'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >>
   rw [patSemTheory.store_cargs_pat_def] >>
   every_case_tac >> fs [] >>
   TRY (fs [state_rel_def, LIST_REL_EL_EQN] >> NO_TAC) >>
   Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def] >> rveq >>
-  TRY (first_x_assum (qspecl_then [`st`, `s`] mp_tac) >> simp [] >> 
-       disch_then (qspec_then `s'` mp_tac) >> simp [] >> NO_TAC) 
+  TRY (first_x_assum (qspecl_then [`st`, `s`] mp_tac) >> simp [] >>
+       disch_then (qspec_then `s'` mp_tac) >> simp [] >> NO_TAC)
   >- (fs [store_assign_def] >> rveq >>
-      first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
-      simp [] >> 
-      disch_then (qspec_then `s' with refs := LUPDATE (W8array []) n s'.refs` mp_tac) >> 
+      first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >>
+      simp [] >>
+      disch_then (qspec_then `s' with refs := LUPDATE (W8array []) n s'.refs` mp_tac) >>
       `state_rel (s with refs := LUPDATE (W8array []) n s.refs)
        (s' with refs := LUPDATE (W8array []) n s'.refs)` suffices_by fs [] >>
       fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >>
   fs [store_assign_def] >> rveq >>
-  first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
-  simp [] >> 
-  disch_then (qspec_then `s' with refs := LUPDATE (W8array (h::t)) n s'.refs` mp_tac) >> 
+  first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >>
+  simp [] >>
+  disch_then (qspec_then `s' with refs := LUPDATE (W8array (h::t)) n s'.refs` mp_tac) >>
   `state_rel (s with refs := LUPDATE (W8array (h::t)) n s.refs)
    (s' with refs := LUPDATE (W8array (h::t)) n s'.refs)` suffices_by fs [] >>
    fs [state_rel_def, LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]
@@ -2162,23 +2163,23 @@ Proof
   ntac 3 (pop_assum mp_tac) >>
   MAP_EVERY qid_spec_tac [`s'`, `st'`, `s`, `st`, `rfs`, `ws`, `margs`] >>
   Ho_Rewrite.PURE_REWRITE_TAC[GSYM PULL_FORALL] >>
-  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >> 
+  ho_match_mp_tac patSemTheory.store_cargs_pat_ind >>
   rw [patSemTheory.store_cargs_pat_def] >>
   every_case_tac >> fs [] >>
   Cases_on `marg` >> Cases_on `w` >> fs [patSemTheory.store_carg_pat_def] >> rveq >>
-  TRY (first_x_assum (qspecl_then [`st`, `s`] mp_tac) >> simp [] >> 
-       disch_then (qspec_then `s'` mp_tac) >> simp [] >> NO_TAC) 
+  TRY (first_x_assum (qspecl_then [`st`, `s`] mp_tac) >> simp [] >>
+       disch_then (qspec_then `s'` mp_tac) >> simp [] >> NO_TAC)
   >- (fs [store_assign_def] >> rveq >>
-      first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >> 
-      simp [] >> 
+      first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array []) n s.refs`] mp_tac) >>
+      simp [] >>
       `LIST_REL (sv_rel v_rel) (LUPDATE (W8array []) n s.refs)
-       (LUPDATE (W8array []) n s'.refs)` by (fs [LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> 
+       (LUPDATE (W8array []) n s'.refs)` by (fs [LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >>
       simp [] >> disch_then (qspec_then `s' with refs := LUPDATE (W8array []) n s'.refs` mp_tac) >> fs []) >>
   fs [store_assign_def] >> rveq >>
-     first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >> 
-     simp [] >> 
+     first_x_assum (qspecl_then [`st`, `s with refs := LUPDATE (W8array (h::t)) n s.refs`] mp_tac) >>
+     simp [] >>
      `LIST_REL (sv_rel v_rel) (LUPDATE (W8array (h::t)) n s.refs)
-     (LUPDATE (W8array (h::t)) n s'.refs)` by (fs [LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >> 
+     (LUPDATE (W8array (h::t)) n s'.refs)` by (fs [LIST_REL_EL_EQN] >> rw [] >> Cases_on `n  = n'` >> fs [EL_LUPDATE]) >>
      simp [] >> disch_then (qspec_then `s' with refs := LUPDATE (W8array (h::t)) n s'.refs` mp_tac) >> fs []
 QED
 
@@ -2261,19 +2262,19 @@ Proof
     \\ res_tac \\ fs[store_v_same_type_def,sv_rel_cases] \\ fs[]
     \\ TRY(metis_tac[NOT_SOME_NONE] >> NO_TAC) >>
       fs [patSemTheory.do_ffi_pat_def] >> every_case_tac >> fs [] >>
-      drule (GEN_ALL eq_ffi_sign_eq) >> strip_tac >> res_tac >> rfs [] >> rveq >> 
-      last_assum (mp_then Any mp_tac (REWRITE_RULE [state_rel_def] state_rel_get_cargs_pat_eq)) >> 
+      drule (GEN_ALL eq_ffi_sign_eq) >> strip_tac >> res_tac >> rfs [] >> rveq >>
+      last_assum (mp_then Any mp_tac (REWRITE_RULE [state_rel_def] state_rel_get_cargs_pat_eq)) >>
       disch_then (qspecl_then [`x.args`,`vs`, `x'`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN, OPTREL_def] >>
       rw [LIST_REL_EL_EQN] >> res_tac >> rfs [] >>
-      CCONTR_TAC  >> fs [] >> rveq >> 
-      drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+      CCONTR_TAC  >> fs [] >> rveq >>
+      drule (GEN_ALL v_rel_pat_als_args_eq) >>
       disch_then (qspecl_then [`s'.refs`,`x'`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
-      CCONTR_TAC >> fs [] >> rveq >> 
-      drule (GEN_ALL v_rel_pat_get_mut_args_eq) >> 
+      CCONTR_TAC >> fs [] >> rveq >>
+      drule (GEN_ALL v_rel_pat_get_mut_args_eq) >>
       disch_then (qspecl_then [`s'.refs`,`x'`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
       CCONTR_TAC >> fs [] >> rveq >>
-      drule (REWRITE_RULE [state_rel_def] state_rel_store_cargs_pat_some_not_none) >> 
-      disch_then (qspec_then `s` mp_tac) >> 
+      drule (REWRITE_RULE [state_rel_def] state_rel_store_cargs_pat_some_not_none) >>
+      disch_then (qspec_then `s` mp_tac) >>
       simp [LIST_REL_EL_EQN, OPTREL_def] >>
       rw [LIST_REL_EL_EQN] >> res_tac >> rfs []) >>
   Cases_on `op = (Op ListAppend)`
@@ -2315,7 +2316,7 @@ Proof
   res_tac >> fs[sv_rel_cases] >> rfs[] >> fs[LIST_REL_EL_EQN,EL_LUPDATE,store_v_same_type_def] >>
   rw[EL_LUPDATE] \\ rw[EL_LUPDATE,EL_APPEND_EQN,EL_REPLICATE] >> rw[]
   \\ TRY (metis_tac[] >> NO_TAC) >>
-   `(∀n. n < LENGTH s'.refs ⇒ sv_rel v_rel (EL n s.refs) (EL n s'.refs))` by 
+   `(∀n. n < LENGTH s'.refs ⇒ sv_rel v_rel (EL n s.refs) (EL n s'.refs))` by
    (rw [] >> res_tac >> fs [sv_rel_def] >> rw [LIST_REL_EL_EQN]) >>
    fs [patSemTheory.do_ffi_pat_def] >> every_case_tac >> fs [] >>
    drule (GEN_ALL eq_ffi_sign_eq) >> strip_tac >> res_tac >> rfs [] >> rveq >>
@@ -2323,49 +2324,49 @@ Proof
    disch_then (qspecl_then [`s'`, `vs'`] mp_tac) >> fs [LIST_REL_EL_EQN, OPTREL_def] >>
    TRY (rw[] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >> NO_TAC) >>
    TRY (rw[] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >>
-       CCONTR_TAC  >> fs [] >> rveq >> 
-       drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+       CCONTR_TAC  >> fs [] >> rveq >>
+       drule (GEN_ALL v_rel_pat_als_args_eq) >>
        disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
        CCONTR_TAC >> fs [] >> rveq >> NO_TAC) >>
    TRY (rw[] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >>
-       CCONTR_TAC  >> fs [] >> rveq >> 
-       drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+       CCONTR_TAC  >> fs [] >> rveq >>
+       drule (GEN_ALL v_rel_pat_als_args_eq) >>
        disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
        CCONTR_TAC >> fs [] >> rveq >>
-       drule (GEN_ALL v_rel_pat_get_mut_args_eq) >> 
+       drule (GEN_ALL v_rel_pat_get_mut_args_eq) >>
        disch_then (qspecl_then [`s'.refs`,`x''`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
        CCONTR_TAC >> fs [] >> rveq >>
-       drule (REWRITE_RULE [state_rel_def] state_rel_store_cargs_pat_some_not_none') >> 
-       disch_then (qspec_then `s'` mp_tac) >> 
+       drule (REWRITE_RULE [state_rel_def] state_rel_store_cargs_pat_some_not_none') >>
+       disch_then (qspec_then `s'` mp_tac) >>
        simp [LIST_REL_EL_EQN, OPTREL_def] >>
        rw [LIST_REL_EL_EQN] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >> NO_TAC) >>
    rw[]
-   >- (drule (GEN_ALL v_rel_pat_get_mut_args_eq) >> 
+   >- (drule (GEN_ALL v_rel_pat_get_mut_args_eq) >>
        disch_then (qspecl_then [`s'.refs`,`x''`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
-       strip_tac >> fs [] >> 
-       drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+       strip_tac >> fs [] >>
+       drule (GEN_ALL v_rel_pat_als_args_eq) >>
        disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
        strip_tac >> fs [] >> rveq >>
-       rename1 `store_cargs_pat _ _ s'.refs = SOME ws` >> 
-       drule (REWRITE_RULE [state_rel_def] store_cargs_pat_state_rel_length_eq) >> 
-       disch_then (qspecl_then [`s'`, `ws`] mp_tac) >> simp [] >> 
+       rename1 `store_cargs_pat _ _ s'.refs = SOME ws` >>
+       drule (REWRITE_RULE [state_rel_def] store_cargs_pat_state_rel_length_eq) >>
+       disch_then (qspecl_then [`s'`, `ws`] mp_tac) >> simp [] >>
        rw [LIST_REL_EL_EQN, OPTREL_def] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN])
-   >- (rw [] >> drule (GEN_ALL v_rel_pat_get_mut_args_eq) >> 
+   >- (rw [] >> drule (GEN_ALL v_rel_pat_get_mut_args_eq) >>
        disch_then (qspecl_then [`s'.refs`,`x''`, `vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
-       strip_tac >> fs [] >> 
-       drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+       strip_tac >> fs [] >>
+       drule (GEN_ALL v_rel_pat_als_args_eq) >>
        disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
        strip_tac >> fs [] >> rveq >>
-       rename1 `store_cargs_pat _ _ s'.refs = SOME ws'` >> 
-       rename1 `store_cargs_pat _ _ s.refs = SOME ws` >> 
-       drule (REWRITE_RULE [state_rel_def] store_cargs_pat_state_rel_length_eq) >> 
-       disch_then (qspecl_then [`s'`, `ws'`] mp_tac) >> simp [] >> 
-       rw [LIST_REL_EL_EQN, OPTREL_def] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >> 
+       rename1 `store_cargs_pat _ _ s'.refs = SOME ws'` >>
+       rename1 `store_cargs_pat _ _ s.refs = SOME ws` >>
+       drule (REWRITE_RULE [state_rel_def] store_cargs_pat_state_rel_length_eq) >>
+       disch_then (qspecl_then [`s'`, `ws'`] mp_tac) >> simp [] >>
+       rw [LIST_REL_EL_EQN, OPTREL_def] >> res_tac >> rfs [] >> rw [LIST_REL_EL_EQN] >>
        drule (INST_TYPE[delta|->``:'ffi``] store_cargs_pat_sv_rel_preserved) >>
        disch_then (qspecl_then [`s'`, `ws'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
-       disch_then (qspec_then `n` mp_tac) >> simp [] >> 
+       disch_then (qspec_then `n` mp_tac) >> simp [] >>
        Cases_on `EL n ws` >> Cases_on `EL n ws'` >> fs [sv_rel_def, LIST_REL_EL_EQN]) >>
-  drule (GEN_ALL v_rel_pat_als_args_eq) >> 
+  drule (GEN_ALL v_rel_pat_als_args_eq) >>
   disch_then (qspecl_then [`s'.refs`,`x''`,`vs'`] mp_tac) >> simp [LIST_REL_EL_EQN] >>
   strip_tac >> fs []
 QED

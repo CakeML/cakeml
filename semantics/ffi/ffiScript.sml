@@ -119,7 +119,7 @@ val _ = Define `arg_ok t cv =
 val _ = Define `args_ok cts cargs = LIST_REL arg_ok cts cargs`
 
 val _ = Define `ret_ok t v =
- ((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T)`
+(((t = NONE) /\ (v = NONE)) \/ (OPTION_MAP2 arg_ok t (OPTION_MAP C_primv v) = SOME T))`
 
 val _ = Define `
   als_ok btl alsl =
