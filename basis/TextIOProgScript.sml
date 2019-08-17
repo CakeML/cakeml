@@ -342,7 +342,15 @@ val _ = (append_prog o process_topdecs)`
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLine is =
-    let val line = b_inputUntil is #"\n"`;
+    let
+      val line = b_inputUntil is #"\n"
+      val nlStr = String.str #"\n"
+    in
+      if line = "" then None
+      else
+        (if String.isSuffix nlStr line then Some line
+         else Some (String.strcat line nlStr))
+    end`;
 
 val _ = (append_prog o process_topdecs)`
   fun b_inputLines is =

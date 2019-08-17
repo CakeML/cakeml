@@ -2723,32 +2723,6 @@ Theorem takeUntilIncl_drop
       \\disch_tac \\ fs[])
     >-(fs[])));
 
-Theorem takeUntilIncl_find_SOME
-  `!P  l x.
-      SOME a = FIND P l ==>
-        takeUntilIncl P l = SNOC a (takeUntil P l)`
-  (strip_tac
-  \\ completeInduct_on `LENGTH l`
-  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
-  \\ Cases_on `l`
-  >-(fs[mllistTheory.FIND_thm])
-  >-(Cases_on `P h`
-    >-(fs[mllistTheory.FIND_thm, takeUntilIncl_def, mllistTheory.takeUntil_def])
-    >-(fs[mllistTheory.FIND_thm, takeUntilIncl_def, mllistTheory.takeUntil_def])));
-
-Theorem takeUntilIncl_find_NONE
-  `!P  l x.
-      NONE = FIND P l ==>
-        takeUntilIncl P l = takeUntil P l`
-  (strip_tac
-  \\ completeInduct_on `LENGTH l`
-  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
-  \\ Cases_on `l`
-  >-(fs[mllistTheory.FIND_thm, takeUntilIncl_def, mllistTheory.takeUntil_def])
-  >-(Cases_on `P h`
-    >-(fs[mllistTheory.FIND_thm, takeUntilIncl_def, mllistTheory.takeUntil_def])
-    >-(fs[mllistTheory.FIND_thm, takeUntilIncl_def, mllistTheory.takeUntil_def])));
-
 Theorem takeUntil_exists_in_prefix
   `!P  l x.
       EXISTS P (TAKE x l) ==>
@@ -2887,6 +2861,21 @@ Theorem LENGTH_dropUntil_takeUntilIncl2
     >-(simp[mllistTheory.dropUntil_def, takeUntilIncl_def]
       \\fs[GSYM SUC_ADD_SYM, SUC_ONE_ADD, GSYM LENGTH_takeUntil_takeUntilIncl])));
 
+Theorem LENGTH_dropUntilIncl_takeUntilIncl
+  `!P l x.
+      EXISTS P l ==>
+        LENGTH l = LENGTH (dropUntilIncl P l) + LENGTH (takeUntilIncl P l)`
+  (strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(simp[mllistTheory.dropUntil_def, dropUntilIncl_def, takeUntilIncl_def])
+  >-(Cases_on `P h`
+    >-(simp[mllistTheory.dropUntil_def,dropUntilIncl_def,takeUntilIncl_def])
+    >-(simp[mllistTheory.dropUntil_def, dropUntilIncl_def, takeUntilIncl_def]
+      \\fs[GSYM SUC_ADD_SYM, SUC_ONE_ADD, GSYM LENGTH_takeUntil_takeUntilIncl]
+      \\fs[dropUntilIncl_def])));
+
 Theorem LENGTH_dropUntil_leq
   `!P l.
       EXISTS P l ==>
@@ -2917,6 +2906,45 @@ Theorem LENGTH_takeUntil_exists_lt
     >-(simp[mllistTheory.takeUntil_def]
       \\last_assum (qspecl_then [`t`] mp_tac) \\ strip_tac
       \\fs[EXISTS_DEF] \\ res_tac)));
+
+Theorem LENGTH_takeUntilIncl_exists_geq_1
+  `!P l.
+      EXISTS P l ==>
+        1 <= LENGTH (takeUntilIncl P l)`
+  (strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EXISTS_DEF])
+  >-(Cases_on `P h`
+    >-(fs[takeUntilIncl_def])
+    >-(fs[takeUntilIncl_def])));
+
+Theorem takeUntilIncl_not_exists
+  `!P l.
+      ~EXISTS P l ==>
+         takeUntilIncl P l = l`
+  (strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EVERY_DEF, takeUntilIncl_def])
+  >-(Cases_on `P h`
+    >-(fs[EVERY_DEF])
+    >-(fs[takeUntilIncl_def])));
+
+Theorem dropUntilIncl_not_exists
+  `!P l.
+      ~EXISTS P l ==>
+        dropUntilIncl P l = []`
+  (strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EVERY_DEF, dropUntilIncl_def, mllistTheory.dropUntil_def])
+  >-(Cases_on `P h`
+    >-(fs[EVERY_DEF])
+    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def])));
 
 Theorem take_drop_eq_hd_cons
   `!t x y.
@@ -2950,6 +2978,269 @@ Theorem chr_eq_ord_o_w8_eq
   \\cases_on `a` \\ cases_on `b`
   \\fs[]);
 
+Theorem takeUntilIncl_length_gt_0
+  `!P l x.
+      EXISTS P l ==>
+        0 < LENGTH (takeUntilIncl P l)`
+  (strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EXISTS_DEF])
+  >-(Cases_on `P h`
+    >-(simp[takeUntilIncl_def, NOT_NIL_EQ_LENGTH_NOT_0])
+    >-(simp[takeUntilIncl_def]
+      \\last_assum (qspecl_then [`t`] mp_tac)
+      \\disch_tac \\ fs[])));
+
+Theorem takeUntilIncl_exists_last
+  `!P l x.
+      EXISTS P l ==>
+        P (LAST (takeUntilIncl P l))`
+  (strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EXISTS_DEF])
+  >-(Cases_on `P h`
+    >-(simp[takeUntilIncl_def, NOT_NIL_EQ_LENGTH_NOT_0, LAST_DEF])
+    >-(fs[takeUntilIncl_def, LAST_DEF, EXISTS_DEF]
+      \\`t <> []` by (imp_res_tac EXISTS_MEM \\ imp_res_tac NOT_NULL_MEM \\ fs[NULL_EQ])
+      \\CASE_TAC
+      >-(imp_res_tac takeUntilIncl_length_gt_0 \\ rfs[NOT_NIL_EQ_LENGTH_NOT_0])
+      \\last_assum (qspecl_then [`t`] mp_tac)
+      \\disch_tac \\ fs[])));
+
+
+Theorem exists_chr_isSuffix
+  `!P l.
+      EXISTS ($= c) l ==>
+        (isSuffix (str c) (implode (takeUntilIncl ($= c) l)) <=>
+          ($= c) (LAST (takeUntilIncl ($= c) l)))`
+  (strip_tac
+  \\ completeInduct_on `LENGTH (l:char list)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(rfs[EXISTS_DEF])
+  >-(Cases_on `($= c) h`
+    >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+              isStringThere_SEG, LAST_DEF])
+    >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+              isStringThere_SEG, LAST_DEF]
+      \\fs[EXISTS_DEF]
+      \\`t <> []` by (imp_res_tac EXISTS_MEM \\ imp_res_tac NOT_NULL_MEM \\ fs[NULL_EQ])
+      \\CASE_TAC
+      >-(imp_res_tac takeUntilIncl_length_gt_0 \\ rfs[NOT_NIL_EQ_LENGTH_NOT_0])
+      \\simp[GSYM isStringThere_SEG]
+      \\fs[isSuffix_def, GSYM implode_def, GSYM str_def]
+      \\imp_res_tac LENGTH_takeUntilIncl_exists_geq_1
+      \\last_assum (qspecl_then [`t`] mp_tac)
+      \\disch_tac \\ fs[] \\ res_tac \\ rfs[]
+      \\eq_tac
+      >-(rfs[isStringThere_SEG, str_def, implode_def]
+      \\rfs[SEG1]
+      \\Cases_on `takeUntilIncl ($= c) t`
+      >-fs[LAST_DEF]
+      >-(`EL (STRLEN (STRING h' t')) (STRING h (STRING h' t')) =
+        EL (STRLEN (STRING h' t') − 1) (STRING h' t')` by fs[STRLEN_THM, STRLEN_DEF]
+      \\rw[]
+      \\fs[EL, LAST_DEF]))
+      >-(rfs[isStringThere_SEG, str_def, implode_def]
+      \\rfs[SEG1]
+      \\Cases_on `takeUntilIncl ($= c) t`
+      >-fs[LAST_DEF]
+      >-(`EL (STRLEN (STRING h' t')) (STRING h (STRING h' t')) =
+        EL (STRLEN (STRING h' t') − 1) (STRING h' t')` by fs[STRLEN_THM, STRLEN_DEF]
+      \\rw[])))));
+
+Theorem not_exists_chr_not_isSuffix
+  `!l.
+      0 < LENGTH l /\
+      ~(EXISTS ($= c) l) ==>
+        ~(isSuffix (str c) (implode l))`
+  (completeInduct_on `LENGTH (l:string)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(rfs[isSuffix_def])
+  >-(fs[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+              isStringThere_SEG]
+    \\`1 + STRLEN t <= STRLEN t + 1` by decide_tac
+    \\Cases_on `0 < STRLEN t`
+    >-(fs[SEG_CONS]
+      \\last_assum (qspecl_then [`t`] mp_tac)
+      \\disch_tac \\ fs[]
+      >-(fs[])
+      >-(fs[GSYM NOT_F]))
+    >-(fs[] \\ fs[SEG1])));
+
+Theorem isSuffix_char_strlen_gt_0
+  `!P l.
+        isSuffix (str c) (implode l) ==> 0 < STRLEN l`
+  (strip_tac
+  \\ completeInduct_on `LENGTH (l:string)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[isSuffix_def, implode_def, str_def])
+  >-(Cases_on `($= c) h`
+    >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+              isStringThere_SEG])
+    >-(simp[takeUntilIncl_def, isSuffix_def, str_def, implode_def, NOT_NIL_EQ_LENGTH_NOT_0,
+              isStringThere_SEG])));
+
+Theorem STRCAT_eq_MAP_n2w_o_ORD_append
+  `STRCAT l r = MAP (CHR o w2n:word8->num) (MAP (n2w o ORD) l ++ MAP (n2w o ORD) r)`
+  (fs[STRCAT_EQNS, MAP_MAP_o, CHR_w2n_n2w_ORD]);
+
+Theorem EL_STRCAT
+  `!l.
+        EL (STRLEN r - 1) r = EL (STRLEN r - 1 + STRLEN l) (STRCAT l r)`
+  (fs[EL_APPEND_EQN,MAP_MAP_o, CHR_w2n_n2w_ORD]);
+
+Theorem isSuffix_char_implode_strcat
+  `!l r c.
+        0 < STRLEN r ==>
+          (isSuffix (str c) (implode r) <=> isSuffix (str c) (implode (STRCAT l r)))`
+  (rpt strip_tac
+  \\fs[isSuffix_def, implode_def, str_def, SUC_ONE_ADD, isStringThere_SEG, SEG1]
+  \\eq_tac
+  >-(strip_tac
+    \\fs[EL_APPEND_EQN,MAP_MAP_o, CHR_w2n_n2w_ORD]
+    \\CASE_TAC
+    >-(fs[NOT_NIL_EQ_LENGTH_NOT_0]))
+  >-(strip_tac
+    \\fs[EL_APPEND_EQN,MAP_MAP_o, CHR_w2n_n2w_ORD]
+    \\CASE_TAC
+    >-(fs[NOT_NIL_EQ_LENGTH_NOT_0])));
+
+Theorem exists_eq_o_map
+  `!P l.
+      EXISTS ($= ((n2w ∘ ORD) x)) l <=>
+        EXISTS ($= x) (MAP (CHR o w2n) (l:word8 list))`
+  (strip_tac
+  \\ completeInduct_on `LENGTH (l:word8 list)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EXISTS_DEF])
+  >-(Cases_on `($= ((n2w:num->word8 ∘ ORD) x)) h`
+    >-(fs[EXISTS_DEF]
+      \\disj1_tac
+      \\metis_tac[CHR_w2n_n2w_ORD_simp, o_THM])
+    >-(fs[EXISTS_DEF]
+      \\eq_tac
+      >-(strip_tac
+        \\disj2_tac \\ fs[])
+      >-(strip_tac
+        \\imp_res_tac chr_eq_ord_o_w8_eq
+        \\fs[o_THM]))));
+
+  Theorem exists_eq_o_map2
+  `!P l.
+      EXISTS ($= ((n2w ∘ ORD) x)) (MAP (n2w:num->word8 o ORD) l) <=>
+        EXISTS ($= x) (l:string)`
+  (strip_tac
+  \\ completeInduct_on `LENGTH (l:string)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EXISTS_DEF])
+  >-(Cases_on `($= x) h`
+    >-(fs[EXISTS_DEF]
+      \\disj1_tac
+      \\metis_tac[CHR_w2n_n2w_ORD_simp, o_THM])
+    >-(fs[EXISTS_DEF]
+      \\eq_tac
+      >-(strip_tac
+        \\Cases_on `x` \\ Cases_on `h` \\ fs[])
+      >-(strip_tac
+        \\disj2_tac \\ fs[]))));
+
+Theorem map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8
+  `!P l.
+      takeUntilIncl ($= c) (MAP (CHR ∘ w2n) (l:word8 list)) =
+        MAP (CHR o w2n:word8->num) (takeUntilIncl ($= ((n2w:num->word8 o ORD) c)) (l:word8 list))`
+  (strip_tac
+  \\ completeInduct_on `LENGTH (l:word8 list)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[takeUntilIncl_def])
+  >-(Cases_on `c = CHR (w2n (h:word8))`
+    >-(fs[takeUntilIncl_def])
+    >-(fs[takeUntilIncl_def]
+      \\imp_res_tac chr_neq_ord_o_w8_neq
+      \\fs[o_THM])));
+
+Theorem map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2
+  `!P l.
+      takeUntilIncl ($= c) (l:string) =
+        MAP (CHR o w2n:word8->num)
+          (takeUntilIncl ($= ((n2w:num->word8 o ORD) c)) (MAP (n2w:num->word8 o ORD) l))`
+  (strip_tac
+  \\ completeInduct_on `LENGTH (l:string)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[takeUntilIncl_def])
+  >-(Cases_on `c = h`
+    >-(fs[takeUntilIncl_def])
+    >-(fs[takeUntilIncl_def]
+      \\imp_res_tac chr_neq_ord_o_w8_neq
+      \\fs[o_THM])));
+
+Theorem map_w82c_dropUntilIncl_eq_dropUntilIncl_map_c2w8_2
+  `!P l.
+      dropUntilIncl ($= c) (l:string) =
+        MAP (CHR o w2n:word8->num)
+          (dropUntilIncl ($= ((n2w:num->word8 o ORD) c)) (MAP (n2w:num->word8 o ORD) l))`
+  (strip_tac
+  \\ completeInduct_on `LENGTH (l:string)`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def])
+  >-(Cases_on `c = h`
+    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def]
+      \\fs[MAP_MAP_o, CHR_w2n_n2w_ORD])
+    >-(fs[dropUntilIncl_def, mllistTheory.dropUntil_def]
+      \\imp_res_tac chr_neq_ord_o_w8_neq
+      \\fs[o_THM])));
+
+Theorem takeUntilIncl_exists
+  `!P l x.
+      EXISTS P l ==>
+        EXISTS P (takeUntilIncl P l)`
+  (strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EXISTS_DEF])
+  >-(Cases_on `P h`
+    >-(simp[takeUntilIncl_def, NOT_NIL_EQ_LENGTH_NOT_0])
+    >-(fs[takeUntilIncl_def, EXISTS_DEF])));
+
+Theorem takeUntilIncl_append_exists_l
+  `!P l x.
+      EXISTS P l ==>
+        takeUntilIncl P (l ++ r) = takeUntilIncl P l`
+  (strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EXISTS_DEF])
+  >-(simp[APPEND_EQ_CONS]
+    \\Cases_on `P h`
+    >-(simp[takeUntilIncl_def, NOT_NIL_EQ_LENGTH_NOT_0])
+    >-(fs[takeUntilIncl_def, EXISTS_DEF])));
+
+Theorem takeUntilIncl_append_exists_r
+  `!P l x.
+      ~(EXISTS P l) /\ EXISTS P r ==>
+        takeUntilIncl P (l ++ r) = l ++ takeUntilIncl P r`
+  (strip_tac
+  \\ completeInduct_on `LENGTH l`
+  \\ rpt strip_tac \\ rveq \\ fs [PULL_FORALL]
+  \\ Cases_on `l`
+  >-(fs[EXISTS_DEF])
+  >-(Cases_on `P h` >- fs[EVERY_DEF]
+    >-(simp[takeUntilIncl_def]
+      \\last_assum (qspecl_then [`t`] mp_tac)
+      \\disch_tac \\ fs[])));
 
 Theorem b_inputUntil_aux_EXISTS_no_refill_spec
  `!fd fdv fs content pos bactive.
@@ -3541,7 +3832,7 @@ Theorem b_inputUntil_aux_spec
         \\xsimpl)))));
 
 Theorem b_inputUntil_spec
- `!fd fdv fs content pos bactive.
+ `!fd fs content pos bactive.
    CHAR ch chv /\
    P = ($=((n2w o ORD) ch)) /\
    get_file_content fs fd = SOME(content, pos) /\
@@ -3558,7 +3849,7 @@ Theorem b_inputUntil_spec
             &(STRING_TYPE (implode (MAP (CHR o w2n) (bactive ++
               takeUntilIncl P (DROP pos (MAP (n2w o ORD) content))))) v) *
             STDIO (bumpFD fd fs
-              (LENGTH (takeUntilIncl P (DROP pos (MAP (n2w o ORD) content))) +
+           +   (LENGTH (takeUntilIncl P (DROP pos (MAP (n2w o ORD) content))) +
                 LENGTH leftover)) *
             INSTREAM_BUFFERED_FD leftover fd is *
             &(isPREFIX leftover (dropUntilIncl P (DROP pos (MAP (n2w o ORD) content)))))`
@@ -3585,41 +3876,249 @@ Theorem b_inputUntil_spec
   >-(simp[] \\ xpull \\ xapp \\ asm_exists_tac \\ xsimpl \\ rpt strip_tac
     \\asm_exists_tac \\ xsimpl));
 
-(*Theorem b_inputLine_spec
- `!fd fdv fs content pos bactive.
+Theorem b_inputLine_spec
+ `!fd fs content pos bactive.
+   P = ($=((n2w o ORD) #"\n")) /\
    get_file_content fs fd = SOME(content, pos) /\
    get_mode fs fd = SOME ReadMode ==>
    app (p:'ffi ffi_proj) TextIO_b_inputLine_v [is]
      (STDIO fs * INSTREAM_BUFFERED_FD bactive fd is)
      (POSTv v.
-        if EXISTS ($=10w) bactive then
+        if 0 = LENGTH bactive /\ LENGTH content <= pos then
+          INSTREAM_BUFFERED_FD [] fd is *
           STDIO fs *
-          INSTREAM_BUFFERED_FD (dropUntilIncl ($=10w) bactive) fd is *
-          &(STRING_TYPE (implode (MAP (CHR o w2n) (takeUntilIncl ($=10w) bactive))) v)
+          &(OPTION_TYPE STRING_TYPE NONE v)
+        else if EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive ++ (DROP pos content)) then
+          SEP_EXISTS leftover.
+            &(OPTION_TYPE STRING_TYPE (SOME (implode ((MAP (CHR o w2n)
+              (takeUntilIncl P (bactive ++ DROP pos (MAP (n2w o ORD) content))))))) v) *
+            STDIO (bumpFD fd fs
+              (LENGTH (takeUntilIncl P (bactive ++ DROP pos (MAP (n2w o ORD) content))) +
+                LENGTH leftover - LENGTH bactive)) *
+            INSTREAM_BUFFERED_FD leftover fd is *
+            &(isPREFIX leftover (dropUntilIncl P
+              (if EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive) then
+                bactive else DROP pos (MAP (n2w:num->word8 o ORD) content))))
         else
           SEP_EXISTS leftover.
-            &(STRING_TYPE (implode ((MAP (CHR o w2n) (bactive ++
-              takeUntilIncl ($=10w) (DROP pos (MAP (n2w o ORD) content)))))) v) *
+            &(OPTION_TYPE STRING_TYPE (SOME (implode (STRCAT (MAP (CHR o w2n)
+              (takeUntilIncl P (bactive ++ DROP pos (MAP (n2w o ORD) content)))) "\n"))) v) *
             STDIO (bumpFD fd fs
-              (LENGTH (takeUntilIncl ($=10w) (DROP pos (MAP (n2w o ORD) content))) +
-                LENGTH leftover)) *
+              (LENGTH (takeUntilIncl P (bactive ++ DROP pos (MAP (n2w o ORD) content))) +
+                LENGTH leftover - LENGTH bactive)) *
             INSTREAM_BUFFERED_FD leftover fd is *
-            &(isPREFIX leftover (dropUntilIncl ($=10w) (DROP pos (MAP (n2w o ORD) content)))))`
+            &(isPREFIX leftover (dropUntilIncl P (DROP pos (MAP (n2w o ORD) content)))))`
   (xcf_with_def "TextIO.b_inputLine" TextIO_b_inputLine_v_def
-  \\xlet `POSTv v.
-        if EXISTS ($=(10w:word8)) bactive then
-          STDIO fs *
-          INSTREAM_BUFFERED_FD (dropUntilIncl ($=(10w:word8)) bactive) fd is *
-          &(STRING_TYPE (implode (MAP (CHR o w2n) (takeUntilIncl ($=(10w:word8)) bactive))) v)
-        else
-          SEP_EXISTS leftover.
-            &(STRING_TYPE (implode ((MAP (CHR o w2n) (bactive ++
-              takeUntilIncl ($=(10w:word8)) (DROP pos (MAP (n2w o ORD) content)))))) v) *
-            STDIO (bumpFD fd fs
-              (LENGTH (takeUntilIncl ($=(10w:word8)) (DROP pos (MAP (n2w o ORD) content))) +
-                LENGTH leftover)) *
-            INSTREAM_BUFFERED_FD leftover fd is *
-            &(isPREFIX leftover (dropUntilIncl ($=(10w:word8)) (DROP pos (MAP (n2w o ORD) content))))`*)
+  \\Cases_on `0 = LENGTH bactive /\ LENGTH content <= pos` \\ fs[]
+  >-(xlet_auto_spec
+      (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`[]`] b_inputUntil_spec))
+    >-(xsimpl \\ rpt strip_tac \\asm_exists_tac \\ xsimpl)
+    \\xlet_auto >- xsimpl \\ xlet_auto >- xsimpl
+    \\xif
+    >-(xcon \\ fs[std_preludeTheory.OPTION_TYPE_def, dropUntilIncl_def,
+                mllistTheory.dropUntil_def, takeUntilIncl_def, forwardFD_0] \\ xsimpl)
+    >-(fs[takeUntilIncl_def, implode_def]))
+  >-((*CASE when bactive <> []*)
+    Cases_on `EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive)`
+    >-(simp[]
+      \\xlet_auto_spec
+        (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputUntil_spec))
+      >-xsimpl
+      \\imp_res_tac exists_eq_o_map \\ `EXISTS ($= (10w:word8)) bactive` by rfs[] \\simp[]
+      \\xpull \\ xlet_auto >- xsimpl \\ xlet_auto >- xsimpl
+      \\xif
+      >-(imp_res_tac takeUntilIncl_length_gt_0
+        \\`takeUntilIncl ($= 10w) bactive <> []` by fs[NOT_NIL_EQ_LENGTH_NOT_0]
+        \\fs[implode_def])
+      >-(xlet_auto >- xsimpl
+        \\xif
+        >-(xcon \\fs[std_preludeTheory.OPTION_TYPE_def, takeUntilIncl_append_exists_l]
+          \\ xsimpl \\ qexists_tac `(dropUntilIncl ($= (10w:word8)) bactive)` \\ fs[isPREFIX]
+          \\fs[GSYM LENGTH_dropUntilIncl_takeUntilIncl] \\ xsimpl)
+        >-(xlet_auto >- xsimpl
+          \\xcon \\fs[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+          \\`10w = (n2w:num->word8 o ORD) #"\n"` by fs[]
+          \\`EXISTS ($= ((n2w ∘ ORD) #"\n")) bactive` by fs[]
+          \\imp_res_tac exists_eq_o_map
+          \\imp_res_tac takeUntilIncl_exists_last
+          \\imp_res_tac exists_chr_isSuffix
+          \\fs[map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8])))
+    >-(Cases_on `EXISTS ($= (#"\n")) (DROP pos content)`
+      >-(simp[]
+        \\xlet_auto_spec
+            (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputUntil_spec))
+        >-xsimpl
+        \\imp_res_tac exists_eq_o_map2
+        \\`~(EXISTS ($= ((n2w:num->word8 ∘ ORD) #"\n")) bactive)` by metis_tac[exists_eq_o_map]
+        \\`~EXISTS ($= (10w:word8)) bactive` by rfs[] \\simp[]
+        \\xpull \\ xlet_auto >- xsimpl \\ xlet_auto >- xsimpl
+        \\xif
+        >-(imp_res_tac takeUntilIncl_length_gt_0
+          \\`takeUntilIncl ($= (#"\n")) (DROP pos content) <> []`
+                by fs[NOT_NIL_EQ_LENGTH_NOT_0]
+          \\fs[implode_def] \\ `takeUntilIncl ($= (10w:word8)) (DROP pos (MAP (n2w ∘ ORD) content)) =
+                                takeUntilIncl ($= (10w:word8)) (MAP (n2w ∘ ORD) (DROP pos content))`
+                                by fs[MAP_DROP] \\ fs[]
+          \\fs[map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2])
+        >-(xlet_auto >- xsimpl
+          \\xif
+          >-(xcon \\fs[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+            \\qexists_tac `leftover` \\ fs[GSYM MAP_DROP]
+            \\`MAP (CHR o w2n:word8->num) (takeUntilIncl ($= (10w:word8)) (MAP (n2w ∘ ORD) (DROP pos content))) =
+                  takeUntilIncl ($= #"\n") (DROP pos content)`
+                  by fs[map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2] \\ fs[]
+            \\simp[MAP_APPEND] \\ fs[takeUntilIncl_append_exists_r] \\ xsimpl)
+          >-(xlet_auto >- xsimpl
+            \\xcon \\fs[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+            \\qexists_tac `leftover` \\ xsimpl
+            \\ `takeUntilIncl ($= (10w:word8)) (DROP pos (MAP (n2w ∘ ORD) content)) =
+                                takeUntilIncl ($= (10w:word8)) (MAP (n2w ∘ ORD) (DROP pos content))`
+                                by fs[MAP_DROP] \\ fs[]
+            \\`MAP (CHR o w2n:word8->num) (takeUntilIncl ($= (10w:word8)) (MAP (n2w ∘ ORD) (DROP pos content))) =
+                  takeUntilIncl ($= #"\n") (DROP pos content)`
+                  by fs[map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2] \\ fs[]
+            \\imp_res_tac takeUntilIncl_exists_last
+            \\imp_res_tac exists_chr_isSuffix
+            \\Cases_on `0 < STRLEN (takeUntilIncl ($= #"\n") (DROP pos content))`
+            >-(imp_res_tac isSuffix_char_implode_strcat
+              \\pop_assum kall_tac
+              \\pop_assum (qspecl_then [`(MAP (CHR ∘ w2n:word8->num) bactive)`] mp_tac)
+              \\strip_tac )
+            >-(fs[NOT_NIL_EQ_LENGTH_NOT_0, isSuffix_def]))))
+      >-(simp[]
+        \\xlet_auto_spec
+            (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputUntil_spec))
+        >-xsimpl
+        \\imp_res_tac exists_eq_o_map2
+        \\`~(EXISTS ($= ((n2w:num->word8 ∘ ORD) #"\n")) bactive)` by metis_tac[exists_eq_o_map]
+        \\`~EXISTS ($= (10w:word8)) bactive` by rfs[] \\simp[]
+        \\xpull \\ xlet_auto >- xsimpl \\ xlet_auto >- xsimpl
+        \\`¬(EXISTS ($= ((n2w:num->word8 o ORD) #"\n")) (MAP (n2w:num->word8 o ORD)
+                (DROP pos content)))` by metis_tac[exists_eq_o_map2]
+        \\fs[GSYM MAP_DROP]
+        \\xif
+        >-(fs[implode_def])
+        >-(xlet_auto >-xsimpl
+          \\xif
+          >-(imp_res_tac NOT_EXISTS
+            \\fs[takeUntilIncl_not_exists,not_exists_chr_not_isSuffix,
+                MAP_MAP_o,MAP_APPEND,CHR_w2n_n2w_ORD]
+            \\imp_res_tac NOT_EXISTS
+            \\Cases_on `0 < STRLEN ((MAP (CHR ∘ w2n) bactive) ++ (DROP pos content))`
+            >-(imp_res_tac not_exists_chr_not_isSuffix
+              \\ntac 2 (pop_assum kall_tac) \\ pop_assum (qspecl_then [`#"\n"`] mp_tac)
+              \\metis_tac[EXISTS_APPEND])
+            >-(fs[NOT_NIL_EQ_LENGTH_NOT_0]))
+          >-(xlet_auto >- xsimpl \\ xcon \\fs[std_preludeTheory.OPTION_TYPE_def]
+            \\xsimpl \\ qexists_tac `leftover` \\ xsimpl
+            \\imp_res_tac NOT_EXISTS
+            \\fs[takeUntilIncl_not_exists,not_exists_chr_not_isSuffix,
+                MAP_MAP_o,MAP_APPEND,CHR_w2n_n2w_ORD]
+            \\fs[implode_STRCAT, str_def, implode_def]
+            \\Cases_on `pos < STRLEN content`
+            >-(rw[] \\ xsimpl)
+            >-(`STRLEN content - pos = 0` by decide_tac
+              \\rw[] \\ xsimpl))))))
+  >-((*CASE when content <> []*)
+    Cases_on `EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive)`
+    >-(simp[]
+      \\xlet_auto_spec
+        (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputUntil_spec))
+      >-xsimpl
+      \\imp_res_tac exists_eq_o_map \\ `EXISTS ($= (10w:word8)) bactive` by rfs[] \\simp[]
+      \\xpull \\ xlet_auto >- xsimpl \\ xlet_auto >- xsimpl
+      \\xif
+      >-(imp_res_tac takeUntilIncl_length_gt_0
+        \\`takeUntilIncl ($= 10w) bactive <> []` by fs[NOT_NIL_EQ_LENGTH_NOT_0]
+        \\fs[implode_def])
+      >-(xlet_auto >- xsimpl
+        \\xif
+        >-(xcon \\fs[std_preludeTheory.OPTION_TYPE_def, takeUntilIncl_append_exists_l]
+          \\ xsimpl \\ qexists_tac `(dropUntilIncl ($= (10w:word8)) bactive)` \\ fs[isPREFIX]
+          \\fs[GSYM LENGTH_dropUntilIncl_takeUntilIncl] \\ xsimpl)
+        >-(xlet_auto >- xsimpl
+          \\xcon \\fs[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+          \\`10w = (n2w:num->word8 o ORD) #"\n"` by fs[]
+          \\`EXISTS ($= ((n2w ∘ ORD) #"\n")) bactive` by fs[]
+          \\imp_res_tac exists_eq_o_map
+          \\imp_res_tac takeUntilIncl_exists_last
+          \\imp_res_tac exists_chr_isSuffix
+          \\fs[map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8])))
+    >-(Cases_on `EXISTS ($= (#"\n")) (DROP pos content)`
+      >-(simp[]
+        \\xlet_auto_spec
+            (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputUntil_spec))
+        >-xsimpl
+        \\imp_res_tac exists_eq_o_map2
+        \\`~(EXISTS ($= ((n2w:num->word8 ∘ ORD) #"\n")) bactive)` by metis_tac[exists_eq_o_map]
+        \\`~EXISTS ($= (10w:word8)) bactive` by rfs[] \\simp[]
+        \\xpull \\ xlet_auto >- xsimpl \\ xlet_auto >- xsimpl
+        \\xif
+        >-(imp_res_tac takeUntilIncl_length_gt_0
+          \\`takeUntilIncl ($= (#"\n")) (DROP pos content) <> []`
+                by fs[NOT_NIL_EQ_LENGTH_NOT_0]
+          \\fs[implode_def] \\ `takeUntilIncl ($= (10w:word8)) (DROP pos (MAP (n2w ∘ ORD) content)) =
+                                takeUntilIncl ($= (10w:word8)) (MAP (n2w ∘ ORD) (DROP pos content))`
+                                by fs[MAP_DROP] \\ fs[]
+          \\fs[map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2])
+        >-(xlet_auto >- xsimpl
+          \\xif
+          >-(xcon \\fs[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+            \\qexists_tac `leftover` \\ fs[GSYM MAP_DROP]
+            \\`MAP (CHR o w2n:word8->num) (takeUntilIncl ($= (10w:word8)) (MAP (n2w ∘ ORD) (DROP pos content))) =
+                  takeUntilIncl ($= #"\n") (DROP pos content)`
+                  by fs[map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2] \\ fs[]
+            \\simp[MAP_APPEND] \\ fs[takeUntilIncl_append_exists_r] \\ xsimpl)
+          >-(xlet_auto >- xsimpl
+            \\xcon \\fs[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+            \\qexists_tac `leftover` \\ xsimpl
+            \\ `takeUntilIncl ($= (10w:word8)) (DROP pos (MAP (n2w ∘ ORD) content)) =
+                                takeUntilIncl ($= (10w:word8)) (MAP (n2w ∘ ORD) (DROP pos content))`
+                                by fs[MAP_DROP] \\ fs[]
+            \\`MAP (CHR o w2n:word8->num) (takeUntilIncl ($= (10w:word8)) (MAP (n2w ∘ ORD) (DROP pos content))) =
+                  takeUntilIncl ($= #"\n") (DROP pos content)`
+                  by fs[map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8_2] \\ fs[]
+            \\imp_res_tac takeUntilIncl_exists_last
+            \\imp_res_tac exists_chr_isSuffix
+            \\Cases_on `0 < STRLEN (takeUntilIncl ($= #"\n") (DROP pos content))`
+            >-(imp_res_tac isSuffix_char_implode_strcat
+              \\pop_assum kall_tac
+              \\pop_assum (qspecl_then [`(MAP (CHR ∘ w2n:word8->num) bactive)`] mp_tac)
+              \\strip_tac )
+            >-(fs[NOT_NIL_EQ_LENGTH_NOT_0, isSuffix_def]))))
+      >-(simp[]
+        \\xlet_auto_spec
+            (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputUntil_spec))
+        >-xsimpl
+        \\imp_res_tac exists_eq_o_map2
+        \\`~(EXISTS ($= ((n2w:num->word8 ∘ ORD) #"\n")) bactive)` by metis_tac[exists_eq_o_map]
+        \\`~EXISTS ($= (10w:word8)) bactive` by rfs[] \\simp[]
+        \\xpull \\ xlet_auto >- xsimpl \\ xlet_auto >- xsimpl
+        \\`¬(EXISTS ($= ((n2w:num->word8 o ORD) #"\n")) (MAP (n2w:num->word8 o ORD)
+                (DROP pos content)))` by metis_tac[exists_eq_o_map2]
+        \\fs[GSYM MAP_DROP]
+        \\xif
+        >-(imp_res_tac NOT_EXISTS \\ fs[implode_def, LENGTH_MAP, GSYM MAP_DROP,
+                                       takeUntilIncl_not_exists,
+                                       LENGTH_DROP, DROP_NIL])
+        >-(xlet_auto >-xsimpl
+          \\xif
+          >-(imp_res_tac NOT_EXISTS
+            \\fs[takeUntilIncl_not_exists,not_exists_chr_not_isSuffix,
+                MAP_MAP_o,MAP_APPEND,CHR_w2n_n2w_ORD]
+            \\imp_res_tac NOT_EXISTS
+            \\Cases_on `0 < STRLEN ((MAP (CHR ∘ w2n) bactive) ++ (DROP pos content))`
+            >-(imp_res_tac not_exists_chr_not_isSuffix
+              \\ntac 2 (pop_assum kall_tac) \\ pop_assum (qspecl_then [`#"\n"`] mp_tac)
+              \\metis_tac[EXISTS_APPEND])
+            >-(fs[NOT_NIL_EQ_LENGTH_NOT_0, DROP_NIL]))
+          >-(xlet_auto >- xsimpl \\ xcon \\fs[std_preludeTheory.OPTION_TYPE_def]
+            \\xsimpl \\ qexists_tac `leftover` \\ xsimpl
+            \\imp_res_tac NOT_EXISTS
+            \\fs[takeUntilIncl_not_exists,not_exists_chr_not_isSuffix,
+                MAP_MAP_o,MAP_APPEND,CHR_w2n_n2w_ORD]
+            \\fs[implode_STRCAT, str_def, implode_def]
+            \\xsimpl))))));
 
 Theorem extend_array_spec
     `∀arrv arr.
