@@ -275,7 +275,7 @@ val to_livesets_def = Define`
     ((reg_count,data),c',p)`
 
 val from_livesets_def = Define`
-  from_livesets ((k,data),c,p) =
+  from_livesets c ((k,data),c',p) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
   let alg = word_conf.reg_alg in
@@ -291,11 +291,16 @@ val from_livesets_def = Define`
             | Failure _ => prog (*cannot happen*)) in
           (name_num,arg_count,remove_must_terminate cp)
       | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
+  (* clarifying (for compilationLib) that the config changes in c'
+     are needed in the final returned config, but are limited to fields
+     that won't be read from this point. *)
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-  from_word c p`
+  let c = c with <| source_conf := c'.source_conf; clos_conf := c'.clos_conf;
+        bvl_conf := c'.bvl_conf |> in
+  from_word c p`;
 
 Theorem compile_oracle:
-    from_livesets (to_livesets c p) = compile c p
+    from_livesets c (to_livesets c p) = compile c p
 Proof
   srw_tac[][FUN_EQ_THM,
      to_data_def,
@@ -314,7 +319,9 @@ Proof
   ntac 2 (pop_assum mp_tac)>>
   qpat_abbrev_tac`progs = MAP A B`>>
   qpat_abbrev_tac`progs' = MAP A B`>>
-  qsuff_tac `progs = progs'`>>rw[]>>
+  qsuff_tac `progs = progs'`>>rw[]>-(
+    AP_THM_TAC>>AP_TERM_TAC>>simp[config_component_equality]
+  )>>
   unabbrev_all_tac>>
   fs[next_n_oracle_def]>>
   rveq>>fs[]>>
