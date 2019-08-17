@@ -365,6 +365,9 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
       rw[LIST_EQ_REWRITE,EL_MAP3,EL_ZIP,oracle_thm,UNCURRY])
       |> C MATCH_MP (CONJ LENGTH_word_prog1 (CONJ LENGTH_word_prog0 LENGTH_oracle_list))
 
+    val config_typ = type_of (hd args)
+    val config_ss = bool_ss ++ simpLib.type_ssfrag config_typ
+
     val compile_thm0 =
       compile_oracle |> SYM
       |> Q.GENL[`c`,`p`] |> ISPECL args
@@ -380,8 +383,6 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
            RAND_CONV eval THENC
            REWR_CONV_BETA LET_THM THENC
            REWR_CONV_BETA LET_THM THENC
-           REWR_CONV LET_THM THENC BETA_CONV THENC
-           REWR_CONV LET_THM THENC BETA_CONV THENC
            RAND_CONV(
              RAND_CONV(REWR_CONV ZIP_GENLIST_lemma) THENC
              REWR_CONV MAP_GENLIST THENC
@@ -393,7 +394,9 @@ fun compile_to_lab data_prog_def to_data_thm lab_prog_name =
                PAIRED_BETA_CONV THENC
                PATH_CONV"llr"(
                  REWR_CONV word_allocTheory.oracle_colour_ok_def THENC
-                 REWR_CONV_BETA(CONJUNCT2 option_case_def))))))
+                 REWR_CONV_BETA(CONJUNCT2 option_case_def)))) THENC
+           REPEATC (REWR_CONV LET_THM THENC BETA_CONV) THENC
+           RATOR_CONV (SIMP_CONV config_ss [])))
 
     val tm3 = compile_thm0 |> rconc |> rand
     val check_fn = tm3 |> funpow 3 rator |> rand
