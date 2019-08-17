@@ -3876,6 +3876,12 @@ Theorem b_inputUntil_spec
   >-(simp[] \\ xpull \\ xapp \\ asm_exists_tac \\ xsimpl \\ rpt strip_tac
     \\asm_exists_tac \\ xsimpl));
 
+val inputLine_def = Define `
+  inputLine (s:string) =
+    implode (if EXISTS ($= #"\n") s
+             then takeUntilIncl ($= #"\n") s
+             else STRCAT s "\n")`;
+
 Theorem b_inputLine_spec
  `!fd fs content pos bactive.
    P = ($=((n2w o ORD) #"\n")) /\
@@ -3888,26 +3894,17 @@ Theorem b_inputLine_spec
           INSTREAM_BUFFERED_FD [] fd is *
           STDIO fs *
           &(OPTION_TYPE STRING_TYPE NONE v)
-        else if EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive ++ (DROP pos content)) then
+        else
           SEP_EXISTS leftover.
-            &(OPTION_TYPE STRING_TYPE (SOME (implode ((MAP (CHR o w2n)
-              (takeUntilIncl P (bactive ++ DROP pos (MAP (n2w o ORD) content))))))) v) *
+            &(OPTION_TYPE STRING_TYPE
+              (SOME (inputLine (MAP (CHR o w2n:word8->num) bactive ++ DROP pos content))) v) *
             STDIO (bumpFD fd fs
               (LENGTH (takeUntilIncl P (bactive ++ DROP pos (MAP (n2w o ORD) content))) +
                 LENGTH leftover - LENGTH bactive)) *
             INSTREAM_BUFFERED_FD leftover fd is *
             &(isPREFIX leftover (dropUntilIncl P
-              (if EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive) then
-                bactive else DROP pos (MAP (n2w:num->word8 o ORD) content))))
-        else
-          SEP_EXISTS leftover.
-            &(OPTION_TYPE STRING_TYPE (SOME (implode (STRCAT (MAP (CHR o w2n)
-              (takeUntilIncl P (bactive ++ DROP pos (MAP (n2w o ORD) content)))) "\n"))) v) *
-            STDIO (bumpFD fd fs
-              (LENGTH (takeUntilIncl P (bactive ++ DROP pos (MAP (n2w o ORD) content))) +
-                LENGTH leftover - LENGTH bactive)) *
-            INSTREAM_BUFFERED_FD leftover fd is *
-            &(isPREFIX leftover (dropUntilIncl P (DROP pos (MAP (n2w o ORD) content)))))`
+              (if EXISTS ($= #"\n") (MAP (CHR o w2n:word8->num) bactive) then
+                bactive else DROP pos (MAP (n2w:num->word8 o ORD) content)))))`
   (xcf_with_def "TextIO.b_inputLine" TextIO_b_inputLine_v_def
   \\Cases_on `0 = LENGTH bactive /\ LENGTH content <= pos` \\ fs[]
   >-(xlet_auto_spec
@@ -3919,7 +3916,8 @@ Theorem b_inputLine_spec
                 mllistTheory.dropUntil_def, takeUntilIncl_def, forwardFD_0] \\ xsimpl)
     >-(fs[takeUntilIncl_def, implode_def]))
   >-((*CASE when bactive <> []*)
-    Cases_on `EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive)`
+    fs[inputLine_def]
+    \\Cases_on `EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive)`
     >-(simp[]
       \\xlet_auto_spec
         (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputUntil_spec))
@@ -3933,7 +3931,8 @@ Theorem b_inputLine_spec
       >-(xlet_auto >- xsimpl
         \\xif
         >-(xcon \\fs[std_preludeTheory.OPTION_TYPE_def, takeUntilIncl_append_exists_l]
-          \\ xsimpl \\ qexists_tac `(dropUntilIncl ($= (10w:word8)) bactive)` \\ fs[isPREFIX]
+          \\ xsimpl \\ qexists_tac `(dropUntilIncl ($= (10w:word8)) bactive)`
+          \\ fs[isPREFIX, map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8]
           \\fs[GSYM LENGTH_dropUntilIncl_takeUntilIncl] \\ xsimpl)
         >-(xlet_auto >- xsimpl
           \\xcon \\fs[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
@@ -4020,7 +4019,8 @@ Theorem b_inputLine_spec
             >-(`STRLEN content - pos = 0` by decide_tac
               \\rw[] \\ xsimpl))))))
   >-((*CASE when content <> []*)
-    Cases_on `EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive)`
+    fs[inputLine_def]
+    \\Cases_on `EXISTS ($= (#"\n")) (MAP (CHR o w2n:word8->num) bactive)`
     >-(simp[]
       \\xlet_auto_spec
         (SOME (Q.SPECL [`fd`,`fs`,`content`,`pos`,`bactive`] b_inputUntil_spec))
@@ -4034,7 +4034,8 @@ Theorem b_inputLine_spec
       >-(xlet_auto >- xsimpl
         \\xif
         >-(xcon \\fs[std_preludeTheory.OPTION_TYPE_def, takeUntilIncl_append_exists_l]
-          \\ xsimpl \\ qexists_tac `(dropUntilIncl ($= (10w:word8)) bactive)` \\ fs[isPREFIX]
+          \\ xsimpl \\ qexists_tac `(dropUntilIncl ($= (10w:word8)) bactive)`
+          \\ fs[isPREFIX, map_w82c_takeUntilIncl_eq_takeUntilIncl_map_c2w8]
           \\fs[GSYM LENGTH_dropUntilIncl_takeUntilIncl] \\ xsimpl)
         >-(xlet_auto >- xsimpl
           \\xcon \\fs[std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
@@ -4119,6 +4120,77 @@ Theorem b_inputLine_spec
                 MAP_MAP_o,MAP_APPEND,CHR_w2n_n2w_ORD]
             \\fs[implode_STRCAT, str_def, implode_def]
             \\xsimpl))))));
+
+Theorem b_inputLines_spec
+ `!fd fs content pos bactive.
+   get_file_content fs fd = SOME(content, pos) /\
+   get_mode fs fd = SOME ReadMode ==>
+   ⇒
+   app (p:'ffi ffi_proj) TextIO_b_inputLines_v [is]
+     (STDIO fs * INSTREAM_BUFFERED_FD bactive fd is)
+     (POSTv fcv.
+       &LIST_TYPE STRING_TYPE
+         (MAP (\x. strcat (implode x) (implode "\n"))
+            (splitlines ((MAP (CHR o w2n) bactive ++ DROP pos content))) fcv *
+       INSTREAM_BUFFERED_FD [] fd is *
+       STDIO (fastForwardFD fs fd))`
+  (Induct_on`splitlines (DROP pos content)` \\ rw[]
+  >- (
+    qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[DROP_NIL]
+    \\ `LENGTH content - pos = 0` by simp[]
+    \\ pop_assum SUBST1_TAC
+    \\ `DROP pos content = []` by fs[DROP_NIL]
+    \\ xcf_with_def "TextIO.inputLines" TextIO_inputLines_v_def
+    \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
+    \\ xlet_auto >- xsimpl
+    \\ rfs[std_preludeTheory.OPTION_TYPE_def,lineFD_def]
+    \\ xmatch
+    \\ xcon
+    \\ simp[lineForwardFD_def,fastForwardFD_0]
+    \\ xsimpl
+    \\ fs[LIST_TYPE_def])
+  \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
+  \\ xcf_with_def "TextIO.inputLines" TextIO_inputLines_v_def
+  \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
+  \\ xlet_auto >- xsimpl
+  \\ rfs[lineFD_def]
+  \\ imp_res_tac splitlines_next
+  \\ rveq
+  \\ `pos < LENGTH content`
+  by ( CCONTR_TAC \\ fs[NOT_LESS,GSYM GREATER_EQ,GSYM DROP_NIL] )
+  \\ fs[DROP_DROP_T]
+  \\ pairarg_tac \\ fs[implode_def,STRING_TYPE_def,std_preludeTheory.OPTION_TYPE_def] \\ rveq
+  \\ xmatch
+  \\ fs[lineForwardFD_def]
+  \\ imp_res_tac splitlines_CONS_FST_SPLITP \\ rfs[] \\ rveq
+  \\ qmatch_goalsub_abbrev_tac`forwardFD fs fd n`
+  \\ first_x_assum(qspecl_then[`pos+n`,`content`]mp_tac)
+  \\ impl_keep_tac
+  >- (
+    simp[Abbr`n`]
+    \\ rw[ADD1]
+    \\ fs[NULL_EQ]
+    \\ imp_res_tac SPLITP_NIL_SND_EVERY
+    \\ rveq
+    \\ simp[DROP_LENGTH_TOO_LONG] )
+  \\  disch_then drule
+  \\ disch_then(qspec_then`forwardFD fs fd n`mp_tac)
+  \\ simp[]
+  \\ strip_tac \\ fs[Abbr`n`,NULL_EQ]
+  \\ xlet_auto >- xsimpl
+  \\ xcon
+  \\ xsimpl
+  \\ simp[forwardFD_o,STDIO_numchars,LIST_TYPE_def]
+  \\ fs[strcat_thm,implode_def]
+  \\ qmatch_goalsub_abbrev_tac`forwardFD fs fd n`
+  \\ `n ≤ LENGTH content - pos` suffices_by (
+    simp[fastForwardFD_forwardFD] \\ xsimpl)
+  \\ imp_res_tac IS_PREFIX_LENGTH
+  \\ fs[] \\ rw[Abbr`n`] \\ fs[]
+  \\ Cases_on`LENGTH h = LENGTH content - pos` \\ fs[]
+  \\ imp_res_tac SPLITP_JOIN
+  \\ pop_assum(mp_tac o Q.AP_TERM`LENGTH`) \\ simp[]
+  \\ Cases_on`LENGTH r = 0` \\ simp[] \\ fs[] );
 
 Theorem extend_array_spec
     `∀arrv arr.
