@@ -201,18 +201,18 @@ val lookup_ins_table_32_correct = Q.prove(`
   disch_then drule>>
   fs[]);
 
-val enc_line_hash_32_correct = Q.prove(`
+val enc_line_hash_32_correct = Q.prove(‘
   ∀line.
-  good_table_32 enc n s ∧ 0 < n ⇒
-  ∃s'.
-  enc_line_hash_32 enc skip_len n line s =
-  (Success (enc_line enc skip_len line),s') ∧
-  good_table_32 enc n s'`,
+    good_table_32 enc n s ∧ 0 < n ⇒
+    ∃s'.
+     enc_line_hash_32 enc skip_len n line s =
+       (Success (enc_line enc skip_len line),s') ∧
+     good_table_32 enc n s'’,
   Cases>>fs[enc_line_hash_32_def,enc_line_def]>>
   fs msimps>>
   qmatch_goalsub_abbrev_tac`lookup_ins_table_32 _ _ aa`>>
   rw[]>>
-  drule lookup_ins_table_32_correct>>rw[]>>simp[]);
+  old_drule lookup_ins_table_32_correct>>rw[]>>simp[]);
 
 val enc_line_hash_32_ls_correct = Q.prove(`
   ∀xs s.
@@ -224,7 +224,7 @@ val enc_line_hash_32_ls_correct = Q.prove(`
   Induct>>fs[enc_line_hash_32_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
-  drule enc_line_hash_32_correct>>
+  old_drule enc_line_hash_32_correct>>
   disch_then (qspec_then `h` assume_tac)>>rfs[]>>
   first_x_assum drule>>
   rw[]>>simp[]);
@@ -240,7 +240,7 @@ val enc_sec_hash_32_ls_correct = Q.prove(`
   fs msimps>>
   rw[]>> simp[]>>
   TOP_CASE_TAC>>simp[]>>
-  drule enc_line_hash_32_ls_correct>>
+  old_drule enc_line_hash_32_ls_correct>>
   simp[]>>
   disch_then(qspec_then`l` assume_tac)>>fs[]>>
   first_x_assum drule>>rw[]>>
