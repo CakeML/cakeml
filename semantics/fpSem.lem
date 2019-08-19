@@ -13,6 +13,11 @@ type rounding
 declare hol target_rep type rounding = `rounding`
 declare isabelle target_rep type rounding = `roundmode`
 
+declare {isabelle} rename type fp_cmp = fp_cmp_op
+declare {isabelle} rename type fp_uop = fp_uop_op
+declare {isabelle} rename type fp_bop = fp_bop_op
+declare {isabelle} rename type fp_top = fp_top_op
+
 val fp64_lessThan     : word64 -> word64 -> bool
 val fp64_lessEqual    : word64 -> word64 -> bool
 val fp64_greaterThan  : word64 -> word64 -> bool
