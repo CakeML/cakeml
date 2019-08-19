@@ -1019,6 +1019,16 @@ Proof
   fs[max_a_branch_def, MAX_DEF]
 QED;
 
+Theorem max_a_app2:
+  !b1 b2. max_a (b1 ++ b2) = MAX (max_a b1) (max_a b2)
+Proof
+  Induct_on `b1`
+  >- fs[max_a_def]
+  >- (Cases_on `h` \\
+      fs[max_a_def] \\
+      metis_tac[MAX_COMM, MAX_ASSOC])
+QED;
+
 Theorem drop_max_a_decompose:
   !i t. i < LENGTH t ==>
         MAX (max_a_pat (HD (DROP i t)))
@@ -1359,6 +1369,27 @@ Proof
       fs[LESS_MULT2])
 QED;
 
+Theorem psize_leq_arity:
+  !a p a'. a <= a' ==> psize a p <= psize a' p
+Proof
+  ho_match_mp_tac (theorem "psize_ind") \\
+  rw[psize_def] \\
+  (rpt (first_x_assum (qspec_then `a'` assume_tac) \\ rfs[]) \\
+   fs[LESS_EQ_LESS_EQ_MONO, LESS_MONO_MULT2])
+QED;
+
+Theorem plist_size_leq_arity:
+  !a a' ps. a <= a' ==>
+            plist_size (n_times a (LENGTH ps)) ps <=
+            plist_size (n_times a' (LENGTH ps)) ps
+Proof
+  Induct_on `ps` \\
+  rw[plist_size_def, n_times_def] \\
+  first_x_assum (qspecl_then [`a`, `a'`] assume_tac) \\
+  rfs[] \\
+  fs[LESS_MONO_MULT2, psize_leq_arity]
+QED;
+
 (* Theorem plist_size_gt_one: *)
 (*   !ars ps. (LENGTH ars) = (LENGTH ps) ==>  *)
 (*            1 < plist_size ars ps *)
@@ -1691,94 +1722,315 @@ Proof
                   fs[n_times_length]))))
 QED;
 
-(* Theorem plist_size_n_times_cons: *)
-(*   !p ps. plist_size (n_times (SUC (LENGTH ps))) (p::ps) = *)
-(*            (psize 0 p) * (plist_size (n_times (LENGTH ps)) ps) *)
-(* Proof *)
-(*   fs[n_times_def, plist_size_def] *)
-(* QED; *)
+Theorem plist_size_n_times_cons:
+  !p ps x. plist_size (n_times x (SUC (LENGTH ps))) (p::ps) =
+           (psize x p) * (plist_size (n_times x (LENGTH ps)) ps)
+Proof
+  fs[n_times_def, plist_size_def]
+QED;
 
-(* Theorem pm_size_default: *)
-(*   !m. inv_mat m /\ *)
-(*       (msize m) > 0 /\ *)
-(*       m <> [] ==> *)
-(*       pm_size (n_times ((msize m) - 1)) (default m) < *)
-(*       pm_size (n_times (msize m)) m *)
-(* Proof *)
-(*   ho_match_mp_tac (theorem "default_ind") \\ rw[] *)
-(*   >- (Cases_on `m` *)
-(*       >- fs[default_def, pm_size_def, psize_def, plist_size_def, *)
-(* 	    plist_size_gt_zero, msize_def, n_times_def, n_times_length] *)
-(*       >- (`h::t <> []` by fs[] \\ *)
-(*           imp_res_tac msize_inv_gt_zero \\ *)
-(*           imp_res_tac inv_mat_dcmp \\ *)
-(*           res_tac \\ *)
-(*           fs[default_def, pm_size_def, psize_def, plist_size_def, *)
-(* 	     plist_size_n_times_cons, msize_def] \\ *)
-(*           imp_res_tac msize_inv' \\ *)
-(*           `pm_size (n_times (LENGTH ps)) (default (h::t)) < *)
-(*            pm_size (n_times (SUC (LENGTH ps))) (h::t)` suffices_by fs[] \\ *)
-(*           `msize (h::t) = SUC (LENGTH ps)` *)
-(*           by fs[msize_def] \\ *)
-(*           fs[msize_def])) *)
-(*   >- (Cases_on `m` *)
-(*       >- fs[default_def, pm_size_def, psize_def, plist_size_def, *)
-(* 	    plist_size_gt_zero, msize_def, n_times_def, n_times_length] *)
-(*       >- (`h::t <> []` by fs[] \\ *)
-(*           imp_res_tac msize_inv_gt_zero \\ *)
-(*           imp_res_tac inv_mat_dcmp \\ *)
-(*           res_tac \\ *)
-(*           fs[default_def, pm_size_def, psize_def, plist_size_def, *)
-(* 	     plist_size_n_times_cons, msize_def] \\ *)
-(*           imp_res_tac msize_inv' \\ *)
-(*           `pm_size (n_times (LENGTH ps)) (default (h::t)) < *)
-(*            pm_size (n_times (SUC (LENGTH ps))) (h::t)` suffices_by fs[] \\ *)
-(*           `msize (h::t) = SUC (LENGTH ps)` *)
-(*           by fs[msize_def] \\ *)
-(*           fs[msize_def])) *)
-(*   >- (Cases_on `m` *)
-(*       >- fs[default_def, pm_size_def, psize_def, plist_size_gt_zero, *)
-(* 	    n_times_def, n_times_length, msize_def] *)
-(*       >- (`h::t <> []` by fs[] \\ *)
-(*           imp_res_tac msize_inv_gt_zero \\ *)
-(*           imp_res_tac inv_mat_dcmp \\ *)
-(*           res_tac \\ *)
-(*           fs[default_def, pm_size_def, psize_def, plist_size_def, *)
-(* 	     plist_size_n_times_cons, msize_def] \\ *)
-(*           imp_res_tac msize_inv' \\ *)
-(*           `pm_size (n_times (LENGTH ps)) (default (h::t)) < *)
-(*            pm_size (n_times (SUC (LENGTH ps))) (h::t)` suffices_by fs[] \\ *)
-(*           `msize (h::t) = SUC (LENGTH ps)` *)
-(*           by fs[msize_def] \\ *)
-(*           fs[msize_def])) *)
-(*   >- (Cases_on `m` *)
-(*       >- fs[default_def, pm_size_def, pm_size_app2, plist_size_def, psize_def, *)
-(*             inv_mat_def, msize_def, n_times_def] *)
-(*       >- (`h::t <> []` by fs[] \\ *)
-(*           imp_res_tac msize_inv_gt_zero \\ *)
-(*           imp_res_tac inv_mat_dcmp \\ *)
-(*           res_tac \\ *)
-(*           `msize (h::t) = SUC (LENGTH ps)` by *)
-(*           (imp_res_tac msize_inv' \\ *)
-(*            fs[msize_def]) \\ *)
-(*           fs[default_def, pm_size_def, psize_def, plist_size_gt_zero, pm_size_app2, *)
-(*              plist_size_def, n_times_def, msize_def] \\ *)
-(*           `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\ *)
-(* 	  `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\ *)
-(*           fs[])) *)
-(*   >- (Cases_on `rs` *)
-(*       >- (fs[default_def, pm_size_def, plist_size_def, psize_def, inv_mat_def, msize_def] \\ *)
-(*           Cases_on `n_times (SUC (LENGTH ps))` *)
-(*           >- fs[plist_size_def] *)
-(* 	  >- fs[plist_size_def, psize_def]) *)
-(*       >- (imp_res_tac inv_mat_as \\ *)
-(*           `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\ *)
-(*           res_tac \\ *)
-(*           `msize (Branch (As p n::ps) e::h::t) = *)
-(*            msize (Branch (p::ps) e::h::t)` by fs[msize_def] \\ *)
-(*           fs[default_def, pm_size_def, plist_size_def, psize_def, msize_def, n_times_def])) *)
-(*   >- fs[msize_def] *)
-(* QED; *)
+Theorem max_a_default:
+  !m. (inv_mat m) /\
+      (msize m) > 0 ==>
+      max_a (default m) <= max_a m
+Proof
+  ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- rw[default_def]
+  >- (Cases_on `m` \\
+      fs[default_def, max_a_def, max_a_branch_def, max_a_pat_def, max_a_app2] \\
+      imp_res_tac msize_inv_gt_zero \\
+      fs[] \\
+      imp_res_tac inv_mat_dcmp \\
+      fs[default_def, max_a_def, max_a_branch_def])
+  >- (Cases_on `m` \\
+      fs[default_def, max_a_def, max_a_branch_def, max_a_pat_def, max_a_app2] \\
+      imp_res_tac msize_inv_gt_zero \\
+      fs[] \\
+      imp_res_tac inv_mat_dcmp \\
+      fs[default_def, max_a_def, max_a_branch_def])
+  >- (Cases_on `m` \\
+      fs[default_def, max_a_def, max_a_branch_def, max_a_pat_def, max_a_app2] \\
+      imp_res_tac msize_inv_gt_zero \\
+      fs[] \\
+      imp_res_tac inv_mat_dcmp \\
+      fs[default_def, max_a_def, max_a_branch_def])
+  >- (Cases_on `m`
+      >-  (fs[default_def, max_a_def, max_a_branch_def, max_a_pat_def, max_a_app2] \\
+           `msize [Branch (p1::ps) e] > 0` by fs[msize_def] \\
+	   `msize [Branch (p2::ps) e] > 0` by fs[msize_def] \\
+           imp_res_tac inv_mat_or1 \\
+           imp_res_tac inv_mat_or2 \\
+           fs[])
+      >- (fs[default_def, max_a_def, max_a_branch_def, max_a_pat_def, max_a_app2] \\
+           `msize [Branch (p1::ps) e] > 0` by fs[msize_def] \\
+	   `msize [Branch (p2::ps) e] > 0` by fs[msize_def] \\
+           imp_res_tac inv_mat_or1 \\
+           imp_res_tac inv_mat_or2 \\
+           imp_res_tac msize_inv_gt_zero \\
+           imp_res_tac inv_mat_dcmp \\
+           imp_res_tac inv_mat_cons \\
+           fs[]))
+  >- (Cases_on `rs`
+      >- (rw[default_def, max_a_def, max_a_branch_def] \\
+          `msize [Branch (p::ps) e] > 0` by fs[msize_def] \\
+          imp_res_tac inv_mat_as \\
+          fs[default_def, max_a_def, max_a_branch_def, max_a_pat_def])
+      >- (rw[default_def, max_a_def, max_a_branch_def, max_a_pat_def] \\
+          `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\
+          imp_res_tac inv_mat_as \\
+          imp_res_tac inv_mat_cons \\
+          fs[default_def, max_a_def, max_a_branch_def, max_a_pat_def]))
+  >- fs[msize_def]
+QED;
+
+Theorem double_exp_gt_one:
+  !a. 1 < 2 ** 2 ** a
+Proof
+  rw[] \\
+  Cases_on `(2:num) ** a`
+  >- fs[]
+  >- (fs[EXP] \\
+      `0 < 2 ** n` by fs[] \\
+      fs[ONE_LT_MULT])
+QED;
+
+Theorem plist_size_wildcard:
+  !a a' ps. a <= a' ==>
+    plist_size (n_times a (LENGTH ps)) ps <
+    2 ** 2 ** a' * plist_size (n_times a' (LENGTH ps)) ps
+Proof
+  rw[] \\
+  imp_res_tac plist_size_leq_arity \\
+  first_x_assum (qspec_then `ps` assume_tac) \\
+  Cases_on `plist_size (n_times a (LENGTH ps)) ps =
+            plist_size (n_times a' (LENGTH ps)) ps`
+  >- (fs[] \\ rw[]
+      >- fs[plist_size_gt_zero, n_times_length]
+      >- fs[double_exp_gt_one])
+  >- (`plist_size (n_times a (LENGTH ps)) ps <
+       plist_size (n_times a' (LENGTH ps)) ps` by fs[] \\
+      `1 < 2 ** 2 ** a'` by fs[double_exp_gt_one] \\
+      imp_res_tac bitTheory.LESS_MULT_MONO2 \\
+      fs[])
+QED;
+
+Theorem pm_size_default:
+  !m a a'. inv_mat m /\
+           (msize m) > 0 /\
+           a <= a' /\
+           m <> [] ==>
+           pm_size (n_times a ((msize m) - 1)) (default m) <
+           pm_size (n_times a' (msize m)) m
+Proof
+  ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, psize_def, plist_size_def,
+	    plist_size_gt_zero, msize_def, n_times_def, n_times_length,
+	    plist_size_wildcard]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_def,
+	     plist_size_n_times_cons, msize_def] \\
+          imp_res_tac msize_inv' \\
+          `msize (h::t) = SUC (LENGTH ps)`
+          by fs[msize_def] \\
+          fs[msize_def] \\
+          first_x_assum (qspecl_then [`a`, `a'`] assume_tac) \\
+          rfs[] \\
+          fs[plist_size_wildcard, integerTheory.LT_ADD2]))
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, psize_def, plist_size_def,
+	    plist_size_gt_zero, msize_def, n_times_def, n_times_length,
+	    plist_size_wildcard]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_def,
+	     plist_size_n_times_cons, msize_def] \\
+          imp_res_tac msize_inv' \\
+          `msize (h::t) = SUC (LENGTH ps)`
+          by fs[msize_def] \\
+          fs[msize_def] \\
+          first_x_assum (qspecl_then [`a`, `a'`] assume_tac) \\
+          rfs[] \\
+          fs[plist_size_wildcard, integerTheory.LT_ADD2]))
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, psize_def, plist_size_gt_zero,
+	    n_times_def, n_times_length, msize_def]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_def,
+	     plist_size_n_times_cons, msize_def] \\
+          imp_res_tac msize_inv' \\
+          `msize (h::t) = SUC (LENGTH ps)`
+          by fs[msize_def] \\
+          fs[msize_def]))
+  >- (Cases_on `m`
+      >- (fs[default_def, pm_size_def, pm_size_app2, plist_size_def, psize_def,
+            inv_mat_def, msize_def, n_times_def] \\
+          rpt (first_x_assum (qspecl_then [`a`, `a'`] assume_tac)) \\
+          rfs[])
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          rpt (first_x_assum (qspecl_then [`a`, `a'`] assume_tac)) \\
+          rfs[] \\
+          `msize (h::t) = SUC (LENGTH ps)` by
+          (imp_res_tac msize_inv' \\
+           fs[msize_def]) \\
+          fs[default_def, pm_size_def, psize_def, plist_size_gt_zero, pm_size_app2,
+             plist_size_def, n_times_def, msize_def] \\
+          `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
+	  `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\
+          fs[]))
+  >- (Cases_on `rs`
+      >- (fs[default_def, pm_size_def, plist_size_def, psize_def, inv_mat_def, msize_def] \\
+          first_x_assum (qspecl_then [`a`, `a'`] assume_tac) \\
+          rfs[plist_size_def, n_times_def, psize_def])
+      >- (imp_res_tac inv_mat_as \\
+          `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\
+          res_tac \\
+          `msize (Branch (As p n::ps) e::h::t) =
+           msize (Branch (p::ps) e::h::t)` by fs[msize_def] \\
+          fs[default_def, pm_size_def, plist_size_def, psize_def, msize_def, n_times_def]))
+  >- fs[msize_def]
+QED;
+
+Theorem msize_default:
+  !m. (msize m) > 0 /\ inv_mat m /\ (default m) <> [] ==>
+      msize (default m) = (msize m) - 1
+Proof
+  ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- fs[msize_def]
+  >- fs[default_def, msize_def]
+  >- fs[default_def, msize_def]
+  >- (imp_res_tac msize_inv_gt_zero \\
+      Cases_on `m`
+      >- fs[msize_def, default_def]
+      >- (fs[msize_def, default_def] \\
+          imp_res_tac inv_mat_dcmp \\
+          fs[inv_mat_def, EVERY_DEF, patterns_def] \\
+          Cases_on `h` \\
+          fs[msize_def, patterns_def]))
+ >- (imp_res_tac msize_inv_gt_zero \\
+     fs[default_def, msize_def, msize_app]
+     >- (imp_res_tac inv_mat_or1 \\
+         imp_res_tac inv_mat_cons \\
+         fs[])
+     >- (Cases_on `default [Branch (p1::ps) e]`
+         >- (imp_res_tac inv_mat_or2 \\
+             imp_res_tac inv_mat_cons \\
+             fs[msize_app])
+         >- (imp_res_tac inv_mat_or1 \\
+             imp_res_tac inv_mat_cons \\
+             fs[msize_app]))
+     >- (Cases_on `default [Branch (p1::ps) e]` \\
+         Cases_on `default [Branch (p2::ps) e]` \\
+         Cases_on `m` \\
+         fs[msize_app, default_def] \\
+	 imp_res_tac inv_mat_dcmp \\
+         fs[inv_mat_def, patterns_def] \\
+         Cases_on `h` \\
+         fs[msize_def, patterns_def]))
+ >- (fs[default_def, msize_def] \\
+     imp_res_tac inv_mat_as \\
+     fs[])
+ >- fs[msize_def]
+QED;
+
+Theorem pm_size_default:
+  !m a a'. inv_mat m /\
+           (msize m) > 0 /\
+           a <= a' /\
+           m <> [] ==>
+           pm_size (n_times a ((msize m) - 1)) (default m) <
+           pm_size (n_times a' (msize m)) m
+Proof
+  ho_match_mp_tac (theorem "default_ind") \\ rw[]
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, psize_def, plist_size_def,
+	    plist_size_gt_zero, msize_def, n_times_def, n_times_length,
+	    plist_size_wildcard]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_def,
+	     plist_size_n_times_cons, msize_def] \\
+          imp_res_tac msize_inv' \\
+          `msize (h::t) = SUC (LENGTH ps)`
+          by fs[msize_def] \\
+          fs[msize_def] \\
+          first_x_assum (qspecl_then [`a`, `a'`] assume_tac) \\
+          rfs[] \\
+          fs[plist_size_wildcard, integerTheory.LT_ADD2]))
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, psize_def, plist_size_def,
+	    plist_size_gt_zero, msize_def, n_times_def, n_times_length,
+	    plist_size_wildcard]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_def,
+	     plist_size_n_times_cons, msize_def] \\
+          imp_res_tac msize_inv' \\
+          `msize (h::t) = SUC (LENGTH ps)`
+          by fs[msize_def] \\
+          fs[msize_def] \\
+          first_x_assum (qspecl_then [`a`, `a'`] assume_tac) \\
+          rfs[] \\
+          fs[plist_size_wildcard, integerTheory.LT_ADD2]))
+  >- (Cases_on `m`
+      >- fs[default_def, pm_size_def, psize_def, plist_size_gt_zero,
+	    n_times_def, n_times_length, msize_def]
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          fs[default_def, pm_size_def, psize_def, plist_size_def,
+	     plist_size_n_times_cons, msize_def] \\
+          imp_res_tac msize_inv' \\
+          `msize (h::t) = SUC (LENGTH ps)`
+          by fs[msize_def] \\
+          fs[msize_def]))
+  >- (Cases_on `m`
+      >- (fs[default_def, pm_size_def, pm_size_app2, plist_size_def, psize_def,
+            inv_mat_def, msize_def, n_times_def] \\
+          rpt (first_x_assum (qspecl_then [`a`, `a'`] assume_tac)) \\
+          rfs[])
+      >- (`h::t <> []` by fs[] \\
+          imp_res_tac msize_inv_gt_zero \\
+          imp_res_tac inv_mat_dcmp \\
+          res_tac \\
+          rpt (first_x_assum (qspecl_then [`a`, `a'`] assume_tac)) \\
+          rfs[] \\
+          `msize (h::t) = SUC (LENGTH ps)` by
+          (imp_res_tac msize_inv' \\
+           fs[msize_def]) \\
+          fs[default_def, pm_size_def, psize_def, plist_size_gt_zero, pm_size_app2,
+             plist_size_def, n_times_def, msize_def] \\
+          `inv_mat [Branch (p1::ps) e]` by fs[inv_mat_def] \\
+	  `inv_mat [Branch (p2::ps) e]` by fs[inv_mat_def] \\
+          fs[]))
+  >- (Cases_on `rs`
+      >- (fs[default_def, pm_size_def, plist_size_def, psize_def, inv_mat_def, msize_def] \\
+          first_x_assum (qspecl_then [`a`, `a'`] assume_tac) \\
+          rfs[plist_size_def, n_times_def, psize_def])
+      >- (imp_res_tac inv_mat_as \\
+          `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\
+          res_tac \\
+          `msize (Branch (As p n::ps) e::h::t) =
+           msize (Branch (p::ps) e::h::t)` by fs[msize_def] \\
+          fs[default_def, pm_size_def, plist_size_def, psize_def, msize_def, n_times_def]))
+  >- fs[msize_def]
+QED;
 
 (* Theorem n_any_n_times: *)
 (*   !a. plist_size (n_times a) (n_any a) = 2 ** a *)
@@ -2143,9 +2395,8 @@ QED;
 (*   >- fs[msize_def] *)
 (* QED; *)
 
-(* (* compilation scheme a pattern matrix to a decision tree *)
-   based on a heuristic h
-*)
+(* compilation scheme a pattern matrix to a decision tree
+   based on a heuristic h *)
 val compile_def = Hol_defn "compile" `
   (compile h [] useh = Fail) /\
   (compile h ((Branch [] e)::bs) useh = Leaf e) /\
@@ -2163,22 +2414,30 @@ val compile_def = Hol_defn "compile" `
             then make_complete h ((Branch ps e)::bs) cinfos
             else make_partial h ((Branch ps e)::bs) cinfos)) /\
   (make_complete h m (defs,(c,_,a,binds)::[]) =
+    if inv_mat m /\ (msize m) > 0 /\ m <> [] then
      (add_bindings_from_ids defs
       (add_bindings_from_ids binds
-       (compile h (spec c a m) T)))) /\
+       (compile h (spec c a m) T)))
+    else ARB) /\
   (make_complete h m (defs,(c,_,a,binds)::cons) =
+    if inv_mat m /\ (msize m) > 0 /\ m <> [] then
     If c (add_bindings_from_ids defs
           (add_bindings_from_ids binds
            (compile h (spec c a m) T)))
-         (make_complete h m (defs, cons))) /\
+         (make_complete h m (defs, cons))
+    else ARB) /\
   (make_partial h m (defs,[]) =
+    if inv_mat m /\ (msize m) > 0 /\ m <> [] then
     add_bindings_from_ids defs
-      (compile h (default m) T)) /\
+      (compile h (default m) T)
+    else ARB) /\
   (make_partial h m (defs,(c,_,a,binds)::cons) =
+    if inv_mat m /\ (msize m) > 0 /\ m <> [] then
     If c (add_bindings_from_ids defs
           (add_bindings_from_ids binds
            (compile h (spec c a m) T)))
-         (make_partial h m (defs, cons)))
+         (make_partial h m (defs, cons))
+    else ARB)
 `
 
 Defn.tgoal compile_def;
@@ -2205,46 +2464,15 @@ rw[]
 >- (DISJ2_TAC \\
     fs[max_a_swap, swap_columns_msize] \\
     fs[swap_pmsize_n_times])
-
-(* >- (Cases_on `col_infos (Branch (v12::v13) e::bs)` \\ *)
-(*     Cases_on `col_infos (swap_columns (h (Branch (v12::v13) e::bs)) (Branch (v12::v13) e::bs))` \\ *)
-(*     Cases_on `r'` \\ *)
-(*     Cases_on `r` \\ *)
-(*     fs[] *)
-(*     >- (DISJ2_TAC \\ *)
-(*         imp_res_tac swap_pmsize *)
-(*     >- (Cases_on `h'` \\ *)
-(*         Cases_on `r` \\ *)
-(*         Cases_on `r'` \\ *)
-(*         fs[] \\ *)
-(*         Cases_on `q''''` *)
-(*         >- (DISJ2_TAC \\ *)
-(*             cheat) *)
-(*         >- (DISJ1_TAC \\ *)
-(*             cheat) *)
-(*     >- (Cases_on `h'` \\ *)
-(*         Cases_on `r` \\ *)
-(*         Cases_on `r'` \\ *)
-(*         fs[] \\ *)
-(*         DISJ2_TAC *)
-
->-
-
-
-
->- cheat
->- cheat
->- cheat
->- cheat
->- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- cheat
+>- (`max_a (default m) <= max_a m` by fs[max_a_default] \\
+    Cases_on `default m`
+    >- (fs[pm_size_def] \\
+        fs[pm_size_gt_zero, n_times_length])
+    >- (`msize (default m) = msize m -1` by fs[msize_default] \\
+        rfs[pm_size_default, n_times_length] \\
+        `pm_size (n_times (max_a (h::t)) (msize m - 1)) (default m) <
+         pm_size (n_times (max_a m) (msize m)) m` suffices_by fs[] \\
+        fs[pm_size_default]))
 
 
 
