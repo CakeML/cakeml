@@ -518,13 +518,13 @@ val cake_orac_config_tuple_eq_step = ISPEC cake_orac_config_inv_f cake_configs_e
 val orac_eq_prop = let
     val m = match_term ``A /\ B /\ C ==> P``
         (concl cake_orac_config_tuple_eq_step)
-  in subst (fst m) ``A ==> P`` end
+  in subst (fst m) ``A ==> P`` end;
 
 Theorem cake_orac_config_eqs:
   ^orac_eq_prop
 Proof
   disch_tac
-  \\ drule cake_orac_config_tuple_eq_step
+  \\ old_drule cake_orac_config_tuple_eq_step
   \\ reverse impl_tac >- fs []
   \\ conj_tac
   \\ TRY (gen_tac \\ pop_assum kall_tac)
@@ -1280,7 +1280,7 @@ Theorem cake_orac_stack_ALL_DISTINCT:
     (λps. (ps.stack_prog,ps.cur_bm)) n))))
 Proof
   rw []
-  \\ drule cake_orac_bvl_ALL_DISTINCT
+  \\ old_drule cake_orac_bvl_ALL_DISTINCT
   \\ simp [cake_orac_def, compile_inc_progs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rveq \\ rw []
@@ -1376,7 +1376,7 @@ Proof
   \\ rw [] \\ rveq \\ fs []
   \\ simp[compile_no_stubs_def, good_code_def]
   \\ irule prog_to_section_labels_ok
-  \\ drule (Q.SPEC `i` (Q.GEN `n` cake_orac_stack_ALL_DISTINCT))
+  \\ old_drule (Q.SPEC `i` (Q.GEN `n` cake_orac_stack_ALL_DISTINCT))
   \\ simp[MAP_MAP_o, o_DEF]
   \\ simp [cake_orac_def, compile_inc_progs_def, Q.ISPEC `FST` ETA_THM]
   \\ rw []
@@ -1472,7 +1472,7 @@ Proof
   \\ simp []
   \\ drule_then (fn t => fs [t]) cake_orac_config_eqs
   \\ fs[lab_to_targetTheory.compile_def]
-  \\ drule (Q.GENL [`cfg`, `code`] lab_labels_ok_oracle)
+  \\ old_drule (Q.GENL [`cfg`, `code`] lab_labels_ok_oracle)
   \\ simp [PAIR_FST_SND_EQ]
   \\ disch_tac
   \\ drule_then assume_tac compile_lab_domain_labels
@@ -1770,7 +1770,7 @@ Theorem monotonic_DISJOINT_labels_lab:
       (SND ∘ SND ∘ SND ∘ SND ∘ config_tuple2) (λps. ps.lab_prog) i))))
 Proof
   rw []
-  \\ drule accum_lab_conf_labels
+  \\ old_drule accum_lab_conf_labels
   \\ disch_tac
   \\ REWRITE_TAC [Once DISJOINT_SYM]
   \\ drule_then irule (REWRITE_RULE [Once CONJ_COMM] DISJOINT_SUBSET)
@@ -1932,7 +1932,7 @@ Proof
       \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
       \\ simp [EVAL ``(bvl_num_stubs + 2) MOD bvl_to_bvi_namespaces``]
       \\ disch_tac
-      \\ drule bvl_to_bviProofTheory.compile_prog_code_labels_domain
+      \\ old_drule bvl_to_bviProofTheory.compile_prog_code_labels_domain
       \\ imp_res_tac bvl_inlineProofTheory.compile_prog_names
       \\ disch_tac \\ fs []
       \\ qpat_x_assum `_ MOD _ = 0` mp_tac
@@ -1992,7 +1992,7 @@ Proof
     \\ drule_then drule tailrec_compile_prog_MEM_not_nss_2
     \\ simp [EVAL ``(bvl_num_stubs + 2) MOD bvl_to_bvi_namespaces``]
     \\ rw []
-    \\ drule bvl_to_bviProofTheory.compile_prog_code_labels_domain
+    \\ old_drule bvl_to_bviProofTheory.compile_prog_code_labels_domain
     \\ disch_tac \\ fs []
     \\ fs [EVAL ``0 < bvl_to_bvi_namespaces``, EVAL ``bvl_num_stubs MOD bvl_to_bvi_namespaces``]
     \\ TRY (qpat_x_assum `MEM _ (MAP FST (stubs _ _))` mp_tac)
@@ -2124,7 +2124,7 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`MAP prog_to_section ppg`
   \\ `stack_to_labProof$labels_ok (MAP prog_to_section ppg)`
   by (
-    drule_then match_mp_tac (Q.GEN `cfg` lab_labels_ok_oracle)
+    old_drule_then match_mp_tac (Q.GEN `cfg` lab_labels_ok_oracle)
     \\ simp [cake_orac_def, compile_inc_progs_def, compile_no_stubs_def]
   )
   \\ drule labels_ok_imp
@@ -2199,7 +2199,7 @@ Proof
     \\ simp[]
   )
   \\ conj_tac >- (
-    drule monotonic_DISJOINT_labels_lab
+    old_drule monotonic_DISJOINT_labels_lab
     \\ impl_tac >- (
       drule_then irule monotonic_labels_stack_to_lab
       \\ simp []
@@ -2244,7 +2244,7 @@ Theorem oracle_stack_good_code:
     (FST (SND (cake_orac c' syntax f (\ps. (ps.stack_prog, ps.cur_bm)) n)))
 Proof
   strip_tac
-  \\ drule cake_orac_stack_ALL_DISTINCT
+  \\ old_drule cake_orac_stack_ALL_DISTINCT
   \\ fs [cake_orac_def, compile_inc_progs_def]
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw [] \\ rveq \\ fs []
@@ -2256,7 +2256,7 @@ Proof
   \\ simp [MAP_MAP_o, o_DEF, word_to_wordTheory.full_compile_single_def, UNCURRY]
   \\ simp [ETA_THM]
   \\ conj_tac >- (
-    drule bvl_num_stubs_LE_bvi_prog
+    old_drule bvl_num_stubs_LE_bvi_prog
     \\ simp [cake_orac_def, compile_inc_progs_def]
     \\ match_mp_tac listTheory.EVERY_MONOTONIC
     \\ EVAL_TAC
@@ -2513,7 +2513,8 @@ Proof
    |> Q.GEN`k0`
    |> Q.GEN`c`
    |> old_drule)
-  \\ disch_then(qspecl_then[`TODO_clock`,
+
+  \\ disch_then(qspecl_then[`c`, `TODO_clock`,
         `cake_orac c' TODO_syntax (SND o config_tuple1) (\ps. ps.flat_prog)`]
     (strip_assume_tac o SYM)) >>
 
