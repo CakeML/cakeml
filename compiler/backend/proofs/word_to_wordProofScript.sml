@@ -19,6 +19,7 @@ val is_phy_var_tac =
     metis_tac[arithmeticTheory.MOD_EQ_0];
 
 val rmd_thms = (remove_dead_conventions |>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS
+val drule = old_drule
 
 Theorem FST_compile_single[simp]:
    FST (compile_single a b c d e) = FST (FST e)

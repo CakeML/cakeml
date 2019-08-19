@@ -402,7 +402,7 @@ Proof
     \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ fs [Once case_eq_thms] \\ rveq \\ fs[]
     THEN1 (fs [code_rel_def])
-    \\ drule (Q.SPEC `vs` lookup_vars_lemma)
+    \\ drule_then (qspec_then ‘vs’ mp_tac) lookup_vars_lemma
     \\ CASE_TAC \\ strip_tac
     \\ fs [] \\ rveq \\ fs [code_rel_def]
     \\ imp_res_tac lookup_vars_SOME \\ fs[])

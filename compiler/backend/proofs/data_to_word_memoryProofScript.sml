@@ -13,6 +13,8 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "data_to_word_memoryProof";
 
+val drule = old_drule
+
 (* TODO: move? *)
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])

@@ -24,6 +24,7 @@ val index_list_def = Define `
   (index_list [] n = []) /\
   (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)`
 
+val drule = old_drule
 Theorem LENGTH_index_list:
    !l n. LENGTH (index_list l n) = LENGTH l
 Proof

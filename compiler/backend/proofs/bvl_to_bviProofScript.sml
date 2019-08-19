@@ -21,6 +21,7 @@ val _ = set_grammar_ancestry
 val _ = Parse.hide"str";
 
 val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
+val drule = old_drule
 
 (* value relation *)
 val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)

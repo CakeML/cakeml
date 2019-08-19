@@ -10,6 +10,7 @@ open preamble ffiTheory BasicProvers
 local open stack_removeProofTheory in end
 
 val _ = new_theory "lab_to_targetProof";
+val drule = old_drule
 
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 

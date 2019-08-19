@@ -22,7 +22,7 @@ val _ = set_grammar_ancestry
 val _ = hide "next";
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
-fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
+fun rpt_drule th = old_drule (th |> GEN_ALL) \\ rpt (disch_then old_drule \\ fs [])
 
 val state_rel_def = data_to_word_gcProofTheory.state_rel_def
 val code_rel_def = data_to_word_gcProofTheory.code_rel_def
@@ -92,8 +92,8 @@ Proof
            asm_exists_tac >> fs[] >> rpt strip_tac >> fs[] >>
            imp_res_tac cut_state_opt_const \\ fs[state_rel_def])
     \\ Cases_on `a`
-    \\ drule (GEN_ALL assign_thm) \\ full_simp_tac(srw_ss())[]
-    \\ rpt (disch_then drule)
+    \\ drule assign_thm \\ full_simp_tac(srw_ss())[]
+    \\ rpt (disch_then old_drule)
     \\ disch_then (qspecl_then [`n`,`l`,`dest`] strip_assume_tac)
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac do_app_io_events_mono \\ rev_full_simp_tac(srw_ss())[]
@@ -138,7 +138,7 @@ Proof
            (t with locals := insert 1 (Word (alloc_size k)) t.locals))
                :('a result option)#( ('a,'c,'ffi) wordSem$state)`
       \\ full_simp_tac(srw_ss())[]
-      \\ drule (GEN_ALL alloc_lemma)
+      \\ drule alloc_lemma
       \\ rpt (disch_then drule)
       \\ rw [] \\ fs [])
     \\ fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def,eq_eval]
@@ -147,14 +147,14 @@ Proof
            ffiTheory.call_FFI_def,EVAL ``write_bytearray a [] m dm b``,
            wordSemTheory.get_var_def,lookup_insert]
     \\ fs [cut_env_adjust_set_insert_1,cut_env_adjust_set_insert_3]
-    \\ drule (GEN_ALL cut_env_IMP_cut_env)
+    \\ drule cut_env_IMP_cut_env
     \\ Cases_on `dataSem$cut_env names s.locals` \\ fs []
     \\ disch_then drule \\ strip_tac \\ fs []
     \\ pairarg_tac \\ fs []
-    \\ drule (GEN_ALL state_rel_cut_env_cut_env)
+    \\ drule state_rel_cut_env_cut_env
     \\ rpt (disch_then drule)
     \\ strip_tac
-    \\ drule (GEN_ALL alloc_lemma) \\ fs [] \\ rveq
+    \\ drule alloc_lemma \\ fs [] \\ rveq
     \\ `dataSem$cut_env names x = SOME x` by
       (fs [dataSemTheory.cut_env_def] \\ rveq \\ fs [lookup_inter_alt,domain_inter])
     \\ rpt (disch_then drule)
@@ -255,7 +255,7 @@ Proof
       \\ rename1 `_ = SOME x9` \\ Cases_on `x9` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
       \\ `t.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def]
-      \\ drule (GEN_ALL find_code_thm) \\ rpt (disch_then drule)
+      \\ drule find_code_thm \\ rpt (disch_then drule)
       \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `s.clock = 0` \\ fs[] \\ srw_tac[][] \\ fs[]
       THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
@@ -421,7 +421,7 @@ Theorem compile_correct_lemma:
         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)
 Proof
   rpt strip_tac
-  \\ drule data_compile_correct \\ full_simp_tac(srw_ss())[]
+  \\ old_drule data_compile_correct \\ full_simp_tac(srw_ss())[]
   \\ ntac 2 (disch_then drule) \\ full_simp_tac(srw_ss())[comp_def]
   \\ strip_tac
   \\ qexists_tac `t1`
@@ -515,7 +515,7 @@ Proof
   \\ `state_rel x0 l1 l2 s (t2 with permute := perm') [] []` by
    (full_simp_tac(srw_ss())[state_rel_def] \\ rev_full_simp_tac(srw_ss())[]
     \\ Cases_on `s.stack` \\ full_simp_tac(srw_ss())[] \\ metis_tac [])
-  \\ drule compile_correct_lemma \\ fs []
+  \\ old_drule compile_correct_lemma \\ fs []
   \\ disch_then (drule o ONCE_REWRITE_RULE [CONJ_COMM])
   \\ fs [] \\ strip_tac \\ fs []
   THEN1 (rveq \\ fs [] \\ every_case_tac \\ fs[])
@@ -534,7 +534,7 @@ val state_rel_ext_with_clock = Q.prove(
   `state_rel_ext a b c s1 s2 ==>
     state_rel_ext a b c (s1 with clock := k) (s2 with clock := k)`,
   full_simp_tac(srw_ss())[state_rel_ext_def] \\ srw_tac[][]
-  \\ drule state_rel_with_clock
+  \\ old_drule state_rel_with_clock
   \\ strip_tac \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ qexists_tac `l` \\ full_simp_tac(srw_ss())[]
   \\ fs [wordSemTheory.state_component_equality]
@@ -563,17 +563,17 @@ Proof
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       strip_tac >>
-      drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
+      old_drule compile_correct >> simp[] >> full_simp_tac(srw_ss())[] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       impl_tac >- (
         strip_tac >> full_simp_tac(srw_ss())[] ) >>
-      drule(GEN_ALL state_rel_ext_with_clock) >>
+      drule state_rel_ext_with_clock >>
       disch_then(qspec_then`k'`strip_assume_tac) >> full_simp_tac(srw_ss())[] >>
       disch_then drule >>
       simp[comp_def] >> strip_tac >>
       qmatch_assum_abbrev_tac`option_CASE (FST p) _ _` >>
       Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-      drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+      drule wordPropsTheory.evaluate_add_clock >>
       simp[RIGHT_FORALL_IMP_THM] >>
       impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
       disch_then(qspec_then`ck`mp_tac) >>
@@ -584,25 +584,25 @@ Proof
       srw_tac[][extend_with_resource_limit_def] >> full_simp_tac(srw_ss())[] >>
       `r' <> Rerr(Rabort Rtype_error)` by(CCONTR_TAC >> fs[]) >>
       `r' <> Rerr(Rabort Rtimeout_error)` by(CCONTR_TAC >> fs[]) >>
-      drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
+      old_drule(dataPropsTheory.evaluate_add_clock)>>simp[]>>
       disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
-      drule(compile_correct)>>simp[]>>
-      drule(GEN_ALL state_rel_ext_with_clock)>>simp[]>>
+      old_drule(compile_correct)>>simp[]>>
+      drule state_rel_ext_with_clock >>simp[]>>
       disch_then(qspec_then `k+k'` assume_tac)>>disch_then drule>>
       simp[inc_clock_def]>>strip_tac>>
       qpat_x_assum `evaluate _ = (r,_)` assume_tac>>
-      dxrule(GEN_ALL wordPropsTheory.evaluate_add_clock)>>
+      dxrule wordPropsTheory.evaluate_add_clock >>
       disch_then(qspec_then `ck+k` mp_tac)>>
       impl_tac>-(CCONTR_TAC>>fs[])>>
       simp[inc_clock_def]>>strip_tac>>
       rpt(PURE_FULL_CASE_TAC>>fs[]>>rveq>>fs[])) >>
     srw_tac[][] >> full_simp_tac(srw_ss())[] >>
-    drule compile_correct >> simp[] >>
+    old_drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
       srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    drule(state_rel_ext_with_clock) >> simp[] >> strip_tac >>
+    old_drule(state_rel_ext_with_clock) >> simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
     first_x_assum(qspec_then`k+ck`mp_tac) >>
@@ -617,16 +617,16 @@ Proof
     last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
     (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
     strip_tac >>
-    drule compile_correct >> simp[] >>
+    old_drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    drule(state_rel_ext_with_clock) >>
+    old_drule(state_rel_ext_with_clock) >>
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
     qmatch_assum_abbrev_tac`option_CASE (FST p) _ _` >>
     Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    drule wordPropsTheory.evaluate_add_clock >>
     simp[RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
     disch_then(qspec_then`ck`mp_tac) >>
@@ -638,13 +638,13 @@ Proof
     qpat_x_assum`∀x y. _`(qspec_then`k`mp_tac)>>
     (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
     strip_tac >>
-    drule(compile_correct)>>
+    old_drule(compile_correct)>>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     impl_tac >- (
       strip_tac >> full_simp_tac(srw_ss())[] >>
       last_x_assum(qspec_then`k`mp_tac) >>
       simp[] ) >>
-    drule(state_rel_ext_with_clock) >>
+    old_drule(state_rel_ext_with_clock) >>
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
@@ -658,7 +658,7 @@ Proof
     first_x_assum(qspec_then`k+ck`mp_tac) >>
     fsrw_tac[ARITH_ss][inc_clock_def] >>
     qhdtm_x_assum`wordSem$evaluate`mp_tac >>
-    drule(GEN_ALL wordPropsTheory.evaluate_add_clock)>>
+    drule wordPropsTheory.evaluate_add_clock >>
     simp[]>>
     disch_then(qspec_then`ck`mp_tac)>>
     last_x_assum(qspec_then`k`mp_tac) >>
@@ -677,7 +677,7 @@ Proof
         dataPropsTheory.evaluate_add_clock_io_events_mono,
         dataPropsTheory.initial_state_with_simp,
         dataPropsTheory.initial_state_simp]) >>
-    drule build_lprefix_lub_thm >>
+    old_drule build_lprefix_lub_thm >>
     simp[lprefix_lub_def] >> strip_tac >>
     match_mp_tac (GEN_ALL LPREFIX_TRANS) >>
     simp[LPREFIX_fromList] >>
@@ -717,14 +717,14 @@ Proof
   reverse conj_tac >> strip_tac >- (
     qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
     Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
-    drule compile_correct >>
+    old_drule compile_correct >>
     simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
     impl_tac >- (
       last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
       strip_tac >> full_simp_tac(srw_ss())[] ) >>
-    drule(state_rel_ext_with_clock) >>
+    old_drule(state_rel_ext_with_clock) >>
     simp[] >> strip_tac >>
-    disch_then drule >>
+    disch_then old_drule >>
     simp[comp_def] >> strip_tac >>
     qexists_tac`k+ck`>>full_simp_tac(srw_ss())[inc_clock_def]>>
     Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
@@ -739,14 +739,14 @@ Proof
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) >>
     every_case_tac >> fs[]) >>
   (fn g => subterm (fn tm => Cases_on`^(Term.subst [{redex = #1(dest_exists(#2 g)), residue = ``k:num``}] (assert(has_pair_type)tm))`) (#2 g) g) >>
-  drule compile_correct >>
+  old_drule compile_correct >>
   simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
   impl_tac >- (
     last_x_assum(qspec_then`k`mp_tac)>>srw_tac[][]>>
     strip_tac >> full_simp_tac(srw_ss())[] ) >>
-  drule(state_rel_ext_with_clock) >>
+  old_drule(state_rel_ext_with_clock) >>
   simp[] >> strip_tac >>
-  disch_then drule >>
+  disch_then old_drule >>
   simp[comp_def] >> strip_tac >>
   full_simp_tac(srw_ss())[inc_clock_def] >>
   Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
@@ -896,11 +896,11 @@ Proof
     Cases_on `opname`>>
     TRY(
       rename1`WordOp _ _`>>
-      pairarg_tac>>drule extract_labels_assignWordOp>>
+      pairarg_tac>>old_drule extract_labels_assignWordOp>>
       simp[])>>
     TRY(
       rename1`WordShift _ _ _`>>
-      pairarg_tac>>drule extract_labels_assignWordShift>>
+      pairarg_tac>>old_drule extract_labels_assignWordShift>>
       simp[])>>
     fs[extract_labels_def,GiveUp_def,assign_def,assign_def_extras]>>
     BasicProvers.EVERY_CASE_TAC>>
@@ -1293,7 +1293,7 @@ Proof
   Induct \\ rw[fake_moves_def] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum old_drule \\ rw[]
   \\ rw[fake_move_def]
 QED
 
@@ -1355,7 +1355,7 @@ val word_get_code_labels_full_ssa_cc_trans = Q.prove(`
   \\ fs[setup_ssa_def]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ drule word_get_code_labels_ssa_cc_trans
+  \\ old_drule word_get_code_labels_ssa_cc_trans
   \\ rw[]);
 
 Theorem word_good_handlers_fake_moves:
@@ -1367,7 +1367,7 @@ Proof
   Induct \\ rw[fake_moves_def] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ fs[CaseEq"option"] \\ rw[]
-  \\ first_x_assum drule \\ rw[]
+  \\ first_x_assum old_drule \\ rw[]
   \\ rw[fake_move_def]
 QED
 
@@ -1429,7 +1429,7 @@ val word_good_handlers_full_ssa_cc_trans = Q.prove(`
   \\ fs[setup_ssa_def]
   \\ pairarg_tac \\ fs[]
   \\ rveq \\ fs[]
-  \\ drule word_good_handlers_ssa_cc_trans
+  \\ old_drule word_good_handlers_ssa_cc_trans
   \\ rw[]);
 
 (* inst *)
@@ -1507,7 +1507,7 @@ Proof
   recInduct simp_if_ind
   \\ rw[simp_if_def]
   \\ CASE_TAC \\ simp[]
-  >- ( drule word_get_code_labels_apply_if_opt \\ rw[] )
+  >- ( old_drule word_get_code_labels_apply_if_opt \\ rw[] )
   \\ every_case_tac \\ fs[]
 QED
 
@@ -1539,7 +1539,7 @@ val word_good_handlers_simp_if = Q.prove(`
   recInduct simp_if_ind
   \\ rw[simp_if_def]
   \\ CASE_TAC \\ simp[]
-  >- ( drule word_good_handlers_apply_if_opt \\ rw[] )
+  >- ( old_drule word_good_handlers_apply_if_opt \\ rw[] )
   \\ every_case_tac \\ fs[]);
 
 val word_get_code_labels_Seq_assoc = Q.prove(`
@@ -1629,12 +1629,12 @@ Proof
     fs[word_get_code_labels_remove_must_terminate,word_get_code_labels_word_alloc]>>
     fs[COND_RAND]>>
     fs[word_get_code_labels_three_to_two_reg]>>
-    drule (word_get_code_labels_remove_dead|>SIMP_RULE std_ss [SUBSET_DEF])>>
+    old_drule (word_get_code_labels_remove_dead|>SIMP_RULE std_ss [SUBSET_DEF])>>
     simp[word_get_code_labels_full_ssa_cc_trans,word_get_code_labels_inst_select]>>
     strip_tac>>
-    drule (word_get_code_labels_word_simp|>SIMP_RULE std_ss [SUBSET_DEF])>>
+    old_drule (word_get_code_labels_word_simp|>SIMP_RULE std_ss [SUBSET_DEF])>>
     rw[]>>fs[FORALL_PROD,EXISTS_PROD,PULL_EXISTS,EVERY_MEM]>>
-    first_x_assum drule>>
+    first_x_assum old_drule>>
     disch_then(qspecl_then [`q`,`q'`] mp_tac)>>
     impl_tac >-
         metis_tac[EL_MEM]>>
@@ -1806,11 +1806,11 @@ Proof
     fs[MAP_MAP_o,o_DEF,LAMBDA_PROD,compile_part_def]>>
     fs[SUBSET_DEF,PULL_EXISTS,Once MEM_MAP,FORALL_PROD]>>
     rw[]>>
-    drule (data_to_word_comp_code_labels |> SIMP_RULE std_ss [SUBSET_DEF])>>
+    old_drule (data_to_word_comp_code_labels |> SIMP_RULE std_ss [SUBSET_DEF])>>
     rw[]
     >-
-      (first_x_assum drule>>
-      disch_then drule>>fs[MEM_MAP,EXISTS_PROD]>>
+      (first_x_assum old_drule>>
+      disch_then old_drule>>fs[MEM_MAP,EXISTS_PROD]>>
       metis_tac[])
     >>
       fs[MEM_MAP]>>metis_tac[]
