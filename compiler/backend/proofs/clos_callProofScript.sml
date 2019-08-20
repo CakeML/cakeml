@@ -2239,6 +2239,9 @@ max_print_depth := 800
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 val say = say0 "calls_correct";
 
+
+val drule = old_drule
+
 Theorem calls_correct:
   (∀tmp xs env1 s0 g0 g env2 ^t0 ys res s l l1 g1.
     tmp = (xs,env1,s0) ∧

@@ -15,6 +15,7 @@ val _ = new_theory"stack_removeProof";
 
 val word_shift_def = backend_commonTheory.word_shift_def
 val _ = temp_overload_on ("num_stubs", ``stack_num_stubs``)
+val drule = old_drule
 
 (* TODO: move *)
 

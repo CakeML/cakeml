@@ -638,7 +638,7 @@ Proof
     \\ imp_res_tac state_rel_IMP_max_app_EQ \\ fs []
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs []
     \\ Cases_on `vsopt` \\ fs [] \\ rveq \\ fs []
-    \\ drule (Q.SPEC `x` lookup_vars_lemma) \\ strip_tac
+    \\ drule_then (qspec_then ‘x’ mp_tac) lookup_vars_lemma \\ strip_tac
     \\ Cases_on `lookup_vars x env2` \\ fs [] \\ rveq \\ fs []
     \\ fs [code_rel_def])
   THEN1 (* Letrec *)
@@ -668,7 +668,7 @@ Proof
     \\ strip_tac \\ fs []
     \\ `!l1 l2. LIST_REL v_rel l1 l2 ==> LIST_REL v_rel
           (GENLIST (Recclosure loc [] l1 fns') (LENGTH fns') ++ env1)
-          (GENLIST (Recclosure loc [] l2 (MAP (\(num_args, x).
+          (GENLIST (Recclosure loc [] l2 (MAP (λ(num_args, x).
                                                 (num_args, HD (remove_ticks [x]))) fns'))
                    (LENGTH fns') ++ env2)` by
      (qpat_x_assum `LIST_REL _ _ _` mp_tac

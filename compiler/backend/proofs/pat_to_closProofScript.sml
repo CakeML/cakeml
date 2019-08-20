@@ -19,6 +19,7 @@ val _ = new_theory"pat_to_closProof"
 val _ = set_grammar_ancestry
   ["patLang", "patSem", "patProps", "pat_to_clos",
    "closLang", "closSem", "closProps"];
+val drule = old_drule
 
 (* value translation *)
 

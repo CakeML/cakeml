@@ -11,6 +11,8 @@ val _ = new_theory"bvl_inlineProof";
 
 val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];
 
+val drule = old_drule
+
 (* removal of ticks *)
 
 val state_rel_def = Define `

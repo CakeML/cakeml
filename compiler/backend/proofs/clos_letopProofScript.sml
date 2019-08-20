@@ -509,7 +509,7 @@ Proof
     \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ fs [Once case_eq_thms] \\ rveq
     THEN1 (fs [code_rel_def])
-    \\ drule (Q.SPEC `vs` lookup_vars_lemma)
+    \\ drule_then (qspec_then ‘vs’ mp_tac) lookup_vars_lemma
     \\ CASE_TAC \\ strip_tac
     \\ fs [] \\ rveq \\ fs [code_rel_def])
   THEN1 (* Letrec *)
@@ -533,7 +533,7 @@ Proof
            \\ fs [EL_MAP]
            \\ pairarg_tac
            \\ fs [f_rel_def, code_rel_def])
-    \\ drule (Q.SPEC `x` lookup_vars_lemma)
+    \\ drule_then (qspec_then ‘x’ mp_tac) lookup_vars_lemma
     \\ CASE_TAC \\ fs [] \\ rveq \\ fs []
     \\ strip_tac \\ fs []
     \\ first_x_assum irule \\ fs []
