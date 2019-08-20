@@ -1693,19 +1693,32 @@ Proof
         \\ last_x_assum(qspec_then`k'`mp_tac)>>simp[]
         \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g)
         \\ spose_not_then strip_assume_tac
-        \\ drule (Q.SPECL[`q`,`prog`,`k'`,`ffi0`,`co`,`cc`] (
-             Q.ISPEC `r':(('a,'ffi) bviSem$state)` (Q.SPEC `start` (GEN_ALL compile_prog_evaluate))))
-        \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (q,r'))`
-        \\ Q.PAT_ABBREV_TAC `Y = ~(q = Rerr (Rabort (Rtype_error)))`
-        \\ Q.PAT_ABBREV_TAC `Z = !x. ~(q = Rerr (Rraise x))`
-        \\ strip_tac
-        \\ PURE_ASM_REWRITE_TAC[] \\ simp[]
-        \\ pop_assum (drule)
+        \\ assume_tac
+        (Q.SPECL[`start`,`r'`,`q`,`prog`,`k'`,`ffi0`,`co`,`cc`,`arch_size`]
+          (INST_TYPE[beta|->``:'ffi``] (GEN_ALL
+        compile_prog_evaluate)))
+        \\ fs[]
+        \\ pop_assum mp_tac
+        \\ impl_tac
+        >- (fs[] \\ conj_tac
+            >- (pop_assum (assume_tac o Q.SPEC `Rabort Rtype_error`)
+                \\ fs[])
+            \\ rw[]
+            \\ pop_assum (assume_tac o Q.SPEC `Rraise x`)
+            \\ fs[])
+        \\ Q.PAT_ABBREV_TAC `X = evaluate _ arch_size`
+        \\ Cases_on `X` \\ fs[]
         \\ UNABBREV_ALL_TAC
-        \\ impl_tac >- (srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[])
-        \\ strip_tac >> full_simp_tac(srw_ss())[] >> rveq
-        \\ every_case_tac >> full_simp_tac(srw_ss())[]
-        \\ Cases_on `e` >> fs [data_to_bvi_result_def])
+        \\ rename1 `xx = SOME _`
+        \\ Cases_on `xx` \\ fs[]
+        \\ Cases_on `x` \\ fs[]
+        \\ Cases_on `q` \\ fs[]
+        >- (Cases_on `e` \\ simp[data_to_bvi_result_def])
+        \\ Cases_on `e` \\ simp[data_to_bvi_result_def]
+        >- (Cases_on `e'` \\ fs[])
+        \\ Cases_on `e'` \\ fs[]
+        \\ Cases_on `a'` \\ fs[]
+      )
      \\ DEEP_INTRO_TAC some_intro >> simp[]
      \\ conj_tac
      >- (gen_tac >> strip_tac >> rveq >> simp[]
@@ -1727,16 +1740,17 @@ Proof
         \\ impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[])
         \\ simp[inc_clock_def]
         \\ ntac 2 strip_tac >> unabbrev_all_tac
-        \\ drule (Q.SPECL[`(s with clock := k' + s.clock)`,`r`,`prog`,`k+k'`,`ffi0`,`co`,`cc`]
+        \\ assume_tac (Q.SPECL[`(s with clock := k' + s.clock)`,`r`,`prog`,`k+k'`,`ffi0`,`co`,`cc`]
            ((Q.SPEC `start` (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))))
-        \\ Q.PAT_ABBREV_TAC `X = (_ = (r,s_))`
+        \\ pop_assum (mp_tac o SPEC_ALL)
         \\ impl_tac >- (every_case_tac >> full_simp_tac(srw_ss())[])
         \\ UNABBREV_ALL_TAC
         \\ strip_tac >> rveq >> fs[state_rel_def]
         \\ rpt(PURE_FULL_CASE_TAC >> fs[data_to_bvi_result_def])
      )
-     \\ drule (Q.SPECL[`start`,`s`,`r`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))
-     \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (r,s))`
+     \\ assume_tac (Q.SPECL[`start`,`s`,`r`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))
+     \\ pop_assum (mp_tac o SPEC_ALL)
+     \\ Q.PAT_ABBREV_TAC `X = (_ = (r,s))`
      \\ PURE_ASM_REWRITE_TAC[] \\ simp[]
      \\ UNABBREV_ALL_TAC
      \\ impl_tac
@@ -1754,7 +1768,8 @@ Proof
  >- (last_x_assum(qspec_then`k`mp_tac)
      \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
      \\ strip_tac
-     \\ drule (Q.SPECL[`start`,`r`,`q`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))
+     \\ assume_tac (Q.SPECL[`start`,`r`,`q`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))
+     \\ pop_assum (mp_tac o SPEC_ALL)
      \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (q,r))`
      \\ PURE_ASM_REWRITE_TAC[]
      \\ impl_tac
@@ -1771,6 +1786,7 @@ Proof
     \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
     \\ strip_tac
     \\ drule (Q.SPECL[`start`,`r'`,`q`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->``:'ffi``](GEN_ALL compile_prog_evaluate)))
+    \\ strip_tac \\ pop_assum (mp_tac o SPEC_ALL)
     \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (q,r'))`
     \\ PURE_ASM_REWRITE_TAC[]
     \\ impl_tac
@@ -1789,6 +1805,7 @@ Proof
  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
  \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (rhs(#2 g)))
  \\ drule (Q.SPECL [`start`,`r`,`q`,`prog`,`k`,`ffi0`,`co`,`cc`] (INST_TYPE[beta|->Type`:'ffi`] (GEN_ALL compile_prog_evaluate)))
+ \\ strip_tac \\ pop_assum (mp_tac o SPEC_ALL)
  \\ Q.PAT_ABBREV_TAC `X = (evaluate _ = (q,r))`
  \\ PURE_ASM_REWRITE_TAC[]
  \\ impl_tac
