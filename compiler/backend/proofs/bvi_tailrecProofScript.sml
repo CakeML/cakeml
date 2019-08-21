@@ -964,19 +964,6 @@ val namespace_rel_def = Define`
     (∀n. n ∈ domain c1 ∧ bvl_num_stubs ≤ n ⇒ ¬(in_ns_2 n)) ∧
     (∀n. n ∈ domain c2 ∧ n < bvl_num_stubs ⇒ n ∈ domain c1)`;
 
-val mk_co_def = Define`
-  mk_co co = λn.
-   let
-     ((next,cfg),prog) = co n;
-     (next,prog) = compile_prog next prog
-   in
-     (cfg,prog)`;
-
-val mk_cc_def = Define`
-  mk_cc cc = λ(next,cfg) prog.
-    let (next,prog) = compile_prog next prog in
-      OPTION_MAP (λ(code,data,cfg). (code,data,(next,cfg))) (cc cfg prog)`;
-
 val input_condition_def = Define`
   input_condition next prog ⇔
     EVERY (free_names next o FST) prog ∧
@@ -990,8 +977,8 @@ val state_rel_def = Define`
     t.clock = s.clock ∧
     t.global = s.global ∧
     t.ffi = s.ffi ∧
-    t.compile_oracle = mk_co s.compile_oracle ∧
-    s.compile = mk_cc t.compile ∧
+    t.compile_oracle = state_co compile_prog s.compile_oracle ∧
+    s.compile = state_cc compile_prog t.compile ∧
     code_rel s.code t.code ∧
     namespace_rel s.code t.code ∧
     (∀n. let ((next,cfg),prog) = s.compile_oracle n in
@@ -1616,7 +1603,7 @@ Proof
         \\ fs[do_install_def,bvlPropsTheory.case_eq_thms] \\ rveq \\ fs[]
         \\ rpt(pairarg_tac \\ fs[]) \\ rveq \\ fs[]
         \\ qhdtm_x_assum`state_rel`mp_tac
-        \\ simp[state_rel_def,mk_cc_def,mk_co_def]
+        \\ simp[state_rel_def, backendPropsTheory.state_co_def, backendPropsTheory.state_cc_def]
         \\ strip_tac \\ fs[]
         \\ rpt(pairarg_tac \\ fs[]) \\ rveq
         \\ rename1`compile_prog next1 prog1 = (next2, prog2)`
@@ -1624,7 +1611,6 @@ Proof
         \\ `prog1 ≠ []` by (strip_tac \\ fs[])
         \\ `prog2 ≠ []` by (strip_tac \\ fs[])
         \\ fs[bvlPropsTheory.case_eq_thms,pair_case_eq,PULL_EXISTS]
-        \\ pairarg_tac \\ fs[] \\ rveq
         \\ fs[shift_seq_def]
         \\ qpat_x_assum`_ = FST _`(assume_tac o SYM) \\ fs[]
         \\ pairarg_tac \\ fs[]
@@ -2143,12 +2129,14 @@ Theorem evaluate_compile_prog:
    (∀n next cfg prog. co n = ((next,cfg),prog) ⇒ input_condition next prog) ∧
    (∀n. MEM n (MAP FST (SND (compile_prog next prog))) ∧ in_ns_2 n ⇒ n < FST (FST (co 0))) ∧
    evaluate ([Call 0 (SOME start) [] NONE], [],
-             initial_state ffi0 (fromAList prog) co (mk_cc cc) k) = (r, s) ∧
+             initial_state ffi0 (fromAList prog) co
+                 (state_cc compile_prog cc) k) = (r, s) ∧
    r ≠ Rerr (Rabort Rtype_error) ⇒
    ∃s2.
      evaluate
       ([Call 0 (SOME start) [] NONE], [],
-        initial_state ffi0 (fromAList (SND (compile_prog next prog))) (mk_co co) cc k)
+        initial_state ffi0 (fromAList (SND (compile_prog next prog)))
+            (state_co compile_prog co) cc k)
       = (r, s2) ∧
      state_rel s s2
 Proof
@@ -2182,9 +2170,10 @@ Theorem compile_prog_semantics:
    (∀k n cfg prog. co k = ((n,cfg),prog) ⇒ input_condition n prog) ∧
    (∀k. MEM k (MAP FST prog2) ∧ in_ns_2 k ⇒ k < FST(FST (co 0))) ∧
    SND (compile_prog n prog) = prog2 ∧
-   semantics ffi (fromAList prog) co (mk_cc cc) start ≠ ffi$Fail ⇒
-   semantics ffi (fromAList prog) co (mk_cc cc) start =
-   semantics ffi (fromAList prog2) (mk_co co) cc start
+   semantics ffi (fromAList prog) co (state_cc compile_prog cc) start ≠
+      ffi$Fail ⇒
+   semantics ffi (fromAList prog) co (state_cc compile_prog cc) start =
+   semantics ffi (fromAList prog2) (state_co compile_prog co) cc start
 Proof
    simp [GSYM AND_IMP_INTRO]
    \\ ntac 4 strip_tac
@@ -2419,9 +2408,9 @@ QED
 Theorem compile_prog_good_code_labels:
    ∀n c n2 c2.
    bvi_tailrec$compile_prog n c = (n2,c2) ∧
-   BIGUNION (set (MAP (get_code_labels o SND o SND) c)) ⊆ all ∧ set (MAP FST p) ⊆ all ∧
+   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c)) ⊆ all ∧
    { n + k * bvl_to_bvi_namespaces | k | n + k * bvl_to_bvi_namespaces < n2 } ⊆ all ⇒
-   BIGUNION (set (MAP (get_code_labels o SND o SND) c2)) ⊆ all
+   BIGUNION (set (MAP (bviProps$get_code_labels o SND o SND) c2)) ⊆ all
 Proof
   recInduct bvi_tailrecTheory.compile_prog_ind
   \\ simp[bvi_tailrecTheory.compile_prog_def]

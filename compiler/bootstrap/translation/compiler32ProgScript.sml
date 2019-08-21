@@ -60,8 +60,8 @@ val backend_compile_explorer_side = Q.prove(`
 
 val def = spec32
   (backendTheory.attach_bitmaps_def
-   |> Q.GENL[`bitmaps`,`bytes`,`c`]
-   |> Q.ISPECL[`bitmaps:'a word list`,`bytes:word8 list`,`c:'a lab_to_target$config`])
+   |> Q.GENL[`c'`,`bytes`,`c`]
+   |> Q.ISPECL[`lab_conf:'a lab_to_target$config`,`bytes:word8 list`,`c:'a backend$config`])
 
 val res = translate def
 
@@ -206,7 +206,7 @@ val res = translate add_tap_output_def;
 
 val res = format_compiler_result_def
         |> Q.GENL[`bytes`,`heap`,`stack`,`c`]
-        |> Q.ISPECL[`bytes:word8 list`,`heap:num`,`stack:num`,`c:'a lab_to_target$config`]
+        |> Q.ISPECL[`bytes:word8 list`,`heap:num`,`stack:num`,`c:'a backend$config`]
         |> spec32
         |> translate;
 
