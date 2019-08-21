@@ -11388,7 +11388,7 @@ val _ = overload_on("Block_nil",``Block 0 nil_tag []``);
 
 Theorem memory_rel_append:
    memory_rel c be ts refs sp st m1 dm
-      ((list_to_v ts0 Block_nil in2 ,h)::ZIP (in1,ws) ++ vars) /\
+      ((v,h)::ZIP (in1,ws) ++ vars) /\
     (word_list next_free
       (append_writes c init_ptr (make_header c 0w 2) ws h) * SEP_T)
       (fun2set (m1,dm)) /\
@@ -11401,7 +11401,7 @@ Theorem memory_rel_append:
     memory_rel c be (ts + LENGTH in1) refs (sp - 3 * LENGTH in1)
        (st |+ (NextFree,
                Word (next_free + bytes_in_word * n2w (3 * LENGTH in1)))) m1 dm
-       ((list_to_v ts (list_to_v ts0 Block_nil in2) in1 ,Word init_ptr)::vars)
+       ((list_to_v ts v in1 ,Word init_ptr)::vars)
 Proof
   rw []
   \\ qabbrev_tac `p1 = ptr_bits c 0 2`
@@ -11411,7 +11411,7 @@ Proof
   \\ imp_res_tac MAP_ZIP
   \\ fs [word_ml_inv_def]
   \\ mp_tac (GEN_ALL cons_multi_thm)
-  \\ disch_then (qspecl_then [`in1`,`ts`,`list_to_v ts0 Block_nil in2`] mp_tac)
+  \\ disch_then (qspecl_then [`in1`,`ts`,`v`] mp_tac)
   \\ fs []
   \\ disch_then drule
   \\ impl_tac
@@ -11746,27 +11746,31 @@ Proof
 QED
 
 Theorem list_to_v_heap_length:
-   v_inv c (list_to_v ts Block_nil vs) (x,f,tf,heap) /\
+   v_inv c v (x,f,tf,heap) /\
+   v_to_list v = SOME vs /\
    vs <> []
    ==>
    3 * LENGTH vs <= heap_length heap
 Proof
-  metis_tac [walk_heap_lookup, walk_LENGTH, walk_ALL_DISTINCT,
-             heap_length_Blocks, v_inv_list_to_v_lemma]
+  cheat
+  (* metis_tac [walk_heap_lookup, walk_LENGTH, walk_ALL_DISTINCT, *)
+  (*            heap_length_Blocks, v_inv_list_to_v_lemma] *)
 QED
 
 (* ------------------------------------------------------------------------- *)
 
 Theorem memory_rel_list_limit:
-   memory_rel c be ts refs sp0 st m dm ((list_to_v ts0 Block_nil xs, (w: 'a word_loc))::vars) /\
+   memory_rel c be ts refs sp0 st m dm ((v, (w: 'a word_loc))::vars) /\
+   v_to_list v = SOME xs /\
    good_dimindex (:'a)
    ==>
    3 * (LENGTH xs + 1) * (dimindex (:'a) DIV 8) < dimword (:'a)
 Proof
-  rw [memory_rel_def, word_ml_inv_def, abs_ml_inv_def, bc_stack_ref_inv_def,
-      heap_ok_def, heap_in_memory_store_def]
-  \\ drule (GEN_ALL list_to_v_heap_length)
-  \\ Cases_on `xs` \\ fs [dimword_def, good_dimindex_def] \\ rw [] \\ fs []
+  cheat
+  (* rw [memory_rel_def, word_ml_inv_def, abs_ml_inv_def, bc_stack_ref_inv_def, *)
+  (*     heap_ok_def, heap_in_memory_store_def] *)
+  (* \\ drule (GEN_ALL list_to_v_heap_length) *)
+  (* \\ Cases_on `xs` \\ fs [dimword_def, good_dimindex_def] \\ rw [] \\ fs [] *)
 QED
 
 val _ = export_theory();
