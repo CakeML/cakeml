@@ -37,12 +37,13 @@ rw [GSYM fmap_EQ_THM]);
 
 val _ = new_theory "unify";
 
-val _ = Hol_datatype `
-atom =
-    TC_tag of type_ident
-  | DB_tag of num
+Datatype:
+  atom
+  = TC_tag type_ident
+  | DB_tag num
   | Tapp_tag
-  | Null_tag`;
+  | Null_tag
+End
 
 val encode_infer_t_def = Define `
 (encode_infer_t (Infer_Tvar_db n) =

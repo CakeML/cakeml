@@ -7,9 +7,11 @@ val _ = new_theory "holSyntax"
 
 (* HOL types *)
 
-val _ = Hol_datatype`type
-  = Tyvar of mlstring
-  | Tyapp of mlstring => type list`
+Datatype:
+  type
+  = Tyvar mlstring
+  | Tyapp mlstring (type list)
+End
 
 val _ = Parse.overload_on("Fun",``λs t. Tyapp (strlit "fun") [s;t]``)
 val _ = Parse.overload_on("Bool",``Tyapp (strlit "bool") []``)
@@ -42,11 +44,12 @@ fun type_rec_tac proj =
 
 (* HOL terms *)
 
-val _ = Hol_datatype`term
-  = Var of mlstring => type
-  | Const of mlstring => type
-  | Comb of term => term
-  | Abs of term => term`
+Datatype:
+  term = Var mlstring type
+       | Const mlstring type
+       | Comb term term
+       | Abs term term
+End
 
 val _ = Parse.overload_on("Equal",``λty. Const (strlit "=") (Fun ty (Fun ty Bool))``)
 
@@ -383,9 +386,9 @@ val equation_def = xDefine "equation"`
 (* Signature of a theory: indicates the defined type operators, with arities,
    and defined constants, with types. *)
 
-val _ = Parse.type_abbrev("tysig",``:mlstring |-> num``)
-val _ = Parse.type_abbrev("tmsig",``:mlstring |-> type``)
-val _ = Parse.type_abbrev("sig",``:tysig # tmsig``)
+Type tysig = ``:mlstring |-> num``
+Type tmsig = ``:mlstring |-> type``
+Type sig = ``:tysig # tmsig``
 val _ = Parse.overload_on("tysof",``FST:sig->tysig``)
 val _ = Parse.overload_on("tmsof",``SND:sig->tmsig``)
 
@@ -427,7 +430,7 @@ val hypset_ok_def = Define`
    the types of the constants are all ok, the axioms are all ok terms of type
    bool, and the signature is standard. *)
 
-val _ = Parse.type_abbrev("thy",``:sig # term set``)
+Type thy = ``:sig # term set``
 val _ = Parse.overload_on("sigof",``FST:thy->sig``)
 val _ = Parse.overload_on("axsof",``SND:thy->term set``)
 val _ = Parse.overload_on("tysof",``tysof o sigof``)
@@ -504,19 +507,21 @@ val (proves_rules,proves_ind,proves_cases) = xHol_reln"proves"`
 
 (* A context is a sequence of updates *)
 
-val _ = Hol_datatype`update
+Datatype:
+  update
   (* Definition of new constants by specification
      ConstSpec witnesses proposition *)
-  = ConstSpec of (mlstring # term) list => term
+  = ConstSpec ((mlstring # term) list) term
   (* Definition of a new type operator
      TypeDefn name predicate abs_name rep_name *)
-  | TypeDefn of mlstring => term => mlstring => mlstring
+  | TypeDefn mlstring term mlstring mlstring
   (* NewType name arity *)
-  | NewType of mlstring => num
+  | NewType mlstring num
   (* NewConst name type *)
-  | NewConst of mlstring => type
+  | NewConst mlstring type
   (* NewAxiom proposition *)
-  | NewAxiom of term`
+  | NewAxiom term
+End
 
 (* Projecting out pieces of the context *)
 

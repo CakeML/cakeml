@@ -15,7 +15,7 @@ val _ = hide "state";
 val _ = Datatype `
   exc = Success 'a | Failure 'b`;
 
-val _ = type_abbrev ("M", ``:'a -> ('b, 'c) exc # 'a``);
+Type M = ``:'a -> ('b, 'c) exc # 'a``
 
 val liftM_def = Define `
   (liftM read (write:('a->'a)->'d->'d) (op: ('a,'b,'c) M)) : ('d,'b,'c) M =
@@ -538,4 +538,3 @@ val parsed_types = save_thm("parsed_types",
     ]);
 
 val _ = export_theory ();
-

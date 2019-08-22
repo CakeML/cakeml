@@ -136,7 +136,7 @@ Proof
   simp[tyname_to_AST_def]
 QED
 
-val _ = temp_type_abbrev ("PT", “:(token,MMLnonT,α) parsetree”);
+Type PT = “:(token,MMLnonT,α) parsetree”
 
 Theorem types_inverted:
    (∀ty.

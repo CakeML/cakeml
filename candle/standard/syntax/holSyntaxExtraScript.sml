@@ -1803,12 +1803,14 @@ QED
 (* de Bruijn terms, for showing alpha-equivalence respect
    by substitution and instantiation *)
 
-val _ = Hol_datatype` dbterm =
-    dbVar of mlstring => type
-  | dbBound of num
-  | dbConst of mlstring => type
-  | dbComb of dbterm => dbterm
-  | dbAbs of type => dbterm`
+Datatype:
+  dbterm =
+    dbVar mlstring type
+  | dbBound num
+  | dbConst mlstring type
+  | dbComb dbterm dbterm
+  | dbAbs type dbterm
+End
 
 (* bind a variable above a de Bruijn term *)
 

@@ -15,7 +15,7 @@ val _ = Datatype `
  | Varray_t t`;
 
 (* Store typing *)
-val _ = type_abbrev( "tenv_store" , ``:(num, store_t) fmap``);
+Type tenv_store = ``:(num, store_t) fmap``
 
 (* Check that the type names map to valid types *)
 val tenv_abbrev_ok_def_ = Define `
@@ -43,7 +43,7 @@ val tenv_val_exp_ok_def = Define `
 (* Global constructor type environments keyed by constructor name and type
  * stamp. Contains the type variables, the type of the arguments, and
  * the identity of the type. *)
-val _ = type_abbrev( "ctMap", ``:(stamp, (tvarN list # t list # type_ident)) fmap``);
+Type ctMap = ``:(stamp, (tvarN list # t list # type_ident)) fmap``
 
 val ctMap_ok_def = Define `
   ctMap_ok ctMap ⇔

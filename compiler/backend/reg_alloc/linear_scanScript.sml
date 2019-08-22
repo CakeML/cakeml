@@ -340,8 +340,9 @@ val (sorted_regs,get_sorted_regs_def,set_sorted_regs_def) = sorted_regs_accessor
 val (sorted_moves,get_sorted_moves_def,set_sorted_moves_def) = sorted_moves_accessors;
 
 (*
-val _ = Hol_datatype`
-  state_exn = Fail of string | Subscript`;
+Datatype:
+  state_exn = Fail string | Subscript
+End
 *)
 
 val exn_functions = define_monad_exception_functions ``:state_exn`` ``:linear_scan_hidden_state``;

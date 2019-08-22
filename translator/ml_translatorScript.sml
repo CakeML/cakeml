@@ -17,7 +17,7 @@ val _ = new_theory "ml_translator";
 
 infix \\ val op \\ = op THEN;
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+Type state = ``:'ffi semanticPrimitives$state``
 
 (* Definitions *)
 

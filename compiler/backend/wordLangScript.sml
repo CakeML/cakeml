@@ -7,7 +7,7 @@ open preamble asmTheory stackLangTheory;
 
 val _ = new_theory "wordLang";
 
-val _ = Parse.type_abbrev("shift",``:ast$shift``);
+Type shift = ``:ast$shift``
 
 val _ = Datatype `
   exp = Const ('a word)

@@ -108,7 +108,11 @@ val res =  translate and_pre_def;
 val res =  translate or_pre_def;
 
 val _ = register_type ``:'a list``
-val _ = Hol_datatype `exn_type = Fail of string | Subscript`
+
+Datatype:
+  exn_type = Fail of string | Subscript
+End
+
 val _ = register_exn_type ``:exn_type``
 
 val _ = (print_asts := true);
@@ -229,8 +233,9 @@ val r = concretise [``map_again``, ``inc_list``];
 val _ = Datatype `a_type = AT_Nil | AT_Rec (a_type list) ((a_type # num) list)`;
 val _ = Datatype `a_b_type = ABT_Nil
   | ABT_Rec (bool list) ((a_b_type # num) list)`;
-val _ = Datatype.Hol_datatype `a_c_type = ACT_Nil
-  | ACT_One of 'a | ACT_Two of 'b | ACT_Rec of (a_c_type # num) list`;
+Datatype:
+  a_c_type = ACT_Nil | ACT_One 'a | ACT_Two 'b | ACT_Rec ((a_c_type # num) list)
+End
 val _ = Datatype `simple_type = STA | STB | STC | STX | STY | STZ`;
 val _ = Datatype `simple_type2 = ST2A | ST2B | ST2C | ST2X | ST2Y | ST2Z`;
 

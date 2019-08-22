@@ -757,8 +757,8 @@ Proof
   Cases >> simp[]
 QED
 
-val _ = type_abbrev("num_set",``:unit spt``);
-val _ = type_abbrev("num_map",``:'a spt``);
+Type num_set = ``:unit spt``
+Type num_map = ``:'a spt``
 
 Theorem toAList_domain:
     ∀x. MEM x (MAP FST (toAList t)) ⇔ x ∈ domain t

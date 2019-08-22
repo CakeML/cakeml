@@ -23,7 +23,7 @@ val _ = temp_add_monadsyntax()
    To make the namespace more explicit, the following functions could
    be useful.
 
-val _ = type_abbrev("name",``mlstring list # mlstring``);
+Type name = ``mlstring list # mlstring``
 
 val name_to_string_def = Define`
   (name_to_string ([],s) = s) ∧

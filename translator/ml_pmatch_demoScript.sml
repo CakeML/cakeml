@@ -45,15 +45,19 @@ fun fix def name rwth =
   def |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV(REWR_CONV rwth)))
       |> curry save_thm name
 
-val _ = Hol_datatype`type
+Datatype:
+  type
   = Tyvar of mlstring
-  | Tyapp of mlstring => type list`
+  | Tyapp of mlstring (type list)
+End
 
-val _ = Hol_datatype`term
+Datatype:
+  term
   = Var of mlstring => type
   | Const of mlstring => type
   | Comb of term => term
-  | Abs of term => term`
+  | Abs of term => term
+End
 
 val PAIR_EQ_COLLAPSE = Q.prove (
 `(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,

@@ -70,7 +70,7 @@ Proof
 metis_tac [big_exp_determ, run_eval_spec]
 QED
 
-val _ = type_abbrev("M", ``:'ffi state -> 'ffi state # ('a, v) result``);
+Type M = ``:'ffi state -> 'ffi state # ('a, v) result``
 
 val result_bind_def = Define `
 (result_bind : (α,'ffi) M -> (α -> (β,'ffi) M) -> (β,'ffi) M) x f =
