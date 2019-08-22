@@ -3284,37 +3284,6 @@ Proof
       \\ unabbrev_all_tac \\ fs [IN_domain_adjust_set_inter]))
 QED
 
-Theorem v_to_list_SOME_NIL_IFF:
-   !v. v_to_list v = SOME [] <=> ?ts. v = Block ts nil_tag []
-Proof
-  recInduct v_to_list_ind
-  \\ rw [] \\ fs [v_to_list_def,list_to_v_def]
-  \\ TRY (eq_tac \\ rw [list_to_v_def])
-  \\ fs [v_to_list_def,list_to_v_def]
-  \\ fs [case_eq_thms] \\ rveq \\ fs []
-  \\ rveq \\ fs [list_to_v_def]
-  \\ Cases_on `in2` \\ fs [list_to_v_def]
-QED
-
-Theorem v_to_list_SOME_CONS_IMP:
-   ∀v x xs ts. v_to_list v = SOME (x::xs)
-   ==> ?ts' ys. v = Block ts' cons_tag [x;ys] ∧ v_to_list ys = SOME xs
-Proof
-  recInduct v_to_list_ind
-  \\ fs [v_to_list_def] \\ rw []
-  \\ every_case_tac \\ fs []
-QED
-
-Theorem v_to_list_SINGLE_IMP:
-   ∀h t ts tag.
-    v_to_list (Block ts tag  [h;t]) = SOME [h]
-    ⇒ ∃ts'. t = Block ts' nil_tag []
-Proof
-  rw [v_to_list_def] \\ every_case_tac
-  \\ fs [v_to_list_EQ_SOME_NIL]
-  \\ EVAL_TAC
-QED
-
 val evaluate_AppendMainLoop_code = prove(
   ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
       memory_rel c t.be ts (s:('c,'ffi) dataSem$state).refs sp t.store t.memory t.mdomain
@@ -3508,12 +3477,6 @@ val evaluate_AppendMainLoop_code = prove(
   \\ fs [] \\ rw [] \\ fs []);
 
 val STOP_def = Define `STOP x = x`;
-
-val block_drop_def = Define `
-  block_drop 0 v                           = SOME v
-∧ block_drop (SUC n) (Block ts tag [h;vl]) = block_drop n vl
-∧ block_drop _ _                           = NONE
-`
 
 val evaluate_AppendMainLoop_code_alt = prove(
   ``!xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
