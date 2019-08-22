@@ -351,12 +351,14 @@ Proof
    Cases_on`l`>>EVAL_TAC
 QED
 
-val code_similar_append= Q.store_thm("code_similar_append",`
+Theorem code_similar_append:
   ∀l1 l2 r1 r2.
-  code_similar l1 l2 ∧
-  code_similar r1 r2 ⇒
-  code_similar (l1++r1) (l2++r2)`,
-  ho_match_mp_tac code_similar_ind>>fs[code_similar_def]);
+    code_similar l1 l2 ∧
+    code_similar r1 r2 ⇒
+    code_similar (l1++r1) (l2++r2)
+Proof
+  ho_match_mp_tac code_similar_ind>>fs[code_similar_def]
+QED
 
 Theorem line_similar_sec_label_ok:
     ∀l1 l2.

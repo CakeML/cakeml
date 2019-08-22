@@ -120,8 +120,9 @@ val do_app_with_stack = time Q.prove(
           TRY (pairarg_tac \\ fs []) >>
           rveq >> fs []));
 
-val do_app_aux_with_space = time Q.store_thm("do_app_aux_with_space",
-  `do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)`,
+Theorem do_app_aux_with_space:
+  do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)
+Proof
   Cases_on `do_app_aux op vs (s with space := z)`
   \\ Cases_on `op`
   \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
@@ -131,10 +132,12 @@ val do_app_aux_with_space = time Q.store_thm("do_app_aux_with_space",
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []));
+          rveq >> fs [])
+QED
 
-val do_app_aux_with_locals = time Q.store_thm("do_app_aux_with_locals",
-  `do_app_aux op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app_aux op vs s)`,
+Theorem do_app_aux_with_locals:
+  do_app_aux op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app_aux op vs s)
+Proof
   Cases_on `do_app_aux op vs (s with locals := z)`
   \\ Cases_on `op`
   \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
@@ -144,7 +147,8 @@ val do_app_aux_with_locals = time Q.store_thm("do_app_aux_with_locals",
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def] >>
           TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []));
+          rveq >> fs [])
+QED
 
 val do_app_with_locals = time Q.prove(
   `do_app op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app op vs s)`,
@@ -159,23 +163,27 @@ val do_app_with_locals = time Q.prove(
           TRY (pairarg_tac \\ fs []) >>
           rveq >> fs []));
 
-val do_app_aux_err = Q.store_thm("do_app_aux_err",
-  `do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
+Theorem do_app_aux_err:
+   do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
                              \/
-                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x)) `,
+                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x))
+Proof
   rw [ do_app_aux_def,case_eq_thms
      , do_install_def,do_space_def,with_fresh_ts_def
      , PULL_EXISTS, UNCURRY,consume_space_def]
-  \\ fs []);
+  \\ fs []
+QED
 
-val do_app_aux_const = Q.store_thm("do_app_aux_const",
-  `do_app_aux op vs x = Rval (y,z) ⇒
+Theorem do_app_aux_const:
+    do_app_aux op vs x = Rval (y,z) ⇒
     z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧
-    z.clock = x.clock ∧ z.compile = x.compile`,
+    z.clock = x.clock ∧ z.compile = x.compile
+Proof
   rw [ do_app_aux_def,case_eq_thms
      , do_install_def,do_space_def,with_fresh_ts_def
      , PULL_EXISTS, UNCURRY,consume_space_def]
-  \\ fs []);
+  \\ fs []
+QED
 
 Theorem do_app_err:
    do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
