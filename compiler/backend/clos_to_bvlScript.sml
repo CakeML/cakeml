@@ -45,7 +45,6 @@ local open
   clos_knownTheory
   clos_numberTheory
   clos_annotateTheory
-  clos_labelsTheory
 in (* clos-to-clos transformations *) end;
 
 val _ = new_theory "clos_to_bvl";
@@ -569,7 +568,7 @@ val compile_common_def = Define `
   compile_common c es =
     let es = clos_mti$compile c.do_mti c.max_app es in
     (* Add space for functions to call the expressions *)
-    let loc = c.next_loc + LENGTH es in
+    let loc = c.next_loc + MAX 1 (LENGTH es) in
     (* Alignment padding *)
     let loc = if loc MOD 2 = 0 then loc else loc + 1 in
     let (n,es) = renumber_code_locs_list loc es in
@@ -577,7 +576,6 @@ val compile_common_def = Define `
     let (es,g,aux) = clos_call$compile c.do_call es in
     let prog = chain_exps c.next_loc es ++ aux in
     let prog = clos_annotate$compile prog in
-    let prog = clos_labels$compile prog in
       (c with <| start := c.next_loc; next_loc := n; known_conf := kc;
                  call_state := (g,aux) |>,
        prog)`;

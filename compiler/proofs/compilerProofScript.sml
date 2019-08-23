@@ -147,7 +147,7 @@ Theorem compile_correct_gen:
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
         ∀ms.
-          installed code cbspace data data_sp c.ffi_names st.sem_st.ffi
+          installed code cbspace data data_sp c.lab_conf.ffi_names st.sem_st.ffi
             (heap_regs cc.backend_config.stack_conf.reg_names) mc ms
             ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
@@ -213,7 +213,7 @@ Theorem compile_correct = Q.prove(`
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          installed code cbspace data data_sp c.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+          installed code cbspace data data_sp c.lab_conf.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_data to avoid extend_with_resource_limit *)`,

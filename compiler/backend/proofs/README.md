@@ -43,9 +43,6 @@ Correctness proof for clos_known
 [clos_knownPropsScript.sml](clos_knownPropsScript.sml):
 Lemmas used in proof of clos_known
 
-[clos_labelsProofScript.sml](clos_labelsProofScript.sml):
-Correctness proof for clos_labels
-
 [clos_letopProofScript.sml](clos_letopProofScript.sml):
 Correctness proof for clos_letop
 

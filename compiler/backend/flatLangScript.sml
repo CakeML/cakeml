@@ -63,6 +63,7 @@ val _ = Datatype `
   | Chopb opb
   (* String operations *)
   | Implode
+  | Explode
   | Strsub
   | Strlen
   | Strcat

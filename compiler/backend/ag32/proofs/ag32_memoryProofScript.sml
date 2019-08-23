@@ -896,7 +896,7 @@ val bare_asm_conv =
      combinLib.add_combin_compset],
     computeLib.Defs [
       UPDATE_def,
-      asmSemTheory.write_mem_word_def_compute],
+      asmSemTheory.write_mem_word_compute],
     computeLib.Tys [``:'a asmSem$asm_state``]])
 
 val asm_conv =

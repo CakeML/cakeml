@@ -54,7 +54,7 @@ val wfFS_def = Define `
 val x64_installed_def = Define `
   x64_installed (c,d,conf) cbspace data_sp ffi mc ms <=>
     is_x64_machine_config mc ∧
-    targetSem$installed c cbspace d data_sp conf.ffi_names ffi
+    targetSem$installed c cbspace d data_sp conf.lab_conf.ffi_names ffi
       (heap_regs x64_backend_config.stack_conf.reg_names) mc ms`
 
 (* -- *)

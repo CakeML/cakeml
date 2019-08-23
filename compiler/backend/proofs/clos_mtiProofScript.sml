@@ -209,10 +209,8 @@ QED
 
 val state_rel_def = Define `
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
-    (*
     (!n. SND (SND (s.compile_oracle n)) = [] /\
          syntax_ok (FST (SND (s.compile_oracle n)))) /\
-    *)
     s.code = FEMPTY /\ t.code = FEMPTY /\
     t.max_app = s.max_app /\ 1 <= s.max_app /\
     t.clock = s.clock /\
@@ -529,32 +527,21 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ ([
         fs [closSemTheory.Unit_def,Once v_rel_cases])]
   |> map GEN_ALL))
 
-val do_app_inst =
-  simple_val_rel_do_app_rev
-  |> Q.INST [`vr`|->`v_rel s.max_app`]
-  |> INST_TYPE [``:'a``|->``:'c``]
-  |> Q.INST [`sr`|->`\r t. (r.max_app = s.max_app) /\ state_rel r t`]
-  |> SIMP_RULE std_ss []
-
 val v_rel_opt_thm = prove(
   ``v_rel_opt m = OPTREL (v_rel m)``,
   fs [FUN_EQ_THM] \\ Cases  \\ Cases \\ fs [OPTREL_def,v_rel_opt_def]);
 
-Theorem do_app_lemma:
-   state_rel s (t:('c,'ffi) closSem$state) /\ LIST_REL (v_rel s.max_app) xs ys ==>
-    case do_app opp ys t of
-    | Rerr err2 => (?err1. do_app opp xs s = Rerr err1 /\
-                           exc_rel (v_rel s.max_app) err1 err2)
-    | Rval (y,t1) => ?x s1. v_rel s.max_app x y /\ state_rel s1 t1 /\
-                            do_app opp xs s = Rval (x,s1)
+Theorem simple_val_rel:
+  simple_val_rel (v_rel max_app_n)
 Proof
-  mp_tac do_app_inst \\ fs []
-  \\ reverse impl_tac THEN1
-   (rw [] \\ fs []
-    \\ Cases_on `do_app opp ys t` \\ fs []
-    \\ Cases_on `a` \\ fs [])
-  \\ fs [simple_val_rel_def] \\ rpt strip_tac \\ fs []
-  \\ fs [simple_state_rel_def,state_rel_def] \\ rw []
+  fs [simple_val_rel_def] \\ rpt strip_tac \\ fs []
+QED
+
+Theorem simple_state_rel:
+   simple_state_rel (v_rel max_app_n)
+     (\s t. s.max_app = max_app_n ∧ state_rel s t)
+Proof
+  fs [simple_state_rel_def,state_rel_def] \\ rw []
   \\ fs [FMAP_REL_def,FLOOKUP_DEF] \\ rfs []
   \\ res_tac \\ fs [v_rel_opt_thm]
   THEN1
@@ -571,39 +558,59 @@ Proof
     \\ fs [FAPPLY_FUPDATE_THM])
 QED
 
-val v_rel_IMP_v_to_bytes_lemma = prove(
-  ``!y x.
-      v_rel max_app x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+val do_app_inst =
+  simple_val_rel_do_app_rev
+  |> Q.INST [`vr`|->`v_rel s.max_app`]
+  |> INST_TYPE [``:'a``|->``:'c``]
+  |> Q.INST [`sr`|->`\r t. (r.max_app = s.max_app) /\ state_rel r t`]
+  |> SIMP_RULE std_ss [simple_val_rel, simple_state_rel]
+
+Theorem do_app_lemma:
+  state_rel s (t:('c,'ffi) closSem$state) /\ LIST_REL (v_rel s.max_app) xs ys ==>
+    case do_app opp ys t of
+    | Rerr err2 => (?err1. do_app opp xs s = Rerr err1 /\
+                           exc_rel (v_rel s.max_app) err1 err2)
+    | Rval (y,t1) => ?x s1. v_rel s.max_app x y /\ state_rel s1 t1 /\
+                            do_app opp xs s = Rval (x,s1)
+Proof
+  mp_tac do_app_inst \\ fs [] \\ EVERY_CASE_TAC \\ metis_tac []
+QED
 
 val v_rel_IMP_v_to_bytes = prove(
   ``v_rel max_app x y ==> v_to_bytes y = v_to_bytes x``,
-  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
-
-val v_rel_IMP_v_to_words_lemma = prove(
-  ``!y x.
-      v_rel max_app x y ==>
-      !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
-  ho_match_mp_tac v_to_list_ind \\ rw []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `tag = cons_tag` \\ fs []
-  \\ res_tac \\ fs [case_eq_thms]
-  \\ Cases_on `ns` \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+  metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]);
 
 val v_rel_IMP_v_to_words = prove(
   ``v_rel max_app x y ==> v_to_words y = v_to_words x``,
-  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+  metis_tac [simple_val_rel, simple_val_rel_v_to_words]);
+
+val do_install_inst =
+  simple_val_rel_do_install
+  |> Q.INST [`vr`|->`v_rel s.max_app`]
+  |> Q.INST [`sr`|->`\r t. (r.max_app = s.max_app) /\ state_rel r t`,
+        `cr`|->`code_rel s.max_app`]
+  |> SIMP_RULE bool_ss [simple_val_rel, simple_state_rel]
+  |> Q.SPEC `compile_inc s.max_app`
+
+val do_install_lemma = prove(
+  ``state_rel s t /\ LIST_REL (v_rel s.max_app) xs ys ==>
+    case do_install xs s of
+      | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
+                            exc_rel (v_rel s.max_app) err1 err2 /\
+                            s1.max_app = s.max_app /\ state_rel s1 t1
+      | (Rval exps1, s1) => ?exps2 t1. (s1.max_app = s.max_app /\
+                               state_rel s1 t1) /\ (~ (exps1 = [])) /\
+                               code_rel s.max_app exps1 exps2 /\
+                               do_install ys t = (Rval exps2, t1)``,
+  strip_tac
+  \\ irule do_install_inst
+  \\ fs [simple_compile_state_rel_def, simple_state_rel]
+  \\ qexists_tac `s`
+  \\ fs [compile_inc_def, pairTheory.FORALL_PROD,
+            clos_mtiTheory.intro_multi_length, code_rel_def, state_rel_def]
+  \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM] \\ rfs []
+  \\ fs [PAIR_FST_SND_EQ] \\ rveq \\ fs []
+  );
 
 Theorem intro_multi_EQ_NIL[simp]:
    ∀max_app es. intro_multi max_app es = [] ⇔ es = []
@@ -617,6 +624,13 @@ Theorem intro_multi_nil:
    intro_multi x [] = []
 Proof
 metis_tac[intro_multi_EQ_NIL]
+QED
+
+Theorem result_rel_Rval2:
+  result_rel P P' x (Rval v') = (?v. x = Rval v /\ P v v')
+
+Proof
+  Cases_on `x` \\ fs []
 QED
 
 Theorem evaluate_intro_multi:
@@ -745,84 +759,25 @@ Proof
     \\ disch_then drule \\ fs[] \\ strip_tac \\ fs []
     \\ rename1 `(if opp = _ then _ else _) = _`
     \\ Cases_on `opp = Install` \\ fs [] \\ rveq
-    THEN1 ( Cases_on`res1` \\ fs[] )
-    (*
-     (Cases_on `res1` \\ fs []
-      \\ qpat_x_assum `_ = (res2,t2)` mp_tac
-      \\ simp [Once do_install_def]
-      \\ qabbrev_tac `a1 = REVERSE a`
-      \\ qabbrev_tac `v1 = REVERSE vs`
-      \\ `LIST_REL (v_rel s1.max_app) a1 v1` by
-           (unabbrev_all_tac \\ fs [EVERY2_REVERSE1])
-      \\ Cases_on `a1` \\ fs [] \\ rveq \\ fs []
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ Cases_on `t` \\ fs [] \\ rveq \\ fs []
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ reverse (Cases_on `t'`) \\ fs [] \\ rveq \\ fs []
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ rename1 `v_rel s1.max_app x2 y2` \\ pop_assum mp_tac
-      \\ drule v_rel_IMP_v_to_bytes \\ strip_tac
-      \\ rename1 `v_rel s1.max_app x1 y1` \\ strip_tac
-      \\ drule v_rel_IMP_v_to_words \\ strip_tac \\ fs []
-      \\ Cases_on `v_to_bytes x1` \\ fs []
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ Cases_on `v_to_words x2` \\ fs []
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs [])
-      \\ pairarg_tac \\ fs []
-      \\ PairCases_on `progs`
-      \\ Cases_on `s2.compile_oracle 0`
-      \\ PairCases_on `r`
-      \\ `r1 = [] /\ progs1 = []` by
-        (fs [state_rel_def] \\ rfs [pure_co_def] \\ fs [compile_inc_def]
-         \\ rveq \\ fs [] \\ metis_tac [SND])
-      \\ rveq \\ fs []
-      \\ Cases_on `s'.compile cfg (progs0,[])` \\ fs []
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs []
-             \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def])
-      \\ rename1 `_ = SOME xx` \\ PairCases_on `xx` \\ fs []
-      \\ reverse IF_CASES_TAC
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs []
-             \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def,intro_multi_nil]
-             \\ IF_CASES_TAC \\ fs [shift_seq_def])
-      \\ IF_CASES_TAC
-      THEN1 (fs [do_install_def] \\ rw [] \\ fs []
-             \\ fs [state_rel_def,pure_cc_def,compile_inc_def]
-             \\ rfs [] \\ fs [] \\ rfs [pure_co_def,compile_inc_def]
-             \\ IF_CASES_TAC \\ fs [shift_seq_def]
-             \\ fs [FUPDATE_LIST,FUN_EQ_THM]
-             \\ rveq \\ fs[])
-      \\ fs [] \\ rveq \\ fs []
-      \\ `s2.clock = s'.clock /\
-          s2.compile = pure_cc (compile_inc s2.max_app) s'.compile /\
-          s'.compile_oracle =
-            pure_co (compile_inc s2.max_app) ∘ s2.compile_oracle` by
-              fs [state_rel_def]
-      \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def]
-      \\ qpat_x_assum `!x. _` mp_tac
-      \\ simp [Once do_install_def]
-      \\ fs [pure_cc_def,compile_inc_def,pure_co_def,shift_seq_def]
-      \\ rpt strip_tac \\ fs []
-      \\ rfs [state_rel_def,do_install_def]
+    THEN1 (* Op = Install *)
+    ( fs [result_rel_Rval2]
+      \\ drule (GEN_ALL do_install_lemma)
       \\ imp_res_tac evaluate_const \\ fs []
-      \\ rfs [] \\ fs [] \\ rveq \\ fs [compile_inc_def,shift_seq_def]
-      \\ qmatch_goalsub_abbrev_tac `([],ss)`
-      \\ fs[CaseEq"prod"] \\ fs[]
-      \\ first_x_assum (qspecl_then [`ss`,`r0`] mp_tac)
-      \\ reverse impl_tac
-      THEN1 (strip_tac \\ fs [] \\ unabbrev_all_tac \\ fs []
-             \\ rfs [state_rel_def,do_install_def]
-             \\ imp_res_tac evaluate_const \\ fs []
-             \\ CASE_TAC \\ fs[] \\ rveq \\ fs[] \\ rveq \\ rfs[]
-             \\ imp_res_tac evaluate_IMP_LENGTH
-             \\ Q.ISPEC_THEN`a'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[]
-             \\ fs[LIST_REL_SNOC])
-      \\ rveq \\ fs []
-      \\ qunabbrev_tac `ss` \\ fs []
-      \\ fs [state_rel_def,FUPDATE_LIST,pure_co_def,FUN_EQ_THM]
-      \\ metis_tac [FST,SND])
-    *)
+      \\ drule EVERY2_REVERSE \\ disch_tac
+      \\ disch_then drule
+      \\ fs [CaseEq "prod"]
+      \\ TOP_CASE_TAC
+      \\ TOP_CASE_TAC \\ rw [] \\ fs [] \\ rveq \\ fs []
+      \\ fs [code_rel_def]
+      \\ fs [CaseEq "prod", CaseEq "result"] \\ first_x_assum drule
+      \\ rpt (disch_then drule)
+      \\ rw []
+      \\ fs [result_rel_Rval2]
+      \\ ho_match_mp_tac LIST_REL_LAST
+      \\ fs []
+      \\ CCONTR_TAC
+      \\ fs [])
+    (* do_app *)
     \\ Cases_on `res1` \\ fs []
     \\ imp_res_tac evaluate_const \\ fs []
     \\ drule (GEN_ALL do_app_lemma)
@@ -1622,9 +1577,7 @@ QED
 Theorem semantics_intro_multi:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      co (pure_cc (compile_inc max_app) cc) xs <> Fail ==>
-   (*
    (∀n. SND (SND (co n)) = [] ∧ syntax_ok (FST (SND (co n)))) ∧
-   *)
    1 <= max_app /\ syntax_ok xs ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co (compile_inc max_app) ∘ co) cc

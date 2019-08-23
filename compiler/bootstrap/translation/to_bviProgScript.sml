@@ -7,6 +7,7 @@ val _ = new_theory "to_bviProg";
 val _ = translation_extends "to_bvlProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_bviProg");
+val _ = ml_translatorLib.use_string_type true;
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
@@ -124,7 +125,6 @@ val bvl_to_bvi_compile_int_side = Q.prove(`
   first_assum MATCH_MP_TAC>>
   intLib.COOPER_TAC) |> update_precondition;
 
-
 val r = translate bvl_to_bviTheory.compile_aux_def;
 
 (* TODO: better way to translate Boolean pmatch patterns *)
@@ -190,4 +190,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
 val _ = export_theory ();
-

@@ -1966,6 +1966,7 @@ val FST_rw = Q.prove(
   `(\(x,_,_). x) = FST`,
   fs [FUN_EQ_THM,FORALL_PROD]);
 
+val _ = print "Proving cf_letrec_sound_aux\n";
 val cf_letrec_sound_aux = Q.prove (
   `!funs e.
      let naryfuns = letrec_pull_params funs in
@@ -2081,6 +2082,7 @@ val cf_letrec_sound_aux = Q.prove (
     rfs [terminationTheory.evaluate_def]
   ));
 
+val _ = print "Proving cf_letrec_sound\n";
 val cf_letrec_sound = Q.prove (
   `!funs e.
     (!x. MEM x (letrec_pull_params funs) ==>
@@ -2104,6 +2106,7 @@ val cf_letrec_sound = Q.prove (
   fs [letrec_pull_params_names, letrec_pull_params_def]
 );
 
+val _ = print "Proving cf_cases_evaluate_match\n";
 val cf_cases_evaluate_match = Q.prove (
   `!v env H Q nomatch_exn rows p st h_i h_k.
     EVERY (\b. sound p (SND b) (cf p (SND b))) rows ==>
@@ -2190,6 +2193,7 @@ val cf_cases_evaluate_match = Q.prove (
     qexists_tac `h_g UNION h_g'` \\ SPLIT_TAC
   ));
 
+val _ = print "Proving cf_ffi_sound\n";
 val cf_ffi_sound = Q.prove (
   `sound (p:'ffi ffi_proj) (App (FFI ffi_index) [c; r]) (\env. local (\H Q.
      ?cv rv. exp2v env r = SOME rv /\
@@ -2334,8 +2338,8 @@ val cf_ffi_sound = Q.prove (
         \\ rw[] \\ qexists_tac `s` \\ rw []
         \\ fs [FLOOKUP_FUPDATE_LIST]
         \\ rw [] \\ fs [FLOOKUP_DEF]
-        \\ drule ((ALL_DISTINCT_FLAT_MEM_IMP |> Q.INST [`m`|->`n`]))
-        \\ fs [MEM_MAP,FORALL_PROD] \\ metis_tac []) \\
+        \\ drule ALL_DISTINCT_FLAT_MEM_IMP
+        \\ fs [MEM_MAP,FORALL_PROD, PULL_EXISTS] \\ metis_tac []) \\
       fs [EXTENSION] \\ reverse (rw [] \\ EQ_TAC \\ rw [])
       THEN1
        (qpat_x_assum `_ = p0 y'` (fn th => fs [GSYM th]) \\
@@ -2371,8 +2375,8 @@ val cf_ffi_sound = Q.prove (
         \\ Cases_on `MEM n ns` \\ fs [FLOOKUP_FUPDATE_LIST]
         \\ `MEM ns (MAP FST p1) /\ MEM ns' (MAP FST p1)` by
                (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
-        \\ progress (ALL_DISTINCT_FLAT_MEM_IMP |> Q.INST [`m`|->`n`])
-        \\ rveq \\ fs [] \\ res_tac \\ fs [FLOOKUP_DEF])
+        \\ progress ALL_DISTINCT_FLAT_MEM_IMP
+        \\ rveq \\ fs [FLOOKUP_DEF] \\ metis_tac[])
       \\ Cases_on `ns = ns'` \\ fs [] THEN1
        (rveq  \\ first_x_assum drule
         \\ qpat_x_assum `_ = p0 y'` (fn th => fs [GSYM th])
@@ -2405,6 +2409,7 @@ val cf_ffi_sound = Q.prove (
    \\ pop_assum mp_tac
    \\ fs [] \\ fs [ffi2heap_def] \\ rfs[]);
 
+val _ = print "Proving evaluate_add_to_clock_lemma\n";
 val evaluate_add_to_clock_lemma = Q.prove (
   `!extra p (s: 'ffi semanticPrimitives$state) s' r e.
      evaluate s e p = (s', r) ==>
@@ -2414,6 +2419,7 @@ val evaluate_add_to_clock_lemma = Q.prove (
   fs [evaluatePropsTheory.evaluate_add_to_clock]
 );
 
+val _ = print "Proving evaluate_match_add_to_clock_lemma\n";
 val evaluate_match_add_to_clock_lemma = Q.prove (
   `!extra (s: 'ffi semanticPrimitives$state) env v rows err_v s' r.
      evaluate_match s env v rows err_v = (s', r) ==>

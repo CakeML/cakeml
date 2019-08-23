@@ -1466,7 +1466,8 @@ val semantics_finite_filter = Q.store_thm("semantics_finite_filter",
          >> fs[]
          >> metis_tac[forward_matching_lines_semantics,ffiTheory.behaviour_distinct,
                       semanticsPropsTheory.semantics_prog_deterministic])
-  >> drule forward_matching_lines_ffidiv_semantics >> rpt(disch_then drule) >> strip_tac
+  >> drule forward_matching_lines_ffidiv_semantics >> asm_rewrite_tac []
+  >> disch_then (qspec_then `ffi` mp_tac) >> strip_tac
   >> dxrule(GEN_ALL semanticsPropsTheory.semantics_prog_deterministic)
   >> disch_then dxrule >> simp[]
   >> metis_tac[]);

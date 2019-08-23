@@ -26,8 +26,15 @@ val bootstrap_conf =
      data_conf updated_by
        (λc. c with <| call_empty_ffi := T (* enables logging messages *) |>)``
 
+(* coerce the change_config thm to change between configs with the same type
+   parameter, which in turn coerces to a particular instance of
+   init_conf/bvi_conf in the to_data theorem, which avoids issues with type
+   parameters and saving definitions later *)
+val change_config_thm = backendTheory.to_data_change_config
+  |> Q.INST_TYPE [`:'b` |-> `:'a`]
+
 val to_data_thm0 =
-  MATCH_MP backendTheory.to_data_change_config to_data_x64_thm
+  MATCH_MP change_config_thm to_data_x64_thm
   |> Q.GEN`c2` |> ISPEC bootstrap_conf
 
 val same_config = prove(to_data_thm0 |> concl |> rator |> rand,

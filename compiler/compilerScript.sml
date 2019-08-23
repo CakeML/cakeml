@@ -453,8 +453,8 @@ val format_compiler_result_def = Define`
   format_compiler_result bytes_export (heap:num) (stack:num) (Failure err) =
     (List[]:mlstring app_list, error_to_str err) ∧
   format_compiler_result bytes_export heap stack
-    (Success ((bytes:word8 list),(data:'a word list),(c:'a lab_to_target$config))) =
-    (bytes_export (the [] c.ffi_names) heap stack bytes data, implode "")`;
+    (Success ((bytes:word8 list),(data:'a word list),(c:'a backend$config))) =
+    (bytes_export (the [] c.lab_conf.ffi_names) heap stack bytes data, implode "")`;
 
 (* FIXME TODO: this is an awful workaround to avoid implementing a file writer
    right now. *)
@@ -488,7 +488,8 @@ val compile_64_def = Define`
              only_print_types    := onlyprinttypes |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
-            (add_tap_output td (export (the [] c.ffi_names) heap stack bytes data),
+            (add_tap_output td (export (the [] c.lab_conf.ffi_names)
+                heap stack bytes data),
               implode "")
         | (Failure err, td) => (add_tap_output td (List []), error_to_str err))
     | INR err =>
@@ -522,7 +523,8 @@ val compile_32_def = Define`
              only_print_types    := onlyprinttypes |> in
         (case compiler$compile compiler_conf basis input of
           (Success (bytes,data,c), td) =>
-            (add_tap_output td (export (the [] c.ffi_names) heap stack bytes data),
+            (add_tap_output td (export (the [] c.lab_conf.ffi_names)
+                heap stack bytes data),
               implode "")
         | (Failure err, td) => (List [], error_to_str err))
     | INR err =>
