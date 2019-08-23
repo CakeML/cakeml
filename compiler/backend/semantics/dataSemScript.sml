@@ -249,6 +249,8 @@ val list_to_v_def = Define`
   list_to_v ts t [] = t ∧
   list_to_v ts t (h::l) = Block ts cons_tag [h; list_to_v (ts+1) t l]`;
 
+val _ = overload_on("Block_nil",``Block 0 nil_tag []``);
+
 val with_fresh_ts_def = Define`
   with_fresh_ts ^s n f = case s.tstamps of
                            SOME ts => f ts (s with <| tstamps := SOME (ts + n) |>)

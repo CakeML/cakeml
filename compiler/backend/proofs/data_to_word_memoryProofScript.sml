@@ -11352,8 +11352,6 @@ Proof
   \\ match_mp_tac (Q.INST [`sp`|->`sp+sp1`] (SPEC_ALL v_inv_list_to_v))
   \\ unlength_tac [heap_expand_def]);
 
-val _ = overload_on("Block_nil",``Block 0 nil_tag []``);
-
 Theorem memory_rel_append:
    memory_rel c be ts refs sp st m1 dm
       ((v,h)::ZIP (in1,ws) ++ vars) /\
@@ -11428,27 +11426,6 @@ Proof
   \\ unabbrev_all_tac \\ rfs []
   \\ irule append_writes_list_to_BlockReps \\ fs []
   \\ metis_tac [LIST_REL_APPEND_IMP]
-QED
-
-Theorem v_to_list_SOME_NIL_IFF:
-   !v. v_to_list v = SOME [] <=> ?ts. v = Block ts nil_tag []
-Proof
-  recInduct v_to_list_ind
-  \\ rw [] \\ fs [v_to_list_def,list_to_v_def]
-  \\ TRY (eq_tac \\ rw [list_to_v_def])
-  \\ fs [v_to_list_def,list_to_v_def]
-  \\ fs [case_eq_thms] \\ rveq \\ fs []
-  \\ rveq \\ fs [list_to_v_def]
-  \\ Cases_on `in2` \\ fs [list_to_v_def]
-QED
-
-Theorem v_to_list_SOME_CONS_IMP:
-   ∀v x xs ts. v_to_list v = SOME (x::xs)
-   ==> ?ts' ys. v = Block ts' cons_tag [x;ys] ∧ v_to_list ys = SOME xs
-Proof
-  recInduct v_to_list_ind
-  \\ fs [v_to_list_def] \\ rw []
-  \\ every_case_tac \\ fs []
 QED
 
 (* --- ML lists cannot exceed heap size: --- *)

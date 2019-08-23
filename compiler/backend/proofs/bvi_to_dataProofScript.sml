@@ -340,7 +340,7 @@ val data_to_bvi_result_eq = Q.store_thm("data_to_bvi_result_eq",
 );
 
 val list_to_v_MAP = Q.store_thm("list_to_v_MAP",
-  `∀z. list_to_v (MAP data_to_bvi_v z) = data_to_bvi_v (list_to_v z)`,
+  `∀z ts. list_to_v (MAP data_to_bvi_v z) = data_to_bvi_v (list_to_v ts Block_nil z)`,
   Induct \\ rw [list_to_v_def,bvlSemTheory.list_to_v_def,data_to_bvi_v_def]
 );
 
@@ -362,6 +362,28 @@ val data_to_bvi_do_eq = Q.store_thm("data_to_bvi_do_eq",
   >- (Cases_on `l2` \\ rw [do_eq_def,bvlSemTheory.do_eq_def])
   >- (every_case_tac \\ fs [data_to_bvi_ref_def])
 );
+
+Theorem data_to_bvi_v_list_to_v_APPEND:
+  ∀l vl v ts.
+   v_to_list v = SOME vl
+   ⇒ data_to_bvi_v (list_to_v ts Block_nil (l++vl)) = data_to_bvi_v (list_to_v ts v l)
+Proof
+  Induct
+  >- (Induct
+     \\ rw [v_to_list_SOME_NIL_IFF,list_to_v_def]
+     \\ rw [data_to_bvi_v_def]
+     \\ drule v_to_list_SOME_CONS_IMP \\ strip_tac
+     \\ fs [] \\ rveq \\ fs [data_to_bvi_v_def,v_to_list_def]
+     \\ first_x_assum drule \\ rw [list_to_v_def])
+  \\ rw [list_to_v_def,data_to_bvi_v_def]
+QED
+
+Theorem data_to_bvi_v_list_to_v_EQ_TS:
+  ∀vl v ts1 ts2.
+   data_to_bvi_v (list_to_v ts1 v vl) = data_to_bvi_v (list_to_v ts2 v vl)
+Proof
+  Induct \\ rw [list_to_v_def,data_to_bvi_v_def]
+QED
 
 val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
   `∀op t r z res s1.
@@ -429,7 +451,12 @@ val data_to_bvi_do_app = Q.store_thm("data_to_bvi_do_app",
   >- (Cases_on `t.tstamps`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
-  >- (ONCE_REWRITE_TAC [GSYM MAP_APPEND] \\ rw [list_to_v_MAP])
+  >- (drule data_to_bvi_v_list_to_v_APPEND \\ strip_tac
+     \\ Cases_on `t.tstamps` \\ rw []
+     \\ ONCE_REWRITE_TAC [GSYM MAP_APPEND]
+     \\ ONCE_REWRITE_TAC [list_to_v_MAP]
+     \\ ONCE_ASM_REWRITE_TAC []
+     \\ rw [data_to_bvi_v_list_to_v_EQ_TS])
   >- (Cases_on `t.tstamps`
      \\ Cases_on `z`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]

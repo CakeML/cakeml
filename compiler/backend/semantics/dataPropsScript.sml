@@ -1354,4 +1354,25 @@ Proof
    \\ rw[]
 QED
 
+Theorem v_to_list_SOME_NIL_IFF:
+   !v. v_to_list v = SOME [] <=> ?ts. v = Block ts nil_tag []
+Proof
+  recInduct v_to_list_ind
+  \\ rw [] \\ fs [v_to_list_def,list_to_v_def]
+  \\ TRY (eq_tac \\ rw [list_to_v_def])
+  \\ fs [v_to_list_def,list_to_v_def]
+  \\ fs [case_eq_thms] \\ rveq \\ fs []
+  \\ rveq \\ fs [list_to_v_def]
+  \\ Cases_on `in2` \\ fs [list_to_v_def]
+QED
+
+Theorem v_to_list_SOME_CONS_IMP:
+   ∀v x xs ts. v_to_list v = SOME (x::xs)
+   ==> ?ts' ys. v = Block ts' cons_tag [x;ys] ∧ v_to_list ys = SOME xs
+Proof
+  recInduct v_to_list_ind
+  \\ fs [v_to_list_def] \\ rw []
+  \\ every_case_tac \\ fs []
+QED
+
 val _ = export_theory();
