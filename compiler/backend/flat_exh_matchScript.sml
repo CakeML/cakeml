@@ -3,9 +3,11 @@
 *)
 open preamble flatLangTheory backend_commonTheory
 
-val _ = numLib.prefer_num()
-
 val _ = new_theory"flat_exh_match"
+
+val _ = set_grammar_ancestry ["flatLang", "sptree"];
+val _ = temp_tight_equality ();
+val _ = numLib.prefer_num()
 
 val _ = tDefine "is_unconditional" `
   is_unconditional p ⇔

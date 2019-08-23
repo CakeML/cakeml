@@ -702,7 +702,7 @@ val gc_move_list_simulation = prove(
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ fs []
   \\ imp_res_tac gen_gcTheory.gc_move_list_ok
-  \\ drule gc_move_simulation \\ fs []
+  \\ FREEZE_THEN drule gc_move_simulation \\ fs []
   \\ strip_tac \\ fs [] \\ rveq
   \\ first_x_assum drule
   \\ fs [] \\ strip_tac
@@ -945,7 +945,7 @@ val gc_move_data_simulation = prove(
   \\ rpt (pairarg_tac \\ fs [])
   \\ strip_tac \\ rveq
   \\ imp_res_tac gc_move_data_ok \\ fs []
-  \\ drule gc_move_list_simulation
+  \\ drule_then drule gc_move_list_simulation
   \\ fs [] \\ strip_tac \\ rveq
   \\ `(∀ptr' u. MEM (Pointer ptr' u) l ⇒ ptr' < conf.limit)` by metis_tac[]
   \\ first_x_assum drule \\ DISCH_TAC \\ fs[] \\ rveq
@@ -2428,7 +2428,7 @@ Proof
      \\ IF_CASES_TAC \\ fs []
      \\ drule roots_ok_APPEND
      \\ strip_tac
-     \\ drule refs_root_IMP_isSomeData \\ simp [])
+     \\ drule_then drule refs_root_IMP_isSomeData \\ simp [])
   \\ fs []
   \\ fs [gc_related_def]
   \\ `∀i. i ∈ FDOM f ⇒ isSomeDataElement (heap_lookup (i + conf.gen_start) heap)` by (rpt strip_tac
@@ -2455,11 +2455,13 @@ Proof
         \\ fs [new_f_FDOM]
         \\ rpt strip_tac
         \\ Cases_on `x < conf.gen_start` \\ fs []
-        >- (drule heap_lookup_old_IMP_ALT
+        >- (drule_then (first_assum o mp_then Any mp_tac)
+                       heap_lookup_old_IMP_ALT
            \\ fs [isSomeDataElement_def,gen_inv_def]
            \\ metis_tac [GSYM APPEND_ASSOC])
         \\ IF_CASES_TAC \\ fs []
-        >- (drule heap_lookup_refs_IMP_ALT
+        >- (drule_then (first_assum o mp_then Any mp_tac)
+                       heap_lookup_refs_IMP_ALT
            \\ fs [gen_inv_def]
            \\ impl_tac \\ fs []
            \\ metis_tac [])

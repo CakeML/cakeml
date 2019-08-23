@@ -9,6 +9,7 @@ val _ = new_theory"sexp_parserProg";
 val _ = translation_extends "explorerProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
+val _ = ml_translatorLib.use_string_type true;
 
 (* TODO: this is duplicated in parserProgTheory *)
 val monad_unitbind_assert = Q.prove(
@@ -26,6 +27,7 @@ val r = translate pegTheory.ignoreR_def
 val r = translate pegTheory.ignoreL_def
 val r = translate simpleSexpTheory.arb_sexp_def
 val r = translate simpleSexpPEGTheory.choicel_def
+
 val r = translate simpleSexpPEGTheory.tokeq_def
 val r = translate simpleSexpPEGTheory.pegf_def
 val r = translate simpleSexpPEGTheory.grabWS_def
@@ -156,6 +158,7 @@ val lemma2 = Q.prove(`
   num_from_hex_string [x;y] = num_from_hex_string_alt [x;y]`,
   rw[num_from_hex_string_alt_intro]);
 
+val _ = ml_translatorLib.use_string_type false;
 val r = fromSexpTheory.decode_control_def
         |> SIMP_RULE std_ss [monad_unitbind_assert,lemma,lemma2]
         |> translate;
@@ -171,7 +174,26 @@ val decode_control_side = Q.prove(
   rw[Once(theorem"decode_control_side_def")])
   |> update_precondition;
 
-val r = translate fromSexpTheory.odestSEXSTR_def;
+val decode_control_wrapper_def = Define `
+  decode_control_wrapper s =
+    case decode_control (explode s) of
+      NONE => NONE
+    | SOME x => SOME (implode x)`
+
+val r = translate decode_control_wrapper_def
+
+val _ = ml_translatorLib.use_string_type true;
+
+Theorem decode_control_eq:
+  decode_control s =
+  OPTION_MAP (\x. explode x) (decode_control_wrapper (implode s))
+Proof
+  fs [decode_control_wrapper_def]
+  \\ Cases_on `decode_control s` \\ fs []
+QED
+
+val r = translate (fromSexpTheory.odestSEXSTR_def
+                   |> REWRITE_RULE [decode_control_eq]);
 val r = translate fromSexpTheory.odestSXSYM_def;
 val r = translate fromSexpTheory.odestSXNUM_def;
 
@@ -184,12 +206,6 @@ val sexpid_side = Q.prove(
   ho_match_mp_tac fromSexpTheory.sexpid_ind \\ rw[] \\
   rw[Once(theorem"sexpid_side_def")])
 |> update_precondition;
-
-(*
-val r = fromSexpTheory.sexptctor_def
-        |> SIMP_RULE std_ss [OPTION_BIND_THM,monad_unitbind_assert]
-        |> translate;
-*)
 
 val r = translate sexptype_alt_def;
 
@@ -245,7 +261,9 @@ val sexppat_alt_side = Q.prove(
   rw[Once(theorem"sexppat_alt_side_def")])
   |> update_precondition;
 
-val r = translate fromSexpTheory.sexpop_def;
+val r = translate (fromSexpTheory.sexpop_def
+                   |> REWRITE_RULE [decode_control_eq]);
+
 val r = translate fromSexpTheory.sexplop_def;
 
 val r = translate sexpexp_alt_def;

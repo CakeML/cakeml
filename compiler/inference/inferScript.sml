@@ -387,6 +387,7 @@ val op_to_string_def = Define `
 (op_to_string (Chopb _) = (implode "Chopb", 2)) ∧
 (op_to_string Strsub = (implode "Strsub", 2)) ∧
 (op_to_string Implode = (implode "Implode", 1)) ∧
+(op_to_string Explode = (implode "Explode", 1)) ∧
 (op_to_string Strlen = (implode "Strlen", 1)) ∧
 (op_to_string Strcat = (implode "Strcat", 1)) ∧
 (op_to_string VfromList = (implode "VfromList", 1)) ∧
@@ -543,6 +544,10 @@ constrain_op l op ts =
    | (Implode, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num);
           return (Infer_Tapp [] Tstring_num)
+       od
+   | (Explode, [t]) =>
+       do () <- add_constraint l t (Infer_Tapp [] Tstring_num);
+          return (Infer_Tapp [Infer_Tapp [] Tchar_num] Tlist_num)
        od
    | (Strlen, [t]) =>
        do () <- add_constraint l t (Infer_Tapp [] Tstring_num);
