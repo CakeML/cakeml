@@ -110,7 +110,7 @@ val res =  translate or_pre_def;
 val _ = register_type ``:'a list``
 
 Datatype:
-  exn_type = Fail of string | Subscript
+  exn_type = Fail string | Subscript
 End
 
 val _ = register_exn_type ``:exn_type``

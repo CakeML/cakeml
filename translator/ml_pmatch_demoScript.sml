@@ -47,16 +47,16 @@ fun fix def name rwth =
 
 Datatype:
   type
-  = Tyvar of mlstring
-  | Tyapp of mlstring (type list)
+  = Tyvar mlstring
+  | Tyapp mlstring (type list)
 End
 
 Datatype:
   term
-  = Var of mlstring => type
-  | Const of mlstring => type
-  | Comb of term => term
-  | Abs of term => term
+  = Var mlstring type
+  | Const mlstring type
+  | Comb term term
+  | Abs term term
 End
 
 val PAIR_EQ_COLLAPSE = Q.prove (
