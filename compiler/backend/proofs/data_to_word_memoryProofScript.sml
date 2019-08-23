@@ -2177,7 +2177,6 @@ Proof
      \\ rveq \\ fs [])
 QED
 
-(*
 Theorem v_inv_tf_restrict:
   ∀v y f tf heap conf P.
      v_inv conf v (y,f,tf,heap) ∧ (∀x. MEM x (v_all_ts v) ⇒ x ∈ P)
@@ -2204,34 +2203,7 @@ Proof
      \\ first_x_assum (qspec_then `ts` ASSUME_TAC)
      \\ fs []
      \\ fs [FLOOKUP_DRESTRICT])
-     \\ fs [heap_expand_def]
-     \\ rw []
-     \\ TRY (`sp1 = 0 /\ sp = heap_length Allocd` by fs [] \\ fs [])
-     \\ TRY (fs [heap_lookup_def] \\ NO_TAC)
-     \\ TRY
-      (first_x_assum drule \\ rw []
-       \\ unlength_tac []
-       \\ NO_TAC)
-     (* \\ qexists_tac `ws` *) \\ fs []
-     \\ unlength_tac [])
-  \\ reverse conj_tac
-  >-
-   (`0 < heap_length Allocd /\ heap_length Allocd <= sp + sp1` by decide_tac
-    \\ drule (GEN_ALL v_inv_LIST_REL)
-    \\ disch_then drule
-    \\ fs [heap_expand_def]
-    \\ rw [] \\ fs []
-    \\ imp_res_tac EVERY2_SWAP \\ fs []
-    \\ first_x_assum drule \\ rw [LIST_REL_APPEND_EQ, EVERY2_SWAP])
-  \\ qmatch_goalsub_abbrev_tac `ha ++ _ ++ hm ++ _`
-  \\ `hm = heap_expand (sp+sp1 - heap_length Allocd)` by
-    unlength_tac [Abbr`hm`, heap_expand_def]
-  \\ pop_assum (fn th => fs [th])
-  \\ qunabbrev_tac `Allocd`
-  \\ match_mp_tac (Q.INST [`sp`|->`sp+sp1`] (SPEC_ALL v_inv_list_to_v_alt))
-  \\ unlength_tac [heap_expand_def]
 QED
-*)
 
 Theorem cons_thm_alt:
    abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
