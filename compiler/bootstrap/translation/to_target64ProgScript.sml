@@ -292,31 +292,27 @@ val _ = translate (conv64 inst_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPT
 
 val _ = translate (spec64 asmTheory.asm_ok_def)
 
+val res = translate (zero_labs_acc_of_def |> spec64)
+val res = translate (line_get_zero_labs_acc_def |> spec64)
+val res = translate (sec_get_zero_labs_acc_def |> spec64)
+val res = translate (get_zero_labs_acc_def |> spec64)
+val res = translate (zero_labs_acc_exist_def |> INST_TYPE[alpha |-> ``:num``, beta |->``:64``])
+
 (* Add in hidden argument to compile_lab *)
 val remove_labels_hash_def = Define `
   remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
     remove_labels_loop init_clock c pos labs ffis (enc_secs_64 c.encode hash_size sec_list)`;
 
+val remove_labels_hash_correct = Q.prove(`
+  remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =
+  remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list`,
+  simp [FUN_EQ_THM, remove_labels_hash_def, remove_labels_def,
+        enc_secs_64_correct]);
+
 val res = translate (remove_labels_hash_def |> spec64);
 
-val compile_lab_thm = Q.prove(`
-  compile_lab c sec_list =
-    let current_ffis = find_ffi_names sec_list in
-    let (ffis,ffis_ok) =
-      case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis,T)
-    in
-    if ffis_ok then
-      case remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list of
-      | SOME (sec_list,l1) =>
-          SOME (prog_to_bytes sec_list,
-                c with <| labels := l1;
-                          pos := FOLDL (λpos sec. sec_length (Section_lines sec) pos) c.pos sec_list;
-                          ffi_names := SOME ffis
-                        |>)
-      | NONE => NONE
-    else NONE`,
-  rw[compile_lab_def,remove_labels_hash_def,remove_labels_def]>>
-  simp[enc_secs_64_correct]);
+val compile_lab_thm = compile_lab_def
+  |> spec64 |> REWRITE_RULE [GSYM remove_labels_hash_correct];
 
 val res = translate compile_lab_thm;
 

@@ -1,5 +1,5 @@
 (*
-  Module about the built-in integer tyoe. Note that CakeML uses
+  Module about the built-in integer type. Note that CakeML uses
   arbitrary precision integers (the mathematical intergers).
 *)
 open preamble

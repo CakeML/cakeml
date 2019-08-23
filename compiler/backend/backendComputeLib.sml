@@ -108,7 +108,7 @@ val add_backend_compset = computeLib.extend_compset
     ,flat_to_patTheory.pure_def
     ,flat_to_patTheory.ground_def
     ,flat_to_patTheory.sLet_def
-    ,flat_to_patTheory.Let_Els_def_compute
+    ,flat_to_patTheory.Let_Els_compute
     ,flat_to_patTheory.compile_pat_def
     ,flat_to_patTheory.compile_row_def
     ,flat_to_patTheory.compile_exp_def
@@ -149,7 +149,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_callTheory.code_list_def
     ,clos_callTheory.compile_def
     ,clos_callTheory.calls_list_def
-    ,clos_callTheory.insert_each_def_compute
+    ,clos_callTheory.insert_each_compute
     ,clos_callTheory.GENLIST_Var_def
       (* ---- clos_annotate ---- *)
     ,clos_annotateTheory.get_var_def
@@ -158,7 +158,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_annotateTheory.shift_def
     ,clos_annotateTheory.compile_def
     ,clos_annotateTheory.const_0_def
-    ,clos_annotateTheory.no_overlap_def_compute
+    ,clos_annotateTheory.no_overlap_compute
     ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.get_size_sc_aux_def
@@ -187,7 +187,6 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_letopTheory.let_op_def
     ]
   ,computeLib.Defs (theory_computes "clos_fvs")
-  ,computeLib.Defs (theory_computes "clos_labels")
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
      ``:bvl$exp``
@@ -728,7 +727,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_to_stackTheory.SeqStackFree_def
     ,word_to_stackTheory.stack_arg_count_def
     ,word_to_stackTheory.stack_free_def
-    ,word_to_stackTheory.stack_move_def_compute
+    ,word_to_stackTheory.stack_move_compute
     ,word_to_stackTheory.StackArgs_def
     ,word_to_stackTheory.comp_def
     ,word_to_stackTheory.raise_stub_def
@@ -869,6 +868,11 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.list_add_if_fresh_def
     ,lab_to_targetTheory.get_ffi_index_def
     ,lab_to_targetTheory.sec_length_def
+    ,lab_to_targetTheory.zero_labs_acc_of_def
+    ,lab_to_targetTheory.line_get_zero_labs_acc_def
+    ,lab_to_targetTheory.sec_get_zero_labs_acc_def
+    ,lab_to_targetTheory.get_zero_labs_acc_def
+    ,lab_to_targetTheory.zero_labs_acc_exist_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
     ]

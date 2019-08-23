@@ -696,7 +696,6 @@ val evaluate_code_lemma = prove(
     \\ fs[GENLIST_APPEND,FUPDATE_LIST_APPEND,ALL_DISTINCT_APPEND] \\ rfs[]
     \\ fs[IN_DISJOINT,FDOM_FUPDATE_LIST] \\ rveq \\ fs[]
     \\ metis_tac[])
-  (*
   >-
    (fs [do_install_def]
     \\ fs [case_eq_thms, pair_case_eq, UNCURRY, bool_case_eq] \\ TRY (metis_tac [])
@@ -710,7 +709,6 @@ val evaluate_code_lemma = prove(
     \\ rfs []
     \\ fs [FDOM_FUPDATE_LIST]
     \\ metis_tac [])
-  *)
   \\ qmatch_goalsub_rename_tac`(n1 + (n2 + (n3 + _)))`
   \\ qexists_tac `n1+n2+n3` \\ fs []
   \\ sg `GENLIST r.compile_oracle n1 = GENLIST (\x. s.compile_oracle (n2 + x)) n1`
@@ -915,12 +913,14 @@ val do_app_cases_timeout = save_thm ("do_app_cases_timeout",
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, case_eq_thms] THENC
    ALL_CONV));
 
+(* works but huge, slow, and can't be skipped by --fast
 val do_app_cases_type_error = save_thm ("do_app_cases_type_error",
 ``do_app op vs s = Rerr (Rabort Rtype_error)`` |>
   (ONCE_REWRITE_CONV [do_app_split_list] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, case_eq_thms, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss++boolSimps.DNF_ss) [LET_THM, case_eq_thms] THENC
    ALL_CONV));
+*)
 
 val do_app_cases_ffi_error = save_thm ("do_app_cases_ffi_error",
 ``do_app op vs s = Rerr (Rabort(Rffi_error f))`` |>
@@ -2027,14 +2027,12 @@ val v_rel_to_list_ByteVector = prove(
   \\ Cases_on `h` \\ fs [] \\ rfs []
   \\ res_tac \\ fs []);
 
-val v_rel_to_list_byte = prove(
+val v_rel_to_list_byte1 = prove(
   ``simple_val_rel vr ==>
     !y x.
       vr x y ==>
-      !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns) ∧
-            EVERY (λn. n < 256) ns) <=>
-           (v_to_list y = SOME (MAP (Number ∘ $&) ns) ∧
-            EVERY (λn. n < 256) ns)``,
+      !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns)) <=>
+           (v_to_list y = SOME (MAP (Number ∘ $&) ns))``,
   strip_tac \\ fs [simple_val_rel_def]
   \\ ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def] \\ res_tac
@@ -2048,7 +2046,17 @@ val v_rel_to_list_byte = prove(
   \\ Cases_on `h` \\ rfs []
   \\ res_tac \\ fs []);
 
-val v_to_list_SOME = prove(
+val v_rel_to_list_byte2 = prove(
+  ``simple_val_rel vr ==>
+    !y x.
+      vr x y ==>
+      !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns) ∧
+            EVERY (λn. n < 256) ns) <=>
+           (v_to_list y = SOME (MAP (Number ∘ $&) ns) ∧
+            EVERY (λn. n < 256) ns)``,
+  metis_tac [v_rel_to_list_byte1]);
+
+ val v_to_list_SOME = prove(
   ``simple_val_rel vr ==>
     !y ys x.
       vr x y /\ v_to_list y = SOME ys ==>
@@ -2243,7 +2251,7 @@ val simple_val_rel_do_app_rev = time store_thm("simple_val_rel_do_app_rev",
     \\ simp [do_app_def,case_eq_thms,pair_case_eq] \\ strip_tac \\ rveq
     \\ simp [PULL_EXISTS] \\ rpt strip_tac \\ rveq
     \\ fs [case_eq_thms,pair_case_eq,bool_case_eq]
-    \\ drule v_rel_to_list_byte \\ fs []
+    \\ drule v_rel_to_list_byte2 \\ fs []
     \\ disch_then drule
     \\ rfs [simple_val_rel_def] \\ rveq \\ fs [])
   \\ Cases_on `?b. opp = FromList b` THEN1
@@ -2355,6 +2363,111 @@ Proof
   \\ TRY (PairCases_on `a` \\ fs [])
   \\ TRY (PairCases_on `a'` \\ fs [])
 QED
+
+(* generic do_install compile proof *)
+val simple_compile_state_rel_def = Define `
+  simple_compile_state_rel vr sr comp cr <=>
+    simple_state_rel vr sr /\
+    (! (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state).
+        sr s t ==>
+        t.clock = s.clock /\ s.compile = pure_cc comp t.compile /\
+        t.compile_oracle = pure_co comp o s.compile_oracle /\
+        (! n exps res p aux. SND (s.compile_oracle n) = (p, aux) ==>
+            comp (p, aux) = (exps, res) ==>
+            res = [] /\ LENGTH exps = LENGTH p /\ cr p exps) /\
+        (!n. SND (SND (s.compile_oracle n)) = []) /\
+        (! n. sr (s with <| clock := n; compile_oracle :=
+                        shift_seq 1 s.compile_oracle; code := s.code |>)
+             (t with <| clock := n; compile_oracle :=
+                        shift_seq 1 t.compile_oracle; code := t.code |>)))
+`;
+
+Theorem simple_val_rel_v_to_bytes:
+  simple_val_rel vr /\ vr x y ==> v_to_bytes x = v_to_bytes y
+Proof
+  rw [v_to_bytes_def]
+  \\ imp_res_tac v_rel_to_list_byte1
+  \\ rfs [listTheory.MAP_o]
+QED
+
+Theorem simple_val_rel_Word64_left:
+  simple_val_rel vr ==> !x w. vr (Word64 w) x = (x = Word64 w)
+Proof
+  strip_tac \\ Cases_on `x` \\ rfs [simple_val_rel_alt] \\ rw []
+  \\ metis_tac [isClos_def]
+QED
+
+Theorem val_rel_to_words_lemma:
+  simple_val_rel vr ==> (!xs ys. LIST_REL vr xs ys ==>
+    !ns. (xs = MAP Word64 ns) = (ys = MAP Word64 ns))
+Proof
+  disch_tac \\ ho_match_mp_tac LIST_REL_ind
+  \\ rw []
+  \\ Cases_on `ns` \\ fs []
+  \\ imp_res_tac simple_val_rel_Word64_left
+  \\ eq_tac \\ rw [] \\ fs []
+  \\ rfs [simple_val_rel_alt]
+QED
+
+Theorem simple_val_rel_v_to_words:
+  !x y. simple_val_rel vr /\ vr x y ==> v_to_words x = v_to_words y
+Proof
+  rw [] \\ Cases_on `v_to_list y` \\ rw [v_to_words_def]
+  \\ imp_res_tac v_to_list_NONE \\ fs []
+  \\ imp_res_tac v_to_list_SOME
+  \\ imp_res_tac val_rel_to_words_lemma
+  \\ fs []
+QED
+
+fun first_term f tm = f (find_term (can f) tm);
+
+fun TYPE_CASE_TAC nm (g as (_, tm)) =
+  (* CASE_TAC restricted to a particular type. Works in the proof below,
+     but needs more code from BasicProvers to be robust. *)
+  let
+    val ERR = mk_HOL_ERR "TYPE_CASE_TAC"
+    fun m (_, x, _) = if fst (dest_type (type_of x)) = nm
+        then x else raise ERR "TYPE_CASE_TAC" "no match"
+    val t = first_term (m o TypeBase.dest_case) tm
+  in CHANGED_TAC (Cases_on `^t`) end g;
+
+Theorem simple_val_rel_do_install:
+  !comp. simple_val_rel vr /\ simple_compile_state_rel vr sr comp cr ==>
+    sr s (t:('c,'ffi) closSem$state) /\ LIST_REL vr xs ys ==>
+    case do_install xs s of
+      | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
+                            exc_rel vr err1 err2 /\ sr s1 t1
+      | (Rval exps1, s1) => ?exps2 t1. sr s1 t1 /\ (~ (exps1 = [])) /\
+                               cr exps1 exps2 /\
+                               do_install ys t = (Rval exps2, t1)
+Proof
+  fs [simple_compile_state_rel_def] \\ rw []
+  \\ FIRST_X_ASSUM drule \\ rw []
+  \\ qpat_assum `!n. v = []` (ASSUME_TAC o Q.SPEC `0`)
+  \\ Cases_on `s.compile_oracle 0` \\ Cases_on `SND (s.compile_oracle 0)`
+  \\ rfs [] \\ fs [] \\ rveq
+  \\ simp [do_install_def]
+  \\ fs [pure_co_def]
+  \\ rpt (TYPE_CASE_TAC "list" \\ fs [])
+  \\ imp_res_tac simple_val_rel_v_to_bytes
+  \\ imp_res_tac simple_val_rel_v_to_words
+  \\ Cases_on `SND (s.compile_oracle 0)`
+  \\ FIRST_X_ASSUM drule \\ rfs [] \\ rveq
+  \\ rfs [pure_co_def, EVAL ``shift_seq k s 0``, pure_cc_def]
+  \\ EVERY_CASE_TAC \\ rfs [] \\ fs [finite_mapTheory.FUPDATE_LIST_THM]
+QED
+
+(* after do_install evaluate uses the LAST element, and this helps *)
+(* FIXME move *)
+Theorem LIST_REL_LAST:
+  !P. LIST_REL P xs ys /\ (~ (xs = [])) ==> P (LAST xs) (LAST ys)
+Proof
+  Q.ISPEC_THEN `xs` ASSUME_TAC SNOC_CASES
+  \\ Q.ISPEC_THEN `ys` ASSUME_TAC SNOC_CASES
+  \\ fs []
+QED
+
+
 
 (* a generic semantics preservation lemma *)
 
@@ -2886,9 +2999,9 @@ QED
 
 val SUBMAP_rel_def = Define`
   SUBMAP_rel z1 z2 ⇔
-    z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code (*∧
-    (∀n. DISJOINT (FDOM z2.code) (set (MAP FST (SND (SND (z1.compile_oracle n))))) ∧
-         (∀m. m < n ⇒ DISJOINT (set (MAP FST (SND (SND (z1.compile_oracle m))))) (set (MAP FST (SND (SND (z1.compile_oracle n)))))))*)`;
+    z2 = z1 with code := z2.code ∧ z1.code ⊑ z2.code ∧
+    oracle_monotonic (set ∘ MAP FST ∘ SND ∘ SND) $<
+        (FDOM z2.code) z1.compile_oracle`;
 
 Theorem find_code_SUBMAP_rel:
    find_code dest vs s1.code = SOME p ∧ SUBMAP_rel s1 s2 ⇒
@@ -2898,38 +3011,41 @@ Proof
   \\ imp_res_tac find_code_SUBMAP
 QED
 
-(*
+Theorem SUBMAP_rel_EX:
+  SUBMAP_rel z1 z2 ==> ?code. z2 = z1 with code := code /\ z1.code ⊑ code
+Proof
+  Cases_on `z2` \\ fs [SUBMAP_rel_def] \\ metis_tac []
+QED
+
 Theorem do_install_SUBMAP:
-   do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
-   SUBMAP_rel z1 z2 ⇒
-   ∃s2.
-     do_install xs z2 = (r,s2) ∧
-     SUBMAP_rel s1 s2
+  do_install xs z1 = (r,s1) ∧ r ≠ Rerr (Rabort Rtype_error) ∧
+  SUBMAP_rel z1 z2 ⇒
+  ∃s2. do_install xs z2 = (r,s2) ∧ SUBMAP_rel s1 s2
 Proof
   rw[closSemTheory.do_install_def]
   \\ fs[CaseEq"list",CaseEq"option"] \\ rw[]
   \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac SUBMAP_rel_def
-  \\ imp_res_tac closSemTheory.state_component_equality
-  \\ fs[] \\ rveq
-  \\ reverse IF_CASES_TAC \\ fs[] \\ fs[]
-  >- ( last_x_assum(qspec_then`0`mp_tac) \\ simp[] )
-  \\ fs[bool_case_eq,CaseEq"option",CaseEq"prod"]
-  \\ fs[SUBMAP_rel_def,closSemTheory.state_component_equality,shift_seq_def]
-  \\ rveq \\ fs[]
-  \\ (
-    conj_tac >- (
-      irule SUBMAP_mono_FUPDATE_LIST
-      \\ fs[SUBMAP_FLOOKUP_EQN, FLOOKUP_DRESTRICT] ))
-  \\ gen_tac
-  \\ first_x_assum(qspec_then`n+1`mp_tac)
-  \\ fs[IN_DISJOINT, FDOM_FUPDATE_LIST]
-  \\ CCONTR_TAC \\ fs[]
-  \\ first_x_assum(qspec_then`0`mp_tac) \\ simp[]
-  \\ metis_tac[]
+  \\ imp_res_tac SUBMAP_rel_EX
+  \\ fs[CaseEq"bool",CaseEq"option"]
+  \\ fs[CaseEq"prod", Once (CaseEq"bool")]
+  \\ fs[GSYM PULL_EXISTS, GSYM CONJ_ASSOC]
+  \\ conj_asm1_tac
+  >- (
+    fs [SUBMAP_rel_def]
+    \\ drule (Q.SPEC `0` backendPropsTheory.oracle_monotonic_DISJOINT_init)
+    \\ fs [irreflexive_def]
+  )
+  \\ fs[CaseEq"bool",CaseEq"option",CaseEq"prod"]
+  \\ rveq \\ fs []
+  \\ fs[SUBMAP_rel_def]
+  \\ rw []
+  \\ (irule SUBMAP_mono_FUPDATE_LIST ORELSE
+        irule backendPropsTheory.oracle_monotonic_shift_seq)
+  \\ fs [SUBMAP_FLOOKUP_EQN, FLOOKUP_DRESTRICT, FDOM_FUPDATE_LIST]
+  \\ fs [Once CONJ_COMM] \\ asm_exists_tac \\ fs []
 QED
-*)
+
 
 val do_app_lemma_simp = prove(
   ``(exc_rel $= err1 err2 <=> err1 = err2) /\
@@ -3052,7 +3168,6 @@ Proof
   \\ Cases_on`op = Install`
   \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
   \\ rveq \\ fs[]
-  (*
   \\ TRY (
     drule (GEN_ALL do_install_SUBMAP)
     \\ simp[]
@@ -3061,7 +3176,6 @@ Proof
     \\ fs[PULL_EXISTS]
     \\ res_tac \\ fs[]
     \\ NO_TAC )
-  *)
   \\ imp_res_tac do_app_SUBMAP_Rval
   \\ fs[]
   \\ imp_res_tac do_app_SUBMAP_Rerr

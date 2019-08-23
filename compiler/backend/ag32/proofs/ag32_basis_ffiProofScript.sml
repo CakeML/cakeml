@@ -6168,8 +6168,9 @@ Proof
     \\ simp[ag32_init_asm_state_def])
   \\ conj_tac
   >- (
-    Q.ISPEC_THEN `ag32_machine_config ffi_names (LENGTH code) (LENGTH data) with prog_addresses := ag32_startup_addresses`
-      drule (Q.GEN`mc` RTC_asm_step_target_configured)
+    qspec_then `ag32_machine_config ffi_names (LENGTH code) (LENGTH data) with prog_addresses := ag32_startup_addresses`
+       (drule_then (qspecl_then [‘ffi_names’, ‘data’, ‘code’] mp_tac))
+       (Q.GEN ‘mc’ RTC_asm_step_target_configured)
     \\ simp[targetSemTheory.target_configured_def]
     \\ impl_tac >- EVAL_TAC
     \\ strip_tac \\ fs[])

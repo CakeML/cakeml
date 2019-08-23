@@ -2964,9 +2964,9 @@ val good_handlers_def = Define`
 val _ = export_rewrites["good_handlers_def"];
 
 val good_code_labels_def = Define`
-  good_code_labels p ⇔
+  good_code_labels p elabs ⇔
   EVERY (λ(n,m,pp). good_handlers n pp) p ∧
   (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
-  (set (MAP FST p))`;
+  (set (MAP FST p) ∪ elabs)`;
 
 val _ = export_theory();

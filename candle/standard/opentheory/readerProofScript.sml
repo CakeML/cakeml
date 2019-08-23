@@ -1082,15 +1082,15 @@ Proof
     \\ drule_or_nil pop_thm
     \\ TRY
      (drule (GEN_ALL new_basic_type_definition_thm)
-      \\ disch_then (qspec_then `nm` drule)
+      \\ disch_then (qspec_then `nm` old_drule)
       \\ disch_then (qspecl_then [`rep`,`abs`] mp_tac) \\ rw [])
     \\ TRY (`TERM (ds ++ defs) (concl th1)` by metis_tac [concl_thm])
     \\ drule_or_nil dest_eq_thm
     \\ drule (GEN_ALL ABS_thm)
     \\ disch_then (qspec_then `th1` mp_tac)
-    \\ rpt (disch_then drule) \\ rw []
+    \\ rpt (disch_then old_drule) \\ rw []
     \\ qspec_then `th2` mp_tac (GEN_ALL SYM_thm)
-    \\ rpt (disch_then drule) \\ rw []
+    \\ rpt (disch_then old_drule) \\ rw []
     \\ TRY (`TERM (ds ++ defs) (concl th2')` by metis_tac [concl_thm])
     \\ drule_or_nil dest_eq_thm
     \\ drule_or_nil dest_comb_thm
@@ -2084,4 +2084,3 @@ Proof
 QED
 
 val _ = export_theory();
-

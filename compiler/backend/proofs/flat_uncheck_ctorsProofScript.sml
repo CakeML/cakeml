@@ -259,7 +259,6 @@ val do_app_correct = Q.prove (
      ∃r' s2'. do_app F s1' op vs' = SOME (s2', r') ∧
               s_rel s2 s2' ∧
               result_rel v_rel v_rel r r'`,
-
   rw [do_app_cases] >>
   fs [] >>
   rw [] >>

@@ -467,7 +467,6 @@ Theorem do_app_thm:
      state_rel T ctors t1 t2 /\
      do_app cc s2 op vs2 = SOME (t2, r2)
 Proof
-
   rpt strip_tac \\ qhdtm_x_assum `do_app` mp_tac
   \\ Cases_on `op = Opb Lt \/ op = Opb Gt \/ op = Opb Leq \/ op = Opb Geq \/
                op = Opn Plus \/ op = Opn Minus \/ op = Opn Times \/

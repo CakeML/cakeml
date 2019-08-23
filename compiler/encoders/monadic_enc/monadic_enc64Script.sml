@@ -190,15 +190,15 @@ val lookup_ins_table_64_correct = Q.prove(`
   >- (
     fs[good_table_64_def]>>
     match_mp_tac IMP_EVERY_LUPDATE>>fs[]>>
-    drule EL_MEM>>
+    old_drule EL_MEM>>
     metis_tac[EVERY_MEM])
   >>
   fs[good_table_64_def]>>
-  drule EL_MEM>>
-  drule ALOOKUP_MEM>>
+  old_drule EL_MEM>>
+  old_drule ALOOKUP_MEM>>
   fs[EVERY_MEM]>>
-  rw[]>> first_x_assum drule>>
-  disch_then drule>>
+  rw[]>> first_x_assum old_drule>>
+  disch_then old_drule>>
   fs[]);
 
 val enc_line_hash_64_correct = Q.prove(`
@@ -212,7 +212,7 @@ val enc_line_hash_64_correct = Q.prove(`
   fs msimps>>
   qmatch_goalsub_abbrev_tac`lookup_ins_table_64 _ _ aa`>>
   rw[]>>
-  drule lookup_ins_table_64_correct>>rw[]>>simp[]);
+  old_drule lookup_ins_table_64_correct>>rw[]>>simp[]);
 
 val enc_line_hash_64_ls_correct = Q.prove(`
   ∀xs s.
@@ -224,9 +224,9 @@ val enc_line_hash_64_ls_correct = Q.prove(`
   Induct>>fs[enc_line_hash_64_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
-  drule enc_line_hash_64_correct>>
+  old_drule enc_line_hash_64_correct>>
   disch_then (qspec_then `h` assume_tac)>>rfs[]>>
-  first_x_assum drule>>
+  first_x_assum old_drule>>
   rw[]>>simp[]);
 
 val enc_sec_hash_64_ls_correct = Q.prove(`
@@ -240,10 +240,10 @@ val enc_sec_hash_64_ls_correct = Q.prove(`
   fs msimps>>
   rw[]>> simp[]>>
   TOP_CASE_TAC>>simp[]>>
-  drule enc_line_hash_64_ls_correct>>
+  old_drule enc_line_hash_64_ls_correct>>
   simp[]>>
   disch_then(qspec_then`l` assume_tac)>>fs[]>>
-  first_x_assum drule>>rw[]>>
+  first_x_assum old_drule>>rw[]>>
   simp[enc_sec_def]);
 
 Theorem enc_secs_64_correct:

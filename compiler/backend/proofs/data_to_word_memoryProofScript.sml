@@ -13,6 +13,8 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "data_to_word_memoryProof";
 
+val drule = old_drule
+
 (* TODO: move? *)
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
 fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
@@ -242,9 +244,8 @@ val bc_ref_inv_def = Define `
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
               EVERY2 (\z y. v_inv conf y (z,f,heap)) zs ys)
     | (SOME x, SOME (ByteArray flag bs)) =>
-        ?ws. LENGTH bs ≤ ws * (dimindex (:α) DIV 8) /\
-             ws ≤ LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
-            (heap_lookup x heap = SOME (Bytes be flag bs (REPLICATE ws (0w:'a word))))
+        let ws = LENGTH bs DIV (dimindex (:α) DIV 8) + 1 in
+          (heap_lookup x heap = SOME (Bytes be flag bs (REPLICATE ws (0w:'a word))))
     | _ => F`;
 
 val bc_stack_ref_inv_def = Define `
@@ -1886,7 +1887,7 @@ Proof
       (first_x_assum drule \\ rw []
        \\ unlength_tac []
        \\ NO_TAC)
-     \\ qexists_tac `ws` \\ fs []
+     (* \\ qexists_tac `ws` *) \\ fs []
      \\ unlength_tac [])
   \\ reverse conj_tac
   >-
@@ -2784,7 +2785,7 @@ Theorem update_byte_ref_thm:
     ?roots2 h1 h2 ws.
       (roots = Pointer (heap_length h1) ((Word 0w):'a word_loc) :: roots2) /\
       heap = h1 ++ [Bytes be fl xs ws] ++ h2 /\
-      (* LENGTH ws = LENGTH xs DIV (dimindex (:α) DIV 8) + 1 /\ *)
+      LENGTH ws = LENGTH xs DIV (dimindex (:α) DIV 8) + 1 /\
       abs_ml_inv conf ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray fl ys))
         (roots,h1 ++ [Bytes be fl ys ws] ++ h2,be,a,sp,sp1,gens) limit
 Proof
@@ -2798,6 +2799,7 @@ Proof
   \\ pop_assum mp_tac \\ simp_tac std_ss [Once bc_ref_inv_def]
   \\ fs [FLOOKUP_DEF] \\ rw []
   \\ drule heap_lookup_SPLIT \\ rw [] \\ fs []
+  \\ qpat_abbrev_tac `ws = LENGTH _ DIV _ + 1`
   \\ qexists_tac `ha` \\ fs []
   \\ qexists_tac `REPLICATE ws 0w` \\ fs [PULL_EXISTS]
   \\ qexists_tac `f` \\ fs []
@@ -3179,10 +3181,9 @@ QED
 
 Theorem new_byte_alt_thm:
    abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit /\
-    LENGTH bs ≤ ws * (dimindex (:α) DIV 8) ∧
-    ws ≤ LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
-    ~(ptr IN FDOM refs) /\ ws + 1 <= sp ==>
-    ?heap2.
+   Abbrev (ws = LENGTH bs DIV (dimindex (:α) DIV 8) + 1) /\
+   ~(ptr IN FDOM refs) /\ ws + 1 <= sp ==>
+   ?heap2.
       (heap_store_unused_alt a (sp+sp1)
         (Bytes be fl bs (REPLICATE ws (0w:'a word))) heap = (heap2,T)) /\
       abs_ml_inv conf ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray fl bs))
@@ -3282,15 +3283,14 @@ Proof
   \\ TOP_CASE_TAC \\ fs [] \\ rveq \\ fs []
   \\ fs [Bytes_def,isDataElement_def,LET_THM,heap_store_rel_def,
          isSomeDataElement_def,PULL_EXISTS,RefBlock_def] \\ rw []
-  \\ res_tac \\ fs []
-  THEN1
-   (qpat_x_assum `EVERY2 PPP zs l` MP_TAC
-    \\ match_mp_tac EVERY2_IMP_EVERY2
-    \\ full_simp_tac std_ss [] \\ simp_tac (srw_ss()) []
-    \\ rpt strip_tac
-    \\ match_mp_tac v_inv_SUBMAP
-    \\ fs [heap_store_rel_def,isSomeDataElement_def,PULL_EXISTS])
-  \\ metis_tac []
+  \\ res_tac
+  \\ qpat_x_assum `EVERY2 PPP zs l` MP_TAC
+  \\ fs [heap_store_rel_def,isSomeDataElement_def,PULL_EXISTS]
+  \\ match_mp_tac EVERY2_IMP_EVERY2
+  \\ full_simp_tac std_ss [] \\ simp_tac (srw_ss()) []
+  \\ rpt strip_tac
+  \\ match_mp_tac v_inv_SUBMAP \\ fs []
+  \\ fs [heap_store_rel_def,isSomeDataElement_def,PULL_EXISTS]
 QED
 
 (* pop *)
@@ -3530,8 +3530,8 @@ val make_byte_header_def = Define `
   make_byte_header conf cmp_by_contents len =
   let tag = if cmp_by_contents then 0b00111w else 0b10111w in
     (if dimindex (:'a) = 32
-     then n2w (len + 3) << (dimindex (:α) - 2 - conf.len_size) || tag
-     else n2w (len + 7) << (dimindex (:α) - 3 - conf.len_size) || tag):'a word`
+     then n2w (len + 4) << (dimindex (:α) - 2 - conf.len_size) || tag
+     else n2w (len + 8) << (dimindex (:α) - 3 - conf.len_size) || tag):'a word`
 
 val word_payload_def = Define `
   (word_payload ys l (BlockTag n) qs conf =
@@ -3563,7 +3563,7 @@ val word_payload_def = Define `
      ((make_byte_header conf fl n):'a word,
       qs, (ys = []) /\ (LENGTH qs = l) /\
           let k = if dimindex(:'a) = 32 then 2 else 3 in
-          n + (2 ** k - 1) < 2 ** (conf.len_size + k)))`;
+          n + 2 ** k < 2 ** (conf.len_size + k)))`;
 
 Theorem word_payload_T_IMP:
    word_payload l5 n5 tag r conf = (h:'a word,ts,T) /\
@@ -4945,8 +4945,8 @@ val memory_rel_RefArray = save_thm("memory_rel_RefArray",
 
 val byte_len_def = Define `
   byte_len (:'a) num_bytes =
-    if dimindex (:'a) = 32 then (num_bytes + 3) DIV 4
-                           else (num_bytes + 7) DIV 8`;
+    if dimindex (:'a) = 32 then num_bytes DIV 4 + 1
+                           else num_bytes DIV 8 + 1`;
 
 val word_of_byte_def = Define `
   word_of_byte (w:'a word) =
@@ -5215,11 +5215,11 @@ QED
 
 Theorem write_bytes_change_extra:
    ∀ws bs be ws'.
-   good_dimindex(:'a) ∧
-   LENGTH ws = LENGTH ws' ∧
-   LENGTH ws < byte_len (:'a) (LENGTH bs)
-   ⇒
-   write_bytes bs (ws:'a word list) be = write_bytes bs ws' be
+     good_dimindex(:'a) ∧
+     LENGTH ws = LENGTH ws' ∧
+     LENGTH ws < byte_len (:'a) (LENGTH bs)
+     ⇒
+     write_bytes bs (ws:'a word list) be = write_bytes bs ws' be
 Proof
   Induct \\ rw[write_bytes_def,LENGTH_NIL_SYM]
   \\ Cases_on`ws'` \\ fs[write_bytes_def]
@@ -5227,7 +5227,7 @@ Proof
   >- (
     first_x_assum match_mp_tac
     \\ fs[byte_len_def,labPropsTheory.good_dimindex_def]
-    \\ rfs[X_LT_DIV] )
+    \\ rfs [ADD_DIV_EQ,X_LT_DIV] )
   \\ fs[labPropsTheory.good_dimindex_def,byte_len_def]
   \\ Cases_on`bs` \\ rfs[ADD1]
   \\ qmatch_goalsub_rename_tac`_::bs`
@@ -5253,41 +5253,6 @@ Proof
   \\ simp[bytes_to_word_simp,set_byte_all_64,set_byte_all_32]
 QED
 
-Theorem byte_len_lemma:
-   good_dimindex(:'a) ∧
-   byte_len (:'a) n = SUC l ⇒
-   n - l * (dimindex (:'a) DIV 8) =
-     if n MOD (dimindex (:'a) DIV 8) = 0
-     then dimindex(:'a) DIV 8
-     else n MOD (dimindex (:'a) DIV 8)
-Proof
-  rw[labPropsTheory.good_dimindex_def,byte_len_def]
-  \\ fs[DIV_EQ_X,MULT_CLAUSES,MOD_EQ_0_DIVISOR] \\ rfs[]
-  \\ fs[MOD_EQ_0_DIVISOR] \\ rfs[]
-  >- ( `4 * l < 4 * d` by decide_tac \\ fs[] )
-  >- (
-    `l = n DIV 4` suffices_by (
-      qspec_then`4`mp_tac DIVISION \\ simp[]
-      \\ disch_then(qspec_then`n`mp_tac)
-      \\ decide_tac )
-    \\ simp[DIV_EQ_X,ADD1,MULT_CLAUSES]
-    \\ `n ≠ 4 * l + 4` suffices_by decide_tac
-    \\ strip_tac \\ fs[]
-    \\ first_x_assum(qspec_then`l+1`mp_tac)
-    \\ simp[] )
-  >- ( `8 * l < 8 * d` by decide_tac \\ fs[] )
-  >- (
-    `l = n DIV 8` suffices_by (
-      qspec_then`8`mp_tac DIVISION \\ simp[]
-      \\ disch_then(qspec_then`n`mp_tac)
-      \\ decide_tac )
-    \\ simp[DIV_EQ_X,ADD1,MULT_CLAUSES]
-    \\ `n ≠ 8 * l + 8` suffices_by decide_tac
-    \\ strip_tac \\ fs[]
-    \\ first_x_assum(qspec_then`l+1`mp_tac)
-    \\ simp[] )
-QED
-
 val last_bytes_def = Define`
   last_bytes k b a w be =
     if k = 0n then w else
@@ -5301,14 +5266,68 @@ val last_bytes_simp = Q.prove(
 |> curry save_thm "last_bytes_simp";
 
 Theorem last_bytes_bytes_to_word_REPLICATE:
-   !n k a w.
-   n <= k  ==>
-   bytes_to_word k a (REPLICATE n b) w be =
-   last_bytes n b a w be
+   !n1 n k a (w:'a word).
+   n <= k /\ b1 = b2 /\ n1 = n ==>
+   bytes_to_word k a (REPLICATE n b2) w be =
+   last_bytes n1 b1 a w be
 Proof
-  Induct \\ rw[bytes_to_word_simp,REPLICATE]
+  simp []
+  \\ Induct \\ rw[bytes_to_word_simp,REPLICATE]
   >- ( rw[Once last_bytes_def] )
   \\ rw[Once last_bytes_def,SimpRHS]
+QED
+
+Theorem decode_length_make_byte_header:
+   good_dimindex(:α) ∧ c.len_size + 7 < dimindex(:α) ∧
+   len + (2 ** shift(:α)) < 2 ** (c.len_size + shift(:α)) ⇒
+   len ≤ w2n ((decode_length c (make_byte_header c fl len)):α word) *
+       (dimindex(:α) DIV 8) /\
+  w2n ((decode_length c (make_byte_header c fl len)):α word) ≤
+       len DIV (dimindex(:α) DIV 8) + 1
+Proof
+  simp[decode_length_def,make_byte_header_def,labPropsTheory.good_dimindex_def]
+  \\ strip_tac \\ simp[]
+  \\ qpat_abbrev_tac`z = COND _ _ _ >>> _`
+  \\ `z = 0w`
+  by (
+    fs[Abbr`z`]
+    \\ fsrw_tac[wordsLib.WORD_BIT_EQ_ss][word_index]
+    \\ rpt strip_tac
+    \\ spose_not_then strip_assume_tac
+    \\ rfs[word_index] )
+  \\ unabbrev_all_tac \\ fs[]
+  \\ qmatch_goalsub_abbrev_tac`_ << s1`
+  \\ qmatch_goalsub_abbrev_tac`_ >>> s2`
+  \\ `s2 = s1 + shift(:α)`
+  by ( simp[Abbr`s1`,Abbr`s2`,shift_def] )
+  \\ fs [DIV_LT_X,ADD_DIV_EQ]
+  \\ unabbrev_all_tac
+  \\ qpat_abbrev_tac `pat = _ << _ >>> _`
+  \\ qabbrev_tac `k = (if dimindex (:'a) = 32 then 4 else 8:num)`
+  \\ `(k + len) DIV k < 2 ** c.len_size` by
+    (`0 < k` by fs [Abbr `k`] \\ fs [DIV_LT_X]
+     \\ rfs [shift_def,EXP_ADD] \\ rfs [] \\ fs [])
+  \\ `k + len < dimword (:'a)` by
+   (`0 < k` by fs [Abbr `k`] \\ fs [DIV_LT_X]
+    \\ match_mp_tac LESS_LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
+    \\ `k = 2 ** (if dimindex (:'a) = 32 then 2 else 3)` by fs [Abbr`k`]
+    \\ pop_assum (fn th => once_rewrite_tac [th])
+    \\ rewrite_tac [GSYM EXP_ADD,dimword_def]
+    \\ rewrite_tac [dimword_def,EXP_BASE_LE_IFF] \\ fs [])
+  \\ `(len + k) DIV k < dimword (:'a)` by
+   (fs [] \\ match_mp_tac LESS_LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
+    \\ rewrite_tac [dimword_def,EXP_BASE_LE_IFF] \\ fs [])
+  \\ `pat = n2w ((len + k) DIV k)` by
+   (rfs [] \\ fs []
+    \\ qunabbrev_tac `pat`
+    \\ match_mp_tac shift_shift_lemma \\ fs [shift_def]
+    \\ fs [dimword_def,DIV_LT_X] \\ rfs [])
+  \\ `0 < k` by fs [Abbr `k`]
+  \\ drule arithmeticTheory.ADD_DIV_ADD_DIV
+  \\ disch_then (qspec_then `1` assume_tac) \\ fs [] \\ rfs []
+  \\ drule DIVISION
+  \\ disch_then (qspec_then `len` strip_assume_tac)
+  \\ qpat_x_assum `_ = _` (fn th => simp [th])
 QED
 
 Theorem memory_rel_RefByte_alt:
@@ -5323,8 +5342,7 @@ Theorem memory_rel_RefByte_alt:
      (let w' = bytes_in_word * (n2w (byte_len (:'a) n + 1)):'a word in
       let ws = REPLICATE (byte_len (:'a) n) (Word (word_of_byte (w2w w))) in
       let nb = (n MOD (dimindex(:'a) DIV 8)) in
-      let ws = if nb = 0 then ws
-               else LUPDATE (Word (last_bytes nb w 0w 0w be)) (byte_len (:'a) n - 1) ws in
+      let ws = LUPDATE (Word (last_bytes nb w 0w 0w be)) (byte_len (:'a) n - 1) ws in
         store_list free (Word (make_byte_header c fl n)::ws) m dm = SOME m1 ∧
         memory_rel c be (refs |+ (new,ByteArray fl (REPLICATE n w)))
           (sp − (byte_len (:'a) n + 1)) (st |+ (NextFree,Word (free + w'))) m1 dm
@@ -5342,26 +5360,7 @@ Proof
         `new`,`fl`,`REPLICATE n w`] mp_tac)
   \\ fs [LENGTH_REPLICATE]
   \\ impl_tac THEN1
-   (fs [labPropsTheory.good_dimindex_def,byte_len_def]
-    THEN1
-     (assume_tac (MATCH_MP DIVISION (DECIDE ``0 < 4n``) |> Q.SPEC `n`)
-      \\ pop_assum (fn th => once_rewrite_tac [th])
-      \\ fs [MULT_ASSOC]
-      \\ simp_tac std_ss [ONCE_REWRITE_RULE [MULT_COMM] ADD_DIV_ADD_DIV]
-      \\ fs [LEFT_ADD_DISTRIB]
-      \\ `n MOD 4 < 4` by fs [LESS_MOD]
-      \\ full_simp_tac bool_ss
-          [DECIDE ``n < 4 <=> n = 0 \/ n = 1 \/ n = 2 \/ n = 3n``] \\ fs [])
-    THEN1
-     (assume_tac (MATCH_MP DIVISION (DECIDE ``0 < 8n``) |> Q.SPEC `n`)
-      \\ pop_assum (fn th => once_rewrite_tac [th])
-      \\ fs [MULT_ASSOC]
-      \\ simp_tac std_ss [ONCE_REWRITE_RULE [MULT_COMM] ADD_DIV_ADD_DIV]
-      \\ fs [LEFT_ADD_DISTRIB]
-      \\ `n MOD 8 < 8` by fs [LESS_MOD]
-      \\ full_simp_tac bool_ss
-          [DECIDE ``n < 8 <=> n = 0 \/ n = 1 \/ n = 2 \/ n = 3n \/
-                              n = 4 \/ n = 5 \/ n = 6 \/ n = 7n``] \\ fs []))
+    (fs [byte_len_def,good_dimindex_def] \\ fs [markerTheory.Abbrev_def])
   \\ rfs [] \\ fs [] \\ clean_tac \\ strip_tac
   \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
@@ -5397,18 +5396,6 @@ Proof
     \\ rename1`REPLICATE l`
     \\ rewrite_tac[GSYM REPLICATE]
     \\ simp[REPLICATE_SNOC,LUPDATE_APPEND2,LUPDATE_def,write_bytes_APPEND]
-    \\ IF_CASES_TAC
-    >- (
-      simp[write_bytes_def,DROP_REPLICATE,byte_len_lemma]
-      \\ once_rewrite_tac[GSYM map_replicate]
-      \\ conj_tac >- (
-        AP_TERM_TAC
-        \\ drule(GSYM write_bytes_REPLICATE)
-        \\ disch_then(qspecl_then[`l`,`n`]SUBST_ALL_TAC)
-        \\ match_mp_tac write_bytes_change_extra
-        \\ simp[])
-      \\ fs[labPropsTheory.good_dimindex_def,bytes_to_word_simp,REPLICATE_compute]
-      \\ fs[word_of_byte_set_byte_32,word_of_byte_set_byte_64] )
     \\ simp[APPEND_EQ_APPEND] \\ disj1_tac \\ qexists_tac`[]` \\ simp[]
     \\ conj_tac
     >- (
@@ -5420,11 +5407,15 @@ Proof
       \\ simp[] )
     \\ simp[write_bytes_def]
     \\ simp[DROP_REPLICATE]
-    \\ simp[byte_len_lemma]
-    \\ match_mp_tac last_bytes_bytes_to_word_REPLICATE
+    \\ match_mp_tac (GEN_ALL last_bytes_bytes_to_word_REPLICATE)
     \\ simp[LESS_OR_EQ]
-    \\ fs[labPropsTheory.good_dimindex_def]
-    \\ NO_TAC)
+    \\ fs[labPropsTheory.good_dimindex_def,byte_len_def]
+    \\ rfs [ADD1] \\ rveq
+    \\ `0 < 4:num` by fs [] \\ drule DIVISION
+    \\ disch_then (qspec_then `n` strip_assume_tac)
+    \\ `0 < 8:num` by fs [] \\ drule DIVISION
+    \\ disch_then (qspec_then `n` strip_assume_tac)
+    \\ decide_tac)
   \\ rveq \\ fs []
   \\ simp_tac (std_ss++helperLib.sep_cond_ss) [cond_STAR,GSYM CONJ_ASSOC]
   \\ fs [GSYM PULL_EXISTS] \\ fs [CONJ_ASSOC]
@@ -5446,6 +5437,7 @@ Proof
       \\ qexists_tac `2n ** 5`
       \\ (conj_tac THEN1 fs [])
       \\ match_mp_tac IMP_EXP_LESS \\ fs [] \\ NO_TAC) \\ fs []
+    \\ fs [DIV_LT_X,ADD_DIV_EQ]
     \\ match_mp_tac shift_shift_lemma \\ fs [shift_def]
     \\ fs [dimword_def,DIV_LT_X])
   \\ `(byte_len (:α) n + 1) = LENGTH ws1` by
@@ -6010,73 +6002,6 @@ Proof
   \\ fs [get_byte_byte_align]
 QED
 
-Theorem decode_length_make_byte_header:
-   good_dimindex(:α) ∧ c.len_size + 7 < dimindex(:α) ∧
-   len + (2 ** shift(:α) - 1) < 2 ** (c.len_size + shift(:α)) ⇒
-   len ≤ w2n ((decode_length c (make_byte_header c fl len)):α word) *
-       (dimindex(:α) DIV 8) ∧
-   w2n ((decode_length c (make_byte_header c fl len)):α word) ≤
-       len DIV (dimindex(:α) DIV 8) + 1
-Proof
-  simp[decode_length_def,make_byte_header_def,labPropsTheory.good_dimindex_def]
-  \\ strip_tac \\ simp[]
-  \\ qpat_abbrev_tac`z = COND _ _ _ >>> _`
-  \\ `z = 0w`
-  by (
-    fs[Abbr`z`]
-    \\ fsrw_tac[wordsLib.WORD_BIT_EQ_ss][word_index]
-    \\ rpt strip_tac
-    \\ spose_not_then strip_assume_tac
-    \\ rfs[word_index] )
-  \\ unabbrev_all_tac \\ fs[]
-  \\ qmatch_goalsub_abbrev_tac`_ << s1`
-  \\ qmatch_goalsub_abbrev_tac`_ >>> s2`
-  \\ `s2 = s1 + shift(:α)`
-  by ( simp[Abbr`s1`,Abbr`s2`,shift_def] )
-  \\ qunabbrev_tac`s2` \\ fs[]
-  \\ REWRITE_TAC[GSYM LSR_ADD]
-  \\ dep_rewrite.DEP_REWRITE_TAC[lsl_lsr]
-  \\ simp[] \\ rfs[shift_def]
-  \\ simp[w2n_lsr]
-  \\ qmatch_goalsub_abbrev_tac`x MOD d`
-  \\ `x < d`
-  by (
-    qmatch_assum_abbrev_tac`x < 2 ** p`
-    \\ `p < dimindex(:α)` by simp[Abbr`p`]
-    \\ metis_tac[bitTheory.TWOEXP_MONO,dimword_def,LESS_TRANS] )
-  \\ simp[]
-  \\ (conj_tac
-  >- (
-    qmatch_assum_abbrev_tac`x < 2 ** p`
-    \\ `x * 2 ** s1 < 2 ** p * 2 ** s1` by simp[]
-    \\ `2 ** p * 2 ** s1 ≤ d` suffices_by simp[]
-    \\ simp[Abbr`d`]
-    \\ REWRITE_TAC[dimword_def,GSYM EXP_ADD]
-    \\ `p + s1 = dimindex(:α)` by simp[Abbr`p`]
-    \\ simp[] ))
-  \\ simp[Abbr`x`]
-  \\ simp[DIV_LE_X,LEFT_ADD_DISTRIB]
-  \\ qmatch_goalsub_abbrev_tac`n * (x DIV n)`
-  \\ `len ≤ x - x MOD n`
-  by (
-    simp[Abbr`x`,Abbr`n`]
-    \\ qmatch_goalsub_abbrev_tac`r MOD n`
-    \\ `r MOD n < n` by simp[Abbr`n`]
-    \\ simp[Abbr`r`,Abbr`n`] )
-  \\ qspec_then`n`mp_tac DIVISION
-  \\ (impl_tac >- simp[Abbr`n`])
-  \\ disch_then(qspec_then`x`mp_tac)
-  \\ simp[] \\ strip_tac
-  \\ `x < len + n`
-  by ( simp[Abbr`n`,Abbr`x`] )
-  \\ qspec_then`n`mp_tac DIVISION
-  \\ (impl_tac >- simp[Abbr`n`])
-  \\ disch_then(qspec_then`len`mp_tac)
-  \\ `len MOD n + n < n + n` by simp[]
-  \\ qunabbrev_tac`n`
-  \\ decide_tac
-QED
-
 Theorem write_bytes_same:
    ∀ws b1 b2.
    (∀n. n < LENGTH (ws:α word list) * (dimindex(:α) DIV 8) ⇒ n < LENGTH b1 ∧ n < LENGTH b2 ∧ EL n b1 = EL n b2)
@@ -6187,22 +6112,7 @@ Proof
     \\ disch_then(CONV_TAC o STRIP_QUANT_CONV o LAND_CONV o LAND_CONV o REWR_CONV o SYM)
     \\ simp[]
     \\ Cases_on`DROP i bs` >- ( fs[DROP_NIL] )
-    \\ simp[] \\ rfs[]
-    (*
-    \\ qspec_then`bw`mp_tac DIVISION
-    \\ impl_tac >- simp[Abbr`bw`]
-    \\ disch_then(qspec_then`LENGTH bs`mp_tac)
-    \\ qmatch_goalsub_abbrev_tac`LENGTH bs = k * bw + q`
-    \\ strip_tac
-    \\ `LENGTH bs - bw * j = bw * k + q - bw * j` by decide_tac
-    \\ pop_assum SUBST_ALL_TAC
-    \\ Cases_on`j=0`
-    >- (
-      qunabbrev_tac`j` \\ fs[] \\ clean_tac
-      \\ qpat_x_assum`LENGTH bs = _`(assume_tac o SYM) \\ fs[]
-      \\ reverse(Cases_on`k`) >- ( fs[ADD1] )
-      \\ fs[markerTheory.Abbrev_def] \\ clean_tac
-      *))
+    \\ simp[] \\ rfs[])
   \\ pop_assum SUBST_ALL_TAC
   \\ pop_assum SUBST_ALL_TAC
   \\ REWRITE_TAC[LUPDATE_LENGTH]
@@ -6350,11 +6260,11 @@ Theorem memory_rel_ByteArray_IMP:
            Word (set_byte addr w (theWord (m (byte_align addr))) be)) m) dm
            ((RefPtr p,v)::vars)) ∧
      if dimindex (:'a) = 32 then
-       LENGTH vals + 3 < 2 ** (dimindex (:'a) - 3) /\
-       (x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 3))
+       LENGTH vals + 4 < 2 ** (dimindex (:'a) - 3) /\
+       (x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 4))
      else
-       LENGTH vals + 7 < 2 ** (dimindex (:'a) - 3) /\
-       (x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 7))
+       LENGTH vals + 8 < 2 ** (dimindex (:'a) - 3) /\
+       (x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 8))
 Proof
   CONV_TAC(RAND_CONV(REWRITE_CONV[GSYM hide_memory_rel_def]))
   \\ qpat_abbrev_tac`P = $= (make_byte_header _ _ _)`
@@ -6405,6 +6315,7 @@ Proof
     \\ fs [wordSemTheory.mem_load_byte_aux_def]
     \\ fs [alignmentTheory.byte_align_def,bytes_in_word_def]
     \\ qabbrev_tac `k = LOG2 (dimindex (:α) DIV 8)`
+    \\ qabbrev_tac `ws = LENGTH vals DIV 2 ** k + 1`
     \\ `dimindex (:α) DIV 8 = 2 ** k` by
          (rfs [labPropsTheory.good_dimindex_def,Abbr`k`] \\ NO_TAC) \\ fs []
     \\ `(align k (curr + n2w (2 ** k) +
@@ -6442,6 +6353,7 @@ Proof
     \\ fs []
     \\ `i DIV 2 ** k < ws` by
         (fs [DIV_LT_X,RIGHT_ADD_DISTRIB]
+         \\ fs [Abbr`ws`]
          \\ `0n < 2 ** k` by fs []
          \\ rpt_drule DIVISION
          \\ disch_then (qspec_then `LENGTH vals` strip_assume_tac)
@@ -6493,6 +6405,7 @@ Proof
     \\ fs[wordSemTheory.mem_load_byte_aux_def]
     \\ Cases_on`m (byte_align ad)` \\ fs[]
     \\ qmatch_asmsub_abbrev_tac`ha ++ bytes ::hb`
+    \\ qabbrev_tac `ws = LENGTH vals DIV (dimindex (:α) DIV 8) + 1`
     \\ `bytes = Bytes be fl vals (REPLICATE ws 0w)` by simp[Abbr`bytes`,Bytes_def]
     \\ qunabbrev_tac`bytes` \\ fs[]
     \\ simp[theWord_def]
@@ -6538,7 +6451,10 @@ Proof
     \\ simp[] \\ strip_tac \\ fs[]
     \\ asm_exists_tac
     \\ simp[word_addr_def])
-  \\ qpat_x_assum `LENGTH vals + (_ - 1) < 2 ** (_ + _)` assume_tac
+  \\ qpat_x_assum `LENGTH vals + _ < 2 ** (_ + _)` assume_tac
+  \\ `LENGTH vals + 2**(if dimindex (:α) = 32 then 2 else 3) < dimword (:'a)` by
+   (match_mp_tac LESS_LESS_EQ_TRANS \\ asm_exists_tac \\ fs []
+    \\ rewrite_tac [dimword_def,EXP_BASE_LE_IFF] \\ simp [])
   \\ fs [labPropsTheory.good_dimindex_def,make_byte_header_def,
          LENGTH_write_bytes] \\ rfs []
   THEN1 (
@@ -6584,7 +6500,7 @@ Proof
       \\ pop_assum SUBST1_TAC
       \\ match_mp_tac bitTheory.TWOEXP_MONO2
       \\ simp[] )
-    \\ simp[]
+    \\ simp[] \\ rfs [dimword_def]
     \\ conj_tac
     >- (
       `c.len_size + 3 ≤ 61` by decide_tac
@@ -6950,7 +6866,7 @@ Proof
       bc_ref_inv c i2 refs (f,heap,be)` by
    (rpt strip_tac \\ first_x_assum match_mp_tac
     \\ fs [reachable_refs_def]
-    \\ metis_tac [get_refs_def,MEM,RTC_DEF])
+    \\ metis_tac [get_refs_def,MEM,RTC_CASES1])
   \\ fs [bc_ref_inv_def,FLOOKUP_DEF] \\ rfs [SUBSET_DEF]
   \\ NTAC 2 (pop_assum mp_tac) \\ fs []
   \\ rpt strip_tac
@@ -8285,8 +8201,7 @@ Theorem memory_rel_ByteArray_words_IMP:
         (MAP Word (write_bytes vals (REPLICATE (w2n (decode_length c x)) 0w) be))
       * frame) (fun2set (m,dm)) ∧
    w2n (decode_length c x) < dimword(:'a) ∧
-   LENGTH vals ≤ w2n (decode_length c x) * (dimindex (:'a) DIV 8) ∧
-   w2n (decode_length c x) ≤ LENGTH vals DIV (dimindex(:'a) DIV 8) + 1
+   w2n (decode_length c x) = LENGTH vals DIV (dimindex(:'a) DIV 8) + 1
 Proof
   rw[memory_rel_def,word_ml_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
   \\ fs[word_addr_def] \\ rw[]
@@ -8305,9 +8220,12 @@ Proof
   \\ fs[word_list_def]
   \\ SEP_R_TAC \\ simp[]
   \\ fsrw_tac[sep_cond_ss][cond_STAR]
-  \\ `ws < dimword(:'a)` by (fs[dimword_def,good_dimindex_def] \\ fs[])
+  \\ simp [GSYM PULL_EXISTS]
+  \\ `LENGTH vals DIV (dimindex (:α) DIV 8) + 1 < dimword (:α)`
+       by (fs[dimword_def,good_dimindex_def] \\ fs[])
   \\ simp[]
-  \\ metis_tac[STAR_ASSOC,STAR_COMM]
+  \\ goal_assum assume_tac
+  \\ SEP_F_TAC \\ fs []
 QED
 
 Theorem poly_inj_lemma:
@@ -8442,6 +8360,7 @@ val word_eq_thm0 = prove(
        ?res l1. word_eq_list c st dm m l (n2w (LENGTH v1)) w1 w2 = SOME (res,l1) /\
                 (b <=> (res = 1w)) /\
                 l <= l1 + (LENGTH v1 + SUM (MAP vb_size v1)) * dimword (:'a))``,
+
   ho_match_mp_tac do_eq_ind \\ rpt conj_tac
   \\ once_rewrite_tac [do_eq_def] \\ simp []
   THEN1 (* do_eq Numbers *)
@@ -8507,6 +8426,7 @@ val word_eq_thm0 = prove(
      (rw [] \\ fs [] \\ fs [dimword_def]
       \\ ntac 4 (pop_assum mp_tac)
       \\ srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []))
+
   THEN1 (* do_eq RefPtr *)
    (rw [] \\ drule memory_rel_RefPtr_EQ \\ fs []
     \\ strip_tac
@@ -8574,6 +8494,8 @@ val word_eq_thm0 = prove(
     \\ disch_then drule
     \\ disch_then drule
     \\ simp[Abbr`xs2`]
+    \\ qpat_x_assum `w2n (decode_length c x) = _` (assume_tac o GSYM) \\ fs []
+    \\ qpat_x_assum `w2n (decode_length c x) = _` (assume_tac o GSYM) \\ fs []
     \\ disch_then kall_tac
     \\ simp[Abbr`xs1`]
     \\ simp[mw_cmp_thm,mw2n_inj]
@@ -8587,8 +8509,26 @@ val word_eq_thm0 = prove(
       \\ clean_tac \\ fs[]
       \\ clean_tac \\ fs[]
       \\ fs[good_dimindex_def] \\ rfs[dimword_def] \\ rfs[] \\ fs[] )
-    \\ simp[write_bytes_inj]
-    \\ rw[] \\ rw[]
+    \\ drule write_bytes_inj
+    \\ disch_then drule
+    \\ qpat_abbrev_tac `ws = REPLICATE _ 0w`
+    \\ disch_then (qspec_then `ws` mp_tac)
+    \\ impl_tac THEN1
+     (fs [Abbr `ws`] \\ rfs []
+      \\ fs[good_dimindex_def,dimword_def] \\ rfs []
+      \\ qpat_x_assum `_ = w2n _` (assume_tac o GSYM) \\ fs []
+      \\ fs [LEFT_ADD_DISTRIB]
+      THEN1
+       (`0 < 4n` by fs [] \\ drule DIVISION
+        \\ disch_then (fn th => simp [Once th])
+        \\ match_mp_tac (DECIDE ``n < m ==> n <= m:num``)
+        \\ match_mp_tac MOD_LESS \\ fs [])
+      THEN1
+       (`0 < 8n` by fs [] \\ drule DIVISION
+        \\ disch_then (fn th => simp [Once th])
+        \\ match_mp_tac (DECIDE ``n < m ==> n <= m:num``)
+        \\ match_mp_tac MOD_LESS \\ fs []))
+    \\ fs [] \\ rw[] \\ rw[]
     \\ fs[good_dimindex_def,dimword_def])
   THEN1 (* do_eq Blocks *)
    (rpt gen_tac \\ strip_tac \\ rpt gen_tac
@@ -9889,7 +9829,7 @@ Proof
   \\ rpt_drule word_copy_fwd_thm
   \\ impl_tac THEN1
    (rfs [FLOOKUP_DEF,dimword_def,good_dimindex_def,byte_len_def,DIV_LT_X]
-    \\ fs [FLOOKUP_DEF,dimword_def,good_dimindex_def,byte_len_def,DIV_LT_X]
+    \\ fs [FLOOKUP_DEF,dimword_def,good_dimindex_def,byte_len_def,DIV_LT_X,ADD_DIV_EQ]
     \\ CCONTR_TAC \\ fs [])
   \\ strip_tac \\ fs []
   \\ fs [get_real_addr_def,FLOOKUP_UPDATE] \\ rfs []
