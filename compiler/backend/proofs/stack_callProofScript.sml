@@ -9,21 +9,23 @@ val _ = new_theory("stack_callProof");
 Theorem dest_Call_NONE_INL_SOME[simp]:
   dest_Call_NONE_INL x = SOME m <=> x = (Call NONE (INL m) NONE)
 Proof
-  Cases_on `x` \\ fs[]
-QED;
+  Cases_on `x` \\ fs[dest_Call_NONE_INL_def]
+  \\ rename1 `Call x1 x2 x3`
+  \\ Cases_on `x1` \\ fs [dest_Call_NONE_INL_def]
+  \\ Cases_on `x2` \\ fs [dest_Call_NONE_INL_def]
+  \\ Cases_on `x3` \\ fs [dest_Call_NONE_INL_def]
+QED
 
 Theorem dest_StackFree_SOME[simp]:
   dest_StackFree x = SOME m <=> x = StackFree m
 Proof
-  Cases_on `x`
-  \\ fs[dest_StackFree_def]
+  Cases_on `x` \\ fs[dest_StackFree_def]
 QED;
 
 Theorem dest_StackFree_NONE[simp]:
   dest_StackFree x = NONE <=> !m. x <> StackFree m
 Proof
-  Cases_on `x`
-  \\ fs[dest_StackFree_def]
+  Cases_on `x` \\ fs[dest_StackFree_def]
 QED;
 
 val code_rel_def = Define `
@@ -81,16 +83,19 @@ Proof
   recInduct opt_code_ind \\ rw []
   \\ simp [Once opt_code_def]
   \\ Cases_on `prog` \\ fs [get_labels_def]
-  \\ Cases_on `p` \\ fs[dest_StackFree_def, get_labels_def]
-  \\ Cases_on `p0` \\ fs[dest_Call_NONE_INL_def, get_labels_def]
-  \\ Cases_on `dest_Call_NONE_INL (Call o' s o0)`
-  THEN1
-    (fs[opt_code_def, get_labels_def])
-  \\ fs[] \\ TOP_CASE_TAC \\ fs[get_labels_def, new_mem_def]
+  \\ every_case_tac \\ fs [get_labels_def]
+  \\ fs[get_labels_def, new_mem_def]
   \\ EVERY_CASE_TAC \\ fs[get_labels_def]
 QED
 
 val opt_code_Seq = SIMP_CONV(srw_ss())[Once opt_code_def]``opt_code (Seq p1 p2) tree``;
+
+Theorem opt_code_Seq_StackAlloc:
+  opt_code (Seq (StackAlloc m) x2) tree =
+  Seq (StackAlloc m) (opt_code x2 tree)
+Proof
+  simp [Once opt_code_def,dest_StackFree_def] \\ fs [Once opt_code_def]
+QED
 
 Theorem opt_code_correct:
   !prog s res s1 t tree.
@@ -402,13 +407,22 @@ Proof
       (fs[] \\ rveq \\ fs[]
        \\ rveq \\ fs[])
     \\ fs[find_code_def]
-    \\ cheat)
+    \\ rveq \\ fs [create_raw_ep_def,dec_clock_def]
+    \\ `opt_code (Seq (StackAlloc m) x2) tree =
+        Seq (StackAlloc m) (opt_code x2 tree)` by
+      (simp [Once opt_code_def,dest_StackFree_def] \\ fs [Once opt_code_def])
+    \\ fs []
+    \\ qpat_x_assum `evaluate _ = _` mp_tac
+    \\ simp [evaluate_def]
+    \\ strip_tac \\ qexists_tac `ck+1` \\ fs [])
   THEN1
    (rename [`Call ret dest handler`]
-    \\ fs [EVAL ``opt_code (Call _ _ _) tree``]
+    \\ fs [``opt_code (Call _ _ _) tree``
+           |> ONCE_REWRITE_CONV [opt_code_def] |> SIMP_RULE (srw_ss()) []]
     \\ fs[evaluate_def, option_case_eq, bool_case_eq]
     THEN1
       (fs[find_code_def]
+       \\ rveq \\ fs []
        \\ `s.clock = t.clock` by fs [state_rel_def] \\ fs[]
        \\ qexists_tac `0` \\ fs[]
        \\ qexists_tac `empty_env t with clock := 0` \\ fs[]
@@ -419,20 +433,11 @@ Proof
 	  \\ qpat_assum `code_rel s.code t.code tree` (drule o REWRITE_RULE [code_rel_def])
 	  \\ strip_tac \\ fs[])
        \\ fs[find_code_def]
-       \\ qexists_tac `prog`
+       \\ fs[option_case_eq,word_loc_case_eq,num_case_eq] \\ rveq \\ fs []
        \\ `s.regs = t.regs` by fs [state_rel_def] \\ fs[]
-       \\ fs[option_case_eq]
-       \\ Cases_on `v1`
-       THEN1
-         (fs[option_case_eq])
-       \\ fs[option_case_eq]
-       \\ Cases_on `n0`
-       THEN1
-         (fs[]
-          \\ qpat_assum `code_rel s.code t.code tree` (drule o REWRITE_RULE [code_rel_def])
-          \\ strip_tac \\ rveq \\ fs[create_raw_ep_def, strip_fun_def]
-          \\ cheat)
-       \\ fs[]
+       \\ fs[find_code_def]
+       \\ qpat_assum `code_rel s.code t.code tree` (drule o REWRITE_RULE [code_rel_def])
+       \\ strip_tac \\ fs[])
     THEN1
       (fs[dec_clock_def]
        \\ `s.clock = t.clock` by fs[state_rel_def] \\ rveq \\ fs[pair_case_eq]
@@ -445,8 +450,177 @@ Proof
        \\ first_x_assum drule \\ fs[]
        \\ strip_tac \\ first_x_assum drule \\ fs[]
        \\ strip_tac \\ fs[]
-       \\ cheat
-    \\ cheat)
+       \\ Cases_on `dest` \\ fs [find_code_def]
+       THEN1
+         (fs[find_code_def]
+	  \\ qpat_assum `code_rel s.code t.code tree` (drule o REWRITE_RULE [code_rel_def])
+	  \\ strip_tac \\ fs[strip_fun_def,create_raw_ep_def] \\ rveq \\ fs []
+          \\ `opt_code (Seq (StackAlloc m) x2) tree =
+              Seq (StackAlloc m) (opt_code x2 tree)` by
+            (simp [Once opt_code_def,dest_StackFree_def] \\ fs [Once opt_code_def])
+          \\ fs []
+          \\ qpat_x_assum `evaluate _ = _` mp_tac
+          \\ simp [evaluate_def]
+          \\ `t.use_stack = s.use_stack` by fs [state_rel_def] \\ fs []
+          \\ IF_CASES_TAC \\ fs []
+          \\ IF_CASES_TAC \\ fs []
+          THEN1 (strip_tac \\ rveq \\ fs [])
+          \\ fs [find_code_def,dec_clock_def]
+          \\ strip_tac \\ qexists_tac `ck+1` \\ fs [])
+       \\ fs[option_case_eq,word_loc_case_eq,num_case_eq] \\ rveq \\ fs []
+       \\ `s.regs = t.regs` by fs [state_rel_def] \\ fs[]
+       \\ fs[find_code_def]
+       \\ qpat_assum `code_rel s.code t.code tree` (drule o REWRITE_RULE [code_rel_def])
+       \\ strip_tac \\ fs[strip_fun_def,create_raw_ep_def] \\ rveq \\ fs []
+       \\ `opt_code (Seq (StackAlloc m) x2) tree =
+           Seq (StackAlloc m) (opt_code x2 tree)` by
+         (simp [Once opt_code_def,dest_StackFree_def] \\ fs [Once opt_code_def])
+       \\ fs []
+       \\ qpat_x_assum `evaluate _ = _` mp_tac
+       \\ simp [evaluate_def]
+       \\ `t.use_stack = s.use_stack` by fs [state_rel_def] \\ fs []
+       \\ IF_CASES_TAC \\ fs []
+       \\ IF_CASES_TAC \\ fs []
+       THEN1 (strip_tac \\ rveq \\ fs [])
+       \\ fs [find_code_def,dec_clock_def]
+       \\ strip_tac \\ qexists_tac `ck+1` \\ fs [])
+    \\ PairCases_on `v1` \\ fs []
+    \\ fs [option_case_eq,bool_case_eq] \\ rveq \\ fs []
+    THEN1
+     (qexists_tac `0` \\ fs [state_rel_def,PULL_EXISTS]
+      \\ Cases_on `dest` \\ fs [find_code_def,code_rel_def]
+      \\ res_tac \\ fs [option_case_eq,word_loc_case_eq,num_case_eq]
+      \\ rveq \\ fs [] \\ res_tac \\ fs [])
+    \\ fs [pair_case_eq,option_case_eq] \\ rveq \\ fs []
+    \\ `state_rel (dec_clock (set_var v11 (Loc v12 v13) s))
+                  (dec_clock (set_var v11 (Loc v12 v13) t))` by
+           fs [state_rel_def,dec_clock_def,set_var_def]
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then `tree` mp_tac)
+    \\ impl_tac THEN1 (fs [dec_clock_def,set_var_def] \\ CCONTR_TAC \\ fs [])
+    \\ strip_tac
+    \\ reverse (fs [result_case_eq]) \\ rveq \\ fs []
+    THEN1
+     (fs [dec_clock_def,set_var_def]
+      \\ Cases_on `dest` \\ fs[find_code_def,code_rel_def]
+      \\ res_tac \\ fs []
+      \\ `s.clock = t.clock /\ s.regs = t.regs` by fs [state_rel_def] \\ fs[]
+      \\ fs [strip_fun_def]
+      \\ fs [option_case_eq,word_loc_case_eq,num_case_eq] \\ rveq \\ fs []
+      \\ res_tac \\ fs [] \\ rveq
+      \\ fs [opt_code_Seq_StackAlloc,strip_fun_def,create_raw_ep_def]
+      \\ qpat_x_assum `evaluate _ = _` mp_tac
+      \\ simp [evaluate_def]
+      \\ `t.use_stack = s.use_stack` by fs [state_rel_def] \\ fs []
+      \\ IF_CASES_TAC \\ fs []
+      \\ IF_CASES_TAC \\ fs []
+      \\ fs [find_code_def,dec_clock_def,create_raw_ep_def]
+      \\ strip_tac \\ qexists_tac `ck+1` \\ fs [])
+    THEN1
+     (fs [dec_clock_def,set_var_def]
+      \\ Cases_on `dest` \\ fs[find_code_def,code_rel_def]
+      \\ res_tac \\ fs []
+      \\ `s.clock = t.clock /\ s.regs = t.regs` by fs [state_rel_def] \\ fs[]
+      \\ fs [strip_fun_def]
+      \\ fs [option_case_eq,word_loc_case_eq,num_case_eq] \\ rveq \\ fs []
+      \\ res_tac \\ fs [] \\ rveq
+      \\ fs [opt_code_Seq_StackAlloc,strip_fun_def,create_raw_ep_def]
+      \\ qpat_x_assum `evaluate _ = _` mp_tac
+      \\ simp [evaluate_def]
+      \\ `t.use_stack = s.use_stack` by fs [state_rel_def] \\ fs []
+      \\ IF_CASES_TAC \\ fs []
+      \\ IF_CASES_TAC \\ fs []
+      \\ fs [find_code_def,dec_clock_def,create_raw_ep_def]
+      \\ strip_tac \\ qexists_tac `ck+1` \\ fs [])
+    THEN1
+     (fs [dec_clock_def,set_var_def]
+      \\ Cases_on `dest` \\ fs[find_code_def,code_rel_def]
+      \\ res_tac \\ fs []
+      \\ `s.clock = t.clock /\ s.regs = t.regs` by fs [state_rel_def] \\ fs[]
+      \\ fs [strip_fun_def]
+      \\ fs [option_case_eq,word_loc_case_eq,num_case_eq] \\ rveq \\ fs []
+      \\ res_tac \\ fs [] \\ rveq
+      \\ fs [opt_code_Seq_StackAlloc,strip_fun_def,create_raw_ep_def]
+      \\ qpat_x_assum `evaluate _ = _` mp_tac
+      \\ simp [evaluate_def]
+      \\ `t.use_stack = s.use_stack` by fs [state_rel_def] \\ fs []
+      \\ IF_CASES_TAC \\ fs []
+      \\ IF_CASES_TAC \\ fs [] \\ strip_tac \\ fs []
+      \\ rveq \\ fs []
+      \\ fs [find_code_def,dec_clock_def,create_raw_ep_def]
+      \\ qexists_tac `ck+1` \\ fs [])
+    THEN1
+      (fs[dec_clock_def]
+       \\ `s.clock = t.clock` by fs[state_rel_def] \\ rveq \\ fs[pair_case_eq]
+       \\ fs[] \\ rveq \\ fs[]
+       \\ `?x m x2.
+             lookup x s.code = SOME (Seq (StackAlloc m) x2) /\
+             lookup x tree = SOME m /\
+             lookup x t.code = SOME (Seq (StackAlloc m) (Call NONE (INL (x + 1)) NONE)) /\
+             lookup (x + 1) t.code = SOME (opt_code x2 tree) /\
+             prog = Seq (StackAlloc m) x2 /\
+             find_code dest (t.regs \\ v11) t.code =
+             SOME (Seq (StackAlloc m) (Call NONE (INL (x + 1)) NONE))` by
+         (Cases_on `dest` \\ fs [find_code_def,code_rel_def]
+          \\ res_tac \\ fs [strip_fun_def] \\ rveq \\ fs [create_raw_ep_def]
+          \\ fs [option_case_eq,word_loc_case_eq,num_case_eq]
+          \\ rveq \\ fs [] \\ res_tac \\ fs []
+          \\ qexists_tac `loc` \\ fs [strip_fun_def,create_raw_ep_def]
+          \\ fs [state_rel_def]) \\ fs []
+       \\ rveq \\ fs [] \\ fs [option_case_eq,bool_case_eq,pair_case_eq] \\ rveq
+       \\ fs [PULL_EXISTS]
+       \\ fs [opt_code_Seq_StackAlloc]
+       THEN1
+        (qpat_x_assum `evaluate _ = _` mp_tac \\ simp [evaluate_def]
+         \\ IF_CASES_TAC \\ fs []
+         \\ IF_CASES_TAC \\ fs []
+         \\ fs [set_var_def,find_code_def,dec_clock_def]
+         \\ strip_tac \\ fs [] \\ qexists_tac `ck+1` \\ fs [])
+       \\ qpat_x_assum `(res,s1) = _` (assume_tac o GSYM) \\ fs []
+       \\ first_x_assum drule
+       \\ disch_then drule \\ fs []
+       \\ strip_tac
+       \\ qpat_x_assum `_ = (SOME (Exception (Loc l1' l2')),t1)` assume_tac
+       \\ drule stackPropsTheory.evaluate_add_clock
+       \\ disch_then (qspec_then `ck'` assume_tac) \\ fs []
+       \\ qexists_tac `ck+ck'+1` \\ fs []
+       \\ qpat_x_assum `evaluate _ = _` mp_tac \\ simp [evaluate_def]
+       \\ IF_CASES_TAC \\ fs []
+       \\ IF_CASES_TAC \\ fs []
+       \\ fs [set_var_def,find_code_def,dec_clock_def])
+    THEN1
+      (fs[dec_clock_def]
+       \\ `s.clock = t.clock` by fs[state_rel_def] \\ rveq \\ fs[pair_case_eq]
+       \\ fs[] \\ rveq \\ fs[]
+       \\ `?x m x2.
+             lookup x s.code = SOME (Seq (StackAlloc m) x2) /\
+             lookup x tree = SOME m /\
+             lookup x t.code = SOME (Seq (StackAlloc m) (Call NONE (INL (x + 1)) NONE)) /\
+             lookup (x + 1) t.code = SOME (opt_code x2 tree) /\
+             prog = Seq (StackAlloc m) x2 /\
+             find_code dest (t.regs \\ v11) t.code =
+             SOME (Seq (StackAlloc m) (Call NONE (INL (x + 1)) NONE))` by
+         (Cases_on `dest` \\ fs [find_code_def,code_rel_def]
+          \\ res_tac \\ fs [strip_fun_def] \\ rveq \\ fs [create_raw_ep_def]
+          \\ fs [option_case_eq,word_loc_case_eq,num_case_eq]
+          \\ rveq \\ fs [] \\ res_tac \\ fs []
+          \\ qexists_tac `loc` \\ fs [strip_fun_def,create_raw_ep_def]
+          \\ fs [state_rel_def]) \\ fs []
+       \\ rveq \\ fs [] \\ fs [option_case_eq,bool_case_eq,pair_case_eq] \\ rveq
+       \\ fs [PULL_EXISTS]
+       \\ fs [opt_code_Seq_StackAlloc]
+       \\ qpat_x_assum `(res,s1) = _` (assume_tac o GSYM) \\ fs []
+       \\ first_x_assum drule
+       \\ disch_then drule \\ fs []
+       \\ strip_tac
+       \\ qpat_x_assum `_ = (SOME (Result _),t1)` assume_tac
+       \\ drule stackPropsTheory.evaluate_add_clock
+       \\ disch_then (qspec_then `ck'` assume_tac) \\ fs []
+       \\ qexists_tac `ck+ck'+1` \\ fs []
+       \\ qpat_x_assum `evaluate _ = _` mp_tac \\ simp [evaluate_def]
+       \\ IF_CASES_TAC \\ fs []
+       \\ IF_CASES_TAC \\ fs []
+       \\ fs [set_var_def,find_code_def,dec_clock_def]))
   THEN1
    (rename [`Install ptr len dptr dlen ret`]
     \\ fs[evaluate_def, opt_code_def]

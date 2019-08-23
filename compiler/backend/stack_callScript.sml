@@ -60,6 +60,15 @@ val opt_code_def = Define `
     | If c r ri x y =>
         If c r ri (opt_code x tree) (opt_code y tree)
     | While c r ri x => While c r ri (opt_code x tree)
+    | Call r x2 handler =>
+        Call
+          (case r of
+           | NONE => NONE
+           | SOME (ret_handler,link_reg,l1,l2) =>
+             SOME (opt_code ret_handler tree,link_reg,l1,l2)) x2
+          (case handler of
+           | NONE => NONE
+           | SOME (p,x,y) => SOME (opt_code p tree, x, y))
     | p => p
 `;
 
