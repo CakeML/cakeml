@@ -4624,16 +4624,18 @@ Proof
   \\ fs [app_call_dests_append]
 QED
 
-val pure_code_locs = Q.store_thm("pure_code_locs", (* DUPLCATED! clos_annotate *)
-  `!xs. pure xs ==> code_locs [xs] = [] /\
-                    app_call_dests opt [xs] = {}`,
+Theorem pure_code_locs: (* DUPLCATED! clos_annotate *)
+   !xs. pure xs ==> code_locs [xs] = [] /\
+                    app_call_dests opt [xs] = {}
+Proof
   recInduct closLangTheory.pure_ind
   \\ rw[closLangTheory.pure_def, closPropsTheory.code_locs_def]
   \\ fsrw_tac[ETA_ss][EVERY_MEM]
   \\ Q.ISPEC_THEN`es`mp_tac code_locs_map
   \\ disch_then(qspec_then`I`mp_tac)
   \\ simp[FLAT_EQ_NIL, EVERY_MAP, EVERY_MEM]
-  \\ ...);
+  \\ ...
+QED
 
 Theorem call_dests_code_list_SUBSET:
    !xs n g.

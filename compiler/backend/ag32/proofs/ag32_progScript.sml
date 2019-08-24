@@ -7,14 +7,16 @@ open set_sepTheory progTheory ag32Theory temporal_stateTheory
 
 val () = new_theory "ag32_prog"
 
-val v2w_F_T = store_thm("v2w_F_T", (* TODO: move *)
-  ``(v2w [F] = 0w) /\ (v2w [T] = 1w)``,
+Theorem v2w_F_T: (* TODO: move *)
+  (v2w [F] = 0w) /\ (v2w [T] = 1w)
+Proof
   fs [bitstringTheory.v2w_def,bitstringTheory.testbit_def,
       bitstringTheory.field_def,bitstringTheory.fixwidth_def]
   \\ fs [fcpTheory.CART_EQ,fcpTheory.FCP_BETA,word_0]
   \\ fs [bitstringTheory.zero_extend_def,word_index]
   \\ rw [bitstringTheory.shiftr_def]
-  \\ Cases_on `i` \\ fs [ADD1,DECIDE ``1-(n+1n) = 0``] \\ EVAL_TAC);
+  \\ Cases_on `i` \\ fs [ADD1,DECIDE ``1-(n+1n) = 0``] \\ EVAL_TAC
+QED
 
 (* basic definitions *)
 
