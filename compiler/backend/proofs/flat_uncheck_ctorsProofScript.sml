@@ -414,8 +414,12 @@ val do_app_correct = Q.prove (
     \\ res_tac \\ fs[OPTREL_def] \\ rfs[]
     \\ rw[] \\ fs[]));
 
+val s = ``s:('c, 'ffi) flatSem$state``;
+val s1 = mk_var ("s1", type_of s);
+val s2 = mk_var ("s2", type_of s);
+
 Theorem pmatch_correct:
-   (∀(s1:'ffi state) p v1 acc1 s2 v2 acc2.
+   (∀ ^s1 p v1 acc1 ^s2 v2 acc2.
     s_rel s1 s2 ∧
     v_rel v1 v2 ∧
     LIST_REL v_rel (MAP SND acc1) (MAP SND acc2) ∧
@@ -428,7 +432,7 @@ Theorem pmatch_correct:
         LIST_REL v_rel (MAP SND res1) (MAP SND res2) ∧
         MAP FST res1 = MAP FST res2
     | r => pmatch s2 (compile_pat p) v2 acc2 = r) ∧
-   (∀(s1:'ffi state) p v1 acc1 s2 v2 acc2.
+   (∀ ^s1 p v1 acc1 ^s2 v2 acc2.
     s_rel s1 s2 ∧
     LIST_REL v_rel v1 v2 ∧
     LIST_REL v_rel (MAP SND acc1) (MAP SND acc2) ∧
@@ -485,8 +489,8 @@ Proof
     \\ res_tac \\ fs[] )
 QED
 
-val compile_exp_correct = Q.prove (
-  `(∀env (s : 'a flatSem$state) es s' r s1 env'.
+Theorem compile_correct:
+  (∀env ^s es s' r ^s1 env'.
     evaluate env s es = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     env_rel env env' ∧
@@ -496,7 +500,7 @@ val compile_exp_correct = Q.prove (
       result_rel (LIST_REL v_rel) v_rel r r1 ∧
       s_rel s' s1' ∧
       evaluate env' s1 (compile es) = (s1', r1)) ∧
-   (∀env (s : 'a flatSem$state) v pes err_v s' r s1 env' err_v1 v1.
+  (∀env ^s v pes err_v s' r ^s1 env' err_v1 v1.
     evaluate_match env s v pes err_v = (s',r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     env_rel env env' ∧
@@ -507,7 +511,29 @@ val compile_exp_correct = Q.prove (
     ?s1' r1.
       result_rel (LIST_REL v_rel) v_rel r r1 ∧
       s_rel s' s1' ∧
-      evaluate_match env' s1 v1 (MAP (λ(p,e'). (compile_pat p,HD (compile [e']))) pes) err_v1 = (s1', r1))`,
+      evaluate_match env' s1 v1 (MAP (λ(p,e'). (compile_pat p,HD (compile [e']))) pes) err_v1 = (s1', r1)) ∧
+  (∀env ^s ds s' r ^s1.
+    evaluate_decs s ds = (s',r) ∧
+    r ≠ SOME (Rabort Rtype_error) ∧
+    s_rel s s1
+    ⇒
+    ?s1' r1.
+      dec_res_rel r r1 ∧
+      s_rel s' s1' ∧
+      evaluate_decs s1 (compile_decs ds) = (s1', r1)) ∧
+  (∀ ^s d s' r ^s1.
+    evaluate_dec s d = (s',r) ∧
+    r ≠ SOME (Rabort Rtype_error) ∧
+    s_rel s s1
+    ⇒
+    ?s1' r1.
+      dec_res_rel r r1 ∧
+      s_rel s' s1' ∧
+      evaluate_decs s1 (compile_decs [d]) = (s1', r1))
+
+Proof
+
+
   ho_match_mp_tac evaluate_ind >>
   rw [evaluate_def, compile_def] >>
   rw [] >>

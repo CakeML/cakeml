@@ -1228,7 +1228,7 @@ Proof
 QED
 
 (* ------------------------------------------------------------------------- *)
-(* Compile declarations now in exps                                          *) 
+(* Compile declarations now in exps                                          *)
 (* ------------------------------------------------------------------------- *)
 
 Theorem compile_decs_evaluate = List.last (CONJUNCTS compile_exps_evaluate)
