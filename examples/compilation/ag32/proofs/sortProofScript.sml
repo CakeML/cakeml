@@ -38,7 +38,7 @@ val (sort_sem,sort_output) = sort_io_events_def |> SPEC_ALL |> CONJ_PAIR
 val (sort_not_fail,sort_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail sort_sem |> CONJ_PAIR
 
 val ffi_names =
-  ``config.ffi_names``
+  ``config.lab_conf.ffi_names``
   |> (REWRITE_CONV[sortCompileTheory.config_def] THENC EVAL)
 
 val LENGTH_code =
@@ -50,13 +50,13 @@ val LENGTH_data =
   |> (REWRITE_CONV[sortCompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
 val _ = overload_on("sort_machine_config",
-    ``ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)``);
+    ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``);
 
 Theorem target_state_rel_sort_start_asm_state:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms ⇒
-   ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms ⇒
+   ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.lab_conf.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
          ((FUNPOW Next n ms).MEM x = ms.MEM x))
@@ -65,7 +65,7 @@ Proof
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
-  \\ disch_then(qspecl_then[`code`,`data`,`THE config.ffi_names`]mp_tac)
+  \\ disch_then(qspecl_then[`code`,`data`,`THE config.lab_conf.ffi_names`]mp_tac)
   \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code])
   \\ strip_tac
   \\ drule (GEN_ALL target_state_rel_ag32_init)
@@ -97,8 +97,8 @@ val compile_correct_applied =
 Theorem sort_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0 ⇒
-   installed code 0 data 0 config.ffi_names (basis_ffi cl fs)
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
+   installed code 0 data 0 config.lab_conf.ffi_names (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
      (sort_machine_config) (FUNPOW Next (sort_startup_clock ms0 inp cl) ms0)
 Proof
@@ -174,7 +174,7 @@ QED
 
 Theorem sort_ag32_next:
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.ffi_names) ([strlit"sort"],inp)) ms0
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) ([strlit"sort"],inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in

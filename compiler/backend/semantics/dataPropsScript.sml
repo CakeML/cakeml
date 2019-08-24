@@ -1065,9 +1065,9 @@ val get_code_labels_def = Define`
 val _ = export_rewrites["get_code_labels_def"];
 
 val good_code_labels_def = Define`
-  good_code_labels p ⇔
+  good_code_labels p elabs ⇔
     (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
-    (set (MAP FST p))`
+    (set (MAP FST p)) ∪ elabs`
 
 Theorem get_code_labels_mk_ticks:
    ∀n m. get_code_labels (mk_ticks n m) ⊆ get_code_labels m

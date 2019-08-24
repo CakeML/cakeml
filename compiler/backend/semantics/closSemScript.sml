@@ -29,12 +29,13 @@ val _ = Datatype `
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
 
-val _ = type_abbrev("clos_cc",
-  ``:'c -> closLang$exp list # (num # num # closLang$exp) list ->
-     (word8 list # word64 list # 'c) option``);
+val _ = type_abbrev("clos_prog",
+  ``: closLang$exp list # (num # num # closLang$exp) list``);
 
-val _ = type_abbrev("clos_co",
-  ``:num -> 'c # (closLang$exp list # (num # num # closLang$exp) list)``);
+val _ = type_abbrev("clos_cc",
+  ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``);
+
+val _ = type_abbrev("clos_co", ``:num -> 'c # clos_prog``);
 
 val _ = Datatype `
   state =
@@ -570,14 +571,12 @@ val evaluate_def = tDefine "evaluate" `
      case fix_clock s (evaluate (xs,env,s)) of
      | (Rval vs,s) =>
        if op = Install then
-       (*
        (case do_install (REVERSE vs) s of
         | (Rval es,s) =>
             (case evaluate (es,[],s) of
              | (Rval vs,s) => (Rval [LAST vs],s)
              | res => res)
         | (Rerr err,s) => (Rerr err,s))
-       *) (Rerr (Rabort Rtype_error), s)
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)

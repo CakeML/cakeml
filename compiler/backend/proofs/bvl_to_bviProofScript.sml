@@ -4042,14 +4042,16 @@ val full_cc_def = Define `
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      state_cc (compile_inc limit split cut) (state_cc compile_inc (bvi_tailrecProof$mk_cc cc))`
+      state_cc (compile_inc limit split cut) (state_cc compile_inc
+        (state_cc bvi_tailrec$compile_prog cc))`
 
 val full_co_def = Define `
   full_co c co =
     let limit = c.inline_size_limit in
     let split = c.split_main_at_seq in
     let cut = c.exp_cut in
-      bvi_tailrecProof$mk_co (state_co compile_inc (state_co (compile_inc limit split cut) co))`
+      state_co bvi_tailrec$compile_prog (state_co compile_inc
+        (state_co (compile_inc limit split cut) co))`
 
 Theorem compile_prog_avoids_nss_2:
    compile_prog start f prog = (loc,code,new_state) /\
@@ -4289,7 +4291,8 @@ Theorem ALL_DISTINCT_MAP_FST_SND_full_co:
   ⇒
    ALL_DISTINCT (MAP FST (SND (full_co c co n)))
 Proof
-  rw[full_co_def, bvi_tailrecProofTheory.mk_co_def, UNCURRY, backendPropsTheory.FST_state_co]
+  rw[full_co_def, UNCURRY, backendPropsTheory.FST_state_co,
+        backendPropsTheory.SND_state_co]
   \\ qmatch_goalsub_abbrev_tac`bvi_tailrec$compile_prog m xs`
   \\ Cases_on`bvi_tailrec$compile_prog m xs`
   \\ drule bvi_tailrecProofTheory.compile_prog_ALL_DISTINCT

@@ -1842,7 +1842,8 @@ Proof
 QED
 
 Theorem compile_prog_good_code_labels:
-   ∀p. good_code_labels p ⇒ good_code_labels (bvi_to_data$compile_prog arch_size p)
+   ∀p. good_code_labels p elabs ⇒ good_code_labels (bvi_to_data$compile_prog
+                                                      arch_size p) elabs
 Proof
   simp[bvi_to_dataTheory.compile_prog_def]
   \\ simp[dataPropsTheory.good_code_labels_def, MAP_MAP_o, o_DEF, LAMBDA_PROD]
