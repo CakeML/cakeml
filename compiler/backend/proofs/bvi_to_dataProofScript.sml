@@ -1664,7 +1664,7 @@ Theorem compile_prog_evaluate:
    r ≠ Rerr (Rabort Rtype_error) ∧ (∀x. r ≠ Rerr (Rraise x))
    ⇒  ∃r2 s2.
        evaluate (Call NONE (SOME start) [] NONE,
-         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc ts hl ls k) = (SOME r2,s2) ∧
+         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc T 0 0 k) = (SOME r2,s2) ∧
          state_rel s s2 ∧ res_list (data_to_bvi_result r2) = r
 Proof
   srw_tac[][]
@@ -1683,11 +1683,10 @@ QED
 
 (* observational semantics *)
 
-
 Theorem compile_prog_semantics:
   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start ≠ Fail ⇒
-   semantics ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc ts hl ls start =
-   semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start
+  semantics ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc start =
+  semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start
 Proof
   simp[bviSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
@@ -1700,7 +1699,7 @@ Proof
         \\ last_x_assum(qspec_then`k'`mp_tac)>>simp[]
         \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g)
         \\ spose_not_then strip_assume_tac
-        \\ drule_then (qspecl_then [`ts`,`ls`,`hl`] mp_tac) compile_prog_evaluate
+        \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
         \\ impl_tac >- ( srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] )
         \\ strip_tac >> full_simp_tac(srw_ss())[] >> rveq
         \\ every_case_tac >> full_simp_tac(srw_ss())[]
@@ -1726,11 +1725,11 @@ Proof
         \\ impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[])
         \\ simp[inc_clock_def]
         \\ ntac 2 strip_tac >> unabbrev_all_tac
-        \\ drule_then (qspecl_then [`ts`,`ls`,`hl`] mp_tac)compile_prog_evaluate
+        \\ drule_then (qspecl_then [] mp_tac)compile_prog_evaluate
         \\ impl_tac >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
         \\ strip_tac >> rveq >> fs[state_rel_def]
         \\ rpt(PURE_FULL_CASE_TAC >> fs[data_to_bvi_result_def]))
-     \\ drule_then (qspecl_then [`ts`,`ls`,`hl`] mp_tac) compile_prog_evaluate
+     \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
      \\ impl_tac
      >- (last_x_assum(qspec_then`k`mp_tac)
         \\ full_simp_tac(srw_ss())[]
@@ -1746,7 +1745,7 @@ Proof
   >- (last_x_assum(qspec_then`k`mp_tac)
      \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
      \\ strip_tac
-     \\ drule_then (qspecl_then [`ts`,`ls`,`hl`] mp_tac) compile_prog_evaluate
+     \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
      \\ impl_tac
         >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
      \\ strip_tac
@@ -1759,7 +1758,7 @@ Proof
      \\ last_x_assum(qspec_then`k`mp_tac)
      \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
      \\ strip_tac
-     \\ drule_then (qspecl_then [`ts`,`ls`,`hl`] mp_tac) compile_prog_evaluate
+     \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
      \\ impl_tac
      >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
      \\ strip_tac
@@ -1774,7 +1773,7 @@ Proof
   \\ simp[FUN_EQ_THM] >> gen_tac
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (rhs(#2 g)))
-  \\ drule_then (qspecl_then [`ts`,`ls`,`hl`] mp_tac) compile_prog_evaluate
+  \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
   \\ impl_tac
   >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]
      \\ last_x_assum(qspec_then`k`mp_tac)>>simp[])

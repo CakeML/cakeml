@@ -805,9 +805,9 @@ val initial_state_def = Define`
   |>`;
 
 val semantics_def = Define`
-  semantics init_ffi code coracle cc stamps heap_lim len_lim start  =
+  semantics init_ffi code coracle cc start  =
   let p = Call NONE (SOME start) [] NONE in
-  let init = initial_state init_ffi code coracle cc stamps heap_lim len_lim in
+  let init = initial_state init_ffi code coracle cc T 0 0 in
     if ∃k. case FST(evaluate (p,init k)) of
              | SOME (Rerr e) => e ≠ Rabort Rtimeout_error /\ (!f. e ≠ Rabort(Rffi_error f))
              | NONE => T | _ => F
