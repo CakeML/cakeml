@@ -254,8 +254,10 @@ QED
 
 (* subtypes *)
 
-val (subtype1_rules,subtype1_ind,subtype1_cases) = Hol_reln`
-  MEM a args ⇒ subtype1 a (Tyapp name args)`
+Inductive subtype1:
+  MEM a args ⇒ subtype1 a (Tyapp name args)
+End
+
 val _ = Parse.add_infix("subtype",401,Parse.NONASSOC)
 val _ = Parse.overload_on("subtype",``RTC subtype1``)
 val subtype_Tyvar = save_thm("subtype_Tyvar",
@@ -286,11 +288,12 @@ QED
 
 (* subterms *)
 
-val (subterm1_rules,subterm1_ind,subterm1_cases) = Hol_reln`
+Inductive subterm1:
   subterm1 t1 (Comb t1 t2) ∧
   subterm1 t2 (Comb t1 t2) ∧
   subterm1 tm (Abs v tm) ∧
-  subterm1 v (Abs v tm)`
+  subterm1 v (Abs v tm)
+End
 
 val _ = Parse.add_infix("subterm",401,Parse.NONASSOC)
 val _ = Parse.overload_on("subterm",``RTC subterm1``)

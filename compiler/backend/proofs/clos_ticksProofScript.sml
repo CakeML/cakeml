@@ -66,7 +66,7 @@ val f_rel_def = Define `
   f_rel (a1, e1) (a2, e2) <=>
      a1 = a2 /\ code_rel [e1] [e2]`;
 
-val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
+Inductive v_rel:
   (!i. v_rel (Number i) (Number i)) /\
   (!w. v_rel (Word64 w) (Word64 w)) /\
   (!w. v_rel (ByteVector w) (ByteVector w)) /\
@@ -83,7 +83,8 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
      LIST_REL v_rel env1 env2 /\
      LIST_REL v_rel args1 args2 /\
      LIST_REL f_rel funs1 funs2 ==>
-       v_rel (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))`;
+       v_rel (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))
+End
 
 val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel x (Number n)``,
@@ -100,11 +101,12 @@ val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
 
 (* state relation *)
 
-val (ref_rel_rules, ref_rel_ind, ref_rel_cases) = Hol_reln `
+Inductive ref_rel:
   (!b bs. ref_rel (ByteArray b bs) (ByteArray b bs)) /\
   (!xs ys.
     LIST_REL v_rel xs ys ==>
-    ref_rel (ValueArray xs) (ValueArray ys))`
+    ref_rel (ValueArray xs) (ValueArray ys))
+End
 
 val FMAP_REL_def = Define `
   FMAP_REL r f1 f2 <=>

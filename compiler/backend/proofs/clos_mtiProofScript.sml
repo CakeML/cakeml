@@ -142,7 +142,7 @@ val f_rel_def = Define `
       code_rel max_app [b1] [e2] /\ a2 <= max_app /\ syntax_ok [b1] /\
       a1 = 1n /\ e1 = mk_Fns ts b1 /\ a2 = LENGTH ts + 1`
 
-val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
+Inductive v_rel:
   (!i. v_rel (max_app:num) (Number i) (closSem$Number i)) /\
   (!w. v_rel max_app (Word64 w) (Word64 w)) /\
   (!w. v_rel max_app (ByteVector w) (ByteVector w)) /\
@@ -176,18 +176,20 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
           (GENLIST (Recclosure NONE [] env2 funs2) (LENGTH funs2)) ==>
      v_rel max_app
        (Closure NONE [] (args1 ++ recc ++ env1) 1 (mk_Fns ts e1))
-       (Recclosure NONE args2 env2 funs2 n))`
+       (Recclosure NONE args2 env2 funs2 n))
+End
 
 val v_rel_opt_def = Define `
   (v_rel_opt max_app NONE NONE <=> T) /\
   (v_rel_opt max_app (SOME x) (SOME y) <=> v_rel max_app x y) /\
   (v_rel_opt max_app _ _ = F)`;
 
-val (ref_rel_rules, ref_rel_ind, ref_rel_cases) = Hol_reln `
+Inductive ref_rel:
   (!b bs. ref_rel max_app (ByteArray b bs) (ByteArray b bs)) /\
   (!xs ys.
     LIST_REL (v_rel max_app) xs ys ==>
-    ref_rel max_app (ValueArray xs) (ValueArray ys))`
+    ref_rel max_app (ValueArray xs) (ValueArray ys))
+End
 
 val FMAP_REL_def = Define `
   FMAP_REL r f1 f2 <=>

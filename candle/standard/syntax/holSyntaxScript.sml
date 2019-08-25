@@ -60,7 +60,7 @@ val _ = export_rewrites["dest_var_def"]
 
 val _ = Parse.add_infix("has_type",450,Parse.NONASSOC)
 
-val (has_type_rules,has_type_ind,has_type_cases) = Hol_reln`
+Inductive has_type:
   ((Var   n ty) has_type ty) ∧
   ((Const n ty) has_type ty) ∧
   (s has_type (Fun dty rty) ∧
@@ -68,7 +68,8 @@ val (has_type_rules,has_type_ind,has_type_cases) = Hol_reln`
    ⇒
    (Comb s t) has_type rty) ∧
   (t has_type rty ⇒
-   (Abs (Var n dty) t) has_type (Fun dty rty))`
+   (Abs (Var n dty) t) has_type (Fun dty rty))
+End
 
 (* A term is welltyped if it has a type. typeof calculates it. *)
 
@@ -85,14 +86,15 @@ val _ = export_rewrites["typeof_def"]
 (* Auxiliary relation used to define alpha-equivalence. This relation is
    parameterised by the lists of variables bound above the terms. *)
 
-val (RACONV_rules,RACONV_ind,RACONV_cases) = Hol_reln`
+Inductive RACONV:
   (ALPHAVARS env (Var x1 ty1,Var x2 ty2)
     ⇒ RACONV env (Var x1 ty1,Var x2 ty2)) ∧
   (RACONV env (Const x ty,Const x ty)) ∧
   (RACONV env (s1,s2) ∧ RACONV env (t1,t2)
     ⇒ RACONV env (Comb s1 t1,Comb s2 t2)) ∧
   (typeof v1 = typeof v2 ∧ RACONV ((v1,v2)::env) (t1,t2)
-    ⇒ RACONV env (Abs v1 t1,Abs v2 t2))`
+    ⇒ RACONV env (Abs v1 t1,Abs v2 t2))
+End
 
 (* Alpha-equivalence. *)
 
@@ -104,13 +106,14 @@ val ACONV_def = Define`
    ALPHAVARS, ACONV, TERM_UNION, etc., which don't
    lead to canonical hypothesis sets-as-lists *)
 
-val (type_lt_rules,type_lt_ind,type_lt_cases) = Hol_reln`
+Inductive type_lt:
   (mlstring_lt x1 x2 ⇒ type_lt (Tyvar x1) (Tyvar x2)) ∧
   (type_lt (Tyvar x1) (Tyapp x2 args2)) ∧
   ((mlstring_lt LEX LLEX type_lt) (x1,args1) (x2,args2) ⇒
-     type_lt (Tyapp x1 args1) (Tyapp x2 args2))`
+     type_lt (Tyapp x1 args1) (Tyapp x2 args2))
+End
 
-val (term_lt_rules,term_lt_ind,term_lt_cases) = Hol_reln`
+Inductive term_lt:
   ((mlstring_lt LEX type_lt) (x1,ty1) (x2,ty2) ⇒
     term_lt (Var x1 ty1) (Var x2 ty2)) ∧
   (term_lt (Var x1 ty1) (Const x2 ty2)) ∧
@@ -124,7 +127,8 @@ val (term_lt_rules,term_lt_ind,term_lt_cases) = Hol_reln`
    term_lt (Comb s1 s2) (Comb t1 t2)) ∧
   (term_lt (Comb s1 s2) (Abs t1 t2)) ∧
   ((term_lt LEX term_lt) (s1,s2) (t1,t2) ⇒
-   term_lt (Abs s1 s2) (Abs t1 t2))`
+   term_lt (Abs s1 s2) (Abs t1 t2))
+End
 
 val term_cmp_def = Define`
   term_cmp = TO_of_LinearOrder term_lt`
@@ -591,7 +595,7 @@ val _ = Parse.add_infix("updates",450,Parse.NONASSOC)
 
 val _ = hide "abs";
 
-val (updates_rules,updates_ind,updates_cases) = Hol_reln`
+Inductive updates:
   (* new_axiom *)
   (prop has_type Bool ∧
    term_ok (sigof ctxt) prop
@@ -625,7 +629,8 @@ val (updates_rules,updates_ind,updates_cases) = Hol_reln`
    abs ∉ (FDOM (tmsof ctxt)) ∧
    rep ∉ (FDOM (tmsof ctxt)) ∧
    abs ≠ rep
-   ⇒ (TypeDefn name pred abs rep) updates ctxt)`
+   ⇒ (TypeDefn name pred abs rep) updates ctxt)
+End
 
 val extends_def = Define`
   extends ⇔ RTC (λctxt2 ctxt1. ∃upd. ctxt2 = upd::ctxt1 ∧ upd updates ctxt1)`

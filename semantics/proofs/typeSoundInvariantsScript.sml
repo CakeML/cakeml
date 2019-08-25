@@ -74,7 +74,7 @@ val add_tenvE_def = Define `
   (add_tenvE (Bind_tvar _ tenvE) tenvV = add_tenvE tenvE tenvV) ∧
   (add_tenvE (Bind_name x tvs t tenvE) tenvV = nsBind x (tvs,t) (add_tenvE tenvE tenvV))`;
 
-val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
+Inductive type_v:
   (!tvs ctMap tenvS n.
     type_v tvs ctMap tenvS (Litv (IntLit n)) Tint) ∧
   (!tvs ctMap tenvS c.
@@ -137,7 +137,8 @@ val (type_v_rules, type_v_cases, type_v_ind) = Hol_reln `
     check_freevars 0 [] t ∧
     EVERY (\v. type_v tvs ctMap tenvS v t) vs
     ⇒
-    type_v tvs ctMap tenvS (Vectorv vs) (Tvector t))`;
+    type_v tvs ctMap tenvS (Vectorv vs) (Tvector t))
+End
 
 val type_sv_def = Define `
   (type_sv ctMap tenvS (Refv v) (Ref_t t) ⇔ type_v 0 ctMap tenvS v t) ∧

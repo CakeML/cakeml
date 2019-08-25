@@ -67,9 +67,8 @@ Datatype:
 
      (* worklists *)
      ; simp_wl  : num list        (* simp worklist -- list, non-move related deg < k *)
-     ; spill_wl : num list        (* spill worklist -- list, deg ≥ k *)
+     ; spill_wl : num list        (* spill worklist -- list, deg >= k *)
      ; freeze_wl : num list       (* freeze worklist -- list, move related deg < k *)
-
      ; avail_moves_wl : (num,(num # num)) alist   (* active moves -- list, sorted by pri *)
      ; unavail_moves_wl : (num,(num # num)) alist (* inactive moves -- list *)
 
