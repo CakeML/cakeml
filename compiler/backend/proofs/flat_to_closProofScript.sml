@@ -27,7 +27,12 @@ Proof
 QED
 
 Definition compile_lit_def:
-  compile_lit t (IntLit i) = closLang$Op t (Const i) []
+  compile_lit t (IntLit i) = closLang$Op t (Const i) [] /\
+  compile_lit t (Char c) = closLang$Op t (Const (& (ORD c))) [] /\
+  compile_lit t (StrLit s) = closLang$Op t (String s) [] /\
+  compile_lit t (Word8 b) = closLang$Op t (Const (& (w2n b))) [] /\
+  compile_lit t (Word64 w) =
+    closLang$Op t WordFromInt [closLang$Op t (Const (& (w2n w))) []]
 End
 
 Definition arg2_def:
@@ -39,7 +44,7 @@ Definition compile_op_def:
   compile_op t op xs =
     case op of
     | Opapp => arg2 xs (\x f. closLang$App t NONE f [x])
-    | _ => ARB
+    | _ => Let None xs (Var None 0)
 End
 
 Triviality MEM_IMP_exp_size:
@@ -149,6 +154,11 @@ Proof
 QED
 
 Inductive v_rel:
+  (!i. v_rel (Litv (IntLit i)) (Number i)) /\
+  (!c. v_rel (Litv (Char c)) (Number (& (ORD c)))) /\
+  (!s. v_rel (Litv (StrLit s)) (ByteVector (MAP (n2w o ORD) s))) /\
+  (!b. v_rel (Litv (Word8 b)) (Number (& (w2n b)))) /\
+  (!w. v_rel (Litv (Word64 w)) (Word64 w)) /\
   (!vs ws t r. LIST_REL v_rel vs ws ==> v_rel (Conv (SOME (t,r)) vs) (Block t ws)) /\
   (!env m db.
     (!n x. ALOOKUP env.v n = SOME x ==>
@@ -280,7 +290,10 @@ QED
 Theorem compile_Lit:
   ^(get_goal "flatLang$Lit")
 Proof
-  cheat
+  fs [flatSemTheory.evaluate_def,compile_def]
+  \\ Cases_on `l` \\ fs [PULL_EXISTS]
+  \\ once_rewrite_tac [CONJUNCT2 v_rel_cases] \\ fs []
+  \\ fs [compile_lit_def,evaluate_def,do_app_def]
 QED
 
 Theorem compile_Raise:
@@ -452,6 +465,59 @@ Proof
   recInduct no_Mat_ind \\ fs [no_Mat_def]
 QED
 
+Theorem compile_If:
+  ^(get_goal "flatLang$If")
+Proof
+  rpt strip_tac
+  \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
+  \\ fs [pair_case_eq] \\ fs []
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ fs [result_case_eq] \\ rveq \\ fs []
+  \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
+  \\ fs [option_case_eq] \\ fs []
+  \\ fs [do_if_def,bool_case_eq] \\ rveq \\ fs []
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ strip_tac \\ fs []
+  \\ fs [flatSemTheory.Boolv_def]
+  \\ qpat_x_assum `v_rel _ _` mp_tac
+  \\ once_rewrite_tac [v_rel_cases] \\ fs [Boolv_def]
+QED
+
+Theorem compile_Mat:
+  ^(get_goal "flatLang$Mat") /\
+  ^(get_goal "dest_pat []") /\
+  ^(get_goal "dest_pat ((p,e)::pes)")
+Proof
+  fs [no_Mat_def,dest_pat_thm] \\ rw []
+  \\ fs [EVAL ``pmatch s (Pvar p') v []``]
+  \\ fs [EVAL ``ALL_DISTINCT (pat_bindings (Pvar p') [])``]
+QED
+
+Theorem compile_op_evaluates_args:
+  evaluate (xs,db,t) = (Rerr err,t1) /\ op <> Opapp ==>
+  evaluate ([compile_op tra op xs],db,t) = (Rerr err,t1)
+Proof
+  Cases_on `op` \\ fs [compile_op_def,evaluate_def]
+QED
+
+Theorem compile_op_correct:
+  do_app F s1 op vs = SOME (s2,res2) /\
+  state_rel s1 (t1:('c,'ffi) closSem$state) /\
+  evaluate (xs,db,t) = (Rval ws,t1) /\
+  LIST_REL v_rel vs (REVERSE ws) /\
+  LENGTH xs = LENGTH vs /\ op <> Opapp ==>
+  ∃res2' t1.
+    evaluate ([compile_op tt op xs],db,t) = (res2',t1) ∧
+    state_rel s2 t1 ∧
+    result_rel (LIST_REL v_rel) v_rel (list_result res2) res2'
+Proof
+  cheat
+QED
+
 Theorem compile_App:
   ^(get_goal "flatLang$App")
 Proof
@@ -549,39 +615,19 @@ Proof
     \\ rename [`env_rel env3 m3 db3`]
     \\ qexists_tac `env3` \\ qexists_tac `m3` \\ fs []
     \\ fs [o_DEF])
-  \\ cheat
-QED
-
-Theorem compile_If:
-  ^(get_goal "flatLang$If")
-Proof
-  rpt strip_tac
-  \\ fs [evaluate_def,compile_def,flatSemTheory.evaluate_def]
-  \\ fs [pair_case_eq] \\ fs []
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ impl_tac THEN1 (CCONTR_TAC \\ fs [])
-  \\ strip_tac \\ fs []
-  \\ fs [result_case_eq] \\ rveq \\ fs []
-  \\ imp_res_tac evaluate_sing \\ fs [] \\ rveq \\ fs []
-  \\ fs [option_case_eq] \\ fs []
-  \\ fs [do_if_def,bool_case_eq] \\ rveq \\ fs []
-  \\ first_x_assum drule
-  \\ disch_then drule
-  \\ strip_tac \\ fs []
-  \\ fs [flatSemTheory.Boolv_def]
-  \\ qpat_x_assum `v_rel _ _` mp_tac
-  \\ once_rewrite_tac [v_rel_cases] \\ fs [Boolv_def]
-QED
-
-Theorem compile_Mat:
-  ^(get_goal "flatLang$Mat") /\
-  ^(get_goal "dest_pat []") /\
-  ^(get_goal "dest_pat ((p,e)::pes)")
-Proof
-  fs [no_Mat_def,dest_pat_thm] \\ rw []
-  \\ fs [EVAL ``pmatch s (Pvar p') v []``]
-  \\ fs [EVAL ``ALL_DISTINCT (pat_bindings (Pvar p') [])``]
+  \\ reverse (fs [result_case_eq])
+  \\ rveq \\ fs [] \\ rveq \\ fs []
+  THEN1 (drule compile_op_evaluates_args \\ fs [])
+  \\ fs [option_case_eq,pair_case_eq] \\ rveq \\ fs []
+  \\ rename [`state_rel s1 t1`,`LIST_REL v_rel vs ws`,`_ = SOME (s2,res2)`]
+  \\ qmatch_goalsub_rename_tac `compile_op tt op cexps`
+  \\ drule EVERY2_REVERSE
+  \\ qmatch_goalsub_rename_tac `LIST_REL _ vvs`
+  \\ imp_res_tac state_rel_IMP_check_ctor \\ fs [] \\ rw []
+  \\ match_mp_tac (GEN_ALL compile_op_correct)
+  \\ rpt (asm_exists_tac \\ fs [])
+  \\ imp_res_tac evaluate_IMP_LENGTH
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
 QED
 
 Theorem compile_correct:
