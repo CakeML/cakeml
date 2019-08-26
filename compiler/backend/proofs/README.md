@@ -93,6 +93,9 @@ Correctness proof for flat_exh_match
 [flat_reorder_matchProofScript.sml](flat_reorder_matchProofScript.sml):
 Correctness proof for flat_reorder_match
 
+[flat_to_closProofScript.sml](flat_to_closProofScript.sml):
+Correctness proof for flat_to_clos
+
 [flat_to_patProofScript.sml](flat_to_patProofScript.sml):
 Correctness proof for flat_to_pat
 
