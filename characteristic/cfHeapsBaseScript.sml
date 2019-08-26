@@ -76,9 +76,9 @@ val mk_ffi_next_def = Define`
        FFIreturn bytes s => SOME(FFIreturn bytes (encode s))
      | FFIdiverge => SOME FFIdiverge)))`;
 
-val _ = temp_type_abbrev("loc", ``:num``)
+Type loc = ``:num``
 
-val _ = temp_type_abbrev("ffi_next", ``:string -> word8 list -> word8 list -> ffi -> ffi ffi_result option``);
+Type ffi_next = ``:string -> word8 list -> word8 list -> ffi -> ffi ffi_result option``
 
 val _ = Datatype `
   heap_part = Mem loc (v semanticPrimitives$store_v)
@@ -86,8 +86,8 @@ val _ = Datatype `
             | FFI_part ffi ffi_next (string list) (io_event list)
             | FFI_full (io_event list)`
 
-val _ = type_abbrev("heap", ``:heap_part set``)
-val _ = type_abbrev("hprop", ``:heap -> bool``)
+Type heap = ``:heap_part set``
+Type hprop = ``:heap -> bool``
 
 val _ = Datatype `
   res = Val v
@@ -95,9 +95,8 @@ val _ = Datatype `
       | FFIDiv string (word8 list) (word8 list)
       | Div (io_event llist)`
 
-val _ = type_abbrev("ffi_proj",
-  ``: ('ffi -> (string |-> ffi)) #
-      ((string list # ffi_next) list)``)
+Type ffi_proj = ``: ('ffi -> (string |-> ffi)) #
+                    ((string list # ffi_next) list)``
 
 val SPLIT3_def = Define `
   SPLIT3 (s:'a set) (u,v,w) =

@@ -333,10 +333,8 @@ val wfv_state_def = Define`
     FEVERY (every_refv (wfv g l code) o SND) s.refs ∧
     s.code = FEMPTY`;
 
-val _ = temp_type_abbrev("calls_state",
-          ``:num_set # (num, num # closLang$exp) alist``);
-
-val _ = temp_type_abbrev("abs_calls_state",``:num_set``);
+Type calls_state = ``:num_set # (num, num # closLang$exp) alist``
+Type abs_calls_state = ``:num_set``
 
 val state_rel_def = Define`
   state_rel g l (s:(abs_calls_state # 'c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) ⇔

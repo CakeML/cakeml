@@ -20,7 +20,7 @@ in sg `^imp` end
 
 val clear_first_assum = POP_ASSUM (fn x => ALL_TAC)
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+Type state = ``:'ffi semanticPrimitives$state``
 
 (* a few basics *)
 Theorem with_same_refs:

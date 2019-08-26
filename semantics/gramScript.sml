@@ -178,12 +178,13 @@ val cmlG_def = mk_grammar_def ginfo
  NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
 `;
 
-val _ = type_abbrev("NT", ``:MMLnonT inf``)
-val _ = overload_on("mkNT", ``INL : MMLnonT -> NT``)
+Type NT = ``:MMLnonT inf``
 
+val _ = overload_on ("mkNT", ``INL : MMLnonT -> NT``)
 val _ = overload_on ("NN", ``\nt. NT (mkNT nt)``)
 val _ = overload_on ("TK", ``TOK : token -> (token,MMLnonT)symbol``)
-val _ = type_abbrev("mlptree", ``:(token, MMLnonT, locs) parsetree``)
+
+Type mlptree = ``:(token, MMLnonT, locs) parsetree``
 
 val nt_distinct_ths = let
   val ntlist = TypeBase.constructors_of ``:MMLnonT``

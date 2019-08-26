@@ -23,7 +23,9 @@ val take_def = Define `
   (take n l = if (LENGTH l >= n) then SOME (take1 n l)
                                  else NONE)`;
 
-val _ = Hol_datatype `symbol = TS of string | NTS of string`;
+Datatype:
+  symbol = TS string | NTS string
+End
 
 val isNonTmnlSym = Define `
   (isNonTmnlSym (NTS _) = T) /\
@@ -31,16 +33,30 @@ val isNonTmnlSym = Define `
 
 val sym2Str = Define `(sym2Str (TS s) = s) /\ (sym2Str (NTS s) = s)`;
 
-val _ = Hol_datatype `rule = rule of string => symbol list`;
+Datatype:
+  rule = rule string (symbol list)
+End
 
 val ruleRhs = Define `ruleRhs (rule l r) = r`;
 val ruleLhs = Define `ruleLhs (rule l r) = l`;
 
-val _ = Hol_datatype `ptree = Leaf of string | Node of string => ptree list`;
-val _ = Hol_datatype `grammar = G of rule list => string`;
-val _ = Hol_datatype `item = item of string => symbol list # symbol list`;
-val _ = type_abbrev ("state", ``:item list``)
-val _ = Hol_datatype `action = REDUCE of rule | GOTO of state | NA`
+Datatype:
+  ptree = Leaf string | Node string (ptree list)
+End
+
+Datatype:
+  grammar = G (rule list) string
+End
+
+Datatype:
+  item = item string (symbol list # symbol list)
+End
+
+Type state = ``:item list``
+
+Datatype:
+  action = REDUCE rule | GOTO state | NA
+End
 
 val ptree2Sym = Define `
   (ptree2Sym (Node nt ptl) = NTS nt) /\

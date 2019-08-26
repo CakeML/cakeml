@@ -38,7 +38,11 @@ val HOLMAKEFILE_SUGGESTION =
          "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n"]
 
 val ILLEGAL_STRINGS =
-  [("store_thm(\"", "The Theorem syntax is to be used insted of store_thm.")]
+  [("store_thm(\"", "The Theorem syntax is to be used instead of store_thm."),
+   ("type_abbrev(\"", "The Type syntax is to be used instead of type_abbrev."),
+   ("Hol_datatype"^"`", "Use Datatype: ... End syntax instead of Hol_datatype."),
+   ("Hol_rel"^"n`","Use Inductive ... End instead of old Hol_reln."),
+   ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln.")]
 
 (* Helper functions *)
 

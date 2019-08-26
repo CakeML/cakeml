@@ -16,8 +16,7 @@ val _ = Datatype`PCstate0 = <| fixities : string |-> num option ;
 (* recording a fixity of NONE is what you have to do to represent an
    explicit nonfix declaration *)
 
-val _ = temp_type_abbrev
-            ("M", ``:PCstate0 list -> ('a # PCstate0 list) option``)
+Type M = ``:PCstate0 list -> ('a # PCstate0 list) option``
 
 val empty_PCstate0 = Define`
   empty_PCstate0 = <| fixities := FEMPTY ; ctr_arities := FEMPTY |>

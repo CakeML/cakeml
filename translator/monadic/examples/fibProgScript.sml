@@ -24,8 +24,9 @@ val _ = Datatype `
                       ; stdio : IO_fs |>`;
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail`;
+Datatype:
+  state_exn = Fail
+End
 
 val config =  global_state_config |>
               with_state ``:state_references`` |>

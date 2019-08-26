@@ -313,7 +313,7 @@ val small_eval_lannot = Q.prove (
   small_eval env s e1 ((Clannot () l,env)::c) r`,
  small_eval_step_tac);
 
-val (small_eval_list_rules, small_eval_list_ind, small_eval_list_cases) = Hol_reln `
+Inductive small_eval_list:
 (!env s. small_eval_list env s [] (s, Rval [])) ∧
 (!s1 env e es v vs s2 s3 env'.
   e_step_reln^* (env,s1,Exp e,[]) (env',s2,Val v,[]) ∧
@@ -332,7 +332,8 @@ val (small_eval_list_rules, small_eval_list_ind, small_eval_list_cases) = Hol_re
   (e_step_reln^* (env,s1,Exp e,[]) (env',s2,Val v,[]) ∧
    small_eval_list env s2 es (s3, Rerr (Rabort a)))
   ⇒
-  (small_eval_list env s1 (e::es) (s3, Rerr (Rabort a))))`;
+  (small_eval_list env s1 (e::es) (s3, Rerr (Rabort a))))
+End
 
 val small_eval_list_length = Q.prove (
 `!env s1 es r. small_eval_list env s1 es r ⇒
@@ -452,7 +453,7 @@ full_simp_tac(srw_ss())[] >|
              by metis_tac [] >>
      metis_tac [RTC_SINGLE, transitive_RTC, transitive_def]]);
 
-val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol_reln `
+Inductive small_eval_match:
 (!env s err_v v. small_eval_match env s v [] err_v (s, Rerr (Rraise err_v))) ∧
 (!env s p e pes r v err_v.
   ALL_DISTINCT (pat_bindings p []) ∧
@@ -473,7 +474,8 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
 (!env s p e pes v err_v.
   (pmatch env.c (FST s) p v [] = Match_type_error)
   ⇒
-  small_eval_match env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error)))`;
+  small_eval_match env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error)))
+End
 
 val alt_small_eval_def = Define `
 (alt_small_eval env s1 e c (s2, Rval v) =

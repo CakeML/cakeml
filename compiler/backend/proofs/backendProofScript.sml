@@ -334,8 +334,7 @@ val empty_progs_def = Define `
     data_prog := []; word_prog := []; stack_prog := []; cur_bm := [];
     lab_prog := []; target_prog := ([], []) |>`;
 
-val _ = type_abbrev("clos_prog",
-  ``: closLang$exp list # (num # num # closLang$exp) list``);
+Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
 val known_static_conf_def = Define `
   known_static_conf kc = (case kc of NONE => NONE

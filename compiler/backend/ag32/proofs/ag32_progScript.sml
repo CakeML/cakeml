@@ -28,7 +28,7 @@ val _ = Datatype `
 val ag32_el_11 = DB.fetch "-" "ag32_el_11";
 val ag32_el_distinct = DB.fetch "-" "ag32_el_distinct";
 
-val _ = Parse.type_abbrev("ag32_set",``:ag32_el set``);
+Type ag32_set = ``:ag32_el set``
 
 val ag32_instr_def = Define`
   ag32_instr (a, w: word32) =
