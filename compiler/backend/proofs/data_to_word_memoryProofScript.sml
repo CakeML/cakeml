@@ -137,10 +137,8 @@ val _ = Datatype `
 val BlockRep_def = Define `
   BlockRep tag xs = DataElement xs (LENGTH xs) (BlockTag tag,[])`;
 
-val _ = type_abbrev("ml_el",
-  ``:('a word_loc, tag # ('a word_loc list)) heap_element``);
-
-val _ = type_abbrev("ml_heap",``:'a ml_el list``);
+Type ml_el = ``:('a word_loc, tag # ('a word_loc list)) heap_element``
+Type ml_heap = ``:'a ml_el list``
 
 val write_bytes_def = Define `
   (write_bytes bs [] be = []) /\

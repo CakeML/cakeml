@@ -510,7 +510,7 @@ val evaluate_generic_app2 = Q.prove (
     REWRITE_TAC [ADD_ASSOC] >>
     simp [triangle_div_lemma]));
 
-val (unpack_closure_rules, unpack_closure_ind, unpack_closure_cases) = Hol_reln `
+Inductive unpack_closure:
   (total_args ≥ 0
    ⇒
    unpack_closure (Block closure_tag (CodePtr l :: Number total_args :: fvs))
@@ -519,7 +519,8 @@ val (unpack_closure_rules, unpack_closure_ind, unpack_closure_cases) = Hol_reln 
    rem_args ≥ 0
    ⇒
    unpack_closure (Block partial_app_tag (CodePtr l :: Number rem_args :: clo :: prev_args))
-         (prev_args, Num rem_args + LENGTH prev_args, clo))`;
+         (prev_args, Num rem_args + LENGTH prev_args, clo))
+End
 
 val evaluate_generic_app_partial = Q.prove (
   `!total_args prev_args st args cl sub_cl.
@@ -778,7 +779,7 @@ val closure_code_installed_def = Define `
         (lookup p code = SOME (n+1,SND (code_for_recc_case (LENGTH env + LENGTH exps_ps) n c))) /\
         code_installed aux1 code) exps_ps`
 
-val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
+Inductive cl_rel:
   ( num_args ≤ max_app ∧
     num_args ≠ 0 ∧
     every_Fn_SOME [x] ∧
@@ -814,7 +815,8 @@ val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
      every_Fn_SOME (MAP SND exps) ∧
      every_Fn_vs_SOME (MAP SND exps) ∧
      closure_code_installed max_app code exps_ps env ==>
-     cl_rel max_app fs refs code (env,ys) (Recclosure (SOME loc) [] env exps k) (EL k rs))`;
+     cl_rel max_app fs refs code (env,ys) (Recclosure (SOME loc) [] env exps k) (EL k rs))
+End
 
 val add_args_def = Define `
   (add_args (Closure loc_opt args env num_args exp : closSem$v) args' =
@@ -838,7 +840,7 @@ val get_num_args_def = Define `
     SOME (FST (EL i funs))) ∧
   (get_num_args _ = NONE)`;
 
-val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
+Inductive v_rel:
   (v_rel max_app f refs code (Number n) (Number n))
   /\
   (v_rel max_app f refs code (Word64 w) (Word64 w))
@@ -870,7 +872,8 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
    v_rel max_app f refs code cl_app
                        (Block partial_app_tag
                               (CodePtr (partial_app_fn_location max_app (num_args - 1) (LENGTH ys - 1)) ::
-                               Number (&(num_args - 1 - LENGTH arg_env)) :: cl' :: ys)))`;
+                               Number (&(num_args - 1 - LENGTH arg_env)) :: cl' :: ys)))
+End
 
 val cl_rel_F = Q.prove (
   `~cl_rel max_app f refs code (env,ys) (Number i) cl ∧

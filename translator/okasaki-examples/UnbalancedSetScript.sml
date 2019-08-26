@@ -12,8 +12,9 @@ val _ = translation_extends "ListProg";
 
 (* Okasaki page 14 *)
 
-val _ = Hol_datatype `
-tree = Empty | Tree of tree => 'a => tree`;
+Datatype:
+  tree = Empty | Tree tree 'a tree
+End
 
 val tree_to_set_def = Define `
 (tree_to_set Empty = {}) ∧

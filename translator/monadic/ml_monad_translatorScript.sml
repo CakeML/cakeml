@@ -129,7 +129,7 @@ fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
 fun first_assum_rewrite_once th =
   pop_assum(fn x => ASSUME_TAC(PURE_ONCE_REWRITE_RULE[th] x))
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+Type state = ``:'ffi semanticPrimitives$state``
 
 (***)
 
@@ -147,7 +147,7 @@ val EvalM_def = Define `
         P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2)`;
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
-val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
+Type M = ``:'a -> ('b, 'c) exc # 'a``
 
 val MONAD_def = Define `
   MONAD (a:'a->v->bool) (b: 'b->v->bool) (x:('refs, 'a, 'b) M)
@@ -223,8 +223,7 @@ QED
 
 (* lift ro refinement invariants *)
 
-val _ = type_abbrev("H",``:'a -> 'refs ->
-                                 'refs # (v list,v) result -> bool``);
+Type H = ``:'a -> 'refs -> 'refs # (v list,v) result -> bool``
 
 val PURE_def = Define `
   PURE a (x:'a) (st1:'refs) (st2,res:(v list,v) result) =

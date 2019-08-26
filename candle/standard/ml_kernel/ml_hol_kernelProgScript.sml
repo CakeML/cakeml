@@ -24,7 +24,7 @@ val _ = hide "abs";
 
 val _ = ml_prog_update (open_module "Kernel");
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+Type state = ``:'ffi semanticPrimitives$state``
 
 (* construct type refinement invariants *)
 

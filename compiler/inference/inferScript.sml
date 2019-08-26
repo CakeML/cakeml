@@ -20,13 +20,13 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = Datatype `
   exc = Success 'a | Failure 'b`;
 
-val _ = temp_type_abbrev("err_var",type_of ``primTypes$prim_tenv.t``);
+Type err_var = (type_of ``primTypes$prim_tenv.t``)
 
 val _ = Datatype `
   loc_err_info = <| loc : locs option ;
                     err : err_var |>`
 
-val _ = type_abbrev("M", ``:'a -> ('b, 'c) exc # 'a``);
+Type M = ``:'a -> ('b, 'c) exc # 'a``
 
 val st_ex_bind_def = Define `
 (st_ex_bind : (α, β, γ) M -> (β -> (α, δ, γ) M) -> (α, δ, γ) M) x f =
@@ -65,11 +65,12 @@ val lookup_st_ex_def = Define `
     | NONE => (Failure (l.loc, concat [implode "Undefined "; implode err; implode ": "; id_to_string id]), st)
     | SOME v => (Success v, st)`;
 
-val _ = Hol_datatype `
-infer_st = <| next_uvar : num;
-              subst : type_ident |-> infer_t ;
-              next_id : num;
-            |>`;
+Datatype:
+  infer_st = <| next_uvar : num;
+                subst : type_ident |-> infer_t ;
+                next_id : num;
+              |>
+End
 
 val fresh_uvar_def = Define `
 (fresh_uvar : (infer_st, infer_t, α) M) =
@@ -144,12 +145,13 @@ apply_subst_list ts =
   The module and variable environment's types differ slightly.
 *)
 
-val _ = Hol_datatype `
- inf_env =
+Datatype:
+  inf_env =
   <| inf_v : (modN, varN, num # infer_t) namespace
    ; inf_c : tenv_ctor
    ; inf_t : tenv_abbrev
-   |>`;
+   |>
+End
 
 (* Generalise the unification variables greater than m, starting at deBruijn index n.
  * Return how many were generalised, the generalised type, and a substitution

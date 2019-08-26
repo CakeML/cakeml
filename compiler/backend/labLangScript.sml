@@ -6,7 +6,7 @@ open preamble asmTheory;
 
 val _ = new_theory "labLang";
 
-val () = Parse.temp_type_abbrev ("reg", ``:num``)
+Type reg = ``:num``
 
 (* A label refers to either a section name or a local label definition
    within the current section. *)
@@ -47,6 +47,6 @@ val _ = export_rewrites["Section_num_def","Section_lines_def"];
 
 (* A full assembly program consists of a list of sections. *)
 
-val () = Parse.type_abbrev ("prog", ``:('a sec) list``);
+Type prog = ``:('a sec) list``
 
 val _ = export_theory();

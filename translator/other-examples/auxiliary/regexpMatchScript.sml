@@ -65,12 +65,13 @@ val _ = new_theory "regexpMatch";
 (* equality. Alternative: have Charset be a list or a finite map ...        *)
 (*--------------------------------------------------------------------------*)
 
-Hol_datatype
- `regexp = Epsilon                   (* Empty string *)
-         | Charset of 'a list        (* Character set *)
-         | Or of regexp => regexp    (* Union *)
-         | Then of regexp => regexp  (* Concatenation *)
-         | Repeat of regexp`;        (* Iterated concat, >= 0 *)
+Datatype:
+  regexp = Epsilon              (* Empty string *)
+         | Charset ('a list)    (* Character set *)
+         | Or regexp regexp     (* Union *)
+         | Then regexp regexp   (* Concatenation *)
+         | Repeat regexp        (* Iterated concat, >= 0 *)
+End
 
 (*---------------------------------------------------------------------------*)
 (* Parser fiddling to get | and # as infixes - we have to first get rid      *)

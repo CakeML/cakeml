@@ -176,7 +176,7 @@ QED
   type ids that got produced.
 *)
 
-val (type_d_canon_rules, type_d_canon_ind, type_d_canon_cases) = Hol_reln `
+Inductive type_d_canon:
 (!n tvs tenv p e t bindings locs.
   (is_value e /\
   ALL_DISTINCT (pat_bindings p []) /\
@@ -259,7 +259,8 @@ val (type_d_canon_rules, type_d_canon_ind, type_d_canon_cases) = Hol_reln `
   type_ds_canon (n+decls1) (extend_dec_tenv tenv1 tenv) ds decls2 tenv2)
   ==>
   type_ds_canon n tenv (d::ds)
-    (decls1 + decls2) (extend_dec_tenv tenv2 tenv1))`;
+    (decls1 + decls2) (extend_dec_tenv tenv2 tenv1))
+End
 
 (* The remapping must be identity on these numbers *)
 val good_remap_def = Define`

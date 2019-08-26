@@ -29,7 +29,7 @@ val _ = temp_overload_on("TRUE_CONST",``Const (n2w 18:'a word)``)
 val drule = old_drule
 
 (* TODO: move *)
-val _ = type_abbrev("state", ``:('a,'c,'ffi)wordSem$state``)
+Type state = ``:('a,'c,'ffi)wordSem$state``
 
 fun op by1 (q,tac) = q by (tac \\ NO_TAC)
 infix 8 by1

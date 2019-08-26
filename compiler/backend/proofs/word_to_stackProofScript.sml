@@ -1570,7 +1570,8 @@ val MEM_index_list_EL = Q.prove(`
   pop_assum SUBST_ALL_TAC>>
   simp[])
 
-val _ = type_abbrev("result", ``:'a wordSem$result``)
+Type result = ``:'a wordSem$result``
+
 val alloc_IMP_alloc = Q.prove(
   `(wordSem$alloc c names (s:('a,'a word list # 'c,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
