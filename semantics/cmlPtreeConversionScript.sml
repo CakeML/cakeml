@@ -1223,16 +1223,18 @@ in
 
 val ptree_Expr_def = Define ptree_Expr_quotation
 (*
-val ptree_Expr_pmatch = Q.store_thm("ptree_decl_pmatch",
-  (ptree_Expr_quotation |>
+Theorem ptree_decl_pmatch:
+  ^(ptree_Expr_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
+       | aq => aq))
+Proof
   rpt strip_tac
   >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
   >> rpt strip_tac
   >> fs[Once ptree_Expr_def] >> every_case_tac >> fs[]
   >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-  >> rpt strip_tac);
+  >> rpt strip_tac)
+QED
 *)
 end
 

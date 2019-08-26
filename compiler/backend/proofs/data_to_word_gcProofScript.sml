@@ -88,9 +88,11 @@ Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
 QED
 
-val word_and_one_eq_0_iff = Q.store_thm("word_and_one_eq_0_iff", (* same in stack_alloc *)
-  `!w. ((w && 1w) = 0w) <=> ~(w ' 0)`,
-  srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index])
+Theorem word_and_one_eq_0_iff: (* same in stack_alloc *)
+  !w. ((w && 1w) = 0w) <=> ~(w ' 0)
+Proof
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index]
+QED
 
 Theorem word_index_0:
    !w. w ' 0 <=> ~((1w && w) = 0w)
@@ -4493,13 +4495,14 @@ Proof
   \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]
 QED
 
-val get_var_isT_OR_isF = Q.store_thm("get_var_isT_OR_isF",
-  `state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) [] locs /\
+Theorem get_var_isT_OR_isF:
+  state_rel c l1 l2 ^s (t:('a,'c,'ffi) state) [] locs /\
     get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     18 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
     ((isBool T x) ==> (w = Word 18w)) /\
-    ((isBool F x) ==> (w = Word 2w))`,
+    ((isBool F x) ==> (w = Word 2w))
+Proof
   full_simp_tac(srw_ss())[state_rel_def,get_var_def,wordSemTheory.get_var_def]
   \\ strip_tac \\ strip_tac
   THEN1 (full_simp_tac(srw_ss())[good_dimindex_def]
@@ -4517,7 +4520,8 @@ val get_var_isT_OR_isF = Q.store_thm("get_var_isT_OR_isF",
   \\ Cases_on `x` \\ fs [isBool_def]
   \\ Cases_on `l` \\ fs [isBool_def,v_inv_def,word_addr_def]
   \\ rveq
-  \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]);
+  \\ EVAL_TAC \\ full_simp_tac(srw_ss())[good_dimindex_def,dimword_def]
+QED
 
 val mk_loc_def = Define `
   mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;

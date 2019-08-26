@@ -912,9 +912,11 @@ val is_subgraph_def = Define`
   ∀x y.
     has_edge g x y ⇒ has_edge h x y`
 
-val is_subgraph_refl= Q.store_thm("is_subgraph_refl",`
-  is_subgraph s s`,
-  rw[is_subgraph_def]);
+Theorem is_subgraph_refl:
+  is_subgraph s s
+Proof
+  rw[is_subgraph_def]
+QED
 
 Theorem is_subgraph_trans:
     is_subgraph s s' ∧

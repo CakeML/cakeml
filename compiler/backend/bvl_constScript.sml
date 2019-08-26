@@ -62,7 +62,7 @@ val SmartOp_flip_def = Define `
 `
 
 Theorem SmartOp_flip_pmatch:
-      !op x1 x2. SmartOp_flip op x1 x2 =
+  !op x1 x2. SmartOp_flip op x1 x2 =
     case (dest_simple x1) of
     | (SOME i) =>
         if MEM op [Add; Mult] then (op, x2, x1)
@@ -186,12 +186,16 @@ local val SmartOp2_quotation = `
 in
 val SmartOp2_def = Define SmartOp2_quotation
 
-val SmartOp2_pmatch = Q.store_thm("SmartOp2_pmatch",
-  SmartOp2_quotation |>
+val tm = (SmartOp2_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq),
+       | aq => aq)) |> Term
+
+Theorem SmartOp2_pmatch:
+  ^tm
+Proof
   CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
-  simp [SmartOp2_def]);
+  simp [SmartOp2_def]
+QED
 end
 
 

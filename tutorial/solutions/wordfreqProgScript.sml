@@ -260,19 +260,20 @@ val empty_v_thm = MapProgTheory.empty_v_thm |> Q.GENL[`a`,`b`] |> Q.ISPECL[`STRI
 (* and this for our use of List.map *)
 val format_output_v_thm = theorem"format_output_v_thm";
 
-val wordfreq_spec = Q.store_thm("wordfreq_spec",
+Theorem wordfreq_spec:
   (* EXERCISE: write the specification for the wordfreq program *)
   (* hint: it should be very similar to wordcount_spec (in wordcountProgScript.sml) *)
   (* hint: use wordfreq_output_spec to produce the desired output *)
   (*ex *)
-  `hasFreeFD fs ∧ inFS_fname fs fname ∧
+   hasFreeFD fs ∧ inFS_fname fs fname ∧
    cl = [pname; fname] ∧
    contents = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ⇒
    app (p:'ffi ffi_proj) ^(fetch_v "wordfreq" (get_ml_prog_state()))
      [uv] (COMMANDLINE cl * STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
          (STDIO (add_stdout fs (wordfreq_output_spec contents))) *
-         COMMANDLINE cl)`,
+         COMMANDLINE cl)
+Proof
   (* ex*)
 
 (* The following proof sketch should work when you have roughly the right
@@ -335,7 +336,7 @@ val wordfreq_spec = Q.store_thm("wordfreq_spec",
   (*ex *)
   metis_tac[all_lines_def,wordfreq_output_valid,wordfreq_output_spec_def,valid_wordfreq_output_unique]
   (* ex*)
-);
+QED
 
 (* Finally, we package the verified program up with the following boilerplate *)
 
