@@ -34,7 +34,7 @@ val _ = Datatype `
      ; stack   : stack list
      ; global  : num option
      ; handler : num
-     ; refs    : num |-> v ref
+     ; refs    : v ref num_map
      ; compile : 'c -> (num # num # dataLang$prog) list -> (word8 list # word64 list # 'c) option
      ; clock   : num
      ; code    : (num # dataLang$prog) num_map
@@ -78,9 +78,9 @@ val size_of_heap_def = Define`
   size_of_heap ^s =
   let locals_vs     = toList s.locals;
       extract_stack = (λst. toList case st of Env vs => vs | Exc vs _ => vs);
-      extract_ref   = (λ(n,r). case r of ValueArray l =>  l | _ => []);
+      extract_ref   = (λr. case r of ValueArray l =>  l | _ => []);
       stack_vs      = FLAT (MAP extract_stack s.stack);
-      refs_vs       = FLAT (MAP extract_ref (fmap_to_alist s.refs));
+      refs_vs       = FLAT (MAP extract_ref (toList s.refs));
       all_vs        = locals_vs ++ stack_vs ++ refs_vs;
       count_vs      = (λ(z,t) v. let (z',t') = size_of_v t v in (z + z', t'));
       init_st       = OPTION_MAP (K LN) s.tstamps
@@ -115,9 +115,9 @@ val check_state_def = Define`
   check_state ^s =
   let locals_vs     = toList s.locals;
       extract_stack = (λst. toList case st of Env vs => vs | Exc vs _ => vs);
-      extract_ref   = (λ(n,r). case r of ValueArray l =>  l | _ => []);
+      extract_ref   = (λr. case r of ValueArray l =>  l | _ => []);
       stack_vs      = FLAT (MAP extract_stack s.stack);
-      refs_vs       = FLAT (MAP extract_ref (fmap_to_alist s.refs));
+      refs_vs       = FLAT (MAP extract_ref (toList s.refs));
       all_vs        = locals_vs ++ stack_vs ++ refs_vs;
   in EVERY (check_v s) all_vs
 `
@@ -193,7 +193,7 @@ val do_eq_def = tDefine"do_eq"`
   (do_eq _ (Word64 _) _ = Eq_type_error) ∧
   (do_eq _ _ (Word64 _) = Eq_type_error) ∧
   (do_eq refs (RefPtr n1) (RefPtr n2) =
-    case (FLOOKUP refs n1, FLOOKUP refs n2) of
+    case (lookup n1 refs, lookup n1 refs) of
       (SOME (ByteArray T bs1), SOME (ByteArray T bs2))
         => Eq_val (bs1 = bs2)
     | (SOME (ByteArray T bs1), _) => Eq_type_error
@@ -295,9 +295,9 @@ val do_app_aux_def = Define `
         (case xs of
           | [Number i; Number b] =>
             if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
-              let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-                Rval (RefPtr ptr, s with refs := s.refs |+
-                  (ptr, ByteArray f (REPLICATE (Num i) (i2w b))))
+              let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
+                Rval (RefPtr ptr, s with refs := insert ptr
+                  (ByteArray f (REPLICATE (Num i) (i2w b))) s.refs)
             else Rerr (Rabort Rtype_error)
           | _ => Rerr (Rabort Rtype_error))
     | (Global n, _)      => Rerr (Rabort Rtype_error)
@@ -328,43 +328,43 @@ val do_app_aux_def = Define `
     | (LengthBlock,[Block _ tag xs]) =>
         Rval (Number (&LENGTH xs), s)
     | (Length,[RefPtr ptr]) =>
-        (case FLOOKUP s.refs ptr of
+        (case lookup ptr s.refs of
           | SOME (ValueArray xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
     | (LengthByte,[RefPtr ptr]) =>
-        (case FLOOKUP s.refs ptr of
+        (case lookup ptr s.refs of
           | SOME (ByteArray _ xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
-          let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-            Rval (RefPtr ptr, s with refs := s.refs |+
-              (ptr,ValueArray (REPLICATE (Num i) v)))
+          let ptr = (LEAST ptr. ¬(ptr IN domain s.refs)) in
+            Rval (RefPtr ptr, s with refs := insert ptr
+              (ValueArray (REPLICATE (Num i) v)) s.refs)
          else Error
     | (DerefByte,[RefPtr ptr; Number i]) =>
-        (case FLOOKUP s.refs ptr of
+        (case lookup ptr s.refs of
          | SOME (ByteArray _ ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
-        (case FLOOKUP s.refs ptr of
+        (case lookup ptr s.refs of
          | SOME (ByteArray f bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
              then
-               Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray f (LUPDATE (i2w b) (Num i) bs)))
+               Rval (Unit, s with refs := insert ptr
+                 (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
              else Error)
          | _ => Error)
     | (CopyByte F,[RefPtr src; Number srcoff; Number len; RefPtr dst; Number dstoff]) =>
-        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+        (case (lookup src s.refs, lookup dst s.refs) of
          | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
                               (* no time-stamp *)
-            | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds))
+            | SOME ds => Rval (Unit, s with refs := insert dst (ByteArray fl ds) s.refs)
             | NONE => Error)
          | _ => Error)
     | (TagEq n,[Block _ tag xs]) =>
@@ -380,21 +380,21 @@ val do_app_aux_def = Define `
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
     | (Ref,xs) =>
-        let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
-          Rval (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
+        let ptr = (LEAST ptr. ~(ptr IN domain s.refs)) in
+          Rval (RefPtr ptr, s with refs := insert ptr (ValueArray xs) s.refs)
     | (Deref,[RefPtr ptr; Number i]) =>
-        (case FLOOKUP s.refs ptr of
+        (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
              then Rval (EL (Num i) xs, s)
              else Error)
          | _ => Error)
     | (Update,[RefPtr ptr; Number i; x]) =>
-        (case FLOOKUP s.refs ptr of
+        (case lookup ptr s.refs of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
-             then Rval (Unit, s with refs := s.refs |+
-                              (ptr,ValueArray (LUPDATE x (Num i) xs)))
+             then Rval (Unit, s with refs := insert ptr
+                              (ValueArray (LUPDATE x (Num i) xs)) s.refs)
              else Error)
          | _ => Error)
     | (Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
@@ -435,12 +435,12 @@ val do_app_aux_def = Define `
         | NONE => Error
         | SOME w => Rval (Word64 (w2w w),s))
     | (FFI n, [RefPtr cptr; RefPtr ptr]) =>
-        (case (FLOOKUP s.refs cptr, FLOOKUP s.refs ptr) of
+        (case (lookup cptr s.refs, lookup ptr s.refs) of
          | SOME (ByteArray T cws), SOME (ByteArray F ws) =>
            (case call_FFI s.ffi n cws ws of
             | FFI_return ffi' ws' =>
                 Rval (Unit,
-                      s with <| refs := s.refs |+ (ptr,ByteArray F ws')
+                      s with <| refs := insert ptr (ByteArray F ws') s.refs
                               ; ffi   := ffi'|>)
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
@@ -470,7 +470,7 @@ val do_app_aux_def = Define `
     | (BoundsCheckByte loose,xs) =>
         (case xs of
          | [RefPtr ptr; Number i] =>
-          (case FLOOKUP s.refs ptr of
+          (case lookup ptr s.refs of
            | SOME (ByteArray _ ws) =>
                Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
            | _ => Error)
@@ -478,7 +478,7 @@ val do_app_aux_def = Define `
     | (BoundsCheckArray,xs) =>
         (case xs of
          | [RefPtr ptr; Number i] =>
-          (case FLOOKUP s.refs ptr of
+          (case lookup ptr s.refs of
            | SOME (ValueArray ws) =>
                Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
            | _ => Error)
@@ -792,7 +792,7 @@ val initial_state_def = Define`
   ; stack := []
   ; global := NONE
   ; handler := 0
-  ; refs := FEMPTY
+  ; refs := LN
   ; clock := k
   ; code := code
   ; compile := cc
