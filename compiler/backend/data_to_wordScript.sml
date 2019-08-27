@@ -285,11 +285,10 @@ val AllocVar_def = Define `
 
 val MakeBytes_def = Define `
   MakeBytes n =
-    list_Seq [Assign n (Shift Lsr (Var n) 2);
-              Assign n (Op Or [Var n; Shift Lsl (Var n) 8]);
-              Assign n (Op Or [Var n; Shift Lsl (Var n) 16]);
+    list_Seq [Assign n (Op Or [Var n; Shift Lsr (Var n) 8]);
+              Assign n (Op Or [Var n; Shift Lsr (Var n) 16]);
               if dimindex (:'a) = 32 then Skip else
-                Assign n (Op Or [Var n; Shift Lsl (Var n) 32])]
+                Assign n (Op Or [Var n; Shift Lsr (Var n) 32])]
                    :'a wordLang$prog`
 
 val SmallLsr_def = Define `
@@ -312,6 +311,7 @@ val WriteLastBytes_def = Define`
                 WriteLastByte_aux 6w a b n (
                   WriteLastByte_aux 7w a b n Skip)))))))`;
 
+(* 2-length;4-initial value *)
 val RefByte_code_def = Define `
   RefByte_code c =
       let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
@@ -880,7 +880,24 @@ val WriteBoxedWordNative_def = Define `
 (* reg holds the ith machine word of large Word being stored at dest *)
 val StoreWordN_def = Define`StoreWordN c header i dest reg = ARB`
 
-val PerformWordAlloc_def = Define`PerformWordAlloc c header dest word_size = ARB`
+local open data_spaceTheory in
+val PerformWordAlloc_def = Define`PerformWordAlloc c (header:'a word) dest word_size =
+  let h = Op Add [Const (n2w word_size); Const bytes_in_word] in
+  let (alloc_size:'a word) = n2w (data_space$alloc_size word_size (dimindex(:'a))) in
+  let limit = MIN (2 ** c.len_size) (dimword (:'a) DIV 16) in
+      [Assign 2 (Const alloc_size);
+       Assign 1 (SmallLsr h (dimindex(:'a) - 63));
+       AllocVar c limit (fromList [();();()]);
+       Assign 5 (Shift Lsr h (shift (:'a)));
+       Assign 9 (Lookup NextFree);
+       Assign 1 (Op Add [Var 9;Shift Lsl (Var 5) (shift (:'a))]);
+       Set NextFree (Op Add [Var 1;Const bytes_in_word]);
+       Assign 7 (Const header);
+       Store (Var 9) 7;
+       Assign (adjust_var dest) (Var 9)] :(('a wordLang$prog)
+       list)`
+end
+
 val WordOpLarge_def = Define `
   WordOpLarge c (header:'a word) word_size (opw:opw) v1 v2 dest = list_Seq
   (PerformWordAlloc c header dest word_size ++ (case lookup_word_op opw of
@@ -1956,24 +1973,60 @@ val def = assign_Define `
 (* last-bit is in word_size msb and needs to be in the 3rd lsb
    counting from 1 *)
 
+val small_int2_def = Define `
+  small_int2 (:'a) i <=>
+    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8):int`
+
+
 val def = assign_Define `
   assign_WordToInt word_size (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v =
     (if word_size = 0 then
       Assign (adjust_var dest) (Const 0w)
+      else if word_size < 30 then
+       (* smallnum of n is 4*n *)
+       (* And it also fits into smallnums if Word is < 30 bits *)
+       Assign (adjust_var dest) (Shift Lsl (Var (adjust_var v)) (dimindex(:'a) - 2
+       - word_size))
      else if word_size <= dimindex(:'a) - 2 then
-       (if dimindex(:'a) - 2 - word_size = 0 then
-      Assign (adjust_var dest) (Var (adjust_var v))
-      else
-       Assign (adjust_var dest) (Shift Lsr (Var (adjust_var v)) (dimindex(:'a) - 2
+       (* check whether we are within bounds *)
+       (If Less (adjust_var v) (Imm (n2w (dimword(:'a) DIV 32))) (* we multiply
+       by 4 in the repsentation as such see small_int and divide by 4 *)
+        (Assign (adjust_var dest) (Shift Lsl (Var (adjust_var v)) (dimindex(:'a) - 2
        - word_size)))
+        (let len = (if dimindex(:'a) < 64 then 2 else 1) in (* we need a bignum with positive tag *)
+         (dtcase encode_header c 3 len of
+              | NONE => GiveUp
+              | SOME (header:'a word) => list_Seq[
+                       if len = 2 then ARB else ARB
+                ]
+         )
+       ))
      else
        ARB,l) : 'a wordLang$prog # num`
 
+(* small ints are in the range:
+  val small_int_def = Define `
+  small_int (i:int) <=> -268435457 <= i /\ i <= 268435457` *)
+(* represented by:
+val Smallnum_def = Define `
+  Smallnum i =
+    if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`; *)
 val def = assign_Define `
   assign_WordFromInt word_size (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v =
-    (ARB,l) : 'a wordLang$prog # num`
+    (if word_size = 0 then
+      Assign (adjust_var dest) (Const 0w)
+     else if word_size <= dimindex(:'a) - 2 then
+       If Test (adjust_var v) (Imm 1w)
+          (*smallnum case *)
+          (* positive means shift left by dimindex(:'a) - 4 *)
+          (* negative means ?*)
+          (Assign 3 (Shift Lsl (Var (adjust_var v)) (dimindex(:'a)-4)))
+          (* bignum case *)
+          ARB
+     else
+        ARB,l) : 'a wordLang$prog # num`
 
 val def = assign_Define `
   assign_WordToWord src_size dest_size (c:data_to_word$config) (secn_num)
