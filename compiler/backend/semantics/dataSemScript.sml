@@ -42,8 +42,9 @@ val _ = Datatype `
      ; space   : num
      ; tstamps : num option
      ; limits  : limits
-     ; safe_for_space : bool
-     ; compile_oracle : num -> 'c # (num # num # dataLang$prog) list |> `
+     ; safe_for_space   : bool
+     ; peak_heap_length : num
+     ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |> `
 
 val s = ``(s:('c,'ffi) dataSem$state)``
 
@@ -126,10 +127,14 @@ val _ = overload_on("add_space_safe",
   ``λk ^s. s.safe_for_space ∧ check_state s
            ∧ size_of_heap s + k <= s.limits.heap_limit``);
 
+val _ = overload_on("heap_peak",
+  ``λk ^s. MAX (s.peak_heap_length) (size_of_heap s + k)``);
+
 val add_space_def = Define `
   add_space ^s k =
-    s with <|space := k;
-             safe_for_space := add_space_safe k s|>
+    s with <| space := k
+            ; safe_for_space   := add_space_safe k s
+            ; peak_heap_length := heap_peak k s |>
 `;
 
 val consume_space_def = Define `
@@ -157,7 +162,11 @@ val _ = overload_on("do_space_safe",
 val do_space_def = Define `
   do_space op l ^s =
     if op_space_reset op
-    then  SOME (s with <| space := 0; safe_for_space := do_space_safe op l s |>)
+    then  SOME (s with <| space := 0
+                        ; safe_for_space := do_space_safe op l s
+                        ; peak_heap_length := if op_space_reset op
+                                              then heap_peak (space_consumed op l) s
+                                              else s.peak_heap_length |>)
     else if op_space_req op l = 0 then SOME s
          else consume_space (op_space_req op l) s`;
 
@@ -801,6 +810,7 @@ val initial_state_def = Define`
   ; space := 0
   ; tstamps := if stamps then SOME 0 else NONE
   ; safe_for_space := if stamps then T else F
+  ; peak_heap_length := 0
   ; limits := <| heap_limit := heap_lim ; length_limit := len_lim |>
   |>`;
 
