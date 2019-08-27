@@ -111,10 +111,14 @@ val find_code_lemma = Q.prove(
 Theorem optimise_correct:
    !c s. FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) /\
          FST (evaluate (c,s)) <> NONE ==>
-         (evaluate (optimise c,s) = evaluate (c,s))
+         ∃safe. evaluate (optimise c,s) = (I ## λx. x with safe_for_space := safe) (evaluate (c,s))
 Proof
-  full_simp_tac(srw_ss())[optimise_def] \\ REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ full_simp_tac(srw_ss())[]
-  \\ METIS_TAC [simp_correct,data_liveProofTheory.compile_correct,data_spaceProofTheory.compile_correct,FST]
+  fs[optimise_def] \\ REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ fs[]
+  \\ qspecl_then [`c`,`s`] ASSUME_TAC data_liveProofTheory.compile_correct   \\ rfs []
+  \\ qspecl_then [`FST (compile c LN)`,`s`] (ASSUME_TAC o GSYM) simp_correct \\ rfs []
+  \\ pop_assum (ASSUME_TAC o GSYM)
+  \\ qspecl_then [`simp (FST (compile c LN)) Skip`,`s`] ASSUME_TAC data_spaceProofTheory.compile_correct
+  \\ rfs [] \\ METIS_TAC []
 QED
 
 val compile_RANGE_lemma = Q.prove(
@@ -357,7 +361,7 @@ Proof
 QED
 
 Theorem list_to_v_MAP:
-  ∀z. list_to_v (MAP data_to_bvi_v z) = data_to_bvi_v (list_to_v z)
+  ∀z ts. list_to_v (MAP data_to_bvi_v z) = data_to_bvi_v (list_to_v ts Block_nil z)
 Proof
   Induct \\ rw [list_to_v_def,bvlSemTheory.list_to_v_def,data_to_bvi_v_def]
 QED
@@ -380,6 +384,28 @@ Proof
   >- (Cases_on `l1` \\ rw [do_eq_def,bvlSemTheory.do_eq_def])
   >- (Cases_on `l2` \\ rw [do_eq_def,bvlSemTheory.do_eq_def])
   >- (every_case_tac \\ fs [data_to_bvi_ref_def])
+QED
+
+Theorem data_to_bvi_v_list_to_v_APPEND:
+  ∀l vl v ts.
+   v_to_list v = SOME vl
+   ⇒ data_to_bvi_v (list_to_v ts Block_nil (l++vl)) = data_to_bvi_v (list_to_v ts v l)
+Proof
+  Induct
+  >- (Induct
+     \\ rw [v_to_list_SOME_NIL_IFF,list_to_v_def]
+     \\ rw [data_to_bvi_v_def]
+     \\ drule v_to_list_SOME_CONS_IMP \\ strip_tac
+     \\ fs [] \\ rveq \\ fs [data_to_bvi_v_def,v_to_list_def]
+     \\ first_x_assum drule \\ rw [list_to_v_def])
+  \\ rw [list_to_v_def,data_to_bvi_v_def]
+QED
+
+Theorem data_to_bvi_v_list_to_v_EQ_TS:
+  ∀vl v ts1 ts2.
+   data_to_bvi_v (list_to_v ts1 v vl) = data_to_bvi_v (list_to_v ts2 v vl)
+Proof
+  Induct \\ rw [list_to_v_def,data_to_bvi_v_def]
 QED
 
 Theorem data_to_bvi_do_app:
@@ -449,7 +475,12 @@ Proof
   >- (Cases_on `t.tstamps`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
      \\ METIS_TAC [])
-  >- (ONCE_REWRITE_TAC [GSYM MAP_APPEND] \\ rw [list_to_v_MAP])
+  >- (drule data_to_bvi_v_list_to_v_APPEND \\ strip_tac
+     \\ Cases_on `t.tstamps` \\ rw []
+     \\ ONCE_REWRITE_TAC [GSYM MAP_APPEND]
+     \\ ONCE_REWRITE_TAC [list_to_v_MAP]
+     \\ ONCE_ASM_REWRITE_TAC []
+     \\ rw [data_to_bvi_v_list_to_v_EQ_TS])
   >- (Cases_on `t.tstamps`
      \\ Cases_on `z`
      \\ rw [data_to_bvi_v_def,MAP_TAKE,MAP_DROP]
@@ -459,6 +490,20 @@ Proof
       \\ rw [EL_MAP])
   >- rfs [code_rel_def]
   >- (rfs [data_to_bvi_do_eq,data_to_bvi_v_Boolv])
+QED
+
+Theorem state_rel_safe:
+  ∀s s' safe. state_rel s s' = state_rel s (s' with safe_for_space := safe)
+Proof
+  rw [state_rel_def]
+QED
+
+Theorem jump_exc_safe:
+  ∀s t safe. jump_exc s = SOME t
+    ⇒ jump_exc (s with safe_for_space := safe) = SOME (t with safe_for_space := safe)
+Proof
+  rw [jump_exc_def] \\ every_case_tac \\ fs []
+  \\ rveq \\ fs [state_component_equality]
 QED
 
 val compile_correct = Q.prove(
@@ -971,7 +1016,8 @@ val compile_correct = Q.prove(
      (`op_space_reset op` by
       rfs [dataLangTheory.op_space_reset_def
           ,dataLangTheory.op_requires_names_def]
-      \\ `state_rel r (t2 with <|locals := env1; space := 0|>)`
+      \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K SAFE0) _`
+      \\ `state_rel r (t2 with <|locals := env1; space := 0; safe_for_space := SAFE0 |>)`
          by fs[state_rel_def]
       \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
       \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
@@ -1065,9 +1111,11 @@ val compile_correct = Q.prove(
          \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
          \\ full_simp_tac(srw_ss())[jump_exc_def])
       \\ full_simp_tac(srw_ss())[var_corr_def,get_var_def,lookup_map])
-    \\ full_simp_tac(srw_ss())[consume_space_add_space,lookup_insert]
+    \\ qspecl_then [`t2`,`op_space_req op (LENGTH vs)`,`env1`]
+         (CHOOSE_THEN (fn t => fs [t,lookup_map]))
+           (GEN_ALL consume_space_add_space)
     THEN1
-     (`state_rel r (t2 with <|locals := env1; space := 0|>)` by fs[state_rel_def]
+     (`state_rel r (t2 with <|locals := env1; space := 0; safe_for_space := sf|>)` by fs[state_rel_def]
      \\ first_assum (mp_then Any mp_tac data_to_bvi_do_app)
      \\ rpt (disch_then (first_assum o mp_then Any mp_tac))
      \\ rw []
@@ -1190,7 +1238,10 @@ val compile_correct = Q.prove(
         \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,
            bviSemTheory.dec_clock_def,dataSemTheory.dec_clock_def]
-        \\ REV_FULL_SIMP_TAC (srw_ss()) [FUNPOW_dec_clock_code])
+        \\ REV_FULL_SIMP_TAC (srw_ss()) [FUNPOW_dec_clock_code,GSYM state_rel_safe]
+        \\ DISCH_THEN (fn t => fs [t])
+        \\ drule_then (qspec_then `safe` ASSUME_TAC) jump_exc_safe
+        \\ fs [state_fupdcanon])
       \\ full_simp_tac(srw_ss())[cut_env_def]
       \\ `evaluate ([exp],MAP data_to_bvi_v args',dec_clock (ticks + 1) r) = (res,s2)` by
        (Cases_on `evaluate ([exp],MAP data_to_bvi_v args',dec_clock (ticks + 1) r)` \\ full_simp_tac(srw_ss())[]
@@ -1235,16 +1286,18 @@ val compile_correct = Q.prove(
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
            dataSemTheory.dec_clock_def,bviSemTheory.dec_clock_def]
         \\ SIMP_TAC (srw_ss()) [jump_exc_def]
-        \\ full_simp_tac(srw_ss())[FUNPOW_dec_clock_code]
+        \\ full_simp_tac(srw_ss())[FUNPOW_dec_clock_code,GSYM state_rel_safe]
         \\ Cases_on `t2.handler = LENGTH t2.stack` THEN1
          (FULL_SIMP_TAC std_ss [Q.SPEC `x::xs` LASTN_LENGTH_ID
              |> SIMP_RULE std_ss [LENGTH,ADD1]] \\ full_simp_tac(srw_ss())[])
         \\ `t2.handler < LENGTH t2.stack` by DECIDE_TAC
         \\ FULL_SIMP_TAC std_ss []
         \\ IMP_RES_TAC LASTN_TL
-        \\ FULL_SIMP_TAC (srw_ss()) [])
-      \\ `pop_env t2' = SOME (t2' with
-         <| stack := t2.stack; locals := env2 |>)` by
+        \\ FULL_SIMP_TAC (srw_ss()) []
+        \\ ONCE_ASM_REWRITE_TAC []
+        \\ fs [state_component_equality])
+      \\ `pop_env (t2' with safe_for_space := safe) = SOME (t2' with
+         <| stack := t2.stack; locals := env2 ; safe_for_space := safe|>)` by
        (Q.PAT_X_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
              pop_env_def,dataSemTheory.dec_clock_def,bviSemTheory.dec_clock_def,
@@ -1388,7 +1441,15 @@ val compile_correct = Q.prove(
           \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[GSYM ADD1, FUNPOW_SUC]
         \\ reverse (Cases_on `q`) \\ full_simp_tac(srw_ss())[] THEN1
-         (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[set_var_def,jump_exc_def,call_env_def,
+         (drule_then (qspec_then `safe` ASSUME_TAC) evaluate_safe_swap
+         \\ `set_var n1 z' t2' with safe_for_space := safe = set_var n1 z' (t2' with safe_for_space := safe)`
+            by rw [set_var_def]
+         \\ fs [GSYM state_rel_safe]
+         \\ disch_then (fn t => fs [t])
+         \\ qmatch_goalsub_abbrev_tac `state_safe_for_space_fupd (K SAFE0) _`
+         \\ drule_then (qspec_then `SAFE0` ASSUME_TAC) jump_exc_safe
+         \\ fs [state_fupdcanon]
+         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[set_var_def,jump_exc_def,call_env_def,
             push_env_def,dataSemTheory.dec_clock_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ NTAC 2 (POP_ASSUM MP_TAC)
@@ -1401,6 +1462,8 @@ val compile_correct = Q.prove(
             push_env_def,dataSemTheory.dec_clock_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ full_simp_tac(srw_ss())[dataSemTheory.state_component_equality])
+        \\ qpat_x_assum `evaluate (c2, _) = (_,r')` (mp_then Any (qspec_then `safe` ASSUME_TAC) evaluate_safe_swap)
+        \\ fs [state_fupdcanon,get_var_def]
         \\ Cases_on `tail` \\ full_simp_tac(srw_ss())[evaluate_def]
         THEN1
          (IMP_RES_TAC compile_LENGTH
@@ -1483,9 +1546,10 @@ val compile_correct = Q.prove(
       \\ rpt BasicProvers.VAR_EQ_TAC
       \\ full_simp_tac(srw_ss())[set_var_def,state_rel_def,data_to_bvi_result_def]
       THEN1 ( Cases_on`e`>>full_simp_tac(srw_ss())[data_to_bvi_result_def] )
-      \\ `pop_env t2' = SOME (t2' with
+      \\ `pop_env (t2' with safe_for_space := safe) = SOME (t2' with
          <| stack := t2.stack; locals := env2
-          ; handler := t2.handler |>)` by
+          ; handler := t2.handler
+          ; safe_for_space := safe|>)` by
        (Q.PAT_X_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
            pop_env_def,dataSemTheory.dec_clock_def,bviSemTheory.dec_clock_def])
@@ -1557,7 +1621,10 @@ Proof
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[compile_exp_def,LET_DEF]
   \\ MP_TAC (Q.SPECL [`prog`,`t1`] optimise_correct) \\ full_simp_tac(srw_ss())[]
   \\ impl_tac >- (rpt strip_tac >> full_simp_tac(srw_ss())[data_to_bvi_result_def])
-  \\  srw_tac[][COUNT_LIST_GENLIST]
+  \\ srw_tac[][COUNT_LIST_GENLIST]
+  \\ Q.EXISTS_TAC `t2 with safe_for_space := safe`
+  \\ Q.EXISTS_TAC `r`
+  \\ rw [GSYM state_rel_safe]
 QED
 
 val state_rel_dec_clock = Q.prove(
@@ -1621,7 +1688,7 @@ Theorem compile_prog_evaluate:
    r ≠ Rerr (Rabort Rtype_error) ∧ (∀x. r ≠ Rerr (Rraise x))
    ⇒  ∃r2 s2.
        evaluate (Call NONE (SOME start) [] NONE,
-         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc k) = (SOME r2,s2) ∧
+         initial_state ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc T 0 0 k) = (SOME r2,s2) ∧
          state_rel s s2 ∧ res_list (data_to_bvi_result r2) = r
 Proof
   srw_tac[][]
@@ -1641,9 +1708,9 @@ QED
 (* observational semantics *)
 
 Theorem compile_prog_semantics:
-   semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start ≠ Fail ⇒
-   semantics ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc start =
-   semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start
+  semantics (ffi0:'ffi ffi_state) (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start ≠ Fail ⇒
+  semantics ffi0 (fromAList (compile_prog prog)) ((I ## compile_prog) o co) cc start =
+  semantics ffi0 (fromAList prog) co (λcfg prog. cc cfg (compile_prog prog)) start
 Proof
   simp[bviSemTheory.semantics_def]
   \\ IF_CASES_TAC >> full_simp_tac(srw_ss())[]
@@ -1656,7 +1723,7 @@ Proof
         \\ last_x_assum(qspec_then`k'`mp_tac)>>simp[]
         \\ (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g)
         \\ spose_not_then strip_assume_tac
-        \\ drule compile_prog_evaluate
+        \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
         \\ impl_tac >- ( srw_tac[][] >> strip_tac >> full_simp_tac(srw_ss())[] )
         \\ strip_tac >> full_simp_tac(srw_ss())[] >> rveq
         \\ every_case_tac >> full_simp_tac(srw_ss())[]
@@ -1682,11 +1749,11 @@ Proof
         \\ impl_tac >- rpt(PURE_FULL_CASE_TAC >> fs[])
         \\ simp[inc_clock_def]
         \\ ntac 2 strip_tac >> unabbrev_all_tac
-        \\ drule compile_prog_evaluate
+        \\ drule_then (qspecl_then [] mp_tac)compile_prog_evaluate
         \\ impl_tac >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
         \\ strip_tac >> rveq >> fs[state_rel_def]
         \\ rpt(PURE_FULL_CASE_TAC >> fs[data_to_bvi_result_def]))
-     \\ drule compile_prog_evaluate
+     \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
      \\ impl_tac
      >- (last_x_assum(qspec_then`k`mp_tac)
         \\ full_simp_tac(srw_ss())[]
@@ -1702,7 +1769,7 @@ Proof
   >- (last_x_assum(qspec_then`k`mp_tac)
      \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
      \\ strip_tac
-     \\ drule compile_prog_evaluate
+     \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
      \\ impl_tac
         >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
      \\ strip_tac
@@ -1715,7 +1782,7 @@ Proof
      \\ last_x_assum(qspec_then`k`mp_tac)
      \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g))
      \\ strip_tac
-     \\ drule compile_prog_evaluate
+     \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
      \\ impl_tac
      >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[])
      \\ strip_tac
@@ -1730,7 +1797,7 @@ Proof
   \\ simp[FUN_EQ_THM] >> gen_tac
   \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (rhs(#2 g)))
-  \\ drule compile_prog_evaluate
+  \\ drule_then (qspecl_then [] mp_tac) compile_prog_evaluate
   \\ impl_tac
   >- (conj_tac >> spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[]
      \\ last_x_assum(qspec_then`k`mp_tac)>>simp[])
