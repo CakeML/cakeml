@@ -10,13 +10,48 @@ Definition of terms
 Every term is a constructor with 0 or more arguments
 Constructors are identified by num
 *)
-Datatype `term = Term num (term list)`;
+Datatype:
+  term = Term num (term list)
+End
+
+(*
+A position describes a path to a sub-term in a term
+*)
+Datatype:
+  position =
+    EmptyPos
+  | Pos num position
+End
+
+Definition app_pos_def:
+  (app_pos EmptyPos p = p) /\
+  (app_pos (Pos 0 pos) (Term c (x::xs)) =
+    app_pos pos x) /\
+  (app_pos (Pos (SUC n) pos) (Term c (x::xs)) =
+    app_pos (Pos n pos) (Term c xs))
+End
+
+Definition snoc_pos_def:
+  (snoc_pos n EmptyPos = (Pos n EmptyPos)) /\
+  (snoc_pos n (Pos m pos) = (Pos m (snoc_pos n pos)))
+End
+
+(* a list position describes a path to a sub-term in a list of term *)
+Type listPos = ``:(num # position)``
+
+Definition app_list_pos_def:
+  (app_list_pos (0, pos) (x::xs) =
+    app_pos pos x) /\
+  (app_list_pos (SUC n, pos) (x::xs) =
+    app_list_pos (n, pos) xs)
+End
 
 (*
 Definition of full patterns with as clauses
 Variables are identified by num
 *)
-Datatype `pat =
+Datatype:
+  pat =
     Any
   | Var num
   (* A constructor pattern is an constructor id, the number of constructors
@@ -24,14 +59,13 @@ Datatype `pat =
   | Cons num num (pat list)
   | Or pat pat
   | As pat num (* (p:pat) as (x:num) *)
-`;
+End
 
 (*
 We parametrize the size function by an arity a to take into account the fact
 that a Any or a Var can be expanded into a list of Any patterns
 *)
 Definition psize_def:
-  (* (psize a Any = ((2:num) ** (a+2)) + 1) /\ *)
   (psize a Any = (2:num) ** (2 ** a)) /\
   (psize a (Var n) = (2 ** (2 ** a))) /\
   (psize a (Cons n t []) = 2 + a) /\
@@ -44,7 +78,9 @@ End
 Represent a branch (p => e) in a match expression
 the result expression is just a number for now
 *)
-Datatype `branch = Branch (pat list) num`;
+Datatype:
+  branch = Branch (pat list) num
+End
 
 Definition patterns_def:
   patterns (Branch ps e) = ps
@@ -55,12 +91,33 @@ Definition expr_def:
 End
 
 (* pattern matrix *)
-val _ = type_abbrev("patmat", ``:branch list``)
+Type patmat = ``:branch list``
 
 (* Invariant of pattern matrices *)
-Definition inv_mat_def:
-  inv_mat m = ?n. EVERY (\l. (LENGTH (patterns l)) = n) m
+Definition inv_mat_aux_def:
+  (inv_mat [] = T) /\
+  (inv_mat [x] = T) /\
+  (inv_mat ((Branch l1 e1)::(Branch l2 e2)::m) =
+    ((LENGTH l1 = LENGTH l2) /\ (inv_mat ((Branch l2 e2)::m))))
 End
+
+Theorem inv_mat_def:
+  !m. inv_mat m = ?n. EVERY (\l. (LENGTH (patterns l)) = n) m
+Proof
+  Induct_on `m`
+  >- (rw[] \\ fs[inv_mat_aux_def])
+  >- (rw[] \\ EQ_TAC \\ rw[]
+      >- (Cases_on `m`
+          >- fs[inv_mat_aux_def]
+	  >- (Cases_on `h` \\
+              Cases_on `h'` \\
+              fs[inv_mat_aux_def, patterns_def]))
+      >- (Cases_on `m`
+          >- fs[inv_mat_aux_def]
+	  >- (Cases_on `h` \\
+              Cases_on `h'` \\
+              fs[inv_mat_aux_def, patterns_def])))
+QED;
 
 Theorem inv_mat_dcmp:
   !b m. inv_mat (b::m) ==> inv_mat m
@@ -267,7 +324,7 @@ Proof
 QED;
 
 (* Semantics of matching *)
-val pmatch_def = tDefine "match_def" `
+Definition pmatch_def:
   (pmatch Any  t = T) /\
   (pmatch (Var n) t = T) /\
   (pmatch (Cons pcons _ pargs) (Term tcons targs) =
@@ -280,7 +337,8 @@ val pmatch_def = tDefine "match_def" `
     ((pmatch p t) /\
      (pmatch (Cons pcons tinfo ps) (Term tcons ts)))) /\
   (pmatch (Or p1 p2) t = ((pmatch p1 t) \/ (pmatch p2 t))) /\
-  (pmatch (As p num) t = pmatch p t)`
+  (pmatch (As p num) t = pmatch p t)
+Termination
   (WF_REL_TAC `measure (\ (x,_). psize 1 x)` \\ rw[psize_def] \\
   Induct_on `pargs`
   >- fs[psize_def]
@@ -288,15 +346,16 @@ val pmatch_def = tDefine "match_def" `
       fs[MEM]
       >- (fs[psize_def] \\
           `0 < psize 1 (Cons pcons' v0 pargs) ` by fs[psize_gt_zero] \\
-	  `(psize 1 h) <= ((psize 1 h) * (psize 1 (Cons pcons' v0 pargs)))` by
-	  fs[LE_MULT_CANCEL_LBARE] \\
-	  decide_tac)
+          `(psize 1 h) <= ((psize 1 h) * (psize 1 (Cons pcons' v0 pargs)))` by
+          fs[LE_MULT_CANCEL_LBARE] \\
+          decide_tac)
       >- (res_tac \\
           fs[psize_def] \\
           `0 < psize 1 h ` by fs[psize_gt_zero] \\
           `psize 1 (Cons pcons' v0 pargs) <= (psize 1 h) * (psize 1 (Cons pcons' v0 pargs))` by
           fs[] \\
-	  decide_tac)))
+          decide_tac)))
+End
 
 Definition pmatch_list_def:
   (pmatch_list [] [] = T) /\
@@ -700,10 +759,10 @@ Proof
   >- (Cases_on `m` \\
       Cases_on `c = pcons'`
       >- fs[spec_def, msize_def, n_any_length, ars_inv_def,
-	    ars_branch_def, ars_pat_def]
+            ars_branch_def, ars_pat_def]
       >- fs[spec_def]
       >- fs[spec_def, msize_def, n_any_length, ars_inv_def,
-	    ars_branch_def, ars_pat_def]
+            ars_branch_def, ars_pat_def]
       >- (fs[spec_def, msize_def, ars_inv_def, inv_mat_dcmp, inv_mat_def] \\
           Cases_on `h` \\
           fs[patterns_def, msize_def]))
@@ -712,17 +771,17 @@ Proof
           >- (imp_res_tac ars_inv_or1 \\
               imp_res_tac inv_mat_or1 \\
               fs[])
-	  >- (Cases_on `spec c a [Branch (p1::ps) e] = []`
+          >- (Cases_on `spec c a [Branch (p1::ps) e] = []`
               >- (fs[msize_app2] \\
                   imp_res_tac ars_inv_or2 \\
                   imp_res_tac inv_mat_or2 \\
                   fs[])
-	      >- (fs[msize_app] \\
+              >- (fs[msize_app] \\
                   imp_res_tac ars_inv_or1 \\
                   imp_res_tac inv_mat_or1 \\
                   fs[])))
       >- (fs[spec_def, msize_def, msize_app]
-	  >- (imp_res_tac ars_inv_or1 \\
+          >- (imp_res_tac ars_inv_or1 \\
               imp_res_tac inv_mat_or1 \\
               imp_res_tac inv_mat_cons \\
               imp_res_tac ars_inv_cons \\
@@ -922,13 +981,20 @@ Proof
 QED;
 
 (* definition of decision trees *)
-Datatype `dTree =
+Datatype:
+  dTree =
     Leaf num
   | Fail
   | Swap num dTree
-  | If num dTree dTree
+  (*
+     If pos c a dt1 dt2
+     if value at position pos has constructor c
+     and a arguments, then go to decision tree
+     dt1 else go to decision tree dt2
+  *)
+  | If listPos num num dTree dTree
   | Let num dTree
-`;
+End
 
 (* Swap the first and ith items in a list *)
 Definition get_ith_def:
@@ -994,21 +1060,14 @@ End
 Definition dt_eval_def:
   (dt_eval ts (Leaf k) = k) /\
   (dt_eval ts (Swap i dt) = dt_eval (swap_items i ts) dt) /\
-  (dt_eval ((Term c targs)::ts) (If c' dt1 dt2) =
-    if c = c'
-    then dt_eval (targs++ts) dt1
-    else dt_eval (targs++ts) dt2) /\
+  (dt_eval ts (If pos c' a dt1 dt2) =
+    case (app_list_pos pos ts) of
+      (Term c targs) =>
+        (if c = c' /\ (LENGTH targs) = a
+         then dt_eval ts dt1
+         else dt_eval ts dt2)) /\
   (dt_eval ts (Let k dt) = dt_eval ts dt)
 End
-
-(* Definition of occurences and their application to terms *)
-(* val _ = type_abbrev("occurences", ``:num list``) *)
-
-(* Definition occur_term_def: *)
-(*   (occur_term t [] = t) /\ *)
-(*   (occur_term (Term tcons targs) (occ::os) = *)
-(*     occur_term (get_ith occ targs) os) *)
-(* End *)
 
 Definition all_wild_or_vars_def:
   (all_wild_or_vars [] = T) /\
@@ -1095,15 +1154,15 @@ containing pairs of constructors, expected number of constructors for a type,
 an arity for the constructor, and list of identifiers to be bound for each of
 these constructors
 *)
-val _ = type_abbrev("cons_infos", ``:((num # num # num # (num list)) list)``)
-val _ = type_abbrev("col_infos", ``:(num list) # cons_infos``)
+Type cons_infos = ``:((num # num # num # (num list)) list)``
+Type col_infos = ``:(num list) # cons_infos``
 
 (* Add an indentifier to the "default" identifiers *)
 Definition add_def_id_def:
   add_def_id id (ids, cinfos) = (id::ids, cinfos)
 End
 
-(* Add a constructor to the list of constructors of the column *)
+(* Adds an identifier associated with the constructor c *)
 Definition add_cons_id_aux_def:
   (add_cons_id_aux c n a id ([]: cons_infos) = [(c,n,a,[id])]) /\
   (add_cons_id_aux c n a id ((c', n', a', cids)::cinfos) =
@@ -1117,7 +1176,7 @@ Definition add_cons_id_def:
     (ids, (add_cons_id_aux c n a id cinfos)))
 End
 
-(* Adds an identifier associated with the constructor c *)
+(* Add a constructor to the list of constructors of the column *)
 Definition add_cons_aux_def:
   (add_cons_aux c n a [] = [(c,n,a,[])]) /\
   (add_cons_aux c n a ((c', n', a', cids)::cinfos) =
@@ -1185,7 +1244,7 @@ End
 Definition get_cons_in_def:
   (get_cons_in Any = []) /\
   (get_cons_in (Var _) = []) /\
-  (get_cons_in (Cons c _ sub_pats) = [(c, (LENGTH sub_pats))]) /\
+  (get_cons_in (Cons c _ spats) = [(c, (LENGTH spats))]) /\
   (get_cons_in (Or p1 p2) = merge_list (get_cons_in p1)
                                        (get_cons_in p2)) /\
   (get_cons_in (As p _) = get_cons_in p)
@@ -1215,13 +1274,11 @@ Definition col_infos_def:
   (col_infos ((Branch ((As p n)::ps) e)::rs) =
     if all_wild_or_vars [As p n]
     then add_def_id n (add_def_bindings p (col_infos rs))
-    else FOLDL (\infos (cons, arity). add_cons_bindings cons (get_nb_types p) arity p infos)
+    else FOLDL (\infos (cons, arity).
+                 add_cons_id cons (get_nb_types p) arity n
+                   (add_cons_bindings cons (get_nb_types p) arity p infos))
                (col_infos rs)
                (get_cons_in p))
-End
-
-Definition cinfo_size_def:
-  cinfo_size (_,cons) = LENGTH cons
 End
 
 (* Tell if the patterns contain all the constructors of a signature
@@ -1238,7 +1295,7 @@ Definition add_bindings_from_ids_def:
   (add_bindings_from_ids (id::ids) dt = Let id (add_bindings_from_ids ids dt))
 End
 
-(* The new attempt : couting the number of constructors *)
+(* Counting the number of constructors to prove termination *)
 Definition nb_cons_pat_def:
   (nb_cons_pat Any = (1:num)) /\
   (nb_cons_pat (Var _) = 1) /\
@@ -1346,7 +1403,7 @@ Proof
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
           fs[default_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	     nb_cons_app]))
+             nb_cons_app]))
   >- (Cases_on `rs`
       >- (fs[default_def, nb_cons_def, nb_cons_branch_def] \\
           `msize [Branch (p::ps) e] > 0` by fs[msize_def] \\
@@ -1354,7 +1411,7 @@ Proof
           fs[nb_cons_pat_def])
       >- (fs[default_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def] \\
           `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\
-	  imp_res_tac inv_mat_as \\
+          imp_res_tac inv_mat_as \\
           fs[]))
   >- fs[msize_def]
 QED;
@@ -1370,14 +1427,14 @@ Proof
   >- (Cases_on `m`
       >- fs[is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def]
       >- (fs[is_cons_fcol_def, is_cons_fcol_branch_def, nb_cons_pat_def,
-	     is_cons_fcol_pat_def, nb_cons_def, nb_cons_branch_def, default_def] \\
+             is_cons_fcol_pat_def, nb_cons_def, nb_cons_branch_def, default_def] \\
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
           fs[]))
   >- (Cases_on `m`
       >- fs[is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def]
       >- (fs[is_cons_fcol_def, is_cons_fcol_branch_def, nb_cons_pat_def,
-	     is_cons_fcol_pat_def, nb_cons_def, nb_cons_branch_def, default_def] \\
+             is_cons_fcol_pat_def, nb_cons_def, nb_cons_branch_def, default_def] \\
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac inv_mat_dcmp \\
           fs[]))
@@ -1401,18 +1458,18 @@ Proof
               fs[])))
   >- (Cases_on `m`
       >- (fs[default_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	     nb_cons_app] \\
+             nb_cons_app] \\
           `msize [Branch (p1::ps) e] > 0` by fs[msize_def]  \\
           `msize [Branch (p2::ps) e] > 0` by fs[msize_def]  \\
           imp_res_tac inv_mat_or1 \\
           imp_res_tac inv_mat_or2 \\
           imp_res_tac nb_cons_default_aux \\
           rfs[nb_cons_def, nb_cons_branch_def, is_cons_fcol_def,
-	      is_cons_fcol_branch_def, nb_cons_pat_def,
-	      is_cons_fcol_pat_def]  \\
+              is_cons_fcol_branch_def, nb_cons_pat_def,
+              is_cons_fcol_pat_def]  \\
           fs[])
       >- (fs[default_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	     nb_cons_app] \\
+             nb_cons_app] \\
           `msize [Branch (p1::ps) e] > 0` by fs[msize_def]  \\
           `msize [Branch (p2::ps) e] > 0` by fs[msize_def]  \\
           imp_res_tac inv_mat_or1 \\
@@ -1422,17 +1479,17 @@ Proof
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac nb_cons_default_aux \\
           fs[nb_cons_def, nb_cons_branch_def, is_cons_fcol_def,
-	      is_cons_fcol_branch_def, nb_cons_pat_def,
-	      is_cons_fcol_pat_def] \\
+              is_cons_fcol_branch_def, nb_cons_pat_def,
+              is_cons_fcol_pat_def] \\
           rfs[] \\ fs[]))
   >- (Cases_on `rs`
       >- (fs[default_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	     is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
+             is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
           imp_res_tac inv_mat_as \\
           `msize [Branch (p::ps) e] > 0` by fs[msize_def] \\
           fs[])
       >- (fs[default_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	     is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
+             is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
           imp_res_tac inv_mat_as \\
           `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\
           fs[]))
@@ -1473,22 +1530,22 @@ Proof
   ho_match_mp_tac (theorem "spec_ind") \\ rw[]
   >- (Cases_on `m`
       >- fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	    nb_cons_branch_app, nb_cons_branch_n_any]
+            nb_cons_branch_app, nb_cons_branch_n_any]
       >- (fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	    nb_cons_branch_app, nb_cons_branch_n_any] \\
+            nb_cons_branch_app, nb_cons_branch_n_any] \\
           imp_res_tac inv_mat_dcmp \\
           imp_res_tac msize_inv_gt_zero \\
           fs[nb_cons_def, nb_cons_branch_app, nb_cons_branch_def, nb_cons_branch_n_any,
-	     nb_cons_pat_def]))
+             nb_cons_pat_def]))
   >- (Cases_on `m`
       >- fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	    nb_cons_branch_app, nb_cons_branch_n_any]
+            nb_cons_branch_app, nb_cons_branch_n_any]
       >- (fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	    nb_cons_branch_app, nb_cons_branch_n_any] \\
+            nb_cons_branch_app, nb_cons_branch_n_any] \\
           imp_res_tac inv_mat_dcmp \\
           imp_res_tac msize_inv_gt_zero \\
           fs[nb_cons_def, nb_cons_branch_app, nb_cons_branch_def, nb_cons_branch_n_any,
-	     nb_cons_pat_def]))
+             nb_cons_pat_def]))
   >- (Cases_on `m` \\ Cases_on `c=pcons'` \\
       fs[spec_def, nb_cons_def, nb_cons_branch_app, nb_cons_branch_def]
       >- (`0 < nb_cons_branch ps` by fs[nb_cons_branch_gt_zero] \\
@@ -1532,7 +1589,7 @@ Proof
           fs[nb_cons_pat_def])
       >- (fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def] \\
           `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\
-	  imp_res_tac inv_mat_as \\
+          imp_res_tac inv_mat_as \\
           fs[]))
   >- fs[msize_def]
 QED;
@@ -1551,14 +1608,14 @@ Proof
           imp_res_tac inv_mat_dcmp \\
           imp_res_tac msize_inv_gt_zero \\
           fs[nb_cons_def, nb_cons_branch_app, nb_cons_branch_def, nb_cons_branch_n_any,
-	     nb_cons_pat_def]))
+             nb_cons_pat_def]))
   >- (Cases_on `m`
       >- fs[spec_def, is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def]
       >- (fs[spec_def, is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
           imp_res_tac inv_mat_dcmp \\
           imp_res_tac msize_inv_gt_zero \\
           fs[nb_cons_def, nb_cons_branch_app, nb_cons_branch_def, nb_cons_branch_n_any,
-	     nb_cons_pat_def]))
+             nb_cons_pat_def]))
   >- (Cases_on `m`
       >- (Cases_on `c=pcons'`
           >- (fs[spec_def, nb_cons_def, nb_cons_branch_app, nb_cons_branch_def] \\
@@ -1595,23 +1652,23 @@ Proof
               rpt (first_x_assum (qspecl_then [`c`,`a`] assume_tac)) \\
               Cases_on `nb_cons (spec c a (h::t)) = nb_cons (h::t)`
               >- fs[nb_cons_branch_gt_zero, nb_cons_gt_zero, LESS_MULT2]
-	      >- (`nb_cons (spec c a (h::t)) < nb_cons (h::t)` by fs[] \\
+              >- (`nb_cons (spec c a (h::t)) < nb_cons (h::t)` by fs[] \\
                   fs[]))))
   >- (Cases_on `m`
       >- (fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	     nb_cons_app] \\
+             nb_cons_app] \\
           `msize [Branch (p1::ps) e] > 0` by fs[msize_def]  \\
           `msize [Branch (p2::ps) e] > 0` by fs[msize_def]  \\
           imp_res_tac inv_mat_or1 \\
           imp_res_tac inv_mat_or2 \\
           imp_res_tac nb_cons_spec_aux \\
           rfs[nb_cons_def, nb_cons_branch_def, is_cons_fcol_def,
-	      is_cons_fcol_branch_def, nb_cons_pat_def,
-	      is_cons_fcol_pat_def]  \\
+              is_cons_fcol_branch_def, nb_cons_pat_def,
+              is_cons_fcol_pat_def]  \\
           rpt (first_x_assum (qspecl_then [`c`,`a`] assume_tac)) \\
           fs[])
       >- (fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	     nb_cons_app] \\
+             nb_cons_app] \\
           `msize [Branch (p1::ps) e] > 0` by fs[msize_def]  \\
           `msize [Branch (p2::ps) e] > 0` by fs[msize_def]  \\
           imp_res_tac inv_mat_or1 \\
@@ -1621,19 +1678,19 @@ Proof
           imp_res_tac msize_inv_gt_zero \\
           imp_res_tac nb_cons_spec_aux \\
           fs[nb_cons_def, nb_cons_branch_def, is_cons_fcol_def,
-	      is_cons_fcol_branch_def, nb_cons_pat_def,
-	      is_cons_fcol_pat_def] \\
+              is_cons_fcol_branch_def, nb_cons_pat_def,
+              is_cons_fcol_pat_def] \\
           rfs[] \\
           rpt (first_x_assum (qspecl_then [`c`,`a`] assume_tac)) \\
           fs[]))
   >- (Cases_on `rs`
       >- (fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	     is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
+             is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
           imp_res_tac inv_mat_as \\
           `msize [Branch (p::ps) e] > 0` by fs[msize_def] \\
           fs[])
       >- (fs[spec_def, nb_cons_def, nb_cons_branch_def, nb_cons_pat_def,
-	     is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
+             is_cons_fcol_def, is_cons_fcol_branch_def, is_cons_fcol_pat_def] \\
           imp_res_tac inv_mat_as \\
           `msize (Branch (p::ps) e::h::t) > 0` by fs[msize_def] \\
           fs[]))
@@ -1672,8 +1729,8 @@ Proof
   fs[swap_items_def] \\
   Cases_on `t` \\
   fs[swap_items_def] \\
-  rw[max_a_branch_def, get_ith_def, replace_ith_droptake] \\
-  fs[LENGTH_APPEND, LENGTH_TAKE_EQ, TAKE_LENGTH_ID_rwt, max_a_app] \\
+  rw[get_ith_def, replace_ith_droptake] \\
+  fs[LENGTH_APPEND, LENGTH_TAKE_EQ, TAKE_LENGTH_ID_rwt] \\
   Cases_on `i-1`
   >- fs[nb_cons_def, nb_cons_branch_def]
   >- (fs[DROP_def, nb_cons_branch_def, nb_cons_branch_app] \\
@@ -1704,100 +1761,127 @@ Proof
           first_x_assum (qspec_then `msize (Branch l n::h::t)` assume_tac) \\
           fs[] \\
           imp_res_tac inv_mat_dcmp \\
-          res_tac \\
+           res_tac \\
           fs[msize_def, nb_cons_branch_swap]))
 QED;
+
+Definition pos_default_def:
+  (pos_default (p::pos) = pos)
+End
+
+Definition pos_spec_aux_def:
+  (pos_spec_aux a n p =
+    GENLIST (λx. (n, snoc_pos x p)) a)
+End
+
+Definition pos_spec_def:
+  (pos_spec a ((n,p)::pos) =
+    (pos_spec_aux a n p) ++ pos)
+End
 
 (* compilation scheme a pattern matrix to a decision tree
    based on a heuristic h *)
 Definition compile_def:
-  (compile h [] useh = Fail) /\
-  (compile h ((Branch [] e)::bs) useh = Leaf e) /\
-  (compile h ((Branch ps e)::bs) useh =
+  (compile h pos [] useh = Fail) /\
+  (compile h pos ((Branch [] e)::bs) useh = Leaf e) /\
+  (compile h pos ((Branch ps e)::bs) useh =
     if ~(inv_mat ((Branch ps e)::bs)) then ARB else
     if all_wild_or_vars ps
-    then (add_bindings ps (Leaf e))
+    then Leaf e
     else
       (* we select a column using heuristic h *)
       let sel_col = (h ((Branch ps e)::bs)) in
       if ((sel_col > 0) /\ (sel_col < (msize ((Branch ps e)::bs))) /\ useh)
-      then Swap sel_col (compile h (swap_columns sel_col ((Branch ps e)::bs)) F)
+      then Swap sel_col (compile h pos (swap_columns sel_col ((Branch ps e)::bs)) F)
       else (if (is_cons_fcol ((Branch ps e)::bs)) then
             (let cinfos = col_infos ((Branch ps e)::bs) in
              if (is_col_complete cinfos)
-             then make_complete h ((Branch ps e)::bs) cinfos
-             else make_partial h ((Branch ps e)::bs) cinfos) else ARB)) /\
-  (make_complete h m (defs,(c,_,a,binds)::[]) =
+             then make_complete h pos ((Branch ps e)::bs) cinfos
+             else make_partial h pos ((Branch ps e)::bs) cinfos) else ARB)) /\
+  (make_complete h pos m (defs,(c,_,a,binds)::[]) =
     if inv_mat m /\ (msize m) > 0 /\ m <> [] /\ is_cons_fcol m then
-     (add_bindings_from_ids defs
-      (add_bindings_from_ids binds
-       (compile h (spec c a m) T)))
+       (compile h (pos_spec a pos) (spec c a m) T)
     else ARB) /\
-  (make_complete h m (defs,(c,_,a,binds)::cons) =
+  (make_complete h pos m (defs,(c,_,a,binds)::cons) =
     if inv_mat m /\ (msize m) > 0 /\ m <> [] /\ is_cons_fcol m then
-    If c (add_bindings_from_ids defs
-          (add_bindings_from_ids binds
-           (compile h (spec c a m) T)))
-         (make_complete h m (defs, cons))
+    If (HD pos) c a (compile h (pos_spec a pos) (spec c a m) T)
+           (make_complete h pos m (defs, cons))
     else ARB) /\
-  (make_partial h m (defs,[]) =
+  (make_partial h pos m (defs,[]) =
     if inv_mat m /\ (msize m) > 0 /\ m <> [] /\ is_cons_fcol m then
-    add_bindings_from_ids defs
-      (compile h (default m) T)
+      (compile h (pos_default pos) (default m) T)
     else ARB) /\
-  (make_partial h m (defs,(c,_,a,binds)::cons) =
+  (make_partial h pos m (defs,(c,_,a,binds)::cons) =
     if inv_mat m /\ (msize m) > 0 /\ m <> [] /\ is_cons_fcol m then
-    If c (add_bindings_from_ids defs
-          (add_bindings_from_ids binds
-           (compile h (spec c a m) T)))
-         (make_partial h m (defs, cons))
+    If (HD pos) c a (compile h (pos_spec a pos) (spec c a m) T)
+           (make_partial h pos m (defs, cons))
     else ARB)
 Termination
 WF_REL_TAC `(inv_image ($< LEX ($< LEX $<))
-            (\x. case x of INL(_,m,b) => (nb_cons m, (1:num), if b then (1:num) else 0)
-                         | INR y => (case y of INL(_,m,_,i) =>
+            (\x. case x of INL(_,_,m,b) => (nb_cons m, (1:num), if b then (1:num) else 0)
+                         | INR y => (case y of INL(_,_,m,_,i) =>
                                       (nb_cons m, (0:num), LENGTH i)
-                                     | INR(_,m,_,i) =>
+                                     | INR(_,_,m,_,i) =>
                                       (nb_cons m, (0:num), LENGTH i))))` \\
 rw[]
->- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- (`col_infos (Branch (v12::v13) e::bs) = (p_1, p_2)` by fs[] \\
-    fs[])
->- (DISJ2_TAC \\ fs[nb_cons_swap])
 >- imp_res_tac nb_cons_default
 >- (imp_res_tac nb_cons_spec \\
     first_x_assum (qspecl_then [`c`, `a`] assume_tac) \\
     fs[])
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (`col_infos (Branch (v14::v15) e::bs) = (p_1, p_2)` by fs[] \\
+    fs[])
+>- (DISJ2_TAC \\ fs[nb_cons_swap])
 >- (imp_res_tac nb_cons_spec \\
     first_x_assum (qspecl_then [`c`, `a`] assume_tac) \\
     fs[])
 End
 
+Definition initial_pos_def:
+  (initial_pos (width:num) =
+    GENLIST (λx. (x, EmptyPos)) width)
+End
+
+(* Experiments *)
+Definition dumb_heuristic_def:
+  (dumb_heuristic m =
+    if (is_cons_fcol m) \/ (m = []) \/ (msize m = 0) then (0:num)
+    else 1 + (dumb_heuristic (remove_fst_col m)))
+Termination
+  WF_REL_TAC `measure (\m. msize m)` \\ rw[] \\
+  Cases_on `m` \\
+  fs[msize_def, is_cons_fcol_def] \\
+  Cases_on `h` \\ Cases_on `l` \\
+  fs[remove_fst_col_def, msize_def]
+End
+
+EVAL ``compile dumb_heuristic (initial_pos 1) [(Branch [As (Cons 1 2 [Var 5; Cons 2 0 []]) 1] 10); (Branch [As (Cons 1 2 [Var 5; Var 6]) 2] 11)] T``
+
 Theorem compile_complete:
-  (!c h m useh v k. (msize m) = (LENGTH v) /\
-                    useh /\
-                    c > (3 * (LENGTH m) * (msize m) + 1) ==>
+  (!h m useh v k. (msize m) = (LENGTH v) /\
+                  (inv_mat m) /\
+                  useh ==>
+                  ((match m v = SOME k) ==>
+                  (dt_eval v (compile h m useh) = k))) /\
+  (!h m cinfos v k. (msize m) = (LENGTH v) /\
+                    (inv_mat m) /\
+                    (is_col_complete cinfos) ==>
                     ((match m v = SOME k) ==>
-                    (dt_eval v (compile c h m useh) = k))) /\
-  (!c h m cinfos v k. (msize m) = (LENGTH v) /\
-                      c > (3 * (LENGTH m) * (msize m)) /\
-                      (is_col_complete cinfos) ==>
-                      ((match m v = SOME k) ==>
-                       (dt_eval v (make_complete c h m cinfos) = k))) /\
-  (!c h m cinfos v k. (msize m) = (LENGTH v) /\
-                      c > (3 * (LENGTH m) * (msize m)) /\
-                      ~(is_col_complete cinfos) ==>
-                      ((match m v = SOME k) ==>
-                       (dt_eval v (make_partial c h m cinfos) = k)))
+                    (dt_eval v (make_complete h m cinfos) = k))) /\
+  (!h m cinfos v k. (msize m) = (LENGTH v) /\
+                    (inv_mat m) /\
+                    ~(is_col_complete cinfos) ==>
+                    ((match m v = SOME k) ==>
+                    (dt_eval v (make_partial h m cinfos) = k)))
 Proof
   ho_match_mp_tac (theorem "compile_ind") \\ rw[]
   >- fs[match_def]
@@ -1806,16 +1890,16 @@ Proof
       fs[pmatch_list_def, dt_eval_def])
   >- (fs[compile_def] \\
       Cases_on `v` \\ fs[msize_def] \\
-      Cases_on `all_wild_or_vars (v14::v15)` \\ fs[]
+      Cases_on `all_wild_or_vars (v12::v13)` \\ fs[]
       >- (fs[match_def] \\
-          `LENGTH (h::t) = LENGTH (v14::v15)` by fs[] \\
+          `LENGTH (h::t) = LENGTH (v12::v13)` by fs[] \\
           imp_res_tac all_wild_vars_pmatch_list \\
           fs[eval_add_bindings, dt_eval_def])
       >- cheat)
       (*
       >- (Cases_on `h (Branch (v12::v13) e::bs) > 0` \\ fs[]
           >- (fs[swap_columns_length, swap_columns_msize, msize_def,
-		 dt_eval_def]
+                 dt_eval_def]
               `SUC`*)
   >- (fs[compile_def] \\
       (* we must show that add_bindings_from_id doesn't effect evaluation *)
