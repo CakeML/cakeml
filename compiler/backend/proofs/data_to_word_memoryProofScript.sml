@@ -178,9 +178,11 @@ QED
 *)
 
 
-val v2n_zero_extend = Q.prove(`!x n. v2n (zero_extend n x) = v2n x`,
+Theorem v2n_zero_extend:
+ !x n. v2n (zero_extend n x) = v2n x
+Proof
   rw[zero_extend_def] \\ rw[PAD_LEFT] \\ rw[v2n_append] \\ simp[v2n_eq0]
-)
+QED
 
 val v2n_T = Q.prove(`!x n. v2n (T::x) = (2**LENGTH x)+v2n x`,
   rw[] \\

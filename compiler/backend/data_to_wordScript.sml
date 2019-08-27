@@ -594,7 +594,7 @@ val InstallCode_code_def = Define `
              (Call NONE (SOME InstallData_location) [0;2;4;6] NONE))
         (list_Seq [Assign 3 (real_addr c 2);
                    Assign 2 (Load (Op Add [Var 3; Const bytes_in_word]));
-                   Assign 2 (ShiftVar Lsr 2 2);
+                   Assign 2 (ShiftVar Lsr 2 (dimindex(:'a) - 8));
                    CodeBufferWrite 6 2;
                    Assign 6 (Op Add [Var 6; Const 1w]);
                    Assign 2 (Load (Op Add [Var 3; Const (2w * bytes_in_word)]));
@@ -877,13 +877,43 @@ val WriteBoxedWordNative_def = Define `
           (Op Or
              [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                 (shift_length c − shift (:α)); Const (1w:'a word)])]`
+(* reg holds the ith machine word of large Word being stored at dest *)
+val StoreWordN_def = Define`StoreWordN c header i dest reg = ARB`
 
+val PerformWordAlloc_def = Define`PerformWordAlloc c header dest word_size = ARB`
 val WordOpLarge_def = Define `
-  WordOpLarge n (:'a) opw  =
-    dtcase lookup_word_op opw of
-    | Bitwise op => list_Seq (GENLIST (\i. Assign (2*i+31) (Op op [Var (2*i+11);Var (2*i+13)])) (n ROUNDUP_DIV (dimindex(:'a))))
-    | Carried Add => ARB
-    | Carried Sub => ARB`
+  WordOpLarge c (header:'a word) word_size (opw:opw) v1 v2 dest = list_Seq
+  (PerformWordAlloc c header dest word_size ++ (case lookup_word_op opw of
+    (* repeats the following pattern:
+     * Load from real_addr c (adjust_var v1;Const bytes_in_word * (i+1))
+     * same for v2
+     * apply operation
+     * write to dest *)
+    | Bitwise op => FLAT(GENLIST (\i.
+        [Assign 33 (Load (Op Add[real_addr c (adjust_var v1);Const
+        (bytes_in_word * n2w(i+1))]));
+        Assign 35 (Load (Op Add[real_addr c (adjust_var v2);Const
+        (bytes_in_word * n2w(i+1))]));
+        Assign 37 (Op op [Var 33;Var 35])]++StoreWordN c header i dest 37
+      ) (ROUNDUP_DIV word_size (dimindex(:'a))))
+    (* sets carry register 29 to 0w
+       then generates
+       list of carried additions
+        *)
+    | Carried Add =>  [Assign 29 (Const 0w)] ++ (FLAT(GENLIST (\i.
+        [Assign 33 (Load (Op Add[real_addr c (adjust_var v1);Const
+        (bytes_in_word * n2w(i+1))]));
+        Assign 35 (Load (Op Add[real_addr c (adjust_var v2);Const
+        (bytes_in_word * n2w(i+1))]));
+        Inst (Arith (AddCarry 37 33 35 29))]++StoreWordN c header i dest 37
+      ) (ROUNDUP_DIV word_size (dimindex(:'a)))))
+    (* TODO finish *)
+    | Carried Sub => [Assign 29 (Const 1w)]
+      ++ FLAT (GENLIST (\i.
+          [
+           Assign 27 (Op Xor [Const(-1w);Var 33]);
+           Inst (Arith (AddCarry 37 33 27 29))] ++ StoreWordN c header i dest 37)
+       (ROUNDUP_DIV word_size (dimindex(:'a)))))) : 'a wordLang$prog`
 
 val WordOp64_on_32_def = Define `
   WordOp64_on_32 (opw:opw) =
@@ -1093,7 +1123,7 @@ val def = assign_Define `
             Assign 1 (Op Add [real_addr c (adjust_var v1);
                               real_byte_offset (adjust_var v2)]);
             Inst (Mem Load8 3 (Addr 1 0w));
-            Assign (adjust_var dest) (Shift Lsl (Var 3) 2)
+            Assign (adjust_var dest) (Shift Lsl (Var 3) (dimindex(:'a) - 8))
           ], l)
       : 'a wordLang$prog # num`;
 
@@ -1110,7 +1140,7 @@ val def = assign_Define `
       (list_Seq [
           Assign 1 (Op Add [real_addr c (adjust_var v1);
                             real_byte_offset (adjust_var v2)]);
-          Assign 3 (Shift Lsr (Var (adjust_var v3)) 2);
+          Assign 3 (Shift Lsr (Var (adjust_var v3)) (dimindex(:'a) - 8));
           Inst (Mem Store8 3 (Addr 1 0w));
           Assign (adjust_var dest) Unit], l)
       : 'a wordLang$prog # num`;
@@ -1608,7 +1638,7 @@ val def = assign_Define `
 (* it's an ('a word) with; with dimindex(:'a)-word_size least significant bits set to 0 *)
 val small_bitmask_def = Define `small_bitmask (:'a) word_size
        = v2w
-          (PAD_RIGHT T (dimindex (:'a)) (PAD_LEFT F (dimindex(:'a) - word_size) [])):('a word)`
+          (PAD_LEFT T (dimindex (:'a)) (PAD_LEFT F (dimindex(:'a) - word_size) [])):('a word)`
 
 (* addition overflows by at most single bit *)
 (* subtraction overflows by at most 2 *)
@@ -1621,14 +1651,14 @@ val def = assign_Define `
   assign_WordOp opw word_size (c:data_to_word$config) (secn:num)
                (l:num) (dest:num) (names:num_set option) v1 v2 =
         (if word_size = 0 then
-           (Skip,l)
+           (Assign (adjust_var dest) (Const 0w),l)
         (* unboxed case *)
         else if word_size<=dimindex(:'a)-2 then
            (Assign (adjust_var dest) (dtcase lookup_word_op opw of
              | Bitwise op => Op op [Var (adjust_var v1); Var (adjust_var v2)]
              | Carried op => (case opw of
                   | Add => Op op [Var (adjust_var v1); Var (adjust_var v2)]
-                  | Sub => Op And [Op op [Var (adjust_var v1);Var (adjust_var v2)];Const (small_bitmask (:'a) word_size)]
+                  | Sub => Op op [Var (adjust_var v1);Var (adjust_var v2)]
            )),l)
          (* small boxed case *)
          else if word_size<=dimindex(:'a) then
@@ -1657,7 +1687,7 @@ val def = assign_Define `
            (dtcase encode_header c 3 (ROUNDUP_DIV word_size (dimindex(:'a))) of
             | NONE => (GiveUp,l)
             | SOME (header:'a word) =>
-                  (ARB,l))): 'a wordLang$prog # num`
+                  (WordOpLarge c header word_size opw v1 v2 dest,l))): 'a wordLang$prog # num`
 
 val Signed_def = Datatype`Signed = Unsigned
                                  | UnsignedFlipped
@@ -1727,7 +1757,7 @@ val def = assign_Define `
   assign_WordShift sh word_size n (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 =
         (if word_size = 0 then
-           (ARB,l)
+           (Assign (adjust_var dest) (Const 0w),l)
         (* unboxed case *)
          else if word_size<=dimindex(:'a)-2 then
            (if n >= word_size then
@@ -1738,14 +1768,19 @@ val def = assign_Define `
                 (* i.e. Asr (dimindex(:'a) - 2)  then AND mask *)
                 | Asr => Assign (adjust_var dest)
                 (Op And [Shift Asr (Var (adjust_var v1)) (dimindex(:'a)-2);Const (small_bitmask (:'a) word_size)])
-                | Ror => ARB)
+                | Ror => if n MOD word_size = 0 then Assign (adjust_var dest) (Var (adjust_var v1)) else
+                    Assign (adjust_var dest) (Op And
+                       [Op Or
+                           [Shift Lsr (Var (adjust_var v1)) (n MOD word_size)
+                           ;Shift Lsl (Var (adjust_var v1)) (word_size-(n MOD word_size))]
+                       ;Const (small_bitmask (:'a) word_size)]))
             else if n = 0 then
                 Assign (adjust_var dest) (Var (adjust_var v1))
             else (case sh of
                  | Lsr => Assign (adjust_var dest) (Op And [Shift Lsr (Var (adjust_var v1)) n;Const (small_bitmask (:'a) word_size)])
                  | Lsl => Assign (adjust_var dest) (Shift Lsl (Var (adjust_var v1)) n)
                  | Asr => Assign (adjust_var dest) (Op And [Shift Asr (Var (adjust_var v1)) n;Const (small_bitmask (:'a) word_size)])
-                 | Ror => ARB),l)
+                 | Ror => Assign (adjust_var dest) (Op And [Op Or [Shift Lsr (Var (adjust_var v1)) n;Shift Lsl (Var (adjust_var v1)) (word_size-n)];Const (small_bitmask (:'a) word_size)])),l)
          (* small boxed case *)
          else if word_size<=dimindex(:'a) then
            (ARB,l)
@@ -1918,10 +1953,22 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 *)
 
+(* last-bit is in word_size msb and needs to be in the 3rd lsb
+   counting from 1 *)
+
 val def = assign_Define `
   assign_WordToInt word_size (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v =
-    (ARB,l) : 'a wordLang$prog # num`
+    (if word_size = 0 then
+      Assign (adjust_var dest) (Const 0w)
+     else if word_size <= dimindex(:'a) - 2 then
+       (if dimindex(:'a) - 2 - word_size = 0 then
+      Assign (adjust_var dest) (Var (adjust_var v))
+      else
+       Assign (adjust_var dest) (Shift Lsr (Var (adjust_var v)) (dimindex(:'a) - 2
+       - word_size)))
+     else
+       ARB,l) : 'a wordLang$prog # num`
 
 val def = assign_Define `
   assign_WordFromInt word_size (c:data_to_word$config) (secn:num)
@@ -1931,13 +1978,22 @@ val def = assign_Define `
 val def = assign_Define `
   assign_WordToWord src_size dest_size (c:data_to_word$config) (secn_num)
              (l:num) (dest:num) (names:num_set option) v =
-    (if src_size < dimindex(:'a)-2 /\ dest_size < dimindex(:'a)-2
+    (if src_size <= dimindex(:'a)-2 /\ dest_size <= dimindex(:'a)-2
      then Assign (adjust_var dest) (if src_size <= dest_size
             then
              Var (adjust_var v)
             else
              Op And [Var (adjust_var v);Const (small_bitmask (:'a) dest_size)]
           )
+     else if dest_size <= dimindex(:'a) - 2
+      then (* load from v and shift left by 2 *)
+         list_Seq [Assign 3 (real_addr c (adjust_var v));
+                   Assign 5 (Load (Op Add [Var 3;Const bytes_in_word]));
+                   Assign 7 (Shift Lsl (Var 5) 2)
+         ]
+     else if src_size <= dimindex(:'a) - 2
+      then (* store v into first and 0s to all others *) ARB
+
      else ARB,l) : 'a wordLang$prog # num`
 
 val def = assign_Define `

@@ -36,11 +36,12 @@ val assign_def =
                    data_to_wordTheory.all_assign_defs];
 
 Theorem data_compile_correct:
-   !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
-      (dataSem$evaluate (prog,s) = (res,s1)) /\
+   !prog s arch_size c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
+      (dataSem$evaluate (prog,s) arch_size = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t [] locs /\
-      t.termdep > 1
+      t.termdep > 1 /\
+      arch_size = dimindex(:'a)
       ==>
       ?t1 res1.
         (wordSem$evaluate (FST (comp c n l prog),t) = (res1,t1)) /\
@@ -85,7 +86,7 @@ Proof
                                      (b1 ==> ~b2) /\ x2 = y``)
     \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ Cases_on `cut_state_opt names_opt s` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `get_vars args x.locals` \\ full_simp_tac(srw_ss())[]
-    \\ reverse (Cases_on `do_app op x' x`) \\ full_simp_tac(srw_ss())[]
+    \\ reverse (Cases_on `do_app op x' (dimindex(:'a)) x`) \\ full_simp_tac(srw_ss())[]
     THEN1 (imp_res_tac do_app_Rerr \\ srw_tac[][] \\
            imp_res_tac assign_FFI_final \\
            first_x_assum(qspecl_then [`n`,`l`,`dest`] strip_assume_tac) \\
@@ -194,7 +195,7 @@ Proof
     \\ Cases_on `comp c n l c1` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ Cases_on `comp c n r c2` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ full_simp_tac(srw_ss())[dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
-    \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ Cases_on `evaluate (c1,s) (dimindex(:'a))` \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ `q'' <> SOME (Rerr (Rabort Rtype_error))` by
          (Cases_on `q'' = NONE` \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
     \\ fs[GSYM AND_IMP_INTRO]
@@ -259,7 +260,7 @@ Proof
       \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `s.clock = 0` \\ fs[] \\ srw_tac[][] \\ fs[]
       THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
-      \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ fs[]
+      \\ Cases_on `evaluate (r,call_env q (dec_clock s)) (dimindex(:'a))` \\ fs[]
       \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
       \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ res_tac
       \\ pop_assum kall_tac
@@ -297,7 +298,8 @@ Proof
       \\ disch_then (qspecl_then [`n`,`l`] strip_assume_tac) \\ fs []
       \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
-      \\ Cases_on `evaluate (prog,call_env ys (push_env x F (dec_clock s)))`
+      \\ Cases_on `evaluate (prog,call_env ys (push_env x F (dec_clock s)))
+      (dimindex(:'a))`
       \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
       \\ res_tac (* inst ind hyp *)
@@ -346,7 +348,8 @@ Proof
     \\ disch_then (qspecl_then [`x0`,`n`,`prog1`,`n`,`l`] strip_assume_tac) \\ fs []
     \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     THEN1 (fs[call_env_def,wordSemTheory.call_env_def,state_rel_def])
-    \\ Cases_on `evaluate (prog,call_env ys (push_env x T (dec_clock s)))`
+    \\ Cases_on `evaluate (prog,call_env ys (push_env x T (dec_clock s)))
+    (dimindex(:'a))`
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `q'` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ full_simp_tac(srw_ss())[]
     \\ res_tac (* inst ind hyp *)
@@ -402,7 +405,7 @@ QED
 
 Theorem compile_correct_lemma:
    !s c l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
-      (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
+      (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) (dimindex(:'a))= (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       t.termdep > 1 /\
       state_rel c l1 l2 s t [] [] ==>
@@ -450,7 +453,7 @@ val state_rel_ext_def = Define `
 
 Theorem compile_correct:
    !x s l1 l2 res s1 (t:('a,'c,'ffi) wordSem$state) start.
-      (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
+      (dataSem$evaluate (Call NONE (SOME start) [] NONE,s) (dimindex(:'a)) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel_ext x l1 l2 s t ==>
       ?ck t1 res1.
@@ -544,9 +547,10 @@ val state_rel_ext_with_clock = Q.prove(
 
 Theorem compile_semantics_lemma:
    state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc t.clock) (t:('a,'c,'ffi) wordSem$state) /\
-   semantics ffi (fromAList prog) co cc start <> Fail ==>
+   semantics ffi (fromAList prog) co cc start (dimindex(:'a)) <> Fail ==>
    semantics t start IN
-     extend_with_resource_limit { semantics ffi (fromAList prog) co cc start }
+     extend_with_resource_limit { semantics ffi (fromAList prog) co cc start
+     (dimindex(:'a)) }
 Proof
   simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
   simp[dataSemTheory.semantics_def] >>
@@ -796,10 +800,10 @@ Theorem compile_semantics:
    t.compile_oracle = (I ## MAP (λp. full_compile_single tt kk aa coo (p,NONE))) o tco ∧
    Abbrev (tcc = (λconf progs.
     t.compile conf (MAP (λp. full_compile_single tt kk aa coo (p,NONE)) progs))) ∧
-   Fail ≠ semantics t.ffi (fromAList prog) co cc start ⇒
+   Fail ≠ semantics t.ffi (fromAList prog) co cc start (dimindex(:'a)) ⇒
    semantics t start ∈
    extend_with_resource_limit
-   {semantics t.ffi (fromAList prog) co cc start}
+   {semantics t.ffi (fromAList prog) co cc start (dimindex(:'a))}
 Proof
    rw[]>>
    match_mp_tac (GEN_ALL compile_semantics_lemma)>>
