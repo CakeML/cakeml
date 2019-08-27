@@ -1280,4 +1280,33 @@ val dest_Dlet_def = Define `dest_Dlet (Dlet e) = e`;
 
 val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
+Theorem initial_state_clock:
+  (initial_state ffi k b1 b2).clock = k /\
+  ((initial_state ffi k b1 b2 with clock := k1) = initial_state ffi k1 b1 b2)
+Proof
+  EVAL_TAC
+QED
+
+Theorem build_rec_env_eq_MAP:
+  build_rec_env funs cl_env env =
+  MAP (\(f,x,e). (f,Recclosure cl_env funs f)) funs ++ env
+Proof
+  fs [build_rec_env_def]
+  \\ qspec_tac (`Recclosure cl_env funs`,`rr`)
+  \\ qid_spec_tac `env`
+  \\ qid_spec_tac `funs`
+  \\ Induct \\ fs [FORALL_PROD]
+QED
+
+Theorem evaluate_decs_add_to_clock_io_events_mono_alt:
+  !extra s1 res s prog s2 res2.
+    evaluate_decs s prog = (s1,res) /\
+    evaluate_decs (s with clock := s.clock + extra) prog = (s2,res2) ==>
+    s1.ffi.io_events ≼ s2.ffi.io_events
+Proof
+  rw []
+  \\ assume_tac (SPEC_ALL evaluate_decs_add_to_clock_io_events_mono)
+  \\ rfs []
+QED
+
 val _ = export_theory()

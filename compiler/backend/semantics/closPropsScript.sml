@@ -555,6 +555,23 @@ Proof
   \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]
 QED
 
+Theorem evaluate_APPEND:
+  !xs ys env s.
+    evaluate (xs ++ ys,env,s) =
+      case evaluate (xs,env,s) of
+        (Rval vs,s2) =>
+          (case evaluate (ys,env,s2) of
+             (Rval ws,s1) => (Rval (vs ++ ws),s1)
+           | (Rerr v8,s1) => (Rerr v8,s1))
+      | (Rerr v10,s2) => (Rerr v10,s2)
+Proof
+  Induct \\ fs [evaluate_def]
+  THEN1 (rw [] \\ every_case_tac \\ fs [])
+  \\ once_rewrite_tac [evaluate_CONS] \\ rw []
+  \\ every_case_tac \\ fs []
+  \\ rveq \\ fs []
+QED
+
 Theorem evaluate_SNOC:
    !xs env s x.
       evaluate (SNOC x xs,env,s) =
@@ -565,18 +582,7 @@ Theorem evaluate_SNOC:
           | t => t)
       | t => t
 Proof
-  Induct THEN1
-   (full_simp_tac(srw_ss())[SNOC_APPEND,evaluate_def] \\ REPEAT STRIP_TAC
-    \\ Cases_on `evaluate ([x],env,s)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[])
-  \\ full_simp_tac(srw_ss())[SNOC_APPEND,APPEND]
-  \\ ONCE_REWRITE_TAC [evaluate_CONS]
-  \\ REPEAT STRIP_TAC
-  \\ Cases_on `evaluate ([h],env,s)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `evaluate (xs,env,r)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `evaluate ([x],env,r')` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[evaluate_def]
-  \\ IMP_RES_TAC evaluate_IMP_LENGTH
-  \\ Cases_on `a''` \\ full_simp_tac(srw_ss())[LENGTH]
-  \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ full_simp_tac(srw_ss())[]
+  fs [SNOC_APPEND,evaluate_APPEND]
 QED
 
 val evaluate_const_ind =
@@ -3406,6 +3412,13 @@ Proof
     \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] )
   >- ( rw[EXTENSION] \\ metis_tac[] )
+QED
+
+Theorem initial_state_clock:
+  (initial_state ffi max_app f co cc k).clock = k /\
+  ((initial_state ffi max_app f co cc k' with clock := k) = initial_state ffi max_app f co cc k)
+Proof
+  EVAL_TAC
 QED
 
 val _ = export_theory();

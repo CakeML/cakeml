@@ -136,23 +136,6 @@ Definition no_Mat_decs_def[simp]:
   no_Mat_decs (_::xs) = no_Mat_decs xs
 End
 
-Theorem evaluate_APPEND: (* TODO: move  *)
-  !xs ys env s.
-    evaluate (xs ++ ys,env,s) =
-      case evaluate (xs,env,s) of
-        (Rval vs,s2) =>
-          (case evaluate (ys,env,s2) of
-             (Rval ws,s1) => (Rval (vs ++ ws),s1)
-           | (Rerr v8,s1) => (Rerr v8,s1))
-      | (Rerr v10,s2) => (Rerr v10,s2)
-Proof
-  Induct \\ fs [evaluate_def]
-  THEN1 (rw [] \\ every_case_tac \\ fs [])
-  \\ once_rewrite_tac [evaluate_CONS] \\ rw []
-  \\ every_case_tac \\ fs []
-  \\ rveq \\ fs []
-QED
-
 Inductive v_rel:
   (!i. v_rel (Litv (IntLit i)) (Number i)) /\
   (!c. v_rel (Litv (Char c)) (Number (& (ORD c)))) /\
@@ -258,6 +241,8 @@ in
   fun the_ind_thm () = ind_thm
 end
 
+
+
 Theorem compile_nil:
   ^(get_goal "[]")
 Proof
@@ -354,17 +339,6 @@ Proof
     \\ rw [] \\ fs [])
   \\ disch_then drule
   \\ strip_tac \\ fs []
-QED
-
-Theorem build_rec_env_eq_MAP:
-  build_rec_env funs cl_env env =
-  MAP (\(f,x,e). (f,Recclosure cl_env funs f)) funs ++ env
-Proof
-  fs [build_rec_env_def]
-  \\ qspec_tac (`Recclosure cl_env funs`,`rr`)
-  \\ qid_spec_tac `env`
-  \\ qid_spec_tac `funs`
-  \\ Induct \\ fs [FORALL_PROD]
 QED
 
 Triviality LIST_REL_MAP_GENLIST:
@@ -674,26 +648,6 @@ Proof
   \\ asm_exists_tac \\ fs []
 QED
 
-Theorem evaluate_decs_add_to_clock_io_events_mono_alt:
-  !extra s1 res s prog s2 res2.
-    evaluate_decs s prog = (s1,res) /\
-    evaluate_decs (s with clock := s.clock + extra) prog = (s2,res2) ==>
-    s1.ffi.io_events ≼ s2.ffi.io_events
-Proof
-  rw []
-  \\ assume_tac (SPEC_ALL flatPropsTheory.evaluate_decs_add_to_clock_io_events_mono)
-  \\ rfs []
-QED
-
-Theorem initial_state_clocks:
-  (initial_state ffi k b1 b2).clock = k /\
-  ((initial_state ffi k b1 b2 with clock := k1) = initial_state ffi k1 b1 b2) /\
-  (initial_state ffi max_app f co cc k).clock = k /\
-  ((initial_state ffi max_app f co cc k' with clock := k) = initial_state ffi max_app f co cc k)
-Proof
-  EVAL_TAC
-QED
-
 Theorem compile_semantics:
    0 < max_app /\ no_Mat_decs ds ==>
    flatSem$semantics T F (ffi:'ffi ffi_state) ds ≠ Fail ==>
@@ -745,7 +699,9 @@ Proof
            clock := k + k'` mp_tac)
       \\ impl_tac >-
        (reverse conj_tac THEN1 (CCONTR_TAC \\ fs [])
-        \\ fs [initial_state_clocks,state_rel_initial_state])
+        \\ fs [flatPropsTheory.initial_state_clock,
+               closPropsTheory.initial_state_clock,
+               state_rel_initial_state])
       \\ strip_tac \\ unabbrev_all_tac \\ fs[]
       \\ fs[initial_state_def] \\ rfs[]
       \\ rveq \\ fs []
