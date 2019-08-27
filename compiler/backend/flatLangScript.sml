@@ -23,7 +23,7 @@ val _ = new_theory "flatLang";
 val _ = set_grammar_ancestry ["ast", "backend_common"];
 
 (* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
- * been added. *)
+ * been added, also TagLenEq and El for pattern match compilation. *)
 val _ = Datatype `
  op =
   (* Operations on integers *)
@@ -87,7 +87,10 @@ val _ = Datatype `
   (* Initialise given global variable *)
   | GlobalVarInit num
   (* Get the value of the given global variable *)
-  | GlobalVarLookup num`;
+  | GlobalVarLookup num
+  (* for pattern match compilation *)
+  | TagLenEq num num
+  | El num`;
 
 val _ = type_abbrev ("ctor_id", ``:num``);
 (* NONE represents the exception type *)

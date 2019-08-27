@@ -44,6 +44,8 @@ Definition compile_op_def:
   compile_op t op xs =
     case op of
     | Opapp => arg2 xs (\x f. closLang$App t NONE f [x])
+    | TagLenEq tag n => closLang$Op t (TagLenEq tag n) xs
+    | El n => closLang$Op t El ([Op None (Const (& n)) []] ++ xs)
     | _ => Let None xs (Var None 0)
 End
 
@@ -475,7 +477,15 @@ Theorem compile_op_evaluates_args:
   evaluate (xs,db,t) = (Rerr err,t1) /\ op <> Opapp ==>
   evaluate ([compile_op tra op xs],db,t) = (Rerr err,t1)
 Proof
-  Cases_on `op` \\ fs [compile_op_def,evaluate_def]
+  Cases_on `op` \\ fs [compile_op_def,evaluate_def,evaluate_APPEND]
+  \\ simp [Once evaluate_CONS] \\ fs [evaluate_def,do_app_def]
+QED
+
+Theorem v_rel_Boolv[simp]:
+  v_rel (Boolv b) v = (v = Boolv b)
+Proof
+  Cases_on `b` \\ fs [Once v_rel_cases,flatSemTheory.Boolv_def]
+  \\ rw [] \\ eq_tac \\ rw [] \\ EVAL_TAC
 QED
 
 Theorem compile_op_correct:
@@ -489,7 +499,25 @@ Theorem compile_op_correct:
     state_rel s2 t1 ∧
     result_rel (LIST_REL v_rel) v_rel (list_result res2) res2'
 Proof
-  cheat
+  Cases_on `?n. op = El n` THEN1
+   (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS]
+    \\ rw [] \\ fs [] \\ rveq \\ fs []
+    \\ qpat_x_assum `v_rel _ _` mp_tac
+    \\ simp [Once v_rel_cases] \\ rw []
+    \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,do_app_def,evaluate_def]
+    \\ once_rewrite_tac [evaluate_CONS] \\ fs []
+    \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,do_app_def,evaluate_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ fs [listTheory.LIST_REL_EL_EQN])
+  \\ Cases_on `?tag n. op = TagLenEq tag n` THEN1
+   (fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",
+        PULL_EXISTS,option_case_eq,pair_case_eq]
+    \\ rw [] \\ fs [] \\ rveq \\ fs [PULL_EXISTS]
+    \\ qpat_x_assum `v_rel _ _` mp_tac
+    \\ simp [Once v_rel_cases] \\ rw []
+    \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,do_app_def,evaluate_def]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ cheat
 QED
 
 Theorem compile_App:

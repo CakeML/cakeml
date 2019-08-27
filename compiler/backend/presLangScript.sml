@@ -243,6 +243,8 @@ val flat_op_to_display_def = Define `
     | GlobalVarAlloc n => item_with_num (strlit "GlobalVarAlloc") n
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n
     | GlobalVarLookup n => item_with_num (strlit "GlobalVarLookup") n
+    | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | El n => item_with_num (strlit "El") n
     `
 
 val MEM_funs_size = prove(
