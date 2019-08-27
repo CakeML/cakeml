@@ -494,27 +494,25 @@ val sexplit_def = Define`
     lift StrLit (odestSEXSTR s) ++
     do
       (nm,args) <- dstrip_sexp s;
-      assert(LENGTH args = 1);
-      guard (nm = "-") (OPTION_BIND (odestSXNUM (HD args)) (λn. if n = 0 then NONE else SOME (IntLit (-&n)))) ++
-      guard (nm = "char")
+      (do
+         assert(LENGTH args = 1);
+         guard (nm = "-") (OPTION_BIND (odestSXNUM (HD args)) (λn. if n = 0 then NONE else SOME (IntLit (-&n)))) ++
+         guard (nm = "char")
             do
               cs <- odestSEXSTR (HD args);
               assert(LENGTH cs = 1);
               return (Char (HD cs))
-            od ++
-      guard (nm = "word8")
-            do
-              n <- odestSXNUM (HD args);
-              assert(n < 256);
-              return (Word (fixwidth 8 (n2v n)))
-            od ++
-      guard (nm = "word64")
-            do
-              n <- odestSXNUM (HD args);
-              assert(n < 2**64);
-              return (Word (fixwidth 64 (n2v n)))
             od
-    od
+        od) ++
+      guard (nm = "word")
+           do
+             assert(LENGTH args = 2);
+             wsize <- odestSXNUM (HD args);
+             n <- odestSXNUM (EL 1 args);
+             assert(n < 2 ** wsize);
+             return (Word (fixwidth wsize (n2v n)))
+           od
+      od
 `;
 
 (* don't require Pvar constructors; bare strings can be pattern variables.
@@ -615,16 +613,6 @@ val sexpop_def = Define`
   if s = "OpbGt" then SOME (Opb Gt) else
   if s = "OpbLeq" then SOME (Opb Leq) else
   if s = "OpbGeq" then SOME (Opb Geq) else
-  if s = "Opw8Andw" then SOME (Opw 8 Andw) else
-  if s = "Opw8Orw" then SOME (Opw 8 Orw) else
-  if s = "Opw8Xor" then SOME (Opw 8 Xor) else
-  if s = "Opw8Add" then SOME (Opw 8 Add) else
-  if s = "Opw8Sub" then SOME (Opw 8 Sub) else
-  if s = "Opw64Andw" then SOME (Opw 64 Andw) else
-  if s = "Opw64Orw" then SOME (Opw 64 Orw) else
-  if s = "Opw64Xor" then SOME (Opw 64 Xor) else
-  if s = "Opw64Add" then SOME (Opw 64 Add) else
-  if s = "Opw64Sub" then SOME (Opw 64 Sub) else
   if s = "Equality" then SOME Equality else
   if s = "FPcmpFPLess" then SOME (FP_cmp FP_Less) else
   if s = "FPcmpFPLessEqual" then SOME (FP_cmp FP_LessEqual) else
@@ -653,10 +641,6 @@ val sexpop_def = Define`
   if s = "CopyAw8Aw8" then SOME CopyAw8Aw8 else
   if s = "Ord" then SOME Ord else
   if s = "Chr" then SOME Chr else
-  if s = "W8fromInt" then SOME (WordFromInt 8) else
-  if s = "W8toInt" then SOME (WordToInt 8) else
-  if s = "W64fromInt" then SOME (WordFromInt 64) else
-  if s = "W64toInt" then SOME (WordToInt 64) else
   if s = "ChopbLt" then SOME (Chopb Lt) else
   if s = "ChopbGt" then SOME (Chopb Gt) else
   if s = "ChopbLeq" then SOME (Chopb Leq) else
@@ -680,14 +664,28 @@ val sexpop_def = Define`
      if s = "FFI" then OPTION_MAP FFI (decode_control s') else NONE
    ) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_NUM n)) =
-    if s = "Shift8Lsl" then SOME (Shift 8 Lsl n) else
-    if s = "Shift8Lsr" then SOME (Shift 8 Lsr n) else
-    if s = "Shift8Asr" then SOME (Shift 8 Asr n) else
-    if s = "Shift8Ror" then SOME (Shift 8 Ror n) else
-    if s = "Shift64Lsl" then SOME (Shift 64 Lsl n) else
-    if s = "Shift64Lsr" then SOME (Shift 64 Lsr n) else
-    if s = "Shift64Asr" then SOME (Shift 64 Asr n) else
-    if s = "Shift64Ror" then SOME (Shift 64 Ror n) else NONE) ∧
+    if s = "OpwAndw" then SOME (Opw n Andw) else
+    if s = "OpwOrw" then SOME (Opw n Orw) else
+    if s = "OpwXor" then SOME (Opw n Xor) else
+    if s = "OpwAdd" then SOME (Opw n Add) else
+    if s = "OpwSub" then SOME (Opw n Sub) else
+    if s = "OpwbLtw" then SOME (Opwb n Ltw) else
+    if s = "OpwbGtw" then SOME (Opwb n Gtw) else
+    if s = "OpwbLeqw" then SOME (Opwb n Leqw) else
+    if s = "OpwbGeqw" then SOME (Opwb n Geqw) else
+    if s = "OpwbTest" then SOME (Opwb n Test) else
+    if s = "OpwbLtSignw" then SOME (Opwb n LtSignw) else
+    if s = "OpwbGtSignw" then SOME (Opwb n GtSignw) else
+    if s = "OpwbLeqSignw" then SOME (Opwb n LeqSignw) else
+    if s = "OpwbGeqSignw" then SOME (Opwb n GeqSignw) else
+    if s = "WtoInt" then SOME (WordToInt n) else
+    if s = "WfromInt" then SOME (WordFromInt n) else NONE) ∧
+  (sexpop (SX_CONS (SX_SYM s) (SX_CONS (SX_NUM wsize) (SX_NUM n))) =
+    if s = "ShiftLsl" then SOME (Shift wsize Lsl n) else
+    if s = "ShiftLsr" then SOME (Shift wsize Lsr n) else
+    if s = "ShiftAsr" then SOME (Shift wsize Asr n) else
+    if s = "ShiftRor" then SOME (Shift wsize Ror n) else
+    if s = "WtoW" then SOME (WordToWord wsize n) else NONE)∧
   (sexpop _ = NONE)`;
 
 val sexplop_def = Define`
@@ -1136,13 +1134,22 @@ val litsexp_def = Define`
             else SX_NUM (Num i)) ∧
   (litsexp (Char c) = listsexp [SX_SYM "char"; SEXSTR [c]]) ∧
   (litsexp (StrLit s) = SEXSTR s) ∧
-  (litsexp (Word v) = if LENGTH v = 8 then listsexp [SX_SYM "word8";SX_NUM (v2n v)] else listsexp [SX_SYM "word64";SX_NUM (v2n v)])`;
+  (litsexp (Word v) = listsexp [SX_SYM "word";SX_NUM
+  (LENGTH v);SX_NUM (v2n v)])`;
+
+Theorem v2n_11:
+   !v1 v2. LENGTH v1 = LENGTH v2 ==> (v2n v1 = v2n v2 <=> v1 = v2)
+Proof
+   cheat
+QED
 
 Theorem litsexp_11[simp]:
    ∀l1 l2. litsexp l1 = litsexp l2 ⇔ l1 = l2
 Proof
-  cheat (*Cases \\ Cases \\ rw[litsexp_def,EQ_IMP_THM,listsexp_def]
-  \\ intLib.COOPER_TAC*)
+  Cases \\ Cases \\ rw[litsexp_def,EQ_IMP_THM,listsexp_def]
+  >- intLib.COOPER_TAC
+  >- intLib.COOPER_TAC
+  >- metis_tac[v2n_11]
 QED
 
 val patsexp_def = tDefine"patsexp"`
@@ -1194,24 +1201,28 @@ val opsexp_def = Define`
   (opsexp (Opb Gt) = SX_SYM "OpbGt") ∧
   (opsexp (Opb Leq) = SX_SYM "OpbLeq") ∧
   (opsexp (Opb Geq) = SX_SYM "OpbGeq") ∧
-  (opsexp (Opw 8 Andw) = SX_SYM "Opw8Andw") ∧
-  (opsexp (Opw 8 Orw) = SX_SYM "Opw8Orw") ∧
-  (opsexp (Opw 8 Xor) = SX_SYM "Opw8Xor") ∧
-  (opsexp (Opw 8 Add) = SX_SYM "Opw8Add") ∧
-  (opsexp (Opw 8 Sub) = SX_SYM "Opw8Sub") ∧
-  (opsexp (Opw 64 Andw) = SX_SYM "Opw64Andw") ∧
-  (opsexp (Opw 64 Orw) = SX_SYM "Opw64Orw") ∧
-  (opsexp (Opw 64 Xor) = SX_SYM "Opw64Xor") ∧
-  (opsexp (Opw 64 Add) = SX_SYM "Opw64Add") ∧
-  (opsexp (Opw 64 Sub) = SX_SYM "Opw64Sub") ∧
-  (opsexp (Shift 8 Lsl n) = SX_CONS (SX_SYM "Shift8Lsl") (SX_NUM n)) ∧
-  (opsexp (Shift 8 Lsr n) = SX_CONS (SX_SYM "Shift8Lsr") (SX_NUM n)) ∧
-  (opsexp (Shift 8 Asr n) = SX_CONS (SX_SYM "Shift8Asr") (SX_NUM n)) ∧
-  (opsexp (Shift 8 Ror n) = SX_CONS (SX_SYM "Shift8Ror") (SX_NUM n)) ∧
-  (opsexp (Shift 64 Lsl n) = SX_CONS (SX_SYM "Shift64Lsl") (SX_NUM n)) ∧
-  (opsexp (Shift 64 Lsr n) = SX_CONS (SX_SYM "Shift64Lsr") (SX_NUM n)) ∧
-  (opsexp (Shift 64 Asr n) = SX_CONS (SX_SYM "Shift64Asr") (SX_NUM n)) ∧
-  (opsexp (Shift 64 Ror n) = SX_CONS (SX_SYM "Shift64Ror") (SX_NUM n)) ∧
+  (opsexp (Opw x Andw) = SX_CONS (SX_SYM "OpwAndw") (SX_NUM x)) ∧
+  (opsexp (Opw x Orw) = SX_CONS (SX_SYM "OpwOrw") (SX_NUM x)) ∧
+  (opsexp (Opw x Xor) = SX_CONS (SX_SYM "OpwXor") (SX_NUM x)) ∧
+  (opsexp (Opw x Add) = SX_CONS (SX_SYM "OpwAdd") (SX_NUM x)) ∧
+  (opsexp (Opw x Sub) = SX_CONS (SX_SYM "OpwSub") (SX_NUM x)) ∧
+  (opsexp (Opwb x Ltw) = SX_CONS (SX_SYM "OpwbLtw") (SX_NUM x)) ∧
+  (opsexp (Opwb x Gtw) = SX_CONS (SX_SYM "OpwbGtw") (SX_NUM x)) ∧
+  (opsexp (Opwb x Leqw) = SX_CONS (SX_SYM "OpwbLeqw") (SX_NUM x)) ∧
+  (opsexp (Opwb x Geqw) = SX_CONS (SX_SYM "OpwbGeqw") (SX_NUM x)) ∧
+  (opsexp (Opwb x Test) = SX_CONS (SX_SYM "OpwbTest") (SX_NUM x)) ∧
+  (opsexp (Opwb x LtSignw) = SX_CONS (SX_SYM "OpwbLtSignw") (SX_NUM x)) ∧
+  (opsexp (Opwb x GtSignw) = SX_CONS (SX_SYM "OpwbGtSignw") (SX_NUM x)) ∧
+  (opsexp (Opwb x LeqSignw) = SX_CONS (SX_SYM "OpwbLeqSignw") (SX_NUM x)) ∧
+  (opsexp (Opwb x GeqSignw) = SX_CONS (SX_SYM "OpwbGeqSignw") (SX_NUM x)) ∧
+  (opsexp (Shift x Lsl n) = SX_CONS (SX_SYM "ShiftLsl") (SX_CONS (SX_NUM x)
+  (SX_NUM n))) ∧
+  (opsexp (Shift x Lsr n) = SX_CONS (SX_SYM "ShiftLsr") (SX_CONS (SX_NUM x)
+  (SX_NUM n))) ∧
+  (opsexp (Shift x Asr n) = SX_CONS (SX_SYM "ShiftAsr") (SX_CONS (SX_NUM x)
+  (SX_NUM n))) ∧
+  (opsexp (Shift x Ror n) = SX_CONS (SX_SYM "ShiftRor") (SX_CONS (SX_NUM x)
+  (SX_NUM n))) ∧
   (opsexp Equality = SX_SYM "Equality") ∧
   (opsexp (FP_cmp FP_Less) = SX_SYM "FPcmpFPLess") ∧
   (opsexp (FP_cmp FP_LessEqual) = SX_SYM "FPcmpFPLessEqual") ∧
@@ -1240,10 +1251,10 @@ val opsexp_def = Define`
   (opsexp CopyAw8Aw8 = SX_SYM "CopyAw8Aw8") ∧
   (opsexp Ord = SX_SYM "Ord") ∧
   (opsexp Chr = SX_SYM "Chr") ∧
-  (opsexp (WordFromInt 8) = SX_SYM "W8fromInt") ∧
-  (opsexp (WordToInt 8) = SX_SYM "W8toInt") ∧
-  (opsexp (WordFromInt 64) = SX_SYM "W64fromInt") ∧
-  (opsexp (WordToInt 64) = SX_SYM "W64toInt") ∧
+  (opsexp (WordFromInt x) = SX_CONS (SX_SYM "WfromInt") (SX_NUM x)) ∧
+  (opsexp (WordToInt x) = SX_CONS (SX_SYM "WtoInt") (SX_NUM x))∧
+  (opsexp (WordToWord src dest) = SX_CONS (SX_SYM "WtoW") (SX_CONS (SX_NUM src)
+  (SX_NUM dest)))∧
   (opsexp (Chopb Lt) = SX_SYM "ChopbLt") ∧
   (opsexp (Chopb Gt) = SX_SYM "ChopbGt") ∧
   (opsexp (Chopb Leq)= SX_SYM "ChopbLeq") ∧
@@ -1266,17 +1277,18 @@ val opsexp_def = Define`
   (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s))`;
 
 Theorem sexpop_opsexp[simp]:
-   sexpop (opsexp op) = SOME op
+sexpop (opsexp op) = SOME op
 Proof
-  cheat (*Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
+  `?debug. debug () = op` by (qexists_tac `K op` \\ simp[])>>
+  Cases_on`op`>>rw[sexpop_def,opsexp_def]>>
   TRY(MAP_FIRST rename1 [
-        ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
-        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`, ‘WordFromInt c1’,
-        ‘WordToInt c1’
+        ‘Opn c1’, ‘Opb c1’, ‘Opw _ c1’, ‘Chopb c1’, ‘Shift _ c1 _’,
+        ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, `FP_top c1`, ‘WordFromInt _’,
+        ‘WordToInt _’, `Opwb _ c1`,`WordToWord _ _`
       ] >>
       Cases_on`c1` >> rw[sexpop_def,opsexp_def] >>
       Cases_on`c2` >> rw[sexpop_def,opsexp_def]) >>
-  rw[sexpop_def,opsexp_def,SEXSTR_def]*)
+  rw[sexpop_def,opsexp_def,SEXSTR_def]
 QED
 
 Theorem opsexp_11[simp]:
@@ -1595,13 +1607,11 @@ QED
 Theorem sexplit_litsexp[simp]:
    sexplit (litsexp l) = SOME l
 Proof
-  cheat (*Cases_on`l`>>simp[sexplit_def,litsexp_def]
+  `?debug. debug () = l`by (qexists_tac`K l` \\ simp[])
+  \\ Cases_on`l`>>simp[sexplit_def,litsexp_def]
   >- (
     rw[] >> intLib.ARITH_TAC ) >>
-  ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
-  ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
-  ONCE_REWRITE_TAC[wordsTheory.w2n_lt] >>
-  rw[]*)
+  rw[] \\ cheat
 QED
 
 Theorem sexppat_patsexp[simp]:
@@ -1724,10 +1734,16 @@ Proof
   simp[] >> metis_tac[]
 QED
 
+Theorem v2n_longer_fixwidth:
+   !x n. n < 2 ** x ==> fixwidth x (n2v n) = n2v n
+Proof
+  cheat
+QED
+
 Theorem litsexp_sexplit:
    ∀s l. sexplit s = SOME l ⇒ litsexp l = s
 Proof
-  cheat (*rw[sexplit_def]
+  rw[sexplit_def]
   \\ reverse(Cases_on`odestSXNUM s`) \\ fs[]
   >- (
     rw[litsexp_def]
@@ -1738,7 +1754,8 @@ Proof
   \\ fs[quantHeuristicsTheory.LIST_LENGTH_3] \\ rw[]
   \\ fs[OPTION_CHOICE_EQ_SOME, dstrip_sexp_EQ_SOME] >>
   rw[litsexp_def, listsexp_def]
-  \\ Cases_on`e1` \\ fs[odestSXNUM_def]*)
+  \\ Cases_on`e1` \\ fs[odestSXNUM_def,v2n_longer_fixwidth]
+  \\ Cases_on`e2` \\ fs[odestSXNUM_def]
 QED
 
 Theorem idsexp_sexpid_odestSEXSTR:
@@ -1837,6 +1854,7 @@ Proof
   \\ pop_assum mp_tac
   \\ rpt IF_CASES_TAC \\ rw[]
   \\ rw[opsexp_def, GSYM encode_decode_control]
+  \\ cheat
 QED
 
 Theorem lopsexp_sexplop:
@@ -2076,13 +2094,13 @@ QED
 Theorem opsexp_valid[simp]:
    ∀op. valid_sexp (opsexp op)
 Proof
-  cheat (* Cases \\ simp[opsexp_def]
+  Cases \\ simp[opsexp_def]
   \\ TRY (EVAL_TAC \\ NO_TAC)
   \\ TRY(Cases_on`o'`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`w`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`s`) \\ simp[opsexp_def]
   \\ TRY(Cases_on`f`) \\ simp[opsexp_def]
-  \\ EVAL_TAC *)
+  \\ EVAL_TAC
 QED
 
 Theorem lopsexp_valid[simp]:
