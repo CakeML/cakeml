@@ -10,6 +10,12 @@ open preamble int_bitwiseTheory dataSemTheory dataPropsTheory copying_gcTheory
      gen_gc_partialTheory gc_sharedTheory word_gcFunctionsTheory;
 local open gen_gcTheory in end
 
+open alist_treeTheory
+open bitstringTheory fcpLib fcpTheory
+open numposrepTheory
+open bitstring_extraTheory
+(* TODO^ move *)
+
 val _ = new_theory "data_to_word_assignProof";
 
 val _ = set_grammar_ancestry
@@ -707,9 +713,6 @@ Proof
 QED
 
 val byte_length_def = Define`byte_length w = (LENGTH w = 8)`
-
-open bitstringTheory fcpLib fcpTheory
-
 val wrw = srw_tac [boolSimps.LET_ss, fcpLib.FCP_ss, ARITH_ss]
 
 val v2w_w2v = Q.store_thm("v2w_w2v",
@@ -1933,8 +1936,6 @@ Proof
   \\ fs[]
 QED
 
-open bitstringTheory
-
 val fcp_ss = std_ss ++ fcpLib.FCP_ss
 
 val BIT_w2n = Q.prove(
@@ -2865,9 +2866,6 @@ QED
 val not_less_zero_int_eq = prove(
   ``~(i < 0:int) <=> ?n. i = &n``,
   Cases_on `i` \\ fs []);
-
-
-open bitstringTheory
 
 
 Theorem abs_ml_inv_small_word:
@@ -8325,9 +8323,6 @@ Proof
 EVAL_TAC
 QED
 
-open bitstringTheory
-
-
 Theorem abs_ml_inv_small_word:
    abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\ small_word (:α) w ==>
     abs_ml_inv conf (Word w::stack) refs
@@ -8673,8 +8668,6 @@ Proof
   \\ EVAL_TAC
 QED
 
-open numposrepTheory
-
 Theorem n2v_nonempty:
     !n. ~(n2v n = [])
 Proof
@@ -8715,8 +8708,6 @@ Proof
   \\ simp[MOD_2]
   \\ TOP_CASE_TAC \\ fs[]
 QED
-
-open bitstring_extraTheory
 
 Theorem v2w_zero_extend:
     !v n. v2w (zero_extend n v) = v2w v
@@ -8791,7 +8782,6 @@ val v2n_cons = Q.prove(`
   simp[v2n_append]>>
   EVAL_TAC>>fs[]);
 
-open alist_treeTheory
 val GENLIST_K_REVERSE_SUC = Q.prove(`!x y. GENLIST (K x) (SUC y) = [x] ++ GENLIST (K x) y`,
   rw[LIST_EQ_REWRITE] \\ rename1 `EL i _` \\ Cases_on `i` \\ simp[EL]
 )
