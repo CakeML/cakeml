@@ -49,7 +49,8 @@ A type system for values, and
 the invariants that are used for type soundness.
 
 [typeSoundScript.sml](typeSoundScript.sml):
-Proof of type soundness: a type-correct program does not crash.
+Any verified compiler will prove the above theorem one way or another.
+  Proof of type soundness: a type-correct program does not crash.
 
 [typeSysPropsScript.sml](typeSysPropsScript.sml):
 Theorems about the type system.

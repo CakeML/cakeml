@@ -1,4 +1,5 @@
 (*
+Any verified compiler will prove the above theorem one way or another.
   Proof of type soundness: a type-correct program does not crash.
 *)
 open preamble;
@@ -78,7 +79,7 @@ Theorem prim_canonical_values_thm:
    (type_v tvs ctMap tenvS v Tword8 ∧ ctMap_ok ctMap ⇒ (∃n. v = Litv (Word8 n))) ∧
    (type_v tvs ctMap tenvS v Tword64 ∧ ctMap_ok ctMap ⇒
     (∃n. v = Litv (Word64 n)) \/
-    (? f w. v = ValueTree f /\ isFpWordOp f /\ compress f = SOME (Fp_word w))) ∧
+    (? f w. v = ValueTree f /\ isFpWordOp f /\ compress f = Rval (Litv (Word64 w)))) ∧
    (type_v tvs ctMap tenvS v (Ttup ts) ∧ ctMap_ok ctMap ⇒
      (∃vs. v = Conv NONE vs ∧ LENGTH ts = LENGTH vs)) ∧
    (type_v tvs ctMap tenvS v (Tfn t1 t2) ∧ ctMap_ok ctMap ⇒
@@ -434,7 +435,7 @@ val type_v_Boolv = Q.prove(
   srw_tac[][Once type_v_cases]);
 
 val remove_lambda_prod = Q.prove (
-`(\(x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
+`(\ (x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
  rw [FUN_EQ_THM]
  >> pairarg_tac
  >> rw []);
@@ -684,6 +685,7 @@ Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
  good_ctMap ctMap ∧
  op ≠ Opapp ∧
+ (~ isFpOp op) /\ (* FP soundness separate *)
  type_s ctMap store tenvS ∧
  type_op op ts t ∧
  check_freevars 0 [] t ∧
@@ -708,6 +710,8 @@ Proof
     qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
   rw [] >>
   rw [do_opapp_def]
+ >> TRY ( (* FP cases *)
+    fs[isFpOp_def] >> NO_TAC)
  >> TRY ( (* simple cases *)
    rw [do_app_cases, PULL_EXISTS] >>
    simp [Once type_v_cases] >>
@@ -730,17 +734,6 @@ Proof
    rename1 `Opb _` >>
    rw [do_app_cases, PULL_EXISTS] >>
    metis_tac [type_v_Boolv, store_type_extension_refl, Tbool_def])
- >> TRY ( (* FP cmp *)
-   rename1`FP_cmp` >>
-   rw [do_app_cases, PULL_EXISTS] >>
-    qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
-   fs[type_v_Boolv,store_type_extension_refl, Tbool_def] >>
-   metis_tac[type_v_Boolv,store_type_extension_refl, Tbool_def])
- >> TRY ( (* FP ops *)
-   (rename1`FP_uop` ORELSE rename1`FP_bop` ORELSE rename1 `FP_top`) >>
-   rw [do_app_cases, PULL_EXISTS] >>
-    qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
-   irule type_v_valTree >> EVAL_TAC >> fs[])
  >> TRY ( (* Equality *)
    rename1`Equality` >>
    rw [do_app_cases, PULL_EXISTS] >>
@@ -1053,6 +1046,63 @@ Proof
    metis_tac [type_v_list_to_v_APPEND, type_v_list_to_v])
 QED
 
+Theorem fpOp_type_sound:
+   !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
+   good_ctMap ctMap ∧
+   op ≠ Opapp ∧
+   isFpOp op /\
+   type_s ctMap store tenvS ∧
+   type_op op ts t ∧
+   check_freevars 0 [] t ∧
+   LIST_REL (type_v 0 ctMap tenvS) vs (REVERSE ts)
+   ⇒
+   ?tenvS' store' ffi' r.
+     store_type_extension tenvS tenvS' ∧
+     type_s ctMap store' tenvS' ∧
+     do_app (store,ffi) op (REVERSE vs) = SOME ((store', ffi'), r) ∧
+    (~ isFpBool op ==>
+     case r of
+     | Rval v => type_v 0 ctMap tenvS' v t
+     | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+     | Rerr (Rabort(Rffi_error _)) => T
+     | Rerr (Rabort _) => F) /\
+    (isFpBool op ==>
+      let (vR = case r of
+            | Rval (ValueTree fv) => compress fv
+            |  _ => r)
+      in
+      case vR of
+       | Rval v => type_v 0 ctMap tenvS' v t
+       | Rerr (Rraise v) => type_v 0 ctMap tenvS' v Texn
+       | Rerr (Rabort(Rffi_error _)) => T
+       | Rerr (Rabort _) => F)
+Proof
+  rw [type_op_cases, good_ctMap_def] >>
+  fs [] >>
+  rw [] >>
+  rpt (
+    MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)
+      (CONJUNCTS prim_canonical_values_thm) >>
+    qpat_x_assum `type_v _ _ _ _ _` mp_tac) >>
+  rw [] >>
+  rw [do_opapp_def]
+  >> TRY ( (* exclude non-fp and fp comparison cases *)
+    fs[isFpOp_def, isFpBool_def] >> NO_TAC)
+  >> TRY ( (* FP ops *)
+    (rename1`FP_uop` ORELSE rename1`FP_bop` ORELSE rename1 `FP_top`) >>
+    rw [do_app_cases, PULL_EXISTS] >>
+    qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
+    conj_tac >> fs[isFpBool_def] >>
+    irule type_v_valTree >> EVAL_TAC >> fs[])
+  >> TRY ( (* FP cmp *)
+    (rename1`FP_cmp` ORELSE rename1`FP_pred`) >>
+    rw [do_app_cases, PULL_EXISTS] >>
+    qexists_tac `tenvS` >> fs[store_type_extension_refl, fp_translate_def] >>
+    conj_tac >> fs[isFpBool_def] >>
+    fs[fpValTreeTheory.fp_cmp_def, compress_def] >>
+    drule type_v_Boolv >> fs[Tbool_def])
+QED
+
 Theorem build_conv_type_sound:
  !envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.
  nsAll2 (type_ctor ctMap) envC tenvC ∧
@@ -1126,7 +1176,7 @@ Theorem pat_type_sound:
    pmatch cenv st p v bindings = No_match ∨
    (?bindings'.
      pmatch cenv st p v bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings))) ∧
+     LIST_REL (\ (x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings))) ∧
   (∀(cenv : env_ctor) st ps vs bindings tenv ctMap tbindings new_tbindings ts tenvS tvs.
    ctMap_ok ctMap ∧
    nsAll2 (type_ctor ctMap) cenv tenv.c ∧
@@ -1138,7 +1188,7 @@ Theorem pat_type_sound:
    pmatch_list cenv st ps vs bindings = No_match ∨
    (?bindings'.
      pmatch_list cenv st ps vs bindings = Match bindings' ∧
-     LIST_REL (\(x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings)))
+     LIST_REL (\ (x,v) (x',t). x = x' ∧ type_v tvs ctMap tenvS v t) bindings' (new_tbindings ++ tbindings)))
 Proof
  ho_match_mp_tac pmatch_ind
  >> rw [pmatch_def]
@@ -1533,23 +1583,98 @@ Proof
        >> rw []
        >> metis_tac [store_type_extension_trans])
      >- (
-       fs [bind_tvar_def]
-       >> `good_ctMap ctMap` by simp [good_ctMap_def]
-       >> drule op_type_sound
-       >> rpt (disch_then drule)
-       >> disch_then (qspec_then `s1.ffi` mp_tac)
-       >> rw []
-       >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
-       >> Cases_on `r1`
-       >> fs []
-       >> rw []
-       >- metis_tac [store_type_extension_trans]
-       >> rename1 `do_app _ _ _ = SOME (_, Rerr err_v)`
-       >> Cases_on `err_v`
-       >> fs []
-       >> rw []
-       >> every_case_tac
-       >> metis_tac [store_type_extension_trans]))
+       Cases_on `isFpOp op`
+       >- (
+        fs[bind_tvar_def]
+        >> `good_ctMap ctMap` by simp [good_ctMap_def]
+        >> drule fpOp_type_sound
+        >> rpt (disch_then drule)
+        >> disch_then (qspec_then `s1.ffi` mp_tac)
+        >> rw []
+        >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
+        >> fs[] >> rveq
+        >> Cases_on `isFpBool op` >> fs[]
+        >- (
+          Cases_on `do_fprw r1 (s1.fp_opts (App op es)) s1.fp_rws` >> fs[]
+          >- (
+            Cases_on `r1`
+            >> fs []
+            >> rw []
+            >- (`? fv. a = ValueTree fv` by (cheat) (* inv of do_app *)
+                >> rveq >> fs[]
+                >> Cases_on `compress fv` >> fs[]
+                >- metis_tac [store_type_extension_trans]
+                >> rveq
+                >> rename1 `compress fv = Rerr err_v`
+                >> Cases_on `err_v`
+                >> fs []
+                >> rw []
+                >> every_case_tac
+                >> metis_tac [store_type_extension_trans])
+            >> rename1 `do_app _ _ _ = SOME (_, Rerr err_v)`
+            >> Cases_on `err_v`
+            >> fs []
+            >> rw []
+            >> every_case_tac >> fs[]
+            >- (cheat) (* invariant of do_app *)
+            >> cheat (* invariant of do_app *))
+          >> Cases_on `r1`
+          >> fs [do_fprw_def]
+          >> pop_assum mp_tac
+          >> Cases_on `a` >> fs[option_case_eq] >> TOP_CASE_TAC
+          >> strip_tac >> fs[] >> rveq >> fs[list_result_def]
+          >- (cheat) (* invariant of do_app *)
+          >- (cheat) (* invariant of do_app *)
+          >- (cheat) (* invariant of do_app *)
+          >- (cheat) (* invariant of do_app *)
+          >- (cheat) (* invariant of do_app *)
+          >- (cheat) (* invariant of do_app *)
+          >- (cheat) (* invariant of compression ?  *)
+          >> (cheat) (* change compression ? *))
+        >> Cases_on `do_fprw r1 (s1.fp_opts (App op es)) s1.fp_rws` >> fs[]
+        >- (
+          Cases_on `r1`
+          >> fs []
+          >> rw []
+          >- metis_tac [store_type_extension_trans]
+          >> rename1 `do_app _ _ _ = SOME (_, Rerr err_v)`
+          >> Cases_on `err_v`
+          >> fs []
+          >> rw []
+          >> every_case_tac
+          >> metis_tac [store_type_extension_trans])
+        >> Cases_on `r1`
+        >> fs [do_fprw_def]
+        >> pop_assum mp_tac
+        >> Cases_on `a` >> fs[option_case_eq] >> TOP_CASE_TAC
+        >> strip_tac >> fs[] >> rveq >> fs[list_result_def]
+        >- metis_tac [store_type_extension_trans]
+        >- metis_tac [store_type_extension_trans]
+        >- metis_tac [store_type_extension_trans]
+        >- metis_tac [store_type_extension_trans]
+        >- metis_tac [store_type_extension_trans]
+        >- metis_tac [store_type_extension_trans]
+        >> rveq
+        >> fs[Once type_v_cases]
+        >> `isFpWordOp fv_opt` by (cheat) (* TODO: invariant of rewriting, type repservation (add boolean check) *)
+        >>  metis_tac [store_type_extension_trans])
+      >> fs [bind_tvar_def]
+      >> `good_ctMap ctMap` by simp [good_ctMap_def]
+      >> drule op_type_sound
+      >> rpt (disch_then drule)
+      >> disch_then (qspec_then `s1.ffi` mp_tac)
+      >> rw []
+      >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
+      >> Cases_on `r1`
+      >> fs []
+      >> rw []
+      >- metis_tac [store_type_extension_trans]
+      >> rename1 `do_app _ _ _ = SOME (_, Rerr err_v)`
+      >> Cases_on `err_v`
+      >> fs []
+      >> rw []
+      >> every_case_tac
+      >> metis_tac [store_type_extension_trans]))
    >- (
      rename1 `evaluate _ _ _ = (s1, Rerr err_v)`
      >> Cases_on `err_v`

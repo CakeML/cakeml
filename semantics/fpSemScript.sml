@@ -95,46 +95,5 @@ val _ = Define `
  ((fp_sc_comp:sc -> 'a -> 'a) sc v=  ((case sc of
     Opt => v
 )))`;
-
-
-val _ = Hol_datatype `
- result =   Fp_bool of bool | Fp_word of word64`;
-
-
-(*val compress: fp_val -> maybe result*)
- val compress_defn = Defn.Hol_multi_defns `
- ((compress:fp_val ->(result)option) (Fp_const w1)=  (SOME (Fp_word w1)))
-    /\ ((compress:fp_val ->(result)option) (Fp_uop u1 v1)=
-         ((case compress v1 of
-          SOME (Fp_word w1) => SOME (Fp_word (fp_uop_comp u1 w1))
-        | _ => NONE
-        )))
-    /\ ((compress:fp_val ->(result)option) (Fp_bop b v1 v2)=
-         ((case (compress v1, compress v2) of
-          (SOME (Fp_word w1), SOME (Fp_word w2)) =>
-          SOME (Fp_word (fp_bop_comp b w1 w2))
-        )))
-    /\ ((compress:fp_val ->(result)option) (Fp_top t v1 v2 v3)=
-         ((case (compress v1, compress v2, compress v3) of
-          (SOME (Fp_word w1), SOME (Fp_word w2), SOME (Fp_word w3)) =>
-          SOME (Fp_word (fp_top_comp t w1 w2 w3))
-        )))
-    /\ ((compress:fp_val ->(result)option) (Fp_pred p v1)=
-         ((case compress v1 of
-          SOME (Fp_word w1) => SOME (Fp_bool (fp_pred_comp p w1))
-        | _ => NONE
-        )))
-    /\ ((compress:fp_val ->(result)option) (Fp_cmp cmp v1 v2)=
-         ((case (compress v1, compress v2) of
-          (SOME (Fp_word w1), SOME (Fp_word w2)) =>
-          SOME (Fp_bool (fp_cmp_comp cmp w1 w2))
-        )))
-    /\ ((compress:fp_val ->(result)option) (Fp_sc sc v)=  (compress v))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn.save_defn) compress_defn;
-
-(*val eqvalTree: fp_val -> fp_val -> bool*)
- val _ = Define `
- ((eqValTree:fp_val -> fp_val -> bool) v1 v2=  (compress v1 = compress v2))`;
 val _ = export_theory()
 

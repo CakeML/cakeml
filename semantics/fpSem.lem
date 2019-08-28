@@ -109,37 +109,3 @@ val fp_sc : forall 'v. sc -> 'v -> 'v
 let fp_sc_comp sc v = match sc with
   | Opt -> v
 end
-
-type result = | Fp_bool of bool | Fp_word of word64
-
-val compress: fp_val -> maybe result
-let rec compress (Fp_const w1) = Just (Fp_word w1)
-    and compress (Fp_uop u1 v1) =
-        match compress v1 with
-        | Just (Fp_word w1) -> Just (Fp_word (fp_uop_comp u1 w1))
-        | _ -> Nothing
-        end
-    and compress (Fp_bop b v1 v2) =
-        match (compress v1, compress v2) with
-        | (Just (Fp_word w1), Just (Fp_word w2)) ->
-          Just (Fp_word (fp_bop_comp b w1 w2))
-        end
-    and compress (Fp_top t v1 v2 v3) =
-        match (compress v1, compress v2, compress v3) with
-        | (Just (Fp_word w1), Just (Fp_word w2), Just (Fp_word w3)) ->
-          Just (Fp_word (fp_top_comp t w1 w2 w3))
-        end
-    and compress (Fp_pred p v1) =
-        match compress v1 with
-        | Just (Fp_word w1) -> Just (Fp_bool (fp_pred_comp p w1))
-        | _ -> Nothing
-        end
-    and compress (Fp_cmp cmp v1 v2) =
-        match (compress v1, compress v2) with
-        | (Just (Fp_word w1), Just (Fp_word w2)) ->
-          Just (Fp_bool (fp_cmp_comp cmp w1 w2))
-        end
-    and compress (Fp_sc sc v) = compress v
-
-val eqvalTree: fp_val -> fp_val -> bool
-let rec eqValTree v1 v2 = (compress v1 = compress v2)

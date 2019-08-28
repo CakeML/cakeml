@@ -6,9 +6,7 @@ val _ = numLib.prefer_num();
 
 
 
-local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
 val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
 
 (*
   Definition of CakeML abstract syntax (AST).
@@ -125,6 +123,30 @@ val _ = Hol_datatype `
   | ConfigGC
   (* Call a given foreign function *)
   | FFI of string`;
+
+
+(*val isFpOp: op -> bool*)
+val _ = Define `
+ ((isFpOp:op -> bool) op=
+   ((case op of
+    FP_cmp _ => T
+  | FP_pred _ => T
+  | FP_sc _ => T
+  | FP_top _ => T
+  | FP_bop _ => T
+  | FP_uop _ => T
+  | _ => F
+  )))`;
+
+
+(*val isFpBool: op -> bool*)
+val _ = Define `
+ ((isFpBool:op -> bool) op=
+   ((case op of
+    FP_cmp _ => T
+  | FP_pred _ => T
+  | _ => F
+  )))`;
 
 
 (* Logical operations *)

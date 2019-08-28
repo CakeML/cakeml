@@ -7,6 +7,7 @@ open import Ast
 open import Namespace
 open import SemanticPrimitives
 open import Ffi
+open import FpValTree
 
 (* The semantics is defined here using fix_clock so that HOL4 generates
  * provable termination conditions. However, after termination is proved, we
@@ -88,8 +89,28 @@ evaluate st env [App op es] =
         end
       else
         match do_app (st'.refs,st'.ffi) op (reverse vs) with
-        | Just ((refs,ffi),r) -> (<| st' with refs = refs; ffi = ffi |>, list_result r)
         | Nothing -> (st', Rerr (Rabort Rtype_error))
+        | Just ((refs,ffi),r) ->
+          if (isFpOp op)
+          then
+            let
+              fp_opt =
+                match (do_fprw r (st'.fp_opts (App op es)) (st'.fp_rws)) with
+                (* if it fails, just use the old value tree *)
+                | Nothing -> r
+                | Just r_opt -> r_opt
+                end
+              in
+              let fp_res =
+                if (isFpBool op)
+                then match fp_opt with
+                  | Rval (ValueTree fv) -> compress fv
+                  | _ -> Rerr (Rabort Rtype_error)
+                  end
+                else fp_opt
+            in (<| st' with refs = refs; ffi = ffi |>, list_result fp_res)
+          else
+            (<| st' with refs = refs; ffi = ffi |>, list_result r)
         end
   | res -> res
   end
@@ -108,10 +129,10 @@ and
 evaluate st env [If e1 e2 e3] =
   match fix_clock st (evaluate st env [e1]) with
   | (st', Rval v) ->
-      match do_if (head v) e2 e3 with
-      | Just e -> evaluate st' env [e]
-      | Nothing -> (st', Rerr (Rabort Rtype_error))
-      end
+    match do_if (head v) e2 e3 with
+    | Just e -> evaluate st' env [e]
+    | Nothing -> (st', Rerr (Rabort Rtype_error))
+    end
   | res -> res
   end
 and

@@ -101,6 +101,26 @@ type op =
   (* Call a given foreign function *)
   | FFI of string
 
+val isFpOp: op -> bool
+let isFpOp op =
+  match op with
+  | FP_cmp _ -> true
+  | FP_pred _ -> true
+  | FP_sc _ -> true
+  | FP_top _ -> true
+  | FP_bop _ -> true
+  | FP_uop _ -> true
+  | _ -> false
+  end
+
+val isFpBool: op -> bool
+let isFpBool op =
+  match op with
+  | FP_cmp _ -> true
+  | FP_pred _ -> true
+  | _ -> false
+  end
+
 (* Logical operations *)
 type lop =
   | And
