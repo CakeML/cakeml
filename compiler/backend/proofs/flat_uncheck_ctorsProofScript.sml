@@ -18,7 +18,7 @@ Proof
   fs [pat_bindings_def,astTheory.pat_bindings_def, PULL_FORALL]
 QED
 
-val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
+Inductive v_rel:
   (!lit.
     v_rel (flatSem$Litv lit) (flatSem$Litv lit)) ∧
   (!cn vs vs'.
@@ -39,9 +39,10 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
   (!vs vs'.
     LIST_REL v_rel vs vs'
     ⇒
-    v_rel (Vectorv vs) (Vectorv vs'))`;
+    v_rel (Vectorv vs) (Vectorv vs'))
+End
 
-val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
+Inductive s_rel:
   (!s s'.
     s.clock = s'.clock ∧
     LIST_REL (sv_rel v_rel) s.refs s'.refs ∧
@@ -51,13 +52,15 @@ val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
     s.check_ctor ∧
     ~s'.check_ctor
     ⇒
-    s_rel s s')`;
+    s_rel s s')
+End
 
-val (env_rel_rules, env_rel_ind, env_rel_cases) = Hol_reln `
+Inductive env_rel:
   (!env env'.
     LIST_REL (\(x,v1) (y,v2). x = y ∧ v_rel v1 v2) env.v env'.v
     ⇒
-    env_rel env env')`;
+    env_rel env env')
+End
 
 val alookup_env_rel = Q.prove (
   `!env env' n x.

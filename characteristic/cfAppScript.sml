@@ -10,8 +10,7 @@ open cfTacticsBaseLib cfHeapsLib
 
 val _ = new_theory "cfApp"
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
-
+Type state = ``:'ffi semanticPrimitives$state``
 
 val evaluate_ck_def = Define `
   evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)`

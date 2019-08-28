@@ -127,7 +127,8 @@ Proof
       \\ match_mp_tac state_rel_cut_env \\ reverse (srw_tac[][])
       \\ full_simp_tac(srw_ss())[add_space_def] \\ match_mp_tac has_space_state_rel
       \\ full_simp_tac(srw_ss())[wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
-             asmTheory.word_cmp_def])
+             asmTheory.word_cmp_def]
+      \\ fs [state_rel_def] \\ asm_exists_tac \\ fs [])
     \\ reverse (Cases_on `c.call_empty_ffi`)
     THEN1
      (fs [SilentFFI_def,wordSemTheory.evaluate_def,list_Seq_def]
@@ -546,7 +547,7 @@ val state_rel_ext_with_clock = Q.prove(
 (* observational semantics preservation *)
 
 Theorem compile_semantics_lemma:
-   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc t.clock) (t:('a,'c,'ffi) wordSem$state) /\
+   state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) co cc T 0 0 t.clock) (t:('a,'c,'ffi) wordSem$state) /\
    semantics ffi (fromAList prog) co cc start (dimindex(:'a)) <> Fail ==>
    semantics t start IN
      extend_with_resource_limit { semantics ffi (fromAList prog) co cc start

@@ -344,7 +344,7 @@ QED
 
 (* characterisation of reordering operations as rules *)
 
-val (reord_rules,reord_ind,reord_cases) = Hol_reln`
+Inductive reord:
   (isPvar (FST b) ==> reord (a ++ [b] ++ c) (a ++ [b])) /\
   (is_const_con (FST b) /\
    EXISTS (same_con (FST b) o FST) a ==>
@@ -352,7 +352,8 @@ val (reord_rules,reord_ind,reord_cases) = Hol_reln`
   (is_const_con (FST b) /\
    ¬EXISTS (same_con (FST b) o FST) a /\
    EVERY isPcon (MAP FST a) ==>
-   reord (a ++ [b] ++ c) ([b] ++ a ++ c))`;
+   reord (a ++ [b] ++ c) ([b] ++ a ++ c))
+End
 
 Theorem const_cons_sep_reord:
      ! a const_cons.

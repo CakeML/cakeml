@@ -22,35 +22,41 @@ val _ = new_theory "ml_translator";
 
 infix \\ val op \\ = op THEN;
 
-val _ = temp_type_abbrev("state",``:'ffi semanticPrimitives$state``);
+Type state = ``:'ffi semanticPrimitives$state``
 
 (* TODO move *)
 
-val EL_bitwise = store_thm("EL_bitwise",
-  ``i < LENGTH (bitwise f xs ys) /\ LENGTH xs = LENGTH ys ==>
-    EL i (bitwise f xs ys) = f (EL i xs) (EL i ys)``,
+Theorem EL_bitwise:
+    i < LENGTH (bitwise f xs ys) /\ LENGTH xs = LENGTH ys ==>
+    EL i (bitwise f xs ys) = f (EL i xs) (EL i ys)
+Proof
   fs [bitstringTheory.bitwise_def]
   \\ qid_spec_tac `xs`
   \\ qid_spec_tac `ys`
   \\ qid_spec_tac `i`
   \\ Induct_on `xs` \\ Cases_on `ys` \\ fs []
-  \\ rpt gen_tac \\ Cases_on `i` \\ fs []);
+  \\ rpt gen_tac \\ Cases_on `i` \\ fs []
+QED
 
-val EL_w2v = store_thm("EL_w2v",
-  ``!w i. i < dimindex (:'a) ==>
-          EL i (w2v (w:'a word)) = w ' (dimindex (:'a) − (i + 1))``,
-  fs [bitstringTheory.w2v_def]);
+Theorem EL_w2v:
+  !w i. i < dimindex (:'a) ==>
+          EL i (w2v (w:'a word)) = w ' (dimindex (:'a) − (i + 1))
+Proof
+  fs [bitstringTheory.w2v_def]
+QED
 
-val bitwise_w2v_w2v = store_thm("bitwise_w2v_w2v",
-  ``!(w1:'a word) (w2:'a word) f.
-      bitwise f (w2v w1) (w2v w2) = w2v ((FCP i. f (w1 ' i) (w2 ' i)) :'a word)``,
+Theorem bitwise_w2v_w2v:
+  !(w1:'a word) (w2:'a word) f.
+      bitwise f (w2v w1) (w2v w2) = w2v ((FCP i. f (w1 ' i) (w2 ' i)) :'a word)
+Proof
   fs [listTheory.LIST_EQ_REWRITE]
   \\ rpt gen_tac
   \\ conj_asm1_tac
   THEN1 fs [bitstringTheory.bitwise_def]
   \\ fs [] \\ rw []
   \\ fs [EL_bitwise,EL_w2v]
-  \\ fs [fcpTheory.FCP_BETA]);
+  \\ fs [fcpTheory.FCP_BETA]
+QED
 
 (* / TODO *)
 
@@ -1282,11 +1288,12 @@ Proof
 QED
 
 (* TODO upstream, this is taken from hardware/translator/verilogScript.sml *)
-val w2v_w2w = Q.store_thm("w2v_w2w",
-  `!w:'b word. fixwidth (dimindex (:'a)) (w2v w) = w2v (w2w w : 'a word)`,
+Theorem w2v_w2w:
+  !w:'b word. fixwidth (dimindex (:'a)) (w2v w) = w2v (w2w w : 'a word)
+Proof
       rw [w2w_def] \\ bitstringLib.Cases_on_v2w `w` \\
       rw [w2n_v2w, n2w_v2n, w2v_v2w, v2n_lt,bitTheory.MOD_2EXP_def, arithmeticTheory.LESS_MOD]
-);
+QED
 
 Theorem Eval_w2w:
     Eval env x1 (WORD (w:'b word)) ==>

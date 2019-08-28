@@ -58,16 +58,20 @@ Proof
 QED
 
 (* this one is from CakeML/hardware translator/verilog *)
-val w2v_n2w = Q.store_thm("w2v_n2w",
- `!n. w2v ((n2w n):'a word) = fixwidth (dimindex (:'a)) (n2v n)`,
-rewrite_tac [GSYM v2w_n2v, w2v_v2w]);
+Theorem w2v_n2w:
+  !n. w2v ((n2w n):'a word) = fixwidth (dimindex (:'a)) (n2v n)
+Proof
+  rewrite_tac [GSYM v2w_n2v, w2v_v2w]
+QED
 
 (* this one is from CakeML/hardware hardwareMisc *)
-val v2n_w2v = Q.store_thm("v2n_w2v",
- `!w. v2n (w2v w) = w2n w`,
+Theorem v2n_w2v:
+ !w. v2n (w2v w) = w2n w
+Proof
  gen_tac
   \\ bitstringLib.Cases_on_v2w `w`
-  \\ fs [w2v_v2w, w2n_v2w, bitTheory.MOD_2EXP_def, v2n_lt]);
+  \\ fs [w2v_v2w, w2n_v2w, bitTheory.MOD_2EXP_def, v2n_lt]
+QED
 
 Theorem fixadd_word_add:
   !x y. fixadd (w2v x) (w2v y) = w2v (x + y)
@@ -279,7 +283,7 @@ val fixwidth_w2v_swap = Q.prove(`!x:'b word. fixwidth (dimindex(:'a)) (w2v x) = 
 
 val length_bnot = Q.prove(`!x. LENGTH (bnot x) = LENGTH x`,cheat)
 
-val fixsub_word_sub2 = Q.store_thm("fixsub_word_sub2",
+Theorem fixsub_word_sub2:
   `!x y.  (MAX (LENGTH x) (LENGTH y) = dimindex(:'a))
      ==> (v2n (fixsub x y) = w2n ((v2w x:'a word) - (v2w y:'a word)))`,
    REPEAT STRIP_TAC >> simp[GSYM v2n_w2v] >> MK_COMB_TAC \\ simp[]

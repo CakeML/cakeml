@@ -14,8 +14,9 @@ val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
 val _ = temp_overload_on ("return", ``st_ex_return``);
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn_64 = Fail of string | Subscript`;
+Datatype:
+  state_exn_64 = Fail string | Subscript
+End
 
 val sub_exn = ``Subscript``;
 val update_exn = ``Subscript``;
@@ -25,10 +26,11 @@ fun accessor_thm (a,b,c,d,e,f) = LIST_CONJ [b,c,d,e,f]
 (* 64 BIT IMPLEMENTATION *)
 
 (* The state is just an array *)
-val _ = Hol_datatype `
+Datatype:
   enc_state_64 = <|
        hash_tab_64 : ((64 asm # word8 list) list) list
-     |>`
+     |>
+End
 
 (* Monadic functions to handle the exceptions *)
 val exn_functions = define_monad_exception_functions ``:state_exn_64`` ``:enc_state_64``;

@@ -410,7 +410,7 @@ val free_in_def = Define ` (* TODO: complete *)
   free_in (Let NONE e1 e2) v = (free_in e1 v \/ free_in e2 v) /\
   free_in (Let (SOME x) e1 e2) v = (free_in e1 v \/ (free_in e2 v /\ v <> Short x))`
 
-val (norm_rel_rules,norm_rel_ind,norm_rel_cases) = Hol_reln `
+Inductive norm_rel:
   (!i.
      norm_rel (Litv i) (Litv i)) /\
   (!i.
@@ -435,17 +435,20 @@ val (norm_rel_rules,norm_rel_ind,norm_rel_cases) = Hol_reln `
               nsLookup env1.v v = SOME x /\
               nsLookup env2.v v = SOME y ==>
               norm_rel x y) ==>
-     env_rel s env1 env2)`
+     env_rel s env1 env2)
+End
 
-val (norm_ref_rel_rules,norm_ref_rel_ind,norm_ref_rel_cases) = Hol_reln `
+Inductive norm_ref_rel:
   (!v1 v2. norm_rel v1 v2 ==> norm_ref_rel (Refv v1) (Refv v2)) /\
   (!v1 v2. EVERY2 norm_rel v1 v2 ==> norm_ref_rel (Varray v1) (Varray v2)) /\
-  (!b. norm_ref_rel (W8array b) (W8array b))`
+  (!b. norm_ref_rel (W8array b) (W8array b))
+End
 
-val (norm_res_rel_rules,norm_res_rel_ind,norm_res_rel_cases) = Hol_reln `
+Inductive norm_res_rel:
   (!v1 v2. norm_rel v1 v2 ==> norm_res_rel (Rval v1) (Rval v2)) /\
   (!v1 v2. norm_rel v1 v2 ==> norm_res_rel (Rerr (Rraise v1)) (Rerr (Rraise v2))) /\
-  (!a. norm_rel v1 v2 ==> norm_res_rel (Rerr (Rabort a)) (Rerr (Rabort a)))`
+  (!a. norm_rel v1 v2 ==> norm_res_rel (Rerr (Rabort a)) (Rerr (Rabort a)))
+End
 
 val norm_state_rel_def = Define `
   norm_state_rel s1 s2 <=>

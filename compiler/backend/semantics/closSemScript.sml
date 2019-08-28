@@ -29,13 +29,11 @@ val _ = Datatype `
   | Closure (num option) (v list) (v list) num closLang$exp
   | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
 
-val _ = type_abbrev("clos_prog",
-  ``: closLang$exp list # (num # num # closLang$exp) list``);
+Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
-val _ = type_abbrev("clos_cc",
-  ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``);
+Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``
 
-val _ = type_abbrev("clos_co", ``:num -> 'c # clos_prog``);
+Type clos_co = ``:num -> 'c # clos_prog``
 
 val _ = Datatype `
   state =
