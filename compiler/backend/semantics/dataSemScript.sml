@@ -159,14 +159,18 @@ val _ = overload_on("do_space_safe",
                    ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit
               else s.safe_for_space``);
 
+val _ = overload_on("do_space_peak",
+  ``λop l ^s. if op_space_reset op
+              then heap_peak (space_consumed op l) s
+              else s.peak_heap_length``
+);
+
 val do_space_def = Define `
   do_space op l ^s =
     if op_space_reset op
     then  SOME (s with <| space := 0
                         ; safe_for_space := do_space_safe op l s
-                        ; peak_heap_length := if op_space_reset op
-                                              then heap_peak (space_consumed op l) s
-                                              else s.peak_heap_length |>)
+                        ; peak_heap_length := do_space_peak op l s |>)
     else if op_space_req op l = 0 then SOME s
          else consume_space (op_space_req op l) s`;
 
@@ -506,6 +510,12 @@ val _ = overload_on("do_app_safe",
               else if MEM op [Greater; GreaterEq] then s.safe_for_space
               else do_space_safe op (LENGTH vs) s``);
 
+val _ = overload_on("do_app_peak",
+  ``λop vs s. if op = Install
+              then s.peak_heap_length
+              else if MEM op [Greater; GreaterEq] then s.peak_heap_length
+              else do_space_peak op (LENGTH vs) s``);
+
 val do_app_def = Define `
   do_app op vs ^s =
     if op = Install then do_install vs s else
@@ -718,6 +728,11 @@ val evaluate_ind = theorem"evaluate_ind";
 val evaluate_safe_def = Define`
   evaluate_safe c s = let (x,s1) = evaluate (c,s)
                       in s1.safe_for_space
+`;
+
+val evaluate_peak_def = Define`
+  evaluate_peak c s = let (x,s1) = evaluate (c,s)
+                      in s1.peak_heap_length
 `;
 
 (* We prove that the clock never increases. *)
