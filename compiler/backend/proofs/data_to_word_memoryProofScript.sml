@@ -3,9 +3,9 @@
 *)
 
 open preamble dataSemTheory dataPropsTheory copying_gcTheory
-     int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
-     labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
-     gc_sharedTheory gc_combinedTheory word_gcFunctionsTheory;
+int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
+labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
+gc_sharedTheory gc_combinedTheory word_gcFunctionsTheory;
 local open blastLib in end;
 open bitstringTheory bitstring_extraTheory
 (* TODO^: move *)
@@ -163,9 +163,28 @@ val Bignum_def = Define `
 val BlockNil_def = Define `
   BlockNil n = n2w n << 4 + 2w`;
 
-(* PAD to length (ROUNDUP_DIV (LENGTH w) (dimindex (:'a)) *)
+val mw_shiftl_helper_def = Define`
+     (mw_shiftl_helper (previous:'a word) (n:num) ([]:('a word list)) = []:('a
+     word list)) /\
+     (mw_shiftl_helper previous n (x::xs) = (previous<<(dimindex(:'a)-n) || x <<
+                                                                        n)::(mw_shiftl_helper
+                                                                        x n
+                                                                        xs))`
+
+(* n2mw has least significant subword first *)
+val mw_shiftl_def = Define `
+    (mw_shiftl [] _ = []) /\
+    (mw_shiftl (x::xs) n = (x << n)::(mw_shiftl_helper x n xs))`
+
+(* old v2mw causes more shifts than necessary;
+   we need to convert v2mw the one with most significant bit in top bit
+   to avoid carry *)
+(* align msbs and convert to multiword *)
+(* this makes carries natural *)
 val WordRep_def = Define`
-   WordRep (:'a) (w:bool list) = DataElement [] (ROUNDUP_DIV (LENGTH w) (dimindex(:'a))) (WordTag, MAP Word (v2mw (:'a) w))`
+   WordRep (:'a) (w:bool list) = DataElement [] (ROUNDUP_DIV (LENGTH w)
+   (dimindex(:'a))) (WordTag, MAP Word (mw_shiftl (v2mw (:'a) w)
+   (dimindex(:'a)-LENGTH w)))`
 
 (*
 Theorem Word64Rep_DataElement:
@@ -540,10 +559,26 @@ Proof
   \\ simp[NOT_LESS_EQUAL]
 QED
 
+Theorem LENGTH_mw_shiftl:
+   !mw n. LENGTH (mw_shiftl mw n) = LENGTH mw
+Proof
+   rw[] \\ Cases_on `mw` >- EVAL_TAC
+   \\ simp[mw_shiftl_def]
+   \\ rename1`mw_shiftl_helper _ _ t`
+   \\ Induct_on `t`
+   >- EVAL_TAC
+   \\ simp[mw_shiftl_helper_def]
+   \\ pop_assum(fn a=>REWRITE_TAC[GSYM a])
+   \\ rw[]
+   \\ Cases_on `t`
+   >- EVAL_TAC
+   \\ fs[mw_shiftl_helper_def]
+QED
+
 Theorem WordRep_DataElement:
    ∀a w. ∃ws. (WordRep a w:'a ml_el) = DataElement [] (LENGTH ws) (WordTag,ws)
 Proof
-  Cases \\ rw[WordRep_def] \\ simp[LENGTH_v2mw]
+  Cases \\ rw[WordRep_def] \\ simp[LENGTH_v2mw,LENGTH_mw_shiftl]
 QED
 
 val v_size_LEMMA = Q.prove(
@@ -881,10 +916,6 @@ val v_inv_related = Q.prove(
     \\ FIRST_X_ASSUM (ASSUME_TAC o Q.ISPEC `ptr:num`)
     \\ clean_tac
     \\ fs[WordRep_def] \\ clean_tac
-    \\ POP_ASSUM (ASSUME_TAC o Q.SPECL [`[]`])
-    \\ POP_ASSUM (ASSUME_TAC o Q.ISPECL [`ROUNDUP_DIV (LENGTH (l:(bool list))) (dimindex(:'a))`])
-    \\ POP_ASSUM (ASSUME_TAC o Q.SPECL [`WordTag`,`MAP Word (v2mw (:'a) l)`])
-    \\ fs[]
     \\ EVAL_TAC)
   THEN1
    (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
@@ -2758,7 +2789,7 @@ Proof
   by (
     fs[WordRep_def,Abbr`wr`,el_length_def]
     \\ every_case_tac \\ fs[]
-    \\ clean_tac \\ simp[LENGTH_v2mw])
+    \\ clean_tac \\ simp[LENGTH_mw_shiftl,LENGTH_v2mw])
   \\ qunabbrev_tac`wr`
   \\ clean_tac
   \\ rpt_drule IMP_heap_store_unused_alt
