@@ -4994,6 +4994,2053 @@ val Install_tac =
       \\ rveq \\ fs[TWOxDIV2]
       \\ rfs[]
 
+val goal = ``
+   λ(prog:'a wordLang$prog,s:('a,'a word list # 'c,'ffi) wordSem$state).
+     ∀k f f' res s1 t bs lens.
+     (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
+     state_rel k f f' s t lens /\
+     post_alloc_conventions k prog /\
+     flat_exp_conventions prog /\
+     get_labels (FST (comp prog bs (k,f,f'))) SUBSET loc_check t.code /\
+     max_var prog < 2 * f' + 2 * k /\
+     SND (comp prog bs (k,f,f')) ≼ t.bitmaps ==>
+     ?ck t1:('a,'c,'ffi) stackSem$state res1.
+       (stackSem$evaluate (FST (comp prog bs (k,f,f')),t with clock := t.clock + ck) = (res1,t1)) /\
+       if OPTION_MAP compile_result res <> res1
+       then res1 = SOME (Halt (Word 2w)) /\
+            t1.ffi.io_events ≼ s1.ffi.io_events
+       else
+         case res of
+         | NONE => state_rel k f f' s1 t1 lens
+         (*lens might be wrong*)
+         | SOME (Result _ y) => state_rel k 0 0 s1 t1 lens /\ FLOOKUP t1.regs 1 = SOME y
+         | SOME (Exception _ y) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
+         | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock``
+
+local
+  val gst = goal |> Ho_Rewrite.PURE_ONCE_REWRITE_CONV [Once PFORALL_THM] |> concl |> rhs
+  val ind_thm = evaluate_ind |> ISPEC goal |> GEN_BETA_RULE
+  val ind_goals = ind_thm |> concl |> dest_imp |> fst |> helperLib.list_dest dest_conj
+in
+  fun get_goal s = first (can (find_term (can (match_term (Term [QUOTE s]))))) ind_goals
+  fun compile_correct_tm () = ind_thm |> concl |> rand
+  fun the_ind_thm () = ind_thm
+end
+
+Theorem comp_Skip_correct:
+  ^(get_goal "Skip")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
+                         stackSemTheory.evaluate_def,comp_def] \\ rw []
+QED
+
+Theorem comp_Alloc_correct:
+  ^(get_goal "Alloc")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  qexists_tac `0`
+  \\ fs [wordSemTheory.evaluate_def,
+      stackSemTheory.evaluate_def,comp_def] \\ rw []
+  \\ `n = 2` by (fs [convs_def]) \\ rw []
+  \\ `1 < k ∧ 1 ≠ k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
+  \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
+  \\ `t.use_alloc /\ (get_var 1 t = SOME (Word c))` by
+     (fs [state_rel_def,get_var_def,LET_DEF]
+      \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
+      \\ fs [stackSemTheory.get_var_def])
+  \\ Cases_on `cut_env names s.locals`
+  THEN1 fs [wordSemTheory.alloc_def]
+  \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
+  \\ Cases_on `wLive names bs (k,f,f')`
+  \\ rename1 `wLive names bs (k,f,f') = (wlive_prog,bs1)`
+  \\ Cases_on`1 ≤ f`
+  THEN1
+    (drule evaluate_wLive
+    \\ impl_keep_tac
+    THEN1
+      (fs[convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
+      fs[GSYM toAList_domain,EVERY_MEM]>>
+      fs[X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
+      rw[]>>res_tac>>DECIDE_TAC)
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ fs [stackSemTheory.evaluate_def,LET_THM]
+    \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
+    \\ Cases_on `alloc c t5` \\ fs []
+    \\ rename1 `alloc c t5 = (res1,t1)` \\ fs []
+    \\ drule alloc_IMP_alloc \\ impl_tac >- (fs[])
+    \\ fs [] \\ REPEAT STRIP_TAC
+    \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
+  \\
+    `f=0` by DECIDE_TAC>>
+    `f' = 0` by fs[state_rel_def]>>
+    fs[wLive_def]>>rveq>>fs[stackSemTheory.evaluate_def,LET_THM]>>
+    fs[cut_env_def]>>
+    `domain names = {}` by
+      (CCONTR_TAC>>fs[]>>
+      `∃x. x ∈ domain names` by fs[MEMBER_NOT_EMPTY]>>
+      fs[convs_def,GSYM toAList_domain]>>
+      assume_tac list_max_max>>
+      fs[EVERY_MEM]>>res_tac>>
+      fs[wordLangTheory.max_var_def]>>
+      DECIDE_TAC)>>
+    imp_res_tac alloc_IMP_alloc2>>
+    ntac 14 (pop_assum kall_tac)>>
+    fs[]>>
+    Cases_on`res=NONE`>>fs[]
+QED
+
+Theorem comp_Move_correct:
+  ^(get_goal "Move")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  simp[comp_def]
+  \\ fs[evaluate_def]
+  \\ last_x_assum mp_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ strip_tac \\ rveq
+  \\ simp[]
+  \\ qabbrev_tac`mvs = MAP (DIV2 ## DIV2) moves`
+  \\ `windmill mvs ∧ windmill moves ∧ (EVERY EVEN (MAP FST moves) ∧ EVERY EVEN (MAP SND moves))`
+  by (
+    simp[parmoveTheory.windmill_def,Abbr`mvs`]
+    \\ simp[MAP_MAP_o,o_PAIR_MAP]
+    \\ simp[GSYM MAP_MAP_o]
+    \\ reverse conj_asm2_tac
+    >- (
+      qhdtm_x_assum`post_alloc_conventions`mp_tac
+      \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2] )
+    \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+    \\ rw[]
+    \\ match_mp_tac EVEN_DIV2_INJ \\ simp[]
+    \\ fs[EVERY_MEM])
+  \\ simp[wMove_def]
+  \\ qexists_tac`0` \\ simp[]
+  \\ drule evaluate_wMoveAux_seqsem
+  \\ simp[]
+  \\ disch_then(qspec_then`parmove mvs`mp_tac)
+  \\ qabbrev_tac`r = λx.
+       case x of NONE => get_var (k+1) t
+               | SOME i => get_var (2*i) s`
+  \\ disch_then(qspec_then`r`mp_tac)
+  \\ impl_tac
+  >- (
+    simp[Abbr`r`]
+    \\ conj_tac
+    >- (
+      `IS_SOME (get_vars (MAP SND moves) s)` by metis_tac[IS_SOME_EXISTS]
+      \\ fs[IS_SOME_get_vars_EVERY]
+      \\ fs[EVERY_FILTER,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+      \\ simp[MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
+      \\ rw[] \\ imp_res_tac MEM_MAP_SND_parmove
+      \\ pop_assum mp_tac
+      \\ simp[Abbr`mvs`,MAP_MAP_o,o_PAIR_MAP]
+      \\ fs[IS_SOME_EXISTS]
+      \\ simp[MEM_MAP,PULL_EXISTS]
+      \\ simp[DIV2_def,bitTheory.DIV_MULT_THM2]
+      \\ rw[] \\ res_tac
+      \\ qhdtm_x_assum`post_alloc_conventions`mp_tac
+      \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2]
+      \\ simp[MEM_MAP,PULL_EXISTS] )
+    \\ conj_tac
+    >- (
+      qpat_abbrev_tac`ff = IS_SOME _`
+      \\ every_case_tac \\ fs[]
+      \\ Q.ISPEC_THEN`mvs`mp_tac(Q.GEN`mvs` parmove_not_use_temp_before_assign)
+      \\ simp[] )
+    \\ conj_tac
+    >- (
+      fs[EVERY_MEM,UNCURRY,PULL_FORALL]
+      \\ rw[]
+      \\ imp_res_tac (SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_SND_parmove)
+      \\ imp_res_tac (SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_FST_parmove)
+      \\ rfs[]
+      \\ fs[Abbr`mvs`,MEM_MAP,EXISTS_PROD]
+      \\ fs[wordLangTheory.max_var_def]
+      \\ qmatch_assum_abbrev_tac`list_max ls < _`
+      \\ qspec_then`ls`strip_assume_tac list_max_max
+      \\ fs[EVERY_MEM,Abbr`ls`,MEM_MAP,PULL_EXISTS]
+      \\ res_tac \\ fs[]
+      \\ qmatch_abbrev_tac`DIV2 aa < bb`
+      \\ qmatch_assum_abbrev_tac`aa ≤ cc`
+      \\ `cc < 2 * bb` by simp[Abbr`bb`]
+      \\ `aa < 2 * bb` by metis_tac[LESS_EQ_LESS_TRANS]
+      \\ simp[DIV2_def]
+      \\ simp[DIV_LT_X])
+    \\ match_mp_tac ALL_DISTINCT_parmove
+    \\ fs[parmoveTheory.windmill_def])
+  \\ strip_tac \\ simp[]
+  \\ last_assum(Q.ISPEC_THEN`r`mp_tac o MATCH_MP parmoveTheory.parmove_correct)
+  \\ simp[parmoveTheory.eqenv_def]
+  \\ strip_tac
+  \\ qhdtm_x_assum`state_rel`mp_tac
+  \\ qmatch_abbrev_tac`_ _ _ _ a _ _ ⇒ _ _ _ _ b _ _`
+  \\ `a = b` suffices_by rw[]
+  \\ simp[Abbr`a`,Abbr`b`]
+  \\ qpat_abbrev_tac`ls = FILTER A B`
+  \\ `MAP (seqsem (parmove mvs) r) ls =
+      MAP (parsem (MAP (SOME ## SOME) mvs) r) ls`
+  by (
+    fs[MAP_EQ_f,Abbr`ls`,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
+    \\ rw[] \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
+    \\ simp[FUN_EQ_THM,FORALL_PROD])
+  \\ pop_assum SUBST_ALL_TAC
+  \\ simp[Abbr`ls`]
+  \\ simp[MAP_REVERSE,FILTER_REVERSE]
+  \\ drule TIMES2_DIV2_lemma
+  \\ simp[] \\ disch_then kall_tac
+  \\ simp[Abbr`mvs`]
+  \\ Q.ISPEC_THEN`r`drule (Q.GEN`r`parsem_parmove_DIV2_lemma)
+  \\ impl_tac >- simp[]
+  \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC)
+  \\ qpat_abbrev_tac`ls = FILTER _ _`
+  \\ simp[set_vars_def]
+  \\ simp[state_component_equality]
+  \\ dep_rewrite.DEP_REWRITE_TAC[alist_insert_REVERSE]
+  \\ conj_asm1_tac
+  >- (
+    simp[Abbr`ls`]
+    \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+    \\ simp[MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
+    \\ match_mp_tac ALL_DISTINCT_parmove
+    \\ simp[] )
+  \\ fs[]
+  \\ simp[parmoveTheory.parsem_def]
+  \\ simp[ZIP_MAP]
+  \\ simp[MAP_MAP_o]
+  \\ simp[o_DEF]
+  \\ `∀x. r (SOME x) = get_var (2 * x) s` by (simp[Abbr`r`] )
+  \\ simp[]
+  \\ simp[APPLY_UPDATE_LIST_ALOOKUP]
+  \\ qmatch_goalsub_abbrev_tac`ALOOKUP (REVERSE ll)`
+  \\ `ALL_DISTINCT (MAP FST ll)`
+  by (
+    simp[Abbr`ll`,MAP_MAP_o,o_DEF]
+    \\ simp[GSYM o_DEF,GSYM MAP_MAP_o]
+    \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+    \\ simp[] )
+  \\ simp[alookup_distinct_reverse]
+  \\ simp[Abbr`ll`]
+  \\ qmatch_goalsub_abbrev_tac`ALOOKUP (MAP ff moves)`
+  \\ Q.ISPEC_THEN`ff`mp_tac ALOOKUP_MAP_any
+  \\ disch_then(qspec_then`SOME`mp_tac)
+  \\ simp[Abbr`ff`]
+  \\ disch_then(qspec_then`λx y. get_var (2 * DIV2 y) s`mp_tac)
+  \\ disch_then(qspec_then`moves`mp_tac)
+  \\ simp[INJ_DEF]
+  \\ strip_tac
+  \\ simp[Abbr`ls`]
+  \\ qpat_abbrev_tac`ignore = MAP _ _`
+  \\ simp[Once MAP_FILTER_IS_SOME]
+  \\ simp[o_DEF]
+  \\ qmatch_goalsub_abbrev_tac`MAP ff (FILTER _ _)`
+  \\ qpat_abbrev_tac`ls = FILTER _ _`
+  \\ `MAP ff ls =
+      MAP (λx. THE (get_var (THE (ALOOKUP moves (THE x))) s)) ls`
+  by (
+    simp[MAP_EQ_f]
+    \\ simp[Abbr`ls`,MEM_FILTER]
+    \\ simp[Abbr`ff`,IS_SOME_EXISTS,PULL_EXISTS]
+    \\ qx_gen_tac`z` \\ strip_tac
+    \\ Cases_on`ALOOKUP moves z`
+    >- (
+      fs[ALOOKUP_FAILS,MEM_MAP]
+      \\ imp_res_tac(SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_FST_parmove)
+      \\ fs[] \\ metis_tac[FST,PAIR] )
+    \\ simp[]
+    \\ AP_TERM_TAC \\ AP_THM_TAC
+    \\ AP_TERM_TAC
+    \\ simp[bitTheory.DIV_MULT_THM2,DIV2_def]
+    \\ imp_res_tac ALOOKUP_MEM
+    \\ fs[EVERY_MAP,EVERY_MEM]
+    \\ res_tac \\ fs[EVEN_MOD2] )
+  \\ pop_assum SUBST1_TAC
+  \\ simp[Abbr`ignore`]
+  \\ simp[Abbr`ls`]
+  \\ match_mp_tac alist_insert_get_vars
+  \\ conj_tac >- fs[parmoveTheory.windmill_def]
+  \\ simp[]
+  \\ conj_tac >- metis_tac[ALL_DISTINCT_parmove]
+  \\ conj_tac >- fs[state_rel_def]
+  \\ conj_tac >- metis_tac[MEM_MAP_FST_parmove]
+  \\ metis_tac[parmove_preserves_moves]
+QED
+
+Theorem comp_Inst_correct:
+  ^(get_goal "Inst")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs[comp_def,wordSemTheory.evaluate_def]
+  \\ last_x_assum mp_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ strip_tac \\ rveq
+  \\ qexists_tac`0` \\ simp[]
+  \\ fs[convs_def,wordLangTheory.max_var_def]
+  \\ drule evaluate_wInst \\ simp[]
+  \\ disch_then drule
+  \\ strip_tac \\ simp[]
+QED
+
+Theorem comp_Assign_correct:
+  ^(get_goal "Assign")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs[flat_exp_conventions_def]
+QED
+
+Theorem comp_Get_correct:
+  ^(get_goal "Get")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs[flat_exp_conventions_def]
+  \\ fs[comp_def]
+  \\ fs[wordSemTheory.evaluate_def]
+  \\ last_x_assum mp_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+  \\ strip_tac \\ rveq \\ simp[]
+  \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+  \\ rw[]
+  \\ qexists_tac`0` \\ simp[]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`NONE` \\ simp[]
+  \\ match_mp_tac wRegWrite1_thm1
+  \\ simp[stackSemTheory.evaluate_def]
+  \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
+  \\ fs[state_rel_def]
+  \\ rfs[DOMSUB_FLOOKUP_THM]
+QED
+
+Theorem comp_Set_correct:
+  ^(get_goal "wordLang$Set")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  Cases_on`exp`>>fs[flat_exp_conventions_def]
+  \\ fs[comp_def,LET_THM]
+  \\ pairarg_tac \\ fs[]
+  \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
+  \\ last_x_assum mp_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ strip_tac \\ rveq \\ simp[]
+  \\ qexists_tac`0` \\ simp[]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`NONE` \\ simp[]
+  \\ match_mp_tac (GEN_ALL wStackLoad_thm1)
+  \\ fs[convs_def,wordLangTheory.every_var_exp_def]
+  \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,get_var_def]
+  \\ rveq \\ fs[]
+  \\ asm_exists_tac \\ simp[]
+  \\ asm_exists_tac \\ simp[]
+  \\ fs[GSYM wordSemTheory.get_var_def]
+  \\ drule (GEN_ALL state_rel_get_var_imp)
+  \\ disch_then drule \\ strip_tac
+  \\ drule (GEN_ALL state_rel_get_var_imp2)
+  \\ disch_then drule \\ strip_tac
+  \\ simp[stackSemTheory.evaluate_def]
+  \\ `t.use_store` by fs[state_rel_def]
+  \\ simp[]
+  \\ conj_tac \\ strip_tac \\ fs[stackSemTheory.get_var_def]
+  \\ simp[set_store_set_var]
+  \\ metis_tac[state_rel_set_store]
+QED
+
+Theorem comp_Store_correct:
+  ^(get_goal "Store")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs[flat_exp_conventions_def]
+QED
+
+Theorem comp_Tick_correct:
+  ^(get_goal "Tick")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,stackSemTheory.evaluate_def,comp_def] \\ rw []
+  \\ `s.clock = t.clock` by fs [state_rel_def] \\ fs [] \\ rw []
+  \\ fs [state_rel_def,wordSemTheory.dec_clock_def,stackSemTheory.dec_clock_def]
+  \\ metis_tac[]
+QED
+
+Theorem comp_MustTerminate_correct:
+  ^(get_goal "MustTerminate")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs [wordSemTheory.evaluate_def,LET_DEF,
+      stackSemTheory.evaluate_def,comp_def]
+  \\ Cases_on `s.termdep = 0` \\ fs [state_rel_def]
+QED
+
+Theorem comp_Seq_correct:
+  ^(get_goal "wordLang$Seq")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs [wordSemTheory.evaluate_def,LET_DEF,
+        stackSemTheory.evaluate_def,comp_def]
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs [get_labels_def]
+  \\ `max_var c1 < 2 * f' + 2 * k /\ max_var c2 < 2 * f' + 2 * k` by
+    (fs [wordLangTheory.max_var_def] \\ decide_tac)
+  \\ `post_alloc_conventions k c1 /\
+      post_alloc_conventions k c2 /\
+      flat_exp_conventions c1 /\
+      flat_exp_conventions c2` by fs [convs_def]
+  \\ imp_res_tac comp_IMP_isPREFIX
+  \\ `SND (comp c1 bs (k,f,f')) ≼ t.bitmaps /\
+      SND (comp c2 bs' (k,f,f')) ≼ t.bitmaps /\
+      get_labels (FST (comp c1 bs (k,f,f'))) SUBSET loc_check t.code /\
+      get_labels (FST (comp c2 bs' (k,f,f'))) SUBSET loc_check t.code` by
+       (fs [] \\ imp_res_tac IS_PREFIX_TRANS \\ NO_TAC)
+  \\ reverse (Cases_on `res' = NONE`) \\ fs [] \\ rpt var_eq_tac
+  THEN1
+   (first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+    \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+    \\ qexists_tac `ck` \\ fs [] \\ Cases_on `res` \\ fs []
+    \\ Cases_on `res1 = NONE`
+    \\ fs [stackSemTheory.evaluate_def,LET_THM])
+  \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+  \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+  \\ reverse (Cases_on `res1 = NONE`) \\ fs [] THEN1
+   (qexists_tac `ck`
+    \\ `good_dimindex (:'a)` by fs [state_rel_def]
+    \\ fs [Halt_EQ_compile_result,stackSemTheory.evaluate_def,LET_THM]
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+    \\ `s.ffi = t.ffi` by fs [state_rel_def]
+    \\ imp_res_tac evaluate_io_events_mono \\ fs []
+    \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono \\ fs []
+    \\ rfs [] \\ fs [] \\ metis_tac [IS_PREFIX_TRANS])
+  \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+  \\ `SND (comp c2 bs' (k,f,f')) ≼ t1.bitmaps /\
+      get_labels (FST (comp c2 bs' (k,f,f'))) SUBSET loc_check t1.code` by
+       (fs[]>>imp_res_tac evaluate_mono>>fs[]>>
+       metis_tac[IS_PREFIX_TRANS,SUBSET_TRANS,loc_check_SUBSET])
+  \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+  \\ fs [stackSemTheory.evaluate_def,LET_THM]
+  \\ imp_res_tac stack_evaluate_add_clock_NONE \\ fs []
+  \\ pop_assum (qspec_then `ck'` assume_tac)
+  \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
+  \\ `s.handler = s1'.handler` by
+    (Q.ISPECL_THEN [`c1`,`s`] assume_tac evaluate_stack_swap>>rfs[])>>
+  fs[]
+QED
+
+Theorem comp_Return_correct:
+  ^(get_goal "Return")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,LET_DEF,
+      stackSemTheory.evaluate_def,comp_def,wReg1_def]
+  \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
+  \\ Cases_on `get_var n s` \\ fs []
+  \\ Cases_on `get_var m s` \\ fs [] \\ rw []
+  \\ Cases_on `x` \\ fs []
+  \\ rename1 `get_var n s = SOME (Loc l1 l2)`
+  \\ fs [wStackLoad_def] \\ fs [convs_def] \\ rw []
+  \\ fs [reg_allocTheory.is_phy_var_def,wordLangTheory.max_var_def]
+  \\ `t.use_stack /\ ~(LENGTH t.stack < t.stack_space + f) /\
+      t.stack_space <= LENGTH t.stack` by
+   (fs [state_rel_def] \\ decide_tac) \\ fs [LET_DEF]
+  \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
+  THEN1
+   (`(get_var (n DIV 2) t = SOME (Loc l1 l2)) /\ (get_var 1 t = SOME x')` by
+     (fs [state_rel_def,get_var_def,LET_DEF]
+      \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
+      \\ fs [stackSemTheory.get_var_def])
+    \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF]
+    \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
+           fromList2_def,lookup_def]
+    \\ conj_tac >- metis_tac[]
+    \\ simp[wf_def,GSYM DROP_DROP])
+  \\ `(t.stack_space + (f +k - (n DIV 2 + 1)) < LENGTH t.stack) /\
+      (EL (t.stack_space + (f +k - (n DIV 2 + 1))) t.stack = Loc l1 l2) /\
+      (get_var 1 t = SOME x')` by
+   (fs [state_rel_def,get_var_def,LET_DEF]
+    \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
+    \\ fs [stackSemTheory.get_var_def]
+    \\ imp_res_tac LLOOKUP_TAKE_IMP
+    \\ fs [LLOOKUP_DROP] \\ fs [LLOOKUP_THM] \\ rw[]
+    \\ rfs[EL_TAKE])
+  \\ fs [LET_DEF]
+  \\ `(set_var k (Loc l1 l2) t).use_stack /\
+      (set_var k (Loc l1 l2) t).stack_space <=
+       LENGTH (set_var k (Loc l1 l2) t).stack` by
+    fs [stackSemTheory.set_var_def]
+  \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
+  \\ fs [stackSemTheory.set_var_def,LET_DEF]
+  \\ `k <> 1` by (fs [state_rel_def] \\ decide_tac)
+  \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF,FLOOKUP_UPDATE]
+  \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
+         fromList2_def,lookup_def]
+  \\ conj_tac >- metis_tac[]
+  \\ simp[wf_def,GSYM DROP_DROP]
+QED
+
+Theorem comp_Raise_correct:
+  ^(get_goal "wordLang$Raise")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs [wordSemTheory.evaluate_def,jump_exc_def]
+  \\ `1 < k` by (fs [state_rel_def] \\ decide_tac)
+  \\ qpat_x_assum `xxx = (aa,bb)` mp_tac
+  \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
+  \\ pop_assum mp_tac
+  \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
+  \\ qexists_tac `1`
+  \\ rename1 `LASTN (s.handler + 1) s.stack =
+        StackFrame l (SOME (h1,l3,l4))::rest`
+  \\ fs [wordSemTheory.evaluate_def,LET_DEF,
+      stackSemTheory.evaluate_def,comp_def,jump_exc_def,
+      stackSemTheory.find_code_def]
+  \\ `lookup raise_stub_location t.code = SOME (raise_stub k)` by fs [state_rel_def] \\ fs []
+  \\ pop_assum kall_tac
+  \\ fs [stackSemTheory.dec_clock_def,raise_stub_def,wordLangTheory.max_var_def]
+  \\ fs [state_rel_def,LET_DEF,push_locals_def,stackSemTheory.evaluate_def,LET_THM]
+  \\ fs [DROP_DROP_EQ] \\ fs [stack_rel_def]
+  \\ qpat_x_assum` A ⇒ B` mp_tac
+  \\ impl_tac>-
+    (`s.handler+1 ≤ LENGTH s.stack` by DECIDE_TAC>>
+    imp_res_tac LASTN_HD>>
+    ntac 3 (pop_assum sym_sub_tac)>>
+    fs[is_handler_frame_def])
+  \\ strip_tac
+  \\ fs[LET_DEF,get_var_set_var]
+  \\ fs [stackSemTheory.set_var_def]
+  \\ `(LENGTH t.stack - handler_val (LASTN (s.handler+1) stack)) < dimword (:'a)`
+       by decide_tac \\ fs []
+  \\ `SORTED (\x y. FST x > FST y) l` by
+    (imp_res_tac EVERY_IMP_EVERY_LASTN \\ fs [sorted_env_def])
+  \\ `LENGTH t.stack - handler_val (LASTN (s.handler+1) stack) + 3 <= LENGTH t.stack` by
+       (imp_res_tac stack_rel_raise \\ rfs[]
+        \\ PairCases_on`payload`\\simp[handler_val_def])
+  \\ IF_CASES_TAC \\ fs []
+  \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,stackSemTheory.set_store_def]
+  \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,push_locals_def,lookup_def]
+  \\ imp_res_tac stack_rel_raise
+  \\ pop_assum mp_tac
+  \\ ntac 25 (pop_assum kall_tac)
+  \\ strip_tac
+  \\ rfs[]
+  \\ fs [FLOOKUP_UPDATE]
+  \\ rfs[wf_def]
+  \\ conj_tac THEN1 metis_tac[]
+  \\ conj_tac THEN1
+   (fs [sorted_env_def] \\ Cases_on `env_to_list (fromAList l) (K I)`
+    \\ imp_res_tac env_to_list_K_I_IMP \\ fs [])
+  \\ conj_tac >-
+     (rpt (qpat_x_assum`∀x. _`kall_tac)
+     \\imp_res_tac LASTN_LENGTH_BOUNDS
+     \\imp_res_tac abs_stack_IMP_LENGTH \\ fs[]
+     \\imp_res_tac EVERY_IMP_EVERY_LASTN \\ fs [])
+  \\ rw[]
+  >-
+    (Cases_on`h1+1 = SUC (LENGTH rest)`>-
+      fs[is_handler_frame_def]>>
+    `h1 < LENGTH rest ∧
+    SUC(LENGTH rest) - (h1+1) = SUC(LENGTH rest - (h1+1))` by DECIDE_TAC>>
+    fs[]
+    \\ rfs[]
+    \\ sg `h1 <= LENGTH (LASTN (s.handler+1) stack)`
+    \\ fs [LASTN_CONS]
+    \\ imp_res_tac abs_stack_IMP_LENGTH \\ fs[]
+    >> simp[LASTN_CONS])
+  >>
+    fs [get_var_def,FLOOKUP_UPDATE,convs_def]>>
+    `1 < k` by fs[state_rel_def]>>
+    res_tac>>qpat_x_assum`!n.P` kall_tac>>rfs[]
+QED
+
+Theorem comp_If_correct:
+  ^(get_goal "wordLang$If")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fsrw_tac[][comp_def]>> pop_assum mp_tac>>
+  LET_ELIM_TAC>>
+  fs[evaluate_def]>>
+  qpat_x_assum`A=(res,s1)`mp_tac>>
+  ntac 2 TOP_CASE_TAC>>fs[]>>
+  ntac 2 TOP_CASE_TAC>>fs[]>>
+  simp[evaluate_wStackLoad_seq,wStackLoad_append]>>
+  simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_seq]>>
+  ntac 3 (simp[Once stackSemTheory.evaluate_def])>>
+  `EVEN r1 ∧ (case ri of Reg r => EVEN r | _ => T)` by
+    (Cases_on`ri`>>
+    fs[convs_def,EVEN_MOD2,reg_allocTheory.is_phy_var_def])>>
+  simp[evaluate_wStackLoad_clock]>>
+  drule evaluate_wStackLoad_wReg1>>
+  fs[]>>strip_tac>>
+  simp[]>>
+  drule (GEN_ALL evaluate_wStackLoad_wRegImm2)>>
+  disch_then (Q.ISPECL_THEN[`t'`,`s`,`lens`,`c'`] assume_tac)>>
+  rfs[]>>
+  fs[stackSemTheory.get_var_def,word_cmp_Word_Word]>>
+  rw[]>>fs[get_labels_wStackLoad,get_labels_def]
+  >-
+    (first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs`,`lens`] mp_tac)>>
+    impl_tac>-
+     (fs[convs_def,wordLangTheory.max_var_def]>>
+      imp_res_tac evaluate_mono>>fs[]>>
+      metis_tac[IS_PREFIX_TRANS,SUBSET_TRANS,loc_check_SUBSET,subspt_trans,comp_IMP_isPREFIX])>>
+    strip_tac>>qexists_tac`ck`>>rfs[])>>
+  first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs'`,`lens`] mp_tac)>>
+  impl_tac>-
+    (fs[convs_def,wordLangTheory.max_var_def]>>
+    imp_res_tac evaluate_mono>>fs[]>>
+    metis_tac[IS_PREFIX_TRANS,SUBSET_TRANS,loc_check_SUBSET,subspt_trans,comp_IMP_isPREFIX])>>
+  strip_tac>>qexists_tac`ck`>>rfs[]
+QED
+
+Theorem comp_LocValue_correct:
+  ^(get_goal "wordLang$LocValue")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs[comp_def,wordSemTheory.evaluate_def]
+  \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+  \\ every_case_tac \\ fs[]
+  \\ rw[]
+  \\ qexists_tac`0` \\ simp[]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`NONE` \\ simp[]
+  \\ match_mp_tac wRegWrite1_thm1
+  \\ simp[stackSemTheory.evaluate_def]
+  \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
+  \\ imp_res_tac state_rel_code_domain
+  \\ fs[SUBSET_DEF]
+  \\ Cases_on `loc_check t.code (l1,0)` \\ fs []
+  \\ fs [wRegWrite1_def]
+  \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs [IN_DEF]
+  \\ fs [loc_check_def,IN_DEF]
+QED
+
+Theorem comp_Install_correct:
+  ^(get_goal "wordLang$Install")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs[comp_def,wordSemTheory.evaluate_def]
+  \\ fs[case_eq_thms]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ qexists_tac`0` \\ simp[]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`NONE` \\ simp[]
+  \\ reverse(Cases_on`res`)
+  >- ( fs[case_eq_thms] ) \\ fs[]
+  \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+  \\ fs[TWOxDIV2]
+  \\ rveq
+  \\ fs[wStackLoad_append]
+  \\ drule (GEN_ALL wStackLoad_thm1)
+  \\ disch_then drule
+  \\ disch_then drule
+  \\ disch_then ho_match_mp_tac
+  \\ conj_tac \\ strip_tac
+  \\ drule (GEN_ALL wStackLoad_thm2)
+  \\ disch_then drule
+  \\ disch_then ho_match_mp_tac
+  \\ (conj_tac >- simp[state_rel_set_var_k])
+  \\ conj_tac \\ strip_tac \\ Install_tac
+QED
+
+Theorem comp_CodeBufferWrite_correct:
+  ^(get_goal "wordLang$CodeBufferWrite")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs[comp_def,wordSemTheory.evaluate_def]
+  \\ fs[case_eq_thms]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ qexists_tac`0` \\ simp[]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`NONE` \\ simp[]
+  \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+  \\ rveq \\ fs[]
+  \\ fs[wStackLoad_append]
+  \\ drule (GEN_ALL wStackLoad_thm1)
+  \\ disch_then drule
+  \\ disch_then ho_match_mp_tac \\ fs[]
+  \\ drule (GEN_ALL state_rel_get_var_imp)
+  \\ disch_then imp_res_tac
+  \\ drule (GEN_ALL state_rel_get_var_imp2)
+  \\ disch_then imp_res_tac
+  \\ `t.code_buffer = s.code_buffer ∧ t.data_buffer = s.data_buffer` by fs[state_rel_def]
+  \\ conj_tac \\ strip_tac
+  \\ drule (GEN_ALL wStackLoad_thm2)
+  \\ disch_then drule
+  \\ disch_then ho_match_mp_tac \\ fs[]
+  \\ conj_tac \\ strip_tac
+  \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
+  \\ fs[state_rel_def,FLOOKUP_UPDATE]
+  \\ metis_tac[]
+QED
+
+Theorem comp_DataBufferWrite_correct:
+  ^(get_goal "wordLang$DataBufferWrite")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs[comp_def,wordSemTheory.evaluate_def]
+  \\ fs[case_eq_thms]
+  \\ pairarg_tac \\ fs[]
+  \\ pairarg_tac \\ fs[]
+  \\ qexists_tac`0` \\ simp[]
+  \\ CONV_TAC SWAP_EXISTS_CONV
+  \\ qexists_tac`NONE` \\ simp[]
+  \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+  \\ rveq \\ fs[]
+  \\ fs[wStackLoad_append]
+  \\ drule (GEN_ALL wStackLoad_thm1)
+  \\ disch_then drule
+  \\ disch_then ho_match_mp_tac \\ fs[]
+  \\ drule (GEN_ALL state_rel_get_var_imp)
+  \\ disch_then imp_res_tac
+  \\ drule (GEN_ALL state_rel_get_var_imp2)
+  \\ disch_then imp_res_tac
+  \\ `t.code_buffer = s.code_buffer ∧ t.data_buffer = s.data_buffer` by fs[state_rel_def]
+  \\ conj_tac \\ strip_tac
+  \\ drule (GEN_ALL wStackLoad_thm2)
+  \\ disch_then drule
+  \\ disch_then ho_match_mp_tac \\ fs[]
+  \\ conj_tac \\ strip_tac
+  \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
+  \\ fs[state_rel_def,FLOOKUP_UPDATE,buffer_write_def]
+  \\ rveq \\ fs[]
+  \\ metis_tac[]
+QED
+
+Theorem comp_FFI_correct:
+  ^(get_goal "wordLang$FFI")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr1 len1 ptr2 len2 names)``]
+  \\ rw [] \\ fs [] \\ rw []
+  \\ fs [wordSemTheory.evaluate_def]
+  \\ qpat_x_assum `aaa = (res,s1)` mp_tac
+  \\ rpt (ntac 2 (TOP_CASE_TAC \\ fs []))
+  \\ fs [LET_DEF] \\ fs [] \\ rw [] \\ fs []
+  \\ fs [comp_def,stackSemTheory.evaluate_def]
+  \\ fs [stackSemTheory.get_var_def]
+  \\ `FLOOKUP t.regs 1 = get_var 2 s /\
+      FLOOKUP t.regs 2 = get_var 4 s` by
+   (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
+     \\ `4 < k * 2 /\ 1 < k` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
+  \\ `FLOOKUP t.regs 3 = get_var 6 s /\
+      FLOOKUP t.regs 4 = get_var 8 s` by
+   (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
+    \\ `8 < k * 2 /\ 6 < k * 2` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
+  \\ `t.be = s.be /\ t.mdomain = s.mdomain /\
+      s.memory = t.memory /\ s.ffi = t.ffi` by
+        fs [state_rel_def] \\ fs [LET_THM]
+  \\ qexists_tac `0` \\ fs []
+  \\ fs [state_rel_def,LET_THM]
+  \\ conj_tac THEN1 metis_tac[]
+  \\ conj_tac
+  >- ( fs[cut_env_def] \\ rveq \\ simp[wf_inter] )
+  \\ ntac 3 strip_tac
+  \\ fs [cut_env_def] \\ rpt var_eq_tac
+  \\ fs [lookup_inter_alt]
+  \\ fs [CONV_RULE (DEPTH_CONV ETA_CONV) (GSYM toAList_def)
+         |> INST_TYPE [``:'a``|->``:unit``] |> SIMP_RULE (srw_ss()) []]
+  \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,DIV_LT_X,FORALL_PROD,MEM_toAList]
+  \\ fs [domain_lookup] \\ res_tac
+  \\ `~(n < k * 2)` by decide_tac \\ fs []
+QED
+
+Theorem comp_Call_correct:
+  ^(get_goal "wordLang$Call")
+Proof
+  REPEAT STRIP_TAC \\ fs[get_labels_def] \\
+  simp [Once LET_DEF,comp_def]
+  \\ pairarg_tac \\ fs []
+  \\ Cases_on `ret` \\ fs []
+  THEN1
+   (goalStack.print_tac "comp_correct tail call case">>
+   fsrw_tac[] [stackSemTheory.evaluate_def]
+    \\ `¬bad_dest_args dest args` by
+      (qpat_x_assum`A=(res,s1)` mp_tac \\
+      fsrw_tac[][evaluate_def]\\ntac 2 (TOP_CASE_TAC>>fsrw_tac[][]))
+     \\ fsrw_tac[] [LET_THM,wordSemTheory.evaluate_def]
+    \\ qpat_x_assum `_ = (res,s1)` mp_tac
+    \\ TOP_CASE_TAC THEN1 rw []
+    \\ TOP_CASE_TAC THEN1 rw []
+    \\ imp_res_tac call_dest_lemma
+    \\ pop_assum(qspec_then`NONE` assume_tac) \\ fsrw_tac[][]
+    \\ drule (GEN_ALL evaluate_add_clock) \\ fsrw_tac[] []
+    \\ fsrw_tac[] [ADD_COMM,ADD_ASSOC,LET_THM]
+    \\ disch_then kall_tac
+    \\ `!n p ck. evaluate (SeqStackFree n p,t4 with clock := ck) =
+                 evaluate (Seq (StackFree n) p,t4 with clock := ck)` by
+     (rw [] \\ match_mp_tac evaluate_SeqStackFree
+      \\ fsrw_tac[] [state_rel_def] \\ decide_tac)
+    \\ `t4.clock = s.clock /\ t4.use_stack` by fsrw_tac[] [state_rel_def] \\ fsrw_tac[] []
+    \\ fsrw_tac[] [stackSemTheory.evaluate_def]
+    \\ Cases_on `LENGTH t4.stack <
+         t4.stack_space + stack_free dest' (LENGTH args) (k,f,f')` \\ fsrw_tac[] []
+    THEN1
+     (fsrw_tac[] [stack_free_def]
+      \\ Cases_on `dest'` \\ fsrw_tac[] [stack_arg_count_def]
+      \\ fsrw_tac[] [state_rel_def,LET_DEF] \\ `F` by decide_tac)
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC THEN1 rw[]
+    \\ last_x_assum(qspecl_then[`q`,`r`] assume_tac) \\ rfs[]
+    \\ TOP_CASE_TAC \\ fsrw_tac[] []
+    THEN1
+     (rw [] \\ qexists_tac `0` \\ fsrw_tac[] [] \\ res_tac \\ fsrw_tac[] [state_rel_def])
+    \\ TOP_CASE_TAC
+    \\ TOP_CASE_TAC THEN1 rw []
+    \\ strip_tac \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs []
+    \\ res_tac \\ fsrw_tac[] [stackSemTheory.dec_clock_def]
+    \\ fsrw_tac[] [compile_prog_def,LET_THM]
+    \\ pairarg_tac \\ fsrw_tac[] []
+    \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs[]
+    \\ fsrw_tac[] [stackSemTheory.evaluate_def]
+    \\ qpat_abbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`
+    \\ qpat_abbrev_tac `m' = (if _ then 0 else m + 1)` \\ rw []
+    \\ Cases_on `t4.stack_space + stack_free dest' (LENGTH args) (k,f,f') <
+           m' - (LENGTH q - k)` \\ fsrw_tac[] []
+    THEN1 (* Hit stack limit case *)
+     (fsrw_tac[] [state_rel_def]
+      \\ fsrw_tac[] [compile_result_NOT_2]
+      \\ imp_res_tac stackPropsTheory.evaluate_io_events_mono
+      \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono
+      \\ fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def])
+    \\ (fn g =>
+         qabbrev_tac `t5 = ^((qexists_tac`0`
+         \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
+         |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
+    \\ `state_rel k m' m (call_env q (dec_clock s)) t5 lens` by
+         (fsrw_tac[][state_rel_def,LET_THM,Abbr`t5`,call_env_def,dec_clock_def]>>
+          fsrw_tac[][stack_free_def]>>
+          `stack_arg_count dest' (LENGTH args) k = (LENGTH q -k)` by
+            (simp[stack_arg_count_def]>>
+            qpat_x_assum`call_dest A B C =(q0,dest')` mp_tac>>
+            qpat_x_assum`A=SOME(q,r)` mp_tac>>
+            imp_res_tac get_vars_length_lemma>>
+            Cases_on`dest`>>simp[find_code_def,call_dest_def,add_ret_loc_def]>>
+            rpt TOP_CASE_TAC>>simp[]>>
+            rw[]>>TRY pairarg_tac>>fsrw_tac[][]>>
+            Cases_on`x`>>fsrw_tac[][]>>
+            simp[])>>
+          fsrw_tac[][wf_fromList2]>>
+          qpat_abbrev_tac`len = LENGTH q -k`>>
+          (*This seems too long for a trivial property..*)
+          `len ≤ f` by
+            (fsrw_tac[][convs_def]>>
+            qpat_x_assum`args = A` SUBST_ALL_TAC>>
+            imp_res_tac get_vars_length_lemma>>
+            fsrw_tac[][wordLangTheory.max_var_def,LET_THM]>>
+            fsrw_tac[][list_max_GENLIST_evens]>>
+            `LENGTH q ≤ LENGTH args` by
+              (qpat_x_assum`A=SOME(q,r)` mp_tac>>
+              Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
+              EVERY_CASE_TAC>>rw[]>>
+              simp[LENGTH_FRONT])>>
+            `LENGTH args -1 +1 < f' +1 +k` by simp[]>>
+            Cases_on`f'`>-
+              (fsrw_tac[][]>>
+              `LENGTH args ≤ k` by DECIDE_TAC>>
+              unabbrev_all_tac>>
+              simp[])>>
+            `LENGTH args -1 +1 -k < SUC n +1` by DECIDE_TAC>>
+            fsrw_tac[][Abbr`len`]>>
+            ntac 5 (pop_assum mp_tac)>>
+            rpt (pop_assum kall_tac)>>
+            DECIDE_TAC)>>
+          `len ≤ m ∧ m ≤ m'` by
+            (unabbrev_all_tac>>
+            rpt (pop_assum kall_tac)>>
+            rw[MAX_DEF]>>DECIDE_TAC)>>
+          CONJ_TAC THEN1 metis_tac[]>>
+          CONJ_TAC THEN1 decide_tac >>
+          CONJ_TAC THEN1 (unabbrev_all_tac>>
+            rpt (pop_assum kall_tac)>>
+            rw [] \\ decide_tac) >>
+          fsrw_tac[][DROP_DROP_EQ]>>
+          CONJ_TAC THEN1 simp[]>>
+          ntac 3 strip_tac>>
+          imp_res_tac (GSYM domain_lookup)>>
+          imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
+          fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
+          `lookup n s.locals = SOME v` by
+            (qpat_x_assum`args=A` SUBST_ALL_TAC>>
+            imp_res_tac get_vars_fromList2_eq>>
+            `isPREFIX q x` by
+              (qpat_x_assum`A=SOME(q,r)` mp_tac>>
+              Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
+              EVERY_CASE_TAC>>rw[]>>
+              Cases_on`x`>>fsrw_tac[][IS_PREFIX_BUTLAST])>>
+            imp_res_tac lookup_fromList2_prefix>>
+            metis_tac[])>>
+          IF_CASES_TAC>-
+            metis_tac[]>>
+          fsrw_tac[][LLOOKUP_THM]>>
+          Cases_on `m=0` \\ fsrw_tac[] []
+          THEN1
+           (fsrw_tac[] [markerTheory.Abbrev_def] \\ rpt var_eq_tac \\ fsrw_tac[] []
+            \\ fsrw_tac[] [lookup_fromList2,lookup_fromList]
+            \\ decide_tac) >>
+          simp[Abbr`m'`]>>
+          fsrw_tac[][lookup_fromList2,lookup_fromList]>>
+          CONJ_ASM2_TAC
+          >-
+            (first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
+            simp[EL_TAKE,EL_DROP]>>
+            strip_tac>>
+            qpat_x_assum`A=v` mp_tac>>
+            simp[EL_TAKE,EL_DROP]>>
+            disch_then sym_sub_tac>>
+            AP_THM_TAC>>AP_TERM_TAC>>
+            `(n DIV 2 +1) ≤ f+k` by
+              (Cases_on`f'`>>fsrw_tac[][]>>
+              DECIDE_TAC)>>
+            simp[])>>
+          unabbrev_all_tac>>
+          simp[])
+    \\ first_x_assum drule
+    \\ disch_then (qspec_then `bs'` mp_tac) \\ fsrw_tac[] []
+    \\ impl_tac THEN1
+      (CONJ_ASM1_TAC>-
+        (qpat_x_assum`A=SOME(q,r)`mp_tac>>
+        Cases_on`dest`>>
+        fsrw_tac[][state_rel_def,wordSemTheory.find_code_def]>>
+        rpt TOP_CASE_TAC>>
+        rw[]>>
+        metis_tac[])>>
+      CONJ_TAC>-
+        (qpat_x_assum`A=SOME(q,r)`mp_tac>>
+        Cases_on`dest`>>
+        fsrw_tac[][state_rel_def,wordSemTheory.find_code_def]>>
+        rpt TOP_CASE_TAC>>
+        rw[]>>
+        metis_tac[])>>
+      CONJ_TAC >-
+       (qunabbrev_tac `t5` \\ simp_tac (srw_ss()) []
+        \\ drule find_code_IMP_get_labels
+        \\ fs [get_labels_def])>>
+      CONJ_TAC>-
+        (`EVEN (max_var r)` by
+            (ho_match_mp_tac max_var_intro>>
+            fsrw_tac[][convs_def]>>
+            match_mp_tac every_var_mono>>
+            HINT_EXISTS_TAC>>fsrw_tac[][reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
+        unabbrev_all_tac>>fsrw_tac[][EVEN_EXISTS]>>
+        rpt (pop_assum kall_tac)>>
+        `m * 2 DIV 2 = m` by
+          (Q.ISPECL_THEN[`2n`,`m`]assume_tac MULT_DIV>>fsrw_tac[][])>>
+        fsrw_tac[][MULT_COMM,MAX_DEF]>>rw[]>>
+        DECIDE_TAC)>>
+        fsrw_tac[][Abbr`t5`])
+    \\ strip_tac \\ fsrw_tac[] []
+    \\ qunabbrev_tac `t5` \\ fsrw_tac[] []
+    \\ `ck + (s.clock - 1) = ck + s.clock - 1` by decide_tac
+    \\ qexists_tac `ck` \\ fsrw_tac[] []
+    \\ Cases_on `res1` \\ fsrw_tac[] []
+    \\ fsrw_tac[] [EVAL ``(call_env q (dec_clock s)).handler``,
+                   AC ADD_COMM ADD_ASSOC])
+  \\ goalStack.print_tac "comp_correct returning call case(s)"
+  \\ PairCases_on `x` \\ fs [LET_DEF]
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs []
+  \\ qhdtm_x_assum`wordSem$evaluate`mp_tac
+  \\ simp[wordSemTheory.evaluate_def]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ drule (Q.SPECL[`x`,`SOME(x0,x1,x2,x3,x4)`] (Q.GENL[`args'`,`ret`]call_dest_lemma)) \\ strip_tac \\rfs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]>>
+  imp_res_tac evaluate_call_dest_clock>>
+  pop_assum(qspec_then`t` assume_tac)>>
+  first_assum (mp_tac o MATCH_MP ((GEN_ALL evaluate_wLive)|>REWRITE_RULE[GSYM AND_IMP_INTRO]))>>
+  disch_then ((qspecl_then [`t4`,`s`,`lens`,`x'`] mp_tac) o REWRITE_RULE[AND_IMP_INTRO])>>
+  simp[]>>
+  impl_keep_tac>-
+    (Cases_on`handler`>>TRY(PairCases_on`x''`)>>
+    fsrw_tac[][convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
+    fsrw_tac[][GSYM toAList_domain,EVERY_MEM]>>
+    fsrw_tac[][X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
+    (rw[]>>res_tac
+    >-
+      DECIDE_TAC>>
+    fsrw_tac[][wordLangTheory.max_var_def,LET_THM]
+    >-
+      (`∃n. MEM n (MAP FST (toAList x1))` by
+      (CCONTR_TAC>>
+      fsrw_tac[][toAList_domain]>>
+      `domain x1 = {}` by
+        fsrw_tac[][EXTENSION])>>
+      res_tac>>
+      qpat_x_assum`A<B:num` mp_tac>>
+      qpat_abbrev_tac`ls = MAP FST A`>>
+      simp[]>>
+      strip_tac>>
+      `list_max ls < 2*f' + 2*k` by
+        (pop_assum mp_tac>>
+        simp[MAX_DEF])>>
+      Q.ISPEC_THEN `ls` assume_tac list_max_max>>
+      fsrw_tac[][EVERY_MEM]>>
+      `n < 2*f'+2*k` by
+        (res_tac>>DECIDE_TAC)>>
+      `n - 2*k < 2*f'` by DECIDE_TAC>>
+      `f' ≠ 0` by DECIDE_TAC>>
+      fsrw_tac[][state_rel_def])
+    >>
+    fsrw_tac[][comp_def,LET_THM]>>
+    TRY(pairarg_tac>>fsrw_tac[][])>>
+    imp_res_tac comp_IMP_isPREFIX>>
+    metis_tac[evaluate_mono,IS_PREFIX_TRANS]))>>
+  strip_tac>>
+  imp_res_tac evaluate_wLive_clock>>
+  pop_assum(qspec_then`t4` assume_tac)>>
+  Cases_on`handler`>>simp[]
+  >-
+    (goalStack.print_tac"No handler case">>
+    simp[stackSemTheory.evaluate_def]>>
+    simp[StackArgs_def,evaluate_stack_move_seq]>>
+    qpat_abbrev_tac`sargs = stack_arg_count A B C`>>
+    simp[stackSemTheory.evaluate_def]>>
+    (*Get through the eval of stack_move*)
+    Cases_on`¬t5.use_stack`>-
+      fs[state_rel_def]>>
+    Cases_on`t5.stack_space < sargs`>>fs[] >-
+      (fs[state_rel_def,compile_result_NOT_2]>>
+      IF_CASES_TAC>>fs[]>-
+        (simp[call_env_def]>>
+        rw[]>>simp[])>>
+      qpat_x_assum`res ≠ A` mp_tac>>
+      rpt (pop_assum kall_tac)>>
+      rpt(TOP_CASE_TAC>>fs[])>>
+      fs[dec_clock_def]>>rw[]>>
+      imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
+      fs [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
+      metis_tac[pop_env_ffi,IS_PREFIX_TRANS])>>
+    qabbrev_tac`t6 = t5 with <|stack_space :=t5.stack_space -sargs|>`>>
+    `!ck. t5 with <|stack_space:=t5.stack_space - sargs; clock:=ck+t.clock|> = t6 with clock:=ck+t.clock` by
+      simp[stackSemTheory.state_component_equality,Abbr`t6`]>>
+    simp[evaluate_stack_move_clock]>>
+    Q.ISPECL_THEN [`sargs`,`0n`,`t6`,`f`] mp_tac evaluate_stack_move>>
+    impl_keep_tac>-
+      (qpat_x_assum`s.clock ≠ 0 ⇒ P` kall_tac>>
+      qpat_x_assum`∀a b c. P` kall_tac>>
+      unabbrev_all_tac>>simp[]>>
+      fsrw_tac[][state_rel_def,ADD_COMM]>>
+      fsrw_tac[][convs_def]>>
+      qpat_x_assum`args = A` SUBST_ALL_TAC>>
+      fsrw_tac[][wordLangTheory.max_var_def,LET_THM]>>
+      fsrw_tac[][list_max_GENLIST_evens2]>>
+      `2*LENGTH args < 2*f'+2*k` by
+        (qpat_x_assum`A<2*f' +2*k` mp_tac>>
+        simp[MAX_DEF])>>
+      `LENGTH args < f' +k` by DECIDE_TAC>>
+      simp[stack_arg_count_def]>>
+      TOP_CASE_TAC>>
+      Cases_on`f'`>>fsrw_tac[][]>>
+      DECIDE_TAC)>>
+    strip_tac>>simp[]>>
+    `find_code dest' (t'.regs \\0) t'.code = find_code dest' t4.regs t4.code` by
+     (`subspt t4.code t'.code` by
+       (unabbrev_all_tac>>
+       fs[stackSemTheory.state_component_equality]>>
+       imp_res_tac evaluate_mono>>fs[]>>
+       metis_tac[evaluate_consts])>>
+     Cases_on`dest'`>>fs[stackSemTheory.find_code_def]
+     >-
+       metis_tac[subspt_def,domain_lookup]
+     >>
+     qpat_x_assum`A=SOME stack_prog` mp_tac>>
+     qpat_x_assum`A=(q0,INR y)` mp_tac>>
+     Cases_on`dest`>>simp[call_dest_def]>>
+     IF_CASES_TAC>>simp[]>>
+     simp[wReg2_def]>>IF_CASES_TAC>>fs[]
+     >-
+       (`LAST args DIV 2≠ 0 ∧ LAST args DIV 2 ≠ k` by
+        (fs[convs_def]>>
+        qpat_x_assum`args = A` SUBST_ALL_TAC>>
+        `LENGTH args <> 0` by (strip_tac \\ fs[]) >>
+        drule LAST_GENLIST_evens>>
+        LET_ELIM_TAC>>simp[]>>
+        Cases_on`reg`>>fs[]>>
+        Cases_on`n`>>fs[]>>
+        simp[ADD_DIV_RWT,ADD1])>>
+       strip_tac>>rveq>>
+       simp[DOMSUB_FLOOKUP_THM]>>
+       fs[stackSemTheory.get_var_def,Abbr`t6`]>>
+       qpat_x_assum`subspt _ _` mp_tac>>
+       rpt (pop_assum kall_tac)>>
+       EVERY_CASE_TAC>>rw[]>>
+       metis_tac[subspt_def,domain_lookup])
+     >>
+       strip_tac>>rveq>>
+       simp[DOMSUB_FLOOKUP_THM]>>
+       fs[stackSemTheory.get_var_def,Abbr`t6`]>>
+       qpat_x_assum`subspt _ _` mp_tac>>
+       rpt (pop_assum kall_tac)>>
+       EVERY_CASE_TAC>>rw[]>>
+       metis_tac[subspt_def,domain_lookup])>>
+    simp[]>>
+    IF_CASES_TAC>-
+      (rw[]>>qexists_tac`0`>>fs[state_rel_def]>>
+      fs[Abbr`t6`,stackSemTheory.state_component_equality])>>
+    `t.clock ≠ 0` by
+      metis_tac[state_rel_def]>>
+    fs [compile_prog_def,LET_THM]>>
+    pairarg_tac>>fs[]>>
+    rveq>>
+    qpat_abbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
+    qpat_abbrev_tac `m' = (if _ then 0 else m + 1)`>>
+    simp[stackSemTheory.evaluate_def]>>
+    `t'.use_stack` by
+      fs[Abbr`t6`,stackSemTheory.state_component_equality]>>
+    simp[stackSemTheory.set_var_def,stackSemTheory.dec_clock_def]>>
+    Cases_on`t'.stack_space < m' - (LENGTH q-k)`>-
+      (fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
+      unabbrev_all_tac>>fsrw_tac[][stackSemTheory.state_component_equality]>>
+      simp[]>>
+      qpat_x_assum`res ≠ A` mp_tac>>
+      rpt (pop_assum kall_tac)>>
+      rpt(TOP_CASE_TAC>>fsrw_tac[][])>>
+      fsrw_tac[][dec_clock_def]>>rw[]>>
+      imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
+      fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
+      metis_tac[IS_PREFIX_TRANS,pop_env_ffi])>>
+    simp[]>>
+    qpat_abbrev_tac`word_state = call_env q st`>>
+    qabbrev_tac`stack_state =
+      t' with <|regs:=t'.regs|+(0,Loc x3 x4);
+                stack_space:=t'.stack_space - (m'-(LENGTH q-k));
+                clock:=t.clock-1|>`>>
+    `state_rel k m' m word_state stack_state (f'::lens)` by
+      (
+      ntac 2 (qpat_x_assum`!a b c. P` kall_tac)>>
+      `sargs = (LENGTH q -k)` by
+        (simp[stack_arg_count_def,Abbr`sargs`]>>
+        qpat_x_assum`call_dest A B C =(q0,dest')` mp_tac>>
+        qpat_x_assum`A=SOME(q,r)` mp_tac>>
+        imp_res_tac get_vars_length_lemma>>
+        Cases_on`dest`>-
+          (fsrw_tac[][bad_dest_args_def]>>
+          simp[find_code_def,call_dest_def,add_ret_loc_def]>>
+          `LENGTH args ≠ 0` by fsrw_tac[][LENGTH_NIL]>>
+          rpt TOP_CASE_TAC>>simp[]>>
+          rw[]>>
+          pairarg_tac>>fsrw_tac[][]>>
+          Cases_on`x`>>fsrw_tac[][]>>
+          simp[])>>
+       fsrw_tac[][bad_dest_args_def]>>
+       simp[find_code_def,call_dest_def,add_ret_loc_def]>>
+       rpt TOP_CASE_TAC>>simp[]>>
+       rw[]>>
+       simp[])>>
+      fsrw_tac[][state_rel_def,Abbr`word_state`,Abbr`stack_state`]>>
+      simp[dec_clock_def,call_env_def,push_env_def]>>
+      simp[env_to_list_def]>>
+      fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
+      `sargs ≤ m ∧ m ≤ m'` by
+         (fs[markerTheory.Abbrev_def]
+          \\ rveq \\ rw[MAX_DEF])>>
+      CONJ_TAC>-
+        simp[FUN_EQ_THM]>>
+      CONJ_TAC>-
+        metis_tac[]>>
+      CONJ_TAC>- fs[push_env_def] >>
+      CONJ_TAC>-
+        metis_tac[]>>
+      CONJ_TAC>-
+        metis_tac[]>>
+      CONJ_TAC>- fs[push_env_def] >>
+      CONJ_ASM1_TAC>-
+        DECIDE_TAC>>
+      CONJ_TAC>-
+        (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
+         \\ rpt(pop_assum kall_tac) \\ rw[] ) >>
+      CONJ_TAC>-
+        simp[wf_fromList2]>>
+      fsrw_tac[][DROP_DROP_EQ]>>
+      CONJ_TAC>-
+        (fsrw_tac[][LET_THM]>>
+        qpat_x_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
+        simp[push_env_def,env_to_list_def]>>
+        qpat_x_assum`DROP A B = DROP C D` mp_tac>>
+        simp[])>>
+      ntac 3 strip_tac>>
+      rpt(qpat_x_assum`!a b c. A ⇒ B` kall_tac)>>
+      imp_res_tac (GSYM domain_lookup)>>
+      imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
+      fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
+      `isPREFIX q (Loc x3 x4::x)` by
+         (qpat_x_assum`A=SOME(q,r)` mp_tac>>
+         Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
+         EVERY_CASE_TAC>>srw_tac[][]>>
+         Cases_on`x`>>fsrw_tac[][IS_PREFIX_BUTLAST])>>
+      imp_res_tac lookup_fromList2_prefix>>
+      Cases_on`n=0`>-
+        (fsrw_tac[][lookup_fromList2,lookup_fromList]>>
+        simp[FLOOKUP_UPDATE])>>
+      `lookup n s.locals = SOME v` by
+       (qpat_x_assum`args=A` SUBST_ALL_TAC>>
+       imp_res_tac get_vars_fromList2_eq_cons)>>
+      fsrw_tac[][LET_THM]>>
+      IF_CASES_TAC>-
+        (`n DIV 2 ≠ 0 ∧ n DIV 2 ≠ k` by
+          (Cases_on`n`>>simp[]>>
+          Cases_on`n'`>>fsrw_tac[][]>>
+          simp[ADD_DIV_RWT,ADD1])>>
+        simp[FLOOKUP_UPDATE]>>
+        fsrw_tac[][stackSemTheory.get_var_def]>>
+        metis_tac[])>>
+      `k ≤ LENGTH q` by (
+        fsrw_tac[][lookup_fromList2,lookup_fromList]
+        \\ rpt(qpat_x_assum`n DIV 2 < _`mp_tac)
+        \\ qpat_x_assum`¬(n DIV 2 < _)`mp_tac
+        \\ rpt(pop_assum kall_tac)
+        \\ decide_tac) >>
+      simp[LLOOKUP_THM] >>
+      Cases_on `m=0` \\ fsrw_tac[] []
+      THEN1
+        (fsrw_tac[] [lookup_fromList2,lookup_fromList,Abbr`m'`]>>
+         qpat_x_assum`¬(n DIV 2 < _)`mp_tac >>
+         qpat_x_assum`(n DIV 2 < LENGTH _)`mp_tac >>
+         qpat_x_assum`k ≤ _`mp_tac >>
+         qpat_x_assum`_ ≤ k`mp_tac >>
+         rpt(pop_assum kall_tac) >>
+         decide_tac)>>
+      `m' = m+1` by (
+        qunabbrev_tac`m'` >>
+        IF_CASES_TAC >- (
+          qpat_x_assum`m ≤ _`mp_tac >>
+          pop_assum(SUBST1_TAC o EQT_INTRO) >>
+          qpat_x_assum`m ≠ 0`mp_tac >>
+          rpt(pop_assum kall_tac) >>
+          rw[] ) >>
+        REFL_TAC ) >>
+      pop_assum SUBST_ALL_TAC >>
+      simp_tac(srw_ss()++ARITH_ss)[] >>
+      fsrw_tac[][LLOOKUP_THM,lookup_fromList2,lookup_fromList]>>
+      `LENGTH q ≤ k+m` by (
+        qpat_x_assum`_ ≤ m`mp_tac >>
+        qpat_x_assum`sargs = _`mp_tac >>
+        rpt(pop_assum kall_tac) >> rw[] ) >>
+      reverse conj_tac >- (
+        qpat_x_assum`n DIV 2 < _`mp_tac >>
+        qpat_x_assum`n DIV 2 < _`mp_tac >>
+        pop_assum mp_tac >>
+        rpt(pop_assum kall_tac) >> rw[] ) >>
+      `m+1 ≤ t5.stack_space` by ( simp[] ) >>
+      qpat_x_assum`_ ≤ LENGTH t'.stack`mp_tac >>
+      ntac 5 (pop_assum mp_tac) >>
+      simp_tac(srw_ss()++ARITH_ss)[EL_DROP,EL_TAKE] >>
+      rpt strip_tac >>
+      first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
+      qpat_x_assum`DROP A B = DROP C D` mp_tac>>
+      `k < (n DIV 2+1)` by simp[]>>
+      simp[EL_TAKE]>>
+      disch_then sym_sub_tac>>
+      simp[EL_DROP]>>
+      strip_tac>>
+      qpat_x_assum`!x. A ⇒ B = C` mp_tac>>
+      rpt(qpat_x_assum`!n.P` kall_tac)>>
+      simp[EL_DROP]>>
+      disch_then(qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
+      simp[])>>
+    Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
+    first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
+    Cases_on`q' = SOME Error`>>fsrw_tac[][]>>
+    impl_tac>-
+      (CONJ_ASM1_TAC>-
+        (qpat_x_assum`A=SOME(q,r)`mp_tac>>
+        Cases_on`dest`>>
+        fsrw_tac[][state_rel_def,find_code_def]>>
+        rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
+      CONJ_TAC>-
+        (qpat_x_assum`A=SOME(q,r)`mp_tac>>
+        Cases_on`dest`>>
+        fsrw_tac[][state_rel_def,find_code_def]>>
+        rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
+      CONJ_TAC>-
+       (qunabbrev_tac `stack_state` \\ simp_tac (srw_ss()) []
+        \\ drule find_code_IMP_get_labels
+        \\ fs [get_labels_def]
+        \\ imp_res_tac evaluate_mono
+        \\ fs[Abbr`t6`]
+        \\ metis_tac[loc_check_SUBSET,subspt_trans,SUBSET_TRANS])>>
+      CONJ_TAC>-
+        (`EVEN (max_var r)` by
+            (ho_match_mp_tac max_var_intro>>
+            fsrw_tac[][convs_def]>>
+            match_mp_tac every_var_mono>>
+            HINT_EXISTS_TAC>>fsrw_tac[][reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
+        unabbrev_all_tac>>fsrw_tac[][EVEN_EXISTS]>>
+        rpt (pop_assum kall_tac)>>
+        `m * 2 DIV 2 = m` by
+          (Q.ISPECL_THEN[`2n`,`m`]assume_tac MULT_DIV>>fsrw_tac[][])>>
+        fsrw_tac[][MULT_COMM,MAX_DEF]>>rw[]>>
+        DECIDE_TAC)>>
+      unabbrev_all_tac>>fsrw_tac[][]>>
+      fsrw_tac[][stackSemTheory.state_component_equality]>>
+      metis_tac[evaluate_mono,IS_PREFIX_TRANS])>>
+    strip_tac>>
+    Cases_on`q'`>>simp[]>>
+    Cases_on`x''`>>simp[]
+    >-
+      (IF_CASES_TAC>>fsrw_tac[][]>>
+      Cases_on`pop_env r'`>>fsrw_tac[][]>>
+      IF_CASES_TAC>>fsrw_tac[][]>>
+      strip_tac>>
+      imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
+      qpat_x_assum`if A then B else C` mp_tac>>
+      IF_CASES_TAC>>fsrw_tac[][]
+      >-
+        (*the stackLang evaluation halts*)
+        (rw[]>>
+        qexists_tac`ck`>>
+        fs[Abbr`stack_state`]>>
+        `ck + (t.clock -1) = ck +t.clock -1` by DECIDE_TAC>>
+        fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
+        metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono])>>
+      strip_tac>>
+      `state_rel k f f' (set_var x0 w0 x'') t1 lens ∧ x''.handler = s.handler` by
+        (qpat_x_assum`!a b c d e f. P` kall_tac>>
+        Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>
+        rfs[Abbr`word_state`]>>
+        fsrw_tac[][call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,s_key_eq_def]>>
+        qpat_x_assum`pop_env A = B` mp_tac>>
+        simp[pop_env_def]>>
+        rpt(TOP_CASE_TAC>>fsrw_tac[][s_key_eq_def,s_frame_key_eq_def])>>
+        pop_assum kall_tac>>
+        strip_tac>>
+        rveq>>fsrw_tac[][state_rel_def,set_var_def]>>
+        CONJ_TAC>-
+          metis_tac[evaluate_consts]>>
+        CONJ_ASM1_TAC>-
+          (fsrw_tac[][LET_THM]>>
+          imp_res_tac stack_rel_cons_LEN_NONE>>
+          fsrw_tac[][LENGTH_DROP]>>
+          Cases_on`f'`>>fsrw_tac[][]>>
+          simp[])>>
+        CONJ_TAC>-
+          simp[wf_insert,wf_fromAList]>>
+        fsrw_tac[][LET_THM]>>
+        CONJ_TAC>-
+          (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
+          metis_tac[stack_rel_DROP_NONE])>>
+        ntac 2 strip_tac>>
+        fsrw_tac[][lookup_insert,convs_def]>>
+        IF_CASES_TAC>-
+          simp[]>>
+        strip_tac>>
+        `n ∈ domain (fromAList l)` by metis_tac[domain_lookup]>>
+        `n ∈ domain x1 ∧ n ∈ domain s.locals` by
+          (fsrw_tac[][cut_env_def]>>
+          `n ∈ domain x'` by rfs[]>>
+          rveq>>
+          fsrw_tac[][domain_inter])>>
+        res_tac>>simp[]>>
+        fsrw_tac[][domain_lookup]>>
+        last_x_assum (qspecl_then [`n`,`v''`]mp_tac)>>
+        simp[LLOOKUP_THM]>>
+        strip_tac>>
+        fsrw_tac[][stack_rel_def]>>qpat_x_assum`A=SOME stack'''''` mp_tac>>
+        qpat_abbrev_tac`ls = DROP A B`>>
+        Cases_on`ls`>>simp[abs_stack_def]>>
+        rpt (TOP_CASE_TAC >>simp[])>>
+        strip_tac>>
+        qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
+        rveq>>simp[stack_rel_aux_def]>>
+        strip_tac>>
+        fsrw_tac[][lookup_fromAList]>>
+        `MEM (n,v) l` by metis_tac[ALOOKUP_MEM]>>
+        `MEM (n DIV 2,v) (MAP_FST adjust_names l)` by
+          (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
+          metis_tac[])>>
+        simp[LLOOKUP_THM]>>
+        imp_res_tac filter_bitmap_MEM>>
+        imp_res_tac MEM_index_list_EL>>
+        pop_assum mp_tac>>
+        simp[LENGTH_TAKE,EL_TAKE]>>
+        Cases_on`LENGTH x''`>>
+        fsrw_tac[][]>>simp[]>>
+        fsrw_tac[][state_rel_def]>>
+        `k + SUC n' - n DIV 2 = SUC (k+ SUC n' - (n DIV 2+1))` by DECIDE_TAC>>
+        full_simp_tac(std_ss ++ ARITH_ss)[GSYM LENGTH_NIL] >>
+        simp[EL_TAKE])>>
+      imp_res_tac stackPropsTheory.evaluate_add_clock>>
+      ntac 3 (pop_assum kall_tac)>>
+      rveq>>fsrw_tac[][]>>
+      first_x_assum(qspecl_then[`k`,`f`,`f'`,`t1`,`bs'`,`lens`] mp_tac)>>
+      impl_tac>-
+        (fsrw_tac[][convs_def]>>rw[]
+        >-
+          (fs [comp_def,get_labels_def] \\
+          imp_res_tac evaluate_mono \\ fs[Abbr`stack_state`,Abbr`t6`] \\
+          metis_tac[loc_check_SUBSET,SUBSET_TRANS,subspt_trans])
+        >-
+          (qpat_x_assum`A<B:num` mp_tac>>
+          simp[wordLangTheory.max_var_def])
+        >>
+          unabbrev_all_tac>>
+          imp_res_tac evaluate_mono>>
+          rpt (qpat_x_assum`isPREFIX _ _` mp_tac)>>
+          simp[comp_def]>>
+          metis_tac[IS_PREFIX_TRANS])>>
+      rw[]>>
+      qexists_tac`ck+ck'`>>
+      fsrw_tac[][Abbr`stack_state`]>>
+      first_x_assum(qspec_then`ck'` mp_tac)>>
+      simp[]>>
+      fsrw_tac[][ADD_COMM]>>
+      pop_assum mp_tac>>
+      simp[set_var_def])
+    >-
+      (*Exception*)
+      (strip_tac>>
+      qexists_tac`ck`>>
+      fs[Abbr`stack_state`]>>
+      `t.clock -1 + ck = ck +t.clock -1` by DECIDE_TAC>>
+      fs[]>>
+      rveq>>simp[]>>
+      qpat_x_assum `if A then B else C` mp_tac>>
+      IF_CASES_TAC>>fs[]>>rveq>>
+      fs[]>>
+      strip_tac>>
+      `word_state.handler = s.handler` by
+        simp[Abbr`word_state`,call_env_def,push_env_def,env_to_list_def,dec_clock_def]>>
+      imp_res_tac state_rel_IMP_LENGTH>>
+      Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>rfs[]>>
+      fs[push_env_def,env_to_list_def,LET_THM]>>
+      `s.handler+1 ≤ LENGTH lens` by
+        (*because it can't be the top frame of word_state, which is NONE*)
+        (CCONTR_TAC>>
+        `s.handler+1 =LENGTH s.stack+1` by DECIDE_TAC>>
+        fs[Abbr`word_state`,call_env_def,dec_clock_def,LASTN_CONS]>>
+        fs[LASTN_CONS_ID,GSYM ADD1])>>
+      fs[LASTN_CONS])
+    >>
+      (*Timeout and Halt*)
+      (strip_tac>>
+      qexists_tac`ck`>>
+      fs[Abbr`stack_state`]>>
+      `t.clock -1 + ck = ck +t.clock -1` by DECIDE_TAC>>
+      fs[]>>
+      rveq>>simp[]>>
+      qpat_x_assum `if A then B else C` mp_tac>>
+      IF_CASES_TAC>>fs[]>>rveq>>
+      fs[]>>
+      strip_tac>>
+      fs[state_rel_def]))
+  >>
+  goalStack.print_tac"Handler case">>
+  PairCases_on`x''`>>simp[]>>
+  pairarg_tac>>simp[stackSemTheory.evaluate_def]>>
+  reverse(Cases_on`3 ≤ t5.stack_space`)>-
+    (simp[PushHandler_def,stackSemTheory.evaluate_def]>>
+    fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
+    IF_CASES_TAC>>fsrw_tac[][]>-
+      (simp[call_env_def]>>
+      rw[]>>simp[])>>
+    qpat_x_assum`res ≠ A` mp_tac>>
+    rpt (pop_assum kall_tac)>>
+    rpt(TOP_CASE_TAC>>fsrw_tac[][])>>
+    fsrw_tac[][dec_clock_def]>>rw[]>>
+    imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
+    fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
+    metis_tac[pop_env_ffi,IS_PREFIX_TRANS])>>
+  (* Needs to go in wordSem?*)
+  drule evaluate_PushHandler>>
+  simp[evaluate_PushHandler_clock]>>
+  impl_tac THEN1 (
+   fs [comp_def,get_labels_def] >>
+   imp_res_tac evaluate_mono>>
+   `loc_check t.code ⊆ loc_check t5.code` by
+     metis_tac[subspt_trans,SUBSET_DEF,loc_check_SUBSET]>>
+    fs[SUBSET_DEF,FORALL_PROD,IN_DEF])>>
+  strip_tac>>
+  simp[StackHandlerArgs_def,StackArgs_def,evaluate_stack_move_seq]>>
+  simp[stackSemTheory.evaluate_def]>>
+  `t'.use_stack` by fsrw_tac[][state_rel_def]>>fsrw_tac[][]>>
+  qpat_abbrev_tac`sargs = stack_arg_count A B C`>>
+  Cases_on`t'.stack_space < sargs`>-
+    (simp[]>>
+    fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
+    IF_CASES_TAC>>fsrw_tac[][]>-
+      (simp[call_env_def]>>
+      rw[]>>simp[])>>
+    qpat_x_assum`res ≠ A` mp_tac>>
+    rpt (pop_assum kall_tac)>>
+    rpt(TOP_CASE_TAC>>fsrw_tac[][])>>
+    fsrw_tac[][dec_clock_def]>>rw[]>>
+    imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
+    fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
+    metis_tac[pop_env_ffi,IS_PREFIX_TRANS])>>
+  simp[]>>fsrw_tac[][]>>
+  qabbrev_tac`t6 = t' with stack_space :=t'.stack_space -sargs`>>
+  `!ck. t' with <|stack_space:=t'.stack_space - sargs; clock:=ck+t.clock|> = t6 with clock:=ck+t.clock` by
+      simp[stackSemTheory.state_component_equality,Abbr`t6`]>>
+  simp[evaluate_stack_move_clock]>>
+  Q.ISPECL_THEN [`sargs`,`0n`,`t6`,`f+3`] mp_tac evaluate_stack_move>>
+  impl_keep_tac>- (
+    qpat_x_assum`s.clock ≠ 0 ⇒ P` kall_tac>>
+    qpat_x_assum`∀a b c. P` kall_tac>>
+    qpat_x_assum`∀a b. P` kall_tac>>
+    unabbrev_all_tac>>simp[]>>
+    fsrw_tac[][state_rel_def,ADD_COMM]>>
+    fsrw_tac[][convs_def]>>
+    qpat_x_assum`args = A` SUBST_ALL_TAC>>
+    fsrw_tac[][wordLangTheory.max_var_def,LET_THM]>>
+    fsrw_tac[][list_max_GENLIST_evens2]>>
+    `2*LENGTH args < 2*f'+2*k` by
+      (qpat_x_assum`A<2*f' +2*k` mp_tac>>
+      simp[MAX_DEF])>>
+    `LENGTH args < f' +k` by simp[]>>
+    simp[stack_arg_count_def]>>
+    TOP_CASE_TAC>>
+    Cases_on`f'`>>fsrw_tac[][]>>
+    qpat_x_assum`A<B:num` mp_tac>>
+    rpt (pop_assum kall_tac)>>
+    DECIDE_TAC)>>
+  strip_tac>>simp[]>>
+  `find_code dest' (t''.regs \\0) t''.code = find_code dest' t4.regs t4.code` by
+     (`subspt t4.code t''.code` by
+       (unabbrev_all_tac>>
+       fs[stackSemTheory.state_component_equality]>>
+       metis_tac[evaluate_mono])>>
+     Cases_on`dest'`>>fsrw_tac[][stackSemTheory.find_code_def]>>
+     qpat_x_assum`A=SOME stack_prog` mp_tac
+     >-
+       metis_tac[subspt_def,domain_lookup]>>
+     qpat_x_assum`A=(q0,INR y)` mp_tac>>
+     Cases_on`dest`>>simp[call_dest_def]>>
+     IF_CASES_TAC>>simp[]>>
+     simp[wReg2_def]>>IF_CASES_TAC>>fsrw_tac[][]
+     >-
+       (`LAST args DIV 2≠ 0 ∧ LAST args DIV 2 ≠ k` by
+        (fsrw_tac[][convs_def]>>
+        qpat_x_assum`args = A` SUBST_ALL_TAC>>
+        full_simp_tac std_ss [GSYM LENGTH_NIL] >>
+        drule LAST_GENLIST_evens>>
+        LET_ELIM_TAC>>simp[]>>
+        Cases_on`reg`>>fsrw_tac[][]>>
+        Cases_on`n`>>fsrw_tac[][]>>
+        simp[ADD_DIV_RWT,ADD1])>>
+       strip_tac>>rveq>>
+       simp[DOMSUB_FLOOKUP_THM]>>
+       fsrw_tac[][stackSemTheory.get_var_def,Abbr`t6`,FLOOKUP_UPDATE]>>
+       qpat_x_assum`subspt _ _` mp_tac>>
+       rpt (pop_assum kall_tac)>>
+       every_case_tac>>fs[subspt_def]>>
+       metis_tac[domain_lookup])
+     >-
+       (strip_tac>>rveq>>
+       simp[DOMSUB_FLOOKUP_THM]>>
+       fsrw_tac[][stackSemTheory.get_var_def,Abbr`t6`,FLOOKUP_UPDATE]>>
+       qpat_x_assum`subspt _ _` mp_tac>>
+       rpt (pop_assum kall_tac)>>
+       every_case_tac>>fs[subspt_def]>>
+       metis_tac[domain_lookup]))>>
+  simp[]>>
+  IF_CASES_TAC>-
+    (rw[]>>qexists_tac`0`>>fs[state_rel_def]>>
+    fs[Abbr`t6`,stackSemTheory.state_component_equality])>>
+  `t.clock ≠ 0` by
+    metis_tac[state_rel_def]>>
+  fsrw_tac[][compile_prog_def,LET_THM]>>
+  pairarg_tac>>fsrw_tac[][]>>
+  rveq>>
+  qpat_abbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
+  qpat_abbrev_tac `m' = (if _ then 0 else m + 1)`>>
+  simp[stackSemTheory.evaluate_def]>>
+  `t''.use_stack` by
+    fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
+  simp[stackSemTheory.set_var_def,stackSemTheory.dec_clock_def]>>
+  Cases_on`t''.stack_space < m' - (LENGTH q-k)`>-
+    (fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
+    unabbrev_all_tac>>fsrw_tac[][stackSemTheory.state_component_equality]>>
+    simp[]>>
+    qpat_x_assum`res ≠ A` mp_tac>>
+    ntac 90 (last_x_assum kall_tac)>>
+    rpt(TOP_CASE_TAC>>fsrw_tac[][])>>
+    fsrw_tac[][dec_clock_def]>>rw[]>>
+    imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
+    fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
+    metis_tac[IS_PREFIX_TRANS,pop_env_ffi])>>
+  simp[]>>
+  qpat_abbrev_tac`word_state = call_env q st`>>
+  qabbrev_tac`stack_state =
+    t'' with <|regs:=t''.regs|+(0,Loc x3 x4);
+              stack_space:=t''.stack_space - (m'-(LENGTH q-k));
+              clock:=t.clock-1|>`>>
+  `state_rel k m' m word_state stack_state (f'::lens)` by
+    (ntac 3 (qpat_x_assum`!a b. P` kall_tac)>>
+    `sargs = (LENGTH q -k)` by
+      (simp[stack_arg_count_def,Abbr`sargs`]>>
+      qpat_x_assum`call_dest A B C =(q0,dest')` mp_tac>>
+      qpat_x_assum`A=SOME(q,r)` mp_tac>>
+      imp_res_tac get_vars_length_lemma>>
+      Cases_on`dest`>-
+        (fsrw_tac[][bad_dest_args_def]>>
+        simp[find_code_def,call_dest_def,add_ret_loc_def]>>
+        `LENGTH args ≠ 0` by fsrw_tac[][LENGTH_NIL]>>
+        rpt TOP_CASE_TAC>>simp[]>>
+        rw[]>>
+        pairarg_tac>>fsrw_tac[][]>>
+        Cases_on`x`>>fsrw_tac[][]>>
+        simp[])>>
+      fsrw_tac[][bad_dest_args_def]>>
+      simp[find_code_def,call_dest_def,add_ret_loc_def]>>
+      rpt TOP_CASE_TAC>>simp[]>>
+      rw[]>>
+      simp[])>>
+    fsrw_tac[][state_rel_def,Abbr`word_state`,Abbr`stack_state`]>>
+    fsrw_tac[][dec_clock_def,call_env_def,push_env_def,env_to_list_def,LET_THM]>>
+    fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
+    `sargs ≤ m ∧ m ≤ m'` by
+     (fs[markerTheory.Abbrev_def]
+      \\ rveq \\ rw[MAX_DEF])>>
+    fsrw_tac[][state_rel_def]>>
+    CONJ_TAC>-
+      simp[FUN_EQ_THM]>>
+    CONJ_TAC>-
+      fsrw_tac[][push_env_def,env_to_list_def,LET_THM]>>
+    CONJ_ASM1_TAC>-
+      DECIDE_TAC>>
+    CONJ_TAC>-
+      (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
+       \\ rpt(pop_assum kall_tac) \\ rw[] ) >>
+    CONJ_TAC>-
+      simp[wf_fromList2]>>
+    fsrw_tac[][DROP_DROP_EQ]>>
+    CONJ_TAC>-
+      (qpat_x_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
+      simp[push_env_def,env_to_list_def]>>
+      qpat_x_assum`DROP A B = DROP C D` mp_tac>>
+      simp[])>>
+    ntac 3 strip_tac>>
+    rpt(qpat_x_assum`!a b c. A ⇒ B` kall_tac)>>
+    imp_res_tac (GSYM domain_lookup)>>
+    imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
+    fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
+    `isPREFIX q (Loc x3 x4::x)` by
+       (qpat_x_assum`A=SOME(q,r)` mp_tac>>
+       Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
+       EVERY_CASE_TAC>>rw[]>>
+       Cases_on`x`>>fsrw_tac[][IS_PREFIX_BUTLAST])>>
+    imp_res_tac lookup_fromList2_prefix>>
+    Cases_on`n=0`>-
+      (fsrw_tac[][lookup_fromList2,lookup_fromList]>>
+      simp[FLOOKUP_UPDATE])>>
+    `lookup n s.locals = SOME v` by
+     (qpat_x_assum`args=A` SUBST_ALL_TAC>>
+     imp_res_tac get_vars_fromList2_eq_cons)>>
+    fsrw_tac[][LET_THM]>>
+    IF_CASES_TAC>-
+      (`n DIV 2 ≠ 0 ∧ n DIV 2 ≠ k` by
+        (Cases_on`n`>>simp[]>>
+        Cases_on`n'`>>fsrw_tac[][]>>
+        simp[ADD_DIV_RWT,ADD1])>>
+      rw[FLOOKUP_UPDATE]>>
+      fsrw_tac[][stackSemTheory.get_var_def,FLOOKUP_UPDATE]>>
+      metis_tac[])>>
+    `k ≤ LENGTH q` by (
+      fsrw_tac[][lookup_fromList2,lookup_fromList]
+      \\ rpt(qpat_x_assum`n DIV 2 < _`mp_tac)
+      \\ qpat_x_assum`¬(n DIV 2 < _)`mp_tac
+      \\ rpt(pop_assum kall_tac)
+      \\ decide_tac) >>
+    ntac 3 (qpat_x_assum`!a b.P` kall_tac)>>
+    fsrw_tac[][]>>
+    `LENGTH q = k + sargs` by (
+      pop_assum mp_tac >>
+      qpat_x_assum`sargs = _ `mp_tac >>
+      rpt(pop_assum kall_tac) >> rw[] ) >>
+    first_assum SUBST1_TAC >>
+    simp_tac(srw_ss()++ARITH_ss)[] >>
+    `sargs ≤ m'` by metis_tac[LESS_EQ_TRANS] >>
+    pop_assum mp_tac >>
+    simp_tac(srw_ss()++ARITH_ss)[] >>
+    Cases_on `m=0` \\ fsrw_tac[] []
+    THEN1
+      (fsrw_tac[] [lookup_fromList2,lookup_fromList,Abbr`m'`]>>
+       qpat_x_assum`¬(n DIV 2 < _)`mp_tac >>
+       qpat_x_assum`(n DIV 2 < k + _)`mp_tac >>
+       qpat_x_assum`LENGTH q = _`mp_tac >>
+       qpat_x_assum`sargs = 0`mp_tac >>
+       rpt(pop_assum kall_tac) >>
+       decide_tac)>>
+    `m' = m+1` by (
+      qunabbrev_tac`m'` >>
+      IF_CASES_TAC >- (
+        qpat_x_assum`m ≤ _`mp_tac >>
+        pop_assum(SUBST1_TAC o EQT_INTRO) >>
+        qpat_x_assum`m ≠ 0`mp_tac >>
+        rpt(pop_assum kall_tac) >>
+        rw[] ) >>
+      REFL_TAC ) >>
+    pop_assum SUBST_ALL_TAC >>
+    simp_tac(srw_ss()++ARITH_ss)[] >>
+    `m+1 ≤ t'.stack_space` by simp[] >>
+    pop_assum mp_tac >>
+    qpat_x_assum`LENGTH t'.stack = _`(mp_tac o SYM) >>
+    qpat_x_assum`_.stack_space ≤ LENGTH t''.stack`mp_tac >>
+    simp_tac(srw_ss()++ARITH_ss)[LLOOKUP_THM,EL_TAKE,EL_DROP] >>
+    ntac 4 strip_tac >>
+    fsrw_tac[][lookup_fromList2,lookup_fromList] >>
+    reverse conj_asm2_tac >- simp[] >>
+    pop_assum mp_tac >>
+    qpat_x_assum`¬(_ < _)`mp_tac >>
+    qpat_x_assum`m + 1 ≤ _`mp_tac >>
+    simp_tac(srw_ss()++ARITH_ss)[] >>
+    ntac 3 strip_tac >>
+   first_x_assum(qspecl_then[`n`,`v`] kall_tac)>>
+   first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
+   rpt(qpat_x_assum`!a b. P` kall_tac)>>
+   fsrw_tac[][]>>
+   simp[LLOOKUP_THM]>>
+   `f+k - (n DIV 2 +1) < f` by simp[]>>
+   fsrw_tac[][EL_TAKE]>>
+   qpat_assum`∀x. A ⇒ EL B (DROP t5.stack_space t5.stack) = EL D E` mp_tac>>
+   disch_then (qspec_then `f+k-(n DIV 2 +1)` mp_tac)>>
+   impl_tac>- (
+     rpt(first_x_assum(mp_tac o assert(can (find_term (same_const numSyntax.less_tm)) o concl)))
+     \\ rpt(first_x_assum(mp_tac o assert(can (find_term (same_const numSyntax.leq_tm)) o concl)))
+     \\ rpt(first_x_assum(mp_tac o assert(can (find_term (aconv ``(=):num->num->bool``)) o concl)))
+     \\ rpt (pop_assum kall_tac)
+     \\ rw[]) >>
+   disch_then SUBST_ALL_TAC>>
+   qpat_x_assum`DROP A B = DROP C D` mp_tac>>
+   ntac 6 (pop_assum mp_tac) >>
+   simp_tac(srw_ss()++ARITH_ss)[] >>
+   ntac 5 strip_tac >>
+   disch_then sym_sub_tac >>
+   first_x_assum (qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
+   impl_tac>- simp[]>>
+   fs[EL_DROP]>>
+   qpat_x_assum `t'.stack_space + 3 = t5.stack_space` mp_tac>>
+   rpt(pop_assum kall_tac)>>
+   rw[]>>
+   `f' + k - n DIV 2 + 3 + t'.stack_space =
+   f' + k + t5.stack_space - n DIV 2` by fs[]>>
+   fs[])>>
+  Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
+  first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
+  Cases_on`q' = SOME Error`>>fsrw_tac[][]>>
+  impl_tac>-
+    (CONJ_ASM1_TAC>-
+      (qpat_x_assum`A=SOME(q,r)`mp_tac>>
+      Cases_on`dest`>>
+      fsrw_tac[][state_rel_def,find_code_def]>>
+      rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
+    CONJ_TAC>-
+      (qpat_x_assum`A=SOME(q,r)`mp_tac>>
+      Cases_on`dest`>>
+      fsrw_tac[][state_rel_def,find_code_def]>>
+      rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
+    CONJ_TAC>-
+     (fs [comp_def,get_labels_def]
+      \\ drule find_code_IMP_get_labels
+      \\ fs [get_labels_def]
+      \\ fs [Abbr `stack_state`,Abbr`t6`]
+      \\ imp_res_tac evaluate_mono
+      \\ fs[]
+      \\ metis_tac[SUBSET_TRANS,subspt_trans,loc_check_SUBSET])>>
+    CONJ_TAC>-
+      (`EVEN (max_var r)` by
+          (ho_match_mp_tac max_var_intro>>
+          fsrw_tac[][convs_def]>>
+          match_mp_tac every_var_mono>>
+          HINT_EXISTS_TAC>>fsrw_tac[][reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
+      unabbrev_all_tac>>fsrw_tac[][EVEN_EXISTS]>>
+      rpt (pop_assum kall_tac)>>
+      `m * 2 DIV 2 = m` by
+        (Q.ISPECL_THEN[`2n`,`m`]assume_tac MULT_DIV>>fsrw_tac[][])>>
+      fsrw_tac[][MULT_COMM,MAX_DEF]>>rw[]>>
+      DECIDE_TAC)>>
+    unabbrev_all_tac>>fsrw_tac[][]>>
+    fsrw_tac[][stackSemTheory.state_component_equality]>>
+    imp_res_tac evaluate_mono>>
+    metis_tac[IS_PREFIX_TRANS])>>
+  strip_tac>>
+  Cases_on`q'`>>simp[]>>
+  Cases_on`x''`>>simp[]
+  >-
+    (IF_CASES_TAC>>fsrw_tac[][]>>
+    Cases_on`pop_env r'`>>fsrw_tac[][]>>
+    IF_CASES_TAC>>fsrw_tac[][]>>
+    strip_tac>>
+    imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
+    qpat_x_assum`if A then B else C` mp_tac>>
+    IF_CASES_TAC>>fsrw_tac[][]
+    >-
+      (*the stackLang evaluation halts*)
+      (rw[]>>
+      qexists_tac`ck`>>
+      fsrw_tac[][Abbr`stack_state`]>>
+      `ck + (t.clock -1) = ck +t.clock -1` by DECIDE_TAC>>
+      fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
+      metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono])
+    >>
+    strip_tac>>
+    `∃t2. evaluate(PopHandler (k,f,f') Skip,t1) = (NONE,t2) ∧ state_rel k f f' (set_var x0 w0 x'') t2 lens ∧ x''.handler = s.handler` by
+      (qpat_x_assum`!a b c d e f. P` kall_tac>>
+      Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>
+      rfs[Abbr`word_state`]>>
+      fsrw_tac[][call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,s_key_eq_def]>>
+      qpat_x_assum`pop_env A = B` mp_tac>>
+      simp[pop_env_def]>>
+      ntac 4 (TOP_CASE_TAC>>fsrw_tac[][s_key_eq_def,s_frame_key_eq_def])>>
+      pop_assum kall_tac>>
+      strip_tac>>
+      fsrw_tac[][PopHandler_def,stackSemTheory.evaluate_def,LET_THM]>>
+      rveq>>fsrw_tac[][state_rel_def,set_var_def,LET_THM]>>
+      imp_res_tac stack_rel_cons_LEN_SOME>>
+      fsrw_tac[][LENGTH_DROP]>>
+      simp[stackSemTheory.set_store_def,stackSemTheory.set_var_def,stackSemTheory.get_var_def,FLOOKUP_UPDATE]>>
+      CONJ_TAC>-
+        metis_tac[evaluate_mono,subspt_def]>>
+      CONJ_ASM1_TAC>-
+        (fsrw_tac[][LENGTH_DROP]>>
+        Cases_on`f'`>>fsrw_tac[][]>>
+        simp[])>>
+      CONJ_TAC>-
+        simp[wf_insert,wf_fromAList]>>
+      fsrw_tac[][LET_THM]>>
+      CONJ_TAC>-
+        (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
+        imp_res_tac stack_rel_DROP_SOME>>
+        pop_assum mp_tac>>
+        simp[EL_DROP,DROP_DROP])>>
+      ntac 2 strip_tac>>
+      fsrw_tac[][lookup_insert,convs_def]>>
+      IF_CASES_TAC>-
+        simp[]>>
+      strip_tac>>
+      `n ∈ domain (fromAList l)` by metis_tac[domain_lookup]>>
+      `n ∈ domain x1 ∧ n ∈ domain s.locals` by
+        (fsrw_tac[][cut_env_def]>>
+        `n ∈ domain x'` by rfs[]>>
+        rveq>>
+        fsrw_tac[][domain_inter])>>
+      res_tac>>simp[]>>
+      fsrw_tac[][domain_lookup]>>
+      last_x_assum (qspecl_then [`n`,`v''`]mp_tac)>>
+      simp[LLOOKUP_THM]>>
+      strip_tac>>
+      fsrw_tac[][stack_rel_def]>>qpat_x_assum`A=SOME stack''''` mp_tac>>
+      qpat_abbrev_tac`ls = DROP A B`>>
+      Cases_on`ls`>>simp[abs_stack_def]>>
+      rpt (TOP_CASE_TAC >>simp[])>>
+      strip_tac>>
+      qpat_x_assum`stack_rel_aux A B C stack''''` mp_tac>>
+      rveq>>simp[stack_rel_aux_def]>>
+      strip_tac>>
+      fsrw_tac[][lookup_fromAList]>>
+      `MEM (n,v) l` by metis_tac[ALOOKUP_MEM]>>
+      `MEM (n DIV 2,v) (MAP_FST adjust_names l)` by
+        (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
+        metis_tac[])>>
+      simp[LLOOKUP_THM]>>
+      imp_res_tac filter_bitmap_MEM>>
+      imp_res_tac MEM_index_list_EL>>
+      pop_assum mp_tac>>
+      simp[LENGTH_TAKE,EL_TAKE]>>
+      Cases_on`LENGTH x''`>>
+      fsrw_tac[][]>>simp[]>>
+      fsrw_tac[][markerTheory.Abbrev_def]>>
+      `t1.stack_space+3 = 3+t1.stack_space` by fsrw_tac[][ADD_COMM]>>
+      pop_assum SUBST1_TAC>>
+      simp[GSYM DROP_DROP]>>
+      qpat_x_assum`A=DROP t1.stack_space t1.stack` sym_sub_tac>>
+      simp[]>>
+      `k + SUC n' - n DIV 2 = SUC (k+ SUC n' - (n DIV 2+1))` by
+        (ntac 30 (pop_assum mp_tac)>>
+        rpt (pop_assum kall_tac)>>
+        simp[])>>
+      qpat_x_assum`COND (_ = []) _ _`mp_tac >>
+      rename1`ls = []` >>
+      qpat_x_assum`LENGTH ls = _`mp_tac >>
+      Cases_on`ls` >> simp_tac(srw_ss())[] >>
+      `SUC n' + 1 + k - (n DIV 2 + 1) = SUC (k + SUC n' - (n DIV 2 + 1))`
+      by (
+        ntac 30 (pop_assum mp_tac) >>
+        rpt(pop_assum kall_tac) >>
+        rw[]) >>
+      pop_assum SUBST1_TAC >>
+      simp_tac(srw_ss())[])>>
+    imp_res_tac stackPropsTheory.evaluate_add_clock>>
+    ntac 4 (pop_assum kall_tac)>>
+    rveq>>fsrw_tac[][]>>
+    first_x_assum(qspecl_then[`k`,`f`,`f'`,`t2`,`bs'`,`lens`] mp_tac)>>
+    impl_tac>-
+      (fsrw_tac[][convs_def]>>rw[]
+      >-
+        (fs [comp_def,get_labels_def,PopHandler_def]>>
+        imp_res_tac evaluate_mono >>
+        fs [Abbr `stack_state`,Abbr`t6`]>>
+        metis_tac[SUBSET_TRANS,subspt_trans,loc_check_SUBSET])
+      >-
+        (qpat_x_assum`A<B:num` mp_tac>>
+        simp[wordLangTheory.max_var_def])
+      >>
+        unabbrev_all_tac>>
+        imp_res_tac evaluate_mono>>
+        imp_res_tac comp_IMP_isPREFIX>>
+        rpt (qpat_x_assum`isPREFIX _ _` mp_tac)>>
+        simp[comp_def]>>
+        metis_tac[IS_PREFIX_TRANS])>>
+    rw[]>>
+    qexists_tac`ck+ck'`>>
+    fsrw_tac[][Abbr`stack_state`]>>
+    first_x_assum(qspec_then`ck'` mp_tac)>>
+    simp[Once evaluate_PopHandler_seq,stackSemTheory.evaluate_def,evaluate_PopHandler_clock]>>
+    first_x_assum(qspec_then`ck'` mp_tac)>>simp[]>>
+    fsrw_tac[][ADD_COMM]>>
+    pop_assum mp_tac>>
+    simp[set_var_def])
+  >-
+    (*Exception*)
+    (IF_CASES_TAC>>fs[]>>
+    IF_CASES_TAC>>fs[]>>
+    qpat_x_assum`if A then B else C` mp_tac>>
+    IF_CASES_TAC>>fs[]
+    >-
+      (rw[]>>
+      qexists_tac`ck`>>
+      fsrw_tac[][Abbr`stack_state`]>>
+      `ck + (t.clock -1) = ck +t.clock -1` by DECIDE_TAC>>
+      fsrw_tac[][state_rel_def,compile_result_NOT_2,set_var_def]>>
+      imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
+      fsrw_tac[][]>>
+      metis_tac[IS_PREFIX_TRANS,pop_env_ffi])
+    >>
+    fs[push_locals_def]>>strip_tac>>
+    strip_tac>>
+    `state_rel k f f' (set_var x''0 w0 r') t1 lens ∧ s.handler = r'.handler` by
+      (qpat_x_assum`!a b c d e f. P` kall_tac>>
+      Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>
+      rfs[Abbr`word_state`]>>
+      Cases_on`n`>>
+      qpat_x_assum`!a b c.P` kall_tac>>
+      fsrw_tac[][call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,s_key_eq_def]>>
+      rveq>>fsrw_tac[][state_rel_def,set_var_def,LET_THM]>>
+      `LENGTH lens = LENGTH s.stack` by
+         (fs[stack_rel_def]>>
+         imp_res_tac abs_stack_IMP_LENGTH)>>
+      qpat_x_assum`LASTN A B = C` mp_tac>>
+      qpat_x_assum`stack_rel k r'.handler A B C D E (LASTN n (f'::lens))` mp_tac>>
+      simp[LASTN_CONS_ID,GSYM ADD1]>>
+      ntac 2 strip_tac>>
+      CONJ_TAC>-
+        metis_tac[evaluate_consts]>>
+      CONJ_ASM1_TAC>-
+        (imp_res_tac stack_rel_cons_LEN_NONE>>
+        fsrw_tac[][LENGTH_DROP]>>
+        Cases_on`f'`>>fsrw_tac[][]>>
+        simp[])>>
+      CONJ_TAC>-
+        simp[wf_insert,wf_fromAList]>>
+      CONJ_TAC>-
+        (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
+        metis_tac[stack_rel_DROP_NONE])>>
+      ntac 2 strip_tac>>
+      fsrw_tac[][lookup_insert,convs_def]>>
+      IF_CASES_TAC>-
+        simp[]>>
+      strip_tac>>
+      `n ∈ domain (fromAList lss)` by metis_tac[domain_lookup]>>
+      `n ∈ domain x1 ∧ n ∈ domain s.locals` by
+        (fsrw_tac[][cut_env_def]>>
+        `n ∈ domain x'` by rfs[]>>
+        rveq>>
+        fsrw_tac[][domain_inter])>>
+      res_tac>>simp[]>>
+      fsrw_tac[][domain_lookup]>>
+      last_x_assum (qspecl_then [`n`,`v''`]mp_tac)>>
+      simp[LLOOKUP_THM]>>
+      strip_tac>>
+      fsrw_tac[][stack_rel_def]>>
+      qpat_x_assum`A=SOME stack''''''` mp_tac>>
+      qpat_abbrev_tac`L = DROP A B`>>
+      Cases_on`L`>>simp[abs_stack_def]>>
+      ntac 100 (last_x_assum kall_tac)>>
+      rpt (TOP_CASE_TAC >>simp[])>>
+      strip_tac>>
+      qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
+      rveq>>simp[stack_rel_aux_def]>>
+      strip_tac>>
+      fsrw_tac[][lookup_fromAList]>>
+      `MEM (n,v) lss` by metis_tac[ALOOKUP_MEM]>>
+      `MEM (n DIV 2,v) (MAP_FST adjust_names lss)` by
+        (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
+        metis_tac[])>>
+      simp[LLOOKUP_THM]>>
+      imp_res_tac filter_bitmap_MEM>>
+      ntac 2 (pop_assum kall_tac)>>
+      pop_assum (qspec_then`(n DIV 2 ,v)` mp_tac)>>
+      impl_tac>-
+        (fs[MEM_MAP,MAP_FST_def]>>
+        qexists_tac`y`>>
+        simp[mem_list_rearrange,MEM_QSORT]>>
+        `ALL_DISTINCT (MAP FST lss)` by
+          (qpat_x_assum`A=MAP FST lss` sym_sub_tac>>
+          rpt (pop_assum kall_tac)>>
+          simp[MAP_FST_def,list_rearrange_I]>>
+          match_mp_tac ALL_DISTINCT_MAP_INJ>>
+          Q.ISPEC_THEN `x'` assume_tac ALL_DISTINCT_MAP_FST_toAList>>
+          rw[]
+          >-
+            (fs[MEM_QSORT,EL_ALL_DISTINCT_EL_EQ,MEM_EL,EL_MAP]>>
+            metis_tac[])
+          >>
+          metis_tac[QSORT_PERM,ALL_DISTINCT_PERM,ALL_DISTINCT_MAP])>>
+        metis_tac[ALL_DISTINCT_MEM_toAList_fromAList])>>
+      strip_tac>>
+      imp_res_tac MEM_index_list_EL>>
+      pop_assum mp_tac>>
+      simp[LENGTH_TAKE,EL_TAKE]>>
+      Cases_on`LENGTH x`>>fs[]>>
+      simp[]>>
+      qpat_x_assum`COND (_ = []) _ _`mp_tac >>
+      rename1`ls = []` >> Cases_on`ls` \\ fs[] >>
+      `k + (SUC n'+1) - SUC(n DIV 2) = SUC (k+ SUC n' - (n DIV 2+1))` by DECIDE_TAC>>
+      simp[EL_TAKE])>>
+    imp_res_tac stackPropsTheory.evaluate_add_clock>>
+    ntac 4 (pop_assum kall_tac)>>
+    rveq>>fsrw_tac[][]>>
+    first_x_assum(qspecl_then[`k`,`f`,`f'`,`t1`,`bs''`,`lens`] mp_tac)>>
+    impl_tac>-
+      (fsrw_tac[][convs_def]>>rw[]
+      >-
+        (fs [comp_def,get_labels_def,PopHandler_def] >>
+        fs [Abbr `stack_state`,Abbr`t6`]>>
+        imp_res_tac evaluate_mono>>
+        fs[]>>
+        metis_tac[loc_check_SUBSET,subspt_trans,SUBSET_TRANS])
+      >-
+        fs[wordLangTheory.max_var_def]
+      >>
+        unabbrev_all_tac>>
+        imp_res_tac evaluate_mono>>
+        rpt(qpat_x_assum`isPREFIX _ _` mp_tac)>>
+        simp[comp_def]>>
+        metis_tac[IS_PREFIX_TRANS])>>
+    rw[]>>
+    qexists_tac`ck+ck'`>>
+    fsrw_tac[][Abbr`stack_state`]>>
+    first_x_assum(qspec_then`ck'` mp_tac)>>
+    fs[set_var_def])
+  >>
+    (*Timeout and Halt*)
+    (strip_tac>>
+    qexists_tac`ck`>>
+    fs[Abbr`stack_state`]>>
+    `t.clock -1 + ck = ck +t.clock -1` by DECIDE_TAC>>
+    fs[]>>
+    rveq>>simp[]>>
+    qpat_x_assum `if A then B else C` mp_tac>>
+    IF_CASES_TAC>>fs[]>>rveq>>
+    fs[]>>
+    strip_tac>>
+    fs[state_rel_def])
+QED
+
 Theorem comp_correct:
    !(prog:'a wordLang$prog) (s:('a,'a word list # 'c,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -5016,1924 +7063,15 @@ Theorem comp_correct:
          | SOME (Exception _ y) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens) /\ FLOOKUP t1.regs 1 = SOME y
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock
 Proof
-  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs[get_labels_def]
-  THEN1 (* Skip *)
-   (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
-        stackSemTheory.evaluate_def,comp_def] \\ rw [])
-  THEN1 (* Alloc *)
-   (qexists_tac `0`
-    \\ fs [wordSemTheory.evaluate_def,
-        stackSemTheory.evaluate_def,comp_def] \\ rw []
-    \\ `n = 2` by (fs [convs_def]) \\ rw []
-    \\ `1 < k ∧ 1 ≠ k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
-    \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
-    \\ `t.use_alloc /\ (get_var 1 t = SOME (Word c))` by
-       (fs [state_rel_def,get_var_def,LET_DEF]
-        \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
-        \\ fs [stackSemTheory.get_var_def])
-    \\ Cases_on `cut_env names s.locals`
-    THEN1 fs [wordSemTheory.alloc_def]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
-    \\ Cases_on `wLive names bs (k,f,f')`
-    \\ rename1 `wLive names bs (k,f,f') = (wlive_prog,bs1)`
-    \\ Cases_on`1 ≤ f`
-    THEN1
-      (drule evaluate_wLive
-      \\ impl_keep_tac
-      THEN1
-        (fs[convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
-        fs[GSYM toAList_domain,EVERY_MEM]>>
-        fs[X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
-        rw[]>>res_tac>>DECIDE_TAC)
-      \\ REPEAT STRIP_TAC \\ fs []
-      \\ fs [stackSemTheory.evaluate_def,LET_THM]
-      \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
-      \\ Cases_on `alloc c t5` \\ fs []
-      \\ rename1 `alloc c t5 = (res1,t1)` \\ fs []
-      \\ drule alloc_IMP_alloc \\ impl_tac >- (fs[])
-      \\ fs [] \\ REPEAT STRIP_TAC
-      \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
-    \\
-      `f=0` by DECIDE_TAC>>
-      `f' = 0` by fs[state_rel_def]>>
-      fs[wLive_def]>>rveq>>fs[stackSemTheory.evaluate_def,LET_THM]>>
-      fs[cut_env_def]>>
-      `domain names = {}` by
-        (CCONTR_TAC>>fs[]>>
-        `∃x. x ∈ domain names` by fs[MEMBER_NOT_EMPTY]>>
-        fs[convs_def,GSYM toAList_domain]>>
-        assume_tac list_max_max>>
-        fs[EVERY_MEM]>>res_tac>>
-        fs[wordLangTheory.max_var_def]>>
-        DECIDE_TAC)>>
-      imp_res_tac alloc_IMP_alloc2>>
-      ntac 14 (pop_assum kall_tac)>>
-      fs[]>>
-      Cases_on`res=NONE`>>fs[])
-  THEN1 (* Move *) (
-    simp[comp_def]
-    \\ fs[evaluate_def]
-    \\ last_x_assum mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ strip_tac \\ rveq
-    \\ simp[]
-    \\ qabbrev_tac`mvs = MAP (DIV2 ## DIV2) moves`
-    \\ `windmill mvs ∧ windmill moves ∧ (EVERY EVEN (MAP FST moves) ∧ EVERY EVEN (MAP SND moves))`
-    by (
-      simp[parmoveTheory.windmill_def,Abbr`mvs`]
-      \\ simp[MAP_MAP_o,o_PAIR_MAP]
-      \\ simp[GSYM MAP_MAP_o]
-      \\ reverse conj_asm2_tac
-      >- (
-        qhdtm_x_assum`post_alloc_conventions`mp_tac
-        \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2] )
-      \\ match_mp_tac ALL_DISTINCT_MAP_INJ
-      \\ rw[]
-      \\ match_mp_tac EVEN_DIV2_INJ \\ simp[]
-      \\ fs[EVERY_MEM])
-    \\ simp[wMove_def]
-    \\ qexists_tac`0` \\ simp[]
-    \\ drule evaluate_wMoveAux_seqsem
-    \\ simp[]
-    \\ disch_then(qspec_then`parmove mvs`mp_tac)
-    \\ qabbrev_tac`r = λx.
-         case x of NONE => get_var (k+1) t
-                 | SOME i => get_var (2*i) s`
-    \\ disch_then(qspec_then`r`mp_tac)
-    \\ impl_tac
-    >- (
-      simp[Abbr`r`]
-      \\ conj_tac
-      >- (
-        `IS_SOME (get_vars (MAP SND moves) s)` by metis_tac[IS_SOME_EXISTS]
-        \\ fs[IS_SOME_get_vars_EVERY]
-        \\ fs[EVERY_FILTER,EVERY_MEM,MEM_MAP,PULL_EXISTS]
-        \\ simp[MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
-        \\ rw[] \\ imp_res_tac MEM_MAP_SND_parmove
-        \\ pop_assum mp_tac
-        \\ simp[Abbr`mvs`,MAP_MAP_o,o_PAIR_MAP]
-        \\ fs[IS_SOME_EXISTS]
-        \\ simp[MEM_MAP,PULL_EXISTS]
-        \\ simp[DIV2_def,bitTheory.DIV_MULT_THM2]
-        \\ rw[] \\ res_tac
-        \\ qhdtm_x_assum`post_alloc_conventions`mp_tac
-        \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2]
-        \\ simp[MEM_MAP,PULL_EXISTS] )
-      \\ conj_tac
-      >- (
-        qpat_abbrev_tac`ff = IS_SOME _`
-        \\ every_case_tac \\ fs[]
-        \\ Q.ISPEC_THEN`mvs`mp_tac(Q.GEN`mvs` parmove_not_use_temp_before_assign)
-        \\ simp[] )
-      \\ conj_tac
-      >- (
-        fs[EVERY_MEM,UNCURRY,PULL_FORALL]
-        \\ rw[]
-        \\ imp_res_tac (SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_SND_parmove)
-        \\ imp_res_tac (SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_FST_parmove)
-        \\ rfs[]
-        \\ fs[Abbr`mvs`,MEM_MAP,EXISTS_PROD]
-        \\ fs[wordLangTheory.max_var_def]
-        \\ qmatch_assum_abbrev_tac`list_max ls < _`
-        \\ qspec_then`ls`strip_assume_tac list_max_max
-        \\ fs[EVERY_MEM,Abbr`ls`,MEM_MAP,PULL_EXISTS]
-        \\ res_tac \\ fs[]
-        \\ qmatch_abbrev_tac`DIV2 aa < bb`
-        \\ qmatch_assum_abbrev_tac`aa ≤ cc`
-        \\ `cc < 2 * bb` by simp[Abbr`bb`]
-        \\ `aa < 2 * bb` by metis_tac[LESS_EQ_LESS_TRANS]
-        \\ simp[DIV2_def]
-        \\ simp[DIV_LT_X])
-      \\ match_mp_tac ALL_DISTINCT_parmove
-      \\ fs[parmoveTheory.windmill_def])
-    \\ strip_tac \\ simp[]
-    \\ last_assum(Q.ISPEC_THEN`r`mp_tac o MATCH_MP parmoveTheory.parmove_correct)
-    \\ simp[parmoveTheory.eqenv_def]
-    \\ strip_tac
-    \\ qhdtm_x_assum`state_rel`mp_tac
-    \\ qmatch_abbrev_tac`_ _ _ _ a _ _ ⇒ _ _ _ _ b _ _`
-    \\ `a = b` suffices_by rw[]
-    \\ simp[Abbr`a`,Abbr`b`]
-    \\ qpat_abbrev_tac`ls = FILTER A B`
-    \\ `MAP (seqsem (parmove mvs) r) ls =
-        MAP (parsem (MAP (SOME ## SOME) mvs) r) ls`
-    by (
-      fs[MAP_EQ_f,Abbr`ls`,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
-      \\ rw[] \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
-      \\ simp[FUN_EQ_THM,FORALL_PROD])
-    \\ pop_assum SUBST_ALL_TAC
-    \\ simp[Abbr`ls`]
-    \\ simp[MAP_REVERSE,FILTER_REVERSE]
-    \\ drule TIMES2_DIV2_lemma
-    \\ simp[] \\ disch_then kall_tac
-    \\ simp[Abbr`mvs`]
-    \\ Q.ISPEC_THEN`r`drule (Q.GEN`r`parsem_parmove_DIV2_lemma)
-    \\ impl_tac >- simp[]
-    \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC)
-    \\ qpat_abbrev_tac`ls = FILTER _ _`
-    \\ simp[set_vars_def]
-    \\ simp[state_component_equality]
-    \\ dep_rewrite.DEP_REWRITE_TAC[alist_insert_REVERSE]
-    \\ conj_asm1_tac
-    >- (
-      simp[Abbr`ls`]
-      \\ match_mp_tac ALL_DISTINCT_MAP_INJ
-      \\ simp[MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
-      \\ match_mp_tac ALL_DISTINCT_parmove
-      \\ simp[] )
-    \\ fs[]
-    \\ simp[parmoveTheory.parsem_def]
-    \\ simp[ZIP_MAP]
-    \\ simp[MAP_MAP_o]
-    \\ simp[o_DEF]
-    \\ `∀x. r (SOME x) = get_var (2 * x) s` by (simp[Abbr`r`] )
-    \\ simp[]
-    \\ simp[APPLY_UPDATE_LIST_ALOOKUP]
-    \\ qmatch_goalsub_abbrev_tac`ALOOKUP (REVERSE ll)`
-    \\ `ALL_DISTINCT (MAP FST ll)`
-    by (
-      simp[Abbr`ll`,MAP_MAP_o,o_DEF]
-      \\ simp[GSYM o_DEF,GSYM MAP_MAP_o]
-      \\ match_mp_tac ALL_DISTINCT_MAP_INJ
-      \\ simp[] )
-    \\ simp[alookup_distinct_reverse]
-    \\ simp[Abbr`ll`]
-    \\ qmatch_goalsub_abbrev_tac`ALOOKUP (MAP ff moves)`
-    \\ Q.ISPEC_THEN`ff`mp_tac ALOOKUP_MAP_any
-    \\ disch_then(qspec_then`SOME`mp_tac)
-    \\ simp[Abbr`ff`]
-    \\ disch_then(qspec_then`λx y. get_var (2 * DIV2 y) s`mp_tac)
-    \\ disch_then(qspec_then`moves`mp_tac)
-    \\ simp[INJ_DEF]
-    \\ strip_tac
-    \\ simp[Abbr`ls`]
-    \\ qpat_abbrev_tac`ignore = MAP _ _`
-    \\ simp[Once MAP_FILTER_IS_SOME]
-    \\ simp[o_DEF]
-    \\ qmatch_goalsub_abbrev_tac`MAP ff (FILTER _ _)`
-    \\ qpat_abbrev_tac`ls = FILTER _ _`
-    \\ `MAP ff ls =
-        MAP (λx. THE (get_var (THE (ALOOKUP moves (THE x))) s)) ls`
-    by (
-      simp[MAP_EQ_f]
-      \\ simp[Abbr`ls`,MEM_FILTER]
-      \\ simp[Abbr`ff`,IS_SOME_EXISTS,PULL_EXISTS]
-      \\ qx_gen_tac`z` \\ strip_tac
-      \\ Cases_on`ALOOKUP moves z`
-      >- (
-        fs[ALOOKUP_FAILS,MEM_MAP]
-        \\ imp_res_tac(SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_FST_parmove)
-        \\ fs[] \\ metis_tac[FST,PAIR] )
-      \\ simp[]
-      \\ AP_TERM_TAC \\ AP_THM_TAC
-      \\ AP_TERM_TAC
-      \\ simp[bitTheory.DIV_MULT_THM2,DIV2_def]
-      \\ imp_res_tac ALOOKUP_MEM
-      \\ fs[EVERY_MAP,EVERY_MEM]
-      \\ res_tac \\ fs[EVEN_MOD2] )
-    \\ pop_assum SUBST1_TAC
-    \\ simp[Abbr`ignore`]
-    \\ simp[Abbr`ls`]
-    \\ match_mp_tac alist_insert_get_vars
-    \\ conj_tac >- fs[parmoveTheory.windmill_def]
-    \\ simp[]
-    \\ conj_tac >- metis_tac[ALL_DISTINCT_parmove]
-    \\ conj_tac >- fs[state_rel_def]
-    \\ conj_tac >- metis_tac[MEM_MAP_FST_parmove]
-    \\ metis_tac[parmove_preserves_moves])
-  THEN1 (* Inst *)
-    (fs[comp_def,wordSemTheory.evaluate_def]
-    \\ last_x_assum mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ strip_tac \\ rveq
-    \\ qexists_tac`0` \\ simp[]
-    \\ fs[convs_def,wordLangTheory.max_var_def]
-    \\ drule evaluate_wInst \\ simp[]
-    \\ disch_then drule
-    \\ strip_tac \\ simp[])
-  THEN1 (* Assign *)
-    fs[flat_exp_conventions_def]
-  THEN1 (* Get *) (
-    fs[flat_exp_conventions_def]
-    \\ fs[comp_def]
-    \\ fs[wordSemTheory.evaluate_def]
-    \\ last_x_assum mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
-    \\ strip_tac \\ rveq \\ simp[]
-    \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
-    \\ rw[]
-    \\ qexists_tac`0` \\ simp[]
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`NONE` \\ simp[]
-    \\ match_mp_tac wRegWrite1_thm1
-    \\ simp[stackSemTheory.evaluate_def]
-    \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
-    \\ fs[state_rel_def]
-    \\ rfs[DOMSUB_FLOOKUP_THM])
-  THEN1 (* Set *) (
-    Cases_on`exp`>>fs[flat_exp_conventions_def]
-    \\ fs[comp_def,LET_THM]
-    \\ pairarg_tac \\ fs[]
-    \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
-    \\ last_x_assum mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ strip_tac \\ rveq \\ simp[]
-    \\ qexists_tac`0` \\ simp[]
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`NONE` \\ simp[]
-    \\ match_mp_tac (GEN_ALL wStackLoad_thm1)
-    \\ fs[convs_def,wordLangTheory.every_var_exp_def]
-    \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,get_var_def]
-    \\ rveq \\ fs[]
-    \\ asm_exists_tac \\ simp[]
-    \\ asm_exists_tac \\ simp[]
-    \\ fs[GSYM wordSemTheory.get_var_def]
-    \\ drule (GEN_ALL state_rel_get_var_imp)
-    \\ disch_then drule \\ strip_tac
-    \\ drule (GEN_ALL state_rel_get_var_imp2)
-    \\ disch_then drule \\ strip_tac
-    \\ simp[stackSemTheory.evaluate_def]
-    \\ `t.use_store` by fs[state_rel_def]
-    \\ simp[]
-    \\ conj_tac \\ strip_tac \\ fs[stackSemTheory.get_var_def]
-    \\ simp[set_store_set_var]
-    \\ metis_tac[state_rel_set_store])
-  THEN1 (* Store *)
-    fs[flat_exp_conventions_def]
-  THEN1 (* Tick *)
-   (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
-        stackSemTheory.evaluate_def,comp_def] \\ rw []
-    \\ `s.clock = t.clock` by fs [state_rel_def] \\ fs [] \\ rw []
-    \\ fs [state_rel_def,wordSemTheory.dec_clock_def,stackSemTheory.dec_clock_def]
-    \\ metis_tac[])
-  THEN1 (* MustTerminate *)
-   (fs [wordSemTheory.evaluate_def,LET_DEF,
-        stackSemTheory.evaluate_def,comp_def]
-    \\ Cases_on `s.termdep = 0` \\ fs [state_rel_def])
-  THEN1 (* Seq *)
-   (fs [wordSemTheory.evaluate_def,LET_DEF,
-        stackSemTheory.evaluate_def,comp_def]
-    \\ pairarg_tac \\ fs []
-    \\ pairarg_tac \\ fs []
-    \\ pairarg_tac \\ fs [get_labels_def]
-    \\ `max_var c1 < 2 * f' + 2 * k /\ max_var c2 < 2 * f' + 2 * k` by
-      (fs [wordLangTheory.max_var_def] \\ decide_tac)
-    \\ `post_alloc_conventions k c1 /\
-        post_alloc_conventions k c2 /\
-        flat_exp_conventions c1 /\
-        flat_exp_conventions c2` by fs [convs_def]
-    \\ imp_res_tac comp_IMP_isPREFIX
-    \\ `SND (comp c1 bs (k,f,f')) ≼ t.bitmaps /\
-        SND (comp c2 bs' (k,f,f')) ≼ t.bitmaps /\
-        get_labels (FST (comp c1 bs (k,f,f'))) SUBSET loc_check t.code /\
-        get_labels (FST (comp c2 bs' (k,f,f'))) SUBSET loc_check t.code` by
-         (fs [] \\ imp_res_tac IS_PREFIX_TRANS \\ NO_TAC)
-    \\ reverse (Cases_on `res' = NONE`) \\ fs [] \\ rpt var_eq_tac
-    THEN1
-     (first_x_assum drule \\ fs [] \\ rw [] \\ fs []
-      \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
-      \\ qexists_tac `ck` \\ fs [] \\ Cases_on `res` \\ fs []
-      \\ Cases_on `res1 = NONE`
-      \\ fs [stackSemTheory.evaluate_def,LET_THM])
-    \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
-    \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
-    \\ reverse (Cases_on `res1 = NONE`) \\ fs [] THEN1
-     (qexists_tac `ck`
-      \\ `good_dimindex (:'a)` by fs [state_rel_def]
-      \\ fs [Halt_EQ_compile_result,stackSemTheory.evaluate_def,LET_THM]
-      \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-      \\ `s.ffi = t.ffi` by fs [state_rel_def]
-      \\ imp_res_tac evaluate_io_events_mono \\ fs []
-      \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono \\ fs []
-      \\ rfs [] \\ fs [] \\ metis_tac [IS_PREFIX_TRANS])
-    \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
-    \\ `SND (comp c2 bs' (k,f,f')) ≼ t1.bitmaps /\
-        get_labels (FST (comp c2 bs' (k,f,f'))) SUBSET loc_check t1.code` by
-         (fs[]>>imp_res_tac evaluate_mono>>fs[]>>
-         metis_tac[IS_PREFIX_TRANS,SUBSET_TRANS,loc_check_SUBSET])
-    \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
-    \\ fs [stackSemTheory.evaluate_def,LET_THM]
-    \\ imp_res_tac stack_evaluate_add_clock_NONE \\ fs []
-    \\ pop_assum (qspec_then `ck'` assume_tac)
-    \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
-    \\ `s.handler = s1'.handler` by
-      (Q.ISPECL_THEN [`c1`,`s`] assume_tac evaluate_stack_swap>>rfs[])>>
-    fs[])
-  THEN1 (* Return *)
-   (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,LET_DEF,
-        stackSemTheory.evaluate_def,comp_def,wReg1_def]
-    \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
-    \\ Cases_on `get_var n s` \\ fs []
-    \\ Cases_on `get_var m s` \\ fs [] \\ rw []
-    \\ Cases_on `x` \\ fs []
-    \\ rename1 `get_var n s = SOME (Loc l1 l2)`
-    \\ fs [wStackLoad_def] \\ fs [convs_def] \\ rw []
-    \\ fs [reg_allocTheory.is_phy_var_def,wordLangTheory.max_var_def]
-    \\ `t.use_stack /\ ~(LENGTH t.stack < t.stack_space + f) /\
-        t.stack_space <= LENGTH t.stack` by
-     (fs [state_rel_def] \\ decide_tac) \\ fs [LET_DEF]
-    \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
-    THEN1
-     (`(get_var (n DIV 2) t = SOME (Loc l1 l2)) /\ (get_var 1 t = SOME x')` by
-       (fs [state_rel_def,get_var_def,LET_DEF]
-        \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
-        \\ fs [stackSemTheory.get_var_def])
-      \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF]
-      \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
-             fromList2_def,lookup_def]
-      \\ conj_tac >- metis_tac[]
-      \\ simp[wf_def,GSYM DROP_DROP])
-    \\ `(t.stack_space + (f +k - (n DIV 2 + 1)) < LENGTH t.stack) /\
-        (EL (t.stack_space + (f +k - (n DIV 2 + 1))) t.stack = Loc l1 l2) /\
-        (get_var 1 t = SOME x')` by
-     (fs [state_rel_def,get_var_def,LET_DEF]
-      \\ res_tac \\ qpat_x_assum `!x.bbb` (K ALL_TAC) \\ rfs []
-      \\ fs [stackSemTheory.get_var_def]
-      \\ imp_res_tac LLOOKUP_TAKE_IMP
-      \\ fs [LLOOKUP_DROP] \\ fs [LLOOKUP_THM] \\ rw[]
-      \\ rfs[EL_TAKE])
-    \\ fs [LET_DEF]
-    \\ `(set_var k (Loc l1 l2) t).use_stack /\
-        (set_var k (Loc l1 l2) t).stack_space <=
-         LENGTH (set_var k (Loc l1 l2) t).stack` by
-      fs [stackSemTheory.set_var_def]
-    \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
-    \\ fs [stackSemTheory.set_var_def,LET_DEF]
-    \\ `k <> 1` by (fs [state_rel_def] \\ decide_tac)
-    \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF,FLOOKUP_UPDATE]
-    \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
-           fromList2_def,lookup_def]
-    \\ conj_tac >- metis_tac[]
-    \\ simp[wf_def,GSYM DROP_DROP])
-  THEN1 (* Raise *)
-   (fs [wordSemTheory.evaluate_def,jump_exc_def]
-    \\ `1 < k` by (fs [state_rel_def] \\ decide_tac)
-    \\ qpat_x_assum `xxx = (aa,bb)` mp_tac
-    \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
-    \\ pop_assum mp_tac
-    \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
-    \\ qexists_tac `1`
-    \\ rename1 `LASTN (s.handler + 1) s.stack =
-          StackFrame l (SOME (h1,l3,l4))::rest`
-    \\ fs [wordSemTheory.evaluate_def,LET_DEF,
-        stackSemTheory.evaluate_def,comp_def,jump_exc_def,
-        stackSemTheory.find_code_def]
-    \\ `lookup raise_stub_location t.code = SOME (raise_stub k)` by fs [state_rel_def] \\ fs []
-    \\ pop_assum kall_tac
-    \\ fs [stackSemTheory.dec_clock_def,raise_stub_def,wordLangTheory.max_var_def]
-    \\ fs [state_rel_def,LET_DEF,push_locals_def,stackSemTheory.evaluate_def,LET_THM]
-    \\ fs [DROP_DROP_EQ] \\ fs [stack_rel_def]
-    \\ qpat_x_assum` A ⇒ B` mp_tac
-    \\ impl_tac>-
-      (`s.handler+1 ≤ LENGTH s.stack` by DECIDE_TAC>>
-      imp_res_tac LASTN_HD>>
-      ntac 3 (pop_assum sym_sub_tac)>>
-      fs[is_handler_frame_def])
-    \\ strip_tac
-    \\ fs[LET_DEF,get_var_set_var]
-    \\ fs [stackSemTheory.set_var_def]
-    \\ `(LENGTH t.stack - handler_val (LASTN (s.handler+1) stack)) < dimword (:'a)`
-         by decide_tac \\ fs []
-    \\ `SORTED (\x y. FST x > FST y) l` by
-      (imp_res_tac EVERY_IMP_EVERY_LASTN \\ fs [sorted_env_def])
-    \\ `LENGTH t.stack - handler_val (LASTN (s.handler+1) stack) + 3 <= LENGTH t.stack` by
-         (imp_res_tac stack_rel_raise \\ rfs[]
-          \\ PairCases_on`payload`\\simp[handler_val_def])
-    \\ IF_CASES_TAC \\ fs []
-    \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,stackSemTheory.set_store_def]
-    \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,push_locals_def,lookup_def]
-    \\ imp_res_tac stack_rel_raise
-    \\ pop_assum mp_tac
-    \\ ntac 25 (pop_assum kall_tac)
-    \\ strip_tac
-    \\ rfs[]
-    \\ fs [FLOOKUP_UPDATE]
-    \\ rfs[wf_def]
-    \\ conj_tac THEN1 metis_tac[]
-    \\ conj_tac THEN1
-     (fs [sorted_env_def] \\ Cases_on `env_to_list (fromAList l) (K I)`
-      \\ imp_res_tac env_to_list_K_I_IMP \\ fs [])
-    \\ conj_tac >-
-       (rpt (qpat_x_assum`∀x. _`kall_tac)
-       \\imp_res_tac LASTN_LENGTH_BOUNDS
-       \\imp_res_tac abs_stack_IMP_LENGTH \\ fs[]
-       \\imp_res_tac EVERY_IMP_EVERY_LASTN \\ fs [])
-    \\ rw[]
-    >-
-      (Cases_on`h1+1 = SUC (LENGTH rest)`>-
-        fs[is_handler_frame_def]>>
-      `h1 < LENGTH rest ∧
-      SUC(LENGTH rest) - (h1+1) = SUC(LENGTH rest - (h1+1))` by DECIDE_TAC>>
-      fs[]
-      \\ rfs[]
-      \\ sg `h1 <= LENGTH (LASTN (s.handler+1) stack)`
-      \\ fs [LASTN_CONS]
-      \\ imp_res_tac abs_stack_IMP_LENGTH \\ fs[]
-      >> simp[LASTN_CONS])
-    >>
-      fs [get_var_def,FLOOKUP_UPDATE,convs_def]>>
-      `1 < k` by fs[state_rel_def]>>
-      res_tac>>qpat_x_assum`!n.P` kall_tac>>rfs[])
-  THEN1 (* If *)
-    (fsrw_tac[][comp_def]>> pop_assum mp_tac>>
-    LET_ELIM_TAC>>
-    fs[evaluate_def]>>
-    qpat_x_assum`A=(res,s1)`mp_tac>>
-    ntac 2 TOP_CASE_TAC>>fs[]>>
-    ntac 2 TOP_CASE_TAC>>fs[]>>
-    simp[evaluate_wStackLoad_seq,wStackLoad_append]>>
-    simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_seq]>>
-    ntac 3 (simp[Once stackSemTheory.evaluate_def])>>
-    `EVEN r1 ∧ (case ri of Reg r => EVEN r | _ => T)` by
-      (Cases_on`ri`>>
-      fs[convs_def,EVEN_MOD2,reg_allocTheory.is_phy_var_def])>>
-    simp[evaluate_wStackLoad_clock]>>
-    drule evaluate_wStackLoad_wReg1>>
-    fs[]>>strip_tac>>
-    simp[]>>
-    drule (GEN_ALL evaluate_wStackLoad_wRegImm2)>>
-    disch_then (Q.ISPECL_THEN[`t'`,`s`,`lens`,`c'`] assume_tac)>>
-    rfs[]>>
-    fs[stackSemTheory.get_var_def,word_cmp_Word_Word]>>
-    rw[]>>fs[get_labels_wStackLoad,get_labels_def]
-    >-
-      (first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs`,`lens`] mp_tac)>>
-      impl_tac>-
-       (fs[convs_def,wordLangTheory.max_var_def]>>
-        imp_res_tac evaluate_mono>>fs[]>>
-        metis_tac[IS_PREFIX_TRANS,SUBSET_TRANS,loc_check_SUBSET,subspt_trans,comp_IMP_isPREFIX])>>
-      strip_tac>>qexists_tac`ck`>>rfs[])>>
-    first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs'`,`lens`] mp_tac)>>
-    impl_tac>-
-      (fs[convs_def,wordLangTheory.max_var_def]>>
-      imp_res_tac evaluate_mono>>fs[]>>
-      metis_tac[IS_PREFIX_TRANS,SUBSET_TRANS,loc_check_SUBSET,subspt_trans,comp_IMP_isPREFIX])>>
-    strip_tac>>qexists_tac`ck`>>rfs[])
-  THEN1 (* LocValue *) (
-    fs[comp_def,wordSemTheory.evaluate_def]
-    \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
-    \\ every_case_tac \\ fs[]
-    \\ rw[]
-    \\ qexists_tac`0` \\ simp[]
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`NONE` \\ simp[]
-    \\ match_mp_tac wRegWrite1_thm1
-    \\ simp[stackSemTheory.evaluate_def]
-    \\ fs[wordLangTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
-    \\ imp_res_tac state_rel_code_domain
-    \\ fs[SUBSET_DEF]
-    \\ Cases_on `loc_check t.code (l1,0)` \\ fs []
-    \\ fs [wRegWrite1_def]
-    \\ sg `F` \\ fs [] \\ pop_assum mp_tac \\ fs [IN_DEF]
-    \\ fs [loc_check_def,IN_DEF])
-  THEN1 (* Install *) (
-    fs[comp_def,wordSemTheory.evaluate_def]
-    \\ fs[case_eq_thms]
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ qexists_tac`0` \\ simp[]
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`NONE` \\ simp[]
-    \\ reverse(Cases_on`res`)
-    >- ( fs[case_eq_thms] ) \\ fs[]
-    \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
-    \\ fs[TWOxDIV2]
-    \\ rveq
-    \\ fs[wStackLoad_append]
-    \\ drule (GEN_ALL wStackLoad_thm1)
-    \\ disch_then drule
-    \\ disch_then drule
-    \\ disch_then ho_match_mp_tac
-    \\ conj_tac \\ strip_tac
-    \\ drule (GEN_ALL wStackLoad_thm2)
-    \\ disch_then drule
-    \\ disch_then ho_match_mp_tac
-    \\ (conj_tac >- simp[state_rel_set_var_k])
-    \\ conj_tac \\ strip_tac \\ Install_tac)
-  THEN1 (* CodeBufferWrite *) (
-    fs[comp_def,wordSemTheory.evaluate_def]
-    \\ fs[case_eq_thms]
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ qexists_tac`0` \\ simp[]
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`NONE` \\ simp[]
-    \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
-    \\ rveq \\ fs[]
-    \\ fs[wStackLoad_append]
-    \\ drule (GEN_ALL wStackLoad_thm1)
-    \\ disch_then drule
-    \\ disch_then ho_match_mp_tac \\ fs[]
-    \\ drule (GEN_ALL state_rel_get_var_imp)
-    \\ disch_then imp_res_tac
-    \\ drule (GEN_ALL state_rel_get_var_imp2)
-    \\ disch_then imp_res_tac
-    \\ `t.code_buffer = s.code_buffer ∧ t.data_buffer = s.data_buffer` by fs[state_rel_def]
-    \\ conj_tac \\ strip_tac
-    \\ drule (GEN_ALL wStackLoad_thm2)
-    \\ disch_then drule
-    \\ disch_then ho_match_mp_tac \\ fs[]
-    \\ conj_tac \\ strip_tac
-    \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-    \\ fs[state_rel_def,FLOOKUP_UPDATE]
-    \\ metis_tac[])
-  THEN1 (* DataBufferWrite *) (
-    fs[comp_def,wordSemTheory.evaluate_def]
-    \\ fs[case_eq_thms]
-    \\ pairarg_tac \\ fs[]
-    \\ pairarg_tac \\ fs[]
-    \\ qexists_tac`0` \\ simp[]
-    \\ CONV_TAC SWAP_EXISTS_CONV
-    \\ qexists_tac`NONE` \\ simp[]
-    \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
-    \\ rveq \\ fs[]
-    \\ fs[wStackLoad_append]
-    \\ drule (GEN_ALL wStackLoad_thm1)
-    \\ disch_then drule
-    \\ disch_then ho_match_mp_tac \\ fs[]
-    \\ drule (GEN_ALL state_rel_get_var_imp)
-    \\ disch_then imp_res_tac
-    \\ drule (GEN_ALL state_rel_get_var_imp2)
-    \\ disch_then imp_res_tac
-    \\ `t.code_buffer = s.code_buffer ∧ t.data_buffer = s.data_buffer` by fs[state_rel_def]
-    \\ conj_tac \\ strip_tac
-    \\ drule (GEN_ALL wStackLoad_thm2)
-    \\ disch_then drule
-    \\ disch_then ho_match_mp_tac \\ fs[]
-    \\ conj_tac \\ strip_tac
-    \\ fs[stackSemTheory.evaluate_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-    \\ fs[state_rel_def,FLOOKUP_UPDATE,buffer_write_def]
-    \\ rveq \\ fs[]
-    \\ metis_tac[])
-  THEN1 (* FFI *)
-   (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr1 len1 ptr2 len2 names)``]
-    \\ rw [] \\ fs [] \\ rw []
-    \\ fs [wordSemTheory.evaluate_def]
-    \\ qpat_x_assum `aaa = (res,s1)` mp_tac
-    \\ rpt (ntac 2 (TOP_CASE_TAC \\ fs []))
-    \\ fs [LET_DEF] \\ fs [] \\ rw [] \\ fs []
-    \\ fs [comp_def,stackSemTheory.evaluate_def]
-    \\ fs [stackSemTheory.get_var_def]
-    \\ `FLOOKUP t.regs 1 = get_var 2 s /\
-        FLOOKUP t.regs 2 = get_var 4 s` by
-     (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
-       \\ `4 < k * 2 /\ 1 < k` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
-    \\ `FLOOKUP t.regs 3 = get_var 6 s /\
-        FLOOKUP t.regs 4 = get_var 8 s` by
-     (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
-      \\ `8 < k * 2 /\ 6 < k * 2` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
-    \\ `t.be = s.be /\ t.mdomain = s.mdomain /\
-        s.memory = t.memory /\ s.ffi = t.ffi` by
-          fs [state_rel_def] \\ fs [LET_THM]
-    \\ qexists_tac `0` \\ fs []
-    \\ fs [state_rel_def,LET_THM]
-    \\ conj_tac THEN1 metis_tac[]
-    \\ conj_tac
-    >- ( fs[cut_env_def] \\ rveq \\ simp[wf_inter] )
-    \\ ntac 3 strip_tac
-    \\ fs [cut_env_def] \\ rpt var_eq_tac
-    \\ fs [lookup_inter_alt]
-    \\ fs [CONV_RULE (DEPTH_CONV ETA_CONV) (GSYM toAList_def)
-           |> INST_TYPE [``:'a``|->``:unit``] |> SIMP_RULE (srw_ss()) []]
-    \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,DIV_LT_X,FORALL_PROD,MEM_toAList]
-    \\ fs [domain_lookup] \\ res_tac
-    \\ `~(n < k * 2)` by decide_tac \\ fs [])
-  \\ (* Call *)
-     (* gets us quickly to the Call case *)
-    (*reverse (recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [])*)
-    simp [Once LET_DEF,comp_def]
-    \\ pairarg_tac \\ fs []
-    \\ Cases_on `ret` \\ fs []
-    THEN1
-     (goalStack.print_tac "comp_correct tail call case">>
-     fsrw_tac[] [stackSemTheory.evaluate_def]
-      \\ `¬bad_dest_args dest args` by
-        (qpat_x_assum`A=(res,s1)` mp_tac \\
-        fsrw_tac[][evaluate_def]\\ntac 2 (TOP_CASE_TAC>>fsrw_tac[][]))
-       \\ fsrw_tac[] [LET_THM,wordSemTheory.evaluate_def]
-      \\ qpat_x_assum `_ = (res,s1)` mp_tac
-      \\ TOP_CASE_TAC THEN1 rw []
-      \\ TOP_CASE_TAC THEN1 rw []
-      \\ imp_res_tac call_dest_lemma
-      \\ pop_assum(qspec_then`NONE` assume_tac) \\ fsrw_tac[][]
-      \\ drule (GEN_ALL evaluate_add_clock) \\ fsrw_tac[] []
-      \\ fsrw_tac[] [ADD_COMM,ADD_ASSOC,LET_THM]
-      \\ disch_then kall_tac
-      \\ `!n p ck. evaluate (SeqStackFree n p,t4 with clock := ck) =
-                   evaluate (Seq (StackFree n) p,t4 with clock := ck)` by
-       (rw [] \\ match_mp_tac evaluate_SeqStackFree
-        \\ fsrw_tac[] [state_rel_def] \\ decide_tac)
-      \\ `t4.clock = s.clock /\ t4.use_stack` by fsrw_tac[] [state_rel_def] \\ fsrw_tac[] []
-      \\ fsrw_tac[] [stackSemTheory.evaluate_def]
-      \\ Cases_on `LENGTH t4.stack <
-           t4.stack_space + stack_free dest' (LENGTH args) (k,f,f')` \\ fsrw_tac[] []
-      THEN1
-       (fsrw_tac[] [stack_free_def]
-        \\ Cases_on `dest'` \\ fsrw_tac[] [stack_arg_count_def]
-        \\ fsrw_tac[] [state_rel_def,LET_DEF] \\ `F` by decide_tac)
-      \\ TOP_CASE_TAC
-      \\ reverse TOP_CASE_TAC THEN1 rw[]
-      \\ last_x_assum(qspecl_then[`q`,`r`] assume_tac) \\ rfs[]
-      \\ TOP_CASE_TAC \\ fsrw_tac[] []
-      THEN1
-       (rw [] \\ qexists_tac `0` \\ fsrw_tac[] [] \\ res_tac \\ fsrw_tac[] [state_rel_def])
-      \\ TOP_CASE_TAC
-      \\ TOP_CASE_TAC THEN1 rw []
-      \\ strip_tac \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs []
-      \\ res_tac \\ fsrw_tac[] [stackSemTheory.dec_clock_def]
-      \\ fsrw_tac[] [compile_prog_def,LET_THM]
-      \\ pairarg_tac \\ fsrw_tac[] []
-      \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs[]
-      \\ fsrw_tac[] [stackSemTheory.evaluate_def]
-      \\ qpat_abbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`
-      \\ qpat_abbrev_tac `m' = (if _ then 0 else m + 1)` \\ rw []
-      \\ Cases_on `t4.stack_space + stack_free dest' (LENGTH args) (k,f,f') <
-             m' - (LENGTH q - k)` \\ fsrw_tac[] []
-      THEN1 (* Hit stack limit case *)
-       (fsrw_tac[] [state_rel_def]
-        \\ fsrw_tac[] [compile_result_NOT_2]
-        \\ imp_res_tac stackPropsTheory.evaluate_io_events_mono
-        \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono
-        \\ fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def])
-      \\ (fn g =>
-           qabbrev_tac `t5 = ^((qexists_tac`0`
-           \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
-           |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
-      \\ `state_rel k m' m (call_env q (dec_clock s)) t5 lens` by
-           (fsrw_tac[][state_rel_def,LET_THM,Abbr`t5`,call_env_def,dec_clock_def]>>
-            fsrw_tac[][stack_free_def]>>
-            `stack_arg_count dest' (LENGTH args) k = (LENGTH q -k)` by
-              (simp[stack_arg_count_def]>>
-              qpat_x_assum`call_dest A B C =(q0,dest')` mp_tac>>
-              qpat_x_assum`A=SOME(q,r)` mp_tac>>
-              imp_res_tac get_vars_length_lemma>>
-              Cases_on`dest`>>simp[find_code_def,call_dest_def,add_ret_loc_def]>>
-              rpt TOP_CASE_TAC>>simp[]>>
-              rw[]>>TRY pairarg_tac>>fsrw_tac[][]>>
-              Cases_on`x`>>fsrw_tac[][]>>
-              simp[])>>
-            fsrw_tac[][wf_fromList2]>>
-            qpat_abbrev_tac`len = LENGTH q -k`>>
-            (*This seems too long for a trivial property..*)
-            `len ≤ f` by
-              (fsrw_tac[][convs_def]>>
-              qpat_x_assum`args = A` SUBST_ALL_TAC>>
-              imp_res_tac get_vars_length_lemma>>
-              fsrw_tac[][wordLangTheory.max_var_def,LET_THM]>>
-              fsrw_tac[][list_max_GENLIST_evens]>>
-              `LENGTH q ≤ LENGTH args` by
-                (qpat_x_assum`A=SOME(q,r)` mp_tac>>
-                Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
-                EVERY_CASE_TAC>>rw[]>>
-                simp[LENGTH_FRONT])>>
-              `LENGTH args -1 +1 < f' +1 +k` by simp[]>>
-              Cases_on`f'`>-
-                (fsrw_tac[][]>>
-                `LENGTH args ≤ k` by DECIDE_TAC>>
-                unabbrev_all_tac>>
-                simp[])>>
-              `LENGTH args -1 +1 -k < SUC n +1` by DECIDE_TAC>>
-              fsrw_tac[][Abbr`len`]>>
-              ntac 5 (pop_assum mp_tac)>>
-              rpt (pop_assum kall_tac)>>
-              DECIDE_TAC)>>
-            `len ≤ m ∧ m ≤ m'` by
-              (unabbrev_all_tac>>
-              rpt (pop_assum kall_tac)>>
-              rw[MAX_DEF]>>DECIDE_TAC)>>
-            CONJ_TAC THEN1 metis_tac[]>>
-            CONJ_TAC THEN1 decide_tac >>
-            CONJ_TAC THEN1 (unabbrev_all_tac>>
-              rpt (pop_assum kall_tac)>>
-              rw [] \\ decide_tac) >>
-            fsrw_tac[][DROP_DROP_EQ]>>
-            CONJ_TAC THEN1 simp[]>>
-            ntac 3 strip_tac>>
-            imp_res_tac (GSYM domain_lookup)>>
-            imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
-            fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
-            `lookup n s.locals = SOME v` by
-              (qpat_x_assum`args=A` SUBST_ALL_TAC>>
-              imp_res_tac get_vars_fromList2_eq>>
-              `isPREFIX q x` by
-                (qpat_x_assum`A=SOME(q,r)` mp_tac>>
-                Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
-                EVERY_CASE_TAC>>rw[]>>
-                Cases_on`x`>>fsrw_tac[][IS_PREFIX_BUTLAST])>>
-              imp_res_tac lookup_fromList2_prefix>>
-              metis_tac[])>>
-            IF_CASES_TAC>-
-              metis_tac[]>>
-            fsrw_tac[][LLOOKUP_THM]>>
-            Cases_on `m=0` \\ fsrw_tac[] []
-            THEN1
-             (fsrw_tac[] [markerTheory.Abbrev_def] \\ rpt var_eq_tac \\ fsrw_tac[] []
-              \\ fsrw_tac[] [lookup_fromList2,lookup_fromList]
-              \\ decide_tac) >>
-            simp[Abbr`m'`]>>
-            fsrw_tac[][lookup_fromList2,lookup_fromList]>>
-            CONJ_ASM2_TAC
-            >-
-              (first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
-              simp[EL_TAKE,EL_DROP]>>
-              strip_tac>>
-              qpat_x_assum`A=v` mp_tac>>
-              simp[EL_TAKE,EL_DROP]>>
-              disch_then sym_sub_tac>>
-              AP_THM_TAC>>AP_TERM_TAC>>
-              `(n DIV 2 +1) ≤ f+k` by
-                (Cases_on`f'`>>fsrw_tac[][]>>
-                DECIDE_TAC)>>
-              simp[])>>
-            unabbrev_all_tac>>
-            simp[])
-      \\ first_x_assum drule
-      \\ disch_then (qspec_then `bs'` mp_tac) \\ fsrw_tac[] []
-      \\ impl_tac THEN1
-        (CONJ_ASM1_TAC>-
-          (qpat_x_assum`A=SOME(q,r)`mp_tac>>
-          Cases_on`dest`>>
-          fsrw_tac[][state_rel_def,wordSemTheory.find_code_def]>>
-          rpt TOP_CASE_TAC>>
-          rw[]>>
-          metis_tac[])>>
-        CONJ_TAC>-
-          (qpat_x_assum`A=SOME(q,r)`mp_tac>>
-          Cases_on`dest`>>
-          fsrw_tac[][state_rel_def,wordSemTheory.find_code_def]>>
-          rpt TOP_CASE_TAC>>
-          rw[]>>
-          metis_tac[])>>
-        CONJ_TAC >-
-         (qunabbrev_tac `t5` \\ simp_tac (srw_ss()) []
-          \\ drule find_code_IMP_get_labels
-          \\ fs [get_labels_def])>>
-        CONJ_TAC>-
-          (`EVEN (max_var r)` by
-              (ho_match_mp_tac max_var_intro>>
-              fsrw_tac[][convs_def]>>
-              match_mp_tac every_var_mono>>
-              HINT_EXISTS_TAC>>fsrw_tac[][reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
-          unabbrev_all_tac>>fsrw_tac[][EVEN_EXISTS]>>
-          rpt (pop_assum kall_tac)>>
-          `m * 2 DIV 2 = m` by
-            (Q.ISPECL_THEN[`2n`,`m`]assume_tac MULT_DIV>>fsrw_tac[][])>>
-          fsrw_tac[][MULT_COMM,MAX_DEF]>>rw[]>>
-          DECIDE_TAC)>>
-          fsrw_tac[][Abbr`t5`])
-      \\ strip_tac \\ fsrw_tac[] []
-      \\ qunabbrev_tac `t5` \\ fsrw_tac[] []
-      \\ `ck + (s.clock - 1) = ck + s.clock - 1` by decide_tac
-      \\ qexists_tac `ck` \\ fsrw_tac[] []
-      \\ Cases_on `res1` \\ fsrw_tac[] []
-      \\ fsrw_tac[] [EVAL ``(call_env q (dec_clock s)).handler``,
-                     AC ADD_COMM ADD_ASSOC])
-    \\ goalStack.print_tac "comp_correct returning call case(s)"
-    \\ PairCases_on `x` \\ fs [LET_DEF]
-    \\ pairarg_tac \\ fs []
-    \\ pairarg_tac \\ fs []
-    \\ qhdtm_x_assum`wordSem$evaluate`mp_tac
-    \\ simp[wordSemTheory.evaluate_def]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ drule (Q.SPECL[`x`,`SOME(x0,x1,x2,x3,x4)`] (Q.GENL[`args'`,`ret`]call_dest_lemma)) \\ strip_tac \\rfs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]>>
-    imp_res_tac evaluate_call_dest_clock>>
-    pop_assum(qspec_then`t` assume_tac)>>
-    first_assum (mp_tac o MATCH_MP ((GEN_ALL evaluate_wLive)|>REWRITE_RULE[GSYM AND_IMP_INTRO]))>>
-    disch_then ((qspecl_then [`t4`,`s`,`lens`,`x'`] mp_tac) o REWRITE_RULE[AND_IMP_INTRO])>>
-    simp[]>>
-    impl_keep_tac>-
-      (Cases_on`handler`>>TRY(PairCases_on`x''`)>>
-      fsrw_tac[][convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
-      fsrw_tac[][GSYM toAList_domain,EVERY_MEM]>>
-      fsrw_tac[][X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
-      (rw[]>>res_tac
-      >-
-        DECIDE_TAC>>
-      fsrw_tac[][wordLangTheory.max_var_def,LET_THM]
-      >-
-        (`∃n. MEM n (MAP FST (toAList x1))` by
-        (CCONTR_TAC>>
-        fsrw_tac[][toAList_domain]>>
-        `domain x1 = {}` by
-          fsrw_tac[][EXTENSION])>>
-        res_tac>>
-        qpat_x_assum`A<B:num` mp_tac>>
-        qpat_abbrev_tac`ls = MAP FST A`>>
-        simp[]>>
-        strip_tac>>
-        `list_max ls < 2*f' + 2*k` by
-          (pop_assum mp_tac>>
-          simp[MAX_DEF])>>
-        Q.ISPEC_THEN `ls` assume_tac list_max_max>>
-        fsrw_tac[][EVERY_MEM]>>
-        `n < 2*f'+2*k` by
-          (res_tac>>DECIDE_TAC)>>
-        `n - 2*k < 2*f'` by DECIDE_TAC>>
-        `f' ≠ 0` by DECIDE_TAC>>
-        fsrw_tac[][state_rel_def])
-      >>
-      fsrw_tac[][comp_def,LET_THM]>>
-      TRY(pairarg_tac>>fsrw_tac[][])>>
-      imp_res_tac comp_IMP_isPREFIX>>
-      metis_tac[evaluate_mono,IS_PREFIX_TRANS]))>>
-    strip_tac>>
-    imp_res_tac evaluate_wLive_clock>>
-    pop_assum(qspec_then`t4` assume_tac)>>
-    Cases_on`handler`>>simp[]
-    >-
-      (goalStack.print_tac"No handler case">>
-      simp[stackSemTheory.evaluate_def]>>
-      simp[StackArgs_def,evaluate_stack_move_seq]>>
-      qpat_abbrev_tac`sargs = stack_arg_count A B C`>>
-      simp[stackSemTheory.evaluate_def]>>
-      (*Get through the eval of stack_move*)
-      Cases_on`¬t5.use_stack`>-
-        fs[state_rel_def]>>
-      Cases_on`t5.stack_space < sargs`>>fs[] >-
-        (fs[state_rel_def,compile_result_NOT_2]>>
-        IF_CASES_TAC>>fs[]>-
-          (simp[call_env_def]>>
-          rw[]>>simp[])>>
-        qpat_x_assum`res ≠ A` mp_tac>>
-        rpt (pop_assum kall_tac)>>
-        rpt(TOP_CASE_TAC>>fs[])>>
-        fs[dec_clock_def]>>rw[]>>
-        imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
-        fs [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
-        metis_tac[pop_env_ffi,IS_PREFIX_TRANS])>>
-      qabbrev_tac`t6 = t5 with <|stack_space :=t5.stack_space -sargs|>`>>
-      `!ck. t5 with <|stack_space:=t5.stack_space - sargs; clock:=ck+t.clock|> = t6 with clock:=ck+t.clock` by
-        simp[stackSemTheory.state_component_equality,Abbr`t6`]>>
-      simp[evaluate_stack_move_clock]>>
-      Q.ISPECL_THEN [`sargs`,`0n`,`t6`,`f`] mp_tac evaluate_stack_move>>
-      impl_keep_tac>-
-        (qpat_x_assum`s.clock ≠ 0 ⇒ P` kall_tac>>
-        qpat_x_assum`∀a b c. P` kall_tac>>
-        unabbrev_all_tac>>simp[]>>
-        fsrw_tac[][state_rel_def,ADD_COMM]>>
-        fsrw_tac[][convs_def]>>
-        qpat_x_assum`args = A` SUBST_ALL_TAC>>
-        fsrw_tac[][wordLangTheory.max_var_def,LET_THM]>>
-        fsrw_tac[][list_max_GENLIST_evens2]>>
-        `2*LENGTH args < 2*f'+2*k` by
-          (qpat_x_assum`A<2*f' +2*k` mp_tac>>
-          simp[MAX_DEF])>>
-        `LENGTH args < f' +k` by DECIDE_TAC>>
-        simp[stack_arg_count_def]>>
-        TOP_CASE_TAC>>
-        Cases_on`f'`>>fsrw_tac[][]>>
-        DECIDE_TAC)>>
-      strip_tac>>simp[]>>
-      `find_code dest' (t'.regs \\0) t'.code = find_code dest' t4.regs t4.code` by
-       (`subspt t4.code t'.code` by
-         (unabbrev_all_tac>>
-         fs[stackSemTheory.state_component_equality]>>
-         imp_res_tac evaluate_mono>>fs[]>>
-         metis_tac[evaluate_consts])>>
-       Cases_on`dest'`>>fs[stackSemTheory.find_code_def]
-       >-
-         metis_tac[subspt_def,domain_lookup]
-       >>
-       qpat_x_assum`A=SOME stack_prog` mp_tac>>
-       qpat_x_assum`A=(q0,INR y)` mp_tac>>
-       Cases_on`dest`>>simp[call_dest_def]>>
-       IF_CASES_TAC>>simp[]>>
-       simp[wReg2_def]>>IF_CASES_TAC>>fs[]
-       >-
-         (`LAST args DIV 2≠ 0 ∧ LAST args DIV 2 ≠ k` by
-          (fs[convs_def]>>
-          qpat_x_assum`args = A` SUBST_ALL_TAC>>
-          `LENGTH args <> 0` by (strip_tac \\ fs[]) >>
-          drule LAST_GENLIST_evens>>
-          LET_ELIM_TAC>>simp[]>>
-          Cases_on`reg`>>fs[]>>
-          Cases_on`n`>>fs[]>>
-          simp[ADD_DIV_RWT,ADD1])>>
-         strip_tac>>rveq>>
-         simp[DOMSUB_FLOOKUP_THM]>>
-         fs[stackSemTheory.get_var_def,Abbr`t6`]>>
-         qpat_x_assum`subspt _ _` mp_tac>>
-         rpt (pop_assum kall_tac)>>
-         EVERY_CASE_TAC>>rw[]>>
-         metis_tac[subspt_def,domain_lookup])
-       >>
-         strip_tac>>rveq>>
-         simp[DOMSUB_FLOOKUP_THM]>>
-         fs[stackSemTheory.get_var_def,Abbr`t6`]>>
-         qpat_x_assum`subspt _ _` mp_tac>>
-         rpt (pop_assum kall_tac)>>
-         EVERY_CASE_TAC>>rw[]>>
-         metis_tac[subspt_def,domain_lookup])>>
-      simp[]>>
-      IF_CASES_TAC>-
-        (rw[]>>qexists_tac`0`>>fs[state_rel_def]>>
-        fs[Abbr`t6`,stackSemTheory.state_component_equality])>>
-      `t.clock ≠ 0` by
-        metis_tac[state_rel_def]>>
-      fs [compile_prog_def,LET_THM]>>
-      pairarg_tac>>fs[]>>
-      rveq>>
-      qpat_abbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
-      qpat_abbrev_tac `m' = (if _ then 0 else m + 1)`>>
-      simp[stackSemTheory.evaluate_def]>>
-      `t'.use_stack` by
-        fs[Abbr`t6`,stackSemTheory.state_component_equality]>>
-      simp[stackSemTheory.set_var_def,stackSemTheory.dec_clock_def]>>
-      Cases_on`t'.stack_space < m' - (LENGTH q-k)`>-
-        (fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
-        unabbrev_all_tac>>fsrw_tac[][stackSemTheory.state_component_equality]>>
-        simp[]>>
-        qpat_x_assum`res ≠ A` mp_tac>>
-        rpt (pop_assum kall_tac)>>
-        rpt(TOP_CASE_TAC>>fsrw_tac[][])>>
-        fsrw_tac[][dec_clock_def]>>rw[]>>
-        imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
-        fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
-        metis_tac[IS_PREFIX_TRANS,pop_env_ffi])>>
-      simp[]>>
-      qpat_abbrev_tac`word_state = call_env q st`>>
-      qabbrev_tac`stack_state =
-        t' with <|regs:=t'.regs|+(0,Loc x3 x4);
-                  stack_space:=t'.stack_space - (m'-(LENGTH q-k));
-                  clock:=t.clock-1|>`>>
-      `state_rel k m' m word_state stack_state (f'::lens)` by
-        (
-        ntac 2 (qpat_x_assum`!a b c. P` kall_tac)>>
-        `sargs = (LENGTH q -k)` by
-          (simp[stack_arg_count_def,Abbr`sargs`]>>
-          qpat_x_assum`call_dest A B C =(q0,dest')` mp_tac>>
-          qpat_x_assum`A=SOME(q,r)` mp_tac>>
-          imp_res_tac get_vars_length_lemma>>
-          Cases_on`dest`>-
-            (fsrw_tac[][bad_dest_args_def]>>
-            simp[find_code_def,call_dest_def,add_ret_loc_def]>>
-            `LENGTH args ≠ 0` by fsrw_tac[][LENGTH_NIL]>>
-            rpt TOP_CASE_TAC>>simp[]>>
-            rw[]>>
-            pairarg_tac>>fsrw_tac[][]>>
-            Cases_on`x`>>fsrw_tac[][]>>
-            simp[])>>
-         fsrw_tac[][bad_dest_args_def]>>
-         simp[find_code_def,call_dest_def,add_ret_loc_def]>>
-         rpt TOP_CASE_TAC>>simp[]>>
-         rw[]>>
-         simp[])>>
-        fsrw_tac[][state_rel_def,Abbr`word_state`,Abbr`stack_state`]>>
-        simp[dec_clock_def,call_env_def,push_env_def]>>
-        simp[env_to_list_def]>>
-        fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
-        `sargs ≤ m ∧ m ≤ m'` by
-           (fs[markerTheory.Abbrev_def]
-            \\ rveq \\ rw[MAX_DEF])>>
-        CONJ_TAC>-
-          simp[FUN_EQ_THM]>>
-        CONJ_TAC>-
-          metis_tac[]>>
-        CONJ_TAC>- fs[push_env_def] >>
-        CONJ_TAC>-
-          metis_tac[]>>
-        CONJ_TAC>-
-          metis_tac[]>>
-        CONJ_TAC>- fs[push_env_def] >>
-        CONJ_ASM1_TAC>-
-          DECIDE_TAC>>
-        CONJ_TAC>-
-          (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
-           \\ rpt(pop_assum kall_tac) \\ rw[] ) >>
-        CONJ_TAC>-
-          simp[wf_fromList2]>>
-        fsrw_tac[][DROP_DROP_EQ]>>
-        CONJ_TAC>-
-          (fsrw_tac[][LET_THM]>>
-          qpat_x_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
-          simp[push_env_def,env_to_list_def]>>
-          qpat_x_assum`DROP A B = DROP C D` mp_tac>>
-          simp[])>>
-        ntac 3 strip_tac>>
-        rpt(qpat_x_assum`!a b c. A ⇒ B` kall_tac)>>
-        imp_res_tac (GSYM domain_lookup)>>
-        imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
-        fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
-        `isPREFIX q (Loc x3 x4::x)` by
-           (qpat_x_assum`A=SOME(q,r)` mp_tac>>
-           Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
-           EVERY_CASE_TAC>>srw_tac[][]>>
-           Cases_on`x`>>fsrw_tac[][IS_PREFIX_BUTLAST])>>
-        imp_res_tac lookup_fromList2_prefix>>
-        Cases_on`n=0`>-
-          (fsrw_tac[][lookup_fromList2,lookup_fromList]>>
-          simp[FLOOKUP_UPDATE])>>
-        `lookup n s.locals = SOME v` by
-         (qpat_x_assum`args=A` SUBST_ALL_TAC>>
-         imp_res_tac get_vars_fromList2_eq_cons)>>
-        fsrw_tac[][LET_THM]>>
-        IF_CASES_TAC>-
-          (`n DIV 2 ≠ 0 ∧ n DIV 2 ≠ k` by
-            (Cases_on`n`>>simp[]>>
-            Cases_on`n'`>>fsrw_tac[][]>>
-            simp[ADD_DIV_RWT,ADD1])>>
-          simp[FLOOKUP_UPDATE]>>
-          fsrw_tac[][stackSemTheory.get_var_def]>>
-          metis_tac[])>>
-        `k ≤ LENGTH q` by (
-          fsrw_tac[][lookup_fromList2,lookup_fromList]
-          \\ rpt(qpat_x_assum`n DIV 2 < _`mp_tac)
-          \\ qpat_x_assum`¬(n DIV 2 < _)`mp_tac
-          \\ rpt(pop_assum kall_tac)
-          \\ decide_tac) >>
-        simp[LLOOKUP_THM] >>
-        Cases_on `m=0` \\ fsrw_tac[] []
-        THEN1
-          (fsrw_tac[] [lookup_fromList2,lookup_fromList,Abbr`m'`]>>
-           qpat_x_assum`¬(n DIV 2 < _)`mp_tac >>
-           qpat_x_assum`(n DIV 2 < LENGTH _)`mp_tac >>
-           qpat_x_assum`k ≤ _`mp_tac >>
-           qpat_x_assum`_ ≤ k`mp_tac >>
-           rpt(pop_assum kall_tac) >>
-           decide_tac)>>
-        `m' = m+1` by (
-          qunabbrev_tac`m'` >>
-          IF_CASES_TAC >- (
-            qpat_x_assum`m ≤ _`mp_tac >>
-            pop_assum(SUBST1_TAC o EQT_INTRO) >>
-            qpat_x_assum`m ≠ 0`mp_tac >>
-            rpt(pop_assum kall_tac) >>
-            rw[] ) >>
-          REFL_TAC ) >>
-        pop_assum SUBST_ALL_TAC >>
-        simp_tac(srw_ss()++ARITH_ss)[] >>
-        fsrw_tac[][LLOOKUP_THM,lookup_fromList2,lookup_fromList]>>
-        `LENGTH q ≤ k+m` by (
-          qpat_x_assum`_ ≤ m`mp_tac >>
-          qpat_x_assum`sargs = _`mp_tac >>
-          rpt(pop_assum kall_tac) >> rw[] ) >>
-        reverse conj_tac >- (
-          qpat_x_assum`n DIV 2 < _`mp_tac >>
-          qpat_x_assum`n DIV 2 < _`mp_tac >>
-          pop_assum mp_tac >>
-          rpt(pop_assum kall_tac) >> rw[] ) >>
-        `m+1 ≤ t5.stack_space` by ( simp[] ) >>
-        qpat_x_assum`_ ≤ LENGTH t'.stack`mp_tac >>
-        ntac 5 (pop_assum mp_tac) >>
-        simp_tac(srw_ss()++ARITH_ss)[EL_DROP,EL_TAKE] >>
-        rpt strip_tac >>
-        first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
-        qpat_x_assum`DROP A B = DROP C D` mp_tac>>
-        `k < (n DIV 2+1)` by simp[]>>
-        simp[EL_TAKE]>>
-        disch_then sym_sub_tac>>
-        simp[EL_DROP]>>
-        strip_tac>>
-        qpat_x_assum`!x. A ⇒ B = C` mp_tac>>
-        rpt(qpat_x_assum`!n.P` kall_tac)>>
-        simp[EL_DROP]>>
-        disch_then(qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
-        simp[])>>
-      Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
-      first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
-      Cases_on`q' = SOME Error`>>fsrw_tac[][]>>
-      impl_tac>-
-        (CONJ_ASM1_TAC>-
-          (qpat_x_assum`A=SOME(q,r)`mp_tac>>
-          Cases_on`dest`>>
-          fsrw_tac[][state_rel_def,find_code_def]>>
-          rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
-        CONJ_TAC>-
-          (qpat_x_assum`A=SOME(q,r)`mp_tac>>
-          Cases_on`dest`>>
-          fsrw_tac[][state_rel_def,find_code_def]>>
-          rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
-        CONJ_TAC>-
-         (qunabbrev_tac `stack_state` \\ simp_tac (srw_ss()) []
-          \\ drule find_code_IMP_get_labels
-          \\ fs [get_labels_def]
-          \\ imp_res_tac evaluate_mono
-          \\ fs[Abbr`t6`]
-          \\ metis_tac[loc_check_SUBSET,subspt_trans,SUBSET_TRANS])>>
-        CONJ_TAC>-
-          (`EVEN (max_var r)` by
-              (ho_match_mp_tac max_var_intro>>
-              fsrw_tac[][convs_def]>>
-              match_mp_tac every_var_mono>>
-              HINT_EXISTS_TAC>>fsrw_tac[][reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
-          unabbrev_all_tac>>fsrw_tac[][EVEN_EXISTS]>>
-          rpt (pop_assum kall_tac)>>
-          `m * 2 DIV 2 = m` by
-            (Q.ISPECL_THEN[`2n`,`m`]assume_tac MULT_DIV>>fsrw_tac[][])>>
-          fsrw_tac[][MULT_COMM,MAX_DEF]>>rw[]>>
-          DECIDE_TAC)>>
-        unabbrev_all_tac>>fsrw_tac[][]>>
-        fsrw_tac[][stackSemTheory.state_component_equality]>>
-        metis_tac[evaluate_mono,IS_PREFIX_TRANS])>>
-      strip_tac>>
-      Cases_on`q'`>>simp[]>>
-      Cases_on`x''`>>simp[]
-      >-
-        (IF_CASES_TAC>>fsrw_tac[][]>>
-        Cases_on`pop_env r'`>>fsrw_tac[][]>>
-        IF_CASES_TAC>>fsrw_tac[][]>>
-        strip_tac>>
-        imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
-        qpat_x_assum`if A then B else C` mp_tac>>
-        IF_CASES_TAC>>fsrw_tac[][]
-        >-
-          (*the stackLang evaluation halts*)
-          (rw[]>>
-          qexists_tac`ck`>>
-          fs[Abbr`stack_state`]>>
-          `ck + (t.clock -1) = ck +t.clock -1` by DECIDE_TAC>>
-          fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
-          metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono])>>
-        strip_tac>>
-        `state_rel k f f' (set_var x0 w0 x'') t1 lens ∧ x''.handler = s.handler` by
-          (qpat_x_assum`!a b c d e f. P` kall_tac>>
-          Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>
-          rfs[Abbr`word_state`]>>
-          fsrw_tac[][call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,s_key_eq_def]>>
-          qpat_x_assum`pop_env A = B` mp_tac>>
-          simp[pop_env_def]>>
-          rpt(TOP_CASE_TAC>>fsrw_tac[][s_key_eq_def,s_frame_key_eq_def])>>
-          pop_assum kall_tac>>
-          strip_tac>>
-          rveq>>fsrw_tac[][state_rel_def,set_var_def]>>
-          CONJ_TAC>-
-            metis_tac[evaluate_consts]>>
-          CONJ_ASM1_TAC>-
-            (fsrw_tac[][LET_THM]>>
-            imp_res_tac stack_rel_cons_LEN_NONE>>
-            fsrw_tac[][LENGTH_DROP]>>
-            Cases_on`f'`>>fsrw_tac[][]>>
-            simp[])>>
-          CONJ_TAC>-
-            simp[wf_insert,wf_fromAList]>>
-          fsrw_tac[][LET_THM]>>
-          CONJ_TAC>-
-            (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
-            metis_tac[stack_rel_DROP_NONE])>>
-          ntac 2 strip_tac>>
-          fsrw_tac[][lookup_insert,convs_def]>>
-          IF_CASES_TAC>-
-            simp[]>>
-          strip_tac>>
-          `n ∈ domain (fromAList l)` by metis_tac[domain_lookup]>>
-          `n ∈ domain x1 ∧ n ∈ domain s.locals` by
-            (fsrw_tac[][cut_env_def]>>
-            `n ∈ domain x'` by rfs[]>>
-            rveq>>
-            fsrw_tac[][domain_inter])>>
-          res_tac>>simp[]>>
-          fsrw_tac[][domain_lookup]>>
-          last_x_assum (qspecl_then [`n`,`v''`]mp_tac)>>
-          simp[LLOOKUP_THM]>>
-          strip_tac>>
-          fsrw_tac[][stack_rel_def]>>qpat_x_assum`A=SOME stack'''''` mp_tac>>
-          qpat_abbrev_tac`ls = DROP A B`>>
-          Cases_on`ls`>>simp[abs_stack_def]>>
-          rpt (TOP_CASE_TAC >>simp[])>>
-          strip_tac>>
-          qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
-          rveq>>simp[stack_rel_aux_def]>>
-          strip_tac>>
-          fsrw_tac[][lookup_fromAList]>>
-          `MEM (n,v) l` by metis_tac[ALOOKUP_MEM]>>
-          `MEM (n DIV 2,v) (MAP_FST adjust_names l)` by
-            (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
-            metis_tac[])>>
-          simp[LLOOKUP_THM]>>
-          imp_res_tac filter_bitmap_MEM>>
-          imp_res_tac MEM_index_list_EL>>
-          pop_assum mp_tac>>
-          simp[LENGTH_TAKE,EL_TAKE]>>
-          Cases_on`LENGTH x''`>>
-          fsrw_tac[][]>>simp[]>>
-          fsrw_tac[][state_rel_def]>>
-          `k + SUC n' - n DIV 2 = SUC (k+ SUC n' - (n DIV 2+1))` by DECIDE_TAC>>
-          full_simp_tac(std_ss ++ ARITH_ss)[GSYM LENGTH_NIL] >>
-          simp[EL_TAKE])>>
-        imp_res_tac stackPropsTheory.evaluate_add_clock>>
-        ntac 3 (pop_assum kall_tac)>>
-        rveq>>fsrw_tac[][]>>
-        first_x_assum(qspecl_then[`k`,`f`,`f'`,`t1`,`bs'`,`lens`] mp_tac)>>
-        impl_tac>-
-          (fsrw_tac[][convs_def]>>rw[]
-          >-
-            (fs [comp_def,get_labels_def] \\
-            imp_res_tac evaluate_mono \\ fs[Abbr`stack_state`,Abbr`t6`] \\
-            metis_tac[loc_check_SUBSET,SUBSET_TRANS,subspt_trans])
-          >-
-            (qpat_x_assum`A<B:num` mp_tac>>
-            simp[wordLangTheory.max_var_def])
-          >>
-            unabbrev_all_tac>>
-            imp_res_tac evaluate_mono>>
-            rpt (qpat_x_assum`isPREFIX _ _` mp_tac)>>
-            simp[comp_def]>>
-            metis_tac[IS_PREFIX_TRANS])>>
-        rw[]>>
-        qexists_tac`ck+ck'`>>
-        fsrw_tac[][Abbr`stack_state`]>>
-        first_x_assum(qspec_then`ck'` mp_tac)>>
-        simp[]>>
-        fsrw_tac[][ADD_COMM]>>
-        pop_assum mp_tac>>
-        simp[set_var_def])
-      >-
-        (*Exception*)
-        (strip_tac>>
-        qexists_tac`ck`>>
-        fs[Abbr`stack_state`]>>
-        `t.clock -1 + ck = ck +t.clock -1` by DECIDE_TAC>>
-        fs[]>>
-        rveq>>simp[]>>
-        qpat_x_assum `if A then B else C` mp_tac>>
-        IF_CASES_TAC>>fs[]>>rveq>>
-        fs[]>>
-        strip_tac>>
-        `word_state.handler = s.handler` by
-          simp[Abbr`word_state`,call_env_def,push_env_def,env_to_list_def,dec_clock_def]>>
-        imp_res_tac state_rel_IMP_LENGTH>>
-        Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>rfs[]>>
-        fs[push_env_def,env_to_list_def,LET_THM]>>
-        `s.handler+1 ≤ LENGTH lens` by
-          (*because it can't be the top frame of word_state, which is NONE*)
-          (CCONTR_TAC>>
-          `s.handler+1 =LENGTH s.stack+1` by DECIDE_TAC>>
-          fs[Abbr`word_state`,call_env_def,dec_clock_def,LASTN_CONS]>>
-          fs[LASTN_CONS_ID,GSYM ADD1])>>
-        fs[LASTN_CONS])
-      >>
-        (*Timeout and Halt*)
-        (strip_tac>>
-        qexists_tac`ck`>>
-        fs[Abbr`stack_state`]>>
-        `t.clock -1 + ck = ck +t.clock -1` by DECIDE_TAC>>
-        fs[]>>
-        rveq>>simp[]>>
-        qpat_x_assum `if A then B else C` mp_tac>>
-        IF_CASES_TAC>>fs[]>>rveq>>
-        fs[]>>
-        strip_tac>>
-        fs[state_rel_def]))
-    >>
-    goalStack.print_tac"Handler case">>
-    PairCases_on`x''`>>simp[]>>
-    pairarg_tac>>simp[stackSemTheory.evaluate_def]>>
-    reverse(Cases_on`3 ≤ t5.stack_space`)>-
-      (simp[PushHandler_def,stackSemTheory.evaluate_def]>>
-      fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
-      IF_CASES_TAC>>fsrw_tac[][]>-
-        (simp[call_env_def]>>
-        rw[]>>simp[])>>
-      qpat_x_assum`res ≠ A` mp_tac>>
-      rpt (pop_assum kall_tac)>>
-      rpt(TOP_CASE_TAC>>fsrw_tac[][])>>
-      fsrw_tac[][dec_clock_def]>>rw[]>>
-      imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
-      fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
-      metis_tac[pop_env_ffi,IS_PREFIX_TRANS])>>
-    (* Needs to go in wordSem?*)
-    drule evaluate_PushHandler>>
-    simp[evaluate_PushHandler_clock]>>
-    impl_tac THEN1 (
-     fs [comp_def,get_labels_def] >>
-     imp_res_tac evaluate_mono>>
-     `loc_check t.code ⊆ loc_check t5.code` by
-       metis_tac[subspt_trans,SUBSET_DEF,loc_check_SUBSET]>>
-      fs[SUBSET_DEF,FORALL_PROD,IN_DEF])>>
-    strip_tac>>
-    simp[StackHandlerArgs_def,StackArgs_def,evaluate_stack_move_seq]>>
-    simp[stackSemTheory.evaluate_def]>>
-    `t'.use_stack` by fsrw_tac[][state_rel_def]>>fsrw_tac[][]>>
-    qpat_abbrev_tac`sargs = stack_arg_count A B C`>>
-    Cases_on`t'.stack_space < sargs`>-
-      (simp[]>>
-      fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
-      IF_CASES_TAC>>fsrw_tac[][]>-
-        (simp[call_env_def]>>
-        rw[]>>simp[])>>
-      qpat_x_assum`res ≠ A` mp_tac>>
-      rpt (pop_assum kall_tac)>>
-      rpt(TOP_CASE_TAC>>fsrw_tac[][])>>
-      fsrw_tac[][dec_clock_def]>>rw[]>>
-      imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
-      fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
-      metis_tac[pop_env_ffi,IS_PREFIX_TRANS])>>
-    simp[]>>fsrw_tac[][]>>
-    qabbrev_tac`t6 = t' with stack_space :=t'.stack_space -sargs`>>
-    `!ck. t' with <|stack_space:=t'.stack_space - sargs; clock:=ck+t.clock|> = t6 with clock:=ck+t.clock` by
-        simp[stackSemTheory.state_component_equality,Abbr`t6`]>>
-    simp[evaluate_stack_move_clock]>>
-    Q.ISPECL_THEN [`sargs`,`0n`,`t6`,`f+3`] mp_tac evaluate_stack_move>>
-    impl_keep_tac>- (
-      qpat_x_assum`s.clock ≠ 0 ⇒ P` kall_tac>>
-      qpat_x_assum`∀a b c. P` kall_tac>>
-      qpat_x_assum`∀a b. P` kall_tac>>
-      unabbrev_all_tac>>simp[]>>
-      fsrw_tac[][state_rel_def,ADD_COMM]>>
-      fsrw_tac[][convs_def]>>
-      qpat_x_assum`args = A` SUBST_ALL_TAC>>
-      fsrw_tac[][wordLangTheory.max_var_def,LET_THM]>>
-      fsrw_tac[][list_max_GENLIST_evens2]>>
-      `2*LENGTH args < 2*f'+2*k` by
-        (qpat_x_assum`A<2*f' +2*k` mp_tac>>
-        simp[MAX_DEF])>>
-      `LENGTH args < f' +k` by simp[]>>
-      simp[stack_arg_count_def]>>
-      TOP_CASE_TAC>>
-      Cases_on`f'`>>fsrw_tac[][]>>
-      qpat_x_assum`A<B:num` mp_tac>>
-      rpt (pop_assum kall_tac)>>
-      DECIDE_TAC)>>
-    strip_tac>>simp[]>>
-    `find_code dest' (t''.regs \\0) t''.code = find_code dest' t4.regs t4.code` by
-       (`subspt t4.code t''.code` by
-         (unabbrev_all_tac>>
-         fs[stackSemTheory.state_component_equality]>>
-         metis_tac[evaluate_mono])>>
-       Cases_on`dest'`>>fsrw_tac[][stackSemTheory.find_code_def]>>
-       qpat_x_assum`A=SOME stack_prog` mp_tac
-       >-
-         metis_tac[subspt_def,domain_lookup]>>
-       qpat_x_assum`A=(q0,INR y)` mp_tac>>
-       Cases_on`dest`>>simp[call_dest_def]>>
-       IF_CASES_TAC>>simp[]>>
-       simp[wReg2_def]>>IF_CASES_TAC>>fsrw_tac[][]
-       >-
-         (`LAST args DIV 2≠ 0 ∧ LAST args DIV 2 ≠ k` by
-          (fsrw_tac[][convs_def]>>
-          qpat_x_assum`args = A` SUBST_ALL_TAC>>
-          full_simp_tac std_ss [GSYM LENGTH_NIL] >>
-          drule LAST_GENLIST_evens>>
-          LET_ELIM_TAC>>simp[]>>
-          Cases_on`reg`>>fsrw_tac[][]>>
-          Cases_on`n`>>fsrw_tac[][]>>
-          simp[ADD_DIV_RWT,ADD1])>>
-         strip_tac>>rveq>>
-         simp[DOMSUB_FLOOKUP_THM]>>
-         fsrw_tac[][stackSemTheory.get_var_def,Abbr`t6`,FLOOKUP_UPDATE]>>
-         qpat_x_assum`subspt _ _` mp_tac>>
-         rpt (pop_assum kall_tac)>>
-         every_case_tac>>fs[subspt_def]>>
-         metis_tac[domain_lookup])
-       >-
-         (strip_tac>>rveq>>
-         simp[DOMSUB_FLOOKUP_THM]>>
-         fsrw_tac[][stackSemTheory.get_var_def,Abbr`t6`,FLOOKUP_UPDATE]>>
-         qpat_x_assum`subspt _ _` mp_tac>>
-         rpt (pop_assum kall_tac)>>
-         every_case_tac>>fs[subspt_def]>>
-         metis_tac[domain_lookup]))>>
-    simp[]>>
-    IF_CASES_TAC>-
-      (rw[]>>qexists_tac`0`>>fs[state_rel_def]>>
-      fs[Abbr`t6`,stackSemTheory.state_component_equality])>>
-    `t.clock ≠ 0` by
-      metis_tac[state_rel_def]>>
-    fsrw_tac[][compile_prog_def,LET_THM]>>
-    pairarg_tac>>fsrw_tac[][]>>
-    rveq>>
-    qpat_abbrev_tac `m = MAX (max_var r DIV 2 +1 - k) (LENGTH q - k)`>>
-    qpat_abbrev_tac `m' = (if _ then 0 else m + 1)`>>
-    simp[stackSemTheory.evaluate_def]>>
-    `t''.use_stack` by
-      fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
-    simp[stackSemTheory.set_var_def,stackSemTheory.dec_clock_def]>>
-    Cases_on`t''.stack_space < m' - (LENGTH q-k)`>-
-      (fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
-      unabbrev_all_tac>>fsrw_tac[][stackSemTheory.state_component_equality]>>
-      simp[]>>
-      qpat_x_assum`res ≠ A` mp_tac>>
-      ntac 90 (last_x_assum kall_tac)>>
-      rpt(TOP_CASE_TAC>>fsrw_tac[][])>>
-      fsrw_tac[][dec_clock_def]>>rw[]>>
-      imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
-      fsrw_tac[] [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
-      metis_tac[IS_PREFIX_TRANS,pop_env_ffi])>>
-    simp[]>>
-    qpat_abbrev_tac`word_state = call_env q st`>>
-    qabbrev_tac`stack_state =
-      t'' with <|regs:=t''.regs|+(0,Loc x3 x4);
-                stack_space:=t''.stack_space - (m'-(LENGTH q-k));
-                clock:=t.clock-1|>`>>
-    `state_rel k m' m word_state stack_state (f'::lens)` by
-      (ntac 3 (qpat_x_assum`!a b. P` kall_tac)>>
-      `sargs = (LENGTH q -k)` by
-        (simp[stack_arg_count_def,Abbr`sargs`]>>
-        qpat_x_assum`call_dest A B C =(q0,dest')` mp_tac>>
-        qpat_x_assum`A=SOME(q,r)` mp_tac>>
-        imp_res_tac get_vars_length_lemma>>
-        Cases_on`dest`>-
-          (fsrw_tac[][bad_dest_args_def]>>
-          simp[find_code_def,call_dest_def,add_ret_loc_def]>>
-          `LENGTH args ≠ 0` by fsrw_tac[][LENGTH_NIL]>>
-          rpt TOP_CASE_TAC>>simp[]>>
-          rw[]>>
-          pairarg_tac>>fsrw_tac[][]>>
-          Cases_on`x`>>fsrw_tac[][]>>
-          simp[])>>
-        fsrw_tac[][bad_dest_args_def]>>
-        simp[find_code_def,call_dest_def,add_ret_loc_def]>>
-        rpt TOP_CASE_TAC>>simp[]>>
-        rw[]>>
-        simp[])>>
-      fsrw_tac[][state_rel_def,Abbr`word_state`,Abbr`stack_state`]>>
-      fsrw_tac[][dec_clock_def,call_env_def,push_env_def,env_to_list_def,LET_THM]>>
-      fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
-      `sargs ≤ m ∧ m ≤ m'` by
-       (fs[markerTheory.Abbrev_def]
-        \\ rveq \\ rw[MAX_DEF])>>
-      fsrw_tac[][state_rel_def]>>
-      CONJ_TAC>-
-        simp[FUN_EQ_THM]>>
-      CONJ_TAC>-
-        fsrw_tac[][push_env_def,env_to_list_def,LET_THM]>>
-      CONJ_ASM1_TAC>-
-        DECIDE_TAC>>
-      CONJ_TAC>-
-        (simp_tac(srw_ss())[Abbr`m`,Abbr`m'`,MAX_DEF]
-         \\ rpt(pop_assum kall_tac) \\ rw[] ) >>
-      CONJ_TAC>-
-        simp[wf_fromList2]>>
-      fsrw_tac[][DROP_DROP_EQ]>>
-      CONJ_TAC>-
-        (qpat_x_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
-        simp[push_env_def,env_to_list_def]>>
-        qpat_x_assum`DROP A B = DROP C D` mp_tac>>
-        simp[])>>
-      ntac 3 strip_tac>>
-      rpt(qpat_x_assum`!a b c. A ⇒ B` kall_tac)>>
-      imp_res_tac (GSYM domain_lookup)>>
-      imp_res_tac EVEN_fromList2>>fsrw_tac[][]>>
-      fsrw_tac[][wordPropsTheory.post_alloc_conventions_def,wordPropsTheory.call_arg_convention_def]>>
-      `isPREFIX q (Loc x3 x4::x)` by
-         (qpat_x_assum`A=SOME(q,r)` mp_tac>>
-         Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
-         EVERY_CASE_TAC>>rw[]>>
-         Cases_on`x`>>fsrw_tac[][IS_PREFIX_BUTLAST])>>
-      imp_res_tac lookup_fromList2_prefix>>
-      Cases_on`n=0`>-
-        (fsrw_tac[][lookup_fromList2,lookup_fromList]>>
-        simp[FLOOKUP_UPDATE])>>
-      `lookup n s.locals = SOME v` by
-       (qpat_x_assum`args=A` SUBST_ALL_TAC>>
-       imp_res_tac get_vars_fromList2_eq_cons)>>
-      fsrw_tac[][LET_THM]>>
-      IF_CASES_TAC>-
-        (`n DIV 2 ≠ 0 ∧ n DIV 2 ≠ k` by
-          (Cases_on`n`>>simp[]>>
-          Cases_on`n'`>>fsrw_tac[][]>>
-          simp[ADD_DIV_RWT,ADD1])>>
-        rw[FLOOKUP_UPDATE]>>
-        fsrw_tac[][stackSemTheory.get_var_def,FLOOKUP_UPDATE]>>
-        metis_tac[])>>
-      `k ≤ LENGTH q` by (
-        fsrw_tac[][lookup_fromList2,lookup_fromList]
-        \\ rpt(qpat_x_assum`n DIV 2 < _`mp_tac)
-        \\ qpat_x_assum`¬(n DIV 2 < _)`mp_tac
-        \\ rpt(pop_assum kall_tac)
-        \\ decide_tac) >>
-      ntac 3 (qpat_x_assum`!a b.P` kall_tac)>>
-      fsrw_tac[][]>>
-      `LENGTH q = k + sargs` by (
-        pop_assum mp_tac >>
-        qpat_x_assum`sargs = _ `mp_tac >>
-        rpt(pop_assum kall_tac) >> rw[] ) >>
-      first_assum SUBST1_TAC >>
-      simp_tac(srw_ss()++ARITH_ss)[] >>
-      `sargs ≤ m'` by metis_tac[LESS_EQ_TRANS] >>
-      pop_assum mp_tac >>
-      simp_tac(srw_ss()++ARITH_ss)[] >>
-      Cases_on `m=0` \\ fsrw_tac[] []
-      THEN1
-        (fsrw_tac[] [lookup_fromList2,lookup_fromList,Abbr`m'`]>>
-         qpat_x_assum`¬(n DIV 2 < _)`mp_tac >>
-         qpat_x_assum`(n DIV 2 < k + _)`mp_tac >>
-         qpat_x_assum`LENGTH q = _`mp_tac >>
-         qpat_x_assum`sargs = 0`mp_tac >>
-         rpt(pop_assum kall_tac) >>
-         decide_tac)>>
-      `m' = m+1` by (
-        qunabbrev_tac`m'` >>
-        IF_CASES_TAC >- (
-          qpat_x_assum`m ≤ _`mp_tac >>
-          pop_assum(SUBST1_TAC o EQT_INTRO) >>
-          qpat_x_assum`m ≠ 0`mp_tac >>
-          rpt(pop_assum kall_tac) >>
-          rw[] ) >>
-        REFL_TAC ) >>
-      pop_assum SUBST_ALL_TAC >>
-      simp_tac(srw_ss()++ARITH_ss)[] >>
-      `m+1 ≤ t'.stack_space` by simp[] >>
-      pop_assum mp_tac >>
-      qpat_x_assum`LENGTH t'.stack = _`(mp_tac o SYM) >>
-      qpat_x_assum`_.stack_space ≤ LENGTH t''.stack`mp_tac >>
-      simp_tac(srw_ss()++ARITH_ss)[LLOOKUP_THM,EL_TAKE,EL_DROP] >>
-      ntac 4 strip_tac >>
-      fsrw_tac[][lookup_fromList2,lookup_fromList] >>
-      reverse conj_asm2_tac >- simp[] >>
-      pop_assum mp_tac >>
-      qpat_x_assum`¬(_ < _)`mp_tac >>
-      qpat_x_assum`m + 1 ≤ _`mp_tac >>
-      simp_tac(srw_ss()++ARITH_ss)[] >>
-      ntac 3 strip_tac >>
-     first_x_assum(qspecl_then[`n`,`v`] kall_tac)>>
-     first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
-     rpt(qpat_x_assum`!a b. P` kall_tac)>>
-     fsrw_tac[][]>>
-     simp[LLOOKUP_THM]>>
-     `f+k - (n DIV 2 +1) < f` by simp[]>>
-     fsrw_tac[][EL_TAKE]>>
-     qpat_assum`∀x. A ⇒ EL B (DROP t5.stack_space t5.stack) = EL D E` mp_tac>>
-     disch_then (qspec_then `f+k-(n DIV 2 +1)` mp_tac)>>
-     impl_tac>- (
-       rpt(first_x_assum(mp_tac o assert(can (find_term (same_const numSyntax.less_tm)) o concl)))
-       \\ rpt(first_x_assum(mp_tac o assert(can (find_term (same_const numSyntax.leq_tm)) o concl)))
-       \\ rpt(first_x_assum(mp_tac o assert(can (find_term (aconv ``(=):num->num->bool``)) o concl)))
-       \\ rpt (pop_assum kall_tac)
-       \\ rw[]) >>
-     disch_then SUBST_ALL_TAC>>
-     qpat_x_assum`DROP A B = DROP C D` mp_tac>>
-     ntac 6 (pop_assum mp_tac) >>
-     simp_tac(srw_ss()++ARITH_ss)[] >>
-     ntac 5 strip_tac >>
-     disch_then sym_sub_tac >>
-     first_x_assum (qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
-     impl_tac>- simp[]>>
-     fs[EL_DROP]>>
-     qpat_x_assum `t'.stack_space + 3 = t5.stack_space` mp_tac>>
-     rpt(pop_assum kall_tac)>>
-     rw[]>>
-     `f' + k - n DIV 2 + 3 + t'.stack_space =
-     f' + k + t5.stack_space - n DIV 2` by fs[]>>
-     fs[])>>
-    Cases_on`evaluate(r,word_state)`>>fsrw_tac[][]>>
-    first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f'::lens)`] mp_tac)>>
-    Cases_on`q' = SOME Error`>>fsrw_tac[][]>>
-    impl_tac>-
-      (CONJ_ASM1_TAC>-
-        (qpat_x_assum`A=SOME(q,r)`mp_tac>>
-        Cases_on`dest`>>
-        fsrw_tac[][state_rel_def,find_code_def]>>
-        rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
-      CONJ_TAC>-
-        (qpat_x_assum`A=SOME(q,r)`mp_tac>>
-        Cases_on`dest`>>
-        fsrw_tac[][state_rel_def,find_code_def]>>
-        rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
-      CONJ_TAC>-
-       (fs [comp_def,get_labels_def]
-        \\ drule find_code_IMP_get_labels
-        \\ fs [get_labels_def]
-        \\ fs [Abbr `stack_state`,Abbr`t6`]
-        \\ imp_res_tac evaluate_mono
-        \\ fs[]
-        \\ metis_tac[SUBSET_TRANS,subspt_trans,loc_check_SUBSET])>>
-      CONJ_TAC>-
-        (`EVEN (max_var r)` by
-            (ho_match_mp_tac max_var_intro>>
-            fsrw_tac[][convs_def]>>
-            match_mp_tac every_var_mono>>
-            HINT_EXISTS_TAC>>fsrw_tac[][reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
-        unabbrev_all_tac>>fsrw_tac[][EVEN_EXISTS]>>
-        rpt (pop_assum kall_tac)>>
-        `m * 2 DIV 2 = m` by
-          (Q.ISPECL_THEN[`2n`,`m`]assume_tac MULT_DIV>>fsrw_tac[][])>>
-        fsrw_tac[][MULT_COMM,MAX_DEF]>>rw[]>>
-        DECIDE_TAC)>>
-      unabbrev_all_tac>>fsrw_tac[][]>>
-      fsrw_tac[][stackSemTheory.state_component_equality]>>
-      imp_res_tac evaluate_mono>>
-      metis_tac[IS_PREFIX_TRANS])>>
-    strip_tac>>
-    Cases_on`q'`>>simp[]>>
-    Cases_on`x''`>>simp[]
-    >-
-      (IF_CASES_TAC>>fsrw_tac[][]>>
-      Cases_on`pop_env r'`>>fsrw_tac[][]>>
-      IF_CASES_TAC>>fsrw_tac[][]>>
-      strip_tac>>
-      imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
-      qpat_x_assum`if A then B else C` mp_tac>>
-      IF_CASES_TAC>>fsrw_tac[][]
-      >-
-        (*the stackLang evaluation halts*)
-        (rw[]>>
-        qexists_tac`ck`>>
-        fsrw_tac[][Abbr`stack_state`]>>
-        `ck + (t.clock -1) = ck +t.clock -1` by DECIDE_TAC>>
-        fsrw_tac[][state_rel_def,compile_result_NOT_2]>>
-        metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono])
-      >>
-      strip_tac>>
-      `∃t2. evaluate(PopHandler (k,f,f') Skip,t1) = (NONE,t2) ∧ state_rel k f f' (set_var x0 w0 x'') t2 lens ∧ x''.handler = s.handler` by
-        (qpat_x_assum`!a b c d e f. P` kall_tac>>
-        Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>
-        rfs[Abbr`word_state`]>>
-        fsrw_tac[][call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,s_key_eq_def]>>
-        qpat_x_assum`pop_env A = B` mp_tac>>
-        simp[pop_env_def]>>
-        ntac 4 (TOP_CASE_TAC>>fsrw_tac[][s_key_eq_def,s_frame_key_eq_def])>>
-        pop_assum kall_tac>>
-        strip_tac>>
-        fsrw_tac[][PopHandler_def,stackSemTheory.evaluate_def,LET_THM]>>
-        rveq>>fsrw_tac[][state_rel_def,set_var_def,LET_THM]>>
-        imp_res_tac stack_rel_cons_LEN_SOME>>
-        fsrw_tac[][LENGTH_DROP]>>
-        simp[stackSemTheory.set_store_def,stackSemTheory.set_var_def,stackSemTheory.get_var_def,FLOOKUP_UPDATE]>>
-        CONJ_TAC>-
-          metis_tac[evaluate_mono,subspt_def]>>
-        CONJ_ASM1_TAC>-
-          (fsrw_tac[][LENGTH_DROP]>>
-          Cases_on`f'`>>fsrw_tac[][]>>
-          simp[])>>
-        CONJ_TAC>-
-          simp[wf_insert,wf_fromAList]>>
-        fsrw_tac[][LET_THM]>>
-        CONJ_TAC>-
-          (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
-          imp_res_tac stack_rel_DROP_SOME>>
-          pop_assum mp_tac>>
-          simp[EL_DROP,DROP_DROP])>>
-        ntac 2 strip_tac>>
-        fsrw_tac[][lookup_insert,convs_def]>>
-        IF_CASES_TAC>-
-          simp[]>>
-        strip_tac>>
-        `n ∈ domain (fromAList l)` by metis_tac[domain_lookup]>>
-        `n ∈ domain x1 ∧ n ∈ domain s.locals` by
-          (fsrw_tac[][cut_env_def]>>
-          `n ∈ domain x'` by rfs[]>>
-          rveq>>
-          fsrw_tac[][domain_inter])>>
-        res_tac>>simp[]>>
-        fsrw_tac[][domain_lookup]>>
-        last_x_assum (qspecl_then [`n`,`v''`]mp_tac)>>
-        simp[LLOOKUP_THM]>>
-        strip_tac>>
-        fsrw_tac[][stack_rel_def]>>qpat_x_assum`A=SOME stack''''` mp_tac>>
-        qpat_abbrev_tac`ls = DROP A B`>>
-        Cases_on`ls`>>simp[abs_stack_def]>>
-        rpt (TOP_CASE_TAC >>simp[])>>
-        strip_tac>>
-        qpat_x_assum`stack_rel_aux A B C stack''''` mp_tac>>
-        rveq>>simp[stack_rel_aux_def]>>
-        strip_tac>>
-        fsrw_tac[][lookup_fromAList]>>
-        `MEM (n,v) l` by metis_tac[ALOOKUP_MEM]>>
-        `MEM (n DIV 2,v) (MAP_FST adjust_names l)` by
-          (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
-          metis_tac[])>>
-        simp[LLOOKUP_THM]>>
-        imp_res_tac filter_bitmap_MEM>>
-        imp_res_tac MEM_index_list_EL>>
-        pop_assum mp_tac>>
-        simp[LENGTH_TAKE,EL_TAKE]>>
-        Cases_on`LENGTH x''`>>
-        fsrw_tac[][]>>simp[]>>
-        fsrw_tac[][markerTheory.Abbrev_def]>>
-        `t1.stack_space+3 = 3+t1.stack_space` by fsrw_tac[][ADD_COMM]>>
-        pop_assum SUBST1_TAC>>
-        simp[GSYM DROP_DROP]>>
-        qpat_x_assum`A=DROP t1.stack_space t1.stack` sym_sub_tac>>
-        simp[]>>
-        `k + SUC n' - n DIV 2 = SUC (k+ SUC n' - (n DIV 2+1))` by
-          (ntac 30 (pop_assum mp_tac)>>
-          rpt (pop_assum kall_tac)>>
-          simp[])>>
-        qpat_x_assum`COND (_ = []) _ _`mp_tac >>
-        rename1`ls = []` >>
-        qpat_x_assum`LENGTH ls = _`mp_tac >>
-        Cases_on`ls` >> simp_tac(srw_ss())[] >>
-        `SUC n' + 1 + k - (n DIV 2 + 1) = SUC (k + SUC n' - (n DIV 2 + 1))`
-        by (
-          ntac 30 (pop_assum mp_tac) >>
-          rpt(pop_assum kall_tac) >>
-          rw[]) >>
-        pop_assum SUBST1_TAC >>
-        simp_tac(srw_ss())[])>>
-      imp_res_tac stackPropsTheory.evaluate_add_clock>>
-      ntac 4 (pop_assum kall_tac)>>
-      rveq>>fsrw_tac[][]>>
-      first_x_assum(qspecl_then[`k`,`f`,`f'`,`t2`,`bs'`,`lens`] mp_tac)>>
-      impl_tac>-
-        (fsrw_tac[][convs_def]>>rw[]
-        >-
-          (fs [comp_def,get_labels_def,PopHandler_def]>>
-          imp_res_tac evaluate_mono >>
-          fs [Abbr `stack_state`,Abbr`t6`]>>
-          metis_tac[SUBSET_TRANS,subspt_trans,loc_check_SUBSET])
-        >-
-          (qpat_x_assum`A<B:num` mp_tac>>
-          simp[wordLangTheory.max_var_def])
-        >>
-          unabbrev_all_tac>>
-          imp_res_tac evaluate_mono>>
-          imp_res_tac comp_IMP_isPREFIX>>
-          rpt (qpat_x_assum`isPREFIX _ _` mp_tac)>>
-          simp[comp_def]>>
-          metis_tac[IS_PREFIX_TRANS])>>
-      rw[]>>
-      qexists_tac`ck+ck'`>>
-      fsrw_tac[][Abbr`stack_state`]>>
-      first_x_assum(qspec_then`ck'` mp_tac)>>
-      simp[Once evaluate_PopHandler_seq,stackSemTheory.evaluate_def,evaluate_PopHandler_clock]>>
-      first_x_assum(qspec_then`ck'` mp_tac)>>simp[]>>
-      fsrw_tac[][ADD_COMM]>>
-      pop_assum mp_tac>>
-      simp[set_var_def])
-    >-
-      (*Exception*)
-      (IF_CASES_TAC>>fs[]>>
-      IF_CASES_TAC>>fs[]>>
-      qpat_x_assum`if A then B else C` mp_tac>>
-      IF_CASES_TAC>>fs[]
-      >-
-        (rw[]>>
-        qexists_tac`ck`>>
-        fsrw_tac[][Abbr`stack_state`]>>
-        `ck + (t.clock -1) = ck +t.clock -1` by DECIDE_TAC>>
-        fsrw_tac[][state_rel_def,compile_result_NOT_2,set_var_def]>>
-        imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
-        fsrw_tac[][]>>
-        metis_tac[IS_PREFIX_TRANS,pop_env_ffi])
-      >>
-      fs[push_locals_def]>>strip_tac>>
-      strip_tac>>
-      `state_rel k f f' (set_var x''0 w0 r') t1 lens ∧ s.handler = r'.handler` by
-        (qpat_x_assum`!a b c d e f. P` kall_tac>>
-        Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>
-        rfs[Abbr`word_state`]>>
-        Cases_on`n`>>
-        qpat_x_assum`!a b c.P` kall_tac>>
-        fsrw_tac[][call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,s_key_eq_def]>>
-        rveq>>fsrw_tac[][state_rel_def,set_var_def,LET_THM]>>
-        `LENGTH lens = LENGTH s.stack` by
-           (fs[stack_rel_def]>>
-           imp_res_tac abs_stack_IMP_LENGTH)>>
-        qpat_x_assum`LASTN A B = C` mp_tac>>
-        qpat_x_assum`stack_rel k r'.handler A B C D E (LASTN n (f'::lens))` mp_tac>>
-        simp[LASTN_CONS_ID,GSYM ADD1]>>
-        ntac 2 strip_tac>>
-        CONJ_TAC>-
-          metis_tac[evaluate_consts]>>
-        CONJ_ASM1_TAC>-
-          (imp_res_tac stack_rel_cons_LEN_NONE>>
-          fsrw_tac[][LENGTH_DROP]>>
-          Cases_on`f'`>>fsrw_tac[][]>>
-          simp[])>>
-        CONJ_TAC>-
-          simp[wf_insert,wf_fromAList]>>
-        CONJ_TAC>-
-          (`f = f'+1` by (Cases_on`f'`>>fsrw_tac[][])>>
-          metis_tac[stack_rel_DROP_NONE])>>
-        ntac 2 strip_tac>>
-        fsrw_tac[][lookup_insert,convs_def]>>
-        IF_CASES_TAC>-
-          simp[]>>
-        strip_tac>>
-        `n ∈ domain (fromAList lss)` by metis_tac[domain_lookup]>>
-        `n ∈ domain x1 ∧ n ∈ domain s.locals` by
-          (fsrw_tac[][cut_env_def]>>
-          `n ∈ domain x'` by rfs[]>>
-          rveq>>
-          fsrw_tac[][domain_inter])>>
-        res_tac>>simp[]>>
-        fsrw_tac[][domain_lookup]>>
-        last_x_assum (qspecl_then [`n`,`v''`]mp_tac)>>
-        simp[LLOOKUP_THM]>>
-        strip_tac>>
-        fsrw_tac[][stack_rel_def]>>
-        qpat_x_assum`A=SOME stack''''''` mp_tac>>
-        qpat_abbrev_tac`L = DROP A B`>>
-        Cases_on`L`>>simp[abs_stack_def]>>
-        ntac 100 (last_x_assum kall_tac)>>
-        rpt (TOP_CASE_TAC >>simp[])>>
-        strip_tac>>
-        qpat_x_assum`stack_rel_aux A B C D` mp_tac>>
-        rveq>>simp[stack_rel_aux_def]>>
-        strip_tac>>
-        fsrw_tac[][lookup_fromAList]>>
-        `MEM (n,v) lss` by metis_tac[ALOOKUP_MEM]>>
-        `MEM (n DIV 2,v) (MAP_FST adjust_names lss)` by
-          (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
-          metis_tac[])>>
-        simp[LLOOKUP_THM]>>
-        imp_res_tac filter_bitmap_MEM>>
-        ntac 2 (pop_assum kall_tac)>>
-        pop_assum (qspec_then`(n DIV 2 ,v)` mp_tac)>>
-        impl_tac>-
-          (fs[MEM_MAP,MAP_FST_def]>>
-          qexists_tac`y`>>
-          simp[mem_list_rearrange,MEM_QSORT]>>
-          `ALL_DISTINCT (MAP FST lss)` by
-            (qpat_x_assum`A=MAP FST lss` sym_sub_tac>>
-            rpt (pop_assum kall_tac)>>
-            simp[MAP_FST_def,list_rearrange_I]>>
-            match_mp_tac ALL_DISTINCT_MAP_INJ>>
-            Q.ISPEC_THEN `x'` assume_tac ALL_DISTINCT_MAP_FST_toAList>>
-            rw[]
-            >-
-              (fs[MEM_QSORT,EL_ALL_DISTINCT_EL_EQ,MEM_EL,EL_MAP]>>
-              metis_tac[])
-            >>
-            metis_tac[QSORT_PERM,ALL_DISTINCT_PERM,ALL_DISTINCT_MAP])>>
-          metis_tac[ALL_DISTINCT_MEM_toAList_fromAList])>>
-        strip_tac>>
-        imp_res_tac MEM_index_list_EL>>
-        pop_assum mp_tac>>
-        simp[LENGTH_TAKE,EL_TAKE]>>
-        Cases_on`LENGTH x`>>fs[]>>
-        simp[]>>
-        qpat_x_assum`COND (_ = []) _ _`mp_tac >>
-        rename1`ls = []` >> Cases_on`ls` \\ fs[] >>
-        `k + (SUC n'+1) - SUC(n DIV 2) = SUC (k+ SUC n' - (n DIV 2+1))` by DECIDE_TAC>>
-        simp[EL_TAKE])>>
-      imp_res_tac stackPropsTheory.evaluate_add_clock>>
-      ntac 4 (pop_assum kall_tac)>>
-      rveq>>fsrw_tac[][]>>
-      first_x_assum(qspecl_then[`k`,`f`,`f'`,`t1`,`bs''`,`lens`] mp_tac)>>
-      impl_tac>-
-        (fsrw_tac[][convs_def]>>rw[]
-        >-
-          (fs [comp_def,get_labels_def,PopHandler_def] >>
-          fs [Abbr `stack_state`,Abbr`t6`]>>
-          imp_res_tac evaluate_mono>>
-          fs[]>>
-          metis_tac[loc_check_SUBSET,subspt_trans,SUBSET_TRANS])
-        >-
-          fs[wordLangTheory.max_var_def]
-        >>
-          unabbrev_all_tac>>
-          imp_res_tac evaluate_mono>>
-          rpt(qpat_x_assum`isPREFIX _ _` mp_tac)>>
-          simp[comp_def]>>
-          metis_tac[IS_PREFIX_TRANS])>>
-      rw[]>>
-      qexists_tac`ck+ck'`>>
-      fsrw_tac[][Abbr`stack_state`]>>
-      first_x_assum(qspec_then`ck'` mp_tac)>>
-      fs[set_var_def])
-    >>
-      (*Timeout and Halt*)
-      (strip_tac>>
-      qexists_tac`ck`>>
-      fs[Abbr`stack_state`]>>
-      `t.clock -1 + ck = ck +t.clock -1` by DECIDE_TAC>>
-      fs[]>>
-      rveq>>simp[]>>
-      qpat_x_assum `if A then B else C` mp_tac>>
-      IF_CASES_TAC>>fs[]>>rveq>>
-      fs[]>>
-      strip_tac>>
-      fs[state_rel_def])
+  match_mp_tac (the_ind_thm()) >>
+  rpt conj_tac >>
+  MAP_FIRST MATCH_ACCEPT_TAC
+    [comp_Skip_correct,comp_Alloc_correct,comp_Move_correct,comp_Inst_correct,comp_Assign_correct,
+     comp_Get_correct,comp_Set_correct,comp_Store_correct,comp_Tick_correct,comp_MustTerminate_correct,
+     comp_Seq_correct,comp_Return_correct,comp_Raise_correct,comp_If_correct,comp_LocValue_correct,
+     comp_Install_correct,comp_CodeBufferWrite_correct,comp_DataBufferWrite_correct,
+     comp_FFI_correct,comp_Call_correct
+    ]
 QED
 
 val evaluate_Seq_Skip = Q.prove(
