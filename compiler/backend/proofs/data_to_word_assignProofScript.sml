@@ -715,9 +715,11 @@ QED
 val byte_length_def = Define`byte_length w = (LENGTH w = 8)`
 val wrw = srw_tac [boolSimps.LET_ss, fcpLib.FCP_ss, ARITH_ss]
 
-val v2w_w2v = Q.store_thm("v2w_w2v",
-  `!w. v2w (w2v w) = w`,
-  wrw [w2v_def, v2w_def, testbit])
+Theorem v2w_w2v:
+  !w. v2w (w2v w) = w
+Proof
+  wrw [w2v_def, v2w_def, testbit]
+QED
 
 val fcp_ss = std_ss ++ fcpLib.FCP_ss
 
@@ -8474,15 +8476,17 @@ Proof
 rw[] \\ simp[word_1comp_def] \\ simp[fcpTheory.FCP_BETA,fcpTheory.CART_EQ]
 QED
 
-val EL_bitwise = store_thm("EL_bitwise",
-  ``!i f xs ys. i < LENGTH (bitwise f xs ys) /\ LENGTH xs = LENGTH ys ==>
-    EL i (bitwise f xs ys) = f (EL i xs) (EL i ys)``,
+Theorem EL_bitwise:
+  !i f xs ys. i < LENGTH (bitwise f xs ys) /\ LENGTH xs = LENGTH ys ==>
+              EL i (bitwise f xs ys) = f (EL i xs) (EL i ys)
+Proof
   ntac 4 strip_tac \\ fs [bitstringTheory.bitwise_def]
   \\ qid_spec_tac `xs`
   \\ qid_spec_tac `ys`
   \\ qid_spec_tac `i`
   \\ Induct_on `xs` \\ Cases_on `ys` \\ fs []
-  \\ rpt gen_tac \\ Cases_on `i` \\ fs []);
+  \\ rpt gen_tac \\ Cases_on `i` \\ fs []
+QED
 
 Theorem LENGTH_bitwise:
   !f x y. LENGTH (bitwise f x y) = MAX (LENGTH x) (LENGTH y)
