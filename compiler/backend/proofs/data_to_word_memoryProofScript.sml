@@ -9108,7 +9108,64 @@ Proof
       \\ rpt_drule memory_rel_tail \\ strip_tac
       \\ rpt_drule memory_rel_Block_IMP \\ strip_tac
       \\ strip_tac \\ rveq \\ fs[] \\ rveq
-      \\ Cases_on `l = []` >- cheat \\ fs[]
+      \\ Cases_on `l = []` >- (fs[]
+          \\ Cases_on`n=0` \\ fs[]
+          \\ Cases_on`l` \\ fs[]
+          \\ clean_tac
+          \\ Cases_on`n` \\ fs[]
+          \\ clean_tac \\ rename1`SUC x`
+          \\ Q.MATCH_ASMSUB_ABBREV_TAC`X = 16w * Y + _`
+          \\ Q.UNDISCH_TAC`X = 16w * Y + 2w`
+          \\ simp[word_lsl_def,fcpTheory.CART_EQ,fcpTheory.FCP_BETA]
+          \\ qexists_tac`1`
+          \\ conj_tac >- fs[good_dimindex_def]
+          \\ `~X ' 1` by (UNABBREV_ALL_TAC \\ simp[word_lsl_def]
+               \\ `1 < dimindex(:'a)` by fs[good_dimindex_def]
+               \\ simp[fcpTheory.FCP_BETA])
+          \\ fs[]
+          \\ simp[word_add_def]
+          \\ `2 MOD dimword (:'a) = 2` by fs[dimword_def,good_dimindex_def]
+          \\ fs[]
+          \\ simp[Once n2w_def]
+          \\ `1 < dimindex(:'a)` by fs[good_dimindex_def]
+          \\ simp[fcpTheory.FCP_BETA]
+          \\ simp[bitTheory.BITS_THM,bitTheory.BIT_def]
+          \\ match_mp_tac MOD_UNIQUE
+          \\ fs[]
+          \\ `(w2n (16w * Y) + 2) DIV 2 = w2n (8w * Y) + 1` by (
+              MATCH_MP_TAC DIV_UNIQUE
+              \\ simp[RIGHT_ADD_DISTRIB]
+              \\ REWRITE_TAC[ADD_ASSOC]
+              \\ ONCE_REWRITE_TAC[ADD_COMM]
+              \\ simp[EQ_ADD_LCANCEL]
+              \\ qexists_tac`0`
+              \\ simp[]
+              \\ simp[word_mul_n2w]
+              \\ UNABBREV_ALL_TAC
+              \\ simp[word_mul_n2w]
+              \\ match_mp_tac MOD_UNIQUE
+              \\ Q.PAT_ABBREV_TAC`X = _ MOD (dimword(:'a))`
+              \\ `X = 8 * SUC x` by (UNABBREV_ALL_TAC \\ simp[]
+                                    \\ fs[good_dimindex_def,dimword_def]
+                                    \\ rfs[])
+              \\ fs[] \\ qexists_tac`0` \\ simp[]
+              \\ UNABBREV_ALL_TAC \\ fs[]
+              \\ clean_tac
+              \\ fs[X_LT_DIV]
+          )
+          \\ fs[]
+          \\ qexists_tac`w2n(8w * Y) DIV 2`
+          \\ simp[DIV_TIMES]
+          \\ `w2n (8w * Y) MOD 2 = 0` suffices_by simp[]
+          \\ match_mp_tac MOD_UNIQUE
+          \\ simp[]
+          \\ UNABBREV_ALL_TAC
+          \\ simp[word_mul_n2w]
+          \\ `(8*SUC x) MOD dimword(:'a) = 8 * SUC x` by (simp[]
+               \\ fs[X_LT_DIV])
+          \\ fs[]
+          \\ qexists_tac`4*SUC x` \\ simp[]
+      ) \\ fs[]
       \\ simp[GSYM ADD1]
       \\ ONCE_REWRITE_TAC[ADD_SYM]
       \\ Cases_on`LENGTH l` \\ fs[]
