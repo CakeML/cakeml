@@ -287,6 +287,74 @@ Proof
   Induct_on `n` \\ simp[Once EXP]
 QED
 
+Theorem LOG_LE_lemma:
+  !b x. (0<x /\ 1<b) ==> LOG b x <= b ** LOG b x
+Proof
+  rw[]
+  \\ completeInduct_on`LOG b x`
+  \\ rw[]
+  \\ ASSUME_TAC(Q.SPECL[`b`,`x`] LOG_RWT)
+  \\ rfs[]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ `SUC (LOG b (x DIV b)) = LOG b (b*(x DIV b))` by (drule LOG_MULT
+     \\ strip_tac \\ pop_assum (qspec_then`x DIV b`assume_tac)
+     \\ pop_assum mp_tac \\ impl_tac \\ simp[]
+     \\ `x DIV b <> 0` suffices_by simp[]
+     \\ simp[DIV_EQ_0]
+  )
+  \\ simp[GSYM LESS_EQ]
+  \\ pop_assum (fn a=>SUBST_TAC[GSYM a])
+  \\ simp[EXP]
+  \\ first_x_assum(ASSUME_TAC o Q.SPEC`LOG b (x DIV b)`)
+  \\ fs[]
+  \\ first_x_assum(ASSUME_TAC o Q.SPECL[`b`,`x DIV b`])
+  \\ pop_assum mp_tac \\ simp[]
+  \\ impl_tac >- (
+     `x DIV b <> 0` suffices_by simp[]
+     \\ simp[DIV_EQ_0]
+  )
+  \\ Cases_on `b` >- simp[]
+  \\ rename1`SUC m`
+  \\ Cases_on `m` >- simp[]
+  \\ rw[]
+  \\ Q.MATCH_ABBREV_TAC`(X:num) < Y * Z`
+  \\ Cases_on`X=Z` >- (fs[] \\ ntac 3 (pop_assum kall_tac)
+       \\ simp[Abbr`Z`])
+  \\ `X<Z` by DECIDE_TAC \\ fs[] \\ clean_tac
+  \\ simp[Abbr`Y`]
+  \\ match_mp_tac LESS_TRANS
+  \\ qexists_tac`Z` \\ fs[]
+QED
+
+Theorem LOG_LE:
+  !b x. (0<x /\ 1<b) ==> LOG b x <= x
+Proof
+  rw[]
+  \\ IMP_RES_TAC EXP_LOG_LE
+  \\ match_mp_tac LESS_EQ_TRANS
+  \\ qexists_tac`b ** LOG b x`
+  \\ fs[]
+  \\ fs[LOG_LE_lemma]
+QED
+
+Theorem LOG_lemma_n2mw:
+  !x y. (0<x /\ 0<y) ==>
+     y DIV (2**x) = 0 ==> LOG 2 y < x
+Proof
+  rw[]
+  \\ `1 < 2 ** x` by (Cases_on`x` \\ fs[TWO_EXP_SUC_GT1])
+  \\ fs[DIV_EQ_0]
+  \\ pop_assum kall_tac
+  \\ ASSUME_TAC(Q.SPECL [`2`,`LOG 2 y`,`x`] LT_EXP_ISO)
+  \\ pop_assum mp_tac \\ impl_tac >- simp[]
+  \\ strip_tac \\ pop_assum(fn a => SUBST_TAC[a])
+  \\ match_mp_tac LESS_EQ_LESS_TRANS
+  \\ qexists_tac`y`
+  \\ fs[]
+  \\ match_mp_tac EXP_LOG_LE
+  \\ fs[]
+QED
+
 Theorem LENGTH_n2mw:
   !n. LENGTH ((n2mw n):('a word list)) = if n = 0 then 0 else ROUNDUP_DIV ((LOG 2 n)+1) (dimindex(:'a))
 Proof
@@ -324,12 +392,19 @@ Proof
      \\ simp[DIMINDEX_EQ_LOG2_DIMWORD]
      \\ rename1 `SUC (SUC a)`
      \\ `LOG 2 (SUC (SUC a)) < LOG 2 (dimword (:α))` suffices_by simp[]
-     \\ `~(LOG 2 (SUC (SUC a)) = LOG 2 (dimword (:α)))` by cheat
-     \\ `SUC (SUC a) <= dimword(:'a)` by fs[DIV_EQ_0]
-     \\ `LOG 2 (SUC (SUC a)) <= LOG 2 (dimword (:α))` suffices_by simp[]
-     \\ MATCH_MP_TAC (MP_CANON LOG_LE_MONO)
+     \\ fs[dimword_def]
+     \\ assume_tac LOG_lemma_n2mw
+     \\ `0 < SUC (SUC a)` by simp[]
+     \\ `0 < dimindex(:'a)` by simp[]
+     \\ res_tac
+     \\ fs[]
+     \\ `LOG 2 (2 ** dimindex (:α)) = dimindex(:'a)` by (match_mp_tac LOG_UNIQUE
+         \\ simp[])
+     \\ fs[]
      \\ fs[DIV_EQ_0]
     )
+  \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
+  \\ rpt(TOP_CASE_TAC \\ fs[])
   \\ cheat
 QED
 
