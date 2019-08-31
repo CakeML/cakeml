@@ -206,7 +206,7 @@ val do_eq_def = tDefine"do_eq"`
   (do_eq _ (Word64 _) _ = Eq_type_error) ∧
   (do_eq _ _ (Word64 _) = Eq_type_error) ∧
   (do_eq refs (RefPtr n1) (RefPtr n2) =
-    case (lookup n1 refs, lookup n1 refs) of
+    case (lookup n1 refs, lookup n2 refs) of
       (SOME (ByteArray T bs1), SOME (ByteArray T bs2))
         => Eq_val (bs1 = bs2)
     | (SOME (ByteArray T bs1), _) => Eq_type_error
