@@ -5,12 +5,12 @@ structure preamble =
 struct
 local open intLib wordsLib in end;
 open set_relationTheory; (* comes first so relationTheory takes precedence *)
-open BasicProvers Defn HolKernel Parse SatisfySimps Tactic monadsyntax
-     alistTheory arithmeticTheory bagTheory boolLib boolSimps bossLib
-     byteTheory containerTheory combinTheory dep_rewrite finite_mapTheory
-     indexedListsTheory lcsymtacs listTheory llistTheory lprefix_lubTheory
-     markerLib miscTheory mp_then optionTheory pairLib pairTheory
-     pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
+open ASCIInumbersTheory BasicProvers Defn HolKernel Parse SatisfySimps Tactic
+     monadsyntax alistTheory alignmentTheory arithmeticTheory bagTheory boolLib
+     boolSimps bossLib byteTheory containerTheory combinTheory dep_rewrite
+     finite_mapTheory indexedListsTheory lcsymtacs listTheory llistTheory
+     lprefix_lubTheory markerLib miscTheory mp_then optionTheory pairLib
+     pairTheory pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
      rich_listTheory sortingTheory sptreeTheory stringTheory sumTheory
      wordsTheory;
 (* TOOD: move? *)
@@ -531,5 +531,45 @@ in
       (REWR_CONV set_cons THENC RAND_CONV set_conv)
     )
 end
+local
+fun BRING_NAME_TO_FRONT_CONV n t =
+    let val (vs, b) = strip_forall t
+    in
+      case vs of
+          [] => NO_CONV
+        | v::rest => if #1 (dest_var v) = n then ALL_CONV
+                     else BINDER_CONV (BRING_NAME_TO_FRONT_CONV n) THENC
+                          SWAP_VARS_CONV
+    end t
+
+fun SPECtop th =
+    let val (v, _) = dest_forall (concl th)
+    in
+      SPEC v th
+    end
+
+fun SPECnames [] th = th
+  | SPECnames (n::ns) th =
+    case Lib.total (CONV_RULE (BRING_NAME_TO_FRONT_CONV n)) th of
+        NONE => SPECnames ns th
+      | SOME th' => SPECnames ns (SPECtop th')
+
+fun specnames_then fvnms ttac th = ttac (SPECnames fvnms th)
+in
+fun old_drule_then ttac th =
+    let val fvnames = map (#1 o dest_var) (th |> concl |> free_vars)
+    in
+      drule_then (specnames_then fvnames ttac) th
+    end
+val old_drule = old_drule_then mp_tac
+fun old_dxrule_then ttac th =
+    let val fvnames = map (#1 o dest_var) (th |> concl |> free_vars)
+    in
+      dxrule_then (specnames_then fvnames ttac) th
+    end
+val old_dxrule = old_dxrule_then mp_tac
+
+end
+
 
 end

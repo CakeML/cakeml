@@ -4,8 +4,8 @@ The CakeML compiler backend.
 This directory contains the Silver-specific part of the compiler
 backend and associated proofs.
 
-[arm6](arm6):
-This directory contains the ARMv6-specific part of the compiler backend.
+[arm7](arm7):
+This directory contains the ARMv7-specific part of the compiler backend.
 
 [arm8](arm8):
 This directory contains the ARMv8-specific part of the compiler backend.
@@ -97,9 +97,6 @@ code in clos_to_bvl). If the code for the applied closure is
 statically known and small enough, then this compiler phase can
 inline the body of the called closure. The function inlining is
 recurisve and controlled using configurable parameters.
-
-[clos_labelsScript.sml](clos_labelsScript.sml):
-Replaces calls to unknown functions with constant type errors.
 
 [clos_letopScript.sml](clos_letopScript.sml):
 This simple compiler phase tidies up after function inlining, in

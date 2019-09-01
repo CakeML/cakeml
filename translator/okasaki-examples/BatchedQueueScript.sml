@@ -10,7 +10,9 @@ val _ = translation_extends "ListProg";
 
 (* implementation *)
 
-val _ = Hol_datatype `queue = QUEUE of 'a list => 'a list`;
+Datatype:
+  queue = QUEUE ('a list) ('a list)
+End
 
 val empty_def = mlDefine `
   empty = QUEUE [] []`;

@@ -25,8 +25,9 @@ val type_size_def = holSyntaxTheory.type_size_def
   type thm = Sequent of (term list * term)
 *)
 
-val _ = Hol_datatype `
-  thm = Sequent of term list => term`;
+Datatype:
+  thm = Sequent (term list) term
+End
 
 (*
   We define a record that holds the state, i.e.
@@ -43,21 +44,20 @@ val _ = Hol_datatype `
   be close to HOL Light).
 *)
 
-val _ = Hol_datatype `
+Datatype:
   hol_refs = <| the_type_constants : (mlstring # num) list ;
                 the_term_constants : (mlstring # type) list ;
                 the_axioms : thm list ;
-                the_context : update list |>`;
+                the_context : update list |>
+End
 
 (* the state-exception monad *)
 
-val _ = Hol_datatype`
-  hol_exn = Fail of mlstring | Clash of term`
+Datatype:
+  hol_exn = Fail mlstring | Clash term
+End
 
-(* val _ = Hol_datatype `
-  hol_result = HolRes of 'a | HolErr of hol_exn`; *)
-
-val _ = type_abbrev("M", ``: (hol_refs, 'a, hol_exn) M``);
+Type M = ``: (hol_refs, 'a, hol_exn) M``
 
 (* deref/ref functions *)
 
@@ -698,8 +698,6 @@ val inst_aux_def = tDefine "inst_aux" `
    THEN REPEAT STRIP_TAC
    THEN FULL_SIMP_TAC std_ss [my_term_size_vsubst_aux]
    THEN DECIDE_TAC)
-
-val _ = save_thm("inst_aux_def",inst_aux_def);
 
 val _ = Define `
   inst tyin tm = if tyin = [] then return tm else inst_aux [] tyin tm`;

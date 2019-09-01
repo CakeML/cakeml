@@ -11,6 +11,7 @@ val _ = new_theory "to_word32Prog"
 val _ = translation_extends "sexp_parserProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word32Prog");
+val _ = ml_translatorLib.use_string_type true;
 
 val RW = REWRITE_RULE
 

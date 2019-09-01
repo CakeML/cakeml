@@ -605,6 +605,8 @@ val _ = Define `
         SOME ((s,t), Rval (Litv (Word8 (opw8_lookup op w1 w2))))
     | (Opw W64 op, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t), Rval (Litv (Word64 (opw64_lookup op w1 w2))))
+    | (FP_top top, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)]) =>
+        SOME ((s,t), Rval (Litv (Word64 (fp_top top w1 w2 w3))))
     | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
         SOME ((s,t),Rval (Litv (Word64 (fp_bop bop w1 w2))))
     | (FP_uop uop, [Litv (Word64 w)]) =>
@@ -743,6 +745,12 @@ val _ = Define `
             SOME ls =>
               SOME ((s,t), Rval (Litv (StrLit (IMPLODE ls))))
           | NONE => NONE
+          )
+    | (Explode, [v]) =>
+          (case v of
+            Litv (StrLit str) =>
+              SOME ((s,t), Rval (list_to_v (MAP (\ c .  Litv (Char c)) (EXPLODE str))))
+          | _ => NONE
           )
     | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
         if i <( 0 : int) then

@@ -138,10 +138,11 @@ in th end
 
 (*
 
-val _ = Hol_datatype `
+Datatype:
   state_refs = <| the_num : num ;
                   the_num_array : num list ;
-                  the_int_array : int list |>`;
+                  the_int_array : int list |>
+End
 
 val ptr1_def = Define `ptr1 = Loc 1`;
 val ptr2_def = Define `ptr2 = Loc 2`;

@@ -10,10 +10,12 @@ val ffi_exit_def = Define `
  ffi_exit (conf:word8 list) (bytes:word8 list) () = SOME(FFIdiverge:unit ffi_result)
   `
 
-Theorem ffi_exit_length `
-  ffi_exit (conf:word8 list) (bytes:word8 list) u = SOME (FFIreturn bytes' args')
-  ==> LENGTH bytes' = LENGTH bytes`
-  (Cases_on `u` \\ rw[ffi_exit_def]);
+Theorem ffi_exit_length:
+    ffi_exit (conf:word8 list) (bytes:word8 list) u = SOME (FFIreturn bytes' args')
+  ==> LENGTH bytes' = LENGTH bytes
+Proof
+  Cases_on `u` \\ rw[ffi_exit_def]
+QED
 
 (* FFI part for the runtime *)
 
@@ -25,8 +27,11 @@ val encode_11 = prove(
   ``!x y. encode x = encode y <=> x = y``,
   rw [encode_def]);
 
-Theorem decode_encode
-  `decode(encode cls) = SOME cls` (rw[decode_def,encode_def]);
+Theorem decode_encode:
+   decode(encode cls) = SOME cls
+Proof
+rw[decode_def,encode_def]
+QED
 
 val runtime_ffi_part_def = Define`
   runtime_ffi_part = (encode,decode,

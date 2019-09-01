@@ -7,6 +7,7 @@ val _ = new_theory "to_bviProg";
 val _ = translation_extends "to_bvlProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_bviProg");
+val _ = ml_translatorLib.use_string_type true;
 
 (* ------------------------------------------------------------------------- *)
 (* Setup                                                                     *)
@@ -94,17 +95,17 @@ val r = translate bvi_tailrecTheory.arg_ty_PMATCH;
 val r = translate bvi_tailrecTheory.op_ty_PMATCH;
 val r = translate bvi_tailrecTheory.scan_expr_def;
 
-Theorem bvi_tailrec_scan_expr_side
-  `!a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2`
-  (recInduct bvi_tailrecTheory.scan_expr_ind \\ rw []
+Theorem bvi_tailrec_scan_expr_side = Q.prove(`
+  !a0 a1 a2. bvi_tailrec_scan_expr_side a0 a1 a2`,
+  recInduct bvi_tailrecTheory.scan_expr_ind \\ rw []
   \\ once_rewrite_tac [fetch "-" "bvi_tailrec_scan_expr_side_def"] \\ fs []
   \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
 
 val r = translate bvi_tailrecTheory.rewrite_PMATCH;
 
-Theorem bvi_tailrec_rewrite_side
-  `!v58 v59 v60 v56 v61 v57. bvi_tailrec_rewrite_side v58 v59 v60 v56 v61 v57`
-  (recInduct bvi_tailrecTheory.rewrite_ind \\ rw []
+Theorem bvi_tailrec_rewrite_side = Q.prove(`
+  !v58 v59 v60 v56 v61 v57. bvi_tailrec_rewrite_side v58 v59 v60 v56 v61 v57`,
+  recInduct bvi_tailrecTheory.rewrite_ind \\ rw []
   \\ once_rewrite_tac [fetch "-" "bvi_tailrec_rewrite_side_def"] \\ fs []
   \\ FULL_CASE_TAC \\ fs []) |> update_precondition;
 
@@ -123,7 +124,6 @@ val bvl_to_bvi_compile_int_side = Q.prove(`
   rw[]>>fs[PULL_FORALL]>>
   first_assum MATCH_MP_TAC>>
   intLib.COOPER_TAC) |> update_precondition;
-
 
 val r = translate bvl_to_bviTheory.compile_aux_def;
 
@@ -190,4 +190,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
 val _ = export_theory ();
-

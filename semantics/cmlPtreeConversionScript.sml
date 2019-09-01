@@ -16,8 +16,7 @@ val _ = Datatype`PCstate0 = <| fixities : string |-> num option ;
 (* recording a fixity of NONE is what you have to do to represent an
    explicit nonfix declaration *)
 
-val _ = temp_type_abbrev
-            ("M", ``:PCstate0 list -> ('a # PCstate0 list) option``)
+Type M = ``:PCstate0 list -> ('a # PCstate0 list) option``
 
 val empty_PCstate0 = Define`
   empty_PCstate0 = <| fixities := FEMPTY ; ctr_arities := FEMPTY |>
@@ -349,13 +348,16 @@ val detuplify_def = Define`
   detuplify ty = [ty]
 `
 
-Theorem detuplify_pmatch `!ty.
+Theorem detuplify_pmatch:
+  !ty.
   detuplify ty =
   case ty of
     Attup args => args
-  | ty => [ty]`
-  (ho_match_mp_tac (theorem "detuplify_ind")
-  >> fs[detuplify_def]);
+  | ty => [ty]
+Proof
+  ho_match_mp_tac (theorem "detuplify_ind")
+  >> fs[detuplify_def]
+QED
 
 val ptree_PTbase_def = Define‘
   ptree_PTbase ast =
@@ -594,7 +596,7 @@ val Papply_def = Define`
     | _ => pat
 `;
 
-val maybe_handleRef_def = Define‘
+val maybe_handleRef_def = PmatchHeuristics.with_classic_heuristic Define‘
   maybe_handleRef (Pcon (SOME (Short "Ref")) [pat]) = Pref pat ∧
   maybe_handleRef p = p
 ’;
@@ -1220,16 +1222,18 @@ in
 
 val ptree_Expr_def = Define ptree_Expr_quotation
 (*
-val ptree_Expr_pmatch = Q.store_thm("ptree_decl_pmatch",
-  (ptree_Expr_quotation |>
+Theorem ptree_decl_pmatch:
+  ^(ptree_Expr_quotation |>
    map (fn QUOTE s => Portable.replace_string {from="dtcase",to="case"} s |> QUOTE
-       | aq => aq)),
+       | aq => aq))
+Proof
   rpt strip_tac
   >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
   >> rpt strip_tac
   >> fs[Once ptree_Expr_def] >> every_case_tac >> fs[]
   >> TRY(CONV_TAC patternMatchesLib.PMATCH_LIFT_BOOL_CONV)
-  >> rpt strip_tac);
+  >> rpt strip_tac)
+QED
 *)
 end
 

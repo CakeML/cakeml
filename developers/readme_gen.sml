@@ -37,6 +37,13 @@ val HOLMAKEFILE_SUGGESTION =
          " readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)\n",
          "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n"]
 
+val ILLEGAL_STRINGS =
+  [("store_thm(\"", "The Theorem syntax is to be used instead of store_thm."),
+   ("type_abbrev(\"", "The Type syntax is to be used instead of type_abbrev."),
+   ("Hol_datatype"^"`", "Use Datatype: ... End syntax instead of Hol_datatype."),
+   ("Hol_rel"^"n`","Use Inductive ... End instead of old Hol_reln."),
+   ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln.")]
+
 (* Helper functions *)
 
 exception ReadmeExn of string;
@@ -80,6 +87,16 @@ fun check_width all_lines = let
   val _ = List.all (fn line => String.size line <= MAX_CHAR_COUNT_PER_LINE) all_lines orelse
           fail ("one or more lines exceed the line length limit of " ^ Int.toString MAX_CHAR_COUNT_PER_LINE ^ " characters")
   in () end
+
+fun check_for_illegal_strings NONE = ()
+  | check_for_illegal_strings (SOME all_lines) = let
+  val spaces = explode " \n\t"
+  fun remove_spaces c = if mem c spaces then "" else implode [c]
+  val entire_file_as_str = String.translate remove_spaces (concat all_lines)
+  fun check_each (ill_str, err_msg) =
+    if String.isSubstring ill_str entire_file_as_str
+    then fail err_msg else ()
+  in List.app check_each ILLEGAL_STRINGS end
 
 fun check_length_and_width all_lines =
   (check_length all_lines; check_width all_lines);
@@ -153,6 +170,7 @@ fun read_block_comment start_comment end_comment filename = let
             (fn n => fn line => ( assert_no_trailing_whitespace n line ;
                                   assert_no_tabs_in_line n line ;
                                   assert_line_length_OK n line ))
+  val _ = check_for_illegal_strings (read_all_lines filename)
   val f = open_textfile filename
   in let
     (* check that first line is comment *)

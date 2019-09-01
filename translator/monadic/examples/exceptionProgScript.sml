@@ -12,8 +12,9 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val state_type = ``:unit``;
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail1 of string | Fail2 of int`;
+Datatype:
+  state_exn = Fail1 string | Fail2 int
+End
 
 (* Translator configuration *)
 val config = global_state_config |>

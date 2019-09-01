@@ -47,8 +47,10 @@ val remove_ticks_def = tDefine "remove_ticks" `
 
 val remove_ticks_ind = theorem "remove_ticks_ind";
 
-Theorem LENGTH_remove_ticks
-  `!(es:closLang$exp list). LENGTH (remove_ticks es) = LENGTH es`
-  (recInduct remove_ticks_ind \\ fs [remove_ticks_def]);
+Theorem LENGTH_remove_ticks:
+   !(es:closLang$exp list). LENGTH (remove_ticks es) = LENGTH es
+Proof
+  recInduct remove_ticks_ind \\ fs [remove_ticks_def]
+QED
 
 val _ = export_theory();

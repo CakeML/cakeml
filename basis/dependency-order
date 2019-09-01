@@ -24,6 +24,7 @@ Array
 Map
 Hashtable
 CommandLine
+Double
 TextIO
 PrettyPrinter
 basis

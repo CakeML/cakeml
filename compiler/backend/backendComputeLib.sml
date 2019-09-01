@@ -17,6 +17,9 @@ end
 
 open Parse
 
+fun theory_computes thy
+  = ThmSetData.theory_data {settype = "compute", thy = thy}
+    |> ThmSetData.added_thms
 in
 
 val add_backend_compset = computeLib.extend_compset
@@ -70,11 +73,9 @@ val add_backend_compset = computeLib.extend_compset
      flatLangTheory.bool_id_def
     ,flatLangTheory.Bool_def
     ]
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="source_to_flat"}))
+  ,computeLib.Defs (theory_computes "source_to_flat")
       (* ---- flat_elim ---- *)
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_elim"}))
+  ,computeLib.Defs (theory_computes "flat_elim")
   ,computeLib.Tys
     [``:flatLang$op``
     ,``:flatLang$pat``
@@ -85,14 +86,11 @@ val add_backend_compset = computeLib.extend_compset
     ,``:source_to_flat$config``
     ]
 
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_reorder_match"}))
+  ,computeLib.Defs (theory_computes "flat_reorder_match")
 
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_exh_match"}))
+  ,computeLib.Defs (theory_computes "flat_exh_match")
 
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="flat_uncheck_ctors"}))
+  ,computeLib.Defs (theory_computes "flat_uncheck_ctors")
 
   ,computeLib.Tys
     [ (* ---- patLang ---- *)
@@ -110,7 +108,7 @@ val add_backend_compset = computeLib.extend_compset
     ,flat_to_patTheory.pure_def
     ,flat_to_patTheory.ground_def
     ,flat_to_patTheory.sLet_def
-    ,flat_to_patTheory.Let_Els_def_compute
+    ,flat_to_patTheory.Let_Els_compute
     ,flat_to_patTheory.compile_pat_def
     ,flat_to_patTheory.compile_row_def
     ,flat_to_patTheory.compile_exp_def
@@ -151,7 +149,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_callTheory.code_list_def
     ,clos_callTheory.compile_def
     ,clos_callTheory.calls_list_def
-    ,clos_callTheory.insert_each_def_compute
+    ,clos_callTheory.insert_each_compute
     ,clos_callTheory.GENLIST_Var_def
       (* ---- clos_annotate ---- *)
     ,clos_annotateTheory.get_var_def
@@ -160,7 +158,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_annotateTheory.shift_def
     ,clos_annotateTheory.compile_def
     ,clos_annotateTheory.const_0_def
-    ,clos_annotateTheory.no_overlap_def_compute
+    ,clos_annotateTheory.no_overlap_compute
     ,clos_annotateTheory.alt_free_def
       (* ---- clos_known---- *)
     ,clos_knownTheory.get_size_sc_aux_def
@@ -188,10 +186,7 @@ val add_backend_compset = computeLib.extend_compset
     ,clos_letopTheory.dest_op_def
     ,clos_letopTheory.let_op_def
     ]
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="clos_fvs"}))
-  ,computeLib.Defs
-    (List.map #2 (ThmSetData.theory_data{settype="compute",thy="clos_labels"}))
+  ,computeLib.Defs (theory_computes "clos_fvs")
   ,computeLib.Tys
     [ (* ---- bvl ---- *)
      ``:bvl$exp``
@@ -298,6 +293,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.InitGlobals_code_def
     ,bvl_to_bviTheory.ListLength_code_def
     ,bvl_to_bviTheory.FromListByte_code_def
+    ,bvl_to_bviTheory.ToListByte_code_def
     ,bvl_to_bviTheory.SumListLength_code_def
     ,bvl_to_bviTheory.ConcatByte_code_def
     ,bvl_to_bviTheory.CopyGlobals_location_eq
@@ -306,6 +302,7 @@ val add_backend_compset = computeLib.extend_compset
     ,bvl_to_bviTheory.InitGlobals_location_eq
     ,bvl_to_bviTheory.ListLength_location_eq
     ,bvl_to_bviTheory.FromListByte_location_eq
+    ,bvl_to_bviTheory.ToListByte_location_eq
     ,bvl_to_bviTheory.SumListLength_location_eq
     ,bvl_to_bviTheory.ConcatByte_location_eq
     ,bvl_to_bviTheory.compile_int_def
@@ -730,7 +727,7 @@ val add_backend_compset = computeLib.extend_compset
     ,word_to_stackTheory.SeqStackFree_def
     ,word_to_stackTheory.stack_arg_count_def
     ,word_to_stackTheory.stack_free_def
-    ,word_to_stackTheory.stack_move_def_compute
+    ,word_to_stackTheory.stack_move_compute
     ,word_to_stackTheory.StackArgs_def
     ,word_to_stackTheory.comp_def
     ,word_to_stackTheory.raise_stub_def
@@ -871,11 +868,16 @@ val add_backend_compset = computeLib.extend_compset
     ,lab_to_targetTheory.list_add_if_fresh_def
     ,lab_to_targetTheory.get_ffi_index_def
     ,lab_to_targetTheory.sec_length_def
+    ,lab_to_targetTheory.zero_labs_acc_of_def
+    ,lab_to_targetTheory.line_get_zero_labs_acc_def
+    ,lab_to_targetTheory.sec_get_zero_labs_acc_def
+    ,lab_to_targetTheory.get_zero_labs_acc_def
+    ,lab_to_targetTheory.zero_labs_acc_exist_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
     ]
       (* ---- Everything in backend theory ---- *)
-  ,computeLib.Defs (List.map #2 (ThmSetData.theory_data{settype="compute",thy="backend"}))
+  ,computeLib.Defs (theory_computes "backend")
   ,computeLib.Tys
     [
      ``:architecture``

@@ -22,7 +22,7 @@ val _ = temp_overload_on ("handle_clash", ``handle_Clash``);
 
 val _ = hide "state";
 
-val _ = type_abbrev("M", ``: hol_refs -> ('a, hol_exn) exc # hol_refs``);
+Type M = ``: hol_refs -> ('a, hol_exn) exc # hol_refs``
 
 (* TODO: stolen from deepMatchesLib.sml; should be exported? *)
 val PAIR_EQ_COLLAPSE = Q.prove (

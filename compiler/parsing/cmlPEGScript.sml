@@ -12,7 +12,6 @@ local open tokenUtilsTheory in end
 val _ = new_theory "cmlPEG"
 val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]
 
-val _ = new_storage_attribute "cakeml/parsing"
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val _ = overload_on ("monad_bind", “OPTION_BIND”)
@@ -70,9 +69,6 @@ val peg_linfix_def = Define`
                    [] => []
                   | h::_ => [mk_linfix tgtnt (mkNd tgtnt [h]) b])
 `;
-val _ = ThmSetData.store_attribute {
-  attribute = "cakeml/parsing", thm_name = "peg_linfix_def"
-}
 
 (* have to use these versions of choicel and pegf below because the
    "built-in" versions from HOL/examples/ use ARB in their definitions.
@@ -557,7 +553,7 @@ val spec0 =
 val mkNT = ``mkNT``
 
 val cmlPEG_exec_thm = save_thm(
-  "cmlPEG_exec_thm[cakeml/parsing]",
+  "cmlPEG_exec_thm",
   TypeBase.constructors_of ``:MMLnonT``
     |> map (fn t => ISPEC (mk_comb(mkNT, t)) spec0)
     |> map (SIMP_RULE bool_ss (cmlpeg_rules_applied @ distinct_ths @
@@ -747,15 +743,17 @@ val PEG_exprs = save_thm(
           pred_setTheory.INSERT_UNION_EQ
          ])
 
-Theorem PEG_wellformed
-  `wfG cmlPEG`
-  (simp[wfG_def, Gexprs_def, subexprs_def,
+Theorem PEG_wellformed:
+   wfG cmlPEG
+Proof
+  simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
        peg_V_def, peg_EbaseParen_def,
        peg_longV_def, peg_StructName_def] >>
-  simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
+  simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
+QED
 val _ = export_rewrites ["PEG_wellformed"]
 
 val parse_TopLevelDecs_total = save_thm(
