@@ -300,6 +300,27 @@ QED
 
 Theorem do_app_safe_peak_swap = do_app_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
 
+Theorem do_app_aux_safe_peak_swap:
+  ∀op vs s q s' safe peak. do_app_aux op vs s = Rval (q,s')
+    ⇒ ∃safe' peak'.
+        do_app_aux op vs (s with <| safe_for_space := safe; peak_heap_length := peak |>) =
+        Rval (q,s' with <| safe_for_space := safe'; peak_heap_length := peak' |>)
+Proof
+  Cases \\ rw [ do_app_aux_def
+               , with_fresh_ts_def
+               , do_space_def
+               , data_spaceTheory.op_space_req_def
+               , consume_space_def
+               , size_of_heap_with_safe
+               , MAX_DEF]
+  \\ TRY (pairarg_tac \\ fs [])
+  \\ fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
+        , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
+        , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq]
+  \\ fs  [data_spaceTheory.op_space_req_def]
+  \\ rfs [data_spaceTheory.op_space_req_def]
+QED
+
 Theorem do_app_err_safe_peak_swap:
   ∀op vs s e safe peak. do_app op vs s = Rerr e
     ⇒ do_app op vs (s with <| safe_for_space := safe; peak_heap_length := peak |>) =
