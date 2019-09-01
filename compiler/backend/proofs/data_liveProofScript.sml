@@ -42,10 +42,13 @@ val state_rel_IMP_do_app_aux = Q.prove(
   `(do_app_aux op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
-    (∃safe. do_app_aux op args t1 = Rval (v,s2 with <| locals := t1.locals ;
-                                                       stack := t1.stack ;
-                                                       handler := t1.handler ;
-                                                       safe_for_space := safe|>))`,
+    (∃safe peak.
+       do_app_aux op args t1 =
+         Rval (v,s2 with <| locals := t1.locals ;
+                            stack := t1.stack ;
+                            handler := t1.handler ;
+                            safe_for_space := safe ;
+                            peak_heap_length := peak|>))`,
   STRIP_TAC
   \\ Cases_on `op`
   \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def,state_rel_def]
@@ -57,10 +60,11 @@ val state_rel_IMP_do_app = Q.prove(
   `(do_app op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
-    (∃safe. do_app op args t1 = Rval (v,s2 with <| locals := t1.locals ;
+    (∃safe peak. do_app op args t1 = Rval (v,s2 with <| locals := t1.locals ;
                                                    stack := t1.stack ;
                                                    handler := t1.handler ;
-                                                   safe_for_space := safe|>))`,
+                                                   safe_for_space := safe ;
+                                                   peak_heap_length := peak|>))`,
   STRIP_TAC
   \\ IMP_RES_TAC do_app_const
   \\ fs [do_app_def, do_space_def, do_install_def
@@ -286,7 +290,9 @@ val evaluate_compile = Q.prove(
     \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ fs []
     \\ Cases_on `q'` \\ fs [] \\ SRW_TAC [] []
     \\ `call_env q (dec_clock t1) =
-        call_env q (dec_clock s) with <| stack := t1.stack; safe_for_space := t1.safe_for_space |>` by
+        call_env q (dec_clock s) with <| stack := t1.stack;
+                                         safe_for_space := t1.safe_for_space;
+                                         peak_heap_length := t1.peak_heap_length |>` by
       fs [call_env_def,dec_clock_def,state_rel_def,state_component_equality]
     \\ fs [] \\ Q.MATCH_ASSUM_RENAME_TAC
          `evaluate (r,call_env q (dec_clock s)) = (SOME res2,s2)`
@@ -299,8 +305,8 @@ val evaluate_compile = Q.prove(
       (* ASK: This is disturbingly cumbersome *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-      \\ drule_all_then (qspec_then `t1.safe_for_space` ASSUME_TAC) evaluate_safe_swap
-      \\ `ss' = p with safe_for_space := t1.safe_for_space `
+      \\ drule_all_then (qspecl_then [`t1.safe_for_space`,`t1.peak_heap_length`] ASSUME_TAC) evaluate_safe_peak_swap
+      \\ `ss' = p with <| safe_for_space := t1.safe_for_space; peak_heap_length := t1.peak_heap_length |> `
          by (UNABBREV_ALL_TAC \\ rw [state_component_equality])
       \\ UNABBREV_ALL_TAC
       \\ ONCE_ASM_REWRITE_TAC []
@@ -326,8 +332,9 @@ val evaluate_compile = Q.prove(
       (* ASK: This is disturbingly cumbersome *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-      \\ drule_all_then (qspec_then `t1.safe_for_space` ASSUME_TAC) evaluate_safe_swap
-      \\ `ss' = p with safe_for_space := t1.safe_for_space `
+      \\ drule_all_then (qspecl_then [`t1.safe_for_space`,`t1.peak_heap_length`] ASSUME_TAC) evaluate_safe_peak_swap
+      \\ `ss' = p with <| safe_for_space := t1.safe_for_space;
+                          peak_heap_length := t1.peak_heap_length |>`
          by (UNABBREV_ALL_TAC \\ rw [state_component_equality])
       \\ UNABBREV_ALL_TAC
       \\ ONCE_ASM_REWRITE_TAC []
@@ -340,8 +347,9 @@ val evaluate_compile = Q.prove(
       (* ASK: This is disturbingly cumbersome *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-      \\ drule_all_then (qspec_then `t1.safe_for_space` ASSUME_TAC) evaluate_safe_swap
-      \\ `ss' = p with safe_for_space := t1.safe_for_space `
+      \\ drule_all_then (qspecl_then [`t1.safe_for_space`,`t1.peak_heap_length`] ASSUME_TAC) evaluate_safe_peak_swap
+      \\ `ss' = p with <| safe_for_space := t1.safe_for_space;
+                          peak_heap_length := t1.peak_heap_length |>`
          by (UNABBREV_ALL_TAC \\ rw [state_component_equality])
       \\ UNABBREV_ALL_TAC
       \\ ONCE_ASM_REWRITE_TAC []
@@ -351,7 +359,7 @@ val evaluate_compile = Q.prove(
        `(d,l1) = compile (Call (SOME (v,names)) dest args handler) l2`
   \\ Cases_on `handler`
   THEN1 (* Call with handler NONE *)
-   (fs [compile_def,LET_DEF,evaluate_def]
+  (fs [compile_def,LET_DEF,evaluate_def]
     \\ `t1.clock = s.clock /\ t1.code = s.code` by fs [state_rel_def]
     \\ Cases_on `get_vars args s.locals` \\ fs []
     \\ IMP_RES_TAC state_rel_IMP_get_vars \\ fs []
@@ -367,7 +375,9 @@ val evaluate_compile = Q.prove(
     \\ Q.ABBREV_TAC `t5 = call_env q (push_env
              ((inter t1.locals (inter names (delete v l2)))) F (dec_clock t1))`
     \\ `(call_env q (push_env ((inter s.locals names)) F (dec_clock s))
-          with <| safe_for_space := t5.safe_for_space; stack := t5.stack |>) = t5` by
+          with <| safe_for_space := t5.safe_for_space;
+                  peak_heap_length := t5.peak_heap_length;
+                  stack := t5.stack |>) = t5` by
      (UNABBREV_ALL_TAC
       \\ fs [call_env_def,push_env_def,dec_clock_def,state_rel_def,
              state_component_equality] \\ NO_TAC) \\ fs []
@@ -386,16 +396,17 @@ val evaluate_compile = Q.prove(
       \\ REPEAT STRIP_TAC \\ fs [] \\ SIMP_TAC (srw_ss()) [pop_env_def]
       \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
       \\ fs [pop_env_def] \\ fs [state_rel_def,set_var_def]
-      (* ASK: Terrible things were done here *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-      \\ drule_all_then (qspec_then `(dec_clock t1).safe_for_space` ASSUME_TAC) evaluate_safe_swap
-      \\ `ss' = p with safe_for_space := (dec_clock t1).safe_for_space `
+      \\ drule_all_then (qspecl_then [`(dec_clock t1).safe_for_space`
+                                     ,`(dec_clock t1).peak_heap_length`] ASSUME_TAC)
+                        evaluate_safe_peak_swap
+      \\ `ss' = p with <| safe_for_space := (dec_clock t1).safe_for_space;
+                          peak_heap_length := (dec_clock t1).peak_heap_length |>`
          by (UNABBREV_ALL_TAC \\ rveq \\ fs [])
       \\ UNABBREV_ALL_TAC
       \\ ONCE_ASM_REWRITE_TAC []
       \\ fs []
-      (* ASK: END *)
       \\ fs [lookup_insert,lookup_inter_alt,domain_list_insert,
              domain_inter,domain_delete] \\ REPEAT STRIP_TAC
       \\ Cases_on `x' = v` \\ fs []
@@ -428,35 +439,38 @@ val evaluate_compile = Q.prove(
       \\ `t1 with <| locals := fromList q; stack := env::t1.stack;
                      clock := s.clock - 1|> =
           s with <| safe_for_space := t1.safe_for_space;
+                    peak_heap_length := t1.peak_heap_length;
                     locals := fromList q; stack := env::t1.stack;
                     clock := s.clock - 1|>` by
                 fs [state_component_equality,state_rel_def]
-      (* ASK: Terrible things were done here *)
       \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
       \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-      \\ drule_all_then (qspec_then `t1.safe_for_space` ASSUME_TAC) evaluate_safe_swap
-      \\ `ss' = p with safe_for_space := t1.safe_for_space `
+      \\ drule_all_then (qspecl_then [`t1.safe_for_space`
+                                     ,`t1.peak_heap_length`] ASSUME_TAC)
+                        evaluate_safe_peak_swap
+      \\ `ss' = p with <| safe_for_space := t1.safe_for_space;
+                          peak_heap_length := t1.peak_heap_length |>`
          by (UNABBREV_ALL_TAC \\ rveq \\ fs [])
       \\ UNABBREV_ALL_TAC
       \\ ONCE_ASM_REWRITE_TAC []
       \\ fs []
-      (* ASK: END *)
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ fs [state_rel_def] \\ SRW_TAC [] [] \\ fs [])
     THEN Cases_on`a`>>fs[] THEN
      (REPEAT STRIP_TAC
      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
      \\ REPEAT STRIP_TAC
-     (* ASK: Terrible things were done here *)
      \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
      \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-     \\ drule_all_then (qspec_then `t5.safe_for_space` ASSUME_TAC) evaluate_safe_swap
-     \\ `ss' = p with safe_for_space := t5.safe_for_space `
+     \\ drule_all_then (qspecl_then [`t5.safe_for_space`
+                                    ,`t5.peak_heap_length`] ASSUME_TAC)
+                       evaluate_safe_peak_swap
+     \\ `ss' = p with <| safe_for_space := t5.safe_for_space;
+                         peak_heap_length := t5.peak_heap_length |>`
         by (UNABBREV_ALL_TAC \\ rfs [])
      \\ UNABBREV_ALL_TAC
      \\ ONCE_ASM_REWRITE_TAC []
      \\ fs [state_rel_def]))
-     (* END *)
   (* Call with SOME handler *)
   \\ `?var handle. x = (var,handle)` by METIS_TAC [PAIR]
   \\ POP_ASSUM (fn th => fs [th])
@@ -478,7 +492,9 @@ val evaluate_compile = Q.prove(
            ((inter t1.locals (inter names
               (union (delete v l2) (delete var l6))))) T (dec_clock t1))`
   \\ `(call_env q (push_env ((inter s.locals names)) T (dec_clock s))
-        with <| stack := t5.stack; safe_for_space := t5.safe_for_space |>) = t5` by
+        with <| stack := t5.stack;
+                safe_for_space := t5.safe_for_space;
+                peak_heap_length := t5.peak_heap_length |>) = t5` by
    (UNABBREV_ALL_TAC
     \\ fs [call_env_def,push_env_def,dec_clock_def,state_rel_def,
            state_component_equality] \\ NO_TAC) \\ fs []
@@ -495,14 +511,15 @@ val evaluate_compile = Q.prove(
    (REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
     \\ REPEAT STRIP_TAC
-    (* ASK: Terrible things were done here *)
     \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
     \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-    \\ drule_all_then (qspec_then `t5.safe_for_space` ASSUME_TAC) evaluate_safe_swap
-    \\ `ss' = p with safe_for_space := t5.safe_for_space`
+    \\ drule_all_then (qspecl_then [`t5.safe_for_space`
+                                   ,`t5.peak_heap_length`] ASSUME_TAC)
+                      evaluate_safe_peak_swap
+    \\ `ss' = p with <| safe_for_space := t5.safe_for_space;
+                        peak_heap_length := t5.peak_heap_length |>`
        by (UNABBREV_ALL_TAC \\ rfs [])
     \\ rw [] \\ UNABBREV_ALL_TAC
-    (* END *)
     \\ fs [] \\ SIMP_TAC (srw_ss()) [pop_env_def]
     \\ UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def]
     \\ fs [pop_env_def] \\ fs [state_rel_def,set_var_def]
@@ -516,14 +533,14 @@ val evaluate_compile = Q.prove(
     REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
     \\ REPEAT STRIP_TAC
-    (* ASK: Terrible things were done here *)
     \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
     \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-    \\ drule_all_then (qspec_then `t5.safe_for_space` ASSUME_TAC) evaluate_safe_swap
-    \\ `ss' = p with safe_for_space := t5.safe_for_space`
+    \\ drule_all_then (qspecl_then [`t5.safe_for_space`
+                                   ,`t5.peak_heap_length`] ASSUME_TAC) evaluate_safe_peak_swap
+    \\ `ss' = p with <| safe_for_space := t5.safe_for_space;
+                        peak_heap_length := t5.peak_heap_length |>`
        by (UNABBREV_ALL_TAC \\ rfs [])
     \\ rw [] \\ UNABBREV_ALL_TAC
-    (* END *)
     \\ fs [state_rel_def] \\ NO_TAC))
   \\ REPEAT STRIP_TAC
   \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
@@ -539,21 +556,23 @@ val evaluate_compile = Q.prove(
                     (dec_clock t1))
        in call_env q (push_env (inter s.locals names) T (dec_clock s))
           with <| safe_for_space := s0.safe_for_space ;
+                  peak_heap_length := s0.peak_heap_length ;
                   stack := Exc (inter t1.locals
                     (inter names (union (delete v l2) (delete var l6))))
                        t1.handler::t1.stack|> = s0`
      by (fs [call_env_def,push_env_def,dec_clock_def])
   \\ fs [] \\ REPEAT STRIP_TAC
-  (* ASK: Terrible things were done here *)
   \\ qmatch_asmsub_abbrev_tac  `evaluate (r,p) = (SOME _, ss)`
   \\ qmatch_goalsub_abbrev_tac `evaluate (r, ss')`
-  \\ drule_all_then (qspec_then `ss'.safe_for_space` ASSUME_TAC) evaluate_safe_swap
-  \\ `ss' = p with safe_for_space := ss'.safe_for_space`
+  \\ drule_all_then (qspecl_then [`ss'.safe_for_space`
+                                 ,`ss'.peak_heap_length`] ASSUME_TAC)
+                    evaluate_safe_peak_swap
+  \\ `ss' = p with <| safe_for_space := ss'.safe_for_space;
+                      peak_heap_length := ss'.peak_heap_length |>`
      by (UNABBREV_ALL_TAC \\ rfs [])
   \\ ONCE_ASM_REWRITE_TAC []
   \\ UNABBREV_ALL_TAC
   \\ rw []
-  (* END *)
   \\ NTAC 4 (POP_ASSUM (K ALL_TAC))
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
   \\ STRIP_TAC THEN1
@@ -578,7 +597,11 @@ val evaluate_compile = Q.prove(
 Theorem compile_correct:
    !c s. FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) /\
          FST (evaluate (c,s)) <> NONE ==>
-           ∃safe. evaluate (FST (compile c LN),s) = (I ## λs. s with safe_for_space := safe) (evaluate (c,s))
+           ∃safe peak.
+             evaluate (FST (compile c LN),s) =
+               (I ## λs. s with <| safe_for_space := safe;
+                                   peak_heap_length := peak |>)
+                 (evaluate (c,s))
 Proof
   REPEAT STRIP_TAC
   \\ (evaluate_compile |> ONCE_REWRITE_RULE [SPLIT_PAIR]
