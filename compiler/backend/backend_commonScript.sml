@@ -122,6 +122,6 @@ val ROUNDUP_DIV = Define `
 (* PAD to length (ROUNDUP_DIV (LENGTH w) (dimindex (:'a)) *)
 val v2mw_def = Define`
   v2mw (:'a) (w:bool list)
-    = PAD_LEFT 0w (ROUNDUP_DIV (LENGTH w) (dimindex(:'a))) (n2mw (v2n w):('a word) list)`
+    = PAD_RIGHT 0w (ROUNDUP_DIV (LENGTH w) (dimindex(:'a))) (n2mw (v2n w):('a word) list)`
 
 val _ = export_theory();
