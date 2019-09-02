@@ -5954,6 +5954,89 @@ Proof
   \\ asm_exists_tac \\ fs[]
 QED
 
+
+val n2mw_EQ_NIL = prove(
+  ``(n2mw n = []) <=> (n = 0)``,
+  Cases_on `n` THEN1 EVAL_TAC \\ ONCE_REWRITE_TAC [n2mw_def]
+  \\ SIMP_TAC std_ss [ADD1,NOT_CONS_NIL]);
+
+(* Word_IMP for floats *)
+Theorem memory_rel_Word64_IMP:
+ !w64. memory_rel c be ts refs sp st m dm ((Word (w2v (w64:word64)),(v:'a
+ word_loc))::vars) ∧
+     good_dimindex (:α) /\
+     (if dimindex(:'a) = 64 then 1 < 2**c.len_size else 2 < 2**c.len_size)
+     ⇒
+     ∃ptr x w.
+         v = Word (get_addr c ptr (Word 0w)) ∧
+         get_real_addr c st (get_addr c ptr (Word 0w)) = SOME x ∧ x ∈ dm ∧
+         m x = Word w ∧ word_bit 3 w ∧ ¬word_bit 4 w ∧ word_bit 2 w ∧
+         x + bytes_in_word ∈ dm ∧
+         if dimindex (:α) < 64 then
+           m (x + bytes_in_word) = Word ((63 >< 32) w64) ∧
+           x + bytes_in_word ≪ 1 ∈ dm ∧
+           m (x + bytes_in_word ≪ 1) = Word ((31 >< 0) w64) ∧
+           decode_length c w = 2w ∧ w = make_header c 3w 2
+         else
+           m (x + bytes_in_word) = Word ((63 >< 0) w64) ∧
+           decode_length c w = 1w ∧ w = make_header c 3w 1
+Proof
+ strip_tac \\  Q.MATCH_ABBREV_TAC`_ /\ _ /\ X ==> _` \\ rpt strip_tac \\ drule (GEN_ALL memory_rel_Word_IMP)
+   \\ impl_tac >- (
+      conj_tac >- fs[good_dimindex_def]
+      \\ simp[LENGTH_v2mw]
+      \\ UNABBREV_ALL_TAC
+      \\ fs[good_dimindex_def]
+      \\ rfs[] \\ EVAL_TAC
+      \\ Cases_on `c.len_size` \\ fs[]
+   )
+ \\ UNABBREV_ALL_TAC
+ \\ strip_tac \\ fs[]
+ \\ qexists_tac`ptr` \\ qexists_tac`x` \\ qexists_tac`w` \\ fs[]
+ \\ conj_tac >- (
+    Cases_on`v2mw (:'a) (w2v w64)`
+    \\ (fs[Once v2mw_def,PAD_RIGHT]
+        \\ rfs[]
+        \\ fs[good_dimindex_def,backend_commonTheory.ROUNDUP_DIV_def] \\ rfs[])
+    \\ fs[word_list_def]
+    \\ SEP_R_TAC)
+ \\ TOP_CASE_TAC \\ fs[good_dimindex_def] \\ rfs[] \\ clean_tac
+ \\ fs[LENGTH_v2mw,backend_commonTheory.ROUNDUP_DIV_def]
+ >- cheat
+ \\ `v2mw (:'a) (w2v w64) = [w2w w64]` by (
+    simp[v2mw_def,v2n_w2v,backend_commonTheory.ROUNDUP_DIV_def]
+    \\ simp[Once n2mw_def]
+    \\ TOP_CASE_TAC >- fs[PAD_RIGHT]
+    \\ fs[PAD_RIGHT]
+    \\ conj_tac
+    >- (
+      `w2n w64 MOD dimword(:'a) = w2n w64` by (simp[]
+          \\ `dimword(:'a) = dimword(:64)` by fs[dimword_def]
+          \\ metis_tac[w2n_lt])
+       \\ fs[]
+       \\ simp[w2w_def]
+    )
+   \\ `!x. 1-SUC x = 0` by (rw[] \\ DECIDE_TAC)
+   \\ ASM_REWRITE_TAC[]
+   \\ reverse conj_tac >- EVAL_TAC
+   \\ simp[n2mw_EQ_NIL,DIV_EQ_0]
+   \\ `dimword(:'a) = dimword(:64)` by fs[dimword_def]
+   \\ ASM_REWRITE_TAC[]
+   \\ metis_tac[w2n_lt]
+   )
+ \\ fs[]
+ \\ fs[word_list_def]
+ \\ fs[SEP_CLAUSES]
+ \\ SEP_R_TAC
+ \\ MK_COMB_TAC \\ simp[]
+ \\ simp[word_extract_def]
+ \\ MK_COMB_TAC \\ simp[]
+ \\ simp[word_bits_def]
+ \\ simp[fcpTheory.CART_EQ]
+ \\ rw[fcpTheory.FCP_BETA]
+QED
+
+
 Theorem memory_rel_Word_alt:
     memory_rel c be ts refs sp st m dm (vs ++ vars) ∧ good_dimindex (:'a) ∧
     ~(small_word (:'a) w) ∧
