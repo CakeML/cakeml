@@ -22,7 +22,9 @@ Word8
 Word8Array
 Array
 Map
+Hashtable
 CommandLine
+Double
 TextIO
 PrettyPrinter
 basis

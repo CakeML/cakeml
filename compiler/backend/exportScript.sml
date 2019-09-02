@@ -88,11 +88,13 @@ val all_bytes_def = Define `
 
 val all_bytes_eq = save_thm("all_bytes_eq",EVAL ``all_bytes``);
 
-Theorem byte_to_string_eq
-  `!b. byte_to_string b = sub all_bytes (w2n b)`
-  (Cases_on `b` \\ once_rewrite_tac [EQ_SYM_EQ]
+Theorem byte_to_string_eq:
+   !b. byte_to_string b = sub all_bytes (w2n b)
+Proof
+  Cases_on `b` \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ rewrite_tac [all_bytes_def,mlvectorTheory.sub_def]
   \\ full_simp_tac std_ss [w2n_n2w,EVAL ``dimword (:8)``]
-  \\ full_simp_tac std_ss [listTheory.EL_GENLIST]);
+  \\ full_simp_tac std_ss [listTheory.EL_GENLIST]
+QED
 
 val _ = export_theory ();

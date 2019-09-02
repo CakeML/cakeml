@@ -7,22 +7,13 @@ structure ml_monadBaseLib :> ml_monadBaseLib = struct
 
 open preamble ml_monadBaseTheory TypeBase ParseDatatype Datatype packLib
 
-(***************************************************************)
-(* COPY/PASTE from ml_monad_translatorLib *)
 
-fun my_list_mk_comb (comb, args) =
-  let fun get_type_subst (comb_ty, []) = ([], [])
-        | get_type_subst (comb_ty, arg_ty::args_tys) =
-          (case snd (dest_type comb_ty) of
-              [comb_ty1, comb_tys] =>
-                let val tail_subst = get_type_subst (comb_tys, args_tys)
-                in raw_match_type comb_ty1 arg_ty tail_subst end
-            | _ => failwith "my_list_mk_comb - get_type_subst")
-      val subst = get_type_subst (type_of comb, List.map type_of args)
-      val comb' = Term.inst (fst subst) comb
-  in list_mk_comb (comb', args) end;
+(******************************************************************************
 
-(***************************************************************)
+  Get constant terms and types from ml_monad_BaseTheory.
+  Prevents parsing in the wrong context.
+
+******************************************************************************)
 
 val get_term =
   let
@@ -60,6 +51,12 @@ val Marray_sub_const = get_term "Marray_sub"
 val Marray_update_const = get_term "Marray_update"
 val Marray_alloc_const = get_term "Marray_alloc"
 val run_const = get_term "run"
+
+(******************************************************************************
+
+  Helper functions.
+
+******************************************************************************)
 
 fun mk_exc_type a b = Type.type_subst [a_ty |-> a, b_ty |-> b] exc_ty
 
@@ -115,6 +112,42 @@ fun mk_fun_type (tyl, ret_ty) =
   case tyl of
     ty::tyl => mk_type ("fun", [ty, mk_fun_type (tyl, ret_ty)])
   | [] => ret_ty
+
+(*
+  Like list_mk_comb, but first attempts to unify combinator/argument types.
+  For combinator C and args a1, a2, a3, ... : attempts to apply
+  C a1 a2 a3 ..., unifying types of expected inputs to C and types of args.
+  Fails if unification fails.
+
+  This is a very odd function in that it instantiates argument types
+  "as one", rather than separately. Replacing with list_mk_ucomb fails
+  however. To implement this quirk, the function creates a function type
+  from all the n argument types, and does the same for the first n expected
+  argument types. The two created function types are then unified to give
+  the necessary substitutions.
+*)
+fun my_list_mk_comb (comb, []) = comb
+  | my_list_mk_comb (comb, args) = let
+      val comb_ty = type_of comb
+      val (all_comb_arg_tys, comb_ret_ty) = dest_fun_type comb_ty
+      val arg_tys = List.map type_of args
+      val comb_arg_tys =
+        if (length args <= length all_comb_arg_tys) then
+          List.take (all_comb_arg_tys, (List.length args))
+        else raise Fail "my_list_mk_comb - too many arguments"
+
+      fun mk_fun_type [] = raise Fail "mk_fun_type" (* shouldn't happen *)
+        | mk_fun_type [arg_ty] = arg_ty
+        | mk_fun_type (arg_ty :: args_tys) =
+            mk_type("fun", [arg_ty, mk_fun_type args_tys])
+
+      val (f_sub, arg_sub) = sep_type_unify
+                              (mk_fun_type comb_arg_tys) (mk_fun_type arg_tys)
+    in
+      list_mk_comb(Term.inst f_sub comb, List.map (Term.inst arg_sub) args)
+    end
+    handle HOL_ERR e => raise (mk_HOL_ERR "ml_monadBaseLib" "my_list_mk_comb"
+                                          (#message e));
 
 (* TODO tidy *)
 fun mk_list_vars basename types =
@@ -303,24 +336,37 @@ fun define_monad_set_fun (name, set_fun) =
 (* TODO tidy *)
 fun define_monad_access_funs data_type =
   let
-    val accessors = List.map (rator o lhs o snd o strip_forall o concl) (accessors_of data_type)
-    val updates = List.map (rator o rator o lhs o snd o strip_forall o concl) (updates_of data_type)
+    val accessors =
+      List.map (rator o lhs o snd o strip_forall o concl)
+        (accessors_of data_type)
+    val updates =
+      List.map (rator o rator o lhs o snd o strip_forall o concl)
+        (updates_of data_type)
+(*
+    (* TODO check this works for all cases *)
+    val ty_subst =
+      match_type
+        (accessors_of data_type |> hd |> SPEC_ALL |> concl |> lhs |>
+         rator |> type_of |> dom_rng |> fst)
+        data_type
 
+    val accessors = List.map (Term.inst ty_subst) accessors
+    val updates = List.map (Term.inst ty_subst) updates
+*)
     fun abstract_update set_f =
       let
         val ty = dest_type (type_of set_f) |> snd |> List.hd |> dest_type |> snd |> List.hd
-        val tyK = Term.inst [a_ty |-> ty] K_const
         val var = mk_var("x", ty)
-        val app_tyK_var = mk_comb(tyK, var)
-        val set_f_inp_ty = type_of set_f |> dest_type |> snd |> List.hd
-        val ty_subst = (match_type set_f_inp_ty (type_of(app_tyK_var))
+        val app_K_var = mk_ucomb(K_const, var)
+        val set_f_inp_ty = set_f |> type_of |> dom_rng |> fst
+        val ty_subst = (match_type set_f_inp_ty (type_of(app_K_var))
           handle _ => [])
         val set_f' = inst ty_subst set_f
-        val ty_subst = (match_type (type_of (app_tyK_var)) set_f_inp_ty
+        val ty_subst = (match_type (type_of (app_K_var)) set_f_inp_ty
           handle _ => [])
-        val app_tyK_var' = inst ty_subst app_tyK_var
+        val app_K_var' = inst ty_subst app_K_var
       in
-        mk_abs(var, mk_comb(set_f', app_tyK_var'))
+        mk_abs(inst ty_subst var, mk_comb(set_f', app_K_var'))
       end
 
     val abs_updates = List.map abstract_update updates
@@ -412,6 +458,10 @@ fun define_MRarray_manip_funs array_access_funs sub_exn update_exn =
  *)
 fun define_run state array_fields new_state_name =
   let
+    (*
+      val (state, array_fields, new_state_name) = (state_type, ["farr"], "init_state")
+    *)
+
     val fields = fields_of state
     val accessors = accessors_of state
     val type_info = zip fields accessors
@@ -437,42 +487,38 @@ fun define_run state array_fields new_state_name =
     val _ = astHol_datatype [type_info]
 
     (* Define the run function *)
+    (* OLD:
     val new_state = mk_type(new_state_name, [])
+    *)
+    val new_state = mk_type(new_state_name, type_vars state)
     val state_cons = List.hd (constructors_of state)
-    (* val new_state_cons = List.hd (constructors_of new_state) *)
     val new_fields = fields_of new_state
     val new_fields_info = zip (fields_of new_state) (accessors_of new_state)
     val new_state_var = mk_var("state", new_state)
 
-    (* val ((field_name, field_type), accessor) = List.tl new_fields_info *)
     fun mk_new_field ((field_name, field_type), accessor) =
       if mem field_name array_fields then
         let
           val elem_type = dest_type field_type |> snd |> List.last
           val accessor = concl accessor |> strip_forall |> snd |> lhs |> rator
-          val field_tm = mk_comb(accessor, new_state_var)
-          val ss = Term.inst [alpha |-> num_ty, beta |-> elem_type]
-          val FST_tm = ss FST_const
-          val SND_tm = ss SND_const
-          val REPLICATE_tm = Term.inst [alpha |-> elem_type] REPLICATE_const
-          val length_tm = mk_comb(FST_tm, field_tm)
-          val elem_tm = mk_comb(SND_tm, field_tm)
-          val tm = list_mk_comb (REPLICATE_tm, [length_tm, elem_tm])
+          val field_tm = mk_ucomb(accessor, new_state_var)
+          val length_tm = mk_ucomb(FST_const, field_tm)
+          val elem_tm = mk_ucomb(SND_const, field_tm)
+          val tm = list_mk_ucomb (REPLICATE_const, [length_tm, elem_tm])
         in
           tm
         end
       else
         let
           val accessor = concl accessor |> strip_forall |> snd |> lhs |> rator
-          val field_tm = mk_comb(accessor, new_state_var)
+          val field_tm = mk_ucomb(accessor, new_state_var)
         in
           field_tm
         end
     val new_fields = List.map mk_new_field new_fields_info
-    val synth_state = List.foldl (fn (x, y) => mk_comb (y, x)) state_cons new_fields
-
-    val x_var = mk_var("x", Type.type_subst [alpha |-> state] M_ty)
-    val body = my_list_mk_comb (run_const,[x_var, synth_state])
+    val synth_state = list_mk_ucomb (state_cons, new_fields)
+    val x_var = mk_var("x", type_subst [alpha |-> state] M_ty)
+    val body = list_mk_ucomb(run_const, [x_var, synth_state])
 
     val new_run_type = list_mk_fun([type_of x_var, new_state], type_of body)
     val new_run_var = mk_var("run_" ^ new_state_name, new_run_type)

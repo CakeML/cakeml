@@ -390,6 +390,7 @@ val _ = Define `
     | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
     | (Opw W8 _, [t1; t2]) => (t1 = Tword8) /\ (t2 = Tword8) /\ (t = Tword8)
     | (Opw W64 _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
+    | (FP_top _, [t1; t2; t3]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t3 = Tword64) /\ (t = Tword64)
     | (FP_bop _, [t1; t2]) => (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tword64)
     | (FP_uop _, [t1]) =>  (t1 = Tword64) /\ (t = Tword64)
     | (FP_cmp _, [t1; t2]) =>  (t1 = Tword64) /\ (t2 = Tword64) /\ (t = Tbool)
@@ -417,6 +418,7 @@ val _ = Define `
     | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
     | (Chopb _, [t1; t2]) => (t1 = Tchar) /\ (t2 = Tchar) /\ (t = Tbool)
     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
+    | (Explode, [t1]) => (t1 = Tstring) /\ (t = Tlist Tchar)
     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
     | (Strlen, [t1]) => (t1 = Tstring) /\ (t = Tint)
     | (Strcat, [t1]) => (t1 = Tlist Tstring) /\ (t = Tstring)
@@ -491,7 +493,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) (List.map Defn
   EVERY
     (\ (cn,ts) .  EVERY (check_freevars_ast tvs) ts /\ EVERY (check_type_names tenvT) ts)
     ctors /\
-  ~ (MEM tn (MAP (\p .  
+  ~ (MEM tn (MAP (\p .
   (case (p ) of ( (_,tn,_) ) => tn )) tds)) /\
   check_ctor_tenv tenvT tds))`;
 
@@ -1060,4 +1062,3 @@ DISJOINT decls1 decls2)
 type_ds extra_checks tenv (d::ds)
   (decls1 UNION decls2) (extend_dec_tenv tenv2 tenv1))`;
 val _ = export_theory()
-

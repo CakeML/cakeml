@@ -175,6 +175,8 @@ val compile_def = tDefine"compile" `
          (Raise (tra§8) (Op (tra§9) (Cons subscript_tag) [])))) ∧
   (compile (App tra (Op Implode) es) =
     Op tra (FromListByte) (REVERSE (MAP compile es))) ∧
+  (compile (App tra (Op Explode) es) =
+    Op tra (ToListByte) (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Strlen) es) =
     Op tra LengthByteVec (REVERSE (MAP compile es))) ∧
   (compile (App tra (Op Strcat) es) =
@@ -250,7 +252,9 @@ val compile_def = tDefine"compile" `
   (compile (App tra (Op (FP_uop u)) es) =
     (Op tra (FP_uop u) (REVERSE (MAP compile es)))) /\
   (compile (App tra (Op (FP_bop b)) es) =
-    (Op tra (FP_bop b) (REVERSE (MAP compile es))))`
+    (Op tra (FP_bop b) (REVERSE (MAP compile es)))) /\
+  (compile (App tra (Op (FP_top t)) es) =
+    (Op tra (FP_top t) (REVERSE (MAP compile es))))`
   let
     val exp_size_def = patLangTheory.exp_size_def
   in

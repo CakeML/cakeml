@@ -149,9 +149,11 @@ val ror = Q.prove(
 
 (* appears to not be relevant
 
-Theorem DecodeAny_encode[simp]
-  `!encode x. DecodeAny (Word (encode x)) = Decode (encode x)`
-  (rw [riscv_stepTheory.Decode_IMP_DecodeAny]);
+Theorem DecodeAny_encode[simp]:
+   !encode x. DecodeAny (Word (encode x)) = Decode (encode x)
+Proof
+  rw [riscv_stepTheory.Decode_IMP_DecodeAny]
+QED
 
 *)
 
@@ -186,6 +188,13 @@ val enc_ok_rwts =
 
 (* some custom tactics ---------------------------------------------------- *)
 
+Theorem word_bit_0_lemmas:
+  !w. ¬word_bit 0 (0xFFFFFFFFFFFFFFFEw && w:word64) /\
+      word_bit 0 ((0xFFFFFFFFFFFFFFFEw && w:word64) + v) = word_bit 0 v
+Proof
+  blastLib.BBLAST_TAC
+QED
+
 local
    val bool1 = utilsLib.rhsc o blastLib.BBLAST_CONV o fcpSyntax.mk_fcp_index
    fun boolify n tm =
@@ -197,10 +206,6 @@ local
    val find_NextRISCV =
       dest_NextRISCV o List.hd o HolKernel.find_terms is_NextRISCV
    val s = ``s: riscv_state``
-   val word_bit_0_lemmas = Q.store_thm("word_bit_0_lemmas",
-     `!w. ¬word_bit 0 (0xFFFFFFFFFFFFFFFEw && w:word64) /\
-          word_bit 0 ((0xFFFFFFFFFFFFFFFEw && w:word64) + v) = word_bit 0 v`,
-     blastLib.BBLAST_TAC)
    fun post_process th =
      th |> REWRITE_RULE [word_bit_0_lemmas]
    fun step the_state l =
@@ -478,9 +483,10 @@ val riscv_target_ok = Q.prove (
 
 val print_tac = asmLib.print_tac "correct"
 
-Theorem riscv_encoder_correct
-   `encoder_correct riscv_target`
-   (simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
+Theorem riscv_encoder_correct:
+    encoder_correct riscv_target
+Proof
+   simp [asmPropsTheory.encoder_correct_def, riscv_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel riscv_target`
    \\ rw [riscv_target_def, riscv_config, asmSemTheory.asm_step_def]
    \\ qunabbrev_tac `state_rel`
@@ -657,6 +663,6 @@ Theorem riscv_encoder_correct
       print_tac "Loc"
       \\ next_tac
       )
-   )
+QED
 
 val () = export_theory ()

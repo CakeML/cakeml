@@ -17,12 +17,26 @@ val _ = temp_overload_on ("return", ``st_ex_return``);
 
 val _ = hide "state";
 
-(* The graph-coloring register allocator *)
+(*
+  The graph-coloring register allocator
 
-(* Datatype representing the state of nodes
+  It currently uses several ``secret'' invariants that are important for
+  performance but are not verified.
+
+  This is an attempt at listing them:
+
+  1) In ra_state.coalesced, if coalesced[x] ≥ x it is not coalesced
+     i.e., coalesces only happen ``downwards''
+
+  2) adjacency lists are ALWAYS sorted
+*)
+
+(*
+  The tag datatype representing the state of nodes:
+
   Fixed n : means it is fixed to color n
   Atemp   : means that the node is allowed to be allocated to any register or stack pos
-  Stemp   : only allowed to be mapped to k, k+1, ...
+  Stemp   : only allowed to be mapped to k, k+1, ... (stack positions)
 *)
 val _ = Datatype`
   tag = Fixed num | Atemp | Stemp`
@@ -43,7 +57,7 @@ val _ = Datatype`
 (* Coloring state
   - Invariant: all the arrays have dimension = dim
 *)
-val _ = Hol_datatype `
+Datatype:
   ra_state = <|
      (* Info about the graph *)
        adj_ls   : (num list) list (* adjacency list -- arr of lists *)
@@ -53,17 +67,17 @@ val _ = Hol_datatype `
 
      (* worklists *)
      ; simp_wl  : num list        (* simp worklist -- list, non-move related deg < k *)
-     ; spill_wl : num list        (* spill worklist -- list, deg ≥ k *)
+     ; spill_wl : num list        (* spill worklist -- list, deg >= k *)
      ; freeze_wl : num list       (* freeze worklist -- list, move related deg < k *)
-
      ; avail_moves_wl : (num,(num # num)) alist   (* active moves -- list, sorted by pri *)
      ; unavail_moves_wl : (num,(num # num)) alist (* inactive moves -- list *)
 
      (* book keeping *)
-     ; coalesced : (num option) list  (* keep track of coalesce for each node -- arr *)
-     ; move_related : bool list       (* fast check if a node is still move related -- arr *)
+     ; coalesced : num list       (* keep track of coalesce target for each node -- arr *)
+     ; move_related : bool list   (* fast check if a node is still move related -- arr *)
      ; stack    : num list
-     |>`;
+     |>
+End
 
 val accessors = define_monad_access_funs ``:ra_state``;
 
@@ -83,8 +97,9 @@ val move_related_accessors = el 11 accessors;
 val (move_related, get_move_related_def, set_move_related_def) = move_related_accessors;
 
 (* Data type for the exceptions *)
-val _ = Hol_datatype`
-  state_exn = Fail of string | Subscript`;
+Datatype:
+  state_exn = Fail string | Subscript
+End
 
 (* Monadic functions to handle the exceptions *)
 val exn_functions = define_monad_exception_functions ``:state_exn`` ``:ra_state``;
@@ -154,22 +169,31 @@ val st_ex_FILTER_def = Define`
       st_ex_FILTER P xs acc
   od)`
 
-(* Insert an undirect edge into the adj list representation
-  -- This is VERY lightly optimized to remove duplicates
-  -- alternative: maintain an "invisible" invariant that
-     all the adj_lists are sorted
-*)
+(* Keep adjacency lists sorted by > *)
+
+(* Insert an undirect edge into the adj list representation *)
+val sorted_insert_def = Define`
+  (sorted_insert (x:num) acc [] = REVERSE (x::acc)) ∧
+  (sorted_insert x acc (y::ys) =
+    if x = y then REVERSE acc ++ y::ys
+    else if x > y then REVERSE acc ++ x::y::ys
+    else sorted_insert x (y::acc) ys)`
+
+val sorted_mem_def = Define`
+  (sorted_mem (x:num) [] = F) ∧
+  (sorted_mem x (y::ys) =
+    if x = y then T
+    else if x > y then F
+    else sorted_mem x ys)`
 
 val insert_edge_def = Define`
   insert_edge x y =
   do
     adjx <- adj_ls_sub x;
     adjy <- adj_ls_sub y;
-    if MEM y adjx then return ()
-    else
     do
-      update_adj_ls x (y::adjx);
-      update_adj_ls y (x::adjy)
+      update_adj_ls x (sorted_insert y [] adjx);
+      update_adj_ls y (sorted_insert x [] adjy)
     od
   od`;
 
@@ -276,7 +300,7 @@ val is_not_coalesced_def = Define`
   is_not_coalesced d =
   do
     dt <- coalesced_sub d;
-    return (dt = NONE)
+    return (d <= dt)
   od`
 
 val split_degree_def = Define`
@@ -317,7 +341,7 @@ val revive_moves_def = Define`
     am <- get_avail_moves_wl;
     let fnbs = FLAT nbs in
     let (rev,unavail) = PARTITION
-      (λ(_,(x,y)). MEM x fnbs ∨ MEM y fnbs) uam in
+      (λ(_,(x,y)). sorted_mem x fnbs ∨ sorted_mem y fnbs) uam in
     let sorted = smerge (sort_moves rev) am in
     do
       set_avail_moves_wl sorted;
@@ -370,10 +394,11 @@ val inc_deg_def = Define`
   od`
 
 (*
-  In the allocator, we will assume that all moves
-  have the form
+  Within the allocator, we will assume that all moves
+  have the form:
 
-  x:=y where x is Fixed (<k) or Atemp, and y is Atemp
+  1) x:=y where x is Fixed (<k) or Atemp, and y is Atemp
+  2) x < y
 *)
 
 (*
@@ -390,13 +415,6 @@ val inc_deg_def = Define`
   In both cases, we leave the v-y edge dangling
 *)
 
-(* This is inefficient *)
-val pair_rename_def = Define`
-  pair_rename x y (p,(a,b)) =
-  let a = if a = y then x else a in
-  let b = if b = y then x else b in
-  (p,(a,b))`
-
 (* An actual register *)
 val is_Fixed_def = Define`
   is_Fixed x =
@@ -409,17 +427,12 @@ val do_coalesce_real_def = Define`
   do_coalesce_real x y case1 case2 =
   do
     (* mark y as coalesced to x *)
-    update_coalesced y (SOME x);
-    (* replace all instances of y in the move lists to x *)
-    am <- get_avail_moves_wl;
-    set_avail_moves_wl (MAP (pair_rename x y) am);
-    uam <- get_unavail_moves_wl;
-    set_unavail_moves_wl (MAP (pair_rename x y) uam);
+    update_coalesced y x;
     (*
       increment degree of x by new vertices
     *)
     bx <- is_Fixed x;
-    if bx then inc_deg x (LENGTH case2) else return ();
+    if bx then return () else inc_deg x (LENGTH case2);
     (* add corresponding edges *)
     list_insert_edge x case2;
     st_ex_FOREACH case1 dec_deg;
@@ -478,7 +491,7 @@ val bg_ok_def = Define`
     adjx <- adj_ls_sub x;
     adjy <- adj_ls_sub y;
     (* see do_coalesce_real for the cases *)
-    let (case1,case2) = PARTITION (λv. MEM v adjx) adjy in
+    let (case1,case2) = PARTITION (λv. sorted_mem v adjx) adjy in
     do
       (* the "true" case1 and 2s *)
       case1 <- st_ex_FILTER (considered_var k) case1 [];
@@ -488,7 +501,7 @@ val bg_ok_def = Define`
       let c2len = LENGTH (FILTER (λx. x >= k) case2degs) in
       if c2len = 0 then return (SOME (case1,case2)) (* george criterion*)
       else
-      let case3 = FILTER (λv. ¬MEM v adjy) adjx in
+      let case3 = FILTER (λv. ¬sorted_mem v adjy) adjx in
       do
         case3 <- st_ex_FILTER (considered_var k) case3 [];
         case1degs <- st_ex_MAP (deg_or_inf (k+1)) case1; (*k+1 is infinity here..*)
@@ -518,37 +531,58 @@ val consistency_ok_def = Define`
     return F (* check 1 *)
   else
   do
-    d <- get_dim; (* unnecessary*)
-    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
+    adjy <- adj_ls_sub y; (* check 2 *)
+    if sorted_mem x adjy then return F
     else
     do
-      adjy <- adj_ls_sub y; (* check 2 *)
-      if MEM x adjy then return F
+      bx <- is_Fixed x;
+      by <- is_Fixed y;
+      movrelx <- move_related_sub x;
+      movrely <- move_related_sub y;
+      return ((bx ∨ movrelx) ∧ (by ∨ movrely) ∧ ¬(bx ∧ by) );
+    od
+  od`
+
+(*
+  find the ancestor
+  and collapse along the way
+
+*)
+val coalesce_parent_def = Define`
+  coalesce_parent x =
+  do
+    xt <- coalesced_sub x;
+    bx <- is_Fixed xt;
+    (* Special case where x is coalesced to a fixed color already *)
+    if bx then
+      return xt
+    else
+      if x <= xt then
+        return x
       else
       do
-        bx <- is_Fixed x;
-        by <- is_Fixed y;
-        movrelx <- move_related_sub x;
-        movrely <- move_related_sub y;
-        return ((bx ∨ movrelx) ∧ (by ∨ movrely) ∧ ¬(bx ∧ by) );
+        anc <- coalesce_parent xt;
+        update_coalesced x anc;
+        return anc
       od
-    od
   od`
 
 val canonize_move_def = Define`
   canonize_move x y =
   do
+    bx <- is_Fixed x;
     by <- is_Fixed y;
-    if by then
-      return (y,x)
+    if by then return (y,x)
+    else if bx then return (x,y)
     else
-      return (x,y)
+      if x < y then return (x,y)
+      else return (y,x)
   od`
 
 (*
   Picks apart the available moves worklist
   1) If we find any inconsistent ones -> throw them away
-  2) canonize the move to put fixed register in front
+  not necessary? -- 2) canonize the move to put fixed register in front
   3) returns the first bg_ok move that is also consistent
 *)
 val st_ex_FIRST_def = Define`
@@ -556,6 +590,8 @@ val st_ex_FIRST_def = Define`
   (st_ex_FIRST P Q (m::ms) unavail =
     let (p,(x,y)) = m in
     do
+      x <- coalesce_parent x;
+      y <- coalesce_parent y;
       b1 <- P x y;
       if ¬b1 then
         st_ex_FIRST P Q ms unavail
@@ -564,7 +600,7 @@ val st_ex_FIRST_def = Define`
         (x,y) <- canonize_move x y;
         optb2 <- Q x y;
         case optb2 of
-          NONE => st_ex_FIRST P Q ms (m::unavail)
+          NONE => st_ex_FIRST P Q ms ((p,(x,y))::unavail)
         | SOME pr =>
           return (SOME ((x,y),pr,ms),unavail)
       od
@@ -670,9 +706,6 @@ val do_freeze_def = Define`
   do_freeze k =
   do
     freeze <- get_freeze_wl;
-    if NULL freeze then
-      return F
-    else
     case freeze of
       [] => return F
     | x::xs =>
@@ -1027,11 +1060,12 @@ val is_phy_var_def = Define`
 val is_alloc_var_def = Define`
   is_alloc_var (n:num) = (n MOD 4 = 1)`;
 
-Theorem convention_partitions `
-  ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
+Theorem convention_partitions:
+    ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
       (is_phy_var n ⇔ (¬is_stack_var n) ∧ ¬(is_alloc_var n)) ∧
-      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))`
-  (rw[is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
+      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))
+Proof
+  rw[is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
   \\ `n MOD 2 = (n MOD 4) MOD 2` by
    (ONCE_REWRITE_TAC [GSYM (EVAL ``2*2:num``)]
     \\ fs [arithmeticTheory.MOD_MULT_MOD])
@@ -1039,7 +1073,8 @@ Theorem convention_partitions `
   \\ `n MOD 4 < 4` by fs []
   \\ IMP_RES_TAC (DECIDE
        ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
-  \\ fs []);
+  \\ fs []
+QED
 
 (* Set the tags according to wordLang conventions *)
 val mk_tags_def = Define`
@@ -1126,6 +1161,11 @@ val init_ra_state_def = Define`
     mk_tags n (sp_default fa);
   od`;
 
+(* work around translator bug *)
+val do_upd_coalesce_def = Define`
+  do_upd_coalesce i =
+  update_coalesced i (0+i)`
+
 (* Initializer for the first allocation step *)
 val init_alloc1_heu_def = Define`
   init_alloc1_heu moves d k =
@@ -1140,9 +1180,11 @@ val init_alloc1_heu_def = Define`
       do
         adjls <- adj_ls_sub i;
         fills <- st_ex_FILTER (λv. considered_var k v) adjls [];
-        update_degrees i (LENGTH fills)
+        update_degrees i (LENGTH fills);
       od
       );
+
+    st_ex_FOREACH ds do_upd_coalesce;
     set_avail_moves_wl (sort_moves moves);
     reset_move_related moves;
 
@@ -1151,6 +1193,7 @@ val init_alloc1_heu_def = Define`
     set_spill_wl gtk;
     set_simp_wl ltksimp;
     set_freeze_wl ltkfreeze;
+
     return (LENGTH allocs)
   od`
 
@@ -1215,12 +1258,9 @@ val biased_pref_def = Define`
     d <- get_dim;
     if n < d then
     do
-      copt <- coalesced_sub n;
+      v <- coalesced_sub n;
       let vs = case lookup n mtable of NONE => [] | SOME vs => vs in
-      (case copt of
-        NONE => handle_Subscript (first_match_col ks vs) (return NONE)
-      | SOME v =>
-          handle_Subscript (first_match_col ks (v::vs)) (return NONE))
+      handle_Subscript (first_match_col ks (v::vs)) (return NONE)
     od
     else
       return NONE
@@ -1233,12 +1273,12 @@ val full_consistency_ok_def = Define`
     return F (* check 1 *)
   else
   do
-    d <- get_dim; (* unnecessary*)
-    if x ≥ d ∨ y ≥ d then return F (* unnecessary *)
+    d <- get_dim;
+    if x ≥ d ∨ y ≥ d then return F
     else
     do
       adjy <- adj_ls_sub y; (* check 2 *)
-      if MEM x adjy then return F
+      if sorted_mem x adjy then return F
       else
       do
         bx <- is_Fixed_k k x;
@@ -1250,12 +1290,21 @@ val full_consistency_ok_def = Define`
     od
   od`
 
+val update_move_def = Define`
+  update_move spta (p:num,(x:num,y:num)) =
+  let spx:num = spta x in
+  let spy:num = spta y in
+  if spx ≤ spy then
+    (p, (spx,spy))
+  else
+    (p, (spy,spx))`
+
 (* Putting everything together in one call *)
 val do_reg_alloc_def = Define`
   do_reg_alloc alg sc k moves ct forced (ta,fa,n) =
   do
     init_ra_state ct forced (ta,fa,n);
-    moves <- return (MAP  (λ(p,(x,y)). (p,(sp_default ta x),(sp_default ta y))) moves);
+    moves <- return (MAP (update_move (sp_default ta)) moves);
     moves <- st_ex_FILTER (λ(_,(x,y)).full_consistency_ok k x y) moves [];
     ls <- do_alloc1 (if alg = Simple then [] else moves) sc k;
     assign_Atemps k ls (biased_pref (resort_moves (moves_to_sp moves LN)));
@@ -1285,7 +1334,7 @@ val reg_alloc_aux_def = Define`
                        ; freeze_wl := []
                        ; avail_moves_wl   := []
                        ; unavail_moves_wl := []
-                       ; coalesced := (n,NONE)
+                       ; coalesced := (n,0)
                        ; move_related := (n,F)
                        ; stack     := [] |>`;
 

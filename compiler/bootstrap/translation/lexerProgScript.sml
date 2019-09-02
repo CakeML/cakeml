@@ -11,6 +11,13 @@ val _ = translation_extends "to_dataProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "lexerProg");
 
+(* the tokens are to use the string type in CakeML ... *)
+val _ = ml_translatorLib.use_string_type true;
+val _ = register_type ``:tokens$token``;
+
+(* ... but the lexer is to treat char list in HOL as char list in CakeML *)
+val _ = ml_translatorLib.use_string_type false;
+
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE
 fun list_dest f tm =
@@ -26,9 +33,11 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Theorem NOT_NIL_AND_LEMMA
-  `(b <> [] /\ x) = if b = [] then F else x`
-  (Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Theorem NOT_NIL_AND_LEMMA:
+   (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 

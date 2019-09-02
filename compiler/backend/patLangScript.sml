@@ -33,12 +33,16 @@ val _ = Datatype`
 (*TODO: Verify that the introduction of traces wont mess exp_sizes *)
 val exp_size_def = definition"exp_size_def";
 
-Theorem exp1_size_APPEND[simp]
-  `patLang$exp1_size (e ++ e2) = exp1_size e + exp1_size e2`
-  (Induct_on`e`>>simp[exp_size_def])
+Theorem exp1_size_APPEND[simp]:
+   patLang$exp1_size (e ++ e2) = exp1_size e + exp1_size e2
+Proof
+  Induct_on`e`>>simp[exp_size_def]
+QED
 
-Theorem exp1_size_REVERSE[simp]
-  `patLang$exp1_size (REVERSE es) = exp1_size es`
-  (Induct_on`es`>>simp[exp_size_def])
+Theorem exp1_size_REVERSE[simp]:
+   patLang$exp1_size (REVERSE es) = exp1_size es
+Proof
+  Induct_on`es`>>simp[exp_size_def]
+QED
 
 val _ = export_theory()

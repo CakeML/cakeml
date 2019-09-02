@@ -820,13 +820,12 @@ QED
 
 (* TODO: lots of these lemmas should probably live in characteristic/ or llistTheory *)
 
-val (llist_upto_rules,llist_upto_ind,llist_upto_case) =
-Hol_reln `
+Inductive llist_upto:
   (llist_upto R x x) /\
   (R x y ==> llist_upto R x y) /\
   (llist_upto R x y /\ llist_upto R y z ==> llist_upto R x z) /\
   (llist_upto R x y ==> llist_upto R (LAPPEND z x) (LAPPEND z y))
-  `
+End
 
 val [llist_upto_eq,llist_upto_rel,llist_upto_trans,llist_upto_context] =
   llist_upto_rules |> SPEC_ALL |> CONJUNCTS |> map GEN_ALL

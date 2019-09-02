@@ -313,7 +313,7 @@ val small_eval_lannot = Q.prove (
   small_eval env s e1 ((Clannot () l,env)::c) r`,
  small_eval_step_tac);
 
-val (small_eval_list_rules, small_eval_list_ind, small_eval_list_cases) = Hol_reln `
+Inductive small_eval_list:
 (!env s. small_eval_list env s [] (s, Rval [])) ∧
 (!s1 env e es v vs s2 s3 env'.
   e_step_reln^* (env,s1,Exp e,[]) (env',s2,Val v,[]) ∧
@@ -332,7 +332,8 @@ val (small_eval_list_rules, small_eval_list_ind, small_eval_list_cases) = Hol_re
   (e_step_reln^* (env,s1,Exp e,[]) (env',s2,Val v,[]) ∧
    small_eval_list env s2 es (s3, Rerr (Rabort a)))
   ⇒
-  (small_eval_list env s1 (e::es) (s3, Rerr (Rabort a))))`;
+  (small_eval_list env s1 (e::es) (s3, Rerr (Rabort a))))
+End
 
 val small_eval_list_length = Q.prove (
 `!env s1 es r. small_eval_list env s1 es r ⇒
@@ -452,7 +453,7 @@ full_simp_tac(srw_ss())[] >|
              by metis_tac [] >>
      metis_tac [RTC_SINGLE, transitive_RTC, transitive_def]]);
 
-val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol_reln `
+Inductive small_eval_match:
 (!env s err_v v. small_eval_match env s v [] err_v (s, Rerr (Rraise err_v))) ∧
 (!env s p e pes r v err_v.
   ALL_DISTINCT (pat_bindings p []) ∧
@@ -473,7 +474,8 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
 (!env s p e pes v err_v.
   (pmatch env.c (FST s) p v [] = Match_type_error)
   ⇒
-  small_eval_match env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error)))`;
+  small_eval_match env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error)))
+End
 
 val alt_small_eval_def = Define `
 (alt_small_eval env s1 e c (s2, Rval v) =
@@ -1693,13 +1695,14 @@ val evaluate_change_state = Q.prove(
    evaluate a b c' d (e',f)`,
    srw_tac[][] >> srw_tac[][]) |> GEN_ALL;
 
-Theorem small_big_exp_equiv
-`!env s e s' r.
+Theorem small_big_exp_equiv:
+ !env s e s' r.
   (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧
    s.clock = s'.clock ∧ s.next_type_stamp = s'.next_type_stamp ∧ s.next_exn_stamp= s'.next_exn_stamp)
   ⇔
-  evaluate F env s e (s',r)`
- (srw_tac[][] >>
+  evaluate F env s e (s',r)
+Proof
+ srw_tac[][] >>
  eq_tac
  >- (srw_tac[][] >>
      cases_on `r` >|
@@ -1733,16 +1736,18 @@ Theorem small_big_exp_equiv
  >- (srw_tac[][] >>
      imp_res_tac big_exp_to_small_exp >>
      full_simp_tac(srw_ss())[small_eval_def, to_small_res_def] >>
-     metis_tac [evaluate_no_new_types_exns, FST, big_unclocked]));
+     metis_tac [evaluate_no_new_types_exns, FST, big_unclocked])
+QED
 
 (* ---------------------- Small step determinacy ------------------------- *)
 
-Theorem small_exp_determ
-`!env s e r1 r2.
+Theorem small_exp_determ:
+ !env s e r1 r2.
   small_eval env s e [] r1 ∧ small_eval env s e [] r2
   ⇒
-  (r1 = r2)`
- (srw_tac[][] >>
+  (r1 = r2)
+Proof
+ srw_tac[][] >>
  assume_tac small_big_exp_equiv >>
  full_simp_tac(srw_ss())[to_small_st_def] >>
  PairCases_on `r1` >>
@@ -1759,6 +1764,7 @@ Theorem small_exp_determ
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
  imp_res_tac big_exp_determ >>
- full_simp_tac(srw_ss())[]);
+ full_simp_tac(srw_ss())[]
+QED
 
 val _ = export_theory ();

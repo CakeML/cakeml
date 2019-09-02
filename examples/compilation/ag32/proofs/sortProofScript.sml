@@ -38,7 +38,7 @@ val (sort_sem,sort_output) = sort_io_events_def |> SPEC_ALL |> CONJ_PAIR
 val (sort_not_fail,sort_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail sort_sem |> CONJ_PAIR
 
 val ffi_names =
-  ``config.ffi_names``
+  ``config.lab_conf.ffi_names``
   |> (REWRITE_CONV[sortCompileTheory.config_def] THENC EVAL)
 
 val LENGTH_code =
@@ -50,21 +50,22 @@ val LENGTH_data =
   |> (REWRITE_CONV[sortCompileTheory.data_def] THENC listLib.LENGTH_CONV)
 
 val _ = overload_on("sort_machine_config",
-    ``ag32_machine_config (THE config.ffi_names) (LENGTH code) (LENGTH data)``);
+    ``ag32_machine_config (THE config.lab_conf.ffi_names) (LENGTH code) (LENGTH data)``);
 
-Theorem target_state_rel_sort_start_asm_state
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem target_state_rel_sort_start_asm_state:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms ⇒
-   ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms ⇒
+   ∃n. target_state_rel ag32_target (init_asm_state code data (THE config.lab_conf.ffi_names) (cl,inp)) (FUNPOW Next n ms) ∧
        ((FUNPOW Next n ms).io_events = ms.io_events) ∧
        (∀x. x ∉ (ag32_startup_addresses) ⇒
-         ((FUNPOW Next n ms).MEM x = ms.MEM x))`
-  (strip_tac
+         ((FUNPOW Next n ms).MEM x = ms.MEM x))
+Proof
+  strip_tac
   \\ drule (GEN_ALL init_asm_state_RTC_asm_step)
   \\ disch_then drule
   \\ simp_tac std_ss []
-  \\ disch_then(qspecl_then[`code`,`data`,`THE config.ffi_names`]mp_tac)
+  \\ disch_then(qspecl_then[`code`,`data`,`THE config.lab_conf.ffi_names`]mp_tac)
   \\ impl_tac >- ( EVAL_TAC>> fs[ffi_names,LENGTH_data,LENGTH_code])
   \\ strip_tac
   \\ drule (GEN_ALL target_state_rel_ag32_init)
@@ -72,7 +73,8 @@ Theorem target_state_rel_sort_start_asm_state
   \\ qmatch_goalsub_abbrev_tac`_ ∉ md`
   \\ disch_then(qspec_then`md`assume_tac)
   \\ drule (GEN_ALL RTC_asm_step_ag32_target_state_rel_io_events)
-  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]);
+  \\ simp[EVAL``(ag32_init_asm_state m md).mem_domain``]
+QED
 
 val sort_startup_clock_def =
   new_specification("sort_startup_clock_def",["sort_startup_clock"],
@@ -92,14 +94,15 @@ val compile_correct_applied =
   |> Q.GEN`cbspace` |> Q.SPEC`0`
   |> Q.GEN`data_sp` |> Q.SPEC`0`
 
-Theorem sort_installed
-  `SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
+Theorem sort_installed:
+   SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
    LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.ffi_names) (cl,inp)) ms0 ⇒
-   installed code 0 data 0 config.ffi_names (basis_ffi cl fs)
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) (cl,inp)) ms0 ⇒
+   installed code 0 data 0 config.lab_conf.ffi_names (basis_ffi cl fs)
      (heap_regs ag32_backend_config.stack_conf.reg_names)
-     (sort_machine_config) (FUNPOW Next (sort_startup_clock ms0 inp cl) ms0)`
-  (rewrite_tac[ffi_names, THE_DEF]
+     (sort_machine_config) (FUNPOW Next (sort_startup_clock ms0 inp cl) ms0)
+Proof
+  rewrite_tac[ffi_names, THE_DEF]
   \\ strip_tac
   \\ irule ag32_installed
   \\ drule sort_startup_clock_def
@@ -113,7 +116,8 @@ Theorem sort_installed
   \\ conj_tac >- (EVAL_TAC)
   \\ asm_exists_tac
   \\ simp[]
-  \\ fs[ffi_names]);
+  \\ fs[ffi_names]
+QED
 
 val sort_machine_sem =
   compile_correct_applied
@@ -127,11 +131,12 @@ val sort_machine_sem =
   |> curry save_thm "sort_machine_sem";
 
 (* TODO: theorems currently in ag32Bootstrap can make this shorter *)
-Theorem sort_extract_writes_stdout
-  `∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
+Theorem sort_extract_writes_stdout:
+   ∃output. PERM output (lines_of (implode input)) ∧ SORTED mlstring_le output ∧
    (extract_writes 1 (MAP get_output_io_event (sort_io_events input)) =
-    explode (concat output))`
-  (qspec_then`input`strip_assume_tac(GEN_ALL(DISCH_ALL sort_output))
+    explode (concat output))
+Proof
+  qspec_then`input`strip_assume_tac(GEN_ALL(DISCH_ALL sort_output))
   \\ asm_exists_tac
   \\ pop_assum mp_tac
   \\ DEP_REWRITE_TAC[TextIOProofTheory.add_stdout_fastForwardFD]
@@ -144,27 +149,32 @@ Theorem sort_extract_writes_stdout
     simp[stdin_fs_def]
     \\ qexists_tac`implode""`
     \\ simp[] )
-  \\ simp[Once stdin_fs_def, ALIST_FUPDKEY_def]
+  \\ simp[Once stdin_fs_def, AFUPDKEY_def]
   \\ Cases \\ simp[] \\ strip_tac \\ rveq
   \\ pop_assum mp_tac
   \\ simp[TextIOProofTheory.up_stdo_def]
   \\ simp[fsFFITheory.fsupdate_def, fsFFIPropsTheory.fastForwardFD_def]
-  \\ simp[stdin_fs_def, ALIST_FUPDKEY_ALOOKUP, libTheory.the_def]
+  \\ simp[stdin_fs_def, AFUPDKEY_ALOOKUP, libTheory.the_def]
   \\ rw[]
   \\ drule (GEN_ALL extract_fs_extract_writes)
-  \\ simp[ALIST_FUPDKEY_ALOOKUP]
+  \\ simp[AFUPDKEY_ALOOKUP]
   \\ disch_then match_mp_tac
   \\ rw[fsFFIPropsTheory.inFS_fname_def]
-  >- (fs[CaseEq"option",CaseEq"bool"] \\ rveq \\ fs[])
+  >- (fs[CaseEq"option",CaseEq"bool"] \\ rveq \\ fs[] \\
+      Cases_on`v` >> qmatch_goalsub_abbrev_tac`(q,r)` >>
+      Cases_on`r` >> rfs[] >> Cases_on`q = File fnm` >> rw[] \\
+      DISJ1_TAC \\ Cases_on`v'` >>
+      Cases_on`r` >> rfs[] >> Cases_on`q = File fnm` >> rw[])
   >- (
     pop_assum mp_tac
     \\ rw[] \\ fs[] \\ rw[]
     \\ pop_assum mp_tac \\ rw[])
-  >- rw[OPTREL_def]);
+  >- rw[OPTREL_def]
+QED
 
-Theorem sort_ag32_next
-  `LENGTH inp ≤ stdin_size ∧
-   is_ag32_init_state (init_memory code data (THE config.ffi_names) ([strlit"sort"],inp)) ms0
+Theorem sort_ag32_next:
+   LENGTH inp ≤ stdin_size ∧
+   is_ag32_init_state (init_memory code data (THE config.lab_conf.ffi_names) ([strlit"sort"],inp)) ms0
   ⇒
    ∃k1. ∀k. k1 ≤ k ⇒
      let ms = FUNPOW Next k ms0 in
@@ -173,8 +183,9 @@ Theorem sort_ag32_next
        (get_mem_word ms.MEM ms.PC = Encode (Jump (fAdd,0w,Imm 0w))) ∧
        outs ≼ MAP get_output_io_event (sort_io_events inp) ∧
        ((ms.R (n2w (sort_machine_config).ptr_reg) = 0w) ⇒
-        (outs = MAP get_output_io_event (sort_io_events inp)))`
-  (strip_tac
+        (outs = MAP get_output_io_event (sort_io_events inp)))
+Proof
+  strip_tac
   \\ drule (GEN_ALL sort_machine_sem)
   \\ disch_then drule
   \\ strip_tac
@@ -194,6 +205,7 @@ Theorem sort_ag32_next
   \\ qmatch_goalsub_abbrev_tac`FUNPOW Next clk`
   \\ qexists_tac`clk` \\ simp[]
   \\ EVAL_TAC
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 val _ = export_theory();

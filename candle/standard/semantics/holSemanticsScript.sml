@@ -24,7 +24,7 @@ val _ = Parse.overload_on("inhabited",``λs. ∃x. x <: s``)
    with respect to a type signature, and is only constrained for defined type
    operators applied to the right number of non-empty arguments. *)
 
-val _ = Parse.type_abbrev("tyass",``:mlstring -> 'U list -> 'U``)
+Type tyass = ``:mlstring -> 'U list -> 'U``
 
 val is_type_assignment_def = xDefine "is_type_assignment"`
   is_type_assignment0 ^mem tysig (δ:'U tyass) ⇔
@@ -37,7 +37,7 @@ val _ = Parse.overload_on("is_type_assignment",``is_type_assignment0 ^mem``)
 
 (* A type valuation is a map from type variable names to non-empty sets. *)
 
-val _ = Parse.type_abbrev("tyval",``:mlstring -> 'U``)
+Type tyval = ``:mlstring -> 'U``
 
 val is_type_valuation_def = xDefine "is_type_valuation"`
   is_type_valuation0 ^mem (τ:'U tyval) ⇔ ∀x. inhabited (τ x)`
@@ -55,7 +55,7 @@ val typesem_def = tDefine "typesem"`
    free type variables to a value for the constant. The assignment is with
    respect to a signature and is only constrained for defined constants. *)
 
-val _ = Parse.type_abbrev("tmass",``:mlstring -> 'U list -> 'U``)
+Type tmass = ``:mlstring -> 'U list -> 'U``
 
 val is_term_assignment_def = xDefine "is_term_assignment"`
   is_term_assignment0 ^mem tmsig δ (γ:'U tmass) ⇔
@@ -70,7 +70,7 @@ val _ = Parse.overload_on("is_term_assignment",``is_term_assignment0 ^mem``)
    result is not polymorphic: term valuations are specialised for particular
    type valuations. *)
 
-val _ = Parse.type_abbrev("tmval",``:mlstring # type -> 'U``)
+Type tmval = ``:mlstring # type -> 'U``
 
 val is_term_valuation_def = xDefine "is_term_valuation"`
   is_term_valuation0 ^mem tysig δ τ (σ:'U tmval) ⇔
@@ -80,10 +80,10 @@ val _ = Parse.overload_on("is_term_valuation",``is_term_valuation0 ^mem``)
 (* An interpretation is a pair of assignments.
    A valuation is a pair of valuations. *)
 
-val _ = Parse.type_abbrev("interpretation",``:'U tyass # 'U tmass``)
+Type interpretation = ``:'U tyass # 'U tmass``
 val _ = Parse.overload_on("tyaof",``FST:'U interpretation->'U tyass``)
 val _ = Parse.overload_on("tmaof",``SND:'U interpretation->'U tmass``)
-val _ = Parse.type_abbrev("valuation",``:'U tyval # 'U tmval``)
+Type valuation = ``:'U tyval # 'U tmval``
 val _ = Parse.overload_on("tyvof",``FST:'U valuation->'U tyval``)
 val _ = Parse.overload_on("tmvof",``SND:'U valuation->'U tmval``)
 

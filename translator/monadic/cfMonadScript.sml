@@ -93,14 +93,15 @@ val REFS_PRED_from_SPLIT = Q.prove(
    \\ rw[STAR_def]
    \\ metis_tac[SAT_GC]);
 
-Theorem ArrowP_PURE_to_app
-  `!A B f fv x1 xv1 xv2 xvl H Q ro state p.
+Theorem ArrowP_PURE_to_app:
+   !A B f fv x1 xv1 xv2 xvl H Q ro state p.
      A x1 xv1 ==>
      (!gv. B (f x1) gv ==>
      app (p : 'ffi ffi_proj) gv (xv2::xvl) (H state) (Q state)) ==>
      ArrowP ro (H,p) (PURE A) (PURE B) f fv ==>
-     app p fv (xv1::xv2::xvl) (H state) (Q state)`
-  (rw [app_def, app_basic_def, ArrowP_def, PURE_def]
+     app p fv (xv1::xv2::xvl) (H state) (Q state)
+Proof
+  rw [app_def, app_basic_def, ArrowP_def, PURE_def]
   \\ drule REFS_PRED_from_SPLIT
   \\ disch_then drule \\ rw[] \\ fs [PULL_EXISTS]
   \\ first_x_assum(qspecl_then [`x1`, `state`, `st`, `xv1`] assume_tac)
@@ -121,10 +122,11 @@ Theorem ArrowP_PURE_to_app
   \\ fs [evaluate_to_heap_def,evaluate_ck_def,with_same_refs]
   \\ drule evaluatePropsTheory.evaluate_set_clock \\ rw []
   \\ first_x_assum (qspec_then `0` mp_tac) \\ strip_tac
-  \\ instantiate);
+  \\ instantiate
+QED
 
-Theorem ArrowP_MONAD_to_app
-  `!A B C f fv H x xv ro refs p.
+Theorem ArrowP_MONAD_to_app:
+   !A B C f fv H x xv ro refs p.
      A x xv ==>
      ArrowP ro (H,p) (PURE A) (MONAD B C) f fv ==>
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
@@ -132,8 +134,9 @@ Theorem ArrowP_MONAD_to_app
         (\rv. SEP_EXISTS refs' r. H refs' *
               &(f x refs = (Success r, refs')) * &(B r rv))
         (\ev. SEP_EXISTS refs' e. H refs' *
-              &(f x refs = (Failure e, refs')) * &(C e ev)))`
-  (rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
+              &(f x refs = (Failure e, refs')) * &(C e ev)))
+Proof
+  rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum drule
   \\ disch_then (qspecl_then [`refs`,`st`] mp_tac)
@@ -159,10 +162,11 @@ Theorem ArrowP_MONAD_to_app
     \\ qexists_tac `r` \\ qexists_tac `b`
     \\ rw [SEP_CLAUSES])
   \\ qexists_tac `ck1`
-  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]);
+  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
+QED
 
-Theorem ArrowP_MONAD_EqSt_to_app
-  `!A B C f fv H x xv ro refs p.
+Theorem ArrowP_MONAD_EqSt_to_app:
+   !A B C f fv H x xv ro refs p.
      A x xv ==>
      ArrowP ro (H,p) (EqSt (PURE A) refs) (MONAD B C) f fv ==>
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
@@ -170,8 +174,9 @@ Theorem ArrowP_MONAD_EqSt_to_app
           (\rv. SEP_EXISTS refs' r. H refs' *
                 &(f x refs = (Success r, refs')) * &(B r rv))
           (\ev. SEP_EXISTS refs' e. H refs' *
-                &(f x refs = (Failure e, refs')) * &(C e ev)))`
-  (rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
+                &(f x refs = (Failure e, refs')) * &(C e ev)))
+Proof
+  rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
   \\ first_x_assum drule
   \\ disch_then (qspecl_then [`st`] mp_tac)
@@ -198,15 +203,19 @@ Theorem ArrowP_MONAD_EqSt_to_app
     \\ qexists_tac `r` \\ qexists_tac `b`
     \\ rw [SEP_CLAUSES])
   \\ qexists_tac `ck1`
-  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]);
+  \\ fs [SEP_CLAUSES,SEP_EXISTS_THM,PULL_EXISTS]
+QED
 
-val st2heap_with_clock = store_thm("st2heap_with_clock[simp]", (* TODO: move *)
-  ``st2heap p (s with clock := c) = st2heap p s``,
-  fs [cfStoreTheory.st2heap_def]);
+Theorem st2heap_with_clock[simp]: (* TODO: move *)
+  st2heap p (s with clock := c) = st2heap p s
+Proof
+  fs [cfStoreTheory.st2heap_def]
+QED
 
-val SPLIT3_IMP_STAR_STAR = store_thm("SPLIT3_IMP_STAR_STAR", (* TODO: move *)
-  ``!x s1 s2 s3 p1 p2 p3.
-      p1 s1 /\ p2 s2 /\ p3 s3 /\ SPLIT3 x (s1,s2,s3) ==> (p1 * p2 * p3) x``,
+Theorem SPLIT3_IMP_STAR_STAR: (* TODO: move *)
+  !x s1 s2 s3 p1 p2 p3.
+    p1 s1 /\ p2 s2 /\ p3 s3 /\ SPLIT3 x (s1,s2,s3) ==> (p1 * p2 * p3) x
+Proof
   fs [set_sepTheory.STAR_def,PULL_EXISTS] \\ rw []
   \\ qexists_tac `s1 UNION s2`
   \\ qexists_tac `s3`
@@ -214,26 +223,31 @@ val SPLIT3_IMP_STAR_STAR = store_thm("SPLIT3_IMP_STAR_STAR", (* TODO: move *)
   \\ qexists_tac `s2`
   \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF,set_sepTheory.SPLIT_def,
          cfHeapsBaseTheory.SPLIT3_def]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-val GC_T = store_thm("GC_T", (* TODO: move *)
-  ``!x. GC x``,
+Theorem GC_T: (* TODO: move *)
+  !x. GC x
+Proof
   rw [cfHeapsBaseTheory.GC_def,set_sepTheory.SEP_EXISTS_THM]
-  \\ qexists_tac `K T` \\ fs []);
+  \\ qexists_tac `K T` \\ fs []
+QED
 
-val st2heap_append_UNION = store_thm("st2heap_new_refs_UNION", (* TODO: move *)
-  ``!(st:'ffi semanticPrimitives$state) new_refs p.
+Theorem st2heap_new_refs_UNION: (* TODO: move *)
+  !(st:'ffi semanticPrimitives$state) new_refs p.
       ?x. (st2heap p (st with refs := st.refs ++ new_refs) = st2heap p st UNION x) /\
-          DISJOINT (st2heap p st) x``,
+          DISJOINT (st2heap p st) x
+Proof
   fs [cfAppTheory.st2heap_with_refs_append] \\ rw[]
   \\ `(st with refs := st.refs) = st` by
          fs [semanticPrimitivesTheory.state_component_equality] \\ fs []
   \\ qexists_tac `store2heap_aux (LENGTH st.refs) new_refs DIFF st2heap p st`
   \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-Theorem EvalM_from_app
-  `!(eff_v:v) ARG_TYPE EXC_TYPE.
+Theorem EvalM_from_app:
+   !(eff_v:v) ARG_TYPE EXC_TYPE.
    (!x s. ?r t. f x s = (Success r, t)) /\
    (!x xv s ret new_s.
      ARG_TYPE x xv ==>
@@ -245,8 +259,9 @@ Theorem EvalM_from_app
    (nsLookup env.v fun_name = SOME fun_v) ==>
    EvalM F env st (App Opapp [Var fun_name; fun_exp])
     (MONAD RET_TYPE EXC_TYPE (f x))
-    (H, p)`
-  (rw [EvalM_def] \\ fs [Eval_def]
+    (H, p)
+Proof
+  rw [EvalM_def] \\ fs [Eval_def]
   \\ first_x_assum (qspec_then `s.refs` strip_assume_tac)
   \\ fs [cfAppTheory.app_def, cfAppTheory.app_basic_def, evaluate_to_heap_def]
   \\ simp [MONAD_def]
@@ -292,7 +307,7 @@ Theorem EvalM_from_app
   \\ qmatch_assum_abbrev_tac `evaluate s6  env' [exp] = _`
   \\ rename1 `SPLIT (st2heap p s) (u1,v1)`
   \\ `?he. SPLIT (st2heap p s6) (u1,v1 UNION he)` by
-   (qspecl_then [`s`,`refs'`,`p`] strip_assume_tac st2heap_append_UNION
+   (qspecl_then [`s`,`refs'`,`p`] strip_assume_tac st2heap_new_refs_UNION
     \\ rfs [] \\ qexists_tac `x'` \\ fs [Abbr `s6`]
     \\ fs [IN_DISJOINT,EXTENSION,IN_UNION,IN_DIFF,set_sepTheory.SPLIT_def]
     \\ metis_tac [])
@@ -321,7 +336,8 @@ Theorem EvalM_from_app
   \\ qpat_x_assum `_ = (_,Rval [val])` assume_tac
   \\ drule evaluatePropsTheory.evaluate_add_to_clock
   \\ disch_then (qspec_then `ck'` mp_tac) \\ fs []
-  \\ simp [state_component_equality]);
+  \\ simp [state_component_equality]
+QED
 
 val parsed_terms = save_thm("parsed_terms",
   packLib.pack_list

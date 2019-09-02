@@ -31,7 +31,7 @@ val stdErr_print = regexpMisc.stdErr_print;
 fun regexpc r =
  let open listSyntax regexpSyntax
      val _ = stdErr_print "Compiling regexp to DFA by deduction (can be slow) :\n"
-     val regexp_tm = regexpSyntax.mk_regexp r
+     val regexp_tm = regexpSyntax.regexp_to_term r
      val compile_thm = Count.apply regexpEval ``regexp_compiler$compile_regexp ^regexp_tm``
      val triple = rhs (concl compile_thm)
      val [t1,t2,t3] = strip_pair triple
@@ -209,9 +209,11 @@ val EqualityType_def = ml_translatorTheory.EqualityType_def;
 val types_match_def = ml_translatorTheory.types_match_def;
 val ctor_same_type_def = semanticPrimitivesTheory.ctor_same_type_def;
 
-val tolist_fromlist_map_cancel = Q.store_thm("tolist_fromlist_map_cancel",
-  `MAP mlvector$toList (MAP fromList ll) = ll`,
-  Induct_on `ll` >> fs[]);
+Theorem tolist_fromlist_map_cancel:
+  MAP mlvector$toList (MAP fromList ll) = ll
+Proof
+  Induct_on `ll` >> fs[]
+QED
 
 (*---------------------------------------------------------------------------*)
 (* Auxiliary functions to deal with null termination.                        *)
@@ -226,29 +228,36 @@ val null_index_def = tDefine "null_index"
 
 val null_index_ind = fetch "-" "null_index_ind";
 
-val null_index_le_len = Q.store_thm("null_index_le_len",
-  `!s n m. null_index s n = SOME m ==> m < strlen s`,
+Theorem null_index_le_len:
+  !s n m. null_index s n = SOME m ==> m < strlen s
+Proof
   ho_match_mp_tac null_index_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_def])
-  >> rw[]);
+  >> rw[]
+QED
 
-val null_index_in_bound = Q.store_thm("null_index_in_bound",
-  `!s n m. null_index s n = SOME m ==> n <= m`,
+Theorem null_index_in_bound:
+  !s n m. null_index s n = SOME m ==> n <= m
+Proof
   ho_match_mp_tac null_index_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_def])
-  >> rw[] >> fs[]);
+  >> rw[] >> fs[]
+QED
 
-val null_index_null = Q.store_thm("null_index_null",
-  `!s n m. null_index s n = SOME m ==> strsub s m = CHR 0`,
+Theorem null_index_null:
+  !s n m. null_index s n = SOME m ==> strsub s m = CHR 0
+Proof
   ho_match_mp_tac null_index_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_def])
-  >> rw[] >> fs[]);
+  >> rw[] >> fs[]
+QED
 
-val null_index_no_null = Q.store_thm("null_index_no_null",
-  `!s n m. null_index s n = SOME m ==> EVERY ($~ o $= (CHR 0)) (TAKE (m-n) (DROP n (explode s)))`,
+Theorem null_index_no_null:
+  !s n m. null_index s n = SOME m ==> EVERY ($~ o $= (CHR 0)) (TAKE (m-n) (DROP n (explode s)))
+Proof
   ho_match_mp_tac null_index_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_def])
@@ -266,10 +275,12 @@ val null_index_no_null = Q.store_thm("null_index_no_null",
   >> `n < LENGTH(explode s)`
      by(fs[])
   >> drule TAKE1_DROP
-  >> Cases_on `s` >> fs[mlstringTheory.strsub_def]);
+  >> Cases_on `s` >> fs[mlstringTheory.strsub_def]
+QED
 
-val null_index_no_null2 = Q.store_thm("null_index_no_null2",
-  `!s n. null_index s n = NONE ==> EVERY ($~ o $= (CHR 0)) (DROP n (explode s))`,
+Theorem null_index_no_null2:
+  !s n. null_index s n = NONE ==> EVERY ($~ o $= (CHR 0)) (DROP n (explode s))
+Proof
   ho_match_mp_tac null_index_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_def])
@@ -277,15 +288,17 @@ val null_index_no_null2 = Q.store_thm("null_index_no_null2",
   >> Cases_on `s` >> fs[GREATER_EQ]
   >> imp_res_tac DROP_LENGTH_TOO_LONG >> fs[]
   >> `n < STRLEN s'` by fs[]
-  >> imp_res_tac DROP_CONS_EL >> fs[]);
+  >> imp_res_tac DROP_CONS_EL >> fs[]
+QED
 
 val cut_at_null_def = Define `cut_at_null s =
   case null_index s 0 of
       NONE => strcat s (str(CHR 0))
     | SOME n => substring s 0 (SUC n)`
 
-val cut_at_null_SPLITP = Q.store_thm("cut_at_null_SPLITP",
-  `!s. cut_at_null s = implode(FST(SPLITP ($= (CHR 0)) (explode s)) ++ [CHR 0])`,
+Theorem cut_at_null_SPLITP:
+  !s. cut_at_null s = implode(FST(SPLITP ($= (CHR 0)) (explode s)) ++ [CHR 0])
+Proof
   Cases >> rw[cut_at_null_def] >> reverse(PURE_TOP_CASE_TAC >> rw[])
   >- (imp_res_tac null_index_le_len >> rw[mlstringTheory.substring_def]
       >> fs[mlstringTheory.strlen_def,mlstringTheory.implode_def]
@@ -298,7 +311,8 @@ val cut_at_null_SPLITP = Q.store_thm("cut_at_null_SPLITP",
       >> rfs[])
   >- (imp_res_tac null_index_no_null2
       >> fs[o_DEF] >> imp_res_tac SPLITP_EVERY
-      >> fs[mlstringTheory.implode_def,mlstringTheory.strcat_thm]));
+      >> fs[mlstringTheory.implode_def,mlstringTheory.strcat_thm])
+QED
 
 val _ = translate cut_at_null_def;
 
@@ -324,29 +338,36 @@ val null_index_w_def = tDefine "null_index_w"
 
 val null_index_w_ind = fetch "-" "null_index_w_ind";
 
-val null_index_w_le_len = Q.store_thm("null_index_w_le_len",
-  `!s n m. null_index_w s n = SOME m ==> m < LENGTH s`,
+Theorem null_index_w_le_len:
+  !s n m. null_index_w s n = SOME m ==> m < LENGTH s
+Proof
   ho_match_mp_tac null_index_w_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index_w` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_w_def])
-  >> rw[]);
+  >> rw[]
+QED
 
-val null_index_w_in_bound = Q.store_thm("null_index_w_in_bound",
-  `!s n m. null_index_w s n = SOME m ==> n <= m`,
+Theorem null_index_w_in_bound:
+  !s n m. null_index_w s n = SOME m ==> n <= m
+Proof
   ho_match_mp_tac null_index_w_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index_w` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_w_def])
-  >> rw[] >> fs[]);
+  >> rw[] >> fs[]
+QED
 
-val null_index_w_null = Q.store_thm("null_index_w_null",
-  `!s n m. null_index_w s n = SOME m ==> EL m s = 0w`,
+Theorem null_index_w_null:
+  !s n m. null_index_w s n = SOME m ==> EL m s = 0w
+Proof
   ho_match_mp_tac null_index_w_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index_w` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_w_def])
-  >> rw[] >> fs[]);
+  >> rw[] >> fs[]
+QED
 
-val null_index_w_no_null = Q.store_thm("null_index_w_no_null",
-  `!s n m. null_index_w s n = SOME m ==> EVERY ($~ o $= 0w) (TAKE (m-n) (DROP n s))`,
+Theorem null_index_w_no_null:
+  !s n m. null_index_w s n = SOME m ==> EVERY ($~ o $= 0w) (TAKE (m-n) (DROP n s))
+Proof
   ho_match_mp_tac null_index_w_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index_w` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_w_def])
@@ -363,10 +384,12 @@ val null_index_w_no_null = Q.store_thm("null_index_w_no_null",
   >> fs[ADD1,DROP_DROP]
   >> `n < LENGTH s`
      by(fs[])
-  >> drule TAKE1_DROP >> fs[]);
+  >> drule TAKE1_DROP >> fs[]
+QED
 
-val null_index_w_no_null2 = Q.store_thm("null_index_w_no_null2",
-  `!s n. null_index_w s n = NONE ==> EVERY ($~ o $= 0w) (DROP n s)`,
+Theorem null_index_w_no_null2:
+  !s n. null_index_w s n = NONE ==> EVERY ($~ o $= 0w) (DROP n s)
+Proof
   ho_match_mp_tac null_index_w_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index_w` (mp_tac o PURE_ONCE_REWRITE_RULE [null_index_w_def])
@@ -374,15 +397,17 @@ val null_index_w_no_null2 = Q.store_thm("null_index_w_no_null2",
   >> fs[GREATER_EQ]
   >> imp_res_tac DROP_LENGTH_TOO_LONG >> fs[]
   >> `n < LENGTH s` by fs[]
-  >> imp_res_tac DROP_CONS_EL >> fs[]);
+  >> imp_res_tac DROP_CONS_EL >> fs[]
+QED
 
 val cut_at_null_w_def = Define `cut_at_null_w s =
   case null_index_w s 0 of
       NONE => s ++ [0w]
     | SOME n => SEG (SUC n) 0 s`
 
-val cut_at_null_w_SPLITP = Q.store_thm("cut_at_null_w_SPLITP",
-  `!s. cut_at_null_w s = FST(SPLITP ($= 0w) s) ++ [0w]`,
+Theorem cut_at_null_w_SPLITP:
+  !s. cut_at_null_w s = FST(SPLITP ($= 0w) s) ++ [0w]
+Proof
   rw[cut_at_null_w_def] >> reverse(PURE_TOP_CASE_TAC >> rw[])
   >- (imp_res_tac null_index_w_le_len >> rw[mlstringTheory.substring_def]
       >> fs[mlstringTheory.strlen_def,mlstringTheory.implode_def]
@@ -393,10 +418,12 @@ val cut_at_null_w_SPLITP = Q.store_thm("cut_at_null_w_SPLITP",
       >> Q.ISPECL_THEN [`s`,`x`] assume_tac TAKE_EL_SNOC
       >> rfs[])
   >- (imp_res_tac null_index_w_no_null2
-      >> fs[o_DEF] >> imp_res_tac SPLITP_EVERY >> fs[]));
+      >> fs[o_DEF] >> imp_res_tac SPLITP_EVERY >> fs[])
+QED
 
-val null_index_w_thm = Q.store_thm("null_index_w_thm",
-  `∀s n. null_index_w (s:word8 list) n = null_index (implode (MAP (CHR ∘ w2n) s)) n`,
+Theorem null_index_w_thm:
+  ∀s n. null_index_w (s:word8 list) n = null_index (implode (MAP (CHR ∘ w2n) s)) n
+Proof
   ho_match_mp_tac null_index_w_ind
   >> rpt strip_tac
   >> MAP_EVERY PURE_ONCE_REWRITE_TAC [[null_index_def],[null_index_w_def]] >> rw[]
@@ -404,21 +431,26 @@ val null_index_w_thm = Q.store_thm("null_index_w_thm",
   >> `n < LENGTH s` by fs[]
   >> rfs[EL_MAP]
   >> qspecl_then [`[EL n s]`,`[0w]`] assume_tac MAP_CHR_w2n_11
-  >> fs[]);
+  >> fs[]
+QED
 
-val cut_at_null_w_thm = Q.store_thm("cut_at_null_w_thm",
-  `∀s. cut_at_null_w (s:word8 list) = MAP (n2w o ORD) (explode (cut_at_null (implode (MAP (CHR ∘ w2n) s))))`,
+Theorem cut_at_null_w_thm:
+  ∀s. cut_at_null_w (s:word8 list) = MAP (n2w o ORD) (explode (cut_at_null (implode (MAP (CHR ∘ w2n) s))))
+Proof
   rw[cut_at_null_w_def,cut_at_null_def,null_index_w_thm]
   >> PURE_TOP_CASE_TAC >> rw[MAP_MAP_o]
   >> fs[n2w_ORD_CHR_w2n]
   >> imp_res_tac null_index_le_len
   >> fs[mlstringTheory.implode_def,mlstringTheory.substring_def]
   >> MAP_EVERY PURE_ONCE_REWRITE_TAC [[null_index_def],[null_index_w_def]] >> rw[]
-  >> fs[GSYM TAKE_SEG,MAP_TAKE,MAP_MAP_o,n2w_ORD_CHR_w2n]);
+  >> fs[GSYM TAKE_SEG,MAP_TAKE,MAP_MAP_o,n2w_ORD_CHR_w2n]
+QED
 
-val cut_at_null_thm = Q.store_thm("cut_at_null_thm",
-  `cut_at_null(strlit (MAP (CHR o w2n) l)) = strlit(MAP (CHR o w2n) (cut_at_null_w(l:word8 list)))`,
- rw[cut_at_null_w_thm,MAP_MAP_o,implode_def,CHR_w2n_n2w_ORD,REWRITE_RULE[implode_def] implode_explode]);
+Theorem cut_at_null_thm:
+  cut_at_null(strlit (MAP (CHR o w2n) l)) = strlit(MAP (CHR o w2n) (cut_at_null_w(l:word8 list)))
+Proof
+  rw[cut_at_null_w_thm,MAP_MAP_o,implode_def,CHR_w2n_n2w_ORD,REWRITE_RULE[implode_def] implode_explode]
+QED
 
 val null_terminated_def = Define `
   null_terminated s = ?m. null_index s 0 = SOME m`
@@ -426,35 +458,44 @@ val null_terminated_def = Define `
 val null_terminated_w_def = Define `
   null_terminated_w s = ?m. null_index_w s 0 = SOME m`
 
-val null_terminated_w_thm = Q.store_thm("null_terminated_w_thm",`
-  !s. null_terminated_w (s:word8 list) = null_terminated(implode(MAP (CHR o w2n) s))`,
-  rw[null_terminated_def,null_terminated_w_def,null_index_w_thm]);
+Theorem null_terminated_w_thm:
+  !s. null_terminated_w (s:word8 list) = null_terminated(implode(MAP (CHR o w2n) s))
+Proof
+  rw[null_terminated_def,null_terminated_w_def,null_index_w_thm]
+QED
 
-val null_index_strcat1 = Q.store_thm("null_index_strcat1",
-  `!s1 n s2 m. null_index s1 n = SOME m ==> null_index (strcat s1 s2) n = SOME m`,
+Theorem null_index_strcat1:
+  !s1 n s2 m. null_index s1 n = SOME m ==> null_index (strcat s1 s2) n = SOME m
+Proof
   ho_match_mp_tac null_index_ind
   >> rpt strip_tac
   >> qhdtm_x_assum `null_index` mp_tac
   >> PURE_ONCE_REWRITE_TAC [null_index_def]
   >> rw[] >> fs[]
   >> MAP_EVERY Cases_on [`s1`,`s2`]
-  >> fs[mlstringTheory.strsub_def,mlstringTheory.strcat_def,mlstringTheory.concat_def,EL_APPEND_EQN])
+  >> fs[mlstringTheory.strsub_def,mlstringTheory.strcat_def,mlstringTheory.concat_def,EL_APPEND_EQN]
+QED
 
-val null_terminated_cut_APPEND = Q.store_thm("null_terminated_cut_APPEND",
-  `!s1 s2. null_terminated s1 ==> cut_at_null(strcat s1 s2) = cut_at_null s1`,
+Theorem null_terminated_cut_APPEND:
+  !s1 s2. null_terminated s1 ==> cut_at_null(strcat s1 s2) = cut_at_null s1
+Proof
   rw[null_terminated_def,cut_at_null_def] >> imp_res_tac null_index_strcat1
   >> fs[] >> imp_res_tac null_index_le_len
   >> MAP_EVERY Cases_on [`s1`,`s2`]
   >> fs[mlstringTheory.strsub_def,mlstringTheory.strcat_def,mlstringTheory.concat_def,
         mlstringTheory.substring_def]
-  >> match_mp_tac SEG_APPEND1 >> fs[]);
+  >> match_mp_tac SEG_APPEND1 >> fs[]
+QED
 
-val null_terminated_cut_w_APPEND = Q.store_thm("null_terminated_cut_APPEND",
-  `!s1 s2. null_terminated_w(s1:word8 list) ==> cut_at_null_w(s1 ++ s2) = cut_at_null_w s1`,
+Theorem null_terminated_cut_w_APPEND:
+  !s1 s2. null_terminated_w(s1:word8 list) ==> cut_at_null_w(s1 ++ s2) = cut_at_null_w s1
+Proof
   rw[null_terminated_w_thm,cut_at_null_w_thm]
   >> drule null_terminated_cut_APPEND
   >> disch_then(qspec_then `implode(MAP (CHR ∘ w2n) s2)` assume_tac)
-  >> simp[mlstringTheory.implode_STRCAT]);
+  >> simp[mlstringTheory.implode_STRCAT]
+QED
+
 (*---------------------------------------------------------------------------*)
 (* Loop processing input stream. Currently limited to strings <= 256 chars.  *)
 (* This is not a HOL function so is not being pushed through translate.      *)
@@ -737,11 +778,12 @@ val filter_bisim_rel_infinite_def = Define `
      every ($>= 256 ∘ LENGTH) inl /\
      every null_terminated_w inl)`
 
-val exists_LFLATTEN = Q.store_thm("exists_LFLATTEN",
-  `!P ll. exists P (LFLATTEN ll) /\
-   every LFINITE ll /\
-   every ($<> [||]) ll==>
-   exists (exists P) ll`,
+Theorem exists_LFLATTEN:
+  !P ll. exists P (LFLATTEN ll) /\
+    every LFINITE ll /\
+    every ($<> [||]) ll==>
+    exists (exists P) ll
+Proof
   rw[exists_LNTH] >>
   rpt(pop_assum mp_tac) >>
   MAP_EVERY qid_spec_tac [`e`,`ll`,`n`] >>
@@ -764,7 +806,8 @@ val exists_LFLATTEN = Q.store_thm("exists_LFLATTEN",
        (fs[] >> Q.REFINE_EXISTS_TAC `SUC _` >> simp[] >>
         rename1 `n0 < n` >>
         first_x_assum (match_mp_tac o MP_CANON) >>
-        qexists_tac `n0 - n` >> simp[] >> metis_tac[])));
+        qexists_tac `n0 - n` >> simp[] >> metis_tac[]))
+QED
 
 val cut_at_null_simplify = Q.prove(`(?n' e'.
    SOME e' =
@@ -1080,9 +1123,11 @@ Proof
   simp[]
 QED
 
-val STRING_TYPE_explode = Q.store_thm("STRING_TYPE_explode",
-  `!s u. STRING_TYPE s u ==> u = Litv(StrLit(explode s))`,
-  Cases >> rw[STRING_TYPE_def]);
+Theorem STRING_TYPE_explode:
+  !s u. STRING_TYPE s u ==> u = Litv(StrLit(explode s))
+Proof
+  Cases >> rw[STRING_TYPE_def]
+QED
 
 Theorem forward_matching_lines_ffidiv_spec:
   !input rv.
@@ -1437,12 +1482,13 @@ Proof
   fs[evaluate_ck_def]
 QED
 
-val semantics_diverge_filter = Q.store_thm("semantics_diverge_filter",
-  `every ($>= 256 o LENGTH) inl
+Theorem semantics_diverge_filter:
+   every ($>= 256 o LENGTH) inl
    /\ every (null_terminated_w) inl
    /\ semantics_prog (^(get_state st) with ffi:=(filter_ffi <|input:=inl|>))
                      ^(get_env st) [^maincall] (Diverge events)
-   ==> LFILTER is_emit events = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) inl)`,
+   ==> LFILTER is_emit events = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) inl)
+Proof
   rpt strip_tac
   >> `LLENGTH inl = NONE`
       by(CCONTR_TAC >> fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]
@@ -1452,24 +1498,30 @@ val semantics_diverge_filter = Q.store_thm("semantics_diverge_filter",
   >> first_x_assum(qspec_then `ffi` strip_assume_tac)
   >> dxrule semanticsPropsTheory.semantics_prog_deterministic
   >> disch_then dxrule >> simp[]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
-val semantics_finite_filter = Q.store_thm("semantics_finite_filter",
-  `every ($>= 256 o LENGTH) inl
+Theorem semantics_finite_filter:
+   every ($>= 256 o LENGTH) inl
    /\ every (null_terminated_w) inl
    /\ semantics_prog (^(get_state st) with ffi:=(filter_ffi <|input:=inl|>))
                      ^(get_env st) [^maincall] (Terminate outcome events)
-   ==> LFILTER is_emit (fromList events) = LMAP (output_event_of o cut_at_null_w) (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) inl)`,
+   ==> LFILTER is_emit (fromList events) =
+       LMAP (output_event_of o cut_at_null_w)
+         (LFILTER (language o MAP (CHR o w2n) o cut_at_null_w) inl)
+Proof
   rpt strip_tac
   >> `?n. LLENGTH inl = SOME n`
       by(simp[GSYM IS_SOME_EXISTS] >> CCONTR_TAC
          >> fs[]
          >> metis_tac[forward_matching_lines_semantics,ffiTheory.behaviour_distinct,
                       semanticsPropsTheory.semantics_prog_deterministic])
-  >> drule forward_matching_lines_ffidiv_semantics >> rpt(disch_then drule) >> strip_tac
+  >> drule forward_matching_lines_ffidiv_semantics >> asm_rewrite_tac []
+  >> disch_then (qspec_then `ffi` mp_tac) >> strip_tac
   >> dxrule(GEN_ALL semanticsPropsTheory.semantics_prog_deterministic)
   >> disch_then dxrule >> simp[]
-  >> metis_tac[]);
+  >> metis_tac[]
+QED
 
 (* S-expr generation handled by CMake build system
 val _ = astToSexprLib.write_ast_to_file "../program.sexp" prog;

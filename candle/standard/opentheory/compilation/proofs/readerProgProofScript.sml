@@ -44,7 +44,7 @@ Theorem reader_compiled_thm =
 
 val installed_x64_def = Define `
   installed_x64 ((code, data, cfg) :
-      (word8 list # word64 list # 64 lab_to_target$config))
+      (word8 list # word64 list # 64 backend$config))
     ffi mc ms
   <=>
     ?cbspace data_sp.
@@ -52,7 +52,7 @@ val installed_x64_def = Define `
       installed
         code cbspace
         data data_sp
-        cfg.ffi_names
+        cfg.lab_conf.ffi_names
         ffi
         (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
     `;
@@ -64,8 +64,8 @@ val reader_code_def = Define `
 val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U->bool``;
 
-Theorem machine_code_sound
-  `input_exists fs cl /\ wfcl cl /\ wfFS fs /\ STD_streams fs
+Theorem machine_code_sound:
+   input_exists fs cl /\ wfcl cl /\ wfFS fs /\ STD_streams fs
    ==>
    (installed_x64 reader_code (basis_ffi cl fs) mc ms
     ==>
@@ -83,10 +83,12 @@ Theorem machine_code_sound
         MEM (Sequent asl c) s.thms /\
         is_set_theory ^mem
         ==>
-        (thyof hol_refs.the_context, asl) |= c)`
-  (metis_tac [installed_x64_def, reader_code_def, reader_compiled_thm, PAIR,
+        (thyof hol_refs.the_context, asl) |= c)
+Proof
+  metis_tac [installed_x64_def, reader_code_def, reader_compiled_thm, PAIR,
               FST, SND, reader_success_stderr, input_exists_def,
-              reader_sound]);
+              reader_sound]
+QED
 
 val _ = export_theory ();
 

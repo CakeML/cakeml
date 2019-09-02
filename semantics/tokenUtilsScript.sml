@@ -70,10 +70,12 @@ val destLongidT_def = Define`
 `
 val _ = export_rewrites ["destLongidT_def"]
 
-Theorem destLongidT_EQ_SOME[simp]
-  `destLongidT t = SOME strs ⇔
-   ∃str ms s. t = LongidT str ms s ∧ strs = (str, ms, s)`
-  (Cases_on `t` >> simp[] >> metis_tac[]);
+Theorem destLongidT_EQ_SOME[simp]:
+  destLongidT t = SOME strs ⇔
+   ∃str ms s. t = LongidT str ms s ∧ strs = (str, ms, s)
+Proof
+  Cases_on `t` >> simp[] >> metis_tac[]
+QED
 
 val destTyvarPT_def = Define`
   (destTyvarPT (Lf (TOK (TyvarT s),_)) = SOME s) ∧
@@ -92,9 +94,11 @@ val destAlphaT_def = Define`
 `;
 val _ = export_rewrites ["destAlphaT_def"]
 
-Theorem destAlphaT_EQ_SOME[simp]
-  `destAlphaT t = SOME s ⇔ t = AlphaT s`
-  (Cases_on `t` >> simp[]);
+Theorem destAlphaT_EQ_SOME[simp]:
+   destAlphaT t = SOME s ⇔ t = AlphaT s
+Proof
+  Cases_on `t` >> simp[]
+QED
 
 val destSymbolT_def = Define`
   (destSymbolT (SymbolT s) = SOME s) ∧
@@ -102,9 +106,11 @@ val destSymbolT_def = Define`
 `;
 val _ = export_rewrites ["destSymbolT_def"]
 
-Theorem destSymbolT_EQ_SOME[simp]
-  `destSymbolT t = SOME s ⇔ t = SymbolT s`
-  (Cases_on `t` >> simp[]);
+Theorem destSymbolT_EQ_SOME[simp]:
+   destSymbolT t = SOME s ⇔ t = SymbolT s
+Proof
+  Cases_on `t` >> simp[]
+QED
 
 val destIntT_def = Define`
   (destIntT (IntT i) = SOME i) ∧
