@@ -167,11 +167,14 @@ Theorem v_rel_l_cases = TypeBase.nchotomy_of ``: v``
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> LIST_CONJ
 
+val v = augment_srw_ss [simpLib.named_rewrites "seriously"
+  [quotient_pairTheory.PAIR_REL_THM]];
+
 Theorem nv_rel2_LIST_REL:
   !vs2 vs1. nv_rel2 N vs1 vs2 =
   LIST_REL ((=) ### v_rel) vs1 vs2
 Proof
-  simp [v_rel_cases]
+  simp [Once v_rel_cases]
   \\ CONV_TAC (STRIP_QUANT_CONV (REWR_CONV EQ_SYM_EQ))
   \\ Induct \\ rpt Cases \\ simp []
   \\ simp [quotient_pairTheory.PAIR_REL, UNCURRY]
@@ -323,7 +326,7 @@ Theorem env_rel_mono:
 Proof
   rw [env_rel_def, nv_rel_LIST_REL]
   \\ drule_then irule LIST_REL_FILTER_MONO
-  \\ simp [FORALL_PROD, quotient_pairTheory.PAIR_REL]
+  \\ simp [FORALL_PROD]
 QED
 
 Theorem LIST_REL_ALOOKUP_OPTREL:
@@ -365,7 +368,7 @@ Proof
   rw [env_rel_def, nv_rel_LIST_REL]
   \\ drule LIST_REL_ALOOKUP_OPTREL
   \\ disch_then (qspecl_then [`n`, `v_rel`] mp_tac)
-  \\ simp [FORALL_PROD, quotient_pairTheory.PAIR_REL]
+  \\ simp [FORALL_PROD]
   \\ simp [ALOOKUP_FILTER |> SIMP_RULE bool_ss [ELIM_UNCURRY]]
 QED
 
@@ -648,7 +651,7 @@ Proof
     \\ CASE_TAC \\ simp []
     \\ imp_res_tac evaluate_sing
     \\ rveq \\ fs []
-    \\ fs [nv_rel_LIST_REL, quotient_pairTheory.PAIR_REL]
+    \\ fs [nv_rel_LIST_REL]
   )
   >- (
     fs [bool_case_eq]
@@ -663,7 +666,7 @@ Proof
     \\ simp [FILTER_MAP, o_DEF, UNCURRY, LIST_REL_MAP1,
         LIST_REL_MAP2 |> CONV_RULE (DEPTH_CONV ETA_CONV)]
     \\ irule listTheory.EVERY2_refl
-    \\ rw [quotient_pairTheory.PAIR_REL]
+    \\ rw []
     \\ simp [Once v_rel_cases]
     \\ qexists_tac `N`
     \\ fs [ELIM_UNCURRY, list_max_LESS, EVERY_MAP, nv_rel_LIST_REL]
@@ -696,13 +699,90 @@ Proof
   )
 QED
 
-(* neat *)
-
 Theorem pat1_size:
   pat1_size xs = LENGTH xs + SUM (MAP pat_size xs)
 Proof
   Induct_on `xs` \\ simp [pat_size_def]
 QED
+
+Theorem LE_LT_ADD_MONO_NUM:
+  a <= b /\ c < d ==> a + c < b + (d : num)
+Proof
+  simp []
+QED
+
+Definition BAG_SUM_DEF:
+  BAG_SUM b = BAG_GEN_SUM b 0
+End
+
+Theorem BAG_SUM:
+  BAG_SUM {||} = 0 /\
+  (!b x. FINITE_BAG b ==> BAG_SUM (BAG_INSERT x b) = x + BAG_SUM b)
+Proof
+  simp [BAG_SUM_DEF, BAG_GEN_SUM_EMPTY]
+  \\ simp [GSYM PULL_FORALL]
+  \\ simp [BAG_GEN_SUM_TAILREC]
+  \\ Induct
+  \\ simp [BAG_GEN_SUM_EMPTY]
+  \\ rpt strip_tac
+  \\ first_x_assum (assume_tac o Q.GEN `y` o Q.SPEC `e + y`)
+  \\ simp [BAG_GEN_SUM_TAILREC]
+QED
+
+Theorem SUM_EQ_BAG_SUM:
+  SUM xs = BAG_SUM (LIST_TO_BAG xs)
+Proof
+  Induct_on `xs`
+  \\ simp [BAG_SUM]
+QED
+
+Theorem LENGTH_EQ_SUM:
+  LENGTH xs = SUM (MAP (K 1) xs)
+Proof
+  Induct_on `xs` \\ simp []
+QED
+
+Theorem SUM_MAP_FILTER_LE_TRANS:
+  !xs N. SUM (MAP f xs) <= N ==> SUM (MAP f (FILTER P xs)) <= N
+Proof
+  Induct \\ simp []
+  \\ rw []
+  \\ first_x_assum (qspec_then `N - f h` assume_tac)
+  \\ fs []
+QED
+
+Theorem MAPi_eq_MAP:
+  MAPi (\n x. f x) xs = MAP f xs
+Proof
+  Induct_on `xs` \\ simp [o_DEF]
+QED
+
+
+Definition extra_pat_bindings_def:
+  extra_pat_bindings t [] = [] /\
+  extra_pat_bindings t ((Pany, _) :: m) = extra_pat_bindings t m /\
+  extra_pat_bindings t ((Pvar s, x) :: m) = (s, x) :: extra_pat_bindings t m /\
+  extra_pat_bindings t ((Plit _, _) :: m) = extra_pat_bindings t m /\
+  extra_pat_bindings t ((Pcon stmp ps, x) :: m) =
+  extra_pat_bindings t (MAPi (\i p. (p, App t (El i) [x])) ps ++ m) /\
+  extra_pat_bindings t ((Pref p, x) :: m) =
+  extra_pat_bindings t ((p, App t Opderef [x]) :: m)
+Termination
+  WF_REL_TAC `measure (\(t, m). pat1_size (MAP FST m))`
+  \\ simp [pat_size_def]
+  \\ simp [pat1_size, SUM_APPEND, o_DEF, MAPi_eq_MAP]
+End
+
+Theorem extra_pat_bindings_append:
+  !t xs. extra_pat_bindings t (xs ++ ys) =
+  extra_pat_bindings t xs ++ extra_pat_bindings t ys
+Proof
+  ho_match_mp_tac extra_pat_bindings_ind
+  \\ simp [extra_pat_bindings_def]
+QED
+
+Theorem extra_pat_bindings_cons =
+  extra_pat_bindings_append |> Q.SPECL [`t`, `[x]`] |> SIMP_RULE list_ss []
 
 Definition compile_pat_bindings_def:
   compile_pat_bindings _ _ [] exp = exp /\
@@ -726,11 +806,80 @@ Definition compile_pat_bindings_def:
 Termination
   WF_REL_TAC `measure (\(t, i, m, exp). SUM (MAP (pat_size o FST) m) + LENGTH m)`
   \\ simp [pat_size_def]
-  \\ simp [MAP_MAP_o, o_DEF, UNCURRY, ADD1, SUM_APPEND, pat1_size]
-  \\ rw []
-  \\ simp_tac (bool_ss ++ numSimps.ARITH_AC_ss) []
+  \\ rw [MAP_MAP_o, o_DEF, UNCURRY, ADD1, SUM_APPEND, pat1_size]
+  \\ qmatch_goalsub_abbrev_tac `MAP ps_snd (FILTER P en_xs)`
+  \\ qsuff_tac `LENGTH (FILTER P en_xs) <= LENGTH xs /\
+        SUM (MAP ps_snd (FILTER P en_xs)) <= SUM (MAP pat_size xs)`
   \\ simp []
-  \\ cheat
+  \\ simp [LENGTH_EQ_SUM]
+  \\ conj_tac \\ irule SUM_MAP_FILTER_LE_TRANS
+  \\ qsuff_tac `MAP ps_snd en_xs = MAP pat_size xs`
+  \\ unabbrev_all_tac
+  \\ simp [GSYM LENGTH_EQ_SUM, LENGTH_enumerate]
+  \\ irule listTheory.LIST_EQ
+  \\ simp [LENGTH_enumerate, EL_MAP, EL_enumerate]
 End
+
+Definition pure_eval_to_def:
+  pure_eval_to s env exp v = (evaluate env s [exp] = (s, Rval [v]))
+End
+
+Theorem MAPi_eq_ZIP_left:
+  MAPi (\n x. (x, f n)) xs = ZIP (xs, GENLIST f (LENGTH xs))
+Proof
+  irule listTheory.LIST_EQ \\ simp [EL_ZIP]
+QED
+
+Theorem pmatch_extra_pat_bindings:
+
+  (! ^s p v bindings res exp. pmatch s p v bindings = Match res /\
+  pure_eval_to s env exp v /\ ~ s.check_ctor ==>
+  ? nb. res = nb ++ bindings /\
+  LIST_REL ((=) ### pure_eval_to s env) (extra_pat_bindings t [(p, exp)]) nb)
+  /\
+  (! ^s ps vs bindings res exps. pmatch_list s ps vs bindings = Match res /\
+  LIST_REL (pure_eval_to s env) exps vs /\ ~ s.check_ctor ==>
+  ? nb. res = nb ++ bindings /\
+  LIST_REL ((=) ### pure_eval_to s env)
+    (extra_pat_bindings t (REVERSE (ZIP (ps, exps)))) nb)
+
+Proof
+
+  ho_match_mp_tac pmatch_ind
+  \\ rpt conj_tac
+  \\ rw [pmatch_def] \\ simp [extra_pat_bindings_def]
+
+  >- (
+    fs [MAPi_eq_ZIP_left]
+    \\ first_x_assum irule
+    \\ simp [LIST_REL_EL_EQN]
+    \\ fs [pure_eval_to_def]
+    \\ simp [evaluate_def, do_app_def]
+  )
+
+  >- (
+    fs [CaseEq "store_v", option_case_eq]
+    \\ rveq \\ fs []
+    \\ first_x_assum irule
+    \\ fs [pure_eval_to_def]
+    \\ simp [evaluate_def, do_app_def]
+  )
+
+  >- (
+    fs [CaseEq "match_result"]
+    \\ fs []
+    \\ rpt (first_x_assum drule)
+    \\ rw []
+    \\ simp [Once extra_pat_bindings_cons]
+    \\ irule LIST_REL_APPEND_suff
+    \\ simp []
+  )
+
+  (* equality results won't work here, the order is hard to simulate *)
+
+  \\ NO_TAC
+
+QED
+
 
 val _ = export_theory()
