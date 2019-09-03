@@ -6,11 +6,11 @@
   Removes unreachable globals from the code.
 *)
 
-open preamble sptreeTheory flatLangTheory closure_sptTheory
+open preamble sptreeTheory flatLangTheory reachable_sptTheory
 
 val _ = new_theory "flat_elim";
 
-val _ = set_grammar_ancestry ["closure_spt", "flatLang", "misc"]
+val _ = set_grammar_ancestry ["reachable_spt", "flatLang", "misc"]
 val _ = temp_tight_equality();
 
 (**************************** ANALYSIS FUNCTIONS *****************************)

@@ -2,14 +2,14 @@
   Correctness proof for flatLang dead code elimination
 *)
 open preamble sptreeTheory flatLangTheory flat_elimTheory
-     flatSemTheory flatPropsTheory closure_sptTheory
-     closure_sptProofTheory
+     flatSemTheory flatPropsTheory reachable_sptTheory
+     reachable_sptProofTheory
 
 val _ = new_theory "flat_elimProof";
 
 val grammar_ancestry =
   ["flat_elim", "flatSem", "flatLang", "flatProps",
-   "closure_spt",  "misc", "ffi", "sptree"];
+   "reachable_spt",  "misc", "ffi", "sptree"];
 
 val _ = set_grammar_ancestry grammar_ancestry;
 

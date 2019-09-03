@@ -2,9 +2,9 @@
   Proofs of various closure operations for num_map and num_set
 *)
 
-open preamble closure_sptTheory
+open preamble reachable_sptTheory
 
-val _ = new_theory "closure_sptProof";
+val _ = new_theory "reachable_sptProof";
 
 Theorem num_set_tree_union_empty:
      ∀ t1 t2 . isEmpty(num_set_tree_union t1 t2) ⇔ isEmpty t1 ∧ isEmpty t2

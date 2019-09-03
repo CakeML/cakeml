@@ -4,7 +4,7 @@
 
 open preamble sptreeTheory
 
-val _ = new_theory "closure_spt";
+val _ = new_theory "reachable_spt";
 
 val num_set_tree_union_def = Define `
     (num_set_tree_union (LN:num_set num_map) t2 = t2) ∧
