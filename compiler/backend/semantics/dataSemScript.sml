@@ -53,39 +53,7 @@ val vs = ``(vs:dataSem$v list)``
 (* Measures the size of an indivudual values `dataSem$v` by traversing
    all inner values and accumulating all timestamps in the process.
    When `s_ts = NONE` all timestap accounting is ignored
-val size_of_v_def = tDefine"size_of_v"`
-  size_of_v (s_ts : num_set option) (Block ts tag vl) =
-    (let ts_set = case s_ts of SOME x => x | _ => LN;
-         s_ts'  = OPTION_MAP (insert ts ()) s_ts;
-     in if ts = 0 ∧ vl = [] ∨ ts ∈ domain ts_set
-        then (0:num,s_ts)
-        else let (sz_l,ts_l) = size_of_v_list s_ts' vl
-             in (1 + LENGTH vl + sz_l,ts_l))
-∧ size_of_v s_ts v = (0,s_ts)
-∧ size_of_v_list s_ts [] = (0,s_ts)
-∧ size_of_v_list s_ts (v::^vs) =
-   (let (sz,s_ts')  = size_of_v s_ts v;
-        (sz_l,ts_l) = size_of_v_list s_ts' vs
-    in (sz + sz_l,ts_l))`
-(WF_REL_TAC `measure (λx. (case x of INR (_,vl) => v1_size vl
-                                   | INL (_,v ) => v_size v))`)
- *)
-
-(* Measures the amount of space everything in a dataLang "heap" would need
-   to fit in wordLang memory (over-approximation)
-val size_of_heap_def = Define`
-  size_of_heap ^s =
-  let locals_vs     = toList s.locals;
-      extract_stack = (λst. toList case st of Env vs => vs | Exc vs _ => vs);
-      extract_ref   = (λr. case r of ValueArray l =>  l | _ => []);
-      stack_vs      = FLAT (MAP extract_stack s.stack);
-      refs_vs       = FLAT (MAP extract_ref (toList s.refs));
-      all_vs        = locals_vs ++ stack_vs ++ refs_vs;
-      count_vs      = (λ(z,t) v. let (z',t') = size_of_v t v in (z + z', t'));
-      init_st       = OPTION_MAP (K LN) s.tstamps
-  in FST (FOLDL count_vs (0,init_st) all_vs)
 *)
-
 Definition size_of_v_def:
   (size_of_v (seen : num_set) (Block ts tag vl) =
      if vl = [] then (0, seen) else
@@ -164,10 +132,13 @@ Definition size_of_ref_arrays_def:
   size_of_ref_arrays refs = SUM (MAP length_of_ref (toList refs))
 End
 
-Definition stack_vs_def:
+Definition stack_to_vs_def:
   stack_to_vs ^s = toList s.locals ++ FLAT (MAP extract_stack s.stack)
 End
 
+(* Measures the amount of space everything in a dataLang "heap" would need
+   to fit in wordLang memory (over-approximation)
+*)
 Definition size_of_heap_def:
   size_of_heap ^s =
     let stack_vs = stack_to_vs s in
