@@ -2,7 +2,7 @@
   The formal semantics of dataLang
 *)
 open preamble data_simpTheory data_liveTheory data_spaceTheory dataLangTheory closSemTheory;
-
+open reachable_sptTheory;
 
 val _ = new_theory"dataSem";
 
@@ -53,7 +53,6 @@ val vs = ``(vs:dataSem$v list)``
 (* Measures the size of an indivudual values `dataSem$v` by traversing
    all inner values and accumulating all timestamps in the process.
    When `s_ts = NONE` all timestap accounting is ignored
- *)
 val size_of_v_def = tDefine"size_of_v"`
   size_of_v (s_ts : num_set option) (Block ts tag vl) =
     (let ts_set = case s_ts of SOME x => x | _ => LN;
@@ -70,11 +69,10 @@ val size_of_v_def = tDefine"size_of_v"`
     in (sz + sz_l,ts_l))`
 (WF_REL_TAC `measure (λx. (case x of INR (_,vl) => v1_size vl
                                    | INL (_,v ) => v_size v))`)
-
+ *)
 
 (* Measures the amount of space everything in a dataLang "heap" would need
    to fit in wordLang memory (over-approximation)
-*)
 val size_of_heap_def = Define`
   size_of_heap ^s =
   let locals_vs     = toList s.locals;
@@ -86,7 +84,100 @@ val size_of_heap_def = Define`
       count_vs      = (λ(z,t) v. let (z',t') = size_of_v t v in (z + z', t'));
       init_st       = OPTION_MAP (K LN) s.tstamps
   in FST (FOLDL count_vs (0,init_st) all_vs)
-`
+*)
+
+Definition size_of_v_def:
+  (size_of_v (seen : num_set) (Block ts tag vl) =
+     if vl = [] then (0, seen) else
+       case lookup ts seen of
+       | SOME _ => (0, seen)
+       | NONE => let (res, seen1) = size_of_v_list (insert ts () seen) vl
+                 in (res + LENGTH vl + 1, seen1))
+∧ size_of_v seen (Word64 _) = (3, seen)
+∧ size_of_v seen (CodePtr _) = (0, seen)
+∧ size_of_v seen (RefPtr _) = (0, seen)
+∧ size_of_v seen (Number i) = (0, seen) (* TODO: 0 is slightly wrong *)
+∧ size_of_v_list seen [] = (0, seen)
+∧ size_of_v_list seen (v::^vs) =
+   (let (s1,seen) = size_of_v seen v in
+    let (s2,seen) = size_of_v_list seen vs in
+      (s1 + s2,seen))
+Termination
+  WF_REL_TAC `measure (λx. (case x of INR (_,vl) => v1_size vl
+                                    | INL (_,v ) => v_size v))`
+End
+
+Definition v_to_ref_ptrs_def:
+  v_to_ref_ptrs (Block ts tag vl) = v_to_ref_ptrs_list vl
+∧ v_to_ref_ptrs (RefPtr p) = insert p () LN
+∧ v_to_ref_ptrs _ = LN
+∧ v_to_ref_ptrs_list [] = LN
+∧ v_to_ref_ptrs_list (v::^vs) =
+   union (v_to_ref_ptrs v) (v_to_ref_ptrs_list vs)
+Termination
+  WF_REL_TAC `measure (λx. case x of INR vl => v1_size vl
+                                   | INL v  => v_size v)`
+End
+
+Definition extract_stack_def:
+  extract_stack (Env env) = toList env /\
+  extract_stack (Exc env _) = toList env
+End
+
+Definition extract_ref_def:
+  extract_ref (ValueArray l) = l /\
+  extract_ref _ = []
+End
+
+Definition length_of_ref_def:
+  length_of_ref (ValueArray l) = LENGTH l + 1 /\
+  length_of_ref (ByteArray _ bs) = LENGTH bs DIV 4 + 2
+End
+
+Definition ref_to_ref_ptrs_def:
+  ref_to_ref_ptrs (ValueArray l) = v_to_ref_ptrs_list l /\
+  ref_to_ref_ptrs (ByteArray _ bs) = LN
+End
+
+Definition reachable_refs_def:
+  reachable_refs roots_v refs =
+    let roots = v_to_ref_ptrs_list roots_v in
+    let nexts = map ref_to_ref_ptrs refs in
+    let reachable_ptrs = closure_spt roots nexts in
+      inter refs reachable_ptrs
+End
+
+Definition global_to_vs_def:
+  global_to_vs NONE = [] /\
+  global_to_vs (SOME n) = [RefPtr n]
+End
+
+Definition size_of_vs_def:
+  size_of_vs vs = FST (size_of_v_list LN vs)
+End
+
+Definition refs_to_vs_def:
+  refs_to_vs refs = FLAT (MAP extract_ref (toList refs))
+End
+
+Definition size_of_ref_arrays_def:
+  size_of_ref_arrays refs = SUM (MAP length_of_ref (toList refs))
+End
+
+Definition stack_vs_def:
+  stack_to_vs ^s = toList s.locals ++ FLAT (MAP extract_stack s.stack)
+End
+
+Definition size_of_heap_def:
+  size_of_heap ^s =
+    let stack_vs = stack_to_vs s in
+    let roots_v = stack_vs ++ global_to_vs s.global in
+    let the_refs = reachable_refs roots_v s.refs in
+    let all_vs = stack_vs ++ refs_to_vs the_refs in
+      size_of_vs all_vs +
+      size_of_ref_arrays the_refs
+End
+
 
 (* Checks if a value `dataSem$v` is within the limits set by the state:
 
