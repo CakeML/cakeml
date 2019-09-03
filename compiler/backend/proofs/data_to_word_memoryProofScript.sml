@@ -6,8 +6,9 @@ open preamble dataSemTheory dataPropsTheory copying_gcTheory
      int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
      labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
      gc_sharedTheory gc_combinedTheory word_gcFunctionsTheory;
-local open blastLib in end;
-open bitstringTheory bitstring_extraTheory
+local open blastLib extra_numTheory in end;
+open bitstringTheory bitstring_extraTheory numposrepTheory
+     logrootTheory;
 (* TODO^: move *)
 
 val v2mw_def = backend_commonTheory.v2mw_def;
@@ -263,8 +264,6 @@ Theorem DIMWORD_GT_1[simp]:
 Proof
   simp[dimword_def]
 QED
-
-open logrootTheory
 
 Theorem DIMINDEX_EQ_LOG2_DIMWORD:
   dimindex(:'a) = LOG 2 (dimword(:'a))
@@ -5960,80 +5959,273 @@ val n2mw_EQ_NIL = prove(
   Cases_on `n` THEN1 EVAL_TAC \\ ONCE_REWRITE_TAC [n2mw_def]
   \\ SIMP_TAC std_ss [ADD1,NOT_CONS_NIL]);
 
+Theorem v2n_GENLIST_KF:
+    !n. v2n (GENLIST (K F) n) = 0
+Proof
+  Induct >- (EVAL_TAC)
+  \\ simp[GENLIST,SNOC_APPEND]
+  \\ simp[bitstring_extraTheory.v2n_append]
+  \\ EVAL_TAC
+QED
+
+Theorem GENLIST_EQ_NIL:
+  !f n. GENLIST f n = [] <=> n = 0
+Proof
+  rw[] \\ Cases_on`n` >- EVAL_TAC
+  \\ simp[]
+  \\ simp[GENLIST]
+QED
+
+Theorem DIMWORD_GT_0:
+  0 < dimword(:'a)
+Proof
+  fs[DIMWORD_GT_1]
+QED
+
+Theorem v2n_DIV_2EXP_shiftr:
+  !i x. v2n x DIV 2**i = v2n (shiftr x i)
+Proof
+  cheat
+QED
+
+Theorem v2n_MOD2:
+  !x. v2n x MOD 2 = if x=[] then 0 else if LAST x then 1 else 0
+Proof
+  rw[]
+  >- EVAL_TAC
+  \\ (simp[v2n_def,bitify_reverse_map]
+     \\ simp[numposrepTheory.num_from_bin_list_def]
+     \\ Cases_on`REVERSE x` \\ fs[]
+     \\ fs[SWAP_REVERSE_SYM]
+     \\ simp[REVERSE_APPEND]
+     \\ ONCE_REWRITE_TAC[numposrepTheory.l2n_def]
+     \\ simp[])
+QED
+
+Theorem EL_bitstring_BIT_v2n:
+  !i x. i < LENGTH x ==> (EL i x = BIT (LENGTH x -i-1) (v2n x))
+Proof
+  rw[]
+  \\ simp[bitTheory.BITS_THM,bitTheory.BIT_def]
+  \\ simp[v2n_DIV_2EXP_shiftr]
+  \\ simp[v2n_MOD2]
+  \\ simp[shiftr_def]
+  \\ TOP_CASE_TAC \\ fs[]
+  \\ simp[GSYM ELL]
+  \\ simp[ELL_EL]
+  \\ `PRE (i+1)=i` by simp[]
+  \\ ASM_REWRITE_TAC[]
+  \\ simp[EL_TAKE]
+  \\ TOP_CASE_TAC \\ simp[]
+QED
+
+Theorem v2n_empty:
+  v2n [] = 0
+Proof
+  EVAL_TAC
+QED
+
+Theorem ROUNDUP_DIV0_dimindex:
+  ROUNDUP_DIV 0 (dimindex(:'a)) = 0
+Proof
+  simp[backend_commonTheory.ROUNDUP_DIV_def]
+  \\ match_mp_tac ZERO_DIV
+  \\ simp[]
+QED
+
+Theorem ROUNDUP_DIV_EQ0_dimindex:
+  !x. ROUNDUP_DIV x (dimindex(:'a)) = 0 <=> x = 0
+Proof
+  rw[backend_commonTheory.ROUNDUP_DIV_def]
+  >- (
+      EQ_TAC \\ rw[ROUNDUP_DIV0_dimindex]
+      >- (
+         Cases_on`dimindex(:'a) = 1` \\ fs[]
+         \\ `1<dimindex(:'a)` by (fs[]
+            \\ Cases_on`dimindex(:'a)` \\ fs[DIMINDEX_GT_0])
+         \\ fs[DIV_EQ_0]
+      )
+      \\ match_mp_tac ZERO_DIV \\ simp[]
+  )
+  \\ Cases_on`x=0` \\ fs[]
+QED
+
+Theorem v2mw_EQ_NIL:
+  !v. v2mw (:'a) v = [] <=> v = []
+Proof
+  rw[v2mw_def,PAD_RIGHT]
+  \\ Cases_on`v=[]` \\ fs[v2n_empty]
+  >- (simp[Once n2mw_def]
+      \\ simp[Once n2mw_def]
+      \\ simp[ROUNDUP_DIV0_dimindex])
+  \\ simp[n2mw_EQ_NIL]
+  \\ Cases_on`v2n v=0` \\ fs[]
+  \\ simp[Once n2mw_def]
+  \\ Cases_on`ROUNDUP_DIV (LENGTH v) (dimindex (:α))` \\ simp[GENLIST]
+  \\ fs[ROUNDUP_DIV_EQ0_dimindex]
+QED
+
+Theorem v2mw_32:
+!w64. dimindex (:α) = 32 /\ LENGTH w64 = 64
+   ==> v2mw (:'a) w64 = [(31><0)((v2w w64):64 word);(63><32)((v2w w64):64 word)]
+Proof
+rw[v2mw_def,backend_commonTheory.ROUNDUP_DIV_def]
+\\ Cases_on`LENGTH (n2mw (v2n w64))`
+>-(simp[Once n2mw_def]
+   \\ TOP_CASE_TAC
+   >- (fs[PAD_RIGHT]
+    \\ fs[GSYM n2w_v2n])
+   \\ simp[Once n2mw_def]
+   \\ spose_not_then kall_tac
+   \\ fs[Once n2mw_def])
+\\ rename1`LENGTH _ = SUC m`
+\\ Cases_on`m` \\ fs[]
+>-(fs[PAD_RIGHT]
+   \\ reverse conj_tac
+   >-(simp[word_extract_def]
+      \\ simp[w2w]
+      \\ simp[word_bits_def]
+      \\ Q.MATCH_ABBREV_TAC`X=Y` \\ `Y=X`suffices_by simp[] \\ UNABBREV_ALL_TAC
+      \\ simp[word_eq_0]
+      \\ rw[w2w,fcpTheory.FCP_BETA]
+      \\ simp[v2w_def,fcpTheory.FCP_BETA]
+      \\ simp[testbit]
+      \\ simp[EL_bitstring_BIT_v2n]
+      \\ simp[bitTheory.BIT_def,bitTheory.BITS_THM]
+      \\ Q.MATCH_ABBREV_TAC`X<>_` \\ `X=0` suffices_by simp[] \\
+      UNABBREV_ALL_TAC
+      \\ match_mp_tac MOD_UNIQUE
+      \\ fs[]
+      \\ fs[Once n2mw_def]
+      \\ FULL_CASE_TAC \\ fs[Once n2mw_def]
+      \\ FULL_CASE_TAC \\ fs[]
+      \\ qexists_tac`0` \\ fs[]
+      \\`1 < 2 ** (i+32)` by (Cases_on`i+32`\\fs[EXP_ADD]
+          \\ simp[TWO_EXP_SUC_GT1]
+      )
+      \\ fs[DIV_EQ_0]
+      \\ match_mp_tac LESS_LESS_EQ_TRANS
+      \\ qexists_tac`dimword(:'a)` \\ fs[dimword_def]
+      \\ rfs[]
+      \\ simp[EXP_ADD])
+  \\ simp[Once n2mw_def]
+  \\ TOP_CASE_TAC \\ fs[]
+  >-fs[Once n2mw_def]
+  \\ simp[Once n2mw_def]
+  \\ reverse(TOP_CASE_TAC \\ fs[])
+  >-(fs[Once n2mw_def] \\ fs[Once n2mw_def])
+  \\ `v2n w64 MOD dimword (:α) = v2n w64` by fs[DIV_EQ_0]
+  \\ fs[]
+  \\ simp[n2w_v2n]
+  \\ simp[word_extract_def]
+  \\ simp[fcpTheory.CART_EQ]
+  \\ rw[w2w]
+  \\ simp[word_bits_def]
+  \\ simp[fcpTheory.FCP_BETA]
+  \\ simp[v2w_def]
+  \\ simp[fcpTheory.FCP_BETA])
+\\ fs[PAD_RIGHT]
+\\ REWRITE_TAC[TWO] \\ simp[]
+\\ REWRITE_TAC[ONE] \\ simp[]
+\\ simp[Once n2mw_def]
+\\ TOP_CASE_TAC
+>-(fs[Once n2mw_def])
+\\ conj_tac
+>-(simp[word_extract_def]
+   \\ simp[GSYM n2w_v2n]
+   \\ simp[word_bits_n2w]
+   \\ simp[bitTheory.BIT_def,bitTheory.BITS_THM]
+   \\ simp[fcpTheory.CART_EQ,w2w]
+   \\ rw[dimword_def,fcpTheory.FCP_BETA]
+   \\ simp[n2w_def,fcpTheory.FCP_BETA])
+\\ simp[Once n2mw_def]
+\\ fs[case_eq_thms]
+\\ simp[Once n2mw_def,case_eq_thms]
+\\ fs[Once n2mw_def,case_eq_thms]
+\\ reverse(Cases_on`v2n w64 DIV dimword (:α) ≠ 0`) \\ fs[]
+>- fs[Once n2mw_def]
+\\ fs[DIV_EQ_0]
+\\ fs[Once n2mw_def]
+\\ FULL_CASE_TAC \\ fs[]
+\\ reverse conj_tac
+>- (simp[DIV_LT_X]
+   \\ match_mp_tac LESS_LESS_EQ_TRANS
+   \\ qexists_tac`2**LENGTH w64`
+   \\ simp[v2n_lt]
+   \\ fs[dimword_def])
+\\ simp[GSYM n2w_v2n]
+\\ simp[word_extract_n2w]
+\\ simp[bitTheory.BITS_THM]
+\\`4294967296 = dimword(:'a)` by fs[dimword_def]
+\\ fs[]
+QED
+
 (* Word_IMP for floats *)
 Theorem memory_rel_Word64_IMP:
- !w64. memory_rel c be ts refs sp st m dm ((Word (w2v (w64:word64)),(v:'a
- word_loc))::vars) ∧
-     good_dimindex (:α) /\
-     (if dimindex(:'a) = 64 then 1 < 2**c.len_size else 2 < 2**c.len_size)
-     ⇒
-     ∃ptr x w.
-         v = Word (get_addr c ptr (Word 0w)) ∧
-         get_real_addr c st (get_addr c ptr (Word 0w)) = SOME x ∧ x ∈ dm ∧
-         m x = Word w ∧ word_bit 3 w ∧ ¬word_bit 4 w ∧ word_bit 2 w ∧
-         x + bytes_in_word ∈ dm ∧
-         if dimindex (:α) < 64 then
-           m (x + bytes_in_word) = Word ((63 >< 32) w64) ∧
-           x + bytes_in_word ≪ 1 ∈ dm ∧
-           m (x + bytes_in_word ≪ 1) = Word ((31 >< 0) w64) ∧
-           decode_length c w = 2w ∧ w = make_header c 3w 2
-         else
-           m (x + bytes_in_word) = Word ((63 >< 0) w64) ∧
-           decode_length c w = 1w ∧ w = make_header c 3w 1
+   memory_rel c be ts refs sp st m dm ((Word w64,v:'a word_loc)::vars) /\
+   LENGTH (v2mw (:'a) w64) < 2**c.len_size /\
+   LENGTH w64 = 64 /\
+   good_dimindex (:'a) ==>
+   ?ptr x w.
+     v = Word (get_addr c ptr (Word 0w)) ∧
+     get_real_addr c st (get_addr c ptr (Word 0w)) = SOME x ∧
+     x ∈ dm ∧ m x = Word w ∧ word_bit 3 w ∧ ¬word_bit 4 w ∧ word_bit 2 w ∧
+     (x + bytes_in_word) ∈ dm ∧
+     if dimindex (:'a) < 64 then
+       (m (x + bytes_in_word) = Word ((31 >< 0) ((v2w w64):word64)) ∧
+        (x + (bytes_in_word << 1)) ∈ dm ∧ m (x + (bytes_in_word << 1)) = Word
+        ((63 >< 32) ((v2w w64):word64)) /\
+       decode_length c w = 2w /\
+       w = make_header c 3w 2)
+     else
+       (m (x + bytes_in_word) = Word ((63 >< 0) ((v2w w64):word64)) /\
+       decode_length c w = 1w /\
+       w = make_header c 3w 1)
 Proof
- strip_tac \\  Q.MATCH_ABBREV_TAC`_ /\ _ /\ X ==> _` \\ rpt strip_tac \\ drule (GEN_ALL memory_rel_Word_IMP)
-   \\ impl_tac >- (
-      conj_tac >- fs[good_dimindex_def]
-      \\ simp[LENGTH_v2mw]
-      \\ UNABBREV_ALL_TAC
-      \\ fs[good_dimindex_def]
-      \\ rfs[] \\ EVAL_TAC
-      \\ Cases_on `c.len_size` \\ fs[]
-   )
- \\ UNABBREV_ALL_TAC
- \\ strip_tac \\ fs[]
- \\ qexists_tac`ptr` \\ qexists_tac`x` \\ qexists_tac`w` \\ fs[]
- \\ conj_tac >- (
-    Cases_on`v2mw (:'a) (w2v w64)`
-    \\ (fs[Once v2mw_def,PAD_RIGHT]
-        \\ rfs[]
-        \\ fs[good_dimindex_def,backend_commonTheory.ROUNDUP_DIV_def] \\ rfs[])
-    \\ fs[word_list_def]
-    \\ SEP_R_TAC)
- \\ TOP_CASE_TAC \\ fs[good_dimindex_def] \\ rfs[] \\ clean_tac
- \\ fs[LENGTH_v2mw,backend_commonTheory.ROUNDUP_DIV_def]
- >- cheat
- \\ `v2mw (:'a) (w2v w64) = [w2w w64]` by (
-    simp[v2mw_def,v2n_w2v,backend_commonTheory.ROUNDUP_DIV_def]
-    \\ simp[Once n2mw_def]
-    \\ TOP_CASE_TAC >- fs[PAD_RIGHT]
-    \\ fs[PAD_RIGHT]
-    \\ conj_tac
-    >- (
-      `w2n w64 MOD dimword(:'a) = w2n w64` by (simp[]
-          \\ `dimword(:'a) = dimword(:64)` by fs[dimword_def]
-          \\ metis_tac[w2n_lt])
-       \\ fs[]
-       \\ simp[w2w_def]
-    )
-   \\ `!x. 1-SUC x = 0` by (rw[] \\ DECIDE_TAC)
-   \\ ASM_REWRITE_TAC[]
-   \\ reverse conj_tac >- EVAL_TAC
-   \\ simp[n2mw_EQ_NIL,DIV_EQ_0]
-   \\ `dimword(:'a) = dimword(:64)` by fs[dimword_def]
-   \\ ASM_REWRITE_TAC[]
-   \\ metis_tac[w2n_lt]
-   )
- \\ fs[]
- \\ fs[word_list_def]
- \\ fs[SEP_CLAUSES]
- \\ SEP_R_TAC
- \\ MK_COMB_TAC \\ simp[]
- \\ simp[word_extract_def]
- \\ MK_COMB_TAC \\ simp[]
- \\ simp[word_bits_def]
- \\ simp[fcpTheory.CART_EQ]
- \\ rw[fcpTheory.FCP_BETA]
+  rw[]
+  \\ drule memory_rel_Word_IMP
+  \\ impl_tac \\ fs[]
+  >- fs[good_dimindex_def]
+  \\ strip_tac \\ fs[]
+  \\ qexists_tac`ptr` \\ qexists_tac`x`
+  \\ qexists_tac`make_header c 3w (LENGTH (v2mw (:'a) w64))`
+  \\ fs[]
+  \\ `2 MOD dimword(:'a) = 2` by fs[good_dimindex_def,dimword_def]
+  \\ fs[] \\ pop_assum kall_tac
+  \\ `LENGTH (v2mw (:α) w64) MOD dimword (:α) = if dimindex(:'a) < 64 then 2
+                                                  else 1`
+      by (simp[LENGTH_v2mw] \\ fs[backend_commonTheory.ROUNDUP_DIV_def]
+         \\ fs[good_dimindex_def,dimword_def])
+  \\ `LENGTH (v2mw (:α) w64) = if dimindex(:'a) < 64 then 2
+                                                  else 1`
+      by (simp[LENGTH_v2mw] \\ fs[backend_commonTheory.ROUNDUP_DIV_def]
+         \\ fs[good_dimindex_def,dimword_def])
+  \\ fs[]
+  \\ conj_tac >- (Cases_on`v2mw (:'a) w64` >- fs[good_dimindex_def]
+                 \\ fs[good_dimindex_def,word_list_def] \\ rfs[]
+                 \\ SEP_R_TAC)
+  \\ reverse TOP_CASE_TAC \\ fs[good_dimindex_def] \\ rfs[] >-
+   (`v2mw (:'a) w64 = [v2w w64]` by (fs[v2mw_def,Once n2mw_def]
+       \\ simp[backend_commonTheory.ROUNDUP_DIV_def]
+       \\ TOP_CASE_TAC \\ fs[PAD_RIGHT]
+       >- fs[GSYM n2w_v2n]
+       \\ `v2n w64 MOD dimword (:α) = v2n w64` by (fs[]
+           \\ match_mp_tac LESS_LESS_EQ_TRANS
+           \\ qexists_tac`2 ** LENGTH w64` \\ fs[v2n_lt,dimword_def])
+       \\ fs[n2w_v2n])
+       \\ fs[word_list_def,SEP_CLAUSES]
+       \\ SEP_R_TAC
+       \\ MK_COMB_TAC \\ simp[]
+       \\ simp[word_extract_def,word_bits_def]
+       \\ simp[fcpTheory.CART_EQ]
+       \\ simp[w2w,fcpTheory.FCP_BETA]
+       \\ rw[]
+       \\ simp[v2w_def,fcpTheory.FCP_BETA])
+  \\ IMP_RES_TAC v2mw_32
+  \\ fs[]
+  \\ fs[word_list_def,LSL_ONE]
+  \\ SEP_R_TAC
+  \\ simp[]
 QED
 
 
@@ -9328,16 +9520,6 @@ Induct_on`a` \\ fs[word_list_def,SEP_CLAUSES]
 \\metis_tac[STAR_ASSOC,STAR_COMM]
 QED
 
-
-Theorem v2n_GENLIST_KF:
-    !n. v2n (GENLIST (K F) n) = 0
-Proof
-  Induct >- (EVAL_TAC)
-  \\ simp[GENLIST,SNOC_APPEND]
-  \\ simp[bitstring_extraTheory.v2n_append]
-  \\ EVAL_TAC
-QED
-
 Theorem LENGTH_v2mwEQ:
   !v1 v2. LENGTH v1 = LENGTH v2 ==>
      LENGTH (v2mw (:'a) v1) = LENGTH (v2mw (:'a) v2)
@@ -9448,8 +9630,6 @@ Proof
       \\ ASM_REWRITE_TAC[] \\ simp[])
   \\ MK_COMB_TAC \\ simp[]
 QED
-
-open numposrepTheory
 
 Theorem LOG_v2n_lt_length:
     !v. ~(EVERY ($= F) v) /\ ~(v = []) ==> LOG 2 (v2n v) < LENGTH v
