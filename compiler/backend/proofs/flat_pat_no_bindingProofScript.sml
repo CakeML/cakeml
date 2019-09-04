@@ -971,46 +971,43 @@ QED
    n_bindings. note *names* in n_bindings/pre_bindings come from the original
    program. also new/old names mix in env, thus the many filters. *)
 
-Theorem compile_pat_bindings_simulation:
+(* TODO: why are the initial simplification steps so slow? *)
 
-  ! t i n_bindings exp exp2 spt s vs pre_bindings bindings env2 s2 res.
+Theorem compile_pat_bindings_simulation_proof:
+  ! t i n_bindings exp exp2 spt s vs pre_bindings bindings env s2 res.
   compile_pat_bindings t i n_bindings exp = (spt, exp2) /\
   pmatch_list s (MAP FST n_bindings) vs pre_bindings = Match bindings /\
-  LIST_REL (\(_, k, exp) v. !env3. k ∈ domain spt /\
-        FILTER ((\k. k > j /\ k < i) o dec_name_to_num o FST) env3.v =
-        FILTER ((\k. k > j /\ k < i) o dec_name_to_num o FST) env2.v ==>
-        pure_eval_to s env3 exp v)
+  LIST_REL (\(_, k, exp) v. !env2. k ∈ domain spt /\
+        FILTER ((\k. k > j /\ k < i) o dec_name_to_num o FST) env2.v =
+        FILTER ((\k. k > j /\ k < i) o dec_name_to_num o FST) env.v ==>
+        pure_eval_to s env2 exp v)
     n_bindings vs /\
   EVERY ((\k. k < j) o dec_name_to_num o FST) pre_bindings /\
   j < i /\
-  FILTER ((\k. k < j) o dec_name_to_num o FST) env2.v =
+  FILTER ((\k. k < j) o dec_name_to_num o FST) env.v =
   pre_bindings ++ base_vs /\
-  (!env3. FILTER ((\k. k < j) o dec_name_to_num o FST) env3.v =
+  (!env2. FILTER ((\k. k < j) o dec_name_to_num o FST) env2.v =
     bindings ++ base_vs ==>
-    evaluate env3 s [exp] = (s2, res)) /\
+    evaluate env2 s [exp] = (s2, res)) /\
   ~ s.check_ctor /\
   EVERY (\(p, k, _). EVERY (\nm. dec_name_to_num nm < j) (pat_bindings p []) /\
         j < k /\ k < i) n_bindings
   ==>
-  evaluate env2 s [exp2] = (s2, res)
-
+  evaluate env s [exp2] = (s2, res)
 Proof
-
   ho_match_mp_tac compile_pat_bindings_ind
   \\ rpt conj_tac
   \\ simp [compile_pat_bindings_def, pmatch_def, PULL_EXISTS]
   \\ rw []
-
   >- (
     metis_tac []
   )
-
   >- (
     rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
     \\ simp [evaluate_def]
-    \\ qpat_x_assum `!env2. _ ==> pure_eval_to _ _ x _` mp_tac
-    \\ disch_then (qspec_then `env2` mp_tac)
+    \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
+    \\ disch_then (qspec_then `env` mp_tac)
     \\ simp [pure_eval_to_def]
     \\ rw []
     \\ fs [pat_bindings_def]
@@ -1028,7 +1025,6 @@ Proof
     \\ rw []
     \\ metis_tac []
   )
-
   >- (
     (* Pcon *)
     qmatch_asmsub_abbrev_tac `pmatch _ (Pcon stmp _) con_v`
@@ -1038,7 +1034,6 @@ Proof
     \\ rw []
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
-
     \\ fs [MAP_MAP_o |> REWRITE_RULE [o_DEF], UNCURRY, Q.ISPEC `SND` ETA_THM]
     \\ fs [LENGTH_enumerate, MAP_enumerate_MAPi, MAPi_eq_MAP,
         pmatch_list_eq_append]
@@ -1054,7 +1049,7 @@ Proof
       \\ rename [`n < LENGTH con_v_xs`]
       \\ qexists_tac `EL n con_v_xs`
       \\ rw []
-      \\ qpat_x_assum `!env2. _ ==> pure_eval_to _ _ x _` mp_tac
+      \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
       \\ DEP_REWRITE_TAC [COND_false]
       \\ simp [PULL_EXISTS, NULL_FILTER, MEM_MAPi]
       \\ asm_exists_tac \\ simp []
@@ -1078,7 +1073,7 @@ Proof
       simp [LIST_REL_EL_EQN, LENGTH_enumerate, EL_enumerate, EL_MAP]
       \\ simp [pure_eval_to_def, evaluate_def, option_case_eq]
       \\ rw []
-      \\ qpat_x_assum `!env2. _ ==> pure_eval_to _ _ x _` mp_tac
+      \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
       \\ DEP_REWRITE_TAC [COND_false]
       \\ simp [NULL_FILTER, MEM_MAPi, PULL_EXISTS]
       \\ fs [sptreeTheory.domain_lookup]
@@ -1108,9 +1103,6 @@ Proof
     \\ simp [FILTER_MAP, FILTER_REVERSE, o_DEF, UNCURRY, name_to_id_to_name]
     \\ csimp [FILTER_EQ]
   )
-
-  (* yuck *)
-
   >- (
     qpat_x_assum `_ = Match _` mp_tac
     \\ qmatch_goalsub_abbrev_tac `pmatch _ (Pref _) ref_v`
@@ -1118,8 +1110,8 @@ Proof
     \\ rw [CaseEq "match_result", option_case_eq, CaseEq "store_v"]
     \\ rpt (pairarg_tac \\ fs [])
     \\ rveq \\ fs []
-    \\ qpat_x_assum `!env2. _ ==> pure_eval_to _ _ x _` mp_tac
-    \\ disch_then (qspec_then `env2` mp_tac)
+    \\ qpat_x_assum `!env. _ ==> pure_eval_to _ _ x _` mp_tac
+    \\ disch_then (qspec_then `env` mp_tac)
     \\ simp [evaluate_def, pure_eval_to_def, do_app_def]
     \\ rw []
     \\ last_x_assum match_mp_tac
@@ -1150,64 +1142,40 @@ Proof
       \\ rw [] \\ res_tac \\ simp []
     )
   )
+QED
 
+Theorem compile_pat_bindings_simulation:
+  ! t i exp exp2 spt s p v bindings env s2 res.
+  compile_pat_bindings t (i + 2)
+    [(p, i + 1, Var_local t (enc_num_to_name (i + 1) []))] exp = (spt, exp2) /\
+  pmatch s p v [] = Match bindings /\
+  (!ext_env. FILTER ((\k. k < i) o dec_name_to_num o FST) ext_env.v =
+    bindings ++ FILTER ((\k. k < i) o dec_name_to_num o FST) base_v ==>
+    evaluate ext_env s [exp] = (s2, res)) /\
+  ~ s.check_ctor /\
+  EVERY (\nm. dec_name_to_num nm < i) (pat_bindings p []) /\
+  env.v = (enc_num_to_name (i + 1) [], v) :: base_v
+  ==>
+  evaluate env s [exp2] = (s2, res)
+Proof
+  rw []
+  \\ drule_then match_mp_tac compile_pat_bindings_simulation_induct
+  \\ simp [name_to_id_to_name, PULL_EXISTS]
+  \\ simp [pmatch_def]
+  \\ GEN_EXISTS_TAC "j" `i`
+  \\ simp [CaseEq "match_result", PULL_EXISTS]
+  \\ asm_exists_tac \\ simp []
+  \\ simp [pure_eval_to_def, evaluate_def]
+  \\ rw [option_case_eq]
+  \\ drule FILTER_EQ_ALOOKUP_EQ
+  \\ disch_then (fn t => DEP_REWRITE_TAC [t])
+  \\ simp [name_to_id_to_name]
 QED
 
 Theorem MAPi_eq_ZIP_left:
   MAPi (\n x. (x, f n)) xs = ZIP (xs, GENLIST f (LENGTH xs))
 Proof
   irule listTheory.LIST_EQ \\ simp [EL_ZIP]
-QED
-
-Theorem pmatch_extra_pat_bindings:
-
-  (! ^s p v bindings res exp. pmatch s p v bindings = Match res /\
-  pure_eval_to s env exp v /\ ~ s.check_ctor ==>
-  ? nb. res = nb ++ bindings /\
-  LIST_REL ((=) ### pure_eval_to s env) (extra_pat_bindings t [(p, exp)]) nb)
-  /\
-  (! ^s ps vs bindings res exps. pmatch_list s ps vs bindings = Match res /\
-  LIST_REL (pure_eval_to s env) exps vs /\ ~ s.check_ctor ==>
-  ? nb. res = nb ++ bindings /\
-  LIST_REL ((=) ### pure_eval_to s env)
-    (extra_pat_bindings t (REVERSE (ZIP (ps, exps)))) nb)
-
-Proof
-
-  ho_match_mp_tac pmatch_ind
-  \\ rpt conj_tac
-  \\ rw [pmatch_def] \\ simp [extra_pat_bindings_def]
-
-  >- (
-    fs [MAPi_eq_ZIP_left]
-    \\ first_x_assum irule
-    \\ simp [LIST_REL_EL_EQN]
-    \\ fs [pure_eval_to_def]
-    \\ simp [evaluate_def, do_app_def]
-  )
-
-  >- (
-    fs [CaseEq "store_v", option_case_eq]
-    \\ rveq \\ fs []
-    \\ first_x_assum irule
-    \\ fs [pure_eval_to_def]
-    \\ simp [evaluate_def, do_app_def]
-  )
-
-  >- (
-    fs [CaseEq "match_result"]
-    \\ fs []
-    \\ rpt (first_x_assum drule)
-    \\ rw []
-    \\ simp [Once extra_pat_bindings_cons]
-    \\ irule LIST_REL_APPEND_suff
-    \\ simp []
-  )
-
-  (* equality results won't work here, the order is hard to simulate *)
-
-  \\ NO_TAC
-
 QED
 
 
