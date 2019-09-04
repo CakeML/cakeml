@@ -51,6 +51,12 @@ Proof
   \\ CASE_TAC \\ simp [dec_name_to_num_def, sum_string_ords_eq]
 QED
 
+Theorem enc_num_to_name_inj:
+  (enc_num_to_name i [] = enc_num_to_name j []) = (i = j)
+Proof
+  metis_tac [name_to_id_to_name |> Q.SPEC `[]` |> SIMP_RULE list_ss []]
+QED
+
 Definition compile_exps_def:
   (compile_exps [] = (0, [])) /\
   (compile_exps (x::y::xs) =
@@ -757,7 +763,6 @@ Proof
   Induct_on `xs` \\ simp [o_DEF]
 QED
 
-
 Definition extra_pat_bindings_def:
   extra_pat_bindings t [] = [] /\
   extra_pat_bindings t ((Pany, _) :: m) = extra_pat_bindings t m /\
@@ -785,44 +790,368 @@ Theorem extra_pat_bindings_cons =
   extra_pat_bindings_append |> Q.SPECL [`t`, `[x]`] |> SIMP_RULE list_ss []
 
 Definition compile_pat_bindings_def:
-  compile_pat_bindings _ _ [] exp = exp /\
-  compile_pat_bindings t i ((Pany, _) :: m) exp =
+  compile_pat_bindings _ _ [] exp = (LN, exp) /\
+  compile_pat_bindings t i ((Pany, _, _) :: m) exp =
     compile_pat_bindings t i m exp /\
-  compile_pat_bindings t i ((Pvar s, x) :: m) exp = (
-    let exp2 = compile_pat_bindings t i m exp in
-    flatLang$Let t (SOME s) x exp2) /\
-  compile_pat_bindings t i ((Plit _, _) :: m) exp =
+  compile_pat_bindings t i ((Pvar s, k, x) :: m) exp = (
+    let (spt, exp2) = compile_pat_bindings t i m exp in
+    (insert k () spt, Let t (SOME s) x exp2)) /\
+  compile_pat_bindings t i ((Plit _, _, _) :: m) exp =
     compile_pat_bindings t i m exp /\
-  compile_pat_bindings t i ((Pcon stmp xs, x) :: m) exp = (
-    let js = FILTER (\(_, p). ~ NULL (pat_bindings p [])) (enumerate 0 xs) in
-    let jes = MAP (\(j, p). (j, enc_num_to_name (i + 1 + j) [], p)) js in
-    let new_m = MAP (\(_, nm, p). (p, Var_local t nm)) jes in
-    let exp2 = compile_pat_bindings t (i + 1 + LENGTH xs) (new_m ++ m) exp in
-    FOLDR (\(j, nm, _) exp. Let t (SOME nm) (App t (El j) [x]) exp) exp2 jes) /\
-  compile_pat_bindings t i ((Pref p, x) :: m) exp = (
+  compile_pat_bindings t i ((Pcon stmp ps, k, x) :: m) exp = (
+    let j_nms = MAP (\(j, p). let k = i + 1 + j in
+        let nm = enc_num_to_name k [] in
+        ((j, nm), (p, k, Var_local t nm))) (enumerate 0 ps) in
+    let (spt, exp2) = compile_pat_bindings t (i + 2 + LENGTH ps)
+        (MAP SND j_nms ++ m) exp in
+    let j_nms_used = FILTER (\(_, (_, k, _)). IS_SOME (lookup k spt)) j_nms in
+    let exp3 = FOLDR (\((j, nm), _) exp.
+        flatLang$Let t (SOME nm) (App t (El j) [x]) exp) exp2 j_nms_used in
+    let spt2 = if NULL j_nms_used then spt else insert k () spt in
+    (spt2, exp3)) /\
+  compile_pat_bindings t i ((Pref p, k, x) :: m) exp = (
     let nm = enc_num_to_name (i + 1) [] in
-    let exp2 = compile_pat_bindings t (i + 2) ((p, Var_local t nm) :: m) exp in
-    Let t (SOME nm) (flatLang$App t Opderef [x]) exp2)
+    let (spt, exp2) = compile_pat_bindings t (i + 2)
+        ((p, i + 1, Var_local t nm) :: m) exp in
+    (insert k () spt, Let t (SOME nm) (App t Opderef [x]) exp2))
 Termination
   WF_REL_TAC `measure (\(t, i, m, exp). SUM (MAP (pat_size o FST) m) + LENGTH m)`
   \\ simp [pat_size_def]
-  \\ rw [MAP_MAP_o, o_DEF, UNCURRY, ADD1, SUM_APPEND, pat1_size]
-  \\ qmatch_goalsub_abbrev_tac `MAP ps_snd (FILTER P en_xs)`
-  \\ qsuff_tac `LENGTH (FILTER P en_xs) <= LENGTH xs /\
-        SUM (MAP ps_snd (FILTER P en_xs)) <= SUM (MAP pat_size xs)`
-  \\ simp []
-  \\ simp [LENGTH_EQ_SUM]
-  \\ conj_tac \\ irule SUM_MAP_FILTER_LE_TRANS
-  \\ qsuff_tac `MAP ps_snd en_xs = MAP pat_size xs`
-  \\ unabbrev_all_tac
-  \\ simp [GSYM LENGTH_EQ_SUM, LENGTH_enumerate]
-  \\ irule listTheory.LIST_EQ
-  \\ simp [LENGTH_enumerate, EL_MAP, EL_enumerate]
+  \\ rw [MAP_MAP_o, o_DEF, UNCURRY, SUM_APPEND, pat1_size]
+  \\ simp [LENGTH_enumerate, MAP_enumerate_MAPi, MAPi_eq_MAP]
 End
 
 Definition pure_eval_to_def:
   pure_eval_to s env exp v = (evaluate env s [exp] = (s, Rval [v]))
 End
+
+Definition simple_env_rel_def:
+  simple_env_rel P env env2 = (
+    FILTER (\x. P (dec_name_to_num (FST x))) env.v =
+    FILTER (\x. P (dec_name_to_num (FST x))) env2.v)
+End
+
+Theorem simple_env_rel_refl:
+  simple_env_rel P env env
+Proof
+  simp [simple_env_rel_def]
+QED
+
+Theorem simple_env_rel_cons_discarded:
+  ~ P (dec_name_to_num (FST v1)) ==>
+  simple_env_rel P env <| v := v1 :: vs |> =
+  simple_env_rel P env <| v := vs |> /\
+  simple_env_rel P <| v := v1 :: vs |> env =
+  simple_env_rel P <| v := vs |> env
+Proof
+  simp [simple_env_rel_def]
+QED
+
+Theorem pmatch_list_append:
+  !xs vs pre_bindings. pmatch_list s (xs ++ ys) vs pre_bindings =
+  (case pmatch_list s xs (TAKE (LENGTH xs) vs) pre_bindings of
+      No_match => No_match
+    | Match_type_error => Match_type_error
+    | Match bindings => pmatch_list s ys (DROP (LENGTH xs) vs) bindings)
+Proof
+  Induct
+  \\ simp [pmatch_def]
+  \\ gen_tac \\ Cases
+  \\ simp [pmatch_def]
+  \\ rw []
+  \\ every_case_tac \\ simp []
+QED
+
+Theorem pmatch_list_eq_append:
+  LENGTH vs1 = LENGTH ps1 ==>
+  (case pmatch_list s ps1 vs1 pre_bindings of
+      No_match => No_match
+    | Match_type_error => Match_type_error
+    | Match bindings => pmatch_list s ps2 vs2 bindings) =
+  pmatch_list s (ps1 ++ ps2) (vs1 ++ vs2) pre_bindings
+Proof
+  simp [pmatch_list_append, TAKE_APPEND, DROP_APPEND]
+  \\ simp [TAKE_LENGTH_TOO_LONG, DROP_LENGTH_TOO_LONG]
+QED
+
+Theorem pat_bindings_evaluate_FOLDR_lemma1:
+  !xs.
+  (!x. MEM x xs ==> IS_SOME (f x)) /\
+  (!x. IMAGE (THE o f) (set xs) ⊆ new_names) /\
+  (!x. MEM x xs ==> (?rv. !env2.
+    FILTER (\x. FST x ∉ new_names) env2.v =
+    FILTER (\x. FST x ∉ new_names) env.v ==>
+    evaluate env2 s [g x] = (s, Rval [rv])))
+  ==>
+  !env2.
+  FILTER (\x. FST x ∉ new_names) env2.v =
+  FILTER (\x. FST x ∉ new_names) env.v ==>
+  evaluate env2 s
+    [FOLDR (λx exp. flatLang$Let t (f x) (g x) exp) exp xs] =
+  evaluate (env2 with v := MAP (λx. (THE (f x),
+        case evaluate env s [g x] of (_, Rval rv) => HD rv)) (REVERSE xs)
+             ++ env2.v) s [exp]
+Proof
+  Induct \\ simp [env_is_v_fold]
+  \\ rw []
+  \\ simp [evaluate_def]
+  \\ fs [DISJ_IMP_THM, FORALL_AND_THM, IMP_CONJ_THM, IS_SOME_EXISTS]
+  \\ rfs []
+  \\ simp [libTheory.opt_bind_def]
+  \\ simp_tac bool_ss [GSYM APPEND_ASSOC, APPEND]
+QED
+
+Theorem pat_bindings_evaluate_FOLDR_lemma:
+  !new_names.
+  (!x. MEM x xs ==> IS_SOME (f x)) /\
+  (!x. IMAGE (THE o f) (set xs) ⊆ new_names) /\
+  (!x. MEM x xs ==> (?rv. !env2.
+    FILTER (\x. FST x ∉ new_names) env2.v =
+    FILTER (\x. FST x ∉ new_names) env.v ==>
+    evaluate env2 s [g x] = (s, Rval [rv])))
+  ==>
+  evaluate env s
+    [FOLDR (λx exp. flatLang$Let t (f x) (g x) exp) exp xs] =
+  evaluate (env with v := MAP (λx. (THE (f x),
+        case evaluate env s [g x] of (_, Rval rv) => HD rv)) (REVERSE xs)
+             ++ env.v) s [exp]
+Proof
+  rw []
+  \\ DEP_REWRITE_TAC [pat_bindings_evaluate_FOLDR_lemma1]
+  \\ simp []
+QED
+
+Theorem COND_false:
+  ~ P ==> ((if P then x else y) = y)
+Proof
+  simp []
+QED
+
+Theorem COND_true:
+  P ==> ((if P then x else y) = x)
+Proof
+  simp []
+QED
+
+Theorem FILTER_EQ_MONO = LIST_REL_FILTER_MONO
+  |> Q.GEN `R` |> Q.ISPEC `(=)` |> REWRITE_RULE [LIST_REL_eq]
+
+Theorem FILTER_EQ_MONO_TRANS = FILTER_EQ_MONO
+  |> Q.GEN `P2` |> Q.SPEC `\x. T`
+  |> Q.GEN `P4` |> Q.SPEC `P3`
+  |> REWRITE_RULE [FILTER_T]
+
+Theorem FILTER_EQ_ALOOKUP_EQ:
+  FILTER P xs = ys /\ (!z. P (x, z)) ==>
+  ALOOKUP xs x = ALOOKUP ys x
+Proof
+  cheat
+QED
+
+Theorem MEM_enumerate_EL:
+  !xs i x. MEM x (enumerate i xs) = (?j. j < LENGTH xs /\ x = (i + j, EL j xs))
+Proof
+  Induct \\ rw [miscTheory.enumerate_def]
+  \\ simp [indexedListsTheory.LT_SUC]
+  \\ EQ_TAC \\ rw []
+  \\ simp [EL_CONS, ADD1]
+  \\ simp [GSYM ADD1]
+  \\ qexists_tac `0` \\ simp []
+QED
+
+Theorem ALL_DISTINCT_enumerate:
+  !xs i. ALL_DISTINCT (enumerate i xs)
+Proof
+  Induct \\ rw [miscTheory.enumerate_def, MEM_enumerate_EL]
+QED
+
+(* ok, naming. the existing names in the program (the original x and exp)
+   are < j for starting val j. during the recursion, j increases to i, with
+   new names i < nm < j appearing in the new env, and in *expressions* in
+   n_bindings. note *names* in n_bindings/pre_bindings come from the original
+   program. also new/old names mix in env, thus the many filters. *)
+
+Theorem compile_pat_bindings_simulation:
+
+  ! t i n_bindings exp exp2 spt s vs pre_bindings bindings env2 s2 res.
+  compile_pat_bindings t i n_bindings exp = (spt, exp2) /\
+  pmatch_list s (MAP FST n_bindings) vs pre_bindings = Match bindings /\
+  LIST_REL (\(_, k, exp) v. !env3. k ∈ domain spt /\
+        FILTER ((\k. k > j /\ k < i) o dec_name_to_num o FST) env3.v =
+        FILTER ((\k. k > j /\ k < i) o dec_name_to_num o FST) env2.v ==>
+        pure_eval_to s env3 exp v)
+    n_bindings vs /\
+  EVERY ((\k. k < j) o dec_name_to_num o FST) pre_bindings /\
+  j < i /\
+  FILTER ((\k. k < j) o dec_name_to_num o FST) env2.v =
+  pre_bindings ++ base_vs /\
+  (!env3. FILTER ((\k. k < j) o dec_name_to_num o FST) env3.v =
+    bindings ++ base_vs ==>
+    evaluate env3 s [exp] = (s2, res)) /\
+  ~ s.check_ctor /\
+  EVERY (\(p, k, _). EVERY (\nm. dec_name_to_num nm < j) (pat_bindings p []) /\
+        j < k /\ k < i) n_bindings
+  ==>
+  evaluate env2 s [exp2] = (s2, res)
+
+Proof
+
+  ho_match_mp_tac compile_pat_bindings_ind
+  \\ rpt conj_tac
+  \\ simp [compile_pat_bindings_def, pmatch_def, PULL_EXISTS]
+  \\ rw []
+
+  >- (
+    metis_tac []
+  )
+
+  >- (
+    rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs []
+    \\ simp [evaluate_def]
+    \\ qpat_x_assum `!env2. _ ==> pure_eval_to _ _ x _` mp_tac
+    \\ disch_then (qspec_then `env2` mp_tac)
+    \\ simp [pure_eval_to_def]
+    \\ rw []
+    \\ fs [pat_bindings_def]
+    \\ last_x_assum drule
+    \\ simp []
+    \\ disch_then irule
+    \\ simp [libTheory.opt_bind_def]
+    \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac LIST_REL_mono)
+    \\ simp [FORALL_PROD]
+  )
+  >- (
+    qmatch_asmsub_abbrev_tac `pmatch _ (Plit l) lv`
+    \\ Cases_on `lv` \\ fs [pmatch_def]
+    \\ qpat_x_assum `_ = Match _` mp_tac
+    \\ rw []
+    \\ metis_tac []
+  )
+
+  >- (
+    (* Pcon *)
+    qmatch_asmsub_abbrev_tac `pmatch _ (Pcon stmp _) con_v`
+    \\ Cases_on `case con_v of Conv cstmp _ => cstmp | _ => NONE`
+    \\ Cases_on `con_v` \\ Cases_on `stmp` \\ fs [pmatch_def]
+    \\ qpat_x_assum `_ = Match _` mp_tac
+    \\ rw []
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs []
+
+    \\ fs [MAP_MAP_o |> REWRITE_RULE [o_DEF], UNCURRY, Q.ISPEC `SND` ETA_THM]
+    \\ fs [LENGTH_enumerate, MAP_enumerate_MAPi, MAPi_eq_MAP,
+        pmatch_list_eq_append]
+    \\ simp [ELIM_UNCURRY]
+    \\ DEP_REWRITE_TAC [pat_bindings_evaluate_FOLDR_lemma]
+    \\ simp []
+    \\ conj_tac >- (
+      qexists_tac `{x | ~ (dec_name_to_num x < i)}`
+      \\ simp [SUBSET_DEF, MEM_FILTER, MEM_MAPi, PULL_EXISTS]
+      \\ simp [name_to_id_to_name]
+      \\ simp [evaluate_def]
+      \\ rw [IS_SOME_EXISTS]
+      \\ rename [`n < LENGTH con_v_xs`]
+      \\ qexists_tac `EL n con_v_xs`
+      \\ rw []
+      \\ qpat_x_assum `!env2. _ ==> pure_eval_to _ _ x _` mp_tac
+      \\ DEP_REWRITE_TAC [COND_false]
+      \\ simp [PULL_EXISTS, NULL_FILTER, MEM_MAPi]
+      \\ asm_exists_tac \\ simp []
+      \\ simp [pure_eval_to_def]
+      \\ disch_then (fn t => DEP_REWRITE_TAC [t])
+      \\ simp [do_app_def]
+      \\ drule_then irule FILTER_EQ_MONO
+      \\ simp []
+    )
+    \\ last_x_assum (drule_then irule)
+    \\ simp [FILTER_APPEND, FILTER_EQ_NIL, EVERY_MAP, EVERY_REVERSE,
+        EVERY_FILTER, MAPi_enumerate_MAP, UNCURRY, name_to_id_to_name]
+    \\ fs [pat_bindings_def, pats_bindings_FLAT_MAP, EVERY_FLAT, EVERY_REVERSE]
+    \\ fs [EVERY_EL, FORALL_PROD, UNCURRY]
+    \\ rpt conj_tac
+    \\ rw [LENGTH_enumerate, EL_enumerate] \\ res_tac \\ simp [] \\ fs [EL_MAP]
+    \\ irule LIST_REL_APPEND_suff
+    \\ conj_tac
+    >- (
+      (* new elements *)
+      simp [LIST_REL_EL_EQN, LENGTH_enumerate, EL_enumerate, EL_MAP]
+      \\ simp [pure_eval_to_def, evaluate_def, option_case_eq]
+      \\ rw []
+      \\ qpat_x_assum `!env2. _ ==> pure_eval_to _ _ x _` mp_tac
+      \\ DEP_REWRITE_TAC [COND_false]
+      \\ simp [NULL_FILTER, MEM_MAPi, PULL_EXISTS]
+      \\ fs [sptreeTheory.domain_lookup]
+      \\ asm_exists_tac \\ simp []
+      \\ rw [pure_eval_to_def]
+      \\ drule FILTER_EQ_ALOOKUP_EQ
+      \\ disch_then (fn t => DEP_REWRITE_TAC [t])
+      \\ simp [FILTER_MAP, o_DEF, GSYM MAP_REVERSE, UNCURRY, name_to_id_to_name,
+            MAP_MAP_o, ALOOKUP_APPEND]
+      \\ simp [do_app_def, option_case_eq]
+      \\ DEP_REWRITE_TAC [GSYM MEM_ALOOKUP |> Q.SPEC `MAP f zs`]
+      \\ simp [MEM_MAP, MEM_FILTER, EXISTS_PROD, MEM_enumerate,
+            enc_num_to_name_inj, MAP_MAP_o, o_DEF]
+      \\ irule ALL_DISTINCT_MAP_INJ
+      \\ simp [enc_num_to_name_inj, MEM_FILTER, FORALL_PROD, MEM_enumerate_EL]
+      \\ simp [FILTER_ALL_DISTINCT, ALL_DISTINCT_enumerate]
+    )
+    (* prior env *)
+    \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac LIST_REL_mono)
+    \\ simp [FORALL_PROD]
+    \\ rpt strip_tac
+    \\ first_x_assum irule
+    \\ simp []
+    \\ conj_tac \\ TRY (IF_CASES_TAC \\ simp [] \\ NO_TAC)
+    \\ drule_then (fn t => DEP_REWRITE_TAC [t]) FILTER_EQ_MONO_TRANS
+    \\ simp [MEM_FILTER, FILTER_APPEND, FILTER_FILTER]
+    \\ simp [FILTER_MAP, FILTER_REVERSE, o_DEF, UNCURRY, name_to_id_to_name]
+    \\ csimp [FILTER_EQ]
+  )
+
+  (* yuck *)
+
+  >- (
+    qpat_x_assum `_ = Match _` mp_tac
+    \\ qmatch_goalsub_abbrev_tac `pmatch _ (Pref _) ref_v`
+    \\ Cases_on `ref_v` \\ simp [pmatch_def]
+    \\ rw [CaseEq "match_result", option_case_eq, CaseEq "store_v"]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ rveq \\ fs []
+    \\ qpat_x_assum `!env2. _ ==> pure_eval_to _ _ x _` mp_tac
+    \\ disch_then (qspec_then `env2` mp_tac)
+    \\ simp [evaluate_def, pure_eval_to_def, do_app_def]
+    \\ rw []
+    \\ last_x_assum match_mp_tac
+    \\ simp [CaseEq "match_result", PULL_EXISTS]
+    \\ asm_exists_tac \\ simp []
+    \\ asm_exists_tac \\ simp []
+    \\ fs [libTheory.opt_bind_def, pat_bindings_def]
+    \\ simp [name_to_id_to_name]
+    \\ rpt conj_tac
+    >- (
+      rw [pure_eval_to_def, evaluate_def, option_case_eq]
+      \\ drule FILTER_EQ_ALOOKUP_EQ
+      \\ disch_then (fn t => DEP_REWRITE_TAC [t])
+      \\ simp [name_to_id_to_name]
+    )
+    >- (
+      first_x_assum (fn t => mp_tac t \\ match_mp_tac LIST_REL_mono)
+      \\ simp [FORALL_PROD]
+      \\ rw []
+      \\ first_x_assum irule
+      \\ simp []
+      \\ drule_then (fn t => DEP_REWRITE_TAC [t]) FILTER_EQ_MONO_TRANS
+      \\ simp [name_to_id_to_name, FILTER_FILTER]
+      \\ csimp [FILTER_EQ]
+    )
+    >- (
+      fs [EVERY_MEM, FORALL_PROD]
+      \\ rw [] \\ res_tac \\ simp []
+    )
+  )
+
+QED
 
 Theorem MAPi_eq_ZIP_left:
   MAPi (\n x. (x, f n)) xs = ZIP (xs, GENLIST f (LENGTH xs))
