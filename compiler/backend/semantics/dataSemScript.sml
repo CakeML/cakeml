@@ -2,7 +2,6 @@
   The formal semantics of dataLang
 *)
 open preamble data_simpTheory data_liveTheory data_spaceTheory dataLangTheory closSemTheory;
-open reachable_sptTheory;
 
 val _ = new_theory"dataSem";
 
@@ -47,44 +46,45 @@ val _ = Datatype `
      ; compile_oracle   : num -> 'c # (num # num # dataLang$prog) list |> `
 
 val s = ``(s:('c,'ffi) dataSem$state)``
-
 val vs = ``(vs:dataSem$v list)``
 
-(* Measures the size of an indivudual values `dataSem$v` by traversing
-   all inner values and accumulating all timestamps in the process.
-   When `s_ts = NONE` all timestap accounting is ignored
-*)
-Definition size_of_v_def:
-  (size_of_v (seen : num_set) (Block ts tag vl) =
-     if vl = [] then (0, seen) else
-       case lookup ts seen of
-       | SOME _ => (0, seen)
-       | NONE => let (res, seen1) = size_of_v_list (insert ts () seen) vl
-                 in (res + LENGTH vl + 1, seen1))
-∧ size_of_v seen (Word64 _) = (3, seen)
-∧ size_of_v seen (CodePtr _) = (0, seen)
-∧ size_of_v seen (RefPtr _) = (0, seen)
-∧ size_of_v seen (Number i) = (0, seen) (* TODO: 0 is slightly wrong *)
-∧ size_of_v_list seen [] = (0, seen)
-∧ size_of_v_list seen (v::^vs) =
-   (let (s1,seen) = size_of_v seen v in
-    let (s2,seen) = size_of_v_list seen vs in
-      (s1 + s2,seen))
-Termination
-  WF_REL_TAC `measure (λx. (case x of INR (_,vl) => v1_size vl
-                                    | INL (_,v ) => v_size v))`
+Definition check_res_def:
+  check_res r (n, refs, seen) =
+    if size refs <= size r then (n, refs, seen) else (n, r, seen)
 End
 
-Definition v_to_ref_ptrs_def:
-  v_to_ref_ptrs (Block ts tag vl) = v_to_ref_ptrs_list vl
-∧ v_to_ref_ptrs (RefPtr p) = insert p () LN
-∧ v_to_ref_ptrs _ = LN
-∧ v_to_ref_ptrs_list [] = LN
-∧ v_to_ref_ptrs_list (v::^vs) =
-   union (v_to_ref_ptrs v) (v_to_ref_ptrs_list vs)
+Triviality check_res_IMP:
+  !y. (n,r,s) = check_res t y ==> size r <= size t
+Proof
+  fs [FORALL_PROD,check_res_def] \\ rw []
+QED
+
+Definition size_of_def:
+  (size_of [] refs seen = (0, refs, seen)) /\
+  (size_of (x::y::ys) refs seen =
+    let (n1,refs1,seen) = check_res refs (size_of [x] refs seen) in
+    let (n2,refs2,seen) = size_of (y::ys) refs1 seen in
+      (n1+n2,refs2,seen)) /\
+  (size_of [Word64 _] refs seen = (3, refs, seen)) /\
+  (size_of [Number _] refs seen = (0, refs, seen)) /\ (* TODO: fix this *)
+  (size_of [CodePtr _] refs seen = (0, refs, seen)) /\
+  (size_of [RefPtr r] refs seen =
+     case lookup r refs of
+     | NONE => (0, refs, seen)
+     | SOME (ByteArray _ bs) => (LENGTH bs + 1, delete r refs, seen)
+     | SOME (ValueArray vs) => let (n,refs,seen) = size_of vs (delete r refs) seen in
+                                 (n + LENGTH vs + 1, refs, seen)) /\
+  (size_of [Block ts tag vs] refs seen =
+     if IS_SOME (lookup ts seen) then (0, refs, seen) else
+       let (n,refs,seen) = size_of vs refs (insert ts () seen) in
+         (n + LENGTH vs + 1, refs, seen))
 Termination
-  WF_REL_TAC `measure (λx. case x of INR vl => v1_size vl
-                                   | INL v  => v_size v)`
+  WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
+                          (\(vs,refs,seen). (sptree$size refs,vs)))`
+  \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
+  \\ imp_res_tac miscTheory.lookup_zero \\ fs []
+  \\ rw [] \\ fs []
+  \\ imp_res_tac check_res_IMP \\ fs []
 End
 
 Definition extract_stack_def:
@@ -92,61 +92,22 @@ Definition extract_stack_def:
   extract_stack (Exc env _) = toList env
 End
 
-Definition extract_ref_def:
-  extract_ref (ValueArray l) = l /\
-  extract_ref _ = []
-End
-
-Definition length_of_ref_def:
-  length_of_ref (ValueArray l) = LENGTH l + 1 /\
-  length_of_ref (ByteArray _ bs) = LENGTH bs DIV 4 + 2
-End
-
-Definition ref_to_ref_ptrs_def:
-  ref_to_ref_ptrs (ValueArray l) = v_to_ref_ptrs_list l /\
-  ref_to_ref_ptrs (ByteArray _ bs) = LN
-End
-
-Definition reachable_refs_def:
-  reachable_refs roots_v refs =
-    let roots = v_to_ref_ptrs_list roots_v in
-    let nexts = map ref_to_ref_ptrs refs in
-    let reachable_ptrs = closure_spt roots nexts in
-      inter refs reachable_ptrs
-End
-
 Definition global_to_vs_def:
   global_to_vs NONE = [] /\
   global_to_vs (SOME n) = [RefPtr n]
 End
 
-Definition size_of_vs_def:
-  size_of_vs vs = FST (size_of_v_list LN vs)
-End
-
-Definition refs_to_vs_def:
-  refs_to_vs refs = FLAT (MAP extract_ref (toList refs))
-End
-
-Definition size_of_ref_arrays_def:
-  size_of_ref_arrays refs = SUM (MAP length_of_ref (toList refs))
-End
-
 Definition stack_to_vs_def:
-  stack_to_vs ^s = toList s.locals ++ FLAT (MAP extract_stack s.stack)
+  stack_to_vs ^s =
+    toList s.locals ++ FLAT (MAP extract_stack s.stack) ++ global_to_vs s.global
 End
 
 (* Measures the amount of space everything in a dataLang "heap" would need
-   to fit in wordLang memory (over-approximation)
-*)
+   to fit in wordLang memory (over-approximation) *)
 Definition size_of_heap_def:
   size_of_heap ^s =
-    let stack_vs = stack_to_vs s in
-    let roots_v = stack_vs ++ global_to_vs s.global in
-    let the_refs = reachable_refs roots_v s.refs in
-    let all_vs = stack_vs ++ refs_to_vs the_refs in
-      size_of_vs all_vs +
-      size_of_ref_arrays the_refs
+    let (n,_) = size_of (stack_to_vs ^s) ^s.refs LN in
+      n
 End
 
 

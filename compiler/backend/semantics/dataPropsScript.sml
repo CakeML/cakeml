@@ -270,10 +270,7 @@ QED
 Theorem size_of_heap_with_safe:
   ∀s safe. size_of_heap (s with safe_for_space := safe) = size_of_heap s
 Proof
-  rw [ size_of_heap_def
-     , stack_to_vs_def
-     , refs_to_vs_def
-     , global_to_vs_def]
+  EVAL_TAC \\ rw []
 QED
 
 Theorem do_app_safe_peak_swap_aux[local]:
@@ -1062,10 +1059,7 @@ QED
 Theorem size_of_heap_with_clock:
   ∀s z. size_of_heap (s with clock := z) = size_of_heap s
 Proof
-  rw [ size_of_heap_def
-     , stack_to_vs_def
-     , refs_to_vs_def
-     , global_to_vs_def]
+  EVAL_TAC \\ rw []
 QED
 
 Theorem do_app_with_clock:
@@ -1278,11 +1272,7 @@ QED
 Theorem add_space_const[simp]:
    (add_space s k).ffi = s.ffi
 Proof
-    rw [ add_space_def
-       , size_of_heap_def
-       , stack_to_vs_def
-       , refs_to_vs_def
-       , global_to_vs_def]
+  EVAL_TAC
 QED
 
 Theorem push_env_const[simp]:
