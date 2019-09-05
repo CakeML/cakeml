@@ -185,6 +185,12 @@ This compiler phase ensures that all pattern matches are exhaustive.
 This compiler phase reorders patterns in pattern matches to improve
 code quality.
 
+[flat_to_closScript.sml](flat_to_closScript.sml):
+Compilation from flatLang to closLang. This compiler phase converts
+explicit variable names of flatLang to de Bruijn indexing of
+closLang. It also makes all division-by-zero and out-of-bounds
+exceptions raised explicitly.
+
 [flat_to_patScript.sml](flat_to_patScript.sml):
 This phase performs pattern-match compilation.
 

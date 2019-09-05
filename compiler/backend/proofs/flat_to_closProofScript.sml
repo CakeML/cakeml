@@ -4,13 +4,12 @@
 open preamble
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     closLangTheory closSemTheory closPropsTheory
+     closLangTheory closSemTheory closPropsTheory flat_to_closTheory;
 
 val _ = new_theory"flat_to_closProof"
 
-val _ = set_grammar_ancestry ["misc","ffi","bag","flatProps","closProps",
-                              (*"flat_to_clos",*)"backendProps","backend_common"];
-
+val _ = set_grammar_ancestry ["misc","ffi","flatProps","closProps",
+                              "flat_to_clos","backendProps","backend_common"];
 
 Theorem LIST_REL_EL: (* TODO: move *)
   !xs ys r.
@@ -22,157 +21,6 @@ Proof
   THEN1 (Cases_on `n` \\ fs [])
   THEN1 (first_x_assum (qspec_then `0` mp_tac) \\ fs [])
   \\ first_x_assum (qspec_then `SUC n` mp_tac) \\ fs []
-QED
-
-
-Definition dest_pat_def:
-  dest_pat [(Pvar v, h)] = SOME (v:string,h) /\
-  dest_pat _ = NONE
-End
-
-Theorem dest_pat_thm:
-  dest_pat pes = SOME (p_1,p_2) <=> pes = [(Pvar p_1, p_2)]
-Proof
-  Cases_on `pes` \\ fs [dest_pat_def]
-  \\ Cases_on `t` \\ fs [dest_pat_def]
-  \\ Cases_on `h` \\ fs [dest_pat_def]
-  \\ Cases_on `q` \\ fs [dest_pat_def]
-QED
-
-Definition compile_lit_def:
-  compile_lit t (IntLit i) = closLang$Op t (Const i) [] /\
-  compile_lit t (Char c) = closLang$Op t (Const (& (ORD c))) [] /\
-  compile_lit t (StrLit s) = closLang$Op t (String s) [] /\
-  compile_lit t (Word8 b) = closLang$Op t (Const (& (w2n b))) [] /\
-  compile_lit t (Word64 w) =
-    closLang$Op t WordFromInt [closLang$Op t (Const (& (w2n w))) []]
-End
-
-Definition arg1_def:
-  arg1 xs f =
-    case xs of [x] => f x | _ => closLang$Let None xs (Var None 0)
-End
-
-Definition arg2_def:
-  arg2 xs f =
-    case xs of [x; y] => f x y | _ => closLang$Let None xs (Var None 0)
-End
-
-Definition AllocGlobals_def:
-  AllocGlobals t n =
-    if n = 0 then Op t (Cons 0) [] else
-    if n = 1 then Op t AllocGlobal [] else
-      Let t [Op t AllocGlobal []] (AllocGlobals t (n-1:num))
-End
-
-Definition compile_op_def:
-  compile_op t op xs =
-    case op of
-    | Opapp => arg2 xs (\x f. closLang$App t NONE f [x])
-    | TagLenEq tag n => closLang$Op t (TagLenEq tag n) xs
-    | El n => arg1 xs (\x. Op t El [Op None (Const (& n)) []; x])
-    | Ord => arg1 xs (\x. x)
-    | Chr => Let t xs (If t (Op t Less [Op None (Const 0) []; Var t 0])
-                        (Raise t (Op t (Cons chr_tag) []))
-                        (If t (Op t Less [Var t 0; Op None (Const 255) []])
-                          (Raise t (Op t (Cons chr_tag) []))
-                          (Var t 0)))
-    | Chopb chop => Op t (case chop of
-                          | Lt => Less
-                          | Gt => Greater
-                          | Leq => LessEq
-                          | Geq => GreaterEq) xs
-    | Opassign => arg2 xs (\x y. Op t Update [x; Op None (Const 0) []; y])
-    | Opref => Op t Ref xs
-    | Opderef => arg1 xs (\x. Op t Deref [Op None (Const 0) []; x])
-    | ConfigGC => Op t ConfigGC xs
-    | GlobalVarAlloc n => Let t xs (AllocGlobals t n)
-    | GlobalVarInit n => Op t (SetGlobal n) xs
-    | GlobalVarLookup n => Op t (Global n) xs
-    | Equality => Op t Equal xs
-    | FFI n => Op t (FFI n) xs
-    | ListAppend => Op t ListAppend xs
-    | Vlength => Op t LengthBlock xs
-    | Alength => Op t Length xs
-    | VfromList => Op t (FromList 0) xs
-    | Aalloc => Let t xs (If t (Op t Less [Op t (Const 0) []; Var t 1])
-                               (Raise t (Op t (Cons subscript_tag) []))
-                               (Op t RefArray [Var t 0; Var t 1]))
-    | Vsub => Let t xs (If t (Op t BoundsCheckBlock [Var t 0; Var t 1])
-                             (Op t El [Var t 0; Var t 1])
-                             (Raise t (Op t (Cons subscript_tag) [])))
-    | Asub => Let t xs (If t (Op t BoundsCheckArray [Var t 0; Var t 1])
-                             (Op t Deref [Var t 0; Var t 1])
-                             (Raise t (Op t (Cons subscript_tag) [])))
-    | Aupdate => Let t xs (If t (Op t BoundsCheckArray [Var t 1; Var t 2])
-                                (Op t Update [Var t 0; Var t 1; Var t 2])
-                                (Raise t (Op t (Cons subscript_tag) [])))
-    | Aw8sub => Let t xs (If t (Op t (BoundsCheckByte F) [Var t 0; Var t 1])
-                               (Op t DerefByte [Var t 0; Var t 1])
-                               (Raise t (Op t (Cons subscript_tag) [])))
-    | Strsub => Let t xs (If t (Op t (BoundsCheckByte F) [Var t 0; Var t 1])
-                               (Op t DerefByteVec [Var t 0; Var t 1])
-                               (Raise t (Op t (Cons subscript_tag) [])))
-    | _ => Let None xs (Var None 0)
-End
-
-Triviality MEM_IMP_exp_size:
-  !funs f v x. MEM (f,v,x) funs ==> exp_size x < flatLang$exp1_size funs
-Proof
-  Induct \\ fs [] \\ rw [] \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
-QED
-
-Definition compile_def:
-  (compile m [] = []) /\
-  (compile m (x::y::xs) = compile m [x] ++ compile m (y::xs)) /\
-  (compile m [flatLang$Raise t e] = [closLang$Raise t (HD (compile m [e]))]) /\
-  (compile m [Lit t l] = [compile_lit t l]) /\
-  (compile m [Var_local t v] = [Var t (findi (SOME v) m)]) /\
-  (compile m [Con t n es] =
-     let tag = (case n of SOME (t,_) => t | _ => 0) in
-       [Op t (Cons tag) (compile m (REVERSE es))]) /\
-  (compile m [App t op es] = [compile_op t op (compile m (REVERSE es))]) /\
-  (compile m [Fun t v e] = [Fn t NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
-  (compile m [If t x1 x2 x3] =
-     [If t (HD (compile m [x1]))
-           (HD (compile m [x2]))
-           (HD (compile m [x3]))]) /\
-  (compile m [Let t vo e1 e2] =
-     [Let t (compile m [e1]) (HD (compile (vo::m) [e2]))]) /\
-  (compile m [Mat t e pes] = [Op t (Const 0) []]) /\
-  (compile m [Handle t e pes] =
-     case dest_pat pes of
-     | SOME (v,h) => [Handle t (HD (compile m [e])) (HD (compile (SOME v::m) [h]))]
-     | _ => compile m [e]) /\
-  (compile m [Letrec t funs e] =
-     let new_m = MAP (\n. SOME (FST n)) funs ++ m in
-       [Letrec t NONE NONE
-          (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: new_m) [x]))) funs)
-          (HD (compile new_m [e]))])
-Termination
-  WF_REL_TAC `measure (flatLang$exp6_size o SND)` \\ rw []
-  \\ imp_res_tac MEM_IMP_exp_size \\ fs [dest_pat_thm]
-  \\ fs [flatLangTheory.exp_size_def]
-End
-
-Definition compile_decs_def:
-  compile_decs [] = [] /\
-  compile_decs ((Dlet e)::xs) = compile [] [e] ++ compile_decs xs /\
-  compile_decs (_::xs) = compile_decs xs
-End
-
-Theorem LENGTH_compile:
-  !m xs. LENGTH (compile m xs) = LENGTH xs
-Proof
-  ho_match_mp_tac compile_ind \\ fs [compile_def]
-  \\ rw [] \\ every_case_tac \\ fs []
-QED
-
-Theorem HD_compile[simp]:
-  [HD (compile m [x])] = compile m [x]
-Proof
-  qspecl_then [`m`,`[x]`] mp_tac (SIMP_RULE std_ss [] LENGTH_compile)
-  \\ Cases_on `compile m [x]` \\ fs []
 QED
 
 Definition no_Mat_def[simp]:
@@ -233,9 +81,6 @@ Inductive v_rel:
                        [x]))) funs) n))
 End
 
-Theorem env_rel_def =
-  ``env_rel env m db`` |> SIMP_CONV (srw_ss()) [Once v_rel_cases];
-
 Theorem v_rel_def =
   [``v_rel (Loc n) x1``,
    ``v_rel (Litv (IntLit l1)) x1``,
@@ -249,6 +94,8 @@ Theorem v_rel_def =
    ``v_rel (Recclosure x y t) x1``]
   |> map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
   |> LIST_CONJ
+
+Theorem env_rel_def = ``env_rel env m db`` |> ONCE_REWRITE_CONV [v_rel_cases];
 
 Definition opt_rel_def[simp]:
   opt_rel f NONE NONE = T /\
@@ -757,10 +604,20 @@ QED
 
 Theorem op_ints:
   (?b. op = Opb b) \/
-  (?n. op = Opn n) ==>
+  (?b. op = Opn b) ==>
   ^op_goal
 Proof
-  cheat
+  rpt strip_tac \\ Cases_on `b` \\ rveq
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ rpt (qpat_x_assum `v_rel _ _` mp_tac)
+  \\ once_rewrite_tac [v_rel_cases] \\ fs []
+  \\ rpt strip_tac \\ rveq \\ fs [do_word_op_def]
+  \\ rveq \\ fs [compile_op_def,arg1_def]
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
+  \\ simp [evaluate_def,do_app_def,opb_lookup_def,opn_lookup_def,do_eq_def]
+  \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [div_exn_v_def,v_rel_def,opn_lookup_def]
 QED
 
 Theorem op_words:
@@ -769,14 +626,34 @@ Theorem op_words:
   (?w. op = WordToInt w) ==>
   ^op_goal
 Proof
-  cheat
+  rw [] \\ Cases_on `w` \\ rveq \\ fs [] \\ TRY (Cases_on `w1`)
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ rpt (qpat_x_assum `v_rel _ _` mp_tac)
+  \\ once_rewrite_tac [v_rel_cases] \\ fs []
+  \\ rpt strip_tac \\ rveq \\ fs [do_word_op_def]
+  \\ rveq \\ fs [compile_op_def,arg1_def]
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
+  \\ simp [evaluate_def,do_app_def]
+  \\ fs [some_def,EXISTS_PROD]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ `!x. b = FST x ∧ b' = SND x <=> x = (b,b')` by (fs [FORALL_PROD] \\ metis_tac [])
+  \\ simp [integer_wordTheory.w2n_i2w]
 QED
 
 Theorem op_shifts:
   (?w s n. op = Shift w s n) ==>
   ^op_goal
 Proof
-  cheat
+  rw [] \\ Cases_on `w` \\ Cases_on `s` \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
+  \\ rename [`v_rel (Litv ww) y`] \\ Cases_on `ww`
+  \\ fs [v_rel_def,do_shift_def] \\ rveq \\ fs []
+  \\ fs [compile_op_def,evaluate_def,do_app_def,v_rel_def]
 QED
 
 Theorem op_floats:
@@ -786,20 +663,132 @@ Theorem op_floats:
   (?f. op = FP_top f) ==>
   ^op_goal
 Proof
-  cheat
+  rw [] \\ Cases_on `f` \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
+  \\ simp [compile_op_def,evaluate_def,do_app_def]
 QED
 
 Theorem op_byte_arrays:
-  (op = Aw8alloc) \/
-  (op = Aw8sub) \/
-  (op = Aw8length) \/
-  (op = Aw8update) \/
-  op = CopyStrAw8 \/
-  op = CopyAw8Str \/
-  op = CopyAw8Aw8 ==>
+  op = Aw8length \/
+  op = Aw8alloc \/
+  op = Aw8sub \/
+  op = Aw8update ==>
   ^op_goal
 Proof
-  cheat
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
+  \\ imp_res_tac lookup_byte_array
+  \\ fs [compile_op_def,subscript_exn_v_def,v_rel_def]
+  THEN1 fs [evaluate_def,do_app_def]
+  THEN1
+   (fs [evaluate_def,do_app_def,integerTheory.int_le]
+    \\ rw [] \\ fs [] \\ rveq \\ fs [v_rel_def]
+    \\ fs [store_alloc_def] \\ rveq \\ fs []
+    \\ imp_res_tac state_rel_LEAST \\ fs []
+    \\ fs [state_rel_def,store_rel_def,FLOOKUP_UPDATE,v_rel_def]
+    \\ strip_tac
+    \\ last_x_assum (qspec_then `i` mp_tac)
+    \\ rename [`¬(k < 0)`]
+    \\ `ABS k = k` by intLib.COOPER_TAC \\ simp []
+    \\ Cases_on `i = LENGTH s1.refs` \\ fs [EL_APPEND2]
+    \\ IF_CASES_TAC \\ fs [EL_APPEND1])
+  THEN1
+   (fs [evaluate_def,do_app_def,integerTheory.int_le]
+    \\ Cases_on `i < 0` \\ fs [] \\ rveq \\ fs [v_rel_def]
+    \\ rename [`¬(k < 0)`]
+    \\ `Num (ABS k) < LENGTH ws' <=> k < &LENGTH ws'` by intLib.COOPER_TAC
+    \\ fs [GREATER_EQ,GSYM NOT_LESS]
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [v_rel_def]
+    \\ `ABS k = k` by intLib.COOPER_TAC \\ simp [])
+  THEN1
+   (fs [evaluate_def,do_app_def,integerTheory.int_le]
+    \\ rename [`¬(k < 0)`]
+    \\ Cases_on `k < 0` \\ fs [] \\ rveq \\ fs [v_rel_def]
+    \\ `Num (ABS k) < LENGTH ws' <=> k < &LENGTH ws'` by intLib.COOPER_TAC
+    \\ fs [GREATER_EQ,GSYM NOT_LESS]
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [v_rel_def]
+    \\ fs [option_case_eq] \\ rveq \\ fs [v_rel_def,Unit_def,EVAL ``tuple_tag``]
+    \\ rename [`store_v_same_type (EL j s1.refs)`]
+    \\ Cases_on `EL j s1.refs` \\ fs [store_v_same_type_def]
+    \\ fs [state_rel_def,store_rel_def]
+    \\ strip_tac
+    \\ last_x_assum (qspec_then `i` mp_tac)
+    \\ fs [FLOOKUP_UPDATE] \\ IF_CASES_TAC \\ fs [EL_LUPDATE]
+    \\ Cases_on `i = j` \\ fs []
+    \\ rveq \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []
+    \\ `ABS k = k` by intLib.COOPER_TAC \\ simp [])
+QED
+
+Theorem op_byte_copy:
+  op = CopyStrAw8 \/
+  op = CopyAw8Str \/
+  op = CopyAw8Aw8 \/
+  op = CopyStrStr ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS,SWAP_REVERSE_SYM,v_rel_def] \\ rveq \\ fs []
+  \\ imp_res_tac lookup_byte_array
+  \\ fs [compile_op_def,subscript_exn_v_def,v_rel_def,CopyByteAw8_def,CopyByteStr_def]
+  \\ simp [evaluate_def,do_app_def]
+  THEN1
+   (fs [copy_array_def]
+    \\ qpat_x_assum `IS_SOME _ ==> _` mp_tac
+    \\ rpt (IF_CASES_TAC \\ fs [ws_to_chars_def])
+    \\ intLib.COOPER_TAC)
+  THEN1
+   (fs [copy_array_def] \\ fs [ws_to_chars_def]
+    \\ reverse IF_CASES_TAC THEN1 (fs [] \\ intLib.COOPER_TAC)
+    \\ reverse IF_CASES_TAC THEN1 (fs [] \\ intLib.COOPER_TAC)
+    \\ fs [Unit_def,EVAL ``tuple_tag``] \\ rveq \\ fs []
+    \\ fs [state_rel_def,store_rel_def]
+    \\ strip_tac \\ last_x_assum (qspec_then `i` mp_tac)
+    \\ fs [FLOOKUP_UPDATE,EL_LUPDATE]
+    \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on `i=dst` \\ fs []
+    \\ fs [chars_to_ws_def,MAP_TAKE,MAP_DROP,MAP_MAP_o,o_DEF,ORD_CHR,
+           integer_wordTheory.i2w_pos])
+  THEN1
+   (fs [copy_array_def]
+    \\ rpt (IF_CASES_TAC \\ fs [ws_to_chars_def])
+    \\ intLib.COOPER_TAC)
+  THEN1
+   (fs [copy_array_def] \\ fs [ws_to_chars_def]
+    \\ reverse IF_CASES_TAC THEN1 (fs [] \\ intLib.COOPER_TAC)
+    \\ fs [MAP_MAP_o,o_DEF])
+  THEN1
+   (fs [copy_array_def] \\ fs [ws_to_chars_def]
+    \\ qpat_x_assum `IS_SOME _ ==> _` mp_tac
+    \\ IF_CASES_TAC \\ fs [] \\ rpt strip_tac \\ fs []
+    \\ rpt (IF_CASES_TAC \\ fs [] \\ rpt strip_tac \\ fs [])
+    \\ intLib.COOPER_TAC)
+  THEN1
+   (fs [copy_array_def] \\ fs [ws_to_chars_def]
+    \\ reverse IF_CASES_TAC THEN1 (fs [] \\ intLib.COOPER_TAC)
+    \\ reverse IF_CASES_TAC THEN1 (fs [] \\ intLib.COOPER_TAC)
+    \\ fs [Unit_def,EVAL ``tuple_tag``] \\ rveq \\ fs []
+    \\ fs [state_rel_def,store_rel_def]
+    \\ strip_tac \\ last_x_assum (qspec_then `i` mp_tac)
+    \\ fs [FLOOKUP_UPDATE,EL_LUPDATE]
+    \\ IF_CASES_TAC \\ fs []
+    \\ Cases_on `i=dst'` \\ fs [])
+  THEN1
+   (fs [copy_array_def] \\ fs [ws_to_chars_def]
+    \\ rpt (IF_CASES_TAC \\ fs [] \\ rpt strip_tac \\ fs [])
+    \\ intLib.COOPER_TAC)
+  THEN1
+   (fs [copy_array_def] \\ fs [ws_to_chars_def]
+    \\ reverse IF_CASES_TAC THEN1 (fs [] \\ intLib.COOPER_TAC)
+    \\ fs [] \\ rveq \\ fs [MAP_TAKE,MAP_DROP])
 QED
 
 Theorem op_eq_gc:
@@ -844,16 +833,75 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem v_rel_v_to_char_list:
+  !x ls y.
+    v_to_char_list x = SOME ls /\ v_rel x y ==>
+    v_to_list y = SOME (MAP (Number ∘ $&) (MAP ORD ls))
+Proof
+  ho_match_mp_tac v_to_char_list_ind \\ rw []
+  \\ fs [v_rel_def,v_to_list_def,v_to_char_list_def]
+  \\ rveq \\ fs [option_case_eq] \\ rveq \\ fs []
+QED
+
 Theorem op_str:
-  op = Strsub \/
-  op = Strlen \/
-  op = Strcat \/
-  op = Implode \/
   op = Explode \/
-  op = CopyStrStr ==>
+  op = Implode \/
+  op = Strlen \/
+  op = Strsub \/
+  op = Strcat ==>
   ^op_goal
 Proof
-  cheat
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ fs [] \\ rveq \\ fs [PULL_EXISTS]
+  \\ fs [compile_op_def,evaluate_def,do_app_def,get_global_def,v_rel_def]
+  \\ rveq \\ fs [SWAP_REVERSE_SYM]
+  \\ rveq \\ fs [SWAP_REVERSE_SYM]
+  THEN1
+   (match_mp_tac IMP_v_rel_to_list \\ rename [`MAP _ xs`]
+    \\ qid_spec_tac `xs` \\ Induct \\ fs [v_rel_def,ORD_BOUND])
+  THEN1
+   (imp_res_tac v_rel_v_to_char_list \\ fs []
+    \\ `!xs. MAP (Number ∘ $&) (MAP ORD ls) =
+             MAP (Number ∘ $&) xs <=> xs = (MAP ORD ls)` by
+       (qid_spec_tac `ls` \\ Induct \\ Cases_on `xs`
+        \\ fs [] \\ rw [] \\ eq_tac \\ rw[])
+    \\ fs []
+    \\ `(!xs. xs = MAP ORD ls /\ EVERY (λn. n < 256n) xs <=>
+              xs = MAP ORD ls /\ EVERY (λn. n < 256n) (MAP ORD ls))` by
+          metis_tac [] \\ fs []
+    \\ `!ls. EVERY (λn. n < 256) (MAP ORD ls)` by (Induct \\ fs [ORD_BOUND]) \\ fs []
+    \\ fs [MAP_MAP_o,stringTheory.IMPLODE_EXPLODE_I])
+  THEN1
+   (fs [integerTheory.int_le] \\ rename [`~(i4 < 0)`]
+    \\ Cases_on `i4 < 0` \\ fs [] \\ rveq \\ fs [subscript_exn_v_def,v_rel_def]
+    \\ rename [`i4 < &LENGTH str`] \\ fs [GREATER_EQ,GSYM NOT_LESS]
+    \\ `Num (ABS i4) < STRLEN str <=> i4 < &STRLEN str` by intLib.COOPER_TAC \\ fs []
+    \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [v_rel_def]
+    \\ Cases_on `i4` \\ fs []
+    \\ fs [EL_MAP,ORD_BOUND] \\ Cases_on `str` \\ fs [EL_MAP,ORD_BOUND])
+  \\ qsuff_tac `!x vs str y.
+        v_to_list x = SOME vs /\ vs_to_string vs = SOME str /\ v_rel x y ==>
+        ?wss. v_to_list y = SOME (MAP ByteVector wss) /\
+              MAP (CHR o w2n) (FLAT wss) = str`
+  THEN1
+   (rpt (disch_then drule \\ fs []) \\ strip_tac \\ fs []
+    \\ `!xs ys. MAP ByteVector xs = MAP ByteVector ys <=> xs = ys` by
+           (Induct \\ Cases_on `ys` \\ fs []) \\ fs [] \\ rveq
+    \\ fs [MAP_MAP_o,o_DEF])
+  \\ rpt (pop_assum kall_tac)
+  \\ recInduct flatSemTheory.v_to_list_ind \\ rw [] \\ fs [v_rel_def]
+  \\ rveq \\ fs [flatSemTheory.v_to_list_def] \\ rveq \\ fs [vs_to_string_def]
+  \\ rveq \\ fs [] THEN1 (qexists_tac `[]` \\ EVAL_TAC)
+  \\ fs [option_case_eq] \\ rveq
+  \\ Cases_on `v1` \\ fs [flatSemTheory.v_to_list_def,vs_to_string_def]
+  \\ Cases_on `l` \\ fs [flatSemTheory.v_to_list_def,vs_to_string_def,option_case_eq]
+  \\ rveq \\ fs [v_rel_def,v_to_list_def,option_case_eq,PULL_EXISTS]
+  \\ res_tac \\ fs [] \\ rveq \\ fs []
+  \\ qexists_tac `(MAP (n2w ∘ ORD) s) :: wss`
+  \\ fs [MAP_MAP_o,o_DEF,ORD_BOUND,CHR_ORD]
 QED
 
 Theorem op_globals:
@@ -1034,7 +1082,7 @@ Proof
   EVERY (map assume_tac
     [op_refs, op_chars, op_ints, op_words, op_str, op_shifts,
      op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays,
-     op_globals, op_blocks, op_ffi])
+     op_globals, op_blocks, op_ffi, op_byte_copy])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []
 QED
