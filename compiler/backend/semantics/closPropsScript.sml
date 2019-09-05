@@ -3282,9 +3282,9 @@ val app_call_dests_def = tDefine "app_call_dests" `
 
 val _ = save_thm("app_call_dests_def[simp,compute]",app_call_dests_def);
 
-val _ = overload_on("call_dests",``app_call_dests (SOME T)``);
-val _ = overload_on("app_dests",``app_call_dests (SOME F)``);
-val _ = overload_on("any_dests",``app_call_dests NONE``);
+Overload call_dests = ``app_call_dests (SOME T)``
+Overload app_dests = ``app_call_dests (SOME F)``
+Overload any_dests = ``app_call_dests NONE``
 
 val app_call_dests_ind = theorem"app_call_dests_ind";
 

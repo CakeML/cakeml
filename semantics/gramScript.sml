@@ -180,9 +180,9 @@ val cmlG_def = mk_grammar_def ginfo
 
 Type NT = ``:MMLnonT inf``
 
-val _ = overload_on ("mkNT", ``INL : MMLnonT -> NT``)
-val _ = overload_on ("NN", ``\nt. NT (mkNT nt)``)
-val _ = overload_on ("TK", ``TOK : token -> (token,MMLnonT)symbol``)
+Overload mkNT = ``INL : MMLnonT -> NT``
+Overload NN = ``\nt. NT (mkNT nt)``
+Overload TK = ``TOK : token -> (token,MMLnonT)symbol``
 
 Type mlptree = ``:(token, MMLnonT, locs) parsetree``
 

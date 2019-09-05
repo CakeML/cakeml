@@ -54,7 +54,7 @@ val arm7_encode1_def = Define`
 val arm7_encode_def = Define`
    arm7_encode = combin$C LIST_BIND (UNCURRY arm7_encode1)`
 
-val () = Parse.temp_overload_on ("enc", ``arm7_encode1 AL``)
+Overload enc = ``arm7_encode1 AL``
 
 val arm7_bop_def = Define`
    (arm7_bop Add = 0b0100w: word4) /\

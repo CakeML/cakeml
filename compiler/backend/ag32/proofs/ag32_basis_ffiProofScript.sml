@@ -135,8 +135,7 @@ Proof
   \\ fs[ADD1,GSYM word_add_n2w]
 QED
 
-val _ = temp_overload_on("nxt",
-  ``λmc n ms. FUNPOW mc.target.next n ms``);
+Overaload nxt = ``λmc n ms. FUNPOW mc.target.next n ms``
 
 val interference_implemented_def = Define`
   interference_implemented mc ffi_rel md ms0 ⇔

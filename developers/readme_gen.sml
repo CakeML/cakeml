@@ -40,8 +40,10 @@ val HOLMAKEFILE_SUGGESTION =
 val ILLEGAL_STRINGS =
   [("store_thm(\"", "The Theorem syntax is to be used instead of store_thm."),
    ("type_abbrev(\"", "The Type syntax is to be used instead of type_abbrev."),
+   ("overload_on(\"", "Use Overload ... = ``...`` instead of overload_on."),
    ("Hol_datatype"^"`", "Use Datatype: ... End syntax instead of Hol_datatype."),
    ("Hol_rel"^"n`","Use Inductive ... End instead of old Hol_reln."),
+   ("Hol_rel"^"n\"","Use Inductive ... End instead of old Hol_reln."),
    ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln.")]
 
 (* Helper functions *)
@@ -88,8 +90,9 @@ fun check_width all_lines = let
           fail ("one or more lines exceed the line length limit of " ^ Int.toString MAX_CHAR_COUNT_PER_LINE ^ " characters")
   in () end
 
-fun check_for_illegal_strings NONE = ()
-  | check_for_illegal_strings (SOME all_lines) = let
+fun check_for_illegal_strings filename NONE = ()
+  | check_for_illegal_strings filename (SOME all_lines) =
+  if String.isSuffix "Lib.sml" filename then () else let
   val spaces = explode " \n\t"
   fun remove_spaces c = if mem c spaces then "" else implode [c]
   val entire_file_as_str = String.translate remove_spaces (concat all_lines)
@@ -170,7 +173,7 @@ fun read_block_comment start_comment end_comment filename = let
             (fn n => fn line => ( assert_no_trailing_whitespace n line ;
                                   assert_no_tabs_in_line n line ;
                                   assert_line_length_OK n line ))
-  val _ = check_for_illegal_strings (read_all_lines filename)
+  val _ = check_for_illegal_strings filename (read_all_lines filename)
   val f = open_textfile filename
   in let
     (* check that first line is comment *)

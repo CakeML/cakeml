@@ -219,7 +219,7 @@ val div_code_assum_def = Define `
           with <| permute := (λn. t1.permute (n + 1)) ;
                   locals := LN |> ))`
 
-val _ = temp_overload_on("max_var_name",``25n``);
+Overload max_var_name[local] = ``25n``
 
 val state_rel_def = Define `
   state_rel s (t:('a,'c,'ffi) wordSem$state) cs t0 frame <=>

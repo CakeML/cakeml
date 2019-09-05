@@ -78,8 +78,8 @@ End
 (* of their pre-defined behaviour.                                           *)
 (*---------------------------------------------------------------------------*)
 
-val _ = overload_on ("+", Term`$Or`);
-val _ = overload_on ("#", Term`$Then`);
+Overload "+" = ``$Or``
+Overload "#" = ``$Then``
 
 val _ = set_fixity "+" (Infixr 501);
 val _ = set_fixity "#" (Infixr 601);

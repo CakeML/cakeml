@@ -23,8 +23,9 @@ val user_expressible_tyname_def = Define‘
 ’;
 val _ = augment_srw_ss [rewrites [user_expressible_tyname_def]]
 
-val _ = temp_overload_on ("ND", “λn. Nd (mkNT n, ARB)”)
-val _ = temp_overload_on ("LF", “λt. Lf (TOK t, ARB)”)
+Overload ND[local] = “λn. Nd (mkNT n, ARB)”
+Overload LF[local] = “λt. Lf (TOK t, ARB)”
+
 val tyname_to_AST_def = Define‘
   tyname_to_AST (Short n) = ND nTyOp [ND nUQTyOp [LF (AlphaT n)]] ∧
   tyname_to_AST (Long md (Short n)) = ND nTyOp [LF (LongidT md n)] ∧

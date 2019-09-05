@@ -10,10 +10,10 @@ val _ = ParseExtras.temp_loose_equality();
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = monadsyntax.temp_add_monadsyntax()
 
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
 
 val _ = hide "state";
 
@@ -66,9 +66,9 @@ val _ = define_monad_access_funs ``:hol_refs``;
 (* failwith *)
 
 val _ = define_monad_exception_functions ``:hol_exn`` ``:hol_refs``;
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
-val _ = temp_overload_on ("raise_clash", ``raise_Clash``);
-val _ = temp_overload_on ("handle_clash", ``handle_Clash``);
+Overload failwith[local] = ``raise_Fail``
+Overload raise_clash[local] = ``raise_Clash``
+Overload handle_clash[local] = ``handle_Clash``
 
 (* others *)
 
@@ -273,10 +273,11 @@ val _ = tDefine "type_subst" `
   let bty = mk_vartype "B";;
 *)
 
-val _ = temp_overload_on("bool_ty",``mk_type(strlit"bool",[])``);
 val _ = Define `mk_fun_ty ty1 ty2 = mk_type(strlit"fun",[ty1; ty2])`;
-val _ = temp_overload_on("aty",``mk_vartype (strlit "A")``);
-val _ = temp_overload_on("bty",``mk_vartype (strlit "B")``);
+
+Overload bool_ty[local] = ``mk_type(strlit"bool",[])``
+Overload aty[local] = ``mk_vartype (strlit "A")``
+Overload bty[local] = ``mk_vartype (strlit "B")``
 
 (*
   let constants() = !the_term_constants

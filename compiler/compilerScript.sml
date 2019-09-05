@@ -83,7 +83,7 @@ val locs_to_string_def = Define `
          toString endl.col])`;
 
 (* this is a rather annoying feature of peg_exec requiring locs... *)
-val _ = overload_on("add_locs",``MAP (λc. (c,unknown_loc))``);
+Overload add_locs = ``MAP (λc. (c,unknown_loc))``
 
 val compile_def = Define`
   compile c prelude input =

@@ -69,8 +69,8 @@ val ag32_jump_constant_def = Define`
    let v = if adjust_offset then v - 8w else v in
     [LoadConstant (r, F, (22 >< 0) v); LoadUpperConstant (r, (31 >< 23) v)]`;
 
-val () = Parse.temp_overload_on ("enc", ``ag32_encode1``)
-val () = Parse.temp_overload_on ("temp_reg", ``63w : word6``)
+Overload enc[local] = ``ag32_encode1``
+Overload temp_reg[local] = ``63w : word6``
 
 val ag32_enc_def = Define`
    (ag32_enc (Inst Skip) =

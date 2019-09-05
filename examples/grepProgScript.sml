@@ -663,8 +663,8 @@ val grep = process_topdecs`
 val _ = append_prog grep;
 
 (* TODO: maybe these would be better with the arguments flipped? *)
-val _ = temp_overload_on("addout",``combin$C add_stdout``);
-val _ = temp_overload_on("adderr",``combin$C add_stderr``);
+Overload addout = ``combin$C add_stdout``
+Overload adderr = ``combin$C add_stderr``
 
 val grep_sem_file_def = Define`
   grep_sem_file L filename fs =

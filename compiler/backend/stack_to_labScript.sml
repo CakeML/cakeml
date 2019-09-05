@@ -11,7 +11,7 @@ val _ = new_theory "stack_to_lab";
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val _ = temp_overload_on ("Asm",``λa. Asm (Asmi a)``);
+Overload Asm[local] = ``λa. Asm (Asmi a)``
 
 val compile_jump_def = Define `
   (compile_jump (INL n) = LabAsm (Jump (Lab n 0)) 0w [] 0) /\
@@ -29,7 +29,7 @@ val negate_def = Define `
 
 val _ = export_rewrites ["negate_def"];
 
-val _ = temp_overload_on("++",``misc$Append``)
+Overload "++"[local] = ``misc$Append``
 
 local val flatten_quotation = `
   flatten p n m =

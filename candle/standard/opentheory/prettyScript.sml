@@ -58,9 +58,9 @@ val mk_blo_def = Define `
 
 val pp_margin_def = Define `pp_margin = 78n`;
 
-val _ = temp_overload_on ("space", ``(strlit" ")``);
-val _ = temp_overload_on ("lpar", ``(strlit"(")``);
-val _ = temp_overload_on ("rpar", ``(strlit")")``);
+Overload space[local] = ``(strlit" ")``
+Overload lpar[local] = ``(strlit"(")``
+Overload rpar[local] = ``(strlit")")``
 
 (* ------------------------------------------------------------------------- *)
 (* A pretty printer for HOL types.                                           *)
