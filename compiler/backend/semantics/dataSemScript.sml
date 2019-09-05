@@ -87,6 +87,21 @@ Termination
   \\ imp_res_tac check_res_IMP \\ fs []
 End
 
+Triviality check_res_size_of:
+  check_res refs (size_of vs refs seen) = size_of vs refs seen
+Proof
+  qsuff_tac
+    `!vs refs seen. size (( \ (n,refs,seen). refs) (size_of vs refs seen)) <= size refs`
+  THEN1 (rw [] \\ pop_assum (assume_tac o SPEC_ALL) \\ pairarg_tac \\ fs [check_res_def])
+  \\ ho_match_mp_tac size_of_ind \\ fs [size_of_def] \\ rw []
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[]
+  \\ fs [check_res_def,bool_case_eq,option_case_eq,pair_case_eq,CaseEq"ref"]
+  \\ rveq \\ fs [] \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs[] \\ fs [size_delete]
+QED
+
+Theorem size_of_def = REWRITE_RULE [check_res_size_of] size_of_def
+Theorem size_of_ind = REWRITE_RULE [check_res_size_of] size_of_ind
+
 Definition extract_stack_def:
   extract_stack (Env env) = toList env /\
   extract_stack (Exc env _) = toList env
