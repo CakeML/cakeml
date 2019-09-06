@@ -899,7 +899,7 @@ val FV_def = tDefine "FV"`
      | INR (INR (INR (defs))) => exp1_size defs)`);
 val _ = export_rewrites["FV_def"]
 
-val _ = Parse.overload_on("SFV",``λe. {x | Short x ∈ FV e}``)
+Overload SFV = ``λe. {x | Short x ∈ FV e}``
 
 Theorem FV_pes_MAP:
    FV_pes pes = BIGUNION (IMAGE (λ(p,e). FV e DIFF (IMAGE Short (set (pat_bindings p [])))) (set pes))
@@ -931,7 +931,7 @@ val new_dec_vs_def = Define`
   (new_dec_vs (Dletrec _ funs) = MAP FST funs)`
 val _ = export_rewrites["new_dec_vs_def"];
 
-val _ = Parse.overload_on("new_decs_vs",``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``)
+Overload new_decs_vs = ``λdecs. FLAT (REVERSE (MAP new_dec_vs decs))``
 
 val FV_decs_def = Define`
   (FV_decs [] = {}) ∧
@@ -955,6 +955,6 @@ val all_env_dom_def = Define`
   all_env_dom (envM,envC,envE) =
     IMAGE Short (set (MAP FST envE)) ∪
     { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`;
-    *)
+*)
 
 val _ = export_theory ();

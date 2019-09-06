@@ -122,9 +122,9 @@ val check_state_def = Define`
   in EVERY (check_v s) all_vs
 `
 
-val _ = overload_on("add_space_safe",
+Overload add_space_safe =
   ``λk ^s. s.safe_for_space ∧ check_state s
-           ∧ size_of_heap s + k <= s.limits.heap_limit``);
+           ∧ size_of_heap s + k <= s.limits.heap_limit``
 
 val add_space_def = Define `
   add_space ^s k =
@@ -148,11 +148,11 @@ val space_consumed_def = Define `
   space_consumed (op:closLang$op) (l:num) = ARB
 `
 
-val _ = overload_on("do_space_safe",
+Overload do_space_safe =
   ``λop l ^s. if op_space_reset op
               then s.safe_for_space ∧ allowed_op op l
                    ∧ size_of_heap s + space_consumed op l <= s.limits.heap_limit
-              else s.safe_for_space``);
+              else s.safe_for_space``
 
 val do_space_def = Define `
   do_space op l arch_size ^s =
@@ -218,7 +218,8 @@ val do_eq_def = tDefine"do_eq"`
   (WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`);
 val _ = export_rewrites["do_eq_def"];
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(dataSem$v#('c,'ffi) dataSem$state, dataSem$v)result``)
+Overload Error[local] =
+  ``(Rerr(Rabort Rtype_error)):(dataSem$v#('c,'ffi) dataSem$state, dataSem$v)result``
 
 val do_install_def = Define `
   do_install vs ^s =
@@ -249,7 +250,7 @@ val list_to_v_def = Define`
   list_to_v ts t [] = t ∧
   list_to_v ts t (h::l) = Block ts cons_tag [h; list_to_v (ts+1) t l]`;
 
-val _ = overload_on("Block_nil",``Block 0 nil_tag []``);
+Overload Block_nil = ``Block 0 nil_tag []``
 
 val with_fresh_ts_def = Define`
   with_fresh_ts ^s n f = case s.tstamps of
@@ -509,11 +510,11 @@ val do_app_aux_def = Define `
     | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
     | _ => Error`;
 
-val _ = overload_on("do_app_safe",
+Overload do_app_safe =
   ``λop vs s. if op = Install
               then s.safe_for_space (* ASK: Really? *)
               else if MEM op [Greater; GreaterEq] then s.safe_for_space
-              else do_space_safe op (LENGTH vs) s``);
+              else do_space_safe op (LENGTH vs) s``
 
 val do_app_def = Define `
   do_app op vs arch_size ^s =

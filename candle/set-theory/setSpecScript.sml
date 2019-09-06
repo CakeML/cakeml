@@ -18,7 +18,7 @@ val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U->bool``
 
 val _ = Parse.add_infix("<:",425,Parse.NONASSOC)
-val _ = Parse.overload_on("<:",mem)
+Overload "<:" = ``mem:'U->'U->bool``
 
 val extensional_def = Define`
   extensional ^mem ⇔ ∀x y. x = y ⇔ ∀a. mem a x ⇔ mem a y`
@@ -114,9 +114,9 @@ Proof
 QED
 
 val _ = Parse.add_infix("suchthat",9,Parse.LEFT)
-val _ = Parse.overload_on("suchthat",``sub ^mem``)
-val _ = Parse.overload_on("Pow",``power ^mem``)
-val _ = Parse.overload_on("+",``upair ^mem``)
+Overload suchthat = ``sub ^mem``
+Overload Pow = ``power ^mem``
+Overload "+" = ``upair ^mem``
 
 Theorem mem_sub:
    is_set_theory ^mem ⇒ ∀x s P. x <: (s suchthat P) ⇔ x <: s ∧ P x
@@ -147,7 +147,7 @@ QED
 val empty_def = Define`
   empty ^mem = sub mem ARB (K F)`
 
-val _ = Parse.overload_on("∅",``empty ^mem``)
+Overload "∅" = ``empty ^mem``
 
 Theorem mem_empty:
    is_set_theory ^mem ⇒ ∀x. ¬(x <: ∅)
@@ -159,7 +159,7 @@ QED
 val unit_def = Define`
   unit ^mem x = x + x`
 
-val _ = Parse.overload_on("Unit",``unit ^mem``)
+Overload Unit = ``unit ^mem``
 
 Theorem mem_unit:
    is_set_theory ^mem ⇒
@@ -182,7 +182,7 @@ QED
 val one_def = Define`
   one ^mem = Unit ∅`
 
-val _ = Parse.overload_on("One",``one ^mem``)
+Overload One = ``one ^mem``
 
 Theorem mem_one:
    is_set_theory ^mem ⇒
@@ -194,7 +194,7 @@ QED
 val two_def = Define`
   two ^mem = ∅ + One`
 
-val _ = Parse.overload_on("Two",``two ^mem``)
+Overload Two = ``two ^mem``
 
 Theorem mem_two:
    is_set_theory ^mem ⇒
@@ -206,7 +206,7 @@ QED
 val pair_def = Define`
   pair ^mem x y = (Unit x) + (x + y)`
 
-val _ = Parse.overload_on(",",``pair ^mem``)
+Overload "," = ``pair ^mem``
 
 Theorem upair_inj:
    is_set_theory ^mem ⇒
@@ -240,7 +240,7 @@ QED
 val binary_union_def = Define`
   binary_union ^mem x y = union mem (upair mem x y)`
 
-val _ = Parse.overload_on("UNION",``binary_union ^mem``)
+Overload UNION = ``binary_union ^mem``
 
 Theorem mem_binary_union:
    is_set_theory ^mem ⇒
@@ -255,7 +255,7 @@ val product_def = Define`
     (Pow (Pow (x ∪ y)) suchthat
      λa. ∃b c. b <: x ∧ c <: y ∧ a = (b,c))`
 
-val _ = Parse.overload_on("CROSS",``product ^mem``)
+Overload CROSS = ``product ^mem``
 
 Theorem mem_product:
    is_set_theory ^mem ⇒
@@ -271,21 +271,21 @@ QED
 val relspace_def = Define`
   relspace ^mem x y = Pow (x × y)`
 
-val _ = Parse.overload_on("Relspace",``relspace ^mem``)
+Overload Relspace = ``relspace ^mem``
 
 val funspace_def = Define`
   funspace ^mem x y =
     (Relspace x y suchthat
      λf. ∀a. a <: x ⇒ ∃!b. (a,b) <: f)`
 
-val _ = Parse.overload_on("Funspace",``funspace ^mem``)
+Overload Funspace = ``funspace ^mem``
 
 val apply_def = Define`
   apply ^mem x y = @a. (y,a) <: x`
 
-val _ = Parse.overload_on("'",``apply ^mem``)
+Overload "'" = ``apply ^mem``
 
-val _ = Parse.overload_on("boolset",``Two``)
+Overload boolset = ``Two``
 
 val true_def = Define`
   true ^mem = ∅`
@@ -293,8 +293,8 @@ val true_def = Define`
 val false_def = Define`
   false ^mem = One`
 
-val _ = Parse.overload_on("True",``true ^mem``)
-val _ = Parse.overload_on("False",``false ^mem``)
+Overload True = ``true ^mem``
+Overload False = ``false ^mem``
 
 Theorem true_neq_false:
    is_set_theory ^mem ⇒ True ≠ False
@@ -316,7 +316,7 @@ QED
 val boolean_def = Define`
   boolean ^mem b = if b then True else False`
 
-val _ = Parse.overload_on("Boolean",``boolean ^mem``)
+Overload Boolean = ``boolean ^mem``
 
 Theorem boolean_in_boolset:
    is_set_theory ^mem ⇒
@@ -335,12 +335,12 @@ QED
 val holds_def = Define`
   holds ^mem s x ⇔ s ' x = True`
 
-val _ = Parse.overload_on("Holds",``holds ^mem``)
+Overload Holds = ``holds ^mem``
 
 val abstract_def = Define`
   abstract ^mem dom rng f = (dom × rng suchthat λx. ∃a. x = (a,f a))`
 
-val _ = Parse.overload_on("Abstract",``abstract ^mem``)
+Overload Abstract = ``abstract ^mem``
 
 Theorem apply_abstract:
    is_set_theory ^mem ⇒
@@ -441,7 +441,7 @@ val indset = ``indset:'U``
 val ch = ``ch:'U->'U``
 val s = ``(^mem,^indset,^ch)``
 
-val _ = Parse.overload_on("M",s)
+Overload M = ``(^mem,^indset,^ch)``
 
 val is_choice_def = Define`
   is_choice ^mem ch = ∀x. (∃a. a <: x) ⇒ ch x <: x`
@@ -479,7 +479,7 @@ QED
 val tuple_def = Define`
   (tuple0 ^mem [] = ∅) ∧
   (tuple0 ^mem (a::as) = (a, tuple0 ^mem as))`
-val _ = Parse.overload_on("tuple",``tuple0 ^mem``)
+Overload tuple = ``tuple0 ^mem``
 
 Theorem pair_not_empty:
    is_set_theory ^mem ⇒ (x,y) ≠ ∅
@@ -512,7 +512,7 @@ QED
 val bigcross_def = Define`
   (bigcross0 ^mem [] = One) ∧
   (bigcross0 ^mem (a::as) = a × (bigcross0 ^mem as))`
-val _ = Parse.overload_on("bigcross",``bigcross0 ^mem``)
+Overload bigcross = ``bigcross0 ^mem``
 
 Theorem mem_bigcross:
    is_set_theory ^mem ⇒

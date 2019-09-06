@@ -21,8 +21,8 @@ val config = global_state_config |>
              with_exception ``:state_exn``;
 
 (* Parser overloadings for exceptions *)
-val _ = temp_overload_on("failwith", ``raise_Fail1``);
-val _ = temp_overload_on("handle_fail", ``handle_Fail1``);
+Overload failwith = ``raise_Fail1``
+Overload handle_fail = ``handle_Fail1``
 
 (* It is possible to define the exception handling functions by hand:
 

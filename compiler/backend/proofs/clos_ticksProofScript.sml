@@ -10,7 +10,7 @@ fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = new_theory "clos_ticksProof";
 
-val _ = temp_overload_on("remove_ticks",``clos_ticks$remove_ticks``);
+Overload remove_ticks[local] = ``clos_ticks$remove_ticks``
 
 Theorem remove_ticks_IMP_LENGTH:
    !(es:closLang$exp list) xs. xs = remove_ticks es ==> LENGTH es = LENGTH xs

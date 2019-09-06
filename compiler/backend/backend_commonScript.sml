@@ -48,7 +48,7 @@ val _ = Datatype`
 
 (* The code below replaces "Cons" in hol output with the chosen symbol *)
 val _ = set_fixity "▷" (Infixl 480);
-val _ = overload_on ("▷", Term `backend_common$Cons`);
+Overload "▷" = ``backend_common$Cons``
 
 (* An "orphan" expression is one that originates directly from a declaration.
 * This happens in source_to_mod, and in con_to_dec. It is an orphan because
@@ -69,7 +69,7 @@ val mk_cons_def = Define`
        | _    => Cons tr n`;
 
 val _ = set_fixity "§" (Infixl 480);
-val _ = overload_on ("§", Term `backend_common$mk_cons`);
+Overload "§" = ``backend_common$mk_cons``
 
 (* Create new Cons trace, unless any of the original traces are `None`,
 * indicating traces are turned off. *)

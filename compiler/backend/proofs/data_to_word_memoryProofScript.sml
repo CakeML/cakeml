@@ -29,7 +29,7 @@ val _ = set_grammar_ancestry
   ["dataSem", "dataProps", "wordSem", "data_to_word",
    "gc_shared", "gc_combined", "word_gcFunctions"];
 val _ = Parse.hide"el";
-val _ = temp_overload_on("good_dimindex", ``labProps$good_dimindex``);
+Overload good_dimindex[local] = ``labProps$good_dimindex``
 
 val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
 val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/

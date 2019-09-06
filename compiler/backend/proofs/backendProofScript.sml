@@ -148,29 +148,29 @@ val heap_regs_def = Define`
   heap_regs reg_names =
     (find_name reg_names 2, find_name reg_names 4)`;
 
-val _ = temp_overload_on("bvl_inline_compile_prog",``bvl_inline$compile_prog``);
-val _ = temp_overload_on("bvi_tailrec_compile_prog",``bvi_tailrec$compile_prog``);
-val _ = temp_overload_on("bvi_to_data_compile_prog",``bvi_to_data$compile_prog``);
-val _ = temp_overload_on("bvl_to_bvi_compile_prog",``bvl_to_bvi$compile_prog``);
-val _ = temp_overload_on("bvl_to_bvi_compile_inc",``bvl_to_bvi$compile_inc``);
-val _ = temp_overload_on("bvl_to_bvi_compile",``bvl_to_bvi$compile``);
-val _ = temp_overload_on("bvi_to_data_compile",``bvi_to_data$compile``);
-val _ = temp_overload_on("bvi_let_compile",``bvi_let$compile``);
-val _ = temp_overload_on("bvl_const_compile",``bvl_const$compile``);
-val _ = temp_overload_on("bvl_handle_compile",``bvl_handle$compile``);
-val _ = temp_overload_on("bvl_inline_compile_inc",``bvl_inline$compile_inc``);
-val _ = temp_overload_on("bvl_to_bvi_compile_exps",``bvl_to_bvi$compile_exps``);
-val _ = temp_overload_on("pat_to_clos_compile",``pat_to_clos$compile``);
-val _ = temp_overload_on("flat_to_pat_compile",``flat_to_pat$compile``);
-val _ = temp_overload_on("stack_remove_prog_comp",``stack_remove$prog_comp``);
-val _ = temp_overload_on("stack_alloc_prog_comp",``stack_alloc$prog_comp``);
-val _ = temp_overload_on("stack_names_prog_comp",``stack_names$prog_comp``);
+Overload bvl_inline_compile_prog[local] = ``bvl_inline$compile_prog``
+Overload bvi_tailrec_compile_prog[local] = ``bvi_tailrec$compile_prog``
+Overload bvi_to_data_compile_prog[local] = ``bvi_to_data$compile_prog``
+Overload bvl_to_bvi_compile_prog[local] = ``bvl_to_bvi$compile_prog``
+Overload bvl_to_bvi_compile_inc[local] = ``bvl_to_bvi$compile_inc``
+Overload bvl_to_bvi_compile[local] = ``bvl_to_bvi$compile``
+Overload bvi_to_data_compile[local] = ``bvi_to_data$compile``
+Overload bvi_let_compile[local] = ``bvi_let$compile``
+Overload bvl_const_compile[local] = ``bvl_const$compile``
+Overload bvl_handle_compile[local] = ``bvl_handle$compile``
+Overload bvl_inline_compile_inc[local] = ``bvl_inline$compile_inc``
+Overload bvl_to_bvi_compile_exps[local] = ``bvl_to_bvi$compile_exps``
+Overload pat_to_clos_compile[local] = ``pat_to_clos$compile``
+Overload flat_to_pat_compile[local] = ``flat_to_pat$compile``
+Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
+Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
+Overload stack_names_prog_comp[local] = ``stack_names$prog_comp``
 
 (* TODO: remove when theorems are moved *)
-val _ = temp_overload_on("obeys_max_app",``closProps$obeys_max_app``);
-val _ = temp_overload_on("no_Labels",``closProps$no_Labels``);
-val _ = temp_overload_on("every_Fn_SOME",``closProps$every_Fn_SOME``);
-val _ = temp_overload_on("code_locs",``closProps$code_locs``);
+Overload obeys_max_app[local] = ``closProps$obeys_max_app``
+Overload no_Labels[local] = ``closProps$no_Labels``
+Overload every_Fn_SOME[local] = ``closProps$every_Fn_SOME``
+Overload code_locs[local] = ``closProps$code_locs``
 
 (* TODO re-define syntax_ok on terms of things in closPropsTheory
  * (invent new properties), and prove elsewhere
@@ -291,9 +291,9 @@ Proof
   \\ match_mp_tac clos_to_bvlProofTheory.chain_exps_every_Fn_SOME \\ fs []
 QED
 
-val _ = temp_overload_on("esgc_free",``patProps$esgc_free``);
-val _ = temp_overload_on("elist_globals",``flatProps$elist_globals``);
-val _ = temp_overload_on("set_globals",``flatProps$set_globals``);
+Overload esgc_free = ``patProps$esgc_free``
+Overload elist_globals = ``flatProps$elist_globals``
+Overload set_globals = ``flatProps$set_globals``
 
 Theorem word_list_exists_imp:
    dm = stack_removeProof$addresses a n /\

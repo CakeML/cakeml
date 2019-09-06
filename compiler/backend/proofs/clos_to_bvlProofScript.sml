@@ -5275,7 +5275,7 @@ val even_stubs3 = Q.prove (
   metis_tac []);
   *)
 
-val _ = overload_on("code_loc'",``λe. code_locs [e]``);
+Overload code_loc' = ``λe. code_locs [e]``
 
 Theorem MAP_FST_chain_exps:
    ∀i ls. ls <> [] ==> (MAP FST (chain_exps i ls) = MAP ((+)i) (COUNT_LIST (LENGTH ls)))
@@ -8693,19 +8693,5 @@ Proof
       |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
   \\ fs []
 QED
-
-(*
-val () = temp_overload_on("acompile",``clos_annotate$compile``);
-val () = temp_overload_on("mcompile",``clos_mti$compile``);
-val () = temp_overload_on("kcompile",``clos_known$compile``);
-val () = temp_overload_on("ccompile",``clos_call$compile``);
-val () = temp_overload_on("acompile_inc",``clos_annotateProof$compile_inc``);
-val () = temp_overload_on("mcompile_inc",``clos_mtiProof$compile_inc``);
-val () = temp_overload_on("kcompile_inc",``clos_knownProof$compile_inc``);
-val () = temp_overload_on("ccompile_inc",``clos_callProof$compile_inc``);
-val () = temp_overload_on("msyntax_ok",``clos_mtiProof$syntax_ok``);
-val () = temp_overload_on("ksyntax_ok",``clos_knownProof$syntax_ok``);
-val () = temp_overload_on("csyntax_ok",``clos_callProof$syntax_ok``);
-*)
 
 val _ = export_theory();

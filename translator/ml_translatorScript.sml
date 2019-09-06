@@ -92,7 +92,7 @@ val Arrow_def = Define `
   Arrow a b =
     \f v. !x. AppReturns (a x) v (b (f x))`;
 
-val _ = overload_on ("-->",``Arrow``)
+Overload "-->" = ``Arrow``
 
 val Eq_def = Define `
   Eq (abs:'a->v->bool) x =

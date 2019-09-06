@@ -239,31 +239,31 @@ val mk_proj2_def = Define`
 (*------------------------------------------------------------------*)
 (** Notations for heap predicates *)
 
-val _ = overload_on ("*+", Term `STARPOST`)
+Overload "*+" = ``STARPOST``
 val _ = add_infix ("*+", 580, HOLgrammars.LEFT)
 
-val _ = overload_on ("==>>", Term `SEP_IMP`)
+Overload "==>>" = ``SEP_IMP``
 val _ = add_infix ("==>>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==+>", Term `SEP_IMPPOST`)
+Overload "==+>" = ``SEP_IMPPOST``
 val _ = add_infix ("==+>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==v>", Term `SEP_IMPPOSTv`)
+Overload "==v>" = ``SEP_IMPPOSTv``
 val _ = add_infix ("==v>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==e>", Term `SEP_IMPPOSTe`)
+Overload "==e>" = ``SEP_IMPPOSTe``
 val _ = add_infix ("==e>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==f>", Term `SEP_IMPPOSTf`)
+Overload "==f>" = ``SEP_IMPPOSTf``
 val _ = add_infix ("==f>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("==d>", Term `SEP_IMPPOSTd`)
+Overload "==d>" = ``SEP_IMPPOSTd``
 val _ = add_infix ("==d>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("=~v>", Term `SEP_IMPPOSTv_inv`)
+Overload "=~v>" = ``SEP_IMPPOSTv_inv``
 val _ = add_infix ("=~v>", 470, HOLgrammars.RIGHT)
 
-val _ = overload_on ("=~e>", Term `SEP_IMPPOSTe_inv`)
+Overload "=~e>" = ``SEP_IMPPOSTe_inv``
 val _ = add_infix ("=~e>", 470, HOLgrammars.RIGHT)
 
 (* val _ = add_rule {fixity = Closefix, term_name = "cond", *)
@@ -276,12 +276,12 @@ val _ = add_infix ("=~e>", 470, HOLgrammars.RIGHT)
 (*                   paren_style = OnlyIfNecessary, *)
 (*                   pp_elements = [TOK "<=", TM, TOK ">"]} *)
 
-val _ = overload_on ("&", Term `cond`)
+Overload "&" = ``cond``
 
-val _ = overload_on ("~~>>", Term `cell`)
+Overload "~~>>" = ``cell``
 val _ = add_infix ("~~>>", 690, HOLgrammars.NONASSOC)
 
-val _ = overload_on ("~~>", Term `REF`)
+Overload "~~>" = ``REF``
 val _ = add_infix ("~~>", 690, HOLgrammars.NONASSOC)
 
 (*------------------------------------------------------------------*)

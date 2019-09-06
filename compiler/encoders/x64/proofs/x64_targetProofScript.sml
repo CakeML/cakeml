@@ -8,7 +8,7 @@ val () = new_theory "x64_targetProof"
 
 val () = wordsLib.guess_lengths()
 
-val () = Parse.temp_overload_on ("reg", ``\r. Zr (total_num2Zreg r)``)
+Overload reg[local] = ``\r. Zr (total_num2Zreg r)``
 
 (* some lemmas ---------------------------------------------------------- *)
 

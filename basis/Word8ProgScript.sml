@@ -147,6 +147,6 @@ Proof
 `n1 MOD 256 = n1` by fs[] >> `n2 MOD 256 = n2` by fs[] >> fs[]
 QED
 
-val _ = overload_on("WORD8",``WORD:word8 -> v -> bool``);
+Overload WORD8 = ``WORD:word8 -> v -> bool``
 
 val _ = export_theory()

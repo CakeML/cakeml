@@ -481,7 +481,7 @@ val st = ml_translatorLib.get_ml_prog_state();
 val io_events_def = Define `
   io_events = SIO [||]`;
 
-val _ = overload_on("yes",``yes_v``);
+Overload yes = ``yes_v``
 
 Theorem yes_spec:
   !uv.

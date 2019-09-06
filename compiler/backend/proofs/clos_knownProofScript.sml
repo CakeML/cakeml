@@ -4629,7 +4629,7 @@ val syntax_ok_def = Define`
     BAG_ALL_DISTINCT (elist_globals xs) /\
     EVERY esgc_free xs`;
 
-val _ = temp_overload_on("fvs_compile",``clos_fvs$compile``);
+Overload fvs_compile = ``clos_fvs$compile``
 
 val fvs_inc = ``clos_fvsProof$compile_inc : clos_prog -> clos_prog``;
 

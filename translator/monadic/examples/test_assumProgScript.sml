@@ -35,7 +35,7 @@ val config =  global_state_config |>
               ] |>
               with_state_invariant STATE_PINV_def STATE_PINV_VALID;
 
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
+Overload failwith = ``raise_Fail``
 
 val _ = start_translation config;
 

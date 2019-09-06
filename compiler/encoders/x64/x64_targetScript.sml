@@ -27,18 +27,16 @@ val x64_ok_def = Define`
 val total_num2Zreg_def = Define`
   total_num2Zreg n = if n < 16 then num2Zreg n else RAX`
 
-val () = Parse.temp_overload_on ("reg", ``\r. Zr (total_num2Zreg r)``)
-val () = Parse.temp_overload_on ("xr", ``\r. xmm_reg (n2w r)``)
+Overload reg[local] = ``\r. Zr (total_num2Zreg r)``
+Overload xr[local] = ``\r. xmm_reg (n2w r)``
 
-val () = Parse.temp_overload_on
-   ("ld",
+Overload ld =
     ``\r1 r2 a.
-       Zr_rm (total_num2Zreg r1, Zm (NONE, ZregBase (total_num2Zreg r2), a))``)
+       Zr_rm (total_num2Zreg r1, Zm (NONE, ZregBase (total_num2Zreg r2), a))``
 
-val () = Parse.temp_overload_on
-   ("st",
+Overload st =
     ``\r1 r2 a.
-       Zrm_r (Zm (NONE, ZregBase (total_num2Zreg r2), a), total_num2Zreg r1)``)
+       Zrm_r (Zm (NONE, ZregBase (total_num2Zreg r2), a), total_num2Zreg r1)``
 
 val x64_bop_def = Define`
    (x64_bop Add = Zadd) /\

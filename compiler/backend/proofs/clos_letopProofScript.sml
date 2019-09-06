@@ -9,8 +9,8 @@ fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = new_theory "clos_letopProof";
 
-val _ = temp_overload_on("let_op",``clos_letop$let_op``);
-val _ = temp_overload_on("var_list",``clos_letop$var_list``);
+Overload let_op = ``clos_letop$let_op``
+Overload var_list = ``clos_letop$var_list``
 
 Theorem let_op_SING:
    !x. ?y. let_op [x] = [y]

@@ -24,8 +24,8 @@ val handle_ok_def = bvl_handleProofTheory.handle_ok_def;
 val drule = old_drule
 
 (* value relation *)
-val _ = temp_overload_on ("num_stubs", ``bvl_num_stubs``)
-val _ = temp_overload_on ("nss", ``bvl_to_bvi_namespaces``);
+Overload num_stubs[local] = ``bvl_num_stubs``
+Overload nss[local] = ``bvl_to_bvi_namespaces``
 
 val adjust_bv_def = tDefine "adjust_bv" `
   (adjust_bv b (Number i) = Number i) /\
@@ -72,8 +72,8 @@ Proof
   \\ rw [] \\ fs [] \\ res_tac \\ fs []
 QED
 
-val _ = temp_overload_on("in_ns_0",``λn. n MOD bvl_to_bvi_namespaces = 0``);
-val _ = temp_overload_on("in_ns_1",``λn. n MOD bvl_to_bvi_namespaces = 1``);
+Overload in_ns_0[local] = ``λn. n MOD bvl_to_bvi_namespaces = 0``
+Overload in_ns_1[local] = ``λn. n MOD bvl_to_bvi_namespaces = 1``
 
 val names_ok_def = Define `
   names_ok s_code t_code s_oracle <=>

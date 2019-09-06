@@ -96,7 +96,7 @@ QED
 
 (* value relation *)
 
-val _ = overload_on("alt_fv_set",``λx y. alt_fv y x``);
+Overload alt_fv_set = ``λx y. alt_fv y x``
 
 Inductive v_rel:
   (v_rel (Number j) (Number j))

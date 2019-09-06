@@ -8,14 +8,14 @@ val _ = new_theory "holKernelProof";
 
 val _ = ParseExtras.temp_loose_equality();
 val _ = hide"str";
-val _ = temp_overload_on ("monad_bind", ``st_ex_bind``);
-val _ = temp_overload_on ("monad_unitbind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("monad_ignore_bind", ``\x y. st_ex_bind x (\z. y)``);
-val _ = temp_overload_on ("return", ``st_ex_return``);
-val _ = temp_overload_on ("ex_return", ``st_ex_return``);
-val _ = temp_overload_on ("failwith", ``raise_Fail``);
-val _ = temp_overload_on ("raise_clash", ``raise_Clash``);
-val _ = temp_overload_on ("handle_clash", ``handle_Clash``);
+Overload monad_bind[local] = ``st_ex_bind``
+Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
+Overload return[local] = ``st_ex_return``
+Overload ex_return[local] = ``st_ex_return``
+Overload failwith[local] = ``raise_Fail``
+Overload raise_clash[local] = ``raise_Clash``
+Overload handle_clash[local] = ``handle_Clash``
 
 val _ = hide "state";
 
@@ -35,7 +35,7 @@ val REPLICATE_11 = Q.prove(
   `!m n x. (REPLICATE n x = REPLICATE m x) = (m = n)`,
   Induct \\ Cases \\ SRW_TAC [] [rich_listTheory.REPLICATE]);
 
-val _ = temp_overload_on("impossible_term",``holSyntax$Comb (Var (strlit "x") Bool) (Var (strlit "x") Bool)``);
+Overload impossible_term = ``holSyntax$Comb (Var (strlit "x") Bool) (Var (strlit "x") Bool)``
 
 (* ------------------------------------------------------------------------- *)
 (* case_eq theorems                                                          *)
@@ -411,7 +411,7 @@ QED
 (* Verification of term functions                                            *)
 (* ------------------------------------------------------------------------- *)
 
-val _ = temp_overload_on("aty",``(Tyvar (strlit "A")):type``);
+Overload aty[local] = ``(Tyvar (strlit "A")):type``
 
 val get_const_type_thm = Q.prove(
   `!name s z s'.
