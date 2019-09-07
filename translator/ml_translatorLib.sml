@@ -4617,7 +4617,8 @@ val state = state'
 fun clean_v_thms () = let
   val inst_env = INST [env_tm |-> get_curr_env()]
   fun can_lookup_constant (_,_,c_tm,_,_,_) =
-    can clean_assumptions_quietly (D (inst_env (hol2deep c_tm)))
+    ((can clean_assumptions_quietly (D (inst_env (lookup_v_thm c_tm))))
+     handle Interrupt => raise Interrupt | _ => false)
   val delete_count = filter_v_thms can_lookup_constant
   in if delete_count < 1 then () else
        print ("Removed " ^ int_to_string delete_count ^

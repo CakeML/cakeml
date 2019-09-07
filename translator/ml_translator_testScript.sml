@@ -436,5 +436,4 @@ val res = translate TAKE_def;
 val res = translate DROP_def;
 val res = translate chop_str_def
 
-val _ = filter_v_thms (fn (n,_,_,_,_,_) => not (String.isPrefix "test" n));
 val _ = export_theory();
