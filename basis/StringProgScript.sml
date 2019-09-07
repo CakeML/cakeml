@@ -174,7 +174,7 @@ val _ = translate mlstring_gt_def;
 
 val _ = ml_prog_update open_local_block;
 val result = translate collate_aux_def;
-val collate_aux_side_def = theorem"collate_aux_1_side_def";
+val collate_aux_side_def = theorem"collate_aux_side_def";
 val _ = ml_prog_update open_local_in_block;
 
 val _ = next_ml_names := ["collate"];
@@ -185,7 +185,7 @@ val collate_aux_side_thm = Q.prove (
   `!f s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
       then strlen s1
-    else strlen s2) ==> collate_aux_1_side f s1 s2 ord n len`,
+    else strlen s2) ==> collate_aux_side f s1 s2 ord n len`,
   Induct_on `len` \\ rw [Once collate_aux_side_def]);
 
 val collate_side_thm = Q.prove (
