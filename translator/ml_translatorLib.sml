@@ -46,12 +46,17 @@ exception NotFoundVThm of term;
 
 local
   val use_string_type_ref = ref false;
+  val finalise_function = ref (I:unit -> unit);
 in
   fun use_string_type b =
     (use_string_type_ref := b;
      if b then print "Translator now treats `char list` as a CakeML string.\n"
      else print "Translator now treats `char list` as a list of characters in CakeML.\n");
   fun use_hol_string_type () = !use_string_type_ref
+  fun add_finalise_function f = let
+    val old_f = !finalise_function
+    in (finalise_function := (fn () => (old_f (); f ()))) end
+  fun run_finalise_function () = (!finalise_function) ()
 end
 
 (* / non-persistent state *)
@@ -223,6 +228,11 @@ in
     val _ = if Teq (concl pre_def) then () else
             (print ("\nWARNING: " ^ml_name^" has a precondition.\n\n"))
     in (v_thms := (name,ml_name,tm,th,pre_def,modules) :: (!v_thms)) end;
+  fun filter_v_thms f = let
+    val xs = (!v_thms)
+    val ys = filter f xs
+    val _ = (v_thms := ys)
+    in length xs - length ys end
   (* if the order didn't matter...
   fun replace_v_thm c th = let
     val (found_v_thms,left_v_thms) = partition (same_const c o get_const) (!v_thms)
@@ -828,6 +838,7 @@ in
   fun finalise_translation () =
     if !finalised then () else let
       val _ = (finalised := true)
+      val _ = run_finalise_function ()
       val _ = pack_state ()
       val _ = print_translation_output ()
       in () end
@@ -3018,9 +3029,10 @@ fun move_Eval_conv tm =
 
 (*
 val th = D res
+val be_quiet = true
 *)
 
-fun clean_assumptions th = let
+fun clean_assumptions_aux be_quiet th = let
   val start = start_timing "clean assumptions"
   val lhs1 = get_term "nsLookup_pat"
   val pattern1 = mk_eq(lhs1,mk_var("_",type_of lhs1))
@@ -3032,9 +3044,10 @@ fun clean_assumptions th = let
                |> filter (fn th => th |> concl |> rand |> is_const)
   val _ = case List.find (fn l => Feq (l |> concl |> rand)) lemmas of
       NONE => ()
-    | SOME t => (print "clean_assumptions: false assumption\n\n";
-        print_thm t; print "\n\n"; failwith ("clean_assumptions: false"
-          ^ Parse.thm_to_string t))
+    | SOME t => ((if be_quiet then () else
+                    (print "clean_assumptions: false assumption\n\n";
+                     print_thm t; print "\n\n")) ;
+                 failwith ("clean_assumptions: false" ^ Parse.thm_to_string t))
   val th = REWRITE_RULE lemmas th
   (* lift EqualityType assumptions out *)
   val pattern = get_term "eq type"
@@ -3054,6 +3067,9 @@ fun clean_assumptions th = let
   val th = REWRITE_RULE [PreImpEval_def] th2
   val _ = end_timing start
   in th end;
+
+fun clean_assumptions th = clean_assumptions_aux false th;
+fun clean_assumptions_quietly th = clean_assumptions_aux true th;
 
 fun get_pre_var lhs fname = let
   fun list_mk_type [] ret_ty = ret_ty
@@ -4593,6 +4609,20 @@ val state' = add_dec_for_v_thm (el 8 desired_v_thms,state)
 val state = state'
 
 *)
+
+(*
+  val xs = get_v_thms ()
+  val (_,_,c_tm,_,_,_) = hd (tl (get_v_thms ()))
+*)
+fun clean_v_thms () = let
+  val inst_env = INST [env_tm |-> get_curr_env()]
+  fun can_lookup_constant (_,_,c_tm,_,_,_) =
+    can clean_assumptions_quietly (D (inst_env (hol2deep c_tm)))
+  val delete_count = filter_v_thms can_lookup_constant
+  in if delete_count < 1 then () else
+       print ("Removed " ^ int_to_string delete_count ^
+              " unreachable v thms from translator's state.\n") end;
+val _ = add_finalise_function clean_v_thms;
 
 fun mlDefine q = let
   val def = Define q
