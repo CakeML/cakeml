@@ -37,7 +37,7 @@ fun regexpc r =
      val [t1,t2,t3] = strip_pair triple
      val start_state_thm = regexpEval ``lookup regexp_compare (normalize ^regexp_tm) ^t1``
      val dom_Brz_thm = EQT_ELIM (Count.apply regexpEval
-                      ``dom_Brz_alt empty [normalize ^regexp_tm]``)
+                      ``dom_Brz_alt empty (singleton (normalize ^regexp_tm) ())``)
      val hyps_thm = LIST_CONJ [compile_thm, start_state_thm,dom_Brz_thm]
      val thm = SIMP_RULE list_ss [fromList_Vector,ORD_BOUND,alphabet_size_def]
                        (SPEC regexp_tm Brzozowski_partial_eval_conseq)

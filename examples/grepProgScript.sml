@@ -55,33 +55,34 @@ val _ = translate balanced_mapTheory.ratio_def;
 val _ = translate balanced_mapTheory.delta_def;
 val _ = translate balanced_mapTheory.balanceL_def;
 val _ = translate balanced_mapTheory.balanceR_def;
+
 val _ = translate balanced_mapTheory.deleteFindMax_def;
 
 val deleteFindmax_side_thm = Q.prove (
-  `!m. m ≠ Tip ⇒ deletefindmax_1_side m`,
+  `!m. m ≠ Tip ⇒ deletefindmax_side m`,
   ho_match_mp_tac balanced_mapTheory.deleteFindMax_ind >>
-  ONCE_REWRITE_TAC [theorem "deletefindmax_1_side_def"] >>
+  ONCE_REWRITE_TAC [theorem "deletefindmax_side_def"] >>
   rw [] >>
-  ONCE_REWRITE_TAC [theorem "deletefindmax_1_side_def"] >>
+  ONCE_REWRITE_TAC [theorem "deletefindmax_side_def"] >>
   rw [] >>
   metis_tac []) |> update_precondition;
 
 val _ = translate balanced_mapTheory.deleteFindMin_def;
 
 val deleteFindmin_side_thm = Q.prove (
-  `!m. m ≠ Tip ⇒ deletefindmin_1_side m`,
+  `!m. m ≠ Tip ⇒ deletefindmin_side m`,
   ho_match_mp_tac balanced_mapTheory.deleteFindMin_ind >>
-  ONCE_REWRITE_TAC [theorem "deletefindmin_1_side_def"] >>
+  ONCE_REWRITE_TAC [theorem "deletefindmin_side_def"] >>
   rw [] >>
-  ONCE_REWRITE_TAC [theorem "deletefindmin_1_side_def"] >>
+  ONCE_REWRITE_TAC [theorem "deletefindmin_side_def"] >>
   rw [] >>
   metis_tac []) |> update_precondition;
 
 val _ = translate balanced_mapTheory.glue_def;
 
 val glue_side_thm = Q.prove (
-  `!m n. glue_1_side m n`,
-  rw [fetch "-" "glue_1_side_def"] >>
+  `!m n. glue_side m n`,
+  rw [fetch "-" "glue_side_def"] >>
   metis_tac [deleteFindmin_side_thm, deleteFindmax_side_thm,
     balanced_mapTheory.balanced_map_distinct])
   |> update_precondition;
@@ -139,11 +140,13 @@ val r = translate Brz_def;
 
 (* Version of compile_regexp that avoids dom_Brz and Brzozo.
    The latter functions are probably untranslatable. *)
+
 val compile_regexp_with_limit_def =
  Define
    `compile_regexp_with_limit r =
       let r' = normalize r in
-      case Brz balanced_map$empty [r']
+      case Brz balanced_map$empty
+               (balanced_map$singleton r' ())
                (1n, balanced_map$singleton r' 0n, []) MAXNUM_32 of
           NONE => NONE
         | SOME(states,last_state,state_numbering,table) =>
@@ -210,7 +213,7 @@ Proof
   >> rw[pairTheory.ELIM_UNCURRY]
 QED
 
-val r = translate (regexp_matcher_with_limit_def);
+val r = translate regexp_matcher_with_limit_def;
 
 val mem_tolist = Q.prove(`MEM (toList l) (MAP toList ll) = MEM l ll`,
   Induct_on `ll` >> fs[]);
@@ -258,7 +261,8 @@ val exec_dfa_side_imp = Q.prove(
 val compile_regexp_with_limit_dom_brz = Q.prove(
   `!r result.
     compile_regexp_with_limit r = SOME result
-    ==> dom_Brz empty [normalize r] (1,singleton (normalize r) 0, [])`,
+    ==> dom_Brz empty (singleton (normalize r) ())
+                (1,singleton (normalize r) 0, [])`,
   rw[compile_regexp_with_limit_def, dom_Brz_def, MAXNUM_32_def]
   >> every_case_tac
   >> metis_tac [IS_SOME_EXISTS]);
@@ -272,7 +276,7 @@ val compile_regexp_with_limit_lookup = Q.prove(
        by(metis_tac[compile_regexp_with_limit_dom_brz,
                     compile_regexp_good_vec,
                     compile_regexp_with_limit_sound])
-  >> fs[eq_cmp_bmapTheory.fdom_def]);
+  >> fs[regexp_mapTheory.fdom_def]);
 
 Theorem tolist_fromlist_map_cancel:
    MAP mlvector$toList (MAP fromList ll) = ll
@@ -280,10 +284,27 @@ Proof
   Induct_on `ll` >> fs[]
 QED
 
-val regexp_matcher_with_limit_side_def = Q.prove(
-  `!r s. regexp_matcher_with_limit_side r s ⇔ T`,
+
+val compile_regexp_with_limit_side_def =
+    fetch"-" "compile_regexp_with_limit_side_def"
+
+val lem = Q.prove
+(`!bst. balanced_map$null bst <=> (bst = Tip)`,
+ Cases >> rw[balanced_mapTheory.null_def]);
+
+val brz_side_def =
+  fetch "-" "brz_side_def"
+    |> simp_rule [deleteFindmin_side_thm,lem]
+
+val brz_side_thm = Q.prove
+(`!a b c d. brz_side a b c d`,
+ Induct_on `d` >> rw[Once brz_side_def]);
+
+val regexp_matcher_with_limit_side_def = Q.prove
+(`!r s. regexp_matcher_with_limit_side r s ⇔ T`,
   rw[fetch "-" "regexp_matcher_with_limit_side_def"]
   >> rpt strip_tac
+  >- simp[compile_regexp_with_limit_side_def, brz_side_thm]
   >- (match_mp_tac exec_dfa_side_imp
       >> rpt strip_tac
       >- (rw[tolist_fromlist_map_cancel]
@@ -300,19 +321,6 @@ val regexp_matcher_with_limit_side_def = Q.prove(
           >> fs[good_vec_def] >> metis_tac []))
   >- metis_tac [compile_regexp_with_limit_lookup]) |> update_precondition;
 
-(* TODO: should this be in regexp_compilerTheory *)
-
-Theorem regexp_matcher_correct:
-   dom_Brz_alt empty [normalize r] ⇒
-   (regexp_matcher r s ⇔ s ∈ regexp_lang r)
-Proof
-  rw[regexp_matcher_def]
-  \\ pairarg_tac \\ fs[]
-  \\ imp_res_tac compile_regexp_good_vec
-  \\ rfs[dom_Brz_alt_equal,eq_cmp_bmapTheory.fdom_def]
-  \\ imp_res_tac Brzozowski_partial_eval_256
-  \\ simp[IN_DEF]
-QED
 
 (* -- *)
 
@@ -626,7 +634,7 @@ val build_matcher_side = Q.prove(
   rw[definition"build_matcher_side_def"]
   \\ Cases_on`s` \\ fs[LENGTH_NIL]) |> update_precondition;
 
-val build_matcher_v_thm = theorem"build_matcher_v_thm"
+val build_matcher_v_thm = theorem"build_matcher_v_thm";
 
 Theorem build_matcher_partial_spec:
    REGEXP_REGEXP_TYPE r rv ⇒
@@ -796,7 +804,8 @@ val grep_termination_assum_def = Define`
    if NULL filenames then T else
      case parse_regexp (explode regexp) of
      | NONE => T
-     | SOME r => IS_SOME (Brz empty [normalize r] (1,singleton (normalize r) 0,[]) MAXNUM_32)) ∧
+     | SOME r => IS_SOME (Brz empty (singleton (normalize r) ())
+                                    (1,singleton (normalize r) 0,[]) MAXNUM_32)) ∧
   (grep_termination_assum _ ⇔ T)`;
 
 Theorem grep_spec:
@@ -907,7 +916,7 @@ Proof
     \\ simp[FILTER_EQ,build_matcher_def,FRONT_APPEND]
     \\ gen_tac
     \\ fs[Abbr`cl`,grep_termination_assum_def,Abbr`fls`]
-    \\ `dom_Brz_alt empty [normalize r]`
+    \\ `dom_Brz_alt empty (singleton (normalize r) ())`
     by ( metis_tac[dom_Brz_alt_equal,dom_Brz_def] )
     \\ drule (GSYM(GEN_ALL regexp_matcher_correct)) \\ rw[]
     \\ rw[match_line_def]
