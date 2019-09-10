@@ -1257,14 +1257,14 @@ Proof
     \\ first_x_assum irule
     \\ simp []
     \\ asm_exists_tac
-    \\ fs [build_rec_env_eq_MAP, env_rel_def, nv_rel_LIST_REL, FILTER_APPEND]
+    \\ fs [build_rec_env_eq_MAP, env_rel_def, FILTER_APPEND]
     \\ irule ALOOKUP_rel_append_suff
     \\ simp [UNCURRY, MAP_MAP_o, o_DEF]
     \\ irule ALOOKUP_rel_eq_fst
     \\ rw [LIST_REL_EL_EQN, EL_MAP, UNCURRY]
     \\ simp [Once v_rel_cases]
     \\ qexists_tac `N`
-    \\ fs [ELIM_UNCURRY, list_max_LESS, EVERY_MAP, nv_rel_LIST_REL]
+    \\ fs [ELIM_UNCURRY, list_max_LESS, EVERY_MAP]
     \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac MONO_EVERY)
     \\ simp []
   )
