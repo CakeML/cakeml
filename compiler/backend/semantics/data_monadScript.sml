@@ -21,6 +21,12 @@ Definition fail_def[simp]:
     (SOME (Rerr(Rabort Rtype_error)), s)
 End
 
+Definition timeout_def[simp]:
+  (timeout : ('c,'ffi) M) s =
+    (SOME (Rerr(Rabort Rtimeout_error)),
+     s with <| stack := []; locals := LN|>)
+End
+
 Definition bind_def:
   bind ^f ^g s =
     case f s of
@@ -51,9 +57,7 @@ Definition tailcall_def:
       case find_code dest vs s.code of
       | NONE => fail s
       | SOME (args,prog) =>
-          if s.clock = 0 then
-            (SOME (Rerr(Rabort Rtimeout_error)),
-             s with <| stack := [] ; locals := LN |>)
+          if s.clock = 0 then timeout s
           else
             let (res,s) = evaluate (prog, call_env args (dec_clock s)) in
               if res = NONE then fail s else (res,s)
@@ -83,8 +87,16 @@ Definition move_def:
     | SOME v => (NONE, set_var dest v s)
 End
 
+Definition tick_def:
+  tick s =
+      if s.clock = 0
+      then timeout s
+      else (NONE,dec_clock s)
+End
+
 Definition to_shallow_def:
-  to_shallow Skip = skip /\
+  to_shallow Skip            = skip /\
+  to_shallow Tick            = tick /\
   to_shallow (Move dest src) = move dest src /\
   to_shallow (Assign n op vars cutset) = assign n (op, vars, cutset) /\
   to_shallow (Seq p1 p2) = bind (to_shallow p1) (to_shallow p2) /\
@@ -116,7 +128,7 @@ Proof
   THEN1
    (fs [get_var_def] \\ rw [] \\ CASE_TAC
     \\ fs [call_env_def,fromList_def])
-  THEN1 cheat
+  THEN1 rw[tick_def,timeout_def,call_env_def,state_component_equality,fromList_def]
 QED
 
 Overload monad_unitbind[local] = ``bind``
