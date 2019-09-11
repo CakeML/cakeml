@@ -76,8 +76,16 @@ End
 Overload ":=" = ``assign``
 val _ = set_fixity ":=" (Infixl 480);
 
+Definition move_def:
+  move dest src s =
+    case lookup src s.locals of
+    | NONE => fail s
+    | SOME v => (NONE, set_var dest v s)
+End
+
 Definition to_shallow_def:
   to_shallow Skip = skip /\
+  to_shallow (Move dest src) = move dest src /\
   to_shallow (Assign n op vars cutset) = assign n (op, vars, cutset) /\
   to_shallow (Seq p1 p2) = bind (to_shallow p1) (to_shallow p2) /\
   to_shallow (Return n) = return n /\
@@ -92,7 +100,7 @@ Theorem to_shallow_thm:
 Proof
   Induct \\ fs [to_shallow_def,evaluate_def]
   \\ rpt gen_tac
-  THEN1 cheat
+  THEN1 rw [move_def,get_var_def]
   THEN1
    (rename [`Call ret dest args handler`]
     \\ Cases_on `ret` THEN1
