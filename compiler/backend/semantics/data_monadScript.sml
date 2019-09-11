@@ -63,6 +63,13 @@ Definition tailcall_def:
               if res = NONE then fail s else (res,s)
 End
 
+Definition makespace_def:
+  makespace k names s =
+     case cut_env names s.locals of
+     | NONE => fail s
+     | SOME env => (NONE,add_space s k with locals := env)
+End
+
 Definition assign_def:
   assign dest (op, args, names_opt) s =
     if op_requires_names op /\ IS_NONE names_opt then fail s else
@@ -98,6 +105,7 @@ Definition to_shallow_def:
   to_shallow Skip            = skip /\
   to_shallow Tick            = tick /\
   to_shallow (Move dest src) = move dest src /\
+  to_shallow (MakeSpace k names) =  makespace k names /\
   to_shallow (Assign n op vars cutset) = assign n (op, vars, cutset) /\
   to_shallow (Seq p1 p2) = bind (to_shallow p1) (to_shallow p2) /\
   to_shallow (Return n) = return n /\
@@ -123,7 +131,7 @@ Proof
   THEN1 cheat
   THEN1 cheat
   THEN1 cheat
-  THEN1 cheat
+  THEN1 rw [makespace_def]
   THEN1 cheat
   THEN1
    (fs [get_var_def] \\ rw [] \\ CASE_TAC
