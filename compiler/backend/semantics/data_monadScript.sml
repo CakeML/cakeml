@@ -70,7 +70,7 @@ Definition assign_def:
         | SOME xs =>
           case do_app op xs s of
           | Rerr e => (SOME (Rerr e), s with <| stack := []; locals := LN |>)
-          | Rval (v,s) => (NONE, set_var dest v s))
+          | Rval (v,s) => (NONE, set_var dest v s)
 End
 
 Overload ":=" = ``assign``
