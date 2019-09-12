@@ -158,24 +158,33 @@ Theorem to_shallow_thm:
 Proof
   Induct \\ fs [to_shallow_def,evaluate_def]
   \\ rpt gen_tac
-  THEN1 rw [move_def,get_var_def]
-  THEN1
-   (rename [`Call ret dest args handler`]
-    \\ Cases_on `ret` THEN1
-     (reverse (Cases_on `handler`) \\ fs [to_shallow_def]
-      \\ fs [tailcall_def]
-      \\ rpt (TOP_CASE_TAC \\ fs [call_env_def,fromList_def]))
+  (* Move *)
+  >- rw [move_def,get_var_def]
+  (* Call *)
+  >-(rename [`Call ret dest args handler`]
+    \\ Cases_on `ret`
+    >- (reverse (Cases_on `handler`) \\ fs [to_shallow_def]
+       \\ fs [tailcall_def]
+       \\ rpt (TOP_CASE_TAC \\ fs [call_env_def,fromList_def]))
     \\ Cases_on `x` \\ rw[to_shallow_def,call_def,call_env_def]
     \\ rpt (TOP_CASE_TAC \\ fs [call_env_def,fromList_def]))
-  THEN1 cheat
-  THEN1 cheat
-  THEN1 cheat
-  THEN1 rw [makespace_def]
-  THEN1 rw [raise_def]
-  THEN1
-   (fs [get_var_def] \\ rw [] \\ CASE_TAC
-    \\ fs [call_env_def,fromList_def])
-  THEN1 rw[tick_def,timeout_def,call_env_def,state_component_equality,fromList_def]
+  (* Assign *)
+  >-(rw [assign_def] \\ fs []
+    \\ rpt (TOP_CASE_TAC \\ fs [call_env_def,fromList_def]))
+  (* Seq/Bind *)
+  >- (rw[bind_def]  \\ rpt (TOP_CASE_TAC \\ fs []))
+  (* If *)
+  >- (rw[if_var_def] \\ fs [get_var_def]
+     \\ rpt (TOP_CASE_TAC \\ fs []))
+  (* Makespace *)
+  >- rw [makespace_def]
+  (* Raise *)
+  >- rw [raise_def]
+  (* Return *)
+  >- (fs [get_var_def] \\ rw []
+     \\ CASE_TAC \\ fs [call_env_def,fromList_def])
+  (* Tick *)
+  \\ rw[tick_def,timeout_def,call_env_def,state_component_equality,fromList_def]
 QED
 
 Overload monad_unitbind[local] = ``bind``
