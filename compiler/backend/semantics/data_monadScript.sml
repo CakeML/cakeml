@@ -84,8 +84,8 @@ Definition assign_def:
           | Rval (v,s) => (NONE, set_var dest v s)
 End
 
-Overload ":=" = ``assign``
-val _ = set_fixity ":=" (Infixl 480);
+Overload ":≡" = ``assign``
+val _ = set_fixity ":≡" (Infixl 480);
 
 Definition move_def:
   move dest src s =
