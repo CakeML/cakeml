@@ -9781,10 +9781,6 @@ Proof
  \\ simp[GENLIST_FUN_EQ]
 QED
 
-(* splits l, into limbs of size x and pads the front one with c *)
-val SPLIT_into_limbs_def = Define`SPLIT_into_padded_limbs c x l
-       = GENLIST(\i. PAD_LEFT c x (TAKE x (LASTN (x*(i+1)) l))) (ROUNDUP_DIV (LENGTH l) x)`
-
 Theorem LENGTH_LASTN_EQ:
   !n x. LENGTH (LASTN n x) = if n <= LENGTH x then n else LENGTH x
 Proof
@@ -9864,36 +9860,182 @@ Proof
   \\ simp[LENGTH_dropWhile_LESS_EQ]
 QED
 
-Theorem v2mw_alt:
-  !v. v2mw (:'a) v = MAP v2w (REVERSE (SPLIT_into_padded_limbs F (dimindex(:'a)) v))
+Theorem n2mw_not_ends_with_0w:
+  !x y n. n <> 0 ==> n2mw x <> y ++ GENLIST (K (0w:'a word)) n
 Proof
-  simp[LENGTH_v2mw,SPLIT_into_limbs_def]
-  \\ simp[v2mw_def,PAD_RIGHT]
-  \\ simp[MAP_GENLIST,MAP_REVERSE,REVERSE_GENLIST]
-  (*\\ Q.MATCH_ABBREV_TAC`X = GENLIST Y N`
-  \\ `N =(N-LENGTH (n2mw (v2n v):('a word list))) + (LENGTH (n2mw (v2n v):'a
-  word list))` by ... *)
-  \\ cheat
+ ho_match_mp_tac n2mw_ind
+ \\ rw[]
+ \\ ONCE_REWRITE_TAC[n2mw_def]
+ \\ TOP_CASE_TAC \\ fs[]
+ >- (Cases_on`n` \\ simp[GENLIST])
+ \\ Cases_on`y` \\ fs[]
+ \\ Cases_on`n` \\ fs[]
+ \\ simp[ADD1,GENLIST_APPEND]
+ \\ Cases_on`x MOD dimword(:'a)` \\ fs[]
+ \\ Cases_on`n'` \\ fs[]
+ >- (simp[n2mw_EQ_NIL]
+     \\ fs[DIV_EQ_0]
+     \\ CCONTR_TAC \\ fs[]
+ )
+ \\ first_x_assum (assume_tac o Q.SPECL[`[]`,`SUC n`])
+ \\ fs[]
+ \\ Q.MATCH_ABBREV_TAC`_ <> GENLIST X _`
+ \\ `X = K 0w` suffices_by simp[]
+ \\ UNABBREV_ALL_TAC \\ fs[K_DEF]
 QED
 
-
-
-Theorem v2mw_same_length_11:
-  !v1 v2. LENGTH v1 = LENGTH v2 ==>
-      (v2mw (:'a) v1 = v2mw (:'a) v2 <=> v1 = v2)
+Theorem GENLIST_K_EQ_CONS:
+  !x m h t. GENLIST (K x) m = h::t <=>
+      (m = LENGTH(h::t) /\ (h = x) /\ (EVERY ($= x) t))
 Proof
-  rw[] \\ eq_tac \\ fs[]
-  \\ simp[v2mw_def]
-  \\ simp[MAP_REVERSE]
-  \\ cheat
+  rw[]
+  \\ eq_tac \\ strip_tac \\ fs[]
+  >- (Cases_on`m` \\ fs[]
+      \\ fs[ADD1]
+      \\ fs[GENLIST_APPEND]
+      \\ rfs[]
+      \\ clean_tac \\ rveq
+      \\ simp[EVERY_GENLIST])
+  \\ clean_tac
+  \\ fs[EVERY_EQ_GENLIST]
+  \\ rveq
+  \\ pop_assum(fn a=>SUBST_TAC[a])
+  \\ simp[]
+  \\ simp[ADD1,GENLIST_APPEND]
+  \\ rpt (MK_COMB_TAC \\ simp[])
+  \\ simp[K_DEF]
 QED
 
-Theorem MAP_Word_11:
-   !x y. MAP Word x = MAP Word y <=> x = y
+Theorem v2mw_same_length_11_lemma:
+  !x m y n. n2mw x ++ GENLIST (K 0w) m = n2mw y ++ GENLIST (K 0w) n
+  <=> (m = n /\ x = y)
 Proof
-   Induct \\ rw[]
-   >- (eq_tac \\ fs[])
-   \\ Induct_on`y` \\ rw[]
+  rw[] \\ reverse(eq_tac) >- rw[]
+  \\ rw[]
+  \\ Cases_on`REVERSE(n2mw x)`
+  >-(fs[]
+     \\ Cases_on`REVERSE (n2mw y)` \\ fs[]
+     >-(LAST_X_ASSUM(ASSUME_TAC o Q.AP_TERM`LENGTH`)
+        \\ fs[]
+     )
+     \\ fs[SWAP_REVERSE_SYM]
+     \\ `h = 0w` by (
+         LAST_X_ASSUM(fn a => ASSUME_TAC a \\ ASSUME_TAC(Q.AP_TERM`LENGTH` a))
+         \\ fs[]
+         \\ CCONTR_TAC
+         \\ Q.MATCH_ASMSUB_ABBREV_TAC `GENLIST X Y = Z`
+         \\ Q.UNDISCH_TAC`GENLIST X Y = Z` \\ UNABBREV_ALL_TAC
+         \\ simp[]
+         \\ simp[Once GENLIST_APPEND]
+         \\ Q.MATCH_ABBREV_TAC`_ ++ GENLIST X _ <> _`
+         \\ `X = K 0w` by (
+            UNABBREV_ALL_TAC \\ simp[K_DEF]
+         )
+         \\ ASM_REWRITE_TAC[] \\ UNABBREV_ALL_TAC \\ pop_assum kall_tac
+         \\ simp[GENLIST_APPEND_REVERSE]
+     )
+     \\ fs[]
+     \\ ASSUME_TAC (Q.SPECL[`y`,`REVERSE t`,`1`]n2mw_not_ends_with_0w)
+     \\ fs[])
+  >-(fs[]
+     \\ Cases_on`REVERSE(n2mw y)=[]` \\ fs[]
+     >-(LAST_X_ASSUM(fn a => ASSUME_TAC a \\ (ASSUME_TAC (Q.AP_TERM`LENGTH` a)))
+        \\ fs[]
+        \\ CCONTR_TAC
+        \\ Cases_on`LENGTH(n2mw x) = 0` \\ fs[]
+        \\ fs[SWAP_REVERSE_SYM]
+        \\ clean_tac
+        \\ rfs[]
+        \\ clean_tac
+        \\ fs[n2mw_EQ_NIL]
+        \\ fs[Once GENLIST_APPEND]
+        \\ pop_assum mp_tac \\ fs[]
+        \\ Q.MATCH_ABBREV_TAC`_ <> _ ++ GENLIST X _`
+        \\ `X = K 0w` by (UNABBREV_ALL_TAC \\ simp[K_DEF])
+        \\ fs[]
+        \\ ntac 2 (pop_assum kall_tac)
+        \\ simp[GSYM ADD1,GENLIST]
+        \\ Cases_on`h = 0w` \\ fs[]
+        \\ simp[SWAP_REVERSE_SYM]
+        \\ simp[REVERSE_GENLIST]
+        \\ CCONTR_TAC \\ fs[] \\ pop_assum(SUBST_ALL_TAC)
+        \\ fs[]
+        \\ `[0w] = GENLIST (K 0w) 1` by EVAL_TAC
+        \\ pop_assum(SUBST_ALL_TAC)
+        \\ fs[n2mw_not_ends_with_0w])
+    \\ fs[]
+    \\ CCONTR_TAC \\ last_x_assum mp_tac \\ fs[]
+    \\ Cases_on`n2mw x = n2mw y` \\ fs[]
+    >- (CCONTR_TAC \\ fs[] \\ pop_assum(ASSUME_TAC o Q.AP_TERM`LENGTH`)
+        \\ fs[]
+    )
+    \\ Cases_on`n<m` \\ fs[]
+    >-(CCONTR_TAC \\ fs[]
+       \\ `?b. m = n + b` by (qexists_tac`m-n` \\ fs[])
+       \\ fs[]
+       \\ clean_tac
+       \\ fs[Once GENLIST_APPEND_REVERSE]
+       \\ Q.MATCH_ASMSUB_ABBREV_TAC`_ ++ _ ++ GENLIST X _ = _ ++ GENLIST Y _`
+       \\ `X = Y` by (UNABBREV_ALL_TAC \\ simp[K_DEF])
+       \\ UNABBREV_ALL_TAC \\ fs[]
+       \\ ASSUME_TAC (Q.SPECL[`y`,`n2mw x`,`b`]n2mw_not_ends_with_0w)
+       \\ pop_assum mp_tac \\ impl_tac
+       >- DECIDE_TAC
+       \\ simp[]
+    )
+    \\ CCONTR_TAC \\ fs[]
+    \\ `?b. n = m + b` by (qexists_tac`n-m` \\ fs[])
+    \\ fs[]
+    \\ clean_tac
+    \\ fs[Once GENLIST_APPEND_REVERSE]
+    \\ Q.MATCH_ASMSUB_ABBREV_TAC`_=_++GENLIST X _ ++ GENLIST Y _`
+    \\ `X = Y` by (UNABBREV_ALL_TAC \\ simp[K_DEF])
+    \\ UNABBREV_ALL_TAC \\ fs[]
+    \\ ASSUME_TAC(Q.SPECL[`x`,`n2mw y`,`b`]n2mw_not_ends_with_0w)
+    \\ pop_assum mp_tac \\ impl_tac >- DECIDE_TAC
+    \\ simp[])
+  >-(fs[SWAP_REVERSE]
+     \\ fs[n2mw_EQ_NIL]
+     \\ clean_tac
+     \\ `?b. m = n + b` by (qexists_tac`m-n`
+                    \\ fs[]
+                    \\ Cases_on`m<n` \\ fs[]
+                    \\ last_x_assum(ASSUME_TAC o Q.AP_TERM`LENGTH`)
+                    \\ fs[])
+     \\ fs[]
+     \\ fs[GENLIST_APPEND_REVERSE]
+     \\ Q.MATCH_ASMSUB_ABBREV_TAC`GENLIST X _ ++ GENLIST Y _ = _`
+     \\ `Y = X` by (UNABBREV_ALL_TAC \\ simp[K_DEF])
+     \\ UNABBREV_ALL_TAC \\ fs[]
+     \\ ASSUME_TAC(Q.SPECL[`y`,`[]`,`b`]n2mw_not_ends_with_0w)
+     \\ fs[]
+     \\ Cases_on`b = 0` \\ fs[]
+     \\ last_x_assum(assume_tac o GSYM)
+     \\ fs[n2mw_EQ_NIL]
+  )
+  \\ Cases_on`m=n` \\ fs[]
+  >- fs[n2mw_11]
+  \\ Cases_on`m<n`
+  >-(`?b. n = m + b` by (qexists_tac`n-m` \\ fs[])
+     \\ fs[]
+     \\ clean_tac
+     \\ fs[GENLIST_APPEND_REVERSE]
+     \\ Q.MATCH_ASMSUB_ABBREV_TAC`_ = _ ++ GENLIST X _ ++ GENLIST Y _`
+     \\ `Y = X` by (UNABBREV_ALL_TAC \\ simp[K_DEF])
+     \\ fs[]
+     \\ UNABBREV_ALL_TAC \\ fs[]
+     \\ clean_tac
+     \\ ASSUME_TAC(Q.SPECL[`x`,`n2mw y`,`b`]n2mw_not_ends_with_0w)
+     \\ fs[])
+  \\ `?b. m = n + b` by (qexists_tac`m-n` \\ fs[])
+  \\ fs[] \\ clean_tac
+  \\ fs[GENLIST_APPEND_REVERSE]
+  \\ Q.MATCH_ASMSUB_ABBREV_TAC`_ ++ GENLIST X _ ++ GENLIST Y _ = _`
+  \\ `Y = X` by (UNABBREV_ALL_TAC \\ simp[K_DEF])
+  \\ fs[]
+  \\ UNABBREV_ALL_TAC \\ fs[]
+  \\ clean_tac
+  \\ metis_tac[n2mw_not_ends_with_0w]
 QED
 
 Theorem v2n_same_length_11:
@@ -9902,6 +10044,26 @@ Theorem v2n_same_length_11:
     (v2n x = v2n y <=> x = y)
 Proof
   cheat
+QED
+
+
+Theorem v2mw_same_length_11:
+  !v1 v2. LENGTH v1 = LENGTH v2 ==>
+      (v2mw (:'a) v1 = v2mw (:'a) v2 <=> v1 = v2)
+Proof
+  rw[] \\ eq_tac \\ fs[]
+  \\ simp[v2mw_def]
+  \\ simp[PAD_RIGHT]
+  \\ simp[v2mw_same_length_11_lemma]
+  \\ simp[v2n_same_length_11]
+QED
+
+Theorem MAP_Word_11:
+   !x y. MAP Word x = MAP Word y <=> x = y
+Proof
+   Induct \\ rw[]
+   >- (eq_tac \\ fs[])
+   \\ Induct_on`y` \\ rw[]
 QED
 
 Theorem memory_rel_Word_eq:
@@ -10762,10 +10924,50 @@ val word_neq_Word = Q.prove(
        \\ qexists_tac `LENGTH w2 - (Y+1)` \\ fs[])
 )
 
+(* TODO copied from multiwordTheory as it isnt exported *)
+
+val dimwords_thm = prove(
+  ``(dimwords 0 (:'a) = 1) /\
+    (dimwords (SUC k) (:'a) = dimword (:'a) * dimwords k (:'a))``,
+  FULL_SIMP_TAC std_ss [dimwords_def,MULT,EXP_ADD,dimword_def,AC MULT_COMM MULT_ASSOC]);
+
+val mw2n_APPEND = prove(
+  ``!xs ys. mw2n (xs ++ ys) = mw2n xs + dimwords (LENGTH xs) (:'a) * mw2n (ys:'a word list)``,
+  Induct \\ ASM_SIMP_TAC std_ss [dimwords_thm,LENGTH,APPEND,mw2n_def] \\ DECIDE_TAC);
+
+Theorem not_dimwords_eq_0:
+   !x. dimwords x (:'a) <> 0
+Proof
+   rw[]
+   \\ Induct_on`x` \\ fs[dimwords_thm]
+   \\ `1 < dimword(:'a)` suffices_by DECIDE_TAC
+   \\ simp[DIMWORD_GT_1]
+QED
+
+Theorem mw2n_GENLIST_K_0w:
+   !n. mw2n (GENLIST (K 0w) n) = 0
+Proof
+   rw[]
+   \\ Induct_on`n` \\ simp[mw2n_def]
+   \\ simp[ADD1]
+   \\ REWRITE_TAC[GENLIST_APPEND]
+   \\ REWRITE_TAC[mw2n_APPEND]
+   \\ simp[]
+   \\ conj_tac >- simp[mw2n_def]
+   \\ simp[dimwords_def]
+   \\ Q.MATCH_ABBREV_TAC`mw2n (GENLIST X _) = _`
+   \\ `X = K 0w` by (UNABBREV_ALL_TAC \\ simp[K_DEF])
+   \\ fs[]
+QED
+
 Theorem mw2n_PAD_RIGHT_0w:
    !n x. mw2n (PAD_RIGHT 0w n x) = mw2n x
 Proof
-  cheat
+  simp[PAD_RIGHT]
+  \\ simp[mw2n_APPEND]
+  \\ rw[]
+  \\ simp[not_dimwords_eq_0]
+  \\ simp[mw2n_GENLIST_K_0w]
 QED
 
 val word_eq_thm0 = prove(
