@@ -63,6 +63,33 @@ Definition tailcall_def:
               if res = NONE then fail s else (res,s)
 End
 
+Definition call_def:
+  call (n,names) dest args handler s =
+     case get_vars args s.locals of
+     | NONE => fail s
+     | SOME xs =>
+       (case find_code dest xs s.code of
+        | NONE => fail s
+        | SOME (args1,prog) =>
+          (case cut_env names s.locals of
+           | NONE => fail s
+           | SOME env =>
+            if s.clock = 0 then timeout s
+            else
+              (case evaluate (prog, call_env args1
+                     (push_env env (IS_SOME handler) (dec_clock s))) of
+               | (SOME (Rval x),s2) =>
+                  (case pop_env s2 of
+                   | NONE => fail s2
+                   | SOME s1 => (NONE, set_var n x s1))
+               | (SOME (Rerr(Rraise x)),s2) =>
+                  (case handler of (* if handler is present, then handle exc *)
+                   | NONE => (SOME (Rerr(Rraise x)),s2)
+                   | SOME (n,h) => evaluate (h, set_var n x s2))
+               | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
+               | res => res)))
+End
+
 Definition makespace_def:
   makespace k names s =
      case cut_env names s.locals of
@@ -120,10 +147,10 @@ Definition to_shallow_def:
   to_shallow (Assign n op vars cutset) = assign n (op, vars, cutset) /\
   to_shallow (Seq p1 p2) = bind (to_shallow p1) (to_shallow p2) /\
   to_shallow (Return n) = return n /\
-  to_shallow (Call NONE dest args NONE) = tailcall dest args /\
-  to_shallow (Call NONE dest args (SOME x)) = fail /\
-  to_shallow (If n p1 p2) = if_var n (to_shallow p1) (to_shallow p2) /\
-  to_shallow c = ARB c "not yet done..."
+  to_shallow (Call NONE       dest args NONE) = tailcall dest args /\
+  to_shallow (Call NONE       dest args (SOME x)) = fail /\
+  to_shallow (Call (SOME ret) dest args handler) = call ret dest args handler /\
+  to_shallow (If n p1 p2) = if_var n (to_shallow p1) (to_shallow p2)
 End
 
 Theorem to_shallow_thm:
@@ -138,7 +165,8 @@ Proof
      (reverse (Cases_on `handler`) \\ fs [to_shallow_def]
       \\ fs [tailcall_def]
       \\ rpt (TOP_CASE_TAC \\ fs [call_env_def,fromList_def]))
-    \\ cheat)
+    \\ Cases_on `x` \\ rw[to_shallow_def,call_def,call_env_def]
+    \\ rpt (TOP_CASE_TAC \\ fs [call_env_def,fromList_def]))
   THEN1 cheat
   THEN1 cheat
   THEN1 cheat
