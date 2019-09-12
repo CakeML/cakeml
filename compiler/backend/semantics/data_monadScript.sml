@@ -101,10 +101,21 @@ Definition tick_def:
       else (NONE,dec_clock s)
 End
 
+Definition raise_def:
+  raise n s =
+    case get_var n s.locals of
+    | NONE => fail s
+    | SOME x =>
+      (case jump_exc s of
+       | NONE => fail s
+       | SOME s => (SOME (Rerr(Rraise x)),s))
+End
+
 Definition to_shallow_def:
   to_shallow Skip            = skip /\
   to_shallow Tick            = tick /\
   to_shallow (Move dest src) = move dest src /\
+  to_shallow (Raise n)       = raise n /\
   to_shallow (MakeSpace k names) =  makespace k names /\
   to_shallow (Assign n op vars cutset) = assign n (op, vars, cutset) /\
   to_shallow (Seq p1 p2) = bind (to_shallow p1) (to_shallow p2) /\
@@ -132,7 +143,7 @@ Proof
   THEN1 cheat
   THEN1 cheat
   THEN1 rw [makespace_def]
-  THEN1 cheat
+  THEN1 rw [raise_def]
   THEN1
    (fs [get_var_def] \\ rw [] \\ CASE_TAC
     \\ fs [call_env_def,fromList_def])
