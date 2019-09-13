@@ -221,6 +221,7 @@ fun read_block_comment start_comment end_comment filename = let
     val all_lines =
       map (drop_chars (String.size blank_prefix)) (fst_line :: read_rest ())
     val _ = check_length_and_width all_lines
+    val _ = TextIO.closeIn(f)
     in all_lines end handle e => (TextIO.closeIn(f); raise e)
   end end;
 
@@ -256,6 +257,7 @@ fun read_comment_from_script filename = let
     val all_lines =
       map (drop_chars (String.size prefix)) (fst_line :: read_rest ())
     val _ = check_length_and_width all_lines
+    val _ = TextIO.closeIn(f)
     in all_lines end handle e => (TextIO.closeIn(f); raise e)
   end;
 
@@ -276,6 +278,7 @@ fun read_comment_from_raw filename = let
     val _ = not (String.isPrefix " " (hd all_lines)) orelse
             fail "first line must not start with a blank"
     val _ = check_length_and_width all_lines
+    val _ = TextIO.closeIn(f)
     in all_lines end handle e => (TextIO.closeIn(f); raise e)
   end;
 

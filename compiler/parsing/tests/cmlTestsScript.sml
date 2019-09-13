@@ -19,11 +19,10 @@ Overload EREL =
                   [NN nElogicOR
                       [NN nElogicAND
                           [NN nEtyped [NN nEbefore [NN nEcomp l]]]]]]``
-Overaload EB =
-  ``λl. EREL [NN nErel [NN nElistop [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]]``
+Overload EB = ``λl. EREL [NN nErel [NN nElistop [NN nEadd [NN nEmult [NN nEapp [NN nEbase l]]]]]]``
 
 Overload OLDAPP = ``λt1 t2. App Opapp [t1; t2]``
-Overload "" = ``λt1 t2. App Opapp [t1; t2]``
+(* Overload "" = ``λt1 t2. App Opapp [t1; t2]`` *)
 Overload vbinop = ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``
 Overload V = ``λvnm. Var (Short vnm)``
 Overload Pc = ``λcnm. Pcon (SOME (Short cnm))``
